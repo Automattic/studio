@@ -65,7 +65,16 @@ function newestMtime( dir: string, depth = 6 ): number {
 				continue;
 			const full = path.join( current, entry.name );
 			try {
-				newest = Math.max( newest, statSync( full ).mtimeMs );
+				const stat = statSync( full );
+				// SQLite's WAL files: a read-only read creates the WAL index (-shm)
+				// and an empty WAL, and cannot remove them, so it changes the
+				// database folder; a write adds frames to the WAL or, on the last
+				// close, checkpoints them into the database
+				// (https://sqlite.org/walformat.html).
+				const readOnlyTrace =
+					( level === 0 && entry.name === 'database' ) ||
+					( entry.name.endsWith( '-wal' ) && ! stat.size );
+				if ( ! readOnlyTrace ) newest = Math.max( newest, stat.mtimeMs );
 			} catch {
 				continue;
 			}

@@ -1,4 +1,4 @@
-import { writeFileSync } from 'fs';
+import { existsSync, writeFileSync } from 'fs';
 import { DatabaseSync } from 'node:sqlite';
 import path from 'path';
 import { expect, it, vi } from 'vitest';
@@ -25,6 +25,12 @@ it( 'fingerprints a site a turn only reads as unchanged, and one it writes to as
 	} as Awaited< ReturnType< typeof readCliConfig > > );
 	// A site Studio runs has the mu-plugins its WP-CLI writes when they change.
 	await readSiteFacts( root );
+	// The site's last request closed the database, which removed its WAL files;
+	// a read-only read creates them again and cannot remove them (run 43).
+	const last = new DatabaseSync( database );
+	last.prepare( 'SELECT 1 FROM wp_options' ).all();
+	last.close();
+	expect( existsSync( `${ database }-wal` ) ).toBe( false );
 	const mtime = async () => ( await fingerprintSites() )[ 0 ].mtimeMs;
 	const before = await mtime();
 	await new Promise( ( resolve ) => setTimeout( resolve, 20 ) );

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
 import { createElement, type ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { ConnectorProvider } from '@/data/core';
@@ -10,6 +10,7 @@ import {
 	primeSessionQueryData,
 	SESSIONS_QUERY_KEY,
 	useSessionLiveSite,
+	useSessions,
 } from './use-sessions';
 import type { AiSessionSummary, LoadedAiSession, SyncSite } from '@/data/core';
 
@@ -146,3 +147,19 @@ function createSummary( overrides: Partial< AiSessionSummary > = {} ): AiSession
 		...overrides,
 	};
 }
+
+describe( 'useSessions', () => {
+	it( 'keeps a failed list failed when another reader mounts', async () => {
+		const getSessions = vi.fn( () => Promise.reject( new Error( 'Offline' ) ) );
+		vi.mocked( useConnector ).mockReturnValue( { getSessions } as unknown as Connector );
+		const queryClient = new QueryClient( { defaultOptions: { queries: { retry: false } } } );
+		const wrapper = ( { children }: { children: ReactNode } ) =>
+			createElement( QueryClientProvider, { client: queryClient }, children );
+
+		const first = renderHook( () => useSessions(), { wrapper } );
+		await waitFor( () => expect( first.result.current.isError ).toBe( true ) );
+		renderHook( () => useSessions(), { wrapper } );
+
+		expect( getSessions ).toHaveBeenCalledTimes( 1 );
+	} );
+} );

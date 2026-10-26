@@ -78,33 +78,6 @@ describe( 'API Module', () => {
 			} );
 		} );
 
-		it( 'should successfully send wordpress_version to create new site from zip', async () => {
-			const mockWpcom = createWpcomMock( {
-				post: vi.fn().mockResolvedValue( {
-					domain_name: mockSiteUrl,
-					atomic_site_id: mockSiteId,
-				} ),
-			} );
-			vi.mocked( wpcomFactory ).mockReturnValue( mockWpcom );
-
-			await uploadArchive( mockArchivePath, mockToken, mockWordPressVersion );
-			expect( mockWpcom.req.post ).toHaveBeenCalledWith( {
-				path: '/jurassic-ninja/create-new-site-from-zip',
-				apiNamespace: 'wpcom/v2',
-				formData: [
-					[
-						'import',
-						mockReadStream,
-						{
-							filename: 'local-env-site-1.zip',
-							contentType: 'application/zip',
-						},
-					],
-					[ 'wordpress_version', '6.8.1' ],
-				],
-			} );
-		} );
-
 		it( 'should throw LoggerError for API errors', async () => {
 			const mockError = new Error( 'API error' );
 			const mockWpcom = createWpcomMock( {

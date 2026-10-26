@@ -1,10 +1,11 @@
 import fs from 'fs';
+import { createServer } from 'node:http';
 import os from 'os';
 import path from 'path';
 import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
 import { ModelRegistry, SessionManager } from '@earendil-works/pi-coding-agent';
 import { AI_MODELS } from '@studio/common/ai/models';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runStudioAgentTurn, type StudioAgentTurnConfig } from 'cli/ai/runtimes/pi';
 import type { AgentSessionEvent, CreateAgentSessionOptions } from '@earendil-works/pi-coding-agent';
 import type { AiModelId } from '@studio/common/ai/models';
@@ -113,6 +114,7 @@ vi.mock( '@studio/common/lib/well-known-paths', async ( importOriginal ) => {
 	return {
 		...actual,
 		getConfigDirectory: () => mocks.configRoot,
+		getModelsPath: () => `${ mocks.configRoot }/models.json`,
 	};
 } );
 
@@ -526,6 +528,131 @@ describe( 'pi runtime', () => {
 		expect( takeScreenshot( 0 )?.description ).toContain( 'analyze visually' );
 		expect( takeScreenshot( 1 )?.description ).toContain( 'This model cannot view images' );
 		expect( takeScreenshot( 1 )?.description ).not.toContain( 'analyze visually' );
+	} );
+
+	describe( 'a models.json model', () => {
+		const modelsPath = `${ mocks.configRoot }/models.json`;
+		const writeModels = ( providers: object ) => {
+			fs.mkdirSync( mocks.configRoot, { recursive: true } );
+			fs.writeFileSync( modelsPath, JSON.stringify( { providers } ) );
+		};
+		afterEach( () => fs.rmSync( modelsPath, { force: true } ) );
+
+		it( 'runs on the provider and model models.json names, with its key', async () => {
+			const requests: Array< { url?: string; authorization?: string; body: { model: string } } > =
+				[];
+			const server = createServer( ( request, response ) => {
+				let body = '';
+				request.on( 'data', ( chunk ) => ( body += chunk ) );
+				request.on( 'end', () => {
+					requests.push( {
+						url: request.url,
+						authorization: request.headers.authorization,
+						body: JSON.parse( body ),
+					} );
+					response.writeHead( 200, { 'content-type': 'text/event-stream' } );
+					response.end(
+						`data: ${ JSON.stringify( {
+							id: '1',
+							choices: [ { index: 0, delta: { content: 'hi' }, finish_reason: 'stop' } ],
+						} ) }\n\ndata: [DONE]\n\n`
+					);
+				} );
+			} );
+			await new Promise< void >( ( resolve ) => server.listen( 0, '127.0.0.1', resolve ) );
+			const { port } = server.address() as { port: number };
+			try {
+				writeModels( {
+					local: {
+						baseUrl: `http://127.0.0.1:${ port }/v1`,
+						api: 'openai-completions',
+						apiKey: 'local-key',
+						models: [
+							{ id: 'sees', input: [ 'text', 'image' ] },
+							{ id: 'vendor/reads', input: [ 'text' ] },
+						],
+					},
+				} );
+				// No wpcom credentials: the model brings its own provider.
+				await runRuntime( {
+					prompt: 'hello',
+					env: {},
+					model: 'local/sees',
+					session: newSession(),
+				} );
+				await runRuntime( {
+					prompt: 'hello',
+					env: {},
+					model: 'local/vendor/reads',
+					session: newSession(),
+				} );
+
+				const [ sees, reads ] = mocks.createdSessions.map( ( session ) => session.options );
+				expect( [ sees.model, reads.model ] ).toMatchObject( [
+					{ provider: 'local', id: 'sees', api: 'openai-completions' },
+					{ provider: 'local', id: 'vendor/reads' },
+				] );
+				const screenshot = ( options: CreateAgentSessionOptions ) =>
+					( options.customTools as { name: string; description: string }[] ).find(
+						( tool ) => tool.name === 'take_screenshot'
+					)?.description;
+				expect( screenshot( sees ) ).toContain( 'analyze visually' );
+				expect( screenshot( reads ) ).toContain( 'This model cannot view images' );
+
+				const reply = await reads
+					.modelRuntime!.streamSimple(
+						reads.model!,
+						{ messages: [ { role: 'user', content: 'hi', timestamp: 0 } ] },
+						{ maxRetries: 0 }
+					)
+					.result();
+				expect( reply.content ).toEqual( [ { type: 'text', text: 'hi' } ] );
+				expect( requests ).toMatchObject( [
+					{
+						url: '/v1/chat/completions',
+						authorization: 'Bearer local-key',
+						body: { model: 'vendor/reads' },
+					},
+				] );
+			} finally {
+				server.close();
+			}
+		} );
+
+		it( 'ends the turn naming the file when neither it nor pi has the model', async () => {
+			writeModels( {
+				local: {
+					baseUrl: 'http://127.0.0.1:1/v1',
+					api: 'openai-completions',
+					apiKey: 'k',
+					models: [ { id: 'sees' } ],
+				},
+			} );
+			const events = await runRuntime( {
+				prompt: 'hello',
+				env: {},
+				model: 'local/missing',
+				session: newSession(),
+			} );
+			expect( mocks.createAgentSession ).not.toHaveBeenCalled();
+			const end = events.at( -1 ) as Extract< AgentSessionEvent, { type: 'agent_end' } >;
+			expect( ( end.messages.at( -1 ) as { errorMessage?: string } ).errorMessage ).toBe(
+				`local/missing is not a model of a provider in ${ modelsPath } or of pi's built-in providers.`
+			);
+		} );
+
+		it( "runs a model of pi's built-in providers, by the reference pi gives it", async () => {
+			await runRuntime( {
+				prompt: 'hello',
+				env: {},
+				model: 'deepseek/deepseek-v4-flash',
+				session: newSession(),
+			} );
+			expect( mocks.createdSessions[ 0 ].options.model ).toMatchObject( {
+				provider: 'deepseek',
+				id: 'deepseek-v4-flash',
+			} );
+		} );
 	} );
 
 	describe( 'subagent', () => {

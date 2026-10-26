@@ -58,10 +58,10 @@ export function getLanguagePacksPath(): string {
 	return path.join( getWpFilesPath(), 'latest', 'languages' );
 }
 
-// AI instructions ship read-only with the CLI bundle and are installed into each site's
+// Agent skills ship read-only with the CLI bundle and are installed into each site's
 // `.agents/skills/` directory on site create/start. No writable cache needed — the bundled
 // directory is treated as the source of truth.
-export function getAiInstructionsPath(): string {
+export function getBundledSkillsPath(): string {
 	return path.join( getWpFilesPath(), 'skills' );
 }
 

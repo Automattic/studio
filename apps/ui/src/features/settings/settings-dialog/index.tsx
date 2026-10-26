@@ -75,11 +75,7 @@ function StudioSection( {
 				<SkillsPanel onManageSite={ hasSite ? () => onNavigate( 'site-skills' ) : undefined } />
 			);
 		case 'instructions':
-			return (
-				<InstructionsSettings
-					onManageSite={ hasSite ? () => onNavigate( 'site-instructions' ) : undefined }
-				/>
-			);
+			return <InstructionsSettings />;
 		case 'keyboard':
 			return <KeyboardPanel />;
 		default:
@@ -152,7 +148,7 @@ export function SettingsDialog() {
 	if ( scope === 'site' && section !== siteSection ) {
 		setSiteSection( section );
 	}
-	// The form stays on its last section while a skills or instructions section shows.
+	// The form stays on its last section while the skills section shows.
 	const [ formSection, setFormSection ] = useState< SiteSettingsSectionId >( 'site' );
 	if ( SITE_FORM_SECTIONS.includes( siteSection ) && siteSection !== formSection ) {
 		setFormSection( siteSection as SiteSettingsSectionId );
@@ -459,15 +455,11 @@ export function SettingsDialog() {
 							) : null }
 							{ site ? (
 								<>
-									{ scope === 'site' &&
-									( section === 'site-skills' || section === 'site-instructions' ) ? (
+									{ scope === 'site' && section === 'site-skills' ? (
 										<SiteAgentFiles
-											key={ `${ site.id }-${ section }` }
+											key={ site.id }
 											site={ site }
-											kind={ section === 'site-skills' ? 'skills' : 'instructions' }
-											onManageAll={ () =>
-												go( section === 'site-skills' ? 'skills' : 'instructions' )
-											}
+											onManageAll={ () => go( 'skills' ) }
 										/>
 									) : null }
 									<div

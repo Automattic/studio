@@ -20,7 +20,9 @@ describe.runIf( CHROMIUM )( 'loading the block editor', () => {
 		server = http.createServer( ( request, response ) => {
 			const url = new URL( request.url ?? '/', 'http://localhost' );
 			if ( url.pathname === '/studio-auto-login' ) {
-				response.writeHead( 302, { location: url.searchParams.get( 'redirect_to' ) ?? '/' } );
+				// To the page on this server that redirect_to names.
+				const to = new URL( url.searchParams.get( 'redirect_to' ) ?? '/', 'http://localhost' );
+				response.writeHead( 302, { location: to.pathname + to.search } );
 			} else if ( url.pathname === '/wp-admin/post-new.php' && redirectOnce ) {
 				redirectOnce = false;
 				response.writeHead( 302, { location: '/wp-admin/admin.php?page=wc-admin' } );

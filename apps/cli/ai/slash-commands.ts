@@ -21,6 +21,7 @@ import {
 import { __, sprintf } from '@wordpress/i18n';
 import { getAvailableAiProviders, isAiProviderReady } from 'cli/ai/auth';
 import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
+import { readModelsJsonModels } from 'cli/ai/runtimes/pi/models-json';
 import { captureCommandOutput } from 'cli/ai/tools';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
@@ -319,6 +320,8 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 					__( 'Models that need purchased AI credits are hidden — add credits to unlock them.' )
 				);
 			}
+			// The models of models.json bring their own provider.
+			offeredModels = [ ...new Set( [ ...offeredModels, ...( await readModelsJsonModels() ) ] ) ];
 			// Build options and a reverse lookup at the same time so we never
 			// have to recover the model id from the label. A startsWith-based
 			// match is buggy when one model's label is a prefix of another's

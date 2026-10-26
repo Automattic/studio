@@ -312,14 +312,20 @@ export async function selfHostFonts( siteFile: SiteFile ): Promise< string[] > {
 	if ( theme?.file !== 'theme.json' ) {
 		return [];
 	}
-	const { hosted, failed } = await selfHostThemeJsonFonts( theme.dir );
+	const { hosted, missing, failed } = await selfHostThemeJsonFonts( theme.dir );
 	const themePath = `wp-content/themes/${ theme.slug }`;
 	return [
 		...( hosted.length
 			? [
 					`Studio downloaded the font files of ${ hosted.join(
 						', '
-					) } from Google Fonts into ${ themePath }/assets/fonts and declared them as their fontFace in theme.json.`,
+					) } from Google Fonts into ${ themePath }/assets/fonts and declared them as their fontFace in theme.json${
+						missing.length
+							? `, in place of the files the fontFace of ${ missing.join(
+									', '
+							  ) } named, which neither the theme nor its parent has: WordPress looks for a "file:./" source there (get_theme_file_uri() in wp-includes/link-template.php), so the browser was given font files that do not exist`
+							: ''
+					}.`,
 			  ]
 			: [] ),
 		...failed.map(

@@ -18,7 +18,6 @@ export type {
 	SessionEntry,
 	GlobalStyles,
 	SiteDetails,
-	SiteAgentFileKind,
 	SkillStatus,
 	Snapshot,
 	SnapshotUsage,

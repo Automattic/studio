@@ -194,4 +194,72 @@ describe( 'self-hosted theme fonts', () => {
 			)
 		).toBe( 'woff2' );
 	} );
+
+	it( 'downloads a family whose fontFace names files neither the theme nor its parent has', async () => {
+		const requested: string[] = [];
+		vi.stubGlobal( 'fetch', async ( url: string ) => {
+			requested.push( url );
+			return url.includes( 'googleapis' )
+				? new Response(
+						"/* latin */ @font-face { font-family: 'Fraunces'; font-style: normal; font-weight: 400; src: url(https://fonts.gstatic.com/fraunces.woff2) format('woff2'); }"
+				  )
+				: new Response( 'woff2' );
+		} );
+		const face = ( file: string ) => [
+			{ fontFamily: 'F', src: [ `file:./assets/fonts/${ file }` ] },
+		];
+		// A font file another host serves is not the theme's to have.
+		const remote = [ { fontFamily: 'Remote', src: [ 'https://cdn.example.com/remote.woff2' ] } ];
+		write( 'wp-content/themes/parent/assets/fonts/inherited.woff2', 'woff2' );
+		write( 'wp-content/themes/mine/style.css', '/*\nTheme Name: Mine\nTemplate: parent\n*/' );
+		write( 'wp-content/themes/mine/assets/fonts/own.woff2', 'woff2' );
+		const themeJson = write(
+			'wp-content/themes/mine/theme.json',
+			JSON.stringify( {
+				settings: {
+					typography: {
+						fontFamilies: [
+							{
+								name: 'Fraunces',
+								slug: 'serif',
+								fontFamily: 'Fraunces, serif',
+								fontFace: face( 'fraunces.woff2' ),
+							},
+							{ name: 'Own', slug: 'own', fontFamily: 'Own', fontFace: face( 'own.woff2' ) },
+							{
+								name: 'Inherited',
+								slug: 'inherited',
+								fontFamily: 'Inherited',
+								fontFace: face( 'inherited.woff2' ),
+							},
+							{ name: 'Remote', slug: 'remote', fontFamily: 'Remote', fontFace: remote },
+						],
+					},
+				},
+			} )
+		);
+
+		expect( await selfHostFonts( resolveSiteFile( themeJson )! ) ).toEqual( [
+			'Studio downloaded the font files of Fraunces from Google Fonts into wp-content/themes/mine/assets/fonts and declared them as their fontFace in theme.json, in place of the files the fontFace of Fraunces named, which neither the theme nor its parent has: WordPress looks for a "file:./" source there (get_theme_file_uri() in wp-includes/link-template.php), so the browser was given font files that do not exist.',
+		] );
+		expect( requested ).toEqual( [
+			'https://fonts.googleapis.com/css2?family=Fraunces:wght@400&display=swap',
+			'https://fonts.gstatic.com/fraunces.woff2',
+		] );
+		const families = JSON.parse( readFileSync( themeJson, 'utf8' ) ).settings.typography
+			.fontFamilies;
+		expect( families.map( ( family: { fontFace: unknown[] } ) => family.fontFace ) ).toEqual( [
+			[
+				{
+					fontFamily: 'Fraunces',
+					fontStyle: 'normal',
+					fontWeight: '400',
+					src: [ 'file:./assets/fonts/fraunces/fraunces-400-latin.woff2' ],
+				},
+			],
+			face( 'own.woff2' ),
+			face( 'inherited.woff2' ),
+			remote,
+		] );
+	} );
 } );

@@ -239,6 +239,74 @@ add_action( 'wp_abilities_api_init', function () {
 				expect( vi.mocked( runWpCliCommand ).mock.calls.length ).toBe( 2 * runs );
 			} );
 
+			it( 'states the stylesheets it loads from another host for their fonts', async () => {
+				// What a stylesheet URL serves: Google Fonts' CSS is @font-face rules.
+				const served: Record< string, string > = {
+					'https://fonts.googleapis.com/css2?family=Fraunces&display=swap':
+						"@font-face {\n  font-family: 'Fraunces';\n  src: url(https://fonts.gstatic.com/s/fraunces/v38/a.woff2) format('woff2');\n}",
+					'https://cdn.example.com/grid.css': '.grid { display: grid; }',
+				};
+				// The site's own stylesheet declares fonts too, from the site.
+				const local =
+					"@font-face { font-family: 'Local'; src: url(http://localhost:8881/wp-content/plugins/reading-list/local.woff2); }";
+				vi.stubGlobal( 'fetch', async ( url: string ) =>
+					url in served
+						? new Response( served[ url ] )
+						: new Response( url.endsWith( 'local.css' ) ? local : '', {
+								status: url.endsWith( 'local.css' ) ? 200 : 404,
+						  } )
+				);
+				try {
+					const enqueue = ( styles: string[] ) => `<?php
+/**
+ * Plugin Name: Reading list
+ */
+add_action( 'wp_enqueue_scripts', function () { ${ styles.join( ' ' ) } } );
+`;
+					// A plugin that does not change loads its own fonts from Google Fonts.
+					writeFileSync(
+						path.join( site.path, 'wp-content/plugins/other-fonts.php' ),
+						"<?php\n/**\n * Plugin Name: Other fonts\n */\nadd_action( 'wp_enqueue_scripts', function () { wp_enqueue_style( 'other-fonts', 'https://fonts.googleapis.com/css2?family=Fraunces&display=swap', array(), null ); } );\n"
+					);
+					await activate( enqueue( [] ), [ 'other-fonts.php' ] );
+					const before = await adminCapabilities.read( site.path );
+					await activate(
+						enqueue( [
+							"wp_enqueue_style( 'reading-fonts', '//fonts.googleapis.com/css2?family=Fraunces&display=swap', array(), null );",
+							"wp_enqueue_style( 'reading-grid', 'https://cdn.example.com/grid.css', array(), null );",
+							"wp_enqueue_style( 'reading-local', home_url( '/wp-content/plugins/reading-list/local.css' ), array(), null );",
+						] ),
+						[ 'other-fonts.php' ]
+					);
+					const { reports } = await adminCapabilities.check(
+						site,
+						before,
+						await adminCapabilities.read( site.path )
+					);
+					expect( reportOf( reports, 'remote fonts' ) ).toEqual( {
+						key: 'remote fonts',
+						summary: expect.stringMatching(
+							/^Reading Room: the front end loads \/\/fonts\.googleapis\.com\/css2\?family=Fraunces&display=swap \(handle reading-fonts\), from fonts\.gstatic\.com, whose @font-face rules have each visitor's browser download the fonts from that host \(wp_enqueue_style\(\) on wp_enqueue_scripts\)\. WordPress serves a theme's fonts from the theme: .*wp_print_font_faces\(\).*Twenty Twenty-Five.*without fontFace\.$/
+						),
+					} );
+					// Code that loads its fonts from the site states nothing.
+					const after = await adminCapabilities.read( site.path );
+					await activate(
+						enqueue( [
+							"wp_enqueue_style( 'reading-grid', 'https://cdn.example.com/grid.css', array(), null );",
+						] )
+					);
+					const again = await adminCapabilities.check(
+						site,
+						after,
+						await adminCapabilities.read( site.path )
+					);
+					expect( reportOf( again.reports, 'remote fonts' ) ).toBeUndefined();
+				} finally {
+					vi.unstubAllGlobals();
+				}
+			}, 120000 );
+
 			it( 'states nothing when a plugin is only deactivated', async () => {
 				await activate( READING_LIST, [ 'hello.php' ] );
 				const before = await adminCapabilities.read( site.path );

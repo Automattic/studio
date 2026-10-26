@@ -504,6 +504,16 @@ describe.runIf( siteUrl )( 'storing palette colors as presets (live)', () => {
 			expected: { content: `<!-- note --><div>Hi</div>\n${ hello }`, comments: 0 },
 		},
 		{
+			name: 'a comment beside an element with no text, outside any block',
+			markup: `<!-- note --><hr>\n${ hello }`,
+			expected: { content: `<!-- note --><hr>\n${ hello }`, comments: 0 },
+		},
+		{
+			name: 'a comment beside text outside any block',
+			markup: `<!-- note -->Hi\n${ hello }`,
+			expected: { content: `<!-- note -->Hi\n${ hello }`, comments: 0 },
+		},
+		{
 			name: 'a paragraph holding only a comment',
 			markup: '<!-- wp:paragraph -->\n<p><!-- note --></p>\n<!-- /wp:paragraph -->',
 			expected: {

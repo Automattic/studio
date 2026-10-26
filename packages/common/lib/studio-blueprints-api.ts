@@ -20,7 +20,7 @@ export async function fetchStudioBlueprints( locale?: string ): Promise< Bluepri
 		? `${ BLUEPRINTS_API_URL }?locale=${ encodeURIComponent( locale ) }`
 		: BLUEPRINTS_API_URL;
 
-	const response = await fetch( url, { signal: AbortSignal.timeout( 5_000 ) } );
+	const response = await fetch( url );
 
 	if ( ! response.ok ) {
 		throw new Error( `Failed to fetch blueprints: HTTP ${ response.status }` );

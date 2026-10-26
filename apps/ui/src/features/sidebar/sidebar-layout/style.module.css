@@ -76,6 +76,7 @@
 .sidebarFrame:not( .sidebarOverlay )::after {
 	content: '';
 	position: absolute;
+	z-index: 2;
 	top: var( --band-height );
 	bottom: 0;
 	inset-inline-end: 0;

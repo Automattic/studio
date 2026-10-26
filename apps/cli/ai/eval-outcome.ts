@@ -181,7 +181,7 @@ function hashCode( sitePath: string ): Record< string, string > {
 	return hashes;
 }
 
-export interface CodeChange {
+interface CodeChange {
 	file: string;
 	status: 'added' | 'changed' | 'removed';
 	text?: string;

@@ -32,7 +32,7 @@ function nextStep( catalog: 'directions' | 'layouts', toPick: boolean ): string 
 
 // Without a question tool (MCP, non-interactive runs) there is nobody to pick,
 // so the schema offers a single entry and a stray `options: 4` is coerced.
-export function createPickDesignTool( {
+function createPickDesignTool( {
 	canAskUser,
 	tracks,
 }: {

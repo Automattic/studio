@@ -119,7 +119,7 @@ export function describeDestructiveCall(
 }
 
 /** Why a call did not run; a question the user closed without answering ends the turn. */
-export interface Refusal {
+interface Refusal {
 	text: string;
 	endsTurn?: boolean;
 }

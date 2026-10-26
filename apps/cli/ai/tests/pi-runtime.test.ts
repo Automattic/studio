@@ -589,10 +589,7 @@ describe( 'pi runtime', () => {
 			(
 				await none.execute( 'w', { path: 'a/style.css', content: '', nameOrPath: 'b' } )
 			).content.map( ( part ) => part.text )
-		).toEqual( [
-			'',
-			`<studio-notes>\nwrote ${ file }\nresult on ${ path.resolve( '/sites/b' ) }\n</studio-notes>`,
-		] );
+		).toEqual( [ '', `<studio-notes>\nwrote ${ file }\nresult on /sites/b\n</studio-notes>` ] );
 
 		// A file any call wrote gets the same notes, once though a file tool wrote it too.
 		mocks.postChanges.written = [ file, '/sites/a/wp-content/themes/t/style.css' ];

@@ -23,14 +23,14 @@ export interface RemoteSite {
 }
 
 /** The sites a local site is published to on a host, as far as the host could list them. */
-export interface HostTargets {
+interface HostTargets {
 	signedIn: boolean;
 	targets: SyncSite[];
 	error?: string;
 }
 
 /** The user's sites on a host, as far as the host could list them. */
-export interface HostSiteListing {
+interface HostSiteListing {
 	signedIn: boolean;
 	sites: Array< { id: string | number; name: string; url: string } >;
 	error?: string;

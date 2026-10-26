@@ -63,7 +63,7 @@ function closing( masked: string, open: number ): number {
 }
 
 /** Each style rule of a stylesheet, at any depth of its at-rules. */
-export function cssRules( css: string ): Rule[] {
+function cssRules( css: string ): Rule[] {
 	const masked = mask( css );
 	const rules: Rule[] = [];
 	const walk = ( from: number, to: number, topLevel: boolean ) => {

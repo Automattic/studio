@@ -94,7 +94,7 @@ async function readCopy( file: string ): Promise< string | undefined > {
  * posts' copies from the next check on. Undefined for a folder Studio doesn't
  * manage.
  */
-export async function openWorkspace( sitePath: string ): Promise< string | undefined > {
+async function openWorkspace( sitePath: string ): Promise< string | undefined > {
 	const workspace = await workspaceOf( sitePath );
 	if ( workspace ) {
 		mkdirSync( workspace, { recursive: true } );

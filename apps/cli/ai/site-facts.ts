@@ -19,7 +19,7 @@ import type { SiteInfo } from 'cli/ai/types';
 // of WordPress; it returns a line, or several, and nothing when it has nothing
 // to state. Add one by adding it here, in the order the facts read.
 type FactLines = string | string[] | undefined;
-export type SiteFact = ( site: WordPressSite ) => FactLines | Promise< FactLines >;
+type SiteFact = ( site: WordPressSite ) => FactLines | Promise< FactLines >;
 
 async function wordPressVersionFact( site: WordPressSite ): Promise< string | undefined > {
 	const version = await getWordPressVersionFromInstallation( site.root );

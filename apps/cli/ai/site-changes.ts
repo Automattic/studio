@@ -61,7 +61,7 @@ export interface SiteChangeSource {
 	): Promise< { reports: ChangeReport[]; next?: Versions } >;
 }
 
-export const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
+const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
 	// Before the posts, so a copy saved to its post is checked as the post.
 	postCopies,
 	postContentChanges,

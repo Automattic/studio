@@ -56,7 +56,7 @@ export type ScreenshotColorScheme = ( typeof SCREENSHOT_COLOR_SCHEME_VALUES )[ n
 /**
  * Apply the prefers-color-scheme emulation a capture asks for.
  */
-export async function applyScreenshotMediaEmulation(
+async function applyScreenshotMediaEmulation(
 	page: Page,
 	colorScheme?: ScreenshotColorScheme
 ): Promise< void > {

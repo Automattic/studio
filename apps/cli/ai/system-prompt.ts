@@ -22,14 +22,12 @@ export interface BuildSystemPromptOptions {
 	activeSiteFacts?: string[];
 }
 
-const AUTOMATTIC = `Studio is part of Automattic, the company behind WordPress.com and Pressable.`;
-
 // The WordPress.com AI proxy admits Studio requests only when the system prompt
 // opens with this line, byte for byte; everything after it is Studio's.
 export const PROXY_IDENTITY = 'You are WordPress Studio, built by Automattic.';
 
 // Another agent drives Studio's tools over MCP; it has its own identity.
-const EXTERNAL_IDENTITY = `WordPress Studio is the app behind these tools. ${ AUTOMATTIC }`;
+const EXTERNAL_IDENTITY = 'WordPress Studio, built by Automattic, is the app behind these tools.';
 
 // What each host's sites are, one line each.
 const HOST_ENVIRONMENT = Object.values( HOSTS )
@@ -50,7 +48,7 @@ ${ HOST_ENVIRONMENT }
 - A runbook step that asks the user ends the turn; the answer arrives as the user's next message.`;
 
 export function buildSystemPrompt( options: BuildSystemPromptOptions = {} ): string {
-	const identity = options.external ? EXTERNAL_IDENTITY : `${ PROXY_IDENTITY } ${ AUTOMATTIC }`;
+	const identity = options.external ? EXTERNAL_IDENTITY : PROXY_IDENTITY;
 	const environment = options.external ? EXTERNAL_ENVIRONMENT : ENVIRONMENT;
 	return `${ identity }
 

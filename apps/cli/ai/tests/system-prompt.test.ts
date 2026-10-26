@@ -7,7 +7,9 @@ describe( 'buildSystemPrompt', () => {
 	// The WordPress.com AI proxy refuses any other opening with a 403.
 	it( 'opens with the line the WordPress.com AI proxy admits, byte for byte', () => {
 		expect( PROXY_IDENTITY ).toBe( 'You are WordPress Studio, built by Automattic.' );
-		expect( buildSystemPrompt().startsWith( `${ PROXY_IDENTITY } ` ) ).toBe( true );
+		expect( buildSystemPrompt().startsWith( `${ PROXY_IDENTITY }\n\n## Environment` ) ).toBe(
+			true
+		);
 	} );
 
 	it( 'states identity and environment only', () => {
@@ -29,10 +31,7 @@ describe( 'buildSystemPrompt', () => {
 		}
 	} );
 
-	it( 'identifies Studio as part of Automattic', () => {
-		for ( const prompt of [ buildSystemPrompt(), buildSystemPrompt( { external: true } ) ] ) {
-			expect( prompt ).toContain( 'Studio is part of Automattic' );
-		}
+	it( 'leaves the identity to the external agent', () => {
 		expect( buildSystemPrompt( { external: true } ) ).not.toContain( 'You are' );
 	} );
 

@@ -490,19 +490,22 @@ export const navAnchorsWorkEverywhere = check( ( d, vars ) => {
 } );
 
 // The listed plugins are active and the front page uses a block from one of them.
-export const pluginBlockOnFrontPage = check( ( d, vars ) => {
-	const s = site( d, vars );
-	if ( ! s.plugins.includes( vars.plugin ) )
-		return fail( `${ vars.plugin } is not active: ${ JSON.stringify( s.plugins ) }` );
-	const front = frontPage( s );
-	const used = Object.keys( front?.blocks || {} ).filter( ( b ) =>
-		b.startsWith( vars.blockPrefix )
+// The home page holds a slideshow of at least `minSlides` images, by any
+// plugin or code: one frame holding them that shows fewer at once than it
+// holds, as a slideshow or carousel does. A gallery shows all of its images.
+export const slideshowOnHomePage = check( ( d, vars ) => {
+	const frames = site( d, vars ).home?.imageFrames;
+	if ( ! Array.isArray( frames ) )
+		return fail( `the home page was not measured: ${ JSON.stringify( frames ) }` );
+	const needed = vars.minSlides ?? 3;
+	const slideshow = frames.find(
+		( f ) => f.images >= needed && f.shown >= 1 && f.shown < f.images
 	);
-	return used.length
-		? pass( `front page uses ${ used.join( ', ' ) }` )
-		: fail(
-				`no ${ vars.blockPrefix }* block on the front page: ${ JSON.stringify( front?.blocks ) }`
-		  );
+	return slideshow
+		? pass(
+				`${ slideshow.element } holds ${ slideshow.images } images and shows ${ slideshow.shown } at once`
+		  )
+		: fail( `no frame shows fewer of its images than it holds: ${ JSON.stringify( frames ) }` );
 } );
 
 export const storeHasProducts = check( ( d, vars ) => {

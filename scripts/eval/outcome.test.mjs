@@ -408,31 +408,35 @@ describe( 'site checks', () => {
 		).toBe( false );
 	} );
 
-	test( 'pluginBlockOnFrontPage', () => {
-		const vars = { plugin: 'jetpack', blockPrefix: 'jetpack/' };
-		const site = ( plugins, blocks ) => ( {
-			...workingSite,
-			plugins,
-			content: [ front( '', blocks ) ],
-		} );
+	test( 'slideshowOnHomePage', () => {
+		const frames = ( imageFrames ) =>
+			outcome( { ...workingSite, home: { ...workingSite.home, imageFrames } } );
+		const slideshow = {
+			element: 'div.wp-block-jetpack-slideshow',
+			width: 600,
+			height: 400,
+			images: 5,
+			shown: 1,
+		};
+		const gallery = {
+			element: 'figure.wp-block-gallery',
+			width: 900,
+			height: 200,
+			images: 3,
+			shown: 3,
+		};
+		expect( run( checks.slideshowOnHomePage, frames( [ gallery, slideshow ] ) ).pass ).toBe( true );
 		expect(
-			run(
-				checks.pluginBlockOnFrontPage,
-				outcome( site( [ 'jetpack' ], { 'jetpack/slideshow': 1 } ) ),
-				vars
-			).pass
-		).toBe( true );
-		expect(
-			run(
-				checks.pluginBlockOnFrontPage,
-				outcome( site( [ 'jetpack' ], { 'core/gallery': 1 } ) ),
-				vars
-			).pass
+			run( checks.slideshowOnHomePage, frames( [ { ...slideshow, images: 2 } ] ) ).pass
 		).toBe( false );
-		expect(
-			run( checks.pluginBlockOnFrontPage, outcome( site( [], { 'jetpack/slideshow': 1 } ) ), vars )
-				.pass
-		).toBe( false );
+		expect( run( checks.slideshowOnHomePage, frames( [ gallery ] ) ).pass ).toBe( false );
+		// A frame the page hides shows none of its images.
+		expect( run( checks.slideshowOnHomePage, frames( [ { ...slideshow, shown: 0 } ] ) ).pass ).toBe(
+			false
+		);
+		expect( run( checks.slideshowOnHomePage, frames( { error: 'no browser' } ) ).pass ).toBe(
+			false
+		);
 	} );
 
 	// As WooCommerce reported them on a live site.

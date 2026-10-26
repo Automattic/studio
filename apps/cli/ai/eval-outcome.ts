@@ -26,6 +26,7 @@ import { rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { validateBlocks } from 'cli/ai/block-validator';
 import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
 import { Mode as StopMode, runCommand as runStopSiteCommand } from 'cli/commands/site/stop';
@@ -310,6 +311,78 @@ async function renderHome( url: string ) {
 	}
 }
 
+/**
+ * The home page's image frames: each element holding several images, with how
+ * many it shows at once. Measured in a browser as tall as the page, so every
+ * image is in view: an image is shown when its center is inside every
+ * ancestor that clips it and nothing in its chain is transparent or hidden,
+ * so slides faded out or slid out of a clipped frame, as slideshows and
+ * carousels hold them, are not.
+ */
+async function homeImageFrames( url: string ) {
+	try {
+		const browser = await getSharedBrowser();
+		const page = await browser.newPage( { viewport: { width: 1280, height: 900 } } );
+		try {
+			await page.goto( url, { waitUntil: 'load', timeout: 30000 } );
+			const height = await page.evaluate( () => document.documentElement.scrollHeight );
+			await page.setViewportSize( {
+				width: 1280,
+				height: Math.min( Math.max( height, 900 ), 8000 ),
+			} );
+			await page.waitForTimeout( 1500 );
+			return await page.evaluate( () => {
+				const images = [ ...document.querySelectorAll( 'img' ) ];
+				// Shown: its center inside every ancestor that clips it, and
+				// nothing in its chain transparent or hidden.
+				const shown = ( img: HTMLImageElement ) => {
+					const box = img.getBoundingClientRect();
+					if ( ! box.width || ! box.height ) return false;
+					const x = box.x + box.width / 2;
+					const y = box.y + box.height / 2;
+					if ( getComputedStyle( img ).visibility === 'hidden' ) return false;
+					for ( let el: Element | null = img; el; el = el.parentElement ) {
+						const style = getComputedStyle( el );
+						if ( Number( style.opacity ) === 0 ) return false;
+						if (
+							el !== img &&
+							( style.overflowX !== 'visible' || style.overflowY !== 'visible' )
+						) {
+							const clip = el.getBoundingClientRect();
+							if ( x < clip.left || x > clip.right || y < clip.top || y > clip.bottom )
+								return false;
+						}
+					}
+					return true;
+				};
+				const frames = new Map< Element, { images: number; shown: number } >();
+				for ( const img of images ) {
+					let frame = img.parentElement;
+					while ( frame && frame.querySelectorAll( 'img' ).length < 3 ) frame = frame.parentElement;
+					if ( ! frame || frame === document.body ) continue;
+					const entry = frames.get( frame ) ?? { images: 0, shown: 0 };
+					entry.images++;
+					entry.shown += shown( img ) ? 1 : 0;
+					frames.set( frame, entry );
+				}
+				return [ ...frames ].map( ( [ el, entry ] ) => {
+					const box = el.getBoundingClientRect();
+					return {
+						element: `${ el.tagName.toLowerCase() }.${ [ ...el.classList ].join( '.' ) }`,
+						width: Math.round( box.width ),
+						height: Math.round( box.height ),
+						...entry,
+					};
+				} );
+			} );
+		} finally {
+			await page.close();
+		}
+	} catch ( error ) {
+		return { error: error instanceof Error ? error.message : String( error ) };
+	}
+}
+
 export interface SiteOutcome {
 	name: string;
 	path: string;
@@ -360,7 +433,7 @@ export async function captureSiteOutcome(
 		const designPath = path.join( sitePath, 'DESIGN.md' );
 		outcome.designMd = existsSync( designPath ) ? readFileSync( designPath, 'utf8' ) : null;
 
-		const home = await renderHome( url );
+		const home = { ...( await renderHome( url ) ), imageFrames: await homeImageFrames( url ) };
 		if ( 'html' in home && home.html ) {
 			const file = path.join( artifactDir, `${ path.basename( sitePath ) }-home.html` );
 			writeFileSync( file, home.html );

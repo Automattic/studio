@@ -204,11 +204,9 @@ tests:
       - type: javascript
         value: file://outcome.mjs:pushNotRunAndAsks
 
-  - description: slideshow request puts a Jetpack slideshow on the home page
+  - description: slideshow request puts a slideshow on the home page
     vars:
       caseId: jetpack-catchall-slideshow
-      plugin: jetpack
-      blockPrefix: jetpack/
       timeoutMs: 600000
       prompt: |
         Create a new site called "Seaside Gallery" and add a slideshow of
@@ -217,7 +215,7 @@ tests:
       - type: javascript
         value: file://outcome.mjs:siteWorks
       - type: javascript
-        value: file://outcome.mjs:pluginBlockOnFrontPage
+        value: file://outcome.mjs:slideshowOnHomePage
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
 

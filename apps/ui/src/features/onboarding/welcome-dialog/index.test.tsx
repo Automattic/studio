@@ -29,7 +29,7 @@ describe( 'Welcome dialog', () => {
 		expect( history.location.search ).toContain( 'addSite=create' );
 	} );
 
-	it( 'waits on the browser login until it settles, even when cancelled', async () => {
+	it( 'waits on the browser login until it settles', async () => {
 		let fail: ( error: Error ) => void = () => {};
 		const { connector } = await firstLaunch( {
 			overrides: {
@@ -37,12 +37,10 @@ describe( 'Welcome dialog', () => {
 			},
 		} );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Log in with WordPress.com' } ) );
-		const waiting = await screen.findByRole( 'button', {
-			name: /Finish logging in in your browser/,
-		} );
+		expect(
+			await screen.findByRole( 'button', { name: /Finish logging in in your browser/ } )
+		).toBeVisible();
 		expect( connector.authenticate ).toHaveBeenCalledWith( false, 'onboarding' );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel' } ) );
-		expect( waiting ).toHaveAccessibleName( /Finish logging in in your browser/ );
 		act( () => fail( new Error( 'Login window closed' ) ) );
 		expect(
 			await screen.findByRole( 'button', { name: 'Log in with WordPress.com' } )

@@ -52,6 +52,7 @@
 	cursor: pointer;
 }
 
+/* eslint-disable-next-line studio/no-primitive-overrides -- the whole folded summary is the button, so its hover lights the answer. */
 .questionSummary:is( :hover, :focus-visible ) [data-slot='questionnaire-answer'] {
 	background-color: var( --hover );
 }
@@ -150,6 +151,7 @@
 	box-shadow: var( --shadow-raised );
 }
 
+/* eslint-disable-next-line studio/no-primitive-overrides -- the card folds away the choices that weren't picked. */
 .questionCard[data-state='folding'] [data-slot='questionnaire-choice']:not( [data-checked] ) {
 	animation: questionAnsweredElementFade var( --motion-duration-surface ) ease-out forwards;
 }
@@ -185,6 +187,7 @@
 }
 
 @media ( prefers-reduced-motion: reduce ) {
+	/* eslint-disable-next-line studio/no-primitive-overrides -- the card folds away the choices that weren't picked. */
 	.questionBatchStep,
 	.questionBatchStep[data-state='answered'] .questionProgress,
 	.questionCard[data-state='folding'] [data-slot='questionnaire-choice']:not( [data-checked] ),

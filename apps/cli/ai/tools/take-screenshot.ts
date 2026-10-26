@@ -70,24 +70,30 @@ export function createTakeScreenshotTool( {
 } ) {
 	return defineTool(
 		'take_screenshot',
-		'Takes a full-page screenshot of a URL. ' +
+		'Takes a screenshot of a URL: the first screen, or the whole page with `fullPage: true`. ' +
 			( visionEnabled
 				? 'Returns the screenshot as an image that you can analyze visually; tall pages are scaled down to 2000 pixels on their longest side, and the saved file keeps full resolution. '
 				: `${ TEXT_ONLY_NOTE } ` ) +
 			'Supports desktop and mobile viewports; pass `viewport: "all"` for both. ' +
 			'Pass `colorScheme: "light"`, `colorScheme: "dark"`, or `colorScheme: "all"` for pages that respond to prefers-color-scheme. ' +
-			'Long pages are clipped at 8000 vertical pixels; the response reports the document height and whether more remains, and you can call again with `offset` to fetch the next slice. ' +
+			'Full-page captures of long pages are clipped at 8000 vertical pixels; the response reports the document height and whether more remains, and you can call again with `offset` to fetch the next slice. ' +
+			'The user sees the site itself, in Studio or their browser, so a capture is yours alone; ' +
 			( imageLink
-				? 'Captures meant for the user come back with image lines to put in your reply, which show them; '
-				: 'Captures are shown to the user in the chat by default; ' ) +
-			'pass `display: false` for a capture only you need.',
+				? 'pass `display: true` for one to show the user, which comes back with image lines to put in your reply.'
+				: 'pass `display: true` to show one to the user in the chat as well.' ),
 		{
 			url: Type.String( { description: 'The URL to screenshot' } ),
 			viewport: Type.Optional( screenshotViewportSchema ),
 			colorScheme: Type.Optional( screenshotColorSchemeSchema ),
+			fullPage: Type.Optional(
+				Type.Boolean( {
+					description:
+						'Capture the whole page rather than the first screen. Defaults to false; passing `offset` implies it.',
+				} )
+			),
 			display: Type.Optional(
 				Type.Boolean( {
-					description: 'Whether to show the capture to the user in the chat. Defaults to true.',
+					description: 'Whether to show the capture to the user in the chat. Defaults to false.',
 				} )
 			),
 			offset: Type.Optional(
@@ -106,11 +112,13 @@ export function createTakeScreenshotTool( {
 					colorSchemes.map( ( colorScheme ) => ( { viewportType, colorScheme } ) )
 				);
 				const captureLabel = getCaptureListLabel( captureTargets );
+				const fullPage = args.fullPage === true || args.offset !== undefined;
+				const display = args.display === true;
 				context.onProgress( `Taking ${ captureLabel } screenshot of ${ args.url }…` );
 				const captures = await Promise.all(
 					captureTargets.map( async ( { viewportType, colorScheme } ) => {
 						const capture = await captureScreenshotBuffer( args.url, VIEWPORTS[ viewportType ], {
-							fullPage: true,
+							fullPage,
 							format: 'jpeg',
 							offset: args.offset,
 							colorScheme,
@@ -136,6 +144,7 @@ export function createTakeScreenshotTool( {
 							buffer: capture.buffer,
 							modelImage: capture.modelImage,
 							documentHeight: capture.documentHeight,
+							contentHeight: capture.contentHeight,
 							capturedHeight: capture.capturedHeight,
 							offset: capture.offset,
 							clipped: capture.clipped,
@@ -168,6 +177,13 @@ export function createTakeScreenshotTool( {
 					const shown = capture.modelImage
 						? `, shown at ${ capture.modelImage.width }x${ capture.modelImage.height }`
 						: '';
+					if ( ! fullPage ) {
+						return `${ label }: captured the first screen (${
+							VIEWPORTS[ capture.viewportType ].width
+						}x${ capture.capturedHeight }) of a ${
+							capture.contentHeight
+						}px page${ shown }. Pass fullPage: true for the whole page.`;
+					}
 					if ( capture.clipped ) {
 						return `${ label }: captured rows ${ capture.offset }-${ captureEnd } of a ${ capture.documentHeight }px page${ shown }. Page was clipped; call again with offset:${ captureEnd } to fetch the next slice.`;
 					}
@@ -192,7 +208,7 @@ export function createTakeScreenshotTool( {
 				if ( ! userSeesCaptures && ! imageLink ) {
 					textLines.push( 'The user does not see this capture, only the saved file path.' );
 				}
-				if ( imageLink && args.display !== false ) {
+				if ( imageLink && display ) {
 					textLines.push(
 						'To show the user, put these lines in your reply:',
 						...captures.map(
@@ -216,9 +232,9 @@ export function createTakeScreenshotTool( {
 							  } ) )
 							: [] ),
 					],
-					...( args.display === false
-						? {}
-						: { studioArtifacts: captures.map( ( capture ) => capture.mediaWidgetPayload ) } ),
+					...( display
+						? { studioArtifacts: captures.map( ( capture ) => capture.mediaWidgetPayload ) }
+						: {} ),
 				};
 			} catch ( error ) {
 				throw new Error(

@@ -349,6 +349,8 @@ describe( 'Studio AI MCP tools', () => {
 			const result = await getTool( 'take_screenshot' ).rawHandler( {
 				url: 'http://localhost:8903/',
 				viewport: 'all',
+				fullPage: true,
+				display: true,
 			} as never );
 
 			const text = getTextContent( result );

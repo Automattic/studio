@@ -1,3 +1,4 @@
+import path from 'path';
 import { describe, expect, it, vi } from 'vitest';
 import { SitePin } from '../site-pin';
 
@@ -76,15 +77,18 @@ describe( 'SitePin', () => {
 		expect(
 			( await pin.confirmationFor( 'site_import', { nameOrPath: 'Blog' } ) )?.confirmation.question
 		).toBe( 'Also change "Blog"? This request is about "Shop".' );
-		expect( pin.localSitePaths() ).toEqual( [ '/sites/shop', '/sites/new' ] );
-		expect( pin.localRequestSite() ).toBe( '/sites/shop' );
+		// The pin names sites by their resolved path: C:\sites\shop on Windows.
+		expect( pin.localSitePaths() ).toEqual(
+			[ '/sites/shop', '/sites/new' ].map( ( p ) => path.resolve( p ) )
+		);
+		expect( pin.localRequestSite() ).toBe( path.resolve( '/sites/shop' ) );
 	} );
 
 	it( 'names the site a turn creates as its own when it has none', async () => {
 		const pin = new SitePin( null );
 		await pin.created( 'New' );
-		expect( pin.localRequestSite() ).toBe( '/sites/new' );
-		expect( new SitePin( shop ).localRequestSite() ).toBe( '/sites/shop' );
+		expect( pin.localRequestSite() ).toBe( path.resolve( '/sites/new' ) );
+		expect( new SitePin( shop ).localRequestSite() ).toBe( path.resolve( '/sites/shop' ) );
 	} );
 
 	it( 'asks before creating a site while the request has one, once', async () => {

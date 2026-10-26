@@ -1,5 +1,5 @@
-import { HOSTS } from 'cli/ai/hosts';
 import { Type } from 'typebox';
+import { HOSTS } from 'cli/ai/hosts';
 import { defineTool, REMOTE_READ } from './define-tool';
 import { resolveSite, textResult } from './utils';
 

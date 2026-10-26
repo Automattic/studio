@@ -584,7 +584,7 @@ describe( 'pi runtime', () => {
 		);
 		expect( await text( { path: 'a/style.css', content: '' } ) ).toEqual( [
 			'',
-			`<studio-notes>\nwrote ${ file }\nresult on /sites/a\n</studio-notes>`,
+			`<studio-notes>\nwrote ${ file }\nresult on ${ path.resolve( '/sites/a' ) }\n</studio-notes>`,
 		] );
 		const remote = await run( {
 			...local!,
@@ -602,13 +602,18 @@ describe( 'pi runtime', () => {
 			(
 				await none.execute( 'w', { path: 'a/style.css', content: '', nameOrPath: 'b' } )
 			).content.map( ( part ) => part.text )
-		).toEqual( [ '', `<studio-notes>\nwrote ${ file }\nresult on /sites/b\n</studio-notes>` ] );
+		).toEqual( [
+			'',
+			`<studio-notes>\nwrote ${ file }\nresult on ${ path.resolve( '/sites/b' ) }\n</studio-notes>`,
+		] );
 
 		// A file any call wrote gets the same notes, once though a file tool wrote it too.
 		mocks.postChanges.written = [ file, '/sites/a/wp-content/themes/t/style.css' ];
 		expect( await text( { path: 'a/style.css', content: '' } ) ).toEqual( [
 			'',
-			`<studio-notes>\nwrote ${ file }\nwrote /sites/a/wp-content/themes/t/style.css\nresult on /sites/a\n</studio-notes>`,
+			`<studio-notes>\nwrote ${ file }\nwrote /sites/a/wp-content/themes/t/style.css\nresult on ${ path.resolve(
+				'/sites/a'
+			) }\n</studio-notes>`,
 		] );
 		mocks.postChanges.written = [ '/sites/a/wp-content/themes/t/style.css' ];
 		await run( local );
@@ -618,7 +623,9 @@ describe( 'pi runtime', () => {
 			)
 		).toEqual( [
 			'',
-			'<studio-notes>\nwrote /sites/a/wp-content/themes/t/style.css\nresult on /sites/a\n</studio-notes>',
+			`<studio-notes>\nwrote /sites/a/wp-content/themes/t/style.css\nresult on ${ path.resolve(
+				'/sites/a'
+			) }\n</studio-notes>`,
 		] );
 		mocks.postChanges.written = [];
 	} );
@@ -647,7 +654,7 @@ describe( 'pi runtime', () => {
 			// As a shell command installing a plugin changes the site's facts.
 			expect( await bash() ).toEqual( [
 				'',
-				`<studio-notes>\nresult on ${ site }\n</studio-notes>`,
+				`<studio-notes>\nresult on ${ path.resolve( site ) }\n</studio-notes>`,
 			] );
 		} finally {
 			vi.unstubAllEnvs();

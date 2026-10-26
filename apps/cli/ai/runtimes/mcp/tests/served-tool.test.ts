@@ -9,6 +9,19 @@ import { createSiteNotes } from 'cli/ai/site-notes';
 import { createSite } from 'cli/ai/tests/fixtures/wordpress-site';
 import { defineTool, LOCAL_CHANGE, READ_ONLY } from 'cli/ai/tools/define-tool';
 
+// The fixture is a site's files and database, not a WordPress install, so the
+// checks that ask WordPress (wp-cli) find nothing to report, as they do when a
+// site's PHP cannot run.
+vi.mock( 'cli/lib/run-wp-cli-command', () => ( {
+	runWpCliCommand: vi.fn( async () => {
+		throw new Error( 'No WordPress to run.' );
+	} ),
+} ) );
+vi.mock( 'cli/lib/daemon-client', () => ( {
+	connectToDaemon: vi.fn(),
+	disconnectFromDaemon: vi.fn(),
+} ) );
+
 it( 'adds the declared settings of the core blocks a result shows, from the site the call names, once', async () => {
 	const root = mkdtempSync( path.join( tmpdir(), 'served-tool-' ) );
 	const sitePath = path.join( root, 'site' );

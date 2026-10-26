@@ -1,9 +1,13 @@
 import { spawn } from 'node:child_process';
 import net from 'node:net';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-const module = JSON.stringify( path.resolve( import.meta.dirname, '../eval-port-range.ts' ) );
+// A file URL: an import of a bare Windows path (C:\...) reads its drive as a URL scheme.
+const module = JSON.stringify(
+	pathToFileURL( path.resolve( import.meta.dirname, '../eval-port-range.ts' ) ).href
+);
 
 // Each claim runs in a process of its own, as each eval case does; `held`
 // ports are listened on first, as a running case listens on them.

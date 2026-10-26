@@ -588,7 +588,7 @@ describe( 'pi runtime', () => {
 		] );
 		const remote = await run( {
 			...local!,
-			remote: true,
+			remote: { host: 'wpcom', id: 7 },
 		} as StudioAgentTurnConfig[ 'activeSite' ] );
 		expect(
 			( await remote.execute( 'w', { path: 'a/style.css', content: '' } ) ).content.map(

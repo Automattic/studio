@@ -205,11 +205,15 @@ describe( 'createTurnStatsTracker', () => {
 
 	it( 'reports the site kind', () => {
 		const tracker = createTurnStatsTracker();
+		expect( tracker.getProps( { outcome: 'success', site: {}, hasTool } ).site_kind ).toBe(
+			'local'
+		);
 		expect(
-			tracker.getProps( { outcome: 'success', site: { remote: false }, hasTool } ).site_kind
-		).toBe( 'local' );
-		expect(
-			tracker.getProps( { outcome: 'success', site: { remote: true }, hasTool } ).site_kind
+			tracker.getProps( {
+				outcome: 'success',
+				site: { remote: { host: 'wpcom', id: 7 } },
+				hasTool,
+			} ).site_kind
 		).toBe( 'wpcom' );
 	} );
 
@@ -221,7 +225,7 @@ describe( 'createTurnStatsTracker', () => {
 		const props = tracker.getProps( {
 			outcome: 'error',
 			failure: new Error( 'Could not write /Users/me/Studio/acme-shop/wp-config.php' ),
-			site: { remote: false },
+			site: {},
 			hasTool,
 		} );
 		const serialized = JSON.stringify( Object.values( props ) );
@@ -234,9 +238,8 @@ describe( 'createTurnStatsTracker', () => {
 
 describe( 'getTurnSiteKind', () => {
 	it( 'distinguishes local, WordPress.com and no site', () => {
-		expect( getTurnSiteKind( { remote: false } ) ).toBe( 'local' );
 		expect( getTurnSiteKind( {} ) ).toBe( 'local' );
-		expect( getTurnSiteKind( { remote: true } ) ).toBe( 'wpcom' );
+		expect( getTurnSiteKind( { remote: { host: 'wpcom', id: 7 } } ) ).toBe( 'wpcom' );
 		expect( getTurnSiteKind( undefined ) ).toBe( 'none' );
 		expect( getTurnSiteKind( null ) ).toBe( 'none' );
 	} );

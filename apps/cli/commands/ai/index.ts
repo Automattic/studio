@@ -36,6 +36,7 @@ import {
 } from 'cli/ai/auth';
 import { closeSharedBrowser } from 'cli/ai/browser-utils';
 import { setChatArtifactCallback } from 'cli/ai/chat-artifacts';
+import { remoteSiteFromStored, storedFromRemoteSite } from 'cli/ai/hosts';
 import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
 import {
 	AI_PROVIDERS,
@@ -208,9 +209,8 @@ export async function runCommand( options: {
 			path: options.activeSite.path,
 			// Placeholder — turn dispatch resolves the live state before each prompt.
 			running: false,
-			remote: options.activeSite.remote,
+			remote: remoteSiteFromStored( options.activeSite ),
 			url: options.activeSite.url,
-			wpcomSiteId: options.activeSite.wpcomSiteId,
 		};
 	}
 	ui.start();
@@ -324,9 +324,8 @@ export async function runCommand( options: {
 				siteName: site.name,
 				sitePath: site.path,
 				siteId: site.id,
-				remote: site.remote,
 				url: site.url,
-				wpcomSiteId: site.wpcomSiteId,
+				...storedFromRemoteSite( site.remote ),
 			} )
 		);
 	};
@@ -828,9 +827,8 @@ export async function runCommand( options: {
 						siteName: site.name,
 						sitePath: site.path,
 						siteId: site.id,
-						remote: site.remote,
 						url: site.url,
-						wpcomSiteId: site.wpcomSiteId,
+						...storedFromRemoteSite( site.remote ),
 					} )
 				);
 			}

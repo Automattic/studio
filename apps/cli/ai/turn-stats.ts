@@ -8,6 +8,7 @@ import { findSkill } from 'cli/ai/skills';
 import { addAssistantMessageUsage, createTokenUsage } from 'cli/ai/token-usage';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { TurnStatus } from '@studio/common/ai/sessions/types';
+import type { HostId, RemoteSite } from 'cli/ai/hosts';
 
 // Per-turn stats for `studio_code_turn_completed`. Every prop is a count, a
 // boolean or a value from a fixed list, so no text from the user, the model, a
@@ -27,7 +28,7 @@ export type TurnErrorKind =
 	| 'network'
 	| 'other';
 
-export type TurnSiteKind = 'local' | 'wpcom' | 'none';
+export type TurnSiteKind = 'local' | HostId | 'none';
 
 export interface TurnStatsProps {
 	tool_calls: number;
@@ -49,16 +50,16 @@ export interface TurnStatsTracker {
 	getProps( context: {
 		outcome: TurnStatus;
 		failure?: unknown;
-		site?: { remote?: boolean } | null;
+		site?: { remote?: RemoteSite } | null;
 		hasTool: ( name: string ) => boolean;
 	} ): TurnStatsProps;
 }
 
-export function getTurnSiteKind( site: { remote?: boolean } | null | undefined ): TurnSiteKind {
+export function getTurnSiteKind( site: { remote?: RemoteSite } | null | undefined ): TurnSiteKind {
 	if ( ! site ) {
 		return 'none';
 	}
-	return site.remote ? 'wpcom' : 'local';
+	return site.remote?.host ?? 'local';
 }
 
 const NETWORK_ERROR_CODES = new Set( [

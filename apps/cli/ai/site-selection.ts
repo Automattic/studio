@@ -1,3 +1,4 @@
+import { hostOf } from 'cli/ai/hosts';
 import type { SiteInfo } from 'cli/ai/types';
 
 type LocalSiteSelectedCallback = ( site: SiteInfo ) => void | Promise< void >;
@@ -16,7 +17,9 @@ export async function emitLocalSiteSelected( site: SiteInfo ): Promise< void > {
 // attached to, rebuilt every turn from Studio's site data.
 export function formatActiveSite( site: SiteInfo ): string {
 	if ( site.remote && site.url ) {
-		return `"${ site.name }" (ID: ${ site.wpcomSiteId }) at ${ site.url } (WordPress.com)`;
+		return `"${ site.name }" (ID: ${ site.remote.id }) at ${ site.url } (${
+			hostOf( site.remote ).name
+		})`;
 	}
 	return `"${ site.name }" at ${ site.path }${ site.running ? ' (running)' : ' (stopped)' }`;
 }

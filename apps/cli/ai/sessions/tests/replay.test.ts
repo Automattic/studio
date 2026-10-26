@@ -81,4 +81,38 @@ describe( 'replaySessionHistory', () => {
 		expect( ui.endAgentTurn ).toHaveBeenCalledTimes( 1 );
 		expect( ui.finishReplay ).toHaveBeenCalledTimes( 1 );
 	} );
+
+	it.each( [
+		{
+			name: 'a WordPress.com site',
+			data: {
+				siteName: 'Live',
+				sitePath: '',
+				remote: true,
+				url: 'https://x.wordpress.com',
+				wpcomSiteId: 123,
+			},
+			remote: { host: 'wpcom', id: 123 },
+		},
+		{
+			name: 'a local site',
+			data: { siteName: 'Shop', sitePath: '/sites/shop', siteId: 'a1', remote: false },
+			remote: undefined,
+		},
+	] )( 'restores $name a session selected', ( { data, remote } ) => {
+		const ui = createUiSpy();
+		replaySessionHistory( ui as unknown as AiChatUI, [
+			{
+				type: 'custom',
+				customType: 'studio.site_selected',
+				timestamp: '2026-06-01T00:00:00.000Z',
+				data,
+			} as SessionEntry,
+		] );
+
+		expect( ui.setActiveSite ).toHaveBeenCalledWith(
+			expect.objectContaining( { name: data.siteName, path: data.sitePath, remote } ),
+			{ announce: true, emitEvent: false }
+		);
+	} );
 } );

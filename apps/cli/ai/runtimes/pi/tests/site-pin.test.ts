@@ -105,8 +105,7 @@ describe( 'SitePin', () => {
 			name: 'Live',
 			path: '',
 			running: true,
-			remote: true,
-			wpcomSiteId: 7,
+			remote: { host: 'wpcom', id: 7 },
 		} );
 		expect(
 			await pin.confirmationFor( 'install_taxonomy_scripts', { nameOrPath: 'Shop' } )

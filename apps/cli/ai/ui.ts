@@ -44,6 +44,7 @@ import {
 	DescriptionAwareAutocompleteProvider,
 	dimUnhighlighted,
 } from 'cli/ai/description-autocomplete';
+import { HOSTS, hostOf } from 'cli/ai/hosts';
 import { buildOptionPickerLines, OTHER_VALUE } from 'cli/ai/option-picker';
 import { type AiOutputAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
@@ -51,7 +52,6 @@ import { getActiveSlashCommands } from 'cli/ai/slash-commands';
 import { initStudioTheme, refineStudioTheme, theme } from 'cli/ai/theme';
 import { getToolRenderDefinition } from 'cli/ai/tool-render-definitions';
 import { formatToolOutputLines } from 'cli/ai/tool-result-renderers';
-import { getWpComSites } from 'cli/lib/api';
 import { openBrowser } from 'cli/lib/browser';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
@@ -635,28 +635,25 @@ export class AiChatUI implements AiOutputAdapter {
 		this.sitePickerRemoteItems = [];
 		this.renderSitePicker();
 
-		const token = await readAuthToken();
-		if ( ! token ) {
+		const listing = await HOSTS.wpcom.list();
+		if ( ! listing.signedIn ) {
 			this.showSitePickerError( __( 'Not logged in. Use /login first.' ) );
 			return;
 		}
-
-		try {
-			const sites = await getWpComSites( token.accessToken );
-			this.sitePickerRemoteItems = sites.map( ( site ) => ( {
-				name: site.name,
-				path: '',
-				running: false,
-				remote: true,
-				url: site.url,
-				wpcomSiteId: site.id,
-			} ) );
-			this.sitePickerRemoteLoading = false;
-			this.rebuildSitePickerList();
-			this.renderSitePicker();
-		} catch {
+		if ( listing.error ) {
 			this.showSitePickerError( __( 'Failed to load WordPress.com sites. Please try again.' ) );
+			return;
 		}
+		this.sitePickerRemoteItems = listing.sites.map( ( site ) => ( {
+			name: site.name,
+			path: '',
+			running: false,
+			remote: { host: 'wpcom', id: site.id },
+			url: site.url,
+		} ) );
+		this.sitePickerRemoteLoading = false;
+		this.rebuildSitePickerList();
+		this.renderSitePicker();
 	}
 
 	private showSitePickerError( message: string ): void {
@@ -799,9 +796,10 @@ export class AiChatUI implements AiOutputAdapter {
 		this.refreshPromptChrome();
 		const label = site.remote
 			? sprintf(
-					/* translators: %s: site name */
-					__( ' Selected site: %s (WordPress.com)' ),
-					site.name
+					/* translators: 1: site name, 2: the host the site is on, such as WordPress.com */
+					__( ' Selected site: %1$s (%2$s)' ),
+					site.name,
+					hostOf( site.remote ).name
 			  )
 			: sprintf(
 					/* translators: %s: site name */
@@ -851,7 +849,7 @@ export class AiChatUI implements AiOutputAdapter {
 			return false;
 		}
 		// Remote sites have no stable path, so never match them against local sites
-		if ( a.remote !== b.remote ) {
+		if ( Boolean( a.remote ) !== Boolean( b.remote ) ) {
 			return false;
 		}
 		return a.path === b.path || a.name.toLowerCase() === b.name.toLowerCase();

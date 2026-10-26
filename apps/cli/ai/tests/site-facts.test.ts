@@ -135,9 +135,14 @@ it.each( [
 	}
 );
 
-it( 'has no facts for a WordPress.com site without a known site ID, or no site', async () => {
+it( 'has no facts of its own for a WordPress.com site, or for no site', async () => {
 	expect(
-		await readActiveSiteFacts( { name: 'Live', path: '', running: false, remote: true } )
+		await readActiveSiteFacts( {
+			name: 'Live',
+			path: '',
+			running: false,
+			remote: { host: 'wpcom', id: 7 },
+		} )
 	).toEqual( [] );
 	expect( await readActiveSiteFacts( null ) ).toEqual( [] );
 } );

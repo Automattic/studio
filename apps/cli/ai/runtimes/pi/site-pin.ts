@@ -4,6 +4,7 @@ import { resolveSite } from 'cli/ai/tools/utils';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import type { Confirmation } from './confirmation';
+import type { RemoteSite } from 'cli/ai/hosts';
 import type { SiteInfo } from 'cli/ai/types';
 
 // A request works on one site: the active site, or the first site the turn
@@ -33,8 +34,8 @@ function localTarget( sitePath: string, name: string ): SiteTarget {
 	return { key: path.resolve( sitePath ), label: `"${ name }"` };
 }
 
-function remoteTarget( siteId: number, name: string ): SiteTarget {
-	return { key: `wpcom:${ siteId }`, label: `"${ name }"` };
+function remoteTarget( site: RemoteSite, name: string ): SiteTarget {
+	return { key: `${ site.host }:${ site.id }`, label: `"${ name }"` };
 }
 
 function isInside( file: string, dir: string ): boolean {
@@ -78,9 +79,9 @@ export class SitePin {
 	private newSitesAllowed = false;
 
 	constructor( activeSite: SiteInfo | null | undefined ) {
-		if ( activeSite?.remote && activeSite.wpcomSiteId ) {
-			this.requestSite = remoteTarget( activeSite.wpcomSiteId, activeSite.name );
-		} else if ( activeSite?.path && ! activeSite.remote ) {
+		if ( activeSite?.remote ) {
+			this.requestSite = remoteTarget( activeSite.remote, activeSite.name );
+		} else if ( activeSite?.path ) {
 			this.requestSite = localTarget( activeSite.path, activeSite.name );
 		}
 		if ( this.requestSite ) {
@@ -132,7 +133,9 @@ export class SitePin {
 	// The request's own local site, as an absolute path: the active one, the one
 	// the turn created, or the first one it changed.
 	localRequestSite(): string | undefined {
-		return this.requestSite?.key.startsWith( 'wpcom:' ) ? undefined : this.requestSite?.key;
+		const key = this.requestSite?.key;
+		// A local site's key is its path; a remote one's names its host.
+		return key && path.isAbsolute( key ) ? key : undefined;
 	}
 
 	// The local sites the request may change, as absolute paths: none until it has one.

@@ -1,4 +1,5 @@
 import { homepageFact } from 'cli/ai/front-page-template';
+import { hostOf } from 'cli/ai/hosts';
 import { activePluginsFact, comingSoonFact } from 'cli/ai/plugins';
 import { postCopiesFact } from 'cli/ai/post-copies';
 import { savedCopiesFact } from 'cli/ai/saved-copies';
@@ -73,5 +74,8 @@ export function readSiteFacts( sitePath: string ): Promise< string[][] > {
  * site's own server states what its plan and the user's role allow.
  */
 export async function readActiveSiteFacts( site?: SiteInfo | null ): Promise< string[][] > {
-	return site && ! site.remote ? readSiteFacts( site.path ) : [];
+	if ( ! site ) {
+		return [];
+	}
+	return site.remote ? hostOf( site.remote ).facts( site ) : readSiteFacts( site.path );
 }

@@ -333,7 +333,7 @@ describe( 'AI runCommand — active site banner running state', () => {
 		expect( findSiteByFolder ).not.toHaveBeenCalled();
 		expect( isSiteRunning ).not.toHaveBeenCalled();
 		expect( dispatched().prompt ).toBe( 'hello' );
-		expect( dispatched().activeSite ).toMatchObject( { remote: true, wpcomSiteId: 123 } );
+		expect( dispatched().activeSite ).toMatchObject( { remote: { host: 'wpcom', id: 123 } } );
 	} );
 } );
 

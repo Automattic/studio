@@ -1,4 +1,5 @@
 import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/common/ai/global-instructions';
+import { HOSTS } from 'cli/ai/hosts';
 import { formatActiveSite } from 'cli/ai/site-selection';
 import type { SiteInfo } from 'cli/ai/types';
 
@@ -30,16 +31,21 @@ export const PROXY_IDENTITY = `You are WordPress Studio Code, the AI agent built
 // Another agent drives Studio's tools over MCP; it has its own identity.
 const EXTERNAL_IDENTITY = `WordPress Studio is the app behind these tools. ${ AUTOMATTIC }`;
 
+// What each host's sites are, one line each.
+const HOST_ENVIRONMENT = Object.values( HOSTS )
+	.map( ( host ) => `- ${ host.environment }` )
+	.join( '\n' );
+
 const ENVIRONMENT = `## Environment
 
 - Studio runs the user's local WordPress sites on this computer. Each one is a complete WordPress install in its own folder: WordPress core (\`wp-includes/\`, \`wp-admin/\`) and every installed theme and plugin (\`wp-content/\`) are on disk, and are the reference for how WordPress behaves.
-- The user's WordPress.com sites are live sites, reached through the WordPress.com REST API.
+${ HOST_ENVIRONMENT }
 - The active site is the one the user has open in Studio.`;
 
 const EXTERNAL_ENVIRONMENT = `## Environment
 
 - Studio runs the user's local WordPress sites on this computer. Each one is a complete WordPress install in its own folder (site_info and site_create report it): WordPress core (\`wp-includes/\`, \`wp-admin/\`) and every installed theme and plugin (\`wp-content/\`) are on disk, and are the reference for how WordPress behaves.
-- The user's WordPress.com sites are live sites, reached through the WordPress.com REST API.
+${ HOST_ENVIRONMENT }
 - Studio's skills are runbooks for its workflows, served by \`studio_instructions\` with \`skill\` set to the skill's name. Where a runbook says Write or Edit, that is your own file tools.
 - A runbook step that asks the user ends the turn; the answer arrives as the user's next message.`;
 

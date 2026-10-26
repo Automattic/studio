@@ -207,7 +207,9 @@ export function AddSiteDialog() {
 					}
 					actions={
 						<>
-							{ progress ? <Progress siteId={ followedSite } fallback={ progress } /> : null }
+							{ progress && view.name !== 'details' ? (
+								<Progress siteId={ followedSite } fallback={ progress } />
+							) : null }
 							<div ref={ setActions } className={ styles.actions } />
 						</>
 					}

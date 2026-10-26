@@ -196,7 +196,7 @@ describe( 'removeOwnedSqliteSymlink', () => {
 		fs.mkdirSync( target );
 		fs.symlinkSync( target, symlink, 'junction' );
 		const symlinkIno = fs.lstatSync( symlink ).ino;
-		fs.rmSync( symlink );
+		fs.renameSync( symlink, path.join( tempDir, 'original-link' ) );
 		fs.mkdirSync( symlink );
 
 		await removeOwnedSqliteSymlink( symlink, symlinkIno );

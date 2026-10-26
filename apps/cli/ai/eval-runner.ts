@@ -834,6 +834,37 @@ async function main() {
 	} catch ( error ) {
 		emit( { success: false, error: error instanceof Error ? error.message : String( error ) } );
 		exitCode = 1;
+	} finally {
+		const root = process.env.E2E_SITES_ROOT;
+		if ( root ) {
+			if ( process.env.STUDIO_EVAL_KEEP_SITES === '1' ) {
+				process.stderr.write( `[eval-runner] keeping sites at ${ root }\n` );
+			} else {
+				try {
+					const { sites } = await readCliConfig();
+					await deleteSites(
+						sites
+							.filter( ( site ) => {
+								const relative = path.relative( root, site.path );
+								return (
+									relative !== '..' &&
+									! relative.startsWith( `..${ path.sep }` ) &&
+									! path.isAbsolute( relative )
+								);
+							} )
+							.map( ( site ) => site.path )
+					);
+				} catch ( error ) {
+					process.stderr.write( `[eval-runner] site cleanup failed: ${ error }\n` );
+					exitCode = 1;
+				} finally {
+					await rm( root, { recursive: true, force: true } ).catch( ( error ) => {
+						process.stderr.write( `[eval-runner] failed to remove ${ root }: ${ error }\n` );
+						exitCode = 1;
+					} );
+				}
+			}
+		}
 	}
 	// The Agent SDK keeps internal handles open past conversation end; bail out
 	// rather than leaving promptfoo waiting on its exec child.

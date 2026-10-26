@@ -1,5 +1,9 @@
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
+import { build } from 'vite';
 import { afterEach, describe, expect, it } from 'vitest';
 import { getDefaultPhpArgs, getNativePhpIniContents } from 'cli/lib/native-php/config';
 
@@ -36,6 +40,60 @@ describe( 'getNativePhpIniContents', () => {
 		expect( contents.split( /\r?\n/ ) ).toContain( 'extension=soap' );
 	} );
 } );
+
+it.skipIf( process.platform === 'win32' ).each( [ 'SIGTERM', 'SIGINT' ] as const )(
+	'removes opcache on %s without changing signal handling',
+	async ( signal ) => {
+		const dir = fs.mkdtempSync( path.join( os.tmpdir(), 'opcache-signal-test-' ) );
+		try {
+			await build( {
+				configFile: false,
+				logLevel: 'silent',
+				ssr: { noExternal: true },
+				build: {
+					ssr: true,
+					rollupOptions: { output: { entryFileNames: 'config.mjs' } },
+					outDir: dir,
+					lib: {
+						entry: path.resolve( 'apps/cli/lib/native-php/config.ts' ),
+						formats: [ 'es' ],
+						fileName: () => 'config.mjs',
+					},
+				},
+			} );
+			for ( const handled of [ false, true ] ) {
+				const child = spawn(
+					process.execPath,
+					[
+						'--input-type=module',
+						'-e',
+						`
+					import { getDefaultPhpArgs } from ${ JSON.stringify( path.join( dir, 'config.mjs' ) ) };
+					${ handled ? `process.on('${ signal }', () => process.exit(42));` : '' }
+					const args = getDefaultPhpArgs('8.4');
+					console.log(args.find(arg => arg.startsWith('opcache.file_cache=')));
+					setInterval(() => {}, 1000);
+				`,
+					],
+					{ stdio: [ 'ignore', 'pipe', 'inherit' ] }
+				);
+				try {
+					const [ output ] = await once( child.stdout, 'data' );
+					const cache = path.dirname( output.toString().match( /="(.*)"/ )[ 1 ] );
+					expect( fs.existsSync( cache ) ).toBe( true );
+					const exited = once( child, 'exit' );
+					child.kill( signal );
+					expect( await exited ).toEqual( handled ? [ 42, null ] : [ null, signal ] );
+					expect( fs.existsSync( cache ) ).toBe( false );
+				} finally {
+					child.kill( 'SIGKILL' );
+				}
+			}
+		} finally {
+			fs.rmSync( dir, { recursive: true, force: true } );
+		}
+	}
+);
 
 describe( 'getDefaultPhpArgs', () => {
 	function getFileCacheDirectory( args: string[] ): string {

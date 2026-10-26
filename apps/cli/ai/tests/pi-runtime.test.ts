@@ -660,12 +660,12 @@ describe( 'pi runtime', () => {
 		expect( mocks.steps ).toEqual( [ 'snapshot', 'Bash', 'settle' ] );
 		expect( result.content.map( ( part ) => part.text ) ).toEqual( [
 			'',
-			'<studio-notes>\nBlock validation: page 9 changed\npage 9 problem\n</studio-notes>',
+			'<studio-notes>\npage 9 changed\npage 9 problem\n</studio-notes>',
 		] );
 		// A failed call reports what it changed too.
 		mocks.failNext = true;
 		await expect( getCreatedTool( 'Bash' ).execute( 'b', { command: 'false' } ) ).rejects.toThrow(
-			'exit 1\n<studio-notes>\nBlock validation: page 9 changed\npage 9 problem\n</studio-notes>'
+			'exit 1\n<studio-notes>\npage 9 changed\npage 9 problem\n</studio-notes>'
 		);
 		// A tool that only reads changes nothing to check.
 		mocks.steps.length = 0;

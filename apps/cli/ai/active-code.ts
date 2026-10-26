@@ -29,11 +29,15 @@ async function files( dir: string, wanted: ( name: string ) => boolean ): Promis
 	return found.flat();
 }
 
-/** The site's active plugins and themes, and the files in them `wanted` keeps, as one version. */
-export async function activeCodeVersion(
+/**
+ * The version of each of the site's active plugins and themes, by
+ * `plugin <file>` (as active_plugins names it) and `theme <slug>`, from the
+ * files in them `wanted` keeps.
+ */
+export async function activeCode(
 	sitePath: string,
 	wanted: ( name: string ) => boolean
-): Promise< string > {
+): Promise< Record< string, string > > {
 	const content = path.join( sitePath, 'wp-content' );
 	const active = await readWordPressSite( sitePath, ( site ) => {
 		const plugins = site.option( 'active_plugins' );
@@ -45,25 +49,27 @@ export async function activeCodeVersion(
 		};
 	} );
 	// A plugin in a folder is the folder; a single-file plugin is its file.
-	const dirs = [
-		...active.plugins
-			.filter( ( plugin ) => plugin.includes( '/' ) )
-			.map( ( plugin ) => path.join( content, 'plugins', path.dirname( plugin ) ) ),
-		...active.themes.map( ( theme ) => path.join( content, 'themes', theme ) ),
-	];
-	const singleFiles = await Promise.all(
-		active.plugins
-			.filter( ( plugin ) => ! plugin.includes( '/' ) )
-			.map( ( plugin ) => version( path.join( content, 'plugins', plugin ), content ) )
-	);
-	const inDirs = await Promise.all(
-		dirs.map( async ( dir ) =>
-			(
-				await Promise.all( ( await files( dir, wanted ) ).map( ( file ) => version( file, dir ) ) )
-			)
-				.sort()
-				.join( '|' )
-		)
-	);
-	return JSON.stringify( [ active, singleFiles, inDirs ] );
+	const dirVersion = async ( dir: string ) =>
+		( await Promise.all( ( await files( dir, wanted ) ).map( ( file ) => version( file, dir ) ) ) )
+			.sort()
+			.join( '|' );
+	const plugins = active.plugins.map( async ( plugin ) => [
+		`plugin ${ plugin }`,
+		plugin.includes( '/' )
+			? await dirVersion( path.join( content, 'plugins', path.dirname( plugin ) ) )
+			: await version( path.join( content, 'plugins', plugin ), content ),
+	] );
+	const themes = active.themes.map( async ( theme ) => [
+		`theme ${ theme }`,
+		await dirVersion( path.join( content, 'themes', theme ) ),
+	] );
+	return Object.fromEntries( await Promise.all( [ ...plugins, ...themes ] ) );
+}
+
+/** The site's active plugins and themes, and the files in them `wanted` keeps, as one version. */
+export async function activeCodeVersion(
+	sitePath: string,
+	wanted: ( name: string ) => boolean
+): Promise< string > {
+	return JSON.stringify( await activeCode( sitePath, wanted ) );
 }

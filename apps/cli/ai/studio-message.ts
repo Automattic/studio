@@ -12,6 +12,9 @@ export function studioMessage(
 	return body ? `<studio-${ kind }>\n${ body }\n</studio-${ kind }>` : undefined;
 }
 
+/** A block validation summary of a checked file or post, as Studio states it. */
+export const validationSummary = ( line: string ) => `Block validation: ${ line }`;
+
 /** A block validation report: a summary line per checked file or post, then its problems. */
 export function validationLines( {
 	summaries,
@@ -20,5 +23,5 @@ export function validationLines( {
 	summaries: string[];
 	problems: string[];
 } ): string[] {
-	return [ ...summaries.map( ( line ) => `Block validation: ${ line }` ), ...problems ];
+	return [ ...summaries.map( validationSummary ), ...problems ];
 }

@@ -777,9 +777,11 @@ function toToolDefinition(
 			const result = await tool
 				.execute( toolCallId, params, signal, onUpdate )
 				.catch( async ( error: unknown ) => {
+					const changed = await settled();
 					const report = studioMessage( 'notes', [
 						...validationReport,
-						...validationLines( await settled() ),
+						...changed.summaries,
+						...changed.problems,
 					] );
 					if ( ! report ) {
 						throw error;
@@ -807,7 +809,8 @@ function toToolDefinition(
 				.join( '\n' );
 			const reports = studioMessage( 'notes', [
 				...validationReport,
-				...validationLines( changed ),
+				...changed.summaries,
+				...changed.problems,
 				...(
 					await Promise.all( [ ...written ].map( ( file ) => siteNotes.afterWrite( file ) ) )
 				).flat(),

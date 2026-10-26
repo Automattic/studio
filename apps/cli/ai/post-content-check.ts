@@ -14,6 +14,7 @@ import {
 import { repeatedPostStyleNotes } from 'cli/ai/repeated-style-values';
 import { readWordPressSite } from 'cli/ai/site-database';
 import { RENDERED, RENDERED_TYPES, savePost } from 'cli/ai/site-markup';
+import { validationSummary } from 'cli/ai/studio-message';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import type { ChangeReport, SiteChangeSource, Versions } from 'cli/ai/site-changes';
 import type { SiteData } from 'cli/lib/cli-config/core';
@@ -125,7 +126,11 @@ export const postContentChanges: SiteChangeSource = {
 				} )
 			);
 			saved = saved || !! savedPost;
-			reports.push( { key: String( post.id ), ...result } );
+			reports.push( {
+				key: String( post.id ),
+				...result,
+				summary: result.summary && validationSummary( result.summary ),
+			} );
 		}
 		// The posts Studio saved are compared from what it saved.
 		return { reports, next: saved ? await readVersions( site.path ) : undefined };

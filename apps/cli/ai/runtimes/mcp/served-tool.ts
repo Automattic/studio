@@ -1,5 +1,5 @@
 import { NO_CHANGES, type SiteChanges, type SettledChanges } from 'cli/ai/site-changes';
-import { studioMessage, validationLines } from 'cli/ai/studio-message';
+import { studioMessage } from 'cli/ai/studio-message';
 import { siteOfCall } from 'cli/ai/tools/utils';
 import type { SiteNotes } from 'cli/ai/site-notes';
 import type { AnyStudioAgentTool } from 'cli/ai/tools/define-tool';
@@ -19,10 +19,10 @@ export async function runServedTool(
 	const changedContent = async () => {
 		const changed = await settled( siteChanges );
 		return [
-			...validationLines( {
-				summaries: [ ...since.summaries, ...changed.summaries ],
-				problems: [ ...since.problems, ...changed.problems ],
-			} ),
+			...since.summaries,
+			...changed.summaries,
+			...since.problems,
+			...changed.problems,
 			...(
 				await Promise.all(
 					[ ...new Set( [ ...since.written, ...changed.written ] ) ].map( ( file ) =>

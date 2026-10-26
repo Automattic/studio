@@ -90,12 +90,12 @@ describe( 'post content changes', () => {
 		{
 			name: 'an edited page',
 			change: () => fixture.edit( 9, PARAGRAPH + PARAGRAPH ),
-			reported: [ 'Bakery page 9 "": 1/1 blocks valid' ],
+			reported: [ 'Block validation: Bakery page 9 "": 1/1 blocks valid' ],
 		},
 		{
 			name: 'a new template part',
 			change: () => fixture.save( 10, 'wp_template_part', 'header', PARAGRAPH ),
-			reported: [ 'Bakery wp_template_part 10 "": 1/1 blocks valid' ],
+			reported: [ 'Block validation: Bakery wp_template_part 10 "": 1/1 blocks valid' ],
 		},
 		{
 			name: 'content WordPress does not render as a page',
@@ -137,7 +137,7 @@ describe( 'post content changes', () => {
 		fixture.edit( 9, UNWRAPPED_GROUP );
 		expect( await check.settle() ).toEqual( {
 			summaries: [
-				'Bakery page 9 "": Studio saved the block editor\'s save of it, which fixes 1 block(s) that do not match what the block saves, losing nothing, so it now holds what the editor saves',
+				'Block validation: Bakery page 9 "": Studio saved the block editor\'s save of it, which fixes 1 block(s) that do not match what the block saves, losing nothing, so it now holds what the editor saves',
 			],
 			problems: [],
 			written: [],
@@ -155,7 +155,7 @@ describe( 'post content changes', () => {
 		await check.snapshot();
 		fixture.edit( 9, UNWRAPPED_GROUP );
 		const { summaries, problems } = await check.settle();
-		expect( summaries ).toEqual( [ 'Bakery page 9 "": 1 invalid block(s)' ] );
+		expect( summaries ).toEqual( [ 'Block validation: Bakery page 9 "": 1 invalid block(s)' ] );
 		expect( problems[ 0 ] ).toContain(
 			`Apply it in the site's folder with \`wp post update 9 ${ fixture.root
 				.split( path.sep )
@@ -211,7 +211,7 @@ describe( 'post content changes', () => {
 		);
 		expect( problems ).toEqual( [] );
 		expect( summaries ).toEqual( [
-			`Bakery page 9 "": Studio saved the block editor's save of it, which stores #503AA8 as the palette's accent-3, as the editor stores a palette color (encodeColorValueWithPalette in @wordpress/block-editor), so it follows the palette, losing nothing, so it now holds what the editor saves`,
+			`Block validation: Bakery page 9 "": Studio saved the block editor's save of it, which stores #503AA8 as the palette's accent-3, as the editor stores a palette color (encodeColorValueWithPalette in @wordpress/block-editor), so it follows the palette, losing nothing, so it now holds what the editor saves`,
 		] );
 		expect( fixture.content( 9 ) ).toBe( PRESET );
 	} );
@@ -222,7 +222,7 @@ describe( 'post content changes', () => {
 		await check.snapshot();
 		fixture.edit( 9, UNWRAPPED_GROUP );
 		expect( ( await check.settle() ).summaries ).toEqual( [
-			'Bakery page 9: not validated (site is not running)',
+			'Block validation: Bakery page 9: not validated (site is not running)',
 		] );
 		expect( existsSync( path.join( fixture.root, 'tmp' ) ) ).toBe( false );
 	} );

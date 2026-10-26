@@ -35,7 +35,7 @@ export interface Markup {
 }
 
 /** A theme's template, template part and pattern files. */
-async function themeMarkupFiles( themeDir: string ): Promise< string[] > {
+export async function themeMarkupFiles( themeDir: string ): Promise< string[] > {
 	const entries = await readdir( themeDir, { recursive: true, withFileTypes: true } ).catch(
 		() => []
 	);

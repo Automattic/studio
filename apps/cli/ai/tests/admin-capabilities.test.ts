@@ -1,4 +1,4 @@
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -37,17 +37,27 @@ describe.runIf( WORDPRESS )(
 		} );
 		afterEach( () => rmSync( site.path, { recursive: true, force: true } ) );
 
-		const activate = async ( code: string ) => {
-			const dir = path.join( site.path, 'wp-content/plugins/reading-list' );
-			mkdirSync( dir, { recursive: true } );
-			writeFileSync( path.join( dir, 'reading-list.php' ), code );
+		// Sets the active plugins, as WordPress keeps them in active_plugins.
+		const setActive = async ( plugins: string[] ) => {
 			const { DatabaseSync } = await import( 'node:sqlite' );
 			const db = new DatabaseSync( path.join( site.path, 'wp-content/database/.ht.sqlite' ) );
 			db.prepare(
 				"UPDATE wp_options SET option_value = ? WHERE option_name = 'active_plugins'"
-			).run( 'a:1:{i:0;s:29:"reading-list/reading-list.php";}' );
+			).run(
+				`a:${ plugins.length }:{${ plugins
+					.map( ( plugin, i ) => `i:${ i };s:${ plugin.length }:"${ plugin }";` )
+					.join( '' ) }}`
+			);
 			db.close();
 		};
+		const activate = async ( code: string, others: string[] = [] ) => {
+			const dir = path.join( site.path, 'wp-content/plugins/reading-list' );
+			mkdirSync( dir, { recursive: true } );
+			writeFileSync( path.join( dir, 'reading-list.php' ), code );
+			await setActive( [ 'reading-list/reading-list.php', ...others ] );
+		};
+		const reportOf = ( reports: Array< { key: string } >, key: string ) =>
+			reports.find( ( report ) => report.key === key );
 
 		it.each( [
 			{
@@ -94,20 +104,114 @@ describe.runIf( WORDPRESS )(
 				await activate( code );
 				const after = await adminCapabilities.read( site.path );
 				const { reports } = await adminCapabilities.check( site, before, after );
-				expect( reports ).toHaveLength( 1 );
+				const report = reports.find( ( r ) => r.key === 'administrator capabilities' );
+				expect( report ).toBeDefined();
 				if ( problem ) {
 					for ( const text of problem ) {
-						expect( reports[ 0 ].problem ).toContain( text );
+						expect( report?.problem ).toContain( text );
 					}
 					for ( const text of absent ) {
-						expect( reports[ 0 ].problem ).not.toContain( text );
+						expect( report?.problem ).not.toContain( text );
 					}
 				} else {
-					expect( reports[ 0 ].problem ).toBeUndefined();
+					expect( report?.problem ).toBeUndefined();
 				}
 			},
 			120000
 		);
+
+		describe( 'what the changed code registers', () => {
+			const READING_LIST = plugin( `register_post_type( 'book', array( 'public' => true ) ); } );
+add_action( 'rest_api_init', function () {
+	register_rest_route( 'bookclub/v1', '/books', array( 'methods' => 'GET', 'callback' => '__return_empty_array', 'permission_callback' => '__return_true' ) );
+} );
+add_action( 'wp_abilities_api_categories_init', function () {
+	wp_register_ability_category( 'bookclub', array( 'label' => 'Book club', 'description' => 'Books.' ) );
+} );
+add_action( 'wp_abilities_api_init', function () {
+	wp_register_ability( 'bookclub/list-books', array( 'label' => 'List books', 'description' => 'Lists books.', 'category' => 'bookclub', 'execute_callback' => '__return_empty_array', 'permission_callback' => '__return_true' ) );` );
+
+			it( 'states what each registry holds only with it loaded', async () => {
+				// Akismet registers REST routes of its own, which are not the change's.
+				await activate( plugin( '' ), [ 'akismet/akismet.php' ] );
+				const before = await adminCapabilities.read( site.path );
+				await activate( READING_LIST, [ 'akismet/akismet.php' ] );
+				const after = await adminCapabilities.read( site.path );
+				const { reports } = await adminCapabilities.check( site, before, after );
+				expect( reportOf( reports, 'registered' ) ).toEqual( {
+					key: 'registered',
+					summary:
+						'Reading Room: with plugin reading-list/reading-list.php loaded, WordPress registers post types book (register_post_type()); REST routes /bookclub/v1, /bookclub/v1/books (register_rest_route()); abilities bookclub/list-books (wp_register_ability(), in wp-includes/abilities-api.php); no taxonomies (register_taxonomy()), block types (register_block_type()) and shortcodes (add_shortcode()) of its own.',
+				} );
+			} );
+
+			it( 'states it for a single-file plugin', async () => {
+				await activate( READING_LIST, [ 'hello.php' ] );
+				const before = await adminCapabilities.read( site.path );
+				writeFileSync(
+					path.join( site.path, 'wp-content/plugins/hello.php' ),
+					"<?php\n/**\n * Plugin Name: Hello Dolly\n */\nadd_shortcode( 'dolly', '__return_empty_string' );\n"
+				);
+				const after = await adminCapabilities.read( site.path );
+				const { reports } = await adminCapabilities.check( site, before, after );
+				expect( reportOf( reports, 'registered' ) ).toEqual( {
+					key: 'registered',
+					summary: expect.stringMatching(
+						/^Reading Room: with plugin hello\.php loaded, WordPress registers shortcodes dolly \(add_shortcode\(\)\); no post types/
+					),
+				} );
+			} );
+
+			it( 'states it for the active theme', async () => {
+				await activate( plugin( '' ) );
+				const before = await adminCapabilities.read( site.path );
+				const functions = path.join(
+					site.path,
+					'wp-content/themes/twentytwentyfive/functions.php'
+				);
+				writeFileSync(
+					functions,
+					`${ readFileSync(
+						functions,
+						'utf8'
+					) }\nadd_action( 'init', function () { register_taxonomy( 'course', 'post' ); } );\n`
+				);
+				const after = await adminCapabilities.read( site.path );
+				const { reports } = await adminCapabilities.check( site, before, after );
+				expect( reportOf( reports, 'registered' ) ).toEqual( {
+					key: 'registered',
+					summary: expect.stringMatching(
+						/^Reading Room: with theme twentytwentyfive loaded, WordPress registers taxonomies course \(register_taxonomy\(\)\); no post types/
+					),
+				} );
+			} );
+
+			it( 'names at most twelve of a registry, and every registry it adds to', async () => {
+				const before = await adminCapabilities.read( site.path );
+				await activate(
+					READING_LIST.replace(
+						"register_post_type( 'book', array( 'public' => true ) );",
+						`register_post_type( 'book', array( 'public' => true ) ); register_taxonomy( 'genre', 'book' ); register_block_type( 'bookclub/shelf', array( 'render_callback' => '__return_empty_string' ) ); foreach ( range( 1, 14 ) as $i ) { add_shortcode( "book$i", '__return_empty_string' ); }`
+					)
+				);
+				const after = await adminCapabilities.read( site.path );
+				const { reports } = await adminCapabilities.check( site, before, after );
+				expect( reportOf( reports, 'registered' ) ).toEqual( {
+					key: 'registered',
+					summary:
+						'Reading Room: with plugin reading-list/reading-list.php loaded, WordPress registers post types book (register_post_type()); taxonomies genre (register_taxonomy()); REST routes /bookclub/v1, /bookclub/v1/books (register_rest_route()); block types bookclub/shelf (register_block_type()); abilities bookclub/list-books (wp_register_ability(), in wp-includes/abilities-api.php); shortcodes book1, book2, book3, book4, book5, book6, book7, book8, book9, book10, book11, book12 and 2 more (add_shortcode()).',
+				} );
+			} );
+
+			it( 'states nothing when a plugin is only deactivated', async () => {
+				await activate( READING_LIST, [ 'hello.php' ] );
+				const before = await adminCapabilities.read( site.path );
+				await setActive( [ 'reading-list/reading-list.php' ] );
+				const after = await adminCapabilities.read( site.path );
+				const { reports } = await adminCapabilities.check( site, before, after );
+				expect( reports ).toEqual( [ { key: 'administrator capabilities', problem: undefined } ] );
+			} );
+		} );
 
 		it( 'asks WordPress only when the active code changed', async () => {
 			await activate( plugin( '' ) );

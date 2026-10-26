@@ -1,7 +1,15 @@
-import { cpSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'fs';
+import {
+	cpSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	realpathSync,
+	rmSync,
+	writeFileSync,
+} from 'fs';
 import os from 'os';
 import path from 'path';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { emptyBlocks, renderedBlocks } from 'cli/ai/block-render-check';
 import { runWpCli } from 'cli/ai/tools/utils';
 import type { SiteData } from 'cli/lib/cli-config/core';
@@ -22,6 +30,7 @@ const wrapper = `<?php
 add_action( 'init', function () {
 	register_block_type( 'studio-test/wrapper', array( 'render_callback' => function () { return '<div>Wrapped</div>'; } ) );
 	register_block_type( __DIR__ . '/returns' );
+	register_block_type( 'studio-test/cart', array( 'render_callback' => function () { return is_user_logged_in() ? '<a>Cart</a>' : ''; } ) );
 } );
 `;
 // A block.json render file that returns its HTML instead of printing it.
@@ -141,6 +150,103 @@ describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
 		expect(
 			( await renderedBlocks.check( site, { [ id ]: 'before' }, { [ id ]: 'written' } ) ).reports
 		).toEqual( [] );
+	} );
+
+	describe( 'a changed template or template part, rendered in the front page', () => {
+		const theme = ( file: string ) =>
+			path.join( site.path, 'wp-content/themes/twentytwentyfive', file );
+		const cart = '<!-- wp:studio-test/cart /-->';
+		const stated =
+			'Seaside Gallery front page: of the blocks in the changed templates, template parts and patterns, WordPress renders studio-test/cart as nothing for a visitor who is not logged in (render_block() through get_the_block_template_html(), in wp-includes/block-template.php).';
+		// A theme file as a call writes it, and what the next call is told.
+		const write = async ( file: string, markup: string ) => {
+			const before = await renderedBlocks.read( site.path );
+			writeFileSync( theme( file ), markup );
+			const after = await renderedBlocks.read( site.path );
+			return ( await renderedBlocks.check( site, before, after ) ).reports;
+		};
+		const released: Record< string, string > = {};
+		beforeAll( () => {
+			for ( const file of [ 'parts/header.html', 'parts/footer.html' ] ) {
+				released[ file ] = readFileSync( theme( file ), 'utf8' );
+			}
+		} );
+		afterEach( () => {
+			for ( const [ file, text ] of Object.entries( released ) ) {
+				writeFileSync( theme( file ), text );
+			}
+			rmSync( theme( 'templates/front-page.html' ), { force: true } );
+		} );
+
+		it( 'states the blocks it holds that render as nothing for a visitor', async () => {
+			expect(
+				await write( 'parts/header.html', `${ released[ 'parts/header.html' ] }${ cart }` )
+			).toEqual( [ { key: 'front page rendered', summary: stated } ] );
+		} );
+
+		it( 'states the blocks of a template part saved in the Site Editor', async () => {
+			const before = await renderedBlocks.read( site.path );
+			// As the Site Editor saves a part: a wp_template_part post of the theme and area.
+			const id = await runWpCli( site, [
+				'eval',
+				`$id = wp_insert_post( array( 'post_type' => 'wp_template_part', 'post_name' => 'header', 'post_status' => 'publish', 'post_title' => 'Header', 'post_content' => ${ JSON.stringify(
+					released[ 'parts/header.html' ] + cart
+				) } ) ); wp_set_object_terms( $id, get_stylesheet(), 'wp_theme' ); wp_set_object_terms( $id, 'header', 'wp_template_part_area' ); echo $id;`,
+			] );
+			try {
+				const after = await renderedBlocks.read( site.path );
+				expect( ( await renderedBlocks.check( site, before, after ) ).reports ).toEqual( [
+					{ key: 'front page rendered', summary: stated },
+				] );
+			} finally {
+				await runWpCli( site, [ 'post', 'delete', id.trim(), '--force' ] );
+			}
+		} );
+
+		it( 'renders the template WordPress picks for the front page', async () => {
+			expect(
+				await write(
+					'templates/front-page.html',
+					`<!-- wp:template-part {"slug":"header"} /-->${ cart }`
+				)
+			).toEqual( [ { key: 'front page rendered', summary: stated } ] );
+		} );
+
+		it.each( [
+			{ name: 'blocks that render', markup: '' },
+			{
+				name: 'a block a dynamic block renders into its own output',
+				markup: `<!-- wp:studio-test/wrapper -->${ image }<!-- /wp:studio-test/wrapper -->`,
+			},
+		] )( 'states nothing for $name', async ( { markup } ) => {
+			expect(
+				await write(
+					'parts/header.html',
+					`${ released[ 'parts/header.html' ] }<!-- wp:paragraph --><p>Open</p><!-- /wp:paragraph -->${ markup }`
+				)
+			).toEqual( [] );
+		} );
+
+		describe( 'with a page as the front page', () => {
+			beforeAll( async () => {
+				const page = await create( image );
+				await runWpCli( site, [ 'option', 'update', 'show_on_front', 'page' ] );
+				await runWpCli( site, [ 'option', 'update', 'page_on_front', String( page ) ] );
+			} );
+			afterAll( () => runWpCli( site, [ 'option', 'update', 'show_on_front', 'posts' ] ) );
+
+			it( "leaves the page's content, which the posts are checked for", async () => {
+				expect(
+					await write( 'parts/header.html', `${ released[ 'parts/header.html' ] }${ savedImage }` )
+				).toEqual( [] );
+			} );
+
+			it( 'states the blocks of a part rendered after the content', async () => {
+				expect(
+					await write( 'parts/footer.html', `${ released[ 'parts/footer.html' ] }${ cart }` )
+				).toEqual( [ { key: 'front page rendered', summary: stated } ] );
+			} );
+		} );
 	} );
 
 	it( 'raises the problem on the post that renders nothing, until it renders', async () => {

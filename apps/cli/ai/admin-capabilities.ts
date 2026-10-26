@@ -16,14 +16,39 @@
  * which of the role's capabilities user_can() denies the first administrator,
  * with the site's code loaded and with its plugins and themes skipped: the
  * ones denied only with the code loaded are the code's.
+ *
+ * In the same runs, and one with only the changed plugins or theme skipped,
+ * Studio states what the changed code registers with WordPress: what the
+ * registries hold only with it loaded.
  */
-import { activeCodeVersion } from 'cli/ai/active-code';
+import { activeCode } from 'cli/ai/active-code';
 import { runWpCli } from 'cli/ai/tools/utils';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import type { SiteChangeSource, Versions } from 'cli/ai/site-changes';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
 const KEY = 'administrator capabilities';
+
+// The registries a plugin or theme adds to, by the function that adds to each.
+const REGISTRIES: Record< string, string > = {
+	'post types': 'register_post_type()',
+	taxonomies: 'register_taxonomy()',
+	'REST routes': 'register_rest_route()',
+	'block types': 'register_block_type()',
+	abilities: 'wp_register_ability(), in wp-includes/abilities-api.php',
+	shortcodes: 'add_shortcode()',
+};
+
+const REGISTERED = `echo 'REGISTERED=' . wp_json_encode( array(
+	'post types'  => array_keys( get_post_types() ),
+	'taxonomies'  => array_keys( get_taxonomies() ),
+	'REST routes' => array_keys( rest_get_server()->get_routes() ),
+	'block types' => array_keys( WP_Block_Type_Registry::get_instance()->get_all_registered() ),
+	'abilities'   => function_exists( 'wp_get_abilities' ) ? array_map( function ( $ability ) { return $ability->get_name(); }, array_values( wp_get_abilities() ) ) : array(),
+	'shortcodes'  => array_keys( $GLOBALS['shortcode_tags'] ),
+) ) . "\\n";`;
+
+type Registered = Record< string, string[] >;
 
 interface Denied {
 	user: number;
@@ -59,26 +84,71 @@ foreach ( $admins && $role ? array_keys( array_filter( $role->capabilities ) ) :
 }
 echo 'DENIED_CAPS=' . wp_json_encode( $denied );`;
 
-async function deniedCaps( site: SiteData, skipCode: boolean ): Promise< Denied > {
-	const output = await runWpCli( site, [
-		'eval',
-		DENIED,
-		...( skipCode ? [ '--skip-plugins', '--skip-themes' ] : [] ),
-	] );
-	const json = output.slice( output.indexOf( 'DENIED_CAPS=' ) + 'DENIED_CAPS='.length );
-	return JSON.parse( json ) as Denied;
+// What WordPress prints after a marker, on its line.
+const printed = ( output: string, marker: string ) =>
+	JSON.parse( output.slice( output.indexOf( marker ) + marker.length ).split( '\n' )[ 0 ] );
+
+async function askWordPress(
+	site: SiteData,
+	skip: string[]
+): Promise< { denied: Denied; registered: Registered } > {
+	const output = await runWpCli( site, [ 'eval', REGISTERED + DENIED, ...skip ] );
+	return {
+		denied: printed( output, 'DENIED_CAPS=' ),
+		registered: printed( output, 'REGISTERED=' ),
+	};
 }
 
-// The site's active code, as one version: which plugins and themes are
-// active, and their PHP files. Must-use plugins load with plugins skipped too.
+// The site's active code, by plugin and theme: which are active, and their
+// PHP files. Must-use plugins load with plugins skipped too.
 async function readVersions( sitePath: string ): Promise< Versions > {
-	return { code: await activeCodeVersion( sitePath, ( name ) => name.endsWith( '.php' ) ) };
+	return activeCode( sitePath, ( name ) => name.endsWith( '.php' ) );
+}
+
+// The WP-CLI flags that skip the given plugins and themes: a plugin by its
+// folder, or a single-file plugin by its name (WP_CLI\Utils\get_plugin_name()).
+function skipping( keys: string[] ): string[] {
+	const plugins = keys
+		.filter( ( key ) => key.startsWith( 'plugin ' ) )
+		.map( ( key ) =>
+			key
+				.slice( 'plugin '.length )
+				.split( '/' )[ 0 ]
+				.replace( /\.php$/, '' )
+		);
+	return [
+		...( plugins.length ? [ `--skip-plugins=${ plugins.join( ',' ) }` ] : [] ),
+		...( keys.some( ( key ) => key.startsWith( 'theme ' ) ) ? [ '--skip-themes' ] : [] ),
+	];
 }
 
 const list = ( items: string[] ) =>
 	items.length < 2
 		? items.join( '' )
 		: `${ items.slice( 0, -1 ).join( ', ' ) } and ${ items.at( -1 ) }`;
+
+const MAX_NAMES = 12;
+
+function describeRegistered( site: SiteData, changed: string[], added: Registered ): string {
+	const names = ( items: string[] ) =>
+		items.length > MAX_NAMES
+			? `${ items.slice( 0, MAX_NAMES ).join( ', ' ) } and ${ items.length - MAX_NAMES } more`
+			: items.join( ', ' );
+	const holds = Object.keys( REGISTRIES ).filter( ( registry ) => added[ registry ]?.length );
+	const none = Object.keys( REGISTRIES ).filter( ( registry ) => ! added[ registry ]?.length );
+	return `${ site.name }: with ${ list( changed ) } loaded, WordPress registers ${ [
+		...holds.map(
+			( registry ) => `${ registry } ${ names( added[ registry ] ) } (${ REGISTRIES[ registry ] })`
+		),
+		...( none.length
+			? [
+					`no ${ list(
+						none.map( ( registry ) => `${ registry } (${ REGISTRIES[ registry ] })` )
+					) } of its own`,
+			  ]
+			: [] ),
+	].join( '; ' ) }.`;
+}
 
 function describeDenied( site: SiteData, user: number, denied: Denied[ 'caps' ] ): string {
 	const caps = Object.keys( denied );
@@ -116,15 +186,19 @@ export const adminCapabilities: SiteChangeSource = {
 	name: 'admin-capabilities',
 	read: readVersions,
 	async check( site, before, after ) {
-		if ( before.code === after.code ) {
+		const changed = Object.keys( after ).filter( ( key ) => before[ key ] !== after[ key ] );
+		const removed = Object.keys( before ).some( ( key ) => ! ( key in after ) );
+		if ( ! changed.length && ! removed ) {
 			return { reports: [] };
 		}
-		let withCode: Denied;
-		let core: Denied;
+		let withCode: Awaited< ReturnType< typeof askWordPress > >;
+		let core: Awaited< ReturnType< typeof askWordPress > >;
+		let without: Awaited< ReturnType< typeof askWordPress > >;
 		try {
 			await connectToDaemon();
-			withCode = await deniedCaps( site, false );
-			core = await deniedCaps( site, true );
+			withCode = await askWordPress( site, [] );
+			core = await askWordPress( site, [ '--skip-plugins', '--skip-themes' ] );
+			without = changed.length ? await askWordPress( site, skipping( changed ) ) : withCode;
 		} catch {
 			// Code that does not load is reported by what runs it.
 			return { reports: [] };
@@ -132,16 +206,25 @@ export const adminCapabilities: SiteChangeSource = {
 			await disconnectFromDaemon();
 		}
 		const denied = Object.fromEntries(
-			Object.entries( withCode.caps ).filter( ( [ cap ] ) => ! ( cap in core.caps ) )
+			Object.entries( withCode.denied.caps ).filter( ( [ cap ] ) => ! ( cap in core.denied.caps ) )
+		);
+		const added = Object.fromEntries(
+			Object.entries( withCode.registered ).map( ( [ registry, names ] ) => [
+				registry,
+				names.filter( ( name ) => ! without.registered[ registry ]?.includes( name ) ),
+			] )
 		);
 		return {
 			reports: [
 				{
 					key: KEY,
 					problem: Object.keys( denied ).length
-						? describeDenied( site, withCode.user, denied )
+						? describeDenied( site, withCode.denied.user, denied )
 						: undefined,
 				},
+				...( changed.length
+					? [ { key: 'registered', summary: describeRegistered( site, changed, added ) } ]
+					: [] ),
 			],
 		};
 	},

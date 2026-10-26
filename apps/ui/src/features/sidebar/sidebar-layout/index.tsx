@@ -68,11 +68,9 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 	const sidebarFlyoutOpen = sidebarFlyoutState === 'open';
 	const [ instantSidebarDock, setInstantSidebarDock ] = useState( false );
 	const dockedSidebarRef = useRef< HTMLElement >( null );
-	const sidebarFlyoutScrollTop = useRef( 0 );
 	useLayoutEffect( () => {
 		if ( ! instantSidebarDock ) return;
 		if ( dockedSidebarRef.current ) {
-			dockedSidebarRef.current.scrollTop = sidebarFlyoutScrollTop.current;
 			dockedSidebarRef.current
 				.querySelector< HTMLElement >( '[data-sidebar-toggle]' )
 				?.focus( { preventScroll: true } );
@@ -116,6 +114,11 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 	}
 	const docked = ! overlay && ! collapsed;
 	const open = docked || sidebarFlyoutOpen;
+	const sidebarFlyoutVisible = sidebarFlyoutState !== 'closed';
+	useLayoutEffect( () => {
+		if ( docked && dockedSidebarRef.current ) dockedSidebarRef.current.scrollTop = 0;
+		if ( sidebarFlyoutVisible && sidebarFlyoutRef.current ) sidebarFlyoutRef.current.scrollTop = 0;
+	}, [ docked, sidebarFlyoutVisible ] );
 	const hoverEnter = useCallback( () => {
 		clearHoverTimer();
 		if ( ! open && ! peek && performance.now() >= hoverBlockedUntil.current ) {
@@ -135,8 +138,6 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 	}, [ clearHoverTimer, peek ] );
 	const toggleSidebar = useCallback( () => {
 		setInstantSidebarDock( peek && ! overlay );
-		if ( peek && ! overlay )
-			sidebarFlyoutScrollTop.current = sidebarFlyoutRef.current?.scrollTop ?? 0;
 		hoverBlockedUntil.current = performance.now() + HOVER_CLOSE_DELAY_MS;
 		clearHoverTimer();
 		if ( overlay ) {

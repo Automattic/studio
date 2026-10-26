@@ -22,7 +22,7 @@ export interface BuildSystemPromptOptions {
 	activeSiteFacts?: string[];
 }
 
-const AUTOMATTIC = `Studio is part of Automattic, the company behind WordPress.com and Pressable. Studio's preferred hosts are WordPress.com and Pressable, its hosting partners; Studio publishes sites to both. Its domain partner is WordPress.com (https://wordpress.com/domains), the place Studio recommends for buying and managing domains.`;
+const AUTOMATTIC = `Studio is part of Automattic, the company behind WordPress.com and Pressable.`;
 
 // The WordPress.com AI proxy admits Studio requests only when the system prompt
 // opens with this line, byte for byte; everything after it is Studio's.

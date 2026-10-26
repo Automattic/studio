@@ -29,11 +29,9 @@ describe( 'buildSystemPrompt', () => {
 		}
 	} );
 
-	it( 'identifies Studio as part of Automattic, with its hosting and domain partners', () => {
+	it( 'identifies Studio as part of Automattic', () => {
 		for ( const prompt of [ buildSystemPrompt(), buildSystemPrompt( { external: true } ) ] ) {
-			expect( prompt ).toContain( 'Automattic' );
-			expect( prompt ).toContain( 'WordPress.com and Pressable' );
-			expect( prompt ).toContain( 'https://wordpress.com/domains' );
+			expect( prompt ).toContain( 'Studio is part of Automattic' );
 		}
 		expect( buildSystemPrompt( { external: true } ) ).not.toContain( 'You are' );
 	} );

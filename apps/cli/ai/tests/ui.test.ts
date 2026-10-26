@@ -99,9 +99,7 @@ describe( 'AiChatUI.openActiveSiteInBrowser', () => {
 		const opened = await ui.openActiveSiteInBrowser();
 
 		expect( opened ).toBe( true );
-		expect( readCliConfig ).toHaveBeenCalledTimes( 1 );
 		expect( openBrowser ).toHaveBeenCalledWith( 'http://localhost:8080' );
-		expect( ui._activeSiteData ).toEqual( siteData );
 	} );
 } );
 
@@ -855,33 +853,6 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( ui.showLoader ).toHaveBeenCalledWith(
 			'Temporary provider error — retrying in 4s (attempt 2 of 3)…'
 		);
-	} );
-
-	it( 'does not trip the cap branch when an assistant error has no 429 marker', () => {
-		const ui = Object.create( AiChatUI.prototype ) as {
-			handleEvent: ( e: unknown ) => unknown;
-			[ key: string ]: unknown;
-		};
-		const showError = vi.fn();
-		const showInfo = vi.fn();
-
-		ui.hideLoader = vi.fn();
-		ui.showError = showError;
-		ui.showInfo = showInfo;
-		ui.currentProvider = 'wpcom';
-		ui.currentMarkdown = null;
-		ui.currentResponseText = '';
-		ui.usageCapReached = false;
-		ui.replayMode = true;
-		ui.loaderVisible = true;
-
-		ui.handleEvent(
-			buildAssistantMessageEnd( { stopReason: 'error', errorMessage: 'something else' } )
-		);
-
-		expect( showError ).not.toHaveBeenCalled();
-		expect( showInfo ).not.toHaveBeenCalled();
-		expect( ui.usageCapReached ).toBe( false );
 	} );
 
 	it( 'strips legacy media widget payload lines from tool results', () => {

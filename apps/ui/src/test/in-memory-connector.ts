@@ -311,13 +311,6 @@ export function createInMemoryConnector(
 		} ),
 		getInstalledApps: async () => installedApps(),
 		getAppGlobals: async () => ( { platform: 'darwin', isWindowsStore: false } ),
-		fetchSiteRest: async () => ( {
-			status: 200,
-			statusText: 'OK',
-			headers: {},
-			body: '',
-			url: '',
-		} ),
 		openSiteFolder: async () => {},
 		openSiteInEditor: async () => {},
 		openSiteInTerminal: async () => {},

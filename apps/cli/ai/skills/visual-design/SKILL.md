@@ -1,12 +1,10 @@
 ---
 name: visual-design
-description: Plan and execute high-quality visual direction for site creation, redesign, layout, typography, color, motion, and visual polish.
+description: Choose a site's look and layout concept from Studio's design catalogs, present them as options with pick_design and present_design_options, and write the look as the theme's theme.json.
 tools: pick_design, present_design_options
 ---
 
 # Visual Design
-
-Use this skill before creating or redesigning a site, landing page, homepage, layout, style system, typography, color palette, animation system, or other visual polish.
 
 ## Concept and Direction
 

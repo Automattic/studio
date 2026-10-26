@@ -4,7 +4,8 @@
  * Email a site sends is saved, unchanged, as an `.eml` file in that site's email
  * folder, whether a page request sends it (WordPress's lost-password form) or WP-CLI
  * does. `site status` names the folder, and deleting the site removes it. An email
- * that can't be saved makes `wp_mail()` fail instead of vanishing.
+ * that can't be saved is reported on stderr, and makes `wp_mail()` fail except on
+ * Windows, where PHP ignores the exit code.
  *
  * Needs the CLI built first (skips otherwise). Tagged `e2e`:
  * `npm test -- --tagsFilter='e2e'`.
@@ -136,7 +137,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: site email', () => {
 	);
 
 	it(
-		'makes wp_mail fail, with the reason on stderr, when the email cannot be saved',
+		'says why on stderr when the email cannot be saved, and wp_mail fails where PHP allows',
 		{ tags: [ 'e2e' ], timeout: 120_000 },
 		async () => {
 			const { directory } = await emailOf( sitePath );
@@ -158,7 +159,12 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: site email', () => {
 				expect( {
 					stdout: sent.stdout.trim(),
 					stderr: sent.stderr.includes( 'Studio could not save the email' ),
-				} ).toEqual( { stdout: 'FAILED', stderr: true } );
+				} ).toEqual( {
+					// PHP on Windows ignores the sendmail program's exit code (ext/standard/mail.c),
+					// so there `mail()` reports success; the reason still reaches stderr.
+					stdout: process.platform === 'win32' ? 'SENT' : 'FAILED',
+					stderr: true,
+				} );
 			} finally {
 				fs.rmSync( directory );
 				fs.renameSync( saved, directory );

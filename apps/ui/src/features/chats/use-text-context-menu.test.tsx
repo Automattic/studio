@@ -1,18 +1,15 @@
-import { fireEvent, render, waitFor } from '@testing-library/react';
+import { fireEvent, render as renderElement, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ConnectorProvider } from '@/data/core';
 import { watchComposerTextQuote } from '@/features/chats/composer-text-quote';
+import { createFakeConnector, type FakeConnector } from '@/test/fake-connector';
 import {
 	CODE_TEXT_ATTRIBUTE,
 	MESSAGE_TEXT_ATTRIBUTE,
 	QUOTABLE_TEXT_ATTRIBUTE,
 	useTextContextMenu,
 } from './use-text-context-menu';
-
-const showTextContextMenu = vi.fn().mockResolvedValue( undefined );
-
-vi.mock( '@/data/core', () => ( {
-	useConnector: () => ( { showTextContextMenu } ),
-} ) );
+import type { ReactElement } from 'react';
 
 function Harness() {
 	useTextContextMenu();
@@ -54,9 +51,13 @@ function selectWithin( selected: Node | null, text = 'whole' ) {
 }
 
 describe( 'useTextContextMenu', () => {
+	let connector: FakeConnector;
+	const render = ( ui: ReactElement ) =>
+		renderElement( <ConnectorProvider connector={ connector }>{ ui }</ConnectorProvider> );
+
 	beforeEach( () => {
 		vi.restoreAllMocks();
-		showTextContextMenu.mockReset().mockResolvedValue( undefined );
+		connector = createFakeConnector();
 		selectWithin( null );
 	} );
 
@@ -65,7 +66,7 @@ describe( 'useTextContextMenu', () => {
 
 		fireEvent.contextMenu( getByTestId( 'message-paragraph' ) );
 
-		expect( showTextContextMenu ).toHaveBeenCalledWith( {
+		expect( connector.showTextContextMenu ).toHaveBeenCalledWith( {
 			selectionText: '',
 			isEditable: false,
 			messageText: 'The whole reply.',
@@ -77,7 +78,7 @@ describe( 'useTextContextMenu', () => {
 
 		fireEvent.contextMenu( getByTestId( 'menu-item' ) );
 
-		expect( showTextContextMenu ).not.toHaveBeenCalled();
+		expect( connector.showTextContextMenu ).not.toHaveBeenCalled();
 	} );
 
 	it( 'reports the code block and whole message when right-clicking rendered code', () => {
@@ -85,7 +86,7 @@ describe( 'useTextContextMenu', () => {
 
 		fireEvent.contextMenu( getByTestId( 'message-code' ) );
 
-		expect( showTextContextMenu ).toHaveBeenCalledWith( {
+		expect( connector.showTextContextMenu ).toHaveBeenCalledWith( {
 			selectionText: '',
 			isEditable: false,
 			messageText: 'The whole reply.',
@@ -99,7 +100,7 @@ describe( 'useTextContextMenu', () => {
 
 		fireEvent.contextMenu( getByTestId( 'menu-item' ) );
 
-		expect( showTextContextMenu ).not.toHaveBeenCalled();
+		expect( connector.showTextContextMenu ).not.toHaveBeenCalled();
 	} );
 
 	it( 'offers Copy for a selection the pointer is inside, even outside a message', () => {
@@ -109,7 +110,7 @@ describe( 'useTextContextMenu', () => {
 
 		fireEvent.contextMenu( toolOutput );
 
-		expect( showTextContextMenu ).toHaveBeenCalledWith( {
+		expect( connector.showTextContextMenu ).toHaveBeenCalledWith( {
 			selectionText: 'wp plugin list',
 			isEditable: false,
 			messageText: undefined,
@@ -123,7 +124,7 @@ describe( 'useTextContextMenu', () => {
 
 		fireEvent.contextMenu( messageParagraph );
 
-		expect( showTextContextMenu ).toHaveBeenCalledWith( {
+		expect( connector.showTextContextMenu ).toHaveBeenCalledWith( {
 			selectionText: 'The whole reply.',
 			isEditable: false,
 			messageText: 'The whole reply.',
@@ -138,7 +139,7 @@ describe( 'useTextContextMenu', () => {
 
 		fireEvent.contextMenu( userMessage );
 
-		expect( showTextContextMenu ).toHaveBeenCalledWith( {
+		expect( connector.showTextContextMenu ).toHaveBeenCalledWith( {
 			selectionText: 'My question.',
 			isEditable: false,
 			messageText: 'My question.',
@@ -150,7 +151,7 @@ describe( 'useTextContextMenu', () => {
 
 		fireEvent.contextMenu( getByTestId( 'field' ) );
 
-		expect( showTextContextMenu ).toHaveBeenCalledWith( {
+		expect( connector.showTextContextMenu ).toHaveBeenCalledWith( {
 			selectionText: '',
 			isEditable: true,
 			messageText: undefined,
@@ -162,7 +163,7 @@ describe( 'useTextContextMenu', () => {
 
 		fireEvent.contextMenu( getByTestId( 'editable' ) );
 
-		expect( showTextContextMenu ).toHaveBeenCalledWith( {
+		expect( connector.showTextContextMenu ).toHaveBeenCalledWith( {
 			selectionText: '',
 			isEditable: true,
 			messageText: undefined,
@@ -177,7 +178,7 @@ describe( 'useTextContextMenu', () => {
 
 		fireEvent.contextMenu( field );
 
-		expect( showTextContextMenu ).toHaveBeenCalledWith( {
+		expect( connector.showTextContextMenu ).toHaveBeenCalledWith( {
 			selectionText: 'this',
 			isEditable: true,
 			messageText: undefined,
@@ -192,7 +193,7 @@ describe( 'useTextContextMenu', () => {
 
 		fireEvent.contextMenu( field );
 
-		expect( showTextContextMenu ).toHaveBeenCalledWith( {
+		expect( connector.showTextContextMenu ).toHaveBeenCalledWith( {
 			selectionText: 'Read-only',
 			isEditable: false,
 			messageText: undefined,
@@ -204,13 +205,13 @@ describe( 'useTextContextMenu', () => {
 
 		fireEvent.contextMenu( getByTestId( 'checkbox' ) );
 
-		expect( showTextContextMenu ).not.toHaveBeenCalled();
+		expect( connector.showTextContextMenu ).not.toHaveBeenCalled();
 	} );
 
 	it( 'routes a native Quote action back to the composer', async () => {
 		const quoteListener = vi.fn();
 		const stopWatching = watchComposerTextQuote( quoteListener );
-		showTextContextMenu.mockResolvedValueOnce( {
+		connector.showTextContextMenu.mockResolvedValueOnce( {
 			action: 'quote-selection',
 			selectionText: 'The selected reply.',
 		} );

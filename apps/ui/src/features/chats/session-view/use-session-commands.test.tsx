@@ -1,64 +1,42 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useConnector } from '@/data/core';
+import { act, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
 import { SessionUIProvider, useSessionPreviewUI } from '@/data/use-session-ui';
+import { renderWithProviders } from '@/test/render';
 import { useSessionCommands } from './use-session-commands';
-import type { AgentRunEvent, Connector } from '@/data/core';
-import type { ReactNode } from 'react';
-
-vi.mock( '@/data/core', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('@/data/core') >();
-	return {
-		...actual,
-		useConnector: vi.fn(),
-	};
-} );
-
-const useConnectorMock = vi.mocked( useConnector );
+import type { AgentRunEvent } from '@/data/core';
 
 function Harness( { sessionId }: { sessionId: string } ) {
 	useSessionCommands( sessionId );
 	const preview = useSessionPreviewUI();
-	return (
-		<>
-			<span data-testid="nonce">{ preview.reloadNonce }</span>
-		</>
-	);
+	return <span data-testid="nonce">{ preview.reloadNonce }</span>;
 }
 
 describe( 'useSessionCommands preview reloads', () => {
-	let agentListener: ( event: AgentRunEvent ) => void;
-
-	beforeEach( () => {
-		useConnectorMock.mockReturnValue( {
-			onAgentEvent: vi.fn( ( listener ) => {
-				agentListener = listener;
-				return vi.fn();
-			} ),
-			onToggleSitePreview: vi.fn( () => vi.fn() ),
-		} as unknown as Connector );
-	} );
-
-	afterEach( () => {
-		vi.clearAllMocks();
-	} );
-
-	function renderHarness( sessionId = 'session-1' ) {
-		return render( <Harness sessionId={ sessionId } />, {
-			wrapper: ( { children }: { children: ReactNode } ) => (
-				<SessionUIProvider>{ children }</SessionUIProvider>
-			),
-		} );
+	async function renderHarness( sessionId = 'session-1' ) {
+		const view = renderWithProviders(
+			<SessionUIProvider>
+				<Harness sessionId={ sessionId } />
+			</SessionUIProvider>
+		);
+		await screen.findByTestId( 'nonce' );
+		await waitFor( () =>
+			expect( view.connector.listenerCount( 'onAgentEvent' ) ).toBeGreaterThan( 0 )
+		);
+		const send = ( session: string, event: AgentRunEvent[ 'event' ] ) =>
+			act( () =>
+				view.connector.emit( 'onAgentEvent', {
+					runId: 'run-1',
+					sessionId: session,
+					event,
+				} as AgentRunEvent )
+			);
+		return { send };
 	}
 
-	function send( sessionId: string, event: AgentRunEvent[ 'event' ] ) {
-		act( () => agentListener( { runId: 'run-1', sessionId, event } as AgentRunEvent ) );
-	}
 	const nonce = () => Number( screen.getByTestId( 'nonce' ).textContent );
 
 	it( 'reloads the preview only when the agent asks for it, not when a run ends', async () => {
-		renderHarness();
-		await waitFor( () => expect( agentListener ).toBeDefined() );
+		const { send } = await renderHarness();
 		const before = nonce();
 
 		send( 'session-1', { type: 'run.started', timestamp: '2026-07-01T00:00:00.000Z' } );
@@ -75,8 +53,7 @@ describe( 'useSessionCommands preview reloads', () => {
 	} );
 
 	it( 'ignores other sessions', async () => {
-		renderHarness( 'session-1' );
-		await waitFor( () => expect( agentListener ).toBeDefined() );
+		const { send } = await renderHarness( 'session-1' );
 		const before = nonce();
 
 		send( 'session-2', { type: 'preview.reload', timestamp: '2026-07-01T00:00:00.000Z' } );

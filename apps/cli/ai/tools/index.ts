@@ -1,5 +1,6 @@
 import { emitChatArtifactWidgets } from 'cli/ai/chat-artifacts';
 import { createPreviewTool } from './create-preview';
+import { convertToBlocksTool } from './convert-to-blocks';
 import { createSiteTool } from './create-site';
 import { deletePreviewTool } from './delete-preview';
 import { deleteSiteTool } from './delete-site';
@@ -37,6 +38,7 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	updatePreviewTool,
 	deletePreviewTool,
 	runWpCliTool,
+	convertToBlocksTool,
 	takeScreenshotTool,
 	generateImagesTool,
 	installTaxonomyScriptsTool,

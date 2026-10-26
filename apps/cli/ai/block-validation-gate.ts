@@ -312,7 +312,7 @@ export async function validateBlockMarkup(
 		return {
 			summary: `${ label }: core/html policy failed`,
 			problem: [
-				`${ label }: ${ policy.invalidHtmlBlocks.length } core/html block(s) must become editable blocks:`,
+				`${ label }: ${ policy.invalidHtmlBlocks.length } core/html block(s) must become editable blocks, which convert_to_blocks makes them:`,
 				...policy.invalidHtmlBlocks.map(
 					( block ) => `  - line ${ block.line }: ${ block.issues[ 0 ] }`
 				),

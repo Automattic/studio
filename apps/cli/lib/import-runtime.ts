@@ -6,6 +6,7 @@ import path from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { pathToFileURL } from 'node:url';
+import { extractZip } from '@studio/common/lib/extract-zip';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import * as tar from 'tar';
 
@@ -51,6 +52,8 @@ export type CaptureEngine = {
 const DATA_LIBERATION_REPO = 'Automattic/data-liberation-agent';
 const STATIC_SITE_IMPORTER_REPO = 'Automattic/static-site-importer';
 const STATIC_SITE_IMPORTER_ASSET = 'static-site-importer-html-site-import.zip';
+const BLOCKS_ENGINE_REPO = 'Automattic/blocks-engine';
+const PHP_TRANSFORMER_ASSET = 'php-transformer.zip';
 const RELEASE_CACHE_MS = 5 * 60 * 1000;
 const MAX_ASSET_BYTES = 200 * 1024 * 1024;
 
@@ -139,7 +142,8 @@ export async function resolveLatestReleaseAsset(
 		draft?: boolean;
 		assets?: Array< { name?: string; browser_download_url?: string; digest?: string | null } >;
 	};
-	const version = ( release.tag_name ?? '' ).replace( /^v/, '' );
+	// A repository releasing several packages names the package in the tag: `php-transformer-v0.44.179`.
+	const version = ( release.tag_name ?? '' ).replace( /^(?:[a-z][a-z-]*-)?v/, '' );
 	if ( ! /^\d+\.\d+\.\d+$/.test( version ) || release.prerelease || release.draft ) {
 		throw new Error( `${ repo } has no stable release.` );
 	}
@@ -373,6 +377,38 @@ export async function resolveStaticSiteImporterPlugin(): Promise< {
 		await downloadVerifiedAsset( asset, zipPath );
 	}
 	return { path: zipPath, version: asset.version };
+}
+
+/**
+ * The newest Blocks Engine PHP transformer, installed once per version. Returns
+ * its bootstrap file, which a site's PHP requires to run the transformer with
+ * that site's WordPress loaded.
+ */
+export async function resolvePhpTransformer(): Promise< { bootstrap: string; version: string } > {
+	const asset = await resolveLatestReleaseAsset(
+		BLOCKS_ENGINE_REPO,
+		( name ) => name === PHP_TRANSFORMER_ASSET
+	);
+	const root = path.join( runtimeDirectory(), 'php-transformer', asset.version );
+	const bootstrapOf = ( directory: string ) =>
+		path.join( directory, 'php-transformer', 'php-transformer.php' );
+	const isComplete = ( directory: string ) => fs.existsSync( bootstrapOf( directory ) );
+	if ( ! isComplete( root ) ) {
+		const staging = `${ root }.staging-${ uniqueSuffix() }`;
+		const archive = `${ staging }.zip`;
+		try {
+			await downloadVerifiedAsset( asset, archive );
+			await extractZip( archive, staging );
+			if ( ! isComplete( staging ) ) {
+				throw new Error( `Blocks Engine ${ asset.version } is missing its PHP transformer.` );
+			}
+			publishStagedInstall( staging, root, isComplete );
+		} finally {
+			fs.rmSync( staging, { recursive: true, force: true } );
+			fs.rmSync( archive, { force: true } );
+		}
+	}
+	return { bootstrap: bootstrapOf( root ), version: asset.version };
 }
 
 export function resetImportRuntimeCacheForTests(): void {

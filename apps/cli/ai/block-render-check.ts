@@ -133,7 +133,7 @@ const FILE = 'file ';
 
 // The posts the front end renders, and the active theme's template, template
 // part and pattern files, by modification time and size.
-async function readRenderedVersions( sitePath: string ): Promise< Versions > {
+export async function readRenderedVersions( sitePath: string ): Promise< Versions > {
 	const themes = await readWordPressSite( sitePath, ( site ) => [
 		...new Set( [ site.option( 'template' ), site.option( 'stylesheet' ) ] ),
 	] );

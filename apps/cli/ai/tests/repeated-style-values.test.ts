@@ -103,6 +103,28 @@ describe.runIf( WORDPRESS )( 'repeatedStyleValueNotes', () => {
 		expect( note ).not.toContain( 'Spacing size presets' );
 	} );
 
+	it( "names the presets of the file's theme, active or not", async () => {
+		// The theme being built while Twenty Twenty-Five is still active.
+		await write( 'wp-content/themes/studio-test-ember/style.css', '/*\nTheme Name: Ember\n*/' );
+		await write(
+			'wp-content/themes/studio-test-ember/theme.json',
+			JSON.stringify( {
+				version: 3,
+				settings: {
+					typography: {
+						defaultFontSizes: false,
+						fontSizes: [ { slug: 'ember-small', size: '13px', name: 'Small' } ],
+					},
+				},
+			} )
+		);
+		const [ note ] = await write(
+			'wp-content/themes/studio-test-ember/templates/front-page.html',
+			times( 3, small )
+		);
+		expect( note ).toContain( 'taken as "fontSize":"<slug>": ember-small 13px.' );
+	}, 60000 );
+
 	it( 'says when the site has no presets of a kind', async () => {
 		await write( 'wp-content/themes/plain/style.css', '/*\nTheme Name: Plain\n*/' );
 		await write( 'wp-content/themes/plain/templates/index.html', '' );

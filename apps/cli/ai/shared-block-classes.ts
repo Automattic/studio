@@ -138,7 +138,9 @@ export function createSharedBlockClassNotes(): ( siteFile: SiteFile ) => Promise
 			) ),
 		];
 		const counts = blockClassCounts( ( await markup() ).map( ( item ) => item.content ) );
-		const presets = await readWordPressSite( siteRoot, themePresets );
+		const presets = await readWordPressSite( siteRoot, ( site ) =>
+			themePresets( site, theme.slug )
+		);
 		if ( ! presets ) {
 			return [];
 		}

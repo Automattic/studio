@@ -98,7 +98,10 @@ export async function repeatedStyleValueNotes( siteFile: SiteFile ): Promise< st
 	if ( ! repeated.length ) {
 		return [];
 	}
-	const presets = await readWordPressSite( siteFile.siteRoot, themePresets );
+	// The presets the file renders with: its theme's, or the active theme's.
+	const presets = await readWordPressSite( siteFile.siteRoot, ( site ) =>
+		themePresets( site, siteFile.theme?.slug )
+	);
 	const kinds = STYLES.map( ( style ) => ( {
 		...style,
 		values: repeated.filter( ( value ) => style.path.test( value.path ) ),

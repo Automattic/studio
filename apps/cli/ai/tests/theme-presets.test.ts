@@ -3,9 +3,9 @@ import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readWordPressSite } from 'cli/ai/site-database';
-import { createSite } from 'cli/ai/tests/fixtures/wordpress-site';
 import { resolveSiteFile } from 'cli/ai/site-file-guards';
-import { shadowedPresetNotes, themePresetsFact } from 'cli/ai/theme-presets';
+import { createSite } from 'cli/ai/tests/fixtures/wordpress-site';
+import { shadowedPresetNotes, themePresets, themePresetsFact } from 'cli/ai/theme-presets';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 
 vi.mock( 'cli/lib/daemon-client', () => ( {
@@ -113,6 +113,35 @@ describe( 'the theme presets fact', () => {
 		change();
 		await presetsOf( fixture.root );
 		expect( runWpCliCommand ).toHaveBeenCalledTimes( again ? 2 : 1 );
+	} );
+
+	it( 'keeps the presets of a theme previewed apart from those of the active one', async () => {
+		const previewed = () =>
+			readWordPressSite( fixture.root, ( site ) => themePresets( site, 'twentytwentyfive' ) );
+		await presetsOf( fixture.root );
+		await previewed();
+		await presetsOf( fixture.root );
+		await previewed();
+		// The active child theme's parent is the active presets'.
+		await readWordPressSite( fixture.root, ( site ) => themePresets( site, 'bakery-parent' ) );
+		expect( runWpCliCommand ).toHaveBeenCalledTimes( 2 );
+	} );
+
+	it( "resolves a child theme previewed again when its parent's files change", async () => {
+		fixture.setOptions( { stylesheet: 'twentytwentyfive', template: 'twentytwentyfive' } );
+		writeFileSync(
+			path.join( fixture.root, 'wp-content/themes/bakery/style.css' ),
+			'/*\nTheme Name: Bakery\nTemplate: bakery-parent\n*/'
+		);
+		const previewed = () =>
+			readWordPressSite( fixture.root, ( site ) => themePresets( site, 'bakery' ) );
+		await previewed();
+		writeFileSync(
+			path.join( fixture.root, 'wp-content/themes/bakery-parent/theme.json' ),
+			'{"version":3}'
+		);
+		await previewed();
+		expect( runWpCliCommand ).toHaveBeenCalledTimes( 2 );
 	} );
 
 	it( 'states nothing when WordPress cannot run, and asks it again next time', async () => {
@@ -236,7 +265,7 @@ describe.runIf( WORDPRESS )( 'shadowedPresetNotes', () => {
 		expect( await shadowedPresetNotes( off ) ).toEqual( [] );
 	}, 60000 );
 
-	it( "says nothing of another file, or of a theme.json that is not the active theme's", async () => {
+	it( "says nothing of another file, and names an inactive theme's presets as it renders them once active", async () => {
 		const small = {
 			typography: { fontSizes: [ { slug: 'small', size: '0.875rem', name: 'Small' } ] },
 		};
@@ -246,6 +275,10 @@ describe.runIf( WORDPRESS )( 'shadowedPresetNotes', () => {
 		expect(
 			await shadowedPresetNotes( { ...active, theme: { ...active.theme!, file: 'style.css' } } )
 		).toEqual( [] );
-		expect( await shadowedPresetNotes( themeJson( 'inactive', small ) ) ).toEqual( [] );
+		// As the Site Editor previews a theme, with its own theme.json, not the active one's.
+		const [ inactive, ...rest ] = await shadowedPresetNotes( themeJson( 'inactive', small ) );
+		expect( rest ).toEqual( [] );
+		expect( inactive ).toContain( 'wp-content/themes/inactive/theme.json' );
+		expect( await shadowedPresetNotes( themeJson( 'inactive', {} ) ) ).toEqual( [] );
 	}, 60000 );
 } );

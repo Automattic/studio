@@ -6,16 +6,20 @@
  * `var(--wp--preset--…)` takes.
  *
  * Resolving them runs WordPress, so they are resolved again only when what
- * they are resolved from changes: the active themes' files, the user's Global
+ * they are resolved from changes: the themes' files, the user's Global
  * Styles, the active plugins (which can filter theme.json) and WordPress.
+ *
+ * A theme that is not active is resolved as the Site Editor previews it
+ * (wp-includes/theme-previews.php): with the stylesheet and template filtered
+ * to it, so its files are read with the presets they render with once it is.
  */
 import { readdir, stat } from 'fs/promises';
 import path from 'path';
-import { activeThemes } from 'cli/ai/themes';
+import { readWordPressSite, type WordPressSite } from 'cli/ai/site-database';
+import { activeThemes, readThemeHeader } from 'cli/ai/themes';
 import { resolveSite } from 'cli/ai/tools/utils';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
-import { readWordPressSite, type WordPressSite } from 'cli/ai/site-database';
 import type { SiteFile } from 'cli/ai/site-file-guards';
 
 interface Presets {
@@ -86,6 +90,16 @@ echo wp_json_encode( array(
 ) );
 `;
 
+// The theme previewed in its place, as wp_get_theme_preview_path() gives it.
+const preview = ( theme: string ) => `
+$preview = wp_get_theme( '${ theme.replace( /[\\']/g, '\\$&' ) }' );
+if ( $preview->exists() ) {
+	add_filter( 'stylesheet', function () use ( $preview ) { return $preview->get_stylesheet(); } );
+	add_filter( 'template', function () use ( $preview ) { return $preview->get_template(); } );
+}
+`;
+
+// By site and the theme resolved, '' for the active one.
 const resolved = new Map< string, { inputs: string; presets: Promise< Presets > } >();
 
 async function filesVersion( dir: string ): Promise< string > {
@@ -122,11 +136,14 @@ async function inputsOf( site: WordPressSite, themes: string[] ): Promise< strin
 	] );
 }
 
-async function resolve( root: string ): Promise< Presets > {
+async function resolve( root: string, theme: string | undefined ): Promise< Presets > {
 	const site = await resolveSite( root );
 	try {
 		await connectToDaemon();
-		await using command = await runWpCliCommand( site, [ 'eval', RESOLVE ] );
+		await using command = await runWpCliCommand( site, [
+			'eval',
+			( theme ? preview( theme ) : '' ) + RESOLVE,
+		] );
 		const [ output, exitCode ] = await Promise.all( [
 			command.response.stdoutText,
 			command.response.exitCode,
@@ -163,21 +180,30 @@ function describePresets( presets: Presets ): string[] {
 }
 
 /**
- * The site's presets, as WordPress resolves them, or undefined when it has no
- * active theme or WordPress could not run, in which case they are resolved
- * again next time.
+ * The site's presets, as WordPress resolves them with `theme` active (the
+ * active theme by default), or undefined when there is no such theme or
+ * WordPress could not run, in which case they are resolved again next time.
  */
-export async function themePresets( site: WordPressSite ): Promise< Presets | undefined > {
-	const themes = activeThemes( site );
+export async function themePresets(
+	site: WordPressSite,
+	theme?: string
+): Promise< Presets | undefined > {
+	const active = activeThemes( site );
+	// An active child theme's parent renders with the child's presets merged in.
+	const previewed = theme && ! active.includes( theme ) ? theme : undefined;
+	const parent =
+		previewed && ( await readThemeHeader( site.root, previewed, 'Template' ).catch( () => '' ) );
+	const themes = previewed ? [ ...new Set( [ previewed, parent || previewed ] ) ] : active;
 	if ( ! themes.length ) {
 		return undefined;
 	}
 	const inputs = await inputsOf( site, themes );
-	let entry = resolved.get( site.root );
+	const key = `${ site.root }\0${ previewed ?? '' }`;
+	let entry = resolved.get( key );
 	if ( entry?.inputs !== inputs ) {
-		entry = { inputs, presets: resolve( site.root ) };
-		resolved.set( site.root, entry );
-		entry.presets.catch( () => resolved.delete( site.root ) );
+		entry = { inputs, presets: resolve( site.root, previewed ) };
+		resolved.set( key, entry );
+		entry.presets.catch( () => resolved.delete( key ) );
 	}
 	return entry.presets.catch( () => undefined );
 }
@@ -192,9 +218,8 @@ export async function shadowedPresetNotes( siteFile: SiteFile ): Promise< string
 		return [];
 	}
 	const { slug, dir } = siteFile.theme;
-	// The presets are the active theme's, so another theme's file has none of them.
 	const presets = await readWordPressSite( siteFile.siteRoot, ( site ) =>
-		activeThemes( site ).includes( slug ) ? themePresets( site ) : undefined
+		themePresets( site, slug )
 	);
 	const themeJson = path.join( dir, 'theme.json' );
 	return ( presets?.shadowed ?? [] ).map(

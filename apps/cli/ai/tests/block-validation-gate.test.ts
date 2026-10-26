@@ -123,6 +123,70 @@ describe( 'validating a file', () => {
 		expect( readFileSync( file, 'utf8' ) ).toBe( original );
 	} );
 
+	const GROUP = '<!-- wp:group {"layout":{"type":"constrained"}} -->\n<div class="wp-block-group">';
+	it.each< { name: string; content: string; problems: string[] } >( [
+		{
+			name: 'a block another closer closes',
+			content: `${ GROUP }<!-- wp:paragraph -->\n<p>One</p>\n<!-- wp:heading -->\n<h2 class="wp-block-heading">Two</h2>\n<!-- /wp:heading --></div>\n<!-- /wp:group -->`,
+			problems: [
+				'line 2: core/paragraph has no closer of its own, so the parser closes it at the core/group closer on line 7',
+			],
+		},
+		{
+			name: 'a block inside groups in a group',
+			content: `${ GROUP }${ GROUP }<!-- wp:paragraph -->\n<p>a</p></div>\n<!-- /wp:group --></div>\n<!-- /wp:group -->`,
+			problems: [
+				'line 3: core/paragraph has no closer of its own, so the parser closes it at the core/group closer on line 5',
+			],
+		},
+		{
+			name: 'a closer that names no open block',
+			content: `${ GROUP }<!-- wp:paragraph -->\n<p>a</p>\n<!-- /wp:heading --></div>\n<!-- /wp:group -->`,
+			problems: [
+				'line 2: core/paragraph has no closer of its own, so the parser closes it at the core/heading closer on line 4',
+			],
+		},
+		{
+			name: 'a block never closed',
+			content: '<!-- wp:paragraph -->\n<p>One</p>\n\n<!-- wp:my-plugin/card /-->',
+			problems: [
+				'line 1: core/paragraph is never closed, so the parser gives it the rest of the content',
+			],
+		},
+		{
+			name: 'a namespaced block another closer closes',
+			content:
+				'<!-- wp:columns -->\n<!-- wp:my-plugin/card {"a":"}"} -->\n<p>x</p>\n<!-- /wp:columns -->',
+			problems: [
+				'line 2: my-plugin/card has no closer of its own, so the parser closes it at the core/columns closer on line 4',
+			],
+		},
+	] )(
+		'saves nothing for $name, and names where each block is closed',
+		async ( { content, problems } ) => {
+			const file = write( 'tmp/home.html', content );
+			const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+			expect( result.fixedContent ).toBeUndefined();
+			expect( result.summary ).toBe( `tmp/home.html: ${ problems.length } block(s) not closed` );
+			expect( result.problem?.split( '\n' ).slice( 1 ) ).toEqual(
+				problems.map( ( problem ) => `  - ${ problem }` )
+			);
+			expect( result.problem ).toContain( 'WP_Block_Parser::add_block_from_stack()' );
+			expect( validateBlocks ).not.toHaveBeenCalled();
+		}
+	);
+
+	it( 'validates blocks each closed by its own closer, void blocks and all', async () => {
+		const file = write(
+			'tmp/home.html',
+			`${ GROUP }<!-- wp:spacer {"height":"1px"} /-->\n<!-- wp:paragraph -->\n<p>a</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:group -->`
+		);
+		vi.mocked( validateBlocks ).mockResolvedValue( invalidWithFix( fixed ) );
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+		expect( result.fixedContent ).toBe( fixed );
+		expect( validateBlocks ).toHaveBeenCalled();
+	} );
+
 	it( 'validates and fixes the blocks beside a core/html block the policy fails', async () => {
 		const html =
 			'<!-- wp:html -->\n<div class="faq"><details><summary>Hours?</summary><p>9 to 5.</p></details></div>\n<!-- /wp:html -->';
@@ -379,7 +443,7 @@ describe( 'validating a file', () => {
 
 	it( 'shows what the editor inserts for the blocks an unfixable block holds', async () => {
 		const written =
-			'<div class="wp-block-group"><!-- wp:jetpack/contact-form --><!-- wp:jetpack/field-name /--></div>';
+			'<div class="wp-block-group"><!-- wp:jetpack/contact-form --><!-- wp:jetpack/field-name /--><!-- /wp:jetpack/contact-form --></div>';
 		const file = write( 'tmp/home.html', `<!-- wp:group -->${ written }<!-- /wp:group -->` );
 		vi.mocked( validateBlocks ).mockResolvedValue( {
 			totalBlocks: 2,

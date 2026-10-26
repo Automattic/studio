@@ -119,7 +119,7 @@ it( 'reports the block validation of post content the call changed, on any site'
 	expect( result.content.map( ( part ) => ( part.type === 'text' ? part.text : '' ) ) ).toEqual( [
 		'Success: Updated post 9.',
 		expect.stringMatching(
-			/^<studio-notes>\nBlock validation: Bakery page 9 "": 1\/1 blocks valid; core\/html policy failed\nBakery page 9 "": 1 core\/html block\(s\) must become editable blocks/
+			/^<studio-notes>\nBlock validation: Bakery page 9 "": 1\/1 blocks valid; core\/html policy failed\nBakery page 9 "": 1 core\/html block\(s\) hold markup the editor shows as raw HTML/
 		),
 	] );
 

@@ -1,5 +1,6 @@
 import { mkdirSync, rmSync, writeFileSync } from 'fs';
 import path from 'path';
+import { afterAll, describe, expect, it } from 'vitest';
 import {
 	bindNavigationLinks,
 	blocksSavingElements,
@@ -10,7 +11,6 @@ import {
 	validateBlocks,
 } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
-import { afterAll, describe, expect, it } from 'vitest';
 
 // Runs the site's own block editor, so it needs a running WordPress site:
 // STUDIO_BLOCK_EDITOR_URL=http://localhost:8881 npx vitest run block-validator
@@ -415,7 +415,7 @@ describe.runIf( siteUrl )( 'storing palette colors as presets (live)', () => {
 		expect( result.content ).toContain( 'has-base-color has-accent-3-background-color' );
 		expect( result.content ).toContain( 'background-color:#123456' );
 		expect( ( await validateBlocks( result.content, siteUrl! ) ).invalidBlocks ).toBe( 0 );
-	} );
+	}, 60_000 );
 
 	it( 'stores a font size only on a block that has a font size, and leaves no empty style', async () => {
 		const fontSizes: Array< [ string, string ] > = [ [ 'roast', '1.4rem' ] ];
@@ -438,7 +438,7 @@ describe.runIf( siteUrl )( 'storing palette colors as presets (live)', () => {
 			fontSizes: [],
 			spacingSizes: [],
 		} );
-	} );
+	}, 60_000 );
 
 	it( 'leaves no empty style behind', async () => {
 		const markup = paragraph(
@@ -688,7 +688,7 @@ describe.runIf( siteUrl )( 'storing palette colors as presets (live)', () => {
 		expect( report.results[ 1 ].issues[ 0 ] ).toBe(
 			"nope/form is not registered on the site, so the editor shows it as an unsupported block. No nope/ blocks are registered in the site's block editor."
 		);
-	} );
+	}, 60_000 );
 
 	it( 'loads the editor again for a block registered since it loaded', async () => {
 		// As a block of a plugin activated after the editor loaded.

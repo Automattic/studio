@@ -127,7 +127,9 @@ describe( 'post content changes', () => {
 		await check.snapshot();
 		fixture.edit( 9, HTML_ONLY );
 		const { problems } = await check.settle();
-		expect( problems.join( '\n' ) ).toContain( '1 core/html block(s) must become editable blocks' );
+		expect( problems.join( '\n' ) ).toContain(
+			'1 core/html block(s) hold markup the editor shows as raw HTML'
+		);
 		// The editor still validates the rest.
 		expect( validateBlocks ).toHaveBeenCalled();
 	} );

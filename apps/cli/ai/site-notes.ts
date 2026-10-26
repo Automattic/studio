@@ -17,6 +17,7 @@
  * Code and Codex use, fires `result`.
  */
 import path from 'path';
+import { createBlockExampleNotes } from 'cli/ai/block-examples';
 import { createBlockSettingsNotes } from 'cli/ai/block-settings';
 import { repeatedStyleValueNotes } from 'cli/ai/repeated-style-values';
 import { createSharedBlockClassNotes } from 'cli/ai/shared-block-classes';
@@ -119,7 +120,7 @@ function sources( { stated = new Map(), gate }: SiteNotesOptions ): Sources {
 			savedCopyNotes,
 			frontPageTemplateNotes,
 		],
-		result: [ blockSettingsSource(), siteFactsSource( stated ) ],
+		result: [ blockSettingsSource(), createBlockExampleNotes(), siteFactsSource( stated ) ],
 	};
 }
 

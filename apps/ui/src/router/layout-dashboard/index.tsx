@@ -143,11 +143,17 @@ function DashboardLayout() {
 			!! liveUrl ||
 			( previewSite.running && ! previewStopping && preview.revealingSiteId !== previewSite.id ) );
 	const chatHidden = ( preview.chatHidden || !! homeSiteId ) && showPreview;
-	// Opening a chat shows it, the open one included.
+	// Opening a chat shows it, the open one included. Search-only changes
+	// open dialogs over the workspace without changing its layout.
 	const router = useRouter();
 	const { setChatHidden } = preview;
 	useEffect(
-		() => router.subscribe( 'onBeforeNavigate', () => setChatHidden( false ) ),
+		() =>
+			router.subscribe( 'onBeforeNavigate', ( { pathChanged, hrefChanged } ) => {
+				if ( pathChanged || ! hrefChanged ) {
+					setChatHidden( false );
+				}
+			} ),
 		[ router, setChatHidden ]
 	);
 	// The notes go to the chat beside the preview, or to a new one for the site.

@@ -370,7 +370,7 @@ describe( 'site checks', () => {
 		);
 	} );
 
-	test( 'ownThemeWithFontsAndScreenshot', () => {
+	describe( 'siteHasItsOwnDesign', () => {
 		const site = {
 			...workingSite,
 			theme: { stylesheet: 'eval-theme' },
@@ -380,16 +380,76 @@ describe( 'site checks', () => {
 			themeFileList: [ 'assets/fonts/inter.woff2' ],
 			themeScreenshot: 'png:1200x900',
 		};
-		expect( run( checks.ownThemeWithFontsAndScreenshot, outcome( site ) ).pass ).toBe( true );
-		expect(
-			run(
-				checks.ownThemeWithFontsAndScreenshot,
-				outcome( { ...site, theme: { stylesheet: 'twentytwentyfive' } } )
-			).pass
-		).toBe( false );
-		expect(
-			run( checks.ownThemeWithFontsAndScreenshot, outcome( { ...site, themeFileList: [] } ) ).pass
-		).toBe( false );
+		const tt5 = {
+			...workingSite,
+			url: 'http://localhost:8890',
+			theme: { stylesheet: 'twentytwentyfive' },
+		};
+		const part = { type: 'wp_template_part', slug: 'header', content: '' };
+		const font = ( src ) => ( {
+			settings: {
+				typography: { fontFamilies: { custom: [ { fontFace: [ { src: [ src ] } ] } ] } },
+			},
+		} );
+		test.each( [
+			{ name: 'its own theme', site, pass: true },
+			{
+				name: 'its own theme with no fonts',
+				site: { ...site, themeFiles: { 'theme.json': '{}' } },
+				pass: false,
+			},
+			{
+				name: 'its own theme without its fonts',
+				site: { ...site, themeFileList: [] },
+				pass: false,
+			},
+			{
+				name: 'its own theme without a screenshot',
+				site: { ...site, themeScreenshot: undefined },
+				pass: false,
+			},
+			{ name: 'the installed theme as released', site: tt5, pass: false },
+			{ name: 'a template part saved for it', site: { ...tt5, content: [ part ] }, pass: true },
+			{
+				name: 'a template saved for it',
+				site: { ...tt5, content: [ { ...part, type: 'wp_template', slug: 'page' } ] },
+				pass: true,
+			},
+			{
+				name: 'a page only',
+				site: { ...tt5, content: [ { ...part, type: 'page' } ] },
+				pass: false,
+			},
+			{
+				name: 'its Global Styles',
+				site: { ...tt5, userGlobalStyles: { styles: { color: { background: '#111' } } } },
+				pass: true,
+			},
+			{
+				name: 'Global Styles with a font the site serves',
+				site: {
+					...tt5,
+					userGlobalStyles: {
+						styles: { color: {} },
+						...font( 'http://localhost:8890/wp-content/uploads/fonts/a.woff2' ),
+					},
+				},
+				pass: true,
+			},
+			{
+				name: 'Global Styles with a font from another host',
+				site: {
+					...tt5,
+					userGlobalStyles: {
+						styles: { color: {} },
+						...font( 'https://fonts.gstatic.com/a.woff2' ),
+					},
+				},
+				pass: false,
+			},
+		] )( '$name', ( { site: s, pass } ) => {
+			expect( run( checks.siteHasItsOwnDesign, outcome( s ) ).pass ).toBe( pass );
+		} );
 	} );
 
 	test( 'navAnchorsWorkEverywhere', () => {

@@ -15,6 +15,7 @@ import { blockTheme } from 'cli/ai/block-theme';
 import { childThemeCopies } from 'cli/ai/child-theme-copies';
 import { postContentChanges } from 'cli/ai/post-content-check';
 import { postCopies } from 'cli/ai/post-copies';
+import { sectionLinks } from 'cli/ai/section-links';
 import { siteFileWrites } from 'cli/ai/site-file-writes';
 import { templatePartAreas } from 'cli/ai/template-part-areas';
 import { themeErrors } from 'cli/ai/theme-errors';
@@ -67,6 +68,7 @@ const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
 	postContentChanges,
 	// After postContentChanges, which may save the editor's save of a post.
 	renderedBlocks,
+	sectionLinks,
 	updatableThemeChanges,
 	childThemeCopies,
 	blockTheme,

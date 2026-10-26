@@ -201,7 +201,7 @@ async function htmlPolicyProblem(
 		return undefined;
 	}
 	return [
-		`${ label }: ${ invalidHtmlBlocks.length } core/html block(s) must become editable blocks, which convert_to_blocks makes them:`,
+		`${ label }: ${ invalidHtmlBlocks.length } core/html block(s) hold markup the editor shows as raw HTML, which convert_to_blocks saves as editable blocks:`,
 		...invalidHtmlBlocks.map( ( block ) => `  - line ${ block.line }: ${ block.issues[ 0 ] }` ),
 		...( await describeSavingBlocks(
 			invalidHtmlBlocks.map( ( block ) => block.content ).join( '\n' ),
@@ -350,12 +350,72 @@ export async function validateBlockMarkupFile(
  * against the core/html policy. A lossless editor fix is returned for the
  * caller to save where the markup lives, whatever the policy finds.
  */
+// A block delimiter as WordPress's block parser reads one: its closer slash,
+// namespace, name, attributes and void slash (the tokenizer of
+// @wordpress/block-serialization-default-parser, as WP_Block_Parser::next_token()).
+const DELIMITER =
+	/<!--\s+(\/)?wp:([a-z][a-z0-9_-]*\/)?([a-z][a-z0-9_-]*)\s+({(?:(?=([^}]+|}+(?=})|(?!}\s+\/?-->)[^]))\5)*?}\s+)?(\/)?-->/g;
+
+/**
+ * The blocks WordPress's block parser does not close with their own closer. It
+ * closes the innermost open block at any closer, whatever its name, and at the
+ * end of the content gives each block still open the rest of the content
+ * (WP_Block_Parser::add_block_from_stack()), so the page renders that rest once
+ * for each, and the editor saves it so.
+ */
+function unclosedBlocks( content: string ): string[] {
+	const lineAt = ( offset: number ) => content.slice( 0, offset ).split( '\n' ).length;
+	const open: { name: string; line: number }[] = [];
+	const problems: string[] = [];
+	for ( const match of content.matchAll( DELIMITER ) ) {
+		const [ , closer, namespace = 'core/', name, , , isVoid ] = match;
+		const block = { name: `${ namespace }${ name }`, line: lineAt( match.index ) };
+		if ( isVoid ) {
+			continue;
+		}
+		if ( ! closer ) {
+			open.push( block );
+			continue;
+		}
+		// The blocks opened inside the one this closer names have no closer of
+		// their own; a closer that names no open block closes the innermost.
+		const at = open.map( ( opened ) => opened.name ).lastIndexOf( block.name );
+		const unclosed = at === -1 ? open.slice( -1 ) : open.slice( at + 1 );
+		open.length = at === -1 ? Math.max( 0, open.length - 1 ) : at;
+		problems.push(
+			...unclosed.map(
+				( opened ) =>
+					`  - line ${ opened.line }: ${ opened.name } has no closer of its own, so the parser closes it at the ${ block.name } closer on line ${ block.line }`
+			)
+		);
+	}
+	return [
+		...problems,
+		...open.map(
+			( { name, line } ) =>
+				`  - line ${ line }: ${ name } is never closed, so the parser gives it the rest of the content`
+		),
+	];
+}
+
 export async function validateBlockMarkup(
 	content: string,
 	label: string,
 	siteUrl: string,
 	presetValues: PresetValues = NO_PRESETS
 ): Promise< MarkupValidation > {
+	// The editor's save of blocks parsed this way repeats what follows them,
+	// so nothing is saved for it.
+	const unclosed = unclosedBlocks( content );
+	if ( unclosed.length ) {
+		return {
+			summary: `${ label }: ${ unclosed.length } block(s) not closed`,
+			problem: [
+				`${ label }: ${ unclosed.length } block(s) are not closed by their own closer, so WordPress's block parser nests what follows inside them and, for a block still open at the end, renders the rest of the content once more (WP_Block_Parser::add_block_from_stack() in wp-includes/class-wp-block-parser.php). Close each where its markup ends:`,
+				...unclosed,
+			].join( '\n' ),
+		};
+	}
 	const policy = await htmlPolicyProblem( content, label, siteUrl );
 	const result = await validateSavedMarkup( content, label, siteUrl, presetValues );
 	return policy

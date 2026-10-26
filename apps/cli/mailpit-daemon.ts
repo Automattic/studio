@@ -31,7 +31,11 @@ mailpit.on( 'error', ( error ) => {
 	console.error( '[Mailpit Daemon] Failed to start Mailpit:', error );
 	process.exit( 1 );
 } );
+let stopping = false;
 mailpit.on( 'exit', ( code ) => {
+	if ( stopping ) {
+		process.exit( 0 );
+	}
 	console.error( `[Mailpit Daemon] Mailpit exited with code ${ String( code ) }` );
 	process.exit( code || 1 );
 } );
@@ -40,10 +44,17 @@ process.on( 'exit', () => {
 	fs.rmSync( portsPath, { force: true } );
 	mailpit.kill();
 } );
+// The daemon counts the inbox as stopped once this wrapper exits, so it exits only
+// after Mailpit has, and nothing is left holding the inbox's ports.
+function stop() {
+	stopping = true;
+	fs.rmSync( portsPath, { force: true } );
+	mailpit.kill();
+}
 // How the daemon stops a process on Windows, which has no SIGTERM.
-process.on( 'disconnect', () => process.exit( 0 ) );
+process.on( 'disconnect', stop );
 for ( const signal of [ 'SIGTERM', 'SIGINT' ] as const ) {
-	process.on( signal, () => process.exit( 0 ) );
+	process.on( signal, stop );
 }
 
 async function answers(): Promise< boolean > {

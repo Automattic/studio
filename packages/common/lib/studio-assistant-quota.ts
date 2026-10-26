@@ -345,30 +345,6 @@ export function formatAiCreditsThresholdDescription(): string {
 	return __( 'Add AI credits to keep chatting without interruption.' );
 }
 
-export function formatAiCreditsUsedLabel(
-	meter: Pick< AiCreditsMeter, 'usedCredits' | 'totalCredits' >,
-	locale?: string
-): string {
-	const credits = new Intl.NumberFormat( locale );
-	return sprintf(
-		/* translators: 1: AI credits used (e.g. 1,200,000). 2: total AI credits the meter is measured against (e.g. 1,500,000). */
-		__( '%1$s of %2$s AI credits used' ),
-		credits.format( meter.usedCredits ),
-		credits.format( meter.totalCredits )
-	);
-}
-
-export function formatAiCreditsAvailableLabel(
-	meter: Pick< AiCreditsMeter, 'remainingCredits' >,
-	locale?: string
-): string {
-	return sprintf(
-		/* translators: %s: number of AI credits still available (e.g. 300,000). */
-		__( '%s available' ),
-		new Intl.NumberFormat( locale ).format( meter.remainingCredits )
-	);
-}
-
 /**
  * Encouragement line next to the "Add AI credits" button, escalating with the
  * meter. The welcome line shows the size of the free allowance (`costCap`,

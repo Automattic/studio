@@ -1,5 +1,5 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
 import { createFakeConnector, makeSession, makeSite } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
@@ -38,6 +38,8 @@ beforeEach( () => {
 	localStorage.clear();
 	resetAppMessagesForTests();
 } );
+
+afterEach( () => vi.restoreAllMocks() );
 
 describe( 'sidebar site menu', () => {
 	it( 'shows the same site actions from the title and sidebar context menu', async () => {
@@ -155,6 +157,71 @@ describe( 'site title actions', () => {
 		expect( within( dialog ).getByRole( 'checkbox' ) ).not.toBeChecked();
 		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Remove site' } ) );
 		await waitFor( () => expect( connector.deleteSite ).toHaveBeenCalledWith( 'one', false ) );
+	} );
+
+	it( 'stays open with the reason when deleting fails, and resets Trash on reopening', async () => {
+		const { connector } = setup();
+		connector.deleteSite.mockRejectedValueOnce( new Error( 'Site is running' ) );
+		const openDelete = async () => {
+			fireEvent.click( await screen.findByRole( 'button', { name: 'Site actions for My site' } ) );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Delete site' } ) );
+			return screen.findByRole( 'alertdialog' );
+		};
+		let dialog = await openDelete();
+		fireEvent.click( within( dialog ).getByRole( 'checkbox' ) );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Remove site' } ) );
+		expect( await within( dialog ).findByText( 'Site is running' ) ).toBeVisible();
+		expect( connector.deleteSite ).toHaveBeenCalledWith( 'one', true );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Cancel' } ) );
+		await waitFor( () => expect( screen.queryByRole( 'alertdialog' ) ).not.toBeInTheDocument() );
+		dialog = await openDelete();
+		expect( within( dialog ).getByRole( 'checkbox' ) ).not.toBeChecked();
+	} );
+
+	it( 'holds off Delete, saying why, while one of the site’s chats is running', async () => {
+		setup( [ site() ], {
+			getActiveAgentRuns: async () => [
+				{ sessionId: 'one-chat', phase: 'running', runId: 'run', startedAt: Date.now() },
+			],
+		} );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Site actions for My site' } ) );
+		await waitFor( () =>
+			expect( screen.getByRole( 'menuitem', { name: /^Delete site/ } ) ).toHaveAttribute(
+				'aria-disabled',
+				'true'
+			)
+		);
+		expect(
+			screen.getByText( 'Wait for active chats and queued prompts to finish.' )
+		).toBeInTheDocument();
+	} );
+
+	it( 'tells the user when a destination cannot open', async () => {
+		vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
+		const { connector } = setup();
+		connector.openSiteInTerminal.mockRejectedValueOnce( new Error( 'Terminal unavailable' ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Site actions for My site' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Terminal' } ) );
+		expect( await screen.findByText( 'Couldn’t open Terminal' ) ).toBeVisible();
+		expect( screen.getByText( 'Terminal unavailable' ) ).toBeVisible();
+	} );
+
+	it( 'leaves out the editor when none is preferred or installed', async () => {
+		const connector = createFakeConnector(
+			{ sites: [ site() ], preferences: { editor: undefined } },
+			{
+				getInstalledApps: async () =>
+					( { terminal: true } ) as Awaited< ReturnType< Connector[ 'getInstalledApps' ] > >,
+			}
+		);
+		renderApp( { connector, path: '/sites/one' } );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Site actions for My site' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
+		expect( await screen.findByRole( 'menuitem', { name: 'Terminal' } ) ).toBeVisible();
+		expect(
+			screen.queryByRole( 'menuitem', { name: 'Visual Studio Code' } )
+		).not.toBeInTheDocument();
 	} );
 
 	it( 'keeps duplication progress out of notifications and records its failure once', async () => {

@@ -4,11 +4,12 @@ import { UserMenu } from '@/features/account';
 import { AppToasts } from '@/features/notifications';
 import { createFakeConnector, TEST_USER } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
+import type { AuthUser } from '@/data/core';
 
 beforeEach( () => localStorage.clear() );
 
-function setup() {
-	const connector = createFakeConnector( { user: null } );
+function setup( user: AuthUser | null = null ) {
+	const connector = createFakeConnector( { user } );
 	const view = renderWithProviders(
 		<>
 			<UserMenu />
@@ -160,5 +161,29 @@ describe( 'AccountMenu', () => {
 		await screen.findByRole( 'button', { name: 'Log in' } );
 		await openLoginDialog();
 		expect( screen.queryByText( 'Login failed' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'opens AI Providers from the account menu', async () => {
+		const { history } = setup( TEST_USER );
+		fireEvent.click( await screen.findByRole( 'button', { name: TEST_USER.displayName } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'AI Providers' } ) );
+		await waitFor( () => expect( history.location.search ).toContain( 'settings=ai' ) );
+	} );
+
+	it( 'reports a failed logout in a toast', async () => {
+		const { connector } = setup( TEST_USER );
+		connector.logout.mockRejectedValueOnce( new Error( 'Network down' ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: TEST_USER.displayName } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Log out' } ) );
+		expect( await screen.findByText( 'Could not log out.' ) ).toBeVisible();
+		expect( screen.getByText( 'Network down' ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: TEST_USER.displayName } ) ).toBeVisible();
+	} );
+
+	it( 'shows an account error as an alert', async () => {
+		const connector = createFakeConnector();
+		connector.getAuthUser.mockRejectedValue( new Error( 'Session expired' ) );
+		renderWithProviders( <UserMenu />, { connector } );
+		expect( await screen.findByRole( 'alert' ) ).toHaveTextContent( 'Session expired' );
 	} );
 } );

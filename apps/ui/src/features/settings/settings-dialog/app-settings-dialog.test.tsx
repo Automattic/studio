@@ -1,10 +1,13 @@
+import { supportedLocaleNames } from '@studio/common/lib/locale';
+import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { INTERFACE_PREFERENCE_DEFAULTS } from '@studio/common/lib/user-settings/preferences';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { resetAppMessagesForTests } from '@/data/app-messages';
+import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
 import {
 	PANEL_WIDTHS_RESET_EVENT,
 	PREVIEW_CONTENT_WIDTH_STORAGE_KEY,
+	SIDEBAR_COLLAPSED_STORAGE_KEY,
 	SIDEBAR_PANEL_STORAGE_KEY,
 } from '@/data/resizable-panels';
 import { applyColorTint, DEFAULT_COLOR_TINT } from '@/lib/theme';
@@ -165,6 +168,7 @@ describe( 'WordPress Studio settings', () => {
 	it( 'resets only interface preferences and saved panel widths', async () => {
 		localStorage.setItem( SIDEBAR_PANEL_STORAGE_KEY, '320' );
 		localStorage.setItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY, '600' );
+		localStorage.setItem( SIDEBAR_COLLAPSED_STORAGE_KEY, 'true' );
 		localStorage.setItem( 'unrelated-key', 'one' );
 		const reset = vi.fn();
 		window.addEventListener( PANEL_WIDTHS_RESET_EVENT, reset );
@@ -180,6 +184,7 @@ describe( 'WordPress Studio settings', () => {
 		);
 		expect( localStorage.getItem( SIDEBAR_PANEL_STORAGE_KEY ) ).toBeNull();
 		expect( localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY ) ).toBeNull();
+		expect( localStorage.getItem( SIDEBAR_COLLAPSED_STORAGE_KEY ) ).not.toBe( 'true' );
 		expect( localStorage.getItem( 'unrelated-key' ) ).toBe( 'one' );
 		expect( settingsParam() ).toBe( 'general' );
 		window.removeEventListener( PANEL_WIDTHS_RESET_EVENT, reset );
@@ -259,12 +264,11 @@ describe( 'WordPress Studio settings', () => {
 		expect( screen.queryByRole( 'button', { name: 'Connect' } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'hides the CLI fieldset in the browser', async () => {
-		await setup( {
-			overrides: {
-				getAppGlobals: async () => ( { platform: 'browser', isWindowsStore: false } ) as never,
-			},
-		} );
+	it.each( [
+		[ 'the browser', { platform: 'browser', isWindowsStore: false } ],
+		[ 'Windows Store builds', { platform: 'win32', isWindowsStore: true } ],
+	] )( 'hides the CLI fieldset in %s', async ( _host, appGlobals ) => {
+		await setup( { overrides: { getAppGlobals: async () => appGlobals as never } } );
 		await screen.findByRole( 'combobox', { name: 'Language' } );
 		expect( screen.queryByRole( 'group', { name: 'Studio CLI' } ) ).not.toBeInTheDocument();
 		expect(
@@ -349,6 +353,71 @@ describe( 'WordPress Studio settings', () => {
 		await waitFor( () =>
 			expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith( true, 'settings' )
 		);
+	} );
+
+	it( 'disables Connect while offline', async () => {
+		const online = vi.spyOn( navigator, 'onLine', 'get' ).mockReturnValue( false );
+		try {
+			await setup( { signedIn: false } );
+			expect( await studioConnect() ).toBeDisabled();
+		} finally {
+			online.mockRestore();
+		}
+	} );
+
+	it( 'offers Default, the installed editors and a saved editor that is gone', async () => {
+		const { connector } = await setup( { preferences: { editor: 'cursor' } } );
+		fireEvent.click( await screen.findByRole( 'combobox', { name: 'Code editor' } ) );
+		const options = await screen.findAllByRole( 'option' );
+		expect( options.map( ( option ) => option.textContent ) ).toEqual( [
+			'Default',
+			supportedEditorConfig.cursor.label(),
+			supportedEditorConfig.vscode.label(),
+		] );
+		fireEvent.pointerDown( options[ 0 ], { pointerType: 'mouse' } );
+		fireEvent.click( options[ 0 ] );
+		await waitFor( () =>
+			expect( connector.setUserPreferences ).toHaveBeenCalledWith( { editor: null }, undefined )
+		);
+	} );
+
+	it( 'turns the annotation delete confirmation back on', async () => {
+		const { connector } = await setup( { preferences: { confirmDeleteAnnotations: false } } );
+		fireEvent.click(
+			await screen.findByRole( 'switch', { name: 'Confirm before deleting annotations' } )
+		);
+		await waitFor( () =>
+			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+				{ confirmDeleteAnnotations: true },
+				undefined
+			)
+		);
+	} );
+
+	it( 'clears the persisted cache and reloads after saving a new language', async () => {
+		const location = window.location;
+		const reload = vi.fn();
+		Object.defineProperty( window, 'location', {
+			configurable: true,
+			value: { ...location, reload },
+		} );
+		localStorage.setItem( 'REACT_QUERY_OFFLINE_CACHE', '{}' );
+		try {
+			const { connector } = await setup();
+			await choose( 'Language', supportedLocaleNames.es );
+			await waitFor( () => expect( reload ).toHaveBeenCalledOnce() );
+			expect( connector.setUserPreferences ).toHaveBeenCalledWith( { locale: 'es' }, undefined );
+			expect( localStorage.getItem( 'REACT_QUERY_OFFLINE_CACHE' ) ).toBeNull();
+		} finally {
+			Object.defineProperty( window, 'location', { configurable: true, value: location } );
+		}
+	} );
+
+	it( 'says so when a linked setting is not available on this device', async () => {
+		await setup( { section: 'general&settingsFocus=future-setting' } );
+		expect(
+			await screen.findByText( 'This setting is not available on this device.' )
+		).toBeVisible();
 	} );
 
 	it.each( [ 'system', 'light', 'dark' ] as const )(
@@ -519,6 +588,16 @@ describe( 'WordPress Studio settings', () => {
 		expect( settingsParam() ).toBe( 'general' );
 	} );
 
+	it( 'keeps a typed directory when saving it fails', async () => {
+		const { connector } = await setup();
+		connector.setUserPreferences.mockRejectedValueOnce( new Error( 'Save failed' ) );
+		const directory = await screen.findByRole( 'textbox', { name: 'Default directory' } );
+		fireEvent.change( directory, { target: { value: ' /new-sites ' } } );
+		fireEvent.click( within( row( 'default-directory' ) ).getByRole( 'button', { name: 'Save' } ) );
+		expect( await screen.findByText( ERROR ) ).toBeVisible();
+		expect( directory ).toHaveValue( ' /new-sites ' );
+	} );
+
 	it.each( [ '/chosen-sites', null ] )(
 		'applies a picked directory immediately unless canceled (%s)',
 		async ( selected ) => {
@@ -573,6 +652,17 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Remove key' } ) );
 		await waitFor( () => expect( connector.saveAnthropicApiKey ).toHaveBeenCalledWith( null ) );
 		expect( connector.setAiProvider ).not.toHaveBeenCalled();
+	} );
+
+	it( 'turns Studio Code off', async () => {
+		const { connector } = await setup( { section: 'ai' } );
+		fireEvent.click( await screen.findByRole( 'switch', { name: 'Studio Code' } ) );
+		await waitFor( () =>
+			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+				{ agenticFeaturesEnabled: false },
+				undefined
+			)
+		);
 	} );
 
 	it( 'toggles custom instructions without changing saved text', async () => {
@@ -842,5 +932,18 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 				'Copied'
 			)
 		);
+	} );
+
+	it( 'reports a failed copy instead of showing copied feedback', async () => {
+		const { connector } = await setup( { section: 'mcp' } );
+		connector.copyText.mockRejectedValueOnce( new Error( 'Clipboard unavailable' ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Copy MCP configuration' } ) );
+		await waitFor( () =>
+			expect( getNoticeHistory()[ 0 ] ).toMatchObject( {
+				title: 'Could not copy.',
+				description: 'Clipboard unavailable',
+			} )
+		);
+		expect( screen.queryByText( 'Copied' ) ).not.toBeInTheDocument();
 	} );
 } );

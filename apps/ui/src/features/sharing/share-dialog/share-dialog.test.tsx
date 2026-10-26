@@ -166,6 +166,51 @@ describe( 'ShareDialog', () => {
 		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
 	} );
 
+	it( 'keeps the dialog open with the reason when checkout cannot open', async () => {
+		const { connector, ready } = setup( TEST_USER, [ preview() ] );
+		connector.openExternalUrl.mockRejectedValueOnce( new Error( 'Unable to open checkout' ) );
+		await ready;
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Choose a plan' } ) );
+		expect( await screen.findByRole( 'alert' ) ).toHaveTextContent( 'Unable to open checkout' );
+		expect( screen.getByRole( 'dialog' ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Choose a plan' } ) );
+		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
+	} );
+
+	it( 'renames a preview, and shows a new one publishing from the preview actions', async () => {
+		const actions = userEvent.setup();
+		const { connector, ready, site } = setup( TEST_USER, [ preview() ] );
+		let finish!: ( value: { url: string } ) => void;
+		await ready;
+		await actions.click( await screen.findByRole( 'button', { name: 'Preview actions' } ) );
+		await actions.click( await screen.findByRole( 'menuitem', { name: 'Rename…' } ) );
+		const name = screen.getByLabelText( 'Preview name' );
+		await actions.clear( name );
+		await actions.type( name, 'Homepage draft{Enter}' );
+		expect( connector.renameSnapshot ).toHaveBeenCalledWith(
+			'preview.example.com',
+			'Homepage draft'
+		);
+
+		connector.publishPreviewSite.mockImplementationOnce(
+			() =>
+				new Promise( ( resolve ) => {
+					finish = resolve;
+				} )
+		);
+		await actions.click( screen.getByRole( 'button', { name: 'Preview actions' } ) );
+		await actions.click( await screen.findByRole( 'menuitem', { name: 'New preview' } ) );
+		expect( connector.publishPreviewSite ).toHaveBeenCalledWith( site.id, undefined, undefined );
+		expect( await screen.findByRole( 'button', { name: 'Publishing preview…' } ) ).toBeVisible();
+		await actions.click( screen.getByRole( 'combobox', { name: 'Select preview' } ) );
+		expect(
+			await screen.findByRole( 'option', { name: 'New preview · Publishing…' } )
+		).toBeInTheDocument();
+		await actions.click( screen.getByRole( 'option', { name: 'My site preview' } ) );
+		expect( await screen.findByRole( 'button', { name: 'Copy link' } ) ).toBeVisible();
+		await act( async () => finish( { url: 'https://new.example.com' } ) );
+	} );
+
 	it( 'hides Upgrade only after confirming the connected site has an eligible active plan', async () => {
 		const { connector, ready, site } = setup( TEST_USER, [ preview() ], {
 			getConnectedWpcomSites: vi.fn().mockResolvedValue( [ { id: 42 } ] ),

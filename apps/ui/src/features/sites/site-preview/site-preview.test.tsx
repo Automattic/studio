@@ -99,6 +99,9 @@ function finishLoading( runtime: Runtime ) {
 	}
 }
 
+const clearWebviewCache = () =>
+	( window as unknown as { ipcApi: { clearWebviewCache: ReturnType< typeof vi.fn > } } ).ipcApi
+		.clearWebviewCache;
 const isPageHidden = () => !! page()!.closest( '[data-loading]' );
 const logo = () => document.querySelector( 'canvas ~ span[aria-hidden="true"]' );
 
@@ -276,6 +279,18 @@ describe( 'site preview', () => {
 		await waitFor( () => expect( webview.reload ).toHaveBeenCalledOnce() );
 	} );
 
+	it( 'asks the site whether a framed page is there, and retries when it is not', async () => {
+		const { user } = await renderPreview( 'browser' );
+		vi.mocked( fetch ).mockRejectedValueOnce( new TypeError( 'Failed to fetch' ) );
+		finishLoading( 'browser' );
+		await user.click( await screen.findByRole( 'button', { name: 'Try again' } ) );
+		finishLoading( 'browser' );
+		await waitFor( () =>
+			expect( screen.queryByText( 'Preview could not load' ) ).not.toBeInTheDocument()
+		);
+		expect( fetch ).toHaveBeenCalledWith( `${ SITE_URL }/`, expect.anything() );
+	} );
+
 	it( 'ignores aborted navigations and subframe errors', async () => {
 		await renderPreview( 'desktop' );
 		const webview = guest();
@@ -298,5 +313,142 @@ describe( 'site preview', () => {
 		expect( webview.reload ).not.toHaveBeenCalled();
 		fireEvent( webview, new Event( 'dom-ready' ) );
 		await waitFor( () => expect( webview.reload ).toHaveBeenCalledOnce() );
+	} );
+} );
+
+describe( 'site preview controls', () => {
+	it( 'keeps the reloaded frame when Back or Forward follows a reload', async () => {
+		const { user } = await renderPreview( 'browser' );
+		await user.click( screen.getByRole( 'button', { name: 'Reload preview' } ) );
+		const reloaded = page();
+		fireEvent.keyDown( document.body, { key: '[', ctrlKey: true } );
+		fireEvent.keyDown( document.body, { key: ']', ctrlKey: true } );
+		expect( page() ).toBe( reloaded );
+	} );
+
+	it( 'reloads on the primary-modifier+R shortcut from the composer, but not from a dialog', async () => {
+		await renderPreview( 'browser' );
+		const composer = document.body.appendChild( document.createElement( 'textarea' ) );
+		composer.focus();
+		const initial = page();
+		fireEvent.keyDown( composer, { key: 'r', ctrlKey: true } );
+		const reloaded = page();
+		expect( reloaded ).not.toBe( initial );
+		fireEvent.keyDown( composer, { key: 'r', ctrlKey: true, shiftKey: true } );
+		const aliasReloaded = page();
+		expect( aliasReloaded ).not.toBe( reloaded );
+		fireEvent.keyDown( composer, { key: 'r', ctrlKey: true, altKey: true } );
+		const dialog = document.body.appendChild( document.createElement( 'div' ) );
+		dialog.dataset.slot = 'dialog-content';
+		fireEvent.keyDown( dialog, { key: 'r', ctrlKey: true } );
+		expect( page() ).toBe( aliasReloaded );
+		composer.remove();
+		dialog.remove();
+	} );
+
+	it( 'switches realms from the address menu, recording only real switches', async () => {
+		const connector = createFakeConnector();
+		const onPathChange = vi.fn();
+		const { update } = await renderPreview( 'browser', { onPathChange }, connector );
+		const pick = async ( name: string ) => {
+			fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
+			fireEvent.click( await screen.findByRole( 'option', { name } ) );
+		};
+		await pick( 'WP Admin' );
+		expect( onPathChange ).toHaveBeenLastCalledWith(
+			`/studio-auto-login?redirect_to=${ encodeURIComponent( `${ SITE_URL }/wp-admin/` ) }`
+		);
+		expect( connector.trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
+			browser: 'internal',
+		} );
+		await pick( 'Database' );
+		expect( onPathChange ).toHaveBeenLastCalledWith(
+			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
+		);
+
+		update( { path: '/wp-admin/' } );
+		onPathChange.mockClear();
+		connector.trackEvent.mockClear();
+		await pick( 'WP Admin' );
+		expect( onPathChange ).not.toHaveBeenCalled();
+		expect( connector.trackEvent ).not.toHaveBeenCalled();
+	} );
+
+	it( 'opens the front end externally logged out and WP Admin with auto-login', async () => {
+		const connector = createFakeConnector();
+		const { update, user } = await renderPreview(
+			'browser',
+			{ path: '/sample-page/', onPathChange: vi.fn() },
+			connector
+		);
+		const open = () =>
+			user.click( screen.getByRole( 'button', { name: 'Open this page in your browser' } ) );
+		await open();
+		expect( connector.openSiteUrl ).toHaveBeenLastCalledWith( 'one', '/sample-page/', {
+			autoLogin: false,
+		} );
+		update( { path: '/wp-admin/' } );
+		await open();
+		expect( connector.openSiteUrl ).toHaveBeenLastCalledWith( 'one', '/wp-admin/', {
+			autoLogin: true,
+		} );
+	} );
+
+	it.each( [
+		[ 'the host supports it', true, true, true ],
+		[ 'the host cannot annotate', false, true, false ],
+		[ 'Studio Code is on', true, false, false ],
+	] )( 'shows Annotate only when %s', async ( _, annotatePreview, agentic, shown ) => {
+		const connector = createFakeConnector(
+			{ preferences: { agenticFeaturesEnabled: agentic } },
+			{ capabilities: { nativeFolderPicker: true, annotatePreview, studioLogs: true } }
+		);
+		await renderPreview( 'browser', {}, connector );
+		expect( screen.getByRole( 'button', { name: 'Reload preview' } ) ).toBeVisible();
+		await waitFor( () =>
+			expect( !! screen.queryByRole( 'button', { name: 'Annotate' } ) ).toBe( shown )
+		);
+	} );
+
+	it.each( [ undefined, 'https://example.wordpress.com' ] )(
+		'leaves WP Admin alone when the host reloads (live: %s)',
+		async ( liveUrl ) => {
+			const { update } = await renderPreview( 'desktop', {
+				liveUrl,
+				path: '/wp-admin/post.php?post=1&action=edit',
+			} );
+			const webview = guest();
+			fireEvent( webview, new Event( 'dom-ready' ) );
+			update( { reloadNonce: 1 } );
+			await act( async () => {} );
+			expect( webview.reload ).not.toHaveBeenCalled();
+			expect( clearWebviewCache() ).not.toHaveBeenCalled();
+		}
+	);
+
+	it( 'navigates without dropping the cache when the path changes with the nonce', async () => {
+		const { update } = await renderPreview( 'desktop' );
+		const webview = guest();
+		fireEvent( webview, new Event( 'dom-ready' ) );
+		update( { path: '/about', reloadNonce: 1 } );
+		await waitFor( () => expect( webview.loadURL ).toHaveBeenCalledWith( `${ SITE_URL }/about` ) );
+		expect( webview.reload ).not.toHaveBeenCalled();
+		expect( clearWebviewCache() ).not.toHaveBeenCalled();
+	} );
+
+	it( 'drops the cache and reloads in place after the preview navigated itself', async () => {
+		const { update } = await renderPreview( 'desktop' );
+		const webview = guest();
+		fireEvent( webview, new Event( 'dom-ready' ) );
+		fireEvent(
+			webview,
+			Object.assign( new Event( 'did-navigate' ), { url: `${ SITE_URL }/about` } )
+		);
+		update( { path: '/about' } );
+		expect( webview.loadURL ).not.toHaveBeenCalled();
+		update( { path: '/about', reloadNonce: 1 } );
+		await waitFor( () => expect( webview.reload ).toHaveBeenCalledOnce() );
+		expect( clearWebviewCache() ).toHaveBeenCalledWith( 42 );
+		expect( webview.loadURL ).not.toHaveBeenCalled();
 	} );
 } );

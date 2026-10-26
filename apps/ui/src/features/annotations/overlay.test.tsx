@@ -2,7 +2,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts } from '@/data/app-messages';
+import { ConnectorProvider } from '@/data/core';
 import { TooltipProvider } from '@/lib/ui';
+import { createFakeConnector } from '@/test/fake-connector';
 import { AnnotationOverlay } from './overlay';
 import {
 	changeAnnotation,
@@ -12,14 +14,6 @@ import {
 	stageAnnotations,
 } from './store';
 import type { ComposerImageAttachment } from '@studio/common/ai/composer-attachments';
-
-vi.mock( '@/data/core', () => ( {
-	useConnector: () => ( {
-		getUserPreferences: vi.fn().mockResolvedValue( {} ),
-		setUserPreferences: vi.fn().mockResolvedValue( undefined ),
-		getFilePath: vi.fn(),
-	} ),
-} ) );
 
 const image = ( id: string ): ComposerImageAttachment => ( {
 	id,
@@ -32,11 +26,17 @@ const image = ( id: string ): ComposerImageAttachment => ( {
 
 function renderOverlay( siteId: string ) {
 	render(
-		<QueryClientProvider client={ new QueryClient() }>
-			<TooltipProvider delay={ 0 }>
-				<AnnotationOverlay siteId={ siteId } anchor={ { left: 10, top: 10 } } onSend={ vi.fn() } />
-			</TooltipProvider>
-		</QueryClientProvider>
+		<ConnectorProvider connector={ createFakeConnector() }>
+			<QueryClientProvider client={ new QueryClient() }>
+				<TooltipProvider delay={ 0 }>
+					<AnnotationOverlay
+						siteId={ siteId }
+						anchor={ { left: 10, top: 10 } }
+						onSend={ vi.fn() }
+					/>
+				</TooltipProvider>
+			</QueryClientProvider>
+		</ConnectorProvider>
 	);
 }
 

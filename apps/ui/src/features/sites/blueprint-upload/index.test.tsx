@@ -1,16 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useConnector } from '@/data/core';
+import { createFakeConnector, type FakeConnector } from '@/test/fake-connector';
+import { renderWithProviders } from '@/test/render';
 import { BlueprintUpload, type SelectedBlueprint } from './index';
 
-vi.mock( '@/data/core', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('@/data/core') >();
-	return { ...actual, useConnector: vi.fn() };
-} );
-
-const useConnectorMock = vi.mocked( useConnector, { partial: true } );
-const cleanupBlueprintTempDir = vi.fn( async () => undefined );
-const extractBlueprintBundle = vi.fn();
+let connector: FakeConnector;
 
 function createFile( name: string, contents: string, type: string ): File {
 	const file = new File( [ contents ], name, { type } );
@@ -42,6 +36,12 @@ function TestUpload( {
 	);
 }
 
+async function renderUpload( props: Parameters< typeof TestUpload >[ 0 ] = {} ) {
+	const view = renderWithProviders( <TestUpload { ...props } />, { connector } );
+	await screen.findByRole( 'button', { name: 'upload a file' } );
+	return view;
+}
+
 function chooseFile( file: File ) {
 	const input = document.querySelector< HTMLInputElement >( 'input[type="file"]' );
 	if ( ! input ) throw new Error( 'File input not found' );
@@ -50,16 +50,12 @@ function chooseFile( file: File ) {
 
 describe( 'BlueprintUpload', () => {
 	beforeEach( () => {
-		vi.clearAllMocks();
-		useConnectorMock.mockReturnValue( {
-			extractBlueprintBundle,
-			cleanupBlueprintTempDir,
-		} );
+		connector = createFakeConnector();
 	} );
 
 	it( 'selects a JSON Blueprint', async () => {
 		const onSelect = vi.fn();
-		render( <TestUpload onSelect={ onSelect } /> );
+		await renderUpload( { onSelect } );
 		chooseFile(
 			createFile(
 				'portfolio.json',
@@ -77,43 +73,43 @@ describe( 'BlueprintUpload', () => {
 
 	it( 'extracts a ZIP Blueprint and keeps its temporary-file metadata', async () => {
 		const onSelect = vi.fn();
-		extractBlueprintBundle.mockResolvedValue( {
+		connector.extractBlueprintBundle.mockResolvedValue( {
 			blueprintJson: { meta: { title: 'Bundled Blueprint', author: 'Studio' } },
 			blueprintJsonPath: '/tmp/extracted/blueprint.json',
 			tempDir: '/tmp/extracted',
 		} );
-		render( <TestUpload onSelect={ onSelect } /> );
+		await renderUpload( { onSelect } );
 		chooseFile( createFile( 'bundle.zip', 'zip', 'application/zip' ) );
 
 		await waitFor( () => expect( onSelect ).toHaveBeenCalledOnce() );
-		expect( extractBlueprintBundle ).toHaveBeenCalledWith(
+		expect( connector.extractBlueprintBundle ).toHaveBeenCalledWith(
 			expect.objectContaining( { name: 'bundle.zip' } )
 		);
 		expect( onSelect.mock.calls[ 0 ][ 0 ] ).toMatchObject( {
 			filePath: '/tmp/extracted/blueprint.json',
 			tempDir: '/tmp/extracted',
 		} );
-		expect( cleanupBlueprintTempDir ).not.toHaveBeenCalled();
+		expect( connector.cleanupBlueprintTempDir ).not.toHaveBeenCalled();
 	} );
 
 	it( 'cleans an extracted ZIP when its Blueprint is invalid', async () => {
-		extractBlueprintBundle.mockResolvedValue( {
-			blueprintJson: null,
+		connector.extractBlueprintBundle.mockResolvedValue( {
+			blueprintJson: null as never,
 			blueprintJsonPath: '/tmp/extracted/blueprint.json',
 			tempDir: '/tmp/extracted',
 		} );
-		render( <TestUpload /> );
+		await renderUpload();
 		chooseFile( createFile( 'invalid.zip', 'zip', 'application/zip' ) );
 
 		await waitFor( () =>
-			expect( cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/extracted' )
+			expect( connector.cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/extracted' )
 		);
 		expect( await screen.findByText( /must be object/ ) ).toBeInTheDocument();
 	} );
 
 	it( 'blocks creation until an invalid upload is replaced', async () => {
 		const onValidityChange = vi.fn();
-		render( <TestUpload onValidityChange={ onValidityChange } /> );
+		await renderUpload( { onValidityChange } );
 		chooseFile( createFile( 'notes.txt', 'not a blueprint', 'text/plain' ) );
 
 		expect( await screen.findByRole( 'dialog', { name: 'Blueprint error' } ) ).toHaveTextContent(
@@ -136,7 +132,7 @@ describe( 'BlueprintUpload', () => {
 
 	it( 'allows an invalid upload to be removed', async () => {
 		const onValidityChange = vi.fn();
-		render( <TestUpload onValidityChange={ onValidityChange } /> );
+		await renderUpload( { onValidityChange } );
 		chooseFile( createFile( 'notes.txt', 'not a blueprint', 'text/plain' ) );
 
 		expect( await screen.findByRole( 'dialog', { name: 'Blueprint error' } ) ).toHaveTextContent(
@@ -152,12 +148,12 @@ describe( 'BlueprintUpload', () => {
 	} );
 
 	it( 'replaces ZIP extraction details with a user-friendly error', async () => {
-		extractBlueprintBundle.mockRejectedValue(
+		connector.extractBlueprintBundle.mockRejectedValue(
 			new Error(
 				"Error invoking remote method 'extractBlueprintBundle': No blueprint.json found in the ZIP file."
 			)
 		);
-		render( <TestUpload /> );
+		await renderUpload();
 		chooseFile( createFile( 'bundle.zip', 'zip', 'application/zip' ) );
 
 		expect( await screen.findByRole( 'dialog', { name: 'Blueprint error' } ) ).toHaveTextContent(
@@ -173,8 +169,8 @@ describe( 'BlueprintUpload', () => {
 			blueprintJsonPath: string;
 			tempDir: string;
 		} >();
-		extractBlueprintBundle.mockReturnValue( extraction.promise );
-		const { unmount } = render( <TestUpload onSelect={ onSelect } /> );
+		connector.extractBlueprintBundle.mockReturnValue( extraction.promise );
+		const { unmount } = await renderUpload( { onSelect } );
 		chooseFile( createFile( 'bundle.zip', 'zip', 'application/zip' ) );
 		unmount();
 		extraction.resolve( {
@@ -183,13 +179,15 @@ describe( 'BlueprintUpload', () => {
 			tempDir: '/tmp/bundle',
 		} );
 
-		await waitFor( () => expect( cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/bundle' ) );
+		await waitFor( () =>
+			expect( connector.cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/bundle' )
+		);
 		expect( onSelect ).not.toHaveBeenCalled();
 	} );
 
 	it( 'accepts a full-window file drop', async () => {
 		const onSelect = vi.fn();
-		render( <TestUpload onSelect={ onSelect } /> );
+		await renderUpload( { onSelect } );
 		const file = createFile( 'dropped.json', '{}', 'application/json' );
 		fireEvent.drop( window, {
 			dataTransfer: { files: [ file ], types: [ 'Files' ] },
@@ -198,8 +196,8 @@ describe( 'BlueprintUpload', () => {
 		await waitFor( () => expect( onSelect ).toHaveBeenCalledOnce() );
 	} );
 
-	it( 'clears the full-window overlay when a drag ends without a file', () => {
-		render( <TestUpload /> );
+	it( 'clears the full-window overlay when a drag ends without a file', async () => {
+		await renderUpload();
 		fireEvent.dragEnter( window, { dataTransfer: { files: [], types: [ 'Files' ] } } );
 		expect( screen.getByText( 'Drop Blueprint to use it for this site' ) ).toBeInTheDocument();
 

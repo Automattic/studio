@@ -1,53 +1,25 @@
-import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useConnector } from '@/data/core';
-import { useWapuuScore } from '@/data/queries/use-wapuu-score';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { createFakeConnector } from '@/test/fake-connector';
+import { renderWithProviders } from '@/test/render';
 import { WapuuScore } from './wapuu-score';
 
-vi.mock( '@/data/core', () => ( {
-	useConnector: vi.fn(),
-} ) );
-
-vi.mock( '@/data/queries/use-wapuu-score', () => ( {
-	useWapuuScore: vi.fn(),
-} ) );
-
-const useConnectorMock = vi.mocked( useConnector );
-const useWapuuScoreMock = vi.mocked( useWapuuScore );
-
-describe( 'WapuuScore', () => {
-	const openExternalUrl = vi.fn();
-
-	beforeEach( () => {
-		vi.clearAllMocks();
-		useConnectorMock.mockReturnValue( { openExternalUrl } as never );
+describe( 'Wapuu score', () => {
+	it( 'stays hidden until a score has been recorded', async () => {
+		const { connector } = renderWithProviders( <WapuuScore /> );
+		await waitFor( () => expect( connector.getWapuuScore ).toHaveBeenCalled() );
+		expect( screen.queryByRole( 'progressbar' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'renders nothing when no score has been recorded', () => {
-		useWapuuScoreMock.mockReturnValue( { data: null } as never );
-
-		const { container } = render( <WapuuScore /> );
-
-		expect( container ).toBeEmptyDOMElement();
-	} );
-
-	it( 'shows the score and a progressbar once a score exists', () => {
-		useWapuuScoreMock.mockReturnValue( { data: 1200 } as never );
-
-		render( <WapuuScore /> );
-
-		expect( screen.getByText( /1200 of \d+ points/ ) ).toBeInTheDocument();
-		const bar = screen.getByRole( 'progressbar', { name: 'Wapuu score' } );
-		expect( bar ).toHaveAttribute( 'aria-valuenow', '1200' );
-	} );
-
-	it( 'opens wapuu.studio through the connector', () => {
-		useWapuuScoreMock.mockReturnValue( { data: 1200 } as never );
-
-		render( <WapuuScore /> );
+	it( 'shows the score and opens wapuu.studio', async () => {
+		const connector = createFakeConnector( {}, { getWapuuScore: async () => 1200 } );
+		renderWithProviders( <WapuuScore />, { connector } );
+		expect( await screen.findByRole( 'progressbar', { name: 'Wapuu score' } ) ).toHaveAttribute(
+			'aria-valuenow',
+			'1200'
+		);
+		expect( screen.getByText( /1200 of \d+ points/ ) ).toBeVisible();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Visit wapuu.studio' } ) );
-
-		expect( openExternalUrl ).toHaveBeenCalledWith( 'https://wapuu.studio' );
+		expect( connector.openExternalUrl ).toHaveBeenCalledWith( 'https://wapuu.studio' );
 	} );
 } );

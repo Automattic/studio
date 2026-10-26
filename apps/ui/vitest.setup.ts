@@ -31,6 +31,7 @@ if ( typeof window !== 'undefined' && ! window.matchMedia ) {
 // Layout and paint APIs jsdom lacks, which rendering the whole app reaches.
 if ( typeof window !== 'undefined' ) {
 	window.scrollTo = () => {};
+	window.scrollBy = () => {};
 	CSS.supports ??= () => false;
 	HTMLCanvasElement.prototype.getContext = () => null;
 	Element.prototype.scrollIntoView ??= () => {};

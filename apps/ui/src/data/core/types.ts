@@ -34,13 +34,12 @@ import type {
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
-import type { SiteDesign } from '@studio/common/sites/site-design';
+import type { GlobalStyles } from '@studio/common/sites/site-identity';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
-import type { DesignFix } from '@studio/design-md';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type { ActiveAgentRun } from '@studio/common/ai/agent-events';
@@ -64,7 +63,7 @@ export type { SupportedTerminal } from '@studio/common/lib/user-settings/termina
 export type { SupportedLocale } from '@studio/common/lib/locale';
 export type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 export type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
-export type { SiteDesign } from '@studio/common/sites/site-design';
+export type { GlobalStyles } from '@studio/common/sites/site-identity';
 
 export type InstalledApps = Record< SupportedEditor | SupportedTerminal, boolean >;
 
@@ -200,11 +199,9 @@ export interface Connector {
 	// The site's Site Icon (a data URL, or null when it has none), read on
 	// demand when the host can inspect local sites.
 	getSiteIcon?( siteId: string ): Promise< string | null >;
-	// The site's DESIGN.md and its active theme's theme.json, or null when it
-	// lacks either.
-	getSiteDesign( siteId: string ): Promise< SiteDesign | null >;
-	// Settles drifts between DESIGN.md and theme.json and resolves the result.
-	fixSiteDesignDrift( siteId: string, fixes: DesignFix[] ): Promise< SiteDesign | null >;
+	// The settings and styles WordPress resolves for the site, or null when its
+	// theme is not a block theme.
+	getGlobalStyles( siteId: string ): Promise< GlobalStyles >;
 
 	// Exports a site as a full backup archive (files + database). Prompts the
 	// user for a destination via a save-as dialog; resolves with the chosen

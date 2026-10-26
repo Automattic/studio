@@ -363,34 +363,18 @@ tests:
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
 
-  # An annotation left on the preview's Design system page names a DESIGN.md
-  # token. The agent changes it in DESIGN.md and carries it to theme.json.
-  - description: design system annotation reaches DESIGN.md and the theme palette
+  # An annotation left on the preview's Design system page names a preset of
+  # the site's Styles, as theme.json names it. Passes when WordPress resolves
+  # the preset to a new color.
+  - description: design system annotation changes the preset WordPress resolves
     vars:
       caseId: design-system-annotation
-      token: primary
-      originalValue: '#2F6BFF'
+      slug: accent-1
+      originalValue: '#FFEE58'
       timeoutMs: 420000
       seed:
         activeSite:
           name: Calm Corner
-          files:
-            DESIGN.md: |
-              ---
-              name: "Calm Corner"
-              colors:
-                primary: "#2F6BFF"
-                background: "#FFFFFF"
-                text: "#111111"
-              typography:
-                body:
-                  fontFamily: "Inter"
-                  fontSize: "1rem"
-                  fontWeight: 400
-              ---
-
-              # Overview
-              A calm, minimal site.
       prompt: |
         The user submitted 1 visual annotation from the site preview.
 
@@ -398,27 +382,24 @@ tests:
 
         When you reference an annotation for the user, identify the element by what is visible on the page rather than by selector. Use selectors and raw annotation data only for implementation.
 
-        Annotations from the Design system page are about the site's DESIGN.md: make the change there, then update the matching presets in the active theme's theme.json so the site follows it.
-
         ## Submitted Annotations
 
-        ### 1. design token `colors.primary` - "primary: #2F6BFF"
-        - Page: Design system (DESIGN.md)
-        - Comment: Make the primary color a warm terracotta instead of this blue.
+        ### 1. design token `var:preset|color|accent-1` - "accent-1: #FFEE58"
+        - Page: Design system (the site's Styles)
+        - Comment: Make this accent a warm terracotta instead of this yellow.
 
         ```json
         {
           "id": "a_1",
-          "comment": "Make the primary color a warm terracotta instead of this blue.",
-          "nearbyText": "primary: #2F6BFF",
-          "designToken": "colors.primary",
-          "path": "DESIGN.md",
+          "comment": "Make this accent a warm terracotta instead of this yellow.",
+          "nearbyText": "accent-1: #FFEE58",
+          "designToken": "var:preset|color|accent-1",
           "timestamp": 1790000000000
         }
         ```
     assert:
       - type: javascript
-        value: file://outcome.mjs:designTokenReachedTheme
+        value: file://outcome.mjs:presetColorChanged
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
 

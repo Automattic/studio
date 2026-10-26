@@ -584,30 +584,20 @@ describe( 'site checks', () => {
 		).toBe( false );
 	} );
 
-	test( 'designTokenReachedTheme', () => {
-		const vars = { token: 'primary', originalValue: '#000000' };
-		const site = ( designMd, palette ) => ( { ...workingSite, designMd, palette } );
-		expect(
-			run(
-				checks.designTokenReachedTheme,
-				outcome( site( 'primary: "#2255aa"', [ { color: '#2255AA' } ] ) ),
-				vars
-			).pass
-		).toBe( true );
-		expect(
-			run(
-				checks.designTokenReachedTheme,
-				outcome( site( 'primary: "#2255aa"', [ { color: '#000000' } ] ) ),
-				vars
-			).pass
-		).toBe( false );
-		expect(
-			run(
-				checks.designTokenReachedTheme,
-				outcome( site( 'primary: "#000000"', [ { color: '#000000' } ] ) ),
-				vars
-			).pass
-		).toBe( false );
+	test( 'presetColorChanged', () => {
+		const vars = { slug: 'accent-1', originalValue: '#FFEE58' };
+		const theme = { slug: 'accent-1', color: '#FFEE58' };
+		const cases = [
+			[ [ theme, { slug: 'accent-1', color: '#C2552B' } ], true ],
+			[ [ { slug: 'accent-1', color: '#C2552B' }, theme ], false ],
+			[ [ theme, { slug: 'accent-2', color: '#C2552B' } ], false ],
+			[ [], false ],
+		];
+		for ( const [ palette, expected ] of cases ) {
+			expect(
+				run( checks.presetColorChanged, outcome( { ...workingSite, palette } ), vars ).pass
+			).toBe( expected );
+		}
 	} );
 } );
 

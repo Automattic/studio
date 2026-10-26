@@ -332,11 +332,8 @@ export function createIpcConnector(): Connector {
 		async captureSitePreview( siteId, { path, guestId } ) {
 			return guestId === undefined ? null : ipcApi.captureSitePreview( siteId, guestId, path );
 		},
-		async getSiteDesign( siteId ) {
-			return ipcApi.getSiteDesign( siteId );
-		},
-		async fixSiteDesignDrift( siteId, fixes ) {
-			return ipcApi.fixSiteDesignDrift( siteId, fixes );
+		async getGlobalStyles( siteId ) {
+			return ipcApi.getGlobalStyles( siteId );
 		},
 
 		async getSiteIcon( siteId ) {

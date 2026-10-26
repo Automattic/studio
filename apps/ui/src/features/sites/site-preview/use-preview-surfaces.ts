@@ -2,7 +2,7 @@ import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
-import { siteDesignQueryKey } from '@/data/queries/use-site-design';
+import { globalStylesQueryKey } from '@/data/queries/use-global-styles';
 import {
 	DATABASE_HOME_PATH,
 	getPathFromPreviewUrl,
@@ -94,7 +94,7 @@ export function usePreviewSurfaces( {
 		( key: PreviewSurfaceKey, type: BrowserCommand[ 'type' ] ) => {
 			if ( key === 'design' ) {
 				if ( type === 'reload' ) {
-					void queryClient.invalidateQueries( { queryKey: siteDesignQueryKey( siteId ) } );
+					void queryClient.invalidateQueries( { queryKey: globalStylesQueryKey( siteId ) } );
 				}
 				return;
 			}

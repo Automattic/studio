@@ -52,7 +52,6 @@ export function useDesignAnnotations( {
 			designKey: key,
 			designToken: token,
 			nearbyText: value ? `${ label }: ${ value }` : label,
-			path: 'DESIGN.md',
 		} );
 		return { [ TARGET_ATTRIBUTE ]: key };
 	};

@@ -662,18 +662,18 @@ export const repeatedTreatmentIsBlockStyle = check( ( d, vars ) => {
 	return pass( `variation "${ applied[ 0 ] }" applied ${ applied.length } times` );
 } );
 
-// DESIGN.md's token changed and the active theme's palette carries the new value.
-export const designTokenReachedTheme = check( ( d, vars ) => {
-	const s = site( d, vars );
-	const value = s.designMd
-		?.match( new RegExp( `${ vars.token }:\\s*"?(#[0-9a-fA-F]{3,8})` ) )?.[ 1 ]
-		?.toLowerCase();
-	if ( ! value || value === vars.originalValue.toLowerCase() )
-		return fail( `DESIGN.md ${ vars.token } is ${ value ?? 'missing' }` );
-	const inPalette = ( s.palette || [] ).some( ( p ) => String( p.color ).toLowerCase() === value );
-	return inPalette
-		? pass( `DESIGN.md ${ vars.token } is ${ value }, and the theme palette has it` )
-		: fail( `DESIGN.md ${ vars.token } is ${ value }, but the theme palette does not have it` );
+// The palette preset `vars.slug` resolves to a color other than
+// `vars.originalValue`. The resolved palette lists core's, the theme's and the
+// user's presets in that order, so the last of a slug is the one WordPress uses.
+export const presetColorChanged = check( ( d, vars ) => {
+	const color = ( site( d, vars ).palette || [] )
+		.filter( ( p ) => p.slug === vars.slug )
+		.pop()
+		?.color?.toLowerCase();
+	if ( ! color ) return fail( `no ${ vars.slug } color in the resolved palette` );
+	return color === vars.originalValue.toLowerCase()
+		? fail( `${ vars.slug } is still ${ color }` )
+		: pass( `${ vars.slug } resolves to ${ color }` );
 } );
 
 const pathOf = ( url ) => new URL( url ).pathname.replace( /\/?$/, '/' );

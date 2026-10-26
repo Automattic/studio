@@ -4,8 +4,9 @@ import { z } from 'zod';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
 
-// A site's active theme and Site Icon, read on demand through WP-CLI. WP-CLI
-// boots WordPress without the site's server, so both work on a stopped site.
+// A site's active theme, its global styles and its Site Icon, read on demand
+// through WP-CLI. WP-CLI boots WordPress without the site's server, so they
+// work on a stopped site.
 
 export const themeDetailsSchema = z.object( {
 	name: z.string().catch( '' ),
@@ -17,6 +18,22 @@ export const themeDetailsSchema = z.object( {
 } );
 
 export type ThemeDetails = z.infer< typeof themeDetailsSchema >;
+
+/**
+ * The settings and styles WordPress resolves for the site, as the editor shows
+ * them: core's theme.json, the active themes' and the user's Global Styles
+ * merged (wp_get_global_settings(), wp_get_global_styles()). Presets stay
+ * keyed by origin. Null when the active theme is not a block theme, which the
+ * Site Editor's Styles are for.
+ */
+export const globalStylesSchema = z
+	.object( {
+		settings: z.record( z.string(), z.unknown() ),
+		styles: z.record( z.string(), z.unknown() ),
+	} )
+	.nullable();
+
+export type GlobalStyles = z.infer< typeof globalStylesSchema >;
 
 const siteIconSchema = z.object( { relativePath: z.string() } ).nullable();
 
@@ -48,6 +65,15 @@ export async function readThemeDetails(
 ): Promise< ThemeDetails > {
 	return themeDetailsSchema.parse(
 		await runStudioWpCommand( execute, sitePath, 'get-theme-details' )
+	);
+}
+
+export async function readGlobalStyles(
+	execute: ExecuteCliCommand,
+	sitePath: string
+): Promise< GlobalStyles > {
+	return globalStylesSchema.parse(
+		await runStudioWpCommand( execute, sitePath, 'get-global-styles' )
 	);
 }
 

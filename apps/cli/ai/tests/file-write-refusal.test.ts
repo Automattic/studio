@@ -129,7 +129,7 @@ describe( 'the file write refusal', () => {
 		// A theme not checked yet that WordPress.org does not update.
 		'my-site/wp-content/themes/client-work/functions.php',
 		'my-site/wp-content/plugins/wp-includes/x.php',
-		'my-site/DESIGN.md',
+		'my-site/README.md',
 		'elsewhere/wp-includes/functions.php',
 		// A WordPress tree that Studio doesn't manage.
 		'wordpress-develop/src/wp-includes/functions.php',

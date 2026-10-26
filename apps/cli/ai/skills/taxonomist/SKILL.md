@@ -30,7 +30,7 @@ This skill operates through an interactive, step-by-step process on a local Stud
 1. **Connect** — Identify the target local site and verify it's running
 2. **Export** — Download all posts (full content) and categories to local JSON
 3. **Backup** — Snapshot current taxonomy state before any changes
-4. **Analyze** — Use parallel sub-agents to analyze every post's content and suggest optimal categories
+4. **Analyze** — Run a `subagent` per batch of posts, at the same time, to analyze every post's content and suggest optimal categories
 5. **Plan** — Present a comprehensive category plan with descriptions
 6. **Review** — Iterate with the user on the plan
 7. **Apply** — Preview, then save the categories and re-categorize the posts, logging every change
@@ -108,7 +108,7 @@ wp eval-file tmp/taxonomist/backup.php output={site_path}/taxonomist-data/backup
 
 ## Step 4: Analyze
 
-Split exported posts into batches and analyze each batch with a sub-agent.
+Split exported posts into batches and analyze each batch with its own `subagent`.
 
 ### Batch splitting
 
@@ -116,7 +116,7 @@ Read `taxonomist-data/export/posts.json` and split into batch files of ~20-50 po
 
 ### Parallel analysis
 
-For each batch, spawn a sub-agent (use the Agent tool with model "haiku" for efficiency) with this prompt:
+Call `subagent` once per batch, all in one message so they run at the same time, each with this task:
 
 > Analyze these blog posts and suggest optimal category assignments.
 >
@@ -147,10 +147,9 @@ For each batch, spawn a sub-agent (use the Agent tool with model "haiku" for eff
 > "new_cats": [{"slug": "machine-learning", "name": "Machine Learning"}]
 > ```
 >
-> **Batch data:**
-> {batch JSON content}
-
-Save each sub-agent's output to `taxonomist-data/results/batch-NNN-results.json`.
+> **Batch data:** read `{site_path}/taxonomist-data/batches/batch-NNN.json`.
+>
+> Write the JSON array to `{site_path}/taxonomist-data/results/batch-NNN-results.json` and reply with the number of posts it covers.
 
 ### Aggregate results
 

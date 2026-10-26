@@ -5,7 +5,7 @@ import {
 	isUsageCapError,
 } from '@studio/common/ai/json-events';
 import { findSkill } from 'cli/ai/skills';
-import { addAssistantMessageUsage, createTokenUsage } from 'cli/ai/token-usage';
+import { addAssistantMessageUsage, addToolCallUsage, createTokenUsage } from 'cli/ai/token-usage';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { TurnStatus } from '@studio/common/ai/sessions/types';
 import type { HostId, RemoteSite } from 'cli/ai/hosts';
@@ -174,6 +174,7 @@ export function createTurnStatsTracker(): TurnStatsTracker {
 			if ( event.type !== 'tool_execution_end' ) {
 				return;
 			}
+			addToolCallUsage( usage, event );
 			toolCalls += 1;
 			if ( event.isError ) {
 				toolErrors += 1;

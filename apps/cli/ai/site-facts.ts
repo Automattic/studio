@@ -1,5 +1,6 @@
 import { homepageFact } from 'cli/ai/front-page-template';
 import { activePluginsFact, comingSoonFact } from 'cli/ai/plugins';
+import { postCopiesFact } from 'cli/ai/post-copies';
 import { savedCopiesFact } from 'cli/ai/saved-copies';
 import { readWordPressSite, type WordPressSite } from 'cli/ai/site-database';
 import { themePresetsFact } from 'cli/ai/theme-presets';
@@ -47,6 +48,7 @@ const SITE_FACTS: SiteFact[] = [
 	activeThemeFact,
 	themePresetsFact,
 	homepageFact,
+	postCopiesFact,
 	activePluginsFact,
 	savedCopiesFact,
 	comingSoonFact,

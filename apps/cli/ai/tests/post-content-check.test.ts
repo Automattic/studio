@@ -63,10 +63,10 @@ function saves( works: boolean ) {
 		.mockReset()
 		.mockImplementation( async ( _site, args ) => {
 			const php = args[ 1 ];
-			const [ , id, file ] = php.match( /'ID' => (\d+)[\s\S]*ABSPATH \. "([^"]+)"/ )!;
+			const [ , id, file ] = php.match( /'ID' => (\d+)[\s\S]*file_get_contents\( "([^"]+)"/ )!;
 			expect( php ).toContain( 'kses_remove_filters();' );
 			if ( works ) {
-				fixture.edit( Number( id ), readFileSync( path.join( fixture.root, file ), 'utf8' ) );
+				fixture.edit( Number( id ), readFileSync( file, 'utf8' ) );
 			}
 			return {
 				response: { exitCode: Promise.resolve( works ? 0 : 1 ) },

@@ -14,7 +14,7 @@ import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import type { ChangeReport, SiteChangeSource, Versions } from 'cli/ai/site-changes';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
-const RENDERED_TYPES = [
+export const RENDERED_TYPES = [
 	'post',
 	'page',
 	'wp_template',
@@ -58,14 +58,14 @@ export async function readPosts( sitePath: string, ids: string[] ): Promise< Row
 }
 
 /**
- * Saves a post's content from a file of its site, as an administrator's save
+ * Saves a post's content from a file, as an administrator's save
  * in the editor does: through wp_update_post(), without the kses filters a
  * user without unfiltered_html saves through (kses_remove_filters()).
  */
-async function savePost( site: SiteData, id: number, relativePath: string ): Promise< void > {
+export async function savePost( site: SiteData, id: number, file: string ): Promise< void > {
 	const php = `kses_remove_filters();
-$saved = wp_update_post( wp_slash( array( 'ID' => ${ id }, 'post_content' => file_get_contents( ABSPATH . ${ JSON.stringify(
-		relativePath
+$saved = wp_update_post( wp_slash( array( 'ID' => ${ id }, 'post_content' => file_get_contents( ${ JSON.stringify(
+		file
 	) } ) ) ), true );
 if ( is_wp_error( $saved ) ) { fwrite( STDERR, $saved->get_error_message() ); exit( 1 ); }`;
 	try {
@@ -104,7 +104,7 @@ async function validatePost(
 	await mkdir( path.dirname( fixFile ), { recursive: true } );
 	await writeFile( fixFile, result.fixedContent, 'utf8' );
 	const saves = describeEditorSave( result, ' that do not match what the block saves' );
-	const saved = await savePost( site, post.id, relativePath ).then(
+	const saved = await savePost( site, post.id, fixFile ).then(
 		() => true,
 		() => false
 	);

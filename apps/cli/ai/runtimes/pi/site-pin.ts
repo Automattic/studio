@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { siteIdOfCopy } from 'cli/ai/post-copies';
 import { resolveSite } from 'cli/ai/tools/utils';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
@@ -46,9 +47,13 @@ async function targetOf( toolName: string, params: unknown ): Promise< SiteTarge
 	if ( FILE_CHANGES.has( toolName ) && typeof args.path === 'string' ) {
 		const file = path.resolve( STUDIO_SITES_ROOT, args.path );
 		const { sites } = await readCliConfig();
-		const site = sites
-			.filter( ( candidate ) => isInside( file, path.resolve( candidate.path ) ) )
-			.sort( ( a, b ) => b.path.length - a.path.length )[ 0 ];
+		// A post's copy in Studio's workspace is the site's, as its files are.
+		const copyOf = siteIdOfCopy( file );
+		const site = copyOf
+			? sites.find( ( candidate ) => candidate.id === copyOf )
+			: sites
+					.filter( ( candidate ) => isInside( file, path.resolve( candidate.path ) ) )
+					.sort( ( a, b ) => b.path.length - a.path.length )[ 0 ];
 		return site ? localTarget( site.path, site.name ) : undefined;
 	}
 	if (

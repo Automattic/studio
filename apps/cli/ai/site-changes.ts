@@ -12,6 +12,7 @@ import { renderedBlocks } from 'cli/ai/block-render-check';
 import { blockTheme } from 'cli/ai/block-theme';
 import { childThemeCopies } from 'cli/ai/child-theme-copies';
 import { postContentChanges } from 'cli/ai/post-content-check';
+import { postCopies } from 'cli/ai/post-copies';
 import { siteFileWrites } from 'cli/ai/site-file-writes';
 import { templatePartAreas } from 'cli/ai/template-part-areas';
 import { updatableThemeChanges } from 'cli/ai/theme-file-changes';
@@ -58,6 +59,8 @@ export interface SiteChangeSource {
 }
 
 export const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
+	// Before the posts, so a copy saved to its post is checked as the post.
+	postCopies,
 	postContentChanges,
 	// After postContentChanges, which may save the editor's save of a post.
 	renderedBlocks,

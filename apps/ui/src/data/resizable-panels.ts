@@ -5,6 +5,7 @@ export interface ResizablePanelConfig {
 }
 
 export const SIDEBAR_PANEL_STORAGE_KEY = 'studio-ui-sidebar-width';
+export const SIDEBAR_COLLAPSED_STORAGE_KEY = 'studio-ui-sidebar-collapsed';
 export const PREVIEW_CONTENT_WIDTH_STORAGE_KEY = 'studio-ui-preview-content-width';
 export const PREVIEW_CONTENT_DEFAULT_WIDTH = 360;
 export const PREVIEW_PANEL_MIN_WIDTH = 360;
@@ -76,18 +77,24 @@ export function storeResizablePanelWidth( storageKey: string, width: number ): v
 const PANEL_WIDTH_STORAGE_KEYS = [ SIDEBAR_PANEL_STORAGE_KEY, PREVIEW_CONTENT_WIDTH_STORAGE_KEY ];
 export const PANEL_WIDTHS_RESET_EVENT = 'studio-panel-widths-reset';
 
-export function hasCustomPanelWidths(): boolean {
+export function hasCustomPanelLayout(): boolean {
 	try {
-		return PANEL_WIDTH_STORAGE_KEYS.some( ( key ) => window.localStorage.getItem( key ) !== null );
+		return (
+			PANEL_WIDTH_STORAGE_KEYS.some( ( key ) => window.localStorage.getItem( key ) !== null ) ||
+			window.localStorage.getItem( SIDEBAR_COLLAPSED_STORAGE_KEY ) === 'true'
+		);
 	} catch {
 		return false;
 	}
 }
 
-// Forgets every resized panel width; mounted panels listen for the event.
-export function resetPanelWidths(): void {
+// Forgets every resized panel width and a hidden sidebar; mounted panels
+// listen for the event.
+export function resetPanelLayout(): void {
 	try {
-		PANEL_WIDTH_STORAGE_KEYS.forEach( ( key ) => window.localStorage.removeItem( key ) );
+		[ ...PANEL_WIDTH_STORAGE_KEYS, SIDEBAR_COLLAPSED_STORAGE_KEY ].forEach( ( key ) =>
+			window.localStorage.removeItem( key )
+		);
 	} catch {
 		// Nothing stored to forget.
 	}

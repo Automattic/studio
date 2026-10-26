@@ -21,7 +21,7 @@
 		flex-grow: 1;
 		height: 6px;
 		overflow: hidden;
-		border-radius: 9999px;
+		border-radius: var( --radius-full );
 		background-color: var( --border );
 	}
 
@@ -37,7 +37,7 @@
 		width: 16px;
 		height: 16px;
 		border: 1px solid var( --accent-text );
-		border-radius: 9999px;
+		border-radius: var( --radius-full );
 		background-color: var( --accent-text );
 		outline: none;
 		transition: box-shadow var( --motion-duration-feedback );
@@ -45,7 +45,7 @@
 
 	.thumb::after {
 		position: absolute;
-		inset: -8px;
+		inset: calc( var( --space-2 ) * -1 );
 		content: '';
 	}
 

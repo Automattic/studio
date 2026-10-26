@@ -43,7 +43,7 @@ import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wor
 import type { DesignFix } from '@studio/design-md';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
-export type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
+export type { ActiveAgentRun } from '@studio/common/ai/agent-events';
 export type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 export type { StudioChatImage } from '@studio/common/ai/chat-images';
 export type {
@@ -68,7 +68,7 @@ export type { SiteDesign } from '@studio/common/sites/site-design';
 
 export type InstalledApps = Record< SupportedEditor | SupportedTerminal, boolean >;
 
-export interface AiSessionSitePlacement {
+interface AiSessionSitePlacement {
 	kind: 'site';
 	siteId: string;
 	sitePath: string;
@@ -127,7 +127,7 @@ export interface AuthUser {
 // between a native flow and a browser-friendly fallback (instead of branching on
 // "am I in Electron"). The desktop app has them all; the browser (`studio ui`)
 // does not.
-export interface ConnectorCapabilities {
+interface ConnectorCapabilities {
 	// A native OS folder picker is available (`selectSiteFolder`). When false,
 	// the UI offers an editable path field instead.
 	nativeFolderPicker: boolean;
@@ -582,6 +582,9 @@ export interface Connector {
 	// shortcut) in the application menu.
 	onAddSite( listener: () => void ): () => void;
 	onAddSiteWithBlueprint( listener: ( payload: { blueprintPath: string } ) => void ): () => void;
+	// Tells the host the app now listens for the events links send (Settings, Add
+	// site, sync and checkout returns), so a link that arrived earlier opens.
+	readyForDeeplinks?(): void;
 
 	// Fires when the user activates "Settings…" (or its keyboard shortcut) in
 	// the application menu, or opens a link to one setting.

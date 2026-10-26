@@ -32,30 +32,18 @@ test.describe( 'Localization', () => {
 		await session.cleanup();
 	} );
 
-	test( 'changes language from settings', async () => {
-		await changeLanguage( 'Français', 'fr' );
-		await expect(
-			session.mainWindow.getByRole( 'button', { name: 'Ajouter un site' } )
-		).toBeVisible();
-		await changeLanguage( 'English', 'en' );
-		await expect( session.mainWindow.getByRole( 'button', { name: 'Add site' } ) ).toBeVisible();
-	} );
-
-	test( 'supports RTL languages', async () => {
+	test( 'applies a language, right-to-left included, and keeps it across a restart', async () => {
 		await changeLanguage( 'العربية', 'ar' );
+		await expect( session.mainWindow.locator( 'html' ) ).toHaveAttribute( 'dir', 'rtl' );
+		await expect( session.mainWindow.getByRole( 'button', { name: 'إضافة موقع' } ) ).toBeVisible();
+
+		await session.restart();
 		await expect( session.mainWindow.locator( 'html' ) ).toHaveAttribute( 'dir', 'rtl' );
 		await expect( session.mainWindow.getByRole( 'button', { name: 'إضافة موقع' } ) ).toBeVisible();
 
 		await changeLanguage( 'English', 'en' );
 		await expect( session.mainWindow.locator( 'html' ) ).toHaveAttribute( 'dir', 'ltr' );
-	} );
-
-	test( 'persists selected language when re-opening app', async () => {
-		await changeLanguage( 'Deutsch', 'de' );
-		await session.restart();
-		await expect(
-			session.mainWindow.getByRole( 'button', { name: 'Website hinzufügen' } )
-		).toBeVisible();
+		await expect( session.mainWindow.getByRole( 'button', { name: 'Add site' } ) ).toBeVisible();
 	} );
 
 	test( 'created site language matches Studio language', async ( { page } ) => {

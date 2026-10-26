@@ -8,7 +8,7 @@
 	}
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media ( prefers-reduced-motion: reduce ) {
 	.stopButton[aria-busy='true'] {
 		animation: none;
 	}

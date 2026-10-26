@@ -1,33 +1,33 @@
 .root {
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
+	gap: var( --space-3 );
 }
 
 .actions {
 	display: flex;
 	align-items: center;
-	gap: 16px;
+	gap: var( --space-4 );
 }
 
 .arrow {
-	margin-inline-start: 4px;
+	margin-inline-start: var( --space-1 );
 	display: inline-block;
 }
 
 [dir='rtl'] .arrow {
-	transform: scaleX(-1);
+	transform: scaleX( -1 );
 }
 
 .error {
-	padding: 10px 12px;
-	border: 1px solid color-mix(in oklab, var(--destructive) 35%, transparent);
-	border-radius: 6px;
-	background: var(--destructive-surface);
-	color: var(--destructive);
+	padding: var( --space-2_5 ) var( --space-3 );
+	border: 1px solid color-mix( in oklab, var( --destructive ) 35%, transparent );
+	border-radius: var( --radius-lg );
+	background: var( --destructive-surface );
+	color: var( --destructive );
 }
 
-@media (max-width: 600px) {
+@media ( width < 640px ) {
 	.actions {
 		align-items: stretch;
 		flex-direction: column;

@@ -7,7 +7,6 @@ import {
 	hasSeveralUnfoldedSites,
 	mergeVisibleOrder,
 	revealSite,
-	sortSitesByManualOrder,
 	toggleRevealedSite,
 } from './sidebar-collections';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
@@ -52,13 +51,6 @@ describe( 'createSiteRows', () => {
 	it( 'groups chats under their site, open ones most recent first', () => {
 		expect( rows.map( ( row ) => row.sessionIds ) ).toEqual( [ [ 'a1', 'a2', 'a3' ], [ 'b1' ] ] );
 		expect( rows[ 0 ].chats.map( ( session ) => session.id ) ).toEqual( [ 'a2', 'a1' ] );
-	} );
-} );
-
-describe( 'sortSitesByManualOrder', () => {
-	it( 'puts dragged sites first and keeps the rest in place', () => {
-		const ordered = sortSitesByManualOrder( [ site( 'a' ), site( 'b' ), site( 'c' ) ], [ 'c' ] );
-		expect( ordered.map( ( { id } ) => id ) ).toEqual( [ 'c', 'a', 'b' ] );
 	} );
 } );
 

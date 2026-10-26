@@ -1,3 +1,10 @@
 .error {
-	color: var(--destructive);
+	color: var( --destructive );
+}
+
+.sites {
+	max-height: 12rem;
+	overflow-y: auto;
+	padding-inline-start: var( --space-4 );
+	list-style: disc;
 }

@@ -1,3 +1,4 @@
+import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { SUPPORTED_EDITORS } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS } from '@studio/common/lib/user-settings/terminal';
 import type {
@@ -35,6 +36,10 @@ export interface FakeConnectorState {
 	preferences: UserPreferences;
 }
 
+export type FakeConnectorInitialState = Partial< Omit< FakeConnectorState, 'preferences' > > & {
+	preferences?: Partial< UserPreferences >;
+};
+
 export function makeSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
 	const id = overrides.id ?? 'site-1';
 	return {
@@ -60,6 +65,10 @@ export function makeSession( overrides: Partial< AiSessionSummary > = {} ): AiSe
 		...overrides,
 	};
 }
+
+// Shared across connectors so ids never repeat within a test file, where
+// module-level stores keyed by id (composer drafts) outlive a render.
+let nextId = 1;
 
 export const TEST_USER: AuthUser = { id: 1, email: 'test@example.test', displayName: 'Test User' };
 
@@ -90,7 +99,7 @@ const installedApps = () =>
  * `on*` subscriptions the way the host would.
  */
 export function createInMemoryConnector(
-	initial: Partial< FakeConnectorState > = {},
+	initial: FakeConnectorInitialState = {},
 	overrides: Partial< Connector > = {}
 ): InMemoryConnector {
 	const state: FakeConnectorState = {
@@ -117,10 +126,24 @@ export function createInMemoryConnector(
 		}
 		return session;
 	};
+	const emit = ( event: string, ...args: unknown[] ) => {
+		for ( const listener of listeners.get( event ) ?? [] ) {
+			( listener as ( ...values: unknown[] ) => void )( ...args );
+		}
+	};
+	const emitSiteEvent = ( event: SITE_EVENTS, site: SiteDetails ) =>
+		queueMicrotask( () =>
+			emit( 'onSiteEvent', { event, siteId: site.id, running: site.running } )
+		);
 	const updateSite = ( id: string, patch: Partial< SiteDetails > ) => {
 		state.sites = state.sites.map( ( site ) => ( site.id === id ? { ...site, ...patch } : site ) );
+		const site = state.sites.find( ( entry ) => entry.id === id );
+		if ( site ) {
+			emitSiteEvent( SITE_EVENTS.UPDATED, site );
+		}
 	};
-	let nextId = 1;
+	let agentInstructions = '';
+	let agentInstructionsEnabled = true;
 
 	const methods: Methods = {
 		init: async () => {},
@@ -143,15 +166,21 @@ export function createInMemoryConnector(
 				running: ! params.skipStart,
 			} );
 			state.sites = [ ...state.sites, site ];
+			emitSiteEvent( SITE_EVENTS.CREATED, site );
 			return site;
 		},
 		deleteSite: async ( id ) => {
-			state.sites = state.sites.filter( ( site ) => site.id !== id );
+			const site = state.sites.find( ( entry ) => entry.id === id );
+			state.sites = state.sites.filter( ( entry ) => entry.id !== id );
+			if ( site ) {
+				emitSiteEvent( SITE_EVENTS.DELETED, { ...site, running: false } );
+			}
 		},
 		copySite: async ( id ) => {
 			const source = state.sites.find( ( site ) => site.id === id )!;
 			const copy = { ...source, id: `copy-${ nextId++ }`, name: `${ source.name } Copy` };
 			state.sites = [ ...state.sites, copy ];
+			emitSiteEvent( SITE_EVENTS.CREATED, copy );
 			return copy;
 		},
 		startSite: async ( id ) => updateSite( id, { running: true } ),
@@ -241,7 +270,10 @@ export function createInMemoryConnector(
 		getActiveAgentRuns: async () => [],
 		setSessionModel: async () => {},
 		setSessionProvider: async () => {},
-		setSessionEnvironment: async () => {},
+		setSessionEnvironment: async ( id, environment ) => {
+			const session = findSession( id );
+			session.summary = { ...session.summary, activeEnvironment: environment };
+		},
 		interruptAgentRun: async () => {},
 		answerAgentQuestion: async () => {},
 		onAgentEvent: subscribe( 'onAgentEvent' ),
@@ -254,10 +286,14 @@ export function createInMemoryConnector(
 		selectDefaultSiteDirectory: async () => null,
 		isCertificateTrusted: async () => false,
 		trustCertificate: async () => {},
-		getAgentInstructions: async () => '',
-		getAgentInstructionsEnabled: async () => true,
-		setAgentInstructionsEnabled: async () => {},
-		saveAgentInstructions: async () => {},
+		getAgentInstructions: async () => agentInstructions,
+		getAgentInstructionsEnabled: async () => agentInstructionsEnabled,
+		setAgentInstructionsEnabled: async ( enabled ) => {
+			agentInstructionsEnabled = enabled;
+		},
+		saveAgentInstructions: async ( content ) => {
+			agentInstructions = content;
+		},
 		getAiSettings: async () => ( {
 			provider: 'wpcom',
 			hasAnthropicApiKey: false,
@@ -312,6 +348,7 @@ export function createInMemoryConnector(
 		onToggleSidebar: subscribe( 'onToggleSidebar' ),
 		onAddSite: subscribe( 'onAddSite' ),
 		onAddSiteWithBlueprint: subscribe( 'onAddSiteWithBlueprint' ),
+		readyForDeeplinks: () => {},
 		onOpenSettings: subscribe( 'onOpenSettings' ),
 		onAiCreditsPurchased: subscribe( 'onAiCreditsPurchased' ),
 		getOnboardingHints: async () => ( {
@@ -339,11 +376,7 @@ export function createInMemoryConnector(
 		...methods,
 		...overrides,
 		state,
-		emit: ( event, ...args ) => {
-			for ( const listener of listeners.get( event ) ?? [] ) {
-				( listener as ( ...values: unknown[] ) => void )( ...args );
-			}
-		},
+		emit,
 		listenerCount: ( event ) => listeners.get( event )?.size ?? 0,
 	} as InMemoryConnector;
 }

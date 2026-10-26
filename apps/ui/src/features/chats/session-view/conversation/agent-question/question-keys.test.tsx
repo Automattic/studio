@@ -52,22 +52,37 @@ function renderQuestion( pending: boolean ) {
 }
 
 describe( 'Agent question keys', () => {
-	it( 'answers with the option lettered like the key pressed, outside text fields', () => {
+	it( 'answers with the option lettered like the key pressed inside the question', () => {
 		const { onAnswerQuestion, onChooseFreeForm } = renderQuestion( true );
+		const group = screen.getByRole( 'group', { name: question } );
 
+		fireEvent.keyDown( document.body, { key: 'b' } );
 		fireEvent.keyDown( screen.getByRole( 'textbox', { name: 'Composer' } ), { key: 'a' } );
 		expect( onAnswerQuestion ).not.toHaveBeenCalled();
 
-		fireEvent.keyDown( document.body, { key: 'b' } );
+		fireEvent.keyDown( group, { key: 'b' } );
 		expect( onAnswerQuestion ).toHaveBeenCalledWith( question, 'List' );
 
-		fireEvent.keyDown( document.body, { key: 'C' } );
+		fireEvent.keyDown( screen.getByRole( 'radio', { name: 'Grid' } ), { key: 'C' } );
 		expect( onChooseFreeForm ).toHaveBeenCalledWith( question );
+	} );
+
+	it( 'moves between options with the arrow keys without answering', () => {
+		const { onAnswerQuestion } = renderQuestion( true );
+		const grid = screen.getByRole( 'radio', { name: 'Grid' } );
+		grid.focus();
+
+		fireEvent.keyDown( grid, { key: 'ArrowDown' } );
+		expect( screen.getByRole( 'radio', { name: 'List' } ) ).toHaveFocus();
+		fireEvent.keyDown( document.activeElement!, { key: 'ArrowUp' } );
+		fireEvent.keyDown( document.activeElement!, { key: 'ArrowUp' } );
+		expect( screen.getByRole( 'radio', { name: 'Something else' } ) ).toHaveFocus();
+		expect( onAnswerQuestion ).not.toHaveBeenCalled();
 	} );
 
 	it( 'leaves the keys alone once the question is no longer waiting', () => {
 		const { onAnswerQuestion } = renderQuestion( false );
-		fireEvent.keyDown( document.body, { key: 'a' } );
+		fireEvent.keyDown( screen.getByRole( 'group', { name: question } ), { key: 'a' } );
 		expect( onAnswerQuestion ).not.toHaveBeenCalled();
 	} );
 } );

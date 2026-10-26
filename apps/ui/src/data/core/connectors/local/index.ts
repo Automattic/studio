@@ -1,3 +1,4 @@
+import { stripCliErrorEnvelope } from '@studio/common/lib/error-formatting';
 import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
@@ -121,7 +122,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			try {
 				const payload: unknown = JSON.parse( text );
 				if ( payload && typeof payload === 'object' && 'error' in payload ) {
-					serverError = typeof payload.error === 'string' ? payload.error : undefined;
+					serverError =
+						typeof payload.error === 'string' ? stripCliErrorEnvelope( payload.error ) : undefined;
 				}
 			} catch {
 				// Not JSON; fall through to the transport error.

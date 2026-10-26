@@ -124,7 +124,7 @@ export function BlueprintDetails( {
 				  )
 				: null }
 			<div className={ styles.details }>
-				{ create.error ? (
+				{ create.error && create.error !== createSite.error ? (
 					<Alert variant="destructive">
 						<AlertDescription>
 							{ getErrorMessage( create.error ) ??

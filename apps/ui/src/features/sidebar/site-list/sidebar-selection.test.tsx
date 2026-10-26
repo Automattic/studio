@@ -141,8 +141,7 @@ describe( 'sidebar selection', () => {
 				.map( ( item ) => item.textContent?.replace( /Ctrl\+Alt\+P|Ctrl\+Shift\+A|⌥⌘P|⇧⌘A/g, '' ) )
 		).toEqual( [ 'Mark as read', 'Mark as unread', 'Pin', 'Unpin', 'Archive 2 chats' ] );
 		expect( within( menu ).queryByRole( 'menuitem', { name: /Rename/ } ) ).not.toBeInTheDocument();
-		fireEvent.keyDown( within( menu ).getAllByRole( 'menuitem' )[ 0 ], { key: 'Escape' } );
-		await waitFor( () => expect( screen.getByRole( 'menu' ) ).toHaveAttribute( 'data-closed' ) );
+		fireEvent.keyDown( menu, { key: 'Escape' } );
 		fireEvent.contextMenu( row( 'c' ) );
 		expect( await screen.findByRole( 'menuitem', { name: /Rename/ } ) ).toBeVisible();
 		expect( selected() ).toEqual( [] );
@@ -201,6 +200,7 @@ describe( 'sidebar selection', () => {
 		await waitFor( () => expect( connector.updateSessionMetadata ).toHaveBeenCalledTimes( 2 ) );
 		expect( connector.updateSessionMetadata ).toHaveBeenCalledWith( 'a', { unread: false } );
 		expect( connector.updateSessionMetadata ).toHaveBeenCalledWith( 'b', { unread: false } );
+		await waitFor( () => expect( selected() ).toEqual( [ 'site:two' ] ) );
 	} );
 
 	it( 'archives the open chat and offers to undo only the successes', async () => {
@@ -215,6 +215,7 @@ describe( 'sidebar selection', () => {
 		const menu = await bulkMenu();
 		fireEvent.click( within( menu ).getByRole( 'menuitem', { name: /Archive/ } ) );
 		await waitFor( () => expect( getVisibleToasts() ).toHaveLength( 1 ) );
+		expect( selected() ).toEqual( [ 'chat:b', 'site:two' ] );
 		await waitFor( () => expect( history.location.pathname ).not.toBe( '/sessions/a' ) );
 		const left = history.location.pathname;
 		const notice = getVisibleToasts()[ 0 ];
@@ -224,6 +225,7 @@ describe( 'sidebar selection', () => {
 		} );
 		expect( connector.updateSessionMetadata ).toHaveBeenCalledWith( 'a', { archived: false } );
 		expect( connector.updateSessionMetadata ).not.toHaveBeenCalledWith( 'b', { archived: false } );
+		expect( selected() ).toEqual( [ 'chat:b', 'site:two' ] );
 		expect( history.location.pathname ).toBe( left );
 	} );
 
@@ -235,6 +237,7 @@ describe( 'sidebar selection', () => {
 		await waitFor( () =>
 			expect( getVisibleToasts().map( ( toast ) => toast.title ) ).toContain( '2 chats archived' )
 		);
+		expect( selected() ).toEqual( [ 'site:two' ] );
 		await waitFor( () => expect( history.location.pathname ).not.toBe( '/sessions/a' ) );
 		const left = history.location.pathname;
 		const notice = getVisibleToasts().find( ( toast ) => toast.title === '2 chats archived' )!;
@@ -243,6 +246,7 @@ describe( 'sidebar selection', () => {
 		} );
 		expect( connector.updateSessionMetadata ).toHaveBeenCalledWith( 'a', { archived: false } );
 		expect( connector.updateSessionMetadata ).toHaveBeenCalledWith( 'b', { archived: false } );
+		expect( selected() ).toEqual( [ 'site:two' ] );
 		expect( history.location.pathname ).toBe( left );
 	} );
 
@@ -270,9 +274,9 @@ describe( 'sidebar selection', () => {
 		expect( within( menu ).getByRole( 'menuitem', { name: /Archive 2 chats/ } ) ).toBeVisible();
 		expect( within( menu ).getByRole( 'menuitem', { name: /Delete 2 sites/ } ) ).toBeVisible();
 		fireEvent.click( within( menu ).getByRole( 'menuitem', { name: /Archive 2 chats/ } ) );
-		await waitFor( () => expect( connector.updateSessionMetadata ).toHaveBeenCalledTimes( 2 ) );
+		await waitFor( () => expect( selected() ).toEqual( [ 'site:one', 'site:two' ] ) );
 		expect( connector.deleteSite ).not.toHaveBeenCalled();
-		select( 'one', 'two' );
+		expect( connector.updateSessionMetadata ).toHaveBeenCalledTimes( 2 );
 		menu = await bulkMenu( 'one' );
 		expect( within( menu ).getAllByRole( 'menuitem' ) ).toHaveLength( 3 );
 		fireEvent.click( within( menu ).getByRole( 'menuitem', { name: /Delete 2 sites/ } ) );
@@ -330,6 +334,7 @@ describe( 'sidebar selection', () => {
 				archived: true,
 			} )
 		);
+		await waitFor( () => expect( selected() ).toEqual( [ 'site:a' ] ) );
 		expect( connector.deleteSite ).not.toHaveBeenCalled();
 	} );
 

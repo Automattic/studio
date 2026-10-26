@@ -55,21 +55,23 @@ describe( 'account and session events', () => {
 	} );
 
 	it( 'does not announce logout when refreshing the account fails', async () => {
-		const { connector, settle, authChanged } = setup( TEST_USER );
+		const { connector, queryClient, settle, authChanged } = setup( TEST_USER );
 		await settle();
 		connector.getAuthUser.mockRejectedValueOnce( new Error( 'Offline' ) );
 		authChanged();
-		await settle();
+		await waitFor( () =>
+			expect( queryClient.getQueryState( [ 'auth-user' ] )?.status ).toBe( 'error' )
+		);
 		expect( getVisibleToasts() ).toHaveLength( 0 );
 		authChanged();
 		await settle();
 		expect( getVisibleToasts() ).toHaveLength( 0 );
 	} );
 
-	it( 'unsubscribes on unmount', async () => {
+	it( 'shares subscriptions across consumers and unsubscribes on unmount', async () => {
 		const { connector, settle, unmount } = setup();
 		await settle();
-		expect( connector.listenerCount( 'onAuthStateChanged' ) ).toBeGreaterThan( 0 );
+		expect( connector.listenerCount( 'onAuthStateChanged' ) ).toBe( 1 );
 		expect( connector.listenerCount( 'onSessionPlacementUpdated' ) ).toBe( 1 );
 		unmount();
 		expect( connector.listenerCount( 'onAuthStateChanged' ) ).toBe( 0 );

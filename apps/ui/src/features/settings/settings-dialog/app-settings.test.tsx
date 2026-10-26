@@ -89,7 +89,7 @@ describe( 'Settings in the Studio workspace', () => {
 		const overlay = document.querySelector( '[data-slot="dialog-overlay"]' );
 		expect( scopeTab( 'Studio' ) ).toHaveAttribute( 'aria-selected', 'true' );
 		fireEvent.click( scopeTab( 'Site' ) );
-		expect( await screen.findByLabelText( 'Site name' ) ).toHaveValue( 'My site' );
+		expect( await screen.findByRole( 'textbox', { name: 'Site name' } ) ).toHaveValue( 'My site' );
 		expect( screen.getByRole( 'dialog', { name: 'Settings' } ) ).toBe( dialog );
 		expect( document.querySelector( '[data-slot="dialog-overlay"]' ) ).toBe( overlay );
 		expect(
@@ -100,7 +100,7 @@ describe( 'Settings in the Studio workspace', () => {
 		expect( screen.getByRole( 'dialog', { name: 'Settings' } ) ).toBe( dialog );
 		expect( document.querySelector( '[data-slot="dialog-overlay"]' ) ).toBe( overlay );
 		fireEvent.click( scopeTab( 'Site' ) );
-		expect( await screen.findByLabelText( 'Site name' ) ).toHaveValue( 'My site' );
+		expect( await screen.findByRole( 'textbox', { name: 'Site name' } ) ).toHaveValue( 'My site' );
 		fireEvent.click( scopeTab( 'Studio' ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Close settings' } ) );
 		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );

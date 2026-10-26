@@ -294,10 +294,8 @@ describe( 'WordPress Studio settings', () => {
 		expect( await screen.findByText( TEST_USER.email ) ).toBeVisible();
 		expect( screen.getByText( TEST_USER.displayName ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Account' } ) ).not.toBeInTheDocument();
-		const first = within( screen.getByRole( 'dialog', { name: 'Settings' } ) )
-			.getAllByRole( 'group' )
-			.find( ( group ) => group.tagName === 'FIELDSET' )!;
-		expect( first ).toHaveTextContent( TEST_USER.email );
+		const general = screen.getByRole( 'tabpanel', { name: 'General' } );
+		expect( within( general ).getAllByRole( 'group' )[ 0 ] ).toHaveTextContent( TEST_USER.email );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Log out' } ) );
 		await waitFor( () => expect( connector.logout ).toHaveBeenCalledExactlyOnceWith() );
 		expect( await studioConnect() ).toBeVisible();
@@ -410,10 +408,8 @@ describe( 'WordPress Studio settings', () => {
 		const { connector } = await setup( { section: 'keyboard' } );
 		fireEvent.change( searchBox(), { target: { value: 'theme' } } );
 		expect( screen.queryByRole( 'combobox', { name: 'Theme' } ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'tab', { name: 'Theme Studio' } ) ).toHaveAttribute(
-			'data-highlighted'
-		);
-		fireEvent.click( screen.getByRole( 'tab', { name: 'Theme Studio' } ) );
+		expect( screen.getByRole( 'tab', { name: 'Theme' } ) ).toHaveAttribute( 'data-highlighted' );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Theme' } ) );
 		const control = await screen.findByRole( 'combobox', { name: 'Theme' } );
 		await waitFor( () => expect( row( 'theme' ) ).toHaveAttribute( 'data-settings-match' ) );
 		expect( row( 'theme' ) ).toContainElement( control );
@@ -425,7 +421,7 @@ describe( 'WordPress Studio settings', () => {
 			)
 		);
 		expect( searchBox() ).toHaveValue( 'theme' );
-		expect( screen.getByRole( 'tab', { name: 'Theme Studio' } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'Theme' } ) ).toBeVisible();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Clear search' } ) );
 		expect( screen.getByRole( 'heading', { name: 'Appearance' } ) ).toBeVisible();
 	} );
@@ -433,11 +429,11 @@ describe( 'WordPress Studio settings', () => {
 	it( 'finds the Instructions sidebar tab from Settings search', async () => {
 		await setup();
 		fireEvent.change( searchBox(), { target: { value: 'Agent instructions' } } );
-		fireEvent.click( await screen.findByRole( 'tab', { name: 'Agent instructions Studio' } ) );
+		fireEvent.click( await screen.findByRole( 'tab', { name: 'Agent instructions' } ) );
 		expect(
 			await screen.findByRole( 'textbox', { name: 'WordPress Studio instructions' } )
 		).toBeVisible();
-		expect( screen.getByRole( 'tab', { name: 'Agent instructions Studio' } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'Agent instructions' } ) ).toBeVisible();
 		expect( searchBox() ).toHaveValue( 'Agent instructions' );
 	} );
 
@@ -721,7 +717,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		await waitFor( () => expect( connect ).toBeEnabled() );
 		expect( screen.queryByLabelText( 'Anthropic API key' ) ).not.toBeInTheDocument();
 		fireEvent.click( connect );
-		const input = await screen.findByLabelText( 'Anthropic API key' );
+		const input = await screen.findByLabelText( 'Anthropic API key', { selector: 'input' } );
 		expect( input ).toHaveAttribute( 'type', 'password' );
 		fireEvent.change( input, { target: { value: '  personal-key  ' } } );
 		fireEvent.click(
@@ -754,7 +750,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		);
 		await waitFor( () => expect( manage ).toBeEnabled() );
 		fireEvent.click( manage );
-		const input = await screen.findByLabelText( 'Anthropic API key' );
+		const input = await screen.findByLabelText( 'Anthropic API key', { selector: 'input' } );
 		expect( input ).toHaveAttribute( 'type', 'password' );
 		fireEvent.change( input, { target: { value: '  test-key  ' } } );
 		const save = () =>

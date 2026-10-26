@@ -39,7 +39,7 @@ describe( 'Settings search', () => {
 			expect( matches().map( ( tab ) => tab.textContent ) ).toEqual(
 				found.map( ( tab ) => tab.textContent )
 			);
-			fireEvent.click( screen.getByRole( 'tab', { name: 'Reset appearance Studio' } ) );
+			fireEvent.click( screen.getByRole( 'tab', { name: 'Reset appearance' } ) );
 			await waitFor( () => expect( section() ).toBe( 'appearance' ) );
 			expect( input ).toHaveValue( 'reset' );
 			fireEvent.click( screen.getByRole( 'button', { name: 'Clear search' } ) );
@@ -51,7 +51,7 @@ describe( 'Settings search', () => {
 	it( 'temporarily highlights the whole field and restarts when selecting it again', async () => {
 		const { input, unmount } = await renderSearch();
 		fireEvent.change( input, { target: { value: 'theme' } } );
-		fireEvent.click( screen.getByRole( 'tab', { name: 'Theme Studio' } ) );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Theme' } ) );
 		await waitFor( () => expect( row( 'theme' ) ).toHaveAttribute( 'data-settings-match' ) );
 		const field = row( 'theme' )!;
 		const control = within( field as HTMLElement ).getByRole( 'combobox', { name: 'Theme' } );
@@ -62,14 +62,13 @@ describe( 'Settings search', () => {
 			timeout: 4000,
 		} );
 		expect( control ).toHaveFocus();
-		fireEvent.click( screen.getByRole( 'tab', { name: 'Theme Studio' } ) );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Theme' } ) );
 		await waitFor( () => expect( field ).toHaveAttribute( 'data-settings-match' ) );
 		unmount();
 		expect( field ).not.toHaveAttribute( 'data-settings-match' );
 	} );
 
 	it.each( [
-		[ 'keyboard', 'Shortcuts' ],
 		[ 'keyboard', 'wapuu' ],
 		[ 'keyboard', 'WordPress.com account' ],
 		[ 'keyboard', 'Log out' ],
@@ -83,7 +82,7 @@ describe( 'Settings search', () => {
 		expect(
 			screen.queryByRole( 'tablist', { name: 'Matching settings' } )
 		).not.toBeInTheDocument();
-		expect( screen.getByText( 'No settings found.' ) ).toBeVisible();
+		expect( screen.getByText( 'No settings found.' ) ).toHaveAttribute( 'role', 'status' );
 		fireEvent.keyDown( input, { key: 'Enter' } );
 		expect( section() ).toBe( start );
 	} );
@@ -91,9 +90,9 @@ describe( 'Settings search', () => {
 	it( 'returns reset controls without the Reset group title', async () => {
 		const { input, matches } = await renderSearch();
 		fireEvent.change( input, { target: { value: 'reset' } } );
-		expect( matches().map( ( tab ) => tab.textContent ) ).toEqual( [
-			'Reset interfaceStudio',
-			'Reset appearanceStudio',
+		expect( matches().map( ( tab ) => tab.getAttribute( 'aria-label' ) ) ).toEqual( [
+			'Reset interface',
+			'Reset appearance',
 		] );
 	} );
 
@@ -103,7 +102,7 @@ describe( 'Settings search', () => {
 		expect(
 			screen.queryByRole( 'tab', { name: /^WordPress Studio CLI/ } )
 		).not.toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'tab', { name: 'Studio CLI for terminal Studio' } ) );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Studio CLI for terminal' } ) );
 		await waitFor( () => expect( section() ).toBe( 'general' ) );
 	} );
 
@@ -111,7 +110,7 @@ describe( 'Settings search', () => {
 		const { input, section } = await renderSearch( 'php' );
 		fireEvent.change( input, { target: { value: 'local domain' } } );
 		expect( screen.queryByRole( 'tab', { name: /^Local domain/ } ) ).not.toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'tab', { name: 'Use custom domain Site' } ) );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Use custom domain' } ) );
 		await waitFor( () => expect( section() ).toBe( 'site' ) );
 	} );
 
@@ -119,7 +118,7 @@ describe( 'Settings search', () => {
 		const { input, section } = await renderSearch( 'php' );
 		for ( const label of [ 'Username', 'Password', 'Email' ] ) {
 			fireEvent.change( input, { target: { value: label } } );
-			fireEvent.click( screen.getByRole( 'tab', { name: `${ label } Site` } ) );
+			fireEvent.click( screen.getByRole( 'tab', { name: label } ) );
 			await waitFor( () => expect( section() ).toBe( 'site' ) );
 		}
 	} );
@@ -127,7 +126,7 @@ describe( 'Settings search', () => {
 	it( 'finds controls by description and combines label and description words', async () => {
 		const { input, section } = await renderSearch();
 		fireEvent.change( input, { target: { value: 'coding standards' } } );
-		fireEvent.click( screen.getByRole( 'tab', { name: 'Agent instructions Studio' } ) );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Agent instructions' } ) );
 		await waitFor( () => expect( section() ).toBe( 'instructions' ) );
 		fireEvent.change( input, { target: { value: 'directory creates' } } );
 		fireEvent.keyDown( input, { key: 'Enter' } );
@@ -153,7 +152,7 @@ describe( 'Settings search', () => {
 		const { input, section } = await renderSearch();
 		fireEvent.change( input, { target: { value: 'appearance' } } );
 		expect( screen.queryByRole( 'tab', { name: /^Usage/ } ) ).not.toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'tab', { name: 'Reset appearance Studio' } ) );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Reset appearance' } ) );
 		await waitFor( () => expect( section() ).toBe( 'appearance' ) );
 	} );
 
@@ -163,7 +162,7 @@ describe( 'Settings search', () => {
 		fireEvent.keyDown( input, { key: 'Enter' } );
 		await waitFor( () => expect( section() ).toBe( 'php' ) );
 		fireEvent.change( input, { target: { value: 'no-match' } } );
-		expect( screen.getByText( 'No settings found.' ) ).toBeVisible();
+		expect( screen.getByText( 'No settings found.' ) ).toHaveAttribute( 'role', 'status' );
 		fireEvent.keyDown( input, { key: 'Escape' } );
 		expect( input ).toHaveValue( '' );
 		expect( screen.getByRole( 'tab', { name: 'PHP' } ) ).toBeVisible();

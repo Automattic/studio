@@ -62,7 +62,7 @@ it.each( [
 			expect( connector.openExternalUrl ).toHaveBeenCalledWith( ADD_PAYMENT_METHOD_URL );
 			expect( connector.continueSession ).not.toHaveBeenCalled();
 			connector.getStudioAssistantQuota.mockResolvedValue( { ...quota!, hasPaymentMethod: true } );
-			fireEvent( window, new Event( 'visibilitychange' ) );
+			fireEvent.focus( window, { relatedTarget: input } );
 			await waitFor( () => expect( input ).toBeEnabled() );
 			await waitFor( () =>
 				expect( screen.queryByRole( 'button', { name: 'Set up' } ) ).not.toBeInTheDocument()
@@ -132,7 +132,7 @@ it.each( [ false, true ] )(
 			anthropicRow( dialog ).getByRole( 'button', { name: saved ? 'Manage' : 'Connect' } )
 		);
 		if ( ! saved ) {
-			const keyInput = await screen.findByLabelText( 'Anthropic API key' );
+			const keyInput = await screen.findByLabelText( 'Anthropic API key', { selector: 'input' } );
 			expect( keyInput ).toHaveAttribute( 'type', 'password' );
 			fireEvent.change( keyInput, { target: { value: '  test-key  ' } } );
 		}

@@ -217,6 +217,41 @@ describe( 'notifications popover', () => {
 		expect( hasDot() ).toBe( true );
 	} );
 
+	it( 'keeps the dot while notifications remain and removes it after clearing all', async () => {
+		showToast( { title: 'Site started' } );
+		showToast( { title: 'Site stopped' } );
+		await setup();
+		expect( hasDot() ).toBe( true );
+		fireEvent.click( bell() );
+		await screen.findByText( 'Site started' );
+		expect( hasDot() ).toBe( true );
+		expect( getNoticeHistory() ).toHaveLength( 2 );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Dismiss Site started' } ) );
+		expect( getNoticeHistory() ).toHaveLength( 1 );
+		expect( hasDot() ).toBe( true );
+		expect( screen.getByRole( 'dialog', { name: 'Notification history' } ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Clear all' } ) );
+		expect( screen.queryByText( 'No notifications.' ) ).not.toBeInTheDocument();
+		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
+		expect( getNoticeHistory() ).toHaveLength( 0 );
+		expect( hasDot() ).toBe( false );
+	} );
+
+	it( 'closes after dismissing the last notification and allows reopening the empty list', async () => {
+		showToast( { title: 'Import failed', intent: 'error' } );
+		await setup();
+		fireEvent.click( bell() );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Dismiss Import failed' } ) );
+		expect( screen.queryByText( 'No notifications.' ) ).not.toBeInTheDocument();
+		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
+		expect( getNoticeHistory() ).toHaveLength( 0 );
+		expect( hasDot() ).toBe( false );
+		await waitFor( () => expect( bell() ).toHaveFocus() );
+		fireEvent.click( bell() );
+		expect( await screen.findByText( 'No notifications.' ) ).toBeVisible();
+		expect( hasDot() ).toBe( false );
+	} );
+
 	it( 'shows relative time and one explicit action without a duplicate title button', async () => {
 		showToast( {
 			title: 'Portfolio duplicated',

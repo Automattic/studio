@@ -158,10 +158,11 @@ describe( 'Sidebar in the Studio workspace', () => {
 	it( 'orders site actions from left to right for keyboard navigation', async () => {
 		const { ready } = setup( { signedIn: false } );
 		await ready();
-		const row = screen.getByRole( 'button', { name: /^My site$/ } ).closest( 'header' )!;
+		const row = screen.getByRole( 'button', { name: /^My site$/ } ).closest( 'li' )!;
 		expect(
 			within( row )
 				.getAllByRole( 'button' )
+				.filter( ( action ) => action.closest( 'li' ) === row )
 				.map( ( action ) => action.getAttribute( 'aria-label' ) || action.textContent )
 		).toEqual( [ 'My site', 'New chat for My site', 'Start My site' ] );
 	} );

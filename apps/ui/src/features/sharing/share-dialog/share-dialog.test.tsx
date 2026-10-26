@@ -124,7 +124,8 @@ async function shareButton( name = 'Create preview' ) {
 
 const isPublishing = ( trigger: HTMLElement ) =>
 	trigger.getAttribute( 'aria-description' ) === 'Publishing preview…';
-const isUnread = ( trigger: HTMLElement ) => !! trigger.querySelector( '[class*="readyDot"]' );
+const isUnread = ( trigger: HTMLElement ) =>
+	!! trigger.querySelector( '[data-slot="notification-dot"]' );
 const isDisabled = ( element: HTMLElement ) =>
 	element.hasAttribute( 'disabled' ) || element.getAttribute( 'aria-disabled' ) === 'true';
 const failure = ( description: string ) =>

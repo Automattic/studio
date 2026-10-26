@@ -1,9 +1,16 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createFakeConnector, makeSession, makeSite } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 
 vi.setConfig( { testTimeout: 30_000 } );
+
+beforeEach( () =>
+	document.documentElement.style.setProperty( '--motion-duration-layout', '300ms' )
+);
+afterEach( () => document.documentElement.style.removeProperty( '--motion-duration-layout' ) );
+
+const elapse = ( ms: number ) => act( () => new Promise( ( done ) => setTimeout( done, ms ) ) );
 
 const background = () => document.querySelector( '[class*="emptyState"]' );
 
@@ -26,9 +33,9 @@ describe( 'empty chat background exit', () => {
 		fireEvent.change( input, { target: { value: 'Build a homepage' } } );
 		fireEvent.keyDown( input, { key: 'Enter' } );
 		await waitFor( () => expect( empty ).toHaveAttribute( 'data-hidden' ) );
+		await elapse( 150 );
 		expect( background() ).toBe( empty );
-		fireEvent.transitionEnd( empty );
-		expect( background() ).toBeNull();
+		await waitFor( () => expect( background() ).toBeNull() );
 	} );
 
 	it( 'cancels removal when an empty chat returns during the fade', async () => {
@@ -42,9 +49,10 @@ describe( 'empty chat background exit', () => {
 		fireEvent.change( input, { target: { value: 'Build a homepage' } } );
 		fireEvent.keyDown( input, { key: 'Enter' } );
 		await waitFor( () => expect( empty ).toHaveAttribute( 'data-hidden' ) );
+		await elapse( 150 );
 		fail( new Error( 'Disconnected' ) );
 		await waitFor( () => expect( empty ).not.toHaveAttribute( 'data-hidden' ) );
-		fireEvent.transitionEnd( empty );
+		await elapse( 400 );
 		expect( background() ).toBe( empty );
 	} );
 } );

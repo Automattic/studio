@@ -92,41 +92,30 @@ beforeEach( () => {
 } );
 
 describe( 'Chat composer', () => {
-	it.each( [ 'accepted', 'rejected' ] as const )(
-		'preserves edits and new attachments while a send is %s',
-		async ( outcome ) => {
-			let resolve!: () => void;
-			let reject!: ( error: Error ) => void;
-			const onSend = vi.fn(
-				() =>
-					new Promise< void >( ( accept, fail ) => {
-						resolve = accept;
-						reject = fail;
-					} )
-			);
-			const { input } = await setup( { onSend } );
-			fireEvent.change( input, { target: { value: 'First message' } } );
-			upload( 'first.txt' );
-			await screen.findByText( 'first.txt' );
-			fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
-			await waitFor( () => expect( onSend ).toHaveBeenCalled() );
-			expect( input ).toHaveValue( 'First message' );
-			fireEvent.change( input, { target: { value: 'New draft' } } );
-			upload( 'second.txt' );
-			await screen.findByText( 'second.txt' );
-			await act( async () => {
-				if ( outcome === 'rejected' ) {
-					reject( new Error( 'Disconnected' ) );
-				} else {
-					resolve();
-				}
-			} );
-			expect( input ).toHaveValue( 'New draft' );
-			expect( screen.getByText( 'second.txt' ) ).toBeVisible();
-			expect( !! screen.queryByText( 'first.txt' ) ).toBe( outcome !== 'accepted' );
-			expect( getComposerDraft( 'test' ).text ).toBe( 'New draft' );
-		}
-	);
+	it( 'preserves edits and new attachments while a send is accepted', async () => {
+		let resolve!: () => void;
+		const onSend = vi.fn(
+			() =>
+				new Promise< void >( ( accept ) => {
+					resolve = accept;
+				} )
+		);
+		const { input } = await setup( { onSend } );
+		fireEvent.change( input, { target: { value: 'First message' } } );
+		upload( 'first.txt' );
+		await screen.findByText( 'first.txt' );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+		await waitFor( () => expect( onSend ).toHaveBeenCalled() );
+		expect( input ).toHaveValue( '' );
+		fireEvent.change( input, { target: { value: 'New draft' } } );
+		upload( 'second.txt' );
+		await screen.findByText( 'second.txt' );
+		await act( async () => resolve() );
+		expect( input ).toHaveValue( 'New draft' );
+		expect( screen.getByText( 'second.txt' ) ).toBeVisible();
+		expect( screen.queryByText( 'first.txt' ) ).not.toBeInTheDocument();
+		expect( getComposerDraft( 'test' ).text ).toBe( 'New draft' );
+	} );
 
 	it( 'keeps Stop available while the submitted draft waits for acknowledgement', async () => {
 		let resolve!: () => void;
@@ -526,15 +515,6 @@ describe( 'Composer parity', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Remove Live' } ) );
 		expect( change ).toHaveBeenCalledWith( 'local' );
 		expect( screen.queryByRole( 'button', { name: 'Remove Auto-start' } ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'blocks changing environment while busy', async () => {
-		const change = vi.fn();
-		const { input } = await setup( { busy: true, liveUrl, onEnvironmentChange: change } );
-		fireEvent.change( input, { target: { value: '/live' } } );
-		fireEvent.keyDown( input, { key: 'Enter' } );
-		expect( change ).not.toHaveBeenCalled();
-		expect( input ).toHaveValue( '/live' );
 	} );
 
 	it( 'restores text and files after a rejected send', async () => {

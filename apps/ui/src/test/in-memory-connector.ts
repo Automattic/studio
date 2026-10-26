@@ -348,6 +348,7 @@ export function createInMemoryConnector(
 		onToggleSidebar: subscribe( 'onToggleSidebar' ),
 		onAddSite: subscribe( 'onAddSite' ),
 		onAddSiteWithBlueprint: subscribe( 'onAddSiteWithBlueprint' ),
+		readyForDeeplinks: () => {},
 		onOpenSettings: subscribe( 'onOpenSettings' ),
 		onAiCreditsPurchased: subscribe( 'onAiCreditsPurchased' ),
 		getOnboardingHints: async () => ( {

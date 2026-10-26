@@ -34,8 +34,11 @@ describe( 'command search', () => {
 	it.each( [
 		[ 'credits', 'settings-usage-ai-credits' ],
 		[ '  AI   CREDITS ', 'settings-usage-ai-credits' ],
+		[ 'balance credit', 'settings-usage-ai-credits' ],
 		[ 'color', 'settings-appearance-color' ],
+		[ 'colour', 'reset-appearance-tint' ],
 		[ 'intensity tint', 'settings-appearance-intensity' ],
+		[ 'shortcuts', 'settings-keyboard' ],
 		[ 'API key', 'settings-ai-anthropic-provider' ],
 		[ 'folder', 'settings-general-default-directory' ],
 		[ 'editor default', 'settings-general-code-editor' ],
@@ -70,7 +73,10 @@ describe( 'command search', () => {
 		expect( ids( 'Command' ) ).not.toContain( 'color-scheme' );
 	} );
 
-	it( 'puts the color control first for color', () => {
-		expect( ids( 'color' )[ 0 ] ).toBe( 'settings-appearance-color' );
-	} );
+	it.each( [ 'color', 'colour', 'change color' ] )(
+		'puts the color control first for %s',
+		( query ) => {
+			expect( ids( query )[ 0 ] ).toBe( 'settings-appearance-color' );
+		}
+	);
 } );

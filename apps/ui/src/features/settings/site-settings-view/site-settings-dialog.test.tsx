@@ -83,15 +83,15 @@ describe( 'site settings', () => {
 		await siteName();
 		const search = screen.getByRole( 'textbox', { name: 'Search settings' } );
 		fireEvent.change( search, { target: { value: 'ver' } } );
-		expect( screen.getByRole( 'tab', { name: 'WordPress version Site' } ) ).toHaveAttribute(
+		expect( screen.getByRole( 'tab', { name: 'WordPress version' } ) ).toHaveAttribute(
 			'data-highlighted'
 		);
-		expect( screen.getByRole( 'tab', { name: 'PHP version Site' } ) ).not.toHaveAttribute(
+		expect( screen.getByRole( 'tab', { name: 'PHP version' } ) ).not.toHaveAttribute(
 			'data-highlighted'
 		);
 		expect( screen.getByRole( 'textbox', { name: 'Site name' } ) ).toBeVisible();
 		fireEvent.change( search, { target: { value: 'PHP version' } } );
-		expect( screen.getByRole( 'tab', { name: 'PHP version Site' } ) ).toHaveAttribute(
+		expect( screen.getByRole( 'tab', { name: 'PHP version' } ) ).toHaveAttribute(
 			'data-highlighted'
 		);
 		fireEvent.keyDown( search, { key: 'Enter' } );
@@ -107,7 +107,7 @@ describe( 'site settings', () => {
 		const search = screen.getByRole( 'textbox', { name: 'Search settings' } );
 		fireEvent.change( search, { target: { value: 'PHP version' } } );
 		expect( screen.queryByRole( 'combobox', { name: 'PHP version' } ) ).not.toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'tab', { name: 'PHP version Site' } ) );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'PHP version' } ) );
 		await choose( 'PHP version', '8.4' );
 		expect( search ).toBeEnabled();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
@@ -175,7 +175,9 @@ describe( 'site settings', () => {
 			[ 'Password', 'Copy admin password', 'secret-value' ],
 			[ 'Email', 'Copy admin email', 'new@example.com' ],
 		] ) {
-			fireEvent.change( screen.getByLabelText( field ), { target: { value } } );
+			fireEvent.change( screen.getByLabelText( field, { selector: 'input' } ), {
+				target: { value },
+			} );
 			const button = screen.getByRole( 'button', { name: label } );
 			await waitFor( () => expect( button ).toBeEnabled() );
 			fireEvent.click( button );
@@ -203,21 +205,20 @@ describe( 'site settings', () => {
 	] )( 'replaces the %s description with its validation error', async ( label, value, message ) => {
 		setup();
 		await siteName();
-		const input = screen.getByLabelText( label );
-		const description = input
-			.closest( '[data-settings-row]' )!
-			.querySelector< HTMLElement >( '[data-slot="field-description"]' )!;
+		const input = screen.getByLabelText( label, { selector: 'input' } );
+		const description = document.getElementById( input.getAttribute( 'aria-describedby' )! )!;
 		const initialValue = ( input as HTMLInputElement ).value;
 		const help = description.textContent!;
 		fireEvent.change( input, { target: { value } } );
 		expect( input ).toHaveAttribute( 'aria-invalid', 'true' );
+		expect( input ).toHaveAccessibleDescription( message );
 		expect( within( description ).getByRole( 'alert' ) ).toHaveTextContent( message );
 		expect( within( description ).getByText( help ) ).toHaveAttribute( 'aria-hidden', 'true' );
 		expect( screen.getByRole( 'button', { name: /^Save$/ } ) ).toBeDisabled();
 		fireEvent.change( input, { target: { value: initialValue } } );
 		expect( input ).not.toHaveAttribute( 'aria-invalid' );
+		expect( input ).toHaveAccessibleDescription( help );
 		expect( within( description ).queryByRole( 'alert' ) ).not.toBeInTheDocument();
-		expect( description ).toHaveTextContent( help );
 	} );
 
 	it( 'replaces the domain description and restores it after correcting the address', async () => {
@@ -235,7 +236,7 @@ describe( 'site settings', () => {
 	it( 'reveals and hides the password using its input button', async () => {
 		setup();
 		await siteName();
-		const password = screen.getByLabelText( 'Password' );
+		const password = screen.getByLabelText( 'Password', { selector: 'input' } );
 		expect( password ).toHaveAttribute( 'type', 'password' );
 		const show = screen.getByRole( 'button', { name: 'Show password' } );
 		expect( password.parentElement ).toContainElement( show );

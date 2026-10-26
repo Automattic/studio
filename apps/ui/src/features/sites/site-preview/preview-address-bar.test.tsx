@@ -94,12 +94,12 @@ describe( 'preview address bar', () => {
 			path: '/about/',
 			site: site( { operation: stopping } ),
 		} );
-		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Stopping site…' );
+		expect( screen.getByText( 'Stopping site…' ) ).toHaveAttribute( 'role', 'status' );
 		expect( screen.queryByRole( 'textbox' ) ).not.toBeInTheDocument();
 		update( { site: site( { running: false, operation: stopping } ) } );
-		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Stopping site…' );
+		expect( screen.getByText( 'Stopping site…' ) ).toHaveAttribute( 'role', 'status' );
 		update( { site: site( { running: false } ) } );
-		expect( screen.queryByRole( 'status' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Stopping site…' ) ).not.toBeInTheDocument();
 		update( { site: site() } );
 		expect( address() ).toHaveValue( `${ SITE_URL }/about/` );
 	} );

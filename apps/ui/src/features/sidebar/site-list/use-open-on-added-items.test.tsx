@@ -1,12 +1,12 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { SidebarGroup } from './sidebar-group';
+import { SiteListGroup } from './sidebar-group';
 
 function Group( { keys }: { keys?: string[] } ) {
 	return (
-		<SidebarGroup id="test" title="Sites" itemKeys={ keys }>
+		<SiteListGroup id="test" title="Sites" itemKeys={ keys }>
 			{ keys?.join( ',' ) }
-		</SidebarGroup>
+		</SiteListGroup>
 	);
 }
 

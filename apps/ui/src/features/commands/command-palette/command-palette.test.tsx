@@ -39,6 +39,11 @@ async function openPalette() {
 	return screen.findByRole( 'combobox', { name: 'Search commands' } );
 }
 
+const revealed = ( setting: string ) =>
+	waitFor( () =>
+		expect( document.querySelector( '[data-settings-match]' ) ).toHaveAccessibleName( setting )
+	);
+
 const searchParams = ( history: { location: { search: string } } ) =>
 	Object.fromEntries( new URLSearchParams( history.location.search ) );
 
@@ -64,10 +69,14 @@ describe( 'command palette', () => {
 
 	it.each( [
 		[ 'MCP', 'MCP', 'mcp' ],
+		[ 'Connect', 'AI Providers', 'ai' ],
+		[ 'Connect provider', 'AI Providers', 'ai' ],
 		[ 'credits', 'WordPress.com AI Usage', 'usage' ],
 		[ 'AI credits', 'WordPress.com AI Usage', 'usage' ],
+		[ 'credit balance', 'WordPress.com AI Usage', 'usage' ],
 		[ 'Sharing', 'Sharing', 'sharing' ],
 		[ 'Previews', 'Sharing previews on WordPress.com Sharing', 'sharing' ],
+		[ 'snapshots', 'Sharing previews on WordPress.com Sharing', 'sharing' ],
 	] )( 'searches for %s and opens its settings tab', async ( query, label, tab ) => {
 		const { history, user } = await renderPalette();
 		await openPalette();
@@ -86,19 +95,16 @@ describe( 'command palette', () => {
 		search( 'PHP version' );
 		await user.click( option( 'PHP version Test site' ) );
 		await waitFor( () =>
-			expect( searchParams( history ) ).toMatchObject( {
-				settings: 'php',
-				settingsSite: 'one',
-				settingsFocus: 'PHP version',
-			} )
+			expect( searchParams( history ) ).toMatchObject( { settings: 'php', settingsSite: 'one' } )
 		);
+		await revealed( 'PHP version' );
 		await paletteClosed();
 	} );
 
 	it( 'opens from the platform shortcut and supports Enter, Escape, and no results', async () => {
 		const { connector } = await renderPalette();
 		await openPalette();
-		search( 'dark mode' );
+		search( 'Toggle theme' );
 		await waitFor( () =>
 			expect( option( 'Use dark mode' ) ).toHaveAttribute( 'aria-selected', 'true' )
 		);
@@ -135,10 +141,11 @@ describe( 'command palette', () => {
 	} );
 
 	it( 'omits site commands without a site', async () => {
-		const { history, user } = await renderPalette( {
-			connector: createFakeConnector(),
-			path: '/sites',
+		const { history, user } = renderApp( { connector: createFakeConnector(), path: '/sites' } );
+		fireEvent.keyDown( await screen.findByRole( 'dialog', { name: 'Add site' } ), {
+			key: 'Escape',
 		} );
+		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
 		await openPalette();
 		expect( screen.queryByRole( 'option', { name: /New chat/ } ) ).not.toBeInTheDocument();
 		expect( option( 'Settings' ) ).toBeVisible();
@@ -202,12 +209,8 @@ describe( 'command palette', () => {
 		expect( option( 'PHP Test site' ) ).toBeVisible();
 		expect( option( 'PHP version Test site' ) ).toBeVisible();
 		await user.click( option( 'PHP version Test site' ) );
-		await waitFor( () =>
-			expect( searchParams( history ) ).toMatchObject( {
-				settings: 'php',
-				settingsFocus: 'PHP version',
-			} )
-		);
+		await waitFor( () => expect( searchParams( history ).settings ).toBe( 'php' ) );
+		await revealed( 'PHP version' );
 	} );
 
 	it( 'limits initial recent chats to five and searches older chats without duplicates', async () => {
@@ -297,19 +300,16 @@ describe( 'command palette', () => {
 	} );
 
 	it.each( [
-		[ 'color', 'Color Appearance', 'color' ],
-		[ 'tint intensity', 'Intensity Appearance', 'intensity' ],
-	] )( 'finds appearance controls with %s', async ( query, label, focus ) => {
+		[ 'color', 'Color Appearance', 'Color' ],
+		[ 'colour', 'Color Appearance', 'Color' ],
+		[ 'tint intensity', 'Intensity Appearance', 'Intensity' ],
+	] )( 'finds appearance controls with %s', async ( query, label, setting ) => {
 		const { history, user } = await renderPalette();
 		await openPalette();
 		search( query );
 		await user.click( option( label ) );
-		await waitFor( () =>
-			expect( searchParams( history ) ).toMatchObject( {
-				settings: 'appearance',
-				settingsFocus: focus,
-			} )
-		);
+		await waitFor( () => expect( searchParams( history ).settings ).toBe( 'appearance' ) );
+		await revealed( setting );
 	} );
 } );
 

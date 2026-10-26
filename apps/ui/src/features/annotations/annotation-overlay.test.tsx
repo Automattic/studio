@@ -79,4 +79,18 @@ it( 'remembers confirmation only after deletion, not dismissal', async () => {
 			confirmDeleteAnnotations: false,
 		} )
 	);
+	expect( screen.queryByRole( 'toolbar' ) ).not.toBeInTheDocument();
+} );
+
+it( 'keeps the closing toolbar inert and reuses it when reopened', async () => {
+	await setup();
+	annotate();
+	const toolbar = screen.getByRole( 'toolbar', { name: 'Annotations' } );
+	fireEvent.click( within( toolbar ).getByRole( 'button', { name: 'Cancel' } ) );
+	expect( toolbar ).toBeInTheDocument();
+	expect( toolbar ).toHaveAttribute( 'inert' );
+	expect( screen.queryByRole( 'toolbar' ) ).not.toBeInTheDocument();
+	annotate();
+	expect( screen.getByRole( 'toolbar', { name: 'Annotations' } ) ).toBe( toolbar );
+	expect( toolbar ).not.toHaveAttribute( 'inert' );
 } );

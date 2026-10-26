@@ -93,12 +93,15 @@ it( 'keeps icon-only annotation available beside overflow with sharing feedback'
 		applySyncActivity( 'annotate-site', { kind: 'success', direction: 'preview' } );
 		markPreviewReady( 'annotate-site' );
 	} );
-	expect( more.querySelector( '[class*="readyDot"]' ) ).toBeInTheDocument();
+	expect( more.querySelector( '[data-slot="notification-dot"]' ) ).toBeInTheDocument();
 	await user.click( more );
 	await user.click( await screen.findByRole( 'menuitem', { name: /^Share/ } ) );
 	expect( await screen.findByRole( 'dialog' ) ).toBeInTheDocument();
 	await user.keyboard( '{Escape}' );
-	fireEvent( webview, new Event( 'did-start-loading' ) );
+	fireEvent(
+		webview,
+		Object.assign( new Event( 'did-start-navigation' ), { isMainFrame: true, isInPlace: false } )
+	);
 	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeDisabled();
 	await user.click( more );
 	expect( screen.queryByRole( 'menuitemcheckbox', { name: 'Annotate' } ) ).not.toBeInTheDocument();

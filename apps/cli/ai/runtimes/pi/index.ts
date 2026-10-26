@@ -1,13 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { type AgentTool } from '@earendil-works/pi-agent-core';
-import {
-	type Credential,
-	type CredentialInfo,
-	type CredentialStore,
-	type Model,
-	type SimpleStreamOptions,
-} from '@earendil-works/pi-ai';
+import { type Model, type SimpleStreamOptions } from '@earendil-works/pi-ai';
 import { streamSimple as streamAnthropicMessages } from '@earendil-works/pi-ai/api/anthropic-messages';
 import { streamSimple as streamOpenAiCompletions } from '@earendil-works/pi-ai/api/openai-completions';
 import { streamSimple as streamOpenAiResponses } from '@earendil-works/pi-ai/api/openai-responses';
@@ -37,6 +31,7 @@ import {
 	getAiModelFamily,
 	type AiModelFamily,
 	type AiModelId,
+	type ModelsJsonModelId,
 } from '@studio/common/ai/models';
 import { findLastAssistant, isEmptyStop } from '@studio/common/ai/session-events';
 import { type TSchema } from 'typebox';
@@ -60,6 +55,7 @@ import { withDefaultTimeout } from './bash-timeout';
 import { createConfirmer, describeDestructiveCall, type Confirmer } from './confirmation';
 import { withLeakedToolCallMarkupRemoved } from './leaked-tool-call-markup';
 import { createMcpTools, isUserMcpTool, readMcpServers } from './mcp-tools';
+import { InMemoryCredentialStore, resolveModelsJsonModel, type TurnModel } from './models-json';
 import { getPendingWork, type PendingWork } from './pending-work';
 import { changesPreview } from './preview-reload';
 import { SitePin } from './site-pin';
@@ -267,8 +263,7 @@ async function runAgentSessionTurn(
 	controller: AbortController,
 	setActiveSession: ( session: AgentSession | undefined ) => void
 ): Promise< void > {
-	const family = getAiModelFamily( config.model );
-	const resolved = resolveCredentials( family, config.env );
+	const resolved = await resolveTurnModel( config );
 	if ( ! resolved.ok ) {
 		config.onEvent( syntheticErrorAgentEnd( 'error', resolved.reason ) );
 		return;
@@ -278,7 +273,7 @@ async function runAgentSessionTurn(
 	let unsubscribe: ( () => void ) | undefined;
 	const payloadGuardState: StudioToolPayloadGuardState = {};
 	try {
-		session = await createStudioAgentSession( config, family, resolved.creds, payloadGuardState );
+		session = await createStudioAgentSession( config, resolved, payloadGuardState );
 		setActiveSession( session );
 		const previewAttached = typeof process.send === 'function';
 		const emit = ( event: AgentSessionEvent ) => {
@@ -371,15 +366,34 @@ async function runAgentSessionTurn(
 	}
 }
 
+// The turn's model and the runtime that serves it: a Studio model with the
+// credentials of its provider, or a models.json model through pi's registry.
+async function resolveTurnModel(
+	config: ResolvedStudioAgentTurnConfig
+): Promise< ( { ok: true } & TurnModel ) | { ok: false; reason: string } > {
+	const family = getAiModelFamily( config.model );
+	if ( family === 'models-json' ) {
+		return resolveModelsJsonModel( config.model as ModelsJsonModelId );
+	}
+	const resolved = resolveCredentials( family, config.env );
+	if ( ! resolved.ok ) {
+		return resolved;
+	}
+	const model = buildModel( config.model, family, resolved.creds );
+	return {
+		ok: true,
+		model,
+		modelRuntime: await createModelRuntime( model, family, resolved.creds ),
+	};
+}
+
 async function createStudioAgentSession(
 	config: ResolvedStudioAgentTurnConfig,
-	family: AiModelFamily,
-	creds: ResolvedCredentials,
+	{ model, modelRuntime }: TurnModel,
 	payloadGuardState: StudioToolPayloadGuardState
 ): Promise< AgentSession > {
-	const model = buildModel( config.model, family, creds );
 	const chatArtifactsEnabled = typeof process.send === 'function';
-	const visionEnabled = aiModelSupportsImages( config.model );
+	const visionEnabled = model.input.includes( 'image' );
 	const confirm = createConfirmer( config.onConfirm ?? config.onAskUser );
 	const [ userInstructions, imageGenerationEnabled, activeSiteFacts, mcpServers ] =
 		await Promise.all( [
@@ -439,7 +453,6 @@ async function createStudioAgentSession(
 			siteChanges,
 		} )
 	);
-	const modelRuntime = await createModelRuntime( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
 	const resourceLoader = new DefaultResourceLoader( {
 		cwd: STUDIO_SITES_ROOT,
@@ -569,40 +582,6 @@ function buildModel(
 			: {} ),
 		...( catalogModel?.compat ? { compat: catalogModel.compat } : {} ),
 	};
-}
-
-// In-memory credential store so the runtime never reads or writes an auth.json
-// on disk. Studio resolves credentials from the environment on every turn and
-// injects them via runtime API keys or registered provider configs, so nothing
-// needs to be persisted.
-class InMemoryCredentialStore implements CredentialStore {
-	private readonly credentials = new Map< string, Credential >();
-
-	async read( providerId: string ): Promise< Credential | undefined > {
-		return this.credentials.get( providerId );
-	}
-
-	async list(): Promise< readonly CredentialInfo[] > {
-		return [ ...this.credentials.entries() ].map( ( [ providerId, credential ] ) => ( {
-			providerId,
-			type: credential.type,
-		} ) );
-	}
-
-	async modify(
-		providerId: string,
-		fn: ( current: Credential | undefined ) => Promise< Credential | undefined >
-	): Promise< Credential | undefined > {
-		const next = await fn( this.credentials.get( providerId ) );
-		if ( next ) {
-			this.credentials.set( providerId, next );
-		}
-		return next;
-	}
-
-	async delete( providerId: string ): Promise< void > {
-		this.credentials.delete( providerId );
-	}
 }
 
 async function createModelRuntime(

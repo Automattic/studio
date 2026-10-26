@@ -1,5 +1,5 @@
 import { Type } from 'typebox';
-import { findSkill, loadSkills, type Skill } from 'cli/ai/skills';
+import { findSkill, loadSkillCatalog, type Skill } from 'cli/ai/skills';
 import { defineTool, READ_ONLY } from './define-tool';
 import type { AgentTool } from '@earendil-works/pi-agent-core';
 import type { TSchema } from 'typebox';
@@ -9,14 +9,14 @@ export function renderSkill( name: string ): string {
 	if ( ! skill ) {
 		throw new Error( `Unknown skill: ${ name }` );
 	}
-	return skill.body;
+	return skill.folder ? `${ skill.body }\n\nThe skill's folder: ${ skill.folder }` : skill.body;
 }
 
 // Returns `null` when no skills are discovered so the caller skips
 // registering the tool entirely.
 // `onLoad` receives each loaded skill, so the runtime can make its tools available.
 export function createSkillTool( onLoad?: ( skill: Skill ) => void ): AgentTool< TSchema > | null {
-	const skills = loadSkills();
+	const { skills, shadowed } = loadSkillCatalog();
 	if ( skills.length === 0 ) return null;
 
 	const skillIndex = skills
@@ -31,7 +31,11 @@ export function createSkillTool( onLoad?: ( skill: Skill ) => void ): AgentTool<
 
 	return defineTool(
 		'Skill',
-		`Loads a skill: the runbook for one of Studio's workflows, and the tools it brings, which are available from then on.\n\nSkills:\n${ skillIndex }`,
+		`Loads a skill: the runbook for one of Studio's workflows, and the tools it brings, which are available from then on.\n\nSkills:\n${ skillIndex }${
+			shadowed.length > 0
+				? `\n\nNot loaded, since a Studio skill has the same name: ${ shadowed.join( ', ' ) }`
+				: ''
+		}`,
 		{
 			name: Type.Enum( names, { description: 'The name of the skill to load.' } ),
 		},

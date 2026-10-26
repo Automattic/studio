@@ -1,6 +1,7 @@
 import {
 	AI_MODELS,
 	DEFAULT_MODEL,
+	getAiModelFamily,
 	PAID_DEFAULT_MODEL,
 	resolveSessionModel,
 	type AiModelFamily,
@@ -58,8 +59,12 @@ export function getAiProviderModels( provider: AiProviderId ): readonly AiProvid
 	return PROVIDER_MODELS.get( provider ) ?? [];
 }
 
+/** Whether the provider serves the model; a models.json model brings its own provider. */
 export function providerServesModel( provider: AiProviderId, model: AiModelId ): boolean {
-	return getAiProviderModels( provider ).some( ( entry ) => entry.id === model );
+	return (
+		getAiModelFamily( model ) === 'models-json' ||
+		getAiProviderModels( provider ).some( ( entry ) => entry.id === model )
+	);
 }
 
 /**

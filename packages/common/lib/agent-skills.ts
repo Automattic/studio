@@ -115,11 +115,6 @@ export interface SkillStatus {
 
 export const getBundledSkills = () => [
 	{
-		id: 'studio-cli',
-		displayName: __( 'Studio CLI' ),
-		description: __( 'WordPress development workflows using Studio CLI' ),
-	},
-	{
 		id: 'wp-plugin-development',
 		displayName: __( 'Plugin Development' ),
 		description: __( 'Hooks, settings API, security, and packaging' ),

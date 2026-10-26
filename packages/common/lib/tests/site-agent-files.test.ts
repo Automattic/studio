@@ -19,10 +19,10 @@ describe( 'site agent files', () => {
 		root = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-agent-files-' ) );
 		site = path.join( root, 'site' );
 		bundled = path.join( root, 'bundled' );
-		fs.mkdirSync( path.join( bundled, 'studio-cli' ), { recursive: true } );
-		fs.writeFileSync( path.join( bundled, 'studio-cli', 'SKILL.md' ), 'bundled skill' );
+		fs.mkdirSync( path.join( bundled, 'wp-plugin-development' ), { recursive: true } );
+		fs.writeFileSync( path.join( bundled, 'wp-plugin-development', 'SKILL.md' ), 'bundled skill' );
 		fs.mkdirSync( site );
-		await installSelectedSkillsToSite( { path: site }, bundled, [ 'studio-cli' ] );
+		await installSelectedSkillsToSite( { path: site }, bundled, [ 'wp-plugin-development' ] );
 	} );
 
 	afterEach( () => fs.rmSync( root, { recursive: true, force: true } ) );
@@ -34,46 +34,59 @@ describe( 'site agent files', () => {
 		( await getSiteAgentFiles( site ) ).find( ( file ) => file.id === id );
 
 	it( 'switches a skill off and on, keeping its edits, and installs leave it off', async () => {
-		fs.writeFileSync( path.join( site, '.agents', 'skills', 'studio-cli', 'SKILL.md' ), 'edited' );
+		fs.writeFileSync(
+			path.join( site, '.agents', 'skills', 'wp-plugin-development', 'SKILL.md' ),
+			'edited'
+		);
 
-		await setSiteAgentFileEnabled( site, bundled, 'studio-cli', false );
-		expect( await status( 'studio-cli' ) ).toMatchObject( {
+		await setSiteAgentFileEnabled( site, bundled, 'wp-plugin-development', false );
+		expect( await status( 'wp-plugin-development' ) ).toMatchObject( {
 			installed: true,
 			enabled: false,
 		} );
-		expect( fs.existsSync( path.join( site, '.claude', 'skills', 'studio-cli' ) ) ).toBe( false );
+		expect( fs.existsSync( path.join( site, '.claude', 'skills', 'wp-plugin-development' ) ) ).toBe(
+			false
+		);
 
-		await installSelectedSkillsToSite( { path: site }, bundled, [ 'studio-cli' ] );
-		expect( ( await status( 'studio-cli' ) )?.enabled ).toBe( false );
+		await installSelectedSkillsToSite( { path: site }, bundled, [ 'wp-plugin-development' ] );
+		expect( ( await status( 'wp-plugin-development' ) )?.enabled ).toBe( false );
 
-		await setSiteAgentFileEnabled( site, bundled, 'studio-cli', true );
+		await setSiteAgentFileEnabled( site, bundled, 'wp-plugin-development', true );
 		expect(
-			fs.readFileSync( path.join( site, '.claude', 'skills', 'studio-cli', 'SKILL.md' ), 'utf8' )
+			fs.readFileSync(
+				path.join( site, '.claude', 'skills', 'wp-plugin-development', 'SKILL.md' ),
+				'utf8'
+			)
 		).toBe( 'edited' );
 	} );
 
 	it( 'uninstalls a skill, switched on or off', async () => {
-		await setSiteAgentFileEnabled( site, bundled, 'studio-cli', false );
-		await removeSiteAgentFile( site, 'studio-cli' );
-		expect( ( await status( 'studio-cli' ) )?.installed ).toBe( false );
-		expect( fs.existsSync( path.join( site, '.agents', 'disabled-skills', 'studio-cli' ) ) ).toBe(
-			false
-		);
+		await setSiteAgentFileEnabled( site, bundled, 'wp-plugin-development', false );
+		await removeSiteAgentFile( site, 'wp-plugin-development' );
+		expect( ( await status( 'wp-plugin-development' ) )?.installed ).toBe( false );
+		expect(
+			fs.existsSync( path.join( site, '.agents', 'disabled-skills', 'wp-plugin-development' ) )
+		).toBe( false );
 	} );
 
 	it( 'keeps existing files unless asked to overwrite, and installs only selected skills', async () => {
-		fs.writeFileSync( path.join( site, '.agents', 'skills', 'studio-cli', 'SKILL.md' ), 'edited' );
+		fs.writeFileSync(
+			path.join( site, '.agents', 'skills', 'wp-plugin-development', 'SKILL.md' ),
+			'edited'
+		);
 		fs.mkdirSync( path.join( bundled, 'wp-rest-api' ) );
 		fs.writeFileSync( path.join( bundled, 'wp-rest-api', 'SKILL.md' ), 'rest skill' );
 		fs.writeFileSync( path.join( bundled, 'AGENTS.md' ), 'loose file' );
 
-		await installSelectedSkillsToSite( { path: site }, bundled, [ 'studio-cli' ] );
-		expect( read( '.claude', 'skills', 'studio-cli', 'SKILL.md' ) ).toBe( 'edited' );
+		await installSelectedSkillsToSite( { path: site }, bundled, [ 'wp-plugin-development' ] );
+		expect( read( '.claude', 'skills', 'wp-plugin-development', 'SKILL.md' ) ).toBe( 'edited' );
 		expect( fs.existsSync( path.join( site, '.agents', 'skills', 'wp-rest-api' ) ) ).toBe( false );
 		expect( fs.existsSync( path.join( site, 'AGENTS.md' ) ) ).toBe( false );
 
-		await installSelectedSkillsToSite( { path: site }, bundled, [ 'studio-cli' ], true );
-		expect( read( '.claude', 'skills', 'studio-cli', 'SKILL.md' ) ).toBe( 'bundled skill' );
+		await installSelectedSkillsToSite( { path: site }, bundled, [ 'wp-plugin-development' ], true );
+		expect( read( '.claude', 'skills', 'wp-plugin-development', 'SKILL.md' ) ).toBe(
+			'bundled skill'
+		);
 
 		await expect(
 			installSelectedSkillsToSite( { path: site }, path.join( root, 'missing' ) )

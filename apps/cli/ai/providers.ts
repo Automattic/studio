@@ -5,6 +5,7 @@ import {
 	AI_PROVIDER_IDS,
 	DEFAULT_AI_PROVIDER,
 	getAiProviderModels,
+	providerServesModel,
 	type AiProviderId,
 } from '@studio/common/ai/providers';
 import { persistAnthropicApiKey, readAnthropicApiKey } from '@studio/common/ai/settings-store';
@@ -60,7 +61,7 @@ function defineProvider(
 		availableModels,
 		defaultModel: availableModels[ 0 ] ?? DEFAULT_MODEL,
 		supportsModel( model ) {
-			return availableModels.includes( model );
+			return providerServesModel( partial.id, model );
 		},
 	};
 }

@@ -1,4 +1,5 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 
 export interface Skill {
@@ -11,6 +12,8 @@ export interface Skill {
 	// Tools this skill brings (`tools: a, b`). A tool any skill declares is
 	// available only once a skill that declares it is loaded.
 	tools: string[];
+	// The skill's folder, for a skill the user added: its body may name files beside it.
+	folder?: string;
 }
 
 function parseSkillFile( filePath: string ): Skill | null {
@@ -33,6 +36,19 @@ function parseSkillFile( filePath: string ): Skill | null {
 
 let cachedSkills: Skill[] | null = null;
 
+function readSkillsFolder( root: string ): Array< Skill & { folder: string } > {
+	const skills: Array< Skill & { folder: string } > = [];
+	for ( const entry of fs.readdirSync( root, { withFileTypes: true } ) ) {
+		if ( ! entry.isDirectory() ) continue;
+		const folder = path.join( root, entry.name );
+		const skillPath = path.join( folder, 'SKILL.md' );
+		if ( ! fs.existsSync( skillPath ) ) continue;
+		const skill = parseSkillFile( skillPath );
+		if ( skill ) skills.push( { ...skill, folder } );
+	}
+	return skills;
+}
+
 // Resolves the skills directory. In source this is `apps/cli/ai/skills`
 // (next to this file); after bundling everything collapses into the CLI
 // out dir and the `viteStaticCopy` step places skills at `<outDir>/skills`
@@ -50,7 +66,7 @@ export function getSkillPath( skillName: string, ...segments: string[] ): string
 	return path.join( getSkillsRoot(), skillName, ...segments );
 }
 
-// Discovers `apps/cli/ai/skills/<name>/SKILL.md` files at startup; cached
+// Studio's own skills: discovers `apps/cli/ai/skills/<name>/SKILL.md` files at startup; cached
 // for the process lifetime since skills never change at runtime.
 export function loadSkills(): Skill[] {
 	if ( cachedSkills ) return cachedSkills;
@@ -66,23 +82,40 @@ export function loadSkills(): Skill[] {
 		return cachedSkills;
 	}
 
-	const skills: Skill[] = [];
-	for ( const entry of fs.readdirSync( skillsRoot, { withFileTypes: true } ) ) {
-		if ( ! entry.isDirectory() ) continue;
-		const skillPath = path.join( skillsRoot, entry.name, 'SKILL.md' );
-		if ( ! fs.existsSync( skillPath ) ) continue;
-		const skill = parseSkillFile( skillPath );
-		if ( skill ) skills.push( skill );
-	}
-	cachedSkills = skills;
-	return skills;
+	cachedSkills = readSkillsFolder( skillsRoot ).map( ( { folder: _folder, ...skill } ) => skill );
+	return cachedSkills;
+}
+
+// The user's own skills, in ~/.agents/skills: the folder agents share for skills
+// across projects. Read on each call, so a skill added between turns is there.
+function getUserSkillsRoot(): string {
+	return path.join( os.homedir(), '.agents', 'skills' );
+}
+
+interface SkillCatalog {
+	skills: Skill[];
+	// User skills left out because a Studio skill has the same name.
+	shadowed: string[];
+}
+
+// Studio's skills, then the user's. A Studio skill keeps its name.
+export function loadSkillCatalog(): SkillCatalog {
+	const studio = loadSkills();
+	const userRoot = getUserSkillsRoot();
+	const user = fs.existsSync( userRoot ) ? readSkillsFolder( userRoot ) : [];
+	const taken = new Set( studio.map( ( skill ) => skill.name ) );
+	return {
+		skills: [ ...studio, ...user.filter( ( skill ) => ! taken.has( skill.name ) ) ],
+		shadowed: user.filter( ( skill ) => taken.has( skill.name ) ).map( ( skill ) => skill.folder ),
+	};
 }
 
 export function findSkill( name: string ): Skill | undefined {
-	return loadSkills().find( ( skill ) => skill.name === name );
+	return loadSkillCatalog().skills.find( ( skill ) => skill.name === name );
 }
 
-// Every tool some skill brings; these start inactive.
+// Every tool a Studio skill brings; these start inactive. A user skill can name
+// one to bring it, and naming any other tool hides nothing.
 export function getSkillScopedToolNames(): Set< string > {
 	return new Set( loadSkills().flatMap( ( skill ) => skill.tools ) );
 }

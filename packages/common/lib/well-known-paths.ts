@@ -12,6 +12,15 @@ export function getConfigDirectory(): string {
 	return path.join( os.homedir(), '.studio' );
 }
 
+/**
+ * The models.json of the models Studio Code can run beyond its own: pi's
+ * file of providers and models (docs/models.md in @earendil-works/pi-coding-agent), each
+ * named by its provider/model reference.
+ */
+export function getModelsPath(): string {
+	return path.join( getConfigDirectory(), 'models.json' );
+}
+
 export function getSharedConfigPath(): string {
 	return path.join( getConfigDirectory(), 'shared.json' );
 }

@@ -45,6 +45,7 @@ import {
 	installWordPress,
 	writeSiteUrlPrependFile,
 } from './lib/native-php/site-setup';
+import { getSiteEmailDirectory } from './lib/site-email';
 import { SymlinkWatcher, collectSymlinkAllowlistEntries } from './lib/symlinks';
 import type { ChildProcess } from 'node:child_process';
 
@@ -638,6 +639,7 @@ async function doStartServer(
 				disallowRiskyFunctions: isFileAccessRestricted( config ),
 				enableXdebug: config.enableXdebug,
 				autoPrependFile,
+				emailDirectory: getSiteEmailDirectory( config.siteId ),
 				workerIndex: index,
 			} );
 			spawnedChildren.push( serverChild );

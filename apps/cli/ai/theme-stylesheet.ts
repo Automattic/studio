@@ -67,7 +67,7 @@ export function holdsRules( css: string ): boolean {
  * theme loads its style.css with get_stylesheet_uri(), as the Child Themes
  * handbook does.
  */
-export function loadingCode( slug: string, child: boolean, missing: Loaded ): string {
+function loadingCode( slug: string, child: boolean, missing: Loaded ): string {
 	const prefix = slug.replace( /[^A-Za-z0-9]+/g, '_' ).toLowerCase();
 	const src = child ? 'get_stylesheet_uri()' : "get_parent_theme_file_uri( 'style.css' )";
 	const front = `

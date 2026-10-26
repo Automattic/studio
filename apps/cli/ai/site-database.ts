@@ -92,7 +92,7 @@ export async function readWordPressSite< T >(
  * options: arrays and objects become plain objects keyed by their keys.
  * Undefined when the text is not serialized data.
  */
-export function unserializePhp( text: string ): unknown {
+function unserializePhp( text: string ): unknown {
 	let at = 0;
 	const read = ( until: string ) => {
 		const end = text.indexOf( until, at );

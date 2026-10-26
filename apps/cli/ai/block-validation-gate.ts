@@ -18,6 +18,7 @@ import path from 'path';
 import { validateHtmlBlockPolicy } from 'cli/ai/block-content-policy';
 import {
 	bindNavigationLinks,
+	blocksSavingElements,
 	blockNames,
 	insertedTemplates,
 	storePresetValues,
@@ -165,6 +166,54 @@ function describeBoundLinks( links: string[] ): string {
 }
 
 /** What the editor inserts for the blocks named, for a note to write them from. */
+// Names per element, as many as a note reads at a glance.
+const MAX_SAVING_BLOCKS = 12;
+
+async function describeSavingBlocks( html: string, siteUrl: string ): Promise< string[] > {
+	const elements = ( await blocksSavingElements( html, siteUrl ).catch( () => [] ) ).filter(
+		( { blocks } ) => blocks.length
+	);
+	if ( ! elements.length ) {
+		return [];
+	}
+	const named = ( blocks: string[] ) =>
+		blocks.length > MAX_SAVING_BLOCKS
+			? `${ blocks.slice( 0, MAX_SAVING_BLOCKS ).join( ', ' ) } and ${
+					blocks.length - MAX_SAVING_BLOCKS
+			  } more`
+			: blocks.join( ', ' );
+	return [
+		`The site's blocks whose save makes its elements, created with their defaults (createBlock() and getSaveContent() in @wordpress/blocks): ${ elements
+			.map( ( { element, blocks } ) => `<${ element }> ${ named( blocks ) }` )
+			.join( '; ' ) }.`,
+	];
+}
+
+// The core/html blocks the policy keeps for markup no block saves, described
+// with the blocks that save their elements.
+async function htmlPolicyProblem(
+	content: string,
+	label: string,
+	siteUrl: string
+): Promise< string | undefined > {
+	const { invalidHtmlBlocks } = validateHtmlBlockPolicy( content );
+	if ( ! invalidHtmlBlocks.length ) {
+		return undefined;
+	}
+	return [
+		`${ label }: ${ invalidHtmlBlocks.length } core/html block(s) must become editable blocks, which convert_to_blocks makes them:`,
+		...invalidHtmlBlocks.map( ( block ) => `  - line ${ block.line }: ${ block.issues[ 0 ] }` ),
+		...( await describeSavingBlocks(
+			invalidHtmlBlocks.map( ( block ) => block.content ).join( '\n' ),
+			siteUrl
+		) ),
+		...( await describeTemplates(
+			[ ...new Set( invalidHtmlBlocks.flatMap( ( block ) => block.block ?? [] ) ) ],
+			siteUrl
+		) ),
+	].join( '\n' );
+}
+
 async function describeTemplates( names: string[], siteUrl: string ): Promise< string[] > {
 	const templates = await insertedTemplates( names, siteUrl ).catch( () => [] );
 	return templates.map(
@@ -299,7 +348,7 @@ export async function validateBlockMarkupFile(
 /**
  * Validates block markup against what each block saves on the site, and
  * against the core/html policy. A lossless editor fix is returned for the
- * caller to save where the markup lives.
+ * caller to save where the markup lives, whatever the policy finds.
  */
 export async function validateBlockMarkup(
 	content: string,
@@ -307,23 +356,23 @@ export async function validateBlockMarkup(
 	siteUrl: string,
 	presetValues: PresetValues = NO_PRESETS
 ): Promise< MarkupValidation > {
-	const policy = validateHtmlBlockPolicy( content );
-	if ( policy.invalidHtmlBlocks.length > 0 ) {
-		return {
-			summary: `${ label }: core/html policy failed`,
-			problem: [
-				`${ label }: ${ policy.invalidHtmlBlocks.length } core/html block(s) must become editable blocks, which convert_to_blocks makes them:`,
-				...policy.invalidHtmlBlocks.map(
-					( block ) => `  - line ${ block.line }: ${ block.issues[ 0 ] }`
-				),
-				...( await describeTemplates(
-					[ ...new Set( policy.invalidHtmlBlocks.flatMap( ( block ) => block.block ?? [] ) ) ],
-					siteUrl
-				) ),
-			].join( '\n' ),
-		};
-	}
+	const policy = await htmlPolicyProblem( content, label, siteUrl );
+	const result = await validateSavedMarkup( content, label, siteUrl, presetValues );
+	return policy
+		? {
+				...result,
+				summary: `${ result.summary }; core/html policy failed`,
+				problem: [ policy, ...( result.problem ? [ result.problem ] : [] ) ].join( '\n' ),
+		  }
+		: result;
+}
 
+async function validateSavedMarkup(
+	content: string,
+	label: string,
+	siteUrl: string,
+	presetValues: PresetValues
+): Promise< MarkupValidation > {
 	const report = await validateBlocks( content, siteUrl );
 	if ( report.error ) {
 		return {

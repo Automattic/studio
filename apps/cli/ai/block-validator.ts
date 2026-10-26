@@ -1203,6 +1203,50 @@ export async function insertedTemplates(
 }
 
 /** Clean up all cached editor pages. */
+/**
+ * The site's blocks whose save makes each element of the HTML, its outermost
+ * element: each block type, created with its defaults (createBlock in
+ * @wordpress/blocks), saved as the editor saves it (getSaveContent).
+ */
+export async function blocksSavingElements(
+	html: string,
+	siteUrl: string
+): Promise< Array< { element: string; blocks: string[] } > > {
+	const page = await editorKnowing( siteUrl, [] );
+	return page.evaluate( ( markup ) => {
+		/* eslint-disable @typescript-eslint/no-explicit-any */
+		const wpBlocks = ( window as any ).wp.blocks;
+		const elements = [
+			...new Set(
+				[
+					...new DOMParser().parseFromString( markup, 'text/html' ).body.querySelectorAll( '*' ),
+				].map( ( element ) => element.localName )
+			),
+		];
+		const saving = new Map< string, string[] >();
+		for ( const type of wpBlocks.getBlockTypes() as any[] ) {
+			let root: string | undefined;
+			try {
+				const saved = wpBlocks.getSaveContent(
+					type.name,
+					wpBlocks.createBlock( type.name ).attributes
+				);
+				root = saved.match( /^\s*<([a-z][a-z0-9-]*)/i )?.[ 1 ]?.toLowerCase();
+			} catch {
+				continue;
+			}
+			if ( root ) {
+				saving.set( root, [ ...( saving.get( root ) ?? [] ), type.name ] );
+			}
+		}
+		return elements.map( ( element ) => ( {
+			element,
+			blocks: [ ...( saving.get( element ) ?? [] ) ].sort(),
+		} ) );
+		/* eslint-enable @typescript-eslint/no-explicit-any */
+	}, html );
+}
+
 export async function cleanupValidatorPages(): Promise< void > {
 	for ( const ep of editorPages.values() ) {
 		await ep.close();

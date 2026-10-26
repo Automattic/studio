@@ -30,6 +30,11 @@ vi.mock( 'cli/ai/block-validator', async () => ( {
 	bindNavigationLinks: vi.fn( async ( content: string ) => ( { content, links: [] } ) ),
 	dropCommentsBetweenBlocks: vi.fn( async ( content: string ) => ( { content, comments: 0 } ) ),
 	insertedTemplates: vi.fn( async () => [] ),
+	blocksSavingElements: vi.fn( async () => [
+		{ element: 'div', blocks: Array.from( { length: 14 }, ( _, i ) => `core/b${ i + 10 }` ) },
+		{ element: 'details', blocks: [ 'core/details' ] },
+		{ element: 'summary', blocks: [] },
+	] ),
 	blockNames: (
 		await vi.importActual< typeof import('cli/ai/block-validator') >( 'cli/ai/block-validator' )
 	).blockNames,
@@ -116,6 +121,50 @@ describe( 'validating a file', () => {
 		);
 		expect( result.fixedContent ).toBe( fixed );
 		expect( readFileSync( file, 'utf8' ) ).toBe( original );
+	} );
+
+	it( 'validates and fixes the blocks beside a core/html block the policy fails', async () => {
+		const html =
+			'<!-- wp:html -->\n<div class="faq"><details><summary>Hours?</summary><p>9 to 5.</p></details></div>\n<!-- /wp:html -->';
+		const file = write( 'tmp/home.html', `${ original }\n\n${ html }` );
+		vi.mocked( validateBlocks ).mockResolvedValue( invalidWithFix( `${ fixed }\n\n${ html }` ) );
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+		expect( result.fixedContent ).toBe( `${ fixed }\n\n${ html }` );
+		expect( result.summary ).toMatch(
+			/1\/1 blocks valid; core\/html policy failed; saved through the block editor, which fixes 1 block\(s\)$/
+		);
+		expect( result.problem ).toBe(
+			[
+				`tmp/home.html: 1 core/html block(s) must become editable blocks:`,
+				'  - line 3: core/html contains markup that should use editable blocks. Keep core/html only for inline SVG, interaction markup with no block equivalent (marquee, cursor), or a single script block.',
+				"The site's blocks whose save makes its elements, created with their defaults (createBlock() and getSaveContent() in @wordpress/blocks): <div> core/b10, core/b11, core/b12, core/b13, core/b14, core/b15, core/b16, core/b17, core/b18, core/b19, core/b20, core/b21 and 2 more; <details> core/details.",
+			].join( '\n' )
+		);
+	} );
+
+	it( 'states both a core/html block the policy fails and a block the editor cannot fix', async () => {
+		const file = write(
+			'tmp/home.html',
+			`${ original }\n\n<!-- wp:html --><div><p>Hi</p></div><!-- /wp:html -->`
+		);
+		vi.mocked( validateBlocks ).mockResolvedValue( {
+			totalBlocks: 2,
+			validBlocks: 1,
+			invalidBlocks: 1,
+			results: [
+				{
+					blockName: 'core/paragraph',
+					isValid: false,
+					issues: [ 'Expected token' ],
+					originalContent: original,
+				},
+			],
+		} );
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+		expect( result.summary ).toBe( 'tmp/home.html: 1 invalid block(s); core/html policy failed' );
+		expect( result.problem ).toMatch(
+			/^tmp\/home\.html: 1 core\/html block\(s\) must become editable blocks:\n[\s\S]*\ntmp\/home\.html: 1 invalid block\(s\), which the block editor cannot fix:/
+		);
 	} );
 
 	it( "validates a pattern's markup and keeps its header in the fix", async () => {
@@ -305,20 +354,27 @@ describe( 'validating a file', () => {
 	};
 	const insertsForm = `What the site's block editor inserts for jetpack/contact-form, from its default inserter variation (createBlock in @wordpress/blocks), to write it from:\n${ form.markup }`;
 
-	it( 'gates core/html policy before the editor runs, with what the editor inserts for the block it names', async () => {
+	it( 'validates in the editor beside a core/html block the policy fails, with what the editor inserts for the block it names', async () => {
 		const file = write(
 			'tmp/home.html',
 			'<!-- wp:html --><form><input /></form><!-- /wp:html -->'
 		);
 		vi.mocked( insertedTemplates ).mockResolvedValueOnce( [ form ] );
+		vi.mocked( validateBlocks ).mockResolvedValue( {
+			totalBlocks: 1,
+			validBlocks: 1,
+			invalidBlocks: 0,
+			results: [],
+		} );
 		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+		expect( result.summary ).toBe( 'tmp/home.html: 1/1 blocks valid; core/html policy failed' );
 		expect( result.problem ).toContain( 'core/html contains form markup' );
 		expect( result.problem!.endsWith( insertsForm ) ).toBe( true );
 		expect( insertedTemplates ).toHaveBeenLastCalledWith(
 			[ 'jetpack/contact-form' ],
 			'http://localhost:8881'
 		);
-		expect( validateBlocks ).not.toHaveBeenCalled();
+		expect( validateBlocks ).toHaveBeenCalled();
 	} );
 
 	it( 'shows what the editor inserts for the blocks an unfixable block holds', async () => {

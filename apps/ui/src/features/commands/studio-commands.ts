@@ -230,7 +230,7 @@ export function getAppCommands( {
 				group: 'sites',
 				label: site.name,
 				icon: GlobeIcon,
-				run: () => openSite( site, chats.find( ( chat ) => chat.site.id === site.id )?.session ),
+				run: () => openSite( site ),
 			} )
 		),
 		...chats.map(

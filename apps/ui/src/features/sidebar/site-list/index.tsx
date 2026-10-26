@@ -60,10 +60,7 @@ export function SiteList( {
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const pathname = useRouterState( { select: ( state ) => state.location.pathname } );
 	const activeSessionId = params.sessionId;
-	const sessions = useMemo(
-		() => getListedSessions( allSessions, activeSessionId ),
-		[ allSessions, activeSessionId ]
-	);
+	const sessions = useMemo( () => getListedSessions( allSessions ), [ allSessions ] );
 	const activeSiteId = params.siteId;
 	const [ chatNavigation, setChatNavigation ] = useState< 'recent' | 'pinned' >();
 	const updateSitesSortOrder = useUpdateSitesSortOrder();
@@ -75,8 +72,13 @@ export function SiteList( {
 		[ orderedSites, sessions ]
 	);
 	const { chat: activeChatSiteKey, context: activeContextSiteKey } = useMemo(
-		() => getActiveSiteKeys( rows, { activeSessionId, activeSiteId, pathname } ),
-		[ activeSessionId, activeSiteId, pathname, rows ]
+		() =>
+			getActiveSiteKeys( createSiteRows( orderedSites, allSessions ), {
+				activeSessionId,
+				activeSiteId,
+				pathname,
+			} ),
+		[ activeSessionId, activeSiteId, pathname, orderedSites, allSessions ]
 	);
 	const { pinnedItems, siteRows, chatsBySite, needsInputChats, recentChats } =
 		getSidebarCollections( rows, sessions, {

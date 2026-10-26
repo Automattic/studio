@@ -24,14 +24,11 @@ function byMostRecent( a: AiSessionSummary, b: AiSessionSummary ): number {
 	return getTimestamp( b ) - getTimestamp( a );
 }
 
-// A new chat isn't listed until its first prompt, unless it's open.
+// Drafts stay in the site's workspace until the first message is sent.
 export function getListedSessions(
-	sessions: AiSessionSummary[] | undefined,
-	activeSessionId: string | undefined
+	sessions: AiSessionSummary[] | undefined
 ): AiSessionSummary[] | undefined {
-	return sessions?.filter(
-		( session ) => session.firstPrompt || session.title || session.id === activeSessionId
-	);
+	return sessions?.filter( ( session ) => session.firstPrompt );
 }
 
 export function createSiteRows(

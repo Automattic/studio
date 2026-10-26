@@ -888,7 +888,7 @@ describe( 'Composer as a form field', () => {
 
 		fireEvent.click( await modelButton() );
 		fireEvent.click( await screen.findByRole( 'option', { name: /^Fast/ } ) );
-		expect( onModelChange ).toHaveBeenCalledWith( 'fast' );
+		expect( onModelChange ).toHaveBeenCalledWith( 'fast', 'wpcom' );
 		expect( connector.setSessionModel ).not.toHaveBeenCalled();
 	} );
 } );

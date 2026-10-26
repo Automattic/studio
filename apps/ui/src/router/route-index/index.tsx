@@ -51,7 +51,10 @@ export const indexRoute = createRoute( {
 		const topSession = resumeChat(
 			targetSite.id,
 			sessions.filter(
-				( session ) => ! session.archived && aiSessionBelongsToSite( session, targetSite )
+				( session ) =>
+					!! session.firstPrompt &&
+					! session.archived &&
+					aiSessionBelongsToSite( session, targetSite )
 			)
 		);
 		if ( topSession ) {
@@ -62,8 +65,7 @@ export const indexRoute = createRoute( {
 			} );
 		}
 
-		// No sessions yet: the new-session route creates an empty
-		// session for the site and redirects to it.
+		// No conversations yet: open the site with its unsent draft.
 		throw redirect( { to: '/sites/$siteId/new', params: { siteId: targetSite.id }, search } );
 	},
 } );

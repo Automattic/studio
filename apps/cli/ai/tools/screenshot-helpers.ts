@@ -52,8 +52,6 @@ export type ScreenshotFormat = 'png' | 'jpeg';
 
 export const SCREENSHOT_COLOR_SCHEME_VALUES = [ 'light', 'dark' ] as const;
 export type ScreenshotColorScheme = ( typeof SCREENSHOT_COLOR_SCHEME_VALUES )[ number ];
-export const SCREENSHOT_COLOR_SCHEME_DESCRIPTION =
-	'Color scheme to emulate: "light" or "dark". Defaults to the browser/system preference.';
 
 /**
  * Apply the prefers-color-scheme emulation a capture asks for.

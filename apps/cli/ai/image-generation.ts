@@ -38,7 +38,6 @@ export const IMAGE_STYLES = [
 	'abstract',
 	'watercolor',
 ] as const;
-export type ImageStyle = ( typeof IMAGE_STYLES )[ number ];
 
 // The route renders only these three canvases, so each slot shape maps to the
 // nearest one and CSS crops to the slot.

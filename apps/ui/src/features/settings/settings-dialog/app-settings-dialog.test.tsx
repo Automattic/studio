@@ -3,7 +3,7 @@ import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { INTERFACE_PREFERENCE_DEFAULTS } from '@studio/common/lib/user-settings/preferences';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { resetAppMessagesForTests } from '@/data/app-messages';
+import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
 import {
 	PANEL_WIDTHS_RESET_EVENT,
 	PREVIEW_CONTENT_WIDTH_STORAGE_KEY,
@@ -588,6 +588,16 @@ describe( 'WordPress Studio settings', () => {
 		expect( settingsParam() ).toBe( 'general' );
 	} );
 
+	it( 'keeps a typed directory when saving it fails', async () => {
+		const { connector } = await setup();
+		connector.setUserPreferences.mockRejectedValueOnce( new Error( 'Save failed' ) );
+		const directory = await screen.findByRole( 'textbox', { name: 'Default directory' } );
+		fireEvent.change( directory, { target: { value: ' /new-sites ' } } );
+		fireEvent.click( within( row( 'default-directory' ) ).getByRole( 'button', { name: 'Save' } ) );
+		expect( await screen.findByText( ERROR ) ).toBeVisible();
+		expect( directory ).toHaveValue( ' /new-sites ' );
+	} );
+
 	it.each( [ '/chosen-sites', null ] )(
 		'applies a picked directory immediately unless canceled (%s)',
 		async ( selected ) => {
@@ -924,18 +934,16 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		);
 	} );
 
-	it( 'does not show copied feedback when copying fails', async () => {
-		const consoleError = vi.spyOn( console, 'error' ).mockImplementation( () => {} );
-		try {
-			const { connector } = await setup( { section: 'mcp' } );
-			connector.copyText.mockRejectedValueOnce( new Error( 'Clipboard unavailable' ) );
-			fireEvent.click( await screen.findByRole( 'button', { name: 'Copy MCP configuration' } ) );
-			await waitFor( () =>
-				expect( consoleError ).toHaveBeenCalledWith( 'Failed to copy text:', expect.any( Error ) )
-			);
-			expect( screen.queryByText( 'Copied' ) ).not.toBeInTheDocument();
-		} finally {
-			consoleError.mockRestore();
-		}
+	it( 'reports a failed copy instead of showing copied feedback', async () => {
+		const { connector } = await setup( { section: 'mcp' } );
+		connector.copyText.mockRejectedValueOnce( new Error( 'Clipboard unavailable' ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Copy MCP configuration' } ) );
+		await waitFor( () =>
+			expect( getNoticeHistory()[ 0 ] ).toMatchObject( {
+				title: 'Could not copy.',
+				description: 'Clipboard unavailable',
+			} )
+		);
+		expect( screen.queryByText( 'Copied' ) ).not.toBeInTheDocument();
 	} );
 } );

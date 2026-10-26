@@ -1,5 +1,5 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { rememberVisit } from '@/features/sidebar/last-visited';
 import {
 	createFakeConnector,
@@ -58,6 +58,27 @@ const siteRow = async ( name: string ) => ( await siteButton( name ) ).closest( 
 async function openIn( name: string ) {
 	fireEvent.contextMenu( await siteButton( name ) );
 	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
+}
+
+function pointer( type: string, clientY: number ) {
+	const event = new MouseEvent( type, { bubbles: true, cancelable: true, clientX: 16, clientY } );
+	Object.defineProperty( event, 'pointerId', { value: 1 } );
+	return event;
+}
+
+function stackRows( buttons: HTMLElement[] ) {
+	return buttons.map( ( button, index ) => {
+		const row = button.closest< HTMLElement >( '[data-reorder-id]' )!;
+		vi.spyOn( row, 'getBoundingClientRect' ).mockReturnValue(
+			new DOMRect( 8, index * 35, 272, 34 )
+		);
+		return row;
+	} );
+}
+
+function drag( row: HTMLElement, toY: number ) {
+	fireEvent( row, pointer( 'pointerdown', 10 ) );
+	fireEvent( window, pointer( 'pointermove', toY ) );
 }
 
 beforeEach( () => localStorage.clear() );
@@ -183,6 +204,55 @@ describe( 'sidebar site list', () => {
 			).not.toBeInTheDocument()
 		);
 		expect( screen.getAllByRole( 'button', { name: /Prompt of latest/ } )[ 0 ] ).toBeVisible();
+	} );
+
+	it( 'folds a dragged site, and moves nothing when it is dropped outside its group', async () => {
+		const { connector } = await setup( {
+			sessions: [ chat( 'latest', '2026-06-20T12:00:00.000Z' ) ],
+			path: '/sites/one',
+		} );
+		const site = await siteButton( 'My site' );
+		await waitFor( () => expect( site ).toHaveAttribute( 'aria-expanded', 'true' ) );
+		const [ row, running ] = stackRows( [ site, await siteButton( 'Running site' ) ] );
+
+		drag( row, 200 );
+		expect( site ).toHaveAttribute( 'aria-expanded', 'false' );
+		expect( running ).not.toHaveAttribute( 'data-drop-position' );
+		fireEvent( window, pointer( 'pointerup', 200 ) );
+
+		expect( connector.updateSitesSortOrder ).not.toHaveBeenCalled();
+		expect( site ).toHaveAttribute( 'aria-expanded', 'false' );
+	} );
+
+	it( 'shows a dropped chat in its new slot before the order is saved', async () => {
+		const { connector } = await setup( {
+			sessions: [
+				chat( 'older', '2026-06-01T12:00:00.000Z' ),
+				chat( 'latest', '2026-06-20T12:00:00.000Z' ),
+			],
+			path: '/sites/one',
+		} );
+		const chats = await screen.findByRole( 'group', { name: 'My site chats' } );
+		const titles = () =>
+			within( chats )
+				.getAllByRole( 'button', { name: /^Prompt of / } )
+				.map( ( button ) => button.textContent );
+		await waitFor( () => expect( titles() ).toEqual( [ 'Prompt of latest', 'Prompt of older' ] ) );
+		const [ latest, older ] = stackRows(
+			within( chats ).getAllByRole( 'button', { name: /^Prompt of / } )
+		);
+
+		drag( latest, 60 );
+		expect( older ).toHaveAttribute( 'data-drop-position', 'after' );
+		fireEvent( window, pointer( 'pointerup', 60 ) );
+
+		expect( titles() ).toEqual( [ 'Prompt of older', 'Prompt of latest' ] );
+		await waitFor( () =>
+			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+				{ sidebarChatOrder: { one: [ 'older', 'latest' ] } },
+				undefined
+			)
+		);
 	} );
 
 	it( 'shows the Xdebug glyph in place of the site icon', async () => {

@@ -134,6 +134,28 @@ describe( 'Composer model picker', () => {
 		}
 	} );
 
+	it( 'returns focus to the Model button when Add AI credits is cancelled', async () => {
+		const connector = createFakeConnector();
+		connector.getStudioAssistantQuota.mockResolvedValue( {
+			costCap: 1_000_000,
+			studioCodeAiHasAccess: true,
+			hasPaymentMethod: true,
+			allowanceRemaining: 0,
+			purchasedRemaining: 1_000_000,
+		} as StudioAssistantQuota );
+		connector.getStudioAssistantTopUpPricing.mockResolvedValue( {
+			options: [ { credits: 100_000, display: '$10' } ],
+		} as never );
+		await setup( {}, connector );
+
+		const trigger = await modelButton();
+		fireEvent.click( trigger );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Get more credits/ } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Cancel' } ) );
+
+		await waitFor( () => expect( trigger ).toHaveFocus() );
+	} );
+
 	it( 'keeps the picked provider pin in the fresh session cache after a family switch', async () => {
 		const connector = createFakeConnector( {}, { getAiSettings: async () => ANTHROPIC_KEY } );
 		const fresh = makeSession( { id: 'fresh-session' } );

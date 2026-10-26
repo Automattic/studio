@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { createFakeConnector, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
@@ -29,16 +29,21 @@ describe( 'Welcome dialog', () => {
 		expect( history.location.search ).toContain( 'addSite=create' );
 	} );
 
-	it( 'waits on the browser login, which can be cancelled', async () => {
+	it( 'waits on the browser login until it settles, even when cancelled', async () => {
+		let fail: ( error: Error ) => void = () => {};
 		const { connector } = await firstLaunch( {
-			overrides: { authenticate: () => new Promise( () => {} ) },
+			overrides: {
+				authenticate: () => new Promise( ( _resolve, reject ) => ( fail = reject ) ),
+			},
 		} );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Log in with WordPress.com' } ) );
-		expect(
-			await screen.findByRole( 'button', { name: /Finish logging in in your browser/ } )
-		).toBeVisible();
+		const waiting = await screen.findByRole( 'button', {
+			name: /Finish logging in in your browser/,
+		} );
 		expect( connector.authenticate ).toHaveBeenCalledWith( false, 'onboarding' );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel' } ) );
+		expect( waiting ).toHaveAccessibleName( /Finish logging in in your browser/ );
+		act( () => fail( new Error( 'Login window closed' ) ) );
 		expect(
 			await screen.findByRole( 'button', { name: 'Log in with WordPress.com' } )
 		).toBeVisible();

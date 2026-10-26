@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { matchCommands } from './command-search';
 import { getAppCommands, getPaletteChats, getSettingCommands } from './studio-commands';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
@@ -49,6 +50,33 @@ describe( 'getAppCommands', () => {
 	} );
 } );
 
+it( 'shows the sidebar before opening the notifications from its bell', () => {
+	const toggleSidebar = vi.fn();
+	const openNotifications = vi.fn();
+	const notifications = ( sidebarOpen: boolean ) =>
+		getAppCommands( {
+			sites: [],
+			chats: [],
+			colorScheme: 'light',
+			sidebarOpen,
+			settingCommands: [],
+			openAddSite: vi.fn(),
+			openSettings: vi.fn(),
+			openSite: vi.fn(),
+			openChat: vi.fn(),
+			savePreferences: vi.fn(),
+			toggleSidebar,
+			openNotifications,
+			openWhatsNew: vi.fn(),
+		} ).find( ( { id } ) => id === 'notifications' )!;
+
+	notifications( true ).run();
+	expect( toggleSidebar ).not.toHaveBeenCalled();
+	notifications( false ).run();
+	expect( toggleSidebar ).toHaveBeenCalledTimes( 1 );
+	expect( openNotifications ).toHaveBeenCalledTimes( 2 );
+} );
+
 describe( 'getSettingCommands', () => {
 	it( 'turns a known switch on or off in place and opens any other setting', () => {
 		const openSettings = vi.fn();
@@ -64,5 +92,24 @@ describe( 'getSettingCommands', () => {
 		expect( byLabel( 'Turn off “Show recent chats”' ).run ).toBe( toggle.run );
 		byLabel( 'Terminal' ).run();
 		expect( openSettings ).toHaveBeenCalledWith( 'general', undefined, 'terminal' );
+	} );
+
+	it.each( [
+		[ 'shortcuts', 'settings-keyboard' ],
+		[ 'connect', 'settings-ai' ],
+		[ 'connect provider', 'settings-ai' ],
+		[ 'credit balance', 'settings-usage-ai-credits' ],
+		[ 'snapshots', 'settings-sharing-preview-sites' ],
+		[ 'colour', 'settings-appearance-color' ],
+		[ 'change color', 'settings-appearance-color' ],
+	] )( 'finds “%s” first by another name for a setting', ( query, id ) => {
+		const commands = getSettingCommands( {
+			scope: 'studio',
+			signedIn: true,
+			toggles: {},
+			openSettings: vi.fn(),
+		} );
+
+		expect( matchCommands( commands, query )[ 0 ]?.id ).toBe( id );
 	} );
 } );

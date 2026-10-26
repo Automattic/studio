@@ -76,7 +76,7 @@ function resolveRunStartedAt( state: AgentRunState, runId: string, startedAt: nu
 	return startedAt;
 }
 
-export function agentRunReducer( state: AgentRunState, action: AgentRunAction ): AgentRunState {
+function agentRunReducer( state: AgentRunState, action: AgentRunAction ): AgentRunState {
 	switch ( action.type ) {
 		case 'hydrate_active_run':
 			return {

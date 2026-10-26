@@ -67,8 +67,12 @@ export function useDeleteBlockedReason( sites: SiteDetails[], sitesBusy: boolean
 }
 
 // State for the menu's dialogs, which outlive the menu that opens them, and
-// the actions the menu shares with the command palette.
-export function useSiteActions( site: SiteDetails, { onOpen }: { onOpen?: () => void } = {} ) {
+// the actions the menu shares with the command palette. `onStart` follows a
+// start, as the sidebar row's start button opens the site it starts.
+export function useSiteActions(
+	site: SiteDetails,
+	{ onOpen, onStart }: { onOpen?: () => void; onStart?: () => void } = {}
+) {
 	const connector = useConnector();
 	const navigate = useNavigate();
 	const openSettings = useOpenSettings();
@@ -91,7 +95,14 @@ export function useSiteActions( site: SiteDetails, { onOpen }: { onOpen?: () => 
 	};
 	const rename = () => openSiteSettings( __( 'Site name' ) );
 	const togglePinned = () => togglePin( sitePinKey( site.id ) );
-	const toggleRunning = () => ( site.running ? stopSite : startSite ).mutate( site.id );
+	const toggleRunning = () => {
+		if ( site.running ) {
+			stopSite.mutate( site.id );
+			return;
+		}
+		startSite.mutate( site.id );
+		onStart?.();
+	};
 	const shortcuts = useItemShortcuts( {
 		rename,
 		pin: togglePinned,
@@ -214,7 +225,7 @@ export function SiteActionsMenuItems( {
 						<StopSiteIcon />
 						{ __( 'Stop' ) }
 					</Menu.SubmenuTrigger>
-					<Menu.SubmenuPopup>
+					<Menu.SubmenuPopup { ...actions.shortcuts }>
 						{ site.running ? (
 							<Menu.Item onClick={ actions.toggleRunning }>
 								<StopSiteIcon />
@@ -291,7 +302,7 @@ export function SiteActionsMenuItems( {
 			</Menu.Item>
 			{ manageItem( manage.import ) }
 			<Menu.SubmenuRoot>
-				<Menu.SubmenuTrigger>
+				<Menu.SubmenuTrigger disabled={ manage.export.disabled && manage[ 'export-db' ].disabled }>
 					<ExportIcon />
 					{ __( 'Export' ) }
 				</Menu.SubmenuTrigger>
@@ -329,6 +340,7 @@ export function SiteActionsMenu( { site }: { site: SiteDetails } ) {
 									<Button
 										variant="ghost"
 										aria-label={ label }
+										aria-busy={ actions.busy || undefined }
 										className={ styles.trigger }
 										{ ...actions.shortcuts }
 										data-item-shortcuts-active="site"

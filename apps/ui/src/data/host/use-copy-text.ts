@@ -1,4 +1,6 @@
+import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { errorMessage, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 
 // Route through the connector (host clipboard) — the renderer's
@@ -30,7 +32,7 @@ export function useCopyText( text: string ): { copied: boolean; copy: () => void
 				resetTimer.current = setTimeout( () => setCopied( false ), 2000 );
 			} )
 			.catch( ( error ) => {
-				console.error( 'Failed to copy text:', error );
+				toast.error( __( 'Could not copy.' ), { description: errorMessage( error ) } );
 			} );
 	}, [ connector, text ] );
 

@@ -1,5 +1,4 @@
 import { __, sprintf } from '@wordpress/i18n';
-import { clsx } from 'clsx';
 import {
 	useIsSiteBusy,
 	useSiteOperation,
@@ -9,9 +8,7 @@ import {
 import { StartSiteIcon, StopSiteIcon } from '@/lib/icons';
 import { Button, Spinner, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import { getSiteStatus, getSiteStatusName } from './site-status';
-import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
-import type { MouseEvent } from 'react';
 
 export function SiteStatusButton( {
 	site,
@@ -38,8 +35,7 @@ export function SiteStatusButton( {
 		operation,
 	} );
 	const label = sprintf( site.running ? __( 'Stop %s' ) : __( 'Start %s' ), site.name );
-	const handleClick = ( event: MouseEvent< HTMLButtonElement > ) => {
-		event.stopPropagation();
+	const handleClick = () => {
 		if ( site.running ) {
 			stopSite.mutate( site.id );
 		} else {
@@ -55,7 +51,6 @@ export function SiteStatusButton( {
 					<Button
 						variant="muted-ghost"
 						size="icon-sm"
-						className={ clsx( styles.rowAction, styles.siteStatus ) }
 						aria-label={ busy ? statusName : label }
 						aria-busy={ busy || undefined }
 						disabled={ busy }

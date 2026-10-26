@@ -1,4 +1,5 @@
 import { createContext, useContext } from 'react';
+import type { CreateSiteFormValues } from '@/features/sites/create-site-form';
 import type { Dispatch, SetStateAction } from 'react';
 
 interface AddSiteContextValue {
@@ -10,6 +11,9 @@ interface AddSiteContextValue {
 	actions: HTMLElement | null;
 	// Pins a site the dialog created when it was opened from the Pinned group.
 	pinNewSite: ( siteId: string ) => void;
+	// What was typed in the setup form, kept while Back shows the starting points.
+	setupDraft?: Partial< CreateSiteFormValues >;
+	setSetupDraft: ( draft: Partial< CreateSiteFormValues > ) => void;
 }
 
 export const AddSiteContext = createContext< AddSiteContextValue | null >( null );

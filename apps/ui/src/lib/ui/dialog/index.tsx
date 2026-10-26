@@ -7,6 +7,7 @@ import {
 	createContext,
 	useCallback,
 	useContext,
+	useEffect,
 	useImperativeHandle,
 	useLayoutEffect,
 	useRef,
@@ -14,6 +15,7 @@ import {
 } from 'react';
 import { IconButton } from '@/lib/ui/button';
 import surfaceStyles from '@/lib/ui/surface/style.module.css';
+import { registerOpenDialog, replaceOpenDialogs } from './replacement';
 import styles from './style.module.css';
 import type { ComponentProps, ReactNode, Ref } from 'react';
 
@@ -24,9 +26,37 @@ const DialogContentContext = createContext< { showCloseButton: boolean; layout: 
 	layout: 'default',
 } );
 
-export const Dialog = BaseDialog.Root;
+// Registers while open, so another dialog can take a `replaceable` one's place
+// (`replaceOpenDialogs`) and a dialog that keeps its place blocks it.
+function useOpenDialog( open: boolean | undefined, replaceable: boolean ) {
+	const actionsRef = useRef< BaseDialog.Root.Actions >( null );
+	useEffect( () => {
+		if ( ! open ) {
+			return;
+		}
+		return registerOpenDialog( { replaceable, close: () => actionsRef.current?.close() } );
+	}, [ open, replaceable ] );
+	return actionsRef;
+}
+
+export function Dialog( {
+	replaceable = false,
+	...props
+}: BaseDialog.Root.Props & {
+	/** Another top-level dialog, such as the command palette, may close it to take its place. */
+	replaceable?: boolean;
+} ) {
+	const actionsRef = useOpenDialog( props.open, replaceable );
+	return <BaseDialog.Root actionsRef={ actionsRef } { ...props } />;
+}
+
 /** A dialog that only closes through its own actions: no outside click or backdrop dismissal. */
-export const AlertDialog = BaseAlertDialog.Root;
+export function AlertDialog( props: BaseAlertDialog.Root.Props ) {
+	const actionsRef = useOpenDialog( props.open, false );
+	return <BaseAlertDialog.Root actionsRef={ actionsRef } { ...props } />;
+}
+
+export { replaceOpenDialogs };
 export const DialogClose = BaseDialog.Close;
 
 export function DialogDismissButton( {

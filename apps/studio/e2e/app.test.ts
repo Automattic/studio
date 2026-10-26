@@ -16,11 +16,8 @@ test.describe( 'Electron app', () => {
 		await session.cleanup();
 	} );
 
-	test( 'should ensure app title is correct.', async () => {
-		expect( await session.mainWindow.title() ).toBe( 'WordPress Studio' );
-	} );
-
 	test( 'first launch welcomes, then opens Add site', async () => {
+		expect( await session.mainWindow.title() ).toBe( 'WordPress Studio' );
 		const welcome = session.mainWindow.getByRole( 'alertdialog', {
 			name: 'Welcome to WordPress Studio',
 		} );

@@ -426,6 +426,7 @@ describe( 'CreatePanel', () => {
 
 			expect( mocks.formProps?.initialValues ).toEqual( { name: 'Remote site' } );
 			expect( mocks.formProps?.source ).toBe( 'remote.example.com' );
+			expect( mocks.formProps?.requiresEmptyPath ).toBe( true );
 			expect( screen.queryByTestId( 'composer' ) ).not.toBeInTheDocument();
 			expect( screen.queryByTestId( 'blueprint-upload' ) ).not.toBeInTheDocument();
 			expect( mocks.mutateAsync ).not.toHaveBeenCalled();

@@ -8,7 +8,7 @@
 		height: 20px;
 		padding: 1px;
 		border: 1px solid transparent;
-		border-radius: 9999px;
+		border-radius: var( --radius-full );
 		background-color: var( --border );
 		cursor: pointer;
 		outline: none;
@@ -17,7 +17,7 @@
 
 	.switch::after {
 		position: absolute;
-		inset: -8px -12px;
+		inset: calc( var( --space-2 ) * -1 ) calc( var( --space-3 ) * -1 );
 		content: '';
 	}
 
@@ -46,15 +46,11 @@
 		display: block;
 		width: 16px;
 		height: 16px;
-		border-radius: 9999px;
-		background-color: var( --background );
+		border-radius: var( --radius-full );
+		background-color: light-dark( var( --background ), var( --foreground ) );
 		box-shadow: var( --shadow-sm );
 		pointer-events: none;
 		transition: translate var( --motion-duration-surface ) var( --motion-ease-enter );
-	}
-
-	:root[data-color-scheme='dark'] .thumb[data-unchecked] {
-		background-color: var( --foreground );
 	}
 
 	.thumb[data-checked] {

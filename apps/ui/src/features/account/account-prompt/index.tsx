@@ -51,28 +51,28 @@ export function AccountPrompt( {
 					{ error instanceof Error ? error.message : String( error ) }
 				</p>
 			) : null }
-			<Button
-				size="lg"
-				className={ styles.createAccount }
-				disabled={ offline || pending }
-				loading={ signup.isPending }
-				onClick={ () => {
-					onCreateAccount?.();
-					signup.mutate();
-				} }
-			>
-				{ __( 'Create account' ) }
-			</Button>
-			<Button
-				variant="inline-text"
-				size="inline"
-				className={ styles.logIn }
-				disabled={ offline || pending }
-				loading={ login.isPending }
-				onClick={ () => login.mutate() }
-			>
-				{ __( 'Log in to WordPress.com' ) }
-			</Button>
+			<div className={ styles.actions }>
+				<Button
+					size="lg"
+					disabled={ offline || pending }
+					loading={ signup.isPending }
+					onClick={ () => {
+						onCreateAccount?.();
+						signup.mutate();
+					} }
+				>
+					{ __( 'Create account' ) }
+				</Button>
+				<Button
+					variant="inline-text"
+					size="inline"
+					disabled={ offline || pending }
+					loading={ login.isPending }
+					onClick={ () => login.mutate() }
+				>
+					{ __( 'Log in to WordPress.com' ) }
+				</Button>
+			</div>
 		</div>
 	);
 }

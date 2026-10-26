@@ -48,7 +48,7 @@ function DeeplinkListenersReady() {
  * route would otherwise be left pointing at a session that no longer exists.
  * The in-app delete flow redirects itself, from the confirmation dialog.
  */
-export function DeletedSiteRedirect() {
+function DeletedSiteRedirect() {
 	const connector = useConnector();
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();

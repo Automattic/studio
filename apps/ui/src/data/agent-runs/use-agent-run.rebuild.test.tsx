@@ -21,7 +21,9 @@ function Harness() {
 			<span data-testid="activity">{ activity }</span>
 			<span data-testid="phase">{ run.hasActiveRun ? 'active' : 'idle' }</span>
 			<span data-testid="started-at">{ run.startedAt ?? 'none' }</span>
-			<button onClick={ () => void run.sendMessage( 'Queued follow-up' ) }>Queue</button>
+			<button onClick={ () => void run.sendMessage( 'Queued follow-up' ).catch( () => {} ) }>
+				Queue
+			</button>
 			<button onClick={ () => run.answerQuestion( 'Q1', 'A1' ) }>Answer Q1</button>
 			<button onClick={ () => void run.interrupt() }>Stop</button>
 		</>
@@ -207,6 +209,27 @@ describe( 'useAgentRun queued handoff', () => {
 			{ queryKey: SESSIONS_QUERY_KEY },
 			{ cancelRefetch: false }
 		);
+		expect( invalidate ).toHaveBeenCalledWith( { queryKey: ASSISTANT_QUOTA_QUERY_KEY } );
+	} );
+
+	it( 'ignores a snapshot that lands after a newer one', async () => {
+		const { connector } = await setup();
+		const older = deferred< Runs >();
+		const newer = deferred< Runs >();
+		connector.getActiveAgentRuns
+			.mockReturnValueOnce( older.promise )
+			.mockReturnValueOnce( newer.promise );
+		act( () => {
+			connector.emit( 'onConnectionRestored' );
+			connector.emit( 'onConnectionRestored' );
+		} );
+		await act( async () => newer.resolve( [] ) );
+		await act( async () =>
+			older.resolve( [
+				{ sessionId: 'session-1', runId: 'run-1', startedAt: 1, phase: 'running' },
+			] as Runs )
+		);
+		expect( phase() ).toHaveTextContent( 'idle' );
 	} );
 
 	it( 'recovers questions asked during a lost connection', async () => {
@@ -490,5 +513,83 @@ describe( 'useAgentRun queued handoff', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Hide chat' } ) );
 		act( () => connector.emit( 'onAgentEvent', exited( 'hidden-run' ) ) );
 		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledTimes( 1 ) );
+	} );
+	it( 'returns to idle when a run fails to start', async () => {
+		const connector = createFakeConnector( { sessions: [ session() ] } );
+		connector.continueSession.mockRejectedValue( new Error( 'offline' ) );
+		await setup( { connector } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalled() );
+		await waitFor( () => expect( phase() ).toHaveTextContent( 'idle' ) );
+	} );
+
+	it( 'stays idle when a run exits before its start is acknowledged', async () => {
+		const start = deferred< { runId: string } >();
+		const connector = createFakeConnector( { sessions: [ session() ] } );
+		connector.continueSession.mockReturnValue( start.promise );
+		await setup( { connector } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalled() );
+		act( () => {
+			connector.emit( 'onAgentEvent', started( 'run-next' ) );
+			connector.emit( 'onAgentEvent', exited( 'run-next' ) );
+		} );
+		await act( async () => start.resolve( { runId: 'run-next' } ) );
+		expect( phase() ).toHaveTextContent( 'idle' );
+	} );
+
+	it( 'puts the questions back when an answer fails to send', async () => {
+		const connector = createFakeConnector( { sessions: [ session() ] } );
+		connector.answerAgentQuestion.mockRejectedValue( new Error( 'lost' ) );
+		await setup( { connector } );
+		act( () => {
+			connector.emit( 'onAgentEvent', started( 'run-old' ) );
+			connector.emit(
+				'onAgentEvent',
+				event( 'run-old', {
+					type: 'question.asked',
+					timestamp: new Date().toISOString(),
+					questions: [ { question: 'Q1', options: [ { label: 'A1', description: '' } ] } ],
+				} as AgentRunEvent[ 'event' ] )
+			);
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Answer Q1' } ) );
+		await waitFor( () => expect( connector.answerAgentQuestion ).toHaveBeenCalled() );
+		await waitFor( () =>
+			expect( screen.getByTestId( 'activity' ) ).toHaveTextContent( 'pending-question' )
+		);
+	} );
+
+	it( 'streams a reply into one entry, holding back tool calls until it ends', async () => {
+		const queryClient = createTestQueryClient();
+		const key = [ ...SESSIONS_QUERY_KEY, 'session-1' ];
+		queryClient.setQueryData( key, session() );
+		const { connector } = await setup( { queryClient } );
+		const text = ( value: string ) => ( { type: 'text', text: value } );
+		const toolCall = { type: 'toolCall', id: 'call-1', name: 'Edit', arguments: {} };
+		const emit = ( type: 'message_update' | 'message_end', content: unknown[] ) =>
+			act( () =>
+				connector.emit(
+					'onAgentEvent',
+					event( 'run-1', {
+						type: 'message',
+						timestamp: new Date().toISOString(),
+						message: { type, message: { role: 'assistant', content } },
+					} as AgentRunEvent[ 'event' ] )
+				)
+			);
+		const contents = () =>
+			queryClient
+				.getQueryData< LoadedAiSession >( key )!
+				.entries.map( ( entry ) => ( entry as { message: { content: unknown } } ).message.content );
+
+		emit( 'message_update', [ text( 'Upd' ) ] );
+		emit( 'message_update', [ text( 'Updating' ) ] );
+		emit( 'message_update', [ text( 'Updating the header' ), toolCall ] );
+		expect( contents() ).toEqual( [ [ text( 'Upd' ) ] ] );
+		await waitFor( () => expect( contents() ).toEqual( [ [ text( 'Updating the header' ) ] ] ) );
+
+		emit( 'message_end', [ text( 'Updating the header.' ), toolCall ] );
+		expect( contents() ).toEqual( [ [ text( 'Updating the header.' ), toolCall ] ] );
 	} );
 } );

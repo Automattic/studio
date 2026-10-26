@@ -2,6 +2,7 @@ import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync, readFileSync } f
 import os from 'os';
 import path from 'path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { sitePresetValues, validateBlockMarkupFile } from 'cli/ai/block-validation-gate';
 import { cleanupValidatorPages, validateBlocks } from 'cli/ai/block-validator';
 import { repeatedStyleValueNotes, repeatedStyleValues } from 'cli/ai/repeated-style-values';
 import { resolveSiteFile } from 'cli/ai/site-file-guards';
@@ -202,39 +203,65 @@ describe.runIf( WORDPRESS && EDITOR )( 'repeated raw font sizes made presets', (
 	);
 	afterEach( () => vi.unstubAllGlobals() );
 
+	// The notes where the block validation gate saves the file, and its save.
+	const notes = ( file: string ) =>
+		repeatedStyleValueNotes( resolveSiteFile( file )!, { gateSaves: true } );
+	const saveThroughEditor = async ( file: string, theme: string ) => {
+		const result = await validateBlockMarkupFile(
+			file,
+			EDITOR!,
+			await sitePresetValues( root, theme )
+		);
+		writeFileSync( file, result.fixedContent! );
+		return result.summary;
+	};
+	const HEADER = '<?php\n/**\n * Title: Cards\n * Slug: roast/cards\n */\n?>\n';
+
 	it.each( [
-		{ name: 'a theme', slug: 'studio-test-roast', header: '', fontSizes: undefined, css: '' },
 		{
-			name: 'a child theme with its own font sizes',
+			name: 'a theme template',
+			slug: 'studio-test-roast',
+			header: '',
+			fontSizes: undefined,
+			file: 'templates/index.html',
+			content: times( 3, sized ),
+		},
+		{
+			name: "a child theme's pattern with its own font sizes, and its group missing its wrapper",
 			slug: 'studio-test-roast-child',
 			header: 'Template: twentytwentyfive\n',
 			fontSizes: [ { slug: 'tiny', size: '10px', name: 'Tiny' } ],
-			css: '',
+			file: 'patterns/cards.php',
+			content: `${ HEADER }<!-- wp:group -->\n${ times( 3, sized ) }\n<!-- /wp:group -->`,
 		},
 	] )(
-		'makes the sizes $name repeats its presets',
-		async ( { slug, header, fontSizes, css } ) => {
+		'makes the sizes $name repeats presets, which the save through the editor stores',
+		async ( { slug, header, fontSizes, file, content } ) => {
 			const dir = `wp-content/themes/${ slug }`;
-			put( `${ dir }/style.css`, `/*\nTheme Name: ${ slug }\n${ header }*/\n${ css }` );
+			put( `${ dir }/style.css`, `/*\nTheme Name: ${ slug }\n${ header }*/\n` );
 			const themeJson = put(
 				`${ dir }/theme.json`,
 				JSON.stringify( { version: 3, settings: { typography: { fontSizes } } } )
 			);
-			const template = put( `${ dir }/templates/index.html`, times( 3, sized ) );
-			const [ note, ...rest ] = await repeatedStyleValueNotes( resolveSiteFile( template )! );
+			const written = put( `${ dir }/${ file }`, content );
+			const [ note, ...rest ] = await notes( written );
 
 			expect( rest ).toEqual( [] );
 			expect( note ).toContain( `it added size-1-4-rem (1.4rem) to ${ themeJson }` );
-			expect( note ).toContain( 'set 3 block(s) to "fontSize":"size-1-4-rem"' );
 			expect(
 				JSON.parse( readFileSync( themeJson, 'utf8' ) ).settings.typography.fontSizes
 			).toEqual( [
 				...( fontSizes ?? [] ),
 				{ name: '1.4rem', slug: 'size-1-4-rem', size: '1.4rem' },
 			] );
-			const markup = readFileSync( template, 'utf8' );
-			expect( markup ).not.toContain( '1.4rem' );
-			expect( markup.match( /"fontSize":"size-1-4-rem"/g ) ).toHaveLength( 3 );
+			expect( await saveThroughEditor( written, slug ) ).toContain(
+				'stores 1.4rem as the font size size-1-4-rem'
+			);
+			const saved = readFileSync( written, 'utf8' );
+			expect( saved.startsWith( content.slice( 0, content.indexOf( '<!--' ) ) ) ).toBe( true );
+			expect( saved ).not.toContain( '1.4rem' );
+			expect( saved.match( /"fontSize":"size-1-4-rem"/g ) ).toHaveLength( 3 );
+			const markup = saved.slice( saved.indexOf( '<!--' ) );
 			expect( ( await validateBlocks( markup, EDITOR! ) ).invalidBlocks ).toBe( 0 );
 
 			// WordPress renders the preset at the size it rendered the raw value at,
@@ -248,13 +275,44 @@ describe.runIf( WORDPRESS && EDITOR )( 'repeated raw font sizes made presets', (
 			expect( size ).toBeDefined();
 			const rendered = await runWpCli( site(), [
 				'eval',
-				`echo wp_get_global_stylesheet( array( 'variables', 'presets' ) ), do_blocks( file_get_contents( '${ template }' ) );`,
+				`echo wp_get_global_stylesheet( array( 'variables', 'presets' ) ), do_blocks( ${ JSON.stringify(
+					markup
+				) } );`,
 			] );
 			expect( rendered ).toContain( `--wp--preset--font-size--size-1-4-rem: ${ size };` );
 			expect( rendered ).toContain( 'has-size-1-4-rem-font-size' );
 		},
 		120000
 	);
+
+	it( 'notes the sizes and adds no preset where no gate saves the file', async () => {
+		const dir = 'wp-content/themes/studio-test-ungated';
+		put( `${ dir }/style.css`, '/*\nTheme Name: Ungated\n*/' );
+		const json = JSON.stringify( {
+			version: 3,
+			settings: { typography: { fontSizes: [ { slug: 'roast', size: '2rem', name: 'Roast' } ] } },
+		} );
+		const themeJson = put( `${ dir }/theme.json`, json );
+		const preset = paragraph( { typography: { fontSize: '2rem' } } );
+		const template = put( `${ dir }/templates/index.html`, times( 3, sized ) + times( 3, preset ) );
+		const [ note, ...rest ] = await repeatedStyleValueNotes( resolveSiteFile( template )! );
+		expect( rest ).toEqual( [] );
+		expect( note ).toContain( 'typography.fontSize 1.4rem on 3, typography.fontSize 2rem on 3.' );
+		expect( readFileSync( themeJson, 'utf8' ) ).toBe( json );
+	}, 60000 );
+
+	it( 'notes the sizes of a pattern that holds PHP, which no gate saves', async () => {
+		const dir = 'wp-content/themes/studio-test-php-pattern';
+		put( `${ dir }/style.css`, '/*\nTheme Name: PHP pattern\n*/' );
+		const themeJson = put( `${ dir }/theme.json`, '{"version":3}' );
+		const pattern = put(
+			`${ dir }/patterns/cards.php`,
+			`${ HEADER }${ times( 3, sized ) }<p><?php echo esc_html( 'Roast' ); ?></p>`
+		);
+		const [ note ] = await notes( pattern );
+		expect( note ).toContain( 'typography.fontSize 1.4rem on 3.' );
+		expect( readFileSync( themeJson, 'utf8' ) ).toBe( '{"version":3}' );
+	}, 60000 );
 
 	it( 'leaves a size a preset has to the save through the editor, which stores it as the preset', async () => {
 		const dir = 'wp-content/themes/studio-test-preset';
@@ -265,7 +323,7 @@ describe.runIf( WORDPRESS && EDITOR )( 'repeated raw font sizes made presets', (
 		} );
 		const themeJson = put( `${ dir }/theme.json`, json );
 		const template = put( `${ dir }/templates/index.html`, times( 3, sized ) );
-		expect( await repeatedStyleValueNotes( resolveSiteFile( template )! ) ).toEqual( [] );
+		expect( await notes( template ) ).toEqual( [] );
 		expect( readFileSync( themeJson, 'utf8' ) ).toBe( json );
 	}, 60000 );
 
@@ -282,7 +340,7 @@ describe.runIf( WORDPRESS && EDITOR )( 'repeated raw font sizes made presets', (
 			`${ dir }/templates/index.html`,
 			times( 3, sized ) + times( 3, gap ) + times( 3, fluid )
 		);
-		const [ note, made, ...rest ] = await repeatedStyleValueNotes( resolveSiteFile( template )! );
+		const [ note, made, ...rest ] = await notes( template );
 		expect( rest ).toEqual( [] );
 		expect( note ).toContain(
 			'sets the same raw style values on several blocks: typography.fontSize clamp(1rem, 2vw, 2rem) on 3, spacing.padding.top 2.5rem on 3.'
@@ -314,7 +372,7 @@ describe.runIf( WORDPRESS && EDITOR )( 'repeated raw font sizes made presets', (
 			put( `${ dir }/style.css`, `/*\nTheme Name: Kept\n${ header }*/\n${ css }` );
 			const themeJson = put( `${ dir }/theme.json`, json );
 			const template = put( `${ dir }/templates/index.html`, times( 3, sized ) );
-			const [ note ] = await repeatedStyleValueNotes( resolveSiteFile( template )! );
+			const [ note ] = await notes( template );
 			expect( note ).toContain(
 				'sets the same raw style values on several blocks: typography.fontSize 1.4rem on 3.'
 			);

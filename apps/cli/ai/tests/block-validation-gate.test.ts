@@ -84,6 +84,20 @@ describe( 'block markup files', () => {
 		expect( isBlockMarkupFile( write( 'tmp/page-home.html', '<p>Hi</p>' ) ) ).toBe( false );
 		expect( isBlockMarkupFile( '/s/missing.html' ) ).toBe( false );
 	} );
+
+	const HEADER = '<?php\n/**\n * Title: Cards\n */\n?>\n';
+	it.each( [
+		{ name: 'whose only PHP is its header', content: `${ HEADER }<!-- wp:paragraph -->`, is: true },
+		{
+			name: 'that holds PHP after its header',
+			content: `${ HEADER }<p><?php echo 1; ?></p>`,
+			is: false,
+		},
+		{ name: 'with no header', content: '<?php echo "<p>Hi</p>";', is: false },
+	] )( 'covers a theme pattern $name: $is', ( { content, is } ) => {
+		const pattern = write( 'wp-content/themes/t/patterns/cards.php', content );
+		expect( isBlockMarkupFile( pattern ) ).toBe( is );
+	} );
 } );
 
 describe( 'validating a file', () => {
@@ -101,6 +115,31 @@ describe( 'validating a file', () => {
 		);
 		expect( result.fixedContent ).toBe( fixed );
 		expect( readFileSync( file, 'utf8' ) ).toBe( original );
+	} );
+
+	it( "validates a pattern's markup and keeps its header in the fix", async () => {
+		const header = '<?php\n/**\n * Title: Hello\n */\n?>\n';
+		const file = write( 'wp-content/themes/t/patterns/hello.php', header + original );
+		vi.mocked( validateBlocks ).mockResolvedValue( invalidWithFix( fixed ) );
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+		expect( validateBlocks ).toHaveBeenCalledWith( original, 'http://localhost:8881' );
+		expect( result.fixedContent ).toBe( header + fixed );
+	} );
+
+	it.each( [
+		{
+			name: 'PHP beyond its header',
+			content: '<?php\n/**\n * Title: Hello\n */\n?>\n<p><?php echo 1; ?></p>',
+		},
+		{ name: 'no header', content: '<?php echo "<p>Hi</p>";' },
+	] )( 'does not validate a pattern with $name', async ( { content } ) => {
+		const file = write( 'wp-content/themes/t/patterns/hello.php', content );
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+		expect( validateBlocks ).not.toHaveBeenCalled();
+		expect( result ).toEqual( {
+			contentHash: expect.any( String ),
+			summary: 'patterns/hello.php: not validated, as it holds PHP',
+		} );
 	} );
 
 	it( "returns the content with the palette's colors stored as presets", async () => {

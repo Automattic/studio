@@ -34,6 +34,25 @@ import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 
 const THEME_MARKUP =
 	/[\\/]wp-content[\\/]themes[\\/][^\\/]+[\\/](templates|parts)[\\/][^\\/]+\.html$/;
+// A theme's patterns are the PHP files in its patterns folder, which WordPress
+// includes for what they output (WP_Theme::get_block_patterns(),
+// WP_Block_Patterns_Registry::get_content()).
+const THEME_PATTERN = /[\\/]wp-content[\\/]themes[\\/][^\\/]+[\\/]patterns[\\/].+\.php$/;
+// The header comment a pattern opens with, and the newline PHP drops after its closing tag.
+const PATTERN_HEADER = /^\s*<\?php\s*\/\*[\s\S]*?\*\/\s*\?>\n?/;
+
+/**
+ * A theme pattern's header and the block markup it outputs, when the header
+ * is its only PHP, so the file outputs the markup as written.
+ */
+function splitPattern( content: string ): { header: string; markup: string } | undefined {
+	const header = content.match( PATTERN_HEADER )?.[ 0 ];
+	if ( header === undefined ) {
+		return undefined;
+	}
+	const markup = content.slice( header.length );
+	return markup.includes( '<?' ) ? undefined : { header, markup };
+}
 
 /**
  * Whether content is block markup: it opens with a block's comment delimiter,
@@ -51,7 +70,10 @@ export function isBlockMarkupFile( filePath: string ): boolean {
 		return true;
 	}
 	try {
-		return opensWithBlock( readFileSync( filePath, 'utf8' ) );
+		const content = readFileSync( filePath, 'utf8' );
+		return THEME_PATTERN.test( filePath )
+			? splitPattern( content ) !== undefined
+			: opensWithBlock( content );
 	} catch {
 		return false;
 	}
@@ -229,8 +251,18 @@ export async function validateBlockMarkupFile(
 ): Promise< FileValidation > {
 	const label = filePath.split( path.sep ).slice( -2 ).join( '/' );
 	const content = await readFile( filePath, 'utf8' );
+	// A pattern is validated for the markup it outputs, and saved under its header.
+	const pattern = THEME_PATTERN.test( filePath ) ? splitPattern( content ) : undefined;
+	if ( THEME_PATTERN.test( filePath ) && ! pattern ) {
+		return { contentHash: hash( content ), summary: `${ label }: not validated, as it holds PHP` };
+	}
 
-	const result = await validateBlockMarkup( content, label, siteUrl, presetValues );
+	const result = await validateBlockMarkup(
+		pattern?.markup ?? content,
+		label,
+		siteUrl,
+		presetValues
+	);
 	if ( result.fixedContent === undefined ) {
 		return { contentHash: hash( content ), summary: result.summary, problem: result.problem };
 	}
@@ -241,7 +273,7 @@ export async function validateBlockMarkupFile(
 			' and '
 		) }`,
 		...( result.problem && { problem: result.problem } ),
-		fixedContent: result.fixedContent,
+		fixedContent: ( pattern?.header ?? '' ) + result.fixedContent,
 	};
 }
 

@@ -8,20 +8,20 @@
  * and Global Styles changes it for every block that uses it. The same raw
  * value on many blocks is one treatment kept in many places.
  *
- * A raw font size block markup in a theme repeats becomes a
- * font size preset of the theme where nothing can look different: the preset
- * renders the same size, as both go through wp_get_typography_font_size_value()
- * (wp-includes/block-supports/typography.php), and the blocks take it as the
- * editor stores a picked preset. Other kinds of value are noted.
+ * Where the block validation gate saves the file through the editor, a raw
+ * font size it repeats becomes a font size preset of its theme where nothing
+ * can look different: the preset renders the same size, as both go through
+ * wp_get_typography_font_size_value() (wp-includes/block-supports/typography.php),
+ * and the save stores the blocks with it as the editor stores a picked preset.
+ * Other kinds of value are noted.
  */
 import { readdir, readFile, writeFile } from 'fs/promises';
 import path from 'path';
-import { storePresetValues } from 'cli/ai/block-validator';
+import { isBlockMarkupFile } from 'cli/ai/block-validation-gate';
 import { readWordPressSite } from 'cli/ai/site-database';
 import { isBlockMarkup, type SiteFile } from 'cli/ai/site-file-guards';
 import { themePresets } from 'cli/ai/theme-presets';
 import { isUpdatableTheme, readThemeHeader } from 'cli/ai/themes';
-import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 
 // The blocks set to one raw value before it reads as a shared treatment.
 const REPEATED = 3;
@@ -121,16 +121,17 @@ async function importantFontSize( themeDir: string, themeJson: unknown ): Promis
 }
 
 /**
- * Makes each raw font size in `sizes` a font size preset of the file's theme
- * and stores the file's blocks with it, when that changes nothing it renders.
- * Returns the note on what it did, and the sizes it stored.
+ * Adds each raw font size in `sizes` to the file's theme as a font size
+ * preset, for the block validation gate's save through the editor to store
+ * the blocks with them as, when that changes nothing the file renders.
+ * Returns the note on what it added, and the sizes added.
  */
-async function presetRepeatedFontSizes(
+async function addFontSizePresets(
 	siteFile: SiteFile,
 	file: string,
 	sizes: string[],
 	presets: Array< [ string, string ] >
-): Promise< { note: string; stored: string[] } | undefined > {
+): Promise< { note: string; added: string[] } | undefined > {
 	const { siteRoot, theme } = siteFile;
 	if ( ! theme || ( await isUpdatableTheme( siteRoot, theme.slug ) ) ) {
 		return undefined;
@@ -153,49 +154,34 @@ async function presetRepeatedFontSizes(
 	if ( ! added.length ) {
 		return undefined;
 	}
-	const siteUrl = getSiteUrl( await getSiteByFolder( siteRoot ) );
-	const result = await storePresetValues( await readFile( file, 'utf8' ), siteUrl, {
-		colors: [],
-		fontSizes: added,
-	} );
-	const used = added.filter( ( [ slug ] ) =>
-		result.fontSizes.some( ( size ) => size.slug === slug )
-	);
-	if ( ! used.length ) {
-		return undefined;
-	}
 	themeJson.settings = {
 		...themeJson.settings,
 		typography: {
 			...themeJson.settings?.typography,
 			fontSizes: [
 				...( Array.isArray( own ) ? own : [] ),
-				...used.map( ( [ slug, size ] ) => ( { name: size, slug, size } ) ),
+				...added.map( ( [ slug, size ] ) => ( { name: size, slug, size } ) ),
 			],
 		},
 	};
 	await writeFile( themeJsonFile, JSON.stringify( themeJson, null, '\t' ) + '\n', 'utf8' );
-	await writeFile( file, result.content, 'utf8' );
-	const blocks = ( size: string ) =>
-		result.fontSizes.filter( ( stored ) => stored.size === size ).length;
 	return {
-		stored: used.map( ( [ , size ] ) => size ),
-		note: `Studio made the font sizes ${ file } repeated font size presets of ${
+		added: added.map( ( [ , size ] ) => size ),
+		note: `Studio made the font sizes ${ file } repeats font size presets of ${
 			theme.slug
-		}: it added ${ used
+		}: it added ${ added
 			.map( ( [ slug, size ] ) => `${ slug } (${ size })` )
 			.join(
 				', '
-			) } to ${ themeJsonFile }'s "settings": { "typography": { "fontSizes" } }, and set ${ used
-			.map( ( [ slug, size ] ) => `${ blocks( size ) } block(s) to "fontSize":"${ slug }"` )
-			.join(
-				', '
-			) }, as the editor stores a picked preset. Each renders the size it had (wp_get_typography_font_size_value() in wp-includes/block-supports/typography.php), and the editor's font size picker and Global Styles now offer and change it. Each preset's "name" is its size; a name that says what it is for labels it in the picker.`,
+			) } to ${ themeJsonFile }'s "settings": { "typography": { "fontSizes" } }, which Studio's save of the file through the block editor stores its blocks of those sizes as, as the editor stores a picked preset (Block validation reports it). Each renders the size it had (wp_get_typography_font_size_value() in wp-includes/block-supports/typography.php), and the editor's font size picker and Global Styles now offer and change it. Each preset's "name" is its size; a name that says what it is for labels it in the picker.`,
 	};
 }
 
 /** The raw values of a kind presets give that block markup just written repeats. */
-export async function repeatedStyleValueNotes( siteFile: SiteFile ): Promise< string[] > {
+export async function repeatedStyleValueNotes(
+	siteFile: SiteFile,
+	{ gateSaves = false }: { gateSaves?: boolean } = {}
+): Promise< string[] > {
 	if ( ! isBlockMarkup( siteFile ) ) {
 		return [];
 	}
@@ -211,22 +197,24 @@ export async function repeatedStyleValueNotes( siteFile: SiteFile ): Promise< st
 	if ( ! presets ) {
 		return [];
 	}
-	// A size a preset has is stored as the preset when the file is saved
-	// through the editor (storePresetValues() in block-validator.ts).
+	// The block validation gate saves the file through the editor, which stores a
+	// size a preset has as the preset (storePresetValues() in block-validator.ts).
+	const saved = gateSaves && isBlockMarkupFile( file );
 	const preset = ( { path: at, value }: { path: string; value: string } ) =>
 		at === 'typography.fontSize' && presets.fontSizes.some( ( [ , size ] ) => size === value );
-	repeated = repeated.filter( ( value ) => ! preset( value ) );
+	repeated = repeated.filter( ( value ) => ! saved || ! preset( value ) );
 	const fontSizes = repeated
 		.filter( ( value ) => value.path === 'typography.fontSize' )
 		.map( ( { value } ) => value );
-	const made = fontSizes.length
-		? await presetRepeatedFontSizes( siteFile, file, fontSizes, presets.fontSizes ).catch(
-				() => undefined
-		  )
-		: undefined;
+	const made =
+		saved && fontSizes.length
+			? await addFontSizePresets( siteFile, file, fontSizes, presets.fontSizes ).catch(
+					() => undefined
+			  )
+			: undefined;
 	if ( made ) {
 		repeated = repeated.filter(
-			( value ) => value.path !== 'typography.fontSize' || ! made.stored.includes( value.value )
+			( value ) => value.path !== 'typography.fontSize' || ! made.added.includes( value.value )
 		);
 	}
 	const kinds = STYLES.map( ( style ) => ( {

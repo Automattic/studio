@@ -36,6 +36,7 @@ export function ChatRow( {
 	session,
 	active,
 	nested = false,
+	navigation = 'site',
 	siteName,
 	onOpen,
 	itemProps,
@@ -44,6 +45,7 @@ export function ChatRow( {
 	active: boolean;
 	// Under its site the row indents to the site's name and drops its icon.
 	nested?: boolean;
+	navigation?: 'recent' | 'pinned' | 'site';
 	// Away from its site, the row names it in a tooltip.
 	siteName?: string;
 	onOpen?: () => void;
@@ -52,7 +54,7 @@ export function ChatRow( {
 } ) {
 	const navigate = useNavigate();
 	const activity = useSiteAgentActivity( [ session.id ] );
-	const actions = useChatActions( session, active );
+	const actions = useChatActions( session, active, navigation );
 	const selectable = useSelectableRow( chatPinKey( session.id ) );
 	const bulk = useIsBulkTarget( chatPinKey( session.id ) );
 	const pressed = useRowPressed( chatPinKey( session.id ) );
@@ -86,6 +88,7 @@ export function ChatRow( {
 									void navigate( {
 										to: '/sessions/$sessionId',
 										params: { sessionId: session.id },
+										state: { chatNavigation: navigation },
 									} );
 								} }
 							>

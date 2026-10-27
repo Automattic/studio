@@ -31,7 +31,7 @@ const PROMPT = 'Do more with WordPress.com';
 async function openLoginDialog() {
 	fireEvent.click( await screen.findByRole( 'button', { name: 'Log in' } ) );
 	const dialog = await screen.findByRole( 'dialog', { name: PROMPT } );
-	return within( dialog ).findByRole( 'button', { name: 'Log in to WordPress.com' } );
+	return within( dialog ).findByRole( 'button', { name: 'Log in' } );
 }
 
 describe( 'AccountMenu', () => {

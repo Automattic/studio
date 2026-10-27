@@ -52,6 +52,7 @@ interface SitePreviewProps {
 	// Sends the site's annotations to its chat: every note with the chat draft,
 	// or only `noteIds`, straight away.
 	onSendAnnotations?: ( siteId: string, noteIds?: string[] ) => void;
+	onStartAnnotating?: () => boolean;
 	// Called when the user navigates within the preview (link clicks,
 	// back/forward) so the parent can keep its `path` in sync without
 	// forcing a reload.
@@ -70,6 +71,7 @@ export function SitePreview( {
 	path,
 	reloadNonce,
 	onSendAnnotations,
+	onStartAnnotating,
 	onPathChange,
 	collapsed = false,
 	atWindowStart = false,
@@ -249,7 +251,10 @@ export function SitePreview( {
 								disabled: ! canAnnotate || isAnnotationsBusy( annotations ),
 								disabledReason:
 									activeSurfaceKey === 'database' ? __( 'Not available for Database' ) : undefined,
-								onClick: () => setAnnotating( site.id, ! annotations.active ),
+								onClick: () => {
+									if ( ! annotations.active && onStartAnnotating?.() === false ) return;
+									setAnnotating( site.id, ! annotations.active );
+								},
 						  }
 						: undefined
 				}

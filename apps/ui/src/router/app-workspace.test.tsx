@@ -3,6 +3,13 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
 import { setCommandPaletteOpen } from '@/data/use-command-palette';
+import {
+	changeAnnotation,
+	removeAnnotations,
+	getSiteAnnotations,
+	pickAnnotation,
+	setAnnotating,
+} from '@/features/annotations';
 import { clearComposerDrafts } from '@/features/composer';
 import {
 	createFakeConnector,
@@ -114,6 +121,38 @@ afterEach( () => {
 } );
 
 describe( 'Studio workspace', () => {
+	it( 'asks for a provider before sending annotations and preserves notes when opening provider settings', async () => {
+		const { history, connector } = setup( {
+			path: '/sites/one',
+			sites: [ site( { running: true } ) ],
+		} );
+		await screen.findByRole( 'toolbar', { hidden: true } );
+		act( () => {
+			setAnnotating( 'one', true );
+			const id = pickAnnotation( 'one', { selector: 'h1', tag: 'h1', path: '/' } )!;
+			changeAnnotation( 'one', id, { comment: 'Make this heading larger' } );
+		} );
+		try {
+			fireEvent.click( screen.getByRole( 'button', { name: 'Send 1 annotation' } ) );
+			expect(
+				await screen.findByRole( 'dialog', { name: 'Put your feedback to work' } )
+			).toBeVisible();
+			expect( connector.createSession ).not.toHaveBeenCalled();
+			expect( getSiteAnnotations( 'one' ).notes[ 0 ].comment ).toBe( 'Make this heading larger' );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Choose a different provider' } ) );
+			await waitFor( () => expect( history.location.search ).toContain( 'settings=ai' ) );
+			expect( getSiteAnnotations( 'one' ).notes ).toHaveLength( 1 );
+		} finally {
+			act( () => {
+				removeAnnotations(
+					'one',
+					getSiteAnnotations( 'one' ).notes.map( ( note ) => note.id )
+				);
+				setAnnotating( 'one', false );
+			} );
+		}
+	} );
+
 	it.each( [ 'site', 'play' ] )(
 		'opens a stopped site from %s without creating or resuming a chat',
 		async ( action ) => {

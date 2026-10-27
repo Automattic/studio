@@ -8,10 +8,14 @@ import {
 } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useState } from 'react';
+import { useAiSettings } from '@/data/queries/use-ai-settings';
+import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useSession, useSessionLiveSite } from '@/data/queries/use-sessions';
 import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
 import { useIsSiteStopping, useSiteOperation, useSites } from '@/data/queries/use-sites';
+import { useOpenSettings } from '@/data/use-open-settings';
 import { pathForSite, useSessionPreviewUI } from '@/data/use-session-ui';
+import { AccountPromptDialog } from '@/features/account';
 import { requestAnnotationSend } from '@/features/annotations';
 import { SiteWorkspace } from '@/features/chats';
 import { CommandPalette } from '@/features/commands';
@@ -58,6 +62,14 @@ function getNewSessionSiteId( pathname: string ): string | undefined {
 // last previewed site loaded behind a closed panel.
 function DashboardLayout() {
 	const navigate = useNavigate();
+	const openSettings = useOpenSettings();
+	const { data: authUser } = useAuthUser();
+	const { data: aiSettings } = useAiSettings();
+	const [ providerPromptOpen, setProviderPromptOpen ] = useState( false );
+	const hasProvider = !! authUser || !! aiSettings?.hasAnthropicApiKey;
+	useEffect( () => {
+		if ( hasProvider ) setProviderPromptOpen( false );
+	}, [ hasProvider ] );
 	const routePreviewContext = useRouterState( {
 		select: ( state ) => ( {
 			sessionId: getRouteSessionId( state.location.pathname ),
@@ -162,16 +174,25 @@ function DashboardLayout() {
 			} ),
 		[ router, setChatHidden ]
 	);
+	const startAnnotating = useCallback( () => {
+		if ( hasProvider ) return true;
+		setProviderPromptOpen( true );
+		return false;
+	}, [ hasProvider ] );
 	// The notes go to the chat beside the preview, or to a new one for the site.
 	const sendAnnotations = useCallback(
 		( siteId: string, noteIds?: string[] ) => {
+			if ( ! hasProvider ) {
+				setProviderPromptOpen( true );
+				return;
+			}
 			requestAnnotationSend( { siteId, noteIds } );
 			setChatHidden( false );
 			if ( ! sessionId || sessionSite?.id !== siteId ) {
 				void navigate( { to: '/sites/$siteId/new', params: { siteId } } );
 			}
 		},
-		[ navigate, sessionId, sessionSite?.id, setChatHidden ]
+		[ hasProvider, navigate, sessionId, sessionSite?.id, setChatHidden ]
 	);
 	const renderPreview = useCallback(
 		( { collapsed }: PreviewSplitFramePreviewProps ) =>
@@ -183,6 +204,7 @@ function DashboardLayout() {
 					path={ liveUrl ? ( livePath.url === liveUrl ? livePath.path : '/' ) : previewPath }
 					reloadNonce={ preview.reloadNonce }
 					onSendAnnotations={ sendAnnotations }
+					onStartAnnotating={ startAnnotating }
 					onPathChange={ liveUrl ? updateLivePath : preview.updatePath }
 					collapsed={ collapsed }
 					atWindowStart={ chatHidden }
@@ -190,13 +212,16 @@ function DashboardLayout() {
 			) : null,
 		[
 			chatHidden,
+			homeSiteId,
 			liveUrl,
 			livePath,
 			sendAnnotations,
+			startAnnotating,
 			previewPath,
 			preview.reloadNonce,
 			preview.updatePath,
 			previewSite,
+			setChatHidden,
 			updateLivePath,
 		]
 	);
@@ -215,6 +240,20 @@ function DashboardLayout() {
 
 	return (
 		<SidebarLayout>
+			<AccountPromptDialog
+				open={ providerPromptOpen }
+				onOpenChange={ setProviderPromptOpen }
+				title={ __( 'Put your feedback to work' ) }
+				description={ __(
+					'Connect an AI provider to turn your notes and ideas into changes to your site.'
+				) }
+				source="assistant_tab"
+				secondaryLabel={ __( 'Choose a different provider' ) }
+				onSkip={ () => {
+					setProviderPromptOpen( false );
+					openSettings( 'ai' );
+				} }
+			/>
 			<SiteHeaderActionsProvider host={ showPreview ? 'preview' : 'chat' }>
 				<PreviewSplitFrame
 					previewOpen={ showPreview }

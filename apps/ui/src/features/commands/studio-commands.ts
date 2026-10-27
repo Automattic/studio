@@ -1,9 +1,10 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { __, sprintf } from '@wordpress/i18n';
-import { PencilIcon, PlusIcon, RefreshCwIcon, SettingsIcon, SparklesIcon } from 'lucide-react';
+import { PencilIcon, RefreshCwIcon, SettingsIcon, SparklesIcon } from 'lucide-react';
 import { getSections } from '@/data/settings-sections';
 import { getSessionTitle } from '@/features/chats';
 import {
+	PlusIcon,
 	AppearanceIcon,
 	ArchiveIcon,
 	BellIcon,

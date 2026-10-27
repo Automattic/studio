@@ -16,6 +16,7 @@ import { readWordPressSite } from 'cli/ai/site-database';
 import { RENDERED, RENDERED_TYPES, savePost } from 'cli/ai/site-markup';
 import { validationSummary } from 'cli/ai/studio-message';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
+import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import type { ChangeReport, SiteChangeSource, Versions } from 'cli/ai/site-changes';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
@@ -47,6 +48,82 @@ export async function readPosts( sitePath: string, ids: string[] ): Promise< Row
 			...ids
 		)
 	);
+}
+
+// Saved templates and template parts that name no theme. WordPress serves one
+// only for the theme its wp_theme term names (get_block_templates() in
+// wp-includes/block-template-utils.php), so a copy saved without one, as `wp
+// post create` saves it, replaces nothing.
+function unthemedTemplates( sitePath: string, posts: Row[] ): Promise< Row[] > {
+	const templates = posts.filter( ( post ) => TEMPLATE_TYPES.includes( post.type ) );
+	if ( ! templates.length ) {
+		return Promise.resolve( [] );
+	}
+	return readWordPressSite( sitePath, ( site ) => {
+		const themed = new Set(
+			site
+				.query< { id: number } >(
+					`SELECT tr.object_id AS id FROM ${ site.prefix }term_relationships tr
+					JOIN ${
+						site.prefix
+					}term_taxonomy tt ON tt.term_taxonomy_id = tr.term_taxonomy_id AND tt.taxonomy = 'wp_theme'
+					WHERE tr.object_id IN (${ templates.map( () => '?' ).join( ', ' ) })`,
+					...templates.map( ( post ) => post.id )
+				)
+				.map( ( row ) => Number( row.id ) )
+		);
+		return templates.filter( ( post ) => ! themed.has( Number( post.id ) ) );
+	} );
+}
+
+const TEMPLATE_TYPES = [ 'wp_template', 'wp_template_part' ];
+
+// Gives each the active theme, as core gives a template part it creates
+// (wp_set_unique_slug_on_create_template_part() in
+// wp-includes/theme-templates.php) and the Site Editor's save gives a template
+// (WP_REST_Templates_Controller::prepare_item_for_database()). Returns the theme.
+async function giveActiveTheme( site: SiteData, posts: Row[] ): Promise< string > {
+	const php = `foreach ( array( ${ posts
+		.map( ( post ) => Number( post.id ) )
+		.join( ', ' ) } ) as $id ) { wp_set_post_terms( $id, get_stylesheet(), 'wp_theme' ); }
+echo get_stylesheet();`;
+	await using command = await runWpCliCommand( site, [ 'eval', php ] );
+	const [ code, stylesheet ] = await Promise.all( [
+		command.response.exitCode,
+		command.response.stdoutText,
+	] );
+	if ( code !== 0 ) {
+		throw new Error( await command.response.stderrText );
+	}
+	return stylesheet.trim();
+}
+
+async function themeReport( site: SiteData, posts: Row[] ): Promise< ChangeReport[] > {
+	const unthemed = await unthemedTemplates( site.path, posts );
+	if ( ! unthemed.length ) {
+		return [];
+	}
+	const labels = unthemed.map(
+		( post ) => `${ post.type } ${ post.id }${ post.title ? ` "${ post.title }"` : '' }`
+	);
+	const theme = await giveActiveTheme( site, unthemed ).catch( () => undefined );
+	const cause = `${ site.name } ${ labels.join(
+		', '
+	) } named no theme, and WordPress serves a saved template or template part only for the theme its wp_theme term names (get_block_templates() in wp-includes/block-template-utils.php)`;
+	return [
+		theme
+			? {
+					key: `themes of ${ labels.join( ', ' ) }`,
+					summary: `${ cause }. Studio gave ${
+						unthemed.length === 1 ? 'it' : 'them'
+					} the active theme, ${ theme }, as core gives a template part it creates (wp_set_unique_slug_on_create_template_part() in wp-includes/theme-templates.php) and the Site Editor's save gives a template (WP_REST_Templates_Controller in wp-includes/rest-api/endpoints/class-wp-rest-templates-controller.php).`,
+			  }
+			: {
+					key: `themes of ${ labels.join( ', ' ) }`,
+					summary: `${ cause }.`,
+					problem: `${ cause }. Give each the theme it is for with \`wp post term set <ID> wp_theme <theme>\`.`,
+			  },
+	];
 }
 
 // A lossless fix is saved to the post, as Studio saves one to a file
@@ -116,7 +193,8 @@ export const postContentChanges: SiteChangeSource = {
 		const changed = Object.keys( after ).filter( ( id ) => before[ id ] !== after[ id ] );
 		const reports: ChangeReport[] = [];
 		let saved = false;
-		for ( const post of changed.length ? await readPosts( site.path, changed ) : [] ) {
+		const posts = changed.length ? await readPosts( site.path, changed ) : [];
+		for ( const post of posts ) {
 			const { saved: savedPost, ...result } = await validatePost( site, post ).catch(
 				( error: unknown ) => ( {
 					summary: `${ site.name } ${ post.type } ${ post.id }: not validated (${
@@ -133,6 +211,7 @@ export const postContentChanges: SiteChangeSource = {
 				summary: result.summary && validationSummary( result.summary ),
 			} );
 		}
+		reports.push( ...( await themeReport( site, posts ) ) );
 		// The posts Studio saved are compared from what it saved.
 		return { reports, next: saved ? await readVersions( site.path ) : undefined };
 	},

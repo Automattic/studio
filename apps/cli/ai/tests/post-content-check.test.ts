@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, rmSync } from 'fs';
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'fs';
+import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { storePresetValues, validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
@@ -30,6 +31,16 @@ vi.mock( 'cli/lib/daemon-client', () => ( {
 } ) );
 // WP-CLI saves the file the PHP names to the post it names, as wp_update_post() would.
 vi.mock( 'cli/lib/run-wp-cli-command', () => ( { runWpCliCommand: vi.fn() } ) );
+// WP-CLI as Studio runs it, for the PHP the editor's save does not run.
+const realWpCli = async ( ...args: Parameters< typeof runWpCliCommand > ) =>
+	(
+		await vi.importActual< typeof import('cli/lib/run-wp-cli-command') >(
+			'cli/lib/run-wp-cli-command'
+		)
+	).runWpCliCommand( ...args );
+
+// A real WordPress install, when one is given.
+const WORDPRESS = process.env.STUDIO_TEST_WORDPRESS;
 vi.mock( 'cli/ai/theme-presets', () => ( {
 	themePresets: vi.fn( async () => ( { colors: [ [ 'accent-3', '#503AA8' ] ] } ) ),
 } ) );
@@ -67,8 +78,11 @@ beforeEach( () => {
 function saves( works: boolean ) {
 	vi.mocked( runWpCliCommand )
 		.mockReset()
-		.mockImplementation( async ( _site, args ) => {
+		.mockImplementation( async ( _site, args, options ) => {
 			const php = args[ 1 ];
+			if ( ! php?.includes( 'file_get_contents' ) ) {
+				return realWpCli( _site, args, options );
+			}
 			const [ , id, file ] = php.match( /'ID' => (\d+)[\s\S]*file_get_contents\( "([^"]+)"/ )!;
 			expect( php ).toContain( 'kses_remove_filters();' );
 			if ( works ) {
@@ -230,4 +244,69 @@ describe( 'post content changes', () => {
 		] );
 		expect( existsSync( path.join( fixture.root, 'tmp' ) ) ).toBe( false );
 	} );
+} );
+
+describe.runIf( WORDPRESS )( 'a saved template that names no theme', () => {
+	let wordpress: SiteData;
+	beforeEach( () => {
+		const root = mkdtempSync( path.join( os.tmpdir(), 'template-theme-' ) );
+		cpSync( WORDPRESS!, root, { recursive: true } );
+		wordpress = { id: 'wp', name: 'Workshop', path: root } as SiteData;
+	} );
+	afterEach( () => rmSync( wordpress.path, { recursive: true, force: true } ) );
+
+	const wp = async ( ...args: string[] ) => {
+		await using command = await realWpCli( wordpress, args );
+		return ( await command.response.stdoutText ).trim();
+	};
+	const served = () =>
+		wp(
+			'eval',
+			"echo get_block_template( get_stylesheet() . '//footer', 'wp_template_part' )->source;"
+		);
+
+	it.each< { name: string; theme?: string; reported: string[]; source: string } >( [
+		{
+			name: 'is given the active theme, which then serves it',
+			reported: [
+				'Workshop wp_template_part ',
+				' "Footer" named no theme, and WordPress serves a saved template or template part only for the theme its wp_theme term names (get_block_templates() in wp-includes/block-template-utils.php). Studio gave it the active theme, twentytwentyfive,',
+			],
+			source: 'custom',
+		},
+		{
+			name: 'is left as saved when it names one',
+			theme: 'other-theme',
+			reported: [],
+			source: 'theme',
+		},
+	] )(
+		'$name',
+		async ( { theme, reported, source } ) => {
+			const check = new SiteChanges( undefined, async () => [ wordpress ], [ postContentChanges ] );
+			await check.snapshot();
+			const id = await wp(
+				'post',
+				'create',
+				'--porcelain',
+				'--post_type=wp_template_part',
+				'--post_name=footer',
+				'--post_title=Footer',
+				'--post_status=publish',
+				`--post_content=${ PARAGRAPH }`
+			);
+			if ( theme ) {
+				await wp( 'post', 'term', 'set', id, 'wp_theme', theme );
+			}
+			const summaries = ( await check.settle() ).summaries.filter( ( summary ) =>
+				summary.includes( 'theme' )
+			);
+			expect( summaries ).toHaveLength( reported.length ? 1 : 0 );
+			for ( const part of reported ) {
+				expect( summaries[ 0 ] ).toContain( part );
+			}
+			expect( await served() ).toBe( source );
+		},
+		120000
+	);
 } );

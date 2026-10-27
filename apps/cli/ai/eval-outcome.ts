@@ -29,6 +29,7 @@ import { promisify } from 'node:util';
 import { STUDIO_LOADER_MU_PLUGIN_FILENAME } from '@studio/common/lib/mu-plugins';
 import { validateBlocks } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
+import { captureScreenshotBuffer } from 'cli/ai/tools/screenshot-helpers';
 import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
 import { Mode as StopMode, runCommand as runStopSiteCommand } from 'cli/commands/site/stop';
 import { readCliConfig } from 'cli/lib/cli-config/core';
@@ -411,8 +412,26 @@ echo 'STORED_JSON=' . wp_json_encode( array(
 	);
 }
 
-// Also saves the page, as tall as it renders, to `screenshotFile`.
-async function homeImageFrames( url: string, screenshotFile: string ) {
+/**
+ * Saves the home page, top to bottom, as a visitor's 1280x900 window shows
+ * it, through take_screenshot's capture: the window keeps its height, so a
+ * section as tall as the window is as tall as a visitor sees it.
+ */
+export async function saveHomeScreenshot( url: string, file: string ): Promise< boolean > {
+	try {
+		const capture = await captureScreenshotBuffer(
+			url,
+			{ width: 1280, height: 900 },
+			{ fullPage: true, format: 'jpeg' }
+		);
+		writeFileSync( file, capture.buffer );
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+async function homeImageFrames( url: string ) {
 	try {
 		const browser = await getSharedBrowser();
 		const page = await browser.newPage( { viewport: { width: 1280, height: 900 } } );
@@ -424,7 +443,6 @@ async function homeImageFrames( url: string, screenshotFile: string ) {
 				height: Math.min( Math.max( height, 900 ), 8000 ),
 			} );
 			await page.waitForTimeout( 1500 );
-			await page.screenshot( { path: screenshotFile, type: 'jpeg', quality: 80 } );
 			return await page.evaluate( () => {
 				const images = [ ...document.querySelectorAll( 'img' ) ];
 				// Shown: its center inside every ancestor that clips it, and
@@ -527,9 +545,11 @@ async function captureSiteOutcome(
 		const screenshot = path.join( artifactDir, `${ path.basename( sitePath ) }-home.jpg` );
 		const home = {
 			...( await renderHome( url ) ),
-			imageFrames: await homeImageFrames( url, screenshot ),
+			imageFrames: await homeImageFrames( url ),
 		};
-		outcome.homeScreenshot = existsSync( screenshot ) ? screenshot : undefined;
+		outcome.homeScreenshot = ( await saveHomeScreenshot( url, screenshot ) )
+			? screenshot
+			: undefined;
 		if ( 'html' in home && home.html ) {
 			const file = path.join( artifactDir, `${ path.basename( sitePath ) }-home.html` );
 			writeFileSync( file, home.html );

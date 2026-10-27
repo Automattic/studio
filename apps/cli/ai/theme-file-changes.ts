@@ -106,8 +106,21 @@ function templatesUsingPattern( themeDir: string, file: string ): string[] {
 	);
 }
 
-function problem( themeDir: string, slug: string, files: string[] ): string {
-	const named = files.length > 5 ? `${ files.slice( 0, 5 ).join( ', ' ) }, …` : files.join( ', ' );
+const listed = ( files: string[] ) =>
+	files.length > 5 ? `${ files.slice( 0, 5 ).join( ', ' ) }, …` : files.join( ', ' );
+
+function problem( themeDir: string, slug: string, files: string[], removed: string[] ): string {
+	const restore = `restore ${ slug }'s released files, as \`wp theme install ${ slug } --force\` does for a theme from WordPress.org.`;
+	// A released file that is gone is back with the next update.
+	const gone = removed.length
+		? `${ listed( removed ) } of ${ slug }'s release ${
+				removed.length === 1 ? 'is' : 'are'
+		  } gone, and an update brings ${ removed.length === 1 ? 'it' : 'them' } back. `
+		: '';
+	if ( ! files.length ) {
+		return `${ slug } is a theme WordPress updates: ${ gone }To keep ${ slug } as released, ${ restore }`;
+	}
+	const named = listed( files );
 	const homes = new Map< string, string[] >();
 	for ( const file of files ) {
 		const home = updatableThemeChangeHome( themeDir, slug, file );
@@ -118,9 +131,9 @@ function problem( themeDir: string, slug: string, files: string[] ): string {
 			homes.size === 1 ? home : `${ kept.slice( 0, 5 ).join( ', ' ) } in ${ home }`
 		)
 		.join( '; ' );
-	return `${ slug } is a theme WordPress updates, and an update replaces its files, so it loses the changes to ${ named }. Make ${
+	return `${ slug } is a theme WordPress updates, and an update replaces its files, so it loses the changes to ${ named }. ${ gone }Make ${
 		homes.size === 1 ? 'them in ' : 'each where WordPress saves that kind of change: '
-	}${ where }. Then restore ${ slug }'s released files, as \`wp theme install ${ slug } --force\` does for a theme from WordPress.org.`;
+	}${ where }. Then ${ restore }`;
 }
 
 export const updatableThemeChanges: SiteChangeSource = {
@@ -201,6 +214,7 @@ export const updatableThemeChanges: SiteChangeSource = {
 			);
 			let changed = false;
 			const changes: string[] = [];
+			const removed: string[] = [];
 			for ( const file of files ) {
 				const now = hashOf( after[ file ] );
 				const was = hashOf( before[ file ] );
@@ -208,15 +222,21 @@ export const updatableThemeChanges: SiteChangeSource = {
 				changed ||= now !== was;
 				if ( now !== base ) {
 					next[ `${ BASE }${ file }` ] = base;
-					changes.push( file.slice( prefix.length ) );
+					( now ? changes : removed ).push( file.slice( prefix.length ) );
 				}
 			}
 			if ( changed ) {
 				reports.push( {
 					key: `theme ${ slug }`,
-					problem: changes.length
-						? problem( path.join( site.path, 'wp-content', 'themes', slug ), slug, changes )
-						: undefined,
+					problem:
+						changes.length || removed.length
+							? problem(
+									path.join( site.path, 'wp-content', 'themes', slug ),
+									slug,
+									changes,
+									removed
+							  )
+							: undefined,
 				} );
 			}
 		}

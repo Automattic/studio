@@ -10,6 +10,12 @@ vi.mock( 'cli/lib/daemon-client', () => ( {
 	connectToDaemon: vi.fn(),
 	disconnectFromDaemon: vi.fn(),
 } ) );
+// What the site's block editor registers, which needs the site served.
+const editor = vi.hoisted( () => ( { registers: [] as string[] } ) );
+vi.mock( 'cli/ai/block-validator', () => ( {
+	unregisteredInEditor: async ( names: string[] ) =>
+		names.filter( ( name ) => ! editor.registers.includes( name ) ),
+} ) );
 vi.mock( 'cli/lib/run-wp-cli-command', async ( importOriginal ) => ( {
 	runWpCliCommand: vi.fn(
 		( await importOriginal< typeof import('cli/lib/run-wp-cli-command') >() ).runWpCliCommand
@@ -46,7 +52,10 @@ describe.runIf( WORDPRESS )(
 			site = { id: 'site', name: 'Corner Bakehouse', path: root } as SiteData;
 			dir = path.join( root, 'wp-content/plugins/opening-hours' );
 		} );
-		afterEach( () => rmSync( site.path, { recursive: true, force: true } ) );
+		afterEach( () => {
+			rmSync( site.path, { recursive: true, force: true } );
+			editor.registers = [];
+		} );
 
 		const activate = async ( files: Record< string, string > ) => {
 			for ( const [ file, content ] of Object.entries( {
@@ -64,7 +73,12 @@ describe.runIf( WORDPRESS )(
 			db.close();
 		};
 
-		it.each< { name: string; files: Record< string, string >; problem: boolean } >( [
+		it.each< {
+			name: string;
+			files: Record< string, string >;
+			problem: boolean;
+			editorRegisters?: string[];
+		} >( [
 			{
 				// As the plugin of run 33's 01a176ac-8510 did, registering its script
 				// on enqueue_block_editor_assets instead.
@@ -96,6 +110,14 @@ describe.runIf( WORDPRESS )(
 				problem: false,
 			},
 			{
+				// As WooCommerce 11.2's cart and checkout inner blocks, which the
+				// script of the block they sit in registers (run 55).
+				name: 'a block.json without "editorScript" whose block another script registers',
+				files: { 'build/block.json': blockJson( {} ) },
+				problem: false,
+				editorRegisters: [ 'bakehouse/opening-hours' ],
+			},
+			{
 				// Dependencies a build installs are not the site's code.
 				name: 'a block.json in node_modules',
 				files: {
@@ -107,7 +129,8 @@ describe.runIf( WORDPRESS )(
 			},
 		] )(
 			'reports $name',
-			async ( { files, problem } ) => {
+			async ( { files, problem, editorRegisters = [] } ) => {
+				editor.registers = editorRegisters;
 				const before = await blockEditorScripts.read( site.path );
 				await activate( files );
 				const after = await blockEditorScripts.read( site.path );

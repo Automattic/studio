@@ -10,10 +10,15 @@
  *
  * When the block.json, PHP or JavaScript files of a site's active plugins or
  * themes change, Studio asks WordPress, with the site's code loaded, which
- * block types named by a block.json in them have neither.
+ * block types named by a block.json in them have neither, and of those, which
+ * the site's block editor does not register: another of the plugin's editor
+ * scripts can register a block, as a parent block's script registers its
+ * inner blocks.
  */
 import { activeCodeVersion } from 'cli/ai/active-code';
+import { unregisteredInEditor } from 'cli/ai/block-validator';
 import { runWpCli } from 'cli/ai/tools/utils';
+import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import type { SiteChangeSource } from 'cli/ai/site-changes';
 
@@ -69,7 +74,11 @@ export const blockEditorScripts: SiteChangeSource = {
 		} finally {
 			await disconnectFromDaemon();
 		}
-		const names = Object.keys( without );
+		const names = Object.keys( without ).length
+			? await unregisteredInEditor( Object.keys( without ), getSiteUrl( site ) ).catch( () =>
+					Object.keys( without )
+			  )
+			: [];
 		return {
 			reports: [
 				{

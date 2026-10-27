@@ -36,6 +36,7 @@ export * from './share-icon';
 export * from './sidebar-icon';
 export * from './site-settings-icon';
 export * from './skills-icon';
+export * from './sort-icon';
 export * from './start-site-icon';
 export * from './stop-other-sites-icon';
 export * from './stop-site-icon';

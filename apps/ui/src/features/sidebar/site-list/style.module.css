@@ -80,3 +80,22 @@
 		filter: none;
 	}
 }
+
+.groupHoverAction {
+	opacity: 0;
+	pointer-events: none;
+}
+
+.groupHeader:hover .groupHoverAction,
+.groupHeader:has( :focus-visible ) .groupHoverAction,
+.groupHoverAction[aria-expanded='true'] {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+@media ( hover: none ) {
+	.groupHoverAction {
+		opacity: 1;
+		pointer-events: auto;
+	}
+}

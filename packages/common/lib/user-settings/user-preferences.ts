@@ -12,6 +12,10 @@ import { SUPPORTED_EDITORS } from '@studio/common/lib/user-settings/editor';
 import {
 	DEFAULT_COLOR_SCHEME,
 	getColorTint,
+	getDefaultSidebarChatSort,
+	SIDEBAR_PINNED_SORTS,
+	SIDEBAR_SITE_SORTS,
+	SIDEBAR_CHAT_SORTS,
 	INTERFACE_PREFERENCE_DEFAULTS,
 	NEW_SITE_BEHAVIORS,
 	QUIT_SITES_BEHAVIORS,
@@ -25,6 +29,9 @@ import type {
 	ColorTint,
 	NewSiteBehavior,
 	QuitSitesBehavior,
+	SidebarPinnedSort,
+	SidebarSiteSort,
+	SidebarChatSort,
 } from '@studio/common/lib/user-settings/preferences';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 
@@ -44,6 +51,9 @@ export interface UserPreferences extends ColorTint {
 	defaultSiteDirectory: string;
 	// The sidebar's Pinned group, in order, as `site:<id>` and `chat:<id>` keys.
 	sidebarPins: string[];
+	sidebarPinnedSort: SidebarPinnedSort;
+	sidebarSiteSort: SidebarSiteSort;
+	sidebarChatSort: SidebarChatSort;
 	// Each site's chats in the order the user dragged them into, by site id.
 	sidebarChatOrder: Record< string, string[] >;
 	showRecentChats: boolean;
@@ -89,6 +99,9 @@ export const userPreferencesPatchSchema = z.object( {
 	analyticsEnabled: z.boolean().nullish(),
 	defaultSiteDirectory: z.string().nullish(),
 	sidebarPins: sidebarPinsSchema.nullish(),
+	sidebarPinnedSort: z.enum( SIDEBAR_PINNED_SORTS ).nullish(),
+	sidebarSiteSort: z.enum( SIDEBAR_SITE_SORTS ).nullish(),
+	sidebarChatSort: z.enum( SIDEBAR_CHAT_SORTS ).nullish(),
 	sidebarChatOrder: sidebarChatOrderSchema.nullish(),
 	showRecentChats: z.boolean().nullish(),
 	autoCollapseSites: z.boolean().nullish(),
@@ -116,6 +129,9 @@ const APP_CONFIG_KEYS = [
 	[ 'quitSitesBehavior', 'quitSitesBehavior' ],
 	[ 'defaultSiteDirectory', 'defaultSiteDirectory' ],
 	[ 'sidebarPins', 'sidebarPins' ],
+	[ 'sidebarPinnedSort', 'sidebarPinnedSort' ],
+	[ 'sidebarSiteSort', 'sidebarSiteSort' ],
+	[ 'sidebarChatSort', 'sidebarChatSort' ],
 	[ 'sidebarChatOrder', 'sidebarChatOrder' ],
 	[ 'showRecentChats', 'showRecentChats' ],
 	[ 'autoCollapseSites', 'autoCollapseSites' ],
@@ -148,6 +164,7 @@ export async function readUserPreferences( {
 		newSiteBehavior,
 	} = INTERFACE_PREFERENCE_DEFAULTS;
 
+	const sidebarChatOrder = sidebarChatOrderSchema.catch( {} ).parse( config.sidebarChatOrder );
 	return {
 		editor: optionalEditor.parse( config.preferredEditor ?? null ),
 		terminal: optionalTerminal.parse( config.preferredTerminal ?? null ),
@@ -157,7 +174,16 @@ export async function readUserPreferences( {
 		analyticsEnabled: ! isAnalyticsOptedOutInConfig( shared ),
 		defaultSiteDirectory: getDefaultSiteDirectory( config, sitesRoot ),
 		sidebarPins: sidebarPinsSchema.catch( [] ).parse( config.sidebarPins ),
-		sidebarChatOrder: sidebarChatOrderSchema.catch( {} ).parse( config.sidebarChatOrder ?? {} ),
+		sidebarChatOrder,
+		sidebarPinnedSort: z
+			.enum( SIDEBAR_PINNED_SORTS )
+			.catch( 'type' )
+			.parse( config.sidebarPinnedSort ),
+		sidebarSiteSort: z.enum( SIDEBAR_SITE_SORTS ).catch( 'manual' ).parse( config.sidebarSiteSort ),
+		sidebarChatSort: z
+			.enum( SIDEBAR_CHAT_SORTS )
+			.catch( getDefaultSidebarChatSort( sidebarChatOrder ) )
+			.parse( config.sidebarChatSort ),
 		showRecentChats: z.boolean().catch( showRecentChats ).parse( config.showRecentChats ),
 		autoCollapseSites: z.boolean().catch( autoCollapseSites ).parse( config.autoCollapseSites ),
 		autoStartSiteOnChat: z

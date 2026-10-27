@@ -1,7 +1,6 @@
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import { confirm, input, password, select } from '@inquirer/prompts';
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { installAiInstructionsToSite } from '@studio/common/lib/agent-skills';
 import {
@@ -69,6 +68,7 @@ import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
+import { confirm, input, password, select } from 'cli/lib/prompts';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';

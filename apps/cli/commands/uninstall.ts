@@ -2,11 +2,11 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { confirm } from '@inquirer/prompts';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { __, sprintf } from '@wordpress/i18n';
 import trash from 'trash';
 import { Mode, runCommand as stopSites } from 'cli/commands/site/stop';
+import { confirm } from 'cli/lib/prompts';
 import { getCliInstallKind } from 'cli/lib/update-notifier';
 import { StudioArgv } from 'cli/types';
 

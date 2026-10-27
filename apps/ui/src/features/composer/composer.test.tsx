@@ -763,6 +763,25 @@ describe( 'Composer model picker', () => {
 		);
 	} );
 
+	it( 'keeps the paid tiers unlocked after the purchased credits are spent', async () => {
+		const connector = createFakeConnector();
+		connector.getStudioAssistantQuota.mockResolvedValue( {
+			allowanceRemaining: 16_000_000,
+			purchasedRemaining: 0,
+			purchasedAtTopUp: 500_000,
+		} as StudioAssistantQuota );
+		await setup( {}, connector );
+
+		fireEvent.click( await modelButton() );
+		for ( const tier of [ 'Balanced', 'Strong' ] ) {
+			await waitFor( () =>
+				expect(
+					screen.getByRole( 'option', { name: new RegExp( `^${ tier }` ) } )
+				).not.toHaveAttribute( 'aria-disabled' )
+			);
+		}
+	} );
+
 	it( 'unlocks the paid tiers for Automatticians without purchased credits', async () => {
 		const connector = createFakeConnector( {
 			user: { ...TEST_USER, email: 'person@automattic.com' },

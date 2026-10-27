@@ -5,6 +5,7 @@ import CliTable3 from 'cli-table3';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { getSiteEmailDirectory } from 'cli/lib/site-email';
 import { getLiveSiteOperation } from 'cli/lib/site-operations';
 import { pickPublicSiteFields } from 'cli/lib/site-public-fields';
 import { isSiteRunning } from 'cli/lib/site-utils';
@@ -52,6 +53,7 @@ async function getSiteListData( sites: SiteData[] ): Promise< {
 			operation: getLiveSiteOperation( site ),
 			url,
 			running,
+			emailPath: getSiteEmailDirectory( site.id ),
 		} );
 	}
 

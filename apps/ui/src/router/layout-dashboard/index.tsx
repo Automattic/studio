@@ -6,6 +6,7 @@ import {
 	useRouter,
 	useRouterState,
 } from '@tanstack/react-router';
+import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useState } from 'react';
 import { useSession, useSessionLiveSite } from '@/data/queries/use-sessions';
 import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
@@ -28,6 +29,8 @@ import {
 	SiteHeaderActionsProvider,
 	SitePreview,
 } from '@/features/sites';
+import { ChatIcon } from '@/lib/icons';
+import { IconButton } from '@/lib/ui';
 import { rootRoute } from '../layout-root';
 
 // Session detail routes and a site's own page host the preview;
@@ -187,6 +190,14 @@ function DashboardLayout() {
 							<>
 								<HeaderSidebarToggle />
 								<SiteActionsMenu site={ previewSite } />
+								{ homeSiteId ? null : (
+									<IconButton
+										icon={ <ChatIcon /> }
+										label={ __( 'Show chat' ) }
+										tooltipSide="bottom"
+										onClick={ () => setChatHidden( false ) }
+									/>
+								) }
 							</>
 						) : undefined
 					}
@@ -194,6 +205,7 @@ function DashboardLayout() {
 			) : null,
 		[
 			chatHidden,
+			homeSiteId,
 			liveUrl,
 			livePath,
 			sendAnnotations,
@@ -201,6 +213,7 @@ function DashboardLayout() {
 			preview.reloadNonce,
 			preview.updatePath,
 			previewSite,
+			setChatHidden,
 			updateLivePath,
 		]
 	);

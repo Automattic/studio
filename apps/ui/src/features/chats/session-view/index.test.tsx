@@ -169,16 +169,28 @@ describe( 'SessionView entitlement', () => {
 			purchasedRemaining: 1000,
 			model: 'Balanced',
 		},
-	] )( 'starts a chat for $case on $model', async ( { email, purchasedRemaining, model } ) => {
-		const connector = chatConnector( { user: { ...TEST_USER, email } } );
-		connector.getStudioAssistantQuota.mockResolvedValue( quota( { purchasedRemaining } ) );
-		renderApp( { connector, path: PATH } );
+		{
+			case: 'spent purchased credits',
+			email: TEST_USER.email,
+			purchasedRemaining: 0,
+			purchasedAtTopUp: 500000,
+			model: 'Balanced',
+		},
+	] )(
+		'starts a chat for $case on $model',
+		async ( { email, purchasedRemaining, purchasedAtTopUp, model } ) => {
+			const connector = chatConnector( { user: { ...TEST_USER, email } } );
+			connector.getStudioAssistantQuota.mockResolvedValue(
+				quota( { purchasedRemaining, purchasedAtTopUp } )
+			);
+			renderApp( { connector, path: PATH } );
 
-		await composer();
-		await waitFor( () =>
-			expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveTextContent( model )
-		);
-	} );
+			await composer();
+			await waitFor( () =>
+				expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveTextContent( model )
+			);
+		}
+	);
 
 	it( 'reads an unreachable WordPress.com as offline, settles on the composer and retries', async () => {
 		const connector = chatConnector();

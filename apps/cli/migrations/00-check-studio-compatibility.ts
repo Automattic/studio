@@ -1,10 +1,10 @@
 import { execFile } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { confirm } from '@inquirer/prompts';
 import { getAppConfigPath } from '@studio/common/lib/well-known-paths';
 import { __ } from '@wordpress/i18n';
 import { getAppdataDirectory } from 'cli/lib/appdata';
+import { confirm } from 'cli/lib/prompts';
 import type { Migration } from '@studio/common/lib/migration';
 
 function isInstalledOnMacOs() {

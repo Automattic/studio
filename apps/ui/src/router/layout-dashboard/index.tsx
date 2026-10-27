@@ -212,7 +212,6 @@ function DashboardLayout() {
 			) : null,
 		[
 			chatHidden,
-			homeSiteId,
 			liveUrl,
 			livePath,
 			sendAnnotations,
@@ -221,7 +220,6 @@ function DashboardLayout() {
 			preview.reloadNonce,
 			preview.updatePath,
 			previewSite,
-			setChatHidden,
 			updateLivePath,
 		]
 	);

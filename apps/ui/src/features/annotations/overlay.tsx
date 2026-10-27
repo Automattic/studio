@@ -4,9 +4,8 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import { isAppleOS } from '@wordpress/keycodes';
 import { clsx } from 'clsx';
 import { PaperclipIcon, Trash2Icon, XIcon } from 'lucide-react';
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { toast } from '@/data/app-messages';
-import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useComposerAttachments, useFileDrop } from '@/data/use-composer-attachments';
 import { SendIcon } from '@/lib/icons';
 import { isImeComposing } from '@/lib/keyboard';
@@ -14,15 +13,12 @@ import {
 	Badge,
 	Button,
 	IconButton,
-	Checkbox,
 	AlertDialog,
 	DialogContent,
 	DialogDescription,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	Field,
-	FieldLabel,
 	Spinner,
 	Textarea,
 	Tooltip,
@@ -73,11 +69,7 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 	const count = notes.filter( hasAnnotationContent ).length;
 	const stagedCount = notes.filter( isStagedAnnotation ).length;
 	const [ confirming, setConfirming ] = useState( false );
-	const [ dontAsk, setDontAsk ] = useState( false );
-	const checkboxId = useId();
 	const cancelRef = useRef< HTMLButtonElement >( null );
-	const { data: preferences } = useUserPreferences();
-	const savePreferences = useSaveUserPreferences();
 
 	useEffect( () => {
 		if ( ! active ) return;
@@ -97,8 +89,7 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 	}, [ active, siteId ] );
 
 	const cancel = () => {
-		if ( count && preferences?.confirmDeleteAnnotations !== false ) {
-			setDontAsk( false );
+		if ( count ) {
 			setConfirming( true );
 		} else {
 			clearAnnotations( siteId );
@@ -148,29 +139,11 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 			<AlertDialog open={ active && confirming } onOpenChange={ setConfirming }>
 				<DialogContent layout="confirmation" initialFocus={ cancelRef }>
 					<DialogHeader>
-						<DialogTitle>
-							{ count === 1
-								? __( 'Delete annotation?' )
-								: sprintf(
-										/* translators: %d: number of annotations. */
-										__( 'Delete %d annotations?' ),
-										count
-								  ) }
-						</DialogTitle>
+						<DialogTitle>{ __( 'Discard all pending annotations?' ) }</DialogTitle>
 						<DialogDescription tone="default">
-							{ _n(
-								'This note and its attached images will be deleted.',
-								'These notes and their attached images will be deleted.',
-								count
-							) }
+							{ __( 'All edits will be removed from this page.' ) }
 						</DialogDescription>
 					</DialogHeader>
-					<Field orientation="horizontal">
-						<Checkbox id={ checkboxId } checked={ dontAsk } onCheckedChange={ setDontAsk } />
-						<FieldLabel htmlFor={ checkboxId } tone="muted">
-							{ __( 'Don’t ask again' ) }
-						</FieldLabel>
-					</Field>
 					<DialogFooter>
 						<Button ref={ cancelRef } variant="outline" onClick={ () => setConfirming( false ) }>
 							{ __( 'Cancel' ) }
@@ -178,12 +151,11 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 						<Button
 							variant="destructive"
 							onClick={ () => {
-								if ( dontAsk ) savePreferences.mutate( { confirmDeleteAnnotations: false } );
 								setConfirming( false );
 								clearAnnotations( siteId );
 							} }
 						>
-							{ __( 'Delete annotations' ) }
+							{ __( 'Discard' ) }
 						</Button>
 					</DialogFooter>
 				</DialogContent>
@@ -261,8 +233,8 @@ function NoteEditor( {
 		closeAnnotationEditor( siteId );
 	};
 	const submitLabel = isAppleOS()
-		? __( 'Save annotation (Enter). Send directly (⌘Enter).' )
-		: __( 'Save annotation (Enter). Send directly (Ctrl+Enter).' );
+		? __( 'Send annotation (⌘Enter). Save to composer (Enter).' )
+		: __( 'Send annotation (Ctrl+Enter). Save to composer (Enter).' );
 
 	return (
 		<div
@@ -348,9 +320,9 @@ function NoteEditor( {
 								size="icon"
 								shape="round"
 								className={ styles.save }
-								aria-label={ __( 'Save annotation' ) }
+								aria-label={ __( 'Send annotation' ) }
 								disabled={ ! hasContent }
-								onClick={ () => submit( false ) }
+								onClick={ () => submit( true ) }
 							/>
 						}
 					>

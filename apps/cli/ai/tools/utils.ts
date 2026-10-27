@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import path from 'path';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
@@ -61,24 +62,35 @@ export function textResult( text: string ) {
 	};
 }
 
+// What a command prints goes to the capture of the tool call that runs it.
+// Tool calls run in parallel, so the capture is the call's own: swapping
+// console.log for each call hands an overlapping call's lines to the other.
+const captures = new AsyncLocalStorage< string[] >();
+const routers = new Set< unknown >();
+// console.table renders the table and prints it with console.log.
+function routeConsole() {
+	if ( routers.has( console.log ) ) {
+		return;
+	}
+	const original = console.log;
+	const router = ( ...args: unknown[] ) => {
+		const lines = captures.getStore();
+		if ( lines ) {
+			lines.push( args.map( String ).join( ' ' ) );
+		} else {
+			original.apply( console, args );
+		}
+	};
+	routers.add( router );
+	console.log = router;
+}
+
 // Site list / status print JSON via console.log; capture it for tool output.
 export async function captureConsoleOutput( fn: () => Promise< void > ): Promise< string > {
-	let captured = '';
-	const origLog = console.log;
-	const origTable = console.table;
-	console.log = ( ...args: unknown[] ) => {
-		captured += args.map( String ).join( ' ' ) + '\n';
-	};
-	console.table = ( ...args: unknown[] ) => {
-		captured += args.map( String ).join( ' ' ) + '\n';
-	};
-	try {
-		await fn();
-	} finally {
-		console.log = origLog;
-		console.table = origTable;
-	}
-	return captured.trim();
+	routeConsole();
+	const lines: string[] = [];
+	await captures.run( lines, fn );
+	return lines.join( '\n' ).trim();
 }
 
 export async function captureCommandOutput(
@@ -89,19 +101,9 @@ export async function captureCommandOutput(
 	progressOutput: string;
 	exitCode: number | undefined;
 } > {
-	let consoleOutput = '';
 	const progressMessages: string[] = [];
 	let thrownError: unknown;
-	const originalConsoleLog = console.log;
-	const originalConsoleTable = console.table;
 	const previousExitCode = process.exitCode;
-
-	console.log = ( ...args: unknown[] ) => {
-		consoleOutput += args.map( String ).join( ' ' ) + '\n';
-	};
-	console.table = ( ...args: unknown[] ) => {
-		consoleOutput += args.map( String ).join( ' ' ) + '\n';
-	};
 	process.exitCode = undefined;
 	const logger = new Logger< string >( {
 		onProgress: ( message, update ) => {
@@ -116,14 +118,13 @@ export async function captureCommandOutput(
 		},
 	} );
 
-	try {
-		await fn( logger );
-	} catch ( error ) {
-		thrownError = error;
-	} finally {
-		console.log = originalConsoleLog;
-		console.table = originalConsoleTable;
-	}
+	const consoleOutput = await captureConsoleOutput( async () => {
+		try {
+			await fn( logger );
+		} catch ( error ) {
+			thrownError = error;
+		}
+	} );
 
 	const exitCode = process.exitCode;
 	process.exitCode = previousExitCode;
@@ -133,7 +134,7 @@ export async function captureCommandOutput(
 	}
 
 	return {
-		consoleOutput: consoleOutput.trim(),
+		consoleOutput,
 		progressOutput: progressMessages.join( '\n' ),
 		exitCode,
 	};

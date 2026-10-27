@@ -444,15 +444,25 @@ export const builtFrontPage = check( ( d, vars ) => {
 	return pass( `front page "${ front.title }" built` );
 } );
 
+// The font families a theme.json declares, or undefined.
+function fontFamilies( themeJson ) {
+	try {
+		return JSON.parse( themeJson ).settings?.typography?.fontFamilies;
+	} catch {
+		return undefined;
+	}
+}
+
 // The design is the site's own, kept where WordPress keeps a design: a theme
-// of its own (or a child theme), with the fonts its theme.json names in it and
-// a screenshot; or the installed theme customized as the Site Editor does,
+// of its own (or a child theme), with the fonts it resolves self-hosted and a
+// screenshot; or a theme from WordPress.org customized as the Site Editor does,
 // through Global Styles (the wp_global_styles post) or templates and template
 // parts saved for the theme (get_block_templates() in
 // wp-includes/block-template-utils.php), with the fonts it adds served by the site.
 export const siteHasItsOwnDesign = check( ( d, vars ) => {
 	const s = site( d, vars );
-	if ( /^twentytwenty/.test( s.theme.stylesheet ) ) {
+	// The active theme has a WordPress.org release to compare with.
+	if ( Array.isArray( s.themeChanges ) ) {
 		const user = s.userGlobalStyles ?? {};
 		const styled = Object.keys( user.styles ?? {} ).length > 0;
 		const saved = ( s.content || [] )
@@ -478,9 +488,16 @@ export const siteHasItsOwnDesign = check( ( d, vars ) => {
 				.join( ', ' ) }`
 		);
 	}
-	const themeJson = s.themeFiles?.[ 'theme.json' ] || '';
-	const fontSources = [ ...themeJson.matchAll( /"file:\.\/([^"]+)"/g ) ].map( ( m ) => m[ 1 ] );
-	const missing = fontSources.filter( ( f ) => ! s.themeFileList.includes( f ) );
+	// A child theme's theme.json is merged over its parent's, and font families
+	// it declares replace the parent's (WP_Theme_JSON_Resolver::get_theme_data()
+	// and WP_Theme_JSON::merge()); each file:./ source is in the theme declaring it.
+	const own = fontFamilies( s.themeFiles?.[ 'theme.json' ] );
+	const parent = own ? undefined : fontFamilies( s.parentThemeJson );
+	const fileList = ( parent ? s.parentThemeFileList : s.themeFileList ) ?? [];
+	const fontSources = [
+		...JSON.stringify( own ?? parent ?? [] ).matchAll( /"file:\.\/([^"]+)"/g ),
+	].map( ( m ) => m[ 1 ] );
+	const missing = fontSources.filter( ( f ) => ! fileList.includes( f ) );
 	if ( ! fontSources.length ) return fail( 'theme.json loads no self-hosted fonts' );
 	if ( missing.length )
 		return fail( `theme.json fonts missing from the theme: ${ missing.join( ', ' ) }` );
@@ -488,7 +505,9 @@ export const siteHasItsOwnDesign = check( ( d, vars ) => {
 		return fail( `theme screenshot is ${ s.themeScreenshot ?? 'missing' }` );
 	}
 	return pass(
-		`theme ${ s.theme.stylesheet }: ${ fontSources.length } self-hosted font file(s), screenshot ${ s.themeScreenshot }`
+		`theme ${ s.theme.stylesheet }: ${ fontSources.length } self-hosted font file(s)${
+			parent ? ` of ${ s.theme.template }` : ''
+		}, screenshot ${ s.themeScreenshot }`
 	);
 } );
 
@@ -993,4 +1012,67 @@ export const darkStyleVariation = check( ( d, vars ) => {
 			.map( ( [ f ] ) => f )
 			.join( ', ' ) } changes the colors, no dark-mode CSS`
 	);
+} );
+
+// A Custom HTML block holding a form: markup WordPress keeps but no block owns.
+const htmlBlockForm = ( text ) =>
+	[ ...String( text ).matchAll( /<!--\s*wp:html\b[\s\S]*?<!--\s*\/wp:html\s*-->/g ) ].some( ( m ) =>
+		/<form\b/i.test( m[ 0 ] )
+	);
+
+// A visitor's message, sent through a published page's form, is stored on the
+// site (formsSent: the post types, meta keys or options now holding it), and
+// the page's form is not a Custom HTML block.
+export const contactFormWorks = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const sent = ( s.formsSent || [] ).filter( ( f ) => f.page );
+	if ( ! sent.length )
+		return fail(
+			`no published page has a form that takes a message: ${ JSON.stringify( s.formsSent ) }`
+		);
+	const where = ( f ) => [
+		...( f.stored?.postTypes || [] ).map( ( t ) => `a ${ t } post` ),
+		...( f.stored?.metaKeys || [] ).map( ( k ) => `post meta ${ k }` ),
+		...( f.stored?.optionNames || [] ).map( ( o ) => `option ${ o }` ),
+	];
+	const stored = sent.find( ( f ) => where( f ).length );
+	if ( ! stored )
+		return fail(
+			`the message sent from ${ sent
+				.map( ( f ) => f.page )
+				.join( ', ' ) } is stored nowhere on the site; the page then read: ${ sent
+				.map( ( f ) => f.error || f.afterText.slice( 0, 300 ) )
+				.join( ' | ' ) }`
+		);
+	const page = ( s.content || [] ).find( ( c ) => c.link === stored.page );
+	if ( page && htmlBlockForm( page.content ) )
+		return fail( `${ stored.page } builds its form in a Custom HTML block` );
+	return pass(
+		`the message sent from ${ stored.page } is stored as ${ where( stored ).join( ', ' ) }`
+	);
+} );
+
+// The rendered home page's footer (or what follows its main content) has an email signup form, and no footer part
+// builds it in a Custom HTML block.
+export const newsletterSignupInFooter = check( ( d, vars ) => {
+	const s = site( d, vars );
+	// The footer: <footer> elements, and whatever follows the main content.
+	const html = homeHtml( s );
+	const footers = [
+		...[ ...html.matchAll( /<footer\b[\s\S]*?<\/footer>/g ) ].map( ( m ) => m[ 0 ] ),
+		html.includes( '</main>' ) ? html.slice( html.lastIndexOf( '</main>' ) ) : '',
+	];
+	const signup = footers.find( ( f ) => /<form\b[\s\S]*?<input\b[^>]*type=["']?email/i.test( f ) );
+	if ( ! signup )
+		return fail( `the rendered footer has no email signup form after the main content` );
+	const raw = Object.entries( renderedParts( s ) ).filter(
+		( [ slug, text ] ) => /footer/.test( slug ) && htmlBlockForm( text )
+	);
+	if ( raw.length )
+		return fail(
+			`footer part ${ raw
+				.map( ( [ slug ] ) => slug )
+				.join( ', ' ) } builds its form in a Custom HTML block`
+		);
+	return pass( 'the rendered footer has an email signup form built from blocks' );
 } );

@@ -3,7 +3,8 @@
  * remote site is one of a host's sites, by the host's own id for it, and what
  * Studio does with it is the host's: what the system prompt says of its sites,
  * how the user's sites on it are listed, where a site's facts come from, and
- * how a local site is published to it and pulled from it.
+ * how a local site is published to it and pulled from it, and the MCP server
+ * its tools come from.
  *
  * The hosts here are the ones built into Studio, so they are where Studio
  * publishes. WordPress.com is the one host so far; it also reaches the
@@ -12,6 +13,7 @@
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { getWpComSites } from 'cli/lib/api';
 import type { SyncOption, SyncSite } from '@studio/common/types/sync';
+import type { McpApproval, McpServerSpec } from 'cli/ai/runtimes/pi/mcp-tools';
 import type { SiteInfo } from 'cli/ai/types';
 import type { Logger } from 'cli/logger';
 
@@ -49,11 +51,17 @@ export interface Host {
 	facts( site: SiteInfo ): Promise< string[][] >;
 	/** What a local site is published to on the host. */
 	publishes: string;
+	/** The user's sites on the host a local site can be published to. */
+	publishable(): Promise< HostSiteListing >;
+	/** Where the user makes a new site on the host, for a local site of this name. */
+	newSiteUrl( name: string ): string;
 	/** How the user signs in to the host. */
 	signIn: string;
 	/** The host's sites already connected to the local site with this Studio id. */
 	targets( localSiteId: string ): Promise< HostTargets >;
 	/** Replaces the target's content with the local site's. */
+	/** The host's own MCP server for the signed-in user, served as `<host id>_<tool>`. */
+	mcpServer(): Promise< Pick< McpServerSpec, 'url' | 'headers' | 'approval' > | undefined >;
 	push(
 		sitePath: string,
 		target: string,
@@ -69,26 +77,50 @@ export interface Host {
 	): Promise< void >;
 }
 
+/** The user's WordPress.com sites that `read` lists with their token. */
+async function wpcomListing(
+	read: ( token: string ) => Promise< HostSiteListing[ 'sites' ] >
+): Promise< HostSiteListing > {
+	const token = await readAuthToken();
+	if ( ! token?.accessToken ) {
+		return { signedIn: false, sites: [] };
+	}
+	try {
+		return { signedIn: true, sites: await read( token.accessToken ) };
+	} catch ( error ) {
+		return {
+			signedIn: true,
+			sites: [],
+			error: error instanceof Error ? error.message : String( error ),
+		};
+	}
+}
+
+const WPCOM_PROMPT = '\n\nWhat to tell the user: ';
+
+// WordPress.com refuses a write that needs approval with "Approval required."
+// and the question for the user, then runs it again with user_confirmed.
+export const wpcomApproval: McpApproval = {
+	argument: 'user_confirmed',
+	request( result ) {
+		const [ refusal, prompt ] = result.split( WPCOM_PROMPT );
+		if ( ! refusal.startsWith( 'Approval required.' ) || ! prompt ) {
+			return undefined;
+		}
+		const [ question, ...details ] = prompt.split( '\n\n' );
+		return {
+			question,
+			consequence: details.join( ' ' ) || 'Changes the live site.',
+		};
+	},
+};
+
 const wpcom: Host = {
 	name: 'WordPress.com',
 	environment:
 		"The user's WordPress.com sites are live sites, reached through the WordPress.com REST API.",
 	listKey: 'wordpressCom',
-	async list() {
-		const token = await readAuthToken();
-		if ( ! token?.accessToken ) {
-			return { signedIn: false, sites: [] };
-		}
-		try {
-			return { signedIn: true, sites: await getWpComSites( token.accessToken ) };
-		} catch ( error ) {
-			return {
-				signedIn: true,
-				sites: [],
-				error: error instanceof Error ? error.message : String( error ),
-			};
-		}
-	},
+	list: () => wpcomListing( getWpComSites ),
 	// WordPress.com's own server states what a site's plan and the user's role
 	// allow, through its MCP tools.
 	async facts() {
@@ -97,6 +129,20 @@ const wpcom: Host = {
 	publishes:
 		"the user's WordPress.com sites, and the Pressable sites in their WordPress.com account",
 	signIn: 'The user signs in to WordPress.com with /login.',
+	publishable: () =>
+		wpcomListing( async ( token ) => {
+			const { fetchSyncableSites } = await import( 'cli/lib/sync-api' );
+			const sites = await fetchSyncableSites( token );
+			return sites.filter( ( site ) => site.syncSupport === 'syncable' );
+		} ),
+	newSiteUrl( name ) {
+		const url = new URL( 'https://wordpress.com/setup/new-hosted-site' );
+		url.searchParams.set( 'ref', 'studio' );
+		url.searchParams.set( 'section', 'studio-sync' );
+		url.searchParams.set( 'showDomainStep', 'true' );
+		url.searchParams.set( 'new', name );
+		return url.toString();
+	},
 	async targets( localSiteId ) {
 		const [ { getConnectedWpcomSitesForLocalSite }, { fetchSyncableSites }, { withWpcomDetails } ] =
 			await Promise.all( [
@@ -124,6 +170,16 @@ const wpcom: Host = {
 				error: error instanceof Error ? error.message : String( error ),
 			};
 		}
+	},
+	async mcpServer() {
+		const token = await readAuthToken();
+		return token
+			? {
+					url: 'https://public-api.wordpress.com/wpcom/v2/mcp/v2',
+					headers: { Authorization: `Bearer ${ token.accessToken }` },
+					approval: wpcomApproval,
+			  }
+			: undefined;
 	},
 	async push( sitePath, target, options, logger ) {
 		const { runCommand } = await import( 'cli/commands/push' );

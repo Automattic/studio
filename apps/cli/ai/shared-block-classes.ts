@@ -51,7 +51,7 @@ export function blockClassCounts( markup: string[] ): Map< string, Map< string, 
 	return counts;
 }
 
-/** The properties each class is given by a rule of its own, as `.card` or `.card:hover`. */
+/** The properties each class is given by a rule of its own, as `.card`, `.card:hover` or `.wp-block-group.card`. */
 export function classProperties( css: string ): Map< string, Set< string > > {
 	const properties = new Map< string, Set< string > >();
 	const withoutComments = css.replace( /\/\*[\s\S]*?\*\//g, '' );
@@ -59,7 +59,12 @@ export function classProperties( css: string ): Map< string, Set< string > > {
 		/([^{}]+)\{([^{}]*)\}/g
 	) ) {
 		for ( const selector of selectors.split( ',' ) ) {
-			const own = selector.trim().match( /^\.([A-Za-z0-9_-]+)(?::[a-z-]+)*$/ );
+			// The class alone, or beside a block's class (block-style-move.ts' blockClassName()).
+			const own = selector
+				.trim()
+				.match(
+					/^(?:\.wp-block-[a-z0-9-]+)?\.([A-Za-z0-9_-]+)(?:\.wp-block-[a-z0-9-]+)?(?::[a-z-]+)*$/
+				);
 			if ( ! own ) {
 				continue;
 			}

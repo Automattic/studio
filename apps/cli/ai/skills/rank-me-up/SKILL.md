@@ -33,11 +33,7 @@ Look for known SEO providers among the site's active plugins (a site fact):
 | `wp-seopress` | SEOPress |
 | `the-seo-framework` | The SEO Framework |
 
-**If Jetpack is active, list its enabled modules** (Jetpack is modular; SEO features live in the `seo-tools` module and don't run unless that specific module is on):
-
-```
-wp jetpack module list
-```
+**If Jetpack is active, check its active modules** in the Active site section (Jetpack is modular; SEO features live in the `seo-tools` module and don't run unless that specific module is on).
 
 Then map the audit findings:
 

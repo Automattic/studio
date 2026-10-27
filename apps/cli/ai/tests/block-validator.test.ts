@@ -142,6 +142,21 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 		60_000
 	);
 
+	it( 'makes a block written in an older version again from what that version migrates it to', async () => {
+		// WordPress 7.1's paragraph reads its alignment from
+		// style.typography.textAlign; its deprecated version with `align`
+		// migrates it there, but saves no custom class, so the editor's own
+		// fix would drop the eyebrow class (paragraph/deprecated.js).
+		const written =
+			'<!-- wp:paragraph {"align":"center","style":{"color":{"text":"#d4a56a"}},"className":"eyebrow"} -->\n<p class="has-text-align-center eyebrow" style="color:#d4a56a">Juniper &amp; Oak</p>\n<!-- /wp:paragraph -->';
+		const report = await validateBlocks( written, siteUrl! );
+		expect( report.invalidBlocks ).toBeGreaterThan( 0 );
+		expect( report.proposedFix?.losses ).toEqual( [] );
+		expect( report.proposedFix?.report.invalidBlocks ).toBe( 0 );
+		expect( report.proposedFix?.fixedContent ).toContain( '"textAlign":"center"' );
+		expect( report.proposedFix?.fixedContent ).toContain( 'class="has-text-align-center eyebrow' );
+	}, 60_000 );
+
 	it.each( [
 		{
 			name: 'a spacing preset, as the editor stores a preset',

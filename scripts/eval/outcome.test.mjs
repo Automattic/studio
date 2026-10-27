@@ -371,32 +371,80 @@ describe( 'site checks', () => {
 	} );
 
 	describe( 'siteHasItsOwnDesign', () => {
-		const site = {
-			...workingSite,
-			theme: { stylesheet: 'eval-theme' },
-			themeFiles: {
-				'theme.json': '{"src":["file:./assets/fonts/inter.woff2"]}',
-			},
-			themeFileList: [ 'assets/fonts/inter.woff2' ],
-			themeScreenshot: 'png:1200x900',
-		};
-		const tt5 = {
-			...workingSite,
-			url: 'http://localhost:8890',
-			theme: { stylesheet: 'twentytwentyfive' },
-		};
-		const part = { type: 'wp_template_part', slug: 'header', content: '' };
 		const font = ( src ) => ( {
 			settings: {
 				typography: { fontFamilies: { custom: [ { fontFace: [ { src: [ src ] } ] } ] } },
 			},
 		} );
+		const themeJson = ( src ) =>
+			JSON.stringify( { version: 3, settings: { typography: font( src ).settings.typography } } );
+		const site = {
+			...workingSite,
+			theme: { stylesheet: 'eval-theme', template: 'eval-theme' },
+			themeFiles: { 'theme.json': themeJson( 'file:./assets/fonts/inter.woff2' ) },
+			themeFileList: [ 'assets/fonts/inter.woff2' ],
+			themeScreenshot: 'png:1200x900',
+			themeChanges: null,
+		};
+		const child = {
+			...site,
+			theme: { stylesheet: 'eval-child', template: 'raft' },
+			themeFiles: { 'style.css': '/* Template: raft */' },
+			themeFileList: [ 'style.css' ],
+			parentThemeJson: themeJson( 'file:./assets/fonts/figtree.woff2' ),
+			parentThemeFileList: [ 'assets/fonts/figtree.woff2' ],
+		};
+		const tt5 = {
+			...workingSite,
+			url: 'http://localhost:8890',
+			theme: { stylesheet: 'twentytwentyfive', template: 'twentytwentyfive' },
+			themeChanges: [],
+		};
+		const part = { type: 'wp_template_part', slug: 'header', content: '' };
 		test.each( [
 			{ name: 'its own theme', site, pass: true },
 			{
 				name: 'its own theme with no fonts',
 				site: { ...site, themeFiles: { 'theme.json': '{}' } },
 				pass: false,
+			},
+			{
+				name: 'its own theme naming a font outside its font families',
+				site: {
+					...site,
+					themeFiles: {
+						'theme.json': '{"settings":{"custom":{"hero":"file:./assets/fonts/inter.woff2"}}}',
+					},
+				},
+				pass: false,
+			},
+			{ name: 'a child theme with the fonts of its parent', site: child, pass: true },
+			{
+				name: 'a child theme of a parent without fonts',
+				site: { ...child, parentThemeJson: '{"version":3}' },
+				pass: false,
+			},
+			{
+				name: "a child theme whose font families replace its parent's, without their files",
+				site: {
+					...child,
+					themeFiles: { 'theme.json': themeJson( 'file:./assets/fonts/figtree.woff2' ) },
+				},
+				pass: false,
+			},
+			{
+				name: 'its own theme named like a WordPress.org theme it is not',
+				site: { ...site, theme: { stylesheet: 'twentytwenty-oak' } },
+				pass: true,
+			},
+			{
+				name: 'another WordPress.org theme with its Global Styles',
+				site: {
+					...tt5,
+					theme: { stylesheet: 'raft', template: 'raft' },
+					userGlobalStyles: { styles: { color: { background: '#111' } } },
+				},
+				pass: true,
 			},
 			{
 				name: 'its own theme without its fonts',
@@ -790,6 +838,78 @@ describe( 'native feature checks', () => {
 		content: '',
 		blocks: {},
 		...fields,
+	} );
+
+	test.each( [
+		[
+			'stored as a feedback post',
+			{ postTypes: [ 'feedback' ] },
+			'<!-- wp:jetpack/contact-form /-->',
+			true,
+		],
+		[
+			'stored in post meta',
+			{ metaKeys: [ '_field_message' ] },
+			'<!-- wp:jetpack/contact-form /-->',
+			true,
+		],
+		[
+			'stored nowhere',
+			{ postTypes: [], metaKeys: [], optionNames: [] },
+			'<!-- wp:jetpack/contact-form /-->',
+			false,
+		],
+		[
+			'from a Custom HTML form',
+			{ postTypes: [ 'feedback' ] },
+			'<!-- wp:html --><form><textarea></textarea></form><!-- /wp:html -->',
+			false,
+		],
+	] )( 'contactFormWorks: a message %s', ( _, stored, content, passes ) => {
+		const link = 'http://localhost:8881/contact/';
+		const site = {
+			...workingSite,
+			content: [ page( { link, content } ) ],
+			formsSent: [ { page: link, marker: 'm', afterText: 'Thanks', stored } ],
+		};
+		expect( run( checks.contactFormWorks, outcome( site ) ).pass ).toBe( passes );
+	} );
+
+	test.each( [
+		[
+			'a footer element',
+			'<main></main><footer><form><input type="email"></form></footer>',
+			{},
+			true,
+		],
+		[
+			'what follows the main content',
+			'<main></main><div><form><input type=email></form></div>',
+			{},
+			true,
+		],
+		[
+			'only the main content',
+			'<main><form><input type="email"></form></main><footer></footer>',
+			{},
+			false,
+		],
+		[
+			'a Custom HTML footer',
+			'<main></main><footer><form><input type="email"></form></footer>',
+			{ 'parts/footer.html': '<!-- wp:html --><form></form><!-- /wp:html -->' },
+			false,
+		],
+	] )( 'newsletterSignupInFooter: an email form in %s', ( name, html, themeFiles, passes ) => {
+		const htmlFile = path.join( dir, `${ name.replace( / /g, '-' ) }.html` );
+		writeFileSync( htmlFile, html );
+		const site = {
+			...workingSite,
+			home: { ...workingSite.home, htmlFile },
+			themeFiles,
+			content: [],
+		};
+		expect( run( checks.newsletterSignupInFooter, outcome( site ) ).pass ).toBe( passes );
 	} );
 
 	test( 'miniCartInHeader', () => {

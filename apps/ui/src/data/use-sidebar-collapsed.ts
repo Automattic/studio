@@ -20,3 +20,13 @@ export const SidebarToggleContext = createContext< () => void >( () => {} );
 export function useToggleSidebar(): () => void {
 	return useContext( SidebarToggleContext );
 }
+
+export const SidebarHoverContext = createContext( {
+	peek: false,
+	onEnter: () => {},
+	onLeave: () => {},
+} );
+
+export function useSidebarHover() {
+	return useContext( SidebarHoverContext );
+}

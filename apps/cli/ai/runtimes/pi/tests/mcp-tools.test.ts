@@ -1,14 +1,10 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { updateSharedConfig } from '@studio/common/lib/shared-config';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-	createMcpTools,
-	isUserMcpTool,
-	readMcpServers,
-	wpcomApproval,
-	type McpServerSpec,
-} from '../mcp-tools';
+import { wpcomApproval } from 'cli/ai/hosts';
+import { createMcpTools, isUserMcpTool, readMcpServers, type McpServerSpec } from '../mcp-tools';
 import type { Confirmer } from '../confirmation';
 
 const FIXTURE: McpServerSpec = {
@@ -89,10 +85,20 @@ describe( 'MCP tools', () => {
 		expect( confirm ).not.toHaveBeenCalled();
 	} );
 
-	it( "reads the user's servers from mcp.json and leaves out one that doesn't answer", async () => {
+	it( "serves the signed-in host's own server, then the user's from mcp.json, leaving out one that doesn't answer", async () => {
 		const dir = mkdtempSync( path.join( os.tmpdir(), 'studio-mcp-' ) );
 		dirs.push( dir );
 		vi.stubEnv( 'DEV_CONFIG_DIR', dir );
+		await updateSharedConfig( {
+			authToken: {
+				accessToken: 'signed-in',
+				expiresIn: 3600,
+				expirationTime: Date.now() + 3600_000,
+				id: 1,
+				email: 'user@example.com',
+				displayName: 'User',
+			},
+		} );
 		writeFileSync(
 			path.join( dir, 'mcp.json' ),
 			JSON.stringify( {
@@ -104,8 +110,13 @@ describe( 'MCP tools', () => {
 			} )
 		);
 		const servers = await readMcpServers();
-		expect( servers.map( ( server ) => server.name ) ).toEqual( [ 'shop', 'gone' ] );
-		const tools = await createMcpTools( servers, async () => undefined );
+		expect( servers.map( ( server ) => server.name ) ).toEqual( [ 'wpcom', 'shop', 'gone' ] );
+		expect( servers[ 0 ] ).toMatchObject( {
+			headers: { Authorization: 'Bearer signed-in' },
+			approval: wpcomApproval,
+			builtIn: true,
+		} );
+		const tools = await createMcpTools( servers.slice( 1 ), async () => undefined );
 		expect( tools.map( ( tool ) => tool.name ) ).toEqual( [ 'shop_read', 'shop_write' ] );
 	} );
 } );

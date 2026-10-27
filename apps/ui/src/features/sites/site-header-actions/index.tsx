@@ -60,7 +60,7 @@ const SiteHeaderContext = createContext< SiteHeaderContextValue >( {
 export const useSiteHeader = () => useContext( SiteHeaderContext );
 
 /**
- * Holds the state of a site's header actions — Publish, Start or Stop, and
+ * Holds the state of a site's header actions — Publish, Start, and
  * Share — which `SiteHeaderActions` draws once over the workspace's top
  * inline-end corner, whichever header lies under it, so they keep their state
  * and focus as the chat and preview come and go. The header there holds a
@@ -181,7 +181,7 @@ export function SiteHeaderActions( { site, live = false }: { site: SiteDetails; 
 				>
 					<PublishButton site={ site } anchor={ root } />
 				</span>
-				{ live ? null : (
+				{ live || site.running || stopping ? null : (
 					<span data-site-header-lifecycle className={ styles.item }>
 						<SiteLifecycleButton site={ site } compact={ overflow } />
 					</span>

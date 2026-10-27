@@ -22,7 +22,7 @@ import { savedCopyWriteNote } from 'cli/ai/saved-copies';
 import { resolveScreenshotDirectory } from 'cli/ai/screenshot-storage';
 import { readWordPressSite } from 'cli/ai/site-database';
 import { updatableThemeChangeHome } from 'cli/ai/theme-file-changes';
-import { isUpdatableTheme } from 'cli/ai/themes';
+import { isUpdatableTheme, wordPressOrgNamesake } from 'cli/ai/themes';
 import { captureScreenshotBuffer } from 'cli/ai/tools/screenshot-helpers';
 import { resolveSite } from 'cli/ai/tools/utils';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
@@ -157,7 +157,12 @@ export async function getSiteFileWriteRefusal(
 		CORE_ROOT_FILE.test( relativePath )
 	) {
 		reason = `${ relativePath } is this Studio site's copy of WordPress core, which a WordPress update replaces. Read it as reference. Make the change in wp-content/ (a theme, child theme, or plugin).`;
-	} else if ( theme && ( await isUpdatableTheme( siteRoot, theme.slug ) ) ) {
+	} else if (
+		theme &&
+		( await isUpdatableTheme( siteRoot, theme.slug ) ) &&
+		// A theme of its own in a WordPress.org theme's folder is the change's place.
+		! ( await wordPressOrgNamesake( siteRoot, theme.slug ) )
+	) {
 		reason = `${
 			theme.slug
 		} is a theme WordPress updates, and an update overwrites changes to its files. Make the change in ${ updatableThemeChangeHome(
@@ -337,19 +342,65 @@ export async function selfHostFonts( siteFile: SiteFile ): Promise< string[] > {
 
 const THUMBNAIL = { width: 1200, height: 900 } as const;
 
+// The parent a child theme's style.css names (`Template:`), or undefined.
+async function parentThemeDir( themeDir: string ): Promise< string | undefined > {
+	const parent = (
+		await readFile( path.join( themeDir, 'style.css' ), 'utf8' ).catch( () => '' )
+	).match( /^[\s*]*Template:\s*(\S+)/im )?.[ 1 ];
+	return parent ? path.join( path.dirname( themeDir ), parent ) : undefined;
+}
+
+// A theme's theme.json as WordPress resolves it: a child's merged over its
+// parent's (WP_Theme_JSON_Resolver::get_theme_data()), a list it declares,
+// such as a preset list, replacing the parent's (WP_Theme_JSON::merge()).
+async function resolvedThemeJson( themeDir: string ): Promise< object | undefined > {
+	const read = async ( dir: string | undefined ) =>
+		dir
+			? readFile( path.join( dir, 'theme.json' ), 'utf8' )
+					.then( ( text ): unknown => JSON.parse( text ) )
+					.catch( () => undefined )
+			: undefined;
+	const [ own, parent ] = await Promise.all( [
+		read( themeDir ),
+		read( await parentThemeDir( themeDir ) ),
+	] );
+	const merged = mergeThemeJson( parent, own );
+	return isObject( merged ) ? merged : undefined;
+}
+
+const isObject = ( value: unknown ): value is Record< string, unknown > =>
+	Boolean( value ) && typeof value === 'object' && ! Array.isArray( value );
+
+function mergeThemeJson( base: unknown, incoming: unknown ): unknown {
+	if ( ! isObject( base ) || ! isObject( incoming ) ) {
+		return incoming ?? base;
+	}
+	const merged: Record< string, unknown > = { ...base };
+	for ( const [ key, value ] of Object.entries( incoming ) ) {
+		merged[ key ] = mergeThemeJson( base[ key ], value );
+	}
+	return merged;
+}
+
 /**
- * Gives a theme without a thumbnail one: its theme.json's design board, the
- * 1200×900 screenshot.png Appearance → Themes shows.
+ * Gives a theme without a thumbnail one, once its theme.json or style.css is
+ * written: the design board of the theme.json WordPress resolves for it, the
+ * 1200×900 screenshot.png Appearance → Themes shows (WP_Theme::get_screenshot()
+ * reads the theme's own directory, a child's too).
  */
 export async function writeThemeThumbnail( siteFile: SiteFile ): Promise< string[] > {
 	const { theme } = siteFile;
 	if (
-		theme?.file !== 'theme.json' ||
+		( theme?.file !== 'theme.json' && theme?.file !== 'style.css' ) ||
 		readdirSync( theme.dir ).some( ( file ) => /^screenshot\.(png|jpe?g|gif|webp)$/.test( file ) )
 	) {
 		return [];
 	}
-	const board = renderDesignBoard( readFileSync( path.join( theme.dir, theme.file ), 'utf8' ) );
+	const themeJson = await resolvedThemeJson( theme.dir );
+	if ( ! themeJson ) {
+		return [];
+	}
+	const board = renderDesignBoard( JSON.stringify( themeJson ) );
 	const page = path.join( await resolveScreenshotDirectory(), `thumbnail-${ theme.slug }.html` );
 	await writeFile( page, `\ufeff${ board }` );
 	try {
@@ -404,13 +455,8 @@ export async function frontPageTemplateNotes( {
 		return [];
 	}
 	const template = await readFile( path.join( siteRoot, relativePath ), 'utf8' );
-	const parent = (
-		await readFile( path.join( theme.dir, 'style.css' ), 'utf8' ).catch( () => '' )
-	).match( /^[\s*]*Template:\s*(\S+)/im )?.[ 1 ];
-	const themeDirs = [
-		theme.dir,
-		...( parent ? [ path.join( path.dirname( theme.dir ), parent ) ] : [] ),
-	];
+	const parent = await parentThemeDir( theme.dir );
+	const themeDirs = [ theme.dir, ...( parent ? [ parent ] : [] ) ];
 	return ( await rendersPageContent( template, themeDirs ) ) === false
 		? [ frontPageTemplateProblem( relativePath ) ]
 		: [];

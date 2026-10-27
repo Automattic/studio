@@ -23,7 +23,8 @@ const UPLOADS_DIR = path.sep + path.join( 'wp-content', 'uploads' ) + path.sep;
 // pi Write tool, and must be PNGs — the only format the pipeline delivers.
 export function resolveImageFilePath( filePath: string ): string {
 	const resolved = path.resolve( filePath );
-	if ( resolved !== STUDIO_SITES_ROOT && ! resolved.startsWith( STUDIO_SITES_ROOT + path.sep ) ) {
+	const root = path.resolve( STUDIO_SITES_ROOT );
+	if ( resolved !== root && ! resolved.startsWith( root + path.sep ) ) {
 		throw new Error(
 			`Image path must be inside the Studio sites directory (${ STUDIO_SITES_ROOT }): ${ filePath }`
 		);
@@ -175,14 +176,14 @@ export const generateImagesTool = defineTool(
 
 		// The site the images are for, wherever in it they are written.
 		const { sites } = await readCliConfig();
-		const siteName = (
+		const forSite =
 			site ??
 			sites.find( ( candidate ) =>
 				targets.every( ( target ) =>
 					target.resolvedPath.startsWith( path.resolve( candidate.path ) + path.sep )
 				)
-			)
-		)?.name;
+			);
+		const siteName = forSite?.name;
 		const requests = targets.map( ( image ) => ( {
 			prompt: composeImagePrompt( image, {
 				siteContext: args.siteContext,
@@ -245,6 +246,11 @@ export const generateImagesTool = defineTool(
 				].join( '\n' )
 			),
 			pending: generation,
+			// As paths in the site, which its absolute paths contain too.
+			pendingFiles: targets.map( ( target ) => {
+				const file = attachments.get( target.resolvedPath )?.file ?? target.resolvedPath;
+				return forSite ? path.relative( path.resolve( forSite.path ), file ) : file;
+			} ),
 		};
 	},
 	{

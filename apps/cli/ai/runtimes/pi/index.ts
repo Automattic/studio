@@ -746,6 +746,8 @@ function toToolDefinition(
 			}
 			if ( ( tool as { settlesPendingWork?: boolean } ).settlesPendingWork ) {
 				await pendingWork.settle();
+			} else {
+				await pendingWork.settleFilesIn( params );
 			}
 			// Block markup written since the last check is validated before any
 			// tool puts content on the site or renders it.
@@ -782,8 +784,9 @@ function toToolDefinition(
 			}
 			const details = result.details as StudioToolResultDetails | undefined;
 			if ( details?.pending ) {
-				pendingWork.add( details.pending );
+				pendingWork.add( details.pending, details.pendingFiles );
 				delete details.pending;
+				delete details.pendingFiles;
 			}
 			const changed = await settled();
 			// The files the call wrote, by its file tool or otherwise, as a shell command does.

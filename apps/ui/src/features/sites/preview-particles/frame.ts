@@ -60,7 +60,7 @@ export function createPreviewDots( width: number, height: number ): PreviewDot[]
 }
 
 // Where a dot sits at `time` (ms) when the field moves by `amount` (0–1): a
-// ripple out from the center plus a slow swirl. With `clearCenter`, dots fade
+// ripple out from the center plus a slow swirl. With `logoAmount`, dots fade
 // out of the middle to leave room for the logo; without it, dots near the
 // middle move less so the field doesn't open a hole there.
 export function getPreviewDotFrame(
@@ -70,18 +70,20 @@ export function getPreviewDotFrame(
 		amount,
 		centerX,
 		centerY,
-		clearCenter,
-	}: { time: number; amount: number; centerX: number; centerY: number; clearCenter: boolean }
+		logoAmount,
+	}: { time: number; amount: number; centerX: number; centerY: number; logoAmount: number }
 ) {
 	const wave = Math.sin( dot.distance / 85 - time / 650 );
-	const movement = amount * dot.edge * ( clearCenter ? 1 : Math.min( 1, dot.distance / 96 ) );
+	const centerMovement = Math.min( 1, dot.distance / 96 );
+	const movement = amount * dot.edge * ( centerMovement + ( 1 - centerMovement ) * logoAmount );
 	const ripple = wave * 26 * movement;
 	const swirl = Math.sin( time / 1100 - dot.distance / 180 ) * 52 * movement;
 	const x = dot.x + dot.dx * ripple - dot.dy * swirl;
 	const y = dot.y + dot.dy * ripple + dot.dx * swirl;
-	const clearance = clearCenter
-		? Math.max( 0, Math.min( 1, ( Math.hypot( x - centerX, y - centerY ) - 36 ) / 24 ) )
-		: 1;
+	const clearance =
+		1 -
+		logoAmount *
+			( 1 - Math.max( 0, Math.min( 1, ( Math.hypot( x - centerX, y - centerY ) - 36 ) / 24 ) ) );
 	const opacity =
 		( 0.2 + ( wave + 1 ) * 0.08 * amount ) * clearance * clearance * ( 3 - 2 * clearance );
 	return { x, y, opacity };

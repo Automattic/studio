@@ -480,18 +480,69 @@ export async function validateBlocks(
 					return { ...block, attributes: withComment, innerBlocks: fixedInnerBlocks };
 				}
 				// Made again with every attribute its comment names, or with those
-				// the block reads when one of them is invalid; as written otherwise.
-				for ( const attributes of [ withComment, parsed ] ) {
+				// the block reads when one of them is invalid, or with what each
+				// older version the block registers migrates what was written to
+				// (its deprecated migrate, as the editor runs it when a block
+				// matches that version): the first that keeps all that was written,
+				// else the first that saves valid markup; as written otherwise.
+				let firstValid: any;
+				for ( const attributes of attributeSets( block, raw, sameBlock, [
+					withComment,
+					parsed,
+				] ) ) {
 					try {
-						const made = wpBlocks.createBlock( block.name, attributes, inner );
-						if ( wpBlocks.parse( wpBlocks.serialize( [ made ] ) )[ 0 ]?.isValid !== false ) {
-							return sameBlock ? withWrittenClasses( withWrittenStyles( made, raw ), raw ) : made;
+						const created = wpBlocks.createBlock( block.name, attributes, inner );
+						if ( wpBlocks.parse( wpBlocks.serialize( [ created ] ) )[ 0 ]?.isValid === false ) {
+							continue;
 						}
+						const made = sameBlock
+							? withWrittenClasses( withWrittenStyles( created, raw ), raw )
+							: created;
+						if ( ! sameBlock || keepsWritten( made, raw ) ) {
+							return made;
+						}
+						firstValid ??= made;
 					} catch {
 						// The next set of attributes.
 					}
 				}
-				return block;
+				return firstValid ?? block;
+			}
+
+			// The attribute sets to make a block again from, the deprecated
+			// versions' migrations last and only once asked for.
+			function* attributeSets( block: any, raw: any, sameBlock: boolean, first: any[] ) {
+				yield* first;
+				const blockType = wpBlocks.getBlockType( block.name );
+				if ( ! sameBlock || typeof wpBlocks.getBlockAttributes !== 'function' ) {
+					return;
+				}
+				for ( const version of blockType?.deprecated ?? [] ) {
+					if ( typeof version.migrate !== 'function' ) {
+						continue;
+					}
+					const read = wpBlocks.getBlockAttributes(
+						// As the editor reads a block by an older version
+						// (applyBlockDeprecatedVersions in @wordpress/blocks).
+						{ ...blockType, ...version },
+						block.originalContent,
+						raw.attrs
+					);
+					const migrated = version.migrate( read, block.innerBlocks ?? [] );
+					yield { ...first[ 0 ], ...( Array.isArray( migrated ) ? migrated[ 0 ] : migrated ) };
+				}
+			}
+
+			// Whether a block made again saves every class written in its own
+			// markup: the styles written on it withWrittenStyles stores, and what
+			// a fix loses otherwise its losses tell.
+			function keepsWritten( made: any, raw: any ) {
+				const saved = ownMarkup(
+					String( rawParse( wpBlocks.serialize( [ made ] ) )?.[ 0 ]?.innerHTML ?? '' )
+				).classes;
+				return [ ...ownMarkup( String( raw.innerHTML ?? '' ) ).classes ].every( ( name ) =>
+					saved.has( name )
+				);
 			}
 
 			// The block made again with each class written in its own markup that

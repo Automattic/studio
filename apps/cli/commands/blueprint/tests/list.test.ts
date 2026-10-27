@@ -1,10 +1,8 @@
-import { isOnline } from '@studio/common/lib/network-utils';
 import { readSharedConfig } from '@studio/common/lib/shared-config';
 import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
 import { vi } from 'vitest';
 import { runCommand } from '../list';
 
-vi.mock( '@studio/common/lib/network-utils' );
 vi.mock( '@studio/common/lib/shared-config' );
 vi.mock( '@studio/common/lib/studio-blueprints-api' );
 vi.mock( 'cli/logger', () => ( {
@@ -50,7 +48,6 @@ const testBlueprints = [
 describe( 'CLI: studio blueprint list', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
-		vi.mocked( isOnline ).mockResolvedValue( true );
 		vi.mocked( readSharedConfig ).mockResolvedValue( { version: 1 } );
 		vi.mocked( fetchStudioBlueprints ).mockResolvedValue( testBlueprints );
 		vi.spyOn( console, 'log' ).mockImplementation( () => {} );
@@ -67,7 +64,7 @@ describe( 'CLI: studio blueprint list', () => {
 	} );
 
 	it( 'should throw when offline', async () => {
-		vi.mocked( isOnline ).mockResolvedValue( false );
+		vi.mocked( fetchStudioBlueprints ).mockRejectedValue( new TypeError( 'fetch failed' ) );
 
 		await expect( runCommand( 'table' ) ).rejects.toThrow( 'internet connection' );
 	} );

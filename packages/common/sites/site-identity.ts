@@ -1,12 +1,9 @@
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
 import { z } from 'zod';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
 
-// A site's active theme, its global styles and its Site Icon, read on demand
-// through WP-CLI. WP-CLI boots WordPress without the site's server, so they
-// work on a stopped site.
+// A site's active theme and its global styles, read on demand through WP-CLI.
+// WP-CLI boots WordPress without the site's server, so they work on a stopped site.
 
 export const themeDetailsSchema = z.object( {
 	name: z.string().catch( '' ),
@@ -34,8 +31,6 @@ export const globalStylesSchema = z
 	.nullable();
 
 export type GlobalStyles = z.infer< typeof globalStylesSchema >;
-
-const siteIconSchema = z.object( { relativePath: z.string() } ).nullable();
 
 function runStudioWpCommand(
 	execute: ExecuteCliCommand,
@@ -75,21 +70,4 @@ export async function readGlobalStyles(
 	return globalStylesSchema.parse(
 		await runStudioWpCommand( execute, sitePath, 'get-global-styles' )
 	);
-}
-
-/** The site's icon as a data URL, or `null` when it has none. */
-export async function readSiteIcon(
-	execute: ExecuteCliCommand,
-	sitePath: string
-): Promise< string | null > {
-	const icon = siteIconSchema.parse(
-		await runStudioWpCommand( execute, sitePath, 'get-site-icon' )
-	);
-	if ( ! icon ) {
-		return null;
-	}
-	const iconPath = path.join( sitePath, icon.relativePath );
-	const data = await readFile( iconPath ).catch( () => null );
-	const extension = path.extname( iconPath ).slice( 1 ).toLowerCase();
-	return data && `data:image/${ extension };base64,${ data.toString( 'base64' ) }`;
 }

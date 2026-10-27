@@ -71,7 +71,7 @@ export function handleCommandKey(
 /**
  * A list of commands that always highlights one of them. It takes focus, or a
  * text field drives it through `handleCommandKey`; only the keyboard scrolls
- * it. `sm` rows (32px, muted icons, inline descriptions) suit sheets, and
+ * it. `sm` rows (32px, inline descriptions) suit sheets, and
  * `default` rows (36px, descriptions at the end) suit the palette.
  */
 export function CommandList( {

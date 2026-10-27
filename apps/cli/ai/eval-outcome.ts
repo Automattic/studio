@@ -26,6 +26,7 @@ import { rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { STUDIO_LOADER_MU_PLUGIN_FILENAME } from '@studio/common/lib/mu-plugins';
 import { validateBlocks } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
@@ -50,9 +51,16 @@ export interface SiteFingerprint {
 // The newest modification time under a site's database and wp-content, which
 // moves whenever the site is changed. A read of the SQLite database moves its
 // -shm file, the WAL index, which holds none of the site
-// (https://sqlite.org/walformat.html).
+// (https://sqlite.org/walformat.html). Studio's loader mu-plugin, which Studio
+// writes into each site it runs and leaves out of archives and exports, is
+// not the site's either, nor is the mu-plugins folder's own time, which its
+// rewrite moves; the code hashes tell a mu-plugin the turn added or removed.
+const STUDIO_LOADER = path.join( 'mu-plugins', STUDIO_LOADER_MU_PLUGIN_FILENAME );
+
 function newestMtime( dir: string, depth = 6 ): number {
 	let newest = 0;
+	const loader = path.join( dir, 'wp-content', STUDIO_LOADER );
+	const muPlugins = path.dirname( loader );
 	const walk = ( current: string, level: number ) => {
 		let entries;
 		try {
@@ -64,6 +72,7 @@ function newestMtime( dir: string, depth = 6 ): number {
 			if ( [ 'node_modules', 'cache' ].includes( entry.name ) || entry.name.endsWith( '-shm' ) )
 				continue;
 			const full = path.join( current, entry.name );
+			if ( full === loader ) continue;
 			try {
 				const stat = statSync( full );
 				// SQLite's WAL files: a read-only read creates the WAL index (-shm)
@@ -74,7 +83,7 @@ function newestMtime( dir: string, depth = 6 ): number {
 				const readOnlyTrace =
 					( level === 0 && entry.name === 'database' ) ||
 					( entry.name.endsWith( '-wal' ) && ! stat.size );
-				if ( ! readOnlyTrace ) newest = Math.max( newest, stat.mtimeMs );
+				if ( ! readOnlyTrace && full !== muPlugins ) newest = Math.max( newest, stat.mtimeMs );
 			} catch {
 				continue;
 			}
@@ -187,7 +196,7 @@ function hashCode( sitePath: string ): Record< string, string > {
 		for ( const [ file, hash ] of Object.entries(
 			hashFiles( path.join( sitePath, 'wp-content', dir ) )
 		) ) {
-			hashes[ `${ dir }/${ file }` ] = hash;
+			if ( path.join( dir, file ) !== STUDIO_LOADER ) hashes[ `${ dir }/${ file }` ] = hash;
 		}
 	}
 	return hashes;
@@ -331,6 +340,77 @@ async function renderHome( url: string ) {
  * so slides faded out or slid out of a clipped frame, as slideshows and
  * carousels hold them, are not.
  */
+// Each published page's forms that take a message (a textarea), filled in and
+// sent the way a visitor would, then where WordPress stored the message: the
+// post types and meta keys whose rows now hold its marker. Comment forms are
+// left alone; they are core's, not the page's.
+// What a visitor types into each kind of field.
+const VISITOR: Record< string, string > = {
+	text: 'Eval Visitor',
+	email: 'visitor@example.com',
+	url: 'https://example.com',
+	tel: '5555550100',
+	number: '1',
+};
+
+async function sendPageForms( sitePath: string, links: string[] ) {
+	const sent: Array< { page: string; marker: string; afterText: string; error?: string } > = [];
+	const browser = await getSharedBrowser();
+	for ( const link of links ) {
+		const page = await browser.newPage( { viewport: { width: 1280, height: 900 } } );
+		const marker = `studio-eval-message-${ sent.length + 1 }-${ Date.now() }`;
+		try {
+			await page.goto( link, { waitUntil: 'load', timeout: 30000 } );
+			const form = page.locator( 'form:has(textarea):not([action*="wp-comments-post"])' ).first();
+			if ( ! ( await form.count() ) ) continue;
+			await form.locator( 'textarea:visible' ).first().fill( marker );
+			for ( const field of await form.locator( 'input:visible' ).all() ) {
+				const type = ( await field.getAttribute( 'type' ) ) ?? 'text';
+				if ( type === 'checkbox' || type === 'radio' ) {
+					await field.check().catch( () => undefined );
+				} else if ( type in VISITOR ) {
+					await field.fill( VISITOR[ type ] );
+				}
+			}
+			await form
+				.locator( 'button[type="submit"], input[type="submit"], button:not([type])' )
+				.first()
+				.click();
+			await page.waitForLoadState( 'load' ).catch( () => undefined );
+			await page.waitForTimeout( 3000 );
+			sent.push( {
+				page: link,
+				marker,
+				afterText: ( await page.innerText( 'body' ) ).slice( 0, 2000 ),
+			} );
+		} catch ( error ) {
+			sent.push( {
+				page: link,
+				marker,
+				afterText: '',
+				error: error instanceof Error ? error.message : String( error ),
+			} );
+		} finally {
+			await page.close();
+		}
+	}
+	return Promise.all(
+		sent.map( async ( entry ) => {
+			const found = await wp( sitePath, [
+				'eval',
+				`global $wpdb; $like = '%' . $wpdb->esc_like( ${ JSON.stringify( entry.marker ) } ) . '%';
+echo 'STORED_JSON=' . wp_json_encode( array(
+	'postTypes' => $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT post_type FROM {$wpdb->posts} WHERE post_content LIKE %s OR post_title LIKE %s OR post_excerpt LIKE %s", $like, $like, $like ) ),
+	'metaKeys' => $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT meta_key FROM {$wpdb->postmeta} WHERE meta_value LIKE %s", $like ) ),
+	'optionNames' => $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_value LIKE %s", $like ) ),
+) ) . "\\n";`,
+			] ).catch( ( error ) => `STORED_JSON=${ JSON.stringify( { error: String( error ) } ) }` );
+			const stored = found.match( /STORED_JSON=(.*)/ );
+			return { ...entry, stored: stored ? JSON.parse( stored[ 1 ] ) : null };
+		} )
+	);
+}
+
 async function homeImageFrames( url: string ) {
 	try {
 		const browser = await getSharedBrowser();
@@ -436,11 +516,11 @@ async function captureSiteOutcome(
 		// Files changed from the WordPress.org release (null for themes not from there).
 		outcome.themeChanges = await changedFromRelease( themeDir, stylesheet, stylesheetVersion );
 		if ( template !== stylesheet ) {
-			outcome.parentThemeChanges = await changedFromRelease(
-				path.join( themes, template ),
-				template,
-				templateVersion
-			);
+			const parentDir = path.join( themes, template );
+			outcome.parentThemeChanges = await changedFromRelease( parentDir, template, templateVersion );
+			// The parent's theme.json, which the child's is merged over.
+			outcome.parentThemeJson = readThemeText( parentDir )[ 'theme.json' ];
+			outcome.parentThemeFileList = Object.keys( hashFiles( parentDir ) ).sort();
 		}
 		const home = { ...( await renderHome( url ) ), imageFrames: await homeImageFrames( url ) };
 		if ( 'html' in home && home.html ) {
@@ -450,6 +530,13 @@ async function captureSiteOutcome(
 		} else {
 			outcome.home = home;
 		}
+
+		const pages = ( state.content as Array< { type: string; link: string } > )
+			.filter( ( item ) => item.type === 'page' )
+			.map( ( item ) => item.link );
+		outcome.formsSent = await sendPageForms( sitePath, pages ).catch( ( error ) => [
+			{ error: error instanceof Error ? error.message : String( error ) },
+		] );
 
 		// Every published page, template and part, validated by the site's own editor.
 		const invalid: Array< { id: number; type: string; slug: string; blocks: string[] } > = [];
@@ -517,8 +604,13 @@ export async function captureTurnOutcome(
 	const after = new Map( ( await fingerprintSites() ).map( ( site ) => [ site.path, site ] ) );
 	const beforePaths = new Set( before.map( ( site ) => site.path ) );
 	const created = [ ...after.values() ].filter( ( site ) => ! beforePaths.has( site.path ) );
-	const changed = ( site: SiteFingerprint ) =>
-		( after.get( site.path )?.mtimeMs ?? 0 ) > site.mtimeMs;
+	const changed = ( site: SiteFingerprint ) => {
+		const now = after.get( site.path );
+		return (
+			( now?.mtimeMs ?? 0 ) > site.mtimeMs ||
+			JSON.stringify( now?.code ) !== JSON.stringify( site.code )
+		);
+	};
 	const requestBefore = before.find( ( site ) => site.path === requestSitePath );
 	const others = before.filter( ( site ) => site.path !== requestSitePath );
 

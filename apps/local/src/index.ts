@@ -133,7 +133,7 @@ import { buildSiteSetArgs, getSiteEditOptions } from '@studio/common/sites/edit'
 import { deleteSite, startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
 import { listSitesWithMetadata, updateSiteMetadata } from '@studio/common/sites/metadata';
-import { readGlobalStyles, readSiteIcon } from '@studio/common/sites/site-identity';
+import { readGlobalStyles } from '@studio/common/sites/site-identity';
 import { readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import {
 	deleteAllPreviewSites,
@@ -837,21 +837,6 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			await stopSite( execute, site.path );
 			res.sendStatus( 204 );
-		} )
-	);
-
-	// Reads straight from cli.json via `readSitePath` rather than forking the
-	// CLI for a site list: the UI asks for it on every site switch, and a fork
-	// costs about a second of CPU each time.
-	api.get(
-		'/sites/:id/site-icon',
-		asyncHandler( async ( req: Request, res: Response ) => {
-			const sitePath = await readSitePath( req.params.id );
-			if ( ! sitePath ) {
-				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
-				return;
-			}
-			res.json( await readSiteIcon( execute, sitePath ) );
 		} )
 	);
 

@@ -240,6 +240,51 @@ tests:
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
 
+  # A contact page works when a visitor's message reaches the site: the
+  # runner sends each published page's message form as a visitor would, and
+  # the check passes when the message is stored (whichever plugin stores it)
+  # from a form that is not a Custom HTML block.
+  - description: contact page takes a visitor's message and the site stores it
+    vars:
+      caseId: contact-form-works
+      timeoutMs: 600000
+      seed:
+        activeSite:
+          name: Crumb & Co
+          wpCli:
+            - [theme, activate, twentytwentyfive]
+      prompt: |
+        Add a Contact page to my bakery site where customers can send us a
+        message.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:contactFormWorks
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
+  # A newsletter signup in the footer is an email form built from blocks,
+  # shown on every page through the footer.
+  - description: newsletter signup in the footer is an email form built from blocks
+    vars:
+      caseId: newsletter-signup
+      timeoutMs: 600000
+      seed:
+        activeSite:
+          name: Crumb & Co
+          wpCli:
+            - [theme, activate, twentytwentyfive]
+      prompt: |
+        Add a newsletter signup to the footer so visitors can subscribe.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:newsletterSignupInFooter
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
   # Regression (STU-2017): edits to an installed theme are lost on its next
   # update. The theme must still match its WordPress.org release, and the
   # heading font lives where an update keeps it: a child theme, or Global Styles.
@@ -709,6 +754,8 @@ tests:
                 	$schema = (array) $schema;
                 	if ( isset( $schema['enum'] ) ) { return $schema['enum'][0]; }
                 	$type = (array) ( $schema['type'] ?? 'string' );
+                	// An ability that takes no input declares it as null.
+                	if ( array( 'null' ) === $type ) { return null; }
                 	if ( in_array( 'object', $type, true ) ) {
                 		$value = array();
                 		foreach ( (array) ( $schema['properties'] ?? array() ) as $key => $property ) { $value[ $key ] = $fill( $property ); }

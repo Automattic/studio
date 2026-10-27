@@ -30,6 +30,8 @@ const mocks = vi.hoisted( () => ( {
 	failNext: false,
 	// What each end of a run finds still open on the sites.
 	openProblems: [] as string[][],
+	// What each end of a run is told of the user's answers.
+	answers: [] as string[][],
 	// What the end of a run did, in order.
 	turnEnd: [] as string[],
 	// The next prompt runs until its session is aborted.
@@ -66,6 +68,11 @@ vi.mock( 'cli/ai/open-problems', () => ( {
 		raise: async () => {
 			mocks.turnEnd.push( 'sites checked' );
 			return mocks.openProblems.shift() ?? [];
+		},
+		ask: async ( onAskUser: ( questions: Array< { question: string } > ) => unknown ) => {
+			mocks.turnEnd.push( 'user asked' );
+			await onAskUser( [ { question: 'Which look?' } ] );
+			return mocks.answers.shift() ?? [];
 		},
 	} ),
 	describeOpenProblems: ( problems: string[] ) => `checks: ${ problems.join( ' | ' ) }`,
@@ -342,6 +349,7 @@ describe( 'pi runtime', () => {
 		mocks.customMessages = [];
 		mocks.onCustomMessage = null;
 		mocks.openProblems = [];
+		mocks.answers = [];
 		mocks.turnEnd = [];
 		mocks.holdNextPrompt = false;
 		mocks.createAgentSession.mockReset();
@@ -1160,6 +1168,51 @@ describe( 'pi runtime', () => {
 			const ends = agentEnds( events );
 			expect( ends.map( ( event ) => event.willRetry ) ).toEqual( [ true, false ] );
 			expect( ends[ 1 ].messages[ 0 ] ).toMatchObject( { content: [ { text: 'Fixed.' } ] } );
+		} );
+
+		it( "asks the user what their sites' state leaves to them once nothing is open, and continues with their answers", async () => {
+			mocks.nextEvents = runEndingWith( assistantMessage( [ { type: 'text', text: 'Done.' } ] ) );
+			mocks.continueEvents = [
+				runEndingWith( assistantMessage( [ { type: 'text', text: 'Fixed.' } ] ) ),
+				runEndingWith( assistantMessage( [ { type: 'text', text: 'Restyled.' } ] ) ),
+			];
+			mocks.openProblems = [ [ 'front page not shown' ] ];
+			mocks.answers = [ [ 'The user chose Midnight.' ] ];
+			const asked: string[] = [];
+
+			const events = await runRuntime( {
+				prompt: 'build it',
+				env: WPCOM_ENV,
+				model: 'fast',
+				session: newSession(),
+				onAskUser: async ( [ { question } ] ) => {
+					asked.push( question );
+					return {};
+				},
+			} );
+
+			expect( asked ).toEqual( [ 'Which look?', 'Which look?' ] );
+			expect( mocks.turnEnd ).toEqual( [
+				'block files settled',
+				'sites checked',
+				'block files settled',
+				'sites checked',
+				'user asked',
+				'block files settled',
+				'sites checked',
+				'user asked',
+			] );
+			expect(
+				mocks.customMessages.map( ( { message } ) => ( message as { content: string } ).content )
+			).toEqual( [
+				'checks: front page not shown',
+				'<studio-checks>\nThe user chose Midnight.\n</studio-checks>',
+			] );
+			expect( agentEnds( events ).map( ( event ) => event.willRetry ) ).toEqual( [
+				true,
+				true,
+				false,
+			] );
 		} );
 
 		it( 'checks the sites once the block files the run wrote are validated', async () => {

@@ -36,10 +36,7 @@ describe( 'the theme presets fact', () => {
 		layout: { contentSize: '645px' },
 		styleProperties: { color: 'color.text' },
 		shadowed: [],
-		styleVariations: [
-			[ 'Evening', [ 'color', 'typography' ] ],
-			[ 'Plain', [] ],
-		],
+		styleVariations: [ 'Evening', 'Plain' ],
 	};
 	let output: () => string;
 
@@ -67,7 +64,7 @@ describe( 'the theme presets fact', () => {
 			'Font family presets (wp_get_global_settings()): inter "Inter".',
 			'Spacing size presets (wp_get_global_settings()): 40 30px.',
 			'Layout (wp_get_global_settings()): content width 645px, wide width none.',
-			"Style variations (WP_Theme_JSON_Resolver::get_style_variations()), the theme's styles/*.json, which the Site Editor's Styles offers: Evening (color, typography), Plain. Choosing one saves its settings and styles into the site's Global Styles, the wp_global_styles post of the theme (WP_Theme_JSON_Resolver::get_user_global_styles_post_id()).",
+			"Style variations the Site Editor's Styles offers (its styles/*.json, WP_Theme_JSON_Resolver::get_style_variations()): Evening, Plain. Choosing one saves its settings and styles as the site's Global Styles (WP_Theme_JSON_Resolver::get_user_global_styles_post_id()).",
 		] );
 	} );
 
@@ -240,7 +237,17 @@ describe.runIf( WORDPRESS )( 'the theme presets fact, resolved by WordPress', ()
 		);
 		write( 'varied-child/styles/bold.json', {
 			title: 'Bolder',
-			styles: { color: { text: '#111' } },
+			styles: { color: { text: '#111' }, typography: { fontSize: '20px' } },
+		} );
+		// The Site Editor offers these under Colors and Typography instead.
+		write( 'varied-child/styles/colors/ink.json', {
+			title: 'Ink',
+			settings: { color: { palette: [ { slug: 'ink', color: '#000', name: 'Ink' } ] } },
+			styles: { elements: { button: { color: { background: '#000' } } } },
+		} );
+		write( 'varied-child/styles/typography/tight.json', {
+			title: 'Tight',
+			styles: { typography: { lineHeight: '1.2' }, spacing: { blockGap: '1rem' } },
 		} );
 		const { DatabaseSync } = await import( 'node:sqlite' );
 		const db = new DatabaseSync( path.join( root, 'wp-content/database/.ht.sqlite' ) );
@@ -254,7 +261,7 @@ describe.runIf( WORDPRESS )( 'the theme presets fact, resolved by WordPress', ()
 
 		// The child's file replaces its parent's of the same name.
 		expect( ( await presetsOf( root ) ).find( ( line ) => line.startsWith( 'Style' ) ) ).toContain(
-			'offers: Bolder (color), quiet (border, spacing).'
+			'get_style_variations()): Bolder, quiet. '
 		);
 	}, 60000 );
 } );

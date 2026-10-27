@@ -35,13 +35,47 @@ interface Presets {
 	 * by preset path: those whose `default…` setting is on.
 	 */
 	shadowed: Array< { path: string; setting: string; presets: Array< [ string, string ] > } >;
-	/** Each style variation of the theme, by title, with the kinds of style it sets. */
-	styleVariations?: Array< [ string, string[] ] >;
+	/** The titles of the style variations the Site Editor offers (STYLE_VARIATIONS). */
+	styleVariations?: string[];
 }
+
+/**
+ * The theme's style variations the Site Editor's Styles offers to browse,
+ * from its and its parent's styles/*.json (WP_Theme_JSON_Resolver::get_style_variations()):
+ * the whole looks, leaving out those that set only colors or only typography
+ * and spacing, which it offers under Colors and Typography instead, as its
+ * StyleVariationsContainer does with isVariationWithProperties().
+ */
+export const STYLE_VARIATIONS = `
+function style_variations_offered() {
+	$only = function ( $node, $properties ) use ( &$only ) {
+		$kept = array();
+		foreach ( $node as $key => $value ) {
+			if ( in_array( $key, $properties, true ) ) {
+				$kept[ $key ] = $value;
+			} elseif ( is_array( $value ) && ( $inner = $only( $value, $properties ) ) ) {
+				$kept[ $key ] = $inner;
+			}
+		}
+		return $kept;
+	};
+	$sets_only = function ( $variation, $properties ) use ( $only ) {
+		$kept = $only( $variation, $properties );
+		return ( $kept['settings'] ?? null ) === ( $variation['settings'] ?? null ) && ( $kept['styles'] ?? null ) === ( $variation['styles'] ?? null );
+	};
+	$offered = array();
+	foreach ( WP_Theme_JSON_Resolver::get_style_variations() as $variation ) {
+		if ( ! $sets_only( $variation, array( 'color' ) ) && ! $sets_only( $variation, array( 'typography', 'spacing' ) ) ) {
+			$offered[] = $variation;
+		}
+	}
+	return $offered;
+}
+`;
 
 // The presets of each origin the editor offers, in WordPress's order: core's
 // unless the theme turns them off, then the theme's, then the user's.
-const RESOLVE = `
+const RESOLVE = `${ STYLE_VARIATIONS }
 $settings = wp_get_global_settings();
 // The theme's presets that merging into core's drops (WP_Theme_JSON::merge()).
 $theme_settings = WP_Theme_JSON_Resolver::get_theme_data()->get_settings();
@@ -89,26 +123,7 @@ echo wp_json_encode( array(
 	) ),
 	'styleProperties' => array_map( function ( $path ) { return implode( '.', $path ); }, WP_Theme_JSON::PROPERTIES_METADATA ),
 	'shadowed' => $shadowed,
-	// The theme's and its parent's styles/*.json, which the Site Editor's Styles offers.
-	'styleVariations' => array_map(
-		function ( $variation ) {
-			$kinds = array();
-			$walk = function ( $node ) use ( &$walk, &$kinds ) {
-				foreach ( $node as $key => $child ) {
-					if ( is_array( $child ) ) {
-						if ( in_array( $key, array( 'color', 'typography', 'spacing', 'border', 'shadow', 'dimensions', 'background' ), true ) ) {
-							$kinds[ $key ] = true;
-						}
-						$walk( $child );
-					}
-				}
-			};
-			$walk( array( $variation['settings'] ?? array(), $variation['styles'] ?? array() ) );
-			ksort( $kinds );
-			return array( $variation['title'], array_keys( $kinds ) );
-		},
-		WP_Theme_JSON_Resolver::get_style_variations()
-	),
+	'styleVariations' => wp_list_pluck( style_variations_offered(), 'title' ),
 ) );
 `;
 
@@ -200,13 +215,9 @@ function describePresets( presets: Presets ): string[] {
 			  }.`
 			: undefined,
 		variations.length
-			? `Style variations (WP_Theme_JSON_Resolver::get_style_variations()), the theme's styles/*.json, which the Site Editor's Styles offers: ${ variations
-					.map( ( [ title, kinds ] ) =>
-						kinds.length ? `${ title } (${ kinds.join( ', ' ) })` : title
-					)
-					.join(
-						', '
-					) }. Choosing one saves its settings and styles into the site's Global Styles, the wp_global_styles post of the theme (WP_Theme_JSON_Resolver::get_user_global_styles_post_id()).`
+			? `Style variations the Site Editor's Styles offers (its styles/*.json, WP_Theme_JSON_Resolver::get_style_variations()): ${ variations.join(
+					', '
+			  ) }. Choosing one saves its settings and styles as the site's Global Styles (WP_Theme_JSON_Resolver::get_user_global_styles_post_id()).`
 			: undefined,
 	].filter( ( line ): line is string => Boolean( line ) );
 }

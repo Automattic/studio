@@ -31,7 +31,11 @@ export const openAnnotationBrowserTool = defineTool(
 			const url = new URL( args.page ?? '/', getSiteUrl( await resolveSite( args.nameOrPath ) ) )
 				.href;
 			context.onProgress( `Opening annotation browser at ${ url }…` );
-			const notes = await annotateInBrowser( url, ( args.timeoutMinutes ?? 30 ) * 60 * 1000 );
+			const notes = await annotateInBrowser(
+				url,
+				( args.timeoutMinutes ?? 30 ) * 60 * 1000,
+				context.signal
+			);
 			if ( ! notes ) {
 				return textResult( 'The user closed the annotation browser without sending annotations.' );
 			}

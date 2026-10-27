@@ -47,6 +47,8 @@ export interface StudioToolResultDetails {
 
 interface ToolContext {
 	onProgress: ( message: string, update?: boolean ) => void;
+	/** Aborted when the turn is stopped, so a tool that waits stops waiting. */
+	signal?: AbortSignal;
 }
 
 const NOOP_TOOL_CONTEXT: ToolContext = { onProgress: () => {} };
@@ -172,8 +174,9 @@ export function defineTool< TProps extends TProperties >(
 		...( options.siteParam ? { siteParam: options.siteParam } : {} ),
 		annotations: options.annotations,
 		rawHandler: ( args, context ) => handler( args, context ?? NOOP_TOOL_CONTEXT ),
-		execute: async ( _toolCallId, params, _signal, onUpdate ) => {
+		execute: async ( _toolCallId, params, signal, onUpdate ) => {
 			const context: ToolContext = {
+				signal,
 				onProgress: ( message, update ) => {
 					const details: StudioToolProgressUpdate = { studioProgress: { message, update } };
 					onUpdate?.( { content: [], details } );

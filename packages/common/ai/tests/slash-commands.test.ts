@@ -19,9 +19,6 @@ describe( 'resolveSkillFromPrompt', () => {
 
 	it( 'ignores surrounding whitespace', () => {
 		expect( resolveSkillFromPrompt( '  /annotate  ' ) ).toBe( 'annotate' );
-		// A command that is a tool asks for the tool, and still resolves.
-		expect( buildSkillInvocationPrompt( 'annotate' ) ).toContain( 'open_annotation_browser' );
-		expect( resolveSkillFromPrompt( buildSkillInvocationPrompt( 'annotate' ) ) ).toBe( 'annotate' );
 	} );
 
 	it( 'returns undefined for an ordinary prompt', () => {

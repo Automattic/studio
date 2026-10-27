@@ -86,4 +86,32 @@ describe( 'open_annotation_browser', () => {
 		expect( close ).toHaveBeenCalled();
 		expect( page.goto.mock.calls[ 0 ][ 0 ] ).toBe( 'http://localhost:8881/about' );
 	} );
+
+	it( 'closes the browser and stops waiting when the turn is stopped', async () => {
+		const root = mkdtempSync( path.join( tmpdir(), 'annotate-' ) );
+		const site = { id: '1', name: 'My Site', path: root, port: 8881, phpVersion: '8.3' };
+		writeFileSync(
+			path.join( root, 'cli.json' ),
+			JSON.stringify( { version: 1, sites: [ site ] } )
+		);
+		vi.stubEnv( 'E2E', '1' );
+		vi.stubEnv( 'E2E_CLI_CONFIG_PATH', root );
+		close.mockClear();
+		page.editor = undefined;
+		const turn = new AbortController();
+		const result = openAnnotationBrowserTool.execute(
+			'a',
+			{ nameOrPath: 'My Site' } as never,
+			turn.signal
+		);
+		await vi.waitFor( () => expect( page.editor ).toBeDefined() );
+		turn.abort();
+		expect( ( await result ).content ).toEqual( [
+			{
+				type: 'text',
+				text: 'The user closed the annotation browser without sending annotations.',
+			},
+		] );
+		expect( close ).toHaveBeenCalled();
+	} );
 } );

@@ -65,14 +65,15 @@ describe( 'getDefaultPhpArgs', () => {
 					expect( args.some( ( arg ) => arg.startsWith( 'opcache.file_cache=' ) ) ).toBe( false );
 					expect( fs.readdirSync( dataDir ) ).toEqual( [] );
 				} else {
-					expect( cacheDirectory ).toBe(
-						path.join(
-							dataDir,
-							'studio-opcache',
-							siteId!,
-							`php${ phpVersion }`,
-							`worker-${ workerIndex }`
-						)
+					const expected = path.join(
+						dataDir,
+						'studio-opcache',
+						siteId!,
+						`php${ phpVersion }`,
+						`worker-${ workerIndex }`
+					);
+					expect( fs.realpathSync.native( cacheDirectory ) ).toBe(
+						fs.realpathSync.native( expected )
 					);
 					// Every start begins empty; the repeated site-a/8.4/0 case checks this.
 					expect( fs.readdirSync( cacheDirectory ) ).toEqual( [] );

@@ -5,7 +5,6 @@ import path from 'path';
 import { writeFile } from 'atomically';
 import semver from 'semver';
 import { getPhpBinaryPath } from '../dependency-management/paths';
-import { getFullyResolvedTmpDirPath } from './tmp-dir';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 
 // Disabled to shrink the attack surface available to PHP code running inside a
@@ -212,7 +211,7 @@ function getXdebugFilename(): string {
 // process is killed. It lives in tmp so the OS clears caches of sites that were
 // never deleted through Studio (e.g. kept eval sites).
 export function getSiteOpcacheDirectory( siteId: string ): string {
-	return path.join( getFullyResolvedTmpDirPath(), 'studio-opcache', siteId );
+	return path.join( os.tmpdir(), 'studio-opcache', siteId );
 }
 
 type DefaultPhpArgsOptions = {
@@ -255,7 +254,10 @@ export function getDefaultPhpArgs(
 		);
 		fs.rmSync( cacheDirectory, { recursive: true, force: true } );
 		fs.mkdirSync( cacheDirectory, { recursive: true } );
-		args.push( '-d', `opcache.file_cache="${ cacheDirectory }"` );
+		// PHP can't parse the `~` in Windows 8.3 short paths (see tmp-dir.ts).
+		const phpCacheDirectory =
+			process.platform === 'win32' ? fs.realpathSync.native( cacheDirectory ) : cacheDirectory;
+		args.push( '-d', `opcache.file_cache="${ phpCacheDirectory }"` );
 	}
 
 	if ( enableXdebug ) {

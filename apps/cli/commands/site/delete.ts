@@ -450,7 +450,14 @@ async function deleteSite(
 	}
 
 	// The email the site sent lives in Studio's directory, not the site's.
-	fs.rmSync( getSiteEmailDirectory( site.id ), { recursive: true, force: true } );
+	try {
+		fs.rmSync( getSiteEmailDirectory( site.id ), { recursive: true, force: true } );
+	} catch ( error ) {
+		logger.reportError(
+			new LoggerError( __( 'Failed to delete the email files. Proceeding anyway…' ), error ),
+			false
+		);
+	}
 
 	if ( deleteFiles ) {
 		// Imported sites have both a visible site directory and a

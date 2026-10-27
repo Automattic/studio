@@ -613,8 +613,13 @@ async function doStartServer(
 		const siteUrl = config.absoluteUrl || `http://localhost:${ config.port }`;
 		const autoPrependFile = writeSiteUrlPrependFile( siteUrl, config.autoPrependFile );
 		// Created up front so the folder opens from the app before the site sends any email.
+		// The site still starts without it: sendmail.php then reports each email it can't save.
 		const emailDirectory = getSiteEmailDirectory( config.siteId );
-		fs.mkdirSync( emailDirectory, { recursive: true } );
+		try {
+			fs.mkdirSync( emailDirectory, { recursive: true } );
+		} catch ( error ) {
+			errorToConsole( `Failed to create the email folder ${ emailDirectory }:`, error );
+		}
 		const workerPorts: number[] = [];
 		for ( let index = 0; index < NATIVE_PHP_WORKER_POOL_SIZE; index++ ) {
 			workerPorts.push( await getAvailablePort() );

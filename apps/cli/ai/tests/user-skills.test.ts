@@ -15,16 +15,18 @@ function textOf( result: { content: Array< { type: string; text?: string } > } )
 }
 
 describe( "the user's own skills", () => {
-	const originalHome = process.env.HOME;
+	// os.homedir() reads HOME, or USERPROFILE on Windows.
+	const homeVariable = process.platform === 'win32' ? 'USERPROFILE' : 'HOME';
+	const originalHome = process.env[ homeVariable ];
 	let home: string;
 
 	beforeEach( () => {
 		home = fs.mkdtempSync( path.join( os.tmpdir(), 'user-skills-' ) );
-		process.env.HOME = home;
+		process.env[ homeVariable ] = home;
 	} );
 
 	afterEach( () => {
-		process.env.HOME = originalHome;
+		process.env[ homeVariable ] = originalHome;
 		fs.rmSync( home, { recursive: true, force: true } );
 	} );
 

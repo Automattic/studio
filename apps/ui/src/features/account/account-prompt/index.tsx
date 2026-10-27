@@ -30,6 +30,7 @@ export function AccountPrompt( {
 	onCreateAccount,
 	onContinue,
 	onSkip,
+	secondaryLabel,
 	busy,
 	disabled,
 	flush,
@@ -42,6 +43,7 @@ export function AccountPrompt( {
 	onCreateAccount?: () => void;
 	onContinue?: () => void;
 	onSkip?: () => void;
+	secondaryLabel?: string;
 	busy?: boolean;
 	disabled?: boolean;
 	/** Drops the offsets that space it inside a dialog, for a container that spaces it already. */
@@ -110,7 +112,7 @@ export function AccountPrompt( {
 								}
 							} }
 						>
-							{ onSkip ? __( 'Not now' ) : __( 'Log in' ) }
+							{ onSkip ? secondaryLabel ?? __( 'Not now' ) : __( 'Log in' ) }
 						</Button>
 					</p>
 				) }

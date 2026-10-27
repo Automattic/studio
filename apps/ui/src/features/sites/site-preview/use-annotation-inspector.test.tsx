@@ -19,7 +19,7 @@ afterEach( () => {
 	setAnnotating( site.id, false );
 } );
 
-async function setup() {
+async function setup( onStartAnnotating?: () => boolean ) {
 	Object.defineProperty( window.navigator, 'userAgent', {
 		value: `${ REAL_USER_AGENT } Electron/38.0.0`,
 		configurable: true,
@@ -27,7 +27,12 @@ async function setup() {
 	vi.stubGlobal( 'ipcApi', { clearWebviewCache: vi.fn().mockResolvedValue( undefined ) } );
 	const view = renderWithProviders(
 		<SessionUIProvider>
-			<SitePreview site={ site } path="/" reloadNonce={ 0 } />
+			<SitePreview
+				site={ site }
+				path="/"
+				reloadNonce={ 0 }
+				onStartAnnotating={ onStartAnnotating }
+			/>
 		</SessionUIProvider>,
 		{
 			connector: createFakeConnector( { sites: [ site ] } ),
@@ -55,6 +60,22 @@ const injections = ( preview: { executeJavaScript: ReturnType< typeof vi.fn > } 
 	preview.executeJavaScript.mock.calls.filter( ( [ code ] ) => code === INSPECTOR_PAGE_SCRIPT );
 
 describe( 'annotation inspector navigation', () => {
+	it( 'asks before entering annotation mode and leaves it inactive when a provider is required', async () => {
+		const onStartAnnotating = vi.fn().mockReturnValue( false );
+		const { emit, annotate } = await setup( onStartAnnotating );
+		emit( 'dom-ready' );
+		await waitFor( () => expect( annotate() ).toBeEnabled() );
+		fireEvent.click( annotate() );
+		expect( onStartAnnotating ).toHaveBeenCalledOnce();
+		expect( getSiteAnnotations( site.id ).active ).toBe( false );
+		onStartAnnotating.mockReturnValue( true );
+		fireEvent.click( annotate() );
+		expect( getSiteAnnotations( site.id ).active ).toBe( true );
+		fireEvent.click( annotate() );
+		expect( getSiteAnnotations( site.id ).active ).toBe( false );
+		expect( onStartAnnotating ).toHaveBeenCalledTimes( 2 );
+	} );
+
 	it( 'resets readiness for a new main document and reinjects when it is ready', async () => {
 		const { preview, emit, annotate } = await setup();
 		emit( 'dom-ready' );

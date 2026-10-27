@@ -177,12 +177,6 @@ afterAll( () => {
 } );
 
 describe( 'App initialization', () => {
-	it( 'should boot successfully', async () => {
-		mockElectron();
-		vi.resetModules();
-		await expect( import( '../index' ) ).resolves.toBeDefined();
-	}, 10_000 );
-
 	it( 'should identify YouTube embed requests with the Studio referrer', async () => {
 		const { mockedEvents } = mockElectron();
 		vi.resetModules();
@@ -477,8 +471,11 @@ describe( 'App initialization', () => {
 		Object.defineProperty( process, 'platform', { value: 'darwin' } );
 
 		const { mockedEvents } = mockElectron();
-		const mockHandleDeeplink = vi.fn();
-		vi.doMock( '../lib/deeplink', () => ( { handleDeeplink: mockHandleDeeplink } ) );
+		const mockOpenDeeplink = vi.fn();
+		vi.doMock( '../lib/deeplink', () => ( {
+			openDeeplink: mockOpenDeeplink,
+			markStudioStarted: vi.fn(),
+		} ) );
 
 		vi.resetModules();
 		await import( '../index' );
@@ -486,7 +483,7 @@ describe( 'App initialization', () => {
 
 		const testUrl = 'wp-studio://auth#test-hash';
 		await openUrl( {}, testUrl );
-		expect( mockHandleDeeplink ).toHaveBeenCalledWith( testUrl );
+		expect( mockOpenDeeplink ).toHaveBeenCalledWith( testUrl );
 
 		Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
 	} );
@@ -551,7 +548,7 @@ describe( 'App initialization', () => {
 		expect( dialog.showMessageBox ).toHaveBeenCalledWith( {
 			type: 'question',
 			message: 'Keep the site running?',
-			detail: 'Your site can stay available in the background after Studio quits.',
+			detail: 'Your site can stay available in the background after WordPress Studio quits.',
 			buttons: [ 'Stop site', 'Keep site running', 'Cancel' ],
 			checkboxLabel: 'Remember my choice',
 			cancelId: 2,

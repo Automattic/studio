@@ -1,13 +1,12 @@
-import { withWpcomDetails } from '@studio/common/lib/sync/transform-sites';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
-import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
+import {
+	ALL_CONNECTED_WPCOM_SITES_QUERY_KEY,
+	SYNCABLE_WPCOM_SITES_QUERY_KEY,
+} from '@/data/queries/user-scoped-query-keys';
 import type { SyncSite } from '@/data/core';
-
-export const SYNCABLE_WPCOM_SITES_QUERY_KEY = [ 'syncable-wpcom-sites' ] as const;
-export const ALL_CONNECTED_WPCOM_SITES_QUERY_KEY = [ 'all-connected-wpcom-sites' ] as const;
 
 export function useSyncableWpcomSites( options: { enabled?: boolean } = {} ) {
 	const connector = useConnector();
@@ -21,16 +20,6 @@ export function useSyncableWpcomSites( options: { enabled?: boolean } = {} ) {
 		// repeatedly doesn't spam WordPress.com.
 		staleTime: 5 * 60 * 1000,
 	} );
-}
-
-// A local site's connections, with their name, URL and sync support from the account's site list.
-export function useLiveWpcomSites( localSiteId: string ): SyncSite[] {
-	const { data: connected } = useConnectedWpcomSites( localSiteId );
-	const { data: wpcomSites } = useSyncableWpcomSites( { enabled: !! connected?.length } );
-	return useMemo(
-		() => ( connected && wpcomSites ? withWpcomDetails( connected, wpcomSites ) : [] ),
-		[ connected, wpcomSites ]
-	);
 }
 
 // Mirrors `useConnectedWpcomSites` but returns connections for every local

@@ -1,5 +1,4 @@
 import fs from 'fs';
-import path from 'path';
 import { type AgentTool } from '@earendil-works/pi-agent-core';
 import {
 	type Credential,
@@ -44,7 +43,6 @@ import { type TSchema } from 'typebox';
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
 import { createResultNotes } from 'cli/ai/result-notes';
-import { readActiveSiteFacts } from 'cli/ai/site-facts';
 import { buildSystemPrompt, type ToolPromptContribution } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
@@ -52,6 +50,7 @@ import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-opti
 import { createSkillTool } from 'cli/ai/tools/skill';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { getFileToolPrompt } from './file-tool-prompts';
+import { withLeakedToolCallMarkupRemoved } from './leaked-tool-call-markup';
 import { getPendingWork, type PendingWork } from './pending-work';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
@@ -327,10 +326,9 @@ async function createStudioAgentSession(
 	const model = buildModel( config.model, family, creds );
 	const chatArtifactsEnabled = typeof process.send === 'function';
 	const visionEnabled = aiModelSupportsImages( config.model );
-	const [ userInstructions, imageGenerationEnabled, activeSiteFacts ] = await Promise.all( [
+	const [ userInstructions, imageGenerationEnabled ] = await Promise.all( [
 		readGlobalInstructions(),
 		isImageGenerationAvailable(),
-		readActiveSiteFacts( config.activeSite ),
 	] );
 
 	const tools = buildAgentTools(
@@ -343,7 +341,6 @@ async function createStudioAgentSession(
 		userInstructions,
 		tools: tools.map( toolPromptContribution ),
 		activeSite: config.activeSite,
-		activeSiteFacts,
 	} );
 
 	const pendingWork = getPendingWork( config.session );
@@ -551,9 +548,9 @@ function escapePiConfigValue( value: string ): string {
 }
 
 // The wpcom lane only needs pi's stock streaming for each tier's API; the
-// custom provider exists to wrap the stream with the usage-cap 429 rewrite
-// and to strip stale screenshots, which would otherwise bloat requests past
-// the proxy's body limit.
+// custom provider exists to wrap the stream with the usage-cap 429 rewrite and
+// the leaked tool-call cleanup, and to strip stale screenshots, which would
+// otherwise bloat requests past the proxy's body limit.
 function createWpcomProviderConfig(
 	model: StudioWpcomModel,
 	creds: ResolvedCredentials
@@ -577,17 +574,19 @@ function createWpcomProviderConfig(
 		headers: creds.extraHeaders,
 		streamSimple: ( m, ctx, options?: SimpleStreamOptions ) =>
 			withUsageCapErrorRewrite(
-				stream( m, stripStaleImagesFromContext( ctx ), {
-					...options,
-					...( apiModelId
-						? {
-								onPayload: async ( params: unknown, payloadModel ) => {
-									const next = ( await options?.onPayload?.( params, payloadModel ) ) ?? params;
-									return { ...( next as Record< string, unknown > ), model: apiModelId };
-								},
-						  }
-						: {} ),
-				} )
+				withLeakedToolCallMarkupRemoved(
+					stream( m, stripStaleImagesFromContext( ctx ), {
+						...options,
+						...( apiModelId
+							? {
+									onPayload: async ( params: unknown, payloadModel ) => {
+										const next = ( await options?.onPayload?.( params, payloadModel ) ) ?? params;
+										return { ...( next as Record< string, unknown > ), model: apiModelId };
+									},
+							  }
+							: {} ),
+					} )
+				)
 			),
 		models: [
 			{

@@ -1,0 +1,87 @@
+@layer ui {
+	.badge {
+		display: inline-flex;
+		flex-shrink: 0;
+		gap: var( --space-1 );
+		align-items: center;
+		justify-content: center;
+		width: fit-content;
+		height: 20px;
+		overflow: hidden;
+		padding: var( --space-0_5 ) var( --space-2 );
+		border: 1px solid transparent;
+		border-radius: var( --radius-full );
+		font-size: var( --text-xs );
+		font-weight: var( --font-weight-medium );
+		white-space: nowrap;
+	}
+
+	.badge > svg {
+		width: 12px;
+		height: 12px;
+		pointer-events: none;
+	}
+
+	.badge[data-size='count'] {
+		min-width: 20px;
+		padding-inline: var( --space-1 );
+		border-radius: var( --radius-full );
+		font-variant-numeric: tabular-nums;
+	}
+
+	.badge[data-size='xs'] {
+		gap: var( --space-0_5 );
+		height: auto;
+		padding: var( --space-1 );
+		border: 0;
+		border-radius: var( --radius-xs );
+		font-size: var( --text-2xs );
+		line-height: var( --leading-none );
+	}
+
+	.badge[data-size='icon'] {
+		width: 24px;
+		height: 24px;
+		padding: var( --space-1 );
+		border: 0;
+		border-radius: var( --radius-xs );
+	}
+
+	.badge[data-size='icon'] > svg {
+		width: 16px;
+		height: 16px;
+	}
+
+	.badge[data-variant='default'] {
+		background-color: var( --primary );
+		color: var( --primary-foreground );
+	}
+
+	.badge[data-variant='accent'] {
+		background-color: color-mix( in oklab, var( --accent ) 10%, transparent );
+		color: var( --accent-text );
+	}
+
+	.badge[data-variant='on-accent'] {
+		background-color: var( --accent-foreground );
+		color: var( --accent );
+	}
+
+	.badge[data-variant='secondary'] {
+		background-color: var( --secondary );
+		color: var( --secondary-foreground );
+	}
+
+	.badge[data-variant='muted'] {
+		background-color: var( --muted );
+		color: var( --foreground );
+	}
+
+	.badge[data-variant='destructive'] {
+		background-color: light-dark(
+			color-mix( in oklab, var( --destructive ) 10%, transparent ),
+			color-mix( in oklab, var( --destructive ) 20%, transparent )
+		);
+		color: var( --destructive );
+	}
+}

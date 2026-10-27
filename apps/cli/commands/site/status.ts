@@ -6,10 +6,12 @@ import { __, _n } from '@wordpress/i18n';
 import CliTable3 from 'cli-table3';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { getSiteEmailDirectory } from 'cli/lib/site-email';
 import { getPrettyPath } from 'cli/lib/utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
-import { StudioArgv } from 'cli/types';
+import type { builder } from 'cli/commands/site/status.command';
+import type { CommandArgs } from 'cli/types';
 
 const logger = new Logger< LoggerAction >();
 
@@ -62,6 +64,11 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 				hidden: ! isOnline,
 			},
 			{ key: __( 'Site Path' ), jsonKey: 'sitePath', value: sitePath },
+			{
+				key: __( 'Email' ),
+				jsonKey: 'emailPath',
+				value: getPrettyPath( getSiteEmailDirectory( site.id ) ),
+			},
 			{ key: __( 'Status' ), jsonKey: 'status', value: status },
 			{ key: __( 'PHP version' ), jsonKey: 'phpVersion', value: site.phpVersion },
 			{ key: __( 'File access' ), jsonKey: 'fileAccess', value: fileAccessLabel },
@@ -116,30 +123,15 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 		await disconnectFromDaemon();
 	}
 }
-
-export const registerCommand = ( yargs: StudioArgv ) => {
-	return yargs.command( {
-		command: 'status',
-		describe: __( 'Get status of site' ),
-		builder: ( yargs ) => {
-			return yargs.option( 'format', {
-				type: 'string',
-				choices: [ 'table', 'json' ] as const,
-				default: 'table' as const,
-				description: __( 'Output format' ),
-			} );
-		},
-		handler: async ( argv ) => {
-			try {
-				await runCommand( argv.path, argv.format );
-			} catch ( error ) {
-				if ( error instanceof LoggerError ) {
-					logger.reportError( error );
-				} else {
-					const loggerError = new LoggerError( __( 'Failed to load site status' ), error );
-					logger.reportError( loggerError );
-				}
-			}
-		},
-	} );
-};
+export async function commandHandler( argv: CommandArgs< typeof builder > ) {
+	try {
+		await runCommand( argv.path, argv.format );
+	} catch ( error ) {
+		if ( error instanceof LoggerError ) {
+			logger.reportError( error );
+		} else {
+			const loggerError = new LoggerError( __( 'Failed to load site status' ), error );
+			logger.reportError( loggerError );
+		}
+	}
+}

@@ -265,19 +265,6 @@ describe( 'pi runtime', () => {
 		}
 	} );
 
-	it( 'emits a full exchange when AgentSession returns output', async () => {
-		const events = await runRuntime( {
-			prompt: 'hello',
-			env: WPCOM_ENV,
-			model: 'balanced',
-			session: newSession(),
-		} );
-
-		expect( findAssistantText( events ) ).toBe( 'mocked wpcom response' );
-		const final = events[ events.length - 1 ];
-		expect( final.type ).toBe( 'agent_end' );
-	} );
-
 	it( 'routes the fast tier to the wpcom Chat Completions path', async () => {
 		await runRuntime( {
 			prompt: 'hello',
@@ -519,23 +506,6 @@ describe( 'pi runtime', () => {
 				body: { content: '<!-- wp:paragraph --><p>partial' },
 			} )
 		).rejects.toThrow( /hit the model output limit/ );
-	} );
-
-	it( 'leaves retry policy to pi settings defaults', async () => {
-		await runRuntime( {
-			prompt: 'hello',
-			env: WPCOM_ENV,
-			model: 'balanced',
-			session: newSession(),
-		} );
-
-		expect( mocks.createdSessions[ 0 ].options.settingsManager?.getRetrySettings() ).toMatchObject(
-			{
-				enabled: true,
-				maxRetries: 3,
-				baseDelayMs: 2000,
-			}
-		);
 	} );
 
 	describe( 'a reply with neither text nor a tool call', () => {

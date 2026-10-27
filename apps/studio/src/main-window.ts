@@ -71,8 +71,8 @@ async function loadRendererLocation( window: BrowserWindow, location: RendererLo
 		// A build that skipped `scripts/build-ui-renderer.ts`, e.g. a stale `dist/`.
 		console.error( 'Studio renderer not found:', location.filePath );
 		dialog.showErrorBox(
-			'Studio could not start',
-			`The app's interface is missing (${ location.filePath }). Rebuild Studio and try again.`
+			'WordPress Studio could not start',
+			`The app's interface is missing (${ location.filePath }). Rebuild WordPress Studio and try again.`
 		);
 		app.quit();
 		return;
@@ -199,7 +199,6 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		}
 	} );
 
-	// Restore fullscreen state if it was saved
 	if ( savedBounds?.isFullScreen ) {
 		mainWindow.setFullScreen( true );
 	}
@@ -241,7 +240,6 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 
 	mainWindow.on( 'enter-full-screen', () => {
 		sendIpcEventToRendererWithWindow( mainWindow, 'window-fullscreen-change', true );
-		// Save fullscreen state
 		if ( mainWindow && ! mainWindow.isDestroyed() ) {
 			const bounds = mainWindow.getBounds();
 			void saveWindowBounds( { ...bounds, isFullScreen: true } );
@@ -250,7 +248,6 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 
 	mainWindow.on( 'leave-full-screen', () => {
 		sendIpcEventToRendererWithWindow( mainWindow, 'window-fullscreen-change', false );
-		// Save bounds after leaving fullscreen
 		if ( mainWindow && ! mainWindow.isDestroyed() ) {
 			const bounds = mainWindow.getBounds();
 			void saveWindowBounds( { ...bounds, isFullScreen: false } );

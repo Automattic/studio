@@ -1,7 +1,6 @@
 import {
 	Menu,
 	type MenuItemConstructorOptions,
-	app,
 	BrowserWindow,
 	autoUpdater,
 	shell,
@@ -111,7 +110,15 @@ export function buildViewMenuItems( {
 		{ type: 'separator' },
 		{
 			label: __( 'Toggle Fullscreen' ),
-			role: 'togglefullscreen',
+			...( process.platform === 'darwin'
+				? ( {
+						// The native role can cause macOS to insert a second fullscreen item.
+						accelerator: 'Control+Command+F',
+						click: ( _menuItem, browserWindow ) => {
+							browserWindow?.setFullScreen( ! browserWindow.isFullScreen() );
+						},
+				  } satisfies MenuItemConstructorOptions )
+				: { role: 'togglefullscreen' as const } ),
 		},
 		{ type: 'separator' },
 		{
@@ -163,7 +170,7 @@ async function getAppMenu( mainWindow: BrowserWindow | null ) {
 
 	return Menu.buildFromTemplate( [
 		{
-			label: app.name, // macOS ignores this name and uses the name from the .plist
+			label: 'WordPress Studio', // macOS ignores this name and uses the name from the .plist
 			role: 'appMenu',
 			submenu: [
 				{

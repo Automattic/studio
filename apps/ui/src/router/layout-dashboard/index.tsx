@@ -1,30 +1,41 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
-import { createRoute, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
+import {
+	createRoute,
+	Outlet,
+	useNavigate,
+	useRouter,
+	useRouterState,
+} from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useState } from 'react';
-import { requestAnnotationSend } from '@/components/annotations/store';
-import { CommandPalette } from '@/components/command-palette';
-import {
-	PreviewSplitFrame,
-	type PreviewSplitFramePreviewProps,
-} from '@/components/preview-split-frame';
-import { SidebarLayout } from '@/components/sidebar-layout';
-import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
-import { SiteActionsMenu } from '@/components/site-actions-menu';
-import { SiteHeaderActions, SiteHeaderActionsProvider } from '@/components/site-header-actions';
-import { SitePreview } from '@/components/site-preview';
-import { SiteWorkspace } from '@/components/site-workspace';
-import { IconButton } from '@/components/ui/button';
-import { useOrientationAutostart } from '@/data/onboarding/use-orientation-autostart';
-import { useOrientationReplay } from '@/data/onboarding/use-orientation-replay';
-import { useWhatsNewAutostart } from '@/data/onboarding/use-whats-new-autostart';
-import { useWhatsNewReplay } from '@/data/onboarding/use-whats-new-replay';
-import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
+import { useAiSettings } from '@/data/queries/use-ai-settings';
+import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useSession, useSessionLiveSite } from '@/data/queries/use-sessions';
-import { useSites } from '@/data/queries/use-sites';
-import { pathForSite, SessionUIProvider, useSessionPreviewUI } from '@/hooks/use-session-ui';
-import { ChatIcon } from '@/lib/icons/chat-icon';
-import { rememberVisit } from '@/lib/last-visited';
+import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
+import { useIsSiteStopping, useSiteOperation, useSites } from '@/data/queries/use-sites';
+import { useOpenSettings } from '@/data/use-open-settings';
+import { pathForSite, useSessionPreviewUI } from '@/data/use-session-ui';
+import { AccountPromptDialog } from '@/features/account';
+import { requestAnnotationSend } from '@/features/annotations';
+import { SiteWorkspace } from '@/features/chats';
+import { CommandPalette } from '@/features/commands';
+import {
+	useOrientationAutostart,
+	useOrientationReplay,
+	useWhatsNewAutostart,
+	useWhatsNewReplay,
+} from '@/features/onboarding';
+import { SidebarLayout, HeaderSidebarToggle, rememberVisit } from '@/features/sidebar';
+import { PreviewSplitFrame, type PreviewSplitFramePreviewProps } from '@/features/sites';
+import {
+	SiteActionsMenu,
+	SiteHeaderActions,
+	SiteHeaderActionsProvider,
+	SiteHeaderStart,
+	SitePreview,
+} from '@/features/sites';
+import { ChatIcon } from '@/lib/icons';
+import { IconButton } from '@/lib/ui';
 import { rootRoute } from '../layout-root';
 
 // Session detail routes and a site's own page host the preview;
@@ -45,20 +56,20 @@ function getNewSessionSiteId( pathname: string ): string | undefined {
 	return match ? decodeURIComponent( match[ 1 ] ) : undefined;
 }
 
-function DashboardLayout() {
-	return (
-		<SessionUIProvider>
-			<DashboardLayoutContent />
-		</SessionUIProvider>
-	);
-}
-
 // Hosts the site preview at the dashboard level so the webview stays mounted
 // (and warm) while navigating between sessions, sites, and other routes. The
 // previewed site follows the current session; routes without one keep the
 // last previewed site loaded behind a closed panel.
-function DashboardLayoutContent() {
+function DashboardLayout() {
 	const navigate = useNavigate();
+	const openSettings = useOpenSettings();
+	const { data: authUser } = useAuthUser();
+	const { data: aiSettings } = useAiSettings();
+	const [ providerPromptOpen, setProviderPromptOpen ] = useState( false );
+	const hasProvider = !! authUser || !! aiSettings?.hasAnthropicApiKey;
+	useEffect( () => {
+		if ( hasProvider ) setProviderPromptOpen( false );
+	}, [ hasProvider ] );
 	const routePreviewContext = useRouterState( {
 		select: ( state ) => ( {
 			sessionId: getRouteSessionId( state.location.pathname ),
@@ -67,7 +78,6 @@ function DashboardLayoutContent() {
 		} ),
 	} );
 	const { sessionId, homeSiteId, newSessionSiteId } = routePreviewContext;
-	const { isReady: agenticFeaturesReady, chatEnabled } = useAgenticFeatures();
 	const { data: sites } = useSites();
 	const { data: sessionData } = useSession( sessionId );
 	// Open the orientation guide on first workbench arrival, and let Help ▸
@@ -77,18 +87,14 @@ function DashboardLayoutContent() {
 	// Same, for the per-release announcements behind Help ▸ What's New.
 	useWhatsNewAutostart();
 	useWhatsNewReplay();
-	useEffect( () => {
-		if ( sessionId && agenticFeaturesReady && ! chatEnabled ) {
-			void navigate( { to: '/' } );
-		}
-	}, [ agenticFeaturesReady, chatEnabled, navigate, sessionId ] );
 	const preview = useSessionPreviewUI();
 	const sessionSite = findAiSessionOwnerSite( sites, sessionData?.summary );
 	// A chat switched to Live previews its remote instead of the local site.
-	const liveUrl = useSessionLiveSite( sessionData?.summary, sessionSite?.id )?.url.replace(
-		/\/+$/,
-		''
-	);
+	const { draft } = useSiteChatDraft( newSessionSiteId );
+	const liveUrl = useSessionLiveSite(
+		newSessionSiteId ? draft : sessionData?.summary,
+		newSessionSiteId ?? sessionSite?.id
+	)?.url.replace( /\/+$/, '' );
 	const homeSite = homeSiteId ? sites?.find( ( site ) => site.id === homeSiteId ) : undefined;
 	const newSessionSite = newSessionSiteId
 		? sites?.find( ( site ) => site.id === newSessionSiteId )
@@ -141,29 +147,52 @@ function DashboardLayoutContent() {
 		[ liveUrl ]
 	);
 	// A site's own page is its preview, so it shows whether or not the panel is
-	// open. Beside a chat, a stopped site has nothing to preview: the chat takes
-	// the room and shows the site's last screenshot instead.
+	// open. Beside a chat, a stopping or stopped site has nothing to preview, and
+	// a starting one shows nothing until its first page loads: the chat takes the
+	// room and shows its loading stage or the site's last screenshot instead.
+	const stopPending = useIsSiteStopping( previewSite?.id );
+	const previewOperation = useSiteOperation( previewSite );
+	const previewStopping = stopPending || previewOperation === 'stop';
 	const showPreview =
 		( preview.open || !! homeSiteId ) &&
 		supportsPreview &&
 		!! previewSite &&
-		( previewSite.running || !! homeSiteId || !! liveUrl );
+		( !! homeSiteId ||
+			!! liveUrl ||
+			( previewSite.running && ! previewStopping && preview.revealingSiteId !== previewSite.id ) );
 	const chatHidden = ( preview.chatHidden || !! homeSiteId ) && showPreview;
-	// Opening a chat shows it.
+	// Opening a chat shows it, the open one included. Search-only changes
+	// open dialogs over the workspace without changing its layout.
+	const router = useRouter();
 	const { setChatHidden } = preview;
-	useEffect( () => {
-		setChatHidden( false );
-	}, [ sessionId, setChatHidden ] );
+	useEffect(
+		() =>
+			router.subscribe( 'onBeforeNavigate', ( { pathChanged, hrefChanged } ) => {
+				if ( pathChanged || ! hrefChanged ) {
+					setChatHidden( false );
+				}
+			} ),
+		[ router, setChatHidden ]
+	);
+	const startAnnotating = useCallback( () => {
+		if ( hasProvider ) return true;
+		setProviderPromptOpen( true );
+		return false;
+	}, [ hasProvider ] );
 	// The notes go to the chat beside the preview, or to a new one for the site.
 	const sendAnnotations = useCallback(
 		( siteId: string, noteIds?: string[] ) => {
+			if ( ! hasProvider ) {
+				setProviderPromptOpen( true );
+				return;
+			}
 			requestAnnotationSend( { siteId, noteIds } );
 			setChatHidden( false );
 			if ( ! sessionId || sessionSite?.id !== siteId ) {
 				void navigate( { to: '/sites/$siteId/new', params: { siteId } } );
 			}
 		},
-		[ navigate, sessionId, sessionSite?.id, setChatHidden ]
+		[ hasProvider, navigate, sessionId, sessionSite?.id, setChatHidden ]
 	);
 	const renderPreview = useCallback(
 		( { collapsed }: PreviewSplitFramePreviewProps ) =>
@@ -175,55 +204,76 @@ function DashboardLayoutContent() {
 					path={ liveUrl ? ( livePath.url === liveUrl ? livePath.path : '/' ) : previewPath }
 					reloadNonce={ preview.reloadNonce }
 					onSendAnnotations={ sendAnnotations }
+					onStartAnnotating={ startAnnotating }
 					onPathChange={ liveUrl ? updateLivePath : preview.updatePath }
 					collapsed={ collapsed }
 					atWindowStart={ chatHidden }
-					toolbarStart={
-						chatHidden ? (
-							<>
-								<HeaderSidebarToggle />
-								<SiteActionsMenu site={ previewSite } />
-								{ homeSite ? null : (
-									<IconButton
-										icon={ <ChatIcon /> }
-										label={ __( 'Show chat' ) }
-										onClick={ () => setChatHidden( false ) }
-									/>
-								) }
-							</>
-						) : undefined
-					}
 				/>
 			) : null,
 		[
 			chatHidden,
-			homeSite,
 			liveUrl,
 			livePath,
 			sendAnnotations,
+			startAnnotating,
 			previewPath,
 			preview.reloadNonce,
 			preview.updatePath,
 			previewSite,
-			setChatHidden,
 			updateLivePath,
 		]
 	);
 	const workspaceSiteId = newSessionSiteId ?? sessionSite?.id;
 	const workspace =
 		( sessionId || newSessionSiteId ) && workspaceSiteId ? (
-			<SiteWorkspace key={ workspaceSiteId } sessionId={ sessionId } />
+			<SiteWorkspace
+				key={ workspaceSiteId }
+				sessionId={ sessionId }
+				siteId={ workspaceSiteId }
+				headerStart={ <HeaderSidebarToggle /> }
+			/>
 		) : (
 			<Outlet />
 		);
 
 	return (
 		<SidebarLayout>
+			<AccountPromptDialog
+				open={ providerPromptOpen }
+				onOpenChange={ setProviderPromptOpen }
+				title={ __( 'Put your feedback to work' ) }
+				description={ __(
+					'Connect an AI provider to turn your notes and ideas into changes to your site.'
+				) }
+				source="assistant_tab"
+				secondaryLabel={ __( 'Choose a different provider' ) }
+				onSkip={ () => {
+					setProviderPromptOpen( false );
+					openSettings( 'ai' );
+				} }
+			/>
 			<SiteHeaderActionsProvider host={ showPreview ? 'preview' : 'chat' }>
 				<PreviewSplitFrame
 					previewOpen={ showPreview }
 					chatHidden={ chatHidden }
+					instant={ previewStopping }
 					preview={ renderPreview }
+					start={
+						routeSite ? (
+							<SiteHeaderStart>
+								<HeaderSidebarToggle />
+								<SiteActionsMenu site={ routeSite } />
+								{ chatHidden && ! homeSiteId ? (
+									<IconButton
+										icon={ <ChatIcon /> }
+										label={ __( 'Show chat' ) }
+										tooltipSide="bottom"
+										onClick={ () => setChatHidden( false ) }
+									/>
+								) : null }
+							</SiteHeaderStart>
+						) : null
+					}
 					actions={
 						routeSite ? <SiteHeaderActions site={ routeSite } live={ !! liveUrl } /> : null
 					}

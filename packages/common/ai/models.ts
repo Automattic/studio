@@ -11,7 +11,7 @@ export interface AiModel {
 	apiModelId?: string;
 	/** Human-readable label shown in the model picker. */
 	label: string;
-	/** Which runtime serves this model. Drives `pickRuntime` in agent.ts. */
+	/** Which runtime serves this model. */
 	family: AiModelFamily;
 	/**
 	 * Whether the model accepts image input. Defaults to true. Set false for

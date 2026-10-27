@@ -22,7 +22,7 @@ export function useTrustCertificate() {
 	return useMutation( {
 		mutationFn: () => connector.trustCertificate(),
 		onError: () =>
-			toast.error( __( "Couldn't trust Studio's certificate" ), {
+			toast.error( __( 'Couldn’t trust certificate' ), {
 				action: openStudioLogsAction( connector ),
 			} ),
 		onSettled: () => queryClient.invalidateQueries( { queryKey: CERTIFICATE_TRUST_QUERY_KEY } ),

@@ -34,6 +34,7 @@ export const IPC_VOID_HANDLERS = [
 	'openStudioLogs',
 	'openURL',
 	'popupAppMenu',
+	'readyForDeeplinks',
 	'showErrorMessageBox',
 	'authenticate',
 ] as const;

@@ -1,0 +1,61 @@
+/* Shared declaration groups, pulled into a component's class with
+   `composes: <name> from '@/lib/theme/recipes.module.css'`. They sit in the
+   `ui` layer with the primitives, so a component's own rules override them. */
+@layer ui {
+	.dismissIcon svg:not( [data-size] ) {
+		width: 11px;
+		height: 11px;
+	}
+
+	/* One line of text, cut with an ellipsis. */
+	.truncate {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	/* The hairline under a header in the workspace's top band. */
+	.bandEdge {
+		box-shadow: inset 0 -1px 0 var( --border );
+	}
+
+	/* A hairline drawn inside an image's frame, so the image keeps its full size. */
+	.imageOutline::after {
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		box-shadow: inset 0 0 0 1px var( --border );
+		content: '';
+		pointer-events: none;
+	}
+
+	/* A dot on an icon's top-right corner, with the icon cut away around it. */
+	.dotted:has( .dot ) svg {
+		mask-image: radial-gradient( circle at calc( 100% - 2px ) 2px, transparent 5.5px, #000 6px );
+	}
+
+	.dot {
+		position: absolute;
+		width: 7px;
+		height: 7px;
+		border-radius: var( --radius-full );
+		background-color: var( --accent );
+	}
+}
+
+@layer ui {
+	.previewFrame {
+		box-shadow: var(
+			--preview-frame-shadow,
+			0 0 0 1px var( --border ),
+			0 1px 3px rgb( 0 0 0 / 10% )
+		);
+	}
+	.previewFrame::after {
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		content: '';
+		pointer-events: none;
+	}
+}

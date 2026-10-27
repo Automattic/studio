@@ -352,7 +352,7 @@ async function showLinuxUpdateAvailableNotice( version: string, downloadUrl: str
 		'Clicking the button below will download the new package and copy the install command to your clipboard.'
 	);
 	const followUpInstruction = __(
-		'Once the download finishes, quit Studio, open a terminal, and paste the command to install:'
+		'Once the download finishes, quit WordPress Studio, open a terminal, and paste the command to install:'
 	);
 
 	const { response } = await dialog.showMessageBox( mainWindow, {
@@ -360,7 +360,7 @@ async function showLinuxUpdateAvailableNotice( version: string, downloadUrl: str
 		buttons: [ __( 'Download & copy command' ), __( 'Later' ) ],
 		title: __( 'New Version Available' ),
 		// translators: %s is the version number, e.g. "1.9.0".
-		message: sprintf( __( 'Studio %s is available' ), version ),
+		message: sprintf( __( 'WordPress Studio %s is available' ), version ),
 		detail: `${ actionDescription }\n\n${ followUpInstruction }\n\n${ command }`,
 		defaultId: 0,
 		cancelId: 1,
@@ -411,22 +411,22 @@ async function showReadOnlyVolumeError( err: Error ) {
 	let detailPath = '';
 	if ( isAppRunningFromDMG() ) {
 		detailMessage = __(
-			'Studio can only update automatically from the Applications folder. Please move Studio to Applications and try again.'
+			'WordPress Studio can only update automatically from the Applications folder. Please move WordPress Studio to Applications and try again.'
 		);
 		detailPath = sprintf(
-			__( 'Studio is running from a disk image at: %s' ),
+			__( 'WordPress Studio is running from a disk image at: %s' ),
 			app.getPath( 'exe' )
 		);
 	} else if ( ! app.isInApplicationsFolder() ) {
 		detailMessage = __(
-			'Studio can only update automatically from the Applications folder. Please move Studio to Applications and try again.'
+			'WordPress Studio can only update automatically from the Applications folder. Please move WordPress Studio to Applications and try again.'
 		);
-		detailPath = sprintf( __( 'Studio is running from: %s' ), app.getPath( 'exe' ) );
+		detailPath = sprintf( __( 'WordPress Studio is running from: %s' ), app.getPath( 'exe' ) );
 	} else {
 		detailMessage = __(
-			'Studio can only update from the writable Applications folder. Please check write permissions and try again.'
+			'WordPress Studio can only update from the writable Applications folder. Please check write permissions and try again.'
 		);
-		detailPath = sprintf( __( 'Studio is running from: %s' ), app.getPath( 'exe' ) );
+		detailPath = sprintf( __( 'WordPress Studio is running from: %s' ), app.getPath( 'exe' ) );
 
 		console.error( err );
 	}

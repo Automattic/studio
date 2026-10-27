@@ -1,17 +1,15 @@
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { renderHook } from '@testing-library/react';
-import { expect, it, vi } from 'vitest';
-import { useConnector } from '@/data/core';
-import { SNAPSHOTS_QUERY_KEY, useSyncSnapshotsWithEvents } from './use-snapshots';
-import type { Connector, Snapshot } from '@/data/core';
+import { expect, it } from 'vitest';
+import { ConnectorProvider } from '@/data/core';
+import { createFakeConnector } from '@/test/fake-connector';
+import { createTestQueryClient } from '@/test/render';
+import { useSyncSnapshotsWithEvents } from './use-snapshots';
+import { SNAPSHOTS_QUERY_KEY } from './user-scoped-query-keys';
+import type { Snapshot } from '@/data/core';
 import type { SnapshotEvent } from '@studio/common/lib/cli-events';
 import type { ReactNode } from 'react';
-
-vi.mock( '@/data/core', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@/data/core') >() ),
-	useConnector: vi.fn(),
-} ) );
 
 const preview = ( url: string, name: string ): Snapshot => ( {
 	url,
@@ -22,18 +20,15 @@ const preview = ( url: string, name: string ): Snapshot => ( {
 } );
 
 it( 'applies preview sites created, renamed or deleted anywhere to the cached list', () => {
-	let emit: ( event: SnapshotEvent ) => void = () => {};
-	vi.mocked( useConnector ).mockReturnValue( {
-		onSnapshotEvent: ( listener: typeof emit ) => {
-			emit = listener;
-			return () => {};
-		},
-	} as unknown as Connector );
-	const queryClient = new QueryClient();
+	const connector = createFakeConnector();
+	const emit = ( event: SnapshotEvent ) => connector.emit( 'onSnapshotEvent', event );
+	const queryClient = createTestQueryClient();
 	queryClient.setQueryData( SNAPSHOTS_QUERY_KEY, [ preview( 'a.wp.build', 'A' ) ] );
 	renderHook( useSyncSnapshotsWithEvents, {
 		wrapper: ( { children }: { children: ReactNode } ) => (
-			<QueryClientProvider client={ queryClient }>{ children }</QueryClientProvider>
+			<ConnectorProvider connector={ connector }>
+				<QueryClientProvider client={ queryClient }>{ children }</QueryClientProvider>
+			</ConnectorProvider>
 		),
 	} );
 

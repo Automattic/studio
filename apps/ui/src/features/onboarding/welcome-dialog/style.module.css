@@ -1,0 +1,55 @@
+.prompt {
+	padding-bottom: var( --space-2 );
+}
+
+.privacy {
+	text-align: start;
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-4 );
+	margin-top: auto;
+}
+
+.privacy::before {
+	align-self: center;
+	width: 25%;
+	margin-bottom: var( --space-2 );
+	border-top: 1px solid var( --border );
+	content: '';
+}
+
+.analytics {
+	justify-content: center;
+	text-align: center;
+}
+
+.analyticsLabel {
+	flex: 0 1 auto;
+	color: var( --muted-foreground );
+	font-size: var( --text-xxs );
+	line-height: var( --leading-normal );
+}
+
+.legal {
+	padding: 0 var( --space-8 ) var( --space-2 );
+	text-align: center;
+	color: var( --muted-foreground );
+	font-size: var( --text-xxs );
+	line-height: var( --leading-normal );
+}
+
+.legalLink {
+	color: var( --muted-foreground );
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+
+.legalLink:hover {
+	color: var( --foreground );
+}
+
+.error {
+	color: var( --destructive );
+	font-size: var( --text-xs );
+	line-height: var( --leading-normal );
+}

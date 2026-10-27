@@ -1,0 +1,91 @@
+.addressBar {
+	-webkit-app-region: no-drag;
+	position: relative;
+	display: flex;
+	width: 100%;
+	max-width: 416px;
+	flex: 1 1 auto;
+	min-width: 0;
+	height: var( --control-size );
+	padding-inline: var( --space-3 );
+	align-items: center;
+	border: 1px solid var( --border );
+	border-radius: var( --radius-full );
+	overflow: hidden;
+}
+
+.addressBar:focus-within {
+	border-color: var( --ring );
+	box-shadow: inset 0 0 0 1px var( --ring );
+}
+
+.addressBar:has( .input[aria-invalid='true'] ) {
+	border-color: var( --destructive );
+	--ring: var( --destructive );
+}
+
+.actions {
+	position: absolute;
+	inset-block: 0;
+	inset-inline-end: var( --space-0_5 );
+	display: flex;
+	align-items: center;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity var( --motion-duration-feedback ) ease;
+}
+
+.settingsAction {
+	inset-inline: var( --space-0_5 ) auto;
+}
+
+.addressBar:is( :hover, :focus-within ) .actions {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+/* Out of the way while typing an address. */
+.addressBar:has( .input:focus ) .actions {
+	opacity: 0;
+	pointer-events: none;
+}
+
+.input {
+	width: 100%;
+	min-width: 0;
+	padding-inline: var( --space-5 );
+	color: var( --foreground );
+	font-size: var( --text-xs );
+	line-height: var( --text-xs--line-height );
+	text-align: center;
+	outline: 0;
+}
+
+.input:focus {
+	padding-inline: 0;
+	text-align: start;
+}
+
+.shortcutsPopup {
+	transition: none;
+	opacity: 1;
+	scale: 1;
+	width: var( --anchor-width );
+	max-width: calc( 100vw - 16px );
+	padding: var( --space-1_5 );
+}
+
+/* Rows rounded for the menu surface rather than the composer's. */
+.shortcuts {
+	/* eslint-disable-next-line studio/no-primitive-overrides -- the suggestions sit on a menu surface, not the composer. */
+	--command-radius: var( --radius-md );
+}
+
+.addressText {
+	position: absolute;
+	visibility: hidden;
+	white-space: pre;
+	font-size: var( --text-xs );
+	line-height: var( --text-xs--line-height );
+	pointer-events: none;
+}

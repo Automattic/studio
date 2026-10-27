@@ -16,17 +16,22 @@ test.describe( 'Electron app', () => {
 		await session.cleanup();
 	} );
 
-	test( 'should ensure app title is correct.', async () => {
+	test( 'first launch welcomes, then opens Add site', async () => {
 		expect( await session.mainWindow.title() ).toBe( 'WordPress Studio' );
-	} );
-
-	test( 'first screens are onboarding, then Add site', async () => {
-		await expect(
-			session.mainWindow.getByRole( 'heading', { name: 'WordPress Studio', level: 1 } )
-		).toBeVisible();
-		await session.mainWindow.getByRole( 'button', { name: 'Skip' } ).click();
-		await session.mainWindow.getByRole( 'button', { name: 'Continue' } ).click();
-		await session.mainWindow.getByRole( 'button', { name: 'Skip log in' } ).click();
+		const welcome = session.mainWindow.getByRole( 'dialog', {
+			name: 'Welcome to WordPress Studio',
+		} );
+		await expect( welcome ).toBeVisible();
+		await welcome.getByRole( 'button', { name: 'Close', exact: true } ).click();
 		await expect( session.mainWindow.getByRole( 'dialog', { name: 'Add site' } ) ).toBeVisible();
+		await session.mainWindow.keyboard.press( 'Escape' );
+		await expect( session.mainWindow.getByRole( 'dialog', { name: 'Add site' } ) ).toBeHidden();
+		await session.restart();
+		await expect( session.mainWindow.getByRole( 'dialog', { name: 'Add site' } ) ).toBeVisible();
+		await session.mainWindow.keyboard.press( 'Escape' );
+		await expect( session.mainWindow.getByRole( 'dialog', { name: 'Add site' } ) ).toBeHidden();
+		expect( await session.mainWindow.evaluate( () => window.ipcApi.getOnboardingData() ) ).toBe(
+			true
+		);
 	} );
 } );

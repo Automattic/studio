@@ -1,0 +1,18 @@
+/* Sits a little above center, and stays put as results narrow. */
+.popup {
+	top: max( var( --space-4 ), calc( 50dvh - 168px ) );
+	display: block;
+	max-width: 448px;
+	overflow: hidden;
+	padding: var( --space-2_5 );
+	transform: translateX( -50% );
+	transition: none;
+}
+
+.inputGroup {
+	border-radius: calc( var( --radius-3xl ) - var( --space-2_5 ) );
+}
+
+.icon {
+	flex: none;
+}

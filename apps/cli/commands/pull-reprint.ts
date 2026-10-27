@@ -56,67 +56,35 @@ import {
 	getProcessName,
 } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
-import { StudioArgv } from 'cli/types';
 import type { SyncSite } from '@studio/common/types/sync';
+import type { builder } from 'cli/commands/pull-reprint.command';
+import type { CommandArgs } from 'cli/types';
 
 const logger = new Logger< LoggerAction >();
+export async function commandHandler( argv: CommandArgs< typeof builder > ) {
+	const verbose = argv.verbose;
 
-export const registerCommand = ( yargs: StudioArgv ) => {
-	return yargs.command( {
-		command: 'pull-reprint',
-		describe: __(
-			'Pull a remote WordPress site into an existing local site (run `studio create` first; remove with `studio delete`)'
-		),
-		builder: ( builderYargs ) => {
-			return builderYargs
-				.option( 'url', {
-					type: 'string',
-					describe: __( 'URL of the remote WordPress site to pull from (remote source)' ),
-				} )
-				.option( 'only', {
-					type: 'string',
-					array: true,
-					describe: __(
-						'Restrict the pull to specific wp-content files or folders (e.g. plugins/akismet, themes, uploads/index.php); repeatable.'
-					),
-				} )
-				.option( 'skip-database', {
-					type: 'boolean',
-					describe: __( 'Do not pull the database (keeps the local one)' ),
-					default: false,
-				} )
-				.option( 'verbose', {
-					type: 'boolean',
-					describe: __( 'Show detailed error information and executed commands' ),
-					default: false,
-				} );
-		},
-		handler: async ( argv ) => {
-			const verbose = argv.verbose;
-
-			try {
-				await runCommand( argv.path, argv.url, verbose, {
-					only: argv.only as string[] | undefined,
-					skipDatabase: argv[ 'skip-database' ] as boolean,
-				} );
-			} catch ( error ) {
-				if ( error instanceof PullError ) {
-					logger.spinner.fail( __( 'Pull failed' ) );
-					console.error( '\n' + chalk.bold.red( error.message ) );
-					if ( verbose && error.technicalDetails ) {
-						console.error( '\n' + chalk.dim( error.technicalDetails ) );
-					} else if ( error.technicalDetails ) {
-						console.error( chalk.dim( '\nRun with --verbose for detailed error output.' ) );
-					}
-				} else if ( error instanceof LoggerError ) {
-					logger.reportError( error );
-				} else {
-					logger.reportError( new LoggerError( __( 'Failed to pull site' ), error ) );
-				}
+	try {
+		await runCommand( argv.path, argv.url, verbose, {
+			only: argv.only as string[] | undefined,
+			skipDatabase: argv[ 'skip-database' ] as boolean,
+		} );
+	} catch ( error ) {
+		if ( error instanceof PullError ) {
+			logger.spinner.fail( __( 'Pull failed' ) );
+			console.error( '\n' + chalk.bold.red( error.message ) );
+			if ( verbose && error.technicalDetails ) {
+				console.error( '\n' + chalk.dim( error.technicalDetails ) );
+			} else if ( error.technicalDetails ) {
+				console.error( chalk.dim( '\nRun with --verbose for detailed error output.' ) );
 			}
-		},
-	} );
-};
+		} else if ( error instanceof LoggerError ) {
+			logger.reportError( error );
+		} else {
+			logger.reportError( new LoggerError( __( 'Failed to pull site' ), error ) );
+		}
+	}
+}
 
 /**
  * Where Studio stores the working directories for each pulled
@@ -1028,12 +996,6 @@ export function normalizeSiteUrl( url: string ): string {
  * public URL best matches `url`.  Matches on the full normalized URL
  * first, then falls back to host-only matching so `example.com` and
  * `example.com/blog` both resolve to the same WP.com site record.
- *
- * No existing Studio helper does this today — `getSiteByFolder` /
- * `getHostnameFromUrl` operate on local sites or return a string, and
- * `findSite` variants all key on site id.  Keep this one local to
- * pull-reprint; if a second caller ever needs the same shape, the
- * natural home would be `cli/lib/wpcom-sites`.
  */
 export function findMatchingWpComSite< T extends { url: string } >(
 	sites: T[],

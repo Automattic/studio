@@ -1,24 +1,16 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider, type QueryClient } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useConnector } from '@/data/core';
+import { describe, expect, it } from 'vitest';
+import { ConnectorProvider } from '@/data/core';
+import { createFakeConnector } from '@/test/fake-connector';
+import { createTestQueryClient } from '@/test/render';
 import {
 	WORDPRESS_SKILLS_QUERY_KEY,
 	useInstallWordPressSkill,
 	useRemoveWordPressSkill,
 } from './use-wordpress-skills';
-import type { Connector, SkillStatus } from '@/data/core';
+import type { SkillStatus } from '@/data/core';
 import type { ReactNode } from 'react';
-
-vi.mock( '@/data/core', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('@/data/core') >();
-	return {
-		...actual,
-		useConnector: vi.fn(),
-	};
-} );
-
-const useConnectorMock = vi.mocked( useConnector );
 
 const SKILLS: SkillStatus[] = [
 	{ id: 'studio-cli', displayName: 'Studio CLI', description: 'CLI', installed: true },
@@ -31,29 +23,26 @@ function installedInCache( queryClient: QueryClient, skillId: string ): boolean 
 		?.find( ( skill ) => skill.id === skillId )?.installed;
 }
 
-describe( 'use-wordpress-skills mutations', () => {
-	let queryClient: QueryClient;
-
-	beforeEach( () => {
-		vi.clearAllMocks();
-		queryClient = new QueryClient( {
-			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-		} );
-		queryClient.setQueryData( WORDPRESS_SKILLS_QUERY_KEY, SKILLS );
-	} );
-
+function setup() {
+	const connector = createFakeConnector();
+	connector.getWordPressSkillsStatusAllSites.mockResolvedValue( SKILLS );
+	const queryClient = createTestQueryClient();
+	queryClient.setQueryData( WORDPRESS_SKILLS_QUERY_KEY, SKILLS );
 	const wrapper = ( { children }: { children: ReactNode } ) => (
-		<QueryClientProvider client={ queryClient }>{ children }</QueryClientProvider>
+		<ConnectorProvider connector={ connector }>
+			<QueryClientProvider client={ queryClient }>{ children }</QueryClientProvider>
+		</ConnectorProvider>
 	);
+	return { connector, queryClient, wrapper };
+}
 
+describe( 'use-wordpress-skills mutations', () => {
 	it( 'flips the cached installed state before the install resolves', async () => {
+		const { connector, queryClient, wrapper } = setup();
 		let resolveInstall = () => {};
-		useConnectorMock.mockReturnValue( {
-			installWordPressSkillToAllSites: vi.fn(
-				() => new Promise< void >( ( resolve ) => ( resolveInstall = resolve ) )
-			),
-			getWordPressSkillsStatusAllSites: vi.fn( () => Promise.resolve( SKILLS ) ),
-		} as unknown as Connector );
+		connector.installWordPressSkillToAllSites.mockImplementation(
+			() => new Promise< void >( ( resolve ) => ( resolveInstall = resolve ) )
+		);
 
 		const { result } = renderHook( () => useInstallWordPressSkill(), { wrapper } );
 
@@ -66,12 +55,8 @@ describe( 'use-wordpress-skills mutations', () => {
 	} );
 
 	it( 'rolls the cache back when the remove fails', async () => {
-		useConnectorMock.mockReturnValue( {
-			removeWordPressSkillFromAllSites: vi.fn( () =>
-				Promise.reject( new Error( 'remove failed' ) )
-			),
-			getWordPressSkillsStatusAllSites: vi.fn( () => Promise.resolve( SKILLS ) ),
-		} as unknown as Connector );
+		const { connector, queryClient, wrapper } = setup();
+		connector.removeWordPressSkillFromAllSites.mockRejectedValue( new Error( 'remove failed' ) );
 
 		const { result } = renderHook( () => useRemoveWordPressSkill(), { wrapper } );
 

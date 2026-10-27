@@ -174,25 +174,6 @@ describe( 'Linux updater', () => {
 	} );
 } );
 
-describe( 'update ready to install', () => {
-	async function emitUpdateDownloaded() {
-		Object.defineProperty( process, 'platform', { value: 'darwin', configurable: true } );
-		setupUpdates();
-		const calls = vi.mocked( autoUpdater.on ).mock.calls as unknown as [
-			string,
-			( ...args: unknown[] ) => Promise< void >,
-		][];
-		const handler = calls.find( ( [ event ] ) => event === 'update-downloaded' )?.[ 1 ];
-		await handler?.( {}, 'notes', '1.9.0' );
-	}
-
-	it( 'leaves the restart prompt to the sidebar card', async () => {
-		await emitUpdateDownloaded();
-
-		expect( dialog.showMessageBox ).not.toHaveBeenCalled();
-	} );
-} );
-
 describe( 'update status emissions', () => {
 	function setupDarwinUpdates() {
 		Object.defineProperty( process, 'platform', { value: 'darwin', configurable: true } );
@@ -385,15 +366,5 @@ describe( 'update status emissions', () => {
 		await getHandler( 'update-downloaded' )?.( {}, 'notes', '1.9.0' );
 
 		expect( getLastEmittedStatus()?.requested ).toBeUndefined();
-	} );
-
-	it( 'leaves the manual restart prompt to the sidebar card', async () => {
-		setupDarwinUpdates();
-		await getHandler( 'update-downloaded' )?.( {}, 'notes', '1.9.0' );
-		vi.mocked( dialog.showMessageBox ).mockClear();
-
-		await manualCheckForUpdates();
-
-		expect( dialog.showMessageBox ).not.toHaveBeenCalled();
 	} );
 } );

@@ -26,21 +26,17 @@ import { ExportOptions } from 'cli/lib/import-export/export/types';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { exitOnCancel, reportSyncActivity } from 'cli/lib/sync-activity';
-import {
-	fetchSyncableSites,
-	initiateImport,
-	parseSyncOptions,
-	pollImportStatus,
-} from 'cli/lib/sync-api';
+import { fetchSyncableSites, initiateImport, pollImportStatus } from 'cli/lib/sync-api';
 import { selectSyncItemsForPush } from 'cli/lib/sync-selector';
 import { findSyncSiteByIdentifier, pickSyncSite } from 'cli/lib/sync-site-picker';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { findFailureCode } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
-import { StudioArgv } from 'cli/types';
 import { handleExportEvents } from './export';
 import type { SyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
 import type { ImportResponse, PushPhase, SyncSite } from '@studio/common/types/sync';
+import type { builder } from 'cli/commands/push.command';
+import type { CommandArgs } from 'cli/types';
 
 const defaultLogger = new Logger< LoggerAction >();
 
@@ -415,51 +411,19 @@ async function recordSyncPushEvent( props: SyncEventProps ): Promise< void > {
 		// Best-effort telemetry — never block or fail the push.
 	}
 }
-
-export const registerCommand = ( yargs: StudioArgv ) => {
-	return yargs.command( {
-		command: 'push',
-		describe: __( 'Push your local site to a WordPress.com site' ),
-		builder: ( yargs ) => {
-			return yargs
-				.option( 'options', {
-					type: 'string',
-					description: __(
-						'Comma-separated sync options: all, sqls, uploads, plugins, themes, contents'
-					),
-					coerce: ( val: string | undefined ) =>
-						val !== undefined ? parseSyncOptions( val ) : undefined,
-				} )
-				.option( 'remote-site', {
-					type: 'string',
-					description: __( 'Remote site URL or ID' ),
-				} )
-				.option( 'include-only', {
-					type: 'string',
-					array: true,
-					description: __( 'Only push these paths from the selection made with --options' ),
-				} )
-				.option( 'suppress-tracks-event', {
-					type: 'boolean',
-					default: false,
-					hidden: true,
-				} );
-		},
-		handler: async ( argv ) => {
-			exitOnCancel();
-			try {
-				await runCommand( argv.path, argv.options, argv.remoteSite, defaultLogger, {
-					includeOnly: argv.includeOnly,
-					suppressTracksEvent: argv.suppressTracksEvent,
-				} );
-			} catch ( error ) {
-				if ( error instanceof LoggerError ) {
-					defaultLogger.reportError( error );
-				} else {
-					const loggerError = new LoggerError( __( 'Push failed' ), error );
-					defaultLogger.reportError( loggerError );
-				}
-			}
-		},
-	} );
-};
+export async function commandHandler( argv: CommandArgs< typeof builder > ) {
+	exitOnCancel();
+	try {
+		await runCommand( argv.path, argv.options, argv.remoteSite, defaultLogger, {
+			includeOnly: argv.includeOnly,
+			suppressTracksEvent: argv.suppressTracksEvent,
+		} );
+	} catch ( error ) {
+		if ( error instanceof LoggerError ) {
+			defaultLogger.reportError( error );
+		} else {
+			const loggerError = new LoggerError( __( 'Push failed' ), error );
+			defaultLogger.reportError( loggerError );
+		}
+	}
+}

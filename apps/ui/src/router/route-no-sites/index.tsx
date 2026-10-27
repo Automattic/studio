@@ -1,33 +1,97 @@
-import { createRoute } from '@tanstack/react-router';
+import { createRoute, useNavigate, useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { Button } from '@/components/ui/button';
-import { Empty, EmptyDescription } from '@/components/ui/empty';
+import { clsx } from 'clsx';
+import { useEffect, useRef } from 'react';
+import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
 import { useSites } from '@/data/queries/use-sites';
-import { useOpenAddSite } from '@/hooks/use-open-add-site';
-import { PlusIcon } from '@/lib/icons/plus-icon';
+import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
+import { HeaderSidebarToggle } from '@/features/sidebar';
+import { useOpenAddSite } from '@/features/sites';
+import { PlusIcon } from '@/lib/icons';
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, Button } from '@/lib/ui';
 import { dashboardLayoutRoute } from '../layout-dashboard';
+import styles from './style.module.css';
 
-// The workspace before the first site, or when the sites couldn't load.
+// The band above the empty workspace, keeping the sidebar toggle in reach
+// when the sidebar is hidden or opens over the content on a small window.
+function NoSitesHeader() {
+	const sidebarCollapsed = useSidebarCollapsed();
+	const reserveTrafficLightSpace = useTrafficLightSpace().start;
+	return (
+		<header
+			className={ clsx(
+				styles.header,
+				sidebarCollapsed && reserveTrafficLightSpace && styles.headerSidebarCollapsed
+			) }
+		>
+			<HeaderSidebarToggle />
+		</header>
+	);
+}
+
+// The workspace before the first site, or when the sites couldn't load. It
+// offers Add site once, unless the welcome is showing (it opens Add site
+// itself), and leaves for the sites when one appears, such as a site created
+// in a terminal.
 function NoSites() {
+	return (
+		<>
+			<NoSitesHeader />
+			<NoSitesContent />
+		</>
+	);
+}
+
+function NoSitesContent() {
 	const sites = useSites();
+	const navigate = useNavigate();
 	const openAddSite = useOpenAddSite();
+	const { welcome, addSite, settings } = useSearch( { strict: false } ) as {
+		welcome?: true;
+		addSite?: string;
+		settings?: string;
+	};
+	const hasSites = !! sites.data?.length;
+	const empty = sites.isSuccess && ! hasSites;
+	const offered = useRef( false );
+	useEffect( () => {
+		if ( empty && ! welcome && ! offered.current ) {
+			offered.current = true;
+			if ( ! addSite && ! settings ) {
+				openAddSite();
+			}
+		}
+	}, [ empty, welcome, addSite, settings, openAddSite ] );
+	useEffect( () => {
+		if ( hasSites && ! addSite ) {
+			void navigate( { to: '/', search: true, replace: true } );
+		}
+	}, [ hasSites, addSite, navigate ] );
 	if ( sites.isError ) {
 		return (
 			<Empty>
-				<EmptyDescription>{ __( 'Try loading your sites again.' ) }</EmptyDescription>
-				<Button variant="outline" loading={ sites.isFetching } onClick={ () => sites.refetch() }>
-					{ __( 'Try again' ) }
-				</Button>
+				<EmptyHeader>
+					<EmptyDescription>{ __( 'Try loading your sites again.' ) }</EmptyDescription>
+				</EmptyHeader>
+				<EmptyContent>
+					<Button variant="outline" loading={ sites.isFetching } onClick={ () => sites.refetch() }>
+						{ __( 'Try again' ) }
+					</Button>
+				</EmptyContent>
 			</Empty>
 		);
 	}
 	return (
 		<Empty>
-			<EmptyDescription>{ __( 'Add a local WordPress site to get started.' ) }</EmptyDescription>
-			<Button data-add-first-site onClick={ () => openAddSite() }>
-				<PlusIcon data-icon="inline-start" />
-				{ __( 'Add site' ) }
-			</Button>
+			<EmptyHeader>
+				<EmptyDescription>{ __( 'Add a local WordPress site to get started.' ) }</EmptyDescription>
+			</EmptyHeader>
+			<EmptyContent>
+				<Button data-add-first-site onClick={ () => openAddSite() }>
+					<PlusIcon data-icon="inline-start" />
+					{ __( 'Add site' ) }
+				</Button>
+			</EmptyContent>
 		</Empty>
 	);
 }

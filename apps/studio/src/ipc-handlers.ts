@@ -88,6 +88,10 @@ import {
 	listLocalFileTree as listSiteFileTree,
 } from '@studio/common/lib/sync/local-file-tree';
 import { supportedEditorConfig, SupportedEditor } from '@studio/common/lib/user-settings/editor';
+import {
+	readOnboardingCompleted,
+	writeOnboardingCompleted,
+} from '@studio/common/lib/user-settings/onboarding';
 import { openLinuxTerminal } from '@studio/common/lib/user-settings/open-linux-terminal';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import {
@@ -109,13 +113,14 @@ import {
 	readSiteDesign,
 	type SiteDesign,
 } from '@studio/common/sites/site-design';
-import { readSiteIcon, readThemeDetails } from '@studio/common/sites/site-identity';
+import { readThemeDetails } from '@studio/common/sites/site-identity';
 import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import { __ } from '@wordpress/i18n';
 import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { setPendingAuthContext } from 'src/lib/auth-tracks-context';
 import { bumpStat, getBlueprintMetric, StatsGroup } from 'src/lib/bump-stats';
+import { markDeeplinkListener } from 'src/lib/deeplink';
 import {
 	extractErrorFromProcessManagerLogs,
 	simplifyErrorForDisplay,
@@ -164,7 +169,7 @@ import { getDefaultSiteDirectory } from 'src/modules/user-settings/lib/ipc-handl
 import { linuxFindEditorPath } from 'src/modules/user-settings/lib/linux-editor-path';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { getSiteThumbnailPath } from 'src/storage/paths';
-import { updateAppdata, loadUserData } from 'src/storage/user-data';
+import { loadUserData } from 'src/storage/user-data';
 import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
 import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
@@ -221,8 +226,6 @@ export {
 } from 'src/modules/user-settings/lib/ipc-handlers';
 
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
-
-export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
 
 export async function recordAnalyticsEvent(
 	_event: IpcMainInvokeEvent,
@@ -881,21 +884,6 @@ export async function clearAuthenticationToken() {
 	return await updateSharedConfig( { authToken: undefined } );
 }
 
-export async function saveLastSeenVersion( event: IpcMainInvokeEvent, version: string ) {
-	await updateAppdata( { lastSeenVersion: version } );
-}
-
-export async function getLastSeenVersion(
-	_event: IpcMainInvokeEvent
-): Promise< string | undefined > {
-	// If we're running in E2E mode, return the app version
-	if ( process.env.E2E ) {
-		return app.getVersion();
-	}
-	const userData = await loadUserData();
-	return userData.lastSeenVersion;
-}
-
 export async function openSiteURL(
 	event: IpcMainInvokeEvent,
 	id: string,
@@ -1073,27 +1061,13 @@ export async function readLocalMediaFile(
 	};
 }
 
-export async function getSiteIcon(
-	_event: IpcMainInvokeEvent,
-	id: string
-): Promise< string | null > {
-	return readSiteIcon( executeCliCommand, await requireSitePath( id ) );
-}
-
 export async function getOnboardingData( _event: IpcMainInvokeEvent ): Promise< boolean > {
-	const userData = await loadUserData();
-	const { onboardingCompleted = false } = userData;
-	return onboardingCompleted;
+	return readOnboardingCompleted();
 }
 
-export async function saveOnboarding( event: IpcMainInvokeEvent, onboardingCompleted: boolean ) {
-	const { onboardingCompleted: previous = false } = await loadUserData();
-	await updateAppdata( { onboardingCompleted } );
-
-	// Only on a real transition — a re-save must not look like a second user finishing onboarding.
-	if ( onboardingCompleted && ! previous ) {
+export async function saveOnboarding( _event: IpcMainInvokeEvent, onboardingCompleted: boolean ) {
+	if ( await writeOnboardingCompleted( onboardingCompleted ) ) {
 		await recordTracksEvent( TRACKS_EVENTS.ONBOARDING_COMPLETE, {
-			// Whether they leave onboarding with an account, which is what "skipped" really meant.
 			authenticated: await oauthClient.isAuthenticated(),
 		} );
 	}
@@ -1267,7 +1241,7 @@ export async function showErrorMessageBox(
 		type: 'error',
 		message: title,
 		detail,
-		buttons: [ ...( showOpenLogs ? [ __( 'Open Studio Logs' ) ] : [] ), __( 'OK' ) ],
+		buttons: [ ...( showOpenLogs ? [ __( 'Open WordPress Studio Logs' ) ] : [] ), __( 'OK' ) ],
 	} );
 
 	if ( showOpenLogs && response.response === 0 ) {
@@ -1281,6 +1255,10 @@ export async function showErrorMessageBox(
 
 export async function setupAppMenu() {
 	await setupMenu();
+}
+
+export function readyForDeeplinks( event: IpcMainInvokeEvent ) {
+	markDeeplinkListener( event.sender );
 }
 
 export async function popupAppMenu(
@@ -1342,7 +1320,7 @@ export async function trustCertificate( event: IpcMainInvokeEvent ): Promise< vo
 			await showErrorMessageBox( event, {
 				title: __( 'Certificate Trust Failed' ),
 				message: __(
-					'Studio was unable to trust the certificate automatically. You may need to trust it manually using certificate manager.'
+					'WordPress Studio was unable to trust the certificate automatically. You may need to trust it manually using certificate manager.'
 				),
 				showOpenLogs: true,
 			} );
@@ -1415,16 +1393,6 @@ export async function setWindowControlsSurface(
 		return;
 	}
 	setAgenticControlsSurface( surface );
-	parentWindow.setTitleBarOverlay( getTitleBarOverlayOptions() );
-}
-
-export async function setTitleBarBackdropEffect( event: IpcMainInvokeEvent, enabled: boolean ) {
-	void enabled;
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( ! parentWindow || ( process.platform !== 'win32' && process.platform !== 'linux' ) ) {
-		return;
-	}
-
 	parentWindow.setTitleBarOverlay( getTitleBarOverlayOptions() );
 }
 

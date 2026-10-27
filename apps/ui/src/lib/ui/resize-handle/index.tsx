@@ -1,0 +1,55 @@
+import { clsx } from 'clsx';
+import styles from './style.module.css';
+import type { KeyboardEventHandler, MouseEventHandler } from 'react';
+
+interface ResizeHandleProps {
+	className?: string;
+	label: string;
+	minWidth: number;
+	maxWidth: number;
+	width: number;
+	onResizeStart: MouseEventHandler< HTMLDivElement >;
+	onKeyDown: KeyboardEventHandler< HTMLDivElement >;
+	onReset?: () => void;
+}
+
+export function ResizeHandle( {
+	className,
+	label,
+	minWidth,
+	maxWidth,
+	width,
+	onResizeStart,
+	onKeyDown,
+	onReset,
+}: ResizeHandleProps ) {
+	return (
+		<div
+			className={ clsx( styles.resizeHandle, className ) }
+			role="separator"
+			aria-label={ label }
+			aria-orientation="vertical"
+			aria-valuemin={ minWidth }
+			aria-valuemax={ maxWidth }
+			aria-valuenow={ width }
+			tabIndex={ 0 }
+			// A drag covers the handle with ResizeOverlay, so a double-click never
+			// reaches it as `dblclick`: the second press resets instead.
+			onMouseDown={ ( event ) => {
+				if ( onReset && event.detail === 2 ) {
+					event.preventDefault();
+					onReset();
+				} else {
+					onResizeStart( event );
+				}
+			} }
+			onKeyDown={ onKeyDown }
+		>
+			<span className={ styles.resizeHandleIndicator } aria-hidden="true" />
+		</div>
+	);
+}
+
+export function ResizeOverlay( { className }: { className?: string } ) {
+	return <div className={ clsx( styles.resizeOverlay, className ) } aria-hidden="true" />;
+}

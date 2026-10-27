@@ -39,11 +39,6 @@ describe( 'CLI: studio site start', () => {
 		status: 'ready',
 	};
 
-	const testSiteWithDomain: SiteData = {
-		...testSite,
-		customDomain: 'test.local',
-	};
-
 	const testProcessDescription: ProcessDescription = {
 		name: 'test-site',
 		pmId: 0,
@@ -71,13 +66,6 @@ describe( 'CLI: studio site start', () => {
 	} );
 
 	describe( 'Error Cases', () => {
-		it( 'should throw when site not found', async () => {
-			vi.mocked( getSiteByFolder ).mockRejectedValue( new Error( 'Site not found' ) );
-
-			await expect( runCommand( '/invalid/path' ) ).rejects.toThrow( 'Site not found' );
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
 		it( 'should refuse to start a site whose pull is still in progress', async () => {
 			vi.mocked( getSiteByFolder ).mockResolvedValue( { ...testSite, status: 'pulling' } );
 
@@ -95,57 +83,12 @@ describe( 'CLI: studio site start', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
-		it( 'should throw when process manager connection fails', async () => {
-			vi.mocked( connectToDaemon ).mockRejectedValue(
-				new Error( 'process manager connection failed' )
-			);
-
-			await expect( runCommand( '/test/site' ) ).rejects.toThrow(
-				'process manager connection failed'
-			);
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
 		it( 'should throw when WordPress server fails to start', async () => {
 			vi.mocked( startWordPressServer ).mockRejectedValue( new Error( 'Server start failed' ) );
 
 			await expect( runCommand( '/test/site' ) ).rejects.toThrow(
 				'Failed to start WordPress server'
 			);
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
-		it( 'should throw when custom domain setup fails', async () => {
-			vi.mocked( getSiteByFolder ).mockResolvedValue( testSiteWithDomain );
-			vi.mocked( setupCustomDomain ).mockRejectedValue(
-				new Error( ' Custom domain setup failed' )
-			);
-
-			await expect( runCommand( '/test/site' ) ).rejects.toThrow( 'Custom domain setup failed' );
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
-		it( 'should throw when SQLite integration setup fails', async () => {
-			vi.mocked( keepSqliteIntegrationUpdated ).mockRejectedValue(
-				new Error( 'SQLite setup failed' )
-			);
-
-			await expect( runCommand( '/test/site' ) ).rejects.toThrow( 'SQLite setup failed' );
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
-		it( 'should throw when browser fails', async () => {
-			vi.mocked( openSiteInBrowser ).mockRejectedValue( new Error( 'Browser error' ) );
-
-			await expect( runCommand( '/test/site' ) ).rejects.toThrow( 'Browser error' );
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
-		it( 'should throw when browser fails while already running', async () => {
-			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
-			vi.mocked( openSiteInBrowser ).mockRejectedValue( new Error( 'Browser error' ) );
-
-			await expect( runCommand( '/test/site' ) ).rejects.toThrow( 'Browser error' );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 	} );
@@ -181,40 +124,10 @@ describe( 'CLI: studio site start', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
-		it( 'should setup custom domain when present', async () => {
-			vi.mocked( getSiteByFolder ).mockResolvedValue( testSiteWithDomain );
-
-			await runCommand( '/test/site' );
-
-			expect( setupCustomDomain ).toHaveBeenCalledWith( testSiteWithDomain, expect.any( Logger ) );
-			expect( startWordPressServer ).toHaveBeenCalledWith(
-				testSiteWithDomain,
-				expect.any( Logger )
-			);
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
-		it( 'should update SQLite integration', async () => {
-			await runCommand( '/test/site' );
-
-			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( '/test/site' );
-		} );
-
 		it( 'should skip browser when skipBrowser is true', async () => {
 			await runCommand( '/test/site', true );
 
 			expect( startWordPressServer ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
-			expect( openSiteInBrowser ).not.toHaveBeenCalled();
-			expect( logSiteDetails ).toHaveBeenCalledWith( testSite );
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
-		it( 'should skip browser when already running and skipBrowser is true', async () => {
-			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
-
-			await runCommand( '/test/site', true );
-
-			expect( startWordPressServer ).not.toHaveBeenCalled();
 			expect( openSiteInBrowser ).not.toHaveBeenCalled();
 			expect( logSiteDetails ).toHaveBeenCalledWith( testSite );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();

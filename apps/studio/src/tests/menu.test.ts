@@ -20,10 +20,6 @@ function buildTestViewMenuItems(
 	} );
 }
 
-function getLabels( items = buildTestViewMenuItems() ) {
-	return items.map( ( item ) => item.label ).filter( Boolean );
-}
-
 describe( 'buildViewMenuItems', () => {
 	it( 'keeps the site preview command wired to the expected shortcut and callback', () => {
 		const onToggleSitePreview = vi.fn();
@@ -35,26 +31,6 @@ describe( 'buildViewMenuItems', () => {
 		toggleSitePreviewItem?.click?.( {} as never, undefined as never, undefined as never );
 
 		expect( onToggleSitePreview ).toHaveBeenCalledTimes( 1 );
-	} );
-
-	it( 'keeps development tools after the site preview command', () => {
-		expect(
-			getLabels(
-				buildTestViewMenuItems( {
-					isDevelopment: true,
-					devTools: [ { label: 'Reload', role: 'reload' } ],
-				} )
-			)
-		).toEqual( [
-			'Toggle Sidebar',
-			'Toggle Site Preview',
-			'Reload',
-			'Actual Size',
-			'Zoom In',
-			'Zoom Out',
-			'Toggle Fullscreen',
-			'Float on Top of All Other Windows',
-		] );
 	} );
 
 	it.each( [

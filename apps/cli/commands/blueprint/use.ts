@@ -1,13 +1,12 @@
 import fs from 'fs';
 import path from 'path';
-import { select, input } from '@inquirer/prompts';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import {
 	createBlueprintTempDir,
 	downloadAndExtractBlueprintBundle,
 	removeBlueprintTempDir,
 } from '@studio/common/lib/blueprint-bundle';
-import { isOnline } from '@studio/common/lib/network-utils';
+import { isNetworkError } from '@studio/common/lib/network-utils';
 import { readSharedConfig } from '@studio/common/lib/shared-config';
 import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
 import { fetchStudioBlueprints, type Blueprint } from '@studio/common/lib/studio-blueprints-api';
@@ -15,6 +14,7 @@ import { BlueprintCommandLoggerAction as LoggerAction } from '@studio/common/log
 import { SupportedPHPVersions, type SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
+import { select, input } from 'cli/lib/prompts';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { untildify } from 'cli/lib/utils';
 import {
@@ -66,15 +66,16 @@ export async function runCommand(
 		skipBrowser: boolean;
 	}
 ): Promise< void > {
-	if ( ! ( await isOnline() ) ) {
-		throw new LoggerError( __( 'An internet connection is required to use blueprints.' ) );
-	}
-
 	logger.reportStart( LoggerAction.FETCH_BLUEPRINTS, __( 'Fetching blueprints…' ) );
 
 	const sharedConfig = await readSharedConfig();
 	const locale = sharedConfig.locale;
-	const blueprints = await fetchStudioBlueprints( locale );
+	const blueprints = await fetchStudioBlueprints( locale ).catch( ( error: unknown ) => {
+		if ( isNetworkError( error ) ) {
+			throw new LoggerError( __( 'An internet connection is required to use blueprints.' ), error );
+		}
+		throw error;
+	} );
 
 	if ( blueprints.length === 0 ) {
 		throw new LoggerError( __( 'No blueprints available' ) );

@@ -13,9 +13,10 @@ import { ExportOptions } from 'cli/lib/import-export/export/types';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
-import { classifyExportFailure, untildify } from 'cli/lib/utils';
+import { classifyExportFailure } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
-import { StudioArgv } from 'cli/types';
+import type { builder } from 'cli/commands/export.command';
+import type { CommandArgs } from 'cli/types';
 
 const defaultLogger = new Logger< LoggerAction >();
 
@@ -261,103 +262,44 @@ function getTimestamp( date = new Date() ): string {
 		.map( ( part ) => String( part ).padStart( 2, '0' ) )
 		.join( '-' );
 }
+export async function commandHandler( argv: CommandArgs< typeof builder > ) {
+	try {
+		let exportFile: string;
+		const timestamp = getTimestamp();
 
-export const registerCommand = ( yargs: StudioArgv ) => {
-	return yargs.command( {
-		command: 'export [export-file]',
-		describe: __( 'Export site to a backup file' ),
-		builder: ( yargs ) => {
-			return yargs
-				.positional( 'export-file', {
-					type: 'string',
-					normalize: true,
-					demandOption: false,
-					description: __(
-						'Path to the export file. All exports can use .zip or .tar.gz. Database-only exports can also use .sql.'
-					),
-					coerce: ( value ) => {
-						return path.resolve( untildify( value ) );
-					},
-				} )
-				.option( 'mode', {
-					type: 'string',
-					choices: [ 'full', 'content', 'db' ] as const,
-					default: 'full' as const,
-					description: __(
-						'Export the full site, just the content, or just the database. Default exports full site.'
-					),
-				} )
-				.option( 'split-db-dump-by-table', {
-					type: 'boolean',
-					default: false,
-					description: __( 'Split the database dump by table' ),
-					hidden: true,
-				} )
-				.option( 'include-only', {
-					type: 'array',
-					description: __( 'Include only the specified paths in the export' ),
-					coerce: ( value ) => {
-						if ( ! Array.isArray( value ) ) {
-							throw new Error( __( 'include-only must be an array' ) );
-						}
-						return value.map( String );
-					},
-					hidden: true,
-				} )
-				.option( 'apply-deploy-ignore', {
-					type: 'boolean',
-					default: false,
-					description: __( 'Apply .deployignore patterns when exporting' ),
-					hidden: true,
-				} )
-				.option( 'suppress-tracks-event', {
-					type: 'boolean',
-					default: false,
-					hidden: true,
-				} );
-		},
-		handler: async ( argv ) => {
-			try {
-				let exportFile: string;
-				const timestamp = getTimestamp();
+		if ( argv.exportFile ) {
+			exportFile = argv.exportFile;
+		} else if ( argv.mode === 'full' || argv.mode === 'content' ) {
+			exportFile = path.join( process.cwd(), `studio-backup-${ timestamp }.zip` );
+		} else {
+			exportFile = path.join( process.cwd(), `studio-backup-${ timestamp }.sql` );
+		}
 
-				if ( argv.exportFile ) {
-					exportFile = argv.exportFile;
-				} else if ( argv.mode === 'full' || argv.mode === 'content' ) {
-					exportFile = path.join( process.cwd(), `studio-backup-${ timestamp }.zip` );
-				} else {
-					exportFile = path.join( process.cwd(), `studio-backup-${ timestamp }.sql` );
-				}
+		if (
+			( argv.mode === 'full' || argv.mode === 'content' ) &&
+			! exportFile.endsWith( '.zip' ) &&
+			! exportFile.endsWith( '.tar.gz' )
+		) {
+			throw new LoggerError(
+				__( 'Invalid export file extension. Must be .zip or .tar.gz when exporting the full site.' )
+			);
+		}
 
-				if (
-					( argv.mode === 'full' || argv.mode === 'content' ) &&
-					! exportFile.endsWith( '.zip' ) &&
-					! exportFile.endsWith( '.tar.gz' )
-				) {
-					throw new LoggerError(
-						__(
-							'Invalid export file extension. Must be .zip or .tar.gz when exporting the full site.'
-						)
-					);
-				}
-
-				await runCommand(
-					argv.path,
-					exportFile,
-					argv.mode,
-					argv.splitDbDumpByTable,
-					argv.includeOnly,
-					argv.applyDeployIgnore,
-					argv.suppressTracksEvent
-				);
-			} catch ( error ) {
-				if ( error instanceof LoggerError ) {
-					defaultLogger.reportError( error );
-				} else {
-					const loggerError = new LoggerError( __( 'Failed to export site' ), error );
-					defaultLogger.reportError( loggerError );
-				}
-			}
-		},
-	} );
-};
+		await runCommand(
+			argv.path,
+			exportFile,
+			argv.mode,
+			argv.splitDbDumpByTable,
+			argv.includeOnly,
+			argv.applyDeployIgnore,
+			argv.suppressTracksEvent
+		);
+	} catch ( error ) {
+		if ( error instanceof LoggerError ) {
+			defaultLogger.reportError( error );
+		} else {
+			const loggerError = new LoggerError( __( 'Failed to export site' ), error );
+			defaultLogger.reportError( loggerError );
+		}
+	}
+}

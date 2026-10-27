@@ -1,12 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+	canUsePaidAiModels,
 	formatAiAccessRequiredNotice,
 	formatAiCreditsAddedTitle,
-	formatAiCreditsAvailableLabel,
 	formatAiCreditsCallout,
 	formatAiCreditsThresholdDescription,
 	formatAiCreditsUsageTitle,
-	formatAiCreditsUsedLabel,
 	getAiCreditsMeter,
 	getAiCreditsMeterIntent,
 	formatUsageCapNotice,
@@ -162,6 +161,41 @@ describe( 'studioAssistantQuotaSchema reset date', () => {
 	} );
 } );
 
+describe( 'canUsePaidAiModels', () => {
+	const free = 'person@example.com';
+
+	it( 'stays locked for an account that never bought credits', () => {
+		expect( canUsePaidAiModels( { purchasedRemaining: 0, purchasedAtTopUp: 0 }, free ) ).toBe(
+			false
+		);
+		expect( canUsePaidAiModels( null, free ) ).toBe( false );
+	} );
+
+	it( 'unlocks while purchased credits remain', () => {
+		expect(
+			canUsePaidAiModels( { purchasedRemaining: 1000, purchasedAtTopUp: undefined }, free )
+		).toBe( true );
+	} );
+
+	it( 'stays unlocked once a purchased pool is spent', () => {
+		expect( canUsePaidAiModels( { purchasedRemaining: 0, purchasedAtTopUp: 500000 }, free ) ).toBe(
+			true
+		);
+	} );
+
+	it( 'stays unlocked when billing is unreachable for a past buyer', () => {
+		expect(
+			canUsePaidAiModels( { purchasedRemaining: undefined, purchasedAtTopUp: 500000 }, free )
+		).toBe( true );
+	} );
+
+	it( 'exempts Automatticians', () => {
+		expect(
+			canUsePaidAiModels( { purchasedRemaining: 0, purchasedAtTopUp: 0 }, 'person@automattic.com' )
+		).toBe( true );
+	} );
+} );
+
 describe( 'formatAiAccessRequiredNotice', () => {
 	it( 'tells accounts with spend this billing cycle that beta access is now required', () => {
 		expect( formatAiAccessRequiredNotice( { costUsage: 3 } ) ).toBe(
@@ -275,17 +309,6 @@ describe( 'getAiCreditsMeterIntent', () => {
 		expect( getAiCreditsMeterIntent( 0.8 ) ).toBe( 'warning' );
 		expect( getAiCreditsMeterIntent( 0.9 ) ).toBe( 'critical' );
 		expect( getAiCreditsMeterIntent( 1 ) ).toBe( 'exhausted' );
-	} );
-} );
-
-describe( 'AI credits meter labels', () => {
-	it( 'formats used and available figures for the reader', () => {
-		expect(
-			formatAiCreditsUsedLabel( { usedCredits: 1200000, totalCredits: 1500000 }, 'en-US' )
-		).toBe( '1,200,000 of 1,500,000 AI credits used' );
-		expect( formatAiCreditsAvailableLabel( { remainingCredits: 300000 }, 'en-US' ) ).toBe(
-			'300,000 available'
-		);
 	} );
 } );
 

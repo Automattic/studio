@@ -8,7 +8,6 @@
 
 import fs from 'node:fs';
 import http from 'node:http';
-import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { writeStudioMuPlugins } from '@studio/common/lib/mu-plugins';
@@ -45,15 +44,13 @@ import {
 	installWordPress,
 	writeSiteUrlPrependFile,
 } from './lib/native-php/site-setup';
+import { getAvailablePorts } from './lib/native-php/worker-ports';
+import { getSiteEmailDirectory } from './lib/site-email';
 import { SymlinkWatcher, collectSymlinkAllowlistEntries } from './lib/symlinks';
 import type { ChildProcess } from 'node:child_process';
 
 const ROUTER_PATH = path.resolve( import.meta.dirname, 'php', 'router.php' );
-const SET_DEFAULT_PERMALINKS_PATH = path.resolve(
-	import.meta.dirname,
-	'php',
-	'set-default-permalinks.php'
-);
+const FINISH_INSTALL_PATH = path.resolve( import.meta.dirname, 'php', 'finish-install.php' );
 
 // Tracks how many proxied requests each PHP worker is currently handling.
 // Each `php -S` worker processes one request at a time, so a non-zero count
@@ -168,23 +165,6 @@ function pickPhpWorker( req: http.IncomingMessage ): { index: number; port: numb
 
 	const bestIndex = phpWorkerRequestTracker.getFirstFreeWorker();
 	return { index: bestIndex, port: phpWorkerPorts[ bestIndex ] };
-}
-
-async function getAvailablePort(): Promise< number > {
-	return await new Promise< number >( ( resolve, reject ) => {
-		const server = net.createServer();
-		server.unref();
-		server.once( 'error', reject );
-		server.listen( 0, '127.0.0.1', () => {
-			const address = server.address();
-			if ( ! address || typeof address === 'string' ) {
-				server.close( () => reject( new Error( 'Could not allocate a PHP worker port' ) ) );
-				return;
-			}
-			const port = address.port;
-			server.close( () => resolve( port ) );
-		} );
-	} );
 }
 
 async function waitForServerReady( url: string, signal?: AbortSignal ): Promise< void > {
@@ -509,13 +489,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 
 		if ( ! isImportedSite ) {
 			await timePhase( 'wordpress_install', () =>
-				installWordPress(
-					config,
-					phpVersion,
-					stopSignal,
-					SET_DEFAULT_PERMALINKS_PATH,
-					logToConsole
-				)
+				installWordPress( config, phpVersion, stopSignal, FINISH_INSTALL_PATH, logToConsole )
 			);
 			stopSignal.throwIfAborted();
 
@@ -611,10 +585,15 @@ async function doStartServer(
 		const phpMyAdminWpEnvPath = await writeNativePhpMyAdminWpEnv( config );
 		const siteUrl = config.absoluteUrl || `http://localhost:${ config.port }`;
 		const autoPrependFile = writeSiteUrlPrependFile( siteUrl, config.autoPrependFile );
-		const workerPorts: number[] = [];
-		for ( let index = 0; index < NATIVE_PHP_WORKER_POOL_SIZE; index++ ) {
-			workerPorts.push( await getAvailablePort() );
+		// Created up front so the folder opens from the app before the site sends any email.
+		// The site still starts without it: sendmail.php then reports each email it can't save.
+		const emailDirectory = getSiteEmailDirectory( config.siteId );
+		try {
+			fs.mkdirSync( emailDirectory, { recursive: true } );
+		} catch ( error ) {
+			errorToConsole( `Failed to create the email folder ${ emailDirectory }:`, error );
 		}
+		const workerPorts = await getAvailablePorts( NATIVE_PHP_WORKER_POOL_SIZE );
 
 		phpWorkerPorts = workerPorts;
 		phpWorkerRequestTracker = new PhpWorkerRequestTracker( workerPorts.length );
@@ -638,6 +617,7 @@ async function doStartServer(
 				disallowRiskyFunctions: isFileAccessRestricted( config ),
 				enableXdebug: config.enableXdebug,
 				autoPrependFile,
+				emailDirectory,
 				workerIndex: index,
 			} );
 			spawnedChildren.push( serverChild );
@@ -825,7 +805,7 @@ async function ipcMessageHandler( packet: unknown ) {
 					blueprintConfig,
 					blueprintPhpVersion,
 					abortController.signal,
-					SET_DEFAULT_PERMALINKS_PATH,
+					FINISH_INSTALL_PATH,
 					logToConsole
 				);
 				if ( ! blueprintConfig.blueprint ) {

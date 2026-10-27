@@ -57,6 +57,7 @@ export function AlertDialog( props: BaseAlertDialog.Root.Props ) {
 }
 
 export { replaceOpenDialogs };
+export { useHasOpenDialog } from './replacement';
 export const DialogClose = BaseDialog.Close;
 
 export function DialogDismissButton( {

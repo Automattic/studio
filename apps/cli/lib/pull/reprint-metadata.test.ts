@@ -10,6 +10,11 @@ describe( 'reprint metadata', () => {
 				hasLocalIndex: true,
 				hasSkippedFiles: false,
 				pullStage: 'files-pull',
+				key: {
+					id: 'c1c08fadfa3a465c',
+					path: '/state/remotes/abc/key.pem',
+					publicKey: 'MIIBojANBg',
+				},
 				sourceSite: {
 					homeUrl: 'https://example.com',
 					siteUrl: 'https://example.com',
@@ -27,14 +32,15 @@ describe( 'reprint metadata', () => {
 		} );
 
 		const metadata = await getReprintMetadata( {
-			apiUrl: 'https://example.com/?reprint-api',
+			apiUrl: 'https://example.com/?reprint-api-jetpack',
 			stateDirectory: '/state',
 			verbose: false,
 		} );
 
 		expect( getCoreRoots( metadata ) ).toEqual( [ '/wordpress/core/7.0' ] );
+		expect( metadata.key?.publicKey ).toBe( 'MIIBojANBg' );
 		expect( migrationClient.runReprintCommandUntilComplete ).toHaveBeenCalledWith(
-			[ 'import-metadata', 'https://example.com/?reprint-api', '--state-dir=/state' ],
+			[ 'pull-metadata', 'https://example.com/?reprint-api-jetpack', '--state-dir=/state' ],
 			undefined,
 			{ verboseCommands: false }
 		);

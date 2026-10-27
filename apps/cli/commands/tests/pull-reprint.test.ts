@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { enableReprintExporter, rotateReprintSecret } from 'cli/lib/api';
+import { enableReprintExporter } from 'cli/lib/api';
 import * as migrationClient from 'cli/lib/pull/migration-client';
 import { emptyReprintMetadata } from 'cli/lib/pull/reprint-metadata';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
@@ -29,8 +29,10 @@ vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
 } ) );
 vi.mock( 'cli/lib/api', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('cli/lib/api') >() ),
-	rotateReprintSecret: vi.fn(),
 	enableReprintExporter: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/pull/reprint-key', () => ( {
+	ensureReprintKey: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/sync-api', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('cli/lib/sync-api') >() ),
@@ -82,8 +84,7 @@ function mockWpComPullSource( url = 'https://example.com' ): SyncSite {
 
 	vi.mocked( readAuthToken ).mockResolvedValue( token );
 	vi.mocked( fetchSyncableSites ).mockResolvedValue( [ site ] );
-	vi.mocked( rotateReprintSecret ).mockResolvedValue( 'hmac-secret' );
-	vi.mocked( enableReprintExporter ).mockResolvedValue( 'v1' );
+	vi.mocked( enableReprintExporter ).mockResolvedValue( { hasPublicKey: true } );
 
 	return site;
 }
@@ -116,10 +117,6 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 	} );
 
 	it( 'strips the site export API marker from the canonical site URL', () => {
-		expect( normalizeSiteUrl( 'https://example.com/?reprint-api' ) ).toBe( 'https://example.com/' );
-	} );
-
-	it( 'strips the v2 site export API marker from the canonical site URL', () => {
 		expect( normalizeSiteUrl( 'https://example.com/?reprint-api-jetpack' ) ).toBe(
 			'https://example.com/'
 		);
@@ -127,13 +124,7 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 
 	it( 'adds the site export API marker exactly once to the importer URL', () => {
 		expect(
-			getReprintApiUrlForSite( normalizeSiteUrl( 'https://example.com/?reprint-api' ) )
-		).toBe( 'https://example.com/?reprint-api' );
-	} );
-
-	it( 'emits the Jetpack marker for a v2 surface', () => {
-		expect(
-			getReprintApiUrlForSite( normalizeSiteUrl( 'https://example.com/?reprint-api' ), 'v2' )
+			getReprintApiUrlForSite( normalizeSiteUrl( 'https://example.com/?reprint-api-jetpack' ) )
 		).toBe( 'https://example.com/?reprint-api-jetpack' );
 	} );
 
@@ -303,8 +294,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 
 		await runFullPull(
 			metadata,
-			'https://example.com/?reprint-api',
-			'hmac-secret',
+			'https://example.com/?reprint-api-jetpack',
 			false,
 			true,
 			{},
@@ -333,8 +323,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		);
 		expect( filesArgs ).toEqual( [
 			'pull-files',
-			'https://example.com/?reprint-api',
-			'--secret=hmac-secret',
+			'https://example.com/?reprint-api-jetpack',
 			'--mode=mirror',
 			'--no-adaptive',
 			`--state-dir=${ stateDirectory }`,
@@ -342,8 +331,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		] );
 		expect( dbArgs ).toEqual( [
 			'pull-db',
-			'https://example.com/?reprint-api',
-			'--secret=hmac-secret',
+			'https://example.com/?reprint-api-jetpack',
 			'--target-engine=sqlite',
 			`--target-sqlite-path=${ path.join(
 				rawDirectory,
@@ -365,7 +353,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		// only the blank install has.
 		expect( mergeArgs ).toEqual( [
 			'merge-wp-content',
-			'https://example.com/?reprint-api',
+			'https://example.com/?reprint-api-jetpack',
 			`--from=${ path.join( sitePath, 'wp-content' ) }`,
 			`--state-dir=${ stateDirectory }`,
 			`--fs-root=${ rawDirectory }`,
@@ -374,7 +362,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		// pull, so the blank install is replaced but a live site never is.
 		expect( flattenArgs ).toEqual( [
 			'flat-docroot',
-			'https://example.com/?reprint-api',
+			'https://example.com/?reprint-api-jetpack',
 			`--flatten-to=${ sitePath }`,
 			'--force',
 			`--state-dir=${ stateDirectory }`,
@@ -383,7 +371,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		// The remote URL selects Reprint's pull state; --flat-document-root replaces --fs-root.
 		expect( runtimeArgs ).toEqual( [
 			'apply-runtime',
-			'https://example.com/?reprint-api',
+			'https://example.com/?reprint-api-jetpack',
 			'--runtime=nginx-fpm',
 			'--target-engine=sqlite',
 			`--target-sqlite-path=${ path.join(
@@ -454,8 +442,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 				runtimeBlueprintPath: path.join( technicalSiteDirectory, 'runtime', 'blueprint.json' ),
 				localUrl: 'http://localhost:8881',
 			} as never,
-			'https://example.com/?reprint-api',
-			'hmac-secret',
+			'https://example.com/?reprint-api-jetpack',
 			false,
 			false,
 			{ skipDatabase: true }
@@ -502,8 +489,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 				runtimeBlueprintPath: path.join( technicalSiteDirectory, 'runtime', 'blueprint.json' ),
 				localUrl: 'http://localhost:8881',
 			} as never,
-			'https://example.com/?reprint-api',
-			'hmac-secret',
+			'https://example.com/?reprint-api-jetpack',
 			false,
 			false,
 			{ fileOnlyPaths: [ ':wp-plugins:', '/srv/htdocs/wp-content/plugins/akismet' ] }
@@ -544,8 +530,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 				runtimeBlueprintPath: path.join( technicalSiteDirectory, 'runtime', 'blueprint.json' ),
 				localUrl: 'http://localhost:8881',
 			},
-			'https://example.com/?reprint-api',
-			'hmac-secret',
+			'https://example.com/?reprint-api-jetpack',
 			false,
 			false,
 			{ fileOnlyPaths: [ ':wp-content:/plugins', ':wp-content:/themes' ] }
@@ -590,8 +575,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 				runtimeBlueprintPath: path.join( technicalSiteDirectory, 'runtime', 'blueprint.json' ),
 				localUrl: 'http://localhost:8881',
 			} as never,
-			'https://example.com/?reprint-api',
-			'hmac-secret',
+			'https://example.com/?reprint-api-jetpack',
 			false,
 			true
 		);
@@ -644,8 +628,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 				runtimeBlueprintPath: path.join( technicalSiteDirectory, 'runtime', 'blueprint.json' ),
 				localUrl: 'http://localhost:8881',
 			} as never,
-			'https://example.com/?reprint-api',
-			'hmac-secret',
+			'https://example.com/?reprint-api-jetpack',
 			false,
 			false
 		);
@@ -693,8 +676,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 				runtimeBlueprintPath: path.join( technicalSiteDirectory, 'runtime', 'blueprint.json' ),
 				localUrl: 'http://localhost:8881',
 			} as never,
-			'https://example.com/?reprint-api',
-			'hmac-secret',
+			'https://example.com/?reprint-api-jetpack',
 			false,
 			true
 		);
@@ -744,7 +726,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 
 		// force=false models a delta re-pull, which must not force-overwrite
 		// the live site.
-		await runFullPull( metadata, 'https://example.com/?reprint-api', 'hmac-secret', false, false );
+		await runFullPull( metadata, 'https://example.com/?reprint-api-jetpack', false, false );
 
 		// With no content dir from preflight, the database target stays in
 		// the raw scratch directory so flat-docroot can link it later.
@@ -799,13 +781,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		};
 
 		await expect(
-			runFullPull(
-				metadata as never,
-				'https://example.com/?reprint-api',
-				'hmac-secret',
-				false,
-				true
-			)
+			runFullPull( metadata as never, 'https://example.com/?reprint-api-jetpack', false, true )
 		).rejects.toThrow( 'reprint exited with code 1' );
 
 		// No progress file is written on failure either — a re-run resumes by
@@ -857,8 +833,7 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		vi.mocked( readAuthToken ).mockResolvedValue( token );
-		vi.mocked( rotateReprintSecret ).mockResolvedValue( 'fresh-secret' );
-		vi.mocked( enableReprintExporter ).mockResolvedValue( 'v1' );
+		vi.mocked( enableReprintExporter ).mockResolvedValue( { hasPublicKey: true } );
 	} );
 
 	afterEach( () => {
@@ -876,24 +851,23 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		expect( pickSyncSite ).toHaveBeenCalledWith( sites, expect.any( String ) );
 		expect( source ).toMatchObject( {
 			url: 'https://two.wordpress.com',
-			secret: 'fresh-secret',
-			surface: 'v1',
+			exporter: { hasPublicKey: true },
 			wpComSite: sites[ 1 ],
 		} );
-		// A fresh secret is rotated for the picked site only, keyed to its surface.
-		expect( rotateReprintSecret ).toHaveBeenCalledWith( 22, token.accessToken, 'v1' );
+		// The exporter is enabled for the picked site only.
+		expect( enableReprintExporter ).toHaveBeenCalledTimes( 1 );
+		expect( enableReprintExporter ).toHaveBeenCalledWith( 22, token.accessToken, false );
 	} );
 
-	it( 'threads a v2 surface into the rotate call and the resolved source', async () => {
+	it( 'threads the exporter status of a site without a key into the resolved source', async () => {
 		setTTY( true );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );
-		vi.mocked( enableReprintExporter ).mockResolvedValue( 'v2' );
+		vi.mocked( enableReprintExporter ).mockResolvedValue( { hasPublicKey: false } );
 
 		const source = await resolveSourceSite( 'https://two.wordpress.com' );
 
-		expect( source ).toMatchObject( { surface: 'v2' } );
+		expect( source ).toMatchObject( { exporter: { hasPublicKey: false } } );
 		expect( enableReprintExporter ).toHaveBeenCalledWith( 22, token.accessToken, false );
-		expect( rotateReprintSecret ).toHaveBeenCalledWith( 22, token.accessToken, 'v2' );
 	} );
 
 	it( 'returns null without provisioning when the user cancels the picker', async () => {
@@ -905,7 +879,6 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 
 		expect( source ).toBeNull();
 		expect( enableReprintExporter ).not.toHaveBeenCalled();
-		expect( rotateReprintSecret ).not.toHaveBeenCalled();
 	} );
 
 	it( 'aborts with an error for multiple sites when not in a TTY (no picker)', async () => {
@@ -914,7 +887,7 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 
 		await expect( resolveSourceSite() ).rejects.toThrow( /Re-run with `--url/ );
 		expect( pickSyncSite ).not.toHaveBeenCalled();
-		expect( rotateReprintSecret ).not.toHaveBeenCalled();
+		expect( enableReprintExporter ).not.toHaveBeenCalled();
 	} );
 
 	it( 'auto-picks the only connected site without prompting (single-site path unchanged)', async () => {
@@ -926,7 +899,7 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		expect( pickSyncSite ).not.toHaveBeenCalled();
 		expect( source ).toMatchObject( {
 			url: 'https://one.wordpress.com',
-			secret: 'fresh-secret',
+			exporter: { hasPublicKey: true },
 			wpComSite: sites[ 0 ],
 		} );
 	} );
@@ -977,7 +950,7 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		expect( source ).toMatchObject( { url: 'https://one.wordpress.com', wpComSite: sites[ 0 ] } );
 	} );
 
-	it( 'rotates a secret for a syncable site matched by --url', async () => {
+	it( 'enables the exporter for a syncable site matched by --url', async () => {
 		setTTY( true );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );
 
@@ -985,10 +958,10 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 
 		expect( source ).toMatchObject( {
 			url: 'https://two.wordpress.com',
-			secret: 'fresh-secret',
+			exporter: { hasPublicKey: true },
 			wpComSite: sites[ 1 ],
 		} );
-		expect( rotateReprintSecret ).toHaveBeenCalledWith( 22, token.accessToken, 'v1' );
+		expect( enableReprintExporter ).toHaveBeenCalledWith( 22, token.accessToken, false );
 		expect( pickSyncSite ).not.toHaveBeenCalled();
 	} );
 
@@ -1006,7 +979,7 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		await expect( resolveSourceSite( 'https://only-simple.example.com' ) ).rejects.toThrow(
 			/hosting features to be enabled.*hosting-features\/44/
 		);
-		expect( rotateReprintSecret ).not.toHaveBeenCalled();
+		expect( enableReprintExporter ).not.toHaveBeenCalled();
 	} );
 
 	it( 'rejects a needs-upgrade site passed via --url with the plan-upgrade message', async () => {
@@ -1023,7 +996,7 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		await expect( resolveSourceSite( 'https://free.example.com' ) ).rejects.toThrow(
 			/plan with hosting features.*plans\/55/
 		);
-		expect( rotateReprintSecret ).not.toHaveBeenCalled();
+		expect( enableReprintExporter ).not.toHaveBeenCalled();
 	} );
 
 	it( 'reports the specific reason when the only site is not pullable (no --url)', async () => {
@@ -1041,7 +1014,7 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 			/hosting features to be enabled.*hosting-features\/66/
 		);
 		expect( pickSyncSite ).not.toHaveBeenCalled();
-		expect( rotateReprintSecret ).not.toHaveBeenCalled();
+		expect( enableReprintExporter ).not.toHaveBeenCalled();
 	} );
 
 	it( 'rejects a URL that is not connected to the WordPress.com account', async () => {
@@ -1052,7 +1025,7 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 			/not a WordPress\.com or Pressable site connected to your account/
 		);
 		expect( pickSyncSite ).not.toHaveBeenCalled();
-		expect( rotateReprintSecret ).not.toHaveBeenCalled();
+		expect( enableReprintExporter ).not.toHaveBeenCalled();
 	} );
 } );
 
@@ -1133,6 +1106,17 @@ describe( 'CLI: studio pull-reprint requires an existing site', () => {
 		// The pipeline reached the remote (preflight is its first reprint call).
 		expect( reprintSpy ).toHaveBeenCalled();
 		expect( reprintSpy.mock.calls[ 0 ][ 0 ][ 0 ] ).toBe( 'preflight' );
+
+		// The key lives in the site's own state directory, keyed by the API URL.
+		const { ensureReprintKey } = await import( 'cli/lib/pull/reprint-key' );
+		expect( ensureReprintKey ).toHaveBeenCalledWith( {
+			wpComSiteId: 22,
+			wpComAccessToken: 'access-token',
+			exporter: { hasPublicKey: true },
+			apiUrl: 'https://example.com/?reprint-api-jetpack',
+			stateDirectory: path.join( pullsRoot(), 'existing-id', 'state' ),
+			verbose: false,
+		} );
 
 		// Messaging is driven off the existing record's name and path.
 		const logged = logSpy.mock.calls.flat().join( '\n' );
@@ -1301,7 +1285,7 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 					};
 				}
 
-				if ( args[ 0 ] === 'import-metadata' ) {
+				if ( args[ 0 ] === 'pull-metadata' ) {
 					return {
 						stdout: JSON.stringify( emptyReprintMetadata ),
 						stderr: '',
@@ -1325,7 +1309,7 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 
 		expect( reprintSpy.mock.calls.map( ( call ) => call[ 0 ][ 0 ] ) ).toEqual( [
 			'preflight',
-			'import-metadata',
+			'pull-metadata',
 			'pull-files',
 		] );
 	} );
@@ -1409,7 +1393,7 @@ describe( 'CLI: studio pull-reprint first-pull selective sync', () => {
 						exitCode: 0,
 					};
 				}
-				if ( args[ 0 ] === 'import-metadata' ) {
+				if ( args[ 0 ] === 'pull-metadata' ) {
 					return {
 						stdout: JSON.stringify( {
 							...emptyReprintMetadata,
@@ -1458,7 +1442,7 @@ describe( 'CLI: studio pull-reprint first-pull selective sync', () => {
 		// remote tree lookup.
 		expect( reprintSpy.mock.calls.map( ( call ) => call[ 0 ][ 0 ] ) ).toEqual( [
 			'preflight',
-			'import-metadata',
+			'pull-metadata',
 			'pull-files',
 			'merge-wp-content',
 			'flat-docroot',

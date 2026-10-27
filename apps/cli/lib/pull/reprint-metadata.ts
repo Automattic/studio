@@ -13,11 +13,21 @@ const sourceSiteSchema = z.object( {
 	extraDirectories: z.array( z.string() ),
 } );
 
+/** The key Reprint signs requests to this remote with, or null when none is stored. */
+const storedKeySchema = z
+	.object( {
+		id: z.string(),
+		path: z.string(),
+		publicKey: z.string(),
+	} )
+	.nullable();
+
 const reprintMetadataSchema = z.object( {
 	hasCompletedOnce: z.boolean(),
 	hasLocalIndex: z.boolean(),
 	hasSkippedFiles: z.boolean(),
 	pullStage: z.unknown(),
+	key: storedKeySchema,
 	sourceSite: sourceSiteSchema,
 } );
 
@@ -28,6 +38,7 @@ export const emptyReprintMetadata: ReprintMetadata = {
 	hasLocalIndex: false,
 	hasSkippedFiles: false,
 	pullStage: null,
+	key: null,
 	sourceSite: {
 		homeUrl: null,
 		siteUrl: null,
@@ -47,7 +58,7 @@ export async function getReprintMetadata( options: {
 	verbose: boolean;
 } ): Promise< ReprintMetadata > {
 	const result = await runReprintCommandUntilComplete(
-		[ 'import-metadata', options.apiUrl, `--state-dir=${ options.stateDirectory }` ],
+		[ 'pull-metadata', options.apiUrl, `--state-dir=${ options.stateDirectory }` ],
 		undefined,
 		{ verboseCommands: options.verbose }
 	);

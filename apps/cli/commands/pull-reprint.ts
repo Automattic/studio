@@ -19,7 +19,7 @@ import {
 	shouldSetAdminCredentials,
 	toUrlSearchParams,
 } from 'cli/lib/admin-credentials';
-import { enableReprintExporter, rotateReprintSecret, type ReprintSurface } from 'cli/lib/api';
+import { enableReprintExporter, type ReprintExporterStatus } from 'cli/lib/api';
 import {
 	lockCliConfig,
 	readCliConfig,
@@ -33,6 +33,7 @@ import {
 	type ReprintProcessResult,
 	runReprintCommandUntilComplete,
 } from 'cli/lib/pull/migration-client';
+import { ensureReprintKey } from 'cli/lib/pull/reprint-key';
 import {
 	getCoreRoots,
 	getReprintMetadata,
@@ -196,12 +197,11 @@ function clearPullSelection( session: PullSession ): void {
 /**
  * Normalized result of turning CLI arguments into something the pull
  * pipeline can act on: a WordPress.com/Pressable site URL to fetch from,
- * the HMAC secret the exporter will check, and the API identity needed to
- * enable the exporter.
+ * what the enabled exporter reported about itself, and the API identity
+ * needed to install its key.
  */
 interface PullSource {
-	secret: string;
-	surface: ReprintSurface;
+	exporter: ReprintExporterStatus;
 	url: string;
 	wpComSite: SyncSite;
 	wpComToken: StoredAuthToken;
@@ -263,13 +263,9 @@ export async function runCommand(
 	}
 
 	const { url: sourceSiteUrl } = sourceSite;
-	const secret = sourceSite.secret;
 	const normalizedRemoteUrl = normalizeSiteUrl( sourceSiteUrl );
 	const studioMetadata = getPullSession( site );
-	// `resolveSourceSite` already probed the exporter and enabled it; the
-	// detected surface decides the importer query var (v1 `?reprint-api` vs v2
-	// `?reprint-api-jetpack`) just as it decided the rotate route for the secret.
-	const apiUrl = getReprintApiUrlForSite( normalizedRemoteUrl, sourceSite.surface );
+	const apiUrl = getReprintApiUrlForSite( normalizedRemoteUrl );
 
 	// "Full pull vs. delta" is derived from the durable site flag, not a
 	// stage cursor: a site that has already completed a full pull
@@ -327,7 +323,17 @@ export async function runCommand(
 	} );
 
 	try {
-		const preflight = await runPreflight( studioMetadata, apiUrl, secret, verbose );
+		// Reprint keeps the private key in the state directory, keyed by
+		// `apiUrl`, so this runs once that directory exists.
+		await ensureReprintKey( {
+			wpComSiteId: sourceSite.wpComSite.id,
+			wpComAccessToken: sourceSite.wpComToken.accessToken,
+			exporter: sourceSite.exporter,
+			apiUrl,
+			stateDirectory: studioMetadata.stateDirectory,
+			verbose,
+		} );
+		const preflight = await runPreflight( studioMetadata, apiUrl, verbose );
 		const reprintMetadata = await getReprintMetadata( {
 			apiUrl,
 			stateDirectory: studioMetadata.stateDirectory,
@@ -355,8 +361,6 @@ export async function runCommand(
 		await withSiteOperation( site.path, 'import', async () => {
 			// Persist the durable origin onto the site record: where it syncs
 			// from, the remote's self-reported siteurl, and the table prefix.
-			// The Reprint secret is intentionally rotated for each run, not
-			// stored for later reuse.
 			const origin = {
 				remoteUrl: normalizedRemoteUrl,
 				remoteSiteUrl: preflight.siteurl || normalizedRemoteUrl,
@@ -379,15 +383,7 @@ export async function runCommand(
 			// the database step entirely; see runFullPull. Always re-invoked:
 			// every command is idempotent and reprint resumes its own pipeline
 			// from `.import-state.json`, so there is no Studio-side guard.
-			await runFullPull(
-				studioMetadata,
-				apiUrl,
-				secret,
-				verbose,
-				! isRepull,
-				selection,
-				reprintMetadata
-			);
+			await runFullPull( studioMetadata, apiUrl, verbose, ! isRepull, selection, reprintMetadata );
 
 			// The site record already exists (created via `studio create`) and its
 			// `technicalSiteDirectory` was recorded at pull start; the pull now
@@ -702,7 +698,6 @@ async function applySelection( params: {
 async function runPreflight(
 	sessionMetadata: PullSession,
 	sourceSiteApiUrl: string,
-	sourceSiteSecret: string,
 	verbose = false
 ): Promise< {
 	siteurl?: string;
@@ -724,7 +719,6 @@ async function runPreflight(
 			[
 				'preflight',
 				sourceSiteApiUrl,
-				`--secret=${ sourceSiteSecret }`,
 				'--no-adaptive',
 				`--state-dir=${ sessionMetadata.stateDirectory }`,
 				`--fs-root=${ sessionMetadata.rawDirectory }`,
@@ -891,7 +885,6 @@ export function ensureScopedPullWpConfig(
 export async function runFullPull(
 	metadata: PullSession,
 	apiUrl: string,
-	secret: string,
 	verbose: boolean,
 	isFirstPull: boolean,
 	selection: PullSelection = {},
@@ -937,7 +930,6 @@ export async function runFullPull(
 	await runStep( __( 'Pulling files' ), [
 		'pull-files',
 		apiUrl,
-		`--secret=${ secret }`,
 		...onlyArgs,
 		'--mode=mirror',
 		'--no-adaptive',
@@ -950,7 +942,6 @@ export async function runFullPull(
 		await runStep( __( 'Pulling database' ), [
 			'pull-db',
 			apiUrl,
-			`--secret=${ secret }`,
 			'--target-engine=sqlite',
 			`--target-sqlite-path=${ sqlitePath }`,
 			`--new-site-url=${ metadata.localUrl! }`,
@@ -1018,7 +1009,6 @@ export function normalizeSiteUrl( url: string ): string {
 	);
 	normalized.hash = '';
 	normalized.pathname = normalized.pathname.replace( /\/+$/, '' ) || '/';
-	normalized.searchParams.delete( 'reprint-api' );
 	normalized.searchParams.delete( 'reprint-api-jetpack' );
 	return normalized.toString();
 }
@@ -1057,7 +1047,7 @@ export function findMatchingWpComSite< T extends { url: string } >(
  * patterns:
  *
  *   1. URL provided — resolve it against the connected WordPress.com/
- *      Pressable sites, enable the exporter, and rotate a fresh secret.
+ *      Pressable sites and enable the exporter.
  *   2. No URL — among pullable (`syncable`) sites only: if the user has
  *      exactly one, pick it; with several, show an interactive picker in a
  *      TTY (returning `null` if the user cancels) or error out when run
@@ -1148,14 +1138,9 @@ export async function resolveSourceSite(
 		}
 	}
 
-	// Provision the exporter and learn the site's export surface, then rotate a
-	// fresh secret for that surface. Deciding the surface here (once) is what
-	// keeps the rotate route and the importer query var in agreement.
-	const surface = await enableReprintExporter( wpComSite.id, token.accessToken, verbose );
 	return {
 		url: resolvedUrl,
-		surface,
-		secret: await rotateReprintSecret( wpComSite.id, token.accessToken, surface ),
+		exporter: await enableReprintExporter( wpComSite.id, token.accessToken, verbose ),
 		wpComSite,
 		wpComToken: token,
 	};
@@ -1183,14 +1168,13 @@ export function getPullSession( site: SiteData ): PullSession {
 
 /**
  * Returns the export endpoint URL on a remote site for the given normalized
- * site URL.  The reprint exporter mounts its API on a query-arg marker instead
- * of a REST route so it intercepts requests before WordPress's full bootstrap
- * runs.  The marker depends on the export surface: v2 (the Jetpack surface)
- * uses `?reprint-api-jetpack`, v1 `?reprint-api`.
+ * site URL.  The reprint exporter mounts its API on the `?reprint-api-jetpack`
+ * query-arg marker instead of a REST route so it intercepts requests before
+ * WordPress's full bootstrap runs.
  */
-export function getReprintApiUrlForSite( siteUrl: string, surface: ReprintSurface = 'v1' ): string {
+export function getReprintApiUrlForSite( siteUrl: string ): string {
 	const apiUrl = new URL( siteUrl );
-	apiUrl.search = surface === 'v2' ? '?reprint-api-jetpack' : '?reprint-api';
+	apiUrl.search = '?reprint-api-jetpack';
 	return apiUrl.toString();
 }
 

@@ -12,9 +12,39 @@ import { reapPhpTreeOnInterrupt, spawnPhpProcess } from 'cli/lib/native-php/php-
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 
 export interface ReprintProcessResult {
+	/** The last stdout line other than the command report: the command's result. */
 	stdout: string;
 	stderr: string;
 	exitCode: number;
+	/** The `reprint_report` record Reprint appends when stdout is not a terminal. */
+	report?: ReprintReport;
+}
+
+/**
+ * The final record of every Reprint command. Commands add their own fields,
+ * such as `public_key` for `keygen`.
+ */
+interface ReprintReport extends Record< string, unknown > {
+	type: 'reprint_report';
+	command: string;
+	status: string;
+	exit_code: number;
+	error: string | null;
+	error_code: string | null;
+}
+
+function parseReprintReport( line: string ): ReprintReport | undefined {
+	if ( ! line.includes( '"reprint_report"' ) ) {
+		return undefined;
+	}
+	try {
+		const parsed = JSON.parse( line );
+		return parsed && typeof parsed === 'object' && parsed.type === 'reprint_report'
+			? ( parsed as ReprintReport )
+			: undefined;
+	} catch {
+		return undefined;
+	}
 }
 
 /** Resolves the path to the bundled reprint.phar, throwing if it's missing. */
@@ -61,7 +91,13 @@ export async function runReprintCommandUntilComplete(
 			lastResult = await runReprintCommandNative( pharPath, phpVersion, args, options, progress );
 
 			if ( lastResult.exitCode === 1 ) {
-				const details = [ lastResult.stderr, lastResult.stdout ].filter( Boolean ).join( '\n' );
+				const report = lastResult.report;
+				const reportError = report?.error
+					? [ report.error_code, report.error ].filter( Boolean ).join( ': ' )
+					: '';
+				const details = [ reportError, lastResult.stderr, lastResult.stdout ]
+					.filter( Boolean )
+					.join( '\n' );
 				throw new Error(
 					details ||
 						`reprint.phar exited with code 1 (command: ${
@@ -113,6 +149,7 @@ async function runReprintCommandNative(
 
 		let settled = false;
 		let lastStdoutLine = '';
+		let report: ReprintReport | undefined;
 		let stdoutRemainder = '';
 		const STDERR_TAIL_BYTES = 256 * 1024;
 		let stderrTail = '';
@@ -129,19 +166,25 @@ async function runReprintCommandNative(
 			fn();
 		};
 
+		const takeStdoutLine = ( line: string ) => {
+			if ( ! line.trim() ) {
+				return;
+			}
+			const parsedReport = parseReprintReport( line );
+			if ( parsedReport ) {
+				report = parsedReport;
+			} else {
+				lastStdoutLine = line;
+			}
+		};
+
 		child.stdout?.on( 'data', ( chunk: Buffer ) => {
 			const text = chunk.toString();
 			progress.pushStdoutChunk( text );
 
-			const combined = stdoutRemainder + text;
-			const lines = combined.split( '\n' );
+			const lines = ( stdoutRemainder + text ).split( '\n' );
 			stdoutRemainder = lines.pop() ?? '';
-			for ( let i = lines.length - 1; i >= 0; i-- ) {
-				if ( lines[ i ].trim() ) {
-					lastStdoutLine = lines[ i ];
-					break;
-				}
-			}
+			lines.forEach( takeStdoutLine );
 		} );
 
 		child.stderr?.on( 'data', ( chunk: Buffer ) => {
@@ -154,13 +197,15 @@ async function runReprintCommandNative(
 		child.once( 'error', ( err ) => finish( () => reject( err ) ) );
 
 		child.once( 'close', ( code ) =>
-			finish( () =>
+			finish( () => {
+				takeStdoutLine( stdoutRemainder );
 				resolve( {
-					stdout: stdoutRemainder.trim() || lastStdoutLine,
+					stdout: lastStdoutLine,
 					stderr: stderrTail,
 					exitCode: code ?? 1,
-				} )
-			)
+					report,
+				} );
+			} )
 		);
 	} );
 }
@@ -266,8 +311,13 @@ function parseJsonl( line: string ): Record< string, unknown > | null {
 		if ( ! parsed || typeof parsed !== 'object' || Array.isArray( parsed ) ) {
 			return null;
 		}
-		// Skip result envelopes (preflight responses, protocol headers).
-		if ( 'http_code' in parsed || 'protocol_version' in parsed ) {
+		// Skip result envelopes (preflight responses, protocol headers, the
+		// final command report).
+		if (
+			'http_code' in parsed ||
+			'protocol_version' in parsed ||
+			parsed.type === 'reprint_report'
+		) {
 			return null;
 		}
 		return parsed as Record< string, unknown >;

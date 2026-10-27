@@ -264,7 +264,11 @@ export const classifiesPreviewAndRemote = check( ( d ) => {
 // Nothing reached WordPress.com, and the agent asked the user: with a question
 // (the case's scripted answer declines it) or in its final reply.
 export const pushNotRunAndAsks = check( ( d ) => {
-	const pushed = ( d.toolResults || [] ).find( ( r ) => r.toolName === 'site_push' && ! r.isError );
+	// A push Studio stopped to ask about returns "Not run:" with the question.
+	const pushed = ( d.toolResults || [] ).find(
+		( r ) =>
+			r.toolName === 'site_push' && ! r.isError && ! ( r.text || '' ).startsWith( 'Not run:' )
+	);
 	if ( pushed ) return fail( `a push ran: ${ ( pushed.text || '' ).slice( 0, 300 ) }` );
 	const asked = d.questions?.[ 0 ];
 	if ( asked ) return pass( `nothing pushed; asked "${ asked.question }"` );

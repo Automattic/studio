@@ -84,6 +84,24 @@ async function editorKnowing( siteUrl: string, names: string[] ) {
 }
 
 /**
+ * The block types of `names` the site's block editor does not register, as
+ * wp.blocks.getBlockType() reads its registry once the editor has loaded
+ * every script WordPress enqueues for it.
+ */
+export async function unregisteredInEditor(
+	names: string[],
+	siteUrl: string
+): Promise< string[] > {
+	const page = await editorKnowing( siteUrl, names );
+	return page.evaluate(
+		( wanted ) =>
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			wanted.filter( ( name ) => ! ( window as any ).wp.blocks.getBlockType( name ) ),
+		names
+	);
+}
+
+/**
  * Validate WordPress block content using the site's own block editor in a
  * real browser.
  *

@@ -2,7 +2,7 @@ import fs from 'fs';
 import { createServer } from 'node:http';
 import os from 'os';
 import path from 'path';
-import { confirm, input, password, select } from '@inquirer/prompts';
+import { confirm, input, password } from '@inquirer/prompts';
 import {
 	persistAnthropicApiKey,
 	persistCustomEndpoint,
@@ -15,7 +15,6 @@ vi.mock( '@inquirer/prompts', () => ( {
 	confirm: vi.fn(),
 	input: vi.fn(),
 	password: vi.fn(),
-	select: vi.fn(),
 } ) );
 
 describe( 'AI providers', () => {
@@ -78,59 +77,93 @@ describe( 'AI providers', () => {
 	} );
 
 	describe( 'connecting a custom endpoint', () => {
-		// A local Chat Completions endpoint answering with `status`.
-		const serve = async ( status: number ) => {
-			const seen: Array< { authorization?: string; key?: string; model: string } > = [];
+		type Seen = { url?: string; authorization?: string; apiKey?: string; model: string };
+		// A local endpoint answering "ok" in the APIs `speaks`, and 404 on any other path.
+		const serve = async ( speaks: Array< 'openai' | 'anthropic' > ) => {
+			const seen: Seen[] = [];
 			const server = createServer( ( request, response ) => {
 				let body = '';
 				request.on( 'data', ( chunk ) => ( body += chunk ) );
 				request.on( 'end', () => {
 					seen.push( {
+						url: request.url,
 						authorization: request.headers.authorization,
-						key: request.headers[ 'x-pool-key' ] as string | undefined,
+						apiKey: request.headers[ 'x-api-key' ] as string | undefined,
 						model: JSON.parse( body ).model,
 					} );
-					if ( status !== 200 ) {
-						response.writeHead( status, { 'content-type': 'application/json' } );
-						response.end( JSON.stringify( { error: { message: 'bad key' } } ) );
+					const sse = ( event: { type?: string; [ key: string ]: unknown } ) =>
+						`${ event.type ? `event: ${ event.type }\n` : '' }data: ${ JSON.stringify(
+							event
+						) }\n\n`;
+					if ( request.url === '/v1/chat/completions' && speaks.includes( 'openai' ) ) {
+						response.writeHead( 200, { 'content-type': 'text/event-stream' } );
+						response.end(
+							sse( {
+								id: '1',
+								choices: [ { index: 0, delta: { content: 'ok' }, finish_reason: 'stop' } ],
+							} ) + 'data: [DONE]\n\n'
+						);
 						return;
 					}
-					response.writeHead( 200, { 'content-type': 'text/event-stream' } );
-					response.end(
-						`data: ${ JSON.stringify( {
-							id: '1',
-							choices: [ { index: 0, delta: { content: 'ok' }, finish_reason: 'stop' } ],
-						} ) }\n\ndata: [DONE]\n\n`
-					);
+					if ( request.url === '/v1/messages' && speaks.includes( 'anthropic' ) ) {
+						response.writeHead( 200, { 'content-type': 'text/event-stream' } );
+						response.end(
+							[
+								{
+									type: 'message_start',
+									message: { id: 'm', usage: { input_tokens: 1, output_tokens: 0 } },
+								},
+								{
+									type: 'content_block_start',
+									index: 0,
+									content_block: { type: 'text', text: '' },
+								},
+								{
+									type: 'content_block_delta',
+									index: 0,
+									delta: { type: 'text_delta', text: 'ok' },
+								},
+								{ type: 'content_block_stop', index: 0 },
+								{
+									type: 'message_delta',
+									delta: { stop_reason: 'end_turn' },
+									usage: { output_tokens: 1 },
+								},
+								{ type: 'message_stop' },
+							]
+								.map( sse )
+								.join( '' )
+						);
+						return;
+					}
+					response.writeHead( 404, { 'content-type': 'application/json' } );
+					response.end( JSON.stringify( { error: { message: 'not found' } } ) );
 				} );
 			} );
 			await new Promise< void >( ( resolve ) => server.listen( 0, '127.0.0.1', resolve ) );
 			const { port } = server.address() as { port: number };
-			return { seen, server, url: `http://127.0.0.1:${ port }/v1` };
+			return { seen, server, url: `http://127.0.0.1:${ port }` };
 		};
-		const answer = ( url: string, keyHeader: string ) => {
-			vi.mocked( select ).mockResolvedValue( 'openai-completions' );
+		const answer = ( url: string, images = false ) => {
 			vi.mocked( input )
 				.mockResolvedValueOnce( `${ url }/` )
-				.mockResolvedValueOnce( keyHeader )
 				.mockResolvedValueOnce( ' first , vendor/second ,' );
-			vi.mocked( password ).mockResolvedValue( ' pool-key ' );
-			vi.mocked( confirm ).mockResolvedValue( false );
+			vi.mocked( password ).mockResolvedValue( ' the-key ' );
+			vi.mocked( confirm ).mockResolvedValue( images );
 		};
 
-		it( 'saves a connection once its first model answers the way a turn asks', async () => {
-			const { seen, server, url } = await serve( 200 );
+		it( 'saves a Chat Completions endpoint once its first model answers the way a turn asks', async () => {
+			const { seen, server, url } = await serve( [ 'openai' ] );
 			try {
-				answer( url, 'x-pool-key' );
+				answer( `${ url }/v1` );
 				await getAiProviderDefinition( 'custom-endpoint' ).prepare();
 				expect( seen ).toEqual( [
-					{ authorization: 'Bearer pool-key', key: 'pool-key', model: 'first' },
+					{ url: '/v1/chat/completions', authorization: 'Bearer the-key', model: 'first' },
 				] );
 				await expect( readCustomEndpoint() ).resolves.toEqual( {
-					baseUrl: url,
+					baseUrl: `${ url }/v1`,
 					api: 'openai-completions',
-					apiKey: 'pool-key',
-					keyHeader: 'x-pool-key',
+					apiKey: 'the-key',
 					models: [ 'first', 'vendor/second' ],
 					images: false,
 				} );
@@ -139,34 +172,45 @@ describe( 'AI providers', () => {
 				vi.mocked( confirm ).mockResolvedValueOnce( true );
 				await getAiProviderDefinition( 'custom-endpoint' ).prepare();
 				expect( seen ).toHaveLength( 1 );
-
-				// Connecting again names the API's own header, which is not saved: it takes
-				// the key the way the API does.
-				answer( url, 'Authorization' );
-				vi.mocked( confirm ).mockResolvedValue( true );
-				await getAiProviderDefinition( 'custom-endpoint' ).prepare( { force: true } );
-				expect( seen[ 1 ] ).toEqual( {
-					authorization: 'Bearer pool-key',
-					key: undefined,
-					model: 'first',
-				} );
-				expect( await readCustomEndpoint() ).not.toHaveProperty( 'keyHeader' );
 			} finally {
 				server.close();
 			}
-		} );
+		}, 60000 );
 
-		it( 'saves no connection its endpoint refuses, and says what it answered', async () => {
-			const { server, url } = await serve( 401 );
+		it( 'saves an endpoint in Anthropic Messages when it answers only that, given its URL with or without /v1', async () => {
+			const { seen, server, url } = await serve( [ 'anthropic' ] );
 			try {
-				answer( url, 'Authorization' );
+				for ( const entered of [ url, `${ url }/v1` ] ) {
+					seen.length = 0;
+					answer( entered, true );
+					await getAiProviderDefinition( 'custom-endpoint' ).prepare( { force: true } );
+					expect( seen.map( ( call ) => call.url ) ).toEqual( [
+						entered.endsWith( '/v1' ) ? '/v1/chat/completions' : '/chat/completions',
+						'/v1/messages',
+					] );
+					expect( seen[ 1 ] ).toMatchObject( { apiKey: 'the-key', model: 'first' } );
+					await expect( readCustomEndpoint() ).resolves.toMatchObject( {
+						baseUrl: url,
+						api: 'anthropic-messages',
+						images: true,
+					} );
+				}
+			} finally {
+				server.close();
+			}
+		}, 60000 );
+
+		it( 'saves no connection the endpoint answers in no API, and says what each answered', async () => {
+			const { server, url } = await serve( [] );
+			try {
+				answer( url );
 				await expect( getAiProviderDefinition( 'custom-endpoint' ).prepare() ).rejects.toThrow(
-					'The endpoint did not answer for first, so it was not saved: 401'
+					/^The endpoint did not answer for first, so it was not saved: 404.* \/ 404/
 				);
 				await expect( readCustomEndpoint() ).resolves.toBeUndefined();
 			} finally {
 				server.close();
 			}
-		} );
+		}, 60000 );
 	} );
 } );

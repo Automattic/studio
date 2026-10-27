@@ -702,7 +702,7 @@ describe( 'pi runtime', () => {
 			}
 		} );
 
-		it( 'sends the key in the header its connection names, and shows images when it takes them', async () => {
+		it( 'speaks Anthropic Messages when connected in it, and shows images when the models take them', async () => {
 			const { seen, server, url } = await serve();
 			try {
 				await runRuntime( {
@@ -711,7 +711,6 @@ describe( 'pi runtime', () => {
 						baseUrl: url,
 						api: 'anthropic-messages',
 						apiKey: 'pool-key',
-						keyHeader: 'x-pool-key',
 						models: [ 'sees' ],
 						images: true,
 					} ),
@@ -723,7 +722,7 @@ describe( 'pi runtime', () => {
 				const reply = await ask( options );
 				expect( reply.content ).toEqual( [ { type: 'text', text: 'hi' } ] );
 				expect( seen ).toMatchObject( [
-					{ url: '/v1/messages', headers: { 'x-pool-key': 'pool-key' }, body: { model: 'sees' } },
+					{ url: '/v1/messages', headers: { 'x-api-key': 'pool-key' }, body: { model: 'sees' } },
 				] );
 			} finally {
 				server.close();

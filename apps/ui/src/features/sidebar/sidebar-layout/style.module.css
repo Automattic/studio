@@ -1,0 +1,203 @@
+.root {
+	/* The sidebar and its sticky header/footer share one surface. */
+	--studio-sidebar-bg: var( --chrome );
+
+	position: relative;
+	display: flex;
+	height: 100vh;
+	overflow: hidden;
+	background-color: var( --chat );
+}
+
+.sidebar {
+	width: var( --sidebar-width, 320px );
+	/* Both bounds are owned by useResizablePanel, which clamps --sidebar-width
+	   on every path. CSS min/max widths would compete with that single source
+	   of truth and can crush the sidebar below its minimum width on narrow windows. */
+	min-width: 0;
+	flex-shrink: 0;
+	background-color: var( --studio-sidebar-bg );
+	display: flex;
+	flex-direction: column;
+	/* The sidebar itself scrolls so the scrollbar gutter affects the
+	   (sticky) header and footer identically to the middle content —
+	   avoiding the misalignment you get when the scrollbar lives on an
+	   inner wrapper. */
+	overflow-y: auto;
+	scrollbar-width: none;
+	-webkit-app-region: drag;
+	/* Eases with the frame when the width resets, so its rows don't snap ahead. */
+	transition: width var( --motion-duration-layout ) var( --motion-ease-layout );
+}
+
+/* Collapsing animates this frame's width while the sidebar inside keeps its
+   own, anchored to the main-side edge, so it slides out rather than squeezing
+   its rows. */
+.sidebarFrame {
+	position: relative;
+	display: flex;
+	justify-content: flex-end;
+	flex-shrink: 0;
+	width: var( --sidebar-width, 320px );
+	overflow: hidden;
+	transition: width var( --motion-duration-layout ) var( --motion-ease-layout );
+}
+
+/* While dragging or arrow-keying the handle the width updates every step; the
+   collapse transition above would animate toward each step and lag behind.
+   Drop it for the duration of the drag (mirrors `.rootPreviewResizing` in
+   preview-split-frame). */
+.sidebarResizing,
+.sidebarResizing .sidebar,
+.root:has( > .resizeHandle:focus-visible ) :is( .sidebarFrame, .sidebar ) {
+	transition: none;
+}
+
+/* Stay pinned at the bottom as the sidebar scrolls; `margin-top: auto`
+   pushes the footer to the bottom in the flex column when content is
+   shorter than the viewport. Rows scrolling under it fade out. */
+.sidebarFooter {
+	margin-top: auto;
+	position: sticky;
+	bottom: 0;
+	z-index: 1;
+	padding-top: var( --space-6 );
+	background: linear-gradient( to bottom, transparent, var( --studio-sidebar-bg ) 32px );
+	pointer-events: none;
+	-webkit-app-region: no-drag;
+}
+
+.sidebarFooter > * {
+	pointer-events: auto;
+}
+
+/* The sidebar's edge below the band, in its own last column. It slides out
+   with the frame, which clips it once collapsed. */
+.sidebarFrame::after {
+	content: '';
+	position: absolute;
+	z-index: 2;
+	top: var( --band-height );
+	bottom: 0;
+	inset-inline-end: 0;
+	width: 1px;
+	background-color: var( --border );
+	pointer-events: none;
+}
+
+.sidebarCollapsed {
+	width: 0;
+}
+
+/* Clicking anywhere else closes the overlay. */
+.sidebarFlyoutBackdrop {
+	position: absolute;
+	inset: var( --band-height ) 0 0;
+	z-index: calc( var( --z-sidebar ) - 1 );
+	-webkit-app-region: no-drag;
+}
+
+.main {
+	flex: 1;
+	min-width: 0;
+	/* Route panels own their scrolling. */
+	overflow: hidden;
+	position: relative;
+	isolation: isolate;
+}
+
+/* Above the panels so the band's separator reads across them. */
+.main::before {
+	z-index: var( --z-band );
+	transition: opacity var( --motion-duration-layout ) var( --motion-ease-layout );
+}
+
+.mainUndocked::before {
+	opacity: 0;
+}
+
+/* The negative margin cancels the handle's width so it adds no space to the
+   flex row — the main content butts straight against the sidebar's border and
+   the hit area overlays main's sidebar-side edge. position/z-index lift it
+   above main (a later flex sibling) so its focus line sits on the border. */
+.resizeHandle {
+	position: relative;
+	z-index: var( --z-overlay );
+	flex-shrink: 0;
+	margin-inline-end: calc( var( --space-2 ) * -1 );
+	justify-content: flex-start;
+}
+
+.resizeHandle span {
+	margin-block-start: var( --band-height );
+}
+
+/* Hovering or dragging the handle darkens the column edge. */
+.root:has( > .resizeHandle:hover ) .sidebarFrame::after,
+.resizeHandle:hover + .main::before,
+.sidebarResizing::after,
+.sidebarResizing ~ .main::before {
+	background-color: color-mix( in oklab, var( --foreground ) 15%, transparent );
+}
+
+.sidebarCards {
+	padding: 0 var( --space-2 ) var( --space-2 );
+}
+
+.sidebarFlyoutAnchor {
+	position: absolute;
+	inset-block-start: 0;
+	inset-inline: 0;
+	height: var( --band-height );
+	pointer-events: none;
+}
+
+.sidebarFlyout {
+	--studio-sidebar-bg: var( --popover );
+	width: var( --sidebar-width );
+	max-width: calc( 100vw - 16px );
+	overflow: hidden;
+}
+
+.sidebarFlyoutContents {
+	display: flex;
+	flex-direction: column;
+	max-height: calc( 100dvh - var( --band-height ) - 16px );
+	overflow-y: auto;
+	scrollbar-width: none;
+	-webkit-app-region: no-drag;
+}
+
+.sidebarFlyoutContents .sidebarFlyoutList {
+	padding-block-start: var( --space-1 );
+}
+
+@media ( prefers-reduced-motion: no-preference ) {
+	.sidebarFlyout {
+		transition-property: translate, opacity;
+		transition-duration: var( --motion-duration-layout );
+		transition-timing-function: var( --motion-ease-layout );
+	}
+
+	.sidebarFlyout[data-starting-style],
+	.sidebarFlyout[data-ending-style] {
+		scale: 1;
+		translate: calc( -100% - 8px ) 0;
+	}
+
+	.sidebarFlyout:dir( rtl )[data-starting-style],
+	.sidebarFlyout:dir( rtl )[data-ending-style] {
+		translate: calc( 100% + 8px ) 0;
+	}
+}
+
+.instantSidebarDock {
+	--motion-duration-layout: 0ms;
+}
+
+.instantSidebarDock .sidebarFrame,
+.instantSidebarDock .sidebar,
+.instantSidebarDock .main::before,
+.instantSidebarDock [data-sidebar-header-slot] {
+	transition: none;
+}

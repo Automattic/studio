@@ -11,7 +11,7 @@ const PLUGIN_RECOMMENDATION_HTML_BLOCK_POLICIES = [
 	},
 ];
 
-export interface HtmlBlockPolicyResult {
+interface HtmlBlockPolicyResult {
 	blockNumber: number;
 	line: number;
 	content: string;

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en" data-color-scheme="light">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<link rel="icon" href="../studio/assets/studio-app-icon.ico" />
+		<title>Studio · Playground</title>
+		<script type="module">
+			import '/src/lib/theme/tokens.css';
+			import '/src/lib/theme/base.css';
+		</script>
+		<style>
+			main {
+				max-width: 560px;
+				margin: 0 auto;
+				padding: 48px 16px;
+			}
+			h1 {
+				margin: 0 16px 16px;
+				font-size: var( --text-xl );
+				font-weight: var( --font-weight-semibold );
+			}
+			a {
+				display: block;
+				padding: 12px 16px;
+				border-radius: var( --radius-lg );
+				color: var( --foreground );
+				text-decoration: none;
+			}
+			a:hover {
+				background: var( --hover );
+			}
+			a span {
+				display: block;
+				color: var( --muted-foreground );
+				font-size: var( --text-sm );
+			}
+		</style>
+	</head>
+	<body>
+		<main>
+			<h1>Playground</h1>
+			<a href="/chat.html">
+				Chat transcript
+				<span>Messages, tool calls, questions, images and markers in every state.</span>
+			</a>
+			<a href="/animation.html">
+				Preview loading animation
+				<span>Loading, navigating, still, easing and the selection wave.</span>
+			</a>
+		</main>
+	</body>
+</html>

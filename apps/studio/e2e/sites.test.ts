@@ -10,6 +10,7 @@ import { E2ESession, launchWithSite } from './e2e-helpers';
 import AddSite from './page-objects/add-site';
 import Sidebar from './page-objects/sidebar';
 import SiteSettings from './page-objects/site-settings';
+import { getUrlWithAutoLogin } from './utils';
 
 const skipTestOnWindows = process.platform === 'win32' ? test.skip : test;
 const session = new E2ESession();
@@ -27,6 +28,39 @@ async function deleteSite( siteName: string, { keepFiles }: { keepFiles: boolean
 	} );
 }
 
+async function expectStopped( siteName: string ) {
+	await expect( new Sidebar( session.mainWindow ).getStatusButton( siteName ) ).toHaveAttribute(
+		'data-state',
+		'stopped',
+		{ timeout: 120_000 }
+	);
+}
+
+// The preview header folds its actions into a More menu when it runs out of room.
+async function previewAction( menuItem: string, button = menuItem ) {
+	const page = session.mainWindow;
+	const inline = page.getByRole( 'button', { name: button, exact: true } );
+	await expect( async () => {
+		try {
+			if ( await inline.isVisible() ) {
+				// The address bar reveals its own actions on hover.
+				await page.getByRole( 'textbox', { name: 'Address' } ).hover( { timeout: 2000 } );
+				await inline.click( { timeout: 2000 } );
+			} else {
+				await page
+					.getByRole( 'button', { name: 'More preview actions' } )
+					.click( { timeout: 2000 } );
+				await page.getByRole( 'menuitem', { name: menuItem, exact: true } ).click( {
+					timeout: 2000,
+				} );
+			}
+		} catch ( error ) {
+			await page.keyboard.press( 'Escape' );
+			throw error;
+		}
+	} ).toPass();
+}
+
 // Copies a running site's install into `~/Studio/<folder>`, a folder no site uses yet. The source
 // is running, so recursiveCopyDirectory (unlike fs.copy) tolerates its SQLite journal/cache files
 // vanishing mid-copy.
@@ -42,23 +76,73 @@ test.describe( 'Sites', () => {
 		await session.cleanup();
 	} );
 
-	// The CLI E2E suite covers creating with the default name and path; this checks the form's
-	// name and folder fields reach the site.
-	test( 'create site with a custom name and folder', async () => {
-		const { siteName, site } = await launchWithSite( session, {
-			siteName: 'E2E-Test-Site 2',
-			folder: 'hello',
-		} );
-
-		expect( siteName ).toBe( 'E2E-Test-Site 2' );
-		expect( arePathsEqual( site.path, path.join( session.homePath, 'Studio', 'hello' ) ) ).toBe(
-			true
-		);
+	test( 'creates a site, previews it, and keeps it across relaunches', async ( { page } ) => {
+		const siteName = 'Lifecycle site';
+		await session.launch();
+		await new AddSite( session.mainWindow ).createSite( { siteName } );
+		await new Sidebar( session.mainWindow ).expectRunning( siteName );
+		const site = await session.waitForSite( siteName );
+		expect(
+			arePathsEqual( site.path, path.join( session.homePath, 'Studio', 'lifecycle-site' ) )
+		).toBe( true );
 		expect( await pathExists( path.join( site.path, 'wp-config.php' ) ) ).toBe( true );
+		await expect.poll( () => session.previewText() ).toContain( 'Hello world!' );
 
-		const response = await fetch( await session.getSiteUrl( siteName ) );
-		expect( [ 200, 302 ] ).toContain( response.status );
-		expect( response.headers.get( 'content-type' ) ).toMatch( /text\/html/ );
+		const siteUrl = await session.getSiteUrl( siteName );
+		await page.goto( getUrlWithAutoLogin( `${ siteUrl }/wp-admin` ) );
+		await expect( page.locator( '#wp-admin-bar-my-account' ) ).toBeVisible();
+
+		await session.electronApp.evaluate( ( { shell } ) => {
+			const captured = globalThis as typeof globalThis & { openedUrls: string[] };
+			captured.openedUrls = [];
+			shell.openExternal = async ( url ) => {
+				captured.openedUrls.push( url );
+			};
+		} );
+		await previewAction( 'Open in browser', 'Open this page in your browser' );
+		const openedUrls = () =>
+			session.electronApp.evaluate(
+				() => ( globalThis as typeof globalThis & { openedUrls: string[] } ).openedUrls
+			);
+		await expect.poll( openedUrls ).toHaveLength( 1 );
+		expect( new URL( ( await openedUrls() )[ 0 ] ).origin ).toBe( new URL( siteUrl ).origin );
+
+		const guestId = await session.mainWindow
+			.locator( 'webview' )
+			.evaluate( ( element ) =>
+				( element as HTMLElement & { getWebContentsId: () => number } ).getWebContentsId()
+			);
+		const loadInPreview = ( url: string ) =>
+			session.electronApp.evaluate(
+				async ( { webContents }, target ) => {
+					await webContents
+						.fromId( target.id )!
+						.loadURL( target.url )
+						.catch( () => {} );
+				},
+				{ id: guestId, url }
+			);
+		await loadInPreview( 'http://127.0.0.1:1/' );
+		await expect( session.mainWindow.getByText( 'Preview could not load' ) ).toBeVisible();
+		await loadInPreview( siteUrl );
+		await expect.poll( () => session.previewText() ).toContain( 'Hello world!' );
+
+		await new Sidebar( session.mainWindow ).getStatusButton( siteName ).click();
+		await expectStopped( siteName );
+		await expect( session.mainWindow.locator( 'webview' ) ).toHaveCount( 0 );
+
+		await session.restart();
+		await expectStopped( siteName );
+		await new Sidebar( session.mainWindow ).getStatusButton( siteName ).click();
+		await new Sidebar( session.mainWindow ).expectRunning( siteName );
+		await expect.poll( () => session.previewText() ).toContain( 'Hello world!' );
+
+		await session.mainWindow.evaluate( () =>
+			window.ipcApi.setUserPreferences( { quitSitesBehavior: 'stop-and-auto-start' } )
+		);
+		await session.restart();
+		await new Sidebar( session.mainWindow ).expectRunning( siteName );
+		await expect.poll( () => session.previewText() ).toContain( 'Hello world!' );
 	} );
 
 	skipTestOnWindows( 'delete site but keep directory on disk', async () => {
@@ -111,65 +195,6 @@ test.describe( 'Sites', () => {
 		expect( finalConfig ).toContain( "define( 'DB_PASSWORD', 'super-secret-pw' );" );
 		expect( finalConfig ).toContain( "define( 'DB_HOST', 'mysql.example.com' );" );
 	} );
-} );
-
-// Settings changes share one site. Changing the PHP version restarts it, so it runs last: the
-// form re-seeds on the restart's site events, which would otherwise race the next test's input.
-test.describe( 'Site settings', () => {
-	let siteName: string;
-
-	test.beforeAll( async () => {
-		( { siteName } = await launchWithSite( session ) );
-	} );
-
-	test.afterEach( async ( { page: _page }, testInfo ) => {
-		await session.reportFailure( testInfo );
-	} );
-
-	test.afterAll( async () => {
-		await session.cleanup();
-	} );
-
-	test( 'renames a site', async () => {
-		const newSiteName = 'E2E-Test-Site-Renamed';
-
-		const settings = new SiteSettings( session.mainWindow );
-		await settings.open( siteName );
-		await settings.siteNameInput.fill( newSiteName );
-		await settings.saveSettings();
-		await settings.close();
-
-		await expect( new Sidebar( session.mainWindow ).getSiteButton( newSiteName ) ).toBeVisible();
-		await session.waitForSite( newSiteName );
-		siteName = newSiteName;
-	} );
-
-	test( 'change PHP version', async () => {
-		const newPhpVersion = ALLOWED_PHP_VERSIONS.find( ( v ) => v !== DEFAULT_PHP_VERSION ) || '8.2';
-
-		const settings = new SiteSettings( session.mainWindow );
-		await settings.open( siteName );
-		await settings.showSection( 'PHP' );
-		await expect( settings.phpVersionSelect ).toHaveText( DEFAULT_PHP_VERSION );
-
-		await settings.selectPhpVersion( newPhpVersion );
-		await settings.saveSettings();
-
-		await expect
-			.poll( async () => await session.waitForSite( siteName ) )
-			.toMatchObject( { phpVersion: newPhpVersion } );
-		await expect( settings.phpVersionSelect ).toHaveText( newPhpVersion );
-	} );
-} );
-
-test.describe( 'Sites without cleanup in-between', () => {
-	test.afterEach( async ( { page: _page }, testInfo ) => {
-		await session.reportFailure( testInfo );
-	} );
-
-	test.afterAll( async () => {
-		await session.cleanup();
-	} );
 
 	test( 'duplicating from the sidebar copies all files and the thumbnail', async () => {
 		const { siteName, site } = await launchWithSite( session );
@@ -190,21 +215,77 @@ test.describe( 'Sites without cleanup in-between', () => {
 			.poll( () => pathExists( path.join( thumbnailsDir, `${ copy.id }.png` ) ) )
 			.toBe( true );
 	} );
+} );
 
-	test( 'stop all sites and then start the first site again', async () => {
-		const sidebar = new Sidebar( session.mainWindow );
-		await session.stopAllSites();
+// Settings changes share one site. Changing the PHP version restarts it, so it runs last: the
+// form re-seeds on the restart's site events, which would otherwise race the next test's input.
+test.describe( 'Site settings', () => {
+	let siteName: string;
 
-		const [ first ] = await session.getSites();
-		await expect( sidebar.getStatusButton( first.name ) ).toHaveAttribute(
-			'data-state',
-			'stopped',
-			{
-				timeout: 120_000,
-			}
-		);
+	test.beforeAll( async () => {
+		( { siteName } = await launchWithSite( session ) );
+	} );
 
-		await sidebar.getStatusButton( first.name ).click();
-		await sidebar.expectRunning( first.name );
+	test.afterEach( async ( { page: _page }, testInfo ) => {
+		await session.reportFailure( testInfo );
+	} );
+
+	test.afterAll( async () => {
+		await session.cleanup();
+	} );
+
+	test( 'saves a rename and the debug log back to back, and manages the agent instructions file', async () => {
+		const newSiteName = 'E2E-Test-Site-Renamed';
+		const page = session.mainWindow;
+
+		const settings = new SiteSettings( page );
+		await settings.open( siteName );
+		await settings.siteNameInput.fill( newSiteName );
+		await settings.showSection( 'Debug' );
+		await page.getByRole( 'button', { name: 'Save', exact: true } ).click();
+		await page.getByRole( 'switch', { name: 'Debug log', exact: true } ).click();
+		await page.getByRole( 'button', { name: 'Save', exact: true } ).click();
+		await expect( page.getByRole( 'button', { name: 'Save', exact: true } ) ).toHaveCount( 0, {
+			timeout: 120_000,
+		} );
+		await settings.close();
+
+		await expect( new Sidebar( page ).getSiteButton( newSiteName ) ).toBeVisible();
+		await expect
+			.poll( () => session.waitForSite( newSiteName ), { timeout: 120_000 } )
+			.toMatchObject( { enableDebugLog: true } );
+		siteName = newSiteName;
+
+		await settings.open( siteName );
+		await settings.showSection( 'Debug' );
+		await expect( page.getByRole( 'switch', { name: 'Debug log', exact: true } ) ).toBeChecked();
+		await settings.showSection( 'Instructions' );
+		const agentsFile = path.join( ( await session.waitForSite( siteName ) ).path, 'AGENTS.md' );
+		await page.getByRole( 'button', { name: 'Actions for AGENTS.md', exact: true } ).click();
+		await page.getByRole( 'menuitem', { name: 'Uninstall', exact: true } ).click();
+		const agents = page.getByRole( 'switch', { name: 'AGENTS.md', exact: true } );
+		await expect( agents ).not.toBeChecked();
+		await expect.poll( () => pathExists( agentsFile ) ).toBe( false );
+		await agents.click();
+		await expect( agents ).toBeChecked();
+		await expect.poll( () => pathExists( agentsFile ) ).toBe( true );
+		await settings.close();
+	} );
+
+	test( 'change PHP version', async () => {
+		const newPhpVersion = ALLOWED_PHP_VERSIONS.find( ( v ) => v !== DEFAULT_PHP_VERSION ) || '8.2';
+
+		const settings = new SiteSettings( session.mainWindow );
+		await settings.open( siteName );
+		await settings.showSection( 'PHP' );
+		await expect( settings.phpVersionSelect ).toHaveText( DEFAULT_PHP_VERSION );
+
+		await settings.selectPhpVersion( newPhpVersion );
+		await settings.saveSettings();
+
+		await expect
+			.poll( async () => await session.waitForSite( siteName ) )
+			.toMatchObject( { phpVersion: newPhpVersion } );
+		await expect( settings.phpVersionSelect ).toHaveText( newPhpVersion );
 	} );
 } );

@@ -56,6 +56,8 @@ Reading the stack bottom-up:
 
 `apps/ui` is a single React app (React 19, TanStack Query/Router, its own Base UI primitives and CSS theme tokens). It is rendered by **two** surfaces — desktop and local — without forking.
 
+Its source is split into app-agnostic internal packages (`lib/`: the primitives, theme, icons, generic hooks, keyboard handling) and product areas (`features/`), above `data/`, `router/` and `app/`. `lib/ui` and `lib/theme` are shaped so they can move to `packages/` and be shared with `apps/mcp-ui`. `apps/ui/README.md` has the layout and the lint-enforced boundaries.
+
 It reaches its backend exclusively through the **`Connector`** interface (`apps/ui/src/data/core/types.ts`). The UI never imports IPC, `fetch`, or SSE directly; it calls `connector.getSites()`, `connector.createSite()`, `connector.authenticate()`, etc. Each surface provides one implementation:
 
 | Connector | File | Transport | Used by |

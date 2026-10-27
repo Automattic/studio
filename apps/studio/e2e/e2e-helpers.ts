@@ -10,10 +10,18 @@ import AddSite, { type CreateSiteOptions } from './page-objects/add-site';
 import Sidebar from './page-objects/sidebar';
 import type { ChildProcess } from 'node:child_process';
 
-// `ORIENTATION_GUIDE_VERSION` in apps/ui/src/data/onboarding/orientation-guide.ts.
+// `ORIENTATION_GUIDE_VERSION` in apps/ui/src/features/onboarding/onboarding-guide/orientation-guide.ts.
 const ORIENTATION_GUIDE_VERSION = 2;
 
 export type PersistedSite = { id: string; name: string; path: string; port: number };
+
+export type LaunchOptions = {
+	firstRun?: boolean;
+	// Merged into the initial app data, e.g. `{ onboardingCompleted: false }`.
+	appData?: Record< string, unknown >;
+	// Merged into shared.json, e.g. an AI provider and its key.
+	sharedConfig?: Record< string, unknown >;
+};
 
 export class E2ESession {
 	electronApp!: ElectronApplication;
@@ -48,10 +56,12 @@ export class E2ESession {
 
 	/**
 	 * `firstRun` launches like a fresh install, on the welcome screen. Otherwise the run starts past
-	 * onboarding and the orientation guide, with AI features off so a signed-out site opens on its
-	 * preview rather than on a sign-in prompt.
+	 * onboarding and the orientation guide.
 	 */
-	async launch( testEnv: NodeJS.ProcessEnv = {}, { firstRun = false } = {} ) {
+	async launch(
+		testEnv: NodeJS.ProcessEnv = {},
+		{ firstRun = false, appData, sharedConfig }: LaunchOptions = {}
+	) {
 		await fs.mkdir( this.appDataPath, { recursive: true } );
 		await fs.mkdir( this.homePath, { recursive: true } );
 		await fs.mkdir( this.cliConfigPath, { recursive: true } );
@@ -71,15 +81,26 @@ export class E2ESession {
 				? {}
 				: {
 						onboardingCompleted: true,
-						onboardingHints: { tourDismissedVersion: ORIENTATION_GUIDE_VERSION },
-						agenticFeaturesEnabled: false,
+						// What's New is never due, whatever its version.
+						onboardingHints: {
+							tourDismissedVersion: ORIENTATION_GUIDE_VERSION,
+							whatsNewSeenVersion: Number.MAX_SAFE_INTEGER,
+						},
 				  } ),
+			...appData,
 		};
 
 		await fs.writeFile(
 			path.join( studioAppDataPath, 'appdata-v1.json' ),
 			JSON.stringify( initialAppdata, null, 2 )
 		);
+		// On macOS the app's AppleLanguages default is shared by every session, and the app falls back
+		// to it without a saved locale, so a language another worker picks would leak in.
+		await fs.writeJson( path.join( this.sharedConfigPath, 'shared.json' ), {
+			version: 1,
+			locale: 'en',
+			...sharedConfig,
+		} );
 
 		await this.launchFirstWindow( testEnv );
 	}
@@ -161,6 +182,24 @@ export class E2ESession {
 			)
 			.toBeTruthy();
 		return site as PersistedSite;
+	}
+
+	async getAppConfig(): Promise< Record< string, unknown > > {
+		return fs.readJson( path.join( this.sharedConfigPath, 'app.json' ) );
+	}
+
+	// The text of the page the site preview shows.
+	async previewText(): Promise< string | undefined > {
+		const guestId = await this.mainWindow
+			.locator( 'webview' )
+			.evaluate( ( element ) =>
+				( element as HTMLElement & { getWebContentsId: () => number } ).getWebContentsId()
+			);
+		return this.electronApp.evaluate(
+			( { webContents }, id ) =>
+				webContents.fromId( id )?.executeJavaScript( 'document.body.innerText' ),
+			guestId
+		);
 	}
 
 	async getSiteUrl( siteName: string ) {
@@ -268,7 +307,20 @@ export class E2ESession {
 		// is recorded here. `reportFailure` keeps the recording of each failed test.
 		await this.electronApp.context().tracing.start( { snapshots: true } );
 
-		this.mainWindow = await this.electronApp.firstWindow( { timeout: 60_000 } );
+		// Site thumbnails use temporary windows, which can appear before the main renderer.
+		let mainWindow: Page | undefined;
+		await expect
+			.poll(
+				() => {
+					mainWindow = this.electronApp
+						.windows()
+						.find( ( window ) => /\/dist\/renderer-ui\/index\.html(?:#|$)/.test( window.url() ) );
+					return !! mainWindow;
+				},
+				{ timeout: 60_000, message: 'Studio renderer window is ready' }
+			)
+			.toBe( true );
+		this.mainWindow = mainWindow!;
 	}
 
 	// Attaches the app window's trace and the main process logs to a failed test. Every test starts
@@ -356,14 +408,15 @@ export class E2ESession {
  */
 export async function launchWithSite(
 	session: E2ESession,
-	{ folder, ...options }: Omit< CreateSiteOptions, 'pickFolder' > & { folder?: string } = {}
+	{ folder, ...options }: Omit< CreateSiteOptions, 'pickFolder' > & { folder?: string } = {},
+	launchOptions: LaunchOptions = {}
 ) {
 	const env: NodeJS.ProcessEnv = {};
 	if ( folder ) {
 		env.E2E_OPEN_FOLDER_DIALOG = path.join( session.homePath, 'Studio', folder );
 		await fs.mkdir( env.E2E_OPEN_FOLDER_DIALOG, { recursive: true } );
 	}
-	await session.launch( env );
+	await session.launch( env, launchOptions );
 	const siteName = await new AddSite( session.mainWindow ).createSite( {
 		...options,
 		pickFolder: Boolean( folder ),

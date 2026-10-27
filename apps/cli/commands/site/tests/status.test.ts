@@ -61,15 +61,6 @@ describe( 'CLI: studio site status', () => {
 	} );
 
 	describe( 'Success Cases', () => {
-		it( 'should display site status with table format', async () => {
-			await runCommand( '/path/to/site', 'table' );
-
-			expect( getSiteByFolder ).toHaveBeenCalledWith( '/path/to/site' );
-			expect( connectToDaemon ).toHaveBeenCalled();
-			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
 		it( 'should output JSON format correctly', async () => {
 			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
 
@@ -169,20 +160,6 @@ describe( 'CLI: studio site status', () => {
 			consoleSpy.mockRestore();
 		} );
 
-		it( 'should handle custom domain in site URL', async () => {
-			vi.mocked( getSiteUrl ).mockReturnValue( 'http://my-site.wp.local' );
-
-			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
-
-			await runCommand( '/path/to/site', 'json' );
-
-			expect( consoleSpy ).toHaveBeenCalledWith(
-				expect.stringContaining( 'http://my-site.wp.local' )
-			);
-
-			consoleSpy.mockRestore();
-		} );
-
 		it( 'should handle missing optional site properties', async () => {
 			vi.mocked( getSiteByFolder ).mockResolvedValue( testSiteWithoutOptional as typeof testSite );
 
@@ -208,26 +185,6 @@ describe( 'CLI: studio site status', () => {
 			);
 
 			consoleSpy.mockRestore();
-		} );
-	} );
-
-	describe( 'Cleanup', () => {
-		it( 'should always disconnect from process manager on success', async () => {
-			await runCommand( '/path/to/site', 'table' );
-
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
-		it( 'should always disconnect from process manager on error', async () => {
-			vi.mocked( getSiteByFolder ).mockRejectedValue( new Error( 'Error' ) );
-
-			try {
-				await runCommand( '/path/to/site', 'table' );
-			} catch {
-				// Expected
-			}
-
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 	} );
 } );

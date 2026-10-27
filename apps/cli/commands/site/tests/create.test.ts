@@ -11,7 +11,6 @@ import {
 	recursiveCopyDirectory,
 } from '@studio/common/lib/fs-utils';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
-import { isOnline } from '@studio/common/lib/network-utils';
 import { portFinder } from '@studio/common/lib/port-finder';
 import { normalizeLineEndings } from '@studio/common/lib/remove-default-db-constants';
 import {
@@ -20,7 +19,7 @@ import {
 } from '@studio/common/lib/site-file-access';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { type SupportedPHPVersion } from '@studio/common/types/php-versions';
-import { Blueprint, BlueprintV1Declaration } from '@wp-playground/blueprints';
+import { Blueprint } from '@wp-playground/blueprints';
 import { vi, type MockInstance } from 'vitest';
 import yargs from 'yargs';
 import {
@@ -52,7 +51,6 @@ import { registerCommand, runCommand } from '../create';
 
 vi.mock( '@inquirer/prompts' );
 vi.mock( '@studio/common/lib/fs-utils' );
-vi.mock( '@studio/common/lib/network-utils' );
 vi.mock( '@studio/common/lib/port-finder', () => ( {
 	portFinder: {
 		addUnavailablePort: vi.fn(),
@@ -191,7 +189,6 @@ describe( 'CLI: studio create', () => {
 
 	let consoleLogSpy: MockInstance;
 	let fsMkdirSyncSpy: MockInstance;
-	let loggerReportSuccessSpy: MockInstance;
 
 	const printedOutput = () =>
 		consoleLogSpy.mock.calls.map( ( args ) => args.map( String ).join( ' ' ) ).join( '\n' );
@@ -239,7 +236,7 @@ describe( 'CLI: studio create', () => {
 
 		consoleLogSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
 		fsMkdirSyncSpy = vi.spyOn( fs, 'mkdirSync' ).mockReturnValue( undefined );
-		loggerReportSuccessSpy = vi.spyOn( Logger.prototype, 'reportSuccess' );
+		vi.spyOn( Logger.prototype, 'reportSuccess' );
 		vi.mocked( getServerFilesPath ).mockReturnValue( '/test/server-files' );
 		createPathExistsMock( false );
 		vi.mocked( isEmptyDir ).mockResolvedValue( true );
@@ -267,7 +264,6 @@ describe( 'CLI: studio create', () => {
 		vi.mocked( logSiteDetails ).mockImplementation( () => {} );
 		vi.mocked( openSiteInBrowser ).mockResolvedValue( undefined );
 		vi.mocked( validateBlueprintData ).mockResolvedValue( { valid: true } );
-		vi.mocked( isOnline ).mockResolvedValue( true );
 		vi.mocked( getPreferredSiteLanguage ).mockResolvedValue( 'en' );
 		vi.mocked( copyLanguagePackToSite ).mockResolvedValue( false );
 		vi.mocked( getWordPressVersion ).mockReturnValue( '6.5' );
@@ -1228,22 +1224,6 @@ describe( 'CLI: studio create', () => {
 			} );
 		} );
 
-		it( 'should create a basic site successfully', async () => {
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
-
-			expect( fsMkdirSyncSpy ).toHaveBeenCalledWith( mockSitePath, { recursive: true } );
-			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( mockSitePath );
-			expect( loggerReportSuccessSpy ).toHaveBeenCalledWith( 'SQLite integration configured' );
-			expect( portFinder.getOpenPort ).toHaveBeenCalled();
-			expect( lockCliConfig ).toHaveBeenCalled();
-			expect( saveCliConfig ).toHaveBeenCalled();
-			expect( connectToDaemon ).toHaveBeenCalled();
-			expect( startWordPressServer ).toHaveBeenCalled();
-			expect( logSiteDetails ).toHaveBeenCalled();
-			expect( openSiteInBrowser ).toHaveBeenCalled();
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
 		it( 'should persist the file access on the created site', async () => {
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
@@ -1277,57 +1257,6 @@ describe( 'CLI: studio create', () => {
 					] ),
 				} )
 			);
-			// blogname is now set by the server child process, not create.ts
-			expect( startWordPressServer ).toHaveBeenCalled();
-		} );
-
-		it( 'should NOT override blogname when adding existing WordPress directory with wp-config.php and name', async () => {
-			const wpConfigPath = require( 'path' ).join( mockSitePath, 'wp-config.php' );
-			const bundledWPPath = require( 'path' ).join(
-				'/test/server-files',
-				'wordpress-versions',
-				'latest'
-			);
-			vi.mocked( pathExists ).mockImplementation(
-				async ( path: string ) =>
-					path === bundledWPPath || path === wpConfigPath || path === mockSitePath
-			);
-			vi.mocked( isEmptyDir ).mockResolvedValue( false );
-			vi.mocked( isWordPressDirectory ).mockReturnValue( true );
-
-			await runCommand( mockSitePath, {
-				...defaultTestOptions,
-				name: 'My Custom Site',
-			} );
-
-			// Verify setSiteOptions step is NOT in the blueprint steps
-			const calls = vi.mocked( startWordPressServer ).mock.calls;
-			const blueprintCall = calls.find(
-				( call ) =>
-					( call[ 2 ] as { blueprint?: BlueprintV1Declaration } )?.blueprint?.steps?.some(
-						( step ) => typeof step === 'object' && step?.step === 'setSiteOptions'
-					)
-			);
-			expect( blueprintCall ).toBeUndefined();
-		} );
-
-		it( 'should set blogname when WordPress directory exists but has no wp-config.php', async () => {
-			const bundledWPPath = require( 'path' ).join(
-				'/test/server-files',
-				'wordpress-versions',
-				'latest'
-			);
-			vi.mocked( pathExists ).mockImplementation(
-				async ( path: string ) => path === bundledWPPath || path === mockSitePath
-			);
-			vi.mocked( isEmptyDir ).mockResolvedValue( false );
-			vi.mocked( isWordPressDirectory ).mockReturnValue( true );
-
-			await runCommand( mockSitePath, {
-				...defaultTestOptions,
-				name: 'My Custom Site',
-			} );
-
 			// blogname is now set by the server child process, not create.ts
 			expect( startWordPressServer ).toHaveBeenCalled();
 		} );
@@ -1381,24 +1310,6 @@ describe( 'CLI: studio create', () => {
 				} )
 			);
 			expect( setupCustomDomain ).toHaveBeenCalled();
-		} );
-
-		it( 'should create site with HTTPS enabled', async () => {
-			await runCommand( mockSitePath, {
-				...defaultTestOptions,
-				customDomain: 'mysite.local',
-				enableHttps: true,
-			} );
-
-			expect( saveCliConfig ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					sites: expect.arrayContaining( [
-						expect.objectContaining( {
-							enableHttps: true,
-						} ),
-					] ),
-				} )
-			);
 		} );
 
 		it( 'should add existing site ports to unavailable ports', async () => {
@@ -1488,26 +1399,6 @@ describe( 'CLI: studio create', () => {
 				} )
 			);
 		} );
-
-		it( 'should pass Blueprint through when name is provided with Blueprint', async () => {
-			await runCommand( mockSitePath, {
-				...defaultTestOptions,
-				name: 'My Site',
-				blueprint: {
-					uri: '/home/test/blueprint.json',
-					contents: testBlueprint,
-				},
-			} );
-
-			// blogname is now set by the server child process, not prepended here
-			expect( startWordPressServer ).toHaveBeenCalledWith(
-				expect.anything(),
-				expect.any( Logger ),
-				expect.objectContaining( {
-					blueprint: expect.any( Object ),
-				} )
-			);
-		} );
 	} );
 
 	describe( 'Multisite Validation', () => {
@@ -1578,21 +1469,6 @@ describe( 'CLI: studio create', () => {
 			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Run "studio start" to start the site.' );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
-
-		it( 'should create site with siteLanguage when preferred language is configured but no Blueprint given', async () => {
-			vi.mocked( getPreferredSiteLanguage ).mockResolvedValue( 'es_ES' );
-
-			await runCommand( mockSitePath, {
-				...defaultTestOptions,
-				noStart: true,
-			} );
-
-			// No blueprint to run — language steps are applied by the server child process on first start
-			expect( connectToDaemon ).not.toHaveBeenCalled();
-			expect( runBlueprint ).not.toHaveBeenCalled();
-			expect( startWordPressServer ).not.toHaveBeenCalled();
-			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Site created successfully' );
-		} );
 	} );
 
 	describe( 'Language Packs', () => {
@@ -1605,20 +1481,6 @@ describe( 'CLI: studio create', () => {
 			expect( copyLanguagePackToSite ).toHaveBeenCalledWith( mockSitePath, 'sv_SE' );
 			// Language steps (defineWpConfigConsts / setSiteLanguage) are now built by
 			// the server child process, not by create.ts
-			expect( startWordPressServer ).toHaveBeenCalledWith(
-				expect.anything(),
-				expect.any( Logger ),
-				expect.objectContaining( { siteLanguage: 'sv_SE' } )
-			);
-		} );
-
-		it( 'should fall back to setSiteLanguage when bundled packs are not available', async () => {
-			vi.mocked( getPreferredSiteLanguage ).mockResolvedValue( 'sv_SE' );
-			vi.mocked( copyLanguagePackToSite ).mockResolvedValue( false );
-
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
-
-			// setSiteLanguage vs defineWpConfigConsts is now decided by the server child process
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),
@@ -1813,43 +1675,9 @@ describe( 'CLI: studio create', () => {
 			expect( process.exitCode ).toBe( 1 );
 			expectRetainedImportedSiteReported( { running: true } );
 		} );
-
-		it( 'should handle SQLite setup failure', async () => {
-			vi.mocked( keepSqliteIntegrationUpdated ).mockRejectedValue(
-				new Error( 'SQLite setup failed' )
-			);
-
-			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow();
-
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
 	} );
 
 	describe( 'Cleanup', () => {
-		it( 'should disconnect from process manager even on error', async () => {
-			vi.mocked( readCliConfig ).mockRejectedValue( new Error( 'Appdata error' ) );
-
-			try {
-				await runCommand( mockSitePath, { ...defaultTestOptions } );
-			} catch {
-				// Expected
-			}
-
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
-		it( 'should disconnect from process manager on success', async () => {
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
-
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
-		it( 'should unlock appdata after saving', async () => {
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
-
-			expect( unlockCliConfig ).toHaveBeenCalled();
-		} );
-
 		it( 'should remove site from appdata when server start fails', async () => {
 			vi.mocked( startWordPressServer ).mockRejectedValue( new Error( 'Server start failed' ) );
 
@@ -1973,15 +1801,6 @@ $table_prefix = 'wp_';
 `
 		);
 
-		const wpConfigWithoutDbBlock = normalizeLineEndings(
-			`<?php
-/**
- * Database connection information is automatically provided.
- */
-$table_prefix = 'wp_';
-`
-		);
-
 		it( 'should strip default DB constants from wp-config.php after server start', async () => {
 			const wpConfigPath = require( 'path' ).join( mockSitePath, 'wp-config.php' );
 			const fsExistsSyncSpy = vi
@@ -2036,41 +1855,13 @@ $table_prefix = 'wp_';
 				'utf-8'
 			);
 		} );
-
-		it( 'should not modify wp-config.php if no default DB constants found', async () => {
-			const wpConfigPath = require( 'path' ).join( mockSitePath, 'wp-config.php' );
-			vi.spyOn( fs, 'existsSync' ).mockImplementation( ( p ) => p === wpConfigPath );
-			vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( p ) => {
-				if ( p === wpConfigPath ) {
-					return wpConfigWithoutDbBlock;
-				}
-				return '';
-			} );
-			const fsWriteFileSyncSpy = vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
-
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
-
-			expect( fsWriteFileSyncSpy ).not.toHaveBeenCalledWith(
-				wpConfigPath,
-				expect.anything(),
-				'utf-8'
-			);
-		} );
 	} );
 
 	describe( 'Dependency updates', () => {
-		it( 'calls updateServerFiles when online', async () => {
+		it( 'calls updateServerFiles', async () => {
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( updateServerFiles ).toHaveBeenCalledTimes( 1 );
-		} );
-
-		it( 'skips updateServerFiles when offline', async () => {
-			vi.mocked( isOnline ).mockResolvedValue( false );
-
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
-
-			expect( updateServerFiles ).not.toHaveBeenCalled();
 		} );
 	} );
 

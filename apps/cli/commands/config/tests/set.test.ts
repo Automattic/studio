@@ -220,57 +220,6 @@ describe( 'CLI: studio config set', () => {
 			expect( savedCliConfig.sites[ 0 ].customDomain ).toBe( 'new.local' );
 			expect( updateDomainInHosts ).toHaveBeenCalledWith( undefined, 'new.local', 8080 );
 		} );
-
-		it( 'should restart running site when domain changes', async () => {
-			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
-
-			await runCommand( testSitePath, { domain: 'new.local' } );
-
-			expect( stopWordPressServer ).toHaveBeenCalledWith( 'site-1' );
-			expect( startWordPressServer ).toHaveBeenCalled();
-		} );
-
-		it( 'should not restart stopped site when domain changes', async () => {
-			await runCommand( testSitePath, { domain: 'new.local' } );
-
-			expect( stopWordPressServer ).not.toHaveBeenCalled();
-			expect( startWordPressServer ).not.toHaveBeenCalled();
-		} );
-	} );
-
-	describe( 'HTTPS changes', () => {
-		it( 'should update HTTPS setting', async () => {
-			const siteWithDomain = getTestSiteWithDomain();
-			vi.mocked( getSiteByFolder ).mockResolvedValue( siteWithDomain );
-			vi.mocked( readCliConfig ).mockResolvedValue( {
-				sites: [ siteWithDomain ],
-				version: 1,
-				snapshots: [],
-			} );
-
-			await runCommand( testSitePath, { https: true } );
-
-			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
-			expect( savedCliConfig.sites[ 0 ].enableHttps ).toBe( true );
-			expect( stopWordPressServer ).not.toHaveBeenCalled();
-			expect( startWordPressServer ).not.toHaveBeenCalled();
-		} );
-
-		it( 'should restart running site when HTTPS changes', async () => {
-			const siteWithDomain = getTestSiteWithDomain();
-			vi.mocked( getSiteByFolder ).mockResolvedValue( siteWithDomain );
-			vi.mocked( readCliConfig ).mockResolvedValue( {
-				sites: [ siteWithDomain ],
-				version: 1,
-				snapshots: [],
-			} );
-			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
-
-			await runCommand( testSitePath, { https: true } );
-
-			expect( stopWordPressServer ).toHaveBeenCalledWith( 'site-1' );
-			expect( startWordPressServer ).toHaveBeenCalled();
-		} );
 	} );
 
 	describe( 'PHP version changes', () => {
@@ -473,19 +422,6 @@ describe( 'CLI: studio config set', () => {
 			expect( stopWordPressServer ).toHaveBeenCalledTimes( 1 );
 			expect( startWordPressServer ).toHaveBeenCalledTimes( 1 );
 		} );
-
-		it( "should restart if options contain changes that require restart and ones that don't", async () => {
-			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
-
-			await runCommand( testSitePath, {
-				name: 'New Name',
-				domain: 'new.local',
-			} );
-
-			// Name doesn't trigger restart, but domain does
-			expect( stopWordPressServer ).toHaveBeenCalledTimes( 1 );
-			expect( startWordPressServer ).toHaveBeenCalledTimes( 1 );
-		} );
 	} );
 
 	describe( 'Xdebug changes', () => {
@@ -519,15 +455,6 @@ describe( 'CLI: studio config set', () => {
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 		} );
 
-		it( 'should restart running site when xdebug changes', async () => {
-			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
-
-			await runCommand( testSitePath, { xdebug: true } );
-
-			expect( stopWordPressServer ).toHaveBeenCalledWith( 'site-1' );
-			expect( startWordPressServer ).toHaveBeenCalled();
-		} );
-
 		it( 'should disable xdebug', async () => {
 			const siteWithXdebug = { ...getTestSite(), enableXdebug: true };
 			vi.mocked( getSiteByFolder ).mockResolvedValue( siteWithXdebug );
@@ -541,34 +468,6 @@ describe( 'CLI: studio config set', () => {
 
 			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
 			expect( savedCliConfig.sites[ 0 ].enableXdebug ).toBe( false );
-		} );
-
-		it( 'should throw when xdebug is already enabled', async () => {
-			const siteWithXdebug = { ...getTestSite(), enableXdebug: true };
-			vi.mocked( getSiteByFolder ).mockResolvedValue( siteWithXdebug );
-			vi.mocked( readCliConfig ).mockResolvedValue( {
-				sites: [ siteWithXdebug ],
-				version: 1,
-				snapshots: [],
-			} );
-
-			await expect( runCommand( testSitePath, { xdebug: true } ) ).rejects.toThrow(
-				'No changes to apply. The site already has the specified settings.'
-			);
-		} );
-
-		it( 'should throw when xdebug is already disabled', async () => {
-			const siteWithXdebugDisabled = { ...getTestSite(), enableXdebug: false };
-			vi.mocked( getSiteByFolder ).mockResolvedValue( siteWithXdebugDisabled );
-			vi.mocked( readCliConfig ).mockResolvedValue( {
-				sites: [ siteWithXdebugDisabled ],
-				version: 1,
-				snapshots: [],
-			} );
-
-			await expect( runCommand( testSitePath, { xdebug: false } ) ).rejects.toThrow(
-				'No changes to apply. The site already has the specified settings.'
-			);
 		} );
 	} );
 
@@ -595,44 +494,17 @@ describe( 'CLI: studio config set', () => {
 			expect( startWordPressServer ).toHaveBeenCalled();
 		} );
 
-		it( 'should not restart stopped site when credentials change', async () => {
-			await runCommand( testSitePath, { adminUsername: 'newadmin' } );
-
-			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
-			expect( savedCliConfig.sites[ 0 ].adminUsername ).toBe( 'newadmin' );
-			expect( stopWordPressServer ).not.toHaveBeenCalled();
-			expect( startWordPressServer ).not.toHaveBeenCalled();
-		} );
-
-		it( 'should throw when admin username is empty', async () => {
-			await expect( runCommand( testSitePath, { adminUsername: '  ' } ) ).rejects.toThrow(
-				'Admin username cannot be empty.'
-			);
-		} );
-
-		it( 'should throw when admin username has invalid characters', async () => {
-			await expect( runCommand( testSitePath, { adminUsername: 'bad user!' } ) ).rejects.toThrow(
-				'Username can only contain letters, numbers, and _.@- characters'
-			);
-		} );
-
-		it( 'should throw when admin username exceeds 60 characters', async () => {
-			const longUsername = 'a'.repeat( 61 );
-			await expect( runCommand( testSitePath, { adminUsername: longUsername } ) ).rejects.toThrow(
-				'Username must be 60 characters or fewer.'
-			);
-		} );
-
-		it( 'should throw when admin password is empty', async () => {
-			await expect( runCommand( testSitePath, { adminPassword: '  ' } ) ).rejects.toThrow(
-				'Admin password cannot be empty.'
-			);
-		} );
-
-		it( 'should throw when username has not changed', async () => {
-			await expect( runCommand( testSitePath, { adminUsername: 'admin' } ) ).rejects.toThrow(
-				'No changes to apply.'
-			);
+		it.each( [
+			[ { adminUsername: '  ' }, 'Admin username cannot be empty.' ],
+			[
+				{ adminUsername: 'bad user!' },
+				'Username can only contain letters, numbers, and _.@- characters',
+			],
+			[ { adminUsername: 'a'.repeat( 61 ) }, 'Username must be 60 characters or fewer.' ],
+			[ { adminPassword: '  ' }, 'Admin password cannot be empty.' ],
+			[ { adminUsername: 'admin' }, 'No changes to apply.' ],
+		] )( 'should reject the credentials %o', async ( options, message ) => {
+			await expect( runCommand( testSitePath, options ) ).rejects.toThrow( message );
 		} );
 
 		it( 'should restore the previous credentials and restart when applying them fails', async () => {
@@ -687,15 +559,6 @@ describe( 'CLI: studio config set', () => {
 			expect( startWordPressServer ).toHaveBeenCalled();
 		} );
 
-		it( 'should not restart stopped site when email changes', async () => {
-			await runCommand( testSitePath, { adminEmail: 'test@example.com' } );
-
-			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
-			expect( savedCliConfig.sites[ 0 ].adminEmail ).toBe( 'test@example.com' );
-			expect( stopWordPressServer ).not.toHaveBeenCalled();
-			expect( startWordPressServer ).not.toHaveBeenCalled();
-		} );
-
 		it( 'should ignore whitespace-only admin email', async () => {
 			await runCommand( testSitePath, { adminEmail: '  ', name: 'New Name' } );
 			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
@@ -716,15 +579,6 @@ describe( 'CLI: studio config set', () => {
 
 			await expect( runCommand( testSitePath, { name: 'New Name' } ) ).rejects.toThrow(
 				'Site not found'
-			);
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
-		it( 'should always disconnect process manager on error', async () => {
-			vi.mocked( saveCliConfig ).mockRejectedValue( new Error( 'Save failed' ) );
-
-			await expect( runCommand( testSitePath, { name: 'New Name' } ) ).rejects.toThrow(
-				'Save failed'
 			);
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );

@@ -15,7 +15,7 @@ import { getSharedBrowser } from 'cli/ai/browser-utils';
 // Types
 // ---------------------------------------------------------------------------
 
-export interface MetaTagsAudit {
+interface MetaTagsAudit {
 	title: string | null;
 	titleLength: number;
 	description: string | null;
@@ -27,18 +27,18 @@ export interface MetaTagsAudit {
 	charset: string | null;
 }
 
-export interface SocialTagsAudit {
+interface SocialTagsAudit {
 	openGraph: Record< string, string >;
 	twitter: Record< string, string >;
 }
 
-export interface HeadingsAudit {
+interface HeadingsAudit {
 	counts: { h1: number; h2: number; h3: number; h4: number; h5: number; h6: number };
 	h1Texts: string[];
 	skippedLevels: string[];
 }
 
-export interface ImagesAudit {
+interface ImagesAudit {
 	total: number;
 	withAlt: number;
 	withoutAlt: number;
@@ -46,7 +46,7 @@ export interface ImagesAudit {
 	missingAltUrls: string[];
 }
 
-export interface LinksAudit {
+interface LinksAudit {
 	totalInternal: number;
 	totalExternal: number;
 	nofollow: number;
@@ -54,19 +54,19 @@ export interface LinksAudit {
 	emptyTextHrefs: string[];
 }
 
-export interface StructuredDataAudit {
+interface StructuredDataAudit {
 	jsonLdCount: number;
 	jsonLdTypes: string[];
 }
 
-export interface ResourcesAudit {
+interface ResourcesAudit {
 	robotsTxtFound: boolean;
 	robotsTxtBlocksAll: boolean;
 	sitemapFound: boolean;
 	sitemapUrl: string | null;
 }
 
-export interface SeoMetrics {
+interface SeoMetrics {
 	url: string;
 	httpStatus: number;
 	wordCount: number;

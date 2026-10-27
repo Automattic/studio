@@ -16,7 +16,7 @@ export interface ValidationReportBase {
 	error?: string;
 }
 
-export interface BlockFixProposal {
+interface BlockFixProposal {
 	fixedContent: string;
 	report: ValidationReportBase;
 }
@@ -333,12 +333,4 @@ export async function validateBlocks(
 			}`,
 		};
 	}
-}
-
-/** Clean up all cached editor pages. */
-export async function cleanupValidatorPages(): Promise< void > {
-	for ( const ep of editorPages.values() ) {
-		await ep.close();
-	}
-	editorPages.clear();
 }

@@ -2,17 +2,35 @@ import { __ } from '@wordpress/i18n';
 
 export interface SkillSlashCommand {
 	name: string;
+	displayName?: string;
 	description: string;
 }
 
 export const getAiSkillCommands = (): SkillSlashCommand[] => [
-	{ name: 'annotate', description: __( 'Annotate site elements visually in a browser' ) },
-	{ name: 'taxonomist', description: __( 'Optimize category taxonomy with AI' ) },
-	{ name: 'need-for-speed', description: __( 'Run a performance audit on a site' ) },
-	{ name: 'rank-me-up', description: __( 'Run an on-page SEO audit on a site' ) },
+	{
+		name: 'annotate',
+		displayName: __( 'Visual Annotations' ),
+		description: __( 'Annotate site elements visually in a browser.' ),
+	},
+	{
+		name: 'taxonomist',
+		displayName: __( 'Taxonomist' ),
+		description: __( 'Optimize category taxonomy with AI.' ),
+	},
+	{
+		name: 'need-for-speed',
+		displayName: __( 'Performance Audit' ),
+		description: __( 'Run a performance audit on a site.' ),
+	},
+	{
+		name: 'rank-me-up',
+		displayName: __( 'SEO Audit' ),
+		description: __( 'Run an on-page SEO audit on a site.' ),
+	},
 	{
 		name: 'liberate',
-		description: __( 'Migrate & rebuild a site from a closed platform' ),
+		displayName: __( 'Liberate' ),
+		description: __( 'Migrate & rebuild a site from a closed platform.' ),
 	},
 ];
 

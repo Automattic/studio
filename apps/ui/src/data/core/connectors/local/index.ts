@@ -1,9 +1,9 @@
+import { stripCliErrorEnvelope } from '@studio/common/lib/error-formatting';
 import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
-import { isShortcut } from '@/lib/shortcuts';
-import { readLastSeenVersion, writeLastSeenVersion } from '../browser-whats-new';
+import { isShortcut } from '@/lib/keyboard';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
 import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
@@ -72,7 +72,7 @@ type ServerEvent =
  * The server delegates to the local Studio CLI, so the same business logic the
  * desktop app runs is reachable here. The capabilities that depend on the local
  * machine (the real site list, start/stop, the agent) are implemented for real;
- * the rest grow in later increments (site create/export land in Phase 2).
+ * the few a browser can't offer throw `UnsupportedError`.
  */
 // A browser tab has no application menu, so the page binds its accelerators.
 function onMenuShortcut( listener: () => void, key: string, modifier?: 'shift' ) {
@@ -122,7 +122,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			try {
 				const payload: unknown = JSON.parse( text );
 				if ( payload && typeof payload === 'object' && 'error' in payload ) {
-					serverError = typeof payload.error === 'string' ? payload.error : undefined;
+					serverError =
+						typeof payload.error === 'string' ? stripCliErrorEnvelope( payload.error ) : undefined;
 				}
 			} catch {
 				// Not JSON; fall through to the transport error.
@@ -350,9 +351,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				{ method: 'POST', body: JSON.stringify( { path, width, height } ) }
 			);
 			return thumbnail;
-		},
-		async getSiteIcon( siteId ) {
-			return api< string | null >( `/sites/${ encodeURIComponent( siteId ) }/site-icon` );
 		},
 		async getSiteDesign( siteId ) {
 			return api( `/sites/${ encodeURIComponent( siteId ) }/design` );
@@ -819,12 +817,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			} );
 		},
 
-		// The local server has no REST-proxy route yet; the preview omnibox
-		// only offers search where the webview connector serves it.
-		async fetchSiteRest() {
-			throw new UnsupportedError( 'fetchSiteRest' );
-		},
-
 		// The server runs on the user's machine, so it opens paths in OS apps on
 		// the browser's behalf (the editor/terminal choice comes from prefs above).
 		async openSiteFolder( siteId ) {
@@ -989,12 +981,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		onShowWhatsNew() {
 			// No application menu in a browser tab.
 			return () => {};
-		},
-		async getLastSeenVersion() {
-			return readLastSeenVersion();
-		},
-		async saveLastSeenVersion( version ) {
-			writeLastSeenVersion( version );
 		},
 		async getAppUpdateStatus() {
 			// This front end updates through the CLI's own notifier, not Electron's autoUpdater.

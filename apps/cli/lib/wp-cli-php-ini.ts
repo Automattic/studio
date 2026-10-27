@@ -12,7 +12,7 @@ const E_ALL = 32767;
  * Apply this per WP-CLI invocation only: the site server serves HTTP requests, and this
  * policy has no business changing those.
  */
-export const WP_CLI_PHP_INI_ENTRIES = {
+const WP_CLI_PHP_INI_ENTRIES = {
 	error_reporting: String( E_ALL ),
 	display_errors: 'stderr',
 	log_errors: 0,

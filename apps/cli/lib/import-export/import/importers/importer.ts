@@ -264,7 +264,6 @@ abstract class BaseBackupImporter extends BaseImporter {
 		const wpContentSourceDir = this.backup.wpContentDirectory;
 		const wpContentDestDir = path.join( site.path, 'wp-content' );
 
-		// Group files by type
 		const filesByType = this.categorizeWpContentFiles( this.backup.wpContentFiles );
 		let processedItems = 0;
 		const totalItems = this.backup.wpContentFiles.length;
@@ -273,7 +272,6 @@ abstract class BaseBackupImporter extends BaseImporter {
 			for ( const file of files ) {
 				try {
 					const stats = await fs.promises.lstat( file );
-					// Skip if it's a directory
 					if ( stats.isDirectory() ) {
 						continue;
 					}
@@ -297,7 +295,6 @@ abstract class BaseBackupImporter extends BaseImporter {
 
 				processedItems++;
 
-				// Emit progress event after file is copied
 				this.emit( ImportEvents.IMPORT_WP_CONTENT_PROGRESS, {
 					type: type as 'plugins' | 'themes' | 'uploads' | 'other',
 					currentItem: relativePath,

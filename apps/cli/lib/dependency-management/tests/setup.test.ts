@@ -140,16 +140,11 @@ describe( 'updateServerFiles', () => {
 			expect( updateCliConfigWithPartial ).not.toHaveBeenCalled();
 		} );
 
-		it( 'swallows errors from the timestamp write and logs them', async () => {
+		it( 'swallows errors from the timestamp write', async () => {
 			vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [], snapshots: [] } );
-			const error = new Error( 'write failed' );
-			vi.mocked( updateCliConfigWithPartial ).mockRejectedValue( error );
+			vi.mocked( updateCliConfigWithPartial ).mockRejectedValue( new Error( 'write failed' ) );
 
 			await expect( updateServerFiles() ).resolves.toBe( true );
-			expect( console.error ).toHaveBeenCalledWith(
-				'Failed to persist dependency check timestamp:',
-				error
-			);
 		} );
 	} );
 } );

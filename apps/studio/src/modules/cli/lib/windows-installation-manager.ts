@@ -226,7 +226,6 @@ if ($key) {
 			.filter( Boolean );
 
 		for ( const dir of pathDirs ) {
-			// Skip the app's own bin directory
 			if ( dir.toLowerCase() === STABLE_BIN_DIR_PATH.toLowerCase() ) {
 				continue;
 			}

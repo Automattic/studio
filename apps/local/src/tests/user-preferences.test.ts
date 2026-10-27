@@ -77,7 +77,6 @@ describe( 'GET/PATCH /api/user-preferences', () => {
 			terminal: null,
 			colorScheme: 'system',
 			analyticsEnabled: true,
-			agenticFeaturesEnabled: true,
 			defaultSiteDirectory: path.join( os.tmpdir(), 'studio-test-sites' ),
 		} );
 	} );

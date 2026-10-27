@@ -4,6 +4,7 @@ import {
 	isOutOfCreditsError,
 	isUsageCapError,
 } from '@studio/common/ai/json-events';
+import { findSkill } from 'cli/ai/skills';
 import { addAssistantMessageUsage, createTokenUsage } from 'cli/ai/token-usage';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { TurnStatus } from '@studio/common/ai/sessions/types';
@@ -16,6 +17,8 @@ const FILE_CHANGE_TOOL_NAMES: ReadonlySet< string > = new Set( [ 'Write', 'Edit'
 
 const UNKNOWN_TOOL = 'unknown';
 
+const SKILL_TOOL_NAME = 'Skill';
+
 export type TurnErrorKind =
 	| 'out_of_credits'
 	| 'auth'
@@ -26,10 +29,11 @@ export type TurnErrorKind =
 
 export type TurnSiteKind = 'local' | 'wpcom' | 'none';
 
-export interface TurnStatsProps {
+interface TurnStatsProps {
 	tool_calls: number;
 	tool_errors: number;
 	failed_tools: string;
+	skills_loaded: string;
 	edits: number;
 	model_requests: number;
 	input_tokens: number;
@@ -146,6 +150,7 @@ export function createTurnStatsTracker(): TurnStatsTracker {
 	let toolCalls = 0;
 	let toolErrors = 0;
 	const failedTools = new Set< string >();
+	const skillsLoaded = new Set< string >();
 	let edits = 0;
 	let modelRequests = 0;
 	const usage = createTokenUsage();
@@ -155,6 +160,14 @@ export function createTurnStatsTracker(): TurnStatsTracker {
 			if ( event.type === 'message_end' && event.message.role === 'assistant' ) {
 				modelRequests += 1;
 				addAssistantMessageUsage( usage, event );
+				return;
+			}
+			// Only the name of a skill Studio ships is kept, never other text the model wrote.
+			if ( event.type === 'tool_execution_start' && event.toolName === SKILL_TOOL_NAME ) {
+				const name = ( event.args as { name?: unknown } | undefined )?.name;
+				if ( typeof name === 'string' && findSkill( name ) ) {
+					skillsLoaded.add( name );
+				}
 				return;
 			}
 			if ( event.type !== 'tool_execution_end' ) {
@@ -180,6 +193,7 @@ export function createTurnStatsTracker(): TurnStatsTracker {
 				tool_calls: toolCalls,
 				tool_errors: toolErrors,
 				failed_tools: [ ...failedToolNames ].sort().join( ',' ),
+				skills_loaded: [ ...skillsLoaded ].sort().join( ',' ),
 				edits,
 				model_requests: modelRequests,
 				input_tokens: usage.input,

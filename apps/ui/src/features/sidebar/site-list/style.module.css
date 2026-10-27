@@ -1,0 +1,108 @@
+/* The rows themselves come from the sidebar kit in @/lib/ui. */
+.root {
+	--site-list-chat-status-size: 14px;
+	--site-list-chat-status-start-offset: 0px;
+	--site-list-chat-status-gap: var( --space-1_5 );
+	--site-list-sync-indicator-bg: var( --status-sync );
+
+	padding: var( --space-3 ) var( --space-3 ) var( --space-5 );
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-1 );
+	font-size: var( --text-sm );
+	line-height: var( --text-sm--line-height );
+	user-select: none;
+	-webkit-app-region: no-drag;
+}
+
+.root:has( [data-drag-source] ) {
+	pointer-events: none;
+}
+
+.dragWrapper {
+	border-radius: var( --radius-md );
+}
+
+/* A dragged site folds its chats at once, so the rows below settle before
+   they are measured for the drop. */
+.dragWrapper[data-drag-source] .chatsPanel {
+	display: none;
+}
+
+.dragPreview {
+	opacity: 0.95;
+	border-radius: var( --radius-md );
+	background-color: var( --hover );
+	/* eslint-disable-next-line studio/use-theme-tokens -- the dragged row's shadow. */
+	filter: drop-shadow( 0 6px 14px rgb( 0 0 0 / 14% ) );
+}
+
+.groupPanel:not( [data-starting-style], [data-ending-style] ),
+.chatsPanel:not( [data-starting-style], [data-ending-style] ) {
+	overflow: visible;
+}
+
+/* Keep scrollIntoView targets clear of the sidebar's sticky header and
+   footer, which paint over the scrollport's edges. */
+.site {
+	scroll-margin-block: var( --space-16 );
+}
+
+.siteText {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	align-items: center;
+}
+
+.siteActions {
+	gap: var( --space-0_5 );
+}
+
+.chats {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	padding-block: 1px var( --space-2 );
+}
+
+.empty {
+	padding: var( --space-1 ) var( --space-2 );
+	color: var( --muted-foreground );
+}
+
+/* Wraps the sidebar's groups without adding a box of its own. */
+.selection {
+	display: contents;
+}
+
+/* While several rows are selected, their hover actions step aside. */
+/* eslint-disable-next-line studio/no-primitive-overrides -- a multi-selection spans rows, so the list hides each row's actions. */
+.selection[data-selecting] [data-slot='sidebar-menu-actions'] {
+	visibility: hidden;
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.dragPreview {
+		filter: none;
+	}
+}
+
+.groupHoverAction {
+	opacity: 0;
+	pointer-events: none;
+}
+
+.groupHeader:hover .groupHoverAction,
+.groupHeader:has( :focus-visible ) .groupHoverAction,
+.groupHoverAction[aria-expanded='true'] {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+@media ( hover: none ) {
+	.groupHoverAction {
+		opacity: 1;
+		pointer-events: auto;
+	}
+}

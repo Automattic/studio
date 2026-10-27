@@ -7,7 +7,7 @@ import type { Context, Message } from '@earendil-works/pi-ai';
 export const STALE_IMAGE_PLACEHOLDER_TEXT = '[image removed from older turn to save context]';
 
 /** Keeps requests well under the wpcom AI proxy's body limit, enforced with an empty 400. */
-export const MAX_IMAGE_HISTORY_BYTES = 6 * 1024 * 1024;
+const MAX_IMAGE_HISTORY_BYTES = 6 * 1024 * 1024;
 
 function imageBytes( message: Message ): number {
 	if (

@@ -2,8 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useConnector } from '@/data/core';
 import type { OnboardingHintsState } from '@/data/core';
 
-// Persisted first-run onboarding state (orientation tour + getting-started
-// checklist), kept in app.json by both the desktop and `studio ui`. Read once
+// Persisted first-run onboarding state (the orientation and What's New
+// guides), kept in app.json by both the desktop and `studio ui`. Read once
 // and kept forever — writes are rare and go through the optimistic mutation
 // below.
 

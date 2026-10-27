@@ -1,5 +1,9 @@
 import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
-import { getErrorMessage, stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
+import {
+	getErrorMessage,
+	stripCliErrorEnvelope,
+	stripIpcErrorPrefix,
+} from '@studio/common/lib/error-formatting';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
@@ -77,18 +81,18 @@ export function createIpcConnector(): Connector {
 	// desktop OS.
 	const isMacOS = /mac/i.test( navigator.platform || navigator.userAgent );
 
-	// Unwrap Electron's IPC error envelope so user-facing messages (e.g. why a
-	// key was rejected) can be shown as-is.
+	// Unwrap Electron's IPC error envelope, and the CLI's, so user-facing
+	// messages (e.g. why a key was rejected) can be shown as-is.
 	async function unwrapIpcError< T >( call: Promise< T > ): Promise< T > {
 		try {
 			return await call;
 		} catch ( error ) {
-			throw new Error( stripIpcErrorPrefix( getErrorMessage( error ) ?? String( error ) ) );
+			throw new Error(
+				stripCliErrorEnvelope( stripIpcErrorPrefix( getErrorMessage( error ) ?? String( error ) ) )
+			);
 		}
 	}
 
-	// Preview CLI commands are path-based, not id-based. Look up the matching
-	// site once per call so UI code can keep working with the stable site id.
 	async function resolveEditor(): Promise< SupportedEditor > {
 		const { editor } = ( await ipcApi.getUserPreferences() ) as { editor: SupportedEditor | null };
 		const resolved =
@@ -100,6 +104,8 @@ export function createIpcConnector(): Connector {
 		return resolved;
 	}
 
+	// Preview CLI commands are path-based, not id-based. Look up the matching
+	// site once per call so UI code can keep working with the stable site id.
 	async function resolveSiteFolder( siteId: string ): Promise< string > {
 		const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
 		const site = sites.find( ( candidate ) => candidate.id === siteId );
@@ -112,8 +118,6 @@ export function createIpcConnector(): Connector {
 	return {
 		async init() {
 			// Install the application menu (View > Toggle DevTools, etc.).
-			// The old renderer does this from its app bootstrap; the new UI
-			// needs to opt in explicitly.
 			await ipcApi.setupAppMenu();
 		},
 
@@ -124,7 +128,6 @@ export function createIpcConnector(): Connector {
 			studioLogs: true,
 		},
 
-		// Auth — optional in Electron, delegated to main process
 		agenticRequiresAuth: true,
 
 		async getAuthUser(): Promise< AuthUser | null > {
@@ -214,9 +217,8 @@ export function createIpcConnector(): Connector {
 			if ( ! sourceSite ) {
 				throw new Error( 'Source site not found.' );
 			}
-			// `%s Copy` matches the legacy Studio flow, and the helper bumps
-			// the suffix (`Copy 2`, `Copy 3`…) when earlier copies already
-			// exist.
+			// The helper bumps the suffix (`Copy 2`, `Copy 3`…) when earlier
+			// copies already exist.
 			const baseName = `${ sourceSite.name } Copy`;
 			const newName = ( await ipcApi.generateNumberedNameFromList( baseName, sites ) ) as string;
 			const newSiteId = crypto.randomUUID();
@@ -332,10 +334,6 @@ export function createIpcConnector(): Connector {
 		},
 		async fixSiteDesignDrift( siteId, fixes ) {
 			return ipcApi.fixSiteDesignDrift( siteId, fixes );
-		},
-
-		async getSiteIcon( siteId ) {
-			return ( await ipcApi.getSiteIcon( siteId ) ) as string | null;
 		},
 
 		async exportFullSite( siteId ): Promise< string | null > {
@@ -677,10 +675,6 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.getAppGlobals() ) as AppGlobals;
 		},
 
-		async fetchSiteRest( siteId, request ) {
-			return await ipcApi.fetchSiteRestApi( siteId, request );
-		},
-
 		async openSiteFolder( siteId ): Promise< void > {
 			const sitePath = await resolveSiteFolder( siteId );
 			ipcApi.openLocalPath( sitePath );
@@ -751,6 +745,10 @@ export function createIpcConnector(): Connector {
 		},
 		async saveWapuuScore( score: number ): Promise< void > {
 			await ipcApi.saveWapuuScore( score );
+		},
+
+		readyForDeeplinks() {
+			ipcApi.readyForDeeplinks();
 		},
 
 		async popupAppMenu( position: { x: number; y: number } ): Promise< void > {
@@ -903,14 +901,6 @@ export function createIpcConnector(): Connector {
 
 		onShowWhatsNew( listener ) {
 			return ipcListener.subscribe( 'show-whats-new', () => listener() );
-		},
-
-		async getLastSeenVersion() {
-			return ipcApi.getLastSeenVersion();
-		},
-
-		async saveLastSeenVersion( version ) {
-			await ipcApi.saveLastSeenVersion( version );
 		},
 
 		async getAppUpdateStatus() {

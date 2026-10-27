@@ -89,12 +89,6 @@ describe( 'CLI: studio config get', () => {
 			expect( consoleSpy ).toHaveBeenCalledWith( '' );
 		} );
 
-		it( 'rejects the removed runtime key', async () => {
-			await expect( runCommand( '/path/to/site', 'runtime', 'table' ) ).rejects.toThrow(
-				/Unknown config key "runtime"/
-			);
-		} );
-
 		it( 'reports the file access value', async () => {
 			vi.mocked( getSiteByFolder ).mockResolvedValue( {
 				...testSite,

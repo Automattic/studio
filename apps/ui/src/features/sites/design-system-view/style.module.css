@@ -1,0 +1,498 @@
+/* Colors come from the site's DESIGN.md (inline --ds-*), not the app theme. */
+.root {
+	--ds-hairline: color-mix( in srgb, var( --ds-text ) 18%, transparent );
+	container-type: inline-size;
+	min-height: 100%;
+	padding: var( --space-12 ) clamp( var( --space-5 ), 5cqi, var( --space-16 ) ) var( --space-16 );
+	background-color: var( --ds-background );
+	color: var( --ds-text );
+	font-size: var( --text-md );
+	line-height: var( --leading-normal );
+}
+
+/* The app styles headings with its own theme color. */
+.root :is( h1, h2, h3 ) {
+	color: inherit;
+}
+
+.header {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-3 );
+	margin-bottom: var( --space-10 );
+}
+
+.eyebrow {
+	font-size: var( --text-xxs );
+	opacity: 0.65;
+	text-transform: uppercase;
+	letter-spacing: 0.12em;
+}
+
+.title {
+	font-size: clamp( 40px, 9cqi, 104px );
+	line-height: 0.95;
+	overflow-wrap: anywhere;
+}
+
+.description {
+	max-width: 60ch;
+	font-size: var( --text-xl );
+	opacity: 0.8;
+}
+
+.sync {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: var( --space-1 ) var( --space-4 );
+	margin: var( --space-2 ) 0 0;
+	font-size: var( --text-xs );
+	opacity: 0.75;
+}
+
+.sync summary {
+	cursor: pointer;
+}
+
+.sync details[open] {
+	flex-basis: 100%;
+}
+
+.driftList {
+	display: grid;
+	gap: var( --space-1_5 );
+	margin: var( --space-3 ) 0 0;
+	padding: var( --space-3 ) var( --space-3_5 );
+	border: 1px solid var( --ds-hairline );
+	border-radius: 8px;
+}
+
+.driftList div {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var( --space-1 ) var( --space-3 );
+}
+
+.driftList dt {
+	font-weight: var( --font-weight-semibold );
+}
+
+.driftList .driftActions {
+	display: flex;
+	gap: var( --space-3 );
+	margin-inline-start: auto;
+}
+
+.driftAction {
+	text-decoration: underline;
+	text-underline-offset: 3px;
+	cursor: pointer;
+}
+
+.driftAction:disabled {
+	cursor: default;
+	opacity: 0.5;
+}
+
+.driftError {
+	flex-basis: 100%;
+}
+
+.sections {
+	display: grid;
+	grid-template-columns: repeat( auto-fill, minmax( min( 100%, 420px ), 1fr ) );
+	gap: var( --space-10 ) var( --space-12 );
+}
+
+.section {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.wide {
+	grid-column: 1 / -1;
+}
+
+.sectionTitle {
+	margin: 0 0 var( --space-4 );
+	padding-top: var( --space-2 );
+	border-top: 1px solid var( --ds-hairline );
+	font-size: var( --text-xxs );
+	font-weight: var( --font-weight-semibold );
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	opacity: 0.55;
+}
+
+.specimens {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: var( --space-8 );
+}
+
+.aa {
+	font-size: clamp( 96px, 16cqi, 168px );
+	line-height: 0.85;
+	white-space: nowrap;
+}
+
+.specimen:nth-child( 2 ) .aa {
+	font-size: clamp( 56px, 8cqi, 84px );
+}
+
+.specimen figcaption {
+	margin-top: var( --space-3 );
+	font-size: var( --text-xs );
+	opacity: 0.65;
+}
+
+.palette {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-1 );
+	height: 320px;
+	border-radius: min( var( --ds-small ), 10px );
+	overflow: hidden;
+}
+
+.lead {
+	flex: 2;
+	display: flex;
+	gap: var( --space-1 );
+	min-height: 0;
+}
+
+.lead > .tile {
+	flex: 1.15;
+}
+
+.pair {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-1 );
+}
+
+.accents {
+	flex: 1;
+	display: flex;
+	gap: var( --space-1 );
+}
+
+.pair > .tile,
+.accents > .tile {
+	flex: 1;
+}
+
+.tile {
+	display: flex;
+	flex-direction: column;
+	justify-content: flex-end;
+	min-width: 0;
+	padding: var( --space-3 ) var( --space-3_5 );
+	font-size: var( --text-xs );
+	line-height: 1.35;
+}
+
+.tile[data-background] {
+	box-shadow: inset 0 0 0 1px var( --ds-hairline );
+}
+
+.tileHex {
+	composes: truncate from '@/lib/theme/recipes.module.css';
+	text-transform: uppercase;
+}
+
+.tileName {
+	composes: truncate from '@/lib/theme/recipes.module.css';
+	text-transform: capitalize;
+	opacity: 0.8;
+}
+
+.scale {
+	display: flex;
+	flex-direction: column;
+}
+
+.scaleRow {
+	display: grid;
+	grid-template-columns: minmax( 160px, 1fr ) 3fr;
+	gap: var( --space-2 ) var( --space-8 );
+	align-items: baseline;
+	padding: var( --space-4 ) 0;
+	border-top: 1px solid var( --ds-hairline );
+}
+
+.scaleRow:first-child {
+	border-top: 0;
+	padding-top: 0;
+}
+
+@container (max-width: 560px) {
+	.scaleRow {
+		grid-template-columns: 1fr;
+	}
+}
+
+.scaleMeta {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-0_5 );
+	font-size: var( --text-xs );
+}
+
+.scaleName {
+	font-weight: var( --font-weight-semibold );
+}
+
+.scaleSpecs {
+	opacity: 0.65;
+}
+
+.scaleSample {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.kit {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	gap: var( --space-8 );
+}
+
+.stack {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-4_5 );
+	min-width: 0;
+}
+
+.row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var( --space-3_5 );
+}
+
+.button {
+	border: 1px solid transparent;
+	font-size: var( --text-md );
+	line-height: 1.2;
+}
+
+.button[data-outline] {
+	border-color: currentColor;
+}
+
+.link {
+	color: var( --ds-primary );
+	text-decoration: underline;
+	text-underline-offset: 4px;
+}
+
+.input {
+	width: 240px;
+	max-width: 100%;
+	padding: var( --space-3 ) var( --space-3_5 );
+	border: 1px solid color-mix( in srgb, var( --ds-text ) 35%, transparent );
+	border-radius: var( --ds-small );
+	opacity: 0.75;
+}
+
+.tag {
+	padding: var( --space-1_5 ) var( --space-3 );
+	border-radius: var( --ds-tag-radius );
+	background-color: color-mix( in srgb, var( --ds-primary ) 16%, var( --ds-background ) );
+	font-size: var( --text-xxs );
+}
+
+.tagAccent {
+	background-color: var( --ds-accent );
+	color: var( --ds-accent-ink );
+}
+
+.card {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var( --space-2_5 );
+	flex-shrink: 0;
+	width: 220px;
+	min-height: 190px;
+	padding: var( --space-4_5 ) var( --space-5 );
+	border-radius: var( --ds-card-radius );
+	background-color: color-mix( in srgb, var( --ds-text ) 6%, var( --ds-background ) );
+}
+
+.card strong {
+	font-size: var( --text-2xl );
+}
+
+.card u {
+	display: block;
+	height: 8px;
+	border-radius: 4px;
+	background-color: var( --ds-hairline );
+}
+
+.spacing {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-2_5 );
+}
+
+.spacingRow {
+	display: grid;
+	grid-template-columns: 48px 1fr 64px;
+	gap: var( --space-3 );
+	align-items: center;
+	font-size: var( --text-xs );
+}
+
+.spacingName {
+	font-weight: var( --font-weight-semibold );
+}
+
+.spacingBar {
+	height: 12px;
+	min-width: 2px;
+	background-color: var( --ds-primary );
+}
+
+.spacingValue {
+	text-align: end;
+	opacity: 0.65;
+}
+
+.corners {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var( --space-5 );
+	margin-top: var( --space-7 );
+}
+
+.corner {
+	font-size: var( --text-xs );
+}
+
+.corner div {
+	width: 72px;
+	height: 72px;
+	border: 1.5px solid currentColor;
+	border-bottom-color: transparent;
+	border-right-color: transparent;
+}
+
+.corner figcaption {
+	margin-top: var( --space-2 );
+	opacity: 0.65;
+}
+
+.guidelines {
+	display: grid;
+	grid-template-columns: repeat( auto-fill, minmax( min( 100%, 320px ), 1fr ) );
+	gap: var( --space-8 ) var( --space-12 );
+}
+
+.guideline h3 {
+	margin: 0 0 var( --space-2 );
+	font-size: var( --text-2xl );
+	line-height: 1.2;
+}
+
+.guideline p,
+.guideline ul,
+.guideline ol {
+	margin: 0 0 0.75em;
+	opacity: 0.85;
+}
+
+/* DESIGN.md prose keeps the browser's list and link styles. */
+.guideline :is( ul, ol, a ) {
+	padding-inline-start: revert;
+	list-style: revert;
+	color: revert;
+	text-decoration: revert;
+}
+
+.guideline :last-child {
+	margin-bottom: 0;
+}
+
+.guideline code {
+	font-size: 0.9em;
+	padding: 1px var( --space-1 );
+	border-radius: 4px;
+	background-color: color-mix( in srgb, var( --ds-text ) 10%, transparent );
+}
+
+.message {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var( --space-2 );
+	height: 100%;
+	padding: var( --space-8 );
+	color: var( --foreground );
+	text-align: center;
+}
+
+.message p {
+	margin: 0;
+	max-width: 48ch;
+}
+
+.messageDetail {
+	color: var( --muted-foreground );
+	font-size: var( --text-xxs );
+}
+
+.root [data-annotation-target] {
+	position: relative;
+}
+
+.picking [data-annotation-target] {
+	cursor: pointer;
+}
+
+.picking [data-annotation-target]:hover {
+	outline: 2px solid var( --accent );
+	outline-offset: 2px;
+}
+
+/* Matches the markers drawn on preview pages: the accent inside a white ring. */
+.annotationMarker {
+	position: absolute;
+	z-index: 1;
+	top: calc( var( --space-3 ) * -1 );
+	inset-inline-end: calc( var( --space-3 ) * -1 );
+	display: inline-flex;
+	box-sizing: content-box;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	border: 2px solid #fff;
+	border-radius: var( --radius-full );
+	background: var( --accent );
+	box-shadow:
+		0 0 0 1px var( --accent ),
+		0 1px 3px rgb( 0 0 0 / 10% );
+	color: var( --accent-foreground );
+	font:
+		600 12px/1 system-ui,
+		sans-serif;
+	letter-spacing: normal;
+	text-transform: none;
+}
+
+/* The palette clips its tiles' corners, so their markers sit inside. */
+.tile .annotationMarker {
+	top: var( --space-2 );
+	inset-inline-end: var( --space-2 );
+}

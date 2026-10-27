@@ -10,10 +10,10 @@ import { markPreviewReady, markPreviewSeen } from '@/data/preview-ready';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
-import { SNAPSHOTS_QUERY_KEY } from '@/data/queries/use-snapshots';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
+import { SNAPSHOTS_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
+import { getSnapshotUrl } from '@/data/snapshot-url';
 import { applySyncActivity, getSyncActivity } from '@/data/sync-activity';
-import { getSnapshotUrl } from '@/lib/snapshot-url';
 import type {
 	Connector,
 	PullSyncOptions,
@@ -24,9 +24,8 @@ import type {
 import type { SyncActivity, SyncDirection } from '@studio/common/lib/sync/activity';
 import type { SyncSite } from '@studio/common/types/sync';
 
-// Mutation keys are exported so downstream consumers (e.g. a cross-page
-// activity indicator or future bulk-sync UI) can filter the react-query
-// mutation cache for in-flight push/pull operations by site.
+// Exported so the publish panel can find a site's in-flight push or pull in
+// the mutation cache.
 export const PUSH_TO_LIVE_MUTATION_KEY = [ 'pushSiteToLive' ] as const;
 export const PULL_FROM_LIVE_MUTATION_KEY = [ 'pullSiteFromLive' ] as const;
 
@@ -60,8 +59,7 @@ export function useSettleSync() {
 				void queryClient.invalidateQueries( { queryKey: SNAPSHOTS_QUERY_KEY } );
 				if ( settled.kind === 'success' ) {
 					markPreviewReady( siteId );
-					/* translators: %s: site name */
-					toast.success( sprintf( __( '%s preview ready' ), siteName() ), {
+					toast.success( __( 'Preview link is ready' ), {
 						action: {
 							label: __( 'Copy link' ),
 							onClick: () => {
@@ -125,7 +123,7 @@ export function useSettleSync() {
 						siteName()
 					),
 					{
-						action: viewSite && { label: __( 'View site' ), onClick: () => void viewSite() },
+						action: viewSite && { label: __( 'View' ), onClick: () => void viewSite() },
 					}
 				);
 			} else if ( settled.kind === 'error' ) {
@@ -153,22 +151,22 @@ function getPlainErrorMessage(
 	canOpenLogs: boolean
 ) {
 	if ( localChangesApplied ) {
-		return __( 'Studio couldn’t restart the site. Your changes have already been pulled.' );
+		return __( 'Couldn’t restart the site. Your changes have already been pulled.' );
 	}
 	if ( direction === 'pull' ) {
 		return canOpenLogs
 			? __(
-					"Studio couldn't copy the live site. Try again. If the problem continues, check Studio Logs for details."
+					"Couldn't copy the live site. Try again. If the problem continues, check the logs for details."
 			  )
-			: __( "Studio couldn't copy the live site. Try again." );
+			: __( "Couldn't copy the live site. Try again." );
 	}
 	if ( direction === 'import' ) {
 		return canOpenLogs
 			? __(
-					"Studio couldn't import this backup. Check that it's a complete, supported backup and try again. If the problem continues, check Studio Logs for details."
+					"Couldn't import this backup. Check that it's a complete, supported backup and try again. If the problem continues, check the logs for details."
 			  )
 			: __(
-					"Studio couldn't import this backup. Check that it's a complete, supported backup and try again."
+					"Couldn't import this backup. Check that it's a complete, supported backup and try again."
 			  );
 	}
 	return undefined;

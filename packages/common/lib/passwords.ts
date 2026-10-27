@@ -24,8 +24,6 @@ export function decodeAdminPassword( encodedPassword?: string ): string {
 
 /**
  * Generates a random, Base64-encoded password.
- *
- * @returns The Base64-encoded password.
  */
 export function createPassword(): string {
 	return encodePassword( generatePassword() );
@@ -34,9 +32,6 @@ export function createPassword(): string {
 /**
  * Encodes a plain-text password to Base64.
  * Uses TextEncoder to properly handle Unicode characters.
- *
- * @param password - The plain-text password to encode.
- * @returns The Base64-encoded password.
  */
 export function encodePassword( password: string ): string {
 	const bytes = new TextEncoder().encode( password );
@@ -47,9 +42,6 @@ export function encodePassword( password: string ): string {
 /**
  * Decodes a Base64-encoded password.
  * Uses TextDecoder to properly handle Unicode characters.
- *
- * @param encodedPassword - The password to decode.
- * @returns The decoded password.
  */
 export function decodePassword( encodedPassword: string ): string {
 	const binary = atob( encodedPassword );

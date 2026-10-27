@@ -1,4 +1,6 @@
+import fs from 'node:fs';
 import path from 'node:path';
+import css from '@eslint/css';
 import js from '@eslint/js';
 import { defineConfig, globalIgnores } from 'eslint/config';
 import pluginImport from 'eslint-plugin-import-x';
@@ -14,8 +16,71 @@ const WP_UI_PACKAGES = {
 		`@wordpress/${ name }`,
 		`@wordpress/${ name }/*`,
 	] ),
-	message: 'Use the primitives in @/components/ui and the tokens in src/theme.',
+	message: 'Use the primitives in @/lib/ui and the tokens in @/lib/theme.',
 };
+
+// `apps/ui/src` is layered as internal packages (`lib/*`), product areas (`features/*`),
+// then `data/`, `router/` and `app/`. See apps/ui/README.md.
+const UI_SRC = path.join( import.meta.dirname, 'apps/ui/src' );
+const uiDirs = ( dir ) =>
+	fs
+		.readdirSync( path.join( UI_SRC, dir ), { withFileTypes: true } )
+		.filter( ( entry ) => entry.isDirectory() )
+		.map( ( entry ) => `${ dir }/${ entry.name }` );
+const UI_LIB = uiDirs( 'lib' );
+const UI_FEATURES = uiDirs( 'features' );
+const uiPath = ( p ) => path.join( UI_SRC, p );
+const UI_LAYERS = {
+	zones: [
+		...UI_LIB.map( ( pkg ) => ( {
+			target: [
+				...fs.readdirSync( UI_SRC ).filter( ( name ) => name !== 'lib' ),
+				...UI_LIB.filter( ( other ) => other !== pkg ),
+			].map( uiPath ),
+			from: uiPath( pkg ),
+			except: [ './index.ts', ...( pkg === 'lib/theme' ? [ './tokens.css', './base.css' ] : [] ) ],
+			message: `Import from @/${ pkg }, its public entry.`,
+		} ) ),
+		{
+			target: uiPath( 'lib' ),
+			from: [ 'features', 'data', 'router', 'app' ].map( uiPath ),
+			message: 'lib/ packages stay independent of the app.',
+		},
+		{
+			target: [ 'lib', 'data', 'main.tsx', 'main.local.tsx' ].map( uiPath ),
+			from: uiPath( 'features' ),
+			message: 'Only router/, app/ and other features import features.',
+		},
+		...UI_FEATURES.map( ( feature ) => ( {
+			target: [ 'router', 'app', ...UI_FEATURES.filter( ( other ) => other !== feature ) ].map(
+				uiPath
+			),
+			from: uiPath( feature ),
+			except: [ './index.ts' ],
+			message: `Import from @/${ feature }, its public entry.`,
+		} ) ),
+	],
+};
+
+// Custom properties the primitives use, beyond the theme tokens. Feature CSS may
+// set only the documented hooks (see apps/ui/src/lib/ui/README.md).
+const cssCustomProperties = ( dir ) =>
+	fs
+		.readdirSync( uiPath( dir ), { recursive: true } )
+		.filter( ( file ) => file.endsWith( '.css' ) )
+		.flatMap(
+			( file ) =>
+				fs.readFileSync( path.join( uiPath( dir ), file ), 'utf8' ).match( /--[\w-]+/g ) ?? []
+		);
+const THEME_TOKENS = cssCustomProperties( 'lib/theme' );
+const PRIMITIVE_HOOKS = [
+	'--button-background',
+	'--button-hover-background',
+	'--button-hover-color',
+];
+const PRIMITIVE_PROPERTIES = [ ...new Set( cssCustomProperties( 'lib/ui' ) ) ].filter(
+	( property ) => ! THEME_TOKENS.includes( property ) && ! PRIMITIVE_HOOKS.includes( property )
+);
 
 export default defineConfig(
 	globalIgnores( [
@@ -27,15 +92,18 @@ export default defineConfig(
 		'vendor/',
 		'wp-files/',
 	] ),
-	js.configs.recommended,
-	tsEslint.configs.recommended,
-	pluginImport.flatConfigs.recommended,
-	pluginImport.flatConfigs.electron,
-	pluginImport.flatConfigs.typescript,
-	pluginPrettier,
-	pluginReactHooks.configs.flat.recommended,
-	pluginJestDom.configs[ 'flat/recommended' ],
 	{
+		files: [ '**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx}' ],
+		extends: [
+			js.configs.recommended,
+			tsEslint.configs.recommended,
+			pluginImport.flatConfigs.recommended,
+			pluginImport.flatConfigs.electron,
+			pluginImport.flatConfigs.typescript,
+			pluginPrettier,
+			pluginReactHooks.configs.flat.recommended,
+			pluginJestDom.configs[ 'flat/recommended' ],
+		],
 		plugins: {
 			studio: pluginStudio,
 		},
@@ -193,25 +261,17 @@ export default defineConfig(
 		},
 	},
 	{
-		// Module-level translations can't go stale in these apps: the CLI is a
-		// one-shot process that loads the locale before importing modules, and the
-		// UI reloads the window on language change. The rule matters for the
-		// Desktop main process, which swaps locale data live without a restart.
-		files: [ 'apps/cli/**', 'apps/ui/**' ],
+		// Module-level translations can't go stale in the CLI: it is a one-shot
+		// process that loads the locale before importing modules.
+		files: [ 'apps/cli/**' ],
 		rules: {
 			'studio/no-module-level-translations': 'off',
 		},
 	},
 	{
-		// The agentic UI owns its design system: theme tokens in `src/theme/` and
-		// primitives in `src/components/ui/`, which stay independent of app code.
-		files: [ 'apps/ui/src/**' ],
-		rules: {
-			'no-restricted-imports': [ 'error', { patterns: [ WP_UI_PACKAGES ] } ],
-		},
-	},
-	{
-		files: [ 'apps/ui/src/components/ui/**' ],
+		// The agentic UI owns its design system: theme tokens in `src/lib/theme/` and
+		// primitives in `src/lib/ui/`, which stay independent of app code.
+		files: [ 'apps/ui/src/**/*.{ts,tsx}' ],
 		rules: {
 			'no-restricted-imports': [
 				'error',
@@ -219,9 +279,25 @@ export default defineConfig(
 					patterns: [
 						WP_UI_PACKAGES,
 						{
-							group: [ '@/data/*', '@/hooks/*', '@/router/*', '@tanstack/*' ],
-							message: 'Primitives stay independent of app code.',
+							group: [ '@base-ui/react', '@base-ui/react/*' ],
+							message: 'Use the primitives in @/lib/ui, and add one there when none fits.',
 						},
+					],
+				},
+			],
+			'import-x/no-restricted-paths': [ 'error', UI_LAYERS ],
+			'import-x/no-cycle': 'error',
+		},
+	},
+	{
+		files: [ 'apps/ui/src/lib/**/*.{ts,tsx}' ],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						WP_UI_PACKAGES,
+						{ group: [ '@tanstack/*' ], message: 'lib/ packages stay independent of app code.' },
 					],
 				},
 			],
@@ -235,6 +311,46 @@ export default defineConfig(
 		files: [ 'apps/ui/**/*.test.{ts,tsx}' ],
 		rules: {
 			'jest-dom/prefer-to-have-value': 'off',
+		},
+	},
+	{
+		files: [ 'apps/ui/src/**/*.css' ],
+		plugins: { css, prettier: pluginPrettier.plugins.prettier, studio: pluginStudio },
+		language: 'css/css',
+		languageOptions: { tolerant: true },
+		rules: {
+			'prettier/prettier': 'error',
+			'studio/use-theme-tokens': 'error',
+			'css/no-important': 'error',
+		},
+	},
+	{
+		files: [ 'apps/ui/src/**/*.css' ],
+		ignores: [ 'apps/ui/src/lib/**' ],
+		rules: {
+			'studio/no-primitive-overrides': [ 'error', { properties: PRIMITIVE_PROPERTIES } ],
+		},
+	},
+	{
+		// The reduced-transparency reset has to beat class-scoped rules, and Shiki
+		// colors code tokens with inline styles.
+		files: [ 'apps/ui/src/lib/theme/base.css', 'apps/ui/src/lib/ui/code-block/style.module.css' ],
+		rules: {
+			'css/no-important': 'off',
+		},
+	},
+	{
+		// Tokens are defined in the theme. The onboarding illustrations and Wapuu World
+		// are artwork drawn with their own values, and the design system view renders
+		// a site's own type, colors and radii.
+		files: [
+			'apps/ui/src/lib/theme/**',
+			'apps/ui/src/features/onboarding/onboarding-guide/illustrations/**',
+			'apps/ui/src/features/settings/wapuu-world/**',
+			'apps/ui/src/features/sites/design-system-view/**',
+		],
+		rules: {
+			'studio/use-theme-tokens': 'off',
 		},
 	}
 );

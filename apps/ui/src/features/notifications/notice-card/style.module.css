@@ -158,6 +158,7 @@
 }
 
 .close {
+	composes: dismissIcon from '@/lib/theme/recipes.module.css';
 	--button-background: var( --chrome );
 
 	position: absolute;

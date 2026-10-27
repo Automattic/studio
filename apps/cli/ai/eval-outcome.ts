@@ -26,6 +26,7 @@ import { rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { STUDIO_LOADER_MU_PLUGIN_FILENAME } from '@studio/common/lib/mu-plugins';
 import { validateBlocks } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
@@ -50,9 +51,16 @@ export interface SiteFingerprint {
 // The newest modification time under a site's database and wp-content, which
 // moves whenever the site is changed. A read of the SQLite database moves its
 // -shm file, the WAL index, which holds none of the site
-// (https://sqlite.org/walformat.html).
+// (https://sqlite.org/walformat.html). Studio's loader mu-plugin, which Studio
+// writes into each site it runs and leaves out of archives and exports, is
+// not the site's either, nor is the mu-plugins folder's own time, which its
+// rewrite moves; the code hashes tell a mu-plugin the turn added or removed.
+const STUDIO_LOADER = path.join( 'mu-plugins', STUDIO_LOADER_MU_PLUGIN_FILENAME );
+
 function newestMtime( dir: string, depth = 6 ): number {
 	let newest = 0;
+	const loader = path.join( dir, 'wp-content', STUDIO_LOADER );
+	const muPlugins = path.dirname( loader );
 	const walk = ( current: string, level: number ) => {
 		let entries;
 		try {
@@ -64,6 +72,7 @@ function newestMtime( dir: string, depth = 6 ): number {
 			if ( [ 'node_modules', 'cache' ].includes( entry.name ) || entry.name.endsWith( '-shm' ) )
 				continue;
 			const full = path.join( current, entry.name );
+			if ( full === loader ) continue;
 			try {
 				const stat = statSync( full );
 				// SQLite's WAL files: a read-only read creates the WAL index (-shm)
@@ -74,7 +83,7 @@ function newestMtime( dir: string, depth = 6 ): number {
 				const readOnlyTrace =
 					( level === 0 && entry.name === 'database' ) ||
 					( entry.name.endsWith( '-wal' ) && ! stat.size );
-				if ( ! readOnlyTrace ) newest = Math.max( newest, stat.mtimeMs );
+				if ( ! readOnlyTrace && full !== muPlugins ) newest = Math.max( newest, stat.mtimeMs );
 			} catch {
 				continue;
 			}
@@ -187,7 +196,7 @@ function hashCode( sitePath: string ): Record< string, string > {
 		for ( const [ file, hash ] of Object.entries(
 			hashFiles( path.join( sitePath, 'wp-content', dir ) )
 		) ) {
-			hashes[ `${ dir }/${ file }` ] = hash;
+			if ( path.join( dir, file ) !== STUDIO_LOADER ) hashes[ `${ dir }/${ file }` ] = hash;
 		}
 	}
 	return hashes;
@@ -517,8 +526,13 @@ export async function captureTurnOutcome(
 	const after = new Map( ( await fingerprintSites() ).map( ( site ) => [ site.path, site ] ) );
 	const beforePaths = new Set( before.map( ( site ) => site.path ) );
 	const created = [ ...after.values() ].filter( ( site ) => ! beforePaths.has( site.path ) );
-	const changed = ( site: SiteFingerprint ) =>
-		( after.get( site.path )?.mtimeMs ?? 0 ) > site.mtimeMs;
+	const changed = ( site: SiteFingerprint ) => {
+		const now = after.get( site.path );
+		return (
+			( now?.mtimeMs ?? 0 ) > site.mtimeMs ||
+			JSON.stringify( now?.code ) !== JSON.stringify( site.code )
+		);
+	};
 	const requestBefore = before.find( ( site ) => site.path === requestSitePath );
 	const others = before.filter( ( site ) => site.path !== requestSitePath );
 

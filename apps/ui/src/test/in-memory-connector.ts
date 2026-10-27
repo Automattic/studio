@@ -313,6 +313,7 @@ export function createInMemoryConnector(
 		openSiteFolder: async () => {},
 		openSiteInEditor: async () => {},
 		openSiteInTerminal: async () => {},
+		openSiteEmailFolder: async () => {},
 		siteDebugLogExists: async () => false,
 		openSiteDebugLog: async () => {},
 		openStudioLogs: async () => {},

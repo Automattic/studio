@@ -45,6 +45,7 @@ import {
 	installWordPress,
 	writeSiteUrlPrependFile,
 } from './lib/native-php/site-setup';
+import { getSiteEmailDirectory } from './lib/site-email';
 import { SymlinkWatcher, collectSymlinkAllowlistEntries } from './lib/symlinks';
 import type { ChildProcess } from 'node:child_process';
 
@@ -611,6 +612,14 @@ async function doStartServer(
 		const phpMyAdminWpEnvPath = await writeNativePhpMyAdminWpEnv( config );
 		const siteUrl = config.absoluteUrl || `http://localhost:${ config.port }`;
 		const autoPrependFile = writeSiteUrlPrependFile( siteUrl, config.autoPrependFile );
+		// Created up front so the folder opens from the app before the site sends any email.
+		// The site still starts without it: sendmail.php then reports each email it can't save.
+		const emailDirectory = getSiteEmailDirectory( config.siteId );
+		try {
+			fs.mkdirSync( emailDirectory, { recursive: true } );
+		} catch ( error ) {
+			errorToConsole( `Failed to create the email folder ${ emailDirectory }:`, error );
+		}
 		const workerPorts: number[] = [];
 		for ( let index = 0; index < NATIVE_PHP_WORKER_POOL_SIZE; index++ ) {
 			workerPorts.push( await getAvailablePort() );
@@ -638,6 +647,7 @@ async function doStartServer(
 				disallowRiskyFunctions: isFileAccessRestricted( config ),
 				enableXdebug: config.enableXdebug,
 				autoPrependFile,
+				emailDirectory,
 				workerIndex: index,
 			} );
 			spawnedChildren.push( serverChild );

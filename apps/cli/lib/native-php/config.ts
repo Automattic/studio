@@ -4,7 +4,7 @@ import os from 'os';
 import path from 'path';
 import { writeFile } from 'atomically';
 import semver from 'semver';
-import { getPhpBinaryPath } from '../dependency-management/paths';
+import { getBundledSendmailScriptPath, getPhpBinaryPath } from '../dependency-management/paths';
 import { getFullyResolvedTmpDirPath } from './tmp-dir';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 
@@ -234,6 +234,8 @@ type DefaultPhpArgsOptions = {
 	enableXdebug?: boolean;
 	autoPrependFile?: string;
 	workerIndex?: number;
+	// Where the email this PHP process sends is saved; see `lib/site-email.ts`.
+	emailDirectory?: string;
 };
 
 export function getDefaultPhpArgs(
@@ -244,6 +246,7 @@ export function getDefaultPhpArgs(
 		enableXdebug = false,
 		autoPrependFile,
 		workerIndex,
+		emailDirectory,
 	}: DefaultPhpArgsOptions = {}
 ): string[] {
 	// Partition the file_cache directory by PHP version to match the cache_id
@@ -301,6 +304,19 @@ export function getDefaultPhpArgs(
 	// without modifying their wp-config.php.
 	if ( autoPrependFile ) {
 		args.push( '-d', `auto_prepend_file="${ toPhpIniPath( autoPrependFile ) }"` );
+	}
+
+	if ( emailDirectory ) {
+		// `-n`: the script needs no extensions, so it skips loading php.ini.
+		const sendmailCommand = [
+			getPhpBinaryPath( phpVersion ),
+			'-n',
+			getBundledSendmailScriptPath(),
+			emailDirectory,
+		]
+			.map( ( part ) => `"${ part }"` )
+			.join( ' ' );
+		args.push( '-d', `sendmail_path="${ toPhpIniPath( sendmailCommand ) }"` );
 	}
 
 	return args;

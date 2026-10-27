@@ -309,6 +309,18 @@ describe( 'CLI: studio site delete', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
+		it( 'should proceed when deleting the email files fails', async () => {
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {
+				throw Object.assign( new Error( 'resource busy' ), { code: 'EBUSY' } );
+			} );
+
+			await expect( runCommand( testSiteFolder, true ) ).resolves.not.toThrow();
+			expect( trash ).toHaveBeenCalledWith( [ testSiteFolder ] );
+			expect( emitCliEvent ).toHaveBeenCalledWith(
+				expect.objectContaining( { event: SITE_EVENTS.DELETED } )
+			);
+		} );
+
 		it( 'should proceed when deleting WordPress.com connections fails', async () => {
 			vi.mocked( removeAllConnectedWpcomSitesForLocalSite ).mockRejectedValue(
 				new Error( 'shared config failed' )

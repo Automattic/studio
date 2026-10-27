@@ -822,6 +822,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async openSiteFolder( siteId ) {
 			await api( `/sites/${ encodeURIComponent( siteId ) }/open-folder`, { method: 'POST' } );
 		},
+		async openSiteEmailFolder( siteId ) {
+			await api( `/sites/${ encodeURIComponent( siteId ) }/open-email-folder`, { method: 'POST' } );
+		},
 		// The server resolves the preference; a 400 means none is configured and
 		// callers route the user to Settings, matching the desktop contract.
 		async openSiteInEditor( siteId ) {

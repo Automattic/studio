@@ -20,13 +20,18 @@ import { AppMessageCards, AppMessageHistoryRecorder, AppToasts } from '@/feature
 import { SidebarHeader } from '@/features/sidebar/sidebar-header';
 import { SiteList } from '@/features/sidebar/site-list';
 import { useStoredFlag } from '@/lib/hooks';
-import { Popover, ResizeHandle, ResizeOverlay } from '@/lib/ui';
+import { Popover, ResizeHandle, ResizeOverlay, useHasOpenDialog } from '@/lib/ui';
 import styles from './style.module.css';
 import { useResizablePanel } from './use-resizable-panel';
 import type { CSSProperties, ReactNode } from 'react';
 
 const HOVER_OPEN_DELAY_MS = 180;
 const HOVER_CLOSE_DELAY_MS = 350;
+
+const findToggle = () =>
+	[ ...document.querySelectorAll< HTMLElement >( '[data-sidebar-toggle]' ) ].find(
+		( toggle ) => ! toggle.closest( '[inert]' )
+	);
 
 function SidebarContents( {
 	active,
@@ -55,6 +60,7 @@ function SidebarContents( {
 
 export function SidebarLayout( { children }: { children: ReactNode } ) {
 	const connector = useConnector();
+	const hasOpenDialog = useHasOpenDialog();
 	const sidebarResize = useResizablePanel( {
 		config: SIDEBAR_PANEL_CONFIG,
 		storageKey: SIDEBAR_PANEL_STORAGE_KEY,
@@ -86,6 +92,7 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 	}, [ instantSidebarDock ] );
 	const hoverBlockedUntil = useRef( 0 );
 	const restoreSidebarFlyoutFocus = useRef( false );
+	const restoreSidebarDialogFocus = useRef( false );
 	const sidebarFlyoutRef = useRef< HTMLElement >( null );
 	const sidebarFlyoutAnchor = useRef< HTMLDivElement >( null );
 	const hoverTimer = useRef< ReturnType< typeof setTimeout > | undefined >( undefined );
@@ -94,6 +101,17 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 		clearHoverTimer();
 		setSidebarFlyoutState( 'closed' );
 	}, [ clearHoverTimer ] );
+	useEffect( () => {
+		if ( hasOpenDialog ) {
+			if ( sidebarFlyoutState !== 'closed' ) restoreSidebarDialogFocus.current = true;
+			restoreSidebarFlyoutFocus.current = false;
+			closeSidebarFlyout();
+		} else if ( restoreSidebarDialogFocus.current ) {
+			restoreSidebarDialogFocus.current = false;
+			const frame = requestAnimationFrame( () => findToggle()?.focus( { preventScroll: true } ) );
+			return () => cancelAnimationFrame( frame );
+		}
+	}, [ hasOpenDialog, sidebarFlyoutState, closeSidebarFlyout ] );
 	useEffect( () => {
 		const reopen = () => {
 			closeSidebarFlyout();
@@ -122,12 +140,12 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 	}, [ docked, sidebarFlyoutVisible ] );
 	const hoverEnter = useCallback( () => {
 		clearHoverTimer();
-		if ( ! open && ! peek && performance.now() >= hoverBlockedUntil.current ) {
+		if ( ! hasOpenDialog && ! open && ! peek && performance.now() >= hoverBlockedUntil.current ) {
 			hoverTimer.current = setTimeout( () => {
 				setSidebarFlyoutState( 'hover' );
 			}, HOVER_OPEN_DELAY_MS );
 		}
-	}, [ clearHoverTimer, open, peek ] );
+	}, [ clearHoverTimer, hasOpenDialog, open, peek ] );
 	const hoverLeave = useCallback( () => {
 		clearHoverTimer();
 		if ( peek ) {
@@ -138,6 +156,7 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 		}
 	}, [ clearHoverTimer, peek ] );
 	const toggleSidebar = useCallback( () => {
+		if ( hasOpenDialog ) return;
 		setInstantSidebarDock( peek && ! overlay );
 		hoverBlockedUntil.current = performance.now() + HOVER_CLOSE_DELAY_MS;
 		clearHoverTimer();
@@ -152,11 +171,15 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 			setSidebarFlyoutState( 'closed' );
 			setCollapsed( ! collapsed );
 		}
-	}, [ overlay, sidebarFlyoutOpen, collapsed, peek, setCollapsed, clearHoverTimer ] );
-	const findToggle = () =>
-		[ ...document.querySelectorAll< HTMLElement >( '[data-sidebar-toggle]' ) ].find(
-			( toggle ) => ! toggle.closest( '[inert]' )
-		);
+	}, [
+		hasOpenDialog,
+		overlay,
+		sidebarFlyoutOpen,
+		collapsed,
+		peek,
+		setCollapsed,
+		clearHoverTimer,
+	] );
 	const sidebarStyle = { '--sidebar-width': `${ sidebarResize.width }px` } as CSSProperties;
 
 	useEffect( () => connector.onToggleSidebar( toggleSidebar ), [ connector, toggleSidebar ] );
@@ -194,6 +217,8 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 									} }
 								>
 									<Popover.Popup
+										// Sidebar items own dialogs that must survive the flyout closing.
+										keepMounted={ hasOpenDialog }
 										anchor={ sidebarFlyoutAnchor }
 										side="bottom"
 										align="start"
@@ -221,7 +246,11 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 											onPointerEnter={ clearHoverTimer }
 											onPointerLeave={ hoverLeave }
 										>
-											<SidebarContents active floating onSiteOpen={ closeSidebarFlyout } />
+											<SidebarContents
+												active={ peek || sidebarFlyoutOpen }
+												floating
+												onSiteOpen={ closeSidebarFlyout }
+											/>
 										</aside>
 									</Popover.Popup>
 								</Popover.Root>

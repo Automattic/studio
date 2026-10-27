@@ -1,9 +1,9 @@
 import type { ComponentProps } from 'react';
 
 export function SidebarIcon( {
-	state,
+	state = 'docked',
 	...props
-}: ComponentProps< 'svg' > & { state: 'closed' | 'flyout' | 'docked' } ) {
+}: ComponentProps< 'svg' > & { state?: 'closed' | 'flyout' | 'docked' } ) {
 	return (
 		<svg
 			width="16"

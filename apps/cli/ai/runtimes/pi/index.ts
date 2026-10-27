@@ -208,7 +208,6 @@ function customEndpointCredentials( endpoint: CustomEndpoint ): ResolvedCredenti
 	return {
 		apiKey: endpoint.apiKey,
 		baseURL: endpoint.baseUrl,
-		...( endpoint.keyHeader ? { extraHeaders: { [ endpoint.keyHeader ]: endpoint.apiKey } } : {} ),
 		endpoint: { api: endpoint.api, images: endpoint.images },
 	};
 }

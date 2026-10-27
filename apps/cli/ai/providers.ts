@@ -1,4 +1,4 @@
-import { confirm, input, password, select } from '@inquirer/prompts';
+import { confirm, input, password } from '@inquirer/prompts';
 import { validateAnthropicApiKey } from '@studio/common/ai/anthropic-key';
 import { DEFAULT_MODEL, toCustomModelId, type AiModelId } from '@studio/common/ai/models';
 import {
@@ -78,29 +78,26 @@ export async function getProviderDefaultModel(
 	return ( await definition.getModels() )[ 0 ] ?? DEFAULT_MODEL;
 }
 
-const STANDARD_KEY_HEADERS: Record< CustomEndpoint[ 'api' ], string > = {
-	'openai-completions': 'Authorization',
-	'anthropic-messages': 'x-api-key',
-};
+// The APIs a custom endpoint may speak, in the order the connect check tries
+// them: Chat Completions first, as nearly every gateway and local server takes
+// it. Each is given the URL as the user entered it, except that Anthropic
+// Messages appends `/v1/messages` itself.
+const CUSTOM_ENDPOINT_APIS: ReadonlyArray< {
+	api: CustomEndpoint[ 'api' ];
+	baseUrl: ( url: string ) => string;
+} > = [
+	{ api: 'openai-completions', baseUrl: ( url ) => url },
+	{ api: 'anthropic-messages', baseUrl: ( url ) => url.replace( /\/v1$/, '' ) },
+];
 
-// Asks where the endpoint is, the API it speaks, its key and the header that
-// carries it, its models and whether they take images, then sends the first
-// model a short request the way a turn does. Only a connection that answers is
-// saved.
+// Asks where the endpoint is, its key, its models and whether they take
+// images, then sends the first model a short request the way a turn does, in
+// each API until one answers. Only a connection that answers is saved, with
+// the API it answered in.
 async function connectCustomEndpoint(): Promise< void > {
-	const api = await select< CustomEndpoint[ 'api' ] >( {
-		message: __( 'Which API does the endpoint speak?' ),
-		choices: [
-			{ name: __( 'OpenAI Chat Completions' ), value: 'openai-completions' },
-			{ name: __( 'Anthropic Messages' ), value: 'anthropic-messages' },
-		],
-	} );
-	const baseUrl = (
+	const url = (
 		await input( {
-			message:
-				api === 'openai-completions'
-					? __( 'Base URL, up to the path before /chat/completions (e.g. https://host/v1):' )
-					: __( 'Base URL, up to the path before /v1/messages (e.g. https://host):' ),
+			message: __( 'Endpoint URL (e.g. https://openrouter.ai/api/v1):' ),
 			validate: ( value ) => URL.canParse( value.trim() ) || __( 'Enter a full URL.' ),
 		} )
 	)
@@ -111,12 +108,6 @@ async function connectCustomEndpoint(): Promise< void > {
 			message: __( 'API key (will be saved for future use):' ),
 			mask: '*',
 			validate: ( value ) => Boolean( value.trim() ) || __( 'API key is required' ),
-		} )
-	).trim();
-	const keyHeader = (
-		await input( {
-			message: __( 'Header that carries the key:' ),
-			default: STANDARD_KEY_HEADERS[ api ],
 		} )
 	).trim();
 	const models = (
@@ -130,27 +121,31 @@ async function connectCustomEndpoint(): Promise< void > {
 		.filter( Boolean );
 	const images = await confirm( { message: __( 'Do these models take images?' ), default: true } );
 
-	const endpoint: CustomEndpoint = {
-		baseUrl,
-		api,
-		apiKey,
-		...( keyHeader && keyHeader !== STANDARD_KEY_HEADERS[ api ] ? { keyHeader } : {} ),
-		models,
-		images,
-	};
 	const { checkCustomEndpoint } = await import( 'cli/ai/runtimes/pi' );
-	const failure = await checkCustomEndpoint( endpoint, toCustomModelId( models[ 0 ] ) );
-	if ( failure ) {
-		throw new LoggerError(
-			sprintf(
-				/* translators: 1: model name, 2: the endpoint's error */
-				__( 'The endpoint did not answer for %1$s, so it was not saved: %2$s' ),
-				models[ 0 ],
-				failure
-			)
-		);
+	const failures: string[] = [];
+	for ( const candidate of CUSTOM_ENDPOINT_APIS ) {
+		const endpoint: CustomEndpoint = {
+			baseUrl: candidate.baseUrl( url ),
+			api: candidate.api,
+			apiKey,
+			models,
+			images,
+		};
+		const failure = await checkCustomEndpoint( endpoint, toCustomModelId( models[ 0 ] ) );
+		if ( ! failure ) {
+			await persistCustomEndpoint( endpoint );
+			return;
+		}
+		failures.push( failure );
 	}
-	await persistCustomEndpoint( endpoint );
+	throw new LoggerError(
+		sprintf(
+			/* translators: 1: model name, 2: the endpoint's errors, one per API tried */
+			__( 'The endpoint did not answer for %1$s, so it was not saved: %2$s' ),
+			models[ 0 ],
+			failures.join( ' / ' )
+		)
+	);
 }
 
 async function resolveAnthropicApiKey( options?: {

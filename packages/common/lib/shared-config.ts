@@ -38,14 +38,12 @@ export const sharedSessionMetadataSchema = z
 
 export type SharedSessionMetadata = z.infer< typeof sharedSessionMetadataSchema >;
 
-// An AI endpoint the user connected: where it is, the API it speaks, its key
-// and the header that carries it (the API's own when absent), the models it
-// serves and whether they take images.
+// An AI endpoint the user connected: where it is, the API it answered in when
+// connected, its key, the models it serves and whether they take images.
 const customEndpointSchema = z.object( {
 	baseUrl: z.string(),
 	api: z.enum( [ 'openai-completions', 'anthropic-messages' ] ),
 	apiKey: z.string(),
-	keyHeader: z.string().optional(),
 	models: z.array( z.string() ).min( 1 ),
 	images: z.boolean(),
 } );

@@ -22,7 +22,7 @@ The site's active plugins are part of its stack: their blocks are already there.
 
 ## Using a plugin's blocks
 
-Jetpack registers its blocks only while its `blocks` module is active (`Jetpack_Gutenberg::should_load` in `class.jetpack-gutenberg.php`), which a site that has never connected to WordPress.com starts without, and a block can also need its feature's module, as forms need `contact-form`. `wp jetpack module list` shows which are active, and `wp jetpack module activate <slug>` turns one on.
+Jetpack loads its blocks on a site that is connected to WordPress.com or in offline mode, as a local site is, while its `blocks` module is active (`Jetpack_Gutenberg::should_load` in `class.jetpack-gutenberg.php`); a feature's blocks also need its module, as forms need `contact-form`. The Active site section states the active modules, and `wp jetpack module activate <slug>` turns one on.
 
 ## What the source will not tell you
 

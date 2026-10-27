@@ -37,6 +37,8 @@ const BASE = [
 	'Active theme: bakery; a child theme of bakery-parent, which WordPress updates.',
 	'Active plugins: none.',
 ];
+const STORE_WITHOUT_PAGES =
+	'WooCommerce store: no Shop page (woocommerce_shop_page_id), no Cart page (woocommerce_cart_page_id), no Checkout page (woocommerce_checkout_page_id), no My account page (woocommerce_myaccount_page_id); 0 published products.';
 const COMING_SOON = ( pages: string ) =>
 	`WooCommerce's Coming soon mode is on (woocommerce_coming_soon): visitors who are not logged in, including screenshots, get a Coming soon page instead of ${ pages }.`;
 
@@ -53,6 +55,7 @@ it( 'states the WordPress version, the active theme and whether WordPress update
 		'WordPress 7.1.3.',
 		'Active theme: twentytwentyfive, which WordPress updates.',
 		'Active plugins: woocommerce/woocommerce.php, hello.php.',
+		STORE_WITHOUT_PAGES,
 	] );
 } );
 
@@ -141,7 +144,62 @@ it.each( [
 		const site = createSite( 'wp_' );
 		site.setOptions( options );
 		const facts = await site.facts();
-		expect( facts.slice( 3 ) ).toEqual( pages ? [ COMING_SOON( pages ) ] : [] );
+		expect( facts.filter( ( fact ) => fact.includes( 'Coming soon' ) ) ).toEqual(
+			pages ? [ COMING_SOON( pages ) ] : []
+		);
+	}
+);
+
+it.each( [
+	{
+		name: 'Jetpack before it connects',
+		options: {
+			active_plugins: 'a:1:{i:0;s:19:"jetpack/jetpack.php";}',
+			jetpack_active_modules: 'a:2:{i:0;s:12:"contact-form";i:1;s:6:"blocks";}',
+			jetpack_options: 'a:1:{s:7:"version";s:6:"16.3.1";}',
+		},
+		fact: 'Jetpack modules active (jetpack_active_modules): contact-form, blocks. Jetpack is not connected to WordPress.com (jetpack_options id).',
+	},
+	{
+		name: 'Jetpack registered with WordPress.com, no modules',
+		options: {
+			active_plugins: 'a:1:{i:0;s:19:"jetpack/jetpack.php";}',
+			jetpack_options: 'a:1:{s:2:"id";i:4242;}',
+		},
+		fact: 'Jetpack modules active (jetpack_active_modules): none. Jetpack is registered with WordPress.com as site 4242 (jetpack_options id).',
+	},
+	{
+		name: "WooCommerce's store pages and products",
+		options: {
+			...WOOCOMMERCE_ACTIVE,
+			woocommerce_shop_page_id: '20',
+			woocommerce_cart_page_id: '21',
+			woocommerce_checkout_page_id: '99',
+		},
+		fact: 'WooCommerce store: Shop page 20 (/shop/, publish), Cart page 21 (/cart/, draft), no Checkout page (woocommerce_checkout_page_id), no My account page (woocommerce_myaccount_page_id); 1 published product.',
+	},
+	{
+		name: 'modules and store pages an inactive plugin left behind',
+		options: {
+			jetpack_active_modules: 'a:1:{i:0;s:6:"blocks";}',
+			woocommerce_shop_page_id: '20',
+		},
+		fact: undefined,
+	},
+] as Array< { name: string; options: Record< string, string >; fact?: string } > )(
+	'states $name',
+	async ( { options, fact } ) => {
+		const site = createSite( 'wp_' );
+		site.save( 20, 'page', 'shop' );
+		site.save( 21, 'page', 'cart', '', 1, 'draft' );
+		site.save( 22, 'product', 'candle' );
+		site.save( 23, 'product', 'soap', '', 1, 'draft' );
+		site.save( 24, 'product', 'gift-box', '', 1, 'trash' );
+		site.setOptions( options );
+		const facts = await site.facts();
+		expect( facts.filter( ( line ) => /^(Jetpack|WooCommerce store)/.test( line ) ) ).toEqual(
+			fact ? [ fact ] : []
+		);
 	}
 );
 
@@ -173,7 +231,11 @@ it( 'adds to a tool result the facts the agent does not have yet, as they now re
 	// plugins line replaces the one it was.
 	site.setOptions( { woocommerce_coming_soon: 'yes', ...WOOCOMMERCE_ACTIVE } );
 	expect( await notes() ).toEqual(
-		said( 'Active plugins: woocommerce/woocommerce.php, hello.php.', COMING_SOON( 'the site' ) )
+		said(
+			'Active plugins: woocommerce/woocommerce.php, hello.php.',
+			STORE_WITHOUT_PAGES,
+			COMING_SOON( 'the site' )
+		)
 	);
 
 	// Starting the site updates WordPress.
@@ -189,7 +251,12 @@ it( 'adds to a tool result the facts the agent does not have yet, as they now re
 
 	// A site the agent has no facts for, as over MCP, gets them with its first result.
 	expect( await notes( createSiteNotes() ) ).toEqual(
-		said( 'WordPress 7.1.4.', BASE[ 1 ], 'Active plugins: woocommerce/woocommerce.php, hello.php.' )
+		said(
+			'WordPress 7.1.4.',
+			BASE[ 1 ],
+			'Active plugins: woocommerce/woocommerce.php, hello.php.',
+			STORE_WITHOUT_PAGES
+		)
 	);
 } );
 

@@ -1,7 +1,7 @@
 import { siteCodeFact } from 'cli/ai/admin-capabilities';
 import { homepageFact } from 'cli/ai/front-page-template';
 import { hostOf } from 'cli/ai/hosts';
-import { activePluginsFact, comingSoonFact } from 'cli/ai/plugins';
+import { activePluginsFact, comingSoonFact, jetpackFact, wooCommerceFact } from 'cli/ai/plugins';
 import { postCopiesFact } from 'cli/ai/post-copies';
 import { savedCopiesFact } from 'cli/ai/saved-copies';
 import { readWordPressSite, type WordPressSite } from 'cli/ai/site-database';
@@ -52,6 +52,8 @@ const SITE_FACTS: SiteFact[] = [
 	homepageFact,
 	postCopiesFact,
 	activePluginsFact,
+	jetpackFact,
+	wooCommerceFact,
 	siteCodeFact,
 	savedCopiesFact,
 	comingSoonFact,

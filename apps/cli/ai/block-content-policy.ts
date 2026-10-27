@@ -1,16 +1,15 @@
+import { PREFERRED_PLUGINS, type PreferredPlugin } from 'cli/ai/preferred-plugins';
+
 const BLOCK_COMMENT_PATTERN = /<!--\s*\/?wp:[^>]*-->/g;
 const SINGLE_SCRIPT_PATTERN = /^<script(?:\s[^>]*)?>[\s\S]*<\/script>\s*$/i;
 const SINGLE_SVG_PATTERN = /^<svg(?:\s[^>]*)?>[\s\S]*<\/svg>\s*$/i;
 const INTERACTION_MARKUP_PATTERN = /<(marquee)\b/i;
 const HTML_BLOCK_PATTERN = /<!--\s*wp:html(?:\s+[\s\S]*?)?\s*-->([\s\S]*?)<!--\s*\/wp:html\s*-->/g;
-const PLUGIN_RECOMMENDATION_HTML_BLOCK_POLICIES = [
-	{
-		htmlPatterns: [ /<(form|input|select|textarea|fieldset)\b/i ],
-		htmlPolicyMessage:
-			"core/html contains form markup. A form plugin's block, such as Jetpack Forms (jetpack/contact-form), stays editable in the block editor and handles submission; the plugin-recommendations skill names the plugin for each feature.",
-		block: 'jetpack/contact-form',
-	},
-];
+
+// The markup a preferred plugin's block replaces, with that block.
+function replacingPlugin( html: string ): PreferredPlugin | undefined {
+	return PREFERRED_PLUGINS.find( ( plugin ) => plugin.replaces?.pattern.test( html ) );
+}
 
 interface HtmlBlockPolicyResult {
 	blockNumber: number;
@@ -40,11 +39,12 @@ export function getHtmlBlockPolicyIssues( content: string ): string[] {
 		return [];
 	}
 
-	// Check plugin-specific patterns first so we return a targeted message.
-	for ( const recommendation of PLUGIN_RECOMMENDATION_HTML_BLOCK_POLICIES ) {
-		if ( recommendation.htmlPatterns.some( ( pattern ) => pattern.test( html ) ) ) {
-			return [ recommendation.htmlPolicyMessage ];
-		}
+	const preferred = replacingPlugin( html );
+	if ( preferred?.replaces ) {
+		const { markup, block } = preferred.replaces;
+		return [
+			`core/html contains ${ markup } markup. ${ preferred.plugin }'s block (${ block }) stays editable in the block editor and does what the markup does; the plugin-recommendations skill names the plugin for each feature.`,
+		];
 	}
 
 	return [
@@ -65,9 +65,7 @@ export function validateHtmlBlockPolicy( content: string ): HtmlBlockPolicyRepor
 		}
 
 		const html = blockContent.replace( BLOCK_COMMENT_PATTERN, '' );
-		const block = PLUGIN_RECOMMENDATION_HTML_BLOCK_POLICIES.find( ( recommendation ) =>
-			recommendation.htmlPatterns.some( ( pattern ) => pattern.test( html ) )
-		)?.block;
+		const block = replacingPlugin( html )?.replaces?.block;
 		invalidHtmlBlocks.push( {
 			blockNumber: totalHtmlBlocks,
 			line: content.slice( 0, match.index ?? 0 ).split( '\n' ).length,

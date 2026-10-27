@@ -19,6 +19,7 @@ import {
 	reapPhpTreeOnInterrupt,
 } from './native-php/php-process';
 import { getPulledSiteStartOptions } from './pull/pulled-site-server';
+import { getSiteEmailDirectory } from './site-email';
 import { getWpCliPhpIniArgs } from './wp-cli-php-ini';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { SiteData } from 'cli/lib/cli-config/core';
@@ -220,7 +221,10 @@ export async function runWpCliCommand(
 		? undefined
 		: getPulledSiteStartOptions( site )?.autoPrependFile;
 	// Don't apply open_basedir or disable_functions to the WP-CLI process
-	const defaultArgs = getDefaultPhpArgs( phpVersion, { autoPrependFile } );
+	const defaultArgs = getDefaultPhpArgs( phpVersion, {
+		autoPrependFile,
+		emailDirectory: getSiteEmailDirectory( site.id ),
+	} );
 	const wpCliArgs = applyWpCliCommandOptions( args, options );
 	const child = spawn(
 		getPhpBinaryPath( phpVersion ),

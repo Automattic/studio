@@ -267,6 +267,7 @@ function toSiteDetails( site: SiteListItem, sortOrder?: number ) {
 		enableScriptDebug: site.enableScriptDebug,
 		environmentType: site.environmentType,
 		operation: site.operation,
+		emailPath: site.emailPath,
 		sortOrder,
 	};
 }
@@ -1520,6 +1521,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			await writeOnboardingHints( parsed.data );
+			res.status( 204 ).end();
+		} )
+	);
+
+	api.post(
+		'/sites/:id/open-email-folder',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
+			if ( ! site?.emailPath ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			await openPath( site.emailPath );
 			res.status( 204 ).end();
 		} )
 	);

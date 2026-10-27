@@ -433,6 +433,23 @@ describe( 'Studio workspace', () => {
 		}
 	);
 
+	it( 'reopens a hidden chat from the preview header', async () => {
+		setup( {
+			signedIn: true,
+			sites: [ site( { running: true } ) ],
+			sessions: [ chat( { id: 'hidden-chat', title: 'Existing chat' } ) ],
+			path: '/sessions/hidden-chat',
+		} );
+		const hide = await screen.findByRole( 'button', { name: 'Hide chat' } );
+		const input = await findComposer();
+		expect( screen.queryByRole( 'button', { name: 'Show chat' } ) ).not.toBeInTheDocument();
+		fireEvent.click( hide );
+		await waitFor( () => expect( input.closest( '[aria-hidden="true"]' ) ).not.toBeNull() );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Show chat' } ) );
+		await waitFor( () => expect( input.closest( '[aria-hidden="true"]' ) ).toBeNull() );
+		expect( screen.queryByRole( 'button', { name: 'Show chat' } ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'opens a new draft when the chat panel is hidden', async () => {
 		const { connector, history } = setup( {
 			signedIn: true,

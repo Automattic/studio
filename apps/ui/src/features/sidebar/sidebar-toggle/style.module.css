@@ -5,7 +5,10 @@
 	-webkit-app-region: no-drag;
 }
 
-/* Open, it reads dimmed rather than pressed. */
+.root [data-sidebar-toggle] {
+	opacity: 1;
+}
+
 .root [aria-expanded='true']:not( :hover ) {
 	background-color: transparent;
 }
@@ -14,6 +17,12 @@
    on the right. */
 .root:dir( rtl ) svg {
 	transform: scaleX( -1 );
+}
+
+.icon > rect:last-child {
+	transition:
+		width var( --motion-duration-layout ) var( --motion-ease-layout ),
+		rx var( --motion-duration-layout ) var( --motion-ease-layout );
 }
 
 /* The negative margin cancels the header's gap while the slot is empty. */

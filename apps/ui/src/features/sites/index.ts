@@ -35,7 +35,6 @@ export {
 	SiteHeaderSpace,
 	useSiteHeader,
 } from './site-header-actions';
-export { SiteIcon } from './site-icon';
 export { SitePreview } from './site-preview';
 export { SiteContextMenu, StoppedSitePreview } from './stopped-site-preview';
 export { type AddSiteSection, isAddSiteSection, useOpenAddSite } from './use-open-add-site';

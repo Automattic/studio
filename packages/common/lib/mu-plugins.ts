@@ -315,45 +315,6 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 				'styles' => (object) wp_get_global_styles(),
 			] );
 		} );
-
-		/**
-		 * Gets the path of the configured Site Icon relative to the
-		 * WordPress install root, or null when no Site Icon is set.
-		 *
-		 * The host (Studio) turns it into a real filesystem path by
-		 * joining the site folder with the returned relative path.
-		 *
-		 * ## EXAMPLES
-		 *
-		 *     wp studio get-site-icon
-		 *
-		 * @when after_wp_load
-		 */
-		WP_CLI::add_command( 'studio get-site-icon', function() {
-			$icon_id = (int) get_option( 'site_icon' );
-			if ( ! $icon_id ) {
-				echo json_encode( null );
-				return;
-			}
-
-			$path = get_attached_file( $icon_id );
-			if ( ! $path || ! file_exists( $path ) ) {
-				echo json_encode( null );
-				return;
-			}
-
-			// get_attached_file() returns an absolute path. Strip ABSPATH
-			// to get a relative path rooted at the site folder.
-			$normalized_path = wp_normalize_path( $path );
-			$normalized_abspath = wp_normalize_path( ABSPATH );
-			$relative = str_starts_with( $normalized_path, $normalized_abspath )
-				? substr( $normalized_path, strlen( $normalized_abspath ) )
-				: $path;
-
-			echo json_encode( [
-				'relativePath' => ltrim( $relative, '/' ),
-			] );
-		} );
 		`,
 	} );
 

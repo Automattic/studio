@@ -1,4 +1,5 @@
 .addressBar {
+	-webkit-app-region: no-drag;
 	position: relative;
 	display: flex;
 	width: 100%;
@@ -23,16 +24,6 @@
 	--ring: var( --destructive );
 }
 
-.siteIcon {
-	display: inline-flex;
-	width: 16px;
-	height: 16px;
-	flex: 0 0 16px;
-	align-items: center;
-	justify-content: center;
-	cursor: default;
-}
-
 .actions {
 	position: absolute;
 	inset-block: 0;
@@ -42,6 +33,10 @@
 	opacity: 0;
 	pointer-events: none;
 	transition: opacity var( --motion-duration-feedback ) ease;
+}
+
+.settingsAction {
+	inset-inline: var( --space-0_5 ) auto;
 }
 
 .addressBar:is( :hover, :focus-within ) .actions {
@@ -55,18 +50,10 @@
 	pointer-events: none;
 }
 
-.siteIcon:focus-visible {
-	outline: var( --focus-width ) solid var( --ring );
-	outline-offset: 2px;
-	/* eslint-disable-next-line studio/use-theme-tokens -- a focus ring around the site icon. */
-	border-radius: 6px;
-}
-
 .input {
 	width: 100%;
 	min-width: 0;
-	/* Balances the realm icon, so the address centres on the whole field. */
-	padding-inline: var( --space-1 ) var( --space-5 );
+	padding-inline: var( --space-5 );
 	color: var( --foreground );
 	font-size: var( --text-xs );
 	line-height: var( --text-xs--line-height );
@@ -75,10 +62,14 @@
 }
 
 .input:focus {
+	padding-inline: 0;
 	text-align: start;
 }
 
 .shortcutsPopup {
+	transition: none;
+	opacity: 1;
+	scale: 1;
 	width: var( --anchor-width );
 	max-width: calc( 100vw - 16px );
 	padding: var( --space-1_5 );
@@ -88,4 +79,13 @@
 .shortcuts {
 	/* eslint-disable-next-line studio/no-primitive-overrides -- the suggestions sit on a menu surface, not the composer. */
 	--command-radius: var( --radius-md );
+}
+
+.addressText {
+	position: absolute;
+	visibility: hidden;
+	white-space: pre;
+	font-size: var( --text-xs );
+	line-height: var( --text-xs--line-height );
+	pointer-events: none;
 }

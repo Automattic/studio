@@ -21,7 +21,7 @@ import {
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { normalizeLandingPage } from '@studio/common/lib/landing-page';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
-import { isOnline } from '@studio/common/lib/network-utils';
+import { isNetworkError } from '@studio/common/lib/network-utils';
 import {
 	createPassword,
 	encodePassword,
@@ -139,18 +139,15 @@ export async function runCommand(
 	logger: Logger< LoggerAction > = defaultLogger
 ): Promise< void > {
 	const phpVersion = validateSupportedPhpVersion( options.phpVersion );
-	const isOnlineStatus = await isOnline();
 	const staticSiteImport = options.blueprint?.staticSiteImport;
 	const importRun = staticSiteImport
 		? new StaticSiteImportRun( sitePath, staticSiteImport, logger )
 		: undefined;
 
 	try {
-		if ( isOnlineStatus ) {
-			const updated = await updateServerFiles( options.wpVersion === DEFAULT_WORDPRESS_VERSION );
-			if ( updated ) {
-				logger.reportSuccess( __( 'Dependencies updated' ) );
-			}
+		const updated = await updateServerFiles( options.wpVersion === DEFAULT_WORDPRESS_VERSION );
+		if ( updated ) {
+			logger.reportSuccess( __( 'Dependencies updated' ) );
 		}
 	} catch ( error ) {
 		// Errors here aren't critical and likely relate to things outside the user's control,
@@ -264,18 +261,22 @@ export async function runCommand(
 			logger.reportStart( LoggerAction.SETUP_WORDPRESS, __( 'Copying bundled WordPress…' ) );
 			await recursiveCopyDirectory( bundledWPPath, sitePath );
 			logger.reportSuccess( __( 'WordPress files copied' ) );
-		} else if ( ! isOnlineStatus ) {
-			throw new LoggerError(
-				__(
-					'Cannot set up WordPress while offline. Specific WordPress versions require an internet connection. Try using "latest" version or ensure internet connectivity.'
-				)
-			);
 		} else if ( ! isWordPressDirResult ) {
 			logger.reportStart(
 				LoggerAction.SETUP_WORDPRESS,
 				sprintf( __( 'Downloading WordPress %s…' ), options.wpVersion )
 			);
-			await downloadWordPress( options.wpVersion );
+			await downloadWordPress( options.wpVersion ).catch( ( error: unknown ) => {
+				if ( isNetworkError( error ) ) {
+					throw new LoggerError(
+						__(
+							'Cannot set up WordPress while offline. Specific WordPress versions require an internet connection. Try using "latest" version or ensure internet connectivity.'
+						),
+						error
+					);
+				}
+				throw error;
+			} );
 			logger.reportSuccess( __( 'WordPress files downloaded' ) );
 
 			logger.reportStart(

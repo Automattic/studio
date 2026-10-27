@@ -6,6 +6,7 @@ import {
 	assistantToolCallEntry,
 	promptEntry,
 	toolResultEntry,
+	turnClosedEntry,
 } from '@/features/chats/session-view/conversation/test-entries';
 import {
 	loadedSession,
@@ -24,6 +25,7 @@ describe( 'Conversation copy buttons', () => {
 			] )
 		);
 
+		fireEvent.click( screen.getByRole( 'button', { name: /^Worked/ } ) );
 		const buttons = screen.getAllByRole( 'button', { name: 'Copy message' } );
 		expect( buttons ).toHaveLength( 3 );
 
@@ -51,6 +53,7 @@ describe( 'Conversation tool rows', () => {
 			] )
 		);
 
+		fireEvent.click( screen.getByRole( 'button', { name: /^Worked/ } ) );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Run terminal command' } ) );
 
 		expect( screen.getByText( /output line 13/ ) ).toBeInTheDocument();
@@ -68,6 +71,7 @@ describe( 'Conversation tool rows', () => {
 			] )
 		);
 
+		fireEvent.click( screen.getByRole( 'button', { name: /^Worked/ } ) );
 		const toolRow = screen.getByRole( 'button', { name: 'List published posts' } );
 		expect( screen.queryByText( /--fields=ID/ ) ).not.toBeInTheDocument();
 
@@ -83,6 +87,7 @@ describe( 'Conversation tool rows', () => {
 			loadedSession( [ assistantToolCallEntry( 'Read', { file_path: '/tmp/studio/app.tsx' } ) ] )
 		);
 
+		fireEvent.click( screen.getByRole( 'button', { name: /^Worked/ } ) );
 		expect( screen.getByRole( 'button', { name: 'Read studio/app.tsx' } ) ).toBeInTheDocument();
 	} );
 
@@ -141,6 +146,7 @@ describe( 'structured chat responses', () => {
 				},
 			},
 		] );
+		fireEvent.click( screen.getByRole( 'button', { name: /^Worked/ } ) );
 		const tool = await screen.findByRole( 'button', { name: 'read' } );
 		expect( tool ).toHaveAttribute( 'aria-expanded', String( isError ) );
 		if ( ! isError ) {
@@ -191,7 +197,7 @@ describe( 'structured chat responses', () => {
 		expect( screen.getByText( 'Still available' ) ).toBeVisible();
 	} );
 
-	it( 'renders interruption and failure markers alongside a later response', async () => {
+	it( 'renders a stopped status and failure details alongside a later response', async () => {
 		renderEntries( [
 			{
 				type: 'custom',
@@ -217,9 +223,121 @@ describe( 'structured chat responses', () => {
 				},
 			},
 		] );
-		expect( await screen.findByText( 'Interrupted by you' ) ).toHaveAttribute( 'role', 'status' );
+		expect( await screen.findByText( 'You stopped' ) ).toBeVisible();
+		expect( screen.queryByText( 'Interrupted by you' ) ).not.toBeInTheDocument();
 		expect( screen.getByText( 'Connection lost. Try again.' ) ).toHaveAttribute( 'role', 'alert' );
 		expect( screen.getByText( 'Ready to continue' ) ).toBeVisible();
 		expect( screen.queryByText( 'Internal reasoning' ) ).not.toBeInTheDocument();
 	} );
+} );
+
+describe( 'Conversation activity groups', () => {
+	it( 'keeps the final answer visible while completed activity starts collapsed', () => {
+		renderConversation(
+			loadedSession( [
+				promptEntry( 'Check my site' ),
+				assistantToolCallEntry( 'Read', { file_path: '/tmp/theme.css' }, 'Checking the theme.' ),
+				toolResultEntry( 'contents' ),
+				assistantTextEntry( 'Everything looks good.' ),
+				turnClosedEntry( 'success' ),
+			] )
+		);
+		const header = screen.getByRole( 'button', { name: /^Worked/ } );
+		expect( header ).toHaveAttribute( 'aria-expanded', 'false' );
+		expect( screen.getByText( 'Everything looks good.' ) ).toBeVisible();
+		expect( screen.queryByText( 'Checking the theme.' ) ).not.toBeInTheDocument();
+		fireEvent.click( header );
+		expect( screen.getByText( 'Checking the theme.' ) ).toBeVisible();
+		expect( screen.getByText( 'Everything looks good.' ) ).toBeVisible();
+	} );
+	it( 'keeps a pending question available when live activity is manually collapsed', () => {
+		renderConversation(
+			loadedSession( [
+				promptEntry( 'Check my site' ),
+				assistantToolCallEntry( 'Read', { file_path: '/tmp/theme.css' }, 'Checking the theme.' ),
+				toolResultEntry( 'contents' ),
+				agentQuestionEntry( 'Which color?', [ 'Blue', 'Green' ] ),
+			] ),
+			{ isRunning: true, startedAt: Date.now(), pendingQuestions: new Set( [ 'Which color?' ] ) }
+		);
+		const header = screen.getByRole( 'button', { name: /^Waiting for/ } );
+		expect( header ).toHaveAttribute( 'aria-expanded', 'true' );
+		fireEvent.click( header );
+		expect( header ).toHaveAttribute( 'aria-expanded', 'false' );
+		expect( screen.getByRole( 'radio', { name: 'Blue' } ) ).toBeVisible();
+	} );
+} );
+
+it( 'shows the answered question before the work it prompted', () => {
+	renderConversation(
+		loadedSession( [
+			promptEntry( 'Change the background' ),
+			agentQuestionEntry( 'Which color?', [ 'Blue', 'Green' ], 'color', 'Blue' ),
+			assistantToolCallEntry( 'Read', { file_path: '/tmp/style.css' }, 'I’ll use blue.' ),
+		] ),
+		{ isRunning: true, startedAt: Date.now() }
+	);
+	const question = screen.getByText( 'Which color?' );
+	const followup = screen.getByText( 'I’ll use blue.' );
+	expect(
+		question.compareDocumentPosition( followup ) & Node.DOCUMENT_POSITION_FOLLOWING
+	).toBeTruthy();
+	const header = screen.getByRole( 'button', { name: /^Working/ } );
+	for ( const id of header.getAttribute( 'aria-controls' )!.split( ' ' ) ) {
+		expect( document.getElementById( id ) ).not.toContainElement( question );
+	}
+	fireEvent.click( header );
+	expect( question ).toBeVisible();
+	expect( screen.getByText( 'Blue', { exact: true } ) ).toBeVisible();
+} );
+
+it( 'keeps the chosen answer visible between work sections after completion', async () => {
+	renderConversation(
+		loadedSession( [
+			promptEntry( 'Change the colors' ),
+			assistantTextEntry( 'Checking the palette.' ),
+			agentQuestionEntry( 'Which color?', [ 'Blue', 'Green' ], 'color', 'Blue' ),
+			assistantToolCallEntry( 'Read', { file_path: '/tmp/style.css' }, 'I’ll use blue.' ),
+			toolResultEntry( 'styles' ),
+			assistantTextEntry( 'Updated the background.' ),
+			turnClosedEntry( 'success' ),
+		] )
+	);
+	const header = screen.getByRole( 'button', { name: /^Worked/ } );
+	const question = screen.getByText( 'Which color?' );
+	expect( header ).toHaveAttribute( 'aria-expanded', 'false' );
+	expect( question ).toBeVisible();
+	expect( screen.getByText( 'Blue', { exact: true } ) ).toBeVisible();
+	expect( screen.getByText( 'Updated the background.' ) ).toBeVisible();
+	expect( screen.queryByText( 'Checking the palette.' ) ).not.toBeInTheDocument();
+	expect( screen.queryByText( 'I’ll use blue.' ) ).not.toBeInTheDocument();
+	fireEvent.click( header );
+	const before = screen.getByText( 'Checking the palette.' );
+	const after = screen.getByText( 'I’ll use blue.' );
+	expect(
+		before.compareDocumentPosition( question ) & Node.DOCUMENT_POSITION_FOLLOWING
+	).toBeTruthy();
+	expect(
+		question.compareDocumentPosition( after ) & Node.DOCUMENT_POSITION_FOLLOWING
+	).toBeTruthy();
+	for ( const id of header.getAttribute( 'aria-controls' )!.split( ' ' ) ) {
+		expect( document.getElementById( id ) ).not.toContainElement( question );
+	}
+	fireEvent.click( header );
+	await waitFor( () => expect( screen.queryByText( 'I’ll use blue.' ) ).not.toBeInTheDocument() );
+	expect( question ).toBeVisible();
+	expect( screen.getByText( 'Blue', { exact: true } ) ).toBeVisible();
+} );
+
+it( 'does not offer a disclosure for a question with no work details', () => {
+	renderConversation(
+		loadedSession( [
+			promptEntry( 'Pick a color' ),
+			agentQuestionEntry( 'Which color?', [ 'Blue', 'Green' ], 'color', 'Blue' ),
+			turnClosedEntry( 'success' ),
+		] )
+	);
+	expect( screen.queryByRole( 'button', { name: /^Worked/ } ) ).not.toBeInTheDocument();
+	expect( screen.getByText( 'Which color?' ) ).toBeVisible();
+	expect( screen.getByText( 'Blue', { exact: true } ) ).toBeVisible();
 } );

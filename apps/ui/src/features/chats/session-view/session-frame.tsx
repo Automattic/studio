@@ -1,6 +1,5 @@
 import { useLayoutEffect, useRef, type ReactNode, type Ref } from 'react';
 import { ChatContextMenu } from '@/features/chats/chat-actions';
-import { ProgressiveBlur } from '@/features/chats/progressive-blur';
 import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 
@@ -73,12 +72,9 @@ export function SessionFrame( {
 					{ children }
 				</div>
 				{ composer ? (
-					<>
-						<ProgressiveBlur className={ styles.composerBlur } />
-						<div ref={ composerRef } className={ styles.composerOuter }>
-							{ composer }
-						</div>
-					</>
+					<div ref={ composerRef } className={ styles.composerOuter }>
+						{ composer }
+					</div>
 				) : null }
 			</div>
 		</ChatContextMenu>

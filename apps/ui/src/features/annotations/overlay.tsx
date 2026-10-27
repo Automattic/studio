@@ -261,8 +261,8 @@ function NoteEditor( {
 		closeAnnotationEditor( siteId );
 	};
 	const submitLabel = isAppleOS()
-		? __( 'Save annotation (Enter). Send directly (⌘Enter).' )
-		: __( 'Save annotation (Enter). Send directly (Ctrl+Enter).' );
+		? __( 'Send annotation (⌘Enter). Save to composer (Enter).' )
+		: __( 'Send annotation (Ctrl+Enter). Save to composer (Enter).' );
 
 	return (
 		<div
@@ -348,9 +348,9 @@ function NoteEditor( {
 								size="icon"
 								shape="round"
 								className={ styles.save }
-								aria-label={ __( 'Save annotation' ) }
+								aria-label={ __( 'Send annotation' ) }
 								disabled={ ! hasContent }
-								onClick={ () => submit( false ) }
+								onClick={ () => submit( true ) }
 							/>
 						}
 					>

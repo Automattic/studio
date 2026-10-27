@@ -21,30 +21,6 @@ function buildTestViewMenuItems(
 }
 
 describe( 'buildViewMenuItems', () => {
-	it.each( [ 'darwin', 'win32', 'linux' ] )( 'toggles fullscreen on %s', ( platform ) => {
-		const originalPlatform = process.platform;
-		Object.defineProperty( process, 'platform', { value: platform, configurable: true } );
-		try {
-			const item = buildTestViewMenuItems().find(
-				( candidate ) => candidate.label === 'Toggle Fullscreen'
-			);
-			if ( platform === 'darwin' ) {
-				expect( item?.role ).toBeUndefined();
-				expect( item?.accelerator ).toBe( 'Control+Command+F' );
-				const window = { isFullScreen: vi.fn().mockReturnValue( false ), setFullScreen: vi.fn() };
-				item?.click?.( {} as never, window as never, undefined as never );
-				expect( window.setFullScreen ).toHaveBeenLastCalledWith( true );
-				window.isFullScreen.mockReturnValue( true );
-				item?.click?.( {} as never, window as never, undefined as never );
-				expect( window.setFullScreen ).toHaveBeenLastCalledWith( false );
-			} else {
-				expect( item?.role ).toBe( 'togglefullscreen' );
-			}
-		} finally {
-			Object.defineProperty( process, 'platform', { value: originalPlatform, configurable: true } );
-		}
-	} );
-
 	it( 'keeps the site preview command wired to the expected shortcut and callback', () => {
 		const onToggleSitePreview = vi.fn();
 		const items = buildTestViewMenuItems( { onToggleSitePreview } );

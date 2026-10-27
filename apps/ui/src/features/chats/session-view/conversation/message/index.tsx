@@ -39,7 +39,7 @@ export const UserTurn = memo( function UserTurn( {
 							label={ __( 'Copy message' ) }
 						/>
 					) : null }
-					<div className={ styles.userText }>
+					<div className={ styles.userText } data-side="user" { ...joinedAttributes( joined ) }>
 						{ text ? <div className={ styles.userTextBody }>{ text }</div> : null }
 						{ attachments?.length ? (
 							<ul className={ styles.userAttachments }>
@@ -99,7 +99,7 @@ export const AssistantText = memo( function AssistantText( {
 				[ QUOTABLE_TEXT_ATTRIBUTE ]: true,
 			} }
 		>
-			<div className={ styles.assistantBubble }>
+			<div className={ styles.assistantBubble } { ...joinedAttributes( joined ) }>
 				<Markdown streaming={ streaming }>{ text }</Markdown>
 			</div>
 			{ copyText ? (

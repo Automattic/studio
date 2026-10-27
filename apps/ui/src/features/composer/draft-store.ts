@@ -5,7 +5,6 @@ interface ComposerDraft {
 	attachments: ComposerAttachment[];
 }
 
-const MAX_CACHED_DRAFTS = 10;
 const draftsBySessionId = new Map< string, ComposerDraft >();
 
 export function getComposerDraft( sessionId: string | undefined ): ComposerDraft {
@@ -28,13 +27,6 @@ export function saveComposerDraft( sessionId: string | undefined, draft: Compose
 	}
 
 	draftsBySessionId.set( sessionId, draft );
-	while ( draftsBySessionId.size > MAX_CACHED_DRAFTS ) {
-		const oldestSessionId = draftsBySessionId.keys().next().value;
-		if ( oldestSessionId === undefined ) {
-			break;
-		}
-		draftsBySessionId.delete( oldestSessionId );
-	}
 }
 
 export function clearComposerDrafts(): void {

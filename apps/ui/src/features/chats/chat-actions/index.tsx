@@ -86,6 +86,7 @@ export function useLeaveArchivedChat() {
 		const [ next ] = orderChats(
 			( sessions ?? [] ).filter(
 				( session ) =>
+					!! session.firstPrompt &&
 					! session.archived &&
 					! archivedIds.includes( session.id ) &&
 					aiSessionBelongsToSite( session, site )

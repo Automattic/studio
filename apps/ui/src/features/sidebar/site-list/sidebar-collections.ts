@@ -1,4 +1,10 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
+import {
+	getDefaultSidebarChatSort,
+	type SidebarPinnedSort,
+	type SidebarSiteSort,
+	type SidebarChatSort,
+} from '@studio/common/lib/user-settings/preferences';
 import { chatPinKey, orderChats, sitePinKey } from '@/data/queries/use-sidebar-pins';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
@@ -24,14 +30,11 @@ function byMostRecent( a: AiSessionSummary, b: AiSessionSummary ): number {
 	return getTimestamp( b ) - getTimestamp( a );
 }
 
-// A new chat isn't listed until its first prompt, unless it's open.
+// Drafts stay in the site's workspace until the first message is sent.
 export function getListedSessions(
-	sessions: AiSessionSummary[] | undefined,
-	activeSessionId: string | undefined
+	sessions: AiSessionSummary[] | undefined
 ): AiSessionSummary[] | undefined {
-	return sessions?.filter(
-		( session ) => session.firstPrompt || session.title || session.id === activeSessionId
-	);
+	return sessions?.filter( ( session ) => session.firstPrompt );
 }
 
 export function createSiteRows(
@@ -99,10 +102,16 @@ export function getSidebarCollections(
 		pins,
 		chatOrder,
 		needingInput,
+		pinnedSort = 'type',
+		siteSort = 'manual',
+		chatSort = getDefaultSidebarChatSort( chatOrder ),
 	}: {
 		pins: string[];
 		chatOrder: Record< string, string[] | undefined >;
 		needingInput: string[];
+		pinnedSort?: SidebarPinnedSort;
+		siteSort?: SidebarSiteSort;
+		chatSort?: SidebarChatSort;
 	}
 ) {
 	const pinned = new Set( pins );
@@ -121,7 +130,13 @@ export function getSidebarCollections(
 			? [ { key, session, siteName: findSessionSiteRow( rows, session.id )?.site.name } ]
 			: [];
 	} );
+	if ( pinnedSort === 'type' ) {
+		pinnedItems.sort( ( a, b ) => Number( !! b.row ) - Number( !! a.row ) );
+	}
 	const siteRows = rows.filter( ( row ) => ! pinned.has( sitePinKey( row.site.id ) ) );
+	if ( siteSort === 'status' ) {
+		siteRows.sort( ( a, b ) => Number( b.site.running ) - Number( a.site.running ) );
+	}
 	const chatsBySite = new Map(
 		rows.map( ( row ) => [
 			row.site.id,
@@ -129,7 +144,7 @@ export function getSidebarCollections(
 				row.chats.filter(
 					( session ) => ! isChatPinned( session ) && ! needingInput.includes( session.id )
 				),
-				chatOrder[ row.site.id ]
+				chatSort === 'manual' ? chatOrder[ row.site.id ] : undefined
 			),
 		] )
 	);

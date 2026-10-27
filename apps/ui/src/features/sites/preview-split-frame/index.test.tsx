@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useContext } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
@@ -46,6 +46,85 @@ describe( 'PreviewSplitFrame', () => {
 		getBoundingClientRectSpy.mockRestore();
 		window.localStorage.removeItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY );
 		vi.unstubAllGlobals();
+	} );
+
+	describe( 'closing preview content', () => {
+		beforeEach( () => {
+			vi.useFakeTimers();
+			document.documentElement.style.setProperty( '--motion-duration-layout', '240ms' );
+		} );
+
+		afterEach( () => {
+			vi.useRealTimers();
+			document.documentElement.style.removeProperty( '--motion-duration-layout' );
+		} );
+
+		function frame( site: string, open: boolean, instant = false ) {
+			return (
+				<PreviewSplitFrame
+					previewOpen={ open }
+					instant={ instant }
+					preview={ ( { collapsed } ) => (
+						<aside aria-label="Site preview" data-collapsed={ collapsed }>
+							{ site }
+						</aside>
+					) }
+				>
+					<span data-testid="content">Content</span>
+				</PreviewSplitFrame>
+			);
+		}
+
+		it( 'keeps the outgoing site through the exit, even when another stopped site is selected', async () => {
+			const { rerender } = render( frame( 'Running site', true ) );
+
+			rerender( frame( 'Stopped site', false ) );
+
+			expect( screen.getByLabelText( 'Site preview' ) ).toHaveTextContent( 'Running site' );
+			expect( screen.getByLabelText( 'Site preview' ) ).toHaveAttribute( 'data-collapsed', 'true' );
+			expect(
+				screen.queryByRole( 'complementary', { name: 'Site preview' } )
+			).not.toBeInTheDocument();
+			await act( () => vi.advanceTimersByTime( 120 ) );
+			rerender( frame( 'Another stopped site', false ) );
+			expect( screen.getByLabelText( 'Site preview' ) ).toHaveTextContent( 'Running site' );
+
+			await act( () => vi.advanceTimersByTime( 120 ) );
+
+			expect( screen.getByLabelText( 'Site preview' ) ).toHaveTextContent( 'Another stopped site' );
+			expect( screen.getByLabelText( 'Site preview' ) ).toHaveAttribute( 'data-collapsed', 'true' );
+		} );
+
+		it( 'shows the incoming running site immediately when the exit is reversed', async () => {
+			const { rerender } = render( frame( 'Running site', true ) );
+			rerender( frame( 'Stopped site', false ) );
+			await act( () => vi.advanceTimersByTime( 120 ) );
+
+			rerender( frame( 'Another running site', true ) );
+
+			expect( screen.getByRole( 'complementary', { name: 'Site preview' } ) ).toHaveTextContent(
+				'Another running site'
+			);
+			expect( screen.getByLabelText( 'Site preview' ) ).toHaveAttribute(
+				'data-collapsed',
+				'false'
+			);
+			await act( () => vi.advanceTimersByTime( 240 ) );
+			expect( screen.getByRole( 'complementary', { name: 'Site preview' } ) ).toHaveTextContent(
+				'Another running site'
+			);
+		} );
+
+		it( 'closes immediately when an instant close interrupts an opening preview', async () => {
+			const { rerender } = render( frame( 'Stopped site', false ) );
+			rerender( frame( 'Running site', true ) );
+			await act( () => vi.advanceTimersByTime( 120 ) );
+
+			rerender( frame( 'Stopped site', false, true ) );
+
+			expect( screen.getByLabelText( 'Site preview' ) ).toHaveTextContent( 'Stopped site' );
+			expect( screen.getByLabelText( 'Site preview' ) ).toHaveAttribute( 'data-collapsed', 'true' );
+		} );
 	} );
 
 	it( 'lays out the preview immediately when mounted open', async () => {

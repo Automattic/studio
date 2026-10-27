@@ -34,7 +34,11 @@ export function renderConversation(
 		</AppProviders>
 	);
 	const view = render( element( data ) );
-	return { ...view, connector };
+	return {
+		...view,
+		connector,
+		rerenderSession: ( session: LoadedAiSession ) => view.rerender( element( session ) ),
+	};
 }
 
 export function renderInteractiveConversation(

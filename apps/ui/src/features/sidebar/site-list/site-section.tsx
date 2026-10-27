@@ -6,7 +6,7 @@ import { sitePinKey } from '@/data/queries/use-sidebar-pins';
 import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useOpenSite } from '@/data/use-open-site';
-import { resumeChat } from '@/features/sidebar/last-visited';
+import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { XdebugIcon } from '@/features/sidebar/xdebug-icon';
 import { GlobeIcon, NewChatIcon } from '@/lib/icons';
 import {
@@ -67,7 +67,7 @@ export function SiteSection( {
 	const isActive = isChatActive || isContextActive;
 	const showChats = expanded && ( chats.length > 0 || loadError );
 	// Highlighted, with its actions showing, unless its open chat is listed under it.
-	const highlighted = ( isChatActive && ! showChats ) || isContextActive;
+	const highlighted = ( isChatActive && ( ! showChats || ! activeSessionId ) ) || isContextActive;
 	// Keep the active site visible — e.g. when launch restores a site that
 	// sits below the sidebar's fold. `nearest` no-ops when already visible.
 	useEffect( () => {
@@ -91,10 +91,19 @@ export function SiteSection( {
 			: undefined;
 	const displayActivity = siteActivity ?? 'idle';
 	const openSite = useOpenSite();
+	const preview = useOptionalSessionPreviewUI();
 	const handleOpenSite = () => {
 		onOpen?.();
 		onSiteOpen?.();
-		openSite( site, resumeChat( site.id, row.chats ) );
+		openSite( site );
+	};
+	const handleStartSite = () => {
+		if ( ! isActive ) {
+			handleOpenSite();
+		} else {
+			preview?.setOpen( true );
+			preview?.setChatHidden( false );
+		}
 	};
 
 	return (
@@ -106,7 +115,7 @@ export function SiteSection( {
 			<SiteRowMenu
 				site={ site }
 				onSiteOpen={ onSiteOpen }
-				onStart={ isActive ? undefined : handleOpenSite }
+				onStart={ handleStartSite }
 				trigger={
 					<SidebarMenuButton
 						render={ <div /> }
@@ -156,7 +165,7 @@ export function SiteSection( {
 					site={ site }
 					isStarting={ isStarting }
 					isStopping={ isStopping }
-					onStart={ isActive ? undefined : handleOpenSite }
+					onStart={ handleStartSite }
 				/>
 			</SidebarMenuActions>
 			<SiteChats

@@ -83,9 +83,13 @@ export function PreviewSplitFrame( {
 			open: showPreview,
 			collapsed: contentCollapsed,
 		} );
-		if ( previousPreview.mounted && preview != null && ! instant ) {
-			setAnimatingPreviewToggle( true );
-		}
+		setAnimatingPreviewToggle( previousPreview.mounted && preview != null && ! instant );
+	}
+
+	// Keep the outgoing site in the closing pane until it is hidden.
+	const [ lastVisiblePreview, setLastVisiblePreview ] = useState( () => preview );
+	if ( showPreview && lastVisiblePreview !== preview ) {
+		setLastVisiblePreview( () => preview );
 	}
 
 	useEffect( () => {
@@ -100,7 +104,8 @@ export function PreviewSplitFrame( {
 	}, [ animatingPreviewToggle, showPreview, contentCollapsed ] );
 
 	const previewVisible = showPreview || animatingPreviewToggle;
-	const renderedPreview = preview?.( { collapsed: ! previewVisible } );
+	const renderPreview = ! showPreview && animatingPreviewToggle ? lastVisiblePreview : preview;
+	const renderedPreview = renderPreview?.( { collapsed: ! showPreview } );
 	const rootStyle = {
 		// The collapsed content column keeps the split's last width in the
 		// geometry, so showing it again restores the previous split.
@@ -153,6 +158,7 @@ export function PreviewSplitFrame( {
 							showPreview && styles.previewSlotInteractive
 						) }
 						aria-hidden={ ! showPreview }
+						inert={ ! showPreview }
 					>
 						<WindowControlsCornerContext.Provider value={ previewInCorner }>
 							{ renderedPreview }

@@ -45,3 +45,18 @@ it( 'only answers requests addressed to a local name', async () => {
 it( 'answers requests addressed to an allowed origin', async () => {
 	expect( await statusFor( 'studio-8081.app.github.dev' ) ).toBe( 200 );
 } );
+
+it( 'offers the redirect login only for a local callback', async () => {
+	const loginUrl = async ( redirectUri: string ) => {
+		const response = await fetch(
+			`http://127.0.0.1:${ server.port }/api/auth/login-url?redirect_uri=${ encodeURIComponent(
+				redirectUri
+			) }`
+		);
+		return ( ( await response.json() ) as { url: string | null } ).url;
+	};
+	expect( await loginUrl( `http://localhost:${ server.port }/auth/callback` ) ).toContain(
+		'wordpress.com'
+	);
+	expect( await loginUrl( 'https://studio-8081.app.github.dev/auth/callback' ) ).toBeNull();
+} );

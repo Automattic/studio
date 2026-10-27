@@ -565,11 +565,15 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	// Build the WordPress.com authorize URL for the browser (redirect) login flow,
 	// targeting the caller-provided redirect (its own origin + /auth/callback).
-	// Returns { url: null } when the caller didn't supply a redirect URI, so the
-	// connector falls back to the paste flow.
+	// Returns { url: null } when the caller didn't supply a redirect URI, or one
+	// WordPress.com won't accept (only local names are registered, not a
+	// forwarded origin), so the connector falls back to the paste flow.
 	api.get( '/auth/login-url', ( req: Request, res: Response ) => {
 		const redirectUri = typeof req.query.redirect_uri === 'string' ? req.query.redirect_uri : '';
-		if ( ! redirectUri ) {
+		if (
+			! URL.canParse( redirectUri ) ||
+			! LOCAL_HOSTNAMES.has( new URL( redirectUri ).hostname )
+		) {
 			res.json( { url: null } );
 			return;
 		}

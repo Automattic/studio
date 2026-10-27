@@ -26,7 +26,7 @@ export function normalizeSiteUrl( url: string ): string {
 }
 
 /** Finds the site matching `url`, by full URL first and then by host. */
-export function findMatchingWpComSite< T extends { url: string } >(
+function findMatchingWpComSite< T extends { url: string } >(
 	sites: T[],
 	url: string
 ): T | undefined {

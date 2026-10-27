@@ -3,20 +3,6 @@ import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-wa
 import { __, sprintf } from '@wordpress/i18n';
 import semver from 'semver';
 import yargs from 'yargs';
-import { registerCommand as registerExportCommand } from 'cli/commands/export';
-import { registerCommand as registerImportCommand } from 'cli/commands/import';
-import { registerCommand as registerMcpCommand } from 'cli/commands/mcp';
-import { registerCommand as registerPullCommand } from 'cli/commands/pull';
-import { registerCommand as registerPullReprintCommand } from 'cli/commands/pull-reprint';
-import { registerCommand as registerPushCommand } from 'cli/commands/push';
-import { registerCommand as registerSiteCreateCommand } from 'cli/commands/site/create';
-import { registerCommand as registerSiteDeleteCommand } from 'cli/commands/site/delete';
-import { registerCommand as registerSiteListCommand } from 'cli/commands/site/list';
-import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/start';
-import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status';
-import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop';
-import { registerCommand as registerUiCommand } from 'cli/commands/ui';
-import { registerCommand as registerUninstallCommand } from 'cli/commands/uninstall';
 import {
 	bumpAggregatedUniqueStat,
 	bumpStat,
@@ -34,6 +20,60 @@ import { StudioArgv } from 'cli/types';
 const version = __STUDIO_CLI_VERSION__;
 
 suppressPunycodeWarning();
+
+async function registerTopLevelCommands( studioArgv: StudioArgv ) {
+	const [
+		{ registerCommand: registerExportCommand },
+		{ registerCommand: registerImportCommand },
+		{ registerCommand: registerPullCommand },
+		{ registerCommand: registerPullReprintCommand },
+		{ registerCommand: registerPushCommand },
+		{ registerCommand: registerSiteCreateCommand },
+		{ registerCommand: registerSiteDeleteCommand },
+		{ registerCommand: registerSiteListCommand },
+		{ registerCommand: registerSiteStartCommand },
+		{ registerCommand: registerSiteStatusCommand },
+		{ registerCommand: registerSiteStopCommand },
+		{ registerCommand: registerUiCommand },
+		{ registerCommand: registerUninstallCommand },
+	] = await Promise.all( [
+		import( 'cli/commands/export' ),
+		import( 'cli/commands/import' ),
+		import( 'cli/commands/pull' ),
+		import( 'cli/commands/pull-reprint' ),
+		import( 'cli/commands/push' ),
+		import( 'cli/commands/site/create' ),
+		import( 'cli/commands/site/delete' ),
+		import( 'cli/commands/site/list' ),
+		import( 'cli/commands/site/start' ),
+		import( 'cli/commands/site/status' ),
+		import( 'cli/commands/site/stop' ),
+		import( 'cli/commands/ui' ),
+		import( 'cli/commands/uninstall' ),
+	] );
+
+	// Site management verbs are exposed at the top level (e.g. `studio create`,
+	// `studio start`, `studio list`). These used to live under the `site` group,
+	// which is kept hidden below for backward compatibility.
+	registerSiteCreateCommand( studioArgv );
+	registerSiteListCommand( studioArgv );
+	registerSiteStartCommand( studioArgv );
+	registerSiteStopCommand( studioArgv );
+	registerSiteDeleteCommand( studioArgv );
+	registerSiteStatusCommand( studioArgv );
+
+	registerPushCommand( studioArgv );
+	registerPullCommand( studioArgv );
+	if ( process.env.STUDIO_ENABLE_PULL_REPRINT ) {
+		registerPullReprintCommand( studioArgv );
+	}
+
+	registerImportCommand( studioArgv );
+	registerExportCommand( studioArgv );
+
+	registerUiCommand( studioArgv );
+	registerUninstallCommand( studioArgv );
+}
 
 async function main() {
 	await setupUpdateNotifier( version );
@@ -200,27 +240,12 @@ async function main() {
 	);
 	studioArgv.command( 'ai', false, studioCodeCommandBuilder );
 
-	// Site management verbs are exposed at the top level (e.g. `studio create`,
-	// `studio start`, `studio list`). These used to live under the `site` group,
-	// which is kept hidden below for backward compatibility.
-	registerSiteCreateCommand( studioArgv );
-	registerSiteListCommand( studioArgv );
-	registerSiteStartCommand( studioArgv );
-	registerSiteStopCommand( studioArgv );
-	registerSiteDeleteCommand( studioArgv );
-	registerSiteStatusCommand( studioArgv );
-
-	registerPushCommand( studioArgv );
-	registerPullCommand( studioArgv );
-	if ( process.env.STUDIO_ENABLE_PULL_REPRINT ) {
-		registerPullReprintCommand( studioArgv );
+	// `studio wp` hands its arguments to WP-CLI. An agent runs it for each WP-CLI
+	// command, so it starts without loading the commands it does not run.
+	const isWpCli = process.argv[ 2 ] === 'wp';
+	if ( ! isWpCli ) {
+		await registerTopLevelCommands( studioArgv );
 	}
-
-	registerImportCommand( studioArgv );
-	registerExportCommand( studioArgv );
-
-	registerUiCommand( studioArgv );
-	registerUninstallCommand( studioArgv );
 
 	studioArgv.command( 'preview', __( 'Manage preview sites' ), async ( previewYargs ) => {
 		const [
@@ -292,14 +317,33 @@ async function main() {
 			.demandCommand( 1, __( 'You must provide a valid blueprint command' ) );
 	} );
 
-	registerMcpCommand( studioArgv );
+	if ( ! isWpCli ) {
+		const { registerCommand: registerMcpCommand } = await import( 'cli/commands/mcp' );
+		registerMcpCommand( studioArgv );
+	}
 
 	studioArgv
 		// Deprecated `site` group, kept hidden for backward compatibility. Every
 		// subcommand is now available at the top level, and `site set` lives under
 		// `config set`.
 		.command( 'site', false, async ( sitesYargs ) => {
-			const { registerCommand: registerSiteSetCommand } = await import( 'cli/commands/config/set' );
+			const [
+				{ registerCommand: registerSiteStatusCommand },
+				{ registerCommand: registerSiteCreateCommand },
+				{ registerCommand: registerSiteListCommand },
+				{ registerCommand: registerSiteStartCommand },
+				{ registerCommand: registerSiteStopCommand },
+				{ registerCommand: registerSiteDeleteCommand },
+				{ registerCommand: registerSiteSetCommand },
+			] = await Promise.all( [
+				import( 'cli/commands/site/status' ),
+				import( 'cli/commands/site/create' ),
+				import( 'cli/commands/site/list' ),
+				import( 'cli/commands/site/start' ),
+				import( 'cli/commands/site/stop' ),
+				import( 'cli/commands/site/delete' ),
+				import( 'cli/commands/config/set' ),
+			] );
 
 			registerSiteStatusCommand( sitesYargs );
 			registerSiteCreateCommand( sitesYargs );

@@ -23,13 +23,20 @@ describe.skipIf( process.platform === 'win32' )( 'studio wp shim', () => {
 	it.each( [
 		{
 			command: `wp post create --post_title="Ember & Oak" page.html`,
-			args: [ 'wp', 'post', 'create', '--post_title=Ember & Oak', 'page.html' ],
+			args: [
+				'wp',
+				'post',
+				'create',
+				'--post_title=Ember & Oak',
+				'page.html',
+				'--avoid-telemetry',
+			],
 		},
 		{
 			command: `studio wp post create --porcelain`,
-			args: [ 'wp', 'post', 'create', '--porcelain' ],
+			args: [ 'wp', 'post', 'create', '--porcelain', '--avoid-telemetry' ],
 		},
-		{ command: 'studio site list', args: [ 'site', 'list' ] },
+		{ command: 'studio site list', args: [ 'site', 'list', '--avoid-telemetry' ] },
 	] )(
 		'makes `$command` in the Bash tool run the Studio running the agent',
 		( { command, args } ) => {

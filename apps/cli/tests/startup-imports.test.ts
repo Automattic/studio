@@ -17,17 +17,26 @@ vi.mock( 'date-fns', () => {
 	return {};
 } );
 
-// Every `studio` command loads what the CLI entry imports statically before it
-// runs. The agent runtime is large, so only the commands that use it load it.
+// Every `studio` command loads what the CLI entry imports statically, and the
+// top-level commands, before it runs. The agent runtime is large, so only the
+// commands that use it load it.
 describe( 'CLI startup', () => {
 	it( 'loads no agent runtime or date-fns root before a command runs', async () => {
 		const entry = readFileSync( path.join( import.meta.dirname, '..', 'index.ts' ), 'utf8' );
 		const staticImports = [ ...entry.matchAll( /^import [^;]*? from '(cli\/[^']+)';$/gm ) ].map(
 			( [ , specifier ] ) => specifier
 		);
-		expect( staticImports ).toContain( 'cli/commands/mcp' );
+		// The top-level commands load before any command but `studio wp` runs.
+		const topLevel = entry.slice(
+			entry.indexOf( 'async function registerTopLevelCommands' ),
+			entry.indexOf( 'async function main' )
+		);
+		const topLevelImports = [ ...topLevel.matchAll( /import\( '(cli\/[^']+)' \)/g ) ].map(
+			( [ , specifier ] ) => specifier
+		);
+		expect( topLevelImports ).toContain( 'cli/commands/site/create' );
 
-		for ( const specifier of staticImports ) {
+		for ( const specifier of [ ...staticImports, ...topLevelImports ] ) {
 			await import( /* @vite-ignore */ specifier );
 		}
 

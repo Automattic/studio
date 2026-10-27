@@ -15,12 +15,15 @@ function shellQuote( value: string ): string {
  * Studio's SQLite integration loaded. A system `wp`, where one is installed at
  * all, runs on whatever PHP the machine has and cannot open a Studio site's
  * database.
+ *
+ * Both mark the run as one the agent's Studio spawned, as the app marks the CLI
+ * runs it spawns, so each command is not counted as a launch of the CLI.
  */
 export function getStudioShims( nodePath: string, cliPath: string ): Record< string, string > {
 	const cli = `${ shellQuote( nodePath ) } ${ shellQuote( cliPath ) }`;
 	return {
-		studio: `#!/bin/sh\nexec ${ cli } "$@"\n`,
-		wp: `#!/bin/sh\nexec ${ cli } wp "$@"\n`,
+		studio: `#!/bin/sh\nexec ${ cli } "$@" --avoid-telemetry\n`,
+		wp: `#!/bin/sh\nexec ${ cli } wp "$@" --avoid-telemetry\n`,
 	};
 }
 

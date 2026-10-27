@@ -3,18 +3,19 @@ import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { useQueryClient } from '@tanstack/react-query';
 import { createRootRouteWithContext, Outlet, useNavigate, useParams } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
-import { AddSiteDialog } from '@/components/add-site-dialog';
-import { isSettingsSection, SettingsDialog } from '@/components/settings-dialog';
-import { WapuuWorldMount } from '@/components/wapuu-world';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
-import { useAiCreditsPurchaseResult } from '@/hooks/use-ai-credits-purchase-result';
-import { useAppMenuNavigation } from '@/hooks/use-app-menu-navigation';
-import { isAddSiteSection } from '@/hooks/use-open-add-site';
-import type { SettingsSectionId } from '@/components/settings-dialog';
+import { isSettingsSection } from '@/data/settings-sections';
+import { SessionUIProvider } from '@/data/use-session-ui';
+import { useAppMenuNavigation } from '@/features/commands';
+import { useAiCreditsPurchaseResult } from '@/features/credits';
+import { WelcomeDialog } from '@/features/onboarding';
+import { WapuuWorldMount, SettingsDialog } from '@/features/settings';
+import { AddSiteDialog, isAddSiteSection } from '@/features/sites';
 import type { AiSessionSummary, Connector, SiteDetails } from '@/data/core';
-import type { AddSiteSection } from '@/hooks/use-open-add-site';
+import type { SettingsSectionId } from '@/data/settings-sections';
+import type { AddSiteSection } from '@/features/sites';
 import type { QueryClient } from '@tanstack/react-query';
 
 export interface RouterContext {
@@ -32,6 +33,14 @@ function AiCreditsPurchaseResult() {
 	return null;
 }
 
+// After the link listeners above. The host's reply crosses IPC, so listeners
+// mounted higher up in the same commit are subscribed by then too.
+function DeeplinkListenersReady() {
+	const connector = useConnector();
+	useEffect( () => connector.readyForDeeplinks?.(), [ connector ] );
+	return null;
+}
+
 /**
  * Sends the user to the root — which lands on the next available site — when
  * the site they're looking at is deleted from outside the app (`studio site
@@ -39,7 +48,7 @@ function AiCreditsPurchaseResult() {
  * route would otherwise be left pointing at a session that no longer exists.
  * The in-app delete flow redirects itself, from the confirmation dialog.
  */
-export function DeletedSiteRedirect() {
+function DeletedSiteRedirect() {
 	const connector = useConnector();
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
@@ -96,6 +105,7 @@ interface RootSearch {
 	settingsFocus?: string;
 	addSite?: AddSiteSection;
 	pin?: true;
+	welcome?: true;
 }
 
 export const rootRoute = createRootRouteWithContext< RouterContext >()( {
@@ -105,16 +115,19 @@ export const rootRoute = createRootRouteWithContext< RouterContext >()( {
 		...( typeof search.settingsFocus === 'string' ? { settingsFocus: search.settingsFocus } : {} ),
 		...( isAddSiteSection( search.addSite ) ? { addSite: search.addSite } : {} ),
 		...( search.pin === true || search.pin === 'true' ? { pin: true } : {} ),
+		...( search.welcome === true || search.welcome === 'true' ? { welcome: true } : {} ),
 	} ),
 	component: () => (
-		<>
+		<SessionUIProvider>
 			<AppMenuNavigation />
 			<AiCreditsPurchaseResult />
+			<DeeplinkListenersReady />
 			<DeletedSiteRedirect />
 			<WapuuWorldMount />
 			<Outlet />
 			<SettingsDialog />
 			<AddSiteDialog />
-		</>
+			<WelcomeDialog />
+		</SessionUIProvider>
 	),
 } );

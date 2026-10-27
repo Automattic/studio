@@ -1,7 +1,6 @@
 import {
 	Menu,
 	type MenuItemConstructorOptions,
-	app,
 	BrowserWindow,
 	autoUpdater,
 	shell,
@@ -163,7 +162,7 @@ async function getAppMenu( mainWindow: BrowserWindow | null ) {
 
 	return Menu.buildFromTemplate( [
 		{
-			label: app.name, // macOS ignores this name and uses the name from the .plist
+			label: 'WordPress Studio', // macOS ignores this name and uses the name from the .plist
 			role: 'appMenu',
 			submenu: [
 				{

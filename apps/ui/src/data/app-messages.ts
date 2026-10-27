@@ -6,7 +6,7 @@ import type { Connector } from '@/data/core';
 // use-app-messages so the update hooks can reset it without an import cycle.
 export const DISMISSED_MESSAGES_QUERY_KEY = [ 'dismissed-messages' ] as const;
 
-export type ToastIntent = 'success' | 'info' | 'error';
+type ToastIntent = 'success' | 'info' | 'error';
 
 export type ToastAction = {
 	label: string;
@@ -46,6 +46,7 @@ export type ToastMessage = {
 export type NoticeIntent = ToastIntent | 'warning';
 
 export type NoticeRecord = {
+	source?: 'studio';
 	id: string;
 	intent: NoticeIntent;
 	title: string;
@@ -112,11 +113,15 @@ function scheduleExpiry( toast: ToastMessage ) {
 }
 
 function recordNotice(
-	toastMessage: Pick< NoticeRecord, 'id' | 'intent' | 'title' | 'description' | 'action' >,
+	toastMessage: Pick<
+		NoticeRecord,
+		'id' | 'intent' | 'title' | 'description' | 'action' | 'source'
+	>,
 	isReplacement: boolean
 ) {
 	const record: NoticeRecord = {
 		id: toastMessage.id,
+		source: toastMessage.source,
 		intent: toastMessage.intent,
 		title: toastMessage.title,
 		description: toastMessage.description,
@@ -225,11 +230,11 @@ function setActionPending( action: ToastAction, actionPending: boolean ) {
 // Runs an action from its toast or the history, one run at a time. Success
 // closes the toast; a failure says so and leaves the action there to try again.
 export async function runNoticeAction( action: ToastAction ): Promise< boolean > {
-	if (
-		[ ...visible, ...noticeHistory ].some(
-			( item ) => item.action === action && item.actionPending
-		)
-	) {
+	// A toast on its way out still shows its button, but the action left with it.
+	const offering = [ ...visible.filter( ( item ) => ! item.leaving ), ...noticeHistory ].filter(
+		( item ) => item.action === action
+	);
+	if ( ! offering.length || offering.some( ( item ) => item.actionPending ) ) {
 		return false;
 	}
 	const toastIds = visible.filter( ( item ) => item.action === action ).map( ( item ) => item.id );
@@ -268,7 +273,7 @@ export function openStudioLogsAction( connector: Connector ): ToastAction | unde
 		return undefined;
 	}
 	return {
-		label: __( 'Open Studio Logs' ),
+		label: __( 'Open logs' ),
 		onClick: () => {
 			void connector.openStudioLogs().catch( ( error ) => {
 				console.error( 'Failed to open Studio logs:', error );
@@ -381,7 +386,7 @@ export function syncCardNotices(
 		const content = [ card.intent, card.title, card.description ?? '' ].join( '\n' );
 		next.set( card.id, content );
 		if ( loggedCards.get( card.id ) !== content ) {
-			recordNotice( card, loggedCards.has( card.id ) );
+			recordNotice( { ...card, source: 'studio' }, loggedCards.has( card.id ) );
 			changed = true;
 		}
 	}

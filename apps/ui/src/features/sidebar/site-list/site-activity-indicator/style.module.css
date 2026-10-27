@@ -1,0 +1,117 @@
+.siteAgentActivitySlot {
+	display: inline-grid;
+	place-items: center;
+	flex: 0 0 0;
+	inline-size: 0;
+	block-size: var( --site-list-chat-status-size );
+	opacity: 0;
+	overflow: visible;
+	pointer-events: none;
+	transform: scale( 0.75 );
+	transition:
+		inline-size 160ms ease,
+		flex-basis 160ms ease,
+		margin-inline-start 160ms ease,
+		margin-inline-end 160ms ease,
+		opacity var( --motion-duration-feedback ) ease,
+		transform 160ms ease;
+}
+
+.siteAgentActivitySlotVisible {
+	flex-basis: var( --site-list-chat-status-size );
+	inline-size: var( --site-list-chat-status-size );
+	margin-inline-start: var( --site-list-chat-status-start-offset );
+	margin-inline-end: var( --site-list-chat-status-gap );
+	opacity: 1;
+	pointer-events: auto;
+	transform: scale( 1 );
+}
+
+.siteAgentActivity {
+	grid-row-start: 1;
+	grid-column-start: 1;
+	position: relative;
+	block-size: var( --site-list-chat-status-size );
+	inline-size: var( --site-list-chat-status-size );
+}
+
+.siteAgentActivityTooltipTrigger {
+	display: inline-grid;
+	place-items: center;
+}
+
+.siteAgentActivitySync {
+	display: inline-grid;
+	place-items: center;
+	color: var( --site-list-sync-indicator-bg );
+}
+
+.siteAgentActivitySyncDots {
+	display: inline-flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 1px;
+	inline-size: 8px;
+	block-size: 13px;
+	transform-origin: center;
+	animation: siteAgentSyncHalfTurn 5.2s ease-in-out infinite;
+}
+
+.siteAgentActivitySyncDot {
+	inline-size: 3px;
+	block-size: 3px;
+	border-radius: var( --radius-full );
+	background-color: currentColor;
+	animation-name: siteAgentSyncDotBounce;
+	animation-duration: 760ms;
+	animation-iteration-count: infinite;
+	animation-timing-function: ease-in-out;
+}
+
+.siteAgentActivitySyncDot:nth-child( 2 ) {
+	animation-delay: 90ms;
+}
+
+.siteAgentActivitySyncDot:nth-child( 3 ) {
+	animation-delay: 180ms;
+}
+
+@keyframes siteAgentSyncHalfTurn {
+	0%,
+	38% {
+		transform: rotate( 0deg );
+	}
+
+	48%,
+	88% {
+		transform: rotate( 180deg );
+	}
+
+	98%,
+	100% {
+		transform: rotate( 360deg );
+	}
+}
+
+@keyframes siteAgentSyncDotBounce {
+	0%,
+	100% {
+		opacity: 0.42;
+		transform: translateY( 1px ) scale( 0.72 );
+	}
+
+	45% {
+		opacity: 1;
+		transform: translateY( -2px ) scale( 1 );
+	}
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.siteAgentActivitySlot,
+	.siteAgentActivitySyncDot,
+	.siteAgentActivitySyncDots {
+		animation: none;
+		transition: none;
+	}
+}

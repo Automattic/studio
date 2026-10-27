@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { rememberVisit } from '@/lib/last-visited';
+import { rememberVisit } from '@/features/sidebar';
 import { indexRoute } from './index';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
@@ -26,14 +26,17 @@ function createSession( overrides: Partial< AiSessionSummary > = {} ): AiSession
 		ownerSiteName: 'Site One',
 		activeEnvironment: 'local',
 		eventCount: 1,
+		firstPrompt: 'Existing message',
 		...overrides,
 	};
 }
 
+let onboardingCompleted = true;
+
 async function runBeforeLoad(
 	sites: SiteDetails[] | Error,
 	sessions: AiSessionSummary[],
-	agenticFeaturesEnabled = true
+	search: Record< string, string > = {}
 ) {
 	const context = {
 		queryClient: {
@@ -45,12 +48,11 @@ async function runBeforeLoad(
 				return sites;
 			},
 			getSessions: async () => sessions,
-			getOnboardingCompleted: async () => true,
-			getUserPreferences: async () => ( { agenticFeaturesEnabled } ),
+			getOnboardingCompleted: async () => onboardingCompleted,
 		},
 	};
 	try {
-		await indexRoute.options.beforeLoad?.( { context } as never );
+		await indexRoute.options.beforeLoad?.( { context, search } as never );
 	} catch ( thrown ) {
 		return (
 			thrown as {
@@ -68,23 +70,36 @@ async function runBeforeLoad(
 describe( 'indexRoute.beforeLoad', () => {
 	beforeEach( () => {
 		window.localStorage.clear();
+		onboardingCompleted = true;
 	} );
 
-	it( 'offers Add site once over the empty workspace until a site exists', async () => {
-		expect( await runBeforeLoad( [], [] ) ).toMatchObject( {
+	it( 'welcomes a first launch over the empty workspace, keeping Settings open', async () => {
+		onboardingCompleted = false;
+		expect( await runBeforeLoad( [], [], { settings: 'general' } ) ).toMatchObject( {
 			to: '/sites',
-			search: { addSite: 'create' },
+			search: { settings: 'general', welcome: true },
 		} );
-		expect( ( await runBeforeLoad( [], [] ) ).search ).toEqual( {} );
+	} );
 
-		await runBeforeLoad( [ createSite() ], [] );
-		expect( ( await runBeforeLoad( [], [] ) ).search ).toEqual( { addSite: 'create' } );
+	it( 'lands on the empty workspace, which offers Add site, keeping Settings open', async () => {
+		const redirect = await runBeforeLoad( [], [], { settings: 'general' } );
+		expect( redirect.to ).toBe( '/sites' );
+		expect( redirect.search ).toEqual( { settings: 'general' } );
 	} );
 
 	it( 'lands on the empty workspace, without Add site, when the sites fail to load', async () => {
 		const redirect = await runBeforeLoad( new Error( 'CLI failed' ), [] );
-		expect( redirect ).toMatchObject( { to: '/sites' } );
-		expect( redirect.search ).toBeUndefined();
+		expect( redirect ).toMatchObject( { to: '/sites', search: {} } );
+	} );
+
+	it( 'keeps Settings open across the redirect', async () => {
+		const redirect = await runBeforeLoad( [ createSite() ], [ createSession() ], {
+			settings: 'general',
+		} );
+		expect( redirect ).toMatchObject( {
+			to: '/sessions/$sessionId',
+			search: { settings: 'general' },
+		} );
 	} );
 
 	it( "redirects to the last visited site's newest active session", async () => {
@@ -144,17 +159,6 @@ describe( 'indexRoute.beforeLoad', () => {
 		);
 		expect( redirect.to ).toBe( '/sessions/$sessionId' );
 		expect( redirect.params ).toEqual( { sessionId: 'session-2' } );
-	} );
-
-	it( "opens the target site's overview when agentic features are switched off", async () => {
-		rememberVisit( 'site-2' );
-		const redirect = await runBeforeLoad(
-			[ createSite(), createSite( { id: 'site-2', path: '/Users/example/Studio/site-two' } ) ],
-			[ createSession(), createSession( { id: 'session-2', ownerSiteId: 'site-2' } ) ],
-			false
-		);
-		expect( redirect.to ).toBe( '/sites/$siteId' );
-		expect( redirect.params ).toEqual( { siteId: 'site-2' } );
 	} );
 
 	it( 'redirects to a new session when the target site has no active sessions', async () => {

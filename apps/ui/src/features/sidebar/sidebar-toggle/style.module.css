@@ -1,0 +1,50 @@
+.root {
+	position: relative;
+	display: inline-flex;
+	flex-shrink: 0;
+	-webkit-app-region: no-drag;
+}
+
+.root [data-sidebar-toggle] {
+	opacity: 1;
+}
+
+.root [aria-expanded='true']:not( :hover ) {
+	background-color: transparent;
+}
+
+/* The drawer icon depicts the sidebar edge; mirror it when the sidebar sits
+   on the right. */
+.root:dir( rtl ) svg {
+	transform: scaleX( -1 );
+}
+
+.icon > rect:last-child {
+	transition:
+		width var( --motion-duration-layout ) var( --motion-ease-layout ),
+		rx var( --motion-duration-layout ) var( --motion-ease-layout );
+}
+
+/* The negative margin cancels the header's gap while the slot is empty. */
+.headerSlot {
+	display: inline-flex;
+	flex-shrink: 0;
+	width: 0;
+	margin-inline-end: calc( -1 * var( --space-1 ) );
+	overflow: hidden;
+	opacity: 0;
+	transition:
+		width var( --motion-duration-layout ) var( --motion-ease-layout ),
+		margin var( --motion-duration-layout ) var( --motion-ease-layout );
+}
+
+.headerSlotVisible {
+	width: var( --control-size );
+	margin-inline-end: 0;
+	overflow: visible;
+	opacity: 1;
+	transition:
+		width var( --motion-duration-layout ) var( --motion-ease-layout ),
+		margin var( --motion-duration-layout ) var( --motion-ease-layout ),
+		opacity 0s var( --motion-duration-layout );
+}

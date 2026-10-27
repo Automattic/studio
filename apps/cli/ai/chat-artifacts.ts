@@ -17,7 +17,7 @@ export function setChatArtifactCallback( callback: ChatArtifactCallback | null )
 	chatArtifactCallback = callback;
 }
 
-export async function emitChatArtifact( artifact: StudioChatArtifactData ): Promise< void > {
+async function emitChatArtifact( artifact: StudioChatArtifactData ): Promise< void > {
 	await chatArtifactCallback?.( artifact );
 	emitEvent( {
 		type: 'chat.artifact',

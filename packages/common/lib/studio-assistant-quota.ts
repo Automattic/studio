@@ -1,5 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
+import { isAutomatticianEmail } from './automattician';
 
 export const STUDIO_ASSISTANT_QUOTA_URL =
 	'https://public-api.wordpress.com/wpcom/v2/studio-app/ai-assistant/quota';
@@ -132,6 +133,17 @@ export function hasPaidAiCredits(
 	quota: Pick< StudioAssistantQuota, 'purchasedRemaining' > | null | undefined
 ): boolean {
 	return ( quota?.purchasedRemaining ?? 0 ) > 0;
+}
+
+/**
+ * Whether the paid model tiers are unlocked: purchased credits remain, or the
+ * account is an Automattician's, which the credit gate exempts.
+ */
+export function canUsePaidAiModels(
+	quota: Pick< StudioAssistantQuota, 'purchasedRemaining' > | null | undefined,
+	email: string | undefined | null
+): boolean {
+	return hasPaidAiCredits( quota ) || isAutomatticianEmail( email );
 }
 
 export type StudioCodeAiAccessState = 'available' | 'blocked' | 'not-enabled';
@@ -331,30 +343,6 @@ export function formatAiCreditsUsageTitle( fraction: number, locale?: string ): 
 
 export function formatAiCreditsThresholdDescription(): string {
 	return __( 'Add AI credits to keep chatting without interruption.' );
-}
-
-export function formatAiCreditsUsedLabel(
-	meter: Pick< AiCreditsMeter, 'usedCredits' | 'totalCredits' >,
-	locale?: string
-): string {
-	const credits = new Intl.NumberFormat( locale );
-	return sprintf(
-		/* translators: 1: AI credits used (e.g. 1,200,000). 2: total AI credits the meter is measured against (e.g. 1,500,000). */
-		__( '%1$s of %2$s AI credits used' ),
-		credits.format( meter.usedCredits ),
-		credits.format( meter.totalCredits )
-	);
-}
-
-export function formatAiCreditsAvailableLabel(
-	meter: Pick< AiCreditsMeter, 'remainingCredits' >,
-	locale?: string
-): string {
-	return sprintf(
-		/* translators: %s: number of AI credits still available (e.g. 300,000). */
-		__( '%s available' ),
-		new Intl.NumberFormat( locale ).format( meter.remainingCredits )
-	);
 }
 
 /**

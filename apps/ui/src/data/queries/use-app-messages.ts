@@ -8,11 +8,16 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useMemo } from 'react';
 import { setDismissedAiCreditsIntent, useDismissedAiCreditsIntent } from '@/data/ai-credits-notice';
-import { DISMISSED_MESSAGES_QUERY_KEY, syncCardNotices } from '@/data/app-messages';
+import {
+	DISMISSED_MESSAGES_QUERY_KEY,
+	openStudioLogsAction,
+	syncCardNotices,
+	type ToastAction,
+} from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAppUpdateStatus } from '@/data/queries/use-app-update';
 import { useUserLocale } from '@/data/queries/use-user-locale';
-import { useAiCreditsMeter } from '@/hooks/use-ai-credits-meter';
+import { useAiCreditsMeter } from './use-ai-credits-meter';
 import type { AppUpdateStatus } from '@/data/core';
 
 // The sidebar announces the 80% step only. The composer strip takes 90% and
@@ -24,8 +29,8 @@ export interface PersistentMessage {
 	intent: 'info' | 'success' | 'warning' | 'error';
 	title: string;
 	description?: string;
-	cta?: { label: string; onClick: () => void };
-	// Renders the app's shared purchase button in place of a plain CTA, so a
+	action?: ToastAction;
+	// Renders the app's shared purchase button in place of an action, so a
 	// notice can't drift from the one entry point that knows whether to open
 	// the amount picker or go straight to checkout.
 	purchaseCta?: boolean;
@@ -68,7 +73,8 @@ function describeVersionChange(
 
 export function deriveUpdateMessages(
 	status: AppUpdateStatus | undefined,
-	onInstall: () => void
+	onInstall: () => void,
+	errorAction?: ToastAction
 ): PersistentMessage[] {
 	if ( status?.state === 'downloading' ) {
 		return [
@@ -90,17 +96,11 @@ export function deriveUpdateMessages(
 				// Version-scoped id so a dismissal re-arms for the next release.
 				id: version ? `app-update:${ version }` : 'app-update',
 				intent: 'info',
-				title: version
-					? sprintf(
-							/* translators: %s: app version number. */
-							__( 'Studio %s is ready to install' ),
-							version
-					  )
-					: __( 'A Studio update is ready to install' ),
+				title: __( 'Update ready' ),
 				description: describeVersionChange( status.currentVersion, version, {
 					fallback: __( 'Restart to finish updating.' ),
 				} ),
-				cta: { label: __( 'Restart now' ), onClick: onInstall },
+				action: { label: __( 'Restart' ), onClick: onInstall },
 			},
 		];
 	}
@@ -110,9 +110,9 @@ export function deriveUpdateMessages(
 			{
 				id: 'app-update-error',
 				intent: 'error',
-				title: __( "Couldn't update Studio" ),
-				description:
-					status.detail ?? __( 'Studio will try again the next time it checks for updates.' ),
+				title: __( 'Couldn’t update Studio' ),
+				description: status.detail ?? __( 'We’ll try again the next time we check for updates.' ),
+				action: errorAction,
 			},
 		];
 	}
@@ -146,7 +146,8 @@ function usePersistentMessageSources(): PersistentMessage[] {
 	return useMemo( () => {
 		const messages = deriveUpdateMessages(
 			updateStatus.data,
-			() => void connector.installAppUpdate()
+			() => void connector.installAppUpdate(),
+			openStudioLogsAction( connector )
 		);
 
 		if ( aiCreditsNotice.visible && aiCreditsIntent && aiCreditsFraction !== null ) {

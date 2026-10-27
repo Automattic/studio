@@ -1,21 +1,18 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
 import { createElement, type ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { useConnector } from '@/data/core';
+import { ConnectorProvider } from '@/data/core';
+import { createFakeConnector } from '@/test/fake-connector';
 import { connectedWpcomSitesQueryKey } from './use-connected-wpcom-sites';
 import {
 	openNewSession,
 	primeSessionQueryData,
 	SESSIONS_QUERY_KEY,
 	useSessionLiveSite,
+	useSessions,
 } from './use-sessions';
-import type { AiSessionSummary, Connector, LoadedAiSession, SyncSite } from '@/data/core';
-
-vi.mock( '@/data/core', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@/data/core') >() ),
-	useConnector: vi.fn(),
-} ) );
+import type { AiSessionSummary, LoadedAiSession, SyncSite } from '@/data/core';
 
 describe( 'primeSessionQueryData', () => {
 	it( 'upserts the summary into the sessions list newest-first', () => {
@@ -78,10 +75,8 @@ describe( 'openNewSession', () => {
 		const queryClient = new QueryClient();
 		const invalidateQueries = vi.spyOn( queryClient, 'invalidateQueries' );
 		const summary = createSummary( { eventCount: 0 } );
-		const connector = {
-			createSession: vi.fn( async () => summary ),
-			setSessionModel: vi.fn( async () => undefined ),
-		} as unknown as Connector;
+		const connector = createFakeConnector();
+		connector.createSession.mockResolvedValue( summary );
 
 		await expect(
 			openNewSession( { connector, queryClient }, 'site-1', 'claude-opus-5' )
@@ -111,12 +106,15 @@ describe( 'useSessionLiveSite', () => {
 	const staging = { id: 2, url: 'https://staging.example.wordpress.com' } as SyncSite;
 
 	function getLiveSite( summary: Partial< AiSessionSummary > ) {
-		vi.mocked( useConnector ).mockReturnValue( {} as Connector );
+		const connector = createFakeConnector();
 		const queryClient = new QueryClient();
 		queryClient.setQueryData( connectedWpcomSitesQueryKey( 'site-1' ), [ production, staging ] );
 		return renderHook( () => useSessionLiveSite( createSummary( summary ), 'site-1' ), {
 			wrapper: ( { children }: { children: ReactNode } ) =>
-				createElement( QueryClientProvider, { client: queryClient }, children ),
+				createElement( ConnectorProvider, {
+					connector,
+					children: createElement( QueryClientProvider, { client: queryClient }, children ),
+				} ),
 		} ).result.current;
 	}
 
@@ -149,3 +147,26 @@ function createSummary( overrides: Partial< AiSessionSummary > = {} ): AiSession
 		...overrides,
 	};
 }
+
+describe( 'useSessions', () => {
+	it( 'keeps a failed list failed when another reader mounts', async () => {
+		const connector = createFakeConnector(
+			{},
+			{
+				getSessions: () => Promise.reject( new Error( 'Offline' ) ),
+			}
+		);
+		const queryClient = new QueryClient( { defaultOptions: { queries: { retry: false } } } );
+		const wrapper = ( { children }: { children: ReactNode } ) =>
+			createElement( ConnectorProvider, {
+				connector,
+				children: createElement( QueryClientProvider, { client: queryClient }, children ),
+			} );
+
+		const first = renderHook( () => useSessions(), { wrapper } );
+		await waitFor( () => expect( first.result.current.isError ).toBe( true ) );
+		renderHook( () => useSessions(), { wrapper } );
+
+		expect( connector.getSessions ).toHaveBeenCalledTimes( 1 );
+	} );
+} );

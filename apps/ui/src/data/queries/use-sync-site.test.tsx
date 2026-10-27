@@ -1,29 +1,20 @@
 import { SYNC_CANCELLED_MESSAGE } from '@studio/common/lib/sync/cancel';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { toast } from '@/data/app-messages';
-import { useConnector } from '@/data/core';
+import { getNoticeHistory } from '@/data/app-messages';
+import { ConnectorProvider } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
 import { getSyncActivity, useSiteSyncActivity } from '@/data/sync-activity';
+import { createFakeConnector, makeSite } from '@/test/fake-connector';
+import { createTestQueryClient } from '@/test/render';
 import { usePullSiteFromLive, usePushSiteToLive, useSyncActivityEvents } from './use-sync-site';
-import type { Connector } from '@/data/core';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
-
-vi.mock( '@/data/core', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('@/data/core') >();
-	return { ...actual, useConnector: vi.fn() };
-} );
-
-vi.mock( '@/data/app-messages', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@/data/app-messages') >() ),
-	toast: { success: vi.fn(), error: vi.fn() },
-} ) );
-
-const useConnectorMock = vi.mocked( useConnector );
+import type { QueryClient } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
 
 // Lets a mutation's fallback settle the sync, after the window the CLI gets to report first.
 const passReportGrace = () => act( () => vi.advanceTimersByTimeAsync( 1500 ) );
@@ -36,6 +27,28 @@ afterEach( () => {
 	vi.useRealTimers();
 } );
 
+function setup(
+	ui: ReactNode,
+	{
+		studioLogs = false,
+		queryClient = createTestQueryClient(),
+	}: { studioLogs?: boolean; queryClient?: QueryClient } = {}
+) {
+	const connector = createFakeConnector(
+		{},
+		{ capabilities: { nativeFolderPicker: true, annotatePreview: true, studioLogs } }
+	);
+	render(
+		<ConnectorProvider connector={ connector }>
+			<QueryClientProvider client={ queryClient }>{ ui }</QueryClientProvider>
+		</ConnectorProvider>
+	);
+	const publish = ( event: SyncEvent ) => connector.emit( 'onSyncActivity', event );
+	return { connector, publish };
+}
+
+const latestNotice = () => getNoticeHistory()[ 0 ];
+
 function SyncActivityEvents() {
 	useSyncActivityEvents();
 	return null;
@@ -46,6 +59,7 @@ function Harness() {
 	const activity = useSiteSyncActivity( 'site-1' );
 	return (
 		<>
+			<SyncActivityEvents />
 			<button type="button" onClick={ () => pull.mutate( { siteId: 'site-1', remoteSiteId: 42 } ) }>
 				Pull
 			</button>
@@ -59,32 +73,12 @@ function Harness() {
 }
 
 describe( 'usePullSiteFromLive', () => {
-	let publish: ( event: SyncEvent ) => void;
-
-	beforeEach( () => {
-		vi.clearAllMocks();
-		publish = () => {};
-		useConnectorMock.mockReturnValue( {
-			capabilities: { studioLogs: true },
-			trackEvent: vi.fn().mockResolvedValue( undefined ),
-			onSyncActivity: vi.fn( ( listener ) => {
-				publish = listener;
-				return () => {};
-			} ),
-		} as unknown as Connector );
-	} );
-
 	// The agent, a terminal or another window can start the sync: the UI only
 	// ever sees the activity the CLI publishes.
-	it( 'shows and announces a sync this UI did not start', async () => {
-		const queryClient = new QueryClient();
-		queryClient.setQueryData( SITES_QUERY_KEY, [ { id: 'site-1', name: 'Demo Site' } ] );
-		render(
-			<QueryClientProvider client={ queryClient }>
-				<SyncActivityEvents />
-				<Harness />
-			</QueryClientProvider>
-		);
+	it( 'shows and announces a sync this UI did not start', () => {
+		const queryClient = createTestQueryClient();
+		queryClient.setQueryData( SITES_QUERY_KEY, [ makeSite( { name: 'Demo Site' } ) ] );
+		const { publish } = setup( <Harness />, { queryClient } );
 
 		act( () =>
 			publish( {
@@ -96,25 +90,23 @@ describe( 'usePullSiteFromLive', () => {
 
 		act( () => publish( { siteId: 'site-1', activity: { kind: 'success', direction: 'pull' } } ) );
 		expect( screen.getByText( 'success' ) ).toBeVisible();
-		expect( toast.success ).toHaveBeenCalledWith( 'Changes pulled into Demo Site', {
-			action: { label: 'View site', onClick: expect.any( Function ) },
+		expect( latestNotice() ).toMatchObject( {
+			intent: 'success',
+			title: 'Changes pulled into Demo Site',
+			action: { label: 'View' },
 		} );
 	} );
 
 	// An import replaces the site wholesale, so everything read off it is stale.
 	it( 'refreshes what an import changed once it settles', () => {
-		const queryClient = new QueryClient();
+		const queryClient = createTestQueryClient();
 		const staleKeys = [
 			SITES_QUERY_KEY,
 			[ ...WP_VERSION_QUERY_KEY, 'site-2' ],
 			siteThumbnailQueryKey( 'site-2' ),
 		];
 		staleKeys.forEach( ( key ) => queryClient.setQueryData( key, 'before-import' ) );
-		render(
-			<QueryClientProvider client={ queryClient }>
-				<SyncActivityEvents />
-			</QueryClientProvider>
-		);
+		const { publish } = setup( <SyncActivityEvents />, { queryClient } );
 
 		act( () =>
 			publish( { siteId: 'site-2', activity: { kind: 'pending', direction: 'import' } } )
@@ -126,64 +118,39 @@ describe( 'usePullSiteFromLive', () => {
 		staleKeys.forEach( ( key ) =>
 			expect( queryClient.getQueryState( key )?.isInvalidated ).toBe( true )
 		);
-		expect( toast.success ).toHaveBeenCalledWith( 'Import finished' );
+		expect( latestNotice() ).toMatchObject( { intent: 'success', title: 'Import finished' } );
 	} );
 
 	it( 'announces a button sync once when the CLI reports after it exits', async () => {
-		useConnectorMock.mockReturnValue( {
-			capabilities: { studioLogs: false },
-			trackEvent: vi.fn().mockResolvedValue( undefined ),
-			onSyncActivity: ( listener: typeof publish ) => {
-				publish = listener;
-				return () => {};
-			},
-			// The CLI's events arrive just after the CLI process has already exited.
-			pullSiteFromLive: vi.fn( async () => {
-				setTimeout( () => {
-					publish( { siteId: 'site-1', activity: { kind: 'pending', direction: 'pull' } } );
-					publish( {
-						siteId: 'site-1',
-						activity: { kind: 'error', direction: 'pull', message: 'Auth failed' },
-					} );
-				}, 50 );
-				throw new Error( 'Auth failed' );
-			} ),
-		} as unknown as Connector );
-		render(
-			<QueryClientProvider client={ new QueryClient() }>
-				<SyncActivityEvents />
-				<Harness />
-			</QueryClientProvider>
-		);
+		const { connector, publish } = setup( <Harness /> );
+		// The CLI's events arrive just after the CLI process has already exited.
+		connector.pullSiteFromLive.mockImplementation( async () => {
+			setTimeout( () => {
+				publish( { siteId: 'site-1', activity: { kind: 'pending', direction: 'pull' } } );
+				publish( {
+					siteId: 'site-1',
+					activity: { kind: 'error', direction: 'pull', message: 'Auth failed' },
+				} );
+			}, 50 );
+			throw new Error( 'Auth failed' );
+		} );
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
 		await passReportGrace();
 
-		expect( toast.error ).toHaveBeenCalledOnce();
+		expect( getNoticeHistory().filter( ( notice ) => notice.intent === 'error' ) ).toHaveLength(
+			1
+		);
 	} );
 
 	it.each( [
-		[ 'pull', true, 'Pulling didn’t finish', "Studio couldn't copy the live site." ],
-		[ 'import', false, "Import didn't complete", "Studio couldn't import this backup." ],
+		[ 'pull', true, 'Pulling didn’t finish', "Couldn't copy the live site." ],
+		[ 'import', false, "Import didn't complete", "Couldn't import this backup." ],
 	] as const )(
 		'shows plain language for a failed %s (logs available: %s)',
-		( direction, studioLogs, title, copy ) => {
+		async ( direction, studioLogs, title, copy ) => {
 			vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
-			const openStudioLogs = vi.fn().mockResolvedValue( undefined );
-			useConnectorMock.mockReturnValue( {
-				capabilities: { studioLogs },
-				openStudioLogs,
-				onSyncActivity: ( listener: typeof publish ) => {
-					publish = listener;
-					return () => {};
-				},
-			} as unknown as Connector );
-			render(
-				<QueryClientProvider client={ new QueryClient() }>
-					<SyncActivityEvents />
-					<Harness />
-				</QueryClientProvider>
-			);
+			const { connector, publish } = setup( <Harness />, { studioLogs } );
 			const rawError = 'CliCommandError: [Last error message] Failed: 500 status code';
 
 			act( () => publish( { siteId: 'site-1', activity: { kind: 'pending', direction } } ) );
@@ -196,66 +163,46 @@ describe( 'usePullSiteFromLive', () => {
 
 			expect( screen.getByText( new RegExp( copy ) ) ).toBeVisible();
 			expect( screen.queryByText( /CliCommandError/ ) ).not.toBeInTheDocument();
-			expect( toast.error ).toHaveBeenCalledWith( title, {
+			expect( latestNotice() ).toMatchObject( {
+				intent: 'error',
+				title,
 				description: expect.stringContaining( copy ),
-				action: studioLogs
-					? { label: 'Open Studio Logs', onClick: expect.any( Function ) }
-					: undefined,
 			} );
+			expect( latestNotice().action?.label ).toBe( studioLogs ? 'Open logs' : undefined );
 			expect( console.error ).toHaveBeenCalledWith( 'Sync activity failed:', direction, rawError );
-			void vi.mocked( toast.error ).mock.calls[ 0 ][ 1 ]?.action?.onClick();
-			expect( openStudioLogs ).toHaveBeenCalledTimes( studioLogs ? 1 : 0 );
+			await latestNotice().action?.onClick();
+			expect( connector.openStudioLogs ).toHaveBeenCalledTimes( studioLogs ? 1 : 0 );
 		}
 	);
 } );
 
 describe( 'sync Tracks events', () => {
-	function SyncHarness() {
+	function SyncHarness( { syncSite }: { syncSite?: { isPressable: boolean } } ) {
 		const pull = usePullSiteFromLive();
 		const push = usePushSiteToLive();
+		const variables = { siteId: 'site-1', remoteSiteId: 42, syncSite: syncSite as never };
 		return (
 			<>
-				<button
-					type="button"
-					onClick={ () => pull.mutate( { siteId: 'site-1', remoteSiteId: 42 } ) }
-				>
+				<button type="button" onClick={ () => pull.mutate( variables ) }>
 					Pull
 				</button>
-				<button
-					type="button"
-					onClick={ () => push.mutate( { siteId: 'site-1', remoteSiteId: 42 } ) }
-				>
+				<button type="button" onClick={ () => push.mutate( variables ) }>
 					Push
 				</button>
 			</>
 		);
 	}
 
-	function renderSync( connector: Partial< Connector > ) {
-		const trackEvent = vi.fn().mockResolvedValue( undefined );
-		useConnectorMock.mockReturnValue( {
-			capabilities: { studioLogs: false },
-			trackEvent,
-			...connector,
-		} as unknown as Connector );
-		const queryClient = new QueryClient( {
-			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-		} );
-		// The `sync_type` prop is read from the connected-sites cache.
-		queryClient.setQueryData( connectedWpcomSitesQueryKey( 'site-1' ), [
-			{ id: 42, isPressable: true },
-		] );
-		render(
-			<QueryClientProvider client={ queryClient }>
-				<SyncHarness />
-			</QueryClientProvider>
-		);
-		return trackEvent;
+	function renderSync( { cached = true, syncSite }: { cached?: boolean; syncSite?: object } = {} ) {
+		const queryClient = createTestQueryClient();
+		if ( cached ) {
+			// The `sync_type` prop is read from the connected-sites cache.
+			queryClient.setQueryData( connectedWpcomSitesQueryKey( 'site-1' ), [
+				{ id: 42, isPressable: true },
+			] );
+		}
+		return setup( <SyncHarness syncSite={ syncSite as never } />, { queryClient } ).connector;
 	}
-
-	beforeEach( () => {
-		vi.clearAllMocks();
-	} );
 
 	const directions = [
 		[ 'Pull', 'pullSiteFromLive', 'studio_sync_pull' ],
@@ -264,13 +211,13 @@ describe( 'sync Tracks events', () => {
 
 	it.each( directions )(
 		'records a successful %s with its duration and sync type',
-		async ( button, method, event ) => {
-			const trackEvent = renderSync( { [ method ]: vi.fn().mockResolvedValue( undefined ) } );
+		async ( button, _, event ) => {
+			const connector = renderSync();
 
 			fireEvent.click( screen.getByRole( 'button', { name: button } ) );
 
 			await waitFor( () =>
-				expect( trackEvent ).toHaveBeenCalledWith( event, {
+				expect( connector.trackEvent ).toHaveBeenCalledWith( event, {
 					success: true,
 					sync_type: 'pressable',
 					time_ms: expect.any( Number ),
@@ -282,14 +229,13 @@ describe( 'sync Tracks events', () => {
 	it.each( directions )(
 		'records a failed %s with a classified reason',
 		async ( button, method, event ) => {
-			const trackEvent = renderSync( {
-				[ method ]: vi.fn().mockRejectedValue( new Error( 'ENOSPC: no space left on device' ) ),
-			} );
+			const connector = renderSync();
+			connector[ method ].mockRejectedValue( new Error( 'ENOSPC: no space left on device' ) );
 
 			fireEvent.click( screen.getByRole( 'button', { name: button } ) );
 
 			await waitFor( () =>
-				expect( trackEvent ).toHaveBeenCalledWith( event, {
+				expect( connector.trackEvent ).toHaveBeenCalledWith( event, {
 					success: false,
 					sync_type: 'pressable',
 					time_ms: expect.any( Number ),
@@ -300,86 +246,35 @@ describe( 'sync Tracks events', () => {
 	);
 
 	it.each( directions )( 'records nothing when a %s is cancelled', async ( button, method ) => {
-		const trackEvent = renderSync( {
-			[ method ]: vi.fn().mockRejectedValue( new Error( SYNC_CANCELLED_MESSAGE ) ),
-		} );
+		const connector = renderSync();
+		connector[ method ].mockRejectedValue( new Error( SYNC_CANCELLED_MESSAGE ) );
 
 		fireEvent.click( screen.getByRole( 'button', { name: button } ) );
 		await passReportGrace();
 
 		await waitFor( () => expect( getSyncActivity( 'site-1' )?.kind ).toBe( 'cancelled' ) );
-		expect( toast.success ).not.toHaveBeenCalled();
-		expect( trackEvent ).not.toHaveBeenCalled();
+		expect( getNoticeHistory().some( ( notice ) => notice.intent === 'success' ) ).toBe( false );
+		expect( connector.trackEvent ).not.toHaveBeenCalled();
 	} );
 
-	// The onboarding flow creates its local site as it goes, so nothing has ever
-	// populated the connected-sites cache for it.
-	it( 'uses a caller-supplied site when the cache has nothing for it', async () => {
-		const trackEvent = vi.fn().mockResolvedValue( undefined );
-		useConnectorMock.mockReturnValue( {
-			capabilities: { studioLogs: false },
-			trackEvent,
-			pullSiteFromLive: vi.fn().mockResolvedValue( undefined ),
-		} as unknown as Connector );
-		const queryClient = new QueryClient( {
-			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-		} );
-		function Harness() {
-			const pull = usePullSiteFromLive();
-			return (
-				<button
-					type="button"
-					onClick={ () =>
-						pull.mutate( {
-							siteId: 'site-1',
-							remoteSiteId: 42,
-							syncSite: { isPressable: true } as never,
-						} )
-					}
-				>
-					Pull
-				</button>
+	it.each( [
+		// The onboarding flow creates its local site as it goes, so nothing has
+		// ever populated the connected-sites cache for it.
+		[ 'a caller-supplied site', { isPressable: true }, 'pressable' ],
+		[ 'nothing', undefined, 'unknown' ],
+	] )(
+		'reads the sync type from %s when the cache has nothing',
+		async ( _, syncSite, syncType ) => {
+			const connector = renderSync( { cached: false, syncSite } );
+
+			fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
+
+			await waitFor( () =>
+				expect( connector.trackEvent ).toHaveBeenCalledWith(
+					'studio_sync_pull',
+					expect.objectContaining( { sync_type: syncType } )
+				)
 			);
 		}
-		render(
-			<QueryClientProvider client={ queryClient }>
-				<Harness />
-			</QueryClientProvider>
-		);
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
-
-		await waitFor( () =>
-			expect( trackEvent ).toHaveBeenCalledWith(
-				'studio_sync_pull',
-				expect.objectContaining( { sync_type: 'pressable' } )
-			)
-		);
-	} );
-
-	it( 'reports `unknown` sync type when the site is not in the cache', async () => {
-		const trackEvent = vi.fn().mockResolvedValue( undefined );
-		useConnectorMock.mockReturnValue( {
-			capabilities: { studioLogs: false },
-			trackEvent,
-			pullSiteFromLive: vi.fn().mockResolvedValue( undefined ),
-		} as unknown as Connector );
-		const queryClient = new QueryClient( {
-			defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-		} );
-		render(
-			<QueryClientProvider client={ queryClient }>
-				<SyncHarness />
-			</QueryClientProvider>
-		);
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
-
-		await waitFor( () =>
-			expect( trackEvent ).toHaveBeenCalledWith(
-				'studio_sync_pull',
-				expect.objectContaining( { sync_type: 'unknown' } )
-			)
-		);
-	} );
+	);
 } );

@@ -17,7 +17,6 @@ export {
 	type TracksUiVersion,
 	type TracksSiteCreateFlowType,
 	type TracksAuthSource,
-	type TracksAuthAccountType,
 	type TracksAuthFailureReason,
 } from '@studio/common/lib/record-tracks-event';
 

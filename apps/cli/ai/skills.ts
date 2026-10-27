@@ -33,7 +33,7 @@ let cachedSkills: Skill[] | null = null;
 // Resolving relative to `import.meta.dirname` therefore works in both
 // cases — callers that need a skill asset MUST go through this helper
 // rather than hand-rolling their own relative path.
-export function getSkillsRoot(): string {
+function getSkillsRoot(): string {
 	return path.resolve( import.meta.dirname, 'skills' );
 }
 

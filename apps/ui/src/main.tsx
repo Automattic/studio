@@ -1,13 +1,14 @@
-import '@/theme/tokens.css';
+import '@/lib/theme/tokens.css';
+import '@/lib/theme/base.css';
 import '@/index.css';
 import { init as initSentry } from '@sentry/electron/renderer';
 import { captureException } from '@studio/common/lib/error-reporting';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from '@/app';
+import { applyUserPreferences } from '@/app/apply-user-preferences';
 import { persistPromise } from '@/data/core';
 import { createIpcConnector } from '@/data/core/connectors/ipc';
-import { applyUserPreferences } from '@/lib/apply-user-preferences';
 
 // Events go through the main process, which adds the release and the user.
 initSentry();

@@ -1,0 +1,246 @@
+/* A toast, and an entry in the notification history. */
+.card {
+	--notice-icon-size: 16px;
+	position: relative;
+	pointer-events: auto;
+	padding: var( --space-3_5 );
+	border-radius: var( --radius-xl );
+	background-color: var( --secondary );
+	color: var( --secondary-foreground );
+	box-shadow:
+		0 0 0 1px var( --border ),
+		var( --shadow-sm );
+	font-size: var( --text-sm );
+	line-height: var( --text-sm--line-height );
+	/* Toasts rewrite themselves in place — import progress ticks through a
+	   percentage — and this font's digits are not equal width, so a counter
+	   would shift the text by a few pixels on nearly every update. */
+	font-variant-numeric: tabular-nums;
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	gap: var( --space-2 );
+}
+
+.status {
+	display: flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: var( --notice-icon-size );
+	height: var( --notice-icon-size );
+	border-radius: var( --radius-full );
+	color: var( --secondary );
+}
+
+.status svg {
+	width: var( --notice-icon-size );
+	height: var( --notice-icon-size );
+	flex: none;
+}
+
+.status[data-intent='success'] {
+	color: var( --success );
+}
+
+.status[data-intent='error'] {
+	color: var( --destructive );
+}
+.status:is( [data-intent='info'], [data-intent='warning'] ) {
+	color: var( --muted-foreground );
+}
+
+.status[data-intent='warning'] {
+	color: var( --warning );
+}
+
+.title {
+	font-size: var( --text-xs );
+	flex: 1;
+	min-width: 0;
+	font-weight: var( --font-weight-medium );
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.details {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var( --space-2 );
+	margin-top: var( --space-0_5 );
+	padding-inline-start: calc( var( --notice-icon-size ) + var( --space-2 ) );
+}
+
+.summary {
+	position: relative;
+	width: 100%;
+	max-width: 100%;
+}
+
+/* Laid over the text rather than wrapping it, so the measured node stays
+   mounted. Expanded, it covers the first line only and leaves the rest to
+   scroll and select. */
+.toggle {
+	position: absolute;
+	inset: 0;
+	border-radius: var( --radius-sm );
+	cursor: pointer;
+}
+
+.toggle:focus-visible {
+	outline: var( --focus-width ) solid var( --ring );
+	outline-offset: 2px;
+}
+
+.toggle[aria-expanded='true'] {
+	inset-block-end: auto;
+	height: 1lh;
+}
+
+.description {
+	max-width: 100%;
+	height: 1lh;
+	max-height: 192px;
+	overflow: hidden;
+	color: var( --muted-foreground );
+	font-size: var( --text-xs );
+	line-height: var( --leading-relaxed );
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	interpolate-size: allow-keywords;
+	transition: height var( --motion-duration-layout ) var( --motion-ease-layout );
+}
+
+.description[data-clamped] {
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 1;
+}
+
+.description[data-expanded] {
+	height: auto;
+	overflow-y: auto;
+}
+
+/* Fades in over the line's end on hover, and turns as the text opens. */
+.chevron {
+	position: absolute;
+	inset-block: 0;
+	inset-inline-end: 0;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	width: 40px;
+	background: linear-gradient( to right, transparent, var( --secondary ) 50% );
+	color: var( --muted-foreground );
+	opacity: 0;
+	transition: opacity var( --motion-duration-feedback );
+}
+
+.chevron svg {
+	width: 14px;
+	height: 14px;
+	flex: none;
+	transition: rotate var( --motion-duration-layout ) var( --motion-ease-layout );
+}
+
+.card:hover .chevron,
+.toggle:focus-visible .chevron {
+	opacity: 1;
+}
+
+.toggle[aria-expanded='true'] .chevron svg {
+	rotate: 90deg;
+}
+
+.close {
+	--button-background: var( --chrome );
+
+	position: absolute;
+	inset-block-start: calc( var( --space-1_5 ) * -1 );
+	inset-inline-start: calc( var( --space-1_5 ) * -1 );
+	opacity: 0;
+	transition: opacity var( --motion-duration-feedback ) ease;
+}
+
+.card:hover .close,
+.card:focus-within .close {
+	opacity: 1;
+}
+
+.trailing {
+	display: grid;
+	flex: none;
+	align-items: center;
+	justify-items: end;
+	min-height: var( --space-6 );
+	max-width: 50%;
+}
+.trailing > span {
+	grid-area: 1 / 1;
+	min-width: 0;
+	max-width: 100%;
+}
+.action > button {
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.trailing[data-swap] .action {
+	opacity: 0;
+	pointer-events: none;
+}
+.card:hover .trailing[data-swap] .action,
+.card:focus-within .trailing[data-swap] .action,
+.trailing[data-pending] .action {
+	opacity: 1;
+	pointer-events: auto;
+}
+.card:hover .trailing[data-swap] .timestamp,
+.card:focus-within .trailing[data-swap] .timestamp,
+.trailing[data-pending] .timestamp {
+	opacity: 0;
+	pointer-events: none;
+}
+@media ( hover: none ) {
+	.trailing[data-swap] .action {
+		opacity: 1;
+		pointer-events: auto;
+	}
+	.trailing[data-swap] .timestamp {
+		display: none;
+	}
+	.chevron,
+	.close {
+		opacity: 1;
+	}
+}
+
+.titleSummary {
+	position: relative;
+	flex: 1;
+	min-width: 0;
+}
+
+.title[data-expanded] {
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+.row[data-expanded] {
+	align-items: flex-start;
+}
+.row[data-expanded] .status {
+	margin-top: var( --space-0_5 );
+}
+.titleSummary .toggle[aria-expanded='true'] {
+	inset-block-end: 0;
+	height: auto;
+}
+.titleSummary .chevron {
+	height: var( --text-sm--line-height );
+}

@@ -1,8 +1,0 @@
-.trigger {
-	color: var(--foreground);
-	-webkit-app-region: no-drag;
-}
-
-.items {
-	min-width: 200px;
-}

@@ -36,13 +36,17 @@ export default class AppSettings {
 
 	async showSection( name: string ) {
 		await this.page
-			.getByRole( 'navigation', { name: 'Settings sections' } )
-			.getByRole( 'button', { name } )
+			.getByRole( 'tablist', { name: 'Settings sections' } )
+			.getByRole( 'tab', { name } )
 			.click();
 	}
 
 	get themeSelect() {
 		return this.page.getByRole( 'combobox', { name: 'Theme' } );
+	}
+
+	get instructionsInput() {
+		return this.page.getByRole( 'textbox', { name: 'WordPress Studio instructions' } );
 	}
 
 	async selectColorScheme( name: 'System' | 'Light' | 'Dark' ) {

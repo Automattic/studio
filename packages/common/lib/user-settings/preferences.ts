@@ -55,8 +55,24 @@ export const INTERFACE_PREFERENCE_DEFAULTS = {
 	confirmDeleteAnnotations: true,
 	showRecentChats: true,
 	autoCollapseSites: true,
+	sidebarPinnedSort: 'type',
+	sidebarSiteSort: 'manual',
+	sidebarChatSort: 'updated',
 	newSiteBehavior: 'choose',
 	accentColor: DEFAULT_ACCENT_COLOR,
 	tintIntensity: DEFAULT_TINT_INTENSITY,
 	contrast: DEFAULT_CONTRAST,
 } as const;
+
+export const SIDEBAR_PINNED_SORTS = [ 'type', 'manual' ] as const;
+export type SidebarPinnedSort = ( typeof SIDEBAR_PINNED_SORTS )[ number ];
+export const SIDEBAR_SITE_SORTS = [ 'status', 'manual' ] as const;
+export type SidebarSiteSort = ( typeof SIDEBAR_SITE_SORTS )[ number ];
+export const SIDEBAR_CHAT_SORTS = [ 'updated', 'manual' ] as const;
+export type SidebarChatSort = ( typeof SIDEBAR_CHAT_SORTS )[ number ];
+
+export function getDefaultSidebarChatSort(
+	order: Record< string, string[] | undefined >
+): SidebarChatSort {
+	return Object.values( order ).some( ( ids ) => ids && ids.length > 0 ) ? 'manual' : 'updated';
+}

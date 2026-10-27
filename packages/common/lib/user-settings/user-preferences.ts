@@ -12,6 +12,10 @@ import { SUPPORTED_EDITORS } from '@studio/common/lib/user-settings/editor';
 import {
 	DEFAULT_COLOR_SCHEME,
 	getColorTint,
+	getDefaultSidebarChatSort,
+	SIDEBAR_PINNED_SORTS,
+	SIDEBAR_SITE_SORTS,
+	SIDEBAR_CHAT_SORTS,
 	INTERFACE_PREFERENCE_DEFAULTS,
 	NEW_SITE_BEHAVIORS,
 	QUIT_SITES_BEHAVIORS,
@@ -25,6 +29,9 @@ import type {
 	ColorTint,
 	NewSiteBehavior,
 	QuitSitesBehavior,
+	SidebarPinnedSort,
+	SidebarSiteSort,
+	SidebarChatSort,
 } from '@studio/common/lib/user-settings/preferences';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 
@@ -42,9 +49,11 @@ export interface UserPreferences extends ColorTint {
 	locale: string | undefined;
 	analyticsEnabled: boolean;
 	defaultSiteDirectory: string;
-	agenticFeaturesEnabled: boolean;
 	// The sidebar's Pinned group, in order, as `site:<id>` and `chat:<id>` keys.
 	sidebarPins: string[];
+	sidebarPinnedSort: SidebarPinnedSort;
+	sidebarSiteSort: SidebarSiteSort;
+	sidebarChatSort: SidebarChatSort;
 	// Each site's chats in the order the user dragged them into, by site id.
 	sidebarChatOrder: Record< string, string[] >;
 	showRecentChats: boolean;
@@ -89,8 +98,10 @@ export const userPreferencesPatchSchema = z.object( {
 	locale: z.string().refine( isSupportedLocale ).nullish(),
 	analyticsEnabled: z.boolean().nullish(),
 	defaultSiteDirectory: z.string().nullish(),
-	agenticFeaturesEnabled: z.boolean().nullish(),
 	sidebarPins: sidebarPinsSchema.nullish(),
+	sidebarPinnedSort: z.enum( SIDEBAR_PINNED_SORTS ).nullish(),
+	sidebarSiteSort: z.enum( SIDEBAR_SITE_SORTS ).nullish(),
+	sidebarChatSort: z.enum( SIDEBAR_CHAT_SORTS ).nullish(),
 	sidebarChatOrder: sidebarChatOrderSchema.nullish(),
 	showRecentChats: z.boolean().nullish(),
 	autoCollapseSites: z.boolean().nullish(),
@@ -117,8 +128,10 @@ const APP_CONFIG_KEYS = [
 	[ 'colorScheme', 'colorScheme' ],
 	[ 'quitSitesBehavior', 'quitSitesBehavior' ],
 	[ 'defaultSiteDirectory', 'defaultSiteDirectory' ],
-	[ 'agenticFeaturesEnabled', 'agenticFeaturesEnabled' ],
 	[ 'sidebarPins', 'sidebarPins' ],
+	[ 'sidebarPinnedSort', 'sidebarPinnedSort' ],
+	[ 'sidebarSiteSort', 'sidebarSiteSort' ],
+	[ 'sidebarChatSort', 'sidebarChatSort' ],
 	[ 'sidebarChatOrder', 'sidebarChatOrder' ],
 	[ 'showRecentChats', 'showRecentChats' ],
 	[ 'autoCollapseSites', 'autoCollapseSites' ],
@@ -151,6 +164,7 @@ export async function readUserPreferences( {
 		newSiteBehavior,
 	} = INTERFACE_PREFERENCE_DEFAULTS;
 
+	const sidebarChatOrder = sidebarChatOrderSchema.catch( {} ).parse( config.sidebarChatOrder );
 	return {
 		editor: optionalEditor.parse( config.preferredEditor ?? null ),
 		terminal: optionalTerminal.parse( config.preferredTerminal ?? null ),
@@ -159,9 +173,17 @@ export async function readUserPreferences( {
 		locale: shared.locale,
 		analyticsEnabled: ! isAnalyticsOptedOutInConfig( shared ),
 		defaultSiteDirectory: getDefaultSiteDirectory( config, sitesRoot ),
-		agenticFeaturesEnabled: config.agenticFeaturesEnabled !== false,
 		sidebarPins: sidebarPinsSchema.catch( [] ).parse( config.sidebarPins ),
-		sidebarChatOrder: sidebarChatOrderSchema.catch( {} ).parse( config.sidebarChatOrder ?? {} ),
+		sidebarChatOrder,
+		sidebarPinnedSort: z
+			.enum( SIDEBAR_PINNED_SORTS )
+			.catch( 'type' )
+			.parse( config.sidebarPinnedSort ),
+		sidebarSiteSort: z.enum( SIDEBAR_SITE_SORTS ).catch( 'manual' ).parse( config.sidebarSiteSort ),
+		sidebarChatSort: z
+			.enum( SIDEBAR_CHAT_SORTS )
+			.catch( getDefaultSidebarChatSort( sidebarChatOrder ) )
+			.parse( config.sidebarChatSort ),
 		showRecentChats: z.boolean().catch( showRecentChats ).parse( config.showRecentChats ),
 		autoCollapseSites: z.boolean().catch( autoCollapseSites ).parse( config.autoCollapseSites ),
 		autoStartSiteOnChat: z
@@ -222,15 +244,6 @@ async function getChangeEvents(
 		events.push( [
 			TRACKS_EVENTS.SETTING_QUIT_ACTION_CHANGE,
 			{ behavior: quitSitesBehavior, surface },
-		] );
-	}
-	if (
-		typeof patch.agenticFeaturesEnabled === 'boolean' &&
-		patch.agenticFeaturesEnabled !== ( config.agenticFeaturesEnabled !== false )
-	) {
-		events.push( [
-			TRACKS_EVENTS.SETTING_AGENTIC_FEATURES_CHANGE,
-			{ enabled: patch.agenticFeaturesEnabled, surface },
 		] );
 	}
 	if ( typeof patch.analyticsEnabled === 'boolean' ) {
@@ -298,6 +311,7 @@ export const onboardingHintsSchema = z
 		tourCompletedVersion: z.number().optional(),
 		tourDismissedVersion: z.number().optional(),
 		migratedFromClassic: z.boolean().optional(),
+		whatsNewSeenVersion: z.number().optional(),
 	} )
 	.loose();
 

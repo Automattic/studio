@@ -1,0 +1,23 @@
+@layer ui {
+	.dot {
+		composes: dot from '@/lib/theme/recipes.module.css';
+	}
+
+	.dot[data-position='icon'] {
+		top: -1.5px;
+		right: -1.5px;
+	}
+
+	:has( > .dot[data-position='icon'] ) {
+		position: relative;
+	}
+
+	:has( > .dot[data-position='icon'] ) > svg {
+		mask-image: radial-gradient( circle at calc( 100% - 2px ) 2px, transparent 5.5px, #000 6px );
+	}
+
+	/* Centred on the trailing 32px action of a row inset 2px from its edge. */
+	.dot[data-position='end'] {
+		inset-inline-end: calc( var( --space-0_5 ) + ( 32px - 7px ) / 2 );
+	}
+}

@@ -27,7 +27,7 @@ After the turn, the runner captures what it left (`apps/cli/ai/eval-outcome.ts`)
 
 The checks in `outcome.mjs` read that state. The site judged is the seeded active site the request is about, or else the one site the turn created (`vars.siteName` picks one by name where a case needs to). Each case runs in folders of its own, so prompts read the way a user would write them: a real name, and no instructions about the eval. Most site cases also assert `siteWorks` (renders without PHP errors, all blocks valid) and `otherSitesUntouched`.
 
-The home page is also saved as a screenshot (`homeScreenshot`). When a judge is configured, a vision model sees only the prompt and that screenshot (`apps/cli/ai/eval-look-judge.ts`) and records `look`: how much the page looks made for the ask (1–5), what a visitor cannot read, and what looks broken or unfinished. `siteLooks` reports it as a score, not a gate. The judge is any model that reads images through the Anthropic Messages API: `STUDIO_EVAL_JUDGE_API_KEY` (or `ANTHROPIC_API_KEY`), with `STUDIO_EVAL_JUDGE_BASE_URL` and `STUDIO_EVAL_JUDGE_MODEL` to point it elsewhere (by default `https://api.anthropic.com` and `claude-sonnet-5`).
+The home page is also saved as a screenshot (`homeScreenshot`, `<site>-home.jpg` beside the result's other artifacts) to compare runs by eye.
 
 ## Cases
 

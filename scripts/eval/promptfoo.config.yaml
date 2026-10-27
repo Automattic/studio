@@ -109,8 +109,6 @@ tests:
       - type: javascript
         value: file://outcome.mjs:siteHasItsOwnDesign
       - type: javascript
-        value: file://outcome.mjs:siteLooks
-      - type: javascript
         value: file://outcome.mjs:turnsAreResponsive
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
@@ -130,8 +128,6 @@ tests:
       - type: javascript
         value: file://outcome.mjs:siteHasItsOwnDesign
       - type: javascript
-        value: file://outcome.mjs:siteLooks
-      - type: javascript
         value: file://outcome.mjs:turnsAreResponsive
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
@@ -149,8 +145,6 @@ tests:
         value: file://outcome.mjs:builtFrontPage
       - type: javascript
         value: file://outcome.mjs:siteHasItsOwnDesign
-      - type: javascript
-        value: file://outcome.mjs:siteLooks
       - type: javascript
         value: file://outcome.mjs:turnsAreResponsive
       - type: javascript
@@ -171,8 +165,6 @@ tests:
       - type: javascript
         value: file://outcome.mjs:siteHasItsOwnDesign
       - type: javascript
-        value: file://outcome.mjs:siteLooks
-      - type: javascript
         value: file://outcome.mjs:turnsAreResponsive
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
@@ -191,8 +183,6 @@ tests:
         value: file://outcome.mjs:builtFrontPage
       - type: javascript
         value: file://outcome.mjs:siteHasItsOwnDesign
-      - type: javascript
-        value: file://outcome.mjs:siteLooks
       - type: javascript
         value: file://outcome.mjs:turnsAreResponsive
       - type: javascript
@@ -1366,7 +1356,5 @@ tests:
         value: file://outcome.mjs:featureStillWorks
       - type: javascript
         value: file://outcome.mjs:siteHasItsOwnDesign
-      - type: javascript
-        value: file://outcome.mjs:siteLooks
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched

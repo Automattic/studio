@@ -389,48 +389,6 @@ describe( 'site checks', () => {
 		);
 	} );
 
-	describe( 'siteLooks', () => {
-		const look = {
-			madeForTheAsk: 3,
-			unreadable: [ 'header links, dark on dark' ],
-			defects: [ 'placeholder footer links', 'two footers' ],
-			reason: 'Warm palette, stock layout.',
-		};
-		test.each( [
-			{
-				name: 'a judged site',
-				look,
-				score: 0.6,
-				reason:
-					'made for the ask 3/5; unreadable: header links, dark on dark; defects: placeholder footer links | two footers. Warm palette, stock layout.',
-			},
-			{
-				name: 'a site with nothing to list',
-				look: { ...look, madeForTheAsk: 5, unreadable: [], defects: [] },
-				score: 1,
-				reason: 'made for the ask 5/5. Warm palette, stock layout.',
-			},
-			{
-				name: 'no judge',
-				look: undefined,
-				score: 1,
-				reason: 'not judged: no judge is configured (STUDIO_EVAL_JUDGE_API_KEY)',
-			},
-			{
-				name: 'a judge that failed',
-				look: { error: 'the judge answered 529' },
-				score: 1,
-				reason: 'not judged: the judge answered 529',
-			},
-		] )( '$name', ( { look: judged, score, reason } ) => {
-			expect( run( checks.siteLooks, outcome( { ...workingSite, look: judged } ) ) ).toEqual( {
-				pass: true,
-				score,
-				reason,
-			} );
-		} );
-	} );
-
 	describe( 'siteHasItsOwnDesign', () => {
 		const font = ( src ) => ( {
 			settings: {

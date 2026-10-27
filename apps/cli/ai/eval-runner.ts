@@ -42,7 +42,6 @@ import {
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
 import { createScriptedUser, evalAnswersSchema, type EvalAnswers } from 'cli/ai/eval-answers';
-import { judgeEndpoint, judgeLook } from 'cli/ai/eval-look-judge';
 import { captureTurnOutcome, fingerprintSites, type TurnOutcome } from 'cli/ai/eval-outcome';
 import { summarizeTiming, type ModelRequestRecord } from 'cli/ai/eval-timing';
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
@@ -748,21 +747,6 @@ async function runEval( input: EvalRunnerInput ) {
 		).catch( ( caught ) => ( {
 			error: caught instanceof Error ? caught.message : String( caught ),
 		} ) );
-		// A blind look at each site's home page, when a judge is configured.
-		const judge = judgeEndpoint();
-		if ( judge && outcome && 'sites' in outcome ) {
-			await Promise.all(
-				outcome.sites.map( async ( site ) => {
-					if ( typeof site.homeScreenshot === 'string' ) {
-						site.look = await judgeLook( judge, prompt, site.homeScreenshot ).catch(
-							( caught ) => ( {
-								error: caught instanceof Error ? caught.message : String( caught ),
-							} )
-						);
-					}
-				} )
-			);
-		}
 		if ( seeded ) {
 			inspections = await seeded.inspect().catch( () => [] );
 			await seeded.cleanup().catch( () => undefined );

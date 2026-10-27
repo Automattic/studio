@@ -457,26 +457,6 @@ function fontFamilies( themeJson ) {
 	}
 }
 
-// How the home page looks to a vision model that sees only the ask and a
-// screenshot (eval-look-judge.ts): a score, not a gate, until runs calibrate
-// it. It scores how much the page looks made for the ask (1–5), and lists
-// what a visitor cannot read and what looks broken or unfinished.
-export const siteLooks = check( ( d, vars ) => {
-	const look = site( d, vars ).look;
-	if ( ! look ) return pass( 'not judged: no judge is configured (STUDIO_EVAL_JUDGE_API_KEY)' );
-	if ( look.error ) return pass( `not judged: ${ look.error }` );
-	const listed = ( label, items ) =>
-		items?.length ? `; ${ label }: ${ items.join( ' | ' ) }` : '';
-	return {
-		pass: true,
-		score: look.madeForTheAsk / 5,
-		reason: `made for the ask ${ look.madeForTheAsk }/5${ listed(
-			'unreadable',
-			look.unreadable
-		) }${ listed( 'defects', look.defects ) }. ${ look.reason }`,
-	};
-} );
-
 // The design is the site's own, kept where WordPress keeps a design: a theme
 // of its own (or a child theme), with the fonts it resolves self-hosted and a
 // screenshot; or a theme from WordPress.org customized as the Site Editor does,

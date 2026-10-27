@@ -10,7 +10,7 @@
  */
 import { readRenderedVersions } from 'cli/ai/block-render-check';
 import { templatePart } from 'cli/ai/header-menu';
-import { render } from 'cli/ai/home-section-links';
+import { render } from 'cli/ai/page-render';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import type { SiteChangeSource } from 'cli/ai/site-changes';
 import type { SiteData } from 'cli/lib/cli-config/core';

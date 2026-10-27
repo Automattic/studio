@@ -7,7 +7,7 @@
  * is a call to action; several, outside any navigation, are a menu built some
  * other way.
  */
-import { NOT_FOUND, render } from 'cli/ai/home-section-links';
+import { NOT_FOUND, render } from 'cli/ai/page-render';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 
 // A header or footer template part WordPress renders (wp-includes/blocks/template-part.php),

@@ -102,7 +102,7 @@ describe.runIf( WORDPRESS )( 'navigation links to sections of the front page', (
 		expect( reports ).toEqual( [
 			{
 				key: 'section links',
-				summary: `Brightline Bikes: navigation links "Features" (#features), "About" (#about) link to sections of the front page, and a url of only "#id" goes to that id on the page it is on (render_block_core_navigation_link() prints the url as the href, in wp-includes/blocks/navigation-link.php), which the site's other pages do not have. Studio linked "Features" (#features), "About" (#about) to the front page's section (/#id), as they do on the front page, in wp-content/themes/studio-test-sections/parts/header.html, post ${ menu }.`,
+				summary: `Brightline Bikes: links "Features" (#features), "About" (#about), which the site's other pages render too, link to sections of the front page, and an href of only "#id" goes to that id on the page it is on (a navigation link prints its url as its href, render_block_core_navigation_link() in wp-includes/blocks/navigation-link.php), which the site's other pages do not have. Studio linked "Features" (#features), "About" (#about) to the front page's section (/#id), as they do on the front page, in wp-content/themes/studio-test-sections/parts/header.html, post ${ menu }.`,
 				problem: undefined,
 			},
 		] );
@@ -120,6 +120,45 @@ describe.runIf( WORDPRESS )( 'navigation links to sections of the front page', (
 		expect(
 			( await check( async () => writeFileSync( theme( 'parts/footer.html' ), '' ) ) ).reports
 		).toEqual( [] );
+	}, 120000 );
+
+	it( "links a template part's own links to the front page's sections, and leaves a link only the front page renders", async () => {
+		const paragraph = ( url: string ) =>
+			`<!-- wp:paragraph --><p><a href="${ url }">Link</a></p><!-- /wp:paragraph -->`;
+		const button = ( url: string ) =>
+			`<!-- wp:buttons --><div class="wp-block-buttons"><!-- wp:button --><div class="wp-block-button"><a class="wp-block-button__link wp-element-button" href="${ url }">Book</a></div><!-- /wp:button --></div><!-- /wp:buttons -->`;
+		const header = paragraph( '#features' ) + button( '#features' ) + paragraph( '#hours' );
+		const footer = paragraph( '#features' );
+		const page = Number( ( await wp( 'option', 'get', 'page_on_front' ) ).trim() );
+		const content = ( await wp( 'post', 'get', String( page ), '--field=post_content' ) ).trim();
+		// Links in the front page's own content render on the front page only, one
+		// to a section the template part links too.
+		const own = paragraph( '#about' ) + button( '#features' );
+		await wp( 'post', 'update', String( page ), `--post_content=${ content }${ own }` );
+		const saved = await create( 'wp_template_part', 'footer', footer );
+		await wp( 'post', 'term', 'add', String( saved ), 'wp_theme', 'studio-test-sections' );
+		await wp( 'post', 'update', String( saved ), '--post_name=footer' );
+
+		const { reports } = await check( async () =>
+			writeFileSync( theme( 'parts/header.html' ), header )
+		);
+
+		expect( reports[ 0 ]?.summary ).toMatch(
+			/^Brightline Bikes: links #features, which .* Studio linked #features to the front page's section \(\/#id\), as they do on the front page, in wp-content\/themes\/studio-test-sections\/parts\/header\.html, post \d+\.$/
+		);
+		expect( reports[ 0 ]?.problem ).toBeUndefined();
+		expect( readFileSync( theme( 'parts/header.html' ), 'utf8' ) ).toBe(
+			paragraph( '/#features' ) + button( '/#features' ) + paragraph( '#hours' )
+		);
+		expect( ( await wp( 'post', 'get', String( saved ), '--field=post_content' ) ).trim() ).toBe(
+			paragraph( '/#features' )
+		);
+		expect( ( await wp( 'post', 'get', String( page ), '--field=post_content' ) ).trim() ).toBe(
+			`${ content }${ own }`
+		);
+		await wp( 'post', 'delete', String( saved ), '--force' );
+		await wp( 'post', 'update', String( page ), `--post_content=${ content }` );
+		writeFileSync( theme( 'parts/header.html' ), '' );
 	}, 120000 );
 
 	it( 'states a section link it cannot change, in a theme WordPress updates', async () => {
@@ -141,7 +180,7 @@ describe.runIf( WORDPRESS )( 'navigation links to sections of the front page', (
 				key: 'section links',
 				summary: undefined,
 				problem: expect.stringMatching(
-					/^Brightline Bikes: navigation links "Features" \(#features\) link to sections .*\. Link "Features" \(#features\) to the front page's section: \/#features\.$/
+					/^Brightline Bikes: links "Features" \(#features\), which .* link to sections .*\. Link "Features" \(#features\) to the front page's section: \/#features\.$/
 				),
 			},
 		] );

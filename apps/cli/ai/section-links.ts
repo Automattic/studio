@@ -1,13 +1,15 @@
 /**
- * Navigation links to sections of the front page that work on the front page
- * only. A navigation link prints its "url" as its href
+ * Links to sections of the front page that work on the front page only. A
+ * navigation link prints its "url" as its href
  * (render_block_core_navigation_link() in wp-includes/blocks/navigation-link.php),
- * and an href of only "#id" resolves against the address of the page it is on,
- * so a menu every page shows takes a visitor on any other page to an id that
- * page does not have. Studio renders the front page and another page as a
- * visitor gets them, and where a link's id is a section of the front page and
- * not of the other page, links it to the front page's section, as the link
- * does on the front page itself.
+ * as a paragraph or button prints the href in its HTML, and an href of only
+ * "#id" resolves against the address of the page it is on, so a link every
+ * page shows, as a header or footer template part's are, takes a visitor on
+ * any other page to an id that page does not have. Studio renders the front
+ * page and another page as a visitor gets them, and where a link both render
+ * names a section of the front page the other page lacks, links it to the
+ * front page's section, as the link does on the front page itself: a
+ * navigation link wherever it is held, and a link in a template part's HTML.
  */
 import path from 'path';
 import { readRenderedVersions } from 'cli/ai/block-render-check';
@@ -57,6 +59,10 @@ while ( $tags->next_tag() ) {
 	if ( is_string( $id ) && '' !== $id ) {
 		$ids[] = $id;
 	}
+	$href = 'A' === $tags->get_tag() ? $tags->get_attribute( 'href' ) : null;
+	if ( is_string( $href ) && strlen( $href ) > 1 && str_starts_with( $href, '#' ) && ! isset( $links[ $href ] ) ) {
+		$links[ $href ] = '';
+	}
 }
 $other = get_posts( array( 'post_type' => array( 'page', 'post' ), 'post_status' => 'publish', 'numberposts' => 1, 'orderby' => array( 'type' => 'ASC', 'ID' => 'ASC' ), 'exclude' => array( (int) get_option( 'page_on_front' ) ) ) );
 echo 'RENDERED=' . wp_json_encode( array(
@@ -85,15 +91,20 @@ async function render( site: SiteData, php: string ): Promise< Rendered > {
 	return JSON.parse( line.slice( 'RENDERED='.length ) ) as Rendered;
 }
 
+const escape = ( url: string ) => url.replace( /[.*+?^${}()|[\]\\]/g, '\\$&' );
+
 // A navigation link or submenu block's comment whose url is `url`.
 const linkTo = ( url: string ) =>
 	new RegExp(
-		`(<!--\\s+wp:navigation-(?:link|submenu)\\s+\\{(?:(?!-->)[\\s\\S])*?"url":")${ url.replace(
-			/[.*+?^${}()|[\]\\]/g,
-			'\\$&'
+		`(<!--\\s+wp:navigation-(?:link|submenu)\\s+\\{(?:(?!-->)[\\s\\S])*?"url":")${ escape(
+			url
 		) }(")`,
 		'g'
 	);
+
+// A link's href of `url`, in a block's HTML.
+const hrefTo = ( url: string ) =>
+	new RegExp( `(<a\\s(?:[^>]*?\\s)?href=")${ escape( url ) }(")`, 'g' );
 
 export const sectionLinks: SiteChangeSource = {
 	name: 'section links',
@@ -118,8 +129,13 @@ export const sectionLinks: SiteChangeSource = {
 			// A site WordPress cannot render for says nothing, as a failed note does.
 			return { reports: [] };
 		}
+		// Links the other page renders too, as a template part's are, to a section
+		// only the front page has.
 		const broken = Object.keys( front.links ).filter(
-			( url ) => front.ids.includes( url.slice( 1 ) ) && ! other.ids.includes( url.slice( 1 ) )
+			( url ) =>
+				front.ids.includes( url.slice( 1 ) ) &&
+				url in other.links &&
+				! other.ids.includes( url.slice( 1 ) )
 		);
 		if ( ! broken.length ) {
 			return { reports: [] };
@@ -132,11 +148,19 @@ export const sectionLinks: SiteChangeSource = {
 		const places: string[] = [];
 		const fixed = new Set< string >();
 		for ( const item of await siteMarkup( site.path, themeDir, {
-			holding: '%wp:navigation-%',
+			holding: '%#%',
 		} ) ) {
+			const part =
+				item.type === 'wp_template_part' ||
+				( item.file !== undefined && path.basename( path.dirname( item.file ) ) === 'parts' );
 			let content = item.content;
 			for ( const url of broken ) {
-				const linked = content.replace( linkTo( url ), `$1${ home }${ url }$2` );
+				let linked = content.replace( linkTo( url ), `$1${ home }${ url }$2` );
+				// A template part renders on every page; a link in its HTML, as a
+				// paragraph's or a button's, is its block's href.
+				if ( part ) {
+					linked = linked.replace( hrefTo( url ), `$1${ home }${ url }$2` );
+				}
 				if ( linked !== content ) {
 					fixed.add( url );
 					content = linked;
@@ -148,11 +172,13 @@ export const sectionLinks: SiteChangeSource = {
 			}
 		}
 		const named = ( urls: string[] ) =>
-			urls.map( ( url ) => `"${ front.links[ url ] || url }" (${ url })` ).join( ', ' );
+			urls
+				.map( ( url ) => ( front.links[ url ] ? `"${ front.links[ url ] }" (${ url })` : url ) )
+				.join( ', ' );
 		const unfixed = broken.filter( ( url ) => ! fixed.has( url ) );
-		const lead = `${ site.name }: navigation links ${ named(
+		const lead = `${ site.name }: links ${ named(
 			broken
-		) } link to sections of the front page, and a url of only "#id" goes to that id on the page it is on (render_block_core_navigation_link() prints the url as the href, in wp-includes/blocks/navigation-link.php), which the site's other pages do not have`;
+		) }, which the site's other pages render too, link to sections of the front page, and an href of only "#id" goes to that id on the page it is on (a navigation link prints its url as its href, render_block_core_navigation_link() in wp-includes/blocks/navigation-link.php), which the site's other pages do not have`;
 		return {
 			reports: [
 				{

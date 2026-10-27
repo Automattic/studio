@@ -30,6 +30,8 @@ export const RENDERED = `post_type IN (${ RENDERED_TYPES.map( () => '?' ).join(
 export interface Markup {
 	file?: string;
 	post?: number;
+	// A post's type, as wp_template_part.
+	type?: string;
 	content: string;
 }
 
@@ -62,8 +64,8 @@ export async function siteMarkup(
 		...files.map( ( file ) => ( { file, content: readFileSync( file, 'utf8' ) } ) ),
 		...( posts
 			? await readWordPressSite( siteRoot, ( site ) =>
-					site.query< { post: number; content: string } >(
-						`SELECT ID AS post, post_content AS content FROM ${ site.prefix }posts WHERE ${ RENDERED } AND post_content LIKE ?`,
+					site.query< { post: number; type: string; content: string } >(
+						`SELECT ID AS post, post_type AS type, post_content AS content FROM ${ site.prefix }posts WHERE ${ RENDERED } AND post_content LIKE ?`,
 						...RENDERED_TYPES,
 						holding
 					)

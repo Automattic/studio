@@ -17,7 +17,6 @@ import { readFile } from 'fs/promises';
 import path from 'path';
 import { frontPageTemplateProblem, rendersPageContent } from 'cli/ai/front-page-template';
 import { headerMenu } from 'cli/ai/header-menu';
-import { homeSectionLinks } from 'cli/ai/home-section-links';
 import { readSavedCopies } from 'cli/ai/saved-copies';
 import { readWordPressSite } from 'cli/ai/site-database';
 import { studioMessage } from 'cli/ai/studio-message';
@@ -40,7 +39,7 @@ export class OpenProblems {
 	constructor(
 		private readonly siteChecks: Array<
 			( sitePath: string ) => Promise< string | string[] | undefined >
-		> = [ unrenderedPages, frontPageIsPostsPage, postsPageContent, homeSectionLinks, headerMenu ]
+		> = [ unrenderedPages, frontPageIsPostsPage, postsPageContent, headerMenu ]
 	) {}
 
 	/** Records the latest validation of a site's file or post, open while it has a problem. */

@@ -18,7 +18,7 @@ import {
 	killPhpProcessTree,
 	reapPhpTreeOnInterrupt,
 } from './native-php/php-process';
-import { getPulledSiteStartOptions } from './pull/pulled-site-server';
+import { getPulledSiteStartOptions } from './pull/pulled-site-start-options';
 import { getSiteEmailDirectory } from './site-email';
 import { getWpCliPhpIniArgs } from './wp-cli-php-ini';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';

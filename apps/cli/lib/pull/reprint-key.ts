@@ -36,14 +36,12 @@ export async function ensureReprintKey( params: {
 	}
 
 	await installReprintPublicKey( wpComSiteId, wpComAccessToken, publicKey );
-	// A site without a key kept its export window closed.
-	if ( ! exporter.hasPublicKey ) {
-		const reenabled = await enableReprintExporter( wpComSiteId, wpComAccessToken, verbose );
-		if ( ! reenabled.hasPublicKey ) {
-			throw new LoggerError(
-				__( 'The WordPress.com site did not accept the migration key. Please try again.' )
-			);
-		}
+	// Opens the export window, which stays closed on a site that had no key.
+	const reenabled = await enableReprintExporter( wpComSiteId, wpComAccessToken, verbose );
+	if ( ! reenabled.hasPublicKey ) {
+		throw new LoggerError(
+			__( 'The WordPress.com site did not accept the migration key. Please try again.' )
+		);
 	}
 }
 

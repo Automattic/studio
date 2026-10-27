@@ -81,7 +81,8 @@ export async function runReprintCommandUntilComplete(
 		do {
 			lastResult = await runReprintCommandNative( pharPath, phpVersion, args, options, progress );
 
-			if ( lastResult.exitCode === 1 ) {
+			// 0 is done and 2 is partial progress; anything else is a failure.
+			if ( lastResult.exitCode !== 0 && lastResult.exitCode !== 2 ) {
 				const report = lastResult.report;
 				const reportError = report?.error
 					? [ report.error_code, report.error ].filter( Boolean ).join( ': ' )
@@ -91,7 +92,7 @@ export async function runReprintCommandUntilComplete(
 					.join( '\n' );
 				throw new Error(
 					details ||
-						`reprint.phar exited with code 1 (command: ${
+						`reprint.phar exited with code ${ lastResult.exitCode } (command: ${
 							args[ 0 ] ?? 'unknown'
 						}). No output was captured.`
 				);

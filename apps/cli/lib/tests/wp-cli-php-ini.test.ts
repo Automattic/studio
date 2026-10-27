@@ -32,7 +32,7 @@ vi.mock( 'cli/lib/native-php/php-process', () => ( {
 	reapPhpTreeOnInterrupt: () => () => {},
 } ) );
 
-vi.mock( 'cli/lib/pull/pulled-site-server', () => ( {
+vi.mock( 'cli/lib/pull/pulled-site-start-options', () => ( {
 	getPulledSiteStartOptions: () => undefined,
 } ) );
 

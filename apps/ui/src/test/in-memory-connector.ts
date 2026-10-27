@@ -349,6 +349,7 @@ export function createInMemoryConnector(
 			whatsNewSeenVersion: Number.MAX_SAFE_INTEGER,
 		} ),
 		setOnboardingHints: async () => {},
+		onShowGettingStarted: subscribe( 'onShowGettingStarted' ),
 		onShowWhatsNew: subscribe( 'onShowWhatsNew' ),
 		getAppUpdateStatus: async () => ( { state: 'idle', currentVersion: null } ),
 		installAppUpdate: async () => {},

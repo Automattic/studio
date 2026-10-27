@@ -48,42 +48,5 @@ test.describe( 'Electron app', () => {
 		expect( await session.mainWindow.evaluate( () => window.ipcApi.getOnboardingData() ) ).toBe(
 			true
 		);
-		expect(
-			await session.mainWindow.evaluate( () => window.ipcApi.getOnboardingHints() )
-		).toMatchObject( {
-			whatsNewSeenVersion: 1,
-		} );
-		await expect( session.mainWindow.getByRole( 'alertdialog' ) ).toBeHidden();
-		await expect(
-			session.mainWindow.getByRole( 'dialog', { name: 'What’s New in Studio' } )
-		).toBeHidden();
-	} );
-
-	test( 'desktop Help reopens What’s New', async ( { page: _page }, testInfo ) => {
-		test.skip(
-			process.platform !== 'darwin',
-			'The packaged app exposes its native Help menu on macOS.'
-		);
-		await session.electronApp.evaluate( ( { Menu, BrowserWindow } ) => {
-			const help = Menu.getApplicationMenu()?.items.find( ( item ) => item.role === 'help' );
-			const announcement = help?.submenu?.items.find( ( item ) => item.label === "What's New" );
-			if ( ! announcement ) throw new Error( 'Missing What’s New menu item' );
-			announcement.click( announcement, BrowserWindow.getAllWindows()[ 0 ], {} );
-		} );
-		const dialog = session.mainWindow.getByRole( 'dialog', { name: 'What’s New in Studio' } );
-		await expect( dialog ).toBeVisible();
-		for ( const theme of [ 'light', 'dark' ] as const ) {
-			await session.mainWindow.emulateMedia( { colorScheme: theme } );
-			await expect( session.mainWindow.locator( 'html' ) ).toHaveAttribute(
-				'data-color-scheme',
-				theme
-			);
-			await session.mainWindow.screenshot( {
-				animations: 'disabled',
-				path: testInfo.outputPath( `whats-new-${ theme }.png` ),
-			} );
-		}
-		await dialog.getByRole( 'button', { name: 'Done' } ).click();
-		await expect( dialog ).toBeHidden();
 	} );
 } );

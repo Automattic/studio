@@ -10,6 +10,9 @@ import AddSite, { type CreateSiteOptions } from './page-objects/add-site';
 import Sidebar from './page-objects/sidebar';
 import type { ChildProcess } from 'node:child_process';
 
+// `ORIENTATION_GUIDE_VERSION` in apps/ui/src/features/onboarding/onboarding-guide/orientation-guide.ts.
+const ORIENTATION_GUIDE_VERSION = 2;
+
 export type PersistedSite = { id: string; name: string; path: string; port: number };
 
 export type LaunchOptions = {
@@ -53,7 +56,7 @@ export class E2ESession {
 
 	/**
 	 * `firstRun` launches like a fresh install, on the welcome screen. Otherwise the run starts past
-	 * onboarding and What’s New.
+	 * onboarding and the orientation guide.
 	 */
 	async launch(
 		testEnv: NodeJS.ProcessEnv = {},
@@ -80,6 +83,7 @@ export class E2ESession {
 						onboardingCompleted: true,
 						// What's New is never due, whatever its version.
 						onboardingHints: {
+							tourDismissedVersion: ORIENTATION_GUIDE_VERSION,
 							whatsNewSeenVersion: Number.MAX_SAFE_INTEGER,
 						},
 				  } ),

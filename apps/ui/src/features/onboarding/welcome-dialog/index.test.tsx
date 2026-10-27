@@ -1,6 +1,5 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { WHATS_NEW_VERSION } from '@/features/onboarding/whats-new/content';
 import { createFakeConnector, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { Connector } from '@/data/core';
@@ -50,9 +49,7 @@ describe( 'Welcome dialog', () => {
 			await screen.findByRole( 'dialog', { name: 'Add site' } );
 			expect( connector.authenticate ).not.toHaveBeenCalled();
 			expect( connector.setOnboardingCompleted ).toHaveBeenCalledExactlyOnceWith( true );
-			expect( connector.setOnboardingHints ).toHaveBeenCalledWith( {
-				whatsNewSeenVersion: WHATS_NEW_VERSION,
-			} );
+			expect( connector.setOnboardingHints ).not.toHaveBeenCalled();
 			expect( history.location.search ).toContain( 'addSite=create' );
 			fireEvent.click( screen.getByRole( 'button', { name: 'Close Add site' } ) );
 			expect(

@@ -18,7 +18,6 @@ import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { hasCustomPanelLayout, resetPanelLayout } from '@/data/resizable-panels';
-import { useOpenWhatsNew } from '@/features/onboarding';
 import { applyColorTint, DEFAULT_COLOR_TINT, isDefaultColorTint } from '@/lib/theme';
 import { Input, Button } from '@/lib/ui';
 import { AccountSection } from './account-section';
@@ -169,7 +168,6 @@ function PreferencesPanel( {
 } ) {
 	const connector = useConnector();
 	const locale = useUserLocale();
-	const openWhatsNew = useOpenWhatsNew();
 	return (
 		<div className={ styles.preferencesPanel }>
 			<AccountSection />
@@ -285,14 +283,6 @@ function PreferencesPanel( {
 			<StudioCliSection />
 			<WapuuScore />
 			<SettingsGroup title={ __( 'Help' ) }>
-				<SettingsRow
-					title={ __( 'What’s New' ) }
-					description={ __( 'See the latest improvements to WordPress Studio.' ) }
-				>
-					<Button variant="outline" onClick={ openWhatsNew }>
-						{ __( 'View' ) }
-					</Button>
-				</SettingsRow>
 				<SettingsRow
 					title={ __( 'Documentation' ) }
 					description={ __( 'Guides for building and managing sites with WordPress Studio.' ) }

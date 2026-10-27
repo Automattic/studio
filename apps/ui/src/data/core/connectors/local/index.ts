@@ -977,7 +977,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async setOnboardingHints( partial ) {
 			await api( '/onboarding-hints', { method: 'PATCH', body: JSON.stringify( partial ) } );
 		},
-
+		onShowGettingStarted() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
 		onShowWhatsNew() {
 			// No application menu in a browser tab.
 			return () => {};

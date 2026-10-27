@@ -351,6 +351,12 @@ async function getAppMenu( mainWindow: BrowserWindow | null ) {
 						void sendIpcEventToRenderer( 'show-whats-new' );
 					},
 				},
+				{
+					label: __( 'Getting Started' ),
+					click: async () => {
+						void sendIpcEventToRenderer( 'show-getting-started' );
+					},
+				},
 				{ type: 'separator' },
 				...( process.platform === 'win32'
 					? [

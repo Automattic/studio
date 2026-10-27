@@ -35,7 +35,6 @@ export function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) 
 
 	return (
 		<Dialog
-			replaceable
 			open={ open }
 			onOpenChange={ onOpenChange }
 			onOpenChangeComplete={ ( isOpen ) => ! isOpen && setQuery( '' ) }

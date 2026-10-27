@@ -5,12 +5,10 @@ import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
-import { useOnboardingHints, useSetOnboardingHints } from '@/data/queries/use-onboarding-hints';
 import { useSites } from '@/data/queries/use-sites';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { AccountPrompt } from '@/features/account';
-import { WHATS_NEW_VERSION } from '@/features/onboarding/whats-new/content';
 import {
 	Dialog,
 	DialogHeader,
@@ -35,8 +33,6 @@ function WelcomeFlow() {
 	const locale = useUserLocale();
 	const { data: authUser, isPending: authLoading } = useAuthUser();
 	const { data: sites } = useSites();
-	const { data: hints } = useOnboardingHints();
-	const { mutateAsync: setHints } = useSetOnboardingHints();
 	const { data: preferences } = useUserPreferences();
 	const savePreferences = useSaveUserPreferences();
 	const [ authenticationStarted, setAuthenticationStarted ] = useState( false );
@@ -52,9 +48,6 @@ function WelcomeFlow() {
 		setFinishing( true );
 		setFinishError( false );
 		try {
-			await setHints( {
-				whatsNewSeenVersion: Math.max( hints?.whatsNewSeenVersion ?? 0, WHATS_NEW_VERSION ),
-			} );
 			await connector.setOnboardingCompleted( true );
 			await navigate( {
 				to: '.',
@@ -69,7 +62,7 @@ function WelcomeFlow() {
 			setFinishing( false );
 			setFinishError( true );
 		}
-	}, [ connector, navigate, setHints, hints, sites ] );
+	}, [ connector, navigate, sites ] );
 
 	useEffect( () => {
 		if ( authenticationStarted && authUser && ! finishError ) void finish();

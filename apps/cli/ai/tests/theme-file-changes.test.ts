@@ -42,6 +42,32 @@ describe( 'updatable theme file changes', () => {
 			problem: 'it loses the changes to parts/header.html. Make them in a child theme',
 		},
 		{
+			// As run 55's Ollie turn removed the font folder Ollie ships.
+			name: "a removed file of an updated theme's release",
+			setup: () => write( 'twentytwentyfive/assets/fonts/fraunces/Fraunces.woff2', 'font' ),
+			change: () =>
+				rmSync( path.join( fixture.root, 'wp-content/themes/twentytwentyfive/assets/fonts' ), {
+					recursive: true,
+				} ),
+			problem:
+				"twentytwentyfive is a theme WordPress updates: assets/fonts/fraunces/Fraunces.woff2 of twentytwentyfive's release is gone, and an update brings it back. To keep twentytwentyfive as released, restore twentytwentyfive's released files, as `wp theme install twentytwentyfive --force` does for a theme from WordPress.org.",
+		},
+		{
+			name: 'a removed and an edited file of an updated theme',
+			setup: () => {
+				write( 'twentytwentyfive/assets/a.woff2', 'a' );
+				write( 'twentytwentyfive/assets/b.woff2', 'b' );
+			},
+			change: () => {
+				rmSync( path.join( fixture.root, 'wp-content/themes/twentytwentyfive/assets' ), {
+					recursive: true,
+				} );
+				write( 'twentytwentyfive/theme.json', '{"version":3,"settings":{}}' );
+			},
+			problem:
+				"it loses the changes to theme.json. assets/a.woff2, assets/b.woff2 of twentytwentyfive's release are gone, and an update brings them back. Make them in the site's Global Styles",
+		},
+		{
 			name: "an edit to the user's own theme",
 			change: () => write( 'bakery/style.css', '/*\nTheme Name: Bakery\n*/' ),
 			problem: undefined,
@@ -54,7 +80,8 @@ describe( 'updatable theme file changes', () => {
 			},
 			problem: undefined,
 		},
-	] )( 'reports $name', async ( { change, problem } ) => {
+	] )( 'reports $name', async ( { setup, change, problem } ) => {
+		setup?.();
 		const check = checkThemes();
 		await check.snapshot();
 		change();

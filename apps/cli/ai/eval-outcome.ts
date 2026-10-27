@@ -25,6 +25,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { validateBlocks } from '@studio/agent/node';
+import { STUDIO_LOADER_MU_PLUGIN_FILENAME } from '@studio/common/lib/mu-plugins';
 import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
 import { Mode as StopMode, runCommand as runStopSiteCommand } from 'cli/commands/site/stop';
 import { readCliConfig } from 'cli/lib/cli-config/core';
@@ -39,14 +40,22 @@ export interface SiteFingerprint {
 	path: string;
 	name: string;
 	mtimeMs: number;
+	// The site's mu-plugins, by name, which a removal changes only in the
+	// folder's own time, left out below.
+	muPlugins: string[];
 }
 
 // The newest modification time under a site's database and wp-content, which
 // moves whenever the site is changed. A read of the SQLite database moves its
 // -shm file, the WAL index, which holds none of the site
 // (https://sqlite.org/walformat.html).
+// Studio's loader mu-plugin, which Studio writes into each site it runs
+// (writeStudioMuPlugins()) and leaves out of archives and exports, is not the
+// site's, nor is the mu-plugins folder's own time, which its rewrite moves.
 function newestMtime( dir: string, depth = 6 ): number {
 	let newest = 0;
+	const muPlugins = path.join( dir, 'wp-content', 'mu-plugins' );
+	const loader = path.join( muPlugins, STUDIO_LOADER_MU_PLUGIN_FILENAME );
 	const walk = ( current: string, level: number ) => {
 		let entries;
 		try {
@@ -58,6 +67,7 @@ function newestMtime( dir: string, depth = 6 ): number {
 			if ( [ 'node_modules', 'cache' ].includes( entry.name ) || entry.name.endsWith( '-shm' ) )
 				continue;
 			const full = path.join( current, entry.name );
+			if ( full === loader ) continue;
 			try {
 				const stat = statSync( full );
 				// SQLite's WAL files: a read-only read creates the WAL index (-shm)
@@ -68,7 +78,7 @@ function newestMtime( dir: string, depth = 6 ): number {
 				const readOnlyTrace =
 					( level === 0 && entry.name === 'database' ) ||
 					( entry.name.endsWith( '-wal' ) && ! stat.size );
-				if ( ! readOnlyTrace ) newest = Math.max( newest, stat.mtimeMs );
+				if ( ! readOnlyTrace && full !== muPlugins ) newest = Math.max( newest, stat.mtimeMs );
 			} catch {
 				continue;
 			}
@@ -83,7 +93,22 @@ export async function fingerprintSites(): Promise< SiteFingerprint[] > {
 	const { sites } = await readCliConfig();
 	return sites
 		.filter( ( site ) => existsSync( site.path ) )
-		.map( ( site ) => ( { path: site.path, name: site.name, mtimeMs: newestMtime( site.path ) } ) );
+		.map( ( site ) => ( {
+			path: site.path,
+			name: site.name,
+			mtimeMs: newestMtime( site.path ),
+			muPlugins: siteMuPlugins( site.path ),
+		} ) );
+}
+
+function siteMuPlugins( sitePath: string ): string[] {
+	try {
+		return readdirSync( path.join( sitePath, 'wp-content', 'mu-plugins' ) )
+			.filter( ( name ) => name !== STUDIO_LOADER_MU_PLUGIN_FILENAME )
+			.sort();
+	} catch {
+		return [];
+	}
 }
 
 const PROBE_PHP = String.raw`
@@ -350,8 +375,13 @@ export async function captureTurnOutcome(
 	const after = new Map( ( await fingerprintSites() ).map( ( site ) => [ site.path, site ] ) );
 	const beforePaths = new Set( before.map( ( site ) => site.path ) );
 	const created = [ ...after.values() ].filter( ( site ) => ! beforePaths.has( site.path ) );
-	const changed = ( site: SiteFingerprint ) =>
-		( after.get( site.path )?.mtimeMs ?? 0 ) > site.mtimeMs;
+	const changed = ( site: SiteFingerprint ) => {
+		const now = after.get( site.path );
+		return (
+			( now?.mtimeMs ?? 0 ) > site.mtimeMs ||
+			now?.muPlugins.join( '\n' ) !== site.muPlugins.join( '\n' )
+		);
+	};
 	const requestBefore = before.find( ( site ) => site.path === requestSitePath );
 	const others = before.filter( ( site ) => site.path !== requestSitePath );
 

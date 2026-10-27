@@ -4,18 +4,18 @@ WordPress Studio includes Xdebug support for local sites. [Xdebug](https://xdebu
 
 ## [Enabling Xdebug](#0-enabling-xdebug)
 
-1.  Select the site you want to debug, and click the **Site overview** button next to its name in the sidebar.
-2.  Navigate to the **Debugging** tab.
-3.  Check the “**Enable Xdebug**” checkbox.
-4.  Click **Save settings**.
+1.  Open the site’s settings: choose **Settings** from the site menu (click the site icon at the top of the chat, or right-click the site in the sidebar).
+2.  Select the **Debug** page.
+3.  Turn on **Xdebug**.
+4.  Click **Save** at the top of the dialog.
 
-[![The Debugging tab of the site overview in Studio, with Enable Xdebug checked.](https://developer.wordpress.com/wp-content/uploads/2026/01/site-debugging.png)](https://developer.wordpress.com/wp-content/uploads/2026/01/site-debugging.png)
+[![The Debug page of a site's settings in Studio, with Xdebug turned on.](https://developer.wordpress.com/wp-content/uploads/2026/01/site-debugging.png)](https://developer.wordpress.com/wp-content/uploads/2026/01/site-debugging.png)
 
-The site will restart automatically with Xdebug enabled. While Xdebug is enabled, hovering over the site’s status button in the sidebar shows “Xdebug enabled”.
+The site will restart automatically with Xdebug enabled. While Xdebug is enabled, the site shows an Xdebug icon in the sidebar.
 
 ## [Important limitations](#1-important-limitations)
 
--   **Only one site at a time**: Xdebug can only be enabled for a single site at once. If another site already has it enabled, the **Debugging** tab shows “Xdebug is enabled on another site:” followed by that site’s name. To enable it for a different site, you must first disable it on the current site.
+-   **Only one site at a time**: Xdebug can only be enabled for a single site at once. If another site already has it enabled, the **Debug** page shows “Xdebug is enabled on another site:” followed by that site’s name. To enable it for a different site, you must first disable it on the current site.
 -   **Performance impact**: Xdebug may slow down site performance. Disable it when not actively debugging.
 
 ## [Using Xdebug with your IDE](#2-using-xdebug-with-your-ide)

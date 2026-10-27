@@ -1,61 +1,62 @@
-# Preview sites in WordPress Studio
+# Preview sites in WordPress Studio
 
-With WordPress Studio, you can share your work with preview sites. These preview sites are powered by [WordPress.com](https://wordpress.com/?ref=dev-doc) on a temporary domain (wp.build), and they allow you to share snapshots of your local sites with clients or team members. 
+With WordPress Studio, you can share your work with preview sites. These preview sites are powered by [WordPress.com](https://wordpress.com/?ref=dev-doc) on a temporary domain (wp.build), and they allow you to share snapshots of your local sites with clients or team members. 
 
-You can create up to ten preview sites at a time per WordPress.com account, and you can view the total number of preview sites you have associated with your account in **App settings → Usage** within the WordPress Studio app.
+You can create up to ten preview sites at a time per WordPress.com account, and you can see how many you’re using in **Settings → Sharing** and **Settings → Usage** within the WordPress Studio app.
 
-While preview sites are intended for sharing with clients and gathering early feedback for up to seven days, a hosting plan is required to make your site permanently accessible. Use the [Studio Sync](https://developer.wordpress.com/docs/developer-tools/studio/sync/) or [Import/Export](https://developer.wordpress.com/docs/developer-tools/studio/import-export/) features to connect your Studio site to a hosting plan.
+While preview sites are intended for sharing with clients and gathering early feedback for up to seven days, a hosting plan is required to make your site permanently accessible. Use [Publish](https://developer.wordpress.com/docs/developer-tools/studio/sync/) or [Import/Export](https://developer.wordpress.com/docs/developer-tools/studio/import-export/) to move your Studio site to a hosting plan.
 
 ## [Create a preview site](#0-create-a-preview-site)
 
-To create a preview site: 
+To create a preview site: 
 
 1.  Select the local site within Studio.
-2.  Click the site’s name at the top of the chat to open the site menu, and find the **Previews** section.
+2.  Click **Share** at the top right of the site preview. You can also choose **Share** from the site menu.
 3.  [Log in to WordPress.com](https://developer.wordpress.com/docs/developer-tools/studio#connect-wordpress-com) if you haven’t already.
-4.  Click on the **New preview** button.
+4.  Click **Create preview**.
 
-[![A screenshot depicting the Previews section of the site menu in the Studio app.](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-site-new-preview-1.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-site-new-preview-1.png)
+[![A screenshot depicting the Share panel in the Studio app.](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-site-new-preview-1.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-site-new-preview-1.png)
 
-Your preview site should be ready to view in a few seconds, and it will be available to access publicly for seven days.
+Your preview site should be ready to view in a few seconds, and it will be available to access publicly for seven days. The **Share** button shows a dot when the preview is ready.
 
-Every preview site for the local site is listed in the **Previews** section. Click a preview’s address to open it in your browser, or click **Copy preview URL** to share it.
+The **Share** panel shows the preview’s image, its **Preview link** with a **Copy link** button, and when it expires. If the local site has more than one preview, choose one from the menu at the top of the panel. To create another preview of the same site, open the **Preview actions** (**⋯**) menu and choose **New preview**.
 
-[![A screenshot depicting the existing previews in the Previews section of the site menu in the Studio app.](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-new-site-preview-link.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-new-site-preview-link.png)
+[![A screenshot depicting an existing preview in the Share panel in the Studio app.](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-new-site-preview-link.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-new-site-preview-link.png)
 
 ## [Rename a preview site](#1-rename-a-preview-site)
 
 You can create multiple preview sites per Studio site. To differentiate between them you can rename them inside Studio. To do so follow these steps:
 
-1.  Select the local site within Studio.
-2.  Click the site’s name at the top of the chat to open the site menu, and find the **Previews** section.
-3.  Click the **More actions** button in the row of your preview site.
-4.  Click on the **Rename** button.
-5.  Enter a new name.
-6.  Click the **Save name** button.
+1.  Select the local site within Studio, and click **Share**.
+2.  Choose the preview you want to rename.
+3.  Open the **Preview actions** (**⋯**) menu and choose **Rename…**.
+4.  Enter a new **Preview name**.
+5.  Click **Save**.
 
-[![A screenshot depicting more actions option of preview sites with the ability to rename or delete a site.](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-preview-more-actions.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-preview-more-actions.png)
+[![A screenshot depicting the Preview actions menu, with the options to create, rename, or delete a preview.](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-preview-more-actions.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-preview-more-actions.png)
 
-Your preview site will display that name in the list of preview sites, while your remote preview site name will remain unchanged.
+Your preview site will display that name in Studio, while your remote preview site name will remain unchanged.
+
+You can also rename any of your previews in **Settings → Sharing**.
 
 ## [Delete a preview site](#2-delete-a-preview-site)
 
-To delete a preview site: 
+To delete a preview site: 
 
-1.  Select the local site within Studio.
-2.  Click the site’s name at the top of the chat to open the site menu, and find the **Previews** section.
-3.  Click the **More actions** button in the row of your preview site.
-4.  Click on the **Delete** button, then click **Delete** again to confirm.
+1.  Select the local site within Studio, and click **Share**.
+2.  Choose the preview you want to delete.
+3.  Open the **Preview actions** (**⋯**) menu and choose **Delete preview**.
+4.  Click **Delete preview** again to confirm.
 
-Your preview site will be deleted and removed from the list.
+Your preview site will be deleted, and its shared link will stop working. You can also delete any of your previews in **Settings → Sharing**.
 
 ## [Update your preview site](#3-update-your-preview-site)
 
-By design, preview sites are generated as one-time “snapshots” of your work. That said, you may synchronize local site changes with your preview site: 
+By design, preview sites are generated as one-time “snapshots” of your work. That said, you may synchronize local site changes with your preview site: 
 
-1.  Select the local site within Studio.
-2.  Click the site’s name at the top of the chat to open the site menu, and find the **Previews** section.
-3.  Click the **Update preview site** button in the row of your preview site.
+1.  Select the local site within Studio, and click **Share**.
+2.  Choose the preview you want to update.
+3.  Click **Update preview**.
 
 Your preview site will be updated with the local changes in a few seconds. This will also reset the preview site expiration date back to seven days.
 
@@ -89,14 +90,18 @@ Note: Patterns are relative to the site root directory, not to `wp-content`. The
 
 Preview sites are temporary, and each preview site will be **automatically deleted after seven days from the last update**. This feature ensures that preview environments are used for short-term feedback and review purposes.
 
-An expired preview stays in the **Previews** list, marked as expired. Click **Recreate preview** to publish it again from your local site, or **Remove expired preview** to remove it from the list.
+Expired previews no longer appear in the **Share** panel. To see them, open **Settings → Sharing** and click **Show expired previews**. Click **Remove expired preview** next to one to remove it from the list. To share the site again, create a new preview from the **Share** panel.
+
+## [Manage all your preview sites](#manage-all-preview-sites)
+
+**Settings → Sharing** lists the live previews of all your sites, and how many of your preview sites you’ve used. For each preview, you can copy its link, rename it, or delete it.
+
+[![Screenshot of the Sharing page of Studio's Settings](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-delete-all-preview-sites.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-delete-all-preview-sites.png)
 
 ## [Delete all preview sites](#6-delete-all-preview-sites)
 
 To quickly delete all of your preview sites within Studio:
 
-1.  Click **App settings** at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux).
-2.  Select the **Usage** tab. The **Preview sites** section shows how many active preview sites you have.
-3.  Click the **Delete all preview sites** button and confirm.
-
-[![Screenshot of the App Settings -> Usage tab and the Delete all preview sites button](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-delete-all-preview-sites.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-delete-all-preview-sites.png)
+1.  Click **Settings** at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux).
+2.  Select the **Usage** page. The **Preview sites** section shows how many active preview sites you have.
+3.  Open the **Preview site actions** (**⋯**) menu, click **Delete all preview sites**, and confirm.

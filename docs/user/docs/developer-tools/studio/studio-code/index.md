@@ -4,7 +4,7 @@ Studio Code is an agentic coding tool built into the Studio desktop app and [Stu
 
 It gives you an interactive chat where you can build, customize, and manage WordPress sites conversationally, creating themes and plugins, editing files, running WP-CLI commands, deploying previews and publishing your site.
 
-Using it requires you to be logged into your WordPress.com account and [having a payment method on WordPress.com is required](http://wordpress.com/me/purchases/add-payment-method) to prevent abuse. 
+To use it with WordPress.com AI credits, you need to be logged into your WordPress.com account, and [having a payment method on WordPress.com is required](http://wordpress.com/me/purchases/add-payment-method) to prevent abuse. You can also [use your own Anthropic API key](#17-use-your-own-anthropic-api-key) instead. 
 
 ## [Getting started](#0-getting-started)
 
@@ -14,9 +14,9 @@ Studio Code is available in the Studio desktop app and as part of the standalone
 
 Studio Code in the Studio desktop app is built into a friendly, familiar interface and doesn’t require npm dependencies.
 
-Open your WordPress Studio desktop app and select a site in the sidebar (or add a new site). Studio Code is the chat pane next to the site preview: type your request in the chat box at the bottom. If you aren’t logged in, the pane shows a **Log in with WordPress.com** button instead.
+Open your WordPress Studio desktop app and select a site in the sidebar (or add a new site). Studio Code is the chat next to the site preview: type your request in the chat box at the bottom. If you haven’t connected an AI provider yet, the chat box shows “Connect a provider to build and edit your site.” Click **Connect** to log in with WordPress.com or add your own Anthropic API key.
 
-[![Studio Code chat pane for a selected site](https://developer.wordpress.com/wp-content/uploads/2026/04/studio-code.png)](https://developer.wordpress.com/wp-content/uploads/2026/04/studio-code.png)
+[![Studio Code chat for a selected site](https://developer.wordpress.com/wp-content/uploads/2026/04/studio-code.png)](https://developer.wordpress.com/wp-content/uploads/2026/04/studio-code.png)
 
 ### [Studio Code in Studio CLI](#2-studio-code-in-studio-cli)
 
@@ -44,7 +44,7 @@ By default, Studio Code uses WordPress.com infrastructure to generate AI respons
 3.  A browser window will open. Log into your WordPress.com account and approve the connection.
 4.  Paste the authorization token back into the terminal to complete the login.
 
-Alternatively, you can [use your own Anthropic API key](#17-use-your-own-anthropic-api-key): type /api-key in the chat in the terminal, or add it in **App settings → AI** in the desktop app.
+Alternatively, you can [use your own Anthropic API key](#17-use-your-own-anthropic-api-key): type /api-key in the chat in the terminal, or connect **Anthropic** in **Settings → AI Providers** in the desktop app.
 
 ## [Using Studio Code](#4-using-studio-code)
 
@@ -73,21 +73,23 @@ The agent can read and write files in your site directory, run WP-CLI commands, 
 
 When you ask Studio Code to build a site, it first offers you four looks, and then four layouts previewed in the look you picked. It skips these questions when your request already describes a design. Your choice is saved as `DESIGN.md` in the site’s root folder, and later chats, as well as other coding agents, follow it. Fonts chosen in `DESIGN.md` are self-hosted on the site.
 
-To review the design system, open the site preview’s address menu and choose **Design system**. It shows the colors, type scale, spacing and corners, components, and guidelines from `DESIGN.md`. If the theme’s `theme.json` no longer matches `DESIGN.md`, Studio lists each difference: choose **Use DESIGN.md** or **Keep theme.json** for each one, or **Apply all from DESIGN.md**.
+To review the design system, click the site preview’s address bar and choose **Design system**, or choose **Go to → Design system** from the site menu. It shows the colors, type scale, spacing and corners, components, and guidelines from `DESIGN.md`. If the theme’s `theme.json` no longer matches `DESIGN.md`, Studio lists each difference: choose **Use DESIGN.md** or **Keep theme.json** for each one, or **Apply all from DESIGN.md**.
 
 Studio Code can also generate images for your site. See [Image generation in Studio Code](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/image-generation/).
 
-To give Studio Code instructions that apply to every new chat, across all your sites, add them in **App settings → AI → Instructions** in the desktop app. For example: “Always answer in French. My sites are for restaurants.”
+To give Studio Code instructions that apply to every new chat, across all your sites, add them under **Custom instructions** in **Settings → Instructions** in the desktop app. For example: “Always answer in French. My sites are for restaurants.” The instruction files installed in a particular site, such as `AGENTS.md`, are listed on the **Instructions** page of that site’s settings.
 
 ### [Working with WordPress.com sites](#working-with-wordpress-com-sites)
 
-One Studio Code agent handles both your local sites and your WordPress.com sites, so a single chat can, for example, copy a live post into a local site. When the active site is a WordPress.com site, the agent works on the live site and only makes a local copy if you ask. It never pulls a live site over a local one without your confirmation. See [Studio Sync](https://developer.wordpress.com/docs/developer-tools/studio/sync/) for how pulling and pushing work.
+One Studio Code agent handles both your local sites and your WordPress.com sites, so a single chat can, for example, copy a live post into a local site. When the active site is a WordPress.com site, the agent works on the live site and only makes a local copy if you ask.
+
+In the desktop app, a chat for a local site that’s [connected to a WordPress.com site](https://developer.wordpress.com/docs/developer-tools/studio/sync/) can work on the live site instead: click **+** in the chat box and choose **Work on live site**. A **Live** chip appears in the chat box; choose **Work on local site**, or remove the chip, to switch back. It never pulls a live site over a local one without your confirmation. See [Studio Sync](https://developer.wordpress.com/docs/developer-tools/studio/sync/) for how pulling and pushing work.
 
 When the agent edits a block theme’s templates, those edits now also apply to customizations made in the Site Editor, instead of being silently skipped.
 
 ### [Slash commands](#6-slash-commands)
 
-While chatting, you can use slash commands for quick actions:
+While chatting, you can use slash commands for quick actions. In the desktop app, type `/` in the chat box to list the commands and skills that match, or click **+** to see them all under **Commands** and **Skills**. The desktop app shows skills by name, for example **Performance Audit** for `/need-for-speed` and **SEO Audit** for `/rank-me-up`.
 
 | Command | Description | Available in… |
 | --- | --- | --- |
@@ -123,7 +125,7 @@ Balanced and Strong require purchased AI Credits. For how tiers differ and how t
 
 Switch tiers at any time, including mid-conversation:
 
--   **Desktop**: select it from the model menu in the chat box
+-   **Desktop**: click the model button in the chat box, or choose **Choose model** from the **+** menu
 -   **Terminal**: run the `/model` command
 
 If you use your own Anthropic API key, the model menu lists **Sonnet 5** and **Opus 5** instead of tiers. See [AI providers](#11-ai-providers).
@@ -132,28 +134,28 @@ If you use your own Anthropic API key, the model menu lists **Sonnet 5** and **O
 
 Upload images and files into Studio Code to use across your project:
 
--   **Desktop**: drag files into the chat, paste them, or click the **+** (**Add skill or attachment**) button in the chat box and choose **Upload attachment**
+-   **Desktop**: drag files into the chat, paste them, or click **+** in the chat box and choose **Add files**
 -   **Terminal**: drag into the chat or point to a specific local file or folder
 
 ### [New conversations](#9-new-conversations)
 
 Clear your conversation and start a new one:
 
--   **Desktop**: click **New chat**, or press ⌘N (Ctrl+N on Windows and Linux)
+-   **Desktop**: hover over the site in the sidebar and click **New chat** (the pencil icon), or choose **New chat** from the command palette (⌘K, or Ctrl+K on Windows and Linux)
 -   **Terminal**: run the `/clear` command
 
-In the desktop app, your earlier chats are listed under **Chat history**, below the chat box. Use **Archive chat** to move a chat you no longer need to **Archived chats**.
+In the desktop app, each site’s chats are listed under the site in the sidebar, and your latest chats also appear under **Recent**. Right-click a chat to **Pin**, **Rename**, **Mark as unread**, or **Archive** it. Archiving removes the chat from the sidebar; click **Undo** in the notification to bring it back.
 
 ### [AI providers](#11-ai-providers)
 
 You can choose how AI responses are generated, in both the desktop app and the terminal:
 
 -   **WordPress.com** (default): uses your WordPress.com account and AI Credits. No additional setup is required beyond logging in.
--   **Anthropic API key**: uses your own API key for direct access to Claude. In the desktop app, add it in **App settings → AI → Use your Anthropic API key**. In the terminal, set it with the `/api-key` command.
+-   **Anthropic API key**: uses your own API key for direct access to Claude. In the desktop app, connect **Anthropic** in **Settings → AI Providers**. In the terminal, set it with the `/api-key` command.
 
-With your own key, the model menu offers **Sonnet 5** and **Opus 5** instead of Fast, Balanced, and Strong. In the desktop app, choose the provider for each chat from the model menu. In the terminal, switch providers with the `/provider` command.
+With your own key, the model menu offers **Sonnet 5** and **Opus 5** instead of Fast, Balanced, and Strong. In the desktop app, choose the provider for each chat from the model menu, and set the provider new chats use with **Default provider** in **Settings → AI Providers**. In the terminal, switch providers with the `/provider` command.
 
-Switching a chat between WordPress.com and Anthropic models starts a new chat, because the models don’t share memory. In the desktop app, Studio asks you to confirm first, and your previous chat stays in **Chat history**.
+Switching a chat between WordPress.com and Anthropic models starts a new chat, because the models don’t share memory. In the desktop app, Studio asks you to confirm first (**Start a new chat?**), and your previous chat stays in the sidebar.
 
 ## [Terminal-specific guidance](#10-terminal-specific-guidance)
 
@@ -223,7 +225,7 @@ When you use the default WordPress.com provider, Studio Code’s AI usage is pai
 
 Studio Code shows your remaining AI Credits as you work:
 
--   **Desktop**: the **AI credits** meter in the chat box, and **App settings → Usage**
+-   **Desktop**: the model menu in the chat box, and **Settings → Usage**
 -   **Terminal**: the stats line at the end of each turn, and the `/credits` command
 
 Studio Code warns you when you have used 80% and 90% of your AI Credits.
@@ -244,11 +246,11 @@ You can connect Studio Code directly to Anthropic at any time using your own API
 To use your own key in the desktop app:
 
 1.  Create an API key at [console.anthropic.com](https://console.anthropic.com/) (requires an Anthropic account with billing set up).
-2.  Open **App settings** from the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux), and select the **AI** tab.
-3.  Paste your key in the **Anthropic API key** field.
+2.  Open **Settings** from the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux), and select **AI Providers**.
+3.  Next to **Anthropic**, click **Connect**, paste your key in the **Anthropic API key** field, and click **Save**.
 4.  In the chat box, choose **Sonnet 5** or **Opus 5** from the model menu.
 
-[![The AI tab in Studio's App settings, with the Studio Code toggle, the Anthropic API key field, and global Instructions](https://developer.wordpress.com/wp-content/uploads/2026/04/app-settings-ai.png)](https://developer.wordpress.com/wp-content/uploads/2026/04/app-settings-ai.png)
+[![The AI Providers page of Studio's Settings, with the WordPress.com and Anthropic providers](https://developer.wordpress.com/wp-content/uploads/2026/04/app-settings-ai.png)](https://developer.wordpress.com/wp-content/uploads/2026/04/app-settings-ai.png)
 
 To switch it using CLI:
 

@@ -2,111 +2,129 @@ import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 /**
- * Screenshots captured from a single first-run session of the installed
- * Studio app, signed out. They run in order and each step builds on the
- * state the previous one left (onboarding → site creation → site views →
- * app settings), so `--only` filters which files are saved, not which steps
+ * Screenshots captured from a single first-run session of Studio 2.0, signed
+ * out. They run in order and each step builds on the state the previous one
+ * left (welcome → Add site → site creation → workspace → site menu → Settings
+ * → stopped site), so `--only` filters which files are saved, not which steps
  * run.
  *
  * `pages` are the mirrored docs pages that use the shot; `replaces` are the
  * current images (under https://developer.wordpress.com/wp-content/uploads/)
- * the shot is meant to replace.
+ * the shot is meant to replace. `desktopOnly` shots show UI the browser build
+ * (`studio ui`) doesn't have.
  */
+
+export const SITE_NAME = 'My WordPress Website';
+
 export const SHOTS = [
   {
     name: 'welcome',
-    description: 'First-run Welcome screen',
+    description: 'First-run Welcome to WordPress Studio dialog',
     pages: ['index.md'],
+    replaces: ['2024/04/welcome.png'],
+    desktopOnly: true,
     async setup({ w }) {
-      await w.getByRole('heading', { name: 'WordPress Studio', level: 1 }).waitFor();
+      await w.getByRole('alertdialog', { name: 'Welcome to WordPress Studio' }).waitFor();
+    },
+    async teardown({ w }) {
+      await w.getByRole('button', { name: 'Continue without an account' }).click();
+      await w
+        .getByRole('alertdialog', { name: 'Welcome to WordPress Studio' })
+        .waitFor({ state: 'hidden' });
     },
   },
   {
-    name: 'tour-sites',
-    description: 'Tour: "Sites run right on your machine"',
-    pages: ['index.md'],
-    async setup({ w }) {
-      await w.getByRole('button', { name: 'Skip', exact: true }).click();
-      await w.getByRole('heading', { name: 'Sites run right on your machine' }).waitFor();
-    },
-  },
-  {
-    name: 'tour-log-in',
-    description: 'Tour: "Build with Studio Code", with Log in with WordPress.com and Skip log in',
-    pages: ['index.md'],
-    async setup({ w }) {
-      await w.getByRole('button', { name: 'Continue', exact: true }).click();
-      await w.getByRole('heading', { name: 'Build with Studio Code' }).waitFor();
-    },
-  },
-  {
-    name: 'add-a-site',
-    description: 'Add a site: Create a new site / Connect a site / Import from a backup',
-    pages: ['sites.md', 'import-export.md', 'blueprints/index.md'],
-    replaces: ['2025/01/new-studio-site.png', '2025/10/new-studio-site.png'],
-    async setup({ w }) {
-      await w.getByRole('button', { name: 'Skip log in' }).click();
-      await w.getByRole('heading', { name: 'Add a site', level: 1 }).waitFor();
-      await waitForBlueprints(w);
-      await waitForImages(w.getByRole('region', { name: 'Start from a Blueprint' }));
+    name: 'add-site',
+    description: 'Add site dialog: Create / Connect / Import, Blueprint categories, Choose a starting point',
+    pages: ['sites.md', 'blueprints/index.md'],
+    replaces: ['2025/01/add-a-site.png'],
+    async setup(ctx) {
+      await openAddSite(ctx);
+      await waitForBlueprints(ctx.w);
+      await waitForImages(addSiteDialog(ctx.w));
     },
   },
   {
     name: 'blueprints-library',
-    description: 'Add a site → Start from a Blueprint (blueprints library and Upload a Blueprint)',
+    description: 'Add site → Blueprints → Business category',
     pages: ['blueprints/index.md'],
-    replaces: ['2025/10/build-new-site.png', '2025/10/blueprints-gallery.png'],
+    replaces: ['2025/10/blueprints-library.png'],
     async setup({ w }) {
-      const library = w.getByRole('region', { name: 'Start from a Blueprint' });
-      await scrollToTop(w.getByRole('heading', { name: 'Start from a Blueprint' }));
-      await waitForImages(library);
+      await addSiteTab(w, 'Business').click();
+      await waitForBlueprints(w);
+      await waitForImages(addSiteDialog(w));
     },
   },
   {
-    name: 'create-site-from-blueprint',
-    description: 'Create a new site from the WooCommerce blueprint',
+    name: 'blueprint-details',
+    description: 'A Blueprint’s details, with Preview in browser and Create site',
     pages: ['blueprints/index.md'],
-    replaces: ['2025/10/studio-add-site-name-settings-16-1.jpg'],
+    replaces: ['2025/10/create-site-from-blueprint.png'],
     async setup({ w }) {
-      await w.getByRole('button', { name: /^WooCommerce Create your next online store/ }).click();
-      await w.getByRole('button', { name: 'Create site from Blueprint' }).waitFor();
+      await addSiteDialog(w).locator('[data-blueprint-slug]').first().click();
+      const preview = w.getByRole('button', { name: 'Preview in browser' });
+      await preview.waitFor();
+      await waitForImages(w.getByRole('dialog').filter({ has: preview }));
     },
     async teardown({ w }) {
-      await w.getByRole('button', { name: 'Back', exact: true }).click();
-      await w.getByRole('heading', { name: 'Add a site', level: 1 }).waitFor();
+      await w.getByRole('button', { name: 'Back to Blueprints' }).click();
+      await addSiteTab(w, 'Business').waitFor();
+    },
+  },
+  {
+    name: 'add-site-connect',
+    description: 'Add site → Connect, signed out',
+    pages: ['sync.md'],
+    async setup({ w }) {
+      await addSiteTab(w, 'Connect').click();
+      await w.getByRole('heading', { name: 'Connect a site' }).waitFor();
+    },
+  },
+  {
+    name: 'add-site-import',
+    description: 'Add site → Import: Drop a WordPress backup here / Choose file',
+    pages: ['import-export.md'],
+    replaces: ['2025/01/add-a-site-1.png'],
+    async setup({ w }) {
+      await addSiteTab(w, 'Import').click();
+      await w.getByText('Drop a WordPress backup here.').waitFor();
     },
   },
   {
     name: 'create-site',
-    description: 'Create a new site: site name and Advanced settings',
+    description: 'Create your site: Site name and What should we create?',
     pages: ['sites.md'],
     async setup({ w }) {
-      await w.getByRole('link', { name: /^Create a new site/ }).click();
-      await w.getByRole('heading', { name: 'Create a new site', level: 1 }).waitFor();
+      await addSiteTab(w, 'Create').click();
+      await w.getByRole('button', { name: 'Start with Blank site' }).click();
+      const name = w.getByRole('textbox', { name: 'Site name' });
+      await name.fill(SITE_NAME);
+      await name.blur();
     },
   },
   {
     name: 'create-site-advanced',
-    description: 'Create a new site → Advanced settings (WordPress version, PHP environment)',
+    description: 'Create your site → Advanced settings (local path, WordPress and PHP versions, file access)',
     pages: ['sites.md', 'php-runtimes.md'],
+    replaces: ['2025/01/create-site-advanced.png'],
     async setup({ w }) {
       await w.getByRole('button', { name: 'Advanced settings' }).click();
-      await scrollToTop(w.getByText('Site details', { exact: true }).first());
+      await scrollToTop(w.getByRole('textbox', { name: 'Local path' }), 80);
     },
   },
   {
     name: 'create-site-https',
-    description: 'Create a new site → Advanced settings → Domain with Use custom domain and Enable HTTPS',
+    description: 'Create your site → Advanced settings with Use custom domain and Enable HTTPS',
     pages: ['ssl-in-studio.md'],
-    replaces: ['2025/03/studio-custom-domain-ssl-docs.jpg'],
+    replaces: ['2025/03/create-site-https.png'],
     async setup({ w }) {
-      await w.getByRole('checkbox', { name: 'Use custom domain' }).check();
-      await w.getByRole('checkbox', { name: 'Enable HTTPS' }).check();
-      await scrollToBottom(w.getByRole('checkbox', { name: 'Enable HTTPS' }));
+      await setToggle(w, 'Use custom domain', true);
+      await setToggle(w, 'Enable HTTPS', true);
+      await scrollToTop(w.getByRole('switch', { name: 'Use custom domain' }), 120);
     },
     async teardown({ w }) {
-      await w.getByRole('checkbox', { name: 'Enable HTTPS' }).uncheck();
-      await w.getByRole('checkbox', { name: 'Use custom domain' }).uncheck();
+      await setToggle(w, 'Enable HTTPS', false);
+      await setToggle(w, 'Use custom domain', false);
     },
   },
   {
@@ -121,14 +139,14 @@ export const SHOTS = [
       await waitForSiteRunning(w);
     },
     async teardown({ w }) {
-      const guide = w.getByRole('dialog');
+      const guide = w.getByRole('dialog', { name: /Welcome to WordPress Studio|Build by asking|See your site/ });
       for (let i = 0; i < 5; i++) {
-        const done = guide.getByRole('button', { name: 'Let’s go' });
+        const done = w.getByRole('button', { name: 'Let’s go' });
         if (await done.count()) {
           await done.click();
           break;
         }
-        await guide.getByRole('button', { name: 'Next' }).click();
+        await w.getByRole('button', { name: 'Next', exact: true }).click();
         await w.waitForTimeout(400);
       }
       await guide.waitFor({ state: 'hidden' });
@@ -136,54 +154,103 @@ export const SHOTS = [
   },
   {
     name: 'main-window-signed-out',
-    description: 'Main window, signed out: sidebar, Log in with WordPress.com, and the site preview',
-    pages: ['index.md', 'sites.md'],
-    replaces: ['2024/04/selective-sync-connect-site-main.jpg', '2025/01/studio-start-dot.jpg'],
-    // Not paused: pausing overlays a large play button on the feature demo.
+    description: 'Main window, signed out: sidebar, Studio Code chat, and the site preview',
+    pages: ['index.md', 'studio-code/index.md'],
+    replaces: ['2024/04/main-window-signed-out.png'],
     settle: 2_500,
     async setup({ w }) {
-      await w.getByRole('tab', { name: 'Studio Code' }).click().catch(() => {});
+      await waitForPreview(w);
     },
   },
   {
-    name: 'site-status-tooltip',
-    description: 'Sidebar site status toggle (start/stop) with its tooltip',
+    name: 'composer-add-menu',
+    description: 'Chat box + menu: Add files, Auto-start, Connect AI providers, and Skills',
+    pages: ['studio-code/index.md'],
+    async setup({ w }) {
+      await w.getByRole('button', { name: 'Add', exact: true }).click();
+      await w.getByText('Add files', { exact: true }).waitFor();
+    },
+    async teardown({ w }) {
+      await w.keyboard.press('Escape');
+      await w.getByText('Add files', { exact: true }).waitFor({ state: 'hidden' });
+    },
+  },
+  {
+    name: 'command-palette',
+    description: 'Command palette (⌘K)',
+    pages: ['index.md'],
+    async setup({ w }) {
+      await w.keyboard.press('ControlOrMeta+K');
+      await w.getByRole('combobox', { name: 'Search commands' }).waitFor();
+    },
+    async teardown({ w }) {
+      await w.keyboard.press('Escape');
+      await w.getByRole('combobox', { name: 'Search commands' }).waitFor({ state: 'hidden' });
+    },
+  },
+  {
+    name: 'preview-destinations',
+    description: 'Site preview address bar shortcuts: Front end / WordPress Admin / Database',
+    pages: ['sites.md', 'debugging/index.md', 'frequently-asked-questions.md'],
+    replaces: ['2026/04/preview-destinations.png'],
+    async setup({ w }) {
+      await w.getByRole('textbox', { name: 'Address' }).click();
+      await w.getByRole('dialog', { name: 'Preview shortcuts' }).waitFor();
+    },
+    async teardown({ w }) {
+      await w.keyboard.press('Escape');
+      await w.getByRole('dialog', { name: 'Preview shortcuts' }).waitFor({ state: 'hidden' });
+      await w.getByRole('textbox', { name: 'Address' }).blur();
+    },
+  },
+  {
+    name: 'site-status-button',
+    description: 'Sidebar site row with its Stop button and tooltip',
     pages: ['sites.md'],
-    replaces: ['2025/01/studio-start-dot-hover.jpg'],
+    replaces: ['2025/01/site-status-tooltip.png'],
     keepMouse: true,
     async setup({ w }) {
-      await w.getByRole('button', { name: /^Site status: Running/ }).hover();
+      await siteStatusButton(w, 'Stop').hover();
       await w.waitForTimeout(1_200);
     },
   },
   {
-    name: 'site-overview',
-    description: 'Site overview → Overview tab (About, WP Admin, Shortcuts, Open in…, Manage)',
-    pages: [
-      'sites.md',
-      'import-export.md',
-      'frequently-asked-questions.md',
-      'debugging/index.md',
-    ],
-    replaces: ['2025/01/studio-site-overview-2.jpg', '2025/01/studio-open-site.jpg'],
-    async setup({ w, main }) {
-      await w
-        .getByRole('complementary')
-        .first()
-        .getByRole('button', { name: 'Site overview' })
-        .click();
-      await main().getByRole('tab', { name: 'Overview' }).waitFor();
-      await main().getByRole('button', { name: 'Hide preview' }).click();
-      await w.waitForTimeout(500);
+    name: 'site-menu',
+    description: 'The site menu, opened from the site icon at the top of the chat',
+    pages: ['sites.md'],
+    replaces: ['2025/01/sidebar-site-menu.png'],
+    async setup({ w }) {
+      await openSiteMenu(w);
+    },
+  },
+  {
+    name: 'site-menu-open-in',
+    description: 'Site menu → Open in (browser, file manager, editor, terminal, phpMyAdmin)',
+    pages: ['sites.md', 'frequently-asked-questions.md'],
+    async setup({ w }) {
+      await openSubmenu(w, 'Open in', 'phpMyAdmin');
+    },
+  },
+  {
+    name: 'site-menu-export',
+    description: 'Site menu → Export (Export site / Export database)',
+    pages: ['import-export.md'],
+    replaces: ['2025/01/site-overview-1.png'],
+    async setup({ w }) {
+      await openSubmenu(w, 'Export', 'Export database');
+    },
+    async teardown({ w }) {
+      await closeMenus(w);
     },
   },
   {
     name: 'delete-site-dialog',
-    description: 'Delete site confirmation (from Site overview → Manage → Delete)',
+    description: 'Delete site confirmation, with Also move files and database to Trash',
     pages: ['sites.md'],
-    replaces: ['2025/01/studio-delete-site-2.jpg'],
-    async setup({ w, main }) {
-      await main().getByRole('button', { name: 'Delete', exact: true }).click();
+    replaces: ['2025/01/delete-site-dialog.png'],
+    async setup({ w }) {
+      await openSiteMenu(w);
+      await w.getByRole('menuitem', { name: 'Delete site' }).click();
       await w.getByRole('alertdialog').waitFor();
     },
     async teardown({ w }) {
@@ -195,11 +262,14 @@ export const SHOTS = [
     name: 'import-overwrite-dialog',
     description: 'Import a backup into an existing site: the overwrite confirmation',
     pages: ['import-export.md'],
+    replaces: ['2025/01/import-overwrite-dialog.png'],
     async setup({ w, dirs }) {
       // An empty zip is enough to reach the confirmation; the import is cancelled.
+      // The site menu's file input is the one that also accepts .sql dumps.
+      // It sits outside the menu popup, so the menu needn't be open.
       const backup = path.join(dirs.root, 'backup.zip');
       await writeFile(backup, Buffer.from('504b0506' + '00'.repeat(18), 'hex'));
-      await w.locator('input[type=file][accept*=".wpress"]').first().setInputFiles(backup);
+      await w.locator('input[type=file][accept*=".sql"]').first().setInputFiles(backup);
       await w.getByRole('alertdialog', { name: /^Overwrite/ }).waitFor();
     },
     async teardown({ w }) {
@@ -209,133 +279,119 @@ export const SHOTS = [
   },
   {
     name: 'site-settings',
-    description: 'Site overview → Settings tab (Site details, WordPress version)',
+    description: 'Settings dialog, Site scope → Settings (site name, WordPress version, local domain, credentials)',
     pages: ['sites.md'],
-    replaces: ['2025/01/studio-site-settings-2.jpg', '2025/01/studio-edit-site-new.jpg'],
-    async setup({ main }) {
-      await main().getByRole('tab', { name: 'Settings' }).click();
-      await main().getByRole('tabpanel', { name: 'Settings' }).waitFor();
-    },
-  },
-  {
-    name: 'site-settings-php',
-    description: 'Site settings → PHP environment (PHP version, PHP runtime, File access)',
-    pages: ['php-runtimes.md', 'sites.md'],
-    replaces: [
-      '2026/06/screenshot-2026-06-23-at-10.43.25-edited.png',
-      '2026/06/screenshot-2026-06-23-at-10.43.40-edited.png',
-    ],
-    async setup({ main }) {
-      await scrollToTop(main().getByText('PHP environment', { exact: true }));
+    replaces: ['2025/01/site-settings.png'],
+    async setup({ w }) {
+      await openSiteMenu(w);
+      await w.getByRole('menuitem', { name: 'Settings', exact: true }).click();
+      await settingsPanel(w, 'Settings').waitFor();
     },
   },
   {
     name: 'site-settings-domain',
-    description: 'Site settings → Domain with Use custom domain and Enable HTTPS (not saved)',
+    description: 'Site settings → Local domain with Use custom domain and Enable HTTPS (not saved)',
     pages: ['ssl-in-studio.md'],
-    async setup({ main }) {
-      await main().getByRole('checkbox', { name: 'Use custom domain' }).check();
-      await main().getByRole('checkbox', { name: 'Enable HTTPS' }).check();
-      await scrollToBottom(main().getByRole('checkbox', { name: 'Enable HTTPS' }));
-    },
-    async teardown({ main }) {
-      await main().getByRole('checkbox', { name: 'Enable HTTPS' }).uncheck();
-      await main().getByRole('checkbox', { name: 'Use custom domain' }).uncheck();
-    },
-  },
-  {
-    name: 'site-debugging',
-    description: 'Site overview → Debugging tab with Enable Xdebug ticked (not saved)',
-    pages: ['xdebug.md', 'debugging/index.md'],
-    async setup({ main }) {
-      await main().getByRole('tab', { name: 'Debugging' }).click();
-      await main().getByRole('checkbox', { name: 'Enable Xdebug' }).check();
-    },
-    async teardown({ main }) {
-      await main().getByRole('checkbox', { name: 'Enable Xdebug' }).uncheck();
-    },
-  },
-  {
-    name: 'preview-destinations',
-    description: 'Site preview address menu: Front end / WP Admin / Database (phpMyAdmin)',
-    pages: ['debugging/index.md'],
-    async setup({ w, main }) {
-      await main().getByRole('tab', { name: 'Overview' }).click();
-      await main().getByRole('button', { name: 'Show preview' }).click();
-      await w.getByRole('button', { name: 'Preview shortcuts' }).click();
-      await w.getByRole('dialog', { name: 'Preview shortcuts' }).waitFor();
+    async setup({ w }) {
+      const panel = settingsPanel(w, 'Settings');
+      await setToggle(panel, 'Use custom domain', true);
+      await setToggle(panel, 'Enable HTTPS', true);
+      await scrollToTop(panel.getByText('Local domain', { exact: true }));
     },
     async teardown({ w }) {
-      await w.keyboard.press('Escape');
-      const menu = w.getByRole('dialog', { name: 'Preview shortcuts' });
-      if (await menu.isVisible()) {
-        await w.mouse.click(400, 700);
-      }
-      await menu.waitFor({ state: 'hidden' });
+      await discardSettings(w);
+    },
+  },
+  {
+    name: 'site-settings-debug',
+    description: 'Site settings → Debug with Xdebug turned on (not saved)',
+    pages: ['xdebug.md', 'debugging/index.md'],
+    replaces: ['2026/01/site-debugging.png'],
+    async setup({ w }) {
+      await openSettingsSection(w, 'Debug');
+      await setToggle(settingsPanel(w, 'Debug'), 'Xdebug', true);
+    },
+    async teardown({ w }) {
+      await discardSettings(w);
+    },
+  },
+  {
+    name: 'site-settings-php',
+    description: 'Site settings → PHP (PHP version, File access)',
+    pages: ['php-runtimes.md', 'sites.md'],
+    replaces: ['2025/01/site-settings-php.png'],
+    async setup({ w }) {
+      await openSettingsSection(w, 'PHP');
+    },
+  },
+  {
+    name: 'settings-general',
+    description: 'Settings dialog, Studio scope → General (language, code editor, terminal, …)',
+    pages: ['sites.md'],
+    replaces: ['2025/01/app-settings.png'],
+    async setup({ w }) {
+      await w.getByRole('tablist', { name: 'Settings scope' }).getByRole('tab', { name: 'Studio' }).click();
+      await settingsPanel(w, 'General').waitFor();
+    },
+  },
+  {
+    name: 'settings-studio-cli',
+    description: 'Settings → General → Studio CLI for terminal',
+    pages: ['cli.md'],
+    replaces: ['2025/05/app-settings-account.png'],
+    desktopOnly: true,
+    async setup({ w }) {
+      await scrollToTop(settingsPanel(w, 'General').getByText('Studio CLI for terminal', { exact: true }), 120);
+    },
+  },
+  {
+    name: 'settings-ai-providers',
+    description: 'Settings → AI Providers (WordPress.com and Anthropic)',
+    pages: ['studio-code/index.md'],
+    replaces: ['2026/04/app-settings-ai.png'],
+    async setup({ w }) {
+      await openSettingsSection(w, 'AI Providers');
+    },
+  },
+  {
+    name: 'settings-skills',
+    description: 'Settings → Skills',
+    pages: ['agent-skills-wordpress-studio.md'],
+    replaces: ['2026/04/app-settings-skills.png'],
+    async setup({ w }) {
+      await openSettingsSection(w, 'Skills');
+    },
+  },
+  {
+    name: 'settings-mcp',
+    description: 'Settings → MCP (install instructions and MCP configuration)',
+    pages: ['mcp-on-studio.md'],
+    replaces: ['2026/04/app-settings-mcp.png'],
+    async setup({ w }) {
+      await openSettingsSection(w, 'MCP');
+    },
+  },
+  {
+    name: 'settings-keyboard',
+    description: 'Settings → Keyboard (shortcuts)',
+    pages: ['index.md'],
+    async setup({ w }) {
+      await openSettingsSection(w, 'Keyboard');
+    },
+    async teardown({ w }) {
+      await w.getByRole('button', { name: 'Close settings' }).click();
+      await w.getByRole('tablist', { name: 'Settings sections' }).waitFor({ state: 'hidden' });
     },
   },
   {
     name: 'site-stopped',
-    description: 'A stopped site: sidebar start button and Start site in the preview',
+    description: 'A stopped site: Start button in the sidebar and the saved preview image',
     pages: ['sites.md'],
-    replaces: ['2025/01/studio-stopped-2.jpg'],
+    replaces: ['2025/01/site-stopped.png'],
+    settle: 1_500,
     async setup({ w }) {
-      await w.getByRole('button', { name: /^Site status: Running/ }).click();
-      await w
-        .getByRole('button', { name: /^Site status: Stopped/ })
-        .waitFor({ timeout: 60_000 });
-    },
-  },
-  {
-    name: 'app-settings',
-    description: 'App settings → Settings (Appearance, Preferred editor and terminal, …)',
-    pages: ['sites.md'],
-    replaces: ['2025/01/studio-open-preferences-2.jpg', '2025/01/studio-editor-preferences-2.jpg'],
-    async setup({ w }) {
-      await w.getByRole('button', { name: 'App settings' }).click();
-      await w.getByRole('tabpanel', { name: 'Settings' }).waitFor();
-    },
-  },
-  {
-    name: 'app-settings-account',
-    description: 'App settings → Settings → Account, with WordPress.com Log in',
-    pages: ['index.md'],
-    async setup({ w }) {
-      await scrollToTop(w.getByRole('heading', { name: 'Account', exact: true }));
-    },
-  },
-  {
-    name: 'app-settings-ai',
-    description: 'App settings → AI (Studio Code toggle, Anthropic API key, Instructions)',
-    pages: ['studio-code/index.md'],
-    async setup({ w }) {
-      await openSettingsTab(w, 'AI');
-    },
-  },
-  {
-    name: 'app-settings-usage-signed-out',
-    description: 'App settings → Usage, signed out: "Sign in to do more with Studio"',
-    pages: ['index.md'],
-    async setup({ w }) {
-      await openSettingsTab(w, 'Usage');
-    },
-  },
-  {
-    name: 'app-settings-skills',
-    description: 'App settings → Skills',
-    pages: ['agent-skills-wordpress-studio.md'],
-    replaces: ['2026/04/screenshot-2026-04-21-at-14.49.53.png'],
-    async setup({ w }) {
-      await openSettingsTab(w, 'Skills');
-    },
-  },
-  {
-    name: 'app-settings-mcp',
-    description: 'App settings → MCP',
-    pages: ['mcp-on-studio.md'],
-    replaces: ['2026/04/screenshot-2026-04-17-at-11.10.34.png'],
-    async setup({ w }) {
-      await openSettingsTab(w, 'MCP');
+      await siteStatusButton(w, 'Stop').click();
+      await siteStatusButton(w, 'Start').waitFor({ timeout: 60_000 });
     },
   },
 ];
@@ -346,55 +402,128 @@ export const SHOTS = [
  */
 export const MANUAL_SHOTS = [
   {
-    description: 'Studio Code chat pane for a selected site',
+    description: 'Studio Code chat for a selected site, with a reply in the transcript',
     pages: ['studio-code/index.md'],
-    replaces: ['2026/04/studio-code-desktop-wordpress-studio-1.png'],
+    replaces: ['2026/04/studio-code.png'],
   },
   {
-    description: 'Composer: model picker (Fast / Balanced / Strong) and AI credits meter',
-    pages: ['studio-code/index.md'],
-  },
-  {
-    description: 'Composer: Add skill or attachment → Upload attachment',
+    description: 'Chat box: model menu (Fast / Balanced / Strong) with the AI credits remaining',
     pages: ['studio-code/index.md'],
   },
   {
-    description: 'Limited-beta access notice with Apply for access',
-    pages: ['studio-code/index.md'],
-  },
-  {
-    description: 'App settings → Usage, signed in (AI credits, preview sites, Delete all preview sites)',
-    pages: ['preview-sites.md', 'studio-code/index.md'],
-    replaces: ['2025/01/studio-site-preview-site-delete-all.jpg'],
-  },
-  {
-    description: 'Site dropdown → Previews list (New preview, copy URL, update, rename, delete)',
+    description: 'Share panel with Create preview',
     pages: ['preview-sites.md'],
-    replaces: [
-      '2025/01/studio-site-preview-site.jpg',
-      '2025/01/studio-site-preview-site-rename.jpg',
-    ],
+    replaces: ['2025/01/studio-site-new-preview-1.png'],
   },
   {
-    description: 'Connect a live site picker (WordPress.com and Pressable)',
-    pages: ['sync.md'],
-    replaces: ['2025/01/selective-sync-connect.jpg'],
+    description: 'Share panel with a ready preview: image, Preview link, Copy link, Update preview',
+    pages: ['preview-sites.md'],
+    replaces: ['2025/01/studio-new-site-preview-link.png'],
   },
   {
-    description: 'Site dropdown → Live sites with Push to live / Pull from live and last-synced times',
-    pages: ['sync.md'],
+    description: 'Share panel → Preview actions menu (New preview, Rename…, Delete preview)',
+    pages: ['preview-sites.md'],
+    replaces: ['2025/01/studio-preview-more-actions.png'],
   },
   {
-    description: 'Pull from live with specific files and folders',
-    pages: ['sync.md'],
-    replaces: ['2025/01/selective-sync-pull-specific-folders-v2.jpg'],
+    description: 'Settings → Sharing, signed in (live previews, preview sites used)',
+    pages: ['preview-sites.md'],
+    replaces: ['2025/01/studio-delete-all-preview-sites.png'],
   },
   {
-    description: 'Push to live with specific files',
+    description: 'Settings → Usage, signed in (AI credits, Preview sites, Delete all preview sites menu)',
+    pages: ['preview-sites.md', 'studio-code/index.md'],
+  },
+  {
+    description: 'Publish panel → Choose website (WordPress.com and Pressable sites)',
     pages: ['sync.md'],
-    replaces: ['2025/01/selective-sync-push-specific-files.jpg'],
+    replaces: ['2025/01/studio-connect-live-site.png'],
+  },
+  {
+    description: 'Pull changes with Include → Choose files…',
+    pages: ['sync.md'],
+    replaces: ['2025/01/studio-pull-selective.png'],
+  },
+  {
+    description: 'Publish panel with Include → Choose files…',
+    pages: ['sync.md'],
+    replaces: ['2025/01/studio-selective-push.png'],
   },
 ];
+
+function addSiteDialog(w) {
+  return w.getByRole('dialog').filter({
+    has: w.getByRole('tablist', { name: 'Ways to add a site' }),
+  });
+}
+
+function addSiteTab(w, name) {
+  return w.getByRole('tablist', { name: 'Ways to add a site' }).getByRole('tab', { name, exact: true });
+}
+
+/** Opens Add site unless Studio already opened it (it does when there are no sites). */
+async function openAddSite({ w }) {
+  const tabs = w.getByRole('tablist', { name: 'Ways to add a site' });
+  await tabs.waitFor({ timeout: 10_000 }).catch(async () => {
+    await w.getByRole('button', { name: 'Add site' }).first().click();
+    await tabs.waitFor();
+  });
+}
+
+function settingsPanel(w, name) {
+  return w.getByRole('tabpanel', { name, exact: true });
+}
+
+async function openSettingsSection(w, name) {
+  await w.getByRole('tablist', { name: 'Settings sections' }).getByRole('tab', { name, exact: true }).click();
+  await settingsPanel(w, name).waitFor();
+}
+
+/** Undoes unsaved site settings so later shots start clean. */
+async function discardSettings(w) {
+  const discard = w.getByRole('button', { name: 'Discard' });
+  if (await discard.count()) {
+    await discard.click();
+    await discard.waitFor({ state: 'hidden' });
+  }
+}
+
+async function openSiteMenu(w) {
+  await closeMenus(w);
+  await w.getByRole('button', { name: `Site actions for ${SITE_NAME}` }).click();
+  await w.getByRole('menuitem', { name: 'Delete site' }).waitFor();
+}
+
+/**
+ * Opens a site menu submenu and waits for one of its items. The site menu is
+ * reopened first: while another submenu is open, it blocks hovering the rest
+ * of the menu.
+ */
+async function openSubmenu(w, trigger, item) {
+  await openSiteMenu(w);
+  const submenu = w.getByRole('menuitem', { name: trigger, exact: true });
+  await submenu.hover();
+  const target = w.getByRole('menuitem', { name: item, exact: true });
+  await target.waitFor({ timeout: 2_000 }).catch(async () => {
+    await submenu.click();
+    await target.waitFor();
+  });
+}
+
+async function closeMenus(w) {
+  for (let i = 0; i < 3 && (await w.getByRole('menu').count()); i++) {
+    await w.keyboard.press('Escape');
+    await w.waitForTimeout(150);
+  }
+}
+
+async function setToggle(scope, label, on) {
+  const control = scope.getByRole('switch', { name: label, exact: true });
+  if ((await control.getAttribute('aria-checked')) !== String(on)) {
+    await control.click();
+  }
+  await control.and(control.page().locator(`[aria-checked="${on}"]`)).waitFor();
+}
 
 async function waitForBlueprints(w) {
   await w
@@ -406,13 +535,24 @@ async function waitForBlueprints(w) {
 async function waitForSiteRunning(w) {
   // A CSS locator, because modal dialogs hide the sidebar from role queries.
   await w
-    .locator('button[aria-label^="Site status: Running"]')
+    .locator(`button[aria-label="Stop ${SITE_NAME}"]`)
+    .first()
     .waitFor({ timeout: 120_000 });
 }
 
-async function openSettingsTab(w, name) {
-  await w.getByRole('tab', { name, exact: true }).click();
-  await w.getByRole('tabpanel', { name }).waitFor();
+/**
+ * The sidebar's start/stop button. A new site is pinned, so it is listed under
+ * both Pinned and Sites; the first is the Pinned row at the top.
+ */
+function siteStatusButton(w, action) {
+  return w.getByRole('button', { name: `${action} ${SITE_NAME}`, exact: true }).first();
+}
+
+async function waitForPreview(w) {
+  await w
+    .getByText('Loading site preview')
+    .waitFor({ state: 'hidden', timeout: 60_000 })
+    .catch(() => {});
 }
 
 // Both scroll helpers move the element's nearest scrolling ancestor directly:
@@ -436,17 +576,6 @@ async function scrollToTop(locator, offset = 40) {
       parent.scrollTo({ top: parent.scrollTop + top - offset, behavior: 'instant' });
     },
     { offset, scrollParentSource: scrollParent.toString() }
-  );
-}
-
-/** Scrolls the scroll area that contains `locator` all the way down. */
-async function scrollToBottom(locator) {
-  await locator.evaluate(
-    (el, { scrollParentSource }) => {
-      const parent = new Function(`return ${scrollParentSource}`)()(el);
-      parent.scrollTo({ top: parent.scrollHeight, behavior: 'instant' });
-    },
-    { scrollParentSource: scrollParent.toString() }
   );
 }
 

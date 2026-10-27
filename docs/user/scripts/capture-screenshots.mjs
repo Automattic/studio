@@ -73,11 +73,11 @@ async function prepareFrame(ctx, shot) {
   await tidyPaths(ctx.w, ctx.homes);
 }
 
-function formatIndex({ date, saved, failed }) {
+function formatIndex({ date, version, saved, failed }) {
   const lines = [
     `# Studio screenshots — ${date}`,
     '',
-    `Captured from the installed Studio app, signed out, by \`npm run screenshots\`.`,
+    `Captured from Studio ${version}, signed out, by \`npm run screenshots\`.`,
     `Upload to WordPress.com; a file named \`<name>.png\` becomes \`${UPLOADS_URL}YYYY/MM/<name>.png\`.`,
     '',
     '| File | Shows | Used on | Replaces |',
@@ -128,6 +128,14 @@ async function main() {
   const studio = await launchStudio({ firstRun: true });
   const version = await studio.app.evaluate(({ app }) => app.getVersion());
   console.log(`Studio ${version}\n`);
+  // The shots follow the 2.0 UI; an older Studio fails on the first step.
+  if (Number.parseInt(version, 10) < 2) {
+    await studio.close();
+    throw new Error(
+      `Studio ${version} is too old: these shots need Studio 2.0 or later. ` +
+        'Set STUDIO_APP to a 2.0 build (see README.md).'
+    );
+  }
 
   const homes = [...new Set([studio.dirs.home, await realpath(studio.dirs.home)])];
   const ctx = {
@@ -171,7 +179,7 @@ async function main() {
   if (!args.only) {
     await writeFile(
       path.join(outDir, 'index.md'),
-      formatIndex({ date, saved, failed })
+      formatIndex({ date, version, saved, failed })
     );
   }
 

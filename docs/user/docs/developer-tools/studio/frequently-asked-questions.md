@@ -17,8 +17,8 @@ Themes created in Studio are the same as themes created on traditional WordPress
 
 1.  Select the local site within Studio.
 2.  Ensure that your site is already running.
-3.  Click the **Site overview** button next to the site’s name in the sidebar to open the **Overview** tab.
-4.  Under **Shortcuts**, click the “**Site Editor**” button.
+3.  Click the site preview’s address bar and choose **WordPress Admin**.
+4.  In WP Admin, go to **Appearance → Editor**.
 5.  Once the site editor loads, expand the editor by clicking anywhere on the site preview.
 6.  Click the **Options** menu button in the top right of the screen, represented by the ellipsis icon (⋮). 
 7.  Click **Export**, and your browser should begin downloading a `.zip` file of your theme.
@@ -44,11 +44,11 @@ Instead, Studio includes a built-in phpMyAdmin interface, adapted to work safely
 **Using phpMyAdmin**
 
 1.  Select the local site within Studio.
-2.  Click the **Site overview** button next to the site’s name in the sidebar to open the **Overview** tab.
-3.  Under **Open in…**, click the **phpMyAdmin** button.
+2.  Open the site menu: click the site icon at the top of the chat, or right-click the site in the sidebar.
+3.  Choose **Open in → phpMyAdmin**.
 4.  Studio will open phpMyAdmin in your browser, connected directly to your site’s database.
 
-You can also open phpMyAdmin inside Studio: in the site preview, open the address menu and choose **Database**.
+You can also open phpMyAdmin inside Studio: click the site preview’s address bar and choose **Database**, or choose **Go to → Database** from the site menu.
 
 From there, you can browse tables, inspect data, run SQL queries, and make edits through a familiar, safe interface — without needing to touch the underlying `.ht.sqlite` file directly.
 
@@ -71,16 +71,16 @@ If you have already created a site in Studio, and want to switch SQLite to the M
 
 ### [How do I select the PHP and WordPress versions for my site?](#15-how-do-i-change-the-php-version-used-for-my-site-) 
 
-You can select the PHP version or the WordPress version for your site when you first create it. This option is located in the “**Advanced Settings**” section. After creating a site, the current PHP and WordPress versions are displayed on the site’s **Settings** tab, where you can also edit and change them.
+You can select the PHP version or the WordPress version for your site when you first create it. This option is located in the “**Advanced Settings**” section. After creating a site, the current PHP and WordPress versions are displayed in the site’s settings, where you can also edit and change them.
 
-1.  Select the relevant site in the sidebar, and click the **Site overview** button next to its name.
-2.  Click the **Settings** tab.
-3.  Under **WordPress version**, keep **Automatic updates** or choose **Select a version**, and under **PHP environment**, select the **PHP version**.
-4.  Click the **Save settings** button to persist the changes.  
+1.  Choose **Settings** from the site menu: click the site icon at the top of the chat, or right-click the site in the sidebar.
+2.  On the **Settings** page, choose a **WordPress version**, or turn on **Automatic updates** to keep WordPress on the latest release.
+3.  On the **PHP** page, select the **PHP version**.
+4.  Click **Save** at the top of the dialog to persist the changes.  
 
 ### [Why isn’t the “Open In” button available for my preferred app?](#16-why-isn-t-the-open-in-button-available-for-my-preferred-app-)
 
-For each of your local sites, the following “Open in…” options are available:
+For each of your local sites, the following options are available under **Open in** in the site menu:
 
 **File Browsers:**
 
@@ -110,7 +110,7 @@ For each of your local sites, the following “Open in…” options are availab
 
 -   phpMyAdmin
 
-WordPress Studio, the code editors, and terminal applications must live in your Applications folder to ensure the **Open in…** options are available.  If you haven’t selected a preferred code editor in your User Settings, no code editor button will appear in the **Open in…** area. Similarly, if no terminal application is selected, the default will be:
+WordPress Studio, the code editors, and terminal applications must live in your Applications folder to ensure the **Open in…** options are available.  If you haven’t selected a preferred code editor in **Settings → General**, no code editor will appear in the **Open in** menu. Similarly, if no terminal application is selected, the default will be:
 
 -   **Terminal** on macOS
 -   **Command Prompt** on Windows
@@ -133,7 +133,7 @@ studio wp media regenerate --yes --only-missing
 
 ### [How can I access Studio logs?](#access-logs)
 
-Occasionally, actions like Push to live or Pull from live in the site menu, or Import and Export, could fail due to different reasons related to PHP, the site’s database, or custom code issue.
+Occasionally, actions like publishing or pulling changes, or Import and Export, could fail due to different reasons related to PHP, the site’s database, or custom code issue.
 
 If this happens, WordPress Studio will allow you to open logs and may ask to [contact support](https://developer.wordpress.com/contact/). You can also open the logs manually.
 
@@ -163,14 +163,14 @@ Follow the steps below to set up your site for this workflow. Begin by starting 
 
 If your site uses a local domain in the form of localhost:port:
 
-1.  **Start your Studio site** and note its port (e.g., `8883`). The port is shown in the site preview’s address field and in the **Studio** section of the site menu (click the site’s name at the top of the chat).
+1.  **Start your Studio site** and note its port (e.g., `8883`). The port is shown in the site preview’s address bar.
 2.  **Open a terminal** and set up [ngrok](https://dashboard.ngrok.com/get-started/setup) if you haven’t already.
 3.  **Set up a tunnel** to expose your local site using the following command:  
     `ngrok http 8883`
 
  If your site uses a custom local domain:
 
-1.  **Start your Studio site** and note the domain (e.g., `my-wordpress-website.wp.local`). The domain can also be found under **Domain** on the site’s **Settings** tab.
+1.  **Start your Studio site** and note the domain (e.g., `my-wordpress-website.wp.local`). The domain can also be found under **Local domain** on the **Settings** page of the site’s settings.
 2.  **Open a terminal** and set up [ngrok](https://dashboard.ngrok.com/get-started/setup) if you haven’t already.
 3.  **Set up a tunnel** to expose your local site using the following command:  
     `ngrok http --host-header=my-wordpress-website.wp.local http://my-wordpress-website.wp.local`

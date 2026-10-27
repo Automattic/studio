@@ -14,3 +14,15 @@ npx playwright install chromium   # first time only, for screenshots
 | `npm run fetch -- --section <slug>` | Fetch a section as Markdown into `docs/` |
 | `npm run verify -- --section <slug>` | Compare local Markdown with the live site (reports in `reports/`) |
 | `npm run screenshots` | Capture screenshots of the Studio app into `screenshots/out/<date>/` (git-ignored) |
+
+## Screenshots
+
+`npm run screenshots` drives the Studio Desktop app (2.0 or later) through a first run, signed out, with a throwaway profile, so your own sites and settings are never touched. Each shot is defined in `scripts/lib/studio-shots.mjs`, with the docs pages that use it and the uploaded images it replaces. `screenshots/out/<date>/index.md` lists what was captured, and the shots that need a WordPress.com login, which you capture by hand.
+
+The script uses the first Studio it finds:
+
+1.  `STUDIO_APP`, if set, for example `STUDIO_APP=/Applications/Studio.app/Contents/MacOS/Studio`.
+2.  A build of this repo, from `npm run package` at the repo root (`apps/studio/out/Studio-<platform>-<arch>/`).
+3.  On macOS, the installed `/Applications/Studio.app`.
+
+Use `--only <name,…>` to save only some shots (every step still runs, because each builds on the one before), and `--keep-profile` to keep the throwaway profile for inspection.

@@ -4,32 +4,39 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { _electron as electron } from 'playwright';
 
+// The build `npm run package` writes to apps/studio/out/ in this repo, or on
+// macOS the installed app when there is no build.
+const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..', '..', '..');
+const PACKAGED_APP = path.join(
+  REPO_ROOT,
+  'apps/studio/out',
+  `Studio-${process.platform}-${process.arch}`,
+  { darwin: 'Studio.app/Contents/MacOS/Studio', linux: 'studio', win32: 'Studio.exe' }[
+    process.platform
+  ] ?? ''
+);
 export const DEFAULT_STUDIO_APP =
-  process.platform === 'darwin'
-    ? '/Applications/Studio.app/Contents/MacOS/Studio'
-    : null;
+  existsSync(PACKAGED_APP) || process.platform !== 'darwin'
+    ? PACKAGED_APP
+    : '/Applications/Studio.app/Contents/MacOS/Studio';
 
-// `ORIENTATION_GUIDE_VERSION` in the Studio source,
-// apps/ui/src/data/onboarding/orientation-guide.ts (2 as of 1.23).
+// `ORIENTATION_GUIDE_VERSION` and `WHATS_NEW_VERSION` in the Studio source,
+// apps/ui/src/features/onboarding/onboarding-guide/ (2 and 1 as of 2.0).
 const ORIENTATION_GUIDE_VERSION = 2;
+const WHATS_NEW_VERSION = 1;
 
 /**
- * Initial `appdata-v1.json` for a launch. `firstRun` starts on the Welcome
- * screen; otherwise onboarding and the orientation guide are marked done.
+ * Initial `app.json` (Desktop state) for a launch. `firstRun` starts on the
+ * Welcome dialog; otherwise onboarding and both guides are marked done.
  */
-function buildAppData({ firstRun, appData }) {
+function buildAppConfig({ firstRun, appData }) {
   return {
-    version: 1,
-    // The screenshot steps match English accessible names; without a saved
-    // locale Studio falls back to the OS language.
-    locale: 'en',
-    sites: [],
-    snapshots: [],
     ...(firstRun
       ? {}
       : {
           onboardingCompleted: true,
           onboardingHints: { tourDismissedVersion: ORIENTATION_GUIDE_VERSION },
+          whatsNewSeenVersion: WHATS_NEW_VERSION,
         }),
     ...appData,
   };
@@ -78,9 +85,16 @@ export async function launchStudio({
     await mkdir(dir, { recursive: true });
   }
   await mkdir(path.join(dirs.appData, 'Studio'), { recursive: true });
+  // Studio 2.0 keeps its state in `app.json` and `shared.json` under
+  // DEV_CONFIG_DIR. The screenshot steps match English accessible names;
+  // without a saved locale Studio falls back to the OS language.
   await writeFile(
-    path.join(dirs.appData, 'Studio', 'appdata-v1.json'),
-    JSON.stringify(buildAppData({ firstRun, appData }), null, 2)
+    path.join(dirs.sharedConfig, 'shared.json'),
+    JSON.stringify({ version: 1, locale: 'en' }, null, 2)
+  );
+  await writeFile(
+    path.join(dirs.sharedConfig, 'app.json'),
+    JSON.stringify(buildAppConfig({ firstRun, appData }), null, 2)
   );
 
   const app = await electron.launch({

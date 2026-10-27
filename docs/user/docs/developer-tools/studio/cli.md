@@ -19,8 +19,8 @@ It’s especially useful for:
 ### [Studio app](#1-studio-app)
 
 1.  Open the **“WordPress Studio**” application.
-2.  Click **App settings** at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux).
-3.  On the **Settings** tab, turn on the **Studio CLI for terminal** option.
+2.  Click **Settings** at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux).
+3.  On the **General** page, under **Studio CLI**, turn on the **Studio CLI for terminal** option.
 4.  On macOS, you’ll be prompted for your account password to allow installation.
 
 [![](https://developer.wordpress.com/wp-content/uploads/2025/05/app-settings-account.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/05/app-settings-account.png)

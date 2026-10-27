@@ -19,6 +19,7 @@ export * from './folder-icon';
 export * from './globe-icon';
 export * from './import-icon';
 export * from './intelligence-icon';
+export * from './mail-icon';
 export * from './keyboard-icon';
 export * from './language-icon';
 export * from './link-icon';

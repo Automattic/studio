@@ -167,6 +167,14 @@ describe( 'site settings', () => {
 		}
 	} );
 
+	it( 'shows the local path read-only and copies it', async () => {
+		const { connector } = setup();
+		await siteName();
+		expect( screen.getByRole( 'textbox', { name: 'Local path' } ) ).toHaveAttribute( 'readonly' );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Copy local path' } ) );
+		await waitFor( () => expect( connector.copyText ).toHaveBeenCalledWith( '/sites/example' ) );
+	} );
+
 	it.each( [
 		[ 'Site name', '', 'Site name is required.' ],
 		[ 'Username', '', 'Admin username cannot be empty.' ],

@@ -20,6 +20,7 @@ export const SITE_LIST_PUBLIC_FIELDS = [
 	'enableDebugLog',
 	'enableDebugDisplay',
 	'landingPage',
+	'emailPath',
 ] as const;
 
 export type SiteListPublicField = ( typeof SITE_LIST_PUBLIC_FIELDS )[ number ];

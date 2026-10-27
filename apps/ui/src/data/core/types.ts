@@ -111,6 +111,8 @@ export interface SiteDetails {
 	// The Studio operation currently holding the site, from the CLI. Present
 	// regardless of who started it — the user, the desktop app, or the agent.
 	operation?: SiteOperation;
+	// The folder the email the site sends is saved in, from the CLI.
+	emailPath?: string;
 }
 
 export interface LocalMediaFile {
@@ -468,6 +470,8 @@ export interface Connector {
 	openSiteFolder( siteId: string ): Promise< void >;
 	openSiteInEditor( siteId: string ): Promise< void >;
 	openSiteInTerminal( siteId: string ): Promise< void >;
+	// Open the folder the site's email is saved in, in the system file manager.
+	openSiteEmailFolder( siteId: string ): Promise< void >;
 
 	// The site's WordPress debug log, resolved host-side from the site id. Its
 	// existence is a query, not a `SiteDetails` field: the file comes and goes

@@ -25,8 +25,8 @@ export function useModelAccess( {
 		[ entries, aiSettings, provider ]
 	);
 
-	// The paid tiers are listed but disabled for accounts without purchased
-	// credits; Automatticians are exempt.
+	// The paid tiers are listed but disabled for accounts that have never
+	// bought credits; Automatticians are exempt.
 	const { data: quota } = useStudioAssistantQuota( { refetchOnWindowFocus: 'always' } );
 	const { data: authUser } = useAuthUser();
 	// Connected providers are available in saved chats and site drafts.

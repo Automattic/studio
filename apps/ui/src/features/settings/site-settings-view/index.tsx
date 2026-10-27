@@ -361,6 +361,28 @@ export function SiteSettingsForm( {
 				<ConnectionCard />
 				<SettingsGroup>
 					{ textRow( 'name', __( 'Site name' ), __( 'Name shown in WordPress Studio.' ) ) }
+					<SettingsRow
+						title={ __( 'Local path' ) }
+						description={ __( 'Where this site’s files are stored.' ) }
+					>
+						{ ( control ) => (
+							<div className={ styles.field }>
+								<Input
+									{ ...control }
+									aria-label={ __( 'Local path' ) }
+									value={ site.path }
+									title={ site.path }
+									readOnly
+								/>
+								<CopyButton
+									text={ site.path }
+									label={ __( 'Copy local path' ) }
+									size="icon-sm"
+									icon="copy"
+								/>
+							</div>
+						) }
+					</SettingsRow>
 					{ selectRow(
 						'wpVersion',
 						__( 'WordPress version' ),

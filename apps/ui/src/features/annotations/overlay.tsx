@@ -3,11 +3,12 @@ import { getComposerAttachmentImageSrc } from '@studio/common/ai/composer-attach
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { isAppleOS } from '@wordpress/keycodes';
 import { clsx } from 'clsx';
-import { ArrowUpIcon, PaperclipIcon, Trash2Icon, XIcon } from 'lucide-react';
+import { PaperclipIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { toast } from '@/data/app-messages';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useComposerAttachments, useFileDrop } from '@/data/use-composer-attachments';
+import { SendIcon } from '@/lib/icons';
 import { isImeComposing } from '@/lib/keyboard';
 import {
 	Badge,
@@ -353,7 +354,7 @@ function NoteEditor( {
 							/>
 						}
 					>
-						<ArrowUpIcon />
+						<SendIcon />
 					</TooltipTrigger>
 					<TooltipContent>{ submitLabel }</TooltipContent>
 				</Tooltip>

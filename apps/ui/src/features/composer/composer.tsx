@@ -2,7 +2,7 @@ import { aiModelSupportsImages } from '@studio/common/ai/models';
 import { resolveSkillFromPrompt } from '@studio/common/ai/slash-commands';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { GlobeIcon, PlusIcon } from 'lucide-react';
+import { GlobeIcon } from 'lucide-react';
 import {
 	forwardRef,
 	useCallback,
@@ -36,7 +36,7 @@ import { useModelAccess } from '@/features/composer/use-model-access';
 import { useModelSwitch } from '@/features/composer/use-model-switch';
 import { useSubmitFeedback } from '@/features/composer/use-submit-feedback';
 import { AiCreditsPurchaseDialog } from '@/features/credits';
-import { StartSiteIcon } from '@/lib/icons';
+import { PlusIcon, StartSiteIcon } from '@/lib/icons';
 import { isImeComposing } from '@/lib/keyboard';
 import {
 	Button,

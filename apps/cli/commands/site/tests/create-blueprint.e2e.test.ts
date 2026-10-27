@@ -40,7 +40,13 @@ function writeBlueprint( env: CliEnv, blueprint: Record< string, unknown > ): st
 /**
  * Creates a site from the given Blueprint file without starting the server.
  */
-function createFromBlueprint( env: CliEnv, name: string, slug: string, blueprintPath: string ) {
+function createFromBlueprint(
+	env: CliEnv,
+	name: string,
+	slug: string,
+	blueprintPath: string,
+	...extraArgs: string[]
+) {
 	return runCli(
 		[
 			'site',
@@ -56,6 +62,7 @@ function createFromBlueprint( env: CliEnv, name: string, slug: string, blueprint
 			'--no-start',
 			'--skip-browser',
 			'--skip-log-details',
+			...extraArgs,
 		],
 		env
 	);
@@ -89,6 +96,32 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create --bl
 		cleanupCliEnv( env );
 		env = undefined;
 	}, 60_000 );
+
+	// Without a server start, the install is the only step that sets these options.
+	it( 'sets Studio options during install', { tags: [ 'e2e' ], timeout: 120_000 }, async () => {
+		env = setupCliEnv();
+		const sitePath = path.join( env.sitesDir, 'bp-install-options' );
+		const blueprintPath = writeBlueprint( env, {
+			steps: [ { step: 'setSiteOptions', options: { blogdescription: 'Install options' } } ],
+		} );
+
+		const result = await createFromBlueprint(
+			env,
+			'Install Options',
+			'bp-install-options',
+			blueprintPath,
+			'--admin-username',
+			'navigator'
+		);
+
+		expect( result.code, result.stderr ).toBe( 0 );
+		for ( const [ option, value ] of [
+			[ 'studio_admin_username', 'navigator' ],
+			[ 'permalink_structure', '/%year%/%monthnum%/%day%/%postname%/' ],
+		] ) {
+			expect( await wpLastLine( env, sitePath, 'option', 'get', option ) ).toBe( value );
+		}
+	} );
 
 	it(
 		'creates a site from a Blueprint that installs a theme',

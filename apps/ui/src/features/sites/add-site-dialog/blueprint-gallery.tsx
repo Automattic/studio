@@ -1,9 +1,9 @@
 import { getBlueprintUseCases } from '@studio/common/lib/blueprint-catalog';
 import { __, sprintf } from '@wordpress/i18n';
-import { PlusIcon } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { useBlueprints } from '@/data/queries/use-blueprints';
 import { useOffline } from '@/lib/hooks';
+import { PlusIcon } from '@/lib/icons';
 import {
 	Button,
 	Empty,

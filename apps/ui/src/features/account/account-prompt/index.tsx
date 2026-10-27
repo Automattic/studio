@@ -20,6 +20,8 @@ export function AccountPrompt( {
 	descriptionId,
 	source,
 	onCreateAccount,
+	onSkip,
+	secondaryLabel,
 	flush,
 }: {
 	title: string;
@@ -27,6 +29,8 @@ export function AccountPrompt( {
 	descriptionId?: string;
 	source: TracksAuthSource;
 	onCreateAccount?: () => void;
+	onSkip?: () => void;
+	secondaryLabel?: string;
 	/** Drops the offsets that space it inside a dialog, for a container that spaces it already. */
 	flush?: boolean;
 } ) {
@@ -65,21 +69,27 @@ export function AccountPrompt( {
 						signup.mutate();
 					} }
 				>
-					{ __( 'Create account' ) }
+					{ onSkip ? __( 'Continue with WordPress.com' ) : __( 'Create account' ) }
 				</Button>
-				<p className={ styles.loginPrompt }>
-					{ __( 'Already have an account?' ) }{ ' ' }
-					<Button
-						className={ styles.login }
-						variant="inline-text"
-						size="inline"
-						disabled={ offline || pending }
-						loading={ login.isPending }
-						onClick={ () => login.mutate() }
-					>
-						{ __( 'Log in' ) }
+				{ onSkip ? (
+					<Button variant="inline-text" size="inline" onClick={ onSkip }>
+						{ secondaryLabel ?? __( 'Not now' ) }
 					</Button>
-				</p>
+				) : (
+					<p className={ styles.loginPrompt }>
+						{ __( 'Already have an account?' ) }{ ' ' }
+						<Button
+							className={ styles.login }
+							variant="inline-text"
+							size="inline"
+							disabled={ offline || pending }
+							loading={ login.isPending }
+							onClick={ () => login.mutate() }
+						>
+							{ __( 'Log in' ) }
+						</Button>
+					</p>
+				) }
 			</div>
 		</div>
 	);

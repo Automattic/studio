@@ -44,8 +44,8 @@ export function AccountSection() {
 		<SettingsGroup>
 			<SettingsRow title={ user.displayName } description={ user.email }>
 				<Button
-					loading={ logout.isPending }
-					loadingAnnouncement={ __( 'Logging out' ) }
+					disabled={ logout.isPending }
+					aria-busy={ logout.isPending || undefined }
 					onClick={ () => logout.mutate() }
 				>
 					{ __( 'Log out' ) }

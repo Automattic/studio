@@ -387,7 +387,7 @@ describe( 'PublishPopover', () => {
 			message: 'Could not start PHP',
 			localChangesApplied: true,
 		} );
-		await screen.findByText( /WordPress Studio couldn’t restart the site/ );
+		await screen.findByText( /Couldn’t restart the site/ );
 		expect( screen.queryByRole( 'button', { name: 'Try pulling again' } ) ).not.toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Start site' } ) );
 		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( site.id ) );

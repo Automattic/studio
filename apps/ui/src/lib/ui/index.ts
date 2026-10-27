@@ -1,3 +1,4 @@
+export { DirectionProvider } from '@base-ui/react/direction-provider';
 export * from './alert';
 export * from './badge';
 export * from './button';

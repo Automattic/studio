@@ -7,8 +7,8 @@ import {
 	useRouterState,
 } from '@tanstack/react-router';
 import { useCallback, useEffect, useState } from 'react';
-import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSession, useSessionLiveSite } from '@/data/queries/use-sessions';
+import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
 import { useIsSiteStopping, useSiteOperation, useSites } from '@/data/queries/use-sites';
 import { pathForSite, useSessionPreviewUI } from '@/data/use-session-ui';
 import { requestAnnotationSend } from '@/features/annotations';
@@ -62,7 +62,6 @@ function DashboardLayout() {
 		} ),
 	} );
 	const { sessionId, homeSiteId, newSessionSiteId } = routePreviewContext;
-	const { isReady: agenticFeaturesReady, chatEnabled } = useAgenticFeatures();
 	const { data: sites } = useSites();
 	const { data: sessionData } = useSession( sessionId );
 	// Open the orientation guide on first workbench arrival, and let Help ▸
@@ -72,18 +71,14 @@ function DashboardLayout() {
 	// Same, for the per-release announcements behind Help ▸ What's New.
 	useWhatsNewAutostart();
 	useWhatsNewReplay();
-	useEffect( () => {
-		if ( sessionId && agenticFeaturesReady && ! chatEnabled ) {
-			void navigate( { to: '/' } );
-		}
-	}, [ agenticFeaturesReady, chatEnabled, navigate, sessionId ] );
 	const preview = useSessionPreviewUI();
 	const sessionSite = findAiSessionOwnerSite( sites, sessionData?.summary );
 	// A chat switched to Live previews its remote instead of the local site.
-	const liveUrl = useSessionLiveSite( sessionData?.summary, sessionSite?.id )?.url.replace(
-		/\/+$/,
-		''
-	);
+	const { draft } = useSiteChatDraft( newSessionSiteId );
+	const liveUrl = useSessionLiveSite(
+		newSessionSiteId ? draft : sessionData?.summary,
+		newSessionSiteId ?? sessionSite?.id
+	)?.url.replace( /\/+$/, '' );
 	const homeSite = homeSiteId ? sites?.find( ( site ) => site.id === homeSiteId ) : undefined;
 	const newSessionSite = newSessionSiteId
 		? sites?.find( ( site ) => site.id === newSessionSiteId )
@@ -150,11 +145,17 @@ function DashboardLayout() {
 			!! liveUrl ||
 			( previewSite.running && ! previewStopping && preview.revealingSiteId !== previewSite.id ) );
 	const chatHidden = ( preview.chatHidden || !! homeSiteId ) && showPreview;
-	// Opening a chat shows it, the open one included.
+	// Opening a chat shows it, the open one included. Search-only changes
+	// open dialogs over the workspace without changing its layout.
 	const router = useRouter();
 	const { setChatHidden } = preview;
 	useEffect(
-		() => router.subscribe( 'onBeforeNavigate', () => setChatHidden( false ) ),
+		() =>
+			router.subscribe( 'onBeforeNavigate', ( { pathChanged, hrefChanged } ) => {
+				if ( pathChanged || ! hrefChanged ) {
+					setChatHidden( false );
+				}
+			} ),
 		[ router, setChatHidden ]
 	);
 	// The notes go to the chat beside the preview, or to a new one for the site.
@@ -209,6 +210,7 @@ function DashboardLayout() {
 			<SiteWorkspace
 				key={ workspaceSiteId }
 				sessionId={ sessionId }
+				siteId={ workspaceSiteId }
 				headerStart={ <HeaderSidebarToggle /> }
 			/>
 		) : (

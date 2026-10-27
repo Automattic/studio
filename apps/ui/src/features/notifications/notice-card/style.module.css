@@ -1,8 +1,9 @@
 /* A toast, and an entry in the notification history. */
 .card {
+	--notice-icon-size: 16px;
 	position: relative;
 	pointer-events: auto;
-	padding: var( --space-4 );
+	padding: var( --space-3_5 );
 	border-radius: var( --radius-xl );
 	background-color: var( --secondary );
 	color: var( --secondary-foreground );
@@ -28,25 +29,25 @@
 	flex: none;
 	align-items: center;
 	justify-content: center;
-	width: 14px;
-	height: 14px;
+	width: var( --notice-icon-size );
+	height: var( --notice-icon-size );
 	border-radius: var( --radius-full );
 	color: var( --secondary );
 }
 
 .status svg {
-	width: 10px;
-	height: 10px;
+	width: var( --notice-icon-size );
+	height: var( --notice-icon-size );
+	flex: none;
 }
 
 .status[data-intent='success'] {
-	background-color: var( --success );
+	color: var( --success );
 }
 
 .status[data-intent='error'] {
-	background-color: var( --destructive );
+	color: var( --destructive );
 }
-
 .status:is( [data-intent='info'], [data-intent='warning'] ) {
 	color: var( --muted-foreground );
 }
@@ -55,16 +56,14 @@
 	color: var( --warning );
 }
 
-.status:is( [data-intent='info'], [data-intent='warning'] ) svg {
-	width: 14px;
-	height: 14px;
-}
-
 .title {
+	font-size: var( --text-xs );
 	flex: 1;
 	min-width: 0;
 	font-weight: var( --font-weight-medium );
-	text-wrap: pretty;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .details {
@@ -73,11 +72,12 @@
 	align-items: flex-start;
 	gap: var( --space-2 );
 	margin-top: var( --space-0_5 );
-	padding-inline-start: 22px;
+	padding-inline-start: calc( var( --notice-icon-size ) + var( --space-2 ) );
 }
 
 .summary {
 	position: relative;
+	width: 100%;
 	max-width: 100%;
 }
 
@@ -142,6 +142,9 @@
 }
 
 .chevron svg {
+	width: 14px;
+	height: 14px;
+	flex: none;
 	transition: rotate var( --motion-duration-layout ) var( --motion-ease-layout );
 }
 
@@ -169,28 +172,75 @@
 	opacity: 1;
 }
 
-/* Too narrow to share the title's line, as in the sidebar, the action goes
-   under the text. */
-@container (width < 300px) {
-	.card {
-		display: grid;
-		grid-template-columns: auto minmax( 0, 1fr );
-		align-items: center;
-		column-gap: var( --space-2 );
+.trailing {
+	display: grid;
+	flex: none;
+	align-items: center;
+	justify-items: end;
+	min-height: var( --space-6 );
+	max-width: 50%;
+}
+.trailing > span {
+	grid-area: 1 / 1;
+	min-width: 0;
+	max-width: 100%;
+}
+.action > button {
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.trailing[data-swap] .action {
+	opacity: 0;
+	pointer-events: none;
+}
+.card:hover .trailing[data-swap] .action,
+.card:focus-within .trailing[data-swap] .action,
+.trailing[data-pending] .action {
+	opacity: 1;
+	pointer-events: auto;
+}
+.card:hover .trailing[data-swap] .timestamp,
+.card:focus-within .trailing[data-swap] .timestamp,
+.trailing[data-pending] .timestamp {
+	opacity: 0;
+	pointer-events: none;
+}
+@media ( hover: none ) {
+	.trailing[data-swap] .action {
+		opacity: 1;
+		pointer-events: auto;
 	}
+	.trailing[data-swap] .timestamp {
+		display: none;
+	}
+	.chevron,
+	.close {
+		opacity: 1;
+	}
+}
 
-	.row {
-		display: contents;
-	}
+.titleSummary {
+	position: relative;
+	flex: 1;
+	min-width: 0;
+}
 
-	.details {
-		grid-column: 2;
-		padding-inline-start: 0;
-	}
-
-	.row > button {
-		grid-area: 3 / 2;
-		justify-self: start;
-		margin-top: var( --space-3 );
-	}
+.title[data-expanded] {
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+.row[data-expanded] {
+	align-items: flex-start;
+}
+.row[data-expanded] .status {
+	margin-top: var( --space-0_5 );
+}
+.titleSummary .toggle[aria-expanded='true'] {
+	inset-block-end: 0;
+	height: auto;
+}
+.titleSummary .chevron {
+	height: var( --text-sm--line-height );
 }

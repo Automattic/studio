@@ -65,6 +65,12 @@
 		cursor: default;
 	}
 
+	.button[data-variant='accent']:is( :disabled, [data-disabled] ):not( [aria-busy='true'] ) {
+		--button-background: var( --primary );
+
+		color: var( --primary-foreground );
+	}
+
 	.button:is( :disabled, [data-disabled] ):is(
 			:has( [data-slot='spinner'] ),
 			[data-disabled-appearance]
@@ -261,6 +267,7 @@
 
 	.button[data-size='2xs'] {
 		--button-padding-inline: 6px;
+		font-size: var( --text-xxs );
 
 		gap: var( --space-1 );
 		height: 24px;

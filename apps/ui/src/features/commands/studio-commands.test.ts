@@ -41,7 +41,6 @@ const siteCommands = (
 ) =>
 	getSiteCommands( {
 		site,
-		chatEnabled: true,
 		previewShown: false,
 		canAnnotate: false,
 		annotating: false,
@@ -98,9 +97,9 @@ describe( 'getAppCommands', () => {
 		expect( ids( 'commands' ) ).not.toContain( 'collapse-all' );
 	} );
 
-	it( 'opens a site on its latest chat', () => {
+	it( 'opens a site without resuming its latest chat', () => {
 		commands.find( ( { id } ) => id === 'site-oak' )!.run();
-		expect( openSite ).toHaveBeenCalledWith( sites[ 1 ], sessions[ 7 ] );
+		expect( openSite ).toHaveBeenCalledWith( sites[ 1 ] );
 	} );
 } );
 

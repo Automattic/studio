@@ -27,6 +27,7 @@ export function Popup( {
 	alignOffset,
 	anchor,
 	backdrop = false,
+	keepMounted = false,
 	className,
 	style,
 	initialFocus,
@@ -42,6 +43,7 @@ export function Popup( {
 	anchor?: PositionerProps[ 'anchor' ];
 	// Catches outside clicks that would otherwise land in a webview and never dismiss it.
 	backdrop?: boolean;
+	keepMounted?: boolean;
 	className?: string;
 	style?: CSSProperties;
 	initialFocus?: PopupProps[ 'initialFocus' ];
@@ -51,7 +53,7 @@ export function Popup( {
 } ) {
 	const commands = variant === 'commands';
 	return (
-		<BasePopover.Portal>
+		<BasePopover.Portal keepMounted={ keepMounted }>
 			{ backdrop ? <BasePopover.Backdrop className={ styles.backdrop } /> : null }
 			{ /* Fixed, so a popup sliding in from off-screen can't scroll the page sideways. */ }
 			<BasePopover.Positioner

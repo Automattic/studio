@@ -11,7 +11,6 @@ import {
 	recursiveCopyDirectory,
 } from '@studio/common/lib/fs-utils';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
-import { isOnline } from '@studio/common/lib/network-utils';
 import { portFinder } from '@studio/common/lib/port-finder';
 import { normalizeLineEndings } from '@studio/common/lib/remove-default-db-constants';
 import {
@@ -52,7 +51,6 @@ import { registerCommand, runCommand } from '../create';
 
 vi.mock( '@inquirer/prompts' );
 vi.mock( '@studio/common/lib/fs-utils' );
-vi.mock( '@studio/common/lib/network-utils' );
 vi.mock( '@studio/common/lib/port-finder', () => ( {
 	portFinder: {
 		addUnavailablePort: vi.fn(),
@@ -266,7 +264,6 @@ describe( 'CLI: studio create', () => {
 		vi.mocked( logSiteDetails ).mockImplementation( () => {} );
 		vi.mocked( openSiteInBrowser ).mockResolvedValue( undefined );
 		vi.mocked( validateBlueprintData ).mockResolvedValue( { valid: true } );
-		vi.mocked( isOnline ).mockResolvedValue( true );
 		vi.mocked( getPreferredSiteLanguage ).mockResolvedValue( 'en' );
 		vi.mocked( copyLanguagePackToSite ).mockResolvedValue( false );
 		vi.mocked( getWordPressVersion ).mockReturnValue( '6.5' );
@@ -1861,18 +1858,10 @@ $table_prefix = 'wp_';
 	} );
 
 	describe( 'Dependency updates', () => {
-		it( 'calls updateServerFiles when online', async () => {
+		it( 'calls updateServerFiles', async () => {
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( updateServerFiles ).toHaveBeenCalledTimes( 1 );
-		} );
-
-		it( 'skips updateServerFiles when offline', async () => {
-			vi.mocked( isOnline ).mockResolvedValue( false );
-
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
-
-			expect( updateServerFiles ).not.toHaveBeenCalled();
 		} );
 	} );
 

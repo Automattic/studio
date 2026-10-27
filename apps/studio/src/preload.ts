@@ -69,7 +69,6 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'generateNumberedNameFromList', baseName, usedSites ),
 	openLocalPath: ( path ) => ipcRendererSend( 'openLocalPath', path ),
 	openStudioLogs: () => ipcRendererSend( 'openStudioLogs' ),
-	getSiteIcon: ( id ) => ipcRendererInvoke( 'getSiteIcon', id ),
 	getThumbnailData: ( id ) => ipcRendererInvoke( 'getThumbnailData', id ),
 	captureSitePreview: ( siteId, guestId, pagePath ) =>
 		ipcRendererInvoke( 'captureSitePreview', siteId, guestId, pagePath ),

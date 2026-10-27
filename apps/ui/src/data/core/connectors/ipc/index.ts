@@ -336,10 +336,6 @@ export function createIpcConnector(): Connector {
 			return ipcApi.fixSiteDesignDrift( siteId, fixes );
 		},
 
-		async getSiteIcon( siteId ) {
-			return ( await ipcApi.getSiteIcon( siteId ) ) as string | null;
-		},
-
 		async exportFullSite( siteId ): Promise< string | null > {
 			const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
 			const site = sites.find( ( candidate ) => candidate.id === siteId );

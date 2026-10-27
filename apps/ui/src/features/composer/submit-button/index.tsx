@@ -18,7 +18,7 @@ export function SendButton( {
 } ) {
 	return (
 		<Button
-			variant={ feedback ? 'destructive' : canSend ? 'accent' : 'default' }
+			variant={ feedback ? 'destructive' : 'accent' }
 			size="icon"
 			shape="round"
 			activeMotion="instant"

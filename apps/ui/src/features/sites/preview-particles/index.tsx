@@ -26,14 +26,16 @@ export function PreviewParticles( {
 } ) {
 	const canvasRef = useRef< HTMLCanvasElement >( null );
 	const activeRef = useRef( active );
+	const showLogoRef = useRef( showLogo );
 	const selectionTimeRef = useRef( selectionTime );
 	const syncRef = useRef< () => void >( undefined );
 
 	useEffect( () => {
 		activeRef.current = active;
+		showLogoRef.current = showLogo;
 		selectionTimeRef.current = selectionTime;
 		syncRef.current?.();
-	}, [ active, selectionTime ] );
+	}, [ active, showLogo, selectionTime ] );
 
 	useEffect( () => {
 		const canvas = canvasRef.current;
@@ -48,6 +50,7 @@ export function PreviewParticles( {
 		let dots: PreviewDot[] = [];
 		let color = '';
 		let strength = activeRef.current ? 1 : 0;
+		let logoStrength = activeRef.current && showLogoRef.current ? 1 : 0;
 		let frame = 0;
 		let lastDraw = 0;
 		const waving = ( time: number ) =>
@@ -60,13 +63,14 @@ export function PreviewParticles( {
 			context.clearRect( 0, 0, width, height );
 			context.fillStyle = color;
 			const amount = motion.matches ? 0 : strength * strength * ( 3 - 2 * strength );
+			const logoAmount = logoStrength * logoStrength * ( 3 - 2 * logoStrength );
 			for ( const dot of dots ) {
 				const point = getPreviewDotFrame( dot, {
 					time,
 					amount,
 					centerX: width / 2,
 					centerY: height / 2,
-					clearCenter: showLogo,
+					logoAmount,
 				} );
 				const highlight = waving( time )
 					? getSelectionWave( dot, {
@@ -87,21 +91,32 @@ export function PreviewParticles( {
 				0,
 				Math.min( 1, strength + ( activeRef.current ? delta / 400 : -delta / 300 ) )
 			);
+			logoStrength = Math.max(
+				0,
+				Math.min(
+					1,
+					logoStrength + ( activeRef.current && showLogoRef.current ? delta / 400 : -delta / 300 )
+				)
+			);
 			draw( now );
 			lastDraw = now;
-			if ( activeRef.current || strength > 0 || waving( now ) ) {
+			if ( activeRef.current || strength > 0 || logoStrength > 0 || waving( now ) ) {
 				frame = requestAnimationFrame( animate );
 			}
 		};
 		const sync = () => {
 			cancelAnimationFrame( frame );
+			if ( motion.matches ) {
+				strength = 0;
+				logoStrength = activeRef.current && showLogoRef.current ? 1 : 0;
+			}
 			draw( performance.now() );
 			if (
 				! motion.matches &&
 				! document.hidden &&
 				width &&
 				height &&
-				( activeRef.current || strength > 0 || waving( performance.now() ) )
+				( activeRef.current || strength > 0 || logoStrength > 0 || waving( performance.now() ) )
 			) {
 				lastDraw = performance.now();
 				frame = requestAnimationFrame( animate );
@@ -134,7 +149,7 @@ export function PreviewParticles( {
 			motion.removeEventListener( 'change', sync );
 			document.removeEventListener( 'visibilitychange', sync );
 		};
-	}, [ showLogo ] );
+	}, [] );
 
 	return (
 		<>

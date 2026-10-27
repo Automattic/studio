@@ -7,7 +7,7 @@ import {
 	downloadAndExtractBlueprintBundle,
 	removeBlueprintTempDir,
 } from '@studio/common/lib/blueprint-bundle';
-import { isOnline } from '@studio/common/lib/network-utils';
+import { isNetworkError } from '@studio/common/lib/network-utils';
 import { readSharedConfig } from '@studio/common/lib/shared-config';
 import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
 import { fetchStudioBlueprints, type Blueprint } from '@studio/common/lib/studio-blueprints-api';
@@ -66,15 +66,16 @@ export async function runCommand(
 		skipBrowser: boolean;
 	}
 ): Promise< void > {
-	if ( ! ( await isOnline() ) ) {
-		throw new LoggerError( __( 'An internet connection is required to use blueprints.' ) );
-	}
-
 	logger.reportStart( LoggerAction.FETCH_BLUEPRINTS, __( 'Fetching blueprints…' ) );
 
 	const sharedConfig = await readSharedConfig();
 	const locale = sharedConfig.locale;
-	const blueprints = await fetchStudioBlueprints( locale );
+	const blueprints = await fetchStudioBlueprints( locale ).catch( ( error: unknown ) => {
+		if ( isNetworkError( error ) ) {
+			throw new LoggerError( __( 'An internet connection is required to use blueprints.' ), error );
+		}
+		throw error;
+	} );
 
 	if ( blueprints.length === 0 ) {
 		throw new LoggerError( __( 'No blueprints available' ) );

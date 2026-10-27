@@ -360,7 +360,7 @@ describe( 'site preview controls', () => {
 			fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
 			fireEvent.click( await screen.findByRole( 'option', { name } ) );
 		};
-		await pick( 'WP Admin' );
+		await pick( 'WordPress Admin' );
 		expect( onPathChange ).toHaveBeenLastCalledWith(
 			`/studio-auto-login?redirect_to=${ encodeURIComponent( `${ SITE_URL }/wp-admin/` ) }`
 		);
@@ -375,7 +375,7 @@ describe( 'site preview controls', () => {
 		update( { path: '/wp-admin/' } );
 		onPathChange.mockClear();
 		connector.trackEvent.mockClear();
-		await pick( 'WP Admin' );
+		await pick( 'WordPress Admin' );
 		expect( onPathChange ).not.toHaveBeenCalled();
 		expect( connector.trackEvent ).not.toHaveBeenCalled();
 	} );
@@ -401,12 +401,11 @@ describe( 'site preview controls', () => {
 	} );
 
 	it.each( [
-		[ 'the host supports it', true, true, true ],
-		[ 'the host cannot annotate', false, true, false ],
-		[ 'Studio Code is on', true, false, false ],
-	] )( 'shows Annotate only when %s', async ( _, annotatePreview, agentic, shown ) => {
+		[ 'the host supports it', true, true ],
+		[ 'the host cannot annotate', false, false ],
+	] )( 'shows Annotate only when %s', async ( _, annotatePreview, shown ) => {
 		const connector = createFakeConnector(
-			{ preferences: { agenticFeaturesEnabled: agentic } },
+			{},
 			{ capabilities: { nativeFolderPicker: true, annotatePreview, studioLogs: true } }
 		);
 		await renderPreview( 'browser', {}, connector );

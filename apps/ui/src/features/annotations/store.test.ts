@@ -61,7 +61,7 @@ describe( 'annotation store', () => {
 		expect( pickAnnotation( 'full-site', { selector: 'footer' } ) ).toBeNull();
 		expect( getSiteAnnotations( 'full-site' ).notes ).toHaveLength( MAX_VISUAL_ANNOTATIONS );
 		expect( getVisibleToasts().map( ( toast ) => toast.title ) ).toContain(
-			'Send or delete some annotations before adding more.'
+			'Send or delete some annotations before adding more'
 		);
 	} );
 

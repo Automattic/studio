@@ -1,4 +1,5 @@
 import { USAGE_CAP_ERROR_PREFIX } from '@studio/common/ai/json-events';
+import { STOPPED_WITHOUT_ANSWER } from '@studio/common/ai/tools';
 import type { SessionEntry } from '@/data/core';
 
 interface ToolCall {
@@ -160,6 +161,76 @@ That's everything. Shall I start with the hero?`;
 
 export const chatSamples: ChatSample[] = [
 	{
+		title: 'Back-and-forth conversation',
+		entries: transcript( ( t ) => {
+			t.prompt( 'Can you help me make the bistro homepage feel a little more welcoming?' );
+			t.assistant(
+				'Let’s start with the introduction. A short headline and a photo of the dining room would give visitors a sense of the place.',
+				'What would you like people to notice first: the food, the atmosphere, or the people behind it?'
+			);
+			t.closed();
+			t.prompt(
+				'The atmosphere. It’s a small neighborhood spot, and we want that to come through.'
+			);
+			t.prompt( 'And keep the language casual. Nothing too fancy.' );
+			t.assistant(
+				'How about **“Good food. Familiar faces.”** for the headline?',
+				'Underneath: “Seasonal cooking, a table by the window, and a reason to stay a little longer. Come spend an evening with us.”',
+				'The reservation button can sit just below that, with the opening hours nearby.'
+			);
+			t.closed();
+			t.prompt( 'I like that. Could the button say “Book a table”?' );
+			t.assistant( 'Yes—**Book a table** is clear and fits the tone.' );
+			t.closed();
+			t.prompt( 'Great. Let’s use that.' );
+			t.assistant(
+				'Here’s the copy together:\n\n**Good food. Familiar faces.**\n\nSeasonal cooking, a table by the window, and a reason to stay a little longer. Come spend an evening with us.\n\n**Book a table**'
+			);
+			t.closed();
+		} ),
+	},
+	{
+		title: 'Speaker groups with activity and questions',
+		entries: transcript( ( t ) => {
+			t.prompt( 'Keep the new colors.' );
+			t.prompt( 'And leave the layout as it is.' );
+			t.assistant( 'I’ll check the current palette.', {
+				name: 'Read',
+				args: { file_path: 'theme.json' },
+				result: 'Blue and lime palette.',
+			} );
+			t.question(
+				'How do you feel about the new colors?',
+				[
+					{ label: 'Love them', description: 'Keep the blue-and-lime palette.' },
+					{ label: 'Try another palette', description: 'Explore a different combination.' },
+				],
+				{ selectedLabel: 'Love them' }
+			);
+			t.assistant( 'Great—we’ll keep these colors.', 'No changes made.' );
+			t.closed();
+			t.prompt( 'What should we work on next?' );
+			t.question(
+				'What would you like to do next?',
+				[ { label: 'Update content', description: 'Change text or images on your site.' } ],
+				{ selectedLabel: 'Update content' }
+			);
+			t.question(
+				'Which content should we update?',
+				[
+					{ label: 'Headings and text', description: 'Revise the headlines and descriptions.' },
+					{ label: 'Images', description: 'Replace or update photos.' },
+				],
+				{ selectedLabel: STOPPED_WITHOUT_ANSWER }
+			);
+			t.closed();
+			t.prompt( 'Let’s leave it there for now.' );
+			t.prompt( 'Thanks.' );
+			t.assistant( 'You’re welcome.' );
+			t.closed();
+		} ),
+	},
+	{
 		title: 'Prompt with attachments, Markdown reply',
 		entries: transcript( ( t ) => {
 			t.prompt(
@@ -251,10 +322,15 @@ export const chatSamples: ChatSample[] = [
 	},
 	{
 		title: 'Pending questions',
-		pendingQuestions: [ 'Which page should I add next?', 'How should the gallery be laid out?' ],
+		running: true,
+		pendingQuestions: [
+			'Which page should I add next?',
+			'How should the gallery be laid out?',
+			'What should each photo show?',
+		],
 		entries: transcript( ( t ) => {
 			t.prompt( 'Ask me what to build next.' );
-			t.assistant( 'Two quick questions before I start.', { name: 'AskUserQuestion' } );
+			t.assistant( 'Three quick questions before I start.', { name: 'AskUserQuestion' } );
 			t.question( 'Which page should I add next?', [
 				{ label: 'Reservations', description: 'A booking form with opening hours.' },
 				{ label: 'Gallery', description: 'Photos of the dining room and dishes.' },
@@ -264,6 +340,28 @@ export const chatSamples: ChatSample[] = [
 				{ label: 'Masonry', description: 'Mixed heights in columns.' },
 				{ label: 'Grid', description: 'Even squares.' },
 			] );
+			t.question( 'What should each photo show?', [
+				{ label: 'Captions', description: 'A short description below each photo.' },
+				{ label: 'Photo only', description: 'Keep the gallery focused on the images.' },
+			] );
+		} ),
+	},
+	{
+		title: 'Skipped question',
+		entries: transcript( ( t ) => {
+			t.question(
+				'What would you like to work on next?',
+				[
+					{ label: 'Edit my site', description: 'Update content or styling on your current site.' },
+					{ label: 'Explore ideas', description: 'Brainstorm ideas for your website.' },
+					{
+						label: 'Just testing',
+						description: 'Try the question tool without making any changes.',
+					},
+				],
+				{ selectedLabel: STOPPED_WITHOUT_ANSWER }
+			);
+			t.closed();
 		} ),
 	},
 	{

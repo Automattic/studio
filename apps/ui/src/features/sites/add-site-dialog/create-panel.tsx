@@ -10,7 +10,6 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import { CloudDownloadIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useConnector } from '@/data/core';
-import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import {
 	useExistingCustomDomains,
 	useProposedSiteName,
@@ -248,7 +247,6 @@ export function CreatePanel( { remote, onCancel }: { remote?: SyncSite; onCancel
 	const createSite = useCreateSite();
 	const connectSite = useConnectSite();
 	const createSession = useCreateSession();
-	const { chatEnabled } = useAgenticFeatures();
 	const composerRef = useRef< ComposerHandle >( null );
 	const [ model, setModel ] = useState< AiModelId >( DEFAULT_MODEL );
 	const [ selectedBlueprint, setSelectedBlueprint ] = useState< SelectedBlueprint | null >( null );
@@ -263,7 +261,7 @@ export function CreatePanel( { remote, onCancel }: { remote?: SyncSite; onCancel
 		pendingBlueprintSlot.subscribe,
 		pendingBlueprintSlot.getSnapshot
 	);
-	const showBrief = chatEnabled && ! selectedBlueprint && ! remote && ! existing;
+	const showBrief = ! selectedBlueprint && ! remote && ! existing;
 	const requiresCustomDomain = useMemo(
 		() =>
 			!! selectedBlueprint &&

@@ -68,6 +68,82 @@ beforeEach( () => {
 } );
 
 describe( 'sidebar site sections', () => {
+	it( 'opens a Recent chat without expanding its site', async () => {
+		const { history } = setup( {
+			sessions: [ chat( 'first', 'one' ), chat( 'second-chat', 'two' ) ],
+			path: '/sessions/first',
+		} );
+		const recent = await screen.findByRole( 'group', { name: 'Recent' } );
+		const secondSite = screen.getByRole( 'button', { name: 'Second site' } );
+		expect( secondSite ).toHaveAttribute( 'aria-expanded', 'false' );
+		fireEvent.click( within( recent ).getByRole( 'button', { name: 'Second-chat' } ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/second-chat' ) );
+		expect( secondSite ).toHaveAttribute( 'aria-expanded', 'false' );
+		expect( within( recent ).getByRole( 'button', { name: 'Second-chat' } ) ).toHaveAttribute(
+			'aria-current',
+			'page'
+		);
+		fireEvent.click( secondSite );
+		await waitFor( () => expect( secondSite ).toHaveAttribute( 'aria-expanded', 'true' ) );
+	} );
+
+	it.each( [
+		{ sitePinned: false, showRecentChats: false },
+		{ sitePinned: false, showRecentChats: true },
+		{ sitePinned: true, showRecentChats: false },
+		{ sitePinned: true, showRecentChats: true },
+	] )(
+		'opens a pinned chat without expanding its site (sitePinned: $sitePinned, showRecentChats: $showRecentChats)',
+		async ( { sitePinned, showRecentChats } ) => {
+			const { history } = setup( {
+				sessions: [
+					chat( 'first', 'one' ),
+					chat( 'pinned-chat', 'two' ),
+					chat( 'other-chat', 'two' ),
+				],
+				preferences: {
+					sidebarPins: [ 'chat:pinned-chat', ...( sitePinned ? [ 'site:two' ] : [] ) ],
+					showRecentChats,
+					autoCollapseSites: true,
+				},
+				path: '/sessions/first',
+			} );
+			const pinned = await screen.findByRole( 'group', { name: 'Pinned' } );
+			const firstSite = screen.getByRole( 'button', { name: 'My site' } );
+			const secondSite = screen.getByRole( 'button', { name: 'Second site' } );
+			await waitFor( () => expect( firstSite ).toHaveAttribute( 'aria-expanded', 'true' ) );
+			expect( secondSite ).toHaveAttribute( 'aria-expanded', 'false' );
+			fireEvent.click( within( pinned ).getByRole( 'button', { name: 'Pinned-chat' } ) );
+			await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/pinned-chat' ) );
+			expect( firstSite ).toHaveAttribute( 'aria-expanded', 'true' );
+			expect( secondSite ).toHaveAttribute( 'aria-expanded', 'false' );
+			expect( secondSite ).not.toHaveAttribute( 'aria-current' );
+			expect( within( pinned ).getByRole( 'button', { name: 'Pinned-chat' } ) ).toHaveAttribute(
+				'aria-current',
+				'page'
+			);
+			fireEvent.click( secondSite );
+			await waitFor( () => expect( secondSite ).toHaveAttribute( 'aria-expanded', 'true' ) );
+			expect( firstSite ).toHaveAttribute( 'aria-expanded', 'false' );
+		}
+	);
+
+	it( 'opens the next Recent chat after archiving the active chat', async () => {
+		const { history } = setup( {
+			sessions: [
+				chat( 'newest', 'one', { updatedAt: '2026-10-26T12:00:00Z' } ),
+				chat( 'current', 'one', { updatedAt: '2026-10-26T11:00:00Z' } ),
+				chat( 'next', 'two', { updatedAt: '2026-10-26T10:00:00Z' } ),
+			],
+			path: '/sessions/current',
+		} );
+		const recent = await screen.findByRole( 'group', { name: 'Recent' } );
+		const current = await within( recent ).findByRole( 'button', { name: 'Current' } );
+		fireEvent.contextMenu( current );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Archive' } ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/next' ) );
+	} );
+
 	it( 'renames and archives chats from the sidebar menu without header actions', async () => {
 		const { connector } = setup( {
 			sites: [ makeSite( { ...site, running: true } ) ],
@@ -157,7 +233,7 @@ describe( 'sidebar site sections', () => {
 		connector.state.preferences = { ...connector.state.preferences, autoCollapseSites: true };
 		await act( () => queryClient.invalidateQueries( { queryKey: [ 'user-preferences' ] } ) );
 		fireEvent.click( screen.getByRole( 'button', { name: 'New chat for My site' } ) );
-		await waitFor( () => expect( connector.createSession ).toHaveBeenCalledWith( 'one' ) );
+		expect( connector.createSession ).not.toHaveBeenCalled();
 		expect( screen.getByRole( 'button', { name: 'My site' } ) ).toHaveAttribute(
 			'aria-expanded',
 			'false'

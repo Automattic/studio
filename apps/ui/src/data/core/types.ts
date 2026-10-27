@@ -27,6 +27,9 @@ import type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assi
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type {
+	SidebarPinnedSort,
+	SidebarSiteSort,
+	SidebarChatSort,
 	ColorScheme,
 	NewSiteBehavior,
 	QuitSitesBehavior,
@@ -198,9 +201,6 @@ export interface Connector {
 		siteId: string,
 		capture: { path: string; width: number; height: number; guestId?: number }
 	): Promise< string | null >;
-	// The site's Site Icon (a data URL, or null when it has none), read on
-	// demand when the host can inspect local sites.
-	getSiteIcon?( siteId: string ): Promise< string | null >;
 	// The site's DESIGN.md and its active theme's theme.json, or null when it
 	// lacks either.
 	getSiteDesign( siteId: string ): Promise< SiteDesign | null >;
@@ -672,10 +672,11 @@ export interface UserPreferences {
 	// app never installs over or uninstalls — the settings toggle disables
 	// itself in that case.
 	studioCliExternallyManaged: boolean;
-	// Whether chat/agent features are offered at all.
-	agenticFeaturesEnabled: boolean;
 	// The sidebar's Pinned group, in order, as `site:<id>` and `chat:<id>` keys.
 	sidebarPins?: string[];
+	sidebarPinnedSort?: SidebarPinnedSort;
+	sidebarSiteSort?: SidebarSiteSort;
+	sidebarChatSort?: SidebarChatSort;
 	// Each site's chats in the order the user dragged them into, by site id.
 	sidebarChatOrder?: Record< string, string[] >;
 	showRecentChats?: boolean;

@@ -1,39 +1,10 @@
-import { createRoute, redirect } from '@tanstack/react-router';
-import { resolveChatEnabled } from '@/data/queries/use-agentic-features';
-import { openNewSession, SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
+import { createRoute } from '@tanstack/react-router';
 import { dashboardLayoutRoute } from '../layout-dashboard';
+import { assertSiteExists } from '../route-site-home';
 
-/**
- * Draft slot for a given site. We never actually render anything here — the
- * route reuses the site's empty chat, or asks the backend for one, then
- * redirects to `/sessions/$sessionId`.
- */
 export const newSessionRoute = createRoute( {
 	getParentRoute: () => dashboardLayoutRoute,
 	path: '/sites/$siteId/new',
-	beforeLoad: async ( { params, context } ) => {
-		if ( ! ( await resolveChatEnabled( context ) ) ) {
-			throw redirect( {
-				to: '/sites/$siteId',
-				params: { siteId: params.siteId },
-			} );
-		}
-
-		const sessions = await context.queryClient
-			.fetchQuery( {
-				queryKey: SESSIONS_QUERY_KEY,
-				queryFn: () => context.connector.getSessions(),
-				staleTime: Infinity,
-			} )
-			.catch( () => [] );
-		const emptySession = sessions.find(
-			( session ) =>
-				session.ownerSiteId === params.siteId &&
-				! session.firstPrompt &&
-				! session.title &&
-				! session.archived
-		);
-		const summary = emptySession ?? ( await openNewSession( context, params.siteId ) );
-		throw redirect( { to: '/sessions/$sessionId', params: { sessionId: summary.id } } );
-	},
+	beforeLoad: ( { params, context } ) => assertSiteExists( params.siteId, context ),
+	component: () => null,
 } );

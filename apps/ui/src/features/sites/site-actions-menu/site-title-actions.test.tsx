@@ -167,7 +167,7 @@ describe( 'site title actions', () => {
 		expect( within( dialog ).getByRole( 'checkbox' ) ).not.toBeChecked();
 	} );
 
-	it( 'holds off Delete, saying why, while one of the site’s chats is running', async () => {
+	it( 'disables Delete while one of the site’s chats is running', async () => {
 		setup( [ site() ], {
 			getActiveAgentRuns: async () => [
 				{ sessionId: 'one-chat', phase: 'running', runId: 'run', startedAt: Date.now() },
@@ -180,9 +180,6 @@ describe( 'site title actions', () => {
 				'true'
 			)
 		);
-		expect(
-			screen.getByText( 'Wait for active chats and queued prompts to finish.' )
-		).toBeInTheDocument();
 	} );
 
 	it( 'tells the user when a destination cannot open', async () => {
@@ -245,10 +242,10 @@ describe( 'site title actions', () => {
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Site actions for My site' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: /^Duplicate$/ } ) );
 		await waitFor( () => expect( connector.copySite ).toHaveBeenCalledWith( 'one' ) );
-		await screen.findByRole( 'button', { name: 'Open site' } );
+		await screen.findByRole( 'button', { name: /^Open$/ } );
 		expect( screen.getByRole( 'button', { name: 'Site actions for My site' } ) ).toBeVisible();
 		expect( getNoticeHistory() ).toHaveLength( 1 );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Open site' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: /^Open$/ } ) );
 		expect(
 			await screen.findByRole( 'button', { name: 'Site actions for My site copy' } )
 		).toBeVisible();

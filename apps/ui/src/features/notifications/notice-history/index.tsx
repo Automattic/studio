@@ -4,7 +4,6 @@ import { clearNoticeHistory, dismissNotice, useNoticeHistory } from '@/data/app-
 import { NoticeCard } from '@/features/notifications/notice-card';
 import { BellIcon } from '@/lib/icons';
 import { Button, IconButton, Popover, VisuallyHidden } from '@/lib/ui';
-import { NoticeTime } from './notice-time';
 import styles from './style.module.css';
 
 // Shared with the toasts, which hide while the history is open.
@@ -42,6 +41,20 @@ export function useNoticeHistoryOpen(): boolean {
 		() => isOpen,
 		() => false
 	);
+}
+
+function relativeTime( timestamp: number, now: number ) {
+	const minutes = Math.max( 0, Math.floor( ( now - timestamp ) / 60_000 ) );
+	if ( minutes === 0 ) {
+		return __( 'Just now' );
+	}
+	const format = new Intl.RelativeTimeFormat( undefined, { numeric: 'auto', style: 'short' } );
+	if ( minutes < 60 ) {
+		return format.format( -minutes, 'minute' );
+	}
+	return minutes < 1440
+		? format.format( -Math.floor( minutes / 60 ), 'hour' )
+		: format.format( -Math.floor( minutes / 1440 ), 'day' );
 }
 
 function useNow( active: boolean ) {
@@ -150,7 +163,15 @@ export function NoticeHistoryButton() {
 								<li key={ `${ notice.id }:${ notice.shownAt }` }>
 									<NoticeCard
 										notice={ notice }
-										time={ <NoticeTime timestamp={ notice.shownAt } now={ now } /> }
+										time={
+											<time
+												className={ styles.time }
+												dateTime={ new Date( notice.shownAt ).toISOString() }
+												title={ new Date( notice.shownAt ).toLocaleString() }
+											>
+												{ relativeTime( notice.shownAt, now ) }
+											</time>
+										}
 										onActionDone={ closeNoticeHistory }
 										onDismiss={ () => {
 											if ( notices.length === 1 ) {

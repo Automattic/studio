@@ -46,7 +46,7 @@ interface Presets {
  * and spacing, which it offers under Colors and Typography instead, as its
  * StyleVariationsContainer does with isVariationWithProperties().
  */
-export const STYLE_VARIATIONS = `
+const STYLE_VARIATIONS = `
 function style_variations_offered() {
 	$only = function ( $node, $properties ) use ( &$only ) {
 		$kept = array();

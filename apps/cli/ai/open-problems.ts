@@ -20,10 +20,8 @@ import { headerMenu } from 'cli/ai/header-menu';
 import { homeSectionLinks } from 'cli/ai/home-section-links';
 import { readSavedCopies } from 'cli/ai/saved-copies';
 import { readWordPressSite } from 'cli/ai/site-database';
-import { lookQuestion, type SiteQuestion } from 'cli/ai/site-look';
 import { studioMessage } from 'cli/ai/studio-message';
 import { activeThemes, isUpdatableTheme } from 'cli/ai/themes';
-import type { AskUserHandler } from 'cli/ai/types';
 
 interface OpenProblemsState {
 	// The sites changed, whose state is checked at the end of the turn.
@@ -38,17 +36,11 @@ export class OpenProblems {
 	// Each site's problems as Studio first saw it, before the session changed
 	// it: the user's site as it was, not the session's to raise.
 	private readonly before = new Map< string, Promise< string[] > >();
-	// The questions each site's state asked as Studio first saw it, which the
-	// user's site already had: not the session's to ask.
-	private readonly questionsBefore = new Map< string, Promise< string[] > >();
 
 	constructor(
 		private readonly siteChecks: Array<
 			( sitePath: string ) => Promise< string | string[] | undefined >
-		> = [ unrenderedPages, frontPageIsPostsPage, postsPageContent, homeSectionLinks, headerMenu ],
-		private readonly siteQuestions: Array<
-			( sitePath: string ) => Promise< SiteQuestion | undefined >
-		> = [ lookQuestion ]
+		> = [ unrenderedPages, frontPageIsPostsPage, postsPageContent, homeSectionLinks, headerMenu ]
 	) {}
 
 	/** Records the latest validation of a site's file or post, open while it has a problem. */
@@ -67,43 +59,8 @@ export class OpenProblems {
 	async see( site: string ): Promise< void > {
 		if ( ! this.before.has( site ) ) {
 			this.before.set( site, this.siteProblems( site ) );
-			this.questionsBefore.set(
-				site,
-				this.questionsOf( site ).then( ( questions ) => questions.map( ( { key } ) => key ) )
-			);
 		}
-		await Promise.all( [ this.before.get( site ), this.questionsBefore.get( site ) ] );
-	}
-
-	private async questionsOf( site: string ): Promise< SiteQuestion[] > {
-		const questions = await Promise.all(
-			this.siteQuestions.map( ( question ) => question( site ).catch( () => undefined ) )
-		);
-		return questions.filter( ( question ): question is SiteQuestion => !! question );
-	}
-
-	/**
-	 * Asks the user the questions the changed sites' state asks, each once, and
-	 * returns what the turn is told of the answers.
-	 */
-	async ask( onAskUser: AskUserHandler ): Promise< string[] > {
-		const told: string[] = [];
-		for ( const site of this.state.sites ) {
-			const before = ( await this.questionsBefore.get( site ) ) ?? [];
-			for ( const { key, prepare } of await this.questionsOf( site ) ) {
-				if ( before.includes( key ) || this.state.raised.includes( key ) ) {
-					continue;
-				}
-				this.state.raised.push( key );
-				const { question, answered } = await prepare();
-				const answer = ( await onAskUser( [ question ] ) )[ question.question ]?.trim();
-				const reply = answer ? await answered( answer ) : undefined;
-				if ( reply ) {
-					told.push( reply );
-				}
-			}
-		}
-		return told;
+		await this.before.get( site );
 	}
 
 	private async siteProblems( site: string ): Promise< string[] > {

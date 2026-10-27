@@ -13,6 +13,7 @@ import { renderedBlocks } from 'cli/ai/block-render-check';
 import { blockStyleClasses } from 'cli/ai/block-style-classes';
 import { blockTheme } from 'cli/ai/block-theme';
 import { childThemeCopies } from 'cli/ai/child-theme-copies';
+import { globalStylesFlag } from 'cli/ai/global-styles-flag';
 import { postContentChanges } from 'cli/ai/post-content-check';
 import { postCopies } from 'cli/ai/post-copies';
 import { sectionLinks } from 'cli/ai/section-links';
@@ -20,6 +21,7 @@ import { siteFileWrites } from 'cli/ai/site-file-writes';
 import { templatePartAreas } from 'cli/ai/template-part-areas';
 import { themeErrors } from 'cli/ai/theme-errors';
 import { updatableThemeChanges } from 'cli/ai/theme-file-changes';
+import { themeLook } from 'cli/ai/theme-look';
 import { themeStylesheet } from 'cli/ai/theme-stylesheet';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import type { OpenProblems } from 'cli/ai/open-problems';
@@ -69,6 +71,8 @@ export interface SiteChangeSource {
 }
 
 const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
+	// First, so the other checks read the Global Styles WordPress applies.
+	globalStylesFlag,
 	// Before the posts, so a copy saved to its post is checked as the post.
 	postCopies,
 	postContentChanges,
@@ -84,6 +88,7 @@ const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
 	adminCapabilities,
 	blockEditorScripts,
 	blockStyleClasses,
+	themeLook,
 ];
 
 async function localSites(): Promise< SiteData[] > {

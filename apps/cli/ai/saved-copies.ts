@@ -30,12 +30,20 @@ const THEME_FILE_DIR: Record< 'wp_template' | 'wp_template_part', string > = {
 };
 
 // The areas saved Global Styles set: each style and setting they hold, with
-// per-block styles counted.
+// per-block styles counted, of Global Styles WordPress applies.
 function styleAreas( content: string ): string[] {
-	let data: { styles?: Record< string, unknown >; settings?: Record< string, unknown > };
+	let data: {
+		styles?: Record< string, unknown >;
+		settings?: Record< string, unknown >;
+		isGlobalStylesUserThemeJSON?: unknown;
+	};
 	try {
 		data = JSON.parse( content );
 	} catch {
+		return [];
+	}
+	// WordPress applies none of them without the flag (WP_Theme_JSON_Resolver::get_user_data()).
+	if ( ! data?.isGlobalStylesUserThemeJSON ) {
 		return [];
 	}
 	const { blocks, ...styles } = data.styles ?? {};

@@ -52,56 +52,6 @@ describe( 'OpenProblems', () => {
 		] );
 	} );
 
-	it( "asks each question a changed site's state asks once, unless the site already asked it", async () => {
-		const state: Record< string, string[] > = { '/a': [ 'kept' ], '/b': [] };
-		const asked: string[] = [];
-		const open = new OpenProblems(
-			[],
-			[
-				async ( site ) => {
-					const [ key ] = state[ site ].slice( -1 );
-					return key
-						? {
-								key: `${ site } ${ key }`,
-								prepare: async () => ( {
-									question: { question: `${ site } ${ key }?`, options: [] },
-									answered: async ( answer ) =>
-										answer === 'Nothing' ? undefined : `told ${ answer }`,
-								} ),
-						  }
-						: undefined;
-				},
-			]
-		);
-		const changes = new SiteChanges(
-			open,
-			async () => [ { path: '/a' } as SiteData, { path: '/b' } as SiteData ],
-			[]
-		);
-		await changes.snapshot();
-		open.record( '/a', '/a/page' );
-		open.record( '/b', '/b/page' );
-		const answers: Record< string, string | undefined > = {
-			'/a kept?': 'Red',
-			'/a new?': 'Blue',
-			'/b new?': 'Nothing',
-		};
-		const onAskUser = async ( [ { question } ]: Array< { question: string } > ) => {
-			asked.push( question );
-			const answer = answers[ question ];
-			return answer ? { [ question ]: answer } : {};
-		};
-		expect( await open.ask( onAskUser ) ).toEqual( [] );
-		expect( asked ).toEqual( [] );
-
-		state[ '/a' ] = [ 'kept', 'new' ];
-		state[ '/b' ] = [ 'new' ];
-		expect( await open.ask( onAskUser ) ).toEqual( [ 'told Blue' ] );
-		expect( asked ).toEqual( [ '/a new?', '/b new?' ] );
-		expect( await open.ask( onAskUser ) ).toEqual( [] );
-		expect( asked ).toHaveLength( 2 );
-	} );
-
 	it( "tags the problems as Studio's checks", () => {
 		expect( describeOpenProblems( [ 'a', 'b' ] ) ).toBe(
 			"<studio-checks>\nStudio checked the sites this turn changed. Each item is how WordPress treats the site as it is now, from WordPress's source. The turn is done when each is resolved, or, for one that needs the user's choice, when the user is asked:\n- a\n- b\n</studio-checks>"

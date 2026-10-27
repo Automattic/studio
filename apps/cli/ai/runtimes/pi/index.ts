@@ -375,13 +375,9 @@ async function runAgentSessionTurn(
 			// saved, before the sites are checked, as on any later tool result.
 			await getBlockValidationGate( config.session ).settle();
 			const problems = await openProblems.raise();
-			if ( problems.length ) {
-				return { customType: OPEN_PROBLEMS_TYPE, content: describeOpenProblems( problems ) };
-			}
-			// With nothing left to fix, the user is asked what only they choose.
-			const answers = config.onAskUser ? await openProblems.ask( config.onAskUser ) : [];
-			const told = studioMessage( 'checks', answers );
-			return told ? { customType: OPEN_PROBLEMS_TYPE, content: told } : undefined;
+			return problems.length
+				? { customType: OPEN_PROBLEMS_TYPE, content: describeOpenProblems( problems ) }
+				: undefined;
 		};
 
 		await session.prompt( config.prompt, {

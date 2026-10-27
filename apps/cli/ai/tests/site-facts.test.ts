@@ -106,10 +106,16 @@ it.each( [ 'wp_', 'site2_' ] )(
 	'states the copies saved in the Site Editor that WordPress renders instead of theme files (%s tables)',
 	async ( prefix ) => {
 		const site = createSite( prefix );
-		// Copies that replace nothing: another theme's, a draft, and empty Global Styles.
+		// Copies that replace nothing: another theme's, a draft, and Global Styles
+		// WordPress does not apply, without the flag (WP_Theme_JSON_Resolver::get_user_data()).
 		site.save( 11, 'wp_template_part', 'header', '', 2 );
 		site.save( 12, 'wp_template_part', 'header', '', 1, 'draft' );
-		site.save( 13, 'wp_global_styles', 'wp-global-styles-bakery', '{"version":3,"styles":{}}' );
+		site.save(
+			13,
+			'wp_global_styles',
+			'wp-global-styles-bakery',
+			'{"version":3,"styles":{"color":{"text":"#000"}}}'
+		);
 		expect( await site.facts() ).toEqual( BASE );
 
 		// An older copy of the header, then the latest, which WordPress renders.
@@ -120,7 +126,7 @@ it.each( [ 'wp_', 'site2_' ] )(
 			15,
 			'wp_global_styles',
 			'wp-global-styles-bakery',
-			'{"version":3,"styles":{"color":{},"typography":{},"blocks":{"core/button":{}}},"settings":{"color":{}}}'
+			'{"version":3,"isGlobalStylesUserThemeJSON":true,"styles":{"color":{},"typography":{},"blocks":{"core/button":{}}},"settings":{"color":{}}}'
 		);
 		expect( await site.facts() ).toEqual( [
 			...BASE,

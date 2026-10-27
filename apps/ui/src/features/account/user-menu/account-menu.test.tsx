@@ -40,7 +40,7 @@ describe( 'AccountMenu', () => {
 		await openLoginDialog();
 		expect(
 			screen.getByText(
-				'Build with WordPress Studio, share local previews publicly, launch on WordPress.com, and keep sites in sync.'
+				'Create a free WordPress.com account to build with the agent, share previews, and publish.'
 			)
 		).toBeVisible();
 		expect( connector.authenticate ).not.toHaveBeenCalled();

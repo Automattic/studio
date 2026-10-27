@@ -52,6 +52,7 @@ describe( 'AccountPromptDialog', () => {
 		renderWithProviders( <Prompt />, { connector } );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Log in' } ) );
 		await waitFor( () => expect( connector.authenticate ).toHaveBeenCalledTimes( 1 ) );
+		expect( screen.getByText( 'Log in to share your site.' ) ).toBeVisible();
 
 		fireEvent.keyDown( screen.getByRole( 'dialog' ), { key: 'Escape' } );
 		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );

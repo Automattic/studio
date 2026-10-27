@@ -206,7 +206,7 @@ export async function installWordPress(
 			'--skip-email',
 			`--require=${ finishInstallPath }`,
 		],
-		{ phpVersion, signal, env: { STUDIO_ADMIN_USERNAME: username } }
+		{ phpVersion, signal }
 	);
 
 	// `core install --locale` doesn't download translations, and WordPress only accepts a WPLANG

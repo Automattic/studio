@@ -6,7 +6,7 @@
 WP_CLI::add_hook(
 	'after_invoke:core install',
 	function () {
-		update_option( 'studio_admin_username', getenv( 'STUDIO_ADMIN_USERNAME' ) );
+		update_option( 'studio_admin_username', WP_CLI::get_runner()->assoc_args['admin_user'] );
 		if ( ! get_option( 'permalink_structure' ) ) {
 			update_option( 'permalink_structure', '/%year%/%monthnum%/%day%/%postname%/' );
 		}

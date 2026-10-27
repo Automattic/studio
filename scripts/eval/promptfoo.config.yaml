@@ -113,6 +113,81 @@ tests:
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
 
+  - description: single-page variant ceramics
+    vars:
+      caseId: single-page-variant-ceramics
+      timeoutMs: 600000
+      prompt: |
+        Build a simple one-page website for Saltmarsh Ceramics, a two-person pottery
+        studio. Just the one page.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:builtFrontPage
+      - type: javascript
+        value: file://outcome.mjs:siteHasItsOwnDesign
+      - type: javascript
+        value: file://outcome.mjs:turnsAreResponsive
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
+  - description: single-page variant dog-grooming
+    vars:
+      caseId: single-page-variant-dog-grooming
+      timeoutMs: 600000
+      prompt: |
+        I need a website for my dog-grooming business, Tidy Paws. One page is fine.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:builtFrontPage
+      - type: javascript
+        value: file://outcome.mjs:siteHasItsOwnDesign
+      - type: javascript
+        value: file://outcome.mjs:turnsAreResponsive
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
+  - description: single-page variant bakery
+    vars:
+      caseId: single-page-variant-bakery
+      timeoutMs: 600000
+      prompt: |
+        One-page site for Harbor Lane Bakery: our hours are Tue–Sun 7–2, we're at
+        14 Harbor Lane, and we take custom cake orders by email. No blog.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:builtFrontPage
+      - type: javascript
+        value: file://outcome.mjs:siteHasItsOwnDesign
+      - type: javascript
+        value: file://outcome.mjs:turnsAreResponsive
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
+  - description: single-page variant climbing-gym
+    vars:
+      caseId: single-page-variant-climbing-gym
+      timeoutMs: 600000
+      prompt: |
+        Build a one-page site for Northwind Climbing Gym. Dark, bold, energetic.
+        Just one page.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:builtFrontPage
+      - type: javascript
+        value: file://outcome.mjs:siteHasItsOwnDesign
+      - type: javascript
+        value: file://outcome.mjs:turnsAreResponsive
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
   # The header renders on every template, so a bare "#contact" only works on
   # the home page. Judged on the rendered home page: section links are
   # home-relative and each target id exists.

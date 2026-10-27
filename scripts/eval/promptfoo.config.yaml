@@ -1093,3 +1093,193 @@ tests:
         value: file://outcome.mjs:homeImagesLoad
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
+
+  # Moving a hand-written HTML site onto WordPress: three pages sharing one
+  # stylesheet and nav, with photos. Passes when the site renders the old
+  # home page's words with valid blocks and photos served by the site, its
+  # menu opens the old site's other pages, and the About page is native blocks.
+  - description: a hand-written HTML site moved onto WordPress keeps its pages, words and photos
+    vars:
+      caseId: html-site-move
+      pageTitle: about us
+      minImages: 1
+      plugins: []
+      homeText:
+        - text: Learn to sail on Harbor Bay
+        - text: Teaching sailors since 1998
+      pages:
+        - title: Courses
+        - title: About Us
+      timeoutMs: 900000
+      seed:
+        activeSite:
+          name: Harbor Lights Sailing
+          files:
+            old-site/style.css: |
+              body { margin: 0; font-family: Georgia, serif; color: #12324a; background: #f6f1e7; }
+              header { display: flex; justify-content: space-between; align-items: center; padding: 20px 40px; background: #12324a; }
+              header a { color: #f6f1e7; text-decoration: none; margin-left: 24px; font-family: Helvetica, Arial, sans-serif; }
+              .logo { font-size: 22px; font-weight: bold; margin-left: 0; }
+              .hero { padding: 80px 40px; text-align: center; }
+              .hero h1 { font-size: 48px; margin: 0 0 12px; }
+              .hero img, .about img { max-width: 100%; border-radius: 8px; }
+              .courses { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; padding: 40px; }
+              .course { background: #fff; padding: 24px; border-radius: 8px; }
+              .button { display: inline-block; padding: 12px 28px; background: #e07a3f; color: #fff; border-radius: 24px; text-decoration: none; }
+              footer { padding: 30px 40px; background: #0b2233; color: #c9d6df; font-size: 14px; }
+            old-site/index.html: |
+              <!DOCTYPE html>
+              <html lang="en">
+              <head><meta charset="utf-8"><title>Harbor Lights Sailing School</title><link rel="stylesheet" href="style.css"></head>
+              <body>
+              <header><a class="logo" href="index.html">Harbor Lights</a><nav><a href="courses.html">Courses</a><a href="about.html">About Us</a></nav></header>
+              <section class="hero">
+                <h1>Learn to sail on Harbor Bay</h1>
+                <p>Small classes, patient instructors, and the best light on the coast.</p>
+                <img src="images/harbor.webp" alt="Sailboats at the harbor at dusk">
+                <p><a class="button" href="courses.html">See our courses</a></p>
+              </section>
+              <section class="courses">
+                <div class="course"><h3>First Sail</h3><p>A three-hour taster for complete beginners.</p></div>
+                <div class="course"><h3>Weekend Skipper</h3><p>Two days to your first solo tack and jibe.</p></div>
+                <div class="course"><h3>Coastal Cruising</h3><p>Navigation, anchoring and overnight passages.</p></div>
+              </section>
+              <footer>Harbor Lights Sailing School &middot; Pier 4, Harbor Bay &middot; Teaching sailors since 1998</footer>
+              </body>
+              </html>
+            old-site/courses.html: |
+              <!DOCTYPE html>
+              <html lang="en">
+              <head><meta charset="utf-8"><title>Courses | Harbor Lights</title><link rel="stylesheet" href="style.css"></head>
+              <body>
+              <header><a class="logo" href="index.html">Harbor Lights</a><nav><a href="courses.html">Courses</a><a href="about.html">About Us</a></nav></header>
+              <section class="hero"><h1>Courses</h1><p>Every course includes a life jacket, a logbook and hot chocolate afterwards.</p></section>
+              <section class="courses">
+                <div class="course"><h3>First Sail</h3><p>3 hours &middot; $95</p><p>No experience needed. You will steer, trim a sail and learn the basic knots.</p></div>
+                <div class="course"><h3>Weekend Skipper</h3><p>2 days &middot; $420</p><p>Rigging, tacking, jibing, man-overboard drills and your first solo sail.</p></div>
+                <div class="course"><h3>Coastal Cruising</h3><p>5 days &middot; $1,150</p><p>Chart work, tides, anchoring and two overnight passages along the coast.</p></div>
+              </section>
+              <footer>Harbor Lights Sailing School &middot; Pier 4, Harbor Bay &middot; Teaching sailors since 1998</footer>
+              </body>
+              </html>
+            old-site/about.html: |
+              <!DOCTYPE html>
+              <html lang="en">
+              <head><meta charset="utf-8"><title>About Us | Harbor Lights</title><link rel="stylesheet" href="style.css"></head>
+              <body>
+              <header><a class="logo" href="index.html">Harbor Lights</a><nav><a href="courses.html">Courses</a><a href="about.html">About Us</a></nav></header>
+              <section class="about hero">
+                <h1>About Us</h1>
+                <img src="images/crew.webp" alt="Our instructors on the dock">
+                <p>Harbor Lights started in 1998 with one dinghy and a borrowed mooring. Today our six instructors teach more than four hundred students a year.</p>
+                <p>We believe anyone can learn to sail, and that the best way to learn is on the water, in small groups, with someone patient beside you.</p>
+              </section>
+              <footer>Harbor Lights Sailing School &middot; Pier 4, Harbor Bay &middot; Teaching sailors since 1998</footer>
+              </body>
+              </html>
+          wpCli:
+            - - eval
+              - |
+                $images = ABSPATH . 'old-site/images';
+                wp_mkdir_p( $images );
+                $theme = get_theme_root() . '/twentytwentyfive/assets/images';
+                if ( ! copy( "$theme/hero-podcast.webp", "$images/harbor.webp" ) || ! copy( "$theme/book-image.webp", "$images/crew.webp" ) ) { echo 'SEED_ERROR: could not copy the photos'; }
+      prompt: |
+        I've had a hand-coded HTML site for years and I'm tired of editing the
+        files by hand. They're in the old-site folder in my Studio site. Can you
+        move it onto WordPress so I can edit it myself?
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:featureStillWorks
+      - type: javascript
+        value: file://outcome.mjs:menuReachesPages
+      - type: javascript
+        value: file://outcome.mjs:pageInNativeBlocks
+      - type: javascript
+        value: file://outcome.mjs:homeImagesLoad
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
+  # Debugging, as users report it: a snippet pasted into the theme's
+  # functions.php has a syntax error, so every page is blank. Passes when the
+  # site renders and the snippet's banner shows on the home page.
+  - description: a white screen from a pasted functions.php snippet is fixed with the snippet working
+    vars:
+      caseId: debug-functions-snippet
+      plugins: []
+      homeText: [{ text: Free delivery on orders over $30 }]
+      timeoutMs: 600000
+      seed:
+        activeSite:
+          name: Copper Kettle Tea
+          files:
+            wp-content/themes/copper-kettle/style.css: |
+              /*
+              Theme Name: Copper Kettle
+              Template: twentytwentyfive
+              Version: 1.0.0
+              */
+              .delivery-banner { padding: 8px; text-align: center; background: #b5651d; color: #fff; }
+            wp-content/themes/copper-kettle/functions.php: |
+              <?php
+              add_action( 'wp_enqueue_scripts', function () {
+              	wp_enqueue_style( 'copper-kettle', get_stylesheet_uri() );
+              } );
+
+              // Free delivery banner at the top of every page.
+              add_action( 'wp_body_open', 'ck_delivery_banner' )
+              function ck_delivery_banner() {
+              	echo '<div class="delivery-banner">Free delivery on orders over $30</div>';
+              }
+          wpCli:
+            - [theme, activate, copper-kettle]
+      prompt: |
+        I pasted a snippet from a tutorial into my theme's functions.php to show a
+        free delivery banner, and now my whole site is just a white page. Help!
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:featureStillWorks
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
+  # A redesign of an existing site on a WordPress.org theme: the user's home
+  # page content stays, and the new look is kept where WordPress keeps a
+  # design. Passes when the home page still shows the content and the design
+  # is the site's own.
+  - description: a plain existing site gets a distinctive look and keeps its content
+    vars:
+      caseId: redesign-existing-site
+      plugins: []
+      homeText:
+        - text: Wood-fired sourdough pizza since 2011
+        - text: Tuesday to Sunday, 5pm to 10pm
+      timeoutMs: 900000
+      seed:
+        activeSite:
+          name: Ember Street Pizza
+          wpCli:
+            - [theme, activate, twentytwentyfive]
+            - - eval
+              - |
+                $content = "<!-- wp:heading {\"level\":1} -->\n<h1 class=\"wp-block-heading\">Ember Street Pizza</h1>\n<!-- /wp:heading -->\n\n<!-- wp:paragraph -->\n<p>Wood-fired sourdough pizza since 2011</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:heading -->\n<h2 class=\"wp-block-heading\">Our menu</h2>\n<!-- /wp:heading -->\n\n<!-- wp:list -->\n<ul class=\"wp-block-list\"><!-- wp:list-item -->\n<li>Margherita, $14</li>\n<!-- /wp:list-item -->\n\n<!-- wp:list-item -->\n<li>Fennel sausage and honey, $17</li>\n<!-- /wp:list-item -->\n\n<!-- wp:list-item -->\n<li>Wild mushroom and taleggio, $18</li>\n<!-- /wp:list-item --></ul>\n<!-- /wp:list -->\n\n<!-- wp:heading -->\n<h2 class=\"wp-block-heading\">Hours</h2>\n<!-- /wp:heading -->\n\n<!-- wp:paragraph -->\n<p>Tuesday to Sunday, 5pm to 10pm</p>\n<!-- /wp:paragraph -->";
+                $page = wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'Home', 'post_content' => $content ), true );
+                if ( is_wp_error( $page ) ) { echo 'SEED_ERROR: ' . $page->get_error_message(); return; }
+                update_option( 'show_on_front', 'page' );
+                update_option( 'page_on_front', $page );
+      prompt: |
+        My pizza place's site looks really plain and generic. Can you give it a
+        warmer, more distinctive look that feels like a wood-fired pizzeria? Keep
+        all my content.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:featureStillWorks
+      - type: javascript
+        value: file://outcome.mjs:siteHasItsOwnDesign
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched

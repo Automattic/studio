@@ -67,15 +67,19 @@ export function AccountPrompt( {
 				>
 					{ __( 'Create account' ) }
 				</Button>
-				<Button
-					variant="inline-text"
-					size="inline"
-					disabled={ offline || pending }
-					loading={ login.isPending }
-					onClick={ () => login.mutate() }
-				>
-					{ __( 'Log in to WordPress.com' ) }
-				</Button>
+				<p className={ styles.loginPrompt }>
+					{ __( 'Already have an account?' ) }{ ' ' }
+					<Button
+						className={ styles.login }
+						variant="inline-text"
+						size="inline"
+						disabled={ offline || pending }
+						loading={ login.isPending }
+						onClick={ () => login.mutate() }
+					>
+						{ __( 'Log in' ) }
+					</Button>
+				</p>
 			</div>
 		</div>
 	);

@@ -395,13 +395,17 @@ describe( 'pi runtime', () => {
 				images: [ { path: image, subject: 'a bench' } ],
 			} );
 			await getCreatedTool( 'Bash' ).execute( 't', { command: 'ls' } );
+			await getCreatedTool( 'Write' ).execute( 't', {
+				path: `${ mocks.studioRoot }/oak/home.html`,
+				content: `<!-- wp:image --><img src="${ image }"/><!-- /wp:image -->`,
+			} );
 			const naming = getCreatedTool( 'Bash' ).execute( 't', { command: `file ${ image }` } );
 			await new Promise( ( resolve ) => setTimeout( resolve, 20 ) );
 			mocks.images.finish!();
 			await naming;
-			expect( mocks.steps.filter( ( step ) => step === 'Bash' || step === 'images done' ) ).toEqual(
-				[ 'Bash', 'images done', 'Bash' ]
-			);
+			expect(
+				mocks.steps.filter( ( step ) => [ 'Bash', 'Write', 'images done' ].includes( step ) )
+			).toEqual( [ 'Bash', 'Write', 'images done', 'Bash' ] );
 		} finally {
 			mocks.images = undefined;
 		}

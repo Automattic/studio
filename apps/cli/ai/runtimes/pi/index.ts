@@ -863,7 +863,9 @@ function toToolDefinition(
 			if ( ( tool as { settlesPendingWork?: boolean } ).settlesPendingWork ) {
 				await pendingWork.settle();
 			} else {
-				await pendingWork.settleFilesIn( params );
+				// A file written or edited is all such a call touches: markup naming
+				// an image still being generated reads nothing of it.
+				await pendingWork.settleFilesIn( writtenFile ?? params );
 			}
 			// Block markup written since the last check is validated before any
 			// tool puts content on the site or renders it.

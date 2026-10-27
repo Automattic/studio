@@ -91,10 +91,25 @@ function cssRules( css: string ): Rule[] {
 /** A class in a selector. */
 const token = ( name: string ) => new RegExp( `\\.${ name }(?![A-Za-z0-9_-])` );
 
+/**
+ * The class WordPress gives every block of a type, as `wp-block-group`
+ * (wp_get_block_default_classname() in
+ * wp-includes/block-supports/generated-classname.php).
+ */
+function blockClassName( blockType: string ): string {
+	return `wp-block-${ blockType.replace( '/', '-' ).replace( /^core-/, '' ) }`;
+}
+
 // What follows the class in a selector of the class alone, as `:hover` in
-// `.card:hover`, or undefined for any other selector.
-function ownState( selector: string, name: string ): string | undefined {
-	return selector.match( new RegExp( `^\\.${ name }((?:::?[a-z-]+)*)$` ) )?.[ 1 ];
+// `.card:hover`, or undefined for any other selector. The class of the block
+// types that carry it beside it, as `.wp-block-group.card`, names the same
+// elements, as every one of them has that class.
+function ownState( selector: string, name: string, blockTypes: string[] ): string | undefined {
+	const blockClasses = blockTypes.map( blockClassName ).join( '|' );
+	const beside = blockClasses ? `(?:\\.(?:${ blockClasses }))?` : '';
+	return selector.match(
+		new RegExp( `^${ beside }\\.${ name }${ beside }((?:::?[a-z-]+)*)$` )
+	)?.[ 1 ];
 }
 
 // Whether a selector styles the element that has the class, rather than one
@@ -130,7 +145,11 @@ const BLOCK_STYLE_WEIGHT = 100;
 const outweighs = ( selector: string ) => ( specificity( selector ) ?? 0 ) > BLOCK_STYLE_WEIGHT;
 
 /** The block style's css for a class, from the stylesheets: undefined if a rule it cannot move styles it. */
-export function movableCss( stylesheets: string[], name: string ): string | undefined {
+export function movableCss(
+	stylesheets: string[],
+	name: string,
+	blockTypes: string[] = []
+): string | undefined {
 	const css: string[] = [];
 	for ( const stylesheet of stylesheets ) {
 		for ( const rule of cssRules( stylesheet ) ) {
@@ -139,11 +158,13 @@ export function movableCss( stylesheets: string[], name: string ): string | unde
 				! styled.length ||
 				( rule.topLevel &&
 					styled.every( outweighs ) &&
-					! rule.selectors.some( ( selector ) => ownState( selector, name ) !== undefined ) )
+					! rule.selectors.some(
+						( selector ) => ownState( selector, name, blockTypes ) !== undefined
+					) )
 			) {
 				continue;
 			}
-			const states = rule.selectors.map( ( selector ) => ownState( selector, name ) );
+			const states = rule.selectors.map( ( selector ) => ownState( selector, name, blockTypes ) );
 			if ( ! rule.topLevel || rule.body.includes( '{' ) || states.includes( undefined ) ) {
 				return undefined;
 			}
@@ -157,10 +178,16 @@ export function movableCss( stylesheets: string[], name: string ): string | unde
 }
 
 /** A stylesheet without the class's rules. */
-export function withoutRules( stylesheet: string, name: string ): string {
+export function withoutRules(
+	stylesheet: string,
+	name: string,
+	blockTypes: string[] = []
+): string {
 	let text = stylesheet;
 	for ( const rule of cssRules( stylesheet ).reverse() ) {
-		if ( rule.selectors.some( ( selector ) => ownState( selector, name ) !== undefined ) ) {
+		if (
+			rule.selectors.some( ( selector ) => ownState( selector, name, blockTypes ) !== undefined )
+		) {
 			const end = text[ rule.end ] === '\n' ? rule.end + 1 : rule.end;
 			text = text.slice( 0, rule.start ) + text.slice( end );
 		}
@@ -285,7 +312,8 @@ export async function moveToBlockStyle(
 	const sheets = stylesheets.map( ( file ) => ( { file, css: readFileSync( file, 'utf8' ) } ) );
 	const css = movableCss(
 		sheets.map( ( sheet ) => sheet.css ),
-		name
+		name,
+		blockTypes
 	);
 	const styled = markup.map( ( item ) => ( {
 		...item,
@@ -334,7 +362,7 @@ export async function moveToBlockStyle(
 	);
 	const moved = [];
 	for ( const sheet of sheets ) {
-		const rest = withoutRules( sheet.css, name );
+		const rest = withoutRules( sheet.css, name, blockTypes );
 		if ( rest !== sheet.css ) {
 			await writeFile( sheet.file, rest, 'utf8' );
 			moved.push( path.relative( themeDir, sheet.file ) );

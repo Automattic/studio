@@ -85,6 +85,11 @@ describe( 'classProperties', () => {
 			properties: { card: [ 'box-shadow' ], tile: [ 'box-shadow' ] },
 		},
 		{
+			name: "the class beside a block's class",
+			css: '.wp-block-group.card { padding: 1rem } .card.wp-block-group { color: red } .wp-block-group .tile { color: red }',
+			properties: { card: [ 'padding', 'color' ] },
+		},
+		{
 			name: 'a rule for what is inside the class, or the class on an element',
 			css: '.card h3 { color: red } div.card { color: red } .card > p { color: red }',
 			properties: {},
@@ -256,6 +261,40 @@ echo wp_json_encode( array(
 		expect( result.css ).toBe(
 			':root :where(.wp-block-column.is-style-feature--1){background-color: #fff; border-radius: 8px;}:root :where(.wp-block-column.is-style-feature--1:hover ){box-shadow: 0 1px 2px #0003;}'
 		);
+	}, 60000 );
+
+	// As run 52's 01a1…13710 styled its three feature cards, which no note named.
+	it( "moves a look the stylesheet gives the class beside its blocks' class", async () => {
+		const template = path.join( root, theme, 'templates', 'page.html' );
+		writeFileSync(
+			template,
+			times(
+				3,
+				'<!-- wp:group {"className":"perk"} -->\n<div class="wp-block-group perk"><p>x</p></div>\n<!-- /wp:group -->'
+			)
+		);
+		const [ note, ...rest ] = await write(
+			'assets/css/perk.css',
+			'.wp-block-group.perk { background-color: #fff; border-radius: 20px }\n.wp-block-group.perk .eyebrow { margin: 0 }\n'
+		);
+		expect( rest ).toEqual( [] );
+		expect( note ).toContain(
+			'Studio moved the look `.perk` gives core/group blocks into a block style'
+		);
+		expect(
+			JSON.parse(
+				readFileSync( path.join( root, theme, 'styles', 'blocks', 'perk.json' ), 'utf8' )
+			)
+		).toMatchObject( {
+			blockTypes: [ 'core/group' ],
+			styles: { css: 'background-color: #fff; border-radius: 20px;' },
+		} );
+		expect( readFileSync( path.join( root, theme, 'assets', 'css', 'perk.css' ), 'utf8' ) ).toBe(
+			'.wp-block-group.perk .eyebrow { margin: 0 }\n'
+		);
+		expect(
+			readFileSync( template, 'utf8' ).split( 'class="wp-block-group perk is-style-perk"' )
+		).toHaveLength( 4 );
 	}, 60000 );
 
 	// Each case sets up, beside three blocks that could take the style, what

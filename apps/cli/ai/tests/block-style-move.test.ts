@@ -59,13 +59,28 @@ describe( 'movableCss', () => {
 			css: [ '/* } */ .card::before { content: "}"; color: red }' ],
 			expected: '&::before { content: "}"; color: red; }',
 		},
+		// As run 52's 01a1…13710 styled its feature cards.
+		{
+			name: 'moves the rules of the class beside the class of the block types that carry it',
+			css: [
+				'.wp-block-group.card { padding: 1rem }\n.card.wp-block-group:hover { color: red }\n.wp-block-group.card .eyebrow { margin: 0 }',
+			],
+			blockTypes: [ 'core/group' ],
+			expected: 'padding: 1rem; &:hover { color: red; }',
+		},
+		{
+			name: "leaves a rule of the class beside another block type's class, which no block of its types has",
+			css: [ '.card { padding: 1rem }\n.wp-block-column.card { margin: 0 }' ],
+			blockTypes: [ 'core/group' ],
+			expected: 'padding: 1rem;',
+		},
 		{
 			name: 'has nothing to move for a class no rule styles',
 			css: [ '.tile { x: 1 }' ],
 			expected: undefined,
 		},
-	] )( '$name', ( { css, expected } ) => {
-		expect( movableCss( css, 'card' ) ).toBe( expected );
+	] )( '$name', ( { css, blockTypes, expected } ) => {
+		expect( movableCss( css, 'card', blockTypes ) ).toBe( expected );
 	} );
 } );
 
@@ -77,6 +92,16 @@ describe( 'withoutRules', () => {
 				'card'
 			)
 		).toBe( 'body { margin: 0 }\n.card h3 { margin: 0 }\n.cards { gap: 1rem }\n' );
+	} );
+
+	it( 'removes the rules of the class beside the class of the block types that carry it', () => {
+		expect(
+			withoutRules(
+				'.wp-block-group.card { padding: 1rem }\n.wp-block-post-template.card { margin: 0 }\n',
+				'card',
+				[ 'core/group' ]
+			)
+		).toBe( '.wp-block-post-template.card { margin: 0 }\n' );
 	} );
 } );
 

@@ -140,7 +140,26 @@
 	pointer-events: none;
 }
 
-.toolbarStart,
+/* Room for the site controls drawn over the corner while the preview is the
+   leftmost pane. It opens and closes with the pane's slide, so the browser
+   controls never pass under them; the negative margin cancels the gap while
+   it is shut. */
+.toolbarStart {
+	display: flex;
+	flex-shrink: 0;
+	width: 0;
+	margin-inline-end: calc( -1 * var( --space-1 ) );
+	interpolate-size: allow-keywords;
+	transition:
+		width var( --motion-duration-layout ) var( --motion-ease-layout ),
+		margin var( --motion-duration-layout ) var( --motion-ease-layout );
+}
+
+.toolbarStartOpen {
+	width: auto;
+	margin-inline-end: 0;
+}
+
 .headerItem {
 	display: flex;
 	align-items: center;

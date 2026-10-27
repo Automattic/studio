@@ -8,6 +8,7 @@ import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
 import {
 	SiteActionsMenu,
 	SiteHeaderSpace,
+	SiteHeaderStartSpace,
 	usePreviewBeside,
 	useSiteHeader,
 } from '@/features/sites';
@@ -31,7 +32,7 @@ export function SessionHeader( {
 	const sidebarCollapsed = useSidebarCollapsed();
 	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 	const windowControlsInset = useWindowControlsInset( 'toolbar' );
-	const { host } = useSiteHeader();
+	const { host, startWidth } = useSiteHeader();
 	const preview = useOptionalSessionPreviewUI();
 	const previewBeside = usePreviewBeside();
 	const local = site && effectiveEnvironment === 'local';
@@ -53,8 +54,8 @@ export function SessionHeader( {
 			}
 		>
 			<div data-site-header-reserved className={ styles.headerLead }>
-				{ start }
-				{ site ? <SiteActionsMenu site={ site } /> : null }
+				{ startWidth !== null ? <SiteHeaderStartSpace /> : start }
+				{ site && startWidth === null ? <SiteActionsMenu site={ site } /> : null }
 				{ ! site && siteName ? (
 					<>
 						<GlobeIcon className={ styles.headerSiteIcon } />

@@ -433,7 +433,7 @@ describe( 'Studio workspace', () => {
 		}
 	);
 
-	it( 'reopens a hidden chat from the preview header', async () => {
+	it( 'keeps the site menu in place and reopens a hidden chat beside it', async () => {
 		setup( {
 			signedIn: true,
 			sites: [ site( { running: true } ) ],
@@ -442,9 +442,11 @@ describe( 'Studio workspace', () => {
 		} );
 		const hide = await screen.findByRole( 'button', { name: 'Hide chat' } );
 		const input = await findComposer();
+		const menu = screen.getByRole( 'button', { name: 'Site actions for My site' } );
 		expect( screen.queryByRole( 'button', { name: 'Show chat' } ) ).not.toBeInTheDocument();
 		fireEvent.click( hide );
 		await waitFor( () => expect( input.closest( '[aria-hidden="true"]' ) ).not.toBeNull() );
+		expect( screen.getByRole( 'button', { name: 'Site actions for My site' } ) ).toBe( menu );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Show chat' } ) );
 		await waitFor( () => expect( input.closest( '[aria-hidden="true"]' ) ).toBeNull() );
 		expect( screen.queryByRole( 'button', { name: 'Show chat' } ) ).not.toBeInTheDocument();

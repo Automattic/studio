@@ -3,7 +3,11 @@ import { clsx } from 'clsx';
 import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
 import { useWindowControlsInset } from '@/data/host/use-window-controls-inset';
 import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
-import { SiteHeaderSpace, useSiteHeader } from '@/features/sites/site-header-actions';
+import {
+	SiteHeaderSpace,
+	SiteHeaderStartSpace,
+	useSiteHeader,
+} from '@/features/sites/site-header-actions';
 import { PreviewAddressBar, type PreviewRealm } from '@/features/sites/site-preview/address-bar';
 import { RotateCwIcon } from '@/lib/icons';
 import { IconButton } from '@/lib/ui';
@@ -14,7 +18,7 @@ import type { SiteDetails } from '@/data/core';
 import type { BrowserNavigationState } from '@/features/sites/site-preview/browser-state';
 import type { useBrowserShortcuts } from '@/features/sites/site-preview/use-browser-shortcuts';
 import type { BrowserShortcutCommand } from '@studio/common/ai/inspector/page-script';
-import type { ComponentProps, ReactNode } from 'react';
+import type { ComponentProps } from 'react';
 
 interface PreviewHeaderProps {
 	site: SiteDetails;
@@ -25,7 +29,6 @@ interface PreviewHeaderProps {
 	isStarting: boolean;
 	isStopping: boolean;
 	collapsed: boolean;
-	toolbarStart?: ReactNode;
 	atWindowStart: boolean;
 	browserState: BrowserNavigationState;
 	shortcuts: ReturnType< typeof useBrowserShortcuts >;
@@ -50,7 +53,6 @@ export function PreviewHeader( {
 	isStarting,
 	isStopping,
 	collapsed,
-	toolbarStart,
 	atWindowStart,
 	browserState,
 	shortcuts,
@@ -89,11 +91,12 @@ export function PreviewHeader( {
 			{ /* Browser navigation stays at the start, the address field fills the
 				available middle track, and preview actions stay at the end. */ }
 			<div className={ styles.headerSide }>
-				{ toolbarStart ? (
-					<div data-site-header-reserved className={ styles.toolbarStart }>
-						{ toolbarStart }
-					</div>
-				) : null }
+				<div
+					data-site-header-reserved
+					className={ clsx( styles.toolbarStart, atWindowStart && styles.toolbarStartOpen ) }
+				>
+					<SiteHeaderStartSpace />
+				</div>
 				{ canPreview ? (
 					<div
 						data-site-header-navigation

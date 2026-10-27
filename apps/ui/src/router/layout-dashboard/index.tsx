@@ -27,6 +27,7 @@ import {
 	SiteActionsMenu,
 	SiteHeaderActions,
 	SiteHeaderActionsProvider,
+	SiteHeaderStart,
 	SitePreview,
 } from '@/features/sites';
 import { ChatIcon } from '@/lib/icons';
@@ -185,27 +186,10 @@ function DashboardLayout() {
 					onPathChange={ liveUrl ? updateLivePath : preview.updatePath }
 					collapsed={ collapsed }
 					atWindowStart={ chatHidden }
-					toolbarStart={
-						chatHidden ? (
-							<>
-								<HeaderSidebarToggle />
-								<SiteActionsMenu site={ previewSite } />
-								{ homeSiteId ? null : (
-									<IconButton
-										icon={ <ChatIcon /> }
-										label={ __( 'Show chat' ) }
-										tooltipSide="bottom"
-										onClick={ () => setChatHidden( false ) }
-									/>
-								) }
-							</>
-						) : undefined
-					}
 				/>
 			) : null,
 		[
 			chatHidden,
-			homeSiteId,
 			liveUrl,
 			livePath,
 			sendAnnotations,
@@ -213,7 +197,6 @@ function DashboardLayout() {
 			preview.reloadNonce,
 			preview.updatePath,
 			previewSite,
-			setChatHidden,
 			updateLivePath,
 		]
 	);
@@ -238,6 +221,22 @@ function DashboardLayout() {
 					chatHidden={ chatHidden }
 					instant={ previewStopping }
 					preview={ renderPreview }
+					start={
+						routeSite ? (
+							<SiteHeaderStart>
+								<HeaderSidebarToggle />
+								<SiteActionsMenu site={ routeSite } />
+								{ chatHidden && ! homeSiteId ? (
+									<IconButton
+										icon={ <ChatIcon /> }
+										label={ __( 'Show chat' ) }
+										tooltipSide="bottom"
+										onClick={ () => setChatHidden( false ) }
+									/>
+								) : null }
+							</SiteHeaderStart>
+						) : null
+					}
 					actions={
 						routeSite ? <SiteHeaderActions site={ routeSite } live={ !! liveUrl } /> : null
 					}

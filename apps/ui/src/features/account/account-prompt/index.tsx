@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { useId, type ReactNode, type RefObject } from 'react';
+import { useId, type RefObject } from 'react';
 import { useLogin } from '@/data/queries/use-auth-user';
 import { useOffline } from '@/lib/hooks';
 import {
@@ -20,28 +20,6 @@ import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 
 export const previewSiteImage = site2;
 
-function AccountPromptLayout( {
-	children,
-	flush,
-	className,
-}: {
-	children: ReactNode;
-	flush?: boolean;
-	className?: string;
-} ) {
-	return (
-		<div className={ clsx( styles.body, flush && styles.flush, className ) }>
-			<div aria-hidden="true" className={ styles.illustration }>
-				<span className={ styles.cardStart } style={ { backgroundImage: `url(${ site1 })` } } />
-				<span className={ styles.cardEnd } style={ { backgroundImage: `url(${ site3 })` } } />
-				<span className={ styles.cardCenter } style={ { backgroundImage: `url(${ site2 })` } } />
-				<StudioIcon className={ styles.studioIcon } />
-			</div>
-			{ children }
-		</div>
-	);
-}
-
 // Asks a signed-out user to create a WordPress.com account or log in before
 // something that needs one, like publishing or sharing.
 export function AccountPrompt( {
@@ -50,7 +28,6 @@ export function AccountPrompt( {
 	descriptionId,
 	source,
 	onCreateAccount,
-	onAuthenticate,
 	onContinue,
 	onSkip,
 	busy,
@@ -59,11 +36,10 @@ export function AccountPrompt( {
 	className,
 }: {
 	title: string;
-	description?: string;
+	description: string;
 	descriptionId?: string;
 	source: TracksAuthSource;
 	onCreateAccount?: () => void;
-	onAuthenticate?: () => void;
 	onContinue?: () => void;
 	onSkip?: () => void;
 	busy?: boolean;
@@ -79,15 +55,19 @@ export function AccountPrompt( {
 	const pending = authenticating || busy || disabled;
 	const error = login.error ?? signup.error;
 	return (
-		<AccountPromptLayout flush={ flush } className={ className }>
+		<div className={ clsx( styles.body, flush && styles.flush, className ) }>
+			<div aria-hidden="true" className={ styles.illustration }>
+				<span className={ styles.cardStart } style={ { backgroundImage: `url(${ site1 })` } } />
+				<span className={ styles.cardEnd } style={ { backgroundImage: `url(${ site3 })` } } />
+				<span className={ styles.cardCenter } style={ { backgroundImage: `url(${ site2 })` } } />
+				<StudioIcon className={ styles.studioIcon } />
+			</div>
 			<h2 className={ styles.title }>{ title }</h2>
-			{ ( description || ( offline && ! onContinue ) ) && (
-				<p id={ descriptionId } className={ styles.description }>
-					{ offline && ! onContinue
-						? __( 'Connect to the internet to create an account or log in.' )
-						: description }
-				</p>
-			) }
+			<p id={ descriptionId } className={ styles.description }>
+				{ offline && ! onContinue
+					? __( 'Connect to the internet to create an account or log in.' )
+					: description }
+			</p>
 			{ error ? (
 				<p role="alert" className={ styles.error }>
 					{ error instanceof Error ? error.message : String( error ) }
@@ -102,7 +82,6 @@ export function AccountPrompt( {
 						if ( onContinue ) {
 							onContinue();
 						} else {
-							onAuthenticate?.();
 							onCreateAccount?.();
 							signup.mutate();
 						}
@@ -127,7 +106,6 @@ export function AccountPrompt( {
 								if ( onSkip ) {
 									onSkip();
 								} else {
-									onAuthenticate?.();
 									login.mutate();
 								}
 							} }
@@ -137,7 +115,7 @@ export function AccountPrompt( {
 					</p>
 				) }
 			</div>
-		</AccountPromptLayout>
+		</div>
 	);
 }
 

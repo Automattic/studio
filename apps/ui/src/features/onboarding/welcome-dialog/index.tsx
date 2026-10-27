@@ -99,7 +99,7 @@ function WelcomeFlow() {
 					) }
 					source="onboarding"
 					onSkip={ () => void finish() }
-					onAuthenticate={ () => setAuthenticationStarted( true ) }
+					onCreateAccount={ () => setAuthenticationStarted( true ) }
 					onContinue={ authUser ? () => void finish() : undefined }
 					busy={ finishing || authLoading }
 					disabled={ savePreferences.isPending }

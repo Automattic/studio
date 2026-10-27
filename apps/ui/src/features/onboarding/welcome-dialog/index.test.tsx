@@ -10,7 +10,6 @@ async function firstLaunch( { signedIn = false, overrides = {} as Partial< Conne
 			{ user: signedIn ? TEST_USER : null },
 			{
 				getOnboardingCompleted: async () => false,
-				getOnboardingHints: async () => ( {} ),
 				...overrides,
 			}
 		),
@@ -39,12 +38,9 @@ describe( 'Welcome dialog', () => {
 		'continues without authentication using %s',
 		async ( dismissLabel ) => {
 			const { connector, history } = await firstLaunch();
-			expect( screen.queryByText( 'Build from a prompt.' ) ).not.toBeInTheDocument();
-			expect( screen.queryByText( 'Sign up for free' ) ).not.toBeInTheDocument();
 			expect(
 				screen.getByRole( 'checkbox', { name: 'Share anonymous usage statistics' } )
 			).toBeVisible();
-			expect( screen.queryByRole( 'button', { name: 'Create account' } ) ).not.toBeInTheDocument();
 			fireEvent.click( screen.getByRole( 'button', { name: dismissLabel } ) );
 			await screen.findByRole( 'dialog', { name: 'Add site' } );
 			expect( connector.authenticate ).not.toHaveBeenCalled();

@@ -444,10 +444,19 @@ describe( 'site checks', () => {
 				pass: false,
 			},
 			{
-				name: "a child theme whose font families replace its parent's, without their files",
+				// Run 57: get_theme_file_uri() serves the parent's file.
+				name: "a child theme whose font families name a file of its parent's",
 				site: {
 					...child,
 					themeFiles: { 'theme.json': themeJson( 'file:./assets/fonts/figtree.woff2' ) },
+				},
+				pass: true,
+			},
+			{
+				name: 'a child theme whose font families name a file neither theme has',
+				site: {
+					...child,
+					themeFiles: { 'theme.json': themeJson( 'file:./assets/fonts/vollkorn.woff2' ) },
 				},
 				pass: false,
 			},

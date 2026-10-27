@@ -494,10 +494,12 @@ export const siteHasItsOwnDesign = check( ( d, vars ) => {
 	}
 	// A child theme's theme.json is merged over its parent's, and font families
 	// it declares replace the parent's (WP_Theme_JSON_Resolver::get_theme_data()
-	// and WP_Theme_JSON::merge()); each file:./ source is in the theme declaring it.
+	// and WP_Theme_JSON::merge()). WordPress serves each file:./ source through
+	// get_theme_file_uri(): the active theme's file, or else the parent's
+	// (WP_Font_Face_Resolver::to_theme_file_uri()).
 	const own = fontFamilies( s.themeFiles?.[ 'theme.json' ] );
 	const parent = own ? undefined : fontFamilies( s.parentThemeJson );
-	const fileList = ( parent ? s.parentThemeFileList : s.themeFileList ) ?? [];
+	const fileList = [ ...( s.themeFileList ?? [] ), ...( s.parentThemeFileList ?? [] ) ];
 	const fontSources = [
 		...JSON.stringify( own ?? parent ?? [] ).matchAll( /"file:\.\/([^"]+)"/g ),
 	].map( ( m ) => m[ 1 ] );

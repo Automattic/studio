@@ -1,19 +1,19 @@
 import { type Page, expect } from '@playwright/test';
 import Sidebar from './sidebar';
 
-// A site's settings in the settings dialog: the "Settings", "PHP" and "Debug" sections.
+// A site's settings in the settings dialog.
 export default class SiteSettings {
 	constructor( private page: Page ) {}
 
 	async open( siteName: string ) {
-		await new Sidebar( this.page ).openContextMenuItem( siteName, 'Site settings' );
+		await new Sidebar( this.page ).openContextMenuItem( siteName, 'Settings' );
 		await expect( this.siteNameInput ).toBeVisible();
 	}
 
-	async showSection( name: 'Settings' | 'PHP' | 'Debug' ) {
+	async showSection( name: 'Settings' | 'PHP' | 'Debug' | 'Instructions' ) {
 		await this.page
-			.getByRole( 'navigation', { name: 'Settings sections' } )
-			.getByRole( 'button', { name } )
+			.getByRole( 'tablist', { name: 'Settings sections' } )
+			.getByRole( 'tab', { name } )
 			.click();
 	}
 

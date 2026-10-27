@@ -9,9 +9,12 @@ set -eu
 #
 # Job types:
 #   - validation: Skip if changes are limited to documentation, config, localization, and non-code files.
-#                 Used for lint, unit tests, and e2e tests.
-#   - metrics: Same as validation, but also skips on test-only changes (apps/studio/e2e/**, *.test.ts).
-#              Since metrics measure app performance, test file changes don't affect them.
+#                 Used for lint, unit tests, and CLI e2e tests.
+#   - e2e: Same as validation, but also skips on Studio Code agent-only changes.
+#          The desktop E2E suite runs with AI features off, so it never runs agent code.
+#   - metrics: Same as validation, but also skips on test-only and agent-only changes.
+#              Since metrics measure app performance, test file changes don't affect them,
+#              and the metrics suites never run agent code.
 #   - build: Skip if changes are limited to documentation and config files.
 #            Does NOT skip on localization changes since builds should include translation updates.
 #   - fastlane: Inverse of the others — only runs when fastlane/ or Ruby setup files change.
@@ -78,6 +81,15 @@ TEST_PATTERNS=(
   "metrics/**"
 )
 
+# Studio Code agent files - the agent's runtime, tools, skills, and eval runner.
+# Lint, unit tests and CLI E2E still run on these; the desktop E2E and metrics
+# suites never start an agent turn.
+AGENT_PATTERNS=(
+  "apps/cli/ai/**"
+  "apps/cli/commands/ai/**"
+  "scripts/eval/**"
+)
+
 # Fastlane / Ruby setup files - changes here affect the standalone fastlane
 # helper tests. Anything that the test runner reads (Fastfile, lib/, test/),
 # that defines the Ruby environment, or that implements this CI job's runner /
@@ -125,7 +137,7 @@ done
 
 if [[ -z "$job_type" ]]; then
   echo "Error: --job-type is required"
-  echo "Usage: should-skip-job.sh --job-type <validation|metrics|build|fastlane>"
+  echo "Usage: should-skip-job.sh --job-type <validation|e2e|metrics|build|fastlane>"
   exit 1
 fi
 
@@ -175,10 +187,19 @@ case "$job_type" in
     fi
     ;;
 
+  "e2e")
+    # Skip desktop e2e if ALL changes are in non-code files, localization, OR agent files.
+    PATTERNS=("${COMMON_NON_CODE_PATTERNS[@]}" "${LOCALIZATION_PATTERNS[@]}" "${AGENT_PATTERNS[@]}")
+    if pr_changed_files --all-match "${PATTERNS[@]}"; then
+      show_skip_message "$job_type"
+      exit 0
+    fi
+    ;;
+
   "metrics")
-    # Skip metrics if ALL changes are in non-code files, localization, OR test files.
-    # Test file changes don't affect app performance, so metrics don't need to run.
-    PATTERNS=("${COMMON_NON_CODE_PATTERNS[@]}" "${LOCALIZATION_PATTERNS[@]}" "${TEST_PATTERNS[@]}")
+    # Skip metrics if ALL changes are in non-code files, localization, test files, OR agent files.
+    # Neither test nor agent file changes affect what the metrics suites measure.
+    PATTERNS=("${COMMON_NON_CODE_PATTERNS[@]}" "${LOCALIZATION_PATTERNS[@]}" "${TEST_PATTERNS[@]}" "${AGENT_PATTERNS[@]}")
     if pr_changed_files --all-match "${PATTERNS[@]}"; then
       show_skip_message "$job_type"
       exit 0
@@ -205,7 +226,7 @@ case "$job_type" in
 
   *)
     echo "Unknown job type: $job_type"
-    echo "Valid types: validation, metrics, build, fastlane"
+    echo "Valid types: validation, e2e, metrics, build, fastlane"
     exit 1
     ;;
 esac

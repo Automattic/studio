@@ -1,6 +1,7 @@
-import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
+import { __ } from '@wordpress/i18n';
+import { useEffect } from 'react';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import type {
@@ -10,6 +11,7 @@ import type {
 	Connector,
 	LoadedAiSession,
 	SessionEntry,
+	SyncSite,
 } from '@/data/core';
 
 export const SESSIONS_QUERY_KEY = [ 'sessions' ] as const;
@@ -82,6 +84,10 @@ export function useSessions() {
 	return useQuery( {
 		queryKey: SESSIONS_QUERY_KEY,
 		queryFn: () => connector.getSessions(),
+		// The sidebar mounts its retry row once a first load fails: refetched on
+		// that mount, the list would go back to loading, unmount the row, fail
+		// again and repeat forever.
+		retryOnMount: false,
 	} );
 }
 
@@ -109,6 +115,21 @@ export function useCreateSession() {
 	return useMutation( {
 		mutationFn: ( { siteId, model }: { siteId?: string; model?: AiModelId } ) =>
 			openNewSession( { connector, queryClient }, siteId, model ),
+	} );
+}
+
+export function useSetSessionEnvironment( sessionId: string ) {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	return useMutation( {
+		mutationFn: ( environment: 'local' | 'live' ) =>
+			connector.setSessionEnvironment( sessionId, environment ),
+		onError: ( error ) =>
+			toast.error( __( 'Couldn’t switch the site this chat works on' ), {
+				description: error.message,
+			} ),
+		onSettled: () =>
+			queryClient.invalidateQueries( { queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ] } ),
 	} );
 }
 
@@ -198,26 +219,18 @@ export function useUpdateSessionMetadata() {
 }
 
 /**
- * Derive the *effective* environment for a session's next turn. Joins the
- * session's stored `activeEnvironment` with the live connection state for its
- * owner — a session flipped to Live whose remote is no longer connected
- * naturally falls back to 'local' without any cleanup write to the JSONL.
+ * The connected remote a chat switched to Live works on. A chat whose remote
+ * is no longer connected falls back to Local, without any cleanup write to
+ * the JSONL.
  */
-export function useSessionEffectiveEnvironment(
-	summary:
-		| Pick< AiSessionSummary, 'activeEnvironment' | 'lastSelectedWpcomSiteId' | 'ownerSitePath' >
-		| undefined,
+export function useSessionLiveSite(
+	summary: Pick< AiSessionSummary, 'activeEnvironment' | 'lastSelectedWpcomSiteId' > | undefined,
 	ownerLocalSiteId: string | undefined
-): 'local' | 'live' {
+): SyncSite | undefined {
 	const { data: connectedSites } = useConnectedWpcomSites( ownerLocalSiteId );
-
-	return useMemo( () => {
-		if ( ! summary ) {
-			return 'local';
-		}
-		const connectedLiveIds = new Set( ( connectedSites ?? [] ).map( ( site ) => site.id ) );
-		return deriveEffectiveEnvironment( summary, ( blogId ) => connectedLiveIds.has( blogId ) );
-	}, [ summary, connectedSites ] );
+	return summary?.activeEnvironment === 'live'
+		? connectedSites?.find( ( site ) => site.id === summary.lastSelectedWpcomSiteId )
+		: undefined;
 }
 
 export function useSyncSessionsWithEvents(): void {

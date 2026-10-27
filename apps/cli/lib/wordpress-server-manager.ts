@@ -39,6 +39,7 @@ import {
 	ServerConfig,
 	ManagerMessagePayload,
 	serverConfigSchema,
+	SiteStartPhase,
 } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
 
@@ -241,10 +242,12 @@ export async function startWordPressServer(
 	const phpErrorLogSizeAtStart = await fileSize( phpErrorLogPath );
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
+	const phaseTimings: Record< string, number > = {};
 	const startedAt = Date.now();
 	try {
 		const processDesc = await startProcess( processName, WORDPRESS_SERVER_CHILD_PATH );
 		await readyOrExit.waitFor( processDesc.pmId );
+		phaseTimings.daemon_ms = Date.now() - startedAt;
 		await sendMessage(
 			processDesc.pmId,
 			processName,
@@ -252,7 +255,12 @@ export async function startWordPressServer(
 				topic: 'start-server',
 				data: { config: serverConfig },
 			},
-			{ logger }
+			{
+				logger,
+				onStartPhase: ( { phase, ms } ) => {
+					phaseTimings[ `${ phase }_ms` ] = ms;
+				},
+			}
 		);
 
 		if ( mayCreateTablesDuringStart ) {
@@ -270,6 +278,7 @@ export async function startWordPressServer(
 				...getTracksOrigin(),
 				success: true,
 				time_ms: Date.now() - startedAt,
+				...phaseTimings,
 				running_site_count: await getRunningSiteCount(),
 			} );
 		} catch {
@@ -287,6 +296,7 @@ export async function startWordPressServer(
 				success: false,
 				failure_reason: classifyStartFailure( error ),
 				time_ms: Date.now() - startedAt,
+				...phaseTimings,
 			} );
 		} catch {
 			// Best-effort telemetry — never block or fail a site start.
@@ -466,9 +476,11 @@ const messageActivityTrackers = new Map<
 >();
 const CHILD_EXIT_ERROR_GRACE_MS = 100;
 
-export interface SendMessageOptions {
+interface SendMessageOptions {
 	maxTotalElapsedTime?: number;
 	logger?: Logger< string >;
+	// Receives the start steps the child finishes for this message.
+	onStartPhase?: ( data: { phase: SiteStartPhase; ms: number } ) => void;
 }
 
 /**
@@ -478,7 +490,7 @@ export interface SendMessageOptions {
  * - Checks periodically for inactivity
  * - Has both inactivity timeout and max total timeout
  */
-export async function sendMessage(
+async function sendMessage(
 	pmId: number,
 	processName: string,
 	message: ManagerMessagePayload,
@@ -543,6 +555,11 @@ export async function sendMessage(
 			} else if ( packet.raw.topic === 'console-message' ) {
 				lastActivityTimestamp = Date.now();
 				logger?.reportProgress( packet.raw.message );
+			} else if (
+				packet.raw.topic === 'start-phase' &&
+				packet.raw.originalMessageId === messageId
+			) {
+				options.onStartPhase?.( packet.raw.data );
 			} else if ( packet.raw.topic === 'error' && packet.raw.originalMessageId === messageId ) {
 				if ( exitRejectTimeoutId ) {
 					clearTimeout( exitRejectTimeoutId );
@@ -622,16 +639,22 @@ export async function stopWordPressServer( siteId: string ): Promise< void > {
 		);
 
 		// Allow 5 seconds (arbitrary number) of cleanup time for the child process before throwing an
-		// exception and telling the process manager to send a SIGKILL signal.
-		await Promise.race( [
-			exitPromise,
-			new Promise( ( resolve, reject ) =>
-				setTimeout(
-					() => reject( new Error( 'Timed out waiting for the server to stop' ) ),
-					GRACEFUL_STOP_TIMEOUT
-				)
-			),
-		] );
+		// exception and telling the process manager to send a SIGKILL signal. Clear the timer once the
+		// race settles, or it keeps the CLI process alive for the full 5 seconds.
+		let exitTimeout: NodeJS.Timeout | undefined;
+		try {
+			await Promise.race( [
+				exitPromise,
+				new Promise( ( resolve, reject ) => {
+					exitTimeout = setTimeout(
+						() => reject( new Error( 'Timed out waiting for the server to stop' ) ),
+						GRACEFUL_STOP_TIMEOUT
+					);
+				} ),
+			] );
+		} finally {
+			clearTimeout( exitTimeout );
+		}
 	} catch {
 		await stopProcess( processName );
 		// SIGKILL is asynchronous: the daemon returns before the OS has torn the
@@ -704,7 +727,6 @@ export async function runBlueprint(
 				{ logger }
 			);
 		} finally {
-			// Always stop the process after blueprint is applied
 			await stopProcess( processName );
 		}
 	} finally {

@@ -9,7 +9,9 @@ import {
 	validateStudioChatImages,
 } from '@studio/common/ai/chat-images';
 import {
+	getGlobalInstructionsEnabled,
 	readGlobalInstructionsFile,
+	setGlobalInstructionsEnabled,
 	writeGlobalInstructions,
 } from '@studio/common/ai/global-instructions';
 import { isAiModelId } from '@studio/common/ai/models';
@@ -20,6 +22,7 @@ import {
 	listHydratedAiSessions,
 	loadHydratedAiSession,
 	reconcileSessionEnvironment,
+	setSessionEnvironment,
 	updateHydratedAiSessionMetadata,
 } from '@studio/common/ai/sessions/manage';
 import { deleteAiSessionPlacement } from '@studio/common/ai/sessions/placement';
@@ -39,9 +42,13 @@ import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { validateStudioVisualAnnotations } from '@studio/common/ai/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH, DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
 import {
+	getSiteAgentFiles,
 	getSkillsStatusForAllSites,
 	installSkillToAllSites,
+	removeSiteAgentFile,
 	removeSkillFromAllSites,
+	setSiteAgentFileEnabled,
+	type SiteAgentFileKind,
 } from '@studio/common/lib/agent-skills';
 import { downloadAndExtractBlueprintBundle } from '@studio/common/lib/blueprint-bundle';
 import {
@@ -90,9 +97,19 @@ import {
 	readAuthToken,
 	updateSharedConfig,
 } from '@studio/common/lib/shared-config';
+import {
+	getSiteAgentFileFolder,
+	getSiteAgentFilePaths,
+} from '@studio/common/lib/site-agent-file-paths';
+import {
+	isSitePreviewPath,
+	readSitePreview,
+	writeSitePreview,
+} from '@studio/common/lib/site-preview-cache';
 import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
-import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
+import { requestStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
+import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
 import { getLocalFileSize, listLocalFileTree } from '@studio/common/lib/sync/local-file-tree';
 import {
 	fetchHostingPhpVersion,
@@ -100,6 +117,7 @@ import {
 	fetchRemoteFileTreeContents,
 	fetchSyncableSites,
 } from '@studio/common/lib/sync/sync-api';
+import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/editor';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import {
 	onboardingHintsSchema,
@@ -120,7 +138,6 @@ import { deleteSite, startSite, stopSite } from '@studio/common/sites/lifecycle'
 import { listSites } from '@studio/common/sites/list';
 import { listSitesWithMetadata, updateSiteMetadata } from '@studio/common/sites/metadata';
 import { designFixesSchema, fixSiteDesign, readSiteDesign } from '@studio/common/sites/site-design';
-import { readSiteIcon } from '@studio/common/sites/site-identity';
 import { readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import {
 	deleteAllPreviewSites,
@@ -185,6 +202,8 @@ export interface LocalServerOptions {
 	// Injected by `studio ui` rather than imported, so this package doesn't depend
 	// on the CLI.
 	recordTracksEvent?: ( event: TracksEventName, props?: TracksProps ) => Promise< void >;
+	// Screenshots a page of a running site; absent when no browser is available.
+	capturePreview?: ( url: string, size: { width: number; height: number } ) => Promise< Buffer >;
 }
 
 export interface LocalServer {
@@ -307,7 +326,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	}
 
 	function preferencesContext(): UserPreferencesContext {
-		return { sitesRoot, installedApps: detectInstalledApps() };
+		return { sitesRoot };
 	}
 
 	const cliRunner = createCliRunner( { cliBinary, nodeBinary } );
@@ -454,9 +473,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	const allowedOrigins = new Set( [
 		`http://localhost:${ port }`,
 		`http://127.0.0.1:${ port }`,
-		// Vite dev server for `npm run dev:local --workspace=apps/ui`.
+		// Vite dev server for `npm run dev:local --workspace=apps/ui`, which proxies
+		// the API but keeps the page's Origin on POSTs.
 		'http://localhost:5400',
-		'http://127.0.0.1:5400',
 		// The studio.local custom-domain setup.
 		'https://studio.local',
 	] );
@@ -617,6 +636,25 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	api.get(
+		'/agent-instructions/enabled',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( { enabled: await getGlobalInstructionsEnabled() } );
+		} )
+	);
+
+	api.put(
+		'/agent-instructions/enabled',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			if ( typeof req.body?.enabled !== 'boolean' ) {
+				res.status( 400 ).json( { error: 'enabled required' } );
+				return;
+			}
+			await setGlobalInstructionsEnabled( req.body.enabled );
+			res.sendStatus( 204 );
+		} )
+	);
+
 	api.post(
 		'/agent-instructions',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -730,6 +768,54 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	api.get(
+		'/sites/:id/thumbnail',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			res.json( { thumbnail: await readSitePreview( req.params.id ) } );
+		} )
+	);
+
+	api.post(
+		'/sites/:id/capture-preview',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const parsed = z
+				.object( {
+					path: z.string(),
+					width: z.number().int().min( 1 ).max( 2400 ),
+					height: z.number().int().min( 1 ).max( 2400 ),
+				} )
+				.safeParse( req.body );
+			if ( ! parsed.success ) {
+				res.status( 400 ).json( { error: 'path, width and height required' } );
+				return;
+			}
+			const { path: pagePath, width, height } = parsed.data;
+			if ( ! options.capturePreview || ! isSitePreviewPath( pagePath ) ) {
+				res.json( { thumbnail: null } );
+				return;
+			}
+			const site = ( await listSites( execute ) ).find( ( item ) => item.id === req.params.id );
+			if ( ! site?.running ) {
+				res.json( { thumbnail: null } );
+				return;
+			}
+			const url = new URL( pagePath, site.url );
+			if ( url.origin !== new URL( site.url ).origin ) {
+				res.status( 400 ).json( { error: 'The page must be on the site.' } );
+				return;
+			}
+			const png = await options
+				.capturePreview( url.toString(), { width, height } )
+				.catch( () => null );
+			if ( ! png ) {
+				res.json( { thumbnail: null } );
+				return;
+			}
+			await writeSitePreview( site.id, png );
+			res.json( { thumbnail: `data:image/png;base64,${ png.toString( 'base64' ) }` } );
+		} )
+	);
+
 	api.post(
 		'/sites/:id/start',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -755,21 +841,6 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			await stopSite( execute, site.path );
 			res.sendStatus( 204 );
-		} )
-	);
-
-	// Reads straight from cli.json via `readSitePath` rather than forking the
-	// CLI for a site list: the UI asks for it on every site switch, and a fork
-	// costs about a second of CPU each time.
-	api.get(
-		'/sites/:id/site-icon',
-		asyncHandler( async ( req: Request, res: Response ) => {
-			const sitePath = await readSitePath( req.params.id );
-			if ( ! sitePath ) {
-				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
-				return;
-			}
-			res.json( await readSiteIcon( execute, sitePath ) );
 		} )
 	);
 
@@ -968,6 +1039,37 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	// What a typed folder holds, the browser's stand-in for the desktop's folder picker.
+	api.post(
+		'/site-defaults/folder',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const folderPath = req.body?.path;
+			if ( typeof folderPath !== 'string' || ! path.isAbsolute( folderPath ) ) {
+				res.status( 400 ).json( { error: 'Enter the folder’s full path.' } );
+				return;
+			}
+			const folder = { path: folderPath, name: path.basename( folderPath ) };
+			// Only folders under the home or site directory are read; others are left to `site create`.
+			let confined: string | undefined;
+			for ( const root of [ os.homedir(), await readDefaultSiteDirectory( sitesRoot ) ] ) {
+				const candidate = path.resolve( folderPath );
+				if ( candidate.startsWith( path.resolve( root ) + path.sep ) ) {
+					confined = candidate;
+				}
+			}
+			try {
+				res.json( {
+					...folder,
+					isEmpty: confined ? await isEmptyDir( confined ) : true,
+					isWordPress: confined ? isWordPressDirectory( confined ) : false,
+				} );
+			} catch ( err ) {
+				if ( ! isErrnoException( err ) || err.code !== 'ENOENT' ) throw err;
+				res.json( { ...folder, isEmpty: true, isWordPress: false } );
+			}
+		} )
+	);
+
 	api.post(
 		'/paths/compare',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -1001,8 +1103,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				flowType?: TracksSiteCreateFlowType;
 				// Optional Blueprint to apply on creation: `blueprint` is the parsed
 				// blueprint JSON; `filePath` (set for uploaded ZIP bundles) lets the
-				// CLI resolve relative assets. `bundleUrl` triggers a server-side
-				// download so API blueprints with bundled resources resolve correctly.
+				// CLI resolve relative assets. `bundleUrl` names a bundle from Studio's
+				// blueprint catalog, which the server downloads so relative paths resolve.
 				blueprint?: {
 					blueprint?: SiteCreateOptions[ 'blueprint' ];
 					slug?: string;
@@ -1025,7 +1127,17 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			let bundleTempDir: string | undefined;
 			let blueprintFilePath = body.blueprint?.filePath;
 			if ( body.blueprint?.bundleUrl && ! blueprintFilePath ) {
-				const result = await downloadAndExtractBlueprintBundle( body.blueprint.bundleUrl );
+				// Download the catalog's copy of the URL, so this server only fetches
+				// bundles Studio publishes, whatever a caller sends.
+				const requestedUrl = body.blueprint.bundleUrl;
+				const catalogUrl = ( await fetchStudioBlueprints() ).find(
+					( item ) => item.bundle_url === requestedUrl
+				)?.bundle_url;
+				if ( ! catalogUrl ) {
+					res.status( 400 ).json( { error: 'Unknown blueprint bundle' } );
+					return;
+				}
+				const result = await downloadAndExtractBlueprintBundle( catalogUrl );
 				bundleTempDir = result.tempDir;
 				blueprintFilePath = result.blueprintJsonPath;
 			}
@@ -1425,11 +1537,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	const readPreferredEditor = async () =>
+		( await readUserPreferences( preferencesContext() ) ).editor ??
+		getFirstInstalledEditor( detectInstalledApps() );
+	// No preference (or an unknown one) falls back to the system terminal.
+	const readPreferredTerminal = async () => {
+		const terminal = ( await readUserPreferences( preferencesContext() ) ).terminal;
+		return terminal && isTerminal( terminal ) ? terminal : 'terminal';
+	};
+
 	api.post(
 		'/sites/:id/open-in-editor',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const editor =
-				req.body?.editor ?? ( await readUserPreferences( preferencesContext() ) ).editor;
+			const editor = req.body?.editor ?? ( await readPreferredEditor() );
 			if ( typeof editor !== 'string' || ! isEditor( editor ) ) {
 				res.status( 400 ).json( { error: `Unsupported editor: ${ String( editor ) }` } );
 				return;
@@ -1447,11 +1567,11 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/sites/:id/open-in-terminal',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const requested =
-				req.body?.terminal ?? ( await readUserPreferences( preferencesContext() ) ).terminal;
-			// No preference (or an unknown one) falls back to the system terminal.
+			const requested = req.body?.terminal;
 			const terminal =
-				typeof requested === 'string' && isTerminal( requested ) ? requested : 'terminal';
+				typeof requested === 'string' && isTerminal( requested )
+					? requested
+					: await readPreferredTerminal();
 			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
 			if ( ! site ) {
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
@@ -1470,7 +1590,15 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/quota',
 		asyncHandler( async ( _req: Request, res: Response ) => {
 			const token = await readAuthToken();
-			res.json( token?.accessToken ? await fetchStudioAssistantQuota( token.accessToken ) : null );
+			if ( ! token?.accessToken ) {
+				res.json( null );
+				return;
+			}
+			try {
+				res.json( await requestStudioAssistantQuota( token.accessToken ) );
+			} catch ( error ) {
+				res.status( 502 ).json( { error: ( error as Error ).message } );
+			}
 		} )
 	);
 
@@ -1650,7 +1778,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			// No backup yet (or lookup failure) rejects and surfaces as a 500 via
 			// the error middleware — the dialog needs the error state to disable
-			// per-item selection and force a full sync, like the classic renderer.
+			// per-item selection and force a full sync.
 			res.json( await fetchLatestRewindId( token.accessToken, Number( req.params.remoteSiteId ) ) );
 		} )
 	);
@@ -1836,6 +1964,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 
 	api.post(
+		'/sessions/:id/environment',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const { environment } = req.body as { environment?: string };
+			if ( environment !== 'local' && environment !== 'live' ) {
+				res.status( 400 ).json( { error: `Unknown environment: ${ environment }` } );
+				return;
+			}
+			await setSessionEnvironment( sessionsRoot, req.params.id, environment );
+			res.sendStatus( 204 );
+		} )
+	);
+
+	api.post(
 		'/sessions/:id/messages',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const { prompt, displayMessage, visualAnnotations } = req.body as {
@@ -1853,7 +1994,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			try {
 				images = validateStudioChatImages( req.body.images );
 				files = validateStudioChatFiles( req.body.files );
-				validatedVisualAnnotations = validateStudioVisualAnnotations( visualAnnotations );
+				validatedVisualAnnotations = validateStudioVisualAnnotations( visualAnnotations, images );
 			} catch ( error ) {
 				res.status( 400 ).json( { error: ( error as Error ).message } );
 				return;
@@ -1879,13 +2020,105 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	// Bundled next to the CLI entry, as the desktop app finds them.
+	const bundledSkillsPath = path.join( path.dirname( cliBinary ), 'wp-files', 'skills' );
+
 	api.post(
 		'/skills/:id',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			// Bundled next to the CLI entry, as the desktop app finds them.
-			const skillsPath = path.join( path.dirname( cliBinary ), 'wp-files', 'skills' );
-			await installSkillToAllSites( skillsPath, req.params.id );
+			await installSkillToAllSites( bundledSkillsPath, req.params.id );
 			res.sendStatus( 204 );
+		} )
+	);
+
+	// --- A site's skills and instruction files ---------------------------------
+	const readAgentFileRequest = async ( req: Request, res: Response ) => {
+		const kind = req.params.kind;
+		const sitePath = await readSitePath( req.params.id );
+		if ( ( kind !== 'skills' && kind !== 'instructions' ) || ! sitePath ) {
+			res.status( 404 ).json( { error: 'Not found' } );
+			return null;
+		}
+		return { sitePath, kind: kind as SiteAgentFileKind };
+	};
+
+	api.get(
+		'/sites/:id/agent-files/:kind',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const target = await readAgentFileRequest( req, res );
+			if ( target ) {
+				res.json( await getSiteAgentFiles( target.sitePath, target.kind ) );
+			}
+		} )
+	);
+
+	api.put(
+		'/sites/:id/agent-files/:kind/:fileId',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const target = await readAgentFileRequest( req, res );
+			if ( ! target ) {
+				return;
+			}
+			if ( typeof req.body?.enabled !== 'boolean' ) {
+				res.status( 400 ).json( { error: 'enabled required' } );
+				return;
+			}
+			await setSiteAgentFileEnabled(
+				target.sitePath,
+				bundledSkillsPath,
+				target.kind,
+				req.params.fileId,
+				req.body.enabled
+			);
+			res.sendStatus( 204 );
+		} )
+	);
+
+	api.post(
+		'/sites/:id/agent-files/:kind/:fileId/open',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const target = await readAgentFileRequest( req, res );
+			if ( ! target ) {
+				return;
+			}
+			// The path uses the catalog's id, never the requested one, so it stays inside the site.
+			const file = ( await getSiteAgentFiles( target.sitePath, target.kind ) ).find(
+				( candidate ) => candidate.id === req.params.fileId
+			);
+			const relative =
+				file &&
+				getSiteAgentFilePaths( target.kind, file.id ).find( ( candidate ) =>
+					existsSync( path.join( target.sitePath, candidate ) )
+				);
+			if ( ! relative ) {
+				res.status( 404 ).json( { error: 'File not found' } );
+				return;
+			}
+			const folder = path.join( target.sitePath, getSiteAgentFileFolder( target.kind, relative ) );
+			if ( req.body?.target === 'editor' ) {
+				const editor = await readPreferredEditor();
+				if ( ! editor ) {
+					res.status( 400 ).json( { error: 'No preferred editor configured.' } );
+					return;
+				}
+				await openInEditor( editor, path.join( target.sitePath, relative ) );
+			} else if ( req.body?.target === 'terminal' ) {
+				await openInTerminal( await readPreferredTerminal(), folder );
+			} else {
+				await openPath( folder );
+			}
+			res.sendStatus( 204 );
+		} )
+	);
+
+	api.delete(
+		'/sites/:id/agent-files/:kind/:fileId',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const target = await readAgentFileRequest( req, res );
+			if ( target ) {
+				await removeSiteAgentFile( target.sitePath, target.kind, req.params.fileId );
+				res.sendStatus( 204 );
+			}
 		} )
 	);
 

@@ -17,7 +17,7 @@ type PlatformPaths = {
 
 // Resolve a command on $PATH (an executable regular file), used on Linux where
 // editors/terminals live in many places (apt, snap, flatpak, ~/.local/bin…).
-function findOnPath( command: string ): string | null {
+export function findOnPath( command: string ): string | null {
 	const pathEntries = ( process.env.PATH ?? '' ).split( path.posix.delimiter ).filter( Boolean );
 	for ( const dir of pathEntries ) {
 		const candidate = path.posix.join( dir, command );
@@ -193,10 +193,4 @@ export function detectInstalledApps(): InstalledApps {
 		apps[ key ] = key === 'terminal' ? true : isInstalled( key );
 	}
 	return apps;
-}
-
-// What an unset editor preference resolves to, shared so the desktop and the
-// `studio ui` server offer the same fallback.
-export function getFirstInstalledEditor( installedApps: InstalledApps ): SupportedEditor | null {
-	return SUPPORTED_EDITORS.find( ( editor ) => installedApps[ editor ] ) ?? null;
 }

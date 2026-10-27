@@ -17,6 +17,10 @@ import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { validateStudioChatFiles } from '@studio/common/ai/chat-files';
 import { validateStudioChatImages } from '@studio/common/ai/chat-images';
+import {
+	getGlobalInstructionsEnabled as readGlobalInstructionsEnabled,
+	setGlobalInstructionsEnabled as writeGlobalInstructionsEnabled,
+} from '@studio/common/ai/global-instructions';
 import { isAiModelId } from '@studio/common/ai/models';
 import { isAiProviderId, providerServesModel } from '@studio/common/ai/providers';
 import {
@@ -24,6 +28,7 @@ import {
 	listHydratedAiSessions,
 	loadHydratedAiSession,
 	reconcileSessionEnvironment,
+	setSessionEnvironment,
 	updateHydratedAiSessionMetadata,
 } from '@studio/common/ai/sessions/manage';
 import { appendModelChangeEntry, appendStudioEntry } from '@studio/common/ai/sessions/store';
@@ -32,9 +37,14 @@ import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
 import { validateStudioVisualAnnotations } from '@studio/common/ai/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
 import {
+	getSiteAgentFiles as readSiteAgentFiles,
 	getSkillsStatusForAllSites,
 	installSkillToAllSites,
+	removeSiteAgentFile as deleteSiteAgentFile,
 	removeSkillFromAllSites,
+	setSiteAgentFileEnabled as writeSiteAgentFileEnabled,
+	type SiteAgentFile,
+	type SiteAgentFileKind,
 	type SkillStatus,
 } from '@studio/common/lib/agent-skills';
 import {
@@ -69,11 +79,16 @@ import {
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
 import {
+	isSitePreviewPath,
+	readSitePreview,
+	writeSitePreview,
+} from '@studio/common/lib/site-preview-cache';
+import {
 	getLocalFileSize,
 	listLocalFileTree as listSiteFileTree,
 } from '@studio/common/lib/sync/local-file-tree';
 import { supportedEditorConfig, SupportedEditor } from '@studio/common/lib/user-settings/editor';
-import { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
+import { openLinuxTerminal } from '@studio/common/lib/user-settings/open-linux-terminal';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import {
 	cleanupBlueprintTempDir as cleanupBlueprintTempDirShared,
@@ -94,18 +109,18 @@ import {
 	readSiteDesign,
 	type SiteDesign,
 } from '@studio/common/sites/site-design';
-import { readSiteIcon, readThemeDetails } from '@studio/common/sites/site-identity';
+import { readThemeDetails } from '@studio/common/sites/site-identity';
 import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import { __ } from '@wordpress/i18n';
 import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { setPendingAuthContext } from 'src/lib/auth-tracks-context';
 import { bumpStat, getBlueprintMetric, StatsGroup } from 'src/lib/bump-stats';
+import { markDeeplinkListener } from 'src/lib/deeplink';
 import {
 	extractErrorFromProcessManagerLogs,
 	simplifyErrorForDisplay,
 } from 'src/lib/error-formatting';
-import { getImageData } from 'src/lib/get-image-data';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import * as oauthClient from 'src/lib/oauth';
@@ -148,7 +163,6 @@ import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import { getDefaultSiteDirectory } from 'src/modules/user-settings/lib/ipc-handlers';
 import { linuxFindEditorPath } from 'src/modules/user-settings/lib/linux-editor-path';
-import { linuxFindTerminalPath } from 'src/modules/user-settings/lib/linux-terminal-path';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import { updateAppdata, loadUserData } from 'src/storage/user-data';
@@ -203,12 +217,11 @@ export {
 	saveGlobalAgentInstructions,
 	saveOnboardingHints,
 	saveWapuuScore,
+	setAiProvider,
 	setUserPreferences,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
-
-export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
 
 export async function recordAnalyticsEvent(
 	_event: IpcMainInvokeEvent,
@@ -281,14 +294,10 @@ export async function continueAiSession(
 		visualAnnotations?: unknown;
 	} = {}
 ): Promise< { runId: string } > {
-	if ( ! ( await oauthClient.isAuthenticated() ) ) {
-		throw new Error( __( 'WordPress.com login required. Log in to use Studio Code.' ) );
-	}
-
 	await reconcileSessionEnvironment( getSessionsDirectory(), sessionId );
 	const images = validateStudioChatImages( options.images );
 	const files = validateStudioChatFiles( options.files );
-	const visualAnnotations = validateStudioVisualAnnotations( options.visualAnnotations );
+	const visualAnnotations = validateStudioVisualAnnotations( options.visualAnnotations, images );
 	return startAgentRun( {
 		sessionId,
 		prompt: expandSkillCommandPrompt( prompt ),
@@ -335,11 +344,12 @@ export async function setAiSessionProvider(
 	} );
 }
 
-export interface SetSessionEnvironmentResult {
-	environment: 'local' | 'live';
-	url?: string;
-	wpcomSiteId?: number;
-	summary: AiSessionSummary;
+export async function setAiSessionEnvironment(
+	_event: IpcMainInvokeEvent,
+	sessionId: string,
+	environment: 'local' | 'live'
+): Promise< void > {
+	await setSessionEnvironment( getSessionsDirectory(), sessionId, environment );
 }
 
 export async function interruptAiAgentRun(
@@ -375,6 +385,50 @@ export async function removeWordPressSkillFromAllSites(
 	skillId: string
 ): Promise< void > {
 	await removeSkillFromAllSites( skillId );
+}
+
+export async function getSiteAgentFiles(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	kind: SiteAgentFileKind
+): Promise< SiteAgentFile[] > {
+	return readSiteAgentFiles( await requireSitePath( siteId ), kind );
+}
+
+export async function setSiteAgentFileEnabled(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	kind: SiteAgentFileKind,
+	id: string,
+	enabled: boolean
+): Promise< void > {
+	await writeSiteAgentFileEnabled(
+		await requireSitePath( siteId ),
+		getAiInstructionsPath(),
+		kind,
+		id,
+		enabled
+	);
+}
+
+export async function removeSiteAgentFile(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	kind: SiteAgentFileKind,
+	id: string
+): Promise< void > {
+	await deleteSiteAgentFile( await requireSitePath( siteId ), kind, id );
+}
+
+export async function getGlobalInstructionsEnabled(): Promise< boolean > {
+	return readGlobalInstructionsEnabled();
+}
+
+export async function setGlobalInstructionsEnabled(
+	_event: IpcMainInvokeEvent,
+	enabled: boolean
+): Promise< void > {
+	await writeGlobalInstructionsEnabled( enabled );
 }
 
 const DEBUG_LOG_MAX_LINES = 50;
@@ -823,21 +877,6 @@ export async function clearAuthenticationToken() {
 	return await updateSharedConfig( { authToken: undefined } );
 }
 
-export async function saveLastSeenVersion( event: IpcMainInvokeEvent, version: string ) {
-	await updateAppdata( { lastSeenVersion: version } );
-}
-
-export async function getLastSeenVersion(
-	_event: IpcMainInvokeEvent
-): Promise< string | undefined > {
-	// If we're running in E2E mode, return the app version
-	if ( process.env.E2E ) {
-		return app.getVersion();
-	}
-	const userData = await loadUserData();
-	return userData.lastSeenVersion;
-}
-
 export async function openSiteURL(
 	event: IpcMainInvokeEvent,
 	id: string,
@@ -1015,13 +1054,6 @@ export async function readLocalMediaFile(
 	};
 }
 
-export async function getSiteIcon(
-	_event: IpcMainInvokeEvent,
-	id: string
-): Promise< string | null > {
-	return readSiteIcon( executeCliCommand, await requireSitePath( id ) );
-}
-
 export async function getOnboardingData( _event: IpcMainInvokeEvent ): Promise< boolean > {
 	const userData = await loadUserData();
 	const { onboardingCompleted = false } = userData;
@@ -1044,8 +1076,24 @@ export async function saveOnboarding( event: IpcMainInvokeEvent, onboardingCompl
 export { getAppUpdateStatus, installAppUpdate } from 'src/updates';
 
 export function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
-	const path = getSiteThumbnailPath( id );
-	return getImageData( path );
+	return readSitePreview( id, getSiteThumbnailPath( id ) );
+}
+
+// Saves what the preview webview shows, so a stopped site still has a picture.
+// Only the window hosting the webview may capture it.
+export async function captureSitePreview(
+	event: IpcMainInvokeEvent,
+	siteId: string,
+	guestId: number,
+	pagePath: string
+): Promise< string | null > {
+	const guest = webContents.fromId( guestId );
+	if ( ! guest || guest.hostWebContents !== event.sender || ! isSitePreviewPath( pagePath ) ) {
+		return null;
+	}
+	const png = ( await guest.capturePage() ).toPNG();
+	await writeSitePreview( siteId, png );
+	return `data:image/png;base64,${ png.toString( 'base64' ) }`;
 }
 
 function promiseExec( command: string, options: ExecOptions = {} ): Promise< void > {
@@ -1114,37 +1162,7 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 			env,
 		} );
 	} else if ( platform === 'linux' ) {
-		// Warp on Linux currently opens at its configured "new session"
-		// directory regardless of how it is launched — it ignores
-		// `--working-directory`, the `path=` URL scheme query, and the
-		// spawn cwd. Tracked upstream in warpdotdev/Warp#4974 and #6357.
-		// Best effort: launch with `cwd` set so we benefit if/when upstream
-		// adds support, and so a fresh launch (no daemon yet) at least has
-		// a chance of inheriting it.
-		const launchers: Record< SupportedTerminal, { args: string[]; options?: ExecOptions } | null > =
-			{
-				terminal: { args: [ `--working-directory=${ targetPath }` ] },
-				warp: { args: [], options: { cwd: targetPath } },
-				ghostty: { args: [ `--working-directory=${ targetPath }` ] },
-				iterm: null,
-			};
-
-		const order: SupportedTerminal[] = [ preferredTerminal, 'terminal' ];
-		for ( const candidate of order ) {
-			const launcher = launchers[ candidate ];
-			if ( ! launcher ) {
-				continue;
-			}
-			const binary = await linuxFindTerminalPath( candidate );
-			if ( ! binary ) {
-				continue;
-			}
-			return promiseExecFile( binary, launcher.args, launcher.options );
-		}
-
-		// Last-resort fallback that preserves prior behavior even if no
-		// supported terminal binary is on $PATH.
-		return promiseExecFile( 'gnome-terminal', [ `--working-directory=${ targetPath }` ] );
+		return openLinuxTerminal( preferredTerminal, targetPath );
 	} else {
 		console.error( 'Unsupported platform:', platform );
 		return;
@@ -1223,7 +1241,7 @@ export async function showErrorMessageBox(
 		type: 'error',
 		message: title,
 		detail,
-		buttons: [ ...( showOpenLogs ? [ __( 'Open Studio Logs' ) ] : [] ), __( 'OK' ) ],
+		buttons: [ ...( showOpenLogs ? [ __( 'Open WordPress Studio Logs' ) ] : [] ), __( 'OK' ) ],
 	} );
 
 	if ( showOpenLogs && response.response === 0 ) {
@@ -1237,6 +1255,10 @@ export async function showErrorMessageBox(
 
 export async function setupAppMenu() {
 	await setupMenu();
+}
+
+export function readyForDeeplinks( event: IpcMainInvokeEvent ) {
+	markDeeplinkListener( event.sender );
 }
 
 export async function popupAppMenu(
@@ -1298,7 +1320,7 @@ export async function trustCertificate( event: IpcMainInvokeEvent ): Promise< vo
 			await showErrorMessageBox( event, {
 				title: __( 'Certificate Trust Failed' ),
 				message: __(
-					'Studio was unable to trust the certificate automatically. You may need to trust it manually using certificate manager.'
+					'WordPress Studio was unable to trust the certificate automatically. You may need to trust it manually using certificate manager.'
 				),
 				showOpenLogs: true,
 			} );
@@ -1371,16 +1393,6 @@ export async function setWindowControlsSurface(
 		return;
 	}
 	setAgenticControlsSurface( surface );
-	parentWindow.setTitleBarOverlay( getTitleBarOverlayOptions() );
-}
-
-export async function setTitleBarBackdropEffect( event: IpcMainInvokeEvent, enabled: boolean ) {
-	void enabled;
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( ! parentWindow || ( process.platform !== 'win32' && process.platform !== 'linux' ) ) {
-		return;
-	}
-
 	parentWindow.setTitleBarOverlay( getTitleBarOverlayOptions() );
 }
 

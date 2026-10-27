@@ -10,9 +10,11 @@ export interface ExportOptions {
 	splitDatabaseDumpByTable?: boolean;
 	specificSelectionPaths?: string[];
 	ignoreFilter?: Ignore;
+	// Leave the local-only constants Studio writes out of the archived wp-config.php
+	stripStudioWpConfigConstants?: boolean;
 }
 
-export type ExportOptionsIncludes = 'wpContent' | 'database';
+type ExportOptionsIncludes = 'wpContent' | 'database';
 
 export interface BackupContents {
 	backupFile: string;

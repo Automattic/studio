@@ -29,7 +29,7 @@ async function listWpcomSites() {
 
 export const listSitesTool = defineTool(
 	'site_list',
-	"Lists the user's sites: local Studio sites with their name, path, URL, and running status, and the WordPress.com sites their login reaches, with the ID `wpcom_request` takes as `siteId`.",
+	"Lists the user's sites: local Studio sites with their name, path, URL, and running status, and the WordPress.com sites their login reaches, with their WordPress.com site IDs.",
 	{},
 	async () => {
 		try {

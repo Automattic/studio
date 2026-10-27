@@ -42,8 +42,6 @@ const api: IpcApi = {
 	deletePreviewSite: ( hostname ) => ipcRendererInvoke( 'deletePreviewSite', hostname ),
 	renamePreviewSite: ( hostname, name ) => ipcRendererInvoke( 'renamePreviewSite', hostname, name ),
 	deleteAllSnapshots: () => ipcRendererInvoke( 'deleteAllSnapshots' ),
-	getLastSeenVersion: () => ipcRendererInvoke( 'getLastSeenVersion' ),
-	saveLastSeenVersion: ( version ) => ipcRendererInvoke( 'saveLastSeenVersion', version ),
 	getSiteDetails: () => ipcRendererInvoke( 'getSiteDetails' ),
 	openSiteURL: ( id, relativeURL = '', { autoLogin = true } = {} ) =>
 		ipcRendererSend( 'openSiteURL', id, relativeURL, { autoLogin } ),
@@ -63,7 +61,6 @@ const api: IpcApi = {
 	getSiteDesign: ( id ) => ipcRendererInvoke( 'getSiteDesign', id ),
 	fixSiteDesignDrift: ( id, fixes ) => ipcRendererInvoke( 'fixSiteDesignDrift', id, fixes ),
 	getIsMultisite: ( id ) => ipcRendererInvoke( 'getIsMultisite', id ),
-	fetchSiteRestApi: ( siteId, request ) => ipcRendererInvoke( 'fetchSiteRestApi', siteId, request ),
 	generateProposedSitePath: ( siteName ) =>
 		ipcRendererInvoke( 'generateProposedSitePath', siteName ),
 	generateSiteNameFromList: ( usedSites ) =>
@@ -72,8 +69,9 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'generateNumberedNameFromList', baseName, usedSites ),
 	openLocalPath: ( path ) => ipcRendererSend( 'openLocalPath', path ),
 	openStudioLogs: () => ipcRendererSend( 'openStudioLogs' ),
-	getSiteIcon: ( id ) => ipcRendererInvoke( 'getSiteIcon', id ),
 	getThumbnailData: ( id ) => ipcRendererInvoke( 'getThumbnailData', id ),
+	captureSitePreview: ( siteId, guestId, pagePath ) =>
+		ipcRendererInvoke( 'captureSitePreview', siteId, guestId, pagePath ),
 	getInstalledAppsAndTerminals: () => ipcRendererInvoke( 'getInstalledAppsAndTerminals' ),
 	importSite: ( siteId, importArchivePath, options ) =>
 		ipcRendererInvoke( 'importSite', siteId, importArchivePath, options ),
@@ -87,6 +85,7 @@ const api: IpcApi = {
 	showErrorMessageBox: ( options ) => ipcRendererSend( 'showErrorMessageBox', options ),
 	setupAppMenu: () => ipcRendererInvoke( 'setupAppMenu' ),
 	popupAppMenu: ( position ) => ipcRendererSend( 'popupAppMenu', position ),
+	readyForDeeplinks: () => ipcRendererSend( 'readyForDeeplinks' ),
 	getAbsolutePathFromSite: ( siteId, relativePath ) =>
 		ipcRendererInvoke( 'getAbsolutePathFromSite', siteId, relativePath ),
 	getConnectedWpcomSites: ( localSiteId ) =>
@@ -116,6 +115,7 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'saveGlobalAgentInstructions', content, options ),
 	getAiSettings: () => ipcRendererInvoke( 'getAiSettings' ),
 	saveAnthropicApiKey: ( key ) => ipcRendererInvoke( 'saveAnthropicApiKey', key ),
+	setAiProvider: ( provider ) => ipcRendererInvoke( 'setAiProvider', provider ),
 	saveWapuuScore: ( score ) => ipcRendererInvoke( 'saveWapuuScore', score ),
 	getWapuuScore: () => ipcRendererInvoke( 'getWapuuScore' ),
 	getUserPreferences: () => ipcRendererInvoke( 'getUserPreferences' ),
@@ -130,8 +130,6 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'extractBlueprintBundle', zipFilePath ),
 	cleanupBlueprintTempDir: ( tempDir ) => ipcRendererInvoke( 'cleanupBlueprintTempDir', tempDir ),
 	showTextContextMenu: ( context ) => ipcRendererInvoke( 'showTextContextMenu', context ),
-	setTitleBarBackdropEffect: ( enabled ) =>
-		ipcRendererInvoke( 'setTitleBarBackdropEffect', enabled ),
 	setWindowControlsSurface: ( surface ) => ipcRendererInvoke( 'setWindowControlsSurface', surface ),
 	updateSitesSortOrder: ( updates ) => ipcRendererInvoke( 'updateSitesSortOrder', updates ),
 	isStudioCliInstalled: () => ipcRendererInvoke( 'isStudioCliInstalled' ),
@@ -143,6 +141,14 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'installWordPressSkillsToAllSites', options ),
 	removeWordPressSkillFromAllSites: ( skillId ) =>
 		ipcRendererInvoke( 'removeWordPressSkillFromAllSites', skillId ),
+	getSiteAgentFiles: ( siteId, kind ) => ipcRendererInvoke( 'getSiteAgentFiles', siteId, kind ),
+	setSiteAgentFileEnabled: ( siteId, kind, id, enabled ) =>
+		ipcRendererInvoke( 'setSiteAgentFileEnabled', siteId, kind, id, enabled ),
+	removeSiteAgentFile: ( siteId, kind, id ) =>
+		ipcRendererInvoke( 'removeSiteAgentFile', siteId, kind, id ),
+	getGlobalInstructionsEnabled: () => ipcRendererInvoke( 'getGlobalInstructionsEnabled' ),
+	setGlobalInstructionsEnabled: ( enabled ) =>
+		ipcRendererInvoke( 'setGlobalInstructionsEnabled', enabled ),
 	recordAnalyticsEvent: ( eventName, props ) =>
 		ipcRendererInvoke( 'recordAnalyticsEvent', eventName, props ),
 	listAiSessions: () => ipcRendererInvoke( 'listAiSessions' ),
@@ -157,6 +163,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'setAiSessionModel', sessionId, model ),
 	setAiSessionProvider: ( sessionId, provider, model ) =>
 		ipcRendererInvoke( 'setAiSessionProvider', sessionId, provider, model ),
+	setAiSessionEnvironment: ( sessionId, environment ) =>
+		ipcRendererInvoke( 'setAiSessionEnvironment', sessionId, environment ),
 	interruptAiAgentRun: ( runId ) => ipcRendererInvoke( 'interruptAiAgentRun', runId ),
 	answerAiAgentQuestion: ( runId, answers ) =>
 		ipcRendererInvoke( 'answerAiAgentQuestion', runId, answers ),

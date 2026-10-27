@@ -1,5 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
+import { isAutomatticianEmail } from './automattician';
 
 export const STUDIO_ASSISTANT_QUOTA_URL =
 	'https://public-api.wordpress.com/wpcom/v2/studio-app/ai-assistant/quota';
@@ -134,29 +135,15 @@ export function hasPaidAiCredits(
 	return ( quota?.purchasedRemaining ?? 0 ) > 0;
 }
 
-/** Nudge shown where the paid tiers sit disabled, one string everywhere. */
-export function formatPaidTiersNudge(): string {
-	return __( 'Add AI credits to unlock stronger models.' );
-}
-
-// Dismissal is remembered per renderer via localStorage — a nudge doesn't
-// warrant synced, server-side state.
-export const PAID_TIERS_NUDGE_DISMISSED_STORAGE_KEY = 'studio_code_paid_tiers_nudge_dismissed';
-
-export function readPaidTiersNudgeDismissed(): boolean {
-	try {
-		return localStorage.getItem( PAID_TIERS_NUDGE_DISMISSED_STORAGE_KEY ) === '1';
-	} catch {
-		return false;
-	}
-}
-
-export function persistPaidTiersNudgeDismissed(): void {
-	try {
-		localStorage.setItem( PAID_TIERS_NUDGE_DISMISSED_STORAGE_KEY, '1' );
-	} catch {
-		// Ignore storage errors.
-	}
+/**
+ * Whether the paid model tiers are unlocked: purchased credits remain, or the
+ * account is an Automattician's, which the credit gate exempts.
+ */
+export function canUsePaidAiModels(
+	quota: Pick< StudioAssistantQuota, 'purchasedRemaining' > | null | undefined,
+	email: string | undefined | null
+): boolean {
+	return hasPaidAiCredits( quota ) || isAutomatticianEmail( email );
 }
 
 export type StudioCodeAiAccessState = 'available' | 'blocked' | 'not-enabled';
@@ -179,25 +166,36 @@ export function getStudioCodeAiAccessState(
 	return quota.studioCodeAiAccess === 'blocked' ? 'blocked' : 'not-enabled';
 }
 
+// The message of the error `requestStudioAssistantQuota` rejects with when
+// WordPress.com can't be reached, which browsers may not report as offline.
+export const STUDIO_ASSISTANT_QUOTA_OFFLINE = 'offline';
+
 /**
- * Fetch the account's Studio AI quota from WordPress.com. Resolves `null` on
- * any failure (network, auth, unexpected shape) so callers can fall back to
- * static copy.
+ * Fetch the account's Studio AI quota from WordPress.com. Rejects with
+ * `STUDIO_ASSISTANT_QUOTA_OFFLINE` when the request can't be sent at all.
+ */
+export async function requestStudioAssistantQuota(
+	accessToken: string
+): Promise< StudioAssistantQuota > {
+	const response = await fetch( STUDIO_ASSISTANT_QUOTA_URL, {
+		headers: { Authorization: `Bearer ${ accessToken }` },
+	} ).catch( () => {
+		throw new Error( STUDIO_ASSISTANT_QUOTA_OFFLINE );
+	} );
+	if ( ! response.ok ) {
+		throw new Error( `Failed to fetch Studio assistant quota: ${ response.status }` );
+	}
+	return studioAssistantQuotaSchema.parse( await response.json() );
+}
+
+/**
+ * Like `requestStudioAssistantQuota`, but resolves `null` on any failure so
+ * callers can fall back to static copy.
  */
 export async function fetchStudioAssistantQuota(
 	accessToken: string
 ): Promise< StudioAssistantQuota | null > {
-	try {
-		const response = await fetch( STUDIO_ASSISTANT_QUOTA_URL, {
-			headers: { Authorization: `Bearer ${ accessToken }` },
-		} );
-		if ( ! response.ok ) {
-			return null;
-		}
-		return studioAssistantQuotaSchema.parse( await response.json() );
-	} catch {
-		return null;
-	}
+	return requestStudioAssistantQuota( accessToken ).catch( () => null );
 }
 
 export function clampQuotaFraction( value: number, maxValue: number ): number {
@@ -347,30 +345,6 @@ export function formatAiCreditsThresholdDescription(): string {
 	return __( 'Add AI credits to keep chatting without interruption.' );
 }
 
-export function formatAiCreditsUsedLabel(
-	meter: Pick< AiCreditsMeter, 'usedCredits' | 'totalCredits' >,
-	locale?: string
-): string {
-	const credits = new Intl.NumberFormat( locale );
-	return sprintf(
-		/* translators: 1: AI credits used (e.g. 1,200,000). 2: total AI credits the meter is measured against (e.g. 1,500,000). */
-		__( '%1$s of %2$s AI credits used' ),
-		credits.format( meter.usedCredits ),
-		credits.format( meter.totalCredits )
-	);
-}
-
-export function formatAiCreditsAvailableLabel(
-	meter: Pick< AiCreditsMeter, 'remainingCredits' >,
-	locale?: string
-): string {
-	return sprintf(
-		/* translators: %s: number of AI credits still available (e.g. 300,000). */
-		__( '%s available' ),
-		new Intl.NumberFormat( locale ).format( meter.remainingCredits )
-	);
-}
-
 /**
  * Encouragement line next to the "Add AI credits" button, escalating with the
  * meter. The welcome line shows the size of the free allowance (`costCap`,
@@ -486,19 +460,6 @@ export function formatUsageCapNotice( resetDate?: string | null, locale?: string
  */
 export function formatOutOfCreditsNotice(): string {
 	return __( 'You’re out of AI credits. Add more credits to continue using Studio Code.' );
-}
-
-/**
- * Heading for the out-of-credits card on surfaces that render a title and a
- * purchase button separately, rather than the one-sentence notice above.
- */
-export function formatOutOfCreditsTitle(): string {
-	return __( 'No AI credits available' );
-}
-
-/** Body of that card: what happened, and what fixes it. */
-export function formatOutOfCreditsDescription(): string {
-	return __( 'You’ve used your available AI credits. Add more to keep chatting.' );
 }
 
 // Crediting can trail the checkout redirect by a second or two, so a single

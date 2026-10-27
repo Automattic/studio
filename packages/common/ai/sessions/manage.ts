@@ -1,4 +1,7 @@
-import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
+import {
+	deriveEffectiveEnvironment,
+	pickLiveSite,
+} from '@studio/common/ai/sessions/effective-site';
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import {
 	deleteAiSessionPlacement,
@@ -191,5 +194,42 @@ export async function reconcileSessionEnvironment(
 		siteName: ownerSite.name,
 		sitePath: ownerSite.path,
 		siteId: ownerSite.id,
+	} );
+}
+
+/**
+ * Points the chat's next turn at its owner site, locally or on its connected
+ * WordPress.com site. Recorded as the same `studio.site_selected` entry the
+ * agent writes, so the CLI resumes on it.
+ */
+export async function setSessionEnvironment(
+	root: string,
+	sessionId: string,
+	environment: 'local' | 'live'
+): Promise< void > {
+	const { summary } = await loadHydratedAiSession( root, sessionId );
+	const ownerSite = findAiSessionOwnerSite( await readSites(), summary );
+	if ( ! ownerSite ) {
+		throw new Error( 'This chat is not attached to a site.' );
+	}
+	if ( environment === 'local' ) {
+		await appendStudioEntry( root, sessionId, 'studio.site_selected', {
+			siteName: ownerSite.name,
+			sitePath: ownerSite.path,
+			siteId: ownerSite.id,
+		} );
+		return;
+	}
+	const liveSite = pickLiveSite( await getConnectedWpcomSitesForLocalSite( ownerSite.id ) );
+	if ( ! liveSite ) {
+		throw new Error( 'This site is not connected to a WordPress.com site.' );
+	}
+	await appendStudioEntry( root, sessionId, 'studio.site_selected', {
+		siteName: ownerSite.name,
+		sitePath: ownerSite.path,
+		siteId: ownerSite.id,
+		remote: true,
+		url: liveSite.url,
+		wpcomSiteId: liveSite.id,
 	} );
 }

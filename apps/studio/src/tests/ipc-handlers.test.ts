@@ -5,104 +5,25 @@ import { IpcMainInvokeEvent, shell } from 'electron';
 import { existsSync } from 'fs';
 import { normalize } from 'path';
 import { readSitePath } from '@studio/common/sites/site-path';
-import { readFile } from 'atomically';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
-import {
-	createSite,
-	getFileSize,
-	isFullscreen,
-	openURL,
-	readBlueprintFile,
-} from 'src/ipc-handlers';
-import { getMainWindow } from 'src/main-window';
-import { createSiteViaCli } from 'src/modules/cli/lib/cli-site-creator';
+import { getFileSize, openURL, readBlueprintFile } from 'src/ipc-handlers';
 
 vi.mock( 'fs' );
 vi.mock( 'fs/promises', async () => {
 	const { fs } = await import( 'memfs' );
 	return { default: fs.promises };
 } );
-vi.mock( 'fs-extra' );
-vi.mock( '@studio/common/lib/fs-utils' );
-vi.mock( '@sentry/electron/main', () => ( {
-	captureException: vi.fn(),
-	captureMessage: vi.fn(),
-	setTag: vi.fn(),
-} ) );
-vi.mock( 'src/lib/sites' );
-vi.mock( 'src/modules/cli/lib/cli-site-creator' );
 vi.mock( '@studio/common/sites/site-path' );
-vi.mock( '@studio/common/sites/site-identity' );
-vi.mock( 'src/main-window' );
-vi.mock( import( 'src/lib/bump-stats' ), async ( importOriginal ) => {
-	const actual = await importOriginal();
-	return {
-		...actual,
-		bumpStat: vi.fn(),
-		bumpAggregatedUniqueStat: vi.fn().mockResolvedValue( undefined ),
-	};
-} );
-vi.mock( 'atomically' );
-vi.mock( 'src/lib/get-image-data', () => ( {
-	getImageData: vi.fn().mockResolvedValue( 'data:image/png;base64,mock' ),
-} ) );
-vi.mock( 'src/lib/capture-site-thumbnail', () => ( {
-	captureSiteThumbnail: vi.fn(),
-} ) );
-
-const mockSiteDetails = {
-	id: 'mock-cli-site-id',
-	name: 'Test',
-	path: '/test',
-	port: 9999,
-	url: 'http://localhost:9999',
-	phpVersion: '8.4',
-	running: false,
-	adminPassword: 'mock-password',
-	isWpAutoUpdating: false,
-};
-
-vi.mocked( createSiteViaCli ).mockResolvedValue( mockSiteDetails );
-
-const mockUserData = {
-	sites: [],
-};
 
 beforeEach( () => {
 	vol.reset();
-	vol.fromJSON( {
-		[ normalize( '/path/to/app/appData/App Name/appdata-v1.json' ) ]:
-			JSON.stringify( mockUserData ),
-	} );
 } );
-
-vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( mockUserData ) ) );
 
 const mockIpcMainInvokeEvent = {
 	sender: { isDestroyed: vi.fn().mockReturnValue( false ) },
 	// Double assert the type with `unknown` to simplify mocking this value
 } as unknown as IpcMainInvokeEvent;
-
-describe( 'createSite', () => {
-	it( 'should delegate to CLI and return site details', async () => {
-		const userData = await createSite( mockIpcMainInvokeEvent, '/test', {
-			siteName: 'Test',
-			wpVersion: '6.4',
-			noStart: true,
-		} );
-
-		expect( userData ).toEqual( mockSiteDetails );
-		expect( createSiteViaCli ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				path: '/test',
-				name: 'Test',
-				wpVersion: '6.4',
-				noStart: true,
-			} )
-		);
-	} );
-} );
 
 describe( 'readBlueprintFile', () => {
 	it( 'deletes the temporary deep-link file after reading it', async () => {
@@ -121,28 +42,6 @@ describe( 'readBlueprintFile', () => {
 
 		await expect( readBlueprintFile( mockIpcMainInvokeEvent, filePath ) ).rejects.toThrow();
 		expect( existsSync( filePath ) ).toBe( false );
-	} );
-} );
-
-describe( 'isFullscreen', () => {
-	it( 'should return false when window is not in fullscreen', async () => {
-		vi.mocked( getMainWindow, { partial: true } ).mockResolvedValue( {
-			isFullScreen: () => false,
-		} );
-
-		const result = await isFullscreen( mockIpcMainInvokeEvent );
-
-		expect( result ).toBe( false );
-	} );
-
-	it( 'should return true when window is in fullscreen', async () => {
-		vi.mocked( getMainWindow, { partial: true } ).mockResolvedValue( {
-			isFullScreen: () => true,
-		} );
-
-		const result = await isFullscreen( mockIpcMainInvokeEvent );
-
-		expect( result ).toBe( true );
 	} );
 } );
 

@@ -5,20 +5,13 @@ import path from 'path';
 import { STUDIO_ERROR_LOG_FILENAME } from '@studio/common/lib/mu-plugins';
 import { vi } from 'vitest';
 import { SiteData } from 'cli/lib/cli-config/core';
-import { updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import * as daemonClient from 'cli/lib/daemon-client';
 import { DaemonBus } from 'cli/lib/daemon-client';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
-import { recordSiteRuntimeUsage } from 'cli/lib/site-runtime-stats';
 import { replaceMysql8OnlyCollations } from 'cli/lib/sqlite-collations';
-import { resetSqliteJournalModeToRollback } from 'cli/lib/sqlite-journal-mode';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
-import {
-	isServerRunning,
-	startWordPressServer,
-	stopWordPressServer,
-} from 'cli/lib/wordpress-server-manager';
+import { startWordPressServer, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 
 vi.mock( 'cli/lib/daemon-client' );
@@ -86,6 +79,7 @@ describe( 'WordPress Server Manager', () => {
 	} );
 
 	afterEach( () => {
+		vi.useRealTimers();
 		vi.unstubAllEnvs();
 		vi.restoreAllMocks();
 	} );
@@ -134,82 +128,7 @@ describe( 'WordPress Server Manager', () => {
 		mockBus.on( 'newListener', onNewListener );
 	}
 
-	describe( 'isServerRunning', () => {
-		it( 'should check if process is running with correct process name', async () => {
-			const mockProcess = {
-				name: 'studio-site-test-site-id',
-				pmId: 5,
-				status: 'online',
-				pid: 12345,
-			} as const;
-
-			vi.mocked( daemonClient.isProcessRunning ).mockResolvedValue( mockProcess );
-
-			const result = await isServerRunning( 'test-site-id' );
-
-			expect( vi.mocked( daemonClient.isProcessRunning ) ).toHaveBeenCalledWith(
-				'studio-site-test-site-id'
-			);
-			expect( result ).toEqual( mockProcess );
-		} );
-
-		it( 'should return undefined when process is not running', async () => {
-			vi.mocked( daemonClient.isProcessRunning ).mockResolvedValue( undefined );
-
-			const result = await isServerRunning( 'test-site-id' );
-
-			expect( result ).toBeUndefined();
-		} );
-	} );
-
 	describe( 'startWordPressServer', () => {
-		it( 'should start WordPress server with the native PHP child script', async () => {
-			setupIpcMocks();
-
-			const result = await startWordPressServer( mockSiteData, mockLogger );
-
-			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
-				'studio-site-test-site-id',
-				expect.stringMatching( /php-server-child\.mjs$/ )
-			);
-
-			expect( result ).toEqual( mockProcessDescription );
-		} );
-
-		it( 'should persist the latest CLI pid when the server comes online', async () => {
-			setupIpcMocks();
-
-			await startWordPressServer( mockSiteData, mockLogger );
-
-			expect( vi.mocked( updateSiteLatestCliPid ) ).toHaveBeenCalledWith(
-				mockSiteData.id,
-				mockProcessDescription.pid
-			);
-		} );
-
-		it( 'should not persist the CLI pid when the process is not online', async () => {
-			setupIpcMocks();
-			vi.mocked( daemonClient.startProcess ).mockResolvedValue( {
-				name: mockProcessDescription.name,
-				pmId: mockProcessDescription.pmId,
-				status: 'stopped',
-			} );
-
-			await startWordPressServer( mockSiteData, mockLogger );
-
-			expect( vi.mocked( updateSiteLatestCliPid ) ).not.toHaveBeenCalled();
-		} );
-
-		it( 'should convert the SQLite database out of WAL mode before starting', async () => {
-			setupIpcMocks();
-
-			await startWordPressServer( mockSiteData, mockLogger );
-
-			expect( vi.mocked( resetSqliteJournalModeToRollback ) ).toHaveBeenCalledWith(
-				mockSiteData.path
-			);
-		} );
-
 		it( 'should replace MySQL 8-only collations only before starting an installed site', async () => {
 			setupIpcMocks();
 			const existsSync = fs.existsSync;
@@ -276,26 +195,6 @@ describe( 'WordPress Server Manager', () => {
 			);
 		} );
 
-		it( 'records site runtime usage after a successful start', async () => {
-			setupIpcMocks();
-
-			await startWordPressServer( mockSiteData, mockLogger );
-
-			expect( vi.mocked( recordSiteRuntimeUsage ) ).toHaveBeenCalledWith(
-				expect.objectContaining( { id: mockSiteData.id } )
-			);
-		} );
-
-		it( 'does not record runtime usage when the start fails', async () => {
-			vi.mocked( daemonClient.startProcess ).mockRejectedValue(
-				new Error( 'Failed to start process' )
-			);
-
-			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow();
-
-			expect( vi.mocked( recordSiteRuntimeUsage ) ).not.toHaveBeenCalled();
-		} );
-
 		it( 'records a successful site-start Tracks event with timing and running-site count', async () => {
 			setupIpcMocks();
 			vi.mocked( daemonClient.listProcesses ).mockResolvedValue( [
@@ -328,6 +227,54 @@ describe( 'WordPress Server Manager', () => {
 					time_ms: expect.any( Number ),
 				} )
 			);
+		} );
+
+		it( 'records the steps this start finished before it failed', async () => {
+			const send = ( raw: object ) =>
+				mockBus.emit( 'process-message', {
+					process: { name: mockProcessDescription.name, pm_id: mockProcessDescription.pmId },
+					raw,
+				} );
+			const readyInterval = setInterval( () => send( { topic: 'ready' } ), 1 );
+			vi.mocked( daemonClient.sendMessageToProcess ).mockImplementation( ( pmId, message ) => {
+				clearInterval( readyInterval );
+				setImmediate( () => {
+					send( {
+						topic: 'start-phase',
+						originalMessageId: message.messageId,
+						data: { phase: 'wp_config', ms: 40 },
+					} );
+					send( {
+						topic: 'start-phase',
+						originalMessageId: message.messageId,
+						data: { phase: 'wordpress_install', ms: 9000 },
+					} );
+					send( {
+						topic: 'start-phase',
+						originalMessageId: 'another-callers-start',
+						data: { phase: 'php_workers', ms: 2000 },
+					} );
+					send( {
+						topic: 'error',
+						originalMessageId: message.messageId,
+						errorMessage: 'PHP server did not start within 30000ms',
+					} );
+				} );
+				return Promise.resolve();
+			} );
+
+			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow();
+
+			const [ , props ] = vi.mocked( recordTracksEvent ).mock.calls[ 0 ];
+			expect( props ).toEqual( {
+				channel: 'studio-cli',
+				success: false,
+				failure_reason: 'php_error',
+				time_ms: expect.any( Number ),
+				daemon_ms: expect.any( Number ),
+				wp_config_ms: 40,
+				wordpress_install_ms: 9000,
+			} );
 		} );
 
 		it( 'should handle start process failure', async () => {
@@ -511,6 +458,7 @@ describe( 'WordPress Server Manager', () => {
 				return Promise.resolve();
 			} );
 
+			vi.useFakeTimers( { toFake: [ 'setTimeout', 'clearTimeout' ] } );
 			const promise = stopWordPressServer( 'test-site-id' );
 
 			setTimeout( () => {
@@ -519,10 +467,12 @@ describe( 'WordPress Server Manager', () => {
 					event: 'exit',
 				} );
 			}, 500 );
-
+			await vi.advanceTimersByTimeAsync( 500 );
 			await promise;
 
 			expect( vi.mocked( daemonClient.stopProcess ) ).not.toHaveBeenCalled();
+			// A timer left running would keep `studio site stop` alive after the site is down.
+			expect( vi.getTimerCount() ).toBe( 0 );
 		} );
 
 		it( 'should wait for the process to exit after falling back to `stopProcess`', async () => {

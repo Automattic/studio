@@ -1,7 +1,6 @@
 import {
 	Menu,
 	type MenuItemConstructorOptions,
-	app,
 	BrowserWindow,
 	autoUpdater,
 	shell,
@@ -23,7 +22,6 @@ import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getLogsFilePath } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
-import { getAgenticFeaturesEnabled } from 'src/modules/user-settings/lib/ipc-handlers';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
 
 // Runs against the app window's own contents rather than whatever has focus.
@@ -162,14 +160,9 @@ async function getAppMenu( mainWindow: BrowserWindow | null ) {
 		{ type: 'separator' },
 	];
 
-	// The renderer binds Cmd/Ctrl+N to "New chat", so the menu must leave the key alone there — a
-	// menu accelerator would consume it before it reaches the DOM. With chat switched off nothing
-	// binds it, so the shortcut falls back to "Add Site…".
-	const rendererOwnsNewShortcut = await getAgenticFeaturesEnabled();
-
 	return Menu.buildFromTemplate( [
 		{
-			label: app.name, // macOS ignores this name and uses the name from the .plist
+			label: 'WordPress Studio', // macOS ignores this name and uses the name from the .plist
 			role: 'appMenu',
 			submenu: [
 				{
@@ -251,7 +244,7 @@ async function getAppMenu( mainWindow: BrowserWindow | null ) {
 			submenu: [
 				{
 					label: __( 'Add Site…' ),
-					accelerator: rendererOwnsNewShortcut ? undefined : 'CommandOrControl+N',
+					accelerator: 'CommandOrControl+N',
 					click: async () => {
 						void sendIpcEventToRenderer( 'add-site' );
 					},

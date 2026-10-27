@@ -7,7 +7,7 @@ import { DESIGN_OPTIONS } from 'cli/ai/design-catalog';
 import { recordDesignTracksEvent, type DesignTracksContext } from 'cli/ai/design-tracks';
 import { resolveScreenshotDirectory } from 'cli/ai/screenshot-storage';
 import { TRACKS_EVENTS } from 'cli/lib/tracks';
-import { defineTool, type ToolResult, READ_ONLY } from './define-tool';
+import { defineTool, LOCAL_CHANGE, type ToolResult } from './define-tool';
 import { captureScreenshotBuffer, saveScreenshotFile } from './screenshot-helpers';
 import { textResult } from './utils';
 import type { AskUserQuestion } from 'cli/ai/types';
@@ -32,7 +32,7 @@ const LOCAL_IMAGE_REFERENCE =
 // The preview page is a `file://` document, so referenced images are inlined
 // rather than relying on file-to-file loads. They can live anywhere, such as
 // where an agent's own image tool saved them.
-export async function inlineLocalImages( html: string ): Promise< string > {
+async function inlineLocalImages( html: string ): Promise< string > {
 	const references = [ ...html.matchAll( LOCAL_IMAGE_REFERENCE ) ];
 	const dataUrls = new Map< string, string >();
 	for ( const [ , , , reference ] of references ) {
@@ -319,6 +319,6 @@ export function createPresentDesignOptionsTool( {
 					: `The user picked option ${ picked + 1 }: ${ answer }`
 			);
 		},
-		{ settlesPendingWork: true, annotations: READ_ONLY }
+		{ settlesPendingWork: true, annotations: LOCAL_CHANGE }
 	);
 }

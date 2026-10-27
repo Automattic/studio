@@ -1,14 +1,20 @@
 import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
-import { getErrorMessage, stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
+import {
+	getErrorMessage,
+	stripCliErrorEnvelope,
+	stripIpcErrorPrefix,
+} from '@studio/common/lib/error-formatting';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
-import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
 import {
-	STUDIO_ASSISTANT_QUOTA_URL,
-	studioAssistantQuotaSchema,
-} from '@studio/common/lib/studio-assistant-quota';
+	getSiteAgentFileFolder,
+	getSiteAgentFilePaths,
+} from '@studio/common/lib/site-agent-file-paths';
+import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
+import { requestStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
+import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/editor';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
@@ -27,6 +33,7 @@ import type {
 	ProposedSitePath,
 	SelectedSiteFolder,
 	SiteDetails,
+	SiteAgentFile,
 	SkillStatus,
 	Snapshot,
 	SnapshotUsage,
@@ -74,30 +81,27 @@ export function createIpcConnector(): Connector {
 	// desktop OS.
 	const isMacOS = /mac/i.test( navigator.platform || navigator.userAgent );
 
-	// Unwrap Electron's IPC error envelope so user-facing messages (e.g. why a
-	// key was rejected) can be shown as-is.
+	// Unwrap Electron's IPC error envelope, and the CLI's, so user-facing
+	// messages (e.g. why a key was rejected) can be shown as-is.
 	async function unwrapIpcError< T >( call: Promise< T > ): Promise< T > {
 		try {
 			return await call;
 		} catch ( error ) {
-			throw new Error( stripIpcErrorPrefix( getErrorMessage( error ) ?? String( error ) ) );
+			throw new Error(
+				stripCliErrorEnvelope( stripIpcErrorPrefix( getErrorMessage( error ) ?? String( error ) ) )
+			);
 		}
 	}
 
-	// Fetches an authenticated WordPress.com endpoint with the stored OAuth
-	// token. Resolves `null` when signed out so callers can degrade gracefully.
-	async function fetchWpcomJson( url: string, errorLabel: string ): Promise< unknown > {
-		const token = ( await ipcApi.getAuthenticationToken() ) as StoredAuthToken | null;
-		if ( ! token ) {
-			return null;
+	async function resolveEditor(): Promise< SupportedEditor > {
+		const { editor } = ( await ipcApi.getUserPreferences() ) as { editor: SupportedEditor | null };
+		const resolved =
+			editor ??
+			getFirstInstalledEditor( ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps );
+		if ( ! resolved ) {
+			throw new Error( 'No preferred editor configured.' );
 		}
-		const response = await fetch( url, {
-			headers: { Authorization: `Bearer ${ token.accessToken }` },
-		} );
-		if ( ! response.ok ) {
-			throw new Error( `Failed to fetch ${ errorLabel }: ${ response.status }` );
-		}
-		return response.json();
+		return resolved;
 	}
 
 	// Preview CLI commands are path-based, not id-based. Look up the matching
@@ -114,8 +118,6 @@ export function createIpcConnector(): Connector {
 	return {
 		async init() {
 			// Install the application menu (View > Toggle DevTools, etc.).
-			// The old renderer does this from its app bootstrap; the new UI
-			// needs to opt in explicitly.
 			await ipcApi.setupAppMenu();
 		},
 
@@ -126,7 +128,6 @@ export function createIpcConnector(): Connector {
 			studioLogs: true,
 		},
 
-		// Auth — optional in Electron, delegated to main process
 		agenticRequiresAuth: true,
 
 		async getAuthUser(): Promise< AuthUser | null > {
@@ -216,9 +217,8 @@ export function createIpcConnector(): Connector {
 			if ( ! sourceSite ) {
 				throw new Error( 'Source site not found.' );
 			}
-			// `%s Copy` matches the legacy Studio flow, and the helper bumps
-			// the suffix (`Copy 2`, `Copy 3`…) when earlier copies already
-			// exist.
+			// The helper bumps the suffix (`Copy 2`, `Copy 3`…) when earlier
+			// copies already exist.
 			const baseName = `${ sourceSite.name } Copy`;
 			const newName = ( await ipcApi.generateNumberedNameFromList( baseName, sites ) ) as string;
 			const newSiteId = crypto.randomUUID();
@@ -326,15 +326,14 @@ export function createIpcConnector(): Connector {
 		async getSiteThumbnail( siteId ): Promise< string | null > {
 			return ( await ipcApi.getThumbnailData( siteId ) ) as string | null;
 		},
+		async captureSitePreview( siteId, { path, guestId } ) {
+			return guestId === undefined ? null : ipcApi.captureSitePreview( siteId, guestId, path );
+		},
 		async getSiteDesign( siteId ) {
 			return ipcApi.getSiteDesign( siteId );
 		},
 		async fixSiteDesignDrift( siteId, fixes ) {
 			return ipcApi.fixSiteDesignDrift( siteId, fixes );
-		},
-
-		async getSiteIcon( siteId ) {
-			return ( await ipcApi.getSiteIcon( siteId ) ) as string | null;
 		},
 
 		async exportFullSite( siteId ): Promise< string | null > {
@@ -408,8 +407,8 @@ export function createIpcConnector(): Connector {
 		},
 
 		async getStudioAssistantQuota(): Promise< StudioAssistantQuota | null > {
-			const data = await fetchWpcomJson( STUDIO_ASSISTANT_QUOTA_URL, 'Studio assistant quota' );
-			return data === null ? null : studioAssistantQuotaSchema.parse( data );
+			const token = ( await ipcApi.getAuthenticationToken() ) as StoredAuthToken | null;
+			return token ? requestStudioAssistantQuota( token.accessToken ) : null;
 		},
 
 		async getStudioAssistantTopUpPricing(
@@ -561,6 +560,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.setAiSessionProvider( sessionId, provider, model );
 		},
 
+		async setSessionEnvironment( sessionId, environment ) {
+			await ipcApi.setAiSessionEnvironment( sessionId, environment );
+		},
+
 		async interruptAgentRun( runId ) {
 			await ipcApi.interruptAiAgentRun( runId );
 		},
@@ -621,11 +624,6 @@ export function createIpcConnector(): Connector {
 				writes.push( studioCliInstalled ? ipcApi.installStudioCli() : ipcApi.uninstallStudioCli() );
 			}
 			await Promise.all( writes );
-			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
-				// Cmd/Ctrl+N belongs to "New chat" only while chat is on, so the
-				// menu has to be rebuilt for the accelerator to change hands.
-				await ipcApi.setupAppMenu();
-			}
 		},
 
 		async isCertificateTrusted(): Promise< boolean > {
@@ -646,6 +644,12 @@ export function createIpcConnector(): Connector {
 		async getAgentInstructions(): Promise< string > {
 			return ( await ipcApi.getGlobalAgentInstructions() ) as string;
 		},
+		async getAgentInstructionsEnabled() {
+			return ( await ipcApi.getGlobalInstructionsEnabled() ) as boolean;
+		},
+		async setAgentInstructionsEnabled( enabled ) {
+			await ipcApi.setGlobalInstructionsEnabled( enabled );
+		},
 		async saveAgentInstructions(
 			content: string,
 			options: { editSession?: { previousContent: string } } = {}
@@ -659,6 +663,9 @@ export function createIpcConnector(): Connector {
 		async saveAnthropicApiKey( key: string | null ): Promise< AiSettings > {
 			return unwrapIpcError( ipcApi.saveAnthropicApiKey( key ) );
 		},
+		async setAiProvider( provider ): Promise< AiSettings > {
+			return unwrapIpcError( ipcApi.setAiProvider( provider ) );
+		},
 
 		async getInstalledApps(): Promise< InstalledApps > {
 			return ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps;
@@ -668,10 +675,6 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.getAppGlobals() ) as AppGlobals;
 		},
 
-		async fetchSiteRest( siteId, request ) {
-			return await ipcApi.fetchSiteRestApi( siteId, request );
-		},
-
 		async openSiteFolder( siteId ): Promise< void > {
 			const sitePath = await resolveSiteFolder( siteId );
 			ipcApi.openLocalPath( sitePath );
@@ -679,15 +682,30 @@ export function createIpcConnector(): Connector {
 
 		async openSiteInEditor( siteId ): Promise< void > {
 			const sitePath = await resolveSiteFolder( siteId );
-			const { editor } = ( await ipcApi.getUserPreferences() ) as {
-				editor: SupportedEditor | null;
-			};
-			if ( ! editor ) {
-				throw new Error( 'No preferred editor configured.' );
-			}
+			const editor = await resolveEditor();
 			// Emit here rather than in Main's `openAppAtPath`, which is shared with single-file opens.
 			void ipcApi.recordAnalyticsEvent( TRACKS_EVENTS.SITE_OPEN_IN_EDITOR, { editor } );
 			await ipcApi.openAppAtPath( editor, sitePath );
+		},
+
+		async openSiteAgentFile( siteId, kind, id, target ): Promise< void > {
+			for ( const relative of getSiteAgentFilePaths( kind, id ) ) {
+				const filePath = await ipcApi.getAbsolutePathFromSite( siteId, relative );
+				if ( ! filePath ) {
+					continue;
+				}
+				const folder = await ipcApi.getAbsolutePathFromSite(
+					siteId,
+					getSiteAgentFileFolder( kind, relative )
+				);
+				if ( target === 'editor' ) {
+					return ipcApi.openAppAtPath( await resolveEditor(), filePath );
+				}
+				return target === 'terminal'
+					? ipcApi.openTerminalAtPath( folder )
+					: ipcApi.openLocalPath( folder );
+			}
+			throw new Error( 'File not found.' );
 		},
 
 		async openSiteInTerminal( siteId ): Promise< void > {
@@ -727,6 +745,10 @@ export function createIpcConnector(): Connector {
 		},
 		async saveWapuuScore( score: number ): Promise< void > {
 			await ipcApi.saveWapuuScore( score );
+		},
+
+		readyForDeeplinks() {
+			ipcApi.readyForDeeplinks();
 		},
 
 		async popupAppMenu( position: { x: number; y: number } ): Promise< void > {
@@ -774,6 +796,15 @@ export function createIpcConnector(): Connector {
 
 		async removeWordPressSkillFromAllSites( skillId: string ): Promise< void > {
 			await ipcApi.removeWordPressSkillFromAllSites( skillId );
+		},
+		async getSiteAgentFiles( siteId, kind ) {
+			return ( await ipcApi.getSiteAgentFiles( siteId, kind ) ) as SiteAgentFile[];
+		},
+		async setSiteAgentFileEnabled( siteId, kind, id, enabled ) {
+			await ipcApi.setSiteAgentFileEnabled( siteId, kind, id, enabled );
+		},
+		async removeSiteAgentFile( siteId, kind, id ) {
+			await ipcApi.removeSiteAgentFile( siteId, kind, id );
 		},
 
 		// Window state
@@ -843,7 +874,11 @@ export function createIpcConnector(): Connector {
 		onOpenSettings( listener ) {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
-			return ipcListener.subscribe( 'user-settings', () => listener() );
+			return ipcListener.subscribe(
+				'user-settings',
+				( _event: unknown, target?: { settingId?: string } ) =>
+					listener( { settingId: target?.settingId } )
+			);
 		},
 
 		onAiCreditsPurchased( listener ) {
@@ -866,14 +901,6 @@ export function createIpcConnector(): Connector {
 
 		onShowWhatsNew( listener ) {
 			return ipcListener.subscribe( 'show-whats-new', () => listener() );
-		},
-
-		async getLastSeenVersion() {
-			return ipcApi.getLastSeenVersion();
-		},
-
-		async saveLastSeenVersion( version ) {
-			await ipcApi.saveLastSeenVersion( version );
 		},
 
 		async getAppUpdateStatus() {

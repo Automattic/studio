@@ -66,7 +66,6 @@ export function extractFormValuesFromBlueprint(
 		}
 	}
 
-	// Extract login credentials from login step
 	const loginStep = steps.find( ( step ) => step.step === 'login' );
 	if ( loginStep ) {
 		if ( typeof loginStep.username === 'string' ) {

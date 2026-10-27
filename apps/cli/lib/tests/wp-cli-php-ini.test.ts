@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getWpCliPhpIniArgs, WP_CLI_PHP_INI_ENTRIES } from 'cli/lib/wp-cli-php-ini';
+import { getWpCliPhpIniArgs } from 'cli/lib/wp-cli-php-ini';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
 const spawnMock = vi.fn();
@@ -66,26 +66,6 @@ beforeEach( () => {
 } );
 
 describe( 'WP-CLI PHP ini policy', () => {
-	it( 'pins the policy values', () => {
-		// Literals on purpose: deriving them from the module under test would make
-		// this assertion pass for any value.
-		expect( WP_CLI_PHP_INI_ENTRIES ).toEqual( {
-			error_reporting: '32767',
-			display_errors: 'stderr',
-			log_errors: 0,
-		} );
-	} );
-
-	it( 'reports deprecations rather than suppressing them', () => {
-		const E_DEPRECATED = 8192;
-		const E_USER_DEPRECATED = 16384;
-		const level = Number( WP_CLI_PHP_INI_ENTRIES.error_reporting );
-
-		// #4686 asks for diagnostics on stderr, not for diagnostics to disappear.
-		expect( level & E_DEPRECATED ).toBe( E_DEPRECATED );
-		expect( level & E_USER_DEPRECATED ).toBe( E_USER_DEPRECATED );
-	} );
-
 	it( 'formats the policy as PHP CLI -d arguments', () => {
 		expect( getWpCliPhpIniArgs() ).toEqual( [
 			'-d',

@@ -1,0 +1,5 @@
+@layer ui {
+	.positioner {
+		z-index: var( --z-popover );
+	}
+}

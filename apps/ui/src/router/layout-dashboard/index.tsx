@@ -1,34 +1,33 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
-import { createRoute, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
-import { __ } from '@wordpress/i18n';
-import { IconButton } from '@wordpress/ui';
+import {
+	createRoute,
+	Outlet,
+	useNavigate,
+	useRouter,
+	useRouterState,
+} from '@tanstack/react-router';
 import { useCallback, useEffect, useState } from 'react';
-import { CommandPalette } from '@/components/command-palette';
+import { useSession, useSessionLiveSite } from '@/data/queries/use-sessions';
+import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
+import { useIsSiteStopping, useSiteOperation, useSites } from '@/data/queries/use-sites';
+import { pathForSite, useSessionPreviewUI } from '@/data/use-session-ui';
+import { requestAnnotationSend } from '@/features/annotations';
+import { SiteWorkspace } from '@/features/chats';
+import { CommandPalette } from '@/features/commands';
 import {
-	PreviewSplitFrame,
-	type PreviewSplitFramePreviewProps,
-} from '@/components/preview-split-frame';
-import { SidebarLayout } from '@/components/sidebar-layout';
-import { HeaderSidebarToggle } from '@/components/sidebar-toggle';
-import { SiteDropdown } from '@/components/site-dropdown';
-import { SitePreview } from '@/components/site-preview';
-import { SiteWorkspace } from '@/components/site-workspace';
-import { useOrientationAutostart } from '@/data/onboarding/use-orientation-autostart';
-import { useOrientationReplay } from '@/data/onboarding/use-orientation-replay';
-import { useWhatsNewAutostart } from '@/data/onboarding/use-whats-new-autostart';
-import { useWhatsNewReplay } from '@/data/onboarding/use-whats-new-replay';
-import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
-import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
-import { useSites } from '@/data/queries/use-sites';
+	useOrientationAutostart,
+	useOrientationReplay,
+	useWhatsNewAutostart,
+	useWhatsNewReplay,
+} from '@/features/onboarding';
+import { SidebarLayout, HeaderSidebarToggle, rememberVisit } from '@/features/sidebar';
+import { PreviewSplitFrame, type PreviewSplitFramePreviewProps } from '@/features/sites';
 import {
-	pathForSite,
-	SessionUIProvider,
-	useSessionPreviewAnnotationsHandler,
-	useSessionPreviewUI,
-} from '@/hooks/use-session-ui';
-import { chatIcon } from '@/lib/icons';
-import { writeLastVisited } from '@/lib/last-visited';
-import { PREVIEW_SPLIT_MIN_WIDTH } from '@/lib/resizable-panels';
+	SiteActionsMenu,
+	SiteHeaderActions,
+	SiteHeaderActionsProvider,
+	SitePreview,
+} from '@/features/sites';
 import { rootRoute } from '../layout-root';
 
 // Session detail routes and a site's own page host the preview;
@@ -49,30 +48,20 @@ function getNewSessionSiteId( pathname: string ): string | undefined {
 	return match ? decodeURIComponent( match[ 1 ] ) : undefined;
 }
 
-function DashboardLayout() {
-	return (
-		<SessionUIProvider>
-			<DashboardLayoutContent />
-		</SessionUIProvider>
-	);
-}
-
 // Hosts the site preview at the dashboard level so the webview stays mounted
 // (and warm) while navigating between sessions, sites, and other routes. The
 // previewed site follows the current session; routes without one keep the
 // last previewed site loaded behind a closed panel.
-function DashboardLayoutContent() {
+function DashboardLayout() {
 	const navigate = useNavigate();
 	const routePreviewContext = useRouterState( {
 		select: ( state ) => ( {
 			sessionId: getRouteSessionId( state.location.pathname ),
 			homeSiteId: getRouteHomeSiteId( state.location.pathname ),
 			newSessionSiteId: getNewSessionSiteId( state.location.pathname ),
-			openSiteDropdown: state.location.search.sync === 'pull',
 		} ),
 	} );
-	const { sessionId, homeSiteId, newSessionSiteId, openSiteDropdown } = routePreviewContext;
-	const { isReady: agenticFeaturesReady, chatEnabled } = useAgenticFeatures();
+	const { sessionId, homeSiteId, newSessionSiteId } = routePreviewContext;
 	const { data: sites } = useSites();
 	const { data: sessionData } = useSession( sessionId );
 	// Open the orientation guide on first workbench arrival, and let Help ▸
@@ -82,24 +71,19 @@ function DashboardLayoutContent() {
 	// Same, for the per-release announcements behind Help ▸ What's New.
 	useWhatsNewAutostart();
 	useWhatsNewReplay();
-	useEffect( () => {
-		if ( sessionId && agenticFeaturesReady && ! chatEnabled ) {
-			void navigate( { to: '/' } );
-		}
-	}, [ agenticFeaturesReady, chatEnabled, navigate, sessionId ] );
 	const preview = useSessionPreviewUI();
-	const onAnnotationsDone = useSessionPreviewAnnotationsHandler();
 	const sessionSite = findAiSessionOwnerSite( sites, sessionData?.summary );
-	const effectiveEnvironment = useSessionEffectiveEnvironment(
-		sessionData?.summary,
-		sessionSite?.id
-	);
+	// A chat switched to Live previews its remote instead of the local site.
+	const { draft } = useSiteChatDraft( newSessionSiteId );
+	const liveUrl = useSessionLiveSite(
+		newSessionSiteId ? draft : sessionData?.summary,
+		newSessionSiteId ?? sessionSite?.id
+	)?.url.replace( /\/+$/, '' );
 	const homeSite = homeSiteId ? sites?.find( ( site ) => site.id === homeSiteId ) : undefined;
 	const newSessionSite = newSessionSiteId
 		? sites?.find( ( site ) => site.id === newSessionSiteId )
 		: undefined;
-	const routeSite =
-		homeSite ?? newSessionSite ?? ( effectiveEnvironment === 'local' ? sessionSite : undefined );
+	const routeSite = homeSite ?? newSessionSite ?? sessionSite;
 	// While session or site data is still loading, preview-capable routes stay
 	// preview-capable so navigation doesn't close and reopen the panel around
 	// the fetch.
@@ -116,15 +100,16 @@ function DashboardLayoutContent() {
 			setLastPreviewSiteId( routeSite.id );
 		}
 	}, [ routeSite ] );
-	// Remember the user's site so the `/` index route can return here
-	// instead of defaulting to the first site.
+	// Remember the user's site and its open chat, so the `/` index route and
+	// the sidebar return here instead of defaulting to the first site.
 	const sessionSiteId = sessionSite?.id;
 	useEffect( () => {
-		const siteId = sessionSiteId ?? newSessionSiteId;
-		if ( siteId ) {
-			writeLastVisited( { siteId } );
+		if ( sessionSiteId ) {
+			rememberVisit( sessionSiteId, sessionId );
+		} else if ( newSessionSiteId ?? homeSiteId ) {
+			rememberVisit( ( newSessionSiteId ?? homeSiteId )! );
 		}
-	}, [ sessionSiteId, newSessionSiteId ] );
+	}, [ sessionSiteId, sessionId, newSessionSiteId, homeSiteId ] );
 	const lastPreviewSite = lastPreviewSiteId
 		? sites?.find( ( site ) => site.id === lastPreviewSiteId )
 		: undefined;
@@ -139,55 +124,69 @@ function DashboardLayoutContent() {
 	// Look up by the route's site so the path is right even before the
 	// `setPreviewSite` effect lands.
 	const previewPath = pathForSite( preview.pathsBySiteId, previewSiteId );
-	// A site's own page is its preview, so it shows whether or not the panel is open.
-	const showPreview = ( preview.open || !! homeSiteId ) && supportsPreview && !! previewSite;
+	// The remote's own path, so neither preview takes the other's page.
+	const [ livePath, setLivePath ] = useState( { url: liveUrl, path: '/' } );
+	const updateLivePath = useCallback(
+		( path: string ) => setLivePath( { url: liveUrl, path } ),
+		[ liveUrl ]
+	);
+	// A site's own page is its preview, so it shows whether or not the panel is
+	// open. Beside a chat, a stopping or stopped site has nothing to preview, and
+	// a starting one shows nothing until its first page loads: the chat takes the
+	// room and shows its loading stage or the site's last screenshot instead.
+	const stopPending = useIsSiteStopping( previewSite?.id );
+	const previewOperation = useSiteOperation( previewSite );
+	const previewStopping = stopPending || previewOperation === 'stop';
+	const showPreview =
+		( preview.open || !! homeSiteId ) &&
+		supportsPreview &&
+		!! previewSite &&
+		( !! homeSiteId ||
+			!! liveUrl ||
+			( previewSite.running && ! previewStopping && preview.revealingSiteId !== previewSite.id ) );
 	const chatHidden = ( preview.chatHidden || !! homeSiteId ) && showPreview;
-	// Opening a chat shows it.
+	// Opening a chat shows it, the open one included. Search-only changes
+	// open dialogs over the workspace without changing its layout.
+	const router = useRouter();
 	const { setChatHidden } = preview;
-	useEffect( () => {
-		setChatHidden( false );
-	}, [ sessionId, setChatHidden ] );
-	const { setOpen: setPreviewOpen } = preview;
-	// The window never grows to fit; a workspace too narrow for the split
-	// (a narrow browser tab) gives up the preview.
-	const onPreviewContainerWidthChange = useCallback(
-		( width: number | null ) => {
-			if ( width !== null && width < PREVIEW_SPLIT_MIN_WIDTH ) {
-				setPreviewOpen( false );
+	useEffect(
+		() =>
+			router.subscribe( 'onBeforeNavigate', ( { pathChanged, hrefChanged } ) => {
+				if ( pathChanged || ! hrefChanged ) {
+					setChatHidden( false );
+				}
+			} ),
+		[ router, setChatHidden ]
+	);
+	// The notes go to the chat beside the preview, or to a new one for the site.
+	const sendAnnotations = useCallback(
+		( siteId: string, noteIds?: string[] ) => {
+			requestAnnotationSend( { siteId, noteIds } );
+			setChatHidden( false );
+			if ( ! sessionId || sessionSite?.id !== siteId ) {
+				void navigate( { to: '/sites/$siteId/new', params: { siteId } } );
 			}
 		},
-		[ setPreviewOpen ]
+		[ navigate, sessionId, sessionSite?.id, setChatHidden ]
 	);
 	const renderPreview = useCallback(
 		( { collapsed }: PreviewSplitFramePreviewProps ) =>
 			previewSite ? (
 				<SitePreview
+					key={ liveUrl ?? 'local' }
 					site={ previewSite }
-					path={ previewPath }
+					liveUrl={ liveUrl }
+					path={ liveUrl ? ( livePath.url === liveUrl ? livePath.path : '/' ) : previewPath }
 					reloadNonce={ preview.reloadNonce }
-					onAnnotationsDone={ onAnnotationsDone }
-					onPathChange={ preview.updatePath }
+					onSendAnnotations={ sendAnnotations }
+					onPathChange={ liveUrl ? updateLivePath : preview.updatePath }
 					collapsed={ collapsed }
 					atWindowStart={ chatHidden }
 					toolbarStart={
 						chatHidden ? (
 							<>
 								<HeaderSidebarToggle />
-								<SiteDropdown
-									site={ previewSite }
-									defaultOpen={ !! homeSite && openSiteDropdown }
-								/>
-								{ homeSite ? null : (
-									<IconButton
-										variant="minimal"
-										tone="neutral"
-										size="small"
-										className="studio-control"
-										icon={ chatIcon }
-										label={ __( 'Show chat' ) }
-										onClick={ () => setChatHidden( false ) }
-									/>
-								) }
+								<SiteActionsMenu site={ previewSite } />
 							</>
 						) : undefined
 					}
@@ -195,34 +194,44 @@ function DashboardLayoutContent() {
 			) : null,
 		[
 			chatHidden,
-			homeSite,
-			onAnnotationsDone,
-			openSiteDropdown,
+			liveUrl,
+			livePath,
+			sendAnnotations,
 			previewPath,
 			preview.reloadNonce,
 			preview.updatePath,
 			previewSite,
-			setChatHidden,
+			updateLivePath,
 		]
 	);
 	const workspaceSiteId = newSessionSiteId ?? sessionSite?.id;
 	const workspace =
 		( sessionId || newSessionSiteId ) && workspaceSiteId ? (
-			<SiteWorkspace key={ workspaceSiteId } siteId={ workspaceSiteId } sessionId={ sessionId } />
+			<SiteWorkspace
+				key={ workspaceSiteId }
+				sessionId={ sessionId }
+				siteId={ workspaceSiteId }
+				headerStart={ <HeaderSidebarToggle /> }
+			/>
 		) : (
 			<Outlet />
 		);
 
 	return (
 		<SidebarLayout>
-			<PreviewSplitFrame
-				previewOpen={ showPreview }
-				chatHidden={ chatHidden }
-				preview={ renderPreview }
-				onContainerWidthChange={ onPreviewContainerWidthChange }
-			>
-				{ workspace }
-			</PreviewSplitFrame>
+			<SiteHeaderActionsProvider host={ showPreview ? 'preview' : 'chat' }>
+				<PreviewSplitFrame
+					previewOpen={ showPreview }
+					chatHidden={ chatHidden }
+					instant={ previewStopping }
+					preview={ renderPreview }
+					actions={
+						routeSite ? <SiteHeaderActions site={ routeSite } live={ !! liveUrl } /> : null
+					}
+				>
+					{ workspace }
+				</PreviewSplitFrame>
+			</SiteHeaderActionsProvider>
 			<CommandPalette
 				site={ homeSite ?? newSessionSite ?? sessionSite }
 				session={ sessionData?.summary }

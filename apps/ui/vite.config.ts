@@ -2,8 +2,6 @@ import { createRequire } from 'module';
 import { resolve } from 'path';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
 import react from '@vitejs/plugin-react';
-import dsTokenFallbacksPostcss from '@wordpress/theme/postcss-plugins/postcss-ds-token-fallbacks';
-import dsTokenFallbacks from '@wordpress/theme/vite-plugins/vite-ds-token-fallbacks';
 import { defineConfig, type Plugin } from 'vite';
 import { getSentryReleaseInfo } from '../studio/src/lib/sentry-release';
 
@@ -13,10 +11,10 @@ const pkg = createRequire( import.meta.url )( './package.json' ) as {
 };
 
 // Dedupe + pre-bundle every direct dep so packages with module-scoped state
-// (React's hooks dispatcher, @wordpress/private-apis' lock/unlock registry,
-// etc.) can't accidentally resolve to two instances. Workspace packages
-// (`file:`) are skipped because Vite pre-bundling expects a resolvable
-// package entry and our workspace packages ship subpaths only.
+// (React's hooks dispatcher, etc.) can't accidentally resolve to two
+// instances. Workspace packages (`file:`) are skipped because Vite
+// pre-bundling expects a resolvable package entry and our workspace packages
+// ship subpaths only.
 const directDeps = Object.entries( pkg.dependencies ?? {} )
 	.filter( ( [ , version ] ) => ! version.startsWith( 'file:' ) )
 	.map( ( [ name ] ) => name );
@@ -37,6 +35,11 @@ const { sentryRelease, isDevEnvironment } = getSentryReleaseInfo(
 );
 const uploadSourceMaps = ! isBrowser && ! isDevEnvironment && !! process.env.SENTRY_AUTH_TOKEN;
 
+// The page the dev server serves for document navigations: the browser app, or
+// the playground homepage (`STUDIO_TARGET=playground`, see src/dev/README.md).
+const devEntry =
+	active?.entry ?? ( process.env.STUDIO_TARGET === 'playground' ? 'playground.html' : undefined );
+
 // In dev, Vite serves the root `index.html` (which loads the Electron entry,
 // `main.tsx`) for every SPA navigation, regardless of `build` input options.
 // Serve the target's entry instead for any document navigation (`/`, `/sites`,
@@ -54,19 +57,22 @@ const browserDevEntryPlugin: Plugin = {
 				pathname.startsWith( '/src/' ) ||
 				pathname.startsWith( '/node_modules/' ) ||
 				pathname.includes( '.' );
-			if ( active && accept.includes( 'text/html' ) && ! isInternal ) {
-				req.url = `/${ active.entry }`;
+			if ( devEntry && accept.includes( 'text/html' ) && ! isInternal ) {
+				req.url = `/${ devEntry }`;
 			}
 			next();
 		} );
 	},
 };
 
+// The browser dev server proxies the `studio ui` server, so the app calls it
+// same-origin, as it does when that server serves the built app.
+const studioUiServer = process.env.STUDIO_UI_SERVER ?? 'http://localhost:8081';
+
 export default defineConfig( {
 	plugins: [
 		react(),
-		dsTokenFallbacks(),
-		...( isBrowser ? [ browserDevEntryPlugin ] : [] ),
+		...( devEntry ? [ browserDevEntryPlugin ] : [] ),
 		// Sentry must be the last plugin
 		uploadSourceMaps &&
 			sentryVitePlugin( {
@@ -76,11 +82,6 @@ export default defineConfig( {
 				release: { name: sentryRelease },
 			} ),
 	],
-	css: {
-		postcss: {
-			plugins: [ dsTokenFallbacksPostcss ],
-		},
-	},
 	resolve: {
 		alias: {
 			'@': resolve( __dirname, 'src' ),
@@ -101,6 +102,12 @@ export default defineConfig( {
 	},
 	server: {
 		port: active?.port ?? 5200,
+		proxy: isBrowser
+			? {
+					'/api': { target: studioUiServer, changeOrigin: true },
+					'/auth/callback': { target: studioUiServer, changeOrigin: true },
+			  }
+			: undefined,
 	},
 	build: {
 		outDir: active?.outDir ?? 'dist',

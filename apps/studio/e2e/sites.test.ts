@@ -19,13 +19,46 @@ async function deleteSite( siteName: string, { keepFiles }: { keepFiles: boolean
 	await new Sidebar( session.mainWindow ).openContextMenuItem( siteName, 'Delete site' );
 	const dialog = session.mainWindow.getByRole( 'alertdialog' );
 	const deleteFiles = dialog.getByRole( 'checkbox', {
-		name: 'Delete site files from my computer',
+		name: 'Also move files and database to Trash',
 	} );
 	await deleteFiles.setChecked( ! keepFiles );
-	await dialog.getByRole( 'button', { name: 'Delete site' } ).click();
+	await dialog.getByRole( 'button', { name: 'Remove site' } ).click();
 	await expect( new Sidebar( session.mainWindow ).getSiteButton( siteName ) ).not.toBeAttached( {
 		timeout: 30_000,
 	} );
+}
+
+async function expectStopped( siteName: string ) {
+	await expect( new Sidebar( session.mainWindow ).getStatusButton( siteName ) ).toHaveAttribute(
+		'data-state',
+		'stopped',
+		{ timeout: 120_000 }
+	);
+}
+
+// The preview header folds its actions into a More menu when it runs out of room.
+async function previewAction( menuItem: string, button = menuItem ) {
+	const page = session.mainWindow;
+	const inline = page.getByRole( 'button', { name: button, exact: true } );
+	await expect( async () => {
+		try {
+			if ( await inline.isVisible() ) {
+				// The address bar reveals its own actions on hover.
+				await page.getByRole( 'textbox', { name: 'Address' } ).hover( { timeout: 2000 } );
+				await inline.click( { timeout: 2000 } );
+			} else {
+				await page
+					.getByRole( 'button', { name: 'More preview actions' } )
+					.click( { timeout: 2000 } );
+				await page.getByRole( 'menuitem', { name: menuItem, exact: true } ).click( {
+					timeout: 2000,
+				} );
+			}
+		} catch ( error ) {
+			await page.keyboard.press( 'Escape' );
+			throw error;
+		}
+	} ).toPass();
 }
 
 // Copies a running site's install into `~/Studio/<folder>`, a folder no site uses yet. The source
@@ -39,35 +72,77 @@ async function copyInstallTo( sourcePath: string, folder: string ) {
 
 test.describe( 'Sites', () => {
 	test.afterEach( async ( { page: _page }, testInfo ) => {
-		await session.reportMainProcessLogsOnFailure( testInfo );
+		await session.reportFailure( testInfo );
 		await session.cleanup();
 	} );
 
-	// The default name and folder, and a custom name with a custom folder.
-	[
-		[ undefined, undefined ],
-		[ 'E2E-Test-Site 2', 'hello' ],
-	].forEach( ( [ customSiteName, customFolderName ] ) => {
-		test( `create site with name ${ customSiteName } and path ${ customFolderName }`, async () => {
-			const { siteName, site } = await launchWithSite( session, {
-				siteName: customSiteName,
-				folder: customFolderName,
-			} );
+	test( 'creates a site, previews it, and keeps it across relaunches', async ( { page } ) => {
+		const siteName = 'Lifecycle site';
+		await session.launch();
+		await new AddSite( session.mainWindow ).createSite( { siteName } );
+		await new Sidebar( session.mainWindow ).expectRunning( siteName );
+		const site = await session.waitForSite( siteName );
+		expect(
+			arePathsEqual( site.path, path.join( session.homePath, 'Studio', 'lifecycle-site' ) )
+		).toBe( true );
+		expect( await pathExists( path.join( site.path, 'wp-config.php' ) ) ).toBe( true );
+		await expect.poll( () => session.previewText() ).toContain( 'Hello world!' );
 
-			if ( customSiteName ) {
-				expect( siteName ).toBe( customSiteName );
-			}
-			if ( customFolderName ) {
-				expect(
-					arePathsEqual( site.path, path.join( session.homePath, 'Studio', customFolderName ) )
-				).toBe( true );
-			}
-			expect( await pathExists( path.join( site.path, 'wp-config.php' ) ) ).toBe( true );
+		const siteUrl = await session.getSiteUrl( siteName );
+		await page.goto( getUrlWithAutoLogin( `${ siteUrl }/wp-admin` ) );
+		await expect( page.locator( '#wp-admin-bar-my-account' ) ).toBeVisible();
 
-			const response = await fetch( await session.getSiteUrl( siteName ) );
-			expect( [ 200, 302 ] ).toContain( response.status );
-			expect( response.headers.get( 'content-type' ) ).toMatch( /text\/html/ );
+		await session.electronApp.evaluate( ( { shell } ) => {
+			const captured = globalThis as typeof globalThis & { openedUrls: string[] };
+			captured.openedUrls = [];
+			shell.openExternal = async ( url ) => {
+				captured.openedUrls.push( url );
+			};
 		} );
+		await previewAction( 'Open in browser', 'Open this page in your browser' );
+		const openedUrls = () =>
+			session.electronApp.evaluate(
+				() => ( globalThis as typeof globalThis & { openedUrls: string[] } ).openedUrls
+			);
+		await expect.poll( openedUrls ).toHaveLength( 1 );
+		expect( new URL( ( await openedUrls() )[ 0 ] ).origin ).toBe( new URL( siteUrl ).origin );
+
+		const guestId = await session.mainWindow
+			.locator( 'webview' )
+			.evaluate( ( element ) =>
+				( element as HTMLElement & { getWebContentsId: () => number } ).getWebContentsId()
+			);
+		const loadInPreview = ( url: string ) =>
+			session.electronApp.evaluate(
+				async ( { webContents }, target ) => {
+					await webContents
+						.fromId( target.id )!
+						.loadURL( target.url )
+						.catch( () => {} );
+				},
+				{ id: guestId, url }
+			);
+		await loadInPreview( 'http://127.0.0.1:1/' );
+		await expect( session.mainWindow.getByText( 'Preview could not load' ) ).toBeVisible();
+		await loadInPreview( siteUrl );
+		await expect.poll( () => session.previewText() ).toContain( 'Hello world!' );
+
+		await new Sidebar( session.mainWindow ).getStatusButton( siteName ).click();
+		await expectStopped( siteName );
+		await expect( session.mainWindow.locator( 'webview' ) ).toHaveCount( 0 );
+
+		await session.restart();
+		await expectStopped( siteName );
+		await new Sidebar( session.mainWindow ).getStatusButton( siteName ).click();
+		await new Sidebar( session.mainWindow ).expectRunning( siteName );
+		await expect.poll( () => session.previewText() ).toContain( 'Hello world!' );
+
+		await session.mainWindow.evaluate( () =>
+			window.ipcApi.setUserPreferences( { quitSitesBehavior: 'stop-and-auto-start' } )
+		);
+		await session.restart();
+		await new Sidebar( session.mainWindow ).expectRunning( siteName );
+		await expect.poll( () => session.previewText() ).toContain( 'Hello world!' );
 	} );
 
 	skipTestOnWindows( 'delete site but keep directory on disk', async () => {
@@ -86,28 +161,11 @@ test.describe( 'Sites', () => {
 		await expect.poll( () => pathExists( site.path ) ).toBe( false );
 	} );
 
-	// Pointing the create form at a folder that already holds WordPress adopts that install.
-	test( 'adds a site from an existing WordPress directory', async () => {
-		const folder = 'existing-wp-dir';
+	// Pointing the create form at a folder that already holds WordPress adopts that install, and
+	// Studio must not wipe the user's own MySQL connection settings while doing so.
+	test( 'adds a site from an existing WordPress directory and keeps its MySQL wp-config.php', async () => {
 		const { site: original } = await launchWithSite( session, { folder: 'original' } );
-		const existingDir = await copyInstallTo( original.path, folder );
-		await session.restart( { E2E_OPEN_FOLDER_DIALOG: existingDir } );
-
-		await new AddSite( session.mainWindow ).createSite( {
-			siteName: 'Adopted Site',
-			pickFolder: true,
-		} );
-		await new Sidebar( session.mainWindow ).expectRunning( 'Adopted Site' );
-
-		const adopted = await session.waitForSite( 'Adopted Site' );
-		expect( arePathsEqual( adopted.path, existingDir ) ).toBe( true );
-		expect( await pathExists( path.join( existingDir, 'wp-config.php' ) ) ).toBe( true );
-	} );
-
-	// Studio must not wipe a user's own MySQL connection settings when adopting their install.
-	test( 'preserves an existing MySQL wp-config.php when adding a WordPress directory', async () => {
-		const { site: original } = await launchWithSite( session, { folder: 'original' } );
-		const existingDir = await copyInstallTo( original.path, 'mysql-wp-dir' );
+		const existingDir = await copyInstallTo( original.path, 'existing-wp-dir' );
 
 		const wpConfigPath = path.join( existingDir, 'wp-config.php' );
 		const mysqlDefines = [
@@ -125,15 +183,37 @@ test.describe( 'Sites', () => {
 		await session.restart( { E2E_OPEN_FOLDER_DIALOG: existingDir } );
 
 		await new AddSite( session.mainWindow ).createSite( {
-			siteName: 'MySQL WP Site',
+			siteName: 'Adopted Site',
 			pickFolder: true,
 		} );
-		await new Sidebar( session.mainWindow ).expectRunning( 'MySQL WP Site' );
+		await new Sidebar( session.mainWindow ).expectRunning( 'Adopted Site' );
 
+		const adopted = await session.waitForSite( 'Adopted Site' );
+		expect( arePathsEqual( adopted.path, existingDir ) ).toBe( true );
 		const finalConfig = await fs.readFile( wpConfigPath, 'utf-8' );
 		expect( finalConfig ).toContain( "define( 'DB_USER', 'wp_user' );" );
 		expect( finalConfig ).toContain( "define( 'DB_PASSWORD', 'super-secret-pw' );" );
 		expect( finalConfig ).toContain( "define( 'DB_HOST', 'mysql.example.com' );" );
+	} );
+
+	test( 'duplicating from the sidebar copies all files and the thumbnail', async () => {
+		const { siteName, site } = await launchWithSite( session );
+
+		const thumbnailsDir = path.join( session.appDataPath, 'Studio', 'thumbnails' );
+		await fs.ensureDir( thumbnailsDir );
+		await fs.writeFile( path.join( thumbnailsDir, `${ site.id }.png` ), 'test-thumbnail-data' );
+
+		await new Sidebar( session.mainWindow ).openContextMenuItem( siteName, 'Duplicate' );
+
+		const copyName = `${ siteName } Copy`;
+		await expect( new Sidebar( session.mainWindow ).getSiteButton( copyName ) ).toBeVisible( {
+			timeout: 120_000,
+		} );
+		const copy = await session.waitForSite( copyName );
+		expect( await pathExists( path.join( copy.path, 'wp-config.php' ) ) ).toBe( true );
+		await expect
+			.poll( () => pathExists( path.join( thumbnailsDir, `${ copy.id }.png` ) ) )
+			.toBe( true );
 	} );
 } );
 
@@ -147,37 +227,49 @@ test.describe( 'Site settings', () => {
 	} );
 
 	test.afterEach( async ( { page: _page }, testInfo ) => {
-		await session.reportMainProcessLogsOnFailure( testInfo );
+		await session.reportFailure( testInfo );
 	} );
 
 	test.afterAll( async () => {
 		await session.cleanup();
 	} );
 
-	test( "edit site's settings in wp-admin", async ( { page } ) => {
-		const siteUrl = await session.getSiteUrl( siteName );
-
-		await page.goto( getUrlWithAutoLogin( `${ siteUrl }/wp-admin/options-general.php` ) );
-		const siteTitleInput = page.getByLabel( 'Site Title' );
-		await siteTitleInput.fill( 'testing site title' );
-		await siteTitleInput.press( 'Enter' );
-
-		await page.goto( siteUrl );
-		expect( await page.title() ).toBe( 'testing site title' );
-	} );
-
-	test( 'renames a site', async () => {
+	test( 'saves a rename and the debug log back to back, and manages the agent instructions file', async () => {
 		const newSiteName = 'E2E-Test-Site-Renamed';
+		const page = session.mainWindow;
 
-		const settings = new SiteSettings( session.mainWindow );
+		const settings = new SiteSettings( page );
 		await settings.open( siteName );
 		await settings.siteNameInput.fill( newSiteName );
-		await settings.saveSettings();
+		await settings.showSection( 'Debug' );
+		await page.getByRole( 'button', { name: 'Save', exact: true } ).click();
+		await page.getByRole( 'switch', { name: 'Debug log', exact: true } ).click();
+		await page.getByRole( 'button', { name: 'Save', exact: true } ).click();
+		await expect( page.getByRole( 'button', { name: 'Save', exact: true } ) ).toHaveCount( 0, {
+			timeout: 120_000,
+		} );
 		await settings.close();
 
-		await expect( new Sidebar( session.mainWindow ).getSiteButton( newSiteName ) ).toBeVisible();
-		await session.waitForSite( newSiteName );
+		await expect( new Sidebar( page ).getSiteButton( newSiteName ) ).toBeVisible();
+		await expect
+			.poll( () => session.waitForSite( newSiteName ), { timeout: 120_000 } )
+			.toMatchObject( { enableDebugLog: true } );
 		siteName = newSiteName;
+
+		await settings.open( siteName );
+		await settings.showSection( 'Debug' );
+		await expect( page.getByRole( 'switch', { name: 'Debug log', exact: true } ) ).toBeChecked();
+		await settings.showSection( 'Instructions' );
+		const agentsFile = path.join( ( await session.waitForSite( siteName ) ).path, 'AGENTS.md' );
+		await page.getByRole( 'button', { name: 'Actions for AGENTS.md', exact: true } ).click();
+		await page.getByRole( 'menuitem', { name: 'Uninstall', exact: true } ).click();
+		const agents = page.getByRole( 'switch', { name: 'AGENTS.md', exact: true } );
+		await expect( agents ).not.toBeChecked();
+		await expect.poll( () => pathExists( agentsFile ) ).toBe( false );
+		await agents.click();
+		await expect( agents ).toBeChecked();
+		await expect.poll( () => pathExists( agentsFile ) ).toBe( true );
+		await settings.close();
 	} );
 
 	test( 'change PHP version', async () => {
@@ -195,52 +287,5 @@ test.describe( 'Site settings', () => {
 			.poll( async () => await session.waitForSite( siteName ) )
 			.toMatchObject( { phpVersion: newPhpVersion } );
 		await expect( settings.phpVersionSelect ).toHaveText( newPhpVersion );
-	} );
-} );
-
-test.describe( 'Sites without cleanup in-between', () => {
-	test.afterEach( async ( { page: _page }, testInfo ) => {
-		await session.reportMainProcessLogsOnFailure( testInfo );
-	} );
-
-	test.afterAll( async () => {
-		await session.cleanup();
-	} );
-
-	test( 'duplicating from the sidebar copies all files and the thumbnail', async () => {
-		const { siteName, site } = await launchWithSite( session );
-
-		const thumbnailsDir = path.join( session.appDataPath, 'Studio', 'thumbnails' );
-		await fs.ensureDir( thumbnailsDir );
-		await fs.writeFile( path.join( thumbnailsDir, `${ site.id }.png` ), 'test-thumbnail-data' );
-
-		await new Sidebar( session.mainWindow ).openContextMenuItem( siteName, 'Duplicate site' );
-
-		const copyName = `${ siteName } Copy`;
-		await expect( new Sidebar( session.mainWindow ).getSiteButton( copyName ) ).toBeVisible( {
-			timeout: 120_000,
-		} );
-		const copy = await session.waitForSite( copyName );
-		expect( await pathExists( path.join( copy.path, 'wp-config.php' ) ) ).toBe( true );
-		await expect
-			.poll( () => pathExists( path.join( thumbnailsDir, `${ copy.id }.png` ) ) )
-			.toBe( true );
-	} );
-
-	test( 'stop all sites and then start the first site again', async () => {
-		const sidebar = new Sidebar( session.mainWindow );
-		await session.stopAllSites();
-
-		const [ first ] = await session.getSites();
-		await expect( sidebar.getStatusButton( first.name ) ).toHaveAttribute(
-			'data-state',
-			'stopped',
-			{
-				timeout: 120_000,
-			}
-		);
-
-		await sidebar.getStatusButton( first.name ).click();
-		await sidebar.expectRunning( first.name );
 	} );
 } );

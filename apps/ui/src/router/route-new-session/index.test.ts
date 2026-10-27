@@ -1,74 +1,29 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { createFakeConnector, makeSite } from '@/test/fake-connector';
+import { createTestQueryClient } from '@/test/render';
 import { newSessionRoute } from './index';
 
-function createContext( {
-	agenticRequiresAuth,
-	agenticFeaturesEnabled = true,
-}: {
-	agenticRequiresAuth: boolean;
-	agenticFeaturesEnabled?: boolean;
-} ) {
+function setup( exists = true ) {
+	const connector = createFakeConnector( {
+		sites: exists ? [ makeSite( { id: 'site-1' } ) ] : [],
+	} );
+	const context = { connector, queryClient: createTestQueryClient() };
 	return {
-		queryClient: {
-			fetchQuery: ( { queryFn }: { queryFn: () => unknown } ) => queryFn(),
-		},
-		connector: {
-			agenticRequiresAuth,
-			getAuthUser: async () => null,
-			getUserPreferences: async () => ( { agenticFeaturesEnabled } ),
-			createSession: vi.fn( async () => ( { id: 'session-1' } ) ),
-		},
+		connector,
+		load: () =>
+			newSessionRoute.options.beforeLoad?.( { context, params: { siteId: 'site-1' } } as never ),
 	};
 }
 
 describe( 'newSessionRoute.beforeLoad', () => {
-	it( 'leaves the route open for the signed-out Studio Code prompt', async () => {
-		const context = createContext( { agenticRequiresAuth: true } );
-
-		await expect(
-			newSessionRoute.options.beforeLoad?.( {
-				context,
-				params: { siteId: 'site-1' },
-			} as never )
-		).resolves.toBeUndefined();
-		expect( context.connector.createSession ).not.toHaveBeenCalled();
+	it( 'opens the site draft without creating or loading a chat', async () => {
+		const { connector, load } = setup();
+		await load();
+		expect( connector.createSession ).not.toHaveBeenCalled();
+		expect( connector.getSessions ).not.toHaveBeenCalled();
 	} );
-
-	it( 'redirects signed-out users to overview when Studio Code is switched off', async () => {
-		const context = createContext( {
-			agenticRequiresAuth: true,
-			agenticFeaturesEnabled: false,
-		} );
-
-		await expect(
-			newSessionRoute.options.beforeLoad?.( {
-				context,
-				params: { siteId: 'site-1' },
-			} as never )
-		).rejects.toMatchObject( {
-			options: {
-				to: '/sites/$siteId',
-				params: { siteId: 'site-1' },
-			},
-		} );
-	} );
-
-	it( 'redirects to overview when Studio Code is switched off', async () => {
-		const context = createContext( {
-			agenticRequiresAuth: false,
-			agenticFeaturesEnabled: false,
-		} );
-
-		await expect(
-			newSessionRoute.options.beforeLoad?.( {
-				context,
-				params: { siteId: 'site-1' },
-			} as never )
-		).rejects.toMatchObject( {
-			options: {
-				to: '/sites/$siteId',
-				params: { siteId: 'site-1' },
-			},
-		} );
+	it( 'leaves a site that no longer exists', async () => {
+		const { load } = setup( false );
+		await expect( load() ).rejects.toMatchObject( { options: { to: '/' } } );
 	} );
 } );

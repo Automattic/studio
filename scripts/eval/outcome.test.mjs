@@ -2,6 +2,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, test } from 'vitest';
+import { parse } from 'yaml';
 import * as checks from './outcome.mjs';
 
 // Each check reads the runner's result file named on stdout, as promptfoo
@@ -113,6 +114,21 @@ describe( 'shared checks', () => {
 			false
 		);
 		expect( run( checks.turnsAreResponsive, { turnDurationsMs: [] } ).pass ).toBe( false );
+	} );
+
+	test( 'withinBudget', () => {
+		const turn = ( calls, totalTokens ) => ( {
+			toolCalls: Array.from( { length: calls }, () => ( { name: 'Bash' } ) ),
+			usage: { totalTokens },
+		} );
+		const vars = { maxToolCalls: 20, maxTokens: 500000 };
+		expect( run( checks.withinBudget, turn( 20, 500000 ), vars ).pass ).toBe( true );
+		expect( run( checks.withinBudget, turn( 78, 400000 ), vars ).reason ).toBe(
+			'over budget: 78 tool calls (limit 20)'
+		);
+		expect( run( checks.withinBudget, turn( 10, 900000 ), vars ).pass ).toBe( false );
+		expect( run( checks.withinBudget, turn( 78, 0 ), { maxTokens: 1000 } ).pass ).toBe( true );
+		expect( run( checks.withinBudget, turn( 1, 0 ) ).pass ).toBe( false );
 	} );
 } );
 
@@ -465,4 +481,45 @@ describe( 'site checks', () => {
 			).pass
 		).toBe( false );
 	} );
+} );
+
+describe( 'routing checks', () => {
+	const skill = ( name ) => ( { name: 'Skill', input: { name } } );
+	const vars = { skills: [ { name: 'block-content' }, { name: 'imagery' } ] };
+
+	test( 'skillsLoadedFirst', () => {
+		const calls = [ skill( 'block-content' ), { name: 'Write', input: {} }, skill( 'imagery' ) ];
+		expect(
+			run(
+				checks.skillsLoadedFirst,
+				{ toolCalls: calls, stoppedAt: { toolName: 'Write', index: 1 } },
+				vars
+			).pass
+		).toBe( false );
+		expect(
+			run(
+				checks.skillsLoadedFirst,
+				{ toolCalls: [ skill( 'imagery' ), ...calls ], stoppedAt: { toolName: 'Write', index: 2 } },
+				vars
+			).pass
+		).toBe( true );
+		expect( run( checks.skillsLoadedFirst, { toolCalls: calls }, vars ).pass ).toBe( true );
+	} );
+} );
+
+// promptfoo expands a var that is an array of plain values into one test per
+// element, so a list a check reads must be a list of objects.
+test( 'list vars in the config are lists of objects', () => {
+	const config = parse(
+		readFileSync( path.join( import.meta.dirname, 'promptfoo.config.yaml' ), 'utf8' )
+	);
+	const scalarLists = config.tests.flatMap( ( { vars = {} } ) =>
+		Object.entries( vars )
+			.filter(
+				( [ , value ] ) =>
+					Array.isArray( value ) && value.some( ( item ) => typeof item !== 'object' )
+			)
+			.map( ( [ name ] ) => `${ vars.caseId }.${ name }` )
+	);
+	expect( scalarLists ).toEqual( [] );
 } );

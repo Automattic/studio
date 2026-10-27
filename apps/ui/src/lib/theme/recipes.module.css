@@ -2,6 +2,11 @@
    `composes: <name> from '@/lib/theme/recipes.module.css'`. They sit in the
    `ui` layer with the primitives, so a component's own rules override them. */
 @layer ui {
+	.dismissIcon svg:not( [data-size] ) {
+		width: 11px;
+		height: 11px;
+	}
+
 	/* One line of text, cut with an ellipsis. */
 	.truncate {
 		overflow: hidden;

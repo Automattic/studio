@@ -233,7 +233,7 @@ describe( 'sidebar site sections', () => {
 		connector.state.preferences = { ...connector.state.preferences, autoCollapseSites: true };
 		await act( () => queryClient.invalidateQueries( { queryKey: [ 'user-preferences' ] } ) );
 		fireEvent.click( screen.getByRole( 'button', { name: 'New chat for My site' } ) );
-		await waitFor( () => expect( connector.createSession ).toHaveBeenCalledWith( 'one' ) );
+		expect( connector.createSession ).not.toHaveBeenCalled();
 		expect( screen.getByRole( 'button', { name: 'My site' } ) ).toHaveAttribute(
 			'aria-expanded',
 			'false'

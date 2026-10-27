@@ -40,10 +40,11 @@ const rows = createSiteRows( sites, sessions );
 const defaults = { pins: [], chatOrder: {}, needingInput: [] };
 
 describe( 'getListedSessions', () => {
-	it( 'hides a chat without a prompt or title unless it is open', () => {
+	it( 'only lists conversations with a submitted message', () => {
 		const blank = chat( 'new', 'a', '2026-01-06T00:00:00Z', { firstPrompt: undefined } );
-		expect( getListedSessions( [ blank ], undefined ) ).toEqual( [] );
-		expect( getListedSessions( [ blank ], 'new' ) ).toEqual( [ blank ] );
+		const named = { ...blank, id: 'named', title: 'Named draft' };
+		const sent = { ...blank, id: 'sent', firstPrompt: 'Hello' };
+		expect( getListedSessions( [ blank, named, sent ] ) ).toEqual( [ sent ] );
 	} );
 } );
 

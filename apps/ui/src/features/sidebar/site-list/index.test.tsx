@@ -145,20 +145,20 @@ describe( 'sidebar site list', () => {
 		}
 	);
 
-	it( 'opens the latest active chat, or the one last open in the site', async () => {
+	it( 'opens the site draft even when it has recent or previously visited chats', async () => {
 		const sessions = [
 			chat( 'older', '2026-06-01T12:00:00.000Z' ),
 			chat( 'latest', '2026-06-20T12:00:00.000Z' ),
 		];
 		const { history, unmount } = await setup( { sessions, path: '/sites/two' } );
 		fireEvent.click( await siteButton( 'My site' ) );
-		await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/latest' ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
 		unmount();
 
 		rememberVisit( 'one', 'older' );
 		const view = await setup( { sessions, path: '/sites/two' } );
 		fireEvent.click( await siteButton( 'My site' ) );
-		await waitFor( () => expect( view.history.location.pathname ).toBe( '/sessions/older' ) );
+		await waitFor( () => expect( view.history.location.pathname ).toBe( '/sites/one/new' ) );
 	} );
 
 	it( 'lists sites while chats are still loading', async () => {

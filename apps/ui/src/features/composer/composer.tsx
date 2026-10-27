@@ -49,6 +49,7 @@ import {
 import styles from './style.module.css';
 import type { AiModelId, SessionEntry, StudioVisualAnnotationSummary } from '@/data/core';
 import type { ComposerSendAttachments } from '@/data/use-composer-attachments';
+import type { AiProviderId } from '@studio/common/ai/providers';
 
 /**
  * Invisible structural placeholder that mirrors Composer's outer DOM, so the
@@ -81,6 +82,8 @@ interface ComposerProps {
 	onAnswer?: ( answer: string ) => void;
 	onInterrupt: () => Promise< void >;
 	sessionId?: string;
+	draftKey?: string;
+	provider?: AiProviderId;
 	entries?: SessionEntry[];
 	// The local site the session belongs to; a confirmed family switch opens
 	// the fresh session under it.
@@ -103,7 +106,7 @@ interface ComposerProps {
 	dropTarget?: HTMLElement | null;
 	// The site whose preview annotations go out with the next message.
 	annotationSiteId?: string;
-	onModelChange?: ( model: AiModelId ) => void;
+	onModelChange?: ( model: AiModelId, provider: AiProviderId ) => void;
 	// Why the chat can't send right now; a send attempt shakes it.
 	notice?: ComposerNotice;
 }
@@ -126,6 +129,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		onAnswer,
 		onInterrupt,
 		sessionId,
+		draftKey = sessionId,
+		provider,
 		entries,
 		ownerSiteId,
 		onSwitchSession,
@@ -145,7 +150,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	ref
 ) {
 	const isField = variant === 'field';
-	const [ initialDraft ] = useState( () => getComposerDraft( sessionId ) );
+	const [ initialDraft ] = useState( () => getComposerDraft( draftKey ) );
 	const [ value, setValue ] = useState( initialDraft.text );
 	const [ sending, setSending ] = useState( false );
 	const [ modelOpen, setModelOpen ] = useState( false );
@@ -161,7 +166,11 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const draftEffectInitializedRef = useRef( false );
 	const openSettings = useOpenSettings();
 
-	const { sessionProvider, providers, isModelLocked } = useModelAccess( { sessionId, entries } );
+	const { sessionProvider, providers, isModelLocked } = useModelAccess( {
+		sessionId,
+		entries,
+		provider,
+	} );
 	const isWpcom = sessionProvider === 'wpcom';
 	const isOutOfCredits = useIsOutOfAiCredits() && ! isField && isWpcom;
 	const { openAddCredits, purchase, closePurchase } = useAddCredits();
@@ -254,11 +263,11 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 
 	useEffect( () => {
 		if ( draftEffectInitializedRef.current ) {
-			saveComposerDraft( sessionId, { text: value, attachments } );
+			saveComposerDraft( draftKey, { text: value, attachments } );
 		} else {
 			draftEffectInitializedRef.current = true;
 		}
-	}, [ attachments, sessionId, value ] );
+	}, [ attachments, draftKey, value ] );
 
 	const {
 		changeModel,
@@ -326,7 +335,13 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		try {
 			await onSend( submission.prompt, submission.options );
 		} catch {
-			// The parent reports the failure in a toast.
+			// The parent reports the failure in a toast. Keep the draft even if
+			// its site was closed while the request was pending.
+			const currentDraft = getComposerDraft( draftKey );
+			saveComposerDraft( draftKey, {
+				text: currentDraft.text || value,
+				attachments: [ ...attachments, ...currentDraft.attachments ],
+			} );
 			setValue( ( current ) => current || value );
 			restoreAttachments( ( current ) => [ ...attachments, ...current ] );
 			return;
@@ -341,6 +356,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 	}, [
 		value,
+		draftKey,
 		sending,
 		attachments,
 		busy,
@@ -590,6 +606,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 
 export const Composer = forwardRef< ComposerHandle, ComposerProps >(
 	function Composer( props, ref ) {
-		return <ComposerContent key={ props.sessionId } { ...props } ref={ ref } />;
+		return <ComposerContent key={ props.draftKey ?? props.sessionId } { ...props } ref={ ref } />;
 	}
 );

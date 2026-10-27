@@ -44,11 +44,12 @@ afterEach( () =>
 
 describe( 'sidebar hover overlay', () => {
 	it( 'lists the sites on hover and closes once one opens', async () => {
-		const { connector, open } = await setup();
+		const { connector, history, open } = await setup();
 		const switcher = await open();
 		fireEvent.click( await within( switcher ).findByRole( 'button', { name: /^Other site/ } ) );
 		await switcherClosed();
-		await waitFor( () => expect( connector.createSession ).toHaveBeenCalledWith( 'two' ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/two/new' ) );
+		expect( connector.createSession ).not.toHaveBeenCalled();
 	} );
 
 	it( 'closes on Escape, and leaves Escape alone while closed', async () => {

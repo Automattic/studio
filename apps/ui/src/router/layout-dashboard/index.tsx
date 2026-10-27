@@ -8,6 +8,7 @@ import {
 } from '@tanstack/react-router';
 import { useCallback, useEffect, useState } from 'react';
 import { useSession, useSessionLiveSite } from '@/data/queries/use-sessions';
+import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
 import { useIsSiteStopping, useSiteOperation, useSites } from '@/data/queries/use-sites';
 import { pathForSite, useSessionPreviewUI } from '@/data/use-session-ui';
 import { requestAnnotationSend } from '@/features/annotations';
@@ -73,10 +74,11 @@ function DashboardLayout() {
 	const preview = useSessionPreviewUI();
 	const sessionSite = findAiSessionOwnerSite( sites, sessionData?.summary );
 	// A chat switched to Live previews its remote instead of the local site.
-	const liveUrl = useSessionLiveSite( sessionData?.summary, sessionSite?.id )?.url.replace(
-		/\/+$/,
-		''
-	);
+	const { draft } = useSiteChatDraft( newSessionSiteId );
+	const liveUrl = useSessionLiveSite(
+		newSessionSiteId ? draft : sessionData?.summary,
+		newSessionSiteId ?? sessionSite?.id
+	)?.url.replace( /\/+$/, '' );
 	const homeSite = homeSiteId ? sites?.find( ( site ) => site.id === homeSiteId ) : undefined;
 	const newSessionSite = newSessionSiteId
 		? sites?.find( ( site ) => site.id === newSessionSiteId )
@@ -208,6 +210,7 @@ function DashboardLayout() {
 			<SiteWorkspace
 				key={ workspaceSiteId }
 				sessionId={ sessionId }
+				siteId={ workspaceSiteId }
 				headerStart={ <HeaderSidebarToggle /> }
 			/>
 		) : (

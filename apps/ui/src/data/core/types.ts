@@ -27,6 +27,9 @@ import type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assi
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type {
+	SidebarPinnedSort,
+	SidebarSiteSort,
+	SidebarChatSort,
 	ColorScheme,
 	NewSiteBehavior,
 	QuitSitesBehavior,
@@ -667,6 +670,9 @@ export interface UserPreferences {
 	studioCliExternallyManaged: boolean;
 	// The sidebar's Pinned group, in order, as `site:<id>` and `chat:<id>` keys.
 	sidebarPins?: string[];
+	sidebarPinnedSort?: SidebarPinnedSort;
+	sidebarSiteSort?: SidebarSiteSort;
+	sidebarChatSort?: SidebarChatSort;
 	// Each site's chats in the order the user dragged them into, by site id.
 	sidebarChatOrder?: Record< string, string[] >;
 	showRecentChats?: boolean;

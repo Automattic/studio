@@ -26,6 +26,15 @@
 		rotate: -90deg;
 	}
 
+	.submenuChevron:dir( rtl ) {
+		rotate: 90deg;
+	}
+
+	.radioIndicator {
+		display: flex;
+		margin-inline-start: auto;
+	}
+
 	.shortcut {
 		margin-inline-start: auto;
 		padding-inline-start: var( --space-3 );

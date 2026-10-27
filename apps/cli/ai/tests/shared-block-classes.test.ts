@@ -297,6 +297,34 @@ echo wp_json_encode( array(
 		).toHaveLength( 4 );
 	}, 60000 );
 
+	// As run 53's 01a1…36132 aligned its feature cards on small screens.
+	it( 'moves what no media query also sets, and keeps the rest beside the class', async () => {
+		const template = path.join( root, theme, 'templates', 'single.html' );
+		writeFileSync(
+			template,
+			times(
+				3,
+				'<!-- wp:group {"className":"perk-row"} -->\n<div class="wp-block-group perk-row"><p>x</p></div>\n<!-- /wp:group -->'
+			)
+		);
+		const [ note ] = await write(
+			'assets/css/perk-row.css',
+			'.perk-row {\n\tbox-shadow: 0 1px 2px #0003;\n\talign-items: flex-start;\n}\n@media (max-width: 781px) {\n\t.perk-row { align-items: center; }\n}\n'
+		);
+		expect( note ).toContain( 'Studio moved the look `.perk-row` gives core/group blocks' );
+		expect( note ).toContain( "the class's rules keep align-items" );
+		expect(
+			JSON.parse(
+				readFileSync( path.join( root, theme, 'styles', 'blocks', 'perk-row.json' ), 'utf8' )
+			).styles
+		).toEqual( { css: 'box-shadow: 0 1px 2px #0003;' } );
+		expect(
+			readFileSync( path.join( root, theme, 'assets', 'css', 'perk-row.css' ), 'utf8' )
+		).toBe(
+			'.perk-row {\n\talign-items: flex-start;\n}\n@media (max-width: 781px) {\n\t.perk-row { align-items: center; }\n}\n'
+		);
+	}, 60000 );
+
 	// Each case sets up, beside three blocks that could take the style, what
 	// keeps Studio from moving the look, and returns what undoes it.
 	const themeFile = ( file: string, content: string ) => {

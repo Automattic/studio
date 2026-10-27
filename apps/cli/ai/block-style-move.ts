@@ -29,6 +29,8 @@ interface Rule {
 	start: number;
 	end: number;
 	selectors: string[];
+	// The selectors as written, strings and comments in them kept.
+	written: string[];
 	body: string;
 	topLevel: boolean;
 }
@@ -54,6 +56,20 @@ function closing( masked: string, open: number ): number {
 	return masked.length;
 }
 
+// The selectors of a prelude as written, split where the masked one has a comma.
+function written( css: string, from: number, to: number ): string[] {
+	const masked = mask( css.slice( from, to ) );
+	const selectors: string[] = [];
+	let start = 0;
+	for ( let i = 0; i <= masked.length; i++ ) {
+		if ( i === masked.length || masked[ i ] === ',' ) {
+			selectors.push( css.slice( from + start, from + i ).trim() );
+			start = i + 1;
+		}
+	}
+	return selectors;
+}
+
 /** Each style rule of a stylesheet, at any depth of its at-rules. */
 function cssRules( css: string ): Rule[] {
 	const masked = mask( css );
@@ -75,6 +91,7 @@ function cssRules( css: string ): Rule[] {
 							( masked.slice( start, i ).length - masked.slice( start, i ).trimStart().length ),
 						end: end + 1,
 						selectors: prelude.split( ',' ).map( ( selector ) => selector.trim() ),
+						written: written( css, start, i ),
 						body: css.slice( i + 1, end ),
 						topLevel,
 					} );
@@ -144,55 +161,120 @@ const BLOCK_STYLE_WEIGHT = 100;
 // outweighs the block style's, as it outweighed the class's own rule.
 const outweighs = ( selector: string ) => ( specificity( selector ) ?? 0 ) > BLOCK_STYLE_WEIGHT;
 
-/** The block style's css for a class, from the stylesheets: undefined if a rule it cannot move styles it. */
-export function movableCss(
+// A rule's declarations, each with the whitespace before it, split where the
+// masked body has a semicolon, so one in a string or comment stays in its
+// declaration; and what follows the last.
+function declarations( body: string ): { property: string; text: string }[] {
+	const masked = mask( body );
+	const parts: { property: string; text: string }[] = [];
+	let from = 0;
+	for ( let i = 0; i <= masked.length; i++ ) {
+		if ( i === masked.length || masked[ i ] === ';' ) {
+			const text = body.slice( from, i );
+			const bare = mask( text );
+			const colon = bare.indexOf( ':' );
+			parts.push( {
+				property: colon < 0 ? '' : bare.slice( 0, colon ).trim().toLowerCase(),
+				text,
+			} );
+			from = i + 1;
+		}
+	}
+	return parts;
+}
+
+// Whether two properties can set the same thing, as `padding` and
+// `padding-top`, or `background` and `background-color` do.
+const related = ( one: string, other: string ) =>
+	one === other || one.startsWith( `${ other }-` ) || other.startsWith( `${ one }-` );
+
+interface MovePlan {
+	// The block style's "styles": { "css" }.
+	css: string;
+	// Each stylesheet without what moved.
+	stylesheets: string[];
+	// The properties the class's own rules keep, as a rule left in place also sets them.
+	kept: string[];
+}
+
+/**
+ * What of a class's look the stylesheets let Studio move into a block style as
+ * it renders, or undefined for nothing. A declaration of a rule of the class
+ * alone moves; one a rule that stays also sets, as one in a media query or one
+ * for the class in a context no weightier than the block style, stays beside
+ * it in the class's rule, so the two meet in the stylesheet as before. A
+ * selector the rule lists beside the class's keeps the rule's declarations.
+ */
+export function planMove(
 	stylesheets: string[],
 	name: string,
 	blockTypes: string[] = []
-): string | undefined {
+): MovePlan | undefined {
+	const sheets = stylesheets.map( ( css ) => ( { css, rules: cssRules( css ) } ) );
+	const held = new Set< string >();
+	for ( const rule of sheets.flatMap( ( sheet ) => sheet.rules ) ) {
+		// CSS nesting, which Studio does not read into.
+		if ( rule.body.includes( '{' ) && token( name ).test( rule.selectors + rule.body ) ) {
+			return undefined;
+		}
+		const stays = rule.selectors.filter(
+			( selector ) =>
+				stylesClassed( selector, name ) &&
+				ownState( selector, name, blockTypes ) === undefined &&
+				! ( rule.topLevel && outweighs( selector ) )
+		);
+		const own = rule.selectors.some(
+			( selector ) => ownState( selector, name, blockTypes ) !== undefined
+		);
+		if ( stays.length || ( own && ! rule.topLevel ) ) {
+			declarations( rule.body ).forEach( ( { property } ) => property && held.add( property ) );
+		}
+	}
+	const isHeld = ( property: string ) =>
+		[ ...held ].some( ( other ) => related( property, other ) );
 	const css: string[] = [];
-	for ( const stylesheet of stylesheets ) {
-		for ( const rule of cssRules( stylesheet ) ) {
-			const styled = rule.selectors.filter( ( selector ) => stylesClassed( selector, name ) );
-			if (
-				! styled.length ||
-				( rule.topLevel &&
-					styled.every( outweighs ) &&
-					! rule.selectors.some(
-						( selector ) => ownState( selector, name, blockTypes ) !== undefined
-					) )
-			) {
+	const kept = new Set< string >();
+	const rewritten = sheets.map( ( { css: text, rules } ) => {
+		let out = text;
+		const found: string[] = [];
+		for ( const rule of [ ...rules ].reverse() ) {
+			const states = rule.selectors.map( ( selector ) => ownState( selector, name, blockTypes ) );
+			// A rule of the class in an at-rule is held, so nothing of it moves.
+			if ( states.every( ( state ) => state === undefined ) ) {
 				continue;
 			}
-			const states = rule.selectors.map( ( selector ) => ownState( selector, name, blockTypes ) );
-			if ( ! rule.topLevel || rule.body.includes( '{' ) || states.includes( undefined ) ) {
-				return undefined;
+			const parts = declarations( rule.body );
+			const moving = parts.filter( ( part ) => part.property && ! isHeld( part.property ) );
+			if ( ! moving.length ) {
+				continue;
 			}
-			const declarations = rule.body.trim().replace( /;?$/, ';' );
-			for ( const state of states ) {
-				css.push( state ? `&${ state } { ${ declarations } }` : declarations );
-			}
+			const body = moving.map( ( part ) => part.text.trim() ).join( '; ' ) + ';';
+			found.unshift(
+				...states.flatMap( ( state ) =>
+					state === undefined ? [] : [ state ? `&${ state } { ${ body } }` : body ]
+				)
+			);
+			const staying = parts.filter( ( part ) => ! moving.includes( part ) );
+			staying.forEach( ( part ) => part.property && kept.add( part.property ) );
+			const others = rule.written.filter( ( _, i ) => states[ i ] === undefined );
+			const ownSelectors = rule.written.filter( ( _, i ) => states[ i ] !== undefined );
+			const replacement = [
+				staying.some( ( part ) => part.property )
+					? `${ ownSelectors.join( ', ' ) } {${ staying.map( ( part ) => part.text ).join( ';' ) }}`
+					: '',
+				others.length ? `${ others.join( ', ' ) } {${ rule.body }}` : '',
+			]
+				.filter( Boolean )
+				.join( '\n' );
+			const end = ! replacement && out[ rule.end ] === '\n' ? rule.end + 1 : rule.end;
+			out = out.slice( 0, rule.start ) + replacement + out.slice( end );
 		}
-	}
-	return css.length ? css.join( ' ' ) : undefined;
-}
-
-/** A stylesheet without the class's rules. */
-export function withoutRules(
-	stylesheet: string,
-	name: string,
-	blockTypes: string[] = []
-): string {
-	let text = stylesheet;
-	for ( const rule of cssRules( stylesheet ).reverse() ) {
-		if (
-			rule.selectors.some( ( selector ) => ownState( selector, name, blockTypes ) !== undefined )
-		) {
-			const end = text[ rule.end ] === '\n' ? rule.end + 1 : rule.end;
-			text = text.slice( 0, rule.start ) + text.slice( end );
-		}
-	}
-	return text;
+		css.push( ...found );
+		return out;
+	} );
+	return css.length
+		? { css: css.join( ' ' ), stylesheets: rewritten, kept: [ ...kept ] }
+		: undefined;
 }
 
 const BLOCK = /<!--\s+wp:([a-z0-9-]+(?:\/[a-z0-9-]+)?)\s+(\{.*?\})\s+(\/?)-->/g;
@@ -310,7 +392,7 @@ export async function moveToBlockStyle(
 		return undefined;
 	}
 	const sheets = stylesheets.map( ( file ) => ( { file, css: readFileSync( file, 'utf8' ) } ) );
-	const css = movableCss(
+	const plan = planMove(
 		sheets.map( ( sheet ) => sheet.css ),
 		name,
 		blockTypes
@@ -320,7 +402,7 @@ export async function moveToBlockStyle(
 		styled: withBlockStyle( item.content, name ),
 	} ) );
 	if (
-		! css ||
+		! plan ||
 		styled.some(
 			( item ) => item.styled === undefined || carriedWithoutStyle( item.styled, name )
 		) ||
@@ -353,7 +435,7 @@ export async function moveToBlockStyle(
 				title: title( name ),
 				slug: name,
 				blockTypes,
-				styles: { css },
+				styles: { css: plan.css },
 			},
 			null,
 			'\t'
@@ -361,8 +443,8 @@ export async function moveToBlockStyle(
 		'utf8'
 	);
 	const moved = [];
-	for ( const sheet of sheets ) {
-		const rest = withoutRules( sheet.css, name, blockTypes );
+	for ( const [ i, sheet ] of sheets.entries() ) {
+		const rest = plan.stylesheets[ i ];
 		if ( rest !== sheet.css ) {
 			await writeFile( sheet.file, rest, 'utf8' );
 			moved.push( path.relative( themeDir, sheet.file ) );
@@ -373,7 +455,13 @@ export async function moveToBlockStyle(
 		', '
 	) } blocks into a block style, WordPress's form for a look blocks of one type share: ${ styleFile }, which WordPress registers for its "blockTypes" (WP_Theme_JSON_Resolver::get_style_variations() in wp-includes/class-wp-theme-json-resolver.php), the block's Styles panel offers, and Global Styles edits. Its rules moved from ${ moved.join(
 		', '
-	) } into the style's "styles": { "css" }, as they were, and the blocks in ${ places.join(
+	) } into the style's "styles": { "css" }, as they were${
+		plan.kept.length
+			? ` (the class's rules keep ${ plan.kept.join(
+					', '
+			  ) }, which a rule left in place, as in a media query, also sets)`
+			: ''
+	}, and the blocks in ${ places.join(
 		', '
 	) } carry "is-style-${ name }" beside "${ name }", so they render as before. A block takes the look as "className":"is-style-${ name }"; the style's "styles" can hold each property at its path (WP_Theme_JSON::PROPERTIES_METADATA in wp-includes/class-wp-theme-json.php).`;
 }

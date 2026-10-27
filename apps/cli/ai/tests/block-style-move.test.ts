@@ -1,78 +1,134 @@
 import { describe, expect, it } from 'vitest';
-import { movableCss, withBlockStyle, withoutRules } from 'cli/ai/block-style-move';
+import { planMove, withBlockStyle } from 'cli/ai/block-style-move';
 
-describe( 'movableCss', () => {
-	it.each( [
+describe( 'planMove', () => {
+	it.each< {
+		name: string;
+		css: string[];
+		blockTypes?: string[];
+		expected?: { css: string; stylesheets: string[]; kept: string[] };
+	} >( [
 		{
 			name: 'moves the rules of the class alone, its states nested',
 			css: [
-				'.card { background: #fff; border-radius: 8px }\n.card:hover, .card::after { box-shadow: 0 1px 2px #0003 }',
+				'body { margin: 0 }\n.card { background: #fff; border-radius: 8px }\n.card:hover, .card::after { box-shadow: 0 1px 2px #0003 }\n',
 			],
-			expected:
-				'background: #fff; border-radius: 8px; &:hover { box-shadow: 0 1px 2px #0003; } &::after { box-shadow: 0 1px 2px #0003; }',
+			expected: {
+				css: 'background: #fff; border-radius: 8px; &:hover { box-shadow: 0 1px 2px #0003; } &::after { box-shadow: 0 1px 2px #0003; }',
+				stylesheets: [ 'body { margin: 0 }\n' ],
+				kept: [],
+			},
 		},
 		{
-			name: 'reads every stylesheet, and leaves rules for what is inside the class',
-			css: [ '.card { padding: 1rem; }', '.card h3 { margin: 0 }\n/* .grid .card { x } */' ],
-			expected: 'padding: 1rem;',
+			name: 'reads every stylesheet in order, and leaves rules for what is inside the class',
+			css: [
+				'.card { padding: 1rem; }',
+				'.card h3 { margin: 0 }\n.card { color: red }\n/* .grid .card { x } */',
+			],
+			expected: {
+				css: 'padding: 1rem; color: red;',
+				stylesheets: [ '', '.card h3 { margin: 0 }\n/* .grid .card { x } */' ],
+				kept: [],
+			},
+		},
+		// As run 53's 01a1…36132 aligned its cards on small screens.
+		{
+			name: 'keeps beside the class what a media query also sets, which meet in the stylesheet as before',
+			css: [
+				'.card {\n\tbackground: #fff;\n\tpadding-top: 2rem;\n\tmargin: 0;\n\t/* why: rows */ align-items: flex-start;\n}\n@media (max-width: 781px) {\n\t.card {\n\t\talign-items: center; padding: 0; margin-left: 1rem;\n\t}\n}\n',
+			],
+			expected: {
+				css: 'background: #fff;',
+				stylesheets: [
+					'.card {\n\tpadding-top: 2rem;\n\tmargin: 0;\n\t/* why: rows */ align-items: flex-start;\n}\n@media (max-width: 781px) {\n\t.card {\n\t\talign-items: center; padding: 0; margin-left: 1rem;\n\t}\n}\n',
+				],
+				kept: [ 'padding-top', 'margin', 'align-items' ],
+			},
 		},
 		{
-			name: 'moves nothing a media query also styles, as its order against it would change',
-			css: [ '.card { padding: 1rem }\n@media (max-width: 600px) { .card { padding: 0 } }' ],
+			name: 'moves nothing every declaration of which a media query also sets',
+			css: [ '.card { padding: 1rem }\n@media (max-width: 600px) { .grid .card { padding: 0 } }' ],
 			expected: undefined,
 		},
 		// As run 40's 01a1…712dc42208 stretched its cards in their columns.
 		{
 			name: 'leaves a rule for the class in a context, which outweighs the block style as it outweighed the class',
 			css: [
-				'.card { padding: 1rem }\n.wp-block-columns.features .wp-block-column > .card { width: 100% }\ndiv .card { margin: 0 }\n#features .card { order: 1 }\n:first-child > .card { margin: 0 }',
+				'.card { padding: 1rem }\n.wp-block-columns.features .wp-block-column > .card { width: 100% }\ndiv .card { margin: 0 }\n#features .card { order: 1 }\n',
 			],
-			expected: 'padding: 1rem;',
+			expected: {
+				css: 'padding: 1rem;',
+				stylesheets: [
+					'.wp-block-columns.features .wp-block-column > .card { width: 100% }\ndiv .card { margin: 0 }\n#features .card { order: 1 }\n',
+				],
+				kept: [],
+			},
 		},
 		{
-			name: 'moves nothing a rule for the class in a context only as weighty as the block style also styles',
-			css: [ '.card { padding: 1rem }\n* > .card { padding: 0 }' ],
+			name: 'keeps what a rule for the class in a context only as weighty as the block style, or weighed by its arguments, also sets',
+			css: [
+				'.card { padding: 1rem; color: red }\n* > .card { padding: 0 }\n:where(.grid) .card { color: blue }',
+			],
 			expected: undefined,
 		},
+		// As run 53's 01a1…36133 listed its cards beside the groups inside them.
 		{
-			name: 'moves nothing a rule styles in a context beside a state of its own',
-			css: [ '.card { padding: 1rem }\n.card:hover, .grid .card { color: red }' ],
-			expected: undefined,
-		},
-		{
-			name: 'moves nothing a rule whose weight its arguments set also styles',
-			css: [ '.card { padding: 1rem }\n:where(.grid) .card { padding: 0 }' ],
-			expected: undefined,
-		},
-		{
-			name: 'moves nothing a media query styles in a context',
-			css: [ '.card { padding: 1rem }\n@media (max-width: 600px) { .grid .card { padding: 0 } }' ],
-			expected: undefined,
-		},
-		{
-			name: 'moves nothing a rule shares with another class',
-			css: [ '.card, .tile { padding: 1rem }' ],
-			expected: undefined,
-		},
-		{
-			name: 'keeps braces in strings and comments out of the rules',
-			css: [ '/* } */ .card::before { content: "}"; color: red }' ],
-			expected: '&::before { content: "}"; color: red; }',
+			name: 'splits a list the class shares, the other selectors keeping the rule',
+			css: [
+				'.card,\n.card .wp-block-group {\n\tpadding: 2rem;\n}\n.card .wp-block-group { padding: 0 }\n.card:hover, .grid .card { color: red }',
+			],
+			expected: {
+				css: 'padding: 2rem; &:hover { color: red; }',
+				stylesheets: [
+					'.card .wp-block-group {\n\tpadding: 2rem;\n}\n.card .wp-block-group { padding: 0 }\n.grid .card { color: red }',
+				],
+				kept: [],
+			},
 		},
 		// As run 52's 01a1…13710 styled its feature cards.
 		{
 			name: 'moves the rules of the class beside the class of the block types that carry it',
 			css: [
-				'.wp-block-group.card { padding: 1rem }\n.card.wp-block-group:hover { color: red }\n.wp-block-group.card .eyebrow { margin: 0 }',
+				'.wp-block-group.card { padding: 1rem }\n.card.wp-block-group:hover { color: red }\n.wp-block-column.card { margin: 0 }',
 			],
 			blockTypes: [ 'core/group' ],
-			expected: 'padding: 1rem; &:hover { color: red; }',
+			expected: {
+				css: 'padding: 1rem; &:hover { color: red; }',
+				stylesheets: [ '.wp-block-column.card { margin: 0 }' ],
+				kept: [],
+			},
 		},
 		{
-			name: "leaves a rule of the class beside another block type's class, which no block of its types has",
-			css: [ '.card { padding: 1rem }\n.wp-block-column.card { margin: 0 }' ],
-			blockTypes: [ 'core/group' ],
-			expected: 'padding: 1rem;',
+			name: 'moves a class beside CSS nesting of another',
+			css: [ '.tile { & a { color: red } }\n.card { padding: 1rem }' ],
+			expected: {
+				css: 'padding: 1rem;',
+				stylesheets: [ '.tile { & a { color: red } }\n' ],
+				kept: [],
+			},
+		},
+		{
+			name: 'moves nothing of a class CSS nesting styles',
+			css: [ '.card { padding: 1rem; & h3 { margin: 0 } }' ],
+			expected: undefined,
+		},
+		{
+			name: 'keeps semicolons and braces in strings and comments in their declarations',
+			css: [ '/* } */ .card::before { content: "};"; color: red }' ],
+			expected: {
+				css: '&::before { content: "};"; color: red; }',
+				stylesheets: [ '/* } */ ' ],
+				kept: [],
+			},
+		},
+		{
+			name: 'writes the selectors it leaves as they were',
+			css: [ '.card, a[title="x, y"] /* a, b */ { color: red }' ],
+			expected: {
+				css: 'color: red;',
+				stylesheets: [ 'a[title="x, y"] /* a, b */ { color: red }' ],
+				kept: [],
+			},
 		},
 		{
 			name: 'has nothing to move for a class no rule styles',
@@ -80,28 +136,7 @@ describe( 'movableCss', () => {
 			expected: undefined,
 		},
 	] )( '$name', ( { css, blockTypes, expected } ) => {
-		expect( movableCss( css, 'card', blockTypes ) ).toBe( expected );
-	} );
-} );
-
-describe( 'withoutRules', () => {
-	it( 'removes the rules of the class alone, and nothing else', () => {
-		expect(
-			withoutRules(
-				'body { margin: 0 }\n.card { padding: 1rem }\n.card:hover { color: red }\n.card h3 { margin: 0 }\n.cards { gap: 1rem }\n',
-				'card'
-			)
-		).toBe( 'body { margin: 0 }\n.card h3 { margin: 0 }\n.cards { gap: 1rem }\n' );
-	} );
-
-	it( 'removes the rules of the class beside the class of the block types that carry it', () => {
-		expect(
-			withoutRules(
-				'.wp-block-group.card { padding: 1rem }\n.wp-block-post-template.card { margin: 0 }\n',
-				'card',
-				[ 'core/group' ]
-			)
-		).toBe( '.wp-block-post-template.card { margin: 0 }\n' );
+		expect( planMove( css, 'card', blockTypes ) ).toEqual( expected );
 	} );
 } );
 

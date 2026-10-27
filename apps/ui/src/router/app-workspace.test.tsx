@@ -531,7 +531,10 @@ describe( 'Studio workspace', () => {
 		expect( await screen.findByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toBeVisible();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Stop' } ) );
+		expect( screen.queryByRole( 'button', { name: 'Stop' } ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Site actions for My site' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop site' } ) );
 		await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledWith( 'one' ) );
 		expect( await screen.findByRole( 'button', { name: 'Start' } ) ).toBeVisible();
 	} );

@@ -1,3 +1,4 @@
+import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -30,12 +31,14 @@ function setup( {
 	selectedRunning = true,
 	contextMenu = false,
 	busy = false,
+	designAvailable = false,
 	connections,
 }: {
 	otherRunning?: boolean;
 	selectedRunning?: boolean;
 	contextMenu?: boolean;
 	busy?: boolean;
+	designAvailable?: boolean;
 	connections?: SyncSite[];
 } = {} ) {
 	const sites = [
@@ -45,7 +48,10 @@ function setup( {
 	];
 	const connector = createFakeConnector(
 		{ sites, user: connections ? TEST_USER : null },
-		{ getConnectedWpcomSites: async () => connections ?? [] }
+		{
+			getConnectedWpcomSites: async () => connections ?? [],
+			getGlobalStyles: async () => ( designAvailable ? { settings: {}, styles: {} } : null ),
+		}
 	);
 	const site = busy
 		? { ...sites[ 0 ], operation: { pid: 1, kind: 'settings' as const } }
@@ -190,6 +196,38 @@ describe( 'Stop other sites', () => {
 			)
 		);
 		expect( history.location.pathname ).toBe( '/sites/selected' );
+	} );
+
+	it.each( [ false, true ] )(
+		'opens an available design system from either menu (%s)',
+		async ( contextMenu ) => {
+			const { open, history } = setup( { contextMenu, designAvailable: true } );
+			await open();
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Go to' } ) );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Design system' } ) );
+			await waitFor( () =>
+				expect( screen.getByRole( 'status', { name: 'Preview' } ) ).toHaveTextContent(
+					`selected ${ DESIGN_SYSTEM_PREVIEW_PATH }`
+				)
+			);
+			expect( history.location.pathname ).toBe( '/sites/selected' );
+		}
+	);
+
+	it( 'omits the design system when the site has none', async () => {
+		const { open } = setup();
+		await open();
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Go to' } ) );
+		expect( await screen.findByRole( 'menuitem', { name: 'Database' } ) ).toBeInTheDocument();
+		expect( screen.queryByRole( 'menuitem', { name: 'Design system' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'omits the design system while the site is stopped', async () => {
+		const { open } = setup( { selectedRunning: false, designAvailable: true } );
+		await open();
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Go to' } ) );
+		expect( await screen.findByRole( 'menuitem', { name: 'Database' } ) ).toBeInTheDocument();
+		expect( screen.queryByRole( 'menuitem', { name: 'Design system' } ) ).not.toBeInTheDocument();
 	} );
 
 	it.each( [

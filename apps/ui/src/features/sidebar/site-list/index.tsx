@@ -2,7 +2,7 @@ import { sortSites } from '@studio/common/lib/sort-sites';
 import { useParams, useRouterState } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useSessionsNeedingInput } from '@/data/agent-runs/use-agent-run';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSidebarPreferences } from '@/data/queries/use-sidebar-pins';
@@ -39,14 +39,16 @@ import type { AiSessionSummary } from '@/data/core';
 import type { ReorderableItemProps } from '@/features/sidebar/reorderable-list';
 
 export function SiteList( {
+	active = true,
 	className,
 	onSiteOpen,
 	reorderable = true,
 	sections = false,
 }: {
 	className?: string;
+	active?: boolean;
 	onSiteOpen?: () => void;
-	/** The collapsed-sidebar switcher renders a read-only order. */
+	/** Whether site and chat rows can be reordered. */
 	reorderable?: boolean;
 	/** The sidebar groups sites, with their chats, and recent chats. */
 	sections?: boolean;
@@ -63,6 +65,7 @@ export function SiteList( {
 		[ allSessions, activeSessionId ]
 	);
 	const activeSiteId = params.siteId;
+	const [ chatNavigation, setChatNavigation ] = useState< 'recent' | 'pinned' >();
 	const updateSitesSortOrder = useUpdateSitesSortOrder();
 	const { pins, chatOrder, showRecentChats, autoCollapseSites, save } = useSidebarPreferences();
 
@@ -75,18 +78,24 @@ export function SiteList( {
 		() => getActiveSiteKeys( rows, { activeSessionId, activeSiteId, pathname } ),
 		[ activeSessionId, activeSiteId, pathname, rows ]
 	);
-	const activeSiteKey = activeChatSiteKey ?? activeContextSiteKey;
-	const { revealed, collapseAll, fold, toggle } = useRevealedSites(
-		activeSiteKey,
-		autoCollapseSites
-	);
-
 	const { pinnedItems, siteRows, chatsBySite, needsInputChats, recentChats } =
 		getSidebarCollections( rows, sessions, {
 			pins: sections ? pins : [],
 			chatOrder,
 			needingInput,
 		} );
+	const activeChatIsShortcut =
+		( chatNavigation === 'recent' &&
+			showRecentChats &&
+			recentChats.some( ( session ) => session.id === activeSessionId ) ) ||
+		( chatNavigation === 'pinned' &&
+			pinnedItems.some( ( item ) => item.session && item.session.id === activeSessionId ) );
+	const activeSiteKey = activeChatSiteKey ?? activeContextSiteKey;
+	const { revealed, collapseAll, fold, toggle } = useRevealedSites(
+		activeSiteKey,
+		autoCollapseSites,
+		! activeChatIsShortcut
+	);
 
 	const renderSiteRow = ( row: SiteRow, itemProps?: ReorderableItemProps ) => (
 		<SiteSection
@@ -94,7 +103,7 @@ export function SiteList( {
 			itemProps={ itemProps }
 			row={ row }
 			chats={ chatsBySite.get( row.site.id ) ?? [] }
-			isChatActive={ row.site.id === activeChatSiteKey }
+			isChatActive={ ! activeChatIsShortcut && row.site.id === activeChatSiteKey }
 			isContextActive={ row.site.id === activeContextSiteKey }
 			activeSessionId={ activeSessionId }
 			expanded={ sections && revealed.has( row.site.id ) }
@@ -107,7 +116,10 @@ export function SiteList( {
 					__( 'Couldn’t save the chat order' )
 				)
 			}
-			onSiteOpen={ onSiteOpen }
+			onSiteOpen={ () => {
+				setChatNavigation( undefined );
+				onSiteOpen?.();
+			} }
 		/>
 	);
 
@@ -140,7 +152,7 @@ export function SiteList( {
 	}
 
 	const canCollapseAll = sections && hasSeveralUnfoldedSites( siteRows, chatsBySite, revealed );
-	useProvideCollapseAll( canCollapseAll ? collapseAll : undefined );
+	useProvideCollapseAll( active && canCollapseAll ? collapseAll : undefined );
 
 	if ( ! sections ) {
 		return <div className={ clsx( styles.root, className ) }>{ listContent }</div>;
@@ -163,7 +175,8 @@ export function SiteList( {
 	const renderChat = (
 		session: AiSessionSummary,
 		siteName?: string,
-		itemProps?: ReorderableItemProps
+		itemProps?: ReorderableItemProps,
+		navigation?: 'recent' | 'pinned'
 	) => (
 		<ChatRow
 			key={ session.id }
@@ -171,7 +184,10 @@ export function SiteList( {
 			session={ session }
 			active={ session.id === activeSessionId }
 			siteName={ siteName }
-			onOpen={ onSiteOpen }
+			onOpen={ () => {
+				setChatNavigation( navigation );
+				onSiteOpen?.();
+			} }
 		/>
 	);
 
@@ -212,7 +228,7 @@ export function SiteList( {
 						renderItem={ ( item, itemProps ) =>
 							item.row
 								? renderSiteRow( item.row, itemProps )
-								: renderChat( item.session, item.siteName, itemProps )
+								: renderChat( item.session, item.siteName, itemProps, 'pinned' )
 						}
 						onReorder={ ( sidebarPins ) => save( { sidebarPins } ) }
 						onDragStart={ ( item ) => item.row && fold( [ item.row.site.id ] ) }
@@ -258,7 +274,9 @@ export function SiteList( {
 							{ sessionsError ? (
 								<RetryLoadingChats />
 							) : (
-								recentChats.map( ( session ) => renderChat( session ) )
+								recentChats.map( ( session ) =>
+									renderChat( session, undefined, undefined, 'recent' )
+								)
 							) }
 						</SidebarMenu>
 					</SiteListGroup>

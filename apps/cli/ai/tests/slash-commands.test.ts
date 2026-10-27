@@ -351,3 +351,60 @@ describe( '/credits slash command', () => {
 		expect( result ).toBe( 'continue' );
 	} );
 } );
+
+vi.mock( 'cli/ai/hosts', () => {
+	const host = ( name: string, sites: Array< { id: number; name: string; url: string } > ) => ( {
+		name,
+		publishable: vi.fn().mockResolvedValue( { signedIn: true, sites } ),
+		newSiteUrl: vi.fn(),
+		push: vi.fn().mockResolvedValue( undefined ),
+	} );
+	return {
+		HOST_IDS: [ 'north', 'south' ],
+		HOSTS: {
+			north: host( 'North Hosting', [
+				{ id: 1, name: 'Bakery', url: 'https://bakery.north' },
+				{ id: 3, name: 'Cafe', url: 'https://cafe.north' },
+			] ),
+			south: host( 'South Hosting', [ { id: 2, name: 'Florist', url: 'https://florist.south' } ] ),
+		},
+	};
+} );
+
+describe( '/publish slash command', () => {
+	it( "publishes to the site the user picks, through that site's own host", async () => {
+		const { HOSTS } = ( await import( 'cli/ai/hosts' ) ) as unknown as {
+			HOSTS: Record< string, { push: ReturnType< typeof vi.fn > } >;
+		};
+		const askUser = vi.fn().mockResolvedValue( { 0: 'Florist' } );
+		const ui = {
+			activeSite: { name: 'Local Florist', path: '/sites/florist' },
+			askUser,
+			showInfo: vi.fn(),
+			showError: vi.fn(),
+			showSuccess: vi.fn(),
+			showProgress: vi.fn(),
+			setBusy: vi.fn(),
+			setLoaderMessage: vi.fn(),
+		};
+		const cmd = AI_CHAT_SLASH_COMMANDS.find( ( c ) => c.name === 'publish' )!;
+
+		await cmd.handler!( '/publish', { ui } as unknown as SlashCommandContext );
+
+		expect( askUser.mock.calls[ 0 ][ 0 ][ 0 ].options ).toEqual( [
+			{ label: 'Bakery', description: 'https://bakery.north · North Hosting' },
+			{ label: 'Cafe', description: 'https://cafe.north · North Hosting' },
+			{ label: 'Florist', description: 'https://florist.south · South Hosting' },
+		] );
+		expect( HOSTS.north.push ).not.toHaveBeenCalled();
+		expect( HOSTS.south.push ).toHaveBeenCalledWith(
+			'/sites/florist',
+			'2',
+			[ 'all' ],
+			expect.anything()
+		);
+		expect( ui.showSuccess ).toHaveBeenCalledWith(
+			expect.stringContaining( 'https://florist.south' )
+		);
+	} );
+} );

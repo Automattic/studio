@@ -49,6 +49,10 @@ export interface Host {
 	facts( site: SiteInfo ): Promise< string[][] >;
 	/** What a local site is published to on the host. */
 	publishes: string;
+	/** The user's sites on the host a local site can be published to. */
+	publishable(): Promise< HostSiteListing >;
+	/** Where the user makes a new site on the host, for a local site of this name. */
+	newSiteUrl( name: string ): string;
 	/** How the user signs in to the host. */
 	signIn: string;
 	/** The host's sites already connected to the local site with this Studio id. */
@@ -69,26 +73,31 @@ export interface Host {
 	): Promise< void >;
 }
 
+/** The user's WordPress.com sites that `read` lists with their token. */
+async function wpcomListing(
+	read: ( token: string ) => Promise< HostSiteListing[ 'sites' ] >
+): Promise< HostSiteListing > {
+	const token = await readAuthToken();
+	if ( ! token?.accessToken ) {
+		return { signedIn: false, sites: [] };
+	}
+	try {
+		return { signedIn: true, sites: await read( token.accessToken ) };
+	} catch ( error ) {
+		return {
+			signedIn: true,
+			sites: [],
+			error: error instanceof Error ? error.message : String( error ),
+		};
+	}
+}
+
 const wpcom: Host = {
 	name: 'WordPress.com',
 	environment:
 		"The user's WordPress.com sites are live sites, reached through the WordPress.com REST API.",
 	listKey: 'wordpressCom',
-	async list() {
-		const token = await readAuthToken();
-		if ( ! token?.accessToken ) {
-			return { signedIn: false, sites: [] };
-		}
-		try {
-			return { signedIn: true, sites: await getWpComSites( token.accessToken ) };
-		} catch ( error ) {
-			return {
-				signedIn: true,
-				sites: [],
-				error: error instanceof Error ? error.message : String( error ),
-			};
-		}
-	},
+	list: () => wpcomListing( getWpComSites ),
 	// WordPress.com's own server states what a site's plan and the user's role
 	// allow, through its MCP tools.
 	async facts() {
@@ -97,6 +106,20 @@ const wpcom: Host = {
 	publishes:
 		"the user's WordPress.com sites, and the Pressable sites in their WordPress.com account",
 	signIn: 'The user signs in to WordPress.com with /login.',
+	publishable: () =>
+		wpcomListing( async ( token ) => {
+			const { fetchSyncableSites } = await import( 'cli/lib/sync-api' );
+			const sites = await fetchSyncableSites( token );
+			return sites.filter( ( site ) => site.syncSupport === 'syncable' );
+		} ),
+	newSiteUrl( name ) {
+		const url = new URL( 'https://wordpress.com/setup/new-hosted-site' );
+		url.searchParams.set( 'ref', 'studio' );
+		url.searchParams.set( 'section', 'studio-sync' );
+		url.searchParams.set( 'showDomainStep', 'true' );
+		url.searchParams.set( 'new', name );
+		return url.toString();
+	},
 	async targets( localSiteId ) {
 		const [ { getConnectedWpcomSitesForLocalSite }, { fetchSyncableSites }, { withWpcomDetails } ] =
 			await Promise.all( [

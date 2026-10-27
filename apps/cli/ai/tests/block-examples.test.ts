@@ -29,10 +29,11 @@ describe.runIf( EDITOR )(
 	() => {
 		afterAll( cleanupValidatorPages );
 
-		it.each< { name: string; results: Array< [ string, string ] >; notes: string[][] } >( [
+		// Results read core's block.json files, so they are built when a test runs.
+		it.each< { name: string; results: () => Array< [ string, string ] >; notes: string[][] } >( [
 			{
 				name: 'from its example, once per site',
-				results: [
+				results: () => [
 					[ '/a', `$ cat wp-includes/blocks/details/block.json\n${ blockJson( 'details' ) }` ],
 					[ '/a', blockJson( 'details' ) ],
 					[ '/b', blockJson( 'details' ) ],
@@ -47,7 +48,9 @@ describe.runIf( EDITOR )(
 			},
 			{
 				name: 'for each block.json a result shows, without an example from its defaults',
-				results: [ [ '/a', `${ blockJson( 'accordion-heading' ) }\n${ blockJson( 'buttons' ) }` ] ],
+				results: () => [
+					[ '/a', `${ blockJson( 'accordion-heading' ) }\n${ blockJson( 'buttons' ) }` ],
+				],
 				notes: [
 					[
 						'core/accordion-heading, from its default attributes (createBlock in @wordpress/blocks), to write it from:\n<!-- wp:accordion-heading -->',
@@ -57,7 +60,7 @@ describe.runIf( EDITOR )(
 			},
 			{
 				name: 'not for a block the editor does not register, nor for markup naming a block',
-				results: [
+				results: () => [
 					[ '/a', '{ "apiVersion": 3, "name": "studio-test/unregistered" }' ],
 					[ '/a', '<!-- wp:group {"name":"core/details"} /-->' ],
 				],
@@ -67,7 +70,7 @@ describe.runIf( EDITOR )(
 			'$name',
 			async ( { results, notes } ) => {
 				const describe = createBlockExampleNotes();
-				for ( const [ i, [ site, text ] ] of results.entries() ) {
+				for ( const [ i, [ site, text ] ] of results().entries() ) {
 					const said = await describe( site, text );
 					expect( said ).toHaveLength( notes[ i ].length );
 					notes[ i ].forEach( ( note, j ) =>

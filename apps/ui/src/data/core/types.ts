@@ -195,9 +195,6 @@ export interface Connector {
 		siteId: string,
 		capture: { path: string; width: number; height: number; guestId?: number }
 	): Promise< string | null >;
-	// The site's Site Icon (a data URL, or null when it has none), read on
-	// demand when the host can inspect local sites.
-	getSiteIcon?( siteId: string ): Promise< string | null >;
 	// The settings and styles WordPress resolves for the site, or null when its
 	// theme is not a block theme.
 	getGlobalStyles( siteId: string ): Promise< GlobalStyles >;

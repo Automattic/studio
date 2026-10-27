@@ -192,7 +192,6 @@ export function createInMemoryConnector(
 		},
 		getSiteThumbnail: async () => null,
 		captureSitePreview: async () => null,
-		getSiteIcon: async () => null,
 		getGlobalStyles: async () => null,
 		exportFullSite: async () => null,
 		exportDatabase: async () => null,

@@ -23,7 +23,8 @@ const UPLOADS_DIR = path.sep + path.join( 'wp-content', 'uploads' ) + path.sep;
 // pi Write tool, and must be PNGs — the only format the pipeline delivers.
 export function resolveImageFilePath( filePath: string ): string {
 	const resolved = path.resolve( filePath );
-	if ( resolved !== STUDIO_SITES_ROOT && ! resolved.startsWith( STUDIO_SITES_ROOT + path.sep ) ) {
+	const root = path.resolve( STUDIO_SITES_ROOT );
+	if ( resolved !== root && ! resolved.startsWith( root + path.sep ) ) {
 		throw new Error(
 			`Image path must be inside the Studio sites directory (${ STUDIO_SITES_ROOT }): ${ filePath }`
 		);

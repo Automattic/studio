@@ -8,7 +8,7 @@ user-invokable: true
 
 ## 1. Build a first version
 
-Build the whole site from the user's request without asking first: everything they told you goes on it, and anything they left out, choose for them. Each site gets a custom block theme unless the user says otherwise.
+Build the whole site from the user's request without asking first: everything they told you goes on it, and anything they left out, choose for them. Each site gets a custom block theme unless the user says otherwise. The site's content goes in pages; the theme frames it.
 
 ## 2. Show it
 

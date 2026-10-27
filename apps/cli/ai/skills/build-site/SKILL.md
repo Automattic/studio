@@ -6,14 +6,14 @@ user-invokable: true
 
 # Build a New Site
 
-## What the site is for
+## 1. Build a first version
 
-Start from what the user needs the site to do. Work out who visits it, what they come to find (what the business offers, its prices, hours, location, contact details), and what they come to do (book, order, call, visit, write). Everything the user told you goes on the site where a visitor looks for it. Each thing a visitor comes to do gets a clear way to do it. The site has the pages the user asked for, and one page when they asked for one.
+Build the whole site from the user's request without asking first: everything they told you goes on it, and anything they left out, choose for them. Each site gets a custom block theme unless the user says otherwise.
 
-## Its own theme
+## 2. Show it
 
-Unless the user names a theme, give the site a block theme of its own, named for the site, and activate it. Read the default theme's files (`WP_DEFAULT_THEME`) for how WordPress lays one out. The theme carries the look: the site's palette, fonts and spacing in `theme.json`, a header with the site's name and navigation to what visitors come for, a footer with the site's details, and a `front-page.html` template. The pages hold the content.
+Tell the user what you built: the pages and sections, what a visitor can do on the site, and the choices you made for them (look, wording, imagery). Name anything a visitor needs that only the user can give, such as a phone number or prices, as a question for them to answer.
 
-## A first pass, then the user
+## 3. Iterate with them
 
-Build a whole first pass from what the user asked, then tell them what you made and the choices behind it, and offer `/annotate` for changes.
+Ask what they'd like changed. They can describe it, or point at it on the site with `/annotate`. Make each round of changes, show what changed, and ask again, until they're happy with it.

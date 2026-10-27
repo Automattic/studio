@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { copyFile, cp, mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -19,6 +19,32 @@ export const DEFAULT_STUDIO_APP =
   existsSync(PACKAGED_APP) || process.platform !== 'darwin'
     ? PACKAGED_APP
     : '/Applications/Studio.app/Contents/MacOS/Studio';
+
+// An unpackaged build (`STUDIO_APP_DIR=apps/studio`) runs in a copy of the
+// repo's Electron, for when `npm run package` isn't available (on macOS it
+// needs Xcode). A production build looks for the CLI and a Node binary in the
+// app's resources, so the copy gets links to `apps/cli/dist/cli` and this Node.
+const ELECTRON_DIST = path.join(REPO_ROOT, 'node_modules/electron/dist');
+const ELECTRON_LAYOUT = {
+  darwin: { exe: 'Electron.app/Contents/MacOS/Electron', resources: 'Electron.app/Contents/Resources' },
+  linux: { exe: 'electron', resources: 'resources' },
+  win32: { exe: 'electron.exe', resources: 'resources' },
+}[process.platform];
+
+async function prepareElectron(dir) {
+  if (!existsSync(path.join(ELECTRON_DIST, ELECTRON_LAYOUT.exe))) {
+    throw new Error(
+      `Electron not found in ${ELECTRON_DIST}. Run \`node node_modules/electron/install.js\` at the repo root.`
+    );
+  }
+  await cp(ELECTRON_DIST, dir, { recursive: true, verbatimSymlinks: true });
+  const resources = path.join(dir, ELECTRON_LAYOUT.resources);
+  await mkdir(path.join(resources, 'bin'), { recursive: true });
+  const node = path.join(resources, 'bin', path.basename(process.execPath));
+  await (process.platform === 'win32' ? copyFile(process.execPath, node) : symlink(process.execPath, node));
+  await symlink(path.join(REPO_ROOT, 'apps/cli/dist/cli'), path.join(resources, 'cli'), 'junction');
+  return path.join(dir, ELECTRON_LAYOUT.exe);
+}
 
 // `ORIENTATION_GUIDE_VERSION` and `WHATS_NEW_VERSION` in the Studio source,
 // apps/ui/src/features/onboarding/onboarding-guide/ (2 and 1 as of 2.0).
@@ -56,14 +82,15 @@ function buildAppConfig({ firstRun, appData }) {
  * system-wide pipe names that cannot be isolated this way.
  */
 export async function launchStudio({
-  executablePath = process.env.STUDIO_APP || DEFAULT_STUDIO_APP,
+  appDir = process.env.STUDIO_APP_DIR,
+  executablePath = appDir ? null : process.env.STUDIO_APP || DEFAULT_STUDIO_APP,
   firstRun = false,
   appData = {},
   width = 1280,
   height = 800,
   profileDir,
 } = {}) {
-  if (!executablePath || !existsSync(executablePath)) {
+  if (!appDir && (!executablePath || !existsSync(executablePath))) {
     throw new Error(
       `Studio app not found at "${executablePath}". Set STUDIO_APP to the Studio executable.`
     );
@@ -85,6 +112,9 @@ export async function launchStudio({
     await mkdir(dir, { recursive: true });
   }
   await mkdir(path.join(dirs.appData, 'Studio'), { recursive: true });
+  if (appDir) {
+    executablePath = await prepareElectron(path.join(root, 'electron'));
+  }
   // Studio 2.0 keeps its state in `app.json` and `shared.json` under
   // DEV_CONFIG_DIR. The screenshot steps match English accessible names;
   // without a saved locale Studio falls back to the OS language.
@@ -99,7 +129,10 @@ export async function launchStudio({
 
   const app = await electron.launch({
     executablePath,
-    args: [`--user-data-dir=${dirs.userData}`],
+    args: [
+      ...(appDir ? [path.resolve(REPO_ROOT, appDir)] : []),
+      `--user-data-dir=${dirs.userData}`,
+    ],
     env: {
       ...process.env,
       DEV_CONFIG_DIR: dirs.sharedConfig,

@@ -227,6 +227,8 @@ export const SHOTS = [
     name: 'site-menu-open-in',
     description: 'Site menu → Open in (browser, file manager, editor, terminal, phpMyAdmin)',
     pages: ['sites.md', 'frequently-asked-questions.md'],
+    // Moving the mouse away closes the hover-opened submenu.
+    keepMouse: true,
     async setup({ w }) {
       await openSubmenu(w, 'Open in', 'phpMyAdmin');
     },
@@ -236,6 +238,8 @@ export const SHOTS = [
     description: 'Site menu → Export (Export site / Export database)',
     pages: ['import-export.md'],
     replaces: ['2025/01/site-overview-1.png'],
+    // Moving the mouse away closes the hover-opened submenu.
+    keepMouse: true,
     async setup({ w }) {
       await openSubmenu(w, 'Export', 'Export database');
     },
@@ -249,7 +253,11 @@ export const SHOTS = [
     pages: ['sites.md'],
     replaces: ['2025/01/delete-site-dialog.png'],
     async setup({ w }) {
-      await openSiteMenu(w);
+      // From the sidebar row's context menu: closing the site menu at the top
+      // of the chat refocuses its button, whose tooltip then shows under the
+      // dialog.
+      await closeMenus(w);
+      await w.getByText(SITE_NAME, { exact: true }).first().click({ button: 'right' });
       await w.getByRole('menuitem', { name: 'Delete site' }).click();
       await w.getByRole('alertdialog').waitFor();
     },

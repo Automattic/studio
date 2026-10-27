@@ -39,12 +39,13 @@ Every image on the updated pages shows the old UI. The old `site-overview.png` i
 - `agent-skills-wordpress-studio.md`: `2026/04/app-settings-skills.png`
 - `blueprints/index.md`: `add-a-site.png`, `2025/10/blueprints-library.png`, `2025/10/create-site-from-blueprint.png`
 
-`npm run screenshots` now captures the signed-out shots from Studio 2.0 (see the README), and its `index.md` lists which upload each one replaces. Its shots were dry-run against `studio ui`, except `settings-studio-cli`, which only exists in the Desktop app. When you run it on the Mac, check:
+`npm run screenshots` captured all 31 signed-out shots from this branch (`a339eea3a`, Studio 2.0.4, unpackaged build via `STUDIO_APP_DIR`) into `screenshots/out/2026-10/`; its `index.md` lists which upload each one replaces. Every image on the pages above now has a `<!-- TODO screenshot: … -->` note naming its replacement, and notes mark where the new shots without an old image belong (`create-site`, `orientation-guide`, `command-palette`, `settings-keyboard`, `composer-add-menu`, `site-menu-open-in`, `site-settings-domain`, `add-site-connect`). `site-overview-1.png` (import-export.md) is replaced by `site-menu-export.png`. The two shots flagged after the dry run came out right: `site-stopped` shows the saved preview image, and `settings-studio-cli` shows the option.
 
-- `site-stopped`: in the browser build the stopped preview was blank; the Desktop app should show the saved preview image.
-- `settings-studio-cli`: the only shot not exercised before.
+Still to do:
 
-After uploading, swap the image URLs in the pages above for the new uploads.
+- Upload the shots, swap the image URLs on the pages, and remove the notes.
+- Capture the logged-in shots by hand (marked “capture by hand” in the pages and listed under **Capture manually** in `index.md`): Studio Code with a reply, the model menu, the Share panel (three shots), Settings → Sharing and Usage, the Publish panel, and Pull changes.
+- In the running-site shots, the default theme's home page looks cut off on the right at the preview's 664px width. The page has no horizontal overflow, so this is the theme's layout at that width rather than a capture problem; a wider window (the `width` option of `launchStudio`) would give a cleaner preview if that matters.
 
 ## Open questions
 

@@ -25,4 +25,16 @@ The script uses the first Studio it finds:
 2.  A build of this repo, from `npm run package` at the repo root (`apps/studio/out/Studio-<platform>-<arch>/`).
 3.  On macOS, the installed `/Applications/Studio.app`.
 
+To capture from this branch without packaging it (on macOS, `npm run package` needs Xcode), build it and point `STUDIO_APP_DIR` at the app. The script runs it in a copy of the repo's Electron, with the CLI from `apps/cli/dist`:
+
+```sh
+# at the repo root
+npm run cli:build
+(cd apps/studio && npx electron-vite build --config ./electron.vite.config.ts --outDir=dist && node --experimental-strip-types ../../scripts/build-ui-renderer.ts)
+# in docs/user
+STUDIO_APP_DIR=apps/studio npm run screenshots
+```
+
+`STUDIO_APP_DIR` takes precedence over `STUDIO_APP`. If npm skipped Electron's install script, run `node node_modules/electron/install.js` at the repo root first.
+
 Use `--only <name,…>` to save only some shots (every step still runs, because each builds on the one before), and `--keep-profile` to keep the throwaway profile for inspection.

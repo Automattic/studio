@@ -39,6 +39,9 @@ To start working locally on a WordPress.com or Pressable site you don’t have i
 
 Studio creates the local site, saves the connection, and pulls the live site into it.
 
+<!-- TODO screenshot: add `add-site-connect.png` from `npm run screenshots` (Studio 2.0) here: Add site → Connect, logged out. -->
+<!-- TODO screenshot: capture by hand in Studio 2.0, logged in to WordPress.com: Add site → Connect, listing WordPress.com and Pressable sites. -->
+
 ## [Connect WordPress Studio to an existing WordPress.com site](#connect-existing)
 
 You can connect your Studio sites with any WordPress.com-hosted sites [for which you are an Administrator](https://developer.wordpress.com/docs/platform-features/user-management/#roles) and synchronize the content in either direction. Studio will save the connection details, so you can easily pull your site from WordPress.com and then publish the changes you made in Studio back to the original site.
@@ -51,6 +54,7 @@ To connect a local Studio site to an existing production or staging site on Word
 4.  Click **Use an existing website…** to open the **Choose website** list. Each site is labeled as a WordPress.com or Pressable site, and as staging or development where that applies.
 5.  Click the site you want to connect to.
 
+<!-- TODO screenshot: capture by hand in Studio 2.0, logged in to WordPress.com: the Publish panel’s Choose website list, with WordPress.com and Pressable sites. -->
 [![A screenshot depicting the list that allows you to connect a local Studio site to a production or staging site on WordPress.com or Pressable.](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-connect-live-site.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-connect-live-site.png)
 
 Once connected, the **Publish** panel shows the website you’ll publish to and when you last published. A local site can be connected to more than one website. To see them all, open the **Website actions** (**⋯**) menu in the **Publish** panel and choose **Manage websites…**. From there, you can **Disconnect** a website, or connect another one with **Use another website…**.
@@ -79,6 +83,7 @@ To bring the latest changes from your production or [staging site](https://wordp
 2.  Click **Publish** at the top right of the site preview, and connect a website if you haven’t already.
 3.  Open the **Website actions** (**⋯**) menu and choose **Pull changes…**. You can also choose **Publish → Pull changes…** from the site menu.
 
+<!-- TODO screenshot: capture by hand in Studio 2.0, logged in to WordPress.com: Pull changes with Include → Choose files…. -->
 [![A screenshot depicting the selective Pull process in Studio Sync.](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-pull-selective.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-pull-selective.png)
 
 4.  Under **Include**, choose what to pull:
@@ -102,6 +107,7 @@ When you are happy with the changes made to your Studio site, you can publish th
 2.  Click **Publish** at the top right of the site preview, and connect a website if you haven’t already.
 3.  If the local site is connected to more than one website, choose one under **Publish to**.
 
+<!-- TODO screenshot: capture by hand in Studio 2.0, logged in to WordPress.com: the Publish panel with Include → Choose files…. -->
 [![The Publish panel with "Choose files…" selected](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-selective-push.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-selective-push.png)
 
 4.  Under **Include**, choose what to publish:

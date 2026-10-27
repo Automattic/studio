@@ -33,7 +33,7 @@ Symlinked files and directories inside the site, such as a plugin or theme you�
 
 Typically, access to the site directory and related directories is enough for most sites. If you want PHP to have access to all files on your system, open the site’s settings (choose **Settings** from the site menu) and select the **PHP** page. Change the **File access** setting to **All files**, then click **Save** at the top of the dialog. You can also choose the file access when creating a site, under **Advanced settings**.
 
-<!-- TODO screenshot: the PHP environment settings now show only PHP version and File access. Capture from Studio 1.24.0 and replace 2025/01/site-settings-php.png -->
+<!-- TODO screenshot: replace with `site-settings-php.png` from `npm run screenshots` (Studio 2.0): the Site scope PHP page: PHP version and File access. -->
 [![The PHP page of a site's settings in Studio: PHP version and File access.](https://developer.wordpress.com/wp-content/uploads/2025/01/site-settings-php.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/site-settings-php.png)
 
 To change the setting with the [Studio CLI](https://developer.wordpress.com/docs/developer-tools/studio/cli/), run the following from the site’s directory:

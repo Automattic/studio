@@ -16,6 +16,8 @@ Studio Code in the Studio desktop app is built into a friendly, familiar interfa
 
 Open your WordPress Studio desktop app and select a site in the sidebar (or add a new site). Studio Code is the chat next to the site preview: type your request in the chat box at the bottom. If you haven’t connected an AI provider yet, the chat box shows “Connect a provider to build and edit your site.” Click **Connect** to log in with WordPress.com or add your own Anthropic API key.
 
+<!-- TODO screenshot: capture by hand in Studio 2.0, logged in to WordPress.com: a Studio Code chat for a selected site, with a reply in the transcript. -->
+<!-- Logged out, `main-window-signed-out.png` from `npm run screenshots` shows the chat with “Connect a provider to build and edit your site.” -->
 [![Studio Code chat for a selected site](https://developer.wordpress.com/wp-content/uploads/2026/04/studio-code.png)](https://developer.wordpress.com/wp-content/uploads/2026/04/studio-code.png)
 
 ### [Studio Code in Studio CLI](#2-studio-code-in-studio-cli)
@@ -91,6 +93,8 @@ When the agent edits a block theme’s templates, those edits now also apply to 
 
 While chatting, you can use slash commands for quick actions. In the desktop app, type `/` in the chat box to list the commands and skills that match, or click **+** to see them all under **Commands** and **Skills**. The desktop app shows skills by name, for example **Performance Audit** for `/need-for-speed` and **SEO Audit** for `/rank-me-up`.
 
+<!-- TODO screenshot: add `composer-add-menu.png` from `npm run screenshots` (Studio 2.0) here: the chat box + menu with Add files, Auto-start, Connect AI providers, and Skills. -->
+
 | Command | Description | Available in… |
 | --- | --- | --- |
 | /annotate | Open a visual inspector to annotate page elements and give the AI agent instructions | Terminal and desktop |
@@ -127,6 +131,8 @@ Switch tiers at any time, including mid-conversation:
 
 -   **Desktop**: click the model button in the chat box, or choose **Choose model** from the **+** menu
 -   **Terminal**: run the `/model` command
+
+<!-- TODO screenshot: capture by hand in Studio 2.0, logged in to WordPress.com: the chat box model menu (Fast, Balanced, Strong) with the AI credits remaining. -->
 
 If you use your own Anthropic API key, the model menu lists **Sonnet 5** and **Opus 5** instead of tiers. See [AI providers](#11-ai-providers).
 
@@ -228,6 +234,8 @@ Studio Code shows your remaining AI Credits as you work:
 -   **Desktop**: the model menu in the chat box, and **Settings → Usage**
 -   **Terminal**: the stats line at the end of each turn, and the `/credits` command
 
+<!-- TODO screenshot: capture by hand in Studio 2.0, logged in to WordPress.com: Settings → Usage, with the AI credits balance. -->
+
 Studio Code warns you when you have used 80% and 90% of your AI Credits.
 
 ### [What happens when you reach the limit](#16-what-happens-when-you-reach-the-limit)
@@ -250,6 +258,7 @@ To use your own key in the desktop app:
 3.  Next to **Anthropic**, click **Connect**, paste your key in the **Anthropic API key** field, and click **Save**.
 4.  In the chat box, choose **Sonnet 5** or **Opus 5** from the model menu.
 
+<!-- TODO screenshot: replace with `settings-ai-providers.png` from `npm run screenshots` (Studio 2.0): Settings → AI Providers. -->
 [![The AI Providers page of Studio's Settings, with the WordPress.com and Anthropic providers](https://developer.wordpress.com/wp-content/uploads/2026/04/app-settings-ai.png)](https://developer.wordpress.com/wp-content/uploads/2026/04/app-settings-ai.png)
 
 To switch it using CLI:

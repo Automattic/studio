@@ -411,7 +411,8 @@ echo 'STORED_JSON=' . wp_json_encode( array(
 	);
 }
 
-async function homeImageFrames( url: string ) {
+// Also saves the page, as tall as it renders, to `screenshotFile`.
+async function homeImageFrames( url: string, screenshotFile: string ) {
 	try {
 		const browser = await getSharedBrowser();
 		const page = await browser.newPage( { viewport: { width: 1280, height: 900 } } );
@@ -423,6 +424,7 @@ async function homeImageFrames( url: string ) {
 				height: Math.min( Math.max( height, 900 ), 8000 ),
 			} );
 			await page.waitForTimeout( 1500 );
+			await page.screenshot( { path: screenshotFile, type: 'jpeg', quality: 80 } );
 			return await page.evaluate( () => {
 				const images = [ ...document.querySelectorAll( 'img' ) ];
 				// Shown: its center inside every ancestor that clips it, and
@@ -522,7 +524,12 @@ async function captureSiteOutcome(
 			outcome.parentThemeJson = readThemeText( parentDir )[ 'theme.json' ];
 			outcome.parentThemeFileList = Object.keys( hashFiles( parentDir ) ).sort();
 		}
-		const home = { ...( await renderHome( url ) ), imageFrames: await homeImageFrames( url ) };
+		const screenshot = path.join( artifactDir, `${ path.basename( sitePath ) }-home.jpg` );
+		const home = {
+			...( await renderHome( url ) ),
+			imageFrames: await homeImageFrames( url, screenshot ),
+		};
+		outcome.homeScreenshot = existsSync( screenshot ) ? screenshot : undefined;
 		if ( 'html' in home && home.html ) {
 			const file = path.join( artifactDir, `${ path.basename( sitePath ) }-home.html` );
 			writeFileSync( file, home.html );

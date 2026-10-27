@@ -457,12 +457,34 @@ function fontFamilies( themeJson ) {
 	}
 }
 
+// How the home page looks to a vision model that sees only the ask and a
+// screenshot (eval-look-judge.ts): a score, not a gate, until runs calibrate
+// it. It scores how much the page looks made for the ask (1–5), and lists
+// what a visitor cannot read and what looks broken or unfinished.
+export const siteLooks = check( ( d, vars ) => {
+	const look = site( d, vars ).look;
+	if ( ! look ) return pass( 'not judged: no judge is configured (STUDIO_EVAL_JUDGE_API_KEY)' );
+	if ( look.error ) return pass( `not judged: ${ look.error }` );
+	const listed = ( label, items ) =>
+		items?.length ? `; ${ label }: ${ items.join( ' | ' ) }` : '';
+	return {
+		pass: true,
+		score: look.madeForTheAsk / 5,
+		reason: `made for the ask ${ look.madeForTheAsk }/5${ listed(
+			'unreadable',
+			look.unreadable
+		) }${ listed( 'defects', look.defects ) }. ${ look.reason }`,
+	};
+} );
+
 // The design is the site's own, kept where WordPress keeps a design: a theme
 // of its own (or a child theme), with the fonts it resolves self-hosted and a
 // screenshot; or a theme from WordPress.org customized as the Site Editor does,
-// through Global Styles (the wp_global_styles post) or templates and template
-// parts saved for the theme (get_block_templates() in
-// wp-includes/block-template-utils.php), with the fonts it adds served by the site.
+// through Global Styles (the wp_global_styles post) or templates saved for the
+// theme (get_block_templates() in wp-includes/block-template-utils.php), with
+// the fonts it adds served by the site. Template parts saved alone do not
+// count: run variants5 passed two sites that looked as Twenty Twenty-Five
+// ships, with only their footer saved.
 export const siteHasItsOwnDesign = check( ( d, vars ) => {
 	const s = site( d, vars );
 	// The active theme has a WordPress.org release to compare with.
@@ -472,9 +494,13 @@ export const siteHasItsOwnDesign = check( ( d, vars ) => {
 		const saved = ( s.content || [] )
 			.filter( ( c ) => [ 'wp_template', 'wp_template_part' ].includes( c.type ) )
 			.map( ( c ) => `${ c.type === 'wp_template' ? 'template' : 'part' } ${ c.slug }` );
-		if ( ! styled && ! saved.length )
+		// A part (header, footer) is the chrome around every page; on its own it
+		// leaves the page's look as the theme ships it.
+		if ( ! styled && ! saved.some( ( item ) => item.startsWith( 'template ' ) ) )
 			return fail(
-				`the site runs ${ s.theme.stylesheet } with no Global Styles and no saved templates or template parts`
+				`the site runs ${ s.theme.stylesheet } with no Global Styles and no saved templates${
+					saved.length ? `, only ${ saved.join( ', ' ) }` : ''
+				}`
 			);
 		const origin = new URL( s.url ).origin;
 		const remote = [

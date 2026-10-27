@@ -389,6 +389,48 @@ describe( 'site checks', () => {
 		);
 	} );
 
+	describe( 'siteLooks', () => {
+		const look = {
+			madeForTheAsk: 3,
+			unreadable: [ 'header links, dark on dark' ],
+			defects: [ 'placeholder footer links', 'two footers' ],
+			reason: 'Warm palette, stock layout.',
+		};
+		test.each( [
+			{
+				name: 'a judged site',
+				look,
+				score: 0.6,
+				reason:
+					'made for the ask 3/5; unreadable: header links, dark on dark; defects: placeholder footer links | two footers. Warm palette, stock layout.',
+			},
+			{
+				name: 'a site with nothing to list',
+				look: { ...look, madeForTheAsk: 5, unreadable: [], defects: [] },
+				score: 1,
+				reason: 'made for the ask 5/5. Warm palette, stock layout.',
+			},
+			{
+				name: 'no judge',
+				look: undefined,
+				score: 1,
+				reason: 'not judged: no judge is configured (STUDIO_EVAL_JUDGE_API_KEY)',
+			},
+			{
+				name: 'a judge that failed',
+				look: { error: 'the judge answered 529' },
+				score: 1,
+				reason: 'not judged: the judge answered 529',
+			},
+		] )( '$name', ( { look: judged, score, reason } ) => {
+			expect( run( checks.siteLooks, outcome( { ...workingSite, look: judged } ) ) ).toEqual( {
+				pass: true,
+				score,
+				reason,
+			} );
+		} );
+	} );
+
 	describe( 'siteHasItsOwnDesign', () => {
 		const font = ( src ) => ( {
 			settings: {
@@ -485,7 +527,20 @@ describe( 'site checks', () => {
 				pass: false,
 			},
 			{ name: 'the installed theme as released', site: tt5, pass: false },
-			{ name: 'a template part saved for it', site: { ...tt5, content: [ part ] }, pass: true },
+			{
+				name: 'only a template part saved for it',
+				site: { ...tt5, content: [ part ] },
+				pass: false,
+			},
+			{
+				name: 'a template part with its Global Styles',
+				site: {
+					...tt5,
+					content: [ part ],
+					userGlobalStyles: { styles: { color: { background: '#111' } } },
+				},
+				pass: true,
+			},
 			{
 				name: 'a template saved for it',
 				site: { ...tt5, content: [ { ...part, type: 'wp_template', slug: 'page' } ] },

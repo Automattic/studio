@@ -16,6 +16,7 @@ const count = ( dir: string ) => fs.readdirSync( dir, { recursive: true } ).leng
 
 // The app runs several CLI commands at once, and each installs the bundled WordPress. Any reader
 // that finds version.php copies `latest` into a new site, so it must never see a partial copy.
+// Eight concurrent copies of 400 files can take longer than the default 5 s on Windows CI.
 it( 'never shows a partial latest WordPress while several processes install it', async () => {
 	const bundled = path.join( root, 'wp-files', 'latest', 'wordpress', 'wp-includes' );
 	fs.mkdirSync( bundled, { recursive: true } );
@@ -46,4 +47,4 @@ it( 'never shows a partial latest WordPress while several processes install it',
 	expect( count( latest ) ).toBe( count( path.dirname( bundled ) ) );
 	expect( fs.readdirSync( path.dirname( latest ) ) ).toEqual( [ 'latest' ] );
 	fs.rmSync( root, { recursive: true, force: true } );
-} );
+}, 30_000 );

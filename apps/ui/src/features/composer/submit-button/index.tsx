@@ -1,6 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { ArrowUpIcon } from 'lucide-react';
-import { StopSiteIcon } from '@/lib/icons';
+import { SendIcon, StopSiteIcon } from '@/lib/icons';
 import { Button } from '@/lib/ui';
 import styles from './style.module.css';
 import type { SubmitFeedback } from '@/features/composer/use-submit-feedback';
@@ -26,7 +25,7 @@ export function SendButton( {
 			disabled={ ! canSend }
 			aria-label={ label }
 		>
-			<ArrowUpIcon />
+			<SendIcon />
 		</Button>
 	);
 }

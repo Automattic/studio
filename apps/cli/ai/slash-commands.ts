@@ -517,24 +517,14 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 				const listings = await Promise.all(
 					Object.values( HOSTS ).map( async ( host ) => ( {
 						host,
-						listing: await host.publishable(),
+						listing: await host.publishable( site.path ),
 					} ) )
 				);
 				ctx.ui.setBusy( false );
 
 				const signedIn = listings.filter( ( { listing } ) => listing.signedIn );
 				if ( ! signedIn.length ) {
-					ctx.ui.showInfo(
-						listings
-							.map( ( { host } ) =>
-								sprintf(
-									/* translators: %s: a host, such as WordPress.com */
-									__( '%s login required. Use /login to authenticate.' ),
-									host.name
-								)
-							)
-							.join( '\n' )
-					);
+					ctx.ui.showInfo( listings.map( ( { host } ) => host.signIn ).join( '\n' ) );
 					return 'continue';
 				}
 				if ( signedIn.every( ( { listing } ) => listing.error ) ) {
@@ -594,7 +584,8 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 					ctx.ui.showError( result.consoleOutput || __( 'Failed to publish site.' ) );
 				} else {
 					ctx.ui.showSuccess(
-						sprintf( __( 'Published to %s' ), remoteSite.url ) + '\n\n   ' + remoteSite.url
+						result.consoleOutput ||
+							sprintf( __( 'Published to %s' ), remoteSite.url ) + '\n\n   ' + remoteSite.url
 					);
 				}
 			} catch ( error ) {

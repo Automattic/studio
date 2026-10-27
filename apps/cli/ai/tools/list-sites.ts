@@ -13,7 +13,11 @@ async function listLocalSites(): Promise< unknown[] > {
 async function listHostSites() {
 	return Object.fromEntries(
 		await Promise.all(
-			Object.values( HOSTS ).map( async ( host ) => [ host.listKey, await host.list() ] )
+			Object.values( HOSTS ).flatMap( ( host ) =>
+				host.sites
+					? [ host.sites.list().then( ( listing ) => [ host.sites?.listKey, listing ] ) ]
+					: []
+			)
 		)
 	);
 }

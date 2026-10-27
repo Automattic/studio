@@ -8,7 +8,7 @@ export const publishTargetsTool = defineTool(
 	'Lists where a local site can be published: each host built into Studio, what it publishes to, ' +
 		'whether the user is signed in to it, and the sites on it already connected to the local site. ' +
 		'A connected site is a target for site_push and site_pull, and so is a site the user names on one of these hosts. ' +
-		"Each target's `syncSupport` says whether it can be pushed or pulled now: `syncable` and `already-connected` can; for the others, site_push and site_pull say what each needs (an upgrade, a transfer, or admin access). " +
+		"A WordPress.com target's `syncSupport` says whether it can be pushed or pulled now: `syncable` and `already-connected` can; for the others, site_push and site_pull say what each needs (an upgrade, a transfer, or admin access). " +
 		'Preview sites are temporary copies, listed by preview_list.',
 	{
 		nameOrPath: Type.String( { description: 'The local site name or file system path' } ),
@@ -18,7 +18,7 @@ export const publishTargetsTool = defineTool(
 			const site = await resolveSite( args.nameOrPath );
 			const hosts = await Promise.all(
 				Object.entries( HOSTS ).map( async ( [ id, host ] ) => {
-					const { signedIn, targets, error } = await host.targets( site.id );
+					const { signedIn, targets, error } = await host.targets( site );
 					return {
 						host: id,
 						name: host.name,
@@ -26,17 +26,7 @@ export const publishTargetsTool = defineTool(
 						signedIn,
 						...( signedIn ? {} : { signIn: host.signIn } ),
 						...( error ? { error } : {} ),
-						targets: targets.map( ( s ) => ( {
-							id: s.id,
-							name: s.name,
-							url: s.url,
-							isStaging: s.isStaging,
-							isPressable: s.isPressable,
-							environmentType: s.environmentType ?? null,
-							syncSupport: s.syncSupport,
-							lastPushTimestamp: s.lastPushTimestamp,
-							lastPullTimestamp: s.lastPullTimestamp,
-						} ) ),
+						targets,
 					};
 				} )
 			);

@@ -31,6 +31,8 @@ export type CaptureEngine = {
 	captureWebsite: ( options: {
 		url: string;
 		outputDir: string;
+		/** Origins the caller vouches for, such as a local site, which the capture may fetch from. */
+		trustedOrigins?: string[];
 		onProgress?: ( progress: {
 			phase: string;
 			current?: number;
@@ -47,6 +49,27 @@ export type CaptureEngine = {
 			routesFailed: number;
 		};
 	} >;
+};
+
+/** The capture engine, with the comparison and publishing that the same release carries. */
+export type PublishingEngine = CaptureEngine & {
+	/** Compares the frozen capture in `directory` with the source it was captured from. */
+	checkFidelity: ( options: { directory: string } ) => Promise< { pass: boolean; failed: number } >;
+	publishSite: ( options: {
+		directory: string;
+		target: string;
+		token?: string;
+		/** The target's id for the space to publish into; a new one when omitted. */
+		space?: string;
+	} ) => Promise< PublishedSite >;
+};
+
+export type PublishedSite = {
+	liveUrl: string;
+	spaceId?: string;
+	private?: boolean;
+	claim?: { url: string; key?: string; expiresAt?: string };
+	notes: string[];
 };
 
 const DATA_LIBERATION_REPO = 'Automattic/data-liberation-agent';
@@ -320,7 +343,7 @@ export function resolveCaptureEngineAsset(): Promise< ReleaseAsset > {
 }
 
 /** Install (once per version) and load the newest Data Liberation capture engine. */
-export async function loadCaptureEngine(): Promise< CaptureEngine > {
+export async function loadCaptureEngine(): Promise< PublishingEngine > {
 	const asset = await resolveCaptureEngineAsset();
 	const engineRoot = path.join( runtimeDirectory(), 'data-liberation', asset.version );
 	const bundlePath = path.join( engineRoot, 'dist', 'capture-engine.bundle.mjs' );
@@ -351,11 +374,13 @@ export async function loadCaptureEngine(): Promise< CaptureEngine > {
 		}
 	}
 	linkPlaywright( engineRoot );
-	const engine = ( await import( pathToFileURL( bundlePath ).href ) ) as Partial< CaptureEngine >;
+	const engine = ( await import(
+		pathToFileURL( bundlePath ).href
+	) ) as Partial< PublishingEngine >;
 	if ( typeof engine.captureWebsite !== 'function' ) {
 		throw new Error( `Data Liberation ${ asset.version } does not export the capture engine API.` );
 	}
-	return { ...( engine as CaptureEngine ), version: asset.version, packageUrl: asset.url };
+	return { ...( engine as PublishingEngine ), version: asset.version, packageUrl: asset.url };
 }
 
 /** The newest Static Site Importer release ZIP, downloaded and verified once per version. */

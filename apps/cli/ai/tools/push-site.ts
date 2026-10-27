@@ -6,8 +6,8 @@ import { captureCommandOutput, resolveSite, textResult } from './utils';
 
 export const pushSiteTool = defineTool(
 	'site_push',
-	'Pushes a local WordPress site to a remote site on one of the hosts in site_publish_targets: ' +
-		'exports the local site, uploads it, and imports it on the remote site. ' +
+	"Replaces a remote site's content on one of the hosts in site_publish_targets with the local site's; " +
+		"the host's `publishes` says what that makes there. " +
 		'This can take several minutes depending on site size. ' +
 		'remoteSite is one of the targets site_publish_targets lists, or a site the user names. ' +
 		'Studio asks the user to confirm the target before the push starts.',
@@ -28,7 +28,7 @@ export const pushSiteTool = defineTool(
 		options: Type.Optional(
 			Type.String( {
 				description:
-					'Comma-separated sync options: all, sqls, uploads, plugins, themes, contents. Defaults to "all".',
+					'For WordPress.com, comma-separated sync options: all, sqls, uploads, plugins, themes, contents. Defaults to "all".',
 			} )
 		),
 	},

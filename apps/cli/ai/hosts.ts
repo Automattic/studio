@@ -7,12 +7,14 @@
  * its tools come from.
  *
  * The hosts here are the ones built into Studio, so they are where Studio
- * publishes. WordPress.com is the one host so far; it also reaches the
- * Pressable sites in the user's WordPress.com account.
+ * publishes. WordPress.com also reaches the Pressable sites in the user's
+ * WordPress.com account. Spacefast serves static copies of local sites, so it
+ * has no sites for Studio to work on or pull from.
  */
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import { spacefast } from 'cli/ai/spacefast-host';
 import { getWpComSites } from 'cli/lib/api';
-import type { SyncOption, SyncSite } from '@studio/common/types/sync';
+import type { SyncOption } from '@studio/common/types/sync';
 import type { McpApproval, McpServerSpec } from 'cli/ai/runtimes/pi/mcp-tools';
 import type { SiteInfo } from 'cli/ai/types';
 import type { Logger } from 'cli/logger';
@@ -24,10 +26,13 @@ export interface RemoteSite {
 	id: string | number;
 }
 
+/** A site a local site is published to, with what the host says of it. */
+type HostTarget = { id: string | number; name: string; url: string } & Record< string, unknown >;
+
 /** The sites a local site is published to on a host, as far as the host could list them. */
 interface HostTargets {
 	signedIn: boolean;
-	targets: SyncSite[];
+	targets: HostTarget[];
 	error?: string;
 }
 
@@ -43,33 +48,36 @@ export interface Host {
 	name: string;
 	/** What the system prompt's Environment section says of the host's sites. */
 	environment: string;
-	/** The key the host's sites take in site_list's result. */
-	listKey: string;
-	/** The user's sites on the host. A failure is the listing's error. */
-	list(): Promise< HostSiteListing >;
-	/** The facts the agent gets about one of the host's sites, by the fact that states them. */
-	facts( site: SiteInfo ): Promise< string[][] >;
+	/** The user's sites on the host, for a host whose sites Studio works on. */
+	sites?: {
+		/** The key the host's sites take in site_list's result. */
+		listKey: string;
+		/** The user's sites on the host. A failure is the listing's error. */
+		list(): Promise< HostSiteListing >;
+		/** The facts the agent gets about one of the host's sites, by the fact that states them. */
+		facts( site: SiteInfo ): Promise< string[][] >;
+	};
 	/** What a local site is published to on the host. */
 	publishes: string;
-	/** The user's sites on the host a local site can be published to. */
-	publishable(): Promise< HostSiteListing >;
+	/** The sites on the host the local site at `sitePath` can be published to. */
+	publishable( sitePath: string ): Promise< HostSiteListing >;
 	/** Where the user makes a new site on the host, for a local site of this name. */
 	newSiteUrl( name: string ): string;
 	/** How the user signs in to the host. */
 	signIn: string;
-	/** The host's sites already connected to the local site with this Studio id. */
-	targets( localSiteId: string ): Promise< HostTargets >;
-	/** Replaces the target's content with the local site's. */
+	/** The host's sites already connected to this local site. */
+	targets( site: { id: string; path: string } ): Promise< HostTargets >;
 	/** The host's own MCP server for the signed-in user, served as `<host id>_<tool>`. */
 	mcpServer(): Promise< Pick< McpServerSpec, 'url' | 'headers' | 'approval' > | undefined >;
+	/** Replaces the target's content with the local site's. */
 	push(
 		sitePath: string,
 		target: string,
 		options: SyncOption[],
 		logger: Logger< string >
 	): Promise< void >;
-	/** Replaces the local site's content with the target's. */
-	pull(
+	/** Replaces the local site's content with the target's, for a host that serves WordPress. */
+	pull?(
 		sitePath: string,
 		target: string,
 		options: SyncOption[],
@@ -119,12 +127,14 @@ const wpcom: Host = {
 	name: 'WordPress.com',
 	environment:
 		"The user's WordPress.com sites are live sites, reached through the WordPress.com REST API.",
-	listKey: 'wordpressCom',
-	list: () => wpcomListing( getWpComSites ),
-	// WordPress.com's own server states what a site's plan and the user's role
-	// allow, through its MCP tools.
-	async facts() {
-		return [];
+	sites: {
+		listKey: 'wordpressCom',
+		list: () => wpcomListing( getWpComSites ),
+		// WordPress.com's own server states what a site's plan and the user's role
+		// allow, through its MCP tools.
+		async facts() {
+			return [];
+		},
 	},
 	publishes:
 		"the user's WordPress.com sites, and the Pressable sites in their WordPress.com account",
@@ -143,7 +153,7 @@ const wpcom: Host = {
 		url.searchParams.set( 'new', name );
 		return url.toString();
 	},
-	async targets( localSiteId ) {
+	async targets( { id: localSiteId } ) {
 		const [ { getConnectedWpcomSitesForLocalSite }, { fetchSyncableSites }, { withWpcomDetails } ] =
 			await Promise.all( [
 				import( '@studio/common/lib/connected-sites' ),
@@ -159,9 +169,20 @@ const wpcom: Host = {
 			return { signedIn: true, targets: [] };
 		}
 		try {
+			const sites = withWpcomDetails( stored, await fetchSyncableSites( token.accessToken ) );
 			return {
 				signedIn: true,
-				targets: withWpcomDetails( stored, await fetchSyncableSites( token.accessToken ) ),
+				targets: sites.map( ( s ) => ( {
+					id: s.id,
+					name: s.name,
+					url: s.url,
+					isStaging: s.isStaging,
+					isPressable: s.isPressable,
+					environmentType: s.environmentType ?? null,
+					syncSupport: s.syncSupport,
+					lastPushTimestamp: s.lastPushTimestamp,
+					lastPullTimestamp: s.lastPullTimestamp,
+				} ) ),
 			};
 		} catch ( error ) {
 			return {
@@ -191,7 +212,7 @@ const wpcom: Host = {
 	},
 };
 
-export const HOSTS = { wpcom } as const satisfies Record< string, Host >;
+export const HOSTS = { wpcom, spacefast } as const satisfies Record< string, Host >;
 
 export type HostId = keyof typeof HOSTS;
 

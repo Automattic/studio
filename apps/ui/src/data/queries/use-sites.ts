@@ -106,7 +106,7 @@ export function useCopySite() {
 		onSuccess: ( site ) => {
 			/* translators: %s: name of the new copy of a site */
 			toast.success( sprintf( __( 'Site duplicated: %s' ), site.name ), {
-				action: { label: __( 'Open site' ), onClick: () => openSite( site ) },
+				action: { label: __( 'Open' ), onClick: () => openSite( site ) },
 			} );
 			return queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
@@ -159,11 +159,15 @@ export function useStartSite() {
 			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 			return true;
 		},
-		onError: ( error, id ) =>
-			toast.error( getBusyMessage( queryClient, id, __( 'Failed to start site' ) ), {
-				description: getErrorMessage( error ),
-				action: openStudioLogsAction( connector ),
-			} ),
+		onError: ( error, id ) => {
+			const { title, description } = getBusyNotice(
+				queryClient,
+				id,
+				__( 'Failed to start site' ),
+				getErrorMessage( error )
+			);
+			toast.error( title, { description, action: openStudioLogsAction( connector ) } );
+		},
 	} );
 }
 
@@ -176,8 +180,10 @@ export function useStopSite() {
 			await connector.stopSite( id );
 			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
-		onError: ( _error, id ) =>
-			toast.error( getBusyMessage( queryClient, id, __( 'Failed to stop site' ) ) ),
+		onError: ( _error, id ) => {
+			const { title, description } = getBusyNotice( queryClient, id, __( 'Failed to stop site' ) );
+			toast.error( title, { description } );
+		},
 	} );
 }
 
@@ -291,16 +297,29 @@ function isSiteMutating(
  * that's a beat behind costs nothing — unlike using it to *decide*, which would
  * silently swallow the action.
  */
-function getBusyMessage( queryClient: QueryClient, siteId: string, fallback: string ): string {
+function getBusyNotice(
+	queryClient: QueryClient,
+	siteId: string,
+	fallback: string,
+	description?: string
+) {
 	const sites = queryClient.getQueryData< SiteDetails[] >( SITES_QUERY_KEY );
 	const operation = sites?.find( ( site ) => site.id === siteId )?.operation?.kind;
 	return operation
-		? sprintf(
-				/* translators: %s: an operation already running, e.g. "a settings change". */
-				__( 'This site is busy: %s is in progress. Try again once it finishes.' ),
-				getSiteOperationNoun( operation )
-		  )
-		: fallback;
+		? {
+				title: __( 'Site is busy' ),
+				description: [
+					sprintf(
+						/* translators: %s: an operation already running, e.g. "a settings change". */
+						__( 'Wait for %s to finish, then try again.' ),
+						getSiteOperationNoun( operation )
+					),
+					description,
+				]
+					.filter( Boolean )
+					.join( '\n\n' ),
+		  }
+		: { title: fallback, description };
 }
 
 export function useIsSiteStarting( siteId: string | undefined ): boolean {

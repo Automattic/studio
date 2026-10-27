@@ -321,7 +321,7 @@ describe( 'app-messages', () => {
 				{ ...downloading, title: 'Downloading update', description: 'Updating to 1.23.0.' },
 			] );
 			expect( getNoticeHistory() ).toEqual( [
-				expect.objectContaining( { description: 'Updating to 1.23.0.' } ),
+				expect.objectContaining( { description: 'Updating to 1.23.0.', source: 'studio' } ),
 			] );
 		} );
 

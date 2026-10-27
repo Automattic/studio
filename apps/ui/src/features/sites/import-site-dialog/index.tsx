@@ -56,7 +56,7 @@ export function useSiteBackupImport( site: SiteDetails ) {
 		if ( ! isSupportedBackupFilename( picked.name ) ) {
 			toast.error(
 				__(
-					'This file type is not supported. Please use a .zip, .gz, .gzip, .tar, .tar.gz, .wpress, .sql, or .xml file.'
+					'This file type is not supported. Please use a .zip, .gz, .gzip, .tar, .tar.gz, .wpress, .sql, or .xml file'
 				)
 			);
 			return;

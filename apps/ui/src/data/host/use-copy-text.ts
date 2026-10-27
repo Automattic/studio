@@ -32,7 +32,7 @@ export function useCopyText( text: string ): { copied: boolean; copy: () => void
 				resetTimer.current = setTimeout( () => setCopied( false ), 2000 );
 			} )
 			.catch( ( error ) => {
-				toast.error( __( 'Could not copy.' ), { description: errorMessage( error ) } );
+				toast.error( __( 'Could not copy' ), { description: errorMessage( error ) } );
 			} );
 	}, [ connector, text ] );
 

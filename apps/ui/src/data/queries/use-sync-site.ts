@@ -59,8 +59,7 @@ export function useSettleSync() {
 				void queryClient.invalidateQueries( { queryKey: SNAPSHOTS_QUERY_KEY } );
 				if ( settled.kind === 'success' ) {
 					markPreviewReady( siteId );
-					/* translators: %s: site name */
-					toast.success( sprintf( __( '%s preview ready' ), siteName() ), {
+					toast.success( __( 'Preview link is ready' ), {
 						action: {
 							label: __( 'Copy link' ),
 							onClick: () => {
@@ -124,7 +123,7 @@ export function useSettleSync() {
 						siteName()
 					),
 					{
-						action: viewSite && { label: __( 'View site' ), onClick: () => void viewSite() },
+						action: viewSite && { label: __( 'View' ), onClick: () => void viewSite() },
 					}
 				);
 			} else if ( settled.kind === 'error' ) {
@@ -152,24 +151,22 @@ function getPlainErrorMessage(
 	canOpenLogs: boolean
 ) {
 	if ( localChangesApplied ) {
-		return __(
-			'WordPress Studio couldn’t restart the site. Your changes have already been pulled.'
-		);
+		return __( 'Couldn’t restart the site. Your changes have already been pulled.' );
 	}
 	if ( direction === 'pull' ) {
 		return canOpenLogs
 			? __(
-					"WordPress Studio couldn't copy the live site. Try again. If the problem continues, check WordPress Studio Logs for details."
+					"Couldn't copy the live site. Try again. If the problem continues, check the logs for details."
 			  )
-			: __( "WordPress Studio couldn't copy the live site. Try again." );
+			: __( "Couldn't copy the live site. Try again." );
 	}
 	if ( direction === 'import' ) {
 		return canOpenLogs
 			? __(
-					"WordPress Studio couldn't import this backup. Check that it's a complete, supported backup and try again. If the problem continues, check WordPress Studio Logs for details."
+					"Couldn't import this backup. Check that it's a complete, supported backup and try again. If the problem continues, check the logs for details."
 			  )
 			: __(
-					"WordPress Studio couldn't import this backup. Check that it's a complete, supported backup and try again."
+					"Couldn't import this backup. Check that it's a complete, supported backup and try again."
 			  );
 	}
 	return undefined;

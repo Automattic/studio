@@ -8,7 +8,8 @@ import trash from 'trash';
 import { Mode, runCommand as stopSites } from 'cli/commands/site/stop';
 import { confirm } from 'cli/lib/prompts';
 import { getCliInstallKind } from 'cli/lib/update-notifier';
-import { StudioArgv } from 'cli/types';
+import type { builder } from 'cli/commands/uninstall.command';
+import type { CommandArgs } from 'cli/types';
 
 // The launcher execs `<installDir>/bin/node`, so the running binary's grandparent
 // is the standalone install root (handles a STUDIO_CLI_HOME override too — no need
@@ -155,21 +156,6 @@ export async function runCommand( purge: boolean ): Promise< void > {
 		);
 	}
 }
-
-export const registerCommand = ( yargs: StudioArgv ) => {
-	return yargs.command( {
-		command: 'uninstall',
-		describe: __( 'Uninstall the standalone Studio CLI' ),
-		builder: ( yargs ) => {
-			return yargs.option( 'purge', {
-				type: 'boolean',
-				alias: 'all',
-				describe: __( 'Also delete your Studio config (~/.studio)' ),
-				default: false,
-			} );
-		},
-		handler: async ( argv ) => {
-			await runCommand( Boolean( argv.purge ) );
-		},
-	} );
-};
+export async function commandHandler( argv: CommandArgs< typeof builder > ) {
+	await runCommand( Boolean( argv.purge ) );
+}

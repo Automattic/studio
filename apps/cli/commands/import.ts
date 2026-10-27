@@ -28,14 +28,15 @@ import { withSiteOperation } from 'cli/lib/site-operations';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
-import { classifyImportFailure, untildify } from 'cli/lib/utils';
+import { classifyImportFailure } from 'cli/lib/utils';
 import {
 	isServerRunning,
 	startWordPressServer,
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
-import { StudioArgv } from 'cli/types';
+import type { builder } from 'cli/commands/import.command';
+import type { CommandArgs } from 'cli/types';
 
 const defaultLogger = new Logger< LoggerAction >();
 
@@ -447,44 +448,15 @@ async function recordSiteImportEvent( props: {
 		// Best-effort telemetry — never block or fail the import.
 	}
 }
-
-export const registerCommand = ( yargs: StudioArgv ) => {
-	return yargs.command( {
-		command: 'import <import-file>',
-		describe: __( 'Import a backup file to site' ),
-		builder: ( yargs ) => {
-			return yargs
-				.positional( 'import-file', {
-					type: 'string',
-					normalize: true,
-					demandOption: true,
-					description: __( 'Path to the import file' ),
-					coerce: ( value ) => {
-						return path.resolve( untildify( value ) );
-					},
-				} )
-				.option( 'start-server', {
-					type: 'boolean',
-					default: false,
-					hidden: true,
-				} )
-				.option( 'suppress-tracks-event', {
-					type: 'boolean',
-					default: false,
-					hidden: true,
-				} );
-		},
-		handler: async ( argv ) => {
-			try {
-				await runCommand( argv.path, argv.importFile, argv.startServer, argv.suppressTracksEvent );
-			} catch ( error ) {
-				if ( error instanceof LoggerError ) {
-					defaultLogger.reportError( error );
-				} else {
-					const loggerError = new LoggerError( __( 'Failed to import site' ), error );
-					defaultLogger.reportError( loggerError );
-				}
-			}
-		},
-	} );
-};
+export async function commandHandler( argv: CommandArgs< typeof builder > ) {
+	try {
+		await runCommand( argv.path, argv.importFile, argv.startServer, argv.suppressTracksEvent );
+	} catch ( error ) {
+		if ( error instanceof LoggerError ) {
+			defaultLogger.reportError( error );
+		} else {
+			const loggerError = new LoggerError( __( 'Failed to import site' ), error );
+			defaultLogger.reportError( loggerError );
+		}
+	}
+}

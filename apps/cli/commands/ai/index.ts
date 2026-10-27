@@ -42,6 +42,7 @@ import {
 	AI_PROVIDERS,
 	DEFAULT_AI_PROVIDER,
 	getAiProviderDefinition,
+	getProviderDefaultModel,
 	type AiProviderId,
 } from 'cli/ai/providers';
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
@@ -183,7 +184,8 @@ export async function runCommand( options: {
 		resumeContext.model && initialDefinition.supportsModel( resumeContext.model )
 			? resumeContext.model
 			: undefined;
-	let currentModel: AiModelId = recordedModel ?? initialDefinition.defaultModel;
+	let currentModel: AiModelId =
+		recordedModel ?? ( await getProviderDefaultModel( initialDefinition ) );
 	ui.currentProvider = currentProvider;
 	ui.currentModel = currentModel;
 
@@ -386,7 +388,9 @@ export async function runCommand( options: {
 		const definition = getAiProviderDefinition( currentProvider );
 		if ( ! definition.supportsModel( currentModel ) ) {
 			currentModel =
-				currentProvider === DEFAULT_AI_PROVIDER ? wpcomDefaultModel : definition.defaultModel;
+				currentProvider === DEFAULT_AI_PROVIDER
+					? wpcomDefaultModel
+					: await getProviderDefaultModel( definition );
 			ui.currentModel = currentModel;
 		}
 
@@ -584,7 +588,7 @@ export async function runCommand( options: {
 		await maybeAutoSwitchProvider();
 		const sm = await ensureSession();
 		const sessionId = sm.getSessionId();
-		const env = await resolveAiEnvironment( currentProvider, currentModel, {
+		const env = await resolveAiEnvironment( currentProvider, {
 			sessionId,
 		} );
 

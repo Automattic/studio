@@ -1,7 +1,14 @@
 import fs from 'fs';
 import path from 'path';
 import { type AgentTool } from '@earendil-works/pi-agent-core';
-import { type Model, type SimpleStreamOptions } from '@earendil-works/pi-ai';
+import {
+	type Api,
+	type Credential,
+	type CredentialInfo,
+	type CredentialStore,
+	type Model,
+	type SimpleStreamOptions,
+} from '@earendil-works/pi-ai';
 import { streamSimple as streamAnthropicMessages } from '@earendil-works/pi-ai/api/anthropic-messages';
 import { streamSimple as streamOpenAiCompletions } from '@earendil-works/pi-ai/api/openai-completions';
 import { streamSimple as streamOpenAiResponses } from '@earendil-works/pi-ai/api/openai-responses';
@@ -31,7 +38,8 @@ import {
 	getAiModelFamily,
 	type AiModelFamily,
 	type AiModelId,
-	type ModelsJsonModelId,
+	customModelName,
+	type CustomModelId,
 } from '@studio/common/ai/models';
 import { findLastAssistant, isEmptyStop } from '@studio/common/ai/session-events';
 import { type TSchema } from 'typebox';
@@ -55,7 +63,6 @@ import { withDefaultTimeout } from './bash-timeout';
 import { createConfirmer, describeDestructiveCall, type Confirmer } from './confirmation';
 import { withLeakedToolCallMarkupRemoved } from './leaked-tool-call-markup';
 import { createMcpTools, isUserMcpTool, readMcpServers } from './mcp-tools';
-import { InMemoryCredentialStore, resolveModelsJsonModel, type TurnModel } from './models-json';
 import { getPendingWork, type PendingWork } from './pending-work';
 import { changesPreview } from './preview-reload';
 import { SitePin } from './site-pin';
@@ -72,6 +79,7 @@ import {
 } from './tool-safety';
 import { withUsageCapErrorRewrite } from './usage-cap';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
+import type { CustomEndpoint } from '@studio/common/lib/shared-config';
 import type { StudioToolResultDetails } from 'cli/ai/tools/define-tool';
 import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
@@ -85,6 +93,24 @@ type StudioModel = StudioWpcomModel | Model< 'anthropic-messages' >;
 type ProviderConfigInput = Parameters< ModelRuntime[ 'registerProvider' ] >[ 1 ];
 
 const STUDIO_WPCOM_PROVIDER = 'studio-wpcom';
+const STUDIO_CUSTOM_PROVIDER = 'studio-custom';
+
+/** A turn's model and the runtime that serves it. */
+interface TurnModel {
+	model: Model< Api >;
+	modelRuntime: ModelRuntime;
+}
+
+// Chat Completions without the OpenAI-only fields other upstreams reject. With
+// `supportsReasoningEffort` false no thinking switch is sent at all and each
+// upstream uses its own default.
+const PORTABLE_COMPLETIONS_COMPAT = {
+	supportsStore: false,
+	supportsDeveloperRole: false,
+	supportsReasoningEffort: false,
+	supportsStrictMode: false,
+	maxTokensField: 'max_tokens',
+} as const;
 const STUDIO_AGENT_DIR = STUDIO_SITES_ROOT;
 // A reply with nothing in it ends the turn without the user seeing why (see
 // `isEmptyStop`). Resume it with a message the user doesn't see, up to this
@@ -174,12 +200,33 @@ interface ResolvedCredentials {
 	apiKey: string;
 	baseURL: string;
 	extraHeaders?: Record< string, string >;
+	// The API and image support of a custom endpoint, which its connection states.
+	endpoint?: Pick< CustomEndpoint, 'api' | 'images' >;
+}
+
+function customEndpointCredentials( endpoint: CustomEndpoint ): ResolvedCredentials {
+	return {
+		apiKey: endpoint.apiKey,
+		baseURL: endpoint.baseUrl,
+		...( endpoint.keyHeader ? { extraHeaders: { [ endpoint.keyHeader ]: endpoint.apiKey } } : {} ),
+		endpoint: { api: endpoint.api, images: endpoint.images },
+	};
 }
 
 function resolveCredentials(
 	family: AiModelFamily,
 	env: Record< string, string >
 ): { ok: true; creds: ResolvedCredentials } | { ok: false; reason: string } {
+	if ( family === 'custom' ) {
+		const endpoint = env.STUDIO_CUSTOM_ENDPOINT;
+		if ( ! endpoint ) {
+			return {
+				ok: false,
+				reason: 'No custom endpoint is connected — connect one with /provider.',
+			};
+		}
+		return { ok: true, creds: customEndpointCredentials( JSON.parse( endpoint ) ) };
+	}
 	if ( family === 'studio' ) {
 		const apiKey = env.STUDIO_WPCOM_API_KEY?.trim();
 		if ( ! apiKey ) {
@@ -375,9 +422,6 @@ async function resolveTurnModel(
 	config: ResolvedStudioAgentTurnConfig
 ): Promise< ( { ok: true } & TurnModel ) | { ok: false; reason: string } > {
 	const family = getAiModelFamily( config.model );
-	if ( family === 'models-json' ) {
-		return resolveModelsJsonModel( config.model as ModelsJsonModelId );
-	}
 	const resolved = resolveCredentials( family, config.env );
 	if ( ! resolved.ok ) {
 		return resolved;
@@ -509,6 +553,25 @@ function buildModel(
 		...( creds.extraHeaders ? { headers: creds.extraHeaders } : {} ),
 	};
 
+	if ( family === 'custom' ) {
+		// The connected endpoint names the model; its connection states the
+		// API and whether the model takes images. Thinking is left to the
+		// upstream's default, as for the proxy tiers.
+		const name = customModelName( modelId as CustomModelId );
+		const { api, images } = creds.endpoint!;
+		const shared = {
+			...common,
+			id: name,
+			name,
+			input: images ? [ 'text' as const, 'image' as const ] : [ 'text' as const ],
+			provider: STUDIO_CUSTOM_PROVIDER,
+			contextWindow: 200_000,
+			maxTokens: 32_000,
+		};
+		return api === 'openai-completions'
+			? { ...shared, api, reasoning: true, compat: PORTABLE_COMPLETIONS_COMPAT }
+			: { ...shared, api, reasoning: false };
+	}
 	if ( family === 'studio' ) {
 		// The capability tiers are resolved to upstream models by the wpcom
 		// proxy. The context window is a conservative floor across the
@@ -554,13 +617,7 @@ function buildModel(
 			reasoning: true,
 			contextWindow: 200_000,
 			maxTokens: 32_000,
-			compat: {
-				supportsStore: false,
-				supportsDeveloperRole: false,
-				supportsReasoningEffort: false,
-				supportsStrictMode: false,
-				maxTokensField: 'max_tokens',
-			},
+			compat: PORTABLE_COMPLETIONS_COMPAT,
 		};
 	}
 	// Without `compat.forceAdaptiveThinking` pi-ai sends the legacy
@@ -587,6 +644,59 @@ function buildModel(
 	};
 }
 
+// In-memory credential store so the runtime never reads or writes an auth.json
+// on disk. Studio resolves credentials from the environment on every turn and
+// injects them via runtime API keys or registered provider configs, so nothing
+// needs to be persisted.
+class InMemoryCredentialStore implements CredentialStore {
+	private readonly credentials = new Map< string, Credential >();
+
+	async read( providerId: string ): Promise< Credential | undefined > {
+		return this.credentials.get( providerId );
+	}
+
+	async list(): Promise< readonly CredentialInfo[] > {
+		return [ ...this.credentials.entries() ].map( ( [ providerId, credential ] ) => ( {
+			providerId,
+			type: credential.type,
+		} ) );
+	}
+
+	async modify(
+		providerId: string,
+		fn: ( current: Credential | undefined ) => Promise< Credential | undefined >
+	): Promise< Credential | undefined > {
+		const next = await fn( this.credentials.get( providerId ) );
+		if ( next ) {
+			this.credentials.set( providerId, next );
+		}
+		return next;
+	}
+
+	async delete( providerId: string ): Promise< void > {
+		this.credentials.delete( providerId );
+	}
+}
+
+/**
+ * Whether the connected endpoint answers a short request for `model` the way a
+ * turn sends it. Undefined when it does; otherwise the error it gave.
+ */
+export async function checkCustomEndpoint(
+	endpoint: CustomEndpoint,
+	model: CustomModelId
+): Promise< string | undefined > {
+	const creds = customEndpointCredentials( endpoint );
+	const built = buildModel( model, 'custom', creds ) as StudioWpcomModel;
+	const { streamSimple } = createRegisteredProviderConfig( built, creds, false );
+	const reply = await streamSimple!(
+		built,
+		{ messages: [ { role: 'user', content: 'Reply with: ok', timestamp: Date.now() } ] },
+		{ apiKey: creds.apiKey, maxTokens: 16 }
+	).result();
+	return reply.stopReason === 'error' ? reply.errorMessage ?? 'The request failed.' : undefined;
+}
+
 async function createModelRuntime(
 	model: StudioModel,
 	family: AiModelFamily,
@@ -597,10 +707,10 @@ async function createModelRuntime(
 		modelsPath: null,
 	} );
 
-	if ( family === 'studio' ) {
+	if ( family !== 'anthropic' ) {
 		modelRuntime.registerProvider(
 			model.provider,
-			createWpcomProviderConfig( model as StudioWpcomModel, creds )
+			createRegisteredProviderConfig( model as StudioWpcomModel, creds, family === 'studio' )
 		);
 		return modelRuntime;
 	}
@@ -621,13 +731,15 @@ function escapePiConfigValue( value: string ): string {
 	return dollarEscaped.startsWith( '!' ) ? `$${ dollarEscaped }` : dollarEscaped;
 }
 
-// The wpcom lane only needs pi's stock streaming for each tier's API; the
-// custom provider exists to wrap the stream with the usage-cap 429 rewrite and
-// the leaked tool-call cleanup, and to strip stale screenshots, which would
-// otherwise bloat requests past the proxy's body limit.
-function createWpcomProviderConfig(
+// The wpcom proxy and a custom endpoint only need pi's stock streaming for each
+// model's API; the provider is registered to wrap the stream with the leaked
+// tool-call cleanup and to strip stale screenshots, which would otherwise bloat
+// requests past a body limit. The proxy's stream also gets its usage-cap 429
+// rewrite, and its requests name the tier's current upstream alias.
+function createRegisteredProviderConfig(
 	model: StudioWpcomModel,
-	creds: ResolvedCredentials
+	creds: ResolvedCredentials,
+	proxy: boolean
 ): ProviderConfigInput {
 	// pi types `streamSimple` against `Model<Api>`; each API's stream function
 	// is narrower, and the model registered below is the one passed in.
@@ -640,28 +752,30 @@ function createWpcomProviderConfig(
 	) as NonNullable< ProviderConfigInput[ 'streamSimple' ] >;
 	// The model keeps its stable id for pi and the session history; only the
 	// request names the proxy's current upstream alias.
-	const apiModelId = getAiModel( model.id as AiModelId )?.apiModelId;
+	const apiModelId = proxy ? getAiModel( model.id as AiModelId ).apiModelId : undefined;
+	const clean: NonNullable< ProviderConfigInput[ 'streamSimple' ] > = ( m, ctx, options ) =>
+		withLeakedToolCallMarkupRemoved(
+			stream( m, stripStaleImagesFromContext( ctx ), {
+				...options,
+				...( apiModelId
+					? {
+							onPayload: async ( params: unknown, payloadModel ) => {
+								const next = ( await options?.onPayload?.( params, payloadModel ) ) ?? params;
+								return { ...( next as Record< string, unknown > ), model: apiModelId };
+							},
+					  }
+					: {} ),
+			} )
+		);
 	return {
 		baseUrl: creds.baseURL,
 		apiKey: escapePiConfigValue( creds.apiKey ),
 		api: model.api,
 		headers: creds.extraHeaders,
-		streamSimple: ( m, ctx, options?: SimpleStreamOptions ) =>
-			withUsageCapErrorRewrite(
-				withLeakedToolCallMarkupRemoved(
-					stream( m, stripStaleImagesFromContext( ctx ), {
-						...options,
-						...( apiModelId
-							? {
-									onPayload: async ( params: unknown, payloadModel ) => {
-										const next = ( await options?.onPayload?.( params, payloadModel ) ) ?? params;
-										return { ...( next as Record< string, unknown > ), model: apiModelId };
-									},
-							  }
-							: {} ),
-					} )
-				)
-			),
+		streamSimple: proxy
+			? ( m, ctx, options?: SimpleStreamOptions ) =>
+					withUsageCapErrorRewrite( clean( m, ctx, options ) )
+			: clean,
 		models: [
 			{
 				id: model.id,

@@ -550,7 +550,7 @@ async function runEval( input: EvalRunnerInput ) {
 	phaseTimingsMs.resolve_unavailable_provider_ms = Date.now() - phaseStartedAt;
 
 	phaseStartedAt = Date.now();
-	const aiEnvironment = await resolveAiEnvironment( aiProvider, resolvedModel );
+	const aiEnvironment = await resolveAiEnvironment( aiProvider );
 	phaseTimingsMs.resolve_ai_environment_ms = Date.now() - phaseStartedAt;
 
 	const env = {

@@ -17,7 +17,7 @@ type AiProviderModel = ( typeof AI_MODELS )[ number ];
 // Persisted in shared.json (`aiProvider`), so treat the list as append-only:
 // readers narrow with `isAiProviderId` and fall back to the default on values
 // they don't know.
-export const AI_PROVIDER_IDS = [ 'wpcom', 'anthropic-api-key' ] as const;
+export const AI_PROVIDER_IDS = [ 'wpcom', 'anthropic-api-key', 'custom-endpoint' ] as const;
 
 export type AiProviderId = ( typeof AI_PROVIDER_IDS )[ number ];
 
@@ -27,14 +27,17 @@ export const DEFAULT_AI_PROVIDER: AiProviderId = 'wpcom';
 export const AI_PROVIDER_LABELS: Record< AiProviderId, string > = {
 	wpcom: 'WordPress.com',
 	'anthropic-api-key': 'Anthropic API',
+	'custom-endpoint': 'Custom endpoint',
 };
 
 // Which model families each provider can service. `wpcom` serves only the
 // studio capability tiers (resolved to upstream models by the proxy);
-// direct-API providers are restricted to their own family.
+// direct-API providers are restricted to their own family. The custom
+// endpoint's models are the ones its connection names, so none are listed here.
 const PROVIDER_MODEL_FAMILIES: Record< AiProviderId, readonly AiModelFamily[] > = {
 	wpcom: [ 'studio' ],
 	'anthropic-api-key': [ 'anthropic' ],
+	'custom-endpoint': [ 'custom' ],
 };
 
 // Precomputed so callers get a stable reference (the composer calls this per
@@ -59,12 +62,10 @@ export function getAiProviderModels( provider: AiProviderId ): readonly AiProvid
 	return PROVIDER_MODELS.get( provider ) ?? [];
 }
 
-/** Whether the provider serves the model; a models.json model brings its own provider. */
 export function providerServesModel( provider: AiProviderId, model: AiModelId ): boolean {
-	return (
-		getAiModelFamily( model ) === 'models-json' ||
-		getAiProviderModels( provider ).some( ( entry ) => entry.id === model )
-	);
+	return getAiModelFamily( model ) === 'custom'
+		? provider === 'custom-endpoint'
+		: getAiProviderModels( provider ).some( ( entry ) => entry.id === model );
 }
 
 /**
@@ -117,17 +118,18 @@ export function resolveSessionProvider( entries: SessionEntry[] ): AiProviderId 
 
 /**
  * The provider a conversation effectively runs on: its pinned choice first,
- * then the saved global selection. Without a saved Anthropic key the pin is
- * unusable (as are missing/unloaded settings), so WordPress.com wins.
+ * then the saved global selection. A provider the app cannot run (no saved
+ * Anthropic key, missing/unloaded settings, or the custom endpoint, which only
+ * the CLI connects so far) leaves WordPress.com.
  */
 export function getEffectiveSessionProvider(
 	entries: SessionEntry[],
 	settings?: Pick< AiSettings, 'provider' | 'hasAnthropicApiKey' > | null
 ): AiProviderId {
-	if ( ! settings?.hasAnthropicApiKey ) {
-		return DEFAULT_AI_PROVIDER;
-	}
-	return resolveSessionProvider( entries ) ?? settings.provider;
+	const provider = resolveSessionProvider( entries ) ?? settings?.provider;
+	return provider === 'anthropic-api-key' && settings?.hasAnthropicApiKey
+		? provider
+		: DEFAULT_AI_PROVIDER;
 }
 
 /**

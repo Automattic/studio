@@ -4,7 +4,9 @@ import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	InvalidAnthropicApiKeyError,
+	persistCustomEndpoint,
 	readAiSettings,
+	readCustomEndpoint,
 	saveAnthropicApiKey,
 	setAiProvider,
 } from '../settings-store';
@@ -41,6 +43,32 @@ describe( 'ai settings store', () => {
 			hasAnthropicApiKey: false,
 			anthropicApiKeyPreview: null,
 		} );
+	} );
+
+	it( 'keeps the custom endpoint connection in shared.json, and drops one it cannot read', async () => {
+		const endpoint = {
+			baseUrl: 'http://127.0.0.1:1/v1',
+			api: 'openai-completions' as const,
+			apiKey: 'k',
+			models: [ 'm' ],
+			images: false,
+		};
+		await persistCustomEndpoint( endpoint );
+		expect( readShared().customEndpoint ).toEqual( endpoint );
+		await expect( readCustomEndpoint() ).resolves.toEqual( endpoint );
+		await expect( readAiSettings() ).resolves.toMatchObject( { provider: 'wpcom' } );
+
+		fs.writeFileSync(
+			sharedConfigPath(),
+			JSON.stringify( {
+				...readShared(),
+				anthropicApiKey: 'sk-ant-api03-kept',
+				customEndpoint: { ...endpoint, api: 'unknown' },
+			} )
+		);
+		await expect( readCustomEndpoint() ).resolves.toBeUndefined();
+		// The rest of the settings stay readable.
+		await expect( readAiSettings() ).resolves.toMatchObject( { hasAnthropicApiKey: true } );
 	} );
 
 	it( 'saves an accepted key to shared.json without changing the provider', async () => {

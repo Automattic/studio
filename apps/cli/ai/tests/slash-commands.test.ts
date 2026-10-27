@@ -1,15 +1,12 @@
 import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/shared-config';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { readModelsJsonModels } from 'cli/ai/runtimes/pi/models-json';
 import { AI_CHAT_SLASH_COMMANDS, type SlashCommandContext } from 'cli/ai/slash-commands';
 
 vi.mock( 'cli/ai/auth', () => ( {
 	getAvailableAiProviders: vi.fn(),
 	isAiProviderReady: vi.fn(),
 } ) );
-
-vi.mock( 'cli/ai/runtimes/pi/models-json', () => ( { readModelsJsonModels: vi.fn() } ) );
 
 vi.mock( 'cli/commands/auth/login', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/auth/logout', () => ( { runCommand: vi.fn() } ) );
@@ -67,7 +64,6 @@ describe( '/model slash command', () => {
 			purchasedRemaining: hasPaid ? 100_000 : 0,
 		} as never );
 	};
-	beforeEach( () => vi.mocked( readModelsJsonModels ).mockResolvedValue( [] ) );
 
 	// Locks in the labelToId-map matcher introduced in slash-commands.ts.
 	// The previous implementation used `selectedLabel.startsWith( label )`,
@@ -86,26 +82,6 @@ describe( '/model slash command', () => {
 		await modelHandler!( '/model', ctx );
 
 		expect( ctx.currentModel ).toBe( 'balanced' );
-		expect( persistMock ).toHaveBeenCalledTimes( 1 );
-	} );
-
-	it( 'offers the models of models.json after the provider’s, and switches to one', async () => {
-		setAccount( { hasPaid: false } );
-		vi.mocked( readModelsJsonModels ).mockResolvedValue( [ 'local/sees', 'local/vendor/reads' ] );
-		const { ctx, persistMock } = buildModelCtx( {
-			currentModel: 'fast',
-			askUserResponse: 'local/vendor/reads',
-		} );
-
-		await modelHandler!( '/model', ctx );
-
-		const [ questions ] = vi.mocked( ctx.ui.askUser ).mock.calls[ 0 ];
-		expect( questions[ 0 ].options.map( ( option ) => option.description ) ).toEqual( [
-			'fast',
-			'local/sees',
-			'local/vendor/reads',
-		] );
-		expect( ctx.currentModel ).toBe( 'local/vendor/reads' );
 		expect( persistMock ).toHaveBeenCalledTimes( 1 );
 	} );
 

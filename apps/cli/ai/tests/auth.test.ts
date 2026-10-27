@@ -28,6 +28,8 @@ vi.mock( '@studio/common/ai/settings-store', () => ( {
 	readSelectedAiProvider: vi.fn(),
 	persistAnthropicApiKey: vi.fn(),
 	persistSelectedAiProvider: vi.fn(),
+	readCustomEndpoint: vi.fn(),
+	persistCustomEndpoint: vi.fn(),
 } ) );
 
 describe( 'AI auth helpers', () => {
@@ -44,7 +46,7 @@ describe( 'AI auth helpers', () => {
 	it( 'uses the saved Anthropic API key when provider is Anthropic API key', async () => {
 		vi.mocked( readAnthropicApiKey ).mockResolvedValue( 'saved-key' );
 
-		const env = await resolveAiEnvironment( 'anthropic-api-key', 'claude-opus-5' );
+		const env = await resolveAiEnvironment( 'anthropic-api-key' );
 
 		expect( env.ANTHROPIC_API_KEY ).toBe( 'saved-key' );
 		expect( env.ANTHROPIC_BASE_URL ).toBeUndefined();
@@ -55,22 +57,10 @@ describe( 'AI auth helpers', () => {
 	it( 'requires a saved Anthropic API key in API key mode', async () => {
 		vi.mocked( readAnthropicApiKey ).mockResolvedValue( undefined );
 
-		await expect(
-			resolveAiEnvironment( 'anthropic-api-key', 'claude-opus-5' )
-		).rejects.toBeInstanceOf( LoggerError );
+		await expect( resolveAiEnvironment( 'anthropic-api-key' ) ).rejects.toBeInstanceOf(
+			LoggerError
+		);
 		expect( password ).not.toHaveBeenCalled();
-	} );
-
-	it( 'runs a models.json model without the provider’s login, as it brings its own', async () => {
-		vi.mocked( readAuthToken ).mockResolvedValue( null );
-		vi.mocked( readAnthropicApiKey ).mockResolvedValue( undefined );
-
-		for ( const provider of [ 'wpcom', 'anthropic-api-key' ] as const ) {
-			const env = await resolveAiEnvironment( provider, 'local/sees' );
-			expect( env.PATH ).toBe( process.env.PATH );
-			expect( env.STUDIO_WPCOM_API_KEY ).toBeUndefined();
-		}
-		await expect( resolveAiEnvironment( 'wpcom', 'fast' ) ).rejects.toBeInstanceOf( LoggerError );
 	} );
 
 	it( 'prompts for the API key immediately when preparing the API key provider', async () => {
@@ -103,7 +93,7 @@ describe( 'AI auth helpers', () => {
 			id: 1,
 		} );
 
-		const env = await resolveAiEnvironment( 'wpcom', 'fast' );
+		const env = await resolveAiEnvironment( 'wpcom' );
 
 		expect( env.STUDIO_WPCOM_BASE_URL ).toBe(
 			'https://public-api.wordpress.com/wpcom/v2/ai-api-proxy/v1'
@@ -126,7 +116,7 @@ describe( 'AI auth helpers', () => {
 			id: 1,
 		} );
 
-		const env = await resolveAiEnvironment( 'wpcom', 'fast', { sessionId: 'session-abc' } );
+		const env = await resolveAiEnvironment( 'wpcom', { sessionId: 'session-abc' } );
 
 		expect( JSON.parse( env.STUDIO_WPCOM_DEFAULT_HEADERS! ) ).toEqual( {
 			'User-Agent': 'WordPressStudio/1.2.3',

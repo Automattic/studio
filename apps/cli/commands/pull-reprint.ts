@@ -28,7 +28,7 @@ import {
 	type ReprintProcessResult,
 	runReprintCommandUntilComplete,
 } from 'cli/lib/pull/reprint-client';
-import { ensureReprintKey, reinstallReprintKey } from 'cli/lib/pull/reprint-key';
+import { ensureReprintKey, reinstallReprintKey, withKeyRecovery } from 'cli/lib/pull/reprint-key';
 import {
 	getReprintMetadata,
 	emptyReprintMetadata,
@@ -184,7 +184,7 @@ export async function runCommand(
 			stateDirectory: studioMetadata.stateDirectory,
 			verbose,
 		} );
-		const onUnknownKey = () =>
+		const reinstallKey = () =>
 			reinstallReprintKey( {
 				wpComSiteId: sourceSite.wpComSite.id,
 				wpComAccessToken: sourceSite.wpComToken.accessToken,
@@ -192,7 +192,7 @@ export async function runCommand(
 				stateDirectory: studioMetadata.stateDirectory,
 				verbose,
 			} );
-		const preflight = await runPreflight( studioMetadata, apiUrl, verbose, onUnknownKey );
+		const preflight = await runPreflight( studioMetadata, apiUrl, verbose, reinstallKey );
 		const reprintMetadata = await getReprintMetadata( {
 			apiUrl,
 			stateDirectory: studioMetadata.stateDirectory,
@@ -232,7 +232,7 @@ export async function runCommand(
 				! isRepull,
 				selection,
 				reprintMetadata,
-				onUnknownKey
+				reinstallKey
 			);
 
 			// Makes `studio site start` serve the pulled runtime instead of the blank install.
@@ -315,7 +315,7 @@ async function runPreflight(
 	sessionMetadata: PullSession,
 	sourceSiteApiUrl: string,
 	verbose = false,
-	onUnknownKey?: () => Promise< void >
+	reinstallKey?: () => Promise< void >
 ): Promise< {
 	siteurl?: string;
 	wp_version?: string;
@@ -332,16 +332,20 @@ async function runPreflight(
 
 	let preflightResult: ReprintProcessResult;
 	try {
-		preflightResult = await runReprintCommandUntilComplete(
-			[
-				'preflight',
-				sourceSiteApiUrl,
-				'--no-adaptive',
-				`--state-dir=${ sessionMetadata.stateDirectory }`,
-				`--fs-root=${ sessionMetadata.rawDirectory }`,
-			],
-			undefined,
-			{ verboseCommands: verbose, onUnknownKey }
+		preflightResult = await withKeyRecovery(
+			() =>
+				runReprintCommandUntilComplete(
+					[
+						'preflight',
+						sourceSiteApiUrl,
+						'--no-adaptive',
+						`--state-dir=${ sessionMetadata.stateDirectory }`,
+						`--fs-root=${ sessionMetadata.rawDirectory }`,
+					],
+					undefined,
+					{ verboseCommands: verbose }
+				),
+			reinstallKey
 		);
 	} catch ( preflightError ) {
 		const details =
@@ -460,7 +464,7 @@ export async function runFullPull(
 	isFirstPull: boolean,
 	selection: PullSelection = {},
 	reprintMetadata: ReprintMetadata = emptyReprintMetadata,
-	onUnknownKey?: () => Promise< void >
+	reinstallKey?: () => Promise< void >
 ): Promise< void > {
 	// The database lives in the pulled wp-content, or in the local one when
 	// the remote's location is unknown and the database isn't pulled.
@@ -493,11 +497,14 @@ export async function runFullPull(
 	const onlyArgs = ( selection.fileOnlyPaths ?? [] ).map( ( onlyPath ) => `--only=${ onlyPath }` );
 
 	const runStep = ( progressLabel: string, args: string[] ) =>
-		runReprintCommandUntilComplete( args, ( progress ) => logger.reportProgress( progress ), {
-			progressLabel,
-			verboseCommands: verbose,
-			onUnknownKey,
-		} );
+		withKeyRecovery(
+			() =>
+				runReprintCommandUntilComplete( args, ( progress ) => logger.reportProgress( progress ), {
+					progressLabel,
+					verboseCommands: verbose,
+				} ),
+			reinstallKey
+		);
 
 	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Pulling site…' ) );
 

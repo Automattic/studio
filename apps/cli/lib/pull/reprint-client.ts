@@ -52,10 +52,20 @@ function getBundledReprintPhar(): string {
 	return candidate;
 }
 
+/** A failed Reprint command. `errorCode` is Reprint's, e.g. `AUTH_UNKNOWN_KEY`. */
+export class ReprintError extends Error {
+	constructor(
+		message: string,
+		readonly errorCode: string | null
+	) {
+		super( message );
+		this.name = 'ReprintError';
+	}
+}
+
 /**
  * Runs a Reprint command to completion. Exit code 2 means the command made
- * progress and needs another run; any other non-zero code throws.
- * `onUnknownKey` runs once when the site rejects the key, before a retry.
+ * progress and needs another run; any other non-zero code throws a ReprintError.
  */
 export async function runReprintCommandUntilComplete(
 	args: string[],
@@ -63,7 +73,6 @@ export async function runReprintCommandUntilComplete(
 	options: {
 		progressLabel?: string;
 		verboseCommands?: boolean;
-		onUnknownKey?: () => Promise< void >;
 	} = {}
 ): Promise< ReprintProcessResult > {
 	const pharPath = getBundledReprintPhar();
@@ -77,8 +86,6 @@ export async function runReprintCommandUntilComplete(
 
 	const progress = createProgressReporter( label, startTime, onProgress );
 
-	let onUnknownKey = options.onUnknownKey;
-
 	try {
 		for (;;) {
 			const result = await runReprintCommandNative( pharPath, phpVersion, args, options, progress );
@@ -90,20 +97,16 @@ export async function runReprintCommandUntilComplete(
 			}
 
 			const report = result.report;
-			if ( report?.error_code === 'AUTH_UNKNOWN_KEY' && onUnknownKey ) {
-				await onUnknownKey();
-				onUnknownKey = undefined;
-				continue;
-			}
 			const reportError = report?.error
 				? [ report.error_code, report.error ].filter( Boolean ).join( ': ' )
 				: '';
 			const details = [ reportError, result.stderr, result.stdout ].filter( Boolean ).join( '\n' );
-			throw new Error(
+			throw new ReprintError(
 				details ||
 					`reprint.phar exited with code ${ result.exitCode } (command: ${
 						args[ 0 ] ?? 'unknown'
-					}). No output was captured.`
+					}). No output was captured.`,
+				report?.error_code ?? null
 			);
 		}
 	} finally {

@@ -4,7 +4,7 @@ import {
 	installReprintPublicKey,
 	type ReprintExporterStatus,
 } from 'cli/lib/api';
-import { runReprintCommandUntilComplete } from 'cli/lib/pull/reprint-client';
+import { ReprintError, runReprintCommandUntilComplete } from 'cli/lib/pull/reprint-client';
 import { getReprintMetadata } from 'cli/lib/pull/reprint-metadata';
 import { LoggerError } from 'cli/logger';
 
@@ -58,6 +58,29 @@ export async function reinstallReprintKey( params: {
 		console.error( '[reprint] The site rejected the stored key; reinstalling it.' );
 	}
 	await installPublicKey( wpComSiteId, wpComAccessToken, metadata.key.publicKey, verbose );
+}
+
+/**
+ * Runs a Reprint command, and runs it once more after `reinstallKey` if the
+ * site rejected the key.
+ */
+export async function withKeyRecovery< T >(
+	run: () => Promise< T >,
+	reinstallKey?: () => Promise< void >
+): Promise< T > {
+	try {
+		return await run();
+	} catch ( error ) {
+		if (
+			! reinstallKey ||
+			! ( error instanceof ReprintError ) ||
+			error.errorCode !== 'AUTH_UNKNOWN_KEY'
+		) {
+			throw error;
+		}
+		await reinstallKey();
+		return run();
+	}
 }
 
 async function installPublicKey(

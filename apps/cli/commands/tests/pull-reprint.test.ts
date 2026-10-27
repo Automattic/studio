@@ -25,6 +25,8 @@ vi.mock( 'cli/lib/api', async ( importOriginal ) => ( {
 } ) );
 vi.mock( 'cli/lib/pull/reprint-key', () => ( {
 	ensureReprintKey: vi.fn(),
+	reinstallReprintKey: vi.fn(),
+	withKeyRecovery: ( run: () => Promise< unknown > ) => run(),
 } ) );
 vi.mock( 'cli/lib/sync-api', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('cli/lib/sync-api') >() ),

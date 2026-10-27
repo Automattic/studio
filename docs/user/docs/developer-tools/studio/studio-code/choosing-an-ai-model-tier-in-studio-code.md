@@ -22,9 +22,9 @@ Every account starts with a one-time allowance of free [AI credits](https://deve
 
 ## [Balanced and Strong require purchased credits](#2-balanced-and-strong-require-purchased-credits)
 
-Balanced and Strong are only available to accounts with a purchased AI credit balance. This applies even if you still have free allowance left, because those can’t be spent on the stronger tiers. If you try to switch to Balanced or Strong without purchased credits, Studio Code will ask you to top up first.
+Balanced and Strong are only available to accounts that have purchased AI credits. This applies even if you still have free allowance left, because those can’t be spent on the stronger tiers. If you try to switch to Balanced or Strong before you’ve purchased credits, Studio Code will ask you to top up first.
 
-Once you’ve purchased AI credits, the model picker unlocks Balanced and Strong for as long as you have a purchased balance. When you use Fast, any remaining free allowance is spent first, before your purchased balance. You don’t need to top up between sessions, only when you run out.
+Once you’ve purchased AI credits, the model picker keeps Balanced and Strong unlocked, even after your purchased balance is spent. When you use Fast, any remaining free allowance is spent first, before your purchased balance. You don’t need to top up between sessions, only when you run out.
 
 ## [How credit consumption actually works](#3-how-credit-consumption-actually-works)
 

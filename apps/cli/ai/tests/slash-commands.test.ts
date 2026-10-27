@@ -54,14 +54,17 @@ describe( '/model slash command', () => {
 	const setAccount = ( {
 		hasPaid,
 		automattician = false,
+		purchasedAtTopUp,
 	}: {
 		hasPaid: boolean;
 		automattician?: boolean;
+		purchasedAtTopUp?: number;
 	} ) => {
 		vi.mocked( isAutomatticianFromToken ).mockResolvedValue( automattician );
 		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'wpcom-token' } as never );
 		vi.mocked( fetchStudioAssistantQuota ).mockResolvedValue( {
 			purchasedRemaining: hasPaid ? 100_000 : 0,
+			purchasedAtTopUp,
 		} as never );
 	};
 
@@ -85,7 +88,7 @@ describe( '/model slash command', () => {
 		expect( persistMock ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	it( 'withholds the paid tiers when no purchased credits remain', async () => {
+	it( 'withholds the paid tiers from accounts that never bought credits', async () => {
 		setAccount( { hasPaid: false } );
 		const { ctx } = buildModelCtx( {
 			currentModel: 'fast',
@@ -119,6 +122,21 @@ describe( '/model slash command', () => {
 			'strong',
 		] );
 		expect( ctx.currentModel ).toBe( 'strong' );
+	} );
+
+	it( 'keeps offering the paid tiers after the purchased credits are spent', async () => {
+		setAccount( { hasPaid: false, purchasedAtTopUp: 500_000 } );
+		const { ctx } = buildModelCtx( {
+			currentModel: 'fast',
+			askUserResponse: 'Balanced',
+		} );
+
+		await modelHandler!( '/model', ctx );
+
+		expect( ctx.currentModel ).toBe( 'balanced' );
+		expect( ctx.ui.showInfo ).not.toHaveBeenCalledWith(
+			expect.stringContaining( 'purchased AI credits' )
+		);
 	} );
 
 	it( 'keeps offering the current model even when it needs purchased credits', async () => {

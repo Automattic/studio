@@ -9,7 +9,7 @@ export interface IntroFeature {
 	description: string;
 }
 
-export function IntroIcon( { className }: { className?: string } ) {
+function IntroIcon( { className }: { className?: string } ) {
 	return <StudioIcon className={ clsx( styles.appIcon, className ) } />;
 }
 

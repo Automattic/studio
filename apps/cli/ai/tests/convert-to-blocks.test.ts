@@ -1,5 +1,6 @@
 import {
 	cpSync,
+	existsSync,
 	mkdirSync,
 	mkdtempSync,
 	readFileSync,
@@ -227,6 +228,19 @@ describe.runIf( WORDPRESS && TRANSFORMER )( 'convert_to_blocks', () => {
 			`Saved wp-content/themes/${ THEME }/parts/section.html as blocks.`
 		);
 		expect( report ).not.toContain( 'blocks open' );
+	}, 120_000 );
+
+	it( 'adds nothing to the theme when the blocks need no support stylesheets', async () => {
+		writeFileSync( path.join( theme, 'functions.php' ), FUNCTIONS );
+		const file = path.join( theme, 'parts', 'section.html' );
+		writeFileSync( file, '<!-- wp:paragraph -->\n<p>Night ferries</p>\n<!-- /wp:paragraph -->\n' );
+		const report = await convert( { file } );
+
+		expect( report ).toContain(
+			`Saved wp-content/themes/${ THEME }/parts/section.html as blocks.`
+		);
+		expect( existsSync( path.join( theme, 'assets' ) ) ).toBe( false );
+		expect( readFileSync( path.join( theme, 'functions.php' ), 'utf8' ) ).toBe( FUNCTIONS );
 	}, 120_000 );
 
 	it( 'leaves the file unchanged when the page would lose text', async () => {

@@ -337,8 +337,8 @@ describe( 'sidebar selection', () => {
 		expect( connector.deleteSite ).not.toHaveBeenCalled();
 	} );
 
-	it( 'blocks site removal for busy chat work and prunes removed sites', async () => {
-		const { connector, queryClient } = await setup( {
+	it( 'blocks site removal for busy chat work and prunes removed inactive sites', async () => {
+		const { connector, queryClient, history } = await setup( {
 			busy: { sessionId: 'b', phase: 'running' },
 		} );
 		select( 'one', 'two' );
@@ -351,9 +351,10 @@ describe( 'sidebar selection', () => {
 		);
 		deleteShortcut( menu );
 		expect( screen.queryByRole( 'alertdialog' ) ).not.toBeInTheDocument();
-		connector.state.sites = connector.state.sites.filter( ( entry ) => entry.id !== 'one' );
+		connector.state.sites = connector.state.sites.filter( ( entry ) => entry.id !== 'two' );
 		await act( () => queryClient.invalidateQueries( { queryKey: [ 'sites' ] } ) );
-		await waitFor( () => expect( selected() ).toEqual( [ 'site:two' ] ) );
+		await waitFor( () => expect( selected() ).toEqual( [ 'site:one' ] ) );
+		expect( history.location.pathname ).toBe( '/sites/one' );
 	} );
 
 	it.each( [ false, true ] )(

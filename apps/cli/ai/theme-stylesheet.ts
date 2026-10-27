@@ -129,6 +129,7 @@ const themesOf = ( sitePath: string ) => readWordPressSite( sitePath, activeThem
 
 export const themeStylesheet: SiteChangeSource = {
 	name: 'theme-stylesheet',
+	saves: true,
 	async read( sitePath ) {
 		const [ stylesheet, template = stylesheet ] = ( await themesOf( sitePath ) ) ?? [];
 		if ( ! stylesheet ) {

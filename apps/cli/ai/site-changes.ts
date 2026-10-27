@@ -52,6 +52,12 @@ export const NO_CHANGES: SettledChanges = { summaries: [], problems: [], written
 
 export interface SiteChangeSource {
 	name: string;
+	/**
+	 * The check saves to the site, as a fix it makes is saved. The checks that
+	 * save run one at a time, in order, and the others then together, on the
+	 * site the saves leave.
+	 */
+	saves?: boolean;
 	/** The versions on a site now; the last ones read let a source reuse work. */
 	read( sitePath: string, last?: Versions ): Promise< Versions >;
 	/** The changes from `before` to `after`, and the versions the next call is compared with. */
@@ -66,7 +72,6 @@ const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
 	// Before the posts, so a copy saved to its post is checked as the post.
 	postCopies,
 	postContentChanges,
-	// After postContentChanges, which may save the editor's save of a post.
 	renderedBlocks,
 	sectionLinks,
 	updatableThemeChanges,
@@ -74,7 +79,6 @@ const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
 	blockTheme,
 	themeErrors,
 	templatePartAreas,
-	// Before siteFileWrites, which reports the functions.php it may add to.
 	themeStylesheet,
 	siteFileWrites,
 	adminCapabilities,
@@ -97,38 +101,60 @@ export class SiteChanges {
 
 	/** Records each site it checks as it is now. */
 	async snapshot(): Promise< void > {
-		for ( const site of await this.sites() ) {
-			await this.open?.see( site.path );
-			for ( const source of this.sources ) {
-				const key = `${ source.name } ${ site.path }`;
-				this.snapshots.set( key, await source.read( site.path, this.snapshots.get( key ) ) );
-			}
-		}
+		await Promise.all(
+			( await this.sites() ).map( async ( site ) => {
+				await this.open?.see( site.path );
+				await Promise.all(
+					this.sources.map( async ( source ) => {
+						const key = `${ source.name } ${ site.path }`;
+						this.snapshots.set( key, await source.read( site.path, this.snapshots.get( key ) ) );
+					} )
+				);
+			} )
+		);
 	}
 
 	/** Checks what changed since the snapshot, and snapshots it. */
 	async settle(): Promise< SettledChanges > {
+		const sites = await this.sites();
+		const reports = await Promise.all( sites.map( ( site ) => this.settleSite( site ) ) );
 		const summaries: string[] = [];
 		const problems: string[] = [];
 		const written: string[] = [];
-		for ( const site of await this.sites() ) {
-			for ( const source of this.sources ) {
-				const key = `${ source.name } ${ site.path }`;
-				const before = this.snapshots.get( key );
-				const after = await source.read( site.path, before );
-				// A site first seen now has no changes yet.
-				const { reports, next } = before
-					? await source.check( site, before, after )
-					: { reports: [], next: undefined };
-				this.snapshots.set( key, next ?? after );
-				for ( const report of reports ) {
-					this.open?.record( site.path, `${ site.path }#${ report.key }`, report.problem );
-					summaries.push( ...( report.summary ? [ report.summary ] : [] ) );
-					problems.push( ...( report.problem && ! report.atTurnEnd ? [ report.problem ] : [] ) );
-					written.push( ...( report.written ? [ report.written ] : [] ) );
-				}
+		// Reported by site and source, in their order, however the checks interleave.
+		sites.forEach( ( site, i ) => {
+			for ( const report of reports[ i ].flat() ) {
+				this.open?.record( site.path, `${ site.path }#${ report.key }`, report.problem );
+				summaries.push( ...( report.summary ? [ report.summary ] : [] ) );
+				problems.push( ...( report.problem && ! report.atTurnEnd ? [ report.problem ] : [] ) );
+				written.push( ...( report.written ? [ report.written ] : [] ) );
 			}
-		}
+		} );
 		return { summaries, problems, written };
+	}
+
+	// Each source's reports on a site, in the sources' order.
+	private async settleSite( site: SiteData ): Promise< ChangeReport[][] > {
+		const settleSource = async ( source: SiteChangeSource ): Promise< ChangeReport[] > => {
+			const key = `${ source.name } ${ site.path }`;
+			const before = this.snapshots.get( key );
+			const after = await source.read( site.path, before );
+			// A site first seen now has no changes yet.
+			const { reports, next } = before
+				? await source.check( site, before, after )
+				: { reports: [], next: undefined };
+			this.snapshots.set( key, next ?? after );
+			return reports;
+		};
+		const reports = new Map< SiteChangeSource, ChangeReport[] >();
+		for ( const source of this.sources.filter( ( source ) => source.saves ) ) {
+			reports.set( source, await settleSource( source ) );
+		}
+		await Promise.all(
+			this.sources
+				.filter( ( source ) => ! source.saves )
+				.map( async ( source ) => reports.set( source, await settleSource( source ) ) )
+		);
+		return this.sources.map( ( source ) => reports.get( source ) ?? [] );
 	}
 }

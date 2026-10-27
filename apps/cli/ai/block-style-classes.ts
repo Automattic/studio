@@ -17,7 +17,6 @@
 import { activeCodeVersion } from 'cli/ai/active-code';
 import { readVersions } from 'cli/ai/post-content-check';
 import { runWpCli } from 'cli/ai/tools/utils';
-import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import type { SiteChangeSource } from 'cli/ai/site-changes';
 
 const KEY = 'block style classes';
@@ -66,7 +65,6 @@ export const blockStyleClasses: SiteChangeSource = {
 		}
 		let bare: Record< string, string[] >;
 		try {
-			await connectToDaemon();
 			const output = await runWpCli( site, [ 'eval', BARE ] );
 			bare = JSON.parse(
 				output.slice( output.indexOf( 'BARE_STYLE_CLASSES=' ) + 'BARE_STYLE_CLASSES='.length )
@@ -74,8 +72,6 @@ export const blockStyleClasses: SiteChangeSource = {
 		} catch {
 			// Code that does not load is reported by what runs it.
 			return { reports: [] };
-		} finally {
-			await disconnectFromDaemon();
 		}
 		const found = Object.entries( bare ).map( ( [ block, where ] ) => {
 			const [ name, style ] = block.split( ' ' );

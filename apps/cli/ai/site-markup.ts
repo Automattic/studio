@@ -10,7 +10,6 @@ import { mkdir, readdir, rm, writeFile } from 'fs/promises';
 import path from 'path';
 import { readWordPressSite } from 'cli/ai/site-database';
 import { resolveSite } from 'cli/ai/tools/utils';
-import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
@@ -84,15 +83,10 @@ $saved = wp_update_post( wp_slash( array( 'ID' => ${ id }, 'post_content' => fil
 		file
 	) } ) ) ), true );
 if ( is_wp_error( $saved ) ) { fwrite( STDERR, $saved->get_error_message() ); exit( 1 ); }`;
-	try {
-		await connectToDaemon();
-		await using command = await runWpCliCommand( site, [ 'eval', php ] );
-		const exitCode = await command.response.exitCode;
-		if ( exitCode !== 0 ) {
-			throw new Error( `wp eval exited ${ exitCode }` );
-		}
-	} finally {
-		await disconnectFromDaemon();
+	await using command = await runWpCliCommand( site, [ 'eval', php ] );
+	const exitCode = await command.response.exitCode;
+	if ( exitCode !== 0 ) {
+		throw new Error( `wp eval exited ${ exitCode }` );
 	}
 }
 

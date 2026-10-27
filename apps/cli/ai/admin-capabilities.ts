@@ -28,7 +28,6 @@ import { activeCode } from 'cli/ai/active-code';
 import { describeRemoteFonts, REMOTE_STYLES, type RemoteStyles } from 'cli/ai/remote-font-styles';
 import { runWpCli } from 'cli/ai/tools/utils';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
-import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import type { SiteChangeSource, Versions } from 'cli/ai/site-changes';
 import type { WordPressSite } from 'cli/ai/site-database';
 import type { SiteData } from 'cli/lib/cli-config/core';
@@ -262,11 +261,10 @@ async function readSiteCodeFact( sitePath: string ): Promise< string | undefined
 		return undefined;
 	}
 	try {
-		await connectToDaemon();
-		const [ withCode, core ] = [
-			await askWordPress( site, [] ),
-			await askWordPress( site, [ '--skip-plugins', '--skip-themes' ] ),
-		];
+		const [ withCode, core ] = await Promise.all( [
+			askWordPress( site, [] ),
+			askWordPress( site, [ '--skip-plugins', '--skip-themes' ] ),
+		] );
 		return describeSiteCode(
 			Object.fromEntries(
 				Object.entries( withCode.registered ).map( ( [ registry, names ] ) => [
@@ -278,8 +276,6 @@ async function readSiteCodeFact( sitePath: string ): Promise< string | undefined
 	} catch {
 		// Code that does not load is reported by what runs it.
 		return undefined;
-	} finally {
-		await disconnectFromDaemon();
 	}
 }
 
@@ -307,15 +303,14 @@ export const adminCapabilities: SiteChangeSource = {
 		let core: Awaited< ReturnType< typeof askWordPress > >;
 		let without: Awaited< ReturnType< typeof askWordPress > >;
 		try {
-			await connectToDaemon();
-			withCode = await askWordPress( site, [] );
-			core = await askWordPress( site, [ '--skip-plugins', '--skip-themes' ] );
-			without = changed.length ? await askWordPress( site, skipping( changed ) ) : withCode;
+			[ withCode, core, without ] = await Promise.all( [
+				askWordPress( site, [] ),
+				askWordPress( site, [ '--skip-plugins', '--skip-themes' ] ),
+				changed.length ? askWordPress( site, skipping( changed ) ) : undefined,
+			] ).then( ( [ code, coreOnly, skipped ] ) => [ code, coreOnly, skipped ?? code ] );
 		} catch {
 			// Code that does not load is reported by what runs it.
 			return { reports: [] };
-		} finally {
-			await disconnectFromDaemon();
 		}
 		const denied = Object.fromEntries(
 			Object.entries( withCode.denied.caps ).filter( ( [ cap ] ) => ! ( cap in core.denied.caps ) )

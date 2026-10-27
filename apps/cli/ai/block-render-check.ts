@@ -19,7 +19,6 @@ import { readPosts, readVersions } from 'cli/ai/post-content-check';
 import { readWordPressSite } from 'cli/ai/site-database';
 import { themeMarkupFiles } from 'cli/ai/site-markup';
 import { runWpCli } from 'cli/ai/tools/utils';
-import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import type { ChangeReport, SiteChangeSource, Versions } from 'cli/ai/site-changes';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
@@ -118,15 +117,10 @@ echo 'FRONT_EMPTY=' . wp_json_encode( array_values( array_unique( $names ) ) );`
 
 /** The blocks of the front page that render as nothing for a visitor who is not logged in. */
 async function frontPageEmptyBlocks( site: SiteData ): Promise< string[] > {
-	try {
-		await connectToDaemon();
-		const output = await runWpCli( site, [ 'eval', RENDER_FRONT_PAGE ] );
-		return JSON.parse(
-			output.slice( output.indexOf( 'FRONT_EMPTY=' ) + 'FRONT_EMPTY='.length )
-		) as string[];
-	} finally {
-		await disconnectFromDaemon();
-	}
+	const output = await runWpCli( site, [ 'eval', RENDER_FRONT_PAGE ] );
+	return JSON.parse(
+		output.slice( output.indexOf( 'FRONT_EMPTY=' ) + 'FRONT_EMPTY='.length )
+	) as string[];
 }
 
 const FILE = 'file ';
@@ -173,15 +167,10 @@ export async function emptyBlocks(
 	site: SiteData,
 	ids: number[]
 ): Promise< Record< string, EmptyBlock[] > > {
-	try {
-		await connectToDaemon();
-		const output = await runWpCli( site, [ 'eval', RENDER( ids ) ] );
-		return JSON.parse(
-			output.slice( output.indexOf( 'EMPTY_BLOCKS=' ) + 'EMPTY_BLOCKS='.length )
-		) as Record< string, EmptyBlock[] >;
-	} finally {
-		await disconnectFromDaemon();
-	}
+	const output = await runWpCli( site, [ 'eval', RENDER( ids ) ] );
+	return JSON.parse(
+		output.slice( output.indexOf( 'EMPTY_BLOCKS=' ) + 'EMPTY_BLOCKS='.length )
+	) as Record< string, EmptyBlock[] >;
 }
 
 // Whether the block is one written without the saved HTML its attributes are read from.

@@ -110,6 +110,7 @@ async function validatePost(
 
 export const postContentChanges: SiteChangeSource = {
 	name: 'posts',
+	saves: true,
 	read: readVersions,
 	async check( site, before, after ) {
 		const changed = Object.keys( after ).filter( ( id ) => before[ id ] !== after[ id ] );

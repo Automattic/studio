@@ -75,6 +75,7 @@ const titleOf = ( slug: string ) => {
 
 export const templatePartAreas: SiteChangeSource = {
 	name: 'template-part-areas',
+	saves: true,
 	async read( sitePath ) {
 		const root = path.join( sitePath, 'wp-content', 'themes' );
 		const versions: Versions = {};

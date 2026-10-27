@@ -26,7 +26,6 @@ import { isUpdatableTheme, wordPressOrgNamesake } from 'cli/ai/themes';
 import { captureScreenshotBuffer } from 'cli/ai/tools/screenshot-helpers';
 import { resolveSite } from 'cli/ai/tools/utils';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
-import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 
 export interface SiteFile {
@@ -428,16 +427,11 @@ export async function clearThemePatternCache( siteFile: SiteFile ): Promise< str
 		return [];
 	}
 	const site = await resolveSite( siteRoot );
-	try {
-		await connectToDaemon();
-		await using command = await runWpCliCommand( site, [
-			'eval',
-			`wp_get_theme( ${ JSON.stringify( theme.slug ) } )->delete_pattern_cache();`,
-		] );
-		await command.response.exitCode;
-	} finally {
-		await disconnectFromDaemon();
-	}
+	await using command = await runWpCliCommand( site, [
+		'eval',
+		`wp_get_theme( ${ JSON.stringify( theme.slug ) } )->delete_pattern_cache();`,
+	] );
+	await command.response.exitCode;
 	return [];
 }
 

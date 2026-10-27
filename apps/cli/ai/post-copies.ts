@@ -113,6 +113,7 @@ export async function postCopiesFact( site: WordPressSite ): Promise< string | u
 
 export const postCopies: SiteChangeSource = {
 	name: 'post copies',
+	saves: true,
 	// Writes the copy of each post that has none, or whose post changed while
 	// the copy did not, and returns each post's version and its copy's hash.
 	async read( sitePath ) {

@@ -19,7 +19,6 @@ import { activeCodeVersion } from 'cli/ai/active-code';
 import { unregisteredInEditor } from 'cli/ai/block-validator';
 import { runWpCli } from 'cli/ai/tools/utils';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
-import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import type { SiteChangeSource } from 'cli/ai/site-changes';
 
 const KEY = 'block editor scripts';
@@ -63,7 +62,6 @@ export const blockEditorScripts: SiteChangeSource = {
 		}
 		let without: Record< string, string[] >;
 		try {
-			await connectToDaemon();
 			const output = await runWpCli( site, [ 'eval', WITHOUT ] );
 			without = JSON.parse(
 				output.slice( output.indexOf( 'WITHOUT_EDITOR_SCRIPT=' ) + 'WITHOUT_EDITOR_SCRIPT='.length )
@@ -71,8 +69,6 @@ export const blockEditorScripts: SiteChangeSource = {
 		} catch {
 			// Code that does not load is reported by what runs it.
 			return { reports: [] };
-		} finally {
-			await disconnectFromDaemon();
 		}
 		const names = Object.keys( without ).length
 			? await unregisteredInEditor( Object.keys( without ), getSiteUrl( site ) ).catch( () =>

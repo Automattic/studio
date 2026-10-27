@@ -14,7 +14,6 @@ import { readRenderedVersions } from 'cli/ai/block-render-check';
 import { siteMarkup, saveMarkup, placeOf } from 'cli/ai/site-markup';
 import { isUpdatableTheme } from 'cli/ai/themes';
 import { runWpCli } from 'cli/ai/tools/utils';
-import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import type { SiteChangeSource } from 'cli/ai/site-changes';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
@@ -98,6 +97,7 @@ const linkTo = ( url: string ) =>
 
 export const sectionLinks: SiteChangeSource = {
 	name: 'section links',
+	saves: true,
 	read: readRenderedVersions,
 	async check( site, before, after ) {
 		if ( Object.keys( after ).every( ( key ) => before[ key ] === after[ key ] ) ) {
@@ -106,7 +106,6 @@ export const sectionLinks: SiteChangeSource = {
 		let front: Rendered;
 		let other: Rendered;
 		try {
-			await connectToDaemon();
 			front = await render( site, FRONT_PAGE );
 			const sections = Object.keys( front.links ).filter( ( url ) =>
 				front.ids.includes( url.slice( 1 ) )
@@ -118,8 +117,6 @@ export const sectionLinks: SiteChangeSource = {
 		} catch {
 			// A site WordPress cannot render for says nothing, as a failed note does.
 			return { reports: [] };
-		} finally {
-			await disconnectFromDaemon();
 		}
 		const broken = Object.keys( front.links ).filter(
 			( url ) => front.ids.includes( url.slice( 1 ) ) && ! other.ids.includes( url.slice( 1 ) )

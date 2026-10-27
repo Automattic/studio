@@ -18,7 +18,6 @@ import { readdir, stat } from 'fs/promises';
 import path from 'path';
 import { readThemeHeader } from 'cli/ai/themes';
 import { runWpCli } from 'cli/ai/tools/utils';
-import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import type { ChangeReport, SiteChangeSource, Versions } from 'cli/ai/site-changes';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
@@ -38,15 +37,10 @@ foreach ( ${ JSON.stringify( themes ) } as $slug ) {
 echo 'THEME_ERRORS=' . wp_json_encode( (object) $errors );`;
 
 async function errorsOf( site: SiteData, themes: string[] ): Promise< Record< string, string > > {
-	try {
-		await connectToDaemon();
-		const output = await runWpCli( site, [ 'eval', ERRORS( themes ) ] );
-		return JSON.parse(
-			output.slice( output.indexOf( 'THEME_ERRORS=' ) + 'THEME_ERRORS='.length )
-		) as Record< string, string >;
-	} finally {
-		await disconnectFromDaemon();
-	}
+	const output = await runWpCli( site, [ 'eval', ERRORS( themes ) ] );
+	return JSON.parse(
+		output.slice( output.indexOf( 'THEME_ERRORS=' ) + 'THEME_ERRORS='.length )
+	) as Record< string, string >;
 }
 
 const exists = ( file: string ) => stat( file ).then( Boolean, () => false );

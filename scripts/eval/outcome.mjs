@@ -591,6 +591,14 @@ export const storeHasProducts = check( ( d, vars ) => {
 // its WordPress.org release, and headings use a serif face.
 // Both places WordPress keeps a customization through the theme's updates: a
 // child theme, or the Site Editor's Global Styles (the wp_global_styles post).
+// The site runs the theme the user asked for (vars.theme).
+export const runsTheTheme = check( ( d, vars ) => {
+	const { stylesheet } = site( d, vars ).theme;
+	return stylesheet === vars.theme
+		? pass( `the site runs ${ stylesheet }` )
+		: fail( `the site runs ${ stylesheet }, not ${ vars.theme }, the theme the user asked for` );
+} );
+
 export const customizedThroughChildTheme = check( ( d, vars ) => {
 	const s = site( d, vars );
 	const child = s.theme.template === vars.parentTheme && s.theme.stylesheet !== vars.parentTheme;

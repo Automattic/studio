@@ -150,6 +150,28 @@ tests:
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
 
+  - description: single-page variant default theme
+    vars:
+      caseId: single-page-variant-default-theme
+      timeoutMs: 600000
+      theme: twentytwentyfive
+      prompt: |
+        Make a one-page site for my yoga studio, Still Water. Keep the default
+        WordPress theme, just give it our colors: sage green and cream.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:builtFrontPage
+      - type: javascript
+        value: file://outcome.mjs:runsTheTheme
+      - type: javascript
+        value: file://outcome.mjs:siteHasItsOwnDesign
+      - type: javascript
+        value: file://outcome.mjs:turnsAreResponsive
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
   - description: single-page variant bakery
     vars:
       caseId: single-page-variant-bakery

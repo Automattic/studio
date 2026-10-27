@@ -389,6 +389,20 @@ describe( 'site checks', () => {
 		);
 	} );
 
+	describe( 'runsTheTheme', () => {
+		test.each( [
+			{ stylesheet: 'twentytwentyfive', pass: true },
+			{ stylesheet: 'still-water', pass: false },
+		] )( '$stylesheet', ( { stylesheet, pass } ) => {
+			const result = run(
+				checks.runsTheTheme,
+				outcome( { ...workingSite, theme: { stylesheet, template: stylesheet } } ),
+				{ theme: 'twentytwentyfive' }
+			);
+			expect( result.pass ).toBe( pass );
+		} );
+	} );
+
 	describe( 'siteHasItsOwnDesign', () => {
 		const font = ( src ) => ( {
 			settings: {

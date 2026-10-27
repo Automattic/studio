@@ -228,6 +228,34 @@ function getOpcacheRootDir(): string {
 	return opcacheRootDir;
 }
 
+// Only Windows gets an opcache file cache. There, a process that can't attach to
+// the shared memory segment falls back to the file cache (#3343). Elsewhere each
+// process keeps its own in-memory cache, and the file cache would start empty on
+// every start, so writing it only slows the workers down.
+function getOpcacheFileCacheArgs(
+	phpVersion: SupportedPHPVersion,
+	workerIndex: number | undefined
+): string[] {
+	if ( process.platform !== 'win32' ) {
+		return [];
+	}
+
+	// Partition the file_cache directory by PHP version to match the cache_id
+	// already pinned in php.ini — opcache's on-disk script blob format isn't
+	// stable across minor versions and reusing a cache populated by a different
+	// PHP can crash the server at startup.
+	// Server workers also get a directory each: a worker reading an entry another
+	// worker is still writing segfaults under CPU load (STU-2484).
+	const versionCacheDirectory = path.join( getOpcacheRootDir(), `php${ phpVersion }` );
+	const cacheDirectory =
+		workerIndex === undefined
+			? versionCacheDirectory
+			: path.join( versionCacheDirectory, `worker-${ workerIndex }` );
+	fs.mkdirSync( cacheDirectory, { recursive: true } );
+
+	return [ '-d', `opcache.file_cache="${ cacheDirectory }"` ];
+}
+
 type DefaultPhpArgsOptions = {
 	openBasedir?: string[];
 	disallowRiskyFunctions?: boolean;
@@ -249,26 +277,12 @@ export function getDefaultPhpArgs(
 		emailDirectory,
 	}: DefaultPhpArgsOptions = {}
 ): string[] {
-	// Partition the file_cache directory by PHP version to match the cache_id
-	// already pinned in php.ini — opcache's on-disk script blob format isn't
-	// stable across minor versions and reusing a cache populated by a different
-	// PHP can crash the server at startup.
-	// Server workers also get a directory each: a worker reading an entry another
-	// worker is still writing segfaults under CPU load (STU-2484).
-	const versionCacheDirectory = path.join( getOpcacheRootDir(), `php${ phpVersion }` );
-	const cacheDirectory =
-		workerIndex === undefined
-			? versionCacheDirectory
-			: path.join( versionCacheDirectory, `worker-${ workerIndex }` );
-	fs.mkdirSync( cacheDirectory, { recursive: true } );
-
 	// `-c` points the binary at our php.ini and short-circuits the default
 	// ini search, so host PHP installations (and PHPRC) can't leak in
 	const args: string[] = [
 		'-c',
 		getNativePhpIniPath( phpVersion ),
-		'-d',
-		`opcache.file_cache="${ cacheDirectory }"`,
+		...getOpcacheFileCacheArgs( phpVersion, workerIndex ),
 	];
 
 	if ( enableXdebug ) {

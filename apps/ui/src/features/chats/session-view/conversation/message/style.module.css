@@ -68,11 +68,11 @@
 	max-width: min( 85%, 32rem );
 	padding: var( --space-3 ) var( --space-4 );
 	overflow: hidden;
-	border-radius: var( --radius-2xl );
 	overflow-wrap: break-word;
 }
 
 .userText {
+	composes: surface from '../bubble.module.css';
 	background-color: var( --primary );
 	color: var( --primary-foreground );
 }
@@ -82,24 +82,9 @@
 }
 
 .assistantBubble {
+	composes: surface from '../bubble.module.css';
 	width: fit-content;
 	background-color: var( --muted );
-}
-
-.userTurn[data-joined-above] .userText {
-	border-start-end-radius: var( --radius-sm );
-}
-
-.userTurn[data-joined-below] .userText {
-	border-end-end-radius: var( --radius-sm );
-}
-
-.assistantTurn[data-joined-above] .assistantBubble {
-	border-start-start-radius: var( --radius-sm );
-}
-
-.assistantTurn[data-joined-below] .assistantBubble {
-	border-end-start-radius: var( --radius-sm );
 }
 
 .userAttachments {

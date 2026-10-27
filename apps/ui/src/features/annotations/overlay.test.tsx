@@ -138,7 +138,7 @@ describe( 'AnnotationOverlay', () => {
 				expect( images().map( ( item ) => item.name ) ).toEqual( [ 'four.png' ] )
 			);
 			expect( getVisibleToasts().map( ( toast ) => toast.title ) ).toContain(
-				'You can attach up to 4 images.'
+				'You can attach up to 4 images'
 			);
 		} );
 

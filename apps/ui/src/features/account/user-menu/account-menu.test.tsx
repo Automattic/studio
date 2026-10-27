@@ -171,7 +171,7 @@ describe( 'AccountMenu', () => {
 		connector.logout.mockRejectedValueOnce( new Error( 'Network down' ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: TEST_USER.displayName } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Log out' } ) );
-		expect( await screen.findByText( 'Could not log out.' ) ).toBeVisible();
+		expect( await screen.findByText( 'Could not log out' ) ).toBeVisible();
 		expect( screen.getByText( 'Network down' ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: TEST_USER.displayName } ) ).toBeVisible();
 	} );

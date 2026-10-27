@@ -37,6 +37,7 @@ type RenderItem =
 			messageText: string;
 			copyText?: string;
 			streaming?: boolean;
+			persistent?: boolean;
 	  }
 	| {
 			kind: 'tool-use';
@@ -57,12 +58,12 @@ type RenderItem =
 			widgets: StudioChatArtifactWidgetDraft[];
 	  }
 	| { kind: 'progress'; key: string; text: string }
-	| { kind: 'interrupted-marker'; key: string }
 	| { kind: 'error-marker'; key: string; message: string };
 
-// The line that closes a turn with how long it ran.
+// A turn’s collapsible activity and elapsed time.
 export interface TurnActivity {
 	kind: 'activity';
+	items: Exclude< RenderItem, { kind: 'progress' } >[];
 	key: string;
 	startedAt: number | null;
 	endedAt: number | null;
@@ -317,12 +318,7 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 
 		if ( isStudioCustomEntryOfType( entry, 'studio.turn_closed' ) ) {
 			const data = ( entry as StudioCustomEntry< 'studio.turn_closed' > ).data;
-			if ( data?.status === 'interrupted' ) {
-				items.push( {
-					kind: 'interrupted-marker',
-					key: `${ entryIndex }:interrupted`,
-				} );
-			} else if ( data?.status === 'error' ) {
+			if ( data?.status === 'error' ) {
 				items.push( {
 					kind: 'error-marker',
 					key: `${ entryIndex }:error`,
@@ -342,8 +338,8 @@ function getTimestamp( entry: SessionEntry | undefined ): number | null {
 }
 
 /**
- * Keeps each turn's items in the order they ran and closes the turn with a
- * line for how long it took. Tool progress shows only under a running turn.
+ * Groups each turn’s commentary and tools beneath its elapsed-time header.
+ * Questions retain their position; the renderer keeps them outside collapsible panels.
  */
 export function entriesToTranscriptItems(
 	entries: SessionEntry[],
@@ -383,7 +379,7 @@ export function entriesToTranscriptItems(
 		const worked = turnItems.some(
 			( item ) => item.kind === 'tool-use' || item.kind === 'progress'
 		);
-		const visible = turnItems.flatMap( ( item ): TranscriptItem[] => {
+		const visible = turnItems.flatMap( ( item ): Exclude< RenderItem, { kind: 'progress' } >[] => {
 			if ( item.kind === 'progress' ) {
 				return [];
 			}
@@ -392,13 +388,45 @@ export function entriesToTranscriptItems(
 		if (
 			! worked &&
 			! running &&
-			( ! prompt || ( ! closed && ! visible.some( ( item ) => item.kind === 'assistant-text' ) ) )
+			! closed &&
+			( ! prompt || ! visible.some( ( item ) => item.kind === 'assistant-text' ) )
 		) {
 			return visible;
 		}
 		const status = closed?.data?.status;
-		visible.push( {
+		const lastAssistant = [ ...visible ]
+			.reverse()
+			.find( ( item ) => item.kind === 'assistant-text' );
+		const finalEntry =
+			! running && ( ! status || status === 'success' ) && lastAssistant
+				? entryIndexOf( lastAssistant )
+				: null;
+		const lastActionEntry = Math.max(
+			-1,
+			...visible
+				.filter( ( item ) => item.kind === 'tool-use' || item.kind === 'agent-question-batch' )
+				.map( entryIndexOf )
+		);
+		const activityItems = visible
+			.filter(
+				( item ) =>
+					item.kind === 'tool-use' ||
+					item.kind === 'agent-question-batch' ||
+					item.kind === 'assistant-text'
+			)
+			.map( ( item ) =>
+				item.kind === 'assistant-text' &&
+				finalEntry !== null &&
+				finalEntry > lastActionEntry &&
+				entryIndexOf( item ) === finalEntry
+					? { ...item, persistent: true }
+					: item
+			);
+		const activityKeys = new Set( activityItems.map( ( item ) => item.key ) );
+		const outside = visible.filter( ( item ) => ! activityKeys.has( item.key ) );
+		const activity: TurnActivity = {
 			kind: 'activity',
+			items: activityItems,
 			key: `${ start }:activity`,
 			startedAt: ( running ? run.startedAt : null ) ?? getTimestamp( prompt ),
 			endedAt: running ? null : getTimestamp( closed ?? turnEntries[ turnEntries.length - 1 ] ),
@@ -409,8 +437,9 @@ export function entriesToTranscriptItems(
 				: status === 'error' || status === 'max_turns'
 				? 'error'
 				: 'success',
-		} );
-		return visible;
+		};
+		const prompts = outside.filter( ( item ) => item.kind === 'user-text' );
+		return [ ...prompts, activity, ...outside.filter( ( item ) => item.kind !== 'user-text' ) ];
 	} );
 }
 
@@ -422,12 +451,6 @@ export function getProgressMessage( entries: SessionEntry[] ): string | null {
 		: null;
 }
 
-// Consecutive messages from the same side read as one group.
 export function getSender( item: TranscriptItem | undefined ) {
-	if ( item?.kind === 'user-text' ) {
-		return 'user';
-	}
-	return item?.kind === 'assistant-text' || item?.kind === 'agent-question-batch'
-		? 'assistant'
-		: undefined;
+	return item ? ( item.kind === 'user-text' ? 'user' : 'assistant' ) : undefined;
 }

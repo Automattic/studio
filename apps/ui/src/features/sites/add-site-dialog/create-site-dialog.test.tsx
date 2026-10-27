@@ -41,7 +41,10 @@ function setup( {
 	const connector = createFakeConnector(
 		{ preferences: { newSiteBehavior: behavior } },
 		{
-			createSite: async () => site,
+			createSite: async () => {
+				connector.state.sites = [ ...connector.state.sites, site ];
+				return site;
+			},
 			fetchSyncableWpcomSites: async () => [ remote ],
 			getFilePath: async () => '/tmp/upload/backup.zip',
 		}
@@ -166,6 +169,8 @@ describe( 'Add site flow', () => {
 			'aria-disabled',
 			'true'
 		);
+		expect( screen.getByRole( 'status', { name: 'Creating site' } ) ).toBeInTheDocument();
+		expect( screen.queryByText( 'Creating site…' ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Close Add site' } ) ).toHaveAttribute(
 			'aria-disabled',
 			'true'
@@ -178,15 +183,24 @@ describe( 'Add site flow', () => {
 		expect( screen.queryByLabelText( 'Site name' ) ).not.toBeInTheDocument();
 		fireEvent.keyDown( document.activeElement!, { key: 'Escape', code: 'Escape' } );
 		expect( screen.getByRole( 'dialog', { name: 'Add site' } ) ).toBeInTheDocument();
-		await act( async () => complete( site ) );
+		await act( async () => {
+			connector.state.sites = [ ...connector.state.sites, site ];
+			complete( site );
+		} );
 		await created( history );
 	} );
 
-	it( 'shows creation failures in details and lets the user retry', async () => {
+	it( 'shows creation failures only in the top-level notice and lets the user retry', async () => {
 		const { connector, history } = setup();
 		connector.createSite.mockRejectedValueOnce( new Error( 'Creation interrupted' ) );
 		await useBlueprint();
 		expect( await screen.findByText( 'Creation interrupted' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Couldn’t create site: Portfolio' ) ).toBeInTheDocument();
+		expect(
+			within( screen.getByRole( 'dialog', { name: 'Add site' } ) ).queryByText(
+				'Creation interrupted'
+			)
+		).not.toBeInTheDocument();
 		expect( screen.queryByLabelText( 'Site name' ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Create site' } ) ).toBeEnabled();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Create site' } ) );

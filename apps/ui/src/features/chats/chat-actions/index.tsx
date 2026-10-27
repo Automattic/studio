@@ -48,9 +48,6 @@ import {
 import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 
-export const getArchiveBlockedReason = () =>
-	__( 'Wait for active chats and queued prompts to finish.' );
-
 export function useLeaveArchivedChat() {
 	const navigate = useNavigate();
 	const { data: sites } = useSites();
@@ -89,6 +86,7 @@ export function useLeaveArchivedChat() {
 		const [ next ] = orderChats(
 			( sessions ?? [] ).filter(
 				( session ) =>
+					!! session.firstPrompt &&
 					! session.archived &&
 					! archivedIds.includes( session.id ) &&
 					aiSessionBelongsToSite( session, site )
@@ -203,16 +201,11 @@ export function ChatActionsMenuItems( {
 				</>
 			) : null }
 			<Menu.Separator />
-			<Menu.Group>
-				{ actions.archiveBlocked ? (
-					<Menu.GroupLabel>{ getArchiveBlockedReason() }</Menu.GroupLabel>
-				) : null }
-				<Menu.Item disabled={ actions.archiveBlocked } onClick={ () => void actions.archive() }>
-					<ArchiveIcon />
-					{ __( 'Archive' ) }
-					<Menu.Shortcut>{ displayShortcut.primaryShift( 'a' ) }</Menu.Shortcut>
-				</Menu.Item>
-			</Menu.Group>
+			<Menu.Item disabled={ actions.archiveBlocked } onClick={ () => void actions.archive() }>
+				<ArchiveIcon />
+				{ __( 'Archive' ) }
+				<Menu.Shortcut>{ displayShortcut.primaryShift( 'a' ) }</Menu.Shortcut>
+			</Menu.Item>
 		</>
 	);
 }

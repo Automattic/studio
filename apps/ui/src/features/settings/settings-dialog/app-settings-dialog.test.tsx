@@ -157,9 +157,37 @@ describe( 'WordPress Studio settings', () => {
 		{ showRecentChats: false },
 		{ autoStartSiteOnChat: true },
 		{ autoCollapseSites: false },
+		{ sidebarPinnedSort: 'manual' as const },
+		{ sidebarSiteSort: 'status' as const },
+		{ sidebarChatSort: 'manual' as const },
 	] )( 'enables interface reset for changed preferences: %j', async ( preferences ) => {
 		await setup( { preferences } );
 		expect( await screen.findByRole( 'button', { name: 'Reset interface' } ) ).toBeEnabled();
+	} );
+
+	it( 'restores sidebar sorting without removing pins or saved chat order', async () => {
+		const sidebarPins = [ 'site:one' ];
+		const sidebarChatOrder = { one: [ 'chat-one', 'chat-two' ] };
+		const { connector } = await setup( {
+			preferences: {
+				sidebarPinnedSort: 'manual',
+				sidebarSiteSort: 'status',
+				sidebarChatSort: 'manual',
+				sidebarPins,
+				sidebarChatOrder,
+			},
+		} );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Reset interface' } ) );
+		await waitFor( () => {
+			expect( connector.state.preferences ).toMatchObject( {
+				sidebarPinnedSort: 'type',
+				sidebarSiteSort: 'manual',
+				sidebarChatSort: 'updated',
+				sidebarPins,
+				sidebarChatOrder,
+			} );
+		} );
+		expect( screen.getByRole( 'button', { name: 'Reset interface' } ) ).toBeDisabled();
 	} );
 
 	it( 'resets only interface preferences and saved panel widths', async () => {
@@ -381,7 +409,7 @@ describe( 'WordPress Studio settings', () => {
 	it( 'says so when a linked setting is not available on this device', async () => {
 		await setup( { section: 'general&settingsFocus=future-setting' } );
 		expect(
-			await screen.findByText( 'This setting is not available on this device.' )
+			await screen.findByText( 'This setting is not available on this device' )
 		).toBeVisible();
 	} );
 
@@ -816,7 +844,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Copy MCP configuration' } ) );
 		await waitFor( () =>
 			expect( getNoticeHistory()[ 0 ] ).toMatchObject( {
-				title: 'Could not copy.',
+				title: 'Could not copy',
 				description: 'Clipboard unavailable',
 			} )
 		);

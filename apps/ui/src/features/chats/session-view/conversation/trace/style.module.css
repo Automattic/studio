@@ -3,10 +3,6 @@
 	flex-direction: column;
 }
 
-.toolRow + .toolRow {
-	margin-top: calc( var( --space-4 ) * -1 );
-}
-
 .toolDetails {
 	display: flex;
 	flex-direction: column;
@@ -25,8 +21,8 @@
 .activityProgress {
 	composes: truncate from '@/lib/theme/recipes.module.css';
 	color: var( --muted-foreground );
-	font-size: var( --text-xs );
-	line-height: var( --text-xs--line-height );
+	font-size: var( --text-sm );
+	line-height: var( --text-sm--line-height );
 	opacity: 0.8;
 }
 
@@ -37,8 +33,8 @@
 	min-width: 0;
 	max-width: 100%;
 	color: var( --muted-foreground );
-	font-size: var( --text-xs );
-	line-height: var( --text-xs--line-height );
+	font-size: var( --text-sm );
+	line-height: var( --text-sm--line-height );
 }
 
 .traceLine svg {
@@ -85,19 +81,16 @@
 
 .traceChevron {
 	flex: none;
+	rotate: -90deg;
 	transition: rotate var( --motion-duration-feedback ) ease;
 }
 
 .traceTrigger[aria-expanded='true'] .traceChevron {
-	rotate: 90deg;
+	rotate: 0deg;
 }
 
 .traceChevron:dir( rtl ) {
-	scale: -1 1;
-}
-
-.traceTrigger[aria-expanded='true'] .traceChevron:dir( rtl ) {
-	rotate: -90deg;
+	rotate: 90deg;
 }
 
 .toolCode pre {
@@ -107,4 +100,15 @@
 .toolOutput {
 	font: inherit;
 	white-space: pre-wrap;
+}
+
+.activityContent {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-1 );
+	padding-block-start: var( --space-1 );
+}
+
+.activityContent[data-separated] {
+	padding-block-start: var( --space-3 );
 }

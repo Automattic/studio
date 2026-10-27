@@ -79,6 +79,7 @@ describe( 'WordPress Server Manager', () => {
 	} );
 
 	afterEach( () => {
+		vi.useRealTimers();
 		vi.unstubAllEnvs();
 		vi.restoreAllMocks();
 	} );
@@ -457,6 +458,7 @@ describe( 'WordPress Server Manager', () => {
 				return Promise.resolve();
 			} );
 
+			vi.useFakeTimers( { toFake: [ 'setTimeout', 'clearTimeout' ] } );
 			const promise = stopWordPressServer( 'test-site-id' );
 
 			setTimeout( () => {
@@ -465,10 +467,12 @@ describe( 'WordPress Server Manager', () => {
 					event: 'exit',
 				} );
 			}, 500 );
-
+			await vi.advanceTimersByTimeAsync( 500 );
 			await promise;
 
 			expect( vi.mocked( daemonClient.stopProcess ) ).not.toHaveBeenCalled();
+			// A timer left running would keep `studio site stop` alive after the site is down.
+			expect( vi.getTimerCount() ).toBe( 0 );
 		} );
 
 		it( 'should wait for the process to exit after falling back to `stopProcess`', async () => {

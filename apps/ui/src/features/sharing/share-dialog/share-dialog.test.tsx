@@ -293,7 +293,7 @@ describe( 'ShareDialog', () => {
 		await waitFor( () => expect( isUnread( trigger ) ).toBe( true ), SETTLE );
 		expect( isPublishing( trigger ) ).toBe( false );
 		expect( trigger ).toHaveAccessibleDescription( 'Preview ready' );
-		expect( getNoticeHistory()[ 0 ].title ).toBe( 'My site preview ready' );
+		expect( getNoticeHistory()[ 0 ].title ).toBe( 'Preview link is ready' );
 		fireEvent.click( trigger );
 		await screen.findByRole( 'button', { name: 'Copy link' } );
 		await waitFor( () => expect( isUnread( trigger ) ).toBe( false ) );

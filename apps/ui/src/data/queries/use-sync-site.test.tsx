@@ -93,7 +93,7 @@ describe( 'usePullSiteFromLive', () => {
 		expect( latestNotice() ).toMatchObject( {
 			intent: 'success',
 			title: 'Changes pulled into Demo Site',
-			action: { label: 'View site' },
+			action: { label: 'View' },
 		} );
 	} );
 
@@ -144,8 +144,8 @@ describe( 'usePullSiteFromLive', () => {
 	} );
 
 	it.each( [
-		[ 'pull', true, 'Pulling didn’t finish', "WordPress Studio couldn't copy the live site." ],
-		[ 'import', false, "Import didn't complete", "WordPress Studio couldn't import this backup." ],
+		[ 'pull', true, 'Pulling didn’t finish', "Couldn't copy the live site." ],
+		[ 'import', false, "Import didn't complete", "Couldn't import this backup." ],
 	] as const )(
 		'shows plain language for a failed %s (logs available: %s)',
 		async ( direction, studioLogs, title, copy ) => {
@@ -168,9 +168,7 @@ describe( 'usePullSiteFromLive', () => {
 				title,
 				description: expect.stringContaining( copy ),
 			} );
-			expect( latestNotice().action?.label ).toBe(
-				studioLogs ? 'Open WordPress Studio Logs' : undefined
-			);
+			expect( latestNotice().action?.label ).toBe( studioLogs ? 'Open logs' : undefined );
 			expect( console.error ).toHaveBeenCalledWith( 'Sync activity failed:', direction, rawError );
 			await latestNotice().action?.onClick();
 			expect( connector.openStudioLogs ).toHaveBeenCalledTimes( studioLogs ? 1 : 0 );

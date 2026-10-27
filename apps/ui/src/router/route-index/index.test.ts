@@ -26,6 +26,7 @@ function createSession( overrides: Partial< AiSessionSummary > = {} ): AiSession
 		ownerSiteName: 'Site One',
 		activeEnvironment: 'local',
 		eventCount: 1,
+		firstPrompt: 'Existing message',
 		...overrides,
 	};
 }

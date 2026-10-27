@@ -3,36 +3,45 @@ import { clsx } from 'clsx';
 import {
 	useSidebarCollapsed,
 	useSidebarOpen,
+	useSidebarHover,
 	useToggleSidebar,
 } from '@/data/use-sidebar-collapsed';
 import { AppMessageCardsDot } from '@/features/notifications';
-import { CollapsedSiteSwitcher } from '@/features/sidebar/collapsed-site-switcher';
 import { SidebarIcon } from '@/lib/icons';
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import styles from './style.module.css';
 
 export function SidebarToggle() {
 	const collapsed = ! useSidebarOpen();
+	const undocked = useSidebarCollapsed();
 	const toggleSidebar = useToggleSidebar();
-	// Not IconButton: while collapsed this is the site switcher's trigger, and
-	// IconButton's unconditional tooltip would fight the hover-opened popover.
+	const hover = useSidebarHover();
 	const control = (
 		<Button
 			variant="ghost"
 			size="icon"
-			aria-label={ collapsed ? __( 'Show sidebar' ) : __( 'Hide sidebar' ) }
-			aria-expanded={ collapsed ? undefined : true }
+			aria-label={ collapsed || hover.peek ? __( 'Show sidebar' ) : __( 'Hide sidebar' ) }
+			aria-expanded={ ! collapsed || hover.peek }
 			data-sidebar-toggle
 			onClick={ toggleSidebar }
+			onPointerEnter={ ( event ) => {
+				if ( event.pointerType === 'mouse' ) hover.onEnter();
+			} }
+			onPointerLeave={ hover.onLeave }
 		>
-			<SidebarIcon expanded={ ! collapsed } />
+			<SidebarIcon
+				className={ styles.icon }
+				state={
+					hover.peek || ( undocked && ! collapsed ) ? 'flyout' : collapsed ? 'closed' : 'docked'
+				}
+			/>
 		</Button>
 	);
 
 	return (
 		<span className={ styles.root }>
-			{ collapsed ? (
-				<CollapsedSiteSwitcher onToggleSidebar={ toggleSidebar } trigger={ control } />
+			{ collapsed || hover.peek ? (
+				control
 			) : (
 				<Tooltip>
 					<TooltipTrigger render={ control } />
@@ -52,6 +61,7 @@ export function HeaderSidebarToggle() {
 	return (
 		<span
 			className={ clsx( styles.headerSlot, collapsed && styles.headerSlotVisible ) }
+			data-sidebar-header-slot
 			inert={ ! collapsed }
 		>
 			<SidebarToggle />

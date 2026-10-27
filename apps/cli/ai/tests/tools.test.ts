@@ -550,7 +550,7 @@ describe( 'Studio AI MCP tools', () => {
 			} as never );
 
 			const [ wpcom, ...others ] = JSON.parse( getTextContent( result ) ?? '[]' );
-			expect( others ).toEqual( [] );
+			expect( others.map( ( host: { host: string } ) => host.host ) ).toEqual( [ 'spacefast' ] );
 			expect( {
 				host: wpcom.host,
 				name: wpcom.name,

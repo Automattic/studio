@@ -1,8 +1,11 @@
 import { Type } from 'typebox';
-import { HOST_IDS, HOSTS } from 'cli/ai/hosts';
+import { HOST_IDS, HOSTS, type HostId } from 'cli/ai/hosts';
 import { parseSyncOptions } from 'cli/lib/sync-api';
 import { defineTool, REMOTE_OVERWRITE } from './define-tool';
 import { captureCommandOutput, resolveSite, textResult } from './utils';
+
+// The hosts that serve WordPress, so a local site can be pulled from them.
+const PULL_HOSTS = HOST_IDS.filter( ( id ) => HOSTS[ id ].pull ) as [ HostId, ...HostId[] ];
 
 export const pullSiteTool = defineTool(
 	'site_pull',
@@ -15,7 +18,7 @@ export const pullSiteTool = defineTool(
 		nameOrPath: Type.String( { description: 'The local site name or file system path' } ),
 		host: Type.Optional(
 			Type.Union(
-				HOST_IDS.map( ( id ) => Type.Literal( id ) ),
+				PULL_HOSTS.map( ( id ) => Type.Literal( id ) ),
 				{
 					description:
 						'The host the remote site is on, from site_publish_targets. Defaults to "wpcom".',
@@ -36,10 +39,14 @@ export const pullSiteTool = defineTool(
 		try {
 			const site = await resolveSite( args.nameOrPath );
 			const syncOptions = parseSyncOptions( args.options ?? 'all' );
+			const host = HOSTS[ args.host ?? 'wpcom' ];
+			if ( ! host.pull ) {
+				throw new Error( `${ host.name } serves static copies, which cannot be pulled.` );
+			}
+			const pull = host.pull.bind( host );
 
 			const result = await captureCommandOutput(
-				( logger ) =>
-					HOSTS[ args.host ?? 'wpcom' ].pull( site.path, args.remoteSite, syncOptions, logger ),
+				( logger ) => pull( site.path, args.remoteSite, syncOptions, logger ),
 				context.onProgress
 			);
 			const output = result.consoleOutput || result.progressOutput || 'Pull completed.';

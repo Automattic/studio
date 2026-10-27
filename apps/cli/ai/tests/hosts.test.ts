@@ -31,12 +31,12 @@ describe( 'stored site selections', () => {
 
 it( "states each host's sites in the Environment section as before hosts", () => {
 	expect( buildSystemPrompt() ).toContain(
-		"- Studio runs the user's local WordPress sites on this computer. Each one is a complete WordPress install in its own folder: WordPress core (`wp-includes/`, `wp-admin/`) and every installed theme and plugin (`wp-content/`) are on disk, and are the reference for how WordPress behaves.\n- The user's WordPress.com sites are live sites, reached through the WordPress.com REST API.\n- The active site is the one the user has open in Studio."
+		"- Studio runs the user's local WordPress sites on this computer. Each one is a complete WordPress install in its own folder: WordPress core (`wp-includes/`, `wp-admin/`) and every installed theme and plugin (`wp-content/`) are on disk, and are the reference for how WordPress behaves.\n- The user's WordPress.com sites are live sites, reached through the WordPress.com REST API.\n- A Spacefast space holds a static copy of a local site: its pages, styles and media as files, with no WordPress behind them.\n- The active site is the one the user has open in Studio."
 	);
 } );
 
 it( "states each host's sites in the Environment section an external agent gets", () => {
 	expect( buildSystemPrompt( { external: true } ) ).toContain(
-		"are the reference for how WordPress behaves.\n- The user's WordPress.com sites are live sites, reached through the WordPress.com REST API.\n- Studio's skills are runbooks"
+		"are the reference for how WordPress behaves.\n- The user's WordPress.com sites are live sites, reached through the WordPress.com REST API.\n- A Spacefast space holds a static copy of a local site: its pages, styles and media as files, with no WordPress behind them.\n- Studio's skills are runbooks"
 	);
 } );

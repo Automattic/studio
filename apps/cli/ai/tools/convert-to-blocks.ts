@@ -188,6 +188,9 @@ async function installSupportStylesheets(
 		groups.set( key, [ ...( groups.get( key ) ?? [] ), content ] );
 	}
 	const written: string[] = [];
+	if ( groups.size === 0 ) {
+		return written;
+	}
 	await mkdir( path.join( themeDirectory, SUPPORT_DIRECTORY ), { recursive: true } );
 	for ( const [ key, contents ] of groups ) {
 		const css = contents.join( '\n' );
@@ -195,9 +198,6 @@ async function installSupportStylesheets(
 		const file = `${ SUPPORT_DIRECTORY }/${ key }.${ hash }.css`;
 		await writeFile( path.join( themeDirectory, file ), css );
 		written.push( file );
-	}
-	if ( written.length === 0 ) {
-		return written;
 	}
 	await writeFile( path.join( themeDirectory, SUPPORT_LOADER ), SUPPORT_LOADER_PHP );
 	written.push( SUPPORT_LOADER );

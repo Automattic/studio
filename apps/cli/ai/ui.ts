@@ -63,8 +63,11 @@ import type { AskUserQuestion, SiteInfo } from 'cli/ai/types';
 
 const SITE_PICKER_TAB_LOCAL = 'local' as const;
 type SitePickerTab = typeof SITE_PICKER_TAB_LOCAL | HostId;
-// The local sites, then each host's.
-const SITE_PICKER_TABS: SitePickerTab[] = [ SITE_PICKER_TAB_LOCAL, ...HOST_IDS ];
+// The local sites, then the sites of each host Studio works on.
+const SITE_PICKER_TABS: SitePickerTab[] = [
+	SITE_PICKER_TAB_LOCAL,
+	...HOST_IDS.filter( ( id ) => HOSTS[ id ].sites ),
+];
 
 const sitePickerTheme: SelectListTheme = {
 	selectedPrefix: ( text ) => theme.fg( 'accent', text ),
@@ -640,7 +643,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.renderSitePicker();
 
 		const host = HOSTS[ hostId ];
-		const listing = await host.list();
+		const listing = ( await host.sites?.list() ) ?? { signedIn: true, sites: [] };
 		if ( this.sitePickerTab !== hostId ) {
 			return;
 		}

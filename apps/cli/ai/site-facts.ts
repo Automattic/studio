@@ -81,5 +81,7 @@ export async function readActiveSiteFacts( site?: SiteInfo | null ): Promise< st
 	if ( ! site ) {
 		return [];
 	}
-	return site.remote ? hostOf( site.remote ).facts( site ) : readSiteFacts( site.path );
+	return site.remote
+		? ( await hostOf( site.remote ).sites?.facts( site ) ) ?? []
+		: readSiteFacts( site.path );
 }

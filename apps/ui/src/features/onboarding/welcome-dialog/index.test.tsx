@@ -1,56 +1,145 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { WHATS_NEW_VERSION } from '@/features/onboarding/whats-new/content';
 import { createFakeConnector, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { Connector } from '@/data/core';
 
 async function firstLaunch( { signedIn = false, overrides = {} as Partial< Connector > } = {} ) {
 	const view = renderApp( {
-		connector: createFakeConnector( signedIn ? {} : { user: null }, {
-			getOnboardingCompleted: async () => false,
-			...overrides,
-		} ),
+		connector: createFakeConnector(
+			{ user: signedIn ? TEST_USER : null },
+			{
+				getOnboardingCompleted: async () => false,
+				getOnboardingHints: async () => ( {} ),
+				...overrides,
+			}
+		),
 	} );
-	await screen.findByRole( 'alertdialog', { name: 'Welcome to WordPress Studio' } );
+	await screen.findByRole( 'dialog', { name: 'Welcome to WordPress Studio' } );
+	await waitFor( () => expect( screen.getByRole( 'checkbox' ) ).toBeEnabled() );
 	return view;
 }
 
+afterEach( () => vi.restoreAllMocks() );
+
 describe( 'Welcome dialog', () => {
-	it( 'says what a WordPress.com account adds, and continues without one to Add site', async () => {
-		const { connector, history } = await firstLaunch();
-		expect( screen.getByText( 'With a free WordPress.com account' ) ).toBeVisible();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Continue without an account' } ) );
-		await waitFor( () =>
-			expect(
-				screen.queryByRole( 'alertdialog', { name: 'Welcome to WordPress Studio' } )
-			).not.toBeInTheDocument()
-		);
-		expect( connector.setOnboardingCompleted ).toHaveBeenCalledWith( true );
-		expect( history.location.search ).toContain( 'addSite=create' );
+	it( 'does not show Continue as loading while saving usage preferences', async () => {
+		const { connector } = await firstLaunch( {
+			overrides: { setUserPreferences: () => new Promise( () => {} ) },
+		} );
+		const button = screen.getByRole( 'button', { name: 'Continue with WordPress.com' } );
+		await waitFor( () => expect( button ).toBeEnabled() );
+		fireEvent.click( screen.getByRole( 'checkbox' ) );
+		await waitFor( () => expect( connector.setUserPreferences ).toHaveBeenCalled() );
+		expect( button ).toBeDisabled();
+		expect( button ).not.toHaveAttribute( 'aria-busy', 'true' );
 	} );
 
-	it( 'waits on the browser login until it settles', async () => {
-		let fail: ( error: Error ) => void = () => {};
+	it.each( [ 'Close', 'Not now' ] )(
+		'continues without authentication using %s',
+		async ( dismissLabel ) => {
+			const { connector, history } = await firstLaunch();
+			expect( screen.queryByText( 'Build from a prompt.' ) ).not.toBeInTheDocument();
+			expect( screen.queryByText( 'Sign up for free' ) ).not.toBeInTheDocument();
+			expect(
+				screen.getByRole( 'checkbox', { name: 'Share anonymous usage statistics' } )
+			).toBeVisible();
+			expect( screen.queryByRole( 'button', { name: 'Create account' } ) ).not.toBeInTheDocument();
+			fireEvent.click( screen.getByRole( 'button', { name: dismissLabel } ) );
+			await screen.findByRole( 'dialog', { name: 'Add site' } );
+			expect( connector.authenticate ).not.toHaveBeenCalled();
+			expect( connector.setOnboardingCompleted ).toHaveBeenCalledExactlyOnceWith( true );
+			expect( connector.setOnboardingHints ).toHaveBeenCalledWith( {
+				whatsNewSeenVersion: WHATS_NEW_VERSION,
+			} );
+			expect( history.location.search ).toContain( 'addSite=create' );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Close Add site' } ) );
+			expect(
+				await screen.findByText( 'Add a local WordPress site to get started.' )
+			).toBeVisible();
+		}
+	);
+
+	it( 'completes after confirmed authentication', async () => {
+		const { connector } = await firstLaunch();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Continue with WordPress.com' } ) );
+		await screen.findByRole( 'dialog', { name: 'Add site' } );
+		expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith( true, 'onboarding' );
+		expect( connector.setOnboardingCompleted ).toHaveBeenCalledExactlyOnceWith( true );
+	} );
+	it( 'completes onboarding on Escape', async () => {
+		const { connector } = await firstLaunch();
+		fireEvent.keyDown( screen.getByRole( 'dialog', { name: 'Welcome to WordPress Studio' } ), {
+			key: 'Escape',
+		} );
+		await screen.findByRole( 'dialog', { name: 'Add site' } );
+		expect( connector.setOnboardingCompleted ).toHaveBeenCalledExactlyOnceWith( true );
+	} );
+
+	it( 'stays on the welcome screen when OAuth closes without an account', async () => {
+		const { connector } = await firstLaunch( { overrides: { authenticate: async () => {} } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Continue with WordPress.com' } ) );
+		await waitFor( () =>
+			expect( screen.getByRole( 'button', { name: 'Continue with WordPress.com' } ) ).toBeEnabled()
+		);
+		expect( screen.getByRole( 'dialog', { name: 'Welcome to WordPress Studio' } ) ).toBeVisible();
+		expect( connector.setOnboardingCompleted ).not.toHaveBeenCalled();
+	} );
+
+	it( 'shows an authentication error and allows retry', async () => {
+		const { connector } = await firstLaunch();
+		connector.authenticate.mockRejectedValueOnce( new Error( 'Login window closed' ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Continue with WordPress.com' } ) );
+		expect( await screen.findByText( 'Login window closed' ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Continue with WordPress.com' } ) );
+		await screen.findByRole( 'dialog', { name: 'Add site' } );
+	} );
+
+	it( 'continues without OAuth when already signed in', async () => {
+		const { connector } = await firstLaunch( { signedIn: true } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Continue' } ) );
+		await screen.findByRole( 'dialog', { name: 'Add site' } );
+		expect( connector.authenticate ).not.toHaveBeenCalled();
+	} );
+
+	it( 'allows Not now while offline', async () => {
+		vi.spyOn( navigator, 'onLine', 'get' ).mockReturnValue( false );
+		await firstLaunch();
+		expect( screen.getByRole( 'button', { name: 'Continue with WordPress.com' } ) ).toBeDisabled();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Not now' } ) );
+		await screen.findByRole( 'dialog', { name: 'Add site' } );
+	} );
+
+	it( 'can save setup again after a persistence failure', async () => {
+		const { connector } = await firstLaunch();
+		connector.setOnboardingCompleted.mockRejectedValueOnce( new Error( 'Disk unavailable' ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Close' } ) );
+		expect(
+			await screen.findByText( 'Setup could not be saved. Please try again.' )
+		).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Close' } ) );
+		await screen.findByRole( 'dialog', { name: 'Add site' } );
+	} );
+
+	it( 'does not interrupt Add site if authentication finishes after closing', async () => {
+		let resolveLogin = () => {};
 		const { connector } = await firstLaunch( {
 			overrides: {
-				authenticate: () => new Promise( ( _resolve, reject ) => ( fail = reject ) ),
+				authenticate: () =>
+					new Promise< void >( ( resolve ) => {
+						resolveLogin = resolve;
+					} ),
 			},
 		} );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Log in with WordPress.com' } ) );
-		expect(
-			await screen.findByRole( 'button', { name: /Finish logging in in your browser/ } )
-		).toBeVisible();
-		expect( connector.authenticate ).toHaveBeenCalledWith( false, 'onboarding' );
-		act( () => fail( new Error( 'Login window closed' ) ) );
-		expect(
-			await screen.findByRole( 'button', { name: 'Log in with WordPress.com' } )
-		).toBeVisible();
-	} );
-
-	it( 'shows who is signed in, with Continue', async () => {
-		await firstLaunch( { signedIn: true } );
-		expect( await screen.findByText( TEST_USER.displayName ) ).toBeVisible();
-		expect( screen.getByRole( 'button', { name: 'Continue' } ) ).toBeVisible();
-		expect( screen.queryByText( 'With a free WordPress.com account' ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Continue with WordPress.com' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Close' } ) );
+		await screen.findByRole( 'dialog', { name: 'Add site' } );
+		await act( async () => {
+			connector.state.user = TEST_USER;
+			resolveLogin();
+		} );
+		expect( screen.getByRole( 'dialog', { name: 'Add site' } ) ).toBeVisible();
+		expect( connector.setOnboardingCompleted ).toHaveBeenCalledTimes( 1 );
 	} );
 } );

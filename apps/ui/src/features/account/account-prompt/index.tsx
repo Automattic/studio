@@ -1,9 +1,17 @@
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { useId, type RefObject } from 'react';
+import { useId, type ReactNode, type RefObject } from 'react';
 import { useLogin } from '@/data/queries/use-auth-user';
 import { useOffline } from '@/lib/hooks';
-import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, VisuallyHidden } from '@/lib/ui';
+import {
+	StudioIcon,
+	Button,
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	VisuallyHidden,
+} from '@/lib/ui';
 import site1 from './assets/site-1.png';
 import site2 from './assets/site-2.png';
 import site3 from './assets/site-3.png';
@@ -11,6 +19,28 @@ import styles from './style.module.css';
 import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 
 export const previewSiteImage = site2;
+
+function AccountPromptLayout( {
+	children,
+	flush,
+	className,
+}: {
+	children: ReactNode;
+	flush?: boolean;
+	className?: string;
+} ) {
+	return (
+		<div className={ clsx( styles.body, flush && styles.flush, className ) }>
+			<div aria-hidden="true" className={ styles.illustration }>
+				<span className={ styles.cardStart } style={ { backgroundImage: `url(${ site1 })` } } />
+				<span className={ styles.cardEnd } style={ { backgroundImage: `url(${ site3 })` } } />
+				<span className={ styles.cardCenter } style={ { backgroundImage: `url(${ site2 })` } } />
+				<StudioIcon className={ styles.studioIcon } />
+			</div>
+			{ children }
+		</div>
+	);
+}
 
 // Asks a signed-out user to create a WordPress.com account or log in before
 // something that needs one, like publishing or sharing.
@@ -20,36 +50,44 @@ export function AccountPrompt( {
 	descriptionId,
 	source,
 	onCreateAccount,
+	onAuthenticate,
+	onContinue,
+	onSkip,
+	busy,
+	disabled,
 	flush,
+	className,
 }: {
 	title: string;
-	description: string;
+	description?: string;
 	descriptionId?: string;
 	source: TracksAuthSource;
 	onCreateAccount?: () => void;
+	onAuthenticate?: () => void;
+	onContinue?: () => void;
+	onSkip?: () => void;
+	busy?: boolean;
+	disabled?: boolean;
 	/** Drops the offsets that space it inside a dialog, for a container that spaces it already. */
 	flush?: boolean;
+	className?: string;
 } ) {
 	const offline = useOffline();
 	const login = useLogin( { source } );
 	const signup = useLogin( { signup: true, source } );
-	const pending = login.isPending || signup.isPending;
+	const authenticating = login.isPending || signup.isPending;
+	const pending = authenticating || busy || disabled;
 	const error = login.error ?? signup.error;
 	return (
-		<div className={ clsx( styles.body, flush && styles.flush ) }>
-			<div aria-hidden="true" className={ styles.illustration }>
-				<span className={ styles.cardStart } style={ { backgroundImage: `url(${ site1 })` } } />
-				<span className={ styles.cardEnd } style={ { backgroundImage: `url(${ site3 })` } } />
-				<span className={ styles.cardCenter } style={ { backgroundImage: `url(${ site2 })` } } />
-			</div>
+		<AccountPromptLayout flush={ flush } className={ className }>
 			<h2 className={ styles.title }>{ title }</h2>
-			<p id={ descriptionId } className={ styles.description }>
-				{ offline
-					? __( 'Connect to the internet to create an account or log in.' )
-					: pending
-					? __( 'Finish creating your account or logging in to WordPress.com in your browser.' )
-					: description }
-			</p>
+			{ ( description || ( offline && ! onContinue ) ) && (
+				<p id={ descriptionId } className={ styles.description }>
+					{ offline && ! onContinue
+						? __( 'Connect to the internet to create an account or log in.' )
+						: description }
+				</p>
+			) }
 			{ error ? (
 				<p role="alert" className={ styles.error }>
 					{ error instanceof Error ? error.message : String( error ) }
@@ -58,26 +96,48 @@ export function AccountPrompt( {
 			<div className={ styles.actions }>
 				<Button
 					size="lg"
-					disabled={ offline || pending }
-					loading={ signup.isPending }
+					disabled={ ( ! onContinue && offline ) || pending }
+					loading={ signup.isPending || busy }
 					onClick={ () => {
-						onCreateAccount?.();
-						signup.mutate();
+						if ( onContinue ) {
+							onContinue();
+						} else {
+							onAuthenticate?.();
+							onCreateAccount?.();
+							signup.mutate();
+						}
 					} }
 				>
-					{ __( 'Create account' ) }
+					{ onContinue
+						? __( 'Continue' )
+						: onSkip
+						? __( 'Continue with WordPress.com' )
+						: __( 'Create account' ) }
 				</Button>
-				<Button
-					variant="inline-text"
-					size="inline"
-					disabled={ offline || pending }
-					loading={ login.isPending }
-					onClick={ () => login.mutate() }
-				>
-					{ __( 'Log in to WordPress.com' ) }
-				</Button>
+				{ ( onSkip || ! onContinue ) && (
+					<p className={ styles.loginPrompt }>
+						{ ! onSkip && <>{ __( 'Already have an account?' ) } </> }
+						<Button
+							className={ styles.login }
+							variant="inline-text"
+							size="inline"
+							disabled={ onSkip ? busy || disabled : offline || pending }
+							focusableWhenDisabled={ ! onSkip && login.isPending }
+							onClick={ () => {
+								if ( onSkip ) {
+									onSkip();
+								} else {
+									onAuthenticate?.();
+									login.mutate();
+								}
+							} }
+						>
+							{ onSkip ? __( 'Not now' ) : __( 'Log in' ) }
+						</Button>
+					</p>
+				) }
 			</div>
-		</div>
+		</AccountPromptLayout>
 	);
 }
 

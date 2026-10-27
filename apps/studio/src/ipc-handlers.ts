@@ -88,6 +88,10 @@ import {
 	listLocalFileTree as listSiteFileTree,
 } from '@studio/common/lib/sync/local-file-tree';
 import { supportedEditorConfig, SupportedEditor } from '@studio/common/lib/user-settings/editor';
+import {
+	readOnboardingCompleted,
+	writeOnboardingCompleted,
+} from '@studio/common/lib/user-settings/onboarding';
 import { openLinuxTerminal } from '@studio/common/lib/user-settings/open-linux-terminal';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import {
@@ -165,7 +169,7 @@ import { getDefaultSiteDirectory } from 'src/modules/user-settings/lib/ipc-handl
 import { linuxFindEditorPath } from 'src/modules/user-settings/lib/linux-editor-path';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { getSiteThumbnailPath } from 'src/storage/paths';
-import { updateAppdata, loadUserData } from 'src/storage/user-data';
+import { loadUserData } from 'src/storage/user-data';
 import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
 import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
@@ -1055,19 +1059,12 @@ export async function readLocalMediaFile(
 }
 
 export async function getOnboardingData( _event: IpcMainInvokeEvent ): Promise< boolean > {
-	const userData = await loadUserData();
-	const { onboardingCompleted = false } = userData;
-	return onboardingCompleted;
+	return readOnboardingCompleted();
 }
 
-export async function saveOnboarding( event: IpcMainInvokeEvent, onboardingCompleted: boolean ) {
-	const { onboardingCompleted: previous = false } = await loadUserData();
-	await updateAppdata( { onboardingCompleted } );
-
-	// Only on a real transition — a re-save must not look like a second user finishing onboarding.
-	if ( onboardingCompleted && ! previous ) {
+export async function saveOnboarding( _event: IpcMainInvokeEvent, onboardingCompleted: boolean ) {
+	if ( await writeOnboardingCompleted( onboardingCompleted ) ) {
 		await recordTracksEvent( TRACKS_EVENTS.ONBOARDING_COMPLETE, {
-			// Whether they leave onboarding with an account, which is what "skipped" really meant.
 			authenticated: await oauthClient.isAuthenticated(),
 		} );
 	}

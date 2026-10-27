@@ -15,12 +15,7 @@ import { pathForSite, useSessionPreviewUI } from '@/data/use-session-ui';
 import { requestAnnotationSend } from '@/features/annotations';
 import { SiteWorkspace } from '@/features/chats';
 import { CommandPalette } from '@/features/commands';
-import {
-	useOrientationAutostart,
-	useOrientationReplay,
-	useWhatsNewAutostart,
-	useWhatsNewReplay,
-} from '@/features/onboarding';
+import { useWhatsNewAutostart, useWhatsNewReplay } from '@/features/onboarding';
 import { SidebarLayout, HeaderSidebarToggle, rememberVisit } from '@/features/sidebar';
 import { PreviewSplitFrame, type PreviewSplitFramePreviewProps } from '@/features/sites';
 import {
@@ -67,11 +62,6 @@ function DashboardLayout() {
 	const { sessionId, homeSiteId, newSessionSiteId } = routePreviewContext;
 	const { data: sites } = useSites();
 	const { data: sessionData } = useSession( sessionId );
-	// Open the orientation guide on first workbench arrival, and let Help ▸
-	// Getting Started replay it.
-	useOrientationAutostart();
-	useOrientationReplay();
-	// Same, for the per-release announcements behind Help ▸ What's New.
 	useWhatsNewAutostart();
 	useWhatsNewReplay();
 	const preview = useSessionPreviewUI();

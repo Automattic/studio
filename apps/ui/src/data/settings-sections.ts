@@ -149,6 +149,11 @@ function getStudioSections( signedIn: boolean ): Section[] {
 					'studio-cli'
 				),
 				setting(
+					__( 'What’s New' ),
+					__( 'See the latest improvements to WordPress Studio.' ),
+					'whats-new'
+				),
+				setting(
 					__( 'Documentation' ),
 					__( 'Guides for building and managing sites with WordPress Studio.' ),
 					'documentation'

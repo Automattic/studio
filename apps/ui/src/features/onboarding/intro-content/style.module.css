@@ -1,0 +1,91 @@
+.dialog {
+	display: flex;
+	flex-direction: column;
+	width: 480px;
+	max-width: calc( 100vw - 32px );
+	max-height: calc( 100dvh - 32px );
+	overflow-y: auto;
+	gap: var( --space-6 );
+	padding: var( --space-8 );
+}
+
+.header {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-2 );
+}
+
+.appIcon {
+	margin-bottom: var( --space-4 );
+}
+
+.title {
+	font-size: var( --text-2xl );
+	font-weight: var( --font-weight-semibold );
+	line-height: var( --leading-tight );
+	text-wrap: balance;
+}
+
+.features {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-5 );
+}
+
+.feature {
+	display: flex;
+	align-items: flex-start;
+	gap: var( --space-4 );
+}
+
+.featureIcon {
+	display: flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: var( --space-8 );
+	height: var( --space-8 );
+	color: var( --accent-text );
+}
+
+.featureIcon svg {
+	width: var( --space-6 );
+	height: var( --space-6 );
+}
+
+.featureTitle {
+	font-size: var( --text-sm );
+	font-weight: var( --font-weight-medium );
+}
+
+.featureDescription {
+	margin-top: var( --space-1 );
+	font-size: var( --text-sm );
+	line-height: var( --leading-normal );
+	color: var( --muted-foreground );
+}
+
+.actions {
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var( --space-2 );
+}
+
+.primary {
+	min-width: 128px;
+}
+
+.close {
+	position: absolute;
+	top: var( --space-3 );
+	inset-inline-end: var( --space-3 );
+}
+
+@media ( width < 640px ) {
+	.dialog {
+		padding: var( --space-6 );
+		gap: var( --space-5 );
+	}
+}

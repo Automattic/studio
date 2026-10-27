@@ -13,7 +13,7 @@ import { useAutoStartSites, useSyncSitesWithEvents } from '@/data/queries/use-si
 import { useSyncSnapshotsWithEvents } from '@/data/queries/use-snapshots';
 import { useSyncActivityEvents } from '@/data/queries/use-sync-site';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
-import { OnboardingGuideProvider } from '@/features/onboarding';
+import { WhatsNewProvider } from '@/features/onboarding';
 import { useSyncConnectSiteListener } from '@/features/sync';
 import { applyTheme } from '@/lib/theme';
 import { DirectionProvider, TooltipProvider } from '@/lib/ui';
@@ -55,7 +55,7 @@ function ThemedApp( { children }: PropsWithChildren ) {
 		<DirectionProvider direction={ isRTL() ? 'rtl' : 'ltr' }>
 			<LucideProvider size={ 16 }>
 				<TooltipProvider>
-					<OnboardingGuideProvider>{ children }</OnboardingGuideProvider>
+					<WhatsNewProvider>{ children }</WhatsNewProvider>
 				</TooltipProvider>
 			</LucideProvider>
 		</DirectionProvider>

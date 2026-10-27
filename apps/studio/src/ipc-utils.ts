@@ -19,7 +19,6 @@ export interface IpcEvents {
 	'snapshot-event': [ SnapshotEvent ];
 	'sync-activity': [ SyncEvent ];
 	'show-whats-new': [ void ];
-	'show-getting-started': [ void ];
 	'sync-connect-site': [
 		{
 			remoteSiteId: number;

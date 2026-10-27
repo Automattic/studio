@@ -598,10 +598,6 @@ export interface Connector {
 	getOnboardingHints(): Promise< OnboardingHintsState >;
 	setOnboardingHints( partial: Partial< OnboardingHintsState > ): Promise< void >;
 
-	// Fires when the user picks Help ▸ Getting Started in the application menu
-	// (desktop only). No-ops where there's no OS menu.
-	onShowGettingStarted( listener: () => void ): () => void;
-
 	// Fires when the user picks Help ▸ What's New in the application menu
 	// (desktop only). No-ops where there's no OS menu.
 	onShowWhatsNew( listener: () => void ): () => void;

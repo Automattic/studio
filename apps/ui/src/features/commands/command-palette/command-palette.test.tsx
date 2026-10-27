@@ -555,14 +555,12 @@ describe( 'Command palette in the Studio workspace', () => {
 		);
 	} );
 
-	it( 'replays What’s New from the palette and marks it seen when skipped', async () => {
+	it( 'replays What’s New from the palette and marks it seen when closed', async () => {
 		const { connector } = setup();
 		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
 		await paletteCommand( 'new features', /^What’s New/ );
-		expect(
-			await screen.findByRole( 'dialog', { name: 'Meet the new WordPress Studio' } )
-		).toBeVisible();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Skip' } ) );
+		expect( await screen.findByRole( 'dialog', { name: 'What’s New in Studio' } ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Close' } ) );
 		await waitFor( () =>
 			expect( connector.setOnboardingHints ).toHaveBeenCalledWith(
 				expect.objectContaining( { whatsNewSeenVersion: expect.any( Number ) } )

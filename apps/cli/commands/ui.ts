@@ -21,6 +21,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					default: true,
 					description: __( 'Open the UI in your default browser' ),
 				} )
+				.option( 'allowed-origin', {
+					type: 'string',
+					array: true,
+					description: __(
+						'Also accept requests from this origin, such as a forwarded port in a GitHub Codespace'
+					),
+				} )
 				.option( 'path', { hidden: true } ),
 		handler: async ( argv ) => {
 			// `@studio/local` is bundled into the CLI from source (see the vite
@@ -55,6 +62,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				sessionsRoot: getSessionsDirectory(),
 				sitesRoot: STUDIO_SITES_ROOT,
 				port: argv.port as number | undefined,
+				allowedOrigins: argv.allowedOrigin as string[] | undefined,
 				uiDist,
 				// The CLI wrapper owns the opt-out and the common props.
 				recordTracksEvent: ( event, props ) =>

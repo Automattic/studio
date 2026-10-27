@@ -4,6 +4,16 @@
 	"features": {
 		"ghcr.io/devcontainers/features/node:1": { "version": "24.22.1" }
 	},
-	"postCreateCommand": "npm ci && npm run cli:build",
+	"postCreateCommand": "npm ci && npm run cli:build:ui",
+	"postStartCommand": "bash .devcontainer/start-studio-ui.sh",
+	"containerEnv": {
+		// Without it, sites never start: `localhost` resolves to ::1 first here, while the PHP server readiness check uses 127.0.0.1.
+		"NODE_OPTIONS": "--dns-result-order=ipv4first"
+	},
+	"forwardPorts": [ 8081 ],
+	"portsAttributes": {
+		"8081": { "label": "Studio", "onAutoForward": "openBrowser" }
+	},
+	"otherPortsAttributes": { "onAutoForward": "silent" },
 	"hostRequirements": { "cpus": 4, "memory": "8gb" }
 }

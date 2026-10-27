@@ -12,6 +12,7 @@ beforeAll( async () => {
 		sessionsRoot: path.join( os.tmpdir(), 'studio-test-sessions' ),
 		sitesRoot: path.join( os.tmpdir(), 'studio-test-sites' ),
 		port: 0,
+		allowedOrigins: [ 'https://studio-8081.app.github.dev' ],
 	} );
 } );
 
@@ -39,4 +40,8 @@ function statusFor( hostHeader: string ): Promise< number | undefined > {
 it( 'only answers requests addressed to a local name', async () => {
 	expect( await statusFor( `localhost:${ server.port }` ) ).toBe( 200 );
 	expect( await statusFor( `rebound.example:${ server.port }` ) ).toBe( 403 );
+} );
+
+it( 'answers requests addressed to an allowed origin', async () => {
+	expect( await statusFor( 'studio-8081.app.github.dev' ) ).toBe( 200 );
 } );

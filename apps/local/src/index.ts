@@ -196,6 +196,9 @@ export interface LocalServerOptions {
 	// Host to bind. Defaults to loopback (127.0.0.1) — the server is
 	// unauthenticated and must not be reachable from the network.
 	host?: string;
+	// Extra origins the UI is reached through, such as a forwarded port in a
+	// GitHub Codespace. Their hosts pass the loopback host check too.
+	allowedOrigins?: string[];
 	// Path to the built browser UI (apps/ui `dist-local`). Served when present
 	// so the server is the only process needed; omitted in dev (Vite serves it).
 	uiDist?: string;
@@ -453,10 +456,15 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	// A website can point its own name at 127.0.0.1 (DNS rebinding) and then call
 	// this unauthenticated API same-origin, so on loopback only requests
-	// addressed to a local name get through.
+	// addressed to a local name or an allowed origin get through.
+	const extraOrigins = ( options.allowedOrigins ?? [] ).map( ( origin ) => new URL( origin ) );
+	const allowedHostnames = new Set( [
+		...LOCAL_HOSTNAMES,
+		...extraOrigins.map( ( url ) => url.hostname ),
+	] );
 	if ( isLoopbackHost( host ) ) {
 		app.use( ( req: Request, res: Response, next ) => {
-			if ( ! LOCAL_HOSTNAMES.has( req.hostname ) ) {
+			if ( ! allowedHostnames.has( req.hostname ) ) {
 				res.status( 403 ).json( { error: 'Host not allowed' } );
 				return;
 			}
@@ -478,6 +486,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'http://localhost:5400',
 		// The studio.local custom-domain setup.
 		'https://studio.local',
+		...extraOrigins.map( ( url ) => url.origin ),
 	] );
 	app.use( ( req: Request, res: Response, next ) => {
 		const origin = req.headers.origin;

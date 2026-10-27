@@ -1,0 +1,31 @@
+name: Codespaces PR Link
+
+# Comments a link that opens the PR in a Codespace running `studio ui`
+# (see .devcontainer). Runs no code from the PR, so it is safe for forks.
+on:
+  pull_request_target:
+    types: [opened]
+    paths:
+      - 'apps/ui/**'
+      - 'apps/local/**'
+      - 'apps/cli/**'
+      - 'packages/common/**'
+
+permissions:
+  pull-requests: write
+
+jobs:
+  comment:
+    if: ${{ github.actor != 'wpmobilebot' && github.actor != 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh pr comment "$PR_NUMBER" --body-file - <<EOF
+          [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/$GH_REPO/pull/$PR_NUMBER?quickstart=1)
+
+          Try this PR in a Codespace: Studio opens in a new tab on the forwarded port 8081 once the build finishes (a few minutes the first time). To sign in, run \`node apps/cli/dist/cli/main.mjs auth login\` in the Codespace terminal. Site previews need the Codespace opened in VS Code Desktop, which forwards site ports to your own \`localhost\`.
+          EOF

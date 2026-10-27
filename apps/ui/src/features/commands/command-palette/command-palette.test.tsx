@@ -475,7 +475,7 @@ describe( 'Command palette in the Studio workspace', () => {
 		expect( connector.openSiteUrl ).toHaveBeenCalledExactlyOnceWith( 'one', '/', {
 			autoLogin: false,
 		} );
-		await paletteCommand( 'export entire site', /^Export entire site/ );
+		await paletteCommand( 'export site', /^Export site/ );
 		await waitFor( () =>
 			expect( connector.exportFullSite ).toHaveBeenCalledExactlyOnceWith( 'one' )
 		);

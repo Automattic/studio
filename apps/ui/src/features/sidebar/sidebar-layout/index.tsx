@@ -102,15 +102,16 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 		window.addEventListener( PANEL_WIDTHS_RESET_EVENT, reopen );
 		return () => window.removeEventListener( PANEL_WIDTHS_RESET_EVENT, reopen );
 	}, [ closeSidebarFlyout, setCollapsed ] );
-	// When docking the sidebar would leave the content less than the chat and
-	// preview need, it opens over the content instead, closed by default. The
-	// docked state is kept for when the window widens again.
+	// A narrow window unpins the sidebar; widening it never pins it automatically.
 	const overlay = sidebarResize.viewportWidth - sidebarResize.width < PREVIEW_SPLIT_MIN_WIDTH;
-	useEffect( () => clearHoverTimer, [ overlay, clearHoverTimer ] );
+	useEffect( () => {
+		if ( overlay ) setCollapsed( true );
+		return clearHoverTimer;
+	}, [ overlay, setCollapsed, clearHoverTimer ] );
 	const [ wasOverlay, setWasOverlay ] = useState( overlay );
 	if ( wasOverlay !== overlay ) {
 		setWasOverlay( overlay );
-		setSidebarFlyoutState( 'closed' );
+		setSidebarFlyoutState( ! overlay && sidebarFlyoutState !== 'closed' ? 'hover' : 'closed' );
 	}
 	const docked = ! overlay && ! collapsed;
 	const open = docked || sidebarFlyoutOpen;

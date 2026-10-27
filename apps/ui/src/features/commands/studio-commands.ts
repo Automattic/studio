@@ -1,13 +1,6 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { __, sprintf } from '@wordpress/i18n';
-import {
-	PanelLeftIcon,
-	PencilIcon,
-	PlusIcon,
-	RefreshCwIcon,
-	SettingsIcon,
-	SparklesIcon,
-} from 'lucide-react';
+import { PencilIcon, PlusIcon, RefreshCwIcon, SettingsIcon, SparklesIcon } from 'lucide-react';
 import { getSections } from '@/data/settings-sections';
 import { getSessionTitle } from '@/features/chats';
 import {
@@ -18,6 +11,7 @@ import {
 	CollapseAllIcon,
 	GlobeIcon,
 	PinIcon,
+	SidebarIcon,
 	UnpinIcon,
 } from '@/lib/icons';
 import { DEFAULT_COLOR_TINT } from '@/lib/theme';
@@ -186,7 +180,7 @@ export function getAppCommands( {
 			id: 'sidebar',
 			group: 'commands',
 			label: sidebarOpen ? __( 'Hide sidebar' ) : __( 'Show sidebar' ),
-			icon: PanelLeftIcon,
+			icon: SidebarIcon,
 			keywords: [ __( 'Toggle sidebar' ) ],
 			run: toggleSidebar,
 		},

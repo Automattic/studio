@@ -14,6 +14,7 @@ import { blockStyleClasses } from 'cli/ai/block-style-classes';
 import { blockTheme } from 'cli/ai/block-theme';
 import { childThemeCopies } from 'cli/ai/child-theme-copies';
 import { globalStylesFlag } from 'cli/ai/global-styles-flag';
+import { linksToNowhereChanges } from 'cli/ai/links-to-nowhere';
 import { postContentChanges } from 'cli/ai/post-content-check';
 import { postCopies } from 'cli/ai/post-copies';
 import { sectionLinks } from 'cli/ai/section-links';
@@ -78,6 +79,7 @@ const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
 	postContentChanges,
 	renderedBlocks,
 	sectionLinks,
+	linksToNowhereChanges,
 	updatableThemeChanges,
 	childThemeCopies,
 	blockTheme,

@@ -10,20 +10,20 @@
 import { NOT_FOUND, render } from 'cli/ai/home-section-links';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 
-// The header template part WordPress renders (wp-includes/blocks/template-part.php),
-// to its own closing tag, past any header inside it.
-function headerPart( html: string ): string | undefined {
-	const start = html.search( /<header\b[^>]*\bwp-block-template-part\b/ );
+// A header or footer template part WordPress renders (wp-includes/blocks/template-part.php),
+// to its own closing tag, past any element of the same tag inside it.
+export function templatePart( html: string, tag: 'header' | 'footer' ): string | undefined {
+	const start = html.search( new RegExp( `<${ tag }\\b[^>]*\\bwp-block-template-part\\b` ) );
 	if ( start < 0 ) {
 		return undefined;
 	}
-	const tags = /<(\/?)header\b/g;
+	const tags = new RegExp( `<(\\/?)${ tag }\\b`, 'g' );
 	tags.lastIndex = start;
 	let depth = 0;
-	for ( let tag = tags.exec( html ); tag; tag = tags.exec( html ) ) {
-		depth += tag[ 1 ] ? -1 : 1;
+	for ( let found = tags.exec( html ); found; found = tags.exec( html ) ) {
+		depth += found[ 1 ] ? -1 : 1;
 		if ( ! depth ) {
-			return html.slice( start, tag.index );
+			return html.slice( start, found.index );
 		}
 	}
 	return html.slice( start );
@@ -37,7 +37,7 @@ export async function headerMenu( sitePath: string ): Promise< string | undefine
 	}
 	const url = getSiteUrl( site ).replace( /\/$/, '' );
 	// Any page renders the header; one no post is renders only the template parts.
-	const header = headerPart( ( await render( `${ url }/${ NOT_FOUND }` ) ) ?? '' );
+	const header = templatePart( ( await render( `${ url }/${ NOT_FOUND }` ) ) ?? '', 'header' );
 	if ( ! header || /<nav\b/.test( header ) ) {
 		return undefined;
 	}

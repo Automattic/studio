@@ -19,9 +19,9 @@ export function AppMessageCards( { className }: { className?: string } ) {
 			{ messages.map( ( message ) => (
 				<div key={ message.id } className={ styles.cell }>
 					<NoticeCard
-						notice={ message }
+						notice={ { ...message, source: 'studio' } }
 						action={
-							message.purchaseCta ? <AddAiCreditsButton variant="default" size="sm" /> : undefined
+							message.purchaseCta ? <AddAiCreditsButton variant="outline" size="2xs" /> : undefined
 						}
 						onDismiss={ () => dismiss( message ) }
 					/>

@@ -103,7 +103,7 @@ export function UserMenu() {
 								onClick={ () =>
 									logout.mutate( undefined, {
 										onError: ( logoutError ) =>
-											toast.error( __( 'Could not log out.' ), {
+											toast.error( __( 'Could not log out' ), {
 												description: logoutError.message,
 											} ),
 									} )

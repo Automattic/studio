@@ -607,7 +607,7 @@ describe( 'Annotation attachments in the composer', () => {
 		const { onSend, input } = await setup( { annotationSiteId: SITE } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
 		expect( onSend ).not.toHaveBeenCalled();
-		expect( errorToasts() ).toContain( 'You can attach up to 4 images.' );
+		expect( errorToasts() ).toContain( 'You can attach up to 4 images' );
 		expect( input ).toHaveValue( 'Keep my instructions' );
 		expect( getSiteAnnotations( SITE ).notes ).toHaveLength( 1 );
 		expect( getComposerDraft( 'test' ).attachments ).toHaveLength( 1 );

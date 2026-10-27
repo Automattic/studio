@@ -67,7 +67,7 @@ export function BackupDropZone( { onFile }: { onFile: ( file: File ) => void } )
 		if ( ! isSupportedBackupFilename( file.name, ACCEPTED_ADD_SITE_FILE_TYPES ) ) {
 			setError(
 				__(
-					'This file type is not supported. Please use a .zip, .gz, .gzip, .tar, .tar.gz, .wpress, or .xml file.'
+					'This file type is not supported. Please use a .zip, .gz, .gzip, .tar, .tar.gz, .wpress, or .xml file'
 				)
 			);
 			return;

@@ -311,11 +311,11 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		try {
 			submission = composerSubmission( trimmed, attachments, sentNotes );
 		} catch ( error ) {
-			toast.error( ( error as Error ).message );
+			toast.error( ( error as Error ).message.replace( /\.$/, '' ) );
 			return;
 		}
 		if ( submission.options.images?.length && ! aiModelSupportsImages( model ) ) {
-			toast.error( __( 'Choose a model that supports images before sending these attachments.' ) );
+			toast.error( __( 'Choose a model that supports images before sending these attachments' ) );
 			return;
 		}
 		// Cleared up front so a composer remounted before the send is accepted

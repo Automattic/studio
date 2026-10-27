@@ -709,6 +709,8 @@ tests:
                 	$schema = (array) $schema;
                 	if ( isset( $schema['enum'] ) ) { return $schema['enum'][0]; }
                 	$type = (array) ( $schema['type'] ?? 'string' );
+                	// An ability that takes no input declares it as null.
+                	if ( array( 'null' ) === $type ) { return null; }
                 	if ( in_array( 'object', $type, true ) ) {
                 		$value = array();
                 		foreach ( (array) ( $schema['properties'] ?? array() ) as $key => $property ) { $value[ $key ] = $fill( $property ); }

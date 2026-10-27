@@ -340,6 +340,77 @@ async function renderHome( url: string ) {
  * so slides faded out or slid out of a clipped frame, as slideshows and
  * carousels hold them, are not.
  */
+// Each published page's forms that take a message (a textarea), filled in and
+// sent the way a visitor would, then where WordPress stored the message: the
+// post types and meta keys whose rows now hold its marker. Comment forms are
+// left alone; they are core's, not the page's.
+// What a visitor types into each kind of field.
+const VISITOR: Record< string, string > = {
+	text: 'Eval Visitor',
+	email: 'visitor@example.com',
+	url: 'https://example.com',
+	tel: '5555550100',
+	number: '1',
+};
+
+async function sendPageForms( sitePath: string, links: string[] ) {
+	const sent: Array< { page: string; marker: string; afterText: string; error?: string } > = [];
+	const browser = await getSharedBrowser();
+	for ( const link of links ) {
+		const page = await browser.newPage( { viewport: { width: 1280, height: 900 } } );
+		const marker = `studio-eval-message-${ sent.length + 1 }-${ Date.now() }`;
+		try {
+			await page.goto( link, { waitUntil: 'load', timeout: 30000 } );
+			const form = page.locator( 'form:has(textarea):not([action*="wp-comments-post"])' ).first();
+			if ( ! ( await form.count() ) ) continue;
+			await form.locator( 'textarea:visible' ).first().fill( marker );
+			for ( const field of await form.locator( 'input:visible' ).all() ) {
+				const type = ( await field.getAttribute( 'type' ) ) ?? 'text';
+				if ( type === 'checkbox' || type === 'radio' ) {
+					await field.check().catch( () => undefined );
+				} else if ( type in VISITOR ) {
+					await field.fill( VISITOR[ type ] );
+				}
+			}
+			await form
+				.locator( 'button[type="submit"], input[type="submit"], button:not([type])' )
+				.first()
+				.click();
+			await page.waitForLoadState( 'load' ).catch( () => undefined );
+			await page.waitForTimeout( 3000 );
+			sent.push( {
+				page: link,
+				marker,
+				afterText: ( await page.innerText( 'body' ) ).slice( 0, 2000 ),
+			} );
+		} catch ( error ) {
+			sent.push( {
+				page: link,
+				marker,
+				afterText: '',
+				error: error instanceof Error ? error.message : String( error ),
+			} );
+		} finally {
+			await page.close();
+		}
+	}
+	return Promise.all(
+		sent.map( async ( entry ) => {
+			const found = await wp( sitePath, [
+				'eval',
+				`global $wpdb; $like = '%' . $wpdb->esc_like( ${ JSON.stringify( entry.marker ) } ) . '%';
+echo 'STORED_JSON=' . wp_json_encode( array(
+	'postTypes' => $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT post_type FROM {$wpdb->posts} WHERE post_content LIKE %s OR post_title LIKE %s OR post_excerpt LIKE %s", $like, $like, $like ) ),
+	'metaKeys' => $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT meta_key FROM {$wpdb->postmeta} WHERE meta_value LIKE %s", $like ) ),
+	'optionNames' => $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_value LIKE %s", $like ) ),
+) ) . "\\n";`,
+			] ).catch( ( error ) => `STORED_JSON=${ JSON.stringify( { error: String( error ) } ) }` );
+			const stored = found.match( /STORED_JSON=(.*)/ );
+			return { ...entry, stored: stored ? JSON.parse( stored[ 1 ] ) : null };
+		} )
+	);
+}
+
 async function homeImageFrames( url: string ) {
 	try {
 		const browser = await getSharedBrowser();
@@ -459,6 +530,13 @@ async function captureSiteOutcome(
 		} else {
 			outcome.home = home;
 		}
+
+		const pages = ( state.content as Array< { type: string; link: string } > )
+			.filter( ( item ) => item.type === 'page' )
+			.map( ( item ) => item.link );
+		outcome.formsSent = await sendPageForms( sitePath, pages ).catch( ( error ) => [
+			{ error: error instanceof Error ? error.message : String( error ) },
+		] );
 
 		// Every published page, template and part, validated by the site's own editor.
 		const invalid: Array< { id: number; type: string; slug: string; blocks: string[] } > = [];

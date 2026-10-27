@@ -22,7 +22,8 @@ import {
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
-import { StudioArgv } from 'cli/types';
+import type { builder } from 'cli/commands/site/stop.command';
+import type { CommandArgs } from 'cli/types';
 
 const defaultLogger = new Logger< LoggerAction >();
 
@@ -151,36 +152,22 @@ async function stopSites(
 		await disconnectFromDaemon();
 	}
 }
-
-export const registerCommand = ( yargs: StudioArgv ) => {
-	return yargs.command( {
-		command: 'stop',
-		describe: __( 'Stop site(s)' ),
-		builder: ( yargs ) => {
-			return yargs.option( 'all', {
-				type: 'boolean',
-				describe: __( 'Stop all sites' ),
-				default: false,
-			} );
-		},
-		handler: async ( argv ) => {
-			try {
-				if ( argv.all ) {
-					await runCommand( Mode.STOP_ALL_SITES, undefined );
-				} else {
-					await runCommand( Mode.STOP_SINGLE_SITE, argv.path );
-				}
-			} catch ( error ) {
-				if ( error instanceof LoggerError ) {
-					defaultLogger.reportError( error );
-				} else {
-					const loggerError = new LoggerError(
-						argv.all ? __( 'Failed to stop sites' ) : __( 'Failed to stop site' ),
-						error
-					);
-					defaultLogger.reportError( loggerError );
-				}
-			}
-		},
-	} );
-};
+export async function commandHandler( argv: CommandArgs< typeof builder > ) {
+	try {
+		if ( argv.all ) {
+			await runCommand( Mode.STOP_ALL_SITES, undefined );
+		} else {
+			await runCommand( Mode.STOP_SINGLE_SITE, argv.path );
+		}
+	} catch ( error ) {
+		if ( error instanceof LoggerError ) {
+			defaultLogger.reportError( error );
+		} else {
+			const loggerError = new LoggerError(
+				argv.all ? __( 'Failed to stop sites' ) : __( 'Failed to stop site' ),
+				error
+			);
+			defaultLogger.reportError( loggerError );
+		}
+	}
+}

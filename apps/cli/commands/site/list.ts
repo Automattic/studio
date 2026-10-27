@@ -11,7 +11,8 @@ import { pickPublicSiteFields } from 'cli/lib/site-public-fields';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { getColumnWidths, getPrettyPath } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
-import { StudioArgv } from 'cli/types';
+import type { builder } from 'cli/commands/site/list.command';
+import type { CommandArgs } from 'cli/types';
 
 interface SiteListTableEntry {
 	id: string;
@@ -127,35 +128,15 @@ export async function runCommand( format: 'table' | 'json' ): Promise< void > {
 		await disconnectFromDaemon();
 	}
 }
-
-export const registerCommand = ( yargs: StudioArgv ) => {
-	return yargs.command( {
-		command: 'list',
-		describe: __( 'List sites' ),
-		builder: ( yargs ) => {
-			return yargs
-				.option( 'format', {
-					type: 'string',
-					choices: [ 'table', 'json' ] as const,
-					default: 'table' as const,
-					// translators: Refers to the output format of the `studio site list` CLI command ("table" or "json")
-					description: __( 'Output format' ),
-				} )
-				.option( 'path', {
-					hidden: true,
-				} );
-		},
-		handler: async ( argv ) => {
-			try {
-				await runCommand( argv.format );
-			} catch ( error ) {
-				if ( error instanceof LoggerError ) {
-					logger.reportError( error );
-				} else {
-					const loggerError = new LoggerError( __( 'Failed to list sites' ), error );
-					logger.reportError( loggerError );
-				}
-			}
-		},
-	} );
-};
+export async function commandHandler( argv: CommandArgs< typeof builder > ) {
+	try {
+		await runCommand( argv.format );
+	} catch ( error ) {
+		if ( error instanceof LoggerError ) {
+			logger.reportError( error );
+		} else {
+			const loggerError = new LoggerError( __( 'Failed to list sites' ), error );
+			logger.reportError( loggerError );
+		}
+	}
+}

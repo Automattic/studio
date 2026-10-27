@@ -26,7 +26,6 @@ import {
 	checkBackupSize,
 	fetchSyncableSites,
 	initiateBackup,
-	parseSyncOptions,
 	pollBackupStatus,
 	downloadBackup,
 } from 'cli/lib/sync-api';
@@ -40,10 +39,11 @@ import {
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
-import { StudioArgv } from 'cli/types';
 import { handleImportEvents } from './import';
 import type { SyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
 import type { SyncOption, SyncSite } from '@studio/common/types/sync';
+import type { builder } from 'cli/commands/pull.command';
+import type { CommandArgs } from 'cli/types';
 
 const defaultLogger = new Logger< LoggerAction >();
 
@@ -334,73 +334,35 @@ async function recordSyncPullEvent( props: SyncEventProps ): Promise< void > {
 		// Best-effort telemetry — never block or fail the pull.
 	}
 }
-
-export const registerCommand = ( yargs: StudioArgv ) => {
-	return yargs.command( {
-		command: 'pull',
-		describe: __( 'Pull a WordPress.com site to your local site' ),
-		builder: ( yargs ) => {
-			return yargs
-				.option( 'options', {
-					type: 'string',
-					description: __(
-						'Comma-separated sync options: all, sqls, uploads, plugins, themes, contents'
-					),
-					coerce: ( val: string | undefined ) =>
-						val !== undefined ? parseSyncOptions( val ) : undefined,
-				} )
-				.option( 'remote-site', {
-					type: 'string',
-					description: __( 'Remote site URL or ID' ),
-				} )
-				.option( 'include-path-list', {
-					type: 'array',
-					description: __( 'Backup node ids to pull when using the "paths" option' ),
-					hidden: true,
-					coerce: ( value ) => {
-						if ( ! Array.isArray( value ) ) {
-							throw new Error( __( 'include-path-list must be an array' ) );
-						}
-						return value.map( String );
-					},
-				} )
-				.option( 'suppress-tracks-event', {
-					type: 'boolean',
-					default: false,
-					hidden: true,
-				} );
-		},
-		handler: async ( argv ) => {
-			exitOnCancel();
-			try {
-				await runCommand(
-					argv.path,
-					argv.options as SyncOption[] | undefined,
-					argv.remoteSite,
-					argv.includePathList as string[] | undefined,
-					defaultLogger,
-					argv.suppressTracksEvent,
-					process.stdin.isTTY
-						? () =>
-								confirm( {
-									message: sprintf(
-										__(
-											"Your site's backup exceeds %d GB. Pulling it will prevent you from pushing the site back. Do you want to continue?"
-										),
-										SYNC_PUSH_SIZE_LIMIT_GB
-									),
-									default: true,
-								} )
-						: undefined
-				);
-			} catch ( error ) {
-				if ( error instanceof LoggerError ) {
-					defaultLogger.reportError( error );
-				} else {
-					const loggerError = new LoggerError( __( 'Pull failed' ), error );
-					defaultLogger.reportError( loggerError );
-				}
-			}
-		},
-	} );
-};
+export async function commandHandler( argv: CommandArgs< typeof builder > ) {
+	exitOnCancel();
+	try {
+		await runCommand(
+			argv.path,
+			argv.options as SyncOption[] | undefined,
+			argv.remoteSite,
+			argv.includePathList as string[] | undefined,
+			defaultLogger,
+			argv.suppressTracksEvent,
+			process.stdin.isTTY
+				? () =>
+						confirm( {
+							message: sprintf(
+								__(
+									"Your site's backup exceeds %d GB. Pulling it will prevent you from pushing the site back. Do you want to continue?"
+								),
+								SYNC_PUSH_SIZE_LIMIT_GB
+							),
+							default: true,
+						} )
+				: undefined
+		);
+	} catch ( error ) {
+		if ( error instanceof LoggerError ) {
+			defaultLogger.reportError( error );
+		} else {
+			const loggerError = new LoggerError( __( 'Pull failed' ), error );
+			defaultLogger.reportError( loggerError );
+		}
+	}
+}

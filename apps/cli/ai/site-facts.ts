@@ -34,6 +34,15 @@ async function siteAddressFact( site: WordPressSite ): Promise< string | undefin
 	return studioSite ? `Address: ${ getSiteUrl( studioSite ) } (home_url()).` : undefined;
 }
 
+// `studio wp` runs WP-CLI on the Studio site holding the folder it runs in
+// (getSiteContainingFolder() in cli/commands/wp.ts), on Studio's PHP and with the
+// site's SQLite database, which WordPress opens through wp-content/db.php.
+async function wpCliFact( site: WordPressSite ): Promise< string | undefined > {
+	return ( await findSiteByFolder( site.root ) )
+		? `WP-CLI: \`studio wp <command>\` run in ${ site.root } runs it on this site, on Studio's PHP and with its SQLite database (wp-content/db.php).`
+		: undefined;
+}
+
 // WordPress is installed once its options hold siteurl (is_blog_installed());
 // Studio installs it the first time the site starts (installWordPress() in
 // lib/native-php/site-setup.ts), so a site never started has no database yet.
@@ -45,6 +54,7 @@ function installedFact( site: WordPressSite ): string | undefined {
 
 const SITE_FACTS: SiteFact[] = [
 	siteAddressFact,
+	wpCliFact,
 	wordPressVersionFact,
 	installedFact,
 	activeThemeFact,

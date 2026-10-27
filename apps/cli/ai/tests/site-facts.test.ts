@@ -280,7 +280,11 @@ it.each( [
 		vi.mocked( findSiteByFolder ).mockImplementation( async ( folder ) =>
 			folder === site.root ? ( studioSite as SiteData ) : undefined
 		);
-		expect( await site.facts() ).toEqual( [ `Address: ${ address } (home_url()).`, ...BASE ] );
+		expect( await site.facts() ).toEqual( [
+			`Address: ${ address } (home_url()).`,
+			`WP-CLI: \`studio wp <command>\` run in ${ site.root } runs it on this site, on Studio's PHP and with its SQLite database (wp-content/db.php).`,
+			...BASE,
+		] );
 		vi.mocked( findSiteByFolder ).mockReset();
 	}
 );

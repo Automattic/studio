@@ -307,7 +307,20 @@ export class E2ESession {
 		// is recorded here. `reportFailure` keeps the recording of each failed test.
 		await this.electronApp.context().tracing.start( { snapshots: true } );
 
-		this.mainWindow = await this.electronApp.firstWindow( { timeout: 60_000 } );
+		// Site thumbnails use temporary windows, which can appear before the main renderer.
+		let mainWindow: Page | undefined;
+		await expect
+			.poll(
+				() => {
+					mainWindow = this.electronApp
+						.windows()
+						.find( ( window ) => /\/dist\/renderer-ui\/index\.html(?:#|$)/.test( window.url() ) );
+					return !! mainWindow;
+				},
+				{ timeout: 60_000, message: 'Studio renderer window is ready' }
+			)
+			.toBe( true );
+		this.mainWindow = mainWindow!;
 	}
 
 	// Attaches the app window's trace and the main process logs to a failed test. Every test starts

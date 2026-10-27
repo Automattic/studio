@@ -13,7 +13,10 @@ const originalWidth = window.innerWidth;
 async function setup( width = 1280 ) {
 	Object.defineProperty( window, 'innerWidth', { configurable: true, value: width } );
 	localStorage.setItem( 'studio-ui-sidebar-collapsed', 'true' );
-	const view = renderApp( { connector: createFakeConnector( { sites } ), path: '/sites/one' } );
+	const view = renderApp( {
+		connector: createFakeConnector( { sites, user: null } ),
+		path: '/sites/one',
+	} );
 	const trigger = await waitFor( () => {
 		const button = screen
 			.getAllByRole( 'button', { name: 'Show sidebar' } )
@@ -151,4 +154,24 @@ it( 'focuses and keeps a narrow flyover open when the shortcut commits a hover p
 	expect( screen.getByRole( 'dialog', { name: 'Sidebar' } ) ).toBeInTheDocument();
 	fireEvent.keyDown( document.activeElement!, { key: 'Escape' } );
 	await switcherClosed();
+} );
+
+it.each( [
+	[ 'Add site', 'Add site' ],
+	[ 'Settings', 'Settings' ],
+	[ 'Log in', 'Do more with WordPress.com' ],
+] )( 'dismisses the flyout while keeping the %s dialog open', async ( button, title ) => {
+	const { open, user, trigger, connector } = await setup( 800 );
+	const sidebar = await open();
+	await user.click( within( sidebar ).getByRole( 'button', { name: button } ) );
+	const dialog = await screen.findByRole( 'dialog', { name: title } );
+	await switcherClosed();
+	await waitFor( () => expect( dialog ).toContainElement( document.activeElement as HTMLElement ) );
+	act( () => connector.emit( 'onToggleSidebar' ) );
+	expect( screen.queryByRole( 'button', { name: 'Close sidebar' } ) ).not.toBeInTheDocument();
+	await user.keyboard( '{Escape}' );
+	await waitFor( () => expect( dialog ).not.toBeInTheDocument() );
+	await waitFor( () => expect( trigger ).toHaveFocus() );
+	await user.click( trigger );
+	expect( await screen.findByRole( 'dialog', { name: 'Sidebar' } ) ).toBeInTheDocument();
 } );

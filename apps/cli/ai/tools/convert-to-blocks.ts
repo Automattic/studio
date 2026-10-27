@@ -24,6 +24,7 @@ interface Conversion {
 	serialized: string;
 	stylesheets: SupportStylesheet[];
 	diagnostics: Record< string, number >;
+	openAtEnd: number;
 	lost: { words: string[]; images: string[] };
 	stylesheetDirectory: string;
 }
@@ -60,8 +61,7 @@ if ( is_string( $block_gap ) && '' !== $block_gap ) {
 	$options['host_block_gap'] = $block_gap;
 }
 $result = ( new Automattic\\BlocksEngine\\PhpTransformer\\HtmlToBlocks\\HtmlTransformer() )->transform( $original, $options )->toArray();
-$visible = static function ( string $markup ): array {
-	$html = do_blocks( $markup );
+$visible = static function ( string $html ): array {
 	$text = preg_replace( '/<[^>]+>/', ' ', preg_replace( '@<(script|style)[^>]*?>.*?</\\\\1>@si', '', $html ) );
 	$words = preg_split( '/\\s+/u', html_entity_decode( $text, ENT_QUOTES | ENT_HTML5, 'UTF-8' ), -1, PREG_SPLIT_NO_EMPTY );
 	$images = array();
@@ -72,8 +72,29 @@ $visible = static function ( string $markup ): array {
 	return array( array_count_values( $words ), array_count_values( $images ) );
 };
 $serialized = (string) ( $result['serialized_blocks'] ?? '' );
-list( $words_before, $images_before ) = $visible( $original );
-list( $words_after, $images_after ) = $visible( $serialized );
+// WP_Block_Parser closes the innermost open block at any block closer. When the
+// content ends with more than one block still open, add_block_from_stack()
+// gives each of them the rest of the document, and the page shows that content
+// more than once. The markup's own HTML, without its block delimiters, is then
+// what the conversion keeps.
+$tokens = new WP_Block_Parser();
+$tokens->document = $original;
+$tokens->offset = 0;
+$open = 0;
+$html = '';
+while ( true ) {
+	list( $type, , , $start, $length ) = $tokens->next_token();
+	if ( 'no-more-tokens' === $type || ( 'block-closer' === $type && 0 === $open ) ) {
+		$html .= substr( $original, $tokens->offset );
+		break;
+	}
+	$html .= substr( $original, $tokens->offset, $start - $tokens->offset );
+	$tokens->offset = $start + $length;
+	$open += array( 'block-opener' => 1, 'block-closer' => -1 )[ $type ] ?? 0;
+}
+$open_at_end = $open > 1 ? $open : 0;
+list( $words_before, $images_before ) = $visible( $open_at_end ? $html : do_blocks( $original ) );
+list( $words_after, $images_after ) = $visible( do_blocks( $serialized ) );
 $lost = static fn( array $before, array $after ): array => array_keys( array_filter( $before, static fn( $count, $item ) => $count > ( $after[ $item ] ?? 0 ), ARRAY_FILTER_USE_BOTH ) );
 $diagnostics = array();
 foreach ( (array) ( $result['diagnostics'] ?? array() ) as $diagnostic ) {
@@ -92,6 +113,7 @@ echo wp_json_encode( array(
 	'serialized' => $serialized,
 	'stylesheets' => $stylesheets,
 	'diagnostics' => (object) $diagnostics,
+	'openAtEnd' => $open_at_end,
 	'lost' => array( 'words' => $lost( $words_before, $words_after ), 'images' => $lost( $images_before, $images_after ) ),
 	'stylesheetDirectory' => get_stylesheet_directory(),
 ) );`;
@@ -241,9 +263,16 @@ export const convertToBlocksTool = defineTool(
 		const diagnostics = Object.entries( conversion.diagnostics )
 			.map( ( [ code, count ] ) => `${ code } ×${ count }` )
 			.join( ', ' );
-		const engine = `Blocks Engine ${ transformer.version }: ${ conversion.status }${
-			diagnostics ? ` (${ diagnostics })` : ''
-		}`;
+		const engine = [
+			`Blocks Engine ${ transformer.version }: ${ conversion.status }${
+				diagnostics ? ` (${ diagnostics })` : ''
+			}`,
+			conversion.openAtEnd
+				? `The block markup ends with ${ conversion.openAtEnd } blocks open, so WordPress (WP_Block_Parser) shows the content after them more than once; the conversion was compared with the markup's own HTML.`
+				: undefined,
+		]
+			.filter( Boolean )
+			.join( '\n' );
 		const { words, images } = conversion.lost;
 		if ( words.length || images.length ) {
 			return textResult(

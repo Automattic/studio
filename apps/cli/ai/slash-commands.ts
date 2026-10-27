@@ -20,6 +20,7 @@ import {
 } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { __, sprintf } from '@wordpress/i18n';
 import { getAvailableAiProviders, isAiProviderReady } from 'cli/ai/auth';
+import { HOSTS } from 'cli/ai/hosts';
 import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
 import { readModelsJsonModels } from 'cli/ai/runtimes/pi/models-json';
 import { captureCommandOutput } from 'cli/ai/tools';
@@ -27,11 +28,9 @@ import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
-import { runCommand as runPushCommand } from 'cli/commands/push';
 import { openBrowser } from 'cli/lib/browser';
 import { getAppLocale } from 'cli/lib/i18n';
 import { getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
-import { fetchSyncableSites } from 'cli/lib/sync-api';
 import { LoggerError } from 'cli/logger';
 import type { AiChatUI } from 'cli/ai/ui';
 
@@ -501,7 +500,13 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 	},
 	{
 		name: 'publish',
-		description: __( 'Publish the active site to WordPress.com' ),
+		description: sprintf(
+			/* translators: %s: the hosts a site can be published to, such as WordPress.com */
+			__( 'Publish the active site to %s' ),
+			Object.values( HOSTS )
+				.map( ( host ) => host.name )
+				.join( ', ' )
+		),
 		handler: async ( _prompt, ctx ) => {
 			const site = ctx.ui.activeSite;
 			if ( ! site ) {
@@ -509,54 +514,72 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 				return 'continue';
 			}
 
-			const token = await readAuthToken();
-			if ( ! token ) {
-				ctx.ui.showInfo( __( 'WordPress.com login required. Use /login to authenticate.' ) );
-				return 'continue';
-			}
-
 			try {
-				ctx.ui.showProgress( __( 'Fetching your WordPress.com sites…' ) );
+				ctx.ui.showProgress( __( 'Fetching the sites you can publish to…' ) );
 				ctx.ui.setBusy( true );
+				const listings = await Promise.all(
+					Object.values( HOSTS ).map( async ( host ) => ( {
+						host,
+						listing: await host.publishable(),
+					} ) )
+				);
+				ctx.ui.setBusy( false );
 
-				const remoteSites = await fetchSyncableSites( token.accessToken );
-				const syncable = remoteSites.filter( ( s ) => s.syncSupport === 'syncable' );
-
-				if ( syncable.length === 0 ) {
-					ctx.ui.setBusy( false );
-					const checkoutUrl = new URL( 'https://wordpress.com/setup/new-hosted-site' );
-					checkoutUrl.searchParams.set( 'ref', 'studio' );
-					checkoutUrl.searchParams.set( 'section', 'studio-sync' );
-					checkoutUrl.searchParams.set( 'showDomainStep', 'true' );
-					checkoutUrl.searchParams.set( 'new', site.name );
-
-					await openBrowser( checkoutUrl.toString() );
+				const signedIn = listings.filter( ( { listing } ) => listing.signedIn );
+				if ( ! signedIn.length ) {
 					ctx.ui.showInfo(
-						__(
-							'No WordPress.com sites found. Opening WordPress.com to create one — once your site is ready, run /publish again.'
+						listings
+							.map( ( { host } ) =>
+								sprintf(
+									/* translators: %s: a host, such as WordPress.com */
+									__( '%s login required. Use /login to authenticate.' ),
+									host.name
+								)
+							)
+							.join( '\n' )
+					);
+					return 'continue';
+				}
+				if ( signedIn.every( ( { listing } ) => listing.error ) ) {
+					ctx.ui.showError( signedIn.map( ( { listing } ) => listing.error ).join( '\n' ) );
+					return 'continue';
+				}
+
+				const targets = signedIn.flatMap( ( { host, listing } ) =>
+					listing.sites.map( ( remoteSite ) => ( { host, remoteSite } ) )
+				);
+				if ( ! targets.length ) {
+					const { host } = signedIn[ 0 ];
+					await openBrowser( host.newSiteUrl( site.name ) );
+					ctx.ui.showInfo(
+						sprintf(
+							/* translators: %s: a host, such as WordPress.com */
+							__(
+								'No %1$s sites found. Opening %1$s to create one — once your site is ready, run /publish again.'
+							),
+							host.name
 						)
 					);
 					return 'continue';
 				}
 
 				// Let the user pick which site to publish to.
-				const siteOptions = syncable.map( ( s ) => ( {
-					label: s.name,
-					description: s.url,
-				} ) );
-				ctx.ui.setBusy( false );
 				const answer = await ctx.ui.askUser( [
 					{
-						question: __( 'Select a WordPress.com site to publish to' ),
-						options: siteOptions,
+						question: __( 'Select a site to publish to' ),
+						options: targets.map( ( { host, remoteSite } ) => ( {
+							label: remoteSite.name,
+							description: `${ remoteSite.url } · ${ host.name }`,
+						} ) ),
 					},
 				] );
 				const selectedName = Object.values( answer )[ 0 ] as string;
-				const remoteSite = syncable.find( ( s ) => s.name === selectedName );
-				if ( ! remoteSite ) {
+				const target = targets.find( ( { remoteSite } ) => remoteSite.name === selectedName );
+				if ( ! target ) {
 					ctx.ui.showInfo( __( 'No site selected.' ) );
 					return 'continue';
 				}
+				const { host, remoteSite } = target;
 
 				ctx.ui.showProgress(
 					sprintf( __( 'Publishing to %s… this may take several minutes.' ), remoteSite.name )
@@ -564,7 +587,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 				ctx.ui.setBusy( true );
 
 				const result = await captureCommandOutput(
-					( logger ) => runPushCommand( site.path, [ 'all' ], String( remoteSite.id ), logger ),
+					( logger ) => host.push( site.path, String( remoteSite.id ), [ 'all' ], logger ),
 					( message, update ) => ctx.ui.setLoaderMessage( message, update )
 				);
 

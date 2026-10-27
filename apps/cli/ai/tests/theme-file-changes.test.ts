@@ -158,7 +158,9 @@ describe( 'updatable theme file changes', () => {
 		expect( problem ).toContain(
 			"Make each where WordPress saves that kind of change: theme.json in the site's Global Styles"
 		);
-		expect( problem ).toContain( '; functions.php in a child theme of twentytwentyfive' );
+		expect( problem ).toContain(
+			"; functions.php in a child theme of twentytwentyfive, whose style.css names `Template: twentytwentyfive`. Or make the site's look a theme of its own, a child theme of twentytwentyfive or one that stands alone, which WordPress serves once the site activates it (switch_theme() in wp-includes/theme.php). Then restore"
+		);
 	} );
 
 	it( 'keeps a change open until the released file is back', async () => {

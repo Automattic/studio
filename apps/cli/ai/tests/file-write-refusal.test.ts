@@ -127,6 +127,10 @@ describe( 'the file write refusal', () => {
 		expect( await refusal( 'premium', 'theme.json' ) ).toContain(
 			"Make the change in the site's Global Styles for premium"
 		);
+		// A theme of the site's own is the other place, whatever the change.
+		expect( await refusal( 'premium', 'theme.json' ) ).toMatch(
+			/\. Or make the site's look a theme of its own, a child theme of premium or one that stands alone, which WordPress serves once the site activates it \(switch_theme\(\) in wp-includes\/theme\.php\)\.$/
+		);
 		// Checked, with no update source: the user's own themes.
 		for ( const own of [ 'client-theme', 'café' ] ) {
 			expect( await refusal( own, 'style.css' ) ).toBeUndefined();

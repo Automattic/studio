@@ -21,7 +21,7 @@ import {
 import { savedCopyWriteNote } from 'cli/ai/saved-copies';
 import { resolveScreenshotDirectory } from 'cli/ai/screenshot-storage';
 import { readWordPressSite } from 'cli/ai/site-database';
-import { updatableThemeChangeHome } from 'cli/ai/theme-file-changes';
+import { ownThemeHome, updatableThemeChangeHome } from 'cli/ai/theme-file-changes';
 import { isUpdatableTheme, wordPressOrgNamesake } from 'cli/ai/themes';
 import { captureScreenshotBuffer } from 'cli/ai/tools/screenshot-helpers';
 import { resolveSite } from 'cli/ai/tools/utils';
@@ -168,7 +168,7 @@ export async function getSiteFileWriteRefusal(
 			theme.dir,
 			theme.slug,
 			theme.file
-		) }.`;
+		) }. ${ ownThemeHome( theme.slug ) }`;
 	}
 	return reason && ( await isStudioSite( siteRoot ) ) ? reason : undefined;
 }

@@ -76,8 +76,12 @@ export function updatableThemeChangeHome( themeDir: string, slug: string, file: 
 			} this pattern through a Pattern block; the saved one holds the pattern's blocks in its place (render_block_core_pattern() in wp-includes/blocks/pattern.php)`
 		);
 	}
-	return `a child theme of ${ slug }, whose style.css names \`Template: ${ slug }\`; it takes effect once the site switches to it, which is the user's choice of theme`;
+	return `a child theme of ${ slug }, whose style.css names \`Template: ${ slug }\``;
 }
+
+/** The other place for any change to an updatable theme: a theme of the site's own. */
+export const ownThemeHome = ( slug: string ) =>
+	`Or make the site's look a theme of its own, a child theme of ${ slug } or one that stands alone, which WordPress serves once the site activates it (switch_theme() in wp-includes/theme.php).`;
 
 // The theme's templates and parts that show a pattern of its own, by the
 // pattern's Slug header (as _register_theme_block_patterns() reads it, in
@@ -133,7 +137,7 @@ function problem( themeDir: string, slug: string, files: string[], removed: stri
 		.join( '; ' );
 	return `${ slug } is a theme WordPress updates, and an update replaces its files, so it loses the changes to ${ named }. ${ gone }Make ${
 		homes.size === 1 ? 'them in ' : 'each where WordPress saves that kind of change: '
-	}${ where }. Then ${ restore }`;
+	}${ where }. ${ ownThemeHome( slug ) } Then ${ restore }`;
 }
 
 export const updatableThemeChanges: SiteChangeSource = {

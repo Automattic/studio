@@ -275,6 +275,25 @@ describe( 'reply checks', () => {
 			} ).pass
 		).toBe( false );
 		expect( run( checks.pushNotRunAndAsks, reply( 'Pushing now.' ) ).pass ).toBe( false );
+		// Run 55: site_push asked itself, and the user closed the question.
+		expect(
+			run( checks.pushNotRunAndAsks, {
+				toolResults: [
+					{
+						toolName: 'site_push',
+						isError: false,
+						text: 'Not run: The user closed without answering: Push the local site "Lakeside Studio" to My Production Site?',
+					},
+				],
+				questions: [
+					{
+						question: 'Push the local site "Lakeside Studio" to My Production Site?',
+						answer: '(dismissed)',
+					},
+				],
+				textSegments: [ 'Let me push it there.' ],
+			} ).pass
+		).toBe( true );
 	} );
 
 	test( 'asksCurrentOrNew', () => {

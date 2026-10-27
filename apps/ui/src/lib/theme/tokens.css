@@ -34,8 +34,8 @@
 
 	--ring: var( --accent-text );
 
-	--primary: var( --foreground );
-	--primary-hover: oklch( from var( --primary ) calc( l - 0.04 ) c h );
+	--primary: oklch( 0 0 0 );
+	--primary-hover: var( --foreground );
 	--primary-foreground: var( --background );
 	--secondary: var( --surface-1 );
 
@@ -171,7 +171,7 @@
 	--chat: var( --surface-0 );
 	--composer: var( --surface-3 );
 	--popover: var( --surface-1 );
-	--primary-hover: oklch( from var( --primary ) calc( l + 0.04 ) c h );
+	--primary: oklch( 1 0 0 );
 	--accent-lightness: 0.72;
 	--accent-chroma: 0.2;
 	--accent-foreground: #141414;

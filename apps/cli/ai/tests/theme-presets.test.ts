@@ -36,6 +36,10 @@ describe( 'the theme presets fact', () => {
 		layout: { contentSize: '645px' },
 		styleProperties: { color: 'color.text' },
 		shadowed: [],
+		styleVariations: [
+			[ 'Evening', [ 'color', 'typography' ] ],
+			[ 'Plain', [] ],
+		],
 	};
 	let output: () => string;
 
@@ -63,6 +67,7 @@ describe( 'the theme presets fact', () => {
 			'Font family presets (wp_get_global_settings()): inter "Inter".',
 			'Spacing size presets (wp_get_global_settings()): 40 30px.',
 			'Layout (wp_get_global_settings()): content width 645px, wide width none.',
+			"Style variations (WP_Theme_JSON_Resolver::get_style_variations()), the theme's styles/*.json, which the Site Editor's Styles offers: Evening (color, typography), Plain. Choosing one saves its settings and styles into the site's Global Styles, the wp_global_styles post of the theme (WP_Theme_JSON_Resolver::get_user_global_styles_post_id()).",
 		] );
 	} );
 
@@ -148,7 +153,7 @@ describe( 'the theme presets fact', () => {
 		output = () => '';
 		expect( await presetsOf( fixture.root ) ).toEqual( [] );
 		output = () => JSON.stringify( resolved );
-		expect( await presetsOf( fixture.root ) ).toHaveLength( 4 );
+		expect( await presetsOf( fixture.root ) ).toHaveLength( 5 );
 	} );
 } );
 
@@ -194,6 +199,62 @@ describe.runIf( WORDPRESS )( 'the theme presets fact, resolved by WordPress', ()
 		expect( presets.find( ( line ) => line.startsWith( 'Font size' ) ) ).toContain( 'big 3rem' );
 		expect( presets ).toContain(
 			'Layout (wp_get_global_settings()): content width 600px, wide width 1200px.'
+		);
+		// Neither theme has style variations.
+		expect( presets.filter( ( line ) => line.startsWith( 'Style' ) ) ).toEqual( [] );
+	}, 60000 );
+
+	it( 'names the style variations of the theme and its parent, as WordPress reads them', async () => {
+		const write = ( file: string, json: object ) => {
+			const at = path.join( root, 'wp-content/themes', file );
+			mkdirSync( path.dirname( at ), { recursive: true } );
+			writeFileSync( at, JSON.stringify( { version: 3, ...json } ) );
+		};
+		mkdirSync( path.join( root, 'wp-content/themes/varied-parent/templates' ), {
+			recursive: true,
+		} );
+		writeFileSync(
+			path.join( root, 'wp-content/themes/varied-parent/style.css' ),
+			'/*\nTheme Name: varied-parent\n*/'
+		);
+		writeFileSync( path.join( root, 'wp-content/themes/varied-parent/templates/index.html' ), '' );
+		write( 'varied-parent/theme.json', {} );
+		write( 'varied-parent/styles/bold.json', {
+			title: 'Bold',
+			settings: { color: { palette: [ { slug: 'ink', color: '#000', name: 'Ink' } ] } },
+			styles: { elements: { heading: { typography: { fontWeight: '800' } } } },
+		} );
+		write( 'varied-parent/styles/quiet.json', {
+			styles: { spacing: { blockGap: '2rem' }, border: { color: '#000', width: '1px' } },
+		} );
+		// A block style variation is not the theme's.
+		write( 'varied-parent/styles/blocks/card.json', {
+			title: 'Card',
+			blockTypes: [ 'core/group' ],
+			styles: { border: { radius: '8px' } },
+		} );
+		mkdirSync( path.join( root, 'wp-content/themes/varied-child' ), { recursive: true } );
+		writeFileSync(
+			path.join( root, 'wp-content/themes/varied-child/style.css' ),
+			'/*\nTheme Name: varied-child\nTemplate: varied-parent\n*/'
+		);
+		write( 'varied-child/styles/bold.json', {
+			title: 'Bolder',
+			styles: { color: { text: '#111' } },
+		} );
+		const { DatabaseSync } = await import( 'node:sqlite' );
+		const db = new DatabaseSync( path.join( root, 'wp-content/database/.ht.sqlite' ) );
+		db.prepare( "UPDATE wp_options SET option_value = ? WHERE option_name = 'stylesheet'" ).run(
+			'varied-child'
+		);
+		db.prepare( "UPDATE wp_options SET option_value = ? WHERE option_name = 'template'" ).run(
+			'varied-parent'
+		);
+		db.close();
+
+		// The child's file replaces its parent's of the same name.
+		expect( ( await presetsOf( root ) ).find( ( line ) => line.startsWith( 'Style' ) ) ).toContain(
+			'offers: Bolder (color), quiet (border, spacing).'
 		);
 	}, 60000 );
 } );

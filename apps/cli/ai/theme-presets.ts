@@ -35,6 +35,8 @@ interface Presets {
 	 * by preset path: those whose `default…` setting is on.
 	 */
 	shadowed: Array< { path: string; setting: string; presets: Array< [ string, string ] > } >;
+	/** Each style variation of the theme, by title, with the kinds of style it sets. */
+	styleVariations?: Array< [ string, string[] ] >;
 }
 
 // The presets of each origin the editor offers, in WordPress's order: core's
@@ -87,6 +89,26 @@ echo wp_json_encode( array(
 	) ),
 	'styleProperties' => array_map( function ( $path ) { return implode( '.', $path ); }, WP_Theme_JSON::PROPERTIES_METADATA ),
 	'shadowed' => $shadowed,
+	// The theme's and its parent's styles/*.json, which the Site Editor's Styles offers.
+	'styleVariations' => array_map(
+		function ( $variation ) {
+			$kinds = array();
+			$walk = function ( $node ) use ( &$walk, &$kinds ) {
+				foreach ( $node as $key => $child ) {
+					if ( is_array( $child ) ) {
+						if ( in_array( $key, array( 'color', 'typography', 'spacing', 'border', 'shadow', 'dimensions', 'background' ), true ) ) {
+							$kinds[ $key ] = true;
+						}
+						$walk( $child );
+					}
+				}
+			};
+			$walk( array( $variation['settings'] ?? array(), $variation['styles'] ?? array() ) );
+			ksort( $kinds );
+			return array( $variation['title'], array_keys( $kinds ) );
+		},
+		WP_Theme_JSON_Resolver::get_style_variations()
+	),
 ) );
 `;
 
@@ -166,6 +188,7 @@ function describePresets( presets: Presets ): string[] {
 					.join( ', ' ) }.`
 			: undefined;
 	const { contentSize, wideSize } = presets.layout;
+	const variations = presets.styleVariations ?? [];
 	return [
 		list( 'Color', presets.colors ),
 		list( 'Font family', presets.fontFamilies, true ),
@@ -175,6 +198,15 @@ function describePresets( presets: Presets ): string[] {
 			? `Layout (wp_get_global_settings()): content width ${ contentSize ?? 'none' }, wide width ${
 					wideSize ?? 'none'
 			  }.`
+			: undefined,
+		variations.length
+			? `Style variations (WP_Theme_JSON_Resolver::get_style_variations()), the theme's styles/*.json, which the Site Editor's Styles offers: ${ variations
+					.map( ( [ title, kinds ] ) =>
+						kinds.length ? `${ title } (${ kinds.join( ', ' ) })` : title
+					)
+					.join(
+						', '
+					) }. Choosing one saves its settings and styles into the site's Global Styles, the wp_global_styles post of the theme (WP_Theme_JSON_Resolver::get_user_global_styles_post_id()).`
 			: undefined,
 	].filter( ( line ): line is string => Boolean( line ) );
 }

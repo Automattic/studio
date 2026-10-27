@@ -71,15 +71,25 @@ export function AccountPrompt( {
 				>
 					{ onSkip ? __( 'Continue with WordPress.com' ) : __( 'Create account' ) }
 				</Button>
-				<Button
-					variant="inline-text"
-					size="inline"
-					disabled={ onSkip ? false : offline || pending }
-					loading={ ! onSkip && login.isPending }
-					onClick={ onSkip ?? ( () => login.mutate() ) }
-				>
-					{ onSkip ? secondaryLabel ?? __( 'Not now' ) : __( 'Log in to WordPress.com' ) }
-				</Button>
+				{ onSkip ? (
+					<Button variant="inline-text" size="inline" onClick={ onSkip }>
+						{ secondaryLabel ?? __( 'Not now' ) }
+					</Button>
+				) : (
+					<p className={ styles.loginPrompt }>
+						{ __( 'Already have an account?' ) }{ ' ' }
+						<Button
+							className={ styles.login }
+							variant="inline-text"
+							size="inline"
+							disabled={ offline || pending }
+							loading={ login.isPending }
+							onClick={ () => login.mutate() }
+						>
+							{ __( 'Log in' ) }
+						</Button>
+					</p>
+				) }
 			</div>
 		</div>
 	);

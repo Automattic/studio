@@ -50,14 +50,14 @@ describe( 'AccountPromptDialog', () => {
 		const connector = createFakeConnector( { user: null } );
 		connector.authenticate.mockReturnValue( new Promise( () => {} ) );
 		renderWithProviders( <Prompt />, { connector } );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Log in to WordPress.com' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Log in' } ) );
 		await waitFor( () => expect( connector.authenticate ).toHaveBeenCalledTimes( 1 ) );
 
 		fireEvent.keyDown( screen.getByRole( 'dialog' ), { key: 'Escape' } );
 		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Share' } ) );
 
-		const logIn = await screen.findByRole( 'button', { name: 'Log in to WordPress.com' } );
+		const logIn = await screen.findByRole( 'button', { name: 'Log in' } );
 		expect( logIn ).toHaveAttribute( 'aria-disabled', 'true' );
 		fireEvent.click( logIn );
 		expect( connector.authenticate ).toHaveBeenCalledTimes( 1 );

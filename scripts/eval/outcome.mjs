@@ -1013,3 +1013,66 @@ export const darkStyleVariation = check( ( d, vars ) => {
 			.join( ', ' ) } changes the colors, no dark-mode CSS`
 	);
 } );
+
+// A Custom HTML block holding a form: markup WordPress keeps but no block owns.
+const htmlBlockForm = ( text ) =>
+	[ ...String( text ).matchAll( /<!--\s*wp:html\b[\s\S]*?<!--\s*\/wp:html\s*-->/g ) ].some( ( m ) =>
+		/<form\b/i.test( m[ 0 ] )
+	);
+
+// A visitor's message, sent through a published page's form, is stored on the
+// site (formsSent: the post types, meta keys or options now holding it), and
+// the page's form is not a Custom HTML block.
+export const contactFormWorks = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const sent = ( s.formsSent || [] ).filter( ( f ) => f.page );
+	if ( ! sent.length )
+		return fail(
+			`no published page has a form that takes a message: ${ JSON.stringify( s.formsSent ) }`
+		);
+	const where = ( f ) => [
+		...( f.stored?.postTypes || [] ).map( ( t ) => `a ${ t } post` ),
+		...( f.stored?.metaKeys || [] ).map( ( k ) => `post meta ${ k }` ),
+		...( f.stored?.optionNames || [] ).map( ( o ) => `option ${ o }` ),
+	];
+	const stored = sent.find( ( f ) => where( f ).length );
+	if ( ! stored )
+		return fail(
+			`the message sent from ${ sent
+				.map( ( f ) => f.page )
+				.join( ', ' ) } is stored nowhere on the site; the page then read: ${ sent
+				.map( ( f ) => f.error || f.afterText.slice( 0, 300 ) )
+				.join( ' | ' ) }`
+		);
+	const page = ( s.content || [] ).find( ( c ) => c.link === stored.page );
+	if ( page && htmlBlockForm( page.content ) )
+		return fail( `${ stored.page } builds its form in a Custom HTML block` );
+	return pass(
+		`the message sent from ${ stored.page } is stored as ${ where( stored ).join( ', ' ) }`
+	);
+} );
+
+// The rendered home page's footer (or what follows its main content) has an email signup form, and no footer part
+// builds it in a Custom HTML block.
+export const newsletterSignupInFooter = check( ( d, vars ) => {
+	const s = site( d, vars );
+	// The footer: <footer> elements, and whatever follows the main content.
+	const html = homeHtml( s );
+	const footers = [
+		...[ ...html.matchAll( /<footer\b[\s\S]*?<\/footer>/g ) ].map( ( m ) => m[ 0 ] ),
+		html.includes( '</main>' ) ? html.slice( html.lastIndexOf( '</main>' ) ) : '',
+	];
+	const signup = footers.find( ( f ) => /<form\b[\s\S]*?<input\b[^>]*type=["']?email/i.test( f ) );
+	if ( ! signup )
+		return fail( `the rendered footer has no email signup form after the main content` );
+	const raw = Object.entries( renderedParts( s ) ).filter(
+		( [ slug, text ] ) => /footer/.test( slug ) && htmlBlockForm( text )
+	);
+	if ( raw.length )
+		return fail(
+			`footer part ${ raw
+				.map( ( [ slug ] ) => slug )
+				.join( ', ' ) } builds its form in a Custom HTML block`
+		);
+	return pass( 'the rendered footer has an email signup form built from blocks' );
+} );

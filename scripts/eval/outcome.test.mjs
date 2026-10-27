@@ -840,6 +840,78 @@ describe( 'native feature checks', () => {
 		...fields,
 	} );
 
+	test.each( [
+		[
+			'stored as a feedback post',
+			{ postTypes: [ 'feedback' ] },
+			'<!-- wp:jetpack/contact-form /-->',
+			true,
+		],
+		[
+			'stored in post meta',
+			{ metaKeys: [ '_field_message' ] },
+			'<!-- wp:jetpack/contact-form /-->',
+			true,
+		],
+		[
+			'stored nowhere',
+			{ postTypes: [], metaKeys: [], optionNames: [] },
+			'<!-- wp:jetpack/contact-form /-->',
+			false,
+		],
+		[
+			'from a Custom HTML form',
+			{ postTypes: [ 'feedback' ] },
+			'<!-- wp:html --><form><textarea></textarea></form><!-- /wp:html -->',
+			false,
+		],
+	] )( 'contactFormWorks: a message %s', ( _, stored, content, passes ) => {
+		const link = 'http://localhost:8881/contact/';
+		const site = {
+			...workingSite,
+			content: [ page( { link, content } ) ],
+			formsSent: [ { page: link, marker: 'm', afterText: 'Thanks', stored } ],
+		};
+		expect( run( checks.contactFormWorks, outcome( site ) ).pass ).toBe( passes );
+	} );
+
+	test.each( [
+		[
+			'a footer element',
+			'<main></main><footer><form><input type="email"></form></footer>',
+			{},
+			true,
+		],
+		[
+			'what follows the main content',
+			'<main></main><div><form><input type=email></form></div>',
+			{},
+			true,
+		],
+		[
+			'only the main content',
+			'<main><form><input type="email"></form></main><footer></footer>',
+			{},
+			false,
+		],
+		[
+			'a Custom HTML footer',
+			'<main></main><footer><form><input type="email"></form></footer>',
+			{ 'parts/footer.html': '<!-- wp:html --><form></form><!-- /wp:html -->' },
+			false,
+		],
+	] )( 'newsletterSignupInFooter: an email form in %s', ( name, html, themeFiles, passes ) => {
+		const htmlFile = path.join( dir, `${ name.replace( / /g, '-' ) }.html` );
+		writeFileSync( htmlFile, html );
+		const site = {
+			...workingSite,
+			home: { ...workingSite.home, htmlFile },
+			themeFiles,
+			content: [],
+		};
+		expect( run( checks.newsletterSignupInFooter, outcome( site ) ).pass ).toBe( passes );
+	} );
+
 	test( 'miniCartInHeader', () => {
 		const site = ( fields ) => ( {
 			...workingSite,

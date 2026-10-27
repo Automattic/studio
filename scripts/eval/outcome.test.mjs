@@ -529,6 +529,21 @@ describe( 'site checks', () => {
 				pass: true,
 			},
 			{
+				name: 'Global Styles with a palette of its own',
+				site: {
+					...tt5,
+					userGlobalStyles: {
+						settings: { color: { palette: { custom: [ { slug: 'base', color: '#F8F3E9' } ] } } },
+					},
+				},
+				pass: true,
+			},
+			{
+				name: 'Global Styles saved with nothing in them',
+				site: { ...tt5, userGlobalStyles: { settings: {}, styles: {} } },
+				pass: false,
+			},
+			{
 				name: 'Global Styles with a font the site serves',
 				site: {
 					...tt5,

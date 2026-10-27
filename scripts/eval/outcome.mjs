@@ -470,7 +470,12 @@ export const siteHasItsOwnDesign = check( ( d, vars ) => {
 	// The active theme has a WordPress.org release to compare with.
 	if ( Array.isArray( s.themeChanges ) ) {
 		const user = s.userGlobalStyles ?? {};
-		const styled = Object.keys( user.styles ?? {} ).length > 0;
+		// Global Styles save the site's settings, such as its palette, fonts and
+		// spacing, as well as its styles; either changes every block that uses them
+		// (WP_Theme_JSON_Resolver::get_merged_data() merges the user origin last).
+		const styled = [ user.styles, user.settings ].some(
+			( part ) => Object.keys( part ?? {} ).length > 0
+		);
 		const saved = ( s.content || [] )
 			.filter( ( c ) => [ 'wp_template', 'wp_template_part' ].includes( c.type ) )
 			.map( ( c ) => `${ c.type === 'wp_template' ? 'template' : 'part' } ${ c.slug }` );

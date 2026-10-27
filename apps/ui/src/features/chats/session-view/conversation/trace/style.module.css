@@ -3,10 +3,6 @@
 	flex-direction: column;
 }
 
-.toolRow + .toolRow {
-	margin-top: calc( var( --space-4 ) * -1 );
-}
-
 .toolDetails {
 	display: flex;
 	flex-direction: column;
@@ -85,19 +81,16 @@
 
 .traceChevron {
 	flex: none;
+	rotate: -90deg;
 	transition: rotate var( --motion-duration-feedback ) ease;
 }
 
 .traceTrigger[aria-expanded='true'] .traceChevron {
-	rotate: 90deg;
+	rotate: 0deg;
 }
 
 .traceChevron:dir( rtl ) {
-	scale: -1 1;
-}
-
-.traceTrigger[aria-expanded='true'] .traceChevron:dir( rtl ) {
-	rotate: -90deg;
+	rotate: 90deg;
 }
 
 .toolCode pre {
@@ -112,6 +105,10 @@
 .activityContent {
 	display: flex;
 	flex-direction: column;
-	gap: var( --space-4 );
+	gap: var( --space-1 );
+	padding-block-start: var( --space-1 );
+}
+
+.activityContent[data-separated] {
 	padding-block-start: var( --space-3 );
 }

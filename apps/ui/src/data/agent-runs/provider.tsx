@@ -1,7 +1,7 @@
 import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
 import { getAgentEndFailure } from '@studio/common/ai/json-events';
 import { getStudioToolProgress } from '@studio/common/ai/tool-progress';
-import { STOPPED_WITHOUT_ANSWER } from '@studio/common/ai/tools';
+import { SKIPPED_QUESTION, STOPPED_WITHOUT_ANSWER } from '@studio/common/ai/tools';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 import { toast } from '@/data/app-messages';
@@ -556,7 +556,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			const isListedOption = state.pendingQuestions
 				.find( ( pending ) => pending.question === question )
 				?.options.some( ( option ) => option.label === answer );
-			if ( isListedOption ) {
+			if ( isListedOption || answer === SKIPPED_QUESTION ) {
 				setCachedSelectedLabel( sessionId, question, answer );
 			}
 			const nextAnswers = { ...state.pendingAnswers, [ question ]: answer };

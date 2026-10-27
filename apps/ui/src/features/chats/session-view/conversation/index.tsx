@@ -17,6 +17,7 @@ import { memo, useMemo, useState, type ReactNode } from 'react';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
 import { AgentQuestionBatch } from '@/features/chats/session-view/conversation/agent-question';
+import { canJoinBubbles } from '@/features/chats/session-view/conversation/joined';
 import { AssistantText, UserTurn } from '@/features/chats/session-view/conversation/message';
 import { ToolUseRow, TurnActivityLine } from '@/features/chats/session-view/conversation/trace';
 import {
@@ -139,12 +140,12 @@ export const Conversation = memo( function Conversation( {
 	);
 	const progressMessage = useMemo( () => getProgressMessage( entries ), [ entries ] );
 
-	const renderItems = ( rows: TranscriptItem[] ): ReactNode =>
-		rows.map( ( item, index ) => {
-			const sender = getSender( item );
+	const renderItems = ( rows: TranscriptItem[], visibleRows = rows ): ReactNode =>
+		rows.map( ( item ) => {
+			const index = visibleRows.indexOf( item );
 			const joined = {
-				joinedAbove: !! sender && getSender( rows[ index - 1 ] ) === sender,
-				joinedBelow: !! sender && getSender( rows[ index + 1 ] ) === sender,
+				joinedAbove: canJoinBubbles( item, visibleRows[ index - 1 ] ),
+				joinedBelow: canJoinBubbles( item, visibleRows[ index + 1 ] ),
 			};
 			switch ( item.kind ) {
 				case 'user-text':
@@ -200,8 +201,10 @@ export const Conversation = memo( function Conversation( {
 							activity={ item }
 							waitingOnUser={ item.status === 'running' && pendingQuestions.size > 0 }
 							progressMessage={ item.status === 'running' ? progressMessage : null }
-							renderItems={ ( activityItems ) => (
-								<div className={ styles.activityItems }>{ renderItems( activityItems ) }</div>
+							renderItems={ ( activityItems, visibleItems ) => (
+								<div className={ styles.activityItems }>
+									{ renderItems( activityItems, visibleItems ) }
+								</div>
 							) }
 						/>
 					);
@@ -209,5 +212,27 @@ export const Conversation = memo( function Conversation( {
 					return <TurnErrorMarker key={ item.key } message={ item.message } />;
 			}
 		} );
-	return <div className={ styles.root }>{ renderItems( items ) }</div>;
+	const groups: Array< { sender: ReturnType< typeof getSender >; items: TranscriptItem[] } > = [];
+	for ( const item of items ) {
+		const sender = getSender( item );
+		const previous = groups[ groups.length - 1 ];
+		if ( previous?.sender === sender ) {
+			previous.items.push( item );
+		} else {
+			groups.push( { sender, items: [ item ] } );
+		}
+	}
+	return (
+		<div className={ styles.root }>
+			{ groups.map( ( group ) => (
+				<div
+					key={ group.items[ 0 ].key }
+					className={ styles.speakerGroup }
+					data-speaker={ group.sender }
+				>
+					{ renderItems( group.items ) }
+				</div>
+			) ) }
+		</div>
+	);
 } );

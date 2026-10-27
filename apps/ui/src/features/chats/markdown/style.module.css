@@ -5,7 +5,6 @@
 	min-width: 0;
 	color: var( --foreground );
 	font-size: var( --text-sm );
-	line-height: var( --leading-relaxed );
 	overflow-wrap: break-word;
 }
 

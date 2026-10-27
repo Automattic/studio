@@ -24,6 +24,22 @@ defaultTest:
     repeat: 1
 
 tests:
+  - description: questionnaire accepts a selection and a skipped question
+    vars:
+      caseId: questionnaire-skip
+      timeoutMs: 90000
+      answers:
+        - label: Gallery
+        - label: The user skipped this question.
+      prompt: |
+        Ask me two multiple-choice questions together: which page to add (Gallery or Contact),
+        and which layout to use (Grid or Masonry). Do not create or change anything.
+        After my answers, summarize the chosen page and say if the layout is undecided.
+        Do not ask again if I skip a question.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:questionnaireSkip
+
   - description: agent identifies as WordPress Studio AI
     vars:
       caseId: identity

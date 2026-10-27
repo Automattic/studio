@@ -37,6 +37,7 @@ type RenderItem =
 			messageText: string;
 			copyText?: string;
 			streaming?: boolean;
+			persistent?: boolean;
 	  }
 	| {
 			kind: 'tool-use';
@@ -406,17 +407,21 @@ export function entriesToTranscriptItems(
 				.filter( ( item ) => item.kind === 'tool-use' || item.kind === 'agent-question-batch' )
 				.map( entryIndexOf )
 		);
-		const activityItems = visible.filter(
-			( item ) =>
-				item.kind === 'tool-use' ||
-				item.kind === 'agent-question-batch' ||
-				( item.kind === 'assistant-text' &&
-					! (
-						finalEntry !== null &&
-						finalEntry > lastActionEntry &&
-						entryIndexOf( item ) === finalEntry
-					) )
-		);
+		const activityItems = visible
+			.filter(
+				( item ) =>
+					item.kind === 'tool-use' ||
+					item.kind === 'agent-question-batch' ||
+					item.kind === 'assistant-text'
+			)
+			.map( ( item ) =>
+				item.kind === 'assistant-text' &&
+				finalEntry !== null &&
+				finalEntry > lastActionEntry &&
+				entryIndexOf( item ) === finalEntry
+					? { ...item, persistent: true }
+					: item
+			);
 		const activityKeys = new Set( activityItems.map( ( item ) => item.key ) );
 		const outside = visible.filter( ( item ) => ! activityKeys.has( item.key ) );
 		const activity: TurnActivity = {
@@ -446,12 +451,6 @@ export function getProgressMessage( entries: SessionEntry[] ): string | null {
 		: null;
 }
 
-// Consecutive messages from the same side read as one group.
 export function getSender( item: TranscriptItem | undefined ) {
-	if ( item?.kind === 'user-text' ) {
-		return 'user';
-	}
-	return item?.kind === 'assistant-text' || item?.kind === 'agent-question-batch'
-		? 'assistant'
-		: undefined;
+	return item ? ( item.kind === 'user-text' ? 'user' : 'assistant' ) : undefined;
 }

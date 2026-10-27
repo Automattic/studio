@@ -92,7 +92,7 @@ export async function startPulledSite(
  * after the pulled database replaced it. Returns 'skipped' when the site has
  * no stored credentials, and 'unreachable' when the server doesn't answer.
  */
-export async function reapplyAdminCredentials(
+async function reapplyAdminCredentials(
 	site: SiteData
 ): Promise< 'applied' | 'skipped' | 'unreachable' > {
 	const credentials = {

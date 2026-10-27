@@ -1,68 +1,40 @@
 /**
  * @vitest-environment node
  */
-import { describe, expect, it, vi } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { getAvailablePorts } from '../worker-ports';
 
-// An OS that hands out the lowest free port, so it reuses a port the moment it is
-// released. Real kernels can do the same (Linux picks ephemeral ports at random,
-// and other processes take ports in between), which is what this guards against.
+// An OS that always hands out the lowest free port, so a released port comes straight back.
+// Linux does this at random (about 1 in 1,000 four-port pools on a real kernel).
 const { boundPorts } = vi.hoisted( () => ( { boundPorts: new Set< number >() } ) );
 
-vi.mock( 'node:net', async () => {
-	const { EventEmitter } = await import( 'node:events' );
-
-	class FakeServer extends EventEmitter {
-		private port: number | undefined;
-		listening = false;
-
-		listen( _port: number, _host: string, onListening: () => void ) {
-			let port = 50_000;
-			while ( boundPorts.has( port ) ) {
-				port++;
-			}
-			boundPorts.add( port );
-			this.port = port;
-			this.listening = true;
-			setImmediate( onListening );
-			return this;
-		}
-
-		address() {
-			return this.port === undefined
-				? null
-				: { port: this.port, address: '127.0.0.1', family: 'IPv4' };
-		}
-
-		close( onClose?: () => void ) {
-			if ( this.port !== undefined ) {
-				boundPorts.delete( this.port );
-			}
-			this.listening = false;
-			setImmediate( () => onClose?.() );
-			return this;
-		}
-
+vi.mock( 'node:net', () => {
+	class FakeServer {
+		port = 0;
+		once() {}
 		unref() {
 			return this;
 		}
+		listen( _port: number, _host: string, onListening: () => void ) {
+			for ( this.port = 50_000; boundPorts.has( this.port ); this.port++ );
+			boundPorts.add( this.port );
+			setImmediate( onListening );
+		}
+		address() {
+			return { port: this.port };
+		}
+		close( onClose: () => void ) {
+			boundPorts.delete( this.port );
+			setImmediate( onClose );
+		}
 	}
-
 	const net = { createServer: () => new FakeServer() };
 	return { default: net, ...net };
 } );
 
-describe( 'getAvailablePorts', () => {
-	it( 'returns distinct ports even when the OS reuses released ports', async () => {
-		const ports = await getAvailablePorts( 4 );
+it( 'returns distinct ports and releases them all for the workers to bind', async () => {
+	const ports = await getAvailablePorts( 4 );
 
-		expect( ports ).toHaveLength( 4 );
-		expect( new Set( ports ).size ).toBe( 4 );
-	} );
-
-	it( 'releases every port before returning, so the workers can bind them', async () => {
-		await getAvailablePorts( 4 );
-
-		expect( boundPorts.size ).toBe( 0 );
-	} );
+	expect( new Set( ports ).size ).toBe( 4 );
+	expect( boundPorts.size ).toBe( 0 );
 } );

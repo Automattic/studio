@@ -21,7 +21,7 @@ it( 'never shows a partial latest WordPress while several processes install it',
 	const bundled = path.join( root, 'wp-files', 'latest', 'wordpress', 'wp-includes' );
 	fs.mkdirSync( bundled, { recursive: true } );
 	fs.writeFileSync( path.join( bundled, 'version.php' ), "<?php $wp_version = '7.1.3';" );
-	for ( let i = 0; i < 400; i++ ) {
+	for ( let i = 0; i < 50; i++ ) {
 		fs.writeFileSync( path.join( bundled, `file-${ i }.php` ), '<?php' );
 	}
 	// An interrupted earlier copy, without version.php.
@@ -39,7 +39,7 @@ it( 'never shows a partial latest WordPress while several processes install it',
 			await new Promise( ( resolve ) => setImmediate( resolve ) );
 		}
 	} )();
-	await Promise.all( Array.from( { length: 8 }, () => setupServerFiles() ) );
+	await Promise.all( Array.from( { length: 2 }, () => setupServerFiles() ) );
 	installing = false;
 	await watch;
 

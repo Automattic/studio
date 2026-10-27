@@ -29,8 +29,8 @@ async function installDirectory( source: string, target: string ) {
 				if ( attempt === RENAME_ATTEMPTS ) {
 					throw error;
 				}
-				// An incomplete `target` left by an interrupted copy blocks the rename, and Windows
-				// briefly locks freshly written files (for example while antivirus scans them).
+				// An incomplete `target` left by an interrupted copy blocks the rename. Remove it and
+				// retry; another process may install its own copy in between, which the check above accepts.
 				await fs.promises.rm( target, { recursive: true, force: true } );
 				await new Promise( ( resolve ) => setTimeout( resolve, attempt * 200 ) );
 			}

@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { useStoredFlag } from '@/lib/hooks';
 import { CollapsiblePanel, SidebarGroup, SidebarGroupHeader, SidebarGroupLabel } from '@/lib/ui';
+import styles from './style.module.css';
 
 // Opens a collapsed group when something is added to it, e.g. a new site.
 // `keys` is undefined until the group's items have loaded.
@@ -60,7 +61,9 @@ export function SiteListGroup( {
 				</SidebarGroupLabel>
 				{ action }
 			</SidebarGroupHeader>
-			<CollapsiblePanel open={ expanded }>{ children }</CollapsiblePanel>
+			<CollapsiblePanel open={ expanded } className={ styles.groupPanel }>
+				{ children }
+			</CollapsiblePanel>
 		</SidebarGroup>
 	);
 }

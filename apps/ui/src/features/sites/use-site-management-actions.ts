@@ -25,7 +25,7 @@ export interface SiteManagementAction {
 }
 
 /**
- * The canonical "manage this site" actions — Duplicate, Import, Export entire site,
+ * The canonical "manage this site" actions — Duplicate, Import, Export site,
  * Export database, Delete — shared by every surface that offers them, so labels, icons,
  * order, and disabled logic don't drift apart between surfaces.
  *
@@ -81,7 +81,7 @@ export function useSiteManagementActions(
 		{
 			id: 'export',
 			icon: ExportSiteIcon,
-			label: __( 'Export entire site' ),
+			label: __( 'Export site' ),
 			disabled: isWriting || isExporting,
 			destructive: false,
 			run: () => exportFullSite.mutate( site.id ),

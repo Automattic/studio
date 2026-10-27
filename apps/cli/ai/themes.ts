@@ -30,20 +30,17 @@ export async function readThemeHeader(
 	return css.match( new RegExp( `^[ \\t/*#@]*${ header }:(.*)$`, 'im' ) )?.[ 1 ].trim() ?? '';
 }
 
-/** The Version a theme's style.css header names. */
-export function readThemeVersion( root: string, theme: string ): Promise< string > {
-	return readThemeHeader( root, theme, 'Version' );
-}
-
 // One answer per theme release; an unanswered check is asked again.
-function askWordPressOrg( theme: string, version: string ): Promise< boolean > {
-	const key = `${ theme }@${ version }`;
+function askWordPressOrg( theme: string, version: string, updateUri: string ): Promise< boolean > {
+	const key = `${ theme }@${ version } ${ updateUri }`;
 	let answer = asked.get( key );
 	if ( ! answer ) {
 		answer = fetch( UPDATE_CHECK_URL, {
 			method: 'POST',
 			body: new URLSearchParams( {
-				themes: JSON.stringify( { themes: { [ theme ]: { Version: version } } } ),
+				themes: JSON.stringify( {
+					themes: { [ theme ]: { Version: version, UpdateURI: updateUri } },
+				} ),
 			} ),
 		} )
 			.then( ( response ) => ( response.ok ? response.json() : Promise.reject() ) )
@@ -57,15 +54,75 @@ function askWordPressOrg( theme: string, version: string ): Promise< boolean > {
 	return answer.catch( () => false );
 }
 
-/** Whether a theme update would overwrite changes to this theme's files. */
+/**
+ * Whether a theme update would overwrite changes to this theme's files. A
+ * folder with no style.css is no theme WordPress has (WP_Theme's
+ * theme_no_stylesheet error, in wp-includes/class-wp-theme.php), so no update
+ * check sends it.
+ */
 export async function isUpdatableTheme( root: string, theme: string ): Promise< boolean > {
 	const checked = await readWordPressSite( root, ( site ) => {
 		const updates = site.option( '_site_transient_update_themes' ) as UpdateCheck;
 		return theme in ( updates?.checked ?? {} ) ? isUpdated( site, theme ) : undefined;
 	} );
-	return (
-		checked ?? askWordPressOrg( theme, await readThemeVersion( root, theme ).catch( () => '' ) )
-	);
+	if ( checked !== undefined ) {
+		return checked;
+	}
+	const version = await readThemeHeader( root, theme, 'Version' ).catch( () => undefined );
+	return version === undefined
+		? false
+		: askWordPressOrg(
+				theme,
+				version,
+				await readThemeHeader( root, theme, 'Update URI' ).catch( () => '' )
+		  );
+}
+
+const INFO_URL = 'https://api.wordpress.org/themes/info/1.2/';
+const released = new Map< string, Promise< { name: string; version: string } | undefined > >();
+
+function wordPressOrgTheme( theme: string ) {
+	let answer = released.get( theme );
+	if ( ! answer ) {
+		answer = fetch(
+			`${ INFO_URL }?${ new URLSearchParams( {
+				action: 'theme_information',
+				'request[slug]': theme,
+			} ) }`
+		)
+			.then( ( response ) => ( response.ok ? response.json() : Promise.reject() ) )
+			.then( ( body: { name?: unknown; version?: unknown } ) =>
+				typeof body.name === 'string'
+					? { name: body.name, version: String( body.version ?? '' ) }
+					: undefined
+			);
+		answer.catch( () => released.delete( theme ) );
+		released.set( theme, answer );
+	}
+	return answer.catch( () => undefined );
+}
+
+/**
+ * WordPress.org's theme of a theme's folder name, of a theme WordPress
+ * updates (isUpdatableTheme()), when it is another theme: its style.css names
+ * another theme than WordPress.org's. WordPress checks for theme updates by
+ * folder name (wp_update_themes() in wp-includes/update.php).
+ */
+export async function wordPressOrgNamesake(
+	root: string,
+	theme: string
+): Promise< { name: string; version: string; own: string } | undefined > {
+	const own = await readThemeHeader( root, theme, 'Theme Name' ).catch( () => '' );
+	const release = own ? await wordPressOrgTheme( theme ) : undefined;
+	return release && release.name !== own ? { ...release, own } : undefined;
+}
+
+/** What WordPress does to a theme whose folder name is WordPress.org's other theme. */
+export function namesakeProblem(
+	theme: string,
+	{ name, version, own }: { name: string; version: string; own: string }
+): string {
+	return `The theme in ${ theme }/ is "${ own }", and WordPress.org's theme ${ theme } is "${ name }": WordPress checks for theme updates by folder name and offers "${ name }" ${ version } as this theme's update (wp_update_themes() in wp-includes/update.php), which replaces its files with that theme's (Theme_Upgrader::upgrade() in wp-admin/includes/class-theme-upgrader.php). WordPress.org's check skips a theme whose style.css names an \`Update URI\` header (WP_Theme, since WordPress 6.1) other than WordPress.org. Give the theme an \`Update URI\` header, its own URL or \`false\`, or a folder name no WordPress.org theme has.`;
 }
 
 /**

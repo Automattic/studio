@@ -31,13 +31,26 @@ beforeEach( () => {
 	}
 } );
 
-// WordPress.org's theme update check, which updates fresh.
-const updateCheck = vi.fn( async ( _url: string, init: { body: URLSearchParams } ) => {
-	const themes = Object.keys( JSON.parse( init.body.get( 'themes' ) ?? '{}' ).themes );
+// WordPress.org, which has the theme fresh, "Fresh": its update check
+// updates fresh unless its Update URI names another host, as api.wordpress.org
+// answers.
+const updateCheck = vi.fn( async ( url: string, init?: { body: URLSearchParams } ) => {
+	if ( url.includes( '/themes/info/' ) ) {
+		return Response.json(
+			new URL( url ).searchParams.get( 'request[slug]' ) === 'fresh'
+				? { name: 'Fresh', version: '2.0' }
+				: { error: 'Theme not found' }
+		);
+	}
+	const sent: Record< string, { UpdateURI?: string } > = JSON.parse(
+		init?.body.get( 'themes' ) ?? '{}'
+	).themes;
 	return Response.json( {
 		themes: [],
 		no_update: Object.fromEntries(
-			themes.filter( ( theme ) => theme === 'fresh' ).map( ( theme ) => [ theme, {} ] )
+			Object.entries( sent )
+				.filter( ( [ theme, { UpdateURI } ] ) => theme === 'fresh' && ! UpdateURI )
+				.map( ( [ theme ] ) => [ theme, {} ] )
 		),
 	} );
 } );
@@ -79,7 +92,10 @@ describe( 'the file write refusal', () => {
 		for ( const theme of [ 'premium', 'client-theme', 'café', 'fresh' ] ) {
 			const dir = path.join( studioSite(), 'wp-content', 'themes', theme );
 			mkdirSync( dir, { recursive: true } );
-			writeFileSync( path.join( dir, 'style.css' ), `/*\nTheme Name: ${ theme }\n*/` );
+			writeFileSync(
+				path.join( dir, 'style.css' ),
+				`/*\nTheme Name: ${ theme === 'fresh' ? 'Fresh' : theme }\n*/`
+			);
 		}
 		mkdirSync( path.join( studioSite(), 'wp-content', 'database' ) );
 		const db = new DatabaseSync( path.join( studioSite(), 'wp-content/database/.ht.sqlite' ) );
@@ -114,6 +130,28 @@ describe( 'the file write refusal', () => {
 		// Checked, with no update source: the user's own themes.
 		for ( const own of [ 'client-theme', 'café' ] ) {
 			expect( await refusal( own, 'style.css' ) ).toBeUndefined();
+		}
+	} );
+
+	it.each( [
+		{ name: 'no style.css yet, so is no theme WordPress has', header: undefined },
+		{ name: 'an Update URI WordPress.org skips', header: 'Theme Name: Fresh\nUpdate URI: false' },
+		{ name: "another theme's name", header: 'Theme Name: Fresh Bakery' },
+	] )( "allows a theme in WordPress.org's folder name fresh with $name", async ( { header } ) => {
+		const dir = path.join( studioSite(), 'wp-content/themes/fresh' );
+		mkdirSync( dir, { recursive: true } );
+		if ( header ) {
+			writeFileSync( path.join( dir, 'style.css' ), `/*\n${ header }\n*/` );
+		}
+		for ( const file of [ 'style.css', 'functions.php' ] ) {
+			expect(
+				await getFileWriteRefusal(
+					'Write',
+					{ path: `my-site/wp-content/themes/fresh/${ file }` },
+					root,
+					isStudioSite
+				)
+			).toBeUndefined();
 		}
 	} );
 

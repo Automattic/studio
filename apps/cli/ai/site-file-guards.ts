@@ -22,7 +22,7 @@ import { savedCopyWriteNote } from 'cli/ai/saved-copies';
 import { resolveScreenshotDirectory } from 'cli/ai/screenshot-storage';
 import { readWordPressSite } from 'cli/ai/site-database';
 import { updatableThemeChangeHome } from 'cli/ai/theme-file-changes';
-import { isUpdatableTheme } from 'cli/ai/themes';
+import { isUpdatableTheme, wordPressOrgNamesake } from 'cli/ai/themes';
 import { captureScreenshotBuffer } from 'cli/ai/tools/screenshot-helpers';
 import { resolveSite } from 'cli/ai/tools/utils';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
@@ -157,7 +157,12 @@ export async function getSiteFileWriteRefusal(
 		CORE_ROOT_FILE.test( relativePath )
 	) {
 		reason = `${ relativePath } is this Studio site's copy of WordPress core, which a WordPress update replaces. Read it as reference. Make the change in wp-content/ (a theme, child theme, or plugin).`;
-	} else if ( theme && ( await isUpdatableTheme( siteRoot, theme.slug ) ) ) {
+	} else if (
+		theme &&
+		( await isUpdatableTheme( siteRoot, theme.slug ) ) &&
+		// A theme of its own in a WordPress.org theme's folder is the change's place.
+		! ( await wordPressOrgNamesake( siteRoot, theme.slug ) )
+	) {
 		reason = `${
 			theme.slug
 		} is a theme WordPress updates, and an update overwrites changes to its files. Make the change in ${ updatableThemeChangeHome(

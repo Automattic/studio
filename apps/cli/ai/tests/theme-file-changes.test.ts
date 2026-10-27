@@ -1,6 +1,7 @@
 import { mkdirSync, rmSync, writeFileSync } from 'fs';
 import path from 'path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { OpenProblems } from 'cli/ai/open-problems';
 import { SiteChanges } from 'cli/ai/site-changes';
 import { createSite } from 'cli/ai/tests/fixtures/wordpress-site';
 import { updatableThemeChangeHome, updatableThemeChanges } from 'cli/ai/theme-file-changes';
@@ -148,5 +149,48 @@ describe( 'updatable theme file changes', () => {
 		write( 'twentytwentyfive/theme.json', '{"version":3}' );
 		rmSync( path.join( fixture.root, 'wp-content/themes/twentytwentyfive/functions.php' ) );
 		expect( ( await check.settle() ).problems ).toEqual( [] );
+	} );
+
+	it( "raises a theme made in a WordPress.org theme's folder name once, until it names its Update URI", async () => {
+		// WordPress.org, which has the theme ember, "Ember", and updates a theme
+		// by that folder name unless its Update URI names another host.
+		vi.stubGlobal( 'fetch', async ( url: string, init?: { body: URLSearchParams } ) => {
+			if ( url.includes( '/themes/info/' ) ) {
+				return Response.json( { name: 'Ember', version: '1.1.4' } );
+			}
+			const sent: Record< string, { UpdateURI?: string } > = JSON.parse(
+				init?.body.get( 'themes' ) ?? '{}'
+			).themes;
+			return Response.json( {
+				themes: Object.fromEntries(
+					Object.entries( sent )
+						.filter( ( [ theme, { UpdateURI } ] ) => theme === 'ember' && ! UpdateURI )
+						.map( ( [ theme ] ) => [ theme, { new_version: '1.1.4' } ] )
+				),
+				no_update: [],
+			} );
+		} );
+		const open = new OpenProblems( [] );
+		const check = new SiteChanges( open, async () => [ site ], [ updatableThemeChanges ] );
+		const call = async ( change: () => void ) => {
+			await check.snapshot();
+			change();
+			return ( await check.settle() ).problems;
+		};
+		try {
+			const header = '/*\nTheme Name: Ember Roasters\nVersion: 1.0.0\n';
+			expect( await call( () => write( 'ember/style.css', `${ header }*/` ) ) ).toEqual( [
+				expect.stringContaining(
+					'The theme in ember/ is "Ember Roasters", and WordPress.org\'s theme ember is "Ember": WordPress checks for theme updates by folder name and offers "Ember" 1.1.4'
+				),
+			] );
+			expect( await call( () => write( 'ember/functions.php', '<?php' ) ) ).toEqual( [] );
+			expect(
+				await call( () => write( 'ember/style.css', `${ header }Update URI: false\n*/` ) )
+			).toEqual( [] );
+			expect( await open.raise() ).toEqual( [] );
+		} finally {
+			vi.unstubAllGlobals();
+		}
 	} );
 } );

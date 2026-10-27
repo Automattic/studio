@@ -14,8 +14,13 @@ import { createHash } from 'crypto';
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { readdir, readFile, stat } from 'fs/promises';
 import path from 'path';
-import { isUpdatableTheme, readThemeVersion } from 'cli/ai/themes';
-import type { SiteChangeSource, Versions } from 'cli/ai/site-changes';
+import {
+	isUpdatableTheme,
+	namesakeProblem,
+	readThemeHeader,
+	wordPressOrgNamesake,
+} from 'cli/ai/themes';
+import type { ChangeReport, SiteChangeSource, Versions } from 'cli/ai/site-changes';
 
 const BASE = 'base ';
 const UPDATED = 'updated ';
@@ -127,7 +132,14 @@ export const updatableThemeChanges: SiteChangeSource = {
 			.map( ( entry ) => entry.name );
 		const versions: Versions = {};
 		for ( const slug of slugs ) {
-			const release = await readThemeVersion( sitePath, slug ).catch( () => '' );
+			// A release is its version and update source, as WordPress's check sends them.
+			const release = (
+				await Promise.all(
+					[ 'Version', 'Update URI' ].map( ( header ) =>
+						readThemeHeader( sitePath, slug, header ).catch( () => '' )
+					)
+				)
+			).join( ' ' );
 			// Whether WordPress updates a theme is asked once per release.
 			const updated = last[ slug ]?.endsWith( ` ${ release }` )
 				? last[ slug ].startsWith( UPDATED )
@@ -154,10 +166,31 @@ export const updatableThemeChanges: SiteChangeSource = {
 				delete next[ key ];
 			}
 		}
-		const reports = [];
-		for ( const [ slug, release ] of Object.entries( after ) ) {
-			// Files of an own theme, or of one this call installed or updated, are not reported.
-			if ( ! release.startsWith( UPDATED ) || before[ slug ] !== release ) {
+		const reports: ChangeReport[] = [];
+		const themes = ( versions: Versions ) =>
+			Object.keys( versions ).filter( ( key ) => ! key.includes( '/' ) );
+		// A theme WordPress no longer updates, or gone, leaves no problem.
+		for ( const slug of themes( before ) ) {
+			if ( before[ slug ].startsWith( UPDATED ) && ! after[ slug ]?.startsWith( UPDATED ) ) {
+				reports.push( { key: `theme ${ slug }` } );
+			}
+		}
+		for ( const slug of themes( after ) ) {
+			const release = after[ slug ];
+			if ( ! release.startsWith( UPDATED ) ) {
+				continue;
+			}
+			// One whose folder name is WordPress.org's other theme is not WordPress.org's release.
+			const namesake = await wordPressOrgNamesake( site.path, slug );
+			if ( namesake ) {
+				// Raised as it becomes one, as a call makes it.
+				if ( before[ slug ] !== release ) {
+					reports.push( { key: `theme ${ slug }`, problem: namesakeProblem( slug, namesake ) } );
+				}
+				continue;
+			}
+			// Files of one this call installed or updated are not reported.
+			if ( before[ slug ] !== release ) {
 				continue;
 			}
 			const prefix = `${ slug }/`;

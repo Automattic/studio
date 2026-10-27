@@ -50,11 +50,7 @@ import { SymlinkWatcher, collectSymlinkAllowlistEntries } from './lib/symlinks';
 import type { ChildProcess } from 'node:child_process';
 
 const ROUTER_PATH = path.resolve( import.meta.dirname, 'php', 'router.php' );
-const SET_DEFAULT_PERMALINKS_PATH = path.resolve(
-	import.meta.dirname,
-	'php',
-	'set-default-permalinks.php'
-);
+const FINISH_INSTALL_PATH = path.resolve( import.meta.dirname, 'php', 'finish-install.php' );
 
 // Tracks how many proxied requests each PHP worker is currently handling.
 // Each `php -S` worker processes one request at a time, so a non-zero count
@@ -493,13 +489,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 
 		if ( ! isImportedSite ) {
 			await timePhase( 'wordpress_install', () =>
-				installWordPress(
-					config,
-					phpVersion,
-					stopSignal,
-					SET_DEFAULT_PERMALINKS_PATH,
-					logToConsole
-				)
+				installWordPress( config, phpVersion, stopSignal, FINISH_INSTALL_PATH, logToConsole )
 			);
 			stopSignal.throwIfAborted();
 
@@ -815,7 +805,7 @@ async function ipcMessageHandler( packet: unknown ) {
 					blueprintConfig,
 					blueprintPhpVersion,
 					abortController.signal,
-					SET_DEFAULT_PERMALINKS_PATH,
+					FINISH_INSTALL_PATH,
 					logToConsole
 				);
 				if ( ! blueprintConfig.blueprint ) {

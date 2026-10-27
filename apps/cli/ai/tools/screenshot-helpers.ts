@@ -42,10 +42,38 @@ const MODEL_IMAGE_MAX_EDGE_PX = 2000;
 const IMAGE_SETTLE_TIMEOUT_MS = 3000;
 const PAGE_SETTLE_TIMEOUT_MS = 2500;
 
-async function waitForPageToSettle( page: Page ): Promise< void > {
-	await page
-		.waitForLoadState( 'networkidle', { timeout: PAGE_SETTLE_TIMEOUT_MS } )
-		.catch( () => {} );
+// The requests a page has open, from before it navigates: what it loads
+// without them is all it loads, where waiting for 500ms of no network
+// activity ('networkidle') adds that half second to every capture.
+function trackRequests( page: Page ): () => number {
+	const open = new Set< unknown >();
+	const done = ( request: unknown ) => open.delete( request );
+	page.on( 'request', ( request ) => open.add( request ) );
+	page.on( 'requestfinished', done );
+	page.on( 'requestfailed', done );
+	return () => open.size;
+}
+
+// Settled once no request the page made is open across a paint: what it
+// loads, and what its scripts fetch as it loads.
+async function waitForPageToSettle( page: Page, openRequests: () => number ): Promise< void > {
+	const end = Date.now() + PAGE_SETTLE_TIMEOUT_MS;
+	const paint = () =>
+		page
+			.evaluate(
+				() =>
+					new Promise< void >( ( resolve ) =>
+						requestAnimationFrame( () => requestAnimationFrame( () => resolve() ) )
+					)
+			)
+			.catch( () => {} );
+	await paint();
+	while ( openRequests() > 0 && Date.now() < end ) {
+		await new Promise( ( resolve ) => setTimeout( resolve, 50 ) );
+		if ( openRequests() === 0 ) {
+			await paint();
+		}
+	}
 }
 
 export type ScreenshotFormat = 'png' | 'jpeg';
@@ -144,10 +172,11 @@ export async function captureScreenshotBuffer(
 		deviceScaleFactor: options.deviceScaleFactor,
 	} );
 
+	const openRequests = trackRequests( page );
 	try {
 		await applyScreenshotMediaEmulation( page, options.colorScheme );
 		await page.goto( url, { waitUntil: 'domcontentloaded', timeout: 30000 } );
-		await waitForPageToSettle( page );
+		await waitForPageToSettle( page, openRequests );
 
 		// For full-page captures, scroll through the entire document so
 		// lazy-loaded images can begin loading. For viewport captures we keep

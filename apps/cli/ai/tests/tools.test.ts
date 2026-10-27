@@ -185,7 +185,7 @@ describe( 'Studio AI MCP tools', () => {
 	} ) => ( {
 		emulateMedia: vi.fn(),
 		goto: vi.fn(),
-		waitForLoadState: vi.fn().mockResolvedValue( undefined ),
+		on: vi.fn(),
 		// The page layout's script takes its region limit and returns lines.
 		evaluate: vi.fn( async ( _script: unknown, args?: number | { source?: string } ) => {
 			if ( typeof args === 'number' ) {

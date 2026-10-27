@@ -195,10 +195,16 @@ describe( 'self-hosted theme fonts', () => {
 		).toBe( 'woff2' );
 	} );
 
-	it( 'downloads a family whose fontFace names files neither the theme nor its parent has', async () => {
+	it( 'downloads a family whose fontFace names files the browser cannot load', async () => {
 		const requested: string[] = [];
 		vi.stubGlobal( 'fetch', async ( url: string ) => {
 			requested.push( url );
+			if ( url.includes( 'offline.example.com' ) ) {
+				throw new TypeError( 'fetch failed' );
+			}
+			if ( url.includes( 'gone' ) ) {
+				return new Response( '', { status: 404 } );
+			}
 			return url.includes( 'googleapis' )
 				? new Response(
 						"/* latin */ @font-face { font-family: 'Fraunces'; font-style: normal; font-weight: 400; src: url(https://fonts.gstatic.com/fraunces.woff2) format('woff2'); }"
@@ -208,8 +214,13 @@ describe( 'self-hosted theme fonts', () => {
 		const face = ( file: string ) => [
 			{ fontFamily: 'F', src: [ `file:./assets/fonts/${ file }` ] },
 		];
+		const at = ( src: string ) => [ { fontFamily: 'F', src: [ src ] } ];
 		// A font file another host serves is not the theme's to have.
-		const remote = [ { fontFamily: 'Remote', src: [ 'https://cdn.example.com/remote.woff2' ] } ];
+		const remote = at( 'https://cdn.example.com/remote.woff2' );
+		// Nor one a host that cannot be reached now may serve.
+		const offline = at( 'https://offline.example.com/offline.woff2' );
+		// The browser loads a data: URL as written.
+		const inline = at( 'data:font/woff2;base64,d09GMg==' );
 		write( 'wp-content/themes/parent/assets/fonts/inherited.woff2', 'woff2' );
 		write( 'wp-content/themes/mine/style.css', '/*\nTheme Name: Mine\nTemplate: parent\n*/' );
 		write( 'wp-content/themes/mine/assets/fonts/own.woff2', 'woff2' );
@@ -233,6 +244,20 @@ describe( 'self-hosted theme fonts', () => {
 								fontFace: face( 'inherited.woff2' ),
 							},
 							{ name: 'Remote', slug: 'remote', fontFamily: 'Remote', fontFace: remote },
+							{ name: 'Offline', slug: 'offline', fontFamily: 'Offline', fontFace: offline },
+							{ name: 'Inline', slug: 'inline', fontFamily: 'Inline', fontFace: inline },
+							{
+								name: 'Gone',
+								slug: 'gone',
+								fontFamily: 'Gone',
+								fontFace: at( 'https://fonts.gstatic.com/s/gone.woff2' ),
+							},
+							{
+								name: 'Climbs',
+								slug: 'climbs',
+								fontFamily: 'Climbs',
+								fontFace: at( 'file:../parent/assets/fonts/inherited.woff2' ),
+							},
 						],
 					},
 				},
@@ -240,12 +265,17 @@ describe( 'self-hosted theme fonts', () => {
 		);
 
 		expect( await selfHostFonts( resolveSiteFile( themeJson )! ) ).toEqual( [
-			'Studio downloaded the font files of Fraunces from Google Fonts into wp-content/themes/mine/assets/fonts and declared them as their fontFace in theme.json, in place of the files the fontFace of Fraunces named, which neither the theme nor its parent has: WordPress looks for a "file:./" source there (get_theme_file_uri() in wp-includes/link-template.php), so the browser was given font files that do not exist.',
+			'Studio downloaded the font files of Fraunces, Gone, Climbs from Google Fonts into wp-content/themes/mine/assets/fonts and declared them as their fontFace in theme.json, in place of the files the fontFace of Fraunces, Gone, Climbs named, which the browser cannot load: WordPress serves a "file:./" source from the theme or its parent (get_theme_file_uri() in wp-includes/link-template.php) and gives the browser any other source as written (WP_Font_Face_Resolver::to_theme_file_uri() in wp-includes/fonts/class-wp-font-face-resolver.php), so the browser was given font files that do not exist.',
 		] );
-		expect( requested ).toEqual( [
-			'https://fonts.googleapis.com/css2?family=Fraunces:wght@400&display=swap',
-			'https://fonts.gstatic.com/fraunces.woff2',
-		] );
+		expect( requested ).toContain(
+			'https://fonts.googleapis.com/css2?family=Fraunces:wght@400&display=swap'
+		);
+		expect( requested ).toContain(
+			'https://fonts.googleapis.com/css2?family=Gone:wght@400&display=swap'
+		);
+		expect( requested ).toContain(
+			'https://fonts.googleapis.com/css2?family=Climbs:wght@400&display=swap'
+		);
 		const families = JSON.parse( readFileSync( themeJson, 'utf8' ) ).settings.typography
 			.fontFamilies;
 		expect( families.map( ( family: { fontFace: unknown[] } ) => family.fontFace ) ).toEqual( [
@@ -260,6 +290,16 @@ describe( 'self-hosted theme fonts', () => {
 			face( 'own.woff2' ),
 			face( 'inherited.woff2' ),
 			remote,
+			offline,
+			inline,
+			...Array( 2 ).fill( [
+				{
+					fontFamily: 'Fraunces',
+					fontStyle: 'normal',
+					fontWeight: '400',
+					src: [ 'file:./assets/fonts/fraunces/fraunces-400-latin.woff2' ],
+				},
+			] ),
 		] );
 	} );
 } );

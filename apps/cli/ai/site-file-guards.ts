@@ -327,7 +327,7 @@ export async function selfHostFonts( siteFile: SiteFile ): Promise< string[] > {
 						missing.length
 							? `, in place of the files the fontFace of ${ missing.join(
 									', '
-							  ) } named, which neither the theme nor its parent has: WordPress looks for a "file:./" source there (get_theme_file_uri() in wp-includes/link-template.php), so the browser was given font files that do not exist`
+							  ) } named, which the browser cannot load: WordPress serves a "file:./" source from the theme or its parent (get_theme_file_uri() in wp-includes/link-template.php) and gives the browser any other source as written (WP_Font_Face_Resolver::to_theme_file_uri() in wp-includes/fonts/class-wp-font-face-resolver.php), so the browser was given font files that do not exist`
 							: ''
 					}.`,
 			  ]

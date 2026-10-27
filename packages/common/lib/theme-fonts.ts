@@ -138,7 +138,7 @@ interface FontFamilyPreset {
 export interface SelfHostedFonts {
 	/** Families whose font files were downloaded and declared. */
 	hosted: string[];
-	/** Of those, the families whose fontFace named files the theme does not have. */
+	/** Of those, the families whose fontFace named files the browser cannot load. */
 	missing: string[];
 	/** Families whose first font Google Fonts had no files for, with why. */
 	failed: { family: string; font: string; error: string }[];
@@ -162,19 +162,31 @@ function weightsOf( styles: unknown ): string[] {
 	return [ ...weights ].sort();
 }
 
-// Whether a family's fontFace names a "file:./" source that is not a file of the
-// theme or of its parent, where WordPress looks for it: WP_Font_Face_Resolver's
+// Whether a family's fontFace names a file the browser cannot load. WordPress
+// serves a "file:./" source from the theme or its parent: WP_Font_Face_Resolver's
 // to_theme_file_uri() (wp-includes/fonts/class-wp-font-face-resolver.php) takes
-// it through get_theme_file_uri() (wp-includes/link-template.php).
+// it through get_theme_file_uri() (wp-includes/link-template.php). It gives the
+// browser any other source as written, so another file: path loads nothing, and
+// a URL loads what its host serves.
 async function namesMissingFiles( family: FontFamilyPreset, dirs: string[] ): Promise< boolean > {
 	const files = ( family.fontFace ?? [] ).flatMap( ( face ) => {
 		const src = ( face as { src?: unknown } )?.src;
 		return ( Array.isArray( src ) ? src : [ src ] ).filter(
-			( file ): file is string => typeof file === 'string' && file.startsWith( 'file:./' )
+			( file ): file is string => typeof file === 'string'
 		);
 	} );
 	const found = await Promise.all(
 		files.map( async ( file ) => {
+			if ( /^https?:\/\//.test( file ) ) {
+				// A host that cannot be reached may serve it to visitors.
+				return fetch( file ).then(
+					( response ) => response.ok,
+					() => true
+				);
+			}
+			if ( ! file.startsWith( 'file:./' ) ) {
+				return ! file.startsWith( 'file:' );
+			}
 			for ( const dir of dirs ) {
 				if (
 					await access( path.join( dir, file.slice( 'file:./'.length ) ) ).then(
@@ -200,7 +212,7 @@ async function themeDirs( themeDir: string ): Promise< string[] > {
 
 /**
  * Self-hosts a theme's fonts: each font family preset in its theme.json that
- * declares no font files, or names files the theme does not have, gets them
+ * declares no font files, or names files the browser cannot load, gets them
  * from Google Fonts, in the weights its styles use, downloaded into
  * assets/fonts and declared as its `fontFace`.
  */

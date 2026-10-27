@@ -170,7 +170,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		sessionId,
 		entries,
 		provider,
-		canChooseProvider: !! onModelChange && !! provider,
 	} );
 	const isWpcom = sessionProvider === 'wpcom';
 	const isOutOfCredits = useIsOutOfAiCredits() && ! isField && isWpcom;

@@ -14,12 +14,10 @@ export function useModelAccess( {
 	sessionId,
 	entries,
 	provider,
-	canChooseProvider = false,
 }: {
 	sessionId?: string;
 	entries?: SessionEntry[];
 	provider?: AiProviderId;
-	canChooseProvider?: boolean;
 } ) {
 	const { data: aiSettings } = useAiSettings();
 	const sessionProvider = useMemo(
@@ -35,7 +33,7 @@ export function useModelAccess( {
 	const providers = AI_PROVIDER_IDS.filter(
 		( id ) =>
 			( id === 'wpcom' ? !! authUser : aiSettings?.hasAnthropicApiKey ) &&
-			( !! sessionId || canChooseProvider || id === sessionProvider )
+			( !! sessionId || !! provider || id === sessionProvider )
 	);
 	const canUsePaidTiers = canUsePaidAiModels( quota, authUser?.email );
 	const isModelLocked = useCallback(

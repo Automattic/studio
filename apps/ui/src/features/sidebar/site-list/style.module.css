@@ -15,6 +15,10 @@
 	-webkit-app-region: no-drag;
 }
 
+.root:has( [data-drag-source] ) {
+	pointer-events: none;
+}
+
 .dragWrapper {
 	border-radius: var( --radius-md );
 }
@@ -27,12 +31,15 @@
 
 .dragPreview {
 	opacity: 0.95;
+	border-radius: var( --radius-md );
+	background-color: var( --hover );
 	/* eslint-disable-next-line studio/use-theme-tokens -- the dragged row's shadow. */
 	filter: drop-shadow( 0 6px 14px rgb( 0 0 0 / 14% ) );
 }
 
-.dragPreview .siteRow {
-	background-color: var( --hover );
+.groupPanel:not( [data-starting-style], [data-ending-style] ),
+.chatsPanel:not( [data-starting-style], [data-ending-style] ) {
+	overflow: visible;
 }
 
 /* Keep scrollIntoView targets clear of the sidebar's sticky header and

@@ -196,6 +196,39 @@ describe.runIf( WORDPRESS && TRANSFORMER )( 'convert_to_blocks', () => {
 		);
 	}, 120_000 );
 
+	it( 'saves block markup left open, which the page shows twice, as its own HTML once', async () => {
+		const file = path.join( theme, 'parts', 'section.html' );
+		// The second paragraph's opener has no closer, and the group's closer
+		// closes it: the group and the first paragraph are open at the end.
+		writeFileSync(
+			file,
+			'<!-- wp:group --><div class="wp-block-group"><!-- wp:paragraph --><p>Night ferries</p><!-- wp:paragraph --><p>Meet at the pier at dusk.</p></div><!-- /wp:group -->\n'
+		);
+		const report = await convert( { file } );
+
+		expect( report ).toContain(
+			`Saved wp-content/themes/${ THEME }/parts/section.html as blocks.`
+		);
+		expect( report ).toContain( 'The block markup ends with 2 blocks open' );
+		const saved = readFileSync( file, 'utf8' );
+		expect( saved.split( 'Night ferries' ) ).toHaveLength( 2 );
+		expect( saved.split( 'Meet at the pier at dusk.' ) ).toHaveLength( 2 );
+	}, 120_000 );
+
+	it( 'saves block markup with one block left open, which the page shows once, without a note', async () => {
+		const file = path.join( theme, 'parts', 'section.html' );
+		writeFileSync(
+			file,
+			'<!-- wp:group --><div class="wp-block-group"><!-- wp:paragraph --><p>Night ferries</p><!-- /wp:paragraph --></div>\n'
+		);
+		const report = await convert( { file } );
+
+		expect( report ).toContain(
+			`Saved wp-content/themes/${ THEME }/parts/section.html as blocks.`
+		);
+		expect( report ).not.toContain( 'blocks open' );
+	}, 120_000 );
+
 	it( 'leaves the file unchanged when the page would lose text', async () => {
 		const file = path.join( theme, 'parts', 'section.html' );
 		// A form control's text is not carried into blocks.

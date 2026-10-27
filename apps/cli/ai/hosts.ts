@@ -3,7 +3,8 @@
  * remote site is one of a host's sites, by the host's own id for it, and what
  * Studio does with it is the host's: what the system prompt says of its sites,
  * how the user's sites on it are listed, where a site's facts come from, and
- * how a local site is published to it and pulled from it.
+ * how a local site is published to it and pulled from it, and the MCP server
+ * its tools come from.
  *
  * The hosts here are the ones built into Studio, so they are where Studio
  * publishes. WordPress.com is the one host so far; it also reaches the
@@ -12,6 +13,7 @@
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { getWpComSites } from 'cli/lib/api';
 import type { SyncOption, SyncSite } from '@studio/common/types/sync';
+import type { McpApproval, McpServerSpec } from 'cli/ai/runtimes/pi/mcp-tools';
 import type { SiteInfo } from 'cli/ai/types';
 import type { Logger } from 'cli/logger';
 
@@ -58,6 +60,8 @@ export interface Host {
 	/** The host's sites already connected to the local site with this Studio id. */
 	targets( localSiteId: string ): Promise< HostTargets >;
 	/** Replaces the target's content with the local site's. */
+	/** The host's own MCP server for the signed-in user, served as `<host id>_<tool>`. */
+	mcpServer(): Promise< Pick< McpServerSpec, 'url' | 'headers' | 'approval' > | undefined >;
 	push(
 		sitePath: string,
 		target: string,
@@ -91,6 +95,25 @@ async function wpcomListing(
 		};
 	}
 }
+
+const WPCOM_PROMPT = '\n\nWhat to tell the user: ';
+
+// WordPress.com refuses a write that needs approval with "Approval required."
+// and the question for the user, then runs it again with user_confirmed.
+export const wpcomApproval: McpApproval = {
+	argument: 'user_confirmed',
+	request( result ) {
+		const [ refusal, prompt ] = result.split( WPCOM_PROMPT );
+		if ( ! refusal.startsWith( 'Approval required.' ) || ! prompt ) {
+			return undefined;
+		}
+		const [ question, ...details ] = prompt.split( '\n\n' );
+		return {
+			question,
+			consequence: details.join( ' ' ) || 'Changes the live site.',
+		};
+	},
+};
 
 const wpcom: Host = {
 	name: 'WordPress.com',
@@ -147,6 +170,16 @@ const wpcom: Host = {
 				error: error instanceof Error ? error.message : String( error ),
 			};
 		}
+	},
+	async mcpServer() {
+		const token = await readAuthToken();
+		return token
+			? {
+					url: 'https://public-api.wordpress.com/wpcom/v2/mcp/v2',
+					headers: { Authorization: `Bearer ${ token.accessToken }` },
+					approval: wpcomApproval,
+			  }
+			: undefined;
 	},
 	async push( sitePath, target, options, logger ) {
 		const { runCommand } = await import( 'cli/commands/push' );

@@ -1,13 +1,13 @@
 import { readFile } from 'fs/promises';
 import path from 'path';
-import { readAuthToken } from '@studio/common/lib/shared-config';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
+import { HOST_IDS, HOSTS } from 'cli/ai/hosts';
 import type { Confirmation, Confirmer } from './confirmation';
 import type { AgentTool } from '@earendil-works/pi-agent-core';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 
-// Studio Code's tools from MCP servers: WordPress.com's own, when the user is
-// logged in, and any the user lists in ~/.studio/mcp.json under "mcpServers",
+// Studio Code's tools from MCP servers: each host's own, when the user is
+// signed in to it, and any the user lists in ~/.studio/mcp.json under "mcpServers",
 // in the shape other MCP hosts use ({ url, headers } or { command, args, env }).
 // Each server's tools are served as its own description says, named
 // `<server>_<tool>`.
@@ -33,37 +33,13 @@ export interface McpApproval {
 	request( result: string ): Confirmation | undefined;
 }
 
-const WPCOM_MCP_URL = 'https://public-api.wordpress.com/wpcom/v2/mcp/v2';
-const WPCOM_PROMPT = '\n\nWhat to tell the user: ';
-
-// WordPress.com refuses a write that needs approval with "Approval required."
-// and the question for the user, then runs it again with user_confirmed.
-export const wpcomApproval: McpApproval = {
-	argument: 'user_confirmed',
-	request( result ) {
-		const [ refusal, prompt ] = result.split( WPCOM_PROMPT );
-		if ( ! refusal.startsWith( 'Approval required.' ) || ! prompt ) {
-			return undefined;
-		}
-		const [ question, ...details ] = prompt.split( '\n\n' );
-		return {
-			question,
-			consequence: details.join( ' ' ) || 'Changes the live site.',
-		};
-	},
-};
-
 export async function readMcpServers(): Promise< McpServerSpec[] > {
 	const servers: McpServerSpec[] = [];
-	const token = await readAuthToken();
-	if ( token ) {
-		servers.push( {
-			name: 'wpcom',
-			url: WPCOM_MCP_URL,
-			headers: { Authorization: `Bearer ${ token.accessToken }` },
-			approval: wpcomApproval,
-			builtIn: true,
-		} );
+	for ( const id of HOST_IDS ) {
+		const server = await HOSTS[ id ].mcpServer();
+		if ( server ) {
+			servers.push( { ...server, name: id, builtIn: true } );
+		}
 	}
 	try {
 		const file = JSON.parse(

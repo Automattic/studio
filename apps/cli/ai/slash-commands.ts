@@ -22,7 +22,6 @@ import { __, sprintf } from '@wordpress/i18n';
 import { getAvailableAiProviders, isAiProviderReady } from 'cli/ai/auth';
 import { HOSTS } from 'cli/ai/hosts';
 import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
-import { readModelsJsonModels } from 'cli/ai/runtimes/pi/models-json';
 import { captureCommandOutput } from 'cli/ai/tools';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
@@ -297,7 +296,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		name: 'model',
 		description: __( 'Switch the AI model' ),
 		handler: async ( _prompt, ctx ) => {
-			const { availableModels } = getAiProviderDefinition( ctx.currentProvider );
+			const availableModels = await getAiProviderDefinition( ctx.currentProvider ).getModels();
 			// The paid tiers are only offered while purchased credits remain;
 			// Automatticians are exempt. The current model always stays listed,
 			// so a session already on a paid tier keeps showing what it runs on.
@@ -319,8 +318,6 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 					__( 'Models that need purchased AI credits are hidden — add credits to unlock them.' )
 				);
 			}
-			// The models of models.json bring their own provider.
-			offeredModels = [ ...new Set( [ ...offeredModels, ...( await readModelsJsonModels() ) ] ) ];
 			// Build options and a reverse lookup at the same time so we never
 			// have to recover the model id from the label. A startsWith-based
 			// match is buggy when one model's label is a prefix of another's

@@ -1,4 +1,3 @@
-import { getAiModelFamily, type AiModelId } from '@studio/common/ai/models';
 import {
 	persistSelectedAiProvider,
 	readSelectedAiProvider,
@@ -93,14 +92,9 @@ export async function prepareAiProvider(
 	await getAiProviderDefinition( provider ).prepare( options );
 }
 
-/** The environment of a turn on the model: a models.json model brings its own provider and key. */
 export async function resolveAiEnvironment(
 	provider: AiProviderId,
-	model: AiModelId,
 	options?: ResolveAiEnvironmentOptions
 ): Promise< Record< string, string > > {
-	if ( getAiModelFamily( model ) === 'models-json' ) {
-		return { ...( process.env as Record< string, string > ) };
-	}
 	return getAiProviderDefinition( provider ).resolveEnv( options );
 }

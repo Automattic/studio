@@ -2,10 +2,9 @@ import { __ } from '@wordpress/i18n';
 import { isStudioCustomEntryOfType } from './sessions/entry-types';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
-// `models-json` is a model of a provider in the user's models.json (see
-// `getModelsPath`), named by pi's provider/model reference and served through
-// pi's model registry, with the provider, API, address and key that file gives.
-export type AiModelFamily = 'anthropic' | 'studio' | 'models-json';
+// `custom` is a model of the endpoint the user connected (the
+// `custom-endpoint` provider), named by what that endpoint calls it.
+export type AiModelFamily = 'anthropic' | 'studio' | 'custom';
 
 export interface AiModel {
 	/** Stable model id, kept in settings and session history. */
@@ -54,13 +53,26 @@ export const AI_MODELS = [
 	{ id: 'claude-opus-5', label: 'Opus 5', family: 'anthropic' },
 ] as const satisfies readonly AiModel[];
 
-/** A model by pi's provider/model reference, as `openrouter/deepseek/deepseek-v4-flash`. */
-export type ModelsJsonModelId = `${ string }/${ string }`;
+/** A model of the connected endpoint, as `custom:glm-5.3-flash`. */
+export type CustomModelId = `custom:${ string }`;
 
-export type AiModelId = ( typeof AI_MODELS )[ number ][ 'id' ] | ModelsJsonModelId;
+export type AiModelId = ( typeof AI_MODELS )[ number ][ 'id' ] | CustomModelId;
 
-const isModelsJsonModelId = ( value: string ): value is ModelsJsonModelId =>
-	/^[^/\s]+\/\S+$/.test( value );
+const CUSTOM_MODEL_PREFIX = 'custom:';
+
+const isCustomModelId = ( value: string ): value is CustomModelId =>
+	value.startsWith( CUSTOM_MODEL_PREFIX ) &&
+	/^\S+$/.test( value.slice( CUSTOM_MODEL_PREFIX.length ) );
+
+/** The id of a model the connected endpoint names `name`. */
+export function toCustomModelId( name: string ): CustomModelId {
+	return `${ CUSTOM_MODEL_PREFIX }${ name }`;
+}
+
+/** The name the connected endpoint gives a custom model. */
+export function customModelName( id: CustomModelId ): string {
+	return id.slice( CUSTOM_MODEL_PREFIX.length );
+}
 
 export const DEFAULT_MODEL: AiModelId = 'fast';
 // Accounts with purchased AI credits remaining default to the balanced tier
@@ -75,15 +87,21 @@ const MODEL_BY_ID: ReadonlyMap< string, AiModel > = new Map(
 );
 
 export function isAiModelId( value: string ): value is AiModelId {
-	return MODEL_BY_ID.has( value ) || isModelsJsonModelId( value );
+	return MODEL_BY_ID.has( value ) || isCustomModelId( value );
 }
 
 /**
- * Look up a model entry by id; a models.json model is labelled by its
- * reference. Callers handling arbitrary strings narrow with `isAiModelId` first.
+ * Look up a model entry by id; a custom model is labelled by its endpoint's
+ * name for it. Callers handling arbitrary strings narrow with `isAiModelId` first.
  */
 export function getAiModel( id: AiModelId ): AiModel {
-	return MODEL_BY_ID.get( id ) ?? { id, label: id, family: 'models-json' };
+	return (
+		MODEL_BY_ID.get( id ) ?? {
+			id,
+			label: customModelName( id as CustomModelId ),
+			family: 'custom',
+		}
+	);
 }
 
 export function getAiModelFamily( id: AiModelId ): AiModelFamily {

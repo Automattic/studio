@@ -1,5 +1,5 @@
 import { readCliConfigFileRaw } from '../lib/cli-config-file';
-import { readSharedConfig, updateSharedConfig } from '../lib/shared-config';
+import { readSharedConfig, updateSharedConfig, type CustomEndpoint } from '../lib/shared-config';
 import { validateAnthropicApiKey } from './anthropic-key';
 import {
 	DEFAULT_AI_PROVIDER,
@@ -51,6 +51,16 @@ async function readAiProviderConfig(): Promise< AiProviderConfig > {
 /** The saved Anthropic API key, for processes that need the raw value. */
 export async function readAnthropicApiKey(): Promise< string | undefined > {
 	return ( await readAiProviderConfig() ).anthropicApiKey;
+}
+
+/** The connected custom endpoint, with its key, for processes that need the raw value. */
+export async function readCustomEndpoint(): Promise< CustomEndpoint | undefined > {
+	return ( await readSharedConfig() ).customEndpoint;
+}
+
+/** Saves the custom endpoint connection; the caller already checked it answers. */
+export async function persistCustomEndpoint( endpoint: CustomEndpoint ): Promise< void > {
+	await updateSharedConfig( { customEndpoint: endpoint } );
 }
 
 /** The saved provider selection, or undefined when none was ever chosen. */

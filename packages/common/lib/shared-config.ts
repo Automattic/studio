@@ -38,6 +38,20 @@ export const sharedSessionMetadataSchema = z
 
 export type SharedSessionMetadata = z.infer< typeof sharedSessionMetadataSchema >;
 
+// An AI endpoint the user connected: where it is, the API it speaks, its key
+// and the header that carries it (the API's own when absent), the models it
+// serves and whether they take images.
+const customEndpointSchema = z.object( {
+	baseUrl: z.string(),
+	api: z.enum( [ 'openai-completions', 'anthropic-messages' ] ),
+	apiKey: z.string(),
+	keyHeader: z.string().optional(),
+	models: z.array( z.string() ).min( 1 ),
+	images: z.boolean(),
+} );
+
+export type CustomEndpoint = z.infer< typeof customEndpointSchema >;
+
 export const sharedConfigSchema = z
 	.object( {
 		version: z.literal( SHARED_CONFIG_VERSION ),
@@ -57,6 +71,8 @@ export const sharedConfigSchema = z
 		// parse; readers narrow with `isAiProviderId`.
 		aiProvider: z.string().optional(),
 		anthropicApiKey: z.string().optional(),
+		// A connection a newer or older build cannot read is dropped, not fatal.
+		customEndpoint: customEndpointSchema.optional().catch( undefined ),
 		// Anonymous install identifier for Tracks analytics, shared by Studio and the Studio CLI.
 		// See `docs/design-docs/analytics-tracks.md`.
 		analyticsInstallId: z.string().optional(),

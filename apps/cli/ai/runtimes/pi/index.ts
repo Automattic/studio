@@ -325,6 +325,9 @@ async function runAgentSessionTurn(
 				return undefined;
 			}
 			await getPendingWork( config.session ).settle();
+			// A block file the run wrote last is validated, and its lossless fix
+			// saved, before the sites are checked, as on any later tool result.
+			await getBlockValidationGate( config.session ).settle();
 			const problems = await openProblems.raise();
 			return problems.length
 				? { customType: OPEN_PROBLEMS_TYPE, content: describeOpenProblems( problems ) }

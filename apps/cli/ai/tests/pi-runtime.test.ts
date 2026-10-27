@@ -25,6 +25,8 @@ const mocks = vi.hoisted( () => ( {
 	failNext: false,
 	// What each end of a run finds still open on the sites.
 	openProblems: [] as string[][],
+	// What the end of a run did, in order.
+	turnEnd: [] as string[],
 	// The next prompt runs until its session is aborted.
 	holdNextPrompt: false,
 	// Image generation is available, and finishes when this is called.
@@ -43,8 +45,24 @@ vi.mock( 'cli/ai/image-generation', async ( importOriginal ) => ( {
 		} ),
 } ) );
 
+vi.mock( 'cli/ai/block-validation-gate', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('cli/ai/block-validation-gate') >() ),
+	getBlockValidationGate: () => ( {
+		track: () => undefined,
+		settle: async () => {
+			mocks.turnEnd.push( 'block files settled' );
+			return { summaries: [], problems: [] };
+		},
+	} ),
+} ) );
+
 vi.mock( 'cli/ai/open-problems', () => ( {
-	getOpenProblems: () => ( { raise: async () => mocks.openProblems.shift() ?? [] } ),
+	getOpenProblems: () => ( {
+		raise: async () => {
+			mocks.turnEnd.push( 'sites checked' );
+			return mocks.openProblems.shift() ?? [];
+		},
+	} ),
 	describeOpenProblems: ( problems: string[] ) => `checks: ${ problems.join( ' | ' ) }`,
 } ) );
 
@@ -320,6 +338,7 @@ describe( 'pi runtime', () => {
 		mocks.customMessages = [];
 		mocks.onCustomMessage = null;
 		mocks.openProblems = [];
+		mocks.turnEnd = [];
 		mocks.holdNextPrompt = false;
 		mocks.createAgentSession.mockReset();
 		mocks.createAgentSession.mockImplementation( async ( options: CreateAgentSessionOptions ) => {
@@ -1078,6 +1097,14 @@ describe( 'pi runtime', () => {
 			const ends = agentEnds( events );
 			expect( ends.map( ( event ) => event.willRetry ) ).toEqual( [ true, false ] );
 			expect( ends[ 1 ].messages[ 0 ] ).toMatchObject( { content: [ { text: 'Fixed.' } ] } );
+		} );
+
+		it( 'checks the sites once the block files the run wrote are validated', async () => {
+			mocks.nextEvents = runEndingWith( assistantMessage( [ { type: 'text', text: 'Done.' } ] ) );
+
+			await runFast();
+
+			expect( mocks.turnEnd ).toEqual( [ 'block files settled', 'sites checked' ] );
 		} );
 
 		it( 'ends the turn as interrupted when the user stops it first', async () => {

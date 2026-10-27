@@ -342,13 +342,13 @@ function SessionViewContent( { sessionId, siteId, headerStart }: SessionViewProp
 	}, [ isChatReady, pendingPrompt, sendMessage, sessionId ] );
 
 	// Notes sent from the preview land in the composer, then go out with its
-	// draft, or alone when they were sent directly. While the agent works they
-	// wait in the composer.
+	// draft, or alone when they were sent directly. Direct sends join the queue
+	// while the agent works.
 	useEffect( () => {
 		if ( ! isChatReady || ! annotationSiteId ) return;
 		return subscribeAnnotationSend( annotationSiteId, ( { noteIds } ) => {
 			stageAnnotations( annotationSiteId, noteIds );
-			if ( composerBusy ) return;
+			if ( composerBusy && ! noteIds ) return;
 			if ( ! noteIds ) {
 				return composerRef.current?.send();
 			}

@@ -33,3 +33,5 @@ export * from './tabs';
 export * from './textarea';
 export * from './tooltip';
 export * from './visually-hidden';
+
+export { StudioIcon } from './studio-icon';

@@ -68,7 +68,7 @@ describe( 'AnnotationOverlay', () => {
 		expect( screen.queryByRole( 'textbox', { name: 'Leave a note' } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'remembers confirmation only after deletion, not dismissal', async () => {
+	it( 'confirms discard each time and preserves notes when canceled', async () => {
 		const connector = await setup();
 		annotate();
 		pick();
@@ -78,23 +78,22 @@ describe( 'AnnotationOverlay', () => {
 		fireEvent.click(
 			within( screen.getByRole( 'toolbar' ) ).getByRole( 'button', { name: 'Cancel' } )
 		);
-		let dialog = await screen.findByRole( 'alertdialog', { name: 'Delete annotation?' } );
-		fireEvent.click( within( dialog ).getByRole( 'checkbox' ) );
+		let dialog = await screen.findByRole( 'alertdialog', {
+			name: 'Discard all pending annotations?',
+		} );
+		expect( within( dialog ).queryByRole( 'checkbox' ) ).not.toBeInTheDocument();
 		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Cancel' } ) );
 		expect( connector.setUserPreferences ).not.toHaveBeenCalled();
 		await waitFor( () => expect( screen.queryByRole( 'alertdialog' ) ).not.toBeInTheDocument() );
 		fireEvent.click(
 			within( screen.getByRole( 'toolbar' ) ).getByRole( 'button', { name: 'Cancel' } )
 		);
-		dialog = await screen.findByRole( 'alertdialog', { name: 'Delete annotation?' } );
-		expect( within( dialog ).getByRole( 'checkbox' ) ).not.toBeChecked();
-		fireEvent.click( within( dialog ).getByRole( 'checkbox' ) );
-		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Delete annotations' } ) );
-		await waitFor( () =>
-			expect( connector.setUserPreferences.mock.calls[ 0 ]?.[ 0 ] ).toEqual( {
-				confirmDeleteAnnotations: false,
-			} )
-		);
+		dialog = await screen.findByRole( 'alertdialog', { name: 'Discard all pending annotations?' } );
+		expect( getSiteAnnotations( SITE ).notes[ 0 ].comment ).toBe( 'Keep this draft' );
+		expect( within( dialog ).queryByRole( 'checkbox' ) ).not.toBeInTheDocument();
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Discard' } ) );
+		expect( connector.setUserPreferences ).not.toHaveBeenCalled();
+		expect( getSiteAnnotations( SITE ).notes ).toHaveLength( 0 );
 		expect( screen.queryByRole( 'toolbar' ) ).not.toBeInTheDocument();
 	} );
 

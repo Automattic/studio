@@ -360,7 +360,7 @@ describe( 'ShareDialog', () => {
 				} )
 		);
 		await ready;
-		const login = await screen.findByRole( 'button', { name: 'Log in to WordPress.com' } );
+		const login = await screen.findByRole( 'button', { name: 'Log in' } );
 		const signup = screen.getByRole( 'button', { name: 'Create account' } );
 		fireEvent.click( login );
 		await waitFor( () => expect( isDisabled( login ) ).toBe( true ) );

@@ -325,7 +325,7 @@ describe( 'WordPress Studio settings', () => {
 
 	it.each( [
 		[ 'Create account', true ],
-		[ 'Log in to WordPress.com', false ],
+		[ 'Log in', false ],
 	] as const )( 'opens the %s flow from Sharing Settings', async ( label, signup ) => {
 		const { connector } = await setup( { section: 'sharing', signedIn: false } );
 		expect( await screen.findByRole( 'tab', { name: 'Sharing' } ) ).toHaveAttribute(

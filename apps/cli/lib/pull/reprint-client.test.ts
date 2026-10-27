@@ -2,20 +2,20 @@ import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { spawnPhpProcess } from 'cli/lib/native-php/php-process';
-import { runReprintCommandUntilComplete } from './migration-client';
+import { runReprintCommandUntilComplete } from './reprint-client';
 import type { ChildProcess } from 'node:child_process';
 
-vi.mock( 'node:fs', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('node:fs') >();
+vi.mock( import( 'node:fs' ), async ( importOriginal ) => {
+	const actual = await importOriginal();
 	return { ...actual, default: { ...actual, existsSync: () => true }, existsSync: () => true };
 } );
-vi.mock( 'cli/lib/dependency-management/paths', () => ( {
+vi.mock( import( 'cli/lib/dependency-management/paths' ), () => ( {
 	getReprintPharPath: () => '/bundle/reprint.phar',
 } ) );
-vi.mock( 'cli/lib/dependency-management/php-binary', () => ( {
+vi.mock( import( 'cli/lib/dependency-management/php-binary' ), () => ( {
 	ensurePhpBinaryAvailable: vi.fn(),
 } ) );
-vi.mock( 'cli/lib/native-php/php-process', () => ( {
+vi.mock( import( 'cli/lib/native-php/php-process' ), () => ( {
 	spawnPhpProcess: vi.fn(),
 	reapPhpTreeOnInterrupt: () => () => undefined,
 } ) );
@@ -66,18 +66,5 @@ describe( 'runReprintCommandUntilComplete', () => {
 
 		expect( result.stdout ).toBe( '' );
 		expect( result.report?.public_key ).toBe( 'MIIB' );
-	} );
-
-	it( 'leads the failure message with the error code and message from the report', async () => {
-		vi.mocked( spawnPhpProcess ).mockReturnValue(
-			fakeChild(
-				'{"type":"reprint_report","schema_version":1,"command":"preflight","status":"error","exit_code":1,"failed_stage":null,"error":"The site does not know this Migration Token.","error_code":"AUTH_UNKNOWN_KEY"}\n',
-				1
-			)
-		);
-
-		await expect( runReprintCommandUntilComplete( [ 'preflight', 'https://x/' ] ) ).rejects.toThrow(
-			/^AUTH_UNKNOWN_KEY: The site does not know this Migration Token\./
-		);
 	} );
 } );

@@ -176,11 +176,7 @@ export interface WpComSiteInfo {
 	url: string;
 }
 
-/**
- * What {@link enableReprintExporter} learned about the site's exporter.
- * `hasPublicKey` is false when no public key is installed yet, in which case
- * the export window stayed closed: install a key, then enable again.
- */
+/** Without a public key, the site keeps its export window closed. */
 export interface ReprintExporterStatus {
 	hasPublicKey: boolean;
 }
@@ -228,11 +224,8 @@ export async function getWpComSites( token: string ): Promise< WpComSiteInfo[] >
 }
 
 /**
- * POSTs `innerPath` through the WordPress.com Jetpack-blogs REST bridge with
- * `http_envelope=1` and returns the parsed envelope. The envelope wraps the
- * real response — the outer HTTP is always 200 and the inner status/body live
- * in the envelope's `code`/`body`. `innerBody` is sent to the site as the
- * request's JSON body. Throws on a transport-level failure.
+ * POSTs to a site's REST API through the WordPress.com Jetpack proxy. The
+ * site's own status and body come back in the envelope's `code` and `body`.
  */
 async function postJetpackBridge(
 	siteId: number,
@@ -287,11 +280,7 @@ function jetpackBridgeErrorCode( envelope: unknown ): string | undefined {
 	return typeof code === 'string' ? code : undefined;
 }
 
-/**
- * Inner HTTP status of a Jetpack-bridge (`http_envelope=1`) response. The real
- * status is the envelope's `code`, except that a missing route answers with an
- * inner `rest_no_route` body, which we normalise to 404.
- */
+/** The site's HTTP status. A missing route can arrive as a 200 with a `rest_no_route` body. */
 function jetpackBridgeInnerCode( envelope: unknown ): number {
 	if ( ! envelope || typeof envelope !== 'object' ) {
 		return 0;
@@ -304,15 +293,8 @@ function jetpackBridgeInnerCode( envelope: unknown ): number {
 }
 
 /**
- * Opens the reprint export window on a WordPress.com/Pressable site by POSTing
- * `jetpack/v4/reprint/enable-export` through the Jetpack bridge, and reports
- * whether the site has a public key installed. A 200 inner status means the
- * window is now open; a 409 `jetpack_reprint_no_credential` means no key is
- * installed yet, so the window stayed closed. A 404 (`rest_no_route`) means
- * the site's Jetpack predates the exporter.
- *
- * Runs on every pull: the window closes an hour after the last accepted
- * export request, so a resume days later must reopen it.
+ * Opens the site's Reprint export window, which closes an hour after the last
+ * export request, and reports whether the site has a public key.
  */
 export async function enableReprintExporter(
 	siteId: number,
@@ -365,11 +347,7 @@ export async function enableReprintExporter(
 	);
 }
 
-/**
- * Installs a Reprint public key on a WordPress.com/Pressable site through
- * `jetpack/v4/reprint/install-public-key`. The site keeps a single key, so this
- * replaces any key installed earlier.
- */
+/** Installs a Reprint public key on the site, replacing any earlier key. */
 export async function installReprintPublicKey(
 	siteId: number,
 	token: string,

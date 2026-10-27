@@ -32,8 +32,8 @@ vi.mock( 'cli/lib/native-php/php-process', () => ( {
 	reapPhpTreeOnInterrupt: () => () => {},
 } ) );
 
-vi.mock( 'cli/lib/pull/runtime-start-options', () => ( {
-	loadImportedRuntimeStartOptions: () => undefined,
+vi.mock( 'cli/lib/pull/pulled-site-server', () => ( {
+	getPulledSiteStartOptions: () => undefined,
 } ) );
 
 vi.mock( '@studio/common/lib/mu-plugins', () => ( {

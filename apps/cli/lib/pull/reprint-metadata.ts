@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { runReprintCommandUntilComplete } from 'cli/lib/pull/migration-client';
+import { runReprintCommandUntilComplete } from 'cli/lib/pull/reprint-client';
 
 const sourceSiteSchema = z.object( {
 	homeUrl: z.string().nullable(),

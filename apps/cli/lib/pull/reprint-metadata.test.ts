@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import * as migrationClient from 'cli/lib/pull/migration-client';
+import * as reprintClient from 'cli/lib/pull/reprint-client';
 import { getCoreRoots, getReprintMetadata } from './reprint-metadata';
 
 describe( 'reprint metadata', () => {
 	it( 'reads the one-line metadata response from Reprint', async () => {
-		vi.spyOn( migrationClient, 'runReprintCommandUntilComplete' ).mockResolvedValue( {
+		vi.spyOn( reprintClient, 'runReprintCommandUntilComplete' ).mockResolvedValue( {
 			stdout: JSON.stringify( {
 				hasCompletedOnce: true,
 				hasLocalIndex: true,
@@ -39,7 +39,7 @@ describe( 'reprint metadata', () => {
 
 		expect( getCoreRoots( metadata ) ).toEqual( [ '/wordpress/core/7.0' ] );
 		expect( metadata.key?.publicKey ).toBe( 'MIIBojANBg' );
-		expect( migrationClient.runReprintCommandUntilComplete ).toHaveBeenCalledWith(
+		expect( reprintClient.runReprintCommandUntilComplete ).toHaveBeenCalledWith(
 			[ 'pull-metadata', 'https://example.com/?reprint-api-jetpack', '--state-dir=/state' ],
 			undefined,
 			{ verboseCommands: false }

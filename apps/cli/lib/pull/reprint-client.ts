@@ -1,8 +1,4 @@
-/**
- * Runs reprint.phar with the bundled native `php` binary. The command is
- * re-run while it exits with code 2 (partial) until it exits with code 0
- * (success) or code 1 (error).
- */
+/** Runs the bundled reprint.phar with Studio's native PHP binary. */
 import fs from 'node:fs';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metadata';
@@ -57,12 +53,8 @@ function getBundledReprintPhar(): string {
 }
 
 /**
- * Runs a reprint.phar command, automatically retrying on partial completion.
- *
- * Reprint commands exit with code 2 when they've made progress but need
- * another pass (e.g., large file downloads that stream in chunks). This
- * function loops until the command exits with 0 (success) or throws on exit
- * code 1 (error).
+ * Runs a Reprint command to completion. Exit code 2 means the command made
+ * progress and needs another run; exit code 1 throws.
  */
 export async function runReprintCommandUntilComplete(
 	args: string[],
@@ -74,8 +66,7 @@ export async function runReprintCommandUntilComplete(
 ): Promise< ReprintProcessResult > {
 	const pharPath = getBundledReprintPhar();
 
-	// Make sure the bundled `php` binary is downloaded before the first invocation.
-	// reprint.phar is PHP-version agnostic, so any supported native version works.
+	// reprint.phar runs on any supported PHP version.
 	const phpVersion = resolveSupportedPhpVersion( DEFAULT_PHP_VERSION );
 	await ensurePhpBinaryAvailable( phpVersion );
 
@@ -114,19 +105,9 @@ export async function runReprintCommandUntilComplete(
 }
 
 /**
- * Executes a single reprint.phar invocation with the bundled native `php`
- * binary.
- *
- * Native PHP has direct access to the host filesystem, so the `--state-dir`
- * and `--fs-root` paths reprint receives are real paths it can read and write.
- * The CA bundle, memory_limit, and proxy settings come from the native
- * `php.ini`/`process.env`, matching how Studio runs the native site server.
- *
- * reprint emits thousands of JSON-L progress lines on stdout and can emit
- * megabytes of PHP warnings on stderr, so the child is spawned in `capture`
- * mode (neither stream is forwarded to this process's stdout/stderr). We feed
- * stdout into the shared progress reporter and keep only the last stdout line
- * (the result envelope) plus the stderr tail for diagnostics.
+ * Runs reprint.phar once. Output is captured rather than forwarded, since
+ * Reprint prints thousands of progress lines and can print megabytes of PHP
+ * warnings; only the result, the report and the end of stderr are kept.
  */
 async function runReprintCommandNative(
 	pharPath: string,
@@ -210,11 +191,6 @@ async function runReprintCommandNative(
 	} );
 }
 
-// reprint writes JSON-L to stdout: { phase, files_done, bytes_received, … }.
-// The progress reporter splits the stream into lines, parses each into a
-// snapshot, and formats a one-line spinner update like
-// "Downloading files · 42/1337 files · 12.3 MB · 3m 12s".
-
 interface ProgressSnapshot {
 	phase?: string;
 	message?: string;
@@ -235,15 +211,9 @@ interface ProgressReporter {
 }
 
 /**
- * Creates a reporter that parses reprint's JSON-L stdout into human-readable
- * progress lines.
- *
- * Reprint emits one JSON object per line with fields like `phase`,
- * `files_done`, `bytes_received`, etc. The reporter accumulates these into
- * a snapshot and formats a spinner line such as
- * "Downloading files · 42/1337 files · 12.3 MB · 3m 12s". A 250ms interval
- * ticker re-renders the line to keep the elapsed time ticking even when no
- * new data arrives.
+ * Turns Reprint's JSON lines into a progress line such as
+ * "Downloading files · 42/1337 files · 12.3 MB · 3m 12s", redrawn every
+ * 250ms so the elapsed time keeps moving.
  */
 function createProgressReporter(
 	label: string,
@@ -301,18 +271,13 @@ function createProgressReporter(
 	};
 }
 
-/**
- * Parses a single JSON-L line from reprint's stdout, skipping non-progress
- * envelopes like HTTP response headers and protocol version handshakes.
- */
+/** Parses a progress line from Reprint's stdout, or returns null for anything else. */
 function parseJsonl( line: string ): Record< string, unknown > | null {
 	try {
 		const parsed = JSON.parse( line );
 		if ( ! parsed || typeof parsed !== 'object' || Array.isArray( parsed ) ) {
 			return null;
 		}
-		// Skip result envelopes (preflight responses, protocol headers, the
-		// final command report).
 		if (
 			'http_code' in parsed ||
 			'protocol_version' in parsed ||
@@ -327,17 +292,9 @@ function parseJsonl( line: string ): Record< string, unknown > | null {
 }
 
 /**
- * Merges a parsed JSON-L record into the running progress snapshot.
- *
- * Reprint uses inconsistent field names across commands and versions
- * (e.g., `files_done` vs `downloaded_files` vs `files_indexed`), so this
- * function normalizes them into a single canonical snapshot shape.
- * Numeric counters only move forward (via Math.max) to avoid visual
- * regressions when reprint restarts a partial transfer.
- *
- * The `bytes_received` field is special: reprint resets it per HTTP request,
- * so this function detects resets and accumulates a running total across
- * requests.
+ * Merges a progress record into the snapshot. Reprint's commands name the
+ * same counters differently, and counters never go backwards when a transfer
+ * restarts. `bytes_received` resets with every request, so it is summed.
  */
 function updateSnapshot(
 	record: Record< string, unknown >,
@@ -403,13 +360,7 @@ function updateSnapshot(
 	return next;
 }
 
-/**
- * Formats the current progress snapshot into a single-line status string
- * like "Downloading files · 42/1337 files · 12.3 MB · 3m 12s".
- *
- * Returns null when there's nothing meaningful to display (no counters,
- * no message, just the label).
- */
+/** Formats the snapshot as one line, or returns null when it has nothing to show. */
 function formatSnapshot(
 	snapshot: ProgressSnapshot,
 	label: string,
@@ -461,13 +412,8 @@ function formatSnapshot(
 
 	const line = parts.join( ' · ' );
 
-	// picospinner clears previous output by counting how many terminal
-	// lines the text occupied. It gets the terminal width once via
-	// process.stdout.getWindowSize(), but some environments (e.g.
-	// Conductor) don't provide it, leaving the width at Infinity.
-	// When that happens, picospinner assumes 1 line regardless of
-	// actual wrapping, so the clear only erases 1 line and each tick
-	// leaves a ghost line behind. Cap the output to avoid wrapping.
+	// picospinner clears only one line when it can't read the terminal width
+	// (e.g. in Conductor), so a wrapped line leaves copies behind.
 	const maxWidth = ( process.stdout.getWindowSize?.()?.[ 0 ] ?? 80 ) - 4;
 	if ( line.length > maxWidth ) {
 		return line.slice( 0, maxWidth - 1 ) + '…';
@@ -496,7 +442,7 @@ function mapPhase( phase: string | undefined ): string | undefined {
 	}
 }
 
-/** Coerces a value to a finite number, returning undefined for non-numeric or infinite values. */
+/** The value as a finite number, if it is one. */
 function num( value: unknown ): number | undefined {
 	if ( typeof value === 'number' ) {
 		return Number.isFinite( value ) ? value : undefined;
@@ -508,7 +454,7 @@ function num( value: unknown ): number | undefined {
 	return undefined;
 }
 
-/** Returns the value as a string if it's a non-empty string, undefined otherwise. */
+/** The value, if it is a non-empty string. */
 function str( value: unknown ): string | undefined {
 	return typeof value === 'string' && value.length > 0 ? value : undefined;
 }

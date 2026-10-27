@@ -28,7 +28,7 @@ import {
 	type ReprintProcessResult,
 	runReprintCommandUntilComplete,
 } from 'cli/lib/pull/reprint-client';
-import { ensureReprintKey } from 'cli/lib/pull/reprint-key';
+import { ensureReprintKey, reinstallReprintKey } from 'cli/lib/pull/reprint-key';
 import {
 	getReprintMetadata,
 	emptyReprintMetadata,
@@ -184,7 +184,15 @@ export async function runCommand(
 			stateDirectory: studioMetadata.stateDirectory,
 			verbose,
 		} );
-		const preflight = await runPreflight( studioMetadata, apiUrl, verbose );
+		const onUnknownKey = () =>
+			reinstallReprintKey( {
+				wpComSiteId: sourceSite.wpComSite.id,
+				wpComAccessToken: sourceSite.wpComToken.accessToken,
+				apiUrl,
+				stateDirectory: studioMetadata.stateDirectory,
+				verbose,
+			} );
+		const preflight = await runPreflight( studioMetadata, apiUrl, verbose, onUnknownKey );
 		const reprintMetadata = await getReprintMetadata( {
 			apiUrl,
 			stateDirectory: studioMetadata.stateDirectory,
@@ -217,7 +225,15 @@ export async function runCommand(
 				record.reprintOrigin = origin;
 			} );
 
-			await runFullPull( studioMetadata, apiUrl, verbose, ! isRepull, selection, reprintMetadata );
+			await runFullPull(
+				studioMetadata,
+				apiUrl,
+				verbose,
+				! isRepull,
+				selection,
+				reprintMetadata,
+				onUnknownKey
+			);
 
 			// Makes `studio site start` serve the pulled runtime instead of the blank install.
 			logger.reportStart( LoggerAction.CREATE_SITE, `Linking pulled files to "${ site.name }"…` );
@@ -298,7 +314,8 @@ export async function runCommand(
 async function runPreflight(
 	sessionMetadata: PullSession,
 	sourceSiteApiUrl: string,
-	verbose = false
+	verbose = false,
+	onUnknownKey?: () => Promise< void >
 ): Promise< {
 	siteurl?: string;
 	wp_version?: string;
@@ -324,7 +341,7 @@ async function runPreflight(
 				`--fs-root=${ sessionMetadata.rawDirectory }`,
 			],
 			undefined,
-			{ verboseCommands: verbose }
+			{ verboseCommands: verbose, onUnknownKey }
 		);
 	} catch ( preflightError ) {
 		const details =
@@ -442,7 +459,8 @@ export async function runFullPull(
 	verbose: boolean,
 	isFirstPull: boolean,
 	selection: PullSelection = {},
-	reprintMetadata: ReprintMetadata = emptyReprintMetadata
+	reprintMetadata: ReprintMetadata = emptyReprintMetadata,
+	onUnknownKey?: () => Promise< void >
 ): Promise< void > {
 	// The database lives in the pulled wp-content, or in the local one when
 	// the remote's location is unknown and the database isn't pulled.
@@ -478,6 +496,7 @@ export async function runFullPull(
 		runReprintCommandUntilComplete( args, ( progress ) => logger.reportProgress( progress ), {
 			progressLabel,
 			verboseCommands: verbose,
+			onUnknownKey,
 		} );
 
 	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Pulling site…' ) );

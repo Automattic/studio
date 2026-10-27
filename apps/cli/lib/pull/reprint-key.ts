@@ -35,6 +35,37 @@ export async function ensureReprintKey( params: {
 		return;
 	}
 
+	await installPublicKey( wpComSiteId, wpComAccessToken, publicKey, verbose );
+}
+
+/**
+ * Reinstalls the stored key on a site that no longer accepts it, typically
+ * because another machine pulling the same site installed its own key.
+ */
+export async function reinstallReprintKey( params: {
+	wpComSiteId: number;
+	wpComAccessToken: string;
+	apiUrl: string;
+	stateDirectory: string;
+	verbose: boolean;
+} ): Promise< void > {
+	const { wpComSiteId, wpComAccessToken, apiUrl, stateDirectory, verbose } = params;
+	const metadata = await getReprintMetadata( { apiUrl, stateDirectory, verbose } );
+	if ( ! metadata.key ) {
+		throw new Error( 'No Reprint key is stored for this site.' );
+	}
+	if ( verbose ) {
+		console.error( '[reprint] The site rejected the stored key; reinstalling it.' );
+	}
+	await installPublicKey( wpComSiteId, wpComAccessToken, metadata.key.publicKey, verbose );
+}
+
+async function installPublicKey(
+	wpComSiteId: number,
+	wpComAccessToken: string,
+	publicKey: string,
+	verbose: boolean
+): Promise< void > {
 	await installReprintPublicKey( wpComSiteId, wpComAccessToken, publicKey );
 	// Opens the export window, which stays closed on a site that had no key.
 	const reenabled = await enableReprintExporter( wpComSiteId, wpComAccessToken, verbose );

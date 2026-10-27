@@ -54,7 +54,8 @@ function getBundledReprintPhar(): string {
 
 /**
  * Runs a Reprint command to completion. Exit code 2 means the command made
- * progress and needs another run; exit code 1 throws.
+ * progress and needs another run; any other non-zero code throws.
+ * `onUnknownKey` runs once when the site rejects the key, before a retry.
  */
 export async function runReprintCommandUntilComplete(
 	args: string[],
@@ -62,6 +63,7 @@ export async function runReprintCommandUntilComplete(
 	options: {
 		progressLabel?: string;
 		verboseCommands?: boolean;
+		onUnknownKey?: () => Promise< void >;
 	} = {}
 ): Promise< ReprintProcessResult > {
 	const pharPath = getBundledReprintPhar();
@@ -75,31 +77,35 @@ export async function runReprintCommandUntilComplete(
 
 	const progress = createProgressReporter( label, startTime, onProgress );
 
-	let lastResult: ReprintProcessResult | undefined;
+	let onUnknownKey = options.onUnknownKey;
 
 	try {
-		do {
-			lastResult = await runReprintCommandNative( pharPath, phpVersion, args, options, progress );
-
-			// 0 is done and 2 is partial progress; anything else is a failure.
-			if ( lastResult.exitCode !== 0 && lastResult.exitCode !== 2 ) {
-				const report = lastResult.report;
-				const reportError = report?.error
-					? [ report.error_code, report.error ].filter( Boolean ).join( ': ' )
-					: '';
-				const details = [ reportError, lastResult.stderr, lastResult.stdout ]
-					.filter( Boolean )
-					.join( '\n' );
-				throw new Error(
-					details ||
-						`reprint.phar exited with code ${ lastResult.exitCode } (command: ${
-							args[ 0 ] ?? 'unknown'
-						}). No output was captured.`
-				);
+		for (;;) {
+			const result = await runReprintCommandNative( pharPath, phpVersion, args, options, progress );
+			if ( result.exitCode === 0 ) {
+				return result;
 			}
-		} while ( lastResult.exitCode === 2 );
+			if ( result.exitCode === 2 ) {
+				continue;
+			}
 
-		return lastResult;
+			const report = result.report;
+			if ( report?.error_code === 'AUTH_UNKNOWN_KEY' && onUnknownKey ) {
+				await onUnknownKey();
+				onUnknownKey = undefined;
+				continue;
+			}
+			const reportError = report?.error
+				? [ report.error_code, report.error ].filter( Boolean ).join( ': ' )
+				: '';
+			const details = [ reportError, result.stderr, result.stdout ].filter( Boolean ).join( '\n' );
+			throw new Error(
+				details ||
+					`reprint.phar exited with code ${ result.exitCode } (command: ${
+						args[ 0 ] ?? 'unknown'
+					}). No output was captured.`
+			);
+		}
 	} finally {
 		progress.cleanup();
 	}

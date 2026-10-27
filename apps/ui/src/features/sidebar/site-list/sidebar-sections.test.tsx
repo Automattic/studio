@@ -144,6 +144,35 @@ describe( 'sidebar site sections', () => {
 		await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/next' ) );
 	} );
 
+	it.each( [ false, true ] )(
+		'keeps site archives in their site (has sibling: %s)',
+		async ( hasSibling ) => {
+			const { history } = setup( {
+				sessions: [
+					...( hasSibling
+						? [ chat( 'newer-sibling', 'one', { updatedAt: '2026-10-26T12:00:00Z' } ) ]
+						: [] ),
+					chat( 'current', 'one', { updatedAt: '2026-10-26T11:00:00Z' } ),
+					chat( 'other-site', 'two', { updatedAt: '2026-10-26T10:00:00Z' } ),
+					...( hasSibling
+						? [ chat( 'sibling', 'one', { updatedAt: '2026-10-26T09:00:00Z' } ) ]
+						: [] ),
+				],
+				path: '/sessions/current',
+			} );
+			const sites = await screen.findByRole( 'group', { name: 'Sites' } );
+			const current = await within( sites ).findByRole( 'button', { name: 'Current' } );
+			fireEvent.click( current );
+			fireEvent.contextMenu( current );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Archive' } ) );
+			await waitFor( () =>
+				expect( history.location.pathname ).toBe(
+					hasSibling ? '/sessions/sibling' : '/sites/one/new'
+				)
+			);
+		}
+	);
+
 	it( 'renames and archives chats from the sidebar menu without header actions', async () => {
 		const { connector } = setup( {
 			sites: [ makeSite( { ...site, running: true } ) ],

@@ -39,7 +39,9 @@ interface PreviewSplitFrameProps {
 	// The chat is hidden: the content column collapses the same way, while the
 	// sidebar stays.
 	chatHidden?: boolean;
-	// Drawn over the top inline-end corner, above whichever pane is there.
+	// Drawn over the top inline-start and inline-end corners, above whichever
+	// pane is there.
+	start?: ReactNode;
 	actions?: ReactNode;
 	// Open or close without the slide, as when a stopping site drops its preview.
 	instant?: boolean;
@@ -50,6 +52,7 @@ export function PreviewSplitFrame( {
 	preview,
 	previewOpen = false,
 	chatHidden = false,
+	start,
 	actions,
 	instant = false,
 	children,
@@ -173,6 +176,7 @@ export function PreviewSplitFrame( {
 					/>
 				) : null }
 				{ isResizing ? <ResizeOverlay /> : null }
+				{ start }
 				{ actions }
 			</div>
 		</>

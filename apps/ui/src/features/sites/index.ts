@@ -33,6 +33,8 @@ export {
 	SiteHeaderActions,
 	SiteHeaderActionsProvider,
 	SiteHeaderSpace,
+	SiteHeaderStart,
+	SiteHeaderStartSpace,
 	useSiteHeader,
 } from './site-header-actions';
 export { SitePreview } from './site-preview';

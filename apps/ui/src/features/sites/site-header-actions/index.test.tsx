@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConnectorProvider } from '@/data/core';
@@ -91,7 +91,7 @@ describe( 'SiteHeaderActions', () => {
 	it( 'keeps Publish out of a stopped site’s header but still opens it from the site menu', async () => {
 		const { site } = renderActions();
 
-		expect( screen.getByRole( 'button', { name: 'Start' } ) ).toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Publish…' } ) ).not.toBeInTheDocument();
 
 		act( () => requestHeaderPanel( { panel: 'publish', siteId: site.id, view: 'publish' } ) );
@@ -111,14 +111,11 @@ describe( 'SiteHeaderActions', () => {
 		expect( screen.queryByRole( 'button', { name: 'Publish…' } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'folds Share into a More menu and drops the Start label when the header runs out of room', async () => {
+	it( 'folds Share into a More menu when the header runs out of room', async () => {
 		renderActions( { headerWidth: 60 } );
 
 		expect( screen.queryByRole( 'button', { name: 'Share' } ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Start' } ) ).toHaveAttribute(
-			'data-size',
-			'icon'
-		);
+		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
 		await userEvent.click( screen.getByRole( 'button', { name: 'More preview actions' } ) );
 		expect( await screen.findByRole( 'menuitem', { name: 'Share' } ) ).toBeInTheDocument();
 	} );
@@ -132,14 +129,11 @@ describe( 'SiteHeaderActions', () => {
 		expect( screen.getByRole( 'button', { name: 'More preview actions' } ) ).toHaveFocus();
 	} );
 
-	it( 'keeps Share and the Start label inline when they fit', () => {
+	it( 'keeps Share inline when it fits', () => {
 		renderActions( { headerWidth: 1000 } );
 
 		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Start' } ) ).toHaveAttribute(
-			'data-size',
-			'default'
-		);
+		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
 		expect(
 			screen.queryByRole( 'button', { name: 'More preview actions' } )
 		).not.toBeInTheDocument();
@@ -154,11 +148,8 @@ describe( 'SiteHeaderActions', () => {
 		expect( screen.queryByRole( 'menuitem', { name: 'Share' } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'starts the site', async () => {
-		const { site, connector } = renderActions();
-
-		await userEvent.click( screen.getByRole( 'button', { name: 'Start' } ) );
-
-		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( site.id ) );
+	it( 'leaves starting a stopped site to the site menu and preview', () => {
+		renderActions();
+		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
 	} );
 } );

@@ -135,7 +135,7 @@ describe( 'PublishPopover', () => {
 		expect(
 			screen.queryByRole( 'button', { name: 'Use an existing website…' } )
 		).not.toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Log in to WordPress.com' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Log in' } ) );
 		await waitFor( () =>
 			expect( connector.authenticate ).toHaveBeenCalledWith( false, 'sync_tab' )
 		);
@@ -146,7 +146,7 @@ describe( 'PublishPopover', () => {
 		const { connector, ready } = setup( [], false );
 		await ready;
 		await screen.findByRole( 'dialog', { name: 'Publish your WordPress' } );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Log in to WordPress.com' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Log in' } ) );
 		await screen.findByRole( 'button', { name: 'Publish on WordPress.com' } );
 		expect( connector.openExternalUrl ).not.toHaveBeenCalled();
 	} );

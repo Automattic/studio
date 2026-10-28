@@ -3,6 +3,13 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
 import { setCommandPaletteOpen } from '@/data/use-command-palette';
+import {
+	changeAnnotation,
+	removeAnnotations,
+	getSiteAnnotations,
+	pickAnnotation,
+	setAnnotating,
+} from '@/features/annotations';
 import { clearComposerDrafts } from '@/features/composer';
 import {
 	createFakeConnector,
@@ -114,6 +121,38 @@ afterEach( () => {
 } );
 
 describe( 'Studio workspace', () => {
+	it( 'asks for a provider before sending annotations and preserves notes when opening provider settings', async () => {
+		const { history, connector } = setup( {
+			path: '/sites/one',
+			sites: [ site( { running: true } ) ],
+		} );
+		await screen.findByRole( 'toolbar', { hidden: true } );
+		act( () => {
+			setAnnotating( 'one', true );
+			const id = pickAnnotation( 'one', { selector: 'h1', tag: 'h1', path: '/' } )!;
+			changeAnnotation( 'one', id, { comment: 'Make this heading larger' } );
+		} );
+		try {
+			fireEvent.click( screen.getByRole( 'button', { name: 'Send 1 annotation' } ) );
+			expect(
+				await screen.findByRole( 'dialog', { name: 'Put your feedback to work' } )
+			).toBeVisible();
+			expect( connector.createSession ).not.toHaveBeenCalled();
+			expect( getSiteAnnotations( 'one' ).notes[ 0 ].comment ).toBe( 'Make this heading larger' );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Choose a different provider' } ) );
+			await waitFor( () => expect( history.location.search ).toContain( 'settings=ai' ) );
+			expect( getSiteAnnotations( 'one' ).notes ).toHaveLength( 1 );
+		} finally {
+			act( () => {
+				removeAnnotations(
+					'one',
+					getSiteAnnotations( 'one' ).notes.map( ( note ) => note.id )
+				);
+				setAnnotating( 'one', false );
+			} );
+		}
+	} );
+
 	it.each( [ 'site', 'play' ] )(
 		'opens a stopped site from %s without creating or resuming a chat',
 		async ( action ) => {
@@ -369,7 +408,7 @@ describe( 'Studio workspace', () => {
 		await findComposer();
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Hide chat' } ) );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Stopped site' } ) );
-		await screen.findByRole( 'button', { name: 'Site actions for Stopped site' } );
+		await screen.findByRole( 'button', { name: 'Site menu' } );
 		const input = await findComposer();
 		expect( input ).toBeVisible();
 		fireEvent.change( input, { target: { value: 'Keep this draft' } } );
@@ -413,7 +452,7 @@ describe( 'Studio workspace', () => {
 			fireEvent.click( await screen.findByRole( 'button', { name: 'Hide chat' } ) );
 			await waitFor( () => expect( input.closest( '[aria-hidden="true"]' ) ).not.toBeNull() );
 			const chatPanel = input.closest( '[aria-hidden="true"]' )!;
-			fireEvent.click( screen.getByRole( 'button', { name: 'Site actions for My site' } ) );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
 			fireEvent.click( await screen.findByRole( 'menuitem', { name: action } ) );
 			expect( await screen.findByRole( 'dialog', { name: 'Settings' } ) ).toBeVisible();
 			expect( chatPanel ).toHaveAttribute( 'aria-hidden', 'true' );
@@ -433,7 +472,7 @@ describe( 'Studio workspace', () => {
 		}
 	);
 
-	it( 'reopens a hidden chat from the preview header', async () => {
+	it( 'keeps the site menu in place and reopens a hidden chat beside it', async () => {
 		setup( {
 			signedIn: true,
 			sites: [ site( { running: true } ) ],
@@ -442,9 +481,11 @@ describe( 'Studio workspace', () => {
 		} );
 		const hide = await screen.findByRole( 'button', { name: 'Hide chat' } );
 		const input = await findComposer();
+		const menu = screen.getByRole( 'button', { name: 'Site menu' } );
 		expect( screen.queryByRole( 'button', { name: 'Show chat' } ) ).not.toBeInTheDocument();
 		fireEvent.click( hide );
 		await waitFor( () => expect( input.closest( '[aria-hidden="true"]' ) ).not.toBeNull() );
+		expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBe( menu );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Show chat' } ) );
 		await waitFor( () => expect( input.closest( '[aria-hidden="true"]' ) ).toBeNull() );
 		expect( screen.queryByRole( 'button', { name: 'Show chat' } ) ).not.toBeInTheDocument();
@@ -499,13 +540,13 @@ describe( 'Studio workspace', () => {
 					site( { id: 'two', name: 'Other site', running: targetRunning } ),
 				],
 			} );
-			await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+			await screen.findByRole( 'button', { name: 'Site menu' } );
 			const newChat = screen.getByRole( 'button', { name: 'New chat for Other site' } );
 			newChat.focus();
 			fireEvent.click( newChat );
-			await screen.findByRole( 'button', { name: 'Site actions for Other site' } );
+			await screen.findByRole( 'button', { name: 'Site menu' } );
 			await waitFor( () => expect( composer() ).toHaveFocus() );
-			expect( screen.getByRole( 'button', { name: 'Site actions for Other site' } ) ).toBeVisible();
+			expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBeVisible();
 			expect( connector.createSession ).not.toHaveBeenCalled();
 		}
 	);
@@ -655,9 +696,8 @@ describe( 'Studio workspace', () => {
 			expect( screen.queryByRole( 'button', { name } ) ).not.toBeInTheDocument();
 		}
 		expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
-		for ( const name of [ 'Start', 'Share' ] ) {
-			expect( screen.getByRole( 'button', { name } ) ).toBeVisible();
-		}
+		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toBeVisible();
 		await refreshSessions( [ chat( { id: 'toolbar-chat', title: 'Plan my site' } ) ] );
 		fireEvent.click(
 			await within( screen.getByRole( 'group', { name: 'Sites' } ) ).findByRole( 'button', {
@@ -666,10 +706,10 @@ describe( 'Studio workspace', () => {
 		);
 		await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/toolbar-chat' ) );
 		expect( screen.queryByRole( 'button', { name: /Chat actions/ } ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Site actions for My site' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBeVisible();
 		expect( screen.queryByRole( 'button', { name: 'Publish…' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Start' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Start My site' } ) );
 		await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
 		fireEvent.load( document.querySelector( 'iframe' )! );
 		await waitFor( () =>
@@ -679,11 +719,11 @@ describe( 'Studio workspace', () => {
 		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toBeVisible();
 		expect( screen.queryByRole( 'button', { name: 'Stop' } ) ).not.toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Site actions for My site' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop site' } ) );
 		await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledWith( 'one' ) );
-		expect( await screen.findByRole( 'button', { name: 'Start' } ) ).toBeVisible();
+		expect( await screen.findByRole( 'button', { name: 'Start My site' } ) ).toBeVisible();
 	} );
 
 	it( 'preserves draft and attachments through external start and stop events', async () => {

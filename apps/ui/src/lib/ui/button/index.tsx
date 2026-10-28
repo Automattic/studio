@@ -51,6 +51,8 @@ export type ButtonProps = ComponentProps< typeof BaseButton > & {
 	disabledAppearance?: 'default' | 'icon' | 'outline';
 	/** Disables the button and leads its label with a spinner. */
 	loading?: boolean;
+	/** Replaces the visible label with a centered spinner while preserving its width. */
+	loadingMode?: 'leading' | 'replace';
 	/** The spinner's accessible label while `loading`. */
 	loadingAnnouncement?: string;
 };
@@ -63,6 +65,7 @@ export function Button( {
 	activeMotion = 'surface',
 	disabledAppearance = 'default',
 	loading = false,
+	loadingMode = 'leading',
 	loadingAnnouncement,
 	disabled,
 	focusableWhenDisabled,
@@ -79,6 +82,7 @@ export function Button( {
 			data-layout={ layout === 'default' ? undefined : layout }
 			data-active-motion={ activeMotion === 'surface' ? undefined : activeMotion }
 			data-disabled-appearance={ disabledAppearance === 'default' ? undefined : disabledAppearance }
+			data-loading-mode={ loadingMode === 'replace' ? loadingMode : undefined }
 			aria-busy={ loading || undefined }
 			disabled={ disabled || loading }
 			focusableWhenDisabled={ loading || focusableWhenDisabled }
@@ -87,12 +91,15 @@ export function Button( {
 		>
 			{ loading && (
 				<Spinner
-					data-icon="inline-start"
 					aria-hidden={ ! loadingAnnouncement || undefined }
 					aria-label={ loadingAnnouncement }
 				/>
 			) }
-			{ children }
+			{ loadingMode === 'replace' ? (
+				<span className={ styles.loadingLabel }>{ children }</span>
+			) : (
+				children
+			) }
 		</BaseButton>
 	);
 }

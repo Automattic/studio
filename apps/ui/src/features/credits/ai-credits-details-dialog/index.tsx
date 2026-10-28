@@ -42,7 +42,7 @@ export function AiCreditsDetailsDialog( {
 
 	return (
 		<Dialog open={ open } onOpenChange={ onOpenChange }>
-			<DialogContent showCloseButton={ false } initialFocus={ false }>
+			<DialogContent layout="compact" showCloseButton={ false } initialFocus={ false }>
 				<DialogHeader>
 					<DialogTitle>{ __( 'How AI credits work' ) }</DialogTitle>
 				</DialogHeader>

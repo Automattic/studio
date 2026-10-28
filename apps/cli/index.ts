@@ -3,20 +3,20 @@ import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-wa
 import { __, sprintf } from '@wordpress/i18n';
 import semver from 'semver';
 import yargs from 'yargs';
-import { registerCommand as registerExportCommand } from 'cli/commands/export';
-import { registerCommand as registerImportCommand } from 'cli/commands/import';
-import { registerCommand as registerMcpCommand } from 'cli/commands/mcp';
-import { registerCommand as registerPullCommand } from 'cli/commands/pull';
-import { registerCommand as registerPullReprintCommand } from 'cli/commands/pull-reprint';
-import { registerCommand as registerPushCommand } from 'cli/commands/push';
-import { registerCommand as registerSiteCreateCommand } from 'cli/commands/site/create';
-import { registerCommand as registerSiteDeleteCommand } from 'cli/commands/site/delete';
-import { registerCommand as registerSiteListCommand } from 'cli/commands/site/list';
-import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/start';
-import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status';
-import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop';
-import { registerCommand as registerUiCommand } from 'cli/commands/ui';
-import { registerCommand as registerUninstallCommand } from 'cli/commands/uninstall';
+import { registerCommand as registerExportCommand } from 'cli/commands/export.command';
+import { registerCommand as registerImportCommand } from 'cli/commands/import.command';
+import { registerCommand as registerMcpCommand } from 'cli/commands/mcp.command';
+import { registerCommand as registerPullReprintCommand } from 'cli/commands/pull-reprint.command';
+import { registerCommand as registerPullCommand } from 'cli/commands/pull.command';
+import { registerCommand as registerPushCommand } from 'cli/commands/push.command';
+import { registerCommand as registerSiteCreateCommand } from 'cli/commands/site/create.command';
+import { registerCommand as registerSiteDeleteCommand } from 'cli/commands/site/delete.command';
+import { registerCommand as registerSiteListCommand } from 'cli/commands/site/list.command';
+import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/start.command';
+import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status.command';
+import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop.command';
+import { registerCommand as registerUiCommand } from 'cli/commands/ui.command';
+import { registerCommand as registerUninstallCommand } from 'cli/commands/uninstall.command';
 import {
 	bumpAggregatedUniqueStat,
 	bumpStat,

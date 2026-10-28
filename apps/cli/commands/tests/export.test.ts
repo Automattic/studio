@@ -10,7 +10,8 @@ import { withSiteOperation } from 'cli/lib/site-operations';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { Logger, LoggerError } from 'cli/logger';
-import { registerCommand, runCommand } from '../export';
+import { runCommand } from '../export';
+import { registerCommand } from '../export.command';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
 vi.mock( '@studio/common/lib/deploy-ignore', () => ( {

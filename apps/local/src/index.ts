@@ -120,6 +120,10 @@ import {
 import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/editor';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import {
+	readOnboardingCompleted,
+	writeOnboardingCompleted,
+} from '@studio/common/lib/user-settings/onboarding';
+import {
 	onboardingHintsSchema,
 	readDefaultSiteDirectory,
 	readOnboardingHints,
@@ -1501,6 +1505,30 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					await options.recordTracksEvent?.( event, props ).catch( () => undefined );
 				},
 			} );
+			res.status( 204 ).end();
+		} )
+	);
+
+	api.get(
+		'/onboarding',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( await readOnboardingCompleted() );
+		} )
+	);
+
+	api.patch(
+		'/onboarding',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const parsed = z.object( { completed: z.boolean() } ).safeParse( req.body );
+			if ( ! parsed.success ) {
+				res.status( 400 ).json( { error: 'Invalid onboarding state' } );
+				return;
+			}
+			if ( await writeOnboardingCompleted( parsed.data.completed ) ) {
+				trackEvent( TRACKS_EVENTS.ONBOARDING_COMPLETE, {
+					authenticated: !! ( await readAuthToken() ),
+				} );
+			}
 			res.status( 204 ).end();
 		} )
 	);

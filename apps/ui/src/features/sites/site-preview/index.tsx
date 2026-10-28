@@ -1,6 +1,6 @@
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { __, sprintf } from '@wordpress/i18n';
-import { Suspense, useCallback, useRef, useState, type ReactNode } from 'react';
+import { Suspense, useCallback, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { useSiteDesign } from '@/data/queries/use-site-design';
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
@@ -52,6 +52,7 @@ interface SitePreviewProps {
 	// Sends the site's annotations to its chat: every note with the chat draft,
 	// or only `noteIds`, straight away.
 	onSendAnnotations?: ( siteId: string, noteIds?: string[] ) => void;
+	onStartAnnotating?: () => boolean;
 	// Called when the user navigates within the preview (link clicks,
 	// back/forward) so the parent can keep its `path` in sync without
 	// forcing a reload.
@@ -59,8 +60,6 @@ interface SitePreviewProps {
 	// True while the panel is toggled off but kept mounted (so the webview
 	// stays warm). Disables the global browser shortcuts in that state.
 	collapsed?: boolean;
-	// Controls at the toolbar's start, for when the preview is the leftmost pane.
-	toolbarStart?: ReactNode;
 	// The preview is the leftmost pane, so with the sidebar out of the way its
 	// toolbar reaches the window's start edge, where the macOS traffic lights sit.
 	atWindowStart?: boolean;
@@ -72,9 +71,9 @@ export function SitePreview( {
 	path,
 	reloadNonce,
 	onSendAnnotations,
+	onStartAnnotating,
 	onPathChange,
 	collapsed = false,
-	toolbarStart,
 	atWindowStart = false,
 }: SitePreviewProps ) {
 	const connector = useConnector();
@@ -235,7 +234,6 @@ export function SitePreview( {
 				isStarting={ isStarting }
 				isStopping={ isStopping }
 				collapsed={ collapsed }
-				toolbarStart={ toolbarStart }
 				atWindowStart={ atWindowStart }
 				browserState={ browserState }
 				shortcuts={ browserShortcuts }
@@ -253,7 +251,10 @@ export function SitePreview( {
 								disabled: ! canAnnotate || isAnnotationsBusy( annotations ),
 								disabledReason:
 									activeSurfaceKey === 'database' ? __( 'Not available for Database' ) : undefined,
-								onClick: () => setAnnotating( site.id, ! annotations.active ),
+								onClick: () => {
+									if ( ! annotations.active && onStartAnnotating?.() === false ) return;
+									setAnnotating( site.id, ! annotations.active );
+								},
 						  }
 						: undefined
 				}

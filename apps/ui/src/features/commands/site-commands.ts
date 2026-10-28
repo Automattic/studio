@@ -2,7 +2,6 @@ import { __, sprintf } from '@wordpress/i18n';
 import {
 	ArrowRightLeftIcon,
 	CodeIcon,
-	CopyIcon,
 	DatabaseIcon,
 	DownloadIcon,
 	EyeIcon,
@@ -17,6 +16,7 @@ import {
 import {
 	AnnotateIcon,
 	ChatIcon,
+	DuplicateIcon,
 	ExternalLinkIcon,
 	NewChatIcon,
 	PinIcon,
@@ -274,7 +274,7 @@ export function getSiteCommands( {
 			id: 'copy-url',
 			group: 'site',
 			label: __( 'Copy site URL' ),
-			icon: CopyIcon,
+			icon: DuplicateIcon,
 			description,
 			keywords: [ __( 'Address' ), __( 'Link' ) ],
 			run: copyUrl,
@@ -300,7 +300,7 @@ export function getSiteCommands( {
 							? __( 'Import backup…' )
 							: action.label,
 					icon: {
-						duplicate: CopyIcon,
+						duplicate: DuplicateIcon,
 						import: UploadIcon,
 						export: DownloadIcon,
 						'export-db': DatabaseIcon,

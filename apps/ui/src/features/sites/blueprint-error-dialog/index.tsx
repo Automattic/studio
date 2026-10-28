@@ -26,7 +26,7 @@ export function BlueprintErrorDialog( { error, onDismiss }: BlueprintErrorDialog
 				}
 			} }
 		>
-			<DialogContent showCloseButton={ false }>
+			<DialogContent layout="compact" showCloseButton={ false }>
 				<DialogHeader>
 					<DialogTitle>{ __( 'Blueprint error' ) }</DialogTitle>
 					<DialogDescription tone="default" className={ styles.message }>

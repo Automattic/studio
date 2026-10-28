@@ -11,7 +11,9 @@ import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
 import { useOpenSite } from '@/data/use-open-site';
 import type { Connector, CreateSiteParams, SiteDetails } from '@/data/core';
+import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { SiteOperationKind } from '@studio/common/lib/site-operation';
+import type { SiteMetadata } from '@studio/common/sites/metadata';
 import type { QueryClient } from '@tanstack/react-query';
 
 export const SITES_QUERY_KEY = [ 'sites' ] as const;
@@ -156,7 +158,9 @@ export function useStartSite() {
 				return false;
 			}
 			await connector.startSite( id );
-			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
+			if ( ! listShowsSite( queryClient, id, true ) ) {
+				await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
+			}
 			return true;
 		},
 		onError: ( error, id ) => {
@@ -178,7 +182,9 @@ export function useStopSite() {
 		mutationKey: STOP_SITE_MUTATION_KEY,
 		mutationFn: async ( id: string ) => {
 			await connector.stopSite( id );
-			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
+			if ( ! listShowsSite( queryClient, id, false ) ) {
+				await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
+			}
 		},
 		onError: ( _error, id ) => {
 			const { title, description } = getBusyNotice( queryClient, id, __( 'Failed to stop site' ) );
@@ -357,6 +363,47 @@ export function useIsSiteBusy( site: SiteDetails | undefined ): boolean {
 }
 
 /**
+ * Writes the site an event carries into the cached list, so it needs no
+ * refetch. False when the list can't take it: no list yet, a site it doesn't
+ * have, or a create or delete, which change which sites there are.
+ */
+function applySiteEvent( queryClient: QueryClient, event: SiteEvent ): boolean {
+	const { site } = event;
+	const sites = queryClient.getQueryData< SiteDetails[] >( SITES_QUERY_KEY );
+	const cached = sites?.find( ( item ) => item.id === site?.id );
+	const applies =
+		event.event === SITE_EVENTS.UPDATED || event.event === SITE_EVENTS.OPERATIONS_CHANGED;
+	if ( ! site || ! sites || ! cached || ! applies ) {
+		return false;
+	}
+	// Studio's own metadata, which events don't carry. `satisfies` stops a new
+	// field from compiling until it's carried over too.
+	const metadata = {
+		sortOrder: cached.sortOrder,
+		autoStart: cached.autoStart,
+	} satisfies Record< keyof SiteMetadata, unknown >;
+	const updated: SiteDetails = {
+		...site,
+		// An operation change says nothing about whether the site is running.
+		running: event.event === SITE_EVENTS.UPDATED ? event.running : cached.running,
+		...metadata,
+	};
+	queryClient.setQueryData< SiteDetails[] >(
+		SITES_QUERY_KEY,
+		sites.map( ( item ) => ( item === cached ? updated : item ) )
+	);
+	return true;
+}
+
+/** Whether the cached list already shows the site in this state, with no operation holding it. */
+function listShowsSite( queryClient: QueryClient, id: string, running: boolean ): boolean {
+	const site = queryClient
+		.getQueryData< SiteDetails[] >( SITES_QUERY_KEY )
+		?.find( ( item ) => item.id === id );
+	return site?.running === running && ! site.operation;
+}
+
+/**
  * Keeps the cached site list in sync with main-process events (site created,
  * updated, started, stopped, deleted). Mount once near the app root.
  */
@@ -365,17 +412,20 @@ export function useSyncSitesWithEvents(): void {
 	const queryClient = useQueryClient();
 	useEffect( () => {
 		return connector.onSiteEvent( ( event ) => {
+			const applied = applySiteEvent( queryClient, event );
 			// Keeping the in-flight fetch means joining it, and it may have read the
 			// sites before this event (an operation's release lands moments after its
 			// acquire). Refetch once more after it settles so the event isn't lost.
 			const joinsInFlightFetch = queryClient.isFetching( { queryKey: SITES_QUERY_KEY } ) > 0;
-			void queryClient
-				.invalidateQueries( { queryKey: SITES_QUERY_KEY }, KEEP_INFLIGHT_FETCH )
-				.then( () =>
-					joinsInFlightFetch
-						? queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY }, KEEP_INFLIGHT_FETCH )
-						: undefined
-				);
+			if ( ! applied || joinsInFlightFetch ) {
+				void queryClient
+					.invalidateQueries( { queryKey: SITES_QUERY_KEY }, KEEP_INFLIGHT_FETCH )
+					.then( () =>
+						joinsInFlightFetch
+							? queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY }, KEEP_INFLIGHT_FETCH )
+							: undefined
+					);
+			}
 			// Site deletion deletes the site's chat sessions (CLI `site delete`),
 			// so refresh the session list too. Scoped to deletes: start/stop
 			// events fire often and don't affect sessions. `exact` keeps this off
@@ -392,21 +442,27 @@ export function useSyncSitesWithEvents(): void {
 
 // Boot-time counterpart of the "Stop, restart on next launch" quit behavior:
 // those sites keep their autoStart flag when stopped on quit, and the renderer
-// starts them again on launch. Gated on isFetchedAfterMount so a rehydrated
-// persisted cache with stale flags can't trigger starts.
+// starts them again on launch. Reads the list this launch, joining the fetch
+// already in flight, because the persisted list predates the flags the quit set.
 export function useAutoStartSites(): void {
-	const { data: sites, isFetchedAfterMount } = useSites();
+	const connector = useConnector();
+	const queryClient = useQueryClient();
 	const { mutate: startSite } = useStartSite();
 	const startedRef = useRef( false );
 	useEffect( () => {
-		if ( ! isFetchedAfterMount || ! sites || startedRef.current ) {
+		if ( startedRef.current ) {
 			return;
 		}
 		startedRef.current = true;
-		for ( const site of sites ) {
-			if ( site.autoStart && ! site.running ) {
-				startSite( site.id );
-			}
-		}
-	}, [ isFetchedAfterMount, sites, startSite ] );
+		void queryClient
+			.fetchQuery( { queryKey: SITES_QUERY_KEY, queryFn: () => connector.getSites() } )
+			.then( ( sites ) => {
+				for ( const site of sites ) {
+					if ( site.autoStart && ! site.running ) {
+						startSite( site.id );
+					}
+				}
+			} )
+			.catch( () => undefined );
+	}, [ connector, queryClient, startSite ] );
 }

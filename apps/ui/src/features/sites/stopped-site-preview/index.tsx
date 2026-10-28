@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import { useIsSiteBusy, useStartSite } from '@/data/queries/use-sites';
-import { SiteActionsMenuItems, useSiteActions } from '@/features/sites/site-actions-menu';
+import { SiteMenuItems, useSiteActions } from '@/features/sites/site-menu';
 import { StartSiteIcon } from '@/lib/icons';
 import { Menu } from '@/lib/ui';
 import styles from './style.module.css';
@@ -42,7 +42,7 @@ function SiteActionsContextMenu( {
 			<Menu.ContextMenuRoot disabled={ disabled }>
 				<Menu.ContextMenuTrigger render={ children } />
 				<Menu.ContextPopup { ...actions.shortcuts }>
-					<SiteActionsMenuItems actions={ actions } />
+					<SiteMenuItems actions={ actions } />
 				</Menu.ContextPopup>
 			</Menu.ContextMenuRoot>
 			{ actions.dialogs }

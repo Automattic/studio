@@ -27,7 +27,7 @@ function setup( sites: SiteDetails[] = [ site() ] ) {
 }
 
 async function openSettings() {
-	await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+	await screen.findByRole( 'button', { name: 'Site menu' } );
 	fireEvent.click( screen.getByRole( 'button', { name: /^Settings$/ } ) );
 	return screen.findByRole( 'dialog', { name: 'Settings' } );
 }

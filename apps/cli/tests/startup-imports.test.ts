@@ -24,15 +24,26 @@ vi.mock( '@inquirer/prompts', () => {
 	return {};
 } );
 
-// Every `studio` command loads what the CLI entry imports statically before it runs.
+// Every `studio` command loads what the CLI entry imports statically before it runs. Each
+// command is registered from its `.command` module, which loads the command's implementation
+// when the command runs.
 describe( 'CLI startup', () => {
-	it( 'loads no heavy module before a command runs', async () => {
+	it( 'loads no heavy module or command implementation before a command runs', async () => {
 		const entry = readFileSync( path.join( import.meta.dirname, '..', 'index.ts' ), 'utf8' );
 		const staticImports = [ ...entry.matchAll( /^import [^;]*? from '(cli\/[^']+)';$/gm ) ].map(
 			( [ , specifier ] ) => specifier
 		);
-		expect( staticImports ).toContain( 'cli/commands/mcp' );
+		expect( staticImports ).toContain( 'cli/commands/site/create.command' );
 
+		for ( const specifier of staticImports ) {
+			const implementation = specifier.replace( /\.command$/, '' );
+			if ( implementation !== specifier ) {
+				vi.doMock( implementation, () => {
+					loadedAtStartup.add( implementation );
+					return {};
+				} );
+			}
+		}
 		for ( const specifier of staticImports ) {
 			await import( /* @vite-ignore */ specifier );
 		}

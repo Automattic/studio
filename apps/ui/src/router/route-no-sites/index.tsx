@@ -46,9 +46,10 @@ function NoSitesContent() {
 	const sites = useSites();
 	const navigate = useNavigate();
 	const openAddSite = useOpenAddSite();
-	const { welcome, addSite } = useSearch( { strict: false } ) as {
+	const { welcome, addSite, settings } = useSearch( { strict: false } ) as {
 		welcome?: true;
 		addSite?: string;
+		settings?: string;
 	};
 	const hasSites = !! sites.data?.length;
 	const empty = sites.isSuccess && ! hasSites;
@@ -56,11 +57,11 @@ function NoSitesContent() {
 	useEffect( () => {
 		if ( empty && ! welcome && ! offered.current ) {
 			offered.current = true;
-			if ( ! addSite ) {
+			if ( ! addSite && ! settings ) {
 				openAddSite();
 			}
 		}
-	}, [ empty, welcome, addSite, openAddSite ] );
+	}, [ empty, welcome, addSite, settings, openAddSite ] );
 	useEffect( () => {
 		if ( hasSites && ! addSite ) {
 			void navigate( { to: '/', search: true, replace: true } );

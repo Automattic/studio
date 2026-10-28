@@ -31,7 +31,7 @@
 }
 
 .frame {
-	composes: imageOutline from '@/lib/theme/recipes.module.css';
+	composes: previewFrame from '@/lib/theme/recipes.module.css';
 	position: relative;
 	display: flex;
 	align-items: center;

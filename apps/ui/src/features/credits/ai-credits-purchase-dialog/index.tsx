@@ -80,7 +80,7 @@ export function AiCreditsPurchaseDialog( {
 
 	return (
 		<Dialog open={ open } onOpenChange={ onOpenChange }>
-			<DialogContent showCloseButton={ false } finalFocus={ finalFocus }>
+			<DialogContent layout="compact" showCloseButton={ false } finalFocus={ finalFocus }>
 				<DialogHeader>
 					<DialogTitle>{ __( 'Add AI credits' ) }</DialogTitle>
 					<DialogDescription>

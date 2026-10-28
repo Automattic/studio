@@ -322,10 +322,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return () => authListeners.delete( listener );
 		},
 		async getOnboardingCompleted() {
-			return true;
+			return api< boolean >( '/onboarding' );
 		},
-		async setOnboardingCompleted() {
-			// No-op.
+		async setOnboardingCompleted( completed ) {
+			await api( '/onboarding', { method: 'PATCH', body: JSON.stringify( { completed } ) } );
 		},
 
 		// Sites — the local machine's real Studio sites, served by the CLI.

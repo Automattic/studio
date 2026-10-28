@@ -229,6 +229,7 @@ export function SiteList( {
 			session={ session }
 			active={ session.id === activeSessionId }
 			siteName={ siteName }
+			navigation={ navigation }
 			onOpen={ () => {
 				setChatNavigation( navigation );
 				onSiteOpen?.();

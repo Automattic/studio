@@ -44,6 +44,6 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'probe: start phases', () => {
 			const stop = await timed( [ 'site', 'stop', '--path', sitePath ], env );
 			rows.push( `stop${ i } wall ${ stop.ms }` );
 		}
-		console.log( `PHASE-PROBE ${ process.platform }\n${ rows.join( '\n' ) }` );
+		expect.fail( `PHASE-PROBE ${ process.platform }\n${ rows.join( '\n' ) }` );
 	} );
 } );

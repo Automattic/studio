@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { ZipArchive } from 'archiver';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	downloadVerifiedAsset,
@@ -10,6 +11,7 @@ import {
 	resetImportRuntimeCacheForTests,
 	resolveLatestReleaseAsset,
 	resolvePhpTransformer,
+	resolveStaticSiteImporterPlugin,
 	type ReleaseAsset,
 } from '../import-runtime';
 
@@ -355,6 +357,39 @@ describe( 'resolvePhpTransformer', () => {
 		);
 	} );
 
+	it( 'removes the versions before the previous one once the newest installs', async () => {
+		install( '0.43.0' );
+		install( '0.44.9' );
+		install( '0.44.10' );
+		const zip = new ZipArchive();
+		zip.append( '<?php', { name: 'php-transformer/php-transformer.php' } );
+		void zip.finalize();
+		const chunks: Buffer[] = [];
+		for await ( const chunk of zip ) {
+			chunks.push( chunk as Buffer );
+		}
+		const bytes = Buffer.concat( chunks );
+		const release = {
+			...newerRelease,
+			assets: [
+				{
+					...newerRelease.assets[ 0 ],
+					digest: `sha256:${ crypto.createHash( 'sha256' ).update( bytes ).digest( 'hex' ) }`,
+				},
+			],
+		};
+		const releasing = ( async ( url: string ) =>
+			new URL( url ).hostname === 'api.github.com'
+				? new Response( JSON.stringify( release ) )
+				: new Response( bytes ) ) as unknown as typeof fetch;
+
+		expect( ( await resolvePhpTransformer( releasing ) ).version ).toBe( '0.44.10' );
+		const directory = path.join( configDirectory, 'import-runtime', 'php-transformer' );
+		await vi.waitFor( () =>
+			expect( fs.readdirSync( directory ).sort() ).toEqual( [ '0.44.10', '0.44.20' ] )
+		);
+	} );
+
 	it( 'waits for the install on a machine with no transformer', async () => {
 		const failing = releaseFetch( {}, 404 );
 
@@ -362,4 +397,50 @@ describe( 'resolvePhpTransformer', () => {
 			'latest release lookup failed'
 		);
 	} );
+} );
+
+describe( 'resolveStaticSiteImporterPlugin', () => {
+	afterEach( () => vi.unstubAllGlobals() );
+
+	it.each< { name: string; installed: string[]; release: string; kept: string[] } >( [
+		{
+			name: 'keeps the new version and the previous one',
+			installed: [ '1.2.0', '1.9.0', '1.10.0' ],
+			release: '1.11.0',
+			kept: [ '1.10.0', '1.11.0' ],
+		},
+		{
+			name: 'keeps the newest version when an older release is published after it is withdrawn',
+			installed: [ '1.2.0', '2.0.0' ],
+			release: '1.5.0',
+			kept: [ '1.5.0', '2.0.0' ],
+		},
+	] )(
+		'removes older versions once a release installs: $name',
+		async ( { installed, release, kept } ) => {
+			const directory = path.join( configDirectory, 'import-runtime', 'static-site-importer' );
+			for ( const version of installed ) {
+				fs.mkdirSync( path.join( directory, version ), { recursive: true } );
+			}
+			vi.stubGlobal( 'fetch', async ( url: string ) =>
+				new URL( url ).hostname === 'api.github.com'
+					? new Response(
+							JSON.stringify( {
+								tag_name: `v${ release }`,
+								assets: [
+									{
+										name: 'static-site-importer-html-site-import.zip',
+										browser_download_url: 'https://example.com/ssi.zip',
+										digest: `sha256:${ digest( 'plugin' ) }`,
+									},
+								],
+							} )
+					  )
+					: new Response( 'plugin' )
+			);
+
+			expect( ( await resolveStaticSiteImporterPlugin() ).version ).toBe( release );
+			expect( fs.readdirSync( directory ).sort() ).toEqual( kept );
+		}
+	);
 } );

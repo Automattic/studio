@@ -50,8 +50,7 @@ const siteSchema = siteDetailsSchema
 		url: z.string().optional(),
 		latestCliPid: z.number().optional(),
 		reprintOrigin: reprintOriginSchema.optional(),
-		// True once a full reprint pull has completed at least once; selects
-		// first-full-pull vs. delta. Durable on the site record.
+		// True once a full reprint pull has completed at least once
 		importComplete: z.boolean().optional(),
 		status: siteStatusSchema.default( 'ready' ).optional(),
 		// The in-flight Studio operation holding this site. Unlike `status`, it's

@@ -59,7 +59,6 @@ export enum PullReprintCommandLoggerAction {
 	LOAD_SITES = 'loadSites',
 	PREFLIGHT = 'preflight',
 	LOAD_WPCOM_SITES = 'loadWpComSites',
-	ROTATE_SECRET = 'rotateSecret',
 	ABORT_IMPORT = 'abortImport',
 	CREATE_SITE = 'createSite',
 	DOWNLOAD_FILES = 'downloadFiles',

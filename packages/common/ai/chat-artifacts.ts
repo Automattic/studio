@@ -84,6 +84,10 @@ export function getSafeMediaUrl( widget: StudioChatArtifactWidgetDraft ): string
 	}
 }
 
+export function isDesignSystemPreviewWidget( widget: StudioChatArtifactWidgetDraft ): boolean {
+	return widget.type === 'site-preview' && widget.widgetProps.path === DESIGN_SYSTEM_PREVIEW_PATH;
+}
+
 export function isRenderableMediaWidget( widget: StudioChatArtifactWidgetDraft ): boolean {
 	return (
 		widget.type === 'media' &&

@@ -334,6 +334,32 @@ function bundledPlaywrightRoot(): string {
 	return path.dirname( require.resolve( 'playwright/package.json' ) );
 }
 
+const isVersion = ( name: string ) => /^\d+\.\d+\.\d+$/.test( name );
+
+const newestFirst = ( a: string, b: string ) => {
+	const [ x, y ] = [ b, a ].map( ( version ) => version.split( '.' ).map( Number ) );
+	return x.map( ( part, i ) => part - y[ i ] ).find( ( difference ) => difference !== 0 ) ?? 0;
+};
+
+/**
+ * After `installed` is installed in `directory`, remove the versions no import
+ * uses any more: all but it and the newest other one, which an import that
+ * started before this install may still be running.
+ */
+function removeOlderVersions( directory: string, installed: string ): void {
+	try {
+		const others = fs
+			.readdirSync( directory )
+			.filter( ( name ) => isVersion( name ) && name !== installed )
+			.sort( newestFirst );
+		for ( const name of others.slice( 1 ) ) {
+			fs.rmSync( path.join( directory, name ), { recursive: true, force: true } );
+		}
+	} catch {
+		// Cleanup only saves disk space; an import never fails for want of it.
+	}
+}
+
 /** The newest Data Liberation release package. */
 export function resolveCaptureEngineAsset(): Promise< ReleaseAsset > {
 	return resolveLatestReleaseAsset(
@@ -342,7 +368,10 @@ export function resolveCaptureEngineAsset(): Promise< ReleaseAsset > {
 	);
 }
 
-/** Install (once per version) and load the newest Data Liberation capture engine. */
+/**
+ * Install (once per version) and load the newest Data Liberation capture engine;
+ * installing one removes the versions before the previous one.
+ */
 export async function loadCaptureEngine(): Promise< PublishingEngine > {
 	const asset = await resolveCaptureEngineAsset();
 	const engineRoot = path.join( runtimeDirectory(), 'data-liberation', asset.version );
@@ -372,6 +401,7 @@ export async function loadCaptureEngine(): Promise< PublishingEngine > {
 		} finally {
 			fs.rmSync( staging, { recursive: true, force: true } );
 		}
+		removeOlderVersions( path.dirname( engineRoot ), asset.version );
 	}
 	linkPlaywright( engineRoot );
 	const engine = ( await import(
@@ -383,7 +413,10 @@ export async function loadCaptureEngine(): Promise< PublishingEngine > {
 	return { ...( engine as PublishingEngine ), version: asset.version, packageUrl: asset.url };
 }
 
-/** The newest Static Site Importer release ZIP, downloaded and verified once per version. */
+/**
+ * The newest Static Site Importer release ZIP, downloaded and verified once per
+ * version; installing one removes the versions before the previous one.
+ */
 export async function resolveStaticSiteImporterPlugin(): Promise< {
 	path: string;
 	version: string;
@@ -400,6 +433,7 @@ export async function resolveStaticSiteImporterPlugin(): Promise< {
 	);
 	if ( ! fs.existsSync( zipPath ) ) {
 		await downloadVerifiedAsset( asset, zipPath );
+		removeOlderVersions( path.dirname( path.dirname( zipPath ) ), asset.version );
 	}
 	return { path: zipPath, version: asset.version };
 }
@@ -407,12 +441,6 @@ export async function resolveStaticSiteImporterPlugin(): Promise< {
 const phpTransformerRoot = () => path.join( runtimeDirectory(), 'php-transformer' );
 const transformerBootstrap = ( directory: string ) =>
 	path.join( directory, 'php-transformer', 'php-transformer.php' );
-
-const isNewerVersion = ( a: string, b: string ) => {
-	const [ x, y ] = [ a, b ].map( ( version ) => version.split( '.' ).map( Number ) );
-	const differs = x.findIndex( ( part, index ) => part !== y[ index ] );
-	return differs >= 0 && x[ differs ] > y[ differs ];
-};
 
 /** The newest complete PHP transformer this machine has installed, if any. */
 function newestInstalledPhpTransformer(): { bootstrap: string; version: string } | null {
@@ -422,21 +450,22 @@ function newestInstalledPhpTransformer(): { bootstrap: string; version: string }
 	} catch {
 		return null;
 	}
-	const version = entries
-		.filter( ( entry ) => /^\d+\.\d+\.\d+$/.test( entry ) )
-		.filter( ( entry ) =>
-			fs.existsSync( transformerBootstrap( path.join( phpTransformerRoot(), entry ) ) )
+	const [ version ] = entries
+		.filter(
+			( entry ) =>
+				isVersion( entry ) &&
+				fs.existsSync( transformerBootstrap( path.join( phpTransformerRoot(), entry ) ) )
 		)
-		.reduce< string | null >(
-			( newest, entry ) => ( ! newest || isNewerVersion( entry, newest ) ? entry : newest ),
-			null
-		);
+		.sort( newestFirst );
 	return version
 		? { bootstrap: transformerBootstrap( path.join( phpTransformerRoot(), version ) ), version }
 		: null;
 }
 
-/** Install the newest Blocks Engine PHP transformer release, once per version. */
+/**
+ * Install the newest Blocks Engine PHP transformer release, once per version;
+ * installing one removes the versions before the previous one.
+ */
 async function installLatestPhpTransformer(
 	fetchImpl: typeof fetch
 ): Promise< { bootstrap: string; version: string } > {
@@ -461,6 +490,7 @@ async function installLatestPhpTransformer(
 			fs.rmSync( staging, { recursive: true, force: true } );
 			fs.rmSync( archive, { force: true } );
 		}
+		removeOlderVersions( phpTransformerRoot(), asset.version );
 	}
 	return { bootstrap: transformerBootstrap( root ), version: asset.version };
 }

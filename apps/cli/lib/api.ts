@@ -176,26 +176,10 @@ export interface WpComSiteInfo {
 	url: string;
 }
 
-/**
- * Which export surface a WordPress.com/Pressable site exposes. v2 (`jetpack/v4`
- * + `?reprint-api-jetpack`) is available on Pressable and current Atomic; v1
- * (wpcomsh + `?reprint-api`) is the legacy Atomic surface. The surface is
- * decided once by {@link enableReprintExporter}'s probe and then drives both
- * the rotate route and the importer query var.
- */
-export type ReprintSurface = 'v1' | 'v2';
-
-const reprintSecretSchema = z.string().min( 1, __( 'Secret cannot be empty' ) );
-
-// Rotate hands back the secret in one of two shapes: v2 (`jetpack/v4`) is flat
-// `{ secret }`; v1 (wpcomsh) nests it under `{ data: { secret } }`.
-const rotateReprintSecretResponseSchema = z.object( {
-	code: z.number(),
-	body: z.object( {
-		secret: reprintSecretSchema.optional(),
-		data: z.object( { secret: reprintSecretSchema } ).optional(),
-	} ),
-} );
+/** Without a public key, the site keeps its export window closed. */
+export interface ReprintExporterStatus {
+	hasPublicKey: boolean;
+}
 
 const wpComSitesResponseSchema = z.object( {
 	sites: z.array(
@@ -240,15 +224,14 @@ export async function getWpComSites( token: string ): Promise< WpComSiteInfo[] >
 }
 
 /**
- * POSTs `innerPath` through the WordPress.com Jetpack-blogs REST bridge with
- * `http_envelope=1` and returns the parsed envelope. The envelope wraps the
- * real response — the outer HTTP is always 200 and the inner status/body live
- * in the envelope's `code`/`body`. Throws on a transport-level failure.
+ * POSTs to a site's REST API through the WordPress.com Jetpack proxy. The
+ * site's own status and body come back in the envelope's `code` and `body`.
  */
 async function postJetpackBridge(
 	siteId: number,
 	token: string,
-	innerPath: string
+	innerPath: string,
+	innerBody?: Record< string, unknown >
 ): Promise< unknown > {
 	const response = await fetch(
 		`https://public-api.wordpress.com/rest/v1.1/jetpack-blogs/${ siteId }/rest-api?http_envelope=1&`,
@@ -258,7 +241,11 @@ async function postJetpackBridge(
 				Authorization: `Bearer ${ token }`,
 				'Content-Type': 'application/json',
 			},
-			body: JSON.stringify( { path: innerPath } ),
+			body: JSON.stringify(
+				innerBody
+					? { path: innerPath, body: JSON.stringify( innerBody ), json: true }
+					: { path: innerPath }
+			),
 		}
 	);
 	if ( ! response.ok ) {
@@ -267,57 +254,53 @@ async function postJetpackBridge(
 	return response.json();
 }
 
-/**
- * Inner HTTP status of a Jetpack-bridge (`http_envelope=1`) response. The real
- * status is the envelope's `code`, except that a missing route answers with an
- * inner `rest_no_route` body, which we normalise to 404 so the v2 capability
- * probe is reliable.
- */
+/** The site's own response body inside a Jetpack-bridge envelope, parsed. */
+function jetpackBridgeInnerBody( envelope: unknown ): unknown {
+	if ( ! envelope || typeof envelope !== 'object' ) {
+		return undefined;
+	}
+	const { body } = envelope as { body?: unknown };
+	if ( typeof body !== 'string' ) {
+		return body;
+	}
+	try {
+		return JSON.parse( body );
+	} catch {
+		return undefined;
+	}
+}
+
+/** The `code` of a WP_Error-shaped inner body, such as `rest_no_route`. */
+function jetpackBridgeErrorCode( envelope: unknown ): string | undefined {
+	const inner = jetpackBridgeInnerBody( envelope );
+	if ( ! inner || typeof inner !== 'object' ) {
+		return undefined;
+	}
+	const { code } = inner as { code?: unknown };
+	return typeof code === 'string' ? code : undefined;
+}
+
+/** The site's HTTP status. A missing route can arrive as a 200 with a `rest_no_route` body. */
 function jetpackBridgeInnerCode( envelope: unknown ): number {
 	if ( ! envelope || typeof envelope !== 'object' ) {
 		return 0;
 	}
-	const { code, body } = envelope as { code?: unknown; body?: unknown };
-	let inner = body;
-	if ( typeof inner === 'string' ) {
-		try {
-			inner = JSON.parse( inner );
-		} catch {
-			inner = undefined;
-		}
-	}
-	if (
-		inner &&
-		typeof inner === 'object' &&
-		( inner as { code?: unknown } ).code === 'rest_no_route'
-	) {
+	if ( jetpackBridgeErrorCode( envelope ) === 'rest_no_route' ) {
 		return 404;
 	}
+	const { code } = envelope as { code?: unknown };
 	return typeof code === 'number' ? code : 0;
 }
 
-const settingsResponseSchema = z.object( {
-	updated: z.record( z.string(), z.unknown() ).optional(),
-} );
-
 /**
- * Provisions the reprint exporter on a WordPress.com/Pressable site and reports
- * which export surface it exposes.
- *
- * Probes for v2 by POSTing `jetpack/v4/reprint/enable-export` through the
- * Jetpack bridge: a 200 inner status means v2 is available; a 404
- * (`rest_no_route` — the routes only register where the exporter exists) means
- * the site is still on the wpcomsh v1 surface, so we fall back to the legacy
- * settings-based enable. enable-export mints no secret, so probing is harmless.
- *
- * Runs on every pull: the v1 enable arms a sliding 60-minute window that each
- * accepted export request bumps, so a resume days later must re-arm it.
+ * Opens the site's Reprint export window, which closes an hour after the last
+ * export request, and reports whether the site has a public key.
  */
 export async function enableReprintExporter(
 	siteId: number,
 	token: string,
 	verbose = false
-): Promise< ReprintSurface > {
+): Promise< ReprintExporterStatus > {
 	let envelope: unknown;
 	try {
 		envelope = await postJetpackBridge( siteId, token, '/jetpack/v4/reprint/enable-export' );
@@ -331,165 +314,64 @@ export async function enableReprintExporter(
 	const status = jetpackBridgeInnerCode( envelope );
 	if ( status === 200 ) {
 		if ( verbose ) {
-			console.error(
-				`[enableReprintExporter] Site ${ siteId } supports v2 export (enable-export returned 200)`
-			);
+			console.error( `[enableReprintExporter] Opened the export window on site ${ siteId }` );
 		}
-		return 'v2';
+		return { hasPublicKey: true };
 	}
-	if ( status === 404 ) {
+	if ( status === 409 && jetpackBridgeErrorCode( envelope ) === 'jetpack_reprint_no_credential' ) {
 		if ( verbose ) {
 			console.error(
-				`[enableReprintExporter] Site ${ siteId } has no v2 export route (404); falling back to v1`
+				`[enableReprintExporter] Site ${ siteId } has no public key installed (enable-export returned 409)`
 			);
 		}
-		await enableReprintExporterV1( siteId, token, verbose );
-		return 'v1';
+		return { hasPublicKey: false };
 	}
 
 	if ( verbose ) {
 		console.error(
-			`[enableReprintExporter] enable-export probe on site ${ siteId } returned an unexpected status ${ status }. Response: ${ JSON.stringify(
+			`[enableReprintExporter] enable-export on site ${ siteId } returned status ${ status }. Response: ${ JSON.stringify(
 				envelope
 			) }`
 		);
 	}
-	throw new LoggerError(
-		__( 'Failed to enable the reprint exporter' ),
-		new Error( `enable-export probe returned status ${ status }` )
-	);
-}
-
-/**
- * v1 enable: sets the `reprint_exporter_enabled` site option to the current
- * unix timestamp. wpcomsh gates the `?reprint-api` endpoint on this being a
- * timestamp within the last 60 minutes.
- *
- * Uses WPCOM's generic `/sites/{site}/settings` endpoint because wpcomsh does
- * not expose a dedicated enable endpoint. The settings endpoint whitelists keys
- * and silently drops unknown ones with a 200 OK, so we verify that
- * `reprint_exporter_enabled` appears in the `updated` response — catching a
- * stale wpcomsh whitelist here, long before the user hits an opaque preflight 403.
- */
-async function enableReprintExporterV1(
-	siteId: number,
-	token: string,
-	verbose = false
-): Promise< void > {
-	const timestamp = Math.floor( Date.now() / 1000 );
-	if ( verbose ) {
-		console.error(
-			`[enableReprintExporter] Setting reprint_exporter_enabled=${ timestamp } on site ${ siteId }…`
-		);
-	}
-	const wpcom = wpcomFactory( token, wpcomXhrRequest );
-	let rawResponse: unknown;
-	try {
-		rawResponse = await wpcom.req.post( {
-			path: `/sites/${ siteId }/settings`,
-			apiNamespace: 'rest/v1.1',
-			body: { reprint_exporter_enabled: timestamp },
-		} );
-	} catch ( error ) {
-		if ( verbose ) {
-			const message = error instanceof Error ? error.message : String( error );
-			console.error(
-				`[enableReprintExporter] Failed to set reprint_exporter_enabled=${ timestamp } on site ${ siteId }: ${ message }`
-			);
-		}
-		throw new LoggerError( __( 'Failed to enable the reprint exporter' ), error );
-	}
-
-	const parsed = settingsResponseSchema.safeParse( rawResponse );
-	const updated = parsed.success ? parsed.data.updated : undefined;
-	if ( ! updated || ! ( 'reprint_exporter_enabled' in updated ) ) {
-		if ( verbose ) {
-			console.error(
-				`[enableReprintExporter] Site ${ siteId } settings endpoint did not report reprint_exporter_enabled as updated. Response: ${ JSON.stringify(
-					rawResponse
-				) }`
-			);
-		}
+	if ( status === 404 ) {
 		throw new LoggerError(
 			__(
-				'The site did not acknowledge the reprint exporter activation. The feature may not be available yet on this WordPress.com site.'
+				'This site does not support pulling yet. Update Jetpack on the site to the latest version and try again.'
 			)
 		);
 	}
-
-	if ( verbose ) {
-		console.error(
-			`[enableReprintExporter] Set reprint_exporter_enabled=${ JSON.stringify(
-				updated.reprint_exporter_enabled
-			) } on site ${ siteId }`
-		);
-	}
+	throw new LoggerError(
+		__( 'Failed to enable the reprint exporter' ),
+		new Error( `enable-export returned status ${ status }` )
+	);
 }
 
-/**
- * Rotates a WordPress.com/Pressable site's reprint export secret and returns
- * it. `surface` (from {@link enableReprintExporter}) selects the rotate route
- * and the accepted response shape: v2 returns a flat `{ secret }`, v1 nests it
- * under `{ data: { secret } }`. Both go through the Jetpack bridge; the wrapper
- * `code` must be `200`, otherwise a `LoggerError` is thrown.
- */
-export async function rotateReprintSecret(
+/** Installs a Reprint public key on the site, replacing any earlier key. */
+export async function installReprintPublicKey(
 	siteId: number,
 	token: string,
-	surface: ReprintSurface
-): Promise< string > {
-	const rotatePath =
-		surface === 'v2'
-			? '/jetpack/v4/reprint/rotate-export-secret'
-			: '/wpcomsh/v1/reprint/rotate-export-secret';
-
-	let rawResponse: unknown;
+	publicKey: string
+): Promise< void > {
+	let envelope: unknown;
 	try {
-		rawResponse = await postJetpackBridge( siteId, token, rotatePath );
+		envelope = await postJetpackBridge( siteId, token, '/jetpack/v4/reprint/install-public-key', {
+			public_key: publicKey,
+		} );
 	} catch ( error ) {
 		throw new LoggerError(
-			__( 'Failed to rotate the WordPress.com site secret' ),
+			__( 'Failed to install the migration key on the WordPress.com site' ),
 			error instanceof Error ? error : new Error( String( error ) )
 		);
 	}
 
-	try {
-		const result = rotateReprintSecretResponseSchema.parse( rawResponse );
-
-		if ( result.code !== 200 ) {
-			throw new LoggerError(
-				__( 'Failed to rotate the WordPress.com site secret' ),
-				new Error(
-					`Unexpected response code ${ result.code }. Raw response: ${ JSON.stringify(
-						rawResponse
-					) }`
-				)
-			);
-		}
-
-		const secret = result.body.secret ?? result.body.data?.secret;
-		if ( ! secret ) {
-			throw new LoggerError(
-				__( 'Invalid API response format' ),
-				new Error( `No secret in rotate response: ${ JSON.stringify( rawResponse ) }` )
-			);
-		}
-
-		return secret;
-	} catch ( error ) {
-		if ( error instanceof LoggerError ) {
-			throw error;
-		}
-		if ( error instanceof z.ZodError ) {
-			throw new LoggerError(
-				__( 'Invalid API response format' ),
-				new Error(
-					`Zod validation failed: ${ error.message }. Raw response: ${ JSON.stringify(
-						rawResponse
-					) }`
-				)
-			);
-		}
-		throw new LoggerError( __( 'Failed to rotate the WordPress.com site secret' ), error );
+	const status = jetpackBridgeInnerCode( envelope );
+	if ( status !== 200 ) {
+		throw new LoggerError(
+			__( 'Failed to install the migration key on the WordPress.com site' ),
+			new Error(
+				`install-public-key returned status ${ status }. Response: ${ JSON.stringify( envelope ) }`
+			)
+		);
 	}
 }

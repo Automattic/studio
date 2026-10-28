@@ -23,11 +23,7 @@ function relativePathToOnly( value: string ): string {
 	return relativePath ? `${ WP_CONTENT_TOKEN }/${ relativePath }` : WP_CONTENT_TOKEN;
 }
 
-/**
- * Map raw `--only` CLI values (wp-content-relative paths like
- * `plugins/akismet`, or pass-through Reprint tokens/absolute paths) to
- * Reprint `--only` sources.
- */
+/** Maps `--only` values relative to wp-content, like `plugins/akismet`, to Reprint paths. */
 export function mapCliOnlyToReprint( values: string[] ): string[] {
 	return values
 		.map( ( value ) => value.trim() )
@@ -76,11 +72,7 @@ export async function fetchJetpackPullTree(
 	return tree;
 }
 
-/**
- * Prompt for what to pull. The existing pull command's Jetpack-backed tree
- * is expanded lazily, so the prompt never needs to materialize a remote file
- * index in Reprint state.
- */
+/** Asks what to pull, loading the remote folder tree as the user expands it. */
 export async function selectPullItems(
 	tree: TreeNode[],
 	options: { allowDatabaseOnly?: boolean; token?: string; remoteSiteId?: number } = {}

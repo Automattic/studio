@@ -4,7 +4,7 @@ import { vi } from 'vitest';
 import {
 	enableReprintExporter,
 	getWpComSites,
-	rotateReprintSecret,
+	installReprintPublicKey,
 	SnapshotStatus,
 	uploadArchive,
 	waitForSiteReady,
@@ -196,100 +196,77 @@ describe( 'API Module', () => {
 		} );
 	} );
 
-	describe( 'rotateReprintSecret', () => {
-		it( 'rotates via the v1 wpcomsh route and reads the nested `{ data: { secret } }` shape', async () => {
+	describe( 'installReprintPublicKey', () => {
+		it( 'sends the public key as the JSON body of install-public-key', async () => {
 			vi.mocked( fetch ).mockResolvedValue( {
 				ok: true,
 				json: vi.fn().mockResolvedValue( {
 					code: 200,
 					body: {
-						data: {
-							secret: 'rotated-secret',
-						},
+						key_id: 'c1c08fadfa3a465c',
+						export_url: 'https://example.com/?reprint-api-jetpack',
 					},
 				} ),
 			} as never );
 
-			await expect( rotateReprintSecret( mockSiteId, mockToken, 'v1' ) ).resolves.toBe(
-				'rotated-secret'
-			);
+			await expect(
+				installReprintPublicKey( mockSiteId, mockToken, 'MIIBojANBg' )
+			).resolves.toBeUndefined();
 			expect( fetch ).toHaveBeenCalledWith(
 				`https://public-api.wordpress.com/rest/v1.1/jetpack-blogs/${ mockSiteId }/rest-api?http_envelope=1&`,
 				expect.objectContaining( {
 					method: 'POST',
-					headers: expect.objectContaining( {
-						Authorization: `Bearer ${ mockToken }`,
+					body: JSON.stringify( {
+						path: '/jetpack/v4/reprint/install-public-key',
+						body: JSON.stringify( { public_key: 'MIIBojANBg' } ),
+						json: true,
 					} ),
-					body: JSON.stringify( { path: '/wpcomsh/v1/reprint/rotate-export-secret' } ),
 				} )
 			);
 		} );
 
-		it( 'rotates via the v2 jetpack route and reads the flat `{ secret }` shape', async () => {
+		it( 'throws when the site rejects the key', async () => {
 			vi.mocked( fetch ).mockResolvedValue( {
 				ok: true,
 				json: vi.fn().mockResolvedValue( {
-					code: 200,
-					body: {
-						secret: 'v2-secret',
-					},
+					code: 400,
+					body: { code: 'jetpack_reprint_invalid_public_key', data: { status: 400 } },
 				} ),
 			} as never );
 
-			await expect( rotateReprintSecret( mockSiteId, mockToken, 'v2' ) ).resolves.toBe(
-				'v2-secret'
-			);
-			expect( fetch ).toHaveBeenCalledWith(
-				expect.stringContaining( `jetpack-blogs/${ mockSiteId }/rest-api?http_envelope=1&` ),
-				expect.objectContaining( {
-					body: JSON.stringify( { path: '/jetpack/v4/reprint/rotate-export-secret' } ),
-				} )
+			await expect( installReprintPublicKey( mockSiteId, mockToken, 'bogus' ) ).rejects.toThrow(
+				'Failed to install the migration key on the WordPress.com site'
 			);
 		} );
 
-		it( 'throws when the rotate response carries no secret', async () => {
-			vi.mocked( fetch ).mockResolvedValue( {
-				ok: true,
-				json: vi.fn().mockResolvedValue( { code: 200, body: {} } ),
-			} as never );
+		it( 'throws on a transport failure', async () => {
+			vi.mocked( fetch ).mockResolvedValue( { ok: false, status: 502 } as never );
 
-			await expect( rotateReprintSecret( mockSiteId, mockToken, 'v2' ) ).rejects.toThrow(
-				'Invalid API response format'
-			);
-		} );
-
-		it( 'should throw when rotating the WordPress.com secret fails', async () => {
-			vi.mocked( fetch ).mockResolvedValue( {
-				ok: false,
-				status: 500,
-			} as never );
-
-			await expect( rotateReprintSecret( mockSiteId, mockToken, 'v1' ) ).rejects.toThrow(
-				'Failed to rotate the WordPress.com site secret'
-			);
+			await expect(
+				installReprintPublicKey( mockSiteId, mockToken, 'MIIBojANBg' )
+			).rejects.toThrow( 'Failed to install the migration key on the WordPress.com site' );
 		} );
 	} );
 
 	describe( 'enableReprintExporter', () => {
-		it( 'returns "v2" when the enable-export probe succeeds and does not touch the settings endpoint', async () => {
+		it( 'reports a key when enable-export opens the window', async () => {
 			vi.mocked( fetch ).mockResolvedValue( {
 				ok: true,
 				json: vi.fn().mockResolvedValue( { code: 200, body: { enabled: true } } ),
 			} as never );
 
-			await expect( enableReprintExporter( mockSiteId, mockToken ) ).resolves.toBe( 'v2' );
+			await expect( enableReprintExporter( mockSiteId, mockToken ) ).resolves.toEqual( {
+				hasPublicKey: true,
+			} );
 			expect( fetch ).toHaveBeenCalledWith(
 				`https://public-api.wordpress.com/rest/v1.1/jetpack-blogs/${ mockSiteId }/rest-api?http_envelope=1&`,
 				expect.objectContaining( {
 					body: JSON.stringify( { path: '/jetpack/v4/reprint/enable-export' } ),
 				} )
 			);
-			// The v2 path enables the exporter through the probe itself, so it
-			// must never fall through to the legacy settings-based enable.
-			expect( wpcomFactory ).not.toHaveBeenCalled();
 		} );
 
-		it( 'falls back to "v1" when the probe returns an inner `rest_no_route` body', async () => {
+		it( 'tells the user to update Jetpack when the site has no enable-export route', async () => {
 			vi.mocked( fetch ).mockResolvedValue( {
 				ok: true,
 				json: vi.fn().mockResolvedValue( {
@@ -297,32 +274,42 @@ describe( 'API Module', () => {
 					body: { code: 'rest_no_route', data: { status: 404 } },
 				} ),
 			} as never );
-			const post = vi.fn().mockResolvedValue( {
-				updated: { reprint_exporter_enabled: 1_700_000_000 },
-			} );
-			vi.mocked( wpcomFactory ).mockReturnValue( createWpcomMock( { post } ) );
 
-			await expect( enableReprintExporter( mockSiteId, mockToken ) ).resolves.toBe( 'v1' );
-			expect( post ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					path: `/sites/${ mockSiteId }/settings`,
-					body: expect.objectContaining( { reprint_exporter_enabled: expect.any( Number ) } ),
-				} )
+			await expect( enableReprintExporter( mockSiteId, mockToken ) ).rejects.toThrow(
+				'Update Jetpack on the site'
 			);
 		} );
 
-		it( 'falls back to "v1" when the envelope reports a 404 code directly', async () => {
+		it( 'reports no key when the site has no public key installed yet', async () => {
 			vi.mocked( fetch ).mockResolvedValue( {
 				ok: true,
-				json: vi.fn().mockResolvedValue( { code: 404, body: {} } ),
+				json: vi.fn().mockResolvedValue( {
+					code: 409,
+					body: {
+						code: 'jetpack_reprint_no_credential',
+						message: 'Install a public key first.',
+						data: { status: 409 },
+					},
+				} ),
 			} as never );
-			const post = vi.fn().mockResolvedValue( {
-				updated: { reprint_exporter_enabled: 1_700_000_000 },
-			} );
-			vi.mocked( wpcomFactory ).mockReturnValue( createWpcomMock( { post } ) );
 
-			await expect( enableReprintExporter( mockSiteId, mockToken ) ).resolves.toBe( 'v1' );
-			expect( post ).toHaveBeenCalled();
+			await expect( enableReprintExporter( mockSiteId, mockToken ) ).resolves.toEqual( {
+				hasPublicKey: false,
+			} );
+		} );
+
+		it( 'throws on a 409 that is not the missing-credential error', async () => {
+			vi.mocked( fetch ).mockResolvedValue( {
+				ok: true,
+				json: vi.fn().mockResolvedValue( {
+					code: 409,
+					body: { code: 'something_else', data: { status: 409 } },
+				} ),
+			} as never );
+
+			await expect( enableReprintExporter( mockSiteId, mockToken ) ).rejects.toThrow(
+				'Failed to enable the reprint exporter'
+			);
 		} );
 
 		it( 'throws on an unexpected probe status', async () => {
@@ -333,19 +320,6 @@ describe( 'API Module', () => {
 
 			await expect( enableReprintExporter( mockSiteId, mockToken ) ).rejects.toThrow(
 				'Failed to enable the reprint exporter'
-			);
-		} );
-
-		it( 'throws when the v1 settings endpoint does not acknowledge the key', async () => {
-			vi.mocked( fetch ).mockResolvedValue( {
-				ok: true,
-				json: vi.fn().mockResolvedValue( { code: 404, body: {} } ),
-			} as never );
-			const post = vi.fn().mockResolvedValue( { updated: {} } );
-			vi.mocked( wpcomFactory ).mockReturnValue( createWpcomMock( { post } ) );
-
-			await expect( enableReprintExporter( mockSiteId, mockToken ) ).rejects.toThrow(
-				'did not acknowledge the reprint exporter activation'
 			);
 		} );
 	} );

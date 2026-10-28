@@ -164,6 +164,7 @@ steps:
     agents:
       queue: mac
     command: bash .buildkite/commands/run-metrics-tests.sh
+    timeout_in_minutes: 30
     artifact_paths:
       - tools/metrics/artifacts/**/*.json
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]

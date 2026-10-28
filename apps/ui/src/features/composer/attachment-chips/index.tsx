@@ -8,10 +8,14 @@ import {
 } from '@studio/agent/protocol/composer-attachment-preview';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { FileTextIcon, XIcon } from 'lucide-react';
+import { FileTextIcon } from 'lucide-react';
 import { cloneElement, useLayoutEffect, useRef } from 'react';
 import { AnnotateIcon } from '@/lib/icons';
-import { AttachmentChip as AttachmentChipSurface, Button, HoverCard } from '@/lib/ui';
+import {
+	AttachmentChip as AttachmentChipSurface,
+	AttachmentRemoveButton,
+	HoverCard,
+} from '@/lib/ui';
 import styles from './style.module.css';
 import type { ComposerAttachment } from '@/data/use-composer-attachments';
 
@@ -75,16 +79,7 @@ function AttachmentChip( {
 					<span className={ styles.attachmentName }>{ attachment.name }</span>
 				</>
 			) }
-			<Button
-				variant="outline"
-				size="icon-2xs"
-				shape="round"
-				className={ styles.attachmentRemove }
-				aria-label={ __( 'Remove attachment' ) }
-				onClick={ onRemove }
-			>
-				<XIcon />
-			</Button>
+			<AttachmentRemoveButton aria-label={ __( 'Remove attachment' ) } onClick={ onRemove } />
 		</>
 	);
 	if ( ! hasComposerAttachmentVisualPreview( attachment ) ) {

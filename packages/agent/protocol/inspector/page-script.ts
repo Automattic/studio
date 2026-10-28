@@ -16,6 +16,7 @@
  * forwarded too, so the host can handle them.
  */
 
+import { PLUS_ICON } from '@studio/common/lib/plus-icon';
 import type { VisualAnnotationTarget } from '@studio/agent/protocol/visual-annotations';
 
 export const INSPECTOR_BRIDGE_PREFIX = '__studio-inspector__:';
@@ -39,8 +40,19 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 	const style = document.createElement('style');
 	style.textContent =
 		'.highlight{position:fixed;pointer-events:none;box-sizing:border-box;border:2px solid var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}' +
-		'button{position:fixed;transform:translate(-50%,-50%);border:0;border-radius:50%;width:32px;height:32px;padding:0;font:600 12px system-ui;background:var(--marker) center/contain no-repeat;color:var(--on-accent);cursor:pointer;pointer-events:auto}' +
-		'button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}';
+		'button{position:fixed;transform:translate(-50%,-50%);border:0;border-radius:50%;width:32px;height:32px;padding:0;font:500 12px var(--marker-font-family,system-ui);font-variant-numeric:tabular-nums;background:var(--marker) center/contain no-repeat;color:var(--on-accent);cursor:pointer;pointer-events:auto}' +
+		'button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}' +
+		'.enter{animation:marker-in 250ms cubic-bezier(.22,1,.36,1) both}' +
+		'.confirm{animation:marker-confirm 220ms ease-out both}' +
+		'.plus,.number{position:absolute;inset:0;display:grid;place-items:center;transition:opacity 100ms var(--motion-ease-enter),transform var(--motion-duration-surface) var(--motion-ease-enter)}' +
+		'.plus{opacity:0;transform:scale(.95)}' +
+		'.number{opacity:1;transform:translateY(0)}' +
+		'button[data-pending="true"] .plus{opacity:1;transform:scale(1)}' +
+		'button[data-pending="true"] .number{opacity:0;transform:translateY(2px)}' +
+		'@keyframes marker-in{from{opacity:0;transform:translate(-50%,-50%) scale(.3)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}' +
+		'@keyframes marker-confirm{from{transform:translate(-50%,-50%) scale(1)}25%{transform:translate(-50%,-50%) scale(.94)}65%{transform:translate(-50%,-50%) scale(1.06)}to{transform:translate(-50%,-50%) scale(1)}}' +
+		'@keyframes marker-fade-in{from{opacity:0}to{opacity:1}}' +
+		'@media(prefers-reduced-motion:reduce){.enter{animation-name:marker-fade-in;animation-duration:var(--motion-duration-surface)}.confirm{animation-name:marker-fade-in;animation-duration:1ms}.plus,.number,button[data-pending="true"] .plus,button[data-pending="true"] .number{transform:none;transition-property:opacity}}';
 	root.append(style);
 	const highlight = document.createElement('div');
 	highlight.className = 'highlight';
@@ -48,6 +60,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 	root.append(highlight);
 	const markers = document.createElement('div');
 	root.append(markers);
+	const markerNodes = new Map();
 	let state = { active: false, notes: [], editingId: null };
 	let hovered = null;
 	let selected = null;
@@ -58,10 +71,8 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 			console.log(PREFIX + JSON.stringify(event));
 		} catch {}
 	}
-	/* The marker and the cursor: the accent shape inside a white ring. */
-	function art(accent, shape) {
-		const path = shape === 'bubble' ? 'M5 27V16a11 11 0 1 1 11 11H5Z' : 'M16 5a11 11 0 1 1 0 22a11 11 0 1 1 0-22Z';
-		const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><defs><filter id="s" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-opacity="0.1"/></filter></defs><g filter="url(#s)" fill="' + accent + '" stroke-linejoin="round"><path d="' + path + '" stroke="' + accent + '" stroke-width="4"/><path d="' + path + '" stroke="white" stroke-width="2"/></g></svg>';
+	function art(accent, onAccent) {
+		const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><defs><filter id="s" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity="0.14"/></filter></defs><circle cx="16" cy="16" r="12" fill="' + accent + '" filter="url(#s)"/><circle cx="16" cy="16" r="11.5" fill="none" stroke="' + onAccent + '" stroke-opacity="0.12" stroke-width="1"/></svg>';
 		return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '")';
 	}
 	function selector(el) {
@@ -141,15 +152,39 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 	function render() {
 		frame = 0;
 		host.hidden = !state.active;
-		markers.replaceChildren();
+		const pageNotes = state.notes.filter(onPage);
+		const ids = new Set(pageNotes.map((note) => note.id));
+		for (const [id, marker] of markerNodes) {
+			if (!ids.has(id)) {
+				marker.remove();
+				markerNodes.delete(id);
+			}
+			if (!state.active) marker.classList.remove('enter', 'confirm');
+		}
 		if (!state.active) return;
-		for (const note of state.notes) {
-			if (!onPage(note)) continue;
+		for (const note of pageNotes) {
 			const p = anchor(note);
-			const marker = document.createElement('button');
-			marker.textContent = String(note.number);
-			marker.setAttribute('aria-label', state.annotationLabel + ' ' + note.number);
-			marker.style.left = Math.max(16, Math.min(innerWidth - 16, p.left)) + 'px';
+			let marker = markerNodes.get(note.id);
+			if (!marker) {
+				marker = document.createElement('button');
+				marker.type = 'button';
+				marker.className = 'enter';
+				marker.innerHTML = '<span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="${ PLUS_ICON.viewBox }" fill="none"><path d="${ PLUS_ICON.path }" stroke-width="${ PLUS_ICON.strokeWidth }" stroke-linecap="${ PLUS_ICON.strokeLinecap }" stroke="currentColor"/></svg></span><span class="number" aria-hidden="true"></span>';
+				marker.addEventListener('animationend', (event) => {
+					if (event.target === marker) marker.classList.remove('enter', 'confirm');
+				});
+				markerNodes.set(note.id, marker);
+				markers.append(marker);
+			}
+			if (marker.dataset.pending === 'true' && !note.pending) {
+				marker.classList.remove('enter');
+				marker.classList.add('confirm');
+			}
+			marker.dataset.pending = String(Boolean(note.pending));
+			const number = marker.querySelector('.number');
+			if (number.textContent !== String(note.number)) number.textContent = String(note.number);
+			marker.setAttribute('aria-label', note.pending ? state.pendingAnnotationLabel : state.annotationLabel + ' ' + note.number);
+			marker.style.left = p.left + 'px';
 			marker.style.top = p.top + 'px';
 			marker.onclick = (e) => {
 				e.preventDefault();
@@ -158,15 +193,18 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 				selected = resolve(note);
 				emit({ type: 'edit', id: note.id, anchor: p });
 			};
-			markers.append(marker);
 		}
 		const note = state.notes.find((n) => n.id === state.editingId);
 		if (note) emit({ type: 'anchor', id: note.id, anchor: onPage(note) ? anchor(note) : null });
 		const el = hovered || selected;
 		if (el && el.isConnected) {
 			const r = el.getBoundingClientRect();
-			Object.assign(highlight.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
-			highlight.hidden = false;
+			const left = Math.max(1, r.left);
+			const top = Math.max(0, r.top);
+			const right = Math.min(innerWidth, r.right);
+			const bottom = Math.min(innerHeight, r.bottom);
+			Object.assign(highlight.style, { left: left + 'px', top: top + 'px', width: Math.max(0, right - left) + 'px', height: Math.max(0, bottom - top) + 'px' });
+			highlight.hidden = right <= left || bottom <= top;
 		} else highlight.hidden = true;
 	}
 	function isOwnUi(e) {
@@ -201,8 +239,11 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 			if (!state.active) hovered = null;
 			host.style.setProperty('--accent', state.accent);
 			host.style.setProperty('--on-accent', state.onAccent);
-			host.style.setProperty('--marker', art(state.accent, 'circle'));
-			cursorStyle.textContent = state.active ? '*{cursor:' + art(state.accent, 'bubble') + ' 5 27,crosshair!important}' : '';
+			host.style.setProperty('--marker-font-family', state.fontFamily || 'system-ui');
+			host.style.setProperty('--marker', art(state.accent, state.onAccent));
+			host.style.setProperty('--motion-duration-surface', state.motionDuration || '180ms');
+			host.style.setProperty('--motion-ease-enter', state.motionEasing || 'cubic-bezier(.165,.84,.44,1)');
+			cursorStyle.textContent = state.active ? '*{cursor:crosshair!important}' : '';
 			const note = state.notes.find((n) => n.id === state.editingId);
 			selected = note && onPage(note) ? resolve(note) : null;
 			render();

@@ -24,6 +24,7 @@ import { Button, Menu, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui'
 - An action: `Button`. Icon only: `IconButton`, whose `label` is also its tooltip. A link inside copy: `Button variant="inline-link" size="inline"`.
 - A toolbar toggle: `Button` or `IconButton` with `variant="accent-ghost"` and `aria-pressed`. It uses the normal ghost fill at rest, an accent fill and text while pressed or expanded, and a stronger accent fill on active hover.
 - A form row: `Field` with `FieldLabel`, `FieldDescription` and `FieldError`, grouped in a `FieldGroup`. Text: `Input` and `Textarea`, or `InputGroup` for buttons and icons inside the border.
+- Attachments: `AttachmentRemoveButton` for the thumbnail's dismiss control; `AttachmentDropOverlay` for drop feedback, with the translated label as its children.
 - A choice: `Select`, `Switch` for on/off, `Checkbox` in forms, `Tabs` for sections or a scope switch, `Slider`. A question with options: `Questionnaire`.
 - A modal: `Dialog` with `DialogContent`. Use `surface="composer"` to match the composer and command sheets; the default is the chat surface. Small info dialogs and forms: `layout="compact"` (16px leading inset, standard 12px padding elsewhere, and extra space above actions). Confirmations: `AlertDialog` with `layout="confirmation"` (the same spacing at a wider width). Two panes: `DialogPanel`.
 - Floating: `Menu` (right click: `Menu.ContextMenuRoot`), `Popover`, `HoverCard`, `Tooltip`.

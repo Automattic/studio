@@ -6,7 +6,7 @@ import { liberateWebsite } from '../data-liberation-client';
 import type { CaptureEngine } from '../import-runtime';
 
 // An injected engine skips the browser check; this proves no test here can reach it.
-vi.mock( 'cli/ai/browser-utils', () => ( {
+vi.mock( '@studio/agent/node/browser-utils', () => ( {
 	ensurePlaywrightChromiumInstalled: vi.fn( () => {
 		throw new Error( 'the browser check must not run with an injected engine' );
 	} ),

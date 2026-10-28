@@ -1,6 +1,6 @@
-import { resolveSite } from 'cli/ai/tools/utils';
-import type { createResultNotes } from 'cli/ai/result-notes';
-import type { AnyStudioAgentTool } from 'cli/ai/tools/define-tool';
+import { resolveSite } from '@studio/agent/node/tools/utils';
+import type { createResultNotes } from '@studio/agent/node/result-notes';
+import type { AnyStudioAgentTool } from '@studio/agent/node/tools/define-tool';
 
 // The site an MCP call works on is the one it names.
 async function siteNamed( args: Record< string, unknown > ) {

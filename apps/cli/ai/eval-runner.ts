@@ -22,6 +22,9 @@ import {
 	readGlobalInstructionsFile,
 	writeGlobalInstructions,
 } from '@studio/agent/node/global-instructions';
+import { setStudioAgentHost } from '@studio/agent/node/host';
+import { runStudioAgentTurn } from '@studio/agent/node/runtime';
+import { addAssistantMessageUsage, createTokenUsage } from '@studio/agent/node/token-usage';
 import { DEFAULT_MODEL, isAiModelId, type AiModelId } from '@studio/agent/protocol/models';
 import { findLastAssistant } from '@studio/agent/protocol/session-events';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
@@ -44,8 +47,7 @@ import {
 import { captureTurnOutcome, fingerprintSites, type TurnOutcome } from 'cli/ai/eval-outcome';
 import { matchesStopRule, stopRuleSchema, type StopRule } from 'cli/ai/eval-stop';
 import { summarizeTiming, type ModelRequestRecord } from 'cli/ai/eval-timing';
-import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
-import { addAssistantMessageUsage, createTokenUsage } from 'cli/ai/token-usage';
+import { cliAgentHost } from 'cli/ai/host';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
 import { Mode as StopMode, runCommand as runStopSiteCommand } from 'cli/commands/site/stop';
@@ -61,8 +63,8 @@ import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { Logger } from 'cli/logger';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
+import type { AskUserHandler, SiteInfo } from '@studio/agent/node/types';
 import type { AiProviderId } from 'cli/ai/providers';
-import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
 // Optional fixtures a test can pre-seed before the agent turn, so flows that
 // depend on connected remote sites and/or preview sites can be exercised
@@ -809,6 +811,7 @@ const RESULT_PREFIX = 'EVAL_RUNNER_RESULT_FILE=';
 // tmp file, and emit only `EVAL_RUNNER_RESULT_FILE=<path>` via a raw
 // `fs.writeSync(1, …)` that bypasses the wrapper.
 async function main() {
+	setStudioAgentHost( cliAgentHost );
 	const filePath = path.join( os.tmpdir(), `studio-eval-${ Date.now() }-${ process.pid }.json` );
 
 	( process.stdout as unknown as { write: ( ...args: unknown[] ) => boolean } ).write = (

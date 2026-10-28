@@ -1,6 +1,6 @@
+import { captureScreenshotBuffer } from '@studio/agent/node/tools/screenshot-helpers';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
-import { captureScreenshotBuffer } from 'cli/ai/tools/screenshot-helpers';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getSitesRunningStatus } from 'cli/lib/site-utils';

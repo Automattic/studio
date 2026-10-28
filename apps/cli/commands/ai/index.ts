@@ -1,4 +1,17 @@
+import { closeSharedBrowser } from '@studio/agent/node/browser-utils';
+import { setChatArtifactCallback } from '@studio/agent/node/chat-artifacts';
+import { setStudioAgentHost } from '@studio/agent/node/host';
+import { runStudioAgentTurn } from '@studio/agent/node/runtime';
+import { setScreenshotDirectoryProvider } from '@studio/agent/node/screenshot-storage';
+import { resolveResumeSessionContext } from '@studio/agent/node/sessions/context';
+import {
+	createStudioSession,
+	listStudioSessionFiles,
+	openStudioSession,
+} from '@studio/agent/node/sessions/pi-session';
 import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/agent/node/settings-store';
+import { setLocalSiteSelectedCallback } from '@studio/agent/node/site-selection';
+import { createTurnStatsTracker } from '@studio/agent/node/turn-stats';
 import { buildChatAttachmentSummaries } from '@studio/agent/protocol/chat-attachments';
 import {
 	buildAttachedFilesPromptBlock,
@@ -34,8 +47,7 @@ import {
 	resolveUnavailableAiProvider,
 	saveSelectedAiProvider,
 } from 'cli/ai/auth';
-import { closeSharedBrowser } from 'cli/ai/browser-utils';
-import { setChatArtifactCallback } from 'cli/ai/chat-artifacts';
+import { cliAgentHost } from 'cli/ai/host';
 import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
 import {
 	AI_PROVIDERS,
@@ -43,18 +55,8 @@ import {
 	getAiProviderDefinition,
 	type AiProviderId,
 } from 'cli/ai/providers';
-import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
-import { setScreenshotDirectoryProvider } from 'cli/ai/screenshot-storage';
-import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
-import {
-	createStudioSession,
-	listStudioSessionFiles,
-	openStudioSession,
-} from 'cli/ai/sessions/pi-session';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
-import { setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
 import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
-import { createTurnStatsTracker } from 'cli/ai/turn-stats';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { findSiteByFolder, findSiteById } from 'cli/lib/cli-config/sites';
@@ -70,6 +72,7 @@ import {
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import type { SessionManager } from '@earendil-works/pi-coding-agent';
+import type { AskUserQuestion } from '@studio/agent/node/types';
 import type {
 	StudioCustomEntryDataMap,
 	StudioCustomEntryType,
@@ -77,7 +80,6 @@ import type {
 import type { LoadedAiSession, TurnStatus } from '@studio/agent/protocol/sessions/types';
 import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 import type { TracksProps } from '@studio/common/lib/record-tracks-event';
-import type { AskUserQuestion } from 'cli/ai/types';
 
 const logger = new Logger< string >();
 
@@ -161,6 +163,7 @@ export async function runCommand( options: {
 		wpcomSiteId?: number;
 	};
 } ): Promise< void > {
+	setStudioAgentHost( cliAgentHost );
 	const ui = options.adapter;
 	const isJsonMode = ui instanceof JsonAdapter;
 	const resumeContext = resolveResumeSessionContext( options.resumeSession );

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { ensurePlaywrightChromiumInstalled } from '@studio/agent/node/browser-utils';
 import { z } from 'zod';
-import { ensurePlaywrightChromiumInstalled } from 'cli/ai/browser-utils';
 import {
 	loadCaptureEngine,
 	resolveCaptureEngineAsset,

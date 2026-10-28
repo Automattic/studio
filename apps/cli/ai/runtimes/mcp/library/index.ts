@@ -1,6 +1,11 @@
+import {
+	defineTool,
+	READ_ONLY,
+	REMOTE_CHANGE,
+	REMOTE_READ,
+} from '@studio/agent/node/tools/define-tool';
+import { textResult } from '@studio/agent/node/tools/utils';
 import { Type } from 'typebox';
-import { defineTool, READ_ONLY, REMOTE_CHANGE, REMOTE_READ } from 'cli/ai/tools/define-tool';
-import { textResult } from 'cli/ai/tools/utils';
 import { getCliAuthenticationUrl, storeAuthToken } from 'cli/lib/wpcom-auth';
 import { createSiteWatcher } from './site-changes';
 import { capturePreview, readLocalSites, readWpcomSites } from './sites';

@@ -10,11 +10,20 @@ import {
 	ReadResourceRequestSchema,
 	// eslint-disable-next-line import-x/no-unresolved -- subpath resolved via package's wildcard export, which the lint resolver doesn't follow
 } from '@modelcontextprotocol/sdk/types.js';
+import { type DesignTracksContext } from '@studio/agent/node/design-tracks';
+import { setStudioAgentHost } from '@studio/agent/node/host';
+import { isImageGenerationAvailable } from '@studio/agent/node/image-generation';
+import { createResultNotes } from '@studio/agent/node/result-notes';
+import { loadSkills } from '@studio/agent/node/skills';
+import { buildSystemPrompt } from '@studio/agent/node/system-prompt';
+import { resolveStudioToolDefinitions } from '@studio/agent/node/tools';
+import { defineTool, READ_ONLY, type StudioAgentTool } from '@studio/agent/node/tools/define-tool';
+import { createPresentDesignOptionsTool } from '@studio/agent/node/tools/present-design-options';
+import { renderSkill } from '@studio/agent/node/tools/skill';
+import { textResult } from '@studio/agent/node/tools/utils';
 import { Type, type TSchema } from 'typebox';
 import { Value } from 'typebox/value';
-import { type DesignTracksContext } from 'cli/ai/design-tracks';
-import { isImageGenerationAvailable } from 'cli/ai/image-generation';
-import { createResultNotes } from 'cli/ai/result-notes';
+import { cliAgentHost } from 'cli/ai/host';
 import {
 	DESIGN_PICKER_HTML,
 	DESIGN_PICKER_URI,
@@ -22,13 +31,6 @@ import {
 } from 'cli/ai/runtimes/mcp/design-picker';
 import { type AppPage, createLibraryTools, libraryPage } from 'cli/ai/runtimes/mcp/library';
 import { runServedTool } from 'cli/ai/runtimes/mcp/served-tool';
-import { loadSkills } from 'cli/ai/skills';
-import { buildSystemPrompt } from 'cli/ai/system-prompt';
-import { resolveStudioToolDefinitions } from 'cli/ai/tools';
-import { defineTool, READ_ONLY, type StudioAgentTool } from 'cli/ai/tools/define-tool';
-import { createPresentDesignOptionsTool } from 'cli/ai/tools/present-design-options';
-import { renderSkill } from 'cli/ai/tools/skill';
-import { textResult } from 'cli/ai/tools/utils';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 
 interface ClientSupport {
@@ -135,6 +137,7 @@ export async function startMcpStdioServer(): Promise< void > {
 	// Tells this process's events, and those of the processes it starts, apart
 	// from terminal use. The plugin's MCP config sets STUDIO_PLUGIN_ID.
 	process.env.STUDIO_TRACKS_ORIGIN = 'studio-mcp';
+	setStudioAgentHost( cliAgentHost );
 	const sessionId = randomUUID();
 	const resultNotes = createResultNotes();
 	const imageGeneration = await isImageGenerationAvailable();

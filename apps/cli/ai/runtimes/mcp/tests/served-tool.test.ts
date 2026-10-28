@@ -1,11 +1,15 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
+import { setStudioAgentHost } from '@studio/agent/node/host';
+import { createResultNotes } from '@studio/agent/node/result-notes';
+import { defineTool, READ_ONLY } from '@studio/agent/node/tools/define-tool';
 import { Type } from 'typebox';
 import { expect, it, vi } from 'vitest';
-import { createResultNotes } from 'cli/ai/result-notes';
+import { cliAgentHost } from 'cli/ai/host';
 import { runServedTool } from 'cli/ai/runtimes/mcp/served-tool';
-import { defineTool, READ_ONLY } from 'cli/ai/tools/define-tool';
+
+setStudioAgentHost( cliAgentHost );
 
 it( 'adds the declared settings of the core blocks a result shows, from the site the call names, once', async () => {
 	const root = mkdtempSync( path.join( tmpdir(), 'served-tool-' ) );

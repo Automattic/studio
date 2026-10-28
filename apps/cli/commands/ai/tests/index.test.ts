@@ -1,3 +1,10 @@
+import { runStudioAgentTurn } from '@studio/agent/node/runtime';
+import { resolveResumeSessionContext } from '@studio/agent/node/sessions/context';
+import {
+	createStudioSession,
+	listStudioSessionFiles,
+	openStudioSession,
+} from '@studio/agent/node/sessions/pi-session';
 import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/agent/node/settings-store';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
@@ -9,13 +16,6 @@ import {
 	saveSelectedAiProvider,
 } from 'cli/ai/auth';
 import { JsonAdapter } from 'cli/ai/output-adapter';
-import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
-import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
-import {
-	createStudioSession,
-	listStudioSessionFiles,
-	openStudioSession,
-} from 'cli/ai/sessions/pi-session';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isSiteRunning } from 'cli/lib/site-utils';
@@ -64,10 +64,10 @@ vi.mock( 'cli/lib/site-utils', () => ( {
 vi.mock( 'cli/lib/daemon-client', () => ( {
 	disconnectFromDaemon: vi.fn().mockResolvedValue( undefined ),
 } ) );
-vi.mock( 'cli/ai/sessions/context', () => ( {
+vi.mock( '@studio/agent/node/sessions/context', () => ( {
 	resolveResumeSessionContext: vi.fn( () => ( { provider: undefined, model: undefined } ) ),
 } ) );
-vi.mock( 'cli/ai/sessions/pi-session', () => ( {
+vi.mock( '@studio/agent/node/sessions/pi-session', () => ( {
 	createStudioSession: vi.fn(),
 	openStudioSession: vi.fn(),
 	listStudioSessionFiles: vi.fn(),
@@ -77,7 +77,7 @@ vi.mock( '@studio/common/lib/well-known-paths', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/common/lib/well-known-paths') >() ),
 	getSessionsDirectory: vi.fn(),
 } ) );
-vi.mock( 'cli/ai/runtimes/pi', () => ( {
+vi.mock( '@studio/agent/node/runtime', () => ( {
 	// A completed turn so the JSON single-turn path returns instead of looping.
 	runStudioAgentTurn: vi.fn( () => ( {
 		result: Promise.resolve(),
@@ -86,10 +86,10 @@ vi.mock( 'cli/ai/runtimes/pi', () => ( {
 	} ) ),
 } ) );
 vi.mock( 'cli/ai/slash-commands', () => ( { getActiveSlashCommands: vi.fn( () => [] ) } ) );
-vi.mock( 'cli/ai/browser-utils', () => ( { closeSharedBrowser: vi.fn() } ) );
-vi.mock( 'cli/ai/chat-artifacts', () => ( { setChatArtifactCallback: vi.fn() } ) );
-vi.mock( 'cli/ai/site-selection', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('cli/ai/site-selection') >() ),
+vi.mock( '@studio/agent/node/browser-utils', () => ( { closeSharedBrowser: vi.fn() } ) );
+vi.mock( '@studio/agent/node/chat-artifacts', () => ( { setChatArtifactCallback: vi.fn() } ) );
+vi.mock( '@studio/agent/node/site-selection', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/agent/node/site-selection') >() ),
 	setLocalSiteSelectedCallback: vi.fn(),
 } ) );
 vi.mock( 'cli/commands/auth/login', () => ( { runCommand: vi.fn() } ) );

@@ -162,10 +162,10 @@ where the sender actually runs — see Testing below for what fires in which bui
   orphans, and returns a `created` flag so a reuse isn't counted as a creation.
 - **`studio_code_design_option_proposed`/`studio_code_design_option_picked`** are emitted **only** by
   the CLI, from the two design tools every chat surface runs: `pick_design`
-  (`apps/cli/ai/tools/pick-design.ts`) is the single place catalog entries are drawn, so it records what
-  was proposed; `present_design_options` (`apps/cli/ai/tools/present-design-options.ts`) is the single
+  (`packages/agent/node/tools/pick-design.ts`) is the single place catalog entries are drawn, so it records what
+  was proposed; `present_design_options` (`packages/agent/node/tools/present-design-options.ts`) is the single
   place the user's answer lands, so it records the pick. Both take the `ai_session_id` from the running
-  turn (`apps/cli/ai/runtimes/pi/index.ts`); the MCP server gives each agent-app connection its own
+  turn (`packages/agent/node/runtime/index.ts`); the MCP server gives each agent-app connection its own
   `ai_session_id`, with the app's MCP client name as `agent_name` and `client=studio-mcp`
   (`apps/cli/ai/runtimes/mcp/index.ts`). `channel`/`ui_version` resolve from `STUDIO_TRACKS_ORIGIN` exactly as for
   `studio_code_message_sent`. **Coverage caveat:** `present_design_options` only exists when a Studio UI

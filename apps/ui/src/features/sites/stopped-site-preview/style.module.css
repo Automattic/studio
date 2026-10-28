@@ -14,9 +14,8 @@
 	width: 100%;
 	aspect-ratio: 16 / 10;
 	overflow: hidden;
-	border-radius: var( --radius-sm );
+	border-radius: var( --radius-lg );
 	background: var( --muted );
-	transition: transform var( --motion-duration-surface ) var( --motion-ease-enter );
 }
 
 .frame::after {
@@ -36,38 +35,57 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	opacity: 0;
-	transform: scale( 0.97 );
-	transition:
-		opacity var( --motion-duration-surface ) var( --motion-ease-enter ),
-		transform var( --motion-duration-surface ) var( --motion-ease-enter );
 	pointer-events: none;
 }
 
 .play {
+	--play-alpha: 85%;
+	--play-tone: 80%;
+	--play-fill: color-mix(
+		in srgb,
+		light-dark( var( --background ), var( --primary ) ) var( --play-tone ),
+		currentColor
+	);
+
+	position: relative;
 	display: flex;
-	width: 64px;
-	height: 64px;
+	width: var( --space-16 );
+	height: var( --space-16 );
 	align-items: center;
 	justify-content: center;
 	border-radius: var( --radius-full );
-	background: color-mix( in srgb, var( --background ) 90%, transparent );
-	color: var( --foreground );
+	color: light-dark( var( --primary ), var( --background ) );
+}
+
+.play::before {
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background: color-mix(
+		in srgb,
+		var( --play-fill ) var( --surface-alpha, var( --play-alpha ) ),
+		transparent
+	);
+	backdrop-filter: blur( 8px );
+	content: '';
 }
 
 .play svg {
+	position: relative;
 	width: 32px;
 	height: 32px;
 }
 
-.root:is( :hover, :focus-visible ) .overlay {
-	opacity: 1;
-	transform: scale( 1 );
+@media ( prefers-reduced-motion: no-preference ) {
+	.play::before {
+		transition: background-color var( --motion-duration-feedback ) ease;
+	}
 }
 
 @media ( hover: hover ) and ( pointer: fine ) {
-	.root:hover .frame {
-		transform: scale( 1.03 );
+	.root:hover:not( :disabled ) .play {
+		--play-alpha: 95%;
+		--play-tone: 60%;
 	}
 }
 
@@ -76,17 +94,13 @@
 }
 
 .root:focus-visible .play {
-	box-shadow: inset 0 0 0 2px var( --ring );
-	color: var( --accent-text );
+	--play-alpha: 95%;
+	--play-tone: 60%;
+
+	outline: var( --focus-width ) solid var( --ring );
+	outline-offset: var( --space-1 );
 }
 
 .root:disabled {
 	cursor: default;
-}
-
-@media ( prefers-reduced-motion: reduce ) {
-	.frame,
-	.overlay {
-		transition: none;
-	}
 }

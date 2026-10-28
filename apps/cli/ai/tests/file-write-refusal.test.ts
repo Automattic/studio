@@ -262,6 +262,26 @@ describe( "PHP in a block theme's templates", () => {
 	} );
 } );
 
+describe( 'a template part written inside templates/', () => {
+	const theme = 'my-site/wp-content/themes/twentytwentyfive';
+	it.each< [ string, string | undefined ] >( [
+		[ 'templates/parts/header.html', 'parts/header.html' ],
+		[ 'templates/parts/footer/dark.html', 'parts/footer/dark.html' ],
+		// A custom template theme.json can name by its path.
+		[ 'templates/landing/home.html', undefined ],
+		[ 'templates/home.html', undefined ],
+		[ 'parts/header.html', undefined ],
+		[ 'templates/parts/notes.txt', undefined ],
+	] )( '%s', async ( file, belongs ) => {
+		const refusal = await createSiteNotes().beforeWrite( path.join( root, theme, file ), '' );
+		if ( belongs ) {
+			expect( refusal ).toContain( `Write it to ${ path.join( root, theme, belongs ) }.` );
+		} else {
+			expect( refusal ).toBeUndefined();
+		}
+	} );
+} );
+
 describe( 'what Studio changed in a file after a write', () => {
 	it.each< [ string, string | undefined, string[] ] >( [
 		[

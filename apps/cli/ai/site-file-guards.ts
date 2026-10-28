@@ -197,6 +197,31 @@ export function phpInBlockTemplateRefusal( { theme }: SiteFile, text: string ): 
 	) } with a "Slug: ${ pattern }" header, and place the pattern with <!-- wp:pattern {"slug":"${ pattern }"} /-->, as Twenty Twenty-Five's templates do.`;
 }
 
+const PART_IN_TEMPLATES = /^templates\/parts\/(.+\.html)$/;
+
+/**
+ * Why a template part written to templates/parts/ would not render: WordPress
+ * names a template by its path under templates/, so templates/parts/header.html
+ * is a template named "parts/header", and it reads template parts from parts/.
+ */
+export function partInTemplatesRefusal( { theme }: SiteFile ): string | undefined {
+	const part = theme?.file.match( PART_IN_TEMPLATES )?.[ 1 ];
+	if ( ! theme || ! part ) {
+		return undefined;
+	}
+	return `WordPress reads a block theme's template parts from parts/ (get_block_theme_folders() in wp-includes/block-template-utils.php), and names a template by its path under templates/ (_get_block_templates_files()), so ${ path.join(
+		theme.dir,
+		theme.file
+	) } is a template named "parts/${ part.slice(
+		0,
+		-5
+	) }" that no template part block renders. Write it to ${ path.join(
+		theme.dir,
+		'parts',
+		part
+	) }.`;
+}
+
 // Palette slugs whose `.has-<slug>-color` class (class-wp-theme-json.php) is
 // the class the block editor saves on every block with its own text or link
 // color (wp-includes/js/dist/block-editor.js).

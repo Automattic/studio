@@ -31,6 +31,7 @@ import {
 	freeFullWidthBlocks,
 	frontPageTemplateNotes,
 	getSiteFileWriteRefusal,
+	partInTemplatesRefusal,
 	phpInBlockTemplateRefusal,
 	resolveSiteFile,
 	savedCopyNotes,
@@ -101,7 +102,10 @@ function sources( { stated = new Map(), gate }: SiteNotesOptions ): Sources {
 				const refusal = await getSiteFileWriteRefusal( file );
 				return refusal ? [ refusal ] : [];
 			},
-			( file, text ) => [ phpInBlockTemplateRefusal( file, text ) ].filter( Boolean ) as string[],
+			( file, text ) =>
+				[ phpInBlockTemplateRefusal( file, text ), partInTemplatesRefusal( file ) ].filter(
+					Boolean
+				) as string[],
 		],
 		write: [
 			// Before the gate reads the file and the theme's presets for its save.

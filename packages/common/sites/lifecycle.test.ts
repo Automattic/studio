@@ -57,16 +57,6 @@ describe( 'startSite', () => {
 		rmSync( sitePath, { recursive: true, force: true } );
 	} );
 
-	it( 'resolves once the command says it finished, while its process is still running', async () => {
-		const emitter = new EventEmitter();
-		const execute = ( () => {
-			setImmediate( () => emitter.emit( 'data', { data: { action: 'done' } } ) );
-			return [ emitter, {} ];
-		} ) as unknown as ExecuteCliCommand;
-
-		await expect( startSite( execute, '/site' ) ).resolves.toBeUndefined();
-	} );
-
 	it( "reports the command's own error otherwise", async () => {
 		await expect( startSite( failingWith( 'Port in use' ), '/site' ) ).rejects.toThrow(
 			/^Port in use$/

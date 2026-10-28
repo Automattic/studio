@@ -199,8 +199,6 @@ export interface StudioAgentUi {
 export interface StudioAgentHost {
 	// The folder Studio's sites live in. The file tools are rooted here.
 	sitesRoot: string;
-	// The User-Agent requests to WordPress.com carry, naming the app and its version.
-	userAgent: string;
 
 	sites: HostSites;
 	previews: HostPreviews;

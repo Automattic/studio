@@ -191,7 +191,7 @@ export const generateImagesTool = defineTool(
 			aspectRatio: image.aspectRatio,
 		} ) );
 
-		const generation = generateImages( host.userAgent, imageToken, requests )
+		const generation = generateImages( imageToken, requests )
 			.catch( ( error ): GenerateImageResult[] =>
 				requests.map( () => ( { ok: false, error: String( error ) } ) )
 			)

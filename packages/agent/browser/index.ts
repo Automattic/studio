@@ -15,6 +15,7 @@ import { findLastAssistant, isEmptyStop } from '@studio/agent/protocol/session-e
 import { withDesignSystemPreview } from '@studio/agent/shared/chat-artifacts';
 import { PendingWork, runWithPendingWork } from '@studio/agent/shared/pending-work';
 import { createResultNotes } from '@studio/agent/shared/result-notes';
+import { findActiveSiteDesign } from '@studio/agent/shared/site-selection';
 import { buildSystemPrompt } from '@studio/agent/shared/system-prompt';
 import { resolveStudioTools, type StudioToolsOptions } from '@studio/agent/shared/tools';
 import { createAskUserQuestionTool } from '@studio/agent/shared/tools/ask-user-question';
@@ -131,12 +132,10 @@ async function runTurn(
 	] as AnyStudioAgentTool[];
 
 	const site = config.activeSite;
-	const designPath = site && ! site.remote ? host.path.join( site.path, 'DESIGN.md' ) : undefined;
 	const systemPrompt = buildSystemPrompt( {
 		tools: tools.map( ( tool ) => ( { name: tool.name, promptSnippet: tool.promptSnippet } ) ),
 		activeSite: site,
-		activeSiteDesignPath:
-			designPath && ( await host.files.exists( designPath ) ) ? designPath : undefined,
+		activeSiteDesignPath: await findActiveSiteDesign( host, site ),
 		userInstructions: config.userInstructions,
 	} );
 

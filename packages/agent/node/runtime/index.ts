@@ -42,11 +42,18 @@ import {
 import { findLastAssistant, isEmptyStop } from '@studio/agent/protocol/session-events';
 import { withDesignSystemPreview } from '@studio/agent/shared/chat-artifacts';
 import { getFileToolPrompt } from '@studio/agent/shared/file-tool-prompts';
+import {
+	buildStudioModel,
+	STUDIO_WPCOM_PROVIDER,
+	type StudioModel,
+	type StudioWpcomModel,
+} from '@studio/agent/shared/models';
 import { runWithPendingWork } from '@studio/agent/shared/pending-work';
 import { createResultNotes } from '@studio/agent/shared/result-notes';
 import { withLeakedToolCallMarkupRemoved } from '@studio/agent/shared/runtime-guards/leaked-tool-call-markup';
 import { stripStaleImagesFromContext } from '@studio/agent/shared/runtime-guards/strip-stale-images';
 import { withUsageCapErrorRewrite } from '@studio/agent/shared/runtime-guards/usage-cap';
+import { findActiveSiteDesign } from '@studio/agent/shared/site-selection';
 import { buildSystemPrompt, type ToolPromptContribution } from '@studio/agent/shared/system-prompt';
 import { resolveStudioTools } from '@studio/agent/shared/tools';
 import { createAskUserQuestionTool } from '@studio/agent/shared/tools/ask-user-question';
@@ -67,14 +74,8 @@ import type { AskUserHandler, SiteInfo } from '@studio/agent/shared/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
-type StudioWpcomModel =
-	| Model< 'openai-completions' >
-	| Model< 'openai-responses' >
-	| Model< 'anthropic-messages' >;
-type StudioModel = StudioWpcomModel | Model< 'anthropic-messages' >;
 type ProviderConfigInput = Parameters< ModelRuntime[ 'registerProvider' ] >[ 1 ];
 
-const STUDIO_WPCOM_PROVIDER = 'studio-wpcom';
 // A reply with nothing in it ends the turn without the user seeing why (see
 // `isEmptyStop`). Resume it with a message the user doesn't see, up to this
 // many times per turn. pi leaves a reply that has only reasoning out of the
@@ -327,17 +328,16 @@ async function createStudioAgentSession(
 	creds: ResolvedCredentials,
 	payloadGuardState: StudioToolPayloadGuardState
 ): Promise< AgentSession > {
-	const model = buildModel( config.model, family, creds );
+	const model = buildStudioModel( config.model, family, {
+		apiKey: creds.apiKey,
+		baseUrl: creds.baseURL,
+		headers: creds.extraHeaders,
+	} );
 	const visionEnabled = aiModelSupportsImages( config.model );
-	const { files, path } = config.host;
-	const designPath =
-		config.activeSite && ! config.activeSite.remote
-			? path.join( config.activeSite.path, 'DESIGN.md' )
-			: undefined;
-	const [ userInstructions, imageGenerationEnabled, hasDesign ] = await Promise.all( [
+	const [ userInstructions, imageGenerationEnabled, designPath ] = await Promise.all( [
 		readGlobalInstructions(),
 		config.host.wpcom.imageToken().then( Boolean ),
-		designPath ? files.exists( designPath ) : false,
+		findActiveSiteDesign( config.host, config.activeSite ),
 	] );
 
 	const tools = buildAgentTools( config, imageGenerationEnabled, visionEnabled );
@@ -345,7 +345,7 @@ async function createStudioAgentSession(
 		userInstructions,
 		tools: tools.map( toolPromptContribution ),
 		activeSite: config.activeSite,
-		activeSiteDesignPath: hasDesign ? designPath : undefined,
+		activeSiteDesignPath: designPath,
 	} );
 
 	const pendingWork = getPendingWork( config.session );
@@ -388,101 +388,6 @@ async function createStudioAgentSession(
 	} );
 
 	return result.session;
-}
-
-function buildModel(
-	modelId: AiModelId,
-	family: AiModelFamily,
-	creds: ResolvedCredentials
-): StudioModel {
-	const baseUrl = creds.baseURL.replace( /\/+$/, '' );
-	const common = {
-		id: modelId,
-		name: modelId,
-		baseUrl,
-		input: aiModelSupportsImages( modelId )
-			? [ 'text' as const, 'image' as const ]
-			: [ 'text' as const ],
-		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-		...( creds.extraHeaders ? { headers: creds.extraHeaders } : {} ),
-	};
-
-	if ( family === 'studio' ) {
-		// The capability tiers are resolved to upstream models by the wpcom
-		// proxy. The context window is a conservative floor across the
-		// upstreams a tier may resolve to, so compaction kicks in before any
-		// of them overflows.
-		//
-		// `strong` rides the proxy's Anthropic Messages path, which sits beside
-		// `/v1` rather than under it and authenticates with a bearer token.
-		if ( modelId === 'strong' ) {
-			return {
-				...common,
-				baseUrl: baseUrl.replace( /\/v1$/, '' ),
-				headers: { ...creds.extraHeaders, Authorization: `Bearer ${ creds.apiKey }` },
-				api: 'anthropic-messages',
-				provider: STUDIO_WPCOM_PROVIDER,
-				reasoning: false,
-				contextWindow: 200_000,
-				maxTokens: 32_000,
-			};
-		}
-		// `balanced` rides the Responses path: its upstream is a reasoning model
-		// that rejects tools-plus-reasoning on Chat Completions.
-		if ( modelId === 'balanced' ) {
-			return {
-				...common,
-				api: 'openai-responses',
-				provider: STUDIO_WPCOM_PROVIDER,
-				reasoning: true,
-				contextWindow: 200_000,
-				maxTokens: 32_000,
-			};
-		}
-		// The other tiers speak Chat Completions. pi infers `compat` from the
-		// base URL, which for us reads as plain OpenAI — so spell out the shape
-		// or requests carry OpenAI-only fields other upstreams reject. With
-		// `supportsReasoningEffort` false no thinking switch is sent at all and
-		// each upstream uses its own default — the portable choice across
-		// vendors that spell that parameter differently.
-		return {
-			...common,
-			api: 'openai-completions',
-			provider: STUDIO_WPCOM_PROVIDER,
-			reasoning: true,
-			contextWindow: 200_000,
-			maxTokens: 32_000,
-			compat: {
-				supportsStore: false,
-				supportsDeveloperRole: false,
-				supportsReasoningEffort: false,
-				supportsStrictMode: false,
-				maxTokensField: 'max_tokens',
-			},
-		};
-	}
-	// Without `compat.forceAdaptiveThinking` pi-ai sends the legacy
-	// `thinking: { type: 'enabled', budget_tokens }` shape, which Sonnet 5 /
-	// Opus 5 reject with a 400 — copy the thinking fields from pi's catalog.
-	const catalogModel = (
-		ANTHROPIC_MODELS as Partial< Record< string, Model< 'anthropic-messages' > > >
-	 )[ modelId ];
-	return {
-		...common,
-		api: 'anthropic-messages',
-		provider: 'anthropic',
-		reasoning: true,
-		// contextWindow/maxTokens intentionally stay below the catalog values.
-		contextWindow: 200_000,
-		// thinkingLevel 'high' reserves ~16384 of this budget for extended thinking
-		// (see adjustMaxTokensForThinking in pi-ai); keep enough headroom for visible
-		// output so single tool calls can emit a full-page HTML payload.
-		maxTokens: 32_000,
-		...( catalogModel?.thinkingLevelMap
-			? { thinkingLevelMap: catalogModel.thinkingLevelMap }
-			: {} ),
-		...( catalogModel?.compat ? { compat: catalogModel.compat } : {} ),
-	};
 }
 
 // In-memory credential store so the runtime never reads or writes an auth.json

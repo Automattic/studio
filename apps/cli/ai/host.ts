@@ -10,7 +10,6 @@ import { getAiPayloadsPath } from '@studio/common/lib/well-known-paths';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { __ } from '@wordpress/i18n';
-import { getStudioUserAgent } from 'cli/ai/providers';
 import { runCommand as runExportCommand } from 'cli/commands/export';
 import { runCommand as runImportCommand } from 'cli/commands/import';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
@@ -92,9 +91,6 @@ async function withDaemon< T >( fn: () => Promise< T > ): Promise< T > {
 
 export const cliAgentHost: StudioAgentHost = {
 	sitesRoot: STUDIO_SITES_ROOT,
-	get userAgent() {
-		return getStudioUserAgent();
-	},
 	sites: {
 		resolve: async ( nameOrPath ) => toHostSite( await resolveSite( nameOrPath ) ),
 		findByFolder: async ( folder ) => {

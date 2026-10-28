@@ -439,7 +439,6 @@ echo implode( "\\n", $found );`,
 
 	return {
 		sitesRoot: SITES_ROOT,
-		userAgent: `WordPressStudio/web ${ navigator.userAgent }`,
 		sites: {
 			resolve: async ( nameOrPath ) => hostSite( await findSite( nameOrPath ) ),
 			findByFolder: async ( folder ) => {

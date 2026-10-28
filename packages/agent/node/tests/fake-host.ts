@@ -38,7 +38,6 @@ export const fakeRemoteSite: SyncSite = {
 export function createFakeHost( sitesRoot = '/sites' ): StudioAgentHost {
 	return {
 		sitesRoot,
-		userAgent: 'WordPressStudio/test',
 		sites: {
 			resolve: vi.fn( async () => fakeSite ),
 			findByFolder: vi.fn( async () => undefined ),

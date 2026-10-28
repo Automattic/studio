@@ -238,7 +238,6 @@ const sleep = ( seconds: number ) =>
 	new Promise< void >( ( resolve ) => setTimeout( resolve, seconds * 1000 ) );
 
 async function generateOne(
-	userAgent: string,
 	endpoint: string,
 	authToken: string,
 	request: GenerateImageRequest
@@ -254,7 +253,6 @@ async function generateOne(
 					authorization: `Bearer ${ authToken }`,
 					'x-wpcom-ai-feature': IMAGE_FEATURE_SLUG,
 					'content-type': 'application/json',
-					'user-agent': userAgent,
 				},
 				body,
 			} );
@@ -284,7 +282,6 @@ async function generateOne(
  * the same index as the requests; a failure never aborts the rest.
  */
 export async function generateImages(
-	userAgent: string,
 	authToken: string,
 	requests: GenerateImageRequest[],
 	onResult?: ( index: number, result: GenerateImageResult ) => void
@@ -296,7 +293,7 @@ export async function generateImages(
 	const worker = async () => {
 		while ( next < requests.length ) {
 			const index = next++;
-			const result = await generateOne( userAgent, endpoint, authToken, requests[ index ] );
+			const result = await generateOne( endpoint, authToken, requests[ index ] );
 			results[ index ] = result;
 			onResult?.( index, result );
 		}

@@ -1,7 +1,6 @@
 import { streamSimple as streamAnthropicMessages } from '@earendil-works/pi-ai/api/anthropic-messages';
 import { streamSimple as streamOpenAiCompletions } from '@earendil-works/pi-ai/api/openai-completions';
 import { streamSimple as streamOpenAiResponses } from '@earendil-works/pi-ai/api/openai-responses';
-import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
 import {
 	aiModelSupportsImages,
 	getAiModel,
@@ -9,6 +8,7 @@ import {
 	type AiModelId,
 } from '@studio/agent/protocol/models';
 import { getWpcomAiGatewayBaseUrl } from '@studio/agent/shared/ai-gateway';
+import { buildStudioModel } from '@studio/agent/shared/models';
 import { withLeakedToolCallMarkupRemoved } from '@studio/agent/shared/runtime-guards/leaked-tool-call-markup';
 import { stripStaleImagesFromContext } from '@studio/agent/shared/runtime-guards/strip-stale-images';
 import { withUsageCapErrorRewrite } from '@studio/agent/shared/runtime-guards/usage-cap';
@@ -23,74 +23,22 @@ export interface ModelCredentials {
 	sessionId: string;
 }
 
-// The same model shapes the Node runtime builds, for requests made from a browser.
+// The same model shapes as the Node runtime's, for requests made from a browser.
 export function buildModel( modelId: AiModelId, credentials: ModelCredentials ): Model< Api > {
-	const common = {
-		id: modelId,
-		name: modelId,
-		input: aiModelSupportsImages( modelId )
-			? [ 'text' as const, 'image' as const ]
-			: [ 'text' as const ],
-		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-		contextWindow: 200_000,
-		maxTokens: 32_000,
-	};
-	if ( getAiModelFamily( modelId ) === 'anthropic' ) {
-		const catalogModel = (
-			ANTHROPIC_MODELS as Partial< Record< string, Model< 'anthropic-messages' > > >
-		 )[ modelId ];
-		return {
-			...common,
-			api: 'anthropic-messages',
-			provider: 'anthropic',
-			baseUrl: 'https://api.anthropic.com',
-			reasoning: true,
-			...( catalogModel?.thinkingLevelMap
-				? { thinkingLevelMap: catalogModel.thinkingLevelMap }
-				: {} ),
-			...( catalogModel?.compat ? { compat: catalogModel.compat } : {} ),
-		} as Model< Api >;
-	}
-	const headers = {
-		'X-WPCOM-AI-Feature': WPCOM_AI_FEATURE,
-		'X-WPCOM-Session-ID': credentials.sessionId,
-	};
-	const baseUrl = `${ getWpcomAiGatewayBaseUrl().replace( /\/+$/, '' ) }/v1`;
-	if ( modelId === 'strong' ) {
-		return {
-			...common,
-			api: 'anthropic-messages',
-			provider: 'studio-wpcom',
-			baseUrl: baseUrl.replace( /\/v1$/, '' ),
-			headers: { ...headers, Authorization: `Bearer ${ credentials.wpcomToken ?? '' }` },
-			reasoning: false,
-		} as Model< Api >;
-	}
-	if ( modelId === 'balanced' ) {
-		return {
-			...common,
-			api: 'openai-responses',
-			provider: 'studio-wpcom',
-			baseUrl,
-			headers,
-			reasoning: true,
-		} as Model< Api >;
-	}
-	return {
-		...common,
-		api: 'openai-completions',
-		provider: 'studio-wpcom',
-		baseUrl,
-		headers,
-		reasoning: true,
-		compat: {
-			supportsStore: false,
-			supportsDeveloperRole: false,
-			supportsReasoningEffort: false,
-			supportsStrictMode: false,
-			maxTokensField: 'max_tokens',
-		},
-	} as Model< Api >;
+	const family = getAiModelFamily( modelId );
+	return family === 'anthropic'
+		? buildStudioModel( modelId, family, {
+				apiKey: credentials.anthropicApiKey ?? '',
+				baseUrl: 'https://api.anthropic.com',
+		  } )
+		: buildStudioModel( modelId, family, {
+				apiKey: credentials.wpcomToken ?? '',
+				baseUrl: `${ getWpcomAiGatewayBaseUrl().replace( /\/+$/, '' ) }/v1`,
+				headers: {
+					'X-WPCOM-AI-Feature': WPCOM_AI_FEATURE,
+					'X-WPCOM-Session-ID': credentials.sessionId,
+				},
+		  } );
 }
 
 // The SDKs add `x-stainless-*` telemetry headers that the WordPress.com

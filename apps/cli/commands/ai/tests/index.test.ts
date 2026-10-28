@@ -50,7 +50,6 @@ vi.mock( 'cli/ai/providers', () => ( {
 		supportsModel: () => true,
 		defaultModel: 'claude-sonnet-5',
 	} ),
-	getStudioUserAgent: () => 'WordPressStudio',
 } ) );
 vi.mock( '@studio/agent/node/settings-store', () => ( {
 	readAnthropicApiKey: vi.fn(),

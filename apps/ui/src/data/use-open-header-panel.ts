@@ -2,14 +2,15 @@ import { useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useSessionPreviewUI } from '@/data/use-session-ui';
 
-type HeaderPanelRequest =
+type HeaderPanelRequest = (
 	| {
 			panel: 'publish';
 			siteId: string;
 			view: 'publish' | 'pull' | 'websites';
 			remoteSiteId?: number;
 	  }
-	| { panel: 'share'; siteId: string };
+	| { panel: 'share'; siteId: string }
+) & { trigger?: HTMLElement };
 
 // A request to open one of the preview header's panels from elsewhere (the
 // site menu, the command palette, onboarding), held until that site's header

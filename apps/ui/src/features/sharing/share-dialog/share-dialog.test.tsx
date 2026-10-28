@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { getNoticeHistory, resetAppMessagesForTests, runNoticeAction } from '@/data/app-messages';
 import { useSites } from '@/data/queries/use-sites';
 import { applySyncActivity } from '@/data/sync-activity';
-import { ShareButton } from '@/features/site-delivery';
+import { ShareButton, SiteDeliveryDialog } from '@/features/site-delivery';
 import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import type { AuthUser, Connector, SiteDetails, Snapshot } from '@/data/core';
@@ -94,7 +94,12 @@ function setup(
 	function Harness() {
 		useSites();
 		const current = useSyncExternalStore( store.subscribe, store.get );
-		return <ShareButton site={ current } />;
+		return (
+			<>
+				<SiteDeliveryDialog site={ current } />
+				<ShareButton site={ current } />
+			</>
+		);
 	}
 	const view = renderWithProviders( <Harness />, { connector } );
 	const ready = screen.findByRole( 'button', { name: 'Share' } ).then( ( trigger ) => {

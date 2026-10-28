@@ -2,7 +2,7 @@ import { DAY_MS } from '@studio/common/constants';
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { expect, it } from 'vitest';
-import { ShareButton } from '@/features/site-delivery';
+import { ShareButton, SiteDeliveryDialog } from '@/features/site-delivery';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { SharingPanel } from './sharing-panel';
@@ -47,7 +47,12 @@ function setup( showShare = false, initialSnapshots?: Snapshot[] ) {
 			<div data-testid="settings-previews">
 				<SharingPanel />
 			</div>
-			{ showShare ? <ShareButton site={ makeSite( { id: 'one', name: 'First site' } ) } /> : null }
+			{ showShare ? (
+				<>
+					<SiteDeliveryDialog site={ makeSite( { id: 'one', name: 'First site' } ) } />
+					<ShareButton site={ makeSite( { id: 'one', name: 'First site' } ) } />
+				</>
+			) : null }
 		</>,
 		{ connector }
 	);

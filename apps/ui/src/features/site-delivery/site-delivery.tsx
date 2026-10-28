@@ -1,18 +1,9 @@
 import { __ } from '@wordpress/i18n';
 import { CheckIcon } from 'lucide-react';
-import {
-	createContext,
-	useContext,
-	useId,
-	useEffect,
-	useRef,
-	useState,
-	type ReactNode,
-	type RefObject,
-} from 'react';
+import { useId, useEffect, useRef, useState, type RefObject } from 'react';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useSiteSyncActivity } from '@/data/sync-activity';
-import { subscribeHeaderPanelRequest } from '@/data/use-open-header-panel';
+import { requestHeaderPanel, subscribeHeaderPanelRequest } from '@/data/use-open-header-panel';
 import { AccountPromptDialog } from '@/features/account';
 import {
 	SharePanel,
@@ -43,18 +34,12 @@ import type { SiteDetails } from '@/data/core';
 
 type Tab = 'share' | 'publish';
 type PublishRequest = { view: 'publish' | 'pull' | 'websites'; remoteSiteId?: number };
-const DeliveryContext = createContext< {
-	show: ( tab: Tab, trigger: HTMLElement | null ) => void;
-} | null >( null );
-
-export function SiteDeliveryProvider( {
+export function SiteDeliveryDialog( {
 	site,
 	anchor,
-	children,
 }: {
 	site: SiteDetails;
 	anchor?: RefObject< HTMLElement | null >;
-	children: ReactNode;
 } ) {
 	const id = useId();
 	const user = useAuthUser();
@@ -67,42 +52,36 @@ export function SiteDeliveryProvider( {
 	const [ choosingSite, setChoosingSite ] = useState( false );
 	const [ publishHeader, setPublishHeader ] = useState< HTMLDivElement | null >( null );
 	const [ shareActions, setShareActions ] = useState< HTMLDivElement | null >( null );
-	const [ visitedPublish, setVisitedPublish ] = useState( false );
-	if ( open && tab === 'publish' && ! visitedPublish ) setVisitedPublish( true );
 	const [ request, setRequest ] = useState< PublishRequest >();
 	const finalFocus = useRef< HTMLElement | null >( null );
-	const show = ( next: Tab, trigger: HTMLElement | null ) => {
-		previewReturnFocus.current = null;
-		finalFocus.current = trigger;
-		setTab( next );
-		setRequest( next === 'publish' ? { view: 'publish' } : undefined );
-		setOpen( true );
-	};
 	useEffect( () => {
-		const focusTarget = () =>
-			anchor?.current?.querySelector< HTMLElement >( '[data-share-overflow-trigger]' ) ??
-			( document.activeElement instanceof HTMLElement ? document.activeElement : null );
-		const share = subscribeHeaderPanelRequest( site.id, 'share', () => {
+		const show = ( next: Tab, trigger?: HTMLElement, publishRequest?: PublishRequest ) => {
 			previewReturnFocus.current = null;
-			finalFocus.current = focusTarget();
-			setTab( 'share' );
+			finalFocus.current =
+				trigger ??
+				anchor?.current?.querySelector< HTMLElement >( '[data-share-overflow-trigger]' ) ??
+				( document.activeElement instanceof HTMLElement ? document.activeElement : null );
+			setTab( next );
+			if ( next === 'publish' ) setRequest( publishRequest ?? { view: 'publish' } );
 			setOpen( true );
-		} );
-		const publish = subscribeHeaderPanelRequest( site.id, 'publish', ( next ) => {
-			previewReturnFocus.current = null;
-			finalFocus.current = focusTarget();
-			setRequest( { view: next.view, remoteSiteId: next.remoteSiteId } );
-			setTab( 'publish' );
-			setOpen( true );
-		} );
+		};
+		const share = subscribeHeaderPanelRequest( site.id, 'share', ( next ) =>
+			show( 'share', next.trigger )
+		);
+		const publish = subscribeHeaderPanelRequest( site.id, 'publish', ( next ) =>
+			show( 'publish', next.trigger, { view: next.view, remoteSiteId: next.remoteSiteId } )
+		);
 		return () => {
 			share();
 			publish();
 		};
 	}, [ site.id, anchor ] );
+	const selectTab = ( value: unknown ) => {
+		setTab( value as Tab );
+		if ( value === 'publish' ) setRequest( ( current ) => current ?? { view: 'publish' } );
+	};
 	return (
-		<DeliveryContext.Provider value={ { show } }>
-			{ children }
+		<>
 			<Dialog open={ open && ! signedOut && ! previewAction } onOpenChange={ setOpen }>
 				<DialogContent
 					className={ styles.dialog }
@@ -121,7 +100,7 @@ export function SiteDeliveryProvider( {
 							: trigger;
 					} }
 				>
-					<Tabs value={ tab } onValueChange={ ( value ) => setTab( value as Tab ) }>
+					<Tabs value={ tab } onValueChange={ selectTab }>
 						<DialogHeader className={ styles.header }>
 							<DialogTitle render={ <VisuallyHidden /> }>{ __( 'Share and publish' ) }</DialogTitle>
 							<TabsList
@@ -181,7 +160,7 @@ export function SiteDeliveryProvider( {
 							hidden={ tab !== 'publish' }
 							className={ styles.panel }
 						>
-							{ visitedPublish ? (
+							{ request ? (
 								<PublishPanel
 									site={ site }
 									open={ open && tab === 'publish' }
@@ -216,23 +195,12 @@ export function SiteDeliveryProvider( {
 				source={ tab === 'share' ? 'previews_tab' : 'sync_tab' }
 				onCreateAccount={ tab === 'publish' ? () => setSetupAfterSignup( true ) : undefined }
 			/>
-		</DeliveryContext.Provider>
+		</>
 	);
 }
 
-export function ShareButton( props: {
-	site: SiteDetails;
-	className?: string;
-	anchor?: RefObject< HTMLElement | null >;
-} ) {
-	const context = useContext( DeliveryContext );
+export function ShareButton( props: { site: SiteDetails; className?: string } ) {
 	const status = useShareStatus( props.site.id );
-	if ( ! context )
-		return (
-			<SiteDeliveryProvider site={ props.site } anchor={ props.anchor }>
-				<ShareButton { ...props } />
-			</SiteDeliveryProvider>
-		);
 	return (
 		<span className={ props.className }>
 			<Tooltip>
@@ -243,7 +211,13 @@ export function ShareButton( props: {
 							size="icon"
 							aria-label={ __( 'Share' ) }
 							aria-description={ status.label }
-							onClick={ ( event ) => context.show( 'share', event.currentTarget ) }
+							onClick={ ( event ) =>
+								requestHeaderPanel( {
+									panel: 'share',
+									siteId: props.site.id,
+									trigger: event.currentTarget,
+								} )
+							}
 						/>
 					}
 				>
@@ -255,11 +229,7 @@ export function ShareButton( props: {
 	);
 }
 
-export function PublishButton( props: {
-	site: SiteDetails;
-	anchor?: RefObject< HTMLElement | null >;
-} ) {
-	const context = useContext( DeliveryContext );
+export function PublishButton( props: { site: SiteDetails } ) {
 	const activity = useSiteSyncActivity( props.site.id );
 	const setupError = usePublishSetupError( props.site.id );
 	const transfer =
@@ -272,12 +242,6 @@ export function PublishButton( props: {
 		const timer = setTimeout( () => setSuccess( false ), 1800 );
 		return () => clearTimeout( timer );
 	}, [ transfer?.kind ] );
-	if ( ! context )
-		return (
-			<SiteDeliveryProvider site={ props.site } anchor={ props.anchor }>
-				<PublishButton { ...props } />
-			</SiteDeliveryProvider>
-		);
 	return (
 		<Button
 			activeMotion="layout"
@@ -292,7 +256,14 @@ export function PublishButton( props: {
 						: __( 'Publishing…' )
 					: undefined )
 			}
-			onClick={ ( event ) => context.show( 'publish', event.currentTarget ) }
+			onClick={ ( event ) =>
+				requestHeaderPanel( {
+					panel: 'publish',
+					siteId: props.site.id,
+					view: 'publish',
+					trigger: event.currentTarget,
+				} )
+			}
 		>
 			{ pending ? (
 				<PublishTransferIcon direction={ transfer.direction === 'pull' ? 'pull' : 'push' } />

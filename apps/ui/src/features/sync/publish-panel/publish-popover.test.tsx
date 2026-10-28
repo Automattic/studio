@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
 import { requestHeaderPanel } from '@/data/use-open-header-panel';
 import { SessionUIProvider } from '@/data/use-session-ui';
-import { PublishButton } from '@/features/site-delivery';
+import { PublishButton, SiteDeliveryDialog } from '@/features/site-delivery';
 import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import type { SyncSite } from '@/data/core';
@@ -67,7 +67,12 @@ function setup( connections: SyncSite[] = [], signedIn = true, running = true, r
 	const visibility = createVisibility();
 	function Harness() {
 		const visible = useSyncExternalStore( visibility.subscribe, visibility.get );
-		return visible ? <PublishButton site={ site } /> : null;
+		return visible ? (
+			<>
+				<SiteDeliveryDialog site={ site } />
+				<PublishButton site={ site } />
+			</>
+		) : null;
 	}
 	const view = renderWithProviders(
 		<SessionUIProvider>

@@ -3,16 +3,17 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
-import { PublishButton, ShareButton, SiteDeliveryProvider } from './index';
+import { PublishButton, ShareButton, SiteDeliveryDialog } from './index';
 
 function setup() {
 	const site = makeSite();
 	const connector = createFakeConnector( { sites: [ site ], user: TEST_USER } );
 	renderWithProviders(
-		<SiteDeliveryProvider site={ site }>
+		<>
+			<SiteDeliveryDialog site={ site } />
 			<ShareButton site={ site } />
 			<PublishButton site={ site } />
-		</SiteDeliveryProvider>,
+		</>,
 		{ connector }
 	);
 	return connector;

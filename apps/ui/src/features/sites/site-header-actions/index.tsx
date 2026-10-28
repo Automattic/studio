@@ -14,7 +14,7 @@ import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
 import { requestHeaderPanel } from '@/data/use-open-header-panel';
 import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
 import { ShareStatusIcon, useShareStatus } from '@/features/sharing';
-import { ShareButton, PublishButton, SiteDeliveryProvider } from '@/features/site-delivery';
+import { ShareButton, PublishButton, SiteDeliveryDialog } from '@/features/site-delivery';
 import { useWindowControlsOverlay } from '@/lib/hooks';
 import {
 	ArrowLeftIcon,
@@ -222,91 +222,90 @@ export function SiteHeaderActions( { site, live = false }: { site: SiteDetails; 
 			style={ { paddingInlineEnd: inset } }
 			data-site-header-actions={ layout }
 		>
-			<SiteDeliveryProvider key={ site.id } site={ site } anchor={ root }>
-				<div ref={ attachActions } className={ styles.actions }>
-					<span data-site-header-publish className={ styles.publish }>
-						<PublishButton site={ site } anchor={ root } />
+			<SiteDeliveryDialog key={ site.id } site={ site } anchor={ root } />
+			<div ref={ attachActions } className={ styles.actions }>
+				<span data-site-header-publish className={ styles.publish }>
+					<PublishButton site={ site } />
+				</span>
+				<span data-site-header-trailing className={ styles.item }>
+					<span hidden={ overflow }>
+						<ShareButton site={ site } />
 					</span>
-					<span data-site-header-trailing className={ styles.item }>
-						<span hidden={ overflow }>
-							<ShareButton site={ site } anchor={ root } />
-						</span>
-						{ overflow ? (
-							<Menu.Root modal={ false }>
-								<Tooltip>
-									<Menu.Trigger
-										render={
-											<TooltipTrigger
-												render={
-													<Button
-														variant="ghost"
-														size="icon"
-														data-share-overflow-trigger
-														aria-label={ __( 'More preview actions' ) }
-														aria-description={ shareStatus.label }
-													/>
-												}
-											/>
-										}
-									>
-										<ShareStatusIcon icon={ <EllipsisIcon /> } status={ shareStatus } />
-									</Menu.Trigger>
-									<TooltipContent side="bottom">{ __( 'More preview actions' ) }</TooltipContent>
-								</Tooltip>
-								<Menu.Popup side="bottom" align="end">
-									<Menu.Item
-										aria-description={ shareStatus.label }
-										onClick={ () => requestHeaderPanel( { panel: 'share', siteId: site.id } ) }
-									>
-										<ShareStatusIcon icon={ <ShareIcon /> } status={ shareStatus } />
-										{ __( 'Share' ) }
-									</Menu.Item>
-									{ layout === 'navigation-overflow' && navigation ? (
-										<>
-											<Menu.Separator />
+					{ overflow ? (
+						<Menu.Root modal={ false }>
+							<Tooltip>
+								<Menu.Trigger
+									render={
+										<TooltipTrigger
+											render={
+												<Button
+													variant="ghost"
+													size="icon"
+													data-share-overflow-trigger
+													aria-label={ __( 'More preview actions' ) }
+													aria-description={ shareStatus.label }
+												/>
+											}
+										/>
+									}
+								>
+									<ShareStatusIcon icon={ <EllipsisIcon /> } status={ shareStatus } />
+								</Menu.Trigger>
+								<TooltipContent side="bottom">{ __( 'More preview actions' ) }</TooltipContent>
+							</Tooltip>
+							<Menu.Popup side="bottom" align="end">
+								<Menu.Item
+									aria-description={ shareStatus.label }
+									onClick={ () => requestHeaderPanel( { panel: 'share', siteId: site.id } ) }
+								>
+									<ShareStatusIcon icon={ <ShareIcon /> } status={ shareStatus } />
+									{ __( 'Share' ) }
+								</Menu.Item>
+								{ layout === 'navigation-overflow' && navigation ? (
+									<>
+										<Menu.Separator />
+										<Menu.Item
+											disabled={ navigation.disabled || ! navigation.canGoBack }
+											onClick={ navigation.back }
+										>
+											<ArrowLeftIcon />
+											{ __( 'Back' ) }
+											<Menu.Shortcut>{ navigation.backShortcut }</Menu.Shortcut>
+										</Menu.Item>
+										<Menu.Item
+											disabled={ navigation.disabled || ! navigation.canGoForward }
+											onClick={ navigation.forward }
+										>
+											<ArrowRightIcon />
+											{ __( 'Forward' ) }
+											<Menu.Shortcut>{ navigation.forwardShortcut }</Menu.Shortcut>
+										</Menu.Item>
+										<Menu.Item disabled={ navigation.disabled } onClick={ navigation.reload }>
+											<RotateCwIcon />
+											{ __( 'Reload preview' ) }
+										</Menu.Item>
+										{ live ? null : (
+											<Menu.Item disabled={ navigation.disabled } onClick={ navigation.settings }>
+												<SiteSettingsIcon />
+												{ __( 'Site settings' ) }
+											</Menu.Item>
+										) }
+										{ navigation.openExternal ? (
 											<Menu.Item
-												disabled={ navigation.disabled || ! navigation.canGoBack }
-												onClick={ navigation.back }
+												disabled={ navigation.disabled }
+												onClick={ navigation.openExternal }
 											>
-												<ArrowLeftIcon />
-												{ __( 'Back' ) }
-												<Menu.Shortcut>{ navigation.backShortcut }</Menu.Shortcut>
+												<ExternalLinkIcon />
+												{ __( 'Open in browser' ) }
 											</Menu.Item>
-											<Menu.Item
-												disabled={ navigation.disabled || ! navigation.canGoForward }
-												onClick={ navigation.forward }
-											>
-												<ArrowRightIcon />
-												{ __( 'Forward' ) }
-												<Menu.Shortcut>{ navigation.forwardShortcut }</Menu.Shortcut>
-											</Menu.Item>
-											<Menu.Item disabled={ navigation.disabled } onClick={ navigation.reload }>
-												<RotateCwIcon />
-												{ __( 'Reload preview' ) }
-											</Menu.Item>
-											{ live ? null : (
-												<Menu.Item disabled={ navigation.disabled } onClick={ navigation.settings }>
-													<SiteSettingsIcon />
-													{ __( 'Site settings' ) }
-												</Menu.Item>
-											) }
-											{ navigation.openExternal ? (
-												<Menu.Item
-													disabled={ navigation.disabled }
-													onClick={ navigation.openExternal }
-												>
-													<ExternalLinkIcon />
-													{ __( 'Open in browser' ) }
-												</Menu.Item>
-											) : null }
-										</>
-									) : null }
-								</Menu.Popup>
-							</Menu.Root>
-						) : null }
-					</span>
-				</div>
-			</SiteDeliveryProvider>
+										) : null }
+									</>
+								) : null }
+							</Menu.Popup>
+						</Menu.Root>
+					) : null }
+				</span>
+			</div>
 		</div>
 	);
 }

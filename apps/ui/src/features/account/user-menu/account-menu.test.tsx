@@ -36,48 +36,31 @@ async function openLoginDialog() {
 }
 
 describe( 'AccountMenu', () => {
-	it( 'reports account refresh failures through notifications and retries without a sidebar alert', async () => {
-		const connector = createFakeConnector( { user: TEST_USER } );
-		const { queryClient } = renderWithProviders(
-			<>
-				<aside aria-label="Account footer">
-					<UserMenu />
-				</aside>
-				<AppToasts />
-			</>,
-			{ connector }
-		);
-		const footer = await screen.findByRole( 'complementary', { name: 'Account footer' } );
-		await within( footer ).findByRole( 'button', { name: TEST_USER.displayName } );
-		connector.getAuthUser.mockRejectedValue( new Error( 'Failed to fetch' ) );
-		await act( () => queryClient.invalidateQueries( { queryKey: [ 'auth-user' ] } ) );
+	it.each( [ 'retry', 'background' ] )(
+		'clears account errors after %s recovery',
+		async ( recovery ) => {
+			const { connector, queryClient } = setup( TEST_USER );
+			const account = await screen.findByRole( 'button', { name: TEST_USER.displayName } );
+			connector.getAuthUser.mockRejectedValue( new Error( 'Failed to fetch' ) );
+			await act( () => queryClient.invalidateQueries( { queryKey: [ 'auth-user' ] } ) );
+			const notice = await screen.findByRole( 'dialog', { name: 'Couldn’t refresh your account' } );
+			expect( screen.queryByRole( 'alert' ) ).not.toBeInTheDocument();
+			expect( account ).toBeVisible();
 
-		await screen.findByText( 'Couldn’t refresh your account' );
-		expect( within( footer ).queryByText( 'Failed to fetch' ) ).not.toBeInTheDocument();
-		expect( within( footer ).getByRole( 'button', { name: TEST_USER.displayName } ) ).toBeVisible();
-		expect(
-			getNoticeHistory().filter( ( notice ) => notice.id === 'auth-user-error' )
-		).toHaveLength( 1 );
+			fireEvent.click( within( notice ).getByRole( 'button', { name: 'Retry' } ) );
+			await screen.findByText( 'Action failed' );
+			expect( within( notice ).getByRole( 'button', { name: 'Retry' } ) ).toBeEnabled();
 
-		const failedLookups = connector.getAuthUser.mock.calls.length;
-		fireEvent.click( screen.getByRole( 'button', { name: 'Retry' } ) );
-		await waitFor( () =>
-			expect( connector.getAuthUser ).toHaveBeenCalledTimes( failedLookups + 1 )
-		);
-		await waitFor( () =>
-			expect( queryClient.getQueryState( [ 'auth-user' ] )?.fetchStatus ).toBe( 'idle' )
-		);
-		await waitFor( () => expect( screen.getByRole( 'button', { name: 'Retry' } ) ).toBeEnabled() );
-		expect( within( footer ).getByRole( 'button', { name: TEST_USER.displayName } ) ).toBeVisible();
-
-		connector.getAuthUser.mockResolvedValue( TEST_USER );
-		const lookups = connector.getAuthUser.mock.calls.length;
-		fireEvent.click( screen.getByRole( 'button', { name: 'Retry' } ) );
-		await waitFor( () => expect( connector.getAuthUser ).toHaveBeenCalledTimes( lookups + 1 ) );
-		await waitFor( () =>
-			expect( queryClient.getQueryState( [ 'auth-user' ] )?.status ).toBe( 'success' )
-		);
-	} );
+			connector.getAuthUser.mockResolvedValue( TEST_USER );
+			if ( recovery === 'retry' ) {
+				fireEvent.click( within( notice ).getByRole( 'button', { name: 'Retry' } ) );
+			} else {
+				await act( () => queryClient.invalidateQueries( { queryKey: [ 'auth-user' ] } ) );
+			}
+			await waitFor( () => expect( notice ).not.toBeInTheDocument() );
+			expect( account ).toBeVisible();
+		}
+	);
 
 	it( 'explains connection before starting authentication and allows dismissal', async () => {
 		const { connector } = setup();

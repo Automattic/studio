@@ -7,10 +7,12 @@
  */
 
 import {
+	existsSync,
 	mkdirSync,
 	mkdtempSync,
 	readdirSync,
 	readFileSync,
+	symlinkSync,
 	writeFileSync,
 	writeSync as fsWriteSync,
 } from 'node:fs';
@@ -18,23 +20,17 @@ import { rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { SessionManager } from '@earendil-works/pi-coding-agent';
-import {
-	readGlobalInstructionsFile,
-	writeGlobalInstructions,
-} from '@studio/common/ai/global-instructions';
+import { writeGlobalInstructions } from '@studio/common/ai/global-instructions';
 import { DEFAULT_MODEL, isAiModelId, type AiModelId } from '@studio/common/ai/models';
 import { findLastAssistant } from '@studio/common/ai/session-events';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
-import {
-	addConnectedWpcomSite,
-	removeConnectedWpcomSite,
-} from '@studio/common/lib/connected-sites';
+import { addConnectedWpcomSite } from '@studio/common/lib/connected-sites';
 import { portFinder } from '@studio/common/lib/port-finder';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
-import { getGlobalInstructionsPath } from '@studio/common/lib/well-known-paths';
+import { getConfigDirectory, getSharedConfigPath } from '@studio/common/lib/well-known-paths';
 import { snapshotSchema } from '@studio/common/types/snapshot';
-import { syncSiteSchema, type SyncSite } from '@studio/common/types/sync';
+import { syncSiteSchema } from '@studio/common/types/sync';
 import { z } from 'zod';
 import {
 	resolveAiEnvironment,
@@ -55,7 +51,6 @@ import {
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
-import { deleteSnapshotFromConfig } from 'cli/lib/cli-config/snapshots';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { Logger } from 'cli/logger';
@@ -179,6 +174,32 @@ async function isolateSiteRegistry() {
 	process.env.E2E_CLI_CONFIG_PATH = mkdtempSync( path.join( os.tmpdir(), REGISTRY_PREFIX ) );
 }
 
+// What Studio downloads once per machine, which every eval reads as the user's
+// Studio does.
+const STUDIO_DOWNLOADS = [ 'server-files', 'php-bin', 'import-runtime', 'mu-plugins' ];
+
+// Each eval runs against its own Studio config directory, signed in as the
+// user, so what a case seeds (global instructions, WordPress.com connections)
+// and what its turn changes stay in the case: concurrent cases and the user's
+// own Studio never see them.
+function isolateStudioConfig() {
+	const userDir = getConfigDirectory();
+	const { version, authToken, aiProvider } = JSON.parse(
+		readFileSync( getSharedConfigPath(), 'utf8' )
+	) as Record< string, unknown >;
+	const dir = mkdtempSync( path.join( os.tmpdir(), 'studio-eval-config-' ) );
+	for ( const name of STUDIO_DOWNLOADS ) {
+		if ( existsSync( path.join( userDir, name ) ) ) {
+			symlinkSync( path.join( userDir, name ), path.join( dir, name ) );
+		}
+	}
+	writeFileSync(
+		path.join( dir, 'shared.json' ),
+		JSON.stringify( { version, authToken, aiProvider } )
+	);
+	process.env.E2E_SHARED_CONFIG_PATH = dir;
+}
+
 // Stopped sites the request is not about, as a user with a few sites has, so
 // the outcome can show whether the turn left the user's other sites alone.
 const BYSTANDER_SITES = [ 'Portfolio', 'Client Work' ];
@@ -228,13 +249,7 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 		remoteActiveSite,
 	} = seed;
 
-	let restoreInstructions: ( () => Promise< void > ) | null = null;
 	if ( typeof globalInstructions === 'string' ) {
-		const prior = await readGlobalInstructionsFile();
-		restoreInstructions =
-			prior === null
-				? () => rm( getGlobalInstructionsPath(), { force: true } )
-				: () => writeGlobalInstructions( prior );
 		await writeGlobalInstructions( globalInstructions );
 	}
 
@@ -270,10 +285,8 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 		}
 	}
 
-	const seededConnections: SyncSite[] = [];
 	for ( const site of connectedWpcomSites ) {
 		await addConnectedWpcomSite( site.localSiteId, site );
-		seededConnections.push( site );
 	}
 
 	let seededSite: SiteInfo | undefined;
@@ -326,9 +339,7 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 		};
 		const { id: localSiteId } = await getSiteByFolder( activeSitePath );
 		for ( const connection of activeSite.connectedWpcomSites ?? [] ) {
-			const site = { ...connection, localSiteId };
-			await addConnectedWpcomSite( localSiteId, site );
-			seededConnections.push( site );
+			await addConnectedWpcomSite( localSiteId, { ...connection, localSiteId } );
 		}
 	}
 
@@ -362,25 +373,6 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 	const cleanup = async () => {
 		if ( activeSitePath ) {
 			await runDeleteSiteCommand( activeSitePath, true, new Logger() ).catch( () => undefined );
-		}
-		await restoreInstructions?.().catch( () => undefined );
-		for ( const site of seededConnections ) {
-			await removeConnectedWpcomSite( site.localSiteId, site.id ).catch( () => undefined );
-		}
-		for ( const snapshot of snapshots ) {
-			await deleteSnapshotFromConfig( snapshot.url ).catch( () => undefined );
-		}
-		if ( localSite ) {
-			try {
-				await lockCliConfig();
-				const config = await readCliConfig();
-				config.sites = config.sites.filter( ( s ) => s.id !== localSite.id );
-				await saveCliConfig( config );
-			} catch {
-				// best-effort cleanup
-			} finally {
-				await unlockCliConfig();
-			}
 		}
 	};
 	return {
@@ -599,6 +591,7 @@ async function runEval( input: EvalRunnerInput ) {
 	const usage = createTokenUsage();
 
 	await isolateSiteRegistry();
+	isolateStudioConfig();
 	const bystanderPaths = await createBystanderSites();
 
 	let seeded: SeededFixtures | null = null;

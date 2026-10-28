@@ -27,6 +27,8 @@ const mocks = vi.hoisted( () => ( {
 	// What ran, in order: tool executions and the post content check.
 	steps: [] as string[],
 	postChanges: { summaries: [] as string[], problems: [] as string[], written: [] as string[] },
+	runMs: 0,
+	settleMs: 0,
 	failNext: false,
 	// What each end of a run finds still open on the sites.
 	openProblems: [] as string[][],
@@ -93,6 +95,7 @@ vi.mock( '@earendil-works/pi-coding-agent', async ( importOriginal ) => {
 		parameters: {},
 		execute: async () => {
 			mocks.steps.push( name );
+			await new Promise( ( resolve ) => setTimeout( resolve, mocks.runMs ) );
 			if ( mocks.failNext ) {
 				mocks.failNext = false;
 				throw new Error( 'exit 1' );
@@ -138,6 +141,7 @@ vi.mock( 'cli/ai/site-changes', () => ( {
 		}
 		async settle() {
 			mocks.steps.push( 'settle' );
+			await new Promise( ( resolve ) => setTimeout( resolve, mocks.settleMs ) );
 			return mocks.postChanges;
 		}
 	},
@@ -917,6 +921,33 @@ describe( 'pi runtime', () => {
 		} finally {
 			fs.rmSync( site, { recursive: true, force: true } );
 			vi.unstubAllGlobals();
+		}
+	} );
+
+	it( "times Studio's checks around a tool's run, apart from the run", async () => {
+		await runRuntime( {
+			prompt: 'hello',
+			env: WPCOM_ENV,
+			session: newSession(),
+			activeSite: {
+				name: 'A',
+				path: '/sites/a',
+				running: false,
+			} as StudioAgentTurnConfig[ 'activeSite' ],
+		} );
+		mocks.runMs = 60;
+		mocks.settleMs = 40;
+		try {
+			const result = await getCreatedTool( 'Write' ).execute( 'w', {
+				path: 'a/style.css',
+				content: '',
+			} );
+			const { checksMs } = ( result as unknown as { details: { checksMs: number } } ).details;
+			expect( checksMs ).toBeGreaterThanOrEqual( 39 );
+			expect( checksMs ).toBeLessThan( 60 );
+		} finally {
+			mocks.runMs = 0;
+			mocks.settleMs = 0;
 		}
 	} );
 

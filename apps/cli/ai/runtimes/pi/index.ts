@@ -857,6 +857,9 @@ function toToolDefinition(
 				throw new Error( declined.text );
 			}
 			crossSite?.allow();
+			// Studio's own time on the call, from here: its checks before and after the tool runs.
+			const checksStarted = Date.now();
+			let ranMs = 0;
 			const fileWriteRefusal =
 				writtenFile &&
 				( await siteNotes.beforeWrite( writtenFile, getWrittenText( tool.name, params ) ) );
@@ -884,8 +887,12 @@ function toToolDefinition(
 			const settled = async () =>
 				checksChanges ? await siteChanges.settle().catch( () => NO_CHANGES ) : NO_CHANGES;
 			// The validation report was taken from the gate, so it rides on a failure too.
+			const ranFrom = Date.now();
 			const result = await tool
 				.execute( toolCallId, params, signal, onUpdate )
+				.finally( () => {
+					ranMs = Date.now() - ranFrom;
+				} )
 				.catch( async ( error: unknown ) => {
 					const changed = await settled();
 					const report = studioMessage( 'notes', [
@@ -928,9 +935,13 @@ function toToolDefinition(
 				...( resultSite ? await siteNotes.afterResult( resultSite, resultText ) : [] ),
 				pendingWork.takeReports(),
 			] );
+			const timed = {
+				...result,
+				details: { ...( result.details as object ), checksMs: Date.now() - checksStarted - ranMs },
+			};
 			return reports
-				? { ...result, content: [ ...result.content, { type: 'text', text: reports } ] }
-				: result;
+				? { ...timed, content: [ ...result.content, { type: 'text', text: reports } ] }
+				: timed;
 		},
 	};
 }

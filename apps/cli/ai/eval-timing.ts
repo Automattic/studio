@@ -20,6 +20,8 @@ export type TimedToolEvent = {
 	startedAtMs: number;
 	endedAtMs?: number;
 	outputChars?: number;
+	// Studio's checks around the tool's run, within its time.
+	checksMs?: number;
 };
 
 type ToolTiming = {
@@ -27,12 +29,15 @@ type ToolTiming = {
 	totalMs: number;
 	maxMs: number;
 	outputChars: number;
+	checksMs: number;
 };
 
 export type TimingSummary = {
 	modelMs: number;
 	// Wall-clock time with at least one tool running: parallel calls count once.
 	toolWallMs: number;
+	// Of the tools' time, Studio's checks around their runs.
+	checksMs: number;
 	requests: number;
 	peakContextTokens: number;
 	// Requests that ended with stopReason "stop" but no text and no tool call:
@@ -59,11 +64,13 @@ export function summarizeTiming(
 			totalMs: 0,
 			maxMs: 0,
 			outputChars: 0,
+			checksMs: 0,
 		};
 		entry.calls += 1;
 		entry.totalMs += durationMs;
 		entry.maxMs = Math.max( entry.maxMs, durationMs );
 		entry.outputChars += event.outputChars ?? 0;
+		entry.checksMs += event.checksMs ?? 0;
 		byName.set( event.toolName, entry );
 	}
 
@@ -80,6 +87,7 @@ export function summarizeTiming(
 	return {
 		modelMs: requests.reduce( ( sum, request ) => sum + request.durationMs, 0 ),
 		toolWallMs,
+		checksMs: [ ...byName.values() ].reduce( ( sum, tool ) => sum + tool.checksMs, 0 ),
 		requests: requests.length,
 		peakContextTokens: requests.reduce(
 			( peak, request ) => Math.max( peak, request.contextTokens ),

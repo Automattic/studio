@@ -33,7 +33,7 @@ import type {
 } from '../../types';
 import type { AgentRunEvent } from '@studio/agent/protocol/agent-events';
 import type { AiSettings } from '@studio/agent/protocol/providers';
-import type { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
+import type { SiteEvent, SiteListItem, SnapshotEvent } from '@studio/common/lib/cli-events';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 
@@ -341,10 +341,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return lastSites;
 		},
 		async startSite( id ) {
-			await api( `/sites/${ encodeURIComponent( id ) }/start`, { method: 'POST' } );
+			return api< SiteListItem >( `/sites/${ encodeURIComponent( id ) }/start`, {
+				method: 'POST',
+			} );
 		},
 		async stopSite( id ) {
-			await api( `/sites/${ encodeURIComponent( id ) }/stop`, { method: 'POST' } );
+			return api< SiteListItem >( `/sites/${ encodeURIComponent( id ) }/stop`, { method: 'POST' } );
 		},
 		async getSiteThumbnail( siteId ) {
 			const { thumbnail } = await api< { thumbnail: string | null } >(

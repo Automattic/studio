@@ -1,0 +1,57 @@
+.dialog {
+	grid-template-columns: minmax( 0, 1fr );
+	gap: 0;
+}
+.tabs {
+	margin-inline-end: auto;
+}
+.panel[hidden] {
+	display: none;
+}
+.panel {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	height: min( 432px, calc( 100dvh - 100px ) );
+	min-height: 0;
+	overflow-y: auto;
+}
+
+.panel > * {
+	flex: 1;
+	min-height: 0;
+}
+.triggerLabel {
+	position: relative;
+}
+.errorDot {
+	position: absolute;
+	inset-block-start: calc( var( --space-0_5 ) * -1 );
+	inset-inline-end: calc( var( --space-2 ) * -1 );
+	width: 6px;
+	height: 6px;
+	border-radius: var( --radius-full );
+	background: var( --destructive );
+}
+
+.header {
+	min-height: 36px;
+	display: flex;
+	align-items: flex-start;
+	gap: var( --space-1 );
+}
+
+.headerActions:not( [hidden] ) {
+	display: flex;
+}
+
+.tabs[hidden],
+.publishHeader[hidden] {
+	display: none;
+}
+
+.publishHeader {
+	display: flex;
+	flex: 1;
+	min-width: 0;
+}

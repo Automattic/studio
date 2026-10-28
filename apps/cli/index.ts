@@ -331,6 +331,12 @@ async function main() {
 		.strict();
 
 	await studioArgv.argv;
+
+	// Tell the host that started this command it has finished, so it needn't wait for the
+	// process to exit after best-effort telemetry requests complete.
+	if ( process.connected && ! process.exitCode ) {
+		process.send?.( { action: 'done' } );
+	}
 }
 
 void main();

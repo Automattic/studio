@@ -11,11 +11,10 @@ import {
 	type ReactNode,
 } from 'react';
 import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
-import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
 import { requestHeaderPanel } from '@/data/use-open-header-panel';
 import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
-import { ShareButton, ShareStatusIcon, useShareStatus } from '@/features/sharing';
-import { PublishButton } from '@/features/sync';
+import { ShareStatusIcon, useShareStatus } from '@/features/sharing';
+import { ShareButton, PublishButton, SiteDeliveryDialog } from '@/features/site-delivery';
 import { useWindowControlsOverlay } from '@/lib/hooks';
 import {
 	ArrowLeftIcon,
@@ -202,12 +201,9 @@ export function useSiteHeaderNavigation( navigation: SiteHeaderNavigation | null
 
 /** A Live chat previews the remote, so only Publish applies. */
 export function SiteHeaderActions( { site, live = false }: { site: SiteDetails; live?: boolean } ) {
-	const { host, layout, navigation, attachActions } = useSiteHeader();
+	const { layout, navigation, attachActions } = useSiteHeader();
 	const root = useRef< HTMLDivElement >( null );
 	const shareStatus = useShareStatus( site.id );
-	const operation = useSiteOperation( site );
-	const starting = useIsSiteStarting( site.id ) || operation === 'start';
-	const stopping = useIsSiteStopping( site.id ) || operation === 'stop';
 	const windowControls = useWindowControlsOverlay();
 	const trafficLightSpace = useTrafficLightSpace();
 	const overflow = layout !== 'inline';
@@ -226,18 +222,13 @@ export function SiteHeaderActions( { site, live = false }: { site: SiteDetails; 
 			style={ { paddingInlineEnd: inset } }
 			data-site-header-actions={ layout }
 		>
+			<SiteDeliveryDialog key={ site.id } site={ site } anchor={ root } />
 			<div ref={ attachActions } className={ styles.actions }>
-				{ /* Out of sight while the chat fills the workspace, yet still there
-					for the site menu to open. */ }
-				<span
-					data-site-header-publish
-					hidden={ host !== 'preview' || ( ! live && ( ! site.running || starting || stopping ) ) }
-					className={ styles.publish }
-				>
-					<PublishButton site={ site } anchor={ root } />
+				<span data-site-header-publish className={ styles.publish }>
+					<PublishButton site={ site } />
 				</span>
 				<span data-site-header-trailing className={ styles.item }>
-					<span hidden={ overflow || live }>
+					<span hidden={ overflow }>
 						<ShareButton site={ site } />
 					</span>
 					{ overflow ? (
@@ -250,6 +241,7 @@ export function SiteHeaderActions( { site, live = false }: { site: SiteDetails; 
 												<Button
 													variant="ghost"
 													size="icon"
+													data-share-overflow-trigger
 													aria-label={ __( 'More preview actions' ) }
 													aria-description={ shareStatus.label }
 												/>
@@ -262,18 +254,16 @@ export function SiteHeaderActions( { site, live = false }: { site: SiteDetails; 
 								<TooltipContent side="bottom">{ __( 'More preview actions' ) }</TooltipContent>
 							</Tooltip>
 							<Menu.Popup side="bottom" align="end">
-								{ live ? null : (
-									<Menu.Item
-										aria-description={ shareStatus.label }
-										onClick={ () => requestHeaderPanel( { panel: 'share', siteId: site.id } ) }
-									>
-										<ShareStatusIcon icon={ <ShareIcon /> } status={ shareStatus } />
-										{ __( 'Share' ) }
-									</Menu.Item>
-								) }
+								<Menu.Item
+									aria-description={ shareStatus.label }
+									onClick={ () => requestHeaderPanel( { panel: 'share', siteId: site.id } ) }
+								>
+									<ShareStatusIcon icon={ <ShareIcon /> } status={ shareStatus } />
+									{ __( 'Share' ) }
+								</Menu.Item>
 								{ layout === 'navigation-overflow' && navigation ? (
 									<>
-										{ live ? null : <Menu.Separator /> }
+										<Menu.Separator />
 										<Menu.Item
 											disabled={ navigation.disabled || ! navigation.canGoBack }
 											onClick={ navigation.back }

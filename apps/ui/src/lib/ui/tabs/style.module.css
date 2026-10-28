@@ -43,7 +43,7 @@
 		isolation: isolate;
 		align-items: center;
 		align-self: flex-start;
-		height: 36px;
+		height: var( --control-size );
 		padding: 0 var( --space-0_5 );
 		border-radius: var( --radius-lg );
 		background-color: light-dark( var( --muted ), var( --background ) );
@@ -99,7 +99,7 @@
 	}
 
 	[data-variant='sidebar'] > .trigger {
-		height: 36px;
+		height: var( --control-size );
 		padding: var( --space-0_5 ) var( --space-2 );
 		text-align: start;
 	}

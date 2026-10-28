@@ -5,6 +5,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getAiInstructionsPath } from 'cli/lib/dependency-management/paths';
+import { getSiteDetails } from 'cli/lib/site-details';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
@@ -126,6 +127,11 @@ async function startSite(
 export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 	try {
 		await runCommand( argv.path, argv.skipBrowser, argv.skipLogDetails );
+		// Read after the operation is released, so Studio can show the site as it now is.
+		defaultLogger.reportResult( {
+			...getSiteDetails( await getSiteByFolder( argv.path ) ),
+			running: true,
+		} );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			defaultLogger.reportError( error );

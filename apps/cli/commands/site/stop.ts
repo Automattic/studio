@@ -13,6 +13,7 @@ import {
 	disconnectFromDaemon,
 	killDaemonAndChildren,
 } from 'cli/lib/daemon-client';
+import { getSiteDetails } from 'cli/lib/site-details';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
@@ -158,6 +159,11 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 			await runCommand( Mode.STOP_ALL_SITES, undefined );
 		} else {
 			await runCommand( Mode.STOP_SINGLE_SITE, argv.path );
+			// Read after the operation is released, so Studio can show the site as it now is.
+			defaultLogger.reportResult( {
+				...getSiteDetails( await getSiteByFolder( argv.path ) ),
+				running: false,
+			} );
 		}
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {

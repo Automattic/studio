@@ -131,6 +131,7 @@
 	   drawn inside it. */
 	--band-height: 54px;
 	--control-size: 36px;
+	--band-inset: calc( ( var( --band-height ) - var( --control-size ) ) / 2 );
 	--band-separator-height: 16px;
 	/* Where the band's first control starts on macOS, past the traffic lights. */
 	--traffic-light-space: 92px;

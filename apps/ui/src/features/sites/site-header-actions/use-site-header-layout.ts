@@ -49,7 +49,14 @@ export function useSiteHeaderLayout( space: HTMLElement | null, actions: HTMLEle
 				width -
 				pixels( style.paddingLeft ) -
 				pixels( style.paddingRight ) -
-				reserved.reduce( ( total, element ) => total + widthOf( element ) + gap, 0 );
+				reserved.reduce(
+					( total, element ) =>
+						total +
+						widthOf( element ) +
+						pixels( getComputedStyle( element ).marginInlineEnd ) +
+						gap,
+					0
+				);
 			const full =
 				widthOf( actions.querySelector( '[data-site-header-publish]' ) ) +
 				widthOf( actions.querySelector( '[data-site-header-trailing]' ) ) +

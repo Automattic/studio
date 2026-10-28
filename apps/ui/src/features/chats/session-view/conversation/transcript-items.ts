@@ -335,6 +335,10 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	return items;
 }
 
+function isDesignSystemArtifact( item: RenderItem ) {
+	return item.kind === 'chat-artifact' && item.widgets.every( isDesignSystemPreviewWidget );
+}
+
 function getTimestamp( entry: SessionEntry | undefined ): number | null {
 	const timestamp = entry ? Date.parse( entry.timestamp ) : NaN;
 	return Number.isFinite( timestamp ) ? timestamp : null;
@@ -342,7 +346,8 @@ function getTimestamp( entry: SessionEntry | undefined ): number | null {
 
 /**
  * Groups each turn’s commentary and tools beneath its elapsed-time header.
- * Questions retain their position; the renderer keeps them outside collapsible panels.
+ * Questions and chat artifacts retain their position; the renderer keeps them outside
+ * collapsible panels.
  */
 export function entriesToTranscriptItems(
 	entries: SessionEntry[],
@@ -382,8 +387,13 @@ export function entriesToTranscriptItems(
 		const worked = turnItems.some(
 			( item ) => item.kind === 'tool-use' || item.kind === 'progress'
 		);
+		// Repeated DESIGN.md writes in one turn offer the design system once, at the last write.
+		const lastDesignSystem = [ ...turnItems ].reverse().find( isDesignSystemArtifact );
 		const visible = turnItems.flatMap( ( item ): Exclude< RenderItem, { kind: 'progress' } >[] => {
 			if ( item.kind === 'progress' ) {
+				return [];
+			}
+			if ( isDesignSystemArtifact( item ) && item !== lastDesignSystem ) {
 				return [];
 			}
 			return [ item.kind === 'tool-use' && running ? { ...item, running } : item ];
@@ -415,7 +425,8 @@ export function entriesToTranscriptItems(
 				( item ) =>
 					item.kind === 'tool-use' ||
 					item.kind === 'agent-question-batch' ||
-					item.kind === 'assistant-text'
+					item.kind === 'assistant-text' ||
+					item.kind === 'chat-artifact'
 			)
 			.map( ( item ) =>
 				item.kind === 'assistant-text' &&

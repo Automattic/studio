@@ -215,22 +215,6 @@ describe( 'structured chat responses', () => {
 		);
 	} );
 
-	it( 'offers the design system view after a DESIGN.md change', async () => {
-		renderEntries( [
-			{
-				type: 'custom',
-				id: 'design',
-				customType: 'studio.chat_artifact',
-				data: {
-					version: 1,
-					id: 'design-system',
-					widgets: [ { type: 'site-preview', widgetProps: { path: DESIGN_SYSTEM_PREVIEW_PATH } } ],
-				},
-			},
-		] );
-		expect( await screen.findByRole( 'button', { name: 'Open design system' } ) ).toBeVisible();
-	} );
-
 	it( 'reports a missing local image without losing the transcript', async () => {
 		const connector = createFakeConnector();
 		connector.readLocalMediaFile.mockRejectedValue( new Error( 'File not found' ) );
@@ -302,6 +286,53 @@ describe( 'Conversation activity groups', () => {
 		expect( screen.getByText( 'Checking the theme.' ) ).toBeVisible();
 		expect( screen.getByText( 'Everything looks good.' ) ).toBeVisible();
 	} );
+	it( 'offers the design system once, after its last DESIGN.md write, even when collapsed', () => {
+		const designWrite = ( id: string ) => [
+			assistantToolCallEntry( 'Write', { path: 'DESIGN.md' } ),
+			{
+				type: 'custom',
+				id,
+				timestamp: '2026-06-05T12:00:03.000Z',
+				customType: 'studio.chat_artifact',
+				data: {
+					version: 1,
+					id,
+					widgets: [ { type: 'site-preview', widgetProps: { path: DESIGN_SYSTEM_PREVIEW_PATH } } ],
+				},
+			} as unknown as SessionEntry,
+			toolResultEntry( 'Wrote DESIGN.md' ),
+		];
+		const entries = [
+			promptEntry( 'Make it greener' ),
+			...designWrite( 'first' ),
+			...designWrite( 'second' ),
+			assistantToolCallEntry( 'Read', { file_path: '/tmp/theme.css' }, 'Checking the theme.' ),
+			toolResultEntry( 'contents' ),
+		];
+		const { rerenderSession } = renderConversation( loadedSession( entries ), {
+			isRunning: true,
+			startedAt: Date.now(),
+		} );
+		const button = screen.getByRole( 'button', { name: 'Open design system' } );
+		expect(
+			button.compareDocumentPosition( screen.getByText( 'Checking the theme.' ) ) &
+				Node.DOCUMENT_POSITION_FOLLOWING
+		).toBeTruthy();
+
+		rerenderSession(
+			loadedSession( [
+				...entries,
+				assistantTextEntry( 'The site is greener now.' ),
+				turnClosedEntry( 'success' ),
+			] )
+		);
+		expect( screen.getByRole( 'button', { name: /^Worked/ } ) ).toHaveAttribute(
+			'aria-expanded',
+			'false'
+		);
+		expect( screen.getAllByRole( 'button', { name: 'Open design system' } ) ).toHaveLength( 1 );
+	} );
+
 	it( 'keeps a pending question available when live activity is manually collapsed', () => {
 		renderConversation(
 			loadedSession( [

@@ -102,7 +102,9 @@ export const ToolUseRow = memo( function ToolUseRow( {
 
 function isPersistentItem( item: TurnActivity[ 'items' ][ number ] ) {
 	return (
-		item.kind === 'agent-question-batch' || ( item.kind === 'assistant-text' && item.persistent )
+		item.kind === 'agent-question-batch' ||
+		item.kind === 'chat-artifact' ||
+		( item.kind === 'assistant-text' && item.persistent )
 	);
 }
 

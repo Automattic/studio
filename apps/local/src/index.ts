@@ -830,8 +830,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			await startSite( execute, site.path );
-			res.sendStatus( 204 );
+			res.json( await startSite( execute, site.path ) );
 		} )
 	);
 
@@ -844,8 +843,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			await stopSite( execute, site.path );
-			res.sendStatus( 204 );
+			res.json( await stopSite( execute, site.path ) );
 		} )
 	);
 

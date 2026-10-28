@@ -308,11 +308,11 @@ export function createIpcConnector(): Connector {
 		},
 
 		async startSite( id ) {
-			await unwrapIpcError( ipcApi.startServer( id ) );
+			return unwrapIpcError( ipcApi.startServer( id ) );
 		},
 
 		async stopSite( id ) {
-			await ipcApi.stopServer( id );
+			return ipcApi.stopServer( id );
 		},
 
 		async updateSite( site, wpVersion ) {

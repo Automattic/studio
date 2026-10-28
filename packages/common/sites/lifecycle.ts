@@ -1,7 +1,12 @@
 import { __ } from '@wordpress/i18n';
+import { siteListItemSchema, type SiteListItem } from '@studio/common/lib/cli-events';
+import {
+	CliCommandError,
+	runCliCommand,
+	type ExecuteCliCommand,
+} from '@studio/common/lib/cli-process';
 import { getProxyPortConflictMessage } from '@studio/common/lib/domains';
 import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
-import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
 
 // Start / stop / delete a local site via the Studio CLI's one-shot `site`
 // commands, for the desktop main process and the `studio ui` server alike.
@@ -22,11 +27,31 @@ function runSiteCommand(
 	} );
 }
 
+// Start and stop report the site as it is once they finish, so the caller can
+// show it without waiting for the matching site event.
+async function runSiteStateCommand(
+	execute: ExecuteCliCommand,
+	args: string[],
+	baseMessage: string
+): Promise< SiteListItem > {
+	try {
+		return await runCliCommand( execute, args, siteListItemSchema );
+	} catch ( error ) {
+		if ( error instanceof CliCommandError ) {
+			error.baseMessage = baseMessage;
+		}
+		throw error;
+	}
+}
+
 /** The site can't start for an expected reason that its message explains to the user. */
 export class SiteStartRefusedError extends Error {}
 
 /** Start a local site's server via the Studio CLI. Resolves when it's already running. */
-export async function startSite( execute: ExecuteCliCommand, sitePath: string ): Promise< void > {
+export async function startSite(
+	execute: ExecuteCliCommand,
+	sitePath: string
+): Promise< SiteListItem > {
 	const maintenance = checkMaintenanceFile( sitePath );
 	if ( maintenance.exists && ! maintenance.isStale ) {
 		throw new SiteStartRefusedError(
@@ -36,7 +61,7 @@ export async function startSite( execute: ExecuteCliCommand, sitePath: string ):
 		);
 	}
 	try {
-		await runSiteCommand(
+		return await runSiteStateCommand(
 			execute,
 			[ 'site', 'start', '--path', sitePath, '--skip-browser', '--skip-log-details' ],
 			'Failed to start site'
@@ -59,8 +84,12 @@ export async function startSite( execute: ExecuteCliCommand, sitePath: string ):
 }
 
 /** Stop a local site's server via the Studio CLI. */
-export function stopSite( execute: ExecuteCliCommand, sitePath: string ): Promise< void > {
-	return runSiteCommand( execute, [ 'site', 'stop', '--path', sitePath ], 'Failed to stop site' );
+export function stopSite( execute: ExecuteCliCommand, sitePath: string ): Promise< SiteListItem > {
+	return runSiteStateCommand(
+		execute,
+		[ 'site', 'stop', '--path', sitePath ],
+		'Failed to stop site'
+	);
 }
 
 /** Remove a site from Studio via the Studio CLI, trashing its files unless `deleteFiles` is false. */

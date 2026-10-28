@@ -35,7 +35,7 @@ interface PreviewHeaderProps {
 	onSwitchRealm: ( realm: PreviewRealm ) => void;
 	hasDesignSystem: boolean;
 	onOpenExternal?: () => void;
-	onOpenSettings?: () => void;
+	responsive?: { active: boolean; disabled: boolean; onClick: () => void };
 	annotate?: Omit< ComponentProps< typeof AnnotateButton >, 'iconOnly' >;
 	// Page-load progress, while a page is loading or just loaded.
 	progress?: number;
@@ -60,7 +60,7 @@ export function PreviewHeader( {
 	onSwitchRealm,
 	hasDesignSystem,
 	onOpenExternal,
-	onOpenSettings,
+	responsive,
 	annotate,
 	progress,
 }: PreviewHeaderProps ) {
@@ -150,7 +150,7 @@ export function PreviewHeader( {
 						onSwitchRealm={ onSwitchRealm }
 						hasDesignSystem={ hasDesignSystem }
 						onOpenExternal={ onOpenExternal }
-						onOpenSettings={ onOpenSettings }
+						responsive={ responsive }
 						hideActions={ headerLayout !== 'inline' }
 					/>
 				) : null }

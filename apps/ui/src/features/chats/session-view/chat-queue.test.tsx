@@ -37,7 +37,7 @@ it( 'reopens a queued message for editing and queues only the revision', async (
 		{ getFilePath: async () => '/tmp/notes.txt' }
 	);
 	renderApp( { connector, path: '/sessions/queue-chat' } );
-	await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+	await screen.findByRole( 'button', { name: 'Site menu' } );
 	const input = await screen.findByRole( 'combobox', COMPOSER );
 	await waitFor( () => expect( input ).toBeEnabled() );
 	fireEvent.change( screen.getByLabelText( 'Upload attachments' ), {

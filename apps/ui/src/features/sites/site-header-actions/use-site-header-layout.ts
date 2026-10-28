@@ -29,7 +29,6 @@ export function useSiteHeaderLayout( space: HTMLElement | null, actions: HTMLEle
 			return;
 		}
 		let current: SiteHeaderLayout = 'inline';
-		let lifecycleWidth = 0;
 		let annotationWidth = 0;
 		const measure = () => {
 			const width = header.clientWidth;
@@ -43,9 +42,7 @@ export function useSiteHeaderLayout( space: HTMLElement | null, actions: HTMLEle
 			const annotation = header.querySelector( '[data-site-header-annotate]' );
 			const address = header.querySelector( '[data-site-header-address]' );
 			const reserved = [ ...header.querySelectorAll( '[data-site-header-reserved]' ) ];
-			const lifecycle = actions.querySelector( '[data-site-header-lifecycle]' );
 			if ( current === 'inline' ) {
-				lifecycleWidth = widthOf( lifecycle );
 				annotationWidth = widthOf( annotation );
 			}
 			const available =
@@ -56,7 +53,6 @@ export function useSiteHeaderLayout( space: HTMLElement | null, actions: HTMLEle
 			const full =
 				widthOf( actions.querySelector( '[data-site-header-publish]' ) ) +
 				widthOf( actions.querySelector( '[data-site-header-trailing]' ) ) +
-				( lifecycle ? lifecycleWidth + actionGap : 0 ) +
 				( annotation ? annotationWidth + actionGap : 0 ) +
 				( navigation ? widthOf( navigation ) + gap : 0 ) +
 				( address ? ADDRESS_MIN_WIDTH + gap : 0 );

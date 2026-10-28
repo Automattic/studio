@@ -13,12 +13,7 @@ export {
 	type PreviewSplitFramePreviewProps,
 	usePreviewBeside,
 } from './preview-split-frame';
-export {
-	SiteActionsMenu,
-	SiteActionsMenuItems,
-	useDeleteBlockedReason,
-	useSiteActions,
-} from './site-actions-menu';
+export { SiteMenu, SiteMenuItems, useDeleteBlockedReason, useSiteActions } from './site-menu';
 export {
 	CertificateTrustNotice,
 	getEnvironmentTypeOptions,

@@ -28,7 +28,7 @@ import {
 import { SidebarLayout, HeaderSidebarToggle, rememberVisit } from '@/features/sidebar';
 import { PreviewSplitFrame, type PreviewSplitFramePreviewProps } from '@/features/sites';
 import {
-	SiteActionsMenu,
+	SiteMenu,
 	SiteHeaderActions,
 	SiteHeaderActionsProvider,
 	SiteHeaderStart,
@@ -262,7 +262,7 @@ function DashboardLayout() {
 						routeSite ? (
 							<SiteHeaderStart>
 								<HeaderSidebarToggle />
-								<SiteActionsMenu site={ routeSite } />
+								<SiteMenu site={ routeSite } />
 								{ chatHidden && ! homeSiteId ? (
 									<IconButton
 										icon={ <ChatIcon /> }

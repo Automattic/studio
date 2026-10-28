@@ -8,7 +8,7 @@
 		align-items: center;
 		justify-content: center;
 		max-width: 100%;
-		height: var( --control-size );
+		height: var( --button-control-size, var( --control-size ) );
 		padding: 0 var( --button-padding-inline );
 		border: 1px solid transparent;
 		border-radius: var( --radius-lg );
@@ -255,14 +255,14 @@
 
 	/* Sizes. */
 	.button[data-size='header'] {
-		height: 32px;
+		height: var( --button-control-size, 32px );
 		border-radius: var( --radius-md );
 	}
 
 	.button[data-size='composer-notice'] {
 		--button-padding-inline: 12px;
 
-		height: 32px;
+		height: var( --button-control-size, 32px );
 	}
 
 	.button[data-size='2xs'] {
@@ -270,7 +270,7 @@
 		font-size: var( --text-xxs );
 
 		gap: var( --space-1 );
-		height: 24px;
+		height: var( --button-control-size, 24px );
 		border-radius: var( --radius-md );
 	}
 
@@ -332,23 +332,23 @@
 	}
 
 	.button[data-size='icon'] {
-		--button-size: var( --control-size );
+		--button-size: var( --button-control-size, var( --control-size ) );
 	}
 
 	.button[data-size='icon-sm'] {
-		--button-size: 32px;
+		--button-size: var( --button-control-size, 32px );
 
 		border-radius: var( --radius-md );
 	}
 
 	.button[data-size='icon-xs'] {
-		--button-size: 28px;
+		--button-size: var( --button-control-size, 28px );
 
 		border-radius: var( --radius-sm );
 	}
 
 	.button[data-size='icon-2xs'] {
-		--button-size: 24px;
+		--button-size: var( --button-control-size, 24px );
 
 		border-radius: var( --radius-md );
 	}
@@ -381,5 +381,23 @@
 		justify-content: flex-start;
 		text-align: start;
 		white-space: normal;
+	}
+}
+
+@layer ui {
+	.button[data-loading-mode='replace'] {
+		position: relative;
+
+		&[aria-busy='true'] {
+			.loadingLabel {
+				opacity: 0;
+			}
+
+			[data-slot='spinner'] {
+				position: absolute;
+				inset: 0;
+				margin: auto;
+			}
+		}
 	}
 }

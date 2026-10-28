@@ -356,7 +356,7 @@ describe( 'Command palette in the Studio workspace', () => {
 						finishStop = () => ( fails ? reject( new Error( 'Unable to stop' ) ) : resolve() );
 					} )
 			);
-			await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+			await screen.findByRole( 'button', { name: 'Site menu' } );
 			await paletteCommand( 'Restart site' );
 			await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );
 			expect( connector.startSite ).not.toHaveBeenCalled();
@@ -376,13 +376,11 @@ describe( 'Command palette in the Studio workspace', () => {
 		const { connector } = setup( {
 			sites: [ site(), site( { id: 'two', name: 'Second site' } ) ],
 		} );
-		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+		await screen.findByRole( 'button', { name: 'Site menu' } );
 		await openPalette();
 		search( 'Second site' );
 		fireEvent.click( await screen.findByRole( 'option', { name: 'Second site' } ) );
-		expect(
-			await screen.findByRole( 'button', { name: 'Site actions for Second site' } )
-		).toBeVisible();
+		expect( await screen.findByRole( 'button', { name: 'Site menu' } ) ).toBeVisible();
 		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
 		await openPalette();
 		search( 'Start site' );
@@ -425,7 +423,7 @@ describe( 'Command palette in the Studio workspace', () => {
 		async ( empty ) => {
 			setup( { sites: empty ? [] : [ site() ] } );
 			if ( ! empty ) {
-				await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+				await screen.findByRole( 'button', { name: 'Site menu' } );
 				fireEvent.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 			}
 			const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
@@ -450,7 +448,7 @@ describe( 'Command palette in the Studio workspace', () => {
 
 	it( 'uses existing host actions from the command palette', async () => {
 		const { connector } = setup();
-		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+		await screen.findByRole( 'button', { name: 'Site menu' } );
 		await openPalette();
 		search( 'Open in Finder' );
 		fireEvent.click( await screen.findByRole( 'option', { name: 'Open in Finder My site' } ) );
@@ -468,7 +466,7 @@ describe( 'Command palette in the Studio workspace', () => {
 		connector.exportFullSite.mockResolvedValue( '/tmp/site.zip' as never );
 		connector.exportDatabase.mockResolvedValue( '/tmp/database.sql' as never );
 		connector.copySite.mockResolvedValue( site( { id: 'copy', name: 'Copy' } ) );
-		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+		await screen.findByRole( 'button', { name: 'Site menu' } );
 		await paletteCommand( 'copy site URL', /^Copy site URL/ );
 		expect( connector.copyText ).toHaveBeenCalledExactlyOnceWith( 'https://my-site.local' );
 		await paletteCommand( 'open in browser', /^Open in Browser My site/ );
@@ -545,7 +543,7 @@ describe( 'Command palette in the Studio workspace', () => {
 
 	it( 'opens Intensity settings from the palette and focuses its slider', async () => {
 		setup();
-		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+		await screen.findByRole( 'button', { name: 'Site menu' } );
 		await openPalette();
 		search( 'Intensity' );
 		fireEvent.click( await screen.findByRole( 'option', { name: 'Intensity Appearance' } ) );
@@ -557,7 +555,7 @@ describe( 'Command palette in the Studio workspace', () => {
 
 	it( 'replays What’s New from the palette and marks it seen when skipped', async () => {
 		const { connector } = setup();
-		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+		await screen.findByRole( 'button', { name: 'Site menu' } );
 		await paletteCommand( 'new features', /^What’s New/ );
 		expect(
 			await screen.findByRole( 'dialog', { name: 'Meet the new WordPress Studio' } )
@@ -574,7 +572,7 @@ describe( 'Command palette in the Studio workspace', () => {
 		'toggles from the rendered %s theme with one palette command',
 		async ( scheme ) => {
 			const { connector } = setup( { preferences: { colorScheme: scheme } as never } );
-			await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+			await screen.findByRole( 'button', { name: 'Site menu' } );
 			await openPalette();
 			search( scheme + ' mode' );
 			fireEvent.keyDown( input(), { key: 'Enter' } );

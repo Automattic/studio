@@ -29,6 +29,7 @@ import {
 	freeFullWidthBlocks,
 	frontPageTemplateNotes,
 	getSiteFileWriteRefusal,
+	phpInBlockTemplateRefusal,
 	resolveSiteFile,
 	savedCopyNotes,
 	selfHostFonts,
@@ -44,7 +45,7 @@ import type { BlockValidationGate } from 'cli/ai/block-validation-gate';
 type Notes = string[] | Promise< string[] >;
 
 interface Sources {
-	beforeWrite: Array< ( file: SiteFile ) => Notes >;
+	beforeWrite: Array< ( file: SiteFile, text: string ) => Notes >;
 	write: Array< ( file: SiteFile ) => Notes >;
 	result: Array< ( sitePath: string, text: string ) => Notes >;
 }
@@ -98,6 +99,7 @@ function sources( { stated = new Map(), gate }: SiteNotesOptions ): Sources {
 				const refusal = await getSiteFileWriteRefusal( file );
 				return refusal ? [ refusal ] : [];
 			},
+			( file, text ) => [ phpInBlockTemplateRefusal( file, text ) ].filter( Boolean ) as string[],
 		],
 		write: [
 			// Before the gate reads the file and the theme's presets for its save.
@@ -138,8 +140,8 @@ async function collect( notes: Array< () => Notes > ): Promise< string[] > {
 }
 
 export interface SiteNotes {
-	/** Why a write to this file must not happen, or undefined. */
-	beforeWrite( filePath: string ): Promise< string | undefined >;
+	/** Why a write of this text to this file must not happen, or undefined. */
+	beforeWrite( filePath: string, text?: string ): Promise< string | undefined >;
 	/** The notes on a write to this file. */
 	afterWrite( filePath: string ): Promise< string[] >;
 	/** The notes on a Studio tool's result about this site. */
@@ -150,11 +152,11 @@ export interface SiteNotes {
 export function createSiteNotes( options: SiteNotesOptions = {} ): SiteNotes {
 	const { beforeWrite, write, result } = sources( options );
 	return {
-		async beforeWrite( filePath ) {
+		async beforeWrite( filePath, text = '' ) {
 			// Unlike a note, a refusal that fails stops the write.
 			const file = resolveSiteFile( filePath );
 			const refusals = file
-				? ( await Promise.all( beforeWrite.map( ( source ) => source( file ) ) ) ).flat()
+				? ( await Promise.all( beforeWrite.map( ( source ) => source( file, text ) ) ) ).flat()
 				: [];
 			return refusals.length ? `Not run: ${ refusals.join( ' ' ) }` : undefined;
 		},

@@ -4,8 +4,9 @@ import os from 'os';
 import path from 'path';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getWrittenFile } from 'cli/ai/runtimes/pi/tool-safety';
+import { getWrittenFile, getWrittenText } from 'cli/ai/runtimes/pi/tool-safety';
 import { getSiteFileWriteRefusal, resolveSiteFile } from 'cli/ai/site-file-guards';
+import { createSiteNotes } from 'cli/ai/site-notes';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 
 vi.mock( 'cli/lib/cli-config/sites', () => ( { findSiteByFolder: vi.fn() } ) );
@@ -211,5 +212,52 @@ describe( 'the file write refusal', () => {
 				root
 			)
 		).toBeUndefined();
+	} );
+} );
+
+describe( "PHP in a block theme's templates", () => {
+	const theme = 'my-site/wp-content/themes/twentytwentyfive';
+	const php = '<img src="<?php echo esc_url( get_template_directory_uri() ); ?>/logo.png"/>';
+	it.each< [ string, string, unknown, string | undefined ] >( [
+		[ 'Write', `${ theme }/templates/home.html`, { content: php }, 'template,' ],
+		[
+			'Edit',
+			`${ theme }/parts/header.html`,
+			{
+				edits: [
+					{ oldText: 'a', newText: 'b' },
+					{ oldText: 'c', newText: '<?= $logo ?>' },
+				],
+			},
+			'template part,',
+		],
+		[ 'Write', `${ theme }/templates/home.html`, { content: '<!-- wp:paragraph /-->' }, undefined ],
+		[
+			'Edit',
+			`${ theme }/templates/home.html`,
+			{ edits: [ { oldText: php, newText: '' } ] },
+			undefined,
+		],
+		[ 'Write', `${ theme }/patterns/hero.php`, { content: php }, undefined ],
+		[ 'Write', `${ theme }/functions.php`, { content: php }, undefined ],
+		[ 'Write', 'my-site/wp-content/plugins/shop/templates/a.html', { content: php }, undefined ],
+	] )( '%s %s', async ( toolName, file, params, refused ) => {
+		const refusal = await createSiteNotes().beforeWrite(
+			getWrittenFile( toolName, { path: file, ...( params as object ) }, root ) ?? '',
+			getWrittenText( toolName, params )
+		);
+		if ( refused ) {
+			expect( refusal ).toContain( `block theme's ${ refused }` );
+			expect( refusal ).toContain(
+				`${ path.join(
+					root,
+					theme,
+					'patterns',
+					'<name>.php'
+				) } with a "Slug: twentytwentyfive/<name>" header`
+			);
+		} else {
+			expect( refusal ).toBeUndefined();
+		}
 	} );
 } );

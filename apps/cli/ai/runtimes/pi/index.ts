@@ -74,6 +74,7 @@ import { withTextOnlyImages } from './text-only-read';
 import {
 	getIncompleteToolCallReason,
 	getWrittenFile,
+	getWrittenText,
 	type StudioToolPayloadGuardState,
 	updateStudioToolPayloadGuardState,
 } from './tool-safety';
@@ -856,7 +857,9 @@ function toToolDefinition(
 				throw new Error( declined.text );
 			}
 			crossSite?.allow();
-			const fileWriteRefusal = writtenFile && ( await siteNotes.beforeWrite( writtenFile ) );
+			const fileWriteRefusal =
+				writtenFile &&
+				( await siteNotes.beforeWrite( writtenFile, getWrittenText( tool.name, params ) ) );
 			if ( fileWriteRefusal ) {
 				throw new Error( fileWriteRefusal );
 			}

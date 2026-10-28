@@ -173,6 +173,30 @@ export async function getSiteFileWriteRefusal(
 	return reason && ( await isStudioSite( siteRoot ) ) ? reason : undefined;
 }
 
+// The folders WordPress reads a block theme's templates and parts from
+// (get_block_theme_folders() in wp-includes/block-template-utils.php).
+const BLOCK_TEMPLATE_FILE = /^(templates|parts)\/.+\.html$/;
+const PHP_TAG = /<\?(php|=)/i;
+
+/**
+ * Why PHP written into a block theme's template or part would not run:
+ * WordPress reads those files as text, and runs the PHP in the theme's
+ * patterns, where Twenty Twenty-Five builds its image URLs.
+ */
+export function phpInBlockTemplateRefusal( { theme }: SiteFile, text: string ): string | undefined {
+	if ( ! theme || ! BLOCK_TEMPLATE_FILE.test( theme.file ) || ! PHP_TAG.test( text ) ) {
+		return undefined;
+	}
+	const pattern = `${ theme.slug }/<name>`;
+	return `${ path.join( theme.dir, theme.file ) } is a block theme's ${
+		theme.file.startsWith( 'parts/' ) ? 'template part' : 'template'
+	}, which WordPress reads as text (file_get_contents() in _build_block_template_result_from_file(), wp-includes/block-template-utils.php), so PHP in it reaches the page as written. WordPress runs the PHP in a theme's patterns: write it in ${ path.join(
+		theme.dir,
+		'patterns',
+		'<name>.php'
+	) } with a "Slug: ${ pattern }" header, and place the pattern with <!-- wp:pattern {"slug":"${ pattern }"} /-->, as Twenty Twenty-Five's templates do.`;
+}
+
 // Palette slugs whose `.has-<slug>-color` class (class-wp-theme-json.php) is
 // the class the block editor saves on every block with its own text or link
 // color (wp-includes/js/dist/block-editor.js).

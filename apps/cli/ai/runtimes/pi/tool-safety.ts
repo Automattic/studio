@@ -35,6 +35,17 @@ export function getWrittenFile(
 		: undefined;
 }
 
+/** The text a Write or Edit call puts in its file: a Write's content, an Edit's new texts. */
+export function getWrittenText( toolName: string, params: unknown ): string {
+	if ( toolName === 'Write' ) {
+		return getStringParam( params, 'content' ) ?? '';
+	}
+	const edits = toolName === 'Edit' && ( params as { edits?: unknown } | undefined )?.edits;
+	return Array.isArray( edits )
+		? edits.map( ( edit ) => getStringParam( edit, 'newText' ) ?? '' ).join( '\n' )
+		: '';
+}
+
 // Only the last content block can be mid-generation when the model hits the
 // output cap — anything earlier was completed before the model moved on.
 function getInProgressToolCall( content: unknown ): { id: string; name: string } | undefined {

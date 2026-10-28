@@ -121,8 +121,10 @@ vi.mock( 'cli/ai/tools/utils', async ( importOriginal ) => ( {
 } ) );
 vi.mock( 'cli/ai/site-notes', () => ( {
 	createSiteNotes: () => ( {
-		beforeWrite: async ( file: string ) =>
-			file.endsWith( 'refused.php' ) ? `Not run: ${ file }` : undefined,
+		beforeWrite: async ( file: string, text = '' ) =>
+			file.endsWith( 'refused.php' ) || text.includes( 'refused' )
+				? `Not run: ${ file }`
+				: undefined,
 		afterWrite: async ( file: string ) => [ `wrote ${ file }` ],
 		afterResult: async ( site: string ) => [ `result on ${ site }` ],
 	} ),
@@ -937,6 +939,10 @@ describe( 'pi runtime', () => {
 		await expect( write.execute( 'w', { path: 'a/refused.php', content: '' } ) ).rejects.toThrow(
 			`Not run: ${ path.resolve( mocks.studioRoot, 'a/refused.php' ) }`
 		);
+		// What the call writes is refused too.
+		await expect(
+			write.execute( 'w', { path: 'a/style.css', content: 'refused' } )
+		).rejects.toThrow( 'Not run:' );
 		expect( await text( { path: 'a/style.css', content: '' } ) ).toEqual( [
 			'',
 			`<studio-notes>\nwrote ${ file }\nresult on ${ path.resolve( '/sites/a' ) }\n</studio-notes>`,

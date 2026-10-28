@@ -1,3 +1,4 @@
+import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { act, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
@@ -154,6 +155,53 @@ describe( 'useStartSite', () => {
 } );
 
 describe( 'useSyncSitesWithEvents', () => {
+	it.each( [
+		[ 'start', true ],
+		[ 'stop', false ],
+	] as const )(
+		'shows a %s from its events without refetching the list',
+		async ( action, running ) => {
+			// What the CLI reports, and the sort order only Studio keeps.
+			const details = { ...makeSite(), url: 'http://localhost:9010' };
+			const site = { ...details, running: ! running, sortOrder: 1000 };
+			const connector = createFakeConnector( { sites: [ site ] } );
+			connector[ action === 'start' ? 'startSite' : 'stopSite' ].mockImplementation( async () => {
+				const siteId = site.id;
+				const held = { ...details, operation: { pid: 1, kind: action } };
+				connector.emit( 'onSiteEvent', {
+					event: SITE_EVENTS.UPDATED,
+					siteId,
+					site: held,
+					running,
+				} );
+				// An operation's release doesn't know whether the site runs.
+				connector.emit( 'onSiteEvent', {
+					event: SITE_EVENTS.OPERATIONS_CHANGED,
+					siteId,
+					site: details,
+					running: ! running,
+				} );
+			} );
+			const { result } = renderHook(
+				() => {
+					useSyncSitesWithEvents();
+					return { sites: useSites(), start: useStartSite(), stop: useStopSite() };
+				},
+				{ wrapper: providers( connector ) }
+			);
+			await waitFor( () => expect( result.current.sites.data ).toBeDefined() );
+
+			await act( async () => {
+				await result.current[ action ].mutateAsync( site.id );
+			} );
+
+			await waitFor( () =>
+				expect( result.current.sites.data ).toEqual( [ { ...site, running } ] )
+			);
+			expect( connector.getSites ).toHaveBeenCalledTimes( 1 );
+		}
+	);
+
 	it( 'refetches after an in-flight fetch that predates the event', async () => {
 		const connector = createFakeConnector();
 		const pendingFetches: Array< ( sites: SiteDetails[] ) => void > = [];

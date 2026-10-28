@@ -23,7 +23,7 @@ import { sequential } from '@studio/common/lib/sequential';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { readCliConfig, SiteData } from 'cli/lib/cli-config/core';
-import { getSiteUrl, removeSiteFromConfig } from 'cli/lib/cli-config/sites';
+import { removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import {
 	connectToDaemon,
 	disconnectFromDaemon,
@@ -32,7 +32,7 @@ import {
 	getDaemonBus,
 	mcpEventsSocketPath,
 } from 'cli/lib/daemon-client';
-import { getLiveSiteOperation } from 'cli/lib/site-operations';
+import { getSiteDetails } from 'cli/lib/site-details';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { SocketServer } from 'cli/lib/socket';
 import { SITE_PROCESS_PREFIX } from 'cli/lib/wordpress-server-manager';
@@ -41,12 +41,7 @@ import { Logger, LoggerError } from 'cli/logger';
 const logger = new Logger< LoggerAction >();
 
 function toSiteDetails( site: SiteData ) {
-	return siteDetailsSchema.parse( {
-		...site,
-		// Overrides rather than augments `...site` — see the note in `site list`.
-		operation: getLiveSiteOperation( site ),
-		url: getSiteUrl( site ),
-	} );
+	return siteDetailsSchema.parse( getSiteDetails( site ) );
 }
 
 const emitSiteEvent = sequential(

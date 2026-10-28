@@ -653,17 +653,11 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 				await startErrorRecovery( details, errorMessage, readProcessManagerLogs, start );
 				console.log( `[PHP Recovery - ${ id }] Serving PHP error page on port ${ details.port }` );
 				const url = `http://localhost:${ details.port }`;
+				// Without the site's details, so the renderer refetches the list, where
+				// `getSites` gives the error page's URL.
 				void sendIpcEventToRenderer( 'site-event', {
 					event: SITE_EVENTS.UPDATED,
 					siteId: id,
-					site: {
-						id,
-						name: details.name,
-						path: details.path,
-						port: details.port,
-						url,
-						phpVersion: details.phpVersion,
-					},
 					running: true,
 				} );
 				// Refresh the thumbnail so it shows the error page instead of a stale capture.

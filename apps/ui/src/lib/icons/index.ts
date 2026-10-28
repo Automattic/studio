@@ -31,6 +31,7 @@ export * from './plus-icon';
 export * from './publish-transfer-icon';
 export * from './read-status-icon';
 export * from './rename-icon';
+export * from './responsive-icon';
 export * from './rotate-cw-icon';
 export * from './send-icon';
 export * from './share-icon';

@@ -10,6 +10,9 @@ export default mergeConfig(
 		test: {
 			name: 'agent',
 			include: [ '**/*.{test,spec}.{ts,tsx}' ],
+			// The pi packages load native addons that crash Node on Windows when a
+			// worker thread exits (see the CLI project's config).
+			pool: 'forks',
 		},
 		resolve: {
 			alias: {

@@ -11,6 +11,7 @@ import {
 	runStudioAgentTurn,
 	type StudioAgentTurnConfig,
 } from 'cli/ai/runtimes/pi';
+import { getPendingWork } from 'cli/ai/runtimes/pi/pending-work';
 import type { AgentSessionEvent, CreateAgentSessionOptions } from '@earendil-works/pi-coding-agent';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { CustomEndpoint } from '@studio/common/lib/shared-config';
@@ -318,6 +319,25 @@ function getCreatedTool( name: string ): RuntimeTool {
 	const tool = tools.find( ( item ) => item.name === name );
 	expect( tool ).toBeTruthy();
 	return tool!;
+}
+
+// Studio's notes on the calls so far: its checks run after a call's result,
+// and their notes reach the agent with the next one.
+async function takeNotes(): Promise< string | undefined > {
+	const work = getPendingWork(
+		mocks.createdSessions[ 0 ].options.sessionManager as SessionManager
+	);
+	await work.settle();
+	return work.takeReports();
+}
+
+// A call's result text, then Studio's notes on it.
+async function withNotes(
+	call: Promise< { content: Array< { type: string; text: string } > } >
+): Promise< Array< string | undefined > > {
+	const texts = ( await call ).content.map( ( part ) => part.text );
+	const notes = await takeNotes();
+	return notes ? [ ...texts, notes ] : texts;
 }
 
 const findAssistantText = ( events: AgentSessionEvent[] ): string | undefined => {
@@ -929,7 +949,7 @@ describe( 'pi runtime', () => {
 		}
 	} );
 
-	it( "times Studio's checks around a tool's run, apart from the run", async () => {
+	it( "returns a call's result before Studio's checks of it, which the next call waits for", async () => {
 		await runRuntime( {
 			prompt: 'hello',
 			env: WPCOM_ENV,
@@ -943,25 +963,27 @@ describe( 'pi runtime', () => {
 		mocks.runMs = 60;
 		mocks.settleMs = 40;
 		try {
-			const result = await getCreatedTool( 'Write' ).execute( 'w', {
-				path: 'a/style.css',
-				content: '',
-			} );
-			const { checksMs, checkStagesMs } = (
-				result as unknown as {
-					details: { checksMs: number; checkStagesMs: Record< string, number > };
-				}
-			 ).details;
-			expect( checksMs ).toBeGreaterThanOrEqual( 39 );
-			expect( checksMs ).toBeLessThan( 60 );
-			// By check: the settle the mock delays is the site changes'.
-			expect( checkStagesMs.siteChanges ).toBeGreaterThanOrEqual( 39 );
-			expect( checkStagesMs.siteChanges ).toBeLessThanOrEqual( checksMs );
-			expect( Object.keys( checkStagesMs ).sort() ).toEqual( [
+			const write = async () =>
+				(
+					( await getCreatedTool( 'Write' ).execute( 'w', {
+						path: 'a/style.css',
+						content: '',
+					} ) ) as unknown as {
+						details: { checksMs: number; checkStagesMs: Record< string, number > };
+					}
+				 ).details;
+			// The check the mock delays runs after the result, apart from the run.
+			const first = await write();
+			expect( first.checksMs ).toBeLessThan( 39 );
+			// The next call waits for it.
+			const second = await write();
+			expect( second.checkStagesMs.previousChecks ).toBeGreaterThanOrEqual( 30 );
+			expect( second.checksMs ).toBeGreaterThanOrEqual( second.checkStagesMs.previousChecks );
+			expect( second.checksMs ).toBeLessThan( 60 );
+			expect( Object.keys( second.checkStagesMs ).sort() ).toEqual( [
 				'pendingWork',
-				'resultNotes',
+				'previousChecks',
 				'siteChanges',
-				'writeNotes',
 			] );
 		} finally {
 			mocks.runMs = 0;
@@ -979,6 +1001,7 @@ describe( 'pi runtime', () => {
 		mocks.leftTexts.length = 0;
 		try {
 			await getCreatedTool( 'Write' ).execute( 'w', { path: 'a/style.css', content: '' } );
+			await takeNotes();
 		} finally {
 			mocks.postChanges.written = [];
 			fs.rmSync( file, { force: true } );
@@ -1003,8 +1026,7 @@ describe( 'pi runtime', () => {
 		} as StudioAgentTurnConfig[ 'activeSite' ];
 		const write = await run( local );
 		const file = path.resolve( mocks.studioRoot, 'a/style.css' );
-		const text = async ( params: Record< string, unknown > ) =>
-			( await write.execute( 'w', params ) ).content.map( ( part ) => part.text );
+		const text = ( params: Record< string, unknown > ) => withNotes( write.execute( 'w', params ) );
 
 		await expect( write.execute( 'w', { path: 'a/refused.php', content: '' } ) ).rejects.toThrow(
 			`Not run: ${ path.resolve( mocks.studioRoot, 'a/refused.php' ) }`
@@ -1015,45 +1037,39 @@ describe( 'pi runtime', () => {
 		).rejects.toThrow( 'Not run:' );
 		expect( await text( { path: 'a/style.css', content: '' } ) ).toEqual( [
 			'',
-			`<studio-notes>\nwrote ${ file }\nresult on ${ path.resolve( '/sites/a' ) }\n</studio-notes>`,
+			`wrote ${ file }\nresult on ${ path.resolve( '/sites/a' ) }`,
 		] );
 		const remote = await run( {
 			...local!,
 			remote: { host: 'wpcom', id: 7 },
 		} as StudioAgentTurnConfig[ 'activeSite' ] );
 		expect(
-			( await remote.execute( 'w', { path: 'a/style.css', content: '' } ) ).content.map(
-				( part ) => part.text
-			)
-		).toEqual( [ '', `<studio-notes>\nwrote ${ file }\n</studio-notes>` ] );
+			await withNotes( remote.execute( 'w', { path: 'a/style.css', content: '' } ) )
+		).toEqual( [ '', `wrote ${ file }` ] );
 
 		// A call that names a local site reports on it, as one creating a site does.
 		const none = await run( undefined );
 		expect(
-			(
-				await none.execute( 'w', { path: 'a/style.css', content: '', nameOrPath: 'b' } )
-			).content.map( ( part ) => part.text )
-		).toEqual( [ '', `<studio-notes>\nwrote ${ file }\nresult on /sites/b\n</studio-notes>` ] );
+			await withNotes( none.execute( 'w', { path: 'a/style.css', content: '', nameOrPath: 'b' } ) )
+		).toEqual( [ '', `wrote ${ file }\nresult on /sites/b` ] );
 
 		// A file any call wrote gets the same notes, once though a file tool wrote it too.
 		mocks.postChanges.written = [ file, '/sites/a/wp-content/themes/t/style.css' ];
-		expect( await text( { path: 'a/style.css', content: '' } ) ).toEqual( [
+		expect(
+			await withNotes( ( await run( local ) ).execute( 'w', { path: 'a/style.css', content: '' } ) )
+		).toEqual( [
 			'',
-			`<studio-notes>\nwrote ${ file }\nwrote /sites/a/wp-content/themes/t/style.css\nresult on ${ path.resolve(
+			`wrote ${ file }\nwrote /sites/a/wp-content/themes/t/style.css\nresult on ${ path.resolve(
 				'/sites/a'
-			) }\n</studio-notes>`,
+			) }`,
 		] );
 		mocks.postChanges.written = [ '/sites/a/wp-content/themes/t/style.css' ];
 		await run( local );
 		expect(
-			( await getCreatedTool( 'Bash' ).execute( 'b', { command: 'true' } ) ).content.map(
-				( part ) => part.text
-			)
+			await withNotes( getCreatedTool( 'Bash' ).execute( 'b', { command: 'true' } ) )
 		).toEqual( [
 			'',
-			`<studio-notes>\nwrote /sites/a/wp-content/themes/t/style.css\nresult on ${ path.resolve(
-				'/sites/a'
-			) }\n</studio-notes>`,
+			`wrote /sites/a/wp-content/themes/t/style.css\nresult on ${ path.resolve( '/sites/a' ) }`,
 		] );
 		mocks.postChanges.written = [];
 	} );
@@ -1073,17 +1089,13 @@ describe( 'pi runtime', () => {
 		try {
 			mocks.createdSessions.length = 0;
 			await runRuntime( { prompt: 'hello', env: WPCOM_ENV, session: newSession() } );
-			const bash = async () =>
-				( await getCreatedTool( 'Bash' ).execute( 'b', { command: 'true' } ) ).content.map(
-					( part ) => part.text
-				);
+			const bash = () => withNotes( getCreatedTool( 'Bash' ).execute( 'b', { command: 'true' } ) );
 			expect( await bash() ).toEqual( [ '' ] );
-			await getCreatedTool( 'Write' ).execute( 'w', { path: 'shop/style.css', content: '' } );
+			await withNotes(
+				getCreatedTool( 'Write' ).execute( 'w', { path: 'shop/style.css', content: '' } )
+			);
 			// As a shell command installing a plugin changes the site's facts.
-			expect( await bash() ).toEqual( [
-				'',
-				`<studio-notes>\nresult on ${ path.resolve( site ) }\n</studio-notes>`,
-			] );
+			expect( await bash() ).toEqual( [ '', `result on ${ path.resolve( site ) }` ] );
 		} finally {
 			vi.unstubAllEnvs();
 			fs.rmSync( config, { recursive: true, force: true } );
@@ -1102,7 +1114,10 @@ describe( 'pi runtime', () => {
 		};
 		const result = await getCreatedTool( 'Bash' ).execute( 'b', { command: 'true' } );
 		expect( mocks.steps ).toEqual( [ 'snapshot', 'Bash', 'settle' ] );
-		expect( result.content.map( ( part ) => part.text ) ).toEqual( [
+		expect( result.content.map( ( part ) => part.text ) ).toEqual( [ '' ] );
+		// Its notes reach the agent with the next result.
+		const next = await getCreatedTool( 'Read' ).execute( 'r', { path: 'a/style.css' } );
+		expect( next.content.map( ( part ) => part.text ) ).toEqual( [
 			'',
 			'<studio-notes>\npage 9 changed\npage 9 problem\n</studio-notes>',
 		] );
@@ -1237,6 +1252,26 @@ describe( 'pi runtime', () => {
 			const ends = agentEnds( events );
 			expect( ends.map( ( event ) => event.willRetry ) ).toEqual( [ true, false ] );
 			expect( ends[ 1 ].messages[ 0 ] ).toMatchObject( { content: [ { text: 'Fixed.' } ] } );
+		} );
+
+		it( "continues a finished turn with the notes on the run's last calls", async () => {
+			mocks.nextEvents = runEndingWith( assistantMessage( [ { type: 'text', text: 'Done.' } ] ) );
+			mocks.continueEvents = [
+				runEndingWith( assistantMessage( [ { type: 'text', text: 'Fixed.' } ] ) ),
+			];
+			mocks.openProblems = [ [ 'front page not shown' ] ];
+			const session = newSession();
+			getPendingWork( session ).add( Promise.resolve( 'page 9 changed' ) );
+
+			await runRuntime( { prompt: 'build it', env: WPCOM_ENV, model: 'fast', session } );
+
+			expect( mocks.customMessages.map( ( { message } ) => message ) ).toEqual( [
+				{
+					customType: 'studio.open_problems',
+					content: '<studio-notes>\npage 9 changed\n</studio-notes>\nchecks: front page not shown',
+					display: false,
+				},
+			] );
 		} );
 
 		it( 'checks the sites once the block files the run wrote are validated', async () => {

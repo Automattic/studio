@@ -458,6 +458,66 @@ describe( 'site preview controls', () => {
 	} );
 } );
 
+describe( 'site email', () => {
+	it( 'switches to the email from the address menu', async () => {
+		const connector = createFakeConnector();
+		const onPathChange = vi.fn();
+		await renderPreview( 'browser', { onPathChange }, connector );
+
+		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: 'Email' } ) );
+
+		expect( onPathChange ).toHaveBeenLastCalledWith( 'studio:email' );
+		expect( connector.trackEvent ).toHaveBeenCalledWith( 'studio_site_open_email', {
+			browser: 'internal',
+		} );
+	} );
+
+	it( 'opens links to the site in the preview and other links in the browser', async () => {
+		const connector = createFakeConnector( {
+			emails: {
+				one: [
+					{
+						id: '20261028-090000-000001-aaaaaa.eml',
+						subject: 'Password Reset',
+						from: null,
+						to: [ { name: '', address: 'admin@example.com' } ],
+						cc: [],
+						replyTo: [],
+						date: '2026-10-28T09:00:00.000Z',
+						html: null,
+						text: `${ SITE_URL }/wp-login.php?action=rp&key=abc\nhttps://wordpress.org/support/\n`,
+						attachments: [],
+						source: '',
+					},
+				],
+			},
+		} );
+		const onPathChange = vi.fn();
+		await renderPreview( 'browser', { path: 'studio:email', onPathChange }, connector );
+		expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
+		expect( page() ).toBeNull();
+
+		fireEvent.click( await screen.findByRole( 'option', { name: /Password Reset/ } ) );
+		fireEvent.click( await screen.findByRole( 'link', { name: /wp-login\.php/ } ) );
+		expect( onPathChange ).toHaveBeenLastCalledWith( '/wp-login.php?action=rp&key=abc' );
+
+		fireEvent.click( screen.getByRole( 'link', { name: 'https://wordpress.org/support/' } ) );
+		expect( connector.openExternalUrl ).toHaveBeenCalledWith( 'https://wordpress.org/support/' );
+	} );
+
+	it( 'shows the address as a button that opens the shortcuts', async () => {
+		const onPathChange = vi.fn();
+		await renderPreview( 'browser', { path: 'studio:email', onPathChange } );
+
+		expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Email' } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: 'Front end' } ) );
+
+		expect( onPathChange ).toHaveBeenLastCalledWith( '/' );
+	} );
+} );
+
 describe( 'preview address bar', () => {
 	it( 'shows immediate startup feedback and restores the address when running', async () => {
 		const { update } = await renderPreview( 'browser', {

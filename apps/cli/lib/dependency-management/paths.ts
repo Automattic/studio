@@ -86,7 +86,7 @@ export function getBundledWxrImportScriptPath(): string {
 	return path.join( getBundledPhpPath(), 'import-wxr.php' );
 }
 
-// The `sendmail_path` script that saves the email a site sends (see `lib/site-email.ts`).
+// The `sendmail_path` script that saves the email a site sends (see `@studio/common/sites/site-email`).
 export function getBundledSendmailScriptPath(): string {
 	return path.join( getBundledPhpPath(), 'sendmail.php' );
 }

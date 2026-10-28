@@ -7,6 +7,7 @@ import { arePathsEqual, isWordPressDirectory } from '@studio/common/lib/fs-utils
 import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
+import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import trash from 'trash';
 import { deleteSnapshot } from 'cli/lib/api';
@@ -20,7 +21,6 @@ import {
 } from 'cli/lib/cli-config/core';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
-import { getSiteEmailDirectory } from 'cli/lib/site-email';
 import { withSiteOperations } from 'cli/lib/site-operations';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';

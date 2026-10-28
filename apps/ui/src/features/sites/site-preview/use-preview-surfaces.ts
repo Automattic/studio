@@ -3,8 +3,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { siteDesignQueryKey } from '@/data/queries/use-site-design';
+import { siteEmailsQueryKey } from '@/data/queries/use-site-emails';
 import {
 	DATABASE_HOME_PATH,
+	EMAIL_PREVIEW_PATH,
 	getPathFromPreviewUrl,
 	getPreviewRealm,
 	getRealmNavigationPath,
@@ -27,6 +29,7 @@ const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
 	frontend: '/',
 	admin: '/wp-admin/',
 	database: DATABASE_HOME_PATH,
+	email: EMAIL_PREVIEW_PATH,
 	design: DESIGN_SYSTEM_PREVIEW_PATH,
 };
 
@@ -92,9 +95,12 @@ export function usePreviewSurfaces( {
 	// replays a stale one when it comes back into view.
 	const sendSurfaceCommand = useCallback(
 		( key: PreviewSurfaceKey, type: BrowserCommand[ 'type' ] ) => {
-			if ( key === 'design' ) {
+			if ( key === 'design' || key === 'email' ) {
 				if ( type === 'reload' ) {
-					void queryClient.invalidateQueries( { queryKey: siteDesignQueryKey( siteId ) } );
+					void queryClient.invalidateQueries( {
+						queryKey:
+							key === 'design' ? siteDesignQueryKey( siteId ) : siteEmailsQueryKey( siteId ),
+					} );
 				}
 				return;
 			}
@@ -144,8 +150,8 @@ export function usePreviewSurfaces( {
 		if ( activeRealm === 'admin' ) {
 			return;
 		}
-		if ( activeSurfaceKey === 'design' ) {
-			sendSurfaceCommand( 'design', 'reload' );
+		if ( activeSurfaceKey === 'design' || activeSurfaceKey === 'email' ) {
+			sendSurfaceCommand( activeSurfaceKey, 'reload' );
 		} else {
 			patchSurface( activeSurfaceKey, { reloadNonce } );
 		}

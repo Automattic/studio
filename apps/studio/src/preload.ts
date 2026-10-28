@@ -60,6 +60,9 @@ const api: IpcApi = {
 	getWpVersion: ( id ) => ipcRendererInvoke( 'getWpVersion', id ),
 	getSiteDesign: ( id ) => ipcRendererInvoke( 'getSiteDesign', id ),
 	fixSiteDesignDrift: ( id, fixes ) => ipcRendererInvoke( 'fixSiteDesignDrift', id, fixes ),
+	getSiteEmails: ( id ) => ipcRendererInvoke( 'getSiteEmails', id ),
+	openSiteEmailFolder: ( id ) => ipcRendererInvoke( 'openSiteEmailFolder', id ),
+	getSiteEmail: ( id, emailId ) => ipcRendererInvoke( 'getSiteEmail', id, emailId ),
 	getIsMultisite: ( id ) => ipcRendererInvoke( 'getIsMultisite', id ),
 	generateProposedSitePath: ( siteName ) =>
 		ipcRendererInvoke( 'generateProposedSitePath', siteName ),

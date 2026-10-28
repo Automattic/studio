@@ -7,6 +7,7 @@ import {
 	DatabaseIcon,
 	ExternalLinkIcon,
 	GlobeIcon,
+	MailIcon,
 	SiteSettingsIcon,
 	WordPressIcon,
 } from '@/lib/icons';
@@ -29,15 +30,22 @@ export function getPathFromPreviewUrl( url: string, baseUrl: string ) {
 	}
 }
 
-export type PreviewRealm = 'frontend' | 'admin' | 'database' | 'design';
+export type PreviewRealm = 'frontend' | 'admin' | 'database' | 'email' | 'design';
 
 export const DATABASE_HOME_PATH = '/phpmyadmin/index.php?route=/database/structure&db=wordpress';
+
+// Studio renders the site's email itself, like the design system, so a path
+// that is no page on the site stands for it.
+export const EMAIL_PREVIEW_PATH = 'studio:email';
 
 const isAdminPath = ( path: string ) => /^\/wp-admin(?:[/?#]|$)/.test( path );
 
 export function getPreviewRealm( path: string ): PreviewRealm {
 	if ( path === DESIGN_SYSTEM_PREVIEW_PATH ) {
 		return 'design';
+	}
+	if ( path === EMAIL_PREVIEW_PATH ) {
+		return 'email';
 	}
 	let target = path;
 	if ( path.startsWith( '/studio-auto-login' ) ) {
@@ -58,6 +66,7 @@ const REALM_OPEN_EVENTS: Record< PreviewRealm, TracksEventName > = {
 	frontend: TRACKS_EVENTS.SITE_OPEN_IN_BROWSER,
 	admin: TRACKS_EVENTS.SITE_OPEN_WP_ADMIN,
 	database: TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN,
+	email: TRACKS_EVENTS.SITE_OPEN_EMAIL,
 	design: TRACKS_EVENTS.SITE_OPEN_DESIGN_SYSTEM,
 };
 
@@ -171,6 +180,9 @@ function getDisplayUrl( siteUrl: string, path: string ): string {
 	if ( path === DESIGN_SYSTEM_PREVIEW_PATH ) {
 		return __( 'Design system' );
 	}
+	if ( path === EMAIL_PREVIEW_PATH ) {
+		return __( 'Email' );
+	}
 	try {
 		return new URL( path, siteUrl ).toString().replace( /^(https?:\/\/[^/?#]+)\/$/i, '$1' );
 	} catch {
@@ -223,6 +235,9 @@ export function PreviewAddressBar( {
 	hideActions = false,
 }: PreviewAddressBarProps ) {
 	const displayUrl = getDisplayUrl( siteUrl, path );
+	// The email is a view Studio draws, with no address to edit, so the field
+	// is a button that opens the shortcuts.
+	const studioView = path === EMAIL_PREVIEW_PATH;
 	const [ value, setValue ] = useState( displayUrl );
 	const [ invalid, setInvalid ] = useState( false );
 	const [ shortcutsOpen, setShortcutsOpen ] = useState( false );
@@ -298,18 +313,21 @@ export function PreviewAddressBar( {
 		frontend: GlobeIcon,
 		admin: WordPressIcon,
 		database: DatabaseIcon,
+		email: MailIcon,
 		design: AppearanceIcon,
 	};
 	const realmLabels: Record< PreviewRealm, string > = {
 		frontend: __( 'Front end' ),
 		admin: __( 'WordPress Admin' ),
 		database: __( 'Database' ),
+		email: __( 'Email' ),
 		design: __( 'Design system' ),
 	};
 	const realms: PreviewRealm[] = [
 		'frontend',
 		'admin',
 		'database',
+		'email',
 		...( hasDesignSystem ? [ 'design' as const ] : [] ),
 	];
 	const shortcutGroups: CommandGroup[] = [
@@ -346,7 +364,9 @@ export function PreviewAddressBar( {
 			// The webview swallows outside clicks; the modal backdrop catches them.
 			modal
 			onOpenChange={ ( open, details ) => {
-				if ( details.reason === 'trigger-press' && ( shortcutsOpen || remote ) ) return;
+				if ( details.reason === 'trigger-press' && ! studioView && ( shortcutsOpen || remote ) ) {
+					return;
+				}
 				setShortcutsOpen( open );
 				setHighlighted( undefined );
 				if ( ! open ) {
@@ -364,74 +384,103 @@ export function PreviewAddressBar( {
 						/>
 					</span>
 				) }
-				<span ref={ addressTextRef } className={ styles.addressText } aria-hidden="true">
-					{ value }
-				</span>
-				<Popover.Trigger
-					id={ addressInputId }
-					nativeButton={ false }
-					render={
-						<input
-							role="textbox"
-							value={ value }
-							onMouseDown={ ( event ) => {
-								selectOnMouseUp.current = document.activeElement !== event.currentTarget;
-								if ( event.button === 0 && ! remote ) setShortcutsOpen( true );
-							} }
-							onMouseUp={ ( event ) => {
-								if ( selectOnMouseUp.current ) {
-									event.preventDefault();
-									event.currentTarget.select();
-									selectOnMouseUp.current = false;
+				{ studioView ? (
+					<Popover.Trigger
+						id={ addressInputId }
+						className={ styles.viewButton }
+						aria-controls={ shortcutsOpen ? shortcutsId : undefined }
+						onKeyDown={ ( event ) => {
+							if (
+								shortcutsOpen &&
+								( event.key === 'ArrowDown' ||
+									event.key === 'ArrowUp' ||
+									( highlighted && event.key === 'Enter' ) )
+							) {
+								event.preventBaseUIHandler();
+								handleCommandKey(
+									event,
+									shortcutGroups,
+									highlighted,
+									setHighlighted,
+									chooseShortcut
+								);
+							}
+						} }
+					>
+						<span className={ styles.viewLabel }>{ displayUrl }</span>
+					</Popover.Trigger>
+				) : (
+					<>
+						<span ref={ addressTextRef } className={ styles.addressText } aria-hidden="true">
+							{ value }
+						</span>
+						<Popover.Trigger
+							id={ addressInputId }
+							nativeButton={ false }
+							render={
+								<input
+									role="textbox"
+									value={ value }
+									onMouseDown={ ( event ) => {
+										selectOnMouseUp.current = document.activeElement !== event.currentTarget;
+										if ( event.button === 0 && ! remote ) setShortcutsOpen( true );
+									} }
+									onMouseUp={ ( event ) => {
+										if ( selectOnMouseUp.current ) {
+											event.preventDefault();
+											event.currentTarget.select();
+											selectOnMouseUp.current = false;
+										}
+									} }
+									onFocus={ ( event ) => {
+										event.currentTarget.select();
+										if ( ! remote ) setShortcutsOpen( true );
+										animateAddressAlignment( event.currentTarget, true );
+									} }
+									onBlur={ ( event ) => {
+										selectOnMouseUp.current = false;
+										animateAddressAlignment( event.currentTarget, false );
+									} }
+									onChange={ ( event ) => {
+										setValue( event.target.value );
+										setInvalid( false );
+									} }
+								/>
+							}
+							className={ styles.input }
+							aria-controls={ shortcutsOpen ? shortcutsId : undefined }
+							onKeyUp={ ( event ) => event.preventBaseUIHandler() }
+							onKeyDown={ ( event ) => {
+								event.preventBaseUIHandler();
+								// Enter goes to the typed address until a shortcut is highlighted.
+								if (
+									shortcutsOpen &&
+									( event.key === 'ArrowDown' ||
+										event.key === 'ArrowUp' ||
+										( highlighted && event.key === 'Enter' ) )
+								) {
+									handleCommandKey(
+										event,
+										shortcutGroups,
+										highlighted,
+										setHighlighted,
+										chooseShortcut
+									);
+									return;
+								}
+								if ( event.key === 'Escape' ) {
+									restore();
+									setShortcutsOpen( false );
+									event.currentTarget.blur();
 								}
 							} }
-							onFocus={ ( event ) => {
-								event.currentTarget.select();
-								if ( ! remote ) setShortcutsOpen( true );
-								animateAddressAlignment( event.currentTarget, true );
-							} }
-							onBlur={ ( event ) => {
-								selectOnMouseUp.current = false;
-								animateAddressAlignment( event.currentTarget, false );
-							} }
-							onChange={ ( event ) => {
-								setValue( event.target.value );
-								setInvalid( false );
-							} }
+							aria-label={ __( 'Address' ) }
+							aria-invalid={ invalid || undefined }
+							title={ invalid ? __( 'Enter a path or an address on this site.' ) : undefined }
+							spellCheck={ false }
 						/>
-					}
-					className={ styles.input }
-					aria-controls={ shortcutsOpen ? shortcutsId : undefined }
-					onKeyUp={ ( event ) => event.preventBaseUIHandler() }
-					onKeyDown={ ( event ) => {
-						event.preventBaseUIHandler();
-						// Enter goes to the typed address until a shortcut is highlighted.
-						if (
-							shortcutsOpen &&
-							( event.key === 'ArrowDown' ||
-								event.key === 'ArrowUp' ||
-								( highlighted && event.key === 'Enter' ) )
-						) {
-							handleCommandKey(
-								event,
-								shortcutGroups,
-								highlighted,
-								setHighlighted,
-								chooseShortcut
-							);
-							return;
-						}
-						if ( event.key === 'Escape' ) {
-							restore();
-							setShortcutsOpen( false );
-							event.currentTarget.blur();
-						}
-					} }
-					aria-label={ __( 'Address' ) }
-					aria-invalid={ invalid || undefined }
-					title={ invalid ? __( 'Enter a path or an address on this site.' ) : undefined }
-					spellCheck={ false }
-				/>
+					</>
+				) }
 				{ hideActions ? null : (
 					<span className={ styles.actions } data-address-action>
 						{ onOpenExternal ? (

@@ -381,9 +381,14 @@ async function runAgentSessionTurn(
 			// saved, before the sites are checked, as on any later tool result.
 			await getBlockValidationGate( config.host, config.session ).settle();
 			const problems = await openProblems.raise();
-			return problems.length
-				? { customType: OPEN_PROBLEMS_TYPE, content: describeOpenProblems( problems ) }
-				: undefined;
+			// The notes on the run's last calls, whose checks ran after their results.
+			const content = [
+				studioMessage( 'notes', [ getPendingWork( config.session ).takeReports() ] ),
+				problems.length ? describeOpenProblems( problems ) : undefined,
+			]
+				.filter( Boolean )
+				.join( '\n' );
+			return content ? { customType: OPEN_PROBLEMS_TYPE, content } : undefined;
 		};
 
 		await session.prompt( config.prompt, {
@@ -494,12 +499,14 @@ async function createStudioAgentSession(
 				: sites;
 		}
 	);
+	const afterChecks = new AfterChecks( pendingWork );
 	const toolDefinitions = [ ...tools, ...mcpTools ].map( ( tool ) =>
 		toToolDefinition( config.host, tool, payloadGuardState, pendingWork, blockValidationGate, {
 			confirm,
 			sitePin,
 			siteNotes,
 			siteChanges,
+			afterChecks,
 		} )
 	);
 	const settingsManager = createSettingsManager( config.env );
@@ -813,6 +820,33 @@ const BLOCK_VALIDATION_GATED_TOOLS = new Set( [ 'Bash', 'take_screenshot' ] );
 // them. Studio's tools declare it (readOnlyHint, as MCP tool annotations do).
 const READ_ONLY_TOOLS = new Set( [ 'Read', 'Grep', 'Glob', 'Ls' ] );
 
+/**
+ * The checks of what a call changed, run while the model reads its result and
+ * decides on the next call: in the eval the model took 3s (median) after a
+ * result, the checks 1.3s. Their notes reach the agent with the next result,
+ * or at the end of the turn. Each call waits for them before it runs, so
+ * every check sees the site as the call left it, a fix a check saves never
+ * meets the next call's writes, and the next call's snapshot follows them.
+ */
+class AfterChecks {
+	private running: Promise< void > = Promise.resolve();
+
+	constructor( private readonly pendingWork: PendingWork ) {}
+
+	add( checks: Promise< string | undefined > ): void {
+		this.pendingWork.add( checks );
+		const done = checks.then(
+			() => undefined,
+			() => undefined
+		);
+		this.running = Promise.all( [ this.running, done ] ).then( () => undefined );
+	}
+
+	settle(): Promise< void > {
+		return this.running;
+	}
+}
+
 function toToolDefinition(
 	host: StudioAgentHost,
 	tool: AgentToolAny,
@@ -824,11 +858,13 @@ function toToolDefinition(
 		sitePin,
 		siteNotes,
 		siteChanges,
+		afterChecks,
 	}: {
 		confirm: Confirmer;
 		sitePin: SitePin;
 		siteNotes: SiteNotes;
 		siteChanges: SiteChanges;
+		afterChecks: AfterChecks;
 	}
 ): ToolDefinition {
 	return {
@@ -875,6 +911,7 @@ function toToolDefinition(
 					checkStagesMs[ stage ] = ( checkStagesMs[ stage ] ?? 0 ) + Date.now() - from;
 				}
 			};
+			await timeCheck( 'previousChecks', () => afterChecks.settle() );
 			const fileWriteRefusal =
 				writtenFile &&
 				( await siteNotes.beforeWrite( writtenFile, getWrittenText( tool.name, params ) ) );
@@ -942,9 +979,6 @@ function toToolDefinition(
 				delete details.pending;
 				delete details.pendingFiles;
 			}
-			const changed = await settled();
-			// The files the call wrote, by its file tool or otherwise, as a shell command does.
-			const written = new Set( [ ...( writtenFile ? [ writtenFile ] : [] ), ...changed.written ] );
 			// The site a call names, or else the request's own, whose facts any
 			// call can change, as a shell command installing a plugin does.
 			const resultSite =
@@ -952,24 +986,31 @@ function toToolDefinition(
 			const resultText = result.content
 				.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
 				.join( '\n' );
-			const reports = studioMessage( 'notes', [
-				...validationReport,
-				...changed.summaries,
-				...changed.problems,
-				...(
-					await timeCheck( 'writeNotes', () =>
-						Promise.all(
-							[ ...written ].map( ( file ) =>
-								siteNotes.afterWrite( file, file === writtenFile ? left : undefined )
+			afterChecks.add(
+				( async () => {
+					const changed = await settled();
+					// The files the call wrote, by its file tool or otherwise, as a shell command does.
+					const written = new Set( [
+						...( writtenFile ? [ writtenFile ] : [] ),
+						...changed.written,
+					] );
+					return [
+						...changed.summaries,
+						...changed.problems,
+						...(
+							await Promise.all(
+								[ ...written ].map( ( file ) =>
+									siteNotes.afterWrite( file, file === writtenFile ? left : undefined )
+								)
 							)
-						)
-					)
-				).flat(),
-				...( resultSite
-					? await timeCheck( 'resultNotes', () => siteNotes.afterResult( resultSite, resultText ) )
-					: [] ),
-				pendingWork.takeReports(),
-			] );
+						).flat(),
+						...( resultSite ? await siteNotes.afterResult( resultSite, resultText ) : [] ),
+					]
+						.filter( Boolean )
+						.join( '\n' );
+				} )()
+			);
+			const reports = studioMessage( 'notes', [ ...validationReport, pendingWork.takeReports() ] );
 			const timed = {
 				...result,
 				details: {

@@ -44,7 +44,7 @@ afterEach( () => vi.restoreAllMocks() );
 describe( 'sidebar site menu', () => {
 	it( 'shows the same site actions from the title and sidebar context menu', async () => {
 		setup();
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Site actions for My site' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 		const titleItems = await menuItems();
 		fireEvent.keyDown( screen.getByRole( 'menu' ), { key: 'Escape' } );
 		await waitFor( () => expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument() );
@@ -57,7 +57,7 @@ describe( 'sidebar site menu', () => {
 			site(),
 			site( { id: 'other', name: 'Other site', path: '/sites/other' } ),
 		] );
-		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+		await screen.findByRole( 'button', { name: 'Site menu' } );
 		const row = screen.getByRole( 'button', { name: 'Other site' } );
 		fireEvent.contextMenu( row );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
@@ -86,7 +86,7 @@ describe( 'site title actions', () => {
 						finishStart = resolve;
 					} ),
 			} );
-			fireEvent.click( await screen.findByRole( 'button', { name: 'Site actions for My site' } ) );
+			fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
 			fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
 			await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
@@ -99,7 +99,7 @@ describe( 'site title actions', () => {
 	it( 'does not open a destination when starting fails', async () => {
 		const { connector } = setup();
 		connector.startSite.mockRejectedValueOnce( new Error( 'Start failed' ) );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Site actions for My site' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'phpMyAdmin' } ) );
 		await screen.findAllByText( 'Start failed' );
@@ -108,7 +108,7 @@ describe( 'site title actions', () => {
 
 	it( 'opens the configured editor', async () => {
 		const { connector } = setup();
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Site actions for My site' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Visual Studio Code' } ) );
 		await waitFor( () => expect( connector.openSiteInEditor ).toHaveBeenCalledWith( 'one' ) );
@@ -118,7 +118,7 @@ describe( 'site title actions', () => {
 		const { connector, container } = setup( [ site( { id: 'backup', path: '/sites/backup' } ) ], {
 			getFilePath: async () => '/tmp/backup.zip',
 		} );
-		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+		await screen.findByRole( 'button', { name: 'Site menu' } );
 		const input = container.querySelector( 'input[type="file"][hidden]' )!;
 		const file = new File( [ 'backup' ], 'backup.zip' );
 		fireEvent.change( input, { target: { files: [ file ] } } );
@@ -141,7 +141,7 @@ describe( 'site title actions', () => {
 
 	it( 'stops the selected running site from its title menu', async () => {
 		const { connector } = setup( [ site( { running: true } ) ] );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Site actions for My site' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 		expect( screen.queryByRole( 'menuitem', { name: /^Start site/ } ) ).not.toBeInTheDocument();
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop site' } ) );
@@ -152,7 +152,7 @@ describe( 'site title actions', () => {
 		const { connector } = setup();
 		connector.deleteSite.mockRejectedValueOnce( new Error( 'Site is running' ) );
 		const openDelete = async () => {
-			fireEvent.click( await screen.findByRole( 'button', { name: 'Site actions for My site' } ) );
+			fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Delete site' } ) );
 			return screen.findByRole( 'alertdialog' );
 		};
@@ -173,7 +173,7 @@ describe( 'site title actions', () => {
 				{ sessionId: 'one-chat', phase: 'running', runId: 'run', startedAt: Date.now() },
 			],
 		} );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Site actions for My site' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 		await waitFor( () =>
 			expect( screen.getByRole( 'menuitem', { name: /^Delete site/ } ) ).toHaveAttribute(
 				'aria-disabled',
@@ -186,7 +186,7 @@ describe( 'site title actions', () => {
 		vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
 		const { connector } = setup();
 		connector.openSiteInTerminal.mockRejectedValueOnce( new Error( 'Terminal unavailable' ) );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Site actions for My site' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Terminal' } ) );
 		expect( await screen.findByText( 'Couldn’t open Terminal' ) ).toBeVisible();
@@ -202,7 +202,7 @@ describe( 'site title actions', () => {
 			}
 		);
 		renderApp( { connector, path: '/sites/one' } );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Site actions for My site' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
 		expect( await screen.findByRole( 'menuitem', { name: 'Terminal' } ) ).toBeVisible();
 		expect(
@@ -218,17 +218,17 @@ describe( 'site title actions', () => {
 					rejectCopy = reject;
 				} ),
 		} );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Site actions for My site' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: /^Duplicate$/ } ) );
 		await waitFor( () => expect( rejectCopy ).toBeDefined() );
 		expect( getNoticeHistory() ).toHaveLength( 0 );
-		expect( screen.getByRole( 'button', { name: 'Site actions for My site' } ) ).toBeEnabled();
+		expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBeEnabled();
 		act( () => rejectCopy( new Error( 'Copy failed' ) ) );
 		await screen.findByText( 'Failed to copy site' );
 		expect( getNoticeHistory() ).toHaveLength( 1 );
 		expect( getNoticeHistory()[ 0 ].intent ).toBe( 'error' );
 		await waitFor( () =>
-			expect( screen.getByRole( 'button', { name: 'Site actions for My site' } ) ).toBeEnabled()
+			expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBeEnabled()
 		);
 	} );
 
@@ -239,15 +239,15 @@ describe( 'site title actions', () => {
 			connector.state.sites = [ ...connector.state.sites, copy ];
 			return copy;
 		} );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Site actions for My site' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: /^Duplicate$/ } ) );
 		await waitFor( () => expect( connector.copySite ).toHaveBeenCalledWith( 'one' ) );
 		await screen.findByRole( 'button', { name: /^Open$/ } );
-		expect( screen.getByRole( 'button', { name: 'Site actions for My site' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBeVisible();
 		expect( getNoticeHistory() ).toHaveLength( 1 );
 		fireEvent.click( screen.getByRole( 'button', { name: /^Open$/ } ) );
 		expect(
-			await screen.findByRole( 'button', { name: 'Site actions for My site copy' } )
+			await screen.findByRole( 'button', { name: 'Site menu' } )
 		).toBeVisible();
 	} );
 } );

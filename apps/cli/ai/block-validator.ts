@@ -1033,6 +1033,24 @@ export async function validateBlocks(
 											  )
 											: [],
 										rootStyle: root?.getAttribute( 'style' ) ?? '',
+										classesOn: reshaped
+											? []
+											: elementsOf( block.originalContent ?? '' ).flatMap( ( element, index ) => {
+													const names = [ ...element.classList ];
+													const gone = names.filter( ( name ) => classes.includes( name ) );
+													return gone.length
+														? [
+																{
+																	root: index === 0,
+																	kept: names.filter( ( name ) => ! gone.includes( name ) ),
+																	gone,
+																	added: [ ...after.classes ].filter(
+																		( name ) => ! names.includes( name )
+																	),
+																},
+														  ]
+														: [];
+											  } ),
 									},
 							  ]
 							: [] ),
@@ -1051,6 +1069,12 @@ export async function validateBlocks(
 			// it again, and each property whose computed value stays the same is
 			// kept. The editor's own classes come off the element first, so the
 			// editor's styles for its blocks count for nothing.
+			//
+			// The classes the fix drops from an element, as a cover's
+			// has-background-dim-45 when its save rounds the dim to
+			// has-background-dim-50, are set on that element in place of the
+			// classes the fix gives it, and kept when nothing the block's elements
+			// compute changes.
 			async function renderedAlready( lossy: any[] ) {
 				const kept = new Map< string, Set< string > >();
 				const outermost = [
@@ -1085,6 +1109,29 @@ export async function validateBlocks(
 					const top = [ ...rendered() ];
 					if ( top.length !== outermost.length ) {
 						return kept;
+					}
+					const named = new Set< string >();
+					const readRules = ( rules: CSSRuleList ) => {
+						for ( const rule of [ ...rules ] ) {
+							// The preview's rules are of its own window's CSSStyleRule.
+							if ( 'selectorText' in rule ) {
+								for ( const [ , name ] of ( rule as CSSStyleRule ).selectorText.matchAll(
+									/\.((?:\\.|[\w-])+)/g
+								) ) {
+									named.add( name.replace( /\\(.)/g, '$1' ) );
+								}
+							}
+							if ( 'cssRules' in rule ) {
+								readRules( ( rule as CSSGroupingRule ).cssRules );
+							}
+						}
+					};
+					for ( const sheet of [ ...( top[ 0 ]?.ownerDocument.styleSheets ?? [] ) ] ) {
+						try {
+							readRules( sheet.cssRules );
+						} catch {
+							// A stylesheet from another origin cannot be read.
+						}
 					}
 					// The element of the block at a place, through the blocks around it.
 					const at = ( place: string ) =>
@@ -1132,8 +1179,65 @@ export async function validateBlocks(
 									.map( ( [ property, value ]: string[] ) => `${ property }:${ value }` )
 							)
 						);
-						element.className = asRendered.className;
 						element.style.cssText = asRendered.style;
+						// The block's own elements, without its inner blocks'.
+						const own = [ element, ...element.querySelectorAll< HTMLElement >( '*' ) ].filter(
+							( inner ) => inner === element || inner.closest( '[data-block]' ) === element
+						);
+						const view = element.ownerDocument.defaultView!;
+						const looks = () =>
+							own
+								.flatMap( ( inner ) =>
+									[ null, '::before', '::after' ].map( ( pseudo ) => {
+										const style = view.getComputedStyle( inner, pseudo );
+										return [ ...style ]
+											.map( ( property ) => style.getPropertyValue( property ) )
+											.join( ';' );
+									} )
+								)
+								.join( '|' );
+						for ( const { root, kept: keeps, gone, added } of loss.classesOn ) {
+							// Known by the classes it keeps.
+							const matches = root
+								? [ element ]
+								: own.filter(
+										( inner ) =>
+											keeps.length > 0 &&
+											keeps.every( ( name: string ) => inner.classList.contains( name ) )
+								  );
+							if ( matches.length !== 1 ) {
+								continue;
+							}
+							// The element as written: the classes the fix gives it in place of
+							// those it drops. A class no loaded stylesheet names changes
+							// nothing here, but may on the site's pages or to a script, so it
+							// is kept only when the fix saves it with another number, as a
+							// cover's save names its dim rounded to tens (cover/shared.js).
+							const numbered = ( name: string ) => name.replace( /\d+/g, '#' );
+							const swap = added.filter( ( name: string ) =>
+								matches[ 0 ].classList.contains( name )
+							);
+							const back = gone.filter(
+								( name: string ) => ! matches[ 0 ].classList.contains( name )
+							);
+							const fixedLook = looks();
+							matches[ 0 ].classList.remove( ...swap );
+							matches[ 0 ].classList.add( ...back );
+							const same = looks() === fixedLook;
+							matches[ 0 ].classList.remove( ...back );
+							matches[ 0 ].classList.add( ...swap );
+							for ( const name of gone ) {
+								if (
+									same &&
+									( named.has( name ) ||
+										( /\d/.test( name ) &&
+											swap.some( ( saved: string ) => numbered( saved ) === numbered( name ) ) ) )
+								) {
+									kept.get( loss.place )!.add( name );
+								}
+							}
+						}
+						element.className = asRendered.className;
 					}
 					return kept;
 				} finally {
@@ -1146,17 +1250,20 @@ export async function validateBlocks(
 			// something stays as written, inner blocks and all: the serializer
 			// keeps a block that does not validate from its source.
 			const found = losses( initial.blocks, fixed.blocks );
-			const rendering = await renderedAlready( found.filter( ( loss ) => loss.onRoot.length ) );
+			const rendering = await renderedAlready(
+				found.filter( ( loss ) => loss.onRoot.length || loss.classesOn.length )
+			);
 			const lossList = found
 				.map( ( { place, blockName, lost } ) => {
 					const kept = rendering.get( place ) ?? new Set();
 					const styles = lost.styles.filter( ( style: string ) => ! kept.has( style ) );
+					const classes = lost.classes.filter( ( name: string ) => ! kept.has( name ) );
 					return {
 						place,
 						blockName,
 						lost: [
 							...lost.text,
-							lost.classes.length ? `drop the classes ${ lost.classes.join( ' ' ) }` : '',
+							classes.length ? `drop the classes ${ classes.join( ' ' ) }` : '',
 							styles.length ? `drop the styles ${ styles.join( '; ' ) }` : '',
 							...lost.moves,
 						]

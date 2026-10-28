@@ -319,6 +319,34 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			losses: [ { place: '/0/0', lost: 'drop the styles width:100%' } ],
 		},
 		{
+			// Its save names the dim rounded to tens (dimRatioToClass in
+			// cover/shared.js), and no stylesheet names the one written.
+			name: 'a class its save names with another number',
+			written:
+				'<!-- wp:cover {"dimRatio":45,"overlayColor":"contrast","isUserOverlayColor":true} -->\n<div class="wp-block-cover"><span aria-hidden="true" class="wp-block-cover__background has-contrast-background-color has-background-dim-45 has-background-dim"></span><div class="wp-block-cover__inner-container"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div></div>\n<!-- /wp:cover -->',
+			losses: [],
+		},
+		{
+			name: 'a class that shows the block otherwise',
+			written:
+				'<!-- wp:cover {"dimRatio":70,"overlayColor":"contrast","isUserOverlayColor":true} -->\n<div class="wp-block-cover"><span aria-hidden="true" class="wp-block-cover__background has-contrast-background-color has-background-dim-60 has-background-dim"></span><div class="wp-block-cover__inner-container"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div></div>\n<!-- /wp:cover -->',
+			losses: [ { place: '/0', lost: 'drop the classes has-background-dim-60' } ],
+		},
+		{
+			// Its save names no dim for 50, which has-background-dim shows.
+			name: 'a class the stylesheets give what the fix shows',
+			written:
+				'<!-- wp:cover {"dimRatio":50,"overlayColor":"contrast","isUserOverlayColor":true} -->\n<div class="wp-block-cover"><span aria-hidden="true" class="wp-block-cover__background has-contrast-background-color has-background-dim-50 studio-test-shade has-background-dim"></span><div class="wp-block-cover__inner-container"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div></div>\n<!-- /wp:cover -->',
+			losses: [ { place: '/0', lost: 'drop the classes studio-test-shade' } ],
+		},
+		{
+			// has-border-color gives the image a solid border (common.css).
+			name: 'a class that shows the block a border its fix leaves out',
+			written:
+				'<!-- wp:image {"id":9} -->\n<figure class="wp-block-image"><img src="https://example.com/a.png" alt="" class="has-border-color wp-image-9"/></figure>\n<!-- /wp:image -->',
+			losses: [ { place: '/0', lost: 'drop the classes has-border-color' } ],
+		},
+		{
 			// The editor's own styles for its blocks set it there.
 			name: 'a style only the editor gives its blocks',
 			written:
@@ -326,7 +354,7 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			losses: [ { place: '/0', lost: 'drop the styles position:relative' } ],
 		},
 	] )(
-		'reads the styles written on a block its fix already shows as kept: $name',
+		'reads what is written on a block that its fix already shows as kept: $name',
 		async ( { written, losses } ) => {
 			const report = await validateBlocks( written, siteUrl! );
 			expect( report.invalidBlocks ).toBeGreaterThan( 0 );

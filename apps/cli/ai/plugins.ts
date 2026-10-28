@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'fs';
+import path from 'path';
 import type { WordPressSite } from 'cli/ai/site-database';
 
 // The plugins WordPress loads (the active_plugins option), by plugin file:
@@ -40,7 +42,9 @@ export function comingSoonFact( site: WordPressSite ): string | undefined {
  * the options Jetpack reads: `jetpack_active_modules` (Modules::get_active())
  * and the site id in `jetpack_options` (Connection Manager::is_connected()).
  * A feature's blocks load only while its module is active; the rest load
- * when the `blocks` module is (Jetpack_Gutenberg::should_load()).
+ * when the `blocks` module is (Jetpack_Gutenberg::should_load()). Until it
+ * connects, it activates only the modules whose header says they need no
+ * connection.
  */
 export function jetpackFact( site: WordPressSite ): string | undefined {
 	if ( ! activePlugins( site ).includes( 'jetpack/jetpack.php' ) ) {
@@ -55,9 +59,41 @@ export function jetpackFact( site: WordPressSite ): string | undefined {
 	const connection = options?.id
 		? `registered with WordPress.com as site ${ options.id }`
 		: 'not connected to WordPress.com';
+	const needConnection = options?.id ? [] : modulesNeedingConnection( site.root );
 	return `Jetpack modules active (jetpack_active_modules): ${
 		modules.length ? modules.join( ', ' ) : 'none'
-	}. Jetpack is ${ connection } (jetpack_options id).`;
+	}. Jetpack is ${ connection } (jetpack_options id).${
+		needConnection.length
+			? ` Until it is, Jetpack activates none of the modules whose header in jetpack/modules says they require a connection (Modules::activate()): ${ needConnection.join(
+					', '
+			  ) }.`
+			: ''
+	}`;
+}
+
+// The Jetpack modules whose header requires a connection, as Modules::get()
+// reads it: each but those whose "Requires Connection" header is No.
+function modulesNeedingConnection( root: string ): string[] {
+	const dir = path.join( root, 'wp-content/plugins/jetpack/modules' );
+	let files: string[];
+	try {
+		files = readdirSync( dir ).filter( ( file ) => file.endsWith( '.php' ) );
+	} catch {
+		return [];
+	}
+	return (
+		files
+			.filter( ( file ) => {
+				const head = readFileSync( path.join( dir, file ), 'utf8' );
+				return (
+					/Module Name:/.test( head ) &&
+					/Requires Connection:[ \t]*(\S*)/.exec( head )?.[ 1 ] !== 'No'
+				);
+			} )
+			.map( ( file ) => file.slice( 0, -4 ) )
+			// In one order wherever the folder lists its files, so the fact reads the same.
+			.sort()
+	);
 }
 
 // The pages WooCommerce's store runs on, by the option that names each (wc_get_page_id()).

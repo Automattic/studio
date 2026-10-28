@@ -1,4 +1,4 @@
-import { rmSync, writeFileSync } from 'fs';
+import { mkdirSync, rmSync, writeFileSync } from 'fs';
 import path from 'path';
 import { expect, it, vi } from 'vitest';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
@@ -164,7 +164,14 @@ it.each( [
 			jetpack_active_modules: 'a:2:{i:0;s:12:"contact-form";i:1;s:6:"blocks";}',
 			jetpack_options: 'a:1:{s:7:"version";s:6:"16.3.1";}',
 		},
-		fact: 'Jetpack modules active (jetpack_active_modules): contact-form, blocks. Jetpack is not connected to WordPress.com (jetpack_options id).',
+		modules: {
+			'subscriptions.php': 'Module Name: Newsletter\n * Requires Connection: Yes',
+			'contact-form.php': 'Module Name: Forms\n * Requires Connection: No',
+			// Jetpack takes a module that does not say as needing a connection.
+			'stats.php': 'Module Name: Jetpack Stats',
+			'module-info.php': 'Not a module',
+		},
+		fact: 'Jetpack modules active (jetpack_active_modules): contact-form, blocks. Jetpack is not connected to WordPress.com (jetpack_options id). Until it is, Jetpack activates none of the modules whose header in jetpack/modules says they require a connection (Modules::activate()): stats, subscriptions.',
 	},
 	{
 		name: 'Jetpack registered with WordPress.com, no modules',
@@ -172,6 +179,7 @@ it.each( [
 			active_plugins: 'a:1:{i:0;s:19:"jetpack/jetpack.php";}',
 			jetpack_options: 'a:1:{s:2:"id";i:4242;}',
 		},
+		modules: { 'subscriptions.php': 'Module Name: Newsletter\n * Requires Connection: Yes' },
 		fact: 'Jetpack modules active (jetpack_active_modules): none. Jetpack is registered with WordPress.com as site 4242 (jetpack_options id).',
 	},
 	{
@@ -192,25 +200,32 @@ it.each( [
 		},
 		fact: undefined,
 	},
-] as Array< { name: string; options: Record< string, string >; fact?: string } > )(
-	'states $name',
-	async ( { options, fact } ) => {
-		const site = createSite( 'wp_' );
-		site.save( 20, 'page', 'shop' );
-		site.save( 21, 'page', 'cart', '', 1, 'draft' );
-		// A product WooCommerce saved, with its type, and one saved as a plain post.
-		site.save( 22, 'product', 'candle', '', 3 );
-		site.save( 25, 'product', 'mug', '', 0 );
-		site.save( 26, 'product', 'tea', '', 3 );
-		site.save( 23, 'product', 'soap', '', 1, 'draft' );
-		site.save( 24, 'product', 'gift-box', '', 1, 'trash' );
-		site.setOptions( options );
-		const facts = await site.facts();
-		expect( facts.filter( ( line ) => /^(Jetpack|WooCommerce store)/.test( line ) ) ).toEqual(
-			fact ? [ fact ] : []
-		);
+] as Array< {
+	name: string;
+	options: Record< string, string >;
+	modules?: Record< string, string >;
+	fact?: string;
+} > )( 'states $name', async ( { options, modules = {}, fact } ) => {
+	const site = createSite( 'wp_' );
+	const dir = path.join( site.root, 'wp-content/plugins/jetpack/modules' );
+	mkdirSync( dir, { recursive: true } );
+	for ( const [ file, header ] of Object.entries( modules ) ) {
+		writeFileSync( path.join( dir, file ), `<?php\n/**\n * ${ header }\n */\n` );
 	}
-);
+	site.save( 20, 'page', 'shop' );
+	site.save( 21, 'page', 'cart', '', 1, 'draft' );
+	// A product WooCommerce saved, with its type, and one saved as a plain post.
+	site.save( 22, 'product', 'candle', '', 3 );
+	site.save( 25, 'product', 'mug', '', 0 );
+	site.save( 26, 'product', 'tea', '', 3 );
+	site.save( 23, 'product', 'soap', '', 1, 'draft' );
+	site.save( 24, 'product', 'gift-box', '', 1, 'trash' );
+	site.setOptions( options );
+	const facts = await site.facts();
+	expect( facts.filter( ( line ) => /^(Jetpack|WooCommerce store)/.test( line ) ) ).toEqual(
+		fact ? [ fact ] : []
+	);
+} );
 
 it( 'has no facts of its own for a WordPress.com site, or for no site', async () => {
 	expect(

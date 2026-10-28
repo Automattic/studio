@@ -16,9 +16,11 @@
  * fires its trigger: Studio Code fires all three; `studio mcp`, which Claude
  * Code and Codex use, fires `result`.
  */
+import fs from 'fs';
 import path from 'path';
 import { createBlockExampleNotes } from 'cli/ai/block-examples';
 import { createBlockSettingsNotes } from 'cli/ai/block-settings';
+import { rewriteNotes } from 'cli/ai/file-rewrites';
 import { repeatedStyleValueNotes } from 'cli/ai/repeated-style-values';
 import { createSharedBlockClassNotes } from 'cli/ai/shared-block-classes';
 import { readSiteFacts } from 'cli/ai/site-facts';
@@ -139,11 +141,22 @@ async function collect( notes: Array< () => Notes > ): Promise< string[] > {
 	return lines;
 }
 
+function readText( filePath: string ): string | undefined {
+	try {
+		return fs.readFileSync( filePath, 'utf8' );
+	} catch {
+		return undefined;
+	}
+}
+
 export interface SiteNotes {
 	/** Why a write of this text to this file must not happen, or undefined. */
 	beforeWrite( filePath: string, text?: string ): Promise< string | undefined >;
-	/** The notes on a write to this file. */
-	afterWrite( filePath: string ): Promise< string[] >;
+	/**
+	 * The notes on a write to this file, and what Studio changed in it since
+	 * the tool left `written`, or since this call when that is not known.
+	 */
+	afterWrite( filePath: string, written?: string ): Promise< string[] >;
 	/** The notes on a Studio tool's result about this site. */
 	afterResult( sitePath: string, text: string ): Promise< string[] >;
 }
@@ -160,9 +173,16 @@ export function createSiteNotes( options: SiteNotesOptions = {} ): SiteNotes {
 				: [];
 			return refusals.length ? `Not run: ${ refusals.join( ' ' ) }` : undefined;
 		},
-		async afterWrite( filePath ) {
+		async afterWrite( filePath, written = readText( filePath ) ) {
 			const file = resolveSiteFile( filePath );
-			return file ? await collect( write.map( ( source ) => () => source( file ) ) ) : [];
+			if ( ! file ) {
+				return [];
+			}
+			const notes = await collect( write.map( ( source ) => () => source( file ) ) );
+			const now = readText( filePath );
+			return written === undefined || now === undefined
+				? notes
+				: [ ...notes, ...rewriteNotes( filePath, written, now ) ];
 		},
 		async afterResult( sitePath, text ) {
 			return collect( result.map( ( source ) => () => source( sitePath, text ) ) );

@@ -261,3 +261,25 @@ describe( "PHP in a block theme's templates", () => {
 		}
 	} );
 } );
+
+describe( 'what Studio changed in a file after a write', () => {
+	it.each< [ string, string | undefined, string[] ] >( [
+		[
+			'the file as the tool left it',
+			'Hours: 9-5\nOpen daily',
+			[ 'lines 2-2 now read:\n~~~\nClosed Mondays\n~~~' ],
+		],
+		// Unknown: what the file holds when the notes start is what the agent left.
+		[ 'nothing known', undefined, [] ],
+	] )( 'compared with %s', async ( _known, left, said ) => {
+		const file = path.join( studioSite(), 'wp-content/plugins/shop/readme.txt' );
+		mkdirSync( path.dirname( file ), { recursive: true } );
+		writeFileSync( file, 'Hours: 9-5\nClosed Mondays' );
+
+		const notes = ( await createSiteNotes().afterWrite( file, left ) ).filter( ( note ) =>
+			note.startsWith( 'Studio changed' )
+		);
+
+		expect( notes.map( ( note ) => note.slice( note.indexOf( 'lines' ) ) ) ).toEqual( said );
+	} );
+} );

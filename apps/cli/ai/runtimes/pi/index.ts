@@ -907,6 +907,8 @@ function toToolDefinition(
 						`${ error instanceof Error ? error.message : String( error ) }\n${ report }`
 					);
 				} );
+			// The file as the tool left it, which is the text the agent holds.
+			const left = writtenFile ? readFileText( writtenFile ) : undefined;
 			if ( tool.name === 'site_create' ) {
 				await sitePin.created( String( ( params as { name?: unknown } ).name ) );
 			}
@@ -930,7 +932,11 @@ function toToolDefinition(
 				...changed.summaries,
 				...changed.problems,
 				...(
-					await Promise.all( [ ...written ].map( ( file ) => siteNotes.afterWrite( file ) ) )
+					await Promise.all(
+						[ ...written ].map( ( file ) =>
+							siteNotes.afterWrite( file, file === writtenFile ? left : undefined )
+						)
+					)
 				).flat(),
 				...( resultSite ? await siteNotes.afterResult( resultSite, resultText ) : [] ),
 				pendingWork.takeReports(),
@@ -944,6 +950,14 @@ function toToolDefinition(
 				: timed;
 		},
 	};
+}
+
+function readFileText( file: string ): string | undefined {
+	try {
+		return fs.readFileSync( file, 'utf8' );
+	} catch {
+		return undefined;
+	}
 }
 
 // Every chunk of the CLI bundle sits next to `main.mjs`, so it is this

@@ -28,6 +28,7 @@ import {
 	type PresetValuesResult,
 	type ValidationReportBase,
 } from 'cli/ai/block-validator';
+import { rewriteNotes } from 'cli/ai/file-rewrites';
 import { getOpenProblems, type OpenProblems } from 'cli/ai/open-problems';
 import { readWordPressSite } from 'cli/ai/site-database';
 import { themePresets } from 'cli/ai/theme-presets';
@@ -570,7 +571,14 @@ export class BlockValidationGate {
 			return current && this.applyFix( filePath, current );
 		}
 		await writeFile( filePath, fixedContent, 'utf8' );
-		const fixed = { ...validation, contentHash: hash( fixedContent ) };
+		const fixed = {
+			...validation,
+			// The agent holds the text it wrote, which an edit would no longer find.
+			summary: [ validation.summary, ...rewriteNotes( filePath, content, fixedContent ) ].join(
+				'\n'
+			),
+			contentHash: hash( fixedContent ),
+		};
 		this.files.get( filePath )!.result = Promise.resolve( fixed );
 		return fixed;
 	}

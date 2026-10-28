@@ -29,6 +29,8 @@ const mocks = vi.hoisted( () => ( {
 	postChanges: { summaries: [] as string[], problems: [] as string[], written: [] as string[] },
 	runMs: 0,
 	settleMs: 0,
+	// The text each note on a write was told the tool left, by file.
+	leftTexts: [] as Array< [ string, string | undefined ] >,
 	failNext: false,
 	// What each end of a run finds still open on the sites.
 	openProblems: [] as string[][],
@@ -128,7 +130,10 @@ vi.mock( 'cli/ai/site-notes', () => ( {
 			file.endsWith( 'refused.php' ) || text.includes( 'refused' )
 				? `Not run: ${ file }`
 				: undefined,
-		afterWrite: async ( file: string ) => [ `wrote ${ file }` ],
+		afterWrite: async ( file: string, left?: string ) => {
+			mocks.leftTexts.push( [ file, left ] );
+			return [ `wrote ${ file }` ];
+		},
 		afterResult: async ( site: string ) => [ `result on ${ site }` ],
 	} ),
 } ) );
@@ -949,6 +954,27 @@ describe( 'pi runtime', () => {
 			mocks.runMs = 0;
 			mocks.settleMs = 0;
 		}
+	} );
+
+	it( 'tells the notes the text the file tool left, before Studio acts on it', async () => {
+		await runRuntime( { prompt: 'hello', env: WPCOM_ENV, session: newSession() } );
+		const file = path.resolve( mocks.studioRoot, 'a/style.css' );
+		const other = '/sites/a/wp-content/themes/t/theme.json';
+		fs.mkdirSync( path.dirname( file ), { recursive: true } );
+		fs.writeFileSync( file, 'as the tool left it' );
+		mocks.postChanges.written = [ other ];
+		mocks.leftTexts.length = 0;
+		try {
+			await getCreatedTool( 'Write' ).execute( 'w', { path: 'a/style.css', content: '' } );
+		} finally {
+			mocks.postChanges.written = [];
+			fs.rmSync( file, { force: true } );
+		}
+
+		expect( mocks.leftTexts ).toEqual( [
+			[ file, 'as the tool left it' ],
+			[ other, undefined ],
+		] );
 	} );
 
 	it( 'fires the site notes triggers on a write, and on a result for a local active site', async () => {

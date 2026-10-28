@@ -298,6 +298,73 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 		60_000
 	);
 
+	it.each< { name: string; written: string; losses: { place: string; lost: string }[] } >( [
+		{
+			name: 'a flex layout its layout attribute already shows',
+			written:
+				'<!-- wp:group {"layout":{"type":"flex","flexWrap":"wrap","justifyContent":"center"},"style":{"spacing":{"blockGap":"1.4rem"}}} -->\n<div class="wp-block-group" style="display:flex;flex-wrap:wrap;gap:1.4rem;align-items:center"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:group -->',
+			losses: [],
+		},
+		{
+			name: 'a display its layout attribute shows otherwise',
+			written:
+				'<!-- wp:group {"layout":{"type":"flex","flexWrap":"nowrap"}} -->\n<div class="wp-block-group" style="display:inline-flex;flex-wrap:nowrap"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:group -->',
+			losses: [ { place: '/0', lost: 'drop the styles display:inline-flex' } ],
+		},
+		{
+			// In its row of buttons, which is flex, the width is the button's own.
+			name: 'a width that sizes the block where it sits',
+			written:
+				'<!-- wp:buttons -->\n<div class="wp-block-buttons"><!-- wp:button -->\n<div class="wp-block-button" style="width:100%"><a class="wp-block-button__link wp-element-button">Book</a></div>\n<!-- /wp:button --></div>\n<!-- /wp:buttons -->',
+			losses: [ { place: '/0/0', lost: 'drop the styles width:100%' } ],
+		},
+		{
+			// Its save names the dim rounded to tens (dimRatioToClass in
+			// cover/shared.js), and no stylesheet names the one written.
+			name: 'a class its save names with another number',
+			written:
+				'<!-- wp:cover {"dimRatio":45,"overlayColor":"contrast","isUserOverlayColor":true} -->\n<div class="wp-block-cover"><span aria-hidden="true" class="wp-block-cover__background has-contrast-background-color has-background-dim-45 has-background-dim"></span><div class="wp-block-cover__inner-container"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div></div>\n<!-- /wp:cover -->',
+			losses: [],
+		},
+		{
+			name: 'a class that shows the block otherwise',
+			written:
+				'<!-- wp:cover {"dimRatio":70,"overlayColor":"contrast","isUserOverlayColor":true} -->\n<div class="wp-block-cover"><span aria-hidden="true" class="wp-block-cover__background has-contrast-background-color has-background-dim-60 has-background-dim"></span><div class="wp-block-cover__inner-container"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div></div>\n<!-- /wp:cover -->',
+			losses: [ { place: '/0', lost: 'drop the classes has-background-dim-60' } ],
+		},
+		{
+			// Its save names no dim for 50, which has-background-dim shows.
+			name: 'a class the stylesheets give what the fix shows',
+			written:
+				'<!-- wp:cover {"dimRatio":50,"overlayColor":"contrast","isUserOverlayColor":true} -->\n<div class="wp-block-cover"><span aria-hidden="true" class="wp-block-cover__background has-contrast-background-color has-background-dim-50 studio-test-shade has-background-dim"></span><div class="wp-block-cover__inner-container"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div></div>\n<!-- /wp:cover -->',
+			losses: [ { place: '/0', lost: 'drop the classes studio-test-shade' } ],
+		},
+		{
+			// has-border-color gives the image a solid border (common.css).
+			name: 'a class that shows the block a border its fix leaves out',
+			written:
+				'<!-- wp:image {"id":9} -->\n<figure class="wp-block-image"><img src="https://example.com/a.png" alt="" class="has-border-color wp-image-9"/></figure>\n<!-- /wp:image -->',
+			losses: [ { place: '/0', lost: 'drop the classes has-border-color' } ],
+		},
+		{
+			// The editor's own styles for its blocks set it there.
+			name: 'a style only the editor gives its blocks',
+			written:
+				'<!-- wp:group -->\n<div class="wp-block-group" style="position:relative"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:group -->',
+			losses: [ { place: '/0', lost: 'drop the styles position:relative' } ],
+		},
+	] )(
+		'reads what is written on a block that its fix already shows as kept: $name',
+		async ( { written, losses } ) => {
+			const report = await validateBlocks( written, siteUrl! );
+			expect( report.invalidBlocks ).toBeGreaterThan( 0 );
+			expect( report.proposedFix?.losses ).toEqual(
+				losses.map( ( loss ) => ( { ...loss, blockName: expect.any( String ) } ) )
+			);
+		},
+		60_000
+	);
+
 	it( 'reads a list the editor migrates from bare items as losing nothing beside a block that loses something', async () => {
 		const report = await validateBlocks(
 			'<!-- wp:separator -->\n<hr class="wp-block-separator has-alpha-channel-opacity" style="opacity:0.4"/>\n<!-- /wp:separator -->\n\n<!-- wp:list {"className":"hours"} -->\n<ul class="wp-block-list hours"><li><span>Monday</span><strong>7 am</strong></li>\n<li>Sunday</li></ul>\n<!-- /wp:list -->',
@@ -384,6 +451,29 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 		expect( report.proposedFix?.fixedContent ).toContain(
 			'<!-- /wp:image -->\n<div class="wp-block-cover__inner-container">'
 		);
+	}, 60_000 );
+
+	it( 'reads an element written without its classes as the one the fix saves around the inner blocks', async () => {
+		const list =
+			'<!-- wp:list {"style":{"spacing":{"padding":{"left":"1.25rem"}}}} -->\n<ul style="padding-left:1.25rem"><!-- wp:list-item -->\n<li>One</li>\n<!-- /wp:list-item --></ul>\n<!-- /wp:list -->';
+		const report = await validateBlocks(
+			`${ paragraph( '{"textAlign":"center"}', '<p>Centered</p>' ) }\n${ list }`,
+			siteUrl!
+		);
+		expect( report.proposedFix?.losses ).toEqual( [] );
+		expect( report.proposedFix?.fixedContent ).toContain(
+			'<ul style="padding-left:1.25rem" class="wp-block-list"><!-- wp:list-item -->'
+		);
+	}, 60_000 );
+
+	it( 'reads an inner block taken out of an element written without classes as moved', async () => {
+		const report = await validateBlocks(
+			'<!-- wp:cover {"dimRatio":100} -->\n<div class="wp-block-cover"><span aria-hidden="true" class="wp-block-cover__background has-background-dim-100 has-background-dim"></span><div class="wp-block-cover__inner-container"><div><!-- wp:paragraph -->\n<p>Hello</p>\n<!-- /wp:paragraph --></div></div></div>\n<!-- /wp:cover -->',
+			siteUrl!
+		);
+		expect( report.proposedFix?.losses ).toEqual( [
+			{ place: '/0', blockName: 'core/cover', lost: 'move core/paragraph out of div' },
+		] );
 	}, 60_000 );
 
 	it( 'reads entities as the text they show', async () => {

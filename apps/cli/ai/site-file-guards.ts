@@ -438,15 +438,16 @@ function mergeThemeJson( base: unknown, incoming: unknown ): unknown {
 }
 
 /**
- * Gives a theme without a thumbnail one, once its theme.json or style.css is
- * written: the design board of the theme.json WordPress resolves for it, the
- * 1200×900 screenshot.png Appearance → Themes shows (WP_Theme::get_screenshot()
- * reads the theme's own directory, a child's too).
+ * Gives a theme without a thumbnail one, on a write to any of its files once
+ * it has a theme.json to draw: the design board of the theme.json WordPress
+ * resolves for it, the 1200×900 screenshot.png Appearance → Themes shows
+ * (WP_Theme::get_screenshot() reads the theme's own directory, a child's too).
+ * A capture that fails is made again on the theme's next write.
  */
 export async function writeThemeThumbnail( siteFile: SiteFile ): Promise< string[] > {
 	const { theme } = siteFile;
 	if (
-		( theme?.file !== 'theme.json' && theme?.file !== 'style.css' ) ||
+		! theme ||
 		readdirSync( theme.dir ).some( ( file ) => /^screenshot\.(png|jpe?g|gif|webp)$/.test( file ) )
 	) {
 		return [];

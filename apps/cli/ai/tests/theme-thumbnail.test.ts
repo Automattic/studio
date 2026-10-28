@@ -84,9 +84,10 @@ describe( "a theme's thumbnail, once the files that make it a theme are written"
 				written: 'style.css',
 			},
 			{
-				name: 'is not made on a write to its other files',
+				name: 'is made on a write to its other files, when an earlier write made none',
 				files: { 'style.css': '/*\nTemplate: parent\n*/', 'templates/index.html': '' },
 				written: 'templates/index.html',
+				colors: [ '#112233', '#445566' ],
 			},
 		]
 	)(

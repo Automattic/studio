@@ -239,11 +239,18 @@ export function WebviewSurface( {
 		};
 
 		const handleConsoleMessage = ( event: Event ) => {
-			const parsed = parseInspectorMessage(
-				( event as WebviewConsoleEvent ).message,
-				webview.getBoundingClientRect()
-			);
-			if ( parsed ) onInspectorEventRef.current?.( parsed );
+			const parsed = parseInspectorMessage( ( event as WebviewConsoleEvent ).message );
+			if ( ! parsed ) return;
+			if ( 'anchor' in parsed && parsed.anchor ) {
+				const box = webview.getBoundingClientRect();
+				const scaleX = webview.clientWidth ? box.width / webview.clientWidth : 1;
+				const scaleY = webview.clientHeight ? box.height / webview.clientHeight : 1;
+				parsed.anchor = {
+					left: box.left + parsed.anchor.left * scaleX,
+					top: box.top + parsed.anchor.top * scaleY,
+				};
+			}
+			onInspectorEventRef.current?.( parsed );
 		};
 		const handlePageTitleUpdated = ( event: Event ) => {
 			publishDocumentTitle( ( event as WebviewPageTitleUpdatedEvent ).title );

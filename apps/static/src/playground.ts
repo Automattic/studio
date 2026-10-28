@@ -220,7 +220,7 @@ function pageBridge( appOrigin: string, screenshotLibrary: string, consolePrefix
 				{ type: 'studio:response', id: data.id, ...message },
 				appOrigin
 			);
-		if ( ! action ) {
+		if ( typeof action !== 'function' ) {
 			reply( { error: `Unknown action ${ data.action }` } );
 			return;
 		}

@@ -131,6 +131,22 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 			);
 		} );
 
+		it( 'should pin the database path in db.php so the plugin does not move the database', async () => {
+			volFromJSON( {
+				[ normalize( `wp-files/${ SQLITE_DIRNAME }/db.copy` ) ]:
+					"<?php\n$path = '{SQLITE_IMPLEMENTATION_FOLDER_PATH}';",
+			} );
+
+			await provider.installSqliteIntegration( MOCK_SITE_PATH );
+
+			const dbPhp = vi.mocked( fs.promises.writeFile ).mock.calls[ 0 ][ 1 ] as string;
+			expect( dbPhp ).toMatch( /^<\?php\nif \( ! defined\( 'DB_PATH' \)/ );
+			expect( dbPhp ).toContain( "define( 'DB_PATH', __DIR__ . '/database/.ht.sqlite' );" );
+			expect( dbPhp ).toContain(
+				`$path = realpath( __DIR__ . '/mu-plugins/${ SQLITE_DIRNAME }' );`
+			);
+		} );
+
 		it( 'should still copy the mu-plugin when keeping a custom drop-in', async () => {
 			volFromJSON( {
 				[ normalize( `wp-files/${ SQLITE_DIRNAME }/db.copy` ) ]:

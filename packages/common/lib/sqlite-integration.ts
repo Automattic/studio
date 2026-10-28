@@ -6,6 +6,15 @@ import path from 'path';
 // SQLite-compatible drop-ins are preserved.
 const STOCK_DB_DROPIN_MARKER = 'This file is auto-generated and copied from the sqlite plugin.';
 
+// Since sqlite-database-integration 3.1, a database path that isn't configured
+// moves wp-content/database/.ht.sqlite into a randomized directory on first load.
+// Studio reads the database at the fixed path, so pin it unless the site
+// configures its own location.
+const DB_PATH_DEFINITION = `if ( ! defined( 'DB_PATH' ) && ! defined( 'FQDB' ) && ! defined( 'FQDBDIR' ) && ! defined( 'DB_DIR' ) && ! defined( 'DB_FILE' ) ) {
+	define( 'DB_PATH', __DIR__ . '/database/.ht.sqlite' );
+}
+`;
+
 // Abstract base class for SQLite integration across different contexts
 export abstract class SqliteIntegrationProvider {
 	abstract getSqliteDirname(): string;
@@ -100,10 +109,12 @@ export abstract class SqliteIntegrationProvider {
 				path.join( sqliteSourcePath, 'db.copy' ),
 				'utf8'
 			);
-			const updatedContent = dbCopyContent.replace(
-				"'{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
-				`realpath( __DIR__ . '/mu-plugins/${ sqliteDirname }' )`
-			);
+			const updatedContent = dbCopyContent
+				.replace(
+					"'{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
+					`realpath( __DIR__ . '/mu-plugins/${ sqliteDirname }' )`
+				)
+				.replace( /^<\?php\s*\n/, ( openingTag ) => `${ openingTag }${ DB_PATH_DEFINITION }` );
 			await fs.promises.writeFile( path.join( wpContentPath, 'db.php' ), updatedContent );
 		}
 

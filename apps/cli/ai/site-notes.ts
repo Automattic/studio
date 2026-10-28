@@ -42,7 +42,7 @@ import {
 	type SiteFile,
 } from 'cli/ai/site-file-guards';
 import { themeJsonFileNotes } from 'cli/ai/theme-json-files';
-import { shadowedPresetNotes } from 'cli/ai/theme-presets';
+import { keepThemePresets } from 'cli/ai/theme-presets';
 import type { BlockValidationGate } from 'cli/ai/block-validation-gate';
 
 type Notes = string[] | Promise< string[] >;
@@ -121,7 +121,7 @@ function sources( { stated = new Map(), gate }: SiteNotesOptions ): Sources {
 			blockMarkupNotes,
 			themeJsonNotes,
 			themeJsonFileNotes,
-			shadowedPresetNotes,
+			keepThemePresets,
 			themeCssNotes,
 			createSharedBlockClassNotes(),
 			externalImageNotes,

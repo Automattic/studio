@@ -1,11 +1,11 @@
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readWordPressSite } from 'cli/ai/site-database';
 import { resolveSiteFile } from 'cli/ai/site-file-guards';
 import { createSite } from 'cli/ai/tests/fixtures/wordpress-site';
-import { shadowedPresetNotes, themePresets, themePresetsFact } from 'cli/ai/theme-presets';
+import { keepThemePresets, themePresets, themePresetsFact } from 'cli/ai/theme-presets';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 
 vi.mock( 'cli/lib/daemon-client', () => ( {
@@ -266,7 +266,7 @@ describe.runIf( WORDPRESS )( 'the theme presets fact, resolved by WordPress', ()
 	}, 60000 );
 } );
 
-describe.runIf( WORDPRESS )( 'shadowedPresetNotes', () => {
+describe.runIf( WORDPRESS )( 'keepThemePresets', () => {
 	let root: string;
 	const themeJson = ( slug: string, settings: object ) => {
 		const dir = path.join( root, 'wp-content/themes', slug );
@@ -277,6 +277,9 @@ describe.runIf( WORDPRESS )( 'shadowedPresetNotes', () => {
 		writeFileSync( file, JSON.stringify( { version: 3, settings } ) );
 		return resolveSiteFile( file )!;
 	};
+	const settingsOf = ( slug: string ) =>
+		JSON.parse( readFileSync( path.join( root, 'wp-content/themes', slug, 'theme.json' ), 'utf8' ) )
+			.settings;
 	const activate = async ( slug: string ) => {
 		const { DatabaseSync } = await import( 'node:sqlite' );
 		const db = new DatabaseSync( path.join( root, 'wp-content/database/.ht.sqlite' ) );
@@ -285,6 +288,20 @@ describe.runIf( WORDPRESS )( 'shadowedPresetNotes', () => {
 		).run( slug );
 		db.close();
 	};
+	const settings = {
+		typography: {
+			fontSizes: [
+				{ slug: 'small', size: '0.875rem', name: 'Small' },
+				{ slug: 'huge', size: '5rem', name: 'Huge' },
+			],
+		},
+		color: {
+			palette: [
+				{ slug: 'black', color: '#111111', name: 'Ink' },
+				{ slug: 'ember', color: '#aa3333', name: 'Ember' },
+			],
+		},
+	};
 	beforeEach( () => {
 		vi.mocked( runWpCliCommand ).mockRestore();
 		root = mkdtempSync( path.join( os.tmpdir(), 'shadowed-presets-' ) );
@@ -292,61 +309,70 @@ describe.runIf( WORDPRESS )( 'shadowedPresetNotes', () => {
 	} );
 	afterEach( () => rmSync( root, { recursive: true, force: true } ) );
 
-	it( "names the theme's presets WordPress replaces with core's of the same slug", async () => {
-		const settings = {
-			typography: {
-				fontSizes: [
-					{ slug: 'small', size: '0.875rem', name: 'Small' },
-					{ slug: 'huge', size: '5rem', name: 'Huge' },
-				],
-			},
-			color: {
-				palette: [
-					{ slug: 'black', color: '#111111', name: 'Ink' },
-					{ slug: 'ember', color: '#aa3333', name: 'Ember' },
-				],
-			},
-		};
+	it( "turns off core's defaults whose slugs the theme's presets take, as Twenty Twenty-Five does", async () => {
 		const file = themeJson( 'shadowed', settings );
 		await activate( 'shadowed' );
-		const notes = await shadowedPresetNotes( file );
+		const notes = await keepThemePresets( file );
 		const at = path.join( root, 'wp-content/themes/shadowed/theme.json' );
 		expect( notes ).toHaveLength( 2 );
-		expect( notes ).toContainEqual(
-			expect.stringMatching(
-				new RegExp(
-					`^WordPress replaces ${ at.replace(
-						/[.*+?^${}()|[\]\\]/g,
-						'\\$&'
-					) }'s settings\\.typography\\.fontSizes small with core's default typography\\.fontSizes of the same slug \\(small 13px\\), because settings\\.typography\\.defaultFontSizes is on`
-				)
-			)
+		expect( notes ).toContain(
+			`Studio set settings.typography.defaultFontSizes to false in ${ at }, as Twenty Twenty-Five's theme.json does: WordPress replaced its settings.typography.fontSizes small with core's default of the same slug (small 13px) while it was on (WP_Theme_JSON::merge() in wp-includes/class-wp-theme-json.php), and now renders the theme's. The editor offers the theme's typography.fontSizes in place of core's.`
 		);
-		expect( notes.join( '\n' ) ).toContain( 'settings.color.palette black with core' );
-		expect( notes.join( '\n' ) ).not.toMatch( /huge|ember/ );
-
-		// With the defaults off, the theme's presets stand.
-		const off = themeJson( 'shadowed', {
+		expect( notes.join( '\n' ) ).toContain( 'settings.color.defaultPalette to false' );
+		expect( settingsOf( 'shadowed' ) ).toEqual( {
 			typography: { ...settings.typography, defaultFontSizes: false },
 			color: { ...settings.color, defaultPalette: false },
 		} );
-		expect( await shadowedPresetNotes( off ) ).toEqual( [] );
-	}, 60000 );
+		// WordPress renders the theme's presets now, and Studio says nothing more.
+		expect(
+			( await readWordPressSite( root, ( site ) => themePresets( site ) ) )?.shadowed
+		).toEqual( [] );
+		expect( await keepThemePresets( file ) ).toEqual( [] );
+	}, 120000 );
 
-	it( "says nothing of another file, and names an inactive theme's presets as it renders them once active", async () => {
+	it( 'keeps a default the site names, and says what WordPress does', async () => {
+		const file = themeJson( 'shadowed', settings );
+		await activate( 'shadowed' );
+		// Core's x-large, which the theme does not define, named in its stylesheet.
+		writeFileSync(
+			path.join( root, 'wp-content/themes/shadowed/style.css' ),
+			'/*\nTheme Name: shadowed\n*/\nh1 { font-size: var(--wp--preset--font-size--x-large); }'
+		);
+		const notes = await keepThemePresets( file );
+		expect( notes ).toHaveLength( 2 );
+		// And as a block's style attribute names it.
+		themeJson( 'shadowed', settings );
+		writeFileSync(
+			path.join( root, 'wp-content/themes/shadowed/templates/index.html' ),
+			'<!-- wp:heading {"style":{"typography":{"fontSize":"var:preset|font-size|x-large"}}} -->'
+		);
+		expect( ( await keepThemePresets( file ) ).join( '\n' ) ).toContain( "names core's x-large" );
+		expect( notes ).toContainEqual(
+			expect.stringMatching(
+				/^WordPress replaces .*settings\.typography\.fontSizes small with core's default .* where the theme or content names core's x-large; renaming/
+			)
+		);
+		expect( settingsOf( 'shadowed' ) ).toEqual( {
+			typography: settings.typography,
+			color: { ...settings.color, defaultPalette: false },
+		} );
+	}, 120000 );
+
+	it( "says nothing of another file, and keeps an inactive theme's presets as it renders them once active", async () => {
 		const small = {
 			typography: { fontSizes: [ { slug: 'small', size: '0.875rem', name: 'Small' } ] },
 		};
 		const active = themeJson( 'active', small );
 		await activate( 'active' );
-		expect( await shadowedPresetNotes( active ) ).toHaveLength( 1 );
 		expect(
-			await shadowedPresetNotes( { ...active, theme: { ...active.theme!, file: 'style.css' } } )
+			await keepThemePresets( { ...active, theme: { ...active.theme!, file: 'style.css' } } )
 		).toEqual( [] );
 		// As the Site Editor previews a theme, with its own theme.json, not the active one's.
-		const [ inactive, ...rest ] = await shadowedPresetNotes( themeJson( 'inactive', small ) );
+		const [ inactive, ...rest ] = await keepThemePresets( themeJson( 'inactive', small ) );
 		expect( rest ).toEqual( [] );
 		expect( inactive ).toContain( 'wp-content/themes/inactive/theme.json' );
-		expect( await shadowedPresetNotes( themeJson( 'inactive', {} ) ) ).toEqual( [] );
-	}, 60000 );
+		expect( settingsOf( 'inactive' ).typography.defaultFontSizes ).toBe( false );
+		expect( settingsOf( 'active' ).typography.defaultFontSizes ).toBeUndefined();
+		expect( await keepThemePresets( themeJson( 'inactive', {} ) ) ).toEqual( [] );
+	}, 120000 );
 } );

@@ -52,4 +52,26 @@ describe.runIf( WORDPRESS )( 'the notes on a write', () => {
 		expect( seen ).toHaveLength( 1 );
 		expect( seen[ 0 ] ).toContain( '"slug": "size-1-4-rem"' );
 	}, 60000 );
+
+	it( "keeps a theme.json's presets WordPress would replace with core's", async () => {
+		const dir = path.join( root, 'wp-content/themes/studio-test-presets' );
+		mkdirSync( path.join( dir, 'templates' ), { recursive: true } );
+		writeFileSync( path.join( dir, 'templates/index.html' ), '' );
+		writeFileSync( path.join( dir, 'style.css' ), '/*\nTheme Name: Presets\n*/' );
+		const themeJson = path.join( dir, 'theme.json' );
+		writeFileSync(
+			themeJson,
+			JSON.stringify( {
+				version: 3,
+				settings: { spacing: { spacingSizes: [ { slug: '50', size: '3rem', name: 'Large' } ] } },
+			} )
+		);
+		const notes = await createSiteNotes().afterWrite( themeJson );
+		expect( notes.join( '\n' ) ).toContain(
+			'Studio set settings.spacing.defaultSpacingSizes to false'
+		);
+		expect( JSON.parse( readFileSync( themeJson, 'utf8' ) ).settings.spacing ).toMatchObject( {
+			defaultSpacingSizes: false,
+		} );
+	}, 60000 );
 } );

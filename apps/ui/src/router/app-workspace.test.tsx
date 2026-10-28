@@ -2,6 +2,7 @@ import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
+import { SITE_CHAT_HIDDEN_STORAGE_KEY } from '@/data/resizable-panels';
 import { setCommandPaletteOpen } from '@/data/use-command-palette';
 import {
 	changeAnnotation,
@@ -489,6 +490,51 @@ describe( 'Studio workspace', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Show chat' } ) );
 		await waitFor( () => expect( input.closest( '[aria-hidden="true"]' ) ).toBeNull() );
 		expect( screen.queryByRole( 'button', { name: 'Show chat' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'remembers each site layout and reveals explicitly opened chats', async () => {
+		const initial = {
+			signedIn: true,
+			path: '/sites/one/new',
+			sites: [
+				site( { running: true } ),
+				site( { id: 'two', name: 'Second site', path: '/sites/two', running: true } ),
+			],
+			sessions: [ chat( { id: 'remembered', title: 'Remembered chat' } ) ],
+		};
+		const { unmount } = setup( initial );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Hide chat' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Second site' } ) );
+		await screen.findByRole( 'button', { name: 'Hide chat' } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'My site' } ) );
+		await screen.findByRole( 'button', { name: 'Show chat' } );
+		unmount();
+
+		setup( initial );
+		await screen.findByRole( 'button', { name: 'Show chat' } );
+		fireEvent.click(
+			await within( screen.getByRole( 'group', { name: 'Sites' } ) ).findByRole( 'button', {
+				name: 'Remembered chat',
+			} )
+		);
+		await waitFor( () =>
+			expect( screen.queryByRole( 'button', { name: 'Show chat' } ) ).not.toBeInTheDocument()
+		);
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Hide chat' } ) );
+		await screen.findByRole( 'button', { name: 'Show chat' } );
+		await paletteCommand( 'Remembered chat' );
+		await waitFor( () =>
+			expect( screen.queryByRole( 'button', { name: 'Show chat' } ) ).not.toBeInTheDocument()
+		);
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Hide chat' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Settings' } ) );
+		const settings = await screen.findByRole( 'dialog', { name: 'Settings' } );
+		fireEvent.click( within( settings ).getByRole( 'button', { name: 'Reset interface' } ) );
+		await waitFor( () =>
+			expect( localStorage.getItem( SITE_CHAT_HIDDEN_STORAGE_KEY ) ).toBeNull()
+		);
+		fireEvent.click( within( settings ).getByRole( 'button', { name: 'Close settings' } ) );
+		await screen.findByRole( 'button', { name: 'Hide chat' } );
 	} );
 
 	it( 'opens a new draft when the chat panel is hidden', async () => {

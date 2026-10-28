@@ -74,7 +74,7 @@ export function SessionHeader( {
 						<IconButton
 							icon={ <XIcon /> }
 							label={ __( 'Hide chat' ) }
-							onClick={ () => preview.setChatHidden( true ) }
+							onClick={ () => preview.setChatHidden( true, site.id ) }
 						/>
 					) : null }
 				</div>

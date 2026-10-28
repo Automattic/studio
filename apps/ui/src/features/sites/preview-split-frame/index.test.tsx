@@ -2,10 +2,15 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useContext } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
-import { PREVIEW_CONTENT_WIDTH_STORAGE_KEY } from '@/data/resizable-panels';
+import {
+	getPreviewContentWidthStorageKey,
+	PREVIEW_CONTENT_WIDTH_STORAGE_KEY,
+} from '@/data/resizable-panels';
 import { SidebarCollapsedContext } from '@/data/use-sidebar-collapsed';
 import { PreviewSplitFrame } from './index';
 import type { ComponentProps } from 'react';
+
+const SITE_WIDTH_KEY = getPreviewContentWidthStorageKey( 'one' );
 
 function CornerProbe( { testId }: { testId: string } ) {
 	const inCorner = useContext( WindowControlsCornerContext );
@@ -44,6 +49,8 @@ describe( 'PreviewSplitFrame', () => {
 
 	afterEach( () => {
 		getBoundingClientRectSpy.mockRestore();
+		window.localStorage.removeItem( SITE_WIDTH_KEY );
+		window.localStorage.removeItem( getPreviewContentWidthStorageKey( 'two' ) );
 		window.localStorage.removeItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY );
 		vi.unstubAllGlobals();
 	} );
@@ -62,6 +69,7 @@ describe( 'PreviewSplitFrame', () => {
 		function frame( site: string, open: boolean, instant = false ) {
 			return (
 				<PreviewSplitFrame
+					siteId="one"
 					previewOpen={ open }
 					instant={ instant }
 					preview={ ( { collapsed } ) => (
@@ -129,7 +137,11 @@ describe( 'PreviewSplitFrame', () => {
 
 	it( 'lays out the preview immediately when mounted open', async () => {
 		render(
-			<PreviewSplitFrame previewOpen preview={ () => <aside aria-label="Site preview" /> }>
+			<PreviewSplitFrame
+				siteId="one"
+				previewOpen
+				preview={ () => <aside aria-label="Site preview" /> }
+			>
 				<span data-testid="content">Content</span>
 			</PreviewSplitFrame>
 		);
@@ -147,10 +159,14 @@ describe( 'PreviewSplitFrame', () => {
 	} );
 
 	it( 'uses the stored content width when available', async () => {
-		window.localStorage.setItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY, '500' );
+		window.localStorage.setItem( SITE_WIDTH_KEY, '500' );
 
 		render(
-			<PreviewSplitFrame previewOpen preview={ () => <aside aria-label="Site preview" /> }>
+			<PreviewSplitFrame
+				siteId="one"
+				previewOpen
+				preview={ () => <aside aria-label="Site preview" /> }
+			>
 				<span data-testid="content">Content</span>
 			</PreviewSplitFrame>
 		);
@@ -165,9 +181,58 @@ describe( 'PreviewSplitFrame', () => {
 		);
 	} );
 
+	it( 'restores each site width without remounting the preview', () => {
+		window.localStorage.setItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY, '620' );
+		const frame = ( siteId: string ) => (
+			<PreviewSplitFrame
+				siteId={ siteId }
+				previewOpen
+				preview={ () => <aside aria-label="Site preview" /> }
+			>
+				<span data-testid="content">Content</span>
+			</PreviewSplitFrame>
+		);
+		const { rerender, unmount } = render( frame( 'one' ) );
+		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 360px' );
+		const preview = screen.getByLabelText( 'Site preview' );
+		fireEvent.keyDown( screen.getByRole( 'separator' ), { key: 'ArrowLeft', shiftKey: true } );
+		expect( localStorage.getItem( SITE_WIDTH_KEY ) ).toBe( '320' );
+		rerender( frame( 'two' ) );
+		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 360px' );
+		expect( screen.getByLabelText( 'Site preview' ) ).toBe( preview );
+		fireEvent.keyDown( screen.getByRole( 'separator' ), { key: 'ArrowRight', shiftKey: true } );
+		expect( localStorage.getItem( getPreviewContentWidthStorageKey( 'two' ) ) ).toBe( '400' );
+		rerender( frame( 'one' ) );
+		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 320px' );
+		unmount();
+		render( frame( 'two' ) );
+		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 400px' );
+	} );
+
+	it( 'cancels a drag when switching sites without overwriting either saved width', () => {
+		localStorage.setItem( SITE_WIDTH_KEY, '500' );
+		const frame = ( siteId: string ) => (
+			<PreviewSplitFrame siteId={ siteId } previewOpen preview={ () => <aside /> }>
+				<span data-testid="content">Content</span>
+			</PreviewSplitFrame>
+		);
+		const { rerender } = render( frame( 'one' ) );
+		fireEvent.mouseDown( screen.getByRole( 'separator' ), { clientX: 500 } );
+		rerender( frame( 'two' ) );
+		fireEvent.mouseUp( document, { clientX: 620 } );
+		expect( document.body ).not.toHaveStyle( { cursor: 'col-resize' } );
+		expect( localStorage.getItem( SITE_WIDTH_KEY ) ).toBe( '500' );
+		expect( localStorage.getItem( getPreviewContentWidthStorageKey( 'two' ) ) ).toBeNull();
+		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 360px' );
+	} );
+
 	it( 'keeps the content width stable as the window grows', async () => {
 		render(
-			<PreviewSplitFrame previewOpen preview={ () => <aside aria-label="Site preview" /> }>
+			<PreviewSplitFrame
+				siteId="one"
+				previewOpen
+				preview={ () => <aside aria-label="Site preview" /> }
+			>
 				<span data-testid="content">Content</span>
 			</PreviewSplitFrame>
 		);
@@ -195,7 +260,11 @@ describe( 'PreviewSplitFrame', () => {
 		) {
 			render(
 				<SidebarCollapsedContext.Provider value={ sidebarCollapsed }>
-					<PreviewSplitFrame preview={ () => <CornerProbe testId="preview" /> } { ...props }>
+					<PreviewSplitFrame
+						siteId="one"
+						preview={ () => <CornerProbe testId="preview" /> }
+						{ ...props }
+					>
 						<span data-testid="content">Content</span>
 						<CornerProbe testId="chat" />
 					</PreviewSplitFrame>
@@ -223,7 +292,11 @@ describe( 'PreviewSplitFrame', () => {
 		frameWidth = 0;
 
 		render(
-			<PreviewSplitFrame previewOpen preview={ () => <aside aria-label="Site preview" /> }>
+			<PreviewSplitFrame
+				siteId="one"
+				previewOpen
+				preview={ () => <aside aria-label="Site preview" /> }
+			>
 				<span data-testid="content">Content</span>
 			</PreviewSplitFrame>
 		);
@@ -237,7 +310,11 @@ describe( 'PreviewSplitFrame', () => {
 		frameWidth = 544;
 
 		render(
-			<PreviewSplitFrame previewOpen preview={ () => <aside aria-label="Site preview" /> }>
+			<PreviewSplitFrame
+				siteId="one"
+				previewOpen
+				preview={ () => <aside aria-label="Site preview" /> }
+			>
 				<span data-testid="content">Content</span>
 			</PreviewSplitFrame>
 		);
@@ -252,7 +329,11 @@ describe( 'PreviewSplitFrame', () => {
 	describe( 'keyboard and pointer resizing', () => {
 		async function renderOpenAndSettle() {
 			render(
-				<PreviewSplitFrame previewOpen preview={ () => <aside aria-label="Site preview" /> }>
+				<PreviewSplitFrame
+					siteId="one"
+					previewOpen
+					preview={ () => <aside aria-label="Site preview" /> }
+				>
 					<span data-testid="content">Content</span>
 				</PreviewSplitFrame>
 			);
@@ -266,14 +347,14 @@ describe( 'PreviewSplitFrame', () => {
 			const handle = await renderOpenAndSettle();
 			fireEvent.keyDown( handle, { key: 'Home' } );
 			expect( handle ).toHaveAttribute( 'aria-valuenow', '360' );
-			expect( window.localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY ) ).toBe( '640' );
+			expect( window.localStorage.getItem( SITE_WIDTH_KEY ) ).toBe( '640' );
 		} );
 
 		it( 'expands the preview to its maximum width on End', async () => {
 			const handle = await renderOpenAndSettle();
 			fireEvent.keyDown( handle, { key: 'End' } );
 			expect( handle ).toHaveAttribute( 'aria-valuenow', '680' );
-			expect( window.localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY ) ).toBe( '320' );
+			expect( window.localStorage.getItem( SITE_WIDTH_KEY ) ).toBe( '320' );
 		} );
 
 		it( 'steps the preview width with arrow keys, using a larger step with Shift', async () => {
@@ -282,7 +363,7 @@ describe( 'PreviewSplitFrame', () => {
 			expect( handle ).toHaveAttribute( 'aria-valuenow', '656' );
 			fireEvent.keyDown( handle, { key: 'ArrowRight', shiftKey: true } );
 			expect( handle ).toHaveAttribute( 'aria-valuenow', '616' );
-			expect( window.localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY ) ).toBe( '384' );
+			expect( window.localStorage.getItem( SITE_WIDTH_KEY ) ).toBe( '384' );
 		} );
 
 		it( 'persists the dragged width on mouse resize', async () => {
@@ -290,13 +371,13 @@ describe( 'PreviewSplitFrame', () => {
 			fireEvent.mouseDown( handle, { button: 0, clientX: 500 } );
 			fireEvent.mouseUp( document, { clientX: 560 } );
 			expect( handle ).toHaveAttribute( 'aria-valuenow', '580' );
-			expect( window.localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY ) ).toBe( '420' );
+			expect( window.localStorage.getItem( SITE_WIDTH_KEY ) ).toBe( '420' );
 		} );
 
 		it( 'cleans up document drag state if the preview closes mid-resize', async () => {
 			const preview = () => <aside aria-label="Site preview" />;
 			const { rerender } = render(
-				<PreviewSplitFrame previewOpen preview={ preview }>
+				<PreviewSplitFrame siteId="one" previewOpen preview={ preview }>
 					<span data-testid="content">Content</span>
 				</PreviewSplitFrame>
 			);
@@ -307,7 +388,7 @@ describe( 'PreviewSplitFrame', () => {
 			expect( document.body ).toHaveStyle( { userSelect: 'none' } );
 
 			rerender(
-				<PreviewSplitFrame previewOpen={ false } preview={ preview }>
+				<PreviewSplitFrame siteId="one" previewOpen={ false } preview={ preview }>
 					<span data-testid="content">Content</span>
 				</PreviewSplitFrame>
 			);
@@ -317,7 +398,7 @@ describe( 'PreviewSplitFrame', () => {
 				expect( document.body ).toHaveStyle( { userSelect: '' } );
 			} );
 			fireEvent.mouseUp( document, { clientX: 440 } );
-			expect( window.localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY ) ).toBeNull();
+			expect( window.localStorage.getItem( SITE_WIDTH_KEY ) ).toBeNull();
 		} );
 
 		it( 'ignores non-primary mouse buttons', async () => {
@@ -325,7 +406,7 @@ describe( 'PreviewSplitFrame', () => {
 			fireEvent.mouseDown( handle, { button: 2, clientX: 500 } );
 			fireEvent.mouseUp( document, { clientX: 200 } );
 			expect( handle ).toHaveAttribute( 'aria-valuenow', '640' );
-			expect( window.localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY ) ).toBeNull();
+			expect( window.localStorage.getItem( SITE_WIDTH_KEY ) ).toBeNull();
 		} );
 	} );
 } );

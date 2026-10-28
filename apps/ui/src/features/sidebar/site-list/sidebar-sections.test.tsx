@@ -68,6 +68,48 @@ beforeEach( () => {
 } );
 
 describe( 'sidebar site sections', () => {
+	it( 'keeps one selected chat through navigation and pinning', async () => {
+		const { history } = setup( {
+			sessions: [ chat( 'first', 'one' ) ],
+			preferences: { sidebarPins: [ 'site:one' ] },
+			path: '/sessions/first',
+		} );
+		const shortcuts = within( await screen.findByRole( 'group', { name: 'Recent' } ) );
+		const siteChats = within( screen.getByRole( 'group', { name: 'My site chats' } ) );
+		const siteChat = siteChats.getByRole( 'button', { name: 'First' } );
+		const shortcutChat = shortcuts.getByRole( 'button', { name: 'First' } );
+		const selected = () => screen.getByRole( 'button', { name: 'First', current: 'page' } );
+		expect( selected() ).toBe( siteChat );
+
+		fireEvent.click( shortcutChat );
+		await waitFor( () => expect( selected() ).toBe( shortcutChat ) );
+		for ( const [ open, close ] of [
+			[ 'Settings', 'Close settings' ],
+			[ 'Add site', 'Close Add site' ],
+		] ) {
+			fireEvent.click( screen.getByRole( 'button', { name: open } ) );
+			const dialog = await screen.findByRole( 'dialog', { name: open } );
+			expect( shortcutChat ).toHaveAttribute( 'aria-current', 'page' );
+			fireEvent.click( within( dialog ).getByRole( 'button', { name: close } ) );
+			await waitFor( () => expect( selected() ).toBe( shortcutChat ) );
+		}
+		fireEvent.click( siteChat );
+		await waitFor( () => expect( selected() ).toBe( siteChat ) );
+
+		await act( () => history.back() );
+		await waitFor( () => expect( selected() ).toBe( shortcutChat ) );
+		await act( () => history.forward() );
+		await waitFor( () => expect( selected() ).toBe( siteChat ) );
+
+		fireEvent.contextMenu( siteChat );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Pin' } ) );
+		await waitFor( () => expect( siteChat ).not.toBeInTheDocument() );
+		const pinnedChat = await group( 'Pinned' ).findByRole( 'button', { name: 'First' } );
+		await waitFor( () => expect( selected() ).toBe( pinnedChat ) );
+		await act( () => history.replace( '/sessions/first' ) );
+		await waitFor( () => expect( selected() ).toBe( pinnedChat ) );
+	} );
+
 	it( 'opens a Recent chat without expanding its site', async () => {
 		const { history } = setup( {
 			sessions: [ chat( 'first', 'one' ), chat( 'second-chat', 'two' ) ],
@@ -125,6 +167,14 @@ describe( 'sidebar site sections', () => {
 			fireEvent.click( secondSite );
 			await waitFor( () => expect( secondSite ).toHaveAttribute( 'aria-expanded', 'true' ) );
 			expect( firstSite ).toHaveAttribute( 'aria-expanded', 'false' );
+			await act( () => history.back() );
+			await waitFor( () =>
+				expect( within( pinned ).getByRole( 'button', { name: 'Pinned-chat' } ) ).toHaveAttribute(
+					'aria-current',
+					'page'
+				)
+			);
+			expect( secondSite ).not.toHaveAttribute( 'aria-current' );
 		}
 	);
 

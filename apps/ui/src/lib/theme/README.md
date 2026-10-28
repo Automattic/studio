@@ -18,6 +18,12 @@ import { applyTheme, resolveColorScheme } from '@/lib/theme';
 applyTheme( resolveColorScheme( preferences.colorScheme ), preferences.colorTint );
 ```
 
+## Surfaces and selection
+
+Use `--hover` for a row under the pointer and `--selected` for its current or selected state. Both follow the enclosing `--surface`, so current sidebar rows and Settings tabs remain distinct from a hover.
+
+Floating surfaces set `--surface` to `--popover` and use `--popover-border` for their opaque outline.
+
 ## Constraints
 
 - The two stylesheets are imported once, by the app entries, before anything else.

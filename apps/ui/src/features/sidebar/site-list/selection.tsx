@@ -230,10 +230,12 @@ export function SidebarSelection( { children }: { children: ReactNode } ) {
 				sites={ deletingSites }
 				open={ deletingSites.length > 0 }
 				onOpenChange={ ( open ) => ! open && setDeleting( null ) }
-				onDeleted={ () => {
+				onDeleted={ ( deletedIds ) => {
 					const viewingDeleted = deletingSites.some(
 						( site ) =>
-							site.id === params.siteId || ( viewing && aiSessionBelongsToSite( viewing, site ) )
+							deletedIds.includes( site.id ) &&
+							( site.id === params.siteId ||
+								( viewing && aiSessionBelongsToSite( viewing, site ) ) )
 					);
 					if ( viewingDeleted ) {
 						void navigate( { to: '/' } );

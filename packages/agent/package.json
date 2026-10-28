@@ -10,7 +10,7 @@
 		"./shared/*": "./shared/*.ts",
 		"./node": "./node/index.ts",
 		"./node/*": "./node/*.ts",
-		"./web": "./web/index.ts"
+		"./browser": "./browser/index.ts"
 	},
 	"scripts": {
 		"lint": "eslint .",

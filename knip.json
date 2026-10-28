@@ -33,7 +33,7 @@
 		"apps/ui": {
 			"entry": [
 				"src/main.local.tsx",
-				"src/main.web.tsx",
+				"src/main.static.tsx",
 				"src/site-viewer.ts",
 				"src/dev/{chat,animation}.tsx"
 			],

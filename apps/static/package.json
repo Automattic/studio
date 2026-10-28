@@ -1,0 +1,33 @@
+{
+	"name": "@studio/static",
+	"author": "Automattic Inc.",
+	"version": "0.0.0",
+	"description": "Studio on the web's backend, which runs in the page: Playground sites, WordPress.com and the agent",
+	"license": "GPL-2.0-or-later",
+	"private": true,
+	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Automattic/studio.git",
+		"directory": "apps/static"
+	},
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"lint": "eslint .",
+		"typecheck": "tsc -p tsconfig.json --noEmit"
+	},
+	"dependencies": {
+		"@studio/agent": "file:../../packages/agent",
+		"@studio/common": "file:../../packages/common",
+		"@wordpress/i18n": "^6.30.0",
+		"@wp-playground/client": "3.1.53",
+		"pathe": "^2.0.3",
+		"tus-js-client": "^4.3.1"
+	},
+	"devDependencies": {
+		"@earendil-works/pi-coding-agent": "0.84.2",
+		"@wp-playground/blueprints": "3.1.53"
+	}
+}

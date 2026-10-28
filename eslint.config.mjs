@@ -20,12 +20,18 @@ const WP_UI_PACKAGES = {
 };
 
 const AGENT_NODE = {
-	group: [ '@studio/agent/node/*', '@studio/agent/shared/*' ],
+	group: [ '@studio/agent/node/*', '@studio/agent/shared/*', '@studio/agent/browser' ],
 	message: 'Apps that show the agent import its contract, @studio/agent/protocol, not the agent.',
 };
 
 // `apps/ui/src` is layered as internal packages (`lib/*`), product areas (`features/*`),
 // then `data/`, `router/` and `app/`. See apps/ui/README.md.
+// Studio on the web's backend (`apps/static`) is reached through its connector.
+const STATIC_BACKEND = {
+	group: [ '@studio/static', '@studio/static/*' ],
+	message: 'Only the static connector imports @studio/static; features use useConnector().',
+};
+
 const UI_SRC = path.join( import.meta.dirname, 'apps/ui/src' );
 const uiDirs = ( dir ) =>
 	fs
@@ -310,6 +316,7 @@ export default defineConfig(
 					patterns: [
 						WP_UI_PACKAGES,
 						AGENT_NODE,
+						STATIC_BACKEND,
 						{
 							group: [ '@base-ui/react', '@base-ui/react/*' ],
 							message: 'Use the primitives in @/lib/ui, and add one there when none fits.',
@@ -319,6 +326,29 @@ export default defineConfig(
 			],
 			'import-x/no-restricted-paths': [ 'error', UI_LAYERS ],
 			'import-x/no-cycle': 'error',
+		},
+	},
+	{
+		files: [ 'apps/ui/src/data/core/connectors/static/**/*.{ts,tsx}' ],
+		rules: {
+			'no-restricted-imports': [ 'error', { patterns: [ WP_UI_PACKAGES, AGENT_NODE ] } ],
+		},
+	},
+	{
+		// Studio on the web's backend: the UI reaches it through its connector, never the reverse.
+		files: [ 'apps/static/**/*.ts' ],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{
+							group: [ '@/*', '@studio/ui', '@studio/ui/*' ],
+							message: "apps/static is the UI's backend and never imports the UI.",
+						},
+					],
+				},
+			],
 		},
 	},
 	{
@@ -371,10 +401,10 @@ export default defineConfig(
 	},
 	{
 		// The tools, prompt and skills both agents share, and the browser agent.
-		files: [ 'packages/agent/shared/**/*.ts', 'packages/agent/web/**/*.ts' ],
+		files: [ 'packages/agent/shared/**/*.ts', 'packages/agent/browser/**/*.ts' ],
 		ignores: [
-			'packages/agent/{shared,web}/**/tests/**',
-			'packages/agent/{shared,web}/**/*.test.ts',
+			'packages/agent/{shared,browser}/**/tests/**',
+			'packages/agent/{shared,browser}/**/*.test.ts',
 		],
 		rules: {
 			'no-restricted-imports': [
@@ -395,11 +425,12 @@ export default defineConfig(
 								'playwright-core',
 								'@earendil-works/pi-coding-agent',
 							],
-							message: 'shared/ and web/ run in a browser; reach files and pages through the host.',
+							message:
+								'shared/ and browser/ run in a browser; reach files and pages through the host.',
 						},
 						{
 							group: [ '@studio/agent/node', '@studio/agent/node/*', 'cli/*', 'src/*' ],
-							message: 'shared/ and web/ depend on protocol and common, not on the Node agent.',
+							message: 'shared/ and browser/ depend on protocol and common, not on the Node agent.',
 						},
 					],
 				},

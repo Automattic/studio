@@ -6,10 +6,10 @@ The Studio Code agent: the model loop, its tools and skills, its system prompt, 
 protocol/   the contract between the agent and the apps that show it
 shared/     what every agent runs, in Node or a browser: tools, skills, the system prompt, the host interface
 node/       the agent in Node: pi's coding-agent runtime and file tools, sessions, run-manager
-web/        the agent in a browser: pi-agent-core's loop, with the file tools rebuilt over the host
+browser/    the agent in a browser: pi-agent-core's loop, with the file tools rebuilt over the host
 ```
 
-The apps that show the agent import its **protocol**; the apps that run it import **node** or **web**.
+The apps that show the agent import its **protocol**; the apps that run it import **node** or **browser**.
 
 ## protocol/
 
@@ -65,7 +65,7 @@ Some capabilities only some hosts have. Each is an optional member, and a host h
 
 There are no separate flags: a flag could say yes while the member is missing, or the other way round. Gate a tool, and any mention of it in the prompt, on the member itself (`if ( ! host.annotate )` in `resolveStudioTools`), which also narrows its type for the code that calls it. A new capability is a new optional member here, documented with the tools it turns on. (The UI's `Connector` uses `capabilities` flags instead, because a connector implements every method and throws from the ones it does not support.)
 
-In Node, `nodeHostServices()` provides `files`, `path`, `pages` (Playwright's Chromium), `saveImage` and `annotate`; the CLI's host spreads them in. Studio on the web's host (`apps/ui/src/data/core/connectors/web/agent/host.ts`) runs sites in Playground, reads their files from the runtimes and loads pages in off-screen frames.
+In Node, `nodeHostServices()` provides `files`, `path`, `pages` (Playwright's Chromium), `saveImage` and `annotate`; the CLI's host spreads them in. Studio on the web's host (`apps/static/src/agent/host.ts`) runs sites in Playground, reads their files from the runtimes and loads pages in off-screen frames.
 
 ### Tools
 
@@ -93,10 +93,10 @@ Where guidance goes: the system prompt (`shared/system-prompt.ts`) holds only wh
 
 ### In a browser
 
-`createWebAgent( { host } )`, from `@studio/agent/web`, runs a turn with the same tools, skills and prompt. The model is called from the page, and Read, Write, Edit, Grep, Glob and Ls are rebuilt over `host.files` with pi's names, schemas and descriptions (there is no Bash). The app stores the conversation and passes its messages in with each turn:
+`createBrowserAgent( { host } )`, from `@studio/agent/browser`, runs a turn with the same tools, skills and prompt. The model is called from the page, and Read, Write, Edit, Grep, Glob and Ls are rebuilt over `host.files` with pi's names, schemas and descriptions (there is no Bash). The app stores the conversation and passes its messages in with each turn:
 
 ```ts
-const turn = createWebAgent( { host } ).runTurn( {
+const turn = createBrowserAgent( { host } ).runTurn( {
 	sessionId, prompt, history, model, credentials, activeSite,
 	onEvent, onMessage, onCompaction, onAskUser,
 } );
@@ -118,8 +118,8 @@ node/
   runtime/        the pi coding-agent session, its file tools and compaction
   sessions/       session files and the sessions store
   settings-store.ts, global-instructions.ts, run-manager.ts, local-media.ts
-web/
-  index.ts        createWebAgent
+browser/
+  index.ts        createBrowserAgent
   file-tools.ts, models.ts, compaction.ts
 ```
 
@@ -129,8 +129,8 @@ The last line, and the sessions store, are for the apps that show the agent: the
 
 Enforced by lint (`eslint.config.mjs`):
 
-- `apps/ui` imports `@studio/agent/protocol/*`, and its web connector `@studio/agent/web`.
-- `protocol/`, `shared/` and `web/` use no Node APIs, and import nothing from `node/`.
+- `apps/ui` imports only `@studio/agent/protocol/*`; Studio on the web's backend (`apps/static`) runs `@studio/agent/browser`.
+- `protocol/`, `shared/` and `browser/` use no Node APIs, and import nothing from `node/`.
 - The package imports no app code (`cli/*`, `src/*`).
 - Apps import the agent from `@studio/agent/node`, not its `runtime/`, `tools/` or `host` modules.
 - `@studio/common` never imports this package; this package builds on it.

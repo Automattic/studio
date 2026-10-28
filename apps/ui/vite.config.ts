@@ -24,14 +24,14 @@ const directDeps = Object.entries( pkg.dependencies ?? {} )
 // standalone browser app wired to the HTTP/SSE `local` connector instead of the
 // Electron IPC bridge. It uses its own entry/output/port so the default
 // Electron-renderer build (`dist/`, port 5200) stays byte-for-byte unchanged.
-// `STUDIO_TARGET=web` builds Studio on the web: a static site wired to the
-// `web` connector, which needs no Studio server at all.
-const isWeb = process.env.STUDIO_TARGET === 'web';
-const isBrowser = process.env.STUDIO_TARGET === 'local' || isWeb;
-const active = isWeb
+// `STUDIO_TARGET=static` builds Studio on the web: a static site wired to the
+// `static` connector, which needs no Studio server at all.
+const isStatic = process.env.STUDIO_TARGET === 'static';
+const isBrowser = process.env.STUDIO_TARGET === 'local' || isStatic;
+const active = isStatic
 	? {
-			entry: 'index.web.html',
-			outDir: 'dist-web',
+			entry: 'index.static.html',
+			outDir: 'dist-static',
 			port: 3456,
 			pages: [ 'site-viewer.html' ],
 	  }
@@ -82,9 +82,9 @@ const staticHostPagesPlugin: Plugin = {
 	name: 'studio-static-host-pages',
 	apply: 'build',
 	closeBundle() {
-		const outDir = resolve( __dirname, 'dist-web' );
-		copyFileSync( resolve( outDir, 'index.web.html' ), resolve( outDir, 'index.html' ) );
-		copyFileSync( resolve( outDir, 'index.web.html' ), resolve( outDir, '404.html' ) );
+		const outDir = resolve( __dirname, 'dist-static' );
+		copyFileSync( resolve( outDir, 'index.static.html' ), resolve( outDir, 'index.html' ) );
+		copyFileSync( resolve( outDir, 'index.static.html' ), resolve( outDir, '404.html' ) );
 	},
 };
 
@@ -96,7 +96,7 @@ export default defineConfig( {
 	plugins: [
 		react(),
 		...( devEntry ? [ browserDevEntryPlugin ] : [] ),
-		...( isWeb ? [ staticHostPagesPlugin ] : [] ),
+		...( isStatic ? [ staticHostPagesPlugin ] : [] ),
 		// Sentry must be the last plugin
 		uploadSourceMaps &&
 			sentryVitePlugin( {
@@ -127,7 +127,7 @@ export default defineConfig( {
 	server: {
 		port: active?.port ?? 5200,
 		proxy:
-			isBrowser && ! isWeb
+			isBrowser && ! isStatic
 				? {
 						'/api': { target: studioUiServer, changeOrigin: true },
 						'/auth/callback': { target: studioUiServer, changeOrigin: true },
@@ -136,7 +136,7 @@ export default defineConfig( {
 	},
 	// The static web build previews at the dev server's origin, where the OAuth
 	// redirect is registered.
-	preview: isWeb ? { port: active?.port } : undefined,
+	preview: isStatic ? { port: active?.port } : undefined,
 	build: {
 		outDir: active?.outDir ?? 'dist',
 		sourcemap: ! isBrowser,

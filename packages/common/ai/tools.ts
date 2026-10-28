@@ -330,12 +330,6 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 
 const BASH_DETAIL_MAX_LENGTH = 60;
 
-// `AskUserQuestion` tells the model the system appends a free-form option, so
-// a well-behaved model never writes one itself. Both GUIs append it here.
-export function getFreeFormOptionLabel(): string {
-	return __( 'Something else' );
-}
-
 export function getFreeFormOptionDescription(): string {
 	return __( 'Reply in your own words instead of picking an option.' );
 }
@@ -346,10 +340,9 @@ export function getFreeFormOptionDescription(): string {
 // for the rest of the session. Untranslated on purpose — it goes to the model,
 // not the transcript.
 export const STOPPED_WITHOUT_ANSWER = 'The user stopped the run without answering.';
+export const SKIPPED_QUESTION = 'The user skipped this question.';
 
-// Off-contract models do write their own escape hatch. Match the English
-// labels they actually use — comparing against the translated label above
-// would never match outside an English locale.
+// Match model-generated escape hatches without translating their labels.
 const MODEL_FREE_FORM_LABELS = new Set( [ 'other', 'something else', 'none of the above' ] );
 
 // Returns the model's own escape hatch so the GUIs can drive the composer from

@@ -103,7 +103,7 @@ export function pickAnnotation( siteId: string, target: VisualAnnotationTarget )
 		return existing.id;
 	}
 	if ( current.notes.filter( hasAnnotationContent ).length >= MAX_VISUAL_ANNOTATIONS ) {
-		toast.error( __( 'Send or delete some annotations before adding more.' ) );
+		toast.error( __( 'Send or delete some annotations before adding more' ) );
 		return null;
 	}
 	const id = crypto.randomUUID();

@@ -1,94 +1,12 @@
+import { SKIPPED_QUESTION, STOPPED_WITHOUT_ANSWER } from '@studio/common/ai/tools';
 import { __, sprintf } from '@wordpress/i18n';
-import { clsx } from 'clsx';
 import { memo, useEffect, useRef, useState } from 'react';
-import {
-	AgentQuestion,
-	getAnswerLetter,
-} from '@/features/chats/session-view/conversation/agent-question/agent-question';
+import { AgentQuestion } from '@/features/chats/session-view/conversation/agent-question/agent-question';
 import { scrollElementIntoViewIfNeeded } from '@/features/chats/session-view/conversation/agent-question/scroll-into-view';
 import { joinedAttributes, type Joined } from '@/features/chats/session-view/conversation/joined';
 import { useReducedMotion } from '@/lib/hooks';
-import { QuestionnaireAnswer } from '@/lib/ui';
 import styles from './style.module.css';
 import type { AgentQuestionRenderItem } from '@/features/chats/session-view/conversation/transcript-items';
-
-const QUESTION_COLLAPSE_DELAY_MS = 650;
-
-function getQuestionPickedLabel(
-	question: AgentQuestionRenderItem,
-	pendingAnswers: Record< string, string >
-): string | undefined {
-	return pendingAnswers[ question.question ] ?? question.pickedLabel;
-}
-
-function findFirstUnansweredQuestionIndex(
-	questions: AgentQuestionRenderItem[],
-	pendingQuestions: Set< string >,
-	pendingAnswers: Record< string, string >
-): number {
-	for ( let index = 0; index < questions.length; index += 1 ) {
-		const question = questions[ index ];
-		const pickedLabel = getQuestionPickedLabel( question, pendingAnswers );
-		if ( pendingQuestions.has( question.question ) && ! pickedLabel ) {
-			return index;
-		}
-	}
-	return -1;
-}
-
-function QuestionSummary( {
-	index,
-	total,
-	question,
-	options,
-	pickedLabel,
-	canEdit,
-	onClick,
-	...joined
-}: {
-	index: number;
-	total: number;
-	question: string;
-	options: AgentQuestionRenderItem[ 'options' ];
-	pickedLabel: string;
-	canEdit: boolean;
-	onClick: () => void;
-} & Joined ) {
-	const content = (
-		<>
-			<span className={ styles.questionText }>{ question }</span>
-			<QuestionnaireAnswer letter={ getAnswerLetter( options, pickedLabel ) }>
-				{ pickedLabel }
-			</QuestionnaireAnswer>
-		</>
-	);
-
-	if ( ! canEdit ) {
-		return (
-			<div className={ styles.questionCard } { ...joinedAttributes( joined ) }>
-				{ content }
-			</div>
-		);
-	}
-
-	return (
-		<button
-			type="button"
-			className={ clsx( styles.questionCard, styles.questionSummary ) }
-			{ ...joinedAttributes( joined ) }
-			onClick={ onClick }
-			aria-label={ sprintf(
-				__( 'Edit question %1$d of %2$d: %3$s. Selected answer: %4$s' ),
-				index + 1,
-				total,
-				question,
-				pickedLabel
-			) }
-		>
-			{ content }
-		</button>
-	);
-}
 
 export const AgentQuestionBatch = memo( function AgentQuestionBatch( {
 	questions,
@@ -107,49 +25,26 @@ export const AgentQuestionBatch = memo( function AgentQuestionBatch( {
 	onAnswer: ( question: string, label: string ) => void;
 	onChooseFreeForm: ( question: string ) => void;
 } & Joined ) {
-	const [ expandedIndex, setExpandedIndex ] = useState< number | null >( null );
-	const [ settlingIndex, setSettlingIndex ] = useState< number | null >( null );
+	const [ page, setPage ] = useState< number | null >( null );
+	const [ drafts, setDrafts ] = useState< Record< string, string[] > >( {} );
 	const prefersReducedMotion = useReducedMotion();
 	const activeQuestionRef = useRef< HTMLFieldSetElement | null >( null );
 	const shouldFocusActiveQuestionRef = useRef( false );
-	const total = questions.length;
-	const firstUnansweredIndex = findFirstUnansweredQuestionIndex(
-		questions,
-		pendingQuestions,
-		pendingAnswers
-	);
-	const activeIndex = settlingIndex ?? expandedIndex ?? firstUnansweredIndex;
-	const visibleQuestionCount = activeIndex === -1 ? total : Math.min( activeIndex + 1, total );
+	const pickedLabel = ( question: AgentQuestionRenderItem ) =>
+		pendingAnswers[ question.question ] ?? question.pickedLabel;
+	const unanswered = questions
+		.map( ( question, index ) =>
+			pendingQuestions.has( question.question ) && ! pendingAnswers[ question.question ]
+				? index
+				: -1
+		)
+		.filter( ( index ) => index !== -1 );
+	const isActive = unanswered.length > 0;
+	const activeIndex = isActive ? Math.min( page ?? unanswered[ 0 ], questions.length - 1 ) : -1;
 
 	useEffect( () => {
-		setExpandedIndex( ( index ) =>
-			index === null || index < total ? index : Math.max( total - 1, 0 )
-		);
-		setSettlingIndex( ( index ) =>
-			index === null || index < total ? index : Math.max( total - 1, 0 )
-		);
-	}, [ total ] );
-
-	useEffect( () => {
-		if ( settlingIndex === null ) {
-			return;
-		}
-		if ( prefersReducedMotion ) {
-			setSettlingIndex( null );
-			return;
-		}
-		const timeoutId = window.setTimeout(
-			() => setSettlingIndex( null ),
-			QUESTION_COLLAPSE_DELAY_MS
-		);
-		return () => window.clearTimeout( timeoutId );
-	}, [ prefersReducedMotion, settlingIndex ] );
-
-	useEffect( () => {
-		if ( activeIndex === -1 || settlingIndex !== null ) {
-			if ( activeIndex === -1 && settlingIndex === null ) {
-				shouldFocusActiveQuestionRef.current = false;
-			}
+		if ( activeIndex === -1 ) {
+			shouldFocusActiveQuestionRef.current = false;
 			return;
 		}
 		const animationFrameId = window.requestAnimationFrame( () => {
@@ -163,84 +58,103 @@ export const AgentQuestionBatch = memo( function AgentQuestionBatch( {
 			}
 		} );
 		return () => window.cancelAnimationFrame( animationFrameId );
-	}, [ activeIndex, prefersReducedMotion, settlingIndex ] );
+	}, [ activeIndex, prefersReducedMotion ] );
 
-	if ( total === 1 ) {
-		const question = questions[ 0 ];
-		// The scroll-into-view effect needs a target here too, or a lone question
-		// stays half-hidden behind the composer when the agent asks it.
+	if ( ! isActive ) {
 		return (
-			<AgentQuestion
-				ref={ activeIndex === 0 ? activeQuestionRef : undefined }
-				question={ question.question }
-				options={ question.options }
-				multiSelect={ question.multiSelect }
-				isInteractive={ pendingQuestions.has( question.question ) }
-				pickedLabel={ getQuestionPickedLabel( question, pendingAnswers ) }
-				freeFormActive={ freeFormQuestion === question.question }
-				onAnswer={ ( label ) => onAnswer( question.question, label ) }
-				onChooseFreeForm={ () => onChooseFreeForm( question.question ) }
-				joinedAbove={ joinedAbove }
-				joinedBelow={ joinedBelow }
-			/>
+			<div
+				className={ styles.questionBatch }
+				{ ...joinedAttributes( { joinedAbove, joinedBelow } ) }
+			>
+				{ questions.map( ( question, index ) => (
+					<AgentQuestion
+						key={ question.key }
+						question={ question.question }
+						options={ question.options }
+						multiSelect={ question.multiSelect }
+						isInteractive={ false }
+						pickedLabel={ pickedLabel( question ) }
+						onChooseFreeForm={ () => onChooseFreeForm( question.question ) }
+						joinedAbove={ joinedAbove || index > 0 }
+						joinedBelow={ joinedBelow || index < questions.length - 1 }
+					/>
+				) ) }
+			</div>
 		);
 	}
 
-	const handleAnswer = ( question: AgentQuestionRenderItem, index: number, label: string ) => {
+	const question = questions[ activeIndex ];
+	const saved = pickedLabel( question );
+	const selection =
+		drafts[ question.key ] ??
+		( ! saved || saved === SKIPPED_QUESTION || saved === STOPPED_WITHOUT_ANSWER
+			? []
+			: question.multiSelect
+			? saved.split( ', ' )
+			: [ saved ] );
+	const isLastQuestion = activeIndex === questions.length - 1;
+	const goToPage = ( index: number ) => {
 		shouldFocusActiveQuestionRef.current = true;
-		setExpandedIndex( null );
-		setSettlingIndex( index );
-		onAnswer( question.question, label );
+		setPage( index );
+	};
+	const submit = ( answer: string ) => {
+		setDrafts( ( previous ) => {
+			const next = { ...previous };
+			delete next[ question.key ];
+			return next;
+		} );
+		onAnswer( question.question, answer );
+		if ( ! isLastQuestion ) goToPage( activeIndex + 1 );
 	};
 
 	return (
-		<div className={ styles.questionBatch } { ...joinedAttributes( { joinedAbove, joinedBelow } ) }>
-			{ questions.slice( 0, visibleQuestionCount ).map( ( question, index ) => {
-				const pickedLabel = getQuestionPickedLabel( question, pendingAnswers );
-				const isActive = index === activeIndex;
-				const joined = {
-					joinedAbove: joinedAbove || index > 0,
-					joinedBelow: joinedBelow || index < visibleQuestionCount - 1,
-				};
-				if ( ! isActive && pickedLabel ) {
-					return (
-						<QuestionSummary
-							key={ question.key }
-							index={ index }
-							total={ total }
-							question={ question.question }
-							options={ question.options }
-							pickedLabel={ pickedLabel }
-							canEdit={ pendingQuestions.has( question.question ) }
-							onClick={ () => setExpandedIndex( index ) }
-							{ ...joined }
-						/>
-					);
+		<AgentQuestion
+			key={ question.key }
+			ref={ activeQuestionRef }
+			tabIndex={ -1 }
+			question={ question.question }
+			options={ question.options }
+			multiSelect={ question.multiSelect }
+			isInteractive
+			pickedLabel={ saved }
+			selectedLabels={ selection }
+			onSelectionChange={ ( labels ) => {
+				if ( ! question.multiSelect && labels.length ) {
+					submit( labels[ 0 ] );
+				} else {
+					setDrafts( ( previous ) => ( { ...previous, [ question.key ]: labels } ) );
 				}
-				return (
+			} }
+			freeFormActive={ freeFormQuestion === question.question }
+			onChooseFreeForm={ () => onChooseFreeForm( question.question ) }
+			onAnswer={ () => submit( selection.length ? selection.join( ', ' ) : SKIPPED_QUESTION ) }
+			onSkip={ () => submit( SKIPPED_QUESTION ) }
+			onBack={ activeIndex > 0 ? () => goToPage( activeIndex - 1 ) : undefined }
+			submitLabel={ isLastQuestion ? __( 'Done' ) : __( 'Next' ) }
+			pager={
+				questions.length > 1 ? (
 					<div
-						key={ question.key }
-						className={ styles.questionBatchStep }
-						data-state={ settlingIndex === index ? 'answered' : 'asking' }
+						className={ styles.questionPager }
+						role="img"
+						aria-label={ sprintf(
+							__( 'Question %1$d of %2$d' ),
+							activeIndex + 1,
+							questions.length
+						) }
 					>
-						<AgentQuestion
-							ref={ isActive ? activeQuestionRef : undefined }
-							tabIndex={ isActive ? -1 : undefined }
-							progress={ sprintf( __( 'Asking question %1$d of %2$d' ), index + 1, total ) }
-							question={ question.question }
-							options={ question.options }
-							multiSelect={ question.multiSelect }
-							isInteractive={ pendingQuestions.has( question.question ) && settlingIndex !== index }
-							pickedLabel={ pickedLabel }
-							isCollapsing={ settlingIndex === index }
-							freeFormActive={ freeFormQuestion === question.question }
-							onAnswer={ ( label ) => handleAnswer( question, index, label ) }
-							onChooseFreeForm={ () => onChooseFreeForm( question.question ) }
-							{ ...joined }
-						/>
+						{ questions.map( ( item, index ) => (
+							<span
+								key={ item.key }
+								className={ styles.questionDot }
+								data-current={ index === activeIndex || undefined }
+								aria-hidden="true"
+							/>
+						) ) }
 					</div>
-				);
-			} ) }
-		</div>
+				) : null
+			}
+			joinedAbove={ joinedAbove }
+			joinedBelow={ joinedBelow }
+		/>
 	);
 } );

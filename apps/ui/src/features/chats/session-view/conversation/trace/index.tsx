@@ -1,8 +1,17 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { ChevronRightIcon, CircleAlertIcon, CircleCheckIcon, CircleStopIcon } from 'lucide-react';
-import { memo, useEffect, useId, useState, type ReactNode, type ComponentProps } from 'react';
+import { CircleAlertIcon, CircleCheckIcon, CircleStopIcon } from 'lucide-react';
+import {
+	Fragment,
+	memo,
+	useEffect,
+	useId,
+	useState,
+	type ReactNode,
+	type ComponentProps,
+} from 'react';
 import { getToolDisplay } from '@/features/chats/session-view/conversation/trace/tool-display';
+import { ChevronDownIcon } from '@/lib/icons';
 import { CodeBlock, CollapsiblePanel, Spinner } from '@/lib/ui';
 import styles from './style.module.css';
 import type { TurnActivity } from '@/features/chats/session-view/conversation/transcript-items';
@@ -12,7 +21,7 @@ function TraceTrigger( { children, ...props }: ComponentProps< 'button' > ) {
 	return (
 		<button type="button" className={ styles.traceTrigger } { ...props }>
 			{ children }
-			<ChevronRightIcon className={ styles.traceChevron } />
+			<ChevronDownIcon className={ styles.traceChevron } />
 		</button>
 	);
 }
@@ -56,7 +65,7 @@ export const ToolUseRow = memo( function ToolUseRow( {
 	);
 
 	return (
-		<div className={ styles.toolRow }>
+		<div data-trace-row>
 			{ hasExpandableDetails ? (
 				<TraceTrigger
 					aria-expanded={ expanded }
@@ -91,6 +100,12 @@ export const ToolUseRow = memo( function ToolUseRow( {
 	);
 } );
 
+function isPersistentItem( item: TurnActivity[ 'items' ][ number ] ) {
+	return (
+		item.kind === 'agent-question-batch' || ( item.kind === 'assistant-text' && item.persistent )
+	);
+}
+
 export const TurnActivityLine = memo( function TurnActivityLine( {
 	activity: { startedAt, endedAt, status, items },
 	waitingOnUser,
@@ -100,18 +115,21 @@ export const TurnActivityLine = memo( function TurnActivityLine( {
 	activity: TurnActivity;
 	waitingOnUser: boolean;
 	progressMessage: string | null;
-	renderItems?: ( items: TurnActivity[ 'items' ] ) => ReactNode;
+	renderItems?: (
+		items: TurnActivity[ 'items' ],
+		visibleItems: TurnActivity[ 'items' ]
+	) => ReactNode;
 } ) {
 	const running = status === 'running';
 	const waiting = running && waitingOnUser;
 	const hasProgress = running && Boolean( progressMessage?.trim() );
-	const hasContent = items.some( ( item ) => item.kind !== 'agent-question-batch' ) || hasProgress;
+	const hasContent = items.some( ( item ) => ! isPersistentItem( item ) ) || hasProgress;
 	const panelId = useId();
 	const sections: Array< { key: string; items: TurnActivity[ 'items' ]; persistent: boolean } > =
 		[];
 	for ( const item of items ) {
 		const previous = sections[ sections.length - 1 ];
-		const persistent = item.kind === 'agent-question-batch';
+		const persistent = !! isPersistentItem( item );
 		if ( ! persistent && previous && ! previous.persistent ) {
 			previous.items.push( item );
 		} else {
@@ -129,6 +147,7 @@ export const TurnActivityLine = memo( function TurnActivityLine( {
 		setDisclosure( { running, open: running } );
 	}
 	const expanded = disclosure.running === running ? disclosure.open : running;
+	const visibleItems = expanded ? items : items.filter( isPersistentItem );
 	const [ now, setNow ] = useState( Date.now );
 	useEffect( () => {
 		if ( ! running ) {
@@ -184,24 +203,34 @@ export const TurnActivityLine = memo( function TurnActivityLine( {
 			) : (
 				heading
 			) }
-			{ sections.map( ( section ) =>
-				section.persistent ? (
-					<div key={ section.key } className={ styles.activityContent }>
-						{ renderItems?.( section.items ) }
+			{ sections.map( ( section ) => {
+				const first = section.items[ 0 ];
+				const previous = visibleItems[ visibleItems.indexOf( first ) - 1 ];
+				const separated =
+					! previous || ( first.kind === 'tool-use' ) !== ( previous.kind === 'tool-use' );
+				const content = (
+					<div className={ styles.activityContent } data-separated={ separated || undefined }>
+						{ renderItems?.( section.items, visibleItems ) }
 					</div>
+				);
+				return section.persistent ? (
+					<Fragment key={ section.key }>{ content }</Fragment>
 				) : (
 					<CollapsiblePanel
 						key={ section.key }
 						open={ expanded }
 						id={ `${ panelId }-${ section.key }` }
 					>
-						<div className={ styles.activityContent }>{ renderItems?.( section.items ) }</div>
+						{ content }
 					</CollapsiblePanel>
-				)
-			) }
+				);
+			} ) }
 			{ hasProgress ? (
 				<CollapsiblePanel open={ expanded } id={ `${ panelId }-progress` }>
-					<div className={ styles.activityContent }>
+					<div
+						className={ styles.activityContent }
+						data-separated={ visibleItems.at( -1 )?.kind !== 'tool-use' || undefined }
+					>
 						<span className={ styles.activityProgress }>{ progressMessage }</span>
 					</div>
 				</CollapsiblePanel>

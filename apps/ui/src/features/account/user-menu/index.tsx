@@ -103,7 +103,7 @@ export function UserMenu() {
 								onClick={ () =>
 									logout.mutate( undefined, {
 										onError: ( logoutError ) =>
-											toast.error( __( 'Could not log out.' ), {
+											toast.error( __( 'Could not log out' ), {
 												description: logoutError.message,
 											} ),
 									} )
@@ -138,7 +138,7 @@ export function UserMenu() {
 				finalFocus={ trigger }
 				title={ __( 'Do more with WordPress.com' ) }
 				description={ __(
-					'Build with WordPress Studio, share local previews publicly, launch on WordPress.com, and keep sites in sync.'
+					'Create a free WordPress.com account to build with the agent, share previews, and publish.'
 				) }
 				source="settings"
 			/>

@@ -73,6 +73,21 @@ describe( 'useCreateSite', () => {
 } );
 
 describe( 'useStartSite', () => {
+	it( 'keeps a busy-site title short and puts recovery and diagnostics in the description', async () => {
+		const site = makeSite( { id: 'busy-site', operation: { kind: 'start', pid: 1234 } } );
+		const connector = createFakeConnector( { sites: [ site ] } );
+		connector.startSite.mockRejectedValue( new Error( 'Server could not listen' ) );
+		const { result } = renderHook( () => ( { sites: useSites(), start: useStartSite() } ), {
+			wrapper: providers( connector ),
+		} );
+		await waitFor( () => expect( result.current.sites.data ).toHaveLength( 1 ) );
+		await expect( result.current.start.mutateAsync( site.id ) ).rejects.toThrow();
+		expect( getVisibleToasts().at( -1 ) ).toMatchObject( {
+			title: 'Site is busy',
+			description: 'Wait for a site start to finish, then try again.\n\nServer could not listen',
+		} );
+	} );
+
 	function renderMutations() {
 		const connector = createFakeConnector();
 		let releaseStop: () => void = () => {};

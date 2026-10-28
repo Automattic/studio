@@ -27,6 +27,9 @@ import type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assi
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type {
+	SidebarPinnedSort,
+	SidebarSiteSort,
+	SidebarChatSort,
 	ColorScheme,
 	NewSiteBehavior,
 	QuitSitesBehavior,
@@ -107,6 +110,8 @@ export interface SiteDetails {
 	// The Studio operation currently holding the site, from the CLI. Present
 	// regardless of who started it — the user, the desktop app, or the agent.
 	operation?: SiteOperation;
+	// The folder the email the site sends is saved in, from the CLI.
+	emailPath?: string;
 }
 
 export interface LocalMediaFile {
@@ -462,6 +467,8 @@ export interface Connector {
 	openSiteFolder( siteId: string ): Promise< void >;
 	openSiteInEditor( siteId: string ): Promise< void >;
 	openSiteInTerminal( siteId: string ): Promise< void >;
+	// Open the folder the site's email is saved in, in the system file manager.
+	openSiteEmailFolder( siteId: string ): Promise< void >;
 
 	// The site's WordPress debug log, resolved host-side from the site id. Its
 	// existence is a query, not a `SiteDetails` field: the file comes and goes
@@ -654,6 +661,9 @@ export interface UserPreferences {
 	studioCliExternallyManaged: boolean;
 	// The sidebar's Pinned group, in order, as `site:<id>` and `chat:<id>` keys.
 	sidebarPins?: string[];
+	sidebarPinnedSort?: SidebarPinnedSort;
+	sidebarSiteSort?: SidebarSiteSort;
+	sidebarChatSort?: SidebarChatSort;
 	// Each site's chats in the order the user dragged them into, by site id.
 	sidebarChatOrder?: Record< string, string[] >;
 	showRecentChats?: boolean;

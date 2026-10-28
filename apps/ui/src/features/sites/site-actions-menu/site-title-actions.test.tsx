@@ -242,10 +242,10 @@ describe( 'site title actions', () => {
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Site actions for My site' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: /^Duplicate$/ } ) );
 		await waitFor( () => expect( connector.copySite ).toHaveBeenCalledWith( 'one' ) );
-		await screen.findByRole( 'button', { name: 'Open site' } );
+		await screen.findByRole( 'button', { name: /^Open$/ } );
 		expect( screen.getByRole( 'button', { name: 'Site actions for My site' } ) ).toBeVisible();
 		expect( getNoticeHistory() ).toHaveLength( 1 );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Open site' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: /^Open$/ } ) );
 		expect(
 			await screen.findByRole( 'button', { name: 'Site actions for My site copy' } )
 		).toBeVisible();

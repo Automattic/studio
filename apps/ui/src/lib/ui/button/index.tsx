@@ -87,7 +87,6 @@ export function Button( {
 		>
 			{ loading && (
 				<Spinner
-					data-icon="inline-start"
 					aria-hidden={ ! loadingAnnouncement || undefined }
 					aria-label={ loadingAnnouncement }
 				/>

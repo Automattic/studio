@@ -17,7 +17,7 @@ export function ConnectionCard() {
 			<SettingsRow
 				title={ __( 'Do more with WordPress.com' ) }
 				description={ __(
-					'Build with WordPress Studio, share local previews publicly, launch on WordPress.com, and keep sites in sync.'
+					'Create a free WordPress.com account to build with the agent, share previews, and publish.'
 				) }
 				error={ signup.error?.message }
 			>
@@ -44,8 +44,8 @@ export function AccountSection() {
 		<SettingsGroup>
 			<SettingsRow title={ user.displayName } description={ user.email }>
 				<Button
-					loading={ logout.isPending }
-					loadingAnnouncement={ __( 'Logging out' ) }
+					disabled={ logout.isPending }
+					aria-busy={ logout.isPending || undefined }
 					onClick={ () => logout.mutate() }
 				>
 					{ __( 'Log out' ) }

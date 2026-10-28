@@ -4,17 +4,22 @@ import type { ReactNode } from 'react';
 
 export function SiteWorkspace( {
 	sessionId,
+	siteId,
 	headerStart,
 }: {
 	sessionId?: string;
+	siteId: string;
 	headerStart?: ReactNode;
 } ) {
 	return (
 		<div className={ styles.root }>
 			<div className={ styles.layer }>
-				{ sessionId ? (
-					<SessionView key={ sessionId } sessionId={ sessionId } headerStart={ headerStart } />
-				) : null }
+				<SessionView
+					key={ sessionId ?? siteId }
+					sessionId={ sessionId }
+					siteId={ siteId }
+					headerStart={ headerStart }
+				/>
 			</div>
 		</div>
 	);

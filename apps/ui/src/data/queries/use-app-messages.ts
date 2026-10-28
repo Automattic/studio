@@ -10,6 +10,7 @@ import { useEffect, useMemo } from 'react';
 import { setDismissedAiCreditsIntent, useDismissedAiCreditsIntent } from '@/data/ai-credits-notice';
 import {
 	DISMISSED_MESSAGES_QUERY_KEY,
+	openStudioLogsAction,
 	syncCardNotices,
 	type ToastAction,
 } from '@/data/app-messages';
@@ -72,7 +73,8 @@ function describeVersionChange(
 
 export function deriveUpdateMessages(
 	status: AppUpdateStatus | undefined,
-	onInstall: () => void
+	onInstall: () => void,
+	errorAction?: ToastAction
 ): PersistentMessage[] {
 	if ( status?.state === 'downloading' ) {
 		return [
@@ -94,17 +96,11 @@ export function deriveUpdateMessages(
 				// Version-scoped id so a dismissal re-arms for the next release.
 				id: version ? `app-update:${ version }` : 'app-update',
 				intent: 'info',
-				title: version
-					? sprintf(
-							/* translators: %s: app version number. */
-							__( 'WordPress Studio %s is ready to install' ),
-							version
-					  )
-					: __( 'A WordPress Studio update is ready to install' ),
+				title: __( 'Update ready' ),
 				description: describeVersionChange( status.currentVersion, version, {
 					fallback: __( 'Restart to finish updating.' ),
 				} ),
-				action: { label: __( 'Restart now' ), onClick: onInstall },
+				action: { label: __( 'Restart' ), onClick: onInstall },
 			},
 		];
 	}
@@ -114,10 +110,9 @@ export function deriveUpdateMessages(
 			{
 				id: 'app-update-error',
 				intent: 'error',
-				title: __( "Couldn't update WordPress Studio" ),
-				description:
-					status.detail ??
-					__( 'WordPress Studio will try again the next time it checks for updates.' ),
+				title: __( 'Couldn’t update Studio' ),
+				description: status.detail ?? __( 'We’ll try again the next time we check for updates.' ),
+				action: errorAction,
 			},
 		];
 	}
@@ -151,7 +146,8 @@ function usePersistentMessageSources(): PersistentMessage[] {
 	return useMemo( () => {
 		const messages = deriveUpdateMessages(
 			updateStatus.data,
-			() => void connector.installAppUpdate()
+			() => void connector.installAppUpdate(),
+			openStudioLogsAction( connector )
 		);
 
 		if ( aiCreditsNotice.visible && aiCreditsIntent && aiCreditsFraction !== null ) {

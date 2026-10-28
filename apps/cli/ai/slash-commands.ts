@@ -11,7 +11,7 @@ import {
 	fetchStudioAssistantQuota,
 	formatQuotaPercentage,
 	getAddAiCreditsUrl,
-	hasPaidAiCredits,
+	hasPurchasedAiCredits,
 	type StudioAssistantQuota,
 } from '@studio/common/lib/studio-assistant-quota';
 import {
@@ -297,7 +297,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		description: __( 'Switch the AI model' ),
 		handler: async ( _prompt, ctx ) => {
 			const availableModels = await getAiProviderDefinition( ctx.currentProvider ).getModels();
-			// The paid tiers are only offered while purchased credits remain;
+			// The paid tiers are only offered once the account has bought credits;
 			// Automatticians are exempt. The current model always stays listed,
 			// so a session already on a paid tier keeps showing what it runs on.
 			let offeredModels = availableModels;
@@ -307,7 +307,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 			) {
 				const token = await readAuthToken();
 				const quota = token ? await fetchStudioAssistantQuota( token.accessToken ) : null;
-				if ( ! hasPaidAiCredits( quota ) ) {
+				if ( ! hasPurchasedAiCredits( quota ) ) {
 					offeredModels = availableModels.filter(
 						( id ) => id === ctx.currentModel || ! aiModelRequiresPaidCredits( id )
 					);

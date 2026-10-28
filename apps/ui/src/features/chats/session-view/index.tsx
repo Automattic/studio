@@ -5,7 +5,7 @@ import {
 import { pickLiveSite } from '@studio/common/ai/sessions/effective-site';
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { canUsePaidAiModels } from '@studio/common/lib/studio-assistant-quota';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useRouter } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { ArrowDownIcon } from 'lucide-react';
@@ -30,6 +30,7 @@ import {
 	useSessionLiveSite,
 	useSetSessionEnvironment,
 } from '@/data/queries/use-sessions';
+import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
 import {
 	useIsSiteBusy,
 	useIsSiteStarting,
@@ -69,10 +70,12 @@ import styles from './style.module.css';
 import { useAnchoredScroll } from './use-anchored-scroll';
 import { useComposerNotice } from './use-composer-notice';
 import { useMarkChatRead } from './use-mark-chat-read';
+import { useSendSiteDraft } from './use-send-site-draft';
 import { useSessionCommands } from './use-session-commands';
 
 interface SessionViewProps {
-	sessionId: string;
+	sessionId?: string;
+	siteId?: string;
 	headerStart?: ReactNode;
 }
 
@@ -84,12 +87,25 @@ export function SessionView( props: SessionViewProps ) {
 	);
 }
 
-function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
+function SessionViewContent( { sessionId, siteId, headerStart }: SessionViewProps ) {
+	const draftKey = sessionId ?? `site:${ siteId }`;
+	const { draft, update: updateDraft } = useSiteChatDraft( siteId );
+	const sendDraft = useSendSiteDraft( siteId );
 	const navigate = useNavigate();
 	const { data, isLoading, error, refetch } = useSession( sessionId );
 	const { data: sites } = useSites();
-	const ownerSite = findAiSessionOwnerSite( sites, data?.summary );
-	const effectiveEnvironment = useSessionLiveSite( data?.summary, ownerSite?.id )
+	const ownerSite = sessionId
+		? findAiSessionOwnerSite( sites, data?.summary )
+		: sites?.find( ( site ) => site.id === siteId );
+	useEffect( () => {
+		if ( ! sessionId && sites && ! ownerSite ) {
+			void navigate( { to: '/' } );
+		}
+	}, [ navigate, ownerSite, sessionId, sites ] );
+	const effectiveEnvironment = useSessionLiveSite(
+		sessionId ? data?.summary : draft,
+		ownerSite?.id
+	)
 		? 'live'
 		: 'local';
 	const {
@@ -100,7 +116,7 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 		pendingQuestions,
 		pendingAnswers,
 		queuedPrompts,
-		sendMessage,
+		sendMessage: sendSessionMessage,
 		interrupt,
 		answerQuestion,
 		clearQuestionAnswer,
@@ -116,17 +132,27 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 	// back to pending; only the first check holds the chat back.
 	const isQuotaLoading = isQuotaPending && ! isQuotaFetched;
 	const { data: aiSettings } = useAiSettings();
-	const sessionProvider = getEffectiveSessionProvider( data?.entries ?? [], aiSettings );
+	const sessionProvider =
+		( ! sessionId && draft.provider ) ||
+		getEffectiveSessionProvider( data?.entries ?? [], aiSettings );
 	const isWpcom = sessionProvider === 'wpcom';
 	const notice = useComposerNotice( sessionProvider );
 	// A fresh wpcom session defaults to balanced when the paid tiers are
 	// unlocked, fast otherwise.
-	const currentModel = useMemo(
+	const defaultModel = useMemo(
 		() =>
 			resolveSessionModelForProvider( data?.entries ?? [], sessionProvider, {
 				canUsePaidModels: canUsePaidAiModels( quota, authUser?.email ),
 			} ),
 		[ data?.entries, sessionProvider, quota, authUser?.email ]
+	);
+	const currentModel = ( ! sessionId && draft.model ) || defaultModel;
+	const sendMessage = useCallback(
+		( prompt: string, options?: Parameters< typeof sendSessionMessage >[ 1 ] ) =>
+			sessionId
+				? sendSessionMessage( prompt, options )
+				: sendDraft( prompt, options, sessionProvider, currentModel ),
+		[ sessionId, sendSessionMessage, sendDraft, sessionProvider, currentModel ]
 	);
 	const pendingQuestionTexts = useMemo(
 		() => new Set( pendingQuestions.map( ( q ) => q.question ) ),
@@ -153,6 +179,16 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 	// in state lets the scroll effects re-run when it appears; a ref can't.
 	const [ scrollNode, setScrollNode ] = useState< HTMLDivElement | null >( null );
 	const composerRef = useRef< ComposerHandle >( null );
+	const router = useRouter();
+	useEffect( () => {
+		if ( sessionId ) return;
+		return router.subscribe( 'onResolved', ( { pathChanged, hrefChanged } ) => {
+			if ( ! pathChanged && hrefChanged ) return;
+			if ( router.state.location.pathname === `/sites/${ siteId }/new` ) {
+				composerRef.current?.focus();
+			}
+		} );
+	}, [ router, sessionId, siteId ] );
 	useEffect(
 		() =>
 			watchComposerTextQuote( ( text ) => {
@@ -199,7 +235,7 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 	);
 	const { spacerRef, isScrolledAway, scrollToLatest } = useAnchoredScroll( {
 		scrollNode,
-		sessionId,
+		sessionId: draftKey,
 		content: data,
 		paused: pendingQuestions.length > 0,
 	} );
@@ -242,7 +278,7 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 	const canAutoStart = !! ownerSite && effectiveEnvironment === 'local';
 	const { data: connectedSites } = useConnectedWpcomSites( ownerSite?.id );
 	const liveSite = pickLiveSite( connectedSites ?? [] );
-	const { mutate: setEnvironment } = useSetSessionEnvironment( sessionId );
+	const { mutate: setEnvironment } = useSetSessionEnvironment( sessionId ?? '' );
 	const sendWithAutoStart = useCallback(
 		( prompt: string, attachments?: Parameters< typeof sendMessage >[ 1 ] ) => {
 			if (
@@ -274,12 +310,12 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 		pendingPromptSlot.subscribe,
 		pendingPromptSlot.getSnapshot
 	);
-	const pendingPrompt = handedOver?.sessionId === sessionId ? handedOver : null;
+	const pendingPrompt = sessionId && handedOver?.sessionId === sessionId ? handedOver : null;
 	// The empty state fades out under the first prompt, then unmounts.
 	const showEmpty = isEmpty && ! pendingPrompt;
-	const [ emptySessionId, setEmptySessionId ] = useState( showEmpty ? sessionId : null );
-	if ( showEmpty && emptySessionId !== sessionId ) {
-		setEmptySessionId( sessionId );
+	const [ emptySessionId, setEmptySessionId ] = useState( showEmpty ? draftKey : null );
+	if ( showEmpty && emptySessionId !== draftKey ) {
+		setEmptySessionId( draftKey );
 	}
 	useEffect( () => {
 		if ( showEmpty || emptySessionId === null ) return;
@@ -289,12 +325,16 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 		);
 		return () => window.clearTimeout( timeoutId );
 	}, [ showEmpty, emptySessionId ] );
-	const isChatReady = !! data && ! isQuotaLoading && ! notice && ! isOutOfCredits;
+	const isChatReady =
+		( !! data || ( ! sessionId && !! ownerSite ) ) &&
+		! isQuotaLoading &&
+		! notice &&
+		! isOutOfCredits;
 	useEffect( () => {
 		// Read the slot live rather than the rendered value: StrictMode runs the
 		// effect twice for one render, and the second pass must find it empty.
 		const prompt = pendingPromptSlot.getSnapshot();
-		if ( ! isChatReady || prompt?.sessionId !== sessionId ) return;
+		if ( ! sessionId || ! isChatReady || prompt?.sessionId !== sessionId ) return;
 		pendingPromptSlot.clear( prompt );
 		void sendMessage( prompt.prompt, prompt.attachments ).catch( () => {
 			composerRef.current?.replaceDraft( prompt.prompt, prompt.attachments );
@@ -302,13 +342,13 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 	}, [ isChatReady, pendingPrompt, sendMessage, sessionId ] );
 
 	// Notes sent from the preview land in the composer, then go out with its
-	// draft, or alone when they were sent directly. While the agent works they
-	// wait in the composer.
+	// draft, or alone when they were sent directly. Direct sends join the queue
+	// while the agent works.
 	useEffect( () => {
 		if ( ! isChatReady || ! annotationSiteId ) return;
 		return subscribeAnnotationSend( annotationSiteId, ( { noteIds } ) => {
 			stageAnnotations( annotationSiteId, noteIds );
-			if ( composerBusy ) return;
+			if ( composerBusy && ! noteIds ) return;
 			if ( ! noteIds ) {
 				return composerRef.current?.send();
 			}
@@ -370,7 +410,11 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 		);
 	}
 
-	if ( isLoading || notFound || ! data || isQuotaLoading ) {
+	if (
+		( sessionId && ( isLoading || notFound || ! data ) ) ||
+		( ! ownerSite && ! data ) ||
+		isQuotaLoading
+	) {
 		// Use the same SessionFrame with an empty header and a structural
 		// ComposerSkeleton so the scroll area has the exact same dimensions
 		// as the loaded view — otherwise the empty-state dots jump
@@ -393,14 +437,14 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 
 	return (
 		<SessionFrame
-			session={ data.summary }
+			session={ data?.summary }
 			canExpand={ !! ownerSite?.running || effectiveEnvironment === 'live' }
 			scrollRef={ setScrollNode }
 			rootRef={ setFrameNode }
 			header={
 				<SessionHeader
 					start={ headerStart }
-					siteName={ data.summary.ownerSiteName }
+					siteName={ data?.summary.ownerSiteName }
 					site={ ownerSite }
 					effectiveEnvironment={ effectiveEnvironment }
 				/>
@@ -439,8 +483,13 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 						onAnswer={ targetQuestion ? answerTargetQuestion : undefined }
 						onInterrupt={ interrupt }
 						sessionId={ sessionId }
+						draftKey={ draftKey }
+						provider={ sessionProvider }
+						onModelChange={
+							sessionId ? undefined : ( model, provider ) => updateDraft( { model, provider } )
+						}
 						autoFocus={ isEmpty }
-						entries={ data.entries }
+						entries={ data?.entries }
 						ownerSiteId={ ownerSite?.id }
 						onSwitchSession={ switchSession }
 						placeholder={ composerPlaceholder }
@@ -448,7 +497,17 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 						canAutoStart={ canAutoStart }
 						environment={ effectiveEnvironment }
 						liveUrl={ liveSite?.url }
-						onEnvironmentChange={ ownerSite ? setEnvironment : undefined }
+						onEnvironmentChange={
+							ownerSite
+								? ( environment ) =>
+										sessionId
+											? setEnvironment( environment )
+											: updateDraft( {
+													activeEnvironment: environment,
+													lastSelectedWpcomSiteId: liveSite?.id,
+											  } )
+								: undefined
+						}
 						dropTarget={ frameNode }
 						annotationSiteId={ annotationSiteId }
 						notice={ notice }
@@ -456,7 +515,7 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 				</div>
 			}
 		>
-			{ emptySessionId === sessionId ? (
+			{ emptySessionId === draftKey ? (
 				<SiteContextMenu site={ ownerSite } disabled={ ! ownerSite || ownerSite.running }>
 					<div className={ styles.emptyState } data-hidden={ ! showEmpty || undefined }>
 						<PreviewParticles
@@ -471,16 +530,18 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 				</SiteContextMenu>
 			) : null }
 			<div data-chat-transcript className={ clsx( styles.column, styles.conversationSpacing ) }>
-				<Conversation
-					data={ data }
-					isRunning={ isRunning }
-					startedAt={ startedAt }
-					pendingQuestions={ pendingQuestionTexts }
-					pendingAnswers={ pendingAnswers }
-					freeFormQuestion={ freeFormQuestion }
-					onAnswerQuestion={ answerQuestionFromOption }
-					onChooseFreeForm={ chooseFreeFormAnswer }
-				/>
+				{ data ? (
+					<Conversation
+						data={ data }
+						isRunning={ isRunning }
+						startedAt={ startedAt }
+						pendingQuestions={ pendingQuestionTexts }
+						pendingAnswers={ pendingAnswers }
+						freeFormQuestion={ freeFormQuestion }
+						onAnswerQuestion={ answerQuestionFromOption }
+						onChooseFreeForm={ chooseFreeFormAnswer }
+					/>
+				) : null }
 			</div>
 			<div ref={ spacerRef } aria-hidden="true" />
 		</SessionFrame>

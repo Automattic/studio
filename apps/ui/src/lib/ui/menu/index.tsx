@@ -1,6 +1,7 @@
 import { ContextMenu as BaseContextMenu } from '@base-ui/react/context-menu';
 import { Menu as BaseMenu } from '@base-ui/react/menu';
 import { clsx } from 'clsx';
+import { CheckIcon } from 'lucide-react';
 import { forwardRef } from 'react';
 import { ChevronDownIcon } from '@/lib/icons';
 import { FloatingSurface } from '@/lib/ui/surface';
@@ -11,6 +12,7 @@ import type { ComponentPropsWithoutRef, ElementRef, ReactNode } from 'react';
 export const Root = BaseMenu.Root;
 export const Trigger = BaseMenu.Trigger;
 export const Group = BaseMenu.Group;
+export const RadioGroup = BaseMenu.RadioGroup;
 export const SubmenuRoot = BaseMenu.SubmenuRoot;
 export const ContextMenuRoot = BaseContextMenu.Root;
 
@@ -57,7 +59,8 @@ type ContextPopupProps = Omit<
 
 type PopupProps = ContextPopupProps & {
 	/** Side relative to the trigger. Defaults to `top` (opens upward). */
-	side?: 'top' | 'right' | 'bottom' | 'left';
+	side?: ComponentPropsWithoutRef< typeof BaseMenu.Positioner >[ 'side' ];
+	anchor?: ComponentPropsWithoutRef< typeof BaseMenu.Positioner >[ 'anchor' ];
 	align?: 'start' | 'center' | 'end';
 	sideOffset?: number;
 	alignOffset?: number;
@@ -69,6 +72,7 @@ type PopupProps = ContextPopupProps & {
 export function Popup( {
 	children,
 	side = 'top',
+	anchor,
 	align = 'start',
 	sideOffset = 4,
 	alignOffset,
@@ -79,6 +83,7 @@ export function Popup( {
 		<BaseMenu.Portal>
 			<BaseMenu.Positioner
 				side={ side }
+				anchor={ anchor }
 				align={ align }
 				sideOffset={ sideOffset }
 				alignOffset={ alignOffset }
@@ -97,9 +102,11 @@ export function Popup( {
 	);
 }
 
-/** A submenu's popup, opening to the right with its first item level with the trigger. */
+/** A submenu's popup, opening outward with its first item level with the trigger. */
 export function SubmenuPopup( props: Omit< PopupProps, 'side' | 'align' > ) {
-	return <Popup side="right" align="start" sideOffset={ 10 } alignOffset={ -6 } { ...props } />;
+	return (
+		<Popup side="inline-end" align="start" sideOffset={ 10 } alignOffset={ -6 } { ...props } />
+	);
 }
 
 /** Popup for context menus, anchored at the pointer and opening to its right. */
@@ -170,3 +177,22 @@ export function Shortcut( { children }: { children: ReactNode } ) {
 export function Separator( { className }: { className?: string } ) {
 	return <BaseMenu.Separator className={ clsx( surface.separator, className ) } />;
 }
+
+export const RadioItem = forwardRef<
+	ElementRef< typeof BaseMenu.RadioItem >,
+	ComponentPropsWithoutRef< typeof BaseMenu.RadioItem >
+>( function RadioItem( { className, children, ...props }, ref ) {
+	return (
+		<BaseMenu.RadioItem
+			ref={ ref }
+			closeOnClick
+			className={ clsx( surface.item, className ) }
+			{ ...props }
+		>
+			{ children }
+			<BaseMenu.RadioItemIndicator className={ styles.radioIndicator }>
+				<CheckIcon />
+			</BaseMenu.RadioItemIndicator>
+		</BaseMenu.RadioItem>
+	);
+} );

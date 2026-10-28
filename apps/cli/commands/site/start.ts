@@ -8,7 +8,8 @@ import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/si
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
-import { StudioArgv } from 'cli/types';
+import type { builder } from 'cli/commands/site/start.command';
+import type { CommandArgs } from 'cli/types';
 
 const defaultLogger = new Logger< LoggerAction >();
 
@@ -111,35 +112,15 @@ async function startSite(
 		await disconnectFromDaemon();
 	}
 }
-
-export const registerCommand = ( yargs: StudioArgv ) => {
-	return yargs.command( {
-		command: 'start',
-		describe: __( 'Start site' ),
-		builder: ( yargs ) => {
-			return yargs
-				.option( 'skip-browser', {
-					type: 'boolean',
-					describe: __( 'Skip opening the site in browser after starting' ),
-					default: false,
-				} )
-				.option( 'skip-log-details', {
-					type: 'boolean',
-					describe: __( 'Skip printing site URL and admin credentials after starting' ),
-					default: false,
-				} );
-		},
-		handler: async ( argv ) => {
-			try {
-				await runCommand( argv.path, argv.skipBrowser, argv.skipLogDetails );
-			} catch ( error ) {
-				if ( error instanceof LoggerError ) {
-					defaultLogger.reportError( error );
-				} else {
-					const loggerError = new LoggerError( __( 'Failed to start site' ), error );
-					defaultLogger.reportError( loggerError );
-				}
-			}
-		},
-	} );
-};
+export async function commandHandler( argv: CommandArgs< typeof builder > ) {
+	try {
+		await runCommand( argv.path, argv.skipBrowser, argv.skipLogDetails );
+	} catch ( error ) {
+		if ( error instanceof LoggerError ) {
+			defaultLogger.reportError( error );
+		} else {
+			const loggerError = new LoggerError( __( 'Failed to start site' ), error );
+			defaultLogger.reportError( loggerError );
+		}
+	}
+}

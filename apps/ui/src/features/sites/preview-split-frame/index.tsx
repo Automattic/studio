@@ -39,7 +39,9 @@ interface PreviewSplitFrameProps {
 	// The chat is hidden: the content column collapses the same way, while the
 	// sidebar stays.
 	chatHidden?: boolean;
-	// Drawn over the top inline-end corner, above whichever pane is there.
+	// Drawn over the top inline-start and inline-end corners, above whichever
+	// pane is there.
+	start?: ReactNode;
 	actions?: ReactNode;
 	// Open or close without the slide, as when a stopping site drops its preview.
 	instant?: boolean;
@@ -50,6 +52,7 @@ export function PreviewSplitFrame( {
 	preview,
 	previewOpen = false,
 	chatHidden = false,
+	start,
 	actions,
 	instant = false,
 	children,
@@ -83,9 +86,13 @@ export function PreviewSplitFrame( {
 			open: showPreview,
 			collapsed: contentCollapsed,
 		} );
-		if ( previousPreview.mounted && preview != null && ! instant ) {
-			setAnimatingPreviewToggle( true );
-		}
+		setAnimatingPreviewToggle( previousPreview.mounted && preview != null && ! instant );
+	}
+
+	// Keep the outgoing site in the closing pane until it is hidden.
+	const [ lastVisiblePreview, setLastVisiblePreview ] = useState( () => preview );
+	if ( showPreview && lastVisiblePreview !== preview ) {
+		setLastVisiblePreview( () => preview );
 	}
 
 	useEffect( () => {
@@ -100,7 +107,8 @@ export function PreviewSplitFrame( {
 	}, [ animatingPreviewToggle, showPreview, contentCollapsed ] );
 
 	const previewVisible = showPreview || animatingPreviewToggle;
-	const renderedPreview = preview?.( { collapsed: ! previewVisible } );
+	const renderPreview = ! showPreview && animatingPreviewToggle ? lastVisiblePreview : preview;
+	const renderedPreview = renderPreview?.( { collapsed: ! showPreview } );
 	const rootStyle = {
 		// The collapsed content column keeps the split's last width in the
 		// geometry, so showing it again restores the previous split.
@@ -153,6 +161,7 @@ export function PreviewSplitFrame( {
 							showPreview && styles.previewSlotInteractive
 						) }
 						aria-hidden={ ! showPreview }
+						inert={ ! showPreview }
 					>
 						<WindowControlsCornerContext.Provider value={ previewInCorner }>
 							{ renderedPreview }
@@ -167,6 +176,7 @@ export function PreviewSplitFrame( {
 					/>
 				) : null }
 				{ isResizing ? <ResizeOverlay /> : null }
+				{ start }
 				{ actions }
 			</div>
 		</>

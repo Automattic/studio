@@ -81,7 +81,7 @@ describe( 'Chat model picker', () => {
 		expect( screen.getByRole( 'option', { name: /^Balanced/ } ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'option', { name: /^Strong/ } ) ).toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'option', { name: /^Fast/ } ) );
-		await waitFor( () => expect( onModelChange ).toHaveBeenCalledWith( 'fast' ) );
+		await waitFor( () => expect( onModelChange ).toHaveBeenCalledWith( 'fast', 'wpcom' ) );
 		await waitFor( () => expect( screen.queryByRole( 'option' ) ).not.toBeInTheDocument() );
 	} );
 

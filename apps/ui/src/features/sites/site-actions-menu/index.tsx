@@ -41,6 +41,7 @@ import {
 	ExportIcon,
 	ExternalLinkIcon,
 	GlobeIcon,
+	MailIcon,
 	PinIcon,
 	RenameIcon,
 	RotateCwIcon,
@@ -145,6 +146,7 @@ export function useSiteActions(
 			),
 		openAdmin: () => void goTo( '/wp-admin/' ),
 		openDatabase: () => void goTo( DATABASE_HOME_PATH ),
+		openEmail: () => void connector.openSiteEmailFolder( site.id ),
 		openDesignSystem: () => void goTo( DESIGN_SYSTEM_PREVIEW_PATH ),
 		openImport: () => importInputRef.current?.click(),
 		openDelete: () => setDeleteOpen( true ),
@@ -273,6 +275,10 @@ export function SiteActionsMenuItems( {
 					<Menu.Item onClick={ actions.openDatabase }>
 						<DatabaseIcon />
 						{ __( 'Database' ) }
+					</Menu.Item>
+					<Menu.Item onClick={ actions.openEmail }>
+						<MailIcon />
+						{ __( 'Email' ) }
 					</Menu.Item>
 					{ globalStyles.data ? (
 						<Menu.Item onClick={ actions.openDesignSystem }>

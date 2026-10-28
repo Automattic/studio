@@ -1,4 +1,3 @@
-import { confirm, input, password } from '@inquirer/prompts';
 import { validateAnthropicApiKey } from '@studio/common/ai/anthropic-key';
 import { DEFAULT_MODEL, toCustomModelId, type AiModelId } from '@studio/common/ai/models';
 import {
@@ -16,6 +15,7 @@ import {
 } from '@studio/common/ai/settings-store';
 import { readAuthToken, type CustomEndpoint } from '@studio/common/lib/shared-config';
 import { __, sprintf } from '@wordpress/i18n';
+import { confirm, input, password } from 'cli/lib/prompts';
 import { LoggerError } from 'cli/logger';
 
 export const AI_PROVIDERS: Record< AiProviderId, string > = {

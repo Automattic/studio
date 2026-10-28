@@ -1,6 +1,5 @@
 import fs from 'fs';
 import path from 'path';
-import { select, input } from '@inquirer/prompts';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import {
 	createBlueprintTempDir,
@@ -15,6 +14,7 @@ import { BlueprintCommandLoggerAction as LoggerAction } from '@studio/common/log
 import { SupportedPHPVersions, type SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
+import { select, input } from 'cli/lib/prompts';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { untildify } from 'cli/lib/utils';
 import {

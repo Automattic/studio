@@ -44,13 +44,13 @@ describe( 'AppToasts', () => {
 		expect( screen.queryByText( 'Uploading… 62%' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'expands a long error to read and copy it', async () => {
+	it( 'keeps Copy available before and after expanding an error', async () => {
 		vi.spyOn( HTMLElement.prototype, 'scrollHeight', 'get' ).mockReturnValue( 100 );
 		await render( <AppToasts /> );
 		act( () => {
 			showToast( { intent: 'error', title: 'Failed', description: 'Stack trace…' } );
 		} );
-		expect( screen.queryByRole( 'button', { name: 'Copy' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Copy' } ) ).toBeVisible();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'View notification: Failed' } ) );
 

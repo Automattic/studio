@@ -46,6 +46,7 @@ export type ToastMessage = {
 export type NoticeIntent = ToastIntent | 'warning';
 
 export type NoticeRecord = {
+	source?: 'studio';
 	id: string;
 	intent: NoticeIntent;
 	title: string;
@@ -112,11 +113,15 @@ function scheduleExpiry( toast: ToastMessage ) {
 }
 
 function recordNotice(
-	toastMessage: Pick< NoticeRecord, 'id' | 'intent' | 'title' | 'description' | 'action' >,
+	toastMessage: Pick<
+		NoticeRecord,
+		'id' | 'intent' | 'title' | 'description' | 'action' | 'source'
+	>,
 	isReplacement: boolean
 ) {
 	const record: NoticeRecord = {
 		id: toastMessage.id,
+		source: toastMessage.source,
 		intent: toastMessage.intent,
 		title: toastMessage.title,
 		description: toastMessage.description,
@@ -268,7 +273,7 @@ export function openStudioLogsAction( connector: Connector ): ToastAction | unde
 		return undefined;
 	}
 	return {
-		label: __( 'Open WordPress Studio Logs' ),
+		label: __( 'Open logs' ),
 		onClick: () => {
 			void connector.openStudioLogs().catch( ( error ) => {
 				console.error( 'Failed to open Studio logs:', error );
@@ -381,7 +386,7 @@ export function syncCardNotices(
 		const content = [ card.intent, card.title, card.description ?? '' ].join( '\n' );
 		next.set( card.id, content );
 		if ( loggedCards.get( card.id ) !== content ) {
-			recordNotice( card, loggedCards.has( card.id ) );
+			recordNotice( { ...card, source: 'studio' }, loggedCards.has( card.id ) );
 			changed = true;
 		}
 	}

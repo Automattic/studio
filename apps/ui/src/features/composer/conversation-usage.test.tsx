@@ -80,13 +80,8 @@ describe( 'Conversation usage and model picker', () => {
 		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
 		await user.click( await screen.findByRole( 'button', { name: 'Model' } ) );
 		await user.click( await screen.findByRole( 'option', { name: /^Sonnet 5/ } ) );
-		await waitFor( () =>
-			expect( connector.setSessionProvider ).toHaveBeenCalledWith(
-				expect.any( String ),
-				'anthropic-api-key',
-				'claude-sonnet-5'
-			)
-		);
+		expect( connector.createSession ).not.toHaveBeenCalled();
+		expect( connector.setSessionProvider ).not.toHaveBeenCalled();
 		await waitFor( () =>
 			expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveTextContent( 'Sonnet 5' )
 		);
@@ -94,5 +89,18 @@ describe( 'Conversation usage and model picker', () => {
 			'aria-description',
 			expect.stringContaining( 'AI credits:' )
 		);
+		await user.type(
+			screen.getByRole( 'combobox', { name: 'Message WordPress Studio' } ),
+			'Help me plan'
+		);
+		await user.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+		await waitFor( () =>
+			expect( connector.setSessionProvider ).toHaveBeenCalledWith(
+				expect.any( String ),
+				'anthropic-api-key',
+				'claude-sonnet-5'
+			)
+		);
+		expect( connector.createSession ).toHaveBeenCalledTimes( 1 );
 	} );
 } );

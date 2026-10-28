@@ -2,6 +2,8 @@ import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { vi } from 'vitest';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { getSiteEmailDirectory } from 'cli/lib/site-email';
+import { getPrettyPath } from 'cli/lib/utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { runCommand } from '../status';
 vi.mock( 'cli/lib/cli-config/sites', async () => {
@@ -71,6 +73,7 @@ describe( 'CLI: studio site status', () => {
 					{
 						siteUrl: 'http://localhost:8080/',
 						sitePath: '/path/to/site',
+						emailPath: getPrettyPath( getSiteEmailDirectory( 'site-1' ) ),
 						status: '🔴 Offline',
 						isOnline: false,
 						phpVersion: '8.0',
@@ -126,6 +129,7 @@ describe( 'CLI: studio site status', () => {
 						siteUrl: 'http://localhost:8080/',
 						autoLoginUrl: 'http://localhost:8080/studio-auto-login?redirect_to=%2Fwp-admin%2F',
 						sitePath: '/path/to/site',
+						emailPath: getPrettyPath( getSiteEmailDirectory( 'site-1' ) ),
 						status: '🟢 Online',
 						isOnline: true,
 						phpVersion: '8.0',
@@ -172,6 +176,7 @@ describe( 'CLI: studio site status', () => {
 					{
 						siteUrl: 'http://localhost:8080/',
 						sitePath: '/path/to/site',
+						emailPath: getPrettyPath( getSiteEmailDirectory( 'site-1' ) ),
 						status: '🔴 Offline',
 						isOnline: false,
 						fileAccess: 'Site directory',

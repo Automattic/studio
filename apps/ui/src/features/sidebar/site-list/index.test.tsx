@@ -145,20 +145,20 @@ describe( 'sidebar site list', () => {
 		}
 	);
 
-	it( 'opens the latest active chat, or the one last open in the site', async () => {
+	it( 'opens the site draft even when it has recent or previously visited chats', async () => {
 		const sessions = [
 			chat( 'older', '2026-06-01T12:00:00.000Z' ),
 			chat( 'latest', '2026-06-20T12:00:00.000Z' ),
 		];
 		const { history, unmount } = await setup( { sessions, path: '/sites/two' } );
 		fireEvent.click( await siteButton( 'My site' ) );
-		await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/latest' ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
 		unmount();
 
 		rememberVisit( 'one', 'older' );
 		const view = await setup( { sessions, path: '/sites/two' } );
 		fireEvent.click( await siteButton( 'My site' ) );
-		await waitFor( () => expect( view.history.location.pathname ).toBe( '/sessions/older' ) );
+		await waitFor( () => expect( view.history.location.pathname ).toBe( '/sites/one/new' ) );
 	} );
 
 	it( 'lists sites while chats are still loading', async () => {
@@ -231,7 +231,7 @@ describe( 'sidebar site list', () => {
 		expect( titles() ).toEqual( [ 'Prompt of older', 'Prompt of latest' ] );
 		await waitFor( () =>
 			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
-				{ sidebarChatOrder: { one: [ 'older', 'latest' ] } },
+				{ sidebarChatOrder: { one: [ 'older', 'latest' ] }, sidebarChatSort: 'manual' },
 				undefined
 			)
 		);
@@ -267,4 +267,90 @@ describe( 'sidebar site list', () => {
 			).not.toBeInTheDocument();
 		}
 	);
+} );
+
+it( 'switches a status-sorted site drag to manual order and retains pinned site positions', async () => {
+	const pinnedSite = makeSite( { id: 'hidden', name: 'Pinned site', sortOrder: 2000 } );
+	const { connector } = await setup( {
+		sites: [ { ...mySite, sortOrder: 1000 }, pinnedSite, { ...runningSite, sortOrder: 3000 } ],
+		preferences: { sidebarPins: [ 'site:hidden' ], sidebarSiteSort: 'status' },
+	} );
+	const [ running, stopped ] = stackRows( [
+		await siteButton( 'Running site' ),
+		await siteButton( 'My site' ),
+	] );
+	drag( running, 60 );
+	expect( stopped ).toHaveAttribute( 'data-drop-position', 'after' );
+	fireEvent( window, pointer( 'pointerup', 60 ) );
+	await waitFor( () => expect( connector.state.preferences.sidebarSiteSort ).toBe( 'manual' ) );
+	expect( connector.updateSitesSortOrder ).toHaveBeenCalledWith( [
+		{ siteId: 'one', sortOrder: 1000 },
+		{ siteId: 'hidden', sortOrder: 2000 },
+		{ siteId: 'two', sortOrder: 3000 },
+	] );
+} );
+
+it( 'switches a type-sorted pin drag to manual order without dropping hidden pins', async () => {
+	const { connector } = await setup( {
+		sessions: [
+			chat( 'old', '2026-01-01T00:00:00Z' ),
+			chat( 'hidden', '2026-01-02T00:00:00Z', true ),
+		],
+		preferences: { sidebarPins: [ 'chat:old', 'chat:hidden', 'site:two' ] },
+		path: '/sites/one',
+	} );
+	const pinned = within( await screen.findByRole( 'group', { name: 'Pinned' } ) );
+	const [ site, chatRow ] = stackRows( [
+		pinned.getByRole( 'button', { name: 'Running site' } ),
+		pinned.getByRole( 'button', { name: 'Prompt of old' } ),
+	] );
+	drag( site, 60 );
+	expect( chatRow ).toHaveAttribute( 'data-drop-position', 'after' );
+	fireEvent( window, pointer( 'pointerup', 60 ) );
+	await waitFor( () => expect( connector.state.preferences.sidebarPinnedSort ).toBe( 'manual' ) );
+	expect( connector.state.preferences.sidebarPins ).toEqual( [
+		'chat:old',
+		'chat:hidden',
+		'site:two',
+	] );
+} );
+
+it( 'retains pinned, archived, and paginated chats when dragging nested chats', async () => {
+	const ids = [ 'one', 'two', 'three', 'four', 'five', 'six' ];
+	const saved = [ 'pinned', 'archived', ...ids ];
+	const { connector } = await setup( {
+		sessions: [
+			chat( 'pinned', '2026-06-10T00:00:00Z' ),
+			chat( 'archived', '2026-06-09T00:00:00Z', true ),
+			...ids.map( ( id, index ) => chat( id, `2026-06-0${ 6 - index }T00:00:00Z` ) ),
+		],
+		preferences: {
+			sidebarPins: [ 'chat:pinned' ],
+			sidebarChatOrder: { one: saved },
+			sidebarChatSort: 'updated',
+		},
+		path: '/sites/one',
+	} );
+	const chats = within( await screen.findByRole( 'group', { name: 'My site chats' } ) );
+	await waitFor( () =>
+		expect( chats.getAllByRole( 'button', { name: /^Prompt of / } ) ).toHaveLength( 5 )
+	);
+	const [ first, second ] = stackRows( chats.getAllByRole( 'button', { name: /^Prompt of / } ) );
+	drag( first, 60 );
+	expect( second ).toHaveAttribute( 'data-drop-position', 'after' );
+	fireEvent( window, pointer( 'pointerup', 60 ) );
+	fireEvent.click( first );
+	await waitFor( () => expect( connector.state.preferences.sidebarChatSort ).toBe( 'manual' ) );
+	expect( connector.state.preferences.sidebarChatOrder?.one ).toEqual( [
+		'pinned',
+		'archived',
+		'two',
+		'one',
+		'three',
+		'four',
+		'five',
+		'six',
+	] );
+	fireEvent.click( chats.getByRole( 'button', { name: 'Show more' } ) );
+	expect( await chats.findByRole( 'button', { name: 'Prompt of six' } ) ).toBeVisible();
 } );

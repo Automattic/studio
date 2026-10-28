@@ -7,7 +7,7 @@ describe( 'the empty workspace', () => {
 	it( 'leaves Add site to the welcome, which opens it itself', async () => {
 		renderApp( { path: '/sites?welcome=true' } );
 		expect(
-			await screen.findByRole( 'alertdialog', { name: 'Welcome to WordPress Studio' } )
+			await screen.findByRole( 'dialog', { name: 'Welcome to WordPress Studio' } )
 		).toBeVisible();
 		expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument();
 	} );

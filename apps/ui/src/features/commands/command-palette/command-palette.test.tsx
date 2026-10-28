@@ -406,7 +406,7 @@ describe( 'Command palette in the Studio workspace', () => {
 				chat( { id: 'missing', title: 'Missing site chat', ownerSiteId: 'missing' } ),
 			],
 		} );
-		await waitFor( () => expect( history.location.pathname ).toMatch( /^\/sessions\// ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
 		pressK();
 		const recentGroup = await screen.findByRole( 'group', { name: 'Recent' } );
 		expect(

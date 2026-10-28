@@ -111,11 +111,6 @@
 	flex: 0 0 auto;
 }
 
-/* Inside the composer the menu chevrons keep the text color. */
-.shell [data-dropdown-indicator] {
-	color: var( --foreground );
-}
-
 .dialogDescription {
 	text-wrap: pretty;
 }

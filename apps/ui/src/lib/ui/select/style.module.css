@@ -23,7 +23,7 @@
 	.value {
 		display: flex;
 		flex: 1;
-		gap: var( --space-1_5 );
+		gap: var( --space-1 );
 		align-items: center;
 		overflow: hidden;
 		text-align: start;

@@ -104,12 +104,12 @@
 		text-align: start;
 	}
 
-	[data-variant='sidebar'] > .trigger:is( :hover, [data-active], [data-highlighted] ) {
+	[data-variant='sidebar'] > .trigger:where( :hover, [data-highlighted] ) {
 		background-color: var( --hover );
 	}
 
-	[data-variant='sidebar'] > .trigger:focus-visible {
-		background-color: transparent;
+	[data-variant='sidebar'] > .trigger[data-active] {
+		background-color: var( --selected );
 	}
 
 	.indicator {

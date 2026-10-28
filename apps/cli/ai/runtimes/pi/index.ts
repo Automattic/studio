@@ -68,7 +68,7 @@ import { changesPreview } from './preview-reload';
 import { SitePin } from './site-pin';
 import { SkillToolScope } from './skill-tool-scope';
 import { stripStaleImagesFromContext } from './strip-stale-images';
-import { ensureStudioShimDirectory, getStudioShims, prependToPath } from './studio-wp-shim';
+import { agentShell, ensureStudioShimDirectory, getStudioShims } from './studio-wp-shim';
 import { createSubagentTool } from './subagent';
 import { withTextOnlyImages } from './text-only-read';
 import {
@@ -992,7 +992,7 @@ function readFileText( file: string ): string | undefined {
 // module's sibling; `STUDIO_CLI_BIN` points elsewhere in development.
 function getStudioWpSpawnHook() {
 	const cliPath = process.env.STUDIO_CLI_BIN ?? path.join( import.meta.dirname, 'main.mjs' );
-	return prependToPath( ensureStudioShimDirectory( getStudioShims( process.execPath, cliPath ) ) );
+	return agentShell( ensureStudioShimDirectory( getStudioShims( process.execPath, cliPath ) ) );
 }
 
 function buildAgentTools(

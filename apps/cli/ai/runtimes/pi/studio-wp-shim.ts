@@ -49,7 +49,7 @@ export function ensureStudioShimDirectory(
 	return directory;
 }
 
-export function prependToPath( directory: string ): BashSpawnHook {
+function prependToPath( directory: string ): BashSpawnHook {
 	return ( context ) => {
 		const pathKey =
 			Object.keys( context.env ).find( ( key ) => key.toUpperCase() === 'PATH' ) ?? 'PATH';
@@ -62,4 +62,25 @@ export function prependToPath( directory: string ): BashSpawnHook {
 			},
 		};
 	};
+}
+
+/**
+ * npm in the agent's shell installs what its cache holds from the cache, and
+ * asks the registry only for what it lacks: npm's prefer-offline config
+ * ("staleness checks for cached data will be bypassed, but missing data will
+ * be requested from the server", npm help config). Without it, an install
+ * with no lockfile asks the registry about every cached package, which for
+ * the 1244 packages @wordpress/scripts brings took 366s through a slow
+ * registry against 3s from the cache. A prefer-offline or prefer-online the
+ * environment already sets is left as it is.
+ */
+const preferNpmCache: BashSpawnHook = ( context ) =>
+	Object.keys( context.env ).some( ( key ) => /^npm_config_prefer_o(ff|n)line$/i.test( key ) )
+		? context
+		: { ...context, env: { ...context.env, npm_config_prefer_offline: 'true' } };
+
+/** The agent's shell: the shims in `directory` first on its PATH, and npm preferring its cache. */
+export function agentShell( directory: string ): BashSpawnHook {
+	const shims = prependToPath( directory );
+	return ( context ) => preferNpmCache( shims( context ) );
 }

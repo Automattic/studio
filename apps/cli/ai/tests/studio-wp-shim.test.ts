@@ -4,9 +4,9 @@ import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+	agentShell,
 	ensureStudioShimDirectory,
 	getStudioShims,
-	prependToPath,
 } from 'cli/ai/runtimes/pi/studio-wp-shim';
 
 describe.skipIf( process.platform === 'win32' )( 'studio wp shim', () => {
@@ -47,7 +47,7 @@ describe.skipIf( process.platform === 'win32' )( 'studio wp shim', () => {
 				getStudioShims( process.execPath, cliPath ),
 				path.join( root, 'agent-bin' )
 			);
-			const { env } = prependToPath( directory )( {
+			const { env } = agentShell( directory )( {
 				command: '',
 				cwd: root,
 				env: { PATH: '/usr/bin:/bin' },
@@ -74,7 +74,7 @@ describe.skipIf( process.platform === 'win32' )( 'studio wp shim', () => {
 			getStudioShims( process.execPath, cliPath ),
 			path.join( root, 'agent-bin' )
 		);
-		const { env } = prependToPath( directory )( {
+		const { env } = agentShell( directory )( {
 			command: '',
 			cwd: root,
 			env: { PATH: '/usr/bin:/bin' },
@@ -97,4 +97,27 @@ describe.skipIf( process.platform === 'win32' )( 'studio wp shim', () => {
 			ensureStudioShimDirectory( shims, agentBin )
 		);
 	} );
+
+	it.each< { env: Record< string, string >; preferOffline: string } >( [
+		{ env: {}, preferOffline: 'true' },
+		{ env: { NPM_CONFIG_PREFER_ONLINE: 'true' }, preferOffline: 'false' },
+		{ env: { npm_config_prefer_offline: 'false' }, preferOffline: 'false' },
+	] )(
+		'npm in the agent shell prefers its cache unless told otherwise: $env',
+		( { env, preferOffline } ) => {
+			const result = agentShell( path.join( root, 'agent-bin' ) )( {
+				command: '',
+				cwd: root,
+				env: { PATH: process.env.PATH ?? '', HOME: root, ...env },
+			} );
+
+			const output = execFileSync( 'npm', [ 'config', 'get', 'prefer-offline' ], {
+				cwd: root,
+				env: result.env,
+				encoding: 'utf8',
+			} );
+
+			expect( output.trim() ).toBe( preferOffline );
+		}
+	);
 } );

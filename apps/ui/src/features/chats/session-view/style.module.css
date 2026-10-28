@@ -20,7 +20,7 @@
 	display: flex;
 	align-items: center;
 	gap: var( --space-1 );
-	padding-inline: var( --space-3 );
+	padding-inline: var( --band-inset );
 	height: var( --band-height );
 	transition: padding var( --motion-duration-layout ) var( --motion-ease-layout );
 	background-color: var( --chrome );
@@ -32,12 +32,12 @@
 .headerLead {
 	display: flex;
 	align-items: center;
-	gap: var( --space-1 );
+	gap: var( --space-0_5 );
 	min-width: 0;
 }
 
 .headerWithSiteActions {
-	padding-inline-end: var( --space-2 );
+	padding-inline-end: var( --band-inset );
 }
 
 .headerSidebarCollapsed {
@@ -70,13 +70,6 @@
 
 .headerSpacer {
 	flex: 1;
-}
-
-.headerActions {
-	display: flex;
-	align-items: center;
-	gap: var( --space-1 );
-	-webkit-app-region: no-drag;
 }
 
 .scroll {

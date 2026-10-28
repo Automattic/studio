@@ -139,7 +139,7 @@ describe( 'site lifecycle and preview', () => {
 				target: { value: 'Keep this site draft' },
 			} );
 			if ( ! chatVisible ) {
-				fireEvent.click( screen.getByRole( 'button', { name: 'Hide chat' } ) );
+				fireEvent.click( screen.getByRole( 'button', { name: 'Close chat' } ) );
 			}
 			const stop = deferred();
 			connector.stopSite.mockImplementationOnce( () => stop.promise );

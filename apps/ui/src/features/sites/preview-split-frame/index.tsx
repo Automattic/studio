@@ -1,13 +1,6 @@
 import { __, isRTL } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import {
-	createContext,
-	useContext,
-	useEffect,
-	useState,
-	type CSSProperties,
-	type ReactNode,
-} from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
 import { PREVIEW_SPLIT_MIN_WIDTH } from '@/data/resizable-panels';
 import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
@@ -16,32 +9,22 @@ import { ResizeHandle, ResizeOverlay } from '@/lib/ui';
 import styles from './style.module.css';
 import { usePreviewSplit } from './use-preview-split';
 
-// Keep in sync with the content-column transition duration in style.module.css.
-
-// Whether the preview shows beside the content, for controls in the content
-// column that only make sense next to it.
-const PreviewBesideContext = createContext( false );
-
-export function usePreviewBeside(): boolean {
-	return useContext( PreviewBesideContext );
-}
-
 export interface PreviewSplitFramePreviewProps {
 	collapsed: boolean;
 }
 
 interface PreviewSplitFrameProps {
+	navigationKey?: string;
+	header?: ReactNode;
 	// The preview panel content. Kept mounted while closed so the webview stays
 	// warm. The split geometry is owned by usePreviewSplit; this component only
-	// handles the open/close slide animation.
+	// handles layout transitions.
 	preview?: ( props: PreviewSplitFramePreviewProps ) => ReactNode;
 	previewOpen?: boolean;
 	// The chat is hidden: the content column collapses the same way, while the
 	// sidebar stays.
 	chatHidden?: boolean;
-	// Drawn over the top inline-start and inline-end corners, above whichever
-	// pane is there.
-	start?: ReactNode;
+	// Drawn over the top inline-end corner, above whichever pane is there.
 	actions?: ReactNode;
 	// Open or close without the slide, as when a stopping site drops its preview.
 	instant?: boolean;
@@ -49,10 +32,11 @@ interface PreviewSplitFrameProps {
 }
 
 export function PreviewSplitFrame( {
+	navigationKey,
+	header,
 	preview,
 	previewOpen = false,
 	chatHidden = false,
-	start,
 	actions,
 	instant = false,
 	children,
@@ -65,28 +49,39 @@ export function PreviewSplitFrame( {
 	const isSidebarCollapsed = useSidebarCollapsed();
 	const resizable = ( containerWidth ?? Infinity ) >= PREVIEW_SPLIT_MIN_WIDTH;
 
-	// Animate only open/close/hide-chat toggles of an already-mounted preview —
+	// Animate layout changes of an already-mounted preview —
 	// never the initial layout, so a route loading with the preview visible
 	// doesn't replay the slide-in. The render-phase update lands the transition
 	// class in the same commit as the width change; an effect-based update would
 	// race it.
 	const [ animatingPreviewToggle, setAnimatingPreviewToggle ] = useState( false );
 	const [ previousPreview, setPreviousPreview ] = useState( {
+		navigationKey,
 		mounted: preview != null,
 		open: showPreview,
 		collapsed: contentCollapsed,
 	} );
 	if (
+		previousPreview.navigationKey !== navigationKey ||
 		previousPreview.mounted !== ( preview != null ) ||
 		previousPreview.open !== showPreview ||
 		previousPreview.collapsed !== contentCollapsed
 	) {
 		setPreviousPreview( {
+			navigationKey,
 			mounted: preview != null,
 			open: showPreview,
 			collapsed: contentCollapsed,
 		} );
-		setAnimatingPreviewToggle( previousPreview.mounted && preview != null && ! instant );
+		const toggled =
+			previousPreview.open !== showPreview || previousPreview.collapsed !== contentCollapsed;
+		setAnimatingPreviewToggle(
+			toggled &&
+				previousPreview.navigationKey === navigationKey &&
+				previousPreview.mounted &&
+				preview != null &&
+				! instant
+		);
 	}
 
 	// Keep the outgoing site in the closing pane until it is hidden.
@@ -99,12 +94,11 @@ export function PreviewSplitFrame( {
 		if ( ! animatingPreviewToggle ) {
 			return;
 		}
-		const timeoutId = window.setTimeout(
-			() => setAnimatingPreviewToggle( false ),
-			getMotionDuration( 'layout' )
-		);
+		const timeoutId = window.setTimeout( () => {
+			setAnimatingPreviewToggle( false );
+		}, getMotionDuration( 'layout' ) );
 		return () => window.clearTimeout( timeoutId );
-	}, [ animatingPreviewToggle, showPreview, contentCollapsed ] );
+	}, [ animatingPreviewToggle, navigationKey, showPreview, contentCollapsed ] );
 
 	const previewVisible = showPreview || animatingPreviewToggle;
 	const renderPreview = ! showPreview && animatingPreviewToggle ? lastVisiblePreview : preview;
@@ -113,6 +107,7 @@ export function PreviewSplitFrame( {
 		// The collapsed content column keeps the split's last width in the
 		// geometry, so showing it again restores the previous split.
 		'--preview-frame-content-width': contentCollapsed ? '0px' : contentWidthVar,
+		'--preview-header-content-width': showPreview && ! contentCollapsed ? contentWidthVar : '0px',
 	} as CSSProperties;
 	// Keep the zero-width column visible while it animates shut, then hide it
 	// so the (still mounted) chat can't be reached by focus or a screen reader.
@@ -130,15 +125,15 @@ export function PreviewSplitFrame( {
 				ref={ rootRef }
 				className={ clsx(
 					styles.root,
+					header && styles.rootWithHeader,
 					showPreview && styles.rootPreviewOpen,
 					isResizing && styles.rootPreviewResizing,
 					animatingPreviewToggle && styles.rootPreviewAnimating,
-					showPreview &&
-						! contentCollapsed &&
-						! animatingPreviewToggle && [ styles.rootEdge, 'studio-column-edge' ]
+					showPreview && ! contentCollapsed && ! animatingPreviewToggle && styles.rootEdge
 				) }
 				style={ rootStyle }
 			>
+				{ header }
 				<div
 					className={ clsx(
 						styles.contentColumn,
@@ -148,9 +143,7 @@ export function PreviewSplitFrame( {
 					aria-hidden={ contentHidden || undefined }
 				>
 					<WindowControlsCornerContext.Provider value={ contentInCorner }>
-						<PreviewBesideContext.Provider value={ showPreview && ! contentCollapsed }>
-							{ children }
-						</PreviewBesideContext.Provider>
+						{ children }
 					</WindowControlsCornerContext.Provider>
 				</div>
 				{ preview ? (
@@ -176,7 +169,6 @@ export function PreviewSplitFrame( {
 					/>
 				) : null }
 				{ isResizing ? <ResizeOverlay /> : null }
-				{ start }
 				{ actions }
 			</div>
 		</>

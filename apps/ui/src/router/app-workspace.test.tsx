@@ -364,7 +364,7 @@ describe( 'Studio workspace', () => {
 		expect( await screen.findByRole( 'button', { name: 'Start My site' } ) ).toBeEnabled();
 		expect( await findComposer() ).toBeEnabled();
 		expect( screen.getByRole( 'button', { name: 'Send message' } ) ).toBeDisabled();
-		expect( screen.queryByRole( 'button', { name: 'Hide chat' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Close chat' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'keeps a resolved live preview beside chat while the local site is stopped', async () => {
@@ -406,7 +406,7 @@ describe( 'Studio workspace', () => {
 			],
 		} );
 		await findComposer();
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Hide chat' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Close chat' } ) );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Stopped site' } ) );
 		await screen.findByRole( 'button', { name: 'Site menu' } );
 		const input = await findComposer();
@@ -416,7 +416,7 @@ describe( 'Studio workspace', () => {
 		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'two' ) );
 		await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
 		expect( await findComposer() ).toHaveValue( 'Keep this draft' );
-		expect( screen.getByRole( 'button', { name: 'Hide chat' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Close chat' } ) ).toBeVisible();
 	} );
 
 	it( 'keeps the chat draft while starting a site and recovering from a start failure', async () => {
@@ -445,11 +445,11 @@ describe( 'Studio workspace', () => {
 				sessions: [ chat( { id: 'settings-chat', title: 'Existing chat' } ) ],
 				path: '/sessions/settings-chat',
 			} );
-			await screen.findByRole( 'button', { name: 'Hide chat' } );
+			await screen.findByRole( 'button', { name: 'Close chat' } );
 			const input = await findComposer();
 			await waitFor( () => expect( input ).toBeEnabled() );
 			fireEvent.change( input, { target: { value: 'Keep this draft' } } );
-			fireEvent.click( await screen.findByRole( 'button', { name: 'Hide chat' } ) );
+			fireEvent.click( await screen.findByRole( 'button', { name: 'Close chat' } ) );
 			await waitFor( () => expect( input.closest( '[aria-hidden="true"]' ) ).not.toBeNull() );
 			const chatPanel = input.closest( '[aria-hidden="true"]' )!;
 			fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
@@ -472,23 +472,39 @@ describe( 'Studio workspace', () => {
 		}
 	);
 
-	it( 'keeps the site menu in place and reopens a hidden chat beside it', async () => {
+	it( 'keeps one workspace header and chat toggle while preserving the draft', async () => {
 		setup( {
 			signedIn: true,
 			sites: [ site( { running: true } ) ],
 			sessions: [ chat( { id: 'hidden-chat', title: 'Existing chat' } ) ],
 			path: '/sessions/hidden-chat',
 		} );
-		const hide = await screen.findByRole( 'button', { name: 'Hide chat' } );
+		const toggle = await screen.findByRole( 'button', { name: 'Close chat', pressed: true } );
 		const input = await findComposer();
+		await waitFor( () => expect( input ).toBeEnabled() );
+		fireEvent.change( input, { target: { value: 'Keep this unsent idea' } } );
 		const menu = screen.getByRole( 'button', { name: 'Site menu' } );
-		expect( screen.queryByRole( 'button', { name: 'Show chat' } ) ).not.toBeInTheDocument();
-		fireEvent.click( hide );
+		const header = screen
+			.getByRole( 'textbox', { name: 'Address' } )
+			.closest< HTMLElement >( '[data-site-header]' );
+		expect( header ).toContainElement( menu );
+		expect( header ).toContainElement( toggle );
+		expect( screen.getByRole( 'main' ).querySelectorAll( '[data-site-header]' ) ).toHaveLength( 1 );
+		expect( screen.getByRole( 'complementary', { name: 'Site preview' } ) ).not.toContainElement(
+			header
+		);
+		const frame = document.querySelector( 'iframe' );
+		toggle.focus();
+		fireEvent.click( toggle );
 		await waitFor( () => expect( input.closest( '[aria-hidden="true"]' ) ).not.toBeNull() );
+		expect( screen.getByRole( 'button', { name: 'Open chat', pressed: false } ) ).toBe( toggle );
+		expect( toggle ).toHaveFocus();
 		expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBe( menu );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Show chat' } ) );
+		fireEvent.click( toggle );
 		await waitFor( () => expect( input.closest( '[aria-hidden="true"]' ) ).toBeNull() );
-		expect( screen.queryByRole( 'button', { name: 'Show chat' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Close chat', pressed: true } ) ).toBe( toggle );
+		expect( input ).toHaveValue( 'Keep this unsent idea' );
+		expect( document.querySelector( 'iframe' ) ).toBe( frame );
 	} );
 
 	it( 'opens a new draft when the chat panel is hidden', async () => {
@@ -497,7 +513,7 @@ describe( 'Studio workspace', () => {
 			sites: [ site( { running: true } ) ],
 		} );
 		await findComposer();
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Hide chat' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Close chat' } ) );
 		await waitFor( () =>
 			expect(
 				screen

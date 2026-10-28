@@ -10,30 +10,10 @@
 	-webkit-app-region: no-drag;
 }
 
-/* Matches the start padding of the headers under it. */
-.start {
-	position: absolute;
-	top: 0;
-	inset-inline-start: 0;
-	z-index: 1;
-	display: flex;
-	align-items: center;
-	gap: var( --space-1 );
-	height: var( --band-height );
-	padding-inline-start: var( --space-3 );
-	transition: padding var( --motion-duration-layout ) var( --motion-ease-layout );
-	-webkit-app-region: no-drag;
-}
-
-/* The headers' own traffic-light padding, physical like theirs. */
-.startTrafficLights {
-	padding-left: var( --traffic-light-space );
-}
-
 .actions {
 	display: flex;
 	align-items: center;
-	gap: var( --space-1 );
+	gap: var( --band-inset );
 }
 
 .item,

@@ -1,6 +1,10 @@
 import crypto from 'node:crypto';
 import { z } from 'zod';
-import { runCliCommand, type ExecuteCliCommand } from '@studio/common/lib/cli-process';
+import {
+	isCliCommandDone,
+	runCliCommand,
+	type ExecuteCliCommand,
+} from '@studio/common/lib/cli-process';
 import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
 import { snapshotSchema, type Snapshot } from '@studio/common/types/snapshot';
 
@@ -60,6 +64,9 @@ export function createSnapshotManager( ctx: SnapshotCommandContext ): SnapshotMa
 		const [ emitter ] = ctx.executeCliCommand( args, { output: 'capture', logPrefix: 'preview' } );
 
 		emitter.on( 'data', ( { data } ) => {
+			if ( isCliCommandDone( data ) ) {
+				return;
+			}
 			const parsed = snapshotEventSchema.safeParse( data );
 			if ( ! parsed.success ) {
 				console.error( 'Invalid snapshot event:', parsed.error );

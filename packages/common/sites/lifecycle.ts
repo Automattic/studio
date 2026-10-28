@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
+import { isCliCommandDone, type ExecuteCliCommand } from '@studio/common/lib/cli-process';
 import { getProxyPortConflictMessage } from '@studio/common/lib/domains';
 import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
-import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
 
 // Start / stop / delete a local site via the Studio CLI's one-shot `site`
 // commands, for the desktop main process and the `studio ui` server alike.
@@ -13,6 +13,11 @@ function runSiteCommand(
 ): Promise< void > {
 	return new Promise( ( resolve, reject ) => {
 		const [ emitter ] = execute( args, { output: 'capture' } );
+		emitter.on( 'data', ( { data } ) => {
+			if ( isCliCommandDone( data ) ) {
+				resolve();
+			}
+		} );
 		emitter.on( 'success', () => resolve() );
 		emitter.on( 'failure', ( { error } ) => {
 			error.baseMessage = baseMessage;

@@ -4,7 +4,7 @@
 
 		display: inline-flex;
 		flex-shrink: 0;
-		gap: var( --space-1_5 );
+		gap: var( --space-1 );
 		align-items: center;
 		justify-content: center;
 		max-width: 100%;
@@ -373,6 +373,18 @@
 
 	.button[data-shape='round'] {
 		border-radius: var( --radius-full );
+	}
+
+	.button[data-shape='round']:not( [data-size^='icon'], [data-size='inline'] ):not(
+			:has( > [data-icon='inline-start'] )
+		) {
+		padding-inline-start: var( --space-3 );
+	}
+
+	.button[data-shape='round']:not( [data-size^='icon'], [data-size='inline'] ):not(
+			:has( > [data-icon='inline-end'] )
+		) {
+		padding-inline-end: var( --space-3 );
 	}
 
 	.button[data-layout='row'] {

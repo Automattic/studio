@@ -60,11 +60,7 @@ function DesignSystemArtifact() {
 	return (
 		<div className={ styles.designSystemArtifact }>
 			<span>{ __( 'The design system was updated.' ) }</span>
-			<Button
-				variant="outline"
-				size="xs"
-				onClick={ () => preview?.navigate( DESIGN_SYSTEM_PREVIEW_PATH ) }
-			>
+			<Button size="sm" onClick={ () => preview?.navigate( DESIGN_SYSTEM_PREVIEW_PATH ) }>
 				<AppearanceIcon />
 				{ __( 'Open design system' ) }
 			</Button>

@@ -161,17 +161,21 @@ function isCoreLanguagePackInstalled( sitePath: string, locale: string ): boolea
 	);
 }
 
+/**
+ * Installs WordPress unless it already is. Returns whether it ran the installer,
+ * which also creates the admin user with the configured credentials.
+ */
 export async function installWordPress(
 	config: ServerConfig,
 	phpVersion: SupportedPHPVersion,
 	signal: AbortSignal,
 	finishInstallPath: string,
 	logToConsole: Logger
-): Promise< void > {
+): Promise< boolean > {
 	const alreadyInstalled = await isWordPressInstalled( config.sitePath, phpVersion, signal );
 	if ( alreadyInstalled ) {
 		logToConsole( `WordPress already installed; skipping installer` );
-		return;
+		return false;
 	}
 
 	const siteTitle = config.siteTitle ?? 'My WordPress Website';
@@ -240,4 +244,5 @@ export async function installWordPress(
 			);
 		}
 	}
+	return true;
 }

@@ -7,7 +7,7 @@ import { SessionUIProvider, useSessionPreviewUI } from '@/data/use-session-ui';
 import { SiteContextMenu } from '@/features/sites/stopped-site-preview';
 import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
-import { SiteActionsMenu } from './index';
+import { SiteMenu } from './index';
 import type { SyncSite } from '@/data/core';
 
 const DATABASE_PATH = '/phpmyadmin/index.php?route=/database/structure&db=wordpress';
@@ -69,7 +69,7 @@ function setup( {
 					<button>Site row</button>
 				</SiteContextMenu>
 			) : (
-				<SiteActionsMenu site={ site } />
+				<SiteMenu site={ site } />
 			) }
 			<PreviewProbe />
 		</SessionUIProvider>,
@@ -79,7 +79,7 @@ function setup( {
 		if ( contextMenu ) {
 			fireEvent.contextMenu( await screen.findByRole( 'button', { name: 'Site row' } ) );
 		} else {
-			fireEvent.click( await screen.findByRole( 'button', { name: 'Site actions for Selected' } ) );
+			fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 		}
 	};
 	return { ...view, connector, requests, open };
@@ -388,9 +388,10 @@ describe( 'Restart site', () => {
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Restart site' } ) );
 		await waitFor( () => expect( connector.stopSite ).toHaveBeenCalled() );
 		await waitFor( () =>
-			expect(
-				screen.getByRole( 'button', { name: 'Site actions for Selected' } )
-			).not.toHaveAttribute( 'aria-busy', 'true' )
+			expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).not.toHaveAttribute(
+				'aria-busy',
+				'true'
+			)
 		);
 		expect( connector.startSite ).not.toHaveBeenCalled();
 	} );

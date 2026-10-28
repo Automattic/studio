@@ -6,7 +6,7 @@ import { useWindowControlsInset } from '@/data/host/use-window-controls-inset';
 import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
 import {
-	SiteActionsMenu,
+	SiteMenu,
 	SiteHeaderSpace,
 	SiteHeaderStartSpace,
 	usePreviewBeside,
@@ -55,7 +55,7 @@ export function SessionHeader( {
 		>
 			<div data-site-header-reserved className={ styles.headerLead }>
 				{ startWidth !== null ? <SiteHeaderStartSpace /> : start }
-				{ site && startWidth === null ? <SiteActionsMenu site={ site } /> : null }
+				{ site && startWidth === null ? <SiteMenu site={ site } /> : null }
 				{ ! site && siteName ? (
 					<>
 						<GlobeIcon className={ styles.headerSiteIcon } />

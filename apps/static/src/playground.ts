@@ -47,7 +47,7 @@ async function rememberSiteOrigin( client: PlaygroundClient ): Promise< void > {
 	}
 }
 const DOCROOT = '/wordpress';
-const BRIDGE_PATH = '/internal/shared/mu-plugins/studio-web-bridge.php';
+const BRIDGE_PATH = '/internal/shared/mu-plugins/studio-bridge.php';
 const SCREENSHOT_LIBRARY = 'https://cdn.jsdelivr.net/npm/modern-screenshot@4.6.0/+esm';
 
 export interface SiteRuntimeConfig {
@@ -102,7 +102,7 @@ export function getSiteUrl( scope: string ): string {
 }
 
 function getOpfsPath( id: string ): string {
-	return `studio-web/sites/${ id }`;
+	return `studio/sites/${ id }`;
 }
 
 // Runs inside every WordPress page of a site, serialized into the bridge
@@ -117,7 +117,7 @@ function pageBridge( appOrigin: string, screenshotLibrary: string, consolePrefix
 	const log = console.log.bind( console );
 	console.log = ( ...args: unknown[] ) => {
 		if ( typeof args[ 0 ] === 'string' && args[ 0 ].startsWith( consolePrefix ) ) {
-			post( { type: 'studio-web:console', message: args[ 0 ] } );
+			post( { type: 'studio:console', message: args[ 0 ] } );
 			return;
 		}
 		log( ...args );
@@ -209,13 +209,13 @@ function pageBridge( appOrigin: string, screenshotLibrary: string, consolePrefix
 			action?: string;
 			payload?: Record< string, unknown >;
 		};
-		if ( event.origin !== appOrigin || data?.type !== 'studio-web:request' || ! data.action ) {
+		if ( event.origin !== appOrigin || data?.type !== 'studio:request' || ! data.action ) {
 			return;
 		}
 		const action = actions[ data.action ];
 		const reply = ( message: Record< string, unknown > ) =>
 			( event.source as Window ).postMessage(
-				{ type: 'studio-web:response', id: data.id, ...message },
+				{ type: 'studio:response', id: data.id, ...message },
 				appOrigin
 			);
 		if ( ! action ) {
@@ -228,7 +228,7 @@ function pageBridge( appOrigin: string, screenshotLibrary: string, consolePrefix
 		);
 	} );
 	const announce = () =>
-		post( { type: 'studio-web:loaded', href: location.href, title: document.title } );
+		post( { type: 'studio:loaded', href: location.href, title: document.title } );
 	if ( document.readyState === 'complete' ) {
 		announce();
 	} else {

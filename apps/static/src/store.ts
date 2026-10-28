@@ -1,7 +1,7 @@
 // A small key-value store over IndexedDB: everything Studio on the web keeps
 // lives in this browser profile (site files live in Playground's OPFS).
 
-const DB_NAME = 'studio-web';
+const DB_NAME = 'studio';
 const STORE = 'kv';
 
 let dbPromise: Promise< IDBDatabase > | undefined;

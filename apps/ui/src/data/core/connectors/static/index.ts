@@ -36,7 +36,7 @@ import type {
 
 export { completeRedirectSignIn } from '@studio/static';
 
-const WAPUU_SCORE_STORAGE_KEY = 'studio-web-wapuu-score';
+const WAPUU_SCORE_STORAGE_KEY = 'studio-wapuu-score';
 const PREFERENCES_KEY = 'preferences';
 const ONBOARDING_HINTS_KEY = 'onboarding-hints';
 const DEBUG_LOG_PATH = '/wordpress/wp-content/debug.log';

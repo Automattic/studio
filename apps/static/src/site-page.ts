@@ -38,7 +38,7 @@ export async function openSitePage(
 		width + 100
 	}px;top:0;width:${ width }px;height:${ height }px;border:0;`;
 	const origin = 'html' in target ? 'null' : getSiteOrigin();
-	const loaded = waitForMessage( iframe, origin, 'studio-web:loaded', () => true );
+	const loaded = waitForMessage( iframe, origin, 'studio:loaded', () => true );
 	if ( 'html' in target ) {
 		iframe.setAttribute( 'sandbox', 'allow-scripts' );
 		const bridge = `<script>${ buildBridgeScript( window.location.origin ).replace(
@@ -67,11 +67,11 @@ export async function openSitePage(
 		const response = waitForMessage(
 			iframe,
 			origin,
-			'studio-web:response',
+			'studio:response',
 			( data ) => data.id === id
 		);
 		iframe.contentWindow?.postMessage(
-			{ type: 'studio-web:request', id, action, payload },
+			{ type: 'studio:request', id, action, payload },
 			origin === 'null' ? '*' : origin
 		);
 		const { result, error } = ( await response ) as { result?: T; error?: string };
@@ -104,9 +104,9 @@ export function connectPreviewFrame(
 		if ( event.origin !== getSiteOrigin() || event.source !== iframe.contentWindow || ! data ) {
 			return;
 		}
-		if ( data.type === 'studio-web:loaded' ) {
+		if ( data.type === 'studio:loaded' ) {
 			listeners.onPage();
-		} else if ( data.type === 'studio-web:console' && typeof data.message === 'string' ) {
+		} else if ( data.type === 'studio:console' && typeof data.message === 'string' ) {
 			listeners.onLog( data.message );
 		}
 	};
@@ -114,7 +114,7 @@ export function connectPreviewFrame(
 	return {
 		run( source: string ) {
 			iframe.contentWindow?.postMessage(
-				{ type: 'studio-web:request', id: crypto.randomUUID(), action: 'run', payload: { source } },
+				{ type: 'studio:request', id: crypto.randomUUID(), action: 'run', payload: { source } },
 				getSiteOrigin()
 			);
 		},

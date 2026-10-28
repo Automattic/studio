@@ -47,11 +47,9 @@ src/
 
 ## Where things live
 
-- **Site files**: each site's Playground runtime, saved to the origin-private file system (OPFS) under `studio-web/sites/<id>`. In the agent's paths, `/sites/<slug>/…` is `/wordpress/…` in that runtime.
-- **Everything else**: one IndexedDB key-value store (`studio-web`): the site list, preferences, the WordPress.com token, conversations, AI settings.
+- **Site files**: each site's Playground runtime, saved to the origin-private file system (OPFS) under `studio/sites/<id>`. In the agent's paths, `/sites/<slug>/…` is `/wordpress/…` in that runtime.
+- **Everything else**: one IndexedDB key-value store (`studio`): the site list, preferences, the WordPress.com token, conversations, AI settings.
 - **Files the agent makes outside a site**, such as screenshots and request bodies, and the files the user attached: in memory, for as long as the page.
-
-The `studio-web` names predate the package's name; they stay so sites and conversations already in users' browsers keep loading.
 
 ## Configuration
 

@@ -7,7 +7,7 @@ import type { AuthUser } from './types';
 const TOKEN_KEY = 'wpcom-token';
 const API_BASE = 'https://public-api.wordpress.com';
 const CALLBACK_PATH = '/auth/callback';
-const RETURN_TO_KEY = 'studio-web-auth-return-to';
+const RETURN_TO_KEY = 'studio-auth-return-to';
 // WordPress.com sends the token only to a redirect URL registered on the OAuth
 // app, and answers browser requests made with its tokens only from origins
 // the app allows. A deployment registers `<origin>/auth/callback`, or sets its

@@ -236,6 +236,8 @@ export async function runPerformanceTests(
 
 		logAtIndent( 3, 'Installing dependencies and building' );
 		await runShellScript( config.setupCommand, buildDir, {
+			// Lets `npm run package` build in place instead of reinstalling into an isolated copy.
+			CI: process.env.CI,
 			GITHUB_TOKEN: process.env.GITHUB_TOKEN,
 			SKIP_WORKER_THREAD_BUILD: process.env.SKIP_WORKER_THREAD_BUILD,
 			IS_DEV_BUILD: 'true',

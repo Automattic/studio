@@ -1,6 +1,6 @@
 /**
  * The annotation browser's note editor and Cancel / Send bar, layered over the
- * shared inspector (`@studio/common/ai/inspector/page-script`) in its own Shadow
+ * shared inspector (`@studio/agent/protocol/inspector/page-script`) in its own Shadow
  * DOM root. Vanilla DOM, so it works on any page whatever its CSP or theme CSS.
  *
  * The notes live in the CLI, which draws this editor from them:

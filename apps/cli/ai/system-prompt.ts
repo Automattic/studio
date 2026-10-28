@@ -1,4 +1,4 @@
-import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/common/ai/global-instructions';
+import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/agent/node/global-instructions';
 import { formatActiveSite } from 'cli/ai/site-selection';
 import { findSkill } from 'cli/ai/skills';
 import type { SiteInfo } from 'cli/ai/types';

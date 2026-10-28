@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { deleteAiSessionsForSite } from '@studio/common/ai/sessions/manage';
+import { deleteAiSessionsForSite } from '@studio/agent/node/sessions/manage';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { removeAllConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
@@ -27,7 +27,7 @@ import { runCommand, runDeleteCommand } from '../delete';
 
 vi.mock( 'fs' );
 vi.mock( 'cli/lib/api' );
-vi.mock( '@studio/common/ai/sessions/manage' );
+vi.mock( '@studio/agent/node/sessions/manage' );
 vi.mock( '@studio/common/lib/connected-sites', () => ( {
 	removeAllConnectedWpcomSitesForLocalSite: vi.fn(),
 } ) );

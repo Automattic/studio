@@ -2,7 +2,7 @@ import {
 	createAssistantMessageEventStream,
 	isRetryableAssistantError,
 } from '@earendil-works/pi-ai';
-import { isOutOfCreditsError, USAGE_CAP_ERROR_PREFIX } from '@studio/common/ai/json-events';
+import { isOutOfCreditsError, USAGE_CAP_ERROR_PREFIX } from '@studio/agent/protocol/json-events';
 import { describe, expect, it } from 'vitest';
 import { withUsageCapErrorRewrite } from '../usage-cap';
 import type { AssistantMessage } from '@earendil-works/pi-ai';

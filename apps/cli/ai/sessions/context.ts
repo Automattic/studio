@@ -1,7 +1,7 @@
-import { readRecordedSessionModel, type AiModelId } from '@studio/common/ai/models';
-import { isAiProviderId } from '@studio/common/ai/providers';
-import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
-import type { LoadedAiSession } from '@studio/common/ai/sessions/types';
+import { readRecordedSessionModel, type AiModelId } from '@studio/agent/protocol/models';
+import { isAiProviderId } from '@studio/agent/protocol/providers';
+import { isStudioCustomEntryOfType } from '@studio/agent/protocol/sessions/entry-types';
+import type { LoadedAiSession } from '@studio/agent/protocol/sessions/types';
 import type { AiProviderId } from 'cli/ai/providers';
 
 export interface ResumeSessionContext {

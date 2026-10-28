@@ -1,4 +1,4 @@
-import { INSPECTOR_BRIDGE_PREFIX } from '@studio/common/ai/inspector/page-script';
+import { INSPECTOR_BRIDGE_PREFIX } from '@studio/agent/protocol/inspector/page-script';
 import { describe, expect, it, vi } from 'vitest';
 import { NOTE_EDITOR_EVENT } from '../inspector/note-editor';
 import { openAnnotationBrowserTool } from '../tools/open-annotation-browser';

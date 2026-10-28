@@ -1,8 +1,8 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { SessionManager } from '@earendil-works/pi-coding-agent';
-import { migrateLegacyFileInPlace } from '@studio/common/ai/sessions/migration';
-import { getAiSessionsDirectoryForDate } from '@studio/common/ai/sessions/paths';
+import { migrateLegacyFileInPlace } from '@studio/agent/node/sessions/migration';
+import { getAiSessionsDirectoryForDate } from '@studio/agent/node/sessions/paths';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 

@@ -21,9 +21,9 @@ import { SessionManager } from '@earendil-works/pi-coding-agent';
 import {
 	readGlobalInstructionsFile,
 	writeGlobalInstructions,
-} from '@studio/common/ai/global-instructions';
-import { DEFAULT_MODEL, isAiModelId, type AiModelId } from '@studio/common/ai/models';
-import { findLastAssistant } from '@studio/common/ai/session-events';
+} from '@studio/agent/node/global-instructions';
+import { DEFAULT_MODEL, isAiModelId, type AiModelId } from '@studio/agent/protocol/models';
+import { findLastAssistant } from '@studio/agent/protocol/session-events';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import {
 	addConnectedWpcomSite,

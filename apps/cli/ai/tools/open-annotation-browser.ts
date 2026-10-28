@@ -1,4 +1,4 @@
-import { formatVisualAnnotationsPrompt } from '@studio/common/ai/visual-annotations';
+import { formatVisualAnnotationsPrompt } from '@studio/agent/protocol/visual-annotations';
 import { Type } from 'typebox';
 import { annotateInBrowser } from 'cli/ai/inspector/inspector-inject';
 import { defineTool, LOCAL_CHANGE } from './define-tool';

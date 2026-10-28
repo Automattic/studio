@@ -28,7 +28,7 @@ import {
 	type SessionManager,
 	type ToolDefinition,
 } from '@earendil-works/pi-coding-agent';
-import { readGlobalInstructions } from '@studio/common/ai/global-instructions';
+import { readGlobalInstructions } from '@studio/agent/node/global-instructions';
 import {
 	aiModelSupportsImages,
 	DEFAULT_MODEL,
@@ -36,9 +36,9 @@ import {
 	getAiModelFamily,
 	type AiModelFamily,
 	type AiModelId,
-} from '@studio/common/ai/models';
-import { findLastAssistant, isEmptyStop } from '@studio/common/ai/session-events';
-import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
+} from '@studio/agent/protocol/models';
+import { findLastAssistant, isEmptyStop } from '@studio/agent/protocol/session-events';
+import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
 import { type TSchema } from 'typebox';
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { isImageGenerationAvailable } from 'cli/ai/image-generation';
@@ -61,7 +61,7 @@ import {
 	updateStudioToolPayloadGuardState,
 } from './tool-safety';
 import { withUsageCapErrorRewrite } from './usage-cap';
-import type { StudioChatImage } from '@studio/common/ai/chat-images';
+import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
 import type { StudioToolResultDetails } from 'cli/ai/tools/define-tool';
 import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 

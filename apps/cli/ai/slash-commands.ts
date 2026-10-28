@@ -3,8 +3,8 @@ import {
 	getAiModelFamily,
 	getAiModelLabel,
 	type AiModelId,
-} from '@studio/common/ai/models';
-import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
+} from '@studio/agent/protocol/models';
+import { getAiSkillCommands } from '@studio/agent/protocol/slash-commands';
 import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	clampQuotaFraction,

@@ -1,4 +1,4 @@
-import { DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
+import { DEFAULT_MODEL, type AiModelId } from '@studio/agent/protocol/models';
 import { emitEvent, type TurnCompletedStatus } from 'cli/ai/json-events';
 import { formatTosNoticeLines } from 'cli/lib/tos-notice';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';

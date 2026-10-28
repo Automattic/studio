@@ -1,4 +1,4 @@
-import { isStudioChatArtifactData } from '@studio/common/ai/chat-artifacts';
+import { isStudioChatArtifactData } from '@studio/agent/protocol/chat-artifacts';
 import { useEffect } from 'react';
 import { useConnector } from '@/data/core';
 import { useSessionUIDispatch } from '@/data/use-session-ui';

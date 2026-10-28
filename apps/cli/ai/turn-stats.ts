@@ -3,11 +3,11 @@ import {
 	isAiBlockedError,
 	isOutOfCreditsError,
 	isUsageCapError,
-} from '@studio/common/ai/json-events';
+} from '@studio/agent/protocol/json-events';
 import { findSkill } from 'cli/ai/skills';
 import { addAssistantMessageUsage, createTokenUsage } from 'cli/ai/token-usage';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
-import type { TurnStatus } from '@studio/common/ai/sessions/types';
+import type { TurnStatus } from '@studio/agent/protocol/sessions/types';
 
 // Per-turn stats for `studio_code_turn_completed`. Every prop is a count, a
 // boolean or a value from a fixed list, so no text from the user, the model, a

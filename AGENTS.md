@@ -44,7 +44,8 @@ Prefer targeted runs: `npm run eval -- --filter-pattern "<case>"`. The full suit
 **`/apps/ui`**: Agentic UI (`@studio/ui`), the renderer of both the Desktop app and the `studio ui` browser app. lib/ (internal packages: ui, theme, icons, hooks, keyboard, pending-slot), features/ (product areas), data/ (connectors, queries), router/, app/ (providers); boundaries in its README, lint-enforced. `build:local` builds it for `studio ui`; the Desktop build comes from `scripts/build-ui-renderer.ts`.
 **`/apps/local`**: HTTP/SSE backend for `apps/ui` in the browser, bundled into the CLI.
 **`/apps/mcp-ui`**: MCP Apps pages that agent apps show for `studio mcp` (`@studio/mcp-ui`), currently the WordPress library. React + TanStack Query and plain CSS, built into one HTML document that `studio mcp` serves; the data layer talks to the host through one bridge, with no connectors. Not a target of `apps/ui`: see `docs/design-docs/studio-apps-and-surfaces.md`.
-**`/packages/common`**: Electron-free code shared by the Desktop app, `studio ui` and the CLI: ai/ (sessions, run-manager), sites/ (site operations over the CLI), lib/, types/, translations/
+**`/packages/agent`**: The Studio Code agent (`@studio/agent`). protocol/ is its contract with the apps (events, session types, chat artifacts, models), browser-safe and the only part `apps/ui` imports. node/ holds the sessions store and run-manager.
+**`/packages/common`**: Electron-free code shared by the Desktop app, `studio ui` and the CLI: sites/ (site operations over the CLI), lib/, types/, translations/
 **`/tools/eslint-plugin-studio`**: eslint-plugin-studio
 
 ## Key Patterns

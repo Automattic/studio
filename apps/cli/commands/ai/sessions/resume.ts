@@ -1,9 +1,9 @@
 import fs from 'fs/promises';
-import { validateStudioChatFiles } from '@studio/common/ai/chat-files';
-import { validateStudioChatImages } from '@studio/common/ai/chat-images';
-import { resolveActiveSiteFromEntries } from '@studio/common/ai/sessions/active-site';
-import { listAiSessions, loadAiSession } from '@studio/common/ai/sessions/store';
-import { validateStudioVisualAnnotations } from '@studio/common/ai/visual-annotations';
+import { listAiSessions, loadAiSession } from '@studio/agent/node/sessions/store';
+import { validateStudioChatFiles } from '@studio/agent/protocol/chat-files';
+import { validateStudioChatImages } from '@studio/agent/protocol/chat-images';
+import { resolveActiveSiteFromEntries } from '@studio/agent/protocol/sessions/active-site';
+import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { __ } from '@wordpress/i18n';
 import { JsonAdapter } from 'cli/ai/output-adapter';
@@ -12,7 +12,7 @@ import { runCommand as runAiCommand } from 'cli/commands/ai';
 import { chooseSessionForAction } from 'cli/commands/ai/sessions/helpers';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
-import type { StudioAiSessionInputPayload } from '@studio/common/ai/chat-images';
+import type { StudioAiSessionInputPayload } from '@studio/agent/protocol/chat-images';
 import type { AiOutputAdapter } from 'cli/ai/output-adapter';
 
 async function readInputPayload( path: string ): Promise< StudioAiSessionInputPayload > {

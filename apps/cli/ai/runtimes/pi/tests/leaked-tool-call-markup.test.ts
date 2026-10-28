@@ -1,5 +1,5 @@
 import { createAssistantMessageEventStream } from '@earendil-works/pi-ai';
-import { isEmptyStop } from '@studio/common/ai/session-events';
+import { isEmptyStop } from '@studio/agent/protocol/session-events';
 import { describe, expect, it } from 'vitest';
 import { withLeakedToolCallMarkupRemoved } from '../leaked-tool-call-markup';
 import type { AssistantMessage } from '@earendil-works/pi-ai';

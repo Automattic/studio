@@ -1,28 +1,28 @@
-import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
+import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/agent/node/settings-store';
+import { buildChatAttachmentSummaries } from '@studio/agent/protocol/chat-attachments';
 import {
 	buildAttachedFilesPromptBlock,
 	type StudioChatFileAttachment,
-} from '@studio/common/ai/chat-files';
-import { type StudioChatImage } from '@studio/common/ai/chat-images';
-import { getAgentEndFailure } from '@studio/common/ai/json-events';
+} from '@studio/agent/protocol/chat-files';
+import { type StudioChatImage } from '@studio/agent/protocol/chat-images';
+import { getAgentEndFailure } from '@studio/agent/protocol/json-events';
 import {
 	getAiModelFamily,
 	readRecordedSessionModel,
 	type AiModelId,
-} from '@studio/common/ai/models';
-import { getAiProviderDefaultModel } from '@studio/common/ai/providers';
-import { getAgentEndTurnResult } from '@studio/common/ai/session-events';
-import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/common/ai/settings-store';
+} from '@studio/agent/protocol/models';
+import { getAiProviderDefaultModel } from '@studio/agent/protocol/providers';
+import { getAgentEndTurnResult } from '@studio/agent/protocol/session-events';
 import {
 	buildSkillInvocationPrompt,
 	resolveSkillFromPrompt,
-} from '@studio/common/ai/slash-commands';
-import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
+} from '@studio/agent/protocol/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	canUsePaidAiModels,
 	fetchStudioAssistantQuota,
 } from '@studio/common/lib/studio-assistant-quota';
+import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -73,9 +73,9 @@ import type { SessionManager } from '@earendil-works/pi-coding-agent';
 import type {
 	StudioCustomEntryDataMap,
 	StudioCustomEntryType,
-} from '@studio/common/ai/sessions/entry-types';
-import type { LoadedAiSession, TurnStatus } from '@studio/common/ai/sessions/types';
-import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
+} from '@studio/agent/protocol/sessions/entry-types';
+import type { LoadedAiSession, TurnStatus } from '@studio/agent/protocol/sessions/types';
+import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 import type { TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { AskUserQuestion } from 'cli/ai/types';
 

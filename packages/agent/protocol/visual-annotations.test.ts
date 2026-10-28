@@ -1,0 +1,56 @@
+import { describe, expect, it } from 'vitest';
+import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
+
+describe( 'validateStudioVisualAnnotations', () => {
+	it( 'accepts and normalizes annotation summaries', () => {
+		expect(
+			validateStudioVisualAnnotations( [
+				{
+					comment: '  Make this larger  ',
+					tag: ' h1 ',
+					elementLabel: '',
+				},
+			] )
+		).toEqual( [
+			{
+				comment: 'Make this larger',
+				tag: 'h1',
+				elementLabel: undefined,
+				nearbyText: undefined,
+			},
+		] );
+	} );
+
+	it( 'allows an omitted payload', () => {
+		expect( validateStudioVisualAnnotations( undefined ) ).toBeUndefined();
+	} );
+
+	it.each( [ [], [ { comment: '' } ], [ { comment: 'Valid', tag: 42 } ], 'invalid' ] )(
+		'rejects an invalid payload',
+		( value ) => {
+			expect( () => validateStudioVisualAnnotations( value ) ).toThrow();
+		}
+	);
+
+	it( 'rejects unexpected and oversized fields', () => {
+		expect( () =>
+			validateStudioVisualAnnotations( [ { comment: 'Valid', selector: '#private' } ] )
+		).toThrow( 'Invalid visual annotation' );
+		expect( () =>
+			validateStudioVisualAnnotations( [ { comment: 'x'.repeat( 1_000_001 ) } ] )
+		).toThrow( 'too much data' );
+	} );
+
+	it( 'accepts image references only to the message’s own images', () => {
+		const images = [ { id: 'shot' } ];
+		expect(
+			validateStudioVisualAnnotations( [ { comment: '', imageIds: [ 'shot' ] } ], images )
+		).toEqual( [ expect.objectContaining( { comment: '', imageIds: [ 'shot' ] } ) ] );
+		expect( () =>
+			validateStudioVisualAnnotations(
+				[ { comment: 'See this', imageIds: [ 'missing' ] } ],
+				images
+			)
+		).toThrow( 'Invalid annotation image references' );
+	} );
+} );

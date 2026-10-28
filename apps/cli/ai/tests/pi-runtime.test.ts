@@ -1,10 +1,10 @@
 import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
 import { ModelRegistry, SessionManager } from '@earendil-works/pi-coding-agent';
-import { AI_MODELS } from '@studio/common/ai/models';
+import { AI_MODELS } from '@studio/agent/protocol/models';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runStudioAgentTurn, type StudioAgentTurnConfig } from 'cli/ai/runtimes/pi';
 import type { AgentSessionEvent, CreateAgentSessionOptions } from '@earendil-works/pi-coding-agent';
-import type { AiModelId } from '@studio/common/ai/models';
+import type { AiModelId } from '@studio/agent/protocol/models';
 
 const mocks = vi.hoisted( () => ( {
 	createAgentSession: vi.fn(),
@@ -19,8 +19,8 @@ const mocks = vi.hoisted( () => ( {
 
 // Model-swap test uses a synthetic id outside `AI_MODELS`; route unknowns to
 // 'studio' so the env credentials match.
-vi.mock( '@studio/common/ai/models', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('@studio/common/ai/models') >();
+vi.mock( '@studio/agent/protocol/models', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('@studio/agent/protocol/models') >();
 	return {
 		...actual,
 		getAiModelFamily: ( id: string ) =>

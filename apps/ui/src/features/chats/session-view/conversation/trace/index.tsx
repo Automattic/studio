@@ -15,7 +15,7 @@ import { ChevronDownIcon } from '@/lib/icons';
 import { CodeBlock, CollapsiblePanel, Spinner } from '@/lib/ui';
 import styles from './style.module.css';
 import type { TurnActivity } from '@/features/chats/session-view/conversation/transcript-items';
-import type { NormalizedToolResult } from '@studio/common/ai/tools';
+import type { NormalizedToolResult } from '@studio/agent/protocol/tools';
 
 function TraceTrigger( { children, ...props }: ComponentProps< 'button' > ) {
 	return (

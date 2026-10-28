@@ -3,7 +3,7 @@ import {
 	persistAnthropicApiKey,
 	readAnthropicApiKey,
 	readSelectedAiProvider,
-} from '@studio/common/ai/settings-store';
+} from '@studio/agent/node/settings-store';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
 import {
@@ -23,7 +23,7 @@ vi.mock( '@studio/common/lib/shared-config', () => ( {
 	readAuthToken: vi.fn(),
 } ) );
 
-vi.mock( '@studio/common/ai/settings-store', () => ( {
+vi.mock( '@studio/agent/node/settings-store', () => ( {
 	readAnthropicApiKey: vi.fn(),
 	readSelectedAiProvider: vi.fn(),
 	persistAnthropicApiKey: vi.fn(),

@@ -7,7 +7,6 @@
 	"exports": {
 		"./constants": "./constants.ts",
 		"./logger-actions": "./logger-actions.ts",
-		"./ai/*": "./ai/*.ts",
 		"./lib/*": "./lib/*.ts",
 		"./sites/*": "./sites/*.ts",
 		"./types/*": "./types/*.ts",
@@ -35,9 +34,6 @@
 		"zod": "^4.0.0"
 	},
 	"devDependencies": {
-		"@earendil-works/pi-agent-core": "0.84.2",
-		"@earendil-works/pi-ai": "0.84.2",
-		"@earendil-works/pi-coding-agent": "0.84.2",
 		"@types/lockfile": "^1.0.4",
 		"@types/yauzl": "^2.10.3",
 		"@wp-playground/blueprints": "3.1.53"

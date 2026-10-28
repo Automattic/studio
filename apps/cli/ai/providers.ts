@@ -1,12 +1,12 @@
-import { validateAnthropicApiKey } from '@studio/common/ai/anthropic-key';
-import { DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
+import { persistAnthropicApiKey, readAnthropicApiKey } from '@studio/agent/node/settings-store';
+import { DEFAULT_MODEL, type AiModelId } from '@studio/agent/protocol/models';
 import {
 	AI_PROVIDER_IDS,
 	DEFAULT_AI_PROVIDER,
 	getAiProviderModels,
 	type AiProviderId,
-} from '@studio/common/ai/providers';
-import { persistAnthropicApiKey, readAnthropicApiKey } from '@studio/common/ai/settings-store';
+} from '@studio/agent/protocol/providers';
+import { validateAnthropicApiKey } from '@studio/common/lib/anthropic-key';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __ } from '@wordpress/i18n';
 import { password } from 'cli/lib/prompts';
@@ -38,7 +38,7 @@ export interface AiProviderDefinition {
 	id: AiProviderId;
 	autoFallbackWhenUnavailable: boolean;
 	// Derived from the provider's model families (see
-	// `@studio/common/ai/providers`), kept on the definition so callers don't
+	// `@studio/agent/protocol/providers`), kept on the definition so callers don't
 	// have to filter AI_MODELS themselves.
 	readonly availableModels: readonly AiModelId[];
 	readonly defaultModel: AiModelId;

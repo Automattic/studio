@@ -1,9 +1,9 @@
 import {
 	getEffectiveSessionProvider,
 	resolveSessionModelForProvider,
-} from '@studio/common/ai/providers';
-import { pickLiveSite } from '@studio/common/ai/sessions/effective-site';
-import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
+} from '@studio/agent/protocol/providers';
+import { pickLiveSite } from '@studio/agent/protocol/sessions/effective-site';
+import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
 import { canUsePaidAiModels } from '@studio/common/lib/studio-assistant-quota';
 import { useNavigate, useRouter } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';

@@ -1,7 +1,7 @@
 import { Type, type Static, type TObject, type TProperties } from 'typebox';
 import type { AgentTool, AgentToolUpdateCallback } from '@earendil-works/pi-agent-core';
-import type { StudioChatArtifactWidgetDraft } from '@studio/common/ai/chat-artifacts';
-import type { StudioToolProgressUpdate } from '@studio/common/ai/tool-progress';
+import type { StudioChatArtifactWidgetDraft } from '@studio/agent/protocol/chat-artifacts';
+import type { StudioToolProgressUpdate } from '@studio/agent/protocol/tool-progress';
 
 /**
  * Tool authors throw on failure; pi's loop catches and produces a tool-result

@@ -43,8 +43,8 @@ import type {
 	SyncSite,
 	UserPreferences,
 } from '../../types';
-import type { AgentRunEvent } from '@studio/common/ai/agent-events';
-import type { AiSettings } from '@studio/common/ai/providers';
+import type { AgentRunEvent } from '@studio/agent/protocol/agent-events';
+import type { AiSettings } from '@studio/agent/protocol/providers';
 import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
 import type { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
 import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';

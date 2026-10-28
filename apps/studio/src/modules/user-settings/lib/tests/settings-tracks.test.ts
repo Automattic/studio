@@ -2,11 +2,11 @@
  * @vitest-environment node
  */
 import { IpcMainInvokeEvent } from 'electron';
-import { writeGlobalInstructions } from '@studio/common/ai/global-instructions';
+import { writeGlobalInstructions } from '@studio/agent/node/global-instructions';
 import {
 	readAiSettings,
 	saveAnthropicApiKey as saveAnthropicApiKeyToConfig,
-} from '@studio/common/ai/settings-store';
+} from '@studio/agent/node/settings-store';
 import { vi } from 'vitest';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import {
@@ -23,11 +23,11 @@ vi.mock( 'src/lib/tracks', async ( importActual ) => {
 	const actual = await importActual< typeof import('src/lib/tracks') >();
 	return { ...actual, recordTracksEvent: vi.fn() };
 } );
-vi.mock( '@studio/common/ai/global-instructions', () => ( {
+vi.mock( '@studio/agent/node/global-instructions', () => ( {
 	readGlobalInstructionsFile: vi.fn(),
 	writeGlobalInstructions: vi.fn(),
 } ) );
-vi.mock( '@studio/common/ai/settings-store', () => ( {
+vi.mock( '@studio/agent/node/settings-store', () => ( {
 	readAiSettings: vi.fn(),
 	saveAnthropicApiKey: vi.fn(),
 } ) );

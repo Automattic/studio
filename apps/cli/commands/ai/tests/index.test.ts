@@ -1,4 +1,4 @@
-import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/common/ai/settings-store';
+import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/agent/node/settings-store';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { vi, type Mock } from 'vitest';
@@ -51,7 +51,7 @@ vi.mock( 'cli/ai/providers', () => ( {
 		defaultModel: 'claude-sonnet-5',
 	} ),
 } ) );
-vi.mock( '@studio/common/ai/settings-store', () => ( {
+vi.mock( '@studio/agent/node/settings-store', () => ( {
 	readAnthropicApiKey: vi.fn(),
 	readSelectedAiProvider: vi.fn().mockResolvedValue( 'wpcom' ),
 } ) );

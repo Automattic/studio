@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, rm } from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
+import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { withDesignSystemPreview } from 'cli/ai/chat-artifacts';
 import { emitEvent } from 'cli/ai/json-events';

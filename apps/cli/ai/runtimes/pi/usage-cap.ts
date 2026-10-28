@@ -1,5 +1,8 @@
 import { createAssistantMessageEventStream } from '@earendil-works/pi-ai';
-import { buildUsageCapErrorMessage, isCostCapErrorMessage } from '@studio/common/ai/json-events';
+import {
+	buildUsageCapErrorMessage,
+	isCostCapErrorMessage,
+} from '@studio/agent/protocol/json-events';
 import type { AssistantMessageEventStream } from '@earendil-works/pi-ai';
 
 /**

@@ -6,7 +6,7 @@ import {
 	STUDIO_CHAT_ARTIFACT_VERSION,
 	type StudioChatArtifactData,
 	type StudioChatArtifactWidgetDraft,
-} from '@studio/common/ai/chat-artifacts';
+} from '@studio/agent/protocol/chat-artifacts';
 import { emitEvent } from 'cli/ai/json-events';
 
 type ChatArtifactCallback = ( artifact: StudioChatArtifactData ) => void | Promise< void >;

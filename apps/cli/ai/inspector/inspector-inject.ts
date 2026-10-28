@@ -14,13 +14,13 @@ import {
 	STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES,
 	toImageDataUrl,
 	type StudioChatImage,
-} from '@studio/common/ai/chat-images';
+} from '@studio/agent/protocol/chat-images';
 import {
 	INSPECTOR_COMMAND_EVENT,
 	INSPECTOR_PAGE_SCRIPT,
 	parseInspectorMessage,
 	type InspectorEvent,
-} from '@studio/common/ai/inspector/page-script';
+} from '@studio/agent/protocol/inspector/page-script';
 import { __, _n, isRTL, sprintf } from '@wordpress/i18n';
 import { launchChromiumWithInstall } from 'cli/ai/browser-utils';
 import {
@@ -28,7 +28,7 @@ import {
 	NOTE_EDITOR_EVENT,
 	NOTE_EDITOR_SCRIPT,
 } from 'cli/ai/inspector/note-editor';
-import type { VisualAnnotation } from '@studio/common/ai/visual-annotations';
+import type { VisualAnnotation } from '@studio/agent/protocol/visual-annotations';
 
 type Browser = Awaited< ReturnType< ( typeof import('playwright') )[ 'chromium' ][ 'launch' ] > >;
 type Page = Awaited< ReturnType< Browser[ 'newPage' ] > >;

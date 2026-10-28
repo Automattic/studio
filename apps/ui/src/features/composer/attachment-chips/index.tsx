@@ -5,7 +5,7 @@ import {
 	getComposerAttachmentTypeDescription,
 	hasComposerAttachmentVisualPreview,
 	watchComposerAttachmentTextScroll,
-} from '@studio/common/ai/composer-attachment-preview';
+} from '@studio/agent/protocol/composer-attachment-preview';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { FileTextIcon, XIcon } from 'lucide-react';

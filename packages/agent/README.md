@@ -47,14 +47,23 @@ const tools = agent.tools( { imageGeneration, canAskUser, imageLink } );
 
 The host (`StudioAgentHost`, `shared/host.ts`) is what the app running the agent provides. The agent never imports an app: everything it needs from one comes through the host, so the same tools run in Node and in a browser.
 
-- `sites`, `previews`, `sync`, `wpcom`: the site operations its tools run, and the WordPress.com client. Site operations belong to the app; the CLI implements them with its own commands (`apps/cli/ai/host.ts`), so each operation has one implementation.
-- `files`, `path`: the sites' files, by the paths the agent sees, and the path functions for them.
-- `pages`: pages loaded in the host's browser, for screenshots, design inspection, audits and block validation. Page scripts are shared; the host only opens the page.
+Every host provides these, each a named interface in `shared/host.ts`:
+
+- `sites` (`HostSites`), `previews` (`HostPreviews`), `sync` (`HostSync`): the site operations its tools run. Site operations belong to the app; the CLI implements them with its own commands (`apps/cli/ai/host.ts`), so each operation has one implementation.
+- `wpcom` (`HostWpcom`): WordPress.com as the signed-in user: its token, its sites, the sites a local site syncs with, and REST requests.
+- `files` (`HostFiles`), `path` (`HostPath`): the sites' files, by the paths the agent sees, and the path functions for them.
+- `pages` (`HostPages`): pages loaded in the host's browser, for screenshots, design inspection, audits and block validation. Page scripts are shared; the host only opens the page.
 - `saveImage`: where images the agent makes, such as screenshots, are kept for the user.
-- `tracks`: where analytics events go.
+- `tracks` (`HostTracks`): where analytics events go.
 - `sitesRoot`, `userAgent`: the folder sites live in, and the User-Agent of requests to WordPress.com.
-- `selectSite`, `annotate`: optional; how the conversation follows a site the agent created, and the annotation browser.
-- `ui`: present when an app shows the conversation. Tool results then show in it as chat artifacts, and the tools that only make sense there, such as `refresh_browser`, are offered.
+
+Some capabilities only some hosts have. Each is an optional member, and a host has the capability exactly when it provides the member:
+
+- `ui`: an app shows the conversation. Tool results show in it as chat artifacts, and `refresh_browser` is offered.
+- `annotate`: a browser window the user annotates a site in. `open_annotation_browser` is offered.
+- `selectSite`: the conversation follows a site the agent creates.
+
+There are no separate flags: a flag could say yes while the member is missing, or the other way round. Gate a tool, and any mention of it in the prompt, on the member itself (`if ( ! host.annotate )` in `resolveStudioTools`), which also narrows its type for the code that calls it. A new capability is a new optional member here, documented with the tools it turns on. (The UI's `Connector` uses `capabilities` flags instead, because a connector implements every method and throws from the ones it does not support.)
 
 In Node, `nodeHostServices()` provides `files`, `path`, `pages` (Playwright's Chromium), `saveImage` and `annotate`; the CLI's host spreads them in. Studio on the web's host (`apps/ui/src/data/core/connectors/web/agent/host.ts`) runs sites in Playground, reads their files from the runtimes and loads pages in off-screen frames.
 

@@ -64,8 +64,8 @@ function getFileManager(): { label: string; logo: ReactElement } {
  * externally.
  *
  * The editor is the preferred one, else the first one installed; with neither
- * there's no editor entry. Browser and WP Admin need a running site, and
- * phpMyAdmin starts a stopped one first. A failure to open is reported.
+ * there's no editor entry. Browser, WordPress admin and phpMyAdmin
+ * start a stopped site first. A failure to open is reported.
  */
 export function useOpenInDestinations(
 	site: SiteDetails,
@@ -98,32 +98,19 @@ export function useOpenInDestinations(
 		} );
 	};
 
+	const openSiteUrl = async ( path: string, options?: { autoLogin: boolean } ) => {
+		// A failed start reports itself.
+		if ( ! site.running && ! ( await startSite.mutateAsync( site.id ).catch( () => false ) ) ) {
+			return;
+		}
+		if ( options ) {
+			await connector.openSiteUrl( site.id, path, options );
+		} else {
+			await connector.openSiteUrl( site.id, path );
+		}
+	};
+
 	const destinations: Array< OpenInDestinationEntry | false > = [
-		{
-			id: 'browser',
-			label: __( 'Browser' ),
-			// Not the globe: the address bar already uses that for the site's
-			// front end, and this one leaves Studio.
-			logo: <ExternalLinkIcon />,
-			disabled: ! site.running,
-			open: () =>
-				open( 'browser', __( 'Browser' ), () => {
-					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER, { browser: 'external' } );
-					// The front end opens logged out; only WP Admin signs the user in.
-					return connector.openSiteUrl( site.id, '/', { autoLogin: false } );
-				} ),
-		},
-		{
-			id: 'wp-admin',
-			label: __( 'Browser (WP Admin)' ),
-			logo: <WordPressIcon />,
-			disabled: ! site.running,
-			open: () =>
-				open( 'wp-admin', __( 'WP Admin' ), () => {
-					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_WP_ADMIN, { browser: 'external' } );
-					return connector.openSiteUrl( site.id, '/wp-admin/' );
-				} ),
-		},
 		{
 			id: 'files',
 			label: fileManager.label,
@@ -133,6 +120,20 @@ export function useOpenInDestinations(
 				open( 'files', fileManager.label, () => {
 					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_FOLDER );
 					return connector.openSiteFolder( site.id );
+				} ),
+		},
+		{
+			id: 'browser',
+			label: __( 'Browser' ),
+			// Not the globe: the address bar already uses that for the site's
+			// front end, and this one leaves Studio.
+			logo: <ExternalLinkIcon />,
+			disabled: false,
+			open: () =>
+				open( 'browser', __( 'Browser' ), () => {
+					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER, { browser: 'external' } );
+					// The front end opens logged out; only WP Admin signs the user in.
+					return openSiteUrl( '/', { autoLogin: false } );
 				} ),
 		},
 		!! editor && {
@@ -155,6 +156,17 @@ export function useOpenInDestinations(
 			open: () => open( 'terminal', terminalLabel, () => connector.openSiteInTerminal( site.id ) ),
 		},
 		{
+			id: 'wp-admin',
+			label: __( 'WordPress admin' ),
+			logo: <WordPressIcon />,
+			disabled: false,
+			open: () =>
+				open( 'wp-admin', __( 'WordPress admin' ), () => {
+					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_WP_ADMIN, { browser: 'external' } );
+					return openSiteUrl( '/wp-admin/' );
+				} ),
+		},
+		{
 			id: 'phpmyadmin',
 			label: __( 'phpMyAdmin' ),
 			logo: <AppIcon app="phpmyadmin" fallback={ <DatabaseIcon /> } />,
@@ -162,14 +174,7 @@ export function useOpenInDestinations(
 			open: () =>
 				open( 'phpmyadmin', __( 'phpMyAdmin' ), async () => {
 					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN, { browser: 'external' } );
-					// A failed start reports itself.
-					if (
-						! site.running &&
-						! ( await startSite.mutateAsync( site.id ).catch( () => false ) )
-					) {
-						return;
-					}
-					await connector.openSiteUrl( site.id, DATABASE_HOME_PATH );
+					await openSiteUrl( DATABASE_HOME_PATH );
 				} ),
 		},
 	];

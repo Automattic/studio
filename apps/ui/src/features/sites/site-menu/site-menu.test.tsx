@@ -388,9 +388,10 @@ describe( 'Restart site', () => {
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Restart site' } ) );
 		await waitFor( () => expect( connector.stopSite ).toHaveBeenCalled() );
 		await waitFor( () =>
-			expect(
-				screen.getByRole( 'button', { name: 'Site menu' } )
-			).not.toHaveAttribute( 'aria-busy', 'true' )
+			expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).not.toHaveAttribute(
+				'aria-busy',
+				'true'
+			)
 		);
 		expect( connector.startSite ).not.toHaveBeenCalled();
 	} );

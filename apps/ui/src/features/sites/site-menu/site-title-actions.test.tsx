@@ -246,8 +246,6 @@ describe( 'site title actions', () => {
 		expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBeVisible();
 		expect( getNoticeHistory() ).toHaveLength( 1 );
 		fireEvent.click( screen.getByRole( 'button', { name: /^Open$/ } ) );
-		expect(
-			await screen.findByRole( 'button', { name: 'Site menu' } )
-		).toBeVisible();
+		expect( await screen.findByRole( 'button', { name: 'Site menu' } ) ).toBeVisible();
 	} );
 } );

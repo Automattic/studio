@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { validateBlocks } from '@studio/agent/node/block-validator';
-import type { HostPages } from '@studio/agent/node/host';
+import { validateBlocks } from '@studio/agent/shared/block-validator';
+import type { HostPages } from '@studio/agent/shared/host';
 
 describe( 'validateBlocks', () => {
 	it( 'loads the block editor once for concurrent validations', async () => {

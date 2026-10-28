@@ -30,15 +30,7 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
 import { type TSchema } from 'typebox';
-import { withDesignSystemPreview } from '@studio/agent/node/chat-artifacts';
 import { readGlobalInstructions } from '@studio/agent/node/global-instructions';
-import { createResultNotes } from '@studio/agent/node/result-notes';
-import { buildSystemPrompt, type ToolPromptContribution } from '@studio/agent/node/system-prompt';
-import { resolveStudioTools } from '@studio/agent/node/tools';
-import { createAskUserQuestionTool } from '@studio/agent/node/tools/ask-user-question';
-import { bindTool } from '@studio/agent/node/tools/define-tool';
-import { createPresentDesignOptionsTool } from '@studio/agent/node/tools/present-design-options';
-import { createSkillTool } from '@studio/agent/node/tools/skill';
 import {
 	aiModelSupportsImages,
 	DEFAULT_MODEL,
@@ -48,10 +40,19 @@ import {
 	type AiModelId,
 } from '@studio/agent/protocol/models';
 import { findLastAssistant, isEmptyStop } from '@studio/agent/protocol/session-events';
-import { getFileToolPrompt } from './file-tool-prompts';
-import { withLeakedToolCallMarkupRemoved } from './leaked-tool-call-markup';
+import { withDesignSystemPreview } from '@studio/agent/shared/chat-artifacts';
+import { getFileToolPrompt } from '@studio/agent/shared/file-tool-prompts';
+import { createResultNotes } from '@studio/agent/shared/result-notes';
+import { withLeakedToolCallMarkupRemoved } from '@studio/agent/shared/runtime-guards/leaked-tool-call-markup';
+import { stripStaleImagesFromContext } from '@studio/agent/shared/runtime-guards/strip-stale-images';
+import { withUsageCapErrorRewrite } from '@studio/agent/shared/runtime-guards/usage-cap';
+import { buildSystemPrompt, type ToolPromptContribution } from '@studio/agent/shared/system-prompt';
+import { resolveStudioTools } from '@studio/agent/shared/tools';
+import { createAskUserQuestionTool } from '@studio/agent/shared/tools/ask-user-question';
+import { bindTool } from '@studio/agent/shared/tools/define-tool';
+import { createPresentDesignOptionsTool } from '@studio/agent/shared/tools/present-design-options';
+import { createSkillTool } from '@studio/agent/shared/tools/skill';
 import { getPendingWork, type PendingWork } from './pending-work';
-import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
 	getIncompleteToolCallReason,
 	getFileWriteRefusal,
@@ -59,11 +60,10 @@ import {
 	type StudioToolPayloadGuardState,
 	updateStudioToolPayloadGuardState,
 } from './tool-safety';
-import { withUsageCapErrorRewrite } from './usage-cap';
-import type { StudioAgentHost } from '@studio/agent/node/host';
-import type { StudioToolResultDetails } from '@studio/agent/node/tools/define-tool';
-import type { AskUserHandler, SiteInfo } from '@studio/agent/node/types';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
+import type { StudioToolResultDetails } from '@studio/agent/shared/tools/define-tool';
+import type { AskUserHandler, SiteInfo } from '@studio/agent/shared/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;

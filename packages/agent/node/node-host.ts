@@ -10,7 +10,7 @@ import type {
 	HostPages,
 	HostPath,
 	StudioAgentHost,
-} from '@studio/agent/node/host';
+} from '@studio/agent/shared/host';
 
 const nodePath: HostPath = {
 	join: path.join,

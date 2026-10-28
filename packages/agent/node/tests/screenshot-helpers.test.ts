@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { nodeHostServices } from '@studio/agent/node/node-host';
-import { saveScreenshotFile } from '@studio/agent/node/tools/screenshot-helpers';
+import { saveScreenshotFile } from '@studio/agent/shared/tools/screenshot-helpers';
 import { createFakeHost } from './fake-host';
 
 describe( 'screenshot helpers', () => {

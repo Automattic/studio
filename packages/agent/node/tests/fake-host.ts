@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 import { nodeHostServices } from '@studio/agent/node/node-host';
-import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
+import type { HostSite, StudioAgentHost } from '@studio/agent/shared/host';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
 

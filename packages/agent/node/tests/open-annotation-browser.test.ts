@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { NOTE_EDITOR_EVENT } from '@studio/agent/node/inspector/note-editor';
 import { nodeHostServices } from '@studio/agent/node/node-host';
-import { bindTool } from '@studio/agent/node/tools/define-tool';
-import { openAnnotationBrowserTool } from '@studio/agent/node/tools/open-annotation-browser';
 import { INSPECTOR_BRIDGE_PREFIX } from '@studio/agent/protocol/inspector/page-script';
+import { bindTool } from '@studio/agent/shared/tools/define-tool';
+import { openAnnotationBrowserTool } from '@studio/agent/shared/tools/open-annotation-browser';
 import { createFakeHost } from './fake-host';
 
 const page = vi.hoisted( () => ( {

@@ -9,9 +9,9 @@ export type {
 	StudioAgentHost,
 	StudioAgentUi,
 	WpCliOutput,
-} from './host';
+} from '@studio/agent/shared/host';
 export type { StudioAgentTurnConfig, StudioAgentTurnHandle } from './runtime';
-export type { AskUserHandler, AskUserQuestion, SiteInfo } from './types';
+export type { AskUserHandler, AskUserQuestion, SiteInfo } from '@studio/agent/shared/types';
 
 // Tools a host serves next to Studio's own, such as `studio mcp`'s.
 export {
@@ -27,15 +27,15 @@ export {
 	type StudioAgentTool,
 	type StudioToolDefinition,
 	type ToolResult,
-} from './tools/define-tool';
-export type { StudioToolsOptions } from './tools';
-export { createPresentDesignOptionsTool } from './tools/present-design-options';
-export { renderSkill } from './tools/skill';
-export { textResult } from './tools/utils';
-export { loadSkills } from './skills';
-export { buildSystemPrompt } from './system-prompt';
-export { createResultNotes } from './result-notes';
-export type { DesignTracksContext } from './design-tracks';
+} from '@studio/agent/shared/tools/define-tool';
+export type { StudioToolsOptions } from '@studio/agent/shared/tools';
+export { createPresentDesignOptionsTool } from '@studio/agent/shared/tools/present-design-options';
+export { renderSkill } from '@studio/agent/shared/tools/skill';
+export { textResult } from '@studio/agent/shared/tools/utils';
+export { loadSkills } from '@studio/agent/shared/skills';
+export { buildSystemPrompt } from '@studio/agent/shared/system-prompt';
+export { createResultNotes } from '@studio/agent/shared/result-notes';
+export type { DesignTracksContext } from '@studio/agent/shared/design-tracks';
 
 // Turns as the host records them.
 export { resolveResumeSessionContext } from './sessions/context';
@@ -48,7 +48,7 @@ export {
 	ensurePlaywrightChromiumInstalled,
 	getSharedBrowser,
 } from './browser-utils';
-export { captureScreenshotBuffer } from './tools/screenshot-helpers';
-export { validateBlocks } from './block-validator';
-export { getWpcomAiGatewayBaseUrl } from './ai-gateway';
+export { captureScreenshotBuffer } from '@studio/agent/shared/tools/screenshot-helpers';
+export { validateBlocks } from '@studio/agent/shared/block-validator';
+export { getWpcomAiGatewayBaseUrl } from '@studio/agent/shared/ai-gateway';
 export { nodeHostServices } from './node-host';

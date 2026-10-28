@@ -2,31 +2,31 @@ import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'fs/promi
 import os from 'os';
 import path from 'path';
 import { vi } from 'vitest';
-import { validateBlocks } from '@studio/agent/node/block-validator';
 import { getSharedBrowser } from '@studio/agent/node/browser-utils';
-import { generateImages } from '@studio/agent/node/image-generation';
 import { nodeHostServices } from '@studio/agent/node/node-host';
+import { validateBlocks } from '@studio/agent/shared/block-validator';
+import { generateImages } from '@studio/agent/shared/image-generation';
 import {
 	resolveStudioTools,
 	studioToolDefinitions,
 	withChatArtifactEmission,
 	type StudioToolsOptions,
-} from '@studio/agent/node/tools';
-import { createSiteTool } from '@studio/agent/node/tools/create-site';
+} from '@studio/agent/shared/tools';
+import { createSiteTool } from '@studio/agent/shared/tools/create-site';
 import {
 	bindTool,
 	LOCAL_CHANGE,
 	READ_ONLY,
 	REMOTE_READ,
 	type AnyStudioAgentTool,
-} from '@studio/agent/node/tools/define-tool';
-import { enrichPreviewListOutput } from '@studio/agent/node/tools/list-previews';
-import { createTakeScreenshotTool } from '@studio/agent/node/tools/take-screenshot';
-import { splitCommandArgs } from '@studio/agent/node/tools/wp-cli';
+} from '@studio/agent/shared/tools/define-tool';
+import { enrichPreviewListOutput } from '@studio/agent/shared/tools/list-previews';
+import { createTakeScreenshotTool } from '@studio/agent/shared/tools/take-screenshot';
+import { splitCommandArgs } from '@studio/agent/shared/tools/wp-cli';
 import { createFakeHost, fakeSite } from './fake-host';
-import type { StudioAgentHost } from '@studio/agent/node/host';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
 
-vi.mock( '@studio/agent/node/block-validator', () => ( {
+vi.mock( '@studio/agent/shared/block-validator', () => ( {
 	validateBlocks: vi.fn(),
 } ) );
 
@@ -34,8 +34,8 @@ vi.mock( '@studio/agent/node/browser-utils', () => ( {
 	getSharedBrowser: vi.fn(),
 } ) );
 
-vi.mock( '@studio/agent/node/image-generation', async () => ( {
-	...( await vi.importActual( '@studio/agent/node/image-generation' ) ),
+vi.mock( '@studio/agent/shared/image-generation', async () => ( {
+	...( await vi.importActual( '@studio/agent/shared/image-generation' ) ),
 	generateImages: vi.fn(),
 } ) );
 

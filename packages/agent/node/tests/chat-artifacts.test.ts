@@ -2,8 +2,8 @@ import { mkdir, mkdtemp, rm } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { withDesignSystemPreview } from '@studio/agent/node/chat-artifacts';
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
+import { withDesignSystemPreview } from '@studio/agent/shared/chat-artifacts';
 import { createFakeHost } from './fake-host';
 
 let sitesRoot: string;

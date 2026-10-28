@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	getHtmlBlockPolicyIssues,
 	validateHtmlBlockPolicy,
-} from '@studio/agent/node/block-content-policy';
+} from '@studio/agent/shared/block-content-policy';
 
 describe( 'HTML block content policy', () => {
 	it( 'allows inline SVG markup', () => {

@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { nodeHostServices } from '@studio/agent/node/node-host';
 import {
 	buildImageRequestBody,
 	composeImagePrompt,
@@ -8,9 +9,8 @@ import {
 	interpretImageResponse,
 	resolveImageSize,
 	TransientImageError,
-} from '@studio/agent/node/image-generation';
-import { nodeHostServices } from '@studio/agent/node/node-host';
-import { resolveImageFilePath } from '@studio/agent/node/tools/generate-images';
+} from '@studio/agent/shared/image-generation';
+import { resolveImageFilePath } from '@studio/agent/shared/tools/generate-images';
 
 const SITES_ROOT = path.resolve( '/studio-sites' );
 

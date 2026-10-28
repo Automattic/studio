@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createBlockSettingsNotes } from '@studio/agent/node/block-settings';
+import { createBlockSettingsNotes } from '@studio/agent/shared/block-settings';
 import { createFakeHost } from './fake-host';
 
 const HEADER = `<!-- wp:group {"layout":{"type":"constrained"}} -->

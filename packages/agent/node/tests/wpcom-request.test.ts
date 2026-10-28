@@ -2,10 +2,10 @@ import { mkdtemp, rm, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bindTool } from '@studio/agent/node/tools/define-tool';
-import { createWpcomRequestTool } from '@studio/agent/node/tools/wpcom-request';
+import { bindTool } from '@studio/agent/shared/tools/define-tool';
+import { createWpcomRequestTool } from '@studio/agent/shared/tools/wpcom-request';
 import { createFakeHost } from './fake-host';
-import type { StudioAgentHost } from '@studio/agent/node/host';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
 
 describe( 'wpcom_request', () => {
 	let payloadsDir: string;

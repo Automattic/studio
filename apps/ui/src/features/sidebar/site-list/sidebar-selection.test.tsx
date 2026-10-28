@@ -301,6 +301,51 @@ describe( 'sidebar selection', () => {
 		expect( selected() ).toContain( 'site:one' );
 	} );
 
+	it( 'excludes sites locally, resets on reopen, and keeps an excluded site open', async () => {
+		const { connector, history } = await setup();
+		select( 'one', 'two', 'three' );
+		deleteShortcut( await bulkMenu( 'one' ) );
+		let dialog = await screen.findByRole( 'alertdialog' );
+		fireEvent.click(
+			within( dialog ).getByRole( 'button', { name: 'Exclude “Site one” from removal' } )
+		);
+		expect( dialog ).toHaveAccessibleName( 'Remove 2 sites from WordPress Studio?' );
+		expect(
+			within( dialog ).getByRole( 'button', { name: 'Exclude “Site two” from removal' } )
+		).toHaveFocus();
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Cancel' } ) );
+		await waitFor( () => expect( screen.queryByRole( 'alertdialog' ) ).not.toBeInTheDocument() );
+		deleteShortcut( await bulkMenu( 'one' ) );
+		dialog = await screen.findByRole( 'alertdialog' );
+		expect( dialog ).toHaveAccessibleName( 'Remove 3 sites from WordPress Studio?' );
+		fireEvent.click(
+			within( dialog ).getByRole( 'button', { name: 'Exclude “Site one” from removal' } )
+		);
+		fireEvent.click(
+			within( dialog ).getByRole( 'button', { name: 'Exclude “Site three” from removal' } )
+		);
+		expect( dialog ).toHaveAccessibleName( 'Remove “Site two” from WordPress Studio?' );
+		expect( within( dialog ).queryByRole( 'button', { name: /Exclude/ } ) ).not.toBeInTheDocument();
+		expect( within( dialog ).getByRole( 'button', { name: 'Cancel' } ) ).toHaveFocus();
+		fireEvent.click( within( dialog ).getByRole( 'checkbox' ) );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Remove site' } ) );
+		await waitFor( () => expect( screen.queryByRole( 'alertdialog' ) ).not.toBeInTheDocument() );
+		expect( connector.deleteSite ).toHaveBeenCalledExactlyOnceWith( 'two', true );
+		expect( history.location.pathname ).toBe( '/sites/one' );
+	} );
+
+	it( 'keeps the current site open when its removal fails and another succeeds', async () => {
+		const { connector, history } = await setup();
+		connector.deleteSite.mockRejectedValueOnce( new Error( 'Removal failed' ) );
+		select( 'one', 'two' );
+		deleteShortcut( await bulkMenu( 'one' ) );
+		const dialog = await screen.findByRole( 'alertdialog' );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Remove sites' } ) );
+		await screen.findByRole( 'alert' );
+		expect( connector.deleteSite ).toHaveBeenCalledTimes( 2 );
+		expect( history.location.pathname ).toBe( '/sites/one' );
+	} );
+
 	it( 'keeps archive and deletion eligibility separate in mixed selections', async () => {
 		await setup( { busy: { sessionId: 'b', phase: 'running' } } );
 		select( 'c', 'one' );
@@ -378,6 +423,11 @@ describe( 'sidebar selection', () => {
 			}
 			fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Remove sites' } ) );
 			await waitFor( () => expect( connector.deleteSite ).toHaveBeenCalledTimes( 1 ) );
+			for ( const button of within( dialog ).getAllByRole( 'button', { name: /Exclude/ } ) ) {
+				expect( button ).toHaveAttribute( 'aria-disabled', 'true' );
+				fireEvent.click( button );
+			}
+			expect( dialog ).toHaveAccessibleName( 'Remove 2 sites from WordPress Studio?' );
 			await act( async () => finish() );
 			await waitFor( () => expect( connector.deleteSite ).toHaveBeenCalledTimes( 2 ) );
 			expect( connector.deleteSite ).toHaveBeenNthCalledWith( 1, 'one', files );

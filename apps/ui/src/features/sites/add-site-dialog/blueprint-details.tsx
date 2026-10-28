@@ -16,6 +16,7 @@ import { pendingBlueprintSlot } from '@/features/sites/pending-blueprint';
 import { ExternalLinkIcon } from '@/lib/icons';
 import { PreviewFrame, PreviewImage, Button, Alert, AlertDescription } from '@/lib/ui';
 import styles from './blueprint-gallery.module.css';
+import { getBlueprintScreenshots } from './blueprint-screenshots';
 import { useAddSite } from './context';
 import type { SelectedBlueprint } from '@/features/sites/blueprint-selection';
 import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
@@ -132,16 +133,21 @@ export function BlueprintDetails( {
 						</AlertDescription>
 					</Alert>
 				) : null }
-				<PreviewFrame>
-					<PreviewImage
-						src={ blueprint.image }
-						alt={ sprintf(
-							// translators: %s is a Blueprint name.
-							__( '%s screenshot' ),
-							blueprint.title
-						) }
-					/>
-				</PreviewFrame>
+				<div className={ styles.screenshots }>
+					{ getBlueprintScreenshots( blueprint ).map( ( src, index ) => (
+						<PreviewFrame key={ src }>
+							<PreviewImage
+								src={ src }
+								alt={ sprintf(
+									// translators: %1$s is a Blueprint name, %2$d is the screenshot number.
+									index === 0 ? __( '%s screenshot' ) : __( '%1$s screenshot %2$d' ),
+									blueprint.title,
+									index + 1
+								) }
+							/>
+						</PreviewFrame>
+					) ) }
+				</div>
 			</div>
 		</>
 	);

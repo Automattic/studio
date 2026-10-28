@@ -14,6 +14,7 @@ import {
 	PreviewImage,
 } from '@/lib/ui';
 import styles from './blueprint-gallery.module.css';
+import { getBlueprintThumbnail } from './blueprint-screenshots';
 import type { BlueprintUseCase } from '@studio/common/lib/blueprint-catalog';
 import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
 
@@ -49,9 +50,11 @@ export function BlueprintGallery( {
 	const isOffline = useOffline();
 	const root = useRef< HTMLDivElement >( null );
 	const { data: blueprints, isLoading, isError, isSuccess } = useBlueprints();
-	const items = ( blueprints ?? [] ).filter(
-		( blueprint ) => ! useCase || getBlueprintUseCases( blueprint ).includes( useCase )
-	);
+	const items = ( blueprints ?? [] )
+		.filter( ( blueprint ) => ! useCase || getBlueprintUseCases( blueprint ).includes( useCase ) )
+		.sort(
+			( a, b ) => Number( b.slug === 'personal-blog-2' ) - Number( a.slug === 'personal-blog-2' )
+		);
 
 	useEffect( () => {
 		root.current
@@ -104,7 +107,7 @@ export function BlueprintGallery( {
 						<span className={ styles.thumbnail }>
 							<PreviewFrame className={ styles.frame }>
 								<PreviewImage
-									src={ blueprint.image }
+									src={ getBlueprintThumbnail( blueprint ) }
 									alt={ sprintf(
 										// translators: %s is a Blueprint name.
 										__( '%s preview' ),

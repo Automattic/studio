@@ -46,7 +46,7 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 	const verbose = argv.verbose;
 
 	try {
-		await runCommand( argv.path, argv.url, verbose, {
+		await runCommand( argv.path, argv.remoteSite, verbose, {
 			only: argv.only as string[] | undefined,
 			skipDatabase: argv[ 'skip-database' ] as boolean,
 		} );
@@ -86,7 +86,7 @@ class PullError extends LoggerError {
  */
 export async function runCommand(
 	localPath: string,
-	remoteUrl?: string,
+	remoteSite?: string,
 	verbose = false,
 	cliSelection: CliSelectionOptions = {}
 ): Promise< void > {
@@ -94,7 +94,10 @@ export async function runCommand(
 	const site = await getSiteByFolder( localPath );
 	logger.reportSuccess( __( 'Site loaded' ) );
 
-	const sourceSite = await resolveSourceSite( remoteUrl ?? site.reprintOrigin?.remoteUrl, verbose );
+	const sourceSite = await resolveSourceSite(
+		remoteSite ?? site.reprintOrigin?.remoteUrl,
+		verbose
+	);
 	if ( ! sourceSite ) {
 		return;
 	}

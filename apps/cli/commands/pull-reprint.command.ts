@@ -3,9 +3,9 @@ import { StudioArgv } from 'cli/types';
 
 export const builder = ( builderYargs: StudioArgv ) => {
 	return builderYargs
-		.option( 'url', {
+		.option( 'remote-site', {
 			type: 'string',
-			describe: __( 'URL of the remote WordPress site to pull from (remote source)' ),
+			describe: __( 'URL or WordPress.com ID of the remote site to pull from' ),
 		} )
 		.option( 'only', {
 			type: 'string',

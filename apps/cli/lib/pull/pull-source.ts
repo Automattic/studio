@@ -2,7 +2,11 @@ import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-c
 import { __ } from '@wordpress/i18n';
 import { enableReprintExporter, type ReprintExporterStatus } from 'cli/lib/api';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
-import { getSyncSupportError, pickSyncSite } from 'cli/lib/sync-site-picker';
+import {
+	findSyncSiteByIdentifier,
+	getSyncSupportError,
+	pickSyncSite,
+} from 'cli/lib/sync-site-picker';
 import { LoggerError } from 'cli/logger';
 import type { SyncSite } from '@studio/common/types/sync';
 
@@ -25,35 +29,13 @@ export function normalizeSiteUrl( url: string ): string {
 	return normalized.toString();
 }
 
-/** Finds the site matching `url`, by full URL first and then by host. */
-function findMatchingWpComSite< T extends { url: string } >(
-	sites: T[],
-	url: string
-): T | undefined {
-	const normalizedUrl = normalizeSiteUrl( url );
-	const target = new URL( normalizedUrl );
-
-	return sites.find( ( site ) => {
-		try {
-			const normalizedSiteUrl = normalizeSiteUrl( site.url );
-			if ( normalizedSiteUrl === normalizedUrl ) {
-				return true;
-			}
-
-			return new URL( normalizedSiteUrl ).host === target.host;
-		} catch {
-			return false;
-		}
-	} );
-}
-
 /**
- * Picks the WordPress.com or Pressable site to pull from (`url`, the only
- * pullable site, or the user's choice) and opens its exporter. Returns null
+ * Picks the WordPress.com or Pressable site to pull from (`identifier`, a
+ * URL or site ID; the only pullable site; or the user's choice) and opens its exporter. Returns null
  * when the user cancels the picker.
  */
 export async function resolveSourceSite(
-	url?: string,
+	identifier?: string,
 	verbose = false
 ): Promise< PullSource | null > {
 	const token = await readAuthToken();
@@ -74,18 +56,9 @@ export async function resolveSourceSite(
 	let resolvedUrl: string;
 	let wpComSite: SyncSite;
 
-	if ( url ) {
-		const matched = findMatchingWpComSite( sites, url );
-		if ( ! matched ) {
-			throw new LoggerError(
-				__( 'This URL is not a WordPress.com or Pressable site connected to your account.' )
-			);
-		}
-		if ( matched.syncSupport !== 'syncable' ) {
-			throw getSyncSupportError( matched );
-		}
-		resolvedUrl = matched.url;
-		wpComSite = matched;
+	if ( identifier ) {
+		wpComSite = findSyncSiteByIdentifier( sites, identifier );
+		resolvedUrl = wpComSite.url;
 	} else {
 		const pullableSites = sites.filter( ( site ) => site.syncSupport === 'syncable' );
 		if ( pullableSites.length === 0 ) {
@@ -103,7 +76,9 @@ export async function resolveSourceSite(
 		if ( pullableSites.length > 1 ) {
 			if ( ! process.stdin.isTTY ) {
 				throw new LoggerError(
-					__( 'Multiple WordPress.com sites are available. Re-run with `--url <site-url>`.' )
+					__(
+						'Multiple WordPress.com sites are available. Re-run with `--remote-site <site-url-or-id>`.'
+					)
 				);
 			}
 

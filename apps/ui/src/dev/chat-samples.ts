@@ -1,3 +1,4 @@
+import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { USAGE_CAP_ERROR_PREFIX } from '@studio/common/ai/json-events';
 import { STOPPED_WITHOUT_ANSWER } from '@studio/common/ai/tools';
 import type { SessionEntry } from '@/data/core';
@@ -96,6 +97,12 @@ function writer() {
 						source: { type: 'local', path, name: path, mimeType: 'image/svg+xml' },
 					},
 				} ) ),
+			} ),
+		designSystem: () =>
+			custom( 'studio.chat_artifact', {
+				version: 1,
+				id: `artifact-${ entries.length }`,
+				widgets: [ { type: 'site-preview', widgetProps: { path: DESIGN_SYSTEM_PREVIEW_PATH } } ],
 			} ),
 		closed: ( status = 'success', errorMessage?: string ) =>
 			custom( 'studio.turn_closed', { status, errorMessage }, 3 ),
@@ -408,6 +415,25 @@ export const chatSamples: ChatSample[] = [
 			t.prompt( 'Show me the site.' );
 			t.assistant( 'Here is the current home page on desktop and mobile.' );
 			t.images( [ '/shots/desktop.svg', '/shots/mobile.svg' ] );
+			t.closed();
+		} ),
+	},
+	{
+		title: 'Design system update',
+		entries: transcript( ( t ) => {
+			t.prompt( 'Refresh my colour scheme, something warmer.' );
+			t.assistant( {
+				name: 'Edit',
+				args: {
+					path: 'DESIGN.md',
+					edits: [ { oldText: 'primary: "#2f5d8a"', newText: 'primary: "#c0603a"' } ],
+				},
+				result: 'Successfully replaced 1 block(s).',
+			} );
+			t.designSystem();
+			t.assistant(
+				'The palette now leans on terracotta and cream. The Studio preview is refreshed. Nothing has been published to your live site.'
+			);
 			t.closed();
 		} ),
 	},

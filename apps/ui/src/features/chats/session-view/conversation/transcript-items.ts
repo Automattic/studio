@@ -1,4 +1,5 @@
 import {
+	isDesignSystemPreviewWidget,
 	isRenderableMediaWidget,
 	isStudioChatArtifactData,
 	stripMediaWidgetPayloadLines,
@@ -297,7 +298,9 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 			if ( ! isStudioChatArtifactData( data ) ) {
 				continue;
 			}
-			const widgets = data.widgets.filter( isRenderableMediaWidget );
+			const widgets = data.widgets.filter(
+				( widget ) => isRenderableMediaWidget( widget ) || isDesignSystemPreviewWidget( widget )
+			);
 			if ( widgets.length > 0 ) {
 				items.push( {
 					kind: 'chat-artifact',

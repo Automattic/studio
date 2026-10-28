@@ -1,4 +1,7 @@
-import { isStudioChatArtifactData } from '@studio/common/ai/chat-artifacts';
+import {
+	DESIGN_SYSTEM_PREVIEW_PATH,
+	isStudioChatArtifactData,
+} from '@studio/common/ai/chat-artifacts';
 import { useEffect } from 'react';
 import { useConnector } from '@/data/core';
 import { useSessionUIDispatch } from '@/data/use-session-ui';
@@ -22,7 +25,9 @@ export function useSessionCommands( sessionId: string | undefined ): void {
 			}
 			if ( event.type === 'chat.artifact' && isStudioChatArtifactData( event.artifact ) ) {
 				const previewPath = getSitePreviewArtifactPath( event.artifact );
-				if ( previewPath ) {
+				// A design system change shows a button in the chat instead: jumping
+				// away from the front end hides what the change looks like on the site.
+				if ( previewPath && previewPath !== DESIGN_SYSTEM_PREVIEW_PATH ) {
 					dispatch( { type: 'preview/navigate', path: previewPath } );
 				}
 			}

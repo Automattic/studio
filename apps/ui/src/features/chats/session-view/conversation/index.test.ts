@@ -1,3 +1,4 @@
+import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import {
@@ -212,6 +213,22 @@ describe( 'structured chat responses', () => {
 			'src',
 			'https://example.com/capture.png'
 		);
+	} );
+
+	it( 'offers the design system view after a DESIGN.md change', async () => {
+		renderEntries( [
+			{
+				type: 'custom',
+				id: 'design',
+				customType: 'studio.chat_artifact',
+				data: {
+					version: 1,
+					id: 'design-system',
+					widgets: [ { type: 'site-preview', widgetProps: { path: DESIGN_SYSTEM_PREVIEW_PATH } } ],
+				},
+			},
+		] );
+		expect( await screen.findByRole( 'button', { name: 'Open design system' } ) ).toBeVisible();
 	} );
 
 	it( 'reports a missing local image without losing the transcript', async () => {

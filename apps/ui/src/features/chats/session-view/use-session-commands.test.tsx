@@ -1,3 +1,4 @@
+import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { act, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { SessionUIProvider, useSessionPreviewUI } from '@/data/use-session-ui';
@@ -49,6 +50,26 @@ describe( 'useSessionCommands preview reloads', () => {
 			code: 0,
 		} );
 		send( 'session-1', { type: 'run.interrupted', timestamp: '2026-07-01T00:00:00.000Z' } );
+		expect( nonce() ).toBe( before + 1 );
+	} );
+
+	it( 'leaves the preview alone for a design system artifact but follows other preview paths', async () => {
+		const { send } = await renderHarness();
+		const before = nonce();
+		const artifact = ( path: string ) =>
+			send( 'session-1', {
+				type: 'chat.artifact',
+				timestamp: '2026-07-01T00:00:00.000Z',
+				artifact: {
+					version: 1,
+					id: path,
+					widgets: [ { type: 'site-preview', widgetProps: { path } } ],
+				},
+			} );
+
+		artifact( DESIGN_SYSTEM_PREVIEW_PATH );
+		expect( nonce() ).toBe( before );
+		artifact( '/' );
 		expect( nonce() ).toBe( before + 1 );
 	} );
 

@@ -119,4 +119,25 @@ describe( "a theme's thumbnail, once the files that make it a theme are written"
 		},
 		60_000
 	);
+
+	it( 'is made once for writes to one theme that run at once', async () => {
+		const slug = 'studio-test-at-once';
+		const dir = path.join( themes, slug );
+		mkdirSync( dir, { recursive: true } );
+		writeFileSync( path.join( dir, 'style.css' ), '/*\nTemplate: parent\n*/' );
+		writeFileSync( path.join( dir, 'theme.json' ), themeJson( [ '#aa0000' ] ) );
+		boards.length = 0;
+		const write = ( file: string ) =>
+			writeThemeThumbnail( {
+				siteRoot: path.dirname( path.dirname( themes ) ),
+				relativePath: `wp-content/themes/${ slug }/${ file }`,
+				theme: { slug, dir, file },
+			} );
+		const notes = await Promise.all( [ write( 'style.css' ), write( 'theme.json' ) ] );
+		expect( notes.flat() ).toHaveLength( 1 );
+		expect( boards ).toHaveLength( 1 );
+		// And again once it is made, should its screenshot go.
+		rmSync( path.join( dir, 'screenshot.png' ) );
+		expect( await write( 'theme.json' ) ).toHaveLength( 1 );
+	}, 60_000 );
 } );

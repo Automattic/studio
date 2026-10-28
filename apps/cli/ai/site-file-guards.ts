@@ -484,10 +484,27 @@ export async function writeThemeThumbnail( siteFile: SiteFile ): Promise< string
 	const { theme } = siteFile;
 	if (
 		! theme ||
+		thumbnailsBeingMade.has( theme.dir ) ||
 		readdirSync( theme.dir ).some( ( file ) => /^screenshot\.(png|jpe?g|gif|webp)$/.test( file ) )
 	) {
 		return [];
 	}
+	// Writes to one theme run at once when the agent makes them in one turn:
+	// the first makes its thumbnail.
+	thumbnailsBeingMade.add( theme.dir );
+	try {
+		return await makeThemeThumbnail( theme );
+	} finally {
+		thumbnailsBeingMade.delete( theme.dir );
+	}
+}
+
+// The themes whose thumbnail a write is making now, by folder.
+const thumbnailsBeingMade = new Set< string >();
+
+async function makeThemeThumbnail(
+	theme: NonNullable< SiteFile[ 'theme' ] >
+): Promise< string[] > {
 	const themeJson = await resolvedThemeJson( theme.dir );
 	if ( ! themeJson ) {
 		return [];

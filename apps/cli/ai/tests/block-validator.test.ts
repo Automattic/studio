@@ -191,6 +191,33 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			saved:
 				'<!-- wp:group {"style":{"spacing":{"padding":{"top":"1rem"}}}} -->\n<div class="wp-block-group" style="padding-top:1rem"><!-- wp:group {"style":{"spacing":{"padding":{"top":"2rem"}}}} -->',
 		},
+		{
+			name: 'a gradient, as the shorthand the style engine saves it as',
+			written:
+				'<!-- wp:group -->\n<div class="wp-block-group" style="background:linear-gradient(135deg,#2E4637 0%,#22302A 100%)"></div>\n<!-- /wp:group -->',
+			saved:
+				'<!-- wp:group {"style":{"color":{"gradient":"linear-gradient(135deg,#2E4637 0%,#22302A 100%)"}}} -->',
+		},
+		{
+			// core/image saves scale as object-fit on its img, and the style
+			// engine's dimensions.objectFit on its figure.
+			name: 'in the attribute the block saves the style from',
+			written:
+				'<!-- wp:image {"id":9,"sizeSlug":"large"} -->\n<figure class="wp-block-image size-large"><img src="https://example.com/a.jpg" alt="" class="wp-image-9" style="object-fit:cover"/></figure>\n<!-- /wp:image -->',
+			saved: '"scale":"cover"',
+		},
+		{
+			name: 'in each attribute the block saves one of them from',
+			written:
+				'<!-- wp:image {"sizeSlug":"large"} -->\n<figure class="wp-block-image size-large"><img src="https://example.com/a.jpg" alt="" style="aspect-ratio:4/3;width:100%;height:auto"/></figure>\n<!-- /wp:image -->',
+			saved: '{"width":"100%","height":"auto","aspectRatio":"4/3","sizeSlug":"large"}',
+		},
+		{
+			name: 'in a number attribute the block saves the style from',
+			written:
+				'<!-- wp:cover -->\n<div class="wp-block-cover" style="min-height:500px"><span aria-hidden="true" class="wp-block-cover__background has-background-dim-100 has-background-dim"></span><div class="wp-block-cover__inner-container"></div></div>\n<!-- /wp:cover -->',
+			saved: '<!-- wp:cover {"minHeight":500} -->',
+		},
 	] )(
 		'stores the inline styles a block would drop where it saves them from: $name',
 		async ( { written, saved } ) => {
@@ -290,6 +317,12 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			written:
 				'<!-- wp:separator -->\n<hr class="wp-block-separator has-alpha-channel-opacity" style="opacity:0.4"/>\n<!-- /wp:separator -->',
 			lost: 'drop the styles opacity:0.4',
+		},
+		{
+			name: 'a style no block attribute saves, beside one it does',
+			written:
+				'<!-- wp:paragraph -->\n<p style="font-size:1.1rem;opacity:0.92">Hi</p>\n<!-- /wp:paragraph -->',
+			lost: 'drop the styles opacity:0.92',
 		},
 		{
 			// The comment's font size preset and the written size both name one.

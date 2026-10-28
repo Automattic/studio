@@ -689,6 +689,83 @@ export async function validateBlocks(
 				);
 			}
 
+			// The style attribute path of a shorthand the browser sets a property
+			// with, for a property the style engine saves only through one: a
+			// gradient is written as background-image, and the style engine saves
+			// color.gradient as background.
+			function shorthandPathOf( property: string, value: string ) {
+				stylePathOf( property );
+				for ( const [ key, path ] of stylePaths ?? [] ) {
+					const shorthand = key.replace( /[A-Z]/g, ( letter ) => `-${ letter.toLowerCase() }` );
+					const scratch = document.createElement( 'div' );
+					scratch.style.setProperty( shorthand, value );
+					if ( scratch.style.getPropertyValue( property ) === value ) {
+						return path;
+					}
+				}
+				return undefined;
+			}
+
+			// The inline styles a block saves from its own attributes rather than
+			// from its style attribute, as core/image saves scale as object-fit
+			// and aspectRatio as aspect-ratio (image/save.js). As withWrittenClasses
+			// reads classes: each attribute is made with a probe value, and the
+			// declaration holding it read.
+			const attributeStyles = new Map< string, any[] >();
+			function attributeStylesOf( made: any ) {
+				const known = attributeStyles.get( made.name );
+				if ( known ) {
+					return known;
+				}
+				const found = Object.entries(
+					wpBlocks.getBlockType( made.name )?.attributes ?? {}
+				).flatMap( ( [ key, schema ]: [ string, any ] ) => {
+					const kind =
+						schema.type === 'string'
+							? 'string'
+							: [ 'number', 'integer' ].includes( schema.type )
+							? 'number'
+							: undefined;
+					if ( ! kind ) {
+						return [];
+					}
+					const probe = String( PROBE[ kind ] );
+					let saved: HTMLElement[];
+					try {
+						saved = elementsOf(
+							String(
+								rawParse(
+									wpBlocks.serialize( [
+										wpBlocks.createBlock(
+											made.name,
+											{ ...made.attributes, [ key ]: PROBE[ kind ] },
+											made.innerBlocks
+										),
+									] )
+								)?.[ 0 ]?.innerHTML ?? ''
+							)
+						);
+					} catch {
+						return [];
+					}
+					return saved.flatMap( ( element ) =>
+						String( element.getAttribute( 'style' ) ?? '' )
+							.split( ';' )
+							.map( ( declaration ) => declaration.split( ':' ) )
+							.filter( ( parts ) => parts.length === 2 && parts[ 1 ].includes( probe ) )
+							.map( ( [ property, value ] ) => ( {
+								key,
+								kind,
+								property: property.trim().toLowerCase(),
+								before: value.trim().slice( 0, value.trim().indexOf( probe ) ),
+								after: value.trim().slice( value.trim().indexOf( probe ) + probe.length ),
+							} ) )
+					);
+				} );
+				attributeStyles.set( made.name, found );
+				return found;
+			}
+
 			// The elements of a block's own markup, without its inner blocks.
 			function elementsOf( ownHtml: string ) {
 				return Array.from(
@@ -713,10 +790,11 @@ export async function validateBlocks(
 
 			// The block made again with the inline styles written in its own markup
 			// that it would drop, stored where the block saves them from: the style
-			// attribute path the style engine reads, holding a preset as
-			// var:preset|… the way the editor stores one. Kept when each element
-			// it saves holds the styles written on it; what it loses otherwise,
-			// the fix's losses tell.
+			// attribute the block saves that style from, else the style attribute
+			// path the style engine reads, or a shorthand's that sets it, holding
+			// a preset as var:preset|… the way the editor stores one. Kept when it
+			// holds more of the styles written on each element; what it loses
+			// still, the fix's losses tell.
 			function withWrittenStyles( made: any, raw: any ) {
 				if ( typeof rawParse !== 'function' ) {
 					return made;
@@ -736,6 +814,7 @@ export async function validateBlocks(
 					return made;
 				}
 				const style = structuredClone( made.attributes.style ?? {} );
+				const attributes: Record< string, unknown > = {};
 				for ( const [ i, missing ] of dropped.entries() ) {
 					// Each value as written, so a color stays as it was written.
 					const asWritten = new Map(
@@ -746,10 +825,6 @@ export async function validateBlocks(
 							.map( ( [ property, value ] ) => [ property.trim().toLowerCase(), value.trim() ] )
 					);
 					for ( const [ property, value ] of missing ) {
-						const path = stylePathOf( property );
-						if ( ! path ) {
-							return made;
-						}
 						// Of a shorthand too, as background:#efe6d8 writes background-color.
 						const text =
 							[ asWritten.get( property ), ...asWritten.values() ].find( ( candidate ) => {
@@ -757,6 +832,19 @@ export async function validateBlocks(
 								scratch.style.setProperty( property, candidate ?? '' );
 								return scratch.style.getPropertyValue( property ) === value;
 							} ) ?? value;
+						// The attribute the block's own save holds that style from first,
+						// as core/image saves object-fit on its img from scale, where the
+						// style engine's dimensions.objectFit would save it on the figure.
+						const saving = attributeStylesOf( made ).find( ( one ) => one.property === property );
+						if ( saving ) {
+							const held = text.slice( saving.before.length, text.length - saving.after.length );
+							attributes[ saving.key ] = saving.kind === 'number' ? Number( held ) : held;
+							continue;
+						}
+						const path = stylePathOf( property ) ?? shorthandPathOf( property, value );
+						if ( ! path ) {
+							continue;
+						}
 						const preset = /^var\(--wp--(preset--.+)\)$/.exec( text )?.[ 1 ];
 						const stored = preset ? `var:${ preset.split( '--' ).join( '|' ) }` : text;
 						const leaf = path
@@ -770,10 +858,17 @@ export async function validateBlocks(
 				}
 				const restyled = wpBlocks.createBlock(
 					made.name,
-					{ ...made.attributes, style },
+					{
+						...made.attributes,
+						...attributes,
+						style: Object.keys( style ).length ? style : made.attributes.style,
+					},
 					made.innerBlocks
 				);
-				return holdsWritten( elementsOf( ownHtml( restyled ) ) ).flat().length ? made : restyled;
+				return holdsWritten( elementsOf( ownHtml( restyled ) ) ).flat().length <
+					dropped.flat().length
+					? restyled
+					: made;
 			}
 
 			const initial = validateContent( html );

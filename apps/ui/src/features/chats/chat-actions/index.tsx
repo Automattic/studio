@@ -318,7 +318,7 @@ function RenameChatDialog( {
 		);
 	return (
 		<Dialog open={ open } onOpenChange={ ( next ) => ! next && ! saving && onClose() }>
-			<DialogContent>
+			<DialogContent layout="compact">
 				<RenameChatForm session={ session } saving={ saving } onSave={ save } />
 			</DialogContent>
 		</Dialog>

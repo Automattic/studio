@@ -1,4 +1,4 @@
-import { getSiteOrigin, getSiteUrl } from './playground';
+import { buildBridgeScript, getSiteOrigin, getSiteUrl } from './playground';
 
 interface PageCapture {
 	dataUrl: string;
@@ -25,9 +25,11 @@ export interface SitePage {
 
 const LOAD_TIMEOUT_MS = 90_000;
 
+// A page of a running site, or a document of its own (`html`), which loads in
+// a sandboxed frame without the app's origin and answers through the same
+// bridge script.
 export async function openSitePage(
-	scope: string,
-	path: string,
+	target: { scope: string; path: string } | { html: string },
 	{ width = 1280, height = 800, settleMs = 600 } = {}
 ): Promise< SitePage > {
 	const iframe = document.createElement( 'iframe' );
@@ -35,9 +37,21 @@ export async function openSitePage(
 	iframe.style.cssText = `position:fixed;left:-${
 		width + 100
 	}px;top:0;width:${ width }px;height:${ height }px;border:0;`;
-	const relative = path.replace( /^\/?(scope:[^/]+\/?)?/, '/' );
-	const loaded = waitForMessage( iframe, 'studio-web:loaded', () => true );
-	iframe.src = `${ getSiteUrl( scope ) }${ relative }`;
+	const origin = 'html' in target ? 'null' : getSiteOrigin();
+	const loaded = waitForMessage( iframe, origin, 'studio-web:loaded', () => true );
+	if ( 'html' in target ) {
+		iframe.setAttribute( 'sandbox', 'allow-scripts' );
+		const bridge = `<script>${ buildBridgeScript( window.location.origin ).replace(
+			/<\//g,
+			'<\\/'
+		) }</script>`;
+		iframe.srcdoc = /<\/body>/i.test( target.html )
+			? target.html.replace( /<\/body>/i, `${ bridge }</body>` )
+			: `${ target.html }${ bridge }`;
+	} else {
+		const relative = target.path.replace( /^\/?(scope:[^/]+\/?)?/, '/' );
+		iframe.src = `${ getSiteUrl( target.scope ) }${ relative }`;
+	}
 	document.body.appendChild( iframe );
 	try {
 		await loaded;
@@ -50,10 +64,15 @@ export async function openSitePage(
 
 	async function request< T >( action: string, payload: Record< string, unknown > ): Promise< T > {
 		const id = crypto.randomUUID();
-		const response = waitForMessage( iframe, 'studio-web:response', ( data ) => data.id === id );
+		const response = waitForMessage(
+			iframe,
+			origin,
+			'studio-web:response',
+			( data ) => data.id === id
+		);
 		iframe.contentWindow?.postMessage(
 			{ type: 'studio-web:request', id, action, payload },
-			getSiteOrigin()
+			origin === 'null' ? '*' : origin
 		);
 		const { result, error } = ( await response ) as { result?: T; error?: string };
 		if ( error ) {
@@ -107,10 +126,10 @@ export function connectPreviewFrame(
 export async function withSitePage< T >(
 	scope: string,
 	path: string,
-	options: Parameters< typeof openSitePage >[ 2 ],
+	options: Parameters< typeof openSitePage >[ 1 ],
 	task: ( page: SitePage ) => Promise< T >
 ): Promise< T > {
-	const page = await openSitePage( scope, path, options );
+	const page = await openSitePage( { scope, path }, options );
 	try {
 		return await task( page );
 	} finally {
@@ -120,6 +139,7 @@ export async function withSitePage< T >(
 
 function waitForMessage(
 	iframe: HTMLIFrameElement,
+	origin: string,
 	type: string,
 	matches: ( data: Record< string, unknown > ) => boolean
 ): Promise< Record< string, unknown > > {
@@ -131,7 +151,7 @@ function waitForMessage(
 		function onMessage( event: MessageEvent ) {
 			const data = event.data as Record< string, unknown > | null;
 			if (
-				event.origin !== getSiteOrigin() ||
+				event.origin !== origin ||
 				event.source !== iframe.contentWindow ||
 				! data ||
 				data.type !== type ||

@@ -236,14 +236,15 @@ function pageBridge( appOrigin: string, screenshotLibrary: string, consolePrefix
 	}
 }
 
-function buildBridgePlugin( appOrigin: string ): string {
-	const script = `(${ pageBridge.toString() })(${ [
-		appOrigin,
-		SCREENSHOT_LIBRARY,
-		INSPECTOR_BRIDGE_PREFIX,
-	]
+// The bridge script a page answers this app's requests with.
+export function buildBridgeScript( appOrigin: string ): string {
+	return `(${ pageBridge.toString() })(${ [ appOrigin, SCREENSHOT_LIBRARY, INSPECTOR_BRIDGE_PREFIX ]
 		.map( ( arg ) => JSON.stringify( arg ) )
 		.join( ', ' ) });`;
+}
+
+function buildBridgePlugin( appOrigin: string ): string {
+	const script = buildBridgeScript( appOrigin );
 	return `<?php
 function studio_web_bridge_script() {
 	echo '<script>' . ${ phpString( script ) } . '</script>';

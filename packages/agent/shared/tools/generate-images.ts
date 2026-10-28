@@ -1,4 +1,5 @@
 import { Type } from 'typebox';
+import { toBase64 } from '@studio/agent/shared/base64';
 import {
 	composeImagePrompt,
 	generateImages,
@@ -61,7 +62,7 @@ async function evalWithData(
 	php: string,
 	data: unknown
 ): Promise< string > {
-	const encoded = Buffer.from( JSON.stringify( data ) ).toString( 'base64' );
+	const encoded = toBase64( new TextEncoder().encode( JSON.stringify( data ) ) );
 	return runWpCli( host, site, [
 		'eval',
 		`$data = json_decode( base64_decode( '${ encoded }' ), true );\n${ php }`,

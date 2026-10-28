@@ -28,6 +28,15 @@ export interface BuildSystemPromptOptions {
 	activeSiteDesignPath?: string;
 }
 
+// Agents without a shell (Studio Code in a browser) are not told about one.
+function buildStudioToolsRule( options: BuildSystemPromptOptions ): string {
+	const hasShell =
+		options.external || ! options.tools || options.tools.some( ( tool ) => tool.name === 'Bash' );
+	return hasShell
+		? 'You MUST use your Studio tools to manage WordPress sites. Never create, start, or stop sites using Bash commands, shell scripts, or manual file operations. Never run `wp` commands via Bash — always use the wp_cli tool instead. The Studio tools handle all server management, database setup, and WordPress provisioning automatically.'
+		: 'You MUST use your Studio tools to manage WordPress sites, and the wp_cli tool for WP-CLI commands. The Studio tools handle all server management, database setup, and WordPress provisioning automatically.';
+}
+
 export function buildSystemPrompt( options: BuildSystemPromptOptions = {} ): string {
 	const intro = options.external
 		? EXTERNAL_INTRO
@@ -37,7 +46,7 @@ export function buildSystemPrompt( options: BuildSystemPromptOptions = {} ): str
 
 ## General rules
 
-- You MUST use your Studio tools to manage WordPress sites. Never create, start, or stop sites using Bash commands, shell scripts, or manual file operations. Never run \`wp\` commands via Bash — always use the wp_cli tool instead. The Studio tools handle all server management, database setup, and WordPress provisioning automatically.
+- ${ buildStudioToolsRule( options ) }
 - A request works on exactly one site, settled before any change. Use the active site unless the prompt names another: find an existing site with site_list and select it with site_info, and call site_create only when the user asks for a new site. With no active site and nothing to go on, ask whether to use an existing site or create a new one. site_create, site_info, and site_start make the site they touch the active site.
 - Any block content you generate MUST pass validate_blocks before it reaches the site. Never apply unvalidated block content.
 - Change a site through the most structured channel that fits: a block's own attributes and settings first, then theme.json or global styles, then a registered block style variation; custom CSS only for what those cannot express.

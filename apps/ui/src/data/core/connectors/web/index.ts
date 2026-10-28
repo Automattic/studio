@@ -5,6 +5,7 @@ import { isShortcut } from '@/lib/keyboard';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
 import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
+import { AGENT_INSTRUCTIONS_ENABLED_KEY, AGENT_INSTRUCTIONS_KEY, WebAgentRuns } from './agent';
 import {
 	getSiteOrigin,
 	loadBlueprintBundle,
@@ -20,7 +21,7 @@ import {
 } from './site-data';
 import { connectPreviewFrame, withSitePage } from './site-page';
 import { WebSites } from './sites';
-import { kvGet, kvUpdate } from './store';
+import { kvGet, kvSet, kvUpdate } from './store';
 import { WpcomAuth } from './wpcom-auth';
 import { WpcomServices } from './wpcom-services';
 import type {
@@ -83,8 +84,8 @@ function backupFilename( siteName: string, extension: string ): string {
 /**
  * Studio on the web: the data source for a static deployment with no Studio
  * server. Sites run in WordPress Playground and persist in the browser's
- * private storage, and WordPress.com is reached directly with the user's token.
- * The assistant isn't available yet.
+ * private storage, WordPress.com is reached directly with the user's token, and
+ * Studio Code runs in the page.
  */
 export function createWebConnector(): Connector {
 	const sites = new WebSites();
@@ -93,6 +94,13 @@ export function createWebConnector(): Connector {
 	// Files the user picked, by the pseudo path `getFilePath` hands back.
 	const pickedFiles = new Map< string, File >();
 	const blueprintBundles = new Map< string, BlueprintBundle >();
+	const agent = new WebAgentRuns( {
+		sites,
+		auth,
+		wpcom,
+		readAttachment: ( filePath ) => pickedFiles.get( filePath ),
+		download,
+	} );
 
 	async function readPreferences(): Promise< UserPreferences > {
 		return {
@@ -119,7 +127,7 @@ export function createWebConnector(): Connector {
 			siteAgentFiles: false,
 			fileAccess: false,
 			versionChoice: false,
-			assistant: false,
+			assistant: true,
 		},
 
 		agenticRequiresAuth: false,
@@ -346,43 +354,22 @@ export function createWebConnector(): Connector {
 		onSyncConnectSite: ( listener ) => wpcom.onSyncConnectSite( listener ),
 		watchForPublishedSite: ( siteId ) => wpcom.watchForPublishedSite( siteId ),
 
-		async getSessions() {
-			return [];
-		},
-		async getSession() {
-			throw new UnsupportedError( 'getSession' );
-		},
-		async updateSessionMetadata() {
-			throw new UnsupportedError( 'updateSessionMetadata' );
-		},
-		async createSession() {
-			throw new UnsupportedError( 'createSession' );
-		},
-		async continueSession() {
-			throw new UnsupportedError( 'continueSession' );
-		},
-		async getActiveAgentRuns() {
-			return [];
-		},
-		async setSessionModel() {
-			throw new UnsupportedError( 'setSessionModel' );
-		},
-		async setSessionProvider() {
-			throw new UnsupportedError( 'setSessionProvider' );
-		},
-		async setSessionEnvironment() {
-			throw new UnsupportedError( 'setSessionEnvironment' );
-		},
-		async interruptAgentRun() {},
-		async answerAgentQuestion() {
-			throw new UnsupportedError( 'answerAgentQuestion' );
-		},
-		onAgentEvent() {
-			return () => {};
-		},
-		onSessionPlacementUpdated() {
-			return () => {};
-		},
+		getSessions: () => agent.getSessions(),
+		getSession: ( sessionId ) => agent.getSession( sessionId ),
+		updateSessionMetadata: ( sessionId, patch ) => agent.updateSessionMetadata( sessionId, patch ),
+		createSession: ( siteId ) => agent.createSession( siteId ),
+		continueSession: ( sessionId, prompt, options ) =>
+			agent.continueSession( sessionId, prompt, options ),
+		getActiveAgentRuns: () => agent.getActiveRuns(),
+		setSessionModel: ( sessionId, model ) => agent.setSessionModel( sessionId, model ),
+		setSessionProvider: ( sessionId, provider, model ) =>
+			agent.setSessionProvider( sessionId, provider, model ),
+		setSessionEnvironment: ( sessionId, environment ) =>
+			agent.setSessionEnvironment( sessionId, environment ),
+		interruptAgentRun: ( runId ) => agent.interrupt( runId ),
+		answerAgentQuestion: ( runId, answers ) => agent.answer( runId, answers ),
+		onAgentEvent: ( listener ) => agent.onEvent( listener ),
+		onSessionPlacementUpdated: ( listener ) => agent.onPlacementUpdated( listener ),
 
 		getUserPreferences: readPreferences,
 		async setUserPreferences( partial ) {
@@ -407,27 +394,21 @@ export function createWebConnector(): Connector {
 		async trustCertificate() {},
 
 		async getAgentInstructions() {
-			return '';
+			return ( await kvGet< string >( AGENT_INSTRUCTIONS_KEY ) ) ?? '';
 		},
 		async getAgentInstructionsEnabled() {
-			return false;
+			return ( await kvGet< boolean >( AGENT_INSTRUCTIONS_ENABLED_KEY ) ) ?? true;
 		},
-		async setAgentInstructionsEnabled() {
-			throw new UnsupportedError( 'setAgentInstructionsEnabled' );
+		async setAgentInstructionsEnabled( enabled ) {
+			await kvSet( AGENT_INSTRUCTIONS_ENABLED_KEY, enabled );
 		},
-		async saveAgentInstructions() {
-			throw new UnsupportedError( 'saveAgentInstructions' );
+		async saveAgentInstructions( content ) {
+			await kvSet( AGENT_INSTRUCTIONS_KEY, content );
 		},
 
-		async getAiSettings() {
-			throw new UnsupportedError( 'getAiSettings' );
-		},
-		async saveAnthropicApiKey() {
-			throw new UnsupportedError( 'saveAnthropicApiKey' );
-		},
-		async setAiProvider() {
-			throw new UnsupportedError( 'setAiProvider' );
-		},
+		getAiSettings: () => agent.getAiSettings(),
+		saveAnthropicApiKey: ( key ) => agent.saveAnthropicApiKey( key ),
+		setAiProvider: ( provider ) => agent.setAiProvider( provider ),
 
 		async getInstalledApps(): Promise< InstalledApps > {
 			return {} as InstalledApps;

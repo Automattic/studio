@@ -18,6 +18,16 @@ const toolsFor = ( options: StudioToolsOptions, host: StudioAgentHost = createFa
 	} ) );
 
 describe( 'buildSystemPrompt', () => {
+	it( 'mentions a shell only to agents that have one', () => {
+		expect( buildSystemPrompt( { tools: [ { name: 'Bash' } ] } ) ).toContain(
+			'Never run `wp` commands via Bash'
+		);
+		expect( buildSystemPrompt( { external: true, tools: [] } ) ).toContain(
+			'Never run `wp` commands via Bash'
+		);
+		expect( buildSystemPrompt( { tools: [ { name: 'wp_cli' } ] } ) ).not.toContain( 'Bash' );
+	} );
+
 	it( 'routes plugin-specific feature work to the plugin recommendations skill', () => {
 		const prompt = buildSystemPrompt();
 

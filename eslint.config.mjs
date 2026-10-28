@@ -370,9 +370,12 @@ export default defineConfig(
 		},
 	},
 	{
-		// The tools, prompt and skills both agents share, in a browser as well as Node.
-		files: [ 'packages/agent/shared/**/*.ts' ],
-		ignores: [ 'packages/agent/shared/**/tests/**', 'packages/agent/shared/**/*.test.ts' ],
+		// The tools, prompt and skills both agents share, and the browser agent.
+		files: [ 'packages/agent/shared/**/*.ts', 'packages/agent/web/**/*.ts' ],
+		ignores: [
+			'packages/agent/{shared,web}/**/tests/**',
+			'packages/agent/{shared,web}/**/*.test.ts',
+		],
 		rules: {
 			'no-restricted-imports': [
 				'error',
@@ -392,11 +395,11 @@ export default defineConfig(
 								'playwright-core',
 								'@earendil-works/pi-coding-agent',
 							],
-							message: 'shared/ runs in the browser too; reach files and pages through the host.',
+							message: 'shared/ and web/ run in a browser; reach files and pages through the host.',
 						},
 						{
 							group: [ '@studio/agent/node', '@studio/agent/node/*', 'cli/*', 'src/*' ],
-							message: 'shared/ depends on protocol and common, not on the Node agent.',
+							message: 'shared/ and web/ depend on protocol and common, not on the Node agent.',
 						},
 					],
 				},

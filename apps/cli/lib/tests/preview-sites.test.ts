@@ -56,7 +56,11 @@ describe( 'Preview sites', () => {
 				path: '/sites/new',
 				body: expect.objectContaining( {
 					blog_title: 'My Preview',
-					options: { wow_funnel: 'preview', wow_funnel_args: { attachment_id: '678' } },
+					options: {
+						wow_funnel: 'preview',
+						wow_funnel_args: { attachment_id: '678' },
+						from_wfm: true,
+					},
 				} ),
 			} )
 		);

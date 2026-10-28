@@ -158,6 +158,8 @@ export async function createPreviewSite(
 					options: {
 						wow_funnel: PREVIEW_FUNNEL,
 						wow_funnel_args: { attachment_id: String( attachmentId ) },
+						// Use a ready-made site when one is available, so the preview comes up faster.
+						from_wfm: true,
 					},
 				},
 			} )

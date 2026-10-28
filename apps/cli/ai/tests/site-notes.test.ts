@@ -1,7 +1,15 @@
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import {
+	cpSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	symlinkSync,
+	writeFileSync,
+} from 'fs';
 import os from 'os';
 import path from 'path';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSiteNotes } from 'cli/ai/site-notes';
 import type { BlockValidationGate } from 'cli/ai/block-validation-gate';
 
@@ -74,4 +82,86 @@ describe.runIf( WORDPRESS )( 'the notes on a write', () => {
 			defaultSpacingSizes: false,
 		} );
 	}, 60000 );
+} );
+
+describe( 'a note on a write', () => {
+	let root: string;
+	const theme = () => path.join( root, 'wp-content/themes/studio-test-once' );
+	// A cover held to the content width by a group that is not align full.
+	const HELD =
+		'<!-- wp:group {"layout":{"type":"constrained"}} --><div class="wp-block-group"><!-- wp:group {"backgroundColor":"base"} --><div class="wp-block-group has-base-background-color"><!-- wp:cover {"align":"full"} /--></div><!-- /wp:group --></div><!-- /wp:group -->';
+	const write = ( file: string, markup: string ) => {
+		const at = path.join( theme(), file );
+		mkdirSync( path.dirname( at ), { recursive: true } );
+		writeFileSync( at, markup );
+		return at;
+	};
+	beforeEach( () => {
+		root = mkdtempSync( path.join( os.tmpdir(), 'notes-once-' ) );
+		mkdirSync( path.join( root, 'wp-includes' ), { recursive: true } );
+		writeFileSync( path.join( theme(), '..', '..', '..', 'wp-config.php' ), '' );
+		write( 'style.css', '/*\nTheme Name: Once\n*/' );
+		write( 'screenshot.png', 'png' );
+	} );
+	afterEach( () => rmSync( root, { recursive: true, force: true } ) );
+
+	it.each< { name: string; writes: Array< [ string, string ] >; heard: boolean[] } >( [
+		{
+			name: 'is said once while it stands',
+			writes: [
+				[ 'templates/index.html', HELD ],
+				[ 'templates/index.html', HELD ],
+			],
+			heard: [ true, false ],
+		},
+		{
+			name: 'is said of each file that gives it',
+			writes: [
+				[ 'templates/index.html', HELD ],
+				[ 'templates/home.html', HELD ],
+				[ 'templates/index.html', HELD ],
+			],
+			heard: [ true, true, false ],
+		},
+		{
+			name: 'is said again when it comes back after a write to its file no longer gives it',
+			writes: [
+				[ 'templates/index.html', HELD ],
+				[ 'templates/index.html', '' ],
+				[ 'templates/index.html', HELD ],
+			],
+			heard: [ true, false, true ],
+		},
+		{
+			name: 'stands while a write to another file no longer gives it',
+			writes: [
+				[ 'templates/index.html', HELD ],
+				[ 'templates/home.html', '' ],
+				[ 'templates/index.html', HELD ],
+			],
+			heard: [ true, false, false ],
+		},
+	] )( '$name', async ( { writes, heard } ) => {
+		const siteNotes = createSiteNotes();
+		const said: boolean[] = [];
+		for ( const [ file, markup ] of writes ) {
+			const notes = await siteNotes.afterWrite( write( file, markup ) );
+			said.push( notes.some( ( note ) => note.includes( 'cannot reach the page edges' ) ) );
+		}
+		expect( said ).toEqual( heard );
+	} );
+
+	it( 'is said once whichever path names its file', async () => {
+		const siteNotes = createSiteNotes();
+		const at = write( 'templates/index.html', HELD );
+		expect( await siteNotes.afterWrite( at ) ).toHaveLength( 1 );
+		// The same file, named through a link to its folder.
+		symlinkSync( path.join( theme(), 'templates' ), path.join( theme(), 'linked' ) );
+		const other = path.join( theme(), 'linked/index.html' );
+		expect( await siteNotes.afterWrite( other ) ).toEqual( [] );
+		write( 'templates/index.html', '' );
+		await siteNotes.afterWrite( other );
+		write( 'templates/index.html', HELD );
+		expect( await siteNotes.afterWrite( at ) ).toHaveLength( 1 );
+	} );
 } );

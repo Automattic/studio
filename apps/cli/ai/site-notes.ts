@@ -145,6 +145,14 @@ async function collect( notes: Array< () => Notes > ): Promise< string[] > {
 	return lines;
 }
 
+function realPath( filePath: string ): string {
+	try {
+		return fs.realpathSync( filePath );
+	} catch {
+		return filePath;
+	}
+}
+
 function readText( filePath: string ): string | undefined {
 	try {
 		return fs.readFileSync( filePath, 'utf8' );
@@ -168,6 +176,14 @@ export interface SiteNotes {
 /** One agent session's notes: sources that say a thing once keep that here. */
 export function createSiteNotes( options: SiteNotesOptions = {} ): SiteNotes {
 	const { beforeWrite, write, result } = sources( options );
+	// The notes each file's last write gave, by file: a note said once while
+	// it stands, and again should it come back after a write that gave none.
+	const standing = new Map< string, string[] >();
+	const once = ( file: string, notes: string[] ) => {
+		const said = standing.get( file ) ?? [];
+		standing.set( file, notes );
+		return notes.filter( ( note ) => ! said.includes( note ) );
+	};
 	return {
 		async beforeWrite( filePath, text = '' ) {
 			// Unlike a note, a refusal that fails stops the write.
@@ -182,7 +198,11 @@ export function createSiteNotes( options: SiteNotesOptions = {} ): SiteNotes {
 			if ( ! file ) {
 				return [];
 			}
-			const notes = await collect( write.map( ( source ) => () => source( file ) ) );
+			const notes = once(
+				// One file, however the call names it, as /var and /private/var on macOS.
+				realPath( filePath ),
+				await collect( write.map( ( source ) => () => source( file ) ) )
+			);
 			const now = readText( filePath );
 			return written === undefined || now === undefined
 				? notes

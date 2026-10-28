@@ -636,12 +636,19 @@ export async function stopWordPressServer( siteId: string ): Promise< void > {
 			bus.off( 'process-event', busExitEventListener );
 		} );
 
+		const probeT0 = Date.now();
 		await sendMessage(
 			runningProcess.pmId,
 			processName,
 			{ topic: 'stop-server', data: {} },
 			{ maxTotalElapsedTime: GRACEFUL_STOP_TIMEOUT }
 		);
+		const probeStopMsg = Date.now() - probeT0;
+		exitPromise.then( () => {
+			if ( process.env.STUDIO_PHASE_PROBE ) {
+				process.stderr.write( `[stop-probe] {"stop_message_ms":${ probeStopMsg },"to_exit_ms":${ Date.now() - probeT0 }}\n` );
+			}
+		} );
 
 		// Allow 5 seconds (arbitrary number) of cleanup time for the child process before throwing an
 		// exception and telling the process manager to send a SIGKILL signal. Clear the timer once the

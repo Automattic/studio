@@ -1,5 +1,7 @@
 import { ChildProcess, spawn, spawnSync } from 'node:child_process';
 import os from 'node:os';
+import fs from 'node:fs';
+import path from 'node:path';
 import { withoutOversizedEnvValues } from 'cli/lib/child-env';
 import { getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
 import { getDefaultPhpArgs } from 'cli/lib/native-php/config';
@@ -159,11 +161,16 @@ export function killPhpProcessTree(
 		// Bounded so a hung taskkill can't stall the caller's event loop indefinitely (which would
 		// hang shutdown). `signal`/`error` on the result means it was cut off before finishing —
 		// log it, since that's the smoking gun for a process tree that won't die.
+		const probeT = Date.now();
 		const result = spawnSync( 'taskkill', [ '/F', '/T', '/PID', String( pid ) ], {
 			windowsHide: true,
 			stdio: 'ignore',
 			timeout: 2_000,
 		} );
+		if ( process.env.STUDIO_PHASE_PROBE ) {
+			console.error( `[taskkill-probe] ${ Date.now() - probeT }ms` );
+			fs.appendFileSync( path.join( os.tmpdir(), 'phase-probe-stop.log' ), `taskkill ${ Date.now() - probeT }ms\n` );
+		}
 		if ( result.error || result.signal ) {
 			console.error(
 				`[PHP] taskkill for pid ${ pid } did not complete (signal: ${ result.signal }, error: ${ result.error?.message })`

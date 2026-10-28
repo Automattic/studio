@@ -368,10 +368,23 @@ async function stopCurrentPhpServer(): Promise< void > {
 	phpProcess = null;
 	phpWorkerProcesses = [];
 
+	const probeT0 = Date.now();
 	await closePhpProxyServer();
+	const probeProxy = Date.now() - probeT0;
+	const probeKills: number[] = [];
 	await Promise.all(
-		children.map( ( child ) => stopPhpChild( child, STOP_SERVER_TIMEOUT, errorToConsole ) )
+		children.map( async ( child ) => {
+			const t = Date.now();
+			await stopPhpChild( child, STOP_SERVER_TIMEOUT, errorToConsole );
+			probeKills.push( Date.now() - t );
+		} )
 	);
+	if ( process.env.STUDIO_PHASE_PROBE ) {
+		fs.appendFileSync(
+			path.join( os.tmpdir(), 'phase-probe-stop.log' ),
+			JSON.stringify( { children: children.length, proxy_close_ms: probeProxy, kills_ms: probeKills, total_ms: Date.now() - probeT0 } ) + '\n'
+		);
+	}
 }
 
 function proxyRequestToPhpWorker(

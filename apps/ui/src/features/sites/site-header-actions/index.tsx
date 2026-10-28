@@ -1,18 +1,8 @@
 import { isRTL, __ } from '@wordpress/i18n';
-import { clsx } from 'clsx';
 import { EllipsisIcon } from 'lucide-react';
-import {
-	createContext,
-	useContext,
-	useEffect,
-	useLayoutEffect,
-	useRef,
-	useState,
-	type ReactNode,
-} from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
 import { requestHeaderPanel } from '@/data/use-open-header-panel';
-import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
 import { ShareStatusIcon, useShareStatus } from '@/features/sharing';
 import { ShareButton, PublishButton, SiteDeliveryDialog } from '@/features/site-delivery';
 import { useWindowControlsOverlay } from '@/lib/hooks';
@@ -51,13 +41,9 @@ interface SiteHeaderContextValue {
 	host: 'chat' | 'preview' | null;
 	layout: SiteHeaderLayout;
 	actionsWidth: number;
-	// Set while `SiteHeaderStart` is drawn: its width, which the header under
-	// it leaves free.
-	startWidth: number | null;
 	navigation: SiteHeaderNavigation | null;
 	attachSpace: ( node: HTMLElement | null ) => void;
 	attachActions: ( node: HTMLElement | null ) => void;
-	attachStart: ( node: HTMLElement | null ) => void;
 	setNavigation: ( navigation: SiteHeaderNavigation | null ) => void;
 }
 
@@ -65,18 +51,16 @@ const SiteHeaderContext = createContext< SiteHeaderContextValue >( {
 	host: null,
 	layout: 'inline',
 	actionsWidth: 0,
-	startWidth: null,
 	navigation: null,
 	attachSpace: () => undefined,
 	attachActions: () => undefined,
-	attachStart: () => undefined,
 	setNavigation: () => undefined,
 } );
 
 export const useSiteHeader = () => useContext( SiteHeaderContext );
 
 /**
- * Holds the state of a site's header actions — Publish, Start, and
+ * Holds the state of a site's header actions — Publish and
  * Share — which `SiteHeaderActions` draws once over the workspace's top
  * inline-end corner, whichever header lies under it, so they keep their state
  * and focus as the chat and preview come and go. The header there holds a
@@ -91,29 +75,18 @@ export function SiteHeaderActionsProvider( {
 } ) {
 	const [ space, attachSpace ] = useState< HTMLElement | null >( null );
 	const [ actions, attachActions ] = useState< HTMLElement | null >( null );
-	const [ start, attachStart ] = useState< HTMLElement | null >( null );
-	const [ startWidth, setStartWidth ] = useState( 0 );
 	const [ navigation, setNavigation ] = useState< SiteHeaderNavigation | null >( null );
 	const { layout, actionsWidth } = useSiteHeaderLayout( space, actions );
-	useLayoutEffect( () => {
-		if ( ! start || typeof ResizeObserver === 'undefined' ) {
-			return;
-		}
-		const resizes = new ResizeObserver( ( [ entry ] ) => setStartWidth( entry.contentRect.width ) );
-		resizes.observe( start );
-		return () => resizes.disconnect();
-	}, [ start ] );
+
 	return (
 		<SiteHeaderContext.Provider
 			value={ {
 				host,
 				layout,
 				actionsWidth,
-				startWidth: start ? startWidth : null,
 				navigation: host === 'preview' ? navigation : null,
 				attachSpace,
 				attachActions,
-				attachStart,
 				setNavigation,
 			} }
 		>
@@ -126,34 +99,6 @@ export function SiteHeaderActionsProvider( {
 export function SiteHeaderSpace() {
 	const { attachSpace, actionsWidth } = useSiteHeader();
 	return <div ref={ attachSpace } className={ styles.space } style={ { width: actionsWidth } } />;
-}
-
-/**
- * The site's controls at the start of the top band, drawn once over the
- * workspace's top inline-start corner so they stay put as the chat and preview
- * come and go. The header there holds a `SiteHeaderStartSpace`.
- */
-export function SiteHeaderStart( { children }: { children: ReactNode } ) {
-	const { attachStart } = useSiteHeader();
-	const sidebarCollapsed = useSidebarCollapsed();
-	const trafficLightSpace = useTrafficLightSpace();
-	return (
-		<div
-			ref={ attachStart }
-			className={ clsx(
-				styles.start,
-				sidebarCollapsed && trafficLightSpace.start && styles.startTrafficLights
-			) }
-		>
-			{ children }
-		</div>
-	);
-}
-
-/** The room a header leaves for the controls `SiteHeaderStart` draws over it. */
-export function SiteHeaderStartSpace() {
-	const { startWidth } = useSiteHeader();
-	return <div className={ styles.space } style={ { width: startWidth ?? 0 } } />;
 }
 
 /** Hands the preview's browser controls to the More menu while it's on screen. */
@@ -224,7 +169,7 @@ export function SiteHeaderActions( { site, live = false }: { site: SiteDetails; 
 	const overflow = layout !== 'inline';
 	// The Windows/Linux window controls sit at the physical right, the macOS
 	// traffic lights at the physical left: whichever the inline end reaches.
-	let inset = 8;
+	let inset = 0;
 	if ( isRTL() ) {
 		inset += trafficLightSpace.end ? 88 : 0;
 	} else {
@@ -234,7 +179,7 @@ export function SiteHeaderActions( { site, live = false }: { site: SiteDetails; 
 		<div
 			ref={ root }
 			className={ styles.root }
-			style={ { paddingInlineEnd: inset } }
+			style={ { paddingInlineEnd: `calc( var( --band-inset ) + ${ inset }px )` } }
 			data-site-header-actions={ layout }
 		>
 			<SiteDeliveryDialog key={ site.id } site={ site } anchor={ root } />

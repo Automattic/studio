@@ -6,10 +6,12 @@ export function SiteWorkspace( {
 	sessionId,
 	siteId,
 	headerStart,
+	hideHeader,
 }: {
 	sessionId?: string;
 	siteId: string;
 	headerStart?: ReactNode;
+	hideHeader?: boolean;
 } ) {
 	return (
 		<div className={ styles.root }>
@@ -19,6 +21,7 @@ export function SiteWorkspace( {
 					sessionId={ sessionId }
 					siteId={ siteId }
 					headerStart={ headerStart }
+					hideHeader={ hideHeader }
 				/>
 			</div>
 		</div>

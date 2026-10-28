@@ -999,7 +999,8 @@ describe( 'ShareDialog', () => {
 			},
 		} );
 		await ready;
-		expect( await screen.findByRole( 'alert' ) ).toHaveTextContent( 'Unable to load previews' );
+		await screen.findByRole( 'button', { name: 'Reload' } );
+		expect( screen.queryByText( 'Unable to load previews' ) ).not.toBeInTheDocument();
 		connector.getSnapshots.mockResolvedValue( [ preview( { localSiteId: site.id } ) ] );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Reload' } ) );
 		await screen.findByRole( 'button', { name: 'Visit preview' } );

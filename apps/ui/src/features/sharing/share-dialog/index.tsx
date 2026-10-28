@@ -180,10 +180,8 @@ export function SharePanel( {
 			) : null }
 
 			{ loadError ? (
-				<div className={ styles.error } role="alert">
-					<p>{ loadError.message }</p>
+				<div className={ styles.reload }>
 					<Button
-						variant="outline"
 						onClick={ () => {
 							void user.refetch();
 							void snapshots.refetch();

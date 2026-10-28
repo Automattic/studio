@@ -847,3 +847,20 @@ it( 'opens the requested publishing screen for the requested destination without
 	await screen.findByRole( 'button', { name: 'Publish changes' } );
 	expect( screen.getByRole( 'group', { name: 'Website' } ) ).toHaveTextContent( 'example.com' );
 } );
+
+it( 'reloads failed connections without showing the raw error or publishing', async () => {
+	const { connector, ready, queryClient } = setup();
+	await ready;
+	await screen.findByRole( 'button', { name: 'New site…' } );
+	connector.getConnectedWpcomSites.mockRejectedValue( new Error( 'Load failed' ) );
+	await act( async () => {
+		await queryClient.invalidateQueries();
+	} );
+	const reload = await screen.findByRole( 'button', { name: 'Reload' } );
+	expect( screen.queryByText( 'Load failed' ) ).not.toBeInTheDocument();
+	connector.getConnectedWpcomSites.mockResolvedValue( [] );
+	fireEvent.click( reload );
+	await screen.findByRole( 'button', { name: 'New site…' } );
+	expect( connector.pushSiteToLive ).not.toHaveBeenCalled();
+	expect( connector.openExternalUrl ).not.toHaveBeenCalled();
+} );

@@ -316,9 +316,16 @@ export async function selfHostFonts( siteFile: SiteFile ): Promise< string[] > {
 	if ( theme?.file !== 'theme.json' ) {
 		return [];
 	}
-	const { hosted, missing, failed } = await selfHostThemeJsonFonts( theme.dir );
+	const { hosted, missing, downloaded, failed } = await selfHostThemeJsonFonts( theme.dir );
 	const themePath = `wp-content/themes/${ theme.slug }`;
 	return [
+		...( downloaded.length
+			? [
+					`Studio downloaded the font files the fontFace of ${ downloaded.join(
+						', '
+					) } named by URL into ${ themePath }/assets/fonts and named them as "file:./" sources in theme.json, so the site serves its own fonts, as the Font Library keeps each font it installs as a file on the site (wp_font_dir() in wp-includes/fonts.php).`,
+			  ]
+			: [] ),
 		...( hosted.length
 			? [
 					`Studio downloaded the font files of ${ hosted.join(

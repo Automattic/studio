@@ -195,6 +195,37 @@ describe( 'self-hosted theme fonts', () => {
 		).toBe( 'woff2' );
 	} );
 
+	it( 'downloads the font file a fontFace names by URL into the theme', async () => {
+		vi.stubGlobal( 'fetch', async () => new Response( 'woff2' ) );
+		const themeJson = write(
+			'wp-content/themes/mine/theme.json',
+			JSON.stringify( {
+				settings: {
+					typography: {
+						fontFamilies: [
+							{
+								name: 'Nunito',
+								slug: 'nunito',
+								fontFamily: 'Nunito, sans-serif',
+								fontFace: [
+									{
+										fontFamily: 'Nunito',
+										src: 'https://fonts.gstatic.com/s/nunito/v26/XRXV.woff2',
+									},
+								],
+							},
+						],
+					},
+				},
+			} )
+		);
+
+		expect( await selfHostFonts( resolveSiteFile( themeJson )! ) ).toHaveLength( 1 );
+		expect(
+			JSON.parse( readFileSync( themeJson, 'utf8' ) ).settings.typography.fontFamilies[ 0 ].fontFace
+		).toEqual( [ { fontFamily: 'Nunito', src: 'file:./assets/fonts/nunito/XRXV.woff2' } ] );
+	} );
+
 	it( 'downloads a family whose fontFace names files the browser cannot load', async () => {
 		const requested: string[] = [];
 		vi.stubGlobal( 'fetch', async ( url: string ) => {
@@ -215,9 +246,9 @@ describe( 'self-hosted theme fonts', () => {
 			{ fontFamily: 'F', src: [ `file:./assets/fonts/${ file }` ] },
 		];
 		const at = ( src: string ) => [ { fontFamily: 'F', src: [ src ] } ];
-		// A font file another host serves is not the theme's to have.
-		const remote = at( 'https://cdn.example.com/remote.woff2' );
-		// Nor one a host that cannot be reached now may serve.
+		// A font file another host serves is downloaded into the theme.
+		const remote = at( 'https://cdn.example.com/files/remote.woff2' );
+		// One a host that cannot be reached now may serve is left as written.
 		const offline = at( 'https://offline.example.com/offline.woff2' );
 		// The browser loads a data: URL as written.
 		const inline = at( 'data:font/woff2;base64,d09GMg==' );
@@ -265,6 +296,7 @@ describe( 'self-hosted theme fonts', () => {
 		);
 
 		expect( await selfHostFonts( resolveSiteFile( themeJson )! ) ).toEqual( [
+			'Studio downloaded the font files the fontFace of Remote named by URL into wp-content/themes/mine/assets/fonts and named them as "file:./" sources in theme.json, so the site serves its own fonts, as the Font Library keeps each font it installs as a file on the site (wp_font_dir() in wp-includes/fonts.php).',
 			'Studio downloaded the font files of Fraunces, Gone, Climbs from Google Fonts into wp-content/themes/mine/assets/fonts and declared them as their fontFace in theme.json, in place of the files the fontFace of Fraunces, Gone, Climbs named, which the browser cannot load: WordPress serves a "file:./" source from the theme or its parent (get_theme_file_uri() in wp-includes/link-template.php) and gives the browser any other source as written (WP_Font_Face_Resolver::to_theme_file_uri() in wp-includes/fonts/class-wp-font-face-resolver.php), so the browser was given font files that do not exist.',
 		] );
 		expect( requested ).toContain(
@@ -289,7 +321,7 @@ describe( 'self-hosted theme fonts', () => {
 			],
 			face( 'own.woff2' ),
 			face( 'inherited.woff2' ),
-			remote,
+			at( 'file:./assets/fonts/remote/remote.woff2' ),
 			offline,
 			inline,
 			...Array( 2 ).fill( [
@@ -301,5 +333,11 @@ describe( 'self-hosted theme fonts', () => {
 				},
 			] ),
 		] );
+		expect(
+			readFileSync(
+				path.join( path.dirname( themeJson ), 'assets/fonts/remote/remote.woff2' ),
+				'utf8'
+			)
+		).toBe( 'woff2' );
 	} );
 } );

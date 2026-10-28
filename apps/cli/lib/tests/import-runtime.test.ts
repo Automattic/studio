@@ -317,7 +317,7 @@ describe( 'resolveStaticSiteImporterPlugin', () => {
 				fs.mkdirSync( path.join( directory, version ), { recursive: true } );
 			}
 			vi.stubGlobal( 'fetch', async ( url: string ) =>
-				url.includes( 'api.github.com' )
+				new URL( url ).hostname === 'api.github.com'
 					? new Response(
 							JSON.stringify( {
 								tag_name: `v${ release }`,

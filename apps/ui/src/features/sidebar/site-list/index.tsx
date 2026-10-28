@@ -103,12 +103,15 @@ export function SiteList( {
 			chatSort,
 			needingInput,
 		} );
+	const activeChatIsPinned = pinnedItems.some(
+		( item ) => item.session && item.session.id === activeSessionId
+	);
+	const activeChatNavigation = activeChatIsPinned ? 'pinned' : chatNavigation;
 	const activeChatIsShortcut =
-		( chatNavigation === 'recent' &&
+		activeChatIsPinned ||
+		( activeChatNavigation === 'recent' &&
 			showRecentChats &&
-			recentChats.some( ( session ) => session.id === activeSessionId ) ) ||
-		( chatNavigation === 'pinned' &&
-			pinnedItems.some( ( item ) => item.session && item.session.id === activeSessionId ) );
+			recentChats.some( ( session ) => session.id === activeSessionId ) );
 	const activeSiteKey = activeChatSiteKey ?? activeContextSiteKey;
 	const { revealed, collapseAll, fold, toggle } = useRevealedSites(
 		activeSiteKey,
@@ -229,7 +232,7 @@ export function SiteList( {
 			active={
 				session.id === activeSessionId &&
 				( navigation
-					? activeChatIsShortcut && chatNavigation === navigation
+					? activeChatIsShortcut && activeChatNavigation === navigation
 					: ! activeChatIsShortcut )
 			}
 			siteName={ siteName }

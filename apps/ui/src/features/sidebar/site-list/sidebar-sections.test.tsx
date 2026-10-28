@@ -68,7 +68,7 @@ beforeEach( () => {
 } );
 
 describe( 'sidebar site sections', () => {
-	it( 'highlights only the chat occurrence used to navigate, including history', async () => {
+	it( 'keeps one selected chat through navigation and pinning', async () => {
 		const { history } = setup( {
 			sessions: [ chat( 'first', 'one' ) ],
 			preferences: { sidebarPins: [ 'site:one' ] },
@@ -100,6 +100,14 @@ describe( 'sidebar site sections', () => {
 		await waitFor( () => expect( selected() ).toBe( shortcutChat ) );
 		await act( () => history.forward() );
 		await waitFor( () => expect( selected() ).toBe( siteChat ) );
+
+		fireEvent.contextMenu( siteChat );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Pin' } ) );
+		await waitFor( () => expect( siteChat ).not.toBeInTheDocument() );
+		const pinnedChat = await group( 'Pinned' ).findByRole( 'button', { name: 'First' } );
+		await waitFor( () => expect( selected() ).toBe( pinnedChat ) );
+		await act( () => history.replace( '/sessions/first' ) );
+		await waitFor( () => expect( selected() ).toBe( pinnedChat ) );
 	} );
 
 	it( 'opens a Recent chat without expanding its site', async () => {

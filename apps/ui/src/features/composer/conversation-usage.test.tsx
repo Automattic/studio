@@ -42,7 +42,7 @@ describe( 'Conversation usage and model picker', () => {
 				}
 			);
 			const { user } = renderApp( { connector, path: '/sites/one/new' } );
-			await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+			await screen.findByRole( 'button', { name: 'Site menu' } );
 			await user.click( await screen.findByRole( 'button', { name: 'Model' } ) );
 			if ( provider === 'wpcom' ) {
 				expect( await screen.findByRole( 'option', { name: /Fast/ } ) ).toHaveTextContent(
@@ -77,7 +77,7 @@ describe( 'Conversation usage and model picker', () => {
 	it( 'selects the personal-key model and its provider from one footer picker', async () => {
 		const connector = createFakeConnector( { sites: [ site ] }, withKey( 'wpcom' ) );
 		const { user } = renderApp( { connector, path: '/sites/one/new' } );
-		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+		await screen.findByRole( 'button', { name: 'Site menu' } );
 		await user.click( await screen.findByRole( 'button', { name: 'Model' } ) );
 		await user.click( await screen.findByRole( 'option', { name: /^Sonnet 5/ } ) );
 		expect( connector.createSession ).not.toHaveBeenCalled();

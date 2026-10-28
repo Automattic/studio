@@ -87,8 +87,8 @@ describe( 'CLI: studio site list', () => {
 					port: 8080,
 					phpVersion: '8.0',
 					url: 'http://localhost:8080',
-					running: false,
 					emailPath: getSiteEmailDirectory( 'site-1' ),
+					running: false,
 				},
 				{
 					id: 'site-2',
@@ -98,8 +98,8 @@ describe( 'CLI: studio site list', () => {
 					phpVersion: '8.0',
 					customDomain: 'my-site.wp.local',
 					url: 'http://my-site.wp.local',
-					running: false,
 					emailPath: getSiteEmailDirectory( 'site-2' ),
+					running: false,
 				},
 			];
 			expect( consoleSpy ).toHaveBeenCalledWith( JSON.stringify( publicSites ) );

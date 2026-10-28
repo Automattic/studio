@@ -2,7 +2,7 @@ import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { useNavigate } from '@tanstack/react-router';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
 import { useRef, useState } from 'react';
 import { useSessionsBusy } from '@/data/agent-runs/use-agent-run';
@@ -179,7 +179,7 @@ export function useSiteActions(
 
 type SiteActions = ReturnType< typeof useSiteActions >;
 
-export function SiteActionsMenuItems( {
+export function SiteMenuItems( {
 	actions,
 	current = false,
 }: {
@@ -339,10 +339,9 @@ export function SiteActionsMenuItems( {
 }
 
 // The site's control in the top band: a globe and a chevron.
-export function SiteActionsMenu( { site }: { site: SiteDetails } ) {
+export function SiteMenu( { site }: { site: SiteDetails } ) {
 	const actions = useSiteActions( site );
-	/* translators: %s: site name */
-	const label = sprintf( __( 'Site actions for %s' ), site.name );
+	const label = __( 'Site menu' );
 	return (
 		<>
 			<Menu.Root modal={ false }>
@@ -369,7 +368,7 @@ export function SiteActionsMenu( { site }: { site: SiteDetails } ) {
 					<TooltipContent side="bottom">{ label }</TooltipContent>
 				</Tooltip>
 				<Menu.Popup side="bottom" align="start" { ...actions.shortcuts }>
-					<SiteActionsMenuItems actions={ actions } current />
+					<SiteMenuItems actions={ actions } current />
 				</Menu.Popup>
 			</Menu.Root>
 			{ actions.dialogs }

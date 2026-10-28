@@ -270,7 +270,7 @@ describe( 'Composer access notices', () => {
 				}
 			);
 			renderApp( { connector, path: '/sites/one/new' } );
-			await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+			await screen.findByRole( 'button', { name: 'Site menu' } );
 			const input = await screen.findByRole( 'combobox', COMPOSER );
 			if ( gated ) {
 				const addPayment = await screen.findByRole( 'button', { name: 'Set up' } );
@@ -334,7 +334,7 @@ describe( 'Composer access notices', () => {
 				}
 			);
 			renderApp( { connector, path: '/sessions/key-chat' } );
-			await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+			await screen.findByRole( 'button', { name: 'Site menu' } );
 			const draftInput = await screen.findByRole( 'combobox', COMPOSER );
 			fireEvent.change( draftInput, { target: { value: 'Update my site' } } );
 			await screen.findByRole( 'button', { name: 'Connect' } );

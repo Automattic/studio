@@ -46,6 +46,7 @@ export function FamilySwitchConfirmDialog( {
 			onOpenChange={ ( next ) => ! next && ! inFlight && onCancel() }
 		>
 			<DialogContent
+				layout="compact"
 				showCloseButton={ ! inFlight }
 				initialFocus={ cancelRef }
 				onKeyDown={ handleKeyDown }

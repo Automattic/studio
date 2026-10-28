@@ -35,7 +35,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create', ()
 	}, 60_000 );
 
 	it(
-		'creates a site that serves its homepage',
+		'creates a site that serves its homepage and signs in with its admin credentials',
 		{ tags: [ 'e2e' ], timeout: 180_000 },
 		async () => {
 			env = setupCliEnv();
@@ -52,6 +52,10 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create', ()
 					sitePath,
 					'--wp',
 					'latest',
+					'--admin-username',
+					'navigator',
+					'--admin-password',
+					'e2e-created-password',
 					'--skip-browser',
 					'--skip-log-details',
 				],
@@ -79,6 +83,18 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create', ()
 			} );
 			expect( response.status ).toBe( 200 );
 			expect( response.headers.get( 'content-type' ) ).toMatch( /text\/html/ );
+
+			const signIn = await fetch( `http://localhost:${ String( site.port ) }/wp-login.php`, {
+				method: 'POST',
+				headers: {
+					'content-type': 'application/x-www-form-urlencoded',
+					// wp-login.php rejects the sign-in without WordPress's test cookie.
+					cookie: 'wordpress_test_cookie=WP%20Cookie%20check',
+				},
+				body: new URLSearchParams( { log: 'navigator', pwd: 'e2e-created-password' } ),
+				redirect: 'manual',
+			} );
+			expect( signIn.headers.get( 'set-cookie' ) ).toContain( 'wordpress_logged_in' );
 		}
 	);
 

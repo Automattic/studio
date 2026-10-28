@@ -8,6 +8,11 @@ export const snapshotSchema = z.object( {
 	name: z.string().optional(),
 	userId: z.number().optional(),
 	sequence: z.number().optional(),
+	// A WordPress.com preview site; `atomicSiteId` is its WordPress.com site ID. Previews without it
+	// were made on Jurassic Ninja by an earlier Studio, and keep working there until they expire.
+	wpcomPreview: z.boolean().optional(),
+	// The preview link that opens the private site for anyone.
+	shareUrl: z.string().optional(),
 } );
 
 export type Snapshot = z.infer< typeof snapshotSchema >;

@@ -8,6 +8,7 @@ import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import {
 	formatDurationUntilExpiry,
+	getSnapshotLink,
 	getSnapshotsFromConfig,
 	isSnapshotExpired,
 	pruneExpiredOrphanedSnapshots,
@@ -31,7 +32,7 @@ function buildSnapshotTable( snapshots: Snapshot[] ): string {
 
 	for ( const snapshot of snapshots ) {
 		const durationUntilExpiry = formatDurationUntilExpiry( snapshot.date );
-		const url = `https://${ snapshot.url }`;
+		const url = getSnapshotLink( snapshot );
 
 		table.push( [
 			{ href: url, content: url },

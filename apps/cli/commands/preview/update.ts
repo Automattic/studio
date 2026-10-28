@@ -5,6 +5,7 @@ import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import { getSnapshotLink } from '@studio/common/lib/snapshots';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { Snapshot } from '@studio/common/types/snapshot';
 import { __, _n, sprintf } from '@wordpress/i18n';
@@ -13,6 +14,7 @@ import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { cleanup, archiveSiteContent } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { emitCliEvent } from 'cli/lib/daemon-client';
+import { updatePreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSnapshotsFromConfig, updateSnapshotInConfig } from 'cli/lib/snapshots';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
@@ -103,23 +105,45 @@ export async function runCommand(
 		logger.reportSuccess( __( 'Archive created' ) );
 
 		reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
-		const wordpressVersion = getWordPressVersion( siteFolder );
-		const uploadResponse = await uploadArchive(
-			archivePath,
-			token.accessToken,
-			wordpressVersion,
-			snapshotToUpdate.atomicSiteId
-		);
-		logger.reportSuccess( __( 'Archive uploaded' ) );
+		let shareUrl: string | undefined;
+		if ( snapshotToUpdate.wpcomPreview ) {
+			const attachmentId = await uploadPreviewArchive(
+				archivePath,
+				token.accessToken,
+				snapshotToUpdate.atomicSiteId
+			);
+			logger.reportSuccess( __( 'Archive uploaded' ) );
 
-		reportStep( LoggerAction.READY, __( 'Updating preview site…' ), 60 );
-		await waitForSiteReady( uploadResponse.site_id, token.accessToken );
-		logger.reportSuccess(
-			sprintf( __( 'Preview site available at: %s' ), `https://${ uploadResponse.site_url }` )
-		);
+			reportStep( LoggerAction.READY, __( 'Updating preview site…' ), 60 );
+			( { shareUrl } = await updatePreviewSite(
+				snapshotToUpdate.atomicSiteId,
+				attachmentId,
+				token.accessToken,
+				snapshotToUpdate.shareUrl
+			) );
+		} else {
+			// A preview made on Jurassic Ninja by an earlier Studio.
+			await uploadArchive(
+				archivePath,
+				token.accessToken,
+				getWordPressVersion( siteFolder ),
+				snapshotToUpdate.atomicSiteId
+			);
+			logger.reportSuccess( __( 'Archive uploaded' ) );
+
+			reportStep( LoggerAction.READY, __( 'Updating preview site…' ), 60 );
+			await waitForSiteReady( snapshotToUpdate.atomicSiteId, token.accessToken );
+		}
 
 		reportStep( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ), 95 );
-		const snapshot = await updateSnapshotInConfig( uploadResponse.site_id, siteFolder );
+		const snapshot = await updateSnapshotInConfig(
+			snapshotToUpdate.atomicSiteId,
+			siteFolder,
+			shareUrl
+		);
+		logger.reportSuccess(
+			sprintf( __( 'Preview site available at: %s' ), getSnapshotLink( snapshot ) )
+		);
 		await emitCliEvent( { event: SNAPSHOT_EVENTS.UPDATED, data: { snapshotUrl: snapshot.url } } );
 		await recordPreviewUpdateEvent( { success: true, time_ms: Date.now() - startedAt } );
 		await reportSyncActivity( siteId, { kind: 'success', direction: 'preview' } );

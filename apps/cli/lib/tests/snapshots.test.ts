@@ -69,6 +69,7 @@ describe( 'Snapshots Module', () => {
 	const mockHomeDir = '/mock/home';
 	const mockSiteFolderName = 'folder';
 	const mockSiteUrl = 'test-preview.example.com';
+	const mockShareUrl = `https://${ mockSiteUrl }/?share=abc123`;
 	const mockAtomicSiteId = 12345;
 	const mockSiteFolder = '/test/folder';
 	const mockUserId = 9876;
@@ -114,7 +115,8 @@ describe( 'Snapshots Module', () => {
 				mockAtomicSiteId,
 				mockSiteUrl,
 				mockUserId,
-				'Test Site Preview 1'
+				'Test Site Preview 1',
+				mockShareUrl
 			);
 
 			expect( writeFile ).toHaveBeenCalled();
@@ -129,6 +131,8 @@ describe( 'Snapshots Module', () => {
 				name: 'Test Site Preview 1',
 				userId: mockUserId,
 				sequence: 1,
+				wpcomPreview: true,
+				shareUrl: mockShareUrl,
 			} );
 		} );
 
@@ -169,7 +173,8 @@ describe( 'Snapshots Module', () => {
 				mockAtomicSiteId + 1,
 				mockSiteUrl,
 				mockUserId,
-				'Test Site Preview 2'
+				'Test Site Preview 2',
+				mockShareUrl
 			);
 
 			expect( writeFile ).toHaveBeenCalled();
@@ -185,6 +190,8 @@ describe( 'Snapshots Module', () => {
 				name: 'Test Site Preview 2',
 				userId: mockUserId,
 				sequence: 2,
+				wpcomPreview: true,
+				shareUrl: mockShareUrl,
 			} );
 		} );
 
@@ -210,7 +217,14 @@ describe( 'Snapshots Module', () => {
 			mocks.readFile.mockResolvedValue( JSON.stringify( mockUserData ) );
 
 			await expect(
-				saveSnapshotToConfig( mockSiteFolder, mockAtomicSiteId, mockSiteUrl, mockUserId, 'Test' )
+				saveSnapshotToConfig(
+					mockSiteFolder,
+					mockAtomicSiteId,
+					mockSiteUrl,
+					mockUserId,
+					'Test',
+					mockShareUrl
+				)
 			).rejects.toThrow( LoggerError );
 
 			expect( writeFile ).not.toHaveBeenCalled();
@@ -220,7 +234,14 @@ describe( 'Snapshots Module', () => {
 			vi.spyOn( fs, 'existsSync' ).mockReturnValueOnce( false );
 
 			await expect(
-				saveSnapshotToConfig( mockSiteFolder, mockAtomicSiteId, mockSiteUrl, mockUserId, 'Test' )
+				saveSnapshotToConfig(
+					mockSiteFolder,
+					mockAtomicSiteId,
+					mockSiteUrl,
+					mockUserId,
+					'Test',
+					mockShareUrl
+				)
 			).rejects.toThrow( LoggerError );
 		} );
 	} );

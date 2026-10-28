@@ -3,9 +3,10 @@ import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
-import { deleteAllSnapshots, deleteSnapshot } from 'cli/lib/api';
+import { deleteAllSnapshots } from 'cli/lib/api';
 import { deleteAllSnapshotsForUserFromConfig } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
+import { deletePreviewSite, deleteSnapshotSite } from 'cli/lib/preview-sites';
 import {
 	deleteSnapshotFromConfig,
 	getSnapshotsFromConfig,
@@ -60,7 +61,7 @@ export async function runCommand(
 
 			logger.reportStart( LoggerAction.DELETE, __( 'Deleting…' ) );
 			if ( ! isSnapshotExpired( snapshotToDelete ) ) {
-				await deleteSnapshot( snapshotToDelete.atomicSiteId, token.accessToken );
+				await deleteSnapshotSite( snapshotToDelete, token.accessToken );
 			}
 			await deleteSnapshotFromConfig( snapshotToDelete.url );
 			await emitCliEvent( {
@@ -74,6 +75,12 @@ export async function runCommand(
 			logger.reportStart( LoggerAction.DELETE_ALL, __( 'Deleting all preview sites…' ) );
 
 			const count = snapshots.length;
+			for ( const snapshot of snapshots ) {
+				if ( snapshot.wpcomPreview && ! isSnapshotExpired( snapshot ) ) {
+					await deletePreviewSite( snapshot.atomicSiteId, token.accessToken );
+				}
+			}
+			// Previews made on Jurassic Ninja by an earlier Studio.
 			await deleteAllSnapshots( token.accessToken );
 			await deleteAllSnapshotsForUserFromConfig( token.id );
 			await emitCliEvent( { event: SNAPSHOT_EVENTS.DELETED_ALL } );

@@ -42,7 +42,8 @@ export async function saveSnapshotToConfig(
 	atomicSiteId: number,
 	previewUrl: string,
 	userId: number,
-	name: string
+	name: string,
+	shareUrl: string
 ): Promise< Snapshot > {
 	const site = await getSiteByFolder( siteFolder );
 	try {
@@ -58,6 +59,8 @@ export async function saveSnapshotToConfig(
 			name,
 			sequence: nextSequenceNumber,
 			userId,
+			wpcomPreview: true,
+			shareUrl,
 		};
 
 		config.snapshots.push( snapshot );
@@ -70,7 +73,8 @@ export async function saveSnapshotToConfig(
 
 export async function updateSnapshotInConfig(
 	atomicSiteId: number,
-	siteFolder: string
+	siteFolder: string,
+	shareUrl?: string
 ): Promise< Snapshot > {
 	const site = await getSiteByFolder( siteFolder );
 	try {
@@ -83,6 +87,9 @@ export async function updateSnapshotInConfig(
 
 		snapshot.localSiteId = site.id;
 		snapshot.date = Date.now();
+		if ( shareUrl ) {
+			snapshot.shareUrl = shareUrl;
+		}
 
 		await saveCliConfig( config );
 		return snapshot;

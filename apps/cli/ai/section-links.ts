@@ -13,6 +13,7 @@
  */
 import path from 'path';
 import { readRenderedVersions } from 'cli/ai/block-render-check';
+import { readWordPressSite } from 'cli/ai/site-database';
 import { siteMarkup, saveMarkup, placeOf } from 'cli/ai/site-markup';
 import { isUpdatableTheme } from 'cli/ai/themes';
 import { runWpCli } from 'cli/ai/tools/utils';
@@ -106,10 +107,23 @@ const linkTo = ( url: string ) =>
 const hrefTo = ( url: string ) =>
 	new RegExp( `(<a\\s(?:[^>]*?\\s)?href=")${ escape( url ) }(")`, 'g' );
 
+// What the site renders, and which page is its front page: the options
+// WP_Query::is_front_page() reads (wp-includes/class-wp-query.php), so a
+// front page chosen after its sections and links were written is checked too.
+const FRONT_PAGE_OPTIONS = [ 'show_on_front', 'page_on_front' ];
+const readVersions = async ( sitePath: string ) => ( {
+	...( await readRenderedVersions( sitePath ) ),
+	...( await readWordPressSite( sitePath, ( site ) =>
+		Object.fromEntries(
+			FRONT_PAGE_OPTIONS.map( ( option ) => [ option, String( site.option( option ) ?? '' ) ] )
+		)
+	) ),
+} );
+
 export const sectionLinks: SiteChangeSource = {
 	name: 'section links',
 	saves: true,
-	read: readRenderedVersions,
+	read: readVersions,
 	async check( site, before, after ) {
 		if ( Object.keys( after ).every( ( key ) => before[ key ] === after[ key ] ) ) {
 			return { reports: [] };
@@ -197,7 +211,7 @@ export const sectionLinks: SiteChangeSource = {
 						: undefined,
 				},
 			],
-			next: places.length ? await readRenderedVersions( site.path ) : undefined,
+			next: places.length ? await readVersions( site.path ) : undefined,
 		};
 	},
 };

@@ -161,6 +161,25 @@ describe.runIf( WORDPRESS )( 'navigation links to sections of the front page', (
 		writeFileSync( theme( 'parts/header.html' ), '' );
 	}, 120000 );
 
+	it( 'links them where the front page is chosen after its sections and links are written', async () => {
+		const front = await wp( 'option', 'get', 'page_on_front' );
+		await wp( 'option', 'update', 'show_on_front', 'posts' );
+		writeFileSync(
+			theme( 'parts/header.html' ),
+			`<!-- wp:navigation -->${ link( 'Features', '#features' ) }<!-- /wp:navigation -->`
+		);
+		const { reports } = await check( async () =>
+			wp( 'option', 'update', 'show_on_front', 'page' )
+		);
+		expect( front.trim() ).not.toBe( '' );
+		expect( reports ).toEqual( [
+			expect.objectContaining( { summary: expect.stringContaining( 'Studio linked "Features"' ) } ),
+		] );
+		expect( readFileSync( theme( 'parts/header.html' ), 'utf8' ) ).toContain(
+			'"url":"/#features"'
+		);
+	}, 120000 );
+
 	it( 'states a section link it cannot change, in a theme WordPress updates', async () => {
 		vi.stubGlobal(
 			'fetch',

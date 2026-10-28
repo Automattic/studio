@@ -2,8 +2,7 @@
 
 set -euo pipefail
 
-# TEMPORARY: always run while validating the default-queue move. Revert before merge.
-if false && .buildkite/commands/should-skip-job.sh --job-type validation; then
+if .buildkite/commands/should-skip-job.sh --job-type validation; then
   exit 0
 fi
 

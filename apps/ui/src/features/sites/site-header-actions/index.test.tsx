@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConnectorProvider } from '@/data/core';
@@ -16,12 +16,14 @@ function renderActions( {
 	headerWidth = 1000,
 	live = false,
 	navigation = false,
+	operation,
 }: {
 	running?: boolean;
 	host?: 'chat' | 'preview';
 	headerWidth?: number;
 	live?: boolean;
 	navigation?: boolean;
+	operation?: SiteDetails[ 'operation' ];
 } = {} ) {
 	let width = headerWidth;
 	// jsdom lays nothing out: every element measures 40px, the header as asked.
@@ -40,6 +42,7 @@ function renderActions( {
 		port: 8881,
 		running,
 		phpVersion: '8.3',
+		operation,
 	};
 	const connector = {
 		capabilities: {},
@@ -88,27 +91,32 @@ function renderActions( {
 describe( 'SiteHeaderActions', () => {
 	afterEach( () => vi.restoreAllMocks() );
 
-	it( 'keeps Publish out of a stopped site’s header but still opens it from the site menu', async () => {
+	it( 'keeps Publish visible for a stopped site and opens it from the site menu', async () => {
 		const { site } = renderActions();
 
 		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: 'Publish…' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 
 		act( () => requestHeaderPanel( { panel: 'publish', siteId: site.id, view: 'publish' } ) );
 
 		expect( await screen.findByText( 'Publish your WordPress' ) ).toBeInTheDocument();
 	} );
 
-	it( 'shows Publish only over a running site’s preview', () => {
+	it( 'shows Publish over a running site’s preview', () => {
 		renderActions( { running: true, host: 'preview' } );
 
 		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeInTheDocument();
 	} );
 
-	it( 'keeps Publish hidden while the chat fills the workspace', () => {
+	it( 'keeps Publish visible while the chat fills the workspace', () => {
 		renderActions( { running: true, host: 'chat' } );
 
-		expect( screen.queryByRole( 'button', { name: 'Publish…' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
+	} );
+
+	it.each( [ 'start', 'stop' ] as const )( 'keeps Publish visible during %s', ( kind ) => {
+		renderActions( { host: 'preview', operation: { kind, pid: 123 } } );
+		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 	} );
 
 	it( 'folds Share into a More menu when the header runs out of room', async () => {
@@ -118,6 +126,20 @@ describe( 'SiteHeaderActions', () => {
 		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
 		await userEvent.click( screen.getByRole( 'button', { name: 'More preview actions' } ) );
 		expect( await screen.findByRole( 'menuitem', { name: 'Share' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'opens Share from More and returns focus to the visible overflow trigger', async () => {
+		const { connector } = renderActions( { headerWidth: 60 } );
+		connector.getSnapshots = vi.fn().mockResolvedValue( [] );
+		connector.getSnapshotUsage = vi.fn().mockResolvedValue( null );
+		const actions = userEvent.setup();
+		const more = screen.getByRole( 'button', { name: 'More preview actions' } );
+		await actions.click( more );
+		await actions.click( await screen.findByRole( 'menuitem', { name: 'Share' } ) );
+		await screen.findByRole( 'button', { name: 'Create preview' } );
+		await actions.keyboard( '{Escape}' );
+		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
+		await waitFor( () => expect( more ).toHaveFocus() );
 	} );
 
 	it( 'hands focus to More when the focused browser control folds into it', async () => {
@@ -139,17 +161,22 @@ describe( 'SiteHeaderActions', () => {
 		).not.toBeInTheDocument();
 	} );
 
-	it( 'keeps only Publish over a Live chat’s preview, even with the local site stopped', async () => {
+	it( 'keeps Publish and preview sharing over a Live chat’s preview, even with the local site stopped', async () => {
 		renderActions( { host: 'preview', live: true, headerWidth: 60 } );
 
 		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
 		await userEvent.click( screen.getByRole( 'button', { name: 'More preview actions' } ) );
-		expect( screen.queryByRole( 'menuitem', { name: 'Share' } ) ).not.toBeInTheDocument();
+		expect( await screen.findByRole( 'menuitem', { name: 'Share' } ) ).toBeInTheDocument();
 	} );
 
-	it( 'leaves starting a stopped site to the site menu and preview', () => {
-		renderActions();
-		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
+	it( 'keeps Share beside Publish over a Live chat’s preview when it fits', () => {
+		renderActions( { host: 'preview', live: true, headerWidth: 1000 } );
+
+		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'button', { name: 'More preview actions' } )
+		).not.toBeInTheDocument();
 	} );
 } );

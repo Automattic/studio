@@ -10,6 +10,7 @@ import { getSnapshotHostname, getSnapshotUrl } from '@/data/snapshot-url';
 import { AccountPrompt, previewSiteImage } from '@/features/account';
 import { CopyButton } from '@/features/chats';
 import { previewExpiry, RenamePreview } from '@/features/sharing';
+import { SiteCard, getWebsiteThumbnailUrl } from '@/features/site-card';
 import { TrashIcon } from '@/lib/icons';
 import {
 	Button,
@@ -119,6 +120,11 @@ export function SharingPanel() {
 	const usage = useSnapshotUsage( user.data?.id );
 	const remove = useDeleteSnapshot();
 	const [ deleting, setDeleting ] = useState< Snapshot | null >( null );
+	const [ deleteOpen, setDeleteOpen ] = useState( false );
+	const confirmDelete = ( snapshot: Snapshot ) => {
+		setDeleting( snapshot );
+		setDeleteOpen( true );
+	};
 	const [ showExpired, setShowExpired ] = useState( false );
 	const cancelRef = useRef< HTMLButtonElement >( null );
 
@@ -154,7 +160,7 @@ export function SharingPanel() {
 								'Share a temporary copy of your local site with anyone. Preview sites expire seven days after their last update.'
 							) }{ ' ' }
 							<Button
-								variant="inline-link"
+								variant="inline-accent"
 								size="inline"
 								onClick={ () =>
 									void connector.openExternalUrl(
@@ -189,7 +195,7 @@ export function SharingPanel() {
 						<PreviewRow
 							key={ snapshot.atomicSiteId }
 							snapshot={ snapshot }
-							onDelete={ setDeleting }
+							onDelete={ confirmDelete }
 						/>
 					) ) }
 				</SettingsGroup>
@@ -199,7 +205,7 @@ export function SharingPanel() {
 			{ expired.length ? (
 				<div>
 					<Button
-						variant="inline-link"
+						variant="inline-accent"
 						size="inline"
 						className={ styles.expiredToggle }
 						aria-expanded={ showExpired }
@@ -217,7 +223,7 @@ export function SharingPanel() {
 								<PreviewRow
 									key={ snapshot.atomicSiteId }
 									snapshot={ snapshot }
-									onDelete={ setDeleting }
+									onDelete={ confirmDelete }
 								/>
 							) ) }
 						</SettingsGroup>
@@ -225,13 +231,18 @@ export function SharingPanel() {
 				</div>
 			) : null }
 			<AlertDialog
-				open={ deleting !== null }
-				onOpenChange={ ( open ) => ! open && ! remove.isPending && setDeleting( null ) }
-				onOpenChangeComplete={ ( open ) => ! open && remove.reset() }
+				open={ deleteOpen }
+				onOpenChange={ ( open ) => ! open && ! remove.isPending && setDeleteOpen( false ) }
+				onOpenChangeComplete={ ( open ) => {
+					if ( ! open ) {
+						setDeleting( null );
+						remove.reset();
+					}
+				} }
 			>
 				<DialogContent
 					layout="confirmation"
-					showCloseButton={ ! remove.isPending }
+					closeButtonDisabled={ remove.isPending }
 					initialFocus={ cancelRef }
 				>
 					<DialogHeader>
@@ -253,13 +264,20 @@ export function SharingPanel() {
 							</p>
 						</DialogDescription>
 					</DialogHeader>
+					{ deleting ? (
+						<SiteCard
+							title={ getSnapshotHostname( deleting ) }
+							thumbnailUrl={ getWebsiteThumbnailUrl( getSnapshotUrl( deleting ) ) }
+							updatedAt={ deleting.date }
+						/>
+					) : null }
 					{ remove.error ? <p className={ styles.dialogError }>{ remove.error.message }</p> : null }
 					<DialogFooter>
 						<Button
 							ref={ cancelRef }
 							variant="outline"
 							disabled={ remove.isPending }
-							onClick={ () => setDeleting( null ) }
+							onClick={ () => setDeleteOpen( false ) }
 						>
 							{ __( 'Cancel' ) }
 						</Button>
@@ -270,7 +288,7 @@ export function SharingPanel() {
 								deleting &&
 								remove.mutate(
 									{ hostname: getSnapshotHostname( deleting ) },
-									{ onSuccess: () => setDeleting( null ) }
+									{ onSuccess: () => setDeleteOpen( false ) }
 								)
 							}
 						>

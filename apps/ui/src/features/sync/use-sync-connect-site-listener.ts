@@ -1,12 +1,10 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failure';
-import { SYNC_PUSH_SIZE_LIMIT_BYTES } from '@studio/common/lib/sync/constants';
 import { useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useEffectEvent, useRef, useSyncExternalStore } from 'react';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
-import { usePushSiteToLive } from '@/data/queries/use-sync-site';
 import { SYNCABLE_WPCOM_SITES_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
 import { websiteIssue } from '@/features/sync/publish-panel/options';
 import type { Connector, SyncSite } from '@/data/core';
@@ -57,12 +55,11 @@ export const clearPublishSetupError = ( siteId: string ) => setSetupFailure( sit
 export function useSyncConnectSiteListener(): void {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
-	const { mutate: pushSite } = usePushSiteToLive();
 	// The deep link can arrive more than once for the same checkout.
 	const handled = useRef( new Set< string >() );
 
 	const handleConnect = useEffectEvent( async ( event: ConnectSiteEvent ) => {
-		const { remoteSiteId, studioSiteId, autoOpenPush } = event;
+		const { remoteSiteId, studioSiteId } = event;
 		const key = `${ studioSiteId }:${ remoteSiteId }`;
 		if ( handled.current.has( key ) ) {
 			return;
@@ -97,24 +94,6 @@ export function useSyncConnectSiteListener(): void {
 			void connector.trackEvent( TRACKS_EVENTS.SYNC_CONNECT, {
 				success: true,
 				num_of_sites: connectedSites().filter( ( { id } ) => id !== remoteSiteId ).length + 1,
-			} );
-			// A site created by the Publish flow starts empty, so publish all of it,
-			// unless the Publish panel has to warn about it first.
-			if ( ! autoOpenPush ) {
-				return;
-			}
-			const [ size, multisite ] = await Promise.all( [
-				connector.getDirectorySize( studioSiteId, [ 'wp-content' ] ),
-				connector.getIsMultisite( studioSiteId ),
-			] );
-			if ( ( multisite && ! remote.isPressable ) || size > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
-				return;
-			}
-			pushSite( {
-				siteId: studioSiteId,
-				remoteSiteId,
-				options: { optionsToSync: [ 'all' ] },
-				syncSite: remote,
 			} );
 		} catch ( error ) {
 			handled.current.delete( key );

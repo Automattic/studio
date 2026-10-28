@@ -1,4 +1,9 @@
 @layer ui {
+	.content[hidden],
+	.overlay[hidden] {
+		display: none;
+	}
+
 	.overlay {
 		position: fixed;
 		inset: 0;

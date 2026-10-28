@@ -707,7 +707,7 @@ describe( 'Studio workspace', () => {
 		await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/toolbar-chat' ) );
 		expect( screen.queryByRole( 'button', { name: /Chat actions/ } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBeVisible();
-		expect( screen.queryByRole( 'button', { name: 'Publish…' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 		expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Start My site' } ) );
 		await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
@@ -792,7 +792,7 @@ describe( 'Studio workspace', () => {
 		await screen.findByRole( 'button', { name: 'Publish…' } );
 		await paletteCommand( 'Hide preview' );
 		await waitFor( () =>
-			expect( screen.queryByRole( 'button', { name: 'Publish…' } ) ).not.toBeInTheDocument()
+			expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible()
 		);
 		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toBeVisible();
 		await paletteCommand( 'Show preview' );

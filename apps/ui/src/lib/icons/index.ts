@@ -51,3 +51,6 @@ export * from './error-icon';
 export * from './warning-icon';
 export * from './info-icon';
 export * from './success-icon';
+
+export { DisconnectIcon } from './disconnect-icon';
+export { RefreshIcon } from './refresh-icon';

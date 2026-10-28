@@ -24,7 +24,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'probe: start phases', () => {
 		cleanupCliEnv( env );
 	} );
 
-	it( 'logs timings', async () => {
+	it( 'logs timings', { tags: [ 'e2e' ], timeout: 600_000 }, async () => {
 		const rows: string[] = [];
 		for ( let i = 0; i < 5; i++ ) {
 			rows.push( `version ${ ( await timed( [ '--version' ], env ) ).ms }` );
@@ -45,5 +45,5 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'probe: start phases', () => {
 			rows.push( `stop${ i } wall ${ stop.ms }` );
 		}
 		console.log( `PHASE-PROBE ${ process.platform }\n${ rows.join( '\n' ) }` );
-	}, 600_000 );
+	} );
 } );

@@ -200,28 +200,22 @@ describe( 'useSyncSitesWithEvents', () => {
 		[ 'start', true ],
 		[ 'stop', false ],
 	] as const )(
-		'shows a %s from its events without refetching the list',
+		'shows the site a %s reports, before its release event, without refetching the list',
 		async ( action, running ) => {
 			// What the CLI reports, and the sort order only Studio keeps.
 			const details = { ...makeSite(), url: 'http://localhost:9010' };
 			const site = { ...details, running: ! running, sortOrder: 1000 };
 			const connector = createFakeConnector( { sites: [ site ] } );
 			connector[ action === 'start' ? 'startSite' : 'stopSite' ].mockImplementation( async () => {
-				const siteId = site.id;
-				const held = { ...details, operation: { pid: 1, kind: action } };
+				// The event while the operation still holds the site. Its release
+				// event can land after the command finishes.
 				connector.emit( 'onSiteEvent', {
 					event: SITE_EVENTS.UPDATED,
-					siteId,
-					site: held,
+					siteId: site.id,
+					site: { ...details, operation: { pid: 1, kind: action } },
 					running,
 				} );
-				// An operation's release doesn't know whether the site runs.
-				connector.emit( 'onSiteEvent', {
-					event: SITE_EVENTS.OPERATIONS_CHANGED,
-					siteId,
-					site: details,
-					running: ! running,
-				} );
+				return { ...details, running };
 			} );
 			const { result } = renderHook(
 				() => {

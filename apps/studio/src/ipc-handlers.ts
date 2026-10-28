@@ -51,7 +51,7 @@ import {
 	downloadAndExtractBlueprintBundle,
 	removeBlueprintTempDir,
 } from '@studio/common/lib/blueprint-bundle';
-import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { SITE_EVENTS, type SiteListItem } from '@studio/common/lib/cli-events';
 import { CliCommandError } from '@studio/common/lib/cli-process';
 import { stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
 import {
@@ -615,7 +615,11 @@ export async function updateSite(
 	}
 }
 
-export async function startServer( event: IpcMainInvokeEvent, id: string ): Promise< void > {
+// Resolves with the started site, or nothing when an error page is served instead.
+export async function startServer(
+	event: IpcMainInvokeEvent,
+	id: string
+): Promise< SiteListItem | undefined > {
 	// Starting only needs the path, which `cli.json` has; the CLI's full details wait for a failure.
 	const site = await readSite( id );
 	if ( ! site ) {
@@ -629,7 +633,9 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 	const start = () => startSite( executeCliCommand, site.path );
 	try {
 		console.log( `Starting server for '${ site.name }'` );
-		await start();
+		const started = await start();
+		console.log( `Server started for '${ site.name }'` );
+		return started;
 	} catch ( error ) {
 		// Too many running sites or a WordPress update in progress: expected, not a bug — skip Sentry
 		if ( error instanceof SiteStartRefusedError ) {
@@ -701,11 +707,12 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 
 		throw error;
 	}
-
-	console.log( `Server started for '${ site.name }'` );
 }
 
-export async function stopServer( event: IpcMainInvokeEvent, id: string ): Promise< void > {
+export async function stopServer(
+	event: IpcMainInvokeEvent,
+	id: string
+): Promise< SiteListItem | undefined > {
 	const sitePath = await readSitePath( id );
 	if ( ! sitePath ) {
 		return;
@@ -714,7 +721,7 @@ export async function stopServer( event: IpcMainInvokeEvent, id: string ): Promi
 	await stopErrorRecovery( id );
 	console.log( 'Stopping server with ID', id );
 	try {
-		await stopSite( executeCliCommand, sitePath );
+		return await stopSite( executeCliCommand, sitePath );
 	} catch ( error ) {
 		console.error( error );
 	}

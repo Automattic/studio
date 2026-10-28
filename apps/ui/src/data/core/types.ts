@@ -10,7 +10,7 @@ import type {
 } from '@studio/agent/protocol/sessions/types';
 import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 import type { SiteAgentFile, SiteAgentFileKind } from '@studio/common/lib/agent-skills';
-import type { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
+import type { SiteEvent, SiteListItem, SnapshotEvent } from '@studio/common/lib/cli-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type {
 	TracksAuthSource,
@@ -183,8 +183,10 @@ export interface Connector {
 	// registers it as a new site). The connector picks a numbered name and a new
 	// site id internally so callers stay simple.
 	copySite( sourceSiteId: string ): Promise< SiteDetails >;
-	startSite( id: string ): Promise< void >;
-	stopSite( id: string ): Promise< void >;
+	// Resolve with the site as it is once the command finishes, or nothing when
+	// the caller has to read the list for it.
+	startSite( id: string ): Promise< SiteListItem | void >;
+	stopSite( id: string ): Promise< SiteListItem | void >;
 	// Persists edits from the site-settings screen via the CLI-backed main
 	// process handler. `wpVersion` is only forwarded when the user explicitly
 	// picked a pinned version — undefined means "keep auto-updating".

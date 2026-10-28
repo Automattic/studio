@@ -90,7 +90,7 @@ export async function startErrorRecovery(
 	site: { id: string; port: number; path: string },
 	errorMessage: string,
 	readPm2Logs: ( siteId: string ) => { stdout?: string[]; stderr?: string[] },
-	startSite: () => Promise< void >
+	startSite: () => Promise< unknown >
 ): Promise< void > {
 	const { id, port, path } = site;
 

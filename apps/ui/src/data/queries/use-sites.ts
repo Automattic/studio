@@ -11,7 +11,7 @@ import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
 import { useOpenSite } from '@/data/use-open-site';
 import type { Connector, CreateSiteParams, SiteDetails } from '@/data/core';
-import type { SiteEvent } from '@studio/common/lib/cli-events';
+import type { SiteEvent, SiteListItem } from '@studio/common/lib/cli-events';
 import type { SiteOperationKind } from '@studio/common/lib/site-operation';
 import type { SiteMetadata } from '@studio/common/sites/metadata';
 import type { QueryClient } from '@tanstack/react-query';
@@ -157,10 +157,7 @@ export function useStartSite() {
 			if ( isSiteMutating( queryClient, STOP_SITE_MUTATION_KEY, id ) ) {
 				return false;
 			}
-			await connector.startSite( id );
-			if ( ! listShowsSite( queryClient, id, true ) ) {
-				await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
-			}
+			await showSite( queryClient, await connector.startSite( id ) );
 			return true;
 		},
 		onError: ( error, id ) => {
@@ -181,10 +178,7 @@ export function useStopSite() {
 	return useMutation( {
 		mutationKey: STOP_SITE_MUTATION_KEY,
 		mutationFn: async ( id: string ) => {
-			await connector.stopSite( id );
-			if ( ! listShowsSite( queryClient, id, false ) ) {
-				await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
-			}
+			await showSite( queryClient, await connector.stopSite( id ) );
 		},
 		onError: ( _error, id ) => {
 			const { title, description } = getBusyNotice( queryClient, id, __( 'Failed to stop site' ) );
@@ -395,12 +389,19 @@ function applySiteEvent( queryClient: QueryClient, event: SiteEvent ): boolean {
 	return true;
 }
 
-/** Whether the cached list already shows the site in this state, with no operation holding it. */
-function listShowsSite( queryClient: QueryClient, id: string, running: boolean ): boolean {
-	const site = queryClient
-		.getQueryData< SiteDetails[] >( SITES_QUERY_KEY )
-		?.find( ( item ) => item.id === id );
-	return site?.running === running && ! site.operation;
+/** Shows the site a start or stop reported, or reads the list when there's none to show. */
+async function showSite( queryClient: QueryClient, site: SiteListItem | void ): Promise< void > {
+	const applied =
+		site &&
+		applySiteEvent( queryClient, {
+			event: SITE_EVENTS.UPDATED,
+			siteId: site.id,
+			running: site.running,
+			site,
+		} );
+	if ( ! applied ) {
+		await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
+	}
 }
 
 /**

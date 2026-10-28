@@ -59,6 +59,13 @@
 		pointer-events: none;
 	}
 
+	.menuItem {
+		composes: item from '@/lib/ui/surface/style.module.css';
+		min-height: var( --control-size );
+		padding-inline: var( --space-2_5 );
+		border-radius: var( --radius-lg );
+	}
+
 	.icon {
 		flex: none;
 		width: 14px;
@@ -80,7 +87,7 @@
 	}
 
 	/* A label on its own, like an address, truncates instead. */
-	.item > .label {
+	:is( .item, .menuItem ) > .label {
 		flex-shrink: 1;
 		min-width: 0;
 		overflow: hidden;
@@ -97,13 +104,6 @@
 	/* The palette's long list scrolls without a bar. */
 	.list[data-size='default'] {
 		scrollbar-width: none;
-	}
-
-	.list[data-size='default'] .item {
-		height: auto;
-		min-height: 36px;
-		font-size: var( --text-sm );
-		font-weight: var( --font-weight-normal );
 	}
 
 	.list[data-size='default'] .icon {

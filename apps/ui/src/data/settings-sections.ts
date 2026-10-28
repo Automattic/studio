@@ -18,6 +18,7 @@ import {
 	SiteSettingsIcon,
 	SkillsIcon,
 } from '@/lib/icons';
+import type { ConnectorCapabilities } from '@/data/core';
 import type { ComponentType } from 'react';
 
 const STUDIO_SECTIONS = [
@@ -32,6 +33,12 @@ const STUDIO_SECTIONS = [
 	'keyboard',
 ] as const;
 const SITE_SECTIONS = [ 'site', 'debugging', 'php', 'site-skills', 'site-instructions' ] as const;
+const ASSISTANT_SECTIONS: readonly SettingsSectionId[] = [
+	'ai',
+	'usage',
+	'skills',
+	'instructions',
+];
 
 export type SettingsSectionId =
 	| ( typeof STUDIO_SECTIONS )[ number ]
@@ -73,7 +80,7 @@ const setting = ( title: string, description = '', id?: string, icon?: SectionIc
 	icon,
 } );
 
-function getStudioSections( signedIn: boolean ): Section[] {
+function getStudioSections( signedIn: boolean, assistant = true ): Section[] {
 	const sections: Section[] = [
 		{
 			id: 'general',
@@ -287,27 +294,57 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			aliases: [ __( 'Keyboard shortcuts' ) ],
 		},
 	];
-	return sections.filter( ( section ) => signedIn || section.id !== 'usage' );
+	return sections.filter(
+		( section ) =>
+			( signedIn || section.id !== 'usage' ) &&
+			( assistant || ! ASSISTANT_SECTIONS.includes( section.id ) )
+	);
 }
 
-function getSiteSections(): Section[] {
-	return [
+// What the host supports of the settings, by connector capability. All of it
+// when left out.
+type SettingsCapabilities = Pick<
+	ConnectorCapabilities,
+	'customDomains' | 'xdebug' | 'siteAgentFiles' | 'fileAccess' | 'versionChoice' | 'assistant'
+>;
+
+function getSiteSections( {
+	customDomains = true,
+	xdebug = true,
+	siteAgentFiles = true,
+	fileAccess = true,
+	versionChoice = true,
+}: Partial< SettingsCapabilities > = {} ): Section[] {
+	const sections: Section[] = [
 		{
 			id: 'site',
 			label: __( 'Settings' ),
 			icon: SiteSettingsIcon,
 			settings: [
 				setting( __( 'Site name' ), __( 'Name shown in WordPress Studio.' ) ),
-				setting( __( 'WordPress version' ), __( 'Choose the WordPress release for this site.' ) ),
-				setting(
-					__( 'Automatic updates' ),
-					__( 'Keep WordPress updated to the latest released version.' )
-				),
-				setting( __( 'Use custom domain' ), __( 'Use a local address like my-site.local.' ) ),
-				setting(
-					__( 'Enable HTTPS' ),
-					__( 'Test features that require HTTPS and catch issues before your site goes live.' )
-				),
+				...( versionChoice
+					? [
+							setting(
+								__( 'WordPress version' ),
+								__( 'Choose the WordPress release for this site.' )
+							),
+							setting(
+								__( 'Automatic updates' ),
+								__( 'Keep WordPress updated to the latest released version.' )
+							),
+					  ]
+					: [] ),
+				...( customDomains
+					? [
+							setting( __( 'Use custom domain' ), __( 'Use a local address like my-site.local.' ) ),
+							setting(
+								__( 'Enable HTTPS' ),
+								__(
+									'Test features that require HTTPS and catch issues before your site goes live.'
+								)
+							),
+					  ]
+					: [] ),
 				setting( __( 'Username' ), __( 'The username used to log in to WordPress Admin.' ) ),
 				setting( __( 'Password' ), __( 'The password used to log in to WordPress Admin.' ) ),
 				setting( __( 'Email' ), __( 'The email address used to log in to WordPress Admin.' ) ),
@@ -322,7 +359,9 @@ function getSiteSections(): Section[] {
 					__( 'Environment' ),
 					__( 'Sets the value returned by wp_get_environment_type().' )
 				),
-				setting( __( 'Xdebug' ), __( 'Connect a debugger to inspect PHP execution.' ) ),
+				...( xdebug
+					? [ setting( __( 'Xdebug' ), __( 'Connect a debugger to inspect PHP execution.' ) ) ]
+					: [] ),
 				setting( __( 'Debug log' ), __( 'Write PHP errors to wp-content/debug.log.' ) ),
 				setting(
 					__( 'Script debugging' ),
@@ -339,13 +378,24 @@ function getSiteSections(): Section[] {
 			label: __( 'PHP' ),
 			icon: PhpIcon,
 			settings: [
-				setting( __( 'PHP version' ), __( 'The PHP version used to run WordPress on this site.' ) ),
-				setting(
-					__( 'File access' ),
-					__(
-						'Choose whether this site can access only its own folder or other files on your computer.'
-					)
-				),
+				...( versionChoice
+					? [
+							setting(
+								__( 'PHP version' ),
+								__( 'The PHP version used to run WordPress on this site.' )
+							),
+					  ]
+					: [] ),
+				...( fileAccess
+					? [
+							setting(
+								__( 'File access' ),
+								__(
+									'Choose whether this site can access only its own folder or other files on your computer.'
+								)
+							),
+					  ]
+					: [] ),
 			],
 		},
 		{
@@ -361,10 +411,24 @@ function getSiteSections(): Section[] {
 			settings: [ setting( __( 'Instructions on this site' ) ) ],
 		},
 	];
+	return sections.filter(
+		( section ) =>
+			( siteAgentFiles ||
+				( section.id !== 'site-skills' && section.id !== 'site-instructions' ) ) &&
+			( section.id !== 'php' || section.settings.length > 0 )
+	);
 }
 
-export function getSections( scope: SettingsScope, { signedIn = true } = {} ): Section[] {
-	return scope === 'studio' ? getStudioSections( signedIn ) : getSiteSections();
+export function getSections(
+	scope: SettingsScope,
+	{
+		signedIn = true,
+		capabilities,
+	}: { signedIn?: boolean; capabilities?: Partial< SettingsCapabilities > } = {}
+): Section[] {
+	return scope === 'studio'
+		? getStudioSections( signedIn, capabilities?.assistant )
+		: getSiteSections( capabilities );
 }
 
 // The id of a Studio setting titled `title`, for its copy-link button.
@@ -394,7 +458,11 @@ export type SearchResult = { scope: SettingsScope; section: Section; setting?: S
 export function searchSettings(
 	query: string,
 	scope: SettingsScope,
-	{ hasSite, signedIn }: { hasSite: boolean; signedIn: boolean }
+	{
+		hasSite,
+		signedIn,
+		capabilities,
+	}: { hasSite: boolean; signedIn: boolean; capabilities?: Partial< SettingsCapabilities > }
 ): SearchResult[] {
 	const words = query.trim().toLocaleLowerCase().split( /\s+/ ).filter( Boolean );
 	if ( ! words.length ) {
@@ -410,7 +478,7 @@ export function searchSettings(
 	};
 	return scopes
 		.flatMap( ( candidate, scopeIndex ) =>
-			getSections( candidate, { signedIn } ).flatMap( ( section ) =>
+			getSections( candidate, { signedIn, capabilities } ).flatMap( ( section ) =>
 				[ { ...setting( section.label ), aliases: section.aliases }, ...section.settings ]
 					.filter( ( entry ) =>
 						words.every( ( word ) =>

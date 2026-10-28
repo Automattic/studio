@@ -242,6 +242,7 @@ export function SitePreview( {
 				onPathChange={ onPathChange }
 				onSwitchRealm={ switchRealm }
 				hasDesignSystem={ !! siteDesign.data }
+				hasDatabase={ connector.capabilities.phpMyAdmin }
 				onOpenExternal={ openExternal }
 				onOpenSettings={ live ? undefined : openSiteSettings }
 				annotate={
@@ -322,6 +323,13 @@ export function SitePreview( {
 											key={ frameKey }
 											src={ surfaceUrl }
 											title={ site.name }
+											inspector={ key === 'site' && connector.capabilities.annotatePreview }
+											annotations={ key === 'site' ? annotations : undefined }
+											onInspectorReady={ ( inspectorReady ) => {
+												patchSurface( key, { inspectorReady } );
+												if ( ! inspectorReady ) setAnnotationAnchor( null );
+											} }
+											onInspectorEvent={ handleInspectorEvent }
 											onLoad={ ( src ) => {
 												setLoadedFrames( ( frames ) => ( { ...frames, [ key ]: frameKey } ) );
 												handleSurfaceNavigation( key, src );

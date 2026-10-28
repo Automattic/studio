@@ -43,6 +43,7 @@ const siteCommands = (
 		site,
 		previewShown: false,
 		canAnnotate: false,
+		canOpenDatabase: true,
 		annotating: false,
 		actions: {
 			busy: false,

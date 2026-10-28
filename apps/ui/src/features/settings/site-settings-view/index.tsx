@@ -378,54 +378,60 @@ export function SiteSettingsForm( {
 							</div>
 						) }
 					</SettingsRow>
-					{ selectRow(
-						'wpVersion',
-						__( 'WordPress version' ),
-						__( 'Choose the WordPress release for this site.' ),
-						wpVersionOptions,
-						isOffline
-					) }
-					<SettingsRow
-						title={ __( 'Automatic updates' ) }
-						description={ __( 'Keep WordPress updated to the latest released version.' ) }
-					>
-						<SettingsToggle
-							label={ __( 'Automatic updates' ) }
-							checked={ data.wpVersion === '' }
-							disabled={ disabled || isOffline }
-							onChange={ ( automatic ) =>
-								handleChange( {
-									wpVersion: automatic ? '' : currentWpVersion ?? DEFAULT_WORDPRESS_VERSION,
-								} )
-							}
-						/>
-					</SettingsRow>
-				</SettingsGroup>
-				<SettingsGroup title={ __( 'Local domain' ) }>
-					{ toggleRow(
-						'useCustomDomain',
-						__( 'Use custom domain' ),
+					{ connector.capabilities.versionChoice && (
 						<>
-							{ __( 'Use a local address like my-site.local.' ) }
-							{ learnMore( 'docsCustomDomains' ) }
-						</>
-					) }
-					{ data.useCustomDomain && (
-						<>
-							{ textRow( 'customDomain', __( 'Domain' ) ) }
-							{ toggleRow(
-								'enableHttps',
-								__( 'Enable HTTPS' ),
-								<>
-									{ __(
-										'Test features that require HTTPS and catch issues before your site goes live.'
-									) }
-									{ learnMore( 'docsSslInStudio' ) } <CertificateTrustNotice />
-								</>
+							{ selectRow(
+								'wpVersion',
+								__( 'WordPress version' ),
+								__( 'Choose the WordPress release for this site.' ),
+								wpVersionOptions,
+								isOffline
 							) }
+							<SettingsRow
+								title={ __( 'Automatic updates' ) }
+								description={ __( 'Keep WordPress updated to the latest released version.' ) }
+							>
+								<SettingsToggle
+									label={ __( 'Automatic updates' ) }
+									checked={ data.wpVersion === '' }
+									disabled={ disabled || isOffline }
+									onChange={ ( automatic ) =>
+										handleChange( {
+											wpVersion: automatic ? '' : currentWpVersion ?? DEFAULT_WORDPRESS_VERSION,
+										} )
+									}
+								/>
+							</SettingsRow>
 						</>
 					) }
 				</SettingsGroup>
+				{ connector.capabilities.customDomains && (
+					<SettingsGroup title={ __( 'Local domain' ) }>
+						{ toggleRow(
+							'useCustomDomain',
+							__( 'Use custom domain' ),
+							<>
+								{ __( 'Use a local address like my-site.local.' ) }
+								{ learnMore( 'docsCustomDomains' ) }
+							</>
+						) }
+						{ data.useCustomDomain && (
+							<>
+								{ textRow( 'customDomain', __( 'Domain' ) ) }
+								{ toggleRow(
+									'enableHttps',
+									__( 'Enable HTTPS' ),
+									<>
+										{ __(
+											'Test features that require HTTPS and catch issues before your site goes live.'
+										) }
+										{ learnMore( 'docsSslInStudio' ) } <CertificateTrustNotice />
+									</>
+								) }
+							</>
+						) }
+					</SettingsGroup>
+				) }
 				<SettingsGroup
 					title={ __( 'WordPress credentials' ) }
 					description={
@@ -475,29 +481,31 @@ export function SiteSettingsForm( {
 		),
 		php: (
 			<SettingsGroup>
-				{ selectRow(
-					'phpVersion',
-					__( 'PHP version' ),
-					resolvedPhpVersion === data.phpVersion
-						? __( 'The PHP version used to run WordPress on this site.' )
-						: sprintf(
-								/* translators: %s: the supported PHP version that runs instead, like 8.2. */
-								__( 'Native PHP will use %s' ),
-								resolvedPhpVersion
-						  ),
-					phpVersionOptions
-				) }
-				{ selectRow(
-					'fileAccess',
-					__( 'File access' ),
-					<>
-						{ __(
-							'Choose whether this site can access only its own folder or other files on your computer.'
-						) }
-						{ learnMore( 'docsFileAccess' ) }
-					</>,
-					getFileAccessOptions()
-				) }
+				{ connector.capabilities.versionChoice &&
+					selectRow(
+						'phpVersion',
+						__( 'PHP version' ),
+						resolvedPhpVersion === data.phpVersion
+							? __( 'The PHP version used to run WordPress on this site.' )
+							: sprintf(
+									/* translators: %s: the supported PHP version that runs instead, like 8.2. */
+									__( 'Native PHP will use %s' ),
+									resolvedPhpVersion
+							  ),
+						phpVersionOptions
+					) }
+				{ connector.capabilities.fileAccess &&
+					selectRow(
+						'fileAccess',
+						__( 'File access' ),
+						<>
+							{ __(
+								'Choose whether this site can access only its own folder or other files on your computer.'
+							) }
+							{ learnMore( 'docsFileAccess' ) }
+						</>,
+						getFileAccessOptions()
+					) }
 			</SettingsGroup>
 		),
 		debugging: (
@@ -516,26 +524,27 @@ export function SiteSettingsForm( {
 					) }
 				</SettingsGroup>
 				<SettingsGroup title={ __( 'Debugging' ) }>
-					{ toggleRow(
-						'enableXdebug',
-						__( 'Xdebug' ),
-						<>
-							{ __(
-								'Connect a debugger to inspect PHP execution. Only one site can have Xdebug enabled at a time.'
-							) }
-							{ learnMore( 'docsXdebug' ) }
-						</>,
-						xdebugConflictSiteName && ! data.enableXdebug
-							? {
-									error: sprintf(
-										/* translators: %s: the name of the site that has Xdebug enabled. */
-										__( 'Xdebug is enabled on another site: %s' ),
-										xdebugConflictSiteName
-									),
-									locked: true,
-							  }
-							: {}
-					) }
+					{ connector.capabilities.xdebug &&
+						toggleRow(
+							'enableXdebug',
+							__( 'Xdebug' ),
+							<>
+								{ __(
+									'Connect a debugger to inspect PHP execution. Only one site can have Xdebug enabled at a time.'
+								) }
+								{ learnMore( 'docsXdebug' ) }
+							</>,
+							xdebugConflictSiteName && ! data.enableXdebug
+								? {
+										error: sprintf(
+											/* translators: %s: the name of the site that has Xdebug enabled. */
+											__( 'Xdebug is enabled on another site: %s' ),
+											xdebugConflictSiteName
+										),
+										locked: true,
+								  }
+								: {}
+						) }
 					{ toggleRow(
 						'enableDebugLog',
 						__( 'Debug log' ),

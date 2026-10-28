@@ -54,6 +54,7 @@ export function getSiteCommands( {
 	chatHidden,
 	previewShown,
 	canAnnotate,
+	canOpenDatabase,
 	annotating,
 	actions,
 	destinations,
@@ -72,6 +73,7 @@ export function getSiteCommands( {
 	chatHidden?: boolean;
 	previewShown: boolean;
 	canAnnotate: boolean;
+	canOpenDatabase: boolean;
 	annotating: boolean;
 	actions: ReturnType< typeof useSiteActions >;
 	destinations: ReturnType< typeof useOpenInDestinations >;
@@ -148,15 +150,19 @@ export function getSiteCommands( {
 						keywords: keywords[ 'wp-admin' ],
 						run: actions.openAdmin,
 					},
-					{
-						id: 'database',
-						group: 'site' as const,
-						label: __( 'Open database' ),
-						icon: DatabaseIcon,
-						description,
-						keywords: keywords.phpmyadmin,
-						run: actions.openDatabase,
-					},
+					...( canOpenDatabase
+						? [
+								{
+									id: 'database',
+									group: 'site' as const,
+									label: __( 'Open database' ),
+									icon: DatabaseIcon,
+									description,
+									keywords: keywords.phpmyadmin,
+									run: actions.openDatabase,
+								},
+						  ]
+						: [] ),
 					...( site.running
 						? [
 								{

@@ -2,7 +2,7 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { useSyncExternalStore, type ComponentProps } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SessionUIProvider } from '@/data/use-session-ui';
-import { createFakeConnector, makeSite } from '@/test/fake-connector';
+import { ALL_CAPABILITIES, createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { SitePreview } from './index';
 
@@ -406,7 +406,7 @@ describe( 'site preview controls', () => {
 	] )( 'shows Annotate only when %s', async ( _, annotatePreview, shown ) => {
 		const connector = createFakeConnector(
 			{},
-			{ capabilities: { nativeFolderPicker: true, annotatePreview, studioLogs: true } }
+			{ capabilities: { ...ALL_CAPABILITIES, annotatePreview } }
 		);
 		await renderPreview( 'browser', {}, connector );
 		expect( screen.getByRole( 'button', { name: 'Reload preview' } ) ).toBeVisible();

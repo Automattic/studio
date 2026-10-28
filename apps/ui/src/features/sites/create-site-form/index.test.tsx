@@ -3,7 +3,7 @@ import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { useState, type ComponentProps } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createFakeConnector, type FakeConnector } from '@/test/fake-connector';
+import { ALL_CAPABILITIES, createFakeConnector, type FakeConnector } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { CreateSiteForm } from './index';
 
@@ -28,7 +28,14 @@ async function renderForm(
 	initialProps: Partial< Props > = {},
 	connector: FakeConnector = createFakeConnector(
 		{},
-		{ capabilities: { nativeFolderPicker: false, annotatePreview: false, studioLogs: false } }
+		{
+			capabilities: {
+				...ALL_CAPABILITIES,
+				nativeFolderPicker: false,
+				annotatePreview: false,
+				studioLogs: false,
+			},
+		}
 	)
 ) {
 	const onSubmit = vi.fn();

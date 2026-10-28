@@ -16,7 +16,12 @@ import {
 	UnpinIcon,
 } from '@/lib/icons';
 import { DEFAULT_COLOR_TINT } from '@/lib/theme';
-import type { AiSessionSummary, SiteDetails, WritableUserPreferences } from '@/data/core';
+import type {
+	AiSessionSummary,
+	ConnectorCapabilities,
+	SiteDetails,
+	WritableUserPreferences,
+} from '@/data/core';
 import type { useOpenSettings } from '@/data/use-open-settings';
 import type { useChatActions } from '@/features/chats';
 import type { ComponentType } from 'react';
@@ -246,19 +251,21 @@ export function getSettingCommands( {
 	scope,
 	site,
 	signedIn,
+	capabilities,
 	toggles,
 	openSettings,
 }: {
 	scope: 'studio' | 'site';
 	site?: SiteDetails;
 	signedIn: boolean;
+	capabilities?: ConnectorCapabilities;
 	// The boolean preferences setting commands turn on or off in place, by the
 	// id of their row in Settings.
 	toggles: SettingToggles;
 	openSettings: OpenSettings;
 } ): PaletteCommand[] {
 	const group = scope === 'site' ? 'site-settings' : 'settings';
-	return getSections( scope, { signedIn } ).flatMap( ( section ) => [
+	return getSections( scope, { signedIn, capabilities } ).flatMap( ( section ) => [
 		{
 			id: `${ group }-${ section.id }`,
 			group,

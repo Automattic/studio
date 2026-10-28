@@ -94,11 +94,13 @@ function SiteCommands( {
 	const annotations = useSiteAnnotations( site.id );
 	const settingCommands = useSettingCommands( 'site', site );
 
+	const { assistant } = connector.capabilities;
 	const siteCommands = getSiteCommands( {
 		site,
-		chatHidden,
+		chatHidden: assistant ? chatHidden : undefined,
 		previewShown: preview.open && preview.siteId === site.id,
 		canAnnotate: connector.capabilities.annotatePreview,
+		canOpenDatabase: connector.capabilities.phpMyAdmin,
 		annotating: annotations.active,
 		actions,
 		destinations,
@@ -120,7 +122,13 @@ function SiteCommands( {
 				.then( () => toast.success( __( 'Site URL copied' ) ) ),
 	} );
 
-	const props = { ...palette, commands: [ ...commands, ...siteCommands ] };
+	// Without the assistant there are no chats, and the preview is always shown.
+	const shownCommands = assistant
+		? siteCommands
+		: siteCommands.filter(
+				( command ) => command.id !== 'new-chat' && command.id !== 'preview-visibility'
+		  );
+	const props = { ...palette, commands: [ ...commands, ...shownCommands ] };
 	return (
 		<>
 			{ session && ! session.archived ? (

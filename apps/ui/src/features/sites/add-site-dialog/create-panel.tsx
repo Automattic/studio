@@ -261,7 +261,8 @@ export function CreatePanel( { remote, onCancel }: { remote?: SyncSite; onCancel
 		pendingBlueprintSlot.subscribe,
 		pendingBlueprintSlot.getSnapshot
 	);
-	const showBrief = ! selectedBlueprint && ! remote && ! existing;
+	const showBrief =
+		connector.capabilities.assistant && ! selectedBlueprint && ! remote && ! existing;
 	const requiresCustomDomain = useMemo(
 		() =>
 			!! selectedBlueprint &&

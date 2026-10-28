@@ -98,7 +98,7 @@ export function useOpenInDestinations(
 		} );
 	};
 
-	const destinations: Array< OpenInDestinationEntry | false > = [
+	const destinations: Array< OpenInDestinationEntry | false | null > = [
 		{
 			id: 'browser',
 			label: __( 'Browser' ),
@@ -124,7 +124,7 @@ export function useOpenInDestinations(
 					return connector.openSiteUrl( site.id, '/wp-admin/' );
 				} ),
 		},
-		{
+		connector.capabilities.siteFolders && {
 			id: 'files',
 			label: fileManager.label,
 			logo: fileManager.logo,
@@ -135,14 +135,15 @@ export function useOpenInDestinations(
 					return connector.openSiteFolder( site.id );
 				} ),
 		},
-		!! editor && {
-			id: 'editor',
-			label: editorLabel,
-			logo: <AppIcon app={ editor } fallback={ <CodeIcon /> } />,
-			disabled: false,
-			open: () => open( 'editor', editorLabel, () => connector.openSiteInEditor( site.id ) ),
-		},
-		{
+		connector.capabilities.siteFolders &&
+			!! editor && {
+				id: 'editor',
+				label: editorLabel,
+				logo: <AppIcon app={ editor } fallback={ <CodeIcon /> } />,
+				disabled: false,
+				open: () => open( 'editor', editorLabel, () => connector.openSiteInEditor( site.id ) ),
+			},
+		connector.capabilities.siteFolders && {
 			id: 'terminal',
 			label: terminalLabel,
 			logo: (
@@ -154,7 +155,7 @@ export function useOpenInDestinations(
 			disabled: false,
 			open: () => open( 'terminal', terminalLabel, () => connector.openSiteInTerminal( site.id ) ),
 		},
-		{
+		connector.capabilities.phpMyAdmin && {
 			id: 'phpmyadmin',
 			label: __( 'phpMyAdmin' ),
 			logo: <AppIcon app="phpmyadmin" fallback={ <DatabaseIcon /> } />,
@@ -173,5 +174,5 @@ export function useOpenInDestinations(
 				} ),
 		},
 	];
-	return destinations.filter( ( destination ) => destination !== false );
+	return destinations.filter( ( destination ) => !! destination );
 }

@@ -88,6 +88,17 @@ describe( 'getPathFromPreviewUrl', () => {
 		).toBe( '/wp-admin/?page=1#top' );
 	} );
 
+	it( 'reads paths relative to a site served below its origin root', () => {
+		const siteUrl = 'https://playground.wordpress.net/scope:studio-abc';
+		expect( getPathFromPreviewUrl( `${ siteUrl }/wp-admin/?page=1`, siteUrl ) ).toBe(
+			'/wp-admin/?page=1'
+		);
+		expect( getPathFromPreviewUrl( `${ siteUrl }/`, siteUrl ) ).toBe( '/' );
+		expect( getRealmNavigationPath( '/wp-admin/', siteUrl ) ).toBe(
+			`/studio-auto-login?redirect_to=${ encodeURIComponent( `${ siteUrl }/wp-admin/` ) }`
+		);
+	} );
+
 	it( 'returns null for cross-origin or invalid urls', () => {
 		expect( getPathFromPreviewUrl( 'https://example.com/about', 'http://localhost:8881' ) ).toBe(
 			null

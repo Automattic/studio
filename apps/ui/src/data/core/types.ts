@@ -131,7 +131,7 @@ export interface AuthUser {
 // between a native flow and a browser-friendly fallback (instead of branching on
 // "am I in Electron"). The desktop app has them all; the browser (`studio ui`)
 // does not.
-interface ConnectorCapabilities {
+export interface ConnectorCapabilities {
 	// A native OS folder picker is available (`selectSiteFolder`). When false,
 	// the UI offers an editable path field instead.
 	nativeFolderPicker: boolean;
@@ -146,6 +146,27 @@ interface ConnectorCapabilities {
 	// `~/.studio/daemon/logs` and everything else to the terminal that started
 	// it, so there is no single log to point a browser user at.
 	studioLogs: boolean;
+	// The site's files are a folder on this machine that the file manager, an
+	// editor or a terminal can open. Studio on the web keeps them in the browser.
+	siteFolders: boolean;
+	// Sites serve phpMyAdmin at /phpmyadmin.
+	phpMyAdmin: boolean;
+	// Sites can have a custom domain, served over HTTPS with Studio's certificate.
+	// Studio on the web serves each site at its Playground address.
+	customDomains: boolean;
+	// Sites can run with Xdebug, which needs native PHP and a debugger connection.
+	xdebug: boolean;
+	// A site's own agent skills and instruction files (`getSiteAgentFiles`).
+	siteAgentFiles: boolean;
+	// A site's PHP can be limited to its folder or reach other files on this
+	// machine. Studio on the web's sites see only their own files.
+	fileAccess: boolean;
+	// Sites can run a chosen PHP and WordPress version. Studio on the web hosts
+	// one PHP build and runs the latest WordPress.
+	versionChoice: boolean;
+	// The assistant (chats with the Studio Code agent) is available. Studio on
+	// the web doesn't run the agent yet.
+	assistant: boolean;
 }
 
 export interface Connector {
@@ -472,6 +493,15 @@ export interface Connector {
 	openSiteInTerminal( siteId: string ): Promise< void >;
 	// Open the folder the site's email is saved in, in the system file manager.
 	openSiteEmailFolder( siteId: string ): Promise< void >;
+
+	// Connects a preview <iframe> whose pages can run Studio's scripts (Studio
+	// on the web, through each site's bridge), for the annotation inspector:
+	// `onPage` after each page load, `onLog` with the page's inspector messages,
+	// and `run` to run a script in the page. Absent where frames can't be reached.
+	connectPreviewFrame?(
+		iframe: HTMLIFrameElement,
+		listeners: { onPage(): void; onLog( message: string ): void }
+	): { run( script: string ): void; dispose(): void };
 
 	// The site's WordPress debug log, resolved host-side from the site id. Its
 	// existence is a query, not a `SiteDetails` field: the file comes and goes

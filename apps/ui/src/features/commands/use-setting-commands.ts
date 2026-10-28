@@ -1,3 +1,4 @@
+import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useSidebarPreferences } from '@/data/queries/use-sidebar-pins';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
@@ -40,10 +41,12 @@ export function useSettingCommands(
 	const openSettings = useOpenSettings();
 	const toggles = useSettingToggles();
 	const user = useAuthUser();
+	const { capabilities } = useConnector();
 	return getSettingCommands( {
 		scope,
 		site,
 		signedIn: ! user.isSuccess || !! user.data,
+		capabilities,
 		toggles,
 		openSettings,
 	} );

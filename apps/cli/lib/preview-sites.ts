@@ -1,5 +1,6 @@
 import fs from 'fs';
 import { DEMO_SITE_SIZE_LIMIT_BYTES, DEMO_SITE_SIZE_LIMIT_GB } from '@studio/common/constants';
+import { isWpcomPreview } from '@studio/common/lib/snapshots';
 import { createTusUpload } from '@studio/common/lib/sync/tus-upload';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
@@ -217,7 +218,7 @@ export async function deletePreviewSite( siteId: number, token: string ): Promis
 
 /** Deletes the site behind a saved preview, wherever it was made. */
 export async function deleteSnapshotSite( snapshot: Snapshot, token: string ): Promise< void > {
-	if ( snapshot.wpcomPreview ) {
+	if ( isWpcomPreview( snapshot ) ) {
 		await deletePreviewSite( snapshot.atomicSiteId, token );
 	} else {
 		// A preview made on Jurassic Ninja by an earlier Studio.

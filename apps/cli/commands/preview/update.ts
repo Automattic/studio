@@ -5,7 +5,7 @@ import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { readAuthToken } from '@studio/common/lib/shared-config';
-import { getSnapshotLink } from '@studio/common/lib/snapshots';
+import { getSnapshotLink, isWpcomPreview } from '@studio/common/lib/snapshots';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { Snapshot } from '@studio/common/types/snapshot';
 import { __, _n, sprintf } from '@wordpress/i18n';
@@ -106,7 +106,7 @@ export async function runCommand(
 
 		reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
 		let shareUrl: string | undefined;
-		if ( snapshotToUpdate.wpcomPreview ) {
+		if ( isWpcomPreview( snapshotToUpdate ) ) {
 			const attachmentId = await uploadPreviewArchive(
 				archivePath,
 				token.accessToken,

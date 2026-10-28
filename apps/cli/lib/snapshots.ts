@@ -14,7 +14,7 @@ export {
 	pruneExpiredOrphanedSnapshots,
 } from 'cli/lib/cli-config/snapshots';
 
-export { getSnapshotLink, isSnapshotExpired } from '@studio/common/lib/snapshots';
+export { getSnapshotLink, isSnapshotExpired, isWpcomPreview } from '@studio/common/lib/snapshots';
 
 export function formatDurationUntilExpiry( lastUpdatedAt: number ) {
 	const now = new Date();

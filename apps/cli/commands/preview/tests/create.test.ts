@@ -112,7 +112,6 @@ describe( 'Preview Create Command', () => {
 			name: 'Test Site Preview 1',
 			sequence: 1,
 			userId: mockAuthToken.id,
-			wpcomPreview: true,
 			shareUrl: mockShareUrl,
 		} );
 	} );

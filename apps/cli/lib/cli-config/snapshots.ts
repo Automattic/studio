@@ -59,7 +59,6 @@ export async function saveSnapshotToConfig(
 			name,
 			sequence: nextSequenceNumber,
 			userId,
-			wpcomPreview: true,
 			shareUrl,
 		};
 

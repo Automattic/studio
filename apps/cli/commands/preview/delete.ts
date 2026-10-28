@@ -11,6 +11,7 @@ import {
 	deleteSnapshotFromConfig,
 	getSnapshotsFromConfig,
 	isSnapshotExpired,
+	isWpcomPreview,
 } from 'cli/lib/snapshots';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { Logger, LoggerError } from 'cli/logger';
@@ -76,7 +77,7 @@ export async function runCommand(
 
 			const count = snapshots.length;
 			for ( const snapshot of snapshots ) {
-				if ( snapshot.wpcomPreview && ! isSnapshotExpired( snapshot ) ) {
+				if ( isWpcomPreview( snapshot ) && ! isSnapshotExpired( snapshot ) ) {
 					await deletePreviewSite( snapshot.atomicSiteId, token.accessToken );
 				}
 			}

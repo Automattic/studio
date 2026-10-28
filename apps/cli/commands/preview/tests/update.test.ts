@@ -59,7 +59,7 @@ describe( 'Preview Update Command', () => {
 	const mockBasename = 'folder';
 	const mockDate = 1234567890;
 	const mockArchivePath = path.join( os.tmpdir(), `${ mockBasename }-${ mockDate }.zip` );
-	const mockSiteUrl = 'test-preview.example.com';
+	const mockSiteUrl = 'test-preview.wp.build';
 	const mockAtomicSiteId = 12345;
 	const mockAuthToken = {
 		accessToken: 'mock-auth-token',
@@ -113,18 +113,19 @@ describe( 'Preview Update Command', () => {
 	} );
 
 	it( 'updates a WordPress.com preview through the preview funnel', async () => {
-		const shareUrl = `https://${ mockSiteUrl }/?share=abc123`;
-		const wpcomSnapshot = { ...mockSnapshot, wpcomPreview: true, shareUrl };
+		const wpcomHost = 'test-preview.wpcomstaging.com';
+		const shareUrl = `https://${ wpcomHost }/?share=abc123`;
+		const wpcomSnapshot = { ...mockSnapshot, url: wpcomHost, shareUrl };
 		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [ wpcomSnapshot ] );
 		vi.mocked( updateSnapshotInConfig ).mockResolvedValue( wpcomSnapshot );
 		vi.mocked( uploadPreviewArchive ).mockResolvedValue( 678 );
 		vi.mocked( updatePreviewSite ).mockResolvedValue( {
 			siteId: mockAtomicSiteId,
-			hostname: mockSiteUrl,
+			hostname: wpcomHost,
 			shareUrl,
 		} );
 
-		await runCommand( mockFolder, mockSiteUrl, false );
+		await runCommand( mockFolder, wpcomHost, false );
 
 		expect( uploadPreviewArchive ).toHaveBeenCalledWith(
 			mockArchivePath,

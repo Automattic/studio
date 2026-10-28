@@ -1,9 +1,16 @@
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import { vi } from 'vitest';
-import { createPreviewSite, deletePreviewSite, updatePreviewSite } from 'cli/lib/preview-sites';
+import { deleteSnapshot } from 'cli/lib/api';
+import {
+	createPreviewSite,
+	deletePreviewSite,
+	deleteSnapshotSite,
+	updatePreviewSite,
+} from 'cli/lib/preview-sites';
 import { LoggerError } from 'cli/logger';
 
 vi.mock( 'wpcom' );
+vi.mock( 'cli/lib/api' );
 vi.mock( 'wpcom-xhr-request' );
 vi.mock( '@studio/common/lib/wpcom-factory', () => ( {
 	__esModule: true,
@@ -101,5 +108,17 @@ describe( 'Preview sites', () => {
 
 		post.mockRejectedValueOnce( Object.assign( new Error( 'gone' ), { statusCode: 404 } ) );
 		await expect( deletePreviewSite( siteId, token ) ).resolves.toBeUndefined();
+	} );
+
+	it( 'tells Jurassic Ninja previews from WordPress.com ones by their host', async () => {
+		const snapshot = { atomicSiteId: siteId, localSiteId: 'site', date: Date.now() };
+		await deleteSnapshotSite( { ...snapshot, url: 'old-preview.wp.build' }, token );
+		expect( deleteSnapshot ).toHaveBeenCalledWith( siteId, token );
+		expect( post ).not.toHaveBeenCalled();
+
+		await deleteSnapshotSite( { ...snapshot, url: 'preview-site.wpcomstaging.com' }, token );
+		expect( post ).toHaveBeenCalledWith(
+			expect.objectContaining( { path: '/wow-funnel/pending/discard' } )
+		);
 	} );
 } );

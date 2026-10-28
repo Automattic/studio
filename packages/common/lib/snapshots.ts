@@ -21,6 +21,14 @@ export function getSnapshotLink( snapshot: Snapshot ): string {
 	return snapshot.shareUrl ?? `https://${ snapshot.url }`;
 }
 
+// Earlier Studio releases made previews on Jurassic Ninja, always under this domain. They keep
+// working there until they expire; every other preview is a WordPress.com site.
+const JURASSIC_NINJA_DOMAIN = '.wp.build';
+
+export function isWpcomPreview( snapshot: Snapshot ): boolean {
+	return ! snapshot.url.endsWith( JURASSIC_NINJA_DOMAIN );
+}
+
 export function isSnapshotExpired( snapshot: Snapshot ): boolean {
 	return snapshot.date + DEMO_SITE_EXPIRATION_DAYS * DAY_MS < Date.now();
 }

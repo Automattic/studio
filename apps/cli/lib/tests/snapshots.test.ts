@@ -131,7 +131,6 @@ describe( 'Snapshots Module', () => {
 				name: 'Test Site Preview 1',
 				userId: mockUserId,
 				sequence: 1,
-				wpcomPreview: true,
 				shareUrl: mockShareUrl,
 			} );
 		} );
@@ -190,7 +189,6 @@ describe( 'Snapshots Module', () => {
 				name: 'Test Site Preview 2',
 				userId: mockUserId,
 				sequence: 2,
-				wpcomPreview: true,
 				shareUrl: mockShareUrl,
 			} );
 		} );

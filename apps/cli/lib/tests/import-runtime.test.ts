@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -9,6 +10,7 @@ import {
 	publishStagedInstall,
 	resetImportRuntimeCacheForTests,
 	resolveLatestReleaseAsset,
+	installedRuntime,
 	type ReleaseAsset,
 } from '../import-runtime';
 
@@ -289,5 +291,119 @@ describe( 'linkPlaywright', () => {
 
 		expect( fs.realpathSync( target() ) ).toBe( fs.realpathSync( current ) );
 		expect( fs.readdirSync( path.dirname( target() ) ) ).toEqual( [ 'playwright' ] );
+	} );
+} );
+
+describe( 'installedRuntime', () => {
+	let directory: string;
+	beforeEach( () => {
+		directory = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-runtime-' ) );
+	} );
+	afterEach( () => fs.rmSync( directory, { recursive: true, force: true } ) );
+
+	const release = ( version: string ): ReleaseAsset => ( {
+		repo: 'Automattic/static-site-importer',
+		version,
+		name: 'plugin.zip',
+		url: `https://example.com/${ version }/plugin.zip`,
+		sha256: digest( version ),
+	} );
+	const isComplete = ( root: string ) => fs.existsSync( path.join( root, 'plugin.zip' ) );
+	const install = async ( asset: ReleaseAsset, staging: string ) =>
+		fs.writeFileSync( path.join( staging, 'plugin.zip' ), asset.version );
+	// An install as an earlier Studio left it, or as this one publishes it.
+	const installed = ( version: string ) => {
+		const root = path.join( directory, version );
+		fs.mkdirSync( root );
+		fs.writeFileSync( path.join( root, 'plugin.zip' ), version );
+		fs.writeFileSync(
+			path.join( root, 'release-asset.json' ),
+			JSON.stringify( release( version ) )
+		);
+	};
+	const exitedPid = () => {
+		const child = spawnSync( process.execPath, [
+			'-e',
+			'process.stdout.write(String(process.pid))',
+		] );
+		return Number( child.stdout.toString() );
+	};
+
+	it( 'waits for the newest release when none is installed', async () => {
+		const used = await installedRuntime( {
+			directory,
+			resolve: async () => release( '1.2.0' ),
+			install,
+			isComplete,
+		} );
+		expect( used ).toEqual( { root: path.join( directory, '1.2.0' ), asset: release( '1.2.0' ) } );
+		expect( fs.readFileSync( path.join( used.root, 'plugin.zip' ), 'utf8' ) ).toBe( '1.2.0' );
+	} );
+
+	it( 'uses the installed release at once and installs a newer one for the next caller', async () => {
+		installed( '1.2.0' );
+		let publish: ( asset: ReleaseAsset ) => void = () => undefined;
+		const published = new Promise< ReleaseAsset >( ( resolve ) => ( publish = resolve ) );
+		const options = { directory, resolve: () => published, install, isComplete };
+
+		// GitHub has not answered yet: the installed release is used regardless.
+		expect( ( await installedRuntime( options ) ).asset.version ).toBe( '1.2.0' );
+
+		publish( release( '1.10.0' ) );
+		await vi.waitFor( () => expect( isComplete( path.join( directory, '1.10.0' ) ) ).toBe( true ) );
+		expect( ( await installedRuntime( options ) ).asset ).toEqual( release( '1.10.0' ) );
+	} );
+
+	it( 'keeps an import going when the update fails, and tries again on the next', async () => {
+		installed( '1.2.0' );
+		let attempts = 0;
+		const options = {
+			directory,
+			resolve: async () => {
+				attempts++;
+				throw new Error( 'HTTP 403' );
+			},
+			install,
+			isComplete,
+		};
+		expect( ( await installedRuntime( options ) ).asset.version ).toBe( '1.2.0' );
+		await vi.waitFor( () => expect( attempts ).toBe( 1 ) );
+		await installedRuntime( options );
+		await vi.waitFor( () => expect( attempts ).toBe( 2 ) );
+	} );
+
+	it( 'removes what no import can still use once a newer release is installed', async () => {
+		for ( const version of [ '1.0.0', '1.1.0', '1.2.0' ] ) {
+			installed( version );
+		}
+		// From a Studio before installs recorded their release.
+		fs.mkdirSync( path.join( directory, '0.9.0' ) );
+		const abandoned = `1.3.0.staging-${ exitedPid() }-0a0a0a0a`;
+		const running = `1.3.0.staging-${ process.pid }-0b0b0b0b`;
+		fs.mkdirSync( path.join( directory, abandoned ) );
+		fs.mkdirSync( path.join( directory, running ) );
+
+		await installedRuntime( {
+			directory,
+			resolve: async () => release( '1.3.0' ),
+			install,
+			isComplete,
+		} );
+
+		await vi.waitFor( () =>
+			expect( fs.readdirSync( directory ).sort() ).toEqual( [ '1.2.0', '1.3.0', running ] )
+		);
+	} );
+
+	it( 'refuses a release that does not install completely, leaving nothing behind', async () => {
+		await expect(
+			installedRuntime( {
+				directory,
+				resolve: async () => release( '1.2.0' ),
+				install: async () => undefined,
+				isComplete,
+			} )
+		).rejects.toThrow( 'Automattic/static-site-importer 1.2.0 did not install completely.' );
+		expect( fs.readdirSync( directory ) ).toEqual( [] );
 	} );
 } );

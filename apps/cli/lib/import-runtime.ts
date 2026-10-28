@@ -11,9 +11,13 @@ import * as tar from 'tar';
 
 /**
  * The import pipeline behind `studio create --from` runs the newest stable
- * Data Liberation engine and Static Site Importer, resolved at launch and verified against the
+ * Data Liberation engine and Static Site Importer, verified against the
  * SHA-256 digest GitHub publishes for each release asset. Shipping either
  * project therefore changes Studio's imports without a Studio release.
+ *
+ * A release is installed once per version. Once one is installed it is used
+ * at once, and a newer release is installed in the background for the next
+ * import, so an import never waits on a download it does not need.
  */
 export type ReleaseAsset = {
 	repo: string;
@@ -55,6 +59,7 @@ const RELEASE_CACHE_MS = 5 * 60 * 1000;
 const MAX_ASSET_BYTES = 200 * 1024 * 1024;
 
 const resolvedReleases = new Map< string, { at: number; asset: ReleaseAsset } >();
+const pendingUpdates = new Map< string, Promise< InstalledRelease > >();
 
 function runtimeDirectory(): string {
 	return path.join( getConfigDirectory(), 'import-runtime' );
@@ -307,6 +312,140 @@ function bundledPlaywrightRoot(): string {
 	return path.dirname( require.resolve( 'playwright/package.json' ) );
 }
 
+export type InstalledRelease = { root: string; asset: ReleaseAsset };
+
+const ASSET_RECORD = 'release-asset.json';
+
+const compareVersions = ( a: string, b: string ) => {
+	const [ x, y ] = [ a, b ].map( ( version ) => version.split( '.' ).map( Number ) );
+	return x.map( ( part, i ) => part - y[ i ] ).find( ( difference ) => difference !== 0 ) ?? 0;
+};
+
+/** The complete installs in `directory`, newest first. */
+function installedReleases(
+	directory: string,
+	isComplete: ( root: string ) => boolean
+): InstalledRelease[] {
+	let names: string[] = [];
+	try {
+		names = fs.readdirSync( directory );
+	} catch {
+		return [];
+	}
+	return names
+		.filter( ( name ) => /^\d+\.\d+\.\d+$/.test( name ) )
+		.flatMap( ( name ) => {
+			const root = path.join( directory, name );
+			try {
+				const asset = JSON.parse(
+					fs.readFileSync( path.join( root, ASSET_RECORD ), 'utf8' )
+				) as ReleaseAsset;
+				return isComplete( root ) ? [ { root, asset } ] : [];
+			} catch {
+				return [];
+			}
+		} )
+		.sort( ( a, b ) => compareVersions( b.asset.version, a.asset.version ) );
+}
+
+/**
+ * Remove what no import can still use: every version but the two newest
+ * complete installs, so one that started on the previous version keeps its
+ * files, and staging left by a Studio process that has exited.
+ */
+function pruneReleases( directory: string, isComplete: ( root: string ) => boolean ): void {
+	const kept = new Set(
+		installedReleases( directory, isComplete )
+			.slice( 0, 2 )
+			.map( ( { root } ) => path.basename( root ) )
+	);
+	for ( const name of fs.readdirSync( directory ) ) {
+		const owner = /\.(?:staging|stale)-(\d+)-/.exec( name )?.[ 1 ];
+		const abandoned = owner !== undefined && ! isRunning( Number( owner ) );
+		if ( abandoned || ( /^\d+\.\d+\.\d+$/.test( name ) && ! kept.has( name ) ) ) {
+			fs.rmSync( path.join( directory, name ), { recursive: true, force: true } );
+		}
+	}
+}
+
+function isRunning( pid: number ): boolean {
+	try {
+		process.kill( pid, 0 );
+		return true;
+	} catch ( error ) {
+		// EPERM: it runs, as another user.
+		return ( error as NodeJS.ErrnoException ).code === 'EPERM';
+	}
+}
+
+/**
+ * The newest installed release of a runtime, installing the newest published
+ * one first only when none is installed. With one installed, the newest
+ * published release is installed in the background for the next caller,
+ * one update at a time, and installs no import can use any more are removed.
+ *
+ * `install` fills a staging directory from the verified asset; it is
+ * published under the release's version once `isComplete` holds for it.
+ */
+export async function installedRuntime( {
+	directory,
+	resolve,
+	install,
+	isComplete,
+}: {
+	directory: string;
+	resolve: () => Promise< ReleaseAsset >;
+	install: ( asset: ReleaseAsset, staging: string ) => Promise< void >;
+	isComplete: ( root: string ) => boolean;
+} ): Promise< InstalledRelease > {
+	const update = () => {
+		let pending = pendingUpdates.get( directory );
+		if ( ! pending ) {
+			pending = installRelease( directory, resolve, install, isComplete ).finally( () =>
+				pendingUpdates.delete( directory )
+			);
+			pendingUpdates.set( directory, pending );
+		}
+		return pending;
+	};
+	const [ installed ] = installedReleases( directory, isComplete );
+	if ( ! installed ) {
+		return update();
+	}
+	update().catch( () => {
+		// The next import tries again; this one has what it needs.
+	} );
+	return installed;
+}
+
+async function installRelease(
+	directory: string,
+	resolve: () => Promise< ReleaseAsset >,
+	install: ( asset: ReleaseAsset, staging: string ) => Promise< void >,
+	isComplete: ( root: string ) => boolean
+): Promise< InstalledRelease > {
+	const asset = await resolve();
+	const root = path.join( directory, asset.version );
+	const isInstalled = ( candidate: string ) =>
+		fs.existsSync( path.join( candidate, ASSET_RECORD ) ) && isComplete( candidate );
+	if ( ! isInstalled( root ) ) {
+		const staging = `${ root }.staging-${ uniqueSuffix() }`;
+		fs.mkdirSync( staging, { recursive: true } );
+		try {
+			await install( asset, staging );
+			fs.writeFileSync( path.join( staging, ASSET_RECORD ), JSON.stringify( asset ) );
+			if ( ! isInstalled( staging ) ) {
+				throw new Error( `${ asset.repo } ${ asset.version } did not install completely.` );
+			}
+			publishStagedInstall( staging, root, isInstalled );
+		} finally {
+			fs.rmSync( staging, { recursive: true, force: true } );
+		}
+	}
+	pruneReleases( directory, isInstalled );
+	return { root, asset };
+}
+
 /** The newest Data Liberation release package. */
 export function resolveCaptureEngineAsset(): Promise< ReleaseAsset > {
 	return resolveLatestReleaseAsset(
@@ -315,37 +454,29 @@ export function resolveCaptureEngineAsset(): Promise< ReleaseAsset > {
 	);
 }
 
-/** Install (once per version) and load the newest Data Liberation capture engine. */
+/** Load the installed Data Liberation capture engine (see installedRuntime). */
 export async function loadCaptureEngine(): Promise< CaptureEngine > {
-	const asset = await resolveCaptureEngineAsset();
-	const engineRoot = path.join( runtimeDirectory(), 'data-liberation', asset.version );
-	const bundlePath = path.join( engineRoot, 'dist', 'capture-engine.bundle.mjs' );
-	const isCompleteEngine = ( directory: string ) =>
-		fs.existsSync( path.join( directory, 'dist', 'capture-engine.bundle.mjs' ) );
-	if ( ! isCompleteEngine( engineRoot ) ) {
-		const staging = `${ engineRoot }.staging-${ uniqueSuffix() }`;
-		fs.mkdirSync( staging, { recursive: true } );
-		const archive = path.join( staging, asset.name );
-		try {
-			await downloadVerifiedAsset( asset, archive );
+	const bundleOf = ( root: string ) => path.join( root, 'dist', 'capture-engine.bundle.mjs' );
+	const { root: engineRoot, asset } = await installedRuntime( {
+		directory: path.join( runtimeDirectory(), 'data-liberation' ),
+		resolve: resolveCaptureEngineAsset,
+		isComplete: ( root ) => fs.existsSync( bundleOf( root ) ),
+		install: async ( release, staging ) => {
+			const archive = path.join( staging, release.name );
+			await downloadVerifiedAsset( release, archive );
 			await tar.x( { file: archive, cwd: staging, strip: 1 } );
 			fs.rmSync( archive, { force: true } );
 			const manifest = JSON.parse(
 				fs.readFileSync( path.join( staging, 'package.json' ), 'utf8' )
 			) as { version?: string };
-			if ( manifest.version !== asset.version ) {
+			if ( manifest.version !== release.version ) {
 				throw new Error(
-					`Data Liberation engine is ${ manifest.version }, expected ${ asset.version }.`
+					`Data Liberation engine is ${ manifest.version }, expected ${ release.version }.`
 				);
 			}
-			if ( ! isCompleteEngine( staging ) ) {
-				throw new Error( 'Data Liberation release is missing its capture engine bundle.' );
-			}
-			publishStagedInstall( staging, engineRoot, isCompleteEngine );
-		} finally {
-			fs.rmSync( staging, { recursive: true, force: true } );
-		}
-	}
+		},
+	} );
+	const bundlePath = bundleOf( engineRoot );
 	linkPlaywright( engineRoot );
 	const engine = ( await import( pathToFileURL( bundlePath ).href ) ) as Partial< CaptureEngine >;
 	if ( typeof engine.captureWebsite !== 'function' ) {
@@ -354,27 +485,26 @@ export async function loadCaptureEngine(): Promise< CaptureEngine > {
 	return { ...( engine as CaptureEngine ), version: asset.version, packageUrl: asset.url };
 }
 
-/** The newest Static Site Importer release ZIP, downloaded and verified once per version. */
+/** The installed Static Site Importer release ZIP (see installedRuntime). */
 export async function resolveStaticSiteImporterPlugin(): Promise< {
 	path: string;
 	version: string;
 } > {
-	const asset = await resolveLatestReleaseAsset(
-		STATIC_SITE_IMPORTER_REPO,
-		( name ) => name === STATIC_SITE_IMPORTER_ASSET
-	);
-	const zipPath = path.join(
-		runtimeDirectory(),
-		'static-site-importer',
-		asset.version,
-		asset.name
-	);
-	if ( ! fs.existsSync( zipPath ) ) {
-		await downloadVerifiedAsset( asset, zipPath );
-	}
-	return { path: zipPath, version: asset.version };
+	const zipOf = ( root: string ) => path.join( root, STATIC_SITE_IMPORTER_ASSET );
+	const { root, asset } = await installedRuntime( {
+		directory: path.join( runtimeDirectory(), 'static-site-importer' ),
+		resolve: () =>
+			resolveLatestReleaseAsset(
+				STATIC_SITE_IMPORTER_REPO,
+				( name ) => name === STATIC_SITE_IMPORTER_ASSET
+			),
+		isComplete: ( candidate ) => fs.existsSync( zipOf( candidate ) ),
+		install: ( release, staging ) => downloadVerifiedAsset( release, zipOf( staging ) ),
+	} );
+	return { path: zipOf( root ), version: asset.version };
 }
 
 export function resetImportRuntimeCacheForTests(): void {
 	resolvedReleases.clear();
+	pendingUpdates.clear();
 }

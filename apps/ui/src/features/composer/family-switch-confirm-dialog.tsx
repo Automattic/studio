@@ -1,4 +1,4 @@
-import { getAiModelLabel } from '@studio/common/ai/models';
+import { getAiModelLabel } from '@studio/agent/protocol/models';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { useRef } from 'react';

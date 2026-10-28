@@ -1,4 +1,4 @@
-import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/common/ai/global-instructions-length';
+import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/agent/protocol/global-instructions-length';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useId, useRef, useState } from 'react';
 import {

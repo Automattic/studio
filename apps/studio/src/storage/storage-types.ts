@@ -1,6 +1,6 @@
 import { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import { StatsMetric } from 'src/lib/bump-stats';
-import type { AiSessionSitePlacement } from '@studio/common/ai/sessions/placement';
+import type { AiSessionSitePlacement } from '@studio/agent/node/sessions/placement';
 import type { QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 

@@ -1,4 +1,4 @@
-import type { ComposerAttachment } from '@studio/common/ai/composer-attachments';
+import type { ComposerAttachment } from '@studio/agent/protocol/composer-attachments';
 
 interface ComposerDraft {
 	text: string;

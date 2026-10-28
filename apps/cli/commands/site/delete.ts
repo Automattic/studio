@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { deleteAiSessionsForSite } from '@studio/common/ai/sessions/manage';
+import { deleteAiSessionsForSite } from '@studio/agent/node/sessions/manage';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { removeAllConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { arePathsEqual, isWordPressDirectory } from '@studio/common/lib/fs-utils';

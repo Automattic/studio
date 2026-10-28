@@ -1,7 +1,7 @@
-import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
-import { getAgentEndFailure } from '@studio/common/ai/json-events';
-import { getStudioToolProgress } from '@studio/common/ai/tool-progress';
-import { SKIPPED_QUESTION, STOPPED_WITHOUT_ANSWER } from '@studio/common/ai/tools';
+import { buildChatAttachmentSummaries } from '@studio/agent/protocol/chat-attachments';
+import { getAgentEndFailure } from '@studio/agent/protocol/json-events';
+import { getStudioToolProgress } from '@studio/agent/protocol/tool-progress';
+import { SKIPPED_QUESTION, STOPPED_WITHOUT_ANSWER } from '@studio/agent/protocol/tools';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 import { toast } from '@/data/app-messages';
@@ -24,7 +24,7 @@ import type {
 	SessionEntry,
 	StudioCustomEntry,
 } from '@/data/core';
-import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
+import type { ActiveAgentRun } from '@studio/agent/protocol/agent-events';
 
 function nowIso(): string {
 	return new Date().toISOString();

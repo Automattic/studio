@@ -1,8 +1,8 @@
 import { BrowserWindow } from 'electron';
 import { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
 import { getExistingMainWindow } from 'src/main-window';
-import type { AgentRunEvent } from '@studio/common/ai/agent-events';
-import type { AiSessionPlacementUpdatedEvent } from '@studio/common/ai/sessions/placement';
+import type { AiSessionPlacementUpdatedEvent } from '@studio/agent/node/sessions/placement';
+import type { AgentRunEvent } from '@studio/agent/protocol/agent-events';
 import type { StoredAuthToken } from '@studio/common/lib/shared-config';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 

@@ -5,13 +5,13 @@ import {
 	getSafeMediaUrl,
 	isDesignSystemPreviewWidget,
 	type StudioChatArtifactWidgetDraft,
-} from '@studio/common/ai/chat-artifacts';
+} from '@studio/agent/protocol/chat-artifacts';
 import {
 	isAiAccessRequiredError,
 	isAiBlockedError,
 	isOutOfCreditsError,
 	isUsageCapError,
-} from '@studio/common/ai/json-events';
+} from '@studio/agent/protocol/json-events';
 import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
 import { replaceEqualDeep } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';

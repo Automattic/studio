@@ -2,13 +2,13 @@ import { IpcMainInvokeEvent, nativeTheme } from 'electron';
 import {
 	readGlobalInstructionsFile,
 	writeGlobalInstructions,
-} from '@studio/common/ai/global-instructions';
-import { isAiProviderId } from '@studio/common/ai/providers';
+} from '@studio/agent/node/global-instructions';
 import {
 	readAiSettings,
 	saveAnthropicApiKey as saveAnthropicApiKeyToConfig,
 	setAiProvider as setAiProviderInConfig,
-} from '@studio/common/ai/settings-store';
+} from '@studio/agent/node/settings-store';
+import { isAiProviderId } from '@studio/agent/protocol/providers';
 import { getInstructionsLengthBucket } from '@studio/common/lib/record-tracks-event';
 import {
 	detectInstalledApps,
@@ -30,7 +30,7 @@ import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { defaultSitePath } from 'src/storage/paths';
 import { OnboardingHintsState } from 'src/storage/storage-types';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
-import type { AiSettings } from '@studio/common/ai/providers';
+import type { AiSettings } from '@studio/agent/protocol/providers';
 
 export function getInstalledAppsAndTerminals(): InstalledApps {
 	return detectInstalledApps();

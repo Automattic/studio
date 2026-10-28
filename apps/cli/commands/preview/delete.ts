@@ -1,4 +1,5 @@
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
+import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
@@ -11,7 +12,6 @@ import {
 	isSnapshotExpired,
 } from 'cli/lib/snapshots';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
-import { normalizeHostname } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -82,12 +82,9 @@ export async function runCommand(
 			logger.reportSuccess( __( 'Deletion successful' ) );
 		}
 	} catch ( error ) {
-		if ( error instanceof LoggerError ) {
-			logger.reportError( error );
-		} else {
-			const loggerError = new LoggerError( __( 'Failed to delete preview site' ), error );
-			logger.reportError( loggerError );
-		}
+		throw error instanceof LoggerError
+			? error
+			: new LoggerError( __( 'Failed to delete preview site' ), error );
 	}
 }
 
@@ -128,11 +125,16 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} );
 		},
 		handler: async ( argv ) => {
-			if ( argv.all ) {
-				await runCommand( Mode.DELETE_ALL_SNAPSHOT, undefined );
-			} else if ( argv.host ) {
-				const normalizedHost = normalizeHostname( argv.host );
-				await runCommand( Mode.DELETE_SINGLE_SNAPSHOT, normalizedHost );
+			const logger = new Logger< LoggerAction >();
+			try {
+				if ( argv.all ) {
+					await runCommand( Mode.DELETE_ALL_SNAPSHOT, undefined, logger );
+				} else if ( argv.host ) {
+					const normalizedHost = normalizeHostname( argv.host );
+					await runCommand( Mode.DELETE_SINGLE_SNAPSHOT, normalizedHost, logger );
+				}
+			} catch ( error ) {
+				logger.reportError( error as LoggerError );
 			}
 		},
 	} );

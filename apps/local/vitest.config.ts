@@ -15,6 +15,7 @@ export default mergeConfig(
 		resolve: {
 			alias: {
 				'@studio/common': path.resolve( __dirname, '../../packages/common' ),
+				'@studio/agent': path.resolve( __dirname, '../../packages/agent' ),
 			},
 		},
 	} )

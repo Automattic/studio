@@ -5,28 +5,18 @@
 
 .annotationAttachment {
 	align-self: flex-end;
-	display: flex;
-	align-items: center;
-	gap: var( --space-1 );
-	max-width: 80%;
+	max-width: min( 80%, 240px );
 	margin-top: var( --space-1 );
-	padding: var( --space-2 ) var( --space-3 );
-	border: 1px solid var( --border );
-	/* eslint-disable-next-line studio/use-theme-tokens -- the bubble's fixed 12px corner, between the radius tokens. */
-	border-radius: 12px;
-	background-color: var( --chat );
-	color: var( --muted-foreground );
-	font-size: var( --text-xxs );
 }
 
 .annotationElementTag {
-	flex: none;
-	font-family: var( --font-mono );
-	color: var( --foreground );
+	composes: truncate from '@/lib/theme/recipes.module.css';
+	min-width: 0;
 }
 
 .annotationElementText {
 	composes: truncate from '@/lib/theme/recipes.module.css';
+	color: var( --muted-foreground );
 }
 
 .userTextRow,

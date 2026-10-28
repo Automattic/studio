@@ -1,11 +1,5 @@
 import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
-import {
-	createRoute,
-	Outlet,
-	useNavigate,
-	useRouter,
-	useRouterState,
-} from '@tanstack/react-router';
+import { createRoute, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useState } from 'react';
 import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
@@ -163,20 +157,9 @@ function DashboardLayout() {
 		( !! homeSiteId ||
 			!! liveUrl ||
 			( previewSite.running && ! previewStopping && preview.revealingSiteId !== previewSite.id ) );
-	const chatHidden = ( preview.chatHidden || !! homeSiteId ) && showPreview;
-	// Opening a chat shows it, the open one included. Search-only changes
-	// open dialogs over the workspace without changing its layout.
-	const router = useRouter();
+	const chatHidden =
+		( preview.chatHiddenBySiteId[ previewSiteId ?? '' ] || !! homeSiteId ) && showPreview;
 	const { setChatHidden } = preview;
-	useEffect(
-		() =>
-			router.subscribe( 'onBeforeNavigate', ( { pathChanged, hrefChanged } ) => {
-				if ( pathChanged || ! hrefChanged ) {
-					setChatHidden( false );
-				}
-			} ),
-		[ router, setChatHidden ]
-	);
 	const startAnnotating = useCallback( () => {
 		if ( hasProvider ) return true;
 		setProviderPromptOpen( true );
@@ -190,7 +173,7 @@ function DashboardLayout() {
 				return;
 			}
 			requestAnnotationSend( { siteId, noteIds } );
-			setChatHidden( false );
+			setChatHidden( false, siteId );
 			if ( ! sessionId || sessionSite?.id !== siteId ) {
 				void navigate( { to: '/sites/$siteId/new', params: { siteId } } );
 			}
@@ -208,10 +191,10 @@ function DashboardLayout() {
 				aria-pressed={ ! chatHidden }
 				onClick={ () => {
 					if ( homeSiteId ) {
-						setChatHidden( false );
+						setChatHidden( false, homeSiteId );
 						void navigate( { to: '/sites/$siteId/new', params: { siteId: homeSiteId } } );
 					} else {
-						setChatHidden( ! chatHidden );
+						setChatHidden( ! chatHidden, previewSiteId );
 					}
 				} }
 			/>
@@ -272,6 +255,7 @@ function DashboardLayout() {
 			/>
 			<SiteHeaderActionsProvider host={ showPreview ? 'preview' : 'chat' }>
 				<PreviewSplitFrame
+					siteId={ previewSiteId }
 					navigationKey={
 						homeSiteId || newSessionSiteId
 							? `/sites/${ homeSiteId ?? newSessionSiteId }`

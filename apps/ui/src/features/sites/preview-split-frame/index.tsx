@@ -14,6 +14,7 @@ export interface PreviewSplitFramePreviewProps {
 }
 
 interface PreviewSplitFrameProps {
+	siteId?: string;
 	navigationKey?: string;
 	header?: ReactNode;
 	// The preview panel content. Kept mounted while closed so the webview stays
@@ -32,6 +33,7 @@ interface PreviewSplitFrameProps {
 }
 
 export function PreviewSplitFrame( {
+	siteId,
 	navigationKey,
 	header,
 	preview,
@@ -45,6 +47,7 @@ export function PreviewSplitFrame( {
 	const contentCollapsed = showPreview && chatHidden;
 	const { rootRef, containerWidth, contentWidthVar, isResizing, handleProps } = usePreviewSplit( {
 		showPreview,
+		siteId,
 	} );
 	const isSidebarCollapsed = useSidebarCollapsed();
 	const resizable = ( containerWidth ?? Infinity ) >= PREVIEW_SPLIT_MIN_WIDTH;
@@ -56,18 +59,21 @@ export function PreviewSplitFrame( {
 	// race it.
 	const [ animatingPreviewToggle, setAnimatingPreviewToggle ] = useState( false );
 	const [ previousPreview, setPreviousPreview ] = useState( {
+		siteId,
 		navigationKey,
 		mounted: preview != null,
 		open: showPreview,
 		collapsed: contentCollapsed,
 	} );
 	if (
+		previousPreview.siteId !== siteId ||
 		previousPreview.navigationKey !== navigationKey ||
 		previousPreview.mounted !== ( preview != null ) ||
 		previousPreview.open !== showPreview ||
 		previousPreview.collapsed !== contentCollapsed
 	) {
 		setPreviousPreview( {
+			siteId,
 			navigationKey,
 			mounted: preview != null,
 			open: showPreview,
@@ -77,6 +83,7 @@ export function PreviewSplitFrame( {
 			previousPreview.open !== showPreview || previousPreview.collapsed !== contentCollapsed;
 		setAnimatingPreviewToggle(
 			toggled &&
+				previousPreview.siteId === siteId &&
 				previousPreview.navigationKey === navigationKey &&
 				previousPreview.mounted &&
 				preview != null &&
@@ -98,7 +105,7 @@ export function PreviewSplitFrame( {
 			setAnimatingPreviewToggle( false );
 		}, getMotionDuration( 'layout' ) );
 		return () => window.clearTimeout( timeoutId );
-	}, [ animatingPreviewToggle, navigationKey, showPreview, contentCollapsed ] );
+	}, [ animatingPreviewToggle, siteId, navigationKey, showPreview, contentCollapsed ] );
 
 	const previewVisible = showPreview || animatingPreviewToggle;
 	const renderPreview = ! showPreview && animatingPreviewToggle ? lastVisiblePreview : preview;

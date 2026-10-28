@@ -6,7 +6,7 @@ import { createFileTools } from '@studio/agent/browser/file-tools';
 import { bindTool } from '@studio/agent/shared/tools/define-tool';
 import { createFakeHost } from '../../node/tests/fake-host';
 
-describe( 'web file tools', () => {
+describe( 'browser file tools', () => {
 	let sitesRoot: string;
 	let call: ( name: string, args: Record< string, unknown > ) => Promise< string >;
 
@@ -54,6 +54,6 @@ describe( 'web file tools', () => {
 		).rejects.toThrow( 'Could not find the exact text' );
 		await expect(
 			call( 'Edit', { path: 'bakery/a.txt', edits: [ { oldText: 'x', newText: 'z' } ] } )
-		).rejects.toThrow( 'more than one match' );
+		).rejects.toThrow( 'Found 2 occurrences' );
 	} );
 } );

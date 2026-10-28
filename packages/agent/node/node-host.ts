@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readdir, readFile, rm, stat, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -65,6 +65,12 @@ const playwrightPages: HostPages = {
 			ignoreHTTPSErrors: true,
 		} );
 		let documentFile: string | undefined;
+		const close = async () => {
+			await page.close();
+			if ( documentFile ) {
+				await rm( path.dirname( documentFile ), { recursive: true, force: true } );
+			}
+		};
 		try {
 			if ( options.reducedMotion || options.colorScheme ) {
 				await page.emulateMedia( {
@@ -132,19 +138,11 @@ const playwrightPages: HostPages = {
 				url: () => page.url(),
 				status: () => status,
 				isClosed: () => page.isClosed(),
-				close: async () => {
-					await page.close();
-					if ( documentFile ) {
-						await rm( path.dirname( documentFile ), { recursive: true, force: true } );
-					}
-				},
+				close,
 			} as HostPage;
 			return hostPage;
 		} catch ( error ) {
-			await page.close().catch( () => {} );
-			if ( documentFile ) {
-				await unlink( documentFile ).catch( () => {} );
-			}
+			await close().catch( () => {} );
 			throw error;
 		}
 	},

@@ -42,6 +42,7 @@ import {
 import { findLastAssistant, isEmptyStop } from '@studio/agent/protocol/session-events';
 import { withDesignSystemPreview } from '@studio/agent/shared/chat-artifacts';
 import { getFileToolPrompt } from '@studio/agent/shared/file-tool-prompts';
+import { runWithPendingWork } from '@studio/agent/shared/pending-work';
 import { createResultNotes } from '@studio/agent/shared/result-notes';
 import { withLeakedToolCallMarkupRemoved } from '@studio/agent/shared/runtime-guards/leaked-tool-call-markup';
 import { stripStaleImagesFromContext } from '@studio/agent/shared/runtime-guards/strip-stale-images';
@@ -62,7 +63,6 @@ import {
 } from './tool-safety';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
 import type { StudioAgentHost } from '@studio/agent/shared/host';
-import type { StudioToolResultDetails } from '@studio/agent/shared/tools/define-tool';
 import type { AskUserHandler, SiteInfo } from '@studio/agent/shared/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -663,24 +663,14 @@ function toToolDefinition(
 			if ( fileWriteRefusal ) {
 				throw new Error( fileWriteRefusal );
 			}
-			if ( ( tool as { settlesPendingWork?: boolean } ).settlesPendingWork ) {
-				await pendingWork.settle();
-			}
-			const result = await tool.execute( toolCallId, params, signal, onUpdate );
-			const details = result.details as StudioToolResultDetails | undefined;
-			if ( details?.pending ) {
-				pendingWork.add( details.pending );
-				delete details.pending;
-			}
-			const resultText = result.content
-				.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
-				.join( '\n' );
-			const notes = [ await resultNotes?.( resultText ), pendingWork.takeReports() ]
-				.filter( Boolean )
-				.join( '\n' );
-			return notes
-				? { ...result, content: [ ...result.content, { type: 'text', text: notes } ] }
-				: result;
+			return runWithPendingWork(
+				{
+					settles: ( tool as { settlesPendingWork?: boolean } ).settlesPendingWork,
+					pendingWork,
+					resultNotes,
+				},
+				() => tool.execute( toolCallId, params, signal, onUpdate )
+			);
 		},
 	};
 }

@@ -99,6 +99,10 @@ async function getEditorPage( pages: HostPages, siteUrl: string ): Promise< Host
 		if ( page && ! page.isClosed() ) {
 			return page;
 		}
+		// Another call already replaced the closed page while this one waited.
+		if ( editorPages.get( siteUrl ) !== cached ) {
+			return getEditorPage( pages, siteUrl );
+		}
 	}
 	// Concurrent auto-logins overwrite each other's session tokens, so calls share one load.
 	const loading = loadEditorPage( pages, siteUrl );

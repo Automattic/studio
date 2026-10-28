@@ -3,6 +3,15 @@ import { toBase64 } from '@studio/agent/shared/base64';
 import { getFileToolPrompt } from '@studio/agent/shared/file-tool-prompts';
 import { defineTool, LOCAL_OVERWRITE, READ_ONLY } from '@studio/agent/shared/tools/define-tool';
 import { textResult } from '@studio/agent/shared/tools/utils';
+import { generateUnifiedPatch } from '@studio/agent/shared/unified-patch';
+import {
+	applyEditsToNormalizedContent,
+	detectLineEnding,
+	generateDiffString,
+	normalizeToLF,
+	restoreLineEndings,
+	stripBom,
+} from './edit-text';
 import type { StudioAgentHost } from '@studio/agent/shared/host';
 import type { StudioToolDefinition } from '@studio/agent/shared/tools/define-tool';
 
@@ -154,33 +163,28 @@ export function createFileTools( host: StudioAgentHost, { visionEnabled = true }
 		},
 		async ( args ) => {
 			const file = resolve( args.path );
-			const original = await files.readText( file );
-			const ranges = args.edits.map( ( { oldText, newText } ) => {
-				const start = original.indexOf( oldText );
-				if ( ! oldText || start === -1 ) {
-					throw new Error(
-						`Could not find the exact text in ${ args.path }. The old text must match exactly, including whitespace and newlines.`
-					);
-				}
-				if ( original.indexOf( oldText, start + 1 ) !== -1 ) {
-					throw new Error(
-						`Found more than one match for an edit in ${ args.path }. Include more surrounding context to make it unique.`
-					);
-				}
-				return { start, end: start + oldText.length, newText };
-			} );
-			ranges.sort( ( a, b ) => a.start - b.start );
-			ranges.forEach( ( range, index ) => {
-				if ( index > 0 && range.start < ranges[ index - 1 ].end ) {
-					throw new Error( `Edits overlap in ${ args.path }. Merge them into one edit instead.` );
-				}
-			} );
-			let content = original;
-			for ( const range of ranges.slice().reverse() ) {
-				content = content.slice( 0, range.start ) + range.newText + content.slice( range.end );
-			}
-			await files.write( file, content );
-			return textResult( `Successfully replaced ${ ranges.length } block(s) in ${ args.path }.` );
+			const { bom, text: content } = stripBom( await files.readText( file ) );
+			const ending = detectLineEnding( content );
+			const { baseContent, newContent } = applyEditsToNormalizedContent(
+				normalizeToLF( content ),
+				args.edits,
+				args.path
+			);
+			await files.write( file, bom + restoreLineEndings( newContent, ending ) );
+			const { diff, firstChangedLine } = generateDiffString( baseContent, newContent );
+			return {
+				content: [
+					{
+						type: 'text',
+						text: `Successfully replaced ${ args.edits.length } block(s) in ${ args.path }.`,
+					},
+				],
+				details: {
+					diff,
+					patch: generateUnifiedPatch( args.path, baseContent, newContent ),
+					firstChangedLine,
+				},
+			};
 		},
 		{ annotations: LOCAL_OVERWRITE, ...getFileToolPrompt( 'Edit' ) }
 	);

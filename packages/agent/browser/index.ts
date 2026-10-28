@@ -13,7 +13,7 @@ import { getAgentEndFailure } from '@studio/agent/protocol/json-events';
 import { aiModelSupportsImages, type AiModelId } from '@studio/agent/protocol/models';
 import { findLastAssistant, isEmptyStop } from '@studio/agent/protocol/session-events';
 import { withDesignSystemPreview } from '@studio/agent/shared/chat-artifacts';
-import { PendingWork } from '@studio/agent/shared/pending-work';
+import { PendingWork, runWithPendingWork } from '@studio/agent/shared/pending-work';
 import { createResultNotes } from '@studio/agent/shared/result-notes';
 import { buildSystemPrompt } from '@studio/agent/shared/system-prompt';
 import { resolveStudioTools, type StudioToolsOptions } from '@studio/agent/shared/tools';
@@ -22,15 +22,13 @@ import { bindTool } from '@studio/agent/shared/tools/define-tool';
 import { createPresentDesignOptionsTool } from '@studio/agent/shared/tools/present-design-options';
 import { createSkillTool } from '@studio/agent/shared/tools/skill';
 import { createCompactor, type Compaction } from './compaction';
+import { prepareEditArguments } from './edit-text';
 import { createFileTools } from './file-tools';
 import { buildModel, createStreamFn } from './models';
 import type { Message } from '@earendil-works/pi-ai';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
 import type { StudioAgentHost } from '@studio/agent/shared/host';
-import type {
-	AnyStudioAgentTool,
-	StudioToolResultDetails,
-} from '@studio/agent/shared/tools/define-tool';
+import type { AnyStudioAgentTool } from '@studio/agent/shared/tools/define-tool';
 import type { AskUserHandler, SiteInfo } from '@studio/agent/shared/types';
 
 export { compactionSummaryMessage, type Compaction } from './compaction';
@@ -71,9 +69,7 @@ export interface StudioBrowserAgent {
 	tools( options?: StudioToolsOptions ): AnyStudioAgentTool[];
 }
 
-// Runs a Studio tool as the Node runtime does: rendering tools wait for
-// background work, which reports with the next tool result, and the tool's
-// result gets the notes Studio adds.
+// Runs a Studio tool as the Node runtime does (see runWithPendingWork).
 function withPendingWork(
 	tool: AnyStudioAgentTool,
 	pendingWork: PendingWork,
@@ -81,33 +77,20 @@ function withPendingWork(
 ): AgentTool {
 	return {
 		...( tool as unknown as AgentTool ),
-		execute: async ( toolCallId, params, signal, onUpdate ) => {
-			if ( tool.settlesPendingWork ) {
-				await pendingWork.settle();
-			}
-			const result = await tool.execute( toolCallId, params as never, signal, onUpdate );
-			const details = result.details as StudioToolResultDetails | undefined;
-			if ( details?.pending ) {
-				pendingWork.add( details.pending );
-				delete details.pending;
-			}
-			const resultText = result.content
-				.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
-				.join( '\n' );
-			const notes = [ await resultNotes?.( resultText ), pendingWork.takeReports() ]
-				.filter( Boolean )
-				.join( '\n' );
-			return {
-				...result,
-				details: result.details,
-				content: notes ? [ ...result.content, { type: 'text', text: notes } ] : result.content,
-			};
-		},
+		execute: ( toolCallId, params, signal, onUpdate ) =>
+			runWithPendingWork(
+				{ settles: tool.settlesPendingWork, pendingWork, resultNotes },
+				async () => ( {
+					details: undefined,
+					...( await tool.execute( toolCallId, params as never, signal, onUpdate ) ),
+				} )
+			),
 	};
 }
 
 async function runTurn(
 	host: StudioAgentHost,
+	pendingWork: PendingWork,
 	config: BrowserAgentTurnConfig,
 	onAgent: ( agent: Agent ) => void,
 	isInterrupted: () => boolean
@@ -140,9 +123,10 @@ async function runTurn(
 		...( skillTool ? [ bindTool( skillTool, host ) ] : [] ),
 		...createFileTools( host, { visionEnabled } ).map( ( definition ) => {
 			const tool = bindTool( definition, host );
-			return definition.name === 'Write' || definition.name === 'Edit'
-				? designSystemPreview( tool )
-				: tool;
+			if ( definition.name === 'Edit' ) {
+				return designSystemPreview( { ...tool, prepareArguments: prepareEditArguments } );
+			}
+			return definition.name === 'Write' ? designSystemPreview( tool ) : tool;
 		} ),
 	] as AnyStudioAgentTool[];
 
@@ -156,7 +140,6 @@ async function runTurn(
 		userInstructions: config.userInstructions,
 	} );
 
-	const pendingWork = new PendingWork();
 	const notes = createResultNotes( host );
 	const resultNotes =
 		site && ! site.remote ? ( text: string ) => notes( site.path, text ) : undefined;
@@ -234,6 +217,10 @@ async function runTurn(
 	return failure ? { failure: failure.message } : {};
 }
 
+// Work tools leave running reports with a later tool result, also in the
+// conversation's next turn, so it is kept per conversation.
+const pendingWorkBySession = new Map< string, PendingWork >();
+
 /**
  * Studio Code for hosts without Node, such as Studio in a browser: the same
  * tools, skills and system prompt as `createAgent`, with pi-agent-core's loop
@@ -243,11 +230,17 @@ async function runTurn(
 export function createBrowserAgent( { host }: { host: StudioAgentHost } ): StudioBrowserAgent {
 	return {
 		runTurn: ( config ) => {
+			let pendingWork = pendingWorkBySession.get( config.sessionId );
+			if ( ! pendingWork ) {
+				pendingWork = new PendingWork();
+				pendingWorkBySession.set( config.sessionId, pendingWork );
+			}
 			let agent: Agent | undefined;
 			let interrupted = false;
 			return {
 				result: runTurn(
 					host,
+					pendingWork,
 					config,
 					( created ) => ( agent = created ),
 					() => interrupted

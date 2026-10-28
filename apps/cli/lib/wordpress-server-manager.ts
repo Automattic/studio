@@ -273,6 +273,11 @@ export async function startWordPressServer(
 		// desktop app (which passes its origin via STUDIO_TRACKS_ORIGIN). Awaited (not fire-and-forget)
 		// so a short-lived `studio start` process doesn't exit before the event is sent, but wrapped in
 		// try/catch so best-effort telemetry can never block or fail the site start.
+		if ( process.env.STUDIO_PHASE_PROBE ) {
+			process.stderr.write(
+				`[phase-probe] ${ JSON.stringify( { time_ms: Date.now() - startedAt, ...phaseTimings } ) }\n`
+			);
+		}
 		try {
 			await recordTracksEvent( TRACKS_EVENTS.SITE_START, {
 				...getTracksOrigin(),

@@ -806,7 +806,8 @@ function createSettingsManager( _env: Record< string, string > ): SettingsManage
 
 // A shell command can put content on the site through WP-CLI.
 const BLOCK_VALIDATION_GATED_TOOLS = new Set( [ 'Bash', 'take_screenshot' ] );
-// Tools that change nothing on a site, so there is nothing to check after them.
+// pi's tools that change nothing on a site, so there is nothing to check after
+// them. Studio's tools declare it (readOnlyHint, as MCP tool annotations do).
 const READ_ONLY_TOOLS = new Set( [ 'Read', 'Grep', 'Glob', 'Ls' ] );
 
 function toToolDefinition(
@@ -860,32 +861,51 @@ function toToolDefinition(
 			// Studio's own time on the call, from here: its checks before and after the tool runs.
 			const checksStarted = Date.now();
 			let ranMs = 0;
+			// Studio's time by check, for a profile of where it goes.
+			const checkStagesMs: Record< string, number > = {};
+			const timeCheck = async < T >( stage: string, check: () => Promise< T > ): Promise< T > => {
+				const from = Date.now();
+				try {
+					return await check();
+				} finally {
+					checkStagesMs[ stage ] = ( checkStagesMs[ stage ] ?? 0 ) + Date.now() - from;
+				}
+			};
 			const fileWriteRefusal =
 				writtenFile &&
 				( await siteNotes.beforeWrite( writtenFile, getWrittenText( tool.name, params ) ) );
 			if ( fileWriteRefusal ) {
 				throw new Error( fileWriteRefusal );
 			}
-			if ( ( tool as { settlesPendingWork?: boolean } ).settlesPendingWork ) {
-				await pendingWork.settle();
-			} else {
-				// A file written or edited is all such a call touches: markup naming
-				// an image still being generated reads nothing of it.
-				await pendingWork.settleFilesIn( writtenFile ?? params );
-			}
+			await timeCheck( 'pendingWork', async () => {
+				if ( ( tool as { settlesPendingWork?: boolean } ).settlesPendingWork ) {
+					await pendingWork.settle();
+				} else {
+					// A file written or edited is all such a call touches: markup naming
+					// an image still being generated reads nothing of it.
+					await pendingWork.settleFilesIn( writtenFile ?? params );
+				}
+			} );
 			// Block markup written since the last check is validated before any
 			// tool puts content on the site or renders it.
 			const validationReport = BLOCK_VALIDATION_GATED_TOOLS.has( tool.name )
-				? validationLines( await blockValidationGate.settle() )
+				? validationLines(
+						await timeCheck( 'blockValidation', () => blockValidationGate.settle() )
+				  )
 				: [];
-			const checksChanges = ! READ_ONLY_TOOLS.has( tool.name );
+			const checksChanges = ! (
+				READ_ONLY_TOOLS.has( tool.name ) ||
+				( tool as { annotations?: { readOnlyHint?: boolean } } ).annotations?.readOnlyHint
+			);
 			if ( checksChanges ) {
-				await siteChanges.snapshot().catch( () => undefined );
+				await timeCheck( 'siteChanges', () => siteChanges.snapshot().catch( () => undefined ) );
 			}
 			// A call that fails can still have changed content, as a shell
 			// command does that exits non-zero after saving a page.
 			const settled = async () =>
-				checksChanges ? await siteChanges.settle().catch( () => NO_CHANGES ) : NO_CHANGES;
+				checksChanges
+					? await timeCheck( 'siteChanges', () => siteChanges.settle().catch( () => NO_CHANGES ) )
+					: NO_CHANGES;
 			// The validation report was taken from the gate, so it rides on a failure too.
 			const ranFrom = Date.now();
 			const result = await tool
@@ -932,18 +952,26 @@ function toToolDefinition(
 				...changed.summaries,
 				...changed.problems,
 				...(
-					await Promise.all(
-						[ ...written ].map( ( file ) =>
-							siteNotes.afterWrite( file, file === writtenFile ? left : undefined )
+					await timeCheck( 'writeNotes', () =>
+						Promise.all(
+							[ ...written ].map( ( file ) =>
+								siteNotes.afterWrite( file, file === writtenFile ? left : undefined )
+							)
 						)
 					)
 				).flat(),
-				...( resultSite ? await siteNotes.afterResult( resultSite, resultText ) : [] ),
+				...( resultSite
+					? await timeCheck( 'resultNotes', () => siteNotes.afterResult( resultSite, resultText ) )
+					: [] ),
 				pendingWork.takeReports(),
 			] );
 			const timed = {
 				...result,
-				details: { ...( result.details as object ), checksMs: Date.now() - checksStarted - ranMs },
+				details: {
+					...( result.details as object ),
+					checksMs: Date.now() - checksStarted - ranMs,
+					checkStagesMs,
+				},
 			};
 			return reports
 				? { ...timed, content: [ ...result.content, { type: 'text', text: reports } ] }

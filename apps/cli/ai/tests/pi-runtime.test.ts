@@ -947,9 +947,22 @@ describe( 'pi runtime', () => {
 				path: 'a/style.css',
 				content: '',
 			} );
-			const { checksMs } = ( result as unknown as { details: { checksMs: number } } ).details;
+			const { checksMs, checkStagesMs } = (
+				result as unknown as {
+					details: { checksMs: number; checkStagesMs: Record< string, number > };
+				}
+			 ).details;
 			expect( checksMs ).toBeGreaterThanOrEqual( 39 );
 			expect( checksMs ).toBeLessThan( 60 );
+			// By check: the settle the mock delays is the site changes'.
+			expect( checkStagesMs.siteChanges ).toBeGreaterThanOrEqual( 39 );
+			expect( checkStagesMs.siteChanges ).toBeLessThanOrEqual( checksMs );
+			expect( Object.keys( checkStagesMs ).sort() ).toEqual( [
+				'pendingWork',
+				'resultNotes',
+				'siteChanges',
+				'writeNotes',
+			] );
 		} finally {
 			mocks.runMs = 0;
 			mocks.settleMs = 0;
@@ -1098,9 +1111,10 @@ describe( 'pi runtime', () => {
 		await expect( getCreatedTool( 'Bash' ).execute( 'b', { command: 'false' } ) ).rejects.toThrow(
 			'exit 1\n<studio-notes>\npage 9 changed\npage 9 problem\n</studio-notes>'
 		);
-		// A tool that only reads changes nothing to check.
+		// A tool that only reads changes nothing to check, as Studio's tools declare.
 		mocks.steps.length = 0;
 		await getCreatedTool( 'Read' ).execute( 'r', { path: 'a/style.css' } );
+		await getCreatedTool( 'Skill' ).execute( 's', { name: 'taxonomist' } );
 		expect( mocks.steps ).toEqual( [ 'Read' ] );
 		mocks.postChanges = { summaries: [], problems: [], written: [] };
 	} );

@@ -432,6 +432,7 @@ type ToolEvent = {
 	durationMs?: number;
 	// Studio's checks around the tool's run, within durationMs.
 	checksMs?: number;
+	checkStagesMs?: Record< string, number >;
 	isError?: boolean;
 	// Length of the result's text block: what the tool adds to the context.
 	outputChars?: number;
@@ -672,9 +673,11 @@ async function runEval( input: EvalRunnerInput ) {
 					evt.durationMs = evt.endedAtMs - evt.startedAtMs;
 					evt.isError = tr.isError;
 					evt.outputChars = tr.text?.length ?? 0;
-					const checksMs = ( tr.details as { checksMs?: unknown } | undefined )?.checksMs;
+					const { checksMs, checkStagesMs } =
+						( tr.details as { checksMs?: unknown; checkStagesMs?: unknown } | undefined ) ?? {};
 					if ( typeof checksMs === 'number' ) {
 						evt.checksMs = checksMs;
+						evt.checkStagesMs = checkStagesMs as Record< string, number >;
 					}
 				}
 				if ( tr.isError && ! firstToolError ) {

@@ -77,6 +77,7 @@ export function AccountPrompt( {
 			) : null }
 			<div className={ styles.actions }>
 				<Button
+					loadingMode="replace"
 					size="lg"
 					disabled={ ( ! onContinue && offline ) || pending }
 					loading={ signup.isPending || busy }
@@ -134,13 +135,17 @@ export function AccountPromptDialog( {
 	const descriptionId = useId();
 	return (
 		<Dialog open={ open } onOpenChange={ onOpenChange }>
-			<DialogContent aria-describedby={ descriptionId } finalFocus={ finalFocus }>
+			<DialogContent
+				className={ styles.dialog }
+				aria-describedby={ descriptionId }
+				finalFocus={ finalFocus }
+			>
 				<DialogHeader>
 					<VisuallyHidden>
 						<DialogTitle>{ prompt.title }</DialogTitle>
 					</VisuallyHidden>
 				</DialogHeader>
-				<AccountPrompt { ...prompt } descriptionId={ descriptionId } />
+				<AccountPrompt { ...prompt } descriptionId={ descriptionId } flush />
 			</DialogContent>
 		</Dialog>
 	);

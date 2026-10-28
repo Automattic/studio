@@ -201,9 +201,11 @@ export async function updatePreviewSite(
 
 export async function deletePreviewSite( siteId: number, token: string ): Promise< void > {
 	try {
+		// The site is reverted and then deleted in the background.
 		await wpcom( token ).req.post( {
-			apiNamespace: 'rest/v1.1',
-			path: `/sites/${ siteId }/delete`,
+			apiNamespace: 'wpcom/v2',
+			path: '/wow-funnel/pending/discard',
+			body: { blog_id: siteId },
 		} );
 	} catch ( error ) {
 		if ( error instanceof Error && 'statusCode' in error && error.statusCode === 404 ) {

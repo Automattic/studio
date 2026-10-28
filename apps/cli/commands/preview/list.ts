@@ -35,7 +35,8 @@ function buildSnapshotTable( snapshots: Snapshot[] ): string {
 		const url = getSnapshotLink( snapshot );
 
 		table.push( [
-			{ href: url, content: url },
+			// The share link is too long for the column; show the host, linked to it.
+			{ href: url, content: snapshot.url },
 			snapshot.name,
 			format( snapshot.date, 'yyyy-MM-dd HH:mm' ),
 			durationUntilExpiry,

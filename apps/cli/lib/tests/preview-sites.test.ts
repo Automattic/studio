@@ -1,6 +1,6 @@
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import { vi } from 'vitest';
-import { createPreviewSite, updatePreviewSite } from 'cli/lib/preview-sites';
+import { createPreviewSite, deletePreviewSite, updatePreviewSite } from 'cli/lib/preview-sites';
 import { LoggerError } from 'cli/logger';
 
 vi.mock( 'wpcom' );
@@ -91,5 +91,15 @@ describe( 'Preview sites', () => {
 		expect( post ).not.toHaveBeenCalledWith(
 			expect.objectContaining( { path: `/sites/${ siteId }/preview-links` } )
 		);
+	} );
+
+	it( 'discards the site, and treats one already gone as deleted', async () => {
+		await deletePreviewSite( siteId, token );
+		expect( post ).toHaveBeenCalledWith(
+			expect.objectContaining( { path: '/wow-funnel/pending/discard', body: { blog_id: siteId } } )
+		);
+
+		post.mockRejectedValueOnce( Object.assign( new Error( 'gone' ), { statusCode: 404 } ) );
+		await expect( deletePreviewSite( siteId, token ) ).resolves.toBeUndefined();
 	} );
 } );

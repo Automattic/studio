@@ -128,7 +128,7 @@ export function ImportSiteDialog( {
 
 	return (
 		<AlertDialog open={ open } onOpenChange={ ( next ) => ! next && onCancel() }>
-			<DialogContent initialFocus={ cancelRef } onKeyDown={ handleKeyDown }>
+			<DialogContent layout="compact" initialFocus={ cancelRef } onKeyDown={ handleKeyDown }>
 				<DialogHeader>
 					<DialogTitle>{ sprintf( __( 'Overwrite %s?' ), site.name ) }</DialogTitle>
 					<DialogDescription>

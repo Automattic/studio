@@ -19,7 +19,7 @@ import { registerOpenDialog, replaceOpenDialogs } from './replacement';
 import styles from './style.module.css';
 import type { ComponentProps, ReactNode, Ref } from 'react';
 
-type Layout = 'default' | 'settings' | 'creation' | 'confirmation';
+type Layout = 'default' | 'compact' | 'settings' | 'creation' | 'confirmation';
 
 const DialogContentContext = createContext< { showCloseButton: boolean; layout: Layout } >( {
 	showCloseButton: true,

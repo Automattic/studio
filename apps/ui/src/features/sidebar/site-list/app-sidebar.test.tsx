@@ -50,7 +50,7 @@ function setup( {
 		} as FakeConnectorState[ 'preferences' ],
 	} );
 	const view = renderApp( { connector, path } );
-	const ready = () => screen.findByRole( 'button', { name: 'Site actions for My site' } );
+	const ready = () => screen.findByRole( 'button', { name: 'Site menu' } );
 	const refreshSessions = async ( sessions: ReturnType< typeof chat >[] ) => {
 		connector.state.sessions = [ ...connector.state.sessions, ...sessions ];
 		await act( () => view.queryClient.invalidateQueries( { queryKey: [ 'sessions' ] } ) );

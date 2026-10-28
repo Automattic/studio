@@ -81,7 +81,7 @@ describe( 'site lifecycle and preview', () => {
 				useElectron();
 			}
 			const { connector } = setup( [ site() ], '/sessions/one-chat' );
-			await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+			await screen.findByRole( 'button', { name: 'Site menu' } );
 			const composer = await screen.findByRole( 'combobox', COMPOSER );
 			fireEvent.change( composer, { target: { value: 'Keep this startup draft' } } );
 			const start = deferred();
@@ -169,7 +169,7 @@ describe( 'site lifecycle and preview', () => {
 		const { connector } = setup( [ site( { running: true } ) ] );
 		const stop = deferred();
 		connector.stopSite.mockImplementation( () => stop.promise );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Site actions for My site' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop site' } ) );
 		const action = lifecycle( 'My site' );
@@ -203,7 +203,7 @@ describe( 'site lifecycle and preview', () => {
 			);
 			expect( lifecycle( 'Second' ) ).not.toHaveAttribute( 'aria-disabled', 'true' );
 			fireEvent.click( screen.getByRole( 'button', { name: 'Second' } ) );
-			fireEvent.click( await screen.findByRole( 'button', { name: 'Site actions for Second' } ) );
+			fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 			if ( running ) {
 				fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
 			}
@@ -236,7 +236,7 @@ describe( 'site lifecycle and preview', () => {
 					finish.set( id, resolve );
 				} )
 		);
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Site actions for My site' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop other sites' } ) );
 		await waitFor( () => {
@@ -317,7 +317,7 @@ describe( 'site lifecycle and preview', () => {
 				site(),
 				site( { id: 'two', name: 'Second', path: '/sites/two' } ),
 			] );
-			await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+			await screen.findByRole( 'button', { name: 'Site menu' } );
 			const keys = {
 				code: 'KeyS',
 				altKey: true,
@@ -335,7 +335,7 @@ describe( 'site lifecycle and preview', () => {
 	it( 'ignores the lifecycle shortcut while typing, in dialogs, and during pending operations', async () => {
 		vi.spyOn( navigator, 'platform', 'get' ).mockReturnValue( 'Linux x86_64' );
 		const { connector } = setup();
-		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+		await screen.findByRole( 'button', { name: 'Site menu' } );
 		const keys = { code: 'KeyS', altKey: true, ctrlKey: true };
 		const input = document.createElement( 'input' );
 		document.body.append( input );
@@ -388,7 +388,7 @@ describe( 'site lifecycle and preview', () => {
 			( running ? connector.stopSite : connector.startSite ).mockImplementationOnce(
 				() => pending.promise
 			);
-			const trigger = await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+			const trigger = await screen.findByRole( 'button', { name: 'Site menu' } );
 			fireEvent.click( trigger );
 			if ( running ) {
 				fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
@@ -396,14 +396,14 @@ describe( 'site lifecycle and preview', () => {
 			const label = running ? 'Stop site' : 'Start site';
 			fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
 			await waitFor( () =>
-				expect( screen.getByRole( 'button', { name: 'Site actions for My site' } ) ).toBeEnabled()
+				expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBeEnabled()
 			);
 			await waitFor( () => {
 				expect( lifecycle( 'My site' ).querySelector( '[data-slot=spinner]' ) ).toBeInTheDocument();
-				const currentTrigger = screen.getByRole( 'button', { name: 'Site actions for My site' } );
+				const currentTrigger = screen.getByRole( 'button', { name: 'Site menu' } );
 				expect( currentTrigger.querySelector( '[data-slot=spinner]' ) ).not.toBeInTheDocument();
 			} );
-			fireEvent.click( screen.getByRole( 'button', { name: 'Site actions for My site' } ) );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
 			expect(
 				await screen.findByRole( 'menuitem', { name: running ? 'Stop' : label } )
 			).toHaveAttribute( 'aria-disabled', 'true' );
@@ -420,7 +420,7 @@ describe( 'site lifecycle and preview', () => {
 			site(),
 			site( { id: 'two', name: 'Another site', path: '/sites/two' } ),
 		] );
-		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+		await screen.findByRole( 'button', { name: 'Site menu' } );
 		const start = deferred();
 		connector.startSite.mockImplementationOnce( () => start.promise );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Start My site' } ) );
@@ -428,10 +428,10 @@ describe( 'site lifecycle and preview', () => {
 			expect( lifecycle( 'My site' ) ).toHaveAttribute( 'aria-disabled', 'true' )
 		);
 		fireEvent.click( screen.getByRole( 'button', { name: 'Another site' } ) );
-		await screen.findByRole( 'button', { name: 'Site actions for Another site' } );
+		await screen.findByRole( 'button', { name: 'Site menu' } );
 		expect( lifecycle( 'My site' ) ).toHaveAttribute( 'aria-disabled', 'true' );
 		fireEvent.click( screen.getByRole( 'button', { name: 'My site' } ) );
-		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+		await screen.findByRole( 'button', { name: 'Site menu' } );
 		connector.state.sites = [ site( { running: true } ), connector.state.sites[ 1 ] ];
 		await act( async () => start.resolve() );
 		expect( await screen.findByRole( 'button', { name: 'Stop My site' } ) ).toBeEnabled();
@@ -457,7 +457,7 @@ describe( 'site lifecycle and preview', () => {
 	it( 'selects a site started from the sidebar and keeps it selected when stopping', async () => {
 		const other = site( { id: 'two', name: 'Another site', path: '/sites/two' } );
 		const { connector, history } = setup( [ site(), other ] );
-		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+		await screen.findByRole( 'button', { name: 'Site menu' } );
 		const start = deferred();
 		connector.startSite.mockImplementationOnce( () => start.promise );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Start Another site' } ) );
@@ -465,9 +465,7 @@ describe( 'site lifecycle and preview', () => {
 		expect( lifecycle( 'Another site' ) ).toHaveAttribute( 'aria-disabled', 'true' );
 		expect( lifecycle( 'Another site' ) ).toHaveAttribute( 'aria-busy', 'true' );
 		expect( screen.getByRole( 'button', { name: 'Start My site' } ) ).toBeEnabled();
-		expect(
-			await screen.findByRole( 'button', { name: 'Site actions for Another site' } )
-		).toBeVisible();
+		expect( await screen.findByRole( 'button', { name: 'Site menu' } ) ).toBeVisible();
 		connector.state.sites = [ site(), { ...other, running: true } ];
 		await act( async () => start.resolve() );
 		expect( await screen.findByRole( 'button', { name: 'Stop Another site' } ) ).toBeEnabled();
@@ -476,14 +474,14 @@ describe( 'site lifecycle and preview', () => {
 		await waitFor( () =>
 			expect( screen.getByRole( 'button', { name: 'Start Another site' } ) ).toBeEnabled()
 		);
-		expect( screen.getByRole( 'button', { name: 'Site actions for Another site' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBeVisible();
 		expect( history.location.pathname ).toContain( 'two' );
 		expect( connector.startSite ).toHaveBeenCalledOnce();
 	} );
 
 	it( 'updates externally changed sites and unsubscribes when closed', async () => {
 		const { connector, unmount } = setup( [ site() ] );
-		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+		await screen.findByRole( 'button', { name: 'Site menu' } );
 		connector.state.sites = [
 			site( { id: 'two', name: 'External site', path: '/sites/external', running: true } ),
 		];
@@ -491,9 +489,7 @@ describe( 'site lifecycle and preview', () => {
 			connector.emit( 'onSiteEvent', { event: SITE_EVENTS.UPDATED, siteId: 'two', running: true } )
 		);
 		expect( await screen.findByRole( 'button', { name: 'Stop External site' } ) ).toBeEnabled();
-		expect(
-			await screen.findByRole( 'button', { name: 'Site actions for External site' } )
-		).toBeVisible();
+		expect( await screen.findByRole( 'button', { name: 'Site menu' } ) ).toBeVisible();
 		await waitFor( () => expect( frame() ).toHaveAttribute( 'src', 'http://localhost:9010/' ) );
 		unmount();
 		expect( connector.listenerCount( 'onSiteEvent' ) ).toBe( 0 );

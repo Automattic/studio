@@ -15,7 +15,6 @@ import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/q
 import { requestHeaderPanel } from '@/data/use-open-header-panel';
 import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
 import { ShareButton, ShareStatusIcon, useShareStatus } from '@/features/sharing';
-import { SiteLifecycleButton } from '@/features/sites/site-lifecycle-button';
 import { PublishButton } from '@/features/sync';
 import { useWindowControlsOverlay } from '@/lib/hooks';
 import {
@@ -237,11 +236,6 @@ export function SiteHeaderActions( { site, live = false }: { site: SiteDetails; 
 				>
 					<PublishButton site={ site } anchor={ root } />
 				</span>
-				{ live || site.running || stopping ? null : (
-					<span data-site-header-lifecycle className={ styles.item }>
-						<SiteLifecycleButton site={ site } compact={ overflow } />
-					</span>
-				) }
 				<span data-site-header-trailing className={ styles.item }>
 					<span hidden={ overflow || live }>
 						<ShareButton site={ site } />

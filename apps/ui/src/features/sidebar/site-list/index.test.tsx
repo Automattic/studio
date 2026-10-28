@@ -47,7 +47,7 @@ async function setup( {
 
 async function settled< T extends ReturnType< typeof renderApp > >( view: T, path: string ) {
 	await waitFor( () => expect( view.history.location.pathname ).toBe( path ) );
-	await screen.findByRole( 'button', { name: /^Site actions for / } );
+	await screen.findByRole( 'button', { name: 'Site menu' } );
 	return view;
 }
 

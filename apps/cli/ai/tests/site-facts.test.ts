@@ -269,16 +269,23 @@ it( 'adds to a tool result the facts the agent does not have yet, as they now re
 	);
 } );
 
-// Studio defines the address as WP_HOME, so it is what home_url() returns.
+// Studio defines the address as WP_HOME, so it is what home_url() returns, and
+// WP_DEBUG_LOG from the site's debug log setting.
 it.each( [
-	{ studioSite: { port: 9098 }, address: 'http://localhost:9098' },
+	{ studioSite: { port: 9098 }, address: 'http://localhost:9098', logged: false },
 	{
-		studioSite: { port: 9098, customDomain: 'bakery.local', enableHttps: true },
+		studioSite: {
+			port: 9098,
+			customDomain: 'bakery.local',
+			enableHttps: true,
+			enableDebugLog: true,
+		},
 		address: 'https://bakery.local',
+		logged: true,
 	},
 ] )(
 	'states the address Studio serves the site at: $address',
-	async ( { studioSite, address } ) => {
+	async ( { studioSite, address, logged } ) => {
 		const site = createSite( 'wp_' );
 		vi.mocked( findSiteByFolder ).mockImplementation( async ( folder ) =>
 			folder === site.root ? ( studioSite as SiteData ) : undefined
@@ -286,6 +293,9 @@ it.each( [
 		expect( await site.facts() ).toEqual( [
 			`Address: ${ address } (home_url()).`,
 			`WP-CLI: \`studio wp <command>\` run in ${ site.root } runs it on this site, on Studio's PHP and with its SQLite database (wp-content/db.php).`,
+			logged
+				? `PHP errors: WordPress logs them to ${ site.root }/wp-content/debug.log (WP_DEBUG_LOG, wp_debug_mode() in wp-includes/load.php).`
+				: `PHP errors: WordPress logs none, as WP_DEBUG_LOG is off (wp_debug_mode() in wp-includes/load.php). \`studio config set --debug-log\` run in ${ site.root } turns it on and restarts the site, and WordPress then logs them to ${ site.root }/wp-content/debug.log; Studio defines WP_DEBUG and WP_DEBUG_LOG in wp-config.php from that setting each time the site starts.`,
 			...BASE,
 		] );
 		vi.mocked( findSiteByFolder ).mockReset();

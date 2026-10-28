@@ -1,3 +1,5 @@
+import path from 'path';
+import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
 import { siteCodeFact } from 'cli/ai/admin-capabilities';
 import { homepageFact } from 'cli/ai/front-page-template';
 import { hostOf } from 'cli/ai/hosts';
@@ -43,6 +45,21 @@ async function wpCliFact( site: WordPressSite ): Promise< string | undefined > {
 		: undefined;
 }
 
+// Studio defines WP_DEBUG and WP_DEBUG_LOG in wp-config.php from the site's
+// debug log setting each time the site starts (ensureWpConfig() in
+// lib/native-php/site-setup.ts), and wp_debug_mode() (wp-includes/load.php)
+// logs PHP errors to wp-content/debug.log when both are true.
+async function errorLogFact( site: WordPressSite ): Promise< string | undefined > {
+	const studioSite = await findSiteByFolder( site.root );
+	if ( ! studioSite ) {
+		return undefined;
+	}
+	const log = path.join( site.root, DEBUG_LOG_RELATIVE_PATH );
+	return studioSite.enableDebugLog
+		? `PHP errors: WordPress logs them to ${ log } (WP_DEBUG_LOG, wp_debug_mode() in wp-includes/load.php).`
+		: `PHP errors: WordPress logs none, as WP_DEBUG_LOG is off (wp_debug_mode() in wp-includes/load.php). \`studio config set --debug-log\` run in ${ site.root } turns it on and restarts the site, and WordPress then logs them to ${ log }; Studio defines WP_DEBUG and WP_DEBUG_LOG in wp-config.php from that setting each time the site starts.`;
+}
+
 // WordPress is installed once its options hold siteurl (is_blog_installed());
 // Studio installs it the first time the site starts (installWordPress() in
 // lib/native-php/site-setup.ts), so a site never started has no database yet.
@@ -55,6 +72,7 @@ function installedFact( site: WordPressSite ): string | undefined {
 const SITE_FACTS: SiteFact[] = [
 	siteAddressFact,
 	wpCliFact,
+	errorLogFact,
 	wordPressVersionFact,
 	installedFact,
 	activeThemeFact,

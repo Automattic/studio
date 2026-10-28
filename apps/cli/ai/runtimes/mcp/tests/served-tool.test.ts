@@ -78,7 +78,11 @@ it( 'adds the declared settings of the core blocks a result shows, from the site
 			.split( path.sep )
 			.join(
 				'/'
-			) }: submenuVisibility ("hover"|"click").\nAddress: http://localhost:8881 (home_url()).\nWP-CLI: \`studio wp <command>\` run in ${ sitePath } runs it on this site, on Studio's PHP and with its SQLite database (wp-content/db.php).\nWordPress is not installed yet (is_blog_installed()): Studio installs it, with its database, when the site first starts (site_start).\n</studio-notes>`,
+			) }: submenuVisibility ("hover"|"click").\nAddress: http://localhost:8881 (home_url()).\nWP-CLI: \`studio wp <command>\` run in ${ sitePath } runs it on this site, on Studio's PHP and with its SQLite database (wp-content/db.php).\nPHP errors: WordPress logs none, as WP_DEBUG_LOG is off (wp_debug_mode() in wp-includes/load.php). \`studio config set --debug-log\` run in ${ sitePath } turns it on and restarts the site, and WordPress then logs them to ${ path.join(
+			sitePath,
+			'wp-content',
+			'debug.log'
+		) }; Studio defines WP_DEBUG and WP_DEBUG_LOG in wp-config.php from that setting each time the site starts.\nWordPress is not installed yet (is_blog_installed()): Studio installs it, with its database, when the site first starts (site_start).\n</studio-notes>`,
 	] );
 	// Once per MCP session, as once per Studio Code turn.
 	expect( await notes( { nameOrPath: 'My Site' } ) ).toEqual( [] );

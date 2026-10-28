@@ -193,7 +193,10 @@ export const cliAgentHost: StudioAgentHost = {
 		token: async () => ( await readAuthToken() )?.accessToken,
 		imageToken: async () =>
 			process.env.STUDIO_IMAGE_API_TOKEN?.trim() || ( await readAuthToken() )?.accessToken,
-		sites: ( accessToken ) => getWpComSites( accessToken ),
+		sites: async () => {
+			const token = await readAuthToken();
+			return token ? getWpComSites( token.accessToken ) : [];
+		},
 		connectedSites: async ( site ) => {
 			const stored = await getConnectedWpcomSitesForLocalSite( site.id );
 			const token = await readAuthToken();

@@ -24,7 +24,8 @@ import { rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { nodeHostServices, validateBlocks } from '@studio/agent/node';
+import { validateBlocks } from '@studio/agent/node';
+import { cliAgentHost } from 'cli/ai/host';
 import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
 import { Mode as StopMode, runCommand as runStopSiteCommand } from 'cli/commands/site/stop';
 import { readCliConfig } from 'cli/lib/cli-config/core';
@@ -271,7 +272,6 @@ async function captureSiteOutcome(
 		}
 
 		// Every published page, template and part, validated by the site's own editor.
-		const { pages } = nodeHostServices();
 		const invalid: Array< { id: number; type: string; slug: string; blocks: string[] } > = [];
 		for ( const item of state.content as Array< {
 			id: number;
@@ -280,7 +280,7 @@ async function captureSiteOutcome(
 			content: string;
 		} > ) {
 			if ( ! item.content.includes( '<!-- wp:' ) ) continue;
-			const report = await validateBlocks( pages, item.content, url );
+			const report = await validateBlocks( cliAgentHost.pages, item.content, url );
 			if ( report.invalidBlocks > 0 ) {
 				invalid.push( {
 					id: item.id,
@@ -294,7 +294,7 @@ async function captureSiteOutcome(
 			outcome.themeFiles as Record< string, string >
 		) ) {
 			if ( ! /^(templates|parts)\/.+\.html$/.test( file ) ) continue;
-			const report = await validateBlocks( pages, text, url );
+			const report = await validateBlocks( cliAgentHost.pages, text, url );
 			if ( report.invalidBlocks > 0 ) {
 				invalid.push( {
 					id: 0,

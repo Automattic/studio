@@ -22,7 +22,6 @@ const nodePath: HostPath = {
 	isAbsolute: path.isAbsolute,
 	sep: path.sep,
 	fileURLToPath: ( url ) => fileURLToPath( url ),
-	pathToFileURL: ( file ) => pathToFileURL( file ).href,
 };
 
 const nodeFiles: HostFiles = {
@@ -50,7 +49,6 @@ const nodeFiles: HostFiles = {
 			name: entry.name,
 			directory: entry.isDirectory(),
 		} ) ),
-	remove: ( file ) => rm( file, { recursive: true, force: true } ),
 };
 
 const PAGE_LOAD_TIMEOUT_MS = 30_000;

@@ -318,11 +318,6 @@ export class StaticSites {
 		);
 	}
 
-	async rename( id: string, name: string ) {
-		await this.save( { ...( await this.get( id ) ), name } );
-		await this.emit( SITE_EVENTS.UPDATED, id );
-	}
-
 	async import( id: string, file: File ): Promise< void > {
 		await this.withOperation( id, 'import', async () => {
 			await importBackup(

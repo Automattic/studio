@@ -1,5 +1,5 @@
 import { summarizeAiSessionEntries } from '@studio/agent/protocol/sessions/summarize-entries';
-import { kvDelete, kvGet, kvSet, kvUpdate } from '../store';
+import { kvGet, kvSet, kvUpdate } from '../store';
 import type { AiSessionMetadata, AiSessionSummary, LoadedAiSession, SessionEntry } from '../types';
 import type {
 	StudioCustomEntryDataMap,
@@ -115,11 +115,6 @@ export class StaticSessions {
 			SessionEntry,
 			'id' | 'parentId' | 'timestamp'
 		> );
-	}
-
-	async delete( id: string ) {
-		await kvDelete( sessionKey( id ) );
-		await kvUpdate< string[] >( INDEX_KEY, [], ( ids ) => ids.filter( ( other ) => other !== id ) );
 	}
 }
 

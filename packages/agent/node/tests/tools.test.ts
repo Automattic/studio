@@ -658,7 +658,7 @@ describe( 'Studio AI MCP tools', () => {
 
 			const result = await getTool( 'site_list' ).rawHandler( {} as never );
 
-			expect( host.wpcom.sites ).toHaveBeenCalledWith( 'token' );
+			expect( host.wpcom.sites ).toHaveBeenCalled();
 			expect( JSON.parse( getTextContent( result )! ) ).toEqual( {
 				local: [ { id: 'site-123', name: 'My Site', running: false } ],
 				wordpressCom: {

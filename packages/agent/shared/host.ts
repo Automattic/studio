@@ -43,7 +43,6 @@ export interface HostPath {
 	isAbsolute( path: string ): boolean;
 	sep: string;
 	fileURLToPath( url: string ): string;
-	pathToFileURL( path: string ): string;
 }
 
 // The files of the host's sites, by the paths the agent sees.
@@ -59,7 +58,6 @@ export interface HostFiles {
 	// Every file under `directory`, relative to it, in one call: for hosts where
 	// listing folder by folder is slow. Optional.
 	walk?( directory: string ): Promise< string[] >;
-	remove( path: string ): Promise< void >;
 }
 
 export interface PageOptions {
@@ -166,7 +164,8 @@ export interface HostWpcom {
 	token(): Promise< string | undefined >;
 	// The token image generation uses, or nothing when it is unavailable.
 	imageToken(): Promise< string | undefined >;
-	sites( accessToken: string ): Promise< unknown[] >;
+	// The signed-in user's sites; empty when signed out.
+	sites(): Promise< unknown[] >;
 	// The WordPress.com sites a local site syncs with; empty when signed out.
 	connectedSites( site: HostSite ): Promise< SyncSite[] >;
 	// A REST request; throws when signed out. An empty `apiNamespace` in `query`

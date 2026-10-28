@@ -34,10 +34,6 @@ function deriveSlug( input: string ): string {
 		.replace( /^-+|-+$/g, '' );
 }
 
-async function pathExists( host: StudioAgentHost, p: string ): Promise< boolean > {
-	return host.files.exists( p );
-}
-
 function renderStyleCss( name: string, slug: string ): string {
 	return `/*
 Theme Name: ${ name }
@@ -428,7 +424,7 @@ export const scaffoldThemeTool = defineTool(
 			}
 
 			const themesDir = path.join( site.path, 'wp-content', 'themes' );
-			if ( ! ( await pathExists( context.host, themesDir ) ) ) {
+			if ( ! ( await files.exists( themesDir ) ) ) {
 				throw new Error( `wp-content/themes directory not found in site: ${ themesDir }` );
 			}
 
@@ -448,7 +444,7 @@ export const scaffoldThemeTool = defineTool(
 					);
 				}
 				const parentStyleCssPath = path.join( themesDir, parentSlug, 'style.css' );
-				if ( ! ( await pathExists( context.host, parentStyleCssPath ) ) ) {
+				if ( ! ( await files.exists( parentStyleCssPath ) ) ) {
 					throw new Error(
 						`Parent theme '${ parentSlug }' is not installed at wp-content/themes/${ parentSlug }/.`
 					);
@@ -464,7 +460,7 @@ export const scaffoldThemeTool = defineTool(
 			}
 
 			const themeDir = path.join( themesDir, slug );
-			if ( await pathExists( context.host, themeDir ) ) {
+			if ( await files.exists( themeDir ) ) {
 				throw new Error(
 					`A theme already exists at wp-content/themes/${ slug }. Choose a different slug or remove the existing directory first.`
 				);
@@ -472,7 +468,7 @@ export const scaffoldThemeTool = defineTool(
 
 			const baseJson = parentSlug !== undefined ? childThemeJson() : baseThemeJson();
 			const designPath = path.join( site.path, 'DESIGN.md' );
-			const tokens = ( await pathExists( context.host, designPath ) )
+			const tokens = ( await files.exists( designPath ) )
 				? parseDesignMd( await files.readText( designPath ) )
 				: undefined;
 			let design = tokens && themeJsonFromDesign( tokens, baseJson );

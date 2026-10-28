@@ -36,7 +36,6 @@ const path: HostPath = {
 	isAbsolute: posix.isAbsolute,
 	sep: '/',
 	fileURLToPath: ( url ) => decodeURIComponent( new URL( url ).pathname ),
-	pathToFileURL: ( file ) => `file://${ encodeURI( file ) }`,
 };
 
 function normalizeHostname( value: string ): string {
@@ -239,7 +238,7 @@ export function createStaticAgentHost( deps: {
 		return {
 			site,
 			client: await sites.client( site.id ),
-			fsPath: `${ DOCROOT }${ normalized.slice( site.path.length ) }` || DOCROOT,
+			fsPath: `${ DOCROOT }${ normalized.slice( site.path.length ) }`,
 		};
 	}
 
@@ -345,18 +344,6 @@ foreach ( $iterator as $file ) {
 echo implode( "\\n", $found );`,
 			} );
 			return response.text.split( '\n' ).filter( Boolean );
-		},
-		remove: async ( file ) => {
-			const located = await locate( file );
-			if ( ! located ) {
-				memory.delete( path.resolve( file ) );
-				return;
-			}
-			if ( await located.client.isDir( located.fsPath ) ) {
-				await located.client.rmdir( located.fsPath, { recursive: true } );
-			} else if ( await located.client.fileExists( located.fsPath ) ) {
-				await located.client.unlink( located.fsPath );
-			}
 		},
 	};
 

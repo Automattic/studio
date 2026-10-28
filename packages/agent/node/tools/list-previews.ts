@@ -2,9 +2,8 @@ import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 import { Type } from 'typebox';
 import { z } from 'zod';
-import { studioHost } from '@studio/agent/node/host';
 import { defineTool, READ_ONLY } from './define-tool';
-import { resolveSite, textResult } from './utils';
+import { textResult } from './utils';
 
 // Enrich the raw snapshot JSON the CLI command emits with an explicit category
 // discriminator and an expiry flag, so the agent never mistakes a temporary
@@ -29,10 +28,10 @@ export const listPreviewsTool = defineTool(
 	{
 		nameOrPath: Type.String( { description: 'The local site name or file system path' } ),
 	},
-	async ( args ) => {
+	async ( args, context ) => {
 		try {
-			const site = await resolveSite( args.nameOrPath );
-			const rawJson = ( await studioHost().previews.list( site ) ).trim();
+			const site = await context.host.sites.resolve( args.nameOrPath );
+			const rawJson = ( await context.host.previews.list( site ) ).trim();
 			const normalizedJson = rawJson && rawJson !== 'undefined' ? rawJson : '[]';
 			return textResult( enrichPreviewListOutput( normalizedJson ) );
 		} catch ( error ) {

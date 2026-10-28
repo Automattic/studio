@@ -4,7 +4,9 @@ import path from 'path';
 import { describe, expect, it } from 'vitest';
 import { loadSkills } from '@studio/agent/node/skills';
 import { buildSystemPrompt } from '@studio/agent/node/system-prompt';
-import { resolveStudioToolDefinitions } from '@studio/agent/node/tools';
+import { resolveStudioTools, type StudioToolsOptions } from '@studio/agent/node/tools';
+import { createFakeHost } from './fake-host';
+import type { StudioAgentHost } from '@studio/agent/node/host';
 
 function extractReferencedSkillNames( prompt: string ): string[] {
 	return [
@@ -12,8 +14,8 @@ function extractReferencedSkillNames( prompt: string ): string[] {
 	].sort();
 }
 
-const toolsFor = ( options: Parameters< typeof resolveStudioToolDefinitions >[ 0 ] ) =>
-	resolveStudioToolDefinitions( options ).map( ( tool ) => ( {
+const toolsFor = ( options: StudioToolsOptions, host: StudioAgentHost = createFakeHost() ) =>
+	resolveStudioTools( host, options ).map( ( tool ) => ( {
 		name: tool.name,
 		promptSnippet: tool.promptSnippet,
 	} ) );
@@ -121,7 +123,8 @@ describe( 'buildSystemPrompt', () => {
 	} );
 
 	it( 'lists refresh_browser only when a Studio UI is attached', () => {
-		expect( buildSystemPrompt( { tools: toolsFor( { emitChatArtifacts: true } ) } ) ).toContain(
+		const ui = { showArtifact: () => {}, reloadPreview: () => {} };
+		expect( buildSystemPrompt( { tools: toolsFor( {}, { ...createFakeHost(), ui } ) } ) ).toContain(
 			'- refresh_browser:'
 		);
 		expect( buildSystemPrompt( { tools: toolsFor( {} ) } ) ).not.toContain( 'refresh_browser' );

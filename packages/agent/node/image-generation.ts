@@ -1,6 +1,5 @@
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { getWpcomAiGatewayBaseUrl } from '@studio/agent/node/ai-gateway';
-import { studioHost } from '@studio/agent/node/host';
 
 /**
  * AI image generation through the WP.com AI proxy's OpenAI-compatible images
@@ -266,6 +265,7 @@ const sleep = ( seconds: number ) =>
 	new Promise< void >( ( resolve ) => setTimeout( resolve, seconds * 1000 ) );
 
 async function generateOne(
+	userAgent: string,
 	endpoint: string,
 	authToken: string,
 	request: GenerateImageRequest
@@ -281,7 +281,7 @@ async function generateOne(
 					authorization: `Bearer ${ authToken }`,
 					'x-wpcom-ai-feature': IMAGE_FEATURE_SLUG,
 					'content-type': 'application/json',
-					'user-agent': studioHost().userAgent,
+					'user-agent': userAgent,
 				},
 				body,
 			} );
@@ -311,6 +311,7 @@ async function generateOne(
  * the same index as the requests; a failure never aborts the rest.
  */
 export async function generateImages(
+	userAgent: string,
 	requests: GenerateImageRequest[],
 	onResult?: ( index: number, result: GenerateImageResult ) => void
 ): Promise< GenerateImageResult[] > {
@@ -322,7 +323,7 @@ export async function generateImages(
 	const worker = async () => {
 		while ( next < requests.length ) {
 			const index = next++;
-			const result = await generateOne( endpoint, authToken, requests[ index ] );
+			const result = await generateOne( userAgent, endpoint, authToken, requests[ index ] );
 			results[ index ] = result;
 			onResult?.( index, result );
 		}

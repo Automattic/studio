@@ -1,8 +1,7 @@
 import path from 'path';
 import { Type } from 'typebox';
-import { studioHost } from '@studio/agent/node/host';
 import { defineTool, LOCAL_OVERWRITE } from './define-tool';
-import { resolveSite, textResult } from './utils';
+import { textResult } from './utils';
 
 export const exportSiteTool = defineTool(
 	'site_export',
@@ -26,7 +25,7 @@ export const exportSiteTool = defineTool(
 	},
 	async ( args, context ) => {
 		try {
-			const site = await resolveSite( args.nameOrPath );
+			const site = await context.host.sites.resolve( args.nameOrPath );
 			const mode = args.mode ?? 'full';
 
 			let exportFile = args.exportFile;
@@ -36,7 +35,7 @@ export const exportSiteTool = defineTool(
 				exportFile = path.join( process.cwd(), `studio-backup-${ timestamp }${ ext }` );
 			}
 
-			const result = await studioHost().sites.export( site, exportFile, mode, context.onProgress );
+			const result = await context.host.sites.export( site, exportFile, mode, context.onProgress );
 			const output = result.consoleOutput || result.progressOutput || `Exported to ${ exportFile }`;
 
 			if ( result.exitCode ) {

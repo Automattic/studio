@@ -1,11 +1,11 @@
 import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
 import { ModelRegistry, SessionManager } from '@earendil-works/pi-coding-agent';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { setStudioAgentHost } from '@studio/agent/node/host';
-import { runStudioAgentTurn, type StudioAgentTurnConfig } from '@studio/agent/node/runtime';
+import { createAgent } from '@studio/agent/node/agent';
 import { AI_MODELS } from '@studio/agent/protocol/models';
 import { createFakeHost } from '../../tests/fake-host';
 import type { AgentSessionEvent, CreateAgentSessionOptions } from '@earendil-works/pi-coding-agent';
+import type { StudioAgentTurnConfig } from '@studio/agent/node/runtime';
 import type { AiModelId } from '@studio/agent/protocol/models';
 
 const mocks = vi.hoisted( () => ( {
@@ -54,7 +54,7 @@ vi.mock( '@earendil-works/pi-coding-agent', async ( importOriginal ) => {
 	};
 } );
 
-setStudioAgentHost( createFakeHost( mocks.studioRoot ) );
+const agent = createAgent( { host: createFakeHost( mocks.studioRoot ) } );
 
 vi.mock( '@studio/common/lib/well-known-paths', async ( importOriginal ) => {
 	const actual = await importOriginal< typeof import('@studio/common/lib/well-known-paths') >();
@@ -217,7 +217,7 @@ async function runRuntime(
 	config: Omit< StudioAgentTurnConfig, 'onEvent' >
 ): Promise< AgentSessionEvent[] > {
 	const events: AgentSessionEvent[] = [];
-	const handle = runStudioAgentTurn( { ...config, onEvent: ( event ) => events.push( event ) } );
+	const handle = agent.runTurn( { ...config, onEvent: ( event ) => events.push( event ) } );
 	await handle.result;
 	return events;
 }
@@ -573,7 +573,7 @@ describe( 'pi runtime', () => {
 		it( 'ends the turn as interrupted when the user stops it first', async () => {
 			mocks.nextEvents = runEndingWith( emptyReply() );
 			const events: AgentSessionEvent[] = [];
-			const handle = runStudioAgentTurn( {
+			const handle = agent.runTurn( {
 				prompt: 'build it',
 				env: WPCOM_ENV,
 				model: 'fast',

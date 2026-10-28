@@ -3,10 +3,7 @@ import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { withDesignSystemPreview } from '@studio/agent/node/chat-artifacts';
-import { emitEvent } from '@studio/agent/node/json-events';
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
-
-vi.mock( '@studio/agent/node/json-events', () => ( { emitEvent: vi.fn() } ) );
 
 let sitesRoot: string;
 
@@ -16,33 +13,31 @@ beforeEach( async () => {
 } );
 
 afterEach( async () => {
-	vi.clearAllMocks();
 	await rm( sitesRoot, { recursive: true, force: true } );
 } );
 
 it( "opens the design system in the preview when a site's DESIGN.md is written", async () => {
+	const ui = { showArtifact: vi.fn(), reloadPreview: vi.fn() };
 	const write = withDesignSystemPreview(
 		{
 			execute: vi
 				.fn< ( id: string, params: { path?: unknown } ) => Promise< string > >()
 				.mockResolvedValue( 'ok' ),
 		},
-		sitesRoot
+		sitesRoot,
+		ui
 	);
 
 	await expect( write.execute( 'call-1', { path: 'bakery/notes/DESIGN.md' } ) ).resolves.toBe(
 		'ok'
 	);
 	await write.execute( 'call-2', { path: 'bakery/style.css' } );
-	expect( emitEvent ).not.toHaveBeenCalled();
+	expect( ui.showArtifact ).not.toHaveBeenCalled();
 
 	await write.execute( 'call-3', { path: 'bakery/DESIGN.md' } );
-	expect( emitEvent ).toHaveBeenCalledWith(
+	expect( ui.showArtifact ).toHaveBeenCalledWith(
 		expect.objectContaining( {
-			type: 'chat.artifact',
-			artifact: expect.objectContaining( {
-				widgets: [ { type: 'site-preview', widgetProps: { path: DESIGN_SYSTEM_PREVIEW_PATH } } ],
-			} ),
+			widgets: [ { type: 'site-preview', widgetProps: { path: DESIGN_SYSTEM_PREVIEW_PATH } } ],
 		} )
 	);
 } );

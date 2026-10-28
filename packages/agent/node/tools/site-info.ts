@@ -1,7 +1,6 @@
 import { Type } from 'typebox';
-import { studioHost } from '@studio/agent/node/host';
 import { defineTool, READ_ONLY } from './define-tool';
-import { resolveSite, textResult } from './utils';
+import { textResult } from './utils';
 
 export const getSiteInfoTool = defineTool(
 	'site_info',
@@ -9,10 +8,10 @@ export const getSiteInfoTool = defineTool(
 	{
 		nameOrPath: Type.String( { description: 'The site name or file system path to the site' } ),
 	},
-	async ( args ) => {
+	async ( args, context ) => {
 		try {
-			const site = await resolveSite( args.nameOrPath );
-			const output = await studioHost().sites.status( site );
+			const site = await context.host.sites.resolve( args.nameOrPath );
+			const output = await context.host.sites.status( site );
 			return textResult( output || 'No site info available.' );
 		} catch ( error ) {
 			throw new Error(

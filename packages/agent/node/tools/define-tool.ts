@@ -1,12 +1,14 @@
 import { Type, type Static, type TObject, type TProperties } from 'typebox';
 import type { AgentTool, AgentToolUpdateCallback } from '@earendil-works/pi-agent-core';
+import type { StudioAgentHost } from '@studio/agent/node/host';
 import type { StudioChatArtifactWidgetDraft } from '@studio/agent/protocol/chat-artifacts';
 import type { StudioToolProgressUpdate } from '@studio/agent/protocol/tool-progress';
 
 /**
  * Tool authors throw on failure; pi's loop catches and produces a tool-result
- * with `isError: true`. `rawHandler` is exposed so `runtimes/mcp` can
- * dispatch external calls without pi's `{content, details}` wrapping.
+ * with `isError: true`. A definition runs once bound to a host (`bindTool`);
+ * the bound tool's `rawHandler` lets `studio mcp` dispatch external calls
+ * without pi's `{content, details}` wrapping.
  */
 
 interface ToolTextContent {
@@ -39,11 +41,13 @@ export interface StudioToolResultDetails {
 	pending?: Promise< string | undefined >;
 }
 
-interface ToolContext {
+export interface ToolContext {
+	host: StudioAgentHost;
 	onProgress: ( message: string, update?: boolean ) => void;
 }
 
-const NOOP_TOOL_CONTEXT: ToolContext = { onProgress: () => {} };
+// What a caller of a bound tool passes; the host is already bound.
+type CallContext = Pick< ToolContext, 'onProgress' >;
 
 export type ToolHandler< TProps extends TProperties > = (
 	args: Static< TObject< TProps > >,
@@ -98,13 +102,25 @@ export interface ToolOptions extends ToolPromptOptions {
 	settlesPendingWork?: boolean;
 }
 
+// A tool as defined: everything but the host it runs against.
+export interface StudioToolDefinition< TProps extends TProperties = TProperties >
+	extends ToolOptions {
+	name: string;
+	description: string;
+	label: string;
+	parameters: TObject< TProps >;
+	// Method syntax, so definitions with different arguments share one list.
+	handler( args: Static< TObject< TProps > >, context: ToolContext ): Promise< ToolResult >;
+}
+
+// A tool bound to a host, ready for pi or an MCP call.
 export type StudioAgentTool< TProps extends TProperties = TProperties > = AgentTool<
 	TObject< TProps >
 > &
 	ToolOptions & {
 		rawHandler: (
 			args: Static< TObject< TProps > >,
-			context?: ToolContext
+			context?: CallContext
 		) => Promise< ToolResult >;
 	};
 
@@ -115,7 +131,7 @@ export interface AnyStudioAgentTool {
 	description: string;
 	label: string;
 	parameters: unknown;
-	rawHandler: ( args: never, context?: ToolContext ) => Promise< ToolResult >;
+	rawHandler: ( args: never, context?: CallContext ) => Promise< ToolResult >;
 	execute: (
 		toolCallId: string,
 		params: never,
@@ -135,20 +151,30 @@ export function defineTool< TProps extends TProperties >(
 	properties: TProps,
 	handler: ToolHandler< TProps >,
 	options: ToolOptions
-): StudioAgentTool< TProps > {
-	const parameters = Type.Object( properties );
-
+): StudioToolDefinition< TProps > {
 	return {
 		name,
 		description,
-		parameters,
+		parameters: Type.Object( properties ),
 		label: name,
 		...( options.promptSnippet ? { promptSnippet: options.promptSnippet } : {} ),
 		...( options.settlesPendingWork ? { settlesPendingWork: true } : {} ),
 		annotations: options.annotations,
-		rawHandler: ( args, context ) => handler( args, context ?? NOOP_TOOL_CONTEXT ),
+		handler,
+	};
+}
+
+export function bindTool< TProps extends TProperties >(
+	{ handler, ...tool }: StudioToolDefinition< TProps >,
+	host: StudioAgentHost
+): StudioAgentTool< TProps > {
+	return {
+		...tool,
+		rawHandler: ( args, context ) =>
+			handler( args, { host, onProgress: context?.onProgress ?? ( () => {} ) } ),
 		execute: async ( _toolCallId, params, _signal, onUpdate ) => {
 			const context: ToolContext = {
+				host,
 				onProgress: ( message, update ) => {
 					const details: StudioToolProgressUpdate = { studioProgress: { message, update } };
 					onUpdate?.( { content: [], details } );

@@ -1,5 +1,5 @@
 import { Logger, type ProgressCallback } from 'cli/logger';
-import type { CommandOutput } from '@studio/agent/node/host';
+import type { CommandOutput } from '@studio/agent/node';
 
 // Site list / status print JSON via console.log; capture it for tool output.
 export async function captureConsoleOutput( fn: () => Promise< void > ): Promise< string > {

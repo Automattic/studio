@@ -50,6 +50,7 @@ vi.mock( 'cli/ai/providers', () => ( {
 		supportsModel: () => true,
 		defaultModel: 'claude-sonnet-5',
 	} ),
+	getStudioUserAgent: () => 'WordPressStudio',
 } ) );
 vi.mock( '@studio/agent/node/settings-store', () => ( {
 	readAnthropicApiKey: vi.fn(),
@@ -87,11 +88,6 @@ vi.mock( '@studio/agent/node/runtime', () => ( {
 } ) );
 vi.mock( 'cli/ai/slash-commands', () => ( { getActiveSlashCommands: vi.fn( () => [] ) } ) );
 vi.mock( '@studio/agent/node/browser-utils', () => ( { closeSharedBrowser: vi.fn() } ) );
-vi.mock( '@studio/agent/node/chat-artifacts', () => ( { setChatArtifactCallback: vi.fn() } ) );
-vi.mock( '@studio/agent/node/site-selection', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@studio/agent/node/site-selection') >() ),
-	setLocalSiteSelectedCallback: vi.fn(),
-} ) );
 vi.mock( 'cli/commands/auth/login', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/ai/ui', () => ( { AiChatUI: class AiChatUI {} } ) );
 vi.mock( 'cli/logger', () => ( {
@@ -209,7 +205,7 @@ describe( 'AI runCommand — resume by id restores session model', () => {
 		} );
 
 		expect( runStudioAgentTurn ).toHaveBeenCalledTimes( 1 );
-		const callArgs = ( runStudioAgentTurn as Mock ).mock.calls[ 0 ][ 0 ] as { model: string };
+		const callArgs = ( runStudioAgentTurn as Mock ).mock.calls[ 0 ][ 1 ] as { model: string };
 		expect( callArgs.model ).toBe( 'claude-opus-5' );
 	} );
 } );
@@ -218,7 +214,7 @@ describe( 'AI runCommand — active site banner running state', () => {
 	let stdoutSpy: ReturnType< typeof vi.spyOn >;
 
 	const dispatched = () =>
-		( runStudioAgentTurn as Mock ).mock.calls[ 0 ][ 0 ] as {
+		( runStudioAgentTurn as Mock ).mock.calls[ 0 ][ 1 ] as {
 			prompt: string;
 			activeSite?: { running: boolean };
 		};
@@ -380,7 +376,7 @@ describe( 'AI runCommand — Tracks events', () => {
 
 	it( 'adds the turn stats gathered from the agent events', async () => {
 		( runStudioAgentTurn as Mock ).mockImplementationOnce(
-			( { onEvent }: { onEvent: ( event: unknown ) => void } ) => {
+			( _host: unknown, { onEvent }: { onEvent: ( event: unknown ) => void } ) => {
 				onEvent( {
 					type: 'tool_execution_end',
 					toolCallId: '1',
@@ -413,7 +409,7 @@ describe( 'AI runCommand — Tracks events', () => {
 
 	it( 'completes the turn even when gathering the turn stats fails', async () => {
 		( runStudioAgentTurn as Mock ).mockImplementationOnce(
-			( { onEvent }: { onEvent: ( event: unknown ) => void } ) => {
+			( _host: unknown, { onEvent }: { onEvent: ( event: unknown ) => void } ) => {
 				// The failed tool makes the stats look up its name, which throws.
 				onEvent( {
 					type: 'tool_execution_end',

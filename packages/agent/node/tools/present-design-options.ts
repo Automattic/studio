@@ -13,6 +13,7 @@ import { resolveScreenshotDirectory } from '@studio/agent/node/screenshot-storag
 import { defineTool, LOCAL_CHANGE, type ToolResult } from './define-tool';
 import { captureScreenshotBuffer, saveScreenshotFile } from './screenshot-helpers';
 import { textResult } from './utils';
+import type { StudioAgentHost } from '@studio/agent/node/host';
 import type { AskUserQuestion } from '@studio/agent/node/types';
 
 const PREVIEW_VIEWPORT = { width: 1200, height: 900 } as const;
@@ -81,6 +82,7 @@ function escapeHtml( text: string ): string {
 // Without a way to ask, the previews go back to the agent: for a picker the host
 // shows, or as one numbered grid image for it to show and ask about.
 async function handOverOptions(
+	host: StudioAgentHost,
 	question: string,
 	options: { label: string; description: string; image: string; buffer: Buffer }[],
 	imageLink: ( file: string ) => string,
@@ -97,7 +99,7 @@ async function handOverOptions(
 		)
 		.join( '' );
 	const gridPage = path.join(
-		await resolveScreenshotDirectory(),
+		await resolveScreenshotDirectory( host ),
 		`design-options-${ Date.now() }.html`
 	);
 	await writeFile(
@@ -110,7 +112,7 @@ async function handOverOptions(
 		{ fullPage: true, format: 'jpeg' }
 	);
 	await unlink( gridPage );
-	const gridFile = await saveScreenshotFile( grid.buffer, {
+	const gridFile = await saveScreenshotFile( host, grid.buffer, {
 		viewportType: 'design-options',
 		format: 'jpeg',
 	} );
@@ -234,7 +236,7 @@ export function createPresentDesignOptionsTool( {
 				throw new Error( `Present between 2 and ${ DESIGN_OPTIONS } options.` );
 			}
 			context.onProgress( `Rendering ${ args.options.length } previews…` );
-			const directory = await resolveScreenshotDirectory();
+			const directory = await resolveScreenshotDirectory( context.host );
 			const options = await Promise.all(
 				args.options.map( async ( option, index ) => {
 					const slug =
@@ -275,7 +277,7 @@ export function createPresentDesignOptionsTool( {
 							}`
 						);
 					}
-					const file = await saveScreenshotFile( capture.buffer, {
+					const file = await saveScreenshotFile( context.host, capture.buffer, {
 						viewportType: `preview-${ index + 1 }`,
 						format: previewFormat,
 					} );
@@ -288,7 +290,7 @@ export function createPresentDesignOptionsTool( {
 				} )
 			);
 			if ( ! onAskUser ) {
-				return handOverOptions( args.question, options, imageLink, picker );
+				return handOverOptions( context.host, args.question, options, imageLink, picker );
 			}
 			const answers = await onAskUser( [
 				{
@@ -306,13 +308,18 @@ export function createPresentDesignOptionsTool( {
 			] );
 			const answer = answers[ args.question ];
 			const picked = answer ? options.findIndex( ( option ) => option.label === answer ) : -1;
-			await recordDesignTracksEvent( TRACKS_EVENTS.CODE_DESIGN_OPTION_PICKED, tracks, {
-				catalog: args.catalog,
-				options_count: options.length,
-				answer_type: classifyAnswer( answer, picked ),
-				picked: picked === -1 ? undefined : options[ picked ].label,
-				pick_index: picked === -1 ? undefined : picked + 1,
-			} );
+			await recordDesignTracksEvent(
+				context.host,
+				TRACKS_EVENTS.CODE_DESIGN_OPTION_PICKED,
+				tracks,
+				{
+					catalog: args.catalog,
+					options_count: options.length,
+					answer_type: classifyAnswer( answer, picked ),
+					picked: picked === -1 ? undefined : options[ picked ].label,
+					pick_index: picked === -1 ? undefined : picked + 1,
+				}
+			);
 			if ( ! answer ) {
 				return textResult( 'The user did not answer.' );
 			}

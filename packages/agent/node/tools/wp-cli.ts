@@ -1,7 +1,5 @@
 import { Type } from 'typebox';
-import { studioHost } from '@studio/agent/node/host';
 import { defineTool, REMOTE_OVERWRITE } from './define-tool';
-import { resolveSite } from './utils';
 import { getUnsupportedWpCliPostContentMessage } from './wp-cli-post-content';
 
 // Split a shell-ish command into args, respecting quotes. Quotes are only
@@ -156,9 +154,9 @@ export const runWpCliTool = defineTool(
 				'The WP-CLI command to run (without the "wp" prefix). Example: "plugin list --status=active"',
 		} ),
 	},
-	async ( args ) => {
+	async ( args, context ) => {
 		try {
-			const site = await resolveSite( args.nameOrPath );
+			const site = await context.host.sites.resolve( args.nameOrPath );
 
 			const wpCliArgs = splitCommandArgs( args.command );
 			const unsupportedOptionMessage = getUnsupportedWpCliOptionMessage( wpCliArgs );
@@ -170,7 +168,7 @@ export const runWpCliTool = defineTool(
 				throw new Error( unsupportedPostContentMessage );
 			}
 
-			const { exitCode, stdout, stderr } = await studioHost().sites.wpCli( site, wpCliArgs );
+			const { exitCode, stdout, stderr } = await context.host.sites.wpCli( site, wpCliArgs );
 
 			let output = '';
 			if ( stdout ) {

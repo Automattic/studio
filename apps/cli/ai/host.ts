@@ -30,7 +30,7 @@ import { parseSyncOptions } from 'cli/lib/sync-api';
 import { getTracksOrigin, recordTracksEvent } from 'cli/lib/tracks';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
-import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
+import type { HostSite, StudioAgentHost } from '@studio/agent/node';
 
 function toHostSite( site: SiteData ): HostSite {
 	return {

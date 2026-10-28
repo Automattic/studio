@@ -1,3 +1,5 @@
+import type { SiteInfo } from './types';
+import type { StudioChatArtifactData } from '@studio/agent/protocol/chat-artifacts';
 import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
 
 export type ProgressCallback = ( message: string, update?: boolean ) => void;
@@ -27,8 +29,17 @@ export interface WpCliOutput {
 	stderr: string;
 }
 
-// The site operations the agent's tools run. They belong to the app that runs
-// the agent: the CLI implements them with its own commands.
+// What an app that shows the conversation does for the agent.
+export interface StudioAgentUi {
+	// Shows a tool's result in the conversation, such as a site preview or an image.
+	showArtifact( artifact: StudioChatArtifactData ): Promise< void > | void;
+	// Reloads the site preview the app shows.
+	reloadPreview(): void;
+}
+
+// What the app running the agent provides: the site operations its tools run,
+// which the CLI implements with its own commands, and how the agent reaches the
+// user.
 export interface StudioAgentHost {
 	// The folder Studio's sites live in. The file tools are rooted here.
 	sitesRoot: string;
@@ -88,17 +99,11 @@ export interface StudioAgentHost {
 	tracks: {
 		record( event: TracksEventName, props: TracksProps ): Promise< void >;
 	};
-}
-
-let host: StudioAgentHost | null = null;
-
-export function setStudioAgentHost( value: StudioAgentHost | null ) {
-	host = value;
-}
-
-export function studioHost(): StudioAgentHost {
-	if ( ! host ) {
-		throw new Error( 'No Studio agent host is set. Call setStudioAgentHost() first.' );
-	}
-	return host;
+	// Makes a site the agent created the conversation's site.
+	selectSite?( site: SiteInfo ): Promise< void > | void;
+	// Where screenshots are saved; a temporary folder when absent or null.
+	screenshotsDirectory?(): Promise< string | null > | string | null;
+	// Present when an app shows the conversation. Tools that only make sense
+	// there, and their mentions in the prompt, depend on it.
+	ui?: StudioAgentUi;
 }

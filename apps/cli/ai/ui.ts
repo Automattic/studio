@@ -59,7 +59,7 @@ import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { getSitesRunningStatus, isSiteRunning } from 'cli/lib/site-utils';
 import { formatTosNoticeLines } from 'cli/lib/tos-notice';
 import type { ToolResultMessage } from '@earendil-works/pi-ai';
-import type { AskUserQuestion, SiteInfo } from '@studio/agent/node/types';
+import type { AskUserQuestion, SiteInfo } from '@studio/agent/node';
 
 const SITE_PICKER_TAB_LOCAL = 'local' as const;
 const SITE_PICKER_TAB_REMOTE = 'remote' as const;

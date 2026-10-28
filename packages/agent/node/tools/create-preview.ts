@@ -1,8 +1,6 @@
 import { Type } from 'typebox';
-import { studioHost } from '@studio/agent/node/host';
 import { defineTool, REMOTE_CHANGE } from './define-tool';
 import { runPreviewCommand } from './preview-helpers';
-import { resolveSite } from './utils';
 
 export const createPreviewTool = defineTool(
 	'preview_create',
@@ -15,8 +13,8 @@ export const createPreviewTool = defineTool(
 	async ( args, context ) => {
 		return runPreviewCommand(
 			async () => {
-				const site = await resolveSite( args.nameOrPath );
-				return studioHost().previews.create( site, context.onProgress );
+				const site = await context.host.sites.resolve( args.nameOrPath );
+				return context.host.previews.create( site, context.onProgress );
 			},
 			`Preview site created for "${ args.nameOrPath }".`,
 			'Failed to create preview site'

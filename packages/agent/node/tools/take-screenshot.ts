@@ -1,7 +1,6 @@
 import { copyFile } from 'node:fs/promises';
 import path from 'node:path';
 import { Type } from 'typebox';
-import { studioHost } from '@studio/agent/node/host';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
 import {
 	captureScreenshotBuffer,
@@ -111,11 +110,9 @@ export function createTakeScreenshotTool( {
 		async ( args, context ) => {
 			try {
 				const themeDirectory = args.themeScreenshot && path.resolve( args.themeScreenshot );
-				if ( themeDirectory && ! themeDirectory.startsWith( studioHost().sitesRoot + path.sep ) ) {
+				if ( themeDirectory && ! themeDirectory.startsWith( context.host.sitesRoot + path.sep ) ) {
 					throw new Error(
-						`themeScreenshot must be the absolute path of a theme directory in a Studio site (${
-							studioHost().sitesRoot
-						}/<site>/wp-content/themes/<slug>).`
+						`themeScreenshot must be the absolute path of a theme directory in a Studio site (${ context.host.sitesRoot }/<site>/wp-content/themes/<slug>).`
 					);
 				}
 				const viewportTypes = resolveViewportTypes( args.viewport );
@@ -137,7 +134,7 @@ export function createTakeScreenshotTool( {
 							colorScheme,
 							forModel: visionEnabled,
 						} );
-						const screenshotFile = await saveScreenshotFile( capture.buffer, {
+						const screenshotFile = await saveScreenshotFile( context.host, capture.buffer, {
 							viewportType,
 							format: 'jpeg',
 							colorScheme,

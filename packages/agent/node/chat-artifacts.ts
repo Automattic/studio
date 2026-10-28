@@ -7,26 +7,10 @@ import {
 	type StudioChatArtifactData,
 	type StudioChatArtifactWidgetDraft,
 } from '@studio/agent/protocol/chat-artifacts';
-import { emitEvent } from './json-events';
-
-type ChatArtifactCallback = ( artifact: StudioChatArtifactData ) => void | Promise< void >;
-
-let chatArtifactCallback: ChatArtifactCallback | null = null;
-
-export function setChatArtifactCallback( callback: ChatArtifactCallback | null ) {
-	chatArtifactCallback = callback;
-}
-
-async function emitChatArtifact( artifact: StudioChatArtifactData ): Promise< void > {
-	await chatArtifactCallback?.( artifact );
-	emitEvent( {
-		type: 'chat.artifact',
-		timestamp: new Date().toISOString(),
-		artifact,
-	} );
-}
+import type { StudioAgentUi } from '@studio/agent/node/host';
 
 export async function emitChatArtifactWidgets(
+	ui: StudioAgentUi,
 	widgets: readonly StudioChatArtifactWidgetDraft[] | undefined
 ): Promise< StudioChatArtifactData | null > {
 	const artifactWidgets = cloneChatArtifactWidgets( widgets );
@@ -40,7 +24,7 @@ export async function emitChatArtifactWidgets(
 		widgets: artifactWidgets,
 	};
 
-	await emitChatArtifact( artifact );
+	await ui.showArtifact( artifact );
 	return artifact;
 }
 
@@ -67,7 +51,8 @@ interface FileWritingTool {
  */
 export function withDesignSystemPreview< TTool extends FileWritingTool >(
 	tool: TTool,
-	cwd: string
+	cwd: string,
+	ui: StudioAgentUi
 ): TTool {
 	return {
 		...tool,
@@ -78,7 +63,7 @@ export function withDesignSystemPreview< TTool extends FileWritingTool >(
 				path.basename( filePath ) === 'DESIGN.md' &&
 				existsSync( path.join( path.dirname( filePath ), 'wp-content' ) )
 			) {
-				await emitChatArtifactWidgets( [
+				await emitChatArtifactWidgets( ui, [
 					{ type: 'site-preview', widgetProps: { path: DESIGN_SYSTEM_PREVIEW_PATH } },
 				] ).catch( () => undefined );
 			}

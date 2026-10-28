@@ -2,14 +2,9 @@ import { mkdirSync, mkdtempSync, rmSync } from 'fs';
 import os from 'os';
 import path from 'path';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { setStudioAgentHost } from '@studio/agent/node/host';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { getFileWriteRefusal } from '@studio/agent/node/runtime/tool-safety';
 import { buildSystemPrompt } from '@studio/agent/node/system-prompt';
-import { createFakeHost, fakeSite } from '../../tests/fake-host';
-
-const host = createFakeHost();
-setStudioAgentHost( host );
 
 let root: string;
 const studioSite = () => path.join( root, 'my-site' );
@@ -29,7 +24,6 @@ beforeEach( () => {
 
 afterEach( () => {
 	rmSync( root, { recursive: true, force: true } );
-	vi.mocked( host.sites.findByFolder ).mockReset();
 } );
 
 describe( 'getFileWriteRefusal', () => {
@@ -75,22 +69,6 @@ describe( 'getFileWriteRefusal', () => {
 				{ path: 'my-site/wp-includes/functions.php' },
 				root,
 				isStudioSite
-			)
-		).toBeUndefined();
-	} );
-
-	it( "asks Studio's site list by default", async () => {
-		vi.mocked( host.sites.findByFolder ).mockImplementation( async ( folder ) =>
-			arePathsEqual( folder, studioSite() ) ? { ...fakeSite, path: studioSite() } : undefined
-		);
-		expect(
-			await getFileWriteRefusal( 'Edit', { path: 'my-site/wp-includes/functions.php' }, root )
-		).toContain( 'WordPress core' );
-		expect(
-			await getFileWriteRefusal(
-				'Edit',
-				{ path: 'wordpress-develop/src/wp-includes/functions.php' },
-				root
 			)
 		).toBeUndefined();
 	} );

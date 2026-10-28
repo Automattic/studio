@@ -1,7 +1,7 @@
 import { Type } from 'typebox';
 import { auditSeo } from '@studio/agent/node/seo-audit';
 import { defineTool, READ_ONLY } from './define-tool';
-import { resolveSite, textResult } from './utils';
+import { textResult } from './utils';
 
 export const auditSeoTool = defineTool(
 	'rank_me_up',
@@ -24,7 +24,7 @@ export const auditSeoTool = defineTool(
 	},
 	async ( args, context ) => {
 		try {
-			const site = await resolveSite( args.nameOrPath );
+			const site = await context.host.sites.resolve( args.nameOrPath );
 			const siteUrl = site.url;
 			const urlPath = args.path ?? '/';
 

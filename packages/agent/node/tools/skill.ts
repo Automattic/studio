@@ -1,9 +1,7 @@
 import { Type } from 'typebox';
 import { renderDesignCatalogIndex } from '@studio/agent/node/design-catalog';
 import { findSkill, loadSkills } from '@studio/agent/node/skills';
-import { defineTool, READ_ONLY } from './define-tool';
-import type { AgentTool } from '@earendil-works/pi-agent-core';
-import type { TSchema } from 'typebox';
+import { defineTool, READ_ONLY, type StudioToolDefinition } from './define-tool';
 
 export function renderSkill( name: string ): string {
 	const skill = findSkill( name );
@@ -15,7 +13,7 @@ export function renderSkill( name: string ): string {
 
 // Returns `null` when no skills are discovered so the caller skips
 // registering the tool entirely.
-export function createSkillTool(): AgentTool< TSchema > | null {
+export function createSkillTool(): StudioToolDefinition | null {
 	const skills = loadSkills();
 	if ( skills.length === 0 ) return null;
 

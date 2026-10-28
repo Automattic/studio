@@ -275,6 +275,31 @@ export default defineConfig(
 		},
 	},
 	{
+		// Apps run the agent through `@studio/agent/node` (`createAgent`); its runtime
+		// and tools are internal. Tests may still mock them.
+		files: [ 'apps/**/*.{ts,tsx}' ],
+		ignores: [ 'apps/**/tests/**', 'apps/**/*.test.{ts,tsx}' ],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{
+							group: [
+								'@studio/agent/node/runtime',
+								'@studio/agent/node/runtime/*',
+								'@studio/agent/node/tools',
+								'@studio/agent/node/tools/*',
+								'@studio/agent/node/host',
+							],
+							message: 'Import the agent from @studio/agent/node.',
+						},
+					],
+				},
+			],
+		},
+	},
+	{
 		// The agentic UI owns its design system: theme tokens in `src/lib/theme/` and
 		// primitives in `src/lib/ui/`, which stay independent of app code.
 		files: [ 'apps/ui/src/**/*.{ts,tsx}' ],

@@ -1,7 +1,6 @@
 import { Type } from 'typebox';
-import { studioHost } from '@studio/agent/node/host';
 import { defineTool, LOCAL_OVERWRITE } from './define-tool';
-import { resolveSite, textResult } from './utils';
+import { textResult } from './utils';
 
 export const deleteSiteTool = defineTool(
 	'site_delete',
@@ -16,8 +15,8 @@ export const deleteSiteTool = defineTool(
 	},
 	async ( args, context ) => {
 		try {
-			const site = await resolveSite( args.nameOrPath );
-			await studioHost().sites.delete( site, args.deleteFiles ?? true, context.onProgress );
+			const site = await context.host.sites.resolve( args.nameOrPath );
+			await context.host.sites.delete( site, args.deleteFiles ?? true, context.onProgress );
 			return textResult( `Site "${ site.name }" deleted.` );
 		} catch ( error ) {
 			throw new Error(

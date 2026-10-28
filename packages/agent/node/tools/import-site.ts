@@ -1,7 +1,6 @@
 import { Type } from 'typebox';
-import { studioHost } from '@studio/agent/node/host';
 import { defineTool, LOCAL_OVERWRITE } from './define-tool';
-import { resolveSite, textResult } from './utils';
+import { textResult } from './utils';
 
 export const importSiteTool = defineTool(
 	'site_import',
@@ -13,9 +12,9 @@ export const importSiteTool = defineTool(
 	},
 	async ( args, context ) => {
 		try {
-			const site = await resolveSite( args.nameOrPath );
+			const site = await context.host.sites.resolve( args.nameOrPath );
 
-			const result = await studioHost().sites.import( site, args.importFile, context.onProgress );
+			const result = await context.host.sites.import( site, args.importFile, context.onProgress );
 			const output = result.consoleOutput || result.progressOutput || 'Import completed.';
 
 			if ( result.exitCode ) {

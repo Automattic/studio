@@ -1,9 +1,7 @@
 import path from 'path';
 import { Type } from 'typebox';
-import { studioHost } from '@studio/agent/node/host';
-import { emitLocalSiteSelected } from '@studio/agent/node/site-selection';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
-import { resolveSite, textResult } from './utils';
+import { textResult } from './utils';
 
 export const createSiteTool = defineTool(
 	'site_create',
@@ -20,12 +18,12 @@ export const createSiteTool = defineTool(
 			if ( ! slug ) {
 				throw new Error( 'Site name must contain at least one ASCII letter or digit (a-z, 0-9).' );
 			}
-			const host = studioHost();
+			const host = context.host;
 			await host.sites.create( args.name, path.join( host.sitesRoot, slug ), context.onProgress );
 
-			const site = await resolveSite( args.name );
+			const site = await context.host.sites.resolve( args.name );
 			const url = site.url;
-			await emitLocalSiteSelected( {
+			await context.host.selectSite?.( {
 				id: site.id,
 				name: site.name,
 				path: site.path,

@@ -1,15 +1,11 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
-import { setStudioAgentHost } from '@studio/agent/node/host';
-import { createResultNotes } from '@studio/agent/node/result-notes';
-import { defineTool, READ_ONLY } from '@studio/agent/node/tools/define-tool';
+import { bindTool, createResultNotes, defineTool, READ_ONLY } from '@studio/agent/node';
 import { Type } from 'typebox';
 import { expect, it, vi } from 'vitest';
 import { cliAgentHost } from 'cli/ai/host';
 import { runServedTool } from 'cli/ai/runtimes/mcp/served-tool';
-
-setStudioAgentHost( cliAgentHost );
 
 it( 'adds the declared settings of the core blocks a result shows, from the site the call names, once', async () => {
 	const root = mkdtempSync( path.join( tmpdir(), 'served-tool-' ) );
@@ -33,7 +29,9 @@ it( 'adds the declared settings of the core blocks a result shows, from the site
 	);
 	const resultNotes = createResultNotes();
 	const notes = async ( args: Record< string, unknown > ) =>
-		( await runServedTool( tool, args, resultNotes ) ).content
+		(
+			await runServedTool( cliAgentHost, bindTool( tool, cliAgentHost ), args, resultNotes )
+		).content
 			.slice( 1 )
 			.map( ( part ) => ( part.type === 'text' ? part.text : '' ) );
 	const blockJson = path.join( sitePath, 'wp-includes/blocks/navigation/block.json' );

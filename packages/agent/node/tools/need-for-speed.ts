@@ -1,7 +1,7 @@
 import { Type } from 'typebox';
 import { auditPerformance } from '@studio/agent/node/performance-audit';
 import { defineTool, READ_ONLY } from './define-tool';
-import { resolveSite, textResult } from './utils';
+import { textResult } from './utils';
 
 export const auditPerformanceTool = defineTool(
 	'need_for_speed',
@@ -23,7 +23,7 @@ export const auditPerformanceTool = defineTool(
 	},
 	async ( args, context ) => {
 		try {
-			const site = await resolveSite( args.nameOrPath );
+			const site = await context.host.sites.resolve( args.nameOrPath );
 			const siteUrl = site.url;
 			const urlPath = args.path ?? '/';
 

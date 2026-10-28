@@ -1,6 +1,7 @@
 import { emitChatArtifactWidgets } from '@studio/agent/node/chat-artifacts';
 import { createPreviewTool } from './create-preview';
 import { createSiteTool } from './create-site';
+import { bindTool } from './define-tool';
 import { deletePreviewTool } from './delete-preview';
 import { deleteSiteTool } from './delete-site';
 import { exportSiteTool } from './export-site';
@@ -27,10 +28,15 @@ import { updatePreviewTool } from './update-preview';
 import { validateBlocksTool } from './validate-blocks';
 import { runWpCliTool } from './wp-cli';
 import { wpcomRequestTool } from './wpcom-request';
-import type { AnyStudioAgentTool, StudioToolResultDetails } from './define-tool';
+import type {
+	AnyStudioAgentTool,
+	StudioToolDefinition,
+	StudioToolResultDetails,
+} from './define-tool';
 import type { DesignTracksContext } from '@studio/agent/node/design-tracks';
+import type { StudioAgentHost, StudioAgentUi } from '@studio/agent/node/host';
 
-export const studioToolDefinitions: AnyStudioAgentTool[] = [
+export const studioToolDefinitions: StudioToolDefinition[] = [
 	createSiteTool,
 	listSitesTool,
 	getSiteInfoTool,
@@ -61,11 +67,7 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	refreshBrowserTool,
 ];
 
-export interface CreateStudioToolsOptions {
-	// Enable automatic chat artifact emission from tool results. Desktop agent
-	// runs set this; standalone CLI/MCP runs leave it off so visual artifacts are
-	// ignored instead of leaking into terminal transcripts.
-	emitChatArtifacts?: boolean;
+export interface StudioToolsOptions {
 	// Enable generate_images. Callers resolve isImageGenerationAvailable()
 	// (async) and pass it; when off, sessions behave exactly as before the tool
 	// existed (no tool, no imagery prompt sections).
@@ -84,8 +86,11 @@ export interface CreateStudioToolsOptions {
 	imageLink?: ( file: string ) => string;
 }
 
-export function resolveStudioToolDefinitions(
-	options: CreateStudioToolsOptions = {}
+// The Studio tools, bound to `host`. Visual results show in the conversation
+// only when the host has a UI; otherwise they would leak into terminal transcripts.
+export function resolveStudioTools(
+	host: StudioAgentHost,
+	options: StudioToolsOptions = {}
 ): AnyStudioAgentTool[] {
 	return studioToolDefinitions.flatMap( ( candidate ) => {
 		if ( candidate.name === generateImagesTool.name && ! options.imageGeneration ) {
@@ -95,7 +100,7 @@ export function resolveStudioToolDefinitions(
 			return [];
 		}
 		// Only a Studio UI shows the preview it reloads.
-		if ( candidate.name === refreshBrowserTool.name && ! options.emitChatArtifacts ) {
+		if ( candidate.name === refreshBrowserTool.name && ! host.ui ) {
 			return [];
 		}
 		let tool = candidate;
@@ -103,7 +108,7 @@ export function resolveStudioToolDefinitions(
 			tool = createTakeScreenshotTool( {
 				visionEnabled: options.visionEnabled !== false,
 				imageLink: options.imageLink,
-				userSeesCapture: options.emitChatArtifacts === true || Boolean( options.imageLink ),
+				userSeesCapture: Boolean( host.ui ) || Boolean( options.imageLink ),
 			} );
 		}
 		if ( candidate.name === inspectDesignTool.name && options.visionEnabled === false ) {
@@ -115,15 +120,15 @@ export function resolveStudioToolDefinitions(
 				tracks: options.tracks,
 			} );
 		}
-		return [ withChatArtifactEmission( tool, options.emitChatArtifacts === true ) ];
+		return [ withChatArtifactEmission( bindTool( tool, host ), host.ui ) ];
 	} );
 }
 
 export function withChatArtifactEmission< TTool extends AnyStudioAgentTool >(
 	tool: TTool,
-	emitChatArtifacts: boolean
+	ui: StudioAgentUi | undefined
 ): TTool {
-	if ( ! emitChatArtifacts ) {
+	if ( ! ui ) {
 		return tool;
 	}
 	return {
@@ -132,7 +137,7 @@ export function withChatArtifactEmission< TTool extends AnyStudioAgentTool >(
 			const result = await tool.execute( toolCallId, params, signal, onUpdate );
 			const details = result.details as StudioToolResultDetails | undefined;
 			try {
-				await emitChatArtifactWidgets( details?.studioArtifacts );
+				await emitChatArtifactWidgets( ui, details?.studioArtifacts );
 			} catch ( error ) {
 				// Artifacts are presentation-only; a failed emit (e.g. session file
 				// unwritable) must never turn a successful tool result into an error.

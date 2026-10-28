@@ -1,14 +1,12 @@
-import { resolveSite } from '@studio/agent/node/tools/utils';
-import type { createResultNotes } from '@studio/agent/node/result-notes';
-import type { AnyStudioAgentTool } from '@studio/agent/node/tools/define-tool';
+import type { AnyStudioAgentTool, createResultNotes, StudioAgentHost } from '@studio/agent/node';
 
 // The site an MCP call works on is the one it names.
-async function siteNamed( args: Record< string, unknown > ) {
+async function siteNamed( host: StudioAgentHost, args: Record< string, unknown > ) {
 	if ( typeof args.nameOrPath !== 'string' ) {
 		return undefined;
 	}
 	try {
-		return await resolveSite( args.nameOrPath );
+		return await host.sites.resolve( args.nameOrPath );
 	} catch {
 		return undefined;
 	}
@@ -17,6 +15,7 @@ async function siteNamed( args: Record< string, unknown > ) {
 // Runs a served tool for an MCP call. MCP wants `{content, isError}`; pi-native
 // handlers throw — translate.
 export async function runServedTool(
+	host: StudioAgentHost,
 	tool: AnyStudioAgentTool,
 	args: Record< string, unknown >,
 	resultNotes: ReturnType< typeof createResultNotes >
@@ -26,7 +25,7 @@ export async function runServedTool(
 		const resultText = result.content
 			.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
 			.join( '\n' );
-		const site = await siteNamed( args );
+		const site = await siteNamed( host, args );
 		const notes = [ site && ( await resultNotes( site.path, resultText ) ), await result.pending ]
 			.filter( Boolean )
 			.join( '\n' );

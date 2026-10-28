@@ -1,6 +1,5 @@
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { setStudioAgentHost } from '@studio/agent/node/host';
 import {
 	buildImageRequestBody,
 	composeImagePrompt,
@@ -11,10 +10,8 @@ import {
 	TransientImageError,
 } from '@studio/agent/node/image-generation';
 import { resolveImageFilePath } from '@studio/agent/node/tools/generate-images';
-import { createFakeHost } from './fake-host';
 
 const SITES_ROOT = path.resolve( '/studio-sites' );
-setStudioAgentHost( createFakeHost( SITES_ROOT ) );
 
 const PNG_BASE64 = Buffer.from( [
 	0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00,
@@ -130,17 +127,17 @@ describe( 'interpretImageResponse', () => {
 describe( 'resolveImageFilePath', () => {
 	it( 'accepts .png paths inside the sites root', () => {
 		const target = path.join( SITES_ROOT, 'my-site', 'wp-content', 'a.png' );
-		expect( resolveImageFilePath( target ) ).toBe( target );
+		expect( resolveImageFilePath( SITES_ROOT, target ) ).toBe( target );
 	} );
 
 	it( 'rejects paths escaping the sites root', () => {
-		expect( () => resolveImageFilePath( path.join( SITES_ROOT, '..', 'escape.png' ) ) ).toThrow(
-			/inside the Studio sites directory/
-		);
+		expect( () =>
+			resolveImageFilePath( SITES_ROOT, path.join( SITES_ROOT, '..', 'escape.png' ) )
+		).toThrow( /inside the Studio sites directory/ );
 	} );
 
 	it( 'rejects non-PNG extensions', () => {
-		expect( () => resolveImageFilePath( path.join( SITES_ROOT, 'a.jpg' ) ) ).toThrow(
+		expect( () => resolveImageFilePath( SITES_ROOT, path.join( SITES_ROOT, 'a.jpg' ) ) ).toThrow(
 			/end in .png/
 		);
 	} );

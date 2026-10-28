@@ -1,7 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { Type } from 'typebox';
-import { studioHost, type HostSite } from '@studio/agent/node/host';
 import {
 	composeImagePrompt,
 	generateImages,
@@ -12,15 +11,15 @@ import {
 } from '@studio/agent/node/image-generation';
 import { defineTool, REMOTE_CHANGE } from './define-tool';
 import { runWpCli, textResult } from './utils';
+import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 
 const MAX_IMAGES_PER_CALL = 20;
 const UPLOADS_DIR = path.sep + path.join( 'wp-content', 'uploads' ) + path.sep;
 
 // Exported for tests. Generated files are jailed to the sites root like the
 // pi Write tool, and must be PNGs — the only format the pipeline delivers.
-export function resolveImageFilePath( filePath: string ): string {
+export function resolveImageFilePath( sitesRoot: string, filePath: string ): string {
 	const resolved = path.resolve( filePath );
-	const { sitesRoot } = studioHost();
 	if ( resolved !== sitesRoot && ! resolved.startsWith( sitesRoot + path.sep ) ) {
 		throw new Error(
 			`Image path must be inside the Studio sites directory (${ sitesRoot }): ${ filePath }`
@@ -32,8 +31,11 @@ export function resolveImageFilePath( filePath: string ): string {
 	return resolved;
 }
 
-async function findSiteContaining( filePaths: string[] ): Promise< HostSite > {
-	const sites = await studioHost().sites.all();
+async function findSiteContaining(
+	host: StudioAgentHost,
+	filePaths: string[]
+): Promise< HostSite > {
+	const sites = await host.sites.all();
 	const site = sites.find( ( candidate ) =>
 		filePaths.every( ( filePath ) =>
 			filePath.startsWith( path.resolve( candidate.path ) + path.sep )
@@ -52,9 +54,14 @@ interface Attachment {
 }
 
 // Runs `php` through WP-CLI with `data` decoded into `$data`.
-async function evalWithData( site: HostSite, php: string, data: unknown ): Promise< string > {
+async function evalWithData(
+	host: StudioAgentHost,
+	site: HostSite,
+	php: string,
+	data: unknown
+): Promise< string > {
 	const encoded = Buffer.from( JSON.stringify( data ) ).toString( 'base64' );
-	return runWpCli( site, [
+	return runWpCli( host, site, [
 		'eval',
 		`$data = json_decode( base64_decode( '${ encoded }' ), true );\n${ php }`,
 	] );
@@ -134,7 +141,7 @@ export const generateImagesTool = defineTool(
 			} )
 		),
 	},
-	async ( args ) => {
+	async ( args, { host } ) => {
 		if ( ! ( await isImageGenerationAvailable() ) ) {
 			throw new Error(
 				'Image generation is not available in this session. Build the site without generated imagery.'
@@ -143,17 +150,21 @@ export const generateImagesTool = defineTool(
 
 		const targets = args.images.map( ( image ) => ( {
 			...image,
-			resolvedPath: resolveImageFilePath( image.path ),
+			resolvedPath: resolveImageFilePath( host.sitesRoot, image.path ),
 		} ) );
 		const libraryTargets = targets.filter( ( target ) =>
 			target.resolvedPath.includes( UPLOADS_DIR )
 		);
 		const site = libraryTargets.length
-			? await findSiteContaining( libraryTargets.map( ( target ) => target.resolvedPath ) )
+			? await findSiteContaining(
+					host,
+					libraryTargets.map( ( target ) => target.resolvedPath )
+			  )
 			: undefined;
 		const attachments = new Map< string, Attachment >();
 		if ( site ) {
 			const output = await evalWithData(
+				host,
 				site,
 				RESERVE_ATTACHMENTS,
 				libraryTargets.map( ( target ) => path.basename( target.resolvedPath ) )
@@ -175,7 +186,7 @@ export const generateImagesTool = defineTool(
 			aspectRatio: image.aspectRatio,
 		} ) );
 
-		const generation = generateImages( requests )
+		const generation = generateImages( host.userAgent, requests )
 			.catch( ( error ): GenerateImageResult[] =>
 				requests.map( () => ( { ok: false, error: String( error ) } ) )
 			)
@@ -201,7 +212,7 @@ export const generateImagesTool = defineTool(
 						libraryTargets
 							.filter( ( target ) => results[ targets.indexOf( target ) ].ok === ok )
 							.map( ( target ) => attachments.get( target.resolvedPath )!.id );
-					await evalWithData( site, FINALIZE_ATTACHMENTS, {
+					await evalWithData( host, site, FINALIZE_ATTACHMENTS, {
 						ready: ids( true ),
 						failed: ids( false ),
 					} );

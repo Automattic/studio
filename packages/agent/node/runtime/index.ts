@@ -32,12 +32,12 @@ import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
 import { type TSchema } from 'typebox';
 import { withDesignSystemPreview } from '@studio/agent/node/chat-artifacts';
 import { readGlobalInstructions } from '@studio/agent/node/global-instructions';
-import { studioHost } from '@studio/agent/node/host';
 import { isImageGenerationAvailable } from '@studio/agent/node/image-generation';
 import { createResultNotes } from '@studio/agent/node/result-notes';
 import { buildSystemPrompt, type ToolPromptContribution } from '@studio/agent/node/system-prompt';
-import { resolveStudioToolDefinitions } from '@studio/agent/node/tools';
+import { resolveStudioTools } from '@studio/agent/node/tools';
 import { createAskUserQuestionTool } from '@studio/agent/node/tools/ask-user-question';
+import { bindTool } from '@studio/agent/node/tools/define-tool';
 import { createPresentDesignOptionsTool } from '@studio/agent/node/tools/present-design-options';
 import { createSkillTool } from '@studio/agent/node/tools/skill';
 import {
@@ -61,6 +61,7 @@ import {
 	updateStudioToolPayloadGuardState,
 } from './tool-safety';
 import { withUsageCapErrorRewrite } from './usage-cap';
+import type { StudioAgentHost } from '@studio/agent/node/host';
 import type { StudioToolResultDetails } from '@studio/agent/node/tools/define-tool';
 import type { AskUserHandler, SiteInfo } from '@studio/agent/node/types';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
@@ -100,6 +101,7 @@ export interface StudioAgentTurnConfig {
 }
 
 interface ResolvedStudioAgentTurnConfig extends StudioAgentTurnConfig {
+	host: StudioAgentHost;
 	env: Record< string, string >;
 	model: AiModelId;
 }
@@ -111,18 +113,21 @@ export interface StudioAgentTurnHandle {
 	hasTool( name: string ): boolean;
 }
 
-export function runStudioAgentTurn( config: StudioAgentTurnConfig ): StudioAgentTurnHandle {
+export function runStudioAgentTurn(
+	host: StudioAgentHost,
+	config: StudioAgentTurnConfig
+): StudioAgentTurnHandle {
 	const controller = new AbortController();
 	let activeSession: AgentSession | undefined;
 	const resolvedConfig: ResolvedStudioAgentTurnConfig = {
 		...config,
+		host,
 		env: config.env ?? { ...( process.env as Record< string, string > ) },
 		model: config.model ?? DEFAULT_MODEL,
 	};
 
-	const { sitesRoot } = studioHost();
-	if ( ! fs.existsSync( sitesRoot ) ) {
-		fs.mkdirSync( sitesRoot, { recursive: true } );
+	if ( ! fs.existsSync( host.sitesRoot ) ) {
+		fs.mkdirSync( host.sitesRoot, { recursive: true } );
 	}
 
 	const result = runAgentSessionTurn( resolvedConfig, controller, ( session ) => {
@@ -324,19 +329,13 @@ async function createStudioAgentSession(
 	payloadGuardState: StudioToolPayloadGuardState
 ): Promise< AgentSession > {
 	const model = buildModel( config.model, family, creds );
-	const chatArtifactsEnabled = typeof process.send === 'function';
 	const visionEnabled = aiModelSupportsImages( config.model );
 	const [ userInstructions, imageGenerationEnabled ] = await Promise.all( [
 		readGlobalInstructions(),
 		isImageGenerationAvailable(),
 	] );
 
-	const tools = buildAgentTools(
-		config,
-		chatArtifactsEnabled,
-		imageGenerationEnabled,
-		visionEnabled
-	);
+	const tools = buildAgentTools( config, imageGenerationEnabled, visionEnabled );
 	const systemPrompt = buildSystemPrompt( {
 		userInstructions,
 		tools: tools.map( toolPromptContribution ),
@@ -349,11 +348,11 @@ async function createStudioAgentSession(
 	const resultNotes =
 		site && ! site.remote ? ( text: string ) => notes( site.path, text ) : undefined;
 	const toolDefinitions = tools.map( ( tool ) =>
-		toToolDefinition( tool, payloadGuardState, pendingWork, resultNotes )
+		toToolDefinition( config.host, tool, payloadGuardState, pendingWork, resultNotes )
 	);
 	const modelRuntime = await createModelRuntime( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
-	const { sitesRoot } = studioHost();
+	const { sitesRoot } = config.host;
 	const resourceLoader = new DefaultResourceLoader( {
 		cwd: sitesRoot,
 		agentDir: sitesRoot,
@@ -626,6 +625,7 @@ function toolPromptContribution( tool: AgentToolAny ): ToolPromptContribution {
 }
 
 function toToolDefinition(
+	host: StudioAgentHost,
 	tool: AgentToolAny,
 	payloadGuardState: StudioToolPayloadGuardState,
 	pendingWork: PendingWork,
@@ -651,7 +651,8 @@ function toToolDefinition(
 			const fileWriteRefusal = await getFileWriteRefusal(
 				tool.name,
 				params,
-				studioHost().sitesRoot
+				host.sitesRoot,
+				async ( folder ) => Boolean( await host.sites.findByFolder( folder ) )
 			);
 			if ( fileWriteRefusal ) {
 				throw new Error( fileWriteRefusal );
@@ -680,35 +681,35 @@ function toToolDefinition(
 
 function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
-	chatArtifactsEnabled: boolean,
 	imageGenerationEnabled: boolean,
 	visionEnabled: boolean
 ): AgentToolAny[] {
+	const { host } = config;
 	const askUserTool: AgentToolAny[] = config.onAskUser
-		? [ createAskUserQuestionTool( config.onAskUser ) ]
+		? [ bindTool( createAskUserQuestionTool( config.onAskUser ), host ) ]
 		: [];
 	const tracks = getAiTracksIdentity( config.session.getSessionId() );
 	const designOptionsTool: AgentToolAny[] =
-		config.onAskUser && chatArtifactsEnabled
+		config.onAskUser && host.ui
 			? [
-					createPresentDesignOptionsTool( {
-						onAskUser: config.onAskUser,
-						tracks,
-					} ) as unknown as AgentToolAny,
+					bindTool(
+						createPresentDesignOptionsTool( { onAskUser: config.onAskUser, tracks } ),
+						host
+					) as unknown as AgentToolAny,
 			  ]
 			: [];
 
 	const skillToolDef = createSkillTool();
-	const skillTool: AgentToolAny[] = skillToolDef ? [ skillToolDef ] : [];
+	const skillTool: AgentToolAny[] = skillToolDef ? [ bindTool( skillToolDef, host ) ] : [];
 
 	// pi's tools are registered under Studio's names; the prompt text for them
 	// is Studio's too (file-tool-prompts.ts), so nothing of pi's wording leaks.
 	const renameTool = < S extends TSchema >( tool: AgentTool< S >, name: string ): AgentTool< S > =>
 		( { ...tool, name, label: name, ...getFileToolPrompt( name ) } ) as AgentTool< S >;
 
-	const { sitesRoot } = studioHost();
+	const { sitesRoot, ui } = host;
 	const designSystemPreview = < TTool extends AgentToolAny >( tool: TTool ) =>
-		chatArtifactsEnabled ? withDesignSystemPreview( tool, sitesRoot ) : tool;
+		ui ? withDesignSystemPreview( tool, sitesRoot, ui ) : tool;
 	const piTools: AgentToolAny[] = [
 		renameTool( createReadTool( sitesRoot ), 'Read' ),
 		designSystemPreview( renameTool( createWriteTool( sitesRoot ), 'Write' ) ),
@@ -718,8 +719,7 @@ function buildAgentTools(
 		renameTool( createFindTool( sitesRoot ), 'Glob' ),
 		renameTool( createLsTool( sitesRoot ), 'Ls' ),
 	];
-	const studioTools = resolveStudioToolDefinitions( {
-		emitChatArtifacts: chatArtifactsEnabled,
+	const studioTools = resolveStudioTools( host, {
 		imageGeneration: imageGenerationEnabled,
 		visionEnabled,
 		canAskUser: Boolean( config.onAskUser ),

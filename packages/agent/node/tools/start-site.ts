@@ -1,7 +1,6 @@
 import { Type } from 'typebox';
-import { studioHost } from '@studio/agent/node/host';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
-import { resolveSite, textResult } from './utils';
+import { textResult } from './utils';
 
 export const startSiteTool = defineTool(
 	'site_start',
@@ -11,8 +10,8 @@ export const startSiteTool = defineTool(
 	},
 	async ( args, context ) => {
 		try {
-			const site = await resolveSite( args.nameOrPath );
-			await studioHost().sites.start( site, context.onProgress );
+			const site = await context.host.sites.resolve( args.nameOrPath );
+			await context.host.sites.start( site, context.onProgress );
 			return textResult( `Site "${ site.name }" started at ${ site.url }` );
 		} catch ( error ) {
 			throw new Error(

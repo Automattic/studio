@@ -1,7 +1,6 @@
 import { Type } from 'typebox';
-import { studioHost } from '@studio/agent/node/host';
 import { defineTool, REMOTE_OVERWRITE } from './define-tool';
-import { resolveSite, textResult } from './utils';
+import { textResult } from './utils';
 
 export const pullSiteTool = defineTool(
 	'site_pull',
@@ -24,8 +23,8 @@ export const pullSiteTool = defineTool(
 	},
 	async ( args, context ) => {
 		try {
-			const site = await resolveSite( args.nameOrPath );
-			const result = await studioHost().sync.pull(
+			const site = await context.host.sites.resolve( args.nameOrPath );
+			const result = await context.host.sync.pull(
 				site,
 				args.options ?? 'all',
 				args.remoteSite,

@@ -6,8 +6,7 @@
 	"description": "The Studio Code agent: its contract with the apps (protocol) and its Node runtime (node)",
 	"exports": {
 		"./protocol/*": "./protocol/*.ts",
-		"./node/runtime": "./node/runtime/index.ts",
-		"./node/tools": "./node/tools/index.ts",
+		"./node": "./node/index.ts",
 		"./node/*": "./node/*.ts"
 	},
 	"scripts": {

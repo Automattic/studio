@@ -1,18 +1,16 @@
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { setScreenshotDirectoryProvider } from '@studio/agent/node/screenshot-storage';
+import { describe, expect, it, vi } from 'vitest';
 import { saveScreenshotFile } from '@studio/agent/node/tools/screenshot-helpers';
+import { createFakeHost } from './fake-host';
 
 describe( 'screenshot helpers', () => {
-	afterEach( () => {
-		setScreenshotDirectoryProvider( null );
-	} );
-
-	it( 'falls back to a temporary directory when no provider is set', async () => {
+	it( 'falls back to a temporary directory when the host names none', async () => {
 		const buffer = Buffer.from( 'not-really-a-png' );
-		const result = await saveScreenshotFile( buffer, { viewportType: 'desktop' } );
+		const result = await saveScreenshotFile( createFakeHost(), buffer, {
+			viewportType: 'desktop',
+		} );
 
 		try {
 			expect( result.path.startsWith( os.tmpdir() ) ).toBe( true );
@@ -25,18 +23,18 @@ describe( 'screenshot helpers', () => {
 		}
 	} );
 
-	it( 'saves captures into the provided session directory with unique names', async () => {
+	it( "saves captures into the host's session directory with unique names", async () => {
 		const sessionRoot = await mkdtemp( path.join( os.tmpdir(), 'studio-session-' ) );
 		const screenshotsDirectory = path.join( sessionRoot, 'session.screenshots' );
-		setScreenshotDirectoryProvider( () => screenshotsDirectory );
+		const host = { ...createFakeHost(), screenshotsDirectory: () => screenshotsDirectory };
 
 		try {
-			const first = await saveScreenshotFile( Buffer.from( 'first' ), {
+			const first = await saveScreenshotFile( host, Buffer.from( 'first' ), {
 				viewportType: 'desktop',
 				format: 'jpeg',
 				colorScheme: 'dark',
 			} );
-			const second = await saveScreenshotFile( Buffer.from( 'second' ), {
+			const second = await saveScreenshotFile( host, Buffer.from( 'second' ), {
 				viewportType: 'desktop',
 				format: 'jpeg',
 				colorScheme: 'dark',
@@ -53,13 +51,16 @@ describe( 'screenshot helpers', () => {
 		}
 	} );
 
-	it( 'falls back to a temporary directory when the provider throws, and says so', async () => {
+	it( 'falls back to a temporary directory when the host cannot name one, and says so', async () => {
 		const warnSpy = vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
-		setScreenshotDirectoryProvider( () => {
-			throw new Error( 'no session' );
-		} );
+		const host = {
+			...createFakeHost(),
+			screenshotsDirectory: () => {
+				throw new Error( 'no session' );
+			},
+		};
 
-		const result = await saveScreenshotFile( Buffer.from( 'fallback' ), {
+		const result = await saveScreenshotFile( host, Buffer.from( 'fallback' ), {
 			viewportType: 'mobile',
 		} );
 

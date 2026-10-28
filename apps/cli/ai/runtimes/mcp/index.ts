@@ -10,17 +10,23 @@ import {
 	ReadResourceRequestSchema,
 	// eslint-disable-next-line import-x/no-unresolved -- subpath resolved via package's wildcard export, which the lint resolver doesn't follow
 } from '@modelcontextprotocol/sdk/types.js';
-import { type DesignTracksContext } from '@studio/agent/node/design-tracks';
-import { setStudioAgentHost } from '@studio/agent/node/host';
-import { isImageGenerationAvailable } from '@studio/agent/node/image-generation';
-import { createResultNotes } from '@studio/agent/node/result-notes';
-import { loadSkills } from '@studio/agent/node/skills';
-import { buildSystemPrompt } from '@studio/agent/node/system-prompt';
-import { resolveStudioToolDefinitions } from '@studio/agent/node/tools';
-import { defineTool, READ_ONLY, type StudioAgentTool } from '@studio/agent/node/tools/define-tool';
-import { createPresentDesignOptionsTool } from '@studio/agent/node/tools/present-design-options';
-import { renderSkill } from '@studio/agent/node/tools/skill';
-import { textResult } from '@studio/agent/node/tools/utils';
+import {
+	bindTool,
+	buildSystemPrompt,
+	createAgent,
+	createPresentDesignOptionsTool,
+	createResultNotes,
+	defineTool,
+	isImageGenerationAvailable,
+	loadSkills,
+	READ_ONLY,
+	renderSkill,
+	textResult,
+	type DesignTracksContext,
+	type StudioAgent,
+	type StudioAgentHost,
+	type StudioAgentTool,
+} from '@studio/agent/node';
 import { Type, type TSchema } from 'typebox';
 import { Value } from 'typebox/value';
 import { cliAgentHost } from 'cli/ai/host';
@@ -68,24 +74,25 @@ interface ServedTool {
 }
 
 function createTools(
+	agent: StudioAgent,
+	host: StudioAgentHost,
 	client: ClientSupport,
 	imageGeneration: boolean,
 	tracks?: DesignTracksContext
 ): ServedTool[] {
 	const imageLink = ( file: string ) =>
 		client.fileImageLinks ? pathToFileURL( file ).href : file;
-	const definitions = resolveStudioToolDefinitions( {
+	const definitions = agent.tools( {
 		imageGeneration: imageGeneration && ! client.ownImageTool,
 		canAskUser: true,
 		imageLink,
 		tracks,
 		wpcomRequest: client.wpcomRequest,
 	} );
-	const designOptions = createPresentDesignOptionsTool( {
-		imageLink,
-		picker: client.apps,
-		tracks,
-	} );
+	const designOptions = bindTool(
+		createPresentDesignOptionsTool( { imageLink, picker: client.apps, tracks } ),
+		host
+	);
 	// Fetched on demand rather than sent as the server's instructions, which
 	// hosts keep in context for every conversation and may truncate.
 	const instructionsTool = defineTool(
@@ -113,12 +120,17 @@ function createTools(
 	);
 	const library = client.apps ? libraryPage() : null;
 	return [
-		...[ instructionsTool, ...definitions ].map( ( tool ) => ( { tool } ) ),
+		...[ bindTool( instructionsTool, host ), ...definitions ].map( ( tool ) => ( { tool } ) ),
 		{
 			tool: designOptions,
 			listing: client.apps ? { _meta: { ui: { resourceUri: DESIGN_PICKER_URI } } } : undefined,
 		},
-		...( library ? createLibraryTools( library.uri ) : [] ),
+		...( library
+			? createLibraryTools( library.uri ).map( ( { tool, listing } ) => ( {
+					tool: bindTool( tool, host ),
+					listing,
+			  } ) )
+			: [] ),
 	] as ServedTool[];
 }
 
@@ -137,7 +149,8 @@ export async function startMcpStdioServer(): Promise< void > {
 	// Tells this process's events, and those of the processes it starts, apart
 	// from terminal use. The plugin's MCP config sets STUDIO_PLUGIN_ID.
 	process.env.STUDIO_TRACKS_ORIGIN = 'studio-mcp';
-	setStudioAgentHost( cliAgentHost );
+	const host = cliAgentHost;
+	const agent = createAgent( { host } );
 	const sessionId = randomUUID();
 	const resultNotes = createResultNotes();
 	const imageGeneration = await isImageGenerationAvailable();
@@ -151,11 +164,11 @@ export async function startMcpStdioServer(): Promise< void > {
 	);
 	// The tools depend on what the client supports, known once it has connected.
 	let client = describeClient( server );
-	let tools = createTools( client, imageGeneration );
+	let tools = createTools( agent, host, client, imageGeneration );
 	server.oninitialized = () => {
 		client = describeClient( server );
 		process.env.STUDIO_MCP_CLIENT = server.getClientVersion()?.name ?? '';
-		tools = createTools( client, imageGeneration, {
+		tools = createTools( agent, host, client, imageGeneration, {
 			ai_session_id: sessionId,
 			agent_name: process.env.STUDIO_MCP_CLIENT || 'unknown',
 			client: 'studio-mcp',
@@ -197,7 +210,7 @@ export async function startMcpStdioServer(): Promise< void > {
 				isError: true,
 			};
 		}
-		return runServedTool( tool, args, resultNotes );
+		return runServedTool( host, tool, args, resultNotes );
 	} );
 
 	// Only clients that render MCP Apps get the pages listed.

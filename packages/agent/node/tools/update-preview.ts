@@ -1,9 +1,7 @@
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { Type } from 'typebox';
-import { studioHost } from '@studio/agent/node/host';
 import { defineTool, REMOTE_OVERWRITE } from './define-tool';
 import { runPreviewCommand } from './preview-helpers';
-import { resolveSite } from './utils';
 
 export const updatePreviewTool = defineTool(
 	'preview_update',
@@ -24,8 +22,8 @@ export const updatePreviewTool = defineTool(
 		const normalizedHost = normalizeHostname( args.host );
 		return runPreviewCommand(
 			async () => {
-				const site = await resolveSite( args.nameOrPath );
-				return studioHost().previews.update(
+				const site = await context.host.sites.resolve( args.nameOrPath );
+				return context.host.previews.update(
 					site,
 					normalizedHost,
 					args.overwrite ?? false,

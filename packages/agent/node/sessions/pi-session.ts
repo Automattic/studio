@@ -2,7 +2,6 @@ import fs from 'fs/promises';
 import path from 'path';
 import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
-import { studioHost } from '@studio/agent/node/host';
 import { migrateLegacyFileInPlace } from '@studio/agent/node/sessions/migration';
 import { getAiSessionsDirectoryForDate } from '@studio/agent/node/sessions/paths';
 
@@ -10,17 +9,21 @@ export interface CreateStudioSessionOptions {
 	startedAt?: Date;
 }
 
+// Sessions run in `sitesRoot`, the folder the agent's file tools are rooted in.
 export async function createStudioSession(
+	sitesRoot: string,
 	options: CreateStudioSessionOptions = {}
 ): Promise< SessionManager > {
 	const startedAt = options.startedAt ?? new Date();
 	const sessionDir = getAiSessionsDirectoryForDate( getSessionsDirectory(), startedAt );
 	await fs.mkdir( sessionDir, { recursive: true } );
-	return SessionManager.create( studioHost().sitesRoot, sessionDir );
+	return SessionManager.create( sitesRoot, sessionDir );
 }
 
-export async function openStudioSession( filePath: string ): Promise< SessionManager > {
-	const { sitesRoot } = studioHost();
+export async function openStudioSession(
+	sitesRoot: string,
+	filePath: string
+): Promise< SessionManager > {
 	await migrateLegacyFileInPlace( filePath, sitesRoot );
 	const sessionDir = path.dirname( filePath );
 	return SessionManager.open( filePath, sessionDir, sitesRoot );

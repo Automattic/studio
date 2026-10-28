@@ -55,7 +55,7 @@ export function createPickDesignTool( {
 				)
 			),
 		},
-		async ( args ) => {
+		async ( args, { host } ) => {
 			const count = canAskUser ? args.options : 1;
 			const seen = canAskUser ? shown[ args.catalog ] : [];
 			const isRedraw = seen.length > 0;
@@ -74,7 +74,7 @@ export function createPickDesignTool( {
 			);
 			const drawId = randomUUID();
 			for ( const [ index, entry ] of entries.entries() ) {
-				await recordDesignTracksEvent( TRACKS_EVENTS.CODE_DESIGN_OPTION_PROPOSED, tracks, {
+				await recordDesignTracksEvent( host, TRACKS_EVENTS.CODE_DESIGN_OPTION_PROPOSED, tracks, {
 					catalog: args.catalog,
 					option: entry.name,
 					position: index + 1,

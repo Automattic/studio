@@ -3,22 +3,23 @@ import path from 'path';
 import { downloadThemeFonts } from '@studio/common/lib/theme-fonts';
 import { parseDesignMd, ThemeJson, themeJsonFromDesign } from '@studio/design-md';
 import { Type } from 'typebox';
-import { studioHost, type HostSite } from '@studio/agent/node/host';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
-import { resolveSite, runWpCli, textResult } from './utils';
+import { runWpCli, textResult } from './utils';
+import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 
 async function activateTheme(
+	host: StudioAgentHost,
 	site: HostSite,
 	slug: string
 ): Promise< { ok: boolean; message: string } > {
 	try {
-		if ( ! ( await studioHost().sites.isRunning( site ) ) ) {
+		if ( ! ( await host.sites.isRunning( site ) ) ) {
 			return {
 				ok: false,
 				message: `Site is not running. Start it (site_start) then run \`wp theme activate ${ slug }\`.`,
 			};
 		}
-		const stdout = await runWpCli( site, [ 'theme', 'activate', slug ] );
+		const stdout = await runWpCli( host, site, [ 'theme', 'activate', slug ] );
 		return { ok: true, message: stdout || `Activated theme '${ slug }'.` };
 	} catch ( error ) {
 		return {
@@ -416,9 +417,9 @@ export const scaffoldThemeTool = defineTool(
 			} )
 		),
 	},
-	async ( args ) => {
+	async ( args, context ) => {
 		try {
-			const site = await resolveSite( args.nameOrPath );
+			const site = await context.host.sites.resolve( args.nameOrPath );
 
 			const trimmedName = args.name.trim();
 			if ( ! trimmedName ) {
@@ -532,7 +533,7 @@ export const scaffoldThemeTool = defineTool(
 			}
 
 			const shouldActivate = args.activate ?? true;
-			const activation = shouldActivate ? await activateTheme( site, slug ) : null;
+			const activation = shouldActivate ? await activateTheme( context.host, site, slug ) : null;
 
 			const summaryLines =
 				parentSlug !== undefined

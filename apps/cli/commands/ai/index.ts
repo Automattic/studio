@@ -1,17 +1,12 @@
-import { closeSharedBrowser } from '@studio/agent/node/browser-utils';
-import { setChatArtifactCallback } from '@studio/agent/node/chat-artifacts';
-import { setStudioAgentHost } from '@studio/agent/node/host';
-import { runStudioAgentTurn } from '@studio/agent/node/runtime';
-import { setScreenshotDirectoryProvider } from '@studio/agent/node/screenshot-storage';
-import { resolveResumeSessionContext } from '@studio/agent/node/sessions/context';
 import {
-	createStudioSession,
-	listStudioSessionFiles,
-	openStudioSession,
-} from '@studio/agent/node/sessions/pi-session';
+	closeSharedBrowser,
+	createAgent,
+	createTurnStatsTracker,
+	resolveResumeSessionContext,
+	type StudioAgentHost,
+	AskUserQuestion,
+} from '@studio/agent/node';
 import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/agent/node/settings-store';
-import { setLocalSiteSelectedCallback } from '@studio/agent/node/site-selection';
-import { createTurnStatsTracker } from '@studio/agent/node/turn-stats';
 import { buildChatAttachmentSummaries } from '@studio/agent/protocol/chat-attachments';
 import {
 	buildAttachedFilesPromptBlock,
@@ -48,6 +43,7 @@ import {
 	saveSelectedAiProvider,
 } from 'cli/ai/auth';
 import { cliAgentHost } from 'cli/ai/host';
+import { emitEvent } from 'cli/ai/json-events';
 import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
 import {
 	AI_PROVIDERS,
@@ -72,7 +68,6 @@ import {
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import type { SessionManager } from '@earendil-works/pi-coding-agent';
-import type { AskUserQuestion } from '@studio/agent/node/types';
 import type {
 	StudioCustomEntryDataMap,
 	StudioCustomEntryType,
@@ -163,9 +158,48 @@ export async function runCommand( options: {
 		wpcomSiteId?: number;
 	};
 } ): Promise< void > {
-	setStudioAgentHost( cliAgentHost );
 	const ui = options.adapter;
 	const isJsonMode = ui instanceof JsonAdapter;
+	const host: StudioAgentHost = {
+		...cliAgentHost,
+		// Persist screenshots next to the session file (`<session>.screenshots/`)
+		// so artifacts in the transcript keep rendering after OS temp cleanup;
+		// `deleteAiSession` removes the sidecar together with the session.
+		screenshotsDirectory: async () => {
+			const sm = await ensureSession();
+			const sessionFile = sm.getSessionFile();
+			if ( ! sessionFile?.endsWith( '.jsonl' ) ) {
+				return null;
+			}
+			return `${ sessionFile.slice( 0, -'.jsonl'.length ) }.screenshots`;
+		},
+		selectSite:
+			ui instanceof JsonAdapter
+				? async ( site ) => {
+						ui.activeSite = site;
+						await append( ( sm ) =>
+							appendStudioEntry( sm, 'studio.site_selected', {
+								siteName: site.name,
+								sitePath: site.path,
+								siteId: site.id,
+							} )
+						);
+				  }
+				: undefined,
+		// Forked by a Studio app, which shows the conversation.
+		ui:
+			typeof process.send === 'function'
+				? {
+						showArtifact: async ( artifact ) => {
+							await append( ( sm ) => appendStudioEntry( sm, 'studio.chat_artifact', artifact ) );
+							emitEvent( { type: 'chat.artifact', timestamp: new Date().toISOString(), artifact } );
+						},
+						reloadPreview: () =>
+							emitEvent( { type: 'preview.reload', timestamp: new Date().toISOString() } ),
+				  }
+				: undefined,
+	};
+	const agent = createAgent( { host } );
 	const resumeContext = resolveResumeSessionContext( options.resumeSession );
 	let currentProvider: AiProviderId =
 		resumeContext.provider ?? ( await resolveInitialAiProvider() );
@@ -231,13 +265,13 @@ export async function runCommand( options: {
 		if ( session ) return session;
 
 		if ( options.resumeSession ) {
-			session = await openStudioSession( options.resumeSession.summary.filePath );
+			session = await agent.sessions.open( options.resumeSession.summary.filePath );
 		} else if ( options.resumeSessionId ) {
-			const files = await listStudioSessionFiles( getSessionsDirectory() );
+			const files = await agent.sessions.list( getSessionsDirectory() );
 			let match: string | undefined;
 			for ( const file of files ) {
 				try {
-					const sm = await openStudioSession( file );
+					const sm = await agent.sessions.open( file );
 					if ( sm.getSessionId() === options.resumeSessionId ) {
 						session = sm;
 						match = file;
@@ -268,7 +302,7 @@ export async function runCommand( options: {
 				);
 			}
 		} else {
-			session = await createStudioSession();
+			session = await agent.sessions.create();
 		}
 
 		return session!;
@@ -305,22 +339,6 @@ export async function runCommand( options: {
 		);
 	}
 
-	setChatArtifactCallback( ( artifact ) =>
-		append( ( sm ) => appendStudioEntry( sm, 'studio.chat_artifact', artifact ) )
-	);
-
-	// Persist screenshots next to the session file (`<session>.screenshots/`)
-	// so artifacts in the transcript keep rendering after OS temp cleanup;
-	// `deleteAiSession` removes the sidecar together with the session.
-	setScreenshotDirectoryProvider( async () => {
-		const sm = await ensureSession();
-		const sessionFile = sm.getSessionFile();
-		if ( ! sessionFile?.endsWith( '.jsonl' ) ) {
-			return null;
-		}
-		return `${ sessionFile.slice( 0, -'.jsonl'.length ) }.screenshots`;
-	} );
-
 	ui.onSiteSelected = ( site ) => {
 		void append( ( sm ) =>
 			appendStudioEntry( sm, 'studio.site_selected', {
@@ -333,21 +351,6 @@ export async function runCommand( options: {
 			} )
 		);
 	};
-
-	setLocalSiteSelectedCallback(
-		ui instanceof JsonAdapter
-			? async ( site ) => {
-					ui.activeSite = site;
-					await append( ( sm ) =>
-						appendStudioEntry( sm, 'studio.site_selected', {
-							siteName: site.name,
-							sitePath: site.path,
-							siteId: site.id,
-						} )
-					);
-			  }
-			: null
-	);
 
 	if ( options.resumeSession ) {
 		ui.showInfo(
@@ -665,7 +668,7 @@ export async function runCommand( options: {
 		};
 		const turnStats = createTurnStatsTracker();
 
-		const agentQuery = runStudioAgentTurn( {
+		const agentQuery = agent.runTurn( {
 			prompt: enrichedPrompt,
 			images,
 			env,
@@ -767,7 +770,6 @@ export async function runCommand( options: {
 			handleAgentTurnError( error );
 			( ui as JsonAdapter ).emitTurnCompleted( 'error', session?.getSessionId() ?? '' );
 		} finally {
-			setLocalSiteSelectedCallback( null );
 			ui.stop();
 			await closeSharedBrowser();
 		}
@@ -819,7 +821,7 @@ export async function runCommand( options: {
 		maybeAutoSwitchProvider,
 		persistSessionContext,
 		async clearSession() {
-			session = await createStudioSession();
+			session = await agent.sessions.create();
 			ui.clearTranscript();
 			ui.showWelcome();
 			ui.showInfo( __( 'Conversation cleared' ) );

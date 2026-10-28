@@ -1,7 +1,7 @@
 /**
  * PromptFoo eval runner for Studio Code agent.
  *
- * Hooks into runStudioAgentTurn() to capture tool calls, tool results, and
+ * Hooks into the agent's turns to capture tool calls, tool results, and
  * assistant text. Returns raw structured data — assertions live in the
  * promptfoo config, not here.
  */
@@ -19,12 +19,16 @@ import os from 'node:os';
 import path from 'node:path';
 import { SessionManager } from '@earendil-works/pi-coding-agent';
 import {
+	addAssistantMessageUsage,
+	createAgent,
+	createTokenUsage,
+	type AskUserHandler,
+	type SiteInfo,
+} from '@studio/agent/node';
+import {
 	readGlobalInstructionsFile,
 	writeGlobalInstructions,
 } from '@studio/agent/node/global-instructions';
-import { setStudioAgentHost } from '@studio/agent/node/host';
-import { runStudioAgentTurn } from '@studio/agent/node/runtime';
-import { addAssistantMessageUsage, createTokenUsage } from '@studio/agent/node/token-usage';
 import { DEFAULT_MODEL, isAiModelId, type AiModelId } from '@studio/agent/protocol/models';
 import { findLastAssistant } from '@studio/agent/protocol/session-events';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
@@ -63,7 +67,6 @@ import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { Logger } from 'cli/logger';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
-import type { AskUserHandler, SiteInfo } from '@studio/agent/node/types';
 import type { AiProviderId } from 'cli/ai/providers';
 
 // Optional fixtures a test can pre-seed before the agent turn, so flows that
@@ -542,7 +545,8 @@ function readInput(): EvalRunnerInput {
 }
 
 async function runEval( input: EvalRunnerInput ) {
-	// Mirrors the fallback in runStudioAgentTurn (ai/runtimes/pi/index.ts) — keep in sync.
+	const agent = createAgent( { host: cliAgentHost } );
+	// Mirrors the fallback in the agent runtime (packages/agent/node/runtime) — keep in sync.
 	const resolvedModel = input.model ?? DEFAULT_MODEL;
 	const evalStartedAt = Date.now();
 	const elapsed = () => Date.now() - evalStartedAt;
@@ -730,7 +734,7 @@ async function runEval( input: EvalRunnerInput ) {
 	};
 
 	const runTurn = ( turnPrompt: string ) =>
-		runStudioAgentTurn( {
+		agent.runTurn( {
 			prompt: turnPrompt,
 			env,
 			session,
@@ -811,7 +815,6 @@ const RESULT_PREFIX = 'EVAL_RUNNER_RESULT_FILE=';
 // tmp file, and emit only `EVAL_RUNNER_RESULT_FILE=<path>` via a raw
 // `fs.writeSync(1, …)` that bypasses the wrapper.
 async function main() {
-	setStudioAgentHost( cliAgentHost );
 	const filePath = path.join( os.tmpdir(), `studio-eval-${ Date.now() }-${ process.pid }.json` );
 
 	( process.stdout as unknown as { write: ( ...args: unknown[] ) => boolean } ).write = (

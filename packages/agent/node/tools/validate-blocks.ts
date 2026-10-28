@@ -5,7 +5,7 @@ import { Type } from 'typebox';
 import { validateHtmlBlockPolicy } from '@studio/agent/node/block-content-policy';
 import { validateBlocks, type ValidationReportBase } from '@studio/agent/node/block-validator';
 import { defineTool, LOCAL_OVERWRITE } from './define-tool';
-import { resolveSite, textResult } from './utils';
+import { textResult } from './utils';
 
 function formatPreview( content: string ): string {
 	const compact = content.replace( /\s+/g, ' ' ).trim();
@@ -59,7 +59,7 @@ export const validateBlocksTool = defineTool(
 	},
 	async ( args, context ) => {
 		try {
-			const site = await resolveSite( args.nameOrPath );
+			const site = await context.host.sites.resolve( args.nameOrPath );
 			let blockContent: string;
 			let fileName = 'inline content';
 			let filePath: string | undefined;

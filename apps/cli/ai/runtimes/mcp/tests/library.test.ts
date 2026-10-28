@@ -1,4 +1,6 @@
+import { bindTool } from '@studio/agent/node';
 import { describe, expect, it, vi } from 'vitest';
+import { cliAgentHost } from 'cli/ai/host';
 import { createLibraryTools } from 'cli/ai/runtimes/mcp/library';
 
 vi.mock( 'cli/lib/cli-config/core', async ( importOriginal ) => ( {
@@ -14,9 +16,11 @@ describe( 'WordPress library', () => {
 	it( 'opens from the sidebar with the local sites, for the page only', async () => {
 		const [ open ] = createLibraryTools( 'ui://studio/library.html' );
 
-		expect( ( await open.tool.rawHandler( {} as never ) )._meta ).toEqual( {
-			localSites: [ expect.objectContaining( { id: 'a1', running: true } ) ],
-		} );
+		expect( ( await bindTool( open.tool, cliAgentHost ).rawHandler( {} as never ) )._meta ).toEqual(
+			{
+				localSites: [ expect.objectContaining( { id: 'a1', running: true } ) ],
+			}
+		);
 		expect( open.listing._meta ).toMatchObject( {
 			ui: { visibility: [ 'app' ] },
 			'openai/ui': { entrypoints: [ { type: 'global' }, { type: 'thread' } ] },

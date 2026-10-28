@@ -2,7 +2,11 @@ import { mkdtemp, rm, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { bindTool } from '@studio/agent/node/tools/define-tool';
 import { wpcomRequestTool } from '@studio/agent/node/tools/wpcom-request';
+import { createFakeHost } from './fake-host';
+
+const wpcomRequest = bindTool( wpcomRequestTool, createFakeHost() );
 
 const mocks = vi.hoisted( () => ( {
 	req: {
@@ -56,7 +60,7 @@ describe( 'wpcom_request', () => {
 		};
 		await writeFile( bodyPath, JSON.stringify( globalStylesBody ) );
 
-		const result = await wpcomRequestTool.rawHandler( {
+		const result = await wpcomRequest.rawHandler( {
 			siteId: 123,
 			method: 'POST',
 			path: '/pages/4',
@@ -75,7 +79,7 @@ describe( 'wpcom_request', () => {
 		expect( result.content[ 0 ] ).toEqual( { type: 'text', text: '{"ok":true}' } );
 
 		mocks.req.post.mockClear();
-		await wpcomRequestTool.rawHandler( {
+		await wpcomRequest.rawHandler( {
 			siteId: 123,
 			method: 'POST',
 			path: '/global-styles/7',
@@ -103,7 +107,7 @@ describe( 'wpcom_request', () => {
 			},
 		} );
 
-		const result = await wpcomRequestTool.rawHandler( {
+		const result = await wpcomRequest.rawHandler( {
 			siteId: 123,
 			method: 'GET',
 			path: '/',
@@ -118,7 +122,7 @@ describe( 'wpcom_request', () => {
 	it( 'needs a stored WordPress.com login', async () => {
 		mocks.readAuthToken.mockResolvedValue( undefined );
 		await expect(
-			wpcomRequestTool.rawHandler( { siteId: 456, method: 'GET', path: '/posts' } )
+			wpcomRequest.rawHandler( { siteId: 456, method: 'GET', path: '/posts' } )
 		).rejects.toThrow( 'Not logged in to WordPress.com' );
 	} );
 } );

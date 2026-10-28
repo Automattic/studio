@@ -1,7 +1,6 @@
 import { existsSync } from 'fs';
 import os from 'os';
 import path from 'path';
-import { studioHost } from '@studio/agent/node/host';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 
 // Keep individual model-generated tool payloads below the range where long
@@ -132,10 +131,6 @@ function findWordPressRoot( filePath: string ): string | undefined {
 	return undefined;
 }
 
-async function isStudioSiteFolder( folder: string ): Promise< boolean > {
-	return Boolean( await studioHost().sites.findByFolder( folder ) );
-}
-
 /**
  * A Studio site's WordPress core is replaced when Studio updates WordPress, so
  * a change there is lost. Refuses Write and Edit on it and names where the
@@ -145,7 +140,7 @@ export async function getFileWriteRefusal(
 	toolName: string,
 	params: unknown,
 	cwd: string,
-	isStudioSite: ( folder: string ) => Promise< boolean > = isStudioSiteFolder
+	isStudioSite: ( folder: string ) => Promise< boolean >
 ): Promise< string | undefined > {
 	const filePath = getStringParam( params, 'path' );
 	if ( ( toolName !== 'Write' && toolName !== 'Edit' ) || ! filePath ) {

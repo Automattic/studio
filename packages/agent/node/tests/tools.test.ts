@@ -7,19 +7,16 @@ import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { vi } from 'vitest';
 import { validateBlocks } from '@studio/agent/node/block-validator';
 import { getSharedBrowser } from '@studio/agent/node/browser-utils';
-import { setChatArtifactCallback } from '@studio/agent/node/chat-artifacts';
-import { setStudioAgentHost, type StudioAgentHost } from '@studio/agent/node/host';
 import { generateImages, isImageGenerationAvailable } from '@studio/agent/node/image-generation';
-import { emitEvent } from '@studio/agent/node/json-events';
-import { setScreenshotDirectoryProvider } from '@studio/agent/node/screenshot-storage';
-import { setLocalSiteSelectedCallback } from '@studio/agent/node/site-selection';
 import {
-	resolveStudioToolDefinitions,
+	resolveStudioTools,
 	studioToolDefinitions,
 	withChatArtifactEmission,
+	type StudioToolsOptions,
 } from '@studio/agent/node/tools';
 import { createSiteTool } from '@studio/agent/node/tools/create-site';
 import {
+	bindTool,
 	LOCAL_CHANGE,
 	READ_ONLY,
 	REMOTE_READ,
@@ -29,6 +26,7 @@ import { enrichPreviewListOutput } from '@studio/agent/node/tools/list-previews'
 import { createTakeScreenshotTool } from '@studio/agent/node/tools/take-screenshot';
 import { splitCommandArgs } from '@studio/agent/node/tools/wp-cli';
 import { createFakeHost, fakeSite } from './fake-host';
+import type { StudioAgentHost } from '@studio/agent/node/host';
 
 vi.mock( '@studio/agent/node/block-validator', () => ( {
 	validateBlocks: vi.fn(),
@@ -36,10 +34,6 @@ vi.mock( '@studio/agent/node/block-validator', () => ( {
 
 vi.mock( '@studio/agent/node/browser-utils', () => ( {
 	getSharedBrowser: vi.fn(),
-} ) );
-
-vi.mock( '@studio/agent/node/json-events', () => ( {
-	emitEvent: vi.fn(),
 } ) );
 
 vi.mock( '@studio/agent/node/image-generation', async () => ( {
@@ -66,17 +60,20 @@ describe( 'Studio AI MCP tools', () => {
 	const getTool = ( name: string ) => {
 		const tool = studioToolDefinitions.find( ( definition ) => definition.name === name );
 		expect( tool ).toBeDefined();
-		return tool as ( typeof studioToolDefinitions )[ number ];
+		return bindTool( tool!, host );
+	};
+	const withUi = () => {
+		const ui = { showArtifact: vi.fn(), reloadPreview: vi.fn() };
+		host.ui = ui;
+		return ui;
 	};
 
 	const getTextContent = ( result: { content?: Array< { type: string; text?: string } > } ) => {
 		const firstContent = result.content?.[ 0 ];
 		return firstContent && 'text' in firstContent ? firstContent.text : undefined;
 	};
-	const executeTool = (
-		tool: ReturnType< typeof resolveStudioToolDefinitions >[ number ],
-		args: Record< string, unknown >
-	) => tool.execute( 'tool-call-1', args as never, new AbortController().signal, () => {} );
+	const executeTool = ( tool: AnyStudioAgentTool, args: Record< string, unknown > ) =>
+		tool.execute( 'tool-call-1', args as never, new AbortController().signal, () => {} );
 	const createMockPage = ( {
 		buffer,
 		documentHeight,
@@ -138,23 +135,16 @@ describe( 'Studio AI MCP tools', () => {
 	beforeEach( () => {
 		vi.resetAllMocks();
 		host = createFakeHost( os.tmpdir() );
-		setStudioAgentHost( host );
-	} );
-
-	afterEach( () => {
-		setLocalSiteSelectedCallback( null );
 	} );
 
 	it( 'offers refresh_browser only when a Studio UI shows the preview', async () => {
-		const names = ( options?: Parameters< typeof resolveStudioToolDefinitions >[ 0 ] ) =>
-			resolveStudioToolDefinitions( options ).map( ( tool ) => tool.name );
+		const names = () => resolveStudioTools( host ).map( ( tool ) => tool.name );
 		expect( names() ).not.toContain( 'refresh_browser' );
-		expect( names( { emitChatArtifacts: true } ) ).toContain( 'refresh_browser' );
+		const ui = withUi();
+		expect( names() ).toContain( 'refresh_browser' );
 
 		await getTool( 'refresh_browser' ).rawHandler( {} as never );
-		expect( emitEvent ).toHaveBeenCalledWith(
-			expect.objectContaining( { type: 'preview.reload' } )
-		);
+		expect( ui.reloadPreview ).toHaveBeenCalled();
 	} );
 
 	it( 'marks only reads and non-destructive local changes as safe to run without asking', () => {
@@ -178,8 +168,8 @@ describe( 'Studio AI MCP tools', () => {
 	} );
 
 	it( 'leaves out wpcom_request only for hosts that turn it off', () => {
-		const names = ( options: Parameters< typeof resolveStudioToolDefinitions >[ 0 ] ) =>
-			resolveStudioToolDefinitions( options ).map( ( tool ) => tool.name );
+		const names = ( options: StudioToolsOptions ) =>
+			resolveStudioTools( host, options ).map( ( tool ) => tool.name );
 		expect( names( {} ) ).toContain( 'wpcom_request' );
 		expect( names( { wpcomRequest: false } ) ).not.toContain( 'wpcom_request' );
 	} );
@@ -269,7 +259,7 @@ describe( 'Studio AI MCP tools', () => {
 	it( 'pick_design offers options only when the user can be asked, and draws one otherwise', async () => {
 		expect( getTool( 'pick_design' ).description ).not.toContain( 'options: 4' );
 		expect(
-			resolveStudioToolDefinitions( { canAskUser: true } ).find( ( t ) => t.name === 'pick_design' )
+			resolveStudioTools( host, { canAskUser: true } ).find( ( t ) => t.name === 'pick_design' )
 				?.description
 		).toContain( 'options: 4' );
 		const text =
@@ -285,11 +275,10 @@ describe( 'Studio AI MCP tools', () => {
 
 		beforeEach( async () => {
 			screenshotDirectory = await mkdtemp( path.join( os.tmpdir(), 'studio-screenshots-' ) );
-			setScreenshotDirectoryProvider( () => screenshotDirectory );
+			host.screenshotsDirectory = () => screenshotDirectory;
 		} );
 
 		afterEach( async () => {
-			setScreenshotDirectoryProvider( null );
 			await rm( screenshotDirectory, { recursive: true, force: true } );
 		} );
 
@@ -328,7 +317,8 @@ describe( 'Studio AI MCP tools', () => {
 				createMockPage( { buffer: Buffer.from( 'jpeg' ), documentHeight: 900 } )
 			);
 
-			const result = await createTakeScreenshotTool( { visionEnabled: false } ).rawHandler( {
+			const tool = bindTool( createTakeScreenshotTool( { visionEnabled: false } ), host );
+			const result = await tool.rawHandler( {
 				url: 'http://localhost:8903/',
 				display: false,
 			} as never );
@@ -339,14 +329,11 @@ describe( 'Studio AI MCP tools', () => {
 
 		it( 'says when the user sees only the saved file path', async () => {
 			const note = 'The user does not see this capture';
-			const resultWith = async (
-				options: Parameters< typeof resolveStudioToolDefinitions >[ 0 ],
-				display?: boolean
-			) => {
+			const resultWith = async ( options: StudioToolsOptions, display?: boolean ) => {
 				mockScreenshotBrowser(
 					createMockPage( { buffer: Buffer.from( 'jpeg' ), documentHeight: 900 } )
 				);
-				const tool = resolveStudioToolDefinitions( options ).find(
+				const tool = resolveStudioTools( host, options ).find(
 					( definition ) => definition.name === 'take_screenshot'
 				);
 				const result = await tool!.rawHandler( {
@@ -357,7 +344,9 @@ describe( 'Studio AI MCP tools', () => {
 			};
 			const imageLink = ( file: string ) => `file://${ file }`;
 			expect( await resultWith( {} ) ).toContain( note );
-			expect( await resultWith( { emitChatArtifacts: true } ) ).not.toContain( note );
+			withUi();
+			expect( await resultWith( {} ) ).not.toContain( note );
+			host.ui = undefined;
 			const linked = await resultWith( { imageLink } );
 			expect( linked ).not.toContain( note );
 			expect( linked ).toContain(
@@ -473,9 +462,10 @@ describe( 'Studio AI MCP tools', () => {
 	} );
 
 	it( 'emits a site preview artifact when site_create succeeds with chat artifacts enabled', async () => {
-		const tool = resolveStudioToolDefinitions( {
-			emitChatArtifacts: true,
-		} ).find( ( definition ) => definition.name === 'site_create' );
+		const ui = withUi();
+		const tool = resolveStudioTools( host ).find(
+			( definition ) => definition.name === 'site_create'
+		);
 		expect( tool ).toBeDefined();
 
 		const result = await executeTool( tool!, { name: 'My Site' } );
@@ -485,22 +475,19 @@ describe( 'Studio AI MCP tools', () => {
 			path.join( os.tmpdir(), 'my-site' ),
 			expect.any( Function )
 		);
-		expect( emitEvent ).toHaveBeenCalledWith(
+		expect( ui.showArtifact ).toHaveBeenCalledWith(
 			expect.objectContaining( {
-				type: 'chat.artifact',
-				artifact: expect.objectContaining( {
-					widgets: [
-						{
-							type: 'site-preview',
-							widgetProps: expect.objectContaining( {
-								path: '/',
-								siteId: 'site-123',
-								siteName: 'My Site',
-								sitePath: '/sites/my-site',
-							} ),
-						},
-					],
-				} ),
+				widgets: [
+					{
+						type: 'site-preview',
+						widgetProps: expect.objectContaining( {
+							path: '/',
+							siteId: 'site-123',
+							siteName: 'My Site',
+							sitePath: '/sites/my-site',
+						} ),
+					},
+				],
 			} )
 		);
 		expect( getTextContent( result ) ).toContain( '"id": "site-123"' );
@@ -520,20 +507,21 @@ describe( 'Studio AI MCP tools', () => {
 			};
 		};
 
-		it( 'returns the tool unchanged when chat artifacts are disabled', () => {
+		it( 'returns the tool unchanged without a UI', () => {
 			const { tool } = makeFakeTool();
-			expect( withChatArtifactEmission( tool, false ) ).toBe( tool );
+			expect( withChatArtifactEmission( tool, undefined ) ).toBe( tool );
 		} );
 
 		it( 'does not fail the tool result when artifact emission throws', async () => {
 			const { tool } = makeFakeTool();
 			const warnSpy = vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
-			setChatArtifactCallback( () => {
+			const ui = withUi();
+			ui.showArtifact.mockImplementation( () => {
 				throw new Error( 'disk full' );
 			} );
 
 			try {
-				const wrapped = withChatArtifactEmission( tool, true );
+				const wrapped = withChatArtifactEmission( tool, ui );
 				const result = await wrapped.execute(
 					'tool-call-9',
 					{} as never,
@@ -547,39 +535,36 @@ describe( 'Studio AI MCP tools', () => {
 					expect.any( Error )
 				);
 			} finally {
-				setChatArtifactCallback( null );
 				warnSpy.mockRestore();
 			}
 		} );
 
 		it( 'emits site_create artifacts when wrapped directly (remote tool list)', async () => {
-			const wrapped = withChatArtifactEmission( createSiteTool, true );
+			const ui = withUi();
+			const wrapped = withChatArtifactEmission( bindTool( createSiteTool, host ), ui );
 
 			await executeTool( wrapped, { name: 'My Site' } );
 
-			expect( emitEvent ).toHaveBeenCalledWith(
+			expect( ui.showArtifact ).toHaveBeenCalledWith(
 				expect.objectContaining( {
-					type: 'chat.artifact',
-					artifact: expect.objectContaining( {
-						widgets: [
-							expect.objectContaining( {
-								type: 'site-preview',
-								widgetProps: expect.objectContaining( { siteId: 'site-123' } ),
-							} ),
-						],
-					} ),
+					widgets: [
+						expect.objectContaining( {
+							type: 'site-preview',
+							widgetProps: expect.objectContaining( { siteId: 'site-123' } ),
+						} ),
+					],
 				} )
 			);
 		} );
 	} );
 
-	it( 'notifies JSON-mode callers when site_create selects the created site', async () => {
-		const onSiteSelected = vi.fn();
-		setLocalSiteSelectedCallback( onSiteSelected );
+	it( 'makes the created site the conversation site', async () => {
+		const selectSite = vi.fn();
+		host.selectSite = selectSite;
 
 		await getTool( 'site_create' ).rawHandler( { name: 'My Site' } as never );
 
-		expect( onSiteSelected ).toHaveBeenCalledWith( {
+		expect( selectSite ).toHaveBeenCalledWith( {
 			id: 'site-123',
 			name: 'My Site',
 			path: '/sites/my-site',

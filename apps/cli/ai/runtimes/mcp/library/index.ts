@@ -1,10 +1,4 @@
-import {
-	defineTool,
-	READ_ONLY,
-	REMOTE_CHANGE,
-	REMOTE_READ,
-} from '@studio/agent/node/tools/define-tool';
-import { textResult } from '@studio/agent/node/tools/utils';
+import { defineTool, READ_ONLY, REMOTE_CHANGE, REMOTE_READ, textResult } from '@studio/agent/node';
 import { Type } from 'typebox';
 import { getCliAuthenticationUrl, storeAuthToken } from 'cli/lib/wpcom-auth';
 import { createSiteWatcher } from './site-changes';

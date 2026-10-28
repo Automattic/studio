@@ -1,4 +1,4 @@
-import { getWpcomAiGatewayBaseUrl } from '@studio/agent/node/ai-gateway';
+import { getWpcomAiGatewayBaseUrl } from '@studio/agent/node';
 import { persistAnthropicApiKey, readAnthropicApiKey } from '@studio/agent/node/settings-store';
 import { DEFAULT_MODEL, type AiModelId } from '@studio/agent/protocol/models';
 import {

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { getSharedBrowser } from '@studio/agent/node/browser-utils';
 import { resolveScreenshotDirectory } from '@studio/agent/node/screenshot-storage';
+import type { StudioAgentHost } from '@studio/agent/node/host';
 
 type Browser = Awaited< ReturnType< typeof getSharedBrowser > >;
 type Page = Awaited< ReturnType< Browser[ 'newPage' ] > >;
@@ -283,6 +284,7 @@ export async function captureScreenshotBuffer(
 }
 
 export async function saveScreenshotFile(
+	host: StudioAgentHost,
 	buffer: Buffer,
 	options: { viewportType: string; format?: ScreenshotFormat; colorScheme?: ScreenshotColorScheme }
 ): Promise< {
@@ -294,7 +296,7 @@ export async function saveScreenshotFile(
 	const format = options.format ?? 'png';
 	const extension = format === 'jpeg' ? 'jpg' : 'png';
 	const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
-	const directory = await resolveScreenshotDirectory();
+	const directory = await resolveScreenshotDirectory( host );
 	const colorSchemeSuffix = options.colorScheme ? `-${ options.colorScheme }` : '';
 	// The directory can be shared by every capture in a session, so the file
 	// name carries a random suffix to keep earlier captures addressable.

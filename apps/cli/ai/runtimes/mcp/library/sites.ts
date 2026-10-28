@@ -1,4 +1,4 @@
-import { captureScreenshotBuffer } from '@studio/agent/node/tools/screenshot-helpers';
+import { captureScreenshotBuffer } from '@studio/agent/node';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { readCliConfig } from 'cli/lib/cli-config/core';

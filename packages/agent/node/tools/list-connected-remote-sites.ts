@@ -4,7 +4,7 @@ import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { withWpcomDetails } from '@studio/common/lib/sync/transform-sites';
 import { Type } from 'typebox';
 import { defineTool, REMOTE_READ } from './define-tool';
-import { resolveSite, textResult } from './utils';
+import { textResult } from './utils';
 
 export const listConnectedRemoteSitesTool = defineTool(
 	'site_connected_remote_sites',
@@ -17,9 +17,9 @@ export const listConnectedRemoteSitesTool = defineTool(
 	{
 		nameOrPath: Type.String( { description: 'The local site name or file system path' } ),
 	},
-	async ( args ) => {
+	async ( args, context ) => {
 		try {
-			const site = await resolveSite( args.nameOrPath );
+			const site = await context.host.sites.resolve( args.nameOrPath );
 			const stored = await getConnectedWpcomSitesForLocalSite( site.id );
 			const token = await readAuthToken();
 			const connected =

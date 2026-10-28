@@ -22,6 +22,7 @@ import {
 import { headerMenu } from '@studio/agent/node/header-menu';
 import { readSavedCopies } from '@studio/agent/node/saved-copies';
 import { readWordPressSite } from '@studio/agent/node/site-database';
+import { missingSourceText } from '@studio/agent/node/source-text';
 import { studioMessage } from '@studio/agent/node/studio-message';
 import { activeThemes, isUpdatableTheme } from '@studio/agent/node/themes';
 import type { StudioAgentHost } from '@studio/agent/node/host';
@@ -116,6 +117,7 @@ export function getOpenProblems( host: StudioAgentHost, session: object ): OpenP
 			frontPageIsPostsPage,
 			postsPageContent,
 			( sitePath ) => headerMenu( host, sitePath ),
+			( sitePath ) => missingSourceText( host, sitePath ),
 		] );
 		bySession.set( session, open );
 	}

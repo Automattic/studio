@@ -52,7 +52,7 @@ export async function runCommand(
 	host: string,
 	overwrite: boolean,
 	logger: Logger< LoggerAction > = new Logger< LoggerAction >()
-): Promise< void > {
+): Promise< Snapshot > {
 	const archivePath = path.join(
 		os.tmpdir(),
 		`${ path.basename( siteFolder ) }-${ Date.now() }.zip`
@@ -120,6 +120,7 @@ export async function runCommand(
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 
 		logger.reportResult( { name: snapshot.name, url: snapshot.url } );
+		return snapshot;
 	} catch ( error ) {
 		if ( siteId ) {
 			await reportSyncActivity( siteId, {
@@ -133,12 +134,9 @@ export async function runCommand(
 			failure_reason: classifyPreviewFailure( error ),
 			time_ms: Date.now() - startedAt,
 		} );
-		if ( error instanceof LoggerError ) {
-			logger.reportError( error );
-		} else {
-			const loggerError = new LoggerError( __( 'Failed to update preview site' ), error );
-			logger.reportError( loggerError );
-		}
+		throw error instanceof LoggerError
+			? error
+			: new LoggerError( __( 'Failed to update preview site' ), error );
 	} finally {
 		void cleanup( archivePath );
 	}
@@ -179,7 +177,12 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		},
 		handler: async ( argv ) => {
 			const normalizedHost = normalizeHostname( argv.host );
-			await runCommand( argv.path, normalizedHost, argv.overwrite );
+			const logger = new Logger< LoggerAction >();
+			try {
+				await runCommand( argv.path, normalizedHost, argv.overwrite, logger );
+			} catch ( error ) {
+				logger.reportError( error as LoggerError );
+			}
 		},
 	} );
 };

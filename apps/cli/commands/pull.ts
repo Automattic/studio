@@ -55,7 +55,7 @@ export async function runCommand(
 	logger: Logger< LoggerAction > = defaultLogger,
 	suppressTracksEvent = false,
 	confirmLargeBackup?: () => Promise< boolean >
-): Promise< void > {
+): Promise< SyncSite | undefined > {
 	let pullError: unknown;
 	let restartSiteError: unknown;
 	let remoteSite: SyncSite | undefined;
@@ -300,6 +300,8 @@ export async function runCommand(
 	if ( restartSiteError instanceof Error ) {
 		throw restartSiteError;
 	}
+
+	return pullCompleted ? remoteSite : undefined;
 }
 
 function reportPullProgress(

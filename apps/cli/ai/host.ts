@@ -1,7 +1,8 @@
 import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
-import { captureCommandOutput, captureConsoleOutput } from 'cli/ai/command-output';
+import { __ } from '@wordpress/i18n';
 import { getStudioUserAgent } from 'cli/ai/providers';
 import { runCommand as runExportCommand } from 'cli/commands/export';
 import { runCommand as runImportCommand } from 'cli/commands/import';
@@ -10,15 +11,14 @@ import {
 	Mode as PreviewDeleteMode,
 	runCommand as runDeletePreviewCommand,
 } from 'cli/commands/preview/delete';
-import { runCommand as runListPreviewCommand } from 'cli/commands/preview/list';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { runCommand as runPullCommand } from 'cli/commands/pull';
 import { runCommand as runPushCommand } from 'cli/commands/push';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
-import { runCommand as runListSitesCommand } from 'cli/commands/site/list';
+import { listSites } from 'cli/commands/site/list';
 import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
-import { runCommand as runStatusCommand } from 'cli/commands/site/status';
+import { getSiteStatus } from 'cli/commands/site/status';
 import { Mode as StopMode, runCommand as runStopSiteCommand } from 'cli/commands/site/stop';
 import { getWpComSites } from 'cli/lib/api';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
@@ -26,10 +26,11 @@ import { findSiteByFolder, getSiteByFolder, getSiteUrl } from 'cli/lib/cli-confi
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
+import { getSnapshotsFromConfig } from 'cli/lib/snapshots';
 import { parseSyncOptions } from 'cli/lib/sync-api';
 import { getTracksOrigin, recordTracksEvent } from 'cli/lib/tracks';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
-import { Logger } from 'cli/logger';
+import { Logger, LoggerError } from 'cli/logger';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node';
 
 function toHostSite( site: SiteData ): HostSite {
@@ -95,8 +96,9 @@ export const cliAgentHost: StudioAgentHost = {
 			return site && toHostSite( site );
 		},
 		all: async () => ( await readCliConfig() ).sites.map( toHostSite ),
-		list: () => captureConsoleOutput( () => runListSitesCommand( 'json' ) ),
-		status: ( site ) => captureConsoleOutput( () => runStatusCommand( site.path, 'json' ) ),
+		list: () => listSites(),
+		status: ( site ) =>
+			withDaemon( async () => getSiteStatus( await getSiteByFolder( site.path ) ) ),
 		create: ( name, sitePath, onProgress ) =>
 			runCreateSiteCommand(
 				sitePath,
@@ -120,15 +122,17 @@ export const cliAgentHost: StudioAgentHost = {
 			runDeleteSiteCommand( site.path, deleteFiles, new Logger( { onProgress } ) ),
 		isRunning: ( site ) => withDaemon( async () => Boolean( await isServerRunning( site.id ) ) ),
 		import: ( site, file, onProgress ) =>
-			captureCommandOutput(
-				( logger ) => runImportCommand( site.path, file, false, false, logger ),
-				onProgress
-			),
+			runImportCommand( site.path, file, false, false, new Logger( { onProgress } ) ),
 		export: ( site, file, mode, onProgress ) =>
-			captureCommandOutput(
-				( logger ) =>
-					runExportCommand( site.path, file, mode, false, undefined, false, false, logger ),
-				onProgress
+			runExportCommand(
+				site.path,
+				file,
+				mode,
+				false,
+				undefined,
+				false,
+				false,
+				new Logger( { onProgress } )
 			),
 		wpCli: ( site, args ) =>
 			withDaemon( async () => {
@@ -141,39 +145,43 @@ export const cliAgentHost: StudioAgentHost = {
 			} ),
 	},
 	previews: {
-		list: ( site ) => captureConsoleOutput( () => runListPreviewCommand( site.path, 'json' ) ),
+		// The site's own previews; `preview list --format json` lists every site's.
+		list: async ( site ) => {
+			const token = await readAuthToken();
+			if ( ! token ) {
+				throw new LoggerError(
+					__( 'Authentication required. Please log in with `studio auth login`.' )
+				);
+			}
+			return getSnapshotsFromConfig( token.id, site.path );
+		},
 		create: ( site, onProgress ) =>
-			captureCommandOutput(
-				( logger ) => runCreatePreviewCommand( site.path, undefined, logger ),
-				onProgress
-			),
+			runCreatePreviewCommand( site.path, undefined, new Logger( { onProgress } ) ),
 		update: ( site, hostname, overwrite, onProgress ) =>
-			captureCommandOutput(
-				( logger ) => runUpdatePreviewCommand( site.path, hostname, overwrite, logger ),
-				onProgress
-			),
+			runUpdatePreviewCommand( site.path, hostname, overwrite, new Logger( { onProgress } ) ),
 		delete: ( hostname, onProgress ) =>
-			captureCommandOutput(
-				( logger ) =>
-					runDeletePreviewCommand( PreviewDeleteMode.DELETE_SINGLE_SNAPSHOT, hostname, logger ),
-				onProgress
+			runDeletePreviewCommand(
+				PreviewDeleteMode.DELETE_SINGLE_SNAPSHOT,
+				hostname,
+				new Logger( { onProgress } )
 			),
 	},
 	sync: {
-		push: async ( site, options, remoteSite, onProgress ) => {
-			const syncOptions = parseSyncOptions( options );
-			return captureCommandOutput(
-				( logger ) => runPushCommand( site.path, syncOptions, remoteSite, logger ),
-				onProgress
-			);
-		},
-		pull: async ( site, options, remoteSite, onProgress ) => {
-			const syncOptions = parseSyncOptions( options );
-			return captureCommandOutput(
-				( logger ) => runPullCommand( site.path, syncOptions, remoteSite, undefined, logger ),
-				onProgress
-			);
-		},
+		push: async ( site, options, remoteSite, onProgress ) =>
+			runPushCommand(
+				site.path,
+				parseSyncOptions( options ),
+				remoteSite,
+				new Logger( { onProgress } )
+			),
+		pull: async ( site, options, remoteSite, onProgress ) =>
+			runPullCommand(
+				site.path,
+				parseSyncOptions( options ),
+				remoteSite,
+				undefined,
+				new Logger( { onProgress } )
+			),
 	},
 	wpcom: {
 		sites: ( accessToken ) => getWpComSites( accessToken ),

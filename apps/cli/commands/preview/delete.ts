@@ -82,12 +82,9 @@ export async function runCommand(
 			logger.reportSuccess( __( 'Deletion successful' ) );
 		}
 	} catch ( error ) {
-		if ( error instanceof LoggerError ) {
-			logger.reportError( error );
-		} else {
-			const loggerError = new LoggerError( __( 'Failed to delete preview site' ), error );
-			logger.reportError( loggerError );
-		}
+		throw error instanceof LoggerError
+			? error
+			: new LoggerError( __( 'Failed to delete preview site' ), error );
 	}
 }
 
@@ -128,11 +125,16 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} );
 		},
 		handler: async ( argv ) => {
-			if ( argv.all ) {
-				await runCommand( Mode.DELETE_ALL_SNAPSHOT, undefined );
-			} else if ( argv.host ) {
-				const normalizedHost = normalizeHostname( argv.host );
-				await runCommand( Mode.DELETE_SINGLE_SNAPSHOT, normalizedHost );
+			const logger = new Logger< LoggerAction >();
+			try {
+				if ( argv.all ) {
+					await runCommand( Mode.DELETE_ALL_SNAPSHOT, undefined, logger );
+				} else if ( argv.host ) {
+					const normalizedHost = normalizeHostname( argv.host );
+					await runCommand( Mode.DELETE_SINGLE_SNAPSHOT, normalizedHost, logger );
+				}
+			} catch ( error ) {
+				logger.reportError( error as LoggerError );
 			}
 		},
 	} );

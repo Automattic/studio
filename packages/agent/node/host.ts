@@ -1,6 +1,10 @@
 import type { SiteInfo } from './types';
 import type { StudioChatArtifactData } from '@studio/agent/protocol/chat-artifacts';
+import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
+import type { SiteStatus } from '@studio/common/types/site-status';
+import type { Snapshot } from '@studio/common/types/snapshot';
+import type { SyncSite } from '@studio/common/types/sync';
 
 export type ProgressCallback = ( message: string, update?: boolean ) => void;
 
@@ -12,15 +16,6 @@ export interface HostSite {
 	url: string;
 	phpVersion: string;
 	adminPassword?: string;
-}
-
-// What a host command printed: its console output, its progress messages, and
-// the exit code it set. Tools build their results from it, so they read the
-// same whichever host ran the command.
-export interface CommandOutput {
-	consoleOutput: string;
-	progressOutput: string;
-	exitCode: number | undefined;
 }
 
 export interface WpCliOutput {
@@ -39,7 +34,8 @@ export interface StudioAgentUi {
 
 // What the app running the agent provides: the site operations its tools run,
 // which the CLI implements with its own commands, and how the agent reaches the
-// user.
+// user. Operations return their result and throw when they fail; progress goes
+// to `onProgress`.
 export interface StudioAgentHost {
 	// The folder Studio's sites live in. The file tools are rooted here.
 	sitesRoot: string;
@@ -49,49 +45,48 @@ export interface StudioAgentHost {
 		resolve( nameOrPath: string ): Promise< HostSite >;
 		findByFolder( folder: string ): Promise< HostSite | undefined >;
 		all(): Promise< HostSite[] >;
-		// The local sites as JSON, as `site list --format json` prints them.
-		list(): Promise< string >;
-		// The site's details as JSON, as `site status --format json` prints them.
-		status( site: HostSite ): Promise< string >;
+		list(): Promise< Omit< SiteListItem, 'adminPassword' >[] >;
+		status( site: HostSite ): Promise< SiteStatus >;
 		create( name: string, sitePath: string, onProgress: ProgressCallback ): Promise< void >;
 		start( site: HostSite, onProgress: ProgressCallback ): Promise< void >;
 		stop( site: HostSite, onProgress: ProgressCallback ): Promise< void >;
 		delete( site: HostSite, deleteFiles: boolean, onProgress: ProgressCallback ): Promise< void >;
 		isRunning( site: HostSite ): Promise< boolean >;
-		import( site: HostSite, file: string, onProgress: ProgressCallback ): Promise< CommandOutput >;
+		import( site: HostSite, file: string, onProgress: ProgressCallback ): Promise< void >;
 		export(
 			site: HostSite,
 			file: string,
 			mode: 'full' | 'db',
 			onProgress: ProgressCallback
-		): Promise< CommandOutput >;
+		): Promise< void >;
 		wpCli( site: HostSite, args: string[] ): Promise< WpCliOutput >;
 	};
 	previews: {
-		// The site's previews as JSON, as `preview list --format json` prints them.
-		list( site: HostSite ): Promise< string >;
-		create( site: HostSite, onProgress: ProgressCallback ): Promise< CommandOutput >;
+		list( site: HostSite ): Promise< Snapshot[] >;
+		create( site: HostSite, onProgress: ProgressCallback ): Promise< Snapshot >;
 		update(
 			site: HostSite,
 			hostname: string,
 			overwrite: boolean,
 			onProgress: ProgressCallback
-		): Promise< CommandOutput >;
-		delete( hostname: string, onProgress: ProgressCallback ): Promise< CommandOutput >;
+		): Promise< Snapshot >;
+		delete( hostname: string, onProgress: ProgressCallback ): Promise< void >;
 	};
+	// Push and pull return the WordPress.com site they synced with, or nothing when
+	// the user backed out.
 	sync: {
 		push(
 			site: HostSite,
 			options: string,
 			remoteSite: string | undefined,
 			onProgress: ProgressCallback
-		): Promise< CommandOutput >;
+		): Promise< SyncSite | undefined >;
 		pull(
 			site: HostSite,
 			options: string,
 			remoteSite: string | undefined,
 			onProgress: ProgressCallback
-		): Promise< CommandOutput >;
+		): Promise< SyncSite | undefined >;
 	};
 	wpcom: {
 		sites( accessToken: string ): Promise< unknown[] >;

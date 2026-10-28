@@ -573,30 +573,33 @@ describe( 'Studio AI MCP tools', () => {
 	} );
 
 	it( 'lists previews as JSON for a resolved local site', async () => {
-		vi.mocked( host.previews.list ).mockResolvedValue( '' );
-
 		const result = await getTool( 'preview_list' ).rawHandler( { nameOrPath: 'My Site' } as never );
 
 		expect( host.previews.list ).toHaveBeenCalledWith( mockSite );
-		// No snapshots emitted by the command -> the tool reports an empty list.
 		expect( JSON.parse( getTextContent( result ) ?? 'null' ) ).toEqual( [] );
+	} );
+
+	it( 'reports a failed preview list as an error, not as no previews', async () => {
+		vi.mocked( host.previews.list ).mockRejectedValue( new Error( 'Authentication required.' ) );
+
+		await expect(
+			getTool( 'preview_list' ).rawHandler( { nameOrPath: 'My Site' } as never )
+		).rejects.toThrow( 'Failed to list preview sites: Authentication required.' );
 	} );
 
 	it( 'enrichPreviewListOutput tags each preview with type "preview" and an expiry flag', () => {
 		const dayMs = 24 * 60 * 60 * 1000;
 		const futureDate = Date.now() + 3 * dayMs;
 		const enriched = JSON.parse(
-			enrichPreviewListOutput(
-				JSON.stringify( [
-					{
-						url: 'demo-studio.wp.build',
-						atomicSiteId: 12345,
-						localSiteId: 'site-123',
-						date: futureDate,
-						name: 'My Site',
-					},
-				] )
-			)
+			enrichPreviewListOutput( [
+				{
+					url: 'demo-studio.wp.build',
+					atomicSiteId: 12345,
+					localSiteId: 'site-123',
+					date: futureDate,
+					name: 'My Site',
+				},
+			] )
 		);
 		expect( enriched ).toEqual( [
 			{
@@ -654,9 +657,9 @@ describe( 'Studio AI MCP tools', () => {
 
 	describe( 'site_list', () => {
 		beforeEach( () => {
-			vi.mocked( host.sites.list ).mockResolvedValue(
-				JSON.stringify( [ { id: 'site-123', name: 'My Site', running: false } ] )
-			);
+			vi.mocked( host.sites.list ).mockResolvedValue( [
+				{ id: 'site-123', name: 'My Site', running: false },
+			] as never );
 		} );
 
 		it( 'lists local and WordPress.com sites together', async () => {
@@ -719,23 +722,19 @@ describe( 'Studio AI MCP tools', () => {
 			true,
 			expect.any( Function )
 		);
-		expect( getTextContent( result ) ).toContain(
-			'Preview site "demo.wordpress.com" updated from "My Site".'
+		expect( getTextContent( result ) ).toBe(
+			'Preview site "My Site Preview 1" updated from "My Site": https://demo.wp.build'
 		);
 	} );
 
 	it( 'returns preview delete failures as tool errors', async () => {
-		vi.mocked( host.previews.delete ).mockResolvedValue( {
-			consoleOutput: 'Failed to delete preview site',
-			progressOutput: '',
-			exitCode: 1,
-		} );
+		vi.mocked( host.previews.delete ).mockRejectedValue( new Error( 'Preview site not found.' ) );
 
 		await expect(
 			getTool( 'preview_delete' ).rawHandler( {
 				host: 'https://demo.wordpress.com/',
 			} as never )
-		).rejects.toThrow( 'Failed to delete preview site' );
+		).rejects.toThrow( 'Failed to delete preview site: Preview site not found.' );
 
 		expect( host.previews.delete ).toHaveBeenCalledWith(
 			'demo.wordpress.com',

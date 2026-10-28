@@ -11,8 +11,7 @@ export const getSiteInfoTool = defineTool(
 	async ( args, context ) => {
 		try {
 			const site = await context.host.sites.resolve( args.nameOrPath );
-			const output = await context.host.sites.status( site );
-			return textResult( output || 'No site info available.' );
+			return textResult( JSON.stringify( await context.host.sites.status( site ), null, 2 ) );
 		} catch ( error ) {
 			throw new Error(
 				`Failed to get site info: ${ error instanceof Error ? error.message : String( error ) }`

@@ -38,6 +38,7 @@ vi.mock( 'cli/logger', () => ( {
 		reportStart = mockReportStart;
 		reportSuccess = mockReportSuccess;
 		reportError = mockReportError;
+		reportResult = vi.fn();
 		reportProgress = mockReportProgress;
 		reportWarning = mockReportWarning;
 		reportKeyValuePair = mockReportKeyValuePair;
@@ -109,20 +110,18 @@ describe( 'Preview Delete Command', () => {
 	it( 'should handle authentication errors', async () => {
 		vi.mocked( readAuthToken ).mockResolvedValue( null );
 
-		await runCommand( Mode.DELETE_SINGLE_SNAPSHOT, mockSiteUrl );
-
-		expect( mockReportError ).toHaveBeenCalled();
-		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		await expect( runCommand( Mode.DELETE_SINGLE_SNAPSHOT, mockSiteUrl ) ).rejects.toThrow(
+			LoggerError
+		);
 		expect( deleteSnapshot ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should handle snapshot not found errors', async () => {
 		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
 
-		await runCommand( Mode.DELETE_SINGLE_SNAPSHOT, mockSiteUrl );
-
-		expect( mockReportError ).toHaveBeenCalled();
-		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		await expect( runCommand( Mode.DELETE_SINGLE_SNAPSHOT, mockSiteUrl ) ).rejects.toThrow(
+			LoggerError
+		);
 		expect( deleteSnapshot ).not.toHaveBeenCalled();
 	} );
 
@@ -146,10 +145,9 @@ describe( 'Preview Delete Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		await runCommand( Mode.DELETE_SINGLE_SNAPSHOT, mockSiteUrl );
-
-		expect( mockReportError ).toHaveBeenCalled();
-		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		await expect( runCommand( Mode.DELETE_SINGLE_SNAPSHOT, mockSiteUrl ) ).rejects.toThrow(
+			LoggerError
+		);
 		expect( deleteSnapshotFromConfig ).not.toHaveBeenCalled();
 	} );
 
@@ -175,10 +173,9 @@ describe( 'Preview Delete Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		await runCommand( Mode.DELETE_ALL_SNAPSHOT, undefined );
-
-		expect( mockReportError ).toHaveBeenCalled();
-		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		await expect( runCommand( Mode.DELETE_ALL_SNAPSHOT, undefined ) ).rejects.toThrow(
+			LoggerError
+		);
 		expect( deleteAllSnapshotsForUserFromConfig ).not.toHaveBeenCalled();
 	} );
 } );

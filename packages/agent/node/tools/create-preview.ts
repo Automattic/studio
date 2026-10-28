@@ -11,14 +11,11 @@ export const createPreviewTool = defineTool(
 		} ),
 	},
 	async ( args, context ) => {
-		return runPreviewCommand(
-			async () => {
-				const site = await context.host.sites.resolve( args.nameOrPath );
-				return context.host.previews.create( site, context.onProgress );
-			},
-			`Preview site created for "${ args.nameOrPath }".`,
-			'Failed to create preview site'
-		);
+		return runPreviewCommand( async () => {
+			const site = await context.host.sites.resolve( args.nameOrPath );
+			const preview = await context.host.previews.create( site, context.onProgress );
+			return `Preview site "${ preview.name }" created from "${ site.name }": https://${ preview.url }`;
+		}, 'Failed to create preview site' );
 	},
 	{
 		promptSnippet:

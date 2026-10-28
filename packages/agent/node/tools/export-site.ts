@@ -35,14 +35,8 @@ export const exportSiteTool = defineTool(
 				exportFile = path.join( process.cwd(), `studio-backup-${ timestamp }${ ext }` );
 			}
 
-			const result = await context.host.sites.export( site, exportFile, mode, context.onProgress );
-			const output = result.consoleOutput || result.progressOutput || `Exported to ${ exportFile }`;
-
-			if ( result.exitCode ) {
-				throw new Error( output );
-			}
-
-			return textResult( output );
+			await context.host.sites.export( site, exportFile, mode, context.onProgress );
+			return textResult( `Exported "${ site.name }" to ${ exportFile }.` );
 		} catch ( error ) {
 			throw new Error(
 				`Failed to export site: ${ error instanceof Error ? error.message : String( error ) }`

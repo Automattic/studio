@@ -13,11 +13,10 @@ export const deletePreviewTool = defineTool(
 	},
 	async ( args, context ) => {
 		const normalizedHost = normalizeHostname( args.host );
-		return runPreviewCommand(
-			() => context.host.previews.delete( normalizedHost, context.onProgress ),
-			`Preview site "${ normalizedHost }" deleted.`,
-			'Failed to delete preview site'
-		);
+		return runPreviewCommand( async () => {
+			await context.host.previews.delete( normalizedHost, context.onProgress );
+			return `Preview site "${ normalizedHost }" deleted.`;
+		}, 'Failed to delete preview site' );
 	},
 	{ promptSnippet: 'Delete a preview site by hostname', annotations: REMOTE_OVERWRITE }
 );

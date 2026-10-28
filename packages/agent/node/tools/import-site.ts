@@ -13,15 +13,8 @@ export const importSiteTool = defineTool(
 	async ( args, context ) => {
 		try {
 			const site = await context.host.sites.resolve( args.nameOrPath );
-
-			const result = await context.host.sites.import( site, args.importFile, context.onProgress );
-			const output = result.consoleOutput || result.progressOutput || 'Import completed.';
-
-			if ( result.exitCode ) {
-				throw new Error( output );
-			}
-
-			return textResult( output );
+			await context.host.sites.import( site, args.importFile, context.onProgress );
+			return textResult( `Imported ${ args.importFile } into "${ site.name }".` );
 		} catch ( error ) {
 			throw new Error(
 				`Failed to import site: ${ error instanceof Error ? error.message : String( error ) }`

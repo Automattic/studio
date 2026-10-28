@@ -4,6 +4,7 @@ import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
+import { type Snapshot } from '@studio/common/types/snapshot';
 import { __, sprintf } from '@wordpress/i18n';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
@@ -23,7 +24,7 @@ export async function runCommand(
 	siteFolder: string,
 	name?: string,
 	logger: Logger< LoggerAction > = new Logger< LoggerAction >()
-): Promise< void > {
+): Promise< Snapshot > {
 	const archivePath = path.join(
 		os.tmpdir(),
 		`${ path.basename( siteFolder ) }-${ Date.now() }.zip`
@@ -94,6 +95,7 @@ export async function runCommand(
 		await reportSyncActivity( siteId, { kind: 'success', direction: 'preview' } );
 
 		logger.reportResult( { name: snapshot.name, url: snapshot.url } );
+		return snapshot;
 	} catch ( error ) {
 		if ( siteId ) {
 			await reportSyncActivity( siteId, {
@@ -107,12 +109,9 @@ export async function runCommand(
 			failure_reason: classifyPreviewFailure( error ),
 			time_ms: Date.now() - startedAt,
 		} );
-		if ( error instanceof LoggerError ) {
-			logger.reportError( error );
-		} else {
-			const loggerError = new LoggerError( __( 'Failed to create preview site' ), error );
-			logger.reportError( loggerError );
-		}
+		throw error instanceof LoggerError
+			? error
+			: new LoggerError( __( 'Failed to create preview site' ), error );
 	} finally {
 		void cleanup( archivePath );
 	}
@@ -144,7 +143,12 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			} );
 		},
 		handler: async ( argv ) => {
-			await runCommand( argv.path, argv.name );
+			const logger = new Logger< LoggerAction >();
+			try {
+				await runCommand( argv.path, argv.name, logger );
+			} catch ( error ) {
+				logger.reportError( error as LoggerError );
+			}
 		},
 	} );
 };

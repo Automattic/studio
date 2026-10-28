@@ -117,10 +117,14 @@
 		box-shadow: inset 0 0 0 2px var( --ring );
 	}
 
-	/* Hovered, holding keyboard focus, active, selected, its menu open, or its actions hovered. */
-	.button:is( :hover, :has( :focus-visible ), [data-active], [data-selected], [data-popup-open] ),
-	.item:is( [data-selected], [data-popup-open], :has( > .actions:hover ) ) > .button {
+	.button:where( :hover, :has( :focus-visible ) ),
+	.item:where( :has( > .actions:hover ) ) > .button {
 		background-color: var( --hover );
+	}
+
+	.button:is( [data-active], [data-selected], [data-popup-open] ),
+	.item:is( [data-selected], [data-popup-open] ) > .button {
+		background-color: var( --selected );
 	}
 
 	.button[data-muted]:hover {

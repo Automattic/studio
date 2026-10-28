@@ -14,17 +14,19 @@
 :root,
 [data-color-scheme] {
 	color-scheme: light;
-	--surface-0: oklch( calc( 1 - var( --tint-intensity, 0 ) * 0.00025 ) calc( var( --tint-intensity, 0 ) * 0.00025 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
-	--surface-1: color-mix( in oklab, var( --foreground ) calc( 2% + var( --contrast, 0 ) * 0.04% ), var( --surface-0 ) );
-	--surface-2: color-mix( in oklab, var( --foreground ) calc( 5% + var( --contrast, 0 ) * 0.07% ), var( --surface-0 ) );
-	--surface-3: color-mix( in oklab, var( --foreground ) calc( 12% + var( --contrast, 0 ) * 0.08% ), var( --surface-0 ) );
-	--surface-4: color-mix( in oklab, var( --surface-3 ), var( --foreground ) 6% );
+	--surface-offset: 1%;
+	--surface-step: calc( 5% + var( --contrast, 0 ) * 0.033333% );
+	--surface-0: oklch( from #fff calc( l - var( --tint-intensity, 0 ) * 0.00025 ) calc( var( --tint-intensity, 0 ) * 0.00025 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
+	--surface-1: color-mix( in oklab, var( --foreground ) var( --surface-offset ), var( --surface-0 ) );
+	--surface-2: color-mix( in oklab, var( --foreground ) calc( var( --surface-offset ) + var( --surface-step ) ), var( --surface-0 ) );
+	--surface-3: color-mix( in oklab, var( --foreground ) calc( var( --surface-offset ) + var( --surface-step ) * 2 ), var( --surface-0 ) );
+	--surface-4: color-mix( in oklab, var( --foreground ) calc( var( --surface-offset ) + var( --surface-step ) * 3 ), var( --surface-0 ) );
 
 	--background: var( --surface-0 );
-	--chrome: var( --background );
-	--chat: var( --surface-1 );
-	--composer: var( --background );
-	--popover: var( --background );
+	--chrome: var( --surface-1 );
+	--chat: var( --surface-0 );
+	--composer: var( --surface-0 );
+	--popover: var( --surface-0 );
 	--muted: var( --surface-2 );
 
 	--foreground: oklch( calc( 0.275 - var( --contrast, 0 ) * 0.001 ) calc( var( --tint-intensity, 0 ) * 0.00025 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
@@ -57,7 +59,8 @@
 	--destructive-button-hover: oklch( from var( --destructive ) calc( l - 0.04 ) c h );
 	--destructive-hover: color-mix( in oklab, var( --destructive ) 8.5%, transparent );
 
-	--border: color-mix( in oklab, oklch( from var( --foreground ) l calc( var( --tint-intensity, 0 ) * 0.0006 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) ) calc( 10% + var( --contrast, 0 ) * 0.2% ), transparent );
+	--border: color-mix( in oklab, oklch( from var( --foreground ) l calc( var( --tint-intensity, 0 ) * 0.0006 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) ) calc( 7% + var( --contrast, 0 ) * 0.2% ), transparent );
+	--popover-border: color-mix( in oklab, oklch( from var( --foreground ) l calc( var( --tint-intensity, 0 ) * 0.0006 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) ) calc( 7% + var( --contrast, 0 ) * 0.2% ), var( --popover ) );
 	--input: var( --border );
 	--backdrop: color-mix( in oklab, var( --foreground ) 30%, transparent );
 
@@ -159,10 +162,10 @@
 /* prettier-ignore */
 [data-color-scheme='dark'] {
 	color-scheme: dark;
-	--surface-0: oklch( from #141414 calc( l - var( --contrast, 0 ) * 0.0006 ) calc( var( --tint-intensity, 0 ) * 0.00025 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
-	--surface-1: color-mix( in oklab, var( --foreground ) calc( 5% + var( --contrast, 0 ) * 0.04% ), var( --surface-0 ) );
-	--surface-2: color-mix( in oklab, var( --foreground ) calc( 12% + var( --contrast, 0 ) * 0.08% ), var( --surface-0 ) );
-	--surface-3: color-mix( in oklab, var( --foreground ) calc( 20% + var( --contrast, 0 ) * 0.10% ), var( --surface-0 ) );
+	--border: color-mix( in oklab, oklch( from var( --foreground ) l calc( var( --tint-intensity, 0 ) * 0.0006 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) ) calc( 6% + var( --contrast, 0 ) * 0.2% ), transparent );
+	--surface-offset: 3%;
+	--surface-step: calc( 5% + var( --contrast, 0 ) * 0.033333% );
+	--surface-0: oklch( from #161616 calc( l - var( --contrast, 0 ) * 0.0006 ) calc( var( --tint-intensity, 0 ) * 0.00025 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
 
 	--foreground: oklch( calc( 0.85 + var( --contrast, 0 ) * 0.001 ) calc( var( --tint-intensity, 0 ) * 0.00025 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
 	--muted-foreground: oklch( from var( --foreground ) calc( l - 0.255 + var( --contrast, 0 ) * 0.0011 ) calc( var( --tint-intensity, 0 ) * 0.0004 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
@@ -170,7 +173,7 @@
 	--chrome: var( --surface-1 );
 	--chat: var( --surface-0 );
 	--composer: var( --surface-3 );
-	--popover: var( --surface-1 );
+	--popover: var( --surface-2 );
 	--primary: oklch( 1 0 0 );
 	--accent-lightness: 0.72;
 	--accent-chroma: 0.2;
@@ -186,6 +189,7 @@
    hover fill. */
 * {
 	--hover: var( --muted );
+	--selected: var( --surface-3 );
 }
 
 /* A surface sets `--surface` to its fill, and `--muted` inside it resolves one
@@ -200,24 +204,28 @@
 @container style( --surface: var( --surface-0 ) ) or style( --surface: var( --surface-1 ) ) {
 	* {
 		--muted: var( --surface-2 );
+		--selected: var( --surface-3 );
 	}
 }
 
 @container style( --surface: var( --surface-2 ) ) {
 	* {
 		--muted: var( --surface-3 );
+		--selected: var( --surface-4 );
 	}
 }
 
 @container style( --surface: var( --surface-3 ) ) {
 	* {
 		--muted: var( --surface-4 );
+		--selected: var( --surface-2 );
 	}
 }
 
 @container style( --surface: var( --surface-4 ) ) {
 	* {
 		--muted: var( --surface-3 );
+		--selected: var( --surface-2 );
 	}
 }
 

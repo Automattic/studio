@@ -193,6 +193,8 @@ interface SessionPreviewUI {
 	setOpen: ( value: boolean ) => void;
 	toggle: () => void;
 	setChatHidden: ( value: boolean ) => void;
+	// Opens the panel on `path` and reloads it, like an agent-driven navigation.
+	navigate: ( path: string ) => void;
 	updatePath: ( path: string ) => void;
 	setSite: ( siteId: string ) => void;
 	setRevealing: ( siteId: string, value: boolean ) => void;
@@ -213,6 +215,10 @@ export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 	const toggle = useCallback( () => dispatch?.( { type: 'preview/toggle' } ), [ dispatch ] );
 	const setChatHidden = useCallback(
 		( value: boolean ) => dispatch?.( { type: 'preview/set-chat-hidden', value } ),
+		[ dispatch ]
+	);
+	const navigate = useCallback(
+		( path: string ) => dispatch?.( { type: 'preview/navigate', path } ),
 		[ dispatch ]
 	);
 	const updatePath = useCallback(
@@ -243,6 +249,7 @@ export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 			setOpen,
 			toggle,
 			setChatHidden,
+			navigate,
 			updatePath,
 			setSite,
 			setRevealing,
@@ -254,6 +261,7 @@ export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 		setOpen,
 		toggle,
 		setChatHidden,
+		navigate,
 		updatePath,
 		setSite,
 		setRevealing,

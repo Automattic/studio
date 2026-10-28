@@ -307,6 +307,32 @@ function bundledPlaywrightRoot(): string {
 	return path.dirname( require.resolve( 'playwright/package.json' ) );
 }
 
+const isVersion = ( name: string ) => /^\d+\.\d+\.\d+$/.test( name );
+
+const newestFirst = ( a: string, b: string ) => {
+	const [ x, y ] = [ b, a ].map( ( version ) => version.split( '.' ).map( Number ) );
+	return x.map( ( part, i ) => part - y[ i ] ).find( ( difference ) => difference !== 0 ) ?? 0;
+};
+
+/**
+ * After `installed` is installed in `directory`, remove the versions no import
+ * uses any more: all but it and the newest other one, which an import that
+ * started before this install may still be running.
+ */
+function removeOlderVersions( directory: string, installed: string ): void {
+	try {
+		const others = fs
+			.readdirSync( directory )
+			.filter( ( name ) => isVersion( name ) && name !== installed )
+			.sort( newestFirst );
+		for ( const name of others.slice( 1 ) ) {
+			fs.rmSync( path.join( directory, name ), { recursive: true, force: true } );
+		}
+	} catch {
+		// Cleanup only saves disk space; an import never fails for want of it.
+	}
+}
+
 /** The newest Data Liberation release package. */
 export function resolveCaptureEngineAsset(): Promise< ReleaseAsset > {
 	return resolveLatestReleaseAsset(
@@ -315,7 +341,10 @@ export function resolveCaptureEngineAsset(): Promise< ReleaseAsset > {
 	);
 }
 
-/** Install (once per version) and load the newest Data Liberation capture engine. */
+/**
+ * Install (once per version) and load the newest Data Liberation capture engine;
+ * installing one removes the versions before the previous one.
+ */
 export async function loadCaptureEngine(): Promise< CaptureEngine > {
 	const asset = await resolveCaptureEngineAsset();
 	const engineRoot = path.join( runtimeDirectory(), 'data-liberation', asset.version );
@@ -345,6 +374,7 @@ export async function loadCaptureEngine(): Promise< CaptureEngine > {
 		} finally {
 			fs.rmSync( staging, { recursive: true, force: true } );
 		}
+		removeOlderVersions( path.dirname( engineRoot ), asset.version );
 	}
 	linkPlaywright( engineRoot );
 	const engine = ( await import( pathToFileURL( bundlePath ).href ) ) as Partial< CaptureEngine >;
@@ -354,7 +384,10 @@ export async function loadCaptureEngine(): Promise< CaptureEngine > {
 	return { ...( engine as CaptureEngine ), version: asset.version, packageUrl: asset.url };
 }
 
-/** The newest Static Site Importer release ZIP, downloaded and verified once per version. */
+/**
+ * The newest Static Site Importer release ZIP, downloaded and verified once per
+ * version; installing one removes the versions before the previous one.
+ */
 export async function resolveStaticSiteImporterPlugin(): Promise< {
 	path: string;
 	version: string;
@@ -371,6 +404,7 @@ export async function resolveStaticSiteImporterPlugin(): Promise< {
 	);
 	if ( ! fs.existsSync( zipPath ) ) {
 		await downloadVerifiedAsset( asset, zipPath );
+		removeOlderVersions( path.dirname( path.dirname( zipPath ) ), asset.version );
 	}
 	return { path: zipPath, version: asset.version };
 }

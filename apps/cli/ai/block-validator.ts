@@ -120,7 +120,7 @@ export async function validateBlocks(
 		// What the editor threw beside the content, for a block it did not register.
 		const input = [ content, getEditorPage( siteUrl ).loadErrors ] as const;
 
-		const validation = await page.evaluate( ( [ html, thrown ] ) => {
+		const validation = await page.evaluate( async ( [ html, thrown ] ) => {
 			/* eslint-disable @typescript-eslint/no-explicit-any */
 			const wpBlocks = ( window as any ).wp?.blocks;
 			if ( ! wpBlocks ) {
@@ -969,8 +969,15 @@ export async function validateBlocks(
 						( written ) =>
 							! was.includes( written ) && is.some( ( saved ) => same( written, saved ) )
 					);
-					const outOf = was.filter(
-						( written ) => ! is.some( ( saved ) => same( written, saved ) )
+					// An element written without classes is known by its tag and how
+					// many elements with that tag are around the inner block outside it,
+					// as a list's <ul> written without wp-block-list.
+					const sameTag = ( chain: HTMLElement[], at: HTMLElement ) =>
+						chain.filter( ( element ) => element.tagName === at.tagName );
+					const outOf = was.filter( ( written ) =>
+						written.classList.length
+							? ! is.some( ( saved ) => same( written, saved ) )
+							: sameTag( is, written ).length <= sameTag( was, written ).indexOf( written )
 					);
 					return [
 						...into.map( ( at ) => `move ${ inner.name } into ${ elementName( at ) }` ),
@@ -1002,19 +1009,30 @@ export async function validateBlocks(
 						[ ...names ].filter( ( name ) => ! kept.has( name ) );
 					const classes = missing( before.classes, after.classes );
 					const styles = missing( before.styles, after.styles );
-					const lost = [
-						before.text !== after.text ? 'change the text' : '',
-						classes.length ? `drop the classes ${ classes.join( ' ' ) }` : '',
-						styles.length ? `drop the styles ${ styles.join( '; ' ) }` : '',
-						...( reshaped ? [] : moves( place, block ) ),
-					].filter( Boolean );
+					const lost = {
+						text: before.text !== after.text ? [ 'change the text' ] : [],
+						classes,
+						styles,
+						moves: reshaped ? [] : moves( place, block ),
+					};
+					const root = reshaped ? undefined : elementsOf( block.originalContent ?? '' )[ 0 ];
 					return [
-						...( lost.length
+						...( Object.values( lost ).some( ( one ) => one.length )
 							? [
 									{
 										place,
 										blockName: block.name,
-										lost: lost.join( ' and ' ),
+										lost,
+										onRoot: root
+											? [ ...declarations( root ) ].filter(
+													( [ property, value ] ) =>
+														styles.includes( `${ property }:${ value }` ) &&
+														// The preview is as tall as its blocks, so a length of
+														// the viewport's height there is theirs.
+														! /\d[dsl]?vh\b/.test( value )
+											  )
+											: [],
+										rootStyle: root?.getAttribute( 'style' ) ?? '',
 									},
 							  ]
 							: [] ),
@@ -1023,10 +1041,130 @@ export async function validateBlocks(
 				} );
 			}
 
+			// The inline styles written on each block's own element that its fix
+			// already shows, as display:flex on a group whose layout attribute is
+			// flex, which the layout support renders (wp_render_layout_support_flag
+			// in wp-includes/block-supports/layout.php). The fixes are rendered as
+			// the editor previews blocks (BlockPreview in @wordpress/block-editor),
+			// each inside the outermost block around it so it sits in the layout it
+			// has on the page. The style written on a block's element is then set on
+			// it again, and each property whose computed value stays the same is
+			// kept. The editor's own classes come off the element first, so the
+			// editor's styles for its blocks count for nothing.
+			async function renderedAlready( lossy: any[] ) {
+				const kept = new Map< string, Set< string > >();
+				const outermost = [
+					...new Set( lossy.map( ( loss ) => Number( loss.place.split( '/' )[ 1 ] ) ) ),
+				];
+				const { blockEditor, element: wpElement } = ( window as any ).wp ?? {};
+				if ( ! lossy.length || ! blockEditor?.BlockPreview || ! wpElement?.createRoot ) {
+					return kept;
+				}
+				const host = document.createElement( 'div' );
+				host.style.cssText = 'position:absolute;left:-10000px;top:0;width:1200px';
+				document.body.append( host );
+				const root = wpElement.createRoot( host );
+				try {
+					root.render(
+						wpElement.createElement( blockEditor.BlockPreview, {
+							blocks: outermost.map( ( at ) => fixed.blocks[ at ] ),
+							viewportWidth: 1200,
+						} )
+					);
+					const rendered = () =>
+						host
+							.querySelector( 'iframe' )
+							?.contentDocument?.querySelectorAll< HTMLElement >(
+								'.is-root-container > [data-block]'
+							) ?? [];
+					for ( let wait = 0; rendered().length < outermost.length && wait < 100; wait++ ) {
+						await new Promise( ( resolve ) => setTimeout( resolve, 50 ) );
+					}
+					// Its styles load beside the blocks.
+					await new Promise( ( resolve ) => requestAnimationFrame( () => resolve( null ) ) );
+					const top = [ ...rendered() ];
+					if ( top.length !== outermost.length ) {
+						return kept;
+					}
+					// The element of the block at a place, through the blocks around it.
+					const at = ( place: string ) =>
+						place
+							.split( '/' )
+							.slice( 2 )
+							.reduce< HTMLElement | undefined >(
+								( element, index ) =>
+									element &&
+									[ ...element.querySelectorAll< HTMLElement >( '[data-block]' ) ].filter(
+										( inner ) => inner.parentElement?.closest( '[data-block]' ) === element
+									)[ Number( index ) ],
+								top[ outermost.indexOf( Number( place.split( '/' )[ 1 ] ) ) ]
+							);
+					for ( const loss of lossy ) {
+						const element = at( loss.place );
+						if ( ! element || element.dataset.type !== loss.blockName ) {
+							continue;
+						}
+						const asRendered = {
+							className: element.className,
+							style: element.style.cssText,
+						};
+						for ( const name of [ ...element.classList ] ) {
+							if ( name === 'wp-block' || name.startsWith( 'block-editor-' ) ) {
+								element.classList.remove( name );
+							}
+						}
+						const computed = element.ownerDocument.defaultView!.getComputedStyle( element );
+						const shown = new Map(
+							loss.onRoot.map( ( [ property ]: string[] ) => [
+								property,
+								computed.getPropertyValue( property ),
+							] )
+						);
+						element.style.cssText += `;${ loss.rootStyle }`;
+						kept.set(
+							loss.place,
+							new Set(
+								loss.onRoot
+									.filter(
+										( [ property ]: string[] ) =>
+											computed.getPropertyValue( property ) === shown.get( property )
+									)
+									.map( ( [ property, value ]: string[] ) => `${ property }:${ value }` )
+							)
+						);
+						element.className = asRendered.className;
+						element.style.cssText = asRendered.style;
+					}
+					return kept;
+				} finally {
+					root.unmount();
+					host.remove();
+				}
+			}
+
 			// The fix for every block that loses nothing. A block that would lose
 			// something stays as written, inner blocks and all: the serializer
 			// keeps a block that does not validate from its source.
-			const lossList = losses( initial.blocks, fixed.blocks );
+			const found = losses( initial.blocks, fixed.blocks );
+			const rendering = await renderedAlready( found.filter( ( loss ) => loss.onRoot.length ) );
+			const lossList = found
+				.map( ( { place, blockName, lost } ) => {
+					const kept = rendering.get( place ) ?? new Set();
+					const styles = lost.styles.filter( ( style: string ) => ! kept.has( style ) );
+					return {
+						place,
+						blockName,
+						lost: [
+							...lost.text,
+							lost.classes.length ? `drop the classes ${ lost.classes.join( ' ' ) }` : '',
+							styles.length ? `drop the styles ${ styles.join( '; ' ) }` : '',
+							...lost.moves,
+						]
+							.filter( Boolean )
+							.join( ' and ' ),
+					};
+				} )
+				.filter( ( loss ) => loss.lost );
 			const lossy = new Set( lossList.map( ( loss: any ) => loss.place ) );
 			function lossless( fixes: any[], at = '' ): any[] {
 				return fixes.map( ( fix: any, i: number ) => {

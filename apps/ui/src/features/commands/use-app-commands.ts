@@ -1,3 +1,4 @@
+import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
 import { useNavigate } from '@tanstack/react-router';
 import { useColorScheme } from '@/data/host/use-color-scheme';
 import { useSessions } from '@/data/queries/use-sessions';
@@ -5,6 +6,7 @@ import { useSites } from '@/data/queries/use-sites';
 import { useSaveUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { useOpenSite } from '@/data/use-open-site';
+import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { useSidebarOpen, useToggleSidebar } from '@/data/use-sidebar-collapsed';
 import { getAppCommands, getPaletteChats } from '@/features/commands/studio-commands';
 import { useSettingCommands } from '@/features/commands/use-setting-commands';
@@ -22,6 +24,7 @@ export function useAppCommands(): PaletteCommand[] {
 	const { data: sites = [] } = useSites();
 	const { data: sessions = [] } = useSessions();
 	const openSite = useOpenSite();
+	const preview = useOptionalSessionPreviewUI();
 	const sidebarOpen = useSidebarOpen();
 	const toggleSidebar = useToggleSidebar();
 	const colorScheme = useColorScheme();
@@ -39,8 +42,11 @@ export function useAppCommands(): PaletteCommand[] {
 		openAddSite: () => openAddSite(),
 		openSettings: () => openSettings(),
 		openSite,
-		openChat: ( session ) =>
-			void navigate( { to: '/sessions/$sessionId', params: { sessionId: session.id } } ),
+		openChat: ( session ) => {
+			const owner = findAiSessionOwnerSite( sites, session );
+			if ( owner ) preview?.setChatHidden( false, owner.id );
+			void navigate( { to: '/sessions/$sessionId', params: { sessionId: session.id } } );
+		},
 		savePreferences: ( preferences ) => savePreferences.mutate( preferences ),
 		toggleSidebar,
 		openNotifications: openNoticeHistory,

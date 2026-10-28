@@ -16,8 +16,6 @@ import { ResizeHandle, ResizeOverlay } from '@/lib/ui';
 import styles from './style.module.css';
 import { usePreviewSplit } from './use-preview-split';
 
-// Keep in sync with the content-column transition duration in style.module.css.
-
 // Whether the preview shows beside the content, for controls in the content
 // column that only make sense next to it.
 const PreviewBesideContext = createContext( false );
@@ -31,6 +29,7 @@ export interface PreviewSplitFramePreviewProps {
 }
 
 interface PreviewSplitFrameProps {
+	siteId?: string;
 	// The preview panel content. Kept mounted while closed so the webview stays
 	// warm. The split geometry is owned by usePreviewSplit; this component only
 	// handles the open/close slide animation.
@@ -49,6 +48,7 @@ interface PreviewSplitFrameProps {
 }
 
 export function PreviewSplitFrame( {
+	siteId,
 	preview,
 	previewOpen = false,
 	chatHidden = false,
@@ -61,6 +61,7 @@ export function PreviewSplitFrame( {
 	const contentCollapsed = showPreview && chatHidden;
 	const { rootRef, containerWidth, contentWidthVar, isResizing, handleProps } = usePreviewSplit( {
 		showPreview,
+		siteId,
 	} );
 	const isSidebarCollapsed = useSidebarCollapsed();
 	const resizable = ( containerWidth ?? Infinity ) >= PREVIEW_SPLIT_MIN_WIDTH;
@@ -72,21 +73,26 @@ export function PreviewSplitFrame( {
 	// race it.
 	const [ animatingPreviewToggle, setAnimatingPreviewToggle ] = useState( false );
 	const [ previousPreview, setPreviousPreview ] = useState( {
+		siteId,
 		mounted: preview != null,
 		open: showPreview,
 		collapsed: contentCollapsed,
 	} );
 	if (
+		previousPreview.siteId !== siteId ||
 		previousPreview.mounted !== ( preview != null ) ||
 		previousPreview.open !== showPreview ||
 		previousPreview.collapsed !== contentCollapsed
 	) {
 		setPreviousPreview( {
+			siteId,
 			mounted: preview != null,
 			open: showPreview,
 			collapsed: contentCollapsed,
 		} );
-		setAnimatingPreviewToggle( previousPreview.mounted && preview != null && ! instant );
+		setAnimatingPreviewToggle(
+			previousPreview.siteId === siteId && previousPreview.mounted && preview != null && ! instant
+		);
 	}
 
 	// Keep the outgoing site in the closing pane until it is hidden.

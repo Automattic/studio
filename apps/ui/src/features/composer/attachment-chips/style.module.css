@@ -22,28 +22,6 @@
 	border-radius: var( --radius-xl );
 }
 
-.attachmentFile {
-	max-width: 240px;
-	border-radius: var( --radius-lg );
-}
-
-.attachmentFile {
-	gap: var( --space-2 );
-	align-items: center;
-	height: 36px;
-	padding: 0 var( --space-3 );
-	font-size: var( --text-xs );
-	line-height: var( --text-xs--line-height );
-}
-
-.attachmentFile:hover {
-	background-color: var( --hover );
-}
-
-.attachmentFile svg:not( [data-size] ) {
-	flex: none;
-}
-
 .attachmentThumb {
 	width: 100%;
 	height: 100%;

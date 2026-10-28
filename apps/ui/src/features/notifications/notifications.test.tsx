@@ -1,8 +1,9 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getNoticeHistory, resetAppMessagesForTests, showToast } from '@/data/app-messages';
-import { AppToasts, NoticeHistoryButton } from '@/features/notifications';
+import { AppMessageCards, AppToasts, NoticeHistoryButton } from '@/features/notifications';
 import { closeNoticeHistory, openNoticeHistory } from '@/features/notifications/notice-history';
+import { createFakeConnector } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 
 const isDescription = ( element: HTMLElement ) =>
@@ -331,5 +332,29 @@ describe( 'notifications popover', () => {
 		} finally {
 			delete ( document as Partial< Document > ).getAnimations;
 		}
+	} );
+} );
+
+describe( 'sidebar cards', () => {
+	it( 'runs the update actions', async () => {
+		const connector = createFakeConnector();
+		connector.getAppUpdateStatus.mockResolvedValue( {
+			state: 'ready',
+			currentVersion: '1.0.0',
+			newVersion: '1.1.0',
+		} );
+		const { queryClient } = renderWithProviders( <AppMessageCards />, { connector } );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Restart' } ) );
+		expect( connector.installAppUpdate ).toHaveBeenCalled();
+
+		act( () => {
+			queryClient.setQueryData( [ 'app-update-status' ], {
+				state: 'error',
+				reason: 'generic',
+				currentVersion: '1.0.0',
+			} );
+		} );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Open logs' } ) );
+		expect( connector.openStudioLogs ).toHaveBeenCalled();
 	} );
 } );

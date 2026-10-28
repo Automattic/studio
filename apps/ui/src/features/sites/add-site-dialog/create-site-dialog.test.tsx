@@ -90,7 +90,7 @@ describe( 'Add site flow', () => {
 	} );
 
 	it( 'uses the Personal Blog homepage thumbnail and shows its three screenshots', async () => {
-		setup( { blueprint: { ...portfolio, slug: 'personal-blog-2', title: 'Personal Blog' } } );
+		setup( { blueprint: { ...portfolio, slug: 'substrata', title: 'Personal Blog' } } );
 		const card = await screen.findByRole( 'button', { name: 'View Personal Blog' } );
 		const thumbnail = within( card ).getByRole( 'img' ).getAttribute( 'src' );
 		expect( thumbnail ).toContain( '/personal-blog/home.webp' );

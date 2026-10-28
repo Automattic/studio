@@ -278,9 +278,7 @@ function DashboardLayout() {
 											/>
 										) : null }
 									</div>
-									{ routeSite ? (
-										<SiteHeaderActions site={ routeSite } live={ !! liveUrl } />
-									) : null }
+									<SiteHeaderActions site={ routeSite } live={ !! liveUrl } />
 								</div>
 							</WindowControlsCornerContext.Provider>
 						) : null

@@ -93,18 +93,18 @@ describe( 'Add site flow', () => {
 		setup( { blueprint: { ...portfolio, slug: 'personal-blog-2', title: 'Personal Blog' } } );
 		const card = await screen.findByRole( 'button', { name: 'View Personal Blog' } );
 		const thumbnail = within( card ).getByRole( 'img' ).getAttribute( 'src' );
-		expect( thumbnail ).toContain( '/personal-blog/thumbnail.jpg' );
+		expect( thumbnail ).toContain( '/personal-blog/home.webp' );
 		fireEvent.click( card );
 		expect(
 			await screen.findByRole( 'img', { name: 'Personal Blog screenshot' } )
-		).toHaveAttribute( 'src', expect.stringContaining( '/personal-blog/home.jpg' ) );
+		).toHaveAttribute( 'src', expect.stringContaining( '/personal-blog/home.webp' ) );
 		expect( screen.getByRole( 'img', { name: 'Personal Blog screenshot 2' } ) ).toHaveAttribute(
 			'src',
-			expect.stringContaining( '/personal-blog/olive-tree.jpg' )
+			expect.stringContaining( '/personal-blog/olive-tree.webp' )
 		);
 		expect( screen.getByRole( 'img', { name: 'Personal Blog screenshot 3' } ) ).toHaveAttribute(
 			'src',
-			expect.stringContaining( '/personal-blog/coastal-rituals.jpg' )
+			expect.stringContaining( '/personal-blog/coastal-rituals.webp' )
 		);
 	} );
 

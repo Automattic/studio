@@ -87,6 +87,51 @@ describe.runIf( WORDPRESS )( 'blocks that carry a registered block style by bare
 		60000
 	);
 
+	it( "names a block class the theme's stylesheets make inline-level, written before the block", async () => {
+		// A child theme, so the parent's stylesheets count too.
+		const parent = ( await runWpCli( site, [ 'eval', 'echo get_template();' ] ) ).trim();
+		const child = path.join( site.path, 'wp-content/themes/studio-test-child' );
+		mkdirSync( path.join( child, 'templates' ), { recursive: true } );
+		writeFileSync(
+			path.join( child, 'style.css' ),
+			`/*\nTheme Name: Child\nTemplate: ${ parent }\n*/`
+		);
+		writeFileSync( path.join( child, 'templates/index.html' ), '' );
+		writeFileSync( path.join( child, 'chip.css' ), '.er-chip { display: inline-flex; }' );
+		await runWpCli( site, [ 'theme', 'activate', 'studio-test-child' ] );
+		const before = await blockStyleClasses.read( site.path );
+		const css = path.join( site.path, 'wp-content/themes', parent, 'studio-test-pill.css' );
+		writeFileSync( css, '.er-pill { display: inline-block; }\n.er-wide { display: block; }' );
+		expect( ( await blockStyleClasses.read( site.path ) ).code ).not.toBe( before.code );
+		const id = (
+			await runWpCli( site, [
+				'eval',
+				`echo wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'Pill', 'post_content' => ${ JSON.stringify(
+					group( 'er-pill' ) + group( 'er-wide' ) + group( 'er-chip' )
+				) } ) );`,
+			] )
+		).trim();
+		const { reports } = await blockStyleClasses.check( site, { code: 'a' }, { code: 'b' } );
+		const inline = reports.find( ( report ) => report.key === 'inline block classes' );
+		expect( inline?.atTurnEnd ).toBe( true );
+		expect( inline?.problem ).toMatch( /^Ember Roasters: / );
+		expect( inline?.problem ).toContain(
+			`${ css }: \`.er-pill\` is a block className and gets an inline-level display.`
+		);
+		expect( inline?.problem ).toContain(
+			`${ path.join( child, 'chip.css' ) }: \`.er-chip\` is a block className`
+		);
+		expect( inline?.problem ).not.toContain( 'er-wide' );
+		rmSync( css );
+		await runWpCli( site, [ 'theme', 'activate', parent ] );
+		rmSync( child, { recursive: true } );
+		await runWpCli( site, [ 'post', 'delete', id, '--force' ] );
+		const after = await blockStyleClasses.check( site, { code: 'a' }, { code: 'b' } );
+		expect(
+			after.reports.find( ( report ) => report.key === 'inline block classes' )?.problem
+		).toBeUndefined();
+	}, 120000 );
+
 	it( 'asks WordPress only when the code or content changed', async () => {
 		const versions = { code: 'a', content: 'b' };
 		expect( await blockStyleClasses.check( site, versions, { ...versions } ) ).toEqual( {

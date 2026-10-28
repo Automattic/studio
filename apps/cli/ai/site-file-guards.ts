@@ -100,6 +100,45 @@ async function getBlockClassNames( siteRoot: string, themeDir: string ): Promise
 	return classNames;
 }
 
+// A rule on one class a block carries in its "className" that makes the block inline-level.
+function inlineBlockClass(
+	selector: string,
+	declarations: string,
+	blockClassNames: Set< string >
+) {
+	const single = selector.match( /^\.([A-Za-z0-9_-]+)$/ );
+	return Boolean(
+		single && blockClassNames.has( single[ 1 ] ) && INLINE_DISPLAY.test( declarations )
+	);
+}
+
+function inlineDisplayNote( selector: string ): string {
+	return `\`${ selector }\` is a block className and gets an inline-level display. Blocks in a constrained layout are placed with auto inline margins (wp-includes/block-supports/layout.php), which inline-level boxes ignore, so this block leaves the content column. To shrink-wrap it, wrap it in a group with a flex layout and drop the display rule.`;
+}
+
+/**
+ * The block classNames that the stylesheets in these theme folders make
+ * inline-level, each with its note, for blocks whose class arrives after the
+ * stylesheet does.
+ */
+export function inlineBlockClassNotes(
+	themeDirs: string[],
+	blockClassNames: Set< string >
+): string[] {
+	const notes = new Set< string >();
+	for ( const file of themeDirs.flatMap( ( dir ) => listFiles( dir, [ '.css' ] ) ) ) {
+		const css = readFileSync( file, 'utf8' ).replace( /\/\*[\s\S]*?\*\//g, '' );
+		for ( const rule of css.matchAll( /([^{}]+)\{([^{}]*)\}/g ) ) {
+			for ( const selector of rule[ 1 ].split( ',' ).map( ( part ) => part.trim() ) ) {
+				if ( inlineBlockClass( selector, rule[ 2 ], blockClassNames ) ) {
+					notes.add( `${ file }: ${ inlineDisplayNote( selector ) }` );
+				}
+			}
+		}
+	}
+	return [ ...notes ];
+}
+
 /** CSS in a theme stylesheet that fights WordPress's block layout. */
 export function lintThemeCss( css: string, blockClassNames: Set< string > ): string[] {
 	const notes: string[] = [];
@@ -107,11 +146,8 @@ export function lintThemeCss( css: string, blockClassNames: Set< string > ): str
 	for ( const rule of withoutComments.matchAll( /([^{}]+)\{([^{}]*)\}/g ) ) {
 		const declarations = rule[ 2 ];
 		for ( const selector of rule[ 1 ].split( ',' ).map( ( part ) => part.trim() ) ) {
-			const single = selector.match( /^\.([A-Za-z0-9_-]+)$/ );
-			if ( single && blockClassNames.has( single[ 1 ] ) && INLINE_DISPLAY.test( declarations ) ) {
-				notes.push(
-					`\`${ selector }\` is a block className and gets an inline-level display. Blocks in a constrained layout are placed with auto inline margins (wp-includes/block-supports/layout.php), which inline-level boxes ignore, so this block leaves the content column. To shrink-wrap it, wrap it in a group with a flex layout and drop the display rule.`
-				);
+			if ( inlineBlockClass( selector, declarations, blockClassNames ) ) {
+				notes.push( inlineDisplayNote( selector ) );
 			}
 			if ( VIEWPORT_BREAKOUT.test( declarations ) ) {
 				notes.push(

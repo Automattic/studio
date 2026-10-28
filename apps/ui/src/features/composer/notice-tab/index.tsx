@@ -24,7 +24,6 @@ export function NoticeTab( {
 						size="composer-notice"
 						shape="round"
 						variant={ feedback ? 'destructive' : 'default' }
-						activeMotion="instant"
 						onClick={ notice.action.onClick }
 					>
 						{ notice.action.label }

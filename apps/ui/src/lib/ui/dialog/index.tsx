@@ -87,7 +87,6 @@ export function DialogContent( {
 	showCloseButton = true,
 	closeButtonDisabled = false,
 	layout = 'default',
-	surface = 'default',
 	backdrop = 'dimmed',
 	keepMounted = false,
 	...props
@@ -95,7 +94,6 @@ export function DialogContent( {
 	showCloseButton?: boolean;
 	closeButtonDisabled?: boolean;
 	layout?: Layout;
-	surface?: 'default' | 'composer';
 	backdrop?: 'dimmed' | 'transparent';
 	/** Keeps ongoing operations and form state alive after dismissal. */
 	keepMounted?: boolean;
@@ -106,7 +104,7 @@ export function DialogContent( {
 			<BaseDialog.Popup
 				data-slot="dialog-content"
 				data-layout={ layout }
-				data-surface={ surface }
+				data-backdrop={ backdrop }
 				className={ clsx( surfaceStyles.floating, styles.content, className ) }
 				{ ...props }
 			>

@@ -22,38 +22,15 @@
 		outline: none;
 		cursor: pointer;
 		user-select: none;
-		transition-property: opacity;
-		transition-duration: var( --button-active-duration, var( --motion-duration-surface ) );
-		transition-timing-function: var( --button-active-easing, var( --motion-ease-enter ) );
-	}
-
-	.button[aria-pressed] {
-		--button-active-duration: var( --motion-duration-layout );
-	}
-
-	.button[data-active-motion='layout'] {
-		--button-active-duration: var( --motion-duration-layout );
-		--button-active-easing: var( --motion-ease-layout );
+		transition-property: color, background-color, border-color, opacity;
+		transition-duration: var( --motion-duration-feedback );
+		transition-timing-function: ease;
 	}
 
 	@media ( prefers-reduced-motion: no-preference ) {
-		.button:not( :focus-visible, [aria-haspopup='menu'], [aria-haspopup='listbox'] ) {
+		.button:not( :focus-visible ) {
 			transition-property: color, background-color, border-color, transform, opacity;
-			transition-duration: var( --motion-duration-feedback ), var( --motion-duration-feedback ),
-				var( --motion-duration-feedback ), var( --motion-duration-feedback ),
-				var( --button-active-duration, var( --motion-duration-surface ) );
-			transition-timing-function: ease, ease, ease, ease,
-				var( --button-active-easing, var( --motion-ease-enter ) );
 		}
-	}
-
-	/* Switches state at once, as feedback timed to another animation. */
-	.button[data-active-motion='instant'] {
-		transition: none;
-	}
-
-	.button:is( [aria-expanded='true'], [aria-pressed='true'] ) {
-		opacity: 0.7;
 	}
 
 	.button:focus-visible {
@@ -94,7 +71,6 @@
 	}
 
 	.button [data-dropdown-indicator] {
-		margin-inline: calc( var( --space-1 ) * -1 ) calc( var( --space-0_5 ) * -1 );
 		color: var( --muted-foreground );
 	}
 
@@ -117,6 +93,7 @@
 
 	.button:is(
 			[data-variant='ghost'],
+			[data-variant='accent-ghost'],
 			[data-variant='muted-ghost'],
 			[data-variant='inline-text'],
 			[data-variant='inline-accent'],
@@ -127,6 +104,16 @@
 			[aria-pressed='true']
 		) {
 		color: var( --button-hover-color );
+	}
+
+	.button:is(
+			[data-variant='ghost'],
+			[data-variant='muted-ghost'],
+			[data-variant='outline'],
+			[data-variant='segmented'],
+			[data-variant='muted']
+		):is( [aria-expanded='true'], [aria-pressed='true'] ) {
+		background-color: var( --button-selected-background, var( --selected ) );
 	}
 
 	.button[data-variant='default'] {
@@ -177,9 +164,29 @@
 		color: var( --foreground );
 	}
 
-	.button[data-variant='ghost'] {
+	.button:is( [data-variant='ghost'], [data-variant='accent-ghost'] ) {
 		--button-hover-background: var( --hover );
 		--button-hover-color: var( --foreground );
+	}
+
+	.button:is(
+			[data-variant='ghost'],
+			[data-variant='accent-ghost'],
+			[data-variant='muted-ghost']
+		) {
+		border: 0;
+	}
+
+	.button[data-variant='accent-ghost']:is( [aria-pressed='true'], [aria-expanded='true'] ) {
+		--button-hover-background: color-mix( in srgb, var( --accent ) 15%, transparent );
+		--button-hover-color: var( --accent-text );
+	}
+
+	.button[data-variant='accent-ghost']:is(
+			[aria-pressed='true'],
+			[aria-expanded='true']
+		):hover:not( :disabled, [data-disabled] ) {
+		--button-hover-background: color-mix( in srgb, var( --accent ) 22%, transparent );
 	}
 
 	.button[data-variant='muted-ghost'] {

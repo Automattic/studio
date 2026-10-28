@@ -90,15 +90,6 @@
 	gap: var( --space-1 );
 }
 
-.annotateButtonActive {
-	--button-hover-background: color-mix( in srgb, var( --accent ) 15%, transparent );
-	--button-hover-color: var( --accent-text );
-}
-
-.annotateButtonActive:not( :disabled ) {
-	opacity: 1;
-}
-
 /* 2px bar overlapping the header's bottom border, like a browser's page-load
    indicator. The inner span is scaled by inline style as progress advances. */
 .loadingProgress {

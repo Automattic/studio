@@ -77,4 +77,14 @@ describe( 'useSessionPreviewUI agent reloads', () => {
 		expect( result.current.preview.path ).toBe( DESIGN_SYSTEM_PREVIEW_PATH );
 		expect( result.current.preview.open ).toBe( false );
 	} );
+
+	it( 'navigates a closed panel to the design system and opens it', () => {
+		const { result } = renderPreview();
+		act( () => result.current.preview.setSite( 'site-a' ) );
+		act( () => result.current.preview.setOpen( false ) );
+
+		act( () => result.current.preview.navigate( DESIGN_SYSTEM_PREVIEW_PATH ) );
+		expect( result.current.preview.path ).toBe( DESIGN_SYSTEM_PREVIEW_PATH );
+		expect( result.current.preview.open ).toBe( true );
+	} );
 } );

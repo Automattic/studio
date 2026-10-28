@@ -33,6 +33,16 @@
 	gap: var( --space-1 );
 }
 
+.designSystemArtifact {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var( --space-2 );
+	color: var( --muted-foreground );
+	font-size: var( --text-sm );
+	line-height: var( --text-sm--line-height );
+}
+
 .mediaArtifactImage {
 	max-width: 100%;
 	border-radius: var( --radius-lg );

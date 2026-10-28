@@ -8,6 +8,8 @@ const TOKEN_KEY = 'wpcom-token';
 const API_BASE = 'https://public-api.wordpress.com';
 const CALLBACK_PATH = '/auth/callback';
 const RETURN_TO_KEY = 'studio-auth-return-to';
+// The sign-in this page started: a callback with any other `state` is not ours.
+const STATE_KEY = 'studio-auth-state';
 // WordPress.com sends the token only to a redirect URL registered on the OAuth
 // app, and answers browser requests made with its tokens only from origins
 // the app allows. A deployment registers `<origin>/auth/callback`, or sets its
@@ -18,12 +20,13 @@ function getRedirectUri(): string {
 	return import.meta.env.VITE_WPCOM_REDIRECT_URI ?? `${ window.location.origin }${ CALLBACK_PATH }`;
 }
 
-function getAuthorizeUrl( redirectUri: string, signup: boolean ): string {
+function getAuthorizeUrl( redirectUri: string, state: string, signup: boolean ): string {
 	const authorize = new URL( `${ API_BASE }/oauth2/authorize` );
 	authorize.searchParams.set( 'response_type', 'token' );
 	authorize.searchParams.set( 'client_id', OAUTH_CLIENT_ID );
 	authorize.searchParams.set( 'redirect_uri', redirectUri );
 	authorize.searchParams.set( 'scope', 'global' );
+	authorize.searchParams.set( 'state', state );
 	if ( ! signup ) {
 		return authorize.toString();
 	}
@@ -119,7 +122,9 @@ export class WpcomAuth {
 			RETURN_TO_KEY,
 			`${ window.location.pathname }${ window.location.search }`
 		);
-		window.location.assign( getAuthorizeUrl( getRedirectUri(), signup ) );
+		const state = crypto.randomUUID();
+		window.sessionStorage.setItem( STATE_KEY, state );
+		window.location.assign( getAuthorizeUrl( getRedirectUri(), state, signup ) );
 		// The page is navigating away.
 		await new Promise( () => {} );
 	}
@@ -167,7 +172,13 @@ export async function completeRedirectSignIn(): Promise< {
 	}
 	const params = new URLSearchParams( window.location.hash.slice( 1 ) );
 	const returnTo = window.sessionStorage.getItem( RETURN_TO_KEY ) || '/';
+	const state = window.sessionStorage.getItem( STATE_KEY );
 	window.sessionStorage.removeItem( RETURN_TO_KEY );
+	window.sessionStorage.removeItem( STATE_KEY );
+	// Otherwise a link to this page could sign the user in to someone else's account.
+	if ( ! state || params.get( 'state' ) !== state ) {
+		return { returnTo, error: __( 'This sign-in was not started here. Try signing in again.' ) };
+	}
 	const token = params.get( 'access_token' );
 	if ( ! token ) {
 		return {

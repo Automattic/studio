@@ -2,8 +2,8 @@ import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { SITE_EVENTS, type SiteEvent } from '@studio/common/lib/cli-events';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
 import { PlaygroundRuntimes, getSiteUrl, type FreshSiteOptions } from './playground';
-import { applySettingsToWpConfig, copySiteFiles, importBackup } from './site-data';
-import { kvGet, kvSet, kvUpdate } from './store';
+import { applySettingsToWpConfig, copySiteFiles, importBackup, removeSiteFiles } from './site-data';
+import { kvDelete, kvGet, kvSet, kvUpdate } from './store';
 import type { CreateSiteParams, StaticSiteDetails, StaticSiteSettings } from './types';
 import type { SiteOperationKind } from '@studio/common/lib/site-operation';
 import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
@@ -238,29 +238,14 @@ export class StaticSites {
 
 	async delete( id: string ): Promise< void > {
 		await this.withOperation( id, 'delete', async () => {
-			// Booting just to wipe would be slow, so the files of a stopped site are
-			// emptied the next time any runtime mounts its OPFS path (never: the id
-			// is not reused). A running site clears its directory before it stops.
-			const client = this.runtimes.client( id );
-			if ( client ) {
-				await (
-					await client
-				).run( {
-					code: `<?php
-function studio_web_rm( $path ) {
-	if ( is_dir( $path ) ) {
-		foreach ( array_diff( scandir( $path ), array( '.', '..' ) ) as $entry ) { studio_web_rm( "$path/$entry" ); }
-		@rmdir( $path );
-	} elseif ( file_exists( $path ) ) { unlink( $path ); }
-}
-studio_web_rm( '/wordpress' );
-`,
-				} );
-			}
+			// Starts a stopped site to reach its files: the browser keeps them
+			// otherwise, since Studio asks it to persist its storage.
+			await removeSiteFiles( await this.client( id ) );
 			await this.runtimes.stop( id );
 			await kvUpdate< StaticSiteRecord[] >( SITES_KEY, [], ( sites ) =>
 				sites.filter( ( site ) => site.id !== id )
 			);
+			await kvDelete( `thumbnail:${ id }` );
 		} );
 		await this.emit( SITE_EVENTS.DELETED, id );
 	}

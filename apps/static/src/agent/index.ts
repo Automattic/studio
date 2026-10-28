@@ -448,6 +448,10 @@ export class StaticAgentRuns {
 				},
 			} );
 			run.interrupt = turn.interrupt;
+			// Stopped while the turn was being set up.
+			if ( run.interrupted ) {
+				turn.interrupt();
+			}
 			const { failure } = await turn.result;
 			if ( run.interrupted ) {
 				status = 'interrupted';

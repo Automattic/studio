@@ -1,4 +1,5 @@
 import { INSPECTOR_BRIDGE_PREFIX } from '@studio/agent/protocol/inspector/page-script';
+import { phpQuote } from './php';
 import { kvGet, kvSet } from './store';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 import type { BlueprintBundle, PlaygroundClient } from '@wp-playground/client';
@@ -246,12 +247,12 @@ export function buildBridgeScript( appOrigin: string ): string {
 function buildBridgePlugin( appOrigin: string ): string {
 	const script = buildBridgeScript( appOrigin );
 	return `<?php
-function studio_web_bridge_script() {
-	echo '<script>' . ${ phpString( script ) } . '</script>';
+function studio_bridge_script() {
+	echo '<script>' . ${ phpQuote( script ) } . '</script>';
 }
-add_action( 'wp_footer', 'studio_web_bridge_script', 999 );
-add_action( 'admin_footer', 'studio_web_bridge_script', 999 );
-add_action( 'login_footer', 'studio_web_bridge_script', 999 );
+add_action( 'wp_footer', 'studio_bridge_script', 999 );
+add_action( 'admin_footer', 'studio_bridge_script', 999 );
+add_action( 'login_footer', 'studio_bridge_script', 999 );
 // The preview opens admin screens through Studio's auto-login route.
 add_action( 'init', function () {
 	$path = (string) parse_url( $_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH );
@@ -266,10 +267,6 @@ add_action( 'init', function () {
 	exit;
 } );
 `;
-}
-
-function phpString( value: string ): string {
-	return `'${ value.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" ) }'`;
 }
 
 interface Runtime {
@@ -425,17 +422,17 @@ $user = get_user_by( 'id', 1 );
 global $wpdb;
 ${
 	adminUsername
-		? `$wpdb->update( $wpdb->users, array( 'user_login' => ${ phpString(
+		? `$wpdb->update( $wpdb->users, array( 'user_login' => ${ phpQuote(
 				adminUsername
-		  ) }, 'user_nicename' => sanitize_title( ${ phpString(
+		  ) }, 'user_nicename' => sanitize_title( ${ phpQuote(
 				adminUsername
 		  ) } ) ), array( 'ID' => 1 ) );`
 		: ''
 }
-${ adminPassword ? `wp_set_password( ${ phpString( adminPassword ) }, 1 );` : '' }
+${ adminPassword ? `wp_set_password( ${ phpQuote( adminPassword ) }, 1 );` : '' }
 ${
 	adminEmail
-		? `wp_update_user( array( 'ID' => 1, 'user_email' => ${ phpString( adminEmail ) } ) );`
+		? `wp_update_user( array( 'ID' => 1, 'user_email' => ${ phpQuote( adminEmail ) } ) );`
 		: ''
 }
 clean_user_cache( 1 );

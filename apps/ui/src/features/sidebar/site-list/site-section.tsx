@@ -2,7 +2,6 @@ import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useEffect, useRef } from 'react';
-import { useConnector } from '@/data/core';
 import { sitePinKey } from '@/data/queries/use-sidebar-pins';
 import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
@@ -64,7 +63,6 @@ export function SiteSection( {
 	const selectable = useSelectableRow( sitePinKey( site.id ) );
 	const pressed = useRowPressed( sitePinKey( site.id ) );
 	const navigate = useNavigate();
-	const { assistant } = useConnector().capabilities;
 	const sectionRef = useRef< HTMLLIElement >( null );
 	const isActive = isChatActive || isContextActive;
 	const showChats = expanded && ( chats.length > 0 || loadError );
@@ -153,18 +151,16 @@ export function SiteSection( {
 				className={ styles.siteActions }
 				data-reorder-exclude
 			>
-				{ assistant && (
-					<IconButton
-						variant="muted-ghost"
-						size="icon-sm"
-						icon={ <NewChatIcon /> }
-						label={ sprintf( __( 'New chat for %s' ), site.name ) }
-						onClick={ () => {
-							onSiteOpen?.();
-							void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
-						} }
-					/>
-				) }
+				<IconButton
+					variant="muted-ghost"
+					size="icon-sm"
+					icon={ <NewChatIcon /> }
+					label={ sprintf( __( 'New chat for %s' ), site.name ) }
+					onClick={ () => {
+						onSiteOpen?.();
+						void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+					} }
+				/>
 				<SiteStatusButton
 					site={ site }
 					isStarting={ isStarting }

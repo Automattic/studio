@@ -306,12 +306,14 @@ export function CreateSiteForm( {
 				>
 					<div className={ styles.advancedCollapseInner }>
 						<FieldGroup>
-							<PathField
-								data={ data }
-								error={ advancedErrors.path }
-								requiresEmptyPath={ requiresEmptyPath }
-								onChange={ handleChange }
-							/>
+							{ capabilities.siteFolders && (
+								<PathField
+									data={ data }
+									error={ advancedErrors.path }
+									requiresEmptyPath={ requiresEmptyPath }
+									onChange={ handleChange }
+								/>
+							) }
 							{ capabilities.versionChoice && (
 								<>
 									{ existing ? null : wpVersionOptions ? (

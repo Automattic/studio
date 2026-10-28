@@ -164,9 +164,6 @@ export interface ConnectorCapabilities {
 	// Sites can run a chosen PHP and WordPress version. Studio on the web hosts
 	// one PHP build and runs the latest WordPress.
 	versionChoice: boolean;
-	// The assistant (chats with the Studio Code agent) is available. Studio on
-	// the web doesn't run the agent yet.
-	assistant: boolean;
 }
 
 export interface Connector {

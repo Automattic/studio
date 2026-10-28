@@ -156,12 +156,15 @@ export class WpcomServices {
 				message: __( 'Setting up the preview site…' ),
 				hostname: created.domain_name,
 			} );
-			for ( let attempt = 0; attempt < PREVIEW_MAX_POLLS; attempt++ ) {
+			for ( let attempt = 0; ; attempt++ ) {
 				const { status } = await this.auth.request< { status: string } >(
 					`/wpcom/v2/jurassic-ninja/status?site_id=${ created.atomic_site_id }`
 				);
 				if ( String( status ) === PREVIEW_STATUS_ACTIVE ) {
 					break;
+				}
+				if ( attempt + 1 >= PREVIEW_MAX_POLLS ) {
+					throw new Error( __( 'The preview site did not finish setting up. Try again later.' ) );
 				}
 				await sleep( SYNC_POLL_INTERVAL_MS );
 			}

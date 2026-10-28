@@ -177,6 +177,10 @@ async function runTurn(
 		sessionId: config.sessionId,
 	} );
 	onAgent( agent );
+	// Interrupted before the agent existed to abort.
+	if ( isInterrupted() ) {
+		return {};
+	}
 
 	let finalEvent: AgentEvent | undefined;
 	let emptyStopContinues = 0;

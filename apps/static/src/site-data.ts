@@ -1,6 +1,7 @@
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import { getSettingsWpConfigConstants } from '@studio/common/lib/wp-config-constants';
+import { phpQuote } from './php';
 import { loadPlaygroundClient } from './playground';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { PlaygroundClient } from '@wp-playground/client';
@@ -23,31 +24,27 @@ async function runPhp( client: PlaygroundClient, code: string ): Promise< string
 	return response.text;
 }
 
-function phpQuote( value: string ): string {
-	return `'${ value.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" ) }'`;
-}
-
 const PHP_HELPERS = `
-function studio_web_rm( $path ) {
+function studio_rm( $path ) {
 	if ( is_dir( $path ) && ! is_link( $path ) ) {
-		foreach ( array_diff( scandir( $path ), array( '.', '..' ) ) as $entry ) { studio_web_rm( "$path/$entry" ); }
+		foreach ( array_diff( scandir( $path ), array( '.', '..' ) ) as $entry ) { studio_rm( "$path/$entry" ); }
 		@rmdir( $path );
 	} elseif ( file_exists( $path ) || is_link( $path ) ) {
 		unlink( $path );
 	}
 }
-function studio_web_copy( $from, $to ) {
+function studio_copy( $from, $to ) {
 	if ( is_dir( $from ) ) {
 		if ( ! is_dir( $to ) ) { mkdir( $to, 0777, true ); }
 		foreach ( array_diff( scandir( $from ), array( '.', '..' ) ) as $entry ) {
-			studio_web_copy( "$from/$entry", "$to/$entry" );
+			studio_copy( "$from/$entry", "$to/$entry" );
 		}
 	} else {
 		copy( $from, $to );
 	}
 }
 // Runs a MySQL dump statement by statement.
-function studio_web_import_sql( $path ) {
+function studio_import_sql( $path ) {
 	global $wpdb;
 	$sql = file_get_contents( $path );
 	$length = strlen( $sql );
@@ -85,7 +82,7 @@ function studio_web_import_sql( $path ) {
 	if ( '' !== trim( $statement ) ) { $wpdb->query( $statement ); }
 }
 // Points an imported database at this runtime's URL.
-function studio_web_adopt_site_url() {
+function studio_adopt_site_url() {
 	global $wpdb;
 	$old = $wpdb->get_var( "SELECT option_value FROM {$wpdb->options} WHERE option_name = 'siteurl'" );
 	$new = defined( 'WP_SITEURL' ) ? WP_SITEURL : site_url();
@@ -98,7 +95,7 @@ function studio_web_adopt_site_url() {
 	update_option( 'home', $new );
 }
 // Writes one table as MySQL statements.
-function studio_web_dump_table( $table, $out ) {
+function studio_dump_table( $table, $out ) {
 	global $wpdb;
 	$create = $wpdb->get_row( "SHOW CREATE TABLE \`$table\`", ARRAY_N );
 	fwrite( $out, "DROP TABLE IF EXISTS \`$table\`;\\n" );
@@ -116,7 +113,7 @@ function studio_web_dump_table( $table, $out ) {
 		$offset += 500;
 	}
 }
-function studio_web_wp_version() {
+function studio_wp_version() {
 	include '/wordpress/wp-includes/version.php';
 	return $wp_version;
 }
@@ -146,9 +143,9 @@ if ( is_dir( "$root/wp-content" ) ) {
 		if ( in_array( $entry, array( 'db.php', 'sqlite-database-integration' ), true ) ) { continue; }
 		if ( 'database' === $entry ) {
 			if ( $has_dumps ) { continue; }
-			studio_web_rm( '/wordpress/wp-content/database' );
+			studio_rm( '/wordpress/wp-content/database' );
 		}
-		studio_web_copy( "$root/wp-content/$entry", "/wordpress/wp-content/$entry" );
+		studio_copy( "$root/wp-content/$entry", "/wordpress/wp-content/$entry" );
 	}
 }
 echo $root;
@@ -168,8 +165,8 @@ $root = ${ phpQuote( root.trim() ) };
 $dumps = glob( "$root/sql/*.sql" ) ?: array();
 if ( file_exists( "$root/database.sql" ) ) { $dumps[] = "$root/database.sql"; }
 sort( $dumps );
-foreach ( $dumps as $dump ) { studio_web_import_sql( $dump ); }
-studio_web_adopt_site_url();
+foreach ( $dumps as $dump ) { studio_import_sql( $dump ); }
+studio_adopt_site_url();
 `
 	);
 }
@@ -230,7 +227,7 @@ if ( ! empty( $package['Plugins'] ) && is_array( $package['Plugins'] ) ) {
 `;
 
 async function cleanWorkDir( client: PlaygroundClient ) {
-	await runPhp( client, `<?php ${ PHP_HELPERS } studio_web_rm( '${ WORK_DIR }' );` );
+	await runPhp( client, `<?php ${ PHP_HELPERS } studio_rm( '${ WORK_DIR }' );` );
 }
 
 // Imports a backup: a Playground or Studio export (wp-content with its SQLite
@@ -332,7 +329,7 @@ foreach ( $iterator as $file ) {
 	$zip->addFile( $file->getPathname(), $relative );
 }
 ${ standalone ? STANDALONE_FILES : '' }
-$zip->addFromString( 'meta.json', json_encode( array( 'phpVersion' => PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION, 'wordpressVersion' => studio_web_wp_version() ) ) );
+$zip->addFromString( 'meta.json', json_encode( array( 'phpVersion' => PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION, 'wordpressVersion' => studio_wp_version() ) ) );
 $zip->close();
 `
 	);
@@ -354,7 +351,7 @@ global $wpdb;
 $out = fopen( '${ path }', 'w' );
 fwrite( $out, "-- Studio on the web database export\\nSET NAMES utf8mb4;\\n\\n" );
 foreach ( $wpdb->get_col( 'SHOW TABLES' ) as $table ) {
-	studio_web_dump_table( $table, $out );
+	studio_dump_table( $table, $out );
 	fwrite( $out, "\\n" );
 }
 fclose( $out );
@@ -399,7 +396,7 @@ if ( ${ options.database ? 'true' : 'false' } ) {
 	foreach ( $wpdb->get_col( 'SHOW TABLES' ) as $table ) {
 		if ( in_array( $table, array( $wpdb->users, $wpdb->usermeta ), true ) ) { continue; }
 		$out = fopen( "$work/sql/$table.sql", 'w' );
-		studio_web_dump_table( $table, $out );
+		studio_dump_table( $table, $out );
 		fclose( $out );
 		$files[ "sql/$table.sql" ] = "$work/sql/$table.sql";
 	}
@@ -427,7 +424,7 @@ if ( ${ options.wpContent ? 'true' : 'false' } ) {
 file_put_contents( "$work/meta.json", wp_json_encode( array(
 	'siteUrl' => site_url(),
 	'phpVersion' => PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION,
-	'wordpressVersion' => studio_web_wp_version(),
+	'wordpressVersion' => studio_wp_version(),
 	'plugins' => array(),
 	'themes' => array(),
 ) ) );
@@ -441,6 +438,11 @@ $archive->compress( Phar::GZ );
 	} finally {
 		await cleanWorkDir( client );
 	}
+}
+
+// Empties a site's files, before the site is deleted.
+export async function removeSiteFiles( client: PlaygroundClient ): Promise< void > {
+	await runPhp( client, `<?php ${ PHP_HELPERS } studio_rm( '/wordpress' );` );
 }
 
 export async function readWordPressVersion( client: PlaygroundClient ): Promise< string > {
@@ -474,7 +476,7 @@ export async function listFileTree(
 			client,
 			`<?php
 $ignored = json_decode( ${ phpQuote( JSON.stringify( SYNC_IGNORED_NAMES ) ) }, true );
-function studio_web_tree( $base, $relative, $depth, $ignored ) {
+function studio_tree( $base, $relative, $depth, $ignored ) {
 	$entries = array();
 	$dir = rtrim( "$base/$relative", '/' );
 	foreach ( is_dir( $dir ) ? scandir( $dir ) : array() as $name ) {
@@ -482,12 +484,12 @@ function studio_web_tree( $base, $relative, $depth, $ignored ) {
 		$item = ltrim( "$relative/$name", '/' );
 		$is_dir = is_dir( "$dir/$name" );
 		$entry = array( 'name' => $name, 'isDirectory' => $is_dir, 'isSymlink' => is_link( "$dir/$name" ), 'path' => $item );
-		if ( $is_dir && $depth > 0 ) { $entry['children'] = studio_web_tree( $base, $item, $depth - 1, $ignored ); }
+		if ( $is_dir && $depth > 0 ) { $entry['children'] = studio_tree( $base, $item, $depth - 1, $ignored ); }
 		$entries[] = $entry;
 	}
 	return $entries;
 }
-echo json_encode( studio_web_tree( '/wordpress', ${ phpQuote( relative ) }, ${ Math.max(
+echo json_encode( studio_tree( '/wordpress', ${ phpQuote( relative ) }, ${ Math.max(
 				0,
 				depth
 			) }, $ignored ) );

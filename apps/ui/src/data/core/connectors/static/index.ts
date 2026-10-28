@@ -121,7 +121,6 @@ export function createStaticConnector(): Connector {
 			siteAgentFiles: false,
 			fileAccess: false,
 			versionChoice: false,
-			assistant: true,
 		},
 
 		agenticRequiresAuth: false,
@@ -214,14 +213,9 @@ export function createStaticConnector(): Connector {
 			}
 			return name;
 		},
-		async selectSiteFolder( folderPath ): Promise< SelectedSiteFolder | null > {
-			const taken = await sites.findByPath( folderPath );
-			return {
-				path: folderPath,
-				name: folderPath.split( '/' ).pop() ?? folderPath,
-				isEmpty: ! taken,
-				isWordPress: !! taken,
-			};
+		// Sites have no folder to choose: the create form hides the path field.
+		async selectSiteFolder(): Promise< SelectedSiteFolder | null > {
+			return null;
 		},
 		async comparePaths( path1, path2 ) {
 			return path1.replace( /\/+$/, '' ) === path2.replace( /\/+$/, '' );

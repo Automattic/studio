@@ -237,7 +237,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			siteAgentFiles: true,
 			fileAccess: true,
 			versionChoice: true,
-			assistant: true,
 		},
 
 		// Auth — surfaces the WordPress.com user the CLI is already logged in as

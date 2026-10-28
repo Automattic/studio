@@ -204,8 +204,6 @@ interface SessionPreviewUI {
 // mounted (standalone views, tests), so callers can fall
 // back to non-preview behavior (e.g. opening the external browser).
 export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
-	// Without the assistant there is no chat, so the preview fills its place.
-	const { assistant } = useConnector().capabilities;
 	const state = useContext( SessionUIStateContext );
 	const dispatch = useContext( SessionUIDispatchContext );
 	const setOpen = useCallback(
@@ -239,8 +237,8 @@ export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 			return null;
 		}
 		return {
-			open: ! assistant || state.preview.open,
-			chatHidden: ! assistant || state.preview.chatHidden,
+			open: state.preview.open,
+			chatHidden: state.preview.chatHidden,
 			path: pathForSite( state.preview.pathsBySiteId, state.preview.siteId ),
 			reloadNonce: state.preview.reloadNonce,
 			siteId: state.preview.siteId,
@@ -255,7 +253,6 @@ export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 			setRevealing,
 		};
 	}, [
-		assistant,
 		state,
 		dispatch,
 		setOpen,

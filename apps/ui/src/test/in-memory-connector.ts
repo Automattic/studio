@@ -83,7 +83,6 @@ export const ALL_CAPABILITIES: ConnectorCapabilities = {
 	siteAgentFiles: true,
 	fileAccess: true,
 	versionChoice: true,
-	assistant: true,
 };
 
 export const TEST_USER: AuthUser = { id: 1, email: 'test@example.test', displayName: 'Test User' };

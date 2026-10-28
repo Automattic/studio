@@ -188,40 +188,44 @@ function PreferencesPanel( {
 						onChange={ ( locale ) => onChange( { locale } ) }
 					/>
 				</SettingsRow>
-				<SettingsRow
-					title={ __( 'Code editor' ) }
-					description={ __( 'The default code editor for your sites.' ) }
-				>
-					<SettingsSelect
-						label={ __( 'Code editor' ) }
-						value={ data.editor }
-						options={ appElements( SUPPORTED_EDITORS, installedApps, data.editor, ( editor ) =>
-							supportedEditorConfig[ editor ].label()
-						) }
-						onChange={ ( editor ) => onChange( { editor } ) }
-					/>
-				</SettingsRow>
-				<SettingsRow
-					title={ __( 'Terminal' ) }
-					description={ __( 'The default terminal for your sites.' ) }
-				>
-					<SettingsSelect
-						label={ __( 'Terminal' ) }
-						value={ data.terminal }
-						options={ appElements(
-							SUPPORTED_TERMINALS,
-							installedApps,
-							data.terminal,
-							( terminal ) => terminalConfig[ terminal ].name()
-						) }
-						onChange={ ( terminal ) => onChange( { terminal } ) }
-					/>
-				</SettingsRow>
-				<DefaultSiteDirectoryRow
-					value={ data.defaultSiteDirectory }
-					onSelect={ onDefaultSiteDirectorySelect }
-					onSave={ ( defaultSiteDirectory ) => onChange( { defaultSiteDirectory } ) }
-				/>
+				{ connector.capabilities.siteFolders && (
+					<>
+						<SettingsRow
+							title={ __( 'Code editor' ) }
+							description={ __( 'The default code editor for your sites.' ) }
+						>
+							<SettingsSelect
+								label={ __( 'Code editor' ) }
+								value={ data.editor }
+								options={ appElements( SUPPORTED_EDITORS, installedApps, data.editor, ( editor ) =>
+									supportedEditorConfig[ editor ].label()
+								) }
+								onChange={ ( editor ) => onChange( { editor } ) }
+							/>
+						</SettingsRow>
+						<SettingsRow
+							title={ __( 'Terminal' ) }
+							description={ __( 'The default terminal for your sites.' ) }
+						>
+							<SettingsSelect
+								label={ __( 'Terminal' ) }
+								value={ data.terminal }
+								options={ appElements(
+									SUPPORTED_TERMINALS,
+									installedApps,
+									data.terminal,
+									( terminal ) => terminalConfig[ terminal ].name()
+								) }
+								onChange={ ( terminal ) => onChange( { terminal } ) }
+							/>
+						</SettingsRow>
+						<DefaultSiteDirectoryRow
+							value={ data.defaultSiteDirectory }
+							onSelect={ onDefaultSiteDirectorySelect }
+							onSave={ ( defaultSiteDirectory ) => onChange( { defaultSiteDirectory } ) }
+						/>
+					</>
+				) }
 				<SettingsRow
 					title={ __( 'Improve WordPress Studio for everyone' ) }
 					description={ __( 'Share anonymous usage statistics to improve WordPress Studio.' ) }

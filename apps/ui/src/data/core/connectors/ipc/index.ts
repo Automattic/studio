@@ -133,7 +133,6 @@ export function createIpcConnector(): Connector {
 			siteAgentFiles: true,
 			fileAccess: true,
 			versionChoice: true,
-			assistant: true,
 		},
 
 		agenticRequiresAuth: true,

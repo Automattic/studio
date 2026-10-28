@@ -1,6 +1,7 @@
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { syncOptionSchema, type SyncOption, SyncSite } from '@studio/common/types/sync';
 import { posix } from 'pathe';
+import { phpQuote } from '../php';
 import { getSiteUrl, loadPlaygroundClient } from '../playground';
 import { exportDatabaseSql, exportSiteZip } from '../site-data';
 import { openSitePage, type SitePage } from '../site-page';
@@ -37,10 +38,6 @@ const path: HostPath = {
 	fileURLToPath: ( url ) => decodeURIComponent( new URL( url ).pathname ),
 	pathToFileURL: ( file ) => `file://${ encodeURI( file ) }`,
 };
-
-function phpQuote( value: string ): string {
-	return `'${ value.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" ) }'`;
-}
 
 function normalizeHostname( value: string ): string {
 	return value

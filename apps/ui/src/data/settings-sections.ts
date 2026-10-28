@@ -33,12 +33,6 @@ const STUDIO_SECTIONS = [
 	'keyboard',
 ] as const;
 const SITE_SECTIONS = [ 'site', 'debugging', 'php', 'site-skills', 'site-instructions' ] as const;
-const ASSISTANT_SECTIONS: readonly SettingsSectionId[] = [
-	'ai',
-	'usage',
-	'skills',
-	'instructions',
-];
 
 export type SettingsSectionId =
 	| ( typeof STUDIO_SECTIONS )[ number ]
@@ -80,7 +74,10 @@ const setting = ( title: string, description = '', id?: string, icon?: SectionIc
 	icon,
 } );
 
-function getStudioSections( signedIn: boolean, assistant = true ): Section[] {
+function getStudioSections(
+	signedIn: boolean,
+	{ siteFolders = true, siteAgentFiles = true }: Partial< SettingsCapabilities > = {}
+): Section[] {
 	const sections: Section[] = [
 		{
 			id: 'general',
@@ -294,10 +291,12 @@ function getStudioSections( signedIn: boolean, assistant = true ): Section[] {
 			aliases: [ __( 'Keyboard shortcuts' ) ],
 		},
 	];
+	// MCP sets up the local CLI, and skills are installed into site folders.
 	return sections.filter(
 		( section ) =>
 			( signedIn || section.id !== 'usage' ) &&
-			( assistant || ! ASSISTANT_SECTIONS.includes( section.id ) )
+			( siteFolders || section.id !== 'mcp' ) &&
+			( siteAgentFiles || section.id !== 'skills' )
 	);
 }
 
@@ -305,7 +304,7 @@ function getStudioSections( signedIn: boolean, assistant = true ): Section[] {
 // when left out.
 type SettingsCapabilities = Pick<
 	ConnectorCapabilities,
-	'customDomains' | 'xdebug' | 'siteAgentFiles' | 'fileAccess' | 'versionChoice' | 'assistant'
+	'customDomains' | 'xdebug' | 'siteAgentFiles' | 'fileAccess' | 'versionChoice' | 'siteFolders'
 >;
 
 function getSiteSections( {
@@ -427,7 +426,7 @@ export function getSections(
 	}: { signedIn?: boolean; capabilities?: Partial< SettingsCapabilities > } = {}
 ): Section[] {
 	return scope === 'studio'
-		? getStudioSections( signedIn, capabilities?.assistant )
+		? getStudioSections( signedIn, capabilities )
 		: getSiteSections( capabilities );
 }
 

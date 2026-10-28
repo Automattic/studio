@@ -216,6 +216,7 @@ describe( 'Sidebar in the Studio workspace', () => {
 		await refreshSessions( [
 			chat( { id: 'unread-chat', title: 'Homepage polish', unread: false } ),
 		] );
+		await screen.findByRole( 'group', { name: 'My site chats' } );
 		const chats = () => within( screen.getByRole( 'group', { name: 'My site chats' } ) );
 		fireEvent.contextMenu( await chats().findByRole( 'button', { name: 'Homepage polish' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Mark as unread' } ) );

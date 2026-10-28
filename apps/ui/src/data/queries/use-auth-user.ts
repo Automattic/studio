@@ -35,7 +35,16 @@ export function useSyncAuthUserWithEvents(): void {
 
 // However the account changed: a login here, a logout in the CLI, an expired token.
 export function useAuthChangeToasts() {
-	const { data, isSuccess } = useAuthUser();
+	const { data, isSuccess, error, refetch } = useAuthUser();
+	useEffect( () => {
+		if ( error ) {
+			toast.error( __( 'Couldn’t refresh your account' ), {
+				id: 'auth-user-error',
+				description: error.message,
+				action: { label: __( 'Retry' ), onClick: () => refetch( { throwOnError: true } ) },
+			} );
+		}
+	}, [ error, refetch ] );
 	const userId = data?.id ?? null;
 	const previousUserId = useRef< number | null >( undefined );
 	useEffect( () => {

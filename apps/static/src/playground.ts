@@ -203,6 +203,7 @@ function pageBridge( appOrigin: string, screenshotLibrary: string, consolePrefix
 			return true;
 		},
 	};
+	const actionsByName = new Map( Object.entries( actions ) );
 	window.addEventListener( 'message', ( event: MessageEvent ) => {
 		const data = event.data as {
 			type?: string;
@@ -213,9 +214,7 @@ function pageBridge( appOrigin: string, screenshotLibrary: string, consolePrefix
 		if ( event.origin !== appOrigin || data?.type !== 'studio:request' || ! data.action ) {
 			return;
 		}
-		const action = Object.prototype.hasOwnProperty.call( actions, data.action )
-			? actions[ data.action ]
-			: undefined;
+		const action = actionsByName.get( data.action );
 		const reply = ( message: Record< string, unknown > ) =>
 			( event.source as Window ).postMessage(
 				{ type: 'studio:response', id: data.id, ...message },

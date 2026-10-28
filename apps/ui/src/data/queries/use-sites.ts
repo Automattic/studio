@@ -442,21 +442,27 @@ export function useSyncSitesWithEvents(): void {
 
 // Boot-time counterpart of the "Stop, restart on next launch" quit behavior:
 // those sites keep their autoStart flag when stopped on quit, and the renderer
-// starts them again on launch. Gated on isFetchedAfterMount so a rehydrated
-// persisted cache with stale flags can't trigger starts.
+// starts them again on launch. Reads the list this launch, joining the fetch
+// already in flight, because the persisted list predates the flags the quit set.
 export function useAutoStartSites(): void {
-	const { data: sites, isFetchedAfterMount } = useSites();
+	const connector = useConnector();
+	const queryClient = useQueryClient();
 	const { mutate: startSite } = useStartSite();
 	const startedRef = useRef( false );
 	useEffect( () => {
-		if ( ! isFetchedAfterMount || ! sites || startedRef.current ) {
+		if ( startedRef.current ) {
 			return;
 		}
 		startedRef.current = true;
-		for ( const site of sites ) {
-			if ( site.autoStart && ! site.running ) {
-				startSite( site.id );
-			}
-		}
-	}, [ isFetchedAfterMount, sites, startSite ] );
+		void queryClient
+			.fetchQuery( { queryKey: SITES_QUERY_KEY, queryFn: () => connector.getSites() } )
+			.then( ( sites ) => {
+				for ( const site of sites ) {
+					if ( site.autoStart && ! site.running ) {
+						startSite( site.id );
+					}
+				}
+			} )
+			.catch( () => undefined );
+	}, [ connector, queryClient, startSite ] );
 }

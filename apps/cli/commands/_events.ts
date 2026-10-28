@@ -195,8 +195,9 @@ export async function runCommand( listener: EventsListener = 'desktop' ): Promis
 	await connectToDaemon();
 	logger.reportSuccess( __( 'Connected to process daemon' ) );
 
-	await emitAllSitesStatus();
-
+	// Subscribed before the status sweep, so a site that starts or stops after
+	// the sweep reads it still gets an event. Events are sequential, so the
+	// later one lands last.
 	const bus = await getDaemonBus();
 
 	// Subscribe to IPC events from site processes. We treat a `result` message with no return value
@@ -229,6 +230,8 @@ export async function runCommand( listener: EventsListener = 'desktop' ): Promis
 	bus.on( 'daemon-kill', () => {
 		void emitAllSitesStopped();
 	} );
+
+	await emitAllSitesStatus();
 }
 
 export async function commandHandler( listener?: EventsListener ) {

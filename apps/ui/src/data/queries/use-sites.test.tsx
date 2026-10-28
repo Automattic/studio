@@ -47,6 +47,47 @@ describe( 'useAutoStartSites', () => {
 		expect( connector.startSite ).toHaveBeenCalledTimes( 1 );
 		expect( getVisibleToasts() ).toHaveLength( 0 );
 	} );
+
+	it( 'starts from the list read this launch, not the one persisted before the quit', async () => {
+		const site = { ...makeSite(), url: 'http://localhost:9010' };
+		const connector = createFakeConnector();
+		let readList = ( _sites: SiteDetails[] ) => {};
+		connector.getSites.mockImplementation(
+			() => new Promise< SiteDetails[] >( ( resolve ) => ( readList = resolve ) )
+		);
+		const queryClient = createTestQueryClient();
+		queryClient.setQueryData( [ 'sites' ], [ site ] );
+		const { result } = renderHook(
+			() => {
+				useSyncSitesWithEvents();
+				useAutoStartSites();
+				return useSites();
+			},
+			{
+				wrapper: ( { children } ) => (
+					<ConnectorProvider connector={ connector }>
+						<QueryClientProvider client={ queryClient }>{ children }</QueryClientProvider>
+					</ConnectorProvider>
+				),
+			}
+		);
+
+		// The status the CLI reports for each site as the app launches, landing
+		// before the list is read.
+		const reported = { ...site, name: 'Renamed' };
+		act( () =>
+			connector.emit( 'onSiteEvent', {
+				event: SITE_EVENTS.UPDATED,
+				siteId: site.id,
+				site: reported,
+				running: false,
+			} )
+		);
+		await waitFor( () => expect( result.current.data?.[ 0 ].name ).toBe( 'Renamed' ) );
+		await act( async () => readList( [ { ...reported, autoStart: true } ] ) );
+
+		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( site.id ) );
+	} );
 } );
 
 describe( 'useCreateSite', () => {

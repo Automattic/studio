@@ -76,35 +76,45 @@ describe( 'sidebar site menu', () => {
 } );
 
 describe( 'site title actions', () => {
-	it.each( [ [ 'phpMyAdmin', '/phpmyadmin/index.php?route=/database/structure&db=wordpress' ] ] )(
-		'starts a stopped site before opening %s',
-		async ( label, path ) => {
-			let finishStart!: () => void;
-			const { connector } = setup( [ site() ], {
-				startSite: () =>
-					new Promise( ( resolve ) => {
-						finishStart = resolve;
-					} ),
-			} );
+	it.each( [
+		[ 'Browser', '/', { autoLogin: false } ],
+		[ 'WordPress admin', '/wp-admin/', undefined ],
+		[ 'phpMyAdmin', '/phpmyadmin/index.php?route=/database/structure&db=wordpress', undefined ],
+	] )( 'starts a stopped site before opening %s', async ( label, path, options ) => {
+		let finishStart!: () => void;
+		const { connector } = setup( [ site() ], {
+			startSite: () =>
+				new Promise( ( resolve ) => {
+					finishStart = resolve;
+				} ),
+		} );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
+		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
+		expect( connector.openSiteUrl ).not.toHaveBeenCalled();
+		await act( async () => finishStart() );
+		await waitFor( () =>
+			expect( connector.openSiteUrl ).toHaveBeenCalledWith(
+				'one',
+				path,
+				...( options ? [ options ] : [] )
+			)
+		);
+	} );
+
+	it.each( [ 'Browser', 'WordPress admin', 'phpMyAdmin' ] )(
+		'does not open %s when starting fails',
+		async ( label ) => {
+			const { connector } = setup();
+			connector.startSite.mockRejectedValueOnce( new Error( 'Start failed' ) );
 			fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
 			fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
-			await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
+			await screen.findAllByText( 'Start failed' );
 			expect( connector.openSiteUrl ).not.toHaveBeenCalled();
-			await act( async () => finishStart() );
-			await waitFor( () => expect( connector.openSiteUrl ).toHaveBeenCalledWith( 'one', path ) );
 		}
 	);
-
-	it( 'does not open a destination when starting fails', async () => {
-		const { connector } = setup();
-		connector.startSite.mockRejectedValueOnce( new Error( 'Start failed' ) );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'phpMyAdmin' } ) );
-		await screen.findAllByText( 'Start failed' );
-		expect( connector.openSiteUrl ).not.toHaveBeenCalled();
-	} );
 
 	it( 'opens the configured editor', async () => {
 		const { connector } = setup();

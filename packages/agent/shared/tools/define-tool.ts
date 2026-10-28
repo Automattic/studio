@@ -34,6 +34,8 @@ export interface ToolResult {
 	// report for the agent. A runtime that cannot wait for it later awaits it
 	// before answering.
 	pending?: Promise< string | undefined >;
+	// Data for the app alongside the result, such as an edit's diff.
+	details?: Record< string, unknown >;
 }
 
 export interface StudioToolResultDetails {
@@ -182,8 +184,8 @@ export function bindTool< TProps extends TProperties >(
 			};
 			const result = await handler( params as never, context );
 			const details: StudioToolResultDetails | undefined =
-				result.studioArtifacts?.length || result.pending
-					? { studioArtifacts: result.studioArtifacts, pending: result.pending }
+				result.details || result.studioArtifacts?.length || result.pending
+					? { ...result.details, studioArtifacts: result.studioArtifacts, pending: result.pending }
 					: undefined;
 			return { content: result.content, details };
 		},

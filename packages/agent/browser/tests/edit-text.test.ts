@@ -1,14 +1,10 @@
+import path from 'node:path';
 import { createEditTool } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
-import {
-	applyEditsToNormalizedContent,
-	detectLineEnding,
-	generateDiffString,
-	normalizeToLF,
-	prepareEditArguments,
-	restoreLineEndings,
-	stripBom,
-} from '@studio/agent/browser/edit-text';
+import { prepareEditArguments } from '@studio/agent/browser/edit-text';
+import { createFileTools } from '@studio/agent/browser/file-tools';
+import { bindTool } from '@studio/agent/shared/tools/define-tool';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
 
 type Edits = Array< { oldText: string; newText: string } >;
 
@@ -35,19 +31,26 @@ async function piEdit( content: string, edits: Edits ) {
 	}
 }
 
-// The browser Edit's steps, as file-tools.ts runs them.
-function ourEdit( raw: string, edits: Edits ) {
+// The browser agent's Edit tool, bound as the agent binds it, over one in-memory file.
+async function ourEdit( content: string, edits: Edits ) {
+	let written = content;
+	const host = {
+		sitesRoot: '/',
+		path: path.posix,
+		files: {
+			readText: async () => written,
+			write: async ( _path: string, data: string ) => {
+				written = data;
+			},
+		},
+	} as unknown as StudioAgentHost;
+	const edit = createFileTools( host ).find( ( tool ) => tool.name === 'Edit' )!;
 	try {
-		const { bom, text } = stripBom( raw );
-		const { baseContent, newContent } = applyEditsToNormalizedContent(
-			normalizeToLF( text ),
+		const result = await bindTool( edit, host ).execute( 'call', {
+			path: '/file.txt',
 			edits,
-			'/file.txt'
-		);
-		return {
-			written: bom + restoreLineEndings( newContent, detectLineEnding( text ) ),
-			diff: generateDiffString( baseContent, newContent ).diff,
-		};
+		} as never );
+		return { written, diff: ( result.details as { diff: string } ).diff };
 	} catch ( error ) {
 		return { error: ( error as Error ).message };
 	}
@@ -85,7 +88,7 @@ describe( 'edit-text', () => {
 			],
 		],
 	] )( 'edits %s as pi’s Edit tool does', async ( _name, content, edits ) => {
-		expect( ourEdit( content, edits ) ).toEqual( await piEdit( content, edits ) );
+		expect( await ourEdit( content, edits ) ).toEqual( await piEdit( content, edits ) );
 	} );
 
 	it( 'accepts edits sent as a JSON string, and a single top-level edit', () => {

@@ -1,11 +1,10 @@
 import { useLayoutEffect, useRef, type ReactNode, type Ref } from 'react';
-import { ChatContextMenu } from '@/features/chats/chat-actions';
+import { ActiveChatShortcuts } from '@/features/chats/chat-actions';
 import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 
 interface SessionFrameProps {
 	session?: AiSessionSummary;
-	canExpand?: boolean;
 	header?: ReactNode;
 	composer?: ReactNode;
 	scrollRef?: Ref< HTMLDivElement >;
@@ -18,7 +17,6 @@ interface SessionFrameProps {
 // PreviewSplitFrame, which keeps it mounted across routes.
 export function SessionFrame( {
 	session,
-	canExpand,
 	header,
 	composer,
 	scrollRef,
@@ -57,13 +55,23 @@ export function SessionFrame( {
 	}, [] );
 
 	return (
-		<ChatContextMenu session={ session } canExpand={ canExpand }>
+		<>
+			{ session ? <ActiveChatShortcuts session={ session } /> : null }
 			<div
 				ref={ ( node ) => {
 					rootRef.current = node;
 					onRootNode?.( node );
 				} }
 				className={ styles.root }
+				onContextMenuCapture={ ( event ) => {
+					if (
+						( event.target as Element ).closest(
+							'input, textarea, [contenteditable="true"], [data-chat-transcript]'
+						)
+					) {
+						event.stopPropagation();
+					}
+				} }
 			>
 				<div ref={ headerRef } className={ styles.headerLayer }>
 					{ header }
@@ -77,6 +85,6 @@ export function SessionFrame( {
 					</div>
 				) : null }
 			</div>
-		</ChatContextMenu>
+		</>
 	);
 }

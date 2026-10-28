@@ -1,7 +1,9 @@
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { __, sprintf } from '@wordpress/i18n';
-import { Suspense, useCallback, useRef, useState } from 'react';
+import { Suspense, useCallback, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
+import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
 import { useSiteDesign } from '@/data/queries/use-site-design';
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
@@ -60,6 +62,8 @@ interface SitePreviewProps {
 	// True while the panel is toggled off but kept mounted (so the webview
 	// stays warm). Disables the global browser shortcuts in that state.
 	collapsed?: boolean;
+	toolbarStart?: ReactNode;
+	headerContainer?: HTMLElement | null;
 	// The preview is the leftmost pane, so with the sidebar out of the way its
 	// toolbar reaches the window's start edge, where the macOS traffic lights sit.
 	atWindowStart?: boolean;
@@ -74,6 +78,8 @@ export function SitePreview( {
 	onStartAnnotating,
 	onPathChange,
 	collapsed = false,
+	toolbarStart,
+	headerContainer,
 	atWindowStart = false,
 }: SitePreviewProps ) {
 	const connector = useConnector();
@@ -223,43 +229,57 @@ export function SitePreview( {
 			: null
 	);
 
+	const header = (
+		<PreviewHeader
+			site={ site }
+			siteUrl={ siteUrl }
+			path={ safePath }
+			live={ live }
+			canPreview={ canPreview }
+			isStarting={ isStarting }
+			isStopping={ isStopping }
+			collapsed={ collapsed }
+			toolbarStart={ toolbarStart }
+			atWindowStart={ atWindowStart }
+			browserState={ browserState }
+			shortcuts={ browserShortcuts }
+			onBrowserCommand={ sendBrowserCommand }
+			onJump={ goToHistoryIndex }
+			onPathChange={ onPathChange }
+			onSwitchRealm={ switchRealm }
+			hasDesignSystem={ !! siteDesign.data }
+			onOpenExternal={ openExternal }
+			onOpenSettings={ live ? undefined : openSiteSettings }
+			annotate={
+				showAnnotate
+					? {
+							active: annotations.active,
+							disabled: ! canAnnotate || isAnnotationsBusy( annotations ),
+							disabledReason:
+								activeSurfaceKey === 'database' ? __( 'Not available for Database' ) : undefined,
+							onClick: () => {
+								if ( ! annotations.active && onStartAnnotating?.() === false ) return;
+								setAnnotating( site.id, ! annotations.active );
+							},
+					  }
+					: undefined
+			}
+			progress={ showLoadingProgress ? progress : undefined }
+		/>
+	);
+
 	return (
 		<aside className={ styles.root } aria-label={ __( 'Site preview' ) }>
-			<PreviewHeader
-				site={ site }
-				siteUrl={ siteUrl }
-				path={ safePath }
-				live={ live }
-				canPreview={ canPreview }
-				isStarting={ isStarting }
-				isStopping={ isStopping }
-				collapsed={ collapsed }
-				atWindowStart={ atWindowStart }
-				browserState={ browserState }
-				shortcuts={ browserShortcuts }
-				onBrowserCommand={ sendBrowserCommand }
-				onJump={ goToHistoryIndex }
-				onPathChange={ onPathChange }
-				onSwitchRealm={ switchRealm }
-				hasDesignSystem={ !! siteDesign.data }
-				onOpenExternal={ openExternal }
-				onOpenSettings={ live ? undefined : openSiteSettings }
-				annotate={
-					showAnnotate
-						? {
-								active: annotations.active,
-								disabled: ! canAnnotate || isAnnotationsBusy( annotations ),
-								disabledReason:
-									activeSurfaceKey === 'database' ? __( 'Not available for Database' ) : undefined,
-								onClick: () => {
-									if ( ! annotations.active && onStartAnnotating?.() === false ) return;
-									setAnnotating( site.id, ! annotations.active );
-								},
-						  }
-						: undefined
-				}
-				progress={ showLoadingProgress ? progress : undefined }
-			/>
+			{ headerContainer
+				? collapsed
+					? null
+					: createPortal(
+							<WindowControlsCornerContext.Provider value={ true }>
+								{ header }
+							</WindowControlsCornerContext.Provider>,
+							headerContainer
+					  )
+				: header }
 			<div className={ styles.body }>
 				<div ref={ viewportRef } className={ styles.previewViewport }>
 					{ canPreview &&

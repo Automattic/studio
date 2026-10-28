@@ -20,7 +20,7 @@ const MAX_IMAGES_PER_CALL = 20;
 const UPLOADS_DIR = path.sep + path.join( 'wp-content', 'uploads' ) + path.sep;
 
 // Exported for tests. Generated files are jailed to the sites root like the
-// pi Write tool, and must be PNGs — the only format the pipeline delivers.
+// pi Write tool.
 export function resolveImageFilePath( filePath: string ): string {
 	const resolved = path.resolve( filePath );
 	const root = path.resolve( STUDIO_SITES_ROOT );
@@ -28,9 +28,6 @@ export function resolveImageFilePath( filePath: string ): string {
 		throw new Error(
 			`Image path must be inside the Studio sites directory (${ STUDIO_SITES_ROOT }): ${ filePath }`
 		);
-	}
-	if ( ! /\.png$/i.test( resolved ) ) {
-		throw new Error( `Image path must end in .png: ${ filePath }` );
 	}
 	return resolved;
 }
@@ -74,10 +71,55 @@ const RESERVE_ATTACHMENTS = `$upload = wp_upload_dir();
 $reserved = array();
 foreach ( $data as $name ) {
 	$filename = wp_unique_filename( $upload['path'], $name );
-	$id = wp_insert_attachment( array( 'guid' => $upload['url'] . '/' . $filename, 'post_mime_type' => 'image/png', 'post_title' => pathinfo( $filename, PATHINFO_FILENAME ), 'post_content' => '', 'post_status' => 'inherit' ), $upload['path'] . '/' . $filename );
+	$id = wp_insert_attachment( array( 'guid' => $upload['url'] . '/' . $filename, 'post_mime_type' => wp_check_filetype( $filename )['type'] ?: 'image/png', 'post_title' => pathinfo( $filename, PATHINFO_FILENAME ), 'post_content' => '', 'post_status' => 'inherit' ), $upload['path'] . '/' . $filename );
 	$reserved[] = array( 'id' => $id, 'file' => substr( $upload['path'], strlen( ABSPATH ) ) . '/' . $filename, 'url' => wp_get_attachment_url( $id ) );
 }
 echo wp_json_encode( $reserved );`;
+
+/**
+ * The image model delivers PNGs. An image whose path names another format,
+ * such as a.jpg, is saved in it by WordPress's image editor, which takes the
+ * type from the extension (WP_Image_Editor::get_output_format()), where
+ * wp_image_editor_supports() says it saves the type wp_check_filetype()
+ * gives the extension (wp-includes/media.php). The PNG is removed either way; an image WordPress
+ * cannot save gets WordPress's reason.
+ */
+const CONVERT_IMAGES = `require_once ABSPATH . 'wp-admin/includes/image.php';
+$errors = array();
+foreach ( $data as $image ) {
+	$type = wp_check_filetype( $image['to'] )['type'];
+	$editor = wp_get_image_editor( $image['from'] );
+	if ( ! $type || ! wp_image_editor_supports( array( 'mime_type' => $type ) ) ) {
+		$errors[ $image['to'] ] = "WordPress's image editor does not save ." . pathinfo( $image['to'], PATHINFO_EXTENSION ) . ' files (wp_image_editor_supports())';
+	} elseif ( is_wp_error( $editor ) ) {
+		$errors[ $image['to'] ] = $editor->get_error_message();
+	} else {
+		$saved = $editor->save( $image['to'] );
+		$errors[ $image['to'] ] = is_wp_error( $saved ) ? $saved->get_error_message() : '';
+	}
+	wp_delete_file( $image['from'] );
+}
+echo wp_json_encode( (object) $errors );`;
+
+// Each converted image's path, with '' once saved or WordPress's reason not.
+async function convertImages(
+	site: SiteData | undefined,
+	conversions: { from: string; to: string }[]
+): Promise< Record< string, string > > {
+	if ( ! site ) {
+		await Promise.all( conversions.map( ( { from } ) => fs.rm( from, { force: true } ) ) );
+		return Object.fromEntries(
+			conversions.map( ( { to } ) => [
+				to,
+				'it is in no Studio site whose WordPress could save it',
+			] )
+		);
+	}
+	const output = await evalWithData( site, CONVERT_IMAGES, conversions );
+	return JSON.parse( output.trim().split( '\n' ).pop() ?? '{}' );
+}
+
+const isPng = ( file: string ) => path.extname( file ).toLowerCase() === '.png';
 
 const FINALIZE_ATTACHMENTS = `require_once ABSPATH . 'wp-admin/includes/image.php';
 foreach ( $data['ready'] as $id ) {
@@ -89,7 +131,7 @@ foreach ( $data['failed'] as $id ) {
 
 export const generateImagesTool = defineTool(
 	'generate_images',
-	"Generate AI images (PNG) from text specs and write them to files inside a site. An image written under the site's wp-content/uploads/ is added to its media library; any other image, such as theme imagery in a theme's assets/images, stays where it is written. " +
+	"Generate AI images from text specs and write them to files inside a site. An image written under the site's wp-content/uploads/ is added to its media library; any other image, such as theme imagery in a theme's assets/images, stays where it is written. " +
 		'Batch every image a page or site needs into as few calls as possible; each call accepts up to ' +
 		`${ MAX_IMAGES_PER_CALL } images and generates them concurrently. ` +
 		"The call returns at once with each image's path, and for the media library its attachment ID and URL, while the images are generated in the background: the tools that render the site wait for them, and any that failed is reported with a later tool result. " +
@@ -99,7 +141,7 @@ export const generateImagesTool = defineTool(
 			Type.Object( {
 				path: Type.String( {
 					description:
-						"Absolute file path to write the generated PNG to. Must be inside the Studio sites directory and end in .png. Under a site's wp-content/uploads/, the image is imported into the media library: the file moves to the uploads folder WordPress picks, and the result gives that path, its attachment ID and its URL. Anywhere else, such as a theme's assets/images, the file stays at this path.",
+						"Absolute file path to write the generated image to, inside the Studio sites directory. Its extension picks the format: .png as generated, or another WordPress's image editor saves, such as .jpg or .webp. Under a site's wp-content/uploads/, the image is imported into the media library: the file moves to the uploads folder WordPress picks, and the result gives that path, its attachment ID and its URL. Anywhere else, such as a theme's assets/images, the file stays at this path.",
 				} ),
 				subject: Type.String( {
 					description:
@@ -199,6 +241,7 @@ export const generateImagesTool = defineTool(
 			)
 			.then( async ( results ) => {
 				const failures: string[] = [];
+				const conversions: { from: string; to: string }[] = [];
 				await Promise.all(
 					results.map( async ( result, index ) => {
 						const target = targets[ index ];
@@ -211,9 +254,30 @@ export const generateImagesTool = defineTool(
 						}
 						const file = attachments.get( target.resolvedPath )?.file ?? target.resolvedPath;
 						await fs.mkdir( path.dirname( file ), { recursive: true } );
-						await fs.writeFile( file, result.bytes );
+						if ( isPng( file ) ) {
+							await fs.writeFile( file, result.bytes );
+							return;
+						}
+						const png = path.join( path.dirname( file ), `.${ path.basename( file ) }.png` );
+						await fs.writeFile( png, result.bytes );
+						conversions.push( { from: png, to: file } );
 					} )
 				);
+				if ( conversions.length ) {
+					const errors = await convertImages( forSite, conversions );
+					for ( const { to } of conversions ) {
+						if ( errors[ to ] === '' ) {
+							continue;
+						}
+						const index = targets.findIndex(
+							( target ) =>
+								( attachments.get( target.resolvedPath )?.file ?? target.resolvedPath ) === to
+						);
+						const error = errors[ to ] ?? 'WordPress did not save it';
+						results[ index ] = { ok: false, error };
+						failures.push( `FAILED ${ targets[ index ].path }: ${ error }` );
+					}
+				}
 				if ( site ) {
 					const ids = ( ok: boolean ) =>
 						libraryTargets

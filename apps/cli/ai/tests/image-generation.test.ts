@@ -163,7 +163,7 @@ describe( 'interpretImageResponse', () => {
 } );
 
 describe( 'resolveImageFilePath', () => {
-	it( 'accepts .png paths inside the sites root', () => {
+	it( 'accepts paths inside the sites root', () => {
 		const target = path.join( STUDIO_SITES_ROOT, 'my-site', 'wp-content', 'a.png' );
 		expect( resolveImageFilePath( target ) ).toBe( target );
 	} );
@@ -172,11 +172,5 @@ describe( 'resolveImageFilePath', () => {
 		expect( () =>
 			resolveImageFilePath( path.join( STUDIO_SITES_ROOT, '..', 'escape.png' ) )
 		).toThrow( /inside the Studio sites directory/ );
-	} );
-
-	it( 'rejects non-PNG extensions', () => {
-		expect( () => resolveImageFilePath( path.join( STUDIO_SITES_ROOT, 'a.jpg' ) ) ).toThrow(
-			/end in .png/
-		);
 	} );
 } );

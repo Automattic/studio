@@ -3,7 +3,7 @@
 	"private": true,
 	"version": "1.0.0",
 	"type": "module",
-	"description": "The Studio Code agent: its contract with the apps (protocol), its tools and prompt (shared), and its runtimes in Node (node) and a browser (web)",
+	"description": "The Studio Code agent: its contract with the apps (protocol), its tools and prompt (shared), and its runtimes in Node (node) and a browser (browser)",
 	"exports": {
 		"./protocol/*": "./protocol/*.ts",
 		"./shared/tools": "./shared/tools/index.ts",

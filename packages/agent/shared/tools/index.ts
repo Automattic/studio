@@ -27,7 +27,7 @@ import { createTakeScreenshotTool, takeScreenshotTool } from './take-screenshot'
 import { updatePreviewTool } from './update-preview';
 import { validateBlocksTool } from './validate-blocks';
 import { runWpCliTool } from './wp-cli';
-import { createWpcomRequestTool } from './wpcom-request';
+import { createWpcomRequestTool, WPCOM_REQUEST_TOOL_NAME } from './wpcom-request';
 import type {
 	AnyStudioAgentTool,
 	StudioToolDefinition,
@@ -99,7 +99,7 @@ export function resolveStudioTools(
 		if ( candidate.name === generateImagesTool.name && ! options.imageGeneration ) {
 			return [];
 		}
-		if ( candidate.name === 'wpcom_request' && options.wpcomRequest === false ) {
+		if ( candidate.name === WPCOM_REQUEST_TOOL_NAME && options.wpcomRequest === false ) {
 			return [];
 		}
 		// Only a Studio UI shows the preview it reloads.

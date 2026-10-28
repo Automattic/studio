@@ -147,6 +147,8 @@ async function resolveRequestBody(
 	return mergeBodyFiles( host, body, bodyFiles );
 }
 
+export const WPCOM_REQUEST_TOOL_NAME = 'wpcom_request';
+
 /**
  * A generic WP.com REST API tool for managing the user's WordPress.com sites.
  * Instead of hardcoding individual endpoints, this provides a single flexible tool
@@ -155,7 +157,7 @@ async function resolveRequestBody(
  */
 export function createWpcomRequestTool( payloadsDirectory: string ) {
 	return defineTool(
-		'wpcom_request',
+		WPCOM_REQUEST_TOOL_NAME,
 		'Makes a request to the WordPress REST API (wp/v2) or WordPress.com REST API (v1.1) for the WordPress.com site `siteId`. ' +
 			'Defaults to the WordPress REST API (wp/v2). Use this to manage posts, pages, templates, template parts, ' +
 			'media, plugins, themes, settings, and any other site resource. ' +

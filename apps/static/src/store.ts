@@ -40,17 +40,24 @@ export async function kvDelete( key: string ): Promise< void > {
 	await run( 'readwrite', ( store ) => store.delete( key ) );
 }
 
+// Every value whose key starts with `prefix`, in key order.
+export function kvRange< T >( prefix: string ): Promise< T[] > {
+	return run< T[] >( 'readonly', ( store ) =>
+		store.getAll( IDBKeyRange.bound( prefix, `${ prefix }\uffff` ) )
+	);
+}
+
 // Read-modify-write for one key. Updates to the same key are serialized so
 // concurrent callers never drop each other's changes.
 const queues = new Map< string, Promise< unknown > >();
 export function kvUpdate< T >(
 	key: string,
 	fallback: T,
-	update: ( current: T ) => T
+	update: ( current: T ) => T | Promise< T >
 ): Promise< T > {
 	const previous = queues.get( key ) ?? Promise.resolve();
 	const next = previous.then( async () => {
-		const value = update( ( await kvGet< T >( key ) ) ?? fallback );
+		const value = await update( ( await kvGet< T >( key ) ) ?? fallback );
 		await kvSet( key, value );
 		return value;
 	} );

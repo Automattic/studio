@@ -1,3 +1,4 @@
+import { once } from 'events';
 import fs from 'fs';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -8,6 +9,7 @@ import { fetchSyncableSites, pollImportStatus } from 'cli/lib/sync-api';
 import { runCommand } from '../push';
 import type { SyncSite } from '@studio/common/types/sync';
 import type { SiteData } from 'cli/lib/cli-config/core';
+import type { Readable } from 'stream';
 
 vi.mock( '@studio/common/lib/shared-config', async ( importActual ) => ( {
 	...( await importActual< typeof import('@studio/common/lib/shared-config') >() ),
@@ -19,8 +21,12 @@ vi.mock( '@studio/common/lib/sync/constants', async ( importActual ) => ( {
 	...( await importActual< typeof import('@studio/common/lib/sync/constants') >() ),
 	SYNC_POLL_INTERVAL_MS: 0,
 } ) );
+// Reads the archive to the end, as the real upload does before the push removes it.
 vi.mock( '@studio/common/lib/sync/tus-upload', () => ( {
-	createTusUpload: () => ( { promise: Promise.resolve( 'attachment-1' ), abort: vi.fn() } ),
+	createTusUpload: ( { file }: { file: Readable } ) => ( {
+		promise: once( file.resume(), 'close' ).then( () => 'attachment-1' ),
+		abort: vi.fn(),
+	} ),
 } ) );
 vi.mock( 'cli/lib/cli-config/sites', async ( importActual ) => ( {
 	...( await importActual< typeof import('cli/lib/cli-config/sites') >() ),

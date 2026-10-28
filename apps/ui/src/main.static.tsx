@@ -10,8 +10,8 @@ import { toast } from '@/data/app-messages';
 import { persistPromise } from '@/data/core';
 import { completeRedirectSignIn, createStaticConnector } from '@/data/core/connectors/static';
 
-// Web entry point, for a static deployment with no Studio server: identical to
-// `main.local.tsx` except that it wires the `web` connector, which runs sites
+// Static entry point, for a deployment with no Studio server: identical to
+// `main.local.tsx` except that it wires the `static` connector, which runs sites
 // in WordPress Playground.
 
 async function bootstrap() {

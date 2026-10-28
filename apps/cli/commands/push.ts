@@ -251,7 +251,7 @@ async function runPush(
 			remoteSiteId: remoteSite.id,
 			file: fs.createReadStream( archivePath ),
 			filename: path.basename( archivePath ),
-			size: fs.statSync( archivePath ).size,
+			size: archiveSize,
 			onProgress: ( percent ) => {
 				if ( Math.round( percent ) !== uploadPercent ) {
 					uploadPercent = Math.round( percent );

@@ -10,6 +10,7 @@ export function useOpenSettings() {
 		( section: SettingsSectionId = 'general', siteId?: string, focus?: string ) =>
 			void navigate( {
 				to: '.',
+				state: true,
 				search: ( previous: Record< string, unknown > ) => ( {
 					...previous,
 					settings: section,

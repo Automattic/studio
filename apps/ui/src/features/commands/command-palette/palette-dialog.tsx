@@ -40,12 +40,11 @@ export function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) 
 			onOpenChangeComplete={ ( isOpen ) => ! isOpen && setQuery( '' ) }
 		>
 			<DialogContent
-				surface="composer"
 				backdrop="transparent"
 				className={ styles.popup }
 				aria-label={ __( 'Command palette' ) }
 			>
-				<InputGroup className={ styles.inputGroup }>
+				<InputGroup>
 					<InputGroupInput
 						role="combobox"
 						aria-autocomplete="list"

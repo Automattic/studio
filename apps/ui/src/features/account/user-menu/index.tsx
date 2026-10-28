@@ -12,22 +12,13 @@ import { AccountPromptDialog } from '@/features/account/account-prompt';
 import { Gravatar } from '@/features/account/gravatar';
 import { NoticeHistoryButton } from '@/features/notifications';
 import { useOffline } from '@/lib/hooks';
-import {
-	Alert,
-	AlertDescription,
-	Button,
-	IconButton,
-	Menu,
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from '@/lib/ui';
+import { Button, IconButton, Menu, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import styles from './style.module.css';
 
 const MENU_SECTIONS: string[] = [ 'appearance', 'ai', 'usage' ];
 
 export function UserMenu() {
-	const { data: user, error } = useAuthUser();
+	const { data: user } = useAuthUser();
 	const themeIsDark = useColorScheme() === 'dark';
 	const isOffline = useOffline();
 	const logout = useLogout();
@@ -46,11 +37,6 @@ export function UserMenu() {
 
 	return (
 		<div className={ styles.root }>
-			{ error ? (
-				<Alert variant="destructive" className={ styles.alert }>
-					<AlertDescription>{ error.message }</AlertDescription>
-				</Alert>
-			) : null }
 			<div className={ styles.row }>
 				{ user ? (
 					<Menu.Root

@@ -107,14 +107,17 @@ function SiteCommands( {
 		settingCommands,
 		openSettings,
 		openHeaderPanel,
-		newChat: () => void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } ),
+		newChat: () => {
+			preview.setChatHidden( false, site.id );
+			void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+		},
 		reloadPreview: () => dispatch( { type: 'preview/reload' } ),
 		annotate: ( active ) => setAnnotating( site.id, active ),
 		showPreview: ( show ) => {
 			preview.setSite( site.id );
 			preview.setOpen( show );
 		},
-		setChatHidden: preview.setChatHidden,
+		setChatHidden: ( hidden ) => preview.setChatHidden( hidden, site.id ),
 		copyUrl: () =>
 			void connector
 				.copyText( getSiteUrl( site ) )

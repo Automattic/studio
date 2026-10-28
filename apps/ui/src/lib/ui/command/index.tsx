@@ -73,7 +73,7 @@ export function handleCommandKey(
  * A list of commands that always highlights one of them. It takes focus, or a
  * text field drives it through `handleCommandKey`; only the keyboard scrolls
  * it. `sm` rows (32px, inline descriptions) suit sheets, and
- * `default` rows (36px, descriptions at the end) suit the palette.
+ * `default` rows use regular button sizing, with descriptions at the end.
  */
 export function CommandList( {
 	label,
@@ -139,7 +139,7 @@ export function CommandList( {
 								aria-disabled={ disabled || undefined }
 								data-highlighted={ value === active?.value ? '' : undefined }
 								data-disabled={ disabled ? '' : undefined }
-								className={ styles.item }
+								className={ size === 'default' ? styles.menuItem : styles.item }
 								onPointerMove={ () => ! disabled && onHighlight( value ) }
 								onMouseDown={ ( event ) => event.preventDefault() }
 								onClick={ () => ! disabled && onSelect( value ) }

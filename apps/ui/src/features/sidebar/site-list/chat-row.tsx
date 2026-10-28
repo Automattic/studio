@@ -1,9 +1,12 @@
-import { useNavigate } from '@tanstack/react-router';
+import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
+import { useNavigate, useParams } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { useState } from 'react';
 import { useSiteAgentActivity } from '@/data/agent-runs/use-agent-run';
 import { useSessions } from '@/data/queries/use-sessions';
 import { chatPinKey } from '@/data/queries/use-sidebar-pins';
+import { useSites } from '@/data/queries/use-sites';
+import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { ChatActionsMenuItems, useChatActions, getSessionTitle } from '@/features/chats';
 import { ArchiveIcon, ChatIcon, NeedsInputIcon, PinIcon, UnpinIcon } from '@/lib/icons';
 import {
@@ -53,8 +56,13 @@ export function ChatRow( {
 	itemProps?: ReorderableItemProps;
 } ) {
 	const navigate = useNavigate();
+	const preview = useOptionalSessionPreviewUI();
+	const { data: sites } = useSites();
+	const owner = findAiSessionOwnerSite( sites, session );
+	const { sessionId } = useParams( { strict: false } );
+	const isCurrentChat = session.id === sessionId;
 	const activity = useSiteAgentActivity( [ session.id ] );
-	const actions = useChatActions( session, active, navigation );
+	const actions = useChatActions( session, isCurrentChat, navigation );
 	const selectable = useSelectableRow( chatPinKey( session.id ) );
 	const bulk = useIsBulkTarget( chatPinKey( session.id ) );
 	const pressed = useRowPressed( chatPinKey( session.id ) );
@@ -85,6 +93,7 @@ export function ChatRow( {
 								}
 								onClick={ () => {
 									onOpen?.();
+									if ( owner ) preview?.setChatHidden( false, owner.id );
 									void navigate( {
 										to: '/sessions/$sessionId',
 										params: { sessionId: session.id },
@@ -107,7 +116,7 @@ export function ChatRow( {
 										<NeedsInputIcon />
 									</Badge>
 								) : null }
-								{ session.unread && ! active ? (
+								{ session.unread && ! isCurrentChat ? (
 									<NotificationDot position="end" label={ __( 'Unread' ) } />
 								) : null }
 							</SidebarMenuButton>

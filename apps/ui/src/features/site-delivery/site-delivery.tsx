@@ -244,7 +244,6 @@ export function PublishButton( props: { site: SiteDetails } ) {
 	}, [ transfer?.kind ] );
 	return (
 		<Button
-			activeMotion="layout"
 			aria-label={ __( 'Publish…' ) }
 			aria-description={
 				setupError ??

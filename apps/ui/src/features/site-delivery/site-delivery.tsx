@@ -49,7 +49,7 @@ export function SiteDeliveryDialog( {
 	const [ tab, setTab ] = useState< Tab >( 'share' );
 	const [ previewAction, setPreviewAction ] = useState< PreviewManagementAction | null >( null );
 	const previewReturnFocus = useRef< HTMLButtonElement | null >( null );
-	const [ choosingSite, setChoosingSite ] = useState( false );
+	const [ publishSubstep, setPublishSubstep ] = useState( false );
 	const [ publishHeader, setPublishHeader ] = useState< HTMLDivElement | null >( null );
 	const [ shareActions, setShareActions ] = useState< HTMLDivElement | null >( null );
 	const [ request, setRequest ] = useState< PublishRequest >();
@@ -107,7 +107,7 @@ export function SiteDeliveryDialog( {
 								variant="scope"
 								aria-label={ __( 'Share and publish' ) }
 								className={ styles.tabs }
-								hidden={ tab === 'publish' && choosingSite }
+								hidden={ tab === 'publish' && publishSubstep }
 							>
 								<TabsTrigger
 									value="share"
@@ -128,7 +128,7 @@ export function SiteDeliveryDialog( {
 							<div
 								className={ styles.publishHeader }
 								ref={ setPublishHeader }
-								hidden={ tab !== 'publish' || ! choosingSite }
+								hidden={ tab !== 'publish' || ! publishSubstep }
 							/>
 							<div
 								className={ styles.headerActions }
@@ -166,7 +166,7 @@ export function SiteDeliveryDialog( {
 									open={ open && tab === 'publish' }
 									request={ request }
 									headerContainer={ publishHeader }
-									onChoosingSiteChange={ setChoosingSite }
+									onSubstepChange={ setPublishSubstep }
 									setupAfterSignup={ setupAfterSignup }
 									onSetupAfterSignup={ () => setSetupAfterSignup( false ) }
 								/>

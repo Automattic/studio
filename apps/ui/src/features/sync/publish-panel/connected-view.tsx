@@ -1,6 +1,7 @@
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { DownloadIcon, HistoryIcon } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
 import { useStartSite } from '@/data/queries/use-sites';
 import {
@@ -9,18 +10,7 @@ import {
 	usePushSiteToLive,
 } from '@/data/queries/use-sync-site';
 import { ExternalLinkIcon, SyncIcon } from '@/lib/icons';
-import {
-	AlertDialog,
-	Button,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-	FieldSet,
-	FieldLegend,
-	Menu,
-} from '@/lib/ui';
+import { Button, FieldSet, Menu } from '@/lib/ui';
 import { FilePicker } from './file-picker';
 import {
 	backupsUrl,
@@ -30,7 +20,7 @@ import {
 	websiteIssue,
 	type PublishView,
 } from './options';
-import { ErrorMessage, PanelBody, TransferProgress } from './parts';
+import { ErrorMessage, PanelBody, PanelHeader, TransferProgress } from './parts';
 import styles from './style.module.css';
 import { useTransferSelection } from './use-transfer-selection';
 import type { SiteDetails, SyncSite } from '@/data/core';
@@ -88,6 +78,8 @@ export function ConnectedView( {
 	disabled,
 	offline,
 	accessIssue,
+	headerContainer,
+	onReviewingChange,
 }: {
 	site: SiteDetails;
 	remote: SyncSite;
@@ -99,6 +91,8 @@ export function ConnectedView( {
 	disabled: boolean;
 	offline: boolean;
 	accessIssue?: string;
+	headerContainer: HTMLDivElement | null;
+	onReviewingChange: ( reviewing: boolean ) => void;
 } ) {
 	const [ reviewing, setReviewing ] = useState( view === 'pull' || activity?.kind === 'error' );
 	const [ dismissedActivity, setDismissedActivity ] = useState< SyncActivity | null >( null );
@@ -118,7 +112,6 @@ export function ConnectedView( {
 		if ( ! open ) setReviewing( false );
 	}, [ open ] );
 	const id = useId();
-	const cancelButton = useRef< HTMLButtonElement >( null );
 	const publishButton = useRef< HTMLButtonElement >( null );
 	const pullButton = useRef< HTMLButtonElement >( null );
 	const pushSite = usePushSiteToLive();
@@ -126,6 +119,10 @@ export function ConnectedView( {
 	const cancel = useCancelSync();
 	const startSite = useStartSite();
 	const pending = activity?.kind === 'pending';
+	useEffect( () => {
+		onReviewingChange( reviewing && ! pending );
+		return () => onReviewingChange( false );
+	}, [ reviewing, pending, onReviewingChange ] );
 	const direction =
 		view === 'pull' || ( pending && activity.direction === 'pull' ) ? 'pull' : 'push';
 	const push = useTransferSelection(
@@ -157,6 +154,9 @@ export function ConnectedView( {
 		setDismissedActivity( activity );
 		setReviewing( false );
 		setView( 'publish' );
+		requestAnimationFrame(
+			() => ( direction === 'push' ? publishButton : pullButton ).current?.focus()
+		);
 	};
 	const start = () => {
 		const variables = { siteId: site.id, remoteSiteId: remote.id, syncSite: remote };
@@ -188,183 +188,190 @@ export function ConnectedView( {
 	}
 	return (
 		<>
-			<div className={ styles.connectedHome } data-connected-home>
-				<div className={ styles.publishDetailsIntro }>
-					<h2 className={ styles.publishDetailsHeading }>{ __( 'Publish details' ) }</h2>
-					<p className={ styles.publishDetailsDescription }>
-						{ __( 'Publish changes or get the latest updates.' ) }{ ' ' }
-						<Button
-							variant="inline-accent"
-							size="inline"
-							onClick={ () =>
-								void connector.openExternalUrl(
-									'https://developer.wordpress.com/docs/developer-tools/studio/sync/'
-								)
-							}
-						>
-							{ __( 'Learn more…' ) }
-						</Button>
-					</p>
-				</div>
-				{ connectedWebsite }
-				{ issue && ! reviewing ? <p className={ styles.text }>{ issue }</p> : null }
-				<div className={ styles.connectedActions }>
-					<Button
-						ref={ pullButton }
-						variant="outline"
-						size="lg"
-						disabled={ disabled || Boolean( issue ) }
-						onClick={ () => {
-							setView( 'pull' );
-							setReviewing( true );
-						} }
-					>
-						{ __( 'Pull changes' ) }
-					</Button>
-					<Button
-						ref={ publishButton }
-						variant="default"
-						size="lg"
-						disabled={ disabled || Boolean( issue ) }
-						onClick={ () => {
-							setView( 'publish' );
-							setReviewing( true );
-						} }
-					>
-						{ __( 'Publish changes' ) }
-					</Button>
-				</div>
-			</div>
-			<AlertDialog
-				open={ open && reviewing }
-				onOpenChange={ ( next ) => ! next && ! pending && close() }
-			>
-				<DialogContent
-					layout="confirmation"
-					initialFocus={ cancelButton }
-					finalFocus={ direction === 'push' ? publishButton : pullButton }
-					closeButtonDisabled={ pending }
-				>
-					<DialogHeader>
-						<DialogTitle>
-							{ sprintf(
-								/* translators: %s: website address. */
-								direction === 'push'
-									? __( 'Publish changes to %s?' )
-									: __( 'Pull changes from %s?' ),
-								websiteAddress( remote )
-							) }
-						</DialogTitle>
-						{ ! pending && ! restartFailed && ! completePull ? (
-							<DialogDescription tone="default">
-								{ overwriteDescription( selection.scope, direction ) }
-							</DialogDescription>
-						) : null }
-					</DialogHeader>
-					{ restartFailed ? (
-						<>
-							<span className={ styles.heading } role="status">
-								{ __( 'Changes pulled into WordPress Studio' ) }
-							</span>
-							<ErrorMessage error={ finished?.kind === 'error' ? finished.message : undefined } />
+			{ ! reviewing ? (
+				<div className={ styles.connectedHome } data-connected-home>
+					<div className={ styles.publishDetailsIntro }>
+						<h2 className={ styles.publishDetailsHeading }>{ __( 'Publish details' ) }</h2>
+						<p className={ styles.publishDetailsDescription }>
+							{ __( 'Publish changes or get the latest updates.' ) }{ ' ' }
 							<Button
-								disabled={ startSite.isPending }
-								onClick={ () => startSite.mutate( site.id ) }
+								variant="inline-accent"
+								size="inline"
+								onClick={ () =>
+									void connector.openExternalUrl(
+										'https://developer.wordpress.com/docs/developer-tools/studio/sync/'
+									)
+								}
 							>
-								{ startSite.isPending ? __( 'Starting site…' ) : __( 'Start site' ) }
+								{ __( 'Learn more…' ) }
 							</Button>
-						</>
-					) : completePull ? (
-						<>
-							<p role="status">{ __( 'Changes pulled into WordPress Studio' ) }</p>
-							<p className={ styles.text }>{ __( 'Your website wasn’t changed.' ) }</p>
-							<DialogFooter>
-								<Button onClick={ close }>{ __( 'Done' ) }</Button>
-							</DialogFooter>
-						</>
-					) : (
-						<>
-							<FieldSet
-								key={ `${ direction }-${ selection.fullOnly }` }
-								role="radiogroup"
-								aria-label={ direction === 'push' ? __( 'What to publish' ) : __( 'What to pull' ) }
-								disabled={ disabled || selection.loadingFiles || selection.fullOnly }
-								className={ styles.scopeChoices }
-							>
-								<FieldLegend variant="label">{ __( 'Include' ) }</FieldLegend>
-								{ choices.map( ( choice ) => (
-									<label key={ choice.value } className={ styles.scopeChoice }>
-										<input
-											type="radio"
-											name={ `${ id }-scope` }
-											value={ choice.value }
-											defaultChecked={ selection.scope === choice.value }
-											onChange={ () => selection.setScope( choice.value ) }
-										/>
-										<span>{ choice.label }</span>
-									</label>
-								) ) }
-							</FieldSet>
-							{ selection.scope === 'custom' ? <FilePicker selection={ selection } /> : null }
-							{ selection.fullOnly ? (
-								<p className={ styles.text }>
-									{ __(
-										'Only a full-site pull is available until this website has a backup for selecting files.'
-									) }
-								</p>
+						</p>
+					</div>
+					{ connectedWebsite }
+					{ issue ? <p className={ styles.text }>{ issue }</p> : null }
+					<div className={ styles.connectedActions }>
+						<Button
+							ref={ pullButton }
+							variant="outline"
+							size="lg"
+							disabled={ disabled || Boolean( issue ) }
+							onClick={ () => {
+								setView( 'pull' );
+								setReviewing( true );
+							} }
+						>
+							{ __( 'Pull changes' ) }
+						</Button>
+						<Button
+							ref={ publishButton }
+							variant="default"
+							size="lg"
+							disabled={ disabled || Boolean( issue ) }
+							onClick={ () => {
+								setView( 'publish' );
+								setReviewing( true );
+							} }
+						>
+							{ __( 'Publish changes' ) }
+						</Button>
+					</div>
+				</div>
+			) : (
+				<>
+					{ headerContainer
+						? createPortal(
+								<PanelHeader
+									className={ styles.pickerHeader }
+									title={ direction === 'push' ? __( 'Publish changes' ) : __( 'Pull changes' ) }
+									onBack={ close }
+								/>,
+								headerContainer
+						  )
+						: null }
+					<div className={ styles.transferReview }>
+						<div className={ styles.transferFields }>
+							<p className={ styles.address }>{ websiteAddress( remote ) }</p>
+							{ ! restartFailed && ! completePull ? (
+								<p className={ styles.text }>{ overwriteDescription( direction ) }</p>
 							) : null }
-							{ selection.scope === 'custom' && selection.blocked && ! selection.loading ? (
-								<p className={ styles.text }>
-									{ __( 'Choose at least one file or include content and settings.' ) }
-								</p>
-							) : null }
-							{ offline ? (
-								<p className={ styles.text }>
-									{ __( 'Connect to the internet to publish or pull changes.' ) }
-								</p>
-							) : null }
-							{ issue ? <p className={ styles.text }>{ issue }</p> : null }
-							{ selection.warning ? <p className={ styles.text }>{ selection.warning }</p> : null }
-							<ErrorMessage error={ selection.error } retry={ selection.retry } />
-							{ finished?.kind === 'error' ? <ErrorMessage error={ finished.message } /> : null }
-							{ finished?.kind === 'error' && direction === 'pull' && ! remote.lastPullTimestamp ? (
-								<p className={ styles.text }>
-									{ __( 'Your local site is saved. Retry to finish bringing in its content.' ) }
-								</p>
-							) : null }
-							{ finished?.kind === 'cancelled' ? (
-								<p className={ styles.text } role="status">
-									{ __( 'Transfer cancelled. You can try again.' ) }
-								</p>
-							) : null }
-							<DialogFooter>
-								<Button ref={ cancelButton } variant="outline" onClick={ close }>
-									{ __( 'Cancel' ) }
-								</Button>
-								<Button
-									variant="default"
-									disabled={
-										disabled ||
-										selection.loading ||
-										Boolean( selection.error ) ||
-										selection.blocked ||
-										Boolean( issue )
-									}
-									onClick={ start }
-								>
-									{ finished?.kind === 'error'
-										? direction === 'push'
-											? __( 'Try publishing again' )
-											: __( 'Try pulling again' )
-										: direction === 'push'
-										? __( 'Publish changes' )
-										: __( 'Pull changes' ) }
-								</Button>
-							</DialogFooter>
-						</>
-					) }
-				</DialogContent>
-			</AlertDialog>
+							{ restartFailed ? (
+								<>
+									<span className={ styles.heading } role="status">
+										{ __( 'Changes pulled into WordPress Studio' ) }
+									</span>
+									<ErrorMessage
+										error={ finished?.kind === 'error' ? finished.message : undefined }
+									/>
+									<Button
+										disabled={ startSite.isPending }
+										onClick={ () => startSite.mutate( site.id ) }
+									>
+										{ startSite.isPending ? __( 'Starting site…' ) : __( 'Start site' ) }
+									</Button>
+								</>
+							) : completePull ? (
+								<>
+									<p role="status">{ __( 'Changes pulled into WordPress Studio' ) }</p>
+									<p className={ styles.text }>{ __( 'Your website wasn’t changed.' ) }</p>
+								</>
+							) : (
+								<>
+									<FieldSet
+										key={ `${ direction }-${ selection.fullOnly }` }
+										role="radiogroup"
+										aria-label={
+											direction === 'push' ? __( 'What to publish' ) : __( 'What to pull' )
+										}
+										disabled={ disabled || selection.loadingFiles || selection.fullOnly }
+										className={ styles.scopeChoices }
+									>
+										{ choices.map( ( choice ) => (
+											<label key={ choice.value } className={ styles.scopeChoice }>
+												<input
+													type="radio"
+													name={ `${ id }-scope` }
+													value={ choice.value }
+													defaultChecked={ selection.scope === choice.value }
+													onChange={ () => selection.setScope( choice.value ) }
+												/>
+												<span>{ choice.label }</span>
+											</label>
+										) ) }
+									</FieldSet>
+									{ selection.scope === 'custom' ? <FilePicker selection={ selection } /> : null }
+									{ selection.fullOnly ? (
+										<p className={ styles.text }>
+											{ __(
+												'Only a full-site pull is available until this website has a backup for selecting files.'
+											) }
+										</p>
+									) : null }
+									{ offline ? (
+										<p className={ styles.text }>
+											{ __( 'Connect to the internet to publish or pull changes.' ) }
+										</p>
+									) : null }
+									{ issue ? <p className={ styles.text }>{ issue }</p> : null }
+									{ selection.warning ? (
+										<p className={ styles.text }>{ selection.warning }</p>
+									) : null }
+									<ErrorMessage error={ selection.error } retry={ selection.retry } />
+									{ finished?.kind === 'error' ? (
+										<ErrorMessage error={ finished.message } />
+									) : null }
+									{ finished?.kind === 'error' &&
+									direction === 'pull' &&
+									! remote.lastPullTimestamp ? (
+										<p className={ styles.text }>
+											{ __( 'Your local site is saved. Retry to finish bringing in its content.' ) }
+										</p>
+									) : null }
+									{ finished?.kind === 'cancelled' ? (
+										<p className={ styles.text } role="status">
+											{ __( 'Transfer cancelled. You can try again.' ) }
+										</p>
+									) : null }
+								</>
+							) }
+						</div>
+						{ ! restartFailed ? (
+							<div className={ styles.transferFooter }>
+								{ completePull ? (
+									<Button size="lg" onClick={ close }>
+										{ __( 'Done' ) }
+									</Button>
+								) : (
+									<>
+										<Button variant="outline" size="lg" onClick={ close }>
+											{ __( 'Cancel' ) }
+										</Button>
+										<Button
+											variant="default"
+											size="lg"
+											disabled={
+												disabled ||
+												selection.loading ||
+												Boolean( selection.error ) ||
+												selection.blocked ||
+												Boolean( issue )
+											}
+											onClick={ start }
+										>
+											{ finished?.kind === 'error'
+												? direction === 'push'
+													? __( 'Try publishing again' )
+													: __( 'Try pulling again' )
+												: direction === 'push'
+												? __( 'Publish changes' )
+												: __( 'Pull changes' ) }
+										</Button>
+									</>
+								) }
+							</div>
+						) : null }
+					</div>
+				</>
+			) }
 		</>
 	);
 }

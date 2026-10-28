@@ -93,8 +93,6 @@ export function createIpcConnector(): Connector {
 		}
 	}
 
-	// Preview CLI commands are path-based, not id-based. Look up the matching
-	// site once per call so UI code can keep working with the stable site id.
 	async function resolveEditor(): Promise< SupportedEditor > {
 		const { editor } = ( await ipcApi.getUserPreferences() ) as { editor: SupportedEditor | null };
 		const resolved =
@@ -106,6 +104,8 @@ export function createIpcConnector(): Connector {
 		return resolved;
 	}
 
+	// Preview CLI commands are path-based, not id-based. Look up the matching
+	// site once per call so UI code can keep working with the stable site id.
 	async function resolveSiteFolder( siteId: string ): Promise< string > {
 		const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
 		const site = sites.find( ( candidate ) => candidate.id === siteId );
@@ -118,8 +118,6 @@ export function createIpcConnector(): Connector {
 	return {
 		async init() {
 			// Install the application menu (View > Toggle DevTools, etc.).
-			// The old renderer does this from its app bootstrap; the new UI
-			// needs to opt in explicitly.
 			await ipcApi.setupAppMenu();
 		},
 
@@ -130,7 +128,6 @@ export function createIpcConnector(): Connector {
 			studioLogs: true,
 		},
 
-		// Auth — optional in Electron, delegated to main process
 		agenticRequiresAuth: true,
 
 		async getAuthUser(): Promise< AuthUser | null > {
@@ -337,10 +334,6 @@ export function createIpcConnector(): Connector {
 		},
 		async fixSiteDesignDrift( siteId, fixes ) {
 			return ipcApi.fixSiteDesignDrift( siteId, fixes );
-		},
-
-		async getSiteIcon( siteId ) {
-			return ( await ipcApi.getSiteIcon( siteId ) ) as string | null;
 		},
 
 		async exportFullSite( siteId ): Promise< string | null > {
@@ -682,13 +675,18 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.getAppGlobals() ) as AppGlobals;
 		},
 
-		async fetchSiteRest( siteId, request ) {
-			return await ipcApi.fetchSiteRestApi( siteId, request );
-		},
-
 		async openSiteFolder( siteId ): Promise< void > {
 			const sitePath = await resolveSiteFolder( siteId );
 			ipcApi.openLocalPath( sitePath );
+		},
+
+		async openSiteEmailFolder( siteId ): Promise< void > {
+			const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
+			const emailPath = sites.find( ( candidate ) => candidate.id === siteId )?.emailPath;
+			if ( ! emailPath ) {
+				throw new Error( `Site ${ siteId } not found` );
+			}
+			ipcApi.openLocalPath( emailPath );
 		},
 
 		async openSiteInEditor( siteId ): Promise< void > {

@@ -35,7 +35,7 @@ export function clampResizablePanelWidth(
 }
 
 export function getViewportWidth(): number {
-	return typeof window === 'undefined' ? 0 : window.innerWidth;
+	return window.innerWidth;
 }
 
 export function getStoredResizablePanelWidth(
@@ -43,10 +43,6 @@ export function getStoredResizablePanelWidth(
 	config: ResizablePanelConfig,
 	viewportWidth: number
 ): number {
-	if ( typeof window === 'undefined' ) {
-		return clampResizablePanelWidth( config.defaultWidth, config, viewportWidth );
-	}
-
 	try {
 		const storedWidth = window.localStorage.getItem( storageKey );
 		if ( storedWidth ) {
@@ -63,10 +59,6 @@ export function getStoredResizablePanelWidth(
 }
 
 export function storeResizablePanelWidth( storageKey: string, width: number ): void {
-	if ( typeof window === 'undefined' ) {
-		return;
-	}
-
 	try {
 		window.localStorage.setItem( storageKey, String( width ) );
 	} catch {
@@ -148,10 +140,6 @@ export function getPreviewSplitLayout(
 }
 
 export function getInitialPreviewContentWidth(): number | null {
-	if ( typeof window === 'undefined' ) {
-		return null;
-	}
-
 	try {
 		const storedContentWidth = window.localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY );
 		const parsedContentWidth = storedContentWidth ? Number( storedContentWidth ) : NaN;

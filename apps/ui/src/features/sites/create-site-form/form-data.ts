@@ -157,8 +157,6 @@ export function applyFormChange( prev: FormData, update: Partial< FormData > ): 
 		next.pathError = '';
 		if ( ! next.name.trim() ) next.path = '';
 	}
-	// Seed the custom-domain input on first toggle with a sensible
-	// default derived from the site name.
 	if ( ! prev.useCustomDomain && next.useCustomDomain && ! next.customDomain ) {
 		next.customDomain = generateCustomDomainFromSiteName( next.name );
 	}

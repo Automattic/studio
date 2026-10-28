@@ -40,6 +40,8 @@ export const siteDetailsSchema = z.object( {
 	// The in-flight Studio operation holding the site, if any. The UI disables
 	// the actions it blocks, so it stays correct even when the agent started it.
 	operation: siteOperationSchema.optional(),
+	// The folder the email the site sends is saved in.
+	emailPath: z.string().optional(),
 } );
 
 export type SiteDetails = z.infer< typeof siteDetailsSchema >;

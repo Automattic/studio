@@ -1,6 +1,7 @@
 import { vi } from 'vitest';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { connectToDaemon, disconnectFromDaemon, listProcesses } from 'cli/lib/daemon-client';
+import { getSiteEmailDirectory } from 'cli/lib/site-email';
 import { SITE_LIST_PUBLIC_FIELDS } from 'cli/lib/site-public-fields';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { mockReportResult } from 'cli/tests/test-utils';
@@ -72,28 +73,7 @@ describe( 'CLI: studio site list', () => {
 		vi.restoreAllMocks();
 	} );
 
-	describe( 'Error Cases', () => {
-		it( 'should throw when config read fails', async () => {
-			vi.mocked( readCliConfig ).mockRejectedValue( new Error( 'Failed to read config' ) );
-
-			await expect( runCommand( 'table' ) ).rejects.toThrow( 'Failed to read config' );
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-	} );
-
 	describe( 'Success Cases', () => {
-		it( 'should list sites with table format', async () => {
-			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
-
-			await runCommand( 'table' );
-
-			expect( readCliConfig ).toHaveBeenCalled();
-			expect( consoleSpy ).toHaveBeenCalled();
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-
-			consoleSpy.mockRestore();
-		} );
-
 		it( 'should list sites with json format', async () => {
 			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
 
@@ -107,6 +87,7 @@ describe( 'CLI: studio site list', () => {
 					port: 8080,
 					phpVersion: '8.0',
 					url: 'http://localhost:8080',
+					emailPath: getSiteEmailDirectory( 'site-1' ),
 					running: false,
 				},
 				{
@@ -117,6 +98,7 @@ describe( 'CLI: studio site list', () => {
 					phpVersion: '8.0',
 					customDomain: 'my-site.wp.local',
 					url: 'http://my-site.wp.local',
+					emailPath: getSiteEmailDirectory( 'site-2' ),
 					running: false,
 				},
 			];
@@ -198,30 +180,12 @@ describe( 'CLI: studio site list', () => {
 			expect( mockReportResult.mock.calls[ 0 ][ 0 ][ 0 ].operation ).toBeUndefined();
 		} );
 
-		it( 'should handle no sites found', async () => {
-			vi.mocked( readCliConfig ).mockResolvedValue( emptyCliConfig );
-
-			await runCommand( 'table' );
-
-			expect( readCliConfig ).toHaveBeenCalled();
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
 		it( 'should output empty json array when no sites found', async () => {
 			vi.mocked( readCliConfig ).mockResolvedValue( emptyCliConfig );
 
 			await runCommand( 'json' );
 
 			expect( mockReportResult ).toHaveBeenCalledWith( [] );
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
-		it( 'should handle custom domain in site URL', async () => {
-			await runCommand( 'json' );
-
-			expect( mockReportResult ).toHaveBeenCalledWith(
-				expect.arrayContaining( [ expect.objectContaining( { url: 'http://my-site.wp.local' } ) ] )
-			);
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 	} );

@@ -77,7 +77,6 @@ describe( 'GET/PATCH /api/user-preferences', () => {
 			terminal: null,
 			colorScheme: 'system',
 			analyticsEnabled: true,
-			agenticFeaturesEnabled: true,
 			defaultSiteDirectory: path.join( os.tmpdir(), 'studio-test-sites' ),
 		} );
 	} );
@@ -218,4 +217,36 @@ describe( 'POST /api/site-defaults/folder', () => {
 			isWordPress: false,
 		} );
 	} );
+} );
+
+describe( 'GET/PATCH /api/onboarding', () => {
+	it( 'shares the desktop completion flag and retains other settings', async () => {
+		expect( await ( await fetch( `${ server.url }/api/onboarding` ) ).json() ).toBe( false );
+		writeAppConfig( { colorScheme: 'dark', onboardingHints: { tourDismissedVersion: 2 } } );
+		const response = await fetch( `${ server.url }/api/onboarding`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify( { completed: true } ),
+		} );
+		expect( response.status ).toBe( 204 );
+		expect( await ( await fetch( `${ server.url }/api/onboarding` ) ).json() ).toBe( true );
+		expect( readAppConfigFile() ).toMatchObject( {
+			colorScheme: 'dark',
+			onboardingHints: { tourDismissedVersion: 2 },
+			onboardingCompleted: true,
+		} );
+	} );
+
+	it.each( [ {}, { completed: 'true' }, { completed: null } ] )(
+		'rejects invalid completion: %j',
+		async ( body ) => {
+			const response = await fetch( `${ server.url }/api/onboarding`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify( body ),
+			} );
+			expect( response.status ).toBe( 400 );
+			expect( readAppConfigFile().onboardingCompleted ).toBeUndefined();
+		}
+	);
 } );

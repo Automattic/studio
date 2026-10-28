@@ -41,9 +41,14 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 		return;
 	}
 
-	// A site serving a PHP-error page stays "running" even though the CLI reports it stopped.
-	const running = event.running || isInErrorRecovery( siteId );
-	void sendIpcEventToRenderer( 'site-event', { ...event, running } );
+	// A site serving a PHP-error page stays "running" even though the CLI reports it stopped. Its
+	// details go without, so the renderer refetches the list, where `getSites` gives the page's URL.
+	const inErrorRecovery = isInErrorRecovery( siteId );
+	const running = event.running || inErrorRecovery;
+	void sendIpcEventToRenderer(
+		'site-event',
+		inErrorRecovery ? { event: eventType, siteId, running } : { ...event, running }
+	);
 	await seeded;
 	const wasRunning = lastRunning.get( siteId ) ?? false;
 	lastRunning.set( siteId, running );

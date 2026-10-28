@@ -54,14 +54,17 @@ describe( '/model slash command', () => {
 	const setAccount = ( {
 		hasPaid,
 		automattician = false,
+		purchasedAtTopUp,
 	}: {
 		hasPaid: boolean;
 		automattician?: boolean;
+		purchasedAtTopUp?: number;
 	} ) => {
 		vi.mocked( isAutomatticianFromToken ).mockResolvedValue( automattician );
 		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'wpcom-token' } as never );
 		vi.mocked( fetchStudioAssistantQuota ).mockResolvedValue( {
 			purchasedRemaining: hasPaid ? 100_000 : 0,
+			purchasedAtTopUp,
 		} as never );
 	};
 
@@ -85,7 +88,7 @@ describe( '/model slash command', () => {
 		expect( persistMock ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	it( 'withholds the paid tiers when no purchased credits remain', async () => {
+	it( 'withholds the paid tiers from accounts that never bought credits', async () => {
 		setAccount( { hasPaid: false } );
 		const { ctx } = buildModelCtx( {
 			currentModel: 'fast',
@@ -121,6 +124,21 @@ describe( '/model slash command', () => {
 		expect( ctx.currentModel ).toBe( 'strong' );
 	} );
 
+	it( 'keeps offering the paid tiers after the purchased credits are spent', async () => {
+		setAccount( { hasPaid: false, purchasedAtTopUp: 500_000 } );
+		const { ctx } = buildModelCtx( {
+			currentModel: 'fast',
+			askUserResponse: 'Balanced',
+		} );
+
+		await modelHandler!( '/model', ctx );
+
+		expect( ctx.currentModel ).toBe( 'balanced' );
+		expect( ctx.ui.showInfo ).not.toHaveBeenCalledWith(
+			expect.stringContaining( 'purchased AI credits' )
+		);
+	} );
+
 	it( 'keeps offering the current model even when it needs purchased credits', async () => {
 		setAccount( { hasPaid: false } );
 		const { ctx } = buildModelCtx( {
@@ -150,11 +168,6 @@ describe( '/model slash command', () => {
 		expect( ctx.currentModel ).toBe( 'fast' );
 		expect( persistMock ).not.toHaveBeenCalled();
 	} );
-} );
-
-vi.mock( '@studio/common/lib/studio-assistant-quota', async ( importOriginal ) => {
-	const actual = await importOriginal< object >();
-	return { ...actual, fetchStudioAssistantQuota: vi.fn() };
 } );
 
 vi.mock( '@studio/common/lib/studio-assistant-top-up-pricing', async ( importOriginal ) => {
@@ -216,12 +229,6 @@ describe( '/credits slash command', () => {
 		vi.mocked( m.quota.fetchStudioAssistantQuota ).mockResolvedValue( null );
 		vi.mocked( m.pricing.fetchStudioAssistantTopUpPricing ).mockResolvedValue( null );
 		vi.mocked( m.browser.openBrowser ).mockResolvedValue( undefined );
-	} );
-
-	it( 'is registered with a handler', () => {
-		expect( cmd ).toBeDefined();
-		expect( typeof cmd.handler ).toBe( 'function' );
-		expect( cmd.description ).toBeTruthy();
 	} );
 
 	it( 'asks the user to sign in instead of calling WordPress.com', async () => {

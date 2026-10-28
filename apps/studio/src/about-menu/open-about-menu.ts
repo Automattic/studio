@@ -57,7 +57,6 @@ export function openAboutWindow() {
 		return { action: 'deny' };
 	} );
 
-	// Read package.json and pass version to about window
 	const packageJson = app.getVersion();
 
 	aboutWindow.webContents.on( 'dom-ready', () => {

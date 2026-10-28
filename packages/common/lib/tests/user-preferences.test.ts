@@ -129,3 +129,52 @@ it( 'rejects an accent color that is not a hex color', () => {
 	expect( userPreferencesPatchSchema.safeParse( { accentColor: 'red' } ).success ).toBe( false );
 	expect( userPreferencesPatchSchema.safeParse( { tintIntensity: 101 } ).success ).toBe( false );
 } );
+
+it( 'persists sidebar sort choices independently of manual arrangements', async () => {
+	const context = { sitesRoot: configDir };
+	expect( await readUserPreferences( context ) ).toMatchObject( {
+		sidebarPinnedSort: 'type',
+		sidebarSiteSort: 'manual',
+		sidebarChatSort: 'updated',
+	} );
+	await writeUserPreferences( { sidebarChatOrder: { site: [ 'old', 'new' ] } }, context );
+	expect( ( await readUserPreferences( context ) ).sidebarChatSort ).toBe( 'manual' );
+	await writeUserPreferences(
+		{ sidebarPinnedSort: 'manual', sidebarSiteSort: 'status', sidebarChatSort: 'updated' },
+		context
+	);
+	expect( await readUserPreferences( context ) ).toMatchObject( {
+		sidebarPinnedSort: 'manual',
+		sidebarSiteSort: 'status',
+		sidebarChatSort: 'updated',
+		sidebarChatOrder: { site: [ 'old', 'new' ] },
+	} );
+	await writeUserPreferences(
+		{ sidebarPinnedSort: null, sidebarSiteSort: null, sidebarChatSort: null },
+		context
+	);
+	expect( await readUserPreferences( context ) ).toMatchObject( {
+		sidebarPinnedSort: 'type',
+		sidebarSiteSort: 'manual',
+		sidebarChatSort: 'manual',
+	} );
+} );
+
+it( 'rejects invalid sort choices and recovers invalid stored values', async () => {
+	for ( const key of [ 'sidebarPinnedSort', 'sidebarSiteSort', 'sidebarChatSort' ] ) {
+		expect( userPreferencesPatchSchema.safeParse( { [ key ]: 'invalid' } ).success ).toBe( false );
+	}
+	writeFileSync(
+		path.join( configDir, 'app.json' ),
+		JSON.stringify( {
+			sidebarPinnedSort: 'invalid',
+			sidebarSiteSort: 'invalid',
+			sidebarChatSort: 'invalid',
+		} )
+	);
+	expect( await readUserPreferences( { sitesRoot: configDir } ) ).toMatchObject( {
+		sidebarPinnedSort: 'type',
+		sidebarSiteSort: 'manual',
+		sidebarChatSort: 'updated',
+	} );
+} );

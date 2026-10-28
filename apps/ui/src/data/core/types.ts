@@ -27,6 +27,9 @@ import type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assi
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type {
+	SidebarPinnedSort,
+	SidebarSiteSort,
+	SidebarChatSort,
 	ColorScheme,
 	NewSiteBehavior,
 	QuitSitesBehavior,
@@ -39,7 +42,6 @@ import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
-import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
 import type { DesignFix } from '@studio/design-md';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
@@ -109,6 +111,8 @@ export interface SiteDetails {
 	// The Studio operation currently holding the site, from the CLI. Present
 	// regardless of who started it — the user, the desktop app, or the agent.
 	operation?: SiteOperation;
+	// The folder the email the site sends is saved in, from the CLI.
+	emailPath?: string;
 }
 
 export interface LocalMediaFile {
@@ -197,9 +201,6 @@ export interface Connector {
 		siteId: string,
 		capture: { path: string; width: number; height: number; guestId?: number }
 	): Promise< string | null >;
-	// The site's Site Icon (a data URL, or null when it has none), read on
-	// demand when the host can inspect local sites.
-	getSiteIcon?( siteId: string ): Promise< string | null >;
 	// The site's DESIGN.md and its active theme's theme.json, or null when it
 	// lacks either.
 	getSiteDesign( siteId: string ): Promise< SiteDesign | null >;
@@ -214,8 +215,7 @@ export interface Connector {
 	// semantics as `exportFullSite`.
 	exportDatabase( siteId: string ): Promise< string | null >;
 
-	// Site-creation helpers — surface the same main-process capabilities the
-	// desktop app's add-site flow relies on (folder pickers and path validation).
+	// Site-creation helpers: folder pickers and path validation.
 	generateProposedSitePath( siteName: string ): Promise< ProposedSitePath >;
 	generateProposedSiteName( usedSites: SiteDetails[] ): Promise< string >;
 	generateNumberedSiteName( baseName: string, usedSites: SiteDetails[] ): Promise< string >;
@@ -464,17 +464,14 @@ export interface Connector {
 	// platform 'browser'.
 	getAppGlobals(): Promise< AppGlobals >;
 
-	// Site WordPress REST API. Proxies requests to the selected site with its
-	// auth (auto-login cookie + REST nonce) attached, so renderer features
-	// like the preview omnibox search can query site content directly.
-	fetchSiteRest( siteId: string, request: SiteRestRequest ): Promise< SiteRestResponse >;
-
 	// Open the given site's folder in the system file manager, preferred
 	// editor, or preferred terminal. When no editor/terminal preference is
 	// set these reject — callers are expected to route the user to Settings.
 	openSiteFolder( siteId: string ): Promise< void >;
 	openSiteInEditor( siteId: string ): Promise< void >;
 	openSiteInTerminal( siteId: string ): Promise< void >;
+	// Open the folder the site's email is saved in, in the system file manager.
+	openSiteEmailFolder( siteId: string ): Promise< void >;
 
 	// The site's WordPress debug log, resolved host-side from the site id. Its
 	// existence is a query, not a `SiteDetails` field: the file comes and goes
@@ -596,7 +593,7 @@ export interface Connector {
 	onAiCreditsPurchased( listener: () => void ): () => void;
 
 	// Agentic UI onboarding state. Distinct from getOnboardingCompleted (the
-	// pre-workbench first-run welcome flag). setOnboardingHints shallow-merges
+	// first-run welcome flag). setOnboardingHints shallow-merges
 	// its partial. Persisted to app.json.
 	getOnboardingHints(): Promise< OnboardingHintsState >;
 	setOnboardingHints( partial: Partial< OnboardingHintsState > ): Promise< void >;
@@ -636,7 +633,7 @@ export type AppUpdateStatus = (
 };
 
 // Persisted first-run onboarding state for the workbench. Separate from the
-// pre-workbench welcome flag (getOnboardingCompleted).
+// welcome flag (getOnboardingCompleted).
 export interface OnboardingHintsState {
 	// Version of the orientation guide the user finished or explicitly skipped.
 	tourCompletedVersion?: number;
@@ -675,10 +672,11 @@ export interface UserPreferences {
 	// app never installs over or uninstalls — the settings toggle disables
 	// itself in that case.
 	studioCliExternallyManaged: boolean;
-	// Whether chat/agent features are offered at all.
-	agenticFeaturesEnabled: boolean;
 	// The sidebar's Pinned group, in order, as `site:<id>` and `chat:<id>` keys.
 	sidebarPins?: string[];
+	sidebarPinnedSort?: SidebarPinnedSort;
+	sidebarSiteSort?: SidebarSiteSort;
+	sidebarChatSort?: SidebarChatSort;
 	// Each site's chats in the order the user dragged them into, by site id.
 	sidebarChatOrder?: Record< string, string[] >;
 	showRecentChats?: boolean;

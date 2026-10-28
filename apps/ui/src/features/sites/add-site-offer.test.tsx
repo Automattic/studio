@@ -62,7 +62,7 @@ describe( 'site creation', () => {
 			await waitFor( () => expect( connector.getSites ).toHaveBeenCalled() );
 			await act( async () => resolveSites( freshSites ) );
 			if ( freshSites.length ) {
-				await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+				await screen.findByRole( 'button', { name: 'Site menu' } );
 				expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument();
 			} else {
 				expect( await screen.findByRole( 'dialog', { name: 'Add site' } ) ).toBeInTheDocument();
@@ -105,9 +105,7 @@ describe( 'site creation', () => {
 		expect( connector.createSite ).toHaveBeenCalledWith(
 			expect.objectContaining( { name: 'New site', path: '/sites/New site' } )
 		);
-		expect(
-			await screen.findByRole( 'button', { name: 'Site actions for New site' } )
-		).toBeInTheDocument();
+		expect( await screen.findByRole( 'button', { name: 'Site menu' } ) ).toBeInTheDocument();
 		expect( await screen.findByRole( 'button', { name: 'Stop New site' } ) ).toBeEnabled();
 	} );
 
@@ -122,7 +120,7 @@ describe( 'site creation', () => {
 					preferences: { sidebarPins: [ 'site:one' ] },
 				} ),
 			} );
-			await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+			await screen.findByRole( 'button', { name: 'Site menu' } );
 			fireEvent.click(
 				screen.getByRole( 'button', { name: pinned ? 'Add pinned site' : 'Add site' } )
 			);
@@ -149,9 +147,7 @@ describe( 'site creation', () => {
 					pinned ? [ 'site:one', created ] : [ 'site:one' ]
 				)
 			);
-			expect(
-				await screen.findByRole( 'button', { name: 'Site actions for New site' } )
-			).toBeInTheDocument();
+			expect( await screen.findByRole( 'button', { name: 'Site menu' } ) ).toBeInTheDocument();
 			await waitFor( () =>
 				expect(
 					localStorage.getItem(
@@ -168,7 +164,7 @@ describe( 'site creation', () => {
 		const { connector } = renderApp( {
 			connector: createFakeConnector( { sites: [ mySite() ] } ),
 		} );
-		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+		await screen.findByRole( 'button', { name: 'Site menu' } );
 		act( () => connector.emit( 'onToggleSidebar' ) );
 		expect(
 			( await screen.findAllByRole( 'button', { name: 'Show sidebar' } ) )[ 0 ]
@@ -187,7 +183,7 @@ describe( 'site creation', () => {
 			meta: { title: 'Deep-linked Blueprint', author: 'Studio' },
 		} );
 		renderApp( { connector } );
-		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+		await screen.findByRole( 'button', { name: 'Site menu' } );
 		act( () =>
 			connector.emit( 'onAddSiteWithBlueprint', { blueprintPath: '/tmp/deep-link.json' } )
 		);
@@ -204,7 +200,7 @@ describe( 'site creation', () => {
 		const error = new Error( 'Unreadable Blueprint' );
 		connector.readBlueprintFile.mockRejectedValue( error );
 		renderApp( { connector } );
-		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+		await screen.findByRole( 'button', { name: 'Site menu' } );
 		act( () => connector.emit( 'onAddSiteWithBlueprint', { blueprintPath: '/tmp/broken.json' } ) );
 		await waitFor( () =>
 			expect( showErrorMessageBox ).toHaveBeenCalledWith(
@@ -218,7 +214,7 @@ describe( 'site creation', () => {
 		const { connector } = renderApp( {
 			connector: createFakeConnector( { sites: [ mySite() ] } ),
 		} );
-		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+		await screen.findByRole( 'button', { name: 'Site menu' } );
 		act( () => connector.emit( 'onAddSite' ) );
 		const dialog = await screen.findByRole( 'dialog' );
 		await openBlankSetup( dialog );
@@ -238,32 +234,6 @@ describe( 'site creation', () => {
 		expect( within( dialog ).getByLabelText( 'Local path' ) ).toHaveValue( '/sites/New site' );
 	} );
 
-	it( 'blocks a nonempty folder that is not WordPress', async () => {
-		const connector = createFakeConnector( { sites: [ mySite() ] } );
-		connector.selectSiteFolder.mockResolvedValueOnce( {
-			name: 'Documents',
-			path: '/documents',
-			isEmpty: false,
-			isWordPress: false,
-		} );
-		renderApp( { connector } );
-		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
-		act( () => connector.emit( 'onAddSite' ) );
-		const dialog = await screen.findByRole( 'dialog' );
-		await openBlankSetup( dialog );
-		fireEvent.change( within( dialog ).getByLabelText( 'Site name' ), {
-			target: { value: 'New site' },
-		} );
-		fireEvent.click(
-			within( dialog ).getByRole( 'button', { name: /select a different folder|Select a folder/ } )
-		);
-		expect(
-			await screen.findByText( 'Choose an empty folder or an existing WordPress site.' )
-		).toBeVisible();
-		expect( within( dialog ).getByRole( 'button', { name: 'Create site' } ) ).toBeDisabled();
-		expect( connector.createSite ).not.toHaveBeenCalled();
-	} );
-
 	it( 'does not re-register an existing Studio site', async () => {
 		const connector = createFakeConnector( { sites: [ mySite() ] } );
 		connector.selectSiteFolder.mockResolvedValueOnce( {
@@ -273,7 +243,7 @@ describe( 'site creation', () => {
 			isWordPress: true,
 		} );
 		renderApp( { connector } );
-		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+		await screen.findByRole( 'button', { name: 'Site menu' } );
 		act( () => connector.emit( 'onAddSite' ) );
 		const dialog = await screen.findByRole( 'dialog' );
 		await openBlankSetup( dialog );

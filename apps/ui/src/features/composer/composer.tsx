@@ -2,7 +2,7 @@ import { aiModelSupportsImages } from '@studio/common/ai/models';
 import { resolveSkillFromPrompt } from '@studio/common/ai/slash-commands';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { GlobeIcon, PlusIcon } from 'lucide-react';
+import { GlobeIcon } from 'lucide-react';
 import {
 	forwardRef,
 	useCallback,
@@ -36,7 +36,7 @@ import { useModelAccess } from '@/features/composer/use-model-access';
 import { useModelSwitch } from '@/features/composer/use-model-switch';
 import { useSubmitFeedback } from '@/features/composer/use-submit-feedback';
 import { AiCreditsPurchaseDialog } from '@/features/credits';
-import { StartSiteIcon } from '@/lib/icons';
+import { PlusIcon, StartSiteIcon } from '@/lib/icons';
 import { isImeComposing } from '@/lib/keyboard';
 import {
 	Button,
@@ -49,6 +49,7 @@ import {
 import styles from './style.module.css';
 import type { AiModelId, SessionEntry, StudioVisualAnnotationSummary } from '@/data/core';
 import type { ComposerSendAttachments } from '@/data/use-composer-attachments';
+import type { AiProviderId } from '@studio/common/ai/providers';
 
 /**
  * Invisible structural placeholder that mirrors Composer's outer DOM, so the
@@ -81,11 +82,11 @@ interface ComposerProps {
 	onAnswer?: ( answer: string ) => void;
 	onInterrupt: () => Promise< void >;
 	sessionId?: string;
+	draftKey?: string;
+	provider?: AiProviderId;
 	entries?: SessionEntry[];
-	// Local owner site id, when the session is anchored to one. Required to
-	// spin up a fresh session via `connector.createSession` on a confirmed
-	// family swap; if absent we fall back to the in-place model change so the
-	// dropdown still works for unowned sessions.
+	// The local site the session belongs to; a confirmed family switch opens
+	// the fresh session under it.
 	ownerSiteId?: string;
 	onSwitchSession?: ( sessionId: string ) => void;
 	autoFocus?: boolean;
@@ -105,7 +106,7 @@ interface ComposerProps {
 	dropTarget?: HTMLElement | null;
 	// The site whose preview annotations go out with the next message.
 	annotationSiteId?: string;
-	onModelChange?: ( model: AiModelId ) => void;
+	onModelChange?: ( model: AiModelId, provider: AiProviderId ) => void;
 	// Why the chat can't send right now; a send attempt shakes it.
 	notice?: ComposerNotice;
 }
@@ -128,6 +129,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		onAnswer,
 		onInterrupt,
 		sessionId,
+		draftKey = sessionId,
+		provider,
 		entries,
 		ownerSiteId,
 		onSwitchSession,
@@ -147,7 +150,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	ref
 ) {
 	const isField = variant === 'field';
-	const [ initialDraft ] = useState( () => getComposerDraft( sessionId ) );
+	const [ initialDraft ] = useState( () => getComposerDraft( draftKey ) );
 	const [ value, setValue ] = useState( initialDraft.text );
 	const [ sending, setSending ] = useState( false );
 	const [ modelOpen, setModelOpen ] = useState( false );
@@ -163,7 +166,11 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const draftEffectInitializedRef = useRef( false );
 	const openSettings = useOpenSettings();
 
-	const { sessionProvider, providers, isModelLocked } = useModelAccess( { sessionId, entries } );
+	const { sessionProvider, providers, isModelLocked } = useModelAccess( {
+		sessionId,
+		entries,
+		provider,
+	} );
 	const isWpcom = sessionProvider === 'wpcom';
 	const isOutOfCredits = useIsOutOfAiCredits() && ! isField && isWpcom;
 	const { openAddCredits, purchase, closePurchase } = useAddCredits();
@@ -256,11 +263,11 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 
 	useEffect( () => {
 		if ( draftEffectInitializedRef.current ) {
-			saveComposerDraft( sessionId, { text: value, attachments } );
+			saveComposerDraft( draftKey, { text: value, attachments } );
 		} else {
 			draftEffectInitializedRef.current = true;
 		}
-	}, [ attachments, sessionId, value ] );
+	}, [ attachments, draftKey, value ] );
 
 	const {
 		changeModel,
@@ -313,11 +320,11 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		try {
 			submission = composerSubmission( trimmed, attachments, sentNotes );
 		} catch ( error ) {
-			toast.error( ( error as Error ).message );
+			toast.error( ( error as Error ).message.replace( /\.$/, '' ) );
 			return;
 		}
 		if ( submission.options.images?.length && ! aiModelSupportsImages( model ) ) {
-			toast.error( __( 'Choose a model that supports images before sending these attachments.' ) );
+			toast.error( __( 'Choose a model that supports images before sending these attachments' ) );
 			return;
 		}
 		// Cleared up front so a composer remounted before the send is accepted
@@ -328,7 +335,13 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		try {
 			await onSend( submission.prompt, submission.options );
 		} catch {
-			// The parent reports the failure in a toast.
+			// The parent reports the failure in a toast. Keep the draft even if
+			// its site was closed while the request was pending.
+			const currentDraft = getComposerDraft( draftKey );
+			saveComposerDraft( draftKey, {
+				text: currentDraft.text || value,
+				attachments: [ ...attachments, ...currentDraft.attachments ],
+			} );
 			setValue( ( current ) => current || value );
 			restoreAttachments( ( current ) => [ ...attachments, ...current ] );
 			return;
@@ -343,6 +356,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 	}, [
 		value,
+		draftKey,
 		sending,
 		attachments,
 		busy,
@@ -420,7 +434,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				<InputGroup
 					ref={ setShellNode }
 					variant="composer"
-					data-session-composer
 					className={ clsx( styles.shell, isField && styles.shellField ) }
 					onMouseDown={ focusTextareaFromShell }
 				>
@@ -593,6 +606,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 
 export const Composer = forwardRef< ComposerHandle, ComposerProps >(
 	function Composer( props, ref ) {
-		return <ComposerContent key={ props.sessionId } { ...props } ref={ ref } />;
+		return <ComposerContent key={ props.draftKey ?? props.sessionId } { ...props } ref={ ref } />;
 	}
 );

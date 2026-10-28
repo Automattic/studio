@@ -20,7 +20,7 @@ import { LoggerError } from 'cli/logger';
  * Durable origin of a site that was populated by `studio pull-reprint`:
  * where it syncs from. Present only on reprint-pulled sites.
  */
-export const reprintOriginSchema = z.object( {
+const reprintOriginSchema = z.object( {
 	remoteUrl: z.string(),
 	remoteSiteUrl: z.string().optional(),
 	tablePrefix: z.string().optional(),
@@ -43,8 +43,7 @@ export const reprintOriginSchema = z.object( {
  * Absent on records created before this field existed; readers treat a
  * missing value as `ready`.
  */
-export const siteStatusSchema = z.enum( [ 'ready', 'pulling', 'pull-failed' ] );
-export type SiteStatus = z.infer< typeof siteStatusSchema >;
+const siteStatusSchema = z.enum( [ 'ready', 'pulling', 'pull-failed' ] );
 
 const siteSchema = siteDetailsSchema
 	.extend( {

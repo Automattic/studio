@@ -1,17 +1,11 @@
 import { __ } from '@wordpress/i18n';
-import { clsx } from 'clsx';
 import { useLogin } from '@/data/queries/use-auth-user';
 import { useOffline } from '@/lib/hooks';
 import { Button } from '@/lib/ui';
 import styles from './style.module.css';
 import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 
-interface AuthActionsProps {
-	className?: string;
-	source: TracksAuthSource;
-}
-
-export function AuthActions( { className, source }: AuthActionsProps ) {
+export function AuthActions( { source }: { source: TracksAuthSource } ) {
 	const isOffline = useOffline();
 	const login = useLogin( { source } );
 	const signup = useLogin( { signup: true, source } );
@@ -24,7 +18,7 @@ export function AuthActions( { className, source }: AuthActionsProps ) {
 	);
 
 	return (
-		<div className={ clsx( styles.root, className ) }>
+		<div className={ styles.root }>
 			<div className={ styles.actions }>
 				<Button
 					variant="ghost"

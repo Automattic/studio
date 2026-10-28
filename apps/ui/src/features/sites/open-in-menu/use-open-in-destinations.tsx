@@ -55,8 +55,8 @@ function getFileManager(): { label: string; logo: ReactElement } {
 /**
  * The "Open in…" destinations for a site (browser, WP Admin, file manager,
  * editor, terminal, phpMyAdmin) with their labels, logos, and open handlers. One
- * list feeds both the Overview's shortcuts and the session header's menu so
- * the two never drift.
+ * list feeds the site menu, the command palette and the site settings, so they
+ * never drift.
  *
  * Every destination means "open this site in X" — the browser, WP Admin and
  * phpMyAdmin entries open in the OS browser, not the preview panel. The preview's

@@ -4,6 +4,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
 import { setCommandPaletteOpen } from '@/data/use-command-palette';
 import {
+	changeAnnotation,
+	removeAnnotations,
+	getSiteAnnotations,
+	pickAnnotation,
+	setAnnotating,
+} from '@/features/annotations';
+import { clearComposerDrafts } from '@/features/composer';
+import {
 	createFakeConnector,
 	makeSession,
 	makeSite,
@@ -26,6 +34,7 @@ function chat( overrides: Partial< AiSessionSummary >, entries: SessionEntry[] =
 			ownerSiteId: 'one',
 			ownerSitePath: '/sites/my-site',
 			updatedAt: new Date().toISOString(),
+			firstPrompt: overrides.title,
 			...overrides,
 		} ),
 		entries,
@@ -102,6 +111,7 @@ async function paletteCommand( query: string ) {
 }
 
 beforeEach( () => {
+	clearComposerDrafts();
 	localStorage.clear();
 	resetAppMessagesForTests();
 } );
@@ -111,6 +121,164 @@ afterEach( () => {
 } );
 
 describe( 'Studio workspace', () => {
+	it( 'asks for a provider before sending annotations and preserves notes when opening provider settings', async () => {
+		const { history, connector } = setup( {
+			path: '/sites/one',
+			sites: [ site( { running: true } ) ],
+		} );
+		await screen.findByRole( 'toolbar', { hidden: true } );
+		act( () => {
+			setAnnotating( 'one', true );
+			const id = pickAnnotation( 'one', { selector: 'h1', tag: 'h1', path: '/' } )!;
+			changeAnnotation( 'one', id, { comment: 'Make this heading larger' } );
+		} );
+		try {
+			fireEvent.click( screen.getByRole( 'button', { name: 'Send 1 annotation' } ) );
+			expect(
+				await screen.findByRole( 'dialog', { name: 'Put your feedback to work' } )
+			).toBeVisible();
+			expect( connector.createSession ).not.toHaveBeenCalled();
+			expect( getSiteAnnotations( 'one' ).notes[ 0 ].comment ).toBe( 'Make this heading larger' );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Choose a different provider' } ) );
+			await waitFor( () => expect( history.location.search ).toContain( 'settings=ai' ) );
+			expect( getSiteAnnotations( 'one' ).notes ).toHaveLength( 1 );
+		} finally {
+			act( () => {
+				removeAnnotations(
+					'one',
+					getSiteAnnotations( 'one' ).notes.map( ( note ) => note.id )
+				);
+				setAnnotating( 'one', false );
+			} );
+		}
+	} );
+
+	it.each( [ 'site', 'play' ] )(
+		'opens a stopped site from %s without creating or resuming a chat',
+		async ( action ) => {
+			const { connector, history } = setup( {
+				signedIn: true,
+				sites: [ site(), site( { id: 'two', name: 'Other site', path: '/sites/other' } ) ],
+				sessions: [
+					chat( { id: 'previous', ownerSiteId: 'two', title: 'Previous conversation' }, [
+						prompt( 'Old message' ),
+					] ),
+				],
+				path: '/sites/one/new',
+			} );
+			await findComposer();
+			fireEvent.click(
+				screen.getByRole( 'button', {
+					name: action === 'site' ? 'Other site' : 'Start Other site',
+				} )
+			);
+			await waitFor( () => expect( history.location.pathname ).toBe( '/sites/two/new' ) );
+			expect( await findComposer() ).toHaveValue( '' );
+			expect( screen.queryByText( 'Old message' ) ).not.toBeInTheDocument();
+			expect( screen.queryByRole( 'button', { name: 'New chat' } ) ).not.toBeInTheDocument();
+			expect( connector.createSession ).not.toHaveBeenCalled();
+			if ( action === 'play' ) {
+				await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
+				expect( composer() ).toBeVisible();
+			}
+			fireEvent.click(
+				within( screen.getByRole( 'group', { name: 'Sites' } ) ).getByRole( 'button', {
+					name: 'Previous conversation',
+				} )
+			);
+			expect( await screen.findByText( 'Old message' ) ).toBeVisible();
+			fireEvent.click( screen.getByRole( 'button', { name: 'Other site' } ) );
+			await waitFor( () => expect( history.location.pathname ).toBe( '/sites/two/new' ) );
+			expect( await findComposer() ).toHaveValue( '' );
+			expect( connector.createSession ).not.toHaveBeenCalled();
+		}
+	);
+
+	it( 'preserves each site’s text and attachments without listing unsent chats', async () => {
+		const { connector } = setup( {
+			signedIn: true,
+			sites: [ site(), site( { id: 'two', name: 'Other site' } ) ],
+		} );
+		fireEvent.change( await findComposer(), { target: { value: 'Draft for my site' } } );
+		fireEvent.change( document.querySelector( 'input[type="file"][multiple]' )!, {
+			target: { files: [ new File( [ 'notes' ], 'draft.txt', { type: 'text/plain' } ) ] },
+		} );
+		await screen.findByText( 'draft.txt' );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Other site' } ) );
+		await waitFor( () => expect( composer() ).toHaveValue( '' ) );
+		fireEvent.change( composer(), { target: { value: 'Draft for other site' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'My site' } ) );
+		await waitFor( () => expect( composer() ).toHaveValue( 'Draft for my site' ) );
+		expect( screen.getByText( 'draft.txt' ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Other site' } ) );
+		await waitFor( () => expect( composer() ).toHaveValue( 'Draft for other site' ) );
+		expect( screen.queryByText( 'draft.txt' ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'New chat' } ) ).not.toBeInTheDocument();
+		expect( connector.createSession ).not.toHaveBeenCalled();
+	} );
+
+	it( 'leaves the draft workspace when its site is deleted', async () => {
+		const { connector, queryClient, history } = setup( { signedIn: true } );
+		await findComposer();
+		connector.state.sites = [];
+		await act( () => queryClient.invalidateQueries( { queryKey: [ 'sites' ] } ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites' ) );
+		expect( connector.createSession ).not.toHaveBeenCalled();
+	} );
+
+	it( 'restores a failed first message after switching sites and reuses its session on retry', async () => {
+		const { connector } = setup( {
+			signedIn: true,
+			sites: [ site(), site( { id: 'two', name: 'Other site' } ) ],
+		} );
+		let rejectSend!: ( error: Error ) => void;
+		connector.continueSession.mockImplementationOnce(
+			() =>
+				new Promise( ( _resolve, reject ) => {
+					rejectSend = reject;
+				} )
+		);
+		fireEvent.change( await findComposer(), { target: { value: 'Keep my failed message' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledTimes( 1 ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Other site' } ) );
+		await waitFor( () =>
+			expect( composer() ).toHaveAttribute( 'placeholder', 'Work with Other site' )
+		);
+		await act( async () => rejectSend( new Error( 'Send failed' ) ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'My site' } ) );
+		await waitFor( () => expect( composer() ).toHaveValue( 'Keep my failed message' ) );
+		expect( screen.queryByRole( 'button', { name: 'New chat' } ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledTimes( 2 ) );
+		expect( connector.createSession ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'lists a chat after its first message and leaves a fresh site draft', async () => {
+		const { connector, history } = setup( { signedIn: true } );
+		connector.continueSession.mockImplementation( async ( sessionId, text ) => {
+			connector.state.sessions.find(
+				( session ) => session.summary.id === sessionId
+			)!.summary.firstPrompt = text;
+			return { runId: 'gallery-run' };
+		} );
+		fireEvent.change( await findComposer(), { target: { value: 'Build a gallery' } } );
+		expect( connector.createSession ).not.toHaveBeenCalled();
+		expect( screen.queryByRole( 'button', { name: /Build a gallery/ } ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+		await waitFor( () => expect( history.location.pathname ).toMatch( /^\/sessions\// ) );
+		expect(
+			await within( screen.getByRole( 'group', { name: 'Sites' } ) ).findByRole( 'button', {
+				name: /Build a gallery/,
+			} )
+		).toBeVisible();
+		expect( connector.createSession ).toHaveBeenCalledTimes( 1 );
+		fireEvent.click( screen.getByRole( 'button', { name: 'My site' } ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
+		expect( await findComposer() ).toHaveValue( '' );
+		expect( connector.createSession ).toHaveBeenCalledTimes( 1 );
+	} );
+
 	it( 'keeps Share and Publish available while authentication is loading', async () => {
 		const { connector } = setup( { sites: [ site( { running: true } ) ] } );
 		connector.getAuthUser.mockImplementation( () => new Promise( () => {} ) );
@@ -240,7 +408,7 @@ describe( 'Studio workspace', () => {
 		await findComposer();
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Hide chat' } ) );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Stopped site' } ) );
-		await screen.findByRole( 'button', { name: 'Site actions for Stopped site' } );
+		await screen.findByRole( 'button', { name: 'Site menu' } );
 		const input = await findComposer();
 		expect( input ).toBeVisible();
 		fireEvent.change( input, { target: { value: 'Keep this draft' } } );
@@ -268,6 +436,61 @@ describe( 'Studio workspace', () => {
 		expect( connector.createSession ).toHaveBeenCalledTimes( createCalls );
 	} );
 
+	it.each( [ 'Settings', 'Rename' ] )(
+		'keeps chat hidden when opening and closing %s from site actions',
+		async ( action ) => {
+			const { history } = setup( {
+				signedIn: true,
+				sites: [ site( { running: true } ) ],
+				sessions: [ chat( { id: 'settings-chat', title: 'Existing chat' } ) ],
+				path: '/sessions/settings-chat',
+			} );
+			await screen.findByRole( 'button', { name: 'Hide chat' } );
+			const input = await findComposer();
+			await waitFor( () => expect( input ).toBeEnabled() );
+			fireEvent.change( input, { target: { value: 'Keep this draft' } } );
+			fireEvent.click( await screen.findByRole( 'button', { name: 'Hide chat' } ) );
+			await waitFor( () => expect( input.closest( '[aria-hidden="true"]' ) ).not.toBeNull() );
+			const chatPanel = input.closest( '[aria-hidden="true"]' )!;
+			fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: action } ) );
+			expect( await screen.findByRole( 'dialog', { name: 'Settings' } ) ).toBeVisible();
+			expect( chatPanel ).toHaveAttribute( 'aria-hidden', 'true' );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Close settings' } ) );
+			await waitFor( () =>
+				expect( screen.queryByRole( 'dialog', { name: 'Settings' } ) ).not.toBeInTheDocument()
+			);
+			expect( chatPanel ).toHaveAttribute( 'aria-hidden', 'true' );
+			expect( history.location.pathname ).toBe( '/sessions/settings-chat' );
+			expect( input ).toHaveValue( 'Keep this draft' );
+			fireEvent.click(
+				within( screen.getByRole( 'group', { name: 'Sites' } ) ).getByRole( 'button', {
+					name: 'Existing chat',
+				} )
+			);
+			await waitFor( () => expect( chatPanel ).not.toHaveAttribute( 'aria-hidden', 'true' ) );
+		}
+	);
+
+	it( 'keeps the site menu in place and reopens a hidden chat beside it', async () => {
+		setup( {
+			signedIn: true,
+			sites: [ site( { running: true } ) ],
+			sessions: [ chat( { id: 'hidden-chat', title: 'Existing chat' } ) ],
+			path: '/sessions/hidden-chat',
+		} );
+		const hide = await screen.findByRole( 'button', { name: 'Hide chat' } );
+		const input = await findComposer();
+		const menu = screen.getByRole( 'button', { name: 'Site menu' } );
+		expect( screen.queryByRole( 'button', { name: 'Show chat' } ) ).not.toBeInTheDocument();
+		fireEvent.click( hide );
+		await waitFor( () => expect( input.closest( '[aria-hidden="true"]' ) ).not.toBeNull() );
+		expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBe( menu );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Show chat' } ) );
+		await waitFor( () => expect( input.closest( '[aria-hidden="true"]' ) ).toBeNull() );
+		expect( screen.queryByRole( 'button', { name: 'Show chat' } ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'opens a new draft when the chat panel is hidden', async () => {
 		const { connector, history } = setup( {
 			signedIn: true,
@@ -284,8 +507,8 @@ describe( 'Studio workspace', () => {
 		);
 		fireEvent.click( screen.getByRole( 'button', { name: 'New chat for My site' } ) );
 		await waitFor( () => expect( composer().closest( '[aria-hidden="true"]' ) ).toBeNull() );
-		expect( history.location.pathname ).toMatch( /^\/sessions\// );
-		expect( connector.createSession ).toHaveBeenCalledTimes( 1 );
+		expect( history.location.pathname ).toBe( '/sites/one/new' );
+		expect( connector.createSession ).not.toHaveBeenCalled();
 	} );
 
 	it( 'focuses the existing draft from the sidebar when no preview is showing', async () => {
@@ -300,7 +523,7 @@ describe( 'Studio workspace', () => {
 			await waitFor( () => expect( composer() ).toHaveFocus() );
 			expect( composer() ).toHaveValue( 'Keep this draft' );
 		}
-		expect( connector.createSession ).toHaveBeenCalledTimes( 1 );
+		expect( connector.createSession ).not.toHaveBeenCalled();
 	} );
 
 	it.each( [
@@ -317,14 +540,14 @@ describe( 'Studio workspace', () => {
 					site( { id: 'two', name: 'Other site', running: targetRunning } ),
 				],
 			} );
-			await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+			await screen.findByRole( 'button', { name: 'Site menu' } );
 			const newChat = screen.getByRole( 'button', { name: 'New chat for Other site' } );
 			newChat.focus();
 			fireEvent.click( newChat );
-			await screen.findByRole( 'button', { name: 'Site actions for Other site' } );
+			await screen.findByRole( 'button', { name: 'Site menu' } );
 			await waitFor( () => expect( composer() ).toHaveFocus() );
-			expect( screen.getByRole( 'button', { name: 'Site actions for Other site' } ) ).toBeVisible();
-			expect( connector.createSession ).toHaveBeenLastCalledWith( 'two' );
+			expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBeVisible();
+			expect( connector.createSession ).not.toHaveBeenCalled();
 		}
 	);
 
@@ -340,7 +563,7 @@ describe( 'Studio workspace', () => {
 		}
 		fireEvent.click( screen.getByRole( 'button', { name: 'New chat for My site' } ) );
 		await waitFor( () => expect( composer() ).toHaveValue( 'Unsent draft' ) );
-		expect( connector.createSession ).toHaveBeenCalledTimes( 1 );
+		expect( connector.createSession ).not.toHaveBeenCalled();
 	} );
 
 	it( 'starts a fresh draft from the sidebar when the selected chat has messages', async () => {
@@ -349,7 +572,7 @@ describe( 'Studio workspace', () => {
 			sites: [ site( { running: true } ) ],
 		} );
 		await findComposer();
-		await waitFor( () => expect( history.location.pathname ).toMatch( /^\/sessions\// ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
 		const draftChat = history.location.pathname;
 		await refreshSessions( [
 			chat( { id: 'existing-chat', title: 'Existing conversation' }, [
@@ -367,7 +590,7 @@ describe( 'Studio workspace', () => {
 		expect( await findComposer() ).toHaveValue( '' );
 		expect( screen.queryByText( 'Existing message' ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'New chat for My site' } ) ).toBeVisible();
-		expect( connector.createSession ).toHaveBeenCalledTimes( 1 );
+		expect( connector.createSession ).not.toHaveBeenCalled();
 	} );
 
 	it( 'creates a conversation on first send and retries a failed send without creating another', async () => {
@@ -412,7 +635,7 @@ describe( 'Studio workspace', () => {
 		await waitFor( () => expect( composer() ).toHaveValue( '' ) );
 		fireEvent.click( sites.getByRole( 'button', { name: 'Saved chat' } ) );
 		await waitFor( () => expect( composer() ).toHaveValue( 'Draft for saved chat' ) );
-		expect( connector.createSession ).toHaveBeenCalledTimes( 1 );
+		expect( connector.createSession ).not.toHaveBeenCalled();
 	} );
 	it.each( [ false, true ] )(
 		'waits for an uncached chat before showing access controls (signed in: %s)',
@@ -421,6 +644,7 @@ describe( 'Studio workspace', () => {
 			await findComposer();
 			const summary = makeSession( {
 				id: 'delayed-chat',
+				firstPrompt: 'Delayed message',
 				title: 'Delayed conversation',
 				ownerSiteId: 'one',
 				ownerSitePath: '/sites/my-site',
@@ -465,31 +689,6 @@ describe( 'Studio workspace', () => {
 		}
 	);
 
-	it.each( [ false, true ] )(
-		'shows a provider notice and editable composer when signed out without a key (running: %s)',
-		async ( running ) => {
-			const { connector } = setup( { sites: [ site( { running } ) ] } );
-			expect(
-				await screen.findByText( 'Connect a provider to build and edit your site.' )
-			).toBeVisible();
-			expect( composer() ).toBeEnabled();
-			expect( screen.getByRole( 'button', { name: 'Send message' } ) ).toBeDisabled();
-			expect( screen.queryByRole( 'button', { name: 'Model' } ) ).not.toBeInTheDocument();
-			fireEvent.click( screen.getByRole( 'button', { name: 'Connect' } ) );
-			const providers = await screen.findByRole( 'dialog', { name: 'Settings' } );
-			fireEvent.click(
-				within(
-					within( providers )
-						.getByText( 'WordPress.com', { selector: '[data-slot="field-label"]' } )
-						.closest< HTMLElement >( '[data-settings-row]' )!
-				).getByRole( 'button', { name: 'Connect' } )
-			);
-			await waitFor( () =>
-				expect( connector.authenticate ).toHaveBeenCalledWith( true, 'settings' )
-			);
-		}
-	);
-
 	it( 'keeps site actions in the conversation toolbar before the preview is running', async () => {
 		const { connector, history, refreshSessions } = setup( { signedIn: true } );
 		await findComposer();
@@ -497,9 +696,8 @@ describe( 'Studio workspace', () => {
 			expect( screen.queryByRole( 'button', { name } ) ).not.toBeInTheDocument();
 		}
 		expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
-		for ( const name of [ 'Start', 'Share' ] ) {
-			expect( screen.getByRole( 'button', { name } ) ).toBeVisible();
-		}
+		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toBeVisible();
 		await refreshSessions( [ chat( { id: 'toolbar-chat', title: 'Plan my site' } ) ] );
 		fireEvent.click(
 			await within( screen.getByRole( 'group', { name: 'Sites' } ) ).findByRole( 'button', {
@@ -508,10 +706,10 @@ describe( 'Studio workspace', () => {
 		);
 		await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/toolbar-chat' ) );
 		expect( screen.queryByRole( 'button', { name: /Chat actions/ } ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Site actions for My site' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBeVisible();
 		expect( screen.queryByRole( 'button', { name: 'Publish…' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Start' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Start My site' } ) );
 		await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
 		fireEvent.load( document.querySelector( 'iframe' )! );
 		await waitFor( () =>
@@ -520,9 +718,12 @@ describe( 'Studio workspace', () => {
 		expect( await screen.findByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toBeVisible();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Stop' } ) );
+		expect( screen.queryByRole( 'button', { name: 'Stop' } ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop site' } ) );
 		await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledWith( 'one' ) );
-		expect( await screen.findByRole( 'button', { name: 'Start' } ) ).toBeVisible();
+		expect( await screen.findByRole( 'button', { name: 'Start My site' } ) ).toBeVisible();
 	} );
 
 	it( 'preserves draft and attachments through external start and stop events', async () => {
@@ -575,7 +776,7 @@ describe( 'Studio workspace', () => {
 				model!
 			);
 		}
-		expect( connector.createSession ).toHaveBeenCalledTimes( 1 );
+		expect( connector.createSession ).not.toHaveBeenCalled();
 	} );
 
 	it( 'toggles chat full screen through the palette without replacing its draft', async () => {
@@ -654,7 +855,7 @@ describe( 'Studio workspace', () => {
 			fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
 			await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledTimes( 1 ) );
 			expect( connector.startSite ).not.toHaveBeenCalled();
-			expect( composer() ).toBe( input );
+			expect( composer() ).toHaveValue( '' );
 		} );
 
 		it( 'reports startup failure without restoring a sent prompt', async () => {

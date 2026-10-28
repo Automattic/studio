@@ -56,7 +56,7 @@ export function useSiteBackupImport( site: SiteDetails ) {
 		if ( ! isSupportedBackupFilename( picked.name ) ) {
 			toast.error(
 				__(
-					'This file type is not supported. Please use a .zip, .gz, .gzip, .tar, .tar.gz, .wpress, .sql, or .xml file.'
+					'This file type is not supported. Please use a .zip, .gz, .gzip, .tar, .tar.gz, .wpress, .sql, or .xml file'
 				)
 			);
 			return;
@@ -128,7 +128,7 @@ export function ImportSiteDialog( {
 
 	return (
 		<AlertDialog open={ open } onOpenChange={ ( next ) => ! next && onCancel() }>
-			<DialogContent initialFocus={ cancelRef } onKeyDown={ handleKeyDown }>
+			<DialogContent layout="compact" initialFocus={ cancelRef } onKeyDown={ handleKeyDown }>
 				<DialogHeader>
 					<DialogTitle>{ sprintf( __( 'Overwrite %s?' ), site.name ) }</DialogTitle>
 					<DialogDescription>

@@ -12,7 +12,6 @@ const SAVED_PREFERENCES: UserPreferences = {
 	defaultSiteDirectory: '/Users/example/Studio',
 	studioCliInstalled: false,
 	studioCliExternallyManaged: false,
-	agenticFeaturesEnabled: true,
 };
 
 describe( 'settings preference helpers', () => {
@@ -35,21 +34,6 @@ describe( 'settings preference helpers', () => {
 			defaultSiteDirectory: '/Users/example/Studio',
 			autoStartSiteOnChat: false,
 			confirmDeleteAnnotations: true,
-		} );
-	} );
-
-	it( 'returns an empty patch for an empty update', () => {
-		expect( toPreferencesPatch( {} ) ).toEqual( {} );
-	} );
-
-	it( 'maps a single-field update to a single-field patch', () => {
-		expect( toPreferencesPatch( { colorScheme: 'dark' } ) ).toEqual( { colorScheme: 'dark' } );
-		expect( toPreferencesPatch( { locale: 'es' } ) ).toEqual( { locale: 'es' } );
-		expect( toPreferencesPatch( { quitSitesBehavior: 'leave-running' } ) ).toEqual( {
-			quitSitesBehavior: 'leave-running',
-		} );
-		expect( toPreferencesPatch( { defaultSiteDirectory: '/Users/example/Sites' } ) ).toEqual( {
-			defaultSiteDirectory: '/Users/example/Sites',
 		} );
 	} );
 

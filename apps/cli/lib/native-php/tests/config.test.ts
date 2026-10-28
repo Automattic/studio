@@ -3,17 +3,17 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { getDefaultPhpArgs, getNativePhpIniContents } from 'cli/lib/native-php/config';
 
+const originalPlatform = process.platform;
+
+function setPlatform( platform: NodeJS.Platform ) {
+	Object.defineProperty( process, 'platform', { value: platform } );
+}
+
+afterEach( () => {
+	setPlatform( originalPlatform );
+} );
+
 describe( 'getNativePhpIniContents', () => {
-	const originalPlatform = process.platform;
-
-	function setPlatform( platform: NodeJS.Platform ) {
-		Object.defineProperty( process, 'platform', { value: platform } );
-	}
-
-	afterEach( () => {
-		setPlatform( originalPlatform );
-	} );
-
 	it( 'disables the request time limit so the cli-server SAPI 30s default does not apply', () => {
 		const contents = getNativePhpIniContents( '8.4' );
 
@@ -43,7 +43,15 @@ describe( 'getDefaultPhpArgs', () => {
 		return directive?.match( /^opcache\.file_cache="(.*)"$/ )?.[ 1 ] ?? '';
 	}
 
-	it( 'gives each server worker its own opcache file cache directory', () => {
+	it.each( [ 'darwin', 'linux' ] as const )( 'gives no opcache file cache on %s', ( platform ) => {
+		setPlatform( platform );
+
+		expect( getFileCacheDirectory( getDefaultPhpArgs( '8.4', { workerIndex: 0 } ) ) ).toBe( '' );
+		expect( getFileCacheDirectory( getDefaultPhpArgs( '8.4' ) ) ).toBe( '' );
+	} );
+
+	it( 'gives each server worker its own opcache file cache directory on Windows', () => {
+		setPlatform( 'win32' );
 		const first = getFileCacheDirectory( getDefaultPhpArgs( '8.4', { workerIndex: 0 } ) );
 		const second = getFileCacheDirectory( getDefaultPhpArgs( '8.4', { workerIndex: 1 } ) );
 
@@ -53,7 +61,8 @@ describe( 'getDefaultPhpArgs', () => {
 		expect( fs.existsSync( second ) ).toBe( true );
 	} );
 
-	it( 'partitions the opcache file cache by PHP version', () => {
+	it( 'partitions the opcache file cache by PHP version on Windows', () => {
+		setPlatform( 'win32' );
 		const cacheDirectory = getFileCacheDirectory( getDefaultPhpArgs( '8.4' ) );
 
 		expect( path.basename( cacheDirectory ) ).toBe( 'php8.4' );

@@ -19,7 +19,7 @@ import { registerOpenDialog, replaceOpenDialogs } from './replacement';
 import styles from './style.module.css';
 import type { ComponentProps, ReactNode, Ref } from 'react';
 
-type Layout = 'default' | 'settings' | 'creation' | 'confirmation';
+type Layout = 'default' | 'compact' | 'settings' | 'creation' | 'confirmation';
 
 const DialogContentContext = createContext< { showCloseButton: boolean; layout: Layout } >( {
 	showCloseButton: true,
@@ -57,6 +57,7 @@ export function AlertDialog( props: BaseAlertDialog.Root.Props ) {
 }
 
 export { replaceOpenDialogs };
+export { useHasOpenDialog } from './replacement';
 export const DialogClose = BaseDialog.Close;
 
 export function DialogDismissButton( {
@@ -119,20 +120,9 @@ export function DialogHeader( { className, children, ...props }: ComponentProps<
 	);
 }
 
-export function DialogFooter( {
-	className,
-	separator = false,
-	padding = false,
-	...props
-}: ComponentProps< 'div' > & { separator?: boolean; padding?: boolean } ) {
+export function DialogFooter( { className, ...props }: ComponentProps< 'div' > ) {
 	return (
-		<div
-			data-slot="dialog-footer"
-			data-separator={ separator || undefined }
-			data-padding={ padding || undefined }
-			className={ clsx( styles.footer, className ) }
-			{ ...props }
-		/>
+		<div data-slot="dialog-footer" className={ clsx( styles.footer, className ) } { ...props } />
 	);
 }
 
@@ -194,13 +184,11 @@ export function PanelHeader( {
 export function DialogPanel( {
 	className,
 	header,
-	footer,
 	scrollRef,
 	children,
 	...props
 }: ComponentProps< 'div' > & {
 	header: ReactNode;
-	footer?: ReactNode;
 	scrollRef?: Ref< HTMLDivElement >;
 } ) {
 	return (
@@ -209,7 +197,6 @@ export function DialogPanel( {
 			<DialogScrollArea ref={ scrollRef } className={ styles.panelScroll }>
 				<div className={ styles.panelBody }>{ children }</div>
 			</DialogScrollArea>
-			{ footer }
 		</div>
 	);
 }

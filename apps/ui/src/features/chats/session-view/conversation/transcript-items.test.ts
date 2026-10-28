@@ -131,6 +131,65 @@ describe( 'entriesToRenderItems', () => {
 			{ text: 'Two', messageText: 'One\n\nTwo', copyText: 'One\n\nTwo' },
 		] );
 	} );
+
+	it( 'keeps media payload lines out of tool results', () => {
+		expect(
+			entriesToRenderItems( [
+				assistantToolCallEntry( 'write_file', { path: 'style.css' } ),
+				toolResultEntry( 'Done\nmediaWidgetPayload=secret' ),
+			] )
+		).toMatchObject( [ { kind: 'tool-use', result: { text: 'Done' } } ] );
+	} );
+
+	it( 'gives each question in a batch a distinct stable identity', () => {
+		const entries = [ 'first', 'second' ].map( ( id ) => ( {
+			id,
+			type: 'custom',
+			customType: 'studio.agent_question',
+			data: { question: id, options: [] },
+		} ) ) as unknown as SessionEntry[];
+		const batch = entriesToRenderItems( entries )[ 0 ];
+		expect( batch.kind ).toBe( 'agent-question-batch' );
+		if ( batch.kind === 'agent-question-batch' ) {
+			expect( new Set( batch.questions.map( ( question ) => question.key ) ).size ).toBe( 2 );
+		}
+	} );
+
+	it( 'keeps files and unclaimed images visible once alongside annotated messages', () => {
+		const file = {
+			kind: 'file',
+			id: 'file',
+			name: 'reference.css',
+			mimeType: 'text/css',
+			size: 20,
+		};
+		const ordinaryImage = {
+			kind: 'image',
+			id: 'ordinary',
+			name: 'chat.png',
+			mimeType: 'image/png',
+			size: 1,
+		};
+		const noteImage = { ...ordinaryImage, id: 'note-image', name: 'note.png' };
+		const entry = {
+			type: 'custom',
+			id: 'annotated',
+			customType: 'studio.user_prompt',
+			data: {
+				source: 'prompt',
+				text: 'Apply these changes',
+				attachments: [ file, ordinaryImage, noteImage ],
+				visualAnnotations: [
+					{ comment: 'Apply these changes' },
+					{ comment: 'Change heading', imageIds: [ 'note-image' ] },
+				],
+			},
+		} as SessionEntry;
+		expect( entriesToRenderItems( [ entry ] ) ).toMatchObject( [
+			{ text: 'Apply these changes', attachments: [ file, ordinaryImage ] },
+			{ text: 'Change heading', attachments: [ noteImage ] },
+		] );
+	} );
 } );
 
 describe( 'Turn-closed markers', () => {
@@ -159,7 +218,7 @@ describe( 'Turn-closed markers', () => {
 } );
 
 describe( 'entriesToTranscriptItems', () => {
-	it( 'keeps tool calls where they ran and closes the turn with its line', () => {
+	it( 'preserves question positions and keeps the final reply persistent within the turn', () => {
 		const items = entriesToTranscriptItems( [
 			promptEntry( 'Go' ),
 			assistantToolCallEntry( 'Read', { file_path: '/tmp/a.txt' }, 'Let me look.' ),
@@ -171,26 +230,27 @@ describe( 'entriesToTranscriptItems', () => {
 
 		expect( items ).toMatchObject( [
 			{ kind: 'user-text', text: 'Go' },
-			{ kind: 'assistant-text', text: 'Let me look.' },
-			{ kind: 'tool-use' },
-			{ kind: 'agent-question-batch' },
-			{ kind: 'assistant-text', text: 'Done.' },
 			{
 				kind: 'activity',
 				status: 'success',
+				items: [
+					{ kind: 'assistant-text', text: 'Let me look.' },
+					{ kind: 'tool-use' },
+					{ kind: 'agent-question-batch' },
+					{ kind: 'assistant-text', text: 'Done.', persistent: true },
+				],
 				startedAt: Date.parse( '2026-06-05T12:00:00.000Z' ),
 				endedAt: Date.parse( '2026-06-05T12:00:03.000Z' ),
 			},
 		] );
 	} );
 
-	it( 'closes a stopped turn after its marker', () => {
+	it( 'represents an interrupted turn with only its activity status', () => {
 		expect(
 			entriesToTranscriptItems( [ promptEntry( 'Go' ), turnClosedEntry( 'interrupted' ) ] )
 		).toMatchObject( [
 			{ kind: 'user-text' },
-			{ kind: 'interrupted-marker' },
-			{ kind: 'activity', status: 'interrupted' },
+			{ kind: 'activity', status: 'interrupted', items: [] },
 		] );
 	} );
 
@@ -221,11 +281,73 @@ describe( 'entriesToTranscriptItems', () => {
 
 		expect( entriesToTranscriptItems( entries, { running: true, startedAt: 1 } ) ).toMatchObject( [
 			{ kind: 'user-text' },
-			{ kind: 'tool-use', running: true },
-			{ kind: 'activity', status: 'running' },
+			{ kind: 'activity', status: 'running', items: [ { kind: 'tool-use', running: true } ] },
 		] );
 		expect( getProgressMessage( entries ) ).toBe( 'Uploading…' );
 		expect( getProgressMessage( [ ...entries, assistantTextEntry( 'Done.' ) ] ) ).toBeNull();
+	} );
+
+	it.each( [ true, false ] )(
+		'keeps answered questions before subsequent activity (running: %s)',
+		( running ) => {
+			const entries = [
+				promptEntry( 'Change the background' ),
+				assistantTextEntry( 'Checking the current colors.' ),
+				agentQuestionEntry( 'Which color?', [ 'Blue', 'Green' ], 'color', 'Blue' ),
+				assistantToolCallEntry( 'Read', { file_path: '/tmp/style.css' }, 'I’ll use blue.' ),
+				toolResultEntry( 'styles' ),
+				assistantTextEntry( 'Updated the background.' ),
+				...( running ? [] : [ turnClosedEntry( 'success' ) ] ),
+			];
+			const items = entriesToTranscriptItems( entries, { running, startedAt: 1 } );
+			const activity = items.find( ( item ) => item.kind === 'activity' );
+			expect( activity?.items.slice( 0, 4 ) ).toMatchObject( [
+				{ kind: 'assistant-text', text: 'Checking the current colors.' },
+				{ kind: 'agent-question-batch', questions: [ { pickedLabel: 'Blue' } ] },
+				{ kind: 'assistant-text', text: 'I’ll use blue.' },
+				{ kind: 'tool-use' },
+			] );
+			expect( items.some( ( item ) => item.kind === 'agent-question-batch' ) ).toBe( false );
+		}
+	);
+
+	it( 'preserves partially answered batches in the turn timeline', () => {
+		const items = entriesToTranscriptItems(
+			[
+				promptEntry( 'Update my site' ),
+				agentQuestionEntry( 'Which color?', [ 'Blue', 'Green' ], 'color', 'Blue' ),
+				agentQuestionEntry( 'Which font?', [ 'Serif', 'Sans' ], 'font' ),
+			],
+			{ running: true, startedAt: 1 }
+		);
+		expect( items ).toMatchObject( [
+			{ kind: 'user-text' },
+			{
+				kind: 'activity',
+				items: [
+					{
+						kind: 'agent-question-batch',
+						questions: [ { pickedLabel: 'Blue' }, { pickedLabel: undefined } ],
+					},
+				],
+			},
+		] );
+	} );
+
+	it( 'groups historical answers stored as user prompts with their questions', () => {
+		const items = entriesToTranscriptItems(
+			[
+				promptEntry( 'Update my site' ),
+				agentQuestionEntry( 'Which color?', [ 'Blue', 'Green' ] ),
+				askUserAnswerEntry( 'answer', 'Blue' ),
+				assistantToolCallEntry( 'Read' ),
+			],
+			{ running: true, startedAt: 1 }
+		);
+		expect( items.find( ( item ) => item.kind === 'activity' )?.items ).toMatchObject( [
+			{ kind: 'agent-question-batch', questions: [ { pickedLabel: 'Blue' } ] },
+			{ kind: 'tool-use' },
+		] );
 	} );
 
 	it( 'leaves a turn with nothing done yet, or text without a prompt, open', () => {
@@ -240,7 +362,11 @@ describe( 'entriesToTranscriptItems', () => {
 			agentQuestionEntry( 'Which one?', [ 'A', 'B' ] ),
 		] );
 
-		expect( items.map( getSender ) ).toEqual( [ 'user', 'assistant', 'assistant', undefined ] );
+		expect( items.map( getSender ) ).toEqual( [ 'user', 'assistant' ] );
+		expect( items.find( ( item ) => item.kind === 'activity' )?.items.map( getSender ) ).toEqual( [
+			'assistant',
+			'assistant',
+		] );
 	} );
 } );
 
@@ -265,5 +391,99 @@ describe( 'Visual annotations', () => {
 				annotation: { elementLabel: 'img#hero' },
 			},
 		] );
+	} );
+} );
+
+describe( 'turn activity', () => {
+	const time = ( seconds: number ) =>
+		new Date( Date.UTC( 2026, 9, 19, 12, 0, seconds ) ).toISOString();
+	const user = ( id: string, seconds = 0 ) =>
+		( { ...promptEntry( 'Update my site' ), id, timestamp: time( seconds ) } ) as SessionEntry;
+	const assistant = ( id: string, text: string, tool = false ) =>
+		( {
+			type: 'message',
+			id,
+			timestamp: time( 5 ),
+			message: {
+				role: 'assistant',
+				content: [
+					{ type: 'text', text },
+					...( tool
+						? [
+								{
+									type: 'toolCall',
+									id: id + '-tool',
+									name: 'Read',
+									arguments: { path: 'style.css' },
+								},
+						  ]
+						: [] ),
+				],
+			},
+		} ) as unknown as SessionEntry;
+	const close = ( id: string, status = 'success', seconds = 10 ) =>
+		( {
+			type: 'custom',
+			id,
+			customType: 'studio.turn_closed',
+			timestamp: time( seconds ),
+			data: { status },
+		} ) as SessionEntry;
+
+	it( 'keeps question answers within the turn and pairs results with their tool call', () => {
+		const result = {
+			type: 'message',
+			id: 'result',
+			message: {
+				role: 'toolResult',
+				toolCallId: 'read-tool',
+				content: [ { type: 'text', text: 'CSS contents' } ],
+				isError: false,
+			},
+		} as unknown as SessionEntry;
+		const items = entriesToTranscriptItems( [
+			user( 'prompt' ),
+			assistant( 'read', 'Reading', true ),
+			askUserAnswerEntry( 'answer', 'Blue' ),
+			result,
+			assistant( 'final', 'Done' ),
+			close( 'closed' ),
+		] );
+		expect( items.filter( ( item ) => item.kind === 'activity' ) ).toHaveLength( 1 );
+		expect(
+			items
+				.find( ( item ) => item.kind === 'activity' )
+				?.items.find( ( item ) => item.kind === 'tool-use' )
+		).toMatchObject( {
+			result: { text: 'CSS contents' },
+		} );
+	} );
+
+	it( 'does not invent timing for old transcripts and preserves stopped status', () => {
+		const items = entriesToTranscriptItems( [
+			{ ...promptEntry( 'Hello' ), timestamp: 'invalid' },
+			assistant( 'read', 'Checking', true ),
+			{ ...close( 'closed', 'interrupted' ), timestamp: 'invalid' },
+		] );
+		expect( items.find( ( item ) => item.kind === 'activity' ) ).toMatchObject( {
+			status: 'interrupted',
+			startedAt: null,
+			endedAt: null,
+		} );
+	} );
+
+	it( 'only marks the latest unfinished turn as running', () => {
+		const items = entriesToTranscriptItems(
+			[
+				user( 'first' ),
+				assistant( 'first-read', 'Checking', true ),
+				close( 'closed' ),
+				user( 'second', 20 ),
+			],
+			{ running: true, startedAt: Date.parse( time( 20 ) ) }
+		);
+		expect(
+			items.filter( ( item ) => item.kind === 'activity' ).map( ( item ) => item.status )
+		).toEqual( [ 'success', 'running' ] );
 	} );
 } );

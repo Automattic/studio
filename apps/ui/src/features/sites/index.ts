@@ -13,12 +13,7 @@ export {
 	type PreviewSplitFramePreviewProps,
 	usePreviewBeside,
 } from './preview-split-frame';
-export {
-	SiteActionsMenu,
-	SiteActionsMenuItems,
-	useDeleteBlockedReason,
-	useSiteActions,
-} from './site-actions-menu';
+export { SiteMenu, SiteMenuItems, useDeleteBlockedReason, useSiteActions } from './site-menu';
 export {
 	CertificateTrustNotice,
 	getEnvironmentTypeOptions,
@@ -33,9 +28,10 @@ export {
 	SiteHeaderActions,
 	SiteHeaderActionsProvider,
 	SiteHeaderSpace,
+	SiteHeaderStart,
+	SiteHeaderStartSpace,
 	useSiteHeader,
 } from './site-header-actions';
-export { SiteIcon } from './site-icon';
 export { SitePreview } from './site-preview';
 export { SiteContextMenu, StoppedSitePreview } from './stopped-site-preview';
 export { type AddSiteSection, isAddSiteSection, useOpenAddSite } from './use-open-add-site';

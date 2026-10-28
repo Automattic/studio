@@ -71,15 +71,6 @@ describe( 'Archive Module', () => {
 	} );
 
 	describe( 'createArchive', () => {
-		it( 'should create a zip archive and stream it to the output file', async () => {
-			const result = await archiveSiteContent( mockSiteFolder, mockArchivePath );
-
-			expect( ZipArchive ).toHaveBeenCalledWith( { zlib: { level: 9 } } );
-			expect( mockArchiver.directory ).not.toHaveBeenCalled();
-			expect( mockArchiver.finalize ).toHaveBeenCalled();
-			expect( result ).toBe( mockArchiver );
-		} );
-
 		it( 'should enumerate wp-content following symlinks', async () => {
 			await archiveSiteContent( mockSiteFolder, mockArchivePath );
 

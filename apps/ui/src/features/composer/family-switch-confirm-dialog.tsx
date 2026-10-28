@@ -22,9 +22,6 @@ import type { AiModelId } from '@/data/core';
  * transcript, so continuing the same JSONL with a different family makes
  * the on-screen history disagree with the agent's actual memory — the only
  * correct action is to start a fresh session.
- *
- * Pure presentation: state and the new-session creation live in the
- * composer (the only caller).
  */
 export function FamilySwitchConfirmDialog( {
 	currentModel,
@@ -49,6 +46,7 @@ export function FamilySwitchConfirmDialog( {
 			onOpenChange={ ( next ) => ! next && ! inFlight && onCancel() }
 		>
 			<DialogContent
+				layout="compact"
 				showCloseButton={ ! inFlight }
 				initialFocus={ cancelRef }
 				onKeyDown={ handleKeyDown }

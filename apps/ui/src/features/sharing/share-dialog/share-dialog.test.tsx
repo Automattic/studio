@@ -285,11 +285,15 @@ describe( 'ShareDialog', () => {
 		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
 		const trigger = shareTrigger();
 		expect( isPublishing( trigger ) ).toBe( true );
+		fireEvent.click( trigger );
+		await screen.findByText( 'Publishing preview…' );
+		fireEvent.keyDown( screen.getByRole( 'dialog' ), { key: 'Escape' } );
+		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
 		await act( async () => finish() );
 		await waitFor( () => expect( isUnread( trigger ) ).toBe( true ), SETTLE );
 		expect( isPublishing( trigger ) ).toBe( false );
 		expect( trigger ).toHaveAccessibleDescription( 'Preview ready' );
-		expect( getNoticeHistory()[ 0 ].title ).toBe( 'My site preview ready' );
+		expect( getNoticeHistory()[ 0 ].title ).toBe( 'Preview link is ready' );
 		fireEvent.click( trigger );
 		await screen.findByRole( 'button', { name: 'Copy link' } );
 		await waitFor( () => expect( isUnread( trigger ) ).toBe( false ) );
@@ -323,30 +327,28 @@ describe( 'ShareDialog', () => {
 		await waitFor( () => expect( isUnread( shareTrigger() ) ).toBe( false ) );
 	} );
 
-	it( 'closes with Escape and restores focus to Share', async () => {
-		const { ready } = setup( null );
-		await ready;
-		const login = await screen.findByRole( 'button', { name: 'Create account' } );
-		expect( screen.queryByRole( 'button', { name: 'Share' } ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'heading', { name: 'Share your WordPress' } ) ).toBeVisible();
-		expect(
-			screen.getByText(
-				'Create an account or log in to share previews and keep your sites in sync.'
-			)
-		).toBeVisible();
-		fireEvent.keyDown( login, { key: 'Escape' } );
-		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
-		await waitFor( () => expect( shareTrigger() ).toHaveFocus() );
-	} );
-
-	it( 'closes with its close button and restores focus to Share', async () => {
-		const { ready } = setup( null );
-		await ready;
-		await screen.findByRole( 'button', { name: 'Create account' } );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Close' } ) );
-		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
-		await waitFor( () => expect( shareTrigger() ).toHaveFocus() );
-	} );
+	it.each( [ 'Escape', 'its close button' ] )(
+		'closes with %s and restores focus to Share',
+		async ( method ) => {
+			const { ready } = setup( null );
+			await ready;
+			const login = await screen.findByRole( 'button', { name: 'Create account' } );
+			expect( screen.queryByRole( 'button', { name: 'Share' } ) ).not.toBeInTheDocument();
+			expect( screen.getByRole( 'heading', { name: 'Share your WordPress' } ) ).toBeVisible();
+			expect(
+				screen.getByText(
+					'Create an account or log in to share previews and keep your sites in sync.'
+				)
+			).toBeVisible();
+			if ( method === 'Escape' ) {
+				fireEvent.keyDown( login, { key: 'Escape' } );
+			} else {
+				fireEvent.click( screen.getByRole( 'button', { name: 'Close' } ) );
+			}
+			await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
+			await waitFor( () => expect( shareTrigger() ).toHaveFocus() );
+		}
+	);
 
 	it( 'disables both account actions during login and keeps the prompt after cancellation', async () => {
 		const { connector, ready } = setup( null );
@@ -358,7 +360,7 @@ describe( 'ShareDialog', () => {
 				} )
 		);
 		await ready;
-		const login = await screen.findByRole( 'button', { name: 'Log in to WordPress.com' } );
+		const login = await screen.findByRole( 'button', { name: 'Log in' } );
 		const signup = screen.getByRole( 'button', { name: 'Create account' } );
 		fireEvent.click( login );
 		await waitFor( () => expect( isDisabled( login ) ).toBe( true ) );
@@ -369,37 +371,6 @@ describe( 'ShareDialog', () => {
 		await waitFor( () => expect( isDisabled( login ) ).toBe( false ) );
 		expect( isDisabled( signup ) ).toBe( false );
 		expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
-	} );
-
-	it( 'publishes once and continues after the dialog closes', async () => {
-		const { connector, ready, site } = setup();
-		let finish!: ( value: { url: string } ) => void;
-		connector.publishPreviewSite.mockImplementationOnce(
-			() =>
-				new Promise( ( resolve ) => {
-					finish = resolve;
-				} )
-		);
-		await ready;
-		fireEvent.click( await shareButton() );
-		await screen.findByText( 'Publishing preview…' );
-		expect( connector.publishPreviewSite ).toHaveBeenCalledExactlyOnceWith(
-			site.id,
-			undefined,
-			undefined
-		);
-		fireEvent.keyDown( screen.getByRole( 'dialog' ), { key: 'Escape' } );
-		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
-		fireEvent.click( shareTrigger() );
-		await screen.findByText( 'Publishing preview…' );
-		await act( async () => finish( { url: 'https://preview.example.com' } ) );
-		await waitFor(
-			() =>
-				expect(
-					getNoticeHistory().some( ( item ) => item.title === 'My site preview ready' )
-				).toBe( true ),
-			SETTLE
-		);
 	} );
 
 	it( 'copies this account’s selected preview without exposing its URL or extra controls', async () => {

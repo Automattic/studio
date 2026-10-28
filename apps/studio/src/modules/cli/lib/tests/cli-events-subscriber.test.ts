@@ -72,16 +72,17 @@ describe( 'CLI events subscriber', () => {
 		expect( captureSiteThumbnail ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	it( 'reports a site serving the PHP error page as running', async () => {
+	it( 'reports a site serving the PHP error page as running, without its CLI details', async () => {
 		await emitSiteEvent( SITE_EVENTS.CREATED, 'site-b', true );
 		vi.mocked( isInErrorRecovery ).mockReturnValue( true );
 
 		await emitSiteEvent( SITE_EVENTS.UPDATED, 'site-b', false );
 
-		expect( sendIpcEventToRenderer ).toHaveBeenLastCalledWith(
-			'site-event',
-			expect.objectContaining( { siteId: 'site-b', running: true } )
-		);
+		expect( sendIpcEventToRenderer ).toHaveBeenLastCalledWith( 'site-event', {
+			event: SITE_EVENTS.UPDATED,
+			siteId: 'site-b',
+			running: true,
+		} );
 	} );
 
 	it( 'forgets a deleted site', async () => {

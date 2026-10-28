@@ -26,6 +26,7 @@ function createSession( overrides: Partial< AiSessionSummary > = {} ): AiSession
 		ownerSiteName: 'Site One',
 		activeEnvironment: 'local',
 		eventCount: 1,
+		firstPrompt: 'Existing message',
 		...overrides,
 	};
 }
@@ -35,7 +36,6 @@ let onboardingCompleted = true;
 async function runBeforeLoad(
 	sites: SiteDetails[] | Error,
 	sessions: AiSessionSummary[],
-	agenticFeaturesEnabled = true,
 	search: Record< string, string > = {}
 ) {
 	const context = {
@@ -49,7 +49,6 @@ async function runBeforeLoad(
 			},
 			getSessions: async () => sessions,
 			getOnboardingCompleted: async () => onboardingCompleted,
-			getUserPreferences: async () => ( { agenticFeaturesEnabled } ),
 		},
 	};
 	try {
@@ -76,14 +75,14 @@ describe( 'indexRoute.beforeLoad', () => {
 
 	it( 'welcomes a first launch over the empty workspace, keeping Settings open', async () => {
 		onboardingCompleted = false;
-		expect( await runBeforeLoad( [], [], true, { settings: 'general' } ) ).toMatchObject( {
+		expect( await runBeforeLoad( [], [], { settings: 'general' } ) ).toMatchObject( {
 			to: '/sites',
 			search: { settings: 'general', welcome: true },
 		} );
 	} );
 
 	it( 'lands on the empty workspace, which offers Add site, keeping Settings open', async () => {
-		const redirect = await runBeforeLoad( [], [], true, { settings: 'general' } );
+		const redirect = await runBeforeLoad( [], [], { settings: 'general' } );
 		expect( redirect.to ).toBe( '/sites' );
 		expect( redirect.search ).toEqual( { settings: 'general' } );
 	} );
@@ -94,7 +93,7 @@ describe( 'indexRoute.beforeLoad', () => {
 	} );
 
 	it( 'keeps Settings open across the redirect', async () => {
-		const redirect = await runBeforeLoad( [ createSite() ], [ createSession() ], true, {
+		const redirect = await runBeforeLoad( [ createSite() ], [ createSession() ], {
 			settings: 'general',
 		} );
 		expect( redirect ).toMatchObject( {
@@ -160,17 +159,6 @@ describe( 'indexRoute.beforeLoad', () => {
 		);
 		expect( redirect.to ).toBe( '/sessions/$sessionId' );
 		expect( redirect.params ).toEqual( { sessionId: 'session-2' } );
-	} );
-
-	it( "opens the target site's overview when agentic features are switched off", async () => {
-		rememberVisit( 'site-2' );
-		const redirect = await runBeforeLoad(
-			[ createSite(), createSite( { id: 'site-2', path: '/Users/example/Studio/site-two' } ) ],
-			[ createSession(), createSession( { id: 'session-2', ownerSiteId: 'site-2' } ) ],
-			false
-		);
-		expect( redirect.to ).toBe( '/sites/$siteId' );
-		expect( redirect.params ).toEqual( { siteId: 'site-2' } );
 	} );
 
 	it( 'redirects to a new session when the target site has no active sessions', async () => {

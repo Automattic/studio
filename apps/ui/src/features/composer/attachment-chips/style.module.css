@@ -57,6 +57,7 @@
 }
 
 .attachmentRemove {
+	composes: dismissIcon from '@/lib/theme/recipes.module.css';
 	--button-background: var( --chrome );
 
 	position: absolute;
@@ -70,11 +71,6 @@
 	position: absolute;
 	inset: calc( var( --space-1 ) * -1 );
 	content: '';
-}
-
-.attachmentRemove svg:not( [data-size] ) {
-	width: 11px;
-	height: 11px;
 }
 
 .attachmentHoverPreview {

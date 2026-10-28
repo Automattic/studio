@@ -104,6 +104,13 @@ const clearWebviewCache = () =>
 		.clearWebviewCache;
 const isPageHidden = () => !! page()!.closest( '[data-loading]' );
 const logo = () => document.querySelector( 'canvas ~ span[aria-hidden="true"]' );
+const site = ( overrides: Partial< Props[ 'site' ] > = {} ) =>
+	makeSite( { id: 'one', port: 9010, running: true, ...overrides } );
+const address = () => screen.getByRole( 'textbox', { name: 'Address' } ) as HTMLInputElement;
+const submit = ( value: string ) => {
+	fireEvent.change( address(), { target: { value } } );
+	fireEvent.submit( address().closest( 'form' )! );
+};
 
 describe( 'site preview', () => {
 	it.each( [ 'browser', 'desktop' ] as const )(
@@ -137,29 +144,6 @@ describe( 'site preview', () => {
 	);
 
 	it.each( [ 'browser', 'desktop' ] as const )(
-		'reports %s readiness after the page loads',
-		async ( runtime ) => {
-			const { update } = await renderPreview( runtime, {
-				site: makeSite( {
-					id: 'one',
-					port: 9010,
-					running: true,
-					operation: { pid: 1, kind: 'start' },
-				} ),
-			} );
-			update( { site: makeSite( { id: 'one', port: 9010, running: true } ) } );
-			expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Loading site preview' );
-			if ( runtime === 'desktop' ) {
-				guest();
-				fireEvent( page()!, new Event( 'dom-ready' ) );
-				expect( screen.getByRole( 'status' ) ).toBeInTheDocument();
-			}
-			finishLoading( runtime );
-			await waitFor( () => expect( screen.queryByRole( 'status' ) ).not.toBeInTheDocument() );
-		}
-	);
-
-	it.each( [ 'browser', 'desktop' ] as const )(
 		'reveals the %s page only after loading and resets readiness on reload',
 		async ( runtime ) => {
 			const { update } = await renderPreview( runtime );
@@ -181,17 +165,6 @@ describe( 'site preview', () => {
 			await waitFor( () => expect( isPageHidden() ).toBe( false ) );
 		}
 	);
-
-	it( 'finishes loading and reloads the guest without replacing its browsing session', async () => {
-		const { update } = await renderPreview( 'desktop' );
-		const webview = guest();
-		fireEvent( webview, new Event( 'dom-ready' ) );
-		finishLoading( 'desktop' );
-		expect( screen.queryByRole( 'status' ) ).not.toBeInTheDocument();
-		update( { reloadNonce: 1 } );
-		await waitFor( () => expect( webview.reload ).toHaveBeenCalledOnce() );
-		expect( document.querySelector( 'webview' ) ).toBe( webview );
-	} );
 
 	it( 'keeps desktop reload available when chat changes the navigation callbacks', async () => {
 		const { update } = await renderPreview( 'desktop', { onPathChange: vi.fn() } );
@@ -232,6 +205,7 @@ describe( 'site preview', () => {
 			if ( runtime === 'desktop' ) {
 				guest();
 				fireEvent( page()!, new Event( 'dom-ready' ) );
+				expect( screen.getByText( 'Loading site preview' ) ).toBeInTheDocument();
 			}
 			finishLoading( runtime );
 			await waitFor( () =>
@@ -314,6 +288,38 @@ describe( 'site preview', () => {
 		fireEvent( webview, new Event( 'dom-ready' ) );
 		await waitFor( () => expect( webview.reload ).toHaveBeenCalledOnce() );
 	} );
+	it( 'never exposes the previous site URL, history actions, or late webview events', async () => {
+		const first = makeSite( { id: 'one', port: 8001, running: true } );
+		const second = makeSite( { id: 'two', port: 8002, running: true } );
+		const { update } = await renderPreview( 'desktop', {
+			site: first,
+			onPathChange: ( path ) => update( { path } ),
+		} );
+		const back = () => screen.getByRole( 'button', { name: 'Back' } );
+		const previousWebview = guest( {
+			executeJavaScript: vi.fn( async () => '' ),
+			canGoBack: () => true,
+			canGoForward: () => false,
+		} );
+		fireEvent( previousWebview, new Event( 'dom-ready' ) );
+		fireEvent(
+			previousWebview,
+			Object.assign( new Event( 'did-navigate' ), { url: 'http://localhost:8001/page' } )
+		);
+		expect( address() ).toHaveValue( 'http://localhost:8001/page' );
+		expect( back() ).not.toHaveAttribute( 'aria-disabled', 'true' );
+		update( { site: second, path: '/' } );
+		expect( address() ).toHaveValue( 'http://localhost:8002' );
+		expect( back() ).toHaveAttribute( 'aria-disabled', 'true' );
+		fireEvent(
+			previousWebview,
+			Object.assign( new Event( 'did-navigate' ), { url: 'http://localhost:8001/late' } )
+		);
+		expect( address() ).toHaveValue( 'http://localhost:8002' );
+		update( { site: first, path: '/' } );
+		expect( address() ).toHaveValue( 'http://localhost:8001' );
+		expect( back() ).toHaveAttribute( 'aria-disabled', 'true' );
+	} );
 } );
 
 describe( 'site preview controls', () => {
@@ -354,7 +360,7 @@ describe( 'site preview controls', () => {
 			fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
 			fireEvent.click( await screen.findByRole( 'option', { name } ) );
 		};
-		await pick( 'WP Admin' );
+		await pick( 'WordPress Admin' );
 		expect( onPathChange ).toHaveBeenLastCalledWith(
 			`/studio-auto-login?redirect_to=${ encodeURIComponent( `${ SITE_URL }/wp-admin/` ) }`
 		);
@@ -369,7 +375,7 @@ describe( 'site preview controls', () => {
 		update( { path: '/wp-admin/' } );
 		onPathChange.mockClear();
 		connector.trackEvent.mockClear();
-		await pick( 'WP Admin' );
+		await pick( 'WordPress Admin' );
 		expect( onPathChange ).not.toHaveBeenCalled();
 		expect( connector.trackEvent ).not.toHaveBeenCalled();
 	} );
@@ -395,12 +401,11 @@ describe( 'site preview controls', () => {
 	} );
 
 	it.each( [
-		[ 'the host supports it', true, true, true ],
-		[ 'the host cannot annotate', false, true, false ],
-		[ 'Studio Code is on', true, false, false ],
-	] )( 'shows Annotate only when %s', async ( _, annotatePreview, agentic, shown ) => {
+		[ 'the host supports it', true, true ],
+		[ 'the host cannot annotate', false, false ],
+	] )( 'shows Annotate only when %s', async ( _, annotatePreview, shown ) => {
 		const connector = createFakeConnector(
-			{ preferences: { agenticFeaturesEnabled: agentic } },
+			{},
 			{ capabilities: { nativeFolderPicker: true, annotatePreview, studioLogs: true } }
 		);
 		await renderPreview( 'browser', {}, connector );
@@ -450,5 +455,95 @@ describe( 'site preview controls', () => {
 		await waitFor( () => expect( webview.reload ).toHaveBeenCalledOnce() );
 		expect( clearWebviewCache() ).toHaveBeenCalledWith( 42 );
 		expect( webview.loadURL ).not.toHaveBeenCalled();
+	} );
+} );
+
+describe( 'preview address bar', () => {
+	it( 'shows immediate startup feedback and restores the address when running', async () => {
+		const { update } = await renderPreview( 'browser', {
+			site: site( { running: false, operation: { pid: 1, kind: 'start' } } ),
+		} );
+		expect( screen.getByText( 'Starting site…' ) ).toHaveAttribute( 'role', 'status' );
+		expect( screen.queryByRole( 'textbox' ) ).not.toBeInTheDocument();
+		update( { site: site() } );
+		expect( screen.queryByText( 'Starting site…' ) ).not.toBeInTheDocument();
+		expect( address() ).toHaveValue( SITE_URL );
+	} );
+
+	it( 'shows stopping feedback until shutdown completes, even after the preview is hidden', async () => {
+		const stopping = { pid: 1, kind: 'stop' } as const;
+		const { update } = await renderPreview( 'browser', {
+			path: '/about/',
+			site: site( { operation: stopping } ),
+		} );
+		expect( screen.getByText( 'Stopping site…' ) ).toHaveAttribute( 'role', 'status' );
+		expect( screen.queryByRole( 'textbox' ) ).not.toBeInTheDocument();
+		update( { site: site( { running: false, operation: stopping } ) } );
+		expect( screen.getByText( 'Stopping site…' ) ).toHaveAttribute( 'role', 'status' );
+		update( { site: site( { running: false } ) } );
+		expect( screen.queryByText( 'Stopping site…' ) ).not.toBeInTheDocument();
+		update( { site: site() } );
+		expect( address() ).toHaveValue( `${ SITE_URL }/about/` );
+	} );
+
+	it( 'opens site settings directly from the address field', async () => {
+		const onPathChange = vi.fn();
+		const { history, user } = await renderPreview( 'browser', { onPathChange } );
+		await user.click( screen.getByRole( 'button', { name: 'Site settings' } ) );
+		expect( history.location.search ).toBe( '?settings=site&settingsSite=one' );
+		expect( onPathChange ).not.toHaveBeenCalled();
+		expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'keeps root addresses stable after loading and preserves page paths', async () => {
+		const { update } = await renderPreview( 'browser', { path: '' } );
+		const input = address();
+		update( { path: '/' } );
+		expect( input ).toHaveValue( SITE_URL );
+		for ( const path of [ '/about/', '/?page=2', '/#section' ] ) {
+			update( { path } );
+			expect( input ).toHaveValue( SITE_URL + path );
+		}
+	} );
+
+	it( 'opens database addresses in the desktop preview', async () => {
+		const onPathChange = vi.fn();
+		const connector = createFakeConnector();
+		await renderPreview( 'desktop', { onPathChange }, connector );
+		const path = '/phpmyadmin/index.php?route=/database/structure&db=wordpress';
+		submit( path );
+		expect( onPathChange ).toHaveBeenCalledWith( path );
+		expect( connector.openSiteUrl ).not.toHaveBeenCalled();
+		expect( connector.openExternalUrl ).not.toHaveBeenCalled();
+	} );
+
+	it( 'keeps an empty pill while stopped and restores the editable address when started', async () => {
+		const { update } = await renderPreview( 'browser', { path: '/about/' } );
+		expect( address() ).toHaveValue( `${ SITE_URL }/about/` );
+		update( { site: site( { running: false } ) } );
+		expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Start site' } ) ).not.toBeInTheDocument();
+		update( { site: site( { running: false, operation: { pid: 1, kind: 'settings' } } ) } );
+		expect( screen.queryByRole( 'button', { name: 'Site settings' } ) ).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'button', { name: 'Open this page in your browser' } )
+		).not.toBeInTheDocument();
+		update( { site: site() } );
+		expect( address() ).toHaveValue( `${ SITE_URL }/about/` );
+		expect( address() ).toBeEnabled();
+		expect( screen.getByRole( 'button', { name: 'Site settings' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'selects the whole address on first pointer focus without overriding later clicks', async () => {
+		await renderPreview( 'browser', { path: '/about/' } );
+		const input = address();
+		fireEvent.focus( input );
+		expect( input.selectionStart ).toBe( 0 );
+		expect( input.selectionEnd ).toBe( input.value.length );
+		input.focus();
+		input.setSelectionRange( 7, 7 );
+		fireEvent.pointerDown( input, { button: 0 } );
+		expect( input.selectionStart ).toBe( 7 );
+		expect( input.selectionEnd ).toBe( 7 );
 	} );
 } );

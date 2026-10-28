@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { defaultI18n } from '@wordpress/i18n';
+import { defaultI18n, isRTL } from '@wordpress/i18n';
 import { I18nProvider } from '@wordpress/react-i18n';
 import { LucideProvider } from 'lucide-react';
 import { useLayoutEffect } from 'react';
@@ -16,7 +16,7 @@ import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { OnboardingGuideProvider } from '@/features/onboarding';
 import { useSyncConnectSiteListener } from '@/features/sync';
 import { applyTheme } from '@/lib/theme';
-import { TooltipProvider } from '@/lib/ui';
+import { DirectionProvider, TooltipProvider } from '@/lib/ui';
 import type { Connector } from '@/data/core';
 import type { QueryClient } from '@tanstack/react-query';
 import type { PropsWithChildren } from 'react';
@@ -52,11 +52,13 @@ function ThemedApp( { children }: PropsWithChildren ) {
 		[ colorScheme, accentColor, tintIntensity, contrast ]
 	);
 	return (
-		<LucideProvider size={ 16 }>
-			<TooltipProvider>
-				<OnboardingGuideProvider>{ children }</OnboardingGuideProvider>
-			</TooltipProvider>
-		</LucideProvider>
+		<DirectionProvider direction={ isRTL() ? 'rtl' : 'ltr' }>
+			<LucideProvider size={ 16 }>
+				<TooltipProvider>
+					<OnboardingGuideProvider>{ children }</OnboardingGuideProvider>
+				</TooltipProvider>
+			</LucideProvider>
+		</DirectionProvider>
 	);
 }
 

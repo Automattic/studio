@@ -135,7 +135,7 @@ describe( 'PublishPopover', () => {
 		expect(
 			screen.queryByRole( 'button', { name: 'Use an existing website…' } )
 		).not.toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Log in to WordPress.com' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Log in' } ) );
 		await waitFor( () =>
 			expect( connector.authenticate ).toHaveBeenCalledWith( false, 'sync_tab' )
 		);
@@ -146,7 +146,7 @@ describe( 'PublishPopover', () => {
 		const { connector, ready } = setup( [], false );
 		await ready;
 		await screen.findByRole( 'dialog', { name: 'Publish your WordPress' } );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Log in to WordPress.com' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Log in' } ) );
 		await screen.findByRole( 'button', { name: 'Publish on WordPress.com' } );
 		expect( connector.openExternalUrl ).not.toHaveBeenCalled();
 	} );
@@ -343,7 +343,6 @@ describe( 'PublishPopover', () => {
 		const trigger = screen.getByRole( 'button', { name: 'Publish…' } );
 		expect( trigger ).toHaveTextContent( /^Publish$/ );
 		expect( trigger ).toHaveAccessibleDescription( 'Check the live site before publishing again.' );
-		expect( trigger.querySelector( '[class*="errorDot"]' ) ).toBeInTheDocument();
 		await waitFor( () =>
 			expect(
 				screen.getAllByText( 'Check the live site before publishing again.' )[ 0 ]
@@ -388,7 +387,7 @@ describe( 'PublishPopover', () => {
 			message: 'Could not start PHP',
 			localChangesApplied: true,
 		} );
-		await screen.findByText( /WordPress Studio couldn’t restart the site/ );
+		await screen.findByText( /Couldn’t restart the site/ );
 		expect( screen.queryByRole( 'button', { name: 'Try pulling again' } ) ).not.toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Start site' } ) );
 		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( site.id ) );
@@ -509,9 +508,9 @@ describe( 'PublishPopover', () => {
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Try again' } ) );
 		await waitFor( () => expect( connector.pushSiteToLive ).toHaveBeenCalledTimes( 1 ) );
 		expect( connector.openExternalUrl ).toHaveBeenCalledTimes( 1 );
-		expect(
-			screen.getByRole( 'button', { name: 'Publish…' } ).querySelector( '[class*="errorDot"]' )
-		).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).not.toHaveAccessibleDescription(
+			'Website not ready'
+		);
 	} );
 
 	it( 'uses the destination of a CLI transfer without showing an old include selection', async () => {

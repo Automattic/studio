@@ -6,12 +6,13 @@ import { useWindowControlsInset } from '@/data/host/use-window-controls-inset';
 import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
 import {
-	SiteActionsMenu,
+	SiteMenu,
 	SiteHeaderSpace,
-	SiteIcon,
+	SiteHeaderStartSpace,
 	usePreviewBeside,
 	useSiteHeader,
 } from '@/features/sites';
+import { GlobeIcon } from '@/lib/icons';
 import { IconButton } from '@/lib/ui';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
@@ -31,7 +32,7 @@ export function SessionHeader( {
 	const sidebarCollapsed = useSidebarCollapsed();
 	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 	const windowControlsInset = useWindowControlsInset( 'toolbar' );
-	const { host } = useSiteHeader();
+	const { host, startWidth } = useSiteHeader();
 	const preview = useOptionalSessionPreviewUI();
 	const previewBeside = usePreviewBeside();
 	const local = site && effectiveEnvironment === 'local';
@@ -53,11 +54,11 @@ export function SessionHeader( {
 			}
 		>
 			<div data-site-header-reserved className={ styles.headerLead }>
-				{ start }
-				{ site ? <SiteActionsMenu site={ site } /> : null }
+				{ startWidth !== null ? <SiteHeaderStartSpace /> : start }
+				{ site && startWidth === null ? <SiteMenu site={ site } /> : null }
 				{ ! site && siteName ? (
 					<>
-						<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
+						<GlobeIcon className={ styles.headerSiteIcon } />
 						<span className={ styles.headerSite }>{ siteName }</span>
 						<span className={ styles.headerDot } aria-hidden="true" />
 						<span className={ styles.headerEnv }>

@@ -49,7 +49,6 @@ test.describe( 'Chat', () => {
 			session,
 			{ siteName },
 			{
-				appData: { agenticFeaturesEnabled: true },
 				sharedConfig: { aiProvider: 'anthropic-api-key', anthropicApiKey: 'sk-ant-e2e-test' },
 			}
 		);

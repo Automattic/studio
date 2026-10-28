@@ -1,3 +1,4 @@
+import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { act, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
@@ -38,20 +39,54 @@ describe( 'useAutoStartSites', () => {
 		return connector;
 	}
 
-	it( 'starts only the stopped sites flagged for auto-start', async () => {
+	it( 'starts only the stopped sites flagged for auto-start, without announcing them', async () => {
 		const connector = renderAutoStart();
 		await waitFor( () =>
 			expect( connector.startSite ).toHaveBeenCalledWith( 'stopped-auto-start' )
 		);
 		expect( connector.startSite ).toHaveBeenCalledTimes( 1 );
+		expect( getVisibleToasts() ).toHaveLength( 0 );
 	} );
 
-	it( 'does not announce the sites it started', async () => {
-		const connector = renderAutoStart();
-		await waitFor( () =>
-			expect( connector.startSite ).toHaveBeenCalledWith( 'stopped-auto-start' )
+	it( 'starts from the list read this launch, not the one persisted before the quit', async () => {
+		const site = { ...makeSite(), url: 'http://localhost:9010' };
+		const connector = createFakeConnector();
+		let readList = ( _sites: SiteDetails[] ) => {};
+		connector.getSites.mockImplementation(
+			() => new Promise< SiteDetails[] >( ( resolve ) => ( readList = resolve ) )
 		);
-		expect( getVisibleToasts() ).toHaveLength( 0 );
+		const queryClient = createTestQueryClient();
+		queryClient.setQueryData( [ 'sites' ], [ site ] );
+		const { result } = renderHook(
+			() => {
+				useSyncSitesWithEvents();
+				useAutoStartSites();
+				return useSites();
+			},
+			{
+				wrapper: ( { children } ) => (
+					<ConnectorProvider connector={ connector }>
+						<QueryClientProvider client={ queryClient }>{ children }</QueryClientProvider>
+					</ConnectorProvider>
+				),
+			}
+		);
+
+		// The status the CLI reports for each site as the app launches, landing
+		// before the list is read.
+		const reported = { ...site, name: 'Renamed' };
+		act( () =>
+			connector.emit( 'onSiteEvent', {
+				event: SITE_EVENTS.UPDATED,
+				siteId: site.id,
+				site: reported,
+				running: false,
+			} )
+		);
+		await waitFor( () => expect( result.current.data?.[ 0 ].name ).toBe( 'Renamed' ) );
+		await act( async () => readList( [ { ...reported, autoStart: true } ] ) );
+
+		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( site.id ) );
 	} );
 } );
 
@@ -80,6 +115,21 @@ describe( 'useCreateSite', () => {
 } );
 
 describe( 'useStartSite', () => {
+	it( 'keeps a busy-site title short and puts recovery and diagnostics in the description', async () => {
+		const site = makeSite( { id: 'busy-site', operation: { kind: 'start', pid: 1234 } } );
+		const connector = createFakeConnector( { sites: [ site ] } );
+		connector.startSite.mockRejectedValue( new Error( 'Server could not listen' ) );
+		const { result } = renderHook( () => ( { sites: useSites(), start: useStartSite() } ), {
+			wrapper: providers( connector ),
+		} );
+		await waitFor( () => expect( result.current.sites.data ).toHaveLength( 1 ) );
+		await expect( result.current.start.mutateAsync( site.id ) ).rejects.toThrow();
+		expect( getVisibleToasts().at( -1 ) ).toMatchObject( {
+			title: 'Site is busy',
+			description: 'Wait for a site start to finish, then try again.\n\nServer could not listen',
+		} );
+	} );
+
 	function renderMutations() {
 		const connector = createFakeConnector();
 		let releaseStop: () => void = () => {};
@@ -146,6 +196,53 @@ describe( 'useStartSite', () => {
 } );
 
 describe( 'useSyncSitesWithEvents', () => {
+	it.each( [
+		[ 'start', true ],
+		[ 'stop', false ],
+	] as const )(
+		'shows a %s from its events without refetching the list',
+		async ( action, running ) => {
+			// What the CLI reports, and the sort order only Studio keeps.
+			const details = { ...makeSite(), url: 'http://localhost:9010' };
+			const site = { ...details, running: ! running, sortOrder: 1000 };
+			const connector = createFakeConnector( { sites: [ site ] } );
+			connector[ action === 'start' ? 'startSite' : 'stopSite' ].mockImplementation( async () => {
+				const siteId = site.id;
+				const held = { ...details, operation: { pid: 1, kind: action } };
+				connector.emit( 'onSiteEvent', {
+					event: SITE_EVENTS.UPDATED,
+					siteId,
+					site: held,
+					running,
+				} );
+				// An operation's release doesn't know whether the site runs.
+				connector.emit( 'onSiteEvent', {
+					event: SITE_EVENTS.OPERATIONS_CHANGED,
+					siteId,
+					site: details,
+					running: ! running,
+				} );
+			} );
+			const { result } = renderHook(
+				() => {
+					useSyncSitesWithEvents();
+					return { sites: useSites(), start: useStartSite(), stop: useStopSite() };
+				},
+				{ wrapper: providers( connector ) }
+			);
+			await waitFor( () => expect( result.current.sites.data ).toBeDefined() );
+
+			await act( async () => {
+				await result.current[ action ].mutateAsync( site.id );
+			} );
+
+			await waitFor( () =>
+				expect( result.current.sites.data ).toEqual( [ { ...site, running } ] )
+			);
+			expect( connector.getSites ).toHaveBeenCalledTimes( 1 );
+		}
+	);
+
 	it( 'refetches after an in-flight fetch that predates the event', async () => {
 		const connector = createFakeConnector();
 		const pendingFetches: Array< ( sites: SiteDetails[] ) => void > = [];

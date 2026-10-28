@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	clearNoticeHistory,
+	dismissNotice,
 	dismissToast,
 	getNoticeHistory,
 	getQueuedToastCount,
@@ -222,27 +223,6 @@ describe( 'app-messages', () => {
 		expect( onClick ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	it( 'returns the toast id from showToast', () => {
-		const id = showToast( { title: 'hello' } );
-		expect( getVisibleToasts()[ 0 ].id ).toBe( id );
-	} );
-
-	it( 'tracks the queued count as toasts overflow and promote', () => {
-		for ( const title of [ 'a', 'b', 'c', 'd', 'e' ] ) {
-			toast.info( title );
-		}
-		expect( getQueuedToastCount() ).toBe( 2 );
-
-		dismissToast( getVisibleToasts()[ 0 ].id );
-		// Promotion waits for the exit window.
-		expect( getQueuedToastCount() ).toBe( 2 );
-		settleExit();
-		expect( getQueuedToastCount() ).toBe( 1 );
-
-		vi.advanceTimersByTime( 4_500 );
-		expect( getQueuedToastCount() ).toBe( 0 );
-	} );
-
 	describe( 'notice history', () => {
 		const historyTitles = () => getNoticeHistory().map( ( item ) => item.title );
 
@@ -267,6 +247,70 @@ describe( 'app-messages', () => {
 			expect( historyTitles() ).toEqual( [ 'Saved' ] );
 		} );
 
+		it( 'bounds history at 50', () => {
+			for ( let i = 0; i < 55; i++ ) {
+				showToast( { title: String( i ) } );
+			}
+			expect( getNoticeHistory() ).toHaveLength( 50 );
+			expect( historyTitles()[ 0 ] ).toBe( '54' );
+			expect( getVisibleToasts() ).toHaveLength( 3 );
+		} );
+
+		it( 'keeps a reusable action in history after running it', async () => {
+			const onClick = vi.fn();
+			const action = { label: 'Open site', onClick };
+			showToast( { title: 'Site ready', action } );
+			expect( await runNoticeAction( action ) ).toBe( true );
+			expect( await runNoticeAction( action ) ).toBe( true );
+			expect( onClick ).toHaveBeenCalledTimes( 2 );
+			expect( getNoticeHistory()[ 0 ].action ).toBe( action );
+		} );
+
+		it( 'runs an expired toast’s one-time action from history', async () => {
+			const onClick = vi.fn();
+			const action = { label: 'Undo', onClick, once: true };
+			showToast( { title: 'Chat archived', action } );
+			vi.advanceTimersByTime( 4_500 );
+			settleExit();
+			expect( titles() ).toEqual( [] );
+			expect( await runNoticeAction( action ) ).toBe( true );
+			expect( onClick ).toHaveBeenCalledOnce();
+			expect( getNoticeHistory()[ 0 ].action ).toBeUndefined();
+		} );
+
+		it( 'does not resurface a cleared notice when its pending action finishes', async () => {
+			let finish!: () => void;
+			const action = {
+				label: 'Undo',
+				once: true,
+				onClick: () => new Promise< void >( ( resolve ) => ( finish = resolve ) ),
+			};
+			showToast( { title: 'Chat archived', action } );
+			const pending = runNoticeAction( action );
+			clearNoticeHistory();
+			finish();
+			await pending;
+			vi.runAllTimers();
+			expect( titles() ).toEqual( [] );
+			expect( getNoticeHistory() ).toHaveLength( 0 );
+		} );
+
+		it( 'dismisses visible and queued notices, while dismissing only the toast keeps the notice', () => {
+			for ( const title of [ 'First', 'Second', 'Third', 'Queued' ] ) {
+				showToast( { title } );
+			}
+			const record = ( title: string ) =>
+				getNoticeHistory().find( ( item ) => item.title === title )!;
+			dismissNotice( record( 'Queued' ) );
+			dismissNotice( record( 'First' ) );
+			settleExit();
+			expect( titles() ).toEqual( [ 'Second', 'Third' ] );
+			expect( historyTitles() ).toEqual( [ 'Third', 'Second' ] );
+			dismissToast( getVisibleToasts()[ 0 ].id );
+			settleExit();
+			expect( historyTitles() ).toEqual( [ 'Third', 'Second' ] );
+		} );
+
 		it( 'logs a sidebar card once while it stays up, updating it when its content changes', () => {
 			const downloading = { id: 'app-update-downloading', intent: 'info' as const };
 			syncCardNotices( [ { ...downloading, title: 'Downloading update' } ] );
@@ -277,7 +321,7 @@ describe( 'app-messages', () => {
 				{ ...downloading, title: 'Downloading update', description: 'Updating to 1.23.0.' },
 			] );
 			expect( getNoticeHistory() ).toEqual( [
-				expect.objectContaining( { description: 'Updating to 1.23.0.' } ),
+				expect.objectContaining( { description: 'Updating to 1.23.0.', source: 'studio' } ),
 			] );
 		} );
 

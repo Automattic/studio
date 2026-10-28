@@ -1,5 +1,4 @@
-import { createRoute, redirect } from '@tanstack/react-router';
-import { resolveChatEnabled } from '@/data/queries/use-agentic-features';
+import { createRoute } from '@tanstack/react-router';
 import { SessionView } from '@/features/chats';
 import { HeaderSidebarToggle } from '@/features/sidebar';
 import { dashboardLayoutRoute } from '../layout-dashboard';
@@ -13,9 +12,4 @@ export const sessionDetailRoute = createRoute( {
 	getParentRoute: () => dashboardLayoutRoute,
 	path: '/sessions/$sessionId',
 	component: SessionDetail,
-	beforeLoad: async ( { context } ) => {
-		if ( ! ( await resolveChatEnabled( context ) ) ) {
-			throw redirect( { to: '/' } );
-		}
-	},
 } );

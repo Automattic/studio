@@ -14,11 +14,7 @@ test.describe( 'Share and publish', () => {
 	let site: PersistedSite;
 
 	test.beforeAll( async () => {
-		( { site } = await launchWithSite(
-			session,
-			{ siteName: 'Publishing verification' },
-			{ appData: { agenticFeaturesEnabled: true } }
-		) );
+		( { site } = await launchWithSite( session, { siteName: 'Publishing verification' } ) );
 	} );
 
 	test.afterEach( async ( { page: _page }, testInfo ) => {

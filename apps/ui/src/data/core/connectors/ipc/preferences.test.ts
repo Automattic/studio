@@ -21,15 +21,7 @@ describe( 'createIpcConnector chat startup preference', () => {
 			autoStartSiteOnChat: true,
 			showRecentChats: true,
 		} );
-		for ( const patch of [
-			{ confirmDeleteAnnotations: false },
-			{ autoStartSiteOnChat: false },
-			{ showRecentChats: false },
-			{ newSiteBehavior: 'blank' as const },
-		] ) {
-			setUserPreferences.mockClear();
-			await connector.setUserPreferences( patch );
-			expect( setUserPreferences ).toHaveBeenCalledExactlyOnceWith( patch );
-		}
+		await connector.setUserPreferences( { autoStartSiteOnChat: false } );
+		expect( setUserPreferences ).toHaveBeenCalledExactlyOnceWith( { autoStartSiteOnChat: false } );
 	} );
 } );

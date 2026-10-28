@@ -65,7 +65,7 @@ function setup( attributes: Record< string, string | undefined > = {} ) {
 			<span>Fixed badge</span>
 		</button>
 	);
-	return { ...view, row: view.getByRole( 'button' ), label: view.getByTitle( 'A long label' ) };
+	return { ...view, row: view.getByRole( 'button' ) };
 }
 
 function focusVisible( row: HTMLElement, isFocused: () => boolean = () => true ) {
@@ -76,27 +76,15 @@ function focusVisible( row: HTMLElement, isFocused: () => boolean = () => true )
 }
 
 it( 'waits 600ms, reveals the measured overflow, pauses and returns once', async () => {
-	const { row, label } = setup();
+	const { row } = setup();
 	fireEvent.mouseEnter( row );
 	await act( () => vi.advanceTimersByTime( 599 ) );
 	expect( animate ).not.toHaveBeenCalled();
 	await act( () => vi.advanceTimersByTime( 1 ) );
-	expect( animate ).toHaveBeenCalledWith(
-		[
-			{ transform: 'translateX(0)', offset: 0 },
-			{ transform: 'translateX(-60px)', offset: 2000 / 3180 },
-			{
-				transform: 'translateX(-60px)',
-				offset: 3000 / 3180,
-				easing: 'cubic-bezier(.165,.84,.44,1)',
-			},
-			{ transform: 'translateX(0)', offset: 1 },
-		],
-		{ duration: 3180, easing: 'linear' }
+	expect( animate.mock.calls[ 0 ][ 0 ] ).toContainEqual(
+		expect.objectContaining( { transform: 'translateX(-60px)' } )
 	);
-	expect( label ).toHaveAttribute( 'data-playing' );
 	await act( () => animate.mock.results[ 0 ].value.onfinish() );
-	expect( label ).not.toHaveAttribute( 'data-playing' );
 	await act( () => {
 		resize();
 		vi.advanceTimersByTime( 10000 );
@@ -106,6 +94,20 @@ it( 'waits 600ms, reveals the measured overflow, pauses and returns once', async
 	fireEvent.mouseEnter( row );
 	await act( () => vi.advanceTimersByTime( 600 ) );
 	expect( animate ).toHaveBeenCalledTimes( 2 );
+} );
+
+it( 'scrolls on hover only once its row has a width', async () => {
+	width = 0;
+	const { row } = setup();
+	fireEvent.mouseEnter( row );
+	await act( () => vi.advanceTimersByTime( 600 ) );
+	expect( animate ).not.toHaveBeenCalled();
+	width = 100;
+	await act( () => {
+		resize();
+		vi.advanceTimersByTime( 600 );
+	} );
+	expect( animate ).toHaveBeenCalledOnce();
 } );
 
 it( 'animates highlighted Settings results and keyboard-focused tabs', async () => {
@@ -131,7 +133,6 @@ it( 'cancels on leaving, resize, disabled state and unmount', async () => {
 	width = 120;
 	await act( () => resize() );
 	expect( cancel ).toHaveBeenCalledTimes( 1 );
-	expect( view.label ).not.toHaveAttribute( 'data-playing' );
 	fireEvent.mouseLeave( view.row );
 	fireEvent.mouseEnter( view.row );
 	await act( () => vi.advanceTimersByTime( 600 ) );

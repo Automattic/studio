@@ -56,23 +56,6 @@ afterEach( () => {
 } );
 
 describe( 'workspace sidebar layout', () => {
-	it.each( [ 679, 680, 681 ] )(
-		'uses available workspace width at %s pixels',
-		async ( available ) => {
-			resize( available );
-			await setup();
-			expect( toggle() ).toHaveAccessibleName( available >= 680 ? 'Hide sidebar' : 'Show sidebar' );
-		}
-	);
-
-	it( 'reopens an automatically closed sidebar when space returns', async () => {
-		await setup();
-		resize( 679 );
-		expect( toggle() ).toHaveAccessibleName( 'Show sidebar' );
-		resize( 680 );
-		expect( toggle() ).toHaveAccessibleName( 'Hide sidebar' );
-	} );
-
 	it( 'preserves a manual close through narrow and wide windows', async () => {
 		await setup();
 		fireEvent.click( toggle() );
@@ -81,15 +64,18 @@ describe( 'workspace sidebar layout', () => {
 		expect( toggle() ).toHaveAccessibleName( 'Show sidebar' );
 	} );
 
-	it( 'keeps overlay actions separate from the saved docked preference', async () => {
+	it( 'keeps the sidebar unpinned after opening and dismissing the overlay', async () => {
 		await setup();
 		resize( 679 );
 		fireEvent.click( toggle() );
 		expect( toggle() ).toHaveAccessibleName( 'Hide sidebar' );
 		fireEvent.click( toggle() );
-		expect( localStorage.getItem( COLLAPSED_KEY ) ).not.toBe( 'true' );
+		expect( localStorage.getItem( COLLAPSED_KEY ) ).toBe( 'true' );
 		resize( 1000 );
-		expect( toggle() ).toHaveAccessibleName( 'Hide sidebar' );
+		expect( toggle() ).toHaveAccessibleName( 'Show sidebar' );
+		expect( docked() ).toBe( false );
+		fireEvent.click( toggle() );
+		expect( docked() ).toBe( true );
 	} );
 
 	it( 'uses overlay navigation for a single panel', async () => {
@@ -98,15 +84,18 @@ describe( 'workspace sidebar layout', () => {
 		expect( toggle() ).toHaveAccessibleName( 'Show sidebar' );
 	} );
 
-	it( 'keeps navigation hidden after closing chat and restores it only when space returns', async () => {
+	it( 'keeps navigation unpinned after closing chat and widening the window', async () => {
 		await setup();
 		resize( 544 );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Close chat' } ) );
 		expect( toggle() ).toHaveAccessibleName( 'Show sidebar' );
 		expect( docked() ).toBe( false );
-		expect( localStorage.getItem( COLLAPSED_KEY ) ).not.toBe( 'true' );
+		expect( localStorage.getItem( COLLAPSED_KEY ) ).toBe( 'true' );
 		resize( 1000 );
-		expect( toggle() ).toHaveAccessibleName( 'Hide sidebar' );
+		expect( toggle() ).toHaveAccessibleName( 'Show sidebar' );
+		expect( docked() ).toBe( false );
+		fireEvent.click( toggle() );
+		expect( docked() ).toBe( true );
 	} );
 
 	it( 'preserves mounted content and draft text when opening and dismissing the overlay', async () => {

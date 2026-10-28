@@ -50,7 +50,7 @@ function setup( {
 		} as FakeConnectorState[ 'preferences' ],
 	} );
 	const view = renderApp( { connector, path } );
-	const ready = () => screen.findByRole( 'button', { name: 'Site actions for My site' } );
+	const ready = () => screen.findByRole( 'button', { name: 'Site menu' } );
 	const refreshSessions = async ( sessions: ReturnType< typeof chat >[] ) => {
 		connector.state.sessions = [ ...connector.state.sessions, ...sessions ];
 		await act( () => view.queryClient.invalidateQueries( { queryKey: [ 'sessions' ] } ) );
@@ -105,7 +105,7 @@ describe( 'Sidebar in the Studio workspace', () => {
 		} );
 		await ready();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Second site' } ) );
-		await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/other-chat' ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/two/new' ) );
 		await paletteCommand( 'Keep open' );
 		await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/collapse-chat' ) );
 		const input = await screen.findByRole( 'combobox', { name: 'Message WordPress Studio' } );
@@ -168,7 +168,7 @@ describe( 'Sidebar in the Studio workspace', () => {
 	} );
 
 	it( 'reveals site chats in batches of ten after the first five', async () => {
-		const { history, ready, refreshSessions } = setup( { path: '/sites/one' } );
+		const { ready, refreshSessions } = setup( { path: '/sites/one' } );
 		await ready();
 		await refreshSessions(
 			Array.from( { length: 27 }, ( _, index ) =>
@@ -180,8 +180,6 @@ describe( 'Sidebar in the Studio workspace', () => {
 			)
 		);
 		const chats = () => within( screen.getByRole( 'group', { name: 'My site chats' } ) );
-		fireEvent.click( await screen.findByRole( 'button', { name: /^My site$/ } ) );
-		await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/batch-chat-0' ) );
 		await waitFor( () =>
 			expect( chats().getAllByRole( 'button', { name: /^Batch chat / } ) ).toHaveLength( 5 )
 		);
@@ -210,38 +208,6 @@ describe( 'Sidebar in the Studio workspace', () => {
 		await toggleSite( true );
 		expect( chats().getAllByRole( 'button', { name: /^Batch chat / } ) ).toHaveLength( 5 );
 		expect( chats().getByRole( 'button', { name: 'Show more' } ) ).toBeInTheDocument();
-	} );
-
-	it( 'selects multiple chats without navigating and offers bulk context actions', async () => {
-		const { history, ready, refreshSessions } = setup( { path: '/sites/one' } );
-		await ready();
-		await refreshSessions(
-			[ 0, 1 ].map( ( index ) =>
-				chat( { id: `single-${ index }`, title: `Single chat ${ index }` } )
-			)
-		);
-		const chats = within( await screen.findByRole( 'group', { name: 'My site chats' } ) );
-		const first = await chats.findByRole( 'button', { name: 'Single chat 0' } );
-		const second = chats.getByRole( 'button', { name: 'Single chat 1' } );
-		const row = ( button: HTMLElement ) => button.parentElement!;
-		fireEvent.click( first, { metaKey: isApple, ctrlKey: ! isApple } );
-		expect( row( first ) ).toHaveAttribute( 'data-selected', 'true' );
-		expect( first ).not.toHaveAttribute( 'aria-current' );
-		fireEvent.click( second, { shiftKey: true } );
-		expect( row( second ) ).toHaveAttribute( 'data-selected', 'true' );
-		expect( second ).not.toHaveAttribute( 'aria-current' );
-		expect( first ).not.toHaveAttribute( 'aria-current' );
-		expect( history.location.pathname ).toBe( '/sites/one' );
-		fireEvent.contextMenu( second );
-		expect( await screen.findByRole( 'menuitem', { name: 'Archive 2 chats' } ) ).toBeVisible();
-		expect(
-			screen
-				.getAllByRole( 'menuitem' )
-				.map(
-					( item ) =>
-						item.textContent?.replace( /Ctrl\+Alt\+[PRS]|⌥⌘[PRS]|Ctrl\+Shift\+A|⇧⌘A/g, '' )
-				)
-		).toEqual( [ 'Mark as read', 'Mark as unread', 'Pin', 'Unpin', 'Archive 2 chats' ] );
 	} );
 
 	it( 'marks a chat unread from its context menu and clears it on opening', async () => {
@@ -292,7 +258,6 @@ describe( 'Sidebar in the Studio workspace', () => {
 		expect(
 			screen.queryByRole( 'group', { name: 'My site chats' } )?.textContent ?? ''
 		).not.toContain( 'Homepage polish' );
-		expect( shortcut.querySelector( 'svg' ) ).toBeInTheDocument();
 		await waitFor( () =>
 			expect( connector.state.preferences.sidebarPins ).toEqual( [ 'chat:pinned-chat' ] )
 		);
@@ -317,7 +282,7 @@ describe( 'Sidebar in the Studio workspace', () => {
 				preferences: { sidebarPins: [ 'chat:pinned-chat' ] } as never,
 			} );
 			await ready();
-			await waitFor( () => expect( history.location.pathname ).toMatch( /^\/sessions\// ) );
+			await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
 			await refreshSessions( [
 				chat( { id: 'pinned-chat', title: 'Pinned conversation' } ),
 				chat( { id: 'other-chat', title: 'Other conversation' } ),
@@ -327,12 +292,12 @@ describe( 'Sidebar in the Studio workspace', () => {
 				pinnedGroup().getByRole( 'button', { name: 'Pinned conversation' } )
 			);
 			const siteRow = screen.getByRole( 'button', { name: 'My site' } );
+			if ( siteRow.getAttribute( 'aria-expanded' ) === 'true' ) {
+				fireEvent.click( siteRow );
+			}
 			if ( selected ) {
 				fireEvent.click( pinned );
 				await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/pinned-chat' ) );
-			}
-			if ( siteRow.getAttribute( 'aria-expanded' ) === 'true' ) {
-				fireEvent.click( siteRow );
 			}
 			const createCalls = connector.createSession.mock.calls.length;
 			expect( siteRow ).toHaveAttribute( 'aria-expanded', 'false' );

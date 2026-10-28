@@ -1,11 +1,3 @@
-.questionCard[data-joined-above] {
-	border-start-start-radius: var( --radius-sm );
-}
-
-.questionCard[data-joined-below] {
-	border-end-start-radius: var( --radius-sm );
-}
-
 .questionBatch {
 	display: flex;
 	flex-direction: column;
@@ -13,53 +5,54 @@
 	overflow-anchor: none;
 }
 
-.questionBatchStep {
-	animation: questionBatchStepEnter var( --motion-duration-feedback ) ease-out;
-}
-
-.questionBatchStep[data-state='answered'] {
-	animation: none;
-}
-
 .questionnaire:focus {
 	outline: none;
 }
 
-.questionBatchStep[data-state='answered'] .questionProgress {
-	animation: questionAnsweredElementFade var( --motion-duration-surface ) ease-out forwards;
-}
-
 .questionCard {
+	composes: surface from '../bubble.module.css';
 	--surface: var( --muted );
 	display: flex;
 	flex-direction: column;
-	gap: var( --space-4 );
+	gap: var( --space-2 );
 	width: 100%;
-	padding: var( --space-4 );
-	border-radius: var( --radius-2xl );
+	padding: var( --space-2 );
 	background-color: var( --surface );
 }
 
-.questionText {
-	color: var( --foreground );
-	font-weight: var( --font-weight-medium );
-	line-height: var( --leading-snug );
-	text-wrap: pretty;
+.questionFooter {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var( --space-4 );
+	padding: var( --space-1 ) var( --space-2 );
+	padding-top: 0;
 }
 
-.questionSummary {
-	text-align: start;
-	cursor: pointer;
+.questionPager,
+.questionActions {
+	display: flex;
+	align-items: center;
 }
 
-/* eslint-disable-next-line studio/no-primitive-overrides -- the whole folded summary is the button, so its hover lights the answer. */
-.questionSummary:is( :hover, :focus-visible ) [data-slot='questionnaire-answer'] {
-	background-color: var( --hover );
+.questionPager {
+	gap: var( --space-2 );
 }
 
-.questionSummary:focus-visible {
-	outline: var( --focus-width ) solid var( --ring );
-	outline-offset: 2px;
+.questionActions {
+	gap: var( --space-1 );
+	margin-inline-start: auto;
+}
+
+.questionDot {
+	width: var( --space-2 );
+	height: var( --space-2 );
+	border-radius: var( --radius-full );
+	background-color: var( --border );
+}
+
+.questionDot[data-current] {
+	background-color: var( --muted-foreground );
 }
 
 .questionOptionImage,
@@ -151,31 +144,6 @@
 	box-shadow: var( --shadow-raised );
 }
 
-/* eslint-disable-next-line studio/no-primitive-overrides -- the card folds away the choices that weren't picked. */
-.questionCard[data-state='folding'] [data-slot='questionnaire-choice']:not( [data-checked] ) {
-	animation: questionAnsweredElementFade var( --motion-duration-surface ) ease-out forwards;
-}
-
-@keyframes questionBatchStepEnter {
-	from {
-		opacity: 0;
-	}
-
-	to {
-		opacity: 1;
-	}
-}
-
-@keyframes questionAnsweredElementFade {
-	from {
-		opacity: 1;
-	}
-
-	to {
-		opacity: 0.38;
-	}
-}
-
 @keyframes questionOptionImageLoading {
 	from {
 		background-position: 200% 0;
@@ -187,10 +155,6 @@
 }
 
 @media ( prefers-reduced-motion: reduce ) {
-	/* eslint-disable-next-line studio/no-primitive-overrides -- the card folds away the choices that weren't picked. */
-	.questionBatchStep,
-	.questionBatchStep[data-state='answered'] .questionProgress,
-	.questionCard[data-state='folding'] [data-slot='questionnaire-choice']:not( [data-checked] ),
 	.questionOptionImageLoading {
 		animation: none;
 	}

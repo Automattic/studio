@@ -39,7 +39,3 @@ export async function ensureSqliteIntegrationForImportedSite( site: {
 		await provider.installSqliteIntegration( site.path );
 	}
 }
-
-export async function getSqliteVersionFromInstallation( sqlitePath: string ) {
-	return provider.getSqliteVersionFromInstallation( sqlitePath );
-}

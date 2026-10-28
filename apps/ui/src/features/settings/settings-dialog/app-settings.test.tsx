@@ -27,7 +27,7 @@ function setup( sites: SiteDetails[] = [ site() ] ) {
 }
 
 async function openSettings() {
-	await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+	await screen.findByRole( 'button', { name: 'Site menu' } );
 	fireEvent.click( screen.getByRole( 'button', { name: /^Settings$/ } ) );
 	return screen.findByRole( 'dialog', { name: 'Settings' } );
 }
@@ -86,19 +86,16 @@ describe( 'Settings in the Studio workspace', () => {
 	it( 'switches settings scopes and remembers the settings site', async () => {
 		setup( [ site(), site( { id: 'two', name: 'Second' } ) ] );
 		const dialog = await openSettings();
-		const overlay = document.querySelector( '[data-slot="dialog-overlay"]' );
 		expect( scopeTab( 'Studio' ) ).toHaveAttribute( 'aria-selected', 'true' );
 		fireEvent.click( scopeTab( 'Site' ) );
 		expect( await screen.findByRole( 'textbox', { name: 'Site name' } ) ).toHaveValue( 'My site' );
 		expect( screen.getByRole( 'dialog', { name: 'Settings' } ) ).toBe( dialog );
-		expect( document.querySelector( '[data-slot="dialog-overlay"]' ) ).toBe( overlay );
 		expect(
 			screen.queryByRole( 'button', { name: 'Switch site settings' } )
 		).not.toBeInTheDocument();
 		fireEvent.click( scopeTab( 'Studio' ) );
 		await screen.findByRole( 'combobox', { name: 'Language' } );
 		expect( screen.getByRole( 'dialog', { name: 'Settings' } ) ).toBe( dialog );
-		expect( document.querySelector( '[data-slot="dialog-overlay"]' ) ).toBe( overlay );
 		fireEvent.click( scopeTab( 'Site' ) );
 		expect( await screen.findByRole( 'textbox', { name: 'Site name' } ) ).toHaveValue( 'My site' );
 		fireEvent.click( scopeTab( 'Studio' ) );
@@ -116,5 +113,7 @@ describe( 'Settings in the Studio workspace', () => {
 		fireEvent.click( await screen.findByRole( 'button', { name: /^Settings$/ } ) );
 		await screen.findByRole( 'dialog', { name: 'Settings' } );
 		expect( scopeTab( 'Site' ) ).toHaveAttribute( 'aria-disabled', 'true' );
+		fireEvent.click( scopeTab( 'Site' ) );
+		expect( scopeTab( 'Studio' ) ).toHaveAttribute( 'aria-selected', 'true' );
 	} );
 } );

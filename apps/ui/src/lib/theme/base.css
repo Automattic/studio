@@ -10,7 +10,7 @@
 	font-display: swap;
 }
 
-/* `lang` is set on bootstrap in lib/apply-user-preferences.ts. */
+/* `lang` is set on bootstrap in app/apply-user-preferences.ts. */
 :root:lang( ckb ) {
 	--font-sans: 'Vazirmatn', -apple-system, system-ui, 'Segoe UI', 'Roboto', 'Oxygen-Sans', 'Ubuntu',
 		'Cantarell', 'Helvetica Neue', sans-serif;
@@ -141,8 +141,7 @@ body {
 		--surface-alpha: 100%;
 	}
 
-	/* Class-scoped rules out-specify a `*`-targeted rule, hence `!important`
-	   — same reasoning as the reduced-motion block above. */
+	/* Class-scoped rules out-specify a `*`-targeted rule, hence `!important`. */
 	*,
 	*::before,
 	*::after {

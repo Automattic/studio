@@ -34,7 +34,7 @@ interface ModelSwitchOptions {
 	sessionProvider: AiProviderId;
 	ownerSiteId?: string;
 	onSwitchSession?: ( sessionId: string ) => void;
-	onModelChange?: ( model: AiModelId ) => void;
+	onModelChange?: ( model: AiModelId, provider: AiProviderId ) => void;
 	isModelLocked: ( id: AiModelId ) => boolean;
 	// The draft carried over to a fresh session.
 	text: string;
@@ -56,9 +56,9 @@ export function useModelSwitch( {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 
-	// Cross-family swap state. We hold the picked model (and provider, when
-	// the swap came from the provider picker) here while the confirmation
-	// dialog is open; nothing is persisted until the user confirms.
+	// Cross-family swap state: the picked model (and provider, for a provider
+	// switch) waits here while the confirmation dialog is open; nothing is
+	// persisted until the user confirms.
 	const [ pendingFamilyChange, setPendingFamilyChange ] = useState< {
 		model: AiModelId;
 		provider?: AiProviderId;
@@ -83,7 +83,6 @@ export function useModelSwitch( {
 		[ queryClient, sessionId ]
 	);
 
-	// Same-family swap: optimistic `model_change` entry.
 	const applySameFamilyModel = useCallback(
 		( picked: AiModelId ) => {
 			appendEntryOptimistically( createModelChangeEntry( picked ), ( id ) =>
@@ -126,12 +125,12 @@ export function useModelSwitch( {
 			if ( picked === model || isModelLocked( picked ) ) {
 				return;
 			}
-			if ( provider !== sessionProvider ) {
-				handleProviderChange( provider, picked );
+			if ( onModelChange ) {
+				onModelChange( picked, provider );
 				return;
 			}
-			if ( onModelChange ) {
-				onModelChange( picked );
+			if ( provider !== sessionProvider ) {
+				handleProviderChange( provider, picked );
 				return;
 			}
 			// Cross-family switch: defer until the user confirms in the dialog

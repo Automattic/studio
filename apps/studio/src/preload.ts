@@ -61,7 +61,6 @@ const api: IpcApi = {
 	getSiteDesign: ( id ) => ipcRendererInvoke( 'getSiteDesign', id ),
 	fixSiteDesignDrift: ( id, fixes ) => ipcRendererInvoke( 'fixSiteDesignDrift', id, fixes ),
 	getIsMultisite: ( id ) => ipcRendererInvoke( 'getIsMultisite', id ),
-	fetchSiteRestApi: ( siteId, request ) => ipcRendererInvoke( 'fetchSiteRestApi', siteId, request ),
 	generateProposedSitePath: ( siteName ) =>
 		ipcRendererInvoke( 'generateProposedSitePath', siteName ),
 	generateSiteNameFromList: ( usedSites ) =>
@@ -70,7 +69,6 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'generateNumberedNameFromList', baseName, usedSites ),
 	openLocalPath: ( path ) => ipcRendererSend( 'openLocalPath', path ),
 	openStudioLogs: () => ipcRendererSend( 'openStudioLogs' ),
-	getSiteIcon: ( id ) => ipcRendererInvoke( 'getSiteIcon', id ),
 	getThumbnailData: ( id ) => ipcRendererInvoke( 'getThumbnailData', id ),
 	captureSitePreview: ( siteId, guestId, pagePath ) =>
 		ipcRendererInvoke( 'captureSitePreview', siteId, guestId, pagePath ),
@@ -132,8 +130,6 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'extractBlueprintBundle', zipFilePath ),
 	cleanupBlueprintTempDir: ( tempDir ) => ipcRendererInvoke( 'cleanupBlueprintTempDir', tempDir ),
 	showTextContextMenu: ( context ) => ipcRendererInvoke( 'showTextContextMenu', context ),
-	setTitleBarBackdropEffect: ( enabled ) =>
-		ipcRendererInvoke( 'setTitleBarBackdropEffect', enabled ),
 	setWindowControlsSurface: ( surface ) => ipcRendererInvoke( 'setWindowControlsSurface', surface ),
 	updateSitesSortOrder: ( updates ) => ipcRendererInvoke( 'updateSitesSortOrder', updates ),
 	isStudioCliInstalled: () => ipcRendererInvoke( 'isStudioCliInstalled' ),

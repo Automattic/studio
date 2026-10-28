@@ -1,12 +1,12 @@
-/* Primitives (`components/ui`) sit in the `ui` layer, so feature styles, which
+/* Primitives (`lib/ui`) sit in the `ui` layer, so feature styles, which
    are unlayered, always override them. Declared here, in the first stylesheet
    the entry points load, because layers rank in the order they first appear. */
 @layer base, ui;
 
 /* The app's design tokens. Colors derive from four appearance inputs set on
-   the root by theme.ts — `--tint-hue`, `--tint-intensity` (with
-   `--tint-saturation`), `--contrast` and `--accent-fill` — so a theme change
-   is a handful of custom properties, with no palette computed in JS. */
+   the root by `applyColorTint` (lib/theme) — `--tint-hue`, `--tint-intensity`
+   (with `--tint-saturation`), `--contrast` and `--accent-fill` — so a theme
+   change is a handful of custom properties, with no palette computed in JS. */
 
 /* Any element carrying `data-color-scheme` re-derives the whole palette, so a
    scene can render in the other scheme. */
@@ -34,8 +34,8 @@
 
 	--ring: var( --accent-text );
 
-	--primary: var( --foreground );
-	--primary-hover: oklch( from var( --primary ) calc( l - 0.04 ) c h );
+	--primary: oklch( 0 0 0 );
+	--primary-hover: var( --foreground );
 	--primary-foreground: var( --background );
 	--secondary: var( --surface-1 );
 
@@ -171,7 +171,7 @@
 	--chat: var( --surface-0 );
 	--composer: var( --surface-3 );
 	--popover: var( --surface-1 );
-	--primary-hover: oklch( from var( --primary ) calc( l + 0.04 ) c h );
+	--primary: oklch( 1 0 0 );
 	--accent-lightness: 0.72;
 	--accent-chroma: 0.2;
 	--accent-foreground: #141414;
@@ -232,7 +232,8 @@
 }
 
 @media ( prefers-reduced-motion: reduce ) {
-	:root {
+	:root,
+	[data-color-scheme] {
 		--motion-duration-surface: 120ms;
 		--motion-duration-layout: 0ms;
 		--motion-duration-reveal: 150ms;

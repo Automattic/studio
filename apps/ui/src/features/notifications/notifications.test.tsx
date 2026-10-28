@@ -47,21 +47,17 @@ describe( 'notifications popover', () => {
 		showToast( {
 			title: 'A very long notification title',
 			description: 'Expandable description',
-			action: { label: 'Open site', onClick: vi.fn() },
+			action: { label: 'Open', onClick: vi.fn() },
 		} );
 		await setup();
 		fireEvent.click( await screen.findByRole( 'button', { name: /Notification history/ } ) );
 		const summary = await screen.findByRole( 'button', {
 			name: 'View notification: A very long notification title',
 		} );
-		const action = screen.getByRole( 'button', { name: 'Open site' } );
+		const action = screen.getByRole( 'button', { name: 'Open' } );
 		expect( action.closest( 'li' ) ).toBe( summary.closest( 'li' ) );
 		expect( within( summary ).queryByRole( 'button' ) ).not.toBeInTheDocument();
-		const timestamp = within( summary.closest( 'li' )! ).getByText( 'Just now' );
-		expect( timestamp ).toBeVisible();
-		expect(
-			action.compareDocumentPosition( timestamp ) & Node.DOCUMENT_POSITION_FOLLOWING
-		).toBeTruthy();
+		expect( within( summary.closest( 'li' )! ).getByText( 'Just now' ) ).toBeVisible();
 		fireEvent.click( action );
 		expect( summary ).toHaveAttribute( 'aria-expanded', 'false' );
 	} );
@@ -105,16 +101,55 @@ describe( 'notifications popover', () => {
 		).not.toBeInTheDocument();
 	} );
 
-	it( 'expands full details without adding another notification', async () => {
-		showToast( { title: 'Import failed', description: 'Full error details', intent: 'error' } );
-		await setup();
-		fireEvent.click( bell() );
-		fireEvent.click(
-			await screen.findByRole( 'button', { name: 'View notification: Import failed' } )
-		);
-		expect( screen.getByText( 'Full error details' ) ).toBeVisible();
-		expect( getNoticeHistory() ).toHaveLength( 1 );
-	} );
+	it.each( [ undefined, 'Restart to finish updating.' ] )(
+		'expands the original title without duplicating it (description: %s)',
+		async ( description ) => {
+			vi.spyOn( HTMLElement.prototype, 'scrollWidth', 'get' ).mockReturnValue( 500 );
+			vi.spyOn( HTMLElement.prototype, 'clientWidth', 'get' ).mockReturnValue( 120 );
+			const title = 'A long site name that does not fit on one line';
+			showToast( { title, description } );
+			await setup();
+			fireEvent.click( bell() );
+			expect( screen.queryByText( 'View details' ) ).not.toBeInTheDocument();
+			const disclosure = await screen.findByRole( 'button', {
+				name: `View notification: ${ title }`,
+			} );
+			expect( disclosure ).toHaveAttribute( 'aria-expanded', 'false' );
+			fireEvent.click( disclosure );
+			expect( disclosure ).toHaveAttribute( 'aria-expanded', 'true' );
+			expect( screen.getAllByText( title ) ).toHaveLength( 1 );
+			expect( screen.getByText( title ) ).toHaveAttribute( 'data-expanded', 'true' );
+			fireEvent.click( disclosure );
+			expect( disclosure ).toHaveAttribute( 'aria-expanded', 'false' );
+			expect( screen.getByText( title ) ).not.toHaveAttribute( 'data-expanded' );
+		}
+	);
+
+	it.each( [ false, true ] )(
+		'keeps one error action in the header (primary action: %s)',
+		async ( hasAction ) => {
+			const title = 'Could not update';
+			showToast( {
+				title,
+				intent: 'error',
+				description: 'Update diagnostics',
+				action: hasAction ? { label: 'Retry', onClick: vi.fn() } : undefined,
+			} );
+			await setup();
+			fireEvent.click( bell() );
+			const disclosure = await screen.findByRole( 'button', {
+				name: `View notification: ${ title }`,
+			} );
+			fireEvent.click( disclosure );
+			const action = screen.getByRole( 'button', {
+				name: hasAction ? 'Retry' : 'Copy',
+			} );
+			expect( action.parentElement?.parentElement?.parentElement ).toContainElement(
+				screen.getByText( title )
+			);
+			expect( screen.getAllByRole( 'button', { name: /^(Copy|Retry)$/ } ) ).toHaveLength( 1 );
+		}
+	);
 
 	it( 'closes with Escape and returns focus to the bell', async () => {
 		await setup();
@@ -135,23 +170,18 @@ describe( 'notifications popover', () => {
 				description: 'Details about the failure',
 			} );
 		} );
-		const description = await screen.findByText( 'Details about the failure' );
-		expect( description ).not.toHaveAttribute( 'data-expanded' );
-		fireEvent.click( screen.getByRole( 'button', { name: 'View notification: Import failed' } ) );
-		expect( screen.getByText( 'Details about the failure' ) ).toBe( description );
-		expect( description ).toHaveAttribute( 'data-expanded' );
+		expect( await screen.findByText( 'Details about the failure' ) ).toBeVisible();
+		const summary = screen.getByRole( 'button', { name: 'View notification: Import failed' } );
+		expect( summary ).toHaveAttribute( 'aria-expanded', 'false' );
+		fireEvent.click( summary );
+		expect( summary ).toHaveAttribute( 'aria-expanded', 'true' );
 		expect(
 			screen.queryByRole( 'dialog', { name: 'Notification history' } )
 		).not.toBeInTheDocument();
 		expect( getNoticeHistory() ).toHaveLength( 1 );
 		expect( screen.getByRole( 'button', { name: 'Dismiss Import failed' } ) ).toBeVisible();
-		fireEvent.click( screen.getByRole( 'button', { name: 'View notification: Import failed' } ) );
-		expect( description ).not.toHaveAttribute( 'data-expanded' );
-		expect( description ).not.toHaveAttribute( 'data-clamped' );
-		const transition = new Event( 'transitionend', { bubbles: true } );
-		Object.defineProperty( transition, 'propertyName', { value: 'height' } );
-		fireEvent( description, transition );
-		expect( description ).toHaveAttribute( 'data-clamped' );
+		fireEvent.click( summary );
+		expect( summary ).toHaveAttribute( 'aria-expanded', 'false' );
 	} );
 
 	it( 'expands the same details in a toast and its history card', async () => {
@@ -180,7 +210,7 @@ describe( 'notifications popover', () => {
 			() =>
 				void showToast( {
 					title: 'Site duplicated: Portfolio',
-					action: { label: 'Open site', onClick },
+					action: { label: 'Open', onClick },
 				} )
 		);
 		expect( screen.queryByRole( 'button', { name: 'Details' } ) ).not.toBeInTheDocument();
@@ -189,7 +219,7 @@ describe( 'notifications popover', () => {
 		);
 		fireEvent.click( bell() );
 		const dialog = await screen.findByRole( 'dialog', { name: 'Notification history' } );
-		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Open site' } ) );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Open' } ) );
 		await waitFor( () => expect( onClick ).toHaveBeenCalledOnce() );
 		await waitFor( () =>
 			expect(
@@ -250,34 +280,6 @@ describe( 'notifications popover', () => {
 		fireEvent.click( bell() );
 		expect( await screen.findByText( 'No notifications.' ) ).toBeVisible();
 		expect( hasDot() ).toBe( false );
-	} );
-
-	it( 'shows relative time and one explicit action without a duplicate title button', async () => {
-		showToast( {
-			title: 'Portfolio duplicated',
-			intent: 'success',
-			action: { label: 'Open site', onClick: vi.fn() },
-		} );
-		await setup();
-		fireEvent.click( bell() );
-		const center = await screen.findByRole( 'dialog', { name: 'Notification history' } );
-		expect( within( center ).getByText( 'Just now' ) ).toBeVisible();
-		expect( within( center ).getAllByRole( 'button', { name: 'Open site' } ) ).toHaveLength( 1 );
-		expect(
-			within( center ).queryByRole( 'button', { name: 'Portfolio duplicated' } )
-		).not.toBeInTheDocument();
-	} );
-
-	it( 'dismisses the toast without clearing its retained notification', async () => {
-		await setup( true );
-		act( () => {
-			showToast( { title: 'Saved' } );
-		} );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Dismiss Saved' } ) );
-		await waitFor( () =>
-			expect( screen.queryByRole( 'dialog', { name: 'Saved' } ) ).not.toBeInTheDocument()
-		);
-		expect( getNoticeHistory() ).toHaveLength( 1 );
 	} );
 
 	it( 'lists past notices with their details and empties the history after clearing all', async () => {

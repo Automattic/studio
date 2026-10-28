@@ -1,5 +1,4 @@
 import { clsx } from 'clsx';
-import { CheckIcon } from 'lucide-react';
 import { createContext, useContext, useId, type ComponentProps, type ReactNode } from 'react';
 import styles from './style.module.css';
 
@@ -35,7 +34,11 @@ export function Questionnaire( {
 					onKeyDown?.( event );
 					const root = event.currentTarget;
 					// Portalled popups, like an image viewer, bubble here through React.
-					if ( event.defaultPrevented || ! root.contains( event.target as Node ) ) {
+					if (
+						root.disabled ||
+						event.defaultPrevented ||
+						! root.contains( event.target as Node )
+					) {
 						return;
 					}
 					const inputs = [ ...root.querySelectorAll( 'input' ) ].filter(
@@ -76,10 +79,6 @@ export function Questionnaire( {
 /** The question. A legend, so it names the fieldset. */
 export function QuestionnaireTitle( { className, ...props }: ComponentProps< 'legend' > ) {
 	return <legend className={ clsx( styles.title, className ) } { ...props } />;
-}
-
-export function QuestionnaireProgress( { className, ...props }: ComponentProps< 'span' > ) {
-	return <span className={ clsx( styles.progress, className ) } { ...props } />;
 }
 
 export function QuestionnaireDescription( { className, ...props }: ComponentProps< 'span' > ) {
@@ -159,7 +158,7 @@ export function QuestionnaireChoice( {
 					disabled={ disabled }
 					aria-labelledby={ `${ id }-label` }
 					aria-describedby={ description ? `${ id }-description` : undefined }
-					aria-keyshortcuts={ shortcut }
+					aria-keyshortcuts={ disabled ? undefined : shortcut }
 					onChange={ onSelect }
 					// A checked radio fires no change event, yet picking it again still answers.
 					onClick={ ! multiple && checked ? onSelect : undefined }
@@ -174,7 +173,6 @@ export function QuestionnaireChoice( {
 						</span>
 					) : null }
 				</span>
-				{ checked ? <CheckIcon aria-hidden="true" /> : null }
 			</label>
 			{ action }
 		</div>
@@ -184,18 +182,22 @@ export function QuestionnaireChoice( {
 /** An answered question's pick, in place of its choices. */
 export function QuestionnaireAnswer( {
 	letter,
+	description,
 	children,
 	className,
 }: {
 	letter?: string;
+	description?: string;
 	children: ReactNode;
 	className?: string;
 } ) {
 	return (
 		<span data-slot="questionnaire-answer" className={ clsx( styles.answer, className ) }>
 			{ letter ? <Letter>{ letter }</Letter> : null }
-			<span className={ styles.answerLabel }>{ children }</span>
-			<CheckIcon aria-hidden="true" />
+			<span className={ clsx( styles.label, styles.answerLabel ) }>
+				<span>{ children }</span>
+				{ description ? <span className={ styles.description }>{ description }</span> : null }
+			</span>
 		</span>
 	);
 }

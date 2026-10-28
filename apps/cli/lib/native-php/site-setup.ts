@@ -86,10 +86,7 @@ $transformer->to_file( $wp_config_path );
 	}
 }
 
-export function getSiteUrlPrependContent(
-	siteUrl: string,
-	originalAutoPrependFile?: string
-): string {
+function getSiteUrlPrependContent( siteUrl: string, originalAutoPrependFile?: string ): string {
 	const escapedSiteUrl = escapePhpSingleQuotedString( siteUrl );
 	const chained = originalAutoPrependFile
 		? `require '${ escapePhpSingleQuotedString( originalAutoPrependFile ) }';`
@@ -126,7 +123,7 @@ export function writeSiteUrlPrependFile(
 	return prependPath;
 }
 
-export async function isWordPressInstalled(
+async function isWordPressInstalled(
 	siteFolder: string,
 	phpVersion: SupportedPHPVersion,
 	signal: AbortSignal
@@ -176,7 +173,7 @@ export async function installWordPress(
 	config: ServerConfig,
 	phpVersion: SupportedPHPVersion,
 	signal: AbortSignal,
-	setDefaultPermalinksPath: string,
+	finishInstallPath: string,
 	logToConsole: Logger
 ): Promise< void > {
 	const alreadyInstalled = await isWordPressInstalled( config.sitePath, phpVersion, signal );
@@ -207,6 +204,7 @@ export async function installWordPress(
 			`--admin_email=${ email }`,
 			...( locale ? [ `--locale=${ locale }` ] : [] ),
 			'--skip-email',
+			`--require=${ finishInstallPath }`,
 		],
 		{ phpVersion, signal }
 	);
@@ -249,31 +247,5 @@ export async function installWordPress(
 				}`
 			);
 		}
-	}
-
-	await runPhpCommand(
-		[
-			getWpCliPharPath(),
-			'option',
-			'update',
-			'studio_admin_username',
-			username,
-			`--path=${ config.sitePath }`,
-		],
-		{ phpVersion, signal }
-	);
-
-	try {
-		await runPhpCommand( [ setDefaultPermalinksPath ], {
-			phpVersion,
-			siteFolder: config.sitePath,
-			signal,
-		} );
-	} catch ( error ) {
-		throw new Error(
-			`Failed to set default permalinks: ${
-				error instanceof Error ? error.message : String( error )
-			}`
-		);
 	}
 }

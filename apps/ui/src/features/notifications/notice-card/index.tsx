@@ -1,6 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { CheckIcon, ChevronRightIcon, InfoIcon, TriangleAlertIcon, XIcon } from 'lucide-react';
+import { ChevronRightIcon, XIcon } from 'lucide-react';
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import {
 	noticeToText,
@@ -10,21 +10,26 @@ import {
 	type ToastAction,
 } from '@/data/app-messages';
 import { useCopyText } from '@/data/host/use-copy-text';
-import { Button, IconButton, Spinner } from '@/lib/ui';
+import { ErrorIcon, InfoIcon, SuccessIcon, WarningIcon } from '@/lib/icons';
+import { Button, IconButton } from '@/lib/ui';
 import styles from './style.module.css';
 
-type Notice = Pick< NoticeRecord, 'intent' | 'title' | 'description' | 'action' | 'actionPending' >;
+type Notice = Pick<
+	NoticeRecord,
+	'intent' | 'title' | 'description' | 'action' | 'actionPending' | 'source'
+>;
 
-function StatusIcon( { intent }: { intent: NoticeIntent } ) {
+function StatusIcon( { intent, source }: { intent: NoticeIntent; source?: 'studio' } ) {
+	const iconIntent = source === 'studio' ? 'info' : intent;
 	return (
-		<span className={ styles.status } data-intent={ intent } aria-hidden="true">
+		<span className={ styles.status } data-intent={ iconIntent } aria-hidden="true">
 			{
 				{
 					info: <InfoIcon />,
-					warning: <TriangleAlertIcon />,
-					success: <CheckIcon strokeWidth={ 3 } />,
-					error: <XIcon strokeWidth={ 3 } />,
-				}[ intent ]
+					warning: <WarningIcon />,
+					success: <SuccessIcon />,
+					error: <ErrorIcon />,
+				}[ iconIntent ]
 			}
 		</span>
 	);
@@ -41,7 +46,8 @@ function NoticeActionButton( {
 } ) {
 	return (
 		<Button
-			size="sm"
+			size="2xs"
+			variant="outline"
 			disabled={ pending }
 			aria-busy={ pending || undefined }
 			onClick={ async () => {
@@ -50,7 +56,6 @@ function NoticeActionButton( {
 				}
 			} }
 		>
-			{ pending ? <Spinner aria-hidden="true" /> : null }
 			{ action.label }
 		</Button>
 	);
@@ -69,9 +74,18 @@ function CopyNoticeButton( { notice }: { notice: Notice } ) {
 
 // One line until clicked; error text can run to a stack trace. Closing
 // animates the height back to one line before the ellipsis returns.
-function NoticeDescription( { notice }: { notice: Notice } ) {
+function NoticeDescription( {
+	notice,
+	titleClipped,
+	expanded,
+	setExpanded,
+}: {
+	notice: Notice;
+	titleClipped: boolean;
+	expanded: boolean;
+	setExpanded: ( expanded: boolean ) => void;
+} ) {
 	const ref = useRef< HTMLParagraphElement >( null );
-	const [ expanded, setExpanded ] = useState( false );
 	const [ clamped, setClamped ] = useState( true );
 	const [ expandable, setExpandable ] = useState( false );
 	useLayoutEffect( () => {
@@ -81,9 +95,6 @@ function NoticeDescription( { notice }: { notice: Notice } ) {
 		}
 		const update = () => setExpandable( description.scrollHeight > description.clientHeight + 1 );
 		update();
-		if ( typeof ResizeObserver === 'undefined' ) {
-			return;
-		}
 		const observer = new ResizeObserver( update );
 		observer.observe( description );
 		return () => observer.disconnect();
@@ -112,7 +123,7 @@ function NoticeDescription( { notice }: { notice: Notice } ) {
 				>
 					{ notice.description }
 				</p>
-				{ expandable || ! clamped ? (
+				{ expandable || titleClipped || ! clamped ? (
 					<button
 						type="button"
 						className={ styles.toggle }
@@ -130,7 +141,6 @@ function NoticeDescription( { notice }: { notice: Notice } ) {
 					</button>
 				) : null }
 			</div>
-			{ expanded && notice.intent === 'error' ? <CopyNoticeButton notice={ notice } /> : null }
 		</div>
 	);
 }
@@ -151,22 +161,75 @@ export function NoticeCard( {
 	onDismiss: () => void;
 	onActionDone?: () => void;
 } ) {
+	const titleRef = useRef< HTMLParagraphElement >( null );
+	const [ titleClipped, setTitleClipped ] = useState( false );
+	const [ expanded, setExpanded ] = useState( false );
+	useLayoutEffect( () => {
+		const title = titleRef.current;
+		if ( ! title || expanded ) return;
+		const update = () => setTitleClipped( title.scrollWidth > title.clientWidth + 1 );
+		update();
+		const observer = new ResizeObserver( update );
+		observer.observe( title );
+		return () => observer.disconnect();
+	}, [ notice.title, expanded ] );
+	const actionButton =
+		action ??
+		( notice.action ? (
+			<NoticeActionButton
+				action={ notice.action }
+				pending={ notice.actionPending }
+				onDone={ onActionDone }
+			/>
+		) : notice.intent === 'error' ? (
+			<CopyNoticeButton notice={ notice } />
+		) : null );
 	return (
 		<div className={ clsx( styles.card, className ) }>
-			<div className={ styles.row }>
-				<StatusIcon intent={ notice.intent } />
-				<p className={ styles.title }>{ notice.title }</p>
-				{ action ??
-					( notice.action ? (
-						<NoticeActionButton
-							action={ notice.action }
-							pending={ notice.actionPending }
-							onDone={ onActionDone }
-						/>
-					) : null ) }
-				{ time }
+			<div className={ styles.row } data-expanded={ expanded || undefined }>
+				<StatusIcon intent={ notice.intent } source={ notice.source } />
+				<div className={ styles.titleSummary }>
+					<p ref={ titleRef } className={ styles.title } data-expanded={ expanded || undefined }>
+						{ notice.title }
+					</p>
+					{ titleClipped && ! notice.description ? (
+						<button
+							type="button"
+							className={ styles.toggle }
+							aria-expanded={ expanded }
+							aria-label={ sprintf(
+								/* translators: %s: notification title. */
+								__( 'View notification: %s' ),
+								notice.title
+							) }
+							onClick={ () => setExpanded( ! expanded ) }
+						>
+							<span className={ styles.chevron } aria-hidden="true">
+								<ChevronRightIcon />
+							</span>
+						</button>
+					) : null }
+				</div>
+				{ actionButton || time ? (
+					<div
+						className={ styles.trailing }
+						data-swap={ Boolean( actionButton && time ) || undefined }
+						data-pending={ notice.actionPending || undefined }
+					>
+						{ time ? <span className={ styles.timestamp }>{ time }</span> : null }
+						{ actionButton ? <span className={ styles.action }>{ actionButton }</span> : null }
+					</div>
+				) : null }
 			</div>
-			{ notice.description ? <NoticeDescription notice={ notice } /> : null }
+			{ notice.description ? (
+				<NoticeDescription
+					notice={ notice }
+					titleClipped={ titleClipped }
+					expanded={ expanded }
+					setExpanded={ setExpanded }
+				/>
+			) : null }
+
 			<IconButton
 				className={ styles.close }
 				icon={ <XIcon /> }

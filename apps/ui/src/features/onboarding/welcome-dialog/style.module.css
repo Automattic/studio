@@ -1,121 +1,55 @@
-.dialog {
-	gap: var( --space-5 );
-	padding: var( --space-6 );
+.prompt {
+	padding-bottom: var( --space-2 );
 }
 
-.intro {
+.privacy {
+	text-align: start;
 	display: flex;
 	flex-direction: column;
-	gap: var( --space-1_5 );
+	gap: var( --space-4 );
+	margin-top: auto;
 }
 
-.appIcon {
-	width: 44px;
-	height: 44px;
+.privacy::before {
+	align-self: center;
+	width: 25%;
 	margin-bottom: var( --space-2 );
+	border-top: 1px solid var( --border );
+	content: '';
 }
 
-.actions {
-	display: flex;
-	flex-direction: column;
-	gap: var( --space-2 );
-}
-
-.perks {
-	display: flex;
-	flex-direction: column;
-	gap: var( --space-2 );
-	margin-bottom: var( --space-1_5 );
-	padding-inline-start: var( --space-3 );
-	border-inline-start: 2px solid var( --border );
-}
-
-.perksLead {
-	font-size: var( --text-xs );
-	font-weight: var( --font-weight-medium );
-	line-height: 18px;
-}
-
-.perksList {
-	display: flex;
-	flex-direction: column;
-	gap: var( --space-1_5 );
-	color: var( --muted-foreground );
-	font-size: var( --text-xs );
-	line-height: 18px;
-}
-
-.perksList li {
-	display: flex;
-	align-items: center;
-	gap: var( --space-2_5 );
-}
-
-.perksList svg {
-	flex: none;
-}
-
-.perksList b {
-	color: var( --foreground );
-	font-weight: var( --font-weight-medium );
-}
-
-.hint {
-	color: var( --muted-foreground );
-	font-size: var( --text-xs );
+.analytics {
+	justify-content: center;
 	text-align: center;
+}
+
+.analyticsLabel {
+	flex: 0 1 auto;
+	color: var( --muted-foreground );
+	font-size: var( --text-xxs );
+	line-height: var( --leading-normal );
+}
+
+.legal {
+	padding: 0 var( --space-8 ) var( --space-2 );
+	text-align: center;
+	color: var( --muted-foreground );
+	font-size: var( --text-xxs );
+	line-height: var( --leading-normal );
+}
+
+.legalLink {
+	color: var( --muted-foreground );
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+
+.legalLink:hover {
+	color: var( --foreground );
 }
 
 .error {
 	color: var( --destructive );
 	font-size: var( --text-xs );
-	text-align: center;
-}
-
-.account {
-	display: flex;
-	align-items: center;
-	gap: var( --space-2_5 );
-	margin-bottom: var( --space-1 );
-	padding: var( --space-2 ) var( --space-2 ) var( --space-2 ) var( --space-3 );
-	border-radius: var( --radius-md );
-	background: var( --muted );
-}
-
-.avatar {
-	width: 28px;
-	height: 28px;
-}
-
-.accountText {
-	display: flex;
-	flex: 1;
-	flex-direction: column;
-	min-width: 0;
-}
-
-.accountName {
-	composes: truncate from '@/lib/theme/recipes.module.css';
-	font-weight: var( --font-weight-medium );
-}
-
-.accountHint {
-	color: var( --muted-foreground );
-	font-size: var( --text-xxs );
-	line-height: 16px;
-}
-
-.footer {
-	display: flex;
-	flex-direction: column;
-	gap: var( --space-3 );
-	margin-inline: calc( var( --space-6 ) * -1 );
-	padding: var( --space-4 ) var( --space-6 ) 0;
-	border-top: 1px solid var( --border );
-}
-
-.legal {
-	color: var( --muted-foreground );
-	font-size: var( --text-xxs );
-	line-height: 17px;
+	line-height: var( --leading-normal );
 }

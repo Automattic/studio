@@ -109,6 +109,7 @@ import {
 import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
 import { requestStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
+import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
 import { getLocalFileSize, listLocalFileTree } from '@studio/common/lib/sync/local-file-tree';
 import {
 	fetchHostingPhpVersion,
@@ -118,6 +119,10 @@ import {
 } from '@studio/common/lib/sync/sync-api';
 import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/editor';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
+import {
+	readOnboardingCompleted,
+	writeOnboardingCompleted,
+} from '@studio/common/lib/user-settings/onboarding';
 import {
 	onboardingHintsSchema,
 	readDefaultSiteDirectory,
@@ -137,7 +142,6 @@ import { deleteSite, startSite, stopSite } from '@studio/common/sites/lifecycle'
 import { listSites } from '@studio/common/sites/list';
 import { listSitesWithMetadata, updateSiteMetadata } from '@studio/common/sites/metadata';
 import { designFixesSchema, fixSiteDesign, readSiteDesign } from '@studio/common/sites/site-design';
-import { readSiteIcon } from '@studio/common/sites/site-identity';
 import { readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import {
 	deleteAllPreviewSites,
@@ -267,6 +271,7 @@ function toSiteDetails( site: SiteListItem, sortOrder?: number ) {
 		enableScriptDebug: site.enableScriptDebug,
 		environmentType: site.environmentType,
 		operation: site.operation,
+		emailPath: site.emailPath,
 		sortOrder,
 	};
 }
@@ -844,21 +849,6 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// Reads straight from cli.json via `readSitePath` rather than forking the
-	// CLI for a site list: the UI asks for it on every site switch, and a fork
-	// costs about a second of CPU each time.
-	api.get(
-		'/sites/:id/site-icon',
-		asyncHandler( async ( req: Request, res: Response ) => {
-			const sitePath = await readSitePath( req.params.id );
-			if ( ! sitePath ) {
-				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
-				return;
-			}
-			res.json( await readSiteIcon( execute, sitePath ) );
-		} )
-	);
-
 	api.get(
 		'/sites/:id/wp-version',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -1118,8 +1108,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				flowType?: TracksSiteCreateFlowType;
 				// Optional Blueprint to apply on creation: `blueprint` is the parsed
 				// blueprint JSON; `filePath` (set for uploaded ZIP bundles) lets the
-				// CLI resolve relative assets. `bundleUrl` triggers a server-side
-				// download so API blueprints with bundled resources resolve correctly.
+				// CLI resolve relative assets. `bundleUrl` names a bundle from Studio's
+				// blueprint catalog, which the server downloads so relative paths resolve.
 				blueprint?: {
 					blueprint?: SiteCreateOptions[ 'blueprint' ];
 					slug?: string;
@@ -1142,7 +1132,17 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			let bundleTempDir: string | undefined;
 			let blueprintFilePath = body.blueprint?.filePath;
 			if ( body.blueprint?.bundleUrl && ! blueprintFilePath ) {
-				const result = await downloadAndExtractBlueprintBundle( body.blueprint.bundleUrl );
+				// Download the catalog's copy of the URL, so this server only fetches
+				// bundles Studio publishes, whatever a caller sends.
+				const requestedUrl = body.blueprint.bundleUrl;
+				const catalogUrl = ( await fetchStudioBlueprints() ).find(
+					( item ) => item.bundle_url === requestedUrl
+				)?.bundle_url;
+				if ( ! catalogUrl ) {
+					res.status( 400 ).json( { error: 'Unknown blueprint bundle' } );
+					return;
+				}
+				const result = await downloadAndExtractBlueprintBundle( catalogUrl );
 				bundleTempDir = result.tempDir;
 				blueprintFilePath = result.blueprintJsonPath;
 			}
@@ -1510,6 +1510,30 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 
 	api.get(
+		'/onboarding',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( await readOnboardingCompleted() );
+		} )
+	);
+
+	api.patch(
+		'/onboarding',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const parsed = z.object( { completed: z.boolean() } ).safeParse( req.body );
+			if ( ! parsed.success ) {
+				res.status( 400 ).json( { error: 'Invalid onboarding state' } );
+				return;
+			}
+			if ( await writeOnboardingCompleted( parsed.data.completed ) ) {
+				trackEvent( TRACKS_EVENTS.ONBOARDING_COMPLETE, {
+					authenticated: !! ( await readAuthToken() ),
+				} );
+			}
+			res.status( 204 ).end();
+		} )
+	);
+
+	api.get(
 		'/onboarding-hints',
 		asyncHandler( async ( _req: Request, res: Response ) => {
 			res.json( await readOnboardingHints() );
@@ -1525,6 +1549,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			await writeOnboardingHints( parsed.data );
+			res.status( 204 ).end();
+		} )
+	);
+
+	api.post(
+		'/sites/:id/open-email-folder',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
+			if ( ! site?.emailPath ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			await openPath( site.emailPath );
 			res.status( 204 ).end();
 		} )
 	);
@@ -1783,7 +1820,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			// No backup yet (or lookup failure) rejects and surfaces as a 500 via
 			// the error middleware — the dialog needs the error state to disable
-			// per-item selection and force a full sync, like the classic renderer.
+			// per-item selection and force a full sync.
 			res.json( await fetchLatestRewindId( token.accessToken, Number( req.params.remoteSiteId ) ) );
 		} )
 	);

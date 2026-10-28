@@ -1,12 +1,12 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
 import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
 import { __ } from '@wordpress/i18n';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { SiteIcon } from '@/features/sites/site-icon';
+import { useEffect, useId, useRef, useState } from 'react';
 import {
 	AppearanceIcon,
 	DatabaseIcon,
 	ExternalLinkIcon,
+	GlobeIcon,
 	SiteSettingsIcon,
 	WordPressIcon,
 } from '@/lib/icons';
@@ -103,7 +103,6 @@ export function parseOmniboxInput( raw: string, siteUrl: string ): OmniboxIntent
 
 interface PreviewAddressBarProps {
 	site: SiteDetails;
-	siteIcon?: string | null;
 	siteUrl: string;
 	path: string;
 	// A remote site: no local realms, auto-login or recent locations.
@@ -213,7 +212,6 @@ function AddressAction( {
 
 export function PreviewAddressBar( {
 	site,
-	siteIcon,
 	siteUrl,
 	path,
 	remote = false,
@@ -225,16 +223,37 @@ export function PreviewAddressBar( {
 	hideActions = false,
 }: PreviewAddressBarProps ) {
 	const displayUrl = getDisplayUrl( siteUrl, path );
-	const activeRealm = getPreviewRealm( path );
 	const [ value, setValue ] = useState( displayUrl );
 	const [ invalid, setInvalid ] = useState( false );
 	const [ shortcutsOpen, setShortcutsOpen ] = useState( false );
 	const [ highlighted, setHighlighted ] = useState< string >();
 	const shortcutsId = useId();
+	const addressInputId = useId();
 	const [ recentLocations, setRecentLocations ] = useState< RecentPreviewLocation[] >( () =>
 		loadRecentLocations( site.id )
 	);
 	const addressBarRef = useRef< HTMLFormElement | null >( null );
+	const addressTextRef = useRef< HTMLSpanElement | null >( null );
+	const selectOnMouseUp = useRef( false );
+
+	const animateAddressAlignment = ( input: HTMLInputElement, focused: boolean ) => {
+		const style = getComputedStyle( input );
+		const currentOffset =
+			style.transform && style.transform !== 'none'
+				? new DOMMatrixReadOnly( style.transform ).m41
+				: 0;
+		input.getAnimations?.().forEach( ( animation ) => animation.cancel() );
+		const textWidth = addressTextRef.current?.getBoundingClientRect().width ?? 0;
+		const offset = Math.max( 0, ( input.clientWidth - textWidth ) / 2 );
+		if ( ! offset || window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches ) return;
+		const direction = style.direction === 'rtl' ? -1 : 1;
+		const start = currentOffset + offset * direction * ( focused ? 1 : -1 );
+		const duration = style.getPropertyValue( '--motion-duration-surface' ).trim();
+		input.animate( [ { transform: `translateX(${ start }px)` }, { transform: 'translateX(0)' } ], {
+			duration: parseFloat( duration ) * ( duration.endsWith( 'ms' ) ? 1 : 1000 ),
+			easing: style.getPropertyValue( '--motion-ease-enter' ).trim(),
+		} );
+	};
 
 	const restore = () => {
 		setValue( displayUrl );
@@ -275,28 +294,15 @@ export function PreviewAddressBar( {
 		setShortcutsOpen( false );
 		onNavigate( recent.path );
 	};
-	const FrontEndIcon = useMemo(
-		() =>
-			function FrontEndIcon( { className }: { className?: string } ) {
-				return (
-					<SiteIcon
-						className={ className }
-						seed={ `${ site.id }:${ site.name }:${ site.path }` }
-						imageSrc={ siteIcon }
-					/>
-				);
-			},
-		[ site.id, site.name, site.path, siteIcon ]
-	);
 	const realmIcons: Record< PreviewRealm, ComponentType< { className?: string } > > = {
-		frontend: FrontEndIcon,
+		frontend: GlobeIcon,
 		admin: WordPressIcon,
 		database: DatabaseIcon,
 		design: AppearanceIcon,
 	};
 	const realmLabels: Record< PreviewRealm, string > = {
 		frontend: __( 'Front end' ),
-		admin: __( 'WP Admin' ),
+		admin: __( 'WordPress Admin' ),
 		database: __( 'Database' ),
 		design: __( 'Design system' ),
 	};
@@ -333,14 +339,14 @@ export function PreviewAddressBar( {
 			chooseRealm( value as PreviewRealm );
 		}
 	};
-	const ActiveRealmIcon = realmIcons[ activeRealm ];
-
 	return (
 		<Popover.Root
+			triggerId={ addressInputId }
 			open={ shortcutsOpen }
 			// The webview swallows outside clicks; the modal backdrop catches them.
 			modal
-			onOpenChange={ ( open ) => {
+			onOpenChange={ ( open, details ) => {
+				if ( details.reason === 'trigger-press' && ( shortcutsOpen || remote ) ) return;
 				setShortcutsOpen( open );
 				setHighlighted( undefined );
 				if ( ! open ) {
@@ -349,29 +355,56 @@ export function PreviewAddressBar( {
 			} }
 		>
 			<form ref={ addressBarRef } className={ styles.addressBar } onSubmit={ handleSubmit }>
-				<button
-					type="button"
-					className={ styles.siteIcon }
-					data-realm={ activeRealm }
-					aria-label={ __( 'Preview shortcuts' ) }
-					disabled={ remote }
-					onClick={ () => setShortcutsOpen( true ) }
-				>
-					<ActiveRealmIcon />
-				</button>
-				<input
+				{ hideActions || ! onOpenSettings ? null : (
+					<span className={ `${ styles.actions } ${ styles.settingsAction }` } data-address-action>
+						<AddressAction
+							icon={ <SiteSettingsIcon /> }
+							label={ __( 'Site settings' ) }
+							onClick={ onOpenSettings }
+						/>
+					</span>
+				) }
+				<span ref={ addressTextRef } className={ styles.addressText } aria-hidden="true">
+					{ value }
+				</span>
+				<Popover.Trigger
+					id={ addressInputId }
+					nativeButton={ false }
+					render={
+						<input
+							role="textbox"
+							value={ value }
+							onMouseDown={ ( event ) => {
+								selectOnMouseUp.current = document.activeElement !== event.currentTarget;
+								if ( event.button === 0 && ! remote ) setShortcutsOpen( true );
+							} }
+							onMouseUp={ ( event ) => {
+								if ( selectOnMouseUp.current ) {
+									event.preventDefault();
+									event.currentTarget.select();
+									selectOnMouseUp.current = false;
+								}
+							} }
+							onFocus={ ( event ) => {
+								event.currentTarget.select();
+								if ( ! remote ) setShortcutsOpen( true );
+								animateAddressAlignment( event.currentTarget, true );
+							} }
+							onBlur={ ( event ) => {
+								selectOnMouseUp.current = false;
+								animateAddressAlignment( event.currentTarget, false );
+							} }
+							onChange={ ( event ) => {
+								setValue( event.target.value );
+								setInvalid( false );
+							} }
+						/>
+					}
 					className={ styles.input }
-					value={ value }
-					onChange={ ( event ) => {
-						setValue( event.target.value );
-						setInvalid( false );
-					} }
-					onClick={ () => setShortcutsOpen( ! remote ) }
-					onFocus={ ( event ) => {
-						event.currentTarget.select();
-					} }
 					aria-controls={ shortcutsOpen ? shortcutsId : undefined }
+					onKeyUp={ ( event ) => event.preventBaseUIHandler() }
 					onKeyDown={ ( event ) => {
+						event.preventBaseUIHandler();
 						// Enter goes to the typed address until a shortcut is highlighted.
 						if (
 							shortcutsOpen &&
@@ -401,13 +434,6 @@ export function PreviewAddressBar( {
 				/>
 				{ hideActions ? null : (
 					<span className={ styles.actions } data-address-action>
-						{ onOpenSettings ? (
-							<AddressAction
-								icon={ <SiteSettingsIcon /> }
-								label={ __( 'Site settings' ) }
-								onClick={ onOpenSettings }
-							/>
-						) : null }
 						{ onOpenExternal ? (
 							<AddressAction
 								icon={ <ExternalLinkIcon /> }

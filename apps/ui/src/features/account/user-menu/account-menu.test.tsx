@@ -31,19 +31,16 @@ const PROMPT = 'Do more with WordPress.com';
 async function openLoginDialog() {
 	fireEvent.click( await screen.findByRole( 'button', { name: 'Log in' } ) );
 	const dialog = await screen.findByRole( 'dialog', { name: PROMPT } );
-	return within( dialog ).findByRole( 'button', { name: 'Log in to WordPress.com' } );
+	return within( dialog ).findByRole( 'button', { name: 'Log in' } );
 }
 
 describe( 'AccountMenu', () => {
 	it( 'explains connection before starting authentication and allows dismissal', async () => {
-		const { connector, container } = setup();
-		const login = await screen.findByRole( 'button', { name: 'Log in' } );
-		expect( login.querySelector( 'svg' ) ).toBeNull();
-		expect( container.querySelector( 'img' ) ).toBeNull();
+		const { connector } = setup();
 		await openLoginDialog();
 		expect(
 			screen.getByText(
-				'Build with WordPress Studio, share local previews publicly, launch on WordPress.com, and keep sites in sync.'
+				'Create a free WordPress.com account to build with the agent, share previews, and publish.'
 			)
 		).toBeVisible();
 		expect( connector.authenticate ).not.toHaveBeenCalled();
@@ -55,7 +52,7 @@ describe( 'AccountMenu', () => {
 	} );
 
 	it( 'authenticates from Log in, closes the dialog, and restores Log in after logout', async () => {
-		const { connector, container } = setup();
+		const { connector } = setup();
 		fireEvent.click( await openLoginDialog() );
 		await screen.findByRole( 'button', { name: TEST_USER.displayName } );
 		await waitFor( () =>
@@ -63,7 +60,6 @@ describe( 'AccountMenu', () => {
 		);
 		expect( await screen.findByText( 'Logged in to WordPress.com' ) ).toBeVisible();
 		expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith( false, 'settings' );
-		expect( container.querySelector( 'img' ) ).not.toBeNull();
 		fireEvent.click( screen.getByRole( 'button', { name: TEST_USER.displayName } ) );
 		const menu = await screen.findByRole( 'menu' );
 		expect( within( menu ).getByText( TEST_USER.displayName ) ).toBeVisible();
@@ -175,7 +171,7 @@ describe( 'AccountMenu', () => {
 		connector.logout.mockRejectedValueOnce( new Error( 'Network down' ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: TEST_USER.displayName } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Log out' } ) );
-		expect( await screen.findByText( 'Could not log out.' ) ).toBeVisible();
+		expect( await screen.findByText( 'Could not log out' ) ).toBeVisible();
 		expect( screen.getByText( 'Network down' ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: TEST_USER.displayName } ) ).toBeVisible();
 	} );

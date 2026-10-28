@@ -14,12 +14,12 @@ export interface WindowBounds {
 
 export type { QuitSitesBehavior };
 
-export interface AppdataSiteData {
+interface AppdataSiteData {
 	sortOrder?: number;
 	autoStart?: boolean;
 }
 
-export interface NightlyPromptResult {
+interface NightlyPromptResult {
 	response: 'yes' | 'no';
 	dontAskAgain: boolean;
 }
@@ -46,13 +46,11 @@ export interface UserData {
 	lastNightlyUpdateCheck?: number;
 	nightlyPromptResult?: NightlyPromptResult;
 	dontShowArm64Warning?: boolean;
-	// Whether chat/agent features are offered in the UI.
-	agenticFeaturesEnabled?: boolean;
 	/** Agentic UI onboarding state (orientation tour, getting-started checklist). Opaque blob owned by the renderer. */
 	onboardingHints?: OnboardingHintsState;
 }
 
-export interface PromptWindowsSpeedUpResult {
+interface PromptWindowsSpeedUpResult {
 	response: 'yes' | 'no';
 	appVersion: string;
 	dontAskAgain: boolean;

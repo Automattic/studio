@@ -15,7 +15,6 @@ const DB_PATH_DEFINITION = `if ( ! defined( 'DB_PATH' ) && ! defined( 'FQDB' ) &
 }
 `;
 
-// Abstract base class for SQLite integration across different contexts
 export abstract class SqliteIntegrationProvider {
 	abstract getSqliteDirname(): string;
 	protected abstract getSqlitePluginSourcePath(): string;

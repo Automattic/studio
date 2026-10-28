@@ -476,7 +476,7 @@ const messageActivityTrackers = new Map<
 >();
 const CHILD_EXIT_ERROR_GRACE_MS = 100;
 
-export interface SendMessageOptions {
+interface SendMessageOptions {
 	maxTotalElapsedTime?: number;
 	logger?: Logger< string >;
 	// Receives the start steps the child finishes for this message.
@@ -490,7 +490,7 @@ export interface SendMessageOptions {
  * - Checks periodically for inactivity
  * - Has both inactivity timeout and max total timeout
  */
-export async function sendMessage(
+async function sendMessage(
 	pmId: number,
 	processName: string,
 	message: ManagerMessagePayload,
@@ -639,16 +639,22 @@ export async function stopWordPressServer( siteId: string ): Promise< void > {
 		);
 
 		// Allow 5 seconds (arbitrary number) of cleanup time for the child process before throwing an
-		// exception and telling the process manager to send a SIGKILL signal.
-		await Promise.race( [
-			exitPromise,
-			new Promise( ( resolve, reject ) =>
-				setTimeout(
-					() => reject( new Error( 'Timed out waiting for the server to stop' ) ),
-					GRACEFUL_STOP_TIMEOUT
-				)
-			),
-		] );
+		// exception and telling the process manager to send a SIGKILL signal. Clear the timer once the
+		// race settles, or it keeps the CLI process alive for the full 5 seconds.
+		let exitTimeout: NodeJS.Timeout | undefined;
+		try {
+			await Promise.race( [
+				exitPromise,
+				new Promise( ( resolve, reject ) => {
+					exitTimeout = setTimeout(
+						() => reject( new Error( 'Timed out waiting for the server to stop' ) ),
+						GRACEFUL_STOP_TIMEOUT
+					);
+				} ),
+			] );
+		} finally {
+			clearTimeout( exitTimeout );
+		}
 	} catch {
 		await stopProcess( processName );
 		// SIGKILL is asynchronous: the daemon returns before the OS has torn the
@@ -721,7 +727,6 @@ export async function runBlueprint(
 				{ logger }
 			);
 		} finally {
-			// Always stop the process after blueprint is applied
 			await stopProcess( processName );
 		}
 	} finally {

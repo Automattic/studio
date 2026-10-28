@@ -22,9 +22,17 @@ function wrapper( { children }: { children: ReactNode } ) {
 	);
 }
 
-function renderActions() {
-	return renderHook( () => useSiteManagementActions( site, { onDelete: vi.fn() } ), { wrapper } );
+function renderActions( target = site ) {
+	return renderHook(
+		() => useSiteManagementActions( target, { onDelete: vi.fn(), onImport: vi.fn() } ),
+		{ wrapper }
+	);
 }
+
+const exportsDisabled = ( actions: ReturnType< typeof useSiteManagementActions > ) =>
+	actions
+		.filter( ( action ) => action.id === 'export' || action.id === 'export-db' )
+		.map( ( action ) => action.disabled );
 
 beforeEach( () => {
 	queryClient = new QueryClient( {
@@ -44,6 +52,7 @@ describe( 'useSiteManagementActions', () => {
 			false,
 			false,
 			false,
+			false,
 		] );
 	} );
 
@@ -56,38 +65,21 @@ describe( 'useSiteManagementActions', () => {
 			operation: { pid: 1, kind: 'settings' as const },
 		};
 
-		const { result } = renderHook(
-			() => useSiteManagementActions( busySite, { onDelete: vi.fn() } ),
-			{ wrapper }
-		);
+		const { result } = renderActions( busySite );
 
 		expect( result.current.map( ( action ) => action.disabled ) ).toEqual( [
 			true,
 			true,
 			true,
 			true,
+			true,
 		] );
-	} );
-
-	it( 'offers Import only where the surface can host the picker', () => {
-		expect( renderActions().result.current.map( ( action ) => action.id ) ).not.toContain(
-			'import'
-		);
-
-		const { result } = renderHook(
-			() => useSiteManagementActions( site, { onDelete: vi.fn(), onImport: vi.fn() } ),
-			{ wrapper }
-		);
-		expect( result.current.map( ( action ) => action.id ) ).toContain( 'import' );
 	} );
 
 	it( 'disables every action while the site is being imported into', () => {
 		applySyncActivity( site.id, { kind: 'pending', direction: 'import' } );
 
-		const { result } = renderHook(
-			() => useSiteManagementActions( site, { onDelete: vi.fn(), onImport: vi.fn() } ),
-			{ wrapper }
-		);
+		const { result } = renderActions();
 
 		expect( result.current.map( ( action ) => action.disabled ) ).toEqual( [
 			true,
@@ -96,14 +88,13 @@ describe( 'useSiteManagementActions', () => {
 			true,
 			true,
 		] );
-		expect( result.current.find( ( action ) => action.id === 'import' )?.loading ).toBe( true );
 
 		applySyncActivity( site.id, { kind: 'success', direction: 'import' } );
 	} );
 
 	// The screen that starts an export can be navigated away from while it runs.
 	// Its `useMutation` observer dies with it, so progress has to come from the
-	// mutation cache or the spinner never comes back.
+	// mutation cache or the export actions come back enabled mid-export.
 	it( 'still reports an export that was started by a screen since unmounted', async () => {
 		const exporter = renderHook( () => useExportFullSite(), { wrapper } );
 		act( () => {
@@ -114,8 +105,7 @@ describe( 'useSiteManagementActions', () => {
 		exporter.unmount();
 
 		const { result } = renderActions();
-		const exportAction = result.current.find( ( action ) => action.id === 'export' );
-		expect( exportAction?.loading ).toBe( true );
+		expect( exportsDisabled( result.current ) ).toEqual( [ true, true ] );
 	} );
 
 	it( 'does not report an export belonging to a different site', async () => {
@@ -126,7 +116,6 @@ describe( 'useSiteManagementActions', () => {
 		await waitFor( () => expect( connector.exportFullSite ).toHaveBeenCalledWith( 'other-site' ) );
 
 		const { result } = renderActions();
-		const exportAction = result.current.find( ( action ) => action.id === 'export' );
-		expect( exportAction?.loading ).toBe( false );
+		expect( exportsDisabled( result.current ) ).toEqual( [ false, false ] );
 	} );
 } );

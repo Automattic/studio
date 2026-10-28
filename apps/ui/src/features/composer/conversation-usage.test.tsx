@@ -1,8 +1,8 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createFakeConnector, makeSession, makeSite } from '@/test/fake-connector';
+import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
-import type { Connector, LoadedAiSession } from '@/data/core';
+import type { Connector } from '@/data/core';
 import type { AiSettings } from '@studio/common/ai/providers';
 
 const site = makeSite( { id: 'one', name: 'My site', path: '/sites/my-site' } );
@@ -42,7 +42,7 @@ describe( 'Conversation usage and model picker', () => {
 				}
 			);
 			const { user } = renderApp( { connector, path: '/sites/one/new' } );
-			await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+			await screen.findByRole( 'button', { name: 'Site menu' } );
 			await user.click( await screen.findByRole( 'button', { name: 'Model' } ) );
 			if ( provider === 'wpcom' ) {
 				expect( await screen.findByRole( 'option', { name: /Fast/ } ) ).toHaveTextContent(
@@ -77,16 +77,11 @@ describe( 'Conversation usage and model picker', () => {
 	it( 'selects the personal-key model and its provider from one footer picker', async () => {
 		const connector = createFakeConnector( { sites: [ site ] }, withKey( 'wpcom' ) );
 		const { user } = renderApp( { connector, path: '/sites/one/new' } );
-		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+		await screen.findByRole( 'button', { name: 'Site menu' } );
 		await user.click( await screen.findByRole( 'button', { name: 'Model' } ) );
 		await user.click( await screen.findByRole( 'option', { name: /^Sonnet 5/ } ) );
-		await waitFor( () =>
-			expect( connector.setSessionProvider ).toHaveBeenCalledWith(
-				expect.any( String ),
-				'anthropic-api-key',
-				'claude-sonnet-5'
-			)
-		);
+		expect( connector.createSession ).not.toHaveBeenCalled();
+		expect( connector.setSessionProvider ).not.toHaveBeenCalled();
 		await waitFor( () =>
 			expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveTextContent( 'Sonnet 5' )
 		);
@@ -94,46 +89,18 @@ describe( 'Conversation usage and model picker', () => {
 			'aria-description',
 			expect.stringContaining( 'AI credits:' )
 		);
-	} );
-
-	it( 'preserves the default model through the new-chat provider confirmation', async () => {
-		const existing: LoadedAiSession = {
-			summary: makeSession( {
-				id: 'existing-credits',
-				title: 'Existing credit chat',
-				ownerSiteId: 'one',
-				ownerSitePath: site.path,
-			} ),
-			entries: [
-				{
-					id: 'message',
-					type: 'custom',
-					customType: 'studio.user_prompt',
-					timestamp: new Date().toISOString(),
-					parentId: null,
-					data: { source: 'prompt', text: 'Build my site' },
-				},
-			] as LoadedAiSession[ 'entries' ],
-		};
-		const connector = createFakeConnector(
-			{ sites: [ site ], sessions: [ existing ] },
-			withKey( 'wpcom' )
+		await user.type(
+			screen.getByRole( 'combobox', { name: 'Message WordPress Studio' } ),
+			'Help me plan'
 		);
-		const { user } = renderApp( { connector, path: '/sessions/existing-credits' } );
-		await screen.findByRole( 'button', { name: 'Site actions for My site' } );
-		await user.click( await screen.findByRole( 'button', { name: 'Model' } ) );
-		await user.click( await screen.findByRole( 'option', { name: /^Sonnet 5/ } ) );
-		const confirmation = await screen.findByRole( 'dialog', { name: 'Start a new chat?' } );
-		expect( connector.createSession ).not.toHaveBeenCalled();
-		await user.click( within( confirmation ).getByRole( 'button', { name: 'Yes, new chat' } ) );
-		await waitFor( () => expect( connector.createSession ).toHaveBeenCalled() );
-		const created = await connector.createSession.mock.results[ 0 ].value;
+		await user.click( screen.getByRole( 'button', { name: 'Send message' } ) );
 		await waitFor( () =>
 			expect( connector.setSessionProvider ).toHaveBeenCalledWith(
-				created.id,
+				expect.any( String ),
 				'anthropic-api-key',
 				'claude-sonnet-5'
 			)
 		);
+		expect( connector.createSession ).toHaveBeenCalledTimes( 1 );
 	} );
 } );

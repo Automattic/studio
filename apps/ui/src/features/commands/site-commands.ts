@@ -2,7 +2,6 @@ import { __, sprintf } from '@wordpress/i18n';
 import {
 	ArrowRightLeftIcon,
 	CodeIcon,
-	CopyIcon,
 	DatabaseIcon,
 	DownloadIcon,
 	EyeIcon,
@@ -17,6 +16,7 @@ import {
 import {
 	AnnotateIcon,
 	ChatIcon,
+	DuplicateIcon,
 	ExternalLinkIcon,
 	NewChatIcon,
 	PinIcon,
@@ -51,7 +51,6 @@ const OPEN_IN_ICONS: Record< OpenInDestination, PaletteCommand[ 'icon' ] > = {
 
 export function getSiteCommands( {
 	site,
-	chatEnabled,
 	chatHidden,
 	previewShown,
 	canAnnotate,
@@ -70,7 +69,6 @@ export function getSiteCommands( {
 	copyUrl,
 }: {
 	site: SiteDetails;
-	chatEnabled: boolean;
 	chatHidden?: boolean;
 	previewShown: boolean;
 	canAnnotate: boolean;
@@ -99,20 +97,16 @@ export function getSiteCommands( {
 	};
 
 	return [
-		...( chatEnabled
-			? [
-					{
-						id: 'new-chat',
-						group: 'quick' as const,
-						label: __( 'New chat' ),
-						icon: NewChatIcon,
-						priority: 1,
-						description,
-						aliases: [ __( 'Add chat' ), __( 'Create chat' ) ],
-						run: newChat,
-					},
-			  ]
-			: [] ),
+		{
+			id: 'new-chat',
+			group: 'quick',
+			label: __( 'New chat' ),
+			icon: NewChatIcon,
+			priority: 1,
+			description,
+			aliases: [ __( 'Add chat' ), __( 'Create chat' ) ],
+			run: newChat,
+		},
 		...( busy
 			? []
 			: [
@@ -227,7 +221,7 @@ export function getSiteCommands( {
 					},
 			  ]
 			: [] ),
-		...( previewShown && site.running && chatEnabled && ( canAnnotate || annotating )
+		...( previewShown && site.running && ( canAnnotate || annotating )
 			? [
 					{
 						id: 'annotate',
@@ -280,7 +274,7 @@ export function getSiteCommands( {
 			id: 'copy-url',
 			group: 'site',
 			label: __( 'Copy site URL' ),
-			icon: CopyIcon,
+			icon: DuplicateIcon,
 			description,
 			keywords: [ __( 'Address' ), __( 'Link' ) ],
 			run: copyUrl,
@@ -306,7 +300,7 @@ export function getSiteCommands( {
 							? __( 'Import backup…' )
 							: action.label,
 					icon: {
-						duplicate: CopyIcon,
+						duplicate: DuplicateIcon,
 						import: UploadIcon,
 						export: DownloadIcon,
 						'export-db': DatabaseIcon,

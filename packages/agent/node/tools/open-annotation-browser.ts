@@ -1,5 +1,4 @@
 import { Type } from 'typebox';
-import { annotateInBrowser } from '@studio/agent/node/inspector/inspector-inject';
 import { formatVisualAnnotationsPrompt } from '@studio/agent/protocol/visual-annotations';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
 import { textResult } from './utils';
@@ -23,7 +22,10 @@ export const openAnnotationBrowserTool = defineTool(
 	async ( args, context ) => {
 		try {
 			context.onProgress( `Opening annotation browser at ${ args.url }…` );
-			const notes = await annotateInBrowser( args.url, ( args.timeoutMinutes ?? 30 ) * 60 * 1000 );
+			const notes = await context.host.annotate!(
+				args.url,
+				( args.timeoutMinutes ?? 30 ) * 60 * 1000
+			);
 			if ( ! notes ) {
 				return textResult( 'The user closed the annotation browser without sending annotations.' );
 			}

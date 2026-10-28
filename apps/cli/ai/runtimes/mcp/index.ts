@@ -17,7 +17,6 @@ import {
 	createPresentDesignOptionsTool,
 	createResultNotes,
 	defineTool,
-	isImageGenerationAvailable,
 	loadSkills,
 	READ_ONLY,
 	renderSkill,
@@ -152,8 +151,8 @@ export async function startMcpStdioServer(): Promise< void > {
 	const host = cliAgentHost;
 	const agent = createAgent( { host } );
 	const sessionId = randomUUID();
-	const resultNotes = createResultNotes();
-	const imageGeneration = await isImageGenerationAvailable();
+	const resultNotes = createResultNotes( host );
+	const imageGeneration = Boolean( await host.wpcom.imageToken() );
 	const server = new Server(
 		{ name: 'studio', version: '1.0.0' },
 		{

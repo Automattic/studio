@@ -27,7 +27,7 @@ import { createTakeScreenshotTool, takeScreenshotTool } from './take-screenshot'
 import { updatePreviewTool } from './update-preview';
 import { validateBlocksTool } from './validate-blocks';
 import { runWpCliTool } from './wp-cli';
-import { wpcomRequestTool } from './wpcom-request';
+import { createWpcomRequestTool } from './wpcom-request';
 import type {
 	AnyStudioAgentTool,
 	StudioToolDefinition,
@@ -36,36 +36,39 @@ import type {
 import type { DesignTracksContext } from '@studio/agent/node/design-tracks';
 import type { StudioAgentHost, StudioAgentUi } from '@studio/agent/node/host';
 
-export const studioToolDefinitions: StudioToolDefinition[] = [
-	createSiteTool,
-	listSitesTool,
-	getSiteInfoTool,
-	startSiteTool,
-	stopSiteTool,
-	deleteSiteTool,
-	createPreviewTool,
-	listPreviewsTool,
-	updatePreviewTool,
-	deletePreviewTool,
-	runWpCliTool,
-	scaffoldThemeTool,
-	pickDesignTool,
-	validateBlocksTool,
-	takeScreenshotTool,
-	inspectDesignTool,
-	generateImagesTool,
-	installTaxonomyScriptsTool,
-	auditPerformanceTool,
-	auditSeoTool,
-	listConnectedRemoteSitesTool,
-	wpcomRequestTool,
-	pushSiteTool,
-	pullSiteTool,
-	importSiteTool,
-	exportSiteTool,
-	openAnnotationBrowserTool,
-	refreshBrowserTool,
-];
+// The tools as defined for `host`.
+export function studioToolDefinitions( host: StudioAgentHost ): StudioToolDefinition[] {
+	return [
+		createSiteTool,
+		listSitesTool,
+		getSiteInfoTool,
+		startSiteTool,
+		stopSiteTool,
+		deleteSiteTool,
+		createPreviewTool,
+		listPreviewsTool,
+		updatePreviewTool,
+		deletePreviewTool,
+		runWpCliTool,
+		scaffoldThemeTool,
+		pickDesignTool,
+		validateBlocksTool,
+		takeScreenshotTool,
+		inspectDesignTool,
+		generateImagesTool,
+		installTaxonomyScriptsTool,
+		auditPerformanceTool,
+		auditSeoTool,
+		listConnectedRemoteSitesTool,
+		createWpcomRequestTool( host.wpcom.payloadsDirectory ),
+		pushSiteTool,
+		pullSiteTool,
+		importSiteTool,
+		exportSiteTool,
+		openAnnotationBrowserTool,
+		refreshBrowserTool,
+	];
+}
 
 export interface StudioToolsOptions {
 	// Enable generate_images. Callers resolve isImageGenerationAvailable()
@@ -92,15 +95,18 @@ export function resolveStudioTools(
 	host: StudioAgentHost,
 	options: StudioToolsOptions = {}
 ): AnyStudioAgentTool[] {
-	return studioToolDefinitions.flatMap( ( candidate ) => {
+	return studioToolDefinitions( host ).flatMap( ( candidate ) => {
 		if ( candidate.name === generateImagesTool.name && ! options.imageGeneration ) {
 			return [];
 		}
-		if ( candidate.name === wpcomRequestTool.name && options.wpcomRequest === false ) {
+		if ( candidate.name === 'wpcom_request' && options.wpcomRequest === false ) {
 			return [];
 		}
 		// Only a Studio UI shows the preview it reloads.
 		if ( candidate.name === refreshBrowserTool.name && ! host.ui ) {
+			return [];
+		}
+		if ( candidate.name === openAnnotationBrowserTool.name && ! host.annotate ) {
 			return [];
 		}
 		let tool = candidate;

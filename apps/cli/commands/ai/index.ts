@@ -2,6 +2,7 @@ import {
 	closeSharedBrowser,
 	createAgent,
 	createTurnStatsTracker,
+	nodeHostServices,
 	resolveResumeSessionContext,
 	type StudioAgentHost,
 	AskUserQuestion,
@@ -162,17 +163,19 @@ export async function runCommand( options: {
 	const isJsonMode = ui instanceof JsonAdapter;
 	const host: StudioAgentHost = {
 		...cliAgentHost,
-		// Persist screenshots next to the session file (`<session>.screenshots/`)
+		// Persist images next to the session file (`<session>.screenshots/`)
 		// so artifacts in the transcript keep rendering after OS temp cleanup;
 		// `deleteAiSession` removes the sidecar together with the session.
-		screenshotsDirectory: async () => {
-			const sm = await ensureSession();
-			const sessionFile = sm.getSessionFile();
-			if ( ! sessionFile?.endsWith( '.jsonl' ) ) {
-				return null;
-			}
-			return `${ sessionFile.slice( 0, -'.jsonl'.length ) }.screenshots`;
-		},
+		...nodeHostServices( {
+			imagesDirectory: async () => {
+				const sm = await ensureSession();
+				const sessionFile = sm.getSessionFile();
+				if ( ! sessionFile?.endsWith( '.jsonl' ) ) {
+					return null;
+				}
+				return `${ sessionFile.slice( 0, -'.jsonl'.length ) }.screenshots`;
+			},
+		} ),
 		selectSite:
 			ui instanceof JsonAdapter
 				? async ( site ) => {

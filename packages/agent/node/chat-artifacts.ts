@@ -1,13 +1,10 @@
-import { randomUUID } from 'node:crypto';
-import { existsSync } from 'node:fs';
-import path from 'node:path';
 import {
 	DESIGN_SYSTEM_PREVIEW_PATH,
 	STUDIO_CHAT_ARTIFACT_VERSION,
 	type StudioChatArtifactData,
 	type StudioChatArtifactWidgetDraft,
 } from '@studio/agent/protocol/chat-artifacts';
-import type { StudioAgentUi } from '@studio/agent/node/host';
+import type { StudioAgentHost, StudioAgentUi } from '@studio/agent/node/host';
 
 export async function emitChatArtifactWidgets(
 	ui: StudioAgentUi,
@@ -20,7 +17,7 @@ export async function emitChatArtifactWidgets(
 
 	const artifact: StudioChatArtifactData = {
 		version: STUDIO_CHAT_ARTIFACT_VERSION,
-		id: randomUUID(),
+		id: crypto.randomUUID(),
 		widgets: artifactWidgets,
 	};
 
@@ -51,17 +48,18 @@ interface FileWritingTool {
  */
 export function withDesignSystemPreview< TTool extends FileWritingTool >(
 	tool: TTool,
-	cwd: string,
+	host: StudioAgentHost,
 	ui: StudioAgentUi
 ): TTool {
+	const { path } = host;
 	return {
 		...tool,
 		async execute( toolCallId: string, params: { path?: unknown }, ...rest: unknown[] ) {
 			const result = await tool.execute( toolCallId, params, ...rest );
-			const filePath = path.resolve( cwd, String( params.path ) );
+			const filePath = path.resolve( host.sitesRoot, String( params.path ) );
 			if (
 				path.basename( filePath ) === 'DESIGN.md' &&
-				existsSync( path.join( path.dirname( filePath ), 'wp-content' ) )
+				( await host.files.isDirectory( path.join( path.dirname( filePath ), 'wp-content' ) ) )
 			) {
 				await emitChatArtifactWidgets( ui, [
 					{ type: 'site-preview', widgetProps: { path: DESIGN_SYSTEM_PREVIEW_PATH } },

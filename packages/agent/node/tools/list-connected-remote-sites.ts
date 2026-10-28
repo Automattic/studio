@@ -1,7 +1,3 @@
-import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
-import { readAuthToken } from '@studio/common/lib/shared-config';
-import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
-import { withWpcomDetails } from '@studio/common/lib/sync/transform-sites';
 import { Type } from 'typebox';
 import { defineTool, REMOTE_READ } from './define-tool';
 import { textResult } from './utils';
@@ -20,12 +16,7 @@ export const listConnectedRemoteSitesTool = defineTool(
 	async ( args, context ) => {
 		try {
 			const site = await context.host.sites.resolve( args.nameOrPath );
-			const stored = await getConnectedWpcomSitesForLocalSite( site.id );
-			const token = await readAuthToken();
-			const connected =
-				stored.length && token
-					? withWpcomDetails( stored, await fetchSyncableSites( token.accessToken ) )
-					: [];
+			const connected = await context.host.wpcom.connectedSites( site );
 			const summary = connected.map( ( s ) => ( {
 				type: 'wpcom-remote' as const,
 				id: s.id,

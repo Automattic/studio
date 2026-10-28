@@ -1,11 +1,11 @@
 /**
  * Frontend performance audit module for WordPress sites.
  *
- * Uses the shared Playwright browser to measure Core Web Vitals and page
+ * Uses the host's browser to measure Core Web Vitals and page
  * composition metrics via the native Performance API and PerformanceObserver.
  */
 
-import { getSharedBrowser } from './browser-utils';
+import type { HostPages } from '@studio/agent/node/host';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -206,34 +206,24 @@ const AUDIT_VIEWPORT = { width: 1040, height: 1248 };
 /** Extra wait after networkidle for late LCP candidates and layout shifts. */
 const POST_LOAD_DELAY_MS = 2000;
 
-export async function auditPerformance( siteUrl: string, urlPath = '/' ): Promise< AuditResult > {
+export async function auditPerformance(
+	pages: HostPages,
+	siteUrl: string,
+	urlPath = '/'
+): Promise< AuditResult > {
 	const targetUrl = `${ siteUrl.replace( /\/+$/, '' ) }${ urlPath }`;
-	const isAdminPath = urlPath.startsWith( '/wp-admin' );
 
 	try {
-		const browser = await getSharedBrowser();
-		const page = await browser.newPage( {
-			viewport: AUDIT_VIEWPORT,
-			ignoreHTTPSErrors: true,
-		} );
+		// The observers go in before the page's own scripts so FCP/LCP/CLS are
+		// captured from the start; admin pages open signed in.
+		const page = await pages.open(
+			{ url: targetUrl, signIn: urlPath.startsWith( '/wp-admin' ) },
+			{ viewport: AUDIT_VIEWPORT, initScript: observerSetupScript, waitUntil: 'networkidle' }
+		);
 
 		try {
-			// Inject observers before any navigation so FCP/LCP/CLS are captured from the start.
-			await page.addInitScript( observerSetupScript );
-
-			// For admin paths, go through auto-login first.
-			if ( isAdminPath ) {
-				const loginUrl = `${ siteUrl.replace(
-					/\/+$/,
-					''
-				) }/studio-auto-login?redirect_to=${ encodeURIComponent( urlPath ) }`;
-				await page.goto( loginUrl, { waitUntil: 'networkidle', timeout: 30_000 } );
-			} else {
-				await page.goto( targetUrl, { waitUntil: 'networkidle', timeout: 30_000 } );
-			}
-
 			// Wait for late LCP candidates and layout shifts to settle.
-			await page.waitForTimeout( POST_LOAD_DELAY_MS );
+			await new Promise( ( resolve ) => setTimeout( resolve, POST_LOAD_DELAY_MS ) );
 
 			const metrics = await page.evaluate( collectMetricsScript );
 

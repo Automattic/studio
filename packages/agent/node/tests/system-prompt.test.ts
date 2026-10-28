@@ -1,6 +1,3 @@
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
 import { describe, expect, it } from 'vitest';
 import { loadSkills } from '@studio/agent/node/skills';
 import { buildSystemPrompt } from '@studio/agent/node/system-prompt';
@@ -161,21 +158,13 @@ describe( 'buildSystemPrompt', () => {
 	} );
 
 	it( "names the active site's design system when it has a DESIGN.md", () => {
-		const sitePath = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-active-site-' ) );
-		try {
-			fs.writeFileSync( path.join( sitePath, 'DESIGN.md' ), '# Design' );
-			const prompt = buildSystemPrompt( {
-				activeSite: { name: 'Designed', path: sitePath, running: false },
-			} );
-			expect( prompt ).toContain(
-				`"Designed" at ${ sitePath } (stopped), design system: ${ path.join(
-					sitePath,
-					'DESIGN.md'
-				) }`
-			);
-		} finally {
-			fs.rmSync( sitePath, { recursive: true, force: true } );
-		}
+		const prompt = buildSystemPrompt( {
+			activeSite: { name: 'Designed', path: '/sites/designed', running: false },
+			activeSiteDesignPath: '/sites/designed/DESIGN.md',
+		} );
+		expect( prompt ).toContain(
+			'"Designed" at /sites/designed (stopped), design system: /sites/designed/DESIGN.md'
+		);
 	} );
 
 	it( 'appends the user global instructions when set', () => {

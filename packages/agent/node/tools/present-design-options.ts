@@ -1,15 +1,12 @@
-import { readFile, unlink, writeFile } from 'node:fs/promises';
-import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { Type } from 'typebox';
+import { toBase64 } from '@studio/agent/node/base64';
 import { renderDesignBoard } from '@studio/agent/node/design-board';
 import { DESIGN_OPTIONS } from '@studio/agent/node/design-catalog';
 import {
 	recordDesignTracksEvent,
 	type DesignTracksContext,
 } from '@studio/agent/node/design-tracks';
-import { resolveScreenshotDirectory } from '@studio/agent/node/screenshot-storage';
 import { defineTool, LOCAL_CHANGE, type ToolResult } from './define-tool';
 import { captureScreenshotBuffer, saveScreenshotFile } from './screenshot-helpers';
 import { textResult } from './utils';
@@ -33,10 +30,10 @@ const INLINE_IMAGE_MIME_TYPES: Record< string, string > = {
 const LOCAL_IMAGE_REFERENCE =
 	/(src=|url\()(["']?)((?:file:\/\/|\/)[^"')\s]+\.(?:jpe?g|png|webp))\2/gi;
 
-// The preview page is a `file://` document, so referenced images are inlined
-// rather than relying on file-to-file loads. They can live anywhere, such as
-// where an agent's own image tool saved them.
-async function inlineLocalImages( html: string ): Promise< string > {
+// Referenced images are inlined rather than loaded by the rendered document.
+// They can live anywhere, such as where an agent's own image tool saved them.
+async function inlineLocalImages( host: StudioAgentHost, html: string ): Promise< string > {
+	const { files, path } = host;
 	const references = [ ...html.matchAll( LOCAL_IMAGE_REFERENCE ) ];
 	const dataUrls = new Map< string, string >();
 	for ( const [ , , , reference ] of references ) {
@@ -44,18 +41,18 @@ async function inlineLocalImages( html: string ): Promise< string > {
 			continue;
 		}
 		const filePath = path.resolve(
-			reference.startsWith( 'file://' ) ? fileURLToPath( reference ) : reference
+			reference.startsWith( 'file://' ) ? path.fileURLToPath( reference ) : reference
 		);
-		let bytes: Buffer;
+		let bytes: Uint8Array;
 		try {
-			bytes = await readFile( filePath );
+			bytes = await files.read( filePath );
 		} catch {
 			throw new Error(
 				`Preview image not found: ${ reference }. Generate it first, or use a solid color shape instead.`
 			);
 		}
 		const mimeType = INLINE_IMAGE_MIME_TYPES[ path.extname( filePath ).toLowerCase() ];
-		dataUrls.set( reference, `data:${ mimeType };base64,${ bytes.toString( 'base64' ) }` );
+		dataUrls.set( reference, `data:${ mimeType };base64,${ toBase64( bytes ) }` );
 	}
 	return html.replace(
 		LOCAL_IMAGE_REFERENCE,
@@ -84,34 +81,28 @@ function escapeHtml( text: string ): string {
 async function handOverOptions(
 	host: StudioAgentHost,
 	question: string,
-	options: { label: string; description: string; image: string; buffer: Buffer }[],
+	options: { label: string; description: string; image: string; url: string; buffer: Uint8Array }[],
 	imageLink: ( file: string ) => string,
 	picker: boolean
 ): Promise< ToolResult > {
 	const figures = options
 		.map(
 			( option, index ) =>
-				`<figure><img src="${ pathToFileURL( option.image ).href }" alt=""><figcaption><b>${
+				`<figure><img src="${ option.url }" alt=""><figcaption><b>${
 					index + 1
 				}</b><span><strong>${ escapeHtml( option.label ) }</strong> ${ escapeHtml(
 					option.description
 				) }</span></figcaption></figure>`
 		)
 		.join( '' );
-	const gridPage = path.join(
-		await resolveScreenshotDirectory( host ),
-		`design-options-${ Date.now() }.html`
-	);
-	await writeFile(
-		gridPage,
-		`<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;padding:24px;width:${ GRID_WIDTH }px;box-sizing:border-box;font:18px/1.4 system-ui,sans-serif;background:#f0f0f0;color:#1e1e1e}main{display:grid;grid-template-columns:1fr 1fr;gap:24px}figure{margin:0;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.15)}img{display:block;width:100%;height:auto}figcaption{display:flex;gap:14px;align-items:center;padding:14px 18px}b{flex:none;display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#1e1e1e;color:#fff;font-size:20px}</style></head><body><main>${ figures }</main></body></html>`
-	);
 	const grid = await captureScreenshotBuffer(
-		pathToFileURL( gridPage ).href,
+		host.pages,
+		{
+			html: `<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;padding:24px;width:${ GRID_WIDTH }px;box-sizing:border-box;font:18px/1.4 system-ui,sans-serif;background:#f0f0f0;color:#1e1e1e}main{display:grid;grid-template-columns:1fr 1fr;gap:24px}figure{margin:0;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.15)}img{display:block;width:100%;height:auto}figcaption{display:flex;gap:14px;align-items:center;padding:14px 18px}b{flex:none;display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#1e1e1e;color:#fff;font-size:20px}</style></head><body><main>${ figures }</main></body></html>`,
+		},
 		{ width: GRID_WIDTH, height: 600 },
 		{ fullPage: true, format: 'jpeg' }
 	);
-	await unlink( gridPage );
 	const gridFile = await saveScreenshotFile( host, grid.buffer, {
 		viewportType: 'design-options',
 		format: 'jpeg',
@@ -119,7 +110,7 @@ async function handOverOptions(
 	const nextStep = `Continue with what they pick. If they pick "${ OTHER_OPTIONS }", draw that step again with pick_design; if they describe their own, follow it.`;
 	const gridImage = {
 		type: 'image' as const,
-		data: grid.buffer.toString( 'base64' ),
+		data: toBase64( grid.buffer ),
 		mimeType: 'image/jpeg',
 	};
 	if ( picker ) {
@@ -136,7 +127,7 @@ async function handOverOptions(
 				options: options.map( ( { label, description, buffer } ) => ( {
 					label,
 					description,
-					image: `data:image/jpeg;base64,${ buffer.toString( 'base64' ) }`,
+					image: `data:image/jpeg;base64,${ toBase64( buffer ) }`,
 				} ) ),
 			},
 		};
@@ -236,27 +227,17 @@ export function createPresentDesignOptionsTool( {
 				throw new Error( `Present between 2 and ${ DESIGN_OPTIONS } options.` );
 			}
 			context.onProgress( `Rendering ${ args.options.length } previews…` );
-			const directory = await resolveScreenshotDirectory( context.host );
 			const options = await Promise.all(
 				args.options.map( async ( option, index ) => {
-					const slug =
-						option.label
-							.toLowerCase()
-							.replace( /[^a-z0-9]+/g, '-' )
-							.replace( /^-+|-+$/g, '' )
-							.slice( 0, 40 ) || `option-${ index + 1 }`;
-					const htmlPath = path.join( directory, `preview-${ index + 1 }-${ slug }.html` );
 					let capture;
 					try {
 						const isDesignBoard = option.preview.trimStart().startsWith( '---' );
 						const html = isDesignBoard
 							? renderDesignBoard( option.preview, option.image )
 							: option.preview;
-						// The BOM makes the browser read the file as UTF-8 even when the
-						// sneak peek does not declare a charset.
-						await writeFile( htmlPath, `\ufeff${ await inlineLocalImages( html ) }` );
 						capture = await captureScreenshotBuffer(
-							pathToFileURL( htmlPath ).href,
+							context.host.pages,
+							{ html: await inlineLocalImages( context.host, html ) },
 							PREVIEW_VIEWPORT,
 							{
 								fullPage: false,
@@ -264,7 +245,6 @@ export function createPresentDesignOptionsTool( {
 								deviceScaleFactor: picker ? 0.5 : undefined,
 							}
 						);
-						await unlink( htmlPath );
 						if ( ! isDesignBoard && capture.contentHeight < PREVIEW_VIEWPORT.height ) {
 							throw new Error(
 								`the sneak peek's content ends at ${ capture.contentHeight }px of the ${ PREVIEW_VIEWPORT.height }px frame, leaving the bottom empty. Fix it and present the options again: ${ FRAME_FILL_RECIPE }, or add the next section.`
@@ -285,6 +265,7 @@ export function createPresentDesignOptionsTool( {
 						label: option.label,
 						description: option.description,
 						image: file.path,
+						url: file.fileUrl,
 						buffer: capture.buffer,
 					};
 				} )

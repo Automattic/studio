@@ -32,7 +32,6 @@ import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
 import { type TSchema } from 'typebox';
 import { withDesignSystemPreview } from '@studio/agent/node/chat-artifacts';
 import { readGlobalInstructions } from '@studio/agent/node/global-instructions';
-import { isImageGenerationAvailable } from '@studio/agent/node/image-generation';
 import { createResultNotes } from '@studio/agent/node/result-notes';
 import { buildSystemPrompt, type ToolPromptContribution } from '@studio/agent/node/system-prompt';
 import { resolveStudioTools } from '@studio/agent/node/tools';
@@ -330,9 +329,15 @@ async function createStudioAgentSession(
 ): Promise< AgentSession > {
 	const model = buildModel( config.model, family, creds );
 	const visionEnabled = aiModelSupportsImages( config.model );
-	const [ userInstructions, imageGenerationEnabled ] = await Promise.all( [
+	const { files, path } = config.host;
+	const designPath =
+		config.activeSite && ! config.activeSite.remote
+			? path.join( config.activeSite.path, 'DESIGN.md' )
+			: undefined;
+	const [ userInstructions, imageGenerationEnabled, hasDesign ] = await Promise.all( [
 		readGlobalInstructions(),
-		isImageGenerationAvailable(),
+		config.host.wpcom.imageToken().then( Boolean ),
+		designPath ? files.exists( designPath ) : false,
 	] );
 
 	const tools = buildAgentTools( config, imageGenerationEnabled, visionEnabled );
@@ -340,11 +345,12 @@ async function createStudioAgentSession(
 		userInstructions,
 		tools: tools.map( toolPromptContribution ),
 		activeSite: config.activeSite,
+		activeSiteDesignPath: hasDesign ? designPath : undefined,
 	} );
 
 	const pendingWork = getPendingWork( config.session );
 	const site = config.activeSite;
-	const notes = createResultNotes();
+	const notes = createResultNotes( config.host );
 	const resultNotes =
 		site && ! site.remote ? ( text: string ) => notes( site.path, text ) : undefined;
 	const toolDefinitions = tools.map( ( tool ) =>
@@ -709,7 +715,7 @@ function buildAgentTools(
 
 	const { sitesRoot, ui } = host;
 	const designSystemPreview = < TTool extends AgentToolAny >( tool: TTool ) =>
-		ui ? withDesignSystemPreview( tool, sitesRoot, ui ) : tool;
+		ui ? withDesignSystemPreview( tool, host, ui ) : tool;
 	const piTools: AgentToolAny[] = [
 		renameTool( createReadTool( sitesRoot ), 'Read' ),
 		designSystemPreview( renameTool( createWriteTool( sitesRoot ), 'Write' ) ),

@@ -24,14 +24,10 @@ import {
 	type InspectorEvent,
 } from '@studio/agent/protocol/inspector/page-script';
 import { NOTE_EDITOR_BINDING, NOTE_EDITOR_EVENT, NOTE_EDITOR_SCRIPT } from './note-editor';
-import type { VisualAnnotation } from '@studio/agent/protocol/visual-annotations';
+import type { BrowserAnnotation } from '@studio/agent/node/host';
 
 type Browser = Awaited< ReturnType< ( typeof import('playwright') )[ 'chromium' ][ 'launch' ] > >;
 type Page = Awaited< ReturnType< Browser[ 'newPage' ] > >;
-
-export interface BrowserAnnotation extends VisualAnnotation {
-	images: StudioChatImage[];
-}
 
 interface Anchor {
 	left: number;

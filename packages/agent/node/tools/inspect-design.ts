@@ -1,12 +1,12 @@
 import { Type } from 'typebox';
-import { getSharedBrowser } from '@studio/agent/node/browser-utils';
 import { defineTool, READ_ONLY } from './define-tool';
 import {
-	applyScreenshotMediaEmulation,
+	screenshotPageOptions,
 	SCREENSHOT_COLOR_SCHEME_DESCRIPTION,
 	SCREENSHOT_COLOR_SCHEME_VALUES,
 } from './screenshot-helpers';
 import { textResult } from './utils';
+import type { HostPage } from '@studio/agent/node/host';
 
 /**
  * Viewports mirror `take_screenshot` so the DOM the agent inspects matches the
@@ -122,16 +122,12 @@ export function createInspectDesignTool( { visionEnabled }: { visionEnabled: boo
 				})…`
 			);
 
-			const browser = await getSharedBrowser();
-			const page = await browser.newPage( {
-				viewport: INSPECT_VIEWPORTS[ viewport ],
-				ignoreHTTPSErrors: true,
-			} );
-
+			let page: HostPage | undefined;
 			try {
-				await applyScreenshotMediaEmulation( page, args.colorScheme );
-				await page.goto( args.url, { waitUntil: 'domcontentloaded', timeout: 30000 } );
-				await page.waitForLoadState( 'networkidle', { timeout: 2500 } ).catch( () => {} );
+				page = await context.host.pages.open(
+					{ url: args.url },
+					{ viewport: INSPECT_VIEWPORTS[ viewport ], ...screenshotPageOptions( args.colorScheme ) }
+				);
 				await page.evaluate(
 					() => new Promise< void >( ( resolve ) => requestAnimationFrame( () => resolve() ) )
 				);
@@ -218,7 +214,7 @@ export function createInspectDesignTool( { visionEnabled }: { visionEnabled: boo
 					hover = [];
 					for ( const selector of args.selectors ) {
 						try {
-							await page.hover( selector, { timeout: 2000 } );
+							await page.hover( selector );
 							const computedStyle = await page.evaluate(
 								( { sel, properties } ) => {
 									const el = document.querySelector( sel );
@@ -235,7 +231,7 @@ export function createInspectDesignTool( { visionEnabled }: { visionEnabled: boo
 								{ sel: selector, properties: COMPUTED_PROPERTIES as readonly string[] as string[] }
 							);
 							hover.push( { selector, computedStyle } );
-							await page.mouse.move( 0, 0 );
+							await page.hover( null );
 						} catch ( error ) {
 							hover.push( {
 								selector,
@@ -267,7 +263,7 @@ export function createInspectDesignTool( { visionEnabled }: { visionEnabled: boo
 					`Design inspection failed: ${ error instanceof Error ? error.message : String( error ) }`
 				);
 			} finally {
-				await page.close();
+				await page?.close();
 			}
 		},
 		{

@@ -1,17 +1,11 @@
-import { readFile } from 'fs/promises';
-import path from 'path';
-import { readAuthToken } from '@studio/common/lib/shared-config';
-import { getAiPayloadsPath } from '@studio/common/lib/well-known-paths';
-import wpcomFactory from '@studio/common/lib/wpcom-factory';
-import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { Type } from 'typebox';
 import { defineTool, REMOTE_OVERWRITE } from './define-tool';
 import { textResult } from './utils';
+import type { StudioAgentHost } from '@studio/agent/node/host';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ApiResponse = any;
 
-const PAYLOADS_DIR = getAiPayloadsPath();
 const BODY_FILE_FIELD_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_-]*$/;
 
 /**
@@ -65,16 +59,17 @@ function isRecord( value: unknown ): value is Record< string, unknown > {
 	return Boolean( value && typeof value === 'object' && ! Array.isArray( value ) );
 }
 
-function validateBodyFileFieldName( key: string ): void {
+function validateBodyFileFieldName( host: StudioAgentHost, key: string ): void {
 	if ( ! BODY_FILE_FIELD_NAME_PATTERN.test( key ) ) {
 		throw new Error(
-			`bodyFiles keys must be top-level REST body field names such as "content" or "excerpt", not filenames, nested paths, or JSON paths. Use the value as the file path, for example bodyFiles: { content: "${ PAYLOADS_DIR }/home.html" }.`
+			`bodyFiles keys must be top-level REST body field names such as "content" or "excerpt", not filenames, nested paths, or JSON paths. Use the value as the file path, for example bodyFiles: { content: "${ host.wpcom.payloadsDirectory }/home.html" }.`
 		);
 	}
 }
 
-function resolveBodyFilePath( filePath: string ): string {
-	const root = getAiPayloadsPath();
+function resolveBodyFilePath( host: StudioAgentHost, filePath: string ): string {
+	const { path } = host;
+	const root = host.wpcom.payloadsDirectory;
 	const resolvedPath = path.resolve( root, filePath );
 	const relativePath = path.relative( root, resolvedPath );
 
@@ -97,8 +92,11 @@ function validateSingleBodySource(
 	}
 }
 
-async function readBodyFile( bodyFile: string ): Promise< Record< string, unknown > > {
-	const fileContents = await readFile( resolveBodyFilePath( bodyFile ), 'utf8' );
+async function readBodyFile(
+	host: StudioAgentHost,
+	bodyFile: string
+): Promise< Record< string, unknown > > {
+	const fileContents = await host.files.readText( resolveBodyFilePath( host, bodyFile ) );
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse( fileContents );
@@ -112,6 +110,7 @@ async function readBodyFile( bodyFile: string ): Promise< Record< string, unknow
 }
 
 async function mergeBodyFiles(
+	host: StudioAgentHost,
 	body: Record< string, unknown > | undefined,
 	bodyFiles: Record< string, string > | undefined
 ): Promise< Record< string, unknown > > {
@@ -122,39 +121,30 @@ async function mergeBodyFiles(
 	}
 
 	for ( const [ key, filePath ] of Object.entries( bodyFiles ) ) {
-		validateBodyFileFieldName( key );
+		validateBodyFileFieldName( host, key );
 		if ( body && hasOwnProperty( body, key ) ) {
 			throw new Error(
 				`wpcom_request defines both body.${ key } and bodyFiles.${ key }. Put file-backed fields only in bodyFiles.`
 			);
 		}
 
-		mergedBody[ key ] = await readFile( resolveBodyFilePath( filePath ), 'utf8' );
+		mergedBody[ key ] = await host.files.readText( resolveBodyFilePath( host, filePath ) );
 	}
 
 	return mergedBody;
 }
 
 async function resolveRequestBody(
+	host: StudioAgentHost,
 	body: Record< string, unknown > | undefined,
 	bodyFile: string | undefined,
 	bodyFiles: Record< string, string > | undefined
 ): Promise< Record< string, unknown > > {
 	validateSingleBodySource( body, bodyFile, bodyFiles );
 	if ( bodyFile ) {
-		return readBodyFile( bodyFile );
+		return readBodyFile( host, bodyFile );
 	}
-	return mergeBodyFiles( body, bodyFiles );
-}
-
-async function wpcomClient() {
-	const token = await readAuthToken();
-	if ( ! token?.accessToken ) {
-		throw new Error(
-			'Not logged in to WordPress.com. Ask the user to log in with `studio auth login`.'
-		);
-	}
-	return wpcomFactory( token.accessToken, wpcomXhrRequest );
+	return mergeBodyFiles( host, body, bodyFiles );
 }
 
 /**
@@ -163,115 +153,102 @@ async function wpcomClient() {
  * that can call any WP.com REST API endpoint. The AI agent determines the correct
  * endpoints based on its knowledge of the WordPress.com REST API.
  */
-export const wpcomRequestTool = defineTool(
-	'wpcom_request',
-	'Makes a request to the WordPress REST API (wp/v2) or WordPress.com REST API (v1.1) for the WordPress.com site `siteId`. ' +
-		'Defaults to the WordPress REST API (wp/v2). Use this to manage posts, pages, templates, template parts, ' +
-		'media, plugins, themes, settings, and any other site resource. ' +
-		'The path is relative to /sites/{siteId}/ — for example, pass "/posts" to call /wp/v2/sites/{siteId}/posts. ' +
-		'For non-site endpoints, start the path with "!" (e.g., "!/me") to use an absolute path.',
-	{
-		siteId: Type.Number( { description: 'The WordPress.com site ID.' } ),
-		method: Type.Enum( [ 'GET', 'POST', 'PUT', 'DELETE' ], {
-			description: 'HTTP method for the request.',
-		} ),
-		path: Type.String( {
-			description:
-				'API path relative to /sites/{siteId}/, e.g. "/posts", "/posts/123", "/templates", "/template-parts". ' +
-				'Prefix with "!" to use an absolute path (e.g. "!/me").',
-		} ),
-		query: Type.Optional(
-			Type.Record( Type.String(), Type.Unknown(), {
+export function createWpcomRequestTool( payloadsDirectory: string ) {
+	return defineTool(
+		'wpcom_request',
+		'Makes a request to the WordPress REST API (wp/v2) or WordPress.com REST API (v1.1) for the WordPress.com site `siteId`. ' +
+			'Defaults to the WordPress REST API (wp/v2). Use this to manage posts, pages, templates, template parts, ' +
+			'media, plugins, themes, settings, and any other site resource. ' +
+			'The path is relative to /sites/{siteId}/ — for example, pass "/posts" to call /wp/v2/sites/{siteId}/posts. ' +
+			'For non-site endpoints, start the path with "!" (e.g., "!/me") to use an absolute path.',
+		{
+			siteId: Type.Number( { description: 'The WordPress.com site ID.' } ),
+			method: Type.Enum( [ 'GET', 'POST', 'PUT', 'DELETE' ], {
+				description: 'HTTP method for the request.',
+			} ),
+			path: Type.String( {
 				description:
-					'Query parameters as key-value pairs, e.g. { "per_page": 20, "status": "publish" }.',
-			} )
-		),
-		body: Type.Optional(
-			Type.Record( Type.String(), Type.Unknown(), {
-				description: 'Request body for POST/PUT requests as key-value pairs.',
-			} )
-		),
-		bodyFile: Type.Optional(
-			Type.String( {
-				description: `Optional full request body file for POST/PUT requests. The file must be a valid JSON object stored in ${ PAYLOADS_DIR } (pass its absolute path), and it becomes the entire REST body. Use this for endpoints such as global styles that expect nested JSON objects. Do not combine bodyFile with body or bodyFiles.`,
-			} )
-		),
-		bodyFiles: Type.Optional(
-			Type.Record( Type.String(), Type.String(), {
-				description:
-					`Optional file-backed string body fields for POST/PUT requests. Keys must be top-level REST body field names like "content"; do not use filenames, file extensions, nested fields, dots, slashes, or JSON paths as keys. Values must be absolute paths of files in ${ PAYLOADS_DIR }. ` +
-					`Example: { "content": "${ PAYLOADS_DIR }/home.html" }. Use this for large generated strings instead of inlining them in body.`,
-			} )
-		),
-		apiNamespace: Type.Optional(
-			Type.String( {
-				description:
-					'API namespace. Defaults to "wp/v2" (WordPress REST API). ' +
-					'Set to "wpcom/v2" for WordPress.com v2 endpoints, or omit/leave empty to fall back to WP.com REST API v1.1. ' +
-					'Use wp/v2 for standard WordPress resources (posts, pages, templates, media, users, etc.). ' +
-					'Use WP.com v1.1 (set apiNamespace to "") for WP.com-specific endpoints like /plugins, /themes/mine.',
-			} )
-		),
-	},
-	async ( args ) => {
-		try {
-			let fullPath: string;
-			if ( args.path.startsWith( '!' ) ) {
-				fullPath = args.path.slice( 1 );
-			} else {
-				const relativePath = args.path.startsWith( '/' ) ? args.path : `/${ args.path }`;
-				fullPath = `/sites/${ args.siteId }${ relativePath }`;
-			}
+					'API path relative to /sites/{siteId}/, e.g. "/posts", "/posts/123", "/templates", "/template-parts". ' +
+					'Prefix with "!" to use an absolute path (e.g. "!/me").',
+			} ),
+			query: Type.Optional(
+				Type.Record( Type.String(), Type.Unknown(), {
+					description:
+						'Query parameters as key-value pairs, e.g. { "per_page": 20, "status": "publish" }.',
+				} )
+			),
+			body: Type.Optional(
+				Type.Record( Type.String(), Type.Unknown(), {
+					description: 'Request body for POST/PUT requests as key-value pairs.',
+				} )
+			),
+			bodyFile: Type.Optional(
+				Type.String( {
+					description: `Optional full request body file for POST/PUT requests. The file must be a valid JSON object stored in ${ payloadsDirectory } (pass its absolute path), and it becomes the entire REST body. Use this for endpoints such as global styles that expect nested JSON objects. Do not combine bodyFile with body or bodyFiles.`,
+				} )
+			),
+			bodyFiles: Type.Optional(
+				Type.Record( Type.String(), Type.String(), {
+					description:
+						`Optional file-backed string body fields for POST/PUT requests. Keys must be top-level REST body field names like "content"; do not use filenames, file extensions, nested fields, dots, slashes, or JSON paths as keys. Values must be absolute paths of files in ${ payloadsDirectory }. ` +
+						`Example: { "content": "${ payloadsDirectory }/home.html" }. Use this for large generated strings instead of inlining them in body.`,
+				} )
+			),
+			apiNamespace: Type.Optional(
+				Type.String( {
+					description:
+						'API namespace. Defaults to "wp/v2" (WordPress REST API). ' +
+						'Set to "wpcom/v2" for WordPress.com v2 endpoints, or omit/leave empty to fall back to WP.com REST API v1.1. ' +
+						'Use wp/v2 for standard WordPress resources (posts, pages, templates, media, users, etc.). ' +
+						'Use WP.com v1.1 (set apiNamespace to "") for WP.com-specific endpoints like /plugins, /themes/mine.',
+				} )
+			),
+		},
+		async ( args, { host } ) => {
+			try {
+				let fullPath: string;
+				if ( args.path.startsWith( '!' ) ) {
+					fullPath = args.path.slice( 1 );
+				} else {
+					const relativePath = args.path.startsWith( '/' ) ? args.path : `/${ args.path }`;
+					fullPath = `/sites/${ args.siteId }${ relativePath }`;
+				}
 
-			// An empty string means "use WP.com REST API v1.1" (no apiNamespace → isRestAPI=true in wpcom-xhr-request).
-			const apiNamespace = args.apiNamespace ?? 'wp/v2';
-			const queryParams: Record< string, unknown > = { ...( args.query ?? {} ) };
-			if ( apiNamespace ) {
-				queryParams.apiNamespace = apiNamespace;
-			}
+				// An empty string means "use WP.com REST API v1.1" (no apiNamespace → isRestAPI=true in wpcom-xhr-request).
+				const apiNamespace = args.apiNamespace ?? 'wp/v2';
+				const queryParams: Record< string, unknown > = { ...( args.query ?? {} ) };
+				if ( apiNamespace ) {
+					queryParams.apiNamespace = apiNamespace;
+				}
 
-			const wpcom = await wpcomClient();
-			let result: ApiResponse;
-			switch ( args.method ) {
-				case 'GET':
-					if ( args.bodyFile || args.bodyFiles ) {
-						throw new Error( 'bodyFile and bodyFiles can only be used with POST or PUT requests.' );
-					}
-					result = await wpcom.req.get< ApiResponse >( fullPath, queryParams );
-					break;
-				case 'POST':
-					result = await wpcom.req.post< ApiResponse >(
-						fullPath,
-						queryParams,
-						await resolveRequestBody( args.body, args.bodyFile, args.bodyFiles )
-					);
-					break;
-				case 'PUT':
-					result = await wpcom.req.put< ApiResponse >(
-						fullPath,
-						queryParams,
-						await resolveRequestBody( args.body, args.bodyFile, args.bodyFiles )
-					);
-					break;
-				case 'DELETE':
-					if ( args.bodyFile || args.bodyFiles ) {
-						throw new Error( 'bodyFile and bodyFiles can only be used with POST or PUT requests.' );
-					}
-					result = await wpcom.req.del< ApiResponse >( fullPath, queryParams );
-					break;
-			}
+				const method = args.method as 'GET' | 'POST' | 'PUT' | 'DELETE';
+				const hasBody = method === 'POST' || method === 'PUT';
+				if ( ! hasBody && ( args.bodyFile || args.bodyFiles ) ) {
+					throw new Error( 'bodyFile and bodyFiles can only be used with POST or PUT requests.' );
+				}
+				const result: ApiResponse = await host.wpcom.request(
+					method,
+					fullPath,
+					queryParams,
+					hasBody
+						? await resolveRequestBody( host, args.body, args.bodyFile, args.bodyFiles )
+						: undefined
+				);
 
-			const compacted = stripOversizedFields( result );
-			return textResult( JSON.stringify( compacted ) );
-		} catch ( error ) {
-			throw new Error(
-				`WP.com API request failed (${ args.method } ${ args.path }): ${ getErrorMessage( error ) }`
-			);
+				const compacted = stripOversizedFields( result );
+				return textResult( JSON.stringify( compacted ) );
+			} catch ( error ) {
+				throw new Error(
+					`WP.com API request failed (${ args.method } ${ args.path }): ${ getErrorMessage(
+						error
+					) }`
+				);
+			}
+		},
+		{
+			promptSnippet:
+				'Manage a WordPress.com site through WordPress REST API and WordPress.com REST API endpoints, passing its ID as siteId.',
+			annotations: REMOTE_OVERWRITE,
 		}
-	},
-	{
-		promptSnippet:
-			'Manage a WordPress.com site through WordPress REST API and WordPress.com REST API endpoints, passing its ID as siteId.',
-		annotations: REMOTE_OVERWRITE,
-	}
-);
+	);
+}

@@ -1,4 +1,3 @@
-import path from 'path';
 import { Type } from 'typebox';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
 import { textResult } from './utils';
@@ -19,7 +18,11 @@ export const createSiteTool = defineTool(
 				throw new Error( 'Site name must contain at least one ASCII letter or digit (a-z, 0-9).' );
 			}
 			const host = context.host;
-			await host.sites.create( args.name, path.join( host.sitesRoot, slug ), context.onProgress );
+			await host.sites.create(
+				args.name,
+				host.path.join( host.sitesRoot, slug ),
+				context.onProgress
+			);
 
 			const site = await context.host.sites.resolve( args.name );
 			const url = site.url;

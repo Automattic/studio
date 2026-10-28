@@ -1,6 +1,5 @@
-import { copyFile } from 'node:fs/promises';
-import path from 'node:path';
 import { Type } from 'typebox';
+import { toBase64 } from '@studio/agent/node/base64';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
 import {
 	captureScreenshotBuffer,
@@ -108,6 +107,7 @@ export function createTakeScreenshotTool( {
 			),
 		},
 		async ( args, context ) => {
+			const { path } = context.host;
 			try {
 				const themeDirectory = args.themeScreenshot && path.resolve( args.themeScreenshot );
 				if ( themeDirectory && ! themeDirectory.startsWith( context.host.sitesRoot + path.sep ) ) {
@@ -127,13 +127,18 @@ export function createTakeScreenshotTool( {
 				context.onProgress( `Taking ${ captureLabel } screenshot of ${ args.url }…` );
 				const captures = await Promise.all(
 					captureTargets.map( async ( { viewportType, colorScheme } ) => {
-						const capture = await captureScreenshotBuffer( args.url, VIEWPORTS[ viewportType ], {
-							fullPage: true,
-							format: 'jpeg',
-							offset: args.offset,
-							colorScheme,
-							forModel: visionEnabled,
-						} );
+						const capture = await captureScreenshotBuffer(
+							context.host.pages,
+							{ url: args.url },
+							VIEWPORTS[ viewportType ],
+							{
+								fullPage: true,
+								format: 'jpeg',
+								offset: args.offset,
+								colorScheme,
+								forModel: visionEnabled,
+							}
+						);
 						const screenshotFile = await saveScreenshotFile( context.host, capture.buffer, {
 							viewportType,
 							format: 'jpeg',
@@ -203,7 +208,7 @@ export function createTakeScreenshotTool( {
 				const desktop = captures.find( ( capture ) => capture.viewportType === 'desktop' );
 				if ( themeDirectory && desktop ) {
 					const themeScreenshot = path.join( themeDirectory, 'screenshot.jpg' );
-					await copyFile( desktop.path, themeScreenshot );
+					await context.host.files.write( themeScreenshot, desktop.buffer );
 					textLines.push(
 						`Saved the desktop capture as the theme screenshot: ${ themeScreenshot }`
 					);
@@ -235,7 +240,7 @@ export function createTakeScreenshotTool( {
 						...( visionEnabled
 							? captures.map( ( capture ) => ( {
 									type: 'image' as const,
-									data: ( capture.modelImage?.buffer ?? capture.buffer ).toString( 'base64' ),
+									data: toBase64( capture.modelImage?.buffer ?? capture.buffer ),
 									mimeType: capture.mimeType,
 							  } ) )
 							: [] ),

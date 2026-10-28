@@ -1,5 +1,4 @@
-import { readFileSync } from 'fs';
-import path from 'path';
+import type { StudioAgentHost } from '@studio/agent/node/host';
 
 // Matches the opening comment of a block in serialized markup, e.g.
 // `<!-- wp:navigation /-->` or `<!-- wp:core/group {...} -->`. Closing
@@ -33,11 +32,15 @@ function describeAttribute( name: string, attribute: BlockAttribute ): string {
 // stored in the block comment. Attributes read from the block's HTML
 // (`source`) are its content, and `__unstable`/`__experimental` ones are
 // internal, so both are left out.
-function describeCoreBlockSettings( blocksDir: string, slug: string ): string | undefined {
+async function describeCoreBlockSettings(
+	{ files, path }: StudioAgentHost,
+	blocksDir: string,
+	slug: string
+): Promise< string | undefined > {
 	const file = path.join( blocksDir, slug, 'block.json' );
 	let attributes: Record< string, BlockAttribute >;
 	try {
-		attributes = JSON.parse( readFileSync( file, 'utf8' ) ).attributes ?? {};
+		attributes = JSON.parse( await files.readText( file ) ).attributes ?? {};
 	} catch {
 		return undefined;
 	}
@@ -53,9 +56,12 @@ function describeCoreBlockSettings( blocksDir: string, slug: string ): string | 
 // Returns a function that, given a tool result's text, describes the settings
 // of each core block type that appears in it. Each block type is described
 // once per tracker.
-export function createBlockSettingsNotes( blocksDir: string ): ( text: string ) => string {
+export function createBlockSettingsNotes(
+	host: StudioAgentHost,
+	blocksDir: string
+): ( text: string ) => Promise< string > {
 	const described = new Set< string >();
-	return ( text ) => {
+	return async ( text ) => {
 		const notes: string[] = [];
 		for ( const match of text.matchAll( BLOCK_COMMENT ) ) {
 			const slug = coreSlug( match[ 1 ] );
@@ -63,7 +69,7 @@ export function createBlockSettingsNotes( blocksDir: string ): ( text: string ) 
 				continue;
 			}
 			described.add( slug );
-			const note = describeCoreBlockSettings( blocksDir, slug );
+			const note = await describeCoreBlockSettings( host, blocksDir, slug );
 			if ( note ) {
 				notes.push( note );
 			}

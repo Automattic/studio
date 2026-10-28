@@ -1,7 +1,7 @@
 /**
  * On-page SEO audit module for WordPress sites.
  *
- * Loads a page in the shared Playwright browser and extracts on-page SEO
+ * Loads a page in the host's browser and extracts on-page SEO
  * signals from the rendered DOM (meta tags, headings, images, links, schema)
  * along with the availability of robots.txt and sitemap.xml.
  *
@@ -9,7 +9,7 @@
  * data or rank tracking. Focus on structural fixes the user can apply.
  */
 
-import { getSharedBrowser } from './browser-utils';
+import type { HostPages } from '@studio/agent/node/host';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -292,22 +292,15 @@ function collectSeoScript( origin: string ) {
 // ---------------------------------------------------------------------------
 
 async function checkResource(
-	browser: Awaited< ReturnType< typeof getSharedBrowser > >,
+	pages: HostPages,
 	url: string
 ): Promise< { ok: boolean; body: string } > {
-	const context = await browser.newContext( { ignoreHTTPSErrors: true } );
 	try {
-		const response = await context.request.get( url, {
-			failOnStatusCode: false,
-			timeout: 10_000,
-		} );
-		const ok = response.status() >= 200 && response.status() < 400;
-		const body = ok ? await response.text() : '';
-		return { ok, body };
+		const { status, body } = await pages.fetchText( url );
+		const ok = status >= 200 && status < 400;
+		return { ok, body: ok ? body : '' };
 	} catch {
 		return { ok: false, body: '' };
-	} finally {
-		await context.close();
 	}
 }
 
@@ -337,30 +330,28 @@ function robotsBlocksAll( robotsTxt: string ): boolean {
 
 const AUDIT_VIEWPORT = { width: 1040, height: 1248 };
 
-export async function auditSeo( siteUrl: string, urlPath = '/' ): Promise< SeoAuditResult > {
+export async function auditSeo(
+	pages: HostPages,
+	siteUrl: string,
+	urlPath = '/'
+): Promise< SeoAuditResult > {
 	const origin = siteUrl.replace( /\/+$/, '' );
 	const targetUrl = `${ origin }${ urlPath }`;
 
 	try {
-		const browser = await getSharedBrowser();
-		const page = await browser.newPage( {
-			viewport: AUDIT_VIEWPORT,
-			ignoreHTTPSErrors: true,
-		} );
+		const page = await pages.open(
+			{ url: targetUrl },
+			{ viewport: AUDIT_VIEWPORT, waitUntil: 'networkidle' }
+		);
 
 		try {
-			const response = await page.goto( targetUrl, {
-				waitUntil: 'networkidle',
-				timeout: 30_000,
-			} );
-
-			const httpStatus = response?.status() ?? 0;
+			const httpStatus = page.status();
 			const collected = await page.evaluate( collectSeoScript, origin );
 
 			const [ robotsResult, sitemapAtRoot, sitemapIndex ] = await Promise.all( [
-				checkResource( browser, `${ origin }/robots.txt` ),
-				checkResource( browser, `${ origin }/sitemap.xml` ),
-				checkResource( browser, `${ origin }/sitemap_index.xml` ),
+				checkResource( pages, `${ origin }/robots.txt` ),
+				checkResource( pages, `${ origin }/sitemap.xml` ),
+				checkResource( pages, `${ origin }/sitemap_index.xml` ),
 			] );
 
 			let sitemapUrl: string | null = null;

@@ -30,7 +30,7 @@ export const auditSeoTool = defineTool(
 
 			context.onProgress( `Auditing SEO of ${ siteUrl }${ urlPath }…` );
 
-			const result = await auditSeo( siteUrl, urlPath );
+			const result = await auditSeo( context.host.pages, siteUrl, urlPath );
 
 			if ( result.error ) {
 				context.onProgress( `Audit failed: ${ result.error.slice( 0, 80 ) }` );

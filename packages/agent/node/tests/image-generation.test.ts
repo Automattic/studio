@@ -9,6 +9,7 @@ import {
 	resolveImageSize,
 	TransientImageError,
 } from '@studio/agent/node/image-generation';
+import { nodeHostServices } from '@studio/agent/node/node-host';
 import { resolveImageFilePath } from '@studio/agent/node/tools/generate-images';
 
 const SITES_ROOT = path.resolve( '/studio-sites' );
@@ -107,7 +108,7 @@ describe( 'interpretImageResponse', () => {
 			JSON.stringify( { data: [ { b64_json: PNG_BASE64 } ] } ),
 			200
 		);
-		expect( bytes.toString( 'base64' ) ).toBe( PNG_BASE64 );
+		expect( Buffer.from( bytes ).toString( 'base64' ) ).toBe( PNG_BASE64 );
 	} );
 
 	it( 'rejects a response without image data', () => {
@@ -124,21 +125,23 @@ describe( 'interpretImageResponse', () => {
 	} );
 } );
 
+const hostPath = nodeHostServices().path;
+
 describe( 'resolveImageFilePath', () => {
 	it( 'accepts .png paths inside the sites root', () => {
 		const target = path.join( SITES_ROOT, 'my-site', 'wp-content', 'a.png' );
-		expect( resolveImageFilePath( SITES_ROOT, target ) ).toBe( target );
+		expect( resolveImageFilePath( hostPath, SITES_ROOT, target ) ).toBe( target );
 	} );
 
 	it( 'rejects paths escaping the sites root', () => {
 		expect( () =>
-			resolveImageFilePath( SITES_ROOT, path.join( SITES_ROOT, '..', 'escape.png' ) )
+			resolveImageFilePath( hostPath, SITES_ROOT, path.join( SITES_ROOT, '..', 'escape.png' ) )
 		).toThrow( /inside the Studio sites directory/ );
 	} );
 
 	it( 'rejects non-PNG extensions', () => {
-		expect( () => resolveImageFilePath( SITES_ROOT, path.join( SITES_ROOT, 'a.jpg' ) ) ).toThrow(
-			/end in .png/
-		);
+		expect( () =>
+			resolveImageFilePath( hostPath, SITES_ROOT, path.join( SITES_ROOT, 'a.jpg' ) )
+		).toThrow( /end in .png/ );
 	} );
 } );

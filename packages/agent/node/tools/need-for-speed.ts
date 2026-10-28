@@ -29,7 +29,7 @@ export const auditPerformanceTool = defineTool(
 
 			context.onProgress( `Auditing performance of ${ siteUrl }${ urlPath }…` );
 
-			const result = await auditPerformance( siteUrl, urlPath );
+			const result = await auditPerformance( context.host.pages, siteUrl, urlPath );
 
 			if ( result.error ) {
 				context.onProgress( `Audit failed: ${ result.error.slice( 0, 80 ) }` );

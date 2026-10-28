@@ -1,5 +1,3 @@
-import fs from 'fs/promises';
-import path from 'path';
 import { Type } from 'typebox';
 import {
 	composeImagePrompt,
@@ -7,18 +5,20 @@ import {
 	type GenerateImageResult,
 	IMAGE_ASPECT_RATIOS,
 	IMAGE_STYLES,
-	isImageGenerationAvailable,
 } from '@studio/agent/node/image-generation';
 import { defineTool, REMOTE_CHANGE } from './define-tool';
 import { runWpCli, textResult } from './utils';
-import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
+import type { HostPath, HostSite, StudioAgentHost } from '@studio/agent/node/host';
 
 const MAX_IMAGES_PER_CALL = 20;
-const UPLOADS_DIR = path.sep + path.join( 'wp-content', 'uploads' ) + path.sep;
 
 // Exported for tests. Generated files are jailed to the sites root like the
 // pi Write tool, and must be PNGs — the only format the pipeline delivers.
-export function resolveImageFilePath( sitesRoot: string, filePath: string ): string {
+export function resolveImageFilePath(
+	path: HostPath,
+	sitesRoot: string,
+	filePath: string
+): string {
 	const resolved = path.resolve( filePath );
 	if ( resolved !== sitesRoot && ! resolved.startsWith( sitesRoot + path.sep ) ) {
 		throw new Error(
@@ -35,6 +35,7 @@ async function findSiteContaining(
 	host: StudioAgentHost,
 	filePaths: string[]
 ): Promise< HostSite > {
+	const { path } = host;
 	const sites = await host.sites.all();
 	const site = sites.find( ( candidate ) =>
 		filePaths.every( ( filePath ) =>
@@ -142,18 +143,21 @@ export const generateImagesTool = defineTool(
 		),
 	},
 	async ( args, { host } ) => {
-		if ( ! ( await isImageGenerationAvailable() ) ) {
+		const imageToken = await host.wpcom.imageToken();
+		if ( ! imageToken ) {
 			throw new Error(
 				'Image generation is not available in this session. Build the site without generated imagery.'
 			);
 		}
+		const { path } = host;
+		const uploadsDirectory = path.sep + path.join( 'wp-content', 'uploads' ) + path.sep;
 
 		const targets = args.images.map( ( image ) => ( {
 			...image,
-			resolvedPath: resolveImageFilePath( host.sitesRoot, image.path ),
+			resolvedPath: resolveImageFilePath( path, host.sitesRoot, image.path ),
 		} ) );
 		const libraryTargets = targets.filter( ( target ) =>
-			target.resolvedPath.includes( UPLOADS_DIR )
+			target.resolvedPath.includes( uploadsDirectory )
 		);
 		const site = libraryTargets.length
 			? await findSiteContaining(
@@ -186,7 +190,7 @@ export const generateImagesTool = defineTool(
 			aspectRatio: image.aspectRatio,
 		} ) );
 
-		const generation = generateImages( host.userAgent, requests )
+		const generation = generateImages( host.userAgent, imageToken, requests )
 			.catch( ( error ): GenerateImageResult[] =>
 				requests.map( () => ( { ok: false, error: String( error ) } ) )
 			)
@@ -203,8 +207,7 @@ export const generateImagesTool = defineTool(
 							return;
 						}
 						const file = attachments.get( target.resolvedPath )?.file ?? target.resolvedPath;
-						await fs.mkdir( path.dirname( file ), { recursive: true } );
-						await fs.writeFile( file, result.bytes );
+						await host.files.write( file, result.bytes );
 					} )
 				);
 				if ( site ) {

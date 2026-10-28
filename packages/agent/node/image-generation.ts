@@ -1,5 +1,5 @@
-import { readAuthToken } from '@studio/common/lib/shared-config';
 import { getWpcomAiGatewayBaseUrl } from '@studio/agent/node/ai-gateway';
+import { fromBase64 } from '@studio/agent/node/base64';
 
 /**
  * AI image generation through the WP.com AI proxy's OpenAI-compatible images
@@ -57,33 +57,6 @@ export type ImageAspectRatioKeyword = keyof typeof IMAGE_SIZE_BY_KEYWORD;
 // Error codes the proxy passes through when the moderation system rejected the
 // prompt; any other failure must not be reported as repairable-by-rewriting.
 const FILTERED_ERROR_CODES = new Set( [ 'moderation_blocked', 'content_policy_violation' ] );
-
-/**
- * Whether the generate_images capability is enabled for this session: an
- * explicit token, or a valid WP.com login (the proxy's `studio-image` slug
- * accepts user OAuth tokens). Sessions with neither — e.g. BYO Anthropic key
- * without a WP.com login — get no tool and no imagery prompt sections.
- */
-export async function isImageGenerationAvailable(): Promise< boolean > {
-	if ( process.env.STUDIO_IMAGE_API_TOKEN?.trim() ) {
-		return true;
-	}
-	return ( await readAuthToken() ) !== null;
-}
-
-async function resolveImageAuthToken(): Promise< string > {
-	const envToken = process.env.STUDIO_IMAGE_API_TOKEN?.trim();
-	if ( envToken ) {
-		return envToken;
-	}
-	const token = await readAuthToken();
-	if ( ! token?.accessToken ) {
-		throw new Error(
-			'Image generation requires a WordPress.com login (studio auth login) or STUDIO_IMAGE_API_TOKEN.'
-		);
-	}
-	return token.accessToken;
-}
 
 function getImageEndpoint(): string {
 	const base = getWpcomAiGatewayBaseUrl().replace( /\/+$/, '' );
@@ -217,7 +190,7 @@ const PNG_SIGNATURE = Buffer.from( [ 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0
  * (429/5xx — retryable), ImageFilteredError (moderation — retryable, and
  * repairable by rewriting the subject), or Error (permanent).
  */
-export function interpretImageResponse( raw: string, status: number ): Buffer {
+export function interpretImageResponse( raw: string, status: number ): Uint8Array {
 	if ( status === 429 || status >= 500 ) {
 		throw new TransientImageError( `HTTP ${ status }: ${ raw.slice( 0, 300 ) }` );
 	}
@@ -240,10 +213,10 @@ export function interpretImageResponse( raw: string, status: number ): Buffer {
 		throw new Error( `Image proxy response had no image data: ${ raw.slice( 0, 300 ) }` );
 	}
 
-	const bytes = Buffer.from( base64, 'base64' );
+	const bytes = fromBase64( base64 );
 	// Byte magic is the source of truth: never deliver non-PNG bytes under a
 	// .png filename.
-	if ( ! bytes.subarray( 0, PNG_SIGNATURE.length ).equals( PNG_SIGNATURE ) ) {
+	if ( ! PNG_SIGNATURE.every( ( byte, index ) => bytes[ index ] === byte ) ) {
 		throw new Error( 'Image proxy returned bytes that are not a PNG' );
 	}
 	return bytes;
@@ -256,7 +229,7 @@ export interface GenerateImageRequest {
 
 export interface GenerateImageResult {
 	ok: boolean;
-	bytes?: Buffer;
+	bytes?: Uint8Array;
 	error?: string;
 	filtered?: boolean;
 }
@@ -312,11 +285,11 @@ async function generateOne(
  */
 export async function generateImages(
 	userAgent: string,
+	authToken: string,
 	requests: GenerateImageRequest[],
 	onResult?: ( index: number, result: GenerateImageResult ) => void
 ): Promise< GenerateImageResult[] > {
 	const endpoint = getImageEndpoint();
-	const authToken = await resolveImageAuthToken();
 	const results: GenerateImageResult[] = new Array( requests.length );
 	let next = 0;
 

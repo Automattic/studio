@@ -1,7 +1,5 @@
-import fs from 'fs';
-import path from 'path';
 import { parse } from 'yaml';
-import { getSkillPath } from './skills';
+import { skillFiles } from './skills';
 
 export type DesignCatalogKind = 'directions' | 'layouts';
 
@@ -44,15 +42,9 @@ function parseDesignEntry( contents: string ): DesignEntry | null {
 export function loadDesignCatalog( kind: DesignCatalogKind ): DesignEntry[] {
 	const cached = cachedCatalogs.get( kind );
 	if ( cached ) return cached;
-	const folder = getSkillPath( 'visual-design', DESIGN_CATALOGS[ kind ].folder );
-	const entries: DesignEntry[] = [];
-	if ( fs.existsSync( folder ) ) {
-		for ( const file of fs.readdirSync( folder ).sort() ) {
-			if ( ! file.endsWith( '.md' ) || file === 'README.md' ) continue;
-			const entry = parseDesignEntry( fs.readFileSync( path.join( folder, file ), 'utf-8' ) );
-			if ( entry ) entries.push( entry );
-		}
-	}
+	const entries = skillFiles( 'visual-design', DESIGN_CATALOGS[ kind ].folder )
+		.filter( ( [ file ] ) => file.endsWith( '.md' ) && file !== 'README.md' )
+		.flatMap( ( [ , contents ] ) => parseDesignEntry( contents ) ?? [] );
 	cachedCatalogs.set( kind, entries );
 	return entries;
 }

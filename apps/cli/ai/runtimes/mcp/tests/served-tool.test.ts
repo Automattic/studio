@@ -27,7 +27,7 @@ it( 'adds the declared settings of the core blocks a result shows, from the site
 		async () => ( { content: [ { type: 'text', text: '<!-- wp:navigation /-->' } ] } ),
 		{ annotations: READ_ONLY }
 	);
-	const resultNotes = createResultNotes();
+	const resultNotes = createResultNotes( cliAgentHost );
 	const notes = async ( args: Record< string, unknown > ) =>
 		(
 			await runServedTool( cliAgentHost, bindTool( tool, cliAgentHost ), args, resultNotes )

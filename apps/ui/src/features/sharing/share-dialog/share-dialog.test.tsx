@@ -613,4 +613,18 @@ describe( 'ShareDialog', () => {
 		await shareButton();
 		expect( connector.deleteSnapshot ).toHaveBeenCalledTimes( 2 );
 	} );
+	it( 'reloads a failed preview lookup without showing the raw error or creating a preview', async () => {
+		const { connector, ready, site } = setup( TEST_USER, [], {
+			getSnapshots: async () => {
+				throw new Error( 'Load failed' );
+			},
+		} );
+		await ready;
+		const reload = await screen.findByRole( 'button', { name: 'Reload' } );
+		expect( screen.queryByText( 'Load failed' ) ).not.toBeInTheDocument();
+		connector.getSnapshots.mockResolvedValue( [ preview( { localSiteId: site.id } ) ] );
+		fireEvent.click( reload );
+		await screen.findByRole( 'button', { name: 'Copy link' } );
+		expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
+	} );
 } );

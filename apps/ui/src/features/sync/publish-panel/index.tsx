@@ -211,14 +211,17 @@ export function PublishButton( {
 				<>
 					<PanelHeader title={ __( 'Publish' ) } />
 					<PanelBody insetTop>
-						<ErrorMessage
-							error={ loadError }
-							retry={ () => {
-								void user.refetch();
-								void connected.refetch();
-								void syncable.refetch();
-							} }
-						/>
+						<div className={ styles.reload }>
+							<Button
+								onClick={ () => {
+									void user.refetch();
+									void connected.refetch();
+									void syncable.refetch();
+								} }
+							>
+								{ __( 'Reload' ) }
+							</Button>
+						</div>
 					</PanelBody>
 				</>
 			);

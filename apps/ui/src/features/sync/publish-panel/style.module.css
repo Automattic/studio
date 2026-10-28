@@ -280,3 +280,8 @@
 		animation-direction: reverse;
 	}
 }
+
+.reload {
+	display: flex;
+	justify-content: center;
+}

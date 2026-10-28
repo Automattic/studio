@@ -181,11 +181,8 @@ function ShareDialog( {
 						source="previews_tab"
 					/>
 				) : snapshots.error ? (
-					<div className={ styles.error } role="alert">
-						<p>{ snapshots.error.message }</p>
-						<Button variant="outline" onClick={ () => snapshots.refetch() }>
-							{ __( 'Try again' ) }
-						</Button>
+					<div className={ styles.reload }>
+						<Button onClick={ () => snapshots.refetch() }>{ __( 'Reload' ) }</Button>
 					</div>
 				) : user.isPending || snapshots.isPending ? (
 					<div className={ styles.loading } role="status">

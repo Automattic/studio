@@ -93,3 +93,8 @@
 	color: var( --muted-foreground );
 	font-size: var( --text-xs );
 }
+
+.reload {
+	display: flex;
+	justify-content: center;
+}

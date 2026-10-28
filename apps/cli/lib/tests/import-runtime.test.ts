@@ -9,6 +9,7 @@ import {
 	publishStagedInstall,
 	resetImportRuntimeCacheForTests,
 	resolveLatestReleaseAsset,
+	resolvePhpTransformer,
 	type ReleaseAsset,
 } from '../import-runtime';
 
@@ -307,5 +308,58 @@ describe( 'linkPlaywright', () => {
 
 		expect( fs.realpathSync( target() ) ).toBe( fs.realpathSync( current ) );
 		expect( fs.readdirSync( path.dirname( target() ) ) ).toEqual( [ 'playwright' ] );
+	} );
+} );
+
+describe( 'resolvePhpTransformer', () => {
+	const install = ( version: string, complete = true ) => {
+		const directory = path.join( configDirectory, 'import-runtime', 'php-transformer', version );
+		fs.mkdirSync( path.join( directory, 'php-transformer' ), { recursive: true } );
+		if ( complete ) {
+			fs.writeFileSync( path.join( directory, 'php-transformer', 'php-transformer.php' ), '<?php' );
+		}
+		return path.join( directory, 'php-transformer', 'php-transformer.php' );
+	};
+	const newerRelease = {
+		tag_name: 'php-transformer-v0.44.20',
+		assets: [
+			{
+				name: 'php-transformer.zip',
+				browser_download_url: 'https://example.com/php-transformer.zip',
+				digest: `sha256:${ digest( 'zip' ) }`,
+			},
+		],
+	};
+
+	it( 'converts with the newest installed transformer while the newest release downloads', async () => {
+		install( '0.44.9' );
+		const newest = install( '0.44.10' );
+		install( '0.44.11', false );
+		// Staged by a process that stopped before publishing it.
+		install( '0.44.99.staging-1' );
+		const requested: string[] = [];
+		const downloading = ( async ( url: string ) => {
+			requested.push( String( url ) );
+			if ( String( url ).includes( 'api.github.com' ) ) {
+				return new Response( JSON.stringify( newerRelease ) );
+			}
+			// The release download does not finish during this conversion.
+			return new Promise< Response >( () => undefined );
+		} ) as unknown as typeof fetch;
+
+		const transformer = await resolvePhpTransformer( downloading );
+
+		expect( transformer ).toEqual( { bootstrap: newest, version: '0.44.10' } );
+		await vi.waitFor( () =>
+			expect( requested ).toContain( 'https://example.com/php-transformer.zip' )
+		);
+	} );
+
+	it( 'waits for the install on a machine with no transformer', async () => {
+		const failing = releaseFetch( {}, 404 );
+
+		await expect( resolvePhpTransformer( failing ) ).rejects.toThrow(
+			'latest release lookup failed'
+		);
 	} );
 } );

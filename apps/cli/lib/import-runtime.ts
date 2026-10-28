@@ -404,25 +404,54 @@ export async function resolveStaticSiteImporterPlugin(): Promise< {
 	return { path: zipPath, version: asset.version };
 }
 
-/**
- * The newest Blocks Engine PHP transformer, installed once per version. Returns
- * its bootstrap file, which a site's PHP requires to run the transformer with
- * that site's WordPress loaded.
- */
-export async function resolvePhpTransformer(): Promise< { bootstrap: string; version: string } > {
+const phpTransformerRoot = () => path.join( runtimeDirectory(), 'php-transformer' );
+const transformerBootstrap = ( directory: string ) =>
+	path.join( directory, 'php-transformer', 'php-transformer.php' );
+
+const isNewerVersion = ( a: string, b: string ) => {
+	const [ x, y ] = [ a, b ].map( ( version ) => version.split( '.' ).map( Number ) );
+	const differs = x.findIndex( ( part, index ) => part !== y[ index ] );
+	return differs >= 0 && x[ differs ] > y[ differs ];
+};
+
+/** The newest complete PHP transformer this machine has installed, if any. */
+function newestInstalledPhpTransformer(): { bootstrap: string; version: string } | null {
+	let entries: string[];
+	try {
+		entries = fs.readdirSync( phpTransformerRoot() );
+	} catch {
+		return null;
+	}
+	const version = entries
+		.filter( ( entry ) => /^\d+\.\d+\.\d+$/.test( entry ) )
+		.filter( ( entry ) =>
+			fs.existsSync( transformerBootstrap( path.join( phpTransformerRoot(), entry ) ) )
+		)
+		.reduce< string | null >(
+			( newest, entry ) => ( ! newest || isNewerVersion( entry, newest ) ? entry : newest ),
+			null
+		);
+	return version
+		? { bootstrap: transformerBootstrap( path.join( phpTransformerRoot(), version ) ), version }
+		: null;
+}
+
+/** Install the newest Blocks Engine PHP transformer release, once per version. */
+async function installLatestPhpTransformer(
+	fetchImpl: typeof fetch
+): Promise< { bootstrap: string; version: string } > {
 	const asset = await resolveLatestReleaseAsset(
 		BLOCKS_ENGINE_REPO,
-		( name ) => name === PHP_TRANSFORMER_ASSET
+		( name ) => name === PHP_TRANSFORMER_ASSET,
+		fetchImpl
 	);
-	const root = path.join( runtimeDirectory(), 'php-transformer', asset.version );
-	const bootstrapOf = ( directory: string ) =>
-		path.join( directory, 'php-transformer', 'php-transformer.php' );
-	const isComplete = ( directory: string ) => fs.existsSync( bootstrapOf( directory ) );
+	const root = path.join( phpTransformerRoot(), asset.version );
+	const isComplete = ( directory: string ) => fs.existsSync( transformerBootstrap( directory ) );
 	if ( ! isComplete( root ) ) {
 		const staging = `${ root }.staging-${ uniqueSuffix() }`;
 		const archive = `${ staging }.zip`;
 		try {
-			await downloadVerifiedAsset( asset, archive );
+			await downloadVerifiedAsset( asset, archive, fetchImpl );
 			await extractZip( archive, staging );
 			if ( ! isComplete( staging ) ) {
 				throw new Error( `Blocks Engine ${ asset.version } is missing its PHP transformer.` );
@@ -433,9 +462,38 @@ export async function resolvePhpTransformer(): Promise< { bootstrap: string; ver
 			fs.rmSync( archive, { force: true } );
 		}
 	}
-	return { bootstrap: bootstrapOf( root ), version: asset.version };
+	return { bootstrap: transformerBootstrap( root ), version: asset.version };
+}
+
+let phpTransformerUpdate: Promise< unknown > | null = null;
+
+/**
+ * The Blocks Engine PHP transformer, as its bootstrap file, which a site's PHP
+ * requires to run the transformer with that site's WordPress loaded.
+ *
+ * A machine that has one installed converts with the newest it has at once,
+ * while the newest release installs in the background for the next call: a
+ * release download takes from seconds to over a minute, which would otherwise
+ * be spent inside the conversion that first needs it. A machine with none
+ * waits for the install.
+ */
+export async function resolvePhpTransformer(
+	fetchImpl: typeof fetch = fetch
+): Promise< { bootstrap: string; version: string } > {
+	const installed = newestInstalledPhpTransformer();
+	if ( ! installed ) {
+		return installLatestPhpTransformer( fetchImpl );
+	}
+	phpTransformerUpdate ??= installLatestPhpTransformer( fetchImpl )
+		// The installed transformer keeps working; the next call tries again.
+		.catch( () => undefined )
+		.finally( () => {
+			phpTransformerUpdate = null;
+		} );
+	return installed;
 }
 
 export function resetImportRuntimeCacheForTests(): void {
 	resolvedReleases.clear();
+	phpTransformerUpdate = null;
 }

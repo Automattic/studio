@@ -87,6 +87,10 @@ import {
 	listLocalFileTree as listSiteFileTree,
 } from '@studio/common/lib/sync/local-file-tree';
 import { supportedEditorConfig, SupportedEditor } from '@studio/common/lib/user-settings/editor';
+import {
+	readOnboardingCompleted,
+	writeOnboardingCompleted,
+} from '@studio/common/lib/user-settings/onboarding';
 import { openLinuxTerminal } from '@studio/common/lib/user-settings/open-linux-terminal';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import {
@@ -158,7 +162,7 @@ import { getDefaultSiteDirectory } from 'src/modules/user-settings/lib/ipc-handl
 import { linuxFindEditorPath } from 'src/modules/user-settings/lib/linux-editor-path';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { getSiteThumbnailPath } from 'src/storage/paths';
-import { updateAppdata, loadUserData } from 'src/storage/user-data';
+import { loadUserData } from 'src/storage/user-data';
 import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
 import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
@@ -601,9 +605,10 @@ export async function updateSite(
 }
 
 export async function startServer( event: IpcMainInvokeEvent, id: string ): Promise< void > {
-	const site = await getSite( id );
+	// Starting only needs the path, which `cli.json` has; the CLI's full details wait for a failure.
+	const site = await readSite( id );
 	if ( ! site ) {
-		return;
+		throw new Error( `Site not found: ${ id }` );
 	}
 
 	// Release the port held by any active PHP-error recovery before (re)starting the real server,
@@ -620,10 +625,12 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 			throw error;
 		}
 
+		const details = await getSite( id ).catch( () => undefined );
+
 		// A fatal error in the user's own PHP (theme/plugin) code stops WordPress from booting.
 		// Rather than failing the start, serve the parsed PHP error on the site's port and watch for
 		// the fix so the site self-recovers. This is user code, not a Studio bug, so skip Sentry.
-		if ( isPhpUserError( error ) ) {
+		if ( details && isPhpUserError( error ) ) {
 			const processManagerLogs = readProcessManagerLogs( id );
 			const logContent = [
 				...( processManagerLogs.stdout ?? [] ),
@@ -632,19 +639,19 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 			const errorMessage = parsePhpError( logContent );
 
 			try {
-				await startErrorRecovery( site, errorMessage, readProcessManagerLogs, start );
-				console.log( `[PHP Recovery - ${ id }] Serving PHP error page on port ${ site.port }` );
-				const url = `http://localhost:${ site.port }`;
+				await startErrorRecovery( details, errorMessage, readProcessManagerLogs, start );
+				console.log( `[PHP Recovery - ${ id }] Serving PHP error page on port ${ details.port }` );
+				const url = `http://localhost:${ details.port }`;
 				void sendIpcEventToRenderer( 'site-event', {
 					event: SITE_EVENTS.UPDATED,
 					siteId: id,
 					site: {
 						id,
-						name: site.name,
-						path: site.path,
-						port: site.port,
+						name: details.name,
+						path: details.path,
+						port: details.port,
 						url,
-						phpVersion: site.phpVersion,
+						phpVersion: details.phpVersion,
 					},
 					running: true,
 				} );
@@ -659,11 +666,11 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 
 		const contexts: Record< string, Record< string, unknown > > = {
 			server: {
-				running: site.running,
-				phpVersion: site.phpVersion,
-				port: site.port,
-				hasCustomDomain: !! site.customDomain,
-				httpsEnabled: !! site.enableHttps,
+				running: details?.running,
+				phpVersion: details?.phpVersion,
+				port: details?.port,
+				hasCustomDomain: !! details?.customDomain,
+				httpsEnabled: !! details?.enableHttps,
 			},
 		};
 
@@ -1030,19 +1037,12 @@ export async function readLocalMediaFile(
 }
 
 export async function getOnboardingData( _event: IpcMainInvokeEvent ): Promise< boolean > {
-	const userData = await loadUserData();
-	const { onboardingCompleted = false } = userData;
-	return onboardingCompleted;
+	return readOnboardingCompleted();
 }
 
-export async function saveOnboarding( event: IpcMainInvokeEvent, onboardingCompleted: boolean ) {
-	const { onboardingCompleted: previous = false } = await loadUserData();
-	await updateAppdata( { onboardingCompleted } );
-
-	// Only on a real transition — a re-save must not look like a second user finishing onboarding.
-	if ( onboardingCompleted && ! previous ) {
+export async function saveOnboarding( _event: IpcMainInvokeEvent, onboardingCompleted: boolean ) {
+	if ( await writeOnboardingCompleted( onboardingCompleted ) ) {
 		await recordTracksEvent( TRACKS_EVENTS.ONBOARDING_COMPLETE, {
-			// Whether they leave onboarding with an account, which is what "skipped" really meant.
 			authenticated: await oauthClient.isAuthenticated(),
 		} );
 	}

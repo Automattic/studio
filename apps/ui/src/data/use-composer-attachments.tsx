@@ -54,18 +54,18 @@ export function useComposerAttachments( initialAttachments: ComposerAttachment[]
 				return;
 			}
 			const messages = {
-				imageTooLarge: __( 'Images must be 5 MB or smaller.' ),
-				imageReadFailed: __( 'Failed to read the attached image.' ),
-				fileAttachFailed: __( 'This file could not be attached.' ),
+				imageTooLarge: __( 'Images must be 5 MB or smaller' ),
+				imageReadFailed: __( 'Failed to read the attached image' ),
+				fileAttachFailed: __( 'This file could not be attached' ),
 				maxImages: sprintf(
 					/* translators: %d: maximum number of images. */
-					__( 'You can attach up to %d images.' ),
+					__( 'You can attach up to %d images' ),
 					STUDIO_CHAT_MAX_IMAGES
 				),
-				totalImagesTooLarge: __( 'Attached images are too large to send together.' ),
+				totalImagesTooLarge: __( 'Attached images are too large to send together' ),
 				maxFiles: sprintf(
 					/* translators: %d: maximum number of files. */
-					__( 'You can attach up to %d files.' ),
+					__( 'You can attach up to %d files' ),
 					STUDIO_CHAT_MAX_FILES
 				),
 			};

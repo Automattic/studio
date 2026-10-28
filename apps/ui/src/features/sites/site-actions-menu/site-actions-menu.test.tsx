@@ -259,6 +259,20 @@ describe( 'Stop other sites', () => {
 		);
 	} );
 
+	it.each( [ true, false ] )(
+		'opens the email folder of the menu site, running or not (%s)',
+		async ( selectedRunning ) => {
+			const { open, connector } = setup( { selectedRunning } );
+			await open();
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Go to' } ) );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Email' } ) );
+			await waitFor( () =>
+				expect( connector.openSiteEmailFolder ).toHaveBeenCalledExactlyOnceWith( 'selected' )
+			);
+			expect( connector.startSite ).not.toHaveBeenCalled();
+		}
+	);
+
 	it( 'stops only other running sites', async () => {
 		const { open, connector } = setup();
 		await open();

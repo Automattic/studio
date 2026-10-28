@@ -5,15 +5,19 @@
 	gap: var( --space-6 );
 }
 
-.root > [data-turn-activity] + * {
-	margin-block-start: calc( var( --space-3 ) - var( --space-6 ) );
+.speakerGroup,
+.activityItems {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-1 );
 }
 
-:is( .root, .activityItems ) > [data-joined-above]:not( :first-child ) {
-	margin-top: calc( var( --space-5 ) * -1 );
+.activityItems > [data-trace-row] + :not( [data-trace-row] ),
+.activityItems > :not( [data-trace-row] ) + [data-trace-row] {
+	margin-block-start: var( --space-2 );
 }
 
-/* Only outer rows skip layout and paint: collapsible contents need their real
+/* Only speaker groups skip layout and paint: collapsible contents need their real
    height for animation measurements. The clip margin preserves focus rings. */
 @supports ( overflow-clip-margin: 4px ) {
 	.root > * {
@@ -26,7 +30,7 @@
 .mediaArtifacts {
 	display: flex;
 	flex-direction: column;
-	gap: var( --space-3 );
+	gap: var( --space-1 );
 }
 
 .mediaArtifactImage {

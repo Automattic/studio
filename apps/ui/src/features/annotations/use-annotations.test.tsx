@@ -156,15 +156,27 @@ describe( 'preview annotation sessions', () => {
 		expect( session().notes[ 0 ].id ).toBe( id );
 	} );
 
-	it( 'sends only the open note directly and keeps annotating', async () => {
+	it( 'sends the open note directly when clicking Send', async () => {
 		const { onSend } = await setup();
-		add( 'First' );
-		const second = add( 'Second' );
-		fireEvent.keyDown( note(), { key: 'Enter', ctrlKey: true } );
-		expect( onSend ).toHaveBeenCalledWith( [ second ] );
-		expect( session().active ).toBe( true );
+		const id = add( 'Make this heading larger' );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send annotation' } ) );
+		expect( onSend ).toHaveBeenCalledWith( [ id ] );
+		expect( stagedCount() ).toBe( 0 );
 		expect( session().editingId ).toBeNull();
 	} );
+
+	it.each( [ 'metaKey', 'ctrlKey' ] )(
+		'sends only the open note directly with %s and keeps annotating',
+		async ( modifier ) => {
+			const { onSend } = await setup();
+			add( 'First' );
+			const second = add( 'Second' );
+			fireEvent.keyDown( note(), { key: 'Enter', [ modifier ]: true } );
+			expect( onSend ).toHaveBeenCalledWith( [ second ] );
+			expect( session().active ).toBe( true );
+			expect( session().editingId ).toBeNull();
+		}
+	);
 
 	it( 'ignores empty notes and blocks sends during attachment preparation', async () => {
 		await setup();

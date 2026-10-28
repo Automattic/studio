@@ -341,7 +341,7 @@ export function BulkMenu( {
 			toast.error(
 				sprintf(
 					/* translators: 1: chats updated, 2: chats selected, 3: chats that failed. */
-					__( '%1$d of %2$d items updated. %3$d failed.' ),
+					__( '%1$d of %2$d items updated. %3$d failed' ),
 					updated.length,
 					chatIds.length,
 					errors.length

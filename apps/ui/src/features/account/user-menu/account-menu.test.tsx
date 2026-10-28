@@ -31,7 +31,7 @@ const PROMPT = 'Do more with WordPress.com';
 async function openLoginDialog() {
 	fireEvent.click( await screen.findByRole( 'button', { name: 'Log in' } ) );
 	const dialog = await screen.findByRole( 'dialog', { name: PROMPT } );
-	return within( dialog ).findByRole( 'button', { name: 'Log in to WordPress.com' } );
+	return within( dialog ).findByRole( 'button', { name: 'Log in' } );
 }
 
 describe( 'AccountMenu', () => {
@@ -40,7 +40,7 @@ describe( 'AccountMenu', () => {
 		await openLoginDialog();
 		expect(
 			screen.getByText(
-				'Build with WordPress Studio, share local previews publicly, launch on WordPress.com, and keep sites in sync.'
+				'Create a free WordPress.com account to build with the agent, share previews, and publish.'
 			)
 		).toBeVisible();
 		expect( connector.authenticate ).not.toHaveBeenCalled();
@@ -171,7 +171,7 @@ describe( 'AccountMenu', () => {
 		connector.logout.mockRejectedValueOnce( new Error( 'Network down' ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: TEST_USER.displayName } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Log out' } ) );
-		expect( await screen.findByText( 'Could not log out.' ) ).toBeVisible();
+		expect( await screen.findByText( 'Could not log out' ) ).toBeVisible();
 		expect( screen.getByText( 'Network down' ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: TEST_USER.displayName } ) ).toBeVisible();
 	} );

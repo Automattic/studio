@@ -116,6 +116,10 @@ import {
 import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/editor';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import {
+	readOnboardingCompleted,
+	writeOnboardingCompleted,
+} from '@studio/common/lib/user-settings/onboarding';
+import {
 	onboardingHintsSchema,
 	readDefaultSiteDirectory,
 	readOnboardingHints,
@@ -263,6 +267,7 @@ function toSiteDetails( site: SiteListItem, sortOrder?: number ) {
 		enableScriptDebug: site.enableScriptDebug,
 		environmentType: site.environmentType,
 		operation: site.operation,
+		emailPath: site.emailPath,
 		sortOrder,
 	};
 }
@@ -1472,6 +1477,30 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 
 	api.get(
+		'/onboarding',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( await readOnboardingCompleted() );
+		} )
+	);
+
+	api.patch(
+		'/onboarding',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const parsed = z.object( { completed: z.boolean() } ).safeParse( req.body );
+			if ( ! parsed.success ) {
+				res.status( 400 ).json( { error: 'Invalid onboarding state' } );
+				return;
+			}
+			if ( await writeOnboardingCompleted( parsed.data.completed ) ) {
+				trackEvent( TRACKS_EVENTS.ONBOARDING_COMPLETE, {
+					authenticated: !! ( await readAuthToken() ),
+				} );
+			}
+			res.status( 204 ).end();
+		} )
+	);
+
+	api.get(
 		'/onboarding-hints',
 		asyncHandler( async ( _req: Request, res: Response ) => {
 			res.json( await readOnboardingHints() );
@@ -1487,6 +1516,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			await writeOnboardingHints( parsed.data );
+			res.status( 204 ).end();
+		} )
+	);
+
+	api.post(
+		'/sites/:id/open-email-folder',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
+			if ( ! site?.emailPath ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			await openPath( site.emailPath );
 			res.status( 204 ).end();
 		} )
 	);

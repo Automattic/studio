@@ -40,6 +40,41 @@ describe( 'Conversation copy buttons', () => {
 	} );
 } );
 
+it( 'groups all agent content between consecutive user messages', () => {
+	const view = renderConversation(
+		loadedSession( [
+			promptEntry( 'Keep the colors.' ),
+			promptEntry( 'Keep the layout too.' ),
+			agentQuestionEntry( 'Which color?', [ 'Blue', 'Green' ], 'color', 'Blue' ),
+			assistantTextEntry( 'Keeping blue.', 'The layout is unchanged.' ),
+			turnClosedEntry( 'success' ),
+			promptEntry( 'Thank you.' ),
+			promptEntry( 'That is all.' ),
+			assistantToolCallEntry( 'Read', { file_path: '/tmp/theme.css' }, 'Checking once more.' ),
+			toolResultEntry( 'styles' ),
+			assistantTextEntry( 'All set.' ),
+			turnClosedEntry( 'success' ),
+		] )
+	);
+	const groups = Array.from( view.container.querySelectorAll( '[data-speaker]' ) );
+	expect( groups.map( ( group ) => group.getAttribute( 'data-speaker' ) ) ).toEqual( [
+		'user',
+		'assistant',
+		'user',
+		'assistant',
+	] );
+	expect( groups[ 0 ] ).toHaveTextContent( 'Keep the colors.Keep the layout too.' );
+	expect( groups[ 1 ] ).toContainElement( screen.getByRole( 'group', { name: 'Which color?' } ) );
+	expect( groups[ 1 ] ).toHaveTextContent( 'Keeping blue.' );
+	expect( groups[ 1 ] ).toHaveTextContent( 'The layout is unchanged.' );
+	expect( groups[ 2 ] ).toHaveTextContent( 'Thank you.That is all.' );
+	const header = screen.getAllByRole( 'button', { name: /^Worked/ } )[ 0 ];
+	fireEvent.click( header );
+	expect( groups[ 3 ] ).toHaveTextContent( 'Checking once more.' );
+	expect( groups[ 3 ] ).toHaveTextContent( 'All set.' );
+	expect( view.container.querySelectorAll( '[data-speaker]' ) ).toHaveLength( 4 );
+} );
+
 describe( 'Conversation tool rows', () => {
 	it( 'shows long tool results in the opened details without an extra toggle', () => {
 		const longOutput = Array.from(
@@ -314,6 +349,11 @@ it( 'keeps the chosen answer visible between work sections after completion', as
 	fireEvent.click( header );
 	const before = screen.getByText( 'Checking the palette.' );
 	const after = screen.getByText( 'I’ll use blue.' );
+	const card = question.closest( 'fieldset' )!.parentElement!;
+	expect( card ).toHaveAttribute( 'data-joined-above' );
+	expect( card ).toHaveAttribute( 'data-joined-below' );
+	expect( before.closest( '[data-joined-below]' ) ).not.toBeNull();
+	expect( after.closest( '[data-joined-above]' ) ).not.toBeNull();
 	expect(
 		before.compareDocumentPosition( question ) & Node.DOCUMENT_POSITION_FOLLOWING
 	).toBeTruthy();
@@ -325,8 +365,35 @@ it( 'keeps the chosen answer visible between work sections after completion', as
 	}
 	fireEvent.click( header );
 	await waitFor( () => expect( screen.queryByText( 'I’ll use blue.' ) ).not.toBeInTheDocument() );
+	expect( card ).not.toHaveAttribute( 'data-joined-above' );
+	expect( card ).toHaveAttribute( 'data-joined-below' );
 	expect( question ).toBeVisible();
 	expect( screen.getByText( 'Blue', { exact: true } ) ).toBeVisible();
+} );
+
+it( 'keeps answered questions joined to the reply when streaming completes', () => {
+	const entries = [
+		promptEntry( 'Ask me two questions' ),
+		agentQuestionEntry( 'Which color?', [ 'Blue', 'Green' ], 'color', 'Blue' ),
+		agentQuestionEntry( 'Which season?', [ 'Spring', 'Autumn' ], 'season', 'Spring' ),
+		assistantTextEntry( 'Blue skies in spring.' ),
+	];
+	const view = renderConversation( loadedSession( entries ), {
+		isRunning: true,
+		startedAt: Date.now(),
+	} );
+	const expectJoinedReply = () => {
+		const card = screen.getByRole( 'group', { name: 'Which season?' } ).parentElement!;
+		const reply = screen.getByText( 'Blue skies in spring.' );
+		expect( card ).toHaveAttribute( 'data-joined-below' );
+		expect( reply.closest( '[data-joined-above]' ) ).not.toBeNull();
+		expect( card.closest( '[data-turn-activity]' ) ).toContainElement( reply );
+		expect( reply ).toBeVisible();
+	};
+	expectJoinedReply();
+	view.rerenderSession( loadedSession( [ ...entries, turnClosedEntry( 'success' ) ] ) );
+	expectJoinedReply();
+	expect( screen.queryByRole( 'button', { name: /^Worked/ } ) ).not.toBeInTheDocument();
 } );
 
 it( 'does not offer a disclosure for a question with no work details', () => {

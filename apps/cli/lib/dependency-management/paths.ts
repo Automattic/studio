@@ -86,6 +86,11 @@ export function getBundledWxrImportScriptPath(): string {
 	return path.join( getBundledPhpPath(), 'import-wxr.php' );
 }
 
+// The `sendmail_path` script that saves the email a site sends (see `lib/site-email.ts`).
+export function getBundledSendmailScriptPath(): string {
+	return path.join( getBundledPhpPath(), 'sendmail.php' );
+}
+
 // The official wordpress-importer plugin, downloaded into `wp-files/` at install time via the
 // `FILES_TO_DOWNLOAD` registry in `scripts/download-wp-server-files.ts` and shipped in the CLI
 // bundle. Installed into the site's `wp-content/plugins` before running a WXR import so the

@@ -1,4 +1,4 @@
-import { STOPPED_WITHOUT_ANSWER } from '@studio/common/ai/tools';
+import { SKIPPED_QUESTION, STOPPED_WITHOUT_ANSWER } from '@studio/common/ai/tools';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -25,6 +25,7 @@ function Harness() {
 				Queue
 			</button>
 			<button onClick={ () => run.answerQuestion( 'Q1', 'A1' ) }>Answer Q1</button>
+			<button onClick={ () => run.answerQuestion( 'Q2', SKIPPED_QUESTION ) }>Skip Q2</button>
 			<button onClick={ () => void run.interrupt() }>Stop</button>
 		</>
 	);
@@ -230,6 +231,34 @@ describe( 'useAgentRun queued handoff', () => {
 			] as Runs )
 		);
 		expect( phase() ).toHaveTextContent( 'idle' );
+	} );
+
+	it( 'dispatches skipped questions with the other answers without stopping the run', async () => {
+		const { connector } = await setup();
+		act( () => {
+			connector.emit( 'onAgentEvent', started( 'run-old' ) );
+			connector.emit(
+				'onAgentEvent',
+				event( 'run-old', {
+					type: 'question.asked',
+					timestamp: '2026-06-24T12:00:01.000Z',
+					questions: [
+						{ question: 'Q1', options: [ { label: 'A1', description: '' } ] },
+						{ question: 'Q2', options: [ { label: 'A2', description: '' } ] },
+					],
+				} as AgentRunEvent[ 'event' ] )
+			);
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Answer Q1' } ) );
+		expect( connector.answerAgentQuestion ).not.toHaveBeenCalled();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Skip Q2' } ) );
+		await waitFor( () =>
+			expect( connector.answerAgentQuestion ).toHaveBeenCalledWith( 'run-old', {
+				Q1: 'A1',
+				Q2: SKIPPED_QUESTION,
+			} )
+		);
+		expect( connector.interruptAgentRun ).not.toHaveBeenCalled();
 	} );
 
 	it( 'recovers questions asked during a lost connection', async () => {

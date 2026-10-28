@@ -42,7 +42,7 @@ describe( 'deriveUpdateMessages', () => {
 			onInstall
 		);
 
-		expect( message.title ).toBe( 'WordPress Studio 1.21.0 is ready to install' );
+		expect( message.title ).toBe( 'Update ready' );
 		expect( message.description ).toBe( 'Updating from 1.20.0 to 1.21.0.' );
 		expect( message.id ).toBe( 'app-update:1.21.0' );
 
@@ -56,7 +56,7 @@ describe( 'deriveUpdateMessages', () => {
 			noop
 		);
 
-		expect( message.title ).toBe( 'A WordPress Studio update is ready to install' );
+		expect( message.title ).toBe( 'Update ready' );
 		expect( message.description ).toBe( 'Restart to finish updating.' );
 		expect( message.id ).toBe( 'app-update' );
 	} );
@@ -69,11 +69,18 @@ describe( 'deriveUpdateMessages', () => {
 			detail: 'WordPress Studio is running from a disk image.',
 		};
 
-		const [ message ] = deriveUpdateMessages( status, noop );
+		const onOpenLogs = vi.fn();
+		const [ message ] = deriveUpdateMessages( status, noop, {
+			label: 'Open logs',
+			onClick: onOpenLogs,
+		} );
 
 		expect( message.intent ).toBe( 'error' );
-		expect( message.title ).toBe( "Couldn't update WordPress Studio" );
+		expect( message.title ).toBe( 'Couldn’t update Studio' );
 		expect( message.description ).toBe( 'WordPress Studio is running from a disk image.' );
+		expect( message.action?.label ).toBe( 'Open logs' );
+		void message.action?.onClick();
+		expect( onOpenLogs ).toHaveBeenCalledOnce();
 	} );
 
 	it( 'falls back to generic guidance for an error with no detail', () => {
@@ -82,8 +89,6 @@ describe( 'deriveUpdateMessages', () => {
 			noop
 		);
 
-		expect( message.description ).toBe(
-			'WordPress Studio will try again the next time it checks for updates.'
-		);
+		expect( message.description ).toBe( 'We’ll try again the next time we check for updates.' );
 	} );
 } );

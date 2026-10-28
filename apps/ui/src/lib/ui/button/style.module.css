@@ -267,6 +267,7 @@
 
 	.button[data-size='2xs'] {
 		--button-padding-inline: 6px;
+		font-size: var( --text-xxs );
 
 		gap: var( --space-1 );
 		height: 24px;

@@ -2,38 +2,37 @@
 	.questionnaire {
 		display: flex;
 		flex-direction: column;
-		gap: var( --space-4 );
+		gap: var( --space-2 );
 		min-inline-size: 0;
 	}
 
 	/* The legend sits above the fieldset's content rather than in its flex
 	   layout, so it spaces itself from the choices. */
 	.title {
-		padding-block-end: var( --space-4 );
+		padding: var( --space-2 ) var( --space-2 );
 		color: var( --foreground );
 		font-weight: var( --font-weight-medium );
 		line-height: var( --leading-snug );
 		text-wrap: pretty;
 	}
 
-	.progress {
-		color: var( --muted-foreground );
-		font-weight: var( --font-weight-medium );
-		font-variant-numeric: tabular-nums;
-	}
-
 	.description {
 		color: var( --muted-foreground );
+		font-size: var( --text-xs );
+		line-height: var( --text-xs--line-height );
+	}
+
+	.questionnaire > .description {
+		padding-inline: var( --space-2 );
 	}
 
 	.choices {
 		display: grid;
-		margin-inline-start: calc( var( --space-2 ) * -1 );
+		gap: var( --space-1 );
 	}
 
 	.choices[data-layout='grid'] {
 		grid-template-columns: repeat( auto-fit, minmax( min( 100%, 240px ), 1fr ) );
-		gap: var( --space-1 );
 	}
 
 	.choices[data-layout='grid'] .item[data-wide] {
@@ -58,25 +57,34 @@
 	.choice {
 		display: flex;
 		align-items: center;
-		gap: var( --space-2 );
+		gap: var( --space-2_5 );
 		width: 100%;
-		min-height: 36px;
-		padding: var( --space-2 );
-		border-radius: var( --radius-md );
+		min-height: 32px;
+		padding: var( --space-1 ) var( --space-2 );
+		border-radius: calc( var( --radius-3xl ) - var( --space-2 ) );
 		color: var( --foreground );
 		text-align: start;
 		cursor: pointer;
 	}
 
-	.choice:is( :hover:not( :has( > .input:disabled ) ), :has( > .input:checked ) ) {
+	.choice:hover:not( :has( > .input:disabled ) ) {
 		background-color: var( --hover );
+	}
+
+	@media ( prefers-reduced-motion: no-preference ) {
+		.choice,
+		.letter {
+			transition-property: color, background-color;
+			transition-duration: var( --motion-duration-feedback );
+			transition-timing-function: ease;
+		}
 	}
 
 	.choice:has( > .input:focus-visible ) {
 		box-shadow: inset 0 0 0 2px var( --ring );
 	}
 
-	.choice:has( > .input:disabled:not( :checked ) ) {
+	.questionnaire:not( :disabled ) .choice:has( > .input:disabled:not( :checked ) ) {
 		opacity: 0.5;
 		cursor: default;
 	}
@@ -85,22 +93,20 @@
 		cursor: default;
 	}
 
+	.questionnaire:disabled :is( .title, .choice, .letter ) {
+		color: var( --muted-foreground );
+	}
+
 	.choice[data-media] {
 		flex-wrap: wrap;
 		align-content: flex-start;
 		height: 100%;
 	}
 
-	.choice > svg,
-	.answer > svg {
-		flex: none;
-	}
-
 	.label {
 		display: flex;
 		flex: 1;
 		flex-direction: column;
-		gap: var( --space-0_5 );
 		min-width: 0;
 		line-height: var( --leading-snug );
 	}
@@ -119,24 +125,30 @@
 		border-radius: var( --radius-sm );
 		background-color: var( --border );
 		color: var( --foreground );
-		font-family: var( --font-mono );
-		font-size: var( --text-sm );
+		font-size: var( --text-xxs );
 		font-weight: var( --font-weight-medium );
 		line-height: var( --leading-none );
+	}
+
+	.item[data-checked] .letter,
+	.answer .letter {
+		background-color: var( --accent );
+		color: var( --accent-foreground );
 	}
 
 	.answer {
 		display: flex;
 		align-items: center;
-		gap: var( --space-1_5 );
-		min-height: 36px;
-		padding: var( --space-1_5 ) var( --space-2 );
-		border-radius: var( --radius-md );
-		color: var( --muted-foreground );
+		gap: var( --space-2 );
+		min-height: 32px;
+		padding: var( --space-1 ) var( --space-2 );
+		border-radius: calc( var( --radius-3xl ) - var( --space-2 ) );
+		color: var( --foreground );
 	}
 
 	.answerLabel {
 		flex: 1;
 		min-width: 0;
+		line-height: var( --leading-snug );
 	}
 }

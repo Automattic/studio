@@ -4,6 +4,7 @@ import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useMemo, useState, type ReactNode } from 'react';
 import { useSessionsNeedingInput } from '@/data/agent-runs/use-agent-run';
+import { errorMessage, toast } from '@/data/app-messages';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSidebarPreferences } from '@/data/queries/use-sidebar-pins';
 import { useSites, useUpdateSitesSortOrder } from '@/data/queries/use-sites';
@@ -28,11 +29,13 @@ import {
 	getListedSessions,
 	getSidebarCollections,
 	hasSeveralUnfoldedSites,
+	mergeVisibleOrder,
 	type SiteRow,
 } from './sidebar-collections';
 import { SiteListGroup } from './sidebar-group';
 import { SidebarReorderableList } from './sidebar-reorderable-list';
 import { SiteSection } from './site-section';
+import { PinnedSortMenu, SitesSortMenu } from './sort-menu';
 import styles from './style.module.css';
 import { useRevealedSites } from './use-revealed-sites';
 import type { AiSessionSummary } from '@/data/core';
@@ -60,14 +63,20 @@ export function SiteList( {
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const pathname = useRouterState( { select: ( state ) => state.location.pathname } );
 	const activeSessionId = params.sessionId;
-	const sessions = useMemo(
-		() => getListedSessions( allSessions, activeSessionId ),
-		[ allSessions, activeSessionId ]
-	);
+	const sessions = useMemo( () => getListedSessions( allSessions ), [ allSessions ] );
 	const activeSiteId = params.siteId;
 	const [ chatNavigation, setChatNavigation ] = useState< 'recent' | 'pinned' >();
 	const updateSitesSortOrder = useUpdateSitesSortOrder();
-	const { pins, chatOrder, showRecentChats, autoCollapseSites, save } = useSidebarPreferences();
+	const {
+		pins,
+		chatOrder,
+		pinnedSort,
+		siteSort,
+		chatSort,
+		showRecentChats,
+		autoCollapseSites,
+		save,
+	} = useSidebarPreferences();
 
 	const orderedSites = useMemo( () => sortSites( [ ...( sites ?? [] ) ] ), [ sites ] );
 	const rows = useMemo(
@@ -75,13 +84,21 @@ export function SiteList( {
 		[ orderedSites, sessions ]
 	);
 	const { chat: activeChatSiteKey, context: activeContextSiteKey } = useMemo(
-		() => getActiveSiteKeys( rows, { activeSessionId, activeSiteId, pathname } ),
-		[ activeSessionId, activeSiteId, pathname, rows ]
+		() =>
+			getActiveSiteKeys( createSiteRows( orderedSites, allSessions ), {
+				activeSessionId,
+				activeSiteId,
+				pathname,
+			} ),
+		[ activeSessionId, activeSiteId, pathname, orderedSites, allSessions ]
 	);
 	const { pinnedItems, siteRows, chatsBySite, needsInputChats, recentChats } =
 		getSidebarCollections( rows, sessions, {
 			pins: sections ? pins : [],
 			chatOrder,
+			pinnedSort,
+			siteSort,
+			chatSort,
 			needingInput,
 		} );
 	const activeChatIsShortcut =
@@ -112,7 +129,21 @@ export function SiteList( {
 			onOpen={ sections ? () => toggle( row.site.id ) : undefined }
 			onReorderChats={ ( ids ) =>
 				save(
-					{ sidebarChatOrder: { ...chatOrder, [ row.site.id ]: ids } },
+					{
+						sidebarChatSort: 'manual',
+						sidebarChatOrder: {
+							...chatOrder,
+							[ row.site.id ]: mergeVisibleOrder(
+								[
+									...new Set( [
+										...( chatOrder[ row.site.id ] ?? [] ),
+										...row.chats.map( ( chat ) => chat.id ),
+									] ),
+								],
+								ids
+							),
+						},
+					},
 					__( 'Couldn’t save the chat order' )
 				)
 			}
@@ -145,7 +176,21 @@ export function SiteList( {
 				getItemId={ ( row ) => row.site.id }
 				getItemLabel={ ( row ) => row.site.name }
 				renderItem={ renderSiteRow }
-				onReorder={ ( ids ) => updateSitesSortOrder.mutate( ids ) }
+				onReorder={ ( ids ) =>
+					updateSitesSortOrder.mutate(
+						mergeVisibleOrder(
+							orderedSites.map( ( site ) => site.id ),
+							ids
+						),
+						{
+							onSuccess: () => save( { sidebarSiteSort: 'manual' } ),
+							onError: ( error ) =>
+								toast.error( __( 'Couldn’t save the site order' ), {
+									description: errorMessage( error ),
+								} ),
+						}
+					)
+				}
 				onDragStart={ ( row ) => fold( [ row.site.id ] ) }
 			/>
 		);
@@ -184,6 +229,7 @@ export function SiteList( {
 			session={ session }
 			active={ session.id === activeSessionId }
 			siteName={ siteName }
+			navigation={ navigation }
 			onOpen={ () => {
 				setChatNavigation( navigation );
 				onSiteOpen?.();
@@ -210,13 +256,16 @@ export function SiteList( {
 						fold( pinnedItems.flatMap( ( item ) => ( item.row ? [ item.row.site.id ] : [] ) ) )
 					}
 					action={
-						<IconButton
-							variant="muted-ghost"
-							size="icon-sm"
-							icon={ <PlusIcon /> }
-							label={ __( 'Add pinned site' ) }
-							onClick={ () => openAddSite( 'create', { pin: true } ) }
-						/>
+						<>
+							<PinnedSortMenu pinnedSort={ pinnedSort } save={ save } />
+							<IconButton
+								variant="muted-ghost"
+								size="icon-sm"
+								icon={ <PlusIcon /> }
+								label={ __( 'Add pinned site' ) }
+								onClick={ () => openAddSite( 'create', { pin: true } ) }
+							/>
+						</>
 					}
 				>
 					<SidebarReorderableList
@@ -230,7 +279,9 @@ export function SiteList( {
 								? renderSiteRow( item.row, itemProps )
 								: renderChat( item.session, item.siteName, itemProps, 'pinned' )
 						}
-						onReorder={ ( sidebarPins ) => save( { sidebarPins } ) }
+						onReorder={ ( ids ) =>
+							save( { sidebarPins: mergeVisibleOrder( pins, ids ), sidebarPinnedSort: 'manual' } )
+						}
 						onDragStart={ ( item ) => item.row && fold( [ item.row.site.id ] ) }
 					/>
 				</SiteListGroup>
@@ -248,9 +299,11 @@ export function SiteList( {
 									size="icon-sm"
 									icon={ <CollapseAllIcon /> }
 									label={ __( 'Collapse all' ) }
+									className={ styles.groupHoverAction }
 									onClick={ collapseAll }
 								/>
 							) : null }
+							<SitesSortMenu siteSort={ siteSort } chatSort={ chatSort } save={ save } />
 							<IconButton
 								variant="muted-ghost"
 								size="icon-sm"

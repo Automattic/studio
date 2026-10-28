@@ -665,8 +665,25 @@ describe( 'Annotation drafts during an active run', () => {
 		return id;
 	}
 
+	it( 'sends a direct annotation immediately while the chat is idle', async () => {
+		const { connector, input } = await setupChat( { pinnedProvider: 'wpcom' } );
+		fireEvent.change( input, { target: { value: 'Keep my draft' } } );
+		const id = addNote();
+		act( () => requestAnnotationSend( { siteId: SITE_ID, noteIds: [ id ] } ) );
+		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledOnce() );
+		expect( connector.continueSession.mock.calls[ 0 ][ 2 ] ).toEqual(
+			expect.objectContaining( {
+				visualAnnotations: expect.arrayContaining( [
+					expect.objectContaining( { comment: 'Make the heading shorter' } ),
+				] ),
+			} )
+		);
+		expect( input ).toHaveValue( 'Keep my draft' );
+		await waitFor( () => expect( getSiteAnnotations( SITE_ID ).notes ).toHaveLength( 0 ) );
+	} );
+
 	it.each( [ true, false ] )(
-		'keeps annotations in the composer instead of queuing (direct: %s)',
+		'queues direct annotations and preserves composer saves during a run (direct: %s)',
 		async ( direct ) => {
 			const { connector, input } = await setupChat( { pinnedProvider: 'wpcom' } );
 			fireEvent.change( input, { target: { value: 'Keep my draft' } } );
@@ -685,9 +702,14 @@ describe( 'Annotation drafts during an active run', () => {
 			act( () =>
 				requestAnnotationSend( { siteId: SITE_ID, noteIds: direct ? [ id ] : undefined } )
 			);
-			expect( await screen.findByRole( 'listitem', { name: /^1 annotation,/ } ) ).toBeVisible();
+			if ( direct ) {
+				expect( await screen.findByLabelText( 'Queued messages' ) ).toBeVisible();
+				await waitFor( () => expect( getSiteAnnotations( SITE_ID ).notes ).toHaveLength( 0 ) );
+			} else {
+				expect( await screen.findByRole( 'listitem', { name: /^1 annotation,/ } ) ).toBeVisible();
+				expect( screen.queryByLabelText( 'Queued messages' ) ).not.toBeInTheDocument();
+			}
 			expect( connector.continueSession ).toHaveBeenCalledOnce();
-			expect( screen.queryByLabelText( 'Queued messages' ) ).not.toBeInTheDocument();
 			expect( input ).toHaveValue( 'Keep my draft' );
 			act( () =>
 				connector.emit( 'onAgentEvent', {
@@ -701,8 +723,10 @@ describe( 'Annotation drafts during an active run', () => {
 					},
 				} as AgentRunEvent )
 			);
-			await waitFor( () => expect( sendButton() ).toBeEnabled() );
-			fireEvent.click( sendButton() );
+			if ( ! direct ) {
+				await waitFor( () => expect( sendButton() ).toBeEnabled() );
+				fireEvent.click( sendButton() );
+			}
 			await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledTimes( 2 ) );
 			expect( connector.continueSession.mock.calls[ 1 ][ 2 ] ).toEqual(
 				expect.objectContaining( {

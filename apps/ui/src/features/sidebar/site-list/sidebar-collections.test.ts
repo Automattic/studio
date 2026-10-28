@@ -40,10 +40,11 @@ const rows = createSiteRows( sites, sessions );
 const defaults = { pins: [], chatOrder: {}, needingInput: [] };
 
 describe( 'getListedSessions', () => {
-	it( 'hides a chat without a prompt or title unless it is open', () => {
+	it( 'only lists conversations with a submitted message', () => {
 		const blank = chat( 'new', 'a', '2026-01-06T00:00:00Z', { firstPrompt: undefined } );
-		expect( getListedSessions( [ blank ], undefined ) ).toEqual( [] );
-		expect( getListedSessions( [ blank ], 'new' ) ).toEqual( [ blank ] );
+		const named = { ...blank, id: 'named', title: 'Named draft' };
+		const sent = { ...blank, id: 'sent', firstPrompt: 'Hello' };
+		expect( getListedSessions( [ blank, named, sent ] ) ).toEqual( [ sent ] );
 	} );
 } );
 
@@ -123,8 +124,8 @@ describe( 'getSidebarCollections', () => {
 		expect(
 			result.pinnedItems.map( ( item ) => [ item.key, item.siteName ?? item.row?.site.id ] )
 		).toEqual( [
-			[ 'chat:a1', 'Site a' ],
 			[ 'site:b', 'b' ],
+			[ 'chat:a1', 'Site a' ],
 		] );
 		expect( result.siteRows.map( ( row ) => row.site.id ) ).toEqual( [ 'a' ] );
 		expect( result.chatsBySite.get( 'a' )?.map( ( { id } ) => id ) ).toEqual( [ 'a2' ] );
@@ -183,5 +184,59 @@ describe( 'mergeVisibleOrder', () => {
 			'c',
 			'd',
 		] );
+	} );
+} );
+
+describe( 'sidebar sorting', () => {
+	it( 'groups pins by type without losing the mixed manual arrangement', () => {
+		const pins = [ 'chat:a2', 'site:b', 'chat:a1', 'site:a' ];
+		const options = { ...defaults, pins };
+		expect(
+			getSidebarCollections( rows, sessions, options ).pinnedItems.map( ( item ) => item.key )
+		).toEqual( [ 'site:b', 'site:a', 'chat:a2', 'chat:a1' ] );
+		expect(
+			getSidebarCollections( rows, sessions, { ...options, pinnedSort: 'manual' } ).pinnedItems.map(
+				( item ) => item.key
+			)
+		).toEqual( pins );
+	} );
+
+	it( 'puts running sites first, retaining their manual positions within each status', () => {
+		const statusRows = createSiteRows(
+			[
+				{ ...site( 'a' ), running: false },
+				{ ...site( 'b' ), running: true },
+				{ ...site( 'c' ), running: false },
+				{ ...site( 'd' ), running: true },
+			],
+			[]
+		);
+		expect(
+			getSidebarCollections( statusRows, [], { ...defaults, siteSort: 'status' } ).siteRows.map(
+				( row ) => row.site.id
+			)
+		).toEqual( [ 'b', 'd', 'a', 'c' ] );
+		expect(
+			getSidebarCollections( statusRows, [], defaults ).siteRows.map( ( row ) => row.site.id )
+		).toEqual( [ 'a', 'b', 'c', 'd' ] );
+	} );
+
+	it( 'can return to newest chats without discarding saved order or changing Recent', () => {
+		const options = { ...defaults, chatOrder: { a: [ 'a1', 'a2' ] } };
+		const manual = getSidebarCollections( rows, sessions, options );
+		const updated = getSidebarCollections( rows, sessions, { ...options, chatSort: 'updated' } );
+		expect( manual.chatsBySite.get( 'a' )?.map( ( chat ) => chat.id ) ).toEqual( [ 'a1', 'a2' ] );
+		expect( updated.chatsBySite.get( 'a' )?.map( ( chat ) => chat.id ) ).toEqual( [ 'a2', 'a1' ] );
+		expect( updated.recentChats ).toEqual( manual.recentChats );
+		expect( options.chatOrder.a ).toEqual( [ 'a1', 'a2' ] );
+	} );
+
+	it( 'keeps hidden pins in place when visible pins are dragged', () => {
+		expect(
+			mergeVisibleOrder(
+				[ 'chat:a', 'chat:hidden', 'site:b', 'site:c' ],
+				[ 'site:c', 'site:b', 'chat:a' ]
+			)
+		).toEqual( [ 'site:c', 'chat:hidden', 'site:b', 'chat:a' ] );
 	} );
 } );

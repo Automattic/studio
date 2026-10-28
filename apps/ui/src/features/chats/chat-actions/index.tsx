@@ -2,7 +2,7 @@ import {
 	aiSessionBelongsToSite,
 	findAiSessionOwnerSite,
 } from '@studio/common/ai/sessions/owner-site';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
 import { MaximizeIcon } from 'lucide-react';
@@ -48,14 +48,21 @@ import {
 import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 
-export function useLeaveArchivedChat() {
+declare module '@tanstack/react-router' {
+	interface HistoryState {
+		chatNavigation?: 'recent' | 'pinned' | 'site';
+	}
+}
+
+export function useLeaveArchivedChat( group?: 'recent' | 'pinned' | 'site' ) {
 	const navigate = useNavigate();
+	const navigation = useRouterState( { select: ( state ) => state.location.state.chatNavigation } );
 	const { data: sites } = useSites();
 	const { data: sessions } = useSessions();
 	const needingInput = useSessionsNeedingInput();
 	const { pins, chatOrder, showRecentChats } = useSidebarPreferences();
 	return ( viewing: AiSessionSummary, archivedIds: string[] ) => {
-		if ( showRecentChats && ! pins.includes( chatPinKey( viewing.id ) ) ) {
+		if ( ( group ?? navigation ) === 'recent' && showRecentChats ) {
 			const recent = ( sessions ?? [] )
 				.filter(
 					( session ) =>
@@ -73,22 +80,26 @@ export function useLeaveArchivedChat() {
 					.concat( recent.slice( 0, index ) )
 					.find( ( session ) => ! archivedIds.includes( session.id ) );
 				if ( next ) {
-					void navigate( { to: '/sessions/$sessionId', params: { sessionId: next.id } } );
+					void navigate( {
+						to: '/sessions/$sessionId',
+						params: { sessionId: next.id },
+						state: { chatNavigation: 'recent' },
+					} );
 					return;
 				}
 			}
+			void navigate( { to: '/' } );
+			return;
 		}
 		const site = findAiSessionOwnerSite( sites, viewing );
 		if ( ! site ) {
 			void navigate( { to: '/' } );
 			return;
 		}
-		const [ next ] = orderChats(
+		const chats = orderChats(
 			( sessions ?? [] ).filter(
 				( session ) =>
-					! session.archived &&
-					! archivedIds.includes( session.id ) &&
-					aiSessionBelongsToSite( session, site )
+					!! session.firstPrompt && ! session.archived && aiSessionBelongsToSite( session, site )
 			),
 			chatOrder[ site.id ]
 		).sort(
@@ -96,6 +107,11 @@ export function useLeaveArchivedChat() {
 				Number( pins.includes( chatPinKey( a.id ) ) ) -
 				Number( pins.includes( chatPinKey( b.id ) ) )
 		);
+		const index = chats.findIndex( ( session ) => session.id === viewing.id );
+		const next = chats
+			.slice( index + 1 )
+			.concat( chats.slice( 0, index ) )
+			.find( ( session ) => ! archivedIds.includes( session.id ) );
 		void navigate(
 			next
 				? { to: '/sessions/$sessionId', params: { sessionId: next.id } }
@@ -104,11 +120,15 @@ export function useLeaveArchivedChat() {
 	};
 }
 
-export function useChatActions( session: AiSessionSummary, active: boolean ) {
+export function useChatActions(
+	session: AiSessionSummary,
+	active: boolean,
+	group?: 'recent' | 'pinned' | 'site'
+) {
 	const working = useSiteAgentActivity( [ session.id ] ) === 'working';
 	const archiveBlocked = useSessionsBusy( [ session.id ] );
 	const { mutateAsync } = useUpdateSessionMetadata();
-	const leaveArchivedChat = useLeaveArchivedChat();
+	const leaveArchivedChat = useLeaveArchivedChat( group );
 	const [ renaming, setRenaming ] = useState( false );
 	const { isPinned, togglePin } = useSidebarPins();
 

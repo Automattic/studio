@@ -322,10 +322,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return () => authListeners.delete( listener );
 		},
 		async getOnboardingCompleted() {
-			return true;
+			return api< boolean >( '/onboarding' );
 		},
-		async setOnboardingCompleted() {
-			// No-op.
+		async setOnboardingCompleted( completed ) {
+			await api( '/onboarding', { method: 'PATCH', body: JSON.stringify( { completed } ) } );
 		},
 
 		// Sites — the local machine's real Studio sites, served by the CLI.
@@ -815,6 +815,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// the browser's behalf (the editor/terminal choice comes from prefs above).
 		async openSiteFolder( siteId ) {
 			await api( `/sites/${ encodeURIComponent( siteId ) }/open-folder`, { method: 'POST' } );
+		},
+		async openSiteEmailFolder( siteId ) {
+			await api( `/sites/${ encodeURIComponent( siteId ) }/open-email-folder`, { method: 'POST' } );
 		},
 		// The server resolves the preference; a 400 means none is configured and
 		// callers route the user to Settings, matching the desktop contract.

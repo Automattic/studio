@@ -1101,3 +1101,25 @@ export const newsletterSignupInFooter = check( ( d, vars ) => {
 		);
 	return pass( 'the rendered footer has an email signup form built from blocks' );
 } );
+
+export const questionnaireSkip = check( ( d ) => {
+	const questions = d.questions || [];
+	if ( questions.length !== 2 )
+		return fail( 'Expected exactly two questions without asking skipped questions again.' );
+	if (
+		questions.some( ( question ) =>
+			question.options.some( ( label ) =>
+				/^(other|something else|none of the above)$/i.test( label.trim() )
+			)
+		)
+	) {
+		return fail( 'A generic free-form option was added.' );
+	}
+	const text = finalReply( d );
+	return /gallery/i.test( text ) &&
+		/undecided|unspecified|skipped|not (chosen|selected|decided|specified)|no (layout|selection)|open|unselected/i.test(
+			text
+		)
+		? pass( 'Selected page and skipped layout are reflected in the reply.' )
+		: fail( `The reply did not preserve the selection and skip: ${ text }` );
+} );

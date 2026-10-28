@@ -62,6 +62,7 @@ export function makeSession( overrides: Partial< AiSessionSummary > = {} ): AiSe
 		updatedAt: '2026-01-01T00:00:00.000Z',
 		activeEnvironment: 'local',
 		eventCount: 0,
+		firstPrompt: overrides.title,
 		...overrides,
 	};
 }
@@ -311,6 +312,7 @@ export function createInMemoryConnector(
 		openSiteFolder: async () => {},
 		openSiteInEditor: async () => {},
 		openSiteInTerminal: async () => {},
+		openSiteEmailFolder: async () => {},
 		siteDebugLogExists: async () => false,
 		openSiteDebugLog: async () => {},
 		openStudioLogs: async () => {},

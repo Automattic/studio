@@ -19,6 +19,9 @@ const nodeBuiltinExternals: RegExp[] = [
 	/^dns\/promises$/,
 ];
 
+// Kept external and installed by `install:bundle`; everything else, including the
+// workspace packages and their dependencies, is bundled. See "Bundled Workspace
+// Packages" in AGENTS.md.
 const packageJsonDependencies = Object.keys( packageJson.dependencies || {} );
 const minimumNodeVersionRange = packageJson.engines?.node;
 

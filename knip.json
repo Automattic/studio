@@ -28,8 +28,7 @@
 				"commands/**/*.ts",
 				"vite.config.*.ts"
 			],
-			"project": "**/*.ts",
-			"ignoreDependencies": ["@earendil-works/pi-agent-core"]
+			"project": "**/*.ts"
 		},
 		"apps/ui": {
 			"entry": ["src/main.local.tsx", "src/dev/{chat,animation}.tsx"],

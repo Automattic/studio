@@ -1,4 +1,4 @@
-import { DEFAULT_MODEL } from '@studio/common/ai/models';
+import { DEFAULT_MODEL } from '@studio/agent/protocol/models';
 import {
 	extractFormValuesFromBlueprint,
 	updateBlueprintWithFormValues,

@@ -1,4 +1,4 @@
-import { SKIPPED_QUESTION, STOPPED_WITHOUT_ANSWER } from '@studio/common/ai/tools';
+import { SKIPPED_QUESTION, STOPPED_WITHOUT_ANSWER } from '@studio/agent/protocol/tools';
 import { __, sprintf } from '@wordpress/i18n';
 import { memo, useEffect, useRef, useState } from 'react';
 import { AgentQuestion } from '@/features/chats/session-view/conversation/agent-question/agent-question';

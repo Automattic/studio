@@ -1,4 +1,4 @@
-import type { BrowserShortcutCommand } from '@studio/common/ai/inspector/page-script';
+import type { BrowserShortcutCommand } from '@studio/agent/protocol/inspector/page-script';
 
 export interface BrowserHistoryEntry {
 	index: number;

@@ -1,9 +1,9 @@
-import { getAiModelLabel } from '@studio/common/ai/models';
+import { getAiModelLabel } from '@studio/agent/protocol/models';
 import {
 	AI_PROVIDER_LABELS,
 	getAiProviderModels,
 	type AiProviderId,
-} from '@studio/common/ai/providers';
+} from '@studio/agent/protocol/providers';
 import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
 import { __, sprintf } from '@wordpress/i18n';
 import { PlugIcon } from 'lucide-react';

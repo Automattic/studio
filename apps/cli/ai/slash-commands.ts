@@ -3,8 +3,8 @@ import {
 	getAiModelFamily,
 	getAiModelLabel,
 	type AiModelId,
-} from '@studio/common/ai/models';
-import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
+} from '@studio/agent/protocol/models';
+import { getAiSkillCommands } from '@studio/agent/protocol/slash-commands';
 import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	clampQuotaFraction,
@@ -21,7 +21,6 @@ import {
 import { __, sprintf } from '@wordpress/i18n';
 import { getAvailableAiProviders, isAiProviderReady } from 'cli/ai/auth';
 import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
-import { captureCommandOutput } from 'cli/ai/tools';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
@@ -31,7 +30,7 @@ import { openBrowser } from 'cli/lib/browser';
 import { getAppLocale } from 'cli/lib/i18n';
 import { getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
-import { LoggerError } from 'cli/logger';
+import { Logger, LoggerError } from 'cli/logger';
 import type { AiChatUI } from 'cli/ai/ui';
 
 export interface SlashCommandContext {
@@ -460,31 +459,15 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 				);
 				ctx.ui.setBusy( true );
 
-				const result = await captureCommandOutput(
-					async ( logger ) => {
-						if ( activeSnapshot ) {
-							await runUpdatePreviewCommand( site.path, activeSnapshot.url, false, logger );
-						} else {
-							await runCreatePreviewCommand( site.path, undefined, logger );
-						}
-					},
-					( message, update ) => ctx.ui.setLoaderMessage( message, update )
-				);
+				const logger = new Logger( {
+					onProgress: ( message, update ) => ctx.ui.setLoaderMessage( message, update ),
+				} );
+				const preview = activeSnapshot
+					? await runUpdatePreviewCommand( site.path, activeSnapshot.url, false, logger )
+					: await runCreatePreviewCommand( site.path, undefined, logger );
 
 				ctx.ui.setBusy( false );
-
-				if ( result.exitCode ) {
-					ctx.ui.showError( result.consoleOutput || __( 'Failed to create preview site.' ) );
-				} else {
-					const updated = await getSnapshotsFromConfig( token.id, site.path );
-					const latest = updated.find( ( s ) => ! isSnapshotExpired( s ) );
-					if ( latest ) {
-						const previewUrl = `https://${ latest.url }`;
-						ctx.ui.showSuccess( __( 'Preview site ready!' ) + '\n\n   ' + previewUrl );
-					} else {
-						ctx.ui.showInfo( result.consoleOutput || __( 'Preview command completed.' ) );
-					}
-				}
+				ctx.ui.showSuccess( __( 'Preview site ready!' ) + '\n\n   ' + `https://${ preview.url }` );
 			} catch ( error ) {
 				ctx.ui.setBusy( false );
 				if ( error instanceof LoggerError ) {
@@ -560,20 +543,19 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 				);
 				ctx.ui.setBusy( true );
 
-				const result = await captureCommandOutput(
-					( logger ) => runPushCommand( site.path, [ 'all' ], String( remoteSite.id ), logger ),
-					( message, update ) => ctx.ui.setLoaderMessage( message, update )
+				await runPushCommand(
+					site.path,
+					[ 'all' ],
+					String( remoteSite.id ),
+					new Logger( {
+						onProgress: ( message, update ) => ctx.ui.setLoaderMessage( message, update ),
+					} )
 				);
 
 				ctx.ui.setBusy( false );
-
-				if ( result.exitCode ) {
-					ctx.ui.showError( result.consoleOutput || __( 'Failed to publish site.' ) );
-				} else {
-					ctx.ui.showSuccess(
-						sprintf( __( 'Published to %s' ), remoteSite.url ) + '\n\n   ' + remoteSite.url
-					);
-				}
+				ctx.ui.showSuccess(
+					sprintf( __( 'Published to %s' ), remoteSite.url ) + '\n\n   ' + remoteSite.url
+				);
 			} catch ( error ) {
 				ctx.ui.setBusy( false );
 				if ( isPromptAbortError( error ) ) {

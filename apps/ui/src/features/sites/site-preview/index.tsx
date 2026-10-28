@@ -37,7 +37,7 @@ import { usePreviewAnnotations } from './use-preview-annotations';
 import { usePreviewCapture } from './use-preview-capture';
 import { usePreviewSurfaces } from './use-preview-surfaces';
 import type { SiteDetails } from '@/data/core';
-import type { InspectorEvent } from '@studio/common/ai/inspector/page-script';
+import type { InspectorEvent } from '@studio/agent/protocol/inspector/page-script';
 
 interface SitePreviewProps {
 	site: SiteDetails;

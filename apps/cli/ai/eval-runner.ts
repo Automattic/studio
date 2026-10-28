@@ -1,7 +1,7 @@
 /**
  * PromptFoo eval runner for Studio Code agent.
  *
- * Hooks into runStudioAgentTurn() to capture tool calls, tool results, and
+ * Hooks into the agent's turns to capture tool calls, tool results, and
  * assistant text. Returns raw structured data — assertions live in the
  * promptfoo config, not here.
  */
@@ -19,11 +19,18 @@ import os from 'node:os';
 import path from 'node:path';
 import { SessionManager } from '@earendil-works/pi-coding-agent';
 import {
+	addAssistantMessageUsage,
+	createAgent,
+	createTokenUsage,
+	type AskUserHandler,
+	type SiteInfo,
+} from '@studio/agent/node';
+import {
 	readGlobalInstructionsFile,
 	writeGlobalInstructions,
-} from '@studio/common/ai/global-instructions';
-import { DEFAULT_MODEL, isAiModelId, type AiModelId } from '@studio/common/ai/models';
-import { findLastAssistant } from '@studio/common/ai/session-events';
+} from '@studio/agent/node/global-instructions';
+import { DEFAULT_MODEL, isAiModelId, type AiModelId } from '@studio/agent/protocol/models';
+import { findLastAssistant } from '@studio/agent/protocol/session-events';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import {
 	addConnectedWpcomSite,
@@ -44,8 +51,7 @@ import {
 import { captureTurnOutcome, fingerprintSites, type TurnOutcome } from 'cli/ai/eval-outcome';
 import { matchesStopRule, stopRuleSchema, type StopRule } from 'cli/ai/eval-stop';
 import { summarizeTiming, type ModelRequestRecord } from 'cli/ai/eval-timing';
-import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
-import { addAssistantMessageUsage, createTokenUsage } from 'cli/ai/token-usage';
+import { cliAgentHost } from 'cli/ai/host';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
 import { Mode as StopMode, runCommand as runStopSiteCommand } from 'cli/commands/site/stop';
@@ -62,7 +68,6 @@ import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { Logger } from 'cli/logger';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { AiProviderId } from 'cli/ai/providers';
-import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
 // Optional fixtures a test can pre-seed before the agent turn, so flows that
 // depend on connected remote sites and/or preview sites can be exercised
@@ -540,7 +545,8 @@ function readInput(): EvalRunnerInput {
 }
 
 async function runEval( input: EvalRunnerInput ) {
-	// Mirrors the fallback in runStudioAgentTurn (ai/runtimes/pi/index.ts) — keep in sync.
+	const agent = createAgent( { host: cliAgentHost } );
+	// Mirrors the fallback in the agent runtime (packages/agent/node/runtime) — keep in sync.
 	const resolvedModel = input.model ?? DEFAULT_MODEL;
 	const evalStartedAt = Date.now();
 	const elapsed = () => Date.now() - evalStartedAt;
@@ -728,7 +734,7 @@ async function runEval( input: EvalRunnerInput ) {
 	};
 
 	const runTurn = ( turnPrompt: string ) =>
-		runStudioAgentTurn( {
+		agent.runTurn( {
 			prompt: turnPrompt,
 			env,
 			session,

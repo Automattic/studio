@@ -17,7 +17,7 @@ import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { BrowserNavigationState } from '@/features/sites/site-preview/browser-state';
 import type { useBrowserShortcuts } from '@/features/sites/site-preview/use-browser-shortcuts';
-import type { BrowserShortcutCommand } from '@studio/common/ai/inspector/page-script';
+import type { BrowserShortcutCommand } from '@studio/agent/protocol/inspector/page-script';
 import type { ComponentProps } from 'react';
 
 interface PreviewHeaderProps {

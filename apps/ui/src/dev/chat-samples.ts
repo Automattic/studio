@@ -1,6 +1,6 @@
-import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
-import { USAGE_CAP_ERROR_PREFIX } from '@studio/common/ai/json-events';
-import { STOPPED_WITHOUT_ANSWER } from '@studio/common/ai/tools';
+import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
+import { USAGE_CAP_ERROR_PREFIX } from '@studio/agent/protocol/json-events';
+import { STOPPED_WITHOUT_ANSWER } from '@studio/agent/protocol/tools';
 import type { SessionEntry } from '@/data/core';
 
 interface ToolCall {

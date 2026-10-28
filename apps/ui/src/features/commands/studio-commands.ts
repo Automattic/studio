@@ -1,4 +1,4 @@
-import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
+import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
 import { __, sprintf } from '@wordpress/i18n';
 import { PencilIcon, RefreshCwIcon, SettingsIcon, SparklesIcon } from 'lucide-react';
 import { getSections } from '@/data/settings-sections';

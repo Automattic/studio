@@ -1,15 +1,15 @@
-import { createAgentRunManager } from '@studio/common/ai/run-manager';
+import { createAgentRunManager } from '@studio/agent/node/run-manager';
 import { getTracksOriginEnv } from 'src/modules/cli/lib/execute-command';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
-import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
-import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
-import type { StudioChatImage } from '@studio/common/ai/chat-images';
-import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
+import type { ActiveAgentRun } from '@studio/agent/protocol/agent-events';
+import type { StudioChatFileAttachment } from '@studio/agent/protocol/chat-files';
+import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
+import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 import type { WebContents } from 'electron';
 
 /**
  * Desktop binding for the shared agent run-manager
- * (`@studio/common/ai/run-manager`). The fork, lifecycle, stats,
+ * (`@studio/agent/node/run-manager`). The fork, lifecycle, stats,
  * placement, and error reporting all live in the shared core; this module only
  * supplies the desktop's two host specifics — the bundled CLI/Node binaries and
  * the IPC transport — plus per-run routing. The `studio ui` server wires the

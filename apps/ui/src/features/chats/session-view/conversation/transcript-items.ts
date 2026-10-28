@@ -4,16 +4,16 @@ import {
 	isStudioChatArtifactData,
 	stripMediaWidgetPayloadLines,
 	type StudioChatArtifactWidgetDraft,
-} from '@studio/common/ai/chat-artifacts';
+} from '@studio/agent/protocol/chat-artifacts';
 import {
 	isStudioCustomEntryOfType,
 	type StudioChatAttachmentSummary,
 	type StudioCustomEntry,
-} from '@studio/common/ai/sessions/entry-types';
-import { getToolResultDiff, type NormalizedToolResult } from '@studio/common/ai/tools';
+} from '@studio/agent/protocol/sessions/entry-types';
+import { getToolResultDiff, type NormalizedToolResult } from '@studio/agent/protocol/tools';
 import { isStreamingReply } from '@/data/agent-runs/streaming-reply';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
-import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
+import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 
 export interface AgentQuestionRenderItem {
 	key: string;

@@ -1,7 +1,7 @@
 import {
 	persistSelectedAiProvider,
 	readSelectedAiProvider,
-} from '@studio/common/ai/settings-store';
+} from '@studio/agent/node/settings-store';
 import {
 	AI_PROVIDER_PRIORITY,
 	DEFAULT_AI_PROVIDER,

@@ -14,7 +14,7 @@ import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { useOffline } from '@/lib/hooks';
 import type { ComposerNotice } from '@/features/composer';
-import type { AiProviderId } from '@studio/common/ai/providers';
+import type { AiProviderId } from '@studio/agent/protocol/providers';
 
 /**
  * Why this chat can't send right now, shown above the composer while the

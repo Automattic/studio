@@ -1,4 +1,4 @@
-import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
+import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
 import {
 	createRoute,
 	Outlet,

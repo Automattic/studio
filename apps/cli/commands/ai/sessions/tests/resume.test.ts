@@ -1,12 +1,12 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { loadAiSession } from '@studio/common/ai/sessions/store';
+import { loadAiSession } from '@studio/agent/node/sessions/store';
 import { vi, type Mock } from 'vitest';
 import { runCommand as runAiCommand } from 'cli/commands/ai';
 import { runCommand } from '../resume';
 
-vi.mock( '@studio/common/ai/sessions/store', () => ( {
+vi.mock( '@studio/agent/node/sessions/store', () => ( {
 	loadAiSession: vi.fn(),
 	listAiSessions: vi.fn(),
 } ) );

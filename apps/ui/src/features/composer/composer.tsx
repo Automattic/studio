@@ -1,5 +1,5 @@
-import { aiModelSupportsImages } from '@studio/common/ai/models';
-import { resolveSkillFromPrompt } from '@studio/common/ai/slash-commands';
+import { aiModelSupportsImages } from '@studio/agent/protocol/models';
+import { resolveSkillFromPrompt } from '@studio/agent/protocol/slash-commands';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { GlobeIcon } from 'lucide-react';
@@ -49,7 +49,7 @@ import {
 import styles from './style.module.css';
 import type { AiModelId, SessionEntry, StudioVisualAnnotationSummary } from '@/data/core';
 import type { ComposerSendAttachments } from '@/data/use-composer-attachments';
-import type { AiProviderId } from '@studio/common/ai/providers';
+import type { AiProviderId } from '@studio/agent/protocol/providers';
 
 /**
  * Invisible structural placeholder that mirrors Composer's outer DOM, so the

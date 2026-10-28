@@ -10,9 +10,9 @@ import {
 	Theme,
 } from '@earendil-works/pi-coding-agent';
 import { Text } from '@earendil-works/pi-tui';
-import { stripMediaWidgetPayloadLines } from '@studio/common/ai/chat-artifacts';
-import { getStudioToolProgress } from '@studio/common/ai/tool-progress';
-import { getToolDetail, getToolDisplayName } from '@studio/common/ai/tools';
+import { stripMediaWidgetPayloadLines } from '@studio/agent/protocol/chat-artifacts';
+import { getStudioToolProgress } from '@studio/agent/protocol/tool-progress';
+import { getToolDetail, getToolDisplayName } from '@studio/agent/protocol/tools';
 import { __, sprintf } from '@wordpress/i18n';
 import { Type } from 'typebox';
 import { theme } from 'cli/ai/theme';

@@ -1,4 +1,4 @@
-import { AI_PROVIDER_LABELS } from '@studio/common/ai/providers';
+import { AI_PROVIDER_LABELS } from '@studio/agent/protocol/providers';
 import { __ } from '@wordpress/i18n';
 import { CheckIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -13,7 +13,7 @@ import { useOffline } from '@/lib/hooks';
 import { Badge, Button, Input } from '@/lib/ui';
 import { SettingsGroup, SettingsRow, SettingsSelect } from './rows';
 import styles from './style.module.css';
-import type { AiProviderId } from '@studio/common/ai/providers';
+import type { AiProviderId } from '@studio/agent/protocol/providers';
 
 const connectedBadge = () => (
 	<Badge size="xs" variant="accent">

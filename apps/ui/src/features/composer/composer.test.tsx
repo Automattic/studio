@@ -1,5 +1,5 @@
-import { DEFAULT_MODEL } from '@studio/common/ai/models';
-import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
+import { DEFAULT_MODEL } from '@studio/agent/protocol/models';
+import { getAiSkillCommands } from '@studio/agent/protocol/slash-commands';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { createRef, useState, type ComponentProps } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -18,7 +18,7 @@ import { createFakeConnector, makeSession, TEST_USER } from '@/test/fake-connect
 import { renderWithProviders } from '@/test/render';
 import { clearComposerDrafts, getComposerDraft, saveComposerDraft } from './draft-store';
 import type { LoadedAiSession, SessionEntry } from '@/data/core';
-import type { ComposerImageAttachment } from '@studio/common/ai/composer-attachments';
+import type { ComposerImageAttachment } from '@studio/agent/protocol/composer-attachments';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 
 type Props = Partial< ComponentProps< typeof Composer > > & { ref?: React.Ref< ComposerHandle > };

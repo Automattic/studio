@@ -1,5 +1,5 @@
-import { isStudioChatImageMimeType } from '@studio/common/ai/chat-images';
-import { getComposerAttachmentImageSrc } from '@studio/common/ai/composer-attachment-preview';
+import { isStudioChatImageMimeType } from '@studio/agent/protocol/chat-images';
+import { getComposerAttachmentImageSrc } from '@studio/agent/protocol/composer-attachment-preview';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { isAppleOS } from '@wordpress/keycodes';
 import { clsx } from 'clsx';
@@ -41,7 +41,7 @@ import {
 	type PreviewAnnotation,
 } from './store';
 import styles from './style.module.css';
-import type { ComposerImageAttachment } from '@studio/common/ai/composer-attachments';
+import type { ComposerImageAttachment } from '@studio/agent/protocol/composer-attachments';
 
 export interface AnnotationAnchor {
 	left: number;

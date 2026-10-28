@@ -1,5 +1,5 @@
-import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
-import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
+import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
+import { aiSessionBelongsToSite } from '@studio/agent/protocol/sessions/owner-site';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';

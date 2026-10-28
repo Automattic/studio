@@ -1,4 +1,4 @@
-import { listAiSessions } from '@studio/common/ai/sessions/store';
+import { listAiSessions } from '@studio/agent/node/sessions/store';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { __ } from '@wordpress/i18n';
 import { displaySessionsCompact } from 'cli/commands/ai/sessions/helpers';

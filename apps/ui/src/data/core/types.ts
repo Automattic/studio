@@ -1,14 +1,14 @@
-import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
-import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
-import type { StudioChatImage } from '@studio/common/ai/chat-images';
-import type { AiModelId } from '@studio/common/ai/models';
-import type { AiProviderId, AiSettings } from '@studio/common/ai/providers';
+import type { ActiveAgentRun, AgentRunEvent } from '@studio/agent/protocol/agent-events';
+import type { StudioChatFileAttachment } from '@studio/agent/protocol/chat-files';
+import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
+import type { AiModelId } from '@studio/agent/protocol/models';
+import type { AiProviderId, AiSettings } from '@studio/agent/protocol/providers';
 import type {
 	AiSessionMetadata,
 	AiSessionSummary,
 	LoadedAiSession,
-} from '@studio/common/ai/sessions/types';
-import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
+} from '@studio/agent/protocol/sessions/types';
+import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 import type { SiteAgentFile, SiteAgentFileKind } from '@studio/common/lib/agent-skills';
 import type { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
@@ -45,18 +45,18 @@ import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { DesignFix } from '@studio/design-md';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
-export type { ActiveAgentRun } from '@studio/common/ai/agent-events';
-export type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
-export type { StudioChatImage } from '@studio/common/ai/chat-images';
+export type { ActiveAgentRun } from '@studio/agent/protocol/agent-events';
+export type { StudioChatFileAttachment } from '@studio/agent/protocol/chat-files';
+export type { StudioChatImage } from '@studio/agent/protocol/chat-images';
 export type {
 	AiSessionMetadata,
 	AiSessionSummary,
 	LoadedAiSession,
-} from '@studio/common/ai/sessions/types';
-export type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
+} from '@studio/agent/protocol/sessions/types';
+export type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 export type { SessionEntry } from '@earendil-works/pi-coding-agent';
-export type { StudioCustomEntry } from '@studio/common/ai/sessions/entry-types';
-export type { AiModelId } from '@studio/common/ai/models';
+export type { StudioCustomEntry } from '@studio/agent/protocol/sessions/entry-types';
+export type { AiModelId } from '@studio/agent/protocol/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
 export type { SnapshotUsage } from '@studio/common/lib/snapshots';
 export type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';

@@ -1,12 +1,12 @@
-import { aiModelRequiresPaidCredits } from '@studio/common/ai/models';
-import { AI_PROVIDER_IDS, getEffectiveSessionProvider } from '@studio/common/ai/providers';
+import { aiModelRequiresPaidCredits } from '@studio/agent/protocol/models';
+import { AI_PROVIDER_IDS, getEffectiveSessionProvider } from '@studio/agent/protocol/providers';
 import { canUsePaidAiModels } from '@studio/common/lib/studio-assistant-quota';
 import { useCallback, useMemo } from 'react';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import type { AiModelId, SessionEntry } from '@/data/core';
-import type { AiProviderId } from '@studio/common/ai/providers';
+import type { AiProviderId } from '@studio/agent/protocol/providers';
 
 // The provider the chat is on, the providers it can use, and which models are
 // out of reach.

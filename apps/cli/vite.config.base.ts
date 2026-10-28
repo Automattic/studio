@@ -19,6 +19,9 @@ const nodeBuiltinExternals: RegExp[] = [
 	/^dns\/promises$/,
 ];
 
+// Kept external and installed by `install:bundle`; everything else, including the
+// workspace packages and their dependencies, is bundled. See "Bundled Workspace
+// Packages" in AGENTS.md.
 const packageJsonDependencies = Object.keys( packageJson.dependencies || {} );
 const minimumNodeVersionRange = packageJson.engines?.node;
 
@@ -37,8 +40,8 @@ if ( ! minimumNodeVersion ) {
 const bundledWpFilesPath = resolve( __dirname, '..', '..', 'wp-files' );
 const phpSourceCodePath = resolve( __dirname, 'php' );
 // The Skill tool loads skills from `<chunk dir>/skills` at runtime (see
-// `ai/skills.ts`), so they must sit directly next to the built chunks.
-const skillsSourcePath = resolve( __dirname, 'ai/skills' );
+// `@studio/agent/node/skills.ts`), so they must sit directly next to the built chunks.
+const skillsSourcePath = resolve( __dirname, '../../packages/agent/node/skills' );
 
 // The `studio ui` command serves the built browser UI (apps/ui `dist-local`)
 // from `<chunk dir>/ui`, so it must sit next to the built chunks too. Built
@@ -186,6 +189,7 @@ export const baseConfig = defineConfig( {
 		alias: {
 			cli: resolve( __dirname, '.' ),
 			'@studio/common': resolve( __dirname, '../../packages/common' ),
+			'@studio/agent': resolve( __dirname, '../../packages/agent' ),
 			'@studio/design-md': resolve( __dirname, '../../packages/design-md/index.ts' ),
 			// The `studio ui` local server (apps/local) is bundled into the CLI
 			// from source, the same way `@studio/common` is.

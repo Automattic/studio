@@ -1,0 +1,28 @@
+{
+	"name": "@studio/agent",
+	"private": true,
+	"version": "1.0.0",
+	"type": "module",
+	"description": "The Studio Code agent: its contract with the apps (protocol) and its Node runtime (node)",
+	"exports": {
+		"./protocol/*": "./protocol/*.ts",
+		"./node": "./node/index.ts",
+		"./node/*": "./node/*.ts"
+	},
+	"scripts": {
+		"lint": "eslint .",
+		"typecheck": "tsc -p tsconfig.json --noEmit"
+	},
+	"dependencies": {
+		"@earendil-works/pi-agent-core": "0.84.2",
+		"@earendil-works/pi-ai": "0.84.2",
+		"@earendil-works/pi-coding-agent": "0.84.2",
+		"@studio/common": "file:../common",
+		"@studio/design-md": "file:../design-md",
+		"@wordpress/i18n": "^6.30.0",
+		"atomically": "^2.1.1",
+		"playwright": "^1.64.1",
+		"typebox": "^1.1.38",
+		"yaml": "^2.9.0"
+	}
+}

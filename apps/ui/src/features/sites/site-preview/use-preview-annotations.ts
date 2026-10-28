@@ -8,8 +8,8 @@ import {
 	setAnnotating,
 } from '@/features/annotations';
 import type { PreviewSurfaceKey } from './surfaces';
-import type { InspectorEvent } from '@studio/common/ai/inspector/page-script';
-import type { VisualAnnotationTarget } from '@studio/common/ai/visual-annotations';
+import type { InspectorEvent } from '@studio/agent/protocol/inspector/page-script';
+import type { VisualAnnotationTarget } from '@studio/agent/protocol/visual-annotations';
 
 type AnnotationEvent = Exclude< InspectorEvent, { type: 'browser-command' } >;
 

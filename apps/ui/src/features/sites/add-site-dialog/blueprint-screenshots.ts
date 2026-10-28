@@ -4,11 +4,9 @@ import oliveTree from './assets/personal-blog/olive-tree.webp';
 import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
 
 export function getBlueprintScreenshots( blueprint: Blueprint ): string[] {
-	return blueprint.slug === 'personal-blog-2'
-		? [ home, oliveTree, coastalRituals ]
-		: [ blueprint.image ];
+	return blueprint.slug === 'substrata' ? [ home, oliveTree, coastalRituals ] : [ blueprint.image ];
 }
 
 export function getBlueprintThumbnail( blueprint: Blueprint ): string {
-	return blueprint.slug === 'personal-blog-2' ? home : blueprint.image;
+	return blueprint.slug === 'substrata' ? home : blueprint.image;
 }

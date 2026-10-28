@@ -360,6 +360,7 @@ async function closePhpProxyServer(): Promise< void > {
 
 	await new Promise< void >( ( resolve ) => {
 		proxyServer.close( () => resolve() );
+		proxyServer.closeAllConnections();
 	} ).catch( () => {} );
 }
 

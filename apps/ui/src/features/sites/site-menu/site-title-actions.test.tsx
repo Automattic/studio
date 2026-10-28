@@ -233,7 +233,7 @@ describe( 'site title actions', () => {
 	} );
 
 	it( 'opens the duplicate only when its completion action is chosen', async () => {
-		const { connector } = setup();
+		const { connector, history } = setup();
 		connector.copySite.mockImplementation( async () => {
 			const copy = site( { id: 'copy', name: 'My site copy', path: '/sites/copy' } );
 			connector.state.sites = [ ...connector.state.sites, copy ];
@@ -245,9 +245,9 @@ describe( 'site title actions', () => {
 		await screen.findByRole( 'button', { name: /^Open$/ } );
 		expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBeVisible();
 		expect( getNoticeHistory() ).toHaveLength( 1 );
+		expect( history.location.pathname ).toBe( '/sites/one' );
 		fireEvent.click( screen.getByRole( 'button', { name: /^Open$/ } ) );
-		expect(
-			await screen.findByRole( 'button', { name: 'Site menu' } )
-		).toBeVisible();
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/copy/new' ) );
+		expect( await screen.findByRole( 'button', { name: 'Site menu' } ) ).toBeVisible();
 	} );
 } );

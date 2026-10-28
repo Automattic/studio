@@ -87,7 +87,7 @@ it( 'keeps icon-only annotation available beside overflow with sharing feedback'
 	} );
 	expect( more ).toHaveAttribute(
 		'aria-description',
-		expect.stringContaining( 'Publishing preview' )
+		expect.stringContaining( 'Creating preview' )
 	);
 	act( () => {
 		applySyncActivity( 'annotate-site', { kind: 'success', direction: 'preview' } );

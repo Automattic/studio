@@ -11,11 +11,10 @@ import {
 	type ReactNode,
 } from 'react';
 import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
-import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
 import { requestHeaderPanel } from '@/data/use-open-header-panel';
 import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
-import { ShareButton, ShareStatusIcon, useShareStatus } from '@/features/sharing';
-import { PublishButton } from '@/features/sync';
+import { ShareStatusIcon, useShareStatus } from '@/features/sharing';
+import { ShareButton, PublishButton, SiteDeliveryProvider } from '@/features/site-delivery';
 import { useWindowControlsOverlay } from '@/lib/hooks';
 import {
 	ArrowLeftIcon,
@@ -202,12 +201,9 @@ export function useSiteHeaderNavigation( navigation: SiteHeaderNavigation | null
 
 /** A Live chat previews the remote, so only Publish applies. */
 export function SiteHeaderActions( { site, live = false }: { site: SiteDetails; live?: boolean } ) {
-	const { host, layout, navigation, attachActions } = useSiteHeader();
+	const { layout, navigation, attachActions } = useSiteHeader();
 	const root = useRef< HTMLDivElement >( null );
 	const shareStatus = useShareStatus( site.id );
-	const operation = useSiteOperation( site );
-	const starting = useIsSiteStarting( site.id ) || operation === 'start';
-	const stopping = useIsSiteStopping( site.id ) || operation === 'stop';
 	const windowControls = useWindowControlsOverlay();
 	const trafficLightSpace = useTrafficLightSpace();
 	const overflow = layout !== 'inline';
@@ -226,43 +222,38 @@ export function SiteHeaderActions( { site, live = false }: { site: SiteDetails; 
 			style={ { paddingInlineEnd: inset } }
 			data-site-header-actions={ layout }
 		>
-			<div ref={ attachActions } className={ styles.actions }>
-				{ /* Out of sight while the chat fills the workspace, yet still there
-					for the site menu to open. */ }
-				<span
-					data-site-header-publish
-					hidden={ host !== 'preview' || ( ! live && ( ! site.running || starting || stopping ) ) }
-					className={ styles.publish }
-				>
-					<PublishButton site={ site } anchor={ root } />
-				</span>
-				<span data-site-header-trailing className={ styles.item }>
-					<span hidden={ overflow || live }>
-						<ShareButton site={ site } />
+			<SiteDeliveryProvider key={ site.id } site={ site } anchor={ root }>
+				<div ref={ attachActions } className={ styles.actions }>
+					<span data-site-header-publish className={ styles.publish }>
+						<PublishButton site={ site } anchor={ root } />
 					</span>
-					{ overflow ? (
-						<Menu.Root modal={ false }>
-							<Tooltip>
-								<Menu.Trigger
-									render={
-										<TooltipTrigger
-											render={
-												<Button
-													variant="ghost"
-													size="icon"
-													aria-label={ __( 'More preview actions' ) }
-													aria-description={ shareStatus.label }
-												/>
-											}
-										/>
-									}
-								>
-									<ShareStatusIcon icon={ <EllipsisIcon /> } status={ shareStatus } />
-								</Menu.Trigger>
-								<TooltipContent side="bottom">{ __( 'More preview actions' ) }</TooltipContent>
-							</Tooltip>
-							<Menu.Popup side="bottom" align="end">
-								{ live ? null : (
+					<span data-site-header-trailing className={ styles.item }>
+						<span hidden={ overflow }>
+							<ShareButton site={ site } anchor={ root } />
+						</span>
+						{ overflow ? (
+							<Menu.Root modal={ false }>
+								<Tooltip>
+									<Menu.Trigger
+										render={
+											<TooltipTrigger
+												render={
+													<Button
+														variant="ghost"
+														size="icon"
+														data-share-overflow-trigger
+														aria-label={ __( 'More preview actions' ) }
+														aria-description={ shareStatus.label }
+													/>
+												}
+											/>
+										}
+									>
+										<ShareStatusIcon icon={ <EllipsisIcon /> } status={ shareStatus } />
+									</Menu.Trigger>
+									<TooltipContent side="bottom">{ __( 'More preview actions' ) }</TooltipContent>
+								</Tooltip>
+								<Menu.Popup side="bottom" align="end">
 									<Menu.Item
 										aria-description={ shareStatus.label }
 										onClick={ () => requestHeaderPanel( { panel: 'share', siteId: site.id } ) }
@@ -270,52 +261,52 @@ export function SiteHeaderActions( { site, live = false }: { site: SiteDetails; 
 										<ShareStatusIcon icon={ <ShareIcon /> } status={ shareStatus } />
 										{ __( 'Share' ) }
 									</Menu.Item>
-								) }
-								{ layout === 'navigation-overflow' && navigation ? (
-									<>
-										{ live ? null : <Menu.Separator /> }
-										<Menu.Item
-											disabled={ navigation.disabled || ! navigation.canGoBack }
-											onClick={ navigation.back }
-										>
-											<ArrowLeftIcon />
-											{ __( 'Back' ) }
-											<Menu.Shortcut>{ navigation.backShortcut }</Menu.Shortcut>
-										</Menu.Item>
-										<Menu.Item
-											disabled={ navigation.disabled || ! navigation.canGoForward }
-											onClick={ navigation.forward }
-										>
-											<ArrowRightIcon />
-											{ __( 'Forward' ) }
-											<Menu.Shortcut>{ navigation.forwardShortcut }</Menu.Shortcut>
-										</Menu.Item>
-										<Menu.Item disabled={ navigation.disabled } onClick={ navigation.reload }>
-											<RotateCwIcon />
-											{ __( 'Reload preview' ) }
-										</Menu.Item>
-										{ live ? null : (
-											<Menu.Item disabled={ navigation.disabled } onClick={ navigation.settings }>
-												<SiteSettingsIcon />
-												{ __( 'Site settings' ) }
-											</Menu.Item>
-										) }
-										{ navigation.openExternal ? (
+									{ layout === 'navigation-overflow' && navigation ? (
+										<>
+											<Menu.Separator />
 											<Menu.Item
-												disabled={ navigation.disabled }
-												onClick={ navigation.openExternal }
+												disabled={ navigation.disabled || ! navigation.canGoBack }
+												onClick={ navigation.back }
 											>
-												<ExternalLinkIcon />
-												{ __( 'Open in browser' ) }
+												<ArrowLeftIcon />
+												{ __( 'Back' ) }
+												<Menu.Shortcut>{ navigation.backShortcut }</Menu.Shortcut>
 											</Menu.Item>
-										) : null }
-									</>
-								) : null }
-							</Menu.Popup>
-						</Menu.Root>
-					) : null }
-				</span>
-			</div>
+											<Menu.Item
+												disabled={ navigation.disabled || ! navigation.canGoForward }
+												onClick={ navigation.forward }
+											>
+												<ArrowRightIcon />
+												{ __( 'Forward' ) }
+												<Menu.Shortcut>{ navigation.forwardShortcut }</Menu.Shortcut>
+											</Menu.Item>
+											<Menu.Item disabled={ navigation.disabled } onClick={ navigation.reload }>
+												<RotateCwIcon />
+												{ __( 'Reload preview' ) }
+											</Menu.Item>
+											{ live ? null : (
+												<Menu.Item disabled={ navigation.disabled } onClick={ navigation.settings }>
+													<SiteSettingsIcon />
+													{ __( 'Site settings' ) }
+												</Menu.Item>
+											) }
+											{ navigation.openExternal ? (
+												<Menu.Item
+													disabled={ navigation.disabled }
+													onClick={ navigation.openExternal }
+												>
+													<ExternalLinkIcon />
+													{ __( 'Open in browser' ) }
+												</Menu.Item>
+											) : null }
+										</>
+									) : null }
+								</Menu.Popup>
+							</Menu.Root>
+						) : null }
+					</span>
+				</div>
+			</SiteDeliveryProvider>
 		</div>
 	);
 }

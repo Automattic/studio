@@ -1,44 +1,10 @@
-/* Slides in from the window's end, below the preview header. */
-.panel {
+.content {
+	flex: 1;
 	display: flex;
 	flex-direction: column;
-	width: 320px;
-	max-width: calc( 100vw - 24px );
-	max-height: calc( 100dvh - var( --control-size ) - 42px );
-	overflow-x: hidden;
-	overflow-y: auto;
-	font-size: var( --text-sm );
-	line-height: var( --text-sm--line-height );
+	gap: var( --space-2_5 );
+	min-width: 0;
 }
-
-@media ( prefers-reduced-motion: no-preference ) {
-	.panel {
-		transition-property: translate, opacity;
-		transition-duration: var( --motion-duration-layout );
-		transition-timing-function: var( --motion-ease-layout );
-	}
-
-	.panel[data-starting-style],
-	.panel[data-ending-style] {
-		scale: 1;
-		translate: calc( 100% + 12px ) 0;
-	}
-}
-
-.triggerLabel {
-	position: relative;
-}
-
-.errorDot {
-	position: absolute;
-	inset-block-start: calc( var( --space-0_5 ) * -1 );
-	inset-inline-end: calc( var( --space-2 ) * -1 );
-	width: 6px;
-	height: 6px;
-	border-radius: var( --radius-full );
-	background: var( --destructive );
-}
-
 .panelHeader {
 	display: flex;
 	flex: none;
@@ -48,17 +14,19 @@
 }
 
 .body {
+	flex: 1;
 	display: flex;
 	flex-direction: column;
 	gap: var( --space-2_5 );
-	padding: 0 var( --space-4 ) var( --space-4 );
+	padding: 0;
 }
 
 .bodyInsetTop {
-	padding-top: var( --space-4 );
+	padding-top: 0;
 }
 
 .loading {
+	flex: 1;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -75,16 +43,10 @@
 	letter-spacing: -0.02em;
 }
 
-.text,
-.description {
+.text {
 	color: var( --muted-foreground );
 	font-size: var( --text-sm );
 	line-height: var( --leading-relaxed );
-}
-
-.description {
-	font-size: var( --text-xs );
-	line-height: var( --text-xs--line-height );
 }
 
 .error {
@@ -100,83 +62,55 @@
 	gap: var( --space-2_5 );
 }
 
-.field {
-	display: flex;
-	flex-direction: column;
-	gap: var( --space-0_5 );
-}
-
-.website {
-	display: flex;
-	align-items: center;
-	min-width: 0;
-}
-
-.include {
-	display: flex;
-	align-items: center;
-	gap: var( --space-2 );
-}
-
-.include > .text {
-	flex: none;
-}
-
-.footer {
-	display: flex;
-	gap: var( --space-2 );
-}
-
-.primary {
-	flex: 1;
-}
-
-.intro {
-	display: flex;
-	flex-direction: column;
-	gap: var( --space-2_5 );
-}
-
 .introActions {
-	display: flex;
-	flex-direction: column;
+	margin-block-start: auto;
+	display: grid;
+	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	gap: var( --space-2 );
 }
 
-.choice {
-	display: flex;
-	flex-direction: column;
-	gap: var( --space-1 );
-}
-
-.choiceText {
-	display: flex;
-	flex-direction: column;
-	gap: var( --space-1 );
+.introActions > * {
 	min-width: 0;
+}
+
+.content[data-choosing-site] {
+	min-height: 0;
+	overflow: hidden;
+}
+
+.content[data-choosing-site] .body {
+	min-height: 0;
+}
+
+.siteList {
+	flex: 1;
+	min-height: 0;
+	max-height: none;
+}
+
+.pickerHeader {
+	flex: 1;
+	min-width: 0;
+	gap: var( --space-2 );
+	padding: 0;
+}
+
+.pickerMenu {
+	margin-inline-start: auto;
+}
+
+.pickerEmpty {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var( --space-3 );
 }
 
 .choiceName {
 	composes: truncate from '@/lib/theme/recipes.module.css';
 	max-width: 100%;
-}
-
-.choiceLabel {
-	composes: choiceName;
-	color: var( --muted-foreground );
-}
-
-.websiteRow {
-	display: flex;
-	align-items: center;
-	gap: var( --space-2 );
-}
-
-.websiteRowText {
-	display: flex;
-	flex: 1;
-	flex-direction: column;
-	gap: var( --space-0_5 );
-	min-width: 0;
 }
 
 .address {
@@ -189,8 +123,7 @@
 	letter-spacing: -0.02em;
 }
 
-.progress,
-.success {
+.progress {
 	display: flex;
 	flex-direction: column;
 	gap: var( --space-2_5 );
@@ -240,43 +173,134 @@
 	color: var( --muted-foreground );
 }
 
-@keyframes transfer-dot {
-	0% {
-		opacity: 0;
-		transform: translateY( 3px );
-	}
-
-	25%,
-	70% {
-		opacity: 1;
-	}
-
-	100% {
-		opacity: 0;
-		transform: translateY( -3px );
-	}
+.emptyIntro {
+	align-self: center;
+	width: 100%;
+	padding-block: var( --space-6 ) var( --space-7 );
+	text-align: center;
+	text-wrap: balance;
+}
+.emptyIcon {
+	width: var( --space-10 );
+	height: var( --space-10 );
+	margin-block-end: 0;
+	background: transparent;
+	color: var( --foreground );
+}
+.emptyTitle {
+	margin: 0;
+	font-size: var( --text-xl );
+	line-height: 1.4;
+	font-weight: 550;
+	letter-spacing: -0.02em;
 }
 
-.transferIcon {
-	flex: none;
+.emptyDescription {
+	width: 100%;
+	max-width: 320px;
+	text-wrap: pretty;
 }
 
-@media ( prefers-reduced-motion: no-preference ) {
-	.transferIcon circle {
-		animation: transfer-dot 960ms linear infinite;
-		transform-box: fill-box;
-		transform-origin: center;
-	}
+.connectedActions {
+	margin-block-start: auto;
+	display: grid;
+	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	gap: var( --space-2 );
+}
+.connectedActions > * {
+	min-width: 0;
+}
 
-	.transferIcon circle:nth-child( 2 ) {
-		animation-delay: -120ms;
-	}
+.connectedHome {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-3 );
+}
 
-	.transferIcon circle:nth-child( 3 ) {
-		animation-delay: -240ms;
-	}
+.publishDetailsIntro {
+	padding-block-start: var( --space-2 );
+	padding-inline: var( --space-3_5 );
+}
+.publishDetailsHeading {
+	margin: 0;
+	font-size: inherit;
+	font-weight: var( --font-weight-medium );
+	line-height: inherit;
+}
+.publishDetailsDescription {
+	margin: var( --space-1 ) 0 0;
+	color: var( --muted-foreground );
+	font-size: var( --text-xxs );
+	line-height: var( --text-xxs--line-height );
+}
+.connectedSiteDetails {
+	gap: 0;
+	padding-inline: var( --space-3_5 );
+}
+.connectedSiteDetails > .connectedSiteRow {
+	min-height: var( --control-size );
+	padding-block: 0;
+}
+.connectedSiteRow {
+	justify-content: space-between;
+	padding-block: var( --space-3 );
+	gap: var( --space-3 );
+}
+.connectedSiteRow:first-child {
+	padding-block-start: 0;
+}
+.connectedSiteRow:last-child {
+	padding-block-end: 0;
+}
+.connectedAddressText {
+	font-size: var( --text-xs );
+	line-height: var( --text-xs--line-height );
+	composes: truncate from '@/lib/theme/recipes.module.css';
+	display: block;
+	text-align: start;
+	min-width: 0;
+	flex-shrink: 1;
+	font-weight: var( --font-weight-medium );
+	color: var( --foreground );
+}
+.siteValue {
+	color: var( --muted-foreground );
+	font-size: var( --text-xs );
+	text-align: end;
+}
+.siteLink {
+	width: calc( 100% + var( --space-2_5 ) * 2 );
+	max-width: none;
+	margin-inline: calc( var( --space-2_5 ) * -1 );
+	justify-content: space-between;
+	text-align: start;
+}
 
-	.transferIcon[data-publish-transfer='pull'] circle {
-		animation-direction: reverse;
-	}
+.environmentLabel {
+	flex-shrink: 0;
+	color: var( --muted-foreground );
+	font-size: var( --text-xs );
+}
+
+.scopeChoices {
+	gap: var( --space-1 );
+}
+.scopeChoice {
+	display: flex;
+	align-items: center;
+	gap: var( --space-2 );
+	min-height: var( --control-size );
+	font-size: var( --text-sm );
+	cursor: pointer;
+}
+.scopeChoice > input {
+	width: 16px;
+	height: 16px;
+	margin: 0;
+	accent-color: var( --foreground );
+}
+.scopeChoice:has( :disabled ) {
+	opacity: 0.5;
+	cursor: default;
 }

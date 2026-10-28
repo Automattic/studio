@@ -19,6 +19,10 @@
 		outline: none;
 	}
 
+	.list[data-radius='control'] {
+		--command-radius: var( --radius-lg );
+	}
+
 	.empty {
 		padding: var( --space-6 ) 0;
 		font-size: var( --text-sm );

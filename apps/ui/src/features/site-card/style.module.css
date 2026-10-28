@@ -1,0 +1,35 @@
+.card {
+	padding: var( --space-3_5 );
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	gap: var( --space-3 );
+	min-width: 0;
+}
+
+.thumbnail {
+	width: 64px;
+	flex-shrink: 0;
+}
+
+.identity {
+	display: flex;
+	flex: 1;
+	min-width: 0;
+	flex-direction: column;
+	overflow-wrap: anywhere;
+}
+
+.title {
+	font-size: var( --text-xs );
+	font-weight: var( --font-weight-medium );
+	line-height: var( --text-xs--line-height );
+}
+
+.description {
+	color: var( --muted-foreground );
+	font-size: var( --text-xs );
+	line-height: var( --text-xs--line-height );
+}

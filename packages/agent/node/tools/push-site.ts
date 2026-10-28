@@ -26,19 +26,17 @@ export const pushSiteTool = defineTool(
 	async ( args, context ) => {
 		try {
 			const site = await context.host.sites.resolve( args.nameOrPath );
-			const result = await context.host.sync.push(
+			const remoteSite = await context.host.sync.push(
 				site,
 				args.options ?? 'all',
 				args.remoteSite,
 				context.onProgress
 			);
-			const output = result.consoleOutput || result.progressOutput || 'Push completed.';
-
-			if ( result.exitCode ) {
-				throw new Error( output );
-			}
-
-			return textResult( output );
+			return textResult(
+				remoteSite
+					? `Pushed "${ site.name }" to ${ remoteSite.name } (${ remoteSite.url }).`
+					: 'Push cancelled.'
+			);
 		} catch ( error ) {
 			throw new Error(
 				`Failed to push site: ${ error instanceof Error ? error.message : String( error ) }`

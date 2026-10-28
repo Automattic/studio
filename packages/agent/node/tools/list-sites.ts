@@ -3,11 +3,6 @@ import { defineTool, REMOTE_READ } from './define-tool';
 import { textResult } from './utils';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 
-async function listLocalSites( host: StudioAgentHost ): Promise< unknown[] > {
-	const output = await host.sites.list();
-	return output ? JSON.parse( output ) : [];
-}
-
 // The WordPress.com sites the stored login can reach. A failure here leaves the
 // local listing intact.
 async function listWpcomSites( host: StudioAgentHost ) {
@@ -33,7 +28,7 @@ export const listSitesTool = defineTool(
 	async ( _args, { host } ) => {
 		try {
 			const [ local, wordpressCom ] = await Promise.all( [
-				listLocalSites( host ),
+				host.sites.list(),
 				listWpcomSites( host ),
 			] );
 			return textResult( JSON.stringify( { local, wordpressCom } ) );

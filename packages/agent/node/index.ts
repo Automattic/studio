@@ -4,7 +4,6 @@
 // apps never load the runtime.
 export { createAgent, type StudioAgent } from './agent';
 export type {
-	CommandOutput,
 	HostSite,
 	ProgressCallback,
 	StudioAgentHost,

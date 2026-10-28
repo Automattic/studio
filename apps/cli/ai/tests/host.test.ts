@@ -1,5 +1,5 @@
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
-import { captureCommandOutput } from 'cli/ai/command-output';
 import { cliAgentHost } from 'cli/ai/host';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
 import {
@@ -12,8 +12,17 @@ import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
+import { getSnapshotsFromConfig } from 'cli/lib/snapshots';
 import { Logger } from 'cli/logger';
 
+vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/lib/shared-config') >() ),
+	readAuthToken: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/snapshots', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('cli/lib/snapshots') >() ),
+	getSnapshotsFromConfig: vi.fn(),
+} ) );
 vi.mock( 'cli/commands/preview/create', () => ( { runCommand: vi.fn() } ) );
 vi.mock( import( 'cli/commands/preview/delete' ), async ( importActual ) => ( {
 	Mode: ( await importActual() ).Mode,
@@ -51,10 +60,16 @@ const hostSite = {
 	phpVersion: '8.4',
 	adminPassword: 'password',
 };
+const preview = {
+	url: 'demo.wp.build',
+	atomicSiteId: 12345,
+	localSiteId: 'site-123',
+	date: 0,
+	name: 'My Site Preview 1',
+};
 
 beforeEach( () => {
 	vi.resetAllMocks();
-	process.exitCode = undefined;
 	vi.mocked( readCliConfig ).mockResolvedValue( {
 		sites: [ site ],
 	} as Awaited< ReturnType< typeof readCliConfig > > );
@@ -108,29 +123,30 @@ describe( 'cliAgentHost', () => {
 		);
 	} );
 
-	it( 'returns what a command printed and the exit code it set', async () => {
-		vi.mocked( runDeletePreviewCommand ).mockImplementation( async () => {
-			process.exitCode = 1;
-			console.log( 'Failed to delete preview site' );
-		} );
-
-		await expect( cliAgentHost.previews.delete( 'demo.wordpress.com', vi.fn() ) ).resolves.toEqual(
-			{ consoleOutput: 'Failed to delete preview site', progressOutput: '', exitCode: 1 }
-		);
-		expect( process.exitCode ).toBeUndefined();
-	} );
-
-	it( 'forwards command progress', async () => {
+	it( 'returns the preview a command saved, and forwards its progress', async () => {
 		vi.mocked( runCreatePreviewCommand ).mockImplementation( async ( _path, _name, logger ) => {
 			logger?.reportStart( 'validate' as never, 'Creating preview…' );
-			logger?.reportSuccess( 'Almost done…' );
+			logger?.reportProgress( 'Uploading… (40%)' );
+			return preview;
 		} );
 		const onProgress = vi.fn();
 
-		await cliAgentHost.previews.create( hostSite, onProgress );
+		await expect( cliAgentHost.previews.create( hostSite, onProgress ) ).resolves.toBe( preview );
+		expect( onProgress ).toHaveBeenCalledWith( 'Creating preview…' );
+		expect( onProgress ).toHaveBeenCalledWith( 'Uploading… (40%)', true );
+	} );
 
-		expect( onProgress ).toHaveBeenCalledWith( 'Creating preview…', undefined );
-		expect( onProgress ).toHaveBeenCalledWith( 'Almost done…', undefined );
+	it( "lists the site's own previews, and refuses without a WordPress.com login", async () => {
+		vi.mocked( readAuthToken ).mockResolvedValue( { id: 7 } as never );
+		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [ preview ] );
+
+		await expect( cliAgentHost.previews.list( hostSite ) ).resolves.toEqual( [ preview ] );
+		expect( getSnapshotsFromConfig ).toHaveBeenCalledWith( 7, '/sites/my-site' );
+
+		vi.mocked( readAuthToken ).mockResolvedValue( null );
+		await expect( cliAgentHost.previews.list( hostSite ) ).rejects.toThrow(
+			'Authentication required'
+		);
 	} );
 
 	it( 'runs WP-CLI through the daemon and returns its output', async () => {
@@ -151,22 +167,5 @@ describe( 'cliAgentHost', () => {
 		expect( runWpCliCommand ).toHaveBeenCalledWith( site, [ 'option', 'get' ] );
 		expect( connectToDaemon ).toHaveBeenCalled();
 		expect( disconnectFromDaemon ).toHaveBeenCalled();
-	} );
-} );
-
-describe( 'captureCommandOutput', () => {
-	it( 'coalesces progress updates', async () => {
-		const onProgress = vi.fn();
-
-		const result = await captureCommandOutput( async ( logger ) => {
-			logger.reportStart( 'apply', 'Applying changes… (74%)' );
-			logger.reportProgress( 'Applying changes… (75%)' );
-			logger.reportProgress( 'Applying changes… (76%)' );
-			logger.reportStart( 'done', 'Push complete' );
-		}, onProgress );
-
-		expect( result.progressOutput ).toBe( 'Applying changes… (76%)\nPush complete' );
-		expect( onProgress ).toHaveBeenCalledWith( 'Applying changes… (75%)', true );
-		expect( onProgress ).toHaveBeenCalledWith( 'Applying changes… (76%)', true );
 	} );
 } );

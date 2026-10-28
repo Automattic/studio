@@ -70,7 +70,10 @@ const WOOCOMMERCE_PAGES = [
 
 /**
  * Site fact: WooCommerce's store pages, by the options wc_get_page_id() reads,
- * and how many products are published.
+ * and how many products are published. WooCommerce's product queries
+ * (wc_get_products()) find a product by its `product_type` term, which
+ * WooCommerce sets when it saves the product (update_version_and_type()), so
+ * a product saved as a plain post is published but not in the store.
  */
 export function wooCommerceFact( site: WordPressSite ): string | undefined {
 	if ( ! activePlugins( site ).includes( 'woocommerce/woocommerce.php' ) ) {
@@ -88,11 +91,19 @@ export function wooCommerceFact( site: WordPressSite ): string | undefined {
 			? `${ name } page ${ id } (/${ page.slug }/, ${ page.status })`
 			: `no ${ name } page (${ option })`;
 	} );
-	const [ products ] = site.query< { count: number } >(
-		`SELECT COUNT(*) AS count FROM ${ site.prefix }posts WHERE post_type = 'product' AND post_status = 'publish'`
+	const [ products ] = site.query< { count: number; untyped: number } >(
+		`SELECT COUNT(*) AS count, SUM( NOT EXISTS (
+			SELECT 1 FROM ${ site.prefix }term_relationships r
+			JOIN ${ site.prefix }term_taxonomy t ON t.term_taxonomy_id = r.term_taxonomy_id
+			WHERE r.object_id = p.ID AND t.taxonomy = 'product_type'
+		) ) AS untyped FROM ${ site.prefix }posts p WHERE p.post_type = 'product' AND p.post_status = 'publish'`
 	);
 	const count = products?.count ?? 0;
+	const untyped = products?.untyped ?? 0;
+	const missing = untyped
+		? `, ${ untyped } of them with no product type (product_type), which WooCommerce's product queries need (wc_get_products()) and WooCommerce sets when it saves a product`
+		: '';
 	return `WooCommerce store: ${ pages.join( ', ' ) }; ${ count } published product${
 		count === 1 ? '' : 's'
-	}.`;
+	}${ missing }.`;
 }

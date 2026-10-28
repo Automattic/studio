@@ -182,7 +182,7 @@ it.each( [
 			woocommerce_cart_page_id: '21',
 			woocommerce_checkout_page_id: '99',
 		},
-		fact: 'WooCommerce store: Shop page 20 (/shop/, publish), Cart page 21 (/cart/, draft), no Checkout page (woocommerce_checkout_page_id), no My account page (woocommerce_myaccount_page_id); 1 published product.',
+		fact: "WooCommerce store: Shop page 20 (/shop/, publish), Cart page 21 (/cart/, draft), no Checkout page (woocommerce_checkout_page_id), no My account page (woocommerce_myaccount_page_id); 3 published products, 1 of them with no product type (product_type), which WooCommerce's product queries need (wc_get_products()) and WooCommerce sets when it saves a product.",
 	},
 	{
 		name: 'modules and store pages an inactive plugin left behind',
@@ -198,7 +198,10 @@ it.each( [
 		const site = createSite( 'wp_' );
 		site.save( 20, 'page', 'shop' );
 		site.save( 21, 'page', 'cart', '', 1, 'draft' );
-		site.save( 22, 'product', 'candle' );
+		// A product WooCommerce saved, with its type, and one saved as a plain post.
+		site.save( 22, 'product', 'candle', '', 3 );
+		site.save( 25, 'product', 'mug', '', 0 );
+		site.save( 26, 'product', 'tea', '', 3 );
 		site.save( 23, 'product', 'soap', '', 1, 'draft' );
 		site.save( 24, 'product', 'gift-box', '', 1, 'trash' );
 		site.setOptions( options );

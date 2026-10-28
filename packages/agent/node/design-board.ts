@@ -2,6 +2,7 @@ import {
 	designSheet,
 	fontFamilyName as fontFamily,
 	googleFontsUrl,
+	presetList,
 	themeJsonDesign,
 	type Style,
 } from '@studio/common/sites/design-sheet';
@@ -39,13 +40,16 @@ export function renderDesignBoard( themeJson: string ): string {
 		throw new Error( `The look's theme.json is not valid JSON: ${ ( error as Error ).message }` );
 	}
 	const tokens = themeJsonDesign( parsed );
-	if (
-		Object.keys( tokens.colors ?? {} ).length < 2 ||
-		! Object.values( tokens.typography ?? {} ).some( ( style ) => style.fontFamily )
-	) {
+	if ( Object.keys( tokens.colors ?? {} ).length < 2 ) {
 		throw new Error(
-			"The look's theme.json needs at least two hex colors in settings.color.palette, and a font family in styles.typography."
+			"The look's theme.json needs at least two hex colors in settings.color.palette."
 		);
+	}
+	// A style without a font family shows the first one the theme declares.
+	const settings = parsed.settings as { typography?: { fontFamilies?: unknown } } | undefined;
+	const [ declared ] = presetList( settings?.typography?.fontFamilies );
+	for ( const style of Object.values( tokens.typography ?? {} ) ) {
+		style.fontFamily ??= declared?.fontFamily;
 	}
 	const {
 		palette,

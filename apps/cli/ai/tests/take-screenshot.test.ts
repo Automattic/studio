@@ -13,6 +13,7 @@ vi.mock( 'cli/ai/tools/screenshot-helpers', async ( importOriginal ) => ( {
 			capturedHeight: 900,
 			offset: 0,
 			clipped: false,
+			textFit: [ "p.tagline: its text starts at the viewport's left edge (x 0)." ],
 		};
 	},
 	saveScreenshotFile: async () => ( {
@@ -55,6 +56,15 @@ describe( 'take_screenshot', () => {
 			expect( Boolean( result.studioArtifacts ) ).toBe( shown );
 		}
 	);
+
+	it( 'states where the text does not fit, to a model that views the capture too', async () => {
+		const tool = createTakeScreenshotTool( { visionEnabled: true } );
+		const result = await tool.rawHandler( { url: 'http://localhost:8881' } );
+
+		expect( await text( result ) ).toContain(
+			"\n  Text the browser does not fit:\n    p.tagline: its text starts at the viewport's left edge (x 0)."
+		);
+	} );
 
 	it( 'hands back image lines for the reply when the host shows linked images', async () => {
 		const tool = createTakeScreenshotTool( {

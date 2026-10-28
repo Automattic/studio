@@ -149,6 +149,7 @@ export function createTakeScreenshotTool( {
 							offset: capture.offset,
 							clipped: capture.clipped,
 							layout: capture.layout,
+							textFit: capture.textFit,
 							mimeType: screenshotFile.mimeType,
 							mediaWidgetPayload: {
 								type: 'media',
@@ -196,6 +197,12 @@ export function createTakeScreenshotTool( {
 					[
 						`${ describeCapture( capture ) } Saved to ${ capture.path }`,
 						...( capture.layout ?? [] ).map( ( line ) => `  ${ line }` ),
+						...( capture.textFit.length
+							? [
+									'  Text the browser does not fit:',
+									...capture.textFit.map( ( line ) => `    ${ line }` ),
+							  ]
+							: [] ),
 					].join( '\n' )
 				);
 				const textLines =

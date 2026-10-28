@@ -65,3 +65,98 @@ export function pageLayout( page: Page ): Promise< string[] > {
 		return lines;
 	}, MAX_REGIONS );
 }
+
+// Enough lines to show where text does not fit without flooding the result.
+const MAX_TEXT_LINES = 10;
+
+/**
+ * Where a rendered page's text does not fit, as the browser lays it out: a
+ * word it breaks across lines because the word is wider than its box (as the
+ * word-break and overflow-wrap rules of core's block styles let it, in
+ * wp-includes/css/dist/block-library/style.css), and text that starts or ends
+ * at the viewport's edge. A word the page hyphenates is not counted.
+ */
+export function pageTextFit( page: Page ): Promise< string[] > {
+	return page.evaluate( ( maxLines ) => {
+		const generated = /^(is-|has-|wp-container-|wp-elements-|wp-block-[a-z-]+-is-layout-)/;
+		const label = ( element: Element ) =>
+			element.tagName.toLowerCase() +
+			[ ...element.classList ]
+				.filter( ( name ) => ! generated.test( name ) )
+				.slice( 0, 2 )
+				.map( ( name ) => `.${ name }` )
+				.join( '' );
+		const lines: string[] = [];
+		const add = ( line: string ) => {
+			if ( ! lines.includes( line ) ) {
+				lines.push( line );
+			}
+		};
+		const viewport = document.documentElement.clientWidth;
+		const walker = document.createTreeWalker( document.body, NodeFilter.SHOW_TEXT );
+		const range = document.createRange();
+		for ( let node = walker.nextNode(); node; node = walker.nextNode() ) {
+			const element = node.parentElement;
+			const text = node.textContent ?? '';
+			if ( ! element || ! text.trim() ) {
+				continue;
+			}
+			const style = getComputedStyle( element );
+			const shown = element.getBoundingClientRect();
+			// Text a visitor does not see, as WordPress's screen-reader-text clips it to 1px.
+			if (
+				style.visibility === 'hidden' ||
+				shown.height <= 1 ||
+				element.closest( '[aria-hidden="true"]' )
+			) {
+				continue;
+			}
+			range.selectNodeContents( node );
+			const rects = [ ...range.getClientRects() ].filter( ( rect ) => rect.width > 0 );
+			if ( ! rects.length ) {
+				continue;
+			}
+			const left = Math.min( ...rects.map( ( rect ) => rect.left ) );
+			const right = Math.max( ...rects.map( ( rect ) => rect.right ) );
+			if ( left < 1 ) {
+				add(
+					`${ label( element ) }: its text starts at the viewport's left edge (x ${ Math.round(
+						left
+					) }).`
+				);
+			} else if ( right > viewport - 1 && right <= viewport + 1 ) {
+				add(
+					`${ label( element ) }: its text ends at the viewport's right edge (x ${ Math.round(
+						right
+					) }).`
+				);
+			}
+			if ( style.hyphens === 'auto' ) {
+				continue;
+			}
+			for ( const match of text.matchAll( /[\p{L}\p{N}]+/gu ) ) {
+				range.setStart( node, match.index );
+				range.setEnd( node, match.index + match[ 0 ].length );
+				const parts = [ ...range.getClientRects() ].filter( ( rect ) => rect.width > 0 );
+				const tops = new Set( parts.map( ( rect ) => Math.round( rect.top ) ) );
+				if ( tops.size > 1 ) {
+					const width = Math.round( parts.reduce( ( sum, rect ) => sum + rect.width, 0 ) );
+					const box = element.closest( 'p, h1, h2, h3, h4, h5, h6, li, a, div' ) ?? element;
+					const padding =
+						parseFloat( getComputedStyle( box ).paddingLeft ) +
+						parseFloat( getComputedStyle( box ).paddingRight );
+					add(
+						`${ label( element ) }: the browser breaks "${
+							match[ 0 ]
+						}" across lines, as the word (${ width }px) is wider than its box (${ Math.round(
+							box.clientWidth - padding
+						) }px).`
+					);
+				}
+			}
+		}
+		return lines.length > maxLines
+			? [ ...lines.slice( 0, maxLines ), `…and ${ lines.length - maxLines } more` ]
+			: lines;
+	}, MAX_TEXT_LINES );
+}

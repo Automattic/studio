@@ -4,7 +4,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { resolveScreenshotDirectory } from 'cli/ai/screenshot-storage';
-import { pageLayout } from 'cli/ai/tools/page-layout';
+import { pageLayout, pageTextFit } from 'cli/ai/tools/page-layout';
 
 type Browser = Awaited< ReturnType< typeof getSharedBrowser > >;
 type Page = Awaited< ReturnType< Browser[ 'newPage' ] > >;
@@ -105,6 +105,8 @@ export interface ScreenshotCapture {
 	clipped: boolean;
 	/** The page's layout as text, for a model that cannot view the capture. */
 	layout?: string[];
+	/** Where the page's text does not fit, as the browser lays it out. */
+	textFit: string[];
 }
 
 /** A JPEG copy that fits {@link MODEL_IMAGE_MAX_EDGE_PX}, or undefined when the capture already does. */
@@ -242,6 +244,7 @@ export async function captureScreenshotBuffer(
 		} );
 
 		const layout = options.forModel === false ? await pageLayout( page ) : undefined;
+		const textFit = await pageTextFit( page );
 		const dpr = options.deviceScaleFactor ?? 1;
 		const maxCssHeight = Math.floor( MAX_IMAGE_DIMENSION_PX / dpr );
 		const formatOptions =
@@ -272,6 +275,7 @@ export async function captureScreenshotBuffer(
 				offset: 0,
 				clipped: false,
 				layout,
+				textFit,
 			};
 		}
 
@@ -307,6 +311,7 @@ export async function captureScreenshotBuffer(
 			offset,
 			clipped: offset + capturedHeight < documentHeight,
 			layout,
+			textFit,
 		};
 	} finally {
 		await page.close();

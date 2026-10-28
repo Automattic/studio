@@ -1,9 +1,10 @@
 import { existsSync } from 'fs';
 import { chromium } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { pageLayout } from 'cli/ai/tools/page-layout';
+import { pageLayout, pageTextFit } from 'cli/ai/tools/page-layout';
 
 type Browser = Awaited< ReturnType< typeof chromium.launch > >;
+type Page = Awaited< ReturnType< Browser[ 'newPage' ] > >;
 
 // A real browser lays the page out, wherever Playwright's Chromium is installed.
 describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', () => {
@@ -13,15 +14,18 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 	} );
 	afterAll( () => browser.close() );
 
-	const layoutOf = async ( body: string ) => {
+	const open = async < T >( body: string, read: ( page: Page ) => Promise< T > ) => {
 		const page = await browser.newPage( { viewport: { width: 1000, height: 800 } } );
 		await page.setContent( `<style>body,h1,p{margin:0}</style><body>${ body }</body>` );
 		try {
-			return await pageLayout( page );
+			return await read( page );
 		} finally {
 			await page.close();
 		}
 	};
+	const textFitOf = ( body: string ) => open( body, pageTextFit );
+
+	const layoutOf = ( body: string ) => open( body, pageLayout );
 
 	it( "states where each region and main's blocks render, past a wrapper", async () => {
 		expect(
@@ -56,5 +60,53 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 		const layout = await layoutOf( '<p style="height:5px"></p>'.repeat( 45 ) );
 		expect( layout ).toHaveLength( 41 );
 		expect( layout.at( -1 ) ).toBe( '…and 5 more' );
+	} );
+
+	it.each< [ string, string, string[] ] >( [
+		[
+			'a word wider than its column, which core lets the browser break',
+			'<div class="wp-block-column" style="width:200px;margin-left:100px;word-break:break-word;overflow-wrap:break-word"><h1 class="wp-block-heading" style="font:40px/1 monospace;padding:0 10px">Everything fits</h1></div>',
+			[
+				'h1.wp-block-heading: the browser breaks "Everything" across lines, as the word (240px) is wider than its box (180px).',
+			],
+		],
+		[
+			'a word the page hyphenates',
+			'<div lang="en" style="width:200px;margin-left:100px;word-break:break-word;hyphens:auto"><h1 style="font:40px/1 monospace">Everything</h1></div>',
+			[],
+		],
+		[
+			'words that wrap whole',
+			'<p style="width:200px;margin-left:100px;font:20px/1 monospace">Every word here wraps whole</p>',
+			[],
+		],
+		[
+			'text against the left edge, and the right',
+			'<p class="tagline" style="font:20px/1 monospace">Left<br>Again</p><p style="text-align:right;font:20px/1 monospace">Right</p>',
+			[
+				"p.tagline: its text starts at the viewport's left edge (x 0).",
+				"p: its text ends at the viewport's right edge (x 1000).",
+			],
+		],
+		[
+			'text a visitor does not see, as screen-reader-text clips it',
+			'<a class="screen-reader-text" style="position:absolute;left:0;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)">Skip to content</a>',
+			[],
+		],
+		[
+			'text inside the page padding',
+			'<div style="padding:0 24px;font:20px/1 monospace"><p>Padded</p><p style="text-align:right">Padded</p></div>',
+			[],
+		],
+	] )( 'states %s', async ( _name, body, lines ) => {
+		expect( await textFitOf( body ) ).toEqual( lines );
+	} );
+
+	it( 'counts the lines past its limit', async () => {
+		const lines = await textFitOf(
+			Array.from( { length: 12 }, ( _, i ) => `<p class="p${ i }">x</p>` ).join( '' )
+		);
+		expect( lines ).toHaveLength( 11 );
+		expect( lines.at( -1 ) ).toBe( '…and 2 more' );
 	} );
 } );

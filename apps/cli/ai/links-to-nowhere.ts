@@ -6,12 +6,13 @@
  * navigation link prints its url as its href
  * (render_block_core_navigation_link() in wp-includes/blocks/navigation-link.php).
  * When a call changes what the site renders, Studio fetches the home page as a
- * visitor gets it to show which links do, and where.
+ * visitor gets it to show which links do, and where: those the site did not
+ * have as Studio first saw it.
  */
 import { readRenderedVersions } from 'cli/ai/block-render-check';
 import { templatePart } from 'cli/ai/header-menu';
 import { render } from 'cli/ai/page-render';
-import { getSiteUrl } from 'cli/lib/cli-config/sites';
+import { findSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import type { SiteChangeSource } from 'cli/ai/site-changes';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
@@ -19,8 +20,17 @@ import type { SiteData } from 'cli/lib/cli-config/core';
 const decode = ( text: string ) =>
 	text.replace( /&#0*39;|&#x0*27;/gi, "'" ).replace( /&amp;/g, '&' );
 
-/** The problem with a site's links to nowhere, while its server renders it. */
-async function linksToNowhere( site: SiteData ): Promise< string | undefined > {
+interface NowhereLink {
+	place: string;
+	label: string;
+	// The link as rendered, where it is: the same link on a later render.
+	id: string;
+}
+
+/** A site's links to nowhere on its home page, while its server renders it. */
+async function linksToNowhere(
+	site: SiteData
+): Promise< { url: string; links: NowhereLink[] } | undefined > {
 	const url = `${ getSiteUrl( site ).replace( /\/$/, '' ) }/`;
 	const html = await render( url );
 	if ( ! html ) {
@@ -32,18 +42,35 @@ async function linksToNowhere( site: SiteData ): Promise< string | undefined > {
 			? [ { tag, start: html.indexOf( part ), end: html.indexOf( part ) + part.length } ]
 			: [];
 	} );
+	const links = [ ...html.matchAll( /<a\b[^>]*\bhref="#"[^>]*>([\s\S]*?)<\/a>/g ) ].map(
+		( link ) => {
+			const at = link.index ?? 0;
+			const part = parts.find( ( { start, end } ) => at >= start && at < end );
+			const place = part ? `the ${ part.tag } template part` : "the page's content";
+			const label = decode( link[ 1 ].replace( /<[^>]*>/g, '' ) )
+				.replace( /\s+/g, ' ' )
+				.trim();
+			return {
+				place,
+				label: label ? `"${ label }"` : 'one with no text',
+				id: `${ place } ${ link[ 0 ] }`,
+			};
+		}
+	);
+	return { url, links };
+}
+
+/** The problem with the links to nowhere a site did not have as Studio first saw it. */
+async function newLinksToNowhere( site: SiteData, seen: string[] ): Promise< string | undefined > {
+	const found = await linksToNowhere( site );
+	if ( ! found ) {
+		return undefined;
+	}
 	const places = new Map< string, string[] >();
-	for ( const link of html.matchAll( /<a\b[^>]*\bhref="#"[^>]*>([\s\S]*?)<\/a>/g ) ) {
-		const at = link.index ?? 0;
-		const part = parts.find( ( { start, end } ) => at >= start && at < end );
-		const place = part ? `the ${ part.tag } template part` : "the page's content";
-		const label = decode( link[ 1 ].replace( /<[^>]*>/g, '' ) )
-			.replace( /\s+/g, ' ' )
-			.trim();
-		places.set( place, [
-			...( places.get( place ) ?? [] ),
-			label ? `"${ label }"` : 'one with no text',
-		] );
+	for ( const { place, label, id } of found.links ) {
+		if ( ! seen.includes( id ) ) {
+			places.set( place, [ ...( places.get( place ) ?? [] ), label ] );
+		}
 	}
 	if ( ! places.size ) {
 		return undefined;
@@ -51,21 +78,42 @@ async function linksToNowhere( site: SiteData ): Promise< string | undefined > {
 	const where = [ ...places ].map(
 		( [ place, labels ] ) => `${ labels.join( ', ' ) } in ${ place }`
 	);
-	return `On ${ url }, the links ${ where.join(
+	return `On ${ found.url }, the links ${ where.join(
 		'; '
 	) } go nowhere: their href is only "#", an empty fragment, which takes a visitor to the top of the page they are on (a navigation link prints its url as its href, render_block_core_navigation_link() in wp-includes/blocks/navigation-link.php). Link each to the page or section it names, or take it out.`;
 }
 
+// The links to nowhere a site had as Studio first saw it, which are the user's
+// site as it was, not the session's to raise, as OpenProblems keeps a site's
+// problems as first seen.
+const FIRST_SEEN = 'links to nowhere as first seen';
+
 export const linksToNowhereChanges: SiteChangeSource = {
 	name: 'links to nowhere',
-	read: readRenderedVersions,
+	async read( sitePath, last ) {
+		const versions = await readRenderedVersions( sitePath );
+		if ( last?.[ FIRST_SEEN ] !== undefined ) {
+			return { ...versions, [ FIRST_SEEN ]: last[ FIRST_SEEN ] };
+		}
+		const site = await findSiteByFolder( sitePath );
+		const found = site ? await linksToNowhere( site ) : undefined;
+		return {
+			...versions,
+			[ FIRST_SEEN ]: JSON.stringify( found?.links.map( ( { id } ) => id ) ?? [] ),
+		};
+	},
 	async check( site, before, after ) {
 		if ( Object.keys( after ).every( ( key ) => before[ key ] === after[ key ] ) ) {
 			return { reports: [] };
 		}
+		const seen: string[] = JSON.parse( after[ FIRST_SEEN ] ?? '[]' );
 		return {
 			reports: [
-				{ key: 'links to nowhere', problem: await linksToNowhere( site ), atTurnEnd: true },
+				{
+					key: 'links to nowhere',
+					problem: await newLinksToNowhere( site, seen ),
+					atTurnEnd: true,
+				},
 			],
 		};
 	},

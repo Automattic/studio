@@ -6,6 +6,10 @@ import type { SiteData } from 'cli/lib/cli-config/core';
 
 vi.mock( 'cli/lib/cli-config/sites', () => ( {
 	getSiteUrl: ( site: { port: number } ) => `http://localhost:${ site.port }`,
+	findSiteByFolder: async ( folder: string ) => ( folder === site.path ? site : undefined ),
+} ) );
+vi.mock( 'cli/ai/block-render-check', () => ( {
+	readRenderedVersions: async () => ( { 'post:2': 'a' } ),
 } ) );
 
 const site = { id: '1', name: 'Groomer', path: '/sites/groomer', port: 8881 } as SiteData;
@@ -82,4 +86,54 @@ it( 'renders the site only when a call changed what it renders, and raises the p
 	expect( ( await check( { 'post:2': 'a' }, { 'post:2': 'b' } ) ).reports ).toEqual( [
 		{ key: 'links to nowhere', problem: expect.stringContaining( '"Shop"' ), atTurnEnd: true },
 	] );
+} );
+
+it.each< {
+	name: string;
+	first: string | undefined;
+	sitePath: string;
+	reported: string | undefined;
+} >( [
+	{
+		name: 'the links the site had as Studio first saw it, and raises one added since',
+		first: header( nav( 'Shop' ) ) + STOCK_FOOTER,
+		sitePath: site.path,
+		reported: '"Book" in the header template part',
+	},
+	{
+		name: 'nothing, when the site was not running as Studio first saw it',
+		first: undefined,
+		sitePath: site.path,
+		reported:
+			'"Shop", "Book" in the header template part; "Blog", "About", "FAQs", "Authors", "Events", "Shop", "Patterns", "Themes" in the footer template part',
+	},
+	{
+		name: 'nothing, for a folder that is not a Studio site',
+		first: header( nav( 'Shop' ) ) + STOCK_FOOTER,
+		sitePath: '/sites/elsewhere',
+		reported:
+			'"Shop", "Book" in the header template part; "Blog", "About", "FAQs", "Authors", "Events", "Shop", "Patterns", "Themes" in the footer template part',
+	},
+] )( 'keeps $name', async ( { first, sitePath, reported } ) => {
+	serve( first );
+	const seen = await linksToNowhereChanges.read( sitePath );
+	serve( header( nav( 'Shop' ) + nav( 'Book' ) ) + STOCK_FOOTER );
+	// A later read keeps what was first seen, without rendering the site.
+	const later = await linksToNowhereChanges.read( sitePath, seen );
+	expect( fetch ).not.toHaveBeenCalled();
+	const { reports } = await check( { ...seen, 'post:2': 'z' }, later );
+	expect( reports[ 0 ]?.problem ).toContain( `the links ${ reported } go nowhere` );
+} );
+
+it( 'raises a link the site had in one place, written again in another', async () => {
+	serve( footer( nav( 'Shop' ) ) );
+	const seen = await linksToNowhereChanges.read( site.path );
+	serve( header( nav( 'Shop' ) ) + footer( nav( 'Shop' ) ) );
+	const { reports } = await check(
+		{ ...seen, 'post:2': 'z' },
+		await linksToNowhereChanges.read( site.path, seen )
+	);
+	expect( reports[ 0 ]?.problem ).toContain(
+		'the links "Shop" in the header template part go nowhere'
+	);
 } );

@@ -360,6 +360,9 @@ async function closePhpProxyServer(): Promise< void > {
 
 	await new Promise< void >( ( resolve ) => {
 		proxyServer.close( () => resolve() );
+		// The PHP workers are about to be killed, so no open request can be answered. Drop the
+		// connections rather than waiting for clients to end them.
+		proxyServer.closeAllConnections();
 	} ).catch( () => {} );
 }
 

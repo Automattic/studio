@@ -213,7 +213,9 @@ function pageBridge( appOrigin: string, screenshotLibrary: string, consolePrefix
 		if ( event.origin !== appOrigin || data?.type !== 'studio:request' || ! data.action ) {
 			return;
 		}
-		const action = actions[ data.action ];
+		const action = Object.prototype.hasOwnProperty.call( actions, data.action )
+			? actions[ data.action ]
+			: undefined;
 		const reply = ( message: Record< string, unknown > ) =>
 			( event.source as Window ).postMessage(
 				{ type: 'studio:response', id: data.id, ...message },

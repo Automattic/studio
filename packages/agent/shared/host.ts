@@ -107,6 +107,84 @@ export interface HostPages {
 	fetchText( url: string ): Promise< { status: number; body: string } >;
 }
 
+// The site operations the tools run. Site operations belong to the app: the
+// CLI runs its own commands, so each operation has one implementation.
+export interface HostSites {
+	resolve( nameOrPath: string ): Promise< HostSite >;
+	findByFolder( folder: string ): Promise< HostSite | undefined >;
+	all(): Promise< HostSite[] >;
+	list(): Promise< Omit< SiteListItem, 'adminPassword' >[] >;
+	status( site: HostSite ): Promise< SiteStatus >;
+	create( name: string, sitePath: string, onProgress: ProgressCallback ): Promise< void >;
+	start( site: HostSite, onProgress: ProgressCallback ): Promise< void >;
+	stop( site: HostSite, onProgress: ProgressCallback ): Promise< void >;
+	delete( site: HostSite, deleteFiles: boolean, onProgress: ProgressCallback ): Promise< void >;
+	isRunning( site: HostSite ): Promise< boolean >;
+	import( site: HostSite, file: string, onProgress: ProgressCallback ): Promise< void >;
+	export(
+		site: HostSite,
+		file: string,
+		mode: 'full' | 'db',
+		onProgress: ProgressCallback
+	): Promise< void >;
+	wpCli( site: HostSite, args: string[] ): Promise< WpCliOutput >;
+}
+
+// Preview sites: temporary WordPress.com copies of a local site.
+export interface HostPreviews {
+	list( site: HostSite ): Promise< Snapshot[] >;
+	create( site: HostSite, onProgress: ProgressCallback ): Promise< Snapshot >;
+	update(
+		site: HostSite,
+		hostname: string,
+		overwrite: boolean,
+		onProgress: ProgressCallback
+	): Promise< Snapshot >;
+	delete( hostname: string, onProgress: ProgressCallback ): Promise< void >;
+}
+
+// Push and pull return the WordPress.com site they synced with, or nothing when
+// the user backed out.
+export interface HostSync {
+	push(
+		site: HostSite,
+		options: string,
+		remoteSite: string | undefined,
+		onProgress: ProgressCallback
+	): Promise< SyncSite | undefined >;
+	pull(
+		site: HostSite,
+		options: string,
+		remoteSite: string | undefined,
+		onProgress: ProgressCallback
+	): Promise< SyncSite | undefined >;
+}
+
+// WordPress.com, as the signed-in user.
+export interface HostWpcom {
+	// The user's access token, or nothing when signed out.
+	token(): Promise< string | undefined >;
+	// The token image generation uses, or nothing when it is unavailable.
+	imageToken(): Promise< string | undefined >;
+	sites( accessToken: string ): Promise< unknown[] >;
+	// The WordPress.com sites a local site syncs with; empty when signed out.
+	connectedSites( site: HostSite ): Promise< SyncSite[] >;
+	// A REST request; throws when signed out. An empty `apiNamespace` in `query`
+	// means the WordPress.com REST API v1.1.
+	request(
+		method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+		path: string,
+		query: Record< string, unknown >,
+		body?: Record< string, unknown >
+	): Promise< unknown >;
+	// The folder `wpcom_request` reads request bodies from.
+	payloadsDirectory: string;
+}
+
+export interface HostTracks {
+	record( event: TracksEventName, props: TracksProps ): Promise< void >;
+}
+
 // What an app that shows the conversation does for the agent.
 export interface StudioAgentUi {
 	// Shows a tool's result in the conversation, such as a site preview or an image.
@@ -115,84 +193,21 @@ export interface StudioAgentUi {
 	reloadPreview(): void;
 }
 
-// What the app running the agent provides: the site operations its tools run,
-// which the CLI implements with its own commands, and how the agent reaches the
-// user. Operations return their result and throw when they fail; progress goes
-// to `onProgress`.
+// What the app running the agent provides. The agent never imports an app:
+// everything it needs from one comes through here, so the same tools run in
+// Node and in a browser. Operations return their result and throw when they
+// fail; progress goes to `onProgress`.
 export interface StudioAgentHost {
 	// The folder Studio's sites live in. The file tools are rooted here.
 	sitesRoot: string;
 	// The User-Agent requests to WordPress.com carry, naming the app and its version.
 	userAgent: string;
-	sites: {
-		resolve( nameOrPath: string ): Promise< HostSite >;
-		findByFolder( folder: string ): Promise< HostSite | undefined >;
-		all(): Promise< HostSite[] >;
-		list(): Promise< Omit< SiteListItem, 'adminPassword' >[] >;
-		status( site: HostSite ): Promise< SiteStatus >;
-		create( name: string, sitePath: string, onProgress: ProgressCallback ): Promise< void >;
-		start( site: HostSite, onProgress: ProgressCallback ): Promise< void >;
-		stop( site: HostSite, onProgress: ProgressCallback ): Promise< void >;
-		delete( site: HostSite, deleteFiles: boolean, onProgress: ProgressCallback ): Promise< void >;
-		isRunning( site: HostSite ): Promise< boolean >;
-		import( site: HostSite, file: string, onProgress: ProgressCallback ): Promise< void >;
-		export(
-			site: HostSite,
-			file: string,
-			mode: 'full' | 'db',
-			onProgress: ProgressCallback
-		): Promise< void >;
-		wpCli( site: HostSite, args: string[] ): Promise< WpCliOutput >;
-	};
-	previews: {
-		list( site: HostSite ): Promise< Snapshot[] >;
-		create( site: HostSite, onProgress: ProgressCallback ): Promise< Snapshot >;
-		update(
-			site: HostSite,
-			hostname: string,
-			overwrite: boolean,
-			onProgress: ProgressCallback
-		): Promise< Snapshot >;
-		delete( hostname: string, onProgress: ProgressCallback ): Promise< void >;
-	};
-	// Push and pull return the WordPress.com site they synced with, or nothing when
-	// the user backed out.
-	sync: {
-		push(
-			site: HostSite,
-			options: string,
-			remoteSite: string | undefined,
-			onProgress: ProgressCallback
-		): Promise< SyncSite | undefined >;
-		pull(
-			site: HostSite,
-			options: string,
-			remoteSite: string | undefined,
-			onProgress: ProgressCallback
-		): Promise< SyncSite | undefined >;
-	};
-	wpcom: {
-		// The signed-in user's access token, or nothing when signed out.
-		token(): Promise< string | undefined >;
-		// The token image generation uses, or nothing when it is unavailable.
-		imageToken(): Promise< string | undefined >;
-		sites( accessToken: string ): Promise< unknown[] >;
-		// The WordPress.com sites a local site syncs with; empty when signed out.
-		connectedSites( site: HostSite ): Promise< SyncSite[] >;
-		// A REST request as the signed-in user; throws when signed out. An empty
-		// `apiNamespace` in `query` means the WordPress.com REST API v1.1.
-		request(
-			method: 'GET' | 'POST' | 'PUT' | 'DELETE',
-			path: string,
-			query: Record< string, unknown >,
-			body?: Record< string, unknown >
-		): Promise< unknown >;
-		// The folder `wpcom_request` reads request bodies from.
-		payloadsDirectory: string;
-	};
-	tracks: {
-		record( event: TracksEventName, props: TracksProps ): Promise< void >;
-	};
+
+	sites: HostSites;
+	previews: HostPreviews;
+	sync: HostSync;
+	wpcom: HostWpcom;
+	tracks: HostTracks;
 	path: HostPath;
 	files: HostFiles;
 	pages: HostPages;
@@ -202,12 +217,16 @@ export interface StudioAgentHost {
 		name: string,
 		mimeType: string
 	): Promise< { path: string; url: string } >;
-	// Opens a site in a browser the user annotates; resolves with their notes.
-	// Present where the host can open a browser window of its own.
-	annotate?( url: string, timeoutMs: number ): Promise< BrowserAnnotation[] | null >;
-	// Makes a site the agent created the conversation's site.
-	selectSite?( site: SiteInfo ): Promise< void > | void;
-	// Present when an app shows the conversation. Tools that only make sense
-	// there, and their mentions in the prompt, depend on it.
+
+	// Optional: each one a host provides turns on the tools, and the prompt text,
+	// that need it.
+
+	// A Studio UI shows the conversation: tool results show in it as chat
+	// artifacts, and refresh_browser is offered.
 	ui?: StudioAgentUi;
+	// A browser window the user annotates a site in, resolving with their notes:
+	// open_annotation_browser.
+	annotate?( url: string, timeoutMs: number ): Promise< BrowserAnnotation[] | null >;
+	// The conversation follows a site the agent creates.
+	selectSite?( site: SiteInfo ): Promise< void > | void;
 }

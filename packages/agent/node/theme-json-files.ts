@@ -10,6 +10,7 @@
  */
 import { runWpCli } from '@studio/agent/node/tools/utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
+import type { OpenProblems } from '@studio/agent/node/open-problems';
 import type { SiteFile } from '@studio/agent/node/site-file-guards';
 
 // WP_Theme_JSON::__construct's own steps up to sanitize, which removes what
@@ -107,26 +108,28 @@ const SHOWN = 12;
 
 /**
  * What WordPress makes of a theme JSON file, as notes: the keys it removes,
- * and the style variation it lists the file as.
+ * and the style variation it lists the file as. The problem is what keeps
+ * the file from reaching the site as written: JSON WordPress cannot decode,
+ * or keys it removes.
  */
 export async function themeJsonFileRead(
 	host: StudioAgentHost,
 	site: HostSite,
 	file: string,
 	relativePath: string
-): Promise< string[] > {
+): Promise< { problem?: string; notes: string[] } > {
 	const output = await runWpCli( host, site, [ 'eval', READ( file ) ] );
 	const read = JSON.parse(
 		output.slice( output.indexOf( 'THEME_JSON_READ=' ) + 'THEME_JSON_READ='.length )
 	) as Read;
-	if ( ! read.decoded ) {
-		return [
-			`WordPress cannot decode ${ relativePath } as JSON (wp_json_file_decode in wp-includes/functions.php): ${ read.error }. It reads nothing from it until the file is valid JSON.`,
-		];
-	}
-	return [ dropNote( read, relativePath ), listedNote( read ) ].filter(
-		( note ): note is string => !! note
-	);
+	const problem = read.decoded
+		? dropNote( read, relativePath )
+		: `WordPress cannot decode ${ relativePath } as JSON (wp_json_file_decode in wp-includes/functions.php): ${ read.error }. It reads nothing from it until the file is valid JSON.`;
+	const listed = read.decoded ? listedNote( read ) : undefined;
+	return {
+		problem,
+		notes: [ problem, listed ].filter( ( note ): note is string => !! note ),
+	};
 }
 
 function listedNote( { listed }: Read ): string | undefined {
@@ -155,15 +158,25 @@ function dropNote( read: Read, relativePath: string ): string | undefined {
 		: `${ relativePath } has no "version", so WordPress keeps only { "version": ${ read.latest } } of it (WP_Theme_JSON_Schema::migrate in wp-includes/class-wp-theme-json-schema.php, which WP_Theme_JSON runs on each theme JSON file it reads), and none of these reach the site: ${ shown }${ more }. It reads them all with "version": ${ read.latest }, as Twenty Twenty-Five's theme JSON files have.`;
 }
 
-/** A site-notes write source: the keys WordPress removes from a theme JSON file just written. */
+/**
+ * A site-notes write source: the keys WordPress removes from a theme JSON
+ * file just written. What keeps the file from reaching the site stays open
+ * until a later write resolves it, so the turn does not end on a look
+ * WordPress never applies, as a theme.json whose fonts sat outside
+ * "typography" did in the climbing-gym eval case.
+ */
 export async function themeJsonFileNotes(
 	host: StudioAgentHost,
-	siteFile: SiteFile
+	siteFile: SiteFile,
+	open?: OpenProblems
 ): Promise< string[] > {
 	const { theme, siteRoot, relativePath } = siteFile;
 	if ( ! theme || ! /^(theme\.json|styles\/.+\.json)$/.test( theme.file ) ) {
 		return [];
 	}
 	const site = await host.sites.resolve( siteRoot );
-	return themeJsonFileRead( host, site, `${ siteRoot }/${ relativePath }`, relativePath );
+	const file = `${ siteRoot }/${ relativePath }`;
+	const { problem, notes } = await themeJsonFileRead( host, site, file, relativePath );
+	open?.record( siteRoot, file, problem );
+	return notes;
 }

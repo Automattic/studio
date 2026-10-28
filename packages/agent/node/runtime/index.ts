@@ -485,6 +485,7 @@ async function createStudioAgentSession(
 		// The Active site section already states this turn's facts.
 		stated: new Map( localSite ? [ [ path.resolve( localSite ), activeSiteFacts ] ] : [] ),
 		gate: blockValidationGate,
+		open: getOpenProblems( config.host, config.session ),
 	} );
 	// What a call changed on the request's sites, or on every local site until
 	// the request has one, reported on its result.

@@ -45,6 +45,7 @@ import { themeJsonFileNotes } from '@studio/agent/node/theme-json-files';
 import { keepThemePresets } from '@studio/agent/node/theme-presets';
 import type { BlockValidationGate } from '@studio/agent/node/block-validation-gate';
 import type { StudioAgentHost } from '@studio/agent/node/host';
+import type { OpenProblems } from '@studio/agent/node/open-problems';
 
 type Notes = string[] | Promise< string[] >;
 
@@ -59,6 +60,8 @@ interface SiteNotesOptions {
 	stated?: Map< string, string[][] >;
 	/** Validates the block markup a write leaves, for the surface to report. */
 	gate?: BlockValidationGate;
+	/** The session's open problems, for the ones a write leaves for the turn's end. */
+	open?: OpenProblems;
 }
 
 // The settings of the core blocks a result shows, once each per site.
@@ -99,7 +102,10 @@ function siteFactsSource(
 	};
 }
 
-function sources( host: StudioAgentHost, { stated = new Map(), gate }: SiteNotesOptions ): Sources {
+function sources(
+	host: StudioAgentHost,
+	{ stated = new Map(), gate, open }: SiteNotesOptions
+): Sources {
 	return {
 		beforeWrite: [
 			async ( file ) => {
@@ -124,7 +130,7 @@ function sources( host: StudioAgentHost, { stated = new Map(), gate }: SiteNotes
 			( file ) => writeThemeThumbnail( host, file ),
 			blockMarkupNotes,
 			themeJsonNotes,
-			( file ) => themeJsonFileNotes( host, file ),
+			( file ) => themeJsonFileNotes( host, file, open ),
 			( file ) => keepThemePresets( host, file ),
 			themeCssNotes,
 			createSharedBlockClassNotes( host ),

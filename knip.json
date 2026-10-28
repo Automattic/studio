@@ -31,7 +31,12 @@
 			"project": "**/*.ts"
 		},
 		"apps/ui": {
-			"entry": ["src/main.local.tsx", "src/dev/{chat,animation}.tsx"],
+			"entry": [
+				"src/main.local.tsx",
+				"src/main.web.tsx",
+				"src/site-viewer.ts",
+				"src/dev/{chat,animation}.tsx"
+			],
 			"project": "src/**/*.{ts,tsx}"
 		},
 		"apps/local": {

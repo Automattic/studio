@@ -304,3 +304,8 @@
 	opacity: 0.5;
 	cursor: default;
 }
+
+.reload {
+	display: flex;
+	justify-content: center;
+}

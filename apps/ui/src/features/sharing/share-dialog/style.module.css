@@ -226,3 +226,8 @@
 	line-height: var( --text-xs--line-height );
 	text-align: center;
 }
+
+.reload {
+	display: flex;
+	justify-content: center;
+}

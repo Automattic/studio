@@ -11,8 +11,11 @@ export interface PreferredPlugin {
 	plugin: string;
 	/** Its WordPress.org slug, and the module that turns the feature on. */
 	install: string;
-	/** The block that delivers the feature, and the markup it replaces in a core/html block. */
-	replaces?: { block: string; markup: string; pattern: RegExp };
+	/**
+	 * The block that delivers the feature, the markup it replaces in a
+	 * core/html block, and what it does that the markup does not.
+	 */
+	replaces?: { block: string; markup: string; pattern: RegExp; does?: string };
 }
 
 export const PREFERRED_PLUGINS: PreferredPlugin[] = [
@@ -29,6 +32,7 @@ export const PREFERRED_PLUGINS: PreferredPlugin[] = [
 			block: 'jetpack/contact-form',
 			markup: 'form',
 			pattern: /<(form|input|select|textarea|fieldset)\b/i,
+			does: 'saves each submission, whatever its fields, as a Form Responses post (the feedback post type Contact_Form_Plugin registers in jetpack-forms), with or without a WordPress.com connection',
 		},
 	},
 	{

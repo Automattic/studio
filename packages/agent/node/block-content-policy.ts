@@ -6,6 +6,19 @@ const SINGLE_SVG_PATTERN = /^<svg(?:\s[^>]*)?>[\s\S]*<\/svg>\s*$/i;
 const INTERACTION_MARKUP_PATTERN = /<(marquee)\b/i;
 const HTML_BLOCK_PATTERN = /<!--\s*wp:html(?:\s+[\s\S]*?)?\s*-->([\s\S]*?)<!--\s*\/wp:html\s*-->/g;
 
+// A form whose action is "#", empty or missing submits to the page it is on
+// (the HTML standard's form submission algorithm), where WordPress reads none
+// of its fields.
+function formToNowhere( html: string ): string {
+	const nowhere = [ ...html.matchAll( /<form\b[^>]*>/gi ) ].some( ( [ tag ] ) => {
+		const action = tag.match( /\saction\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i );
+		return ! action || /^#?$/.test( ( action[ 1 ] ?? action[ 2 ] ?? action[ 3 ] ).trim() );
+	} );
+	return nowhere
+		? ' Its form submits to the page it is on (its action is "#", empty or missing), where WordPress reads none of its fields, so what a visitor enters is lost.'
+		: '';
+}
+
 // The markup a preferred plugin's block replaces, with that block.
 function replacingPlugin( html: string ): PreferredPlugin | undefined {
 	return PREFERRED_PLUGINS.find( ( plugin ) => plugin.replaces?.pattern.test( html ) );
@@ -41,9 +54,13 @@ export function getHtmlBlockPolicyIssues( content: string ): string[] {
 
 	const preferred = replacingPlugin( html );
 	if ( preferred?.replaces ) {
-		const { markup, block } = preferred.replaces;
+		const { markup, block, does } = preferred.replaces;
 		return [
-			`core/html contains ${ markup } markup. ${ preferred.plugin }'s block (${ block }) stays editable in the block editor and does what the markup does; the plugin-recommendations skill names the plugin for each feature.`,
+			`core/html contains ${ markup } markup.${ formToNowhere( html ) } ${
+				preferred.plugin
+			}'s block (${ block }) stays editable in the block editor and does what the markup does${
+				does ? `: it ${ does }` : ''
+			}; the plugin-recommendations skill names the plugin for each feature.`,
 		];
 	}
 

@@ -21,13 +21,20 @@ describe( 'HTML block content policy', () => {
 		).toEqual( [] );
 	} );
 
-	it( 'flags form markup with a Jetpack-specific message', () => {
+	it.each( [
+		{ form: '<form action="#" method="post">', lost: true },
+		{ form: '<form>', lost: true },
+		{ form: '<form action="https://example.us1.list-manage.com/subscribe/post">', lost: false },
+	] )( 'flags $form with Jetpack Forms, and says when its entries are lost', ( { form, lost } ) => {
 		const issues = getHtmlBlockPolicyIssues(
-			'<!-- wp:html --><form><label>Email<input type="email" /></label></form><!-- /wp:html -->'
+			`<!-- wp:html -->${ form }<input type="email" /></form><!-- /wp:html -->`
 		);
 
 		expect( issues ).toHaveLength( 1 );
-		expect( issues[ 0 ] ).toContain( 'Jetpack Forms' );
+		expect( issues[ 0 ] ).toContain(
+			'saves each submission, whatever its fields, as a Form Responses post'
+		);
+		expect( issues[ 0 ].includes( 'what a visitor enters is lost' ) ).toBe( lost );
 	} );
 
 	it( 'flags layout and text markup that should use core blocks', () => {

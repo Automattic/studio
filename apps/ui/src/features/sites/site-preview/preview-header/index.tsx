@@ -36,7 +36,7 @@ interface PreviewHeaderProps {
 	hasDesignSystem: boolean;
 	hasDatabase: boolean;
 	onOpenExternal?: () => void;
-	onOpenSettings?: () => void;
+	responsive?: { active: boolean; disabled: boolean; onClick: () => void };
 	annotate?: Omit< ComponentProps< typeof AnnotateButton >, 'iconOnly' >;
 	// Page-load progress, while a page is loading or just loaded.
 	progress?: number;
@@ -62,7 +62,7 @@ export function PreviewHeader( {
 	hasDesignSystem,
 	hasDatabase,
 	onOpenExternal,
-	onOpenSettings,
+	responsive,
 	annotate,
 	progress,
 }: PreviewHeaderProps ) {
@@ -153,7 +153,7 @@ export function PreviewHeader( {
 						hasDesignSystem={ hasDesignSystem }
 						hasDatabase={ hasDatabase }
 						onOpenExternal={ onOpenExternal }
-						onOpenSettings={ onOpenSettings }
+						responsive={ responsive }
 						hideActions={ headerLayout !== 'inline' }
 					/>
 				) : null }

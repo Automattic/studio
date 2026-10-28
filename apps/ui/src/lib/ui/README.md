@@ -25,10 +25,10 @@ import { Button, Menu, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui'
 - A toolbar toggle: `Button` or `IconButton` with `variant="accent-ghost"` and `aria-pressed`. It uses the normal ghost fill at rest, an accent fill and text while pressed or expanded, and a stronger accent fill on active hover.
 - A form row: `Field` with `FieldLabel`, `FieldDescription` and `FieldError`, grouped in a `FieldGroup`. Text: `Input` and `Textarea`, or `InputGroup` for buttons and icons inside the border.
 - A choice: `Select`, `Switch` for on/off, `Checkbox` in forms, `Tabs` for sections or a scope switch, `Slider`. A question with options: `Questionnaire`.
-- A modal: `Dialog` with `DialogContent`. Small info dialogs and forms: `layout="compact"` (16px leading inset, standard 12px padding elsewhere, and extra space above actions). Confirmations: `AlertDialog` with `layout="confirmation"` (the same spacing at a wider width). Two panes: `DialogPanel`.
+- A modal: `Dialog` with `DialogContent`. Use `surface="composer"` to match the composer and command sheets; the default is the chat surface. Small info dialogs and forms: `layout="compact"` (16px leading inset, standard 12px padding elsewhere, and extra space above actions). Confirmations: `AlertDialog` with `layout="confirmation"` (the same spacing at a wider width). Two panes: `DialogPanel`.
 - Floating: `Menu` (right click: `Menu.ContextMenuRoot`), `Popover`, `HoverCard`, `Tooltip`.
 - Tabular data: `Table`, `TableHeader`, `TableBody`, `TableRow`, `TableHead`, `TableCell`.
-- Status: `Alert`, `Empty`, `Skeleton`, `Spinner`, `Progress`, `Badge`, `NotificationDot`.
+- Status: `Alert`, `Empty`, `Skeleton`, `Spinner`, `Progress`, `Badge`, `NotificationDot`. Attachment labels: `AttachmentChip`, with `font="mono"` for element references.
 - Sidebar groups and rows: `SidebarGroup`, `SidebarMenu`, `SidebarMenuButton`.
 - Also `CodeBlock`, `PreviewFrame`, `ResizeHandle`, `MarqueeLabel` (a long label that scrolls on hover), `CommandSheet` (slash commands), `Kbd` and `VisuallyHidden`.
 

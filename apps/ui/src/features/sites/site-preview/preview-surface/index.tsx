@@ -11,8 +11,10 @@ import { useColorScheme } from '@/data/host/use-color-scheme';
 import { normalizeDocumentTitle } from '@/features/sites/site-preview/browser-state';
 import { GlobeIcon } from '@/lib/icons';
 import { Button, Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/lib/ui';
+import { ResponsiveViewport } from '../responsive-preview/viewport';
 import { buildInspectorCommandScript } from './inspector-command';
 import styles from './style.module.css';
+import type { ResponsivePreviewSettings } from '@/data/responsive-preview';
 import type { SiteAnnotations } from '@/features/annotations';
 import type { ReactNode } from 'react';
 
@@ -26,11 +28,13 @@ export function SurfaceLayer( {
 	active,
 	loading,
 	design,
+	responsive,
 	children,
 }: {
 	active: boolean;
 	loading?: boolean;
 	design?: boolean;
+	responsive?: { siteId: string; settings: ResponsivePreviewSettings; scale: number };
 	children: ReactNode;
 } ) {
 	return (
@@ -39,9 +43,11 @@ export function SurfaceLayer( {
 			data-loading={ loading || undefined }
 			inert={ active ? undefined : true }
 		>
-			<div className={ clsx( styles.surfaceFrame, design && styles.designSurface ) }>
-				{ children }
-			</div>
+			<ResponsiveViewport { ...responsive }>
+				<div className={ clsx( styles.surfaceFrame, design && styles.designSurface ) }>
+					{ children }
+				</div>
+			</ResponsiveViewport>
 		</div>
 	);
 }

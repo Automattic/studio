@@ -11,6 +11,7 @@ import {
 	ArrowRightIcon,
 	ExternalLinkIcon,
 	RotateCwIcon,
+	ResponsiveIcon,
 	ShareIcon,
 	SiteSettingsIcon,
 } from '@/lib/icons';
@@ -29,6 +30,7 @@ interface SiteHeaderNavigation {
 	reload: () => void;
 	settings: () => void;
 	openExternal?: () => void;
+	responsive?: { active: boolean; disabled: boolean; onClick: () => void };
 	backShortcut: string;
 	forwardShortcut: string;
 }
@@ -114,6 +116,9 @@ export function useSiteHeaderNavigation( navigation: SiteHeaderNavigation | null
 		backShortcut = '',
 		forwardShortcut = '',
 	} = navigation ?? {};
+	const responsiveActive = navigation?.responsive?.active;
+	const responsiveDisabled = navigation?.responsive?.disabled;
+	const hasResponsive = Boolean( navigation?.responsive );
 	const canOpenExternal = Boolean( navigation?.openExternal );
 	useEffect( () => {
 		if ( ! available ) {
@@ -128,6 +133,13 @@ export function useSiteHeaderNavigation( navigation: SiteHeaderNavigation | null
 			reload: () => latest.current?.reload(),
 			settings: () => latest.current?.settings(),
 			openExternal: canOpenExternal ? () => latest.current?.openExternal?.() : undefined,
+			responsive: hasResponsive
+				? {
+						active: responsiveActive ?? false,
+						disabled: responsiveDisabled ?? false,
+						onClick: () => latest.current?.responsive?.onClick(),
+				  }
+				: undefined,
 			backShortcut,
 			forwardShortcut,
 		} );
@@ -140,6 +152,9 @@ export function useSiteHeaderNavigation( navigation: SiteHeaderNavigation | null
 		canOpenExternal,
 		disabled,
 		forwardShortcut,
+		hasResponsive,
+		responsiveActive,
+		responsiveDisabled,
 		setNavigation,
 	] );
 }
@@ -206,6 +221,17 @@ export function SiteHeaderActions( { site, live = false }: { site: SiteDetails; 
 									<ShareStatusIcon icon={ <ShareIcon /> } status={ shareStatus } />
 									{ __( 'Share' ) }
 								</Menu.Item>
+								{ navigation?.responsive ? (
+									<Menu.Item
+										role="menuitemcheckbox"
+										aria-checked={ navigation.responsive.active }
+										disabled={ navigation.responsive.disabled }
+										onClick={ navigation.responsive.onClick }
+									>
+										<ResponsiveIcon />
+										{ __( 'Responsive mode' ) }
+									</Menu.Item>
+								) : null }
 								{ layout === 'navigation-overflow' && navigation ? (
 									<>
 										<Menu.Separator />

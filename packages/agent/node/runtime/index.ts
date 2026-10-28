@@ -4,13 +4,11 @@ import {
 	type Credential,
 	type CredentialInfo,
 	type CredentialStore,
-	type Model,
 	type SimpleStreamOptions,
 } from '@earendil-works/pi-ai';
 import { streamSimple as streamAnthropicMessages } from '@earendil-works/pi-ai/api/anthropic-messages';
 import { streamSimple as streamOpenAiCompletions } from '@earendil-works/pi-ai/api/openai-completions';
 import { streamSimple as streamOpenAiResponses } from '@earendil-works/pi-ai/api/openai-responses';
-import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
 import {
 	createAgentSession,
 	createBashTool,
@@ -44,7 +42,6 @@ import { withDesignSystemPreview } from '@studio/agent/shared/chat-artifacts';
 import { getFileToolPrompt } from '@studio/agent/shared/file-tool-prompts';
 import {
 	buildStudioModel,
-	STUDIO_WPCOM_PROVIDER,
 	type StudioModel,
 	type StudioWpcomModel,
 } from '@studio/agent/shared/models';

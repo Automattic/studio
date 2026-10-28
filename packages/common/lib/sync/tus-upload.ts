@@ -1,6 +1,5 @@
-import fs from 'fs';
-import nodePath from 'path';
 import { Upload } from 'tus-js-client';
+import type { Readable } from 'stream';
 
 /**
  * 5xx and network errors (status 0) are transient. 4xx are terminal, except 409
@@ -16,7 +15,10 @@ export function shouldRetryTusStatus( status: number ): boolean {
 export type TusUploadOptions = {
 	token: string;
 	remoteSiteId: number;
-	archivePath: string;
+	// A Blob in a browser; in Node, a stream of the archive with its size.
+	file: Blob | Readable;
+	filename: string;
+	size?: number;
 	onProgress?: ( percent: number ) => void;
 	onNetworkPause?: ( error: string ) => void;
 	onResume?: () => void;
@@ -26,7 +28,9 @@ export function createTusUpload( options: TusUploadOptions ): {
 	promise: Promise< string >;
 	abort: () => void;
 } {
-	const { token, remoteSiteId, archivePath, onProgress, onNetworkPause, onResume } = options;
+	const { token, remoteSiteId, file, filename, size, onProgress, onNetworkPause, onResume } =
+		options;
+	const close = () => ( file as { destroy?: () => void } ).destroy?.();
 
 	let rejectFn: ( error: Error ) => void;
 	let uploadInstance: Upload | null = null;
@@ -43,15 +47,11 @@ export function createTusUpload( options: TusUploadOptions ): {
 	};
 
 	const promise = ( async () => {
-		const file = fs.createReadStream( archivePath );
-		const fileSize = fs.statSync( archivePath ).size;
-		const filename = nodePath.basename( archivePath );
-
 		return new Promise< string >( ( resolve, reject ) => {
 			rejectFn = reject;
 
 			if ( isAborted ) {
-				file.destroy();
+				close();
 				reject( new Error( 'Upload aborted' ) );
 				return;
 			}
@@ -70,7 +70,7 @@ export function createTusUpload( options: TusUploadOptions ): {
 					filename,
 					filetype: 'application/gzip',
 				},
-				uploadSize: fileSize,
+				...( size === undefined ? {} : { uploadSize: size } ),
 				onBeforeRequest: ( req ) => {
 					if ( req.getMethod() === 'HEAD' ) {
 						// @ts-expect-error Override method to get response headers
@@ -79,7 +79,7 @@ export function createTusUpload( options: TusUploadOptions ): {
 					}
 				},
 				onError: ( error ) => {
-					file.destroy();
+					close();
 					reject( error );
 				},
 				onProgress: ( bytesSent: number, bytesTotal: number ) => {
@@ -97,7 +97,7 @@ export function createTusUpload( options: TusUploadOptions ): {
 					}
 				},
 				onSuccess: ( payload ) => {
-					file.destroy();
+					close();
 					if ( ! payload.lastResponse ) {
 						reject( new Error( 'Upload completed but no response received' ) );
 						return;

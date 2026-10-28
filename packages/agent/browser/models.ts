@@ -1,12 +1,7 @@
 import { streamSimple as streamAnthropicMessages } from '@earendil-works/pi-ai/api/anthropic-messages';
 import { streamSimple as streamOpenAiCompletions } from '@earendil-works/pi-ai/api/openai-completions';
 import { streamSimple as streamOpenAiResponses } from '@earendil-works/pi-ai/api/openai-responses';
-import {
-	aiModelSupportsImages,
-	getAiModel,
-	getAiModelFamily,
-	type AiModelId,
-} from '@studio/agent/protocol/models';
+import { getAiModel, getAiModelFamily, type AiModelId } from '@studio/agent/protocol/models';
 import { getWpcomAiGatewayBaseUrl } from '@studio/agent/shared/ai-gateway';
 import { buildStudioModel } from '@studio/agent/shared/models';
 import { withLeakedToolCallMarkupRemoved } from '@studio/agent/shared/runtime-guards/leaked-tool-call-markup';

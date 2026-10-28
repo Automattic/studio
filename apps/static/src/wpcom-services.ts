@@ -4,9 +4,19 @@ import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-q
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { SYNC_POLL_INTERVAL_MS } from '@studio/common/lib/sync/constants';
-import { transformSitesResponse, withWpcomDetails } from '@studio/common/lib/sync/transform-sites';
+import {
+	fetchHostingPhpVersion,
+	fetchLatestRewindId,
+	fetchRemoteFileTreeContents,
+	fetchSyncableSites,
+	initiateBackup,
+	initiateImport,
+	pollBackupStatus,
+	pollImportStatus,
+} from '@studio/common/lib/sync/sync-api';
+import { withWpcomDetails } from '@studio/common/lib/sync/transform-sites';
+import { createTusUpload } from '@studio/common/lib/sync/tus-upload';
 import { __ } from '@wordpress/i18n';
-import { Upload } from 'tus-js-client';
 import { buildPushArchive, exportSiteZip, importBackup } from './site-data';
 import { kvGet, kvUpdate } from './store';
 import type { StaticSites } from './sites';
@@ -27,8 +37,6 @@ type SyncConnectListener = ( event: {
 	autoOpenPush?: boolean;
 } ) => void;
 
-const SITES_FIELDS =
-	'name,ID,URL,plan,capabilities,is_wpcom_atomic,options,jetpack,is_deleted,is_a8c,hosting_provider_guess,environment_type';
 const PREVIEW_STATUS_ACTIVE = '2';
 const PREVIEW_MAX_POLLS = 100;
 const PUBLISH_WATCH_ATTEMPTS = 60;
@@ -259,20 +267,12 @@ export class WpcomServices {
 	}
 
 	async fetchSyncableSites(): Promise< SyncSite[] > {
-		if ( ! ( await this.auth.token() ) ) {
+		const token = await this.auth.token();
+		if ( ! token ) {
 			return [];
 		}
-		const params = new URLSearchParams( {
-			fields: SITES_FIELDS,
-			filter: 'atomic,wpcom',
-			options: 'created_at,wpcom_staging_blog_ids',
-			site_activity: 'active',
-		} );
-		const { sites } = await this.auth.request< { sites: unknown[] } >(
-			`/rest/v1.2/me/sites?${ params }`
-		);
 		const connectedSiteIds = ( await this.connections() ).map( ( site ) => site.id );
-		return transformSitesResponse( sites, { connectedSiteIds } );
+		return fetchSyncableSites( token.accessToken, connectedSiteIds );
 	}
 
 	async getConnectedSites( localSiteId?: string ): Promise< SyncSite[] > {
@@ -427,28 +427,20 @@ export class WpcomServices {
 				signal,
 				( percent ) => progress( 'uploading', 20 + percent * 0.2, __( 'Uploading…' ) )
 			);
-			const form = new FormData();
-			form.append( 'import_attachment_id', attachmentId );
-			form.append( 'options', optionsToSync.join( ',' ) );
-			if ( options?.specificSelectionPaths?.length ) {
-				form.append( 'list_sync_items', options.specificSelectionPaths.join( ',' ) );
-			}
-			await this.auth.request(
-				`/wpcom/v2/sites/${ remoteSiteId }/studio-app/sync/import/initiate`,
-				{ method: 'POST', body: form }
-			);
+			const token = await this.auth.requireToken();
+			await initiateImport( token, remoteSiteId, attachmentId, {
+				optionsToSync,
+				specificSelectionPaths: options?.specificSelectionPaths,
+			} );
 			for (;;) {
 				signal.throwIfAborted();
 				await sleep( SYNC_POLL_INTERVAL_MS );
-				const status = await this.auth.request< {
-					status: string;
-					success?: boolean;
-					backup_progress?: number;
-					import_progress?: number;
-					error?: string;
-				} >( `/wpcom/v2/sites/${ remoteSiteId }/studio-app/sync/import` );
-				if ( status.status === 'failed' || status.success === false ) {
-					throw new Error( status.error || __( 'WordPress.com could not import the site.' ) );
+				const status = await pollImportStatus( token, remoteSiteId );
+				if ( status.status === 'failed' || ! status.success ) {
+					throw new Error(
+						( status.status === 'failed' && status.error ) ||
+							__( 'WordPress.com could not import the site.' )
+					);
 				}
 				if ( status.status === 'finished' ) {
 					return;
@@ -465,48 +457,26 @@ export class WpcomServices {
 		} );
 	}
 
-	private uploadArchive(
+	private async uploadArchive(
 		remoteSiteId: number,
 		file: Blob,
 		filename: string,
 		signal: AbortSignal,
 		onProgress: ( percent: number ) => void
 	): Promise< string > {
-		return this.auth.requireToken().then(
-			( token ) =>
-				new Promise< string >( ( resolve, reject ) => {
-					const upload = new Upload( file, {
-						endpoint: `https://public-api.wordpress.com/rest/v1.1/studio-file-uploads/${ remoteSiteId }`,
-						chunkSize: 500000,
-						retryDelays: [ 0, 1000, 3000, 5000, 10000, 25000 ],
-						overridePatchMethod: true,
-						headers: { Authorization: `Bearer ${ token }` },
-						metadata: { filename, filetype: 'application/gzip' },
-						onBeforeRequest: ( request ) => {
-							if ( request.getMethod() === 'HEAD' ) {
-								// @ts-expect-error The endpoint reads HEAD as an overridden GET.
-								request._method = 'GET';
-								request.setHeader( 'X-HTTP-Method-Override', 'HEAD' );
-							}
-						},
-						onProgress: ( sent, total ) => total && onProgress( ( sent / total ) * 100 ),
-						onError: reject,
-						onSuccess: ( payload ) => {
-							const id = payload.lastResponse?.getHeader( 'x-studio-file-upload-media-id' );
-							if ( id ) {
-								resolve( id );
-							} else {
-								reject( new Error( __( 'The upload finished without an attachment ID.' ) ) );
-							}
-						},
-					} );
-					signal.addEventListener( 'abort', () => {
-						void upload.abort( true );
-						reject( new SyncCancelledError() );
-					} );
-					upload.start();
-				} )
-		);
+		const upload = createTusUpload( {
+			token: await this.auth.requireToken(),
+			remoteSiteId,
+			file,
+			filename,
+			onProgress,
+		} );
+		signal.addEventListener( 'abort', upload.abort );
+		try {
+			return await upload.promise;
+		} catch ( error ) {
+			throw signal.aborted ? new SyncCancelledError() : error;
+		}
 	}
 
 	async pull( siteId: string, remoteSiteId: number, options?: PullSyncOptions ): Promise< void > {
@@ -520,32 +490,21 @@ export class WpcomServices {
 					remoteSiteId,
 				} );
 			progress( 0, __( 'Requesting a backup…' ) );
-			const { backup_id: backupId } = await this.auth.request< { backup_id: number } >(
-				`/wpcom/v2/sites/${ remoteSiteId }/studio-app/sync/backup`,
-				{
-					method: 'POST',
-					body: JSON.stringify( {
-						options: options?.optionsToSync ?? [ 'all' ],
-						...( options?.includePathList?.length
-							? { include_path_list: options.includePathList }
-							: {} ),
-					} ),
-				}
-			);
-			let downloadUrl: string | undefined;
+			const token = await this.auth.requireToken();
+			const backupId = await initiateBackup( token, remoteSiteId, {
+				optionsToSync: options?.optionsToSync ?? [ 'all' ],
+				includePathList: options?.includePathList?.length ? options.includePathList : undefined,
+			} );
+			let downloadUrl: string | null = null;
 			while ( ! downloadUrl ) {
 				signal.throwIfAborted();
 				await sleep( SYNC_POLL_INTERVAL_MS );
-				const status = await this.auth.request< {
-					status: string;
-					download_url?: string | null;
-					percent: number;
-				} >( `/wpcom/v2/sites/${ remoteSiteId }/studio-app/sync/backup?backup_id=${ backupId }` );
+				const status = await pollBackupStatus( token, remoteSiteId, backupId );
 				if ( status.status === 'failed' ) {
 					throw new Error( __( 'WordPress.com could not back up the site.' ) );
 				}
-				if ( status.status === 'finished' && status.download_url ) {
-					downloadUrl = status.download_url;
+				if ( status.status === 'finished' && status.downloadUrl ) {
+					downloadUrl = status.downloadUrl;
 				} else {
 					progress( status.percent * 0.5, __( 'Backing up the live site…' ) );
 				}
@@ -563,10 +522,7 @@ export class WpcomServices {
 	}
 
 	async getLatestRewindId( remoteSiteId: number ): Promise< string | null > {
-		const response = await this.auth.request< { rewind_id?: string } >(
-			`/wpcom/v2/sites/${ remoteSiteId }/studio-app/sync/get-latest-rewind-id`
-		);
-		return response.rewind_id ?? null;
+		return fetchLatestRewindId( await this.auth.requireToken(), remoteSiteId );
 	}
 
 	async listRemoteFileTree(
@@ -574,16 +530,15 @@ export class WpcomServices {
 		rewindId: string,
 		path: string
 	): Promise< Record< string, unknown > > {
-		const response = await this.auth.request< { contents?: Record< string, unknown > } >(
-			`/wpcom/v2/sites/${ remoteSiteId }/rewind/backup/ls`,
-			{ method: 'POST', body: JSON.stringify( { backup_id: rewindId, path } ) }
+		return fetchRemoteFileTreeContents(
+			await this.auth.requireToken(),
+			remoteSiteId,
+			rewindId,
+			path
 		);
-		return response.contents ?? {};
 	}
 
 	async getHostingPhpVersion( remoteSiteId: number ): Promise< string | undefined > {
-		return this.auth
-			.request< string >( `/wpcom/v2/sites/${ remoteSiteId }/hosting/php-version` )
-			.catch( () => undefined );
+		return fetchHostingPhpVersion( await this.auth.requireToken(), remoteSiteId );
 	}
 }

@@ -17,7 +17,8 @@ CACHEKEY="$BUILDKITE_PIPELINE_SLUG-npm-$PLATFORM-$ARCHITECTURE-node-$NODE_VERSIO
 LOCAL_NPM_CACHE=./vendor/npm
 mkdir -p $LOCAL_NPM_CACHE
 echo "--- :npm: Set npm to use $LOCAL_NPM_CACHE for cache"
-npm set cache $LOCAL_NPM_CACHE
+# Absolute, because npm resolves a relative cache path against the directory it runs in.
+npm set cache "$PWD/$LOCAL_NPM_CACHE"
 echo "npm cache set to $(npm get cache)"
 
 echo "--- :npm: Restore npm cache if present"

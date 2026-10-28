@@ -1,5 +1,4 @@
 export * from './annotate-icon';
-export * from './annotation-icon';
 export * from './appearance-icon';
 export * from './archive-icon';
 export * from './arrow-left-icon';
@@ -8,6 +7,7 @@ export * from './bell-icon';
 export * from './chat-icon';
 export * from './chevron-down-icon';
 export * from './claude-icon';
+export * from './code-icon';
 export * from './collapse-all-icon';
 export * from './database-icon';
 export * from './duplicate-icon';

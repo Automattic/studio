@@ -8,6 +8,7 @@ export interface Command {
 	value: string;
 	label: string;
 	description?: string;
+	trailing?: ReactNode;
 	icon: ComponentType< { className?: string } >;
 	disabled?: boolean;
 }
@@ -83,6 +84,7 @@ export function CommandList( {
 	listRef,
 	id: listId,
 	size = 'sm',
+	radius = 'default',
 	empty,
 	className,
 }: {
@@ -94,6 +96,7 @@ export function CommandList( {
 	listRef?: Ref< HTMLDivElement >;
 	id?: string;
 	size?: 'sm' | 'default';
+	radius?: 'default' | 'control';
 	empty?: ReactNode;
 	className?: string;
 } ) {
@@ -112,6 +115,7 @@ export function CommandList( {
 			aria-label={ label }
 			aria-activedescendant={ active ? optionId( active.value ) : undefined }
 			data-size={ size }
+			data-radius={ radius }
 			className={ clsx( styles.list, className ) }
 			onKeyDown={ ( event ) =>
 				handleCommandKey( event, groups, active?.value, onHighlight, onSelect )
@@ -125,31 +129,34 @@ export function CommandList( {
 							{ group.heading }
 						</div>
 					) : null }
-					{ group.items.map( ( { value, label: itemLabel, description, icon: Icon, disabled } ) => (
-						<div
-							key={ value }
-							id={ optionId( value ) }
-							role="option"
-							aria-selected={ value === active?.value }
-							aria-disabled={ disabled || undefined }
-							data-highlighted={ value === active?.value ? '' : undefined }
-							data-disabled={ disabled ? '' : undefined }
-							className={ styles.item }
-							onPointerMove={ () => ! disabled && onHighlight( value ) }
-							onMouseDown={ ( event ) => event.preventDefault() }
-							onClick={ () => ! disabled && onSelect( value ) }
-						>
-							<Icon className={ styles.icon } />
-							{ description ? (
-								<span className={ styles.text }>
+					{ group.items.map(
+						( { value, label: itemLabel, description, trailing, icon: Icon, disabled } ) => (
+							<div
+								key={ value }
+								id={ optionId( value ) }
+								role="option"
+								aria-selected={ value === active?.value }
+								aria-disabled={ disabled || undefined }
+								data-highlighted={ value === active?.value ? '' : undefined }
+								data-disabled={ disabled ? '' : undefined }
+								className={ styles.item }
+								onPointerMove={ () => ! disabled && onHighlight( value ) }
+								onMouseDown={ ( event ) => event.preventDefault() }
+								onClick={ () => ! disabled && onSelect( value ) }
+							>
+								<Icon className={ styles.icon } />
+								{ description ? (
+									<span className={ styles.text }>
+										<span className={ styles.label }>{ itemLabel }</span>
+										<span className={ styles.description }>{ description }</span>
+									</span>
+								) : (
 									<span className={ styles.label }>{ itemLabel }</span>
-									<span className={ styles.description }>{ description }</span>
-								</span>
-							) : (
-								<span className={ styles.label }>{ itemLabel }</span>
-							) }
-						</div>
-					) ) }
+								) }
+								{ trailing }
+							</div>
+						)
+					) }
 				</div>
 			) ) }
 		</div>

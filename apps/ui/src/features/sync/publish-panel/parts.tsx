@@ -9,11 +9,25 @@ import {
 	PUSH_TO_LIVE_MUTATION_KEY,
 } from '@/data/queries/use-sync-site';
 import { PublishTransferIcon } from '@/lib/icons';
-import { Button, Popover, Progress, Spinner, VisuallyHidden } from '@/lib/ui';
+import { Button, Progress, Spinner, VisuallyHidden } from '@/lib/ui';
 import styles from './style.module.css';
 import type { SyncActivity } from '@/data/sync-activity';
 
-export function PanelHeader( { title, onBack }: { title: string; onBack?: () => void } ) {
+export function PanelHeader( {
+	title,
+	onBack,
+	backLabel,
+	showTitle = false,
+	className,
+	children,
+}: {
+	title: string;
+	onBack?: () => void;
+	backLabel?: string;
+	showTitle?: boolean;
+	className?: string;
+	children?: ReactNode;
+} ) {
 	const back = useRef< HTMLButtonElement >( null );
 	const hasBack = Boolean( onBack );
 	useEffect( () => {
@@ -25,21 +39,24 @@ export function PanelHeader( { title, onBack }: { title: string; onBack?: () => 
 		);
 		return () => cancelAnimationFrame( frame );
 	}, [ hasBack, title ] );
-	if ( ! onBack ) {
-		return <Popover.Title render={ <VisuallyHidden /> }>{ title }</Popover.Title>;
+	if ( ! onBack && ! showTitle ) {
+		return <VisuallyHidden>{ title }</VisuallyHidden>;
 	}
 	return (
-		<div className={ styles.panelHeader }>
-			<Button
-				ref={ back }
-				variant="segmented"
-				size="icon-sm"
-				aria-label={ __( 'Back to Publish' ) }
-				onClick={ onBack }
-			>
-				<ChevronLeftIcon />
-			</Button>
-			<Popover.Title className={ styles.heading }>{ title }</Popover.Title>
+		<div className={ clsx( styles.panelHeader, className ) }>
+			{ onBack ? (
+				<Button
+					ref={ back }
+					variant="segmented"
+					size="icon-sm"
+					aria-label={ backLabel ?? __( 'Back to Publish' ) }
+					onClick={ onBack }
+				>
+					<ChevronLeftIcon />
+				</Button>
+			) : null }
+			<h2 className={ styles.heading }>{ title }</h2>
+			{ children }
 		</div>
 	);
 }
@@ -115,10 +132,7 @@ export function TransferProgress( {
 		<div className={ styles.progress } role="status" aria-live="polite">
 			{ scopeLabel && startedHere ? <p className={ styles.text }>{ scopeLabel }</p> : null }
 			<div className={ styles.progressTitle }>
-				<PublishTransferIcon
-					direction={ pushing ? 'push' : 'pull' }
-					className={ styles.transferIcon }
-				/>
+				<PublishTransferIcon direction={ pushing ? 'push' : 'pull' } />
 				<span className={ styles.heading }>
 					{ activity.message || ( pushing ? __( 'Publishing…' ) : __( 'Pulling changes…' ) ) }
 				</span>

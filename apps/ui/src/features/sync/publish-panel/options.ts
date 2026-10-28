@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@/data/core';
 
-export type PublishView = 'publish' | 'pull' | 'websites' | 'pick' | 'files';
+export type PublishView = 'publish' | 'pull' | 'websites';
 export type PublishScope = 'all' | 'files' | 'content' | 'custom';
 export type TransferDirection = 'push' | 'pull';
 export type TransferOptions = { push: PushSyncOptions; pull: PullSyncOptions };
@@ -94,7 +94,7 @@ export function backupsUrl( site: SyncSite ) {
 	}
 }
 
-export function websiteEnvironment( site: SyncSite ) {
+function websiteEnvironment( site: SyncSite ) {
 	if (
 		site.isPressable &&
 		( site.environmentType === 'staging' || site.environmentType === 'development' )
@@ -104,17 +104,31 @@ export function websiteEnvironment( site: SyncSite ) {
 	return site.isStaging ? 'staging' : 'production';
 }
 
-export function websiteLabel( site: SyncSite ) {
+export function websiteEnvironmentLabel( site: SyncSite ) {
 	switch ( websiteEnvironment( site ) ) {
 		case 'staging':
 			return __( 'Staging' );
 		case 'development':
 			return __( 'Development' );
 		default:
-			return site.isPressable ? __( 'Pressable' ) : __( 'WordPress.com' );
+			return __( 'Production' );
 	}
 }
 
 export function websiteAddress( site: SyncSite ) {
 	return site.url.replace( /^https?:\/\//, '' ).replace( /\/$/, '' );
+}
+
+export function dashboardUrl( site: SyncSite ) {
+	if ( site.isPressable ) return undefined;
+	try {
+		return `https://my.wordpress.com/sites/${ new URL( site.url ).hostname }`;
+	} catch {
+		return undefined;
+	}
+}
+
+export function domainsUrl( site: SyncSite ) {
+	const dashboard = dashboardUrl( site );
+	return dashboard ? `${ dashboard }/domains` : undefined;
 }

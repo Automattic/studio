@@ -17,64 +17,14 @@
 }
 
 .panel {
+	flex: 1;
 	display: flex;
 	min-width: 0;
+	min-height: 0;
 	flex-direction: column;
-	gap: var( --space-2 );
+	gap: var( --dialog-inset, var( --space-3 ) );
 	font-size: var( --text-sm );
 	line-height: var( --text-sm--line-height );
-}
-
-.previewSelect {
-	align-self: flex-start;
-	max-width: 100%;
-}
-
-.frame {
-	composes: previewFrame from '@/lib/theme/recipes.module.css';
-	position: relative;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	aspect-ratio: 16 / 10;
-	overflow: hidden;
-	border-radius: var( --radius-sm );
-	background: var( --muted );
-}
-
-.frame img {
-	width: 100%;
-	height: 100%;
-	object-fit: cover;
-	object-position: top;
-}
-
-.frame p {
-	color: var( --muted-foreground );
-}
-
-.update {
-	position: absolute;
-	inset-inline: 0;
-	inset-block-end: 0;
-}
-
-.expiry {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: var( --space-2 );
-}
-
-.expiry p {
-	color: var( --muted-foreground );
-	font-size: var( --text-xs );
-}
-
-.confirm {
-	display: flex;
-	flex-direction: column;
-	gap: var( --space-3 );
 }
 
 .confirmActions {
@@ -92,6 +42,189 @@
 .notice {
 	color: var( --muted-foreground );
 	font-size: var( --text-xs );
+}
+
+.content {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-3 );
+}
+.emptyIntro {
+	align-self: center;
+	width: 100%;
+	padding-block: var( --space-6 ) var( --space-3 );
+	text-align: center;
+	text-wrap: balance;
+}
+.emptyIcon {
+	width: var( --space-10 );
+	height: var( --space-10 );
+	margin-block-end: 0;
+	background: transparent;
+	color: var( --foreground );
+}
+.emptyTitle {
+	margin: 0;
+	font-size: var( --text-xl );
+	line-height: 1.4;
+	font-weight: 550;
+	letter-spacing: -0.02em;
+}
+
+.emptyDescription {
+	width: 100%;
+	max-width: 320px;
+	text-wrap: pretty;
+}
+
+.previewActions {
+	flex-shrink: 0;
+	margin-block-start: auto;
+	display: grid;
+	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	gap: var( --space-2 );
+}
+
+.previewAction {
+	min-width: 0;
+}
+
+.previewTableWrap {
+	min-height: 96px;
+	max-height: 200px;
+	overflow: auto;
+}
+
+.previewTable {
+	table-layout: fixed;
+	border-collapse: separate;
+	border-spacing: 0;
+	font-size: var( --text-xs );
+	line-height: var( --text-xs--line-height );
+}
+
+.expiryColumn {
+	width: 72px;
+}
+
+.actionsColumn {
+	width: calc( 32px + var( --space-2 ) * 2 + 1px );
+}
+
+.previewRow {
+	cursor: pointer;
+}
+
+.previewTitle {
+	padding-block: var( --space-1 );
+	display: flex;
+	min-width: 0;
+	align-items: center;
+	gap: var( --space-2 );
+}
+
+.previewTitle a {
+	display: inline-flex;
+	align-items: center;
+	gap: 0;
+	color: inherit;
+	min-width: 0;
+	overflow: hidden;
+	text-decoration: none;
+}
+
+.previewLinkText {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.previewTitle a:hover .previewLinkText,
+.previewTitle a:focus-visible .previewLinkText {
+	text-decoration: underline;
+}
+
+.previewExternalIcon {
+	flex-shrink: 0;
+}
+
+.previewDate {
+	color: var( --muted-foreground );
+	white-space: nowrap;
+}
+
+.previewColumn {
+	padding-inline-start: var( --space-3 );
+}
+
+.renameForm {
+	display: contents;
+}
+
+.previewRow:has( input:focus-visible ) {
+	outline: 2px solid var( --ring );
+	outline-offset: -2px;
+}
+
+.previewRow[data-state='selected'] .previewMenuCell {
+	--surface: var( --preview-selected-background );
+}
+
+.previewRow > td {
+	padding-block: var( --space-1_5 );
+	border-block-end: 1px solid var( --border );
+}
+
+.previewRow > td:first-child {
+	border-inline-start: 1px solid var( --border );
+}
+
+.previewRow > td:last-child {
+	border-inline-end: 1px solid var( --border );
+}
+
+.previewRow:first-child > td {
+	border-block-start: 1px solid var( --border );
+}
+
+.previewRow:first-child > td:first-child {
+	border-start-start-radius: var( --radius-lg );
+}
+
+.previewRow:first-child > td:last-child {
+	border-start-end-radius: var( --radius-lg );
+}
+
+.previewRow:last-child > td:first-child {
+	border-end-start-radius: var( --radius-lg );
+}
+
+.previewRow:last-child > td:last-child {
+	border-end-end-radius: var( --radius-lg );
+}
+
+.previewRow[data-state='selected'] {
+	--preview-selected-background: color-mix( in oklab, var( --muted ) 65%, transparent );
+	background: transparent;
+}
+
+.previewRow[data-state='selected'] > td {
+	background: var( --preview-selected-background );
+}
+
+.createAction {
+	margin-block-start: auto;
+}
+
+.singleExpiry {
+	display: flex;
+	flex-direction: column;
+	color: var( --muted-foreground );
+	font-size: var( --text-xs );
+	line-height: var( --text-xs--line-height );
+	text-align: center;
 }
 
 .reload {

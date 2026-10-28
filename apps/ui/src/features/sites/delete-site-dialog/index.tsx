@@ -1,6 +1,9 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { useId, useRef, useState } from 'react';
+import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import { useDeleteSite } from '@/data/queries/use-sites';
+import { SiteCard } from '@/features/site-card';
+import { getSiteUrl } from '@/features/sites/get-site-url';
 import {
 	Button,
 	Checkbox,
@@ -21,6 +24,19 @@ interface DeleteSiteDialogProps {
 	open: boolean;
 	onOpenChange: ( open: boolean ) => void;
 	onDeleted?: () => void;
+}
+
+function LocalSiteCard( { site }: { site: SiteDetails } ) {
+	const thumbnail = useSiteThumbnail( site.id );
+	return (
+		<SiteCard
+			title={ site.name }
+			description={ getSiteUrl( site )
+				.replace( /^https?:\/\//, '' )
+				.replace( /\/$/, '' ) }
+			thumbnailUrl={ thumbnail.data }
+		/>
+	);
 }
 
 export function DeleteSiteDialog( {
@@ -109,13 +125,13 @@ export function DeleteSiteDialog( {
 							  ) }
 					</DialogDescription>
 				</DialogHeader>
-				{ count > 1 ? (
-					<ul className={ styles.sites }>
-						{ sites.map( ( site ) => (
-							<li key={ site.id }>{ site.name }</li>
-						) ) }
-					</ul>
-				) : null }
+				<ul className={ styles.sites }>
+					{ sites.map( ( site ) => (
+						<li key={ site.id }>
+							<LocalSiteCard site={ site } />
+						</li>
+					) ) }
+				</ul>
 				<Field orientation="horizontal">
 					<Checkbox
 						id={ deleteFilesId }

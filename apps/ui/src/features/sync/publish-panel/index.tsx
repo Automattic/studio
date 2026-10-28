@@ -2,8 +2,9 @@ import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { withWpcomDetails } from '@studio/common/lib/sync/transform-sites';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
-import { CheckIcon } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { EllipsisIcon } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import {
@@ -13,45 +14,62 @@ import {
 import { useIsSiteBusy } from '@/data/queries/use-sites';
 import { useCancelSync, useDisconnectWpcomSite } from '@/data/queries/use-sync-site';
 import { usePickableWpcomSites, useSyncableWpcomSites } from '@/data/queries/use-wpcom-sites';
+import { ALL_CONNECTED_WPCOM_SITES_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
 import { useSiteSyncActivity } from '@/data/sync-activity';
-import { subscribeHeaderPanelRequest } from '@/data/use-open-header-panel';
-import { AccountPromptDialog } from '@/features/account';
 import {
 	clearPublishSetupError,
 	retryPublishSetup,
 	usePublishSetupError,
 } from '@/features/sync/use-sync-connect-site-listener';
 import { useOffline } from '@/lib/hooks';
-import { ExternalLinkIcon, PublishTransferIcon } from '@/lib/icons';
-import { Popover, Button } from '@/lib/ui';
+import { GlobeIcon, RefreshIcon } from '@/lib/icons';
+import {
+	Button,
+	IconButton,
+	Menu,
+	CommandList,
+	Spinner,
+	EmptyHeader,
+	EmptyMedia,
+	EmptyDescription,
+} from '@/lib/ui';
 import { ConnectedView } from './connected-view';
-import { websiteAddress, websiteIssue, websiteLabel, type PublishView } from './options';
+import { ConnectedWebsite } from './connected-website';
+import { DisconnectSiteDialog } from './disconnect-site-dialog';
+import { websiteAddress, websiteEnvironmentLabel, websiteIssue, type PublishView } from './options';
 import { ErrorMessage, PanelBody, PanelHeader, TransferProgress } from './parts';
 import styles from './style.module.css';
 import type { SiteDetails, SyncSite } from '@/data/core';
 
-// The header's Publish button and its panel: connect the site to a
-// WordPress.com or Pressable website, then publish to it or pull from it.
-export function PublishButton( {
+export function PublishPanel( {
 	site,
-	anchor,
+	open,
+	request,
+	headerContainer,
+	onChoosingSiteChange,
+	setupAfterSignup = false,
+	onSetupAfterSignup,
 }: {
 	site: SiteDetails;
-	anchor?: RefObject< HTMLElement | null >;
+	open: boolean;
+	headerContainer: HTMLDivElement | null;
+	onChoosingSiteChange: ( choosing: boolean ) => void;
+	request?: { view: PublishView; remoteSiteId?: number };
+	setupAfterSignup?: boolean;
+	onSetupAfterSignup?: () => void;
 } ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
-	const trigger = useRef< HTMLButtonElement >( null );
 	const offline = useOffline();
 	const user = useAuthUser();
 	const connected = useConnectedWpcomSites( site.id );
-	const [ open, setOpen ] = useState( false );
-	const [ view, setView ] = useState< PublishView >( 'publish' );
+	const [ view, setView ] = useState< PublishView | 'choose-site' | 'start' >( 'publish' );
+	const [ disconnecting, setDisconnecting ] = useState< SyncSite | null >( null );
+	const disconnectActions = useRef< HTMLButtonElement >( null );
+	const [ highlightedSite, setHighlightedSite ] = useState< string >();
 	const [ selectedId, setSelectedId ] = useState< number | null >( null );
 	// The websites already connected when the user went to create a new one.
 	const [ waitingFor, setWaitingFor ] = useState< number[] | null >( null );
-	const [ setupAfterSignup, setSetupAfterSignup ] = useState( false );
-	const [ recentSuccess, setRecentSuccess ] = useState( false );
 	const activity = useSiteSyncActivity( site.id );
 	const transfer =
 		activity?.direction === 'push' || activity?.direction === 'pull' ? activity : null;
@@ -60,9 +78,13 @@ export function PublishButton( {
 	const signedOut = user.isSuccess && ! user.data;
 	const connections = useMemo( () => connected.data ?? [], [ connected.data ] );
 	const syncable = useSyncableWpcomSites( {
-		enabled: open && ! offline && ( view === 'pick' || connections.length > 0 ),
+		enabled: open && ! offline,
 	} );
-	const pickable = usePickableWpcomSites( { enabled: open && ! offline && view === 'pick' } );
+	const pickable = usePickableWpcomSites( { enabled: open && ! offline } );
+	const loading =
+		user.isPending ||
+		connected.isPending ||
+		( ! pending && connections.length > 0 && ! offline && syncable.isPending );
 	const websites = syncable.data ? withWpcomDetails( connections, syncable.data ) : connections;
 	// The website created at checkout shows up as a new connection.
 	const created = waitingFor
@@ -73,7 +95,6 @@ export function PublishButton( {
 		websites.find( ( website ) => website.id === ( operationId ?? created?.id ?? selectedId ) ) ??
 		websites[ 0 ];
 	const setupError = usePublishSetupError( site.id );
-	const settingUp = waitingFor !== null && ! created && ! pending && ! setupError;
 	const setupErrorMessage = (
 		<ErrorMessage error={ setupError } retry={ () => retryPublishSetup( site.id ) } />
 	);
@@ -97,6 +118,7 @@ export function PublishButton( {
 				num_of_sites: connections.length + 1,
 			} );
 			void queryClient.invalidateQueries( { queryKey: connectedWpcomSitesQueryKey( site.id ) } );
+			void queryClient.invalidateQueries( { queryKey: ALL_CONNECTED_WPCOM_SITES_QUERY_KEY } );
 			selectWebsite( remote.id );
 			setView( 'publish' );
 		},
@@ -119,18 +141,15 @@ export function PublishButton( {
 	const busy =
 		siteBusy || activity?.kind === 'pending' || connect.isPending || disconnect.isPending;
 
-	useEffect(
-		() =>
-			subscribeHeaderPanelRequest( site.id, 'publish', ( request ) => {
-				setView( request.view );
-				setSelectedId( request.remoteSiteId ?? null );
-				setWaitingFor( null );
-				setOpen( true );
-			} ),
-		[ site.id ]
-	);
+	useEffect( () => {
+		if ( request ) {
+			setView( request.view );
+			setSelectedId( request.remoteSiteId ?? null );
+			setWaitingFor( null );
+		}
+	}, [ request ] );
 
-	// The site created at checkout publishes right away; show its progress.
+	// Checkout and existing-site selection return to the same connected view.
 	const createdId = created?.id;
 	useEffect( () => {
 		if ( createdId !== undefined ) {
@@ -141,37 +160,162 @@ export function PublishButton( {
 	// Someone who just created an account has no website yet: take them to checkout.
 	useEffect( () => {
 		if ( setupAfterSignup && user.data && connected.isSuccess ) {
-			setSetupAfterSignup( false );
+			onSetupAfterSignup?.();
 			if ( ! connections.length ) {
 				startSetup();
 			}
 		}
-	}, [ setupAfterSignup, user.data, connected.isSuccess, connections.length, startSetup ] );
+	}, [
+		setupAfterSignup,
+		onSetupAfterSignup,
+		user.data,
+		connected.isSuccess,
+		connections.length,
+		startSetup,
+	] );
 
-	useEffect( () => {
-		if ( transfer?.kind !== 'success' ) {
-			return;
-		}
-		setRecentSuccess( true );
-		const timer = setTimeout( () => setRecentSuccess( false ), 1800 );
-		return () => clearTimeout( timer );
-	}, [ transfer?.kind ] );
+	const availableWebsites = pickable.isLoading || pickable.error ? [] : pickable.data ?? [];
+	const selectableWebsites = [ ...websites, ...availableWebsites ].filter(
+		( website, index, all ) =>
+			! websiteIssue( website ) && all.findIndex( ( item ) => item.id === website.id ) === index
+	);
+	const connectedWebsite = (
+		<>
+			{ setupErrorMessage }
+			<ErrorMessage
+				error={ connect.error || ( setupError ? undefined : pickable.error ) }
+				retry={ () => {
+					connect.reset();
+					disconnect.reset();
+					pickable.refetch();
+				} }
+			/>
+			{ destination ? (
+				<ConnectedWebsite
+					open={ open }
+					website={ destination }
+					disabled={ offline || busy }
+					actionsRef={ disconnectActions }
+					onDisconnect={ () => {
+						disconnect.reset();
+						setDisconnecting( destination );
+					} }
+				/>
+			) : null }
+		</>
+	);
 
-	const changeOpen = ( value: boolean ) => {
-		setOpen( value );
-		if ( ! value ) {
+	const chooseWebsite = ( remote: SyncSite ) => {
+		if ( connections.some( ( website ) => website.id === remote.id ) ) {
+			selectWebsite( remote.id );
 			setView( 'publish' );
+		} else {
+			connect.mutate( remote );
 		}
 	};
-	const error = ( transfer?.kind === 'error' ? transfer.message : undefined ) ?? setupError;
-	let status: string | undefined;
-	if ( pending ) {
-		status = transfer.direction === 'push' ? __( 'Publishing…' ) : __( 'Pulling…' );
-	} else if ( settingUp ) {
-		status = __( 'Setting up…' );
-	}
+
+	useEffect( () => {
+		onChoosingSiteChange( view === 'choose-site' );
+	}, [ view, onChoosingSiteChange ] );
 
 	const renderContent = () => {
+		if ( view === 'choose-site' ) {
+			return (
+				<>
+					{ headerContainer
+						? createPortal(
+								<PanelHeader
+									className={ styles.pickerHeader }
+									title={ __( 'Choose an existing site' ) }
+									onBack={ () => setView( 'start' ) }
+								>
+									{ selectableWebsites.length ? (
+										<Menu.Root modal={ false }>
+											<Menu.Trigger
+												render={
+													<IconButton
+														className={ styles.pickerMenu }
+														variant="outline"
+														size="icon-sm"
+														icon={ <EllipsisIcon /> }
+														label={ __( 'Site actions' ) }
+													/>
+												}
+											/>
+											<Menu.Popup side="right" align="start">
+												<Menu.Item
+													disabled={ offline || busy || pickable.isFetching }
+													onClick={ () => void pickable.refetch() }
+												>
+													<RefreshIcon />
+													{ __( 'Refresh' ) }
+												</Menu.Item>
+											</Menu.Popup>
+										</Menu.Root>
+									) : null }
+								</PanelHeader>,
+								headerContainer
+						  )
+						: null }
+					<PanelBody>
+						<ErrorMessage
+							error={ connect.error || pickable.error }
+							retry={ () => {
+								connect.reset();
+								void pickable.refetch();
+							} }
+						/>
+						{ pickable.isLoading ? (
+							<div className={ styles.pickerEmpty }>
+								<Spinner aria-label={ __( 'Loading websites…' ) } />
+							</div>
+						) : selectableWebsites.length ? (
+							<CommandList
+								label={ __( 'Existing sites' ) }
+								radius="control"
+								size="default"
+								className={ styles.siteList }
+								groups={ [
+									{
+										label: __( 'Sites' ),
+										items: selectableWebsites.map( ( remote ) => ( {
+											value: String( remote.id ),
+											label: remote.name || remote.url,
+											description: websiteAddress( remote ),
+											trailing: (
+												<span className={ styles.environmentLabel }>
+													{ websiteEnvironmentLabel( remote ) }
+												</span>
+											),
+											icon: GlobeIcon,
+											disabled: busy || offline,
+										} ) ),
+									},
+								] }
+								highlighted={ highlightedSite }
+								onHighlight={ setHighlightedSite }
+								onSelect={ ( value ) => {
+									const remote = selectableWebsites.find( ( item ) => String( item.id ) === value );
+									if ( remote ) chooseWebsite( remote );
+								} }
+							/>
+						) : ! pickable.error ? (
+							<div className={ styles.pickerEmpty }>
+								<p className={ styles.text }>{ __( 'No existing sites.' ) }</p>
+								<Button
+									variant="outline"
+									disabled={ offline || busy || pickable.isFetching }
+									onClick={ () => void pickable.refetch() }
+								>
+									{ __( 'Refresh' ) }
+								</Button>
+							</div>
+						) : null }
+					</PanelBody>
+				</>
+			);
+		}
+
 		if ( pending && ! destination ) {
 			return (
 				<>
@@ -192,11 +336,7 @@ export function PublishButton( {
 				</>
 			);
 		}
-		if (
-			user.isPending ||
-			connected.isPending ||
-			( ! pending && connections.length > 0 && ! offline && syncable.isPending )
-		) {
+		if ( loading ) {
 			return (
 				<>
 					<PanelHeader title={ __( 'Publish' ) } />
@@ -226,132 +366,16 @@ export function PublishButton( {
 				</>
 			);
 		}
-		if ( view === 'pick' ) {
-			return (
-				<>
-					<PanelHeader
-						title={ __( 'Choose website' ) }
-						onBack={ () => setView( destination ? 'websites' : 'publish' ) }
-					/>
-					<PanelBody loading={ pickable.isLoading }>
-						<ErrorMessage
-							error={ pickable.error || connect.error }
-							retry={ () => {
-								connect.reset();
-								pickable.refetch();
-							} }
-						/>
-						{ pickable.data?.length ? (
-							pickable.data.map( ( remote ) => (
-								<div key={ remote.id } className={ styles.choice }>
-									<Button
-										variant="outline"
-										layout="row"
-										disabled={ offline || busy || Boolean( websiteIssue( remote ) ) }
-										onClick={ () => connect.mutate( remote ) }
-									>
-										<span className={ styles.choiceText }>
-											<span className={ styles.choiceName } title={ remote.name || remote.url }>
-												{ remote.name || remote.url }
-											</span>
-											<span
-												className={ styles.choiceLabel }
-												title={ `${ websiteAddress( remote ) } · ${ websiteLabel( remote ) }` }
-											>
-												{ websiteAddress( remote ) } · { websiteLabel( remote ) }
-											</span>
-										</span>
-									</Button>
-									{ websiteIssue( remote ) ? (
-										<p className={ styles.text }>{ websiteIssue( remote ) }</p>
-									) : null }
-								</div>
-							) )
-						) : (
-							<p className={ styles.text }>
-								{ __(
-									'No websites are available. You need administrator access to an eligible WordPress.com or Pressable website.'
-								) }
-							</p>
-						) }
-						{ offline ? (
-							<p className={ styles.text }>
-								{ __( 'Connect to the internet to choose a website.' ) }
-							</p>
-						) : null }
-					</PanelBody>
-				</>
-			);
-		}
-		if ( view === 'websites' ) {
-			return (
-				<>
-					<PanelHeader title={ __( 'Websites' ) } onBack={ () => setView( 'publish' ) } />
-					<PanelBody>
-						<ErrorMessage error={ disconnect.error } retry={ () => disconnect.reset() } />
-						{ setupErrorMessage }
-						{ websites.map( ( remote ) => (
-							<div key={ remote.id } className={ styles.websiteRow }>
-								<div className={ styles.websiteRowText }>
-									<span className={ styles.address } title={ websiteAddress( remote ) }>
-										{ websiteAddress( remote ) }
-									</span>
-									<p className={ styles.text }>{ websiteLabel( remote ) }</p>
-								</div>
-								<Button
-									variant="ghost"
-									size="xs"
-									disabled={ busy || offline }
-									onClick={ () => {
-										void connector.trackEvent( TRACKS_EVENTS.SYNC_DISCONNECT );
-										disconnect.mutate(
-											{ siteId: site.id, remoteSiteId: remote.id },
-											{ onSuccess: () => selectWebsite( null ) }
-										);
-									} }
-								>
-									{ __( 'Disconnect' ) }
-								</Button>
-							</div>
-						) ) }
-						<Button
-							variant="outline"
-							disabled={ busy || offline }
-							onClick={ () => setView( 'pick' ) }
-						>
-							{ __( 'Use another website…' ) }
-						</Button>
-						<Button
-							variant="inline-text"
-							size="inline"
-							disabled={ busy || offline || settingUp }
-							aria-live="polite"
-							onClick={ startSetup }
-						>
-							{ settingUp ? (
-								__( 'Waiting for WordPress.com…' )
-							) : (
-								<>
-									{ __( 'Create a new WordPress.com site' ) }
-									<ExternalLinkIcon data-icon="inline-end" />
-								</>
-							) }
-						</Button>
-					</PanelBody>
-				</>
-			);
-		}
-		if ( destination ) {
+		if ( destination && view !== 'start' ) {
 			return (
 				<ConnectedView
 					key={ destination.id }
 					site={ site }
 					remote={ destination }
-					websites={ websites }
+					connectedWebsite={ connectedWebsite }
 					activity={ transfer }
 					view={ view }
 					setView={ setView }
-					selectWebsite={ selectWebsite }
 					open={ open }
 					disabled={ busy || offline }
 					offline={ offline }
@@ -361,92 +385,82 @@ export function PublishButton( {
 		}
 		return (
 			<PanelBody insetTop>
-				<div className={ styles.intro }>
-					<Popover.Title className={ styles.heading }>
-						{ __( 'Publish your WordPress' ) }
-					</Popover.Title>
-					<p className={ styles.description }>
-						{ __( 'Choose a domain and hosting plan on WordPress.com to publish your site.' ) }
-					</p>
-				</div>
 				{ offline ? (
 					<p className={ styles.text }>{ __( 'Connect to the internet to publish your site.' ) }</p>
 				) : null }
 				{ setupErrorMessage }
 				<div className={ styles.introActions }>
 					<Button
-						variant={ settingUp ? 'outline' : 'accent' }
-						disabled={ offline || busy || settingUp }
-						aria-live="polite"
-						onClick={ startSetup }
-					>
-						{ settingUp ? __( 'Waiting for WordPress.com…' ) : __( 'Publish on WordPress.com' ) }
-					</Button>
-					<Button
-						variant="inline-text"
+						variant="outline"
+						size="lg"
 						disabled={ offline || busy }
-						onClick={ () => {
-							selectWebsite( selectedId );
-							setView( 'pick' );
-						} }
+						onClick={ () => setView( 'choose-site' ) }
 					>
-						{ __( 'Use an existing website…' ) }
+						{ __( 'Existing site…' ) }
+					</Button>
+					<Button size="lg" disabled={ offline || busy } onClick={ startSetup }>
+						{ __( 'New site…' ) }
 					</Button>
 				</div>
 			</PanelBody>
 		);
 	};
 
+	if ( signedOut ) return null;
+
 	return (
-		<>
-			<Popover.Root open={ open && ! signedOut } onOpenChange={ changeOpen }>
-				<Popover.Trigger
-					render={
+		<div className={ styles.content } data-choosing-site={ view === 'choose-site' || undefined }>
+			{ ! loading && ( view === 'start' || ( view === 'publish' && ! destination ) ) ? (
+				<EmptyHeader className={ styles.emptyIntro }>
+					<EmptyMedia className={ styles.emptyIcon }>
+						<GlobeIcon width="40" height="40" aria-hidden="true" />
+					</EmptyMedia>
+					<h2 className={ styles.emptyTitle }>{ __( 'Publish your WordPress' ) }</h2>
+					<EmptyDescription className={ styles.emptyDescription }>
+						{ __(
+							'Publish to a new site and choose a domain, or use an existing site on WordPress.com or Pressable.'
+						) }{ ' ' }
 						<Button
-							ref={ trigger }
-							activeMotion="layout"
-							aria-label={ __( 'Publish…' ) }
-							aria-description={ error ?? status }
-						/>
-					}
-				>
-					{ pending ? (
-						<PublishTransferIcon
-							direction={ transfer.direction === 'pull' ? 'pull' : 'push' }
-							className={ styles.transferIcon }
-						/>
-					) : recentSuccess ? (
-						<CheckIcon />
-					) : null }
-					<span className={ styles.triggerLabel }>
-						{ __( 'Publish' ) }
-						{ error ? <span className={ styles.errorDot } /> : null }
-					</span>
-				</Popover.Trigger>
-				<Popover.Popup
-					anchor={ anchor }
-					side="bottom"
-					align="end"
-					sideOffset={ 12 }
-					alignOffset={ 12 }
-					backdrop
-					className={ styles.panel }
-					finalFocus={ trigger }
-				>
-					{ renderContent() }
-				</Popover.Popup>
-			</Popover.Root>
-			<AccountPromptDialog
-				open={ open && signedOut }
-				onOpenChange={ changeOpen }
-				finalFocus={ trigger }
-				title={ __( 'Publish your WordPress' ) }
-				description={ __(
-					'Create an account or log in to publish a website and keep your sites in sync.'
-				) }
-				source="sync_tab"
-				onCreateAccount={ () => setSetupAfterSignup( true ) }
-			/>
-		</>
+							variant="inline-accent"
+							size="inline"
+							onClick={ () =>
+								void connector.openExternalUrl(
+									'https://developer.wordpress.com/docs/developer-tools/studio/sync/'
+								)
+							}
+						>
+							{ __( 'Learn more…' ) }
+						</Button>
+					</EmptyDescription>
+				</EmptyHeader>
+			) : null }
+			{ renderContent() }
+			{ disconnecting ? (
+				<DisconnectSiteDialog
+					website={ disconnecting }
+					disabled={ offline || siteBusy || Boolean( pending ) }
+					pending={ disconnect.isPending }
+					error={ disconnect.error }
+					returnFocus={ disconnectActions }
+					onClose={ () => setDisconnecting( null ) }
+					onConfirm={ () => {
+						void connector.trackEvent( TRACKS_EVENTS.SYNC_DISCONNECT );
+						disconnect.mutate(
+							{ siteId: site.id, remoteSiteId: disconnecting.id },
+							{
+								onSuccess: () => {
+									setDisconnecting( null );
+									selectWebsite( null );
+									setView( 'choose-site' );
+									void queryClient.invalidateQueries( {
+										queryKey: ALL_CONNECTED_WPCOM_SITES_QUERY_KEY,
+									} );
+								},
+							}
+						);
+					} }
+				/>
+			) : null }
+		</div>
 	);
 }

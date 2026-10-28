@@ -158,29 +158,6 @@ describe( 'PreviewSplitFrame', () => {
 		expect( screen.getByLabelText( 'Site preview' ) ).toBeVisible();
 	} );
 
-	it( 'uses the stored content width when available', async () => {
-		window.localStorage.setItem( SITE_WIDTH_KEY, '500' );
-
-		render(
-			<PreviewSplitFrame
-				siteId="one"
-				previewOpen
-				preview={ () => <aside aria-label="Site preview" /> }
-			>
-				<span data-testid="content">Content</span>
-			</PreviewSplitFrame>
-		);
-
-		const root = getFrameRoot();
-		await waitFor( () => {
-			expect( root ).toHaveStyle( '--preview-frame-content-width: 500px' );
-		} );
-		expect( screen.getByRole( 'separator', { name: 'Resize site preview' } ) ).toHaveAttribute(
-			'aria-valuenow',
-			'500'
-		);
-	} );
-
 	it( 'restores each site width without remounting the preview', () => {
 		window.localStorage.setItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY, '620' );
 		const frame = ( siteId: string ) => (
@@ -207,6 +184,10 @@ describe( 'PreviewSplitFrame', () => {
 		unmount();
 		render( frame( 'two' ) );
 		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 400px' );
+		expect( screen.getByRole( 'separator', { name: 'Resize site preview' } ) ).toHaveAttribute(
+			'aria-valuenow',
+			'600'
+		);
 	} );
 
 	it( 'cancels a drag when switching sites without overwriting either saved width', () => {

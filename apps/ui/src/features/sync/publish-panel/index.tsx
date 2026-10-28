@@ -46,14 +46,14 @@ export function PublishPanel( {
 	open,
 	request,
 	headerContainer,
-	onChoosingSiteChange,
+	onSubstepChange,
 	setupAfterSignup = false,
 	onSetupAfterSignup,
 }: {
 	site: SiteDetails;
 	open: boolean;
 	headerContainer: HTMLDivElement | null;
-	onChoosingSiteChange: ( choosing: boolean ) => void;
+	onSubstepChange: ( active: boolean ) => void;
 	request?: { view: PublishView; remoteSiteId?: number };
 	setupAfterSignup?: boolean;
 	onSetupAfterSignup?: () => void;
@@ -64,6 +64,7 @@ export function PublishPanel( {
 	const user = useAuthUser();
 	const connected = useConnectedWpcomSites( site.id );
 	const [ view, setView ] = useState< PublishView | 'choose-site' | 'start' >( 'publish' );
+	const [ reviewingTransfer, setReviewingTransfer ] = useState( false );
 	const [ disconnecting, setDisconnecting ] = useState< SyncSite | null >( null );
 	const disconnectActions = useRef< HTMLButtonElement >( null );
 	const [ highlightedSite, setHighlightedSite ] = useState< string >();
@@ -215,8 +216,8 @@ export function PublishPanel( {
 	};
 
 	useEffect( () => {
-		onChoosingSiteChange( view === 'choose-site' );
-	}, [ view, onChoosingSiteChange ] );
+		onSubstepChange( view === 'choose-site' || reviewingTransfer );
+	}, [ view, reviewingTransfer, onSubstepChange ] );
 
 	const renderContent = () => {
 		if ( view === 'choose-site' ) {
@@ -380,6 +381,8 @@ export function PublishPanel( {
 					disabled={ busy || offline }
 					offline={ offline }
 					accessIssue={ accessIssue }
+					headerContainer={ headerContainer }
+					onReviewingChange={ setReviewingTransfer }
 				/>
 			);
 		}

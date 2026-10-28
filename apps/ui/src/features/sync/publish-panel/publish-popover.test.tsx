@@ -211,19 +211,31 @@ describe( 'PublishPopover', () => {
 		expect( connector.pushSiteToLive ).not.toHaveBeenCalled();
 	} );
 
-	it( 'requires confirmation before publishing or pulling changes', async () => {
+	it( 'reviews publishing and pulling in the same dialog with back navigation', async () => {
 		const { connector, ready } = setup( [ remote ], true, true, false );
 		await ready;
 		expect( await screen.findByRole( 'button', { name: 'Pull changes' } ) ).toBeVisible();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Publish changes' } ) );
 		await screen.findByRole( 'radiogroup', { name: 'What to publish' } );
-		const confirmation = screen.getByRole( 'alertdialog', {
-			name: 'Publish changes to example.com?',
-		} );
+		const confirmation = screen.getByRole( 'dialog', { name: 'Share and publish' } );
+		expect( screen.queryByRole( 'alertdialog' ) ).not.toBeInTheDocument();
+		expect( screen.getAllByRole( 'dialog' ) ).toHaveLength( 1 );
+		expect(
+			within( confirmation ).getByRole( 'heading', { name: 'Publish changes' } )
+		).toBeVisible();
+		expect( screen.queryByRole( 'tab', { name: 'Publish' } ) ).not.toBeInTheDocument();
 		expect( within( confirmation ).getByRole( 'radio', { name: 'Entire site' } ) ).toBeChecked();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Back to Publish' } ) );
+		expect( screen.getByRole( 'dialog', { name: 'Share and publish' } ) ).toBe( confirmation );
+		expect( screen.getByRole( 'tab', { name: 'Publish' } ) ).toBeVisible();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Pull changes' } ) );
 		await screen.findByRole( 'radiogroup', { name: 'What to pull' } );
+		expect( screen.getAllByRole( 'dialog' ) ).toHaveLength( 1 );
+		expect( screen.queryByRole( 'alertdialog' ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Back to Publish' } ) );
+		await waitFor( () =>
+			expect( screen.getByRole( 'button', { name: 'Pull changes' } ) ).toHaveFocus()
+		);
 		expect( connector.pushSiteToLive ).not.toHaveBeenCalled();
 		expect( connector.pullSiteFromLive ).not.toHaveBeenCalled();
 	} );
@@ -291,18 +303,24 @@ describe( 'PublishPopover', () => {
 		const { connector, ready } = setup( [ remote ], true, true, false );
 		await ready;
 		await openPull();
-		const first = within( screen.getByRole( 'alertdialog' ) ).getByRole( 'button', {
-			name: 'Pull changes',
-		} );
+		const first = within( screen.getByRole( 'dialog', { name: 'Share and publish' } ) ).getByRole(
+			'button',
+			{
+				name: 'Pull changes',
+			}
+		);
 		await waitFor( () => expect( first ).toBeEnabled() );
 		fireEvent.click( first );
 		await screen.findByText( 'Changes pulled into WordPress Studio' );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Done' } ) );
 		await openPull();
 		expect( screen.queryByRole( 'button', { name: 'Done' } ) ).not.toBeInTheDocument();
-		const confirm = within( screen.getByRole( 'alertdialog' ) ).getByRole( 'button', {
-			name: 'Pull changes',
-		} );
+		const confirm = within( screen.getByRole( 'dialog', { name: 'Share and publish' } ) ).getByRole(
+			'button',
+			{
+				name: 'Pull changes',
+			}
+		);
 		await waitFor( () => expect( confirm ).toBeEnabled() );
 		fireEvent.click( confirm );
 		await waitFor( () => expect( connector.pullSiteFromLive ).toHaveBeenCalledTimes( 2 ) );
@@ -418,7 +436,7 @@ describe( 'PublishPopover', () => {
 		await ready;
 		expect(
 			await screen.findByText(
-				'Matching files and all content and settings on the website will be overwritten.'
+				'Selected files, content, and settings on your website will be overwritten.'
 			)
 		).toBeVisible();
 	} );
@@ -458,16 +476,22 @@ describe( 'PublishPopover', () => {
 		await screen.findByText( 'Changes pulled into WordPress Studio', {}, { timeout: 3000 } );
 	} );
 
-	it( 'keeps publish and pull scopes independent and updates the overwrite explanation', async () => {
+	it( 'keeps publish and pull scopes independent with stable overwrite explanations', async () => {
 		const { connector, ready } = setup( [ remote ] );
 		connector.getLatestRewindId.mockResolvedValue( 'backup-1' );
 		await ready;
+		const description = await screen.findByText(
+			'Selected files, content, and settings on your website will be overwritten.'
+		);
 		await selectScope( 'Files only' );
+		expect( description ).toHaveTextContent(
+			'Selected files, content, and settings on your website will be overwritten.'
+		);
 		await openPull();
 		await selectScope( 'Content and settings only', true );
 		expect(
 			await screen.findByText(
-				'All content and settings in WordPress Studio will be overwritten. Your website stays unchanged.'
+				'Selected files, content, and settings in WordPress Studio will be overwritten. Your website stays unchanged.'
 			)
 		).toBeVisible();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel' } ) );

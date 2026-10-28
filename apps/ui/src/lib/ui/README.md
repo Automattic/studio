@@ -22,6 +22,7 @@ import { Button, Menu, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui'
 ## Which primitive
 
 - An action: `Button`. Icon only: `IconButton`, whose `label` is also its tooltip. A link inside copy: `Button variant="inline-link" size="inline"`.
+- A toolbar toggle: `Button` or `IconButton` with `variant="accent-ghost"` and `aria-pressed`. It uses the normal ghost fill at rest, an accent fill and text while pressed or expanded, and a stronger accent fill on active hover.
 - A form row: `Field` with `FieldLabel`, `FieldDescription` and `FieldError`, grouped in a `FieldGroup`. Text: `Input` and `Textarea`, or `InputGroup` for buttons and icons inside the border.
 - A choice: `Select`, `Switch` for on/off, `Checkbox` in forms, `Tabs` for sections or a scope switch, `Slider`. A question with options: `Questionnaire`.
 - A modal: `Dialog` with `DialogContent`. Small info dialogs and forms: `layout="compact"` (16px leading inset, standard 12px padding elsewhere, and extra space above actions). Confirmations: `AlertDialog` with `layout="confirmation"` (the same spacing at a wider width). Two panes: `DialogPanel`.
@@ -39,6 +40,7 @@ Styles sit in the `ui` cascade layer, so a feature's CSS module overrides them w
 
 - Pick a `variant` and `size` first. If none matches, add one here. A primitive that looks wrong everywhere gets fixed here, not on the screen where you noticed it.
 - From a feature, pass `className` for layout: placement, width, margins, grid and flex.
+- Button hover, pressed, open-state and opacity feedback use `--motion-duration-feedback`.
 - Change a button's fill with `--button-background`, `--button-hover-background` or `--button-hover-color`, not `background-color`.
 - Don't reach into a primitive's parts with `[data-slot]` selectors, set its other custom properties, or raise specificity to beat it.
 

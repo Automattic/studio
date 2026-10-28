@@ -135,7 +135,7 @@
 	/* Where the band's first control starts on macOS, past the traffic lights. */
 	--traffic-light-space: 92px;
 
-	--motion-duration-feedback: 120ms;
+	--motion-duration-feedback: 100ms;
 	--motion-duration-surface: 180ms;
 	--motion-duration-layout: 240ms;
 	--motion-duration-reveal: 600ms;

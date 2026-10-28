@@ -1,4 +1,4 @@
-import { MAX_VISUAL_ANNOTATIONS } from '@studio/common/ai/visual-annotations';
+import { MAX_VISUAL_ANNOTATIONS } from '@studio/agent/protocol/visual-annotations';
 import { describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts } from '@/data/app-messages';
 import {

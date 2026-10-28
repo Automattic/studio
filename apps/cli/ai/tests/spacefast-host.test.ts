@@ -4,16 +4,17 @@ import path from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { spacefast } from 'cli/ai/spacefast-host';
 import { captureLocalSite } from 'cli/lib/data-liberation-client';
-import { Logger } from 'cli/logger';
 
 vi.mock( 'cli/commands/site/start', () => ( { runCommand: vi.fn() } ) );
-vi.mock( 'cli/lib/cli-config/sites', () => ( {
-	getSiteByFolder: vi.fn( async ( sitePath: string ) => ( { path: sitePath } ) ),
-	getSiteUrl: () => 'http://localhost:8884',
-} ) );
 vi.mock( 'cli/lib/data-liberation-client', () => ( { captureLocalSite: vi.fn() } ) );
 
-const site = { id: 'site-1', path: '/sites/juniper' };
+const site = {
+	id: 'site-1',
+	name: 'Juniper',
+	path: '/sites/juniper',
+	url: 'http://localhost:8884',
+	phpVersion: '8.4',
+};
 const publish = vi.fn();
 
 beforeEach( () => {
@@ -28,7 +29,7 @@ afterEach( () => {
 	publish.mockReset();
 } );
 
-const push = ( target: string ) => spacefast.push( site.path, target, [ 'all' ], new Logger() );
+const push = ( target: string ) => spacefast.push( site, target, 'all', () => {} );
 
 it( 'publishes a site to a new space, then again to that space with its claim key', async () => {
 	expect( ( await spacefast.targets( site ) ).targets ).toEqual( [

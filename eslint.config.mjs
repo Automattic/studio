@@ -19,6 +19,11 @@ const WP_UI_PACKAGES = {
 	message: 'Use the primitives in @/lib/ui and the tokens in @/lib/theme.',
 };
 
+const AGENT_NODE = {
+	group: [ '@studio/agent/node/*' ],
+	message: 'Apps that show the agent import its contract, @studio/agent/protocol, not the agent.',
+};
+
 // `apps/ui/src` is layered as internal packages (`lib/*`), product areas (`features/*`),
 // then `data/`, `router/` and `app/`. See apps/ui/README.md.
 const UI_SRC = path.join( import.meta.dirname, 'apps/ui/src' );
@@ -140,6 +145,7 @@ export default defineConfig(
 						path.join( import.meta.dirname, 'apps/studio/tsconfig.json' ),
 						path.join( import.meta.dirname, 'apps/mcp-ui/tsconfig.json' ),
 						path.join( import.meta.dirname, 'apps/ui/tsconfig.json' ),
+						path.join( import.meta.dirname, 'packages/agent/tsconfig.json' ),
 						path.join( import.meta.dirname, 'packages/common/tsconfig.json' ),
 						path.join( import.meta.dirname, 'tools/compare-perf/tsconfig.json' ),
 						path.join( import.meta.dirname, 'tools/metrics/tsconfig.json' ),
@@ -268,6 +274,31 @@ export default defineConfig(
 		},
 	},
 	{
+		// Apps run the agent through `@studio/agent/node` (`createAgent`); its runtime
+		// and tools are internal. Tests may still mock them.
+		files: [ 'apps/**/*.{ts,tsx}' ],
+		ignores: [ 'apps/**/tests/**', 'apps/**/*.test.{ts,tsx}' ],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{
+							group: [
+								'@studio/agent/node/runtime',
+								'@studio/agent/node/runtime/*',
+								'@studio/agent/node/tools',
+								'@studio/agent/node/tools/*',
+								'@studio/agent/node/host',
+							],
+							message: 'Import the agent from @studio/agent/node.',
+						},
+					],
+				},
+			],
+		},
+	},
+	{
 		// The agentic UI owns its design system: theme tokens in `src/lib/theme/` and
 		// primitives in `src/lib/ui/`, which stay independent of app code.
 		files: [ 'apps/ui/src/**/*.{ts,tsx}' ],
@@ -277,6 +308,7 @@ export default defineConfig(
 				{
 					patterns: [
 						WP_UI_PACKAGES,
+						AGENT_NODE,
 						{
 							group: [ '@base-ui/react', '@base-ui/react/*' ],
 							message: 'Use the primitives in @/lib/ui, and add one there when none fits.',
@@ -296,7 +328,63 @@ export default defineConfig(
 				{
 					patterns: [
 						WP_UI_PACKAGES,
+						AGENT_NODE,
 						{ group: [ '@tanstack/*' ], message: 'lib/ packages stay independent of app code.' },
+					],
+				},
+			],
+		},
+	},
+	{
+		files: [ 'packages/common/**/*.ts' ],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{
+							group: [ '@studio/agent/*' ],
+							message: '@studio/agent builds on common, not the reverse.',
+						},
+					],
+				},
+			],
+		},
+	},
+	{
+		files: [ 'packages/agent/**/*.ts' ],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{
+							group: [ 'cli/*', 'src/*' ],
+							message:
+								'The agent never imports an app. Reach site operations through studioHost() (node/host.ts).',
+						},
+					],
+				},
+			],
+		},
+	},
+	{
+		// The contract the UI imports, in the browser as well as the Desktop app.
+		files: [ 'packages/agent/protocol/**/*.ts' ],
+		ignores: [ 'packages/agent/protocol/**/*.test.ts' ],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{
+							group: [ 'node:*', 'fs', 'fs/*', 'path', 'os', 'child_process', 'crypto' ],
+							message: 'protocol/ runs in the browser too; keep Node APIs in node/.',
+						},
+						{
+							group: [ '@studio/agent/node/*', 'cli/*', 'src/*' ],
+							message: 'protocol/ depends on nothing but common.',
+						},
 					],
 				},
 			],

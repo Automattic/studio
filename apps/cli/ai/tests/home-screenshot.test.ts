@@ -2,9 +2,9 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'fs';
 import http from 'http';
 import os from 'os';
 import path from 'path';
+import { closeSharedBrowser } from '@studio/agent/node/browser-utils';
 import { chromium } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { closeSharedBrowser } from 'cli/ai/browser-utils';
 import { saveHomeScreenshot } from 'cli/ai/eval-outcome';
 import type { AddressInfo } from 'net';
 

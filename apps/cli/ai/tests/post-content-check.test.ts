@@ -1,15 +1,20 @@
 import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'fs';
 import os from 'os';
 import path from 'path';
+import {
+	storePresetValues,
+	validateBlocks,
+	type ValidationReport,
+} from '@studio/agent/node/block-validator';
+import { postContentChanges } from '@studio/agent/node/post-content-check';
+import { SiteChanges } from '@studio/agent/node/site-changes';
+import { createSite } from '@studio/agent/node/tests/fixtures/wordpress-site';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { storePresetValues, validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
-import { postContentChanges } from 'cli/ai/post-content-check';
-import { SiteChanges } from 'cli/ai/site-changes';
-import { createSite } from 'cli/ai/tests/fixtures/wordpress-site';
+import { liveHost, liveSite } from 'cli/ai/tests/live-host';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
-import type { SiteData } from 'cli/lib/cli-config/core';
+import type { HostSite, StudioAgentHost } from '@studio/agent/node';
 
-vi.mock( 'cli/ai/block-validator', async () => ( {
+vi.mock( '@studio/agent/node/block-validator', async () => ( {
 	validateBlocks: vi.fn(),
 	storePresetValues: vi.fn( async ( content: string ) => ( {
 		content,
@@ -22,12 +27,10 @@ vi.mock( 'cli/ai/block-validator', async () => ( {
 	insertedTemplates: vi.fn( async () => [] ),
 	blocksSavingElements: vi.fn( async () => [] ),
 	blockNames: (
-		await vi.importActual< typeof import('cli/ai/block-validator') >( 'cli/ai/block-validator' )
+		await vi.importActual< typeof import('@studio/agent/node/block-validator') >(
+			'@studio/agent/node/block-validator'
+		)
 	).blockNames,
-} ) );
-vi.mock( 'cli/lib/daemon-client', () => ( {
-	connectToDaemon: vi.fn(),
-	disconnectFromDaemon: vi.fn(),
 } ) );
 // WP-CLI saves the file the PHP names to the post it names, as wp_update_post() would.
 vi.mock( 'cli/lib/run-wp-cli-command', () => ( { runWpCliCommand: vi.fn() } ) );
@@ -41,7 +44,8 @@ const realWpCli = async ( ...args: Parameters< typeof runWpCliCommand > ) =>
 
 // A real WordPress install, when one is given.
 const WORDPRESS = process.env.STUDIO_TEST_WORDPRESS;
-vi.mock( 'cli/ai/theme-presets', () => ( {
+vi.mock( '@studio/agent/node/theme-presets', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/agent/node/theme-presets') >() ),
 	themePresets: vi.fn( async () => ( { colors: [ [ 'accent-3', '#503AA8' ] ] } ) ),
 } ) );
 
@@ -63,12 +67,14 @@ const losslessFix: ValidationReport = {
 };
 
 let fixture: ReturnType< typeof createSite >;
-let site: SiteData;
+let site: HostSite;
+let host: StudioAgentHost;
 
 beforeEach( () => {
 	fixture = createSite();
 	fixture.save( 9, 'page', 'home', PARAGRAPH );
-	site = { id: '1', name: 'Bakery', path: fixture.root, port: 8881 } as SiteData;
+	site = liveSite( fixture.root, 'Bakery', '1' );
+	host = liveHost( site );
 	vi.mocked( validateBlocks ).mockReset().mockResolvedValue( valid );
 	saves( true );
 } );
@@ -97,7 +103,8 @@ function saves( works: boolean ) {
 
 afterEach( () => rmSync( fixture.root, { recursive: true, force: true } ) );
 
-const checkPosts = () => new SiteChanges( undefined, async () => [ site ], [ postContentChanges ] );
+const checkPosts = () =>
+	new SiteChanges( host, undefined, async () => [ site ], [ postContentChanges ] );
 
 describe( 'post content changes', () => {
 	it.each( [
@@ -247,17 +254,17 @@ describe( 'post content changes', () => {
 } );
 
 describe.runIf( WORDPRESS )( 'a saved template that names no theme', () => {
-	let wordpress: SiteData;
+	let wordpress: HostSite;
 	beforeEach( () => {
 		const root = mkdtempSync( path.join( os.tmpdir(), 'template-theme-' ) );
 		cpSync( WORDPRESS!, root, { recursive: true } );
-		wordpress = { id: 'wp', name: 'Workshop', path: root } as SiteData;
+		wordpress = liveSite( root, 'Workshop' );
 	} );
 	afterEach( () => rmSync( wordpress.path, { recursive: true, force: true } ) );
 
 	const wp = async ( ...args: string[] ) => {
-		await using command = await realWpCli( wordpress, args );
-		return ( await command.response.stdoutText ).trim();
+		const { stdout } = await liveHost( wordpress ).sites.wpCli( wordpress, args );
+		return stdout.trim();
 	};
 	const served = () =>
 		wp(
@@ -283,7 +290,9 @@ describe.runIf( WORDPRESS )( 'a saved template that names no theme', () => {
 	] )(
 		'$name',
 		async ( { theme, reported, source } ) => {
-			const check = new SiteChanges( undefined, async () => [ wordpress ], [ postContentChanges ] );
+			const check = new SiteChanges( liveHost( wordpress ), undefined, async () => [ wordpress ], [
+				postContentChanges,
+			] );
 			await check.snapshot();
 			const id = await wp(
 				'post',

@@ -10,30 +10,15 @@ import {
 } from 'fs';
 import os from 'os';
 import path from 'path';
+import { convertToBlocksTool } from '@studio/agent/node/tools/convert-to-blocks';
+import { bindTool } from '@studio/agent/node/tools/define-tool';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { convertToBlocksTool } from 'cli/ai/tools/convert-to-blocks';
-import { resolveSite } from 'cli/ai/tools/utils';
-import type { SiteData } from 'cli/lib/cli-config/core';
+import { liveHost, liveSite } from 'cli/ai/tests/live-host';
+import type { HostSite, StudioAgentHost } from '@studio/agent/node';
 
-vi.mock( 'cli/lib/daemon-client', () => ( {
-	connectToDaemon: vi.fn(),
-	disconnectFromDaemon: vi.fn(),
-} ) );
-vi.mock( 'cli/ai/tools/utils', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('cli/ai/tools/utils') >() ),
-	resolveSite: vi.fn(),
-} ) );
-vi.mock( 'cli/lib/cli-config/sites', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('cli/lib/cli-config/sites') >() ),
-	getSiteUrl: () => 'http://localhost:1',
-	findSiteByFolder: vi.fn( async () => undefined ),
-} ) );
-vi.mock( 'cli/lib/import-runtime', () => ( {
-	resolvePhpTransformer: async () => ( { bootstrap: TRANSFORMER, version: 'test' } ),
-} ) );
 // The block editor is not served here: the conversion's validation reports
 // what it was given, and is tested where the editor runs.
-vi.mock( 'cli/ai/block-validator', () => ( {
+vi.mock( '@studio/agent/node/block-validator', () => ( {
 	validateBlocks: async () => ( {
 		error: 'no editor',
 		invalidBlocks: 0,
@@ -41,7 +26,7 @@ vi.mock( 'cli/ai/block-validator', () => ( {
 		results: [],
 	} ),
 } ) );
-vi.mock( 'cli/ai/block-validation-gate', () => ( {
+vi.mock( '@studio/agent/node/block-validation-gate', () => ( {
 	sitePresetValues: async () => ( { colors: [], fontSizes: [], spacingSizes: [] } ),
 	validateBlockMarkup: async ( _content: string, label: string ) => ( {
 		summary: `${ label }: not validated (no editor)`,
@@ -92,13 +77,19 @@ const CARD = `<div class="lantern-card"><h3>Night ferries</h3><p>Boats leave the
 `;
 
 describe.runIf( WORDPRESS && TRANSFORMER )( 'convert_to_blocks', () => {
-	let site: SiteData;
+	let site: HostSite;
+	let host: StudioAgentHost;
 	let theme: string;
 	beforeEach( async () => {
 		const root = mkdtempSync( path.join( os.tmpdir(), 'convert-to-blocks-' ) );
 		cpSync( WORDPRESS!, root, { recursive: true } );
-		site = { id: 'site', name: 'Harbor', path: root } as SiteData;
-		vi.mocked( resolveSite ).mockResolvedValue( site );
+		site = { ...liveSite( root, 'Harbor' ), url: 'http://localhost:1' };
+		const live = liveHost( site );
+		host = {
+			...live,
+			sites: { ...live.sites, findByFolder: async () => undefined },
+			blocksEngine: async () => ( { bootstrap: TRANSFORMER, version: 'test' } ),
+		};
 		theme = path.join( root, 'wp-content', 'themes', THEME );
 		mkdirSync( path.join( theme, 'parts' ), { recursive: true } );
 		writeFileSync( path.join( theme, 'style.css' ), STYLE );
@@ -114,7 +105,7 @@ describe.runIf( WORDPRESS && TRANSFORMER )( 'convert_to_blocks', () => {
 	afterEach( () => rmSync( site.path, { recursive: true, force: true } ) );
 
 	const convert = async ( args: { file?: string; postId?: number } ) => {
-		const result = await convertToBlocksTool.rawHandler(
+		const result = await bindTool( convertToBlocksTool, host ).rawHandler(
 			{ nameOrPath: site.path, ...args },
 			{ onProgress: () => {} }
 		);

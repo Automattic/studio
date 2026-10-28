@@ -1,4 +1,4 @@
-import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
+import { watchComposerFilePaste } from '@studio/agent/protocol/composer-attachments';
 import { useCallback, useEffect, useMemo, type ChangeEvent, type RefObject } from 'react';
 import {
 	useComposerAttachments,

@@ -1,10 +1,10 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
+import { freeTrappedBlocks, trappedFullWidthNotes } from '@studio/agent/node/block-alignment';
+import { cleanupValidatorPages, validateBlocks } from '@studio/agent/node/block-validator';
+import { freeFullWidthBlocks } from '@studio/agent/node/site-file-guards';
 import { describe, expect, it } from 'vitest';
-import { freeTrappedBlocks, trappedFullWidthNotes } from 'cli/ai/block-alignment';
-import { cleanupValidatorPages, validateBlocks } from 'cli/ai/block-validator';
-import { freeFullWidthBlocks } from 'cli/ai/site-file-guards';
 
 const group = ( attributes: object, inner: string ) =>
 	`<!-- wp:group ${ JSON.stringify( attributes ) } --><div>${ inner }</div><!-- /wp:group -->`;

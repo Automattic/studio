@@ -1,20 +1,11 @@
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
+import { sectionLinks } from '@studio/agent/node/section-links';
+import { runWpCli } from '@studio/agent/node/tools/utils';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { sectionLinks } from 'cli/ai/section-links';
-import { runWpCli } from 'cli/ai/tools/utils';
-import type { SiteData } from 'cli/lib/cli-config/core';
-
-vi.mock( 'cli/lib/daemon-client', () => ( {
-	connectToDaemon: vi.fn(),
-	disconnectFromDaemon: vi.fn(),
-} ) );
-const mocks = vi.hoisted( () => ( { site: undefined as SiteData | undefined } ) );
-vi.mock( 'cli/ai/tools/utils', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('cli/ai/tools/utils') >() ),
-	resolveSite: async () => mocks.site,
-} ) );
+import { liveHost, liveSite } from 'cli/ai/tests/live-host';
+import type { HostSite, StudioAgentHost } from '@studio/agent/node';
 
 // A real WordPress install to render the site with, when one is given.
 const WORDPRESS = process.env.STUDIO_TEST_WORDPRESS;
@@ -25,11 +16,12 @@ const section = ( id: string ) =>
 	`<!-- wp:group {"anchor":"${ id }"} --><div id="${ id }" class="wp-block-group"><!-- wp:paragraph --><p>${ id }</p><!-- /wp:paragraph --></div><!-- /wp:group -->`;
 
 describe.runIf( WORDPRESS )( 'navigation links to sections of the front page', () => {
-	let site: SiteData;
+	let site: HostSite;
+	let host: StudioAgentHost;
 	let menu: number;
 	const theme = ( file: string ) =>
 		path.join( site.path, 'wp-content/themes/studio-test-sections', file );
-	const wp = ( ...args: string[] ) => runWpCli( site, args );
+	const wp = ( ...args: string[] ) => runWpCli( host, site, args );
 	const create = async ( type: string, title: string, content: string ) =>
 		Number(
 			(
@@ -46,16 +38,21 @@ describe.runIf( WORDPRESS )( 'navigation links to sections of the front page', (
 		);
 	// The site as a call leaves it, and what the next call is told.
 	const check = async ( change: () => Promise< unknown > ) => {
-		const before = await sectionLinks.read( site.path );
+		const before = await sectionLinks.read( site.path, undefined, host );
 		await change();
-		return sectionLinks.check( site, before, await sectionLinks.read( site.path ) );
+		return sectionLinks.check(
+			site,
+			before,
+			await sectionLinks.read( site.path, undefined, host ),
+			host
+		);
 	};
 
 	beforeAll( async () => {
 		const root = mkdtempSync( path.join( os.tmpdir(), 'section-links-' ) );
 		cpSync( WORDPRESS!, root, { recursive: true } );
-		site = { id: 'site', name: 'Brightline Bikes', path: root } as SiteData;
-		mocks.site = site;
+		site = liveSite( root, 'Brightline Bikes' );
+		host = liveHost( site );
 		mkdirSync( theme( 'templates' ), { recursive: true } );
 		mkdirSync( theme( 'parts' ) );
 		writeFileSync( theme( 'style.css' ), '/*\nTheme Name: Sections\n*/' );
@@ -107,7 +104,7 @@ describe.runIf( WORDPRESS )( 'navigation links to sections of the front page', (
 			},
 		] );
 		// What Studio saved is the site as the next check starts from.
-		expect( next ).toEqual( await sectionLinks.read( site.path ) );
+		expect( next ).toEqual( await sectionLinks.read( site.path, undefined, host ) );
 		// A section the other page has too, and one the menu itself holds, are each
 		// page's own; one no page has, and a link outside a menu, are not the front page's.
 		expect( readFileSync( theme( 'parts/header.html' ), 'utf8' ) ).toBe(

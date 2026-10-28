@@ -1,18 +1,19 @@
-import { validateAnthropicApiKey } from '@studio/common/ai/anthropic-key';
-import { DEFAULT_MODEL, toCustomModelId, type AiModelId } from '@studio/common/ai/models';
+import { getWpcomAiGatewayBaseUrl } from '@studio/agent/node';
+import {
+	persistAnthropicApiKey,
+	persistCustomEndpoint,
+	readAnthropicApiKey,
+	readCustomEndpoint,
+} from '@studio/agent/node/settings-store';
+import { DEFAULT_MODEL, toCustomModelId, type AiModelId } from '@studio/agent/protocol/models';
 import {
 	AI_PROVIDER_IDS,
 	DEFAULT_AI_PROVIDER,
 	getAiProviderModels,
 	providerServesModel,
 	type AiProviderId,
-} from '@studio/common/ai/providers';
-import {
-	persistAnthropicApiKey,
-	persistCustomEndpoint,
-	readAnthropicApiKey,
-	readCustomEndpoint,
-} from '@studio/common/ai/settings-store';
+} from '@studio/agent/protocol/providers';
+import { validateAnthropicApiKey } from '@studio/common/lib/anthropic-key';
 import { readAuthToken, type CustomEndpoint } from '@studio/common/lib/shared-config';
 import { __, sprintf } from '@wordpress/i18n';
 import { confirm, input, password } from 'cli/lib/prompts';
@@ -30,7 +31,6 @@ export { DEFAULT_AI_PROVIDER };
 // order of the canonical id list.
 export const AI_PROVIDER_PRIORITY: readonly AiProviderId[] = AI_PROVIDER_IDS;
 
-const DEFAULT_WPCOM_AI_GATEWAY_BASE_URL = 'https://public-api.wordpress.com/wpcom/v2/ai-api-proxy';
 // The wpcom AI proxy maps feature slugs to upstream providers. The
 // `studio-agent` lane accepts the capability-tier aliases (fast / balanced /
 // strong) on the Chat Completions path and resolves each to an upstream
@@ -45,7 +45,7 @@ export interface AiProviderDefinition {
 	id: AiProviderId;
 	autoFallbackWhenUnavailable: boolean;
 	// The models it offers, the first being its default: those of its model
-	// families (see `@studio/common/ai/providers`), or for the custom endpoint
+	// families (see `@studio/agent/protocol/providers`), or for the custom endpoint
 	// the ones its connection names.
 	getModels(): Promise< readonly AiModelId[] >;
 	supportsModel( model: AiModelId ): boolean;
@@ -121,7 +121,7 @@ async function connectCustomEndpoint(): Promise< void > {
 		.filter( Boolean );
 	const images = await confirm( { message: __( 'Do these models take images?' ), default: true } );
 
-	const { checkCustomEndpoint } = await import( 'cli/ai/runtimes/pi' );
+	const { checkCustomEndpoint } = await import( '@studio/agent/node/runtime' );
 	const failures: string[] = [];
 	for ( const candidate of CUSTOM_ENDPOINT_APIS ) {
 		const endpoint: CustomEndpoint = {
@@ -182,11 +182,6 @@ async function resolveAnthropicApiKey( options?: {
 export function getStudioUserAgent(): string {
 	const version = typeof __STUDIO_CLI_VERSION__ === 'string' ? __STUDIO_CLI_VERSION__ : '';
 	return version ? `WordPressStudio/${ version }` : 'WordPressStudio';
-}
-
-export function getWpcomAiGatewayBaseUrl(): string {
-	const customBaseUrl = process.env.WPCOM_AI_PROXY_BASE_URL?.trim();
-	return customBaseUrl || DEFAULT_WPCOM_AI_GATEWAY_BASE_URL;
 }
 
 async function hasValidWpcomAuth(): Promise< boolean > {

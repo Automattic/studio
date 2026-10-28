@@ -1,14 +1,10 @@
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
-import { afterAll, beforeAll, expect, it, describe, vi } from 'vitest';
-import { themeErrors } from 'cli/ai/theme-errors';
-import type { SiteData } from 'cli/lib/cli-config/core';
-
-vi.mock( 'cli/lib/daemon-client', () => ( {
-	connectToDaemon: vi.fn(),
-	disconnectFromDaemon: vi.fn(),
-} ) );
+import { themeErrors } from '@studio/agent/node/theme-errors';
+import { afterAll, beforeAll, expect, it, describe } from 'vitest';
+import { liveHost, liveSite } from 'cli/ai/tests/live-host';
+import type { HostSite, StudioAgentHost } from '@studio/agent/node';
 
 // A real WordPress install to read themes with, when one is given.
 const WORDPRESS = process.env.STUDIO_TEST_WORDPRESS;
@@ -18,7 +14,8 @@ const MISSING =
 	'Template is missing. Standalone themes need to have a templates/index.html or index.php template file. Child themes need to have a Template header in the style.css stylesheet.';
 
 describe.runIf( WORDPRESS )( 'the themes a call broke, as WordPress lists them', () => {
-	let site: SiteData;
+	let site: HostSite;
+	let host: StudioAgentHost;
 	let dir: string;
 	const write = ( file: string, text: string ) => {
 		mkdirSync( path.dirname( path.join( dir, file ) ), { recursive: true } );
@@ -28,19 +25,20 @@ describe.runIf( WORDPRESS )( 'the themes a call broke, as WordPress lists them',
 	// Each call's reports, against what the call before it left.
 	const call = async ( change: () => void = () => undefined ) => {
 		// The snapshot taken before the call, as SiteChanges takes it.
-		versions = await themeErrors.read( site.path, versions );
+		versions = await themeErrors.read( site.path, versions, host );
 		change();
-		const after = await themeErrors.read( site.path, versions );
-		const { reports, next } = await themeErrors.check( site, versions, after );
+		const after = await themeErrors.read( site.path, versions, host );
+		const { reports, next } = await themeErrors.check( site, versions, after, host );
 		versions = next ?? after;
 		return reports;
 	};
 	beforeAll( async () => {
 		const root = mkdtempSync( path.join( os.tmpdir(), 'theme-errors-' ) );
 		cpSync( WORDPRESS!, root, { recursive: true } );
-		site = { id: 'site', name: 'Paws & Whiskers', path: root } as SiteData;
+		site = liveSite( root, 'Paws & Whiskers' );
+		host = liveHost( site );
 		dir = path.join( root, 'wp-content/themes/paws' );
-		versions = await themeErrors.read( root );
+		versions = await themeErrors.read( root, undefined, host );
 	} );
 	afterAll( () => rmSync( site.path, { recursive: true, force: true } ) );
 

@@ -1,15 +1,11 @@
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { blockStyleClasses } from 'cli/ai/block-style-classes';
-import { runWpCli } from 'cli/ai/tools/utils';
-import type { SiteData } from 'cli/lib/cli-config/core';
-
-vi.mock( 'cli/lib/daemon-client', () => ( {
-	connectToDaemon: vi.fn(),
-	disconnectFromDaemon: vi.fn(),
-} ) );
+import { blockStyleClasses } from '@studio/agent/node/block-style-classes';
+import { runWpCli } from '@studio/agent/node/tools/utils';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { liveHost, liveSite } from 'cli/ai/tests/live-host';
+import type { HostSite, StudioAgentHost } from '@studio/agent/node';
 
 // A real WordPress install to register block styles with, when one is given.
 const WORDPRESS = process.env.STUDIO_TEST_WORDPRESS;
@@ -28,18 +24,20 @@ add_action( 'init', function () {
 `;
 
 describe.runIf( WORDPRESS )( 'blocks that carry a registered block style by bare name', () => {
-	let site: SiteData;
+	let site: HostSite;
+	let host: StudioAgentHost;
 	const check = async ( markup: string ) => {
 		const dir = path.join( site.path, 'wp-content/mu-plugins' );
 		mkdirSync( dir, { recursive: true } );
 		writeFileSync( path.join( dir, 'ember.php' ), plugin( markup ) );
-		const { reports } = await blockStyleClasses.check( site, { code: 'a' }, { code: 'b' } );
+		const { reports } = await blockStyleClasses.check( site, { code: 'a' }, { code: 'b' }, host );
 		return reports[ 0 ];
 	};
 	beforeAll( () => {
 		const root = mkdtempSync( path.join( os.tmpdir(), 'block-style-classes-' ) );
 		cpSync( WORDPRESS!, root, { recursive: true } );
-		site = { id: 'site', name: 'Ember Roasters', path: root } as SiteData;
+		site = liveSite( root, 'Ember Roasters' );
+		host = liveHost( site );
 	} );
 	afterAll( () => rmSync( site.path, { recursive: true, force: true } ) );
 
@@ -56,7 +54,7 @@ describe.runIf( WORDPRESS )( 'blocks that carry a registered block style by bare
 
 	it( "reads posts' content too", async () => {
 		const id = (
-			await runWpCli( site, [
+			await runWpCli( host, site, [
 				'eval',
 				`echo wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'Home', 'post_content' => ${ JSON.stringify(
 					`<!-- wp:columns --><div class="wp-block-columns">${ group(
@@ -69,7 +67,7 @@ describe.runIf( WORDPRESS )( 'blocks that carry a registered block style by bare
 		expect( report.problem ).toContain(
 			`1 core/group block(s) with the class "er-card" and not "is-style-er-card" (in page ${ id })`
 		);
-		await runWpCli( site, [ 'post', 'delete', id, '--force' ] );
+		await runWpCli( host, site, [ 'post', 'delete', id, '--force' ] );
 	}, 60000 );
 
 	it.each( [
@@ -89,7 +87,7 @@ describe.runIf( WORDPRESS )( 'blocks that carry a registered block style by bare
 
 	it( "names a block class the theme's stylesheets make inline-level, written before the block", async () => {
 		// A child theme, so the parent's stylesheets count too.
-		const parent = ( await runWpCli( site, [ 'eval', 'echo get_template();' ] ) ).trim();
+		const parent = ( await runWpCli( host, site, [ 'eval', 'echo get_template();' ] ) ).trim();
 		const child = path.join( site.path, 'wp-content/themes/studio-test-child' );
 		mkdirSync( path.join( child, 'templates' ), { recursive: true } );
 		writeFileSync(
@@ -98,20 +96,22 @@ describe.runIf( WORDPRESS )( 'blocks that carry a registered block style by bare
 		);
 		writeFileSync( path.join( child, 'templates/index.html' ), '' );
 		writeFileSync( path.join( child, 'chip.css' ), '.er-chip { display: inline-flex; }' );
-		await runWpCli( site, [ 'theme', 'activate', 'studio-test-child' ] );
-		const before = await blockStyleClasses.read( site.path );
+		await runWpCli( host, site, [ 'theme', 'activate', 'studio-test-child' ] );
+		const before = await blockStyleClasses.read( site.path, undefined, host );
 		const css = path.join( site.path, 'wp-content/themes', parent, 'studio-test-pill.css' );
 		writeFileSync( css, '.er-pill { display: inline-block; }\n.er-wide { display: block; }' );
-		expect( ( await blockStyleClasses.read( site.path ) ).code ).not.toBe( before.code );
+		expect( ( await blockStyleClasses.read( site.path, undefined, host ) ).code ).not.toBe(
+			before.code
+		);
 		const id = (
-			await runWpCli( site, [
+			await runWpCli( host, site, [
 				'eval',
 				`echo wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'Pill', 'post_content' => ${ JSON.stringify(
 					group( 'er-pill' ) + group( 'er-wide' ) + group( 'er-chip' )
 				) } ) );`,
 			] )
 		).trim();
-		const { reports } = await blockStyleClasses.check( site, { code: 'a' }, { code: 'b' } );
+		const { reports } = await blockStyleClasses.check( site, { code: 'a' }, { code: 'b' }, host );
 		const inline = reports.find( ( report ) => report.key === 'inline block classes' );
 		expect( inline?.atTurnEnd ).toBe( true );
 		expect( inline?.problem ).toMatch( /^Ember Roasters: / );
@@ -123,10 +123,10 @@ describe.runIf( WORDPRESS )( 'blocks that carry a registered block style by bare
 		);
 		expect( inline?.problem ).not.toContain( 'er-wide' );
 		rmSync( css );
-		await runWpCli( site, [ 'theme', 'activate', parent ] );
+		await runWpCli( host, site, [ 'theme', 'activate', parent ] );
 		rmSync( child, { recursive: true } );
-		await runWpCli( site, [ 'post', 'delete', id, '--force' ] );
-		const after = await blockStyleClasses.check( site, { code: 'a' }, { code: 'b' } );
+		await runWpCli( host, site, [ 'post', 'delete', id, '--force' ] );
+		const after = await blockStyleClasses.check( site, { code: 'a' }, { code: 'b' }, host );
 		expect(
 			after.reports.find( ( report ) => report.key === 'inline block classes' )?.problem
 		).toBeUndefined();
@@ -134,7 +134,7 @@ describe.runIf( WORDPRESS )( 'blocks that carry a registered block style by bare
 
 	it( 'asks WordPress only when the code or content changed', async () => {
 		const versions = { code: 'a', content: 'b' };
-		expect( await blockStyleClasses.check( site, versions, { ...versions } ) ).toEqual( {
+		expect( await blockStyleClasses.check( site, versions, { ...versions }, host ) ).toEqual( {
 			reports: [],
 		} );
 	} );

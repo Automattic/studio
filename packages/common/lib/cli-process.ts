@@ -84,6 +84,16 @@ const cliErrorMessageSchema = z.object( {
 	message: z.string(),
 } );
 
+/**
+ * Sent by the CLI once a command has finished successfully. Its process can stay alive a while
+ * longer to finish sending best-effort telemetry, which its host doesn't need to wait for.
+ */
+const cliDoneMessageSchema = z.object( { action: z.literal( 'done' ) } );
+
+export function isCliCommandDone( message: unknown ): boolean {
+	return cliDoneMessageSchema.safeParse( message ).success;
+}
+
 type CliCommandEventEmitter< CapturesOutput extends boolean > = TypedEventEmitter<
 	CliCommandEventMap< CapturesOutput >
 >;
@@ -327,7 +337,8 @@ const cliProgressMessageSchema = z.object( {
 
 /**
  * Runs a CLI command and resolves with the result it reports (`logger.reportResult`), parsed by
- * `schema`. Rejects with the command's error, or when it succeeds without reporting a result.
+ * `schema`, once the command has finished. Rejects with the command's error, or when it succeeds
+ * without reporting a result.
  */
 export function runCliCommand< T >(
 	execute: ExecuteCliCommand,
@@ -338,18 +349,7 @@ export function runCliCommand< T >(
 	return new Promise( ( resolve, reject ) => {
 		let result: z.ZodSafeParseResult< T > | undefined;
 		const [ emitter ] = execute( args, { output: 'capture', logPrefix: options.logPrefix } );
-		emitter.on( 'data', ( { data } ) => {
-			const message = cliResultMessageSchema.safeParse( data );
-			if ( message.success ) {
-				result = schema.safeParse( message.data.value );
-				return;
-			}
-			const progress = cliProgressMessageSchema.safeParse( data );
-			if ( progress.success ) {
-				options.onProgress?.( progress.data.message );
-			}
-		} );
-		emitter.on( 'success', () => {
+		const settle = () => {
 			if ( result?.success ) {
 				resolve( result.data );
 			} else {
@@ -358,7 +358,23 @@ export function runCliCommand< T >(
 						new Error( `\`studio ${ args.slice( 0, 2 ).join( ' ' ) }\` reported no result.` )
 				);
 			}
+		};
+		emitter.on( 'data', ( { data } ) => {
+			const message = cliResultMessageSchema.safeParse( data );
+			if ( message.success ) {
+				result = schema.safeParse( message.data.value );
+				return;
+			}
+			if ( isCliCommandDone( data ) ) {
+				settle();
+				return;
+			}
+			const progress = cliProgressMessageSchema.safeParse( data );
+			if ( progress.success ) {
+				options.onProgress?.( progress.data.message );
+			}
 		} );
+		emitter.on( 'success', settle );
 		emitter.on( 'failure', ( { error } ) => reject( error ) );
 		emitter.on( 'error', ( { error } ) => reject( error ) );
 	} );

@@ -9,23 +9,20 @@ import {
 } from 'fs';
 import os from 'os';
 import path from 'path';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
 	blockClassCounts,
 	classProperties,
 	createSharedBlockClassNotes,
-} from 'cli/ai/shared-block-classes';
-import { resolveSiteFile } from 'cli/ai/site-file-guards';
-import { runWpCli } from 'cli/ai/tools/utils';
-import type { SiteData } from 'cli/lib/cli-config/core';
+} from '@studio/agent/node/shared-block-classes';
+import { resolveSiteFile } from '@studio/agent/node/site-file-guards';
+import { runWpCli } from '@studio/agent/node/tools/utils';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { liveHost, liveSite } from 'cli/ai/tests/live-host';
+import type { StudioAgentHost } from '@studio/agent/node';
 
-vi.mock( 'cli/lib/daemon-client', () => ( {
-	connectToDaemon: vi.fn(),
-	disconnectFromDaemon: vi.fn(),
-} ) );
 // The copy of WordPress the tests write to is not one of Studio's sites.
-vi.mock( 'cli/ai/tools/utils', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('cli/ai/tools/utils') >() ),
+vi.mock( '@studio/agent/node/tools/utils', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/agent/node/tools/utils') >() ),
 	resolveSite: async ( root: string ) => ( { id: 'site', name: 'Ember Roasters', path: root } ),
 } ) );
 
@@ -106,7 +103,7 @@ const WORDPRESS = process.env.STUDIO_TEST_WORDPRESS;
 
 describe.runIf( WORDPRESS )( 'createSharedBlockClassNotes', () => {
 	let root: string;
-	const notes = createSharedBlockClassNotes();
+	let notes: ReturnType< typeof createSharedBlockClassNotes >;
 	// A slug WordPress.org has no theme of, so Studio may write to it.
 	const theme = 'wp-content/themes/studio-test-ember';
 	const write = ( relativePath: string, content: string ) => {
@@ -115,15 +112,18 @@ describe.runIf( WORDPRESS )( 'createSharedBlockClassNotes', () => {
 		writeFileSync( file, content );
 		return notes( resolveSiteFile( file )! );
 	};
-	const site = () => ( { id: 'site', name: 'Ember Roasters', path: root } ) as SiteData;
+	const site = () => liveSite( root, 'Ember Roasters' );
+	let host: StudioAgentHost;
 	beforeAll( async () => {
 		root = mkdtempSync( path.join( os.tmpdir(), 'shared-block-classes-' ) );
 		cpSync( WORDPRESS!, root, { recursive: true } );
+		host = liveHost( site() );
+		notes = createSharedBlockClassNotes( host );
 		mkdirSync( path.join( root, theme, 'templates' ), { recursive: true } );
 		writeFileSync( path.join( root, theme, 'templates', 'index.html' ), '' );
 		writeFileSync( path.join( root, theme, 'theme.json' ), '{"version":3}' );
 		writeFileSync( path.join( root, theme, 'style.css' ), '/*\nTheme Name: Ember\n*/' );
-		await runWpCli( site(), [ 'theme', 'activate', 'studio-test-ember' ] );
+		await runWpCli( host, site(), [ 'theme', 'activate', 'studio-test-ember' ] );
 	} );
 	afterAll( () => rmSync( root, { recursive: true, force: true } ) );
 
@@ -166,7 +166,7 @@ describe.runIf( WORDPRESS )( 'createSharedBlockClassNotes', () => {
 	} );
 
 	it( 'counts the blocks of saved posts', async () => {
-		await runWpCli( site(), [
+		await runWpCli( host, site(), [
 			'post',
 			'create',
 			'--post_status=publish',
@@ -215,7 +215,7 @@ describe.runIf( WORDPRESS )( 'createSharedBlockClassNotes', () => {
 			`<!-- wp:${ name } {"className":"feature"} -->\n<${ tag } class="wp-block-${ name } feature"><p>x</p></${ tag }>\n<!-- /wp:${ name } -->`;
 		const template = path.join( root, theme, 'templates', 'home.html' );
 		writeFileSync( template, times( 3, card( 'group', 'div' ) ) );
-		const output = await runWpCli( site(), [
+		const output = await runWpCli( host, site(), [
 			'post',
 			'create',
 			'--post_status=publish',
@@ -240,7 +240,7 @@ describe.runIf( WORDPRESS )( 'createSharedBlockClassNotes', () => {
 				'{"className":"feature is-style-feature"} -->\n<div class="wp-block-group feature is-style-feature">'
 			)
 		).toHaveLength( 4 );
-		const wordpress = await runWpCli( site(), [
+		const wordpress = await runWpCli( host, site(), [
 			'eval',
 			`// WordPress prints a block style's CSS for each block it renders with it
 // (wp_render_block_style_variation_support_styles() in wp-includes/block-supports/block-style-variations.php).
@@ -375,7 +375,7 @@ echo wp_json_encode( array(
 			name: 'Additional CSS the site saved styles it',
 			slug: 'flag',
 			setUp: async ( slug: string ) => {
-				const output = await runWpCli( site(), [
+				const output = await runWpCli( host, site(), [
 					'post',
 					'create',
 					'--post_type=custom_css',
@@ -385,7 +385,7 @@ echo wp_json_encode( array(
 					`--post_content=.${ slug } { color: red }`,
 				] );
 				const id = output.trim().split( /\s+/ ).pop()!;
-				return () => runWpCli( site(), [ 'post', 'delete', id, '--force' ] );
+				return () => runWpCli( host, site(), [ 'post', 'delete', id, '--force' ] );
 			},
 		},
 	] )(

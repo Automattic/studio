@@ -1,7 +1,7 @@
 import {
 	aiSessionBelongsToSite,
 	findAiSessionOwnerSite,
-} from '@studio/common/ai/sessions/owner-site';
+} from '@studio/agent/protocol/sessions/owner-site';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';

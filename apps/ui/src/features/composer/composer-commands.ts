@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { McpIcon, StartSiteIcon } from '@/lib/icons';
 import type { Command, CommandGroup } from '@/lib/ui';
-import type { SkillSlashCommand } from '@studio/common/ai/slash-commands';
+import type { SkillSlashCommand } from '@studio/agent/protocol/slash-commands';
 import type { ComponentType } from 'react';
 
 const COMMAND_ICONS: Partial< Record< string, ComponentType< { className?: string } > > > = {

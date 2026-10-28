@@ -1,12 +1,13 @@
 import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'fs';
 import { DatabaseSync } from 'node:sqlite';
 import path from 'path';
+import { readSiteFacts } from '@studio/agent/node/site-facts';
+import { createSite } from '@studio/agent/node/tests/fixtures/wordpress-site';
 import { STUDIO_LOADER_MU_PLUGIN_FILENAME } from '@studio/common/lib/mu-plugins';
 import { expect, it, vi } from 'vitest';
 import { captureTurnOutcome, fingerprintSites } from 'cli/ai/eval-outcome';
-import { readSiteFacts } from 'cli/ai/site-facts';
+import { cliAgentHost } from 'cli/ai/host';
 import { readCliConfig } from 'cli/lib/cli-config/core';
-import { createSite } from './fixtures/wordpress-site';
 
 // The site's WordPress is not run: what its code registers is read by admin-capabilities' tests.
 vi.mock( 'cli/lib/daemon-client', () => ( {
@@ -35,7 +36,7 @@ it( 'fingerprints a site a turn only reads as unchanged, and one it writes to as
 		sites: [ { id: 'site', name: 'Site', path: root, port: 8881 } ],
 	} as Awaited< ReturnType< typeof readCliConfig > > );
 	// The facts a turn's start reads.
-	await readSiteFacts( root );
+	await readSiteFacts( cliAgentHost, root );
 	// The site's last request closed the database, which removed its WAL files;
 	// a read-only read creates them again and cannot remove them (run 43).
 	const last = new DatabaseSync( database );
@@ -46,7 +47,7 @@ it( 'fingerprints a site a turn only reads as unchanged, and one it writes to as
 	const before = await mtime();
 	await new Promise( ( resolve ) => setTimeout( resolve, 20 ) );
 
-	await readSiteFacts( root );
+	await readSiteFacts( cliAgentHost, root );
 	expect( await mtime() ).toBe( before );
 
 	const write = new DatabaseSync( database );

@@ -4,8 +4,8 @@
 // `custom` markers — site selections, progress, agent questions — which
 // don't appear in pi's flat `buildSessionContext()` output).
 
-import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
-import { remoteSiteFromStored } from 'cli/ai/hosts';
+import { remoteSiteFromStored } from '@studio/agent/node';
+import { isStudioCustomEntryOfType } from '@studio/agent/protocol/sessions/entry-types';
 import { AiChatUI } from 'cli/ai/ui';
 import type { ToolResultMessage } from '@earendil-works/pi-ai';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';

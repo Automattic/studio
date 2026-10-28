@@ -1,27 +1,27 @@
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync, readFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { sitePresetValues, validateBlockMarkupFile } from 'cli/ai/block-validation-gate';
-import { cleanupValidatorPages, validateBlocks } from 'cli/ai/block-validator';
-import { postContentChanges } from 'cli/ai/post-content-check';
+import {
+	sitePresetValues,
+	validateBlockMarkupFile,
+} from '@studio/agent/node/block-validation-gate';
+import { cleanupValidatorPages, validateBlocks } from '@studio/agent/node/block-validator';
+import { postContentChanges } from '@studio/agent/node/post-content-check';
 import {
 	repeatedLooks,
 	repeatedStyleValueNotes,
 	repeatedStyleValues,
-} from 'cli/ai/repeated-style-values';
-import { SiteChanges } from 'cli/ai/site-changes';
-import { resolveSiteFile } from 'cli/ai/site-file-guards';
-import { runWpCli } from 'cli/ai/tools/utils';
-import type { SiteData } from 'cli/lib/cli-config/core';
+} from '@studio/agent/node/repeated-style-values';
+import { SiteChanges } from '@studio/agent/node/site-changes';
+import { resolveSiteFile } from '@studio/agent/node/site-file-guards';
+import { runWpCli } from '@studio/agent/node/tools/utils';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { liveHost, liveSite } from 'cli/ai/tests/live-host';
+import type { StudioAgentHost } from '@studio/agent/node';
 
-vi.mock( 'cli/lib/daemon-client', () => ( {
-	connectToDaemon: vi.fn(),
-	disconnectFromDaemon: vi.fn(),
-} ) );
 // The copy of WordPress the tests write to is not one of Studio's sites.
-vi.mock( 'cli/ai/tools/utils', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('cli/ai/tools/utils') >() ),
+vi.mock( '@studio/agent/node/tools/utils', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/agent/node/tools/utils') >() ),
 	resolveSite: async ( root: string ) => ( { id: 'site', name: 'Ember Roasters', path: root } ),
 } ) );
 // Its block editor is the one the given URL serves.
@@ -187,15 +187,17 @@ const WORDPRESS = process.env.STUDIO_TEST_WORDPRESS;
 
 describe.runIf( WORDPRESS )( 'repeatedStyleValueNotes', () => {
 	let root: string;
+	let host: StudioAgentHost;
 	const write = ( relativePath: string, content: string ) => {
 		const file = path.join( root, relativePath );
 		mkdirSync( path.dirname( file ), { recursive: true } );
 		writeFileSync( file, content );
-		return repeatedStyleValueNotes( resolveSiteFile( file )! );
+		return repeatedStyleValueNotes( host, resolveSiteFile( file )! );
 	};
 	beforeAll( () => {
 		root = mkdtempSync( path.join( os.tmpdir(), 'repeated-style-values-' ) );
 		cpSync( WORDPRESS!, root, { recursive: true } );
+		host = liveHost( liveSite( root, 'Plain' ) );
 	} );
 	afterAll( () => rmSync( root, { recursive: true, force: true } ) );
 
@@ -264,11 +266,7 @@ describe.runIf( WORDPRESS )( 'repeatedStyleValueNotes', () => {
 			'wp-content/themes/plain/theme.json',
 			JSON.stringify( { version: 3, settings: { spacing: { defaultSpacingSizes: false } } } )
 		);
-		await runWpCli( { id: 'site', name: 'Plain', path: root } as SiteData, [
-			'theme',
-			'activate',
-			'plain',
-		] );
+		await runWpCli( host, liveSite( root, 'Plain' ), [ 'theme', 'activate', 'plain' ] );
 		const [ note ] = await write(
 			'wp-content/themes/plain/templates/index.html',
 			times( 3, paragraph( { spacing: { blockGap: '2rem' } } ) )
@@ -302,7 +300,8 @@ describe.runIf( WORDPRESS )( 'repeatedStyleValueNotes', () => {
 describe.runIf( WORDPRESS && EDITOR )( 'repeated raw font sizes made presets', () => {
 	let root: string;
 	let kept = 0;
-	const site = () => ( { id: 'site', name: 'Ember Roasters', path: root } ) as SiteData;
+	const site = () => liveSite( root, 'Ember Roasters' );
+	let host: StudioAgentHost;
 	const put = ( relativePath: string, content: string ) => {
 		const file = path.join( root, relativePath );
 		mkdirSync( path.dirname( file ), { recursive: true } );
@@ -316,6 +315,7 @@ describe.runIf( WORDPRESS && EDITOR )( 'repeated raw font sizes made presets', (
 	beforeAll( () => {
 		root = mkdtempSync( path.join( os.tmpdir(), 'repeated-font-sizes-' ) );
 		cpSync( WORDPRESS!, root, { recursive: true } );
+		host = liveHost( site() );
 	} );
 	afterAll( async () => {
 		await cleanupValidatorPages();
@@ -329,12 +329,12 @@ describe.runIf( WORDPRESS && EDITOR )( 'repeated raw font sizes made presets', (
 
 	// The notes where the block validation gate saves the file, and its save.
 	const notes = ( file: string ) =>
-		repeatedStyleValueNotes( resolveSiteFile( file )!, { gateSaves: true } );
+		repeatedStyleValueNotes( host, resolveSiteFile( file )!, { gateSaves: true } );
 	const saveThroughEditor = async ( file: string, theme: string ) => {
 		const result = await validateBlockMarkupFile(
 			file,
 			EDITOR!,
-			await sitePresetValues( root, theme )
+			await sitePresetValues( host, root, theme )
 		);
 		writeFileSync( file, result.fixedContent! );
 		return result.summary;
@@ -390,14 +390,14 @@ describe.runIf( WORDPRESS && EDITOR )( 'repeated raw font sizes made presets', (
 
 			// WordPress renders the preset at the size it rendered the raw value at,
 			// fluid where the theme's typography is.
-			await runWpCli( site(), [ 'theme', 'activate', slug ] );
-			const raw = await runWpCli( site(), [
+			await runWpCli( host, site(), [ 'theme', 'activate', slug ] );
+			const raw = await runWpCli( host, site(), [
 				'eval',
 				`echo do_blocks( ${ JSON.stringify( sized ) } );`,
 			] );
 			const size = raw.match( /font-size:([^;"]+)/ )?.[ 1 ];
 			expect( size ).toBeDefined();
-			const rendered = await runWpCli( site(), [
+			const rendered = await runWpCli( host, site(), [
 				'eval',
 				`echo wp_get_global_stylesheet( array( 'variables', 'presets' ) ), do_blocks( ${ JSON.stringify(
 					markup
@@ -437,8 +437,8 @@ describe.runIf( WORDPRESS && EDITOR )( 'repeated raw font sizes made presets', (
 		expect( ( await validateBlocks( saved, EDITOR! ) ).invalidBlocks ).toBe( 0 );
 
 		// WordPress renders each preset's variable as the value it replaced.
-		await runWpCli( site(), [ 'theme', 'activate', slug ] );
-		const rendered = await runWpCli( site(), [
+		await runWpCli( host, site(), [ 'theme', 'activate', slug ] );
+		const rendered = await runWpCli( host, site(), [
 			'eval',
 			`echo wp_get_global_stylesheet( array( 'variables' ) ), do_blocks( ${ JSON.stringify(
 				saved
@@ -456,11 +456,13 @@ describe.runIf( WORDPRESS && EDITOR )( 'repeated raw font sizes made presets', (
 		put( `${ dir }/style.css`, `/*\nTheme Name: ${ slug }\n*/\n` );
 		const themeJson = put( `${ dir }/theme.json`, JSON.stringify( { version: 3 } ) );
 		put( `${ dir }/templates/index.html`, '<!-- wp:post-content /-->' );
-		await runWpCli( site(), [ 'theme', 'activate', slug ] );
-		const check = new SiteChanges( undefined, async () => [ site() ], [ postContentChanges ] );
+		await runWpCli( host, site(), [ 'theme', 'activate', slug ] );
+		const check = new SiteChanges( host, undefined, async () => [ site() ], [
+			postContentChanges,
+		] );
 		await check.snapshot();
 		const id = (
-			await runWpCli( site(), [
+			await runWpCli( host, site(), [
 				'post',
 				'create',
 				'--post_type=page',
@@ -475,7 +477,7 @@ describe.runIf( WORDPRESS && EDITOR )( 'repeated raw font sizes made presets', (
 		expect( summaries.join( '\n' ) ).toContain(
 			`Studio made the font sizes Ember Roasters page ${ id } "Home" repeats font size presets of ${ slug }: it added size-1-4-rem (1.4rem) to ${ themeJson }`
 		);
-		const saved = await runWpCli( site(), [ 'post', 'get', id, '--field=post_content' ] );
+		const saved = await runWpCli( host, site(), [ 'post', 'get', id, '--field=post_content' ] );
 		expect( saved ).not.toContain( '1.4rem' );
 		expect( saved.match( /"fontSize":"size-1-4-rem"/g ) ).toHaveLength( 3 );
 		expect( ( await validateBlocks( saved, EDITOR! ) ).invalidBlocks ).toBe( 0 );
@@ -489,7 +491,7 @@ describe.runIf( WORDPRESS && EDITOR )( 'repeated raw font sizes made presets', (
 	);
 	const pageWith = async ( content: string ) =>
 		(
-			await runWpCli( site(), [
+			await runWpCli( host, site(), [
 				'post',
 				'create',
 				'--post_type=page',
@@ -500,7 +502,7 @@ describe.runIf( WORDPRESS && EDITOR )( 'repeated raw font sizes made presets', (
 			] )
 		).trim();
 	const postContent = ( id: string ) =>
-		runWpCli( site(), [ 'post', 'get', id, '--field=post_content' ] );
+		runWpCli( host, site(), [ 'post', 'get', id, '--field=post_content' ] );
 
 	it( "makes a size a page and the theme's header repeat between them a preset, and saves both with it", async () => {
 		const slug = 'studio-test-roast-site-wide-page';
@@ -516,9 +518,11 @@ describe.runIf( WORDPRESS && EDITOR )( 'repeated raw font sizes made presets', (
 		const footer = put( `${ dir }/parts/footer.html`, unwrapped );
 		const lossy = `${ eyebrow }\n<!-- wp:separator -->\n<hr class="wp-block-separator has-alpha-channel-opacity" style="opacity:0.4"/>\n<!-- /wp:separator -->`;
 		const aside = put( `${ dir }/parts/aside.html`, lossy );
-		await runWpCli( site(), [ 'theme', 'activate', slug ] );
+		await runWpCli( host, site(), [ 'theme', 'activate', slug ] );
 		expect( await notes( header ) ).toEqual( [] );
-		const check = new SiteChanges( undefined, async () => [ site() ], [ postContentChanges ] );
+		const check = new SiteChanges( host, undefined, async () => [ site() ], [
+			postContentChanges,
+		] );
 		await check.snapshot();
 		const id = await pageWith( times( 2, eyebrow ) );
 
@@ -549,7 +553,7 @@ describe.runIf( WORDPRESS && EDITOR )( 'repeated raw font sizes made presets', (
 		put( `${ dir }/style.css`, `/*\nTheme Name: ${ slug }\n*/\n` );
 		put( `${ dir }/theme.json`, JSON.stringify( { version: 3 } ) );
 		put( `${ dir }/templates/index.html`, '<!-- wp:post-content /-->' );
-		await runWpCli( site(), [ 'theme', 'activate', slug ] );
+		await runWpCli( host, site(), [ 'theme', 'activate', slug ] );
 		const id = await pageWith( times( 2, eyebrow ) );
 		const written = put( `${ dir }/templates/index.html`, eyebrow );
 
@@ -575,7 +579,7 @@ describe.runIf( WORDPRESS && EDITOR )( 'repeated raw font sizes made presets', (
 		const themeJson = put( `${ dir }/theme.json`, json );
 		const preset = paragraph( { typography: { fontSize: '2rem' } } );
 		const template = put( `${ dir }/templates/index.html`, times( 3, sized ) + times( 3, preset ) );
-		const [ note, ...rest ] = await repeatedStyleValueNotes( resolveSiteFile( template )! );
+		const [ note, ...rest ] = await repeatedStyleValueNotes( host, resolveSiteFile( template )! );
 		expect( rest ).toEqual( [] );
 		expect( note ).toContain( 'typography.fontSize 1.4rem on 3, typography.fontSize 2rem on 3.' );
 		expect( readFileSync( themeJson, 'utf8' ) ).toBe( json );

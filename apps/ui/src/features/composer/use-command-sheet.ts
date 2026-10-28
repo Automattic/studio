@@ -2,7 +2,7 @@ import {
 	getAiSkillCommands,
 	getSlashCommandMatches,
 	type SkillSlashCommand,
-} from '@studio/common/ai/slash-commands';
+} from '@studio/agent/protocol/slash-commands';
 import { useState } from 'react';
 import { getCommandGroups } from '@/features/composer/composer-commands';
 import { getActiveCommand } from '@/lib/ui';

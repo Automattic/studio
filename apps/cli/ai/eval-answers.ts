@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { AskUserHandler } from 'cli/ai/types';
+import type { AskUserHandler } from '@studio/agent/node/types';
 
 // A case's scripted user. Each answer is a reply the user gives to any
 // question it fits: one whose text matches `when` (a regex, case-insensitive;

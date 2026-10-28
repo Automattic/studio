@@ -7,7 +7,7 @@ import {
 	persistAnthropicApiKey,
 	persistCustomEndpoint,
 	readCustomEndpoint,
-} from '@studio/common/ai/settings-store';
+} from '@studio/agent/node/settings-store';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getAiProviderDefinition, getProviderDefaultModel } from 'cli/ai/providers';
 

@@ -89,6 +89,21 @@ function displaySiteList(
 
 const logger = new Logger< LoggerAction >();
 
+// The local sites as `--format json` prints them: public fields only.
+export async function listSites() {
+	const { sites } = await readCliConfig();
+	if ( sites.length === 0 ) {
+		return [];
+	}
+	await connectToDaemon();
+	try {
+		const { jsonEntries } = await getSiteListData( sites );
+		return jsonEntries.map( pickPublicSiteFields );
+	} finally {
+		await disconnectFromDaemon();
+	}
+}
+
 export async function runCommand( format: 'table' | 'json' ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading sites…' ) );

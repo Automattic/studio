@@ -78,14 +78,6 @@ export function classifyExportFailure( error: unknown ): string {
 	return classifyFailure( error, [ [ [ 'enospc', 'no space left' ], 'disk_full' ] ] );
 }
 
-export function normalizeHostname( hostname: string ): string {
-	return hostname
-		.trim()
-		.toLowerCase()
-		.replace( /^https?:\/\//, '' )
-		.replace( /\/$/, '' );
-}
-
 export function validatePhpVersion( rawPhpVersion: string ): SupportedPHPVersion {
 	try {
 		return resolveSupportedPhpVersion( rawPhpVersion );

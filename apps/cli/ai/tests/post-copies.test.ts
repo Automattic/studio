@@ -1,18 +1,20 @@
 import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
+import {
+	postCopies,
+	postCopiesFact,
+	siteIdOfCopy,
+	workspaceRoot,
+} from '@studio/agent/node/post-copies';
+import { SiteChanges } from '@studio/agent/node/site-changes';
+import { readWordPressSite } from '@studio/agent/node/site-database';
+import { createSite } from '@studio/agent/node/tests/fixtures/wordpress-site';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { postCopies, postCopiesFact, siteIdOfCopy, workspaceRoot } from 'cli/ai/post-copies';
-import { SiteChanges } from 'cli/ai/site-changes';
-import { readWordPressSite } from 'cli/ai/site-database';
-import { createSite } from 'cli/ai/tests/fixtures/wordpress-site';
+import { liveHost, liveSite } from 'cli/ai/tests/live-host';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
-import type { SiteData } from 'cli/lib/cli-config/core';
+import type { HostSite, StudioAgentHost } from '@studio/agent/node';
 
-vi.mock( 'cli/lib/daemon-client', () => ( {
-	connectToDaemon: vi.fn(),
-	disconnectFromDaemon: vi.fn(),
-} ) );
 const { realRunWpCliCommand } = vi.hoisted( () => ( {
 	realRunWpCliCommand: {} as { run?: typeof runWpCliCommand },
 } ) );
@@ -32,7 +34,8 @@ const PARAGRAPH = '<!-- wp:paragraph -->\n<p>Hello</p>\n<!-- /wp:paragraph -->';
 const HEADING = '<!-- wp:heading -->\n<h2 class="wp-block-heading">Menu</h2>\n<!-- /wp:heading -->';
 
 let fixture: ReturnType< typeof createSite >;
-let site: SiteData;
+let site: HostSite;
+let host: StudioAgentHost;
 let config: string;
 
 beforeEach( () => {
@@ -41,7 +44,8 @@ beforeEach( () => {
 	fixture = createSite();
 	fixture.save( 9, 'page', 'home', PARAGRAPH );
 	fixture.save( 10, 'wp_template_part', 'header', HEADING );
-	site = { id: 'abc', name: 'Bakery', path: fixture.root, port: 8881 } as SiteData;
+	site = liveSite( fixture.root, 'Bakery', 'abc' );
+	host = liveHost( site );
 	// WP-CLI runs `wp eval` with the PHP Studio passes, saving the file it names
 	// to the post it names, as wp_update_post() does: a new modified time.
 	vi.mocked( runWpCliCommand )
@@ -69,8 +73,8 @@ const copy = ( type: string, id: number ) =>
 const read = ( file: string ) => readFileSync( file, 'utf8' );
 
 async function openedWorkspace() {
-	const fact = await readWordPressSite( site.path, ( wp ) => postCopiesFact( wp ) );
-	const check = new SiteChanges( undefined, async () => [ site ], [ postCopies ] );
+	const fact = await readWordPressSite( site.path, ( wp ) => postCopiesFact( wp, host ) );
+	const check = new SiteChanges( host, undefined, async () => [ site ], [ postCopies ] );
 	await check.snapshot();
 	return { fact, check };
 }
@@ -147,7 +151,7 @@ describe( 'post copies', () => {
 	} );
 
 	it( 'leaves a site whose workspace was never opened alone', async () => {
-		const check = new SiteChanges( undefined, async () => [ site ], [ postCopies ] );
+		const check = new SiteChanges( host, undefined, async () => [ site ], [ postCopies ] );
 		await check.snapshot();
 		fixture.edit( 9, HEADING );
 		expect( await check.settle() ).toMatchObject( { summaries: [], problems: [] } );
@@ -162,7 +166,8 @@ describe.runIf( WORDPRESS )( 'a copy saved to a real WordPress', () => {
 	it( 'saves the copy, outside the site, through wp_update_post() as an administrator would', async () => {
 		const root = mkdtempSync( path.join( os.tmpdir(), 'post-copies-' ) );
 		cpSync( WORDPRESS!, root, { recursive: true } );
-		site = { id: 'live', name: 'Seaside', path: root } as SiteData;
+		site = liveSite( root, 'Seaside', 'live' );
+		host = liveHost( site );
 		vi.mocked( runWpCliCommand ).mockReset().mockImplementation( realRunWpCliCommand.run! );
 		try {
 			const { DatabaseSync } = await import( 'node:sqlite' );

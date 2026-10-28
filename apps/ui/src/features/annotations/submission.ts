@@ -1,15 +1,15 @@
-import { validateStudioChatImages } from '@studio/common/ai/chat-images';
+import { validateStudioChatImages } from '@studio/agent/protocol/chat-images';
 import {
 	toComposerSendAttachments,
 	type ComposerAttachment,
 	type ComposerFileAttachment,
-} from '@studio/common/ai/composer-attachments';
+} from '@studio/agent/protocol/composer-attachments';
 import {
 	formatVisualAnnotationsPrompt,
 	MAX_VISUAL_ANNOTATIONS,
 	validateStudioVisualAnnotations,
 	type StudioVisualAnnotationSummary,
-} from '@studio/common/ai/visual-annotations';
+} from '@studio/agent/protocol/visual-annotations';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import type { PreviewAnnotation } from './store';
 

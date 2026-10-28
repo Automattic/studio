@@ -1,89 +1,16 @@
 /**
- * The hosts Studio reaches the user's sites on, besides this computer. A
- * remote site is one of a host's sites, by the host's own id for it, and what
- * Studio does with it is the host's: what the system prompt says of its sites,
- * how the user's sites on it are listed, where a site's facts come from, and
- * how a local site is published to it and pulled from it, and the MCP server
- * its tools come from.
- *
- * The hosts here are the ones built into Studio, so they are where Studio
- * publishes. WordPress.com also reaches the Pressable sites in the user's
- * WordPress.com account. Spacefast serves static copies of local sites, so it
- * has no sites for Studio to work on or pull from.
+ * The hosts built into Studio, as the agent's remote hosts (see
+ * `@studio/agent/node/remote-hosts`), so they are where Studio publishes.
+ * WordPress.com also reaches the Pressable sites in the user's WordPress.com
+ * account. Spacefast serves static copies of local sites, so it has no sites
+ * for Studio to work on or pull from.
  */
+import { wpcomApproval, type HostSiteListing, type RemoteHost } from '@studio/agent/node';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { spacefast } from 'cli/ai/spacefast-host';
 import { getWpComSites } from 'cli/lib/api';
-import type { SyncOption } from '@studio/common/types/sync';
-import type { McpApproval, McpServerSpec } from 'cli/ai/runtimes/pi/mcp-tools';
-import type { SiteInfo } from 'cli/ai/types';
-import type { Logger } from 'cli/logger';
-
-/** One of the user's sites on a host. */
-export interface RemoteSite {
-	host: HostId;
-	/** The host's id for the site. */
-	id: string | number;
-}
-
-/** A site a local site is published to, with what the host says of it. */
-type HostTarget = { id: string | number; name: string; url: string } & Record< string, unknown >;
-
-/** The sites a local site is published to on a host, as far as the host could list them. */
-interface HostTargets {
-	signedIn: boolean;
-	targets: HostTarget[];
-	error?: string;
-}
-
-/** The user's sites on a host, as far as the host could list them. */
-interface HostSiteListing {
-	signedIn: boolean;
-	sites: Array< { id: string | number; name: string; url: string } >;
-	error?: string;
-}
-
-export interface Host {
-	/** The host's name, as the user knows it. */
-	name: string;
-	/** What the system prompt's Environment section says of the host's sites. */
-	environment: string;
-	/** The user's sites on the host, for a host whose sites Studio works on. */
-	sites?: {
-		/** The key the host's sites take in site_list's result. */
-		listKey: string;
-		/** The user's sites on the host. A failure is the listing's error. */
-		list(): Promise< HostSiteListing >;
-		/** The facts the agent gets about one of the host's sites, by the fact that states them. */
-		facts( site: SiteInfo ): Promise< string[][] >;
-	};
-	/** What a local site is published to on the host. */
-	publishes: string;
-	/** The sites on the host the local site at `sitePath` can be published to. */
-	publishable( sitePath: string ): Promise< HostSiteListing >;
-	/** Where the user makes a new site on the host, for a local site of this name. */
-	newSiteUrl( name: string ): string;
-	/** How the user signs in to the host. */
-	signIn: string;
-	/** The host's sites already connected to this local site. */
-	targets( site: { id: string; path: string } ): Promise< HostTargets >;
-	/** The host's own MCP server for the signed-in user, served as `<host id>_<tool>`. */
-	mcpServer(): Promise< Pick< McpServerSpec, 'url' | 'headers' | 'approval' > | undefined >;
-	/** Replaces the target's content with the local site's. */
-	push(
-		sitePath: string,
-		target: string,
-		options: SyncOption[],
-		logger: Logger< string >
-	): Promise< void >;
-	/** Replaces the local site's content with the target's, for a host that serves WordPress. */
-	pull?(
-		sitePath: string,
-		target: string,
-		options: SyncOption[],
-		logger: Logger< string >
-	): Promise< void >;
-}
+import { parseSyncOptions } from 'cli/lib/sync-api';
+import { Logger } from 'cli/logger';
 
 /** The user's WordPress.com sites that `read` lists with their token. */
 async function wpcomListing(
@@ -104,26 +31,7 @@ async function wpcomListing(
 	}
 }
 
-const WPCOM_PROMPT = '\n\nWhat to tell the user: ';
-
-// WordPress.com refuses a write that needs approval with "Approval required."
-// and the question for the user, then runs it again with user_confirmed.
-export const wpcomApproval: McpApproval = {
-	argument: 'user_confirmed',
-	request( result ) {
-		const [ refusal, prompt ] = result.split( WPCOM_PROMPT );
-		if ( ! refusal.startsWith( 'Approval required.' ) || ! prompt ) {
-			return undefined;
-		}
-		const [ question, ...details ] = prompt.split( '\n\n' );
-		return {
-			question,
-			consequence: details.join( ' ' ) || 'Changes the live site.',
-		};
-	},
-};
-
-const wpcom: Host = {
+const wpcom: RemoteHost = {
 	name: 'WordPress.com',
 	environment:
 		"The user's WordPress.com sites are live sites, reached through the WordPress.com REST API.",
@@ -202,43 +110,35 @@ const wpcom: Host = {
 			  }
 			: undefined;
 	},
-	async push( sitePath, target, options, logger ) {
+	async push( site, target, options, onProgress ) {
 		const { runCommand } = await import( 'cli/commands/push' );
-		await runCommand( sitePath, options, target, logger );
+		const pushed = await runCommand(
+			site.path,
+			parseSyncOptions( options ),
+			target,
+			new Logger( { onProgress } )
+		);
+		return pushed
+			? `Pushed "${ site.name }" to ${ pushed.name } (${ pushed.url }).`
+			: 'Push cancelled.';
 	},
-	async pull( sitePath, target, options, logger ) {
+	async pull( site, target, options, onProgress ) {
 		const { runCommand } = await import( 'cli/commands/pull' );
-		await runCommand( sitePath, options, target, undefined, logger );
+		const pulled = await runCommand(
+			site.path,
+			parseSyncOptions( options ),
+			target,
+			undefined,
+			new Logger( { onProgress } )
+		);
+		return pulled
+			? `Pulled ${ pulled.name } (${ pulled.url }) into "${ site.name }".`
+			: 'Pull cancelled.';
 	},
 };
 
-export const HOSTS = { wpcom, spacefast } as const satisfies Record< string, Host >;
+export const HOSTS = { wpcom, spacefast } as const satisfies Record< string, RemoteHost >;
 
 export type HostId = keyof typeof HOSTS;
 
 export const HOST_IDS = Object.keys( HOSTS ) as [ HostId, ...HostId[] ];
-
-export function hostOf( site: RemoteSite ): Host {
-	return HOSTS[ site.host ];
-}
-
-/**
- * A site selection as sessions store it, which the desktop app also reads:
- * `remote` marks a WordPress.com site and `wpcomSiteId` is its id.
- */
-export interface StoredSiteSelection {
-	remote?: boolean;
-	wpcomSiteId?: number;
-}
-
-export function remoteSiteFromStored( stored: StoredSiteSelection ): RemoteSite | undefined {
-	return stored.remote === true && stored.wpcomSiteId !== undefined
-		? { host: 'wpcom', id: stored.wpcomSiteId }
-		: undefined;
-}
-
-export function storedFromRemoteSite( remote: RemoteSite | undefined ): StoredSiteSelection {
-	return remote?.host === 'wpcom' && typeof remote.id === 'number'
-		? { remote: true, wpcomSiteId: remote.id }
-		: {};
-}

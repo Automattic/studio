@@ -1,19 +1,26 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
+import {
+	bindTool,
+	createSiteNotes,
+	defineTool,
+	LOCAL_CHANGE,
+	READ_ONLY,
+	SiteChanges,
+	type StudioToolDefinition,
+} from '@studio/agent/node';
+import { createSite } from '@studio/agent/node/tests/fixtures/wordpress-site';
 import { Type } from 'typebox';
 import { expect, it, vi } from 'vitest';
+import { cliAgentHost } from 'cli/ai/host';
 import { runServedTool } from 'cli/ai/runtimes/mcp/served-tool';
-import { SiteChanges } from 'cli/ai/site-changes';
-import { createSiteNotes } from 'cli/ai/site-notes';
-import { createSite } from 'cli/ai/tests/fixtures/wordpress-site';
-import { defineTool, LOCAL_CHANGE, READ_ONLY } from 'cli/ai/tools/define-tool';
 
 // The fixture is a site's files and database, not a WordPress install, so the
 // checks that ask WordPress (wp-cli) find nothing to report, as they do when a
 // site's PHP cannot run.
 // The site's block editor finds the content's blocks valid.
-vi.mock( 'cli/ai/block-validator', async () => ( {
+vi.mock( '@studio/agent/node/block-validator', async () => ( {
 	validateBlocks: vi.fn( async () => ( {
 		totalBlocks: 1,
 		validBlocks: 1,
@@ -31,7 +38,9 @@ vi.mock( 'cli/ai/block-validator', async () => ( {
 	insertedTemplates: vi.fn( async () => [] ),
 	blocksSavingElements: vi.fn( async () => [] ),
 	blockNames: (
-		await vi.importActual< typeof import('cli/ai/block-validator') >( 'cli/ai/block-validator' )
+		await vi.importActual< typeof import('@studio/agent/node/block-validator') >(
+			'@studio/agent/node/block-validator'
+		)
 	).blockNames,
 } ) );
 vi.mock( 'cli/lib/run-wp-cli-command', () => ( {
@@ -43,6 +52,13 @@ vi.mock( 'cli/lib/daemon-client', () => ( {
 	connectToDaemon: vi.fn(),
 	disconnectFromDaemon: vi.fn(),
 } ) );
+
+const host = cliAgentHost;
+const serve = (
+	tool: StudioToolDefinition,
+	args: Record< string, unknown >,
+	...rest: [ ReturnType< typeof createSiteNotes >, SiteChanges? ]
+) => runServedTool( host, bindTool( tool, host ), args, ...rest );
 
 it( 'adds the declared settings of the core blocks a result shows, from the site the call names, once', async () => {
 	const root = mkdtempSync( path.join( tmpdir(), 'served-tool-' ) );
@@ -64,9 +80,9 @@ it( 'adds the declared settings of the core blocks a result shows, from the site
 		async () => ( { content: [ { type: 'text', text: '<!-- wp:navigation /-->' } ] } ),
 		{ annotations: READ_ONLY }
 	);
-	const siteNotes = createSiteNotes();
+	const siteNotes = createSiteNotes( host );
 	const notes = async ( args: Record< string, unknown > ) =>
-		( await runServedTool( tool, args, siteNotes ) ).content
+		( await serve( tool, args, siteNotes ) ).content
 			.slice( 1 )
 			.map( ( part ) => ( part.type === 'text' ? part.text : '' ) );
 	const blockJson = path.join( sitePath, 'wp-includes/blocks/navigation/block.json' );
@@ -95,7 +111,7 @@ it( 'adds the declared settings of the core blocks a result shows, from the site
 		async () => ( { content: [ { type: 'text', text: 'Created.' } ] } ),
 		{ annotations: LOCAL_CHANGE, siteParam: 'name' }
 	);
-	const created = await runServedTool( create, { name: 'My Site' }, createSiteNotes() );
+	const created = await serve( create, { name: 'My Site' }, createSiteNotes( host ) );
 	expect( JSON.stringify( created.content ) ).toContain( 'Address: http://localhost:8881' );
 } );
 
@@ -119,7 +135,7 @@ it( 'reports the block validation of post content the call changed, on any site'
 		},
 		{ annotations: LOCAL_CHANGE }
 	);
-	const result = await runServedTool( tool, {}, createSiteNotes(), new SiteChanges() );
+	const result = await serve( tool, {}, createSiteNotes( host ), new SiteChanges( host ) );
 	expect( result.content.map( ( part ) => ( part.type === 'text' ? part.text : '' ) ) ).toEqual( [
 		'Success: Updated post 9.',
 		expect.stringMatching(
@@ -142,7 +158,7 @@ it( 'reports the block validation of post content the call changed, on any site'
 		},
 		{ annotations: LOCAL_CHANGE }
 	);
-	const failed = await runServedTool( failing, {}, createSiteNotes(), new SiteChanges() );
+	const failed = await serve( failing, {}, createSiteNotes( host ), new SiteChanges( host ) );
 	expect( failed.isError ).toBe( true );
 	expect( JSON.stringify( failed.content ) ).toMatch(
 		/Command exited with code 1\\n<studio-notes>\\nBlock validation: Bakery page 9 \\"\\": 1\/1 blocks valid; core\/html policy failed/
@@ -158,10 +174,10 @@ it( 'reports on the next call what the client changed between calls, by its own 
 	vi.stubEnv( 'E2E', '1' );
 	vi.stubEnv( 'E2E_CLI_CONFIG_PATH', root );
 	const tracked: string[] = [];
-	const siteNotes = createSiteNotes( {
+	const siteNotes = createSiteNotes( host, {
 		gate: { track: ( file: string ) => tracked.push( file ) } as never,
 	} );
-	const siteChanges = new SiteChanges();
+	const siteChanges = new SiteChanges( host );
 	const list = defineTool(
 		'site_list',
 		'Lists sites.',
@@ -170,7 +186,7 @@ it( 'reports on the next call what the client changed between calls, by its own 
 		{ annotations: READ_ONLY }
 	);
 	const call = async () =>
-		( await runServedTool( list, {}, siteNotes, siteChanges ) ).content.map( ( part ) =>
+		( await serve( list, {}, siteNotes, siteChanges ) ).content.map( ( part ) =>
 			part.type === 'text' ? part.text : ''
 		);
 

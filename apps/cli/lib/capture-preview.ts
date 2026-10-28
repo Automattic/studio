@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { getSharedBrowser } from 'cli/ai/browser-utils';
+import { getSharedBrowser } from '@studio/agent/node';
 
 /**
  * Screenshots a site page for `studio ui`'s stopped-site preview, on the

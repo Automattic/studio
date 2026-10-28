@@ -1,21 +1,13 @@
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
+import { adminCapabilities, siteCodeFact } from '@studio/agent/node/admin-capabilities';
+import { readWordPressSite } from '@studio/agent/node/site-database';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { adminCapabilities, siteCodeFact } from 'cli/ai/admin-capabilities';
-import { readWordPressSite } from 'cli/ai/site-database';
-import { findSiteByFolder } from 'cli/lib/cli-config/sites';
+import { liveHost, liveSite } from 'cli/ai/tests/live-host';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
-import type { SiteData } from 'cli/lib/cli-config/core';
+import type { HostSite, StudioAgentHost } from '@studio/agent/node';
 
-vi.mock( 'cli/lib/daemon-client', () => ( {
-	connectToDaemon: vi.fn(),
-	disconnectFromDaemon: vi.fn(),
-} ) );
-vi.mock( 'cli/lib/cli-config/sites', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('cli/lib/cli-config/sites') >() ),
-	findSiteByFolder: vi.fn(),
-} ) );
 vi.mock( 'cli/lib/run-wp-cli-command', async ( importOriginal ) => ( {
 	runWpCliCommand: vi.fn(
 		( await importOriginal< typeof import('cli/lib/run-wp-cli-command') >() ).runWpCliCommand
@@ -35,12 +27,13 @@ add_action( 'init', function () { ${ init } } );
 describe.runIf( WORDPRESS )(
 	'the capabilities the site’s code takes from its administrator',
 	() => {
-		let site: SiteData;
+		let site: HostSite;
+		let host: StudioAgentHost;
 		beforeEach( () => {
 			const root = mkdtempSync( path.join( os.tmpdir(), 'admin-capabilities-' ) );
 			cpSync( WORDPRESS!, root, { recursive: true } );
-			site = { id: 'site', name: 'Reading Room', path: root } as SiteData;
-			vi.mocked( findSiteByFolder ).mockResolvedValue( site );
+			site = liveSite( root, 'Reading Room' );
+			host = liveHost( site );
 		} );
 		afterEach( () => rmSync( site.path, { recursive: true, force: true } ) );
 
@@ -107,10 +100,10 @@ describe.runIf( WORDPRESS )(
 		] )(
 			'reports $name',
 			async ( { code, problem, absent = [] } ) => {
-				const before = await adminCapabilities.read( site.path );
+				const before = await adminCapabilities.read( site.path, undefined, host );
 				await activate( code );
-				const after = await adminCapabilities.read( site.path );
-				const { reports } = await adminCapabilities.check( site, before, after );
+				const after = await adminCapabilities.read( site.path, undefined, host );
+				const { reports } = await adminCapabilities.check( site, before, after, host );
 				const report = reports.find( ( r ) => r.key === 'administrator capabilities' );
 				expect( report ).toBeDefined();
 				if ( problem ) {
@@ -141,10 +134,10 @@ add_action( 'wp_abilities_api_init', function () {
 			it( 'states what each registry holds only with it loaded', async () => {
 				// Akismet registers REST routes of its own, which are not the change's.
 				await activate( plugin( '' ), [ 'akismet/akismet.php' ] );
-				const before = await adminCapabilities.read( site.path );
+				const before = await adminCapabilities.read( site.path, undefined, host );
 				await activate( READING_LIST, [ 'akismet/akismet.php' ] );
-				const after = await adminCapabilities.read( site.path );
-				const { reports } = await adminCapabilities.check( site, before, after );
+				const after = await adminCapabilities.read( site.path, undefined, host );
+				const { reports } = await adminCapabilities.check( site, before, after, host );
 				expect( reportOf( reports, 'registered' ) ).toEqual( {
 					key: 'registered',
 					summary:
@@ -154,13 +147,13 @@ add_action( 'wp_abilities_api_init', function () {
 
 			it( 'states it for a single-file plugin', async () => {
 				await activate( READING_LIST, [ 'hello.php' ] );
-				const before = await adminCapabilities.read( site.path );
+				const before = await adminCapabilities.read( site.path, undefined, host );
 				writeFileSync(
 					path.join( site.path, 'wp-content/plugins/hello.php' ),
 					"<?php\n/**\n * Plugin Name: Hello Dolly\n */\nadd_shortcode( 'dolly', '__return_empty_string' );\n"
 				);
-				const after = await adminCapabilities.read( site.path );
-				const { reports } = await adminCapabilities.check( site, before, after );
+				const after = await adminCapabilities.read( site.path, undefined, host );
+				const { reports } = await adminCapabilities.check( site, before, after, host );
 				expect( reportOf( reports, 'registered' ) ).toEqual( {
 					key: 'registered',
 					summary: expect.stringMatching(
@@ -171,7 +164,7 @@ add_action( 'wp_abilities_api_init', function () {
 
 			it( 'states it for the active theme', async () => {
 				await activate( plugin( '' ) );
-				const before = await adminCapabilities.read( site.path );
+				const before = await adminCapabilities.read( site.path, undefined, host );
 				const functions = path.join(
 					site.path,
 					'wp-content/themes/twentytwentyfive/functions.php'
@@ -183,8 +176,8 @@ add_action( 'wp_abilities_api_init', function () {
 						'utf8'
 					) }\nadd_action( 'init', function () { register_taxonomy( 'course', 'post' ); } );\n`
 				);
-				const after = await adminCapabilities.read( site.path );
-				const { reports } = await adminCapabilities.check( site, before, after );
+				const after = await adminCapabilities.read( site.path, undefined, host );
+				const { reports } = await adminCapabilities.check( site, before, after, host );
 				expect( reportOf( reports, 'registered' ) ).toEqual( {
 					key: 'registered',
 					summary: expect.stringMatching(
@@ -194,7 +187,7 @@ add_action( 'wp_abilities_api_init', function () {
 			} );
 
 			it( 'names at most twelve of a registry, and every registry it adds to', async () => {
-				const before = await adminCapabilities.read( site.path );
+				const before = await adminCapabilities.read( site.path, undefined, host );
 				await activate(
 					READING_LIST.replace(
 						"'execute_callback' => '__return_empty_array', 'permission_callback' => '__return_true' ) );",
@@ -204,8 +197,8 @@ add_action( 'wp_abilities_api_init', function () {
 						`register_post_type( 'book', array( 'public' => true, 'show_in_rest' => true ) ); register_taxonomy( 'genre', 'book' ); register_block_type( 'bookclub/shelf', array( 'render_callback' => '__return_empty_string' ) ); foreach ( range( 1, 14 ) as $i ) { add_shortcode( "book$i", '__return_empty_string' ); }`
 					)
 				);
-				const after = await adminCapabilities.read( site.path );
-				const { reports } = await adminCapabilities.check( site, before, after );
+				const after = await adminCapabilities.read( site.path, undefined, host );
+				const { reports } = await adminCapabilities.check( site, before, after, host );
 				expect( reportOf( reports, 'registered' ) ).toEqual( {
 					key: 'registered',
 					summary:
@@ -214,7 +207,8 @@ add_action( 'wp_abilities_api_init', function () {
 			} );
 
 			it( 'states what the site’s code registers, read again when the code changes', async () => {
-				const fact = () => readWordPressSite( site.path, siteCodeFact );
+				const fact = () =>
+					readWordPressSite( site.path, ( wordpress ) => siteCodeFact( wordpress, host ) );
 				await activate( plugin( '' ) );
 				expect( await fact() ).toBeUndefined();
 				await activate(
@@ -269,7 +263,7 @@ add_action( 'wp_enqueue_scripts', function () { ${ styles.join( ' ' ) } } );
 						"<?php\n/**\n * Plugin Name: Other fonts\n */\nadd_action( 'wp_enqueue_scripts', function () { wp_enqueue_style( 'other-fonts', 'https://fonts.googleapis.com/css2?family=Fraunces&display=swap', array(), null ); } );\n"
 					);
 					await activate( enqueue( [] ), [ 'other-fonts.php' ] );
-					const before = await adminCapabilities.read( site.path );
+					const before = await adminCapabilities.read( site.path, undefined, host );
 					await activate(
 						enqueue( [
 							"wp_enqueue_style( 'reading-fonts', '//fonts.googleapis.com/css2?family=Fraunces&display=swap', array(), null );",
@@ -281,7 +275,8 @@ add_action( 'wp_enqueue_scripts', function () { ${ styles.join( ' ' ) } } );
 					const { reports } = await adminCapabilities.check(
 						site,
 						before,
-						await adminCapabilities.read( site.path )
+						await adminCapabilities.read( site.path, undefined, host ),
+						host
 					);
 					expect( reportOf( reports, 'remote fonts' ) ).toEqual( {
 						key: 'remote fonts',
@@ -290,7 +285,7 @@ add_action( 'wp_enqueue_scripts', function () { ${ styles.join( ' ' ) } } );
 						),
 					} );
 					// Code that loads its fonts from the site states nothing.
-					const after = await adminCapabilities.read( site.path );
+					const after = await adminCapabilities.read( site.path, undefined, host );
 					await activate(
 						enqueue( [
 							"wp_enqueue_style( 'reading-grid', 'https://cdn.example.com/grid.css', array(), null );",
@@ -299,7 +294,8 @@ add_action( 'wp_enqueue_scripts', function () { ${ styles.join( ' ' ) } } );
 					const again = await adminCapabilities.check(
 						site,
 						after,
-						await adminCapabilities.read( site.path )
+						await adminCapabilities.read( site.path, undefined, host ),
+						host
 					);
 					expect( reportOf( again.reports, 'remote fonts' ) ).toBeUndefined();
 				} finally {
@@ -309,19 +305,19 @@ add_action( 'wp_enqueue_scripts', function () { ${ styles.join( ' ' ) } } );
 
 			it( 'states nothing when a plugin is only deactivated', async () => {
 				await activate( READING_LIST, [ 'hello.php' ] );
-				const before = await adminCapabilities.read( site.path );
+				const before = await adminCapabilities.read( site.path, undefined, host );
 				await setActive( [ 'reading-list/reading-list.php' ] );
-				const after = await adminCapabilities.read( site.path );
-				const { reports } = await adminCapabilities.check( site, before, after );
+				const after = await adminCapabilities.read( site.path, undefined, host );
+				const { reports } = await adminCapabilities.check( site, before, after, host );
 				expect( reports ).toEqual( [ { key: 'administrator capabilities', problem: undefined } ] );
 			} );
 		} );
 
 		it( 'asks WordPress only when the active code changed', async () => {
 			await activate( plugin( '' ) );
-			const versions = await adminCapabilities.read( site.path );
+			const versions = await adminCapabilities.read( site.path, undefined, host );
 			vi.mocked( runWpCliCommand ).mockClear();
-			expect( await adminCapabilities.check( site, versions, versions ) ).toEqual( {
+			expect( await adminCapabilities.check( site, versions, versions, host ) ).toEqual( {
 				reports: [],
 			} );
 			// A theme the site does not use is not its code.
@@ -329,13 +325,13 @@ add_action( 'wp_enqueue_scripts', function () { ${ styles.join( ' ' ) } } );
 				path.join( site.path, 'wp-content/themes/twentytwentythree/functions.php' ),
 				'<?php'
 			);
-			expect( await adminCapabilities.read( site.path ) ).toEqual( versions );
+			expect( await adminCapabilities.read( site.path, undefined, host ) ).toEqual( versions );
 			// The active plugin's own file is.
 			writeFileSync(
 				path.join( site.path, 'wp-content/plugins/reading-list/reading-list.php' ),
 				plugin( '// edited' )
 			);
-			expect( await adminCapabilities.read( site.path ) ).not.toEqual( versions );
+			expect( await adminCapabilities.read( site.path, undefined, host ) ).not.toEqual( versions );
 			expect( runWpCliCommand ).not.toHaveBeenCalled();
 		}, 120000 );
 	}

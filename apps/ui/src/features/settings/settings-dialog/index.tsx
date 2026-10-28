@@ -1,4 +1,4 @@
-import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
+import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
 import { useNavigate, useParams, useRouter, useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';

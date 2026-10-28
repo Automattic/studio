@@ -12,8 +12,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
-import type { Host } from 'cli/ai/hosts';
-import type { Logger } from 'cli/logger';
+import { Logger } from 'cli/logger';
+import type { HostSite, ProgressCallback, RemoteHost } from '@studio/agent/node';
 
 interface PublishedSpace {
 	id: string;
@@ -54,13 +54,16 @@ function listed( space: PublishedSpace | undefined ) {
 		: { id: NEW_SPACE, name: 'A new Spacefast space', url: 'https://space.fast' };
 }
 
-async function push( sitePath: string, target: string, logger: Logger< string > ) {
-	const [ { runCommand: startSite }, { getSiteByFolder, getSiteUrl }, { captureLocalSite } ] =
-		await Promise.all( [
-			import( 'cli/commands/site/start' ),
-			import( 'cli/lib/cli-config/sites' ),
-			import( 'cli/lib/data-liberation-client' ),
-		] );
+async function push(
+	site: HostSite,
+	target: string,
+	onProgress: ProgressCallback
+): Promise< string > {
+	const [ { runCommand: startSite }, { captureLocalSite } ] = await Promise.all( [
+		import( 'cli/commands/site/start' ),
+		import( 'cli/lib/data-liberation-client' ),
+	] );
+	const sitePath = site.path;
 	const known = spaceOf( sitePath );
 	if ( target !== NEW_SPACE && target !== known?.id && target !== known?.liveUrl ) {
 		throw new Error(
@@ -71,12 +74,12 @@ async function push( sitePath: string, target: string, logger: Logger< string > 
 	}
 	const space = target === NEW_SPACE ? undefined : known;
 
-	await startSite( sitePath, true, true, logger );
-	const siteUrl = getSiteUrl( await getSiteByFolder( sitePath ) );
+	await startSite( sitePath, true, true, new Logger( { onProgress } ) );
+	const siteUrl = site.url;
 	const outputBase = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-spacefast-' ) );
 	try {
 		const copy = await captureLocalSite( siteUrl, outputBase, ( message ) =>
-			logger.reportProgress( message )
+			onProgress( message )
 		);
 		const token = process.env.SPACEFAST_TOKEN || space?.claim?.key;
 		const published = await copy.publish( { target: 'spacefast', token, space: space?.id } );
@@ -89,25 +92,23 @@ async function push( sitePath: string, target: string, logger: Logger< string > 
 			...( claim ? { claim } : {} ),
 		} );
 		// The receipt is the push's output, for the agent and for /publish.
-		console.log(
-			[
-				`Published a static copy of ${ siteUrl } to ${ published.liveUrl }`,
-				...( published.private
-					? [
-							claim
-								? `The space is private until it is claimed: ${ claim.url }`
-								: 'The space is private until access is granted.',
-					  ]
-					: [] ),
-				...published.notes,
-			].join( '\n' )
-		);
+		return [
+			`Published a static copy of ${ siteUrl } to ${ published.liveUrl }`,
+			...( published.private
+				? [
+						claim
+							? `The space is private until it is claimed: ${ claim.url }`
+							: 'The space is private until access is granted.',
+				  ]
+				: [] ),
+			...published.notes,
+		].join( '\n' );
 	} finally {
 		fs.rmSync( outputBase, { recursive: true, force: true } );
 	}
 }
 
-export const spacefast: Host = {
+export const spacefast: RemoteHost = {
 	name: 'Spacefast',
 	environment:
 		'A Spacefast space holds a static copy of a local site: its pages, styles and media as files, with no WordPress behind them.',
@@ -135,5 +136,5 @@ export const spacefast: Host = {
 	async mcpServer() {
 		return undefined;
 	},
-	push: ( sitePath, target, _options, logger ) => push( sitePath, target, logger ),
+	push: ( site, target, _options, onProgress ) => push( site, target, onProgress ),
 };

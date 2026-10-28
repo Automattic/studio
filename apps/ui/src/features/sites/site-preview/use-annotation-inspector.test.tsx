@@ -1,4 +1,4 @@
-import { INSPECTOR_PAGE_SCRIPT } from '@studio/common/ai/inspector/page-script';
+import { INSPECTOR_PAGE_SCRIPT } from '@studio/agent/protocol/inspector/page-script';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SessionUIProvider } from '@/data/use-session-ui';

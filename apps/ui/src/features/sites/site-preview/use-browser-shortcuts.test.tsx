@@ -3,7 +3,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { SettingsDialog } from '@/features/settings';
 import { renderWithProviders } from '@/test/render';
 import { useBrowserShortcuts } from './use-browser-shortcuts';
-import type { BrowserShortcutCommand } from '@studio/common/ai/inspector/page-script';
+import type { BrowserShortcutCommand } from '@studio/agent/protocol/inspector/page-script';
 
 function Navigation( { onCommand }: { onCommand: ( command: BrowserShortcutCommand ) => void } ) {
 	const shortcuts = useBrowserShortcuts( true, onCommand );

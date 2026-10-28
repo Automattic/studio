@@ -3,7 +3,7 @@ import {
 	INSPECTOR_PAGE_SCRIPT,
 	parseInspectorMessage,
 	type InspectorEvent,
-} from '@studio/common/ai/inspector/page-script';
+} from '@studio/agent/protocol/inspector/page-script';
 import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useColorScheme } from '@/data/host/use-color-scheme';
@@ -52,7 +52,7 @@ interface WebviewSurfaceProps {
  * Renders the site preview as an Electron `<webview>` tag.
  *
  * The annotation inspector is injected into the guest page via
- * `executeJavaScript()` after each load (see `@studio/common/ai/inspector/page-script`).
+ * `executeJavaScript()` after each load (see `@studio/agent/protocol/inspector/page-script`).
  */
 export function WebviewSurface( {
 	url,

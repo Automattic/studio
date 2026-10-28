@@ -1,4 +1,4 @@
-import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
+import { aiSessionBelongsToSite } from '@studio/agent/protocol/sessions/owner-site';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { displayShortcut, isAppleOS } from '@wordpress/keycodes';

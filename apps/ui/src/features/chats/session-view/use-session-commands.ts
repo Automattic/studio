@@ -1,7 +1,7 @@
 import {
 	DESIGN_SYSTEM_PREVIEW_PATH,
 	isStudioChatArtifactData,
-} from '@studio/common/ai/chat-artifacts';
+} from '@studio/agent/protocol/chat-artifacts';
 import { useEffect } from 'react';
 import { useConnector } from '@/data/core';
 import { useSessionUIDispatch } from '@/data/use-session-ui';

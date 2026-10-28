@@ -1,5 +1,5 @@
-import { getAiModelFamily } from '@studio/common/ai/models';
-import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
+import { getAiModelFamily } from '@studio/agent/protocol/models';
+import { isStudioCustomEntryOfType } from '@studio/agent/protocol/sessions/entry-types';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 import { useConnector } from '@/data/core';
@@ -12,7 +12,7 @@ import {
 import { saveComposerDraft } from '@/features/composer/draft-store';
 import type { AiModelId, LoadedAiSession, SessionEntry } from '@/data/core';
 import type { ComposerAttachment } from '@/data/use-composer-attachments';
-import type { AiProviderId } from '@studio/common/ai/providers';
+import type { AiProviderId } from '@studio/agent/protocol/providers';
 
 // Optimistic mirror of the `studio.session_context` entry the backend appends
 // for a provider switch, so the picker updates before the write lands.

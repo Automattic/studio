@@ -1,9 +1,10 @@
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
+import { themeJsonFileRead } from '@studio/agent/node/theme-json-files';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { themeJsonFileRead } from 'cli/ai/theme-json-files';
-import type { SiteData } from 'cli/lib/cli-config/core';
+import { liveHost, liveSite } from 'cli/ai/tests/live-host';
+import type { HostSite, StudioAgentHost } from '@studio/agent/node';
 
 // A real WordPress install to read theme JSON files with, when one is given.
 const WORDPRESS = process.env.STUDIO_TEST_WORDPRESS;
@@ -16,12 +17,14 @@ const dark = {
 };
 
 describe.runIf( WORDPRESS )( 'what WordPress keeps of a theme JSON file', () => {
-	let site: SiteData;
+	let site: HostSite;
+	let host: StudioAgentHost;
 	beforeAll( () => {
 		const root = mkdtempSync( path.join( os.tmpdir(), 'theme-json-files-' ) );
 		cpSync( WORDPRESS!, root, { recursive: true } );
 		mkdirSync( path.join( root, 'wp-content/themes/lumen/styles' ), { recursive: true } );
-		site = { id: 'site', name: 'Lumen', path: root } as SiteData;
+		site = liveSite( root, 'Lumen' );
+		host = liveHost( site );
 	} );
 	afterAll( () => rmSync( site.path, { recursive: true, force: true } ) );
 
@@ -71,7 +74,7 @@ describe.runIf( WORDPRESS )( 'what WordPress keeps of a theme JSON file', () => 
 		const relativePath = 'wp-content/themes/lumen/styles/dark.json';
 		const file = path.join( site.path, relativePath );
 		writeFileSync( file, json );
-		const result = ( await themeJsonFileRead( site, file, relativePath ) ).join( '\n' );
+		const result = ( await themeJsonFileRead( host, site, file, relativePath ) ).join( '\n' );
 		if ( note ) {
 			expect( result ).toContain( note );
 		} else {
@@ -83,12 +86,12 @@ describe.runIf( WORDPRESS )( 'what WordPress keeps of a theme JSON file', () => 
 		const relativePath = 'wp-content/themes/twentytwentyfive/styles/midnight.json';
 		const file = path.join( site.path, relativePath );
 		writeFileSync( file, JSON.stringify( { version: 3, ...dark, title: 'Lumen Night' } ) );
-		expect( await themeJsonFileRead( site, file, relativePath ) ).toEqual( [
+		expect( await themeJsonFileRead( host, site, file, relativePath ) ).toEqual( [
 			"WordPress lists \"Lumen Night\" among Twenty Twenty-Five's style variations (WP_Theme_JSON_Resolver::get_style_variations() in wp-includes/class-wp-theme-json-resolver.php): palette base #111111; background var(--wp--preset--color--base). The user switches to it in the Site Editor's Styles, which saves it as the site's Global Styles.",
 		] );
 		// Untitled, WordPress titles it by its file name.
 		writeFileSync( file, JSON.stringify( { version: 3, settings: dark.settings } ) );
-		expect( ( await themeJsonFileRead( site, file, relativePath ) )[ 0 ] ).toContain(
+		expect( ( await themeJsonFileRead( host, site, file, relativePath ) )[ 0 ] ).toContain(
 			'WordPress lists "midnight" among'
 		);
 		// A section style, for blocks, is not a variation of the site's look.
@@ -96,6 +99,6 @@ describe.runIf( WORDPRESS )( 'what WordPress keeps of a theme JSON file', () => 
 			file,
 			JSON.stringify( { version: 3, ...dark, title: 'Lumen Night', blockTypes: [ 'core/group' ] } )
 		);
-		expect( await themeJsonFileRead( site, file, relativePath ) ).toEqual( [] );
+		expect( await themeJsonFileRead( host, site, file, relativePath ) ).toEqual( [] );
 	}, 60000 );
 } );

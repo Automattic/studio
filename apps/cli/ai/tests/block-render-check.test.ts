@@ -9,15 +9,11 @@ import {
 } from 'fs';
 import os from 'os';
 import path from 'path';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { emptyBlocks, renderedBlocks } from 'cli/ai/block-render-check';
-import { runWpCli } from 'cli/ai/tools/utils';
-import type { SiteData } from 'cli/lib/cli-config/core';
-
-vi.mock( 'cli/lib/daemon-client', () => ( {
-	connectToDaemon: vi.fn(),
-	disconnectFromDaemon: vi.fn(),
-} ) );
+import { emptyBlocks, renderedBlocks } from '@studio/agent/node/block-render-check';
+import { runWpCli } from '@studio/agent/node/tools/utils';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { liveHost, liveSite } from 'cli/ai/tests/live-host';
+import type { HostSite, StudioAgentHost } from '@studio/agent/node';
 
 // A real WordPress install to render content with, when one is given.
 const WORDPRESS = process.env.STUDIO_TEST_WORDPRESS;
@@ -45,11 +41,12 @@ const returns = {
 };
 
 describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
-	let site: SiteData;
+	let site: HostSite;
+	let host: StudioAgentHost;
 	const create = async ( content: string ) =>
 		Number(
 			(
-				await runWpCli( site, [
+				await runWpCli( host, site, [
 					'post',
 					'create',
 					'--post_type=page',
@@ -69,7 +66,8 @@ describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
 		for ( const [ name, text ] of Object.entries( returns ) ) {
 			writeFileSync( path.join( root, 'wp-content/mu-plugins/returns', name ), text );
 		}
-		site = { id: 'site', name: 'Seaside Gallery', path: root } as SiteData;
+		site = liveSite( root, 'Seaside Gallery' );
+		host = liveHost( site );
 	} );
 	afterAll( () => rmSync( site.path, { recursive: true, force: true } ) );
 
@@ -116,7 +114,7 @@ describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
 		},
 	] )( '$name', async ( { content, empty } ) => {
 		const id = await create( content );
-		expect( ( await emptyBlocks( site, [ id ] ) )[ id ] ).toEqual( empty );
+		expect( ( await emptyBlocks( host, site, [ id ] ) )[ id ] ).toEqual( empty );
 	} );
 
 	it( 'names the render file of a block whose block.json render prints nothing', async () => {
@@ -124,7 +122,8 @@ describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
 		const { reports } = await renderedBlocks.check(
 			site,
 			{ [ id ]: 'before' },
-			{ [ id ]: 'written' }
+			{ [ id ]: 'written' },
+			host
 		);
 		expect( reports[ 0 ].problem ).toBe(
 			`Seaside Gallery page ${ id } "Gallery": WordPress renders these blocks as nothing on the front end (render_block() through the_content, in wp-includes/blocks.php): studio-test/returns, whose output is what ${ realpathSync(
@@ -136,7 +135,7 @@ describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
 	it( 'leaves content the front end renders only inside another, as a pattern is', async () => {
 		const id = Number(
 			(
-				await runWpCli( site, [
+				await runWpCli( host, site, [
 					'post',
 					'create',
 					'--post_type=wp_block',
@@ -148,7 +147,8 @@ describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
 			).trim()
 		);
 		expect(
-			( await renderedBlocks.check( site, { [ id ]: 'before' }, { [ id ]: 'written' } ) ).reports
+			( await renderedBlocks.check( site, { [ id ]: 'before' }, { [ id ]: 'written' }, host ) )
+				.reports
 		).toEqual( [] );
 	} );
 
@@ -160,10 +160,10 @@ describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
 			'Seaside Gallery front page: of the blocks in the changed templates, template parts and patterns, WordPress renders studio-test/cart as nothing for a visitor who is not logged in (render_block() through get_the_block_template_html(), in wp-includes/block-template.php).';
 		// A theme file as a call writes it, and what the next call is told.
 		const write = async ( file: string, markup: string ) => {
-			const before = await renderedBlocks.read( site.path );
+			const before = await renderedBlocks.read( site.path, undefined, host );
 			writeFileSync( theme( file ), markup );
-			const after = await renderedBlocks.read( site.path );
-			return ( await renderedBlocks.check( site, before, after ) ).reports;
+			const after = await renderedBlocks.read( site.path, undefined, host );
+			return ( await renderedBlocks.check( site, before, after, host ) ).reports;
 		};
 		const released: Record< string, string > = {};
 		beforeAll( () => {
@@ -185,21 +185,21 @@ describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
 		} );
 
 		it( 'states the blocks of a template part saved in the Site Editor', async () => {
-			const before = await renderedBlocks.read( site.path );
+			const before = await renderedBlocks.read( site.path, undefined, host );
 			// As the Site Editor saves a part: a wp_template_part post of the theme and area.
-			const id = await runWpCli( site, [
+			const id = await runWpCli( host, site, [
 				'eval',
 				`$id = wp_insert_post( array( 'post_type' => 'wp_template_part', 'post_name' => 'header', 'post_status' => 'publish', 'post_title' => 'Header', 'post_content' => ${ JSON.stringify(
 					released[ 'parts/header.html' ] + cart
 				) } ) ); wp_set_object_terms( $id, get_stylesheet(), 'wp_theme' ); wp_set_object_terms( $id, 'header', 'wp_template_part_area' ); echo $id;`,
 			] );
 			try {
-				const after = await renderedBlocks.read( site.path );
-				expect( ( await renderedBlocks.check( site, before, after ) ).reports ).toEqual( [
+				const after = await renderedBlocks.read( site.path, undefined, host );
+				expect( ( await renderedBlocks.check( site, before, after, host ) ).reports ).toEqual( [
 					{ key: 'front page rendered', summary: stated },
 				] );
 			} finally {
-				await runWpCli( site, [ 'post', 'delete', id.trim(), '--force' ] );
+				await runWpCli( host, site, [ 'post', 'delete', id.trim(), '--force' ] );
 			}
 		} );
 
@@ -230,10 +230,10 @@ describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
 		describe( 'with a page as the front page', () => {
 			beforeAll( async () => {
 				const page = await create( image );
-				await runWpCli( site, [ 'option', 'update', 'show_on_front', 'page' ] );
-				await runWpCli( site, [ 'option', 'update', 'page_on_front', String( page ) ] );
+				await runWpCli( host, site, [ 'option', 'update', 'show_on_front', 'page' ] );
+				await runWpCli( host, site, [ 'option', 'update', 'page_on_front', String( page ) ] );
 			} );
-			afterAll( () => runWpCli( site, [ 'option', 'update', 'show_on_front', 'posts' ] ) );
+			afterAll( () => runWpCli( host, site, [ 'option', 'update', 'show_on_front', 'posts' ] ) );
 
 			it( "leaves the page's content, which the posts are checked for", async () => {
 				expect(
@@ -252,7 +252,7 @@ describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
 	it( 'raises the problem on the post that renders nothing, until it renders', async () => {
 		const id = await create( image );
 		const reports = ( versions: Record< string, string > ) =>
-			renderedBlocks.check( site, { [ id ]: 'before' }, versions ).then( ( r ) => r.reports );
+			renderedBlocks.check( site, { [ id ]: 'before' }, versions, host ).then( ( r ) => r.reports );
 		expect( await reports( { [ id ]: 'written' } ) ).toEqual( [
 			{
 				key: `rendered ${ id }`,
@@ -264,7 +264,12 @@ describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
 		expect( ( await reports( { [ id ]: 'written' } ) )[ 0 ].problem ).toMatch(
 			/ The block editor writes a block's saved HTML from its attributes when it inserts it\.$/
 		);
-		await runWpCli( site, [ 'post', 'update', String( id ), `--post_content=${ savedImage }` ] );
+		await runWpCli( host, site, [
+			'post',
+			'update',
+			String( id ),
+			`--post_content=${ savedImage }`,
+		] );
 		expect( await reports( { [ id ]: 'fixed' } ) ).toEqual( [
 			{ key: `rendered ${ id }`, problem: undefined },
 		] );

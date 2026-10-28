@@ -1,27 +1,23 @@
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
+import { readWordPressSite } from '@studio/agent/node/site-database';
+import { resolveSiteFile } from '@studio/agent/node/site-file-guards';
+import { createSite } from '@studio/agent/node/tests/fixtures/wordpress-site';
+import { keepThemePresets, themePresets, themePresetsFact } from '@studio/agent/node/theme-presets';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { readWordPressSite } from 'cli/ai/site-database';
-import { resolveSiteFile } from 'cli/ai/site-file-guards';
-import { createSite } from 'cli/ai/tests/fixtures/wordpress-site';
-import { keepThemePresets, themePresets, themePresetsFact } from 'cli/ai/theme-presets';
+import { liveHost } from 'cli/ai/tests/live-host';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 
-vi.mock( 'cli/lib/daemon-client', () => ( {
-	connectToDaemon: vi.fn(),
-	disconnectFromDaemon: vi.fn(),
-} ) );
-vi.mock( 'cli/ai/tools/utils', () => ( {
-	resolveSite: async ( root: string ) => ( { id: 'site', name: 'Site', path: root } ),
-} ) );
 vi.mock( 'cli/lib/run-wp-cli-command', async ( importOriginal ) => ( {
 	runWpCliCommand: vi.fn(
 		( await importOriginal< typeof import('cli/lib/run-wp-cli-command') >() ).runWpCliCommand
 	),
 } ) );
 
-const presetsOf = ( root: string ) => readWordPressSite( root, themePresetsFact );
+const host = liveHost();
+const presetsOf = ( root: string ) =>
+	readWordPressSite( root, ( site ) => themePresetsFact( site, host ) );
 
 // A real WordPress install to resolve presets with, when one is given.
 const WORDPRESS = process.env.STUDIO_TEST_WORDPRESS;
@@ -119,13 +115,15 @@ describe( 'the theme presets fact', () => {
 
 	it( 'keeps the presets of a theme previewed apart from those of the active one', async () => {
 		const previewed = () =>
-			readWordPressSite( fixture.root, ( site ) => themePresets( site, 'twentytwentyfive' ) );
+			readWordPressSite( fixture.root, ( site ) => themePresets( host, site, 'twentytwentyfive' ) );
 		await presetsOf( fixture.root );
 		await previewed();
 		await presetsOf( fixture.root );
 		await previewed();
 		// The active child theme's parent is the active presets'.
-		await readWordPressSite( fixture.root, ( site ) => themePresets( site, 'bakery-parent' ) );
+		await readWordPressSite( fixture.root, ( site ) =>
+			themePresets( host, site, 'bakery-parent' )
+		);
 		expect( runWpCliCommand ).toHaveBeenCalledTimes( 2 );
 	} );
 
@@ -136,7 +134,7 @@ describe( 'the theme presets fact', () => {
 			'/*\nTheme Name: Bakery\nTemplate: bakery-parent\n*/'
 		);
 		const previewed = () =>
-			readWordPressSite( fixture.root, ( site ) => themePresets( site, 'bakery' ) );
+			readWordPressSite( fixture.root, ( site ) => themePresets( host, site, 'bakery' ) );
 		await previewed();
 		writeFileSync(
 			path.join( fixture.root, 'wp-content/themes/bakery-parent/theme.json' ),
@@ -312,7 +310,7 @@ describe.runIf( WORDPRESS )( 'keepThemePresets', () => {
 	it( "turns off core's defaults whose slugs the theme's presets take, as Twenty Twenty-Five does", async () => {
 		const file = themeJson( 'shadowed', settings );
 		await activate( 'shadowed' );
-		const notes = await keepThemePresets( file );
+		const notes = await keepThemePresets( host, file );
 		const at = path.join( root, 'wp-content/themes/shadowed/theme.json' );
 		expect( notes ).toHaveLength( 2 );
 		expect( notes ).toContain(
@@ -325,9 +323,9 @@ describe.runIf( WORDPRESS )( 'keepThemePresets', () => {
 		} );
 		// WordPress renders the theme's presets now, and Studio says nothing more.
 		expect(
-			( await readWordPressSite( root, ( site ) => themePresets( site ) ) )?.shadowed
+			( await readWordPressSite( root, ( site ) => themePresets( host, site ) ) )?.shadowed
 		).toEqual( [] );
-		expect( await keepThemePresets( file ) ).toEqual( [] );
+		expect( await keepThemePresets( host, file ) ).toEqual( [] );
 	}, 120000 );
 
 	it( 'keeps a default the site names, and says what WordPress does', async () => {
@@ -338,7 +336,7 @@ describe.runIf( WORDPRESS )( 'keepThemePresets', () => {
 			path.join( root, 'wp-content/themes/shadowed/style.css' ),
 			'/*\nTheme Name: shadowed\n*/\nh1 { font-size: var(--wp--preset--font-size--x-large); }'
 		);
-		const notes = await keepThemePresets( file );
+		const notes = await keepThemePresets( host, file );
 		expect( notes ).toHaveLength( 2 );
 		// And as a block's style attribute names it.
 		themeJson( 'shadowed', settings );
@@ -346,7 +344,9 @@ describe.runIf( WORDPRESS )( 'keepThemePresets', () => {
 			path.join( root, 'wp-content/themes/shadowed/templates/index.html' ),
 			'<!-- wp:heading {"style":{"typography":{"fontSize":"var:preset|font-size|x-large"}}} -->'
 		);
-		expect( ( await keepThemePresets( file ) ).join( '\n' ) ).toContain( "names core's x-large" );
+		expect( ( await keepThemePresets( host, file ) ).join( '\n' ) ).toContain(
+			"names core's x-large"
+		);
 		expect( notes ).toContainEqual(
 			expect.stringMatching(
 				/^WordPress replaces .*settings\.typography\.fontSizes small with core's default .* where the theme or content names core's x-large; renaming/
@@ -365,14 +365,14 @@ describe.runIf( WORDPRESS )( 'keepThemePresets', () => {
 		const active = themeJson( 'active', small );
 		await activate( 'active' );
 		expect(
-			await keepThemePresets( { ...active, theme: { ...active.theme!, file: 'style.css' } } )
+			await keepThemePresets( host, { ...active, theme: { ...active.theme!, file: 'style.css' } } )
 		).toEqual( [] );
 		// As the Site Editor previews a theme, with its own theme.json, not the active one's.
-		const [ inactive, ...rest ] = await keepThemePresets( themeJson( 'inactive', small ) );
+		const [ inactive, ...rest ] = await keepThemePresets( host, themeJson( 'inactive', small ) );
 		expect( rest ).toEqual( [] );
 		expect( inactive ).toContain( 'wp-content/themes/inactive/theme.json' );
 		expect( settingsOf( 'inactive' ).typography.defaultFontSizes ).toBe( false );
 		expect( settingsOf( 'active' ).typography.defaultFontSizes ).toBeUndefined();
-		expect( await keepThemePresets( themeJson( 'inactive', {} ) ) ).toEqual( [] );
+		expect( await keepThemePresets( host, themeJson( 'inactive', {} ) ) ).toEqual( [] );
 	}, 120000 );
 } );

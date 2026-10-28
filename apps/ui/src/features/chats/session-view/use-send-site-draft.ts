@@ -8,7 +8,7 @@ import { primeSessionQueryData, SESSIONS_QUERY_KEY } from '@/data/queries/use-se
 import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
 import type { SendMessageOptions } from '@/data/agent-runs/store';
 import type { AiModelId, LoadedAiSession } from '@/data/core';
-import type { AiProviderId } from '@studio/common/ai/providers';
+import type { AiProviderId } from '@studio/agent/protocol/providers';
 
 export function useSendSiteDraft( siteId: string | undefined ) {
 	const connector = useConnector();

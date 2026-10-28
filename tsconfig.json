@@ -8,7 +8,9 @@
 			"cli/*": [ "./apps/cli/*" ],
 			"src/*": [ "./apps/studio/src/*" ],
 			"vendor/*": [ "./vendor/*" ],
-			"@studio/common/*": [ "./packages/common/*" ]
+			"@studio/common/*": [ "./packages/common/*" ],
+			"@studio/agent/*": [ "./packages/agent/*" ],
+			"@studio/design-md": [ "./packages/design-md/index.ts" ]
 		}
 	},
 	"include": [
@@ -16,6 +18,8 @@
 		"./apps/studio/e2e/**/*",
 		"./apps/cli/**/*",
 		"./packages/common/**/*",
+		"./packages/agent/**/*",
+		"./packages/design-md/**/*",
 		"./vitest.global-setup.ts",
 		"./scripts/**/*"
 	],

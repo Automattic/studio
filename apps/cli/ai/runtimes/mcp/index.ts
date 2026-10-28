@@ -9,19 +9,27 @@ import {
 	ReadResourceRequestSchema,
 	// eslint-disable-next-line import-x/no-unresolved -- subpath resolved via package's wildcard export, which the lint resolver doesn't follow
 } from '@modelcontextprotocol/sdk/types.js';
+import {
+	bindTool,
+	buildSystemPrompt,
+	createAgent,
+	createSiteNotes,
+	defineTool,
+	isImageGenerationAvailable,
+	loadSkills,
+	READ_ONLY,
+	renderSkill,
+	SiteChanges,
+	textResult,
+	type StudioAgent,
+	type StudioAgentHost,
+	type StudioAgentTool,
+} from '@studio/agent/node';
 import { Type, type TSchema } from 'typebox';
 import { Value } from 'typebox/value';
-import { isImageGenerationAvailable } from 'cli/ai/image-generation';
+import { cliAgentHost } from 'cli/ai/host';
 import { createLibraryTools, libraryPage, MCP_APP_MIME_TYPE } from 'cli/ai/runtimes/mcp/library';
 import { runServedTool } from 'cli/ai/runtimes/mcp/served-tool';
-import { SiteChanges } from 'cli/ai/site-changes';
-import { createSiteNotes } from 'cli/ai/site-notes';
-import { loadSkills } from 'cli/ai/skills';
-import { buildSystemPrompt } from 'cli/ai/system-prompt';
-import { resolveStudioToolDefinitions } from 'cli/ai/tools';
-import { defineTool, READ_ONLY, type StudioAgentTool } from 'cli/ai/tools/define-tool';
-import { renderSkill } from 'cli/ai/tools/skill';
-import { textResult } from 'cli/ai/tools/utils';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 
 interface ClientSupport {
@@ -54,10 +62,15 @@ interface ServedTool {
 	listing?: Record< string, unknown >;
 }
 
-function createTools( client: ClientSupport, imageGeneration: boolean ): ServedTool[] {
+function createTools(
+	agent: StudioAgent,
+	host: StudioAgentHost,
+	client: ClientSupport,
+	imageGeneration: boolean
+): ServedTool[] {
 	const imageLink = ( file: string ) =>
 		client.fileImageLinks ? pathToFileURL( file ).href : file;
-	const definitions = resolveStudioToolDefinitions( {
+	const definitions = agent.tools( {
 		imageGeneration: imageGeneration && ! client.ownImageTool,
 		imageLink,
 	} );
@@ -86,8 +99,13 @@ function createTools( client: ClientSupport, imageGeneration: boolean ): ServedT
 	);
 	const library = client.apps ? libraryPage() : null;
 	return [
-		...[ instructionsTool, ...definitions ].map( ( tool ) => ( { tool } ) ),
-		...( library ? createLibraryTools( library.uri ) : [] ),
+		...[ bindTool( instructionsTool, host ), ...definitions ].map( ( tool ) => ( { tool } ) ),
+		...( library
+			? createLibraryTools( library.uri ).map( ( { tool, listing } ) => ( {
+					tool: bindTool( tool, host ),
+					listing,
+			  } ) )
+			: [] ),
 	] as ServedTool[];
 }
 
@@ -103,8 +121,10 @@ export async function startMcpStdioServer(): Promise< void > {
 	// Tells this process's events, and those of the processes it starts, apart
 	// from terminal use. The plugin's MCP config sets STUDIO_PLUGIN_ID.
 	process.env.STUDIO_TRACKS_ORIGIN = 'studio-mcp';
-	const siteNotes = createSiteNotes();
-	const siteChanges = new SiteChanges();
+	const host = cliAgentHost;
+	const agent = createAgent( { host } );
+	const siteNotes = createSiteNotes( host );
+	const siteChanges = new SiteChanges( host );
 	const imageGeneration = await isImageGenerationAvailable();
 	const server = new Server(
 		{ name: 'studio', version: '1.0.0' },
@@ -116,11 +136,11 @@ export async function startMcpStdioServer(): Promise< void > {
 	);
 	// The tools depend on what the client supports, known once it has connected.
 	let client = describeClient( server );
-	let tools = createTools( client, imageGeneration );
+	let tools = createTools( agent, host, client, imageGeneration );
 	server.oninitialized = () => {
 		client = describeClient( server );
 		process.env.STUDIO_MCP_CLIENT = server.getClientVersion()?.name ?? '';
-		tools = createTools( client, imageGeneration );
+		tools = createTools( agent, host, client, imageGeneration );
 		void recordTracksEvent( TRACKS_EVENTS.MCP_SESSION_START, {
 			...getTracksOrigin(),
 			mcp_apps: client.apps,
@@ -158,7 +178,7 @@ export async function startMcpStdioServer(): Promise< void > {
 				isError: true,
 			};
 		}
-		return runServedTool( tool, args, siteNotes, siteChanges );
+		return runServedTool( host, tool, args, siteNotes, siteChanges );
 	} );
 
 	// Only clients that render MCP Apps get the pages listed.

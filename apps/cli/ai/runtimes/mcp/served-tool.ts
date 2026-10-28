@@ -1,12 +1,17 @@
-import { NO_CHANGES, type SiteChanges, type SettledChanges } from 'cli/ai/site-changes';
-import { studioMessage } from 'cli/ai/studio-message';
-import { siteOfCall } from 'cli/ai/tools/utils';
-import type { SiteNotes } from 'cli/ai/site-notes';
-import type { AnyStudioAgentTool } from 'cli/ai/tools/define-tool';
-
+import {
+	NO_CHANGES,
+	siteOfCall,
+	studioMessage,
+	type AnyStudioAgentTool,
+	type SettledChanges,
+	type SiteChanges,
+	type SiteNotes,
+	type StudioAgentHost,
+} from '@studio/agent/node';
 // Runs a served tool for an MCP call. MCP wants `{content, isError}`; pi-native
 // handlers throw — translate.
 export async function runServedTool(
+	host: StudioAgentHost,
 	tool: AnyStudioAgentTool,
 	args: Record< string, unknown >,
 	siteNotes: SiteNotes,
@@ -38,7 +43,7 @@ export async function runServedTool(
 		const resultText = result.content
 			.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
 			.join( '\n' );
-		const site = await siteOfCall( tool, args );
+		const site = await siteOfCall( host, tool, args );
 		const notes = studioMessage( 'notes', [
 			...changed,
 			...( site ? await siteNotes.afterResult( site.path, resultText ) : [] ),

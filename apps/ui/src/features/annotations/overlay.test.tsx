@@ -11,7 +11,7 @@ import {
 	setAnnotating,
 	stageAnnotations,
 } from './store';
-import type { ComposerImageAttachment } from '@studio/common/ai/composer-attachments';
+import type { ComposerImageAttachment } from '@studio/agent/protocol/composer-attachments';
 
 const SITE = 'one';
 

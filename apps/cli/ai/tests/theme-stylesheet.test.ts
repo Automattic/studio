@@ -9,14 +9,10 @@ import {
 } from 'fs';
 import os from 'os';
 import path from 'path';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { holdsRules, themeStylesheet, withCode } from 'cli/ai/theme-stylesheet';
-import type { SiteData } from 'cli/lib/cli-config/core';
-
-vi.mock( 'cli/lib/daemon-client', () => ( {
-	connectToDaemon: vi.fn(),
-	disconnectFromDaemon: vi.fn(),
-} ) );
+import { holdsRules, themeStylesheet, withCode } from '@studio/agent/node/theme-stylesheet';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { liveHost, liveSite } from 'cli/ai/tests/live-host';
+import type { StudioAgentHost } from '@studio/agent/node';
 
 it.each( [
 	{ name: 'a header only', css: '/*\nTheme Name: Bakery\n*/\n', rules: false },
@@ -52,11 +48,13 @@ const WORDPRESS = process.env.STUDIO_TEST_WORDPRESS;
 describe.runIf( WORDPRESS )( 'the theme stylesheet, loaded by WordPress', () => {
 	let root: string;
 	const themes = () => path.join( root, 'wp-content', 'themes' );
-	const site = () => ( { id: 'site', name: 'Site', path: root } ) as SiteData;
+	const site = () => liveSite( root, 'Site' );
+	let host: StudioAgentHost;
 
 	beforeEach( () => {
 		root = mkdtempSync( path.join( os.tmpdir(), 'theme-stylesheet-' ) );
 		cpSync( WORDPRESS!, root, { recursive: true } );
+		host = liveHost( site() );
 	} );
 	afterEach( () => rmSync( root, { recursive: true, force: true } ) );
 
@@ -78,9 +76,14 @@ describe.runIf( WORDPRESS )( 'the theme stylesheet, loaded by WordPress', () => 
 	};
 	// What the source reports when `change` makes a theme active.
 	const settle = async ( change: () => Promise< void > ) => {
-		const before = await themeStylesheet.read( root );
+		const before = await themeStylesheet.read( root, undefined, host );
 		await change();
-		return themeStylesheet.check( site(), before, await themeStylesheet.read( root ) );
+		return themeStylesheet.check(
+			site(),
+			before,
+			await themeStylesheet.read( root, undefined, host ),
+			host
+		);
 	};
 	const RULES = '/*\nTheme Name: Probe\n*/\nbody { margin: 0 }\n';
 
@@ -94,7 +97,7 @@ describe.runIf( WORDPRESS )( 'the theme stylesheet, loaded by WordPress', () => 
 		expect( functions ).toContain( "get_parent_theme_file_uri( 'style.css' )" );
 		expect( functions ).toContain( "add_editor_style( 'style.css' )" );
 		// Studio's own change is the version compared next.
-		expect( next ).toEqual( await themeStylesheet.read( root ) );
+		expect( next ).toEqual( await themeStylesheet.read( root, undefined, host ) );
 	} );
 
 	it( 'adds only what a child theme lacks, with get_stylesheet_uri()', async () => {

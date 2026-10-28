@@ -1,11 +1,11 @@
 import {
 	MAX_VISUAL_ANNOTATIONS,
 	validateStudioVisualAnnotations,
-} from '@studio/common/ai/visual-annotations';
+} from '@studio/agent/protocol/visual-annotations';
 import { describe, expect, it } from 'vitest';
 import { annotationSubmission } from './submission';
 import type { PreviewAnnotation } from './store';
-import type { ComposerImageAttachment } from '@studio/common/ai/composer-attachments';
+import type { ComposerImageAttachment } from '@studio/agent/protocol/composer-attachments';
 
 const image = ( id: string ): ComposerImageAttachment => ( {
 	id,

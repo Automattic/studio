@@ -1,27 +1,20 @@
 import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'fs';
 import path from 'path';
+import { bindTool } from '@studio/agent/node/tools/define-tool';
+import { generateImagesTool } from '@studio/agent/node/tools/generate-images';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { generateImagesTool } from 'cli/ai/tools/generate-images';
+import { liveHost, liveSite } from 'cli/ai/tests/live-host';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
-import type { SiteData } from 'cli/lib/cli-config/core';
 
 // A real WordPress install to save the images with, when one is given.
 const WORDPRESS = process.env.STUDIO_TEST_WORDPRESS;
-const site = { id: 'formats', name: 'Formats' } as SiteData;
-
-vi.mock( 'cli/lib/daemon-client', () => ( {
-	connectToDaemon: vi.fn(),
-	disconnectFromDaemon: vi.fn(),
-} ) );
-vi.mock( 'cli/lib/cli-config/core', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('cli/lib/cli-config/core') >() ),
-	readCliConfig: async () => ( { sites: [ site ] } ),
-} ) );
+const site = liveSite( '', 'Formats', 'formats' );
+const tool = bindTool( generateImagesTool, liveHost( site ) );
 // The image model's PNG, truecolor as it delivers: one core ships.
-vi.mock( 'cli/ai/image-generation', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('cli/ai/image-generation') >() ),
+vi.mock( '@studio/agent/node/image-generation', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/agent/node/image-generation') >() ),
 	isImageGenerationAvailable: async () => true,
-	generateImages: async ( requests: unknown[] ) =>
+	generateImages: async ( _userAgent: string, requests: unknown[] ) =>
 		requests.map( () => ( {
 			ok: true,
 			bytes: readFileSync( path.join( WORDPRESS!, 'wp-includes/images/rss-2x.png' ) ),
@@ -42,7 +35,7 @@ describe.runIf( WORDPRESS )(
 		afterAll( () => rmSync( site.path, { recursive: true, force: true } ) );
 
 		const generate = async ( file: string ) => {
-			const result = await generateImagesTool.rawHandler( {
+			const result = await tool.rawHandler( {
 				images: [ { path: path.join( site.path, file ), subject: 'a bench' } ],
 			} as never );
 			const [ content ] = result.content;
@@ -118,7 +111,7 @@ describe.runIf( WORDPRESS )(
 		it( 'reports a .jpg in no site, whose WordPress would save it', async () => {
 			const dir = mkdtempSync( path.join( STUDIO_SITES_ROOT, 'studio-test-no-site-' ) );
 			try {
-				const result = await generateImagesTool.rawHandler( {
+				const result = await tool.rawHandler( {
 					images: [ { path: path.join( dir, 'a.jpg' ), subject: 'a bench' } ],
 				} as never );
 

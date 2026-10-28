@@ -1,0 +1,49 @@
+import path from 'path';
+import { Type } from 'typebox';
+import { defineTool, LOCAL_OVERWRITE } from './define-tool';
+import { textResult } from './utils';
+
+export const exportSiteTool = defineTool(
+	'site_export',
+	'Exports a local WordPress site to a backup file. Supports full-site export (.zip or .tar.gz) ' +
+		'or database-only export (.sql). If no export file path is provided, creates a timestamped file in the current directory.',
+	{
+		nameOrPath: Type.String( { description: 'The local site name or file system path' } ),
+		exportFile: Type.Optional(
+			Type.String( {
+				description:
+					'Path for the export file. Use .zip or .tar.gz for full export, .sql for database only. ' +
+					'If omitted, a timestamped file is created in the current directory.',
+			} )
+		),
+		mode: Type.Optional(
+			Type.Enum( [ 'full', 'db' ], {
+				description:
+					'Export mode: "full" for entire site, "db" for database only. Defaults to "full".',
+			} )
+		),
+	},
+	async ( args, context ) => {
+		try {
+			const site = await context.host.sites.resolve( args.nameOrPath );
+			const mode = args.mode ?? 'full';
+
+			let exportFile = args.exportFile;
+			if ( ! exportFile ) {
+				const timestamp = new Date().toISOString().replace( /[:.]/g, '-' ).slice( 0, 19 );
+				const ext = mode === 'db' ? '.sql' : '.zip';
+				exportFile = path.join( process.cwd(), `studio-backup-${ timestamp }${ ext }` );
+			}
+
+			await context.host.sites.export( site, exportFile, mode, context.onProgress );
+			return textResult( `Exported "${ site.name }" to ${ exportFile }.` );
+		} catch ( error ) {
+			throw new Error(
+				`Failed to export site: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	},
+	{
+		annotations: LOCAL_OVERWRITE,
+	}
+);

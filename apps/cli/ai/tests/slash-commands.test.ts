@@ -351,7 +351,7 @@ vi.mock( 'cli/ai/hosts', () => {
 		name,
 		publishable: vi.fn().mockResolvedValue( { signedIn: true, sites } ),
 		newSiteUrl: vi.fn(),
-		push: vi.fn().mockResolvedValue( undefined ),
+		push: vi.fn().mockResolvedValue( 'Pushed.' ),
 	} );
 	return {
 		HOST_IDS: [ 'north', 'south' ],
@@ -364,6 +364,14 @@ vi.mock( 'cli/ai/hosts', () => {
 		},
 	};
 } );
+
+vi.mock( 'cli/ai/host', () => ( {
+	cliAgentHost: {
+		sites: {
+			resolve: vi.fn( async ( sitePath: string ) => ( { name: 'Local Florist', path: sitePath } ) ),
+		},
+	},
+} ) );
 
 describe( '/publish slash command', () => {
 	it( "publishes to the site the user picks, through that site's own host", async () => {
@@ -392,9 +400,9 @@ describe( '/publish slash command', () => {
 		] );
 		expect( HOSTS.north.push ).not.toHaveBeenCalled();
 		expect( HOSTS.south.push ).toHaveBeenCalledWith(
-			'/sites/florist',
+			expect.objectContaining( { path: '/sites/florist' } ),
 			'2',
-			[ 'all' ],
+			'all',
 			expect.anything()
 		);
 		expect( ui.showSuccess ).toHaveBeenCalledWith(

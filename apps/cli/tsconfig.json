@@ -6,6 +6,7 @@
 		"paths": {
 			"cli/*": [ "./*" ],
 			"@studio/common/*": [ "../../packages/common/*" ],
+			"@studio/agent/*": [ "../../packages/agent/*" ],
 			"@studio/local": [ "../local/src/index.ts" ]
 		}
 	},

@@ -9,28 +9,28 @@ import {
 } from 'fs';
 import os from 'os';
 import path from 'path';
+import { createSiteNotes } from '@studio/agent/node/site-notes';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createSiteNotes } from 'cli/ai/site-notes';
-import type { BlockValidationGate } from 'cli/ai/block-validation-gate';
+import { liveHost, liveSite } from 'cli/ai/tests/live-host';
+import type { StudioAgentHost } from '@studio/agent/node';
+import type { BlockValidationGate } from '@studio/agent/node/block-validation-gate';
 
-vi.mock( 'cli/lib/daemon-client', () => ( {
-	connectToDaemon: vi.fn(),
-	disconnectFromDaemon: vi.fn(),
-} ) );
 // The copy of WordPress the tests write to is not one of Studio's sites.
-vi.mock( 'cli/ai/tools/utils', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('cli/ai/tools/utils') >() ),
-	resolveSite: async ( root: string ) => ( { id: 'site', name: 'Ember Roasters', path: root } ),
-} ) );
+function outsideStudio( root: string ): StudioAgentHost {
+	const live = liveHost( liveSite( root, 'Ember Roasters' ) );
+	return { ...live, sites: { ...live.sites, findByFolder: async () => undefined } };
+}
 
 // A real WordPress install whose presets the notes read, when one is given.
 const WORDPRESS = process.env.STUDIO_TEST_WORDPRESS;
 
 describe.runIf( WORDPRESS )( 'the notes on a write', () => {
 	let root: string;
+	let host: StudioAgentHost;
 	beforeAll( () => {
 		root = mkdtempSync( path.join( os.tmpdir(), 'site-notes-' ) );
 		cpSync( WORDPRESS!, root, { recursive: true } );
+		host = outsideStudio( root );
 		vi.stubGlobal( 'fetch', async () => Response.json( { themes: {}, no_update: {} } ) );
 	} );
 	afterAll( () => {
@@ -56,7 +56,7 @@ describe.runIf( WORDPRESS )( 'the notes on a write', () => {
 		const gate = {
 			track: () => seen.push( readFileSync( path.join( dir, 'theme.json' ), 'utf8' ) ),
 		} as unknown as BlockValidationGate;
-		await createSiteNotes( { gate } ).afterWrite( template );
+		await createSiteNotes( host, { gate } ).afterWrite( template );
 		expect( seen ).toHaveLength( 1 );
 		expect( seen[ 0 ] ).toContain( '"slug": "size-1-4-rem"' );
 	}, 60000 );
@@ -74,7 +74,7 @@ describe.runIf( WORDPRESS )( 'the notes on a write', () => {
 				settings: { spacing: { spacingSizes: [ { slug: '50', size: '3rem', name: 'Large' } ] } },
 			} )
 		);
-		const notes = await createSiteNotes().afterWrite( themeJson );
+		const notes = await createSiteNotes( host ).afterWrite( themeJson );
 		expect( notes.join( '\n' ) ).toContain(
 			'Studio set settings.spacing.defaultSpacingSizes to false'
 		);
@@ -86,6 +86,7 @@ describe.runIf( WORDPRESS )( 'the notes on a write', () => {
 
 describe( 'a note on a write', () => {
 	let root: string;
+	let host: StudioAgentHost;
 	const theme = () => path.join( root, 'wp-content/themes/studio-test-once' );
 	// A cover held to the content width by a group that is not align full.
 	const HELD =
@@ -98,6 +99,7 @@ describe( 'a note on a write', () => {
 	};
 	beforeEach( () => {
 		root = mkdtempSync( path.join( os.tmpdir(), 'notes-once-' ) );
+		host = outsideStudio( root );
 		mkdirSync( path.join( root, 'wp-includes' ), { recursive: true } );
 		writeFileSync( path.join( theme(), '..', '..', '..', 'wp-config.php' ), '' );
 		write( 'style.css', '/*\nTheme Name: Once\n*/' );
@@ -142,7 +144,7 @@ describe( 'a note on a write', () => {
 			heard: [ true, false, false ],
 		},
 	] )( '$name', async ( { writes, heard } ) => {
-		const siteNotes = createSiteNotes();
+		const siteNotes = createSiteNotes( host );
 		const said: boolean[] = [];
 		for ( const [ file, markup ] of writes ) {
 			const notes = await siteNotes.afterWrite( write( file, markup ) );
@@ -152,7 +154,7 @@ describe( 'a note on a write', () => {
 	} );
 
 	it( 'is said once whichever path names its file', async () => {
-		const siteNotes = createSiteNotes();
+		const siteNotes = createSiteNotes( host );
 		const at = write( 'templates/index.html', HELD );
 		expect( await siteNotes.afterWrite( at ) ).toHaveLength( 1 );
 		// The same file, named through a link to its folder.

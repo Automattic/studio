@@ -10,8 +10,8 @@ import {
 	QUOTABLE_TEXT_ATTRIBUTE,
 } from '@/features/chats/use-text-context-menu';
 import styles from './style.module.css';
-import type { StudioChatAttachmentSummary } from '@studio/common/ai/sessions/entry-types';
-import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
+import type { StudioChatAttachmentSummary } from '@studio/agent/protocol/sessions/entry-types';
+import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 
 export const UserTurn = memo( function UserTurn( {
 	text,

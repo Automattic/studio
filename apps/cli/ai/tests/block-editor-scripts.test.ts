@@ -1,18 +1,15 @@
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
+import { blockEditorScripts } from '@studio/agent/node/block-editor-scripts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { blockEditorScripts } from 'cli/ai/block-editor-scripts';
+import { liveHost, liveSite } from 'cli/ai/tests/live-host';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
-import type { SiteData } from 'cli/lib/cli-config/core';
+import type { HostSite, StudioAgentHost } from '@studio/agent/node';
 
-vi.mock( 'cli/lib/daemon-client', () => ( {
-	connectToDaemon: vi.fn(),
-	disconnectFromDaemon: vi.fn(),
-} ) );
 // What the site's block editor registers, which needs the site served.
 const editor = vi.hoisted( () => ( { registers: [] as string[] } ) );
-vi.mock( 'cli/ai/block-validator', () => ( {
+vi.mock( '@studio/agent/node/block-validator', () => ( {
 	unregisteredInEditor: async ( names: string[] ) =>
 		names.filter( ( name ) => ! editor.registers.includes( name ) ),
 } ) );
@@ -44,12 +41,14 @@ const blockJson = ( fields: object ) =>
 describe.runIf( WORDPRESS )(
 	'the blocks the site’s code registers without an editor script',
 	() => {
-		let site: SiteData;
+		let site: HostSite;
+		let host: StudioAgentHost;
 		let dir: string;
 		beforeEach( () => {
 			const root = mkdtempSync( path.join( os.tmpdir(), 'block-editor-scripts-' ) );
 			cpSync( WORDPRESS!, root, { recursive: true } );
-			site = { id: 'site', name: 'Corner Bakehouse', path: root } as SiteData;
+			site = liveSite( root, 'Corner Bakehouse' );
+			host = liveHost( site );
 			dir = path.join( root, 'wp-content/plugins/opening-hours' );
 		} );
 		afterEach( () => {
@@ -131,10 +130,10 @@ describe.runIf( WORDPRESS )(
 			'reports $name',
 			async ( { files, problem, editorRegisters = [] } ) => {
 				editor.registers = editorRegisters;
-				const before = await blockEditorScripts.read( site.path );
+				const before = await blockEditorScripts.read( site.path, undefined, host );
 				await activate( files );
-				const after = await blockEditorScripts.read( site.path );
-				const { reports } = await blockEditorScripts.check( site, before, after );
+				const after = await blockEditorScripts.read( site.path, undefined, host );
+				const { reports } = await blockEditorScripts.check( site, before, after, host );
 				expect( reports ).toHaveLength( 1 );
 				if ( problem ) {
 					expect( reports[ 0 ].problem ).toBe(
@@ -155,21 +154,21 @@ describe.runIf( WORDPRESS )(
 
 		it( 'asks WordPress only when the active code changed', async () => {
 			await activate( { 'build/block.json': blockJson( {} ) } );
-			const versions = await blockEditorScripts.read( site.path );
+			const versions = await blockEditorScripts.read( site.path, undefined, host );
 			vi.mocked( runWpCliCommand ).mockClear();
-			expect( await blockEditorScripts.check( site, versions, versions ) ).toEqual( {
+			expect( await blockEditorScripts.check( site, versions, versions, host ) ).toEqual( {
 				reports: [],
 			} );
 			// A build's dependencies are not the site's code.
 			mkdirSync( path.join( dir, 'node_modules/pkg' ), { recursive: true } );
 			writeFileSync( path.join( dir, 'node_modules/pkg/index.js' ), '' );
-			expect( await blockEditorScripts.read( site.path ) ).toEqual( versions );
+			expect( await blockEditorScripts.read( site.path, undefined, host ) ).toEqual( versions );
 			// Nor is a stylesheet, which registers nothing.
 			writeFileSync( path.join( dir, 'build/style.css' ), '' );
-			expect( await blockEditorScripts.read( site.path ) ).toEqual( versions );
+			expect( await blockEditorScripts.read( site.path, undefined, host ) ).toEqual( versions );
 			// The block's own block.json is.
 			writeFileSync( path.join( dir, 'build/block.json' ), blockJson( { editorScript: 'x' } ) );
-			expect( await blockEditorScripts.read( site.path ) ).not.toEqual( versions );
+			expect( await blockEditorScripts.read( site.path, undefined, host ) ).not.toEqual( versions );
 			expect( runWpCliCommand ).not.toHaveBeenCalled();
 		}, 120000 );
 	}

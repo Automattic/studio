@@ -383,3 +383,21 @@
 		white-space: normal;
 	}
 }
+
+@layer ui {
+	.button[data-loading-mode='replace'] {
+		position: relative;
+
+		&[aria-busy='true'] {
+			.loadingLabel {
+				opacity: 0;
+			}
+
+			[data-slot='spinner'] {
+				position: absolute;
+				inset: 0;
+				margin: auto;
+			}
+		}
+	}
+}

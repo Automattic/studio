@@ -1,3 +1,7 @@
+.dialog {
+	padding-bottom: var( --space-12 );
+}
+
 .body {
 	display: flex;
 	flex-direction: column;

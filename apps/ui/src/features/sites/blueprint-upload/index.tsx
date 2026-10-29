@@ -3,6 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { BlueprintErrorDialog } from '@/features/sites/blueprint-error-dialog';
+import { Button } from '@/lib/ui';
 import { BLUEPRINT_FILE_ACCEPT, loadBlueprintFile } from './load-blueprint-file';
 import styles from './style.module.css';
 import type { SelectedBlueprint } from '@/features/sites/blueprint-selection';
@@ -11,6 +12,8 @@ import type { ChangeEvent } from 'react';
 export type { SelectedBlueprint } from '@/features/sites/blueprint-selection';
 
 interface BlueprintUploadProps {
+	variant?: 'hint' | 'button' | 'drop-only';
+	disabled?: boolean;
 	onSelect: ( blueprint: SelectedBlueprint ) => void;
 	onRemove: () => void;
 	onValidityChange: ( isValid: boolean ) => void;
@@ -20,7 +23,13 @@ function hasFiles( event: DragEvent ): boolean {
 	return Array.from( event.dataTransfer?.types ?? [] ).includes( 'Files' );
 }
 
-export function BlueprintUpload( { onSelect, onRemove, onValidityChange }: BlueprintUploadProps ) {
+export function BlueprintUpload( {
+	variant = 'hint',
+	disabled = false,
+	onSelect,
+	onRemove,
+	onValidityChange,
+}: BlueprintUploadProps ) {
 	const connector = useConnector();
 	const [ error, setError ] = useState< string | null >( null );
 	const [ isDragging, setIsDragging ] = useState( false );
@@ -30,6 +39,7 @@ export function BlueprintUpload( { onSelect, onRemove, onValidityChange }: Bluep
 
 	const handleFile = useCallback(
 		async ( file: File ) => {
+			if ( disabled ) return;
 			const request = ++requestRef.current;
 			setError( null );
 			onValidityChange( false );
@@ -53,7 +63,7 @@ export function BlueprintUpload( { onSelect, onRemove, onValidityChange }: Bluep
 				}
 			}
 		},
-		[ connector, onSelect, onValidityChange ]
+		[ connector, disabled, onSelect, onValidityChange ]
 	);
 
 	const handleInputChange = ( event: ChangeEvent< HTMLInputElement > ) => {
@@ -70,6 +80,7 @@ export function BlueprintUpload( { onSelect, onRemove, onValidityChange }: Bluep
 	};
 
 	useEffect( () => {
+		if ( disabled ) return;
 		const handleDragEnter = ( event: DragEvent ) => {
 			if ( ! hasFiles( event ) ) return;
 			event.preventDefault();
@@ -106,32 +117,44 @@ export function BlueprintUpload( { onSelect, onRemove, onValidityChange }: Bluep
 			window.removeEventListener( 'dragleave', handleDragLeave );
 			window.removeEventListener( 'drop', handleDrop );
 		};
-	}, [ handleFile ] );
+	}, [ disabled, handleFile ] );
 
 	return (
 		<>
-			<div className={ styles.root }>
+			<div className={ variant === 'hint' ? styles.root : styles.control }>
 				<input
 					ref={ fileInputRef }
 					type="file"
 					accept={ BLUEPRINT_FILE_ACCEPT }
 					onChange={ handleInputChange }
 					className={ styles.fileInput }
+					disabled={ disabled }
 				/>
-				<p className={ styles.prompt }>
-					{ createInterpolateElement(
-						__( 'Have a blueprint? Drop it anywhere, or <upload>upload a file</upload>.' ),
-						{
-							upload: (
-								<button
-									type="button"
-									className={ styles.action }
-									onClick={ () => fileInputRef.current?.click() }
-								/>
-							),
-						}
-					) }
-				</p>
+				{ variant === 'button' ? (
+					<Button
+						variant="outline"
+						size="header"
+						disabled={ disabled }
+						onClick={ () => fileInputRef.current?.click() }
+					>
+						{ __( 'Upload Blueprint…' ) }
+					</Button>
+				) : variant === 'hint' ? (
+					<p className={ styles.prompt }>
+						{ createInterpolateElement(
+							__( 'Have a blueprint? Drop it anywhere, or <upload>upload a file</upload>.' ),
+							{
+								upload: (
+									<button
+										type="button"
+										className={ styles.action }
+										onClick={ () => fileInputRef.current?.click() }
+									/>
+								),
+							}
+						) }
+					</p>
+				) : null }
 				<BlueprintErrorDialog error={ error ?? '' } onDismiss={ handleRemove } />
 			</div>
 			{ isDragging && (

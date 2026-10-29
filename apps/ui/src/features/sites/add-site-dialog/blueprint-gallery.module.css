@@ -42,10 +42,6 @@
 	min-width: 0;
 }
 
-.image {
-	transition: opacity var( --motion-duration-layout );
-}
-
 .thumbnail {
 	position: relative;
 	display: block;

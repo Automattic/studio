@@ -8,7 +8,8 @@ import { getFileAccessDescription } from '@studio/common/lib/site-file-access-la
 import { getLatestVersionLabel } from '@studio/common/lib/wordpress-versions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { ChevronDownIcon, ChevronRightIcon, FileIcon } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
 import {
 	CertificateTrustNotice,
@@ -71,6 +72,7 @@ interface CreateSiteFormProps {
 	loadingAnnouncement?: string;
 	children?: ReactNode;
 	panelFooter?: ReactNode;
+	actionsContainer?: HTMLElement | null;
 	// What the site starts from, shown under its name.
 	source?: string;
 	sourceIcon?: ReactElement;
@@ -97,6 +99,7 @@ export function CreateSiteForm( {
 	loadingAnnouncement,
 	children,
 	panelFooter,
+	actionsContainer,
 	source,
 	sourceIcon,
 	onExistingChange,
@@ -104,6 +107,7 @@ export function CreateSiteForm( {
 	draft,
 	onDraftChange,
 }: CreateSiteFormProps ) {
+	const formId = useId();
 	const [ defaults ] = useState( createDefaultFormData );
 	const suggestedFieldsRef = useRef( getSuggestedFields( initialValues ?? {} ) );
 	const [ data, setData ] = useState< FormData >( () =>
@@ -249,9 +253,26 @@ export function CreateSiteForm( {
 			unavailableWpVersion
 		);
 	const offlineMessage = __( 'Changing WordPress version requires an internet connection.' );
+	const actions = (
+		<>
+			<Button variant="outline" onClick={ onCancel } disabled={ isSubmitting }>
+				{ cancelLabel ?? __( 'Cancel' ) }
+			</Button>
+			<Button
+				type="submit"
+				form={ formId }
+				disabled={ ! canSubmit }
+				loading={ isSubmitting }
+				loadingAnnouncement={ loadingAnnouncement ?? __( 'Creating site' ) }
+				data-testid="create-site-submit"
+			>
+				{ submitLabel ?? __( 'Create site' ) }
+			</Button>
+		</>
+	);
 
 	return (
-		<form className={ styles.form } onSubmit={ handleSubmit }>
+		<form id={ formId } className={ styles.form } onSubmit={ handleSubmit }>
 			<div className={ styles.panel }>
 				<TextField
 					label={ __( 'Site name' ) }
@@ -434,20 +455,11 @@ export function CreateSiteForm( {
 				) }
 			</div>
 
-			<div className={ styles.actions }>
-				<Button variant="outline" onClick={ onCancel } disabled={ isSubmitting }>
-					{ cancelLabel ?? __( 'Cancel' ) }
-				</Button>
-				<Button
-					type="submit"
-					disabled={ ! canSubmit }
-					loading={ isSubmitting }
-					loadingAnnouncement={ loadingAnnouncement ?? __( 'Creating site' ) }
-					data-testid="create-site-submit"
-				>
-					{ submitLabel ?? __( 'Create site' ) }
-				</Button>
-			</div>
+			{ actionsContainer === undefined ? (
+				<div className={ styles.actions }>{ actions }</div>
+			) : actionsContainer ? (
+				createPortal( actions, actionsContainer )
+			) : null }
 		</form>
 	);
 }

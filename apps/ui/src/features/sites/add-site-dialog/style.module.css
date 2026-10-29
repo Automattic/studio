@@ -1,3 +1,11 @@
+.footer {
+	display: flex;
+	flex: none;
+	justify-content: flex-end;
+	gap: var( --space-2 );
+	padding: var( --space-6 );
+}
+
 .navGroup {
 	display: flex;
 	flex: none;

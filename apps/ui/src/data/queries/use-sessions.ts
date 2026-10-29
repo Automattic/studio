@@ -109,15 +109,6 @@ export function useSession( sessionId: string | undefined ) {
 	} );
 }
 
-export function useCreateSession() {
-	const connector = useConnector();
-	const queryClient = useQueryClient();
-	return useMutation( {
-		mutationFn: ( { siteId, model }: { siteId?: string; model?: AiModelId } ) =>
-			openNewSession( { connector, queryClient }, siteId, model ),
-	} );
-}
-
 export function useSetSessionEnvironment( sessionId: string ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();

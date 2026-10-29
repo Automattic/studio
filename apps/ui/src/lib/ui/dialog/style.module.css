@@ -27,7 +27,7 @@
 	}
 
 	.content {
-		--surface: var( --chat );
+		--surface: var( --popover );
 		--dialog-inset: var( --space-3 );
 		position: fixed;
 		top: 50%;
@@ -50,7 +50,9 @@
 	}
 
 	.content[data-surface='composer'] {
-		--surface: var( --composer );
+		border: 1px solid var( --input );
+		border-radius: var( --radius-3xl );
+		box-shadow: none;
 		color: var( --foreground );
 	}
 
@@ -136,7 +138,6 @@
 		flex-shrink: 0;
 		align-items: center;
 		column-gap: var( --space-3 );
-		min-height: 60px;
 		padding: var( --dialog-inset, var( --space-3 ) );
 	}
 
@@ -232,7 +233,7 @@
 	}
 
 	.panel {
-		--surface: var( --surface-0 );
+		--surface: inherit;
 		position: relative;
 		display: flex;
 		flex: 1;
@@ -248,12 +249,24 @@
 		container-type: inline-size;
 	}
 
+	.panel[data-inset='spacious'] {
+		--dialog-inset: var( --space-6 );
+	}
+
+	.panel[data-inset='spacious'] .panelHeader {
+		padding-block: var( --space-3 );
+	}
+
+	.panel[data-inset='spacious-bottom'] .panelBody {
+		padding-block-end: var( --space-6 );
+	}
+
 	.panelBody {
 		display: flex;
 		flex-direction: column;
 		width: 100%;
 		min-height: 100%;
-		padding: 0 var( --dialog-inset, var( --space-3 ) ) var( --dialog-inset, var( --space-3 ) );
+		padding: 2px var( --dialog-inset, var( --space-3 ) ) var( --dialog-inset, var( --space-3 ) );
 	}
 
 	.scrollArea {

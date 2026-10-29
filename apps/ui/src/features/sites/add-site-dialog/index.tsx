@@ -5,6 +5,7 @@ import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 're
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSyncActivity } from '@/data/sync-activity';
+import { BlueprintUpload } from '@/features/sites/blueprint-upload';
 import { pendingBlueprintSlot } from '@/features/sites/pending-blueprint';
 import { PlusIcon } from '@/lib/icons';
 import {
@@ -30,6 +31,7 @@ import { CreatePanel } from './create-panel';
 import { BackupDropZone, ImportPanel } from './import-panel';
 import styles from './style.module.css';
 import type { SyncSite } from '@/data/core';
+import type { SelectedBlueprint } from '@/features/sites/blueprint-selection';
 import type { CreateSiteFormValues } from '@/features/sites/create-site-form';
 import type { AddSiteSection } from '@/features/sites/use-open-add-site';
 import type { BlueprintUseCase } from '@studio/common/lib/blueprint-catalog';
@@ -71,13 +73,18 @@ export function AddSiteDialog() {
 	const [ progress, setProgress ] = useState< string | null >( null );
 	const [ followedSite, followSite ] = useState< string >();
 	const [ actions, setActions ] = useState< HTMLElement | null >( null );
+	const [ formActions, setFormActions ] = useState< HTMLElement | null >( null );
+	const [ isBlankSetup, setIsBlankSetup ] = useState( true );
+	const [ isBlueprintValid, setIsBlueprintValid ] = useState( true );
 	const [ lastViewed, setLastViewed ] = useState< string >();
 	const [ setupDraft, setSetupDraft ] = useState< Partial< CreateSiteFormValues > >();
 	const popup = useRef< HTMLDivElement >( null );
 	const createTab = useRef< HTMLButtonElement >( null );
 	const getInitialFocus = useCallback(
 		() =>
-			popup.current?.querySelector< HTMLElement >( 'input, [data-start-blank]' ) ??
+			popup.current?.querySelector< HTMLElement >(
+				'input:not([type="file"]), [data-start-blank]'
+			) ??
 			popup.current ??
 			true,
 		[]
@@ -90,6 +97,8 @@ export function AddSiteDialog() {
 			followSite( undefined );
 			setLastViewed( undefined );
 			setSetupDraft( undefined );
+			setIsBlankSetup( true );
+			setIsBlueprintValid( true );
 		}
 	}
 	const pendingBlueprint = useSyncExternalStore(
@@ -98,7 +107,14 @@ export function AddSiteDialog() {
 	);
 	if ( addSite && pendingBlueprint && view.name !== 'setup' ) {
 		setView( { name: 'setup', from: view } );
+		setIsBlankSetup( false );
+		setIsBlueprintValid( true );
 	}
+	const selectBlueprint = useCallback( ( blueprint: SelectedBlueprint ) => {
+		setIsBlankSetup( false );
+		pendingBlueprintSlot.set( blueprint );
+	}, [] );
+	const removeInvalidBlueprint = useCallback( () => setIsBlueprintValid( true ), [] );
 
 	const { pins, setPins } = useSidebarPins();
 	const context = useMemo(
@@ -106,13 +122,16 @@ export function AddSiteDialog() {
 			setProgress,
 			followSite,
 			actions,
+			formActions,
+			isBlueprintValid,
+			setIsBlueprintValid,
 			pinNewSite: ( siteId: string ) => {
 				if ( pin ) setPins( [ ...pins, sitePinKey( siteId ) ] );
 			},
 			setupDraft,
 			setSetupDraft,
 		} ),
-		[ actions, pin, pins, setPins, setupDraft ]
+		[ actions, formActions, isBlueprintValid, pin, pins, setPins, setupDraft ]
 	);
 
 	const close = () => {
@@ -144,6 +163,8 @@ export function AddSiteDialog() {
 	const title =
 		view.name === 'details'
 			? view.blueprint.title
+			: view.name === 'setup' && ! view.remote && isBlankSetup
+			? __( 'Create a blank site' )
 			: view.name === 'setup' || ( view.name === 'import' && view.backup )
 			? __( 'Create your site' )
 			: view.name === 'connect'
@@ -167,6 +188,12 @@ export function AddSiteDialog() {
 
 	const panel = (
 		<DialogPanel
+			inset={ view.name === 'details' ? 'spacious-bottom' : 'spacious' }
+			footer={
+				view.name === 'setup' || ( view.name === 'import' && view.backup ) ? (
+					<div ref={ setFormActions } className={ styles.footer } />
+				) : undefined
+			}
 			header={
 				<PanelHeader
 					leading={
@@ -209,8 +236,17 @@ export function AddSiteDialog() {
 					}
 					actions={
 						<>
-							{ progress && view.name !== 'details' ? (
+							{ progress && view.name !== 'details' && ( view.name !== 'setup' || view.remote ) ? (
 								<Progress siteId={ followedSite } fallback={ progress } />
+							) : null }
+							{ view.name === 'gallery' || ( view.name === 'setup' && ! view.remote ) ? (
+								<BlueprintUpload
+									variant={ view.name === 'gallery' ? 'button' : 'drop-only' }
+									disabled={ !! progress }
+									onSelect={ selectBlueprint }
+									onRemove={ removeInvalidBlueprint }
+									onValidityChange={ setIsBlueprintValid }
+								/>
 							) : null }
 							<div ref={ setActions } className={ styles.actions } />
 						</>
@@ -228,7 +264,11 @@ export function AddSiteDialog() {
 							useCase={ view.useCase }
 							focusSlug={ lastViewed }
 							onClearFilters={ () => setView( { name: 'gallery' } ) }
-							onBlank={ () => setView( { name: 'setup', from: view } ) }
+							onBlank={ () => {
+								setIsBlankSetup( true );
+								setIsBlueprintValid( true );
+								setView( { name: 'setup', from: view } );
+							} }
 							onView={ ( blueprint ) => {
 								setLastViewed( blueprint.slug );
 								setView( { name: 'details', blueprint, useCase: view.useCase } );
@@ -238,11 +278,18 @@ export function AddSiteDialog() {
 					{ view.name === 'details' ? (
 						<BlueprintDetails
 							blueprint={ view.blueprint }
-							onSetup={ () => setView( { name: 'setup', from: view } ) }
+							onSetup={ () => {
+								setIsBlueprintValid( true );
+								setView( { name: 'setup', from: view } );
+							} }
 						/>
 					) : null }
 					{ view.name === 'setup' ? (
-						<CreatePanel remote={ view.remote } onCancel={ close } />
+						<CreatePanel
+							remote={ view.remote }
+							onCancel={ close }
+							onBlankChange={ setIsBlankSetup }
+						/>
 					) : null }
 					{ view.name === 'connect' ? (
 						<ConnectPanel

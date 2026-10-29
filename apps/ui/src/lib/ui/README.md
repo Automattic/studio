@@ -22,11 +22,11 @@ import { Button, Menu, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui'
 ## Which primitive
 
 - An action: `Button`. Icon only: `IconButton`, whose `label` is also its tooltip. A link inside copy: `Button variant="inline-link" size="inline"`.
-- A toolbar toggle: `Button` or `IconButton` with `variant="accent-ghost"` and `aria-pressed`. It uses the normal ghost fill at rest, an accent fill and text while pressed or expanded, and a stronger accent fill on active hover.
+- A toolbar toggle: `Button` or `IconButton` with `variant="accent-ghost"` and `aria-pressed`. Pressed and expanded toggles use an accent fill and text, with a stronger accent fill on hover. Other variants use their hover fill and text for pressed and expanded states.
 - A form row: `Field` with `FieldLabel`, `FieldDescription` and `FieldError`, grouped in a `FieldGroup`. Text: `Input` and `Textarea`, or `InputGroup` for buttons and icons inside the border.
 - Attachments: `AttachmentRemoveButton` for the thumbnail's dismiss control; `AttachmentDropOverlay` for drop feedback, with the translated label as its children.
 - A choice: `Select`, `Switch` for on/off, `Checkbox` in forms, `Tabs` for sections or a scope switch, `Slider`. A question with options: `Questionnaire`.
-- A modal: `Dialog` with `DialogContent`. Use `surface="composer"` to match the composer and command sheets; the default is the chat surface. Small info dialogs and forms: `layout="compact"` (16px leading inset, standard 12px padding elsewhere, and extra space above actions). Confirmations: `AlertDialog` with `layout="confirmation"` (the same spacing at a wider width). Two panes: `DialogPanel`.
+- A modal: `Dialog` with `DialogContent`. All dialogs use the popover surface; `surface="composer"` applies command-sheet borders and rounding without changing the background. Settings field groups share the same muted fill in both color schemes. Small info dialogs and forms: `layout="compact"` (16px leading inset, standard 12px padding elsewhere, and extra space above actions). Confirmations: `AlertDialog` with `layout="confirmation"` (the same spacing at a wider width). Two panes: `DialogPanel`. Use `inset="spacious"` for 24px horizontal and bottom content padding, or `inset="spacious-bottom"` to increase only the bottom inset; its optional `footer` sits outside the scrolling body.
 - Floating: `Menu` (right click: `Menu.ContextMenuRoot`), `Popover`, `HoverCard`, `Tooltip`.
 - Tabular data: `Table`, `TableHeader`, `TableBody`, `TableRow`, `TableHead`, `TableCell`.
 - Status: `Alert`, `Empty`, `Skeleton`, `Spinner`, `Progress`, `Badge`, `NotificationDot`. Attachment labels: `AttachmentChip`, with `font="mono"` for element references.
@@ -41,7 +41,8 @@ Styles sit in the `ui` cascade layer, so a feature's CSS module overrides them w
 
 - Pick a `variant` and `size` first. If none matches, add one here. A primitive that looks wrong everywhere gets fixed here, not on the screen where you noticed it.
 - From a feature, pass `className` for layout: placement, width, margins, grid and flex.
-- Button hover, pressed, open-state and opacity feedback use `--motion-duration-feedback`.
+- Button color, background and border feedback use `--motion-duration-feedback`. Hover-only actions appear immediately, without an opacity transition.
+- Menu items, sidebar rows and tabs respond immediately to hover and selection, without color or background transitions.
 - Change a button's fill with `--button-background`, `--button-hover-background` or `--button-hover-color`, not `background-color`.
 - Don't reach into a primitive's parts with `[data-slot]` selectors, set its other custom properties, or raise specificity to beat it.
 

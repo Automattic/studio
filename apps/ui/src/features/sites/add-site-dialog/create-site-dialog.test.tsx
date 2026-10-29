@@ -108,6 +108,55 @@ describe( 'Add site flow', () => {
 		);
 	} );
 
+	it( 'uploads a Blueprint from the picker and cleans its bundle when returning', async () => {
+		const { connector } = setup();
+		await screen.findByRole( 'button', { name: 'Upload Blueprint…' } );
+		connector.extractBlueprintBundle.mockResolvedValueOnce( {
+			blueprintJson: { meta: { title: 'Uploaded site', author: 'Studio' } },
+			blueprintJsonPath: '/tmp/upload/blueprint.json',
+			tempDir: '/tmp/upload',
+		} );
+		fireEvent.change( document.querySelector( 'input[type="file"]' )!, {
+			target: { files: [ new File( [ 'bundle' ], 'blueprint.zip', { type: 'application/zip' } ) ] },
+		} );
+		expect( await screen.findByRole( 'heading', { name: 'Uploaded site' } ) ).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: 'Create your site' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'button', { name: 'Upload Blueprint…' } ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Back' } ) );
+		await screen.findByRole( 'button', { name: 'Start with Blank site' } );
+		expect( connector.cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/upload' );
+	} );
+
+	it( 'can start blank while an uploaded bundle is still loading', async () => {
+		const { connector } = setup();
+		await screen.findByRole( 'button', { name: 'Upload Blueprint…' } );
+		let complete!: (
+			value: Awaited< ReturnType< typeof connector.extractBlueprintBundle > >
+		) => void;
+		connector.extractBlueprintBundle.mockReturnValueOnce(
+			new Promise( ( resolve ) => {
+				complete = resolve;
+			} )
+		);
+		fireEvent.change( document.querySelector( 'input[type="file"]' )!, {
+			target: { files: [ new File( [ 'bundle' ], 'blueprint.zip', { type: 'application/zip' } ) ] },
+		} );
+		await waitFor( () => expect( connector.extractBlueprintBundle ).toHaveBeenCalledOnce() );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Start with Blank site' } ) );
+		await waitFor( () =>
+			expect( screen.getByRole( 'button', { name: 'Create site' } ) ).toBeEnabled()
+		);
+		await act( async () =>
+			complete( {
+				blueprintJson: {},
+				blueprintJsonPath: '/tmp/canceled/blueprint.json',
+				tempDir: '/tmp/canceled',
+			} )
+		);
+		expect( connector.cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/canceled' );
+		expect( screen.getByRole( 'heading', { name: 'Create a blank site' } ) ).toBeVisible();
+	} );
+
 	it( 'filters by use case and restores the gallery when filters are cleared', async () => {
 		setup();
 		await screen.findByRole( 'button', { name: 'Start with Blank site' } );

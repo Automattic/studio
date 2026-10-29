@@ -136,7 +136,7 @@ export function ImportPanel( {
 } ) {
 	const navigate = useNavigate();
 	const connector = useConnector();
-	const { setProgress, followSite, pinNewSite } = useAddSite();
+	const { setProgress, followSite, pinNewSite, formActions } = useAddSite();
 
 	const existingDomainNames = useExistingCustomDomains();
 	const createSite = useCreateSite();
@@ -241,6 +241,7 @@ export function ImportPanel( {
 	return (
 		<div className={ styles.page }>
 			<CreateSiteForm
+				actionsContainer={ formActions }
 				initialValues={ initialValues }
 				existingDomainNames={ existingDomainNames }
 				onSubmit={ handleSubmit }

@@ -411,9 +411,7 @@ describe( 'CreateSiteForm fields', () => {
 		fireEvent.click( screen.getByRole( 'combobox', { name: 'WordPress version' } ) );
 		expect(
 			await screen.findByRole( 'option', { name: /Auto-update \(6\.9\)/ } )
-		).toHaveTextContent(
-			'WordPress installs updates on its own schedule. Will install version 6.9.'
-		);
+		).toHaveTextContent( /^Auto-update \(6\.9\)$/ );
 		expect( screen.getByRole( 'group', { name: 'Beta & Nightly' } ) ).toBeInTheDocument();
 		fireEvent.keyDown( screen.getByRole( 'listbox' ), { key: 'Escape' } );
 		await waitFor( () => expect( submitButton() ).toBeEnabled() );

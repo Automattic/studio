@@ -204,19 +204,29 @@ export function PanelHeader( {
 export function DialogPanel( {
 	className,
 	header,
+	footer,
+	inset = 'default',
 	scrollRef,
 	children,
 	...props
 }: ComponentProps< 'div' > & {
 	header: ReactNode;
+	footer?: ReactNode;
+	inset?: 'default' | 'spacious' | 'spacious-bottom';
 	scrollRef?: Ref< HTMLDivElement >;
 } ) {
 	return (
-		<div data-slot="dialog-panel" className={ clsx( styles.panel, className ) } { ...props }>
+		<div
+			data-slot="dialog-panel"
+			data-inset={ inset }
+			className={ clsx( styles.panel, className ) }
+			{ ...props }
+		>
 			{ header }
 			<DialogScrollArea ref={ scrollRef } className={ styles.panelScroll }>
 				<div className={ styles.panelBody }>{ children }</div>
 			</DialogScrollArea>
+			{ footer }
 		</div>
 	);
 }

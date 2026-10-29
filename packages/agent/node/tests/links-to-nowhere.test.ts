@@ -55,12 +55,12 @@ it.each< { name: string; html: string | undefined; links?: string } >( [
 		name: 'placeholder links in a template part and the content',
 		html:
 			header( '' ) +
-			'<main><a class="wp-block-button__link" href="#">Book now</a><a href="#services">Services</a></main>' +
+			'<main><a class="wp-block-button__link" href="#">Book now</a><a href="#services">Services</a><section id="services"></section><a href="#subscribe">Subscribe</a><a href="#top">Top</a></main>' +
 			footer(
 				nav( 'Blog' ) + nav( 'FAQ&#039;s &amp; tips' ) + '<a href="#"><img src="x.png"></a>'
 			),
 		links:
-			'"Book now" in the page\'s content; "Blog", "FAQ\'s & tips", one with no text in the footer template part',
+			'"Book now", "Subscribe" (#subscribe) in the page\'s content; "Blog", "FAQ\'s & tips", one with no text in the footer template part',
 	},
 	{
 		name: "Twenty Twenty-Five's footer",
@@ -77,7 +77,7 @@ it.each< { name: string; html: string | undefined; links?: string } >( [
 	serve( html );
 	if ( links ) {
 		expect( await problem() ).toBe(
-			`On http://localhost:8881/, the links ${ links } go nowhere: their href is only "#", an empty fragment, which takes a visitor to the top of the page they are on (a navigation link prints its url as its href, render_block_core_navigation_link() in wp-includes/blocks/navigation-link.php). Link each to the page or section it names, or take it out.`
+			`On http://localhost:8881/, the links ${ links } go nowhere: an href of only "#" is an empty fragment, which takes a visitor to the top of the page they are on, and a fragment no element on the page has as its id moves them nowhere (a navigation link prints its url as its href, render_block_core_navigation_link() in wp-includes/blocks/navigation-link.php). Link each to the page, section or form it names, or take it out.`
 		);
 	} else {
 		expect( await problem() ).toBeUndefined();

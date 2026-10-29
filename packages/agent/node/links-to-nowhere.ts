@@ -1,7 +1,10 @@
 /**
  * Links on the home page that go nowhere. An href of only "#" is an empty
  * fragment, which the HTML standard resolves to the top of the page the link
- * is on, so a visitor who follows it stays where they are. A placeholder link
+ * is on, so a visitor who follows it stays where they are; a fragment no
+ * element on the page has as its id or name indicates nothing, and following
+ * it moves nothing (the HTML standard, "find a potential indicated element";
+ * "top" is the top of the page). A placeholder link
  * a pattern ships, or one written before its page existed, renders so: a
  * navigation link prints its url as its href
  * (render_block_core_navigation_link() in wp-includes/blocks/navigation-link.php).
@@ -41,21 +44,28 @@ async function linksToNowhere(
 			? [ { tag, start: html.indexOf( part ), end: html.indexOf( part ) + part.length } ]
 			: [];
 	} );
-	const links = [ ...html.matchAll( /<a\b[^>]*\bhref="#"[^>]*>([\s\S]*?)<\/a>/g ) ].map(
-		( link ) => {
+	const targets = new Set(
+		[ ...html.matchAll( /<[a-z][^>]*?\s(?:id|name)="([^"]+)"/gi ) ].map( ( match ) => match[ 1 ] )
+	);
+	const links = [ ...html.matchAll( /<a\b[^>]*\bhref="#([^"]*)"[^>]*>([\s\S]*?)<\/a>/g ) ]
+		.filter( ( [ , fragment ] ) => {
+			const id = decode( fragment );
+			return ! fragment || ( ! targets.has( id ) && id.toLowerCase() !== 'top' );
+		} )
+		.map( ( link ) => {
 			const at = link.index ?? 0;
 			const part = parts.find( ( { start, end } ) => at >= start && at < end );
 			const place = part ? `the ${ part.tag } template part` : "the page's content";
-			const label = decode( link[ 1 ].replace( /<[^>]*>/g, '' ) )
+			const text = decode( link[ 2 ].replace( /<[^>]*>/g, '' ) )
 				.replace( /\s+/g, ' ' )
 				.trim();
+			const label = text ? `"${ text }"` : 'one with no text';
 			return {
 				place,
-				label: label ? `"${ label }"` : 'one with no text',
+				label: link[ 1 ] ? `${ label } (#${ decode( link[ 1 ] ) })` : label,
 				id: `${ place } ${ link[ 0 ] }`,
 			};
-		}
-	);
+		} );
 	return { url, links };
 }
 
@@ -79,7 +89,7 @@ async function newLinksToNowhere( site: HostSite, seen: string[] ): Promise< str
 	);
 	return `On ${ found.url }, the links ${ where.join(
 		'; '
-	) } go nowhere: their href is only "#", an empty fragment, which takes a visitor to the top of the page they are on (a navigation link prints its url as its href, render_block_core_navigation_link() in wp-includes/blocks/navigation-link.php). Link each to the page or section it names, or take it out.`;
+	) } go nowhere: an href of only "#" is an empty fragment, which takes a visitor to the top of the page they are on, and a fragment no element on the page has as its id moves them nowhere (a navigation link prints its url as its href, render_block_core_navigation_link() in wp-includes/blocks/navigation-link.php). Link each to the page, section or form it names, or take it out.`;
 }
 
 // The links to nowhere a site had as Studio first saw it, which are the user's

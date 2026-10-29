@@ -286,7 +286,11 @@ it( 'moves URL navigation into More on mobile', async () => {
 	await user.click( await screen.findByRole( 'menuitem', { name: 'Go to URL…' } ) );
 	expect( await screen.findByRole( 'dialog', { name: 'Go to URL' } ) ).toBeVisible();
 	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
-	await user.click( screen.getByRole( 'button', { name: 'Close' } ) );
+	await user.click(
+		within( screen.getByRole( 'dialog', { name: 'Go to URL' } ) ).getByRole( 'button', {
+			name: 'Close',
+		} )
+	);
 	await resize( 600 );
 	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
 } );

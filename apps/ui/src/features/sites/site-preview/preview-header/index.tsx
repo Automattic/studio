@@ -196,9 +196,7 @@ export function PreviewHeader( {
 			<Dialog open={ addressOpen } onOpenChange={ onAddressOpenChange }>
 				<DialogContent layout="compact">
 					<DialogHeader>
-						<DialogHeader>
-							<DialogTitle>{ __( 'Go to URL' ) }</DialogTitle>
-						</DialogHeader>
+						<DialogTitle>{ __( 'Go to URL' ) }</DialogTitle>
 					</DialogHeader>
 					{ addressBar }
 				</DialogContent>

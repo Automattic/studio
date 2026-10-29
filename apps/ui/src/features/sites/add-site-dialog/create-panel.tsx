@@ -1,4 +1,3 @@
-import { DEFAULT_MODEL } from '@studio/agent/protocol/models';
 import {
 	extractFormValuesFromBlueprint,
 	updateBlueprintWithFormValues,
@@ -14,20 +13,16 @@ import {
 	useExistingCustomDomains,
 	useProposedSiteName,
 } from '@/data/queries/use-create-site-helpers';
-import { useCreateSession } from '@/data/queries/use-sessions';
 import { useCreateSite, useSites } from '@/data/queries/use-sites';
 import { useWordPressOrgPackageName } from '@/data/queries/use-wordpress-org-package-name';
-import { Composer, type ComposerHandle } from '@/features/composer';
-import { pendingPromptSlot } from '@/features/composer';
-import { BlueprintUpload, type SelectedBlueprint } from '@/features/sites/blueprint-upload';
 import { CreateSiteForm } from '@/features/sites/create-site-form';
 import { pendingBlueprintSlot } from '@/features/sites/pending-blueprint';
-import { Field, FieldDescription, FieldTitle } from '@/lib/ui';
 import { useConnectSite } from './connect-site';
 import { useAddSite } from './context';
 import localStyles from './create-panel.module.css';
 import { getRemoteSiteName } from './site-presentation';
-import type { AiModelId, SyncSite } from '@/data/core';
+import type { SyncSite } from '@/data/core';
+import type { SelectedBlueprint } from '@/features/sites/blueprint-selection';
 import type { CreateSiteFormError, CreateSiteFormValues } from '@/features/sites/create-site-form';
 
 function mapBlueprintSettingsToFormValues(
@@ -233,10 +228,26 @@ function SelectedBlueprintSummary( {
  * The setup form for a new site: blank, from a Blueprint, or the local copy of
  * the `remote` site picked in Connect.
  */
-export function CreatePanel( { remote, onCancel }: { remote?: SyncSite; onCancel: () => void } ) {
+export function CreatePanel( {
+	remote,
+	onCancel,
+	onBlankChange,
+}: {
+	remote?: SyncSite;
+	onCancel: () => void;
+	onBlankChange: ( isBlank: boolean ) => void;
+} ) {
 	const connector = useConnector();
 	const navigate = useNavigate();
-	const { setProgress, pinNewSite, setupDraft, setSetupDraft } = useAddSite();
+	const {
+		setProgress,
+		pinNewSite,
+		setupDraft,
+		setSetupDraft,
+		formActions,
+		isBlueprintValid,
+		setIsBlueprintValid,
+	} = useAddSite();
 	const [ restoredDraft ] = useState( setupDraft );
 	const { data: sites } = useSites();
 	const existingDomainNames = useExistingCustomDomains();
@@ -246,11 +257,7 @@ export function CreatePanel( { remote, onCancel }: { remote?: SyncSite; onCancel
 	);
 	const createSite = useCreateSite();
 	const connectSite = useConnectSite();
-	const createSession = useCreateSession();
-	const composerRef = useRef< ComposerHandle >( null );
-	const [ model, setModel ] = useState< AiModelId >( DEFAULT_MODEL );
 	const [ selectedBlueprint, setSelectedBlueprint ] = useState< SelectedBlueprint | null >( null );
-	const [ isBlueprintValid, setIsBlueprintValid ] = useState( true );
 	const [ existing, setExisting ] = useState( false );
 	const [ submittedInitialValues, setSubmittedInitialValues ] =
 		useState< Partial< CreateSiteFormValues > | null >( null );
@@ -261,7 +268,6 @@ export function CreatePanel( { remote, onCancel }: { remote?: SyncSite; onCancel
 		pendingBlueprintSlot.subscribe,
 		pendingBlueprintSlot.getSnapshot
 	);
-	const showBrief = ! selectedBlueprint && ! remote && ! existing;
 	const requiresCustomDomain = useMemo(
 		() =>
 			!! selectedBlueprint &&
@@ -283,9 +289,10 @@ export function CreatePanel( { remote, onCancel }: { remote?: SyncSite; onCancel
 			cleanupBlueprint( selectedBlueprintRef.current );
 			selectedBlueprintRef.current = blueprint;
 			setSelectedBlueprint( blueprint );
+			onBlankChange( ! blueprint && ! existing );
 			setSubmitError( '' );
 		},
-		[ cleanupBlueprint ]
+		[ cleanupBlueprint, existing, onBlankChange ]
 	);
 
 	useEffect( () => {
@@ -312,7 +319,6 @@ export function CreatePanel( { remote, onCancel }: { remote?: SyncSite; onCancel
 
 	const handleSubmit = async ( values: CreateSiteFormValues ) => {
 		const blueprint = existing ? null : selectedBlueprintRef.current;
-		const brief = showBrief ? composerRef.current?.getSubmission() : null;
 		setSubmittedInitialValues( initialValues );
 		setSubmitError( '' );
 		setProgress( __( 'Creating site…' ) );
@@ -342,7 +348,6 @@ export function CreatePanel( { remote, onCancel }: { remote?: SyncSite; onCancel
 			}
 			const site = await createSite.mutateAsync( {
 				...params,
-				...( brief ? { flowType: 'ai' as const } : {} ),
 				...( mergedBlueprint && blueprint
 					? {
 							blueprint: {
@@ -354,20 +359,7 @@ export function CreatePanel( { remote, onCancel }: { remote?: SyncSite; onCancel
 					: {} ),
 			} );
 			pinNewSite( site.id );
-			if ( brief ) {
-				const session = await createSession.mutateAsync( {
-					siteId: site.id,
-					model: model !== DEFAULT_MODEL ? model : undefined,
-				} );
-				pendingPromptSlot.set( {
-					sessionId: session.id,
-					prompt: brief.prompt || __( 'Build this site using the attached files as references.' ),
-					attachments: brief.attachments,
-				} );
-				await navigate( { to: '/sessions/$sessionId', params: { sessionId: session.id } } );
-			} else {
-				await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
-			}
+			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 		} catch ( error ) {
 			setSubmittedInitialValues( null );
 			setProgress( null );
@@ -386,6 +378,7 @@ export function CreatePanel( { remote, onCancel }: { remote?: SyncSite; onCancel
 	return (
 		<div className={ localStyles.page }>
 			<CreateSiteForm
+				actionsContainer={ formActions }
 				initialValues={ submittedInitialValues ?? initialValues }
 				existingDomainNames={ existingDomainNames }
 				onSubmit={ handleSubmit }
@@ -397,7 +390,10 @@ export function CreatePanel( { remote, onCancel }: { remote?: SyncSite; onCancel
 				submitLabel={ selectedBlueprint ? __( 'Create site from Blueprint' ) : undefined }
 				source={ remote?.url.replace( /^https?:\/\//, '' ) }
 				sourceIcon={ <CloudDownloadIcon /> }
-				onExistingChange={ setExisting }
+				onExistingChange={ ( isExisting ) => {
+					setExisting( isExisting );
+					onBlankChange( ! isExisting && ! selectedBlueprintRef.current );
+				} }
 				requiresEmptyPath={ !! remote }
 				draft={ restoredDraft }
 				onDraftChange={ setSetupDraft }
@@ -412,39 +408,7 @@ export function CreatePanel( { remote, onCancel }: { remote?: SyncSite; onCancel
 						/>
 					) : undefined
 				}
-			>
-				{ showBrief && (
-					<Field>
-						<FieldTitle>{ __( 'What should we create?' ) }</FieldTitle>
-						<Composer
-							ref={ composerRef }
-							variant="field"
-							busy={ false }
-							model={ model }
-							onModelChange={ setModel }
-							onSend={ async () => undefined }
-							onInterrupt={ async () => undefined }
-							placeholder={ __(
-								'A warm, modern website for my neighborhood bakery. Include a menu and our story…'
-							) }
-						/>
-						<FieldDescription>
-							{ __(
-								'Optional. Add the audience, goals, style, or pages, plus reference images or files.'
-							) }
-						</FieldDescription>
-					</Field>
-				) }
-			</CreateSiteForm>
-			{ ! selectedBlueprint && ! remote && ! existing && (
-				<div className={ localStyles.blueprint }>
-					<BlueprintUpload
-						onSelect={ replaceBlueprint }
-						onRemove={ () => replaceBlueprint( null ) }
-						onValidityChange={ setIsBlueprintValid }
-					/>
-				</div>
-			) }
+			/>
 		</div>
 	);
 }

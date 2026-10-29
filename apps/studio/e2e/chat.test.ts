@@ -160,6 +160,8 @@ test.describe( 'Chat', () => {
 				inspect( `document.readyState === 'complete' && !!document.querySelector('h1,h2')` )
 			)
 			.toBe( true );
+		// The guest click below bypasses Playwright's stability check.
+		await page.locator( 'webview' ).click( { trial: true } );
 		const pickedPoint = await inspect(
 			`(() => {
 				const target = document.querySelector('h1,h2');

@@ -27,7 +27,7 @@
 	}
 
 	.content {
-		--surface: var( --chat );
+		--surface: var( --popover );
 		--dialog-inset: var( --space-3 );
 		position: fixed;
 		top: 50%;
@@ -49,15 +49,8 @@
 		transition-timing-function: var( --motion-ease-enter );
 	}
 
-	.content[data-surface='composer'] {
-		--surface: var( --composer );
-		color: var( --foreground );
-	}
-
-	.content[data-backdrop='dimmed'] {
-		box-shadow:
-			0 0 0 1px var( --border ),
-			var( --shadow-sm );
+	.content [data-slot='tabs-sidebar'] {
+		background-color: transparent;
 	}
 
 	.content:is( [data-starting-style], [data-ending-style] ) {
@@ -136,7 +129,6 @@
 		flex-shrink: 0;
 		align-items: center;
 		column-gap: var( --space-3 );
-		min-height: 60px;
 		padding: var( --dialog-inset, var( --space-3 ) );
 	}
 
@@ -199,12 +191,14 @@
 
 	.footer {
 		display: flex;
+		flex-shrink: 0;
 		gap: var( --space-1_5 );
 		align-items: center;
 		justify-content: flex-end;
 	}
 
-	.content:is( [data-layout='settings'], [data-layout='creation'] ) > .footer {
+	.content:is( [data-layout='settings'], [data-layout='creation'] ) > .footer,
+	.panel > .footer {
 		padding: var( --dialog-inset, var( --space-3 ) );
 	}
 
@@ -232,7 +226,7 @@
 	}
 
 	.panel {
-		--surface: var( --surface-0 );
+		--surface: inherit;
 		position: relative;
 		display: flex;
 		flex: 1;
@@ -253,7 +247,14 @@
 		flex-direction: column;
 		width: 100%;
 		min-height: 100%;
-		padding: 0 var( --dialog-inset, var( --space-3 ) ) var( --dialog-inset, var( --space-3 ) );
+		padding: 2px var( --dialog-inset, var( --space-3 ) ) var( --dialog-inset, var( --space-3 ) );
+	}
+
+	.panelBody:has( > [data-slot='empty'] ),
+	.panelBody:has( > :only-child > [data-slot='empty'] ) {
+		padding-block-start: 0;
+		/* Balance the panel header so the empty state centers in the whole panel. */
+		padding-block-end: calc( var( --control-size ) + 2 * var( --dialog-inset, var( --space-3 ) ) );
 	}
 
 	.scrollArea {

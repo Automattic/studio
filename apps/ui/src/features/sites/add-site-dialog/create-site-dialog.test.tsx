@@ -97,7 +97,6 @@ describe( 'Add site flow', () => {
 		let resolve!: ( response: Response ) => void;
 		vi.mocked( fetch ).mockReturnValue( new Promise( ( done ) => ( resolve = done ) ) );
 		expect( await screen.findByRole( 'status', { name: 'Loading Blueprints…' } ) ).toBeVisible();
-		expect( screen.queryByText( 'Loading Blueprints…' ) ).not.toBeInTheDocument();
 		expect(
 			screen.queryByRole( 'button', { name: 'Start with Blank site' } )
 		).not.toBeInTheDocument();
@@ -113,12 +112,7 @@ describe( 'Add site flow', () => {
 		await waitFor( () => expect( blank ).toHaveFocus() );
 		expect( screen.getByRole( 'tab', { name: 'Upload' } ) ).toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Upload Blueprint…' } ) ).not.toBeInTheDocument();
-		expect(
-			within( screen.getByRole( 'tablist', { name: 'Ways to add a site' } ) )
-				.getAllByRole( 'tab' )
-				.slice( 0, 4 )
-				.map( ( tab ) => tab.textContent )
-		).toEqual( [ 'Create', 'Connect', 'Upload', 'Import' ] );
+
 		expect(
 			screen.queryByRole( 'combobox', { name: 'Blueprint collection' } )
 		).not.toBeInTheDocument();

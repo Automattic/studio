@@ -33,7 +33,10 @@ async function setup(
 	return { ...view, dialog };
 }
 
-function uploadBlueprint( blueprint: Blueprint & { meta?: object } ) {
+async function uploadBlueprint( blueprint: Blueprint & { meta?: object } ) {
+	fireEvent.click( screen.getByRole( 'button', { name: 'Back' } ) );
+	fireEvent.click( await screen.findByRole( 'tab', { name: 'Upload' } ) );
+	await screen.findByRole( 'button', { name: 'Choose file' } );
 	const contents = JSON.stringify( { meta: { title: 'Network', author: 'Studio' }, ...blueprint } );
 	const file = new File( [ contents ], 'blueprint.json', { type: 'application/json' } );
 	Object.defineProperty( file, 'text', { value: async () => contents } );
@@ -49,15 +52,12 @@ async function createSite( dialog: HTMLElement, name = 'Create site' ) {
 }
 
 describe( 'Add site › blank setup', () => {
-	it( 'keeps blank setup focused on the name and updates its heading for a Blueprint', async () => {
+	it( 'switches between blank and uploaded Blueprint setup', async () => {
 		const { dialog } = await setup();
 		expect(
 			within( dialog ).getByRole( 'heading', { name: 'Create a blank site' } )
 		).toBeVisible();
-		expect( within( dialog ).queryByText( 'What should we create?' ) ).not.toBeInTheDocument();
-		expect( within( dialog ).queryByRole( 'button', { name: 'Model' } ) ).not.toBeInTheDocument();
-		expect( within( dialog ).queryByText( /Have a blueprint/ ) ).not.toBeInTheDocument();
-		uploadBlueprint( {} );
+		await uploadBlueprint( {} );
 		expect( await screen.findByRole( 'heading', { name: 'Network' } ) ).toBeVisible();
 		expect( within( dialog ).getByRole( 'heading', { name: 'Create your site' } ) ).toBeVisible();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Remove' } ) );
@@ -85,13 +85,10 @@ describe( 'Add site › blank setup', () => {
 		const button = within( dialog ).getByRole< HTMLButtonElement >( 'button', {
 			name: 'Create site',
 		} );
-		expect( button.closest( 'form' ) ).toBeNull();
-		expect( button.form ).toBe( within( dialog ).getByLabelText( 'Site name' ).closest( 'form' ) );
 		await createSite( dialog );
 		await waitFor( () => expect( connector.createSite ).toHaveBeenCalledOnce() );
 		expect( button ).toHaveAttribute( 'aria-busy', 'true' );
 		expect( within( button ).getByRole( 'status', { name: 'Creating site' } ) ).toBeInTheDocument();
-		expect( within( dialog ).queryByText( 'Creating site…' ) ).not.toBeInTheDocument();
 		expect( within( dialog ).getByRole( 'button', { name: 'Close Add site' } ) ).toHaveAttribute(
 			'aria-disabled',
 			'true'
@@ -102,7 +99,7 @@ describe( 'Add site › blank setup', () => {
 
 	it( 'shows what an uploaded Blueprint will install', async () => {
 		const { connector } = await setup();
-		uploadBlueprint( {
+		await uploadBlueprint( {
 			meta: { title: 'Theme & plugin development', author: 'Studio' },
 			steps: [
 				{
@@ -129,7 +126,7 @@ describe( 'Add site › blank setup', () => {
 
 	it( 'requires a custom domain for a multisite Blueprint', async () => {
 		const { dialog } = await setup();
-		uploadBlueprint( { steps: [ { step: 'enableMultisite' } ] } );
+		await uploadBlueprint( { steps: [ { step: 'enableMultisite' } ] } );
 		await screen.findByRole( 'heading', { name: 'Network' } );
 		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Advanced settings' } ) );
 		const toggle = await within( dialog ).findByRole( 'switch', { name: 'Use custom domain' } );

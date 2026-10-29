@@ -250,15 +250,6 @@ export function AddSiteDialog() {
 							{ progress && view.name !== 'details' && ( view.name !== 'setup' || view.remote ) ? (
 								<Progress siteId={ followedSite } fallback={ progress } />
 							) : null }
-							{ view.name === 'gallery' || ( view.name === 'setup' && ! view.remote ) ? (
-								<BlueprintUpload
-									variant="drop-only"
-									disabled={ !! progress }
-									onSelect={ selectBlueprint }
-									onRemove={ removeInvalidBlueprint }
-									onValidityChange={ setIsBlueprintValid }
-								/>
-							) : null }
 							<div ref={ setActions } className={ styles.actions } />
 						</>
 					}
@@ -272,7 +263,6 @@ export function AddSiteDialog() {
 				<AddSiteContext.Provider value={ context }>
 					{ view.name === 'upload' ? (
 						<BlueprintUpload
-							variant="panel"
 							onSelect={ selectBlueprint }
 							onRemove={ removeInvalidBlueprint }
 							onValidityChange={ setIsBlueprintValid }

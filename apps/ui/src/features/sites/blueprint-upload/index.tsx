@@ -1,4 +1,3 @@
-import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { UploadIcon } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -14,7 +13,6 @@ import type { ChangeEvent } from 'react';
 export type { SelectedBlueprint } from '@/features/sites/blueprint-selection';
 
 interface BlueprintUploadProps {
-	variant?: 'hint' | 'panel' | 'drop-only';
 	disabled?: boolean;
 	onSelect: ( blueprint: SelectedBlueprint ) => void;
 	onRemove: () => void;
@@ -22,7 +20,6 @@ interface BlueprintUploadProps {
 }
 
 export function BlueprintUpload( {
-	variant = 'hint',
 	disabled = false,
 	onSelect,
 	onRemove,
@@ -92,63 +89,37 @@ export function BlueprintUpload( {
 	);
 
 	return (
-		<>
+		<div className={ styles.panel }>
+			<input
+				ref={ fileInputRef }
+				type="file"
+				accept={ BLUEPRINT_FILE_ACCEPT }
+				onChange={ handleInputChange }
+				className={ styles.fileInput }
+				disabled={ disabled }
+			/>
 			<div
-				className={
-					variant === 'drop-only'
-						? styles.control
-						: variant === 'panel'
-						? styles.panel
-						: styles.root
-				}
+				ref={ setDropTarget }
+				className={ styles.dropZone }
+				data-dragging={ isDragging || undefined }
 			>
-				<input
-					ref={ fileInputRef }
-					type="file"
-					accept={ BLUEPRINT_FILE_ACCEPT }
-					onChange={ handleInputChange }
-					className={ styles.fileInput }
-					disabled={ disabled }
-				/>
-				{ variant === 'panel' ? (
-					<>
-						<div
-							ref={ setDropTarget }
-							className={ styles.dropZone }
-							data-dragging={ isDragging || undefined }
-						>
-							<UploadIcon className={ styles.dropIcon } size={ 24 } />
-							<div className={ styles.dropText }>
-								<p className={ styles.dropLabel }>{ __( 'Drop a Blueprint here.' ) }</p>
-								<p className={ styles.dropHelp }>
-									{ __( 'Supports Blueprint JSON files and ZIP bundles.' ) }
-								</p>
-							</div>
-							<Button
-								variant="default"
-								disabled={ disabled }
-								data-blueprint-upload
-								onClick={ () => fileInputRef.current?.click() }
-							>
-								{ __( 'Choose file' ) }
-							</Button>
-						</div>
-					</>
-				) : variant === 'hint' ? (
-					<p className={ styles.prompt }>
-						{ createInterpolateElement( __( 'Have a blueprint? <upload>Upload a file</upload>.' ), {
-							upload: (
-								<button
-									type="button"
-									className={ styles.action }
-									onClick={ () => fileInputRef.current?.click() }
-								/>
-							),
-						} ) }
+				<UploadIcon className={ styles.dropIcon } size={ 24 } />
+				<div className={ styles.dropText }>
+					<p className={ styles.dropLabel }>{ __( 'Drop a Blueprint here.' ) }</p>
+					<p className={ styles.dropHelp }>
+						{ __( 'Supports Blueprint JSON files and ZIP bundles.' ) }
 					</p>
-				) : null }
-				<BlueprintErrorDialog error={ error ?? '' } onDismiss={ handleRemove } />
+				</div>
+				<Button
+					variant="default"
+					disabled={ disabled }
+					data-blueprint-upload
+					onClick={ () => fileInputRef.current?.click() }
+				>
+					{ __( 'Choose file' ) }
+				</Button>
 			</div>
-		</>
+			<BlueprintErrorDialog error={ error ?? '' } onDismiss={ handleRemove } />
+		</div>
 	);
 }

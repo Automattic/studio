@@ -1,16 +1,8 @@
-.root {
-	text-align: center;
-}
-
 .panel {
 	display: flex;
 	flex: 1;
 	min-height: 0;
 	text-align: center;
-}
-
-.control {
-	display: contents;
 }
 
 .dropZone {
@@ -50,28 +42,6 @@
 
 .fileInput {
 	display: none;
-}
-
-.prompt {
-	color: var( --muted-foreground );
-	font-size: var( --text-xs );
-}
-
-.action {
-	color: var( --accent-text );
-	font-weight: var( --font-weight-medium );
-	cursor: pointer;
-}
-
-.action:hover {
-	text-decoration: underline;
-}
-
-.action:focus-visible {
-	/* eslint-disable-next-line studio/use-theme-tokens -- a focus ring hugging a text link. */
-	border-radius: 2px;
-	outline: 2px solid var( --accent );
-	outline-offset: 2px;
 }
 
 .dropZone[data-dragging] {

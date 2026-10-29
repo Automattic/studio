@@ -498,7 +498,6 @@ function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: Ses
 						placeholderBusy={ isSiteStarting || isSiteStopping }
 						canAutoStart={ canAutoStart }
 						environment={ effectiveEnvironment }
-						liveUrl={ liveSite?.url }
 						onEnvironmentChange={
 							ownerSite
 								? ( environment ) =>

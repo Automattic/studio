@@ -159,17 +159,15 @@ test.describe( 'Share and publish', () => {
 		).toBeEnabled();
 		expect( await publishCalls() ).toHaveLength( 0 );
 		await panel.getByRole( 'button', { name: 'Publish changes', exact: true } ).click();
-		const publish = page.getByRole( 'alertdialog', {
-			name: 'Publish changes to example.wordpress.com?',
-			exact: true,
-		} );
-		await publish.getByRole( 'button', { name: 'Publish changes', exact: true } ).click();
+		await expect( panel.getByRole( 'radiogroup', { name: 'What to publish' } ) ).toBeVisible();
+		await expect( page.getByRole( 'alertdialog' ) ).toHaveCount( 0 );
+		await panel.getByRole( 'button', { name: 'Publish changes', exact: true } ).click();
 		await expect.poll( async () => ( await publishCalls() ).length ).toBe( 1 );
 		await finishPublish();
 
 		await panel.getByRole( 'button', { name: 'Publish changes', exact: true } ).click();
-		await publish.getByRole( 'radio', { name: 'Files only', exact: true } ).check();
-		await publish.getByRole( 'button', { name: 'Publish changes', exact: true } ).click();
+		await panel.getByRole( 'radio', { name: 'Files only', exact: true } ).check();
+		await panel.getByRole( 'button', { name: 'Publish changes', exact: true } ).click();
 		await expect.poll( async () => ( await publishCalls() ).length ).toBe( 2 );
 		await finishPublish();
 		await expect(
@@ -177,14 +175,11 @@ test.describe( 'Share and publish', () => {
 		).toBeEnabled();
 
 		await panel.getByRole( 'button', { name: 'Pull changes', exact: true } ).click();
-		const pull = page.getByRole( 'alertdialog', {
-			name: 'Pull changes from example.wordpress.com?',
-			exact: true,
-		} );
-		await pull.getByRole( 'radio', { name: 'Content and settings only', exact: true } ).check();
-		await pull.getByRole( 'button', { name: 'Pull changes', exact: true } ).click();
-		await expect( pull.getByText( 'Changes pulled into WordPress Studio' ) ).toBeVisible();
-		await pull.getByRole( 'button', { name: 'Done', exact: true } ).click();
+		await expect( panel.getByRole( 'radiogroup', { name: 'What to pull' } ) ).toBeVisible();
+		await panel.getByRole( 'radio', { name: 'Content and settings only', exact: true } ).check();
+		await panel.getByRole( 'button', { name: 'Pull changes', exact: true } ).click();
+		await expect( panel.getByText( 'Changes pulled into WordPress Studio' ) ).toBeVisible();
+		await panel.getByRole( 'button', { name: 'Done', exact: true } ).click();
 		await page.keyboard.press( 'Escape' );
 
 		const calls = await publishCalls();

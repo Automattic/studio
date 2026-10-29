@@ -113,6 +113,13 @@ import {
 	readSiteDesign,
 	type SiteDesign,
 } from '@studio/common/sites/site-design';
+import {
+	ensureSiteEmailDirectory,
+	listSiteEmails,
+	readSiteEmail,
+	type SiteEmail,
+	type SiteEmailSummary,
+} from '@studio/common/sites/site-email';
 import { readThemeDetails } from '@studio/common/sites/site-identity';
 import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import { __ } from '@wordpress/i18n';
@@ -965,6 +972,31 @@ export async function fixSiteDesignDrift(
 	return sitePath
 		? fixSiteDesign( sitePath, activeThemeSlug( sitePath ), designFixesSchema.parse( fixes ) )
 		: null;
+}
+
+export async function getSiteEmails(
+	_event: IpcMainInvokeEvent,
+	id: string
+): Promise< SiteEmailSummary[] > {
+	return ( await readSite( id ) ) ? listSiteEmails( id ) : [];
+}
+
+export async function getSiteEmail(
+	_event: IpcMainInvokeEvent,
+	id: string,
+	emailId: string
+): Promise< SiteEmail | null > {
+	return ( await readSite( id ) ) ? readSiteEmail( id, emailId ) : null;
+}
+
+export async function openSiteEmailFolder( _event: IpcMainInvokeEvent, id: string ) {
+	if ( ! ( await readSite( id ) ) ) {
+		throw new Error( `Site ${ id } not found` );
+	}
+	const error = await shell.openPath( await ensureSiteEmailDirectory( id ) );
+	if ( error ) {
+		throw new Error( error );
+	}
 }
 
 export async function getIsMultisite( _event: IpcMainInvokeEvent, id: string ) {

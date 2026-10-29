@@ -24,6 +24,7 @@ function truncateText( text: string, maxLength: number ): string {
  * of the element's own classes, e.g. `h1.hero-title`. */
 function describeElement( note: PreviewAnnotation ): string | undefined {
 	if ( note.designToken ) return note.designToken;
+	if ( note.email && ! note.tag ) return `paragraph ${ ( note.email.paragraph ?? 0 ) + 1 }`;
 	if ( ! note.tag ) return undefined;
 	const classes = ( note.classes ?? [] ).slice( 0, 2 );
 	return classes.length ? `${ note.tag }.${ classes.join( '.' ) }` : `<${ note.tag }>`;

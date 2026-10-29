@@ -18,6 +18,7 @@ import {
 	ChatIcon,
 	DuplicateIcon,
 	ExternalLinkIcon,
+	MailIcon,
 	NewChatIcon,
 	PinIcon,
 	RotateCwIcon,
@@ -156,6 +157,15 @@ export function getSiteCommands( {
 						description,
 						keywords: keywords.phpmyadmin,
 						run: actions.openDatabase,
+					},
+					{
+						id: 'email',
+						group: 'site' as const,
+						label: __( 'Open email' ),
+						icon: MailIcon,
+						description,
+						keywords: [ __( 'Inbox' ), __( 'Mail' ), 'wp_mail' ],
+						run: actions.openEmail,
 					},
 					...( site.running
 						? [

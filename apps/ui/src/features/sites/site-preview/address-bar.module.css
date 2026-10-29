@@ -17,9 +17,15 @@
 	overflow: hidden;
 }
 
-.addressBar:focus-within {
+/* A click on the button moves focus too, but only the keyboard shows it. */
+.addressBar:focus-within:not( :has( .viewButton ) ),
+.addressBar:has( .viewButton:focus-visible ) {
 	border-color: var( --ring );
 	box-shadow: inset 0 0 0 1px var( --ring );
+}
+
+.addressBar:has( .viewButton:is( :hover, [data-popup-open] ) ) {
+	background-color: var( --hover );
 }
 
 .addressBar:has( .input[aria-invalid='true'] ) {
@@ -67,6 +73,29 @@
 .input:focus {
 	padding-inline: 0;
 	text-align: start;
+}
+
+/* Fills the whole pill, so a click anywhere on it opens the shortcuts. */
+.viewButton {
+	display: flex;
+	flex: 1;
+	align-items: center;
+	justify-content: center;
+	min-width: 0;
+	height: 100%;
+	margin-inline: calc( var( --space-3 ) * -1 );
+	padding-inline: calc( var( --space-3 ) + var( --space-5 ) );
+	border: 0;
+	background: none;
+	color: var( --foreground );
+	font: inherit;
+	font-size: var( --text-xs );
+	line-height: var( --text-xs--line-height );
+	outline: 0;
+}
+
+.viewLabel {
+	composes: truncate from '@/lib/theme/recipes.module.css';
 }
 
 .shortcutsPopup {

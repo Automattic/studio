@@ -681,12 +681,13 @@ export function createIpcConnector(): Connector {
 		},
 
 		async openSiteEmailFolder( siteId ): Promise< void > {
-			const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
-			const emailPath = sites.find( ( candidate ) => candidate.id === siteId )?.emailPath;
-			if ( ! emailPath ) {
-				throw new Error( `Site ${ siteId } not found` );
-			}
-			ipcApi.openLocalPath( emailPath );
+			await ipcApi.openSiteEmailFolder( siteId );
+		},
+		async getSiteEmails( siteId ) {
+			return ipcApi.getSiteEmails( siteId );
+		},
+		async getSiteEmail( siteId, emailId ) {
+			return ipcApi.getSiteEmail( siteId, emailId );
 		},
 
 		async openSiteInEditor( siteId ): Promise< void > {

@@ -24,6 +24,7 @@ import {
 import { useOpenInDestinations } from '@/features/sites/open-in-menu/use-open-in-destinations';
 import {
 	DATABASE_HOME_PATH,
+	EMAIL_PREVIEW_PATH,
 	getRealmNavigationPath,
 } from '@/features/sites/site-preview/address-bar';
 import { useItemShortcuts } from '@/features/sites/use-item-shortcuts';
@@ -146,7 +147,7 @@ export function useSiteActions(
 			),
 		openAdmin: () => void goTo( '/wp-admin/' ),
 		openDatabase: () => void goTo( DATABASE_HOME_PATH ),
-		openEmail: () => void connector.openSiteEmailFolder( site.id ),
+		openEmail: () => void goTo( EMAIL_PREVIEW_PATH ),
 		openDesignSystem: () => void goTo( DESIGN_SYSTEM_PREVIEW_PATH ),
 		openImport: () => importInputRef.current?.click(),
 		openDelete: () => setDeleteOpen( true ),

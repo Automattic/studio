@@ -1,6 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { describe, expect, it } from 'vitest';
 import { loadSkills } from '@studio/agent/node/skills';
 import { buildSystemPrompt } from '@studio/agent/node/system-prompt';
@@ -176,6 +177,18 @@ describe( 'buildSystemPrompt', () => {
 		} finally {
 			fs.rmSync( sitePath, { recursive: true, force: true } );
 		}
+	} );
+
+	it( "names the folder where Studio saves the active site's email", () => {
+		const prompt = buildSystemPrompt( {
+			activeSite: { id: 'site-1', name: 'Mailer', path: '/sites/mailer', running: true },
+		} );
+
+		expect( prompt ).toContain(
+			`"Mailer" at /sites/mailer (running), email it sends: ${ getSiteEmailDirectory(
+				'site-1'
+			) } (one .eml file per message)`
+		);
 	} );
 
 	it( 'appends the user global instructions when set', () => {

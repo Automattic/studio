@@ -95,8 +95,8 @@ export function pickAnnotation( siteId: string, target: VisualAnnotationTarget )
 	if ( isAnnotationsBusy( current ) ) {
 		return null;
 	}
-	const existing = target.designKey
-		? current.notes.find( ( note ) => note.designKey === target.designKey )
+	const existing = target.targetKey
+		? current.notes.find( ( note ) => note.targetKey === target.targetKey )
 		: undefined;
 	if ( existing ) {
 		editAnnotation( siteId, existing.id );

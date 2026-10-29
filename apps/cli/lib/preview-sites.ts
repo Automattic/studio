@@ -125,11 +125,12 @@ async function getPreviewHostname( siteId: number, token: string ): Promise< str
 
 /** Returns the site's preview link, creating it when the site has none (a site allows only one). */
 async function getShareUrl( siteId: number, hostname: string, token: string ): Promise< string > {
-	const endpoint = { apiNamespace: 'wpcom/v2', path: `/sites/${ siteId }/preview-links` };
+	// A fresh params object per request: wpcom.js writes the HTTP method into the one it is given.
+	const endpoint = () => ( { apiNamespace: 'wpcom/v2', path: `/sites/${ siteId }/preview-links` } );
 	const [ existing ] = z
 		.array( previewLinkSchema )
-		.parse( await wpcom( token ).req.get( endpoint ) );
-	const link = existing ?? previewLinkSchema.parse( await wpcom( token ).req.post( endpoint ) );
+		.parse( await wpcom( token ).req.get( endpoint() ) );
+	const link = existing ?? previewLinkSchema.parse( await wpcom( token ).req.post( endpoint() ) );
 	return `https://${ hostname }/?share=${ link.code }`;
 }
 

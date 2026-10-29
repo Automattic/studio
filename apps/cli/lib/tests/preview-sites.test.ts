@@ -29,20 +29,23 @@ describe( 'Preview sites', () => {
 		vi.clearAllMocks();
 		vi.useFakeTimers();
 		vi.mocked( wpcomFactory ).mockReturnValue( { req: { get, post } } as unknown as WpcomFactory );
-		get.mockImplementation( ( { path }: { path: string } ) => {
-			if ( path === `/sites/${ siteId }` ) {
+		get.mockImplementation( ( params: { path: string; method?: string } ) => {
+			// Like wpcom.js, which writes the method into the params it is given.
+			params.method = 'GET';
+			if ( params.path === `/sites/${ siteId }` ) {
 				return Promise.resolve( { URL: 'https://preview-site.wpcomstaging.com' } );
 			}
-			if ( path === `/sites/${ siteId }/preview-links` ) {
+			if ( params.path === `/sites/${ siteId }/preview-links` ) {
 				return Promise.resolve( [] );
 			}
 			return Promise.resolve( { importId: 'new', importStatus: 'importSuccess' } );
 		} );
-		post.mockImplementation( ( { path }: { path: string } ) =>
-			path === '/sites/new'
-				? Promise.resolve( { blog_details: { blogid: String( siteId ) } } )
-				: Promise.resolve( { code: 'abc123' } )
-		);
+		post.mockImplementation( ( params: { path: string; method?: string } ) => {
+			if ( params.path === '/sites/new' ) {
+				return Promise.resolve( { blog_details: { blogid: String( siteId ) } } );
+			}
+			return Promise.resolve( params.method === 'GET' ? [] : { code: 'abc123' } );
+		} );
 	} );
 
 	afterEach( () => {

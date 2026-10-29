@@ -202,6 +202,7 @@ export async function runCommand( options: {
 				: undefined,
 	};
 	const agent = createAgent( { host } );
+	agent.prepare();
 	const resumeContext = resolveResumeSessionContext( options.resumeSession );
 	let currentProvider: AiProviderId =
 		resumeContext.provider ?? ( await resolveInitialAiProvider() );

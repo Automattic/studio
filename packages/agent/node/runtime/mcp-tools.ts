@@ -69,31 +69,72 @@ const CONNECT_TIMEOUT_MS = 15_000;
 // How long a server that did not answer is left out, so a turn does not wait
 // for its connection timeout again.
 const RETRY_AFTER_MS = 5 * 60_000;
-const clients = new Map< string, Promise< Client > >();
+const listings = new Map< string, Promise< Listing > >();
 const failedUntil = new Map< string, number >();
 
-const serverKey = ( server: McpServerSpec ) =>
-	JSON.stringify( [ server.name, server.url, server.headers, server.command ] );
+type Listing = { client: Client; tools: ListedTool[] };
 
-// One connection per server for the life of the process; a failed one is
-// dropped so a later turn connects again.
-function connect( server: McpServerSpec ): Promise< Client > {
+const serverKey = ( server: McpServerSpec ) =>
+	JSON.stringify( [
+		server.name,
+		server.url,
+		server.headers,
+		server.command,
+		server.args,
+		server.env,
+	] );
+
+// One connection per server for the life of the process, and its tools as
+// listed once: a server whose tools change says so (MCP's
+// notifications/tools/list_changed), and the list it sends then is kept. A
+// failed connection is dropped, and the server left out for a while.
+function listTools( server: McpServerSpec ): Promise< Listing > {
 	const key = serverKey( server );
-	let client = clients.get( key );
-	if ( ! client ) {
-		client = ( async () => {
+	let listing = listings.get( key );
+	if ( ! listing ) {
+		listing = ( async () => {
 			const [ { Client }, transport ] = await Promise.all( [
 				import( '@modelcontextprotocol/sdk/client/index.js' ),
 				createTransport( server ),
 			] );
-			const instance = new Client( { name: 'wordpress-studio', version: '1' } );
-			await instance.connect( transport, { timeout: CONNECT_TIMEOUT_MS } );
-			return instance;
+			const client: Client = new Client(
+				{ name: 'wordpress-studio', version: '1' },
+				{
+					listChanged: {
+						tools: {
+							onChanged: ( error, tools ) =>
+								error || ! tools
+									? listings.delete( key )
+									: listings.set( key, Promise.resolve( { client, tools } ) ),
+						},
+					},
+				}
+			);
+			await client.connect( transport, { timeout: CONNECT_TIMEOUT_MS } );
+			const { tools } = await client.listTools( undefined, { timeout: CONNECT_TIMEOUT_MS } );
+			return { client, tools };
 		} )();
-		client.catch( () => clients.delete( key ) );
-		clients.set( key, client );
+		listing.then(
+			() => failedUntil.delete( key ),
+			() => {
+				if ( listings.get( key ) === listing ) {
+					listings.delete( key );
+				}
+				failedUntil.set( key, Date.now() + RETRY_AFTER_MS );
+			}
+		);
+		listings.set( key, listing );
 	}
-	return client;
+	return listing;
+}
+
+/** Connects to the servers and lists their tools ahead of the first turn that needs them. */
+export function prepareMcpServers( remoteHosts: Record< string, RemoteHost > ): void {
+	void readMcpServers( remoteHosts ).then( ( servers ) =>
+		servers
+			.filter( ( server ) => ( failedUntil.get( serverKey( server ) ) ?? 0 ) <= Date.now() )
+			.forEach( ( server ) => listTools( server ).catch( () => undefined ) )
+	);
 }
 
 async function createTransport( server: McpServerSpec ) {
@@ -173,12 +214,9 @@ export async function createMcpTools(
 				return [];
 			}
 			try {
-				const client = await connect( server );
-				const { tools } = await client.listTools( undefined, { timeout: CONNECT_TIMEOUT_MS } );
-				failedUntil.delete( key );
+				const { client, tools } = await listTools( server );
 				return tools.map( ( tool ) => ( { server, client, tool } ) );
 			} catch {
-				failedUntil.set( key, Date.now() + RETRY_AFTER_MS );
 				return [];
 			}
 		} )

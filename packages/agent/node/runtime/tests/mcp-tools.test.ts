@@ -37,7 +37,7 @@ describe( 'MCP tools', () => {
 			properties: { id: { type: 'string' } },
 			required: [ 'id' ],
 		} );
-		expect( textOf( await tools.shop_read.execute( 't', { id: '4' } ) ) ).toBe( 'read 4' );
+		expect( textOf( await tools.shop_read.execute( 't', { id: '4' } ) ) ).toMatch( /^read 4/ );
 		expect( isUserMcpTool( 'shop_read' ) ).toBe( true );
 	} );
 
@@ -65,6 +65,29 @@ describe( 'MCP tools', () => {
 			question: 'Run Write for site 1?',
 			consequence: 'Requested action: Retitle the post.',
 		} );
+	} );
+
+	it( "lists a server's tools once, and again when the server says they changed", async () => {
+		const server = { ...FIXTURE, args: [ ...FIXTURE.args!, 'listing' ] };
+		const listed = async () => {
+			const tools = await createMcpTools( [ server ], async () => undefined );
+			const read = tools.find( ( tool ) => tool.name === 'shop_read' )!;
+			return {
+				names: tools.map( ( tool ) => tool.name ),
+				read: textOf( await read.execute( 't', { id: '1' } ) ),
+			};
+		};
+		expect( await listed() ).toEqual( {
+			names: [ 'shop_read', 'shop_write' ],
+			read: 'read 1, listed 1',
+		} );
+		expect( ( await listed() ).read ).toBe( 'read 1, listed 1' );
+
+		const [ read ] = await createMcpTools( [ server ], async () => undefined );
+		await read.execute( 't', { id: 'grow' } );
+		await vi.waitFor( async () =>
+			expect( ( await listed() ).names ).toEqual( [ 'shop_grown', 'shop_read', 'shop_write' ] )
+		);
 	} );
 
 	it( "leaves out a tool named like the harness's own or an earlier server's", async () => {

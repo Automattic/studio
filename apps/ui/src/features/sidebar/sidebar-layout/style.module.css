@@ -155,7 +155,7 @@
 }
 
 .sidebarFlyoutContents .sidebarFlyoutList {
-	padding-block-start: var( --space-1 );
+	padding-block-start: var( --space-1_5 );
 }
 
 @media ( prefers-reduced-motion: no-preference ) {

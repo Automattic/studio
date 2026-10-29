@@ -31,12 +31,19 @@ steps:
     agents:
       queue: default
     key: lint
-    command: bash .buildkite/commands/run-lint.sh
+    command: |
+      export PATH="$$PATH:/a8c-ci-toolkit/bin"
+      bash .buildkite/commands/run-lint.sh
     plugins:
+      - $CI_TOOLKIT_PLUGIN
       - $DOCKER_PLUGIN:
           image: "$NODE_DOCKER_IMAGE"
           propagate-environment: true
+          propagate-aws-auth-tokens: true
           mount-buildkite-agent: true
+          expand-volume-vars: true
+          volumes:
+            - "$$A8C_CI_TOOLKIT_PLUGIN_DIR:/a8c-ci-toolkit:ro"
     notify:
       - github_commit_status:
           context: Lint

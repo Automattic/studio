@@ -41,7 +41,6 @@ export function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) 
 		>
 			<DialogContent
 				backdrop="transparent"
-				surface="composer"
 				className={ styles.popup }
 				aria-label={ __( 'Command palette' ) }
 			>

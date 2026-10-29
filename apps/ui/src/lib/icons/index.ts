@@ -46,6 +46,7 @@ export * from './sync-icon';
 export * from './terminal-icon';
 export * from './trash-icon';
 export * from './unpin-icon';
+export * from './upload-icon';
 export * from './wordpress-icon';
 export * from './error-icon';
 export * from './warning-icon';

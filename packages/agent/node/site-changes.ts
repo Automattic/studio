@@ -14,6 +14,7 @@ import { blockStyleClasses } from '@studio/agent/node/block-style-classes';
 import { blockTheme } from '@studio/agent/node/block-theme';
 import { childThemeCopies } from '@studio/agent/node/child-theme-copies';
 import { globalStylesFlag } from '@studio/agent/node/global-styles-flag';
+import { jetpackModules } from '@studio/agent/node/jetpack-modules';
 import { linksToNowhereChanges } from '@studio/agent/node/links-to-nowhere';
 import { postContentChanges } from '@studio/agent/node/post-content-check';
 import { postCopies } from '@studio/agent/node/post-copies';
@@ -78,6 +79,8 @@ export interface SiteChangeSource {
 const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
 	// First, so the other checks read the Global Styles WordPress applies.
 	globalStylesFlag,
+	// Before the blocks are rendered, so a Jetpack block renders with its module.
+	jetpackModules,
 	// Before the posts, so a copy saved to its post is checked as the post.
 	postCopies,
 	postContentChanges,

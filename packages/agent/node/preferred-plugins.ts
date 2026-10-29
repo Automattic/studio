@@ -37,8 +37,10 @@ export const PREFERRED_PLUGINS: PreferredPlugin[] = [
 	},
 	{
 		need: 'Email newsletter, subscribe form',
-		plugin: 'Jetpack Newsletter',
-		install: '`jetpack`, `subscriptions` module',
+		plugin:
+			'Jetpack Newsletter once the site is connected to WordPress.com; until then, a Jetpack Forms email form',
+		install:
+			'`jetpack`, `subscriptions` module, which needs a connection; until then `contact-form` module',
 	},
 	{
 		need: 'Slideshow, carousel, tiled gallery, related posts, business hours, other non-core features',

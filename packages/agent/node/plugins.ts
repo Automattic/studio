@@ -4,7 +4,7 @@ import type { WordPressSite } from '@studio/agent/node/site-database';
 
 // The plugins WordPress loads (the active_plugins option), by plugin file:
 // `woocommerce/woocommerce.php`, or `hello.php` for a single-file plugin.
-function activePlugins( site: WordPressSite ): string[] {
+export function activePlugins( site: WordPressSite ): string[] {
 	const plugins = site.option( 'active_plugins' );
 	return plugins && typeof plugins === 'object'
 		? Object.values( plugins ).filter( ( file ): file is string => typeof file === 'string' )

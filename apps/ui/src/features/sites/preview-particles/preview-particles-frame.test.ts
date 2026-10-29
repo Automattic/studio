@@ -81,7 +81,7 @@ describe( 'preview particle frames', () => {
 					logoAmount: 0,
 				} );
 				expect( Number.isFinite( point.x + point.y + point.opacity ) ).toBe( true );
-				expect( point.opacity ).toBeCloseTo( 0.2 );
+				expect( point.opacity ).toBe( 1 );
 				if ( Math.hypot( point.x - size / 2, point.y - size / 2 ) <= 36 ) {
 					expect(
 						getPreviewDotFrame( dot, {

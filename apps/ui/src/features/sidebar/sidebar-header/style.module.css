@@ -1,7 +1,6 @@
 /* The sidebar's part of the workspace's top band: the app menu (Windows and
    Linux) and the sidebar toggle at its start, past the macOS traffic lights. */
 .root {
-	composes: bandEdge from '@/lib/theme/recipes.module.css';
 	--toggle-start: var( --traffic-light-space );
 	display: flex;
 	align-items: center;

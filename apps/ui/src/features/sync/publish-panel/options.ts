@@ -29,39 +29,12 @@ export function presetOptions( scope: Exclude< PublishScope, 'custom' > ): Trans
 	return { push: { optionsToSync }, pull: { optionsToSync } };
 }
 
-export function overwriteDescription( scope: PublishScope, direction: TransferDirection ) {
-	if ( direction === 'pull' ) {
-		switch ( scope ) {
-			case 'files':
-				return __(
-					'Matching files in WordPress Studio will be overwritten. Your website stays unchanged.'
-				);
-			case 'content':
-				return __(
-					'All content and settings in WordPress Studio will be overwritten. Your website stays unchanged.'
-				);
-			case 'custom':
-				return __(
-					'The selected files and content in WordPress Studio will be overwritten. Your website stays unchanged.'
-				);
-			default:
-				return __(
-					'Matching files and all content and settings in WordPress Studio will be overwritten. Your website stays unchanged.'
-				);
-		}
-	}
-	switch ( scope ) {
-		case 'files':
-			return __( 'Matching files on the website will be overwritten.' );
-		case 'content':
-			return __( 'All content and settings on the website will be overwritten.' );
-		case 'custom':
-			return __( 'The selected files and content on the website will be overwritten.' );
-		default:
-			return __(
-				'Matching files and all content and settings on the website will be overwritten.'
-			);
-	}
+export function overwriteDescription( direction: TransferDirection ) {
+	return direction === 'push'
+		? __( 'Selected files, content, and settings on your website will be overwritten.' )
+		: __(
+				'Selected files, content, and settings in WordPress Studio will be overwritten. Your website stays unchanged.'
+		  );
 }
 
 export function websiteIssue( site: SyncSite ) {

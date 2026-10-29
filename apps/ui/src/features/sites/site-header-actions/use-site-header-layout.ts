@@ -14,8 +14,8 @@ const pixels = ( value: string ) => parseFloat( value ) || 0;
 
 /**
  * Measures the header that hosts the actions (the one holding `space`) and
- * picks the layout that fits. Labeled widths are remembered while inline, so
- * compacting a button can't move the breakpoint it caused.
+ * picks the layout that fits. Expanded widths are retained while controls are
+ * folded, so hiding them can't move the breakpoint that caused it.
  */
 export function useSiteHeaderLayout( space: HTMLElement | null, actions: HTMLElement | null ) {
 	const [ layout, setLayout ] = useState< SiteHeaderLayout >( 'inline' );
@@ -30,6 +30,7 @@ export function useSiteHeaderLayout( space: HTMLElement | null, actions: HTMLEle
 		}
 		let current: SiteHeaderLayout = 'inline';
 		let annotationWidth = 0;
+		let navigationWidth = 0;
 		const measure = () => {
 			const width = header.clientWidth;
 			if ( ! width ) {
@@ -39,6 +40,10 @@ export function useSiteHeaderLayout( space: HTMLElement | null, actions: HTMLEle
 			const gap = pixels( style.columnGap );
 			const actionGap = pixels( getComputedStyle( actions ).columnGap );
 			const navigation = header.querySelector( '[data-site-header-navigation]' );
+			const measuredNavigationWidth = widthOf( navigation );
+			if ( measuredNavigationWidth > 0 ) {
+				navigationWidth = measuredNavigationWidth;
+			}
 			const annotation = header.querySelector( '[data-site-header-annotate]' );
 			const address = header.querySelector( '[data-site-header-address]' );
 			const reserved = [ ...header.querySelectorAll( '[data-site-header-reserved]' ) ];
@@ -49,12 +54,19 @@ export function useSiteHeaderLayout( space: HTMLElement | null, actions: HTMLEle
 				width -
 				pixels( style.paddingLeft ) -
 				pixels( style.paddingRight ) -
-				reserved.reduce( ( total, element ) => total + widthOf( element ) + gap, 0 );
+				reserved.reduce(
+					( total, element ) =>
+						total +
+						widthOf( element ) +
+						pixels( getComputedStyle( element ).marginInlineEnd ) +
+						gap,
+					0
+				);
 			const full =
 				widthOf( actions.querySelector( '[data-site-header-publish]' ) ) +
 				widthOf( actions.querySelector( '[data-site-header-trailing]' ) ) +
 				( annotation ? annotationWidth + actionGap : 0 ) +
-				( navigation ? widthOf( navigation ) + gap : 0 ) +
+				( navigation ? navigationWidth + gap : 0 ) +
 				( address ? ADDRESS_MIN_WIDTH + gap : 0 );
 			setActionsWidth( widthOf( actions ) );
 			let next: SiteHeaderLayout = 'navigation-overflow';

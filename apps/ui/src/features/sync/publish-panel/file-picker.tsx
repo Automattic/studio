@@ -129,7 +129,6 @@ function FileNode( { node, selection }: { node: SyncNode; selection: TransferSel
 export function FilePicker( { selection }: { selection: TransferSelection } ) {
 	return (
 		<div className={ styles.stack }>
-			<p className={ styles.text }>{ __( 'Choose what to include in this transfer.' ) }</p>
 			{ selection.loadingFiles ? (
 				<Spinner />
 			) : (

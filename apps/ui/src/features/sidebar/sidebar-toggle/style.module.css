@@ -9,8 +9,12 @@
 	opacity: 1;
 }
 
-.root [aria-expanded='true']:not( :hover ) {
+.root [aria-expanded='true'] {
 	background-color: transparent;
+}
+
+.root [aria-expanded='true']:hover {
+	background-color: var( --hover );
 }
 
 /* The drawer icon depicts the sidebar edge; mirror it when the sidebar sits

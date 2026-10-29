@@ -49,6 +49,11 @@
 		transition-timing-function: var( --motion-ease-enter );
 	}
 
+	.content[data-surface='composer'] {
+		--surface: var( --composer );
+		color: var( --foreground );
+	}
+
 	.content[data-backdrop='dimmed'] {
 		box-shadow:
 			0 0 0 1px var( --border ),

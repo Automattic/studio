@@ -28,6 +28,7 @@
 	--composer: var( --surface-0 );
 	--popover: var( --surface-0 );
 	--muted: var( --surface-2 );
+	--preview-dot: light-dark( var( --surface-4 ), var( --surface-3 ) );
 
 	--foreground: oklch( calc( 0.275 - var( --contrast, 0 ) * 0.001 ) calc( var( --tint-intensity, 0 ) * 0.00025 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
 	--muted-foreground: oklch( from var( --background ) calc( l - 0.45 - var( --contrast, 0 ) * 0.0015 ) calc( var( --tint-intensity, 0 ) * 0.0004 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
@@ -131,6 +132,7 @@
 	   drawn inside it. */
 	--band-height: 54px;
 	--control-size: 36px;
+	--band-inset: calc( ( var( --band-height ) - var( --control-size ) ) / 2 );
 	--band-separator-height: 16px;
 	/* Where the band's first control starts on macOS, past the traffic lights. */
 	--traffic-light-space: 92px;

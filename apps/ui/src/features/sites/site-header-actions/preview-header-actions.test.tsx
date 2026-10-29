@@ -20,19 +20,27 @@ afterEach( () => {
 	} );
 } );
 
-async function renderHeader( siteId: string, connector = createFakeConnector() ) {
+async function renderHeader( siteId: string, connector = createFakeConnector(), width = 60 ) {
 	Object.defineProperty( window.navigator, 'userAgent', {
 		value: `${ REAL_USER_AGENT } Electron/38.0.0`,
 		configurable: true,
 	} );
 	vi.stubGlobal( 'ipcApi', { clearWebviewCache: vi.fn( async () => {} ) } );
-	vi.spyOn( HTMLElement.prototype, 'getBoundingClientRect' ).mockReturnValue( {
-		width: 40,
-	} as DOMRect );
+	vi.spyOn( HTMLElement.prototype, 'getBoundingClientRect' ).mockImplementation( function (
+		this: HTMLElement
+	) {
+		return {
+			width:
+				this.hasAttribute( 'data-site-header-navigation' ) &&
+				this.getAttribute( 'aria-hidden' ) === 'true'
+					? 0
+					: 40,
+		} as DOMRect;
+	} );
 	vi.spyOn( HTMLElement.prototype, 'clientWidth', 'get' ).mockImplementation( function (
 		this: HTMLElement
 	) {
-		return this.hasAttribute( 'data-site-header' ) ? 60 : 0;
+		return this.hasAttribute( 'data-site-header' ) ? width : 0;
 	} );
 	const site = makeSite( { id: siteId, running: true } );
 	connector.state.sites = [ site ];
@@ -46,7 +54,16 @@ async function renderHeader( siteId: string, connector = createFakeConnector() )
 		{ connector }
 	);
 	await screen.findByRole( 'complementary', { name: 'Site preview' } );
-	return view;
+	return {
+		...view,
+		resize: ( next: number ) =>
+			act( async () => {
+				width = next;
+				document
+					.querySelector( '[data-site-header]' )!
+					.setAttribute( 'data-width', String( next ) );
+			} ),
+	};
 }
 
 const headerButtons = ( name: string | RegExp ) =>
@@ -136,4 +153,33 @@ it( 'exposes browser actions with their navigation availability in overflow', as
 		await user.click( screen.getByRole( 'menuitem', { name: new RegExp( `^${ name }` ) } ) );
 		await waitFor( effect );
 	}
+} );
+
+it( 'moves responsive mode into More with its state and restores the inline control when it fits', async () => {
+	const { user, resize } = await renderHeader( 'responsive-overflow', createFakeConnector(), 1000 );
+	const toggle = screen.getByRole( 'button', { name: 'Responsive mode' } );
+	toggle.focus();
+	await resize( 460 );
+	const more = screen.getByRole( 'button', { name: 'More preview actions' } );
+	expect( more ).toHaveFocus();
+	expect( screen.queryByRole( 'button', { name: 'Responsive mode' } ) ).not.toBeInTheDocument();
+	await user.click( more );
+	const item = await screen.findByRole( 'menuitemcheckbox', { name: 'Responsive mode' } );
+	expect( item ).not.toBeChecked();
+	await user.click( item );
+	expect(
+		await screen.findByRole( 'toolbar', { name: 'Responsive preview' } )
+	).toBeInTheDocument();
+	const activeToggle = screen.getByRole( 'button', { name: 'Responsive mode' } );
+	expect( activeToggle ).toHaveAttribute( 'aria-pressed', 'true' );
+	expect( screen.getByRole( 'textbox', { name: 'Address' } ).closest( 'form' ) ).toContainElement(
+		activeToggle
+	);
+	await user.click( activeToggle );
+	expect( screen.queryByRole( 'toolbar', { name: 'Responsive preview' } ) ).not.toBeInTheDocument();
+	await resize( 1000 );
+	expect( screen.getByRole( 'button', { name: 'Responsive mode' } ) ).toHaveAttribute(
+		'aria-pressed',
+		'false'
+	);
 } );

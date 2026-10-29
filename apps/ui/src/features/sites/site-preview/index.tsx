@@ -1,10 +1,21 @@
 import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
 import { __, sprintf } from '@wordpress/i18n';
-import { Suspense, useCallback, useRef, useState } from 'react';
+import {
+	Suspense,
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useRef,
+	useState,
+	type ReactNode,
+} from 'react';
+import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
+import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
 import { useSiteDesign } from '@/data/queries/use-site-design';
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
+import { useResponsivePreview, updateResponsivePreview } from '@/data/responsive-preview';
 import { useOpenSettings } from '@/data/use-open-settings';
 import {
 	AnnotationOverlay,
@@ -29,6 +40,8 @@ import {
 	SurfaceLayer,
 	WebviewSurface,
 } from './preview-surface';
+import { getFitScale } from './responsive-preview/settings';
+import { ResponsiveToolbar } from './responsive-preview/toolbar';
 import styles from './style.module.css';
 import { getFrameKey, getSafePath, type PreviewSurfaceKey } from './surfaces';
 import { useBrowserShortcuts } from './use-browser-shortcuts';
@@ -60,6 +73,8 @@ interface SitePreviewProps {
 	// True while the panel is toggled off but kept mounted (so the webview
 	// stays warm). Disables the global browser shortcuts in that state.
 	collapsed?: boolean;
+	toolbarStart?: ReactNode;
+	headerContainer?: HTMLElement | null;
 	// The preview is the leftmost pane, so with the sidebar out of the way its
 	// toolbar reaches the window's start edge, where the macOS traffic lights sit.
 	atWindowStart?: boolean;
@@ -74,6 +89,8 @@ export function SitePreview( {
 	onStartAnnotating,
 	onPathChange,
 	collapsed = false,
+	toolbarStart,
+	headerContainer,
 	atWindowStart = false,
 }: SitePreviewProps ) {
 	const connector = useConnector();
@@ -125,11 +142,11 @@ export function SitePreview( {
 	const navigating =
 		canPreview && activeSurfaceKey !== 'design' && ( browserState.loading || activeFrameLoading );
 	// Studio renders the design system itself, so it needs no page injection.
-	const showAnnotate =
-		! live &&
-		canPreview &&
+	const showAnnotate = ! live && canPreview;
+	const canAnnotateSurface =
+		showAnnotate &&
+		activeSurfaceKey !== 'database' &&
 		( connector.capabilities.annotatePreview || activeSurfaceKey === 'design' );
-	const canAnnotateSurface = showAnnotate && activeSurfaceKey !== 'database';
 	const canAnnotate =
 		canAnnotateSurface &&
 		( activeSurfaceKey === 'design' ? !! siteDesign.data : !! activeSurface?.inspectorReady );
@@ -138,6 +155,26 @@ export function SitePreview( {
 		: browserState.progress;
 	const showLoadingProgress = canPreview && progress > 0;
 	const viewportRef = useRef< HTMLDivElement | null >( null );
+	const responsiveSettings = useResponsivePreview( site.id );
+	const responsiveEnabled = responsiveSettings.enabled && canPreview && activeSurfaceKey === 'site';
+	const [ availableSize, setAvailableSize ] = useState( { width: 0, height: 0 } );
+	useLayoutEffect( () => {
+		const viewport = viewportRef.current;
+		if ( ! viewport ) return;
+		const measure = () =>
+			setAvailableSize( { width: viewport.clientWidth, height: viewport.clientHeight } );
+		measure();
+		const observer = new ResizeObserver( measure );
+		observer.observe( viewport );
+		return () => observer.disconnect();
+	}, [] );
+	const fitScale = getFitScale(
+		availableSize.width,
+		availableSize.height,
+		responsiveSettings.width,
+		responsiveSettings.height
+	);
+	const responsiveScale = responsiveSettings.zoom === 'fit' ? fitScale : responsiveSettings.zoom;
 	const {
 		annotationAnchor,
 		setAnnotationAnchor,
@@ -152,6 +189,17 @@ export function SitePreview( {
 		viewportRef,
 		onSendAnnotations,
 	} );
+	useEffect( () => {
+		setAnnotationAnchor( null );
+	}, [
+		responsiveSettings.width,
+		responsiveSettings.height,
+		responsiveEnabled,
+		responsiveScale,
+		availableSize.width,
+		availableSize.height,
+		setAnnotationAnchor,
+	] );
 	const capturePage = usePreviewCapture( site.id, siteUrl, viewportRef );
 	const handleSurfaceLoad = useCallback(
 		( key: PreviewSurfaceKey, url: string, guestId?: number ) => {
@@ -206,6 +254,14 @@ export function SitePreview( {
 					} );
 		  };
 	const openSiteSettings = () => openSettings( 'site', site.id );
+	const responsive = canPreview
+		? {
+				active: responsiveEnabled,
+				disabled: isStopping || activeSurfaceKey !== 'site',
+				onClick: () =>
+					updateResponsivePreview( site.id, { enabled: ! responsiveSettings.enabled } ),
+		  }
+		: undefined;
 	useSiteHeaderNavigation(
 		canPreview && ! collapsed
 			? {
@@ -217,51 +273,81 @@ export function SitePreview( {
 					reload: () => sendBrowserCommand( 'reload' ),
 					settings: openSiteSettings,
 					openExternal,
+					responsive,
 					backShortcut: browserShortcuts.back.displayShortcut,
 					forwardShortcut: browserShortcuts.forward.displayShortcut,
 			  }
 			: null
 	);
 
+	const header = (
+		<PreviewHeader
+			site={ site }
+			siteUrl={ siteUrl }
+			path={ safePath }
+			live={ live }
+			canPreview={ canPreview }
+			isStarting={ isStarting }
+			isStopping={ isStopping }
+			collapsed={ collapsed }
+			toolbarStart={ toolbarStart }
+			atWindowStart={ atWindowStart }
+			browserState={ browserState }
+			shortcuts={ browserShortcuts }
+			onBrowserCommand={ sendBrowserCommand }
+			onJump={ goToHistoryIndex }
+			onPathChange={ onPathChange }
+			onSwitchRealm={ switchRealm }
+			hasDesignSystem={ !! siteDesign.data }
+			onOpenExternal={ openExternal }
+			responsive={ responsive }
+			annotate={
+				showAnnotate
+					? {
+							active: annotations.active,
+							disabled: ! canAnnotate || isAnnotationsBusy( annotations ),
+							disabledReason:
+								activeSurfaceKey === 'database'
+									? __( 'Not available for Database' )
+									: ! canAnnotateSurface
+									? __( 'Site annotation is not available in the browser yet' )
+									: undefined,
+							onClick: () => {
+								if ( ! annotations.active && onStartAnnotating?.() === false ) return;
+								setAnnotating( site.id, ! annotations.active );
+							},
+					  }
+					: undefined
+			}
+			progress={ showLoadingProgress ? progress : undefined }
+		/>
+	);
+
 	return (
 		<aside className={ styles.root } aria-label={ __( 'Site preview' ) }>
-			<PreviewHeader
-				site={ site }
-				siteUrl={ siteUrl }
-				path={ safePath }
-				live={ live }
-				canPreview={ canPreview }
-				isStarting={ isStarting }
-				isStopping={ isStopping }
-				collapsed={ collapsed }
-				atWindowStart={ atWindowStart }
-				browserState={ browserState }
-				shortcuts={ browserShortcuts }
-				onBrowserCommand={ sendBrowserCommand }
-				onJump={ goToHistoryIndex }
-				onPathChange={ onPathChange }
-				onSwitchRealm={ switchRealm }
-				hasDesignSystem={ !! siteDesign.data }
-				onOpenExternal={ openExternal }
-				onOpenSettings={ live ? undefined : openSiteSettings }
-				annotate={
-					showAnnotate
-						? {
-								active: annotations.active,
-								disabled: ! canAnnotate || isAnnotationsBusy( annotations ),
-								disabledReason:
-									activeSurfaceKey === 'database' ? __( 'Not available for Database' ) : undefined,
-								onClick: () => {
-									if ( ! annotations.active && onStartAnnotating?.() === false ) return;
-									setAnnotating( site.id, ! annotations.active );
-								},
-						  }
-						: undefined
-				}
-				progress={ showLoadingProgress ? progress : undefined }
-			/>
+			{ headerContainer
+				? collapsed
+					? null
+					: createPortal(
+							<WindowControlsCornerContext.Provider value={ true }>
+								{ header }
+							</WindowControlsCornerContext.Provider>,
+							headerContainer
+					  )
+				: header }
+			{ responsiveEnabled ? (
+				<ResponsiveToolbar
+					siteId={ site.id }
+					settings={ responsiveSettings }
+					fitScale={ fitScale }
+				/>
+			) : null }
 			<div className={ styles.body }>
-				<div ref={ viewportRef } className={ styles.previewViewport }>
+				<div
+					ref={ viewportRef }
+					className={ styles.previewViewport }
+					onScrollCapture={ () => setAnnotationAnchor( null ) }
+				>
 					{ canPreview &&
 						( Object.keys( surfaces ) as PreviewSurfaceKey[] ).map( ( key ) => {
 							const surface = surfaces[ key ];
@@ -296,6 +382,11 @@ export function SitePreview( {
 								<SurfaceLayer
 									key={ key }
 									active={ active }
+									responsive={
+										key === 'site'
+											? { siteId: site.id, settings: responsiveSettings, scale: responsiveScale }
+											: undefined
+									}
 									loading={ loadingStage || surface.browser.loading || frameLoading }
 								>
 									{ canUseWebview ? (

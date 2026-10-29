@@ -250,6 +250,12 @@
 		padding: 2px var( --dialog-inset, var( --space-3 ) ) var( --dialog-inset, var( --space-3 ) );
 	}
 
+	.panelBody:has( > [data-slot='empty'] ) {
+		padding-block-start: 0;
+		/* Balance the panel header so the empty state centers in the whole panel. */
+		padding-block-end: calc( var( --control-size ) + 2 * var( --dialog-inset, var( --space-3 ) ) );
+	}
+
 	.scrollArea {
 		min-height: 0;
 		overflow-y: auto;

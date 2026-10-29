@@ -20,7 +20,6 @@ export function SendButton( {
 			variant={ feedback ? 'destructive' : 'accent' }
 			size="icon"
 			shape="round"
-			activeMotion="instant"
 			onClick={ onSend }
 			disabled={ ! canSend }
 			aria-label={ label }
@@ -39,6 +38,7 @@ export function StopButton( {
 } ) {
 	return (
 		<Button
+			variant="accent"
 			size="icon"
 			shape="round"
 			className={ styles.stopButton }

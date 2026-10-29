@@ -94,7 +94,7 @@ describe( 'sidebar site list', () => {
 		await openIn( 'Running site' );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'phpMyAdmin' } ) );
 		await openIn( 'Running site' );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Browser (WP Admin)' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'WordPress admin' } ) );
 		await waitFor( () =>
 			expect( connector.openSiteUrl ).toHaveBeenCalledWith( 'two', '/wp-admin/' )
 		);

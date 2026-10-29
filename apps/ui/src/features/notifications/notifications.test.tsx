@@ -1,8 +1,14 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getNoticeHistory, resetAppMessagesForTests, showToast } from '@/data/app-messages';
-import { AppToasts, NoticeHistoryButton } from '@/features/notifications';
+import {
+	AppMessageCards,
+	AppToasts,
+	AppUpdateButton,
+	NoticeHistoryButton,
+} from '@/features/notifications';
 import { closeNoticeHistory, openNoticeHistory } from '@/features/notifications/notice-history';
+import { createFakeConnector } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 
 const isDescription = ( element: HTMLElement ) =>
@@ -331,5 +337,47 @@ describe( 'notifications popover', () => {
 		} finally {
 			delete ( document as Partial< Document > ).getAnimations;
 		}
+	} );
+} );
+
+describe( 'sidebar cards', () => {
+	it( 'replaces the download card with the update button and keeps error actions', async () => {
+		const connector = createFakeConnector();
+		connector.getAppUpdateStatus.mockResolvedValue( {
+			state: 'downloading',
+			currentVersion: '1.0.0',
+			newVersion: '1.1.0',
+		} );
+		const { queryClient } = renderWithProviders(
+			<>
+				<AppMessageCards />
+				<AppUpdateButton />
+			</>,
+			{ connector }
+		);
+		await screen.findByText( 'Downloading update' );
+		expect( screen.queryByRole( 'button', { name: 'Update available' } ) ).not.toBeInTheDocument();
+		act( () => {
+			connector.emit( 'onAppUpdateStatusChanged', {
+				state: 'ready',
+				currentVersion: '1.0.0',
+				newVersion: '1.1.0',
+			} );
+		} );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Update available' } ) );
+		expect( screen.queryByText( 'Downloading update' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Update ready' ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Restart' } ) ).not.toBeInTheDocument();
+		await waitFor( () => expect( connector.installAppUpdate ).toHaveBeenCalledOnce() );
+
+		act( () => {
+			queryClient.setQueryData( [ 'app-update-status' ], {
+				state: 'error',
+				reason: 'generic',
+				currentVersion: '1.0.0',
+			} );
+		} );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Open logs' } ) );
+		expect( connector.openStudioLogs ).toHaveBeenCalled();
 	} );
 } );

@@ -8,10 +8,14 @@ import {
 } from '@studio/agent/protocol/composer-attachment-preview';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { FileTextIcon, XIcon } from 'lucide-react';
+import { FileTextIcon } from 'lucide-react';
 import { cloneElement, useLayoutEffect, useRef } from 'react';
-import { AnnotationIcon } from '@/lib/icons';
-import { Button, HoverCard } from '@/lib/ui';
+import { AnnotateIcon } from '@/lib/icons';
+import {
+	AttachmentChip as AttachmentChipSurface,
+	AttachmentRemoveButton,
+	HoverCard,
+} from '@/lib/ui';
 import styles from './style.module.css';
 import type { ComposerAttachment } from '@/data/use-composer-attachments';
 
@@ -52,23 +56,18 @@ function AttachmentChip( {
 } ) {
 	const imageSrc = attachment.kind === 'image' ? getComposerAttachmentImageSrc( attachment ) : null;
 	const sizeLabel = formatComposerAttachmentSize( attachment.size );
-	const chip = (
-		<li
-			className={ clsx(
-				styles.attachment,
-				imageSrc ? styles.attachmentImage : styles.attachmentFile
-			) }
-			aria-label={
+	const label = sizeLabel
+		? sprintf(
+				/* translators: 1: attachment file name, 2: attachment size. */
+				__( '%1$s, %2$s' ),
+				attachment.name,
 				sizeLabel
-					? sprintf(
-							/* translators: 1: attachment file name, 2: attachment size. */
-							__( '%1$s, %2$s' ),
-							attachment.name,
-							sizeLabel
-					  )
-					: attachment.name
-			}
-		/>
+		  )
+		: attachment.name;
+	const chip = imageSrc ? (
+		<li className={ clsx( styles.attachment, styles.attachmentImage ) } aria-label={ label } />
+	) : (
+		<AttachmentChipSurface render={ <li /> } aria-label={ label } />
 	);
 	const content = (
 		<>
@@ -76,20 +75,11 @@ function AttachmentChip( {
 				<img className={ styles.attachmentThumb } src={ imageSrc } alt="" />
 			) : (
 				<>
-					{ isAnnotations ? <AnnotationIcon /> : <FileTextIcon /> }
+					{ isAnnotations ? <AnnotateIcon /> : <FileTextIcon /> }
 					<span className={ styles.attachmentName }>{ attachment.name }</span>
 				</>
 			) }
-			<Button
-				variant="outline"
-				size="icon-2xs"
-				shape="round"
-				className={ styles.attachmentRemove }
-				aria-label={ __( 'Remove attachment' ) }
-				onClick={ onRemove }
-			>
-				<XIcon />
-			</Button>
+			<AttachmentRemoveButton aria-label={ __( 'Remove attachment' ) } onClick={ onRemove } />
 		</>
 	);
 	if ( ! hasComposerAttachmentVisualPreview( attachment ) ) {

@@ -160,16 +160,42 @@ test.describe( 'Chat', () => {
 				inspect( `document.readyState === 'complete' && !!document.querySelector('h1,h2')` )
 			)
 			.toBe( true );
-		await inspect(
-			`document.querySelector('h1,h2').dispatchEvent(new MouseEvent('click',{bubbles:true,clientX:120,clientY:140}))`
+		const pickedPoint = await inspect(
+			`(() => {
+				const target = document.querySelector('h1,h2');
+				const box = target.getBoundingClientRect();
+				const point = { x: Math.round(box.left + Math.min(20, box.width / 2)), y: Math.round(box.top + box.height / 2) };
+				target.dispatchEvent(new MouseEvent('click',{bubbles:true,clientX:point.x,clientY:point.y}));
+				return point;
+			})()`
 		);
+		const marker = `document.getElementById('__studio-inspector-host').shadowRoot.querySelector('button')`;
+		await expect.poll( () => inspect( `${ marker }?.dataset.pending` ) ).toBe( 'true' );
+		await expect
+			.poll( () => inspect( `getComputedStyle(document.querySelector('h1,h2')).cursor` ) )
+			.toBe( 'crosshair' );
+		const markerPoint = await inspect(
+			`(() => { const box = ${ marker }.getBoundingClientRect(); return { x: box.x + box.width / 2, y: box.y + box.height / 2 }; })()`
+		);
+		expect( markerPoint.x ).toBeCloseTo( pickedPoint.x, 3 );
+		expect( markerPoint.y ).toBeCloseTo( pickedPoint.y, 3 );
 		await note.fill( 'Make this heading shorter' );
+		await page.getByRole( 'button', { name: 'Save annotation', exact: true } ).click();
+		expect( await sentPrompts() ).toHaveLength( 0 );
+		await expect.poll( () => inspect( `${ marker }?.dataset.pending` ) ).toBe( 'false' );
+		await inspect( `${ marker }.click()` );
+		await expect( note ).toBeVisible();
+		await expect.poll( () => inspect( `${ marker }?.dataset.pending` ) ).toBe( 'false' );
 		await page.locator( '[data-annotation-overlay] input[type=file]' ).setInputFiles( {
 			name: 'reference.png',
 			mimeType: 'image/png',
 			buffer: png,
 		} );
-		await expect( page.getByRole( 'button', { name: 'Remove attachment' } ) ).toBeVisible();
+		await expect(
+			page
+				.getByRole( 'group', { name: 'Annotation', exact: true } )
+				.getByRole( 'button', { name: 'Remove attachment' } )
+		).toBeVisible();
 		await note.press( 'ControlOrMeta+Enter' );
 
 		await expect.poll( async () => ( await sentPrompts() ).length ).toBe( 1 );

@@ -8,7 +8,7 @@
 	background-color: var( --secondary );
 	color: var( --secondary-foreground );
 	box-shadow:
-		0 0 0 1px var( --border ),
+		0 0 0 1px var( --popover-border ),
 		var( --shadow-sm );
 	font-size: var( --text-sm );
 	line-height: var( --text-sm--line-height );
@@ -154,6 +154,9 @@
 }
 
 .toggle[aria-expanded='true'] .chevron svg {
+	width: 14px;
+	height: 14px;
+	flex: none;
 	rotate: 90deg;
 }
 

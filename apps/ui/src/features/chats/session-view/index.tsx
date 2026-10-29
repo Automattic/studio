@@ -59,7 +59,7 @@ import {
 	pendingPromptSlot,
 	type ComposerHandle,
 } from '@/features/composer';
-import { PreviewParticles, SiteContextMenu, StoppedSitePreview } from '@/features/sites';
+import { PreviewParticles, StoppedSitePreview } from '@/features/sites';
 import { getMotionDuration } from '@/lib/theme';
 import { Button, IconButton } from '@/lib/ui';
 import { Conversation } from './conversation';
@@ -77,6 +77,7 @@ interface SessionViewProps {
 	sessionId?: string;
 	siteId?: string;
 	headerStart?: ReactNode;
+	hideHeader?: boolean;
 }
 
 export function SessionView( props: SessionViewProps ) {
@@ -87,7 +88,7 @@ export function SessionView( props: SessionViewProps ) {
 	);
 }
 
-function SessionViewContent( { sessionId, siteId, headerStart }: SessionViewProps ) {
+function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: SessionViewProps ) {
 	const draftKey = sessionId ?? `site:${ siteId }`;
 	const { draft, update: updateDraft } = useSiteChatDraft( siteId );
 	const sendDraft = useSendSiteDraft( siteId );
@@ -399,7 +400,7 @@ function SessionViewContent( { sessionId, siteId, headerStart }: SessionViewProp
 	// flash. Signed-out and failed quota queries report isLoading false.
 	if ( error && ! data && ! notFound ) {
 		return (
-			<SessionFrame header={ <div className={ styles.header } /> }>
+			<SessionFrame header={ hideHeader ? null : <div className={ styles.header } /> }>
 				<div className={ styles.loadError } role="alert">
 					<span>{ __( 'This chat could not load.' ) }</span>
 					<Button variant="outline" onClick={ () => void refetch() }>
@@ -421,7 +422,7 @@ function SessionViewContent( { sessionId, siteId, headerStart }: SessionViewProp
 		// mid-transition.
 		return (
 			<SessionFrame
-				header={ <div className={ styles.header } /> }
+				header={ hideHeader ? null : <div className={ styles.header } /> }
 				composer={
 					<div className={ clsx( styles.column, styles.composerColumn ) }>
 						<ComposerSkeleton />
@@ -438,22 +439,24 @@ function SessionViewContent( { sessionId, siteId, headerStart }: SessionViewProp
 	return (
 		<SessionFrame
 			session={ data?.summary }
-			canExpand={ !! ownerSite?.running || effectiveEnvironment === 'live' }
 			scrollRef={ setScrollNode }
 			rootRef={ setFrameNode }
 			header={
-				<SessionHeader
-					start={ headerStart }
-					siteName={ data?.summary.ownerSiteName }
-					site={ ownerSite }
-					effectiveEnvironment={ effectiveEnvironment }
-				/>
+				hideHeader ? null : (
+					<SessionHeader
+						start={ headerStart }
+						siteName={ data?.summary.ownerSiteName }
+						site={ ownerSite }
+						effectiveEnvironment={ effectiveEnvironment }
+					/>
+				)
 			}
 			composer={
 				<div
 					className={ clsx(
 						styles.column,
 						styles.composerColumn,
+						! showEmpty && styles.composerBacking,
 						fadeAfterQuotaCheck && styles.fadeInQuick
 					) }
 				>
@@ -496,7 +499,6 @@ function SessionViewContent( { sessionId, siteId, headerStart }: SessionViewProp
 						placeholderBusy={ isSiteStarting || isSiteStopping }
 						canAutoStart={ canAutoStart }
 						environment={ effectiveEnvironment }
-						liveUrl={ liveSite?.url }
 						onEnvironmentChange={
 							ownerSite
 								? ( environment ) =>
@@ -516,18 +518,16 @@ function SessionViewContent( { sessionId, siteId, headerStart }: SessionViewProp
 			}
 		>
 			{ emptySessionId === draftKey ? (
-				<SiteContextMenu site={ ownerSite } disabled={ ! ownerSite || ownerSite.running }>
-					<div className={ styles.emptyState } data-hidden={ ! showEmpty || undefined }>
-						<PreviewParticles
-							active={ siteLoading }
-							showLogo={ siteLoading }
-							selectionTime={ ownerSite?.running ? undefined : selectionTime }
-						/>
-						{ ownerSite && ! ownerSite.running && ! isSiteStarting ? (
-							<StoppedSitePreview site={ ownerSite } />
-						) : null }
-					</div>
-				</SiteContextMenu>
+				<div className={ styles.emptyState } data-hidden={ ! showEmpty || undefined }>
+					<PreviewParticles
+						active={ siteLoading }
+						showLogo={ siteLoading }
+						selectionTime={ ownerSite?.running ? undefined : selectionTime }
+					/>
+					{ ownerSite && ! ownerSite.running && ! isSiteStarting ? (
+						<StoppedSitePreview site={ ownerSite } />
+					) : null }
+				</div>
 			) : null }
 			<div data-chat-transcript className={ clsx( styles.column, styles.conversationSpacing ) }>
 				{ data ? (

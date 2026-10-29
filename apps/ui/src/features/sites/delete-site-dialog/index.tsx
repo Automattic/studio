@@ -1,6 +1,10 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { useId, useRef, useState } from 'react';
+import { XIcon } from 'lucide-react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
+import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import { useDeleteSite } from '@/data/queries/use-sites';
+import { SiteCard } from '@/features/site-card';
+import { getSiteUrl } from '@/features/sites/get-site-url';
 import {
 	Button,
 	Checkbox,
@@ -12,15 +16,31 @@ import {
 	DialogTitle,
 	Field,
 	FieldLabel,
+	IconButton,
 } from '@/lib/ui';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
+import type { ReactNode } from 'react';
 
 interface DeleteSiteDialogProps {
 	sites: SiteDetails[];
 	open: boolean;
 	onOpenChange: ( open: boolean ) => void;
-	onDeleted?: () => void;
+	onDeleted?: ( siteIds: string[] ) => void;
+}
+
+function LocalSiteCard( { site, actions }: { site: SiteDetails; actions?: ReactNode } ) {
+	const thumbnail = useSiteThumbnail( site.id );
+	return (
+		<SiteCard
+			title={ site.name }
+			description={ getSiteUrl( site )
+				.replace( /^https?:\/\//, '' )
+				.replace( /\/$/, '' ) }
+			thumbnailUrl={ thumbnail.data }
+			actions={ actions }
+		/>
+	);
 }
 
 export function DeleteSiteDialog( {
@@ -35,23 +55,39 @@ export function DeleteSiteDialog( {
 	const [ error, setError ] = useState< string >();
 	const cancelRef = useRef< HTMLButtonElement >( null );
 	const deleteFilesId = useId();
-	const count = sites.length;
+	const [ excludedIds, setExcludedIds ] = useState< string[] >( [] );
+	const listRef = useRef< HTMLUListElement >( null );
+	const focusIndex = useRef< number | null >( null );
+	const includedSites = sites.filter( ( site ) => ! excludedIds.includes( site.id ) );
+	const count = includedSites.length;
+
+	useLayoutEffect( () => {
+		if ( focusIndex.current === null ) {
+			return;
+		}
+		const buttons = listRef.current?.querySelectorAll< HTMLButtonElement >( 'button' );
+		const next = buttons?.[ Math.min( focusIndex.current, buttons.length - 1 ) ];
+		( next ?? cancelRef.current )?.focus();
+		focusIndex.current = null;
+	}, [ excludedIds ] );
 
 	// One at a time, so a failure leaves the rest deleted and is reported.
 	const handleConfirm = async () => {
 		setPending( true );
 		setError( undefined );
 		const errors: string[] = [];
-		for ( const site of sites ) {
+		const deletedIds: string[] = [];
+		for ( const site of includedSites ) {
 			try {
 				await deleteSite.mutateAsync( { id: site.id, deleteFiles } );
+				deletedIds.push( site.id );
 			} catch ( err ) {
 				errors.push( ( err as Error )?.message );
 			}
 		}
 		setPending( false );
 		if ( errors.length < count ) {
-			onDeleted?.();
+			onDeleted?.( deletedIds );
 		}
 		if ( ! errors.length ) {
 			onOpenChange( false );
@@ -79,16 +115,21 @@ export function DeleteSiteDialog( {
 			onOpenChangeComplete={ ( next ) => {
 				if ( ! next ) {
 					setDeleteFiles( false );
+					setExcludedIds( [] );
 					setError( undefined );
 				}
 			} }
 		>
-			<DialogContent layout="confirmation" showCloseButton={ ! pending } initialFocus={ cancelRef }>
+			<DialogContent
+				layout="confirmation"
+				closeButtonDisabled={ pending }
+				initialFocus={ cancelRef }
+			>
 				<DialogHeader>
 					<DialogTitle>
 						{ count === 1
 							? /* translators: %s: site name. */
-							  sprintf( __( 'Remove “%s” from WordPress Studio?' ), sites[ 0 ].name )
+							  sprintf( __( 'Remove “%s” from WordPress Studio?' ), includedSites[ 0 ].name )
 							: sprintf(
 									/* translators: %d: number of sites. */
 									_n(
@@ -109,13 +150,31 @@ export function DeleteSiteDialog( {
 							  ) }
 					</DialogDescription>
 				</DialogHeader>
-				{ count > 1 ? (
-					<ul className={ styles.sites }>
-						{ sites.map( ( site ) => (
-							<li key={ site.id }>{ site.name }</li>
-						) ) }
-					</ul>
-				) : null }
+				<ul ref={ listRef } className={ styles.sites }>
+					{ includedSites.map( ( site, index ) => (
+						<li key={ site.id }>
+							<LocalSiteCard
+								site={ site }
+								actions={
+									count > 1 ? (
+										<IconButton
+											icon={ <XIcon /> }
+											label={ __( 'Exclude' ) }
+											/* translators: %s: site name. */
+											aria-label={ sprintf( __( 'Exclude “%s” from removal' ), site.name ) }
+											size="icon-sm"
+											disabled={ pending }
+											onClick={ () => {
+												focusIndex.current = index;
+												setExcludedIds( ( ids ) => [ ...ids, site.id ] );
+											} }
+										/>
+									) : undefined
+								}
+							/>
+						</li>
+					) ) }
+				</ul>
 				<Field orientation="horizontal">
 					<Checkbox
 						id={ deleteFilesId }

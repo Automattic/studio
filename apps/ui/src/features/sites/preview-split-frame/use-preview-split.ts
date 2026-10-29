@@ -4,7 +4,7 @@ import {
 	getInitialPreviewContentWidth,
 	getPreviewSplitLayout,
 	PANEL_WIDTHS_RESET_EVENT,
-	PREVIEW_CONTENT_WIDTH_STORAGE_KEY,
+	getPreviewContentWidthStorageKey,
 	PREVIEW_CONTENT_DEFAULT_WIDTH,
 	PREVIEW_PANEL_MIN_WIDTH,
 	storeResizablePanelWidth,
@@ -13,6 +13,7 @@ import { usePointerDrag } from '@/lib/hooks';
 import type { KeyboardEvent, MouseEventHandler, RefObject } from 'react';
 
 interface UsePreviewSplitOptions {
+	siteId?: string;
 	showPreview: boolean;
 }
 
@@ -39,15 +40,18 @@ interface UsePreviewSplitResult {
 // CSS never re-clamps. Keeps two state atoms — the user's preferred content
 // width (persisted) and the measured container width — and derives everything
 // else.
-export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UsePreviewSplitResult {
+export function usePreviewSplit( {
+	showPreview,
+	siteId,
+}: UsePreviewSplitOptions ): UsePreviewSplitResult {
 	const rootRef = useRef< HTMLDivElement >( null );
 
 	// `preferredContentWidth` is the user's intent (persisted); the displayed
 	// width is always re-derived from it against the current container, never
 	// stored back. Recomputing from a previously-clamped displayed value would
 	// lose the intent on shrink-then-grow.
-	const [ preferredContentWidth, setPreferredContentWidth ] = useState< number | null >(
-		getInitialPreviewContentWidth
+	const [ preferredContentWidth, setPreferredContentWidth ] = useState< number | null >( () =>
+		getInitialPreviewContentWidth( siteId )
 	);
 	const [ containerWidth, setContainerWidth ] = useState< number | null >( null );
 	// Mirrors preferredContentWidth so event handlers read the latest value
@@ -74,9 +78,11 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 	const persistContentWidth = useCallback(
 		( next: number ) => {
 			setPreferred( next );
-			storeResizablePanelWidth( PREVIEW_CONTENT_WIDTH_STORAGE_KEY, Math.round( next ) );
+			if ( siteId ) {
+				storeResizablePanelWidth( getPreviewContentWidthStorageKey( siteId ), Math.round( next ) );
+			}
 		},
-		[ setPreferred ]
+		[ setPreferred, siteId ]
 	);
 
 	const ensurePreferred = useCallback( () => {
@@ -151,6 +157,13 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 		onCommit: ( latest ) => persistContentWidth( latest ),
 	} );
 
+	useLayoutEffect( () => {
+		cancel();
+		const width = getInitialPreviewContentWidth( siteId );
+		preferredRef.current = width;
+		setPreferredContentWidth( width );
+	}, [ cancel, siteId ] );
+
 	// End an in-flight drag if the preview closes mid-resize.
 	useEffect( () => {
 		if ( ! showPreview ) {
@@ -201,9 +214,7 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 	);
 
 	const contentWidthVar =
-		layout === null || preferredContentWidth === null
-			? `${ PREVIEW_CONTENT_DEFAULT_WIDTH }px`
-			: `${ layout.contentWidth }px`;
+		layout === null ? `${ PREVIEW_CONTENT_DEFAULT_WIDTH }px` : `${ layout.contentWidth }px`;
 
 	return {
 		rootRef,

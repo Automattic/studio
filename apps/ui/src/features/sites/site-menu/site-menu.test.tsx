@@ -1,6 +1,6 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { subscribeHeaderPanelRequest } from '@/data/use-open-header-panel';
 import { SessionUIProvider, useSessionPreviewUI } from '@/data/use-session-ui';
@@ -129,7 +129,6 @@ describe( 'Stop other sites', () => {
 						panel: 'publish',
 						siteId: 'selected',
 						view: 'publish',
-						remoteSiteId: undefined,
 					} );
 				}
 				cleanup();
@@ -420,6 +419,7 @@ describe( 'Remove site confirmation', () => {
 		expect(
 			await screen.findByText( /delete its chats and any shared preview sites/ )
 		).toBeVisible();
+		expect( within( screen.getByRole( 'alertdialog' ) ).getByText( 'Selected' ) ).toBeVisible();
 		fireEvent.click(
 			screen.getByRole( 'checkbox', { name: 'Also move files and database to Trash' } )
 		);
@@ -438,56 +438,25 @@ const publishedWebsite = {
 } as SyncSite;
 
 it.each( [ false, true ] )(
-	'opens publishing screens from either connected site menu (%s)',
+	'opens the publish dialog directly from either connected site menu (%s)',
 	async ( contextMenu ) => {
-		for ( const [ label, view ] of [
-			[ 'Publish changes…', 'publish' ],
-			[ 'Pull changes…', 'pull' ],
-			[ 'Manage websites…', 'websites' ],
+		for ( const connections of [
+			[ publishedWebsite ],
+			[ publishedWebsite, { ...publishedWebsite, id: 43, url: 'https://second.com' } ],
 		] ) {
-			const { open, requests } = setup( { contextMenu, connections: [ publishedWebsite ] } );
+			const { open, requests } = setup( { contextMenu, connections } );
 			await open();
-			await waitFor( () =>
-				expect( screen.getByRole( 'menuitem', { name: 'Publish' } ) ).toHaveAttribute(
-					'aria-haspopup',
-					'menu'
-				)
-			);
-			fireEvent.click( screen.getByRole( 'menuitem', { name: 'Publish' } ) );
-			fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
+			const publish = await screen.findByRole( 'menuitem', { name: 'Publish' } );
+			expect( publish ).not.toHaveAttribute( 'aria-haspopup' );
+			fireEvent.click( publish );
 			expect( requests.publish ).toHaveBeenCalledExactlyOnceWith( {
 				panel: 'publish',
 				siteId: 'selected',
-				view,
-				remoteSiteId: 42,
+				view: 'publish',
 			} );
+			expect( screen.queryByRole( 'menuitem', { name: 'Pull changes…' } ) ).not.toBeInTheDocument();
 			cleanup();
 			unsubscribers.splice( 0 ).forEach( ( unsubscribe ) => unsubscribe() );
 		}
 	}
 );
-
-it( 'opens backups for the chosen destination and omits them for Pressable', async () => {
-	const { open, connector } = setup( {
-		connections: [
-			publishedWebsite,
-			{ ...publishedWebsite, id: 43, url: 'https://second.com', isPressable: true },
-		],
-	} );
-	await open();
-	await waitFor( () =>
-		expect( screen.getByRole( 'menuitem', { name: 'Publish' } ) ).toHaveAttribute(
-			'aria-haspopup',
-			'menu'
-		)
-	);
-	fireEvent.click( screen.getByRole( 'menuitem', { name: 'Publish' } ) );
-	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'second.com' } ) );
-	await screen.findByRole( 'menuitem', { name: 'Publish changes…' } );
-	expect( screen.queryByRole( 'menuitem', { name: 'View backups' } ) ).not.toBeInTheDocument();
-	fireEvent.click( screen.getByRole( 'menuitem', { name: 'example.com' } ) );
-	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'View backups' } ) );
-	expect( connector.openExternalUrl ).toHaveBeenCalledExactlyOnceWith(
-		'https://wordpress.com/backup/example.com'
-	);
-} );

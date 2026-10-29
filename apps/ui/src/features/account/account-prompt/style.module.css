@@ -1,4 +1,5 @@
 .dialog {
+	row-gap: 0;
 	padding-bottom: var( --space-12 );
 }
 

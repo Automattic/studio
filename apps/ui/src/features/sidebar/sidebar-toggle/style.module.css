@@ -9,8 +9,12 @@
 	opacity: 1;
 }
 
-.root [aria-expanded='true']:not( :hover ) {
+.root [aria-expanded='true'] {
 	background-color: transparent;
+}
+
+.root [aria-expanded='true']:hover {
+	background-color: var( --hover );
 }
 
 /* The drawer icon depicts the sidebar edge; mirror it when the sidebar sits
@@ -47,4 +51,17 @@
 		width var( --motion-duration-layout ) var( --motion-ease-layout ),
 		margin var( --motion-duration-layout ) var( --motion-ease-layout ),
 		opacity 0s var( --motion-duration-layout );
+}
+
+.headerSlotWithAction {
+	gap: var( --space-1 );
+}
+
+.headerSlotVisible.headerSlotWithAction {
+	width: calc( 2 * var( --control-size ) + var( --space-1 ) );
+}
+
+.headerSlotVisible.headerSlotWithAction:has( [data-site-header-run][hidden] ) {
+	width: var( --control-size );
+	gap: 0;
 }

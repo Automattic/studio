@@ -31,6 +31,10 @@
 		height: auto;
 	}
 
+	.group[data-variant='commands'] {
+		border-radius: calc( var( --radius-3xl ) - var( --space-1_5 ) );
+	}
+
 	.group[data-variant='composer'] {
 		--surface: var( --composer );
 		border-color: var( --input );

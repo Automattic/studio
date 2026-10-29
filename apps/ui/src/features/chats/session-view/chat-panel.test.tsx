@@ -438,7 +438,7 @@ describe( 'Chat target selection', () => {
 		expect( connector.authenticate ).not.toHaveBeenCalled();
 	} );
 
-	it( 'switches an empty chat to the picked model and the live site while preserving the draft', async () => {
+	it( 'switches an empty chat to the picked model while preserving the draft', async () => {
 		const { connector, input } = await setupChat( {
 			provider: 'anthropic-api-key',
 			signedIn: false,
@@ -453,12 +453,6 @@ describe( 'Chat target selection', () => {
 		await waitFor( () =>
 			expect( connector.setSessionModel ).toHaveBeenCalledWith( 'chat', 'claude-opus-5' )
 		);
-		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: /^Work on live site/ } ) );
-		await waitFor( () =>
-			expect( connector.setSessionEnvironment ).toHaveBeenCalledWith( 'chat', 'live' )
-		);
-		expect( await screen.findByRole( 'button', { name: 'Remove Live' } ) ).toBeVisible();
 		expect( screen.getByRole( 'combobox', { name: 'Message WordPress Studio' } ) ).toHaveValue(
 			'Preserve this draft'
 		);
@@ -562,17 +556,13 @@ describe( 'Chat pane context menu', () => {
 		expect( await screen.findByRole( 'dialog', { name: 'Rename chat' } ) ).toBeVisible();
 	} );
 
-	it( 'opens the shared chat actions from the body and toggles full screen', async () => {
+	it( 'leaves the native context menu available on the chat body', async () => {
 		await setupChat( { pinnedProvider: 'wpcom', running: true } );
-		const body = () => document.querySelector( '[data-chat-transcript]' )!.parentElement!;
-		fireEvent.contextMenu( body() );
-		expect( await screen.findByRole( 'menuitem', { name: /^Rename/ } ) ).toBeVisible();
-		expect( screen.getByRole( 'menuitem', { name: /^Pin/ } ) ).toBeVisible();
-		expect( screen.getByRole( 'menuitem', { name: /^Archive/ } ) ).toBeVisible();
-		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Full screen' } ) );
-		await waitFor( () => expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument() );
-		fireEvent.contextMenu( body() );
-		expect( await screen.findByRole( 'menuitem', { name: 'Exit full screen' } ) ).toBeVisible();
+		const body = document.querySelector( '[data-chat-transcript]' )!.parentElement!;
+		const event = new MouseEvent( 'contextmenu', { bubbles: true, cancelable: true } );
+		fireEvent( body, event );
+		expect( event.defaultPrevented ).toBe( false );
+		expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'has no chat actions while the chat is loading', async () => {

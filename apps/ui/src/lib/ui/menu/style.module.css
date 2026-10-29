@@ -42,4 +42,8 @@
 		font-size: var( --text-xs );
 		letter-spacing: 0.1em;
 	}
+
+	.destructive .shortcut {
+		color: inherit;
+	}
 }

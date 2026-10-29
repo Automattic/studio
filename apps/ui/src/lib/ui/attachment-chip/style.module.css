@@ -1,0 +1,32 @@
+@layer ui {
+	.chip {
+		composes: imageOutline from '@/lib/theme/recipes.module.css';
+		--image-outline-width: 1px;
+		position: relative;
+		display: flex;
+		gap: var( --space-1 );
+		align-items: center;
+		min-width: 0;
+		max-width: 240px;
+		height: 36px;
+		padding: 0 var( --space-2_5 );
+		padding-inline-start: var( --space-2 );
+		border-radius: var( --radius-xl );
+		background-color: light-dark( var( --surface-1 ), var( --surface-4 ) );
+		color: var( --foreground );
+		font-size: var( --text-xs );
+		line-height: var( --text-xs--line-height );
+		user-select: none;
+	}
+
+	.chip[data-font='mono'] {
+		font-family: var( --font-mono );
+		font-size: var( --text-2xs );
+	}
+
+	.chip > svg:not( [data-size] ) {
+		flex: none;
+		width: 16px;
+		height: 16px;
+	}
+}

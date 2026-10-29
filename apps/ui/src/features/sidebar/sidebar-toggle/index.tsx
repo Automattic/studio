@@ -1,6 +1,8 @@
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
+import { useContext } from 'react';
 import {
+	SidebarHeaderActionContext,
 	useSidebarCollapsed,
 	useSidebarOpen,
 	useSidebarHover,
@@ -58,13 +60,19 @@ export function SidebarToggle() {
 // header along instead of jumping.
 export function HeaderSidebarToggle() {
 	const collapsed = useSidebarCollapsed();
+	const action = useContext( SidebarHeaderActionContext );
 	return (
 		<span
-			className={ clsx( styles.headerSlot, collapsed && styles.headerSlotVisible ) }
+			className={ clsx(
+				styles.headerSlot,
+				collapsed && styles.headerSlotVisible,
+				action && styles.headerSlotWithAction
+			) }
 			data-sidebar-header-slot
 			inert={ ! collapsed }
 		>
 			<SidebarToggle />
+			{ collapsed ? action : null }
 		</span>
 	);
 }

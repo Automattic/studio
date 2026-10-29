@@ -74,6 +74,46 @@ afterEach( () => {
 } );
 
 describe( 'site lifecycle and preview', () => {
+	it.each( [ undefined, true, false ] )(
+		'respects opening chat on start: %s',
+		async ( openChatOnSiteStart ) => {
+			const connector = createFakeConnector( {
+				sites: [ site() ],
+				preferences: { openChatOnSiteStart },
+			} );
+			const { history } = renderApp( { connector, path: '/sites/one' } );
+			await screen.findByRole( 'button', { name: 'Site menu' } );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Start My site' } ) );
+			await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
+			if ( openChatOnSiteStart ?? true ) {
+				await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
+				expect( await screen.findByRole( 'combobox', COMPOSER ) ).toBeVisible();
+			} else {
+				expect( history.location.pathname ).toBe( '/sites/one' );
+				expect( screen.queryByRole( 'combobox', COMPOSER ) ).not.toBeInTheDocument();
+			}
+		}
+	);
+
+	it.each( [ true, false ] )(
+		'uses the start preference when starting another site: %s',
+		async ( openChatOnSiteStart ) => {
+			const connector = createFakeConnector( {
+				sites: [ site(), site( { id: 'two', name: 'Second', path: '/sites/two' } ) ],
+				preferences: { openChatOnSiteStart },
+			} );
+			const { history } = renderApp( { connector, path: '/sites/one' } );
+			await screen.findByRole( 'button', { name: 'Site menu' } );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Start Second' } ) );
+			await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'two' ) );
+			await waitFor( () =>
+				expect( history.location.pathname ).toBe(
+					openChatOnSiteStart ? '/sites/two/new' : '/sites/two'
+				)
+			);
+		}
+	);
+
 	it.each( [ 'browser', 'desktop' ] as const )(
 		'waits for the %s preview before splitting the workspace',
 		async ( runtime ) => {
@@ -139,7 +179,7 @@ describe( 'site lifecycle and preview', () => {
 				target: { value: 'Keep this site draft' },
 			} );
 			if ( ! chatVisible ) {
-				fireEvent.click( screen.getByRole( 'button', { name: 'Hide chat' } ) );
+				fireEvent.click( screen.getByRole( 'button', { name: 'Close chat' } ) );
 			}
 			const stop = deferred();
 			connector.stopSite.mockImplementationOnce( () => stop.promise );
@@ -252,8 +292,12 @@ describe( 'site lifecycle and preview', () => {
 	} );
 
 	it( 'opens site actions from the stopped preview context menu', async () => {
-		const { connector } = setup();
-		fireEvent.contextMenu( await screen.findByText( 'Start the site to see a live preview.' ) );
+		const connector = createFakeConnector(
+			{ sites: [ site() ] },
+			{ getSiteThumbnail: async () => 'data:image/png;base64,preview' }
+		);
+		renderApp( { connector, path: '/sites/one' } );
+		fireEvent.contextMenu( await screen.findByRole( 'button', { name: 'Start from preview' } ) );
 		const menu = await screen.findByRole( 'menu' );
 		expect( within( menu ).getByRole( 'menuitem', { name: 'Settings' } ) ).toBeEnabled();
 		expect( within( menu ).getByRole( 'menuitem', { name: /^Rename/ } ) ).toBeEnabled();

@@ -6,10 +6,7 @@
 	background-color: var( --chat );
 }
 
-/* Opaque and above the preview slot so it covers the (still mounted)
-   preview as the panel toggles. Scrolls itself so routes taller
-   than the viewport (e.g. settings) keep working under the fixed-height
-   frame. */
+/* Taller routes (e.g. settings) scroll inside the fixed-height frame. */
 .contentColumn {
 	display: flex;
 	flex-direction: column;
@@ -33,15 +30,7 @@
 	width: var( --content-column-width );
 }
 
-/* With both panes showing, the divider takes its own column between them:
-   the band's surface in the band, a single border below it. The band's
-   separator sits at the preview's edge. */
-.rootEdge::before {
-	--studio-column-edge: calc( var( --preview-frame-content-width ) + 1px );
-
-	z-index: 2;
-}
-
+/* The divider begins below the shared workspace header. */
 .rootEdge::after {
 	content: '';
 	position: absolute;
@@ -49,12 +38,13 @@
 	inset-inline-start: var( --preview-frame-content-width );
 	z-index: 2;
 	width: 1px;
-	background: linear-gradient(
-			var( --chrome ) var( --band-height ),
-			var( --border ) var( --band-height )
-		)
-		var( --chrome );
+	background: var( --border );
 	pointer-events: none;
+}
+
+.rootEdge:has( > .previewResizeHandle:hover )::after,
+.rootEdge.rootPreviewResizing::after {
+	background-color: var( --surface-4 );
 }
 
 .rootEdge .previewSlot {
@@ -69,25 +59,17 @@
 	--content-column-motion: var( --motion-duration-layout );
 }
 
-/* The chat header's actions fade back in once the column is halfway open,
-   and fade out as soon as it closes. */
-.contentColumn [data-header-actions] {
-	transition: opacity var( --motion-duration-feedback ) var( --motion-ease-enter )
-		calc( var( --motion-duration-layout ) / 2 );
-}
-
-.contentColumnCollapsed [data-header-actions] {
-	opacity: 0;
-	transition: opacity var( --motion-duration-feedback ) var( --motion-ease-enter );
-}
-
-/* Full preview: the column is width 0 once the slide finishes; visibility
-   keeps the mounted chat out of the focus order and the accessibility tree. */
+/* The chat keeps its width while the preview covers it. */
 .contentColumnHidden {
 	visibility: hidden;
 }
 
 .rootPreviewResizing .contentColumn {
+	--content-column-motion: 0ms;
+}
+
+.rootPreviewResizing :is( .contentColumn, .previewSlot, .previewResizeHandle ),
+.rootPreviewResizing::after {
 	user-select: none;
 	transition: none;
 }
@@ -96,9 +78,12 @@
 	position: absolute;
 	inset-block: 0;
 	inset-inline-end: 0;
-	z-index: 0;
+	z-index: 2;
 	width: 0;
 	min-width: 0;
+	overflow: hidden;
+	background-color: var( --chat );
+	isolation: isolate;
 	pointer-events: none;
 	visibility: hidden;
 }
@@ -107,10 +92,9 @@
 	visibility: visible;
 }
 
-/* The preview grows into the room the content column gives up, so its page
-   reflows as the split opens and closes. */
+/* Expand over the stationary chat so its composer and dot field never squeeze. */
 .rootPreviewOpen .previewSlot {
-	width: calc( 100% - var( --preview-frame-content-width ) );
+	width: calc( 100% - var( --preview-frame-visible-content-width ) );
 }
 
 .previewSlotInteractive {
@@ -133,4 +117,30 @@
    flips too. */
 .previewResizeHandle:dir( rtl ) {
 	transform: translateX( 4px );
+}
+
+.rootWithHeader :is( .contentColumn, .previewSlot, .previewResizeHandle ),
+.rootWithHeader.rootEdge::after {
+	inset-block-start: var( --band-height );
+}
+
+.rootPreviewAnimating [data-site-header-reserved] {
+	transition: flex-basis var( --motion-duration-layout ) var( --motion-ease-layout );
+}
+
+.rootPreviewResizing [data-site-header-reserved] {
+	transition: none;
+}
+
+.rootPreviewFading :is( .contentColumn, .previewSlot ) {
+	animation: previewFadeIn var( --motion-duration-surface ) var( --motion-ease-enter ) both;
+}
+
+@keyframes previewFadeIn {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
 }

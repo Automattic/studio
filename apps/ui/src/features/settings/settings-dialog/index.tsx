@@ -24,6 +24,11 @@ import {
 import { SiteSettingsForm } from '@/features/settings/site-settings-view';
 import { readLastVisited } from '@/features/sidebar';
 import {
+	AlertDialog,
+	Button,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
 	IconButton,
 	Dialog,
 	DialogContent,
@@ -158,6 +163,8 @@ export function SettingsDialog() {
 	// The setting to reveal, by link id or title.
 	const [ target, setTarget ] = useState< string | null >( null );
 	const [ dirty, setDirty ] = useState( false );
+	const [ confirmingDiscard, setConfirmingDiscard ] = useState( false );
+	const discardCancelRef = useRef< HTMLButtonElement >( null );
 	const [ actions, setActions ] = useState< HTMLElement | null >( null );
 	const [ content, setContent ] = useState< HTMLDivElement | null >( null );
 	const pendingExit = useRef< ( () => void ) | null >( null );
@@ -180,6 +187,7 @@ export function SettingsDialog() {
 			setTarget( settingsFocus );
 			void navigate( {
 				to: '.',
+				state: true,
 				search: ( { settingsFocus: _focus, ...rest }: Record< string, unknown > ) => rest,
 				replace: true,
 			} );
@@ -204,6 +212,7 @@ export function SettingsDialog() {
 		setTarget( null );
 		void navigate( {
 			to: '.',
+			state: true,
 			search: ( { settingsFocus: _focus, ...previous }: Record< string, unknown > ) => ( {
 				...previous,
 				settings: next,
@@ -228,6 +237,7 @@ export function SettingsDialog() {
 		}
 		void navigate( {
 			to: '.',
+			state: true,
 			search: ( {
 				settings: _section,
 				settingsSite: _site,
@@ -238,11 +248,10 @@ export function SettingsDialog() {
 		} );
 	};
 
-	// With unsaved site changes, closing waits for Discard or Save.
+	// Keep the form mounted while confirming so cancellation preserves its draft.
 	const close = () => {
 		if ( dirty ) {
-			pendingExit.current = closeNow;
-			actions?.querySelector< HTMLElement >( 'button' )?.focus();
+			setConfirmingDiscard( true );
 			return;
 		}
 		closeNow();
@@ -303,6 +312,7 @@ export function SettingsDialog() {
 	return (
 		<Dialog replaceable open={ !! settings } onOpenChange={ ( isOpen ) => ! isOpen && close() }>
 			<DialogContent
+				className={ confirmingDiscard ? styles.confirmingDiscard : undefined }
 				layout="settings"
 				onInputCapture={ () => {
 					pendingExit.current = null;
@@ -476,6 +486,38 @@ export function SettingsDialog() {
 					</DialogPanel>
 				</Tabs>
 			</DialogContent>
+
+			<AlertDialog open={ confirmingDiscard } onOpenChange={ setConfirmingDiscard }>
+				<DialogContent
+					layout="confirmation"
+					showCloseButton={ false }
+					initialFocus={ discardCancelRef }
+				>
+					<DialogHeader>
+						<DialogTitle>{ __( 'Discard changes?' ) }</DialogTitle>
+						<DialogDescription>{ __( 'Your unsaved changes will be lost.' ) }</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<Button
+							ref={ discardCancelRef }
+							variant="outline"
+							onClick={ () => setConfirmingDiscard( false ) }
+						>
+							{ __( 'Cancel' ) }
+						</Button>
+						<Button
+							variant="destructive"
+							onClick={ () => {
+								setConfirmingDiscard( false );
+								setDirty( false );
+								closeNow();
+							} }
+						>
+							{ __( 'Discard changes' ) }
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</AlertDialog>
 		</Dialog>
 	);
 }

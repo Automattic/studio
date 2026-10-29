@@ -2,7 +2,7 @@ import { DAY_MS } from '@studio/common/constants';
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { expect, it } from 'vitest';
-import { ShareButton } from '@/features/sharing';
+import { ShareButton, SiteDeliveryDialog } from '@/features/site-delivery';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { SharingPanel } from './sharing-panel';
@@ -47,7 +47,12 @@ function setup( showShare = false, initialSnapshots?: Snapshot[] ) {
 			<div data-testid="settings-previews">
 				<SharingPanel />
 			</div>
-			{ showShare ? <ShareButton site={ makeSite( { id: 'one', name: 'First site' } ) } /> : null }
+			{ showShare ? (
+				<>
+					<SiteDeliveryDialog site={ makeSite( { id: 'one', name: 'First site' } ) } />
+					<ShareButton site={ makeSite( { id: 'one', name: 'First site' } ) } />
+				</>
+			) : null }
 		</>,
 		{ connector }
 	);
@@ -85,8 +90,8 @@ it( 'lists previews across sites, excludes other accounts and counts only unexpi
 it( 'refreshes the shared settings and Share list together after a preview changes', async () => {
 	const { connector } = setup( true );
 	fireEvent.click( await screen.findByRole( 'button', { name: 'Share' } ) );
-	await waitFor( () => expect( screen.getAllByText( 'First site' ) ).toHaveLength( 1 ) );
-	const share = within( screen.getByRole( 'dialog', { name: 'Share' } ) );
+	await screen.findByRole( 'button', { name: 'Visit preview' } );
+	const share = within( screen.getByRole( 'dialog', { name: 'Share and publish' } ) );
 	expect( share.queryByText( 'two.example.com' ) ).not.toBeInTheDocument();
 	act( () =>
 		connector.emit( 'onSnapshotEvent', {
@@ -102,7 +107,13 @@ it( 'refreshes the shared settings and Share list together after a preview chang
 			},
 		} )
 	);
-	await waitFor( () => expect( screen.getAllByText( 'Renamed preview' ) ).toHaveLength( 1 ) );
+	await waitFor( () =>
+		expect(
+			within( screen.getByTestId( 'settings-previews' ) ).getByText( 'Renamed preview' )
+		).toBeInTheDocument()
+	);
+	fireEvent.click( share.getByRole( 'button', { name: 'Visit preview' } ) );
+	expect( connector.openExternalUrl ).toHaveBeenCalledWith( 'https://changed.example.com' );
 	expect( screen.queryByText( 'one.example.com' ) ).not.toBeInTheDocument();
 	act( () => connector.emit( 'onSnapshotEvent', { event: SNAPSHOT_EVENTS.DELETED_ALL } ) );
 	expect( await share.findByRole( 'button', { name: 'Create preview' } ) ).toBeVisible();
@@ -152,10 +163,23 @@ it( 'keeps expired previews accessible alongside the sharing guide', async () =>
 
 it( 'confirms individual preview deletion before calling the backend', async () => {
 	const { connector } = setup();
+	let finish!: () => void;
+	connector.deleteSnapshot.mockImplementationOnce(
+		() =>
+			new Promise< void >( ( resolve ) => {
+				finish = resolve;
+			} )
+	);
 	await screen.findByText( '1 of 10 preview sites used' );
 	fireEvent.click( screen.getByRole( 'button', { name: 'Delete preview' } ) );
 	expect( connector.deleteSnapshot ).not.toHaveBeenCalled();
 	const dialog = await screen.findByRole( 'alertdialog', { name: 'Delete preview' } );
+	const description = within( dialog ).getByText(
+		'Are you sure you want to remove the preview for “First site” from WordPress Studio?'
+	);
+	const originalText = dialog.textContent;
+	const close = within( dialog ).getByRole( 'button', { name: 'Close' } );
+	expect( close ).toBeEnabled();
 	expect(
 		within( dialog ).getByText(
 			'Are you sure you want to remove the preview for “First site” from WordPress Studio?'
@@ -169,6 +193,13 @@ it( 'confirms individual preview deletion before calling the backend', async () 
 	fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Delete preview' } ) );
 	await waitFor( () =>
 		expect( connector.deleteSnapshot ).toHaveBeenCalledWith( 'one.example.com' )
+	);
+	expect( dialog ).toHaveTextContent( originalText );
+	expect( close ).toBeVisible();
+	expect( close ).toHaveAttribute( 'aria-disabled', 'true' );
+	await act( async () => finish() );
+	expect( description ).toHaveTextContent(
+		'Are you sure you want to remove the preview for “First site” from WordPress Studio?'
 	);
 	await waitFor( () =>
 		expect(

@@ -8,11 +8,13 @@
  * Needs the CLI built first (skips otherwise). Tagged `e2e` (slower manual suite):
  * `npm test -- --tagsFilter='e2e'`.
  */
+import net from 'net';
 import path from 'path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
 	cleanupCliEnv,
 	cliE2ePrerequisitesMet,
+	readCliConfig,
 	runCli,
 	setupCliEnv,
 	type CliEnv,
@@ -91,8 +93,19 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site start/stop'
 			throw new Error( 'CLI e2e env was not initialised' );
 		}
 
+		// Hold a request open: its body never arrives, so the server can't finish it.
+		const port = readCliConfig( env ).sites.find( ( site ) => site.path === sitePath )?.port;
+		const socket = net.connect( Number( port ), 'localhost' );
+		socket.on( 'error', () => {} );
+		socket.write( 'POST / HTTP/1.1\r\nHost: localhost\r\nContent-Length: 100\r\n\r\n' );
+
+		const startedAt = Date.now();
 		const result = await runCli( [ 'site', 'stop', '--path', sitePath ], env );
+		const elapsed = Date.now() - startedAt;
+		socket.destroy();
 		expect( result.code, result.stderr ).toBe( 0 );
+		// An open request must not hold the stop until its 5-second force-kill fallback.
+		expect( elapsed ).toBeLessThan( 5000 );
 
 		expect( await isSiteRunning( env, sitePath ) ).toBe( false );
 	} );

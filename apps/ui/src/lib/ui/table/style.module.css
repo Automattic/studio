@@ -1,0 +1,35 @@
+@layer ui {
+	.container {
+		width: 100%;
+		overflow-x: auto;
+	}
+
+	.table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: var( --text-sm );
+		text-align: start;
+	}
+
+	.header .row,
+	.body .row:not( :last-child ) {
+		border-bottom: 1px solid var( --border );
+	}
+
+	.row[data-state='selected'] {
+		background: var( --muted );
+	}
+
+	.head,
+	.cell {
+		padding: var( --space-2 );
+		text-align: start;
+		vertical-align: middle;
+	}
+
+	.head {
+		color: var( --muted-foreground );
+		font-weight: var( --font-weight-medium );
+		font-size: var( --text-xs );
+	}
+}

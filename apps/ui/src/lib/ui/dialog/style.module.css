@@ -1,15 +1,19 @@
 @layer ui {
+	.content[hidden],
+	.overlay[hidden] {
+		display: none;
+	}
+
 	.overlay {
 		position: fixed;
 		inset: 0;
 		isolation: isolate;
 		z-index: var( --z-dialog );
-		transition: opacity var( --motion-duration-layout ) var( --motion-ease-enter );
+		transition: opacity var( --motion-duration-surface ) var( --motion-ease-enter );
 	}
 
 	.overlay[data-variant='dimmed'] {
 		background-color: var( --backdrop );
-		backdrop-filter: blur( 4px );
 	}
 
 	.overlay:is( [data-starting-style], [data-ending-style] ) {
@@ -23,6 +27,7 @@
 	}
 
 	.content {
+		--surface: var( --chat );
 		--dialog-inset: var( --space-3 );
 		position: fixed;
 		top: 50%;
@@ -39,9 +44,20 @@
 		font-size: var( --text-sm );
 		line-height: var( --text-sm--line-height );
 		transform: translate( -50%, -50% );
-		transition-property: opacity, scale, filter;
-		transition-duration: var( --motion-duration-layout );
+		transition-property: opacity, scale;
+		transition-duration: var( --motion-duration-surface );
 		transition-timing-function: var( --motion-ease-enter );
+	}
+
+	.content[data-surface='composer'] {
+		--surface: var( --composer );
+		color: var( --foreground );
+	}
+
+	.content[data-backdrop='dimmed'] {
+		box-shadow:
+			0 0 0 1px var( --border ),
+			var( --shadow-sm );
 	}
 
 	.content:is( [data-starting-style], [data-ending-style] ) {
@@ -77,15 +93,6 @@
 		}
 	}
 
-	.content[data-surface='composer'] {
-		--surface: var( --composer );
-		border: 1px solid var( --input );
-		border-radius: var( --radius-3xl );
-		background-color: var( --surface );
-		box-shadow: none;
-		color: var( --foreground );
-	}
-
 	.content:is( [data-layout='compact'], [data-layout='confirmation'] ) {
 		padding-inline-start: var( --space-4 );
 	}
@@ -114,10 +121,6 @@
 		inset: 70px var( --space-4 );
 		max-width: 752px;
 		max-height: 600px;
-	}
-
-	.content[data-layout='settings'][data-nested-dialog-open] {
-		filter: blur( 2px );
 	}
 
 	.content[data-layout='creation'] {
@@ -229,12 +232,14 @@
 	}
 
 	.panel {
+		--surface: var( --surface-0 );
 		position: relative;
 		display: flex;
 		flex: 1;
 		flex-direction: column;
 		min-width: 0;
 		min-height: 0;
+		background-color: var( --surface );
 	}
 
 	.panelScroll {

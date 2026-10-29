@@ -39,6 +39,7 @@ import { AiCreditsPurchaseDialog } from '@/features/credits';
 import { PlusIcon, StartSiteIcon } from '@/lib/icons';
 import { isImeComposing } from '@/lib/keyboard';
 import {
+	AttachmentDropOverlay,
 	Button,
 	CommandSheet,
 	handleCommandKey,
@@ -98,9 +99,8 @@ interface ComposerProps {
 	placeholderBusy?: boolean;
 	// Offers the auto-start preference, for a chat on a local site.
 	canAutoStart?: boolean;
-	// The site the chat works on, and the connected live site it can switch to.
+	// The site the chat works on; a chat on the live site can switch back to local.
 	environment?: 'local' | 'live';
-	liveUrl?: string;
 	onEnvironmentChange?: ( environment: 'local' | 'live' ) => void;
 	// Where files can be dropped; the composer itself when absent.
 	dropTarget?: HTMLElement | null;
@@ -140,7 +140,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		placeholderBusy = false,
 		canAutoStart = false,
 		environment = 'local',
-		liveUrl,
 		onEnvironmentChange,
 		dropTarget,
 		annotationSiteId,
@@ -196,7 +195,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			autoStartOn,
 			canChooseModel: ! busy && providers.length > 0,
 			environment,
-			liveUrl,
 			canChangeEnvironment: !! onEnvironmentChange,
 		} ),
 		isDisabled: ( name ) =>
@@ -221,7 +219,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				pendingCommandRef.current = () => setModelOpen( true );
 			} else if ( name === 'connect-provider' ) {
 				openSettings( 'ai' );
-			} else if ( name === 'live' || name === 'local' ) {
+			} else if ( name === 'local' ) {
 				onEnvironmentChange?.( name );
 			} else if ( name === 'auto-start' ) {
 				setAutoStart( true );
@@ -439,9 +437,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				>
 					{ isDraggingFiles && fileDropTarget
 						? createPortal(
-								<div className={ styles.dropOverlay } aria-hidden="true">
-									<span>{ __( 'Drop to attach' ) }</span>
-								</div>,
+								<AttachmentDropOverlay>{ __( 'Drop to attach' ) }</AttachmentDropOverlay>,
 								fileDropTarget
 						  )
 						: null }

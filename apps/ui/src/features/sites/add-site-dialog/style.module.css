@@ -53,3 +53,9 @@
 	padding-top: 3px;
 	container-type: inline-size;
 }
+
+.content[data-view='connect'] {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+}

@@ -169,7 +169,7 @@ export function AddSiteDialog() {
 			: view.name === 'setup' || ( view.name === 'import' && view.backup )
 			? __( 'Create your site' )
 			: view.name === 'connect'
-			? __( 'Connect a site' )
+			? __( 'Connect to an existing WordPress' )
 			: view.name === 'import'
 			? __( 'Import a backup' )
 			: view.name === 'upload'
@@ -262,7 +262,11 @@ export function AddSiteDialog() {
 				/>
 			}
 		>
-			<div className={ styles.content } inert={ progress ? true : undefined }>
+			<div
+				className={ styles.content }
+				data-view={ view.name }
+				inert={ progress ? true : undefined }
+			>
 				<AddSiteContext.Provider value={ context }>
 					{ view.name === 'upload' ? (
 						<BlueprintUpload
@@ -342,7 +346,8 @@ export function AddSiteDialog() {
 						orientation="vertical"
 						layout="sidebar"
 						value={ navValue }
-						onValueChange={ ( value: string ) =>
+						onValueChange={ ( value: string ) => {
+							setIsBlueprintValid( true );
 							setView(
 								value === 'connect' || value === 'upload' || value === 'import'
 									? ( { name: value } as View )
@@ -350,8 +355,8 @@ export function AddSiteDialog() {
 											name: 'gallery',
 											useCase: value === 'create' ? undefined : ( value as BlueprintUseCase ),
 									  }
-							)
-						}
+							);
+						} }
 					>
 						<TabsSidebar inert={ progress ? true : undefined }>
 							<TabsList variant="sidebar" aria-label={ __( 'Ways to add a site' ) }>

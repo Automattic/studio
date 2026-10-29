@@ -84,7 +84,7 @@
 
 .card:hover .image,
 .card:focus-visible .image {
-	opacity: 0.7;
+	opacity: 0.5;
 }
 
 .action {

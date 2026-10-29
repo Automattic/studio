@@ -341,6 +341,7 @@ export function PreviewSharePanel( {
 
 			<Button
 				className={ styles.createAction }
+				variant="accent"
 				ref={ primaryAction }
 				size="lg"
 				aria-busy={ creating || undefined }

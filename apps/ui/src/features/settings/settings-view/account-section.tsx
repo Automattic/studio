@@ -44,6 +44,7 @@ export function AccountSection() {
 		<SettingsGroup>
 			<SettingsRow title={ user.displayName } description={ user.email }>
 				<Button
+					variant="outline"
 					disabled={ logout.isPending }
 					aria-busy={ logout.isPending || undefined }
 					onClick={ () => logout.mutate() }

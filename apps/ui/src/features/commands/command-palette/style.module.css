@@ -1,7 +1,9 @@
 .popup {
-	composes: commands from '@/lib/ui/surface/style.module.css';
 	display: block;
-	max-width: 448px;
+	max-width: 400px;
+	overflow: hidden;
+	padding: var( --space-1_5 );
+	border-radius: var( --radius-3xl );
 	scale: 1;
 	transform: translate( -50%, -50% );
 	transform-origin: center;

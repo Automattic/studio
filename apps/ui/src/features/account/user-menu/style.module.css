@@ -25,7 +25,8 @@
 }
 
 .popup {
-	min-width: 228px;
+	width: 228px;
+	max-width: calc( 100vw - 24px );
 }
 
 .account {

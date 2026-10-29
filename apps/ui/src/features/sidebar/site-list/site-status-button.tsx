@@ -8,6 +8,7 @@ import {
 import { StartSiteIcon, StopSiteIcon } from '@/lib/icons';
 import { Button, Spinner, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import { getSiteStatus, getSiteStatusName } from './site-status';
+import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 
 export function SiteStatusButton( {
@@ -49,6 +50,7 @@ export function SiteStatusButton( {
 			<TooltipTrigger
 				render={
 					<Button
+						className={ styles.rowAction }
 						variant="muted-ghost"
 						size="icon-sm"
 						aria-label={ busy ? statusName : label }

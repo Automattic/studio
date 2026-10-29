@@ -109,6 +109,7 @@ export function UserMenu() {
 				{ isOffline && <OfflineIndicator /> }
 				<AppUpdateButton />
 				<IconButton
+					variant="muted-ghost"
 					icon={ <SettingsIcon /> }
 					label={ __( 'Settings' ) }
 					shortcut={ {

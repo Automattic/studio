@@ -142,11 +142,11 @@ export function SitePreview( {
 	const navigating =
 		canPreview && activeSurfaceKey !== 'design' && ( browserState.loading || activeFrameLoading );
 	// Studio renders the design system itself, so it needs no page injection.
-	const showAnnotate =
-		! live &&
-		canPreview &&
+	const showAnnotate = ! live && canPreview;
+	const canAnnotateSurface =
+		showAnnotate &&
+		activeSurfaceKey !== 'database' &&
 		( connector.capabilities.annotatePreview || activeSurfaceKey === 'design' );
-	const canAnnotateSurface = showAnnotate && activeSurfaceKey !== 'database';
 	const canAnnotate =
 		canAnnotateSurface &&
 		( activeSurfaceKey === 'design' ? !! siteDesign.data : !! activeSurface?.inspectorReady );
@@ -307,7 +307,11 @@ export function SitePreview( {
 							active: annotations.active,
 							disabled: ! canAnnotate || isAnnotationsBusy( annotations ),
 							disabledReason:
-								activeSurfaceKey === 'database' ? __( 'Not available for Database' ) : undefined,
+								activeSurfaceKey === 'database'
+									? __( 'Not available for Database' )
+									: ! canAnnotateSurface
+									? __( 'Site annotation is not available in the browser yet' )
+									: undefined,
 							onClick: () => {
 								if ( ! annotations.active && onStartAnnotating?.() === false ) return;
 								setAnnotating( site.id, ! annotations.active );

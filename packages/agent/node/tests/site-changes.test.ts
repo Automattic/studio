@@ -80,4 +80,24 @@ describe( 'SiteChanges.settle', () => {
 			'fast /b',
 		] );
 	} );
+
+	it( 'reads the sites once for calls the model makes at once', async () => {
+		const reads: string[] = [];
+		const counted: SiteChangeSource = {
+			name: 'counted',
+			async read( sitePath ) {
+				reads.push( sitePath );
+				await new Promise( ( resolve ) => setTimeout( resolve, 5 ) );
+				return {};
+			},
+			async check() {
+				return { reports: [] };
+			},
+		};
+		const changes = new SiteChanges( createFakeHost(), undefined, async () => sites, [ counted ] );
+		await Promise.all( [ changes.snapshot(), changes.snapshot(), changes.snapshot() ] );
+		expect( reads ).toEqual( [ '/a', '/b' ] );
+		await changes.snapshot();
+		expect( reads ).toHaveLength( 4 );
+	} );
 } );

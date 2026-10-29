@@ -107,6 +107,7 @@ const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
 
 export class SiteChanges {
 	private readonly snapshots = new Map< string, Versions >();
+	private snapshotting?: Promise< void >;
 
 	constructor(
 		private readonly host: StudioAgentHost,
@@ -115,8 +116,18 @@ export class SiteChanges {
 		private readonly sources: SiteChangeSource[] = SITE_CHANGE_SOURCES
 	) {}
 
-	/** Records each site it checks as it is now. */
-	async snapshot(): Promise< void > {
+	/**
+	 * Records each site it checks as it is now. Calls the model makes at once
+	 * share one snapshot, as they start from the same sites.
+	 */
+	snapshot(): Promise< void > {
+		this.snapshotting ??= this.read().finally( () => {
+			this.snapshotting = undefined;
+		} );
+		return this.snapshotting;
+	}
+
+	private async read(): Promise< void > {
 		await Promise.all(
 			( await this.sites() ).map( async ( site ) => {
 				await this.open?.see( site.path );

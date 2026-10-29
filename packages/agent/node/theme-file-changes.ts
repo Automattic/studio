@@ -28,24 +28,25 @@ const UPDATED = 'updated ';
 const hashOf = ( version?: string ) => version?.split( ' ' )[ 1 ] ?? '';
 
 async function readFiles( dir: string, slug: string, last: Versions ): Promise< Versions > {
-	const versions: Versions = {};
-	for ( const entry of await readdir( dir, { recursive: true, withFileTypes: true } ) ) {
-		if ( ! entry.isFile() ) {
-			continue;
-		}
-		const file = path.join( entry.parentPath, entry.name );
-		const key = `${ slug }/${ path.relative( dir, file ).split( path.sep ).join( '/' ) }`;
-		const { mtimeMs, size } = await stat( file );
-		const stamp = `${ mtimeMs }:${ size }`;
-		const known = last[ key ]?.startsWith( `${ stamp } ` ) ? hashOf( last[ key ] ) : undefined;
-		versions[ key ] = `${ stamp } ${
-			known ??
-			createHash( 'sha1' )
-				.update( await readFile( file ) )
-				.digest( 'hex' )
-		}`;
-	}
-	return versions;
+	const entries = ( await readdir( dir, { recursive: true, withFileTypes: true } ) ).filter(
+		( entry ) => entry.isFile()
+	);
+	const versions = await Promise.all(
+		entries.map( async ( entry ) => {
+			const file = path.join( entry.parentPath, entry.name );
+			const key = `${ slug }/${ path.relative( dir, file ).split( path.sep ).join( '/' ) }`;
+			const { mtimeMs, size } = await stat( file );
+			const stamp = `${ mtimeMs }:${ size }`;
+			const known = last[ key ]?.startsWith( `${ stamp } ` ) ? hashOf( last[ key ] ) : undefined;
+			const hash =
+				known ??
+				createHash( 'sha1' )
+					.update( await readFile( file ) )
+					.digest( 'hex' );
+			return [ key, `${ stamp } ${ hash }` ] as const;
+		} )
+	);
+	return Object.fromEntries( versions );
 }
 
 /**

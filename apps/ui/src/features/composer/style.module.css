@@ -1,4 +1,5 @@
 .root {
+	--motion-duration-feedback: 0s;
 	display: flex;
 	flex-direction: column;
 }

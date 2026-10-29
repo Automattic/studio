@@ -5,12 +5,15 @@
 }
 
 .dropZone {
+	position: relative;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
+	justify-content: center;
+	flex: 1;
+	min-width: 0;
 	gap: var( --space-4 );
-	max-width: 512px;
-	margin: var( --space-4 ) auto 0;
+	margin: 0;
 	padding: var( --space-10 );
 	border: 1px dashed var( --border );
 	border-radius: var( --radius-xl );
@@ -18,17 +21,25 @@
 }
 
 .dropZone[data-dragging] {
-	border-color: var( --ring );
-	background: color-mix( in srgb, var( --accent ) 6%, transparent );
+	border-color: var( --accent );
+	border-style: solid;
+	background-color: light-dark(
+		color-mix( in srgb, var( --accent-text ) 15%, transparent ),
+		color-mix( in srgb, var( --accent-text ) 10%, transparent )
+	);
 }
 
 .dropIcon {
 	color: var( --muted-foreground );
 }
 
+.dropText {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-1 );
+}
+
 .dropHelp {
-	max-width: 512px;
-	margin: var( --space-3 ) auto 0;
 	color: var( --muted-foreground );
 	font-size: var( --text-xxs );
 	line-height: 1.3;
@@ -36,7 +47,7 @@
 }
 
 .dropLabel {
-	color: var( --muted-foreground );
+	color: var( --foreground );
 }
 
 .dropError {

@@ -5,20 +5,12 @@
 	}
 
 	.commands {
-		--surface: var( --composer );
+		composes: commands from '@/lib/ui/surface/style.module.css';
 		display: flex;
 		flex-direction: column;
 		width: var( --anchor-width );
 		max-width: var( --available-width );
 		max-height: var( --available-height );
-		overflow: hidden;
-		border: 1px solid var( --input );
-		border-radius: var( --radius-3xl );
-		background-color: var( --surface );
-		color: var( --foreground );
-		font-size: var( --text-sm );
-		line-height: var( --text-sm--line-height );
-		outline: none;
 		transform-origin: bottom;
 	}
 

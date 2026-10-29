@@ -54,12 +54,10 @@ export function ShareStatusIcon( {
 export function SharePanel( {
 	site,
 	open,
-	actionsContainer,
 	onManagePreview,
 }: {
 	site: SiteDetails;
 	open: boolean;
-	actionsContainer: HTMLDivElement | null;
 	onManagePreview: ( action: PreviewManagementAction ) => void;
 } ) {
 	const connector = useConnector();
@@ -161,7 +159,7 @@ export function SharePanel( {
 		</>
 	);
 	return (
-		<div className={ styles.content }>
+		<div className={ styles.content } data-share-previews={ previews.length > 0 || undefined }>
 			<EmptyHeader className={ styles.emptyIntro }>
 				<EmptyMedia className={ styles.emptyIcon }>
 					<ShareIcon width="40" height="40" />
@@ -196,19 +194,11 @@ export function SharePanel( {
 				<PreviewSharePanel
 					key={ `${ site.id }:${ user.data?.id }` }
 					site={ site }
-					actionsContainer={ actionsContainer }
 					primaryAction={ primaryAction }
 					previews={ previews }
 					busy={ busy }
 					offline={ offline }
 					creating={ creating }
-					updatingHostname={
-						publishing
-							? activity.hostname
-							: publish.isPending
-							? ownAttempt?.existingHostname
-							: undefined
-					}
 					canCreate={ canCreate }
 					notice={ notice }
 					restriction={ restriction }

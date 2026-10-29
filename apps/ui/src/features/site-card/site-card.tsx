@@ -1,4 +1,5 @@
 import { __, sprintf } from '@wordpress/i18n';
+import { clsx } from 'clsx';
 import { FieldGroup, PreviewFrame, PreviewImage } from '@/lib/ui';
 import { RelativeTime } from './relative-time';
 import styles from './style.module.css';
@@ -9,6 +10,7 @@ export function getWebsiteThumbnailUrl( url: string ) {
 }
 
 export function SiteCard( {
+	className,
 	title,
 	description,
 	thumbnailUrl,
@@ -16,6 +18,7 @@ export function SiteCard( {
 	updatedAt,
 	active = true,
 }: {
+	className?: string;
 	title: ReactNode;
 	description?: ReactNode;
 	thumbnailUrl?: string | null;
@@ -24,7 +27,7 @@ export function SiteCard( {
 	active?: boolean;
 } ) {
 	return (
-		<FieldGroup variant="settings" className={ styles.card }>
+		<FieldGroup variant="settings" className={ clsx( styles.card, className ) }>
 			<div className={ styles.row }>
 				<PreviewFrame className={ styles.thumbnail }>
 					<PreviewImage key={ thumbnailUrl } src={ thumbnailUrl ?? undefined } alt="" />

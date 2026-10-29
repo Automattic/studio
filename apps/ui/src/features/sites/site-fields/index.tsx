@@ -13,10 +13,7 @@ import {
 	getFileAccessDescription,
 	getSiteDirectoryFileAccessLabel,
 } from '@studio/common/lib/site-file-access-labels';
-import {
-	getAutomaticUpdatesDescription,
-	getAutoUpdateVersionLabel,
-} from '@studio/common/lib/wordpress-version-labels';
+import { getAutoUpdateVersionLabel } from '@studio/common/lib/wordpress-version-labels';
 import {
 	isWordPressBetaVersion,
 	isWordPressDevVersion,
@@ -175,9 +172,6 @@ export function getWpVersionOptions(
 		{
 			value: latestValue,
 			label: getAutoUpdateVersionLabel( autoUpdateVersion ),
-			// Without an installed version, the description names the one the site
-			// will be created with.
-			description: getAutomaticUpdatesDescription( autoUpdateVersion, ! currentVersion ),
 		},
 		...prerelease,
 		...stable,
@@ -379,9 +373,9 @@ export function SiteSelect( {
 			<SelectTrigger { ...props }>
 				<SelectValue />
 			</SelectTrigger>
-			<SelectContent>
+			<SelectContent className={ styles.selectContent } alignItemWithTrigger={ false } align="end">
 				{ groups.map( ( group ) => (
-					<SelectGroup key={ group ?? '' }>
+					<SelectGroup key={ group ?? '' } className={ styles.selectGroup }>
 						{ group && <SelectLabel>{ group }</SelectLabel> }
 						{ offered
 							.filter( ( option ) => option.group === group )

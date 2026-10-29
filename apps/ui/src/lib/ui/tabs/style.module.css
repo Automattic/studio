@@ -55,7 +55,6 @@
 
 	.list[data-variant='sidebar'] {
 		flex-direction: column;
-		gap: 1px;
 		width: 100%;
 		min-width: 0;
 		padding: var( --space-3 );

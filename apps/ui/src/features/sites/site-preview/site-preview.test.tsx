@@ -225,6 +225,8 @@ describe( 'site preview', () => {
 	it( 'reports the guest URL and native history after navigation', async () => {
 		const onPathChange = vi.fn();
 		const { user } = await renderPreview( 'desktop', { onPathChange } );
+		expect( fireEvent.contextMenu( screen.getByRole( 'button', { name: 'Back' } ) ) ).toBe( false );
+		expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument();
 		const goBack = vi.fn();
 		const webview = guest( {
 			getURL: () => `${ SITE_URL }/about/`,
@@ -238,6 +240,7 @@ describe( 'site preview', () => {
 			Object.assign( new Event( 'did-navigate' ), { url: `${ SITE_URL }/about/` } )
 		);
 		expect( onPathChange ).toHaveBeenLastCalledWith( '/about/' );
+		expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Forward' } ) ).toHaveAttribute(
 			'aria-disabled',
 			'true'
@@ -406,20 +409,26 @@ describe( 'site preview controls', () => {
 		} );
 	} );
 
-	it.each( [
-		[ 'the host supports it', true, true ],
-		[ 'the host cannot annotate', false, false ],
-	] )( 'shows Annotate only when %s', async ( _, annotatePreview, shown ) => {
-		const connector = createFakeConnector(
-			{},
-			{ capabilities: { nativeFolderPicker: true, annotatePreview, studioLogs: true } }
-		);
-		await renderPreview( 'browser', {}, connector );
-		expect( screen.getByRole( 'button', { name: 'Reload preview' } ) ).toBeVisible();
-		await waitFor( () =>
-			expect( !! screen.queryByRole( 'button', { name: 'Annotate' } ) ).toBe( shown )
-		);
-	} );
+	it.each( [ true, false ] )(
+		'keeps Annotate visible when host support is %s',
+		async ( annotatePreview ) => {
+			const connector = createFakeConnector(
+				{},
+				{ capabilities: { nativeFolderPicker: true, annotatePreview, studioLogs: true } }
+			);
+			await renderPreview( 'browser', {}, connector );
+			expect( screen.getByRole( 'button', { name: 'Reload preview' } ) ).toBeVisible();
+			const annotate = screen.getByRole( 'button', { name: 'Annotate' } );
+			expect( annotate ).toBeVisible();
+			if ( ! annotatePreview ) {
+				expect( annotate ).toBeDisabled();
+				expect( annotate ).toHaveAttribute(
+					'aria-description',
+					'Site annotation is not available in the browser yet'
+				);
+			}
+		}
+	);
 
 	it.each( [ undefined, 'https://example.wordpress.com' ] )(
 		'keeps responsive settings on site surfaces and suspends the toolbar for tools (live: %s)',

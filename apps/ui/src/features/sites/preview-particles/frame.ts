@@ -84,7 +84,6 @@ export function getPreviewDotFrame(
 		1 -
 		logoAmount *
 			( 1 - Math.max( 0, Math.min( 1, ( Math.hypot( x - centerX, y - centerY ) - 36 ) / 24 ) ) );
-	const opacity =
-		( 0.2 + ( wave + 1 ) * 0.08 * amount ) * clearance * clearance * ( 3 - 2 * clearance );
+	const opacity = clearance * clearance * ( 3 - 2 * clearance );
 	return { x, y, opacity };
 }

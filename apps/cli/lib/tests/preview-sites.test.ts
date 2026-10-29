@@ -29,11 +29,15 @@ describe( 'Preview sites', () => {
 		vi.clearAllMocks();
 		vi.useFakeTimers();
 		vi.mocked( wpcomFactory ).mockReturnValue( { req: { get, post } } as unknown as WpcomFactory );
-		get.mockImplementation( ( { path }: { path: string } ) =>
-			path === `/sites/${ siteId }`
-				? Promise.resolve( { URL: 'https://preview-site.wpcomstaging.com' } )
-				: Promise.resolve( { importId: 'new', importStatus: 'importSuccess' } )
-		);
+		get.mockImplementation( ( { path }: { path: string } ) => {
+			if ( path === `/sites/${ siteId }` ) {
+				return Promise.resolve( { URL: 'https://preview-site.wpcomstaging.com' } );
+			}
+			if ( path === `/sites/${ siteId }/preview-links` ) {
+				return Promise.resolve( [] );
+			}
+			return Promise.resolve( { importId: 'new', importStatus: 'importSuccess' } );
+		} );
 		post.mockImplementation( ( { path }: { path: string } ) =>
 			path === '/sites/new'
 				? Promise.resolve( { blog_details: { blogid: String( siteId ) } } )
@@ -98,6 +102,32 @@ describe( 'Preview sites', () => {
 			apiNamespace: 'wpcom/v2',
 			path: `/sites/${ siteId }/wow-funnel/update`,
 			body: { args: { attachment_id: '679' } },
+		} );
+		expect( post ).not.toHaveBeenCalledWith(
+			expect.objectContaining( { path: `/sites/${ siteId }/preview-links` } )
+		);
+	} );
+
+	it( "reuses the site's preview link on update when the snapshot has none", async () => {
+		const imports = [
+			{ importId: 'old', importStatus: 'importSuccess' },
+			{ importId: 'new', importStatus: 'importSuccess' },
+		];
+		get.mockImplementation( ( { path }: { path: string } ) => {
+			if ( path === `/sites/${ siteId }` ) {
+				return Promise.resolve( { URL: 'https://preview-site.wpcomstaging.com' } );
+			}
+			if ( path === `/sites/${ siteId }/preview-links` ) {
+				return Promise.resolve( [ { code: 'existing' } ] );
+			}
+			return Promise.resolve( imports.shift() );
+		} );
+
+		const update = updatePreviewSite( siteId, 679, token );
+		await vi.runAllTimersAsync();
+
+		await expect( update ).resolves.toMatchObject( {
+			shareUrl: 'https://preview-site.wpcomstaging.com/?share=existing',
 		} );
 		expect( post ).not.toHaveBeenCalledWith(
 			expect.objectContaining( { path: `/sites/${ siteId }/preview-links` } )

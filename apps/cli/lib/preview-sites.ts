@@ -123,17 +123,13 @@ async function getPreviewHostname( siteId: number, token: string ): Promise< str
 	return new URL( site.URL ).hostname;
 }
 
-async function createShareUrl(
-	siteId: number,
-	hostname: string,
-	token: string
-): Promise< string > {
-	const link = previewLinkSchema.parse(
-		await wpcom( token ).req.post( {
-			apiNamespace: 'wpcom/v2',
-			path: `/sites/${ siteId }/preview-links`,
-		} )
-	);
+/** Returns the site's preview link, creating it when the site has none (a site allows only one). */
+async function getShareUrl( siteId: number, hostname: string, token: string ): Promise< string > {
+	const endpoint = { apiNamespace: 'wpcom/v2', path: `/sites/${ siteId }/preview-links` };
+	const [ existing ] = z
+		.array( previewLinkSchema )
+		.parse( await wpcom( token ).req.get( endpoint ) );
+	const link = existing ?? previewLinkSchema.parse( await wpcom( token ).req.post( endpoint ) );
 	return `https://${ hostname }/?share=${ link.code }`;
 }
 
@@ -171,7 +167,7 @@ export async function createPreviewSite(
 
 	await waitForPreviewImport( siteId, token );
 	const hostname = await getPreviewHostname( siteId, token );
-	return { siteId, hostname, shareUrl: await createShareUrl( siteId, hostname, token ) };
+	return { siteId, hostname, shareUrl: await getShareUrl( siteId, hostname, token ) };
 }
 
 /** Rebuilds a preview site from an archive uploaded with its site ID. */
@@ -198,7 +194,7 @@ export async function updatePreviewSite(
 	return {
 		siteId,
 		hostname,
-		shareUrl: shareUrl ?? ( await createShareUrl( siteId, hostname, token ) ),
+		shareUrl: shareUrl ?? ( await getShareUrl( siteId, hostname, token ) ),
 	};
 }
 

@@ -15,7 +15,7 @@ import type { Snapshot } from '@studio/common/types/snapshot';
 // expires.
 
 const PREVIEW_FUNNEL = 'preview';
-const IMPORT_POLL_INTERVAL_MS = 5000;
+const IMPORT_POLL_INTERVAL_MS = 1000;
 const IMPORT_TIMEOUT_MS = 30 * 60 * 1000;
 
 export type PreviewSite = {

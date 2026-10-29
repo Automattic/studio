@@ -60,7 +60,7 @@ describe( 'OpenProblems', () => {
 
 	it( "tags the problems as Studio's checks", () => {
 		expect( describeOpenProblems( [ 'a', 'b' ] ) ).toBe(
-			"<studio-checks>\nStudio checked the sites this turn changed. Each item is how WordPress treats the site as it is now, from WordPress's source. The turn is done when each is resolved, or, for one that needs the user's choice, when the user is asked:\n- a\n- b\n</studio-checks>"
+			"<studio-checks>\nStudio checked the sites this turn changed. Each item is how WordPress treats the site as it is now. The turn is done when each is resolved, or, for one that needs the user's choice, when the user is asked:\n- a\n- b\n</studio-checks>"
 		);
 	} );
 } );

@@ -40,14 +40,14 @@ function hostEnvironment( remoteHosts: Record< string, RemoteHost > ): string {
 
 const environment = ( remoteHosts: Record< string, RemoteHost > ) => `## Environment
 
-- Studio runs the user's local WordPress sites on this computer. Each one is a complete WordPress install in its own folder: WordPress core (\`wp-includes/\`, \`wp-admin/\`) and every installed theme and plugin (\`wp-content/\`) are on disk, and are the reference for how WordPress behaves.${ hostEnvironment(
+- Studio runs the user's local WordPress sites on this computer. Each one is a complete WordPress install in its own folder: WordPress core (\`wp-includes/\`, \`wp-admin/\`) and every installed theme and plugin (\`wp-content/\`) are on disk.${ hostEnvironment(
 	remoteHosts
 ) }
 - The active site is the one the user has open in Studio.`;
 
 const externalEnvironment = ( remoteHosts: Record< string, RemoteHost > ) => `## Environment
 
-- Studio runs the user's local WordPress sites on this computer. Each one is a complete WordPress install in its own folder (site_info and site_create report it): WordPress core (\`wp-includes/\`, \`wp-admin/\`) and every installed theme and plugin (\`wp-content/\`) are on disk, and are the reference for how WordPress behaves.${ hostEnvironment(
+- Studio runs the user's local WordPress sites on this computer. Each one is a complete WordPress install in its own folder (site_info and site_create report it): WordPress core (\`wp-includes/\`, \`wp-admin/\`) and every installed theme and plugin (\`wp-content/\`) are on disk.${ hostEnvironment(
 	remoteHosts
 ) }
 - Studio's skills are runbooks for its workflows, served by \`studio_instructions\` with \`skill\` set to the skill's name. Where a runbook says Write or Edit, that is your own file tools.

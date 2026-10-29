@@ -8,6 +8,18 @@ import type { HostSite } from '@studio/agent/node/host';
 vi.mock( '@studio/agent/node/block-render-check', () => ( {
 	readRenderedVersions: async () => ( { 'post:2': 'a' } ),
 } ) );
+// The theme the site's templates come from, and the themes WordPress.org releases.
+const themes = vi.hoisted( () => ( {
+	active: 'twentytwentyfive',
+	released: [ 'twentytwentyfive' ],
+} ) );
+vi.mock( '@studio/agent/node/site-database', () => ( {
+	readWordPressSite: async ( _path: string, read: ( site: unknown ) => unknown ) =>
+		read( { option: ( name: string ) => ( name === 'template' ? themes.active : undefined ) } ),
+} ) );
+vi.mock( '@studio/agent/node/themes', () => ( {
+	isUpdatableTheme: async ( _root: string, theme: string ) => themes.released.includes( theme ),
+} ) );
 
 const host = createFakeHostWithSites( [
 	{ id: '1', name: 'Groomer', path: '/sites/groomer', url: 'http://localhost:8881' },
@@ -28,7 +40,10 @@ const check = ( before: Record< string, string >, after: Record< string, string 
 const problem = async () =>
 	( await check( { 'post:2': 'a' }, { 'post:2': 'b' } ) ).reports[ 0 ]?.problem;
 
-afterEach( () => vi.unstubAllGlobals() );
+afterEach( () => {
+	vi.unstubAllGlobals();
+	themes.active = 'twentytwentyfive';
+} );
 
 // The home page WordPress renders, as the site's server would.
 function serve( html: string | undefined ) {
@@ -153,4 +168,29 @@ it.each< { name: string; now: string; reported: string | undefined } >( [
 	expect( reports[ 0 ]?.problem ).toEqual(
 		reported && expect.stringContaining( `the links ${ reported } go nowhere` )
 	);
+} );
+
+it.each< { name: string; released: string[]; reported: string | undefined } >( [
+	{
+		name: "keeps the links a theme WordPress.org releases renders once it is the site's, and raises one written since",
+		released: [ 'ollie' ],
+		reported: '"Book" in the header template part',
+	},
+	{
+		name: 'raises the links a theme renders that WordPress.org does not release',
+		released: [],
+		reported: '"Book" in the header template part; "Twitter" in the footer template part',
+	},
+] )( '$name', async ( { released, reported } ) => {
+	themes.released = released;
+	serve( header( nav( 'Shop' ) ) );
+	const first = await linksToNowhereChanges.read( site.path, undefined, host );
+	// The theme is installed and activated, or a child theme of it made.
+	themes.active = 'ollie';
+	serve( header( nav( 'Shop' ) ) + footer( nav( 'Twitter' ) ) );
+	const installed = await linksToNowhereChanges.read( site.path, first, host );
+	serve( header( nav( 'Shop' ) + nav( 'Book' ) ) + footer( nav( 'Twitter' ) ) );
+	const later = await linksToNowhereChanges.read( site.path, installed, host );
+	const { reports } = await check( { ...first, 'post:2': 'z' }, later );
+	expect( reports[ 0 ]?.problem ).toContain( `the links ${ reported } go nowhere` );
 } );

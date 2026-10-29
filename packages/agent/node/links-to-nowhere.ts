@@ -10,11 +10,14 @@
  * (render_block_core_navigation_link() in wp-includes/blocks/navigation-link.php).
  * When a call changes what the site renders, Studio fetches the home page as a
  * visitor gets it to show which links do, and where: those the site did not
- * have as Studio first saw it.
+ * have as Studio first saw it, or as a theme WordPress.org releases first
+ * rendered it, whose links are the theme's design.
  */
 import { readRenderedVersions } from '@studio/agent/node/block-render-check';
 import { templatePart } from '@studio/agent/node/header-menu';
 import { render } from '@studio/agent/node/page-render';
+import { readWordPressSite } from '@studio/agent/node/site-database';
+import { isUpdatableTheme } from '@studio/agent/node/themes';
 import type { HostSite } from '@studio/agent/node/host';
 import type { SiteChangeSource } from '@studio/agent/node/site-changes';
 
@@ -118,21 +121,35 @@ async function newLinksToNowhere(
 // site as it was, not the session's to raise, as OpenProblems keeps a site's
 // problems as first seen.
 const FIRST_SEEN = 'links to nowhere as first seen';
+// The theme the site's templates come from (its parent's, for a child theme).
+// When it becomes one WordPress.org releases and updates, the links the site
+// then renders are added to those first seen: they are the released theme's,
+// as its patterns ship them, not the session's.
+const THEME = 'theme of the links to nowhere first seen';
 
 export const linksToNowhereChanges: SiteChangeSource = {
 	name: 'links to nowhere',
 	async read( sitePath, last, host ) {
 		const versions = await readRenderedVersions( sitePath );
-		if ( last?.[ FIRST_SEEN ] !== undefined ) {
-			return { ...versions, [ FIRST_SEEN ]: last[ FIRST_SEEN ] };
+		const theme = String(
+			( await readWordPressSite( sitePath, ( site ) => site.option( 'template' ) ) ) ?? ''
+		);
+		const seen: SeenLink[] | undefined =
+			last?.[ FIRST_SEEN ] !== undefined ? JSON.parse( last[ FIRST_SEEN ] ) : undefined;
+		const released = async () =>
+			last?.[ THEME ] !== theme && theme !== '' && ( await isUpdatableTheme( sitePath, theme ) );
+		if ( seen && ! ( await released() ) ) {
+			return { ...versions, [ FIRST_SEEN ]: last![ FIRST_SEEN ], [ THEME ]: theme };
 		}
 		const site = await host.sites.findByFolder( sitePath );
 		const found = site ? await linksToNowhere( site ) : undefined;
+		const added = unseen( found?.links ?? [], seen ?? [] ).map(
+			( { place, tag } ): SeenLink => [ place, tag ]
+		);
 		return {
 			...versions,
-			[ FIRST_SEEN ]: JSON.stringify(
-				found?.links.map( ( { place, tag } ): SeenLink => [ place, tag ] ) ?? []
-			),
+			[ FIRST_SEEN ]: JSON.stringify( [ ...( seen ?? [] ), ...added ] ),
+			[ THEME ]: theme,
 		};
 	},
 	async check( site, before, after ) {

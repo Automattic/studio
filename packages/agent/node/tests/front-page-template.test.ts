@@ -109,6 +109,12 @@ it.each( [
 it.each( [
 	{ name: 'a new template without post-content', text: NOT_SHOWN, refused: true },
 	{ name: 'a new template with post-content', text: SHOWN, refused: false },
+	// port c-2 climbing-gym: a stray core pattern let the page live in the theme.
+	{
+		name: 'a new template with a pattern the theme does not hold',
+		text: NOT_SHOWN + pattern( 'core/pricing' ),
+		refused: true,
+	},
 	{ name: 'a change to a template the theme holds', text: NOT_SHOWN, held: true, refused: false },
 ] )( '$name: refused $refused', async ( { text, held, refused } ) => {
 	const site = createSite();

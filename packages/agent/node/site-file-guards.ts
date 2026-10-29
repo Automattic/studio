@@ -547,11 +547,11 @@ export async function clearThemePatternCache(
 	return [];
 }
 
-// Whether a front-page template renders no page's content, with its theme's patterns.
-async function hidesPageContent( theme: NonNullable< SiteFile[ 'theme' ] >, template: string ) {
+// Whether a front-page template renders a page's content, with its theme's
+// patterns: undefined when it includes a pattern the theme does not hold.
+async function showsPageContent( theme: NonNullable< SiteFile[ 'theme' ] >, template: string ) {
 	const parent = await parentThemeDir( theme.dir );
-	const themeDirs = [ theme.dir, ...( parent ? [ parent ] : [] ) ];
-	return ( await rendersPageContent( template, themeDirs ) ) === false;
+	return rendersPageContent( template, [ theme.dir, ...( parent ? [ parent ] : [] ) ] );
 }
 
 /**
@@ -568,7 +568,7 @@ export async function frontPageTemplateNotes( {
 		return [];
 	}
 	const template = await readFile( path.join( siteRoot, relativePath ), 'utf8' );
-	return ( await hidesPageContent( theme, template ) )
+	return ( await showsPageContent( theme, template ) ) === false
 		? [ frontPageTemplateProblem( relativePath ) ]
 		: [];
 }
@@ -589,7 +589,9 @@ export async function frontPageTemplateRefusal(
 		() => true,
 		() => false
 	);
-	return ! exists && ( await hidesPageContent( theme, text ) )
+	// A pattern from elsewhere, such as core's or a plugin's, renders blocks of
+	// its own: the post-content block belongs to the template that shows a page.
+	return ! exists && ( await showsPageContent( theme, text ) ) !== true
 		? frontPageTemplateProblem( relativePath )
 		: undefined;
 }

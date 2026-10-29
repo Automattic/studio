@@ -34,23 +34,10 @@ const findToggle = () =>
 		( toggle ) => ! toggle.closest( '[inert]' )
 	);
 
-function SidebarContents( {
-	active,
-	floating = false,
-	onSiteOpen,
-}: {
-	active: boolean;
-	floating?: boolean;
-	onSiteOpen?: () => void;
-} ) {
+function SidebarContents( { active, onSiteOpen }: { active: boolean; onSiteOpen?: () => void } ) {
 	return (
 		<>
-			<SiteList
-				className={ floating ? styles.sidebarFlyoutList : undefined }
-				sections
-				active={ active }
-				onSiteOpen={ onSiteOpen }
-			/>
+			<SiteList sections active={ active } onSiteOpen={ onSiteOpen } />
 			<div className={ styles.sidebarFooter }>
 				{ active ? <AppMessageCards className={ styles.sidebarCards } /> : null }
 				<UserMenu />
@@ -81,6 +68,7 @@ export function SidebarLayout( {
 	const sidebarFlyoutOpen = sidebarFlyoutState === 'open';
 	const [ instantSidebarDock, setInstantSidebarDock ] = useState( false );
 	const dockedSidebarRef = useRef< HTMLElement >( null );
+	const dockedSidebarScrollRef = useRef< HTMLDivElement >( null );
 	useLayoutEffect( () => {
 		if ( ! instantSidebarDock ) return;
 		if ( dockedSidebarRef.current ) {
@@ -142,7 +130,7 @@ export function SidebarLayout( {
 	const open = docked || sidebarFlyoutOpen;
 	const sidebarFlyoutVisible = sidebarFlyoutState !== 'closed';
 	useLayoutEffect( () => {
-		if ( docked && dockedSidebarRef.current ) dockedSidebarRef.current.scrollTop = 0;
+		if ( docked && dockedSidebarScrollRef.current ) dockedSidebarScrollRef.current.scrollTop = 0;
 		if ( sidebarFlyoutVisible && sidebarFlyoutRef.current ) sidebarFlyoutRef.current.scrollTop = 0;
 	}, [ docked, sidebarFlyoutVisible ] );
 	const hoverEnter = useCallback( () => {
@@ -261,7 +249,6 @@ export function SidebarLayout( {
 											>
 												<SidebarContents
 													active={ peek || sidebarFlyoutOpen }
-													floating
 													onSiteOpen={ closeSidebarFlyout }
 												/>
 											</aside>
@@ -279,7 +266,9 @@ export function SidebarLayout( {
 								>
 									<aside ref={ dockedSidebarRef } className={ styles.sidebar }>
 										<SidebarHeader action={ docked ? headerAction : undefined } />
-										<SidebarContents active={ docked } />
+										<div ref={ dockedSidebarScrollRef } className={ styles.sidebarScroll }>
+											<SidebarContents active={ docked } />
+										</div>
 									</aside>
 								</div>
 								{ sidebarFlyoutState !== 'closed' ? (

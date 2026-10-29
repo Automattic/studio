@@ -128,9 +128,13 @@ async function isWordPressInstalled(
 	phpVersion: SupportedPHPVersion,
 	signal: AbortSignal
 ): Promise< boolean > {
+	// SHORTINIT stops wp-settings.php once the database drop-in is loaded, before the
+	// site's plugins and theme, whose fatal error would otherwise fail the check
+	// and keep the site from starting.
 	const installationCheckScript = `
 error_reporting( E_ERROR );
 ini_set( 'display_errors', '0' );
+define( 'SHORTINIT', true );
 
 $wp_load = getcwd() . '/wp-load.php';
 if ( ! file_exists( $wp_load ) ) {

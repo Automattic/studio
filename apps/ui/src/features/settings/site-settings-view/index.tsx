@@ -360,7 +360,9 @@ export function SiteSettingsForm( {
 			<>
 				<ConnectionCard />
 				<SettingsGroup>
-					{ textRow( 'name', __( 'Site name' ), __( 'Name shown in WordPress Studio.' ) ) }
+					{ textRow( 'name', __( 'Site name' ), __( 'Name shown in WordPress Studio.' ), {
+						action: copyButton( 'name', __( 'Copy site name' ) ),
+					} ) }
 					<SettingsRow
 						title={ __( 'Local path' ) }
 						description={ __( 'Where this site’s files are stored.' ) }

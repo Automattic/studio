@@ -19,7 +19,9 @@
 }
 
 .actions {
-	display: contents;
+	display: flex;
+	align-items: center;
+	gap: var( --space-3 );
 }
 
 .hidden {
@@ -65,4 +67,8 @@
 .error {
 	color: var( --destructive );
 	font-size: var( --text-xs );
+}
+
+.confirmingDiscard {
+	visibility: hidden;
 }

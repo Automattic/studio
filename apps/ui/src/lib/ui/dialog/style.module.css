@@ -49,17 +49,8 @@
 		transition-timing-function: var( --motion-ease-enter );
 	}
 
-	.content[data-surface='composer'] {
-		border: 1px solid var( --input );
-		border-radius: var( --radius-3xl );
-		box-shadow: none;
-		color: var( --foreground );
-	}
-
-	.content[data-backdrop='dimmed'] {
-		box-shadow:
-			0 0 0 1px var( --border ),
-			var( --shadow-sm );
+	.content [data-slot='tabs-sidebar'] {
+		background-color: transparent;
 	}
 
 	.content:is( [data-starting-style], [data-ending-style] ) {
@@ -200,12 +191,14 @@
 
 	.footer {
 		display: flex;
+		flex-shrink: 0;
 		gap: var( --space-1_5 );
 		align-items: center;
 		justify-content: flex-end;
 	}
 
-	.content:is( [data-layout='settings'], [data-layout='creation'] ) > .footer {
+	.content:is( [data-layout='settings'], [data-layout='creation'] ) > .footer,
+	.panel > .footer {
 		padding: var( --dialog-inset, var( --space-3 ) );
 	}
 
@@ -247,18 +240,6 @@
 		position: relative;
 		flex: 1;
 		container-type: inline-size;
-	}
-
-	.panel[data-inset='spacious'] {
-		--dialog-inset: var( --space-6 );
-	}
-
-	.panel[data-inset='spacious'] .panelHeader {
-		padding-block: var( --space-3 );
-	}
-
-	.panel[data-inset='spacious-bottom'] .panelBody {
-		padding-block-end: var( --space-6 );
 	}
 
 	.panelBody {

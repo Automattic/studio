@@ -87,7 +87,6 @@ export function DialogContent( {
 	showCloseButton = true,
 	closeButtonDisabled = false,
 	layout = 'default',
-	surface = 'chat',
 	backdrop = 'dimmed',
 	keepMounted = false,
 	...props
@@ -95,7 +94,6 @@ export function DialogContent( {
 	showCloseButton?: boolean;
 	closeButtonDisabled?: boolean;
 	layout?: Layout;
-	surface?: 'chat' | 'composer';
 	backdrop?: 'dimmed' | 'transparent';
 	/** Keeps ongoing operations and form state alive after dismissal. */
 	keepMounted?: boolean;
@@ -106,7 +104,6 @@ export function DialogContent( {
 			<BaseDialog.Popup
 				data-slot="dialog-content"
 				data-layout={ layout }
-				data-surface={ surface }
 				data-backdrop={ backdrop }
 				className={ clsx( surfaceStyles.floating, styles.content, className ) }
 				{ ...props }
@@ -205,23 +202,16 @@ export function DialogPanel( {
 	className,
 	header,
 	footer,
-	inset = 'default',
 	scrollRef,
 	children,
 	...props
 }: ComponentProps< 'div' > & {
 	header: ReactNode;
 	footer?: ReactNode;
-	inset?: 'default' | 'spacious' | 'spacious-bottom';
 	scrollRef?: Ref< HTMLDivElement >;
 } ) {
 	return (
-		<div
-			data-slot="dialog-panel"
-			data-inset={ inset }
-			className={ clsx( styles.panel, className ) }
-			{ ...props }
-		>
+		<div data-slot="dialog-panel" className={ clsx( styles.panel, className ) } { ...props }>
 			{ header }
 			<DialogScrollArea ref={ scrollRef } className={ styles.panelScroll }>
 				<div className={ styles.panelBody }>{ children }</div>

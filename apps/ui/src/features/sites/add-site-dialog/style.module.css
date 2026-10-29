@@ -1,22 +1,5 @@
-.footer {
-	display: flex;
-	flex: none;
-	justify-content: flex-end;
-	gap: var( --space-2 );
-	padding: var( --space-6 );
-}
-
-.navGroup {
-	display: flex;
-	flex: none;
-	align-items: center;
-	height: 36px;
-	margin: var( --space-4 ) 0 0;
-	padding: 0 var( --space-2 );
-	color: var( --muted-foreground );
-	font-size: var( --text-sm );
-	font-weight: var( --font-weight-medium );
-	line-height: var( --text-sm--line-height );
+.header {
+	padding-inline-start: var( --space-6 );
 }
 
 .leading {
@@ -49,17 +32,8 @@
 }
 
 .content {
-	/* Room above the first row for a focused card's outline. */
-	padding-top: 3px;
-	container-type: inline-size;
-}
-
-.content[data-view='connect'] {
 	display: flex;
 	flex: 1;
 	flex-direction: column;
-}
-
-.topLevelHeader {
-	padding-inline-end: var( --space-3 );
+	container-type: inline-size;
 }

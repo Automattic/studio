@@ -13,10 +13,13 @@ import {
 	IconButton,
 	Dialog,
 	DialogContent,
+	DialogFooter,
 	DialogPanel,
 	DialogTitle,
 	PanelHeader,
 	Spinner,
+	SidebarGroupHeader,
+	SidebarGroupLabel,
 	Tabs,
 	TabsList,
 	TabsSidebar,
@@ -193,15 +196,14 @@ export function AddSiteDialog() {
 
 	const panel = (
 		<DialogPanel
-			inset={ view.name === 'details' ? 'spacious-bottom' : 'spacious' }
 			footer={
 				view.name === 'setup' || ( view.name === 'import' && view.backup ) ? (
-					<div ref={ setFormActions } className={ styles.footer } />
+					<DialogFooter ref={ setFormActions } />
 				) : undefined
 			}
 			header={
 				<PanelHeader
-					className={ ! back ? styles.topLevelHeader : undefined }
+					className={ styles.header }
 					leading={
 						back ? (
 							<div className={ styles.leading }>
@@ -263,11 +265,7 @@ export function AddSiteDialog() {
 				/>
 			}
 		>
-			<div
-				className={ styles.content }
-				data-view={ view.name }
-				inert={ progress ? true : undefined }
-			>
+			<div className={ styles.content } inert={ progress ? true : undefined }>
 				<AddSiteContext.Provider value={ context }>
 					{ view.name === 'upload' ? (
 						<BlueprintUpload
@@ -371,7 +369,9 @@ export function AddSiteDialog() {
 										{ item.label }
 									</TabsTrigger>
 								) ) }
-								<h2 className={ styles.navGroup }>{ __( 'Blueprints' ) }</h2>
+								<SidebarGroupHeader role="heading" aria-level={ 2 }>
+									<SidebarGroupLabel>{ __( 'Blueprints' ) }</SidebarGroupLabel>
+								</SidebarGroupHeader>
 								{ getUseCases().map( ( useCase ) => (
 									<TabsTrigger key={ useCase.value } value={ useCase.value }>
 										{ useCase.label }

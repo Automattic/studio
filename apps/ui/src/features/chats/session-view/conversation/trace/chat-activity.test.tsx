@@ -80,6 +80,27 @@ describe( 'turn activity line', () => {
 		expect( screen.getByText( label ) ).toBeVisible();
 	} );
 
+	it( 'keeps the header for a quick turn that used tools', () => {
+		render( line( { status: 'success', endedAt: 4000 } ) );
+		expect( screen.getByRole( 'button', { name: 'Worked' } ) ).toHaveAttribute(
+			'aria-expanded',
+			'false'
+		);
+	} );
+
+	it( 'drops the header and shows the replies for a quick turn without tools', () => {
+		render(
+			line( {
+				status: 'success',
+				endedAt: 4000,
+				items: [ { kind: 'assistant-text', key: 'text', text: 'Hi', messageText: 'Hi' } ],
+			} )
+		);
+		expect( screen.queryByText( /^Worked/ ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button' ) ).not.toBeInTheDocument();
+		expect( screen.getByText( 'Reading files' ) ).toBeVisible();
+	} );
+
 	it( 'omits duration when historical timestamps are unavailable', () => {
 		render( line( { status: 'success', startedAt: null } ) );
 		expect( screen.getByText( /^Worked$/ ) ).toBeVisible();

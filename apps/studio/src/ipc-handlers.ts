@@ -216,7 +216,6 @@ export {
 	getAiSettings,
 	getGlobalAgentInstructions,
 	getInstalledAppsAndTerminals,
-	getBrowserInfo,
 	getOnboardingHints,
 	getUserPreferences,
 	getWapuuScore,

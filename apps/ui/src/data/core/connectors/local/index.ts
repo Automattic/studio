@@ -863,9 +863,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async openExternalUrl( url ) {
 			window.open( url, '_blank', 'noopener,noreferrer' );
 		},
-		async getBrowserInfo() {
-			return api( '/browser-info' );
-		},
 		async getWapuuScore() {
 			return readWapuuScore( WAPUU_SCORE_STORAGE_KEY );
 		},

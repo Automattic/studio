@@ -25,7 +25,7 @@ import type { SnapshotUsage } from '@studio/common/lib/snapshots';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
-import type { SupportedBrowser, BrowserInfo } from '@studio/common/lib/user-settings/browser';
+import type { SupportedBrowser } from '@studio/common/lib/user-settings/browser';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type {
 	SidebarPinnedSort,
@@ -464,7 +464,6 @@ export interface Connector {
 	// form are filtered against this so users can't pick something that isn't
 	// installed.
 	getInstalledApps(): Promise< InstalledApps >;
-	getBrowserInfo(): Promise< BrowserInfo | null >;
 
 	// Host environment facts used to gate native-only UI (e.g. the Studio CLI
 	// toggle is hidden in Windows Store builds). Browser connectors report

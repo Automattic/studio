@@ -280,7 +280,6 @@ export function createInMemoryConnector(
 		onConnectionRestored: subscribe( 'onConnectionRestored' ),
 		onSessionPlacementUpdated: subscribe( 'onSessionPlacementUpdated' ),
 		getUserPreferences: async () => state.preferences,
-		getBrowserInfo: async () => null,
 		setUserPreferences: async ( partial ) => {
 			state.preferences = { ...state.preferences, ...partial };
 		},

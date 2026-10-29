@@ -73,7 +73,6 @@ const api: IpcApi = {
 	captureSitePreview: ( siteId, guestId, pagePath ) =>
 		ipcRendererInvoke( 'captureSitePreview', siteId, guestId, pagePath ),
 	getInstalledAppsAndTerminals: () => ipcRendererInvoke( 'getInstalledAppsAndTerminals' ),
-	getBrowserInfo: () => ipcRendererInvoke( 'getBrowserInfo' ),
 	importSite: ( siteId, importArchivePath, options ) =>
 		ipcRendererInvoke( 'importSite', siteId, importArchivePath, options ),
 	getOnboardingData: () => ipcRendererInvoke( 'getOnboardingData' ),

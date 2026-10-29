@@ -61,8 +61,3 @@ export const browserConfig: Record<
 		linuxCommands: [ 'chromium', 'chromium-browser' ],
 	},
 };
-
-export interface BrowserInfo {
-	name: string;
-	icon?: string;
-}

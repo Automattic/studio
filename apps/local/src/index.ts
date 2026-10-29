@@ -117,7 +117,6 @@ import {
 	fetchSyncableSites,
 } from '@studio/common/lib/sync/sync-api';
 import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
-import { readBrowserInfo } from '@studio/common/lib/user-settings/browser-info';
 import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/editor';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import {
@@ -1596,12 +1595,6 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		return terminal && isTerminal( terminal ) ? terminal : 'terminal';
 	};
 
-	api.get(
-		'/browser-info',
-		asyncHandler( async ( _req: Request, res: Response ) => {
-			res.json( await readBrowserInfo() );
-		} )
-	);
 	api.post(
 		'/sites/:id/open-in-browser',
 		asyncHandler( async ( req: Request, res: Response ) => {

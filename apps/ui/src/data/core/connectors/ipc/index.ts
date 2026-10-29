@@ -667,9 +667,6 @@ export function createIpcConnector(): Connector {
 			return unwrapIpcError( ipcApi.setAiProvider( provider ) );
 		},
 
-		async getBrowserInfo() {
-			return ipcApi.getBrowserInfo();
-		},
 		async getInstalledApps(): Promise< InstalledApps > {
 			return ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps;
 		},

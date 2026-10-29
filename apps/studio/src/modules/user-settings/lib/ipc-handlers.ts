@@ -1,4 +1,4 @@
-import { app, IpcMainInvokeEvent, nativeTheme } from 'electron';
+import { IpcMainInvokeEvent, nativeTheme } from 'electron';
 import {
 	readGlobalInstructionsFile,
 	writeGlobalInstructions,
@@ -10,15 +10,10 @@ import {
 } from '@studio/agent/node/settings-store';
 import { isAiProviderId } from '@studio/agent/protocol/providers';
 import { getInstructionsLengthBucket } from '@studio/common/lib/record-tracks-event';
-import { browserConfig, type BrowserInfo } from '@studio/common/lib/user-settings/browser';
 import {
 	detectInstalledApps,
 	type InstalledApps,
 } from '@studio/common/lib/user-settings/installed-apps';
-import {
-	getBrowserPath,
-	readPreferredBrowser,
-} from '@studio/common/lib/user-settings/open-browser';
 import { DEFAULT_COLOR_SCHEME } from '@studio/common/lib/user-settings/preferences';
 import {
 	onboardingHintsSchema,
@@ -36,24 +31,6 @@ import { defaultSitePath } from 'src/storage/paths';
 import { OnboardingHintsState } from 'src/storage/storage-types';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import type { AiSettings } from '@studio/agent/protocol/providers';
-
-export async function getBrowserInfo(): Promise< BrowserInfo | null > {
-	const browser = await readPreferredBrowser();
-	if ( browser ) {
-		const file = getBrowserPath( browser );
-		const icon = file ? await app.getFileIcon( file ).catch( () => null ) : null;
-		return {
-			name: browserConfig[ browser ].name,
-			icon: icon?.isEmpty() ? undefined : icon?.toDataURL(),
-		};
-	}
-	try {
-		const info = await app.getApplicationInfoForProtocol( 'https://' );
-		return { name: info.name, icon: info.icon.isEmpty() ? undefined : info.icon.toDataURL() };
-	} catch {
-		return null;
-	}
-}
 
 export function getInstalledAppsAndTerminals(): InstalledApps {
 	return detectInstalledApps();

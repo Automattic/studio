@@ -1,5 +1,4 @@
-import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import {
 	Suspense,
 	useCallback,
@@ -13,10 +12,8 @@ import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
 import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
 import { useSiteDesign } from '@/data/queries/use-site-design';
-import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
 import { useResponsivePreview, updateResponsivePreview } from '@/data/responsive-preview';
-import { useOpenSettings } from '@/data/use-open-settings';
 import {
 	AnnotationOverlay,
 	type AnnotationAnchor,
@@ -94,7 +91,6 @@ export function SitePreview( {
 	atWindowStart = false,
 }: SitePreviewProps ) {
 	const connector = useConnector();
-	const openSettings = useOpenSettings();
 	const operation = useSiteOperation( site );
 	const startPending = useIsSiteStarting( site.id );
 	const stopPending = useIsSiteStopping( site.id );
@@ -102,7 +98,6 @@ export function SitePreview( {
 	// This window's own start or stop lands before the CLI records it.
 	const isStarting = ! live && ( startPending || operation === 'start' );
 	const isStopping = ! live && ( stopPending || operation === 'stop' );
-	const otherOperation = isStarting || isStopping ? null : operation;
 	const siteUrl = liveUrl ?? getSiteUrl( site );
 	const canPreview = live || site.running;
 	const canUseWebview = isElectron();
@@ -121,7 +116,6 @@ export function SitePreview( {
 		switchRealm,
 	} = usePreviewSurfaces( { siteId: site.id, siteUrl, path: safePath, reloadNonce, onPathChange } );
 	const siteDesign = useSiteDesign( site );
-	const siteThumbnail = useSiteThumbnail( site.id, { enabled: ! canPreview } );
 	const annotations = useSiteAnnotations( site.id );
 	const { loadingStage, reveal } = useLoadingStage( {
 		siteId: site.id,
@@ -130,7 +124,6 @@ export function SitePreview( {
 		isStarting,
 		design: activeSurfaceKey === 'design',
 	} );
-	// Every page load hides the page over the loading stage, then fades it in.
 	// Frames report no loading state, so track which load each one finished.
 	const [ loadedFrames, setLoadedFrames ] = useState<
 		Partial< Record< PreviewSurfaceKey, string > >
@@ -253,13 +246,28 @@ export function SitePreview( {
 						console.error( 'Failed to open site in browser:', error );
 					} );
 		  };
-	const openSiteSettings = () => openSettings( 'site', site.id );
 	const responsive = canPreview
 		? {
 				active: responsiveEnabled,
 				disabled: isStopping || activeSurfaceKey !== 'site',
 				onClick: () =>
 					updateResponsivePreview( site.id, { enabled: ! responsiveSettings.enabled } ),
+		  }
+		: undefined;
+	const annotate = showAnnotate
+		? {
+				active: annotations.active,
+				disabled: ! canAnnotate || isAnnotationsBusy( annotations ),
+				disabledReason:
+					activeSurfaceKey === 'database'
+						? __( 'Not available for Database' )
+						: ! canAnnotateSurface
+						? __( 'Site annotation is not available in the browser yet' )
+						: undefined,
+				onClick: () => {
+					if ( ! annotations.active && onStartAnnotating?.() === false ) return;
+					setAnnotating( site.id, ! annotations.active );
+				},
 		  }
 		: undefined;
 	useSiteHeaderNavigation(
@@ -271,9 +279,9 @@ export function SitePreview( {
 					back: () => sendBrowserCommand( 'back' ),
 					forward: () => sendBrowserCommand( 'forward' ),
 					reload: () => sendBrowserCommand( 'reload' ),
-					settings: openSiteSettings,
 					openExternal,
 					responsive,
+					annotate,
 					backShortcut: browserShortcuts.back.displayShortcut,
 					forwardShortcut: browserShortcuts.forward.displayShortcut,
 			  }
@@ -302,24 +310,7 @@ export function SitePreview( {
 			hasDatabase={ connector.capabilities.phpMyAdmin }
 			onOpenExternal={ openExternal }
 			responsive={ responsive }
-			annotate={
-				showAnnotate
-					? {
-							active: annotations.active,
-							disabled: ! canAnnotate || isAnnotationsBusy( annotations ),
-							disabledReason:
-								activeSurfaceKey === 'database'
-									? __( 'Not available for Database' )
-									: ! canAnnotateSurface
-									? __( 'Site annotation is not available in the browser yet' )
-									: undefined,
-							onClick: () => {
-								if ( ! annotations.active && onStartAnnotating?.() === false ) return;
-								setAnnotating( site.id, ! annotations.active );
-							},
-					  }
-					: undefined
-			}
+			annotate={ annotate }
 			progress={ showLoadingProgress ? progress : undefined }
 		/>
 	);
@@ -378,7 +369,6 @@ export function SitePreview( {
 								);
 							}
 							const frameKey = getFrameKey( siteUrl, surface );
-							const frameLoading = ! canUseWebview && loadedFrames[ key ] !== frameKey;
 							return (
 								<SurfaceLayer
 									key={ key }
@@ -388,7 +378,7 @@ export function SitePreview( {
 											? { siteId: site.id, settings: responsiveSettings, scale: responsiveScale }
 											: undefined
 									}
-									loading={ loadingStage || surface.browser.loading || frameLoading }
+									loading={ loadingStage }
 								>
 									{ canUseWebview ? (
 										<WebviewSurface
@@ -445,24 +435,13 @@ export function SitePreview( {
 						} ) }
 					<SiteContextMenu site={ site } disabled={ canPreview }>
 						<div className={ styles.empty }>
-							<PreviewParticles active={ loadingStage || navigating } showLogo={ loadingStage } />
+							<PreviewParticles active={ loadingStage } showLogo={ loadingStage } />
 							{ loadingStage || navigating ? (
 								<VisuallyHidden role="status">{ __( 'Loading site preview' ) }</VisuallyHidden>
 							) : null }
 							{ canPreview ? null : (
 								<div className={ styles.emptyContent }>
 									{ isStarting ? null : <StoppedSitePreview site={ site } /> }
-									{ otherOperation || ( ! isStarting && ! siteThumbnail.data ) ? (
-										<p>
-											{ otherOperation
-												? sprintf(
-														/* translators: %s: an operation in progress, e.g. "Saving settings". */
-														__( '%s… the site can start once this finishes.' ),
-														getSiteOperationLabel( otherOperation )
-												  )
-												: __( 'Start the site to see a live preview.' ) }
-										</p>
-									) : null }
 								</div>
 							) }
 						</div>

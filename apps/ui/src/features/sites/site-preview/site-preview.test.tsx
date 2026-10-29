@@ -150,23 +150,29 @@ describe( 'site preview', () => {
 	);
 
 	it.each( [ 'browser', 'desktop' ] as const )(
-		'reveals the %s page only after loading and resets readiness on reload',
+		'keeps the %s page visible during loading, navigation, and reloads',
 		async ( runtime ) => {
 			const { update } = await renderPreview( runtime );
 			if ( runtime === 'desktop' ) {
 				guest();
 				fireEvent( page()!, new Event( 'did-start-loading' ) );
 			}
-			expect( isPageHidden() ).toBe( true );
+			expect( isPageHidden() ).toBe( false );
 			if ( runtime === 'desktop' ) fireEvent( page()!, new Event( 'dom-ready' ) );
 			finishLoading( runtime );
 			await waitFor( () => expect( isPageHidden() ).toBe( false ) );
+			update( { path: '/about' } );
+			if ( runtime === 'desktop' ) {
+				fireEvent( page()!, new Event( 'did-start-loading' ) );
+			}
+			expect( isPageHidden() ).toBe( false );
+			finishLoading( runtime );
 			update( { reloadNonce: 1 } );
 			if ( runtime === 'desktop' ) {
 				await waitFor( () => expect( ( page() as Guest ).reload ).toHaveBeenCalled() );
 				fireEvent( page()!, new Event( 'did-start-loading' ) );
 			}
-			expect( isPageHidden() ).toBe( true );
+			expect( isPageHidden() ).toBe( false );
 			finishLoading( runtime );
 			await waitFor( () => expect( isPageHidden() ).toBe( false ) );
 		}
@@ -205,6 +211,7 @@ describe( 'site preview', () => {
 			expect( page() ).toBeNull();
 			expect( screen.getByText( 'Loading site preview' ) ).toBeInTheDocument();
 			update( { site: makeSite( { id: 'one', port: 9010, running: true } ) } );
+			expect( isPageHidden() ).toBe( true );
 			expect( document.querySelector( 'canvas' ) ).toBe( particles );
 			expect( logo() ).toBeInTheDocument();
 			expect( screen.getByText( 'Loading site preview' ) ).toBeInTheDocument();
@@ -218,6 +225,7 @@ describe( 'site preview', () => {
 				expect( screen.queryByText( 'Loading site preview' ) ).not.toBeInTheDocument()
 			);
 			await waitFor( () => expect( logo() ).toBeNull() );
+			expect( isPageHidden() ).toBe( false );
 			expect( document.querySelectorAll( 'canvas' ) ).toHaveLength( 1 );
 		}
 	);
@@ -537,9 +545,12 @@ describe( 'preview address bar', () => {
 		expect( address().closest( 'form' ) ).toContainElement( toggle );
 		await user.click( toggle );
 		expect( toggle ).toHaveAttribute( 'aria-pressed', 'true' );
+		expect( address() ).not.toHaveFocus();
+		expect( screen.queryByRole( 'dialog', { name: 'Preview shortcuts' } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'toolbar', { name: 'Responsive preview' } ) ).toBeInTheDocument();
 		await user.click( toggle );
 		expect( toggle ).toHaveAttribute( 'aria-pressed', 'false' );
+		expect( address() ).not.toHaveFocus();
 		expect(
 			screen.queryByRole( 'toolbar', { name: 'Responsive preview' } )
 		).not.toBeInTheDocument();

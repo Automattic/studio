@@ -1,10 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
-import {
-	useIsSiteBusy,
-	useSiteOperation,
-	useStartSite,
-	useStopSite,
-} from '@/data/queries/use-sites';
+import { useIsSiteBusy, useSiteOperation, useStopSite } from '@/data/queries/use-sites';
+import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import { StartSiteIcon, StopSiteIcon } from '@/lib/icons';
 import { Button, Spinner, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import { getSiteStatus, getSiteStatusName } from './site-status';
@@ -22,7 +18,7 @@ export function SiteStatusButton( {
 	isStopping: boolean;
 	onStart?: () => void;
 } ) {
-	const startSite = useStartSite();
+	const startSite = useStartSiteWithChat();
 	const stopSite = useStopSite();
 	const busy = useIsSiteBusy( site );
 	const operation = useSiteOperation( site );
@@ -71,7 +67,7 @@ export function SiteStatusButton( {
 				}
 			/>
 			<TooltipContent>
-				{ busy ? statusName : site.running ? __( 'Stop' ) : __( 'Start' ) }
+				{ busy ? statusName : site.running ? __( 'Stop site' ) : __( 'Start site' ) }
 			</TooltipContent>
 		</Tooltip>
 	);

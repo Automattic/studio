@@ -20,15 +20,18 @@ export function getSelectionWave(
 		return 0;
 	}
 	const arrival =
-		( dot.y / Math.max( 1, height ) ) * 0.64 +
+		( dot.y / Math.max( 1, height ) ) * 0.52 +
 		( 1 - Math.min( 1, Math.abs( dot.x - centerX ) / Math.max( 1, centerX ) ) ** 2 ) * 0.12;
-	const phase = ( elapsed / SELECTION_WAVE_DURATION - arrival ) / 0.24;
+	const phase = ( elapsed / SELECTION_WAVE_DURATION - arrival ) / 0.36;
 	return phase > 0 && phase < 1 ? Math.sin( phase * Math.PI ) ** 2 : 0;
 }
 
-export function createPreviewDots( width: number, height: number ): PreviewDot[] {
+export function createPreviewDots(
+	width: number,
+	height: number,
+	centerY = height / 2
+): PreviewDot[] {
 	const centerX = width / 2;
-	const centerY = height / 2;
 	const spacing = Math.max( 26, Math.sqrt( ( width * height ) / 1600 ) );
 	const inset = Math.min( 18, width / 2, height / 2 );
 	const columns = Math.max( 1, Math.round( ( width - inset * 2 ) / spacing ) + 1 );

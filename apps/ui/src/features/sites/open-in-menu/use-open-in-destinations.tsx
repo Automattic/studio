@@ -11,8 +11,8 @@ import { CodeIcon } from 'lucide-react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
-import { useStartSite } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
+import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import { AppIcon } from '@/features/sites/app-icon';
 import { DATABASE_HOME_PATH } from '@/features/sites/site-preview/address-bar';
 import {
@@ -74,7 +74,7 @@ export function useOpenInDestinations(
 	const connector = useConnector();
 	const { data: userPreferences } = useUserPreferences();
 	const { data: installedApps } = useInstalledApps();
-	const startSite = useStartSite();
+	const startSite = useStartSiteWithChat();
 
 	const fileManager = getFileManager();
 	const editor =

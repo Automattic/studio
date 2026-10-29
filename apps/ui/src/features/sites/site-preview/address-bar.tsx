@@ -220,6 +220,7 @@ function AddressAction( {
 						variant={ active === undefined ? 'ghost' : 'accent-ghost' }
 						size="icon-sm"
 						shape="round"
+						className={ styles.action }
 						aria-label={ label }
 						aria-pressed={ active }
 						disabled={ disabled }
@@ -392,6 +393,7 @@ export function PreviewAddressBar( {
 						<AddressAction
 							icon={ <ResponsiveIcon /> }
 							label={ __( 'Responsive mode' ) }
+							tooltip={ responsive.active ? __( 'Exit responsive mode' ) : __( 'Responsive mode' ) }
 							active={ responsive.active }
 							disabled={ responsive.disabled }
 							onClick={ responsive.onClick }

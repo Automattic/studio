@@ -39,6 +39,7 @@ import { AiCreditsPurchaseDialog } from '@/features/credits';
 import { PlusIcon, StartSiteIcon } from '@/lib/icons';
 import { isImeComposing } from '@/lib/keyboard';
 import {
+	AttachmentDropOverlay,
 	Button,
 	CommandSheet,
 	handleCommandKey,
@@ -439,9 +440,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				>
 					{ isDraggingFiles && fileDropTarget
 						? createPortal(
-								<div className={ styles.dropOverlay } aria-hidden="true">
-									<span>{ __( 'Drop to attach' ) }</span>
-								</div>,
+								<AttachmentDropOverlay>{ __( 'Drop to attach' ) }</AttachmentDropOverlay>,
 								fileDropTarget
 						  )
 						: null }

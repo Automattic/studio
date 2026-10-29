@@ -23,7 +23,7 @@ const STYLE = `
 	[hidden] { display: none !important; }
 	button { display: inline-flex; flex: none; align-items: center; justify-content: center; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
 	svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-	.editor { position: fixed; display: flex; flex-direction: column; gap: 4px; width: 320px; max-width: calc(100% - 16px); max-height: calc(100% - 80px); padding: 4px; overflow-y: auto; border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: 24px; background: var(--surface); color: var(--text); box-shadow: 0 4px 16px rgb(0 0 0 / 12%); pointer-events: auto; }
+	.editor { position: fixed; display: flex; flex-direction: column; gap: 4px; width: 320px; max-width: calc(100% - 16px); max-height: calc(100% - 80px); padding: 4px; overflow-y: auto; border-radius: 24px; background: var(--surface); color: var(--text); box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 10%, transparent), 0 1px 3px 0 rgb(0 0 0 / 10%), 0 1px 2px -1px rgb(0 0 0 / 10%); pointer-events: auto; }
 	.images { display: flex; flex-wrap: wrap; gap: 12px; margin: 0; padding: 8px 8px 4px; list-style: none; }
 	.images li { position: relative; width: 48px; height: 48px; border-radius: 12px; box-shadow: inset 0 0 0 1px var(--stroke); }
 	.images img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
@@ -32,7 +32,7 @@ const STYLE = `
 	textarea { display: block; width: 100%; min-height: 36px; max-height: calc(6lh + 16px); padding: 8px 10px; border: 0; outline: none; background: transparent; color: inherit; font-size: 14px; line-height: 20px; resize: none; field-sizing: content; cursor: text; }
 	textarea::placeholder { color: var(--weak); }
 	.toolbar { display: flex; align-items: center; gap: 4px; padding: 0 4px 4px; }
-	.tool { width: 32px; height: 32px; border-radius: 999px; }
+	.tool { width: 36px; height: 36px; border-radius: 999px; }
 	.tool:hover { background: var(--hover); }
 	.save { width: 36px; height: 36px; margin-inline-start: auto; border-radius: 999px; background: var(--brand); color: var(--on-brand); }
 	.save svg { width: 20px; height: 20px; stroke-width: 1.5; }
@@ -130,8 +130,8 @@ export const NOTE_EDITOR_SCRIPT = String.raw`
 	function place() {
 		editor.hidden = !note || !anchor;
 		if (editor.hidden) return;
-		const left = Math.max(8, Math.min(anchor.left + 8, innerWidth - editor.offsetWidth - 8));
-		const top = Math.max(8, Math.min(anchor.top + 8, innerHeight - editor.offsetHeight - 72));
+		const left = Math.max(8, Math.min(anchor.left + 4, innerWidth - editor.offsetWidth - 8));
+		const top = Math.max(8, Math.min(anchor.top + 4, innerHeight - editor.offsetHeight - 72));
 		Object.assign(editor.style, { left: left + 'px', top: top + 'px' });
 	}
 

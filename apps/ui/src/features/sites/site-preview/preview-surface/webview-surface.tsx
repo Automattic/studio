@@ -14,6 +14,7 @@ import {
 	type BrowserCommand,
 	type BrowserNavigationState,
 } from '@/features/sites/site-preview/browser-state';
+import { getEmbeddedFontData } from '@/lib/theme';
 import styles from './style.module.css';
 import {
 	ERR_ABORTED,
@@ -226,8 +227,21 @@ export function WebviewSurface( {
 			if ( ! inspectorEnabledRef.current ) {
 				return;
 			}
+			const fontData = getEmbeddedFontData(
+				getComputedStyle( webview ).getPropertyValue( '--font-sans' )
+			);
 			webview
-				.executeJavaScript( INSPECTOR_PAGE_SCRIPT, false )
+				.executeJavaScript(
+					`${ INSPECTOR_PAGE_SCRIPT }
+					(async () => {
+						const bytes = Uint8Array.from(atob(${ JSON.stringify(
+							fontData
+						) }), character => character.charCodeAt(0));
+						const font = new FontFace('Studio Annotation', bytes, { weight: '100 900' });
+						document.fonts.add(await font.load());
+					})().catch(() => {});`,
+					false
+				)
 				.then( () => {
 					setInspectorReady( true );
 					onInspectorReadyRef.current?.( true );
@@ -398,17 +412,24 @@ export function WebviewSurface( {
 		const detail = {
 			active: annotations.active,
 			editingId: annotations.editingId,
-			notes: annotations.notes.map( ( { id, number, selector, url, documentRect, point } ) => ( {
-				id,
-				number,
-				selector,
-				url,
-				documentRect,
-				point,
-			} ) ),
+			notes: annotations.notes.map(
+				( { id, number, selector, url, documentRect, point, staged } ) => ( {
+					id,
+					number,
+					selector,
+					url,
+					documentRect,
+					point,
+					pending: ! staged,
+				} )
+			),
 			annotationLabel: __( 'Annotation' ),
+			pendingAnnotationLabel: __( 'Pending annotation' ),
+			fontFamily: '"Studio Annotation", system-ui',
 			accent: theme.getPropertyValue( '--accent' ).trim(),
 			onAccent: theme.getPropertyValue( '--accent-foreground' ).trim(),
+			motionDuration: theme.getPropertyValue( '--motion-duration-surface' ).trim(),
+			motionEasing: theme.getPropertyValue( '--motion-ease-enter' ).trim(),
 		};
 		webview
 			.executeJavaScript(

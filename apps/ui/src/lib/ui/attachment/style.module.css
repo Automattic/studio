@@ -1,0 +1,40 @@
+@layer ui {
+	.remove {
+		composes: dismissIcon from '@/lib/theme/recipes.module.css';
+		--button-background: var( --chrome );
+
+		position: absolute;
+		top: calc( var( --space-2 ) * -1 );
+		right: calc( var( --space-2 ) * -1 );
+		z-index: 1;
+		box-shadow: var( --shadow-sm );
+	}
+
+	.remove::after {
+		position: absolute;
+		inset: calc( var( --space-1 ) * -1 );
+		content: '';
+	}
+
+	.dropOverlay {
+		position: absolute;
+		inset: 0;
+		z-index: var( --z-sidebar );
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: 2px solid var( --ring );
+		border-radius: inherit;
+		background-color: color-mix( in srgb, var( --accent-text ) 10%, transparent );
+		pointer-events: none;
+	}
+
+	.dropOverlay span {
+		padding: var( --space-2 ) var( --space-4 );
+		border-radius: var( --radius-xl );
+		background-color: var( --accent );
+		color: var( --accent-foreground );
+		font-size: var( --text-sm );
+		font-weight: var( --font-weight-medium );
+	}
+}

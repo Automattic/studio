@@ -5,7 +5,9 @@
  * (WP_Theme_JSON_Resolver::get_theme_data and get_style_variations in
  * wp-includes/class-wp-theme-json-resolver.php), which migrates the file to
  * the current schema and removes what the schema has no place for. Studio
- * runs that same read on the site, and says which keys it removed. Of a style
+ * runs that same read on the site, and says which keys it removed, or what
+ * the read threw: in the climbing-gym eval case a "spacingScale" of 1.4,
+ * which WordPress reads as an array, failed every page. Of a style
  * variation of the active theme, it says what WordPress lists it as.
  */
 import { runWpCli } from '@studio/agent/node/tools/utils';
@@ -19,7 +21,17 @@ import type { SiteFile } from '@studio/agent/node/site-file-guards';
 const READ = ( file: string ) => `
 $decoded = wp_json_file_decode( ${ JSON.stringify( file ) }, array( 'associative' => true ) );
 $dropped = array();
+$fails   = null;
+// The whole read, as WordPress makes it of the theme's file on each request:
+// what it throws, every page the theme renders throws.
 if ( is_array( $decoded ) ) {
+	try {
+		new WP_Theme_JSON( $decoded, 'theme' );
+	} catch ( Throwable $thrown ) {
+		$fails = get_class( $thrown ) . ': ' . $thrown->getMessage() . ' in ' . preg_replace( '#^.*?/(?=wp-(?:includes|admin|content)/)#', '', wp_normalize_path( $thrown->getFile() ) ) . ':' . $thrown->getLine();
+	}
+}
+if ( is_array( $decoded ) && null === $fails ) {
 	// Resolving the theme's data registers its block styles, as before WordPress reads its files.
 	WP_Theme_JSON_Resolver::get_theme_data();
 	$steps = Closure::bind(
@@ -67,7 +79,7 @@ if ( is_array( $decoded ) ) {
 // The active theme's style variation, as the Site Editor's Styles lists it:
 // the entry WP_Theme_JSON_Resolver::get_style_variations() builds from this file.
 $listed = null;
-if ( is_array( $decoded ) && 0 === strpos( wp_normalize_path( ${ JSON.stringify(
+if ( is_array( $decoded ) && null === $fails && 0 === strpos( wp_normalize_path( ${ JSON.stringify(
 	file
 ) } ), wp_normalize_path( get_stylesheet_directory() . '/styles/' ) ) ) {
 	$own = Closure::bind(
@@ -88,7 +100,7 @@ if ( is_array( $decoded ) && 0 === strpos( wp_normalize_path( ${ JSON.stringify(
 		);
 	}
 }
-echo 'THEME_JSON_READ=' . wp_json_encode( array( 'decoded' => is_array( $decoded ), 'error' => json_last_error_msg(), 'version' => isset( $decoded['version'] ), 'latest' => WP_Theme_JSON::LATEST_SCHEMA, 'dropped' => $dropped, 'listed' => $listed ) );`;
+echo 'THEME_JSON_READ=' . wp_json_encode( array( 'decoded' => is_array( $decoded ), 'error' => json_last_error_msg(), 'version' => isset( $decoded['version'] ), 'latest' => WP_Theme_JSON::LATEST_SCHEMA, 'dropped' => $dropped, 'fails' => $fails, 'listed' => $listed ) );`;
 
 interface Read {
 	decoded: boolean;
@@ -96,6 +108,7 @@ interface Read {
 	version: boolean;
 	latest: number;
 	dropped: string[];
+	fails: string | null;
 	listed: {
 		title: string;
 		theme: string;
@@ -122,9 +135,11 @@ export async function themeJsonFileRead(
 	const read = JSON.parse(
 		output.slice( output.indexOf( 'THEME_JSON_READ=' ) + 'THEME_JSON_READ='.length )
 	) as Read;
-	const problem = read.decoded
-		? dropNote( read, relativePath )
-		: `WordPress cannot decode ${ relativePath } as JSON (wp_json_file_decode in wp-includes/functions.php): ${ read.error }. It reads nothing from it until the file is valid JSON.`;
+	const problem = ! read.decoded
+		? `WordPress cannot decode ${ relativePath } as JSON (wp_json_file_decode in wp-includes/functions.php): ${ read.error }. It reads nothing from it until the file is valid JSON.`
+		: read.fails
+		? `WordPress fails reading ${ relativePath } as new WP_Theme_JSON( $decoded ) (WP_Theme_JSON_Resolver in wp-includes/class-wp-theme-json-resolver.php): ${ read.fails }. Each page the theme renders fails the same way while it is active. A value of the wrong form does this: the schema gives each setting and style its form (https://schemas.wp.org/trunk/theme.json), as Twenty Twenty-Five's theme.json writes them.`
+		: dropNote( read, relativePath );
 	const listed = read.decoded ? listedNote( read ) : undefined;
 	return {
 		problem,

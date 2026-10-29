@@ -2,24 +2,19 @@ import { describe, expect, it, vi } from 'vitest';
 import { deriveUpdateMessages } from './use-app-messages';
 import type { AppUpdateStatus } from '@/data/core';
 
-const noop = () => {};
-
 describe( 'deriveUpdateMessages', () => {
 	it( 'shows nothing while idle, checking, or before the first status arrives', () => {
-		expect( deriveUpdateMessages( undefined, noop ) ).toEqual( [] );
-		expect( deriveUpdateMessages( { state: 'idle', currentVersion: '1.20.0' }, noop ) ).toEqual(
-			[]
-		);
-		expect( deriveUpdateMessages( { state: 'checking', currentVersion: '1.20.0' }, noop ) ).toEqual(
-			[]
-		);
+		expect( deriveUpdateMessages( undefined ) ).toEqual( [] );
+		expect( deriveUpdateMessages( { state: 'idle', currentVersion: '1.20.0' } ) ).toEqual( [] );
+		expect( deriveUpdateMessages( { state: 'checking', currentVersion: '1.20.0' } ) ).toEqual( [] );
 	} );
 
 	it( 'names both versions while downloading', () => {
-		const [ message ] = deriveUpdateMessages(
-			{ state: 'downloading', currentVersion: '1.20.0', newVersion: '1.21.0' },
-			noop
-		);
+		const [ message ] = deriveUpdateMessages( {
+			state: 'downloading',
+			currentVersion: '1.20.0',
+			newVersion: '1.21.0',
+		} );
 
 		expect( message.title ).toBe( 'Downloading update' );
 		expect( message.description ).toBe( 'Updating from 1.20.0 to 1.21.0.' );
@@ -27,39 +22,23 @@ describe( 'deriveUpdateMessages', () => {
 	} );
 
 	it( 'falls back to the current version when the target is not yet known', () => {
-		const [ message ] = deriveUpdateMessages(
-			{ state: 'downloading', currentVersion: '1.20.0', newVersion: null },
-			noop
-		);
+		const [ message ] = deriveUpdateMessages( {
+			state: 'downloading',
+			currentVersion: '1.20.0',
+			newVersion: null,
+		} );
 
 		expect( message.description ).toBe( 'Updating from 1.20.0.' );
 	} );
 
-	it( 'offers a restart once the update is ready', () => {
-		const onInstall = vi.fn();
-		const [ message ] = deriveUpdateMessages(
-			{ state: 'ready', currentVersion: '1.20.0', newVersion: '1.21.0' },
-			onInstall
-		);
-
-		expect( message.title ).toBe( 'Update ready' );
-		expect( message.description ).toBe( 'Updating from 1.20.0 to 1.21.0.' );
-		expect( message.id ).toBe( 'app-update:1.21.0' );
-
-		void message.action?.onClick();
-		expect( onInstall ).toHaveBeenCalled();
-	} );
-
-	it( 'still offers a restart when the updater never named the version', () => {
-		const [ message ] = deriveUpdateMessages(
-			{ state: 'ready', currentVersion: null, newVersion: null },
-			noop
-		);
-
-		expect( message.title ).toBe( 'Update ready' );
-		expect( message.description ).toBe( 'Restart to finish updating.' );
-		expect( message.id ).toBe( 'app-update' );
-	} );
+	it.each( [ '1.21.0', null ] )(
+		'leaves ready updates to the update button (%s)',
+		( newVersion ) => {
+			expect(
+				deriveUpdateMessages( { state: 'ready', currentVersion: '1.20.0', newVersion } )
+			).toEqual( [] );
+		}
+	);
 
 	it( 'surfaces updater errors with the reason detail when there is one', () => {
 		const status: AppUpdateStatus = {
@@ -70,7 +49,7 @@ describe( 'deriveUpdateMessages', () => {
 		};
 
 		const onOpenLogs = vi.fn();
-		const [ message ] = deriveUpdateMessages( status, noop, {
+		const [ message ] = deriveUpdateMessages( status, {
 			label: 'Open logs',
 			onClick: onOpenLogs,
 		} );
@@ -84,10 +63,11 @@ describe( 'deriveUpdateMessages', () => {
 	} );
 
 	it( 'falls back to generic guidance for an error with no detail', () => {
-		const [ message ] = deriveUpdateMessages(
-			{ state: 'error', currentVersion: '1.20.0', reason: 'generic' },
-			noop
-		);
+		const [ message ] = deriveUpdateMessages( {
+			state: 'error',
+			currentVersion: '1.20.0',
+			reason: 'generic',
+		} );
 
 		expect( message.description ).toBe( 'We’ll try again the next time we check for updates.' );
 	} );

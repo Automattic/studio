@@ -12,6 +12,7 @@ import {
 	type BrowserCommand,
 	type BrowserNavigationState,
 } from '@/features/sites/site-preview/browser-state';
+import { getEmbeddedFontData } from '@/lib/theme';
 import { buildInspectorCommandScript } from './inspector-command';
 import styles from './style.module.css';
 import {
@@ -225,8 +226,21 @@ export function WebviewSurface( {
 			if ( ! inspectorEnabledRef.current ) {
 				return;
 			}
+			const fontData = getEmbeddedFontData(
+				getComputedStyle( webview ).getPropertyValue( '--font-sans' )
+			);
 			webview
-				.executeJavaScript( INSPECTOR_PAGE_SCRIPT, false )
+				.executeJavaScript(
+					`${ INSPECTOR_PAGE_SCRIPT }
+					(async () => {
+						const bytes = Uint8Array.from(atob(${ JSON.stringify(
+							fontData
+						) }), character => character.charCodeAt(0));
+						const font = new FontFace('Studio Annotation', bytes, { weight: '100 900' });
+						document.fonts.add(await font.load());
+					})().catch(() => {});`,
+					false
+				)
 				.then( () => {
 					setInspectorReady( true );
 					onInspectorReadyRef.current?.( true );

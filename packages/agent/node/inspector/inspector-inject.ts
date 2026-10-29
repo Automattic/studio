@@ -38,6 +38,7 @@ interface Session {
 	browser: Browser;
 	page: Page;
 	notes: BrowserAnnotation[];
+	savedIds: Set< string >;
 	editingId: string | null;
 	anchor: Anchor | null;
 	finish: ( notes: BrowserAnnotation[] | null ) => void;
@@ -91,8 +92,10 @@ async function render( current: Session, withEditor = true ): Promise< void > {
 			url,
 			documentRect,
 			point,
+			pending: ! current.savedIds.has( id ),
 		} ) ),
 		annotationLabel: __( 'Annotation' ),
+		pendingAnnotationLabel: __( 'Pending annotation' ),
 		accent: '#3858e9',
 		onAccent: '#eff0f2',
 	} );
@@ -136,7 +139,11 @@ async function render( current: Session, withEditor = true ): Promise< void > {
 
 // An empty note only exists while its editor is open.
 function closeEditor( current: Session, keepId?: string ): void {
-	current.notes = current.notes.filter( ( note ) => note.id === keepId || hasContent( note ) );
+	current.notes = current.notes.filter( ( note ) => {
+		if ( note.id === keepId || hasContent( note ) ) return true;
+		current.savedIds.delete( note.id );
+		return false;
+	} );
 	current.editingId = keepId ?? null;
 }
 
@@ -230,10 +237,17 @@ function onEditorAction( current: Session, action: unknown ): void {
 			return;
 		}
 		case 'save':
+			if (
+				current.editingId &&
+				current.notes.some( ( note ) => note.id === current.editingId && hasContent( note ) )
+			) {
+				current.savedIds.add( current.editingId );
+			}
 			closeEditor( current );
 			void render( current );
 			return;
 		case 'delete':
+			if ( typeof data.id === 'string' ) current.savedIds.delete( data.id );
 			current.notes = current.notes.filter( ( note ) => note.id !== data.id );
 			closeEditor( current );
 			void render( current );
@@ -316,7 +330,15 @@ async function launch( siteUrl: string ): Promise< void > {
 			void browser.close().catch( () => undefined );
 		};
 	} );
-	const current: Session = { browser, page, notes: [], editingId: null, anchor: null, finish };
+	const current: Session = {
+		browser,
+		page,
+		notes: [],
+		savedIds: new Set(),
+		editingId: null,
+		anchor: null,
+		finish,
+	};
 	session = current;
 
 	await page.exposeFunction( NOTE_EDITOR_BINDING, ( action: unknown ) =>

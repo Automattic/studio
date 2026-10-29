@@ -10,7 +10,7 @@ import { getSections } from '@/data/settings-sections';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { AccountPromptDialog } from '@/features/account/account-prompt';
 import { Gravatar } from '@/features/account/gravatar';
-import { NoticeHistoryButton } from '@/features/notifications';
+import { AppUpdateButton, NoticeHistoryButton } from '@/features/notifications';
 import { useOffline } from '@/lib/hooks';
 import { Button, IconButton, Menu, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import styles from './style.module.css';
@@ -109,7 +109,9 @@ export function UserMenu() {
 				) }
 				<span className={ styles.spacer } aria-hidden="true" />
 				{ isOffline && <OfflineIndicator /> }
+				<AppUpdateButton />
 				<IconButton
+					variant="muted-ghost"
 					icon={ <SettingsIcon /> }
 					label={ __( 'Settings' ) }
 					shortcut={ {

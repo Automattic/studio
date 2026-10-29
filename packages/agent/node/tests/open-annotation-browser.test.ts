@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { NOTE_EDITOR_EVENT } from '@studio/agent/node/inspector/note-editor';
 import { nodeHostServices } from '@studio/agent/node/node-host';
-import { INSPECTOR_BRIDGE_PREFIX } from '@studio/agent/protocol/inspector/page-script';
+import {
+	INSPECTOR_BRIDGE_PREFIX,
+	INSPECTOR_COMMAND_EVENT,
+} from '@studio/agent/protocol/inspector/page-script';
 import { bindTool } from '@studio/agent/shared/tools/define-tool';
 import { openAnnotationBrowserTool } from '@studio/agent/shared/tools/open-annotation-browser';
 import { createFakeHost } from './fake-host';
@@ -67,8 +70,29 @@ describe( 'open_annotation_browser', () => {
 				} ),
 		} );
 		await vi.waitFor( () => expect( editingId() ).toBeTruthy() );
-		page.editor?.( { type: 'change', id: editingId(), comment: 'Make it bigger' } );
+		const id = editingId();
+		const markerState = () =>
+			page.evaluate.mock.calls
+				.map( ( [ , args ] ) => args as [ string, { notes: { id: string; pending: boolean }[] } ] )
+				.filter( ( args ) => Array.isArray( args ) && args[ 0 ] === INSPECTOR_COMMAND_EVENT )
+				.at( -1 )?.[ 1 ].notes;
+		expect( markerState() ).toMatchObject( [ { id, pending: true } ] );
+		page.editor?.( { type: 'change', id, comment: 'Make it bigger' } );
+		page.handlers.console[ 0 ]( {
+			text: () => INSPECTOR_BRIDGE_PREFIX + JSON.stringify( { type: 'escape' } ),
+		} );
+		await vi.waitFor( () => expect( markerState() ).toMatchObject( [ { id, pending: true } ] ) );
+		const edit = () =>
+			page.handlers.console[ 0 ]( {
+				text: () =>
+					INSPECTOR_BRIDGE_PREFIX +
+					JSON.stringify( { type: 'edit', id, anchor: { left: 10, top: 20 } } ),
+			} );
+		edit();
 		page.editor?.( { type: 'save' } );
+		await vi.waitFor( () => expect( markerState() ).toMatchObject( [ { id, pending: false } ] ) );
+		edit();
+		await vi.waitFor( () => expect( markerState() ).toMatchObject( [ { id, pending: false } ] ) );
 		page.editor?.( { type: 'send' } );
 
 		const { content } = await result;

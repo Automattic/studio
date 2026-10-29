@@ -126,6 +126,34 @@ describe( 'AnnotationOverlay', () => {
 		const upload = ( files: File[] ) =>
 			fireEvent.change( document.querySelector( 'input[type="file"]' )!, { target: { files } } );
 
+		it( 'keeps drop feedback across child elements, attaches the dropped image, and removes it', async () => {
+			const images = editNote();
+			await setup();
+			const editor = screen.getByRole( 'group', { name: 'Annotation' } );
+			const input = screen.getByRole( 'textbox', { name: 'Leave a note' } );
+			const dataTransfer = {
+				types: [ 'Files' ],
+				files: [ new File( [ 'x' ], 'dropped.png', { type: 'image/png' } ) ],
+			};
+			fireEvent.dragEnter( editor, { dataTransfer } );
+			expect( screen.getByText( 'Drop to attach' ) ).toBeInTheDocument();
+			fireEvent.dragEnter( input, { dataTransfer } );
+			fireEvent.dragLeave( editor, { dataTransfer } );
+			expect( screen.getByText( 'Drop to attach' ) ).toBeInTheDocument();
+			fireEvent.drop( input, { dataTransfer } );
+			expect( screen.queryByText( 'Drop to attach' ) ).not.toBeInTheDocument();
+			await waitFor( () =>
+				expect( images().map( ( item ) => item.name ) ).toEqual( [ 'dropped.png' ] )
+			);
+			fireEvent.click( screen.getByRole( 'button', { name: 'Remove attachment' } ) );
+			await waitFor( () => expect( images() ).toHaveLength( 0 ) );
+			expect( input ).toBeInTheDocument();
+			fireEvent.dragEnter( editor, { dataTransfer } );
+			expect( screen.getByText( 'Drop to attach' ) ).toBeInTheDocument();
+			fireEvent.dragEnd( window );
+			expect( screen.queryByText( 'Drop to attach' ) ).not.toBeInTheDocument();
+		} );
+
 		it( 'counts the other notes’ images against the message’s image limit', async () => {
 			const images = editNote( [ 'a', 'b', 'c' ].map( image ) );
 			await setup( { left: 10, top: 10 } );

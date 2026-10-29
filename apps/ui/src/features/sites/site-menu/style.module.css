@@ -1,4 +1,5 @@
 .trigger {
+	min-width: max-content;
 	color: var( --foreground );
 	-webkit-app-region: no-drag;
 }

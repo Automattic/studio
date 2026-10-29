@@ -12,17 +12,24 @@ export function buildInspectorCommandScript(
 	const detail = {
 		active: annotations.active,
 		editingId: annotations.editingId,
-		notes: annotations.notes.map( ( { id, number, selector, url, documentRect, point } ) => ( {
-			id,
-			number,
-			selector,
-			url,
-			documentRect,
-			point,
-		} ) ),
+		notes: annotations.notes.map(
+			( { id, number, selector, url, documentRect, point, staged } ) => ( {
+				id,
+				number,
+				selector,
+				url,
+				documentRect,
+				point,
+				pending: ! staged,
+			} )
+		),
 		annotationLabel: __( 'Annotation' ),
+		pendingAnnotationLabel: __( 'Pending annotation' ),
+		fontFamily: '"Studio Annotation", system-ui',
 		accent: theme.getPropertyValue( '--accent' ).trim(),
 		onAccent: theme.getPropertyValue( '--accent-foreground' ).trim(),
+		motionDuration: theme.getPropertyValue( '--motion-duration-surface' ).trim(),
+		motionEasing: theme.getPropertyValue( '--motion-ease-enter' ).trim(),
 	};
 	return `window.dispatchEvent(new CustomEvent(${ JSON.stringify(
 		INSPECTOR_COMMAND_EVENT

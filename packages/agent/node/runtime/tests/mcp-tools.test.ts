@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { wpcomApproval } from '@studio/agent/node/remote-hosts';
 import { fakeWpcom } from '@studio/agent/node/tests/fake-host';
 import { createMcpTools, isUserMcpTool, readMcpServers, type McpServerSpec } from '../mcp-tools';
@@ -24,6 +24,13 @@ const textOf = ( result: { content: { type: string; text?: string }[] } ) =>
 
 describe( 'MCP tools', () => {
 	const dirs: string[] = [];
+	const configDir = () => {
+		const dir = mkdtempSync( path.join( os.tmpdir(), 'studio-mcp-' ) );
+		dirs.push( dir );
+		vi.stubEnv( 'DEV_CONFIG_DIR', dir );
+		return dir;
+	};
+	beforeEach( configDir );
 	afterEach( () => {
 		vi.unstubAllEnvs();
 		dirs.splice( 0 ).forEach( ( dir ) => rmSync( dir, { recursive: true, force: true } ) );
@@ -90,6 +97,19 @@ describe( 'MCP tools', () => {
 		);
 	} );
 
+	it( "serves a server's tools as an earlier process listed them, without waiting for it", async () => {
+		const server = { ...FIXTURE, args: [ ...FIXTURE.args!, 'slow' ] };
+		await createMcpTools( [ server ], async () => undefined );
+
+		vi.resetModules();
+		const fresh = await import( '../mcp-tools' );
+		const started = Date.now();
+		const tools = await fresh.createMcpTools( [ server ], async () => undefined );
+		expect( Date.now() - started ).toBeLessThan( 500 );
+		expect( tools.map( ( tool ) => tool.name ) ).toEqual( [ 'shop_read', 'shop_write' ] );
+		expect( textOf( await tools[ 0 ].execute( 't', { id: '2' } ) ) ).toBe( 'read 2, listed 1' );
+	} );
+
 	it( "leaves out a tool named like the harness's own or an earlier server's", async () => {
 		const tools = await createMcpTools(
 			[ FIXTURE, { ...FIXTURE, name: 'shop' } ],
@@ -109,9 +129,7 @@ describe( 'MCP tools', () => {
 	} );
 
 	it( "serves the signed-in host's own server, then the user's from mcp.json, leaving out one that doesn't answer", async () => {
-		const dir = mkdtempSync( path.join( os.tmpdir(), 'studio-mcp-' ) );
-		dirs.push( dir );
-		vi.stubEnv( 'DEV_CONFIG_DIR', dir );
+		const dir = configDir();
 		writeFileSync(
 			path.join( dir, 'mcp.json' ),
 			JSON.stringify( {

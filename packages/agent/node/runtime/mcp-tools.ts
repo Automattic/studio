@@ -1,4 +1,5 @@
-import { readFile } from 'fs/promises';
+import { createHash } from 'crypto';
+import { mkdir, readFile, rename, writeFile } from 'fs/promises';
 import path from 'path';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import type { Confirmation, Confirmer } from './confirmation';
@@ -71,6 +72,8 @@ const CONNECT_TIMEOUT_MS = 15_000;
 const RETRY_AFTER_MS = 5 * 60_000;
 const listings = new Map< string, Promise< Listing > >();
 const failedUntil = new Map< string, number >();
+// Each server's tools as last listed, in this process or an earlier one.
+const known = new Map< string, ListedTool[] >();
 
 type Listing = { client: Client; tools: ListedTool[] };
 
@@ -83,6 +86,34 @@ const serverKey = ( server: McpServerSpec ) =>
 		server.args,
 		server.env,
 	] );
+
+// The lists are kept in a file so a new process (the Studio app starts one
+// per message) serves a server's tools without waiting for it to answer.
+// They are keyed by a hash, since a server's key holds its credentials.
+const listsFile = () => path.join( getConfigDirectory(), 'mcp-tools.json' );
+const listKey = ( key: string ) => createHash( 'sha256' ).update( key ).digest( 'hex' );
+
+async function readLists(): Promise< Record< string, ListedTool[] > > {
+	try {
+		return JSON.parse( await readFile( listsFile(), 'utf8' ) );
+	} catch {
+		return {};
+	}
+}
+
+async function remember( key: string, tools: ListedTool[] ) {
+	known.set( key, tools );
+	try {
+		const file = listsFile();
+		const lists = { ...( await readLists() ), [ listKey( key ) ]: tools };
+		const temp = `${ file }.${ process.pid }`;
+		await mkdir( path.dirname( file ), { recursive: true } );
+		await writeFile( temp, JSON.stringify( lists ) );
+		await rename( temp, file );
+	} catch {
+		// The next process lists the tools again.
+	}
+}
 
 // One connection per server for the life of the process, and its tools as
 // listed once: a server whose tools change says so (MCP's
@@ -102,16 +133,21 @@ function listTools( server: McpServerSpec ): Promise< Listing > {
 				{
 					listChanged: {
 						tools: {
-							onChanged: ( error, tools ) =>
-								error || ! tools
-									? listings.delete( key )
-									: listings.set( key, Promise.resolve( { client, tools } ) ),
+							onChanged: ( error, tools ) => {
+								if ( error || ! tools ) {
+									listings.delete( key );
+									return;
+								}
+								listings.set( key, Promise.resolve( { client, tools } ) );
+								void remember( key, tools );
+							},
 						},
 					},
 				}
 			);
 			await client.connect( transport, { timeout: CONNECT_TIMEOUT_MS } );
 			const { tools } = await client.listTools( undefined, { timeout: CONNECT_TIMEOUT_MS } );
+			await remember( key, tools );
 			return { client, tools };
 		} )();
 		listing.then(
@@ -126,6 +162,20 @@ function listTools( server: McpServerSpec ): Promise< Listing > {
 		listings.set( key, listing );
 	}
 	return listing;
+}
+
+// The server's tools as last listed, if they ever were; otherwise as it lists
+// them now. Either way the server is listed again in the background, so a later
+// turn has its current tools.
+async function toolsOf( server: McpServerSpec ): Promise< ListedTool[] > {
+	const key = serverKey( server );
+	const listing = listTools( server );
+	const tools = known.get( key ) ?? ( await readLists() )[ listKey( key ) ];
+	if ( tools ) {
+		listing.catch( () => undefined );
+		return tools;
+	}
+	return ( await listing ).tools;
 }
 
 /** Connects to the servers and lists their tools ahead of the first turn that needs them. */
@@ -214,7 +264,8 @@ export async function createMcpTools(
 				return [];
 			}
 			try {
-				const { client, tools } = await listTools( server );
+				const tools = await toolsOf( server );
+				const client = async () => ( await listTools( server ) ).client;
 				return tools.map( ( tool ) => ( { server, client, tool } ) );
 			} catch {
 				return [];
@@ -235,7 +286,7 @@ export async function createMcpTools(
 
 function createMcpTool(
 	server: McpServerSpec,
-	client: Client,
+	client: () => Promise< Client >,
 	tool: ListedTool,
 	confirm: Confirmer
 ): McpTool {
@@ -253,7 +304,9 @@ function createMcpTool(
 		parameters.required = parameters.required?.filter( ( key ) => key !== approval.argument );
 	}
 	const call = async ( args: Record< string, unknown >, signal?: AbortSignal ) => {
-		const result = await client.callTool( { name: tool.name, arguments: args }, undefined, {
+		const result = await (
+			await client()
+		).callTool( { name: tool.name, arguments: args }, undefined, {
 			signal,
 			timeout: 10 * 60_000,
 		} );

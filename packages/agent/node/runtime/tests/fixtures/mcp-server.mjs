@@ -1,7 +1,7 @@
 // A stdio MCP server for mcp-tools.test.ts. `write` refuses until it is sent
 // user_confirmed, the way WordPress.com asks for the user's approval. Reading
 // `grow` adds a tool and says the server's tools changed. Each listing is counted in
-// `read`'s answer.
+// `read`'s answer. Started with `slow`, it takes a second to answer.
 // eslint-disable-next-line import-x/no-unresolved -- subpath resolved via package's wildcard export, which the lint resolver doesn't follow
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -60,4 +60,7 @@ server.setRequestHandler( CallToolRequestSchema, async ( { params } ) => {
 		  );
 } );
 
+if ( process.argv.includes( 'slow' ) ) {
+	await new Promise( ( resolve ) => setTimeout( resolve, 1000 ) );
+}
 await server.connect( new StdioServerTransport() );

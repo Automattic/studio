@@ -59,3 +59,7 @@
 	flex: 1;
 	flex-direction: column;
 }
+
+.topLevelHeader {
+	padding-inline-end: var( --space-3 );
+}

@@ -201,6 +201,7 @@ export function AddSiteDialog() {
 			}
 			header={
 				<PanelHeader
+					className={ ! back ? styles.topLevelHeader : undefined }
 					leading={
 						back ? (
 							<div className={ styles.leading }>

@@ -9,7 +9,7 @@ export function Input( {
 	endAdornment,
 	...props
 }: ComponentProps< typeof BaseInput > & {
-	variant?: 'default' | 'group';
+	variant?: 'default' | 'group' | 'ghost';
 	endAdornment?: ReactNode;
 } ) {
 	const input = (

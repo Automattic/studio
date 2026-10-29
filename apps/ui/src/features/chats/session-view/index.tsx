@@ -41,6 +41,7 @@ import {
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSelectionTime } from '@/data/use-open-site';
 import { SessionUIProvider, useOptionalSessionPreviewUI } from '@/data/use-session-ui';
+import { useStartSitePreview } from '@/data/use-start-site-preview';
 import {
 	getSiteAnnotations,
 	hasAnnotationContent,
@@ -78,6 +79,7 @@ interface SessionViewProps {
 	siteId?: string;
 	headerStart?: ReactNode;
 	hideHeader?: boolean;
+	previewVisible?: boolean;
 }
 
 export function SessionView( props: SessionViewProps ) {
@@ -88,7 +90,13 @@ export function SessionView( props: SessionViewProps ) {
 	);
 }
 
-function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: SessionViewProps ) {
+function SessionViewContent( {
+	sessionId,
+	siteId,
+	headerStart,
+	hideHeader,
+	previewVisible = false,
+}: SessionViewProps ) {
 	const draftKey = sessionId ?? `site:${ siteId }`;
 	const { draft, update: updateDraft } = useSiteChatDraft( siteId );
 	const sendDraft = useSendSiteDraft( siteId );
@@ -269,6 +277,7 @@ function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: Ses
 	const [ frameNode, setFrameNode ] = useState< HTMLDivElement | null >( null );
 	const { data: preferences } = useUserPreferences();
 	const { mutate: startSite } = useStartSite();
+	const { mutate: startSitePreview } = useStartSitePreview();
 	const isSiteStarting = useIsSiteStarting( ownerSite?.id );
 	const isSiteStopping = useIsSiteStopping( ownerSite?.id );
 	const revealingSiteId = useOptionalSessionPreviewUI()?.revealingSiteId;
@@ -498,6 +507,13 @@ function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: Ses
 						placeholder={ composerPlaceholder }
 						placeholderBusy={ isSiteStarting || isSiteStopping }
 						canAutoStart={ canAutoStart }
+						onStartSite={
+							canAutoStart && ( ! ownerSite.running || isSiteStarting )
+								? () => startSitePreview( ownerSite.id )
+								: undefined
+						}
+						startSiteDisabled={ isSiteBusy }
+						isSiteStarting={ isSiteStarting }
 						environment={ effectiveEnvironment }
 						onEnvironmentChange={
 							ownerSite
@@ -520,8 +536,8 @@ function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: Ses
 			{ emptySessionId === draftKey ? (
 				<div className={ styles.emptyState } data-hidden={ ! showEmpty || undefined }>
 					<PreviewParticles
-						active={ siteLoading }
-						showLogo={ siteLoading }
+						active={ siteLoading && ! previewVisible }
+						showLogo={ siteLoading && ! previewVisible }
 						selectionTime={ ownerSite?.running ? undefined : selectionTime }
 					/>
 					{ ownerSite && ! ownerSite.running && ! isSiteStarting ? (

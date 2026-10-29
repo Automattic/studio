@@ -8,9 +8,10 @@ import {
 	type Dispatch,
 	type ReactNode,
 } from 'react';
-import { useConnector } from '@/data/core';
 import {
 	getStoredSiteChatVisibility,
+	getStoredPreviewVisibility,
+	storePreviewVisibility,
 	storeSiteChatVisibility,
 	PANEL_WIDTHS_RESET_EVENT,
 } from '@/data/resizable-panels';
@@ -28,7 +29,8 @@ import {
 //   4. Wiring the agent event in `useSessionCommands` via `dispatch`.
 
 interface PreviewUIState {
-	open: boolean;
+	// Unset follows site availability until the user chooses a layout.
+	open: boolean | null;
 	// The chat pane is hidden and the preview takes its place; the sidebar stays.
 	// Only applied while the preview is open.
 	chatHiddenBySiteId: Record< string, boolean >;
@@ -58,7 +60,7 @@ type SessionUIAction =
 	| { type: 'preview/set-open'; value: boolean }
 	| { type: 'preview/toggle' }
 	| { type: 'preview/set-chat-hidden'; value: boolean; siteId?: string }
-	| { type: 'preview/reset-chat-hidden' }
+	| { type: 'preview/reset-layout' }
 	| { type: 'preview/navigate'; path: string }
 	| { type: 'preview/reload' }
 	| { type: 'preview/update-path'; path: string }
@@ -67,7 +69,7 @@ type SessionUIAction =
 
 const INITIAL_STATE: SessionUIState = {
 	preview: {
-		open: true,
+		open: null,
 		chatHiddenBySiteId: {},
 		reloadNonce: 0,
 		siteId: null,
@@ -93,7 +95,7 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 				...state,
 				preview: {
 					...state.preview,
-					open: ! state.preview.open,
+					open: ! ( state.preview.open ?? true ),
 				},
 			};
 		case 'preview/set-chat-hidden': {
@@ -111,8 +113,8 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 				},
 			};
 		}
-		case 'preview/reset-chat-hidden':
-			return { ...state, preview: { ...state.preview, chatHiddenBySiteId: {} } };
+		case 'preview/reset-layout':
+			return { ...state, preview: { ...state.preview, open: null, chatHiddenBySiteId: {} } };
 		case 'preview/navigate':
 			return {
 				...state,
@@ -179,22 +181,24 @@ export function SessionUIProvider( { children }: { children: ReactNode } ) {
 function SessionUIProviderRoot( { children }: { children: ReactNode } ) {
 	const [ state, dispatch ] = useReducer( reducer, INITIAL_STATE, ( initial ) => ( {
 		...initial,
-		preview: { ...initial.preview, chatHiddenBySiteId: getStoredSiteChatVisibility() },
+		preview: {
+			...initial.preview,
+			open: getStoredPreviewVisibility(),
+			chatHiddenBySiteId: getStoredSiteChatVisibility(),
+		},
 	} ) );
-	const connector = useConnector();
+	useEffect( () => {
+		storePreviewVisibility( state.preview.open );
+	}, [ state.preview.open ] );
 	useEffect( () => {
 		storeSiteChatVisibility( state.preview.chatHiddenBySiteId );
 	}, [ state.preview.chatHiddenBySiteId ] );
 	useEffect( () => {
-		const reset = () => dispatch( { type: 'preview/reset-chat-hidden' } );
+		const reset = () => dispatch( { type: 'preview/reset-layout' } );
 		window.addEventListener( PANEL_WIDTHS_RESET_EVENT, reset );
 		return () => window.removeEventListener( PANEL_WIDTHS_RESET_EVENT, reset );
 	}, [] );
-	useEffect( () => {
-		return connector.onToggleSitePreview( () => {
-			dispatch( { type: 'preview/toggle' } );
-		} );
-	}, [ connector ] );
+
 	return (
 		<SessionUIDispatchContext.Provider value={ dispatch }>
 			<SessionUIStateContext.Provider value={ state }>{ children }</SessionUIStateContext.Provider>
@@ -212,6 +216,7 @@ export function useSessionUIDispatch(): Dispatch< SessionUIAction > {
 
 interface SessionPreviewUI {
 	readonly open: boolean;
+	readonly explicitlyOpen: boolean;
 	readonly chatHidden: boolean;
 	readonly chatHiddenBySiteId: Record< string, boolean >;
 	readonly path: string;
@@ -267,9 +272,10 @@ export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 			return null;
 		}
 		return {
-			open: state.preview.open,
+			open: state.preview.open ?? true,
+			explicitlyOpen: state.preview.open === true,
 			chatHidden:
-				state.preview.open &&
+				( state.preview.open ?? true ) &&
 				( state.preview.chatHiddenBySiteId[ state.preview.siteId ?? '' ] ?? false ),
 			chatHiddenBySiteId: state.preview.chatHiddenBySiteId,
 			path: pathForSite( state.preview.pathsBySiteId, state.preview.siteId ),

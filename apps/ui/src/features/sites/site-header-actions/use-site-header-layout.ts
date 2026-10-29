@@ -1,146 +1,107 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 
-/**
- * How the header under the site actions fits them: everything inline, the
- * actions folded into a More menu, or the browser navigation folded in too.
- */
 export type SiteHeaderLayout =
 	| 'inline'
 	| 'actions-overflow'
 	| 'navigation-overflow'
 	| 'mobile-overflow';
 
-// The address field's useful width, kept when deciding whether the rest fits.
 const ADDRESS_MIN_WIDTH = 320;
 const COMPACT_ADDRESS_MIN_WIDTH = 160;
-
 const widthOf = ( element: Element | null ) => element?.getBoundingClientRect().width ?? 0;
 const pixels = ( value: string ) => parseFloat( value ) || 0;
 
-/**
- * Measures the header that hosts the actions (the one holding `space`) and
- * picks the layout that fits. Expanded widths are retained while controls are
- * folded, so hiding them can't move the breakpoint that caused it.
- */
-export function useSiteHeaderLayout( space: HTMLElement | null, actions: HTMLElement | null ) {
+/** The main header reserves its actions; the browser row fits its own controls. */
+export function useSiteHeaderLayout(
+	actions: HTMLElement | null,
+	browserSpace: HTMLElement | null
+) {
 	const [ layout, setLayout ] = useState< SiteHeaderLayout >( 'inline' );
 	const [ actionsWidth, setActionsWidth ] = useState( 0 );
-	// Set when the layout change folds away the focused control.
 	const refocus = useRef( false );
 
 	useLayoutEffect( () => {
-		const header = space?.closest< HTMLElement >( '[data-site-header]' );
-		if ( ! header || ! actions ) {
-			return;
-		}
+		if ( ! actions ) return;
+		const measure = () => setActionsWidth( widthOf( actions ) );
+		const resizes = new ResizeObserver( measure );
+		const mutations = new MutationObserver( measure );
+		resizes.observe( actions );
+		mutations.observe( actions, { subtree: true, childList: true, attributes: true } );
+		measure();
+		return () => {
+			resizes.disconnect();
+			mutations.disconnect();
+		};
+	}, [ actions ] );
+
+	useLayoutEffect( () => {
+		const header = browserSpace?.closest< HTMLElement >( '[data-preview-browser-controls]' );
+		if ( ! header ) return;
 		let current: SiteHeaderLayout = 'inline';
-		let annotationWidth = 0;
 		let navigationWidth = 0;
 		const measure = () => {
 			const width = header.clientWidth;
-			if ( ! width ) {
-				return;
-			}
+			if ( ! width ) return;
 			const style = getComputedStyle( header );
 			const gap = pixels( style.columnGap );
-			const actionGap = pixels( getComputedStyle( actions ).columnGap );
 			const navigation = header.querySelector( '[data-site-header-navigation]' );
-			const measuredNavigationWidth = widthOf( navigation );
-			if ( measuredNavigationWidth > 0 ) {
-				navigationWidth = measuredNavigationWidth;
-			}
-			const annotation = header.querySelector( '[data-site-header-annotate]' );
+			navigationWidth = Math.max( navigationWidth, widthOf( navigation ) );
 			const address = header.querySelector( '[data-site-header-address]' );
-			const reserved = [ ...header.querySelectorAll( '[data-site-header-reserved]' ) ];
-			if ( current === 'inline' ) {
-				annotationWidth = widthOf( annotation );
-			}
-			const available =
-				width -
-				pixels( style.paddingLeft ) -
-				pixels( style.paddingRight ) -
-				reserved.reduce(
-					( total, element ) =>
-						total +
-						Math.max(
-							widthOf( element ),
-							element.hasAttribute( 'data-site-header-split-start' )
-								? pixels( style.getPropertyValue( '--preview-header-content-width' ) ) -
-										pixels( style.getPropertyValue( '--header-start-inset' ) )
-								: 0
-						) +
-						pixels( getComputedStyle( element ).marginInlineEnd ) +
-						gap,
-					0
-				);
+			const previewActions = header.querySelector( '[data-preview-actions]' );
+			const available = width - pixels( style.paddingLeft ) - pixels( style.paddingRight );
 			const full =
-				widthOf( actions.querySelector( '[data-site-header-publish]' ) ) +
-				widthOf( actions.querySelector( '[data-site-header-trailing]' ) ) +
-				actionGap +
-				( annotation ? annotationWidth + actionGap : 0 ) +
 				( navigation ? navigationWidth + gap : 0 ) +
-				( address ? ADDRESS_MIN_WIDTH + gap : 0 );
+				( previewActions ? widthOf( previewActions ) + gap : 0 ) +
+				( address ? ADDRESS_MIN_WIDTH : 0 );
 			const compact =
-				full -
-				( address ? ADDRESS_MIN_WIDTH - COMPACT_ADDRESS_MIN_WIDTH : 0 ) -
-				( annotation
-					? annotationWidth -
-					  ( pixels( style.getPropertyValue( '--control-size' ) ) || widthOf( annotation ) )
-					: 0 );
-			setActionsWidth( widthOf( actions ) );
-			let next: SiteHeaderLayout = 'navigation-overflow';
-			if ( available >= full ) {
-				next = 'inline';
-			} else if ( ! navigation || available >= compact ) {
-				next = 'actions-overflow';
-			}
-			if ( width <= 540 ) {
-				next = 'mobile-overflow';
-			}
+				full +
+				( pixels( style.getPropertyValue( '--preview-control-size' ) ) || 32 ) +
+				gap -
+				( address ? ADDRESS_MIN_WIDTH - COMPACT_ADDRESS_MIN_WIDTH : 0 );
+			let next: SiteHeaderLayout =
+				available >= full
+					? 'inline'
+					: available >= compact
+					? 'actions-overflow'
+					: 'navigation-overflow';
+			if ( window.innerWidth <= 540 ) next = 'mobile-overflow';
 			if ( next !== current ) {
 				const focused = document.activeElement;
 				refocus.current = Boolean(
 					focused &&
-						( actions.querySelector( '[data-site-header-trailing]' )?.contains( focused ) ||
+						header.contains( focused ) &&
+						( focused.closest( '[data-site-header-trailing]' ) ||
 							( next !== 'inline' && focused.closest( '[data-address-action]' ) ) ||
-							( ( next === 'navigation-overflow' || next === 'mobile-overflow' ) &&
-								navigation?.contains( focused ) ) ||
-							( next === 'mobile-overflow' &&
-								( address?.contains( focused ) ||
-									annotation?.contains( focused ) ||
-									focused.closest( '[data-site-header-run]' ) ) ) )
+							( next === 'navigation-overflow' && navigation?.contains( focused ) ) ||
+							( next === 'mobile-overflow' && address?.contains( focused ) ) )
 				);
 				current = next;
 				setLayout( next );
 			}
 		};
-		const resizes = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver( measure );
-		resizes?.observe( header );
-		resizes?.observe( actions );
+		const resizes = new ResizeObserver( measure );
 		const mutations = new MutationObserver( measure );
-		const options = { subtree: true, childList: true, characterData: true, attributes: true };
-		mutations.observe( header, options );
-		mutations.observe( actions, options );
+		resizes.observe( header );
+		mutations.observe( header, { subtree: true, childList: true, attributes: true } );
+		window.addEventListener( 'resize', measure );
 		setLayout( 'inline' );
 		measure();
 		return () => {
-			resizes?.disconnect();
+			resizes.disconnect();
 			mutations.disconnect();
+			window.removeEventListener( 'resize', measure );
 		};
-	}, [ actions, space ] );
+	}, [ browserSpace ] );
 
-	// The More menu, or Share once it fits again, takes over from it.
 	useLayoutEffect( () => {
-		if ( ! refocus.current ) {
-			return;
-		}
+		if ( ! refocus.current ) return;
 		refocus.current = false;
-		[
-			...( actions?.querySelectorAll< HTMLElement >( '[data-site-header-trailing] button' ) ?? [] ),
-		]
-			.find( ( button ) => ! button.closest( '[hidden]' ) )
-			?.focus();
-	}, [ actions, layout ] );
+		(
+			browserSpace?.querySelector< HTMLElement >( 'button' ) ??
+			browserSpace?.parentElement?.querySelector< HTMLElement >( '[data-preview-responsive]' ) ??
+			actions?.querySelector< HTMLElement >( 'button' )
+		)?.focus();
+	}, [ actions, browserSpace, layout ] );
 
 	return { layout, actionsWidth };
 }

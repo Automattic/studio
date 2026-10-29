@@ -1,7 +1,8 @@
 import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
 import { createRoute, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useConnector } from '@/data/core';
 import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useAuthUser } from '@/data/queries/use-auth-user';
@@ -22,14 +23,9 @@ import {
 } from '@/features/onboarding';
 import { SidebarLayout, HeaderSidebarToggle, rememberVisit } from '@/features/sidebar';
 import { PreviewSplitFrame, type PreviewSplitFramePreviewProps } from '@/features/sites';
-import {
-	SiteMenu,
-	SiteRunButton,
-	SiteHeaderActions,
-	SiteHeaderActionsProvider,
-	SitePreview,
-} from '@/features/sites';
-import { ChatIcon } from '@/lib/icons';
+import { SiteHeaderActions, SiteHeaderActionsProvider, SitePreview } from '@/features/sites';
+import { useMediaQuery } from '@/lib/hooks';
+import { SidebarIcon } from '@/lib/icons';
 import { IconButton } from '@/lib/ui';
 import { rootRoute } from '../layout-root';
 import styles from './style.module.css';
@@ -58,10 +54,11 @@ function getNewSessionSiteId( pathname: string ): string | undefined {
 // last previewed site loaded behind a closed panel.
 function DashboardLayout() {
 	const navigate = useNavigate();
+	const connector = useConnector();
 	const openSettings = useOpenSettings();
+	const narrow = useMediaQuery( '(max-width: 540px)' );
 	const { data: authUser } = useAuthUser();
 	const { data: aiSettings } = useAiSettings();
-	const [ headerContainer, setHeaderContainer ] = useState< HTMLDivElement | null >( null );
 	const [ providerPromptOpen, setProviderPromptOpen ] = useState( false );
 	const hasProvider = !! authUser || !! aiSettings?.hasAnthropicApiKey;
 	useEffect( () => {
@@ -144,23 +141,61 @@ function DashboardLayout() {
 		( path: string ) => setLivePath( { url: liveUrl, path } ),
 		[ liveUrl ]
 	);
-	// A site's own page is its preview, so it shows whether or not the panel is
-	// open. Beside a chat, a stopping or stopped site has nothing to preview, and
-	// a starting one shows nothing until its first page loads: the chat takes the
-	// room and shows its loading stage or the site's last screenshot instead.
+	// A site's own page always shows its preview. Beside a chat, stopped sites
+	// can be opened explicitly to show their thumbnail and start control.
 	const stopPending = useIsSiteStopping( previewSite?.id );
 	const previewOperation = useSiteOperation( previewSite );
 	const previewStopping = stopPending || previewOperation === 'stop';
+	const previousPreviewSite = useRef< { id: string; running: boolean } | undefined >( undefined );
+	const { setOpen, setChatHidden } = preview;
+	useEffect( () => {
+		const previous = previousPreviewSite.current;
+		previousPreviewSite.current = previewSite
+			? { id: previewSite.id, running: !! previewSite.running }
+			: undefined;
+		if (
+			previewSite &&
+			previous?.id === previewSite.id &&
+			previous.running &&
+			! previewSite.running &&
+			supportsPreview &&
+			! liveUrl
+		) {
+			setOpen( false );
+			setChatHidden( false, previewSite.id );
+			if ( homeSiteId ) {
+				void navigate( { to: '/sites/$siteId/new', params: { siteId: homeSiteId } } );
+			}
+		}
+	}, [ previewSite, supportsPreview, liveUrl, setOpen, setChatHidden, homeSiteId, navigate ] );
+	const canPreview =
+		!! liveUrl ||
+		( !! previewSite?.running && ! previewStopping && preview.revealingSiteId !== previewSite.id );
 	const showPreview =
 		( preview.open || !! homeSiteId ) &&
 		supportsPreview &&
 		!! previewSite &&
-		( !! homeSiteId ||
-			!! liveUrl ||
-			( previewSite.running && ! previewStopping && preview.revealingSiteId !== previewSite.id ) );
+		( !! homeSiteId || canPreview || preview.explicitlyOpen );
 	const chatHidden =
 		( preview.chatHiddenBySiteId[ previewSiteId ?? '' ] || !! homeSiteId ) && showPreview;
-	const { setChatHidden } = preview;
+	const previewExpanded = showPreview && ( ! narrow || chatHidden );
+	const setPreviewOpen = useCallback(
+		( open: boolean ) => {
+			setOpen( open );
+			setChatHidden( open && narrow, previewSiteId );
+			if ( homeSiteId ) {
+				void navigate( { to: '/sites/$siteId/new', params: { siteId: homeSiteId } } );
+			}
+		},
+		[ setOpen, setChatHidden, narrow, previewSiteId, homeSiteId, navigate ]
+	);
+	useEffect(
+		() =>
+			connector.onToggleSitePreview( () => {
+				if ( supportsPreview && routeSite ) setPreviewOpen( ! previewExpanded );
+			} ),
+		[ connector, supportsPreview, routeSite, setPreviewOpen, previewExpanded ]
+	);
 	const startAnnotating = useCallback( () => {
 		if ( hasProvider ) return true;
 		setProviderPromptOpen( true );
@@ -181,25 +216,6 @@ function DashboardLayout() {
 		},
 		[ hasProvider, navigate, sessionId, sessionSite?.id, setChatHidden ]
 	);
-	const chatToggle =
-		!! liveUrl ||
-		( previewSite?.running && ! previewStopping && preview.revealingSiteId !== previewSite.id ) ? (
-			<IconButton
-				className={ styles.chatToggle }
-				aria-pressed={ ! chatHidden }
-				icon={ <ChatIcon /> }
-				label={ chatHidden ? __( 'Open chat' ) : __( 'Close chat' ) }
-				tooltipSide="bottom"
-				onClick={ () => {
-					if ( homeSiteId ) {
-						setChatHidden( false, homeSiteId );
-						void navigate( { to: '/sites/$siteId/new', params: { siteId: homeSiteId } } );
-					} else {
-						setChatHidden( ! chatHidden, previewSiteId );
-					}
-				} }
-			/>
-		) : null;
 
 	const renderPreview = ( { collapsed }: PreviewSplitFramePreviewProps ) =>
 		previewSite ? (
@@ -212,16 +228,17 @@ function DashboardLayout() {
 				onSendAnnotations={ sendAnnotations }
 				onStartAnnotating={ startAnnotating }
 				onPathChange={ liveUrl ? updateLivePath : preview.updatePath }
-				collapsed={ collapsed }
-				atWindowStart
-				headerContainer={ headerContainer }
-				toolbarStart={
-					<>
-						<HeaderSidebarToggle />
-						<SiteMenu site={ previewSite } />
-						{ chatToggle }
-					</>
-				}
+				collapsed={ collapsed || ! previewExpanded }
+				fullscreen={ {
+					active: chatHidden,
+					onClick: () => {
+						preview.setOpen( true );
+						setChatHidden( ! chatHidden, previewSiteId );
+						if ( homeSiteId ) {
+							void navigate( { to: '/sites/$siteId/new', params: { siteId: homeSiteId } } );
+						}
+					},
+				} }
 			/>
 		) : null;
 
@@ -233,17 +250,14 @@ function DashboardLayout() {
 				sessionId={ sessionId }
 				siteId={ workspaceSiteId }
 				hideHeader
+				previewVisible={ previewExpanded }
 			/>
 		) : (
 			<Outlet />
 		);
 
 	return (
-		<SidebarLayout
-			headerAction={
-				routeSite && ! routeSite.running ? <SiteRunButton site={ routeSite } /> : undefined
-			}
-		>
+		<SidebarLayout>
 			<AccountPromptDialog
 				open={ providerPromptOpen }
 				onOpenChange={ setProviderPromptOpen }
@@ -258,7 +272,7 @@ function DashboardLayout() {
 					openSettings( 'ai' );
 				} }
 			/>
-			<SiteHeaderActionsProvider host={ showPreview ? 'preview' : 'chat' }>
+			<SiteHeaderActionsProvider host={ previewExpanded ? 'preview' : 'chat' }>
 				<PreviewSplitFrame
 					siteId={ previewSiteId }
 					navigationKey={
@@ -275,19 +289,29 @@ function DashboardLayout() {
 						supportsPreview && routeSite ? (
 							<WindowControlsCornerContext.Provider value={ true }>
 								<div className={ styles.header }>
-									<div ref={ setHeaderContainer }>
-										{ ! showPreview ? (
-											<SessionHeader
-												start={ <HeaderSidebarToggle /> }
-												site={ routeSite }
-												effectiveEnvironment={ liveUrl ? 'live' : 'local' }
-											/>
-										) : null }
-									</div>
+									<SessionHeader
+										start={ <HeaderSidebarToggle /> }
+										site={ routeSite }
+										effectiveEnvironment={ liveUrl ? 'live' : 'local' }
+									/>
 									<SiteHeaderActions
 										site={ routeSite }
 										live={ !! liveUrl }
 										onStartAnnotating={ startAnnotating }
+										end={
+											<IconButton
+												icon={
+													<SidebarIcon
+														side="right"
+														state={ previewExpanded ? 'docked' : 'closed' }
+													/>
+												}
+												label={ previewExpanded ? __( 'Hide preview' ) : __( 'Show preview' ) }
+												aria-expanded={ previewExpanded }
+												tooltipSide="bottom"
+												onClick={ () => setPreviewOpen( ! previewExpanded ) }
+											/>
+										}
 									/>
 								</div>
 							</WindowControlsCornerContext.Provider>
@@ -301,6 +325,7 @@ function DashboardLayout() {
 				site={ homeSite ?? newSessionSite ?? sessionSite }
 				session={ sessionData?.summary }
 				chatHidden={ showPreview && ! homeSite ? chatHidden : undefined }
+				previewVisibility={ { open: previewExpanded, onOpenChange: setPreviewOpen } }
 			/>
 		</SidebarLayout>
 	);

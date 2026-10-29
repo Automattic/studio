@@ -3,6 +3,7 @@ import {
 	clampResizablePanelWidth,
 	getStoredSiteChatVisibility,
 	SITE_CHAT_HIDDEN_STORAGE_KEY,
+	PREVIEW_OPEN_STORAGE_KEY,
 	getPreviewContentWidthStorageKey,
 	hasCustomPanelLayout,
 	resetPanelLayout,
@@ -79,6 +80,7 @@ it( 'detects and resets all site widths and the legacy width', () => {
 	localStorage.setItem( getPreviewContentWidthStorageKey( 'one' ), '500' );
 	localStorage.setItem( getPreviewContentWidthStorageKey( 'two' ), '400' );
 	localStorage.setItem( SITE_CHAT_HIDDEN_STORAGE_KEY, JSON.stringify( { one: true } ) );
+	localStorage.setItem( PREVIEW_OPEN_STORAGE_KEY, 'false' );
 	localStorage.setItem( 'unrelated', 'keep' );
 	expect( hasCustomPanelLayout() ).toBe( true );
 	localStorage.setItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY, '600' );
@@ -88,6 +90,7 @@ it( 'detects and resets all site widths and the legacy width', () => {
 	expect( localStorage.getItem( getPreviewContentWidthStorageKey( 'two' ) ) ).toBeNull();
 	expect( localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY ) ).toBeNull();
 	expect( localStorage.getItem( SITE_CHAT_HIDDEN_STORAGE_KEY ) ).toBeNull();
+	expect( localStorage.getItem( PREVIEW_OPEN_STORAGE_KEY ) ).toBeNull();
 	expect( localStorage.getItem( 'unrelated' ) ).toBe( 'keep' );
 	localStorage.clear();
 } );

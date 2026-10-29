@@ -16,10 +16,11 @@
 }
 
 .header {
+	container: site-header / inline-size;
 	composes: bandEdge from '@/lib/theme/recipes.module.css';
 	display: flex;
 	align-items: center;
-	gap: var( --space-1 );
+	gap: var( --band-group-gap );
 	padding-inline: var( --band-inset );
 	height: var( --band-height );
 	transition: padding var( --motion-duration-layout ) var( --motion-ease-layout );
@@ -32,7 +33,7 @@
 .headerLead {
 	display: flex;
 	align-items: center;
-	gap: var( --space-0_5 );
+	gap: var( --band-gap );
 	min-width: 0;
 }
 

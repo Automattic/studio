@@ -12,6 +12,7 @@ import {
 	setAnnotating,
 	stageAnnotations,
 } from '@/features/annotations';
+import { SiteHeaderActions, SiteHeaderActionsProvider } from '@/features/sites/site-header-actions';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { SitePreview } from '.';
@@ -42,12 +43,15 @@ async function setup( onStartAnnotating?: () => boolean ) {
 	vi.stubGlobal( 'ipcApi', { clearWebviewCache: vi.fn().mockResolvedValue( undefined ) } );
 	const view = renderWithProviders(
 		<SessionUIProvider>
-			<SitePreview
-				site={ site }
-				path="/"
-				reloadNonce={ 0 }
-				onStartAnnotating={ onStartAnnotating }
-			/>
+			<SiteHeaderActionsProvider host="preview">
+				<SitePreview
+					site={ site }
+					path="/"
+					reloadNonce={ 0 }
+					onStartAnnotating={ onStartAnnotating }
+				/>
+				<SiteHeaderActions site={ site } onStartAnnotating={ onStartAnnotating } />
+			</SiteHeaderActionsProvider>
 		</SessionUIProvider>,
 		{
 			connector: createFakeConnector( { sites: [ site ] } ),

@@ -7,6 +7,7 @@ export interface ResizablePanelConfig {
 export const SIDEBAR_PANEL_STORAGE_KEY = 'studio-ui-sidebar-width';
 export const SIDEBAR_COLLAPSED_STORAGE_KEY = 'studio-ui-sidebar-collapsed';
 export const PREVIEW_CONTENT_WIDTH_STORAGE_KEY = 'studio-ui-preview-content-width';
+export const PREVIEW_OPEN_STORAGE_KEY = 'studio-ui-preview-open';
 export const SITE_CHAT_HIDDEN_STORAGE_KEY = 'studio-ui-chat-hidden-by-site';
 const PREVIEW_CONTENT_WIDTH_SITE_PREFIX = `${ PREVIEW_CONTENT_WIDTH_STORAGE_KEY }:`;
 
@@ -36,6 +37,27 @@ export function storeSiteChatVisibility( hiddenBySiteId: Record< string, boolean
 		}
 	} catch {
 		// Keep visibility usable when storage is unavailable.
+	}
+}
+
+export function getStoredPreviewVisibility(): boolean | null {
+	try {
+		const stored = window.localStorage.getItem( PREVIEW_OPEN_STORAGE_KEY );
+		return stored === 'true' ? true : stored === 'false' ? false : null;
+	} catch {
+		return null;
+	}
+}
+
+export function storePreviewVisibility( open: boolean | null ): void {
+	try {
+		if ( open === null ) {
+			window.localStorage.removeItem( PREVIEW_OPEN_STORAGE_KEY );
+		} else {
+			window.localStorage.setItem( PREVIEW_OPEN_STORAGE_KEY, String( open ) );
+		}
+	} catch {
+		// Keep the preview usable when storage is unavailable.
 	}
 }
 
@@ -102,6 +124,7 @@ const PANEL_WIDTH_STORAGE_KEYS = [
 	SIDEBAR_PANEL_STORAGE_KEY,
 	PREVIEW_CONTENT_WIDTH_STORAGE_KEY,
 	SITE_CHAT_HIDDEN_STORAGE_KEY,
+	PREVIEW_OPEN_STORAGE_KEY,
 ];
 export const PANEL_WIDTHS_RESET_EVENT = 'studio-panel-widths-reset';
 

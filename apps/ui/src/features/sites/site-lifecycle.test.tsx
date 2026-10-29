@@ -115,7 +115,7 @@ describe( 'site lifecycle and preview', () => {
 	);
 
 	it.each( [ 'browser', 'desktop' ] as const )(
-		'waits for the %s preview before splitting the workspace',
+		'keeps the %s startup toolbar visible while the preview loads',
 		async ( runtime ) => {
 			if ( runtime === 'desktop' ) {
 				useElectron();
@@ -128,7 +128,7 @@ describe( 'site lifecycle and preview', () => {
 			connector.startSite.mockImplementationOnce( () => start.promise );
 			fireEvent.click( screen.getByRole( 'button', { name: 'Start My site' } ) );
 			await waitFor( () => expect( connector.startSite ).toHaveBeenCalled() );
-			expect( previewShown() ).toBe( false );
+			expect( previewShown() ).toBe( true );
 			expect( frame() ).toBeNull();
 			connector.state.sites = [ site( { running: true } ) ];
 			await act( () =>
@@ -138,12 +138,12 @@ describe( 'site lifecycle and preview', () => {
 					running: true,
 				} )
 			);
-			expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
-			expect( frame() ).toBeNull();
+			expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBeDisabled();
+			await waitFor( () => expect( frame() ).toBeInTheDocument() );
 			await act( async () => start.resolve() );
 			await waitFor( () => expect( frame() ).toBeInTheDocument() );
-			expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
-			expect( previewShown() ).toBe( false );
+			expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBeEnabled();
+			expect( previewShown() ).toBe( true );
 			if ( runtime === 'desktop' ) {
 				loadWebview();
 			} else {
@@ -171,33 +171,29 @@ describe( 'site lifecycle and preview', () => {
 	} );
 
 	it.each( [ false, true ] )(
-		'shows the empty stopped workspace immediately from the sidebar (chat initially visible: %s)',
+		'restores the stopped workspace from the sidebar (chat initially visible: %s)',
 		async ( chatVisible ) => {
 			const { connector } = setup( [ site( { running: true } ) ], '/sessions/one-chat' );
 			await screen.findByRole( 'textbox', { name: 'Address' } );
 			fireEvent.change( screen.getByRole( 'combobox', COMPOSER ), {
 				target: { value: 'Keep this site draft' },
 			} );
-			if ( ! chatVisible ) {
-				fireEvent.click( screen.getByRole( 'button', { name: 'Close chat' } ) );
-			}
+			const composer = screen.getByRole( 'combobox', COMPOSER );
+			if ( ! chatVisible )
+				fireEvent.click( screen.getByRole( 'button', { name: 'Enter fullscreen' } ) );
 			const stop = deferred();
 			connector.stopSite.mockImplementationOnce( () => stop.promise );
-			const composer = screen.getByRole( 'combobox', COMPOSER );
 			if ( chatVisible ) {
 				expect( composer ).toBeVisible();
 			} else {
-				await waitFor( () =>
-					expect( screen.queryByRole( 'combobox', COMPOSER ) ).not.toBeInTheDocument()
-				);
+				await waitFor( () => expect( composer.closest( '[aria-hidden="true"]' ) ).not.toBeNull() );
 			}
 			fireEvent.click( screen.getByRole( 'button', { name: 'Stop My site' } ) );
 			await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledWith( 'one' ) );
-			expect( screen.getByRole( 'combobox', COMPOSER ) ).toBeVisible();
-			expect( previewShown() ).toBe( false );
 			connector.state.sites = [ site() ];
 			await act( async () => stop.resolve() );
 			const stoppedComposer = await screen.findByRole( 'combobox', COMPOSER );
+			expect( previewShown() ).toBe( false );
 			expect( stoppedComposer ).toBeVisible();
 			expect( stoppedComposer ).toHaveValue( 'Keep this site draft' );
 			expect( stoppedComposer ).toBe( composer );

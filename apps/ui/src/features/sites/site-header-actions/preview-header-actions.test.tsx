@@ -3,9 +3,10 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { markPreviewReady } from '@/data/preview-ready';
 import { applySyncActivity } from '@/data/sync-activity';
 import { SessionUIProvider } from '@/data/use-session-ui';
-import { setAnnotating } from '@/features/annotations';
+import { getSiteAnnotations, setAnnotating } from '@/features/annotations';
+import { SessionHeader } from '@/features/chats';
+import { HeaderSidebarToggle } from '@/features/sidebar';
 import { SitePreview } from '@/features/sites/site-preview';
-import { SiteRunButton } from '@/features/sites/site-run-button';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { SiteHeaderActions, SiteHeaderActionsProvider } from './index';
@@ -25,7 +26,6 @@ async function renderHeader(
 	siteId: string,
 	connector = createFakeConnector(),
 	width = 60,
-	withChatControls = false,
 	running = true
 ) {
 	Object.defineProperty( window.navigator, 'userAgent', {
@@ -47,19 +47,20 @@ async function renderHeader(
 	vi.spyOn( HTMLElement.prototype, 'clientWidth', 'get' ).mockImplementation( function (
 		this: HTMLElement
 	) {
-		return this.hasAttribute( 'data-site-header' ) ? width : 0;
+		return this.hasAttribute( 'data-preview-browser-controls' ) ? width : 1000;
 	} );
+	vi.stubGlobal( 'innerWidth', 1024 );
 	const site = makeSite( { id: siteId, running } );
 	connector.state.sites = [ site ];
 	const view = renderWithProviders(
 		<SiteHeaderActionsProvider host="preview">
 			<SessionUIProvider>
-				<SitePreview
+				<SessionHeader
 					site={ site }
-					path="/"
-					reloadNonce={ 0 }
-					toolbarStart={ withChatControls ? <SiteRunButton site={ site } /> : undefined }
+					start={ <HeaderSidebarToggle /> }
+					effectiveEnvironment="local"
 				/>
+				<SitePreview site={ site } path="/" reloadNonce={ 0 } />
 				<SiteHeaderActions site={ site } />
 			</SessionUIProvider>
 		</SiteHeaderActionsProvider>,
@@ -68,11 +69,13 @@ async function renderHeader(
 	await screen.findByRole( 'complementary', { name: 'Site preview' } );
 	return {
 		...view,
-		resize: ( next: number ) =>
+		resize: ( next: number, windowWidth = next ) =>
 			act( async () => {
 				width = next;
+				vi.stubGlobal( 'innerWidth', windowWidth );
+				window.dispatchEvent( new Event( 'resize' ) );
 				document
-					.querySelector( '[data-site-header]' )!
+					.querySelector( '[data-preview-browser-controls]' )!
 					.setAttribute( 'data-width', String( next ) );
 			} ),
 	};
@@ -100,14 +103,15 @@ function readyGuest( extra: Record< string, unknown > = {} ) {
 
 it( 'keeps icon-only annotation available beside overflow with sharing feedback', async () => {
 	setAnnotating( 'annotate-site', true );
-	const { user } = await renderHeader( 'annotate-site', createFakeConnector(), 600, true );
+	const { user } = await renderHeader( 'annotate-site', createFakeConnector(), 340 );
 	await act( async () => {
 		document
-			.querySelector< HTMLElement >( '[data-site-header]' )!
+			.querySelector< HTMLElement >( '[data-preview-browser-controls]' )!
 			.style.setProperty( '--preview-header-content-width', '400px' );
 	} );
 	const webview = readyGuest();
 	const more = screen.getByRole( 'button', { name: 'More preview actions' } );
+	const share = screen.getByRole( 'button', { name: 'Share' } );
 	const annotation = screen.getByRole( 'button', { name: 'Annotate' } );
 	await waitFor( () => expect( annotation ).toBeEnabled() );
 	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
@@ -119,7 +123,7 @@ it( 'keeps icon-only annotation available beside overflow with sharing feedback'
 	act( () => {
 		applySyncActivity( 'annotate-site', { kind: 'pending', direction: 'preview' } );
 	} );
-	expect( more ).toHaveAttribute(
+	expect( share ).toHaveAttribute(
 		'aria-description',
 		expect.stringContaining( 'Creating preview' )
 	);
@@ -127,9 +131,9 @@ it( 'keeps icon-only annotation available beside overflow with sharing feedback'
 		applySyncActivity( 'annotate-site', { kind: 'success', direction: 'preview' } );
 		markPreviewReady( 'annotate-site' );
 	} );
-	expect( more ).toHaveAttribute( 'aria-description', 'Preview ready' );
-	await user.click( more );
-	await user.click( await screen.findByRole( 'menuitem', { name: /^Share/ } ) );
+	expect( share ).toHaveAttribute( 'aria-description', 'Preview ready' );
+	expect( share ).toHaveTextContent( '' );
+	await user.click( share );
 	expect( await screen.findByRole( 'dialog' ) ).toBeInTheDocument();
 	await user.keyboard( '{Escape}' );
 	fireEvent(
@@ -173,83 +177,121 @@ it( 'exposes browser actions with their navigation availability in overflow', as
 	}
 } );
 
-it( 'moves responsive mode into More with its state and restores the inline control when it fits', async () => {
+it( 'keeps responsive mode on the right as the browser row compacts', async () => {
 	const { user, resize } = await renderHeader( 'responsive-overflow', createFakeConnector(), 1000 );
 	const toggle = screen.getByRole( 'button', { name: 'Responsive mode' } );
-	toggle.focus();
-	await resize( 320 );
-	const more = screen.getByRole( 'button', { name: 'More preview actions' } );
-	expect( more ).toHaveFocus();
-	expect( screen.queryByRole( 'button', { name: 'Responsive mode' } ) ).not.toBeInTheDocument();
-	await user.click( more );
-	const item = await screen.findByRole( 'menuitemcheckbox', { name: 'Responsive mode' } );
-	expect( item ).not.toBeChecked();
-	await user.click( item );
+	const browser = screen.getByRole( 'toolbar', { name: 'Preview browser controls' } );
+	expect( browser ).toContainElement( toggle );
 	expect(
-		await screen.findByRole( 'toolbar', { name: 'Responsive preview' } )
-	).toBeInTheDocument();
-	await user.click( screen.getByRole( 'button', { name: 'More preview actions' } ) );
-	const activeToggle = await screen.findByRole( 'menuitemcheckbox', { name: 'Responsive mode' } );
-	expect( activeToggle ).toBeChecked();
-	await user.click( activeToggle );
+		screen.getByRole( 'textbox', { name: 'Address' } ).closest( 'form' )
+	).not.toContainElement( toggle );
+	await user.click( toggle );
+	expect( toggle ).toHaveAttribute( 'aria-pressed', 'true' );
+	expect( screen.getByRole( 'toolbar', { name: 'Responsive preview' } ) ).toBeInTheDocument();
+	await resize( 320 );
+	expect( screen.getByRole( 'button', { name: 'Responsive mode' } ) ).toBe( toggle );
+	expect( toggle ).toHaveFocus();
+	expect(
+		screen.queryByRole( 'button', { name: 'More preview actions' } )
+	).not.toBeInTheDocument();
+	await user.click( toggle );
+	expect( toggle ).toHaveAttribute( 'aria-pressed', 'false' );
 	expect( screen.queryByRole( 'toolbar', { name: 'Responsive preview' } ) ).not.toBeInTheDocument();
 	await resize( 1000 );
-	expect( screen.getByRole( 'button', { name: 'Responsive mode' } ) ).toHaveAttribute(
-		'aria-pressed',
-		'false'
-	);
+	expect( screen.getByRole( 'button', { name: 'Responsive mode' } ) ).toBe( toggle );
 } );
 
-it( 'moves Annotate into More only at mobile widths and restores it', async () => {
-	const { resize } = await renderHeader( 'mobile-annotate', createFakeConnector(), 600, true );
+it( 'keeps Annotate in its fixed header group at mobile widths', async () => {
+	const { resize } = await renderHeader( 'mobile-annotate', createFakeConnector(), 600 );
 	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeVisible();
 	await resize( 390 );
-	expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
-	fireEvent.click( screen.getByRole( 'button', { name: 'More preview actions' } ) );
-	expect( await screen.findByRole( 'menuitemcheckbox', { name: 'Annotate' } ) ).not.toBeChecked();
-	fireEvent.keyDown( screen.getByRole( 'menu' ), { key: 'Escape' } );
+	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeVisible();
 	await resize( 600 );
 	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeVisible();
 } );
 
-it.each( [ true, false ] )(
-	'moves the site run control into More on mobile (running: %s)',
-	async ( running ) => {
-		const label = running ? 'Stop site' : 'Start site';
-		const { user, resize } = await renderHeader(
-			'mobile-run',
-			createFakeConnector(),
-			600,
-			true,
-			running
-		);
-		const button = screen.getByRole( 'button', { name: label } );
-		button.focus();
-		await resize( 540 );
-		expect( screen.queryByRole( 'button', { name: label } ) ).not.toBeInTheDocument();
-		const more = screen.getByRole( 'button', { name: 'More preview actions' } );
-		expect( more ).toHaveFocus();
-		await user.click( more );
-		expect( await screen.findByRole( 'menuitem', { name: label } ) ).not.toHaveAttribute(
-			'aria-disabled',
-			'true'
-		);
-		await user.keyboard( '{Escape}' );
-		await resize( 541 );
-		expect( screen.getByRole( 'button', { name: label } ) ).toBeVisible();
-	}
-);
+it( 'keeps site actions in the main header without mobile browser overflow', async () => {
+	const { resize } = await renderHeader( 'mobile-run', createFakeConnector(), 1000 );
+	const browser = screen.getByRole( 'toolbar', { name: 'Preview browser controls' } );
+	const mainHeader = document.querySelector( '[data-site-header]' )!;
+	const annotate = screen.getByRole( 'button', { name: 'Annotate' } );
+	expect( screen.queryByRole( 'button', { name: 'Stop site' } ) ).not.toBeInTheDocument();
+	const share = screen.getByRole( 'button', { name: 'Share' } );
+	const publish = screen.getByRole( 'button', { name: 'Publish…' } );
+	expect( browser ).toContainElement( screen.getByRole( 'textbox', { name: 'Address' } ) );
+	expect( mainHeader ).not.toContainElement( browser );
+	for ( const action of [ annotate, share, publish ] )
+		expect( browser ).not.toContainElement( action );
+	await resize( 540 );
+	expect(
+		screen.queryByRole( 'button', { name: 'More preview actions' } )
+	).not.toBeInTheDocument();
+	expect( screen.queryByRole( 'button', { name: 'Stop site' } ) ).not.toBeInTheDocument();
+	for ( const name of [ 'Back', 'Forward', 'Reload preview', 'Responsive mode' ] )
+		expect( within( browser ).getByRole( 'button', { name } ) ).toBeVisible();
+	await resize( 1000 );
+	expect(
+		screen.queryByRole( 'button', { name: 'More preview actions' } )
+	).not.toBeInTheDocument();
+	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBe( publish );
+} );
 
 it( 'hides URL navigation entirely on mobile', async () => {
-	const { user, resize } = await renderHeader( 'mobile-address', createFakeConnector(), 600 );
+	const { resize } = await renderHeader( 'mobile-address', createFakeConnector(), 600 );
 	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
 	await resize( 540 );
 	expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
-	const more = screen.getByRole( 'button', { name: 'More preview actions' } );
-	await user.click( more );
-	expect( screen.queryByRole( 'menuitem', { name: 'Go to URL…' } ) ).not.toBeInTheDocument();
-	expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument();
-	await user.keyboard( '{Escape}' );
 	await resize( 600 );
 	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
+} );
+
+it( 'starts a stopped site with annotation mode selected', async () => {
+	const connector = createFakeConnector();
+	const { user } = await renderHeader( 'annotate-stopped', connector, 1000, false );
+	const annotate = screen.getByRole( 'button', { name: 'Annotate' } );
+	expect( annotate ).toBeEnabled();
+	await user.click( annotate );
+	expect( connector.startSite ).toHaveBeenCalledWith( 'annotate-stopped' );
+	expect( getSiteAnnotations( 'annotate-stopped' ).active ).toBe( true );
+} );
+
+it.each( [ true, false ] )(
+	'keeps Annotate visible when host support is %s',
+	async ( annotatePreview ) => {
+		const connector = createFakeConnector(
+			{},
+			{ capabilities: { nativeFolderPicker: true, annotatePreview, studioLogs: true } }
+		);
+		await renderHeader( 'annotate-capability', connector, 1000 );
+		const annotate = screen.getByRole( 'button', { name: 'Annotate' } );
+		expect( annotate ).toBeVisible();
+		if ( ! annotatePreview ) {
+			expect( annotate ).toBeDisabled();
+			expect( annotate ).toHaveAttribute(
+				'aria-description',
+				'Site annotation is not available in the browser yet'
+			);
+		}
+	}
+);
+
+it( 'moves focus to responsive mode when a narrow window hides the address', async () => {
+	const { resize } = await renderHeader( 'address-focus', createFakeConnector(), 1000 );
+	const input = screen.getByRole( 'textbox', { name: 'Address' } );
+	act( () => input.focus() );
+	await resize( 390 );
+	expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
+	expect( screen.getByRole( 'button', { name: 'Responsive mode' } ) ).toHaveFocus();
+} );
+
+it( 'keeps browser focus reachable as navigation folds and unfolds', async () => {
+	const { resize } = await renderHeader( 'navigation-focus', createFakeConnector(), 1000 );
+	screen.getByRole( 'button', { name: 'Reload preview' } ).focus();
+	await resize( 60, 1000 );
+	expect( screen.getByRole( 'button', { name: 'More preview actions' } ) ).toHaveFocus();
+	await resize( 1000 );
+	expect(
+		screen.queryByRole( 'button', { name: 'More preview actions' } )
+	).not.toBeInTheDocument();
+	expect( screen.getByRole( 'button', { name: 'Responsive mode' } ) ).toHaveFocus();
 } );

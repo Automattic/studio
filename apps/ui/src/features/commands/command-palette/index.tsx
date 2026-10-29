@@ -24,6 +24,11 @@ import { replaceOpenDialogs } from '@/lib/ui';
 import { PaletteDialog, type PaletteProps } from './palette-dialog';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
+interface PreviewVisibility {
+	open: boolean;
+	onOpenChange: ( open: boolean ) => void;
+}
+
 /**
  * ⌘K (Ctrl+K elsewhere) searches sites, chats and the commands for the current
  * site and chat.
@@ -32,11 +37,13 @@ export function CommandPalette( {
 	site,
 	session,
 	chatHidden,
+	previewVisibility,
 }: {
 	site?: SiteDetails;
 	session?: AiSessionSummary;
 	// Set where the chat can be hidden beside the preview.
 	chatHidden?: boolean;
+	previewVisibility?: PreviewVisibility;
 } ) {
 	const open = useCommandPaletteOpen();
 	const commands = useAppCommands();
@@ -65,6 +72,7 @@ export function CommandPalette( {
 			site={ site }
 			session={ session }
 			chatHidden={ chatHidden }
+			previewVisibility={ previewVisibility }
 			{ ...palette }
 		/>
 	) : (
@@ -76,9 +84,15 @@ function SiteCommands( {
 	site,
 	session,
 	chatHidden,
+	previewVisibility,
 	commands,
 	...palette
-}: PaletteProps & { site: SiteDetails; session?: AiSessionSummary; chatHidden?: boolean } ) {
+}: PaletteProps & {
+	site: SiteDetails;
+	session?: AiSessionSummary;
+	chatHidden?: boolean;
+	previewVisibility?: PreviewVisibility;
+} ) {
 	const navigate = useNavigate();
 	const openSettings = useOpenSettings();
 	const connector = useConnector();
@@ -97,7 +111,7 @@ function SiteCommands( {
 	const siteCommands = getSiteCommands( {
 		site,
 		chatHidden,
-		previewShown: preview.open && preview.siteId === site.id,
+		previewShown: previewVisibility?.open ?? ( preview.open && preview.siteId === site.id ),
 		canAnnotate: connector.capabilities.annotatePreview,
 		annotating: annotations.active,
 		actions,
@@ -113,6 +127,10 @@ function SiteCommands( {
 		reloadPreview: () => dispatch( { type: 'preview/reload' } ),
 		annotate: ( active ) => setAnnotating( site.id, active ),
 		showPreview: ( show ) => {
+			if ( previewVisibility ) {
+				previewVisibility.onOpenChange( show );
+				return;
+			}
 			preview.setSite( site.id );
 			preview.setOpen( show );
 		},

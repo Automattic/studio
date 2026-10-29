@@ -1,27 +1,17 @@
 import { isRTL, __ } from '@wordpress/i18n';
 import { EllipsisIcon } from 'lucide-react';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
 import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
 import { useIsSiteBusy, useStartSite } from '@/data/queries/use-sites';
-import { requestHeaderPanel } from '@/data/use-open-header-panel';
 import { useSessionPreviewUI } from '@/data/use-session-ui';
-import { setAnnotating } from '@/features/annotations';
-import { ShareStatusIcon, useShareStatus } from '@/features/sharing';
+import { setAnnotating, useSiteAnnotations } from '@/features/annotations';
 import { ShareButton, PublishButton, SiteDeliveryDialog } from '@/features/site-delivery';
-import { SiteRunMenuItem } from '@/features/sites/site-run-button/site-run-menu-item';
-import { useWindowControlsOverlay } from '@/lib/hooks';
-import {
-	AnnotateIcon,
-	ArrowLeftIcon,
-	ArrowRightIcon,
-	ExternalLinkIcon,
-	RotateCwIcon,
-	ResponsiveIcon,
-	ShareIcon,
-} from '@/lib/icons';
+import { AnnotateButton } from '@/features/sites/site-preview/preview-header/annotate-button';
+import { useMediaQuery, useWindowControlsOverlay } from '@/lib/hooks';
+import { ArrowLeftIcon, ArrowRightIcon, ExternalLinkIcon, RotateCwIcon } from '@/lib/icons';
 import { Tooltip, TooltipContent, TooltipTrigger, Menu, Button } from '@/lib/ui';
-import { AnnotateButton } from '../site-preview/preview-header/annotate-button';
 import styles from './style.module.css';
 import { useSiteHeaderLayout, type SiteHeaderLayout } from './use-site-header-layout';
 import type { SiteDetails } from '@/data/core';
@@ -35,7 +25,6 @@ interface SiteHeaderNavigation {
 	forward: () => void;
 	reload: () => void;
 	openExternal?: () => void;
-	responsive?: { active: boolean; disabled: boolean; onClick: () => void };
 	annotate?: { active: boolean; disabled: boolean; disabledReason?: string; onClick: () => void };
 	backShortcut: string;
 	forwardShortcut: string;
@@ -47,8 +36,9 @@ interface SiteHeaderContextValue {
 	host: 'chat' | 'preview' | null;
 	layout: SiteHeaderLayout;
 	actionsWidth: number;
+	browserSpace: HTMLElement | null;
+	attachBrowserSpace: ( node: HTMLElement | null ) => void;
 	navigation: SiteHeaderNavigation | null;
-	attachSpace: ( node: HTMLElement | null ) => void;
 	attachActions: ( node: HTMLElement | null ) => void;
 	setNavigation: ( navigation: SiteHeaderNavigation | null ) => void;
 }
@@ -57,21 +47,16 @@ const SiteHeaderContext = createContext< SiteHeaderContextValue >( {
 	host: null,
 	layout: 'inline',
 	actionsWidth: 0,
+	browserSpace: null,
+	attachBrowserSpace: () => undefined,
 	navigation: null,
-	attachSpace: () => undefined,
 	attachActions: () => undefined,
 	setNavigation: () => undefined,
 } );
 
 export const useSiteHeader = () => useContext( SiteHeaderContext );
 
-/**
- * Holds the state of a site's header actions — Publish and
- * Share — which `SiteHeaderActions` draws once over the workspace's top
- * inline-end corner, whichever header lies under it, so they keep their state
- * and focus as the chat and preview come and go. The header there holds a
- * `SiteHeaderSpace` the actions fit into.
- */
+/** Keeps delivery actions and their dialogs mounted while the preview layout changes. */
 export function SiteHeaderActionsProvider( {
 	host,
 	children,
@@ -79,10 +64,10 @@ export function SiteHeaderActionsProvider( {
 	host: 'chat' | 'preview';
 	children: ReactNode;
 } ) {
-	const [ space, attachSpace ] = useState< HTMLElement | null >( null );
 	const [ actions, attachActions ] = useState< HTMLElement | null >( null );
 	const [ navigation, setNavigation ] = useState< SiteHeaderNavigation | null >( null );
-	const { layout, actionsWidth } = useSiteHeaderLayout( space, actions );
+	const [ browserSpace, attachBrowserSpace ] = useState< HTMLElement | null >( null );
+	const { layout, actionsWidth } = useSiteHeaderLayout( actions, browserSpace );
 
 	return (
 		<SiteHeaderContext.Provider
@@ -90,8 +75,9 @@ export function SiteHeaderActionsProvider( {
 				host,
 				layout,
 				actionsWidth,
+				browserSpace,
+				attachBrowserSpace,
 				navigation: host === 'preview' ? navigation : null,
-				attachSpace,
 				attachActions,
 				setNavigation,
 			} }
@@ -103,8 +89,14 @@ export function SiteHeaderActionsProvider( {
 
 /** The room a header leaves for the site actions drawn over it. */
 export function SiteHeaderSpace() {
-	const { attachSpace, actionsWidth } = useSiteHeader();
-	return <div ref={ attachSpace } className={ styles.space } style={ { width: actionsWidth } } />;
+	const { actionsWidth } = useSiteHeader();
+	return <div className={ styles.space } style={ { width: actionsWidth } } />;
+}
+
+/** The preview row hosts its overflow controls independently of the main header. */
+export function SiteHeaderBrowserSpace() {
+	const { attachBrowserSpace } = useSiteHeader();
+	return <div ref={ attachBrowserSpace } className={ styles.browserSpace } />;
 }
 
 /** Hands the preview's browser controls to the More menu while it's on screen. */
@@ -126,9 +118,6 @@ export function useSiteHeaderNavigation( navigation: SiteHeaderNavigation | null
 	const annotateDisabled = navigation?.annotate?.disabled;
 	const annotateDisabledReason = navigation?.annotate?.disabledReason;
 	const hasAnnotate = Boolean( navigation?.annotate );
-	const responsiveActive = navigation?.responsive?.active;
-	const responsiveDisabled = navigation?.responsive?.disabled;
-	const hasResponsive = Boolean( navigation?.responsive );
 	const canOpenExternal = Boolean( navigation?.openExternal );
 	useEffect( () => {
 		if ( ! available ) {
@@ -142,13 +131,6 @@ export function useSiteHeaderNavigation( navigation: SiteHeaderNavigation | null
 			forward: () => latest.current?.forward(),
 			reload: () => latest.current?.reload(),
 			openExternal: canOpenExternal ? () => latest.current?.openExternal?.() : undefined,
-			responsive: hasResponsive
-				? {
-						active: responsiveActive ?? false,
-						disabled: responsiveDisabled ?? false,
-						onClick: () => latest.current?.responsive?.onClick(),
-				  }
-				: undefined,
 			annotate: hasAnnotate
 				? {
 						active: annotateActive ?? false,
@@ -173,33 +155,53 @@ export function useSiteHeaderNavigation( navigation: SiteHeaderNavigation | null
 		canOpenExternal,
 		disabled,
 		forwardShortcut,
-		hasResponsive,
-		responsiveActive,
-		responsiveDisabled,
 		setNavigation,
 	] );
 }
 
-/** A Live chat previews the remote, so only Publish applies. */
+/** Site actions stay in one place as the preview opens and closes. */
 export function SiteHeaderActions( {
 	site,
-	live,
+	live = false,
 	onStartAnnotating,
+	end,
 }: {
 	site: SiteDetails;
 	live?: boolean;
 	onStartAnnotating?: () => boolean;
+	end?: ReactNode;
 } ) {
+	const { host, layout, navigation, attachActions, browserSpace } = useSiteHeader();
 	const connector = useConnector();
 	const startSite = useStartSite();
-	const isBusy = useIsSiteBusy( site );
+	const busy = useIsSiteBusy( site );
 	const preview = useSessionPreviewUI();
-	const { host, layout, navigation, attachActions } = useSiteHeader();
+	const annotations = useSiteAnnotations( site.id );
+	const narrow = useMediaQuery( '(max-width: 540px)' );
+	const annotation = navigation?.annotate ?? {
+		active: annotations.active,
+		disabled: live || busy || ! connector.capabilities.annotatePreview,
+		disabledReason: ! connector.capabilities.annotatePreview
+			? __( 'Site annotation is not available in the browser yet' )
+			: undefined,
+		onClick: () => {
+			if ( annotations.active ) {
+				setAnnotating( site.id, false );
+				return;
+			}
+			if ( onStartAnnotating?.() === false ) return;
+			preview.setOpen( true );
+			preview.setChatHidden( narrow, site.id );
+			setAnnotating( site.id, true );
+			if ( ! site.running ) {
+				startSite.mutate( site.id, { onError: () => setAnnotating( site.id, false ) } );
+			}
+		},
+	};
 	const root = useRef< HTMLDivElement >( null );
-	const shareStatus = useShareStatus( site.id );
 	const windowControls = useWindowControlsOverlay();
 	const trafficLightSpace = useTrafficLightSpace();
-	const overflow = layout !== 'inline';
+	const overflow = host === 'preview' && layout !== 'inline' && layout !== 'mobile-overflow';
 	// The Windows/Linux window controls sit at the physical right, the macOS
 	// traffic lights at the physical left: whichever the inline end reaches.
 	let inset = 0;
@@ -208,6 +210,11 @@ export function SiteHeaderActions( {
 	} else {
 		inset += windowControls?.controlsWidth ?? 0;
 	}
+	const publishButton = (
+		<span data-site-header-publish className={ styles.publish }>
+			<PublishButton site={ site } />
+		</span>
+	);
 	return (
 		<div
 			ref={ root }
@@ -217,128 +224,84 @@ export function SiteHeaderActions( {
 		>
 			<SiteDeliveryDialog key={ site.id } site={ site } anchor={ root } />
 			<div ref={ attachActions } className={ styles.actions }>
-				{ host === 'chat' && ! site.running && ! live ? (
-					<AnnotateButton
-						active={ false }
-						iconOnly={ overflow }
-						disabled={ isBusy || ! connector.capabilities.annotatePreview }
-						disabledReason={
-							! connector.capabilities.annotatePreview
-								? __( 'Site annotation is not available in the browser yet' )
-								: undefined
-						}
-						onClick={ () => {
-							if ( onStartAnnotating?.() === false ) return;
-							preview.setOpen( true );
-							setAnnotating( site.id, true );
-							startSite.mutate( site.id, { onError: () => setAnnotating( site.id, false ) } );
-						} }
-					/>
-				) : null }
-				<span data-site-header-publish className={ styles.publish }>
-					<PublishButton site={ site } />
-				</span>
-				<span data-site-header-trailing className={ styles.item }>
-					<span hidden={ overflow }>
-						<ShareButton site={ site } />
-					</span>
-					{ overflow ? (
-						<Menu.Root modal={ false }>
-							<Tooltip>
-								<Menu.Trigger
-									render={
-										<TooltipTrigger
+				{ overflow && browserSpace
+					? createPortal(
+							<span data-site-header-trailing className={ styles.item }>
+								<Menu.Root modal={ false }>
+									<Tooltip>
+										<Menu.Trigger
 											render={
-												<Button
-													variant="ghost"
-													size="icon"
-													data-share-overflow-trigger
-													aria-label={ __( 'More preview actions' ) }
-													aria-description={ shareStatus.label }
+												<TooltipTrigger
+													render={
+														<Button
+															variant="ghost"
+															size="icon-sm"
+															data-share-overflow-trigger
+															aria-label={ __( 'More preview actions' ) }
+														/>
+													}
 												/>
 											}
-										/>
-									}
-								>
-									<ShareStatusIcon icon={ <EllipsisIcon /> } status={ shareStatus } />
-								</Menu.Trigger>
-								<TooltipContent side="bottom">{ __( 'More preview actions' ) }</TooltipContent>
-							</Tooltip>
-							<Menu.Popup side="bottom" align="end">
-								{ layout === 'mobile-overflow' ? (
-									<>
-										<SiteRunMenuItem site={ site } />
-										<Menu.Separator />
-									</>
-								) : null }
-								<Menu.Item
-									aria-description={ shareStatus.label }
-									onClick={ () => requestHeaderPanel( { panel: 'share', siteId: site.id } ) }
-								>
-									<ShareStatusIcon icon={ <ShareIcon /> } status={ shareStatus } />
-									{ __( 'Share' ) }
-								</Menu.Item>
-								{ layout === 'mobile-overflow' && navigation?.annotate ? (
-									<Menu.Item
-										role="menuitemcheckbox"
-										aria-checked={ navigation.annotate.active }
-										disabled={ navigation.annotate.disabled }
-										aria-description={ navigation.annotate.disabledReason }
-										title={ navigation.annotate.disabledReason }
-										onClick={ navigation.annotate.onClick }
-									>
-										<AnnotateIcon />
-										{ __( 'Annotate' ) }
-									</Menu.Item>
-								) : null }
-								{ navigation?.responsive ? (
-									<Menu.Item
-										role="menuitemcheckbox"
-										aria-checked={ navigation.responsive.active }
-										disabled={ navigation.responsive.disabled }
-										onClick={ navigation.responsive.onClick }
-									>
-										<ResponsiveIcon />
-										{ __( 'Responsive mode' ) }
-									</Menu.Item>
-								) : null }
-
-								{ navigation?.openExternal ? (
-									<Menu.Item disabled={ navigation.disabled } onClick={ navigation.openExternal }>
-										<ExternalLinkIcon />
-										{ __( 'Open in browser' ) }
-									</Menu.Item>
-								) : null }
-								{ ( layout === 'navigation-overflow' || layout === 'mobile-overflow' ) &&
-								navigation ? (
-									<>
-										<Menu.Separator />
-										<Menu.Item
-											disabled={ navigation.disabled || ! navigation.canGoBack }
-											onClick={ navigation.back }
 										>
-											<ArrowLeftIcon />
-											{ __( 'Back' ) }
-											<Menu.Shortcut>{ navigation.backShortcut }</Menu.Shortcut>
-										</Menu.Item>
-										<Menu.Item
-											disabled={ navigation.disabled || ! navigation.canGoForward }
-											onClick={ navigation.forward }
-										>
-											<ArrowRightIcon />
-											{ __( 'Forward' ) }
-											<Menu.Shortcut>{ navigation.forwardShortcut }</Menu.Shortcut>
-										</Menu.Item>
-										<Menu.Item disabled={ navigation.disabled } onClick={ navigation.reload }>
-											<RotateCwIcon />
-											{ __( 'Reload preview' ) }
-										</Menu.Item>
-									</>
-								) : null }
-							</Menu.Popup>
-						</Menu.Root>
-					) : null }
-				</span>
+											<EllipsisIcon />
+										</Menu.Trigger>
+										<TooltipContent side="bottom">{ __( 'More preview actions' ) }</TooltipContent>
+									</Tooltip>
+									<Menu.Popup side="bottom" align="end">
+										{ navigation?.openExternal ? (
+											<Menu.Item
+												disabled={ navigation.disabled }
+												onClick={ navigation.openExternal }
+											>
+												<ExternalLinkIcon />
+												{ __( 'Open in browser' ) }
+											</Menu.Item>
+										) : null }
+										{ layout === 'navigation-overflow' && navigation ? (
+											<>
+												<Menu.Separator />
+												<Menu.Item
+													disabled={ navigation.disabled || ! navigation.canGoBack }
+													onClick={ navigation.back }
+												>
+													<ArrowLeftIcon />
+													{ __( 'Back' ) }
+													<Menu.Shortcut>{ navigation.backShortcut }</Menu.Shortcut>
+												</Menu.Item>
+												<Menu.Item
+													disabled={ navigation.disabled || ! navigation.canGoForward }
+													onClick={ navigation.forward }
+												>
+													<ArrowRightIcon />
+													{ __( 'Forward' ) }
+													<Menu.Shortcut>{ navigation.forwardShortcut }</Menu.Shortcut>
+												</Menu.Item>
+												<Menu.Item disabled={ navigation.disabled } onClick={ navigation.reload }>
+													<RotateCwIcon />
+													{ __( 'Reload preview' ) }
+												</Menu.Item>
+											</>
+										) : null }
+									</Menu.Popup>
+								</Menu.Root>
+							</span>,
+							browserSpace
+					  )
+					: null }
+				<div data-site-header-delivery className={ styles.delivery }>
+					<span data-site-header-annotate className={ styles.item }>
+						<AnnotateButton { ...annotation } iconOnly />
+					</span>
+					<span data-site-header-share className={ styles.item }>
+						<ShareButton site={ site } />
+					</span>
+					{ publishButton }
+				</div>
+				{ end ? (
+					<span data-site-header-end className={ styles.item }>
+						{ end }
+					</span>
+				) : null }
 			</div>
 		</div>
 	);

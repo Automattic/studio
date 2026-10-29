@@ -131,10 +131,12 @@
 
 	/* The workspace's top band, its controls, and the short column separators
 	   drawn inside it. */
-	--band-height: 54px;
+	--band-height: 48px;
 	--control-size: 36px;
 	--band-inset: calc( ( var( --band-height ) - var( --control-size ) ) / 2 );
 	--band-separator-height: 16px;
+	--band-gap: var( --space-0_5 );
+	--band-group-gap: var( --space-2 );
 	/* Where the band's first control starts on macOS, past the traffic lights. */
 	--traffic-light-space: 92px;
 

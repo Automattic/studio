@@ -102,36 +102,24 @@ describe( 'SiteHeaderActions', () => {
 		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 	} );
 
-	it( 'folds Share into a More menu when the header runs out of room', async () => {
+	it( 'keeps Share beside Publish when the header runs out of room', async () => {
 		await renderActions( { headerWidth: 60 } );
-
-		expect( screen.queryByRole( 'button', { name: 'Share' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
-		await userEvent.click( screen.getByRole( 'button', { name: 'More preview actions' } ) );
-		expect( await screen.findByRole( 'menuitem', { name: 'Share' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
+		expect(
+			screen.queryByRole( 'button', { name: 'More preview actions' } )
+		).not.toBeInTheDocument();
 	} );
 
-	it( 'opens Share from More and returns focus to the visible overflow trigger', async () => {
-		const { connector } = await renderActions( { headerWidth: 60 } );
-		connector.getSnapshots = vi.fn().mockResolvedValue( [] );
-		connector.getSnapshotUsage = vi.fn().mockResolvedValue( null );
+	it( 'opens Share and returns focus to its fixed header button', async () => {
+		await renderActions( { headerWidth: 60 } );
 		const actions = userEvent.setup();
-		const more = screen.getByRole( 'button', { name: 'More preview actions' } );
-		await actions.click( more );
-		await actions.click( await screen.findByRole( 'menuitem', { name: 'Share' } ) );
-		await screen.findByRole( 'button', { name: 'Create preview' } );
-		await actions.click( screen.getByRole( 'button', { name: 'Close' } ) );
+		const share = screen.getByRole( 'button', { name: 'Share' } );
+		await actions.click( share );
+		await screen.findByRole( 'dialog' );
+		await actions.keyboard( '{Escape}' );
 		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
-		await waitFor( () => expect( more ).toHaveFocus() );
-	} );
-
-	it( 'hands focus to More when the focused browser control folds into it', async () => {
-		const { resize } = await renderActions( { navigation: true } );
-		screen.getByRole( 'button', { name: 'Reload preview' } ).focus();
-
-		await resize( 60 );
-
-		expect( screen.getByRole( 'button', { name: 'More preview actions' } ) ).toHaveFocus();
+		await waitFor( () => expect( share ).toHaveFocus() );
 	} );
 
 	it( 'keeps Share inline when it fits', async () => {
@@ -144,13 +132,12 @@ describe( 'SiteHeaderActions', () => {
 		).not.toBeInTheDocument();
 	} );
 
-	it( 'keeps Publish and preview sharing over a Live chat’s preview, even with the local site stopped', async () => {
+	it( 'keeps Publish and Share inline over a Live preview, even with the local site stopped', async () => {
 		await renderActions( { host: 'preview', live: true, headerWidth: 60 } );
 
 		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
-		await userEvent.click( screen.getByRole( 'button', { name: 'More preview actions' } ) );
-		expect( await screen.findByRole( 'menuitem', { name: 'Share' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toBeVisible();
 	} );
 
 	it( 'keeps Share beside Publish over a Live chat’s preview when it fits', async () => {

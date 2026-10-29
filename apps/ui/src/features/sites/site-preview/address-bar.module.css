@@ -1,29 +1,19 @@
 .addressBar {
-	--surface: var( --composer );
+	--surface: var( --chrome );
 
 	-webkit-app-region: no-drag;
 	position: relative;
 	display: flex;
 	width: 100%;
-	max-width: var( --preview-address-max-width, 360px );
 	flex: 1 1 auto;
 	min-width: 0;
-	height: var( --control-size );
-	padding-inline: var( --space-3 );
+	height: var( --preview-control-size, 32px );
 	align-items: center;
-	border: 1px solid var( --border );
-	border-radius: var( --radius-full );
-	background-color: var( --surface );
+	border-radius: var( --radius-md );
 }
 
-.addressBar:has( .input:focus ) {
-	border-color: var( --ring );
-	box-shadow: inset 0 0 0 1px var( --ring );
-}
-
-.addressBar:has( .input[aria-invalid='true'] ) {
-	border-color: var( --destructive );
-	--ring: var( --destructive );
+.addressBar:is( :hover, :focus-within ) .input {
+	background-color: var( --hover );
 }
 
 .actions {
@@ -33,19 +23,15 @@
 	inset-inline-end: var( --space-0_5 );
 	display: flex;
 	align-items: center;
-	border-radius: var( --radius-full );
-	background-color: var( --surface );
+	border-radius: var( --radius-md );
+	background-color: var( --hover );
 	opacity: 0;
 	pointer-events: none;
 	transition: opacity var( --motion-duration-feedback ) ease;
 }
 
-.responsiveAction {
-	inset-inline: var( --space-0_5 ) auto;
-}
-
 .action {
-	width: calc( var( --control-size ) - 2px - 2 * var( --space-0_5 ) );
+	width: calc( var( --preview-control-size, 32px ) - 2px - 2 * var( --space-0_5 ) );
 	height: 100%;
 }
 
@@ -64,16 +50,11 @@
 	width: 100%;
 	height: 100%;
 	min-width: 0;
-	padding-inline: var( --space-5 );
+	padding-inline: var( --space-3 );
+	padding-inline-end: calc( var( --preview-control-size, 32px ) + var( --space-1 ) );
 	color: var( --foreground );
 	font-size: var( --text-xs );
 	line-height: var( --text-xs--line-height );
-	text-align: center;
-	outline: 0;
-}
-
-.input:focus {
-	padding-inline: 0;
 	text-align: start;
 }
 
@@ -90,18 +71,4 @@
 .shortcuts {
 	/* eslint-disable-next-line studio/no-primitive-overrides -- the suggestions sit on a menu surface, not the composer. */
 	--command-radius: var( --radius-md );
-}
-
-.addressText {
-	position: absolute;
-	visibility: hidden;
-	white-space: pre;
-	font-size: var( --text-xs );
-	line-height: var( --text-xs--line-height );
-	pointer-events: none;
-}
-
-.addressBar.responsiveActive:not( :has( .input:focus ) ) .actions.responsiveAction {
-	opacity: 1;
-	pointer-events: auto;
 }

@@ -8,21 +8,48 @@
 	align-items: center;
 	height: var( --band-height );
 	-webkit-app-region: no-drag;
+	pointer-events: none;
 }
 
 .actions {
 	display: flex;
 	align-items: center;
-	gap: var( --space-2 );
+	gap: var( --band-gap );
+	margin-inline-start: auto;
+	pointer-events: auto;
+}
+
+.delivery {
+	display: flex;
+	align-items: center;
+	gap: var( --band-gap );
+	pointer-events: auto;
 }
 
 .item,
 .publish {
+	gap: var( --band-gap );
 	display: flex;
 	flex-shrink: 0;
 }
 
+.publish {
+	align-items: center;
+	gap: var( --space-1 );
+	margin-inline: var( --space-1 );
+}
+
+.publish::before,
+.publish::after {
+	content: '';
+	flex-shrink: 0;
+	width: 1px;
+	height: var( --band-separator-height );
+	background-color: var( --border );
+}
+
 .publish[hidden],
+.item[hidden],
 .item [hidden] {
 	display: none;
 }
@@ -30,4 +57,13 @@
 .space {
 	flex-shrink: 0;
 	align-self: stretch;
+}
+
+.browserSpace {
+	display: flex;
+	flex-shrink: 0;
+}
+
+.browserSpace:empty {
+	display: none;
 }

@@ -2,8 +2,3 @@
 	position: relative;
 	z-index: 4;
 }
-
-.chatToggle {
-	color: var( --foreground );
-	margin-inline-end: var( --band-inset );
-}

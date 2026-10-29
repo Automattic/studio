@@ -215,9 +215,9 @@ describe( 'BlueprintUpload', () => {
 			types: [ 'Files' ],
 		};
 		fireEvent.dragEnter( target, { dataTransfer } );
-		expect( screen.getByText( 'Drop to use Blueprint' ) ).toBeInTheDocument();
+		expect( target ).toHaveAttribute( 'data-dragging' );
 		fireEvent.drop( target, { dataTransfer } );
 		await waitFor( () => expect( onSelect ).toHaveBeenCalledOnce() );
-		expect( screen.queryByText( 'Drop to use Blueprint' ) ).not.toBeInTheDocument();
+		expect( target ).not.toHaveAttribute( 'data-dragging' );
 	} );
 } );

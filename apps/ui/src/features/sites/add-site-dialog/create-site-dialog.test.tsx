@@ -216,11 +216,11 @@ describe( 'Add site flow', () => {
 			types: [ 'Files' ],
 		};
 		fireEvent.dragEnter( window, { dataTransfer } );
-		expect( screen.queryByText( 'Drop to import backup' ) ).not.toBeInTheDocument();
+		expect( target ).not.toHaveAttribute( 'data-dragging' );
 		fireEvent.dragEnter( target, { dataTransfer } );
-		expect( screen.getByText( 'Drop to import backup' ) ).toBeInTheDocument();
+		expect( target ).toHaveAttribute( 'data-dragging' );
 		fireEvent.dragLeave( target, { dataTransfer } );
-		expect( screen.queryByText( 'Drop to import backup' ) ).not.toBeInTheDocument();
+		expect( target ).not.toHaveAttribute( 'data-dragging' );
 		fireEvent.drop( target, { dataTransfer } );
 		expect( await screen.findByRole( 'button', { name: 'Import site' } ) ).toBeVisible();
 	} );

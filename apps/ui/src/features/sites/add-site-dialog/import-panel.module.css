@@ -22,6 +22,11 @@
 
 .dropZone[data-dragging] {
 	border-color: var( --accent );
+	border-style: solid;
+	background-color: light-dark(
+		color-mix( in srgb, var( --accent-text ) 15%, transparent ),
+		color-mix( in srgb, var( --accent-text ) 10%, transparent )
+	);
 }
 
 .dropIcon {

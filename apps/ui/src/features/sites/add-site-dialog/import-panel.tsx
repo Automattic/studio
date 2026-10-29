@@ -14,7 +14,7 @@ import { useImportSite } from '@/data/queries/use-import-site';
 import { useCreateSite, useDeleteSite } from '@/data/queries/use-sites';
 import { useFileDrop } from '@/data/use-composer-attachments';
 import { CreateSiteForm } from '@/features/sites/create-site-form';
-import { Button, Alert, AlertDescription, AttachmentDropOverlay } from '@/lib/ui';
+import { Button, Alert, AlertDescription } from '@/lib/ui';
 import { useAddSite } from './context';
 import styles from './import-panel.module.css';
 import type { CreateSiteFormError, CreateSiteFormValues } from '@/features/sites/create-site-form';
@@ -89,9 +89,6 @@ export function BackupDropZone( { onFile }: { onFile: ( file: File ) => void } )
 				data-dragging={ isDragging || undefined }
 				ref={ setDropTarget }
 			>
-				{ isDragging && (
-					<AttachmentDropOverlay>{ __( 'Drop to import backup' ) }</AttachmentDropOverlay>
-				) }
 				<UploadIcon className={ styles.dropIcon } size={ 24 } />
 				<div className={ styles.dropText }>
 					<p className={ styles.dropLabel }>{ __( 'Drop a WordPress backup here.' ) }</p>

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { useFileDrop } from '@/data/use-composer-attachments';
 import { BlueprintErrorDialog } from '@/features/sites/blueprint-error-dialog';
-import { AttachmentDropOverlay, Button } from '@/lib/ui';
+import { Button } from '@/lib/ui';
 import { BLUEPRINT_FILE_ACCEPT, loadBlueprintFile } from './load-blueprint-file';
 import styles from './style.module.css';
 import type { SelectedBlueprint } from '@/features/sites/blueprint-selection';
@@ -117,9 +117,6 @@ export function BlueprintUpload( {
 							className={ styles.dropZone }
 							data-dragging={ isDragging || undefined }
 						>
-							{ isDragging && (
-								<AttachmentDropOverlay>{ __( 'Drop to use Blueprint' ) }</AttachmentDropOverlay>
-							) }
 							<UploadIcon className={ styles.dropIcon } size={ 24 } />
 							<div className={ styles.dropText }>
 								<p className={ styles.dropLabel }>{ __( 'Drop a Blueprint here.' ) }</p>

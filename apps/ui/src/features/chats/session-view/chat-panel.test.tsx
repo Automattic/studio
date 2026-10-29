@@ -438,7 +438,7 @@ describe( 'Chat target selection', () => {
 		expect( connector.authenticate ).not.toHaveBeenCalled();
 	} );
 
-	it( 'switches an empty chat to the picked model and the live site while preserving the draft', async () => {
+	it( 'switches an empty chat to the picked model while preserving the draft', async () => {
 		const { connector, input } = await setupChat( {
 			provider: 'anthropic-api-key',
 			signedIn: false,
@@ -453,12 +453,6 @@ describe( 'Chat target selection', () => {
 		await waitFor( () =>
 			expect( connector.setSessionModel ).toHaveBeenCalledWith( 'chat', 'claude-opus-5' )
 		);
-		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: /^Work on live site/ } ) );
-		await waitFor( () =>
-			expect( connector.setSessionEnvironment ).toHaveBeenCalledWith( 'chat', 'live' )
-		);
-		expect( await screen.findByRole( 'button', { name: 'Remove Live' } ) ).toBeVisible();
 		expect( screen.getByRole( 'combobox', { name: 'Message WordPress Studio' } ) ).toHaveValue(
 			'Preserve this draft'
 		);

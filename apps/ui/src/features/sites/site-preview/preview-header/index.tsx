@@ -6,7 +6,7 @@ import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
 import { SiteHeaderSpace, useSiteHeader } from '@/features/sites/site-header-actions';
 import { PreviewAddressBar, type PreviewRealm } from '@/features/sites/site-preview/address-bar';
 import { RotateCwIcon } from '@/lib/icons';
-import { Dialog, DialogContent, DialogTitle, IconButton } from '@/lib/ui';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, IconButton } from '@/lib/ui';
 import { AnnotateButton } from './annotate-button';
 import { BrowserHistoryButton } from './browser-history-button';
 import styles from './style.module.css';
@@ -195,7 +195,11 @@ export function PreviewHeader( {
 			</div>
 			<Dialog open={ addressOpen } onOpenChange={ onAddressOpenChange }>
 				<DialogContent layout="compact">
-					<DialogTitle>{ __( 'Go to URL' ) }</DialogTitle>
+					<DialogHeader>
+						<DialogHeader>
+							<DialogTitle>{ __( 'Go to URL' ) }</DialogTitle>
+						</DialogHeader>
+					</DialogHeader>
 					{ addressBar }
 				</DialogContent>
 			</Dialog>

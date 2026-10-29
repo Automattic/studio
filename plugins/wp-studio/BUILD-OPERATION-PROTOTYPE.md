@@ -9,11 +9,13 @@ Use Node 24, then prepare this source checkout:
 git switch try-build-orchestration
 npm ci
 npm run cli:build
-export SITE_BUILD_HOME=/absolute/path/to/site-builder-engine
 ```
 
-The engine checkout must provide the capabilities listed below. Confirm them
-with `php "$SITE_BUILD_HOME/bin/build.php" --protocol`. This experiment does not
+By default, keep the engine alongside Studio at `../site-builder-engine`.
+Set `SITE_BUILD_HOME=/absolute/path/to/site-builder-engine` or request
+`engineHome` to use another location. The engine checkout must provide the
+capabilities listed below. Confirm them with
+`php ../site-builder-engine/bin/build.php --protocol`. This experiment does not
 install itself into an agent's plugin cache; run the source adapter directly.
 Copy the request example from the linked reference into your own request JSON,
 select your current harness, and use a fresh absolute operation directory:
@@ -76,7 +78,7 @@ it does not certify that an external harness followed this plugin skill.
 Technical smoke trial: generation, one harness image callback, Studio import,
 page rendering, and desktop/mobile light/dark screenshots completed in 127.676s
 at http://localhost:8887/. The adapter prepared Studio during generation.
-All 68 targeted tests and ESLint passed. Independent review covered receipt
+All 69 targeted tests and ESLint passed. Independent review covered receipt
 identity, replay races, cancellation, recovery and visibility metadata; fixes
 have regression tests. The existing live upload also passed the adapter's
 verify-only checks: two page hashes, one image, and anonymous Coming Soon.

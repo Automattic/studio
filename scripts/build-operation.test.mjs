@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 const {
 	claimImage,
 	getStatus,
@@ -17,6 +17,30 @@ const {
 );
 
 const roots = [];
+it( 'defaults to the sibling engine independently of cwd and preserves overrides', () => {
+	try {
+		vi.stubEnv( 'SITE_BUILD_HOME', undefined );
+		vi.spyOn( process, 'cwd' ).mockReturnValue( os.tmpdir() );
+		const spec = {
+			name: 'Example',
+			slug: 'example',
+			prompt: 'A site about lamps',
+			harness: 'codex',
+		};
+		expect( normalizeSpec( spec ).engineHome ).toBe(
+			path.resolve( import.meta.dirname, '../../site-builder-engine' )
+		);
+		vi.stubEnv( 'SITE_BUILD_HOME', path.join( os.tmpdir(), 'environment-engine' ) );
+		expect( normalizeSpec( spec ).engineHome ).toBe(
+			path.join( os.tmpdir(), 'environment-engine' )
+		);
+		const requested = path.join( os.tmpdir(), 'requested-engine' );
+		expect( normalizeSpec( { ...spec, engineHome: requested } ).engineHome ).toBe( requested );
+	} finally {
+		vi.restoreAllMocks();
+		vi.unstubAllEnvs();
+	}
+} );
 afterEach( () => {
 	for ( const root of roots.splice( 0 ) ) fs.rmSync( root, { recursive: true, force: true } );
 } );

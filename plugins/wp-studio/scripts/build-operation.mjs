@@ -17,6 +17,9 @@ const read = ( file ) => JSON.parse( fs.readFileSync( file, 'utf8' ) );
 const now = () => new Date().toISOString();
 const terminal = new Set( [ 'ready', 'published', 'failed', 'interrupted', 'publication_failed' ] );
 const HELPER = fileURLToPath( new URL( './image-bridge.mjs', import.meta.url ) );
+const DEFAULT_ENGINE_HOME = fileURLToPath(
+	new URL( '../../../../site-builder-engine', import.meta.url )
+);
 
 function atomicJson( file, value ) {
 	const temp = file + '.' + randomUUID() + '.tmp';
@@ -74,9 +77,7 @@ export function normalizeSpec( spec ) {
 		if ( owned.test( arg.slice( 2 ).split( '=' )[ 0 ] ) )
 			throw new Error( 'The operation owns this flag or does not support this workflow: ' + arg );
 	const engineHome = path.resolve(
-		spec.engineHome ??
-			process.env.SITE_BUILD_HOME ??
-			path.join( homedir(), 'projects/a8c/site-builder-engine' )
+		spec.engineHome ?? process.env.SITE_BUILD_HOME ?? DEFAULT_ENGINE_HOME
 	);
 	const developmentCli = fileURLToPath(
 		new URL( '../../../apps/cli/dist/cli/main.mjs', import.meta.url )

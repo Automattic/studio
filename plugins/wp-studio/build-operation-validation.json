@@ -16,7 +16,7 @@
   ],
   "visualReview": "reviewed - no clipping or missing photo observed",
   "targetedTests": {
-    "passed": 68
+    "passed": 69
   },
   "eslint": "passed",
   "cliBuild": "passed",
@@ -44,10 +44,10 @@
     "default Sample Page remains"
   ],
   "sourceHashes": {
-    "plugins/wp-studio/scripts/build-operation.mjs": "547ee20922165872758af65ec9028ec9147318c6cdab5393c3ca4e5ff6629c5c",
+    "plugins/wp-studio/scripts/build-operation.mjs": "ca765dd276ced9ba8ea862d06328dbb79cd823cb301307c6aadf53a6a96e5e5e",
     "apps/cli/lib/publish-operation.ts": "7b5d6e4a8ec05984639369f57e8f7e4ea2091a6d5210b7266ef52567b8abf8a9",
     "apps/cli/lib/publish-services.ts": "efaf7e65b334ea1916749db13a58371dc21aa27503846f61eca2cf3a6147f35c",
-    "scripts/build-operation.test.mjs": "65a6cc46f5923be856043991b862eb4e979fc9b5000176ea294f9aaf1b2e029e"
+    "scripts/build-operation.test.mjs": "0f323af4d07b21b545006f244f2f066ba96dead7933bde4336dac657b02ce1f4"
   },
   "privacyRegression": {
     "localExportProof": {
@@ -81,6 +81,12 @@
     "trialBranch": "feature/studio",
     "trialCommit": "5c833666",
     "capabilitiesAbsentFromCheckedLocalTrunk": true,
-    "publicationAndPrivacyRequireEngine": false
+    "publicationAndPrivacyRequireEngine": false,
+    "defaultLocation": "../site-builder-engine relative to the Studio checkout, independent of caller cwd",
+    "overridePrecedence": [
+      "request engineHome",
+      "SITE_BUILD_HOME",
+      "sibling checkout"
+    ]
   }
 }

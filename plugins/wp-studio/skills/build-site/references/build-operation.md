@@ -24,8 +24,10 @@ Write a request JSON file containing:
 
 `harness` names this session: codex, claude, or grok. Use `images: "harness"`
 only when this session or Studio can generate images; `"none"` requires a brief
-that permits no generated images. Optional `engineHome` overrides the engine
-location. Optional `studioCommand` is a command argv array; `STUDIO_CLI_BIN`
+that permits no generated images. The engine location resolves from request
+`engineHome`, then `SITE_BUILD_HOME`, then `../site-builder-engine` relative to
+the Studio checkout. The default does not depend on the caller's working
+directory. Optional `studioCommand` is a command argv array; `STUDIO_CLI_BIN`
 also selects a built development CLI. The engine and checks use the same CLI.
 `engineArguments` forwards graph/feature/upload flags as `--flag=value`
 entries. Omit it for DSL Fast with the full default feature set. Bounded builds,

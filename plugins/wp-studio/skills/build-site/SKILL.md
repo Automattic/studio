@@ -8,7 +8,7 @@ description: Build a whole local WordPress site. Use the local engine through th
 1. Preserve the brief's facts, art direction, pages, and functionality. Ask only
    for information needed to proceed.
 2. For a new site, if the engine at `SITE_BUILD_HOME` or
-   `~/projects/a8c/site-builder-engine` exists, use
+   `../site-builder-engine` (relative to the Studio checkout) exists, use
    [the operation adapter](references/build-operation.md). It owns capability
    checks, early Studio preparation, polling, image bookkeeping, import,
    automated checks, publishing, and timing receipts. Use this session's harness.

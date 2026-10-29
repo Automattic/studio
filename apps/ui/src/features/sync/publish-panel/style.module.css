@@ -310,3 +310,32 @@
 	display: flex;
 	justify-content: center;
 }
+
+.transferReview {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: var( --space-3 );
+	min-height: 0;
+}
+
+.transferFields {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: var( --space-2_5 );
+	min-height: 0;
+	overflow-y: auto;
+}
+
+.transferFields > * {
+	flex-shrink: 0;
+}
+
+.transferFooter {
+	composes: connectedActions;
+}
+
+.transferFooter > :only-child {
+	grid-column: 1 / -1;
+}

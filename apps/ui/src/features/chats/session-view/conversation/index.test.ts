@@ -333,7 +333,7 @@ describe( 'Conversation activity groups', () => {
 		expect( screen.getAllByRole( 'button', { name: 'Open design system' } ) ).toHaveLength( 1 );
 	} );
 
-	it( 'keeps a pending question available when live activity is manually collapsed', () => {
+	it( 'automatically collapses activity while keeping a pending question available', () => {
 		renderConversation(
 			loadedSession( [
 				promptEntry( 'Check my site' ),
@@ -344,9 +344,11 @@ describe( 'Conversation activity groups', () => {
 			{ isRunning: true, startedAt: Date.now(), pendingQuestions: new Set( [ 'Which color?' ] ) }
 		);
 		const header = screen.getByRole( 'button', { name: /^Waiting for/ } );
-		expect( header ).toHaveAttribute( 'aria-expanded', 'true' );
-		fireEvent.click( header );
 		expect( header ).toHaveAttribute( 'aria-expanded', 'false' );
+		expect( screen.getByRole( 'radio', { name: 'Blue' } ) ).toBeVisible();
+		fireEvent.click( header );
+		expect( header ).toHaveAttribute( 'aria-expanded', 'true' );
+		expect( screen.getByText( 'Checking the theme.' ) ).toBeVisible();
 		expect( screen.getByRole( 'radio', { name: 'Blue' } ) ).toBeVisible();
 	} );
 } );

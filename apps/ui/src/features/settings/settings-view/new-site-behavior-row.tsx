@@ -7,7 +7,10 @@ export function NewSiteBehaviorRow() {
 	const { data } = useUserPreferences();
 	const save = useSaveUserPreferences();
 	return (
-		<SettingsRow title={ __( 'When adding a site' ) }>
+		<SettingsRow
+			title={ __( 'When adding a site' ) }
+			description={ __( 'Choose a starting point or go straight to creating a blank site.' ) }
+		>
 			<SettingsSelect< NewSiteBehavior >
 				label={ __( 'When adding a site' ) }
 				value={ data?.newSiteBehavior ?? 'choose' }

@@ -4,7 +4,7 @@
 	display: block;
 	max-width: 448px;
 	overflow: hidden;
-	padding: var( --space-2_5 );
+	padding: var( --space-1_5 );
 	transform: translateX( -50% );
 	transition: none;
 }

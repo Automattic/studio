@@ -11,7 +11,7 @@
 	margin-block: var( --space-2 ) var( --space-1 );
 	margin-inline-start: 7px;
 	padding-inline: var( --space-3 ) var( --space-1 );
-	border-inline-start: 1px solid var( --border );
+	border-inline-start: 0.5px solid var( --border );
 	color: var( --muted-foreground );
 	font-size: var( --text-xs );
 	line-height: var( --text-xs--line-height );

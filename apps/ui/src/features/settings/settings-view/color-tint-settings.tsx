@@ -5,7 +5,12 @@ import {
 } from '@studio/common/lib/user-settings/preferences';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useLayoutEffect, useState } from 'react';
-import { applyColorTint, previewAccentColor } from '@/lib/theme';
+import {
+	applyColorTint,
+	DEFAULT_COLOR_TINT,
+	isDefaultColorTint,
+	previewAccentColor,
+} from '@/lib/theme';
 import {
 	InputGroup,
 	InputGroupAddon,
@@ -80,9 +85,13 @@ export function ColorTintSettings( {
 					getColorPresets().map( ( preset ) => [
 						preset.color,
 						previewAccentColor( {
-							...draft,
+							...( preset.color === DEFAULT_ACCENT_COLOR ? DEFAULT_COLOR_TINT : draft ),
 							accentColor: preset.color,
-							tintIntensity: preset.tintIntensity ?? draft.tintIntensity,
+							tintIntensity:
+								preset.tintIntensity ??
+								( preset.color === DEFAULT_ACCENT_COLOR
+									? DEFAULT_COLOR_TINT.tintIntensity
+									: draft.tintIntensity ),
 						} ),
 					] )
 				)
@@ -113,9 +122,17 @@ export function ColorTintSettings( {
 							key={ preset.color }
 							label={ preset.label }
 							color={ previewColors[ preset.color ] ?? preset.color }
-							selected={ draft.accentColor === preset.color }
+							selected={
+								preset.color === DEFAULT_ACCENT_COLOR
+									? isDefaultColorTint( draft )
+									: draft.accentColor === preset.color
+							}
 							onClick={ () => {
 								setHex( preset.color );
+								if ( preset.color === DEFAULT_ACCENT_COLOR ) {
+									commit( DEFAULT_COLOR_TINT );
+									return;
+								}
 								commit( {
 									accentColor: preset.color,
 									tintIntensity: preset.tintIntensity ?? draft.tintIntensity,

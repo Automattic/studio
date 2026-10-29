@@ -19,9 +19,17 @@ const icons: Record< string, string > = {
 };
 
 /** An app's bundled logo, or `fallback` when there is none or it fails to load. */
-export function AppIcon( { app, fallback }: { app?: string; fallback: ReactNode } ) {
+export function AppIcon( {
+	app,
+	src: source,
+	fallback,
+}: {
+	app?: string;
+	src?: string;
+	fallback: ReactNode;
+} ) {
 	const [ failedSource, setFailedSource ] = useState< string >();
-	const src = app ? icons[ app ] : undefined;
+	const src = source ?? ( app ? icons[ app ] : undefined );
 	if ( ! src || failedSource === src ) {
 		return fallback;
 	}

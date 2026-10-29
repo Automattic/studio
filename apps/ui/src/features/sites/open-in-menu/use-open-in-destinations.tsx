@@ -1,6 +1,7 @@
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { captureException } from '@studio/common/lib/error-reporting';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
+import { browserConfig } from '@studio/common/lib/user-settings/browser';
 import {
 	getFirstInstalledEditor,
 	supportedEditorConfig,
@@ -10,6 +11,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { CodeIcon } from 'lucide-react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import { useBrowserInfo } from '@/data/queries/use-browser-info';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
@@ -74,6 +76,10 @@ export function useOpenInDestinations(
 	const connector = useConnector();
 	const { data: userPreferences } = useUserPreferences();
 	const { data: installedApps } = useInstalledApps();
+	const { data: browserInfo } = useBrowserInfo();
+	const browserLabel =
+		browserInfo?.name ||
+		( userPreferences?.browser ? browserConfig[ userPreferences.browser ].name : __( 'Browser' ) );
 	const startSite = useStartSiteWithChat();
 
 	const fileManager = getFileManager();
@@ -124,10 +130,8 @@ export function useOpenInDestinations(
 		},
 		{
 			id: 'browser',
-			label: __( 'Browser' ),
-			// Not the globe: the address bar already uses that for the site's
-			// front end, and this one leaves Studio.
-			logo: <ExternalLinkIcon />,
+			label: browserLabel,
+			logo: <AppIcon src={ browserInfo?.icon } fallback={ <ExternalLinkIcon /> } />,
 			disabled: false,
 			open: () =>
 				open( 'browser', __( 'Browser' ), () => {

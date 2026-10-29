@@ -47,11 +47,11 @@ function expandWinEnv( p: string ): string {
 	return p.replace( /%([^%]+)%/g, ( _m, name ) => process.env[ name ] ?? '' );
 }
 
-async function openUrl( url: string ): Promise< void > {
+export async function openUrl( url: string ): Promise< void > {
 	if ( process.platform === 'darwin' ) {
 		await execFileAsync( 'open', [ url ] );
 	} else if ( process.platform === 'win32' ) {
-		await execFileAsync( 'cmd', [ '/c', 'start', '""', url ] );
+		await execFileAsync( 'rundll32.exe', [ 'url.dll,FileProtocolHandler', url ] );
 	} else {
 		await execFileAsync( 'xdg-open', [ url ] );
 	}

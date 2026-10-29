@@ -1,5 +1,6 @@
 import { getLocalizedLink, REPORT_ISSUE_URL } from '@studio/common/lib/docs-links';
 import { supportedLocaleNames } from '@studio/common/lib/locale';
+import { SUPPORTED_BROWSERS, browserConfig } from '@studio/common/lib/user-settings/browser';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import {
 	getColorTint,
@@ -199,6 +200,22 @@ function PreferencesPanel( {
 							supportedEditorConfig[ editor ].label()
 						) }
 						onChange={ ( editor ) => onChange( { editor } ) }
+					/>
+				</SettingsRow>
+				<SettingsRow
+					title={ __( 'Browser' ) }
+					description={ __( 'The browser used to open your sites, WP Admin, and phpMyAdmin.' ) }
+				>
+					<SettingsSelect
+						label={ __( 'Browser' ) }
+						value={ data.browser }
+						options={ [
+							{ value: UNSET, label: __( 'System default' ) },
+							...SUPPORTED_BROWSERS.filter(
+								( browser ) => installedApps?.[ browser ] || browser === data.browser
+							).map( ( browser ) => ( { value: browser, label: browserConfig[ browser ].name } ) ),
+						] }
+						onChange={ ( browser ) => onChange( { browser } ) }
 					/>
 				</SettingsRow>
 				<SettingsRow

@@ -92,7 +92,9 @@ import {
 	readOnboardingCompleted,
 	writeOnboardingCompleted,
 } from '@studio/common/lib/user-settings/onboarding';
+import { openSiteInBrowser } from '@studio/common/lib/user-settings/open-browser';
 import { openLinuxTerminal } from '@studio/common/lib/user-settings/open-linux-terminal';
+import { getSiteBrowserUrl } from '@studio/common/lib/user-settings/site-browser-url';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import {
 	cleanupBlueprintTempDir as cleanupBlueprintTempDirShared,
@@ -214,6 +216,7 @@ export {
 	getAiSettings,
 	getGlobalAgentInstructions,
 	getInstalledAppsAndTerminals,
+	getBrowserInfo,
 	getOnboardingHints,
 	getUserPreferences,
 	getWapuuScore,
@@ -901,22 +904,10 @@ export async function openSiteURL(
 		return;
 	}
 
-	// When the caller didn't ask for a specific path (the generic "Open site"
-	// entry points pass `''`), honor the Blueprint-provided `landingPage` if
-	// the site has one. Explicit relative paths (e.g. `/wp-admin/`) still win.
-	const usingLandingPage = ! relativeURL && !! site.landingPage;
-	const targetPath = relativeURL || site.landingPage || '';
-	let url = new URL( targetPath, site.url );
-	// Blueprint landing pages may point at admin screens; force auto-login so
-	// users don't get bounced to the login page. This matches Playground's
-	// "always-logged-in sandbox" behavior for Blueprint-imported sites.
-	if ( autoLogin || usingLandingPage ) {
-		const autoLoginUrl = new URL( '/studio-auto-login', site.url );
-		autoLoginUrl.searchParams.append( 'redirect_to', url.toString() );
-		url = autoLoginUrl;
-	}
-
-	void shellOpenExternalWrapper( url.toString() );
+	await openSiteInBrowser(
+		getSiteBrowserUrl( site, relativeURL, autoLogin ),
+		shellOpenExternalWrapper
+	);
 }
 
 // Only web URLs: other schemes would launch whatever app handles them.

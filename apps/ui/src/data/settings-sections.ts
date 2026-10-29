@@ -93,6 +93,11 @@ function getStudioSections( signedIn: boolean ): Section[] {
 					CodeIcon
 				),
 				setting(
+					__( 'Browser' ),
+					__( 'The browser used to open your sites, WP Admin, and phpMyAdmin.' ),
+					'browser'
+				),
+				setting(
 					__( 'Terminal' ),
 					__( 'The default terminal for your sites.' ),
 					'terminal',

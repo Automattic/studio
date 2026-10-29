@@ -75,6 +75,7 @@ export const TEST_USER: AuthUser = { id: 1, email: 'test@example.test', displayN
 
 const defaultPreferences = (): UserPreferences => ( {
 	editor: 'vscode',
+	browser: null,
 	terminal: 'terminal',
 	colorScheme: 'light',
 	locale: 'en',
@@ -279,6 +280,7 @@ export function createInMemoryConnector(
 		onConnectionRestored: subscribe( 'onConnectionRestored' ),
 		onSessionPlacementUpdated: subscribe( 'onSessionPlacementUpdated' ),
 		getUserPreferences: async () => state.preferences,
+		getBrowserInfo: async () => null,
 		setUserPreferences: async ( partial ) => {
 			state.preferences = { ...state.preferences, ...partial };
 		},

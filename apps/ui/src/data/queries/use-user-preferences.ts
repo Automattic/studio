@@ -57,6 +57,9 @@ export function useSaveUserPreferences() {
 			);
 		},
 		onSuccess: async ( partial, _variables, context ) => {
+			if ( 'browser' in partial ) {
+				await queryClient.invalidateQueries( { queryKey: [ 'browser-info' ] } );
+			}
 			// A fetch that started during the save may have read the preferences
 			// before it landed; cancel it so its result can't overwrite the save.
 			await queryClient.cancelQueries( { queryKey: USER_PREFERENCES_QUERY_KEY } );

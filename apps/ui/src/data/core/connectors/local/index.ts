@@ -102,9 +102,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 	const authListeners = new Set< () => void >();
 	let eventSource: EventSource | undefined;
 	const connectionRestoredListeners = new Set< () => void >();
-	// Last site list fetched via getSites(), so one-off lookups (openSiteUrl)
-	// don't trigger an extra round-trip.
-	let lastSites: SiteDetails[] | undefined;
 
 	async function api< T >( path: string, init?: RequestInit ): Promise< T > {
 		const response = await fetch( `${ base }${ path }`, {
@@ -176,14 +173,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			throw new Error( `POST /uploads failed (${ response.status }): ${ text }` );
 		}
 		return ( ( await response.json() ) as { path: string } ).path;
-	}
-
-	function findSiteUrl( sites: SiteDetails[], siteId: string ): string {
-		const site = sites.find( ( candidate ) => candidate.id === siteId );
-		if ( ! site?.url ) {
-			throw new Error( `Site ${ siteId } has no URL` );
-		}
-		return site.url;
 	}
 
 	return {
@@ -330,8 +319,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 
 		// Sites — the local machine's real Studio sites, served by the CLI.
 		async getSites(): Promise< SiteDetails[] > {
-			lastSites = await api< SiteDetails[] >( '/sites' );
-			return lastSites;
+			return api< SiteDetails[] >( '/sites' );
 		},
 		async startSite( id ) {
 			return api< SiteListItem >( `/sites/${ encodeURIComponent( id ) }/start`, {
@@ -875,6 +863,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async openExternalUrl( url ) {
 			window.open( url, '_blank', 'noopener,noreferrer' );
 		},
+		async getBrowserInfo() {
+			return api( '/browser-info' );
+		},
 		async getWapuuScore() {
 			return readWapuuScore( WAPUU_SCORE_STORAGE_KEY );
 		},
@@ -884,18 +875,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async popupAppMenu() {},
 		showsAppMenuButton: false,
 		async openSiteUrl( siteId, relativeUrl = '', { autoLogin = true } = {} ) {
-			const sites = lastSites ?? ( await api< SiteDetails[] >( '/sites' ) );
-			const siteUrl = findSiteUrl( sites, siteId );
-			let target = new URL( relativeUrl || '/', siteUrl );
-			// Mirrors the desktop host's `openSiteURL`: go through the site's
-			// /studio-auto-login endpoint so admin screens don't land on the
-			// login form.
-			if ( autoLogin ) {
-				const autoLoginUrl = new URL( '/studio-auto-login', siteUrl );
-				autoLoginUrl.searchParams.set( 'redirect_to', target.toString() );
-				target = autoLoginUrl;
-			}
-			window.open( target.toString(), '_blank', 'noopener,noreferrer' );
+			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-browser`, {
+				method: 'POST',
+				body: JSON.stringify( { relativeUrl, autoLogin } ),
+			} );
 		},
 		async getWordPressSkillsStatusAllSites() {
 			return api< SkillStatus[] >( '/skills' );

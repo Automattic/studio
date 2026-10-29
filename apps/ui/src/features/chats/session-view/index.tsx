@@ -456,6 +456,7 @@ function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: Ses
 					className={ clsx(
 						styles.column,
 						styles.composerColumn,
+						! showEmpty && styles.composerBacking,
 						fadeAfterQuotaCheck && styles.fadeInQuick
 					) }
 				>
@@ -498,7 +499,6 @@ function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: Ses
 						placeholderBusy={ isSiteStarting || isSiteStopping }
 						canAutoStart={ canAutoStart }
 						environment={ effectiveEnvironment }
-						liveUrl={ liveSite?.url }
 						onEnvironmentChange={
 							ownerSite
 								? ( environment ) =>

@@ -472,8 +472,6 @@ describe( 'Chat composer', () => {
 } );
 
 describe( 'Composer parity', () => {
-	const liveUrl = 'https://example.com';
-
 	it( 'hides Auto-start while its chip is active and restores the command after removal', async () => {
 		const { input, onSend } = await setup( { canAutoStart: true } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
@@ -507,37 +505,39 @@ describe( 'Composer parity', () => {
 		'changes the target through %s without sending or losing the draft',
 		async ( source ) => {
 			const change = vi.fn();
-			const { input, onSend } = await setup( { liveUrl, onEnvironmentChange: change } );
+			const { input, onSend } = await setup( { environment: 'live', onEnvironmentChange: change } );
 			fireEvent.change( input, {
-				target: { value: source === 'slash' ? 'Please /live' : 'Keep this draft' },
+				target: { value: source === 'slash' ? 'Please /local' : 'Keep this draft' },
 			} );
 			if ( source === 'slash' ) {
 				fireEvent.keyDown( input, { key: 'Enter' } );
 			} else {
 				fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-				fireEvent.click(
-					await screen.findByRole( 'option', { name: `Work on live site ${ liveUrl }` } )
-				);
+				fireEvent.click( await screen.findByRole( 'option', { name: /^Work on local site/ } ) );
 			}
-			expect( change ).toHaveBeenCalledWith( 'live' );
+			expect( change ).toHaveBeenCalledWith( 'local' );
 			expect( onSend ).not.toHaveBeenCalled();
 			expect( input ).toHaveValue( source === 'slash' ? 'Please ' : 'Keep this draft' );
 		}
 	);
 
-	it( 'keeps /live in the draft when Enter picks it while the chat is busy', async () => {
+	it( 'keeps /local in the draft when Enter picks it while the chat is busy', async () => {
 		const change = vi.fn();
-		const { input, onSend } = await setup( { busy: true, liveUrl, onEnvironmentChange: change } );
-		fireEvent.change( input, { target: { value: '/live' } } );
+		const { input, onSend } = await setup( {
+			busy: true,
+			environment: 'live',
+			onEnvironmentChange: change,
+		} );
+		fireEvent.change( input, { target: { value: '/local' } } );
 		fireEvent.keyDown( input, { key: 'Enter' } );
 		expect( change ).not.toHaveBeenCalled();
 		expect( onSend ).not.toHaveBeenCalled();
-		expect( input ).toHaveValue( '/live' );
+		expect( input ).toHaveValue( '/local' );
 	} );
 
 	it( 'shows only the active Live chip and returns to local', async () => {
 		const change = vi.fn();
-		await setup( { environment: 'live', liveUrl, onEnvironmentChange: change } );
+		await setup( { environment: 'live', onEnvironmentChange: change } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Remove Live' } ) );
 		expect( change ).toHaveBeenCalledWith( 'local' );
 		expect( screen.queryByRole( 'button', { name: 'Remove Auto-start' } ) ).not.toBeInTheDocument();

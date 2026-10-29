@@ -26,7 +26,7 @@ export function ModeChip( {
 			<TooltipTrigger
 				render={
 					<Button
-						variant="ghost"
+						variant="muted"
 						size="sm"
 						shape="round"
 						className={ styles.modeChip }
@@ -36,7 +36,7 @@ export function ModeChip( {
 					/>
 				}
 			>
-				<span className={ styles.modeChipIcon }>
+				<span className={ styles.modeChipIcon } data-icon="inline-start">
 					<ModeIcon />
 					<XIcon />
 				</span>

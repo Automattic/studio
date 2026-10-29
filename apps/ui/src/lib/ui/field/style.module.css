@@ -49,10 +49,7 @@
 		gap: 0;
 		padding: var( --space-5 );
 		border-radius: var( --radius-xl );
-		background-color: light-dark(
-			var( --surface ),
-			color-mix( in oklab, var( --surface ) 70%, transparent )
-		);
+		background-color: color-mix( in oklab, var( --surface ) 70%, transparent );
 	}
 
 	.group[data-variant='settings'] > .field {

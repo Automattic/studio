@@ -44,7 +44,7 @@
 		align-items: center;
 		align-self: flex-start;
 		height: var( --control-size );
-		padding: 0 var( --space-0_5 );
+		padding: 3px;
 		border-radius: var( --radius-lg );
 		background-color: light-dark( var( --muted ), var( --background ) );
 	}
@@ -55,6 +55,7 @@
 
 	.list[data-variant='sidebar'] {
 		flex-direction: column;
+		gap: 1px;
 		width: 100%;
 		min-width: 0;
 		padding: var( --space-3 );
@@ -87,14 +88,10 @@
 	}
 
 	[data-variant='scope'] > .trigger {
-		height: 30px;
+		height: 100%;
 		padding: var( --space-0_5 ) var( --space-2_5 );
-		color: var( --muted-foreground );
-		font-weight: var( --font-weight-medium );
-	}
-
-	[data-variant='scope'] > .trigger:is( :hover, [data-active] ) {
 		color: var( --foreground );
+		font-weight: var( --font-weight-medium );
 	}
 
 	[data-variant='sidebar'] > .trigger {
@@ -103,12 +100,8 @@
 		text-align: start;
 	}
 
-	[data-variant='sidebar'] > .trigger:where( :hover, [data-highlighted] ) {
+	[data-variant='sidebar'] > .trigger:where( :hover, [data-highlighted], [data-active] ) {
 		background-color: var( --hover );
-	}
-
-	[data-variant='sidebar'] > .trigger[data-active] {
-		background-color: var( --selected );
 	}
 
 	.indicator {
@@ -120,6 +113,7 @@
 		height: var( --active-tab-height );
 		border-radius: var( --radius-md );
 		background-color: light-dark( var( --background ), var( --muted ) );
+		box-shadow: var( --shadow-sm );
 		translate: var( --active-tab-left ) var( --active-tab-top );
 		pointer-events: none;
 	}

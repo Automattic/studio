@@ -176,7 +176,7 @@ export function AddSiteDialog() {
 			? __( 'Upload a Blueprint' )
 			: view.useCase
 			? getUseCaseLabel( view.useCase )
-			: __( 'Choose a starting point' );
+			: __( 'Create a new WordPress' );
 
 	const hasSidebar =
 		view.name === 'gallery' ||

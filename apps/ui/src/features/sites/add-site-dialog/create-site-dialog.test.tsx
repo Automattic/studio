@@ -87,7 +87,7 @@ describe( 'Add site flow', () => {
 			screen.queryByRole( 'combobox', { name: 'Blueprint collection' } )
 		).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'searchbox' ) ).not.toBeInTheDocument();
-		expect( screen.getAllByText( 'Choose a starting point' ) ).toHaveLength( 1 );
+		expect( screen.getAllByText( 'Create a new WordPress' ) ).toHaveLength( 1 );
 		expect(
 			within( screen.getByRole( 'tablist', { name: 'Ways to add a site' } ) ).getAllByRole( 'tab' )
 		).toHaveLength( 10 );
@@ -155,7 +155,7 @@ describe( 'Add site flow', () => {
 			target: { files: [ new File( [ 'bundle' ], 'blueprint.zip', { type: 'application/zip' } ) ] },
 		} );
 		await waitFor( () => expect( connector.extractBlueprintBundle ).toHaveBeenCalledOnce() );
-		fireEvent.click( screen.getByRole( 'tab', { name: 'Create', exact: true } ) );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Create' } ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Start with Blank site' } ) );
 		await waitFor( () =>
 			expect( screen.getByRole( 'button', { name: 'Create site' } ) ).toBeEnabled()
@@ -206,7 +206,7 @@ describe( 'Add site flow', () => {
 		fireEvent.click( screen.getByRole( 'tab', { name: 'Portfolio' } ) );
 		expect( screen.queryByRole( 'button', { name: 'Blueprints' } ) ).not.toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Back to Blueprints' } ) );
-		expect( screen.getByText( 'Choose a starting point' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Create a new WordPress' ) ).toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'tab', { name: 'Blog' } ) );
 		expect( await screen.findByText( 'No matching Blueprints.' ) ).toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Clear filters' } ) );

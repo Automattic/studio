@@ -29,6 +29,9 @@ const mocks = vi.hoisted( () => ( {
 	settleMs: 0,
 	// The text each note on a write was told the tool left, by file.
 	leftTexts: [] as Array< [ string, string | undefined ] >,
+	afterWriteMs: 0,
+	afterWritesAtOnce: [] as number[],
+	afterWritesRunning: 0,
 	failNext: false,
 	// What each end of a run finds still open on the sites.
 	openProblems: [] as string[][],
@@ -130,6 +133,9 @@ vi.mock( '@studio/agent/node/site-notes', () => ( {
 				: undefined,
 		afterWrite: async ( file: string, left?: string ) => {
 			mocks.leftTexts.push( [ file, left ] );
+			mocks.afterWritesAtOnce.push( ++mocks.afterWritesRunning );
+			await new Promise( ( resolve ) => setTimeout( resolve, mocks.afterWriteMs ) );
+			mocks.afterWritesRunning--;
 			return [ `wrote ${ file }` ];
 		},
 		afterResult: async ( site: string ) => [ `result on ${ site }` ],
@@ -981,6 +987,7 @@ describe( 'pi runtime', () => {
 				'siteChanges',
 			] );
 		} finally {
+			await takeNotes();
 			mocks.runMs = 0;
 			mocks.settleMs = 0;
 		}
@@ -1006,6 +1013,29 @@ describe( 'pi runtime', () => {
 			[ file, 'as the tool left it' ],
 			[ other, undefined ],
 		] );
+	} );
+
+	// port c-2 climbing-gym: three files' notes each added a preset to theme.json
+	// at once, and the writes left one theme.json with another's end after it.
+	it( 'runs the notes on each file a call wrote, and on parallel calls, one at a time', async () => {
+		mocks.createdSessions.length = 0;
+		await runRuntime( { prompt: 'hello', env: WPCOM_ENV, session: newSession() } );
+		mocks.postChanges.written = [ '/sites/parallel/header.html', '/sites/parallel/footer.html' ];
+		mocks.afterWriteMs = 10;
+		mocks.afterWritesAtOnce.length = 0;
+		try {
+			const write = getCreatedTool( 'Write' );
+			await Promise.all( [
+				write.execute( 'w1', { path: 'parallel/style.css', content: '' } ),
+				write.execute( 'w2', { path: 'parallel/theme.json', content: '' } ),
+			] );
+			await takeNotes();
+		} finally {
+			mocks.postChanges.written = [];
+			mocks.afterWriteMs = 0;
+		}
+		expect( mocks.afterWritesAtOnce ).toHaveLength( 6 );
+		expect( Math.max( ...mocks.afterWritesAtOnce ) ).toBe( 1 );
 	} );
 
 	it( 'fires the site notes triggers on a write, and on a result for a local active site', async () => {

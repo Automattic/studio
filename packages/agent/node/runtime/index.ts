@@ -834,13 +834,16 @@ class AfterChecks {
 
 	constructor( private readonly pendingWork: PendingWork ) {}
 
-	add( checks: Promise< string | undefined > ): void {
-		this.pendingWork.add( checks );
-		const done = checks.then(
+	// Each call's checks start once the checks before them are done: a check
+	// that saves a fix reads and rewrites a file, as theme.json, that another
+	// call's checks rewrite too, when the model makes calls in parallel.
+	add( checks: () => Promise< string | undefined > ): void {
+		const run = this.running.then( checks );
+		this.pendingWork.add( run );
+		this.running = run.then(
 			() => undefined,
 			() => undefined
 		);
-		this.running = Promise.all( [ this.running, done ] ).then( () => undefined );
 	}
 
 	settle(): Promise< void > {
@@ -987,30 +990,29 @@ function toToolDefinition(
 			const resultText = result.content
 				.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
 				.join( '\n' );
-			afterChecks.add(
-				( async () => {
-					const changed = await settled();
-					// The files the call wrote, by its file tool or otherwise, as a shell command does.
-					const written = new Set( [
-						...( writtenFile ? [ writtenFile ] : [] ),
-						...changed.written,
-					] );
-					return [
-						...changed.summaries,
-						...changed.problems,
-						...(
-							await Promise.all(
-								[ ...written ].map( ( file ) =>
-									siteNotes.afterWrite( file, file === writtenFile ? left : undefined )
-								)
-							)
-						).flat(),
-						...( resultSite ? await siteNotes.afterResult( resultSite, resultText ) : [] ),
-					]
-						.filter( Boolean )
-						.join( '\n' );
-				} )()
-			);
+			afterChecks.add( async () => {
+				const changed = await settled();
+				// The files the call wrote, by its file tool or otherwise, as a shell command does.
+				const written = new Set( [
+					...( writtenFile ? [ writtenFile ] : [] ),
+					...changed.written,
+				] );
+				// One file at a time: the notes on each can save a fix to the same file.
+				const fileNotes: string[] = [];
+				for ( const file of written ) {
+					fileNotes.push(
+						...( await siteNotes.afterWrite( file, file === writtenFile ? left : undefined ) )
+					);
+				}
+				return [
+					...changed.summaries,
+					...changed.problems,
+					...fileNotes,
+					...( resultSite ? await siteNotes.afterResult( resultSite, resultText ) : [] ),
+				]
+					.filter( Boolean )
+					.join( '\n' );
+			} );
 			const reports = studioMessage( 'notes', [ ...validationReport, pendingWork.takeReports() ] );
 			const timed = {
 				...result,

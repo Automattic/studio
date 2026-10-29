@@ -11,8 +11,8 @@ import { LoggerError } from 'cli/logger';
 import type { Snapshot } from '@studio/common/types/snapshot';
 
 // A preview site is an unlaunched WordPress.com site built from the archive of a local site. It
-// stays private ("coming soon") and is shared through a preview link, until it is launched or
-// expires.
+// stays private ("coming soon") and is shared through a preview link, until the owner buys a plan
+// for it or it expires.
 
 const PREVIEW_FUNNEL = 'preview';
 const IMPORT_POLL_INTERVAL_MS = 1000;

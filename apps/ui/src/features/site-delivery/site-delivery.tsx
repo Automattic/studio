@@ -12,6 +12,7 @@ import {
 	PreviewManagementDialog,
 	type PreviewManagementAction,
 } from '@/features/sharing';
+import { SpacefastPanel, useSpacefastAvailable } from '@/features/spacefast';
 import { PublishPanel, usePublishSetupError } from '@/features/sync';
 import { PublishTransferIcon, ShareIcon } from '@/lib/icons';
 import {
@@ -32,7 +33,7 @@ import {
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 
-type Tab = 'share' | 'publish';
+type Tab = 'share' | 'publish' | 'spacefast';
 type PublishRequest = { view: 'publish' | 'pull' | 'websites'; remoteSiteId?: number };
 export function SiteDeliveryDialog( {
 	site,
@@ -43,7 +44,7 @@ export function SiteDeliveryDialog( {
 } ) {
 	const id = useId();
 	const user = useAuthUser();
-	const signedOut = user.isSuccess && ! user.data;
+	const spacefastAvailable = useSpacefastAvailable( site.id );
 	const [ setupAfterSignup, setSetupAfterSignup ] = useState( false );
 	const [ open, setOpen ] = useState( false );
 	const [ tab, setTab ] = useState< Tab >( 'share' );
@@ -54,6 +55,13 @@ export function SiteDeliveryDialog( {
 	const [ shareActions, setShareActions ] = useState< HTMLDivElement | null >( null );
 	const [ request, setRequest ] = useState< PublishRequest >();
 	const finalFocus = useRef< HTMLElement | null >( null );
+	const publishTab = useRef< Tab >( 'publish' );
+	// Without a WordPress.com account, Publish opens Spacefast when it's available.
+	const wpcomSignedOut = user.isSuccess && ! user.data;
+	useEffect( () => {
+		publishTab.current = wpcomSignedOut && spacefastAvailable ? 'spacefast' : 'publish';
+	}, [ wpcomSignedOut, spacefastAvailable ] );
+	const signedOut = wpcomSignedOut && tab !== 'spacefast';
 	useEffect( () => {
 		const show = ( next: Tab, trigger?: HTMLElement, publishRequest?: PublishRequest ) => {
 			previewReturnFocus.current = null;
@@ -61,6 +69,7 @@ export function SiteDeliveryDialog( {
 				trigger ??
 				anchor?.current?.querySelector< HTMLElement >( '[data-share-overflow-trigger]' ) ??
 				( document.activeElement instanceof HTMLElement ? document.activeElement : null );
+			if ( next === 'publish' ) next = publishTab.current;
 			setTab( next );
 			if ( next === 'publish' ) setRequest( publishRequest ?? { view: 'publish' } );
 			setOpen( true );
@@ -123,6 +132,15 @@ export function SiteDeliveryDialog( {
 								>
 									{ __( 'Publish' ) }
 								</TabsTrigger>
+								{ spacefastAvailable ? (
+									<TabsTrigger
+										value="spacefast"
+										id={ `${ id }-spacefast-tab` }
+										aria-controls={ `${ id }-spacefast-panel` }
+									>
+										{ __( 'Spacefast' ) }
+									</TabsTrigger>
+								) : null }
 								<TabsScopeIndicator />
 							</TabsList>
 							<div
@@ -172,6 +190,17 @@ export function SiteDeliveryDialog( {
 								/>
 							) : null }
 						</div>
+						{ spacefastAvailable ? (
+							<div
+								role="tabpanel"
+								id={ `${ id }-spacefast-panel` }
+								aria-labelledby={ `${ id }-spacefast-tab` }
+								hidden={ tab !== 'spacefast' }
+								className={ styles.panel }
+							>
+								<SpacefastPanel site={ site } open={ open && tab === 'spacefast' } />
+							</div>
+						) : null }
 					</Tabs>
 				</DialogContent>
 			</Dialog>
@@ -233,7 +262,11 @@ export function PublishButton( props: { site: SiteDetails } ) {
 	const activity = useSiteSyncActivity( props.site.id );
 	const setupError = usePublishSetupError( props.site.id );
 	const transfer =
-		activity?.direction === 'push' || activity?.direction === 'pull' ? activity : null;
+		activity?.direction === 'push' ||
+		activity?.direction === 'pull' ||
+		activity?.direction === 'spacefast'
+			? activity
+			: null;
 	const pending = transfer?.kind === 'pending';
 	const [ success, setSuccess ] = useState( false );
 	useEffect( () => {

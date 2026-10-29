@@ -31,13 +31,6 @@
 		cursor: pointer;
 	}
 
-	.groupLabel,
-	.button {
-		transition:
-			color var( --motion-duration-feedback ) ease,
-			background-color var( --motion-duration-feedback ) ease;
-	}
-
 	.groupLabel:hover {
 		color: var( --foreground );
 	}

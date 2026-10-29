@@ -430,15 +430,20 @@ describe( 'WordPress Studio settings', () => {
 		).toBeVisible();
 	} );
 
-	it( 'disables reset for default colors with a non-default theme', async () => {
+	it( 'enables reset for default colors with a non-default theme', async () => {
 		const { connector } = await setup( {
 			section: 'appearance',
 			preferences: { colorScheme: 'dark' },
 		} );
 		const reset = await screen.findByRole( 'button', { name: 'Reset' } );
-		expect( reset ).toBeDisabled();
+		expect( reset ).toBeEnabled();
 		fireEvent.click( reset );
-		expect( connector.setUserPreferences ).not.toHaveBeenCalled();
+		await waitFor( () =>
+			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+				{ ...DEFAULT_COLOR_TINT, colorScheme: 'system' },
+				undefined
+			)
+		);
 	} );
 
 	it.each( [ { accentColor: '#069e08' }, { tintIntensity: 50 }, { contrast: 25 } ] )(
@@ -449,7 +454,7 @@ describe( 'WordPress Studio settings', () => {
 		}
 	);
 
-	it( 'resets colors while preserving the theme', async () => {
+	it( 'resets colors and the theme', async () => {
 		const { connector } = await setup( {
 			section: 'appearance',
 			preferences: { colorScheme: 'dark', tintIntensity: 40 },
@@ -457,7 +462,10 @@ describe( 'WordPress Studio settings', () => {
 		expect( screen.queryByRole( 'button', { name: 'Done' } ) ).not.toBeInTheDocument();
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Reset' } ) );
 		await waitFor( () =>
-			expect( connector.setUserPreferences ).toHaveBeenCalledWith( DEFAULT_COLOR_TINT, undefined )
+			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+				{ ...DEFAULT_COLOR_TINT, colorScheme: 'system' },
+				undefined
+			)
 		);
 	} );
 

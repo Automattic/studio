@@ -16,10 +16,11 @@ import {
 	useSetAgentInstructionsEnabled,
 } from '@/data/queries/use-agent-instructions';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
+import { useResetAppearance, useResetInterface } from '@/data/queries/use-reset-interface';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { hasCustomPanelLayout, resetPanelLayout } from '@/data/resizable-panels';
-import { applyColorTint, DEFAULT_COLOR_TINT, isDefaultColorTint } from '@/lib/theme';
+import { hasCustomPanelLayout } from '@/data/resizable-panels';
+import { isDefaultColorTint } from '@/lib/theme';
 import { Input, Button } from '@/lib/ui';
 import { AccountSection } from './account-section';
 import { ColorTintSettings } from './color-tint-settings';
@@ -392,15 +393,14 @@ function usePreferencesForm() {
 		[ saved, savePreferences ]
 	);
 
-	const resetInterface = () =>
-		savePreferences.mutate( { ...INTERFACE_PREFERENCE_DEFAULTS }, { onSuccess: resetPanelLayout } );
+	const resetInterface = useResetInterface();
 
 	return {
 		saved,
 		data,
 		handleChange,
-		resetInterface,
-		saveError: savePreferences.isError,
+		resetInterface: resetInterface.reset,
+		saveError: savePreferences.isError || resetInterface.isError,
 		loadFailed,
 		retry: () => void refetch(),
 	};
@@ -438,17 +438,14 @@ export function GeneralSettings() {
 export function AppearanceSettings() {
 	const { saved, data, handleChange, saveError, loadFailed, retry } = usePreferencesForm();
 	const savePreferences = useSaveUserPreferences();
+	const resetAppearance = useResetAppearance();
 	if ( ! data || ! saved ) {
 		return <SettingsLoadState loadFailed={ loadFailed } onRetry={ retry } />;
 	}
 	const tint = getColorTint( saved );
-	const resetTint = () => {
-		applyColorTint( DEFAULT_COLOR_TINT );
-		savePreferences.mutate( DEFAULT_COLOR_TINT );
-	};
 	return (
 		<div className={ styles.preferencesPanel }>
-			{ saveError || savePreferences.isError ? (
+			{ saveError || savePreferences.isError || resetAppearance.isError ? (
 				<div className={ styles.errorMessage }>
 					{ __( 'An error occurred while saving settings. Please try again.' ) }
 				</div>
@@ -467,9 +464,13 @@ export function AppearanceSettings() {
 			<SettingsGroup title={ __( 'Reset' ) }>
 				<SettingsRow
 					title={ __( 'Reset appearance' ) }
-					description={ __( 'Restore the default color, intensity, and contrast.' ) }
+					description={ __( 'Restore the default theme, color, intensity, and contrast.' ) }
 				>
-					<Button variant="outline" disabled={ isDefaultColorTint( tint ) } onClick={ resetTint }>
+					<Button
+						variant="outline"
+						disabled={ isDefaultColorTint( tint ) && data.colorScheme === 'system' }
+						onClick={ resetAppearance.reset }
+					>
 						{ __( 'Reset' ) }
 					</Button>
 				</SettingsRow>

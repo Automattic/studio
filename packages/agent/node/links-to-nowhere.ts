@@ -25,9 +25,12 @@ const decode = ( text: string ) =>
 interface NowhereLink {
 	place: string;
 	label: string;
-	// The link as rendered, where it is: the same link on a later render.
-	id: string;
+	// The link as rendered: the same link on a later render.
+	tag: string;
 }
+
+// A link as Studio first saw it: where it was, and as rendered.
+type SeenLink = [ place: string, tag: string ];
 
 /** A site's links to nowhere on its home page, while its server renders it. */
 async function linksToNowhere(
@@ -63,23 +66,42 @@ async function linksToNowhere(
 			return {
 				place,
 				label: link[ 1 ] ? `${ label } (#${ decode( link[ 1 ] ) })` : label,
-				id: `${ place } ${ link[ 0 ] }`,
+				tag: link[ 0 ],
 			};
 		} );
 	return { url, links };
 }
 
+/**
+ * The links the site did not have as Studio first saw it: each first-seen link
+ * accounts for one link, in its place first, then anywhere, so a link that
+ * now renders elsewhere, as a template part's links do when its tag changes,
+ * is the one the site had, and a link written again in another place is new.
+ */
+function unseen( links: NowhereLink[], seen: SeenLink[] ): NowhereLink[] {
+	const left = [ ...seen ];
+	const take = ( match: ( [ place, tag ]: SeenLink ) => boolean ) => {
+		const at = left.findIndex( match );
+		return at >= 0 && left.splice( at, 1 ).length > 0;
+	};
+	const elsewhere = links.filter(
+		( link ) => ! take( ( [ place, tag ] ) => place === link.place && tag === link.tag )
+	);
+	return elsewhere.filter( ( link ) => ! take( ( [ , tag ] ) => tag === link.tag ) );
+}
+
 /** The problem with the links to nowhere a site did not have as Studio first saw it. */
-async function newLinksToNowhere( site: HostSite, seen: string[] ): Promise< string | undefined > {
+async function newLinksToNowhere(
+	site: HostSite,
+	seen: SeenLink[]
+): Promise< string | undefined > {
 	const found = await linksToNowhere( site );
 	if ( ! found ) {
 		return undefined;
 	}
 	const places = new Map< string, string[] >();
-	for ( const { place, label, id } of found.links ) {
-		if ( ! seen.includes( id ) ) {
-			places.set( place, [ ...( places.get( place ) ?? [] ), label ] );
-		}
+	for ( const { place, label } of unseen( found.links, seen ) ) {
+		places.set( place, [ ...( places.get( place ) ?? [] ), label ] );
 	}
 	if ( ! places.size ) {
 		return undefined;
@@ -108,14 +130,16 @@ export const linksToNowhereChanges: SiteChangeSource = {
 		const found = site ? await linksToNowhere( site ) : undefined;
 		return {
 			...versions,
-			[ FIRST_SEEN ]: JSON.stringify( found?.links.map( ( { id } ) => id ) ?? [] ),
+			[ FIRST_SEEN ]: JSON.stringify(
+				found?.links.map( ( { place, tag } ): SeenLink => [ place, tag ] ) ?? []
+			),
 		};
 	},
 	async check( site, before, after ) {
 		if ( Object.keys( after ).every( ( key ) => before[ key ] === after[ key ] ) ) {
 			return { reports: [] };
 		}
-		const seen: string[] = JSON.parse( after[ FIRST_SEEN ] ?? '[]' );
+		const seen: SeenLink[] = JSON.parse( after[ FIRST_SEEN ] ?? '[]' );
 		return {
 			reports: [
 				{

@@ -130,15 +130,27 @@ it.each< {
 	expect( reports[ 0 ]?.problem ).toContain( `the links ${ reported } go nowhere` );
 } );
 
-it( 'raises a link the site had in one place, written again in another', async () => {
+it.each< { name: string; now: string; reported: string | undefined } >( [
+	{
+		name: 'raises a link the site had in one place, written again in another',
+		now: header( nav( 'Shop' ) ) + footer( nav( 'Shop' ) ),
+		reported: '"Shop" in the header template part',
+	},
+	{
+		// As a saved footer part with no area renders in a <div> (wp-includes/blocks/template-part.php).
+		name: 'keeps a link the site had, now rendered in another place',
+		now: `<div class="wp-block-template-part">${ nav( 'Shop' ) }</div>`,
+		reported: undefined,
+	},
+] )( '$name', async ( { now, reported } ) => {
 	serve( footer( nav( 'Shop' ) ) );
 	const seen = await linksToNowhereChanges.read( site.path, undefined, host );
-	serve( header( nav( 'Shop' ) ) + footer( nav( 'Shop' ) ) );
+	serve( now );
 	const { reports } = await check(
 		{ ...seen, 'post:2': 'z' },
 		await linksToNowhereChanges.read( site.path, seen, host )
 	);
-	expect( reports[ 0 ]?.problem ).toContain(
-		'the links "Shop" in the header template part go nowhere'
+	expect( reports[ 0 ]?.problem ).toEqual(
+		reported && expect.stringContaining( `the links ${ reported } go nowhere` )
 	);
 } );

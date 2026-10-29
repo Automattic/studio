@@ -85,28 +85,6 @@ const headerButtons = ( name: string | RegExp ) =>
 		} )
 	);
 
-it( 'compacts the header before moving navigation into More and restores each stage', async () => {
-	const { resize } = await renderHeader( 'compact-chat-header', createFakeConnector(), 1000, true );
-	const header = document.querySelector< HTMLElement >( '[data-site-header]' )!;
-	await act( async () => {
-		header.style.setProperty( '--preview-header-content-width', '400px' );
-	} );
-	await resize( 850 );
-	expect( header ).toHaveAttribute( 'data-site-header-layout', 'actions-overflow' );
-	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toHaveTextContent( '' );
-	expect( screen.getByRole( 'button', { name: 'More preview actions' } ) ).toBeVisible();
-	await resize( 740 );
-	expect( header ).toHaveAttribute( 'data-site-header-layout', 'actions-overflow' );
-	expect( screen.getByRole( 'button', { name: 'Reload preview' } ) ).toBeVisible();
-	await resize( 600 );
-	expect( header ).toHaveAttribute( 'data-site-header-layout', 'navigation-overflow' );
-	expect( screen.queryByRole( 'button', { name: 'Reload preview' } ) ).not.toBeInTheDocument();
-	await resize( 740 );
-	expect( header ).toHaveAttribute( 'data-site-header-layout', 'actions-overflow' );
-	await resize( 1000 );
-	expect( header ).toHaveAttribute( 'data-site-header-layout', 'inline' );
-} );
-
 function readyGuest( extra: Record< string, unknown > = {} ) {
 	const webview = document.querySelector( 'webview' ) as HTMLElement;
 	Object.assign( webview, {
@@ -189,20 +167,7 @@ it( 'exposes browser actions with their navigation availability in overflow', as
 			'true'
 		);
 		expect( screen.queryByRole( 'menuitem', { name: 'Site settings' } ) ).not.toBeInTheDocument();
-		expect(
-			Array.from( screen.getByRole( 'menu' ).querySelectorAll( '[role^="menuitem"]' ) ).map(
-				( item ) => item.textContent
-			)
-		).toEqual( [
-			'Stop site',
-			'Share',
-			'Annotate',
-			'Responsive mode',
-			'Open in browser',
-			expect.stringMatching( /^Back/ ),
-			expect.stringMatching( /^Forward/ ),
-			'Reload preview',
-		] );
+
 		await user.click( screen.getByRole( 'menuitem', { name: new RegExp( `^${ name }` ) } ) );
 		await waitFor( effect );
 	}

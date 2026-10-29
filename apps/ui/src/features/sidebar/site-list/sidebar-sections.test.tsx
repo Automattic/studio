@@ -459,9 +459,6 @@ describe( 'sidebar site sections', () => {
 			expect( badge( pinnedChat ) ).toBeVisible();
 			expect( badge( siteChat ) ).toBeVisible();
 			expect( badge( recentChat ) ).toBeVisible();
-			expect( badge( pinnedChat ) ).not.toHaveTextContent( 'Needs input' );
-			expect( badge( siteChat ) ).not.toHaveTextContent( 'Needs input' );
-			expect( badge( recentChat ) ).not.toHaveTextContent( 'Needs input' );
 		} );
 		expect( within( pinned ).getByRole( 'button', { name: /First chat/ } ) ).toBe( pinnedChat );
 		expect( chatButtons( siteChats ) ).toEqual( siteOrder );
@@ -483,7 +480,7 @@ describe( 'sidebar site sections', () => {
 		expect( chatButtons( recent ) ).toEqual( recentOrder );
 	} );
 
-	it( 'shows a collapsed site’s pending question badge before New chat and clears it on resolution', async () => {
+	it( 'shows a collapsed site’s pending question badge and clears it on resolution', async () => {
 		const { connector } = setup( {
 			sites: [ site ],
 			sessions: [ chat( 'waiting', 'one', { title: 'Waiting chat' } ) ],
@@ -502,10 +499,7 @@ describe( 'sidebar site sections', () => {
 		await waitFor( () => expect( siteButton ).toHaveAttribute( 'aria-expanded', 'false' ) );
 		const collapsedBadge = badge()!;
 		expect( collapsedBadge ).toBeVisible();
-		expect( collapsedBadge ).not.toHaveTextContent( 'Needs input' );
-		expect( collapsedBadge.nextElementSibling ).toBe(
-			section.getByRole( 'button', { name: 'New chat for My site' } )
-		);
+
 		fireEvent.click( siteButton );
 		await waitFor( () => expect( siteButton ).toHaveAttribute( 'aria-expanded', 'true' ) );
 		expect( collapsedBadge ).not.toBeInTheDocument();

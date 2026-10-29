@@ -1,18 +1,11 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import {
-	createMemoryHistory,
-	createRootRoute,
-	createRouter,
-	RouterProvider,
-} from '@tanstack/react-router';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ConnectorProvider } from '@/data/core';
 import { requestHeaderPanel } from '@/data/use-open-header-panel';
-import { TooltipProvider } from '@/lib/ui';
+import { createFakeConnector } from '@/test/fake-connector';
+import { renderWithProviders } from '@/test/render';
 import { SiteHeaderActions, SiteHeaderActionsProvider, SiteHeaderSpace } from './index';
-import type { Connector, SiteDetails } from '@/data/core';
+import type { SiteDetails } from '@/data/core';
 
 let siteCount = 0;
 
@@ -50,47 +43,22 @@ async function renderActions( {
 		phpVersion: '8.3',
 		operation,
 	};
-	const connector = {
-		capabilities: {},
-		getAuthUser: vi
-			.fn()
-			.mockResolvedValue( { id: 1, email: 'ada@example.com', displayName: 'Ada' } ),
-		getConnectedWpcomSites: vi.fn().mockResolvedValue( [] ),
-		getUserPreferences: vi.fn().mockResolvedValue( {} ),
-		getPublishCheckoutUrl: vi.fn( () => 'https://wordpress.com/checkout' ),
-		startSite: vi.fn().mockResolvedValue( undefined ),
-		getSites: vi.fn().mockResolvedValue( [] ),
-		isFullscreen: vi.fn().mockResolvedValue( false ),
-		onFullscreenChange: vi.fn( () => () => {} ),
-		trackEvent: vi.fn(),
-	} as unknown as Connector;
-	const content = (
-		<QueryClientProvider
-			client={ new QueryClient( { defaultOptions: { queries: { retry: false } } } ) }
-		>
-			<ConnectorProvider connector={ connector }>
-				<TooltipProvider>
-					<SiteHeaderActionsProvider host={ host }>
-						<div data-site-header>
-							{ navigation ? (
-								<div data-site-header-navigation>
-									<button>Reload preview</button>
-								</div>
-							) : null }
-							<SiteHeaderSpace />
-						</div>
-						<SiteHeaderActions site={ site } live={ live } />
-					</SiteHeaderActionsProvider>
-				</TooltipProvider>
-			</ConnectorProvider>
-		</QueryClientProvider>
+	const connector = createFakeConnector( { sites: [ site ] } );
+	renderWithProviders(
+		<SiteHeaderActionsProvider host={ host }>
+			<div data-site-header>
+				{ navigation ? (
+					<div data-site-header-navigation>
+						<button>Reload preview</button>
+					</div>
+				) : null }
+				<SiteHeaderSpace />
+			</div>
+			<SiteHeaderActions site={ site } live={ live } />
+		</SiteHeaderActionsProvider>,
+		{ connector }
 	);
-	const router = createRouter( {
-		routeTree: createRootRoute( { component: () => content } ),
-		history: createMemoryHistory( { initialEntries: [ '/' ] } ),
-	} );
-	await router.load();
-	render( <RouterProvider router={ router } /> );
+	await screen.findByRole( 'button', { name: 'Publish…' } );
 	// The header re-measures on any change inside it.
 	const resize = ( next: number ) =>
 		act( async () => {
@@ -149,7 +117,7 @@ describe( 'SiteHeaderActions', () => {
 		await actions.click( more );
 		await actions.click( await screen.findByRole( 'menuitem', { name: 'Share' } ) );
 		await screen.findByRole( 'button', { name: 'Create preview' } );
-		await actions.keyboard( '{Escape}' );
+		await actions.click( screen.getByRole( 'button', { name: 'Close' } ) );
 		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
 		await waitFor( () => expect( more ).toHaveFocus() );
 	} );

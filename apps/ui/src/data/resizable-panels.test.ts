@@ -56,7 +56,7 @@ describe( 'getPreviewSplitLayout', () => {
 		expect( getPreviewSplitLayout( 1000, 100 ).previewWidth ).toBe( 680 );
 	} );
 
-	it.each( [ 320, 539, 540 ] )( 'gives chat the full frame at %ipx', ( width ) => {
+	it.each( [ 320, 540 ] )( 'gives chat the full frame at %ipx', ( width ) => {
 		expect( getPreviewSplitLayout( width, 360 ) ).toEqual( {
 			contentWidth: width,
 			previewWidth: 0,

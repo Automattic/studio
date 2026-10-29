@@ -108,6 +108,15 @@
 	z-index: 2;
 }
 
+.composerBacking::before {
+	content: '';
+	position: absolute;
+	inset: -24px 0 calc( -1 * var( --composer-bottom-gap ) );
+	z-index: -1;
+	pointer-events: none;
+	background: linear-gradient( to bottom, transparent, var( --chat ) 24px );
+}
+
 /* The conversation and the composer share one reading column. As the preview
    opens or closes, it eases to its width beside the preview with the chat pane
    instead of keeping its full width until the pane runs out of room. */
@@ -122,6 +131,7 @@
 
 .composerColumn {
 	position: relative;
+	isolation: isolate;
 }
 
 .conversationSpacing {

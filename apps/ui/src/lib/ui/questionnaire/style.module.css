@@ -9,10 +9,10 @@
 	/* The legend sits above the fieldset's content rather than in its flex
 	   layout, so it spaces itself from the choices. */
 	.title {
-		padding: var( --space-2 ) var( --space-2 );
+		padding: var( --space-2 ) var( --space-1_5 );
 		color: var( --foreground );
-		font-weight: var( --font-weight-medium );
-		line-height: var( --leading-snug );
+		font-weight: inherit;
+		line-height: inherit;
 		text-wrap: pretty;
 	}
 
@@ -23,12 +23,12 @@
 	}
 
 	.questionnaire > .description {
-		padding-inline: var( --space-2 );
+		padding-inline: var( --space-1_5 );
 	}
 
 	.choices {
 		display: grid;
-		gap: var( --space-1 );
+		gap: var( --space-0_5 );
 	}
 
 	.choices[data-layout='grid'] {
@@ -59,9 +59,8 @@
 		align-items: center;
 		gap: var( --space-2_5 );
 		width: 100%;
-		min-height: 32px;
-		padding: var( --space-1 ) var( --space-2 );
-		border-radius: calc( var( --radius-3xl ) - var( --space-2 ) );
+		padding: var( --space-1_5 );
+		border-radius: var( --radius-lg );
 		color: var( --foreground );
 		text-align: start;
 		cursor: pointer;
@@ -81,7 +80,7 @@
 	}
 
 	.choice:has( > .input:focus-visible ) {
-		box-shadow: inset 0 0 0 2px var( --ring );
+		box-shadow: inset 0 0 0 1px var( --input-ring );
 	}
 
 	.questionnaire:not( :disabled ) .choice:has( > .input:disabled:not( :checked ) ) {
@@ -139,10 +138,9 @@
 	.answer {
 		display: flex;
 		align-items: center;
-		gap: var( --space-2 );
-		min-height: 32px;
-		padding: var( --space-1 ) var( --space-2 );
-		border-radius: calc( var( --radius-3xl ) - var( --space-2 ) );
+		gap: var( --space-2_5 );
+		padding: var( --space-1_5 );
+		border-radius: var( --radius-lg );
 		color: var( --foreground );
 	}
 

@@ -105,7 +105,7 @@ describe( 'Sidebar in the Studio workspace', () => {
 		} );
 		await ready();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Second site' } ) );
-		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/two/new' ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/other-chat' ) );
 		await paletteCommand( 'Keep open' );
 		await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/collapse-chat' ) );
 		const input = await screen.findByRole( 'combobox', { name: 'Message WordPress Studio' } );
@@ -168,17 +168,17 @@ describe( 'Sidebar in the Studio workspace', () => {
 	} );
 
 	it( 'reveals site chats in batches of ten after the first five', async () => {
-		const { ready, refreshSessions } = setup( { path: '/sites/one' } );
-		await ready();
-		await refreshSessions(
-			Array.from( { length: 27 }, ( _, index ) =>
+		const { ready } = setup( {
+			path: '/sessions/batch-chat-0',
+			sessions: Array.from( { length: 27 }, ( _, index ) =>
 				chat( {
 					id: `batch-chat-${ index }`,
 					title: `Batch chat ${ index }`,
 					updatedAt: new Date( 2026, 0, 27 - index ).toISOString(),
 				} )
-			)
-		);
+			),
+		} );
+		await ready();
 		const chats = () => within( screen.getByRole( 'group', { name: 'My site chats' } ) );
 		await waitFor( () =>
 			expect( chats().getAllByRole( 'button', { name: /^Batch chat / } ) ).toHaveLength( 5 )

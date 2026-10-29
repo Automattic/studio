@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
+import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readAppConfig } from '@studio/common/lib/app-config';
 import { openSiteInBrowser } from './open-browser';
@@ -46,7 +47,7 @@ describe( 'site browser selection', () => {
 		await openSiteInBrowser( 'https://example.test/?x=a&y=b', fallback );
 		expect( spawn ).toHaveBeenCalledWith(
 			'open',
-			[ '-a', '/Applications/Google Chrome.app', 'https://example.test/?x=a&y=b' ],
+			[ '-a', path.join( '/Applications', 'Google Chrome.app' ), 'https://example.test/?x=a&y=b' ],
 			{ detached: true, stdio: 'ignore' }
 		);
 		expect( fallback ).not.toHaveBeenCalled();
@@ -72,7 +73,7 @@ describe( 'site browser selection', () => {
 			expect( spawn ).toHaveBeenCalledWith(
 				platform === 'win32'
 					? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
-					: '/usr/bin/google-chrome',
+					: path.join( '/usr/bin', 'google-chrome' ),
 				[ 'https://example.test/?x=a&y=b' ],
 				{ detached: true, stdio: 'ignore' }
 			);

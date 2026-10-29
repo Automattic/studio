@@ -188,6 +188,10 @@ describe( 'getSettingCommands', () => {
 		expect( byLabel( 'Turn off “Show recent chats”' ).run ).toBe( toggle.run );
 		byLabel( 'Terminal' ).run();
 		expect( openSettings ).toHaveBeenCalledWith( 'general', undefined, 'terminal' );
+		byLabel( 'Studio CLI for terminal' ).run();
+		expect( openSettings ).toHaveBeenCalledWith( 'general', undefined, 'studio-cli' );
+		byLabel( 'Agent instructions' ).run();
+		expect( openSettings ).toHaveBeenCalledWith( 'instructions', undefined, 'agent-instructions' );
 	} );
 
 	it( 'indexes controls rather than settings headings', () => {
@@ -245,7 +249,7 @@ describe( 'command search', () => {
 		matchCommands( list, query ).map( ( command ) => command.id );
 
 	it.each( [
-		[ 'colour', 'reset-appearance-tint' ],
+		[ 'colour', 'settings-appearance-color' ],
 		[ 'intensity tint', 'settings-appearance-intensity' ],
 		[ 'API key', 'settings-ai-anthropic-provider' ],
 		[ 'folder', 'settings-general-default-directory' ],

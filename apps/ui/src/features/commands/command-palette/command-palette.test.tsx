@@ -271,7 +271,7 @@ describe( 'command palette', () => {
 		const { connector, user } = await renderPalette();
 		await openPalette();
 		search( 'Collapse sidebar groups' );
-		const row = option( /^Turn (on|off) “Collapse sidebar groups”/ );
+		const row = option( /^(Enable|Disable) automatic sidebar collapsing/ );
 		expect( screen.queryByRole( 'switch' ) ).not.toBeInTheDocument();
 		await user.click( row );
 		await waitFor( () =>
@@ -495,10 +495,10 @@ describe( 'Command palette in the Studio workspace', () => {
 		expect( connector.importSiteFromBackup ).not.toHaveBeenCalled();
 		fireEvent.click( within( confirmation ).getByRole( 'button', { name: 'Cancel' } ) );
 		expect( connector.importSiteFromBackup ).not.toHaveBeenCalled();
-		await paletteCommand( 'reset appearance', /^Reset appearance tint/ );
+		await paletteCommand( 'reset appearance', /^Reset appearance/ );
 		await waitFor( () =>
 			expect( connector.setUserPreferences ).toHaveBeenCalledExactlyOnceWith(
-				{ accentColor: '#3858e9', tintIntensity: 0, contrast: 0 },
+				{ accentColor: '#3858e9', tintIntensity: 0, contrast: 0, colorScheme: 'system' },
 				undefined
 			)
 		);

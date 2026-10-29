@@ -179,7 +179,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				setting( __( 'Contrast' ), __( 'Increase separation between surfaces.' ), 'contrast' ),
 				setting(
 					__( 'Reset appearance' ),
-					__( 'Restore the default color, intensity, and contrast.' ),
+					__( 'Restore the default theme, color, intensity, and contrast.' ),
 					'reset-appearance'
 				),
 			],

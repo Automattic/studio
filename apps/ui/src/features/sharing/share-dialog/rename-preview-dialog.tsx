@@ -32,7 +32,7 @@ export function RenamePreviewDialog( {
 				layout="compact"
 				initialFocus={ inputRef }
 				finalFocus={ false }
-				showCloseButton={ ! rename.isPending }
+				closeButtonDisabled={ rename.isPending }
 			>
 				<form
 					className={ styles.renameForm }

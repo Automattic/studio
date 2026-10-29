@@ -71,13 +71,13 @@
 	pointer-events: auto;
 }
 
-/* The sidebar's edge below the band, in its own last column. It slides out
+/* The sidebar's full-height edge, in its own last column. It slides out
    with the frame, which clips it once collapsed. */
 .sidebarFrame::after {
 	content: '';
 	position: absolute;
 	z-index: 2;
-	top: var( --band-height );
+	top: 0;
 	bottom: 0;
 	inset-inline-end: 0;
 	width: 1px;
@@ -106,16 +106,6 @@
 	isolation: isolate;
 }
 
-/* Above the panels so the band's separator reads across them. */
-.main::before {
-	z-index: var( --z-band );
-	transition: opacity var( --motion-duration-layout ) var( --motion-ease-layout );
-}
-
-.mainUndocked::before {
-	opacity: 0;
-}
-
 /* The negative margin cancels the handle's width so it adds no space to the
    flex row — the main content butts straight against the sidebar's border and
    the hit area overlays main's sidebar-side edge. position/z-index lift it
@@ -128,15 +118,9 @@
 	justify-content: flex-start;
 }
 
-.resizeHandle span {
-	margin-block-start: var( --band-height );
-}
-
 /* Hovering or dragging the handle darkens the column edge. */
 .root:has( > .resizeHandle:hover ) .sidebarFrame::after,
-.resizeHandle:hover + .main::before,
-.sidebarResizing::after,
-.sidebarResizing ~ .main::before {
+.sidebarResizing::after {
 	background-color: color-mix( in oklab, var( --foreground ) 15%, transparent );
 }
 
@@ -153,7 +137,8 @@
 }
 
 .sidebarFlyout {
-	--studio-sidebar-bg: var( --popover );
+	--surface: var( --chrome );
+	--studio-sidebar-bg: var( --chrome );
 	width: var( --sidebar-width );
 	max-width: calc( 100vw - 16px );
 	overflow: hidden;
@@ -162,7 +147,7 @@
 .sidebarFlyoutContents {
 	display: flex;
 	flex-direction: column;
-	max-height: calc( 100dvh - var( --band-height ) - 16px );
+	height: calc( 100dvh - var( --band-height ) - 16px );
 	overflow-y: auto;
 	scrollbar-width: none;
 	-webkit-app-region: no-drag;
@@ -197,7 +182,6 @@
 
 .instantSidebarDock .sidebarFrame,
 .instantSidebarDock .sidebar,
-.instantSidebarDock .main::before,
 .instantSidebarDock [data-sidebar-header-slot] {
 	transition: none;
 }

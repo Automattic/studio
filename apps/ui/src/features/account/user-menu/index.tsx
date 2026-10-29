@@ -108,6 +108,7 @@ export function UserMenu() {
 				<span className={ styles.spacer } aria-hidden="true" />
 				{ isOffline && <OfflineIndicator /> }
 				<IconButton
+					variant="muted-ghost"
 					icon={ <SettingsIcon /> }
 					label={ __( 'Settings' ) }
 					shortcut={ {

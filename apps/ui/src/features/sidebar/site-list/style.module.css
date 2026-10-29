@@ -55,6 +55,10 @@
 	align-items: center;
 }
 
+.rowAction {
+	--button-hover-background: transparent;
+}
+
 .siteActions {
 	gap: var( --space-0_5 );
 }
@@ -62,8 +66,7 @@
 .chats {
 	display: flex;
 	flex-direction: column;
-	gap: 1px;
-	padding-block: 1px var( --space-2 );
+	padding-block-end: var( --space-2 );
 }
 
 .empty {

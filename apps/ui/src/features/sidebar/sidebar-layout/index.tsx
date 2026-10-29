@@ -290,15 +290,7 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 									onReset={ sidebarResize.resetWidth }
 								/>
 							) : null }
-							<main
-								className={ clsx(
-									styles.main,
-									'studio-column-edge',
-									! docked && styles.mainUndocked
-								) }
-							>
-								{ children }
-							</main>
+							<main className={ styles.main }>{ children }</main>
 							{ sidebarResize.isResizing ? <ResizeOverlay /> : null }
 							<AppToasts />
 							<AppMessageHistoryRecorder />

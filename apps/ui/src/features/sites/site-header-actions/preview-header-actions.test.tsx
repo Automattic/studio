@@ -26,9 +26,17 @@ async function renderHeader( siteId: string, connector = createFakeConnector(), 
 		configurable: true,
 	} );
 	vi.stubGlobal( 'ipcApi', { clearWebviewCache: vi.fn( async () => {} ) } );
-	vi.spyOn( HTMLElement.prototype, 'getBoundingClientRect' ).mockReturnValue( {
-		width: 40,
-	} as DOMRect );
+	vi.spyOn( HTMLElement.prototype, 'getBoundingClientRect' ).mockImplementation( function (
+		this: HTMLElement
+	) {
+		return {
+			width:
+				this.hasAttribute( 'data-site-header-navigation' ) &&
+				this.getAttribute( 'aria-hidden' ) === 'true'
+					? 0
+					: 40,
+		} as DOMRect;
+	} );
 	vi.spyOn( HTMLElement.prototype, 'clientWidth', 'get' ).mockImplementation( function (
 		this: HTMLElement
 	) {
@@ -151,7 +159,7 @@ it( 'moves responsive mode into More with its state and restores the inline cont
 	const { user, resize } = await renderHeader( 'responsive-overflow', createFakeConnector(), 1000 );
 	const toggle = screen.getByRole( 'button', { name: 'Responsive mode' } );
 	toggle.focus();
-	await resize( 400 );
+	await resize( 460 );
 	const more = screen.getByRole( 'button', { name: 'More preview actions' } );
 	expect( more ).toHaveFocus();
 	expect( screen.queryByRole( 'button', { name: 'Responsive mode' } ) ).not.toBeInTheDocument();

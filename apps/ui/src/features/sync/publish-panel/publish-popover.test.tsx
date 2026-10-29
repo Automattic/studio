@@ -332,7 +332,7 @@ describe( 'PublishPopover', () => {
 		connector.fetchSyncableWpcomSites.mockResolvedValue( [ { ...remote, isPressable: true } ] );
 		await ready;
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Existing site…' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: /Hosted site.*example.com/ } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /Hosted site.*example\.com/ } ) );
 		await screen.findByRole( 'button', { name: 'Pull changes' } );
 		expect( connector.connectWpcomSite ).toHaveBeenCalledWith(
 			site.id,
@@ -363,7 +363,7 @@ describe( 'PublishPopover', () => {
 			connector.fetchSyncableWpcomSites.mockResolvedValue( [ remote ] );
 			connector.getConnectedWpcomSites.mockResolvedValue( [] );
 			fireEvent.click( refresh );
-			await screen.findByRole( 'option', { name: /Hosted site.*example.com/ } );
+			await screen.findByRole( 'option', { name: /Hosted site.*example\.com/ } );
 			expect( connector.pushSiteToLive ).not.toHaveBeenCalled();
 			expect( connector.openExternalUrl ).not.toHaveBeenCalled();
 		}
@@ -378,7 +378,7 @@ describe( 'PublishPopover', () => {
 		expect( screen.queryByText( /No existing sites/ ) ).not.toBeInTheDocument();
 		connector.fetchSyncableWpcomSites.mockResolvedValue( [ remote ] );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Try again' } ) );
-		await screen.findByRole( 'option', { name: /Hosted site.*example.com/ } );
+		await screen.findByRole( 'option', { name: /Hosted site.*example\.com/ } );
 	} );
 
 	it( 'chooses an existing site within the dialog and supports back navigation without publishing', async () => {
@@ -395,7 +395,7 @@ describe( 'PublishPopover', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Back to Publish' } ) );
 		expect( screen.getByRole( 'button', { name: 'New site…' } ) ).toBeVisible();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Existing site…' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: /Hosted site.*example.com/ } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /Hosted site.*example\.com/ } ) );
 		await screen.findByRole( 'button', { name: 'Pull changes' } );
 		expect( screen.getByRole( 'dialog', { name: 'Share and publish' } ) ).toBe( panel );
 		expect( screen.queryByRole( 'button', { name: /Back to/ } ) ).not.toBeInTheDocument();
@@ -427,7 +427,7 @@ describe( 'PublishPopover', () => {
 		const existing = screen.getByRole( 'button', { name: 'Existing site…' } );
 		expect( existing ).toBeEnabled();
 		fireEvent.click( existing );
-		fireEvent.click( await screen.findByRole( 'option', { name: /Hosted site.*example.com/ } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /Hosted site.*example\.com/ } ) );
 		await screen.findByRole( 'button', { name: 'Pull changes' } );
 		expect( connector.connectWpcomSite ).toHaveBeenCalled();
 		expect( connector.pushSiteToLive ).not.toHaveBeenCalled();
@@ -846,9 +846,9 @@ describe( 'PublishPopover', () => {
 			await screen.findByRole( 'combobox', { name: 'Switch website: example.com' } )
 		);
 		expect(
-			await screen.findByRole( 'option', { name: /^example.com Production$/ } )
+			await screen.findByRole( 'option', { name: 'example.com Production' } )
 		).toHaveAttribute( 'aria-selected', 'true' );
-		await actions.click( screen.getByRole( 'option', { name: /staging.example.com/ } ) );
+		await actions.click( screen.getByRole( 'option', { name: 'staging.example.com Staging' } ) );
 		await waitFor( () =>
 			expect(
 				screen.getByRole( 'combobox', { name: 'Switch website: staging.example.com' } )
@@ -882,7 +882,7 @@ describe( 'PublishPopover', () => {
 			await screen.findByRole( 'combobox', { name: 'Switch website: example.com' } )
 		);
 		await actions.click(
-			await screen.findByRole( 'option', { name: /^second.example.com Production$/ } )
+			await screen.findByRole( 'option', { name: 'second.example.com Production' } )
 		);
 		await openPull();
 		const pull = screen.getByRole( 'button', { name: 'Pull changes' } );
@@ -913,7 +913,7 @@ describe( 'PublishPopover', () => {
 			await screen.findByRole( 'combobox', { name: 'Switch website: example.com' } )
 		);
 		await actions.click(
-			await screen.findByRole( 'option', { name: /^second.example.com Production$/ } )
+			await screen.findByRole( 'option', { name: 'second.example.com Production' } )
 		);
 		await openPull();
 		expect( screen.queryByText( 'Changes pulled into WordPress Studio' ) ).not.toBeInTheDocument();
@@ -947,7 +947,7 @@ describe( 'PublishPopover', () => {
 		);
 		await actions.click( await screen.findByRole( 'option', { name: 'Connect another site…' } ) );
 		await actions.click(
-			await screen.findByRole( 'option', { name: /Second site.*second.example.com/ } )
+			await screen.findByRole( 'option', { name: /Second site.*second\.example\.com/ } )
 		);
 		await screen.findByRole( 'combobox', { name: 'Switch website: second.example.com' } );
 		expect( connector.connectWpcomSite ).toHaveBeenCalledWith(
@@ -960,9 +960,7 @@ describe( 'PublishPopover', () => {
 		await actions.click(
 			screen.getByRole( 'combobox', { name: 'Switch website: second.example.com' } )
 		);
-		await actions.click(
-			await screen.findByRole( 'option', { name: /^example.com Production$/ } )
-		);
+		await actions.click( await screen.findByRole( 'option', { name: 'example.com Production' } ) );
 		expect( screen.getByRole( 'combobox', { name: 'Switch website: example.com' } ) ).toBeVisible();
 	} );
 } );

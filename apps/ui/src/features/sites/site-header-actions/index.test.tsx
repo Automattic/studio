@@ -1,4 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+	createMemoryHistory,
+	createRootRoute,
+	createRouter,
+	RouterProvider,
+} from '@tanstack/react-router';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -10,7 +16,7 @@ import type { Connector, SiteDetails } from '@/data/core';
 
 let siteCount = 0;
 
-function renderActions( {
+async function renderActions( {
 	running = false,
 	host = 'chat',
 	headerWidth = 1000,
@@ -58,7 +64,7 @@ function renderActions( {
 		onFullscreenChange: vi.fn( () => () => {} ),
 		trackEvent: vi.fn(),
 	} as unknown as Connector;
-	render(
+	const content = (
 		<QueryClientProvider
 			client={ new QueryClient( { defaultOptions: { queries: { retry: false } } } ) }
 		>
@@ -79,6 +85,12 @@ function renderActions( {
 			</ConnectorProvider>
 		</QueryClientProvider>
 	);
+	const router = createRouter( {
+		routeTree: createRootRoute( { component: () => content } ),
+		history: createMemoryHistory( { initialEntries: [ '/' ] } ),
+	} );
+	await router.load();
+	render( <RouterProvider router={ router } /> );
 	// The header re-measures on any change inside it.
 	const resize = ( next: number ) =>
 		act( async () => {
@@ -92,7 +104,7 @@ describe( 'SiteHeaderActions', () => {
 	afterEach( () => vi.restoreAllMocks() );
 
 	it( 'keeps Publish visible for a stopped site and opens it from the site menu', async () => {
-		const { site } = renderActions();
+		const { site } = await renderActions();
 
 		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
@@ -102,25 +114,25 @@ describe( 'SiteHeaderActions', () => {
 		expect( await screen.findByText( 'Publish your WordPress' ) ).toBeInTheDocument();
 	} );
 
-	it( 'shows Publish over a running site’s preview', () => {
-		renderActions( { running: true, host: 'preview' } );
+	it( 'shows Publish over a running site’s preview', async () => {
+		await renderActions( { running: true, host: 'preview' } );
 
 		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeInTheDocument();
 	} );
 
-	it( 'keeps Publish visible while the chat fills the workspace', () => {
-		renderActions( { running: true, host: 'chat' } );
+	it( 'keeps Publish visible while the chat fills the workspace', async () => {
+		await renderActions( { running: true, host: 'chat' } );
 
 		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 	} );
 
-	it.each( [ 'start', 'stop' ] as const )( 'keeps Publish visible during %s', ( kind ) => {
-		renderActions( { host: 'preview', operation: { kind, pid: 123 } } );
+	it.each( [ 'start', 'stop' ] as const )( 'keeps Publish visible during %s', async ( kind ) => {
+		await renderActions( { host: 'preview', operation: { kind, pid: 123 } } );
 		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 	} );
 
 	it( 'folds Share into a More menu when the header runs out of room', async () => {
-		renderActions( { headerWidth: 60 } );
+		await renderActions( { headerWidth: 60 } );
 
 		expect( screen.queryByRole( 'button', { name: 'Share' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
@@ -129,7 +141,7 @@ describe( 'SiteHeaderActions', () => {
 	} );
 
 	it( 'opens Share from More and returns focus to the visible overflow trigger', async () => {
-		const { connector } = renderActions( { headerWidth: 60 } );
+		const { connector } = await renderActions( { headerWidth: 60 } );
 		connector.getSnapshots = vi.fn().mockResolvedValue( [] );
 		connector.getSnapshotUsage = vi.fn().mockResolvedValue( null );
 		const actions = userEvent.setup();
@@ -143,7 +155,7 @@ describe( 'SiteHeaderActions', () => {
 	} );
 
 	it( 'hands focus to More when the focused browser control folds into it', async () => {
-		const { resize } = renderActions( { navigation: true } );
+		const { resize } = await renderActions( { navigation: true } );
 		screen.getByRole( 'button', { name: 'Reload preview' } ).focus();
 
 		await resize( 60 );
@@ -151,8 +163,8 @@ describe( 'SiteHeaderActions', () => {
 		expect( screen.getByRole( 'button', { name: 'More preview actions' } ) ).toHaveFocus();
 	} );
 
-	it( 'keeps Share inline when it fits', () => {
-		renderActions( { headerWidth: 1000 } );
+	it( 'keeps Share inline when it fits', async () => {
+		await renderActions( { headerWidth: 1000 } );
 
 		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
@@ -162,7 +174,7 @@ describe( 'SiteHeaderActions', () => {
 	} );
 
 	it( 'keeps Publish and preview sharing over a Live chat’s preview, even with the local site stopped', async () => {
-		renderActions( { host: 'preview', live: true, headerWidth: 60 } );
+		await renderActions( { host: 'preview', live: true, headerWidth: 60 } );
 
 		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
@@ -170,8 +182,8 @@ describe( 'SiteHeaderActions', () => {
 		expect( await screen.findByRole( 'menuitem', { name: 'Share' } ) ).toBeInTheDocument();
 	} );
 
-	it( 'keeps Share beside Publish over a Live chat’s preview when it fits', () => {
-		renderActions( { host: 'preview', live: true, headerWidth: 1000 } );
+	it( 'keeps Share beside Publish over a Live chat’s preview when it fits', async () => {
+		await renderActions( { host: 'preview', live: true, headerWidth: 1000 } );
 
 		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toBeInTheDocument();

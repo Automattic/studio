@@ -15,7 +15,7 @@ export function createAskUserQuestionTool(
 ): StudioToolDefinition {
 	return defineTool(
 		'AskUserQuestion',
-		'Ask the user 1–4 multiple-choice questions and wait for their answers. Use this whenever you need a clarification, preference, or selection from the user — instead of asking inline in prose. Each question has 2–4 short option labels, each with a one-sentence description; the user can also reply in their own words, or skip the question. Returns a map of question text → selected option label (or the user\'s typed answer, or that they skipped it). Set `multiSelect: true` when several options can apply; the answer is then the picked labels joined with ", ".',
+		'Ask the user 1–4 multiple-choice questions and wait for their answers. Use this for a clarification, preference, or selection the work cannot go on without, such as which site or which design. A question about what to change once the work is done goes in your final reply instead, which ends the turn: the answer arrives as the user\'s next message. Each question has 2–4 short option labels, each with a one-sentence description; the user can also reply in their own words, or skip the question. Returns a map of question text → selected option label (or the user\'s typed answer, or that they skipped it). Set `multiSelect: true` when several options can apply; the answer is then the picked labels joined with ", ".',
 		{
 			questions: Type.Array(
 				Type.Object( {

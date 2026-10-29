@@ -1,5 +1,6 @@
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { resetAppMessagesForTests } from '@/data/app-messages';
 import { setCommandPaletteOpen } from '@/data/use-command-palette';
@@ -116,4 +117,26 @@ describe( 'Settings in the Studio workspace', () => {
 		fireEvent.click( scopeTab( 'Site' ) );
 		expect( scopeTab( 'Studio' ) ).toHaveAttribute( 'aria-selected', 'true' );
 	} );
+} );
+
+it( 'offers installed browsers and saves or clears the site browser preference', async () => {
+	const connector = createFakeConnector( { sites: [ site() ], user: null } );
+	const installed = await connector.getInstalledApps();
+	connector.getInstalledApps.mockResolvedValue( { ...installed, chrome: true, safari: false } );
+	renderApp( { connector } );
+	await openSettings();
+	const browser = await screen.findByRole( 'combobox', { name: 'Browser' } );
+	expect( browser ).toHaveTextContent( 'System default' );
+	await userEvent.click( browser );
+	expect( await screen.findByRole( 'option', { name: 'Google Chrome' } ) ).toBeVisible();
+	expect( screen.queryByRole( 'option', { name: 'Safari' } ) ).not.toBeInTheDocument();
+	await userEvent.click( screen.getByRole( 'option', { name: 'Google Chrome' } ) );
+	await waitFor( () =>
+		expect( connector.setUserPreferences ).toHaveBeenCalledWith( { browser: 'chrome' }, undefined )
+	);
+	await userEvent.click( screen.getByRole( 'combobox', { name: 'Browser' } ) );
+	await userEvent.click( await screen.findByRole( 'option', { name: 'System default' } ) );
+	await waitFor( () =>
+		expect( connector.setUserPreferences ).toHaveBeenCalledWith( { browser: null }, undefined )
+	);
 } );

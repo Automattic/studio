@@ -71,6 +71,27 @@ async function submit( name = 'Create site' ) {
 }
 
 describe( 'Add site flow', () => {
+	it( 'retraces tab changes and stops at the initial screen', async () => {
+		setup();
+		await screen.findByRole( 'button', { name: 'Start with Blank site' } );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Connect' } ) );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Import' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Back' } ) );
+		expect( screen.getByRole( 'tab', { name: 'Connect' } ) ).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'Back' } ) );
+		expect( screen.getByRole( 'tab', { name: 'Create' } ) ).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
+		expect( screen.getByRole( 'button', { name: 'Back' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+	} );
+
 	it( 'shows only a spinner while Blueprints load, then focuses Blank', async () => {
 		setup();
 		let resolve!: ( response: Response ) => void;
@@ -186,6 +207,24 @@ describe( 'Add site flow', () => {
 		expect( screen.getByRole( 'heading', { name: 'Create a blank site' } ) ).toBeVisible();
 	} );
 
+	it( 'scopes backup drag feedback to the import placeholder', async () => {
+		setup( { path: '/?addSite=import' } );
+		const target = ( await screen.findByText( 'Drop a WordPress backup here.' ) ).parentElement!
+			.parentElement!;
+		const dataTransfer = {
+			files: [ new File( [ 'backup' ], 'backup.zip', { type: 'application/zip' } ) ],
+			types: [ 'Files' ],
+		};
+		fireEvent.dragEnter( window, { dataTransfer } );
+		expect( screen.queryByText( 'Drop to import backup' ) ).not.toBeInTheDocument();
+		fireEvent.dragEnter( target, { dataTransfer } );
+		expect( screen.getByText( 'Drop to import backup' ) ).toBeInTheDocument();
+		fireEvent.dragLeave( target, { dataTransfer } );
+		expect( screen.queryByText( 'Drop to import backup' ) ).not.toBeInTheDocument();
+		fireEvent.drop( target, { dataTransfer } );
+		expect( await screen.findByRole( 'button', { name: 'Import site' } ) ).toBeVisible();
+	} );
+
 	it( 'opens Upload directly and accepts a dropped Blueprint', async () => {
 		setup( { path: '/?addSite=upload' } );
 		expect( await screen.findByRole( 'heading', { name: 'Upload a Blueprint' } ) ).toBeVisible();
@@ -195,7 +234,9 @@ describe( 'Add site flow', () => {
 		);
 		const file = new File( [ '{}' ], 'blueprint.json', { type: 'application/json' } );
 		Object.defineProperty( file, 'text', { value: async () => '{}' } );
-		fireEvent.drop( window, { dataTransfer: { files: [ file ], types: [ 'Files' ] } } );
+		fireEvent.drop( screen.getByText( 'Drop a Blueprint here.' ).parentElement!.parentElement!, {
+			dataTransfer: { files: [ file ], types: [ 'Files' ] },
+		} );
 		expect(
 			await screen.findByRole( 'button', { name: 'Create site from Blueprint' } )
 		).toBeVisible();

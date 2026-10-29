@@ -26,6 +26,7 @@
 
 .advancedCollapse {
 	display: grid;
+	overflow: hidden;
 	grid-template-rows: 0fr;
 	margin-top: calc( var( --space-6 ) * -1 );
 	transition:
@@ -35,14 +36,20 @@
 
 .advancedCollapseOpen {
 	grid-template-rows: 1fr;
+	overflow: visible;
 	margin-top: 0;
 }
 
 .advancedCollapseInner {
+	visibility: hidden;
 	overflow: hidden;
 	min-height: 0;
 	padding: var( --space-1 );
 	margin: calc( var( --space-1 ) * -1 );
+}
+
+.advancedCollapseOpen .advancedCollapseInner {
+	visibility: visible;
 }
 
 .advancedErrorCount {

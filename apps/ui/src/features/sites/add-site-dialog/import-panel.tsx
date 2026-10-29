@@ -7,13 +7,14 @@ import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { ArchiveIcon, UploadIcon } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useImportSite } from '@/data/queries/use-import-site';
 import { useCreateSite, useDeleteSite } from '@/data/queries/use-sites';
+import { useFileDrop } from '@/data/use-composer-attachments';
 import { CreateSiteForm } from '@/features/sites/create-site-form';
-import { Button, Alert, AlertDescription } from '@/lib/ui';
+import { Button, Alert, AlertDescription, AttachmentDropOverlay } from '@/lib/ui';
 import { useAddSite } from './context';
 import styles from './import-panel.module.css';
 import type { CreateSiteFormError, CreateSiteFormValues } from '@/features/sites/create-site-form';
@@ -57,46 +58,49 @@ function createFailure( phase: ImportPhase, details: string ): CreateSiteFormErr
 
 export function BackupDropZone( { onFile }: { onFile: ( file: File ) => void } ) {
 	const inputRef = useRef< HTMLInputElement >( null );
-	const [ isDragging, setIsDragging ] = useState( false );
+	const [ dropTarget, setDropTarget ] = useState< HTMLDivElement | null >( null );
 	const [ error, setError ] = useState( '' );
 
-	const handleFile = ( file?: File ) => {
-		if ( ! file ) return;
-		// A .sql dump is a database without the files that go with it, so it can
-		// only be imported over an existing site — not used to create one.
-		if ( ! isSupportedBackupFilename( file.name, ACCEPTED_ADD_SITE_FILE_TYPES ) ) {
-			setError(
-				__(
-					'This file type is not supported. Please use a .zip, .gz, .gzip, .tar, .tar.gz, .wpress, or .xml file'
-				)
-			);
-			return;
-		}
-		setError( '' );
-		onFile( file );
-	};
+	const handleFile = useCallback(
+		( file?: File ) => {
+			if ( ! file ) return;
+			// A .sql dump is a database without the files that go with it, so it can
+			// only be imported over an existing site — not used to create one.
+			if ( ! isSupportedBackupFilename( file.name, ACCEPTED_ADD_SITE_FILE_TYPES ) ) {
+				setError(
+					__(
+						'This file type is not supported. Please use a .zip, .gz, .gzip, .tar, .tar.gz, .wpress, or .xml file'
+					)
+				);
+				return;
+			}
+			setError( '' );
+			onFile( file );
+		},
+		[ onFile ]
+	);
+	const onFiles = useCallback( ( files: FileList ) => handleFile( files[ 0 ] ), [ handleFile ] );
+	const isDragging = useFileDrop( dropTarget, onFiles );
 
 	return (
 		<>
 			<div
 				className={ styles.dropZone }
 				data-dragging={ isDragging || undefined }
-				onDragOver={ ( event ) => {
-					event.preventDefault();
-					setIsDragging( true );
-				} }
-				onDragLeave={ ( event ) => {
-					if ( event.currentTarget.contains( event.relatedTarget as Node | null ) ) return;
-					setIsDragging( false );
-				} }
-				onDrop={ ( event ) => {
-					event.preventDefault();
-					setIsDragging( false );
-					handleFile( event.dataTransfer.files[ 0 ] );
-				} }
+				ref={ setDropTarget }
 			>
+				{ isDragging && (
+					<AttachmentDropOverlay>{ __( 'Drop to import backup' ) }</AttachmentDropOverlay>
+				) }
 				<UploadIcon className={ styles.dropIcon } size={ 24 } />
-				<p className={ styles.dropLabel }>{ __( 'Drop a WordPress backup here.' ) }</p>
+				<div className={ styles.dropText }>
+					<p className={ styles.dropLabel }>{ __( 'Drop a WordPress backup here.' ) }</p>
+					<p className={ styles.dropHelp }>
+						{ __(
+							'Supports backups from WordPress.com, Jetpack, Local, Playground and All-in-One WP Migration, and WordPress export files (.xml).'
+						) }
+					</p>
+				</div>
 				<input
 					ref={ inputRef }
 					type="file"
@@ -107,7 +111,7 @@ export function BackupDropZone( { onFile }: { onFile: ( file: File ) => void } )
 						event.target.value = '';
 					} }
 				/>
-				<Button type="button" variant="outline" onClick={ () => inputRef.current?.click() }>
+				<Button type="button" variant="default" onClick={ () => inputRef.current?.click() }>
 					{ __( 'Choose file' ) }
 				</Button>
 			</div>
@@ -116,11 +120,6 @@ export function BackupDropZone( { onFile }: { onFile: ( file: File ) => void } )
 					<AlertDescription>{ error }</AlertDescription>
 				</Alert>
 			) : null }
-			<p className={ styles.dropHelp }>
-				{ __(
-					'Supports backups from WordPress.com, Jetpack, Local, Playground and All-in-One WP Migration, and WordPress export files (.xml).'
-				) }
-			</p>
 		</>
 	);
 }

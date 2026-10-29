@@ -1,13 +1,13 @@
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { ArchiveIcon, ChevronLeftIcon, CloudDownloadIcon, UploadIcon } from 'lucide-react';
+import { ChevronLeftIcon, CloudDownloadIcon } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { BlueprintUpload } from '@/features/sites/blueprint-upload';
 import { pendingBlueprintSlot } from '@/features/sites/pending-blueprint';
-import { PlusIcon } from '@/lib/icons';
+import { ImportIcon, PlusIcon, UploadIcon } from '@/lib/icons';
 import {
 	Button,
 	IconButton,
@@ -19,7 +19,6 @@ import {
 	PanelHeader,
 	Spinner,
 	SidebarGroupHeader,
-	SidebarGroupLabel,
 	Tabs,
 	TabsList,
 	TabsSidebar,
@@ -72,8 +71,13 @@ export function AddSiteDialog() {
 	};
 	const { data: preferences } = useUserPreferences();
 	const [ openedWith, setOpenedWith ] = useState( addSite );
-	const [ chosenView, setView ] = useState< View | null >( null );
+	const [ chosenView, replaceView ] = useState< View | null >( null );
 	const view = chosenView ?? getInitialView( addSite ?? 'create', preferences?.newSiteBehavior );
+	const [ viewHistory, setViewHistory ] = useState< View[] >( [] );
+	const setView = ( next: View ) => {
+		setViewHistory( ( history ) => [ ...history, view ] );
+		replaceView( next );
+	};
 	const [ progress, setProgress ] = useState< string | null >( null );
 	const [ followedSite, followSite ] = useState< string >();
 	const [ actions, setActions ] = useState< HTMLElement | null >( null );
@@ -96,7 +100,8 @@ export function AddSiteDialog() {
 	if ( addSite !== openedWith ) {
 		setOpenedWith( addSite );
 		if ( addSite ) {
-			setView( null );
+			replaceView( null );
+			setViewHistory( [] );
 			setProgress( null );
 			followSite( undefined );
 			setLastViewed( undefined );
@@ -148,20 +153,20 @@ export function AddSiteDialog() {
 		} );
 	};
 
-	const back =
-		view.name === 'details'
-			? () => setView( { name: 'gallery', useCase: view.useCase } )
-			: view.name === 'setup'
-			? () => setView( view.from ?? { name: 'gallery' } )
-			: view.name === 'import' && view.backup
-			? () => setView( { name: 'import' } )
-			: view.name === 'gallery' && view.useCase
-			? () => setView( { name: 'gallery' } )
-			: undefined;
-	// Back from a Blueprint category leaves focus on Create, in place of the Back button.
+	const parentView: View | undefined =
+		view.name === 'setup' ? view.from ?? { name: 'gallery' } : undefined;
+	const previousView = viewHistory[ viewHistory.length - 1 ] ?? parentView;
+	const back = previousView
+		? () => {
+				setViewHistory( ( history ) => history.slice( 0, -1 ) );
+				replaceView( previousView );
+		  }
+		: undefined;
 	const goBack = () => {
 		back?.();
-		if ( view.name === 'gallery' ) createTab.current?.focus();
+		if ( view.name === 'gallery' && previousView?.name === 'gallery' ) {
+			createTab.current?.focus();
+		}
 	};
 
 	const title =
@@ -191,7 +196,7 @@ export function AddSiteDialog() {
 		{ value: 'create', label: __( 'Create' ), icon: <PlusIcon /> },
 		{ value: 'connect', label: __( 'Connect' ), icon: <CloudDownloadIcon /> },
 		{ value: 'upload', label: __( 'Upload' ), icon: <UploadIcon /> },
-		{ value: 'import', label: __( 'Import' ), icon: <ArchiveIcon /> },
+		{ value: 'import', label: __( 'Import' ), icon: <ImportIcon /> },
 	];
 
 	const panel = (
@@ -203,39 +208,37 @@ export function AddSiteDialog() {
 			}
 			header={
 				<PanelHeader
-					className={ styles.header }
 					leading={
-						back ? (
-							<div className={ styles.leading }>
-								<IconButton
-									variant="segmented"
-									size="icon-sm"
-									icon={ <ChevronLeftIcon /> }
-									label={
-										view.name === 'details' || view.name === 'gallery'
-											? __( 'Back to Blueprints' )
-											: __( 'Back' )
-									}
-									disabled={ !! progress }
-									onClick={ goBack }
-								/>
-								{ view.name === 'details' ? (
-									<>
-										<Button
-											variant="inline-text"
-											size="inline"
-											disabled={ !! progress }
-											onClick={ back }
-										>
-											{ __( 'Blueprints' ) }
-										</Button>
-										<span aria-hidden="true" className={ styles.crumbSeparator }>
-											/
-										</span>
-									</>
-								) : null }
-							</div>
-						) : null
+						<div className={ styles.leading }>
+							<IconButton
+								variant="segmented"
+								size="icon-sm"
+								icon={ <ChevronLeftIcon /> }
+								label={
+									previousView?.name === 'gallery' &&
+									( view.name === 'details' || view.name === 'gallery' )
+										? __( 'Back to Blueprints' )
+										: __( 'Back' )
+								}
+								disabled={ ! back || !! progress }
+								onClick={ goBack }
+							/>
+							{ view.name === 'details' ? (
+								<>
+									<Button
+										variant="inline-text"
+										size="inline"
+										disabled={ !! progress }
+										onClick={ back }
+									>
+										{ __( 'Blueprints' ) }
+									</Button>
+									<span aria-hidden="true" className={ styles.crumbSeparator }>
+										/
+									</span>
+								</>
+							) : null }
+						</div>
 					}
 					title={
 						<span className={ styles.title } title={ title }>
@@ -369,8 +372,12 @@ export function AddSiteDialog() {
 										{ item.label }
 									</TabsTrigger>
 								) ) }
-								<SidebarGroupHeader role="heading" aria-level={ 2 }>
-									<SidebarGroupLabel>{ __( 'Blueprints' ) }</SidebarGroupLabel>
+								<SidebarGroupHeader
+									className={ styles.useCaseHeader }
+									role="heading"
+									aria-level={ 2 }
+								>
+									<span className={ styles.useCaseHeading }>{ __( 'By use case' ) }</span>
 								</SidebarGroupHeader>
 								{ getUseCases().map( ( useCase ) => (
 									<TabsTrigger key={ useCase.value } value={ useCase.value }>

@@ -67,19 +67,16 @@
 
 .blank::after {
 	box-shadow: none;
-	border: 1px dotted var( --border );
+	border: 1px dashed var( --border );
 }
 
 .card:hover .blank {
 	background: color-mix( in oklab, var( --accent ) 10%, transparent );
+	color: var( --accent-text );
 }
 
 .card:hover .blank::after {
 	border: 2px solid var( --ring );
-}
-
-.card:hover:has( .blank ) {
-	color: var( --accent-text );
 }
 
 .card:hover .image,

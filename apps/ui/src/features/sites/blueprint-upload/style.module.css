@@ -2,30 +2,48 @@
 	text-align: center;
 }
 
+.panel {
+	display: flex;
+	flex: 1;
+	min-height: 0;
+	text-align: center;
+}
+
 .control {
 	display: contents;
 }
 
 .dropZone {
+	position: relative;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
+	justify-content: center;
+	flex: 1;
 	gap: var( --space-4 );
-	max-width: 512px;
-	margin: var( --space-4 ) auto 0;
+	min-width: 0;
+	margin: 0;
 	padding: var( --space-10 );
 	border: 1px dashed var( --border );
 	border-radius: var( --radius-xl );
 }
 
 .dropIcon,
-.dropLabel,
 .dropHelp {
 	color: var( --muted-foreground );
 }
 
+.dropLabel {
+	color: var( --foreground );
+}
+
+.dropText {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-1 );
+}
+
 .dropHelp {
-	margin-top: var( --space-3 );
 	font-size: var( --text-xxs );
 	line-height: 1.3;
 }
@@ -56,17 +74,6 @@
 	outline-offset: 2px;
 }
 
-.fullScreenDrop {
-	position: fixed;
-	inset: 0;
-	z-index: var( --z-overlay );
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	border: 2px dashed var( --accent );
-	background: var( --chrome );
-	color: var( --foreground );
-	font-size: var( --text-2xl );
-	font-weight: var( --font-weight-semibold );
-	pointer-events: none;
+.dropZone[data-dragging] {
+	border-color: var( --accent );
 }

@@ -3,8 +3,9 @@ import { __ } from '@wordpress/i18n';
 import { UploadIcon } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
+import { useFileDrop } from '@/data/use-composer-attachments';
 import { BlueprintErrorDialog } from '@/features/sites/blueprint-error-dialog';
-import { Button } from '@/lib/ui';
+import { AttachmentDropOverlay, Button } from '@/lib/ui';
 import { BLUEPRINT_FILE_ACCEPT, loadBlueprintFile } from './load-blueprint-file';
 import styles from './style.module.css';
 import type { SelectedBlueprint } from '@/features/sites/blueprint-selection';
@@ -20,10 +21,6 @@ interface BlueprintUploadProps {
 	onValidityChange: ( isValid: boolean ) => void;
 }
 
-function hasFiles( event: DragEvent ): boolean {
-	return Array.from( event.dataTransfer?.types ?? [] ).includes( 'Files' );
-}
-
 export function BlueprintUpload( {
 	variant = 'hint',
 	disabled = false,
@@ -33,10 +30,9 @@ export function BlueprintUpload( {
 }: BlueprintUploadProps ) {
 	const connector = useConnector();
 	const [ error, setError ] = useState< string | null >( null );
-	const [ isDragging, setIsDragging ] = useState( false );
+	const [ dropTarget, setDropTarget ] = useState< HTMLDivElement | null >( null );
 	const fileInputRef = useRef< HTMLInputElement | null >( null );
 	const requestRef = useRef( 0 );
-	const dragDepthRef = useRef( 0 );
 
 	const handleFile = useCallback(
 		async ( file: File ) => {
@@ -80,49 +76,32 @@ export function BlueprintUpload( {
 		onRemove();
 	};
 
-	useEffect( () => {
-		if ( disabled ) return;
-		const handleDragEnter = ( event: DragEvent ) => {
-			if ( ! hasFiles( event ) ) return;
-			event.preventDefault();
-			dragDepthRef.current += 1;
-			setIsDragging( true );
-		};
-		const handleDragOver = ( event: DragEvent ) => {
-			if ( ! hasFiles( event ) ) return;
-			event.preventDefault();
-		};
-		const handleDragLeave = () => {
-			if ( dragDepthRef.current === 0 ) return;
-			dragDepthRef.current = Math.max( 0, dragDepthRef.current - 1 );
-			if ( dragDepthRef.current === 0 ) setIsDragging( false );
-		};
-		const handleDrop = ( event: DragEvent ) => {
-			dragDepthRef.current = 0;
-			setIsDragging( false );
-			if ( ! hasFiles( event ) ) return;
-			if ( event.defaultPrevented ) return;
-			event.preventDefault();
-			const file = event.dataTransfer?.files[ 0 ];
+	const onFiles = useCallback(
+		( files: FileList ) => {
+			const file = files[ 0 ];
 			if ( file ) void handleFile( file );
-		};
-
-		window.addEventListener( 'dragenter', handleDragEnter );
-		window.addEventListener( 'dragover', handleDragOver );
-		window.addEventListener( 'dragleave', handleDragLeave );
-		window.addEventListener( 'drop', handleDrop );
-		return () => {
+		},
+		[ handleFile ]
+	);
+	const isDragging = useFileDrop( disabled ? null : dropTarget, onFiles );
+	useEffect(
+		() => () => {
 			requestRef.current += 1;
-			window.removeEventListener( 'dragenter', handleDragEnter );
-			window.removeEventListener( 'dragover', handleDragOver );
-			window.removeEventListener( 'dragleave', handleDragLeave );
-			window.removeEventListener( 'drop', handleDrop );
-		};
-	}, [ disabled, handleFile ] );
+		},
+		[]
+	);
 
 	return (
 		<>
-			<div className={ variant === 'drop-only' ? styles.control : styles.root }>
+			<div
+				className={
+					variant === 'drop-only'
+						? styles.control
+						: variant === 'panel'
+						? styles.panel
+						: styles.root
+				}
+			>
 				<input
 					ref={ fileInputRef }
 					type="file"
@@ -133,11 +112,23 @@ export function BlueprintUpload( {
 				/>
 				{ variant === 'panel' ? (
 					<>
-						<div className={ styles.dropZone }>
+						<div
+							ref={ setDropTarget }
+							className={ styles.dropZone }
+							data-dragging={ isDragging || undefined }
+						>
+							{ isDragging && (
+								<AttachmentDropOverlay>{ __( 'Drop to use Blueprint' ) }</AttachmentDropOverlay>
+							) }
 							<UploadIcon className={ styles.dropIcon } size={ 24 } />
-							<p className={ styles.dropLabel }>{ __( 'Drop a Blueprint here.' ) }</p>
+							<div className={ styles.dropText }>
+								<p className={ styles.dropLabel }>{ __( 'Drop a Blueprint here.' ) }</p>
+								<p className={ styles.dropHelp }>
+									{ __( 'Supports Blueprint JSON files and ZIP bundles.' ) }
+								</p>
+							</div>
 							<Button
-								variant="outline"
+								variant="default"
 								disabled={ disabled }
 								data-blueprint-upload
 								onClick={ () => fileInputRef.current?.click() }
@@ -145,33 +136,22 @@ export function BlueprintUpload( {
 								{ __( 'Choose file' ) }
 							</Button>
 						</div>
-						<p className={ styles.dropHelp }>
-							{ __( 'Supports Blueprint JSON files and ZIP bundles.' ) }
-						</p>
 					</>
 				) : variant === 'hint' ? (
 					<p className={ styles.prompt }>
-						{ createInterpolateElement(
-							__( 'Have a blueprint? Drop it anywhere, or <upload>upload a file</upload>.' ),
-							{
-								upload: (
-									<button
-										type="button"
-										className={ styles.action }
-										onClick={ () => fileInputRef.current?.click() }
-									/>
-								),
-							}
-						) }
+						{ createInterpolateElement( __( 'Have a blueprint? <upload>Upload a file</upload>.' ), {
+							upload: (
+								<button
+									type="button"
+									className={ styles.action }
+									onClick={ () => fileInputRef.current?.click() }
+								/>
+							),
+						} ) }
 					</p>
 				) : null }
 				<BlueprintErrorDialog error={ error ?? '' } onDismiss={ handleRemove } />
 			</div>
-			{ isDragging && (
-				<div className={ styles.fullScreenDrop } aria-hidden="true">
-					{ __( 'Drop Blueprint to use it for this site' ) }
-				</div>
-			) }
 		</>
 	);
 }

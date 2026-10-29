@@ -1,7 +1,3 @@
-.header {
-	padding-inline-start: var( --space-6 );
-}
-
 .leading {
 	display: flex;
 	align-items: center;
@@ -28,7 +24,9 @@
 }
 
 .actions {
-	display: contents;
+	display: flex;
+	align-items: center;
+	gap: var( --space-3 );
 }
 
 .content {
@@ -46,4 +44,14 @@
 	align-items: center;
 	justify-content: center;
 	color: var( --muted-foreground );
+}
+
+.useCaseHeader {
+	margin-block-start: var( --space-6 );
+}
+
+.useCaseHeading {
+	padding-inline: var( --space-2 );
+	color: var( --muted-foreground );
+	font-weight: var( --font-weight-medium );
 }

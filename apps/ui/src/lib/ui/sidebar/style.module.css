@@ -29,7 +29,6 @@
 		color: var( --muted-foreground );
 		font-weight: var( --font-weight-medium );
 		cursor: pointer;
-		transition: color var( --motion-duration-feedback ) ease;
 	}
 
 	.groupLabel:hover {

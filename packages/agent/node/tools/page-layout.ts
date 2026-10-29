@@ -61,6 +61,53 @@ export function pageLayout( page: Page ): Promise< string[] > {
 			lines.push(
 				`The page is ${ width }px wide in a ${ window.innerWidth }px viewport, so it scrolls sideways.`
 			);
+			// What makes it wider: each element past the viewport whose parent is not.
+			// A box that clips its overflow, or a fixed one, adds nothing to the page's width.
+			const viewport = document.documentElement.clientWidth;
+			const past = ( element: Element ) => {
+				const rect = element.getBoundingClientRect();
+				return rect.width > 0 && rect.height > 0 && ( rect.right > viewport + 1 || rect.left < -1 );
+			};
+			const widens = ( element: Element ) => {
+				for (
+					let box: Element | null = element;
+					box && box !== document.body;
+					box = box.parentElement
+				) {
+					const style = getComputedStyle( box );
+					if (
+						style.position === 'fixed' ||
+						( box !== element && style.overflowX !== 'visible' )
+					) {
+						return false;
+					}
+				}
+				return true;
+			};
+			const region = ( element: Element ) =>
+				element.closest( 'header, main, footer, .wp-block-template-part' );
+			const causes = [ ...document.body.querySelectorAll( '*' ) ].filter(
+				( element ) =>
+					past( element ) &&
+					! (
+						element.parentElement &&
+						element.parentElement !== document.body &&
+						past( element.parentElement )
+					) &&
+					widens( element )
+			);
+			for ( const element of causes.slice( 0, 5 ) ) {
+				const rect = element.getBoundingClientRect();
+				const within = region( element );
+				lines.push(
+					`  ${ label( element ) } reaches past it, x ${ Math.round( rect.left ) }–${ Math.round(
+						rect.right
+					) }${ within && within !== element ? `, in ${ label( within ) }` : '' }.`
+				);
+			}
+			if ( causes.length > 5 ) {
+				lines.push( `  …and ${ causes.length - 5 } more.` );
+			}
 		}
 		return lines;
 	}, MAX_REGIONS );

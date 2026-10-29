@@ -49,10 +49,20 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 		] );
 	} );
 
-	it( 'says when the page is wider than its viewport', async () => {
-		expect( await layoutOf( '<div style="width:1400px;height:10px"></div>' ) ).toEqual( [
-			'div: y 0–10 (10px tall), x 0–1400',
+	it( 'says when the page is wider than its viewport, and what reaches past it', async () => {
+		expect(
+			await layoutOf( `<footer class="wp-block-template-part" style="height:20px"><div style="width:300px">
+				<div class="wp-block-group footer-grid" style="width:1400px;height:10px"><p style="height:5px"></p></div>
+				<div style="overflow:hidden"><div style="width:1600px;height:5px"></div></div>
+				<div style="position:fixed;left:1200px;width:900px;height:5px"></div>
+			</div></footer>` )
+		).toEqual( [
+			'footer.wp-block-template-part: y 0–20 (20px tall), x 0–1000',
+			'  div.wp-block-group.footer-grid: y 0–10 (10px tall), x 0–1400',
+			'  div: y 10–15 (5px tall), x 0–300',
+			'  div: y 15–20 (5px tall), x 1200–2100',
 			'The page is 1400px wide in a 1000px viewport, so it scrolls sideways.',
+			'  div.wp-block-group.footer-grid reaches past it, x 0–1400, in footer.wp-block-template-part.',
 		] );
 	} );
 

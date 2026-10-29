@@ -155,7 +155,7 @@ describe( 'Studio workspace', () => {
 	} );
 
 	it.each( [ 'site', 'play' ] )(
-		'opens a stopped site from %s and resumes its conversation without creating a chat',
+		'opens a stopped site from %s without resuming a conversation',
 		async ( action ) => {
 			const { connector, history } = setup( {
 				signedIn: true,
@@ -173,9 +173,9 @@ describe( 'Studio workspace', () => {
 					name: action === 'site' ? 'Other site' : 'Start Other site',
 				} )
 			);
-			await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/previous' ) );
+			await waitFor( () => expect( history.location.pathname ).toBe( '/sites/two/new' ) );
 			expect( await findComposer() ).toHaveValue( '' );
-			expect( await screen.findByText( 'Old message' ) ).toBeVisible();
+			expect( screen.queryByText( 'Old message' ) ).not.toBeInTheDocument();
 			expect( screen.queryByRole( 'button', { name: 'New chat' } ) ).not.toBeInTheDocument();
 			expect( connector.createSession ).not.toHaveBeenCalled();
 			if ( action === 'play' ) {
@@ -189,7 +189,11 @@ describe( 'Studio workspace', () => {
 			);
 			expect( await screen.findByText( 'Old message' ) ).toBeVisible();
 			fireEvent.click( screen.getByRole( 'button', { name: 'Other site' } ) );
-			await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/previous' ) );
+			await waitFor( () =>
+				expect( history.location.pathname ).toBe(
+					action === 'play' ? '/sessions/previous' : '/sites/two/new'
+				)
+			);
 			expect( await findComposer() ).toHaveValue( '' );
 			expect( connector.createSession ).not.toHaveBeenCalled();
 		}

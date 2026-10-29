@@ -41,7 +41,7 @@ export function useOpenSite() {
 					!! session.firstPrompt && ! session.archived && aiSessionBelongsToSite( session, site )
 			)
 		);
-		if ( session ) {
+		if ( site.running && session ) {
 			void navigate( { to: '/sessions/$sessionId', params: { sessionId: session.id } } );
 		} else {
 			void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );

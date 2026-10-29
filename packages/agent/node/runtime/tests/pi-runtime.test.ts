@@ -1,5 +1,6 @@
 import fs from 'fs';
 import { createServer } from 'node:http';
+import os from 'os';
 import path from 'path';
 import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
 import { ModelRegistry, SessionManager } from '@earendil-works/pi-coding-agent';
@@ -21,6 +22,7 @@ const mocks = vi.hoisted( () => ( {
 	customMessages: [] as Array< { message: unknown; options: unknown } >,
 	onCustomMessage: null as ( () => void ) | null,
 	studioRoot: '/tmp/studio-ai-pi-runtime',
+	bashCwd: '',
 	configRoot: '/tmp/studio-ai-pi-runtime-config',
 	// What ran, in order: tool executions and the post content check.
 	steps: [] as string[],
@@ -112,7 +114,10 @@ vi.mock( '@earendil-works/pi-coding-agent', async ( importOriginal ) => {
 		createReadTool: () => stub( 'Read' ),
 		createWriteTool: () => stub( 'Write' ),
 		createEditTool: () => stub( 'Edit' ),
-		createBashTool: () => stub( 'Bash' ),
+		createBashTool: ( cwd: string ) => {
+			mocks.bashCwd = cwd;
+			return stub( 'Bash' );
+		},
 		createGrepTool: () => stub( 'Grep' ),
 		createFindTool: () => stub( 'Glob' ),
 		createLsTool: () => stub( 'Ls' ),
@@ -404,6 +409,29 @@ describe( 'pi runtime', () => {
 				expect( last.errorMessage ).toMatch( /STUDIO_WPCOM_API_KEY/ );
 			}
 		}
+	} );
+
+	it( "starts Bash in the active local site's folder, and says where it starts", async () => {
+		const site = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-shell-site-' ) );
+		const local = { name: 'A', path: site, running: true };
+		for ( const [ activeSite, folder ] of [
+			[ local, site ],
+			[ { ...local, path: path.join( site, 'gone' ) }, mocks.studioRoot ],
+			[ { ...local, remote: { host: 'wpcom', id: 7 } }, mocks.studioRoot ],
+			[ undefined, mocks.studioRoot ],
+		] as const ) {
+			const handle = agent.runTurn( {
+				prompt: 'hello',
+				session: newSession(),
+				env: WPCOM_ENV,
+				activeSite: activeSite as StudioAgentTurnConfig[ 'activeSite' ],
+				onEvent: () => {},
+			} );
+			await handle.result;
+			expect( mocks.bashCwd ).toBe( folder );
+			expect( handle.systemPrompt() ).toContain( `- Each Bash command starts in ${ folder }.` );
+		}
+		fs.rmSync( site, { recursive: true, force: true } );
 	} );
 
 	it( 'reports the system prompt its model requests carry', async () => {

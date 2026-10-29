@@ -472,6 +472,7 @@ async function createStudioAgentSession(
 		tools.map( ( tool ) => tool.name )
 	);
 	const systemPrompt = buildSystemPrompt( {
+		shellDirectory: shellDirectory( config ),
 		userInstructions,
 		activeSite: config.activeSite,
 		activeSiteFacts: activeSiteFacts.flat(),
@@ -1047,6 +1048,13 @@ function getStudioWpSpawnHook() {
 	return agentShell( ensureStudioShimDirectory( getStudioShims( process.execPath, cliPath ) ) );
 }
 
+// Bash starts in the active local site's folder, where most commands run and
+// where `studio wp` finds the site (getSiteContainingFolder() in cli/commands/wp.ts).
+function shellDirectory( config: ResolvedStudioAgentTurnConfig ): string {
+	const site = config.activeSite;
+	return site && ! site.remote && fs.existsSync( site.path ) ? site.path : config.host.sitesRoot;
+}
+
 function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
 	imageGenerationEnabled: boolean,
@@ -1076,7 +1084,9 @@ function buildAgentTools(
 		renameTool( createWriteTool( sitesRoot ), 'Write' ),
 		renameTool( createEditTool( sitesRoot ), 'Edit' ),
 		renameTool(
-			withDefaultTimeout( createBashTool( sitesRoot, { spawnHook: getStudioWpSpawnHook() } ) ),
+			withDefaultTimeout(
+				createBashTool( shellDirectory( config ), { spawnHook: getStudioWpSpawnHook() } )
+			),
 			'Bash'
 		),
 		renameTool( createGrepTool( sitesRoot ), 'Grep' ),

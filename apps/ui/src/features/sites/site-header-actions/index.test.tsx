@@ -2,6 +2,7 @@ import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { requestHeaderPanel } from '@/data/use-open-header-panel';
+import { SessionUIProvider } from '@/data/use-session-ui';
 import { createFakeConnector } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { SiteHeaderActions, SiteHeaderActionsProvider, SiteHeaderSpace } from './index';
@@ -45,17 +46,19 @@ async function renderActions( {
 	};
 	const connector = createFakeConnector( { sites: [ site ] } );
 	renderWithProviders(
-		<SiteHeaderActionsProvider host={ host }>
-			<div data-site-header>
-				{ navigation ? (
-					<div data-site-header-navigation>
-						<button>Reload preview</button>
-					</div>
-				) : null }
-				<SiteHeaderSpace />
-			</div>
-			<SiteHeaderActions site={ site } live={ live } />
-		</SiteHeaderActionsProvider>,
+		<SessionUIProvider>
+			<SiteHeaderActionsProvider host={ host }>
+				<div data-site-header>
+					{ navigation ? (
+						<div data-site-header-navigation>
+							<button>Reload preview</button>
+						</div>
+					) : null }
+					<SiteHeaderSpace />
+				</div>
+				<SiteHeaderActions site={ site } live={ live } />
+			</SiteHeaderActionsProvider>
+		</SessionUIProvider>,
 		{ connector }
 	);
 	await screen.findByRole( 'button', { name: 'Publish…' } );

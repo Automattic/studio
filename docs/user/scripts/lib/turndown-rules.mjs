@@ -36,7 +36,11 @@ export function createTurndownService() {
 			if ( ! rows.length ) return content;
 			const cells = rows.map( ( row ) =>
 				Array.from( row.querySelectorAll( 'th, td' ) ).map( ( cell ) =>
-					cell.textContent.trim().replace( /\|/g, '\\|' ).replace( /\n/g, ' ' )
+					cell.textContent
+						.trim()
+						.replace( /\\/g, '\\\\' )
+						.replace( /\|/g, '\\|' )
+						.replace( /\n/g, ' ' )
 				)
 			);
 			const colCount = Math.max( ...cells.map( ( row ) => row.length ) );

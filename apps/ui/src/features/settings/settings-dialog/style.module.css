@@ -1,7 +1,3 @@
-.content {
-	--surface: inherit;
-}
-
 .scopes {
 	margin: var( --dialog-inset ) var( --dialog-inset ) 0;
 }

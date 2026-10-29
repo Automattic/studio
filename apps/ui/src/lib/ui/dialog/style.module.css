@@ -26,8 +26,11 @@
 		}
 	}
 
+	.content[data-slot='dialog-content'] {
+		--surface: var( --surface-1 );
+	}
+
 	.content {
-		--surface: var( --popover );
 		--dialog-inset: var( --space-3 );
 		position: fixed;
 		top: 50%;

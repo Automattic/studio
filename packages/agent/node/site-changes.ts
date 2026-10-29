@@ -10,6 +10,7 @@
 import { adminCapabilities } from '@studio/agent/node/admin-capabilities';
 import { blockEditorScripts } from '@studio/agent/node/block-editor-scripts';
 import { renderedBlocks } from '@studio/agent/node/block-render-check';
+import { blockScriptAssets } from '@studio/agent/node/block-script-assets';
 import { blockStyleClasses } from '@studio/agent/node/block-style-classes';
 import { blockTheme } from '@studio/agent/node/block-theme';
 import { childThemeCopies } from '@studio/agent/node/child-theme-copies';
@@ -82,6 +83,8 @@ const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
 	globalStylesFlag,
 	// Before the blocks are rendered, so a Jetpack block renders with its module.
 	jetpackModules,
+	// Before the blocks are validated, so the editor loads a block's script after the packages it reads.
+	blockScriptAssets,
 	// Before the posts, so a copy saved to its post is checked as the post.
 	postCopies,
 	postContentChanges,

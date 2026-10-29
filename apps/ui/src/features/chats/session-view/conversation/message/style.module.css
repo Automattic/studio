@@ -59,6 +59,7 @@
 	min-width: 0;
 	max-width: min( 85%, 32rem );
 	padding: var( --space-2_5 ) var( --space-3_5 );
+	border: none;
 	line-height: var( --text-sm--line-height );
 	overflow: hidden;
 	overflow-wrap: break-word;

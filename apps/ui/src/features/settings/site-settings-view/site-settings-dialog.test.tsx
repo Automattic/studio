@@ -311,7 +311,7 @@ describe( 'site settings', () => {
 		const name = await siteName();
 		fireEvent.change( name, { target: { value: 'First edit' } } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Close settings' } ) );
-		expect( screen.getByRole( 'dialog', { name: 'Discard changes?' } ) ).toBeVisible();
+		expect( screen.getByRole( 'alertdialog', { name: 'Discard changes?' } ) ).toBeVisible();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel' } ) );
 		expect( name ).toHaveValue( 'First edit' );
 		fireEvent.input( name, { target: { value: 'Continued edit' } } );

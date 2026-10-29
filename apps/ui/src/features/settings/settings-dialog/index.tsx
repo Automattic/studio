@@ -24,6 +24,7 @@ import {
 import { SiteSettingsForm } from '@/features/settings/site-settings-view';
 import { readLastVisited } from '@/features/sidebar';
 import {
+	AlertDialog,
 	Button,
 	DialogDescription,
 	DialogFooter,
@@ -167,6 +168,7 @@ export function SettingsDialog() {
 	const [ target, setTarget ] = useState< string | null >( null );
 	const [ dirty, setDirty ] = useState( false );
 	const [ confirmingDiscard, setConfirmingDiscard ] = useState( false );
+	const discardCancelRef = useRef< HTMLButtonElement >( null );
 	const [ actions, setActions ] = useState< HTMLElement | null >( null );
 	const [ content, setContent ] = useState< HTMLDivElement | null >( null );
 	const pendingExit = useRef< ( () => void ) | null >( null );
@@ -493,14 +495,22 @@ export function SettingsDialog() {
 				</Tabs>
 			</DialogContent>
 
-			<Dialog open={ confirmingDiscard } onOpenChange={ setConfirmingDiscard }>
-				<DialogContent layout="confirmation" showCloseButton={ false }>
+			<AlertDialog open={ confirmingDiscard } onOpenChange={ setConfirmingDiscard }>
+				<DialogContent
+					layout="confirmation"
+					showCloseButton={ false }
+					initialFocus={ discardCancelRef }
+				>
 					<DialogHeader>
 						<DialogTitle>{ __( 'Discard changes?' ) }</DialogTitle>
 						<DialogDescription>{ __( 'Your unsaved changes will be lost.' ) }</DialogDescription>
 					</DialogHeader>
 					<DialogFooter>
-						<Button variant="outline" onClick={ () => setConfirmingDiscard( false ) }>
+						<Button
+							ref={ discardCancelRef }
+							variant="outline"
+							onClick={ () => setConfirmingDiscard( false ) }
+						>
 							{ __( 'Cancel' ) }
 						</Button>
 						<Button
@@ -515,7 +525,7 @@ export function SettingsDialog() {
 						</Button>
 					</DialogFooter>
 				</DialogContent>
-			</Dialog>
+			</AlertDialog>
 		</Dialog>
 	);
 }

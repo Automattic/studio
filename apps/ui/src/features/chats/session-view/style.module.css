@@ -1,12 +1,12 @@
 /* The chat column. The site preview panel lives in the dashboard layout's
    PreviewSplitFrame, which hosts this view in its content column. */
 .root {
-	--column-inline-gutter: var( --space-4 );
+	--column-inline-gutter: var( --space-5 );
 	--column-max-width: 644px;
 	--header-height: var( --band-height );
 	--composer-height: 0px;
 	/* The composer sits this far above the panel's bottom edge. */
-	--composer-bottom-gap: var( --space-4 );
+	--composer-bottom-gap: var( --space-5 );
 
 	position: relative;
 	height: 100%;

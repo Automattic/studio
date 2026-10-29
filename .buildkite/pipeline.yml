@@ -27,6 +27,19 @@ e2e_config: &e2e_config
         skip: TEMP mac queue disabled
       - with: { platform: windows, arch: x64 }
 
+linux_container_plugins: &linux_container_plugins
+  - $CI_TOOLKIT_PLUGIN
+  - $DOCKER_PLUGIN:
+      image: "$NODE_DOCKER_IMAGE"
+      propagate-environment: true
+      propagate-aws-auth-tokens: true
+      environment:
+        - CACHE_BUCKET_NAME
+      mount-buildkite-agent: true
+      expand-volume-vars: true
+      volumes:
+        - "$$A8C_CI_TOOLKIT_PLUGIN_DIR:/a8c-ci-toolkit:ro"
+
 steps:
   - label: Lint
     agents:
@@ -35,18 +48,7 @@ steps:
     command: |
       export PATH="$$PATH:/a8c-ci-toolkit/bin"
       bash .buildkite/commands/run-lint.sh
-    plugins:
-      - $CI_TOOLKIT_PLUGIN
-      - $DOCKER_PLUGIN:
-          image: "$NODE_DOCKER_IMAGE"
-          propagate-environment: true
-          propagate-aws-auth-tokens: true
-          environment:
-            - CACHE_BUCKET_NAME
-          mount-buildkite-agent: true
-          expand-volume-vars: true
-          volumes:
-            - "$$A8C_CI_TOOLKIT_PLUGIN_DIR:/a8c-ci-toolkit:ro"
+    plugins: *linux_container_plugins
     notify:
       - github_commit_status:
           context: Lint
@@ -70,7 +72,7 @@ steps:
     steps:
       - label: Unit Tests on {{matrix}}
         key: unit_tests
-        command: bash .buildkite/commands/run-unit-tests.sh "{{matrix}}"
+        command: bash .buildkite/commands/run-unit-tests.sh
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         agents:
           queue: "{{matrix}}"
@@ -86,14 +88,12 @@ steps:
       # Windows share queue/plugin defaults that Linux doesn't.
       - label: Unit Tests on linux
         key: unit_tests_linux
-        command: bash .buildkite/commands/run-unit-tests.sh "linux"
+        command: |
+          export PATH="$$PATH:/a8c-ci-toolkit/bin"
+          bash .buildkite/commands/run-unit-tests.sh
         agents:
           queue: default
-        plugins:
-          - $DOCKER_PLUGIN:
-              image: "$NODE_DOCKER_IMAGE"
-              propagate-environment: true
-              mount-buildkite-agent: true
+        plugins: *linux_container_plugins
         notify:
           - github_commit_status:
               context: Unit Tests
@@ -118,14 +118,12 @@ steps:
       # Mac and Windows share queue/plugin defaults that Linux doesn't.
       - label: E2E Tests on linux-x64
         key: e2e_tests_linux
-        command: bash .buildkite/commands/run-e2e-tests.sh "linux" "x64"
+        command: |
+          export PATH="$$PATH:/a8c-ci-toolkit/bin"
+          bash .buildkite/commands/run-e2e-tests.sh "linux" "x64"
         agents:
           queue: default
-        plugins:
-          - $DOCKER_PLUGIN:
-              image: "$NODE_DOCKER_IMAGE"
-              propagate-environment: true
-              mount-buildkite-agent: true
+        plugins: *linux_container_plugins
         artifact_paths:
           - test-results/**/*.zip
           - test-results/**/*.png
@@ -144,7 +142,7 @@ steps:
     steps:
       - label: CLI E2E Tests on {{matrix}}
         key: cli_e2e_tests_mac_windows
-        command: bash .buildkite/commands/run-cli-e2e-tests.sh "{{matrix}}"
+        command: bash .buildkite/commands/run-cli-e2e-tests.sh
         artifact_paths:
           - test-results/daemon-logs/**/*.log
         agents:
@@ -158,17 +156,15 @@ steps:
       # defaults that Linux doesn't. Same pattern as the unit-test group.
       - label: CLI E2E Tests on linux
         key: cli_e2e_tests_linux
-        command: bash .buildkite/commands/run-cli-e2e-tests.sh "linux"
+        command: |
+          export PATH="$$PATH:/a8c-ci-toolkit/bin"
+          bash .buildkite/commands/run-cli-e2e-tests.sh
         artifact_paths:
           - test-results/daemon-logs/**/*.log
         agents:
           queue: default
         timeout_in_minutes: 30
-        plugins:
-          - $DOCKER_PLUGIN:
-              image: "$NODE_DOCKER_IMAGE"
-              propagate-environment: true
-              mount-buildkite-agent: true
+        plugins: *linux_container_plugins
 
   - label: ":chart_with_upwards_trend: Performance Metrics"
     key: metrics
@@ -293,18 +289,15 @@ steps:
         command: |
           set -eu
 
+          export PATH="$$PATH:/a8c-ci-toolkit/bin"
+
           # The container has no SSH keys / known_hosts, use anonymous HTTPS
           git remote set-url origin https://github.com/Automattic/studio.git
 
           apt-get -o Acquire::Retries=3 update
           apt-get install -y --no-install-recommends fakeroot
 
-          # `--maxsockets 1` works around npm/cli#4652 (ECONNRESETs on Linux);
-          # see install-node-dependencies.sh for the original rationale.
-          # TODO: restore the Buildkite npm cache used on Mac/Windows. The
-          # toolkit's cache helpers live on the host, so wiring them around a
-          # Docker step needs extra plumbing or a persistent agent volume.
-          npm ci --unsafe-perm --no-audit --no-progress --maxsockets 1
+          .buildkite/commands/install-node-dependencies.sh
 
           node ./scripts/prepare-dev-build-version.mjs
 
@@ -319,16 +312,12 @@ steps:
           - apps/studio/out/make/deb/**/*.deb
           - standalone-bundles/studio-cli-*.tgz
           - standalone-bundles/studio-cli-*.tgz.sha256
-        plugins:
-          # Amazon Linux on the `default` queue lacks `dpkg`/`fakeroot`
-          # required by electron-forge's MakerDeb, so we build inside a
-          # Debian container that has them. Image tag is derived from
-          # `.nvmrc` (see shared-pipeline-vars) so Linux drifts in lockstep
-          # with the Mac/Windows agents (which install Node via NVM).
-          - $DOCKER_PLUGIN:
-              image: "$NODE_DOCKER_IMAGE"
-              propagate-environment: true
-              mount-buildkite-agent: true
+        # Amazon Linux on the `default` queue lacks `dpkg`/`fakeroot`
+        # required by electron-forge's MakerDeb, so we build inside a
+        # Debian container that has them. Image tag is derived from
+        # `.nvmrc` (see shared-pipeline-vars) so Linux drifts in lockstep
+        # with the Mac/Windows agents (which install Node via NVM).
+        plugins: *linux_container_plugins
         matrix:
           - x64
           - arm64

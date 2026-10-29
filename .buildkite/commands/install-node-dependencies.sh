@@ -2,6 +2,13 @@
 
 set -eu
 
+# The Linux steps run in a Node container, which lacks the AWS CLI the cache helpers call.
+if ! command -v aws > /dev/null; then
+  echo "--- :aws: Install AWS CLI for the cache helpers"
+  apt-get -o Acquire::Retries=3 update
+  apt-get install -y --no-install-recommends awscli jq
+fi
+
 PLATFORM=$(uname -s)
 ARCHITECTURE=$(uname -m)
 NODE_VERSION=$(node --version)

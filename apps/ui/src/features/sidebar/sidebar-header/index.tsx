@@ -7,9 +7,9 @@ import { useSidebarOpen } from '@/data/use-sidebar-collapsed';
 import { SidebarToggle } from '@/features/sidebar/sidebar-toggle';
 import { IconButton } from '@/lib/ui';
 import styles from './style.module.css';
-import type { MouseEvent } from 'react';
+import type { MouseEvent, ReactNode } from 'react';
 
-export function SidebarHeader() {
+export function SidebarHeader( { action }: { action?: ReactNode } ) {
 	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 	const connector = useConnector();
 	const sidebarOpen = useSidebarOpen();
@@ -25,6 +25,7 @@ export function SidebarHeader() {
 			<span className={ styles.toggleSlot } data-sidebar-open={ sidebarOpen }>
 				<SidebarToggle />
 			</span>
+			{ action ? <span className={ styles.action }>{ action }</span> : null }
 		</div>
 	);
 }

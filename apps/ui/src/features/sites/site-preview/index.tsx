@@ -1,5 +1,4 @@
-import { getSiteOperationLabel } from '@studio/common/lib/site-operation-labels';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import {
 	Suspense,
 	useCallback,
@@ -13,7 +12,6 @@ import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
 import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
 import { useSiteDesign } from '@/data/queries/use-site-design';
-import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
 import { useResponsivePreview, updateResponsivePreview } from '@/data/responsive-preview';
 import { useOpenSettings } from '@/data/use-open-settings';
@@ -102,7 +100,6 @@ export function SitePreview( {
 	// This window's own start or stop lands before the CLI records it.
 	const isStarting = ! live && ( startPending || operation === 'start' );
 	const isStopping = ! live && ( stopPending || operation === 'stop' );
-	const otherOperation = isStarting || isStopping ? null : operation;
 	const siteUrl = liveUrl ?? getSiteUrl( site );
 	const canPreview = live || site.running;
 	const canUseWebview = isElectron();
@@ -121,7 +118,6 @@ export function SitePreview( {
 		switchRealm,
 	} = usePreviewSurfaces( { siteId: site.id, siteUrl, path: safePath, reloadNonce, onPathChange } );
 	const siteDesign = useSiteDesign( site );
-	const siteThumbnail = useSiteThumbnail( site.id, { enabled: ! canPreview } );
 	const annotations = useSiteAnnotations( site.id );
 	const { loadingStage, reveal } = useLoadingStage( {
 		siteId: site.id,
@@ -130,7 +126,6 @@ export function SitePreview( {
 		isStarting,
 		design: activeSurfaceKey === 'design',
 	} );
-	// Every page load hides the page over the loading stage, then fades it in.
 	// Frames report no loading state, so track which load each one finished.
 	const [ loadedFrames, setLoadedFrames ] = useState<
 		Partial< Record< PreviewSurfaceKey, string > >
@@ -377,7 +372,6 @@ export function SitePreview( {
 								);
 							}
 							const frameKey = getFrameKey( siteUrl, surface );
-							const frameLoading = ! canUseWebview && loadedFrames[ key ] !== frameKey;
 							return (
 								<SurfaceLayer
 									key={ key }
@@ -387,7 +381,7 @@ export function SitePreview( {
 											? { siteId: site.id, settings: responsiveSettings, scale: responsiveScale }
 											: undefined
 									}
-									loading={ loadingStage || surface.browser.loading || frameLoading }
+									loading={ loadingStage }
 								>
 									{ canUseWebview ? (
 										<WebviewSurface
@@ -437,24 +431,13 @@ export function SitePreview( {
 						} ) }
 					<SiteContextMenu site={ site } disabled={ canPreview }>
 						<div className={ styles.empty }>
-							<PreviewParticles active={ loadingStage || navigating } showLogo={ loadingStage } />
+							<PreviewParticles active={ loadingStage } showLogo={ loadingStage } />
 							{ loadingStage || navigating ? (
 								<VisuallyHidden role="status">{ __( 'Loading site preview' ) }</VisuallyHidden>
 							) : null }
 							{ canPreview ? null : (
 								<div className={ styles.emptyContent }>
 									{ isStarting ? null : <StoppedSitePreview site={ site } /> }
-									{ otherOperation || ( ! isStarting && ! siteThumbnail.data ) ? (
-										<p>
-											{ otherOperation
-												? sprintf(
-														/* translators: %s: an operation in progress, e.g. "Saving settings". */
-														__( '%s… the site can start once this finishes.' ),
-														getSiteOperationLabel( otherOperation )
-												  )
-												: __( 'Start the site to see a live preview.' ) }
-										</p>
-									) : null }
 								</div>
 							) }
 						</div>

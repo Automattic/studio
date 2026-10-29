@@ -122,6 +122,22 @@ const studioConnect = async () => {
 const searchBox = () => screen.getByRole( 'textbox', { name: 'Search settings' } );
 
 describe( 'WordPress Studio settings', () => {
+	it( 'defaults to opening chat on site start and saves changes immediately', async () => {
+		const { connector } = await setup();
+		const toggle = await screen.findByRole( 'switch', { name: 'Open chat when starting a site' } );
+		expect( toggle ).toBeChecked();
+		fireEvent.click( toggle );
+		await waitFor( () =>
+			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+				{ openChatOnSiteStart: false },
+				undefined
+			)
+		);
+		expect( toggle ).not.toBeChecked();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Reset interface' } ) );
+		await waitFor( () => expect( toggle ).toBeChecked() );
+	} );
+
 	it.each( [ undefined, true, false ] )(
 		'saves recent chats visibility from %s',
 		async ( value ) => {
@@ -156,6 +172,7 @@ describe( 'WordPress Studio settings', () => {
 		{ quitSitesBehavior: 'stop' as const },
 		{ showRecentChats: false },
 		{ autoStartSiteOnChat: true },
+		{ openChatOnSiteStart: false },
 		{ autoCollapseSites: false },
 		{ sidebarPinnedSort: 'manual' as const },
 		{ sidebarSiteSort: 'status' as const },

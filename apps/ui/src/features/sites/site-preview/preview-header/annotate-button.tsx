@@ -26,6 +26,7 @@ export function AnnotateButton( {
 					render={
 						<Button
 							variant="accent-ghost"
+							size={ iconOnly ? 'icon' : 'default' }
 							className={ styles.annotateButton }
 							aria-label={ __( 'Annotate' ) }
 							aria-pressed={ active }
@@ -39,7 +40,7 @@ export function AnnotateButton( {
 							disabled={ disabled }
 							onClick={ onClick }
 						>
-							<AnnotateIcon data-icon="inline-start" />
+							<AnnotateIcon data-icon={ iconOnly ? undefined : 'inline-start' } />
 							{ iconOnly ? null : <span>{ __( 'Annotate' ) }</span> }
 						</Button>
 					}

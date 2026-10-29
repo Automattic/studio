@@ -3,12 +3,12 @@ import { DownloadIcon, HistoryIcon } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
-import { useStartSite } from '@/data/queries/use-sites';
 import {
 	useCancelSync,
 	usePullSiteFromLive,
 	usePushSiteToLive,
 } from '@/data/queries/use-sync-site';
+import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import { ExternalLinkIcon, SyncIcon } from '@/lib/icons';
 import { Button, FieldSet, Menu } from '@/lib/ui';
 import { FilePicker } from './file-picker';
@@ -117,7 +117,7 @@ export function ConnectedView( {
 	const pushSite = usePushSiteToLive();
 	const pullSite = usePullSiteFromLive();
 	const cancel = useCancelSync();
-	const startSite = useStartSite();
+	const startSite = useStartSiteWithChat();
 	const pending = activity?.kind === 'pending';
 	useEffect( () => {
 		onReviewingChange( reviewing && ! pending );

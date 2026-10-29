@@ -36,11 +36,17 @@
 }
 
 .browserLocation {
+	--preview-address-max-width: 360px;
+
 	display: flex;
 	flex: 1;
 	align-items: center;
 	justify-content: center;
 	min-width: 0;
+}
+
+.header:not( [data-site-header-layout='inline'] ) .browserLocation {
+	--preview-address-max-width: 240px;
 }
 
 /* Out of room, the address gives way rather than push the actions over it. */
@@ -54,7 +60,7 @@
 	display: flex;
 	flex: 1 1 auto;
 	min-width: 0;
-	max-width: 416px;
+	max-width: var( --preview-address-max-width );
 	height: var( --control-size );
 	align-items: center;
 	justify-content: center;
@@ -86,6 +92,8 @@
 
 .disabledControlTooltipTarget {
 	display: inline-flex;
+	flex-shrink: 0;
+	min-width: max-content;
 }
 
 .annotateButton {
@@ -123,7 +131,7 @@
 .navigation {
 	display: flex;
 	align-items: center;
-	gap: var( --space-0_5 );
+	gap: 0;
 }
 
 /* Out of room: the navigation moves into the More menu, but keeps its size
@@ -146,7 +154,7 @@
 	position: relative;
 	flex-basis: calc( var( --preview-header-content-width, 0px ) - var( --header-start-inset ) );
 	min-width: max-content;
-	margin-inline-end: calc( var( --space-3 ) + 1px - var( --space-0_5 ) );
+	margin-inline-end: calc( var( --space-1 ) + 1px - var( --space-0_5 ) );
 }
 
 .loadingProgress {
@@ -163,6 +171,14 @@
 	background-color: var( --border );
 	transform: translateY( -50% );
 	pointer-events: none;
+}
+
+.header[data-site-header-layout='navigation-overflow'] .toolbarStart {
+	flex-basis: auto;
+}
+
+.header[data-site-header-layout='navigation-overflow'] .toolbarStart::after {
+	display: none;
 }
 
 .headerSide:empty,

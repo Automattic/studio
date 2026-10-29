@@ -5,7 +5,7 @@
 	position: relative;
 	display: flex;
 	width: 100%;
-	max-width: 416px;
+	max-width: var( --preview-address-max-width, 360px );
 	flex: 1 1 auto;
 	min-width: 0;
 	height: var( --control-size );
@@ -14,10 +14,9 @@
 	border: 1px solid var( --border );
 	border-radius: var( --radius-full );
 	background-color: var( --surface );
-	overflow: hidden;
 }
 
-.addressBar:focus-within {
+.addressBar:has( .input:focus ) {
 	border-color: var( --ring );
 	box-shadow: inset 0 0 0 1px var( --ring );
 }
@@ -29,17 +28,25 @@
 
 .actions {
 	position: absolute;
-	inset-block: 0;
-	inset-inline-end: 0.5px;
+	z-index: 1;
+	inset-block: var( --space-0_5 );
+	inset-inline-end: var( --space-0_5 );
 	display: flex;
 	align-items: center;
+	border-radius: var( --radius-full );
+	background-color: var( --surface );
 	opacity: 0;
 	pointer-events: none;
 	transition: opacity var( --motion-duration-feedback ) ease;
 }
 
 .responsiveAction {
-	inset-inline: 0.5px auto;
+	inset-inline: var( --space-0_5 ) auto;
+}
+
+.action {
+	width: calc( var( --control-size ) - 2px - 2 * var( --space-0_5 ) );
+	height: 100%;
 }
 
 .addressBar:is( :hover, :focus-within ) .actions {
@@ -55,6 +62,7 @@
 
 .input {
 	width: 100%;
+	height: 100%;
 	min-width: 0;
 	padding-inline: var( --space-5 );
 	color: var( --foreground );

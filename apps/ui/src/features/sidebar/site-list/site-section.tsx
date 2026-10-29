@@ -1,15 +1,18 @@
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useEffect, useRef } from 'react';
+import { useSiteAgentActivity } from '@/data/agent-runs/use-agent-run';
 import { sitePinKey } from '@/data/queries/use-sidebar-pins';
 import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useOpenSite } from '@/data/use-open-site';
 import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { XdebugIcon } from '@/features/sidebar/xdebug-icon';
-import { GlobeIcon, NewChatIcon } from '@/lib/icons';
+import { GlobeIcon, NeedsInputIcon, NewChatIcon } from '@/lib/icons';
 import {
+	Badge,
 	IconButton,
 	NotificationDot,
 	SidebarMenuActions,
@@ -66,6 +69,8 @@ export function SiteSection( {
 	const sectionRef = useRef< HTMLLIElement >( null );
 	const isActive = isChatActive || isContextActive;
 	const showChats = expanded && ( chats.length > 0 || loadError );
+	const agentActivity = useSiteAgentActivity( row.sessionIds );
+	const needsInput = ! expanded && agentActivity === 'pending-question';
 	// Highlighted, with its actions showing, unless its open chat is listed under it.
 	const highlighted = ( isChatActive && ( ! showChats || ! activeSessionId ) ) || isContextActive;
 	// Keep the active site visible — e.g. when launch restores a site that
@@ -77,7 +82,8 @@ export function SiteSection( {
 	}, [ isActive ] );
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
-	const status = getSiteStatus( site, isStarting, isStopping, useSiteOperation( site ) );
+	const operation = useSiteOperation( site );
+	const status = getSiteStatus( site, isStarting, isStopping, operation );
 	const syncActivity = useSiteSyncActivity( site.id );
 	// Import gets a row indicator of its own alongside push/pull: it is the only
 	// way to tell which site a long-running import belongs to when several are in
@@ -92,15 +98,25 @@ export function SiteSection( {
 	const displayActivity = siteActivity ?? 'idle';
 	const openSite = useOpenSite();
 	const preview = useOptionalSessionPreviewUI();
+	const pathname = useRouterState( { select: ( state ) => state.location.pathname } );
+	const emptyChatOpen =
+		pathname === `/sites/${ encodeURIComponent( site.id ) }/new` && ! preview?.chatHidden;
 	const handleOpenSite = () => {
 		onOpen?.();
 		onSiteOpen?.();
 		openSite( site );
 	};
+	const { data: preferences } = useUserPreferences();
 	const handleStartSite = () => {
-		preview?.setChatHidden( false, site.id );
 		if ( ! isActive ) {
-			handleOpenSite();
+			if ( preferences?.openChatOnSiteStart ?? true ) {
+				handleOpenSite();
+			} else {
+				onOpen?.();
+				onSiteOpen?.();
+				preview?.setOpen( true );
+				void navigate( { to: '/sites/$siteId', params: { siteId: site.id } } );
+			}
 		} else {
 			preview?.setOpen( true );
 		}
@@ -122,6 +138,7 @@ export function SiteSection( {
 						{ ...selectable }
 						active={ highlighted }
 						className={ styles.siteRow }
+						data-needs-input={ needsInput || undefined }
 						onClick={ handleOpenSite }
 					>
 						<span
@@ -147,18 +164,36 @@ export function SiteSection( {
 				}
 			/>
 			<SidebarMenuActions
-				showOnHover={ ! highlighted }
+				showOnHover={ ! highlighted && ! needsInput }
 				className={ styles.siteActions }
 				data-reorder-exclude
 			>
+				{ needsInput ? (
+					<Badge
+						variant="accent"
+						size="icon"
+						role="status"
+						aria-label={ __( 'WordPress Studio needs an answer.' ) }
+					>
+						<NeedsInputIcon />
+					</Badge>
+				) : null }
 				<IconButton
+					className={ styles.rowAction }
 					variant="muted-ghost"
 					size="icon-sm"
 					icon={ <NewChatIcon /> }
 					label={ sprintf( __( 'New chat for %s' ), site.name ) }
 					onClick={ () => {
 						onSiteOpen?.();
-						preview?.setChatHidden( false, site.id );
+						const hideChat =
+							emptyChatOpen &&
+							preview?.open &&
+							site.running &&
+							! isStopping &&
+							operation !== 'stop' &&
+							preview.revealingSiteId !== site.id;
+						preview?.setChatHidden( !! hideChat, site.id );
 						void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 					} }
 				/>

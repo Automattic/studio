@@ -9,11 +9,11 @@
 	min-width: 0;
 	min-height: 0;
 	overflow: hidden;
+	background-color: var( --chrome );
 	transition: opacity var( --motion-duration-surface ) var( --motion-ease-enter );
 }
 
-/* A loading page hides at once, showing the loading stage behind it, and
-   fades in when it's ready. */
+/* Keep the startup stage visible until the first page is ready, then fade in. */
 .realmLayer[data-loading] {
 	opacity: 0;
 	transition-duration: 0s;

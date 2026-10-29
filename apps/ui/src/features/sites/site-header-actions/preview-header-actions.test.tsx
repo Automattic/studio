@@ -20,7 +20,12 @@ afterEach( () => {
 	} );
 } );
 
-async function renderHeader( siteId: string, connector = createFakeConnector(), width = 60 ) {
+async function renderHeader(
+	siteId: string,
+	connector = createFakeConnector(),
+	width = 60,
+	withChatControls = false
+) {
 	Object.defineProperty( window.navigator, 'userAgent', {
 		value: `${ REAL_USER_AGENT } Electron/38.0.0`,
 		configurable: true,
@@ -47,7 +52,12 @@ async function renderHeader( siteId: string, connector = createFakeConnector(), 
 	const view = renderWithProviders(
 		<SiteHeaderActionsProvider host="preview">
 			<SessionUIProvider>
-				<SitePreview site={ site } path="/" reloadNonce={ 0 } />
+				<SitePreview
+					site={ site }
+					path="/"
+					reloadNonce={ 0 }
+					toolbarStart={ withChatControls ? <span>Chat controls</span> : undefined }
+				/>
 				<SiteHeaderActions site={ site } />
 			</SessionUIProvider>
 		</SiteHeaderActionsProvider>,
@@ -72,6 +82,28 @@ const headerButtons = ( name: string | RegExp ) =>
 			name,
 		} )
 	);
+
+it( 'compacts the header before moving navigation into More and restores each stage', async () => {
+	const { resize } = await renderHeader( 'compact-chat-header', createFakeConnector(), 1000, true );
+	const header = document.querySelector< HTMLElement >( '[data-site-header]' )!;
+	await act( async () => {
+		header.style.setProperty( '--preview-header-content-width', '400px' );
+	} );
+	await resize( 850 );
+	expect( header ).toHaveAttribute( 'data-site-header-layout', 'actions-overflow' );
+	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toHaveTextContent( '' );
+	expect( screen.getByRole( 'button', { name: 'More preview actions' } ) ).toBeVisible();
+	await resize( 740 );
+	expect( header ).toHaveAttribute( 'data-site-header-layout', 'actions-overflow' );
+	expect( screen.getByRole( 'button', { name: 'Reload preview' } ) ).toBeVisible();
+	await resize( 300 );
+	expect( header ).toHaveAttribute( 'data-site-header-layout', 'navigation-overflow' );
+	expect( screen.queryByRole( 'button', { name: 'Reload preview' } ) ).not.toBeInTheDocument();
+	await resize( 740 );
+	expect( header ).toHaveAttribute( 'data-site-header-layout', 'actions-overflow' );
+	await resize( 1000 );
+	expect( header ).toHaveAttribute( 'data-site-header-layout', 'inline' );
+} );
 
 function readyGuest( extra: Record< string, unknown > = {} ) {
 	const webview = document.querySelector( 'webview' ) as HTMLElement;
@@ -159,7 +191,7 @@ it( 'moves responsive mode into More with its state and restores the inline cont
 	const { user, resize } = await renderHeader( 'responsive-overflow', createFakeConnector(), 1000 );
 	const toggle = screen.getByRole( 'button', { name: 'Responsive mode' } );
 	toggle.focus();
-	await resize( 460 );
+	await resize( 320 );
 	const more = screen.getByRole( 'button', { name: 'More preview actions' } );
 	expect( more ).toHaveFocus();
 	expect( screen.queryByRole( 'button', { name: 'Responsive mode' } ) ).not.toBeInTheDocument();

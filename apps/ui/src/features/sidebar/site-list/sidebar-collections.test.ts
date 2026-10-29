@@ -37,7 +37,7 @@ const sessions = [
 	chat( 'x1', 'gone', '2026-01-05T00:00:00Z' ),
 ];
 const rows = createSiteRows( sites, sessions );
-const defaults = { pins: [], chatOrder: {}, needingInput: [] };
+const defaults = { pins: [], chatOrder: {} };
 
 describe( 'getListedSessions', () => {
 	it( 'only lists conversations with a submitted message', () => {
@@ -130,18 +130,6 @@ describe( 'getSidebarCollections', () => {
 		expect( result.siteRows.map( ( row ) => row.site.id ) ).toEqual( [ 'a' ] );
 		expect( result.chatsBySite.get( 'a' )?.map( ( { id } ) => id ) ).toEqual( [ 'a2' ] );
 		expect( result.recentChats.map( ( { id } ) => id ) ).not.toContain( 'a1' );
-	} );
-
-	it( 'shows a chat waiting on an answer only under Needs input', () => {
-		const result = getSidebarCollections( rows, sessions, {
-			...defaults,
-			pins: [ 'chat:a2' ],
-			needingInput: [ 'a2' ],
-		} );
-		expect( result.needsInputChats.map( ( { id } ) => id ) ).toEqual( [ 'a2' ] );
-		expect( result.pinnedItems ).toEqual( [] );
-		expect( result.chatsBySite.get( 'a' )?.map( ( { id } ) => id ) ).toEqual( [ 'a1' ] );
-		expect( result.recentChats.map( ( { id } ) => id ) ).not.toContain( 'a2' );
 	} );
 
 	it( 'returns empty collections for missing sites or sessions', () => {

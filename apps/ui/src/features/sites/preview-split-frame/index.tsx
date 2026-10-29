@@ -22,8 +22,7 @@ interface PreviewSplitFrameProps {
 	// handles layout transitions.
 	preview?: ( props: PreviewSplitFramePreviewProps ) => ReactNode;
 	previewOpen?: boolean;
-	// The chat is hidden: the content column collapses the same way, while the
-	// sidebar stays.
+	// The preview fills the frame over the hidden chat; the sidebar stays.
 	chatHidden?: boolean;
 	// Open or close without the slide, as when a stopping site drops its preview.
 	instant?: boolean;
@@ -108,13 +107,11 @@ export function PreviewSplitFrame( {
 	const renderPreview = ! showPreview && animatingPreviewToggle ? lastVisiblePreview : preview;
 	const renderedPreview = renderPreview?.( { collapsed: ! showPreview } );
 	const rootStyle = {
-		// The collapsed content column keeps the split's last width in the
-		// geometry, so showing it again restores the previous split.
-		'--preview-frame-content-width': contentCollapsed ? '0px' : contentWidthVar,
+		'--preview-frame-content-width': contentWidthVar,
+		'--preview-frame-visible-content-width': contentCollapsed ? '0px' : contentWidthVar,
 		'--preview-header-content-width': showPreview && ! contentCollapsed ? contentWidthVar : '0px',
 	} as CSSProperties;
-	// Keep the zero-width column visible while it animates shut, then hide it
-	// so the (still mounted) chat can't be reached by focus or a screen reader.
+	// The preview covers the chat as it closes; keep its layout intact underneath.
 	const contentHidden = contentCollapsed && ! animatingPreviewToggle;
 	// Which pane reaches the window's top-right corner. The preview sits at the
 	// inline end, so in RTL it only gets there when it fills the frame, and the
@@ -145,6 +142,7 @@ export function PreviewSplitFrame( {
 						contentHidden && styles.contentColumnHidden
 					) }
 					aria-hidden={ contentHidden || undefined }
+					inert={ contentCollapsed }
 				>
 					<WindowControlsCornerContext.Provider value={ contentInCorner }>
 						{ children }

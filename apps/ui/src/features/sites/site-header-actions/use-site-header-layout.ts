@@ -8,6 +8,7 @@ export type SiteHeaderLayout = 'inline' | 'actions-overflow' | 'navigation-overf
 
 // The address field's useful width, kept when deciding whether the rest fits.
 const ADDRESS_MIN_WIDTH = 320;
+const COMPACT_ADDRESS_MIN_WIDTH = 160;
 
 const widthOf = ( element: Element | null ) => element?.getBoundingClientRect().width ?? 0;
 const pixels = ( value: string ) => parseFloat( value ) || 0;
@@ -57,7 +58,13 @@ export function useSiteHeaderLayout( space: HTMLElement | null, actions: HTMLEle
 				reserved.reduce(
 					( total, element ) =>
 						total +
-						widthOf( element ) +
+						Math.max(
+							widthOf( element ),
+							element.hasAttribute( 'data-site-header-split-start' )
+								? pixels( style.getPropertyValue( '--preview-header-content-width' ) ) -
+										pixels( style.paddingInlineStart )
+								: 0
+						) +
 						pixels( getComputedStyle( element ).marginInlineEnd ) +
 						gap,
 					0
@@ -65,14 +72,22 @@ export function useSiteHeaderLayout( space: HTMLElement | null, actions: HTMLEle
 			const full =
 				widthOf( actions.querySelector( '[data-site-header-publish]' ) ) +
 				widthOf( actions.querySelector( '[data-site-header-trailing]' ) ) +
+				actionGap +
 				( annotation ? annotationWidth + actionGap : 0 ) +
 				( navigation ? navigationWidth + gap : 0 ) +
 				( address ? ADDRESS_MIN_WIDTH + gap : 0 );
+			const compact =
+				full -
+				( address ? ADDRESS_MIN_WIDTH - COMPACT_ADDRESS_MIN_WIDTH : 0 ) -
+				( annotation
+					? annotationWidth -
+					  ( pixels( style.getPropertyValue( '--control-size' ) ) || widthOf( annotation ) )
+					: 0 );
 			setActionsWidth( widthOf( actions ) );
 			let next: SiteHeaderLayout = 'navigation-overflow';
 			if ( available >= full ) {
 				next = 'inline';
-			} else if ( ! navigation ) {
+			} else if ( ! navigation || available >= compact ) {
 				next = 'actions-overflow';
 			}
 			if ( next !== current ) {

@@ -72,6 +72,7 @@ export function PreviewHeader( {
 	return (
 		<div
 			data-site-header
+			data-site-header-layout={ headerLayout }
 			className={ clsx(
 				styles.header,
 				atWindowStart && sidebarCollapsed && trafficLightSpace.start && styles.headerTrafficLights
@@ -87,7 +88,11 @@ export function PreviewHeader( {
 			} }
 		>
 			{ toolbarStart ? (
-				<div data-site-header-reserved className={ styles.toolbarStart }>
+				<div
+					data-site-header-reserved
+					data-site-header-split-start
+					className={ styles.toolbarStart }
+				>
 					{ toolbarStart }
 				</div>
 			) : null }

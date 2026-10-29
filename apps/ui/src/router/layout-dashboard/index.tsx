@@ -24,6 +24,7 @@ import { SidebarLayout, HeaderSidebarToggle, rememberVisit } from '@/features/si
 import { PreviewSplitFrame, type PreviewSplitFramePreviewProps } from '@/features/sites';
 import {
 	SiteMenu,
+	SiteRunButton,
 	SiteHeaderActions,
 	SiteHeaderActionsProvider,
 	SitePreview,
@@ -185,10 +186,10 @@ function DashboardLayout() {
 		( previewSite?.running && ! previewStopping && preview.revealingSiteId !== previewSite.id ) ? (
 			<IconButton
 				className={ styles.chatToggle }
+				aria-pressed={ ! chatHidden }
 				icon={ <ChatIcon /> }
 				label={ chatHidden ? __( 'Open chat' ) : __( 'Close chat' ) }
 				tooltipSide="bottom"
-				aria-pressed={ ! chatHidden }
 				onClick={ () => {
 					if ( homeSiteId ) {
 						setChatHidden( false, homeSiteId );
@@ -238,7 +239,7 @@ function DashboardLayout() {
 		);
 
 	return (
-		<SidebarLayout>
+		<SidebarLayout headerAction={ routeSite ? <SiteRunButton site={ routeSite } /> : undefined }>
 			<AccountPromptDialog
 				open={ providerPromptOpen }
 				onOpenChange={ setProviderPromptOpen }

@@ -3,6 +3,8 @@ import path from 'path';
 import { expect, it } from 'vitest';
 import { unrenderedPages } from '@studio/agent/node/open-problems';
 import { frontPageTemplateNotes, resolveSiteFile } from '@studio/agent/node/site-file-guards';
+import { createSiteNotes } from '@studio/agent/node/site-notes';
+import { createFakeHost } from '@studio/agent/node/tests/fake-host';
 import { createSite } from '@studio/agent/node/tests/fixtures/wordpress-site';
 
 const SHOWN = '<!-- wp:post-content /-->';
@@ -101,6 +103,26 @@ it.each( [
 		}
 	}
 );
+
+// A new front-page template is refused without a page's content; one the
+// theme already holds is the theme's, and a change to it is only noted.
+it.each( [
+	{ name: 'a new template without post-content', text: NOT_SHOWN, refused: true },
+	{ name: 'a new template with post-content', text: SHOWN, refused: false },
+	{ name: 'a change to a template the theme holds', text: NOT_SHOWN, held: true, refused: false },
+] )( '$name: refused $refused', async ( { text, held, refused } ) => {
+	const site = createSite();
+	const template = path.join( site.root, 'wp-content/themes/bakery/templates/front-page.html' );
+	mkdirSync( path.dirname( template ), { recursive: true } );
+	if ( held ) {
+		writeFileSync( template, NOT_SHOWN );
+	}
+	const refusal = await createSiteNotes( createFakeHost() ).beforeWrite( template, text );
+	expect( refusal !== undefined ).toBe( refused );
+	if ( refusal ) {
+		expect( refusal ).toContain( 'get_front_page_template' );
+	}
+} );
 
 it( 'notes no other template', async () => {
 	const site = createSite();

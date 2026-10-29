@@ -5,7 +5,7 @@
  * these with the trigger each runs on.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
-import { readFile, unlink, writeFile } from 'fs/promises';
+import { access, readFile, unlink, writeFile } from 'fs/promises';
 import path from 'path';
 import { pathToFileURL } from 'url';
 import { selfHostThemeJsonFonts } from '@studio/common/lib/theme-fonts';
@@ -547,6 +547,13 @@ export async function clearThemePatternCache(
 	return [];
 }
 
+// Whether a front-page template renders no page's content, with its theme's patterns.
+async function hidesPageContent( theme: NonNullable< SiteFile[ 'theme' ] >, template: string ) {
+	const parent = await parentThemeDir( theme.dir );
+	const themeDirs = [ theme.dir, ...( parent ? [ parent ] : [] ) ];
+	return ( await rendersPageContent( template, themeDirs ) ) === false;
+}
+
 /**
  * A theme's front-page template written without a page's content
  * (front-page-template.ts), noted for the file whether or not its theme is
@@ -561,9 +568,28 @@ export async function frontPageTemplateNotes( {
 		return [];
 	}
 	const template = await readFile( path.join( siteRoot, relativePath ), 'utf8' );
-	const parent = await parentThemeDir( theme.dir );
-	const themeDirs = [ theme.dir, ...( parent ? [ parent ] : [] ) ];
-	return ( await rendersPageContent( template, themeDirs ) ) === false
+	return ( await hidesPageContent( theme, template ) )
 		? [ frontPageTemplateProblem( relativePath ) ]
 		: [];
+}
+
+/**
+ * Refuses a new front-page template without a page's content, so the site's
+ * front page is a page its owner edits. A template the theme already holds
+ * is the theme's own: a change to it is noted instead.
+ */
+export async function frontPageTemplateRefusal(
+	{ siteRoot, relativePath, theme }: SiteFile,
+	text: string
+): Promise< string | undefined > {
+	if ( theme?.file !== FRONT_PAGE_TEMPLATE ) {
+		return undefined;
+	}
+	const exists = await access( path.join( siteRoot, relativePath ) ).then(
+		() => true,
+		() => false
+	);
+	return ! exists && ( await hidesPageContent( theme, text ) )
+		? frontPageTemplateProblem( relativePath )
+		: undefined;
 }

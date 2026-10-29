@@ -30,6 +30,7 @@ import {
 	externalImageNotes,
 	freeFullWidthBlocks,
 	frontPageTemplateNotes,
+	frontPageTemplateRefusal,
 	getSiteFileWriteRefusal,
 	partInTemplatesRefusal,
 	phpInBlockTemplateRefusal,
@@ -112,10 +113,12 @@ function sources(
 				const refusal = await getSiteFileWriteRefusal( host, file );
 				return refusal ? [ refusal ] : [];
 			},
-			( file, text ) =>
-				[ phpInBlockTemplateRefusal( file, text ), partInTemplatesRefusal( file ) ].filter(
-					Boolean
-				) as string[],
+			async ( file, text ) =>
+				[
+					phpInBlockTemplateRefusal( file, text ),
+					partInTemplatesRefusal( file ),
+					await frontPageTemplateRefusal( file, text ),
+				].filter( Boolean ) as string[],
 		],
 		write: [
 			// Before the gate reads the file and the theme's presets for its save.

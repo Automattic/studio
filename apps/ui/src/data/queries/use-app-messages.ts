@@ -39,10 +39,8 @@ export interface PersistentMessage {
 	onDismiss?: () => void;
 }
 
-// Dismissals are session-only by design: the cache entry isn't persisted and
-// never refetches, so it lives until the app restarts — and restarting installs
-// the pending update, which removes the card's reason to exist. An explicit
-// "Check for Updates" also clears them, so a dismissed card can come back.
+// Dismissals are session-only: the cache entry isn't persisted and never refetches.
+// An explicit "Check for Updates" clears them, so a dismissed card can come back.
 
 /**
  * The target version is often unknown mid-download: Electron's updater doesn't name it
@@ -50,8 +48,7 @@ export interface PersistentMessage {
  */
 function describeVersionChange(
 	currentVersion: string | null,
-	newVersion: string | null,
-	{ fallback }: { fallback?: string } = {}
+	newVersion: string | null
 ): string | undefined {
 	if ( currentVersion && newVersion ) {
 		return sprintf(
@@ -68,12 +65,11 @@ function describeVersionChange(
 			currentVersion
 		);
 	}
-	return fallback;
+	return undefined;
 }
 
 export function deriveUpdateMessages(
 	status: AppUpdateStatus | undefined,
-	onInstall: () => void,
 	errorAction?: ToastAction
 ): PersistentMessage[] {
 	if ( status?.state === 'downloading' ) {
@@ -85,22 +81,6 @@ export function deriveUpdateMessages(
 				intent: 'info',
 				title: __( 'Downloading update' ),
 				description: describeVersionChange( status.currentVersion, status.newVersion ),
-			},
-		];
-	}
-
-	if ( status?.state === 'ready' ) {
-		const version = status.newVersion;
-		return [
-			{
-				// Version-scoped id so a dismissal re-arms for the next release.
-				id: version ? `app-update:${ version }` : 'app-update',
-				intent: 'info',
-				title: __( 'Update ready' ),
-				description: describeVersionChange( status.currentVersion, version, {
-					fallback: __( 'Restart to finish updating.' ),
-				} ),
-				action: { label: __( 'Restart' ), onClick: onInstall },
 			},
 		];
 	}
@@ -144,11 +124,7 @@ function usePersistentMessageSources(): PersistentMessage[] {
 	}, [ aiCreditsNotice.dismissedIntent ] );
 
 	return useMemo( () => {
-		const messages = deriveUpdateMessages(
-			updateStatus.data,
-			() => void connector.installAppUpdate(),
-			openStudioLogsAction( connector )
-		);
+		const messages = deriveUpdateMessages( updateStatus.data, openStudioLogsAction( connector ) );
 
 		if ( aiCreditsNotice.visible && aiCreditsIntent && aiCreditsFraction !== null ) {
 			messages.push( {

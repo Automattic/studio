@@ -6,6 +6,7 @@
 }
 
 .editor {
+	--motion-duration-feedback: 0s;
 	--surface: var( --composer );
 
 	position: absolute;

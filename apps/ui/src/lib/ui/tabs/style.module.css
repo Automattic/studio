@@ -58,7 +58,7 @@
 		gap: 1px;
 		width: 100%;
 		min-width: 0;
-		padding: var( --space-3 );
+		padding: var( --dialog-inset, var( --space-3 ) );
 	}
 
 	.trigger {

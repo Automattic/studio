@@ -1,0 +1,207 @@
+{
+	"name": "signed-in",
+	"description": "Signed in to WordPress.com: the account menu, Share and publish, the model menu, and the account settings",
+	"signedIn": true,
+	"shots": [
+		{
+			"name": "main-window-signed-in",
+			"description": "Main window, signed in: the account menu button at the bottom of the sidebar",
+			"pages": [ "index.md" ],
+			"steps": [
+				{ "waitFor": { "role": "button", "name": "{{account.name}}", "exact": true } },
+				{
+					"waitFor": { "text": "Loading site preview" },
+					"hidden": true,
+					"timeout": 60000,
+					"optional": true
+				}
+			],
+			"capture": { "settle": 2500 }
+		},
+		{
+			"name": "account-menu",
+			"description": "Account menu: name, email, Settings, Appearance, AI Providers, Usage, Log out",
+			"pages": [ "index.md" ],
+			"steps": [
+				{ "click": { "role": "button", "name": "{{account.name}}", "exact": true } },
+				{ "waitFor": { "role": "menu", "name": "{{account.name}}" } }
+			],
+			"capture": {
+				"target": [
+					{ "role": "menu", "name": "{{account.name}}" },
+					{ "role": "button", "name": "{{account.name}}", "exact": true },
+					{ "role": "button", "name": "Add site", "first": true }
+				],
+				"pad": 24
+			},
+			"after": [ { "press": "Escape" } ]
+		},
+		{
+			"name": "share-create-preview",
+			"description": "Share and publish → Share, with Create preview",
+			"pages": [ "preview-sites.md" ],
+			"replaces": [ "2025/01/studio-site-new-preview-1.png" ],
+			"steps": [
+				{ "click": { "role": "button", "name": "Share", "exact": true } },
+				{ "waitFor": { "role": "tabpanel", "name": "Share", "exact": true } }
+			],
+			"capture": { "target": { "role": "dialog", "name": "Share and publish" } }
+		},
+		{
+			"name": "publish-panel",
+			"description": "Share and publish → Publish: Existing site… and New site…",
+			"pages": [ "sync.md" ],
+			"steps": [
+				{
+					"click": {
+						"within": { "role": "tablist", "name": "Share and publish" },
+						"role": "tab",
+						"name": "Publish",
+						"exact": true
+					}
+				},
+				{ "waitFor": { "role": "button", "name": "Existing site…" } }
+			],
+			"capture": { "target": { "role": "dialog", "name": "Share and publish" } }
+		},
+		{
+			"name": "publish-choose-site",
+			"description": "Publish → Choose an existing site, listing the account’s WordPress.com and Pressable sites",
+			"pages": [ "sync.md" ],
+			"replaces": [ "2025/01/studio-connect-live-site.png" ],
+			"steps": [
+				{ "click": { "role": "button", "name": "Existing site…" } },
+				{ "waitFor": { "role": "listbox", "name": "Existing sites" } }
+			],
+			"capture": { "target": { "role": "dialog", "name": "Share and publish" } },
+			"after": [
+				{ "press": "Escape" },
+				{ "press": "Escape" },
+				{ "waitFor": { "role": "dialog", "name": "Share and publish" }, "hidden": true }
+			]
+		},
+		{
+			"name": "model-menu",
+			"description": "Chat box model menu: Fast, Balanced and Strong, with the AI credits remaining",
+			"pages": [
+				"studio-code/index.md",
+				"studio-code/choosing-an-ai-model-tier-in-studio-code.md"
+			],
+			"steps": [
+				{ "click": { "role": "button", "name": "Model" } },
+				{ "waitFor": { "role": "listbox", "name": "Choose a model" } }
+			],
+			"capture": {
+				"target": [
+					{ "role": "dialog", "name": "Choose a model" },
+					{ "role": "combobox", "name": "Message WordPress Studio" },
+					{ "role": "button", "name": "Send message" }
+				],
+				"pad": 24
+			}
+		},
+		{
+			"name": "add-ai-credits",
+			"description": "Add AI credits: the four one-time credit amounts",
+			"pages": [ "studio-code/ai-credits-guidelines.md" ],
+			"steps": [
+				{ "click": { "role": "option", "name": "Get more credits" } },
+				{ "waitFor": { "role": "dialog", "name": "Add AI credits" } }
+			],
+			"capture": { "target": { "role": "dialog", "name": "Add AI credits" } },
+			"after": [ { "click": { "role": "button", "name": "Cancel" } } ]
+		},
+		{
+			"name": "settings-account",
+			"description": "Settings → General, signed in: the account row with Log out",
+			"pages": [ "index.md" ],
+			"steps": [
+				{ "click": { "role": "button", "name": "Settings", "exact": true, "first": true } },
+				{
+					"click": {
+						"within": { "role": "tablist", "name": "Settings scope" },
+						"role": "tab",
+						"name": "Studio"
+					}
+				},
+				{ "waitFor": { "role": "group", "name": "{{account.name}}" } }
+			],
+			"capture": { "target": { "role": "dialog", "name": "Settings", "exact": true } }
+		},
+		{
+			"name": "settings-usage",
+			"description": "Settings → Usage: AI credits remaining, Add credits, and Preview sites",
+			"pages": [
+				"preview-sites.md",
+				"studio-code/index.md",
+				"studio-code/ai-credits-guidelines.md"
+			],
+			"steps": [
+				{
+					"click": {
+						"within": { "role": "tablist", "name": "Settings sections" },
+						"role": "tab",
+						"name": "Usage",
+						"exact": true
+					}
+				},
+				{ "waitFor": { "role": "group", "name": "Preview sites" } }
+			],
+			"capture": { "target": { "role": "dialog", "name": "Settings", "exact": true } }
+		},
+		{
+			"name": "settings-sharing",
+			"description": "Settings → Sharing, signed in",
+			"pages": [ "preview-sites.md" ],
+			"replaces": [ "2025/01/studio-delete-all-preview-sites.png" ],
+			"steps": [
+				{
+					"click": {
+						"within": { "role": "tablist", "name": "Settings sections" },
+						"role": "tab",
+						"name": "Sharing",
+						"exact": true
+					}
+				},
+				{ "waitFor": { "role": "group", "name": "Sharing previews on WordPress.com" } }
+			],
+			"capture": { "target": { "role": "dialog", "name": "Settings", "exact": true } }
+		},
+		{
+			"name": "settings-ai-providers-signed-in",
+			"description": "Settings → AI Providers, signed in: WordPress.com connected",
+			"pages": [ "studio-code/index.md" ],
+			"steps": [
+				{
+					"click": {
+						"within": { "role": "tablist", "name": "Settings sections" },
+						"role": "tab",
+						"name": "AI Providers",
+						"exact": true
+					}
+				},
+				{ "waitFor": { "role": "group", "name": "WordPress.com" } }
+			],
+			"capture": { "target": { "role": "dialog", "name": "Settings", "exact": true } },
+			"after": [ { "press": "Escape" } ]
+		},
+		{
+			"name": "add-site-connect-signed-in",
+			"description": "Add site → Connect, signed in, listing the account’s WordPress.com and Pressable sites",
+			"pages": [ "sync.md" ],
+			"steps": [
+				{ "click": { "role": "button", "name": "Add site", "first": true } },
+				{
+					"click": {
+						"within": { "role": "tablist", "name": "Ways to add a site" },
+						"role": "tab",
+						"name": "Connect"
+					}
+				},
+				{ "waitFor": { "role": "heading", "name": "Available to connect" } }
+			],
+			"capture": { "target": { "role": "dialog", "name": "Add site" } },
+			"after": [ { "press": "Escape" } ]
+		}
+	]
+}

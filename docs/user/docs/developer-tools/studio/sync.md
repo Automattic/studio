@@ -40,7 +40,7 @@ To start working locally on a WordPress.com or Pressable site you don’t have i
 Studio creates the local site, saves the connection, and pulls the live site into it.
 
 <!-- TODO screenshot: add `add-site-connect.webp` from `npm run screenshots` (Studio 2.0) here: Add site → Connect, logged out. -->
-<!-- TODO screenshot: capture by hand in Studio 2.0, logged in to WordPress.com: Add site → Connect, listing WordPress.com and Pressable sites. -->
+<!-- TODO screenshot: add `add-site-connect-signed-in.webp` from `npm run screenshots` (Studio 2.0, signed-in suite) here: Add site → Connect, listing WordPress.com and Pressable sites. -->
 
 ## [Connect WordPress Studio to an existing WordPress.com site](#connect-existing)
 
@@ -54,7 +54,7 @@ To connect a local Studio site to an existing production or staging site on Word
 4.  Click **Use an existing website…** to open the **Choose website** list. Each site is labeled as a WordPress.com or Pressable site, and as staging or development where that applies.
 5.  Click the site you want to connect to.
 
-<!-- TODO screenshot: capture by hand in Studio 2.0, logged in to WordPress.com: the Publish panel’s Choose website list, with WordPress.com and Pressable sites. -->
+<!-- TODO screenshot: replace with `publish-choose-site.webp` from `npm run screenshots` (Studio 2.0, signed-in suite): Publish → Choose an existing site, with WordPress.com and Pressable sites; `publish-panel.webp` shows the Publish tab before it. -->
 [![A screenshot depicting the list that allows you to connect a local Studio site to a production or staging site on WordPress.com or Pressable.](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-connect-live-site.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-connect-live-site.png)
 
 Once connected, the **Publish** panel shows the website you’ll publish to and when you last published. A local site can be connected to more than one website. To see them all, open the **Website actions** (**⋯**) menu in the **Publish** panel and choose **Manage websites…**. From there, you can **Disconnect** a website, or connect another one with **Use another website…**.

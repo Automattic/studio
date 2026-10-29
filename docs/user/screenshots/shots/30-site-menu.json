@@ -9,7 +9,7 @@
 			},
 			{
 				"role": "button",
-				"name": "Site actions for {{site.name}}"
+				"name": "Site menu"
 			},
 			{
 				"role": "button",

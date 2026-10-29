@@ -50,7 +50,7 @@ To install and start using Studio on Windows from WordPress.com:
 
 The first time you open Studio, it walks you through a short setup:
 
-1.  The **Welcome to WordPress Studio** dialog explains what a free WordPress.com account adds: Studio Code with free AI credits, preview links to share your work, and publishing and pulling with WordPress.com. Click **Log in with WordPress.com** (or **Sign up for free** if you’re new), or click **Continue without an account** to go straight to creating your first local site. You can also choose whether to **Share anonymous usage statistics** here.
+1.  The **Welcome to WordPress Studio** dialog explains what a free WordPress.com account adds: building with the agent, sharing previews, and publishing. Click **Continue with WordPress.com** to log in or create a free account, or click **Not now** to go straight to creating your first local site. You can also choose whether to **Share anonymous usage statistics** here.
 2.  The **Add site** dialog opens. You can create a new site, connect an existing WordPress.com or Pressable site, import a backup, or start from a Blueprint. See [Studio Sites](https://developer.wordpress.com/docs/developer-tools/studio/sites/) for each option.
 3.  Once your first site is ready, a short guide introduces the sidebar, building with Studio Code, and the live site preview. Click **Next** to step through it, or **Skip** to close it.
 
@@ -91,6 +91,8 @@ To connect Studio to WordPress.com:
 [![A screenshot of a new site and the Log in with WordPress.com button](https://developer.wordpress.com/wp-content/uploads/2024/04/main-window-signed-out.png)](https://developer.wordpress.com/wp-content/uploads/2024/04/main-window-signed-out.png)
 
 Once you’ve logged into WordPress.com, your account menu replaces the **Log in** button at the bottom of the sidebar, Studio Code can use your WordPress.com AI credits, and the **Publish** and **Share** buttons above the site preview let you publish your site and share preview links. If they still ask you to log in, you might need to *restart* the desktop application.
+
+<!-- TODO screenshot: add `account-menu.webp` from `npm run screenshots` (Studio 2.0, signed-in suite) here: the account menu, with the email masked; `main-window-signed-in.webp` and `settings-account.webp` (Settings → General, account row) are alternatives. -->
 
 ## [Next steps and feedback](#5-next-steps-and-feedback)
 

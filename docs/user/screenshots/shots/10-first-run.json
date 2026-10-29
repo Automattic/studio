@@ -20,7 +20,7 @@
 			"steps": [
 				{
 					"waitFor": {
-						"role": "alertdialog",
+						"role": "dialog",
 						"name": "Welcome to WordPress Studio"
 					}
 				}
@@ -29,12 +29,12 @@
 				{
 					"click": {
 						"role": "button",
-						"name": "Continue without an account"
+						"name": "Not now"
 					}
 				},
 				{
 					"waitFor": {
-						"role": "alertdialog",
+						"role": "dialog",
 						"name": "Welcome to WordPress Studio"
 					},
 					"hidden": true
@@ -42,7 +42,7 @@
 			],
 			"capture": {
 				"target": {
-					"role": "alertdialog",
+					"role": "dialog",
 					"name": "Welcome to WordPress Studio"
 				}
 			}

@@ -132,7 +132,7 @@ Switch tiers at any time, including mid-conversation:
 -   **Desktop**: click the model button in the chat box, or choose **Choose model** from the **+** menu
 -   **Terminal**: run the `/model` command
 
-<!-- TODO screenshot: capture by hand in Studio 2.0, logged in to WordPress.com: the chat box model menu (Fast, Balanced, Strong) with the AI credits remaining. -->
+<!-- TODO screenshot: add `model-menu.webp` from `npm run screenshots` (Studio 2.0, signed-in suite) here: the chat box model menu (Fast, Balanced, Strong) with the AI credits remaining. -->
 
 If you use your own Anthropic API key, the model menu lists **Sonnet 5** and **Opus 5** instead of tiers. See [AI providers](#11-ai-providers).
 
@@ -234,7 +234,7 @@ Studio Code shows your remaining AI Credits as you work:
 -   **Desktop**: the model menu in the chat box, and **Settings → Usage**
 -   **Terminal**: the stats line at the end of each turn, and the `/credits` command
 
-<!-- TODO screenshot: capture by hand in Studio 2.0, logged in to WordPress.com: Settings → Usage, with the AI credits balance. -->
+<!-- TODO screenshot: add `settings-usage.webp` from `npm run screenshots` (Studio 2.0, signed-in suite) here: Settings → Usage, with the AI credits balance. -->
 
 Studio Code warns you when you have used 80% and 90% of your AI Credits.
 
@@ -258,7 +258,7 @@ To use your own key in the desktop app:
 3.  Next to **Anthropic**, click **Connect**, paste your key in the **Anthropic API key** field, and click **Save**.
 4.  In the chat box, choose **Sonnet 5** or **Opus 5** from the model menu.
 
-<!-- TODO screenshot: replace with `settings-ai-providers.webp` from `npm run screenshots` (Studio 2.0): Settings → AI Providers. -->
+<!-- TODO screenshot: replace with `settings-ai-providers-signed-in.webp` from `npm run screenshots` (Studio 2.0, signed-in suite): Settings → AI Providers with WordPress.com connected, as in the current image (`settings-ai-providers.webp` is the signed-out version). -->
 [![The AI Providers page of Studio's Settings, with the WordPress.com and Anthropic providers](https://developer.wordpress.com/wp-content/uploads/2026/04/app-settings-ai.png)](https://developer.wordpress.com/wp-content/uploads/2026/04/app-settings-ai.png)
 
 To switch it using CLI:

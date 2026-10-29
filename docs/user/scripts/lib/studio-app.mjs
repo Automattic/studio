@@ -152,12 +152,16 @@ export async function createProfile() {
 		JSON.stringify( { version: 1, locale: 'en' }, null, 2 )
 	);
 
+	// Set when this runs from a terminal inside an Electron app; Studio would
+	// start as plain Node.
+	const { ELECTRON_RUN_AS_NODE: _runAsNode, ...env } = process.env;
+
 	return {
 		dirs,
 		// The home directory as Studio may display it, for the path tidying.
 		homes: [ ...new Set( [ dirs.home, await realpath( dirs.home ) ] ) ],
 		env: {
-			...process.env,
+			...env,
 			E2E: 'true',
 			E2E_APP_DATA_PATH: path.dirname( dirs.appData ),
 			E2E_HOME_PATH: dirs.home,
@@ -172,6 +176,29 @@ export async function createProfile() {
 			}
 		},
 	};
+}
+
+/**
+ * The WordPress.com login for signed-in suites: `STUDIO_DOCS_AUTH_TOKEN`, the
+ * `authToken` object of a Studio `shared.json` as JSON, or else the login of
+ * the Studio on this machine. Only the throwaway profile gets a copy, and no
+ * step logs out, which would revoke the token.
+ */
+export async function readAuthToken() {
+	const fromEnv = process.env.STUDIO_DOCS_AUTH_TOKEN;
+	const token = fromEnv
+		? JSON.parse( fromEnv )
+		: ( await readJson( path.join( REAL_STUDIO_DIR, 'shared.json' ) ).catch( () => ( {} ) ) )
+				.authToken;
+	if ( ! token?.accessToken ) {
+		throw new Error(
+			'Signed-in suites need a WordPress.com login: log in to Studio, or set STUDIO_DOCS_AUTH_TOKEN.'
+		);
+	}
+	if ( Date.now() >= token.expirationTime ) {
+		throw new Error( 'The WordPress.com login has expired. Log in to Studio again.' );
+	}
+	return token;
 }
 
 /**
@@ -206,6 +233,7 @@ export async function launchStudio( {
 	executablePath = appDir ? null : process.env.STUDIO_APP || DEFAULT_STUDIO_APP,
 	firstRun = false,
 	appData = {},
+	authToken = null,
 } ) {
 	if ( appDir ) {
 		appDir = resolveAppDir( appDir );
@@ -218,6 +246,13 @@ export async function launchStudio( {
 	await writeFile(
 		path.join( profile.dirs.sharedConfig, 'app.json' ),
 		JSON.stringify( buildAppConfig( { firstRun, appData } ), null, 2 )
+	);
+	// Suites sharing a profile can differ in whether they are signed in.
+	const sharedPath = path.join( profile.dirs.sharedConfig, 'shared.json' );
+	const { authToken: _previous, ...shared } = await readJson( sharedPath );
+	await writeFile(
+		sharedPath,
+		JSON.stringify( authToken ? { ...shared, authToken } : shared, null, 2 )
 	);
 
 	const app = await electron.launch( {

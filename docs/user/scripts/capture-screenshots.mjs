@@ -4,8 +4,9 @@ import { parseArgs } from 'node:util';
 import { captureFailure, captureShot } from './lib/capture.mjs';
 import { DEMO_SITE_DIR, ROOT, SCREENSHOTS_DIR, SHOTS_DIR, readJson } from './lib/common.mjs';
 import { runSteps } from './lib/steps.mjs';
-import { createProfile, launchStudio } from './lib/studio-app.mjs';
+import { createProfile, launchStudio, readAuthToken } from './lib/studio-app.mjs';
 import { seedSites, siteMetadata } from './lib/studio-seed.mjs';
+import { capturePreviews, loadWpcomSites, replaceWpcomSites } from './lib/wpcom-sites.mjs';
 
 const UPLOADS_URL = 'https://developer.wordpress.com/wp-content/uploads/';
 
@@ -42,7 +43,7 @@ function assertKnown( kind, set, known ) {
  * older build shows a full-page welcome with a Skip button instead.
  */
 async function assertFirstRunWelcome( ctx, version ) {
-	const dialog = ctx.w.getByRole( 'alertdialog', { name: 'Welcome to WordPress Studio' } );
+	const dialog = ctx.w.getByRole( 'dialog', { name: 'Welcome to WordPress Studio' } );
 	const oldWelcome = ctx.w.getByRole( 'button', { name: 'Skip' } );
 	await dialog.or( oldWelcome ).waitFor();
 	if ( await oldWelcome.isVisible() ) {
@@ -58,7 +59,7 @@ function formatIndex( { runnable, manual, version, failed } ) {
 	const lines = [
 		`# Studio screenshots`,
 		'',
-		`Captured from Studio ${ version }, signed out, by \`npm run screenshots\`.`,
+		`Captured from Studio ${ version } by \`npm run screenshots\`, signed out except the signed-in suites (\`signedIn\` in their JSON), which show a WordPress.com account with its email masked.`,
 		`Upload to WordPress.com; a file named \`<name>.webp\` becomes \`${ UPLOADS_URL }YYYY/MM/<name>.webp\`.`,
 		`Shots with annotations also have a \`<name>-annotated.webp\`.`,
 		'',
@@ -151,7 +152,9 @@ async function main() {
 
 	if ( args.list ) {
 		for ( const suite of runnable ) {
-			console.log( `${ suite.name }: ${ suite.description }` );
+			console.log(
+				`${ suite.name }${ suite.signedIn ? ' (signed in)' : '' }: ${ suite.description }`
+			);
 			for ( const shot of suite.shots ) {
 				console.log( `  ${ shot.name }` );
 			}
@@ -197,6 +200,19 @@ async function main() {
 		demo = { profile, sites, site };
 	}
 
+	// Read before anything launches, so a missing login fails the run up front.
+	const authToken = selected.some( ( s ) => s.signedIn ) ? await readAuthToken() : null;
+	// Signed-in suites list made-up WordPress.com sites, not the account's own.
+	let wpcom = null;
+	if ( selected.some( ( s ) => s.signedIn && ! s.firstRun ) ) {
+		const remoteSites = await loadWpcomSites( DEMO_SITE_DIR );
+		console.log( 'Capturing the WordPress.com site thumbnails...' );
+		wpcom = {
+			remoteSites,
+			previews: await capturePreviews( demo.profile, demo.sites, remoteSites ),
+		};
+	}
+
 	let version = null;
 	const failed = [];
 	let written = 0;
@@ -214,9 +230,22 @@ async function main() {
 				profile,
 				firstRun,
 				appData: firstRun ? {} : siteMetadata( demo.sites ),
+				authToken: suite.signedIn ? authToken : null,
 			} );
 			version ??= studio.version;
-			const ctx = { app: studio.app, w: studio.window, profile, vars: { site: demo?.site } };
+			if ( suite.signedIn && wpcom ) {
+				await replaceWpcomSites( studio, wpcom.remoteSites, wpcom.previews );
+			}
+			const ctx = {
+				app: studio.app,
+				w: studio.window,
+				profile,
+				email: suite.signedIn ? authToken.email : null,
+				vars: {
+					site: demo?.site,
+					account: suite.signedIn ? { name: authToken.displayName } : undefined,
+				},
+			};
 			try {
 				if ( firstRun ) {
 					await assertFirstRunWelcome( ctx, studio.version );

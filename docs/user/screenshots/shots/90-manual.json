@@ -1,21 +1,20 @@
 {
 	"name": "manual",
-	"description": "Shots that need a WordPress.com login, a connected live site, or Studio Code output, captured by hand",
+	"description": "Shots that need a live site connected to the demo site, a ready preview, Studio Code output, or pages outside Studio, captured by hand",
 	"manual": true,
 	"shots": [
+		{
+			"description": "WordPress.com authorization screen with Approve, opened by Log in",
+			"pages": [ "index.md" ]
+		},
+		{
+			"description": "Browser prompt to open the Studio app after approving the login",
+			"pages": [ "index.md" ]
+		},
 		{
 			"description": "Studio Code chat for a selected site, with a reply in the transcript",
 			"pages": [ "studio-code/index.md" ],
 			"replaces": [ "2026/04/studio-code.png" ]
-		},
-		{
-			"description": "Chat box: model menu (Fast / Balanced / Strong) with the AI credits remaining",
-			"pages": [ "studio-code/index.md" ]
-		},
-		{
-			"description": "Share panel with Create preview",
-			"pages": [ "preview-sites.md" ],
-			"replaces": [ "2025/01/studio-site-new-preview-1.png" ]
 		},
 		{
 			"description": "Share panel with a ready preview: image, Preview link, Copy link, Update preview",
@@ -26,20 +25,6 @@
 			"description": "Share panel → Preview actions menu (New preview, Rename…, Delete preview)",
 			"pages": [ "preview-sites.md" ],
 			"replaces": [ "2025/01/studio-preview-more-actions.png" ]
-		},
-		{
-			"description": "Settings → Sharing, signed in (live previews, preview sites used)",
-			"pages": [ "preview-sites.md" ],
-			"replaces": [ "2025/01/studio-delete-all-preview-sites.png" ]
-		},
-		{
-			"description": "Settings → Usage, signed in (AI credits, Preview sites, Delete all preview sites menu)",
-			"pages": [ "preview-sites.md", "studio-code/index.md" ]
-		},
-		{
-			"description": "Publish panel → Choose website (WordPress.com and Pressable sites)",
-			"pages": [ "sync.md" ],
-			"replaces": [ "2025/01/studio-connect-live-site.png" ]
 		},
 		{
 			"description": "Pull changes with Include → Choose files…",

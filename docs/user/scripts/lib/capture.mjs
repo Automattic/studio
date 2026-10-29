@@ -23,36 +23,53 @@ const WINDOW_CONTROLS = {
 };
 const WINDOW_CONTROLS_ID = 'studio-docs-window-controls';
 
+// Shown in place of the signed-in account's email address.
+const DISPLAY_EMAIL = 'you@example.com';
+
 /**
- * Rewrites any on-screen path inside the throwaway profile so it reads like a
- * normal home directory. Only the rendered DOM changes, never the app's data.
+ * The on-screen text to rewrite: paths inside the throwaway profile, so they
+ * read like a normal home directory, and the signed-in account's email.
  */
-async function tidyPaths( window, homes ) {
-	await window.evaluate(
-		( { homes, display } ) => {
-			const fix = ( s ) => homes.reduce( ( out, home ) => out.split( home ).join( display ), s );
-			const walker = document.createTreeWalker( document.body, NodeFilter.SHOW_TEXT );
-			for ( let node = walker.nextNode(); node; node = walker.nextNode() ) {
-				if ( homes.some( ( h ) => node.nodeValue.includes( h ) ) ) {
-					node.nodeValue = fix( node.nodeValue );
+const replacementsFor = ( ctx ) => [
+	...ctx.profile.homes.map( ( home ) => [ home, DISPLAY_HOME ] ),
+	...( ctx.email ? [ [ ctx.email, DISPLAY_EMAIL ] ] : [] ),
+];
+
+/**
+ * Rewrites text in the rendered DOM, never the app's data. Returns whether
+ * any of it was still on screen.
+ */
+async function tidyText( window, replacements ) {
+	return window.evaluate( ( pairs ) => {
+		let found = false;
+		const fix = ( s ) => {
+			const out = pairs.reduce( ( text, [ from, to ] ) => text.split( from ).join( to ), s );
+			found ||= out !== s;
+			return out;
+		};
+		const walker = document.createTreeWalker( document.body, NodeFilter.SHOW_TEXT );
+		for ( let node = walker.nextNode(); node; node = walker.nextNode() ) {
+			const value = fix( node.nodeValue );
+			if ( value !== node.nodeValue ) {
+				node.nodeValue = value;
+			}
+		}
+		for ( const el of document.querySelectorAll( 'input, textarea' ) ) {
+			const value = fix( el.value );
+			if ( value !== el.value ) {
+				el.value = value;
+			}
+		}
+		for ( const el of document.querySelectorAll( '[aria-label], [title]' ) ) {
+			for ( const attr of [ 'aria-label', 'title' ] ) {
+				const value = el.getAttribute( attr );
+				if ( value && fix( value ) !== value ) {
+					el.setAttribute( attr, fix( value ) );
 				}
 			}
-			for ( const el of document.querySelectorAll( 'input, textarea' ) ) {
-				if ( homes.some( ( h ) => el.value.includes( h ) ) ) {
-					el.value = fix( el.value );
-				}
-			}
-			for ( const el of document.querySelectorAll( '[aria-label], [title]' ) ) {
-				for ( const attr of [ 'aria-label', 'title' ] ) {
-					const value = el.getAttribute( attr );
-					if ( value && homes.some( ( h ) => value.includes( h ) ) ) {
-						el.setAttribute( attr, fix( value ) );
-					}
-				}
-			}
-		},
-		{ homes, display: DISPLAY_HOME }
-	);
+		}
+		return found;
+	}, replacements );
 }
 
 /** Dismisses toasts, parks the pointer and waits for the UI to settle. */
@@ -74,7 +91,7 @@ async function prepareFrame( ctx, capture ) {
 	);
 	await ctx.w.evaluate( () => document.fonts.ready );
 	await ctx.w.waitForTimeout( capture.settle ?? 700 );
-	await tidyPaths( ctx.w, ctx.profile.homes );
+	await tidyText( ctx.w, replacementsFor( ctx ) );
 }
 
 /** Draws the macOS window controls on macOS; returns a function that removes them. */
@@ -251,8 +268,14 @@ export async function captureShot( ctx, shot, outDir ) {
 	};
 	const save = async ( suffix, extents ) => {
 		const file = path.join( outDir, `${ shot.name }${ suffix }.webp` );
+		await tidyText( ctx.w, replacementsFor( ctx ) );
 		await painted();
-		const image = await toWebp( await screenshotWindow( ctx, clip( extents ) ) );
+		const png = await screenshotWindow( ctx, clip( extents ) );
+		// A re-render after the rewrite could have put the email back on screen.
+		if ( ctx.email && ( await tidyText( ctx.w, [ [ ctx.email, DISPLAY_EMAIL ] ] ) ) ) {
+			throw new Error( 'The account email reappeared on screen during the capture.' );
+		}
+		const image = await toWebp( png );
 		results.push( { file, changed: await writeIfChanged( file, image ) } );
 	};
 	const removeWindowControls = await drawWindowControls( ctx );
@@ -277,6 +300,7 @@ export async function captureFailure( ctx, shot, outDir ) {
 	const file = path.join( outDir, 'failures', `${ shot.name }.png` );
 	try {
 		await mkdir( path.dirname( file ), { recursive: true } );
+		await tidyText( ctx.w, replacementsFor( ctx ) );
 		await writeFile( file, await screenshotWindow( ctx ) );
 	} catch {
 		// The failure itself is what matters; the window may be gone.

@@ -1,0 +1,42 @@
+[
+	{
+		"id": 9100001,
+		"name": "Wren & Barley",
+		"url": "https://wrenandbarley.wpcomstaging.com",
+		"isStaging": false,
+		"isPressable": false,
+		"environmentType": "production",
+		"syncSupport": "syncable",
+		"preview": "wren-and-barley"
+	},
+	{
+		"id": 9100002,
+		"name": "Wren & Barley",
+		"url": "https://staging-5e1d-wrenandbarley.wpcomstaging.com",
+		"isStaging": true,
+		"isPressable": false,
+		"environmentType": "staging",
+		"syncSupport": "syncable",
+		"preview": "wren-and-barley"
+	},
+	{
+		"id": 9100003,
+		"name": "Bistro Lune",
+		"url": "https://bistrolune.mystagingwebsite.com",
+		"isStaging": false,
+		"isPressable": true,
+		"environmentType": "production",
+		"syncSupport": "syncable",
+		"preview": "bistro-lune"
+	},
+	{
+		"id": 9100004,
+		"name": "Ada Portfolio",
+		"url": "https://adaportfolio.wordpress.com",
+		"isStaging": false,
+		"isPressable": false,
+		"environmentType": "production",
+		"syncSupport": "needs-upgrade",
+		"preview": "ada-portfolio"
+	}
+]

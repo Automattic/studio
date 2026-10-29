@@ -124,12 +124,18 @@ const HELPERS = {
 			await w.keyboard.press( 'Escape' );
 			await w.waitForTimeout( 150 );
 		}
+		// A menu still animating closed swallows the click that would reopen it.
+		await w
+			.getByRole( 'menu' )
+			.first()
+			.waitFor( { state: 'detached', timeout: 2_000 } )
+			.catch( () => {} );
 	},
 
 	/** Opens the site menu from the site icon at the top of the chat. */
 	async openSiteMenu( ctx ) {
 		await HELPERS.closeMenus( ctx );
-		await ctx.w.getByRole( 'button', { name: `Site actions for ${ ctx.vars.site.name }` } ).click();
+		await ctx.w.getByRole( 'button', { name: 'Site menu', exact: true } ).click();
 		await ctx.w.getByRole( 'menuitem', { name: 'Delete site' } ).waitFor();
 	},
 

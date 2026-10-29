@@ -18,6 +18,8 @@ You can buy AI Credits at any time. Purchased AI Credits don’t expire and stay
 
 The purchase amounts currently available are $10, $20, $50, and $100, but the amounts and availability may change.
 
+<!-- TODO screenshot: add `add-ai-credits.webp` from `npm run screenshots` (Studio 2.0, signed-in suite) here: the Add AI credits dialog with the four amounts. -->
+
 **Why similar tasks can cost more or less**
 
 What your AI Credits get you can vary. The cost of AI usage depends partly on what our AI providers charge us, which we don’t fully control. It also depends on choices you make — different tiers cost different amounts to run, and longer or more complex prompts generally cost more than shorter ones.  

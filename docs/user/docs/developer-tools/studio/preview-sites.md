@@ -15,7 +15,7 @@ To create a preview site:
 3.  [Log in to WordPress.com](https://developer.wordpress.com/docs/developer-tools/studio#connect-wordpress-com) if you haven’t already.
 4.  Click **Create preview**.
 
-<!-- TODO screenshot: capture by hand in Studio 2.0, logged in to WordPress.com: the Share panel with Create preview. -->
+<!-- TODO screenshot: replace with `share-create-preview.webp` from `npm run screenshots` (Studio 2.0, signed-in suite): Share and publish → Share, with Create preview. -->
 [![A screenshot depicting the Share panel in the Studio app.](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-site-new-preview-1.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-site-new-preview-1.png)
 
 Your preview site should be ready to view in a few seconds, and it will be available to access publicly for seven days. The **Share** button shows a dot when the preview is ready.
@@ -99,7 +99,7 @@ Expired previews no longer appear in the **Share** panel. To see them, open **Se
 
 **Settings → Sharing** lists the live previews of all your sites, and how many of your preview sites you’ve used. For each preview, you can copy its link, rename it, or delete it.
 
-<!-- TODO screenshot: capture by hand in Studio 2.0, logged in to WordPress.com: Settings → Sharing; also consider Settings → Usage, with the Delete all preview sites menu. -->
+<!-- TODO screenshot: replace with `settings-sharing.webp` from `npm run screenshots` (Studio 2.0, signed-in suite): Settings → Sharing; also consider `settings-usage.webp`, Settings → Usage with Preview sites. -->
 [![Screenshot of the Sharing page of Studio's Settings](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-delete-all-preview-sites.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-delete-all-preview-sites.png)
 
 ## [Delete all preview sites](#6-delete-all-preview-sites)

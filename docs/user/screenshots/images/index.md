@@ -1,6 +1,6 @@
 # Studio screenshots
 
-Captured from Studio 2.0.4, signed out, by `npm run screenshots`.
+Captured from Studio 2.1.0-beta1 by `npm run screenshots`, signed out except the signed-in suites (`signedIn` in their JSON), which show a WordPress.com account with its email masked.
 Upload to WordPress.com; a file named `<name>.webp` becomes `https://developer.wordpress.com/wp-content/uploads/YYYY/MM/<name>.webp`.
 Shots with annotations also have a `<name>-annotated.webp`.
 
@@ -37,6 +37,18 @@ Shots with annotations also have a `<name>-annotated.webp`.
 | `settings-skills.webp` | studio-settings | Settings → Skills | `agent-skills-wordpress-studio.md` | `2026/04/app-settings-skills.png` |
 | `settings-mcp.webp` | studio-settings | Settings → MCP (install instructions and MCP configuration) | `mcp-on-studio.md` | `2026/04/app-settings-mcp.png` |
 | `settings-keyboard.webp` | studio-settings | Settings → Keyboard (shortcuts) | `index.md` | — |
+| `main-window-signed-in.webp` | signed-in | Main window, signed in: the account menu button at the bottom of the sidebar | `index.md` | — |
+| `account-menu.webp` | signed-in | Account menu: name, email, Settings, Appearance, AI Providers, Usage, Log out | `index.md` | — |
+| `share-create-preview.webp` | signed-in | Share and publish → Share, with Create preview | `preview-sites.md` | `2025/01/studio-site-new-preview-1.png` |
+| `publish-panel.webp` | signed-in | Share and publish → Publish: Existing site… and New site… | `sync.md` | — |
+| `publish-choose-site.webp` | signed-in | Publish → Choose an existing site, listing the account’s WordPress.com and Pressable sites | `sync.md` | `2025/01/studio-connect-live-site.png` |
+| `model-menu.webp` | signed-in | Chat box model menu: Fast, Balanced and Strong, with the AI credits remaining | `studio-code/index.md`<br>`studio-code/choosing-an-ai-model-tier-in-studio-code.md` | — |
+| `add-ai-credits.webp` | signed-in | Add AI credits: the four one-time credit amounts | `studio-code/ai-credits-guidelines.md` | — |
+| `settings-account.webp` | signed-in | Settings → General, signed in: the account row with Log out | `index.md` | — |
+| `settings-usage.webp` | signed-in | Settings → Usage: AI credits remaining, Add credits, and Preview sites | `preview-sites.md`<br>`studio-code/index.md`<br>`studio-code/ai-credits-guidelines.md` | — |
+| `settings-sharing.webp` | signed-in | Settings → Sharing, signed in | `preview-sites.md` | `2025/01/studio-delete-all-preview-sites.png` |
+| `settings-ai-providers-signed-in.webp` | signed-in | Settings → AI Providers, signed in: WordPress.com connected | `studio-code/index.md` | — |
+| `add-site-connect-signed-in.webp` | signed-in | Add site → Connect, signed in, listing the account’s WordPress.com and Pressable sites | `sync.md` | — |
 
 ## Capture manually
 
@@ -44,13 +56,10 @@ These need a WordPress.com login, a connected live site, or Studio Code output.
 
 | Shows | Used on | Replaces |
 | --- | --- | --- |
+| WordPress.com authorization screen with Approve, opened by Log in | `index.md` | — |
+| Browser prompt to open the Studio app after approving the login | `index.md` | — |
 | Studio Code chat for a selected site, with a reply in the transcript | `studio-code/index.md` | `2026/04/studio-code.png` |
-| Chat box: model menu (Fast / Balanced / Strong) with the AI credits remaining | `studio-code/index.md` | — |
-| Share panel with Create preview | `preview-sites.md` | `2025/01/studio-site-new-preview-1.png` |
 | Share panel with a ready preview: image, Preview link, Copy link, Update preview | `preview-sites.md` | `2025/01/studio-new-site-preview-link.png` |
 | Share panel → Preview actions menu (New preview, Rename…, Delete preview) | `preview-sites.md` | `2025/01/studio-preview-more-actions.png` |
-| Settings → Sharing, signed in (live previews, preview sites used) | `preview-sites.md` | `2025/01/studio-delete-all-preview-sites.png` |
-| Settings → Usage, signed in (AI credits, Preview sites, Delete all preview sites menu) | `preview-sites.md`<br>`studio-code/index.md` | — |
-| Publish panel → Choose website (WordPress.com and Pressable sites) | `sync.md` | `2025/01/studio-connect-live-site.png` |
 | Pull changes with Include → Choose files… | `sync.md` | `2025/01/studio-pull-selective.png` |
 | Publish panel with Include → Choose files… | `sync.md` | `2025/01/studio-selective-push.png` |

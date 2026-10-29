@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { TurnActivityLine } from '@/features/chats/session-view/conversation/trace';
+import { formatElapsed, TurnActivityLine } from '@/features/chats/session-view/conversation/trace';
 import type { TurnActivity } from '@/features/chats/session-view/conversation/transcript-items';
 
 const activity: TurnActivity = {
@@ -25,7 +25,7 @@ afterEach( () => vi.useRealTimers() );
 
 describe( 'turn activity line', () => {
 	it.each( [
-		[ 'running', null, 'Working for 3s' ],
+		[ 'running', null, 'Working' ],
 		[ 'success', 4000, 'Worked for 3s' ],
 		[ 'interrupted', 4000, 'You stopped after 3s' ],
 		[ 'error', 4000, 'Failed after 3s' ],
@@ -43,17 +43,32 @@ describe( 'turn activity line', () => {
 		}
 	);
 
-	it( 'counts elapsed time and keeps the final duration when work completes', async () => {
+	it( 'shows the live count only after 10 seconds and keeps the final duration', async () => {
 		vi.useFakeTimers();
 		vi.setSystemTime( 4000 );
 		const view = render( line() );
-		expect( screen.getByText( 'Working for 3s' ) ).toBeVisible();
-		await act( () => vi.advanceTimersByTime( 2000 ) );
-		expect( screen.getByText( 'Working for 5s' ) ).toBeVisible();
-		view.rerender( line( { status: 'success', endedAt: 6000 } ) );
-		expect( screen.getByText( 'Worked for 5s' ) ).toBeVisible();
+		expect( screen.getByText( 'Working' ) ).toHaveClass( 'studio-shimmer' );
+		await act( () => vi.advanceTimersByTime( 6000 ) );
+		expect( screen.getByText( 'Working' ) ).toBeVisible();
+		await act( () => vi.advanceTimersByTime( 1000 ) );
+		expect( screen.getByText( 'Working for 10s' ) ).toBeVisible();
+		await act( () => vi.advanceTimersByTime( 55000 ) );
+		expect( screen.getByText( 'Working for 1m 5s' ) ).toBeVisible();
+		view.rerender( line( { status: 'success', endedAt: 66000 } ) );
+		expect( screen.getByText( 'Worked for 1m 5s' ) ).toBeVisible();
 		await act( () => vi.advanceTimersByTime( 5000 ) );
-		expect( screen.getByText( 'Worked for 5s' ) ).toBeVisible();
+		expect( screen.getByText( 'Worked for 1m 5s' ) ).toBeVisible();
+	} );
+
+	it.each( [
+		[ 0, '0s' ],
+		[ 59, '59s' ],
+		[ 60, '1m 0s' ],
+		[ 125, '2m 5s' ],
+		[ 3599, '59m 59s' ],
+		[ 3725, '1h 2m' ],
+	] )( 'formats %d seconds as %s', ( seconds, expected ) => {
+		expect( formatElapsed( seconds ) ).toBe( expected );
 	} );
 
 	it( 'omits duration when historical timestamps are unavailable', () => {
@@ -129,11 +144,11 @@ describe( 'waiting activity', () => {
 		vi.useFakeTimers();
 		vi.setSystemTime( 4000 );
 		const view = render( line() );
-		expect( screen.getByText( 'Working for 3s' ) ).toHaveClass( 'studio-shimmer' );
+		expect( screen.getByText( 'Working' ) ).toHaveClass( 'studio-shimmer' );
 		fireEvent.click( screen.getByRole( 'button' ) );
 		view.rerender( line( {}, true ) );
-		expect( screen.getByText( 'Waiting for 3s' ) ).not.toHaveClass( 'studio-shimmer' );
-		expect( screen.getByRole( 'button', { name: 'Waiting for 3s' } ) ).toHaveAttribute(
+		expect( screen.getByText( 'Waiting' ) ).not.toHaveClass( 'studio-shimmer' );
+		expect( screen.getByRole( 'button', { name: 'Waiting' } ) ).toHaveAttribute(
 			'aria-expanded',
 			'false'
 		);

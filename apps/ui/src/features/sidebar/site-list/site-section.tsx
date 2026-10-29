@@ -152,6 +152,7 @@ export function SiteSection( {
 				data-reorder-exclude
 			>
 				<IconButton
+					className={ styles.rowAction }
 					variant="muted-ghost"
 					size="icon-sm"
 					icon={ <NewChatIcon /> }

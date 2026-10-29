@@ -16,6 +16,7 @@ import { childThemeCopies } from '@studio/agent/node/child-theme-copies';
 import { globalStylesFlag } from '@studio/agent/node/global-styles-flag';
 import { jetpackModules } from '@studio/agent/node/jetpack-modules';
 import { linksToNowhereChanges } from '@studio/agent/node/links-to-nowhere';
+import { missingTemplateParts } from '@studio/agent/node/missing-template-parts';
 import { postContentChanges } from '@studio/agent/node/post-content-check';
 import { postCopies } from '@studio/agent/node/post-copies';
 import { sectionLinks } from '@studio/agent/node/section-links';
@@ -92,6 +93,7 @@ const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
 	blockTheme,
 	themeErrors,
 	templatePartAreas,
+	missingTemplateParts,
 	themeStylesheet,
 	siteFileWrites,
 	adminCapabilities,

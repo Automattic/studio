@@ -16,7 +16,6 @@ const BACKGROUNDS: Record< Background, { shift: number; tint?: Rgb } > = {
 	userMessageBg: { shift: 0.08 },
 	selectedBg: { shift: 0.12 },
 	searchMatchBg: { shift: 0.12 },
-	scrollbarThumb: { shift: 0.12 },
 	customMessageBg: { shift: 0.06, tint: { r: 6, g: 0, b: 12 } },
 	toolPendingBg: { shift: 0.04, tint: { r: 0, g: 8, b: 0 } },
 	toolSuccessBg: { shift: 0.04, tint: { r: 0, g: 8, b: 0 } },
@@ -62,27 +61,38 @@ function studioBackgrounds( terminal?: Rgb ): void {
 	( globalThis as Record< symbol, unknown > )[ THEME_KEY ] = studio;
 }
 
+// Light or dark from COLORFGBG (`fg;bg`, an ANSI index for the background),
+// which some terminals set; dark without it.
+function themeFromEnv(): 'light' | 'dark' {
+	const background = process.env.COLORFGBG?.split( ';' ).at( -1 )?.trim();
+	if ( ! background || ! /^\d{1,2}$/.test( background ) || Number( background ) > 15 ) {
+		return 'dark';
+	}
+	return Number( background ) <= 6 || Number( background ) === 8 ? 'dark' : 'light';
+}
+
 // Synchronous env-based light/dark guess; `refineStudioTheme` corrects it.
+// pi's own default is its `system` theme, which stays grayscale until the
+// terminal's colors reach it, so Studio names its theme.
 export function initStudioTheme(): void {
-	initTheme();
+	activeThemeName = themeFromEnv();
+	initTheme( activeThemeName );
 	piTheme = active();
 	studioBackgrounds();
 }
 
-// pi-style detection: ask the terminal for its color scheme and background
-// color. Must run after the TUI has started.
+// pi-style detection: ask the terminal for its background color. Must run
+// after the TUI has started.
 export async function refineStudioTheme( tui: TUI ): Promise< boolean > {
-	const rgb = await tui.queryTerminalBackgroundColor( { timeoutMs: 100 } );
-	const detected =
-		( await tui.queryTerminalColorScheme( { timeoutMs: 100 } ) ) ??
-		( rgb ? ( luminance( rgb ) > 0.5 ? 'light' : 'dark' ) : undefined );
+	const { background: rgb } = await tui.queryTerminalColors( { timeoutMs: 100 } );
+	const detected = rgb ? ( luminance( rgb ) > 0.5 ? 'light' : 'dark' ) : undefined;
 	if ( detected && detected !== activeThemeName ) {
 		activeThemeName = detected;
 		initTheme( detected );
 		piTheme = active();
 	}
 	studioBackgrounds( rgb );
-	return Boolean( rgb ) || Boolean( detected );
+	return Boolean( rgb );
 }
 
 function active(): Theme | undefined {

@@ -44,8 +44,7 @@ describe( 'refineStudioTheme', () => {
 		setCapabilities( { ...getCapabilities(), trueColor: true } );
 		initStudioTheme();
 		const tui = {
-			queryTerminalBackgroundColor: async () => ( { r: 40, g: 44, b: 52 } ),
-			queryTerminalColorScheme: async () => undefined,
+			queryTerminalColors: async () => ( { background: { r: 40, g: 44, b: 52 } } ),
 		} as unknown as TUI;
 
 		expect( await refineStudioTheme( tui ) ).toBe( true );
@@ -59,8 +58,7 @@ describe( 'refineStudioTheme', () => {
 		initStudioTheme();
 		const before = theme.bg( 'userMessageBg', 'x' );
 		const tui = {
-			queryTerminalBackgroundColor: async () => ( { r: 40, g: 44, b: 52 } ),
-			queryTerminalColorScheme: async () => 'dark',
+			queryTerminalColors: async () => ( { background: { r: 40, g: 44, b: 52 } } ),
 		} as unknown as TUI;
 
 		await refineStudioTheme( tui );

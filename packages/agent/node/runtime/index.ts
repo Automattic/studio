@@ -13,6 +13,7 @@ import { streamSimple as streamAnthropicMessages } from '@earendil-works/pi-ai/a
 import { streamSimple as streamOpenAiCompletions } from '@earendil-works/pi-ai/api/openai-completions';
 import { streamSimple as streamOpenAiResponses } from '@earendil-works/pi-ai/api/openai-responses';
 import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
+import { normalizeContext } from '@earendil-works/pi-ai/utils/transcript';
 import {
 	createAgentSession,
 	createBashTool,
@@ -702,7 +703,9 @@ export async function checkCustomEndpoint(
 	const { streamSimple } = createRegisteredProviderConfig( built, creds, false );
 	const reply = await streamSimple!(
 		built,
-		{ messages: [ { role: 'user', content: 'Reply with: ok', timestamp: Date.now() } ] },
+		normalizeContext( {
+			messages: [ { role: 'user', content: 'Reply with: ok', timestamp: Date.now() } ],
+		} ),
 		{ apiKey: creds.apiKey, maxTokens: 16 }
 	).result();
 	return reply.stopReason === 'error' ? reply.errorMessage ?? 'The request failed.' : undefined;

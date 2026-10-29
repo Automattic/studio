@@ -546,7 +546,9 @@ describe( 'pi runtime', () => {
 			}
 
 			const [ url, init ] = request!;
-			expect( String( url ) ).toBe( expectedUrl );
+			// pi's Anthropic client adds `?beta=true`; the endpoint is what matters.
+			const sent = new URL( String( url ) );
+			expect( sent.origin + sent.pathname ).toBe( expectedUrl );
 			expect( JSON.parse( String( init?.body ) ).model ).toBe( expectedModel );
 			expect( new Headers( init?.headers ).get( 'authorization' ) ).toBe( 'Bearer wpcom-token' );
 			expect( options.model!.id ).toBe( model );
@@ -633,7 +635,9 @@ describe( 'pi runtime', () => {
 				let body = '';
 				request.on( 'data', ( chunk ) => ( body += chunk ) );
 				request.on( 'end', () => {
-					seen.push( { url: request.url, headers: request.headers, body: JSON.parse( body ) } );
+					// The path; pi's Anthropic client adds `?beta=true`.
+					const path = request.url?.split( '?' )[ 0 ];
+					seen.push( { url: path, headers: request.headers, body: JSON.parse( body ) } );
 					if ( status !== 200 ) {
 						response.writeHead( status, { 'content-type': 'application/json' } );
 						response.end( JSON.stringify( { error: { message: 'bad key' } } ) );
@@ -645,7 +649,7 @@ describe( 'pi runtime', () => {
 							event
 						) }\n\n`;
 					response.end(
-						request.url === '/v1/messages'
+						path === '/v1/messages'
 							? [
 									{
 										type: 'message_start',

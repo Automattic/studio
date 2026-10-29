@@ -1,16 +1,3 @@
-.navGroup {
-	display: flex;
-	flex: none;
-	align-items: center;
-	height: 36px;
-	margin: var( --space-4 ) 0 0;
-	padding: 0 var( --space-2 );
-	color: var( --muted-foreground );
-	font-size: var( --text-sm );
-	font-weight: var( --font-weight-medium );
-	line-height: var( --text-sm--line-height );
-}
-
 .leading {
 	display: flex;
 	align-items: center;
@@ -37,11 +24,34 @@
 }
 
 .actions {
-	display: contents;
+	display: flex;
+	align-items: center;
+	gap: var( --space-3 );
 }
 
 .content {
-	/* Room above the first row for a focused card's outline. */
-	padding-top: 3px;
+	position: relative;
+	display: flex;
+	flex: 1;
+	flex-direction: column;
 	container-type: inline-size;
+}
+
+.loading {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var( --muted-foreground );
+}
+
+.useCaseHeader {
+	margin-block-start: var( --space-6 );
+}
+
+.useCaseHeading {
+	padding-inline: var( --space-2 );
+	color: var( --muted-foreground );
+	font-weight: var( --font-weight-medium );
 }

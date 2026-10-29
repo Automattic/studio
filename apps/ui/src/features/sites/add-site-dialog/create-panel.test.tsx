@@ -3,11 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createFakeConnector, type FakeConnectorInitialState } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { Connector } from '@/data/core';
-import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { Blueprint } from '@wp-playground/blueprints';
-
-const BRIEF_PLACEHOLDER =
-	'A warm, modern website for my neighborhood bakery. Include a menu and our story…';
 
 afterEach( () => vi.unstubAllGlobals() );
 
@@ -37,7 +33,10 @@ async function setup(
 	return { ...view, dialog };
 }
 
-function uploadBlueprint( blueprint: Blueprint & { meta?: object } ) {
+async function uploadBlueprint( blueprint: Blueprint & { meta?: object } ) {
+	fireEvent.click( screen.getByRole( 'button', { name: 'Back' } ) );
+	fireEvent.click( await screen.findByRole( 'tab', { name: 'Upload' } ) );
+	await screen.findByRole( 'button', { name: 'Choose file' } );
 	const contents = JSON.stringify( { meta: { title: 'Network', author: 'Studio' }, ...blueprint } );
 	const file = new File( [ contents ], 'blueprint.json', { type: 'application/json' } );
 	Object.defineProperty( file, 'text', { value: async () => contents } );
@@ -46,8 +45,6 @@ function uploadBlueprint( blueprint: Blueprint & { meta?: object } ) {
 	} );
 }
 
-const brief = () => screen.queryByPlaceholderText( BRIEF_PLACEHOLDER );
-
 async function createSite( dialog: HTMLElement, name = 'Create site' ) {
 	const button = within( dialog ).getByRole( 'button', { name } );
 	await waitFor( () => expect( button ).toBeEnabled() );
@@ -55,70 +52,54 @@ async function createSite( dialog: HTMLElement, name = 'Create site' ) {
 }
 
 describe( 'Add site › blank setup', () => {
-	it( 'offers the brief only with no Blueprint picked', async () => {
-		await setup();
-		expect( brief() ).toBeVisible();
-		uploadBlueprint( {} );
+	it( 'switches between blank and uploaded Blueprint setup', async () => {
+		const { dialog } = await setup();
+		expect(
+			within( dialog ).getByRole( 'heading', { name: 'Create a blank site' } )
+		).toBeVisible();
+		await uploadBlueprint( {} );
 		expect( await screen.findByRole( 'heading', { name: 'Network' } ) ).toBeVisible();
-		expect( brief() ).not.toBeInTheDocument();
+		expect( within( dialog ).getByRole( 'heading', { name: 'Create your site' } ) ).toBeVisible();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Remove' } ) );
-		expect( await screen.findByPlaceholderText( BRIEF_PLACEHOLDER ) ).toBeVisible();
+		expect( await screen.findByRole( 'heading', { name: 'Create a blank site' } ) ).toBeVisible();
 	} );
 
-	it( 'creates the site with the brief as its first chat prompt', async () => {
+	it( 'submits a blank site and opens its workspace without starting AI work', async () => {
 		const { connector, dialog, history } = await setup();
-		fireEvent.change( brief()!, { target: { value: 'A bakery site' } } );
-		await createSite( dialog );
-		await waitFor( () => expect( history.location.pathname ).toMatch( /^\/sessions\// ) );
-		expect( connector.createSite ).toHaveBeenCalledWith(
-			expect.objectContaining( { flowType: 'ai' } )
-		);
+		const name = within( dialog ).getByRole( 'textbox', { name: 'Site name' } );
+		fireEvent.change( name, { target: { value: 'My blank site' } } );
+		fireEvent.submit( name.closest( 'form' )! );
 		await waitFor( () =>
-			expect( connector.continueSession ).toHaveBeenCalledWith(
-				expect.any( String ),
-				expect.stringContaining( 'A bakery site' ),
-				expect.anything()
-			)
+			expect( history.location.pathname ).toMatch( /^\/sites\/created-.*\/new$/ )
 		);
+		expect( connector.createSite ).toHaveBeenCalledWith(
+			expect.objectContaining( { name: 'My blank site' } )
+		);
+		expect( connector.createSite.mock.calls[ 0 ][ 0 ] ).not.toHaveProperty( 'flowType' );
+		expect( connector.continueSession ).not.toHaveBeenCalled();
 	} );
 
-	it( 'keeps the picked model and stands in for a brief of attachments only', async () => {
-		const { connector, dialog } = await setup(
-			{},
-			{
-				getStudioAssistantQuota: async () =>
-					( {
-						allowanceRemaining: 1000,
-						purchasedRemaining: 500,
-						hasPaymentMethod: true,
-					} ) as StudioAssistantQuota,
-			}
-		);
-		const image = new File( [ 'image-bytes' ], 'moodboard.png', { type: 'image/png' } );
-		fireEvent.change( dialog.querySelector( 'input[type="file"]:not([accept*="json"])' )!, {
-			target: { files: [ image ] },
+	it( 'keeps creation feedback in the footer button and locks dismissal while pending', async () => {
+		const { connector, dialog } = await setup();
+		connector.createSite.mockReturnValueOnce( new Promise( () => {} ) );
+		const button = within( dialog ).getByRole< HTMLButtonElement >( 'button', {
+			name: 'Create site',
 		} );
-		await screen.findByRole( 'listitem', { name: /^moodboard\.png/ } );
-		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Model' } ) );
-		const balanced = await screen.findByRole( 'option', { name: /^Balanced/ } );
-		await waitFor( () => expect( balanced ).not.toHaveAttribute( 'aria-disabled', 'true' ) );
-		fireEvent.click( balanced );
 		await createSite( dialog );
-		await waitFor( () =>
-			expect( connector.setSessionModel ).toHaveBeenCalledWith( expect.any( String ), 'balanced' )
+		await waitFor( () => expect( connector.createSite ).toHaveBeenCalledOnce() );
+		expect( button ).toHaveAttribute( 'aria-busy', 'true' );
+		expect( within( button ).getByRole( 'status', { name: 'Creating site' } ) ).toBeInTheDocument();
+		expect( within( dialog ).getByRole( 'button', { name: 'Close Add site' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
 		);
-		await waitFor( () =>
-			expect( connector.continueSession ).toHaveBeenCalledWith(
-				expect.any( String ),
-				expect.stringContaining( 'Build this site using the attached files as references.' ),
-				expect.anything()
-			)
-		);
+		fireEvent.keyDown( document.activeElement!, { key: 'Escape', code: 'Escape' } );
+		expect( dialog ).toBeInTheDocument();
 	} );
 
 	it( 'shows what an uploaded Blueprint will install', async () => {
 		const { connector } = await setup();
-		uploadBlueprint( {
+		await uploadBlueprint( {
 			meta: { title: 'Theme & plugin development', author: 'Studio' },
 			steps: [
 				{
@@ -145,7 +126,7 @@ describe( 'Add site › blank setup', () => {
 
 	it( 'requires a custom domain for a multisite Blueprint', async () => {
 		const { dialog } = await setup();
-		uploadBlueprint( { steps: [ { step: 'enableMultisite' } ] } );
+		await uploadBlueprint( { steps: [ { step: 'enableMultisite' } ] } );
 		await screen.findByRole( 'heading', { name: 'Network' } );
 		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Advanced settings' } ) );
 		const toggle = await within( dialog ).findByRole( 'switch', { name: 'Use custom domain' } );
@@ -158,7 +139,7 @@ describe( 'Add site › blank setup', () => {
 		);
 	} );
 
-	it( 'adds an existing WordPress folder as it is, without the brief', async () => {
+	it( 'adds an existing WordPress folder as it is', async () => {
 		const { connector, dialog, history } = await setup();
 		connector.selectSiteFolder.mockResolvedValueOnce( {
 			name: 'Existing',
@@ -166,12 +147,12 @@ describe( 'Add site › blank setup', () => {
 			isEmpty: false,
 			isWordPress: true,
 		} );
-		fireEvent.change( brief()!, { target: { value: 'A bakery site' } } );
 		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Advanced settings' } ) );
 		fireEvent.click(
 			within( dialog ).getByRole( 'button', { name: /select a different folder|Select a folder/ } )
 		);
-		await waitFor( () => expect( brief() ).not.toBeInTheDocument() );
+		await within( dialog ).findByText( 'Existing local WordPress site' );
+		expect( within( dialog ).getByRole( 'heading', { name: 'Create your site' } ) ).toBeVisible();
 		await createSite( dialog );
 		await waitFor( () => expect( history.location.pathname ).toMatch( /^\/sessions\/|\/new$/ ) );
 		expect( connector.createSite.mock.calls[ 0 ][ 0 ] ).not.toHaveProperty( 'flowType' );

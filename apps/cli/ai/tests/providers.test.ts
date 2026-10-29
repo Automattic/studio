@@ -85,8 +85,10 @@ describe( 'AI providers', () => {
 				let body = '';
 				request.on( 'data', ( chunk ) => ( body += chunk ) );
 				request.on( 'end', () => {
+					// The path; pi's Anthropic client adds `?beta=true`.
+					const path = request.url?.split( '?' )[ 0 ];
 					seen.push( {
-						url: request.url,
+						url: path,
 						authorization: request.headers.authorization,
 						apiKey: request.headers[ 'x-api-key' ] as string | undefined,
 						model: JSON.parse( body ).model,
@@ -95,7 +97,7 @@ describe( 'AI providers', () => {
 						`${ event.type ? `event: ${ event.type }\n` : '' }data: ${ JSON.stringify(
 							event
 						) }\n\n`;
-					if ( request.url === '/v1/chat/completions' && speaks.includes( 'openai' ) ) {
+					if ( path === '/v1/chat/completions' && speaks.includes( 'openai' ) ) {
 						response.writeHead( 200, { 'content-type': 'text/event-stream' } );
 						response.end(
 							sse( {
@@ -105,7 +107,7 @@ describe( 'AI providers', () => {
 						);
 						return;
 					}
-					if ( request.url === '/v1/messages' && speaks.includes( 'anthropic' ) ) {
+					if ( path === '/v1/messages' && speaks.includes( 'anthropic' ) ) {
 						response.writeHead( 200, { 'content-type': 'text/event-stream' } );
 						response.end(
 							[

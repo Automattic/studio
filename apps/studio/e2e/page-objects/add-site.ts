@@ -57,14 +57,15 @@ export default class AddSite {
 	// Creates a site and resolves with its name once the dialog has closed on it.
 	async createSite( { siteName, pickFolder, blueprintPath }: CreateSiteOptions = {} ) {
 		await this.open();
-		await this.dialog.getByRole( 'button', { name: 'Start with Blank site' } ).click();
-		await expect( this.siteNameInput ).toBeVisible();
-
 		// A Blueprint renames the site, so upload it before setting the name.
 		if ( blueprintPath ) {
+			await this.dialog.getByRole( 'tab', { name: 'Upload', exact: true } ).click();
 			await this.blueprintFileInput.setInputFiles( blueprintPath );
 			await expect( this.submitButton ).toHaveText( 'Create site from Blueprint' );
+		} else {
+			await this.dialog.getByRole( 'button', { name: 'Start with Blank site' } ).click();
 		}
+		await expect( this.siteNameInput ).toBeVisible();
 		if ( siteName ) {
 			await this.siteNameInput.fill( siteName );
 		}

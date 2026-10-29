@@ -90,7 +90,7 @@ it( 'lists previews across sites, excludes other accounts and counts only unexpi
 it( 'refreshes the shared settings and Share list together after a preview changes', async () => {
 	const { connector } = setup( true );
 	fireEvent.click( await screen.findByRole( 'button', { name: 'Share' } ) );
-	await screen.findByRole( 'button', { name: 'Visit preview' } );
+	await screen.findByRole( 'list', { name: 'Previews' } );
 	const share = within( screen.getByRole( 'dialog', { name: 'Share and publish' } ) );
 	expect( share.queryByText( 'two.example.com' ) ).not.toBeInTheDocument();
 	act( () =>
@@ -112,7 +112,7 @@ it( 'refreshes the shared settings and Share list together after a preview chang
 			within( screen.getByTestId( 'settings-previews' ) ).getByText( 'Renamed preview' )
 		).toBeInTheDocument()
 	);
-	fireEvent.click( share.getByRole( 'button', { name: 'Visit preview' } ) );
+	fireEvent.click( share.getByRole( 'link', { name: 'Renamed preview' } ) );
 	expect( connector.openExternalUrl ).toHaveBeenCalledWith( 'https://changed.example.com' );
 	expect( screen.queryByText( 'one.example.com' ) ).not.toBeInTheDocument();
 	act( () => connector.emit( 'onSnapshotEvent', { event: SNAPSHOT_EVENTS.DELETED_ALL } ) );

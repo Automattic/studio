@@ -51,7 +51,6 @@ export function SiteDeliveryDialog( {
 	const previewReturnFocus = useRef< HTMLButtonElement | null >( null );
 	const [ publishSubstep, setPublishSubstep ] = useState( false );
 	const [ publishHeader, setPublishHeader ] = useState< HTMLDivElement | null >( null );
-	const [ shareActions, setShareActions ] = useState< HTMLDivElement | null >( null );
 	const [ request, setRequest ] = useState< PublishRequest >();
 	const finalFocus = useRef< HTMLElement | null >( null );
 	useEffect( () => {
@@ -130,11 +129,6 @@ export function SiteDeliveryDialog( {
 								ref={ setPublishHeader }
 								hidden={ tab !== 'publish' || ! publishSubstep }
 							/>
-							<div
-								className={ styles.headerActions }
-								ref={ setShareActions }
-								hidden={ tab !== 'share' }
-							/>
 						</DialogHeader>
 						<div
 							role="tabpanel"
@@ -146,7 +140,6 @@ export function SiteDeliveryDialog( {
 							<SharePanel
 								site={ site }
 								open={ open && tab === 'share' }
-								actionsContainer={ shareActions }
 								onManagePreview={ ( action ) => {
 									previewReturnFocus.current = action.trigger;
 									setPreviewAction( action );

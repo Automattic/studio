@@ -203,3 +203,45 @@ describe.runIf( WORDPRESS )( 'navigation links to sections of the front page', (
 		expect( readFileSync( theme( 'parts/header.html' ), 'utf8' ) ).toContain( '"url":"#features"' );
 	}, 120000 );
 } );
+
+describe.runIf( WORDPRESS )( "core's skip link", () => {
+	it( 'is no section link, so the front page alone is rendered', async () => {
+		const root = mkdtempSync( path.join( os.tmpdir(), 'section-links-' ) );
+		cpSync( WORDPRESS!, root, { recursive: true } );
+		try {
+			const site = liveSite( root, 'Plain' );
+			const host = liveHost( site );
+			const renders: string[] = [];
+			const counted = {
+				...host,
+				sites: {
+					...host.sites,
+					wpCli: async ( on: HostSite, args: string[] ) => {
+						renders.push( args.join( ' ' ) );
+						return host.sites.wpCli( on, args );
+					},
+				},
+			};
+			const before = await sectionLinks.read( root, undefined, counted );
+			await runWpCli( host, site, [ 'option', 'update', 'blogname', 'Plain' ] );
+			await runWpCli( host, site, [
+				'post',
+				'create',
+				'--post_type=page',
+				'--post_status=publish',
+				'--post_title=About',
+			] );
+			const { reports } = await sectionLinks.check(
+				site,
+				before,
+				await sectionLinks.read( root, undefined, counted ),
+				counted
+			);
+			expect( reports ).toEqual( [] );
+			// Twenty Twenty-Five's front page renders core's skip link to its own main.
+			expect( renders ).toHaveLength( 1 );
+		} finally {
+			rmSync( root, { recursive: true, force: true } );
+		}
+	}, 120000 );
+} );

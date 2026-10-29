@@ -60,7 +60,8 @@ while ( $tags->next_tag() ) {
 	if ( is_string( $id ) && '' !== $id ) {
 		$ids[] = $id;
 	}
-	$href = 'A' === $tags->get_tag() ? $tags->get_attribute( 'href' ) : null;
+	// Core's skip link, which every page gets to its own main (_block_template_add_skip_link() in wp-includes/block-template.php).
+	$href = 'A' === $tags->get_tag() && 'wp-skip-link' !== $tags->get_attribute( 'id' ) ? $tags->get_attribute( 'href' ) : null;
 	if ( is_string( $href ) && strlen( $href ) > 1 && str_starts_with( $href, '#' ) && ! isset( $links[ $href ] ) ) {
 		$links[ $href ] = '';
 	}

@@ -52,9 +52,7 @@ export function BlueprintGallery( {
 	const { data: blueprints, isLoading, isError, isSuccess } = useBlueprints();
 	const items = ( blueprints ?? [] )
 		.filter( ( blueprint ) => ! useCase || getBlueprintUseCases( blueprint ).includes( useCase ) )
-		.sort(
-			( a, b ) => Number( b.slug === 'personal-blog-2' ) - Number( a.slug === 'personal-blog-2' )
-		);
+		.sort( ( a, b ) => Number( b.slug === 'substrata' ) - Number( a.slug === 'substrata' ) );
 
 	useEffect( () => {
 		root.current

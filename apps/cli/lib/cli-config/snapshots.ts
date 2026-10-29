@@ -1,3 +1,4 @@
+import { isWpcomPreview } from '@studio/common/lib/snapshots';
 import { type Snapshot } from '@studio/common/types/snapshot';
 import { __ } from '@wordpress/i18n';
 import { LoggerError } from 'cli/logger';
@@ -173,6 +174,39 @@ export async function setSnapshotInConfig(
 
 		await saveCliConfig( config );
 		return snapshot;
+	} finally {
+		await unlockCliConfig();
+	}
+}
+
+/**
+ * Forgets the user's WordPress.com previews that the server no longer has standing, because they
+ * were bought, expired or deleted elsewhere. A preview saved after `checkedAt` is kept, since the
+ * server's answer may predate it.
+ *
+ * @return How many were forgotten.
+ */
+export async function pruneEndedPreviews(
+	userId: number,
+	standingSiteIds: Set< number >,
+	checkedAt: number
+): Promise< number > {
+	try {
+		await lockCliConfig();
+		const config = await readCliConfig();
+		const filtered = config.snapshots.filter(
+			( snapshot ) =>
+				snapshot.userId !== userId ||
+				! isWpcomPreview( snapshot ) ||
+				snapshot.date > checkedAt ||
+				standingSiteIds.has( snapshot.atomicSiteId )
+		);
+		const pruned = config.snapshots.length - filtered.length;
+		if ( pruned > 0 ) {
+			config.snapshots = filtered;
+			await saveCliConfig( config );
+		}
+		return pruned;
 	} finally {
 		await unlockCliConfig();
 	}

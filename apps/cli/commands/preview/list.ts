@@ -12,6 +12,7 @@ import {
 	getSnapshotsFromConfig,
 	isSnapshotExpired,
 	pruneExpiredOrphanedSnapshots,
+	syncPreviewsWithServer,
 } from 'cli/lib/snapshots';
 import { getColumnWidths } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
@@ -58,6 +59,9 @@ export async function runCommand(
 			// Snapshots are per-user; when logged out emit an empty list instead of
 			// erroring so consumers (e.g. the desktop app) degrade gracefully.
 			const token = await readAuthToken();
+			if ( token ) {
+				await syncPreviewsWithServer( token.id, token.accessToken );
+			}
 			const snapshots = token ? await getSnapshotsFromConfig( token.id ) : [];
 			console.log( JSON.stringify( snapshots ) );
 			logger.reportResult( snapshots );
@@ -79,6 +83,7 @@ export async function runCommand(
 
 		// Expired orphans are almost certainly already deleted server-side — clean them up.
 		await pruneExpiredOrphanedSnapshots( token.id, isSnapshotExpired );
+		await syncPreviewsWithServer( token.id, token.accessToken );
 
 		const snapshots = await getSnapshotsFromConfig( token.id, all ? undefined : siteFolder );
 

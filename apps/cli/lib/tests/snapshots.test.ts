@@ -2,6 +2,7 @@ import fs from 'fs';
 import { writeFile } from 'atomically';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
+import { pruneEndedPreviews } from 'cli/lib/cli-config/snapshots';
 import {
 	deleteSnapshotFromConfig,
 	getSnapshotsFromConfig,
@@ -533,6 +534,44 @@ describe( 'Snapshots Module', () => {
 
 			expect( pruned ).toBe( 0 );
 			expect( writeFile ).not.toHaveBeenCalled();
+		} );
+	} );
+
+	describe( 'pruneEndedPreviews', () => {
+		const USER_ID = 42;
+		const snapshot = ( url: string, atomicSiteId: number, date: number, userId = USER_ID ) => ( {
+			url,
+			atomicSiteId,
+			localSiteId: 'site',
+			date,
+			userId,
+		} );
+
+		it( "forgets only the user's WordPress.com previews the server no longer has", async () => {
+			mocks.readFile.mockResolvedValue(
+				JSON.stringify( {
+					version: 1,
+					sites: [],
+					snapshots: [
+						snapshot( 'standing.wpcomstaging.com', 1, 1000 ),
+						snapshot( 'ended.wpcomstaging.com', 2, 1000 ),
+						snapshot( 'saved-after-check.wpcomstaging.com', 3, 6000 ),
+						snapshot( 'legacy.wp.build', 4, 1000 ),
+						snapshot( 'other-user.wpcomstaging.com', 5, 1000, 999 ),
+					],
+				} )
+			);
+
+			const pruned = await pruneEndedPreviews( USER_ID, new Set( [ 1 ] ), 5000 );
+
+			expect( pruned ).toBe( 1 );
+			const savedData = JSON.parse( mocks.writeFile.mock.calls[ 0 ][ 1 ] );
+			expect( savedData.snapshots.map( ( s: Snapshot ) => s.url ) ).toEqual( [
+				'standing.wpcomstaging.com',
+				'saved-after-check.wpcomstaging.com',
+				'legacy.wp.build',
+				'other-user.wpcomstaging.com',
+			] );
 		} );
 	} );
 } );

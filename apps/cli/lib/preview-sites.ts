@@ -40,6 +40,11 @@ const siteResponseSchema = z.object( { URL: z.string().url() } );
 
 const previewLinkSchema = z.object( { code: z.string().min( 1 ) } );
 
+// `preview_sites` is left out when the user has none.
+const standingPreviewsSchema = z.object( {
+	preview_sites: z.array( z.object( { blog_id: z.number() } ) ).optional(),
+} );
+
 function wpcom( token: string ) {
 	return wpcomFactory( token, wpcomXhrRequest );
 }
@@ -197,6 +202,17 @@ export async function updatePreviewSite(
 		hostname,
 		shareUrl: shareUrl ?? ( await getShareUrl( siteId, hostname, token ) ),
 	};
+}
+
+/**
+ * The IDs of the user's previews WordPress.com still has standing: unpaid and not torn down. A
+ * preview that was bought, expired or deleted elsewhere is not among them.
+ */
+export async function getStandingPreviewSiteIds( token: string ): Promise< Set< number > > {
+	const response = standingPreviewsSchema.parse(
+		await wpcom( token ).req.get( { apiNamespace: 'wpcom/v2', path: '/wow-funnel/pending' } )
+	);
+	return new Set( ( response.preview_sites ?? [] ).map( ( site ) => site.blog_id ) );
 }
 
 export async function deletePreviewSite( siteId: number, token: string ): Promise< void > {

@@ -183,7 +183,12 @@ describe( 'self-hosted theme fonts', () => {
 		).toBe( 'woff2' );
 	} );
 
-	it( 'downloads the font file a fontFace names by URL into the theme', async () => {
+	// WordPress takes each src as a bare URL and drops one whose extension is not
+	// a font format (WP_Font_Face::order_src()), so a CSS url() source loads nothing.
+	it.each( [
+		'https://fonts.gstatic.com/s/nunito/v26/XRXV.woff2',
+		"url(https://fonts.gstatic.com/s/nunito/v26/XRXV.woff2) format('woff2')",
+	] )( 'downloads the font file a fontFace names by URL into the theme: %s', async ( src ) => {
 		vi.stubGlobal( 'fetch', async () => new Response( 'woff2' ) );
 		const themeJson = write(
 			'wp-content/themes/mine/theme.json',
@@ -198,7 +203,7 @@ describe( 'self-hosted theme fonts', () => {
 								fontFace: [
 									{
 										fontFamily: 'Nunito',
-										src: 'https://fonts.gstatic.com/s/nunito/v26/XRXV.woff2',
+										src,
 									},
 								],
 							},

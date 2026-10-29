@@ -217,9 +217,16 @@ async function downloadSources( family: FontFamilyPreset, themeDir: string ): Pr
 		const holder = face as { src?: unknown };
 		const sources = Array.isArray( holder.src ) ? holder.src : [ holder.src ];
 		const local = await Promise.all(
-			sources.map( async ( source ) => {
+			sources.map( async ( written ) => {
+				// WordPress takes a src as a bare URL and drops one whose extension is
+				// not a font format (WP_Font_Face::order_src() in
+				// wp-includes/fonts/class-wp-font-face.php), so a CSS url() loads nothing.
+				const source =
+					typeof written === 'string'
+						? written.match( /^\s*url\(\s*['"]?([^'")\s]+)/ )?.[ 1 ] ?? written
+						: written;
 				if ( typeof source !== 'string' || ! /^https?:\/\//.test( source ) ) {
-					return source;
+					return written;
 				}
 				const file = path.posix.join(
 					'assets',
@@ -232,7 +239,7 @@ async function downloadSources( family: FontFamilyPreset, themeDir: string ): Pr
 					await mkdir( path.join( themeDir, path.dirname( file ) ), { recursive: true } );
 					await writeFile( path.join( themeDir, file ), data );
 				} catch {
-					return source;
+					return written;
 				}
 				downloaded = true;
 				return `file:./${ file }`;

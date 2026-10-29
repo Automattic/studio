@@ -15,6 +15,7 @@
  */
 import { readFile } from 'fs/promises';
 import path from 'path';
+import { copiedPageChrome } from '@studio/agent/node/copied-page-chrome';
 import {
 	frontPageTemplateProblem,
 	rendersPageContent,
@@ -117,6 +118,7 @@ export function getOpenProblems( host: StudioAgentHost, session: object ): OpenP
 			frontPageIsPostsPage,
 			postsPageContent,
 			( sitePath ) => headerMenu( host, sitePath ),
+			copiedPageChrome,
 			( sitePath ) => missingSourceText( host, sitePath ),
 		] );
 		bySession.set( session, open );

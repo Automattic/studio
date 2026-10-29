@@ -284,7 +284,11 @@ function DashboardLayout() {
 											/>
 										) : null }
 									</div>
-									<SiteHeaderActions site={ routeSite } live={ !! liveUrl } />
+									<SiteHeaderActions
+										site={ routeSite }
+										live={ !! liveUrl }
+										onStartAnnotating={ startAnnotating }
+									/>
 								</div>
 							</WindowControlsCornerContext.Provider>
 						) : null

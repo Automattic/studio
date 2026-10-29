@@ -235,8 +235,8 @@ export function SidebarLayout( {
 											anchor={ sidebarFlyoutAnchor }
 											side="bottom"
 											align="start"
-											sideOffset={ 8 }
-											alignOffset={ 8 }
+											sideOffset={ 6 }
+											alignOffset={ 6 }
 											initialFocus={ () =>
 												sidebarFlyoutOpen
 													? sidebarFlyoutRef.current?.querySelector< HTMLElement >(

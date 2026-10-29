@@ -43,6 +43,7 @@ const DEBUG_LOG_PATH = '/wordpress/wp-content/debug.log';
 
 const DEFAULT_PREFERENCES: UserPreferences = {
 	editor: null,
+	browser: null,
 	terminal: null,
 	colorScheme: DEFAULT_COLOR_SCHEME,
 	locale: undefined,

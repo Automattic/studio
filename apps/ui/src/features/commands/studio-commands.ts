@@ -1,6 +1,6 @@
 import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
 import { __, sprintf } from '@wordpress/i18n';
-import { PencilIcon, RefreshCwIcon, SettingsIcon, SparklesIcon } from 'lucide-react';
+import { PencilIcon, SettingsIcon, SparklesIcon } from 'lucide-react';
 import { getSections } from '@/data/settings-sections';
 import { getSessionTitle } from '@/features/chats';
 import {
@@ -15,7 +15,6 @@ import {
 	SidebarIcon,
 	UnpinIcon,
 } from '@/lib/icons';
-import { DEFAULT_COLOR_TINT } from '@/lib/theme';
 import type {
 	AiSessionSummary,
 	ConnectorCapabilities,
@@ -58,7 +57,14 @@ export type PaletteCommand = {
 
 export type PaletteChat = { session: AiSessionSummary; site: SiteDetails };
 
-export type SettingToggles = Record< string, { checked: boolean; run: () => void } >;
+export type SettingToggles = Record<
+	string,
+	{ checked: boolean; label?: string; run: () => void }
+>;
+export type SettingActions = Record<
+	string,
+	{ label?: string; aliases?: string[]; run: () => void }
+>;
 
 type OpenSettings = ReturnType< typeof useOpenSettings >;
 
@@ -167,20 +173,6 @@ export function getAppCommands( {
 			keywords: [ __( 'Appearance' ), __( 'Theme' ), __( 'Dark mode' ), __( 'Light mode' ) ],
 			run: () => savePreferences( { colorScheme: colorScheme === 'dark' ? 'light' : 'dark' } ),
 		},
-		{
-			id: 'reset-appearance-tint',
-			group: 'settings',
-			label: __( 'Reset appearance tint' ),
-			icon: RefreshCwIcon,
-			keywords: [
-				__( 'Appearance' ),
-				__( 'Color' ),
-				__( 'Colour' ),
-				__( 'Intensity' ),
-				__( 'Contrast' ),
-			],
-			run: () => savePreferences( DEFAULT_COLOR_TINT ),
-		},
 		...settingCommands,
 		{
 			id: 'sidebar',
@@ -245,14 +237,14 @@ export function getAppCommands( {
 }
 
 // Every settings section, and every setting in it, shown while searching. A
-// switch is turned on or off in place; any other setting opens with its
-// control focused.
+// switch or action runs directly; other settings open with their control focused.
 export function getSettingCommands( {
 	scope,
 	site,
 	signedIn,
 	capabilities,
 	toggles,
+	actions = {},
 	openSettings,
 }: {
 	scope: 'studio' | 'site';
@@ -262,6 +254,7 @@ export function getSettingCommands( {
 	// The boolean preferences setting commands turn on or off in place, by the
 	// id of their row in Settings.
 	toggles: SettingToggles;
+	actions?: SettingActions;
 	openSettings: OpenSettings;
 } ): PaletteCommand[] {
 	const group = scope === 'site' ? 'site-settings' : 'settings';
@@ -279,22 +272,25 @@ export function getSettingCommands( {
 		},
 		...section.settings.map( ( { id, title, description, icon, aliases } ): PaletteCommand => {
 			const toggle = scope === 'studio' && id ? toggles[ id ] : undefined;
+			const action = scope === 'studio' && id ? actions[ id ] : undefined;
 			return {
 				id: `${ group }-${ section.id }-${ id ?? title }`,
 				group,
 				label: toggle
-					? sprintf(
-							/* translators: %s: the name of a setting, e.g. "Show recent chats". */
+					? toggle.label ??
+					  sprintf(
+							/* translators: %s: the name of a setting. */
 							toggle.checked ? __( 'Turn off “%s”' ) : __( 'Turn on “%s”' ),
 							title
 					  )
-					: title,
-				aliases: [ title, ...( aliases ?? [] ) ],
+					: action?.label ?? title,
+				aliases: [ title, ...( aliases ?? [] ), ...( action?.aliases ?? [] ) ],
 				icon: icon ?? section.icon,
 				description: site?.name ?? section.label,
 				keywords: [ section.label, description ],
 				searchOnly: true,
-				run: toggle?.run ?? ( () => openSettings( section.id, site?.id, id ?? title ) ),
+				run:
+					toggle?.run ?? action?.run ?? ( () => openSettings( section.id, site?.id, id ?? title ) ),
 			};
 		} ),
 	] );

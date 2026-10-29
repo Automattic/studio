@@ -138,8 +138,16 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site management'
 				);
 				expect( updateResult.code, updateResult.stderr ).toBe( 0 );
 
+				// From a directory inside the site, as WP-CLI finds the site it is in.
 				const getResult = await runCli(
-					[ 'wp', 'option', 'get', 'blogname', '--path', sitePath ],
+					[
+						'wp',
+						'option',
+						'get',
+						'blogname',
+						'--path',
+						path.join( sitePath, 'wp-content', 'themes' ),
+					],
 					env
 				);
 				expect( getResult.code, getResult.stderr ).toBe( 0 );

@@ -439,7 +439,6 @@ export function SettingsDialog() {
 						id={ panelId }
 						role="tabpanel"
 						aria-label={ current.label }
-						className={ styles.content }
 						scrollRef={ setContent }
 						header={
 							<PanelHeader

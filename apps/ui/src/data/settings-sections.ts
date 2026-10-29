@@ -97,6 +97,11 @@ function getStudioSections(
 					CodeIcon
 				),
 				setting(
+					__( 'Browser' ),
+					__( 'The browser used to open your sites, WP Admin, and phpMyAdmin.' ),
+					'browser'
+				),
+				setting(
 					__( 'Terminal' ),
 					__( 'The default terminal for your sites.' ),
 					'terminal',
@@ -183,7 +188,7 @@ function getStudioSections(
 				setting( __( 'Contrast' ), __( 'Increase separation between surfaces.' ), 'contrast' ),
 				setting(
 					__( 'Reset appearance' ),
-					__( 'Restore the default color, intensity, and contrast.' ),
+					__( 'Restore the default theme, color, intensity, and contrast.' ),
 					'reset-appearance'
 				),
 			],

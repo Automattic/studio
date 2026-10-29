@@ -13,6 +13,7 @@ import {
 } from '@/features/annotations';
 import { clearComposerDrafts } from '@/features/composer';
 import {
+	ALL_CAPABILITIES,
 	createFakeConnector,
 	makeSession,
 	makeSite,
@@ -781,6 +782,23 @@ describe( 'Studio workspace', () => {
 		}
 	);
 
+	it( 'starts a stopped site from Annotate in the chat header', async () => {
+		const { connector } = setup( {
+			signedIn: true,
+			overrides: {
+				capabilities: ALL_CAPABILITIES,
+			},
+		} );
+		await findComposer();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Annotate' } ) );
+		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
+		await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
+		expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		);
+	} );
+
 	it( 'keeps sidebar start available and stops running sites through the site menu', async () => {
 		const { connector, history, refreshSessions } = setup( { signedIn: true } );
 		await findComposer();
@@ -802,7 +820,7 @@ describe( 'Studio workspace', () => {
 		expect( screen.queryByRole( 'button', { name: /Chat actions/ } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
-		expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeVisible();
 		fireEvent.click(
 			within( screen.getByRole( 'complementary' ) ).getByRole( 'button', { name: 'Hide sidebar' } )
 		);

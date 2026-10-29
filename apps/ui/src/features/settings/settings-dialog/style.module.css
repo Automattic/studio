@@ -1,14 +1,10 @@
-.content {
-	--surface: inherit;
-}
-
 .scopes {
-	margin: var( --space-3 ) var( --space-3 ) 0;
+	margin: var( --dialog-inset ) var( --dialog-inset ) 0;
 }
 
 .search {
 	width: auto;
-	margin: var( --space-3 ) var( --space-3 ) 0;
+	margin: var( --dialog-inset ) var( --dialog-inset ) 0;
 }
 
 .empty {

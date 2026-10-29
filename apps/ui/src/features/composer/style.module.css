@@ -1,4 +1,5 @@
 .root {
+	--motion-duration-feedback: 0s;
 	display: flex;
 	flex-direction: column;
 }
@@ -7,6 +8,14 @@
 	flex-direction: column;
 	align-items: stretch;
 	height: auto;
+	box-shadow: var( --shadow-xs );
+}
+
+.shell:has( .input:focus-visible ):not( :has( [aria-invalid='true'] ) ) {
+	border-color: var( --ring );
+	box-shadow:
+		inset 0 0 0 1px var( --ring ),
+		var( --shadow-xs );
 }
 
 /* Text-input chrome, like the form inputs beside it, instead of the chat composer. */

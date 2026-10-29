@@ -450,11 +450,6 @@ export function WebviewSurface( {
 				allowpopups={ 'true' as unknown as boolean }
 				partition="persist:site-preview"
 			/>
-			{ ! ready ? (
-				<div className={ styles.spinnerOverlay } aria-hidden="true">
-					<span className={ styles.spinner } />
-				</div>
-			) : null }
 		</>
 	);
 }

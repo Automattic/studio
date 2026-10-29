@@ -1,11 +1,42 @@
-/* Sits a little above center, and stays put as results narrow. */
 .popup {
-	top: max( var( --space-4 ), calc( 50dvh - 168px ) );
 	display: block;
-	max-width: 448px;
+	max-width: 400px;
 	overflow: hidden;
 	padding: var( --space-1_5 );
-	transform: translateX( -50% );
+	border-radius: var( --radius-3xl );
+	scale: 1;
+	transform: translate( -50%, -50% );
+	transform-origin: center;
+	transition-property: opacity, transform;
+}
+
+.popup:is( [data-starting-style], [data-ending-style] ) {
+	transform: translate( -50%, -50% ) scale( 0.97 );
+}
+
+@starting-style {
+	.popup {
+		transform: translate( -50%, -50% ) scale( 0.97 );
+	}
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.popup {
+		transition-property: opacity;
+	}
+
+	.popup:is( [data-starting-style], [data-ending-style] ) {
+		transform: translate( -50%, -50% );
+	}
+
+	@starting-style {
+		.popup {
+			transform: translate( -50%, -50% );
+		}
+	}
+}
+
+.popup[data-instant] {
 	transition: none;
 }
 

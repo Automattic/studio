@@ -33,8 +33,6 @@
 	opacity: 0.95;
 	border-radius: var( --radius-md );
 	background-color: var( --hover );
-	/* eslint-disable-next-line studio/use-theme-tokens -- the dragged row's shadow. */
-	filter: drop-shadow( 0 6px 14px rgb( 0 0 0 / 14% ) );
 }
 
 .groupPanel:not( [data-starting-style], [data-ending-style] ),
@@ -88,12 +86,6 @@
 /* eslint-disable-next-line studio/no-primitive-overrides -- a multi-selection spans rows, so the list hides each row's actions. */
 .selection[data-selecting] [data-slot='sidebar-menu-actions'] {
 	visibility: hidden;
-}
-
-@media ( prefers-reduced-motion: reduce ) {
-	.dragPreview {
-		filter: none;
-	}
 }
 
 .groupHoverAction {

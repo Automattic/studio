@@ -35,6 +35,8 @@ linux_container_plugins: &linux_container_plugins
       propagate-aws-auth-tokens: true
       environment:
         - CACHE_BUCKET_NAME
+        # Cache archives made on Mac keep their uid, which the agent can't delete from the checkout afterwards.
+        - TAR_OPTIONS=--no-same-owner
       mount-buildkite-agent: true
       expand-volume-vars: true
       volumes:

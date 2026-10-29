@@ -1,5 +1,4 @@
 import { __ } from '@wordpress/i18n';
-import { DownloadIcon, HistoryIcon } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
@@ -9,11 +8,9 @@ import {
 	usePullSiteFromLive,
 	usePushSiteToLive,
 } from '@/data/queries/use-sync-site';
-import { ExternalLinkIcon, SyncIcon } from '@/lib/icons';
-import { Button, FieldSet, Menu } from '@/lib/ui';
+import { Button, FieldSet } from '@/lib/ui';
 import { FilePicker } from './file-picker';
 import {
-	backupsUrl,
 	overwriteDescription,
 	scopeLabel,
 	websiteAddress,
@@ -25,47 +22,6 @@ import styles from './style.module.css';
 import { useTransferSelection } from './use-transfer-selection';
 import type { SiteDetails, SyncSite } from '@/data/core';
 import type { SyncActivity } from '@/data/sync-activity';
-
-// Pull, backups and website management for one connected website.
-export function WebsiteMenuItems( {
-	remote,
-	disabled,
-	includePublish = false,
-	onOpen,
-}: {
-	remote: SyncSite;
-	disabled: boolean;
-	includePublish?: boolean;
-	onOpen: ( view: 'publish' | 'pull' | 'websites' ) => void;
-} ) {
-	const connector = useConnector();
-	const backups = backupsUrl( remote );
-	return (
-		<>
-			{ includePublish ? (
-				<Menu.Item disabled={ disabled } onClick={ () => onOpen( 'publish' ) }>
-					<SyncIcon />
-					{ __( 'Publish changes…' ) }
-				</Menu.Item>
-			) : null }
-			<Menu.Item disabled={ disabled } onClick={ () => onOpen( 'pull' ) }>
-				<DownloadIcon />
-				{ __( 'Pull changes…' ) }
-			</Menu.Item>
-			{ backups ? (
-				<Menu.Item onClick={ () => void connector.openExternalUrl( backups ) }>
-					<HistoryIcon />
-					{ __( 'View backups' ) }
-					<ExternalLinkIcon />
-				</Menu.Item>
-			) : null }
-			<Menu.Separator />
-			<Menu.Item disabled={ disabled } onClick={ () => onOpen( 'websites' ) }>
-				{ __( 'Connected site…' ) }
-			</Menu.Item>
-		</>
-	);
-}
 
 export function ConnectedView( {
 	site,

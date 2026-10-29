@@ -22,14 +22,14 @@
 		outline: none;
 		cursor: pointer;
 		user-select: none;
-		transition-property: color, background-color, border-color, opacity;
+		transition-property: color, background-color, border-color;
 		transition-duration: var( --motion-duration-feedback );
 		transition-timing-function: ease;
 	}
 
 	@media ( prefers-reduced-motion: no-preference ) {
 		.button:not( :focus-visible ) {
-			transition-property: color, background-color, border-color, transform, opacity;
+			transition-property: color, background-color, border-color, transform;
 		}
 	}
 

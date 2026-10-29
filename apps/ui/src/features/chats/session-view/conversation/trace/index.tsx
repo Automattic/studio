@@ -167,9 +167,6 @@ export const TurnActivityLine = memo( function TurnActivityLine( {
 	if ( disclosure.running !== running || disclosure.waiting !== waiting ) {
 		setDisclosure( { running, waiting, open: working } );
 	}
-	const expanded =
-		disclosure.running === running && disclosure.waiting === waiting ? disclosure.open : working;
-	const visibleItems = expanded ? items : items.filter( isPersistentItem );
 	const [ now, setNow ] = useState( Date.now );
 	useEffect( () => {
 		if ( ! running ) {
@@ -186,6 +183,17 @@ export const TurnActivityLine = memo( function TurnActivityLine( {
 			: Math.max( 0, Math.floor( ( end - startedAt ) / 1000 ) );
 	const duration = formatElapsed( seconds ?? 0 );
 	const showCount = seconds !== null && seconds >= COUNT_THRESHOLD_SECONDS;
+	const isQuickReply =
+		status === 'success' &&
+		seconds !== null &&
+		! showCount &&
+		! items.some( ( item ) => item.kind === 'tool-use' );
+	const expanded =
+		isQuickReply ||
+		( disclosure.running === running && disclosure.waiting === waiting
+			? disclosure.open
+			: working );
+	const visibleItems = expanded ? items : items.filter( isPersistentItem );
 	const label = waiting
 		? showCount
 			? sprintf(
@@ -227,7 +235,7 @@ export const TurnActivityLine = memo( function TurnActivityLine( {
 	);
 	return (
 		<div className={ styles.activity } data-turn-activity>
-			{ hasContent ? (
+			{ isQuickReply ? null : hasContent ? (
 				<TraceTrigger
 					aria-expanded={ expanded }
 					aria-controls={ controls }

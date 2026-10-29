@@ -26,7 +26,7 @@ describe( 'Conversation copy buttons', () => {
 			] )
 		);
 
-		fireEvent.click( screen.getByRole( 'button', { name: /^Worked/ } ) );
+		expect( screen.queryByRole( 'button', { name: /^Worked/ } ) ).not.toBeInTheDocument();
 		const buttons = screen.getAllByRole( 'button', { name: 'Copy message' } );
 		expect( buttons ).toHaveLength( 3 );
 

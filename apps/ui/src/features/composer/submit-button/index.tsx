@@ -20,7 +20,6 @@ export function SendButton( {
 			variant={ feedback ? 'destructive' : 'accent' }
 			size="icon"
 			shape="round"
-			className={ styles.sendButton }
 			onClick={ onSend }
 			disabled={ ! canSend }
 			aria-label={ label }

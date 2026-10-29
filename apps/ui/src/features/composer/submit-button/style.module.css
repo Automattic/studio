@@ -1,9 +1,3 @@
-.sendButton[data-variant='accent']:is( :disabled, [data-disabled] ) {
-	--button-background: var( --accent );
-
-	color: var( --accent-foreground );
-}
-
 .stopButton[aria-busy='true'] {
 	animation: stopPulse 1s ease-in-out infinite;
 }

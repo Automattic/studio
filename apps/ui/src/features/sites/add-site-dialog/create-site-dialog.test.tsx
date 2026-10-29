@@ -71,6 +71,21 @@ async function submit( name = 'Create site' ) {
 }
 
 describe( 'Add site flow', () => {
+	it( 'shows only a spinner while Blueprints load, then focuses Blank', async () => {
+		setup();
+		let resolve!: ( response: Response ) => void;
+		vi.mocked( fetch ).mockReturnValue( new Promise( ( done ) => ( resolve = done ) ) );
+		expect( await screen.findByRole( 'status', { name: 'Loading Blueprints…' } ) ).toBeVisible();
+		expect( screen.queryByText( 'Loading Blueprints…' ) ).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'button', { name: 'Start with Blank site' } )
+		).not.toBeInTheDocument();
+		await act( async () => resolve( Response.json( { blueprints: [ portfolio ] } ) ) );
+		await waitFor( () =>
+			expect( screen.getByRole( 'button', { name: 'Start with Blank site' } ) ).toHaveFocus()
+		);
+	} );
+
 	it( 'opens a title-only picker with grouped navigation and focuses Blank', async () => {
 		setup();
 		const blank = await screen.findByRole( 'button', { name: 'Start with Blank site' } );

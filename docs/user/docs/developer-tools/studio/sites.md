@@ -64,7 +64,7 @@ Each site in the sidebar has a **Start** or **Stop** button next to its name. Cl
 When a site is stopped, the site preview shows a saved image of the site, and a message that you need to start the site to see a live preview. Click the preview to start the site.
 
 <!-- TODO screenshot: replace with `site-stopped.webp` from `npm run screenshots` (Studio 2.0): a stopped site with the Start button and the saved preview image. -->
-[![](https://developer.wordpress.com/wp-content/uploads/2025/01/site-stopped.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/site-stopped.png)
+[![A stopped site in Studio, with a Start site button in the preview area.](https://developer.wordpress.com/wp-content/uploads/2025/01/site-stopped.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/site-stopped.png)
 
 You can also start, stop, and restart a site from its [site menu](#site-menu), or press ⌥⌘S (Ctrl+Alt+S on Windows and Linux) to start or stop the active site. When several sites are running, the menu’s **Stop** submenu also offers **Stop other sites** and **Stop all sites**.
 

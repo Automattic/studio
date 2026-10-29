@@ -52,7 +52,7 @@ To open phpMyAdmin for a running site, select the site and use either of these:
 -   Choose **Open in → phpMyAdmin** from the site menu to open it in your browser.
 
 <!-- TODO screenshot: replace with `preview-destinations.webp` from `npm run screenshots` (Studio 2.0): the address bar shortcuts. -->
-[![](https://developer.wordpress.com/wp-content/uploads/2026/04/preview-destinations.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/preview-destinations.png)
+[![The address menu in Studio's site preview, open to show the Front end, WP Admin, and Database options.](https://developer.wordpress.com/wp-content/uploads/2026/04/preview-destinations.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/preview-destinations.png)
 
 ## [Step-through debugging with Xdebug](#6-step-through-debugging-with-xdebug)
 

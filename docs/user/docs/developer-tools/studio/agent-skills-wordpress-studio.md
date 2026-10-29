@@ -38,7 +38,7 @@ There are two ways to manage skills in Studio – globally and per site.
 You can find the global settings for skills in **Settings → Skills**. Open **Settings** from the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux), and select the **Skills** page:
 
 <!-- TODO screenshot: replace with `settings-skills.webp` from `npm run screenshots` (Studio 2.0): Settings → Skills. -->
-[![](https://developer.wordpress.com/wp-content/uploads/2026/04/app-settings-skills.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/app-settings-skills.png)
+[![The Skills tab of Studio's App settings, with an Install all button and toggles for the Studio CLI, Plugin Development, Block Development, Block Themes, REST API, and WP-CLI & Ops skills.](https://developer.wordpress.com/wp-content/uploads/2026/04/app-settings-skills.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/app-settings-skills.png)
 
 From that screen you can:
 

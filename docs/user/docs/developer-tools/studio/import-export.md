@@ -34,7 +34,7 @@ To add a new site to WordPress Studio from backup, you’ll need a `.tar.gz`, `.
 4.  Click **Import site**.
 
 <!-- TODO screenshot: replace with `add-site-import.webp` from `npm run screenshots` (Studio 2.0): Add site → Import. -->
-[![](https://developer.wordpress.com/wp-content/uploads/2025/01/add-a-site-1.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/add-a-site-1.png)
+[![The Add a site screen in Studio, with options to create a new site, connect a site, or import from a backup.](https://developer.wordpress.com/wp-content/uploads/2025/01/add-a-site-1.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/add-a-site-1.png)
 
 Any imported site is started by default and visible in the sidebar. If the import fails, Studio explains what went wrong in plain language and lets you try again.
 
@@ -62,7 +62,7 @@ To export a site from Studio:
 3.  Choose the destination and click **Save.**
 
 <!-- TODO screenshot: replace with `site-menu-export.webp` from `npm run screenshots` (Studio 2.0): the site menu’s Export submenu. -->
-[![](https://developer.wordpress.com/wp-content/uploads/2025/01/site-overview-1.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/site-overview-1.png)
+[![The Overview tab of the site overview in Studio, with Import, Export entire site, and Export database buttons in the Manage section.](https://developer.wordpress.com/wp-content/uploads/2025/01/site-overview-1.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/site-overview-1.png)
 
 Other site actions, such as starting and stopping the site, are unavailable while an import or export is running.
 

@@ -269,14 +269,16 @@ export function SitePreview( {
 			void connector.openExternalUrl( url );
 		}
 	};
-	const responsive = canPreview
-		? {
-				active: responsiveEnabled,
-				disabled: isStopping || activeSurfaceKey !== 'site',
-				onClick: () =>
-					updateResponsivePreview( site.id, { enabled: ! responsiveSettings.enabled } ),
-		  }
-		: undefined;
+	// Email has no page to size for a device.
+	const responsive =
+		canPreview && activeSurfaceKey !== 'email'
+			? {
+					active: responsiveEnabled,
+					disabled: isStopping || activeSurfaceKey !== 'site',
+					onClick: () =>
+						updateResponsivePreview( site.id, { enabled: ! responsiveSettings.enabled } ),
+			  }
+			: undefined;
 	useSiteHeaderNavigation(
 		canPreview && ! collapsed
 			? {

@@ -554,6 +554,7 @@ describe( 'site email', () => {
 		await renderPreview( 'browser', { path: 'studio:email', onPathChange } );
 
 		expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Responsive mode' } ) ).not.toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Email' } ) );
 		fireEvent.click( await screen.findByRole( 'option', { name: 'Front end' } ) );
 

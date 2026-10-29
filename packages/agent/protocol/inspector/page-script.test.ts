@@ -87,6 +87,23 @@ describe( 'annotation inspector', () => {
 		expect( events().at( -1 ) ).toMatchObject( { type: 'edit', id: 'n1' } );
 	} );
 
+	it.each( [ 0, -20 ] )( 'keeps the highlight flush with the viewport at x=%s', ( left ) => {
+		document.body.innerHTML = '<header>Welcome</header>';
+		const header = document.querySelector( 'header' ) as HTMLElement;
+		vi.spyOn( header, 'getBoundingClientRect' ).mockReturnValue(
+			new DOMRect( left, 0, innerWidth - left, 40 )
+		);
+		mount();
+		publish( { active: true } );
+		header.dispatchEvent( new MouseEvent( 'click', { bubbles: true, clientX: 10, clientY: 10 } ) );
+		publish( { active: true } );
+		const highlight = document
+			.getElementById( '__studio-inspector-host' )
+			?.shadowRoot?.querySelector( '.highlight' );
+		expect( highlight ).toBeVisible();
+		expect( highlight ).toHaveStyle( { left: '0px', top: '0px', width: `${ innerWidth }px` } );
+	} );
+
 	it( 'keeps the crosshair centered on edge picks and changes the same marker on Save', () => {
 		document.body.innerHTML = '<h1>Welcome</h1>';
 		const heading = document.querySelector( 'h1' ) as HTMLElement;

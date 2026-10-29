@@ -47,7 +47,7 @@ async function setup( {
 
 async function settled< T extends ReturnType< typeof renderApp > >( view: T, path: string ) {
 	await waitFor( () => expect( view.history.location.pathname ).toBe( path ) );
-	await screen.findByRole( 'button', { name: /^Site actions for / } );
+	await screen.findByRole( 'button', { name: 'Site menu' } );
 	return view;
 }
 
@@ -94,7 +94,7 @@ describe( 'sidebar site list', () => {
 		await openIn( 'Running site' );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'phpMyAdmin' } ) );
 		await openIn( 'Running site' );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Browser (WP Admin)' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'WordPress admin' } ) );
 		await waitFor( () =>
 			expect( connector.openSiteUrl ).toHaveBeenCalledWith( 'two', '/wp-admin/' )
 		);

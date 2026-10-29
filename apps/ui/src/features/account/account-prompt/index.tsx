@@ -3,7 +3,15 @@ import { clsx } from 'clsx';
 import { useId, type RefObject } from 'react';
 import { useLogin } from '@/data/queries/use-auth-user';
 import { useOffline } from '@/lib/hooks';
-import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, VisuallyHidden } from '@/lib/ui';
+import {
+	StudioIcon,
+	Button,
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	VisuallyHidden,
+} from '@/lib/ui';
 import site1 from './assets/site-1.png';
 import site2 from './assets/site-2.png';
 import site3 from './assets/site-3.png';
@@ -20,34 +28,46 @@ export function AccountPrompt( {
 	descriptionId,
 	source,
 	onCreateAccount,
+	onContinue,
+	onSkip,
+	secondaryLabel,
+	busy,
+	disabled,
 	flush,
+	className,
 }: {
 	title: string;
 	description: string;
 	descriptionId?: string;
 	source: TracksAuthSource;
 	onCreateAccount?: () => void;
+	onContinue?: () => void;
+	onSkip?: () => void;
+	secondaryLabel?: string;
+	busy?: boolean;
+	disabled?: boolean;
 	/** Drops the offsets that space it inside a dialog, for a container that spaces it already. */
 	flush?: boolean;
+	className?: string;
 } ) {
 	const offline = useOffline();
 	const login = useLogin( { source } );
 	const signup = useLogin( { signup: true, source } );
-	const pending = login.isPending || signup.isPending;
+	const authenticating = login.isPending || signup.isPending;
+	const pending = authenticating || busy || disabled;
 	const error = login.error ?? signup.error;
 	return (
-		<div className={ clsx( styles.body, flush && styles.flush ) }>
+		<div className={ clsx( styles.body, flush && styles.flush, className ) }>
 			<div aria-hidden="true" className={ styles.illustration }>
 				<span className={ styles.cardStart } style={ { backgroundImage: `url(${ site1 })` } } />
 				<span className={ styles.cardEnd } style={ { backgroundImage: `url(${ site3 })` } } />
 				<span className={ styles.cardCenter } style={ { backgroundImage: `url(${ site2 })` } } />
+				<StudioIcon className={ styles.studioIcon } />
 			</div>
 			<h2 className={ styles.title }>{ title }</h2>
 			<p id={ descriptionId } className={ styles.description }>
-				{ offline
+				{ offline && ! onContinue
 					? __( 'Connect to the internet to create an account or log in.' )
-					: pending
-					? __( 'Finish creating your account or logging in to WordPress.com in your browser.' )
 					: description }
 			</p>
 			{ error ? (
@@ -57,25 +77,46 @@ export function AccountPrompt( {
 			) : null }
 			<div className={ styles.actions }>
 				<Button
+					loadingMode="replace"
 					size="lg"
-					disabled={ offline || pending }
-					loading={ signup.isPending }
+					disabled={ ( ! onContinue && offline ) || pending }
+					loading={ signup.isPending || busy }
 					onClick={ () => {
-						onCreateAccount?.();
-						signup.mutate();
+						if ( onContinue ) {
+							onContinue();
+						} else {
+							onCreateAccount?.();
+							signup.mutate();
+						}
 					} }
 				>
-					{ __( 'Create account' ) }
+					{ onContinue
+						? __( 'Continue' )
+						: onSkip
+						? __( 'Continue with WordPress.com' )
+						: __( 'Create account' ) }
 				</Button>
-				<Button
-					variant="inline-text"
-					size="inline"
-					disabled={ offline || pending }
-					loading={ login.isPending }
-					onClick={ () => login.mutate() }
-				>
-					{ __( 'Log in to WordPress.com' ) }
-				</Button>
+				{ ( onSkip || ! onContinue ) && (
+					<p className={ styles.loginPrompt }>
+						{ ! onSkip && <>{ __( 'Already have an account?' ) } </> }
+						<Button
+							className={ styles.login }
+							variant="inline-text"
+							size="inline"
+							disabled={ onSkip ? busy || disabled : offline || pending }
+							focusableWhenDisabled={ ! onSkip && login.isPending }
+							onClick={ () => {
+								if ( onSkip ) {
+									onSkip();
+								} else {
+									login.mutate();
+								}
+							} }
+						>
+							{ onSkip ? secondaryLabel ?? __( 'Not now' ) : __( 'Log in' ) }
+						</Button>
+					</p>
+				) }
 			</div>
 		</div>
 	);
@@ -94,13 +135,17 @@ export function AccountPromptDialog( {
 	const descriptionId = useId();
 	return (
 		<Dialog open={ open } onOpenChange={ onOpenChange }>
-			<DialogContent aria-describedby={ descriptionId } finalFocus={ finalFocus }>
+			<DialogContent
+				className={ styles.dialog }
+				aria-describedby={ descriptionId }
+				finalFocus={ finalFocus }
+			>
 				<DialogHeader>
 					<VisuallyHidden>
 						<DialogTitle>{ prompt.title }</DialogTitle>
 					</VisuallyHidden>
 				</DialogHeader>
-				<AccountPrompt { ...prompt } descriptionId={ descriptionId } />
+				<AccountPrompt { ...prompt } descriptionId={ descriptionId } flush />
 			</DialogContent>
 		</Dialog>
 	);

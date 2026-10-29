@@ -1,4 +1,11 @@
-import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/common/ai/settings-store';
+import { runStudioAgentTurn } from '@studio/agent/node/runtime';
+import { resolveResumeSessionContext } from '@studio/agent/node/sessions/context';
+import {
+	createStudioSession,
+	listStudioSessionFiles,
+	openStudioSession,
+} from '@studio/agent/node/sessions/pi-session';
+import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/agent/node/settings-store';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { vi, type Mock } from 'vitest';
@@ -9,13 +16,6 @@ import {
 	saveSelectedAiProvider,
 } from 'cli/ai/auth';
 import { JsonAdapter } from 'cli/ai/output-adapter';
-import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
-import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
-import {
-	createStudioSession,
-	listStudioSessionFiles,
-	openStudioSession,
-} from 'cli/ai/sessions/pi-session';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isSiteRunning } from 'cli/lib/site-utils';
@@ -50,8 +50,9 @@ vi.mock( 'cli/ai/providers', () => ( {
 		supportsModel: () => true,
 		defaultModel: 'claude-sonnet-5',
 	} ),
+	getStudioUserAgent: () => 'WordPressStudio',
 } ) );
-vi.mock( '@studio/common/ai/settings-store', () => ( {
+vi.mock( '@studio/agent/node/settings-store', () => ( {
 	readAnthropicApiKey: vi.fn(),
 	readSelectedAiProvider: vi.fn().mockResolvedValue( 'wpcom' ),
 } ) );
@@ -64,10 +65,10 @@ vi.mock( 'cli/lib/site-utils', () => ( {
 vi.mock( 'cli/lib/daemon-client', () => ( {
 	disconnectFromDaemon: vi.fn().mockResolvedValue( undefined ),
 } ) );
-vi.mock( 'cli/ai/sessions/context', () => ( {
+vi.mock( '@studio/agent/node/sessions/context', () => ( {
 	resolveResumeSessionContext: vi.fn( () => ( { provider: undefined, model: undefined } ) ),
 } ) );
-vi.mock( 'cli/ai/sessions/pi-session', () => ( {
+vi.mock( '@studio/agent/node/sessions/pi-session', () => ( {
 	createStudioSession: vi.fn(),
 	openStudioSession: vi.fn(),
 	listStudioSessionFiles: vi.fn(),
@@ -77,7 +78,7 @@ vi.mock( '@studio/common/lib/well-known-paths', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/common/lib/well-known-paths') >() ),
 	getSessionsDirectory: vi.fn(),
 } ) );
-vi.mock( 'cli/ai/runtimes/pi', () => ( {
+vi.mock( '@studio/agent/node/runtime', () => ( {
 	// A completed turn so the JSON single-turn path returns instead of looping.
 	runStudioAgentTurn: vi.fn( () => ( {
 		result: Promise.resolve(),
@@ -86,12 +87,7 @@ vi.mock( 'cli/ai/runtimes/pi', () => ( {
 	} ) ),
 } ) );
 vi.mock( 'cli/ai/slash-commands', () => ( { getActiveSlashCommands: vi.fn( () => [] ) } ) );
-vi.mock( 'cli/ai/browser-utils', () => ( { closeSharedBrowser: vi.fn() } ) );
-vi.mock( 'cli/ai/chat-artifacts', () => ( { setChatArtifactCallback: vi.fn() } ) );
-vi.mock( 'cli/ai/site-selection', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('cli/ai/site-selection') >() ),
-	setLocalSiteSelectedCallback: vi.fn(),
-} ) );
+vi.mock( '@studio/agent/node/browser-utils', () => ( { closeSharedBrowser: vi.fn() } ) );
 vi.mock( 'cli/commands/auth/login', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/ai/ui', () => ( { AiChatUI: class AiChatUI {} } ) );
 vi.mock( 'cli/logger', () => ( {
@@ -209,7 +205,7 @@ describe( 'AI runCommand — resume by id restores session model', () => {
 		} );
 
 		expect( runStudioAgentTurn ).toHaveBeenCalledTimes( 1 );
-		const callArgs = ( runStudioAgentTurn as Mock ).mock.calls[ 0 ][ 0 ] as { model: string };
+		const callArgs = ( runStudioAgentTurn as Mock ).mock.calls[ 0 ][ 1 ] as { model: string };
 		expect( callArgs.model ).toBe( 'claude-opus-5' );
 	} );
 } );
@@ -218,7 +214,7 @@ describe( 'AI runCommand — active site banner running state', () => {
 	let stdoutSpy: ReturnType< typeof vi.spyOn >;
 
 	const dispatched = () =>
-		( runStudioAgentTurn as Mock ).mock.calls[ 0 ][ 0 ] as {
+		( runStudioAgentTurn as Mock ).mock.calls[ 0 ][ 1 ] as {
 			prompt: string;
 			activeSite?: { running: boolean };
 		};
@@ -380,7 +376,7 @@ describe( 'AI runCommand — Tracks events', () => {
 
 	it( 'adds the turn stats gathered from the agent events', async () => {
 		( runStudioAgentTurn as Mock ).mockImplementationOnce(
-			( { onEvent }: { onEvent: ( event: unknown ) => void } ) => {
+			( _host: unknown, { onEvent }: { onEvent: ( event: unknown ) => void } ) => {
 				onEvent( {
 					type: 'tool_execution_end',
 					toolCallId: '1',
@@ -413,7 +409,7 @@ describe( 'AI runCommand — Tracks events', () => {
 
 	it( 'completes the turn even when gathering the turn stats fails', async () => {
 		( runStudioAgentTurn as Mock ).mockImplementationOnce(
-			( { onEvent }: { onEvent: ( event: unknown ) => void } ) => {
+			( _host: unknown, { onEvent }: { onEvent: ( event: unknown ) => void } ) => {
 				// The failed tool makes the stats look up its name, which throws.
 				onEvent( {
 					type: 'tool_execution_end',

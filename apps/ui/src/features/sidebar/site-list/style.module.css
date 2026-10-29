@@ -5,7 +5,7 @@
 	--site-list-chat-status-gap: var( --space-1_5 );
 	--site-list-sync-indicator-bg: var( --status-sync );
 
-	padding: var( --space-3 ) var( --space-3 ) var( --space-5 );
+	padding: 0 var( --space-3 ) var( --space-5 );
 	display: flex;
 	flex-direction: column;
 	gap: var( --space-1 );
@@ -55,15 +55,23 @@
 	align-items: center;
 }
 
+.rowAction {
+	--button-hover-background: transparent;
+}
+
+.siteRow[data-needs-input] {
+	padding-inline-end: calc( 3 * var( --space-8 ) + var( --space-2 ) );
+}
+
 .siteActions {
-	gap: var( --space-0_5 );
+	align-items: center;
 }
 
 .chats {
 	display: flex;
 	flex-direction: column;
-	gap: 1px;
-	padding-block: 1px var( --space-2 );
+	padding-block-start: 1px;
+	padding-block-end: var( --space-2 );
 }
 
 .empty {
@@ -89,8 +97,18 @@
 }
 
 .groupHoverAction {
+	transition-property: color, background-color, border-color, transform, opacity;
+	transition-duration: var( --motion-duration-feedback );
+	transition-timing-function: ease;
 	opacity: 0;
 	pointer-events: none;
+}
+
+.groupHeader {
+	position: sticky;
+	top: var( --sidebar-group-header-top, 0px );
+	z-index: 1;
+	background-color: var( --studio-sidebar-bg );
 }
 
 .groupHeader:hover .groupHoverAction,

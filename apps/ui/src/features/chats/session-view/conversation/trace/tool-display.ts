@@ -1,4 +1,4 @@
-import { getInputString, getToolDetail, getToolDisplayName } from '@studio/common/ai/tools';
+import { getInputString, getToolDetail, getToolDisplayName } from '@studio/agent/protocol/tools';
 import { __ } from '@wordpress/i18n';
 
 const TOOL_DETAIL_MAX_LENGTH = 96;

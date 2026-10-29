@@ -1,10 +1,10 @@
 import { truncateToWidth, visibleWidth } from '@earendil-works/pi-tui';
-import { select } from '@inquirer/prompts';
-import { listAiSessions } from '@studio/common/ai/sessions/store';
+import { listAiSessions } from '@studio/agent/node/sessions/store';
 import chalk from '@studio/common/lib/chalk';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { __ } from '@wordpress/i18n';
-import type { AiSessionSummary } from '@studio/common/ai/sessions/types';
+import { select } from 'cli/lib/prompts';
+import type { AiSessionSummary } from '@studio/agent/protocol/sessions/types';
 
 function formatSessionTimestamp( timestamp: string ): string {
 	const parsed = Date.parse( timestamp );

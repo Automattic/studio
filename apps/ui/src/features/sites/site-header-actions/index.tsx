@@ -2,19 +2,19 @@ import { isRTL, __ } from '@wordpress/i18n';
 import { EllipsisIcon } from 'lucide-react';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
-import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
 import { requestHeaderPanel } from '@/data/use-open-header-panel';
-import { ShareButton, ShareStatusIcon, useShareStatus } from '@/features/sharing';
-import { SiteLifecycleButton } from '@/features/sites/site-lifecycle-button';
-import { PublishButton } from '@/features/sync';
+import { ShareStatusIcon, useShareStatus } from '@/features/sharing';
+import { ShareButton, PublishButton, SiteDeliveryDialog } from '@/features/site-delivery';
+import { SiteRunMenuItem } from '@/features/sites/site-run-button/site-run-menu-item';
 import { useWindowControlsOverlay } from '@/lib/hooks';
 import {
+	AnnotateIcon,
 	ArrowLeftIcon,
 	ArrowRightIcon,
 	ExternalLinkIcon,
 	RotateCwIcon,
+	ResponsiveIcon,
 	ShareIcon,
-	SiteSettingsIcon,
 } from '@/lib/icons';
 import { Tooltip, TooltipContent, TooltipTrigger, Menu, Button } from '@/lib/ui';
 import styles from './style.module.css';
@@ -29,8 +29,9 @@ interface SiteHeaderNavigation {
 	back: () => void;
 	forward: () => void;
 	reload: () => void;
-	settings: () => void;
 	openExternal?: () => void;
+	responsive?: { active: boolean; disabled: boolean; onClick: () => void };
+	annotate?: { active: boolean; disabled: boolean; disabledReason?: string; onClick: () => void };
 	backShortcut: string;
 	forwardShortcut: string;
 }
@@ -60,7 +61,7 @@ const SiteHeaderContext = createContext< SiteHeaderContextValue >( {
 export const useSiteHeader = () => useContext( SiteHeaderContext );
 
 /**
- * Holds the state of a site's header actions — Publish, Start, and
+ * Holds the state of a site's header actions — Publish and
  * Share — which `SiteHeaderActions` draws once over the workspace's top
  * inline-end corner, whichever header lies under it, so they keep their state
  * and focus as the chat and preview come and go. The header there holds a
@@ -77,6 +78,7 @@ export function SiteHeaderActionsProvider( {
 	const [ actions, attachActions ] = useState< HTMLElement | null >( null );
 	const [ navigation, setNavigation ] = useState< SiteHeaderNavigation | null >( null );
 	const { layout, actionsWidth } = useSiteHeaderLayout( space, actions );
+
 	return (
 		<SiteHeaderContext.Provider
 			value={ {
@@ -115,6 +117,13 @@ export function useSiteHeaderNavigation( navigation: SiteHeaderNavigation | null
 		backShortcut = '',
 		forwardShortcut = '',
 	} = navigation ?? {};
+	const annotateActive = navigation?.annotate?.active;
+	const annotateDisabled = navigation?.annotate?.disabled;
+	const annotateDisabledReason = navigation?.annotate?.disabledReason;
+	const hasAnnotate = Boolean( navigation?.annotate );
+	const responsiveActive = navigation?.responsive?.active;
+	const responsiveDisabled = navigation?.responsive?.disabled;
+	const hasResponsive = Boolean( navigation?.responsive );
 	const canOpenExternal = Boolean( navigation?.openExternal );
 	useEffect( () => {
 		if ( ! available ) {
@@ -127,13 +136,31 @@ export function useSiteHeaderNavigation( navigation: SiteHeaderNavigation | null
 			back: () => latest.current?.back(),
 			forward: () => latest.current?.forward(),
 			reload: () => latest.current?.reload(),
-			settings: () => latest.current?.settings(),
 			openExternal: canOpenExternal ? () => latest.current?.openExternal?.() : undefined,
+			responsive: hasResponsive
+				? {
+						active: responsiveActive ?? false,
+						disabled: responsiveDisabled ?? false,
+						onClick: () => latest.current?.responsive?.onClick(),
+				  }
+				: undefined,
+			annotate: hasAnnotate
+				? {
+						active: annotateActive ?? false,
+						disabled: annotateDisabled ?? false,
+						disabledReason: annotateDisabledReason,
+						onClick: () => latest.current?.annotate?.onClick(),
+				  }
+				: undefined,
 			backShortcut,
 			forwardShortcut,
 		} );
 		return () => setNavigation( null );
 	}, [
+		annotateActive,
+		annotateDisabled,
+		annotateDisabledReason,
+		hasAnnotate,
 		available,
 		backShortcut,
 		canGoBack,
@@ -141,24 +168,24 @@ export function useSiteHeaderNavigation( navigation: SiteHeaderNavigation | null
 		canOpenExternal,
 		disabled,
 		forwardShortcut,
+		hasResponsive,
+		responsiveActive,
+		responsiveDisabled,
 		setNavigation,
 	] );
 }
 
 /** A Live chat previews the remote, so only Publish applies. */
-export function SiteHeaderActions( { site, live = false }: { site: SiteDetails; live?: boolean } ) {
-	const { host, layout, navigation, attachActions } = useSiteHeader();
+export function SiteHeaderActions( { site }: { site: SiteDetails; live?: boolean } ) {
+	const { layout, navigation, attachActions } = useSiteHeader();
 	const root = useRef< HTMLDivElement >( null );
 	const shareStatus = useShareStatus( site.id );
-	const operation = useSiteOperation( site );
-	const starting = useIsSiteStarting( site.id ) || operation === 'start';
-	const stopping = useIsSiteStopping( site.id ) || operation === 'stop';
 	const windowControls = useWindowControlsOverlay();
 	const trafficLightSpace = useTrafficLightSpace();
 	const overflow = layout !== 'inline';
 	// The Windows/Linux window controls sit at the physical right, the macOS
 	// traffic lights at the physical left: whichever the inline end reaches.
-	let inset = 8;
+	let inset = 0;
 	if ( isRTL() ) {
 		inset += trafficLightSpace.end ? 88 : 0;
 	} else {
@@ -168,26 +195,16 @@ export function SiteHeaderActions( { site, live = false }: { site: SiteDetails; 
 		<div
 			ref={ root }
 			className={ styles.root }
-			style={ { paddingInlineEnd: inset } }
+			style={ { paddingInlineEnd: `calc( var( --band-inset ) + ${ inset }px )` } }
 			data-site-header-actions={ layout }
 		>
+			<SiteDeliveryDialog key={ site.id } site={ site } anchor={ root } />
 			<div ref={ attachActions } className={ styles.actions }>
-				{ /* Out of sight while the chat fills the workspace, yet still there
-					for the site menu to open. */ }
-				<span
-					data-site-header-publish
-					hidden={ host !== 'preview' || ( ! live && ( ! site.running || starting || stopping ) ) }
-					className={ styles.publish }
-				>
-					<PublishButton site={ site } anchor={ root } />
+				<span data-site-header-publish className={ styles.publish }>
+					<PublishButton site={ site } />
 				</span>
-				{ live || site.running || stopping ? null : (
-					<span data-site-header-lifecycle className={ styles.item }>
-						<SiteLifecycleButton site={ site } compact={ overflow } />
-					</span>
-				) }
 				<span data-site-header-trailing className={ styles.item }>
-					<span hidden={ overflow || live }>
+					<span hidden={ overflow }>
 						<ShareButton site={ site } />
 					</span>
 					{ overflow ? (
@@ -200,6 +217,7 @@ export function SiteHeaderActions( { site, live = false }: { site: SiteDetails; 
 												<Button
 													variant="ghost"
 													size="icon"
+													data-share-overflow-trigger
 													aria-label={ __( 'More preview actions' ) }
 													aria-description={ shareStatus.label }
 												/>
@@ -212,18 +230,54 @@ export function SiteHeaderActions( { site, live = false }: { site: SiteDetails; 
 								<TooltipContent side="bottom">{ __( 'More preview actions' ) }</TooltipContent>
 							</Tooltip>
 							<Menu.Popup side="bottom" align="end">
-								{ live ? null : (
-									<Menu.Item
-										aria-description={ shareStatus.label }
-										onClick={ () => requestHeaderPanel( { panel: 'share', siteId: site.id } ) }
-									>
-										<ShareStatusIcon icon={ <ShareIcon /> } status={ shareStatus } />
-										{ __( 'Share' ) }
-									</Menu.Item>
-								) }
-								{ layout === 'navigation-overflow' && navigation ? (
+								{ layout === 'mobile-overflow' ? (
 									<>
-										{ live ? null : <Menu.Separator /> }
+										<SiteRunMenuItem site={ site } />
+										<Menu.Separator />
+									</>
+								) : null }
+								<Menu.Item
+									aria-description={ shareStatus.label }
+									onClick={ () => requestHeaderPanel( { panel: 'share', siteId: site.id } ) }
+								>
+									<ShareStatusIcon icon={ <ShareIcon /> } status={ shareStatus } />
+									{ __( 'Share' ) }
+								</Menu.Item>
+								{ layout === 'mobile-overflow' && navigation?.annotate ? (
+									<Menu.Item
+										role="menuitemcheckbox"
+										aria-checked={ navigation.annotate.active }
+										disabled={ navigation.annotate.disabled }
+										aria-description={ navigation.annotate.disabledReason }
+										title={ navigation.annotate.disabledReason }
+										onClick={ navigation.annotate.onClick }
+									>
+										<AnnotateIcon />
+										{ __( 'Annotate' ) }
+									</Menu.Item>
+								) : null }
+								{ navigation?.responsive ? (
+									<Menu.Item
+										role="menuitemcheckbox"
+										aria-checked={ navigation.responsive.active }
+										disabled={ navigation.responsive.disabled }
+										onClick={ navigation.responsive.onClick }
+									>
+										<ResponsiveIcon />
+										{ __( 'Responsive mode' ) }
+									</Menu.Item>
+								) : null }
+
+								{ navigation?.openExternal ? (
+									<Menu.Item disabled={ navigation.disabled } onClick={ navigation.openExternal }>
+										<ExternalLinkIcon />
+										{ __( 'Open in browser' ) }
+									</Menu.Item>
+								) : null }
+								{ ( layout === 'navigation-overflow' || layout === 'mobile-overflow' ) &&
+								navigation ? (
+									<>
+										<Menu.Separator />
 										<Menu.Item
 											disabled={ navigation.disabled || ! navigation.canGoBack }
 											onClick={ navigation.back }
@@ -244,21 +298,6 @@ export function SiteHeaderActions( { site, live = false }: { site: SiteDetails; 
 											<RotateCwIcon />
 											{ __( 'Reload preview' ) }
 										</Menu.Item>
-										{ live ? null : (
-											<Menu.Item disabled={ navigation.disabled } onClick={ navigation.settings }>
-												<SiteSettingsIcon />
-												{ __( 'Site settings' ) }
-											</Menu.Item>
-										) }
-										{ navigation.openExternal ? (
-											<Menu.Item
-												disabled={ navigation.disabled }
-												onClick={ navigation.openExternal }
-											>
-												<ExternalLinkIcon />
-												{ __( 'Open in browser' ) }
-											</Menu.Item>
-										) : null }
 									</>
 								) : null }
 							</Menu.Popup>

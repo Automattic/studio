@@ -68,6 +68,48 @@ beforeEach( () => {
 } );
 
 describe( 'sidebar site sections', () => {
+	it( 'keeps one selected chat through navigation and pinning', async () => {
+		const { history } = setup( {
+			sessions: [ chat( 'first', 'one' ) ],
+			preferences: { sidebarPins: [ 'site:one' ] },
+			path: '/sessions/first',
+		} );
+		const shortcuts = within( await screen.findByRole( 'group', { name: 'Recent' } ) );
+		const siteChats = within( screen.getByRole( 'group', { name: 'My site chats' } ) );
+		const siteChat = siteChats.getByRole( 'button', { name: 'First' } );
+		const shortcutChat = shortcuts.getByRole( 'button', { name: 'First' } );
+		const selected = () => screen.getByRole( 'button', { name: 'First', current: 'page' } );
+		expect( selected() ).toBe( siteChat );
+
+		fireEvent.click( shortcutChat );
+		await waitFor( () => expect( selected() ).toBe( shortcutChat ) );
+		for ( const [ open, close ] of [
+			[ 'Settings', 'Close settings' ],
+			[ 'Add site', 'Close Add site' ],
+		] ) {
+			fireEvent.click( screen.getByRole( 'button', { name: open } ) );
+			const dialog = await screen.findByRole( 'dialog', { name: open } );
+			expect( shortcutChat ).toHaveAttribute( 'aria-current', 'page' );
+			fireEvent.click( within( dialog ).getByRole( 'button', { name: close } ) );
+			await waitFor( () => expect( selected() ).toBe( shortcutChat ) );
+		}
+		fireEvent.click( siteChat );
+		await waitFor( () => expect( selected() ).toBe( siteChat ) );
+
+		await act( () => history.back() );
+		await waitFor( () => expect( selected() ).toBe( shortcutChat ) );
+		await act( () => history.forward() );
+		await waitFor( () => expect( selected() ).toBe( siteChat ) );
+
+		fireEvent.contextMenu( siteChat );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Pin' } ) );
+		await waitFor( () => expect( siteChat ).not.toBeInTheDocument() );
+		const pinnedChat = await group( 'Pinned' ).findByRole( 'button', { name: 'First' } );
+		await waitFor( () => expect( selected() ).toBe( pinnedChat ) );
+		await act( () => history.replace( '/sessions/first' ) );
+		await waitFor( () => expect( selected() ).toBe( pinnedChat ) );
+	} );
+
 	it( 'opens a Recent chat without expanding its site', async () => {
 		const { history } = setup( {
 			sessions: [ chat( 'first', 'one' ), chat( 'second-chat', 'two' ) ],
@@ -125,6 +167,14 @@ describe( 'sidebar site sections', () => {
 			fireEvent.click( secondSite );
 			await waitFor( () => expect( secondSite ).toHaveAttribute( 'aria-expanded', 'true' ) );
 			expect( firstSite ).toHaveAttribute( 'aria-expanded', 'false' );
+			await act( () => history.back() );
+			await waitFor( () =>
+				expect( within( pinned ).getByRole( 'button', { name: 'Pinned-chat' } ) ).toHaveAttribute(
+					'aria-current',
+					'page'
+				)
+			);
+			expect( secondSite ).not.toHaveAttribute( 'aria-current' );
 		}
 	);
 
@@ -143,6 +193,35 @@ describe( 'sidebar site sections', () => {
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Archive' } ) );
 		await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/next' ) );
 	} );
+
+	it.each( [ false, true ] )(
+		'keeps site archives in their site (has sibling: %s)',
+		async ( hasSibling ) => {
+			const { history } = setup( {
+				sessions: [
+					...( hasSibling
+						? [ chat( 'newer-sibling', 'one', { updatedAt: '2026-10-26T12:00:00Z' } ) ]
+						: [] ),
+					chat( 'current', 'one', { updatedAt: '2026-10-26T11:00:00Z' } ),
+					chat( 'other-site', 'two', { updatedAt: '2026-10-26T10:00:00Z' } ),
+					...( hasSibling
+						? [ chat( 'sibling', 'one', { updatedAt: '2026-10-26T09:00:00Z' } ) ]
+						: [] ),
+				],
+				path: '/sessions/current',
+			} );
+			const sites = await screen.findByRole( 'group', { name: 'Sites' } );
+			const current = await within( sites ).findByRole( 'button', { name: 'Current' } );
+			fireEvent.click( current );
+			fireEvent.contextMenu( current );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Archive' } ) );
+			await waitFor( () =>
+				expect( history.location.pathname ).toBe(
+					hasSibling ? '/sessions/sibling' : '/sites/one/new'
+				)
+			);
+		}
+	);
 
 	it( 'renames and archives chats from the sidebar menu without header actions', async () => {
 		const { connector } = setup( {
@@ -172,7 +251,7 @@ describe( 'sidebar site sections', () => {
 		expect( connector.updateSessionMetadata ).toHaveBeenCalledWith( 'rename-chat', {
 			title: 'Homepage polish',
 		} );
-		expect( screen.getByRole( 'button', { name: 'Hide chat' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Close chat' } ) ).toBeVisible();
 		fireEvent.contextMenu( renamed );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Rename' } ) );
 		fireEvent.change( await screen.findByRole( 'textbox', { name: 'Chat title' } ), {
@@ -182,7 +261,7 @@ describe( 'sidebar site sections', () => {
 		const restored = await within( sites ).findByRole( 'button', {
 			name: 'Make the heading larger',
 		} );
-		expect( screen.getByRole( 'button', { name: 'Hide chat' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Close chat' } ) ).toBeVisible();
 		fireEvent.contextMenu( restored );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Archive' } ) );
 		await waitFor( () =>
@@ -347,54 +426,90 @@ describe( 'sidebar site sections', () => {
 		await waitFor( () => expect( titles() ).toEqual( [ 'New chat', 'Chat B', 'Chat A' ] ) );
 	} );
 
-	it( 'moves pinned chats into needs input and restores their pin after resolution', async () => {
+	it( 'keeps chats in their existing groups and positions while waiting for input', async () => {
 		const { connector } = setup( {
 			sites: [ site ],
 			sessions: [
 				chat( 'first', 'one', { title: 'First chat' } ),
 				chat( 'second', 'one', { title: 'Second chat' } ),
+				chat( 'third', 'one', { title: 'Third chat' } ),
 			],
-			preferences: { sidebarPins: [ 'chat:first' ], sidebarChatOrder: { one: [ 'second' ] } },
+			preferences: {
+				sidebarPins: [ 'chat:first' ],
+				sidebarChatOrder: { one: [ 'third', 'second' ] },
+			},
 			path: '/sites/one',
 		} );
-		const siteButton = await screen.findByRole( 'button', { name: 'My site' } );
-		const siteChats = () => within( screen.getByRole( 'group', { name: 'My site chats' } ) );
-		expect( await siteChats().findByRole( 'button', { name: 'Second chat' } ) ).toBeVisible();
-		expect( screen.queryByRole( 'group', { name: 'Needs input' } ) ).not.toBeInTheDocument();
+		const pinned = await screen.findByRole( 'group', { name: 'Pinned' } );
+		const siteChats = await screen.findByRole( 'group', { name: 'My site chats' } );
+		const recent = screen.getByRole( 'group', { name: 'Recent' } );
+		const pinnedChat = within( pinned ).getByRole( 'button', { name: 'First chat' } );
+		const siteChat = within( siteChats ).getByRole( 'button', { name: 'Second chat' } );
+		const recentChat = within( recent ).getByRole( 'button', { name: 'Second chat' } );
+		const chatButtons = ( element: HTMLElement ) =>
+			within( element ).getAllByRole( 'button', { name: /^(First|Second|Third) chat/ } );
+		const siteOrder = chatButtons( siteChats );
+		const recentOrder = chatButtons( recent );
+		const badge = ( element: HTMLElement ) =>
+			within( element ).queryByRole( 'status', { name: 'WordPress Studio needs an answer.' } );
+
 		emit( connector, 'first', question() );
-		const needsInput = await screen.findByRole( 'group', { name: 'Needs input' } );
-		expect(
-			within( needsInput ).queryByRole( 'button', { name: 'Needs input' } )
-		).not.toBeInTheDocument();
-		expect( within( needsInput ).getAllByRole( 'button', { name: /First chat/ } ) ).toHaveLength(
-			1
-		);
-		expect(
-			group( 'Recent' ).queryByRole( 'button', { name: /First chat/ } )
-		).not.toBeInTheDocument();
-		expect( group( 'Recent' ).getByRole( 'button', { name: 'Second chat' } ) ).toBeVisible();
-		expect( screen.queryByRole( 'group', { name: 'Pinned' } ) ).not.toBeInTheDocument();
-		expect( connector.state.preferences.sidebarPins ).toEqual( [ 'chat:first' ] );
 		emit( connector, 'second', question() );
-		await waitFor( () =>
-			expect( within( needsInput ).getByRole( 'button', { name: /Second chat/ } ) ).toBeVisible()
-		);
-		expect( screen.getAllByRole( 'button', { name: /Second chat/ } ) ).toHaveLength( 1 );
-		expect( screen.queryByRole( 'group', { name: 'My site chats' } ) ).not.toBeInTheDocument();
-		expect( within( siteButton ).queryByText( 'Needs input' ) ).not.toBeInTheDocument();
-		expect( connector.state.preferences.sidebarChatOrder ).toEqual( { one: [ 'second' ] } );
+		await waitFor( () => {
+			expect( badge( pinnedChat ) ).toBeVisible();
+			expect( badge( siteChat ) ).toBeVisible();
+			expect( badge( recentChat ) ).toBeVisible();
+		} );
+		expect( within( pinned ).getByRole( 'button', { name: /First chat/ } ) ).toBe( pinnedChat );
+		expect( chatButtons( siteChats ) ).toEqual( siteOrder );
+		expect( chatButtons( recent ) ).toEqual( recentOrder );
+		expect( screen.queryByRole( 'group', { name: 'Needs input' } ) ).not.toBeInTheDocument();
+		expect( connector.state.preferences.sidebarPins ).toEqual( [ 'chat:first' ] );
+		expect( connector.state.preferences.sidebarChatOrder ).toEqual( {
+			one: [ 'third', 'second' ],
+		} );
+
 		emit( connector, 'first', exited() );
 		emit( connector, 'second', exited() );
-		await waitFor( () => expect( needsInput ).not.toBeInTheDocument() );
-		expect( siteChats().getByRole( 'button', { name: 'Second chat' } ) ).toBeVisible();
-		expect(
-			group( 'Recent' ).queryByRole( 'button', { name: 'First chat' } )
-		).not.toBeInTheDocument();
-		expect( group( 'Recent' ).getByRole( 'button', { name: 'Second chat' } ) ).toBeVisible();
-		expect( group( 'Pinned' ).getByRole( 'button', { name: 'First chat' } ) ).toBeVisible();
+		await waitFor( () => {
+			expect( badge( pinnedChat ) ).not.toBeInTheDocument();
+			expect( badge( siteChat ) ).not.toBeInTheDocument();
+			expect( badge( recentChat ) ).not.toBeInTheDocument();
+		} );
+		expect( chatButtons( siteChats ) ).toEqual( siteOrder );
+		expect( chatButtons( recent ) ).toEqual( recentOrder );
 	} );
 
-	it( 'moves pending questions out of site rows while retaining site startup progress', async () => {
+	it( 'shows a collapsed site’s pending question badge and clears it on resolution', async () => {
+		const { connector } = setup( {
+			sites: [ site ],
+			sessions: [ chat( 'waiting', 'one', { title: 'Waiting chat' } ) ],
+			preferences: { showRecentChats: false },
+		} );
+		const siteButton = await screen.findByRole( 'button', { name: 'My site' } );
+		const section = within( siteButton.closest( 'li' )! );
+		const badge = () =>
+			section.queryByRole( 'status', { name: 'WordPress Studio needs an answer.' } );
+		emit( connector, 'waiting', question() );
+		await waitFor( () => expect( badge() ).toBeVisible() );
+		expect(
+			section.getByRole( 'button', { name: 'Waiting chat WordPress Studio needs an answer.' } )
+		).toBeVisible();
+		fireEvent.click( siteButton );
+		await waitFor( () => expect( siteButton ).toHaveAttribute( 'aria-expanded', 'false' ) );
+		const collapsedBadge = badge()!;
+		expect( collapsedBadge ).toBeVisible();
+
+		fireEvent.click( siteButton );
+		await waitFor( () => expect( siteButton ).toHaveAttribute( 'aria-expanded', 'true' ) );
+		expect( collapsedBadge ).not.toBeInTheDocument();
+		fireEvent.click( siteButton );
+		await waitFor( () => expect( badge() ).toBeVisible() );
+		emit( connector, 'waiting', exited() );
+		await waitFor( () => expect( badge() ).not.toBeInTheDocument() );
+	} );
+
+	it( 'shows pending question badges on site chats while retaining site startup progress', async () => {
 		const { connector } = setup( {
 			sites: [ site ],
 			sessions: [ chat( 'starting-chat', 'one', { title: 'Starting chat' } ) ],
@@ -427,15 +542,14 @@ describe( 'sidebar site sections', () => {
 		expect( within( chatButton ).getByText( 'Working…' ) ).toBeInTheDocument();
 		await act( async () => finish() );
 		emit( connector, 'starting-chat', question() );
-		const needsInput = await screen.findByRole( 'group', { name: 'Needs input' } );
-		expect( screen.queryByRole( 'button', { name: 'Needs input' } ) ).not.toBeInTheDocument();
-		const needsInputChat = within( needsInput ).getByRole( 'button', { name: /Starting chat/ } );
-		expect( chatButton ).not.toBeInTheDocument();
-		expect( needsInputChat ).toBeVisible();
-		expect(
-			within( needsInputChat ).getByRole( 'status', { name: 'WordPress Studio needs an answer.' } )
-		).toBeVisible();
-		const chatRow = within( needsInputChat.parentElement! );
+		await waitFor( () =>
+			expect(
+				within( chatButton ).getByRole( 'status', { name: 'WordPress Studio needs an answer.' } )
+			).toBeVisible()
+		);
+		expect( screen.queryByRole( 'group', { name: 'Needs input' } ) ).not.toBeInTheDocument();
+		expect( chatButton ).toBeVisible();
+		const chatRow = within( chatButton.parentElement! );
 		expect( chatRow.queryByRole( 'button', { name: 'Pin chat' } ) ).not.toBeInTheDocument();
 		expect( chatRow.queryByRole( 'button', { name: 'Archive chat' } ) ).not.toBeInTheDocument();
 		expect( within( siteButton ).queryByText( 'Needs input' ) ).not.toBeInTheDocument();

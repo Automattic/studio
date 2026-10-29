@@ -1,5 +1,7 @@
 export { DirectionProvider } from '@base-ui/react/direction-provider';
 export * from './alert';
+export * from './attachment';
+export * from './attachment-chip';
 export * from './badge';
 export * from './button';
 export * from './checkbox';
@@ -29,7 +31,10 @@ export * from './slider';
 export * from './spinner';
 export * from './surface';
 export * from './switch';
+export * from './table';
 export * from './tabs';
 export * from './textarea';
 export * from './tooltip';
 export * from './visually-hidden';
+
+export { StudioIcon } from './studio-icon';

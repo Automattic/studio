@@ -15,14 +15,11 @@ import fsPromises from 'fs/promises';
 import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
-import { validateStudioChatFiles } from '@studio/common/ai/chat-files';
-import { validateStudioChatImages } from '@studio/common/ai/chat-images';
 import {
 	getGlobalInstructionsEnabled as readGlobalInstructionsEnabled,
 	setGlobalInstructionsEnabled as writeGlobalInstructionsEnabled,
-} from '@studio/common/ai/global-instructions';
-import { isAiModelId } from '@studio/common/ai/models';
-import { isAiProviderId, providerServesModel } from '@studio/common/ai/providers';
+} from '@studio/agent/node/global-instructions';
+import { resolveLocalMediaFile } from '@studio/agent/node/local-media';
 import {
 	createHydratedAiSession,
 	listHydratedAiSessions,
@@ -30,11 +27,14 @@ import {
 	reconcileSessionEnvironment,
 	setSessionEnvironment,
 	updateHydratedAiSessionMetadata,
-} from '@studio/common/ai/sessions/manage';
-import { appendModelChangeEntry, appendStudioEntry } from '@studio/common/ai/sessions/store';
-import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
-import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
-import { validateStudioVisualAnnotations } from '@studio/common/ai/visual-annotations';
+} from '@studio/agent/node/sessions/manage';
+import { appendModelChangeEntry, appendStudioEntry } from '@studio/agent/node/sessions/store';
+import { validateStudioChatFiles } from '@studio/agent/protocol/chat-files';
+import { validateStudioChatImages } from '@studio/agent/protocol/chat-images';
+import { isAiModelId } from '@studio/agent/protocol/models';
+import { isAiProviderId, providerServesModel } from '@studio/agent/protocol/providers';
+import { expandSkillCommandPrompt } from '@studio/agent/protocol/slash-commands';
+import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
 import {
 	getSiteAgentFiles as readSiteAgentFiles,
@@ -51,7 +51,7 @@ import {
 	downloadAndExtractBlueprintBundle,
 	removeBlueprintTempDir,
 } from '@studio/common/lib/blueprint-bundle';
-import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { SITE_EVENTS, type SiteListItem } from '@studio/common/lib/cli-events';
 import { CliCommandError } from '@studio/common/lib/cli-process';
 import { stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
 import {
@@ -67,7 +67,6 @@ import { generateNumberedName, generateSiteName } from '@studio/common/lib/gener
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
-import { resolveLocalMediaFile } from '@studio/common/lib/local-media';
 import { getAuthenticationUrl, revokeAuthToken } from '@studio/common/lib/oauth';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { isTracksEventName } from '@studio/common/lib/record-tracks-event';
@@ -87,7 +86,12 @@ import {
 	getLocalFileSize,
 	listLocalFileTree as listSiteFileTree,
 } from '@studio/common/lib/sync/local-file-tree';
+import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
 import { supportedEditorConfig, SupportedEditor } from '@studio/common/lib/user-settings/editor';
+import {
+	readOnboardingCompleted,
+	writeOnboardingCompleted,
+} from '@studio/common/lib/user-settings/onboarding';
 import { openLinuxTerminal } from '@studio/common/lib/user-settings/open-linux-terminal';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import {
@@ -165,16 +169,16 @@ import { getDefaultSiteDirectory } from 'src/modules/user-settings/lib/ipc-handl
 import { linuxFindEditorPath } from 'src/modules/user-settings/lib/linux-editor-path';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { getSiteThumbnailPath } from 'src/storage/paths';
-import { updateAppdata, loadUserData } from 'src/storage/user-data';
+import { loadUserData } from 'src/storage/user-data';
 import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
-import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
-import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
-import type { StudioChatImage } from '@studio/common/ai/chat-images';
+import type { ActiveAgentRun } from '@studio/agent/protocol/agent-events';
+import type { StudioChatFileAttachment } from '@studio/agent/protocol/chat-files';
+import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
 import type {
 	AiSessionMetadata,
 	AiSessionSummary,
 	LoadedAiSession,
-} from '@studio/common/ai/sessions/types';
+} from '@studio/agent/protocol/sessions/types';
 import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 
@@ -611,10 +615,15 @@ export async function updateSite(
 	}
 }
 
-export async function startServer( event: IpcMainInvokeEvent, id: string ): Promise< void > {
-	const site = await getSite( id );
+// Resolves with the started site, or nothing when an error page is served instead.
+export async function startServer(
+	event: IpcMainInvokeEvent,
+	id: string
+): Promise< SiteListItem | undefined > {
+	// Starting only needs the path, which `cli.json` has; the CLI's full details wait for a failure.
+	const site = await readSite( id );
 	if ( ! site ) {
-		return;
+		throw new Error( `Site not found: ${ id }` );
 	}
 
 	// Release the port held by any active PHP-error recovery before (re)starting the real server,
@@ -624,17 +633,21 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 	const start = () => startSite( executeCliCommand, site.path );
 	try {
 		console.log( `Starting server for '${ site.name }'` );
-		await start();
+		const started = await start();
+		console.log( `Server started for '${ site.name }'` );
+		return started;
 	} catch ( error ) {
 		// Too many running sites or a WordPress update in progress: expected, not a bug — skip Sentry
 		if ( error instanceof SiteStartRefusedError ) {
 			throw error;
 		}
 
+		const details = await getSite( id ).catch( () => undefined );
+
 		// A fatal error in the user's own PHP (theme/plugin) code stops WordPress from booting.
 		// Rather than failing the start, serve the parsed PHP error on the site's port and watch for
 		// the fix so the site self-recovers. This is user code, not a Studio bug, so skip Sentry.
-		if ( isPhpUserError( error ) ) {
+		if ( details && isPhpUserError( error ) ) {
 			const processManagerLogs = readProcessManagerLogs( id );
 			const logContent = [
 				...( processManagerLogs.stdout ?? [] ),
@@ -643,20 +656,14 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 			const errorMessage = parsePhpError( logContent );
 
 			try {
-				await startErrorRecovery( site, errorMessage, readProcessManagerLogs, start );
-				console.log( `[PHP Recovery - ${ id }] Serving PHP error page on port ${ site.port }` );
-				const url = `http://localhost:${ site.port }`;
+				await startErrorRecovery( details, errorMessage, readProcessManagerLogs, start );
+				console.log( `[PHP Recovery - ${ id }] Serving PHP error page on port ${ details.port }` );
+				const url = `http://localhost:${ details.port }`;
+				// Without the site's details, so the renderer refetches the list, where
+				// `getSites` gives the error page's URL.
 				void sendIpcEventToRenderer( 'site-event', {
 					event: SITE_EVENTS.UPDATED,
 					siteId: id,
-					site: {
-						id,
-						name: site.name,
-						path: site.path,
-						port: site.port,
-						url,
-						phpVersion: site.phpVersion,
-					},
 					running: true,
 				} );
 				// Refresh the thumbnail so it shows the error page instead of a stale capture.
@@ -670,11 +677,11 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 
 		const contexts: Record< string, Record< string, unknown > > = {
 			server: {
-				running: site.running,
-				phpVersion: site.phpVersion,
-				port: site.port,
-				hasCustomDomain: !! site.customDomain,
-				httpsEnabled: !! site.enableHttps,
+				running: details?.running,
+				phpVersion: details?.phpVersion,
+				port: details?.port,
+				hasCustomDomain: !! details?.customDomain,
+				httpsEnabled: !! details?.enableHttps,
 			},
 		};
 
@@ -700,11 +707,12 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 
 		throw error;
 	}
-
-	console.log( `Server started for '${ site.name }'` );
 }
 
-export async function stopServer( event: IpcMainInvokeEvent, id: string ): Promise< void > {
+export async function stopServer(
+	event: IpcMainInvokeEvent,
+	id: string
+): Promise< SiteListItem | undefined > {
 	const sitePath = await readSitePath( id );
 	if ( ! sitePath ) {
 		return;
@@ -713,7 +721,7 @@ export async function stopServer( event: IpcMainInvokeEvent, id: string ): Promi
 	await stopErrorRecovery( id );
 	console.log( 'Stopping server with ID', id );
 	try {
-		await stopSite( executeCliCommand, sitePath );
+		return await stopSite( executeCliCommand, sitePath );
 	} catch ( error ) {
 		console.error( error );
 	}
@@ -1055,19 +1063,12 @@ export async function readLocalMediaFile(
 }
 
 export async function getOnboardingData( _event: IpcMainInvokeEvent ): Promise< boolean > {
-	const userData = await loadUserData();
-	const { onboardingCompleted = false } = userData;
-	return onboardingCompleted;
+	return readOnboardingCompleted();
 }
 
-export async function saveOnboarding( event: IpcMainInvokeEvent, onboardingCompleted: boolean ) {
-	const { onboardingCompleted: previous = false } = await loadUserData();
-	await updateAppdata( { onboardingCompleted } );
-
-	// Only on a real transition — a re-save must not look like a second user finishing onboarding.
-	if ( onboardingCompleted && ! previous ) {
+export async function saveOnboarding( _event: IpcMainInvokeEvent, onboardingCompleted: boolean ) {
+	if ( await writeOnboardingCompleted( onboardingCompleted ) ) {
 		await recordTracksEvent( TRACKS_EVENTS.ONBOARDING_COMPLETE, {
-			// Whether they leave onboarding with an account, which is what "skipped" really meant.
 			authenticated: await oauthClient.isAuthenticated(),
 		} );
 	}

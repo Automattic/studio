@@ -1,18 +1,18 @@
-import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
-import {
-	createRoute,
-	Outlet,
-	useNavigate,
-	useRouter,
-	useRouterState,
-} from '@tanstack/react-router';
+import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
+import { createRoute, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
+import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useState } from 'react';
+import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
+import { useAiSettings } from '@/data/queries/use-ai-settings';
+import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useSession, useSessionLiveSite } from '@/data/queries/use-sessions';
 import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
 import { useIsSiteStopping, useSiteOperation, useSites } from '@/data/queries/use-sites';
+import { useOpenSettings } from '@/data/use-open-settings';
 import { pathForSite, useSessionPreviewUI } from '@/data/use-session-ui';
+import { AccountPromptDialog } from '@/features/account';
 import { requestAnnotationSend } from '@/features/annotations';
-import { SiteWorkspace } from '@/features/chats';
+import { SiteWorkspace, SessionHeader } from '@/features/chats';
 import { CommandPalette } from '@/features/commands';
 import {
 	useOrientationAutostart,
@@ -23,12 +23,16 @@ import {
 import { SidebarLayout, HeaderSidebarToggle, rememberVisit } from '@/features/sidebar';
 import { PreviewSplitFrame, type PreviewSplitFramePreviewProps } from '@/features/sites';
 import {
-	SiteActionsMenu,
+	SiteMenu,
+	SiteRunButton,
 	SiteHeaderActions,
 	SiteHeaderActionsProvider,
 	SitePreview,
 } from '@/features/sites';
+import { ChatIcon } from '@/lib/icons';
+import { IconButton } from '@/lib/ui';
 import { rootRoute } from '../layout-root';
+import styles from './style.module.css';
 
 // Session detail routes and a site's own page host the preview;
 // on every other route the last previewed site stays mounted
@@ -54,8 +58,18 @@ function getNewSessionSiteId( pathname: string ): string | undefined {
 // last previewed site loaded behind a closed panel.
 function DashboardLayout() {
 	const navigate = useNavigate();
+	const openSettings = useOpenSettings();
+	const { data: authUser } = useAuthUser();
+	const { data: aiSettings } = useAiSettings();
+	const [ headerContainer, setHeaderContainer ] = useState< HTMLDivElement | null >( null );
+	const [ providerPromptOpen, setProviderPromptOpen ] = useState( false );
+	const hasProvider = !! authUser || !! aiSettings?.hasAnthropicApiKey;
+	useEffect( () => {
+		if ( hasProvider ) setProviderPromptOpen( false );
+	}, [ hasProvider ] );
 	const routePreviewContext = useRouterState( {
 		select: ( state ) => ( {
+			pathname: state.location.pathname,
 			sessionId: getRouteSessionId( state.location.pathname ),
 			homeSiteId: getRouteHomeSiteId( state.location.pathname ),
 			newSessionSiteId: getNewSessionSiteId( state.location.pathname ),
@@ -144,66 +158,73 @@ function DashboardLayout() {
 		( !! homeSiteId ||
 			!! liveUrl ||
 			( previewSite.running && ! previewStopping && preview.revealingSiteId !== previewSite.id ) );
-	const chatHidden = ( preview.chatHidden || !! homeSiteId ) && showPreview;
-	// Opening a chat shows it, the open one included. Search-only changes
-	// open dialogs over the workspace without changing its layout.
-	const router = useRouter();
+	const chatHidden =
+		( preview.chatHiddenBySiteId[ previewSiteId ?? '' ] || !! homeSiteId ) && showPreview;
 	const { setChatHidden } = preview;
-	useEffect(
-		() =>
-			router.subscribe( 'onBeforeNavigate', ( { pathChanged, hrefChanged } ) => {
-				if ( pathChanged || ! hrefChanged ) {
-					setChatHidden( false );
-				}
-			} ),
-		[ router, setChatHidden ]
-	);
+	const startAnnotating = useCallback( () => {
+		if ( hasProvider ) return true;
+		setProviderPromptOpen( true );
+		return false;
+	}, [ hasProvider ] );
 	// The notes go to the chat beside the preview, or to a new one for the site.
 	const sendAnnotations = useCallback(
 		( siteId: string, noteIds?: string[] ) => {
+			if ( ! hasProvider ) {
+				setProviderPromptOpen( true );
+				return;
+			}
 			requestAnnotationSend( { siteId, noteIds } );
-			setChatHidden( false );
+			setChatHidden( false, siteId );
 			if ( ! sessionId || sessionSite?.id !== siteId ) {
 				void navigate( { to: '/sites/$siteId/new', params: { siteId } } );
 			}
 		},
-		[ navigate, sessionId, sessionSite?.id, setChatHidden ]
+		[ hasProvider, navigate, sessionId, sessionSite?.id, setChatHidden ]
 	);
-	const renderPreview = useCallback(
-		( { collapsed }: PreviewSplitFramePreviewProps ) =>
-			previewSite ? (
-				<SitePreview
-					key={ liveUrl ?? 'local' }
-					site={ previewSite }
-					liveUrl={ liveUrl }
-					path={ liveUrl ? ( livePath.url === liveUrl ? livePath.path : '/' ) : previewPath }
-					reloadNonce={ preview.reloadNonce }
-					onSendAnnotations={ sendAnnotations }
-					onPathChange={ liveUrl ? updateLivePath : preview.updatePath }
-					collapsed={ collapsed }
-					atWindowStart={ chatHidden }
-					toolbarStart={
-						chatHidden ? (
-							<>
-								<HeaderSidebarToggle />
-								<SiteActionsMenu site={ previewSite } />
-							</>
-						) : undefined
+	const chatToggle =
+		!! liveUrl ||
+		( previewSite?.running && ! previewStopping && preview.revealingSiteId !== previewSite.id ) ? (
+			<IconButton
+				className={ styles.chatToggle }
+				aria-pressed={ ! chatHidden }
+				icon={ <ChatIcon /> }
+				label={ chatHidden ? __( 'Open chat' ) : __( 'Close chat' ) }
+				tooltipSide="bottom"
+				onClick={ () => {
+					if ( homeSiteId ) {
+						setChatHidden( false, homeSiteId );
+						void navigate( { to: '/sites/$siteId/new', params: { siteId: homeSiteId } } );
+					} else {
+						setChatHidden( ! chatHidden, previewSiteId );
 					}
-				/>
-			) : null,
-		[
-			chatHidden,
-			liveUrl,
-			livePath,
-			sendAnnotations,
-			previewPath,
-			preview.reloadNonce,
-			preview.updatePath,
-			previewSite,
-			updateLivePath,
-		]
-	);
+				} }
+			/>
+		) : null;
+
+	const renderPreview = ( { collapsed }: PreviewSplitFramePreviewProps ) =>
+		previewSite ? (
+			<SitePreview
+				key={ liveUrl ?? 'local' }
+				site={ previewSite }
+				liveUrl={ liveUrl }
+				path={ liveUrl ? ( livePath.url === liveUrl ? livePath.path : '/' ) : previewPath }
+				reloadNonce={ preview.reloadNonce }
+				onSendAnnotations={ sendAnnotations }
+				onStartAnnotating={ startAnnotating }
+				onPathChange={ liveUrl ? updateLivePath : preview.updatePath }
+				collapsed={ collapsed }
+				atWindowStart
+				headerContainer={ headerContainer }
+				toolbarStart={
+					<>
+						<HeaderSidebarToggle />
+						<SiteMenu site={ previewSite } />
+						{ chatToggle }
+					</>
+				}
+			/>
+		) : null;
+
 	const workspaceSiteId = newSessionSiteId ?? sessionSite?.id;
 	const workspace =
 		( sessionId || newSessionSiteId ) && workspaceSiteId ? (
@@ -211,22 +232,62 @@ function DashboardLayout() {
 				key={ workspaceSiteId }
 				sessionId={ sessionId }
 				siteId={ workspaceSiteId }
-				headerStart={ <HeaderSidebarToggle /> }
+				hideHeader
 			/>
 		) : (
 			<Outlet />
 		);
 
 	return (
-		<SidebarLayout>
+		<SidebarLayout
+			headerAction={
+				routeSite && ! routeSite.running ? <SiteRunButton site={ routeSite } /> : undefined
+			}
+		>
+			<AccountPromptDialog
+				open={ providerPromptOpen }
+				onOpenChange={ setProviderPromptOpen }
+				title={ __( 'Put your feedback to work' ) }
+				description={ __(
+					'Connect an AI provider to turn your notes and ideas into changes to your site.'
+				) }
+				source="assistant_tab"
+				secondaryLabel={ __( 'Choose a different provider' ) }
+				onSkip={ () => {
+					setProviderPromptOpen( false );
+					openSettings( 'ai' );
+				} }
+			/>
 			<SiteHeaderActionsProvider host={ showPreview ? 'preview' : 'chat' }>
 				<PreviewSplitFrame
+					siteId={ previewSiteId }
+					navigationKey={
+						homeSiteId || newSessionSiteId
+							? `/sites/${ homeSiteId ?? newSessionSiteId }`
+							: routePreviewContext.pathname
+					}
 					previewOpen={ showPreview }
+					previewLoading={ preview.revealingSiteId === previewSiteId }
 					chatHidden={ chatHidden }
 					instant={ previewStopping }
 					preview={ renderPreview }
-					actions={
-						routeSite ? <SiteHeaderActions site={ routeSite } live={ !! liveUrl } /> : null
+					header={
+						supportsPreview && routeSite ? (
+							<WindowControlsCornerContext.Provider value={ true }>
+								<div className={ styles.header }>
+									<div ref={ setHeaderContainer }>
+										{ ! showPreview ? (
+											<SessionHeader
+												start={ <HeaderSidebarToggle /> }
+												site={ routeSite }
+												effectiveEnvironment={ liveUrl ? 'live' : 'local' }
+											/>
+										) : null }
+									</div>
+									<SiteHeaderActions site={ routeSite } live={ !! liveUrl } />
+								</div>
+							</WindowControlsCornerContext.Provider>
+						) : null
 					}
 				>
 					{ workspace }

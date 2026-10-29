@@ -1,6 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { ArrowUpIcon } from 'lucide-react';
-import { StopSiteIcon } from '@/lib/icons';
+import { SendIcon, StopSiteIcon } from '@/lib/icons';
 import { Button } from '@/lib/ui';
 import styles from './style.module.css';
 import type { SubmitFeedback } from '@/features/composer/use-submit-feedback';
@@ -21,12 +20,11 @@ export function SendButton( {
 			variant={ feedback ? 'destructive' : 'accent' }
 			size="icon"
 			shape="round"
-			activeMotion="instant"
 			onClick={ onSend }
 			disabled={ ! canSend }
 			aria-label={ label }
 		>
-			<ArrowUpIcon />
+			<SendIcon />
 		</Button>
 	);
 }
@@ -40,6 +38,7 @@ export function StopButton( {
 } ) {
 	return (
 		<Button
+			variant="accent"
 			size="icon"
 			shape="round"
 			className={ styles.stopButton }

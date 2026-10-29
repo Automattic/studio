@@ -2,8 +2,7 @@ import { sortSites } from '@studio/common/lib/sort-sites';
 import { useParams, useRouterState } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { useMemo, useState, type ReactNode } from 'react';
-import { useSessionsNeedingInput } from '@/data/agent-runs/use-agent-run';
+import { useMemo, type ReactNode } from 'react';
 import { errorMessage, toast } from '@/data/app-messages';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSidebarPreferences } from '@/data/queries/use-sidebar-pins';
@@ -59,13 +58,14 @@ export function SiteList( {
 	const openAddSite = useOpenAddSite();
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: allSessions, isLoading: sessionsLoading, isError: sessionsError } = useSessions();
-	const needingInput = useSessionsNeedingInput();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const pathname = useRouterState( { select: ( state ) => state.location.pathname } );
 	const activeSessionId = params.sessionId;
 	const sessions = useMemo( () => getListedSessions( allSessions ), [ allSessions ] );
 	const activeSiteId = params.siteId;
-	const [ chatNavigation, setChatNavigation ] = useState< 'recent' | 'pinned' >();
+	const chatNavigation = useRouterState( {
+		select: ( state ) => state.location.state.chatNavigation,
+	} );
 	const updateSitesSortOrder = useUpdateSitesSortOrder();
 	const {
 		pins,
@@ -92,21 +92,26 @@ export function SiteList( {
 			} ),
 		[ activeSessionId, activeSiteId, pathname, orderedSites, allSessions ]
 	);
-	const { pinnedItems, siteRows, chatsBySite, needsInputChats, recentChats } =
-		getSidebarCollections( rows, sessions, {
+	const { pinnedItems, siteRows, chatsBySite, recentChats } = getSidebarCollections(
+		rows,
+		sessions,
+		{
 			pins: sections ? pins : [],
 			chatOrder,
 			pinnedSort,
 			siteSort,
 			chatSort,
-			needingInput,
-		} );
+		}
+	);
+	const activeChatIsPinned = pinnedItems.some(
+		( item ) => item.session && item.session.id === activeSessionId
+	);
+	const activeChatNavigation = activeChatIsPinned ? 'pinned' : chatNavigation;
 	const activeChatIsShortcut =
-		( chatNavigation === 'recent' &&
+		activeChatIsPinned ||
+		( activeChatNavigation === 'recent' &&
 			showRecentChats &&
-			recentChats.some( ( session ) => session.id === activeSessionId ) ) ||
-		( chatNavigation === 'pinned' &&
-			pinnedItems.some( ( item ) => item.session && item.session.id === activeSessionId ) );
+			recentChats.some( ( session ) => session.id === activeSessionId ) );
 	const activeSiteKey = activeChatSiteKey ?? activeContextSiteKey;
 	const { revealed, collapseAll, fold, toggle } = useRevealedSites(
 		activeSiteKey,
@@ -122,7 +127,7 @@ export function SiteList( {
 			chats={ chatsBySite.get( row.site.id ) ?? [] }
 			isChatActive={ ! activeChatIsShortcut && row.site.id === activeChatSiteKey }
 			isContextActive={ row.site.id === activeContextSiteKey }
-			activeSessionId={ activeSessionId }
+			activeSessionId={ activeChatIsShortcut ? undefined : activeSessionId }
 			expanded={ sections && revealed.has( row.site.id ) }
 			loadError={ sessionsError }
 			reorderable={ reorderable }
@@ -147,10 +152,7 @@ export function SiteList( {
 					__( 'Couldn’t save the chat order' )
 				)
 			}
-			onSiteOpen={ () => {
-				setChatNavigation( undefined );
-				onSiteOpen?.();
-			} }
+			onSiteOpen={ onSiteOpen }
 		/>
 	);
 
@@ -227,25 +229,21 @@ export function SiteList( {
 			key={ session.id }
 			itemProps={ itemProps }
 			session={ session }
-			active={ session.id === activeSessionId }
+			active={
+				session.id === activeSessionId &&
+				( navigation
+					? activeChatIsShortcut && activeChatNavigation === navigation
+					: ! activeChatIsShortcut )
+			}
 			siteName={ siteName }
-			onOpen={ () => {
-				setChatNavigation( navigation );
-				onSiteOpen?.();
-			} }
+			navigation={ navigation }
+			onOpen={ onSiteOpen }
 		/>
 	);
 
 	return (
 		<div className={ clsx( styles.root, className ) }>
 			<SidebarSelection>
-				{ needsInputChats.length > 0 ? (
-					<SiteListGroup id="needs-input" title={ __( 'Needs input' ) } foldable={ false }>
-						<SidebarMenu>
-							{ needsInputChats.map( ( session ) => renderChat( session ) ) }
-						</SidebarMenu>
-					</SiteListGroup>
-				) : null }
 				<SiteListGroup
 					id="pinned"
 					title={ __( 'Pinned' ) }

@@ -1,9 +1,9 @@
-import { DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
+import { DEFAULT_MODEL, type AiModelId } from '@studio/agent/protocol/models';
 import { emitEvent, type TurnCompletedStatus } from 'cli/ai/json-events';
 import { formatTosNoticeLines } from 'cli/lib/tos-notice';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
+import type { AskUserQuestion, SiteInfo } from '@studio/agent/node';
 import type { AiProviderId } from 'cli/ai/providers';
-import type { AskUserQuestion, SiteInfo } from 'cli/ai/types';
 
 export interface AiOutputAdapter {
 	currentProvider: AiProviderId;

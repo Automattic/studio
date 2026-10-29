@@ -61,6 +61,7 @@ export interface UserPreferences extends ColorTint {
 	autoCollapseSites: boolean;
 	// Start a stopped local site when a chat message is sent to it.
 	autoStartSiteOnChat: boolean;
+	openChatOnSiteStart: boolean;
 	// Ask before discarding preview annotations.
 	confirmDeleteAnnotations: boolean;
 	newSiteBehavior: NewSiteBehavior;
@@ -106,6 +107,7 @@ export const userPreferencesPatchSchema = z.object( {
 	showRecentChats: z.boolean().nullish(),
 	autoCollapseSites: z.boolean().nullish(),
 	autoStartSiteOnChat: z.boolean().nullish(),
+	openChatOnSiteStart: z.boolean().nullish(),
 	confirmDeleteAnnotations: z.boolean().nullish(),
 	newSiteBehavior: z.enum( NEW_SITE_BEHAVIORS ).nullish(),
 	accentColor: z
@@ -136,6 +138,7 @@ const APP_CONFIG_KEYS = [
 	[ 'showRecentChats', 'showRecentChats' ],
 	[ 'autoCollapseSites', 'autoCollapseSites' ],
 	[ 'autoStartSiteOnChat', 'autoStartSiteOnChat' ],
+	[ 'openChatOnSiteStart', 'openChatOnSiteStart' ],
 	[ 'confirmDeleteAnnotations', 'confirmDeleteAnnotations' ],
 	[ 'newSiteBehavior', 'newSiteBehavior' ],
 	[ 'accentColor', 'accentColor' ],
@@ -158,6 +161,7 @@ export async function readUserPreferences( {
 	const [ config, shared ] = await Promise.all( [ readAppConfig(), readSharedConfig() ] );
 	const {
 		autoStartSiteOnChat,
+		openChatOnSiteStart,
 		confirmDeleteAnnotations,
 		showRecentChats,
 		autoCollapseSites,
@@ -190,6 +194,10 @@ export async function readUserPreferences( {
 			.boolean()
 			.catch( autoStartSiteOnChat )
 			.parse( config.autoStartSiteOnChat ),
+		openChatOnSiteStart: z
+			.boolean()
+			.catch( openChatOnSiteStart )
+			.parse( config.openChatOnSiteStart ),
 		confirmDeleteAnnotations: z
 			.boolean()
 			.catch( confirmDeleteAnnotations )

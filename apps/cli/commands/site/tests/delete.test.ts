@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { deleteAiSessionsForSite } from '@studio/common/ai/sessions/manage';
+import { deleteAiSessionsForSite } from '@studio/agent/node/sessions/manage';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { removeAllConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
@@ -27,7 +27,7 @@ import { runCommand, runDeleteCommand } from '../delete';
 
 vi.mock( 'fs' );
 vi.mock( 'cli/lib/api' );
-vi.mock( '@studio/common/ai/sessions/manage' );
+vi.mock( '@studio/agent/node/sessions/manage' );
 vi.mock( '@studio/common/lib/connected-sites', () => ( {
 	removeAllConnectedWpcomSitesForLocalSite: vi.fn(),
 } ) );
@@ -307,6 +307,18 @@ describe( 'CLI: studio site delete', () => {
 			await expect( runCommand( testSiteFolder, true ) ).resolves.not.toThrow();
 			expect( trash ).toHaveBeenCalledWith( [ testSiteFolder ] );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+
+		it( 'should proceed when deleting the email files fails', async () => {
+			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {
+				throw Object.assign( new Error( 'resource busy' ), { code: 'EBUSY' } );
+			} );
+
+			await expect( runCommand( testSiteFolder, true ) ).resolves.not.toThrow();
+			expect( trash ).toHaveBeenCalledWith( [ testSiteFolder ] );
+			expect( emitCliEvent ).toHaveBeenCalledWith(
+				expect.objectContaining( { event: SITE_EVENTS.DELETED } )
+			);
 		} );
 
 		it( 'should proceed when deleting WordPress.com connections fails', async () => {

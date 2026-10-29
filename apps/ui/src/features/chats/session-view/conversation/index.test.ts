@@ -1,3 +1,4 @@
+import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import {
@@ -285,7 +286,54 @@ describe( 'Conversation activity groups', () => {
 		expect( screen.getByText( 'Checking the theme.' ) ).toBeVisible();
 		expect( screen.getByText( 'Everything looks good.' ) ).toBeVisible();
 	} );
-	it( 'keeps a pending question available when live activity is manually collapsed', () => {
+	it( 'offers the design system once, after its last DESIGN.md write, even when collapsed', () => {
+		const designWrite = ( id: string ) => [
+			assistantToolCallEntry( 'Write', { path: 'DESIGN.md' } ),
+			{
+				type: 'custom',
+				id,
+				timestamp: '2026-06-05T12:00:03.000Z',
+				customType: 'studio.chat_artifact',
+				data: {
+					version: 1,
+					id,
+					widgets: [ { type: 'site-preview', widgetProps: { path: DESIGN_SYSTEM_PREVIEW_PATH } } ],
+				},
+			} as unknown as SessionEntry,
+			toolResultEntry( 'Wrote DESIGN.md' ),
+		];
+		const entries = [
+			promptEntry( 'Make it greener' ),
+			...designWrite( 'first' ),
+			...designWrite( 'second' ),
+			assistantToolCallEntry( 'Read', { file_path: '/tmp/theme.css' }, 'Checking the theme.' ),
+			toolResultEntry( 'contents' ),
+		];
+		const { rerenderSession } = renderConversation( loadedSession( entries ), {
+			isRunning: true,
+			startedAt: Date.now(),
+		} );
+		const button = screen.getByRole( 'button', { name: 'Open design system' } );
+		expect(
+			button.compareDocumentPosition( screen.getByText( 'Checking the theme.' ) ) &
+				Node.DOCUMENT_POSITION_FOLLOWING
+		).toBeTruthy();
+
+		rerenderSession(
+			loadedSession( [
+				...entries,
+				assistantTextEntry( 'The site is greener now.' ),
+				turnClosedEntry( 'success' ),
+			] )
+		);
+		expect( screen.getByRole( 'button', { name: /^Worked/ } ) ).toHaveAttribute(
+			'aria-expanded',
+			'false'
+		);
+		expect( screen.getAllByRole( 'button', { name: 'Open design system' } ) ).toHaveLength( 1 );
+	} );
+
+	it( 'automatically collapses activity while keeping a pending question available', () => {
 		renderConversation(
 			loadedSession( [
 				promptEntry( 'Check my site' ),
@@ -296,9 +344,11 @@ describe( 'Conversation activity groups', () => {
 			{ isRunning: true, startedAt: Date.now(), pendingQuestions: new Set( [ 'Which color?' ] ) }
 		);
 		const header = screen.getByRole( 'button', { name: /^Waiting for/ } );
-		expect( header ).toHaveAttribute( 'aria-expanded', 'true' );
-		fireEvent.click( header );
 		expect( header ).toHaveAttribute( 'aria-expanded', 'false' );
+		expect( screen.getByRole( 'radio', { name: 'Blue' } ) ).toBeVisible();
+		fireEvent.click( header );
+		expect( header ).toHaveAttribute( 'aria-expanded', 'true' );
+		expect( screen.getByText( 'Checking the theme.' ) ).toBeVisible();
 		expect( screen.getByRole( 'radio', { name: 'Blue' } ) ).toBeVisible();
 	} );
 } );

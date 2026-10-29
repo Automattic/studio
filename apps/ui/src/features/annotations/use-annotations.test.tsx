@@ -156,15 +156,31 @@ describe( 'preview annotation sessions', () => {
 		expect( session().notes[ 0 ].id ).toBe( id );
 	} );
 
-	it( 'sends only the open note directly and keeps annotating', async () => {
+	it( 'stages the open note from its button and sends it only from the annotation bar', async () => {
 		const { onSend } = await setup();
-		add( 'First' );
-		const second = add( 'Second' );
-		fireEvent.keyDown( note(), { key: 'Enter', ctrlKey: true } );
-		expect( onSend ).toHaveBeenCalledWith( [ second ] );
+		const id = add( 'Make this heading larger' );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Save annotation' } ) );
+		expect( onSend ).not.toHaveBeenCalled();
+		expect( stagedCount() ).toBe( 1 );
+		expect( session().notes[ 0 ].id ).toBe( id );
 		expect( session().active ).toBe( true );
 		expect( session().editingId ).toBeNull();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send 1 annotation' } ) );
+		expect( onSend ).toHaveBeenCalledTimes( 1 );
 	} );
+
+	it.each( [ 'metaKey', 'ctrlKey' ] )(
+		'sends only the open note directly with %s and keeps annotating',
+		async ( modifier ) => {
+			const { onSend } = await setup();
+			add( 'First' );
+			const second = add( 'Second' );
+			fireEvent.keyDown( note(), { key: 'Enter', [ modifier ]: true } );
+			expect( onSend ).toHaveBeenCalledWith( [ second ] );
+			expect( session().active ).toBe( true );
+			expect( session().editingId ).toBeNull();
+		}
+	);
 
 	it( 'ignores empty notes and blocks sends during attachment preparation', async () => {
 		await setup();

@@ -1,5 +1,4 @@
 import { __ } from '@wordpress/i18n';
-import { clsx } from 'clsx';
 import { AnnotateIcon } from '@/lib/icons';
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import styles from './style.module.css';
@@ -26,8 +25,9 @@ export function AnnotateButton( {
 				<TooltipTrigger
 					render={
 						<Button
-							variant="ghost"
-							className={ clsx( styles.annotateButton, active && styles.annotateButtonActive ) }
+							variant="accent-ghost"
+							size={ iconOnly ? 'icon' : 'default' }
+							className={ styles.annotateButton }
 							aria-label={ __( 'Annotate' ) }
 							aria-pressed={ active }
 							aria-description={
@@ -40,7 +40,7 @@ export function AnnotateButton( {
 							disabled={ disabled }
 							onClick={ onClick }
 						>
-							<AnnotateIcon data-icon="inline-start" />
+							<AnnotateIcon data-icon={ iconOnly ? undefined : 'inline-start' } />
 							{ iconOnly ? null : <span>{ __( 'Annotate' ) }</span> }
 						</Button>
 					}

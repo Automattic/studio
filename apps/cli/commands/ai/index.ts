@@ -1,28 +1,36 @@
-import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
+import {
+	closeSharedBrowser,
+	createAgent,
+	createTurnStatsTracker,
+	resolveResumeSessionContext,
+	type StudioAgentHost,
+	AskUserQuestion,
+} from '@studio/agent/node';
+import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/agent/node/settings-store';
+import { buildChatAttachmentSummaries } from '@studio/agent/protocol/chat-attachments';
 import {
 	buildAttachedFilesPromptBlock,
 	type StudioChatFileAttachment,
-} from '@studio/common/ai/chat-files';
-import { type StudioChatImage } from '@studio/common/ai/chat-images';
-import { getAgentEndFailure } from '@studio/common/ai/json-events';
+} from '@studio/agent/protocol/chat-files';
+import { type StudioChatImage } from '@studio/agent/protocol/chat-images';
+import { getAgentEndFailure } from '@studio/agent/protocol/json-events';
 import {
 	getAiModelFamily,
 	readRecordedSessionModel,
 	type AiModelId,
-} from '@studio/common/ai/models';
-import { getAiProviderDefaultModel } from '@studio/common/ai/providers';
-import { getAgentEndTurnResult } from '@studio/common/ai/session-events';
-import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/common/ai/settings-store';
+} from '@studio/agent/protocol/models';
+import { getAiProviderDefaultModel } from '@studio/agent/protocol/providers';
+import { getAgentEndTurnResult } from '@studio/agent/protocol/session-events';
 import {
 	buildSkillInvocationPrompt,
 	resolveSkillFromPrompt,
-} from '@studio/common/ai/slash-commands';
-import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
+} from '@studio/agent/protocol/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	canUsePaidAiModels,
 	fetchStudioAssistantQuota,
 } from '@studio/common/lib/studio-assistant-quota';
+import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -34,8 +42,8 @@ import {
 	resolveUnavailableAiProvider,
 	saveSelectedAiProvider,
 } from 'cli/ai/auth';
-import { closeSharedBrowser } from 'cli/ai/browser-utils';
-import { setChatArtifactCallback } from 'cli/ai/chat-artifacts';
+import { cliAgentHost } from 'cli/ai/host';
+import { emitEvent } from 'cli/ai/json-events';
 import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
 import {
 	AI_PROVIDERS,
@@ -43,18 +51,8 @@ import {
 	getAiProviderDefinition,
 	type AiProviderId,
 } from 'cli/ai/providers';
-import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
-import { setScreenshotDirectoryProvider } from 'cli/ai/screenshot-storage';
-import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
-import {
-	createStudioSession,
-	listStudioSessionFiles,
-	openStudioSession,
-} from 'cli/ai/sessions/pi-session';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
-import { setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
 import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
-import { createTurnStatsTracker } from 'cli/ai/turn-stats';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { findSiteByFolder, findSiteById } from 'cli/lib/cli-config/sites';
@@ -73,11 +71,10 @@ import type { SessionManager } from '@earendil-works/pi-coding-agent';
 import type {
 	StudioCustomEntryDataMap,
 	StudioCustomEntryType,
-} from '@studio/common/ai/sessions/entry-types';
-import type { LoadedAiSession, TurnStatus } from '@studio/common/ai/sessions/types';
-import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
+} from '@studio/agent/protocol/sessions/entry-types';
+import type { LoadedAiSession, TurnStatus } from '@studio/agent/protocol/sessions/types';
+import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 import type { TracksProps } from '@studio/common/lib/record-tracks-event';
-import type { AskUserQuestion } from 'cli/ai/types';
 
 const logger = new Logger< string >();
 
@@ -163,6 +160,46 @@ export async function runCommand( options: {
 } ): Promise< void > {
 	const ui = options.adapter;
 	const isJsonMode = ui instanceof JsonAdapter;
+	const host: StudioAgentHost = {
+		...cliAgentHost,
+		// Persist screenshots next to the session file (`<session>.screenshots/`)
+		// so artifacts in the transcript keep rendering after OS temp cleanup;
+		// `deleteAiSession` removes the sidecar together with the session.
+		screenshotsDirectory: async () => {
+			const sm = await ensureSession();
+			const sessionFile = sm.getSessionFile();
+			if ( ! sessionFile?.endsWith( '.jsonl' ) ) {
+				return null;
+			}
+			return `${ sessionFile.slice( 0, -'.jsonl'.length ) }.screenshots`;
+		},
+		selectSite:
+			ui instanceof JsonAdapter
+				? async ( site ) => {
+						ui.activeSite = site;
+						await append( ( sm ) =>
+							appendStudioEntry( sm, 'studio.site_selected', {
+								siteName: site.name,
+								sitePath: site.path,
+								siteId: site.id,
+							} )
+						);
+				  }
+				: undefined,
+		// Forked by a Studio app, which shows the conversation.
+		ui:
+			typeof process.send === 'function'
+				? {
+						showArtifact: async ( artifact ) => {
+							await append( ( sm ) => appendStudioEntry( sm, 'studio.chat_artifact', artifact ) );
+							emitEvent( { type: 'chat.artifact', timestamp: new Date().toISOString(), artifact } );
+						},
+						reloadPreview: () =>
+							emitEvent( { type: 'preview.reload', timestamp: new Date().toISOString() } ),
+				  }
+				: undefined,
+	};
+	const agent = createAgent( { host } );
 	const resumeContext = resolveResumeSessionContext( options.resumeSession );
 	let currentProvider: AiProviderId =
 		resumeContext.provider ?? ( await resolveInitialAiProvider() );
@@ -228,13 +265,13 @@ export async function runCommand( options: {
 		if ( session ) return session;
 
 		if ( options.resumeSession ) {
-			session = await openStudioSession( options.resumeSession.summary.filePath );
+			session = await agent.sessions.open( options.resumeSession.summary.filePath );
 		} else if ( options.resumeSessionId ) {
-			const files = await listStudioSessionFiles( getSessionsDirectory() );
+			const files = await agent.sessions.list( getSessionsDirectory() );
 			let match: string | undefined;
 			for ( const file of files ) {
 				try {
-					const sm = await openStudioSession( file );
+					const sm = await agent.sessions.open( file );
 					if ( sm.getSessionId() === options.resumeSessionId ) {
 						session = sm;
 						match = file;
@@ -265,7 +302,7 @@ export async function runCommand( options: {
 				);
 			}
 		} else {
-			session = await createStudioSession();
+			session = await agent.sessions.create();
 		}
 
 		return session!;
@@ -302,22 +339,6 @@ export async function runCommand( options: {
 		);
 	}
 
-	setChatArtifactCallback( ( artifact ) =>
-		append( ( sm ) => appendStudioEntry( sm, 'studio.chat_artifact', artifact ) )
-	);
-
-	// Persist screenshots next to the session file (`<session>.screenshots/`)
-	// so artifacts in the transcript keep rendering after OS temp cleanup;
-	// `deleteAiSession` removes the sidecar together with the session.
-	setScreenshotDirectoryProvider( async () => {
-		const sm = await ensureSession();
-		const sessionFile = sm.getSessionFile();
-		if ( ! sessionFile?.endsWith( '.jsonl' ) ) {
-			return null;
-		}
-		return `${ sessionFile.slice( 0, -'.jsonl'.length ) }.screenshots`;
-	} );
-
 	ui.onSiteSelected = ( site ) => {
 		void append( ( sm ) =>
 			appendStudioEntry( sm, 'studio.site_selected', {
@@ -330,21 +351,6 @@ export async function runCommand( options: {
 			} )
 		);
 	};
-
-	setLocalSiteSelectedCallback(
-		ui instanceof JsonAdapter
-			? async ( site ) => {
-					ui.activeSite = site;
-					await append( ( sm ) =>
-						appendStudioEntry( sm, 'studio.site_selected', {
-							siteName: site.name,
-							sitePath: site.path,
-							siteId: site.id,
-						} )
-					);
-			  }
-			: null
-	);
 
 	if ( options.resumeSession ) {
 		ui.showInfo(
@@ -662,7 +668,7 @@ export async function runCommand( options: {
 		};
 		const turnStats = createTurnStatsTracker();
 
-		const agentQuery = runStudioAgentTurn( {
+		const agentQuery = agent.runTurn( {
 			prompt: enrichedPrompt,
 			images,
 			env,
@@ -764,7 +770,6 @@ export async function runCommand( options: {
 			handleAgentTurnError( error );
 			( ui as JsonAdapter ).emitTurnCompleted( 'error', session?.getSessionId() ?? '' );
 		} finally {
-			setLocalSiteSelectedCallback( null );
 			ui.stop();
 			await closeSharedBrowser();
 		}
@@ -816,7 +821,7 @@ export async function runCommand( options: {
 		maybeAutoSwitchProvider,
 		persistSessionContext,
 		async clearSession() {
-			session = await createStudioSession();
+			session = await agent.sessions.create();
 			ui.clearTranscript();
 			ui.showWelcome();
 			ui.showInfo( __( 'Conversation cleared' ) );

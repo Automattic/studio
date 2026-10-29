@@ -31,9 +31,9 @@ import type {
 	SyncSite,
 	UserPreferences,
 } from '../../types';
-import type { AgentRunEvent } from '@studio/common/ai/agent-events';
-import type { AiSettings } from '@studio/common/ai/providers';
-import type { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
+import type { AgentRunEvent } from '@studio/agent/protocol/agent-events';
+import type { AiSettings } from '@studio/agent/protocol/providers';
+import type { SiteEvent, SiteListItem, SnapshotEvent } from '@studio/common/lib/cli-events';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 
@@ -322,10 +322,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return () => authListeners.delete( listener );
 		},
 		async getOnboardingCompleted() {
-			return true;
+			return api< boolean >( '/onboarding' );
 		},
-		async setOnboardingCompleted() {
-			// No-op.
+		async setOnboardingCompleted( completed ) {
+			await api( '/onboarding', { method: 'PATCH', body: JSON.stringify( { completed } ) } );
 		},
 
 		// Sites — the local machine's real Studio sites, served by the CLI.
@@ -334,10 +334,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return lastSites;
 		},
 		async startSite( id ) {
-			await api( `/sites/${ encodeURIComponent( id ) }/start`, { method: 'POST' } );
+			return api< SiteListItem >( `/sites/${ encodeURIComponent( id ) }/start`, {
+				method: 'POST',
+			} );
 		},
 		async stopSite( id ) {
-			await api( `/sites/${ encodeURIComponent( id ) }/stop`, { method: 'POST' } );
+			return api< SiteListItem >( `/sites/${ encodeURIComponent( id ) }/stop`, { method: 'POST' } );
 		},
 		async getSiteThumbnail( siteId ) {
 			const { thumbnail } = await api< { thumbnail: string | null } >(
@@ -821,6 +823,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// the browser's behalf (the editor/terminal choice comes from prefs above).
 		async openSiteFolder( siteId ) {
 			await api( `/sites/${ encodeURIComponent( siteId ) }/open-folder`, { method: 'POST' } );
+		},
+		async openSiteEmailFolder( siteId ) {
+			await api( `/sites/${ encodeURIComponent( siteId ) }/open-email-folder`, { method: 'POST' } );
 		},
 		// The server resolves the preference; a 400 means none is configured and
 		// callers route the user to Settings, matching the desktop contract.

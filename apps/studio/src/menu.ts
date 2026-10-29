@@ -110,7 +110,15 @@ export function buildViewMenuItems( {
 		{ type: 'separator' },
 		{
 			label: __( 'Toggle Fullscreen' ),
-			role: 'togglefullscreen',
+			...( process.platform === 'darwin'
+				? ( {
+						// The native role can cause macOS to insert a second fullscreen item.
+						accelerator: 'Control+Command+F',
+						click: ( _menuItem, browserWindow ) => {
+							browserWindow?.setFullScreen( ! browserWindow.isFullScreen() );
+						},
+				  } satisfies MenuItemConstructorOptions )
+				: { role: 'togglefullscreen' as const } ),
 		},
 		{ type: 'separator' },
 		{

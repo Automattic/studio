@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
 	clampResizablePanelWidth,
+	getStoredSiteChatVisibility,
+	SITE_CHAT_HIDDEN_STORAGE_KEY,
+	getPreviewContentWidthStorageKey,
+	hasCustomPanelLayout,
+	resetPanelLayout,
+	PREVIEW_CONTENT_WIDTH_STORAGE_KEY,
 	getPreviewSplitLayout,
 	getResizablePanelMaxWidth,
 	type ResizablePanelConfig,
@@ -50,6 +56,15 @@ describe( 'getPreviewSplitLayout', () => {
 		expect( getPreviewSplitLayout( 1000, 100 ).previewWidth ).toBe( 680 );
 	} );
 
+	it.each( [ 320, 540 ] )( 'gives chat the full frame at %ipx', ( width ) => {
+		expect( getPreviewSplitLayout( width, 360 ) ).toEqual( {
+			contentWidth: width,
+			previewWidth: 0,
+			previewMinWidth: 0,
+			previewMaxWidth: 0,
+		} );
+	} );
+
 	it( 'splits a frame too narrow for both floors in their proportion, and fixes it', () => {
 		const layout = getPreviewSplitLayout( 544, 600 );
 		expect( layout.contentWidth ).toBe( 256 );
@@ -57,4 +72,35 @@ describe( 'getPreviewSplitLayout', () => {
 		expect( layout.previewMinWidth ).toBe( 288 );
 		expect( layout.previewMaxWidth ).toBe( 288 );
 	} );
+} );
+
+it( 'detects and resets all site widths and the legacy width', () => {
+	localStorage.clear();
+	localStorage.setItem( getPreviewContentWidthStorageKey( 'one' ), '500' );
+	localStorage.setItem( getPreviewContentWidthStorageKey( 'two' ), '400' );
+	localStorage.setItem( SITE_CHAT_HIDDEN_STORAGE_KEY, JSON.stringify( { one: true } ) );
+	localStorage.setItem( 'unrelated', 'keep' );
+	expect( hasCustomPanelLayout() ).toBe( true );
+	localStorage.setItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY, '600' );
+	resetPanelLayout();
+	expect( hasCustomPanelLayout() ).toBe( false );
+	expect( localStorage.getItem( getPreviewContentWidthStorageKey( 'one' ) ) ).toBeNull();
+	expect( localStorage.getItem( getPreviewContentWidthStorageKey( 'two' ) ) ).toBeNull();
+	expect( localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY ) ).toBeNull();
+	expect( localStorage.getItem( SITE_CHAT_HIDDEN_STORAGE_KEY ) ).toBeNull();
+	expect( localStorage.getItem( 'unrelated' ) ).toBe( 'keep' );
+	localStorage.clear();
+} );
+
+it( 'defaults to open for invalid visibility storage and reads only hidden sites', () => {
+	for ( const invalid of [ 'broken', 'null', '[]', '42' ] ) {
+		localStorage.setItem( SITE_CHAT_HIDDEN_STORAGE_KEY, invalid );
+		expect( getStoredSiteChatVisibility() ).toEqual( {} );
+	}
+	localStorage.setItem(
+		SITE_CHAT_HIDDEN_STORAGE_KEY,
+		JSON.stringify( { one: true, two: false, three: 'true' } )
+	);
+	expect( getStoredSiteChatVisibility() ).toEqual( { one: true } );
+	localStorage.removeItem( SITE_CHAT_HIDDEN_STORAGE_KEY );
 } );

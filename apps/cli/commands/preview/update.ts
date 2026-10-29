@@ -3,6 +3,7 @@ import path from 'node:path';
 import { DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
+import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { Snapshot } from '@studio/common/types/snapshot';
@@ -16,7 +17,7 @@ import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSnapshotsFromConfig, updateSnapshotInConfig } from 'cli/lib/snapshots';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
-import { classifyPreviewFailure, normalizeHostname } from 'cli/lib/utils';
+import { classifyPreviewFailure } from 'cli/lib/utils';
 import { validateSiteSize } from 'cli/lib/validation';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -51,7 +52,7 @@ export async function runCommand(
 	host: string,
 	overwrite: boolean,
 	logger: Logger< LoggerAction > = new Logger< LoggerAction >()
-): Promise< void > {
+): Promise< Snapshot > {
 	const archivePath = path.join(
 		os.tmpdir(),
 		`${ path.basename( siteFolder ) }-${ Date.now() }.zip`
@@ -119,6 +120,7 @@ export async function runCommand(
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 
 		logger.reportResult( { name: snapshot.name, url: snapshot.url } );
+		return snapshot;
 	} catch ( error ) {
 		if ( siteId ) {
 			await reportSyncActivity( siteId, {
@@ -132,12 +134,9 @@ export async function runCommand(
 			failure_reason: classifyPreviewFailure( error ),
 			time_ms: Date.now() - startedAt,
 		} );
-		if ( error instanceof LoggerError ) {
-			logger.reportError( error );
-		} else {
-			const loggerError = new LoggerError( __( 'Failed to update preview site' ), error );
-			logger.reportError( loggerError );
-		}
+		throw error instanceof LoggerError
+			? error
+			: new LoggerError( __( 'Failed to update preview site' ), error );
 	} finally {
 		void cleanup( archivePath );
 	}
@@ -178,7 +177,12 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		},
 		handler: async ( argv ) => {
 			const normalizedHost = normalizeHostname( argv.host );
-			await runCommand( argv.path, normalizedHost, argv.overwrite );
+			const logger = new Logger< LoggerAction >();
+			try {
+				await runCommand( argv.path, normalizedHost, argv.overwrite, logger );
+			} catch ( error ) {
+				logger.reportError( error as LoggerError );
+			}
 		},
 	} );
 };

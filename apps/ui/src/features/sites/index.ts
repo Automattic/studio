@@ -8,17 +8,8 @@ export {
 } from './open-in-menu/use-open-in-destinations';
 export { pendingBlueprintSlot } from './pending-blueprint';
 export { PreviewParticles } from './preview-particles';
-export {
-	PreviewSplitFrame,
-	type PreviewSplitFramePreviewProps,
-	usePreviewBeside,
-} from './preview-split-frame';
-export {
-	SiteActionsMenu,
-	SiteActionsMenuItems,
-	useDeleteBlockedReason,
-	useSiteActions,
-} from './site-actions-menu';
+export { PreviewSplitFrame, type PreviewSplitFramePreviewProps } from './preview-split-frame';
+export { SiteMenu, SiteMenuItems, useDeleteBlockedReason, useSiteActions } from './site-menu';
 export {
 	CertificateTrustNotice,
 	getEnvironmentTypeOptions,
@@ -36,7 +27,9 @@ export {
 	useSiteHeader,
 } from './site-header-actions';
 export { SitePreview } from './site-preview';
-export { SiteContextMenu, StoppedSitePreview } from './stopped-site-preview';
+export { StoppedSitePreview } from './stopped-site-preview';
 export { type AddSiteSection, isAddSiteSection, useOpenAddSite } from './use-open-add-site';
 export { useItemShortcuts } from './use-item-shortcuts';
 export { useSiteManagementActions } from './use-site-management-actions';
+
+export { SiteRunButton } from './site-run-button';

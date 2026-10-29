@@ -30,7 +30,6 @@ export function useOpenSite() {
 		selectionListeners.forEach( ( listener ) => listener() );
 		void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'assistant' } );
 		preview?.setOpen( true );
-		preview?.setChatHidden( false );
 		void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 	};
 }

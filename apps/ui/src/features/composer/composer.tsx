@@ -1,8 +1,8 @@
-import { aiModelSupportsImages } from '@studio/common/ai/models';
-import { resolveSkillFromPrompt } from '@studio/common/ai/slash-commands';
+import { aiModelSupportsImages } from '@studio/agent/protocol/models';
+import { resolveSkillFromPrompt } from '@studio/agent/protocol/slash-commands';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { GlobeIcon, PlusIcon } from 'lucide-react';
+import { GlobeIcon } from 'lucide-react';
 import {
 	forwardRef,
 	useCallback,
@@ -36,9 +36,10 @@ import { useModelAccess } from '@/features/composer/use-model-access';
 import { useModelSwitch } from '@/features/composer/use-model-switch';
 import { useSubmitFeedback } from '@/features/composer/use-submit-feedback';
 import { AiCreditsPurchaseDialog } from '@/features/credits';
-import { StartSiteIcon } from '@/lib/icons';
+import { PlusIcon, StartSiteIcon } from '@/lib/icons';
 import { isImeComposing } from '@/lib/keyboard';
 import {
+	AttachmentDropOverlay,
 	Button,
 	CommandSheet,
 	handleCommandKey,
@@ -49,7 +50,7 @@ import {
 import styles from './style.module.css';
 import type { AiModelId, SessionEntry, StudioVisualAnnotationSummary } from '@/data/core';
 import type { ComposerSendAttachments } from '@/data/use-composer-attachments';
-import type { AiProviderId } from '@studio/common/ai/providers';
+import type { AiProviderId } from '@studio/agent/protocol/providers';
 
 /**
  * Invisible structural placeholder that mirrors Composer's outer DOM, so the
@@ -98,9 +99,8 @@ interface ComposerProps {
 	placeholderBusy?: boolean;
 	// Offers the auto-start preference, for a chat on a local site.
 	canAutoStart?: boolean;
-	// The site the chat works on, and the connected live site it can switch to.
+	// The site the chat works on; a chat on the live site can switch back to local.
 	environment?: 'local' | 'live';
-	liveUrl?: string;
 	onEnvironmentChange?: ( environment: 'local' | 'live' ) => void;
 	// Where files can be dropped; the composer itself when absent.
 	dropTarget?: HTMLElement | null;
@@ -140,7 +140,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		placeholderBusy = false,
 		canAutoStart = false,
 		environment = 'local',
-		liveUrl,
 		onEnvironmentChange,
 		dropTarget,
 		annotationSiteId,
@@ -196,7 +195,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			autoStartOn,
 			canChooseModel: ! busy && providers.length > 0,
 			environment,
-			liveUrl,
 			canChangeEnvironment: !! onEnvironmentChange,
 		} ),
 		isDisabled: ( name ) =>
@@ -221,7 +219,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				pendingCommandRef.current = () => setModelOpen( true );
 			} else if ( name === 'connect-provider' ) {
 				openSettings( 'ai' );
-			} else if ( name === 'live' || name === 'local' ) {
+			} else if ( name === 'local' ) {
 				onEnvironmentChange?.( name );
 			} else if ( name === 'auto-start' ) {
 				setAutoStart( true );
@@ -439,9 +437,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				>
 					{ isDraggingFiles && fileDropTarget
 						? createPortal(
-								<div className={ styles.dropOverlay } aria-hidden="true">
-									<span>{ __( 'Drop to attach' ) }</span>
-								</div>,
+								<AttachmentDropOverlay>{ __( 'Drop to attach' ) }</AttachmentDropOverlay>,
 								fileDropTarget
 						  )
 						: null }

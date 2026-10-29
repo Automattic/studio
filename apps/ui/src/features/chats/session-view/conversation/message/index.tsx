@@ -9,9 +9,11 @@ import {
 	MESSAGE_TEXT_ATTRIBUTE,
 	QUOTABLE_TEXT_ATTRIBUTE,
 } from '@/features/chats/use-text-context-menu';
+import { CodeIcon } from '@/lib/icons';
+import { AttachmentChip } from '@/lib/ui';
 import styles from './style.module.css';
-import type { StudioChatAttachmentSummary } from '@studio/common/ai/sessions/entry-types';
-import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
+import type { StudioChatAttachmentSummary } from '@studio/agent/protocol/sessions/entry-types';
+import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 
 export const UserTurn = memo( function UserTurn( {
 	text,
@@ -65,14 +67,21 @@ export const UserTurn = memo( function UserTurn( {
 				</div>
 			) : null }
 			{ annotation?.elementLabel || annotation?.tag ? (
-				<div className={ styles.annotationAttachment }>
+				<AttachmentChip
+					className={ styles.annotationAttachment }
+					font="mono"
+					title={ [ annotation.elementLabel ?? `<${ annotation.tag }>`, annotation.nearbyText ]
+						.filter( Boolean )
+						.join( ' · ' ) }
+				>
+					<CodeIcon aria-hidden="true" />
 					<span className={ styles.annotationElementTag }>
 						{ annotation.elementLabel ?? `<${ annotation.tag }>` }
 					</span>
 					{ annotation.nearbyText ? (
 						<span className={ styles.annotationElementText }>{ annotation.nearbyText }</span>
 					) : null }
-				</div>
+				</AttachmentChip>
 			) : null }
 		</div>
 	);

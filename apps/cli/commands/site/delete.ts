@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { deleteAiSessionsForSite } from '@studio/common/ai/sessions/manage';
+import { deleteAiSessionsForSite } from '@studio/agent/node/sessions/manage';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { removeAllConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { arePathsEqual, isWordPressDirectory } from '@studio/common/lib/fs-utils';
@@ -20,6 +20,7 @@ import {
 } from 'cli/lib/cli-config/core';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
+import { getSiteEmailDirectory } from 'cli/lib/site-email';
 import { withSiteOperations } from 'cli/lib/site-operations';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
@@ -27,7 +28,8 @@ import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/track
 import { untildify } from 'cli/lib/utils';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
-import { StudioArgv } from 'cli/types';
+import type { builder } from 'cli/commands/site/delete.command';
+import type { CommandArgs } from 'cli/types';
 
 const defaultLogger = new Logger< LoggerAction >();
 
@@ -448,6 +450,16 @@ async function deleteSite(
 		);
 	}
 
+	// The email the site sent lives in Studio's directory, not the site's.
+	try {
+		fs.rmSync( getSiteEmailDirectory( site.id ), { recursive: true, force: true } );
+	} catch ( error ) {
+		logger.reportError(
+			new LoggerError( __( 'Failed to delete the email files. Proceeding anyway…' ), error ),
+			false
+		);
+	}
+
 	if ( deleteFiles ) {
 		// Imported sites have both a visible site directory and a
 		// hidden technical directory under ~/.studio/imports; delete
@@ -504,52 +516,20 @@ function collectIdentities( argv: { sites?: string | string[]; path: string } ):
 
 	return [ argv.path ];
 }
-
-export const registerCommand = ( yargs: StudioArgv ) => {
-	return yargs.command( {
-		command: 'delete [sites..]',
-		describe: __( 'Delete site' ),
-		builder: ( yargs ) => {
-			return yargs
-				.positional( 'sites', {
-					type: 'string',
-					array: true,
-					description: __( 'Site paths or IDs to delete' ),
-				} )
-				.option( 'files', {
-					type: 'boolean',
-					description: __( 'Move site files to trash (use --no-files to keep files)' ),
-					default: true,
-				} )
-				.option( 'dry-run', {
-					alias: 'preview',
-					type: 'boolean',
-					description: __( 'Show which sites and files would be deleted without deleting them' ),
-					default: false,
-				} )
-				.option( 'format', {
-					type: 'string',
-					choices: [ 'text', 'json' ] as const,
-					default: 'text' as const,
-					description: __( 'Output format' ),
-				} );
-		},
-		handler: async ( argv ) => {
-			try {
-				await runDeleteCommand( {
-					identities: collectIdentities( argv ),
-					deleteFiles: argv.files,
-					dryRun: argv.dryRun,
-					format: argv.format,
-				} );
-			} catch ( error ) {
-				if ( error instanceof LoggerError ) {
-					defaultLogger.reportError( error );
-				} else {
-					const loggerError = new LoggerError( __( 'Failed to delete site' ), error );
-					defaultLogger.reportError( loggerError );
-				}
-			}
-		},
-	} );
-};
+export async function commandHandler( argv: CommandArgs< typeof builder > ) {
+	try {
+		await runDeleteCommand( {
+			identities: collectIdentities( argv ),
+			deleteFiles: argv.files,
+			dryRun: argv.dryRun,
+			format: argv.format,
+		} );
+	} catch ( error ) {
+		if ( error instanceof LoggerError ) {
+			defaultLogger.reportError( error );
+		} else {
+			const loggerError = new LoggerError( __( 'Failed to delete site' ), error );
+			defaultLogger.reportError( loggerError );
+		}
+	}
+}

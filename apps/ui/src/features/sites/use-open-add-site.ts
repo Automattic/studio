@@ -14,6 +14,7 @@ export function useOpenAddSite() {
 		( section: AddSiteSection = 'create', { pin = false } = {} ) =>
 			void navigate( {
 				to: '.',
+				state: true,
 				search: ( previous: Record< string, unknown > ) => ( {
 					...previous,
 					addSite: section,

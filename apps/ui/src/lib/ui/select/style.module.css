@@ -4,6 +4,12 @@
 		width: fit-content;
 	}
 
+	.trigger:focus-visible {
+		box-shadow: none;
+		outline: 1px solid var( --input-ring );
+		outline-offset: -1px;
+	}
+
 	.trigger[data-full-width] {
 		width: 100%;
 	}
@@ -23,7 +29,7 @@
 	.value {
 		display: flex;
 		flex: 1;
-		gap: var( --space-1_5 );
+		gap: var( --space-1 );
 		align-items: center;
 		overflow: hidden;
 		text-align: start;

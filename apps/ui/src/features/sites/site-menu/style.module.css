@@ -1,0 +1,10 @@
+.trigger {
+	min-width: max-content;
+	padding-inline-end: var( --space-1_5 );
+	color: var( --foreground );
+	-webkit-app-region: no-drag;
+}
+
+.items {
+	min-width: 200px;
+}

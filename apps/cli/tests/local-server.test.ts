@@ -3,7 +3,7 @@
  */
 import crypto from 'node:crypto';
 import EventEmitter from 'node:events';
-import { InvalidAnthropicApiKeyError } from '@studio/common/ai/settings-store';
+import { InvalidAnthropicApiKeyError } from '@studio/agent/node/settings-store';
 import { createCliRunner } from '@studio/common/lib/cli-process';
 import { listSites } from '@studio/common/sites/list';
 import nock from 'nock';
@@ -30,13 +30,13 @@ vi.mock( '@studio/common/lib/cli-process', async ( importOriginal ) => ( {
 } ) );
 vi.mock( '@studio/common/sites/list', () => ( { listSites: vi.fn() } ) );
 vi.mock( '@studio/common/sites/site-path', () => ( { readSitePath: mocks.readSitePath } ) );
-vi.mock( '@studio/common/ai/settings-store', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@studio/common/ai/settings-store') >() ),
+vi.mock( '@studio/agent/node/settings-store', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/agent/node/settings-store') >() ),
 	readAiSettings: mocks.readAiSettings,
 	saveAnthropicApiKey: mocks.saveAnthropicApiKey,
 	setAiProvider: mocks.setAiProvider,
 } ) );
-vi.mock( '@studio/common/ai/run-manager', () => ( {
+vi.mock( '@studio/agent/node/run-manager', () => ( {
 	createAgentRunManager: vi.fn( () => ( {
 		startAgentRun: vi.fn(),
 		listActiveAgentRuns: vi.fn( () => [] ),

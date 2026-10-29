@@ -5,10 +5,6 @@
 	padding: 0 var( --space-3 ) var( --space-2_5 );
 }
 
-.alert {
-	margin-block-end: var( --space-2 );
-}
-
 .row {
 	display: flex;
 	align-items: center;

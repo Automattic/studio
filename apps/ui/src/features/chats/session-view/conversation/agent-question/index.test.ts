@@ -1,4 +1,4 @@
-import { SKIPPED_QUESTION, STOPPED_WITHOUT_ANSWER } from '@studio/common/ai/tools';
+import { SKIPPED_QUESTION, STOPPED_WITHOUT_ANSWER } from '@studio/agent/protocol/tools';
 import { act, fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import {
@@ -208,7 +208,7 @@ describe( 'Conversation Ask User questions', () => {
 	} );
 
 	it.each( [ false, true ] )(
-		'keeps selected descriptions in answered cards (multiple: %s)',
+		'shows only selected labels in answered cards (multiple: %s)',
 		( multiSelect ) => {
 			const entry = agentQuestionEntry( 'Which pages?', [
 				{ label: 'Gallery', description: 'Photos of the dining room.' },
@@ -222,9 +222,9 @@ describe( 'Conversation Ask User questions', () => {
 				] )
 			);
 			expect( screen.getByText( 'Gallery' ) ).toBeVisible();
-			expect( screen.getByText( 'Photos of the dining room.' ) ).toBeVisible();
+			expect( screen.queryByText( 'Photos of the dining room.' ) ).not.toBeInTheDocument();
 			if ( multiSelect ) {
-				expect( screen.getByText( 'Seasonal dishes and prices.' ) ).toBeVisible();
+				expect( screen.getByText( 'Menu' ) ).toBeVisible();
 			} else {
 				expect( screen.queryByText( 'Seasonal dishes and prices.' ) ).not.toBeInTheDocument();
 			}

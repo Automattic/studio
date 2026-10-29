@@ -1,11 +1,12 @@
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { ArchiveIcon, ChevronLeftIcon, CloudDownloadIcon, PlusIcon } from 'lucide-react';
+import { ArchiveIcon, ChevronLeftIcon, CloudDownloadIcon } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { pendingBlueprintSlot } from '@/features/sites/pending-blueprint';
+import { PlusIcon } from '@/lib/icons';
 import {
 	Button,
 	IconButton,
@@ -118,6 +119,7 @@ export function AddSiteDialog() {
 		if ( progress ) return;
 		void navigate( {
 			to: '.',
+			state: true,
 			search: ( { addSite: _section, pin: _pin, ...rest }: Record< string, unknown > ) => rest,
 			replace: true,
 		} );

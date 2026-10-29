@@ -1,9 +1,8 @@
 import {
 	findOwnFreeFormOptionLabel,
-	getFreeFormOptionDescription,
 	SKIPPED_QUESTION,
 	STOPPED_WITHOUT_ANSWER,
-} from '@studio/common/ai/tools';
+} from '@studio/agent/protocol/tools';
 import { __, sprintf } from '@wordpress/i18n';
 import { SearchIcon } from 'lucide-react';
 import { useState, type ReactNode, type Ref } from 'react';
@@ -125,7 +124,6 @@ export function AgentQuestion( {
 								<QuestionnaireAnswer
 									key={ option.label }
 									letter={ getAnswerLetter( options, option.label ) }
-									description={ option.description }
 								>
 									{ option.label }
 								</QuestionnaireAnswer>
@@ -148,9 +146,6 @@ export function AgentQuestion( {
 									<QuestionnaireChoice
 										key={ index }
 										label={ option.label }
-										description={
-											isOwnFreeForm ? getFreeFormOptionDescription() : option.description
-										}
 										shortcut={ letter( index ) }
 										checked={
 											isOwnFreeForm

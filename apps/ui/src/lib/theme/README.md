@@ -18,6 +18,12 @@ import { applyTheme, resolveColorScheme } from '@/lib/theme';
 applyTheme( resolveColorScheme( preferences.colorScheme ), preferences.colorTint );
 ```
 
+## Surfaces and selection
+
+Use `--hover` for neutral hovered, pressed, expanded and selected button or row fills. It follows the enclosing `--surface`, so current sidebar rows and Settings tabs use the same fill as hover. Accent toolbar toggles use an accent fill and text while active.
+
+Floating surfaces set `--surface` to `--popover` and use `--popover-border` for their opaque outline.
+
 ## Constraints
 
 - The two stylesheets are imported once, by the app entries, before anything else.

@@ -1,18 +1,19 @@
 import {
+	isDesignSystemPreviewWidget,
 	isRenderableMediaWidget,
 	isStudioChatArtifactData,
 	stripMediaWidgetPayloadLines,
 	type StudioChatArtifactWidgetDraft,
-} from '@studio/common/ai/chat-artifacts';
+} from '@studio/agent/protocol/chat-artifacts';
 import {
 	isStudioCustomEntryOfType,
 	type StudioChatAttachmentSummary,
 	type StudioCustomEntry,
-} from '@studio/common/ai/sessions/entry-types';
-import { getToolResultDiff, type NormalizedToolResult } from '@studio/common/ai/tools';
+} from '@studio/agent/protocol/sessions/entry-types';
+import { getToolResultDiff, type NormalizedToolResult } from '@studio/agent/protocol/tools';
 import { isStreamingReply } from '@/data/agent-runs/streaming-reply';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
-import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
+import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 
 export interface AgentQuestionRenderItem {
 	key: string;
@@ -297,7 +298,9 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 			if ( ! isStudioChatArtifactData( data ) ) {
 				continue;
 			}
-			const widgets = data.widgets.filter( isRenderableMediaWidget );
+			const widgets = data.widgets.filter(
+				( widget ) => isRenderableMediaWidget( widget ) || isDesignSystemPreviewWidget( widget )
+			);
 			if ( widgets.length > 0 ) {
 				items.push( {
 					kind: 'chat-artifact',
@@ -332,6 +335,10 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	return items;
 }
 
+function isDesignSystemArtifact( item: RenderItem ) {
+	return item.kind === 'chat-artifact' && item.widgets.every( isDesignSystemPreviewWidget );
+}
+
 function getTimestamp( entry: SessionEntry | undefined ): number | null {
 	const timestamp = entry ? Date.parse( entry.timestamp ) : NaN;
 	return Number.isFinite( timestamp ) ? timestamp : null;
@@ -339,7 +346,8 @@ function getTimestamp( entry: SessionEntry | undefined ): number | null {
 
 /**
  * Groups each turn’s commentary and tools beneath its elapsed-time header.
- * Questions retain their position; the renderer keeps them outside collapsible panels.
+ * Questions and chat artifacts retain their position; the renderer keeps them outside
+ * collapsible panels.
  */
 export function entriesToTranscriptItems(
 	entries: SessionEntry[],
@@ -379,8 +387,13 @@ export function entriesToTranscriptItems(
 		const worked = turnItems.some(
 			( item ) => item.kind === 'tool-use' || item.kind === 'progress'
 		);
+		// Repeated DESIGN.md writes in one turn offer the design system once, at the last write.
+		const lastDesignSystem = [ ...turnItems ].reverse().find( isDesignSystemArtifact );
 		const visible = turnItems.flatMap( ( item ): Exclude< RenderItem, { kind: 'progress' } >[] => {
 			if ( item.kind === 'progress' ) {
+				return [];
+			}
+			if ( isDesignSystemArtifact( item ) && item !== lastDesignSystem ) {
 				return [];
 			}
 			return [ item.kind === 'tool-use' && running ? { ...item, running } : item ];
@@ -412,7 +425,8 @@ export function entriesToTranscriptItems(
 				( item ) =>
 					item.kind === 'tool-use' ||
 					item.kind === 'agent-question-batch' ||
-					item.kind === 'assistant-text'
+					item.kind === 'assistant-text' ||
+					item.kind === 'chat-artifact'
 			)
 			.map( ( item ) =>
 				item.kind === 'assistant-text' &&

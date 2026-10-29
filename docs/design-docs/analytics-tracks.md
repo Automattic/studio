@@ -150,7 +150,7 @@ where the sender actually runs — see Testing below for what fires in which bui
   at all, so `success=false` always means a real failure.
 - **`studio_code_message_sent`/`studio_code_turn_completed`** are emitted **only** by the CLI, from
   `runAgentTurn` (`apps/cli/commands/ai/index.ts`). Every chat surface forks the CLI to run a turn —
-  both desktop renderers via `packages/common/ai/run-manager.ts`, the `studio ui` server via the same
+  both desktop renderers via `packages/agent/node/run-manager.ts`, the `studio ui` server via the same
   module, and a standalone `studio code` directly — and that function is the one place holding the
   provider, model, resolved session id and turn outcome together. The desktop passes its origin to
   the fork via `STUDIO_TRACKS_ORIGIN` (the run-manager's injected `getTracksOrigin`, resolved per run
@@ -162,10 +162,10 @@ where the sender actually runs — see Testing below for what fires in which bui
   orphans, and returns a `created` flag so a reuse isn't counted as a creation.
 - **`studio_code_design_option_proposed`/`studio_code_design_option_picked`** are emitted **only** by
   the CLI, from the two design tools every chat surface runs: `pick_design`
-  (`apps/cli/ai/tools/pick-design.ts`) is the single place catalog entries are drawn, so it records what
-  was proposed; `present_design_options` (`apps/cli/ai/tools/present-design-options.ts`) is the single
+  (`packages/agent/node/tools/pick-design.ts`) is the single place catalog entries are drawn, so it records what
+  was proposed; `present_design_options` (`packages/agent/node/tools/present-design-options.ts`) is the single
   place the user's answer lands, so it records the pick. Both take the `ai_session_id` from the running
-  turn (`apps/cli/ai/runtimes/pi/index.ts`); the MCP server gives each agent-app connection its own
+  turn (`packages/agent/node/runtime/index.ts`); the MCP server gives each agent-app connection its own
   `ai_session_id`, with the app's MCP client name as `agent_name` and `client=studio-mcp`
   (`apps/cli/ai/runtimes/mcp/index.ts`). `channel`/`ui_version` resolve from `STUDIO_TRACKS_ORIGIN` exactly as for
   `studio_code_message_sent`. **Coverage caveat:** `present_design_options` only exists when a Studio UI
@@ -257,7 +257,7 @@ the reason, never the raw error.
 
 **AI / assistant events.** Studio Code assistant events use the data team's AI-event vocabulary so
 they aggregate with other Automattic AI products. The shared identity props are built once by
-`getAiTracksIdentity()` (`packages/common/ai/tracks-identity.ts`) — it lives in `common` because the
+`getAiTracksIdentity()` (`packages/common/lib/tracks-identity.ts`) — it lives in `common` because the
 events are emitted from two places (the CLI for chat, Main for session creation) and the values must
 not drift.
 
@@ -470,7 +470,7 @@ AI identity props described under "Property vocabulary" above. Filter by `channe
 | Event | Emitted from | Event-specific props |
 |---|---|---|
 | `studio_code_message_sent` | CLI `runAgentTurn` | `provider` (`wpcom`/`anthropic-api-key` — the gateway serving the request, not the model vendor), `model` (e.g. `claude-sonnet-5`), `model_family` (`anthropic`/`openai`), `ability_name` (predefined skill, absent for an ordinary message), `has_images`, `has_files` (booleans). One per user turn dispatched. |
-| `studio_code_turn_completed` | CLI `runAgentTurn` | `outcome` (`success`/`error`/`interrupted`/`max_turns`), `duration_ms`, plus the same `provider`/`model`/`model_family`. What happened inside the turn, accumulated from the agent events by `apps/cli/ai/turn-stats.ts` (attempts that pi retries count toward the same turn): `tool_calls` (tool executions that finished), `tool_errors` (of those, how many errored), `failed_tools` (sorted, de-duplicated, comma-separated names of the tools that errored, empty when none; a call to a tool the session doesn't register, which keeps whatever name the model wrote, is reported as `unknown`, so these are only Studio's own tool names or `unknown`), `skills_loaded` (sorted, de-duplicated, comma-separated names of the skills the agent loaded with the `Skill` tool, empty when none; only names of skills Studio ships, so a slash-command start shows here as well as in `studio_code_message_sent`'s `ability_name`), `edits` (successful `Write`/`Edit` calls), `model_requests` (assistant model responses), `input_tokens`/`output_tokens`/`cache_read_tokens`/`cache_write_tokens` (their summed usage, by kind; a long session's tokens are mostly cache reads, so add all four for its size), `error_kind` (only when `outcome=error`: `out_of_credits` — the 402 `studio_out_of_credits` or the monthly cost cap —, `auth`, `model_unavailable`, `rate_limited`, `network`, `other`; classified from the failure, the raw text is never sent), `site_kind` (`local`/`wpcom`/`none`). These props must be registered in the Tracks Registration tool. One per turn finishing. Partially overlaps the MC Stats `recordAgentRun` bump (`packages/common/ai/agent-stats.ts`), which is a bare counter with no model or duration breakdown. |
+| `studio_code_turn_completed` | CLI `runAgentTurn` | `outcome` (`success`/`error`/`interrupted`/`max_turns`), `duration_ms`, plus the same `provider`/`model`/`model_family`. What happened inside the turn, accumulated from the agent events by `apps/cli/ai/turn-stats.ts` (attempts that pi retries count toward the same turn): `tool_calls` (tool executions that finished), `tool_errors` (of those, how many errored), `failed_tools` (sorted, de-duplicated, comma-separated names of the tools that errored, empty when none; a call to a tool the session doesn't register, which keeps whatever name the model wrote, is reported as `unknown`, so these are only Studio's own tool names or `unknown`), `skills_loaded` (sorted, de-duplicated, comma-separated names of the skills the agent loaded with the `Skill` tool, empty when none; only names of skills Studio ships, so a slash-command start shows here as well as in `studio_code_message_sent`'s `ability_name`), `edits` (successful `Write`/`Edit` calls), `model_requests` (assistant model responses), `input_tokens`/`output_tokens`/`cache_read_tokens`/`cache_write_tokens` (their summed usage, by kind; a long session's tokens are mostly cache reads, so add all four for its size), `error_kind` (only when `outcome=error`: `out_of_credits` — the 402 `studio_out_of_credits` or the monthly cost cap —, `auth`, `model_unavailable`, `rate_limited`, `network`, `other`; classified from the failure, the raw text is never sent), `site_kind` (`local`/`wpcom`/`none`). These props must be registered in the Tracks Registration tool. One per turn finishing. Partially overlaps the MC Stats `recordAgentRun` bump (`packages/agent/node/agent-stats.ts`), which is a bare counter with no model or duration breakdown. |
 | `studio_code_session_created` | Desktop Main (`createAiSession`) | `has_site` (boolean — whether the session is bound to a site; the site name and path are **never** sent). Emitted only when a session is actually created, not when an empty draft is reused. |
 | `studio_code_design_option_proposed` | CLI `pick_design` | `catalog`, `option` (the catalog entry name), `position` (1-based display order), `is_chosen` (boolean — the model picked it itself rather than it being drawn at random; always true for directions), `options_count` (1 when the model settles the entry without asking, up to 4 when the user will pick), `is_redraw` (boolean — a further draw in the same turn after the user asked for other options), `draw_id`. One row **per entry shown**, so a four-option draw is four rows sharing a `draw_id`. |
 | `studio_code_design_option_picked` | CLI `present_design_options` | `catalog` (passed by the model, the same value it gave `pick_design`), `options_count`, `answer_type`, `picked` (the entry name, only when `answer_type=picked`), `pick_index` (1-based position, only when picked). One per question shown. |

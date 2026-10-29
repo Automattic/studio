@@ -1,7 +1,7 @@
-import { search } from '@inquirer/prompts';
 import chalk from '@studio/common/lib/chalk';
+import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { __, sprintf } from '@wordpress/i18n';
-import { normalizeHostname } from 'cli/lib/utils';
+import { search } from 'cli/lib/prompts';
 import { LoggerError } from 'cli/logger';
 import type { SyncSite } from '@studio/common/types/sync';
 

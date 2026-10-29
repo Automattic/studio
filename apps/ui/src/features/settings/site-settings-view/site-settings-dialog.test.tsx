@@ -167,6 +167,14 @@ describe( 'site settings', () => {
 		}
 	} );
 
+	it( 'shows the local path read-only and copies it', async () => {
+		const { connector } = setup();
+		await siteName();
+		expect( screen.getByRole( 'textbox', { name: 'Local path' } ) ).toHaveAttribute( 'readonly' );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Copy local path' } ) );
+		await waitFor( () => expect( connector.copyText ).toHaveBeenCalledWith( '/sites/example' ) );
+	} );
+
 	it.each( [
 		[ 'Site name', '', 'Site name is required.' ],
 		[ 'Username', '', 'Admin username cannot be empty.' ],
@@ -303,7 +311,9 @@ describe( 'site settings', () => {
 		const name = await siteName();
 		fireEvent.change( name, { target: { value: 'First edit' } } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Close settings' } ) );
-		expect( screen.getByRole( 'button', { name: 'Discard' } ) ).toHaveFocus();
+		expect( screen.getByRole( 'alertdialog', { name: 'Discard changes?' } ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel' } ) );
+		expect( name ).toHaveValue( 'First edit' );
 		fireEvent.input( name, { target: { value: 'Continued edit' } } );
 		fireEvent.change( name, { target: { value: 'Continued edit' } } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
@@ -318,7 +328,6 @@ describe( 'site settings', () => {
 		const { connector, settingsParam } = setup();
 		connector.updateSite.mockRejectedValue( new Error( 'Unable to update site' ) );
 		fireEvent.change( await siteName(), { target: { value: 'Keep this' } } );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Close settings' } ) );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
 		expect( await screen.findByText( 'Unable to update site' ) ).toBeVisible();
 		expect( screen.getByRole( 'textbox', { name: 'Site name' } ) ).toHaveValue( 'Keep this' );
@@ -329,8 +338,7 @@ describe( 'site settings', () => {
 		const { connector } = setup();
 		fireEvent.change( await siteName(), { target: { value: '' } } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Close settings' } ) );
-		expect( screen.getByRole( 'button', { name: 'Save' } ) ).toBeDisabled();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Discard' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Discard changes' } ) );
 		await waitFor( () =>
 			expect( screen.queryByRole( 'dialog', { name: 'Settings' } ) ).not.toBeInTheDocument()
 		);
@@ -352,20 +360,6 @@ describe( 'site settings', () => {
 			)
 		);
 		expect( connector.updateSite ).not.toHaveBeenCalled();
-	} );
-
-	it( 'closes after saving the changes that held it open', async () => {
-		const { connector } = setup();
-		fireEvent.change( await siteName(), { target: { value: 'Renamed' } } );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Close settings' } ) );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
-		await waitFor( () =>
-			expect( screen.queryByRole( 'dialog', { name: 'Settings' } ) ).not.toBeInTheDocument()
-		);
-		expect( connector.updateSite ).toHaveBeenCalledWith(
-			expect.objectContaining( { name: 'Renamed' } ),
-			undefined
-		);
 	} );
 
 	it( 'locks the form while another site operation runs', async () => {

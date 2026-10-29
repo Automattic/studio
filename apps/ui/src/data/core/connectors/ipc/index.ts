@@ -43,8 +43,8 @@ import type {
 	SyncSite,
 	UserPreferences,
 } from '../../types';
-import type { AgentRunEvent } from '@studio/common/ai/agent-events';
-import type { AiSettings } from '@studio/common/ai/providers';
+import type { AgentRunEvent } from '@studio/agent/protocol/agent-events';
+import type { AiSettings } from '@studio/agent/protocol/providers';
 import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
 import type { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
 import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
@@ -308,11 +308,11 @@ export function createIpcConnector(): Connector {
 		},
 
 		async startSite( id ) {
-			await unwrapIpcError( ipcApi.startServer( id ) );
+			return unwrapIpcError( ipcApi.startServer( id ) );
 		},
 
 		async stopSite( id ) {
-			await ipcApi.stopServer( id );
+			return ipcApi.stopServer( id );
 		},
 
 		async updateSite( site, wpVersion ) {
@@ -678,6 +678,15 @@ export function createIpcConnector(): Connector {
 		async openSiteFolder( siteId ): Promise< void > {
 			const sitePath = await resolveSiteFolder( siteId );
 			ipcApi.openLocalPath( sitePath );
+		},
+
+		async openSiteEmailFolder( siteId ): Promise< void > {
+			const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
+			const emailPath = sites.find( ( candidate ) => candidate.id === siteId )?.emailPath;
+			if ( ! emailPath ) {
+				throw new Error( `Site ${ siteId } not found` );
+			}
+			ipcApi.openLocalPath( emailPath );
 		},
 
 		async openSiteInEditor( siteId ): Promise< void > {

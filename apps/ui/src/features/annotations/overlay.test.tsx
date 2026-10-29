@@ -11,7 +11,7 @@ import {
 	setAnnotating,
 	stageAnnotations,
 } from './store';
-import type { ComposerImageAttachment } from '@studio/common/ai/composer-attachments';
+import type { ComposerImageAttachment } from '@studio/agent/protocol/composer-attachments';
 
 const SITE = 'one';
 
@@ -68,7 +68,7 @@ describe( 'AnnotationOverlay', () => {
 		expect( screen.queryByRole( 'textbox', { name: 'Leave a note' } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'remembers confirmation only after deletion, not dismissal', async () => {
+	it( 'confirms discard each time and preserves notes when canceled', async () => {
 		const connector = await setup();
 		annotate();
 		pick();
@@ -78,23 +78,22 @@ describe( 'AnnotationOverlay', () => {
 		fireEvent.click(
 			within( screen.getByRole( 'toolbar' ) ).getByRole( 'button', { name: 'Cancel' } )
 		);
-		let dialog = await screen.findByRole( 'alertdialog', { name: 'Delete annotation?' } );
-		fireEvent.click( within( dialog ).getByRole( 'checkbox' ) );
+		let dialog = await screen.findByRole( 'alertdialog', {
+			name: 'Discard all pending annotations?',
+		} );
+		expect( within( dialog ).queryByRole( 'checkbox' ) ).not.toBeInTheDocument();
 		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Cancel' } ) );
 		expect( connector.setUserPreferences ).not.toHaveBeenCalled();
 		await waitFor( () => expect( screen.queryByRole( 'alertdialog' ) ).not.toBeInTheDocument() );
 		fireEvent.click(
 			within( screen.getByRole( 'toolbar' ) ).getByRole( 'button', { name: 'Cancel' } )
 		);
-		dialog = await screen.findByRole( 'alertdialog', { name: 'Delete annotation?' } );
-		expect( within( dialog ).getByRole( 'checkbox' ) ).not.toBeChecked();
-		fireEvent.click( within( dialog ).getByRole( 'checkbox' ) );
-		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Delete annotations' } ) );
-		await waitFor( () =>
-			expect( connector.setUserPreferences.mock.calls[ 0 ]?.[ 0 ] ).toEqual( {
-				confirmDeleteAnnotations: false,
-			} )
-		);
+		dialog = await screen.findByRole( 'alertdialog', { name: 'Discard all pending annotations?' } );
+		expect( getSiteAnnotations( SITE ).notes[ 0 ].comment ).toBe( 'Keep this draft' );
+		expect( within( dialog ).queryByRole( 'checkbox' ) ).not.toBeInTheDocument();
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Discard' } ) );
+		expect( connector.setUserPreferences ).not.toHaveBeenCalled();
+		expect( getSiteAnnotations( SITE ).notes ).toHaveLength( 0 );
 		expect( screen.queryByRole( 'toolbar' ) ).not.toBeInTheDocument();
 	} );
 
@@ -126,6 +125,34 @@ describe( 'AnnotationOverlay', () => {
 		}
 		const upload = ( files: File[] ) =>
 			fireEvent.change( document.querySelector( 'input[type="file"]' )!, { target: { files } } );
+
+		it( 'keeps drop feedback across child elements, attaches the dropped image, and removes it', async () => {
+			const images = editNote();
+			await setup();
+			const editor = screen.getByRole( 'group', { name: 'Annotation' } );
+			const input = screen.getByRole( 'textbox', { name: 'Leave a note' } );
+			const dataTransfer = {
+				types: [ 'Files' ],
+				files: [ new File( [ 'x' ], 'dropped.png', { type: 'image/png' } ) ],
+			};
+			fireEvent.dragEnter( editor, { dataTransfer } );
+			expect( screen.getByText( 'Drop to attach' ) ).toBeInTheDocument();
+			fireEvent.dragEnter( input, { dataTransfer } );
+			fireEvent.dragLeave( editor, { dataTransfer } );
+			expect( screen.getByText( 'Drop to attach' ) ).toBeInTheDocument();
+			fireEvent.drop( input, { dataTransfer } );
+			expect( screen.queryByText( 'Drop to attach' ) ).not.toBeInTheDocument();
+			await waitFor( () =>
+				expect( images().map( ( item ) => item.name ) ).toEqual( [ 'dropped.png' ] )
+			);
+			fireEvent.click( screen.getByRole( 'button', { name: 'Remove attachment' } ) );
+			await waitFor( () => expect( images() ).toHaveLength( 0 ) );
+			expect( input ).toBeInTheDocument();
+			fireEvent.dragEnter( editor, { dataTransfer } );
+			expect( screen.getByText( 'Drop to attach' ) ).toBeInTheDocument();
+			fireEvent.dragEnd( window );
+			expect( screen.queryByText( 'Drop to attach' ) ).not.toBeInTheDocument();
+		} );
 
 		it( 'counts the other notes’ images against the message’s image limit', async () => {
 			const images = editNote( [ 'a', 'b', 'c' ].map( image ) );

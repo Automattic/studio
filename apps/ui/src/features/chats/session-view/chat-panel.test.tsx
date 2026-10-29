@@ -12,7 +12,7 @@ import {
 import { createFakeConnector, makeSession, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { AgentRunEvent, SessionEntry } from '@/data/core';
-import type { AiSettings } from '@studio/common/ai/providers';
+import type { AiSettings } from '@studio/agent/protocol/providers';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 
 vi.setConfig( { testTimeout: 30_000 } );
@@ -270,7 +270,7 @@ describe( 'Composer access notices', () => {
 				}
 			);
 			renderApp( { connector, path: '/sites/one/new' } );
-			await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+			await screen.findByRole( 'button', { name: 'Site menu' } );
 			const input = await screen.findByRole( 'combobox', COMPOSER );
 			if ( gated ) {
 				const addPayment = await screen.findByRole( 'button', { name: 'Set up' } );
@@ -334,7 +334,7 @@ describe( 'Composer access notices', () => {
 				}
 			);
 			renderApp( { connector, path: '/sessions/key-chat' } );
-			await screen.findByRole( 'button', { name: 'Site actions for My site' } );
+			await screen.findByRole( 'button', { name: 'Site menu' } );
 			const draftInput = await screen.findByRole( 'combobox', COMPOSER );
 			fireEvent.change( draftInput, { target: { value: 'Update my site' } } );
 			await screen.findByRole( 'button', { name: 'Connect' } );
@@ -438,7 +438,7 @@ describe( 'Chat target selection', () => {
 		expect( connector.authenticate ).not.toHaveBeenCalled();
 	} );
 
-	it( 'switches an empty chat to the picked model and the live site while preserving the draft', async () => {
+	it( 'switches an empty chat to the picked model while preserving the draft', async () => {
 		const { connector, input } = await setupChat( {
 			provider: 'anthropic-api-key',
 			signedIn: false,
@@ -453,12 +453,6 @@ describe( 'Chat target selection', () => {
 		await waitFor( () =>
 			expect( connector.setSessionModel ).toHaveBeenCalledWith( 'chat', 'claude-opus-5' )
 		);
-		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: /^Work on live site/ } ) );
-		await waitFor( () =>
-			expect( connector.setSessionEnvironment ).toHaveBeenCalledWith( 'chat', 'live' )
-		);
-		expect( await screen.findByRole( 'button', { name: 'Remove Live' } ) ).toBeVisible();
 		expect( screen.getByRole( 'combobox', { name: 'Message WordPress Studio' } ) ).toHaveValue(
 			'Preserve this draft'
 		);
@@ -562,17 +556,13 @@ describe( 'Chat pane context menu', () => {
 		expect( await screen.findByRole( 'dialog', { name: 'Rename chat' } ) ).toBeVisible();
 	} );
 
-	it( 'opens the shared chat actions from the body and toggles full screen', async () => {
+	it( 'leaves the native context menu available on the chat body', async () => {
 		await setupChat( { pinnedProvider: 'wpcom', running: true } );
-		const body = () => document.querySelector( '[data-chat-transcript]' )!.parentElement!;
-		fireEvent.contextMenu( body() );
-		expect( await screen.findByRole( 'menuitem', { name: /^Rename/ } ) ).toBeVisible();
-		expect( screen.getByRole( 'menuitem', { name: /^Pin/ } ) ).toBeVisible();
-		expect( screen.getByRole( 'menuitem', { name: /^Archive/ } ) ).toBeVisible();
-		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Full screen' } ) );
-		await waitFor( () => expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument() );
-		fireEvent.contextMenu( body() );
-		expect( await screen.findByRole( 'menuitem', { name: 'Exit full screen' } ) ).toBeVisible();
+		const body = document.querySelector( '[data-chat-transcript]' )!.parentElement!;
+		const event = new MouseEvent( 'contextmenu', { bubbles: true, cancelable: true } );
+		fireEvent( body, event );
+		expect( event.defaultPrevented ).toBe( false );
+		expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'has no chat actions while the chat is loading', async () => {
@@ -665,8 +655,25 @@ describe( 'Annotation drafts during an active run', () => {
 		return id;
 	}
 
+	it( 'sends a direct annotation immediately while the chat is idle', async () => {
+		const { connector, input } = await setupChat( { pinnedProvider: 'wpcom' } );
+		fireEvent.change( input, { target: { value: 'Keep my draft' } } );
+		const id = addNote();
+		act( () => requestAnnotationSend( { siteId: SITE_ID, noteIds: [ id ] } ) );
+		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledOnce() );
+		expect( connector.continueSession.mock.calls[ 0 ][ 2 ] ).toEqual(
+			expect.objectContaining( {
+				visualAnnotations: expect.arrayContaining( [
+					expect.objectContaining( { comment: 'Make the heading shorter' } ),
+				] ),
+			} )
+		);
+		expect( input ).toHaveValue( 'Keep my draft' );
+		await waitFor( () => expect( getSiteAnnotations( SITE_ID ).notes ).toHaveLength( 0 ) );
+	} );
+
 	it.each( [ true, false ] )(
-		'keeps annotations in the composer instead of queuing (direct: %s)',
+		'queues direct annotations and preserves composer saves during a run (direct: %s)',
 		async ( direct ) => {
 			const { connector, input } = await setupChat( { pinnedProvider: 'wpcom' } );
 			fireEvent.change( input, { target: { value: 'Keep my draft' } } );
@@ -685,9 +692,14 @@ describe( 'Annotation drafts during an active run', () => {
 			act( () =>
 				requestAnnotationSend( { siteId: SITE_ID, noteIds: direct ? [ id ] : undefined } )
 			);
-			expect( await screen.findByRole( 'listitem', { name: /^1 annotation,/ } ) ).toBeVisible();
+			if ( direct ) {
+				expect( await screen.findByLabelText( 'Queued messages' ) ).toBeVisible();
+				await waitFor( () => expect( getSiteAnnotations( SITE_ID ).notes ).toHaveLength( 0 ) );
+			} else {
+				expect( await screen.findByRole( 'listitem', { name: /^1 annotation,/ } ) ).toBeVisible();
+				expect( screen.queryByLabelText( 'Queued messages' ) ).not.toBeInTheDocument();
+			}
 			expect( connector.continueSession ).toHaveBeenCalledOnce();
-			expect( screen.queryByLabelText( 'Queued messages' ) ).not.toBeInTheDocument();
 			expect( input ).toHaveValue( 'Keep my draft' );
 			act( () =>
 				connector.emit( 'onAgentEvent', {
@@ -701,8 +713,10 @@ describe( 'Annotation drafts during an active run', () => {
 					},
 				} as AgentRunEvent )
 			);
-			await waitFor( () => expect( sendButton() ).toBeEnabled() );
-			fireEvent.click( sendButton() );
+			if ( ! direct ) {
+				await waitFor( () => expect( sendButton() ).toBeEnabled() );
+				fireEvent.click( sendButton() );
+			}
 			await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledTimes( 2 ) );
 			expect( connector.continueSession.mock.calls[ 1 ][ 2 ] ).toEqual(
 				expect.objectContaining( {

@@ -150,7 +150,7 @@ describe( 'Preview Update Command', () => {
 	it( 'records a failed preview_site_update Tracks event with a failure_reason', async () => {
 		vi.mocked( uploadArchive ).mockRejectedValue( new LoggerError( 'Failed to upload archive' ) );
 
-		await runCommand( mockFolder, mockSiteUrl, false );
+		await expect( runCommand( mockFolder, mockSiteUrl, false ) ).rejects.toThrow( LoggerError );
 
 		expect( recordTracksEvent ).toHaveBeenCalledWith(
 			TRACKS_EVENTS.PREVIEW_SITE_UPDATE,
@@ -166,20 +166,14 @@ describe( 'Preview Update Command', () => {
 	it( 'should handle authentication errors', async () => {
 		vi.mocked( readAuthToken ).mockResolvedValue( null );
 
-		await runCommand( mockFolder, mockSiteUrl, false );
-
-		expect( mockReportError ).toHaveBeenCalled();
-		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		await expect( runCommand( mockFolder, mockSiteUrl, false ) ).rejects.toThrow( LoggerError );
 		expect( archiveSiteContent ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should handle snapshot not found errors', async () => {
 		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
 
-		await runCommand( mockFolder, mockSiteUrl, false );
-
-		expect( mockReportError ).toHaveBeenCalled();
-		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		await expect( runCommand( mockFolder, mockSiteUrl, false ) ).rejects.toThrow( LoggerError );
 		expect( archiveSiteContent ).not.toHaveBeenCalled();
 	} );
 
@@ -188,7 +182,7 @@ describe( 'Preview Update Command', () => {
 			throw new LoggerError( 'Upload failed' );
 		} );
 
-		await runCommand( mockFolder, mockSiteUrl, false );
+		await expect( runCommand( mockFolder, mockSiteUrl, false ) ).rejects.toThrow( LoggerError );
 
 		expect( cleanup ).toHaveBeenCalledWith( mockArchivePath );
 	} );
@@ -198,10 +192,7 @@ describe( 'Preview Update Command', () => {
 		const expiredSnapshot = { ...mockSnapshot, date: expiredDate };
 		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [ expiredSnapshot ] );
 
-		await runCommand( mockFolder, mockSiteUrl, false );
-
-		expect( mockReportError ).toHaveBeenCalled();
-		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		await expect( runCommand( mockFolder, mockSiteUrl, false ) ).rejects.toThrow( LoggerError );
 		expect( archiveSiteContent ).not.toHaveBeenCalled();
 	} );
 
@@ -213,8 +204,7 @@ describe( 'Preview Update Command', () => {
 			port: 8080,
 			phpVersion: '8.0',
 		} );
-		await runCommand( mockFolder, mockSiteUrl, false );
-		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		await expect( runCommand( mockFolder, mockSiteUrl, false ) ).rejects.toThrow( LoggerError );
 		expect( archiveSiteContent ).not.toHaveBeenCalled();
 	} );
 

@@ -7,7 +7,8 @@ if .buildkite/commands/should-skip-job.sh --job-type validation; then
 fi
 
 echo '--- :package: Install deps'
-bash .buildkite/commands/install-node-dependencies.sh
+# Runs in a Docker container, where the a8c-ci-toolkit cache helpers install-node-dependencies.sh needs don't exist.
+npm ci --unsafe-perm --no-audit --no-progress --maxsockets 1
 
 echo '--- :eslint: Lint'
 npm run lint

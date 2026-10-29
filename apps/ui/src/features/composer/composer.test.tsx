@@ -1,5 +1,5 @@
-import { DEFAULT_MODEL } from '@studio/common/ai/models';
-import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
+import { DEFAULT_MODEL } from '@studio/agent/protocol/models';
+import { getAiSkillCommands } from '@studio/agent/protocol/slash-commands';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { createRef, useState, type ComponentProps } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -18,7 +18,7 @@ import { createFakeConnector, makeSession, TEST_USER } from '@/test/fake-connect
 import { renderWithProviders } from '@/test/render';
 import { clearComposerDrafts, getComposerDraft, saveComposerDraft } from './draft-store';
 import type { LoadedAiSession, SessionEntry } from '@/data/core';
-import type { ComposerImageAttachment } from '@studio/common/ai/composer-attachments';
+import type { ComposerImageAttachment } from '@studio/agent/protocol/composer-attachments';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 
 type Props = Partial< ComponentProps< typeof Composer > > & { ref?: React.Ref< ComposerHandle > };
@@ -472,8 +472,6 @@ describe( 'Chat composer', () => {
 } );
 
 describe( 'Composer parity', () => {
-	const liveUrl = 'https://example.com';
-
 	it( 'hides Auto-start while its chip is active and restores the command after removal', async () => {
 		const { input, onSend } = await setup( { canAutoStart: true } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
@@ -507,37 +505,39 @@ describe( 'Composer parity', () => {
 		'changes the target through %s without sending or losing the draft',
 		async ( source ) => {
 			const change = vi.fn();
-			const { input, onSend } = await setup( { liveUrl, onEnvironmentChange: change } );
+			const { input, onSend } = await setup( { environment: 'live', onEnvironmentChange: change } );
 			fireEvent.change( input, {
-				target: { value: source === 'slash' ? 'Please /live' : 'Keep this draft' },
+				target: { value: source === 'slash' ? 'Please /local' : 'Keep this draft' },
 			} );
 			if ( source === 'slash' ) {
 				fireEvent.keyDown( input, { key: 'Enter' } );
 			} else {
 				fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-				fireEvent.click(
-					await screen.findByRole( 'option', { name: `Work on live site ${ liveUrl }` } )
-				);
+				fireEvent.click( await screen.findByRole( 'option', { name: /^Work on local site/ } ) );
 			}
-			expect( change ).toHaveBeenCalledWith( 'live' );
+			expect( change ).toHaveBeenCalledWith( 'local' );
 			expect( onSend ).not.toHaveBeenCalled();
 			expect( input ).toHaveValue( source === 'slash' ? 'Please ' : 'Keep this draft' );
 		}
 	);
 
-	it( 'keeps /live in the draft when Enter picks it while the chat is busy', async () => {
+	it( 'keeps /local in the draft when Enter picks it while the chat is busy', async () => {
 		const change = vi.fn();
-		const { input, onSend } = await setup( { busy: true, liveUrl, onEnvironmentChange: change } );
-		fireEvent.change( input, { target: { value: '/live' } } );
+		const { input, onSend } = await setup( {
+			busy: true,
+			environment: 'live',
+			onEnvironmentChange: change,
+		} );
+		fireEvent.change( input, { target: { value: '/local' } } );
 		fireEvent.keyDown( input, { key: 'Enter' } );
 		expect( change ).not.toHaveBeenCalled();
 		expect( onSend ).not.toHaveBeenCalled();
-		expect( input ).toHaveValue( '/live' );
+		expect( input ).toHaveValue( '/local' );
 	} );
 
 	it( 'shows only the active Live chip and returns to local', async () => {
 		const change = vi.fn();
-		await setup( { environment: 'live', liveUrl, onEnvironmentChange: change } );
+		await setup( { environment: 'live', onEnvironmentChange: change } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Remove Live' } ) );
 		expect( change ).toHaveBeenCalledWith( 'local' );
 		expect( screen.queryByRole( 'button', { name: 'Remove Auto-start' } ) ).not.toBeInTheDocument();
@@ -761,6 +761,25 @@ describe( 'Composer model picker', () => {
 				'Fast · WordPress.com · AI credits: 1.2M remaining'
 			)
 		);
+	} );
+
+	it( 'keeps the paid tiers unlocked after the purchased credits are spent', async () => {
+		const connector = createFakeConnector();
+		connector.getStudioAssistantQuota.mockResolvedValue( {
+			allowanceRemaining: 16_000_000,
+			purchasedRemaining: 0,
+			purchasedAtTopUp: 500_000,
+		} as StudioAssistantQuota );
+		await setup( {}, connector );
+
+		fireEvent.click( await modelButton() );
+		for ( const tier of [ 'Balanced', 'Strong' ] ) {
+			await waitFor( () =>
+				expect(
+					screen.getByRole( 'option', { name: new RegExp( `^${ tier }` ) } )
+				).not.toHaveAttribute( 'aria-disabled' )
+			);
+		}
 	} );
 
 	it( 'unlocks the paid tiers for Automatticians without purchased credits', async () => {

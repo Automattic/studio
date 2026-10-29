@@ -4,7 +4,7 @@ import os from 'os';
 import path from 'path';
 import { writeFile } from 'atomically';
 import semver from 'semver';
-import { getPhpBinaryPath } from '../dependency-management/paths';
+import { getBundledSendmailScriptPath, getPhpBinaryPath } from '../dependency-management/paths';
 import { getFullyResolvedTmpDirPath } from './tmp-dir';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 
@@ -228,24 +228,18 @@ function getOpcacheRootDir(): string {
 	return opcacheRootDir;
 }
 
-type DefaultPhpArgsOptions = {
-	openBasedir?: string[];
-	disallowRiskyFunctions?: boolean;
-	enableXdebug?: boolean;
-	autoPrependFile?: string;
-	workerIndex?: number;
-};
-
-export function getDefaultPhpArgs(
+// Only Windows gets an opcache file cache. There, a process that can't attach to
+// the shared memory segment falls back to the file cache (#3343). Elsewhere each
+// process keeps its own in-memory cache, and the file cache would start empty on
+// every start, so writing it only slows the workers down.
+function getOpcacheFileCacheArgs(
 	phpVersion: SupportedPHPVersion,
-	{
-		openBasedir = [],
-		disallowRiskyFunctions = false,
-		enableXdebug = false,
-		autoPrependFile,
-		workerIndex,
-	}: DefaultPhpArgsOptions = {}
+	workerIndex: number | undefined
 ): string[] {
+	if ( process.platform !== 'win32' ) {
+		return [];
+	}
+
 	// Partition the file_cache directory by PHP version to match the cache_id
 	// already pinned in php.ini — opcache's on-disk script blob format isn't
 	// stable across minor versions and reusing a cache populated by a different
@@ -259,13 +253,36 @@ export function getDefaultPhpArgs(
 			: path.join( versionCacheDirectory, `worker-${ workerIndex }` );
 	fs.mkdirSync( cacheDirectory, { recursive: true } );
 
+	return [ '-d', `opcache.file_cache="${ cacheDirectory }"` ];
+}
+
+type DefaultPhpArgsOptions = {
+	openBasedir?: string[];
+	disallowRiskyFunctions?: boolean;
+	enableXdebug?: boolean;
+	autoPrependFile?: string;
+	workerIndex?: number;
+	// Where the email this PHP process sends is saved; see `lib/site-email.ts`.
+	emailDirectory?: string;
+};
+
+export function getDefaultPhpArgs(
+	phpVersion: SupportedPHPVersion,
+	{
+		openBasedir = [],
+		disallowRiskyFunctions = false,
+		enableXdebug = false,
+		autoPrependFile,
+		workerIndex,
+		emailDirectory,
+	}: DefaultPhpArgsOptions = {}
+): string[] {
 	// `-c` points the binary at our php.ini and short-circuits the default
 	// ini search, so host PHP installations (and PHPRC) can't leak in
 	const args: string[] = [
 		'-c',
 		getNativePhpIniPath( phpVersion ),
-		'-d',
-		`opcache.file_cache="${ cacheDirectory }"`,
+		...getOpcacheFileCacheArgs( phpVersion, workerIndex ),
 	];
 
 	if ( enableXdebug ) {
@@ -301,6 +318,19 @@ export function getDefaultPhpArgs(
 	// without modifying their wp-config.php.
 	if ( autoPrependFile ) {
 		args.push( '-d', `auto_prepend_file="${ toPhpIniPath( autoPrependFile ) }"` );
+	}
+
+	if ( emailDirectory ) {
+		// `-n`: the script needs no extensions, so it skips loading php.ini.
+		const sendmailCommand = [
+			getPhpBinaryPath( phpVersion ),
+			'-n',
+			getBundledSendmailScriptPath(),
+			emailDirectory,
+		]
+			.map( ( part ) => `"${ part }"` )
+			.join( ' ' );
+		args.push( '-d', `sendmail_path="${ toPhpIniPath( sendmailCommand ) }"` );
 	}
 
 	return args;

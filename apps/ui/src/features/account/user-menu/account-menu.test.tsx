@@ -1,5 +1,6 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { getNoticeHistory } from '@/data/app-messages';
 import { UserMenu } from '@/features/account';
 import { AppToasts } from '@/features/notifications';
 import { createFakeConnector, TEST_USER } from '@/test/fake-connector';
@@ -31,16 +32,42 @@ const PROMPT = 'Do more with WordPress.com';
 async function openLoginDialog() {
 	fireEvent.click( await screen.findByRole( 'button', { name: 'Log in' } ) );
 	const dialog = await screen.findByRole( 'dialog', { name: PROMPT } );
-	return within( dialog ).findByRole( 'button', { name: 'Log in to WordPress.com' } );
+	return within( dialog ).findByRole( 'button', { name: 'Log in' } );
 }
 
 describe( 'AccountMenu', () => {
+	it.each( [ 'retry', 'background' ] )(
+		'clears account errors after %s recovery',
+		async ( recovery ) => {
+			const { connector, queryClient } = setup( TEST_USER );
+			const account = await screen.findByRole( 'button', { name: TEST_USER.displayName } );
+			connector.getAuthUser.mockRejectedValue( new Error( 'Failed to fetch' ) );
+			await act( () => queryClient.invalidateQueries( { queryKey: [ 'auth-user' ] } ) );
+			const notice = await screen.findByRole( 'dialog', { name: 'Couldn’t refresh your account' } );
+			expect( screen.queryByRole( 'alert' ) ).not.toBeInTheDocument();
+			expect( account ).toBeVisible();
+
+			fireEvent.click( within( notice ).getByRole( 'button', { name: 'Retry' } ) );
+			await screen.findByText( 'Action failed' );
+			expect( within( notice ).getByRole( 'button', { name: 'Retry' } ) ).toBeEnabled();
+
+			connector.getAuthUser.mockResolvedValue( TEST_USER );
+			if ( recovery === 'retry' ) {
+				fireEvent.click( within( notice ).getByRole( 'button', { name: 'Retry' } ) );
+			} else {
+				await act( () => queryClient.invalidateQueries( { queryKey: [ 'auth-user' ] } ) );
+			}
+			await waitFor( () => expect( notice ).not.toBeInTheDocument() );
+			expect( account ).toBeVisible();
+		}
+	);
+
 	it( 'explains connection before starting authentication and allows dismissal', async () => {
 		const { connector } = setup();
 		await openLoginDialog();
 		expect(
 			screen.getByText(
-				'Build with WordPress Studio, share local previews publicly, launch on WordPress.com, and keep sites in sync.'
+				'Create a free WordPress.com account to build with the agent, share previews, and publish.'
 			)
 		).toBeVisible();
 		expect( connector.authenticate ).not.toHaveBeenCalled();
@@ -176,10 +203,14 @@ describe( 'AccountMenu', () => {
 		expect( screen.getByRole( 'button', { name: TEST_USER.displayName } ) ).toBeVisible();
 	} );
 
-	it( 'shows an account error as an alert', async () => {
+	it( 'keeps initial account lookup errors out of the footer', async () => {
 		const connector = createFakeConnector();
 		connector.getAuthUser.mockRejectedValue( new Error( 'Session expired' ) );
 		renderWithProviders( <UserMenu />, { connector } );
-		expect( await screen.findByRole( 'alert' ) ).toHaveTextContent( 'Session expired' );
+		await waitFor( () =>
+			expect( getNoticeHistory()[ 0 ]?.title ).toBe( 'Couldn’t refresh your account' )
+		);
+		expect( screen.queryByRole( 'alert' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Session expired' ) ).not.toBeInTheDocument();
 	} );
 } );

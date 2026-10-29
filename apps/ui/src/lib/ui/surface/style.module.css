@@ -1,9 +1,10 @@
 @layer ui {
 	/* Menus, popovers, selects and dialogs float on this surface. */
 	.floating {
-		background-color: var( --popover );
+		--surface: var( --popover );
+		background-color: var( --surface );
 		box-shadow:
-			0 0 0 1px var( --border ),
+			0 0 0 1px var( --popover-border ),
 			var( --shadow-sm );
 		color: var( --popover-foreground );
 		outline: none;

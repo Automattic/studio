@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useId } from 'react';
-import { isShortcut, isTextEntry } from '@/lib/keyboard';
+import { isDialogOpen, isShortcut, isTextEntry } from '@/lib/keyboard';
 
 type Handlers = {
 	rename: () => void;
@@ -37,7 +37,13 @@ export function useItemShortcuts( handlers: Handlers ) {
 				: lifecycle
 				? handlers.lifecycle
 				: undefined;
-		if ( ! action || event.defaultPrevented || event.repeat || isTextEntry( event.target ) ) {
+		if (
+			! action ||
+			event.defaultPrevented ||
+			event.repeat ||
+			isTextEntry( event.target ) ||
+			isDialogOpen()
+		) {
 			return;
 		}
 		const target = event.target instanceof Element ? event.target : null;

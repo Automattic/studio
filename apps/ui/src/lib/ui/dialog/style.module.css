@@ -1,15 +1,19 @@
 @layer ui {
+	.content[hidden],
+	.overlay[hidden] {
+		display: none;
+	}
+
 	.overlay {
 		position: fixed;
 		inset: 0;
 		isolation: isolate;
 		z-index: var( --z-dialog );
-		transition: opacity var( --motion-duration-layout ) var( --motion-ease-enter );
+		transition: opacity var( --motion-duration-surface ) var( --motion-ease-enter );
 	}
 
 	.overlay[data-variant='dimmed'] {
 		background-color: var( --backdrop );
-		backdrop-filter: blur( 4px );
 	}
 
 	.overlay:is( [data-starting-style], [data-ending-style] ) {
@@ -23,6 +27,8 @@
 	}
 
 	.content {
+		--surface: var( --chat );
+		--dialog-inset: var( --space-3 );
 		position: fixed;
 		top: 50%;
 		left: 50%;
@@ -33,14 +39,25 @@
 		max-width: 384px;
 		max-height: calc( 100dvh - 2rem );
 		overflow-y: auto;
-		padding: var( --space-4 );
-		border-radius: var( --radius-xl );
+		padding: var( --dialog-inset, var( --space-3 ) );
+		border-radius: var( --radius-2xl );
 		font-size: var( --text-sm );
 		line-height: var( --text-sm--line-height );
 		transform: translate( -50%, -50% );
-		transition-property: opacity, scale, filter;
-		transition-duration: var( --motion-duration-layout );
+		transition-property: opacity, scale;
+		transition-duration: var( --motion-duration-surface );
 		transition-timing-function: var( --motion-ease-enter );
+	}
+
+	.content[data-surface='composer'] {
+		--surface: var( --composer );
+		color: var( --foreground );
+	}
+
+	.content[data-backdrop='dimmed'] {
+		box-shadow:
+			0 0 0 1px var( --border ),
+			var( --shadow-sm );
 	}
 
 	.content:is( [data-starting-style], [data-ending-style] ) {
@@ -76,18 +93,16 @@
 		}
 	}
 
-	.content[data-surface='composer'] {
-		--surface: var( --composer );
-		border: 1px solid var( --input );
-		border-radius: var( --radius-3xl );
-		background-color: var( --surface );
-		box-shadow: none;
-		color: var( --foreground );
+	.content:is( [data-layout='compact'], [data-layout='confirmation'] ) {
+		padding-inline-start: var( --space-4 );
+	}
+
+	.content:is( [data-layout='compact'], [data-layout='confirmation'] ) .footer {
+		margin-block-start: var( --space-2 );
 	}
 
 	.content[data-layout='confirmation'] {
 		max-width: 420px;
-		padding: var( --space-5 );
 	}
 
 	.content:is( [data-layout='settings'], [data-layout='creation'] ) {
@@ -108,10 +123,6 @@
 		max-height: 600px;
 	}
 
-	.content[data-layout='settings'][data-nested-dialog-open] {
-		filter: blur( 2px );
-	}
-
 	.content[data-layout='creation'] {
 		inset: var( --space-4 );
 		gap: 0;
@@ -126,14 +137,16 @@
 		align-items: center;
 		column-gap: var( --space-3 );
 		min-height: 60px;
-		padding: var( --space-3_5 ) var( --space-3_5 ) var( --space-3_5 ) var( --space-4 );
+		padding: var( --dialog-inset, var( --space-3 ) );
 	}
 
 	.header {
+		min-height: var( --control-size );
+		padding: 0;
 		display: grid;
 		grid-template-columns: minmax( 0, 1fr ) auto;
 		row-gap: var( --space-2 );
-		margin: calc( var( --space-4 ) * -1 ) calc( var( --space-4 ) * -1 ) 0;
+		margin: 0;
 	}
 
 	.header > [data-slot='dialog-title'] {
@@ -146,14 +159,9 @@
 	}
 
 	.headerClose {
+		align-self: start;
 		grid-row: 1;
 		grid-column: 2;
-	}
-
-	[data-layout='confirmation'] > .header {
-		margin: calc( var( --space-5 ) * -1 ) calc( var( --space-5 ) * -1 ) 0;
-		padding-block-end: 0;
-		padding-inline-start: var( --space-5 );
 	}
 
 	.title {
@@ -196,8 +204,8 @@
 		justify-content: flex-end;
 	}
 
-	[data-layout='confirmation'] > .footer {
-		margin: var( --space-2 ) calc( var( --space-1_5 ) * -1 ) calc( var( --space-1_5 ) * -1 );
+	.content:is( [data-layout='settings'], [data-layout='creation'] ) > .footer {
+		padding: var( --dialog-inset, var( --space-3 ) );
 	}
 
 	.panelHeader {
@@ -224,12 +232,14 @@
 	}
 
 	.panel {
+		--surface: var( --surface-0 );
 		position: relative;
 		display: flex;
 		flex: 1;
 		flex-direction: column;
 		min-width: 0;
 		min-height: 0;
+		background-color: var( --surface );
 	}
 
 	.panelScroll {
@@ -243,7 +253,7 @@
 		flex-direction: column;
 		width: 100%;
 		min-height: 100%;
-		padding: 0 var( --space-4 ) var( --space-4 );
+		padding: 0 var( --dialog-inset, var( --space-3 ) ) var( --dialog-inset, var( --space-3 ) );
 	}
 
 	.scrollArea {

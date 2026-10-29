@@ -2,7 +2,6 @@ import { __ } from '@wordpress/i18n';
 import {
 	ChartNoAxesCombinedIcon,
 	GaugeIcon,
-	GlobeIcon,
 	PaperclipIcon,
 	PencilRulerIcon,
 	PlayIcon,
@@ -13,7 +12,7 @@ import {
 } from 'lucide-react';
 import { McpIcon, StartSiteIcon } from '@/lib/icons';
 import type { Command, CommandGroup } from '@/lib/ui';
-import type { SkillSlashCommand } from '@studio/common/ai/slash-commands';
+import type { SkillSlashCommand } from '@studio/agent/protocol/slash-commands';
 import type { ComponentType } from 'react';
 
 const COMMAND_ICONS: Partial< Record< string, ComponentType< { className?: string } > > > = {
@@ -25,7 +24,6 @@ const COMMAND_ICONS: Partial< Record< string, ComponentType< { className?: strin
 	'auto-start': StartSiteIcon,
 	'connect-provider': McpIcon,
 	model: SlidersHorizontalIcon,
-	live: GlobeIcon,
 	local: PlayIcon,
 };
 
@@ -35,14 +33,12 @@ export function getComposerCommands( {
 	autoStartOn,
 	canChooseModel,
 	environment,
-	liveUrl,
 	canChangeEnvironment,
 }: {
 	canAutoStart: boolean;
 	autoStartOn: boolean;
 	canChooseModel: boolean;
 	environment: 'local' | 'live';
-	liveUrl?: string;
 	canChangeEnvironment: boolean;
 } ): SkillSlashCommand[] {
 	return [
@@ -69,9 +65,6 @@ export function getComposerCommands( {
 			displayName: __( 'Connect AI providers' ),
 			description: __( 'Use WordPress.com AI credits or your own API key.' ),
 		},
-		...( canChangeEnvironment && environment === 'local' && liveUrl
-			? [ { name: 'live', displayName: __( 'Work on live site' ), description: liveUrl } ]
-			: [] ),
 		...( canChangeEnvironment && environment === 'live'
 			? [
 					{

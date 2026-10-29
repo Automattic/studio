@@ -13,7 +13,7 @@ import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { BrowserNavigationState } from '@/features/sites/site-preview/browser-state';
 import type { useBrowserShortcuts } from '@/features/sites/site-preview/use-browser-shortcuts';
-import type { BrowserShortcutCommand } from '@studio/common/ai/inspector/page-script';
+import type { BrowserShortcutCommand } from '@studio/agent/protocol/inspector/page-script';
 import type { ComponentProps, ReactNode } from 'react';
 
 interface PreviewHeaderProps {
@@ -35,7 +35,7 @@ interface PreviewHeaderProps {
 	onSwitchRealm: ( realm: PreviewRealm ) => void;
 	hasDesignSystem: boolean;
 	onOpenExternal?: () => void;
-	onOpenSettings?: () => void;
+	responsive?: { active: boolean; disabled: boolean; onClick: () => void };
 	annotate?: Omit< ComponentProps< typeof AnnotateButton >, 'iconOnly' >;
 	// Page-load progress, while a page is loading or just loaded.
 	progress?: number;
@@ -60,7 +60,7 @@ export function PreviewHeader( {
 	onSwitchRealm,
 	hasDesignSystem,
 	onOpenExternal,
-	onOpenSettings,
+	responsive,
 	annotate,
 	progress,
 }: PreviewHeaderProps ) {
@@ -69,9 +69,25 @@ export function PreviewHeader( {
 	const windowControlsInset = useWindowControlsInset( 'toolbar' );
 	const { host: headerHost, layout: headerLayout } = useSiteHeader();
 
+	const addressBar = (
+		<PreviewAddressBar
+			site={ site }
+			siteUrl={ siteUrl }
+			path={ path }
+			remote={ live }
+			onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
+			onSwitchRealm={ onSwitchRealm }
+			hasDesignSystem={ hasDesignSystem }
+			onOpenExternal={ onOpenExternal }
+			responsive={ responsive }
+			hideActions={ headerLayout !== 'inline' }
+		/>
+	);
+
 	return (
 		<div
 			data-site-header
+			data-site-header-layout={ headerLayout }
 			className={ clsx(
 				styles.header,
 				atWindowStart && sidebarCollapsed && trafficLightSpace.start && styles.headerTrafficLights
@@ -86,23 +102,30 @@ export function PreviewHeader( {
 				} ),
 			} }
 		>
-			{ /* Browser navigation stays at the start, the address field fills the
-				available middle track, and preview actions stay at the end. */ }
+			{ toolbarStart ? (
+				<div
+					data-site-header-reserved
+					data-site-header-split-start
+					className={ styles.toolbarStart }
+				>
+					{ toolbarStart }
+				</div>
+			) : null }
 			<div className={ styles.headerSide }>
-				{ toolbarStart ? (
-					<div data-site-header-reserved className={ styles.toolbarStart }>
-						{ toolbarStart }
-					</div>
-				) : null }
 				{ canPreview ? (
 					<div
 						data-site-header-navigation
 						className={ clsx(
 							styles.navigation,
-							headerLayout === 'navigation-overflow' && styles.navigationHidden
+							( headerLayout === 'navigation-overflow' || headerLayout === 'mobile-overflow' ) &&
+								styles.navigationHidden
 						) }
-						aria-hidden={ headerLayout === 'navigation-overflow' || undefined }
-						inert={ headerLayout === 'navigation-overflow' }
+						aria-hidden={
+							headerLayout === 'navigation-overflow' ||
+							headerLayout === 'mobile-overflow' ||
+							undefined
+						}
+						inert={ headerLayout === 'navigation-overflow' || headerLayout === 'mobile-overflow' }
 					>
 						<BrowserHistoryButton
 							direction="back"
@@ -143,28 +166,24 @@ export function PreviewHeader( {
 						{ isStopping ? __( 'Stopping site…' ) : __( 'Starting site…' ) }
 					</span>
 				) : canPreview ? (
-					<PreviewAddressBar
-						site={ site }
-						siteUrl={ siteUrl }
-						path={ path }
-						remote={ live }
-						onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
-						onSwitchRealm={ onSwitchRealm }
-						hasDesignSystem={ hasDesignSystem }
-						onOpenExternal={ onOpenExternal }
-						onOpenSettings={ onOpenSettings }
-						hideActions={ headerLayout !== 'inline' }
-					/>
+					headerLayout !== 'mobile-overflow' ? (
+						addressBar
+					) : null
 				) : null }
 			</div>
 			<div className={ styles.headerSide }>
 				{ annotate ? (
-					<span data-site-header-annotate className={ styles.headerItem }>
+					<span
+						data-site-header-annotate
+						className={ styles.headerItem }
+						hidden={ headerLayout === 'mobile-overflow' }
+					>
 						<AnnotateButton { ...annotate } iconOnly={ headerLayout !== 'inline' } />
 					</span>
 				) : null }
 				{ headerHost === 'preview' && ! collapsed ? <SiteHeaderSpace /> : null }
 			</div>
+
 			{ progress !== undefined ? (
 				<div className={ styles.loadingProgress } aria-hidden="true">
 					<span style={ { transform: `scaleX(${ Math.min( progress, 1 ) })` } } />

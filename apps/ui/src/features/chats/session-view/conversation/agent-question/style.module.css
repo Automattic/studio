@@ -11,12 +11,13 @@
 
 .questionCard {
 	composes: surface from '../bubble.module.css';
-	--surface: var( --muted );
+	--surface: light-dark( var( --surface-1 ), var( --surface-2 ) );
 	display: flex;
 	flex-direction: column;
 	gap: var( --space-2 );
 	width: 100%;
-	padding: var( --space-2 );
+	padding: var( --space-1_5 ) var( --space-2 );
+	border-radius: var( --radius-2xl );
 	background-color: var( --surface );
 }
 
@@ -25,7 +26,7 @@
 	align-items: center;
 	justify-content: space-between;
 	gap: var( --space-4 );
-	padding: var( --space-1 ) var( --space-2 );
+	padding: var( --space-1 ) var( --space-1_5 );
 	padding-top: 0;
 }
 

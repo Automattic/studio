@@ -4,18 +4,23 @@ import { useLayoutEffect, useRef, useState } from 'react';
  * How the header under the site actions fits them: everything inline, the
  * actions folded into a More menu, or the browser navigation folded in too.
  */
-export type SiteHeaderLayout = 'inline' | 'actions-overflow' | 'navigation-overflow';
+export type SiteHeaderLayout =
+	| 'inline'
+	| 'actions-overflow'
+	| 'navigation-overflow'
+	| 'mobile-overflow';
 
 // The address field's useful width, kept when deciding whether the rest fits.
 const ADDRESS_MIN_WIDTH = 320;
+const COMPACT_ADDRESS_MIN_WIDTH = 160;
 
 const widthOf = ( element: Element | null ) => element?.getBoundingClientRect().width ?? 0;
 const pixels = ( value: string ) => parseFloat( value ) || 0;
 
 /**
  * Measures the header that hosts the actions (the one holding `space`) and
- * picks the layout that fits. Labeled widths are remembered while inline, so
- * compacting a button can't move the breakpoint it caused.
+ * picks the layout that fits. Expanded widths are retained while controls are
+ * folded, so hiding them can't move the breakpoint that caused it.
  */
 export function useSiteHeaderLayout( space: HTMLElement | null, actions: HTMLElement | null ) {
 	const [ layout, setLayout ] = useState< SiteHeaderLayout >( 'inline' );
@@ -29,8 +34,8 @@ export function useSiteHeaderLayout( space: HTMLElement | null, actions: HTMLEle
 			return;
 		}
 		let current: SiteHeaderLayout = 'inline';
-		let lifecycleWidth = 0;
 		let annotationWidth = 0;
+		let navigationWidth = 0;
 		const measure = () => {
 			const width = header.clientWidth;
 			if ( ! width ) {
@@ -40,32 +45,57 @@ export function useSiteHeaderLayout( space: HTMLElement | null, actions: HTMLEle
 			const gap = pixels( style.columnGap );
 			const actionGap = pixels( getComputedStyle( actions ).columnGap );
 			const navigation = header.querySelector( '[data-site-header-navigation]' );
+			const measuredNavigationWidth = widthOf( navigation );
+			if ( measuredNavigationWidth > 0 ) {
+				navigationWidth = measuredNavigationWidth;
+			}
 			const annotation = header.querySelector( '[data-site-header-annotate]' );
 			const address = header.querySelector( '[data-site-header-address]' );
 			const reserved = [ ...header.querySelectorAll( '[data-site-header-reserved]' ) ];
-			const lifecycle = actions.querySelector( '[data-site-header-lifecycle]' );
 			if ( current === 'inline' ) {
-				lifecycleWidth = widthOf( lifecycle );
 				annotationWidth = widthOf( annotation );
 			}
 			const available =
 				width -
 				pixels( style.paddingLeft ) -
 				pixels( style.paddingRight ) -
-				reserved.reduce( ( total, element ) => total + widthOf( element ) + gap, 0 );
+				reserved.reduce(
+					( total, element ) =>
+						total +
+						Math.max(
+							widthOf( element ),
+							element.hasAttribute( 'data-site-header-split-start' )
+								? pixels( style.getPropertyValue( '--preview-header-content-width' ) ) -
+										pixels( style.getPropertyValue( '--header-start-inset' ) )
+								: 0
+						) +
+						pixels( getComputedStyle( element ).marginInlineEnd ) +
+						gap,
+					0
+				);
 			const full =
 				widthOf( actions.querySelector( '[data-site-header-publish]' ) ) +
 				widthOf( actions.querySelector( '[data-site-header-trailing]' ) ) +
-				( lifecycle ? lifecycleWidth + actionGap : 0 ) +
+				actionGap +
 				( annotation ? annotationWidth + actionGap : 0 ) +
-				( navigation ? widthOf( navigation ) + gap : 0 ) +
+				( navigation ? navigationWidth + gap : 0 ) +
 				( address ? ADDRESS_MIN_WIDTH + gap : 0 );
+			const compact =
+				full -
+				( address ? ADDRESS_MIN_WIDTH - COMPACT_ADDRESS_MIN_WIDTH : 0 ) -
+				( annotation
+					? annotationWidth -
+					  ( pixels( style.getPropertyValue( '--control-size' ) ) || widthOf( annotation ) )
+					: 0 );
 			setActionsWidth( widthOf( actions ) );
 			let next: SiteHeaderLayout = 'navigation-overflow';
 			if ( available >= full ) {
 				next = 'inline';
-			} else if ( ! navigation ) {
+			} else if ( ! navigation || available >= compact ) {
 				next = 'actions-overflow';
+			}
+			if ( width <= 540 ) {
+				next = 'mobile-overflow';
 			}
 			if ( next !== current ) {
 				const focused = document.activeElement;
@@ -73,7 +103,12 @@ export function useSiteHeaderLayout( space: HTMLElement | null, actions: HTMLEle
 					focused &&
 						( actions.querySelector( '[data-site-header-trailing]' )?.contains( focused ) ||
 							( next !== 'inline' && focused.closest( '[data-address-action]' ) ) ||
-							( next === 'navigation-overflow' && navigation?.contains( focused ) ) )
+							( ( next === 'navigation-overflow' || next === 'mobile-overflow' ) &&
+								navigation?.contains( focused ) ) ||
+							( next === 'mobile-overflow' &&
+								( address?.contains( focused ) ||
+									annotation?.contains( focused ) ||
+									focused.closest( '[data-site-header-run]' ) ) ) )
 				);
 				current = next;
 				setLayout( next );

@@ -1,4 +1,4 @@
-import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
+import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
 import {
 	getDefaultSidebarChatSort,
 	type SidebarPinnedSort,
@@ -93,22 +93,19 @@ export function getActiveSiteKeys(
 	return { chat, context };
 }
 
-// Pinned sites and chats move out of their usual place into the Pinned group,
-// and a chat waiting on an answer shows once, under Needs input.
+// Pinned sites and chats move out of their usual place into the Pinned group.
 export function getSidebarCollections(
 	rows: SiteRow[],
 	sessions: AiSessionSummary[] | undefined,
 	{
 		pins,
 		chatOrder,
-		needingInput,
 		pinnedSort = 'type',
 		siteSort = 'manual',
 		chatSort = getDefaultSidebarChatSort( chatOrder ),
 	}: {
 		pins: string[];
 		chatOrder: Record< string, string[] | undefined >;
-		needingInput: string[];
 		pinnedSort?: SidebarPinnedSort;
 		siteSort?: SidebarSiteSort;
 		chatSort?: SidebarChatSort;
@@ -126,7 +123,7 @@ export function getSidebarCollections(
 		if ( row ) {
 			return [ { key, row } ];
 		}
-		return session && ! session.archived && ! needingInput.includes( session.id )
+		return session && ! session.archived
 			? [ { key, session, siteName: findSessionSiteRow( rows, session.id )?.site.name } ]
 			: [];
 	} );
@@ -141,9 +138,7 @@ export function getSidebarCollections(
 		rows.map( ( row ) => [
 			row.site.id,
 			orderChats(
-				row.chats.filter(
-					( session ) => ! isChatPinned( session ) && ! needingInput.includes( session.id )
-				),
+				row.chats.filter( ( session ) => ! isChatPinned( session ) ),
 				chatSort === 'manual' ? chatOrder[ row.site.id ] : undefined
 			),
 		] )
@@ -152,13 +147,11 @@ export function getSidebarCollections(
 	const openChats = ( sessions ?? [] )
 		.filter( ( session ) => ! session.archived )
 		.sort( byMostRecent );
-	// Chats waiting on an answer move to the top until it's given.
-	const needsInputChats = openChats.filter( ( session ) => needingInput.includes( session.id ) );
 	const recentChats = openChats
-		.filter( ( session ) => ! needingInput.includes( session.id ) && ! isChatPinned( session ) )
+		.filter( ( session ) => ! isChatPinned( session ) )
 		.slice( 0, RECENT_CHATS_LIMIT );
 
-	return { pinnedItems, siteRows, chatsBySite, needsInputChats, recentChats };
+	return { pinnedItems, siteRows, chatsBySite, recentChats };
 }
 
 // Opening a site unfolds its chats and, unless the user turned it off, folds

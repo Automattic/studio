@@ -9,6 +9,11 @@ import {
 	type ReactNode,
 } from 'react';
 import { useConnector } from '@/data/core';
+import {
+	getStoredSiteChatVisibility,
+	storeSiteChatVisibility,
+	PANEL_WIDTHS_RESET_EVENT,
+} from '@/data/resizable-panels';
 
 // App-wide UI store (mounted once in the root route, shared by every route
 // and dialog under it). Holds the slices of UI state that the chat agent
@@ -25,8 +30,8 @@ import { useConnector } from '@/data/core';
 interface PreviewUIState {
 	open: boolean;
 	// The chat pane is hidden and the preview takes its place; the sidebar stays.
-	// Only meaningful while `open`; closing the panel always clears it.
-	chatHidden: boolean;
+	// Only applied while the preview is open.
+	chatHiddenBySiteId: Record< string, boolean >;
 	reloadNonce: number;
 	// Currently previewed site.
 	siteId: string | null;
@@ -52,7 +57,8 @@ interface SessionUIState {
 type SessionUIAction =
 	| { type: 'preview/set-open'; value: boolean }
 	| { type: 'preview/toggle' }
-	| { type: 'preview/set-chat-hidden'; value: boolean }
+	| { type: 'preview/set-chat-hidden'; value: boolean; siteId?: string }
+	| { type: 'preview/reset-chat-hidden' }
 	| { type: 'preview/navigate'; path: string }
 	| { type: 'preview/reload' }
 	| { type: 'preview/update-path'; path: string }
@@ -62,7 +68,7 @@ type SessionUIAction =
 const INITIAL_STATE: SessionUIState = {
 	preview: {
 		open: true,
-		chatHidden: false,
+		chatHiddenBySiteId: {},
 		reloadNonce: 0,
 		siteId: null,
 		pathsBySiteId: {},
@@ -80,7 +86,6 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 						preview: {
 							...state.preview,
 							open: action.value,
-							chatHidden: action.value && state.preview.chatHidden,
 						},
 				  };
 		case 'preview/toggle':
@@ -89,13 +94,25 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 				preview: {
 					...state.preview,
 					open: ! state.preview.open,
-					chatHidden: false,
 				},
 			};
-		case 'preview/set-chat-hidden':
-			return state.preview.chatHidden === action.value
-				? state
-				: { ...state, preview: { ...state.preview, chatHidden: action.value } };
+		case 'preview/set-chat-hidden': {
+			const siteId = action.siteId ?? state.preview.siteId;
+			if ( ! siteId || ( state.preview.chatHiddenBySiteId[ siteId ] ?? false ) === action.value )
+				return state;
+			return {
+				...state,
+				preview: {
+					...state.preview,
+					chatHiddenBySiteId: {
+						...state.preview.chatHiddenBySiteId,
+						[ siteId ]: action.value,
+					},
+				},
+			};
+		}
+		case 'preview/reset-chat-hidden':
+			return { ...state, preview: { ...state.preview, chatHiddenBySiteId: {} } };
 		case 'preview/navigate':
 			return {
 				...state,
@@ -160,8 +177,19 @@ export function SessionUIProvider( { children }: { children: ReactNode } ) {
 }
 
 function SessionUIProviderRoot( { children }: { children: ReactNode } ) {
-	const [ state, dispatch ] = useReducer( reducer, INITIAL_STATE );
+	const [ state, dispatch ] = useReducer( reducer, INITIAL_STATE, ( initial ) => ( {
+		...initial,
+		preview: { ...initial.preview, chatHiddenBySiteId: getStoredSiteChatVisibility() },
+	} ) );
 	const connector = useConnector();
+	useEffect( () => {
+		storeSiteChatVisibility( state.preview.chatHiddenBySiteId );
+	}, [ state.preview.chatHiddenBySiteId ] );
+	useEffect( () => {
+		const reset = () => dispatch( { type: 'preview/reset-chat-hidden' } );
+		window.addEventListener( PANEL_WIDTHS_RESET_EVENT, reset );
+		return () => window.removeEventListener( PANEL_WIDTHS_RESET_EVENT, reset );
+	}, [] );
 	useEffect( () => {
 		return connector.onToggleSitePreview( () => {
 			dispatch( { type: 'preview/toggle' } );
@@ -185,6 +213,7 @@ export function useSessionUIDispatch(): Dispatch< SessionUIAction > {
 interface SessionPreviewUI {
 	readonly open: boolean;
 	readonly chatHidden: boolean;
+	readonly chatHiddenBySiteId: Record< string, boolean >;
 	readonly path: string;
 	readonly reloadNonce: number;
 	readonly siteId: string | null;
@@ -192,7 +221,9 @@ interface SessionPreviewUI {
 	readonly revealingSiteId: string | null;
 	setOpen: ( value: boolean ) => void;
 	toggle: () => void;
-	setChatHidden: ( value: boolean ) => void;
+	setChatHidden: ( value: boolean, siteId?: string ) => void;
+	// Opens the panel on `path` and reloads it, like an agent-driven navigation.
+	navigate: ( path: string ) => void;
 	updatePath: ( path: string ) => void;
 	setSite: ( siteId: string ) => void;
 	setRevealing: ( siteId: string, value: boolean ) => void;
@@ -210,7 +241,12 @@ export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 	);
 	const toggle = useCallback( () => dispatch?.( { type: 'preview/toggle' } ), [ dispatch ] );
 	const setChatHidden = useCallback(
-		( value: boolean ) => dispatch?.( { type: 'preview/set-chat-hidden', value } ),
+		( value: boolean, siteId?: string ) =>
+			dispatch?.( { type: 'preview/set-chat-hidden', value, siteId } ),
+		[ dispatch ]
+	);
+	const navigate = useCallback(
+		( path: string ) => dispatch?.( { type: 'preview/navigate', path } ),
 		[ dispatch ]
 	);
 	const updatePath = useCallback(
@@ -232,7 +268,10 @@ export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 		}
 		return {
 			open: state.preview.open,
-			chatHidden: state.preview.chatHidden,
+			chatHidden:
+				state.preview.open &&
+				( state.preview.chatHiddenBySiteId[ state.preview.siteId ?? '' ] ?? false ),
+			chatHiddenBySiteId: state.preview.chatHiddenBySiteId,
 			path: pathForSite( state.preview.pathsBySiteId, state.preview.siteId ),
 			reloadNonce: state.preview.reloadNonce,
 			siteId: state.preview.siteId,
@@ -241,11 +280,22 @@ export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 			setOpen,
 			toggle,
 			setChatHidden,
+			navigate,
 			updatePath,
 			setSite,
 			setRevealing,
 		};
-	}, [ state, dispatch, setOpen, toggle, setChatHidden, updatePath, setSite, setRevealing ] );
+	}, [
+		state,
+		dispatch,
+		setOpen,
+		toggle,
+		setChatHidden,
+		navigate,
+		updatePath,
+		setSite,
+		setRevealing,
+	] );
 }
 
 export function useSessionPreviewUI(): SessionPreviewUI {

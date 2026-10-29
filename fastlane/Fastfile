@@ -1392,7 +1392,7 @@ def create_draft_github_release(version:, release_tag:, builds:)
   body = notes
   unless links.empty?
     body += "\n\n---\nDownload Studio #{version}: #{links.join(', ')}\n\n" \
-            'The latest version is always available on the [WordPress Studio](https://developer.wordpress.com/studio/) site.'
+            'The latest version is always available on the [WordPress Studio](https://wordpress.studio/) site.'
   end
 
   # Embed CDN post IDs so publish_release can update their visibility later.

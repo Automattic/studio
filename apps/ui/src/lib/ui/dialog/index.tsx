@@ -19,10 +19,15 @@ import { registerOpenDialog, replaceOpenDialogs } from './replacement';
 import styles from './style.module.css';
 import type { ComponentProps, ReactNode, Ref } from 'react';
 
-type Layout = 'default' | 'settings' | 'creation' | 'confirmation';
+type Layout = 'default' | 'compact' | 'settings' | 'creation' | 'confirmation';
 
-const DialogContentContext = createContext< { showCloseButton: boolean; layout: Layout } >( {
+const DialogContentContext = createContext< {
+	showCloseButton: boolean;
+	closeButtonDisabled: boolean;
+	layout: Layout;
+} >( {
 	showCloseButton: true,
+	closeButtonDisabled: false,
 	layout: 'default',
 } );
 
@@ -80,27 +85,33 @@ export function DialogContent( {
 	className,
 	children,
 	showCloseButton = true,
+	closeButtonDisabled = false,
 	layout = 'default',
-	surface = 'default',
+	surface = 'chat',
 	backdrop = 'dimmed',
+	keepMounted = false,
 	...props
 }: ComponentProps< typeof BaseDialog.Popup > & {
 	showCloseButton?: boolean;
+	closeButtonDisabled?: boolean;
 	layout?: Layout;
-	surface?: 'default' | 'composer';
+	surface?: 'chat' | 'composer';
 	backdrop?: 'dimmed' | 'transparent';
+	/** Keeps ongoing operations and form state alive after dismissal. */
+	keepMounted?: boolean;
 } ) {
 	return (
-		<BaseDialog.Portal>
+		<BaseDialog.Portal keepMounted={ keepMounted }>
 			<BaseDialog.Backdrop data-variant={ backdrop } className={ styles.overlay } />
 			<BaseDialog.Popup
 				data-slot="dialog-content"
 				data-layout={ layout }
 				data-surface={ surface }
+				data-backdrop={ backdrop }
 				className={ clsx( surfaceStyles.floating, styles.content, className ) }
 				{ ...props }
 			>
-				<DialogContentContext.Provider value={ { showCloseButton, layout } }>
+				<DialogContentContext.Provider value={ { showCloseButton, closeButtonDisabled, layout } }>
 					{ children }
 				</DialogContentContext.Provider>
 			</BaseDialog.Popup>
@@ -109,12 +120,16 @@ export function DialogContent( {
 }
 
 export function DialogHeader( { className, children, ...props }: ComponentProps< 'div' > ) {
-	const { showCloseButton } = useContext( DialogContentContext );
+	const { showCloseButton, closeButtonDisabled } = useContext( DialogContentContext );
 	return (
 		<div data-slot="dialog-header" className={ clsx( styles.header, className ) } { ...props }>
 			{ children }
 			{ showCloseButton && (
-				<BaseDialog.Close className={ styles.headerClose } render={ <DialogDismissButton /> } />
+				<BaseDialog.Close
+					className={ styles.headerClose }
+					disabled={ closeButtonDisabled }
+					render={ <DialogDismissButton /> }
+				/>
 			) }
 		</div>
 	);
@@ -176,7 +191,12 @@ export function PanelHeader( {
 				<h1>{ title }</h1>
 			</div>
 			{ actions && <div className={ styles.panelActions }>{ actions }</div> }
-			<DialogDismissButton disabled={ disabled } onClick={ onClose } label={ closeLabel } />
+			<DialogDismissButton
+				size="icon-sm"
+				disabled={ disabled }
+				onClick={ onClose }
+				label={ closeLabel }
+			/>
 		</div>
 	);
 }

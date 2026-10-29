@@ -1,7 +1,7 @@
 {
 	"name": "wp-studio",
 	"author": "Automattic Inc.",
-	"version": "2.0.4",
+	"version": "2.1.0-beta1",
 	"productName": "Studio CLI",
 	"description": "WordPress Studio CLI",
 	"license": "GPL-2.0-or-later",
@@ -22,7 +22,6 @@
 		"directory": "apps/cli"
 	},
 	"dependencies": {
-		"@earendil-works/pi-agent-core": "0.84.2",
 		"@earendil-works/pi-ai": "0.84.2",
 		"@earendil-works/pi-coding-agent": "0.84.2",
 		"@earendil-works/pi-tui": "0.84.2",
@@ -52,7 +51,6 @@
 		"tar": "^7.5.21",
 		"trash": "^10.0.1",
 		"typebox": "^1.1.38",
-		"yaml": "^2.9.0",
 		"yargs": "^18.2.0",
 		"yargs-parser": "^22.0.0",
 		"yauzl": "^3.3.0",
@@ -72,8 +70,8 @@
 		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
 	"devDependencies": {
+		"@studio/agent": "file:../../packages/agent",
 		"@studio/common": "file:../../packages/common",
-		"@studio/design-md": "file:../../packages/design-md",
 		"@studio/local": "file:../local",
 		"@types/archiver": "^8.0.0",
 		"@types/http-proxy": "^1.17.17",

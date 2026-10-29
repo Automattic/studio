@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@/data/core';
 
-export type PublishView = 'publish' | 'pull' | 'websites' | 'pick' | 'files';
+export type PublishView = 'publish' | 'pull' | 'websites';
 export type PublishScope = 'all' | 'files' | 'content' | 'custom';
 export type TransferDirection = 'push' | 'pull';
 export type TransferOptions = { push: PushSyncOptions; pull: PullSyncOptions };
@@ -29,39 +29,12 @@ export function presetOptions( scope: Exclude< PublishScope, 'custom' > ): Trans
 	return { push: { optionsToSync }, pull: { optionsToSync } };
 }
 
-export function overwriteDescription( scope: PublishScope, direction: TransferDirection ) {
-	if ( direction === 'pull' ) {
-		switch ( scope ) {
-			case 'files':
-				return __(
-					'Matching files in WordPress Studio will be overwritten. Your website stays unchanged.'
-				);
-			case 'content':
-				return __(
-					'All content and settings in WordPress Studio will be overwritten. Your website stays unchanged.'
-				);
-			case 'custom':
-				return __(
-					'The selected files and content in WordPress Studio will be overwritten. Your website stays unchanged.'
-				);
-			default:
-				return __(
-					'Matching files and all content and settings in WordPress Studio will be overwritten. Your website stays unchanged.'
-				);
-		}
-	}
-	switch ( scope ) {
-		case 'files':
-			return __( 'Matching files on the website will be overwritten.' );
-		case 'content':
-			return __( 'All content and settings on the website will be overwritten.' );
-		case 'custom':
-			return __( 'The selected files and content on the website will be overwritten.' );
-		default:
-			return __(
-				'Matching files and all content and settings on the website will be overwritten.'
-			);
-	}
+export function overwriteDescription( direction: TransferDirection ) {
+	return direction === 'push'
+		? __( 'Selected files, content, and settings on your website will be overwritten.' )
+		: __(
+				'Selected files, content, and settings in WordPress Studio will be overwritten. Your website stays unchanged.'
+		  );
 }
 
 export function websiteIssue( site: SyncSite ) {
@@ -94,7 +67,7 @@ export function backupsUrl( site: SyncSite ) {
 	}
 }
 
-export function websiteEnvironment( site: SyncSite ) {
+function websiteEnvironment( site: SyncSite ) {
 	if (
 		site.isPressable &&
 		( site.environmentType === 'staging' || site.environmentType === 'development' )
@@ -104,17 +77,31 @@ export function websiteEnvironment( site: SyncSite ) {
 	return site.isStaging ? 'staging' : 'production';
 }
 
-export function websiteLabel( site: SyncSite ) {
+export function websiteEnvironmentLabel( site: SyncSite ) {
 	switch ( websiteEnvironment( site ) ) {
 		case 'staging':
 			return __( 'Staging' );
 		case 'development':
 			return __( 'Development' );
 		default:
-			return site.isPressable ? __( 'Pressable' ) : __( 'WordPress.com' );
+			return __( 'Production' );
 	}
 }
 
 export function websiteAddress( site: SyncSite ) {
 	return site.url.replace( /^https?:\/\//, '' ).replace( /\/$/, '' );
+}
+
+export function dashboardUrl( site: SyncSite ) {
+	if ( site.isPressable ) return undefined;
+	try {
+		return `https://my.wordpress.com/sites/${ new URL( site.url ).hostname }`;
+	} catch {
+		return undefined;
+	}
+}
+
+export function domainsUrl( site: SyncSite ) {
+	const dashboard = dashboardUrl( site );
+	return dashboard ? `${ dashboard }/domains` : undefined;
 }

@@ -18,7 +18,8 @@ import {
 	killPhpProcessTree,
 	reapPhpTreeOnInterrupt,
 } from './native-php/php-process';
-import { loadImportedRuntimeStartOptions } from './pull/runtime-start-options';
+import { getPulledSiteStartOptions } from './pull/pulled-site-start-options';
+import { getSiteEmailDirectory } from './site-email';
 import { getWpCliPhpIniArgs } from './wp-cli-php-ini';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { SiteData } from 'cli/lib/cli-config/core';
@@ -218,9 +219,12 @@ export async function runWpCliCommand(
 	// so load it here too. No-op for normal sites (helper returns undefined).
 	const autoPrependFile = options.requireSqliteCliCommand
 		? undefined
-		: loadImportedRuntimeStartOptions( site )?.autoPrependFile;
+		: getPulledSiteStartOptions( site )?.autoPrependFile;
 	// Don't apply open_basedir or disable_functions to the WP-CLI process
-	const defaultArgs = getDefaultPhpArgs( phpVersion, { autoPrependFile } );
+	const defaultArgs = getDefaultPhpArgs( phpVersion, {
+		autoPrependFile,
+		emailDirectory: getSiteEmailDirectory( site.id ),
+	} );
 	const wpCliArgs = applyWpCliCommandOptions( args, options );
 	const child = spawn(
 		getPhpBinaryPath( phpVersion ),

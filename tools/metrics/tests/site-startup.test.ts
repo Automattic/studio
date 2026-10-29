@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { E2ESession } from '../../../apps/studio/e2e/e2e-helpers';
 import AddSite from '../../../apps/studio/e2e/page-objects/add-site';
 import Sidebar from '../../../apps/studio/e2e/page-objects/sidebar';
-import { median } from '../utils';
+import { getRunningSince, median, recordRunningTimes } from '../utils';
 
 test.describe( 'Startup Metrics', () => {
 	const results: Record< string, number[] > = {};
@@ -11,6 +11,7 @@ test.describe( 'Startup Metrics', () => {
 
 	test.beforeAll( async () => {
 		await session.launch();
+		await recordRunningTimes( session.mainWindow );
 	} );
 
 	// eslint-disable-next-line no-empty-pattern
@@ -41,7 +42,7 @@ test.describe( 'Startup Metrics', () => {
 			const startTime = Date.now();
 			await addSite.createSite( { siteName } );
 			await sidebar.expectRunning( siteName );
-			results.siteCreation = [ Date.now() - startTime ];
+			results.siteCreation = [ ( await getRunningSince( statusButton ) ) - startTime ];
 		} );
 
 		results.siteStartup = [];
@@ -56,7 +57,7 @@ test.describe( 'Startup Metrics', () => {
 				const startTime = Date.now();
 				await statusButton.click();
 				await sidebar.expectRunning( siteName );
-				const duration = Date.now() - startTime;
+				const duration = ( await getRunningSince( statusButton ) ) - startTime;
 
 				console.log( `Run ${ i + 1 }/5: Restart took ${ duration }ms` );
 				results.siteStartup.push( duration );

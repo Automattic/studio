@@ -3,20 +3,14 @@ import { createReadStream, createWriteStream, existsSync, mkdtempSync, rm } from
 import os from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
-import { validateStudioChatFiles } from '@studio/common/ai/chat-files';
-import {
-	STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES,
-	validateStudioChatImages,
-} from '@studio/common/ai/chat-images';
 import {
 	getGlobalInstructionsEnabled,
 	readGlobalInstructionsFile,
 	setGlobalInstructionsEnabled,
 	writeGlobalInstructions,
-} from '@studio/common/ai/global-instructions';
-import { isAiModelId } from '@studio/common/ai/models';
-import { isAiProviderId, providerServesModel } from '@studio/common/ai/providers';
-import { createAgentRunManager } from '@studio/common/ai/run-manager';
+} from '@studio/agent/node/global-instructions';
+import { resolveLocalMediaFile } from '@studio/agent/node/local-media';
+import { createAgentRunManager } from '@studio/agent/node/run-manager';
 import {
 	createHydratedAiSession,
 	listHydratedAiSessions,
@@ -24,22 +18,28 @@ import {
 	reconcileSessionEnvironment,
 	setSessionEnvironment,
 	updateHydratedAiSessionMetadata,
-} from '@studio/common/ai/sessions/manage';
-import { deleteAiSessionPlacement } from '@studio/common/ai/sessions/placement';
+} from '@studio/agent/node/sessions/manage';
+import { deleteAiSessionPlacement } from '@studio/agent/node/sessions/placement';
 import {
 	appendModelChangeEntry,
 	appendStudioEntry,
 	deleteAiSession,
-} from '@studio/common/ai/sessions/store';
+} from '@studio/agent/node/sessions/store';
 import {
 	InvalidAnthropicApiKeyError,
 	readAiSettings,
 	saveAnthropicApiKey,
 	setAiProvider,
-} from '@studio/common/ai/settings-store';
-import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
-import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
-import { validateStudioVisualAnnotations } from '@studio/common/ai/visual-annotations';
+} from '@studio/agent/node/settings-store';
+import { validateStudioChatFiles } from '@studio/agent/protocol/chat-files';
+import {
+	STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES,
+	validateStudioChatImages,
+} from '@studio/agent/protocol/chat-images';
+import { isAiModelId } from '@studio/agent/protocol/models';
+import { isAiProviderId, providerServesModel } from '@studio/agent/protocol/providers';
+import { expandSkillCommandPrompt } from '@studio/agent/protocol/slash-commands';
+import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH, DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
 import {
 	getSiteAgentFiles,
@@ -77,7 +77,6 @@ import { generateNumberedName, generateSiteName } from '@studio/common/lib/gener
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
-import { resolveLocalMediaFile } from '@studio/common/lib/local-media';
 import { isSupportedLocale } from '@studio/common/lib/locale';
 import { getAuthenticationUrl, getSignUpUrl, revokeAuthToken } from '@studio/common/lib/oauth';
 import { decodePassword } from '@studio/common/lib/passwords';
@@ -117,8 +116,13 @@ import {
 	fetchRemoteFileTreeContents,
 	fetchSyncableSites,
 } from '@studio/common/lib/sync/sync-api';
+import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
 import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/editor';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
+import {
+	readOnboardingCompleted,
+	writeOnboardingCompleted,
+} from '@studio/common/lib/user-settings/onboarding';
 import {
 	onboardingHintsSchema,
 	readDefaultSiteDirectory,
@@ -151,11 +155,11 @@ import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
 import { isEditor, isTerminal, openInEditor, openInTerminal, openPath } from './open-in-os';
-import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
-import type { StudioChatImage } from '@studio/common/ai/chat-images';
-import type { AiSettings } from '@studio/common/ai/providers';
-import type { AiSessionMetadata } from '@studio/common/ai/sessions/types';
-import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
+import type { StudioChatFileAttachment } from '@studio/agent/protocol/chat-files';
+import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
+import type { AiSettings } from '@studio/agent/protocol/providers';
+import type { AiSessionMetadata } from '@studio/agent/protocol/sessions/types';
+import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type {
 	TracksEventName,
@@ -267,6 +271,7 @@ function toSiteDetails( site: SiteListItem, sortOrder?: number ) {
 		enableScriptDebug: site.enableScriptDebug,
 		environmentType: site.environmentType,
 		operation: site.operation,
+		emailPath: site.emailPath,
 		sortOrder,
 	};
 }
@@ -825,8 +830,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			await startSite( execute, site.path );
-			res.sendStatus( 204 );
+			res.json( await startSite( execute, site.path ) );
 		} )
 	);
 
@@ -839,8 +843,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			await stopSite( execute, site.path );
-			res.sendStatus( 204 );
+			res.json( await stopSite( execute, site.path ) );
 		} )
 	);
 
@@ -1505,6 +1508,30 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 
 	api.get(
+		'/onboarding',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( await readOnboardingCompleted() );
+		} )
+	);
+
+	api.patch(
+		'/onboarding',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const parsed = z.object( { completed: z.boolean() } ).safeParse( req.body );
+			if ( ! parsed.success ) {
+				res.status( 400 ).json( { error: 'Invalid onboarding state' } );
+				return;
+			}
+			if ( await writeOnboardingCompleted( parsed.data.completed ) ) {
+				trackEvent( TRACKS_EVENTS.ONBOARDING_COMPLETE, {
+					authenticated: !! ( await readAuthToken() ),
+				} );
+			}
+			res.status( 204 ).end();
+		} )
+	);
+
+	api.get(
 		'/onboarding-hints',
 		asyncHandler( async ( _req: Request, res: Response ) => {
 			res.json( await readOnboardingHints() );
@@ -1520,6 +1547,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			await writeOnboardingHints( parsed.data );
+			res.status( 204 ).end();
+		} )
+	);
+
+	api.post(
+		'/sites/:id/open-email-folder',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
+			if ( ! site?.emailPath ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			await openPath( site.emailPath );
 			res.status( 204 ).end();
 		} )
 	);

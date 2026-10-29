@@ -245,7 +245,7 @@ test.describe( 'Site settings', () => {
 		await page.getByRole( 'button', { name: 'Save', exact: true } ).click();
 		await page.getByRole( 'switch', { name: 'Debug log', exact: true } ).click();
 		await page.getByRole( 'button', { name: 'Save', exact: true } ).click();
-		await expect( page.getByRole( 'button', { name: 'Save', exact: true } ) ).toHaveCount( 0, {
+		await expect( page.getByRole( 'button', { name: 'Discard', exact: true } ) ).toHaveCount( 0, {
 			timeout: 120_000,
 		} );
 		await settings.close();

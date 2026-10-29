@@ -38,6 +38,9 @@
 			"entry": ["src/index.ts"],
 			"project": "src/**/*.{ts,tsx}"
 		},
+		"packages/agent": {
+			"project": "**/*.ts"
+		},
 		"packages/common": {
 			"entry": ["globals.ts"],
 			"project": "**/*.ts"

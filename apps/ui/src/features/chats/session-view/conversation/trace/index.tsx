@@ -15,7 +15,7 @@ import { ChevronDownIcon } from '@/lib/icons';
 import { CodeBlock, CollapsiblePanel, Spinner } from '@/lib/ui';
 import styles from './style.module.css';
 import type { TurnActivity } from '@/features/chats/session-view/conversation/transcript-items';
-import type { NormalizedToolResult } from '@studio/common/ai/tools';
+import type { NormalizedToolResult } from '@studio/agent/protocol/tools';
 
 function TraceTrigger( { children, ...props }: ComponentProps< 'button' > ) {
 	return (
@@ -102,7 +102,9 @@ export const ToolUseRow = memo( function ToolUseRow( {
 
 function isPersistentItem( item: TurnActivity[ 'items' ][ number ] ) {
 	return (
-		item.kind === 'agent-question-batch' || ( item.kind === 'assistant-text' && item.persistent )
+		item.kind === 'agent-question-batch' ||
+		item.kind === 'chat-artifact' ||
+		( item.kind === 'assistant-text' && item.persistent )
 	);
 }
 
@@ -142,11 +144,13 @@ export const TurnActivityLine = memo( function TurnActivityLine( {
 			.map( ( section ) => `${ panelId }-${ section.key }` ),
 		...( hasProgress ? [ `${ panelId }-progress` ] : [] ),
 	].join( ' ' );
-	const [ disclosure, setDisclosure ] = useState( { running, open: running } );
-	if ( disclosure.running !== running ) {
-		setDisclosure( { running, open: running } );
+	const working = running && ! waiting;
+	const [ disclosure, setDisclosure ] = useState( { running, waiting, open: working } );
+	if ( disclosure.running !== running || disclosure.waiting !== waiting ) {
+		setDisclosure( { running, waiting, open: working } );
 	}
-	const expanded = disclosure.running === running ? disclosure.open : running;
+	const expanded =
+		disclosure.running === running && disclosure.waiting === waiting ? disclosure.open : working;
 	const visibleItems = expanded ? items : items.filter( isPersistentItem );
 	const [ now, setNow ] = useState( Date.now );
 	useEffect( () => {
@@ -196,7 +200,7 @@ export const TurnActivityLine = memo( function TurnActivityLine( {
 				<TraceTrigger
 					aria-expanded={ expanded }
 					aria-controls={ controls }
-					onClick={ () => setDisclosure( { running, open: ! expanded } ) }
+					onClick={ () => setDisclosure( { running, waiting, open: ! expanded } ) }
 				>
 					{ heading }
 				</TraceTrigger>

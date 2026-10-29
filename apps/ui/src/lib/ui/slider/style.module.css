@@ -55,7 +55,7 @@
 	}
 
 	.thumb:has( :focus-visible ) {
-		box-shadow: 0 0 0 3px var( --ring );
+		box-shadow: 0 0 0 1px var( --input-ring );
 	}
 
 	.thumb[data-disabled] {

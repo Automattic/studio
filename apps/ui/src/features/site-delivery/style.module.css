@@ -17,11 +17,6 @@
 	overflow-y: auto;
 }
 
-.panel:has( [data-share-previews] ) {
-	height: auto;
-	max-height: min( 432px, calc( 100dvh - 100px ) );
-}
-
 .panel > * {
 	flex: 1;
 	min-height: 0;

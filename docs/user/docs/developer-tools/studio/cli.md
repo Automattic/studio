@@ -28,11 +28,11 @@ It’s especially useful for:
 
 ### [Standalone installer](#2-standalone-installer)
 
-**macOS / Linux**
+#### macOS / Linux
 
 curl -fsSL https://wordpress.studio/install.sh | bash
 
-**Windows (PowerShell)**
+#### Windows (PowerShell)
 
 irm https://wordpress.studio/install.ps1 | iex
 
@@ -179,7 +179,7 @@ Use `--from` to build a new site from existing static content: compiled build ou
 \# Create a site from a directory of static files
 studio create --from ./build
 
-# Create a site from a live website
+\# Create a site from a live website
 studio create --from https://example.com
 
 ### [Creating a local site using Blueprints Gallery](#12-creating-a-local-site-using-blueprints-gallery)
@@ -307,7 +307,7 @@ Press Ctrl+C in the terminal to stop it.
 
 `studio mcp` runs Studio’s MCP server, which lets AI agents create, configure, and inspect your local sites and work with your WordPress.com sites. It also serves Studio’s instructions and skills to the agent on demand. You don’t usually run it yourself: add it to your agent’s MCP configuration instead. See [MCP on Studio](https://developer.wordpress.com/docs/developer-tools/studio/mcp-on-studio/).
 
-## [Using WP-CLI through Studio](#17-using-wp-cli-through-studio)
+## [Using WP-CLI through Studio](#21-using-wp-cli-through-studio)
 
 The `studio wp` command gives you access to WP-CLI within the context of a Studio-managed site, without requiring you to install or configure WP-CLI separately.
 
@@ -337,7 +337,7 @@ For a complete list of supported WP-CLI subcommands and arguments, refer to the 
 studio wp help
 studio wp help <command>
 
-## [Using Studio CLI with AI coding agents](#18-using-studio-cli-with-ai-coding-agents)
+## [Using Studio CLI with AI coding agents](#22-using-studio-cli-with-ai-coding-agents)
 
 The Studio CLI works well with AI-assisted development tools and agents such as **Claude Code**, **Cursor**, and other IDE extensions that can run shell commands on your behalf.
 
@@ -347,7 +347,7 @@ Because these tools can see your project files and execute terminal commands, th
 -   Call `studio` commands automatically to manage local sites, previews, and WP-CLI tasks.
 -   Use command output to guide further code changes or debugging steps.
 
-### [Typical workflows with AI agents](#19-typical-workflows-with-ai-agents)
+### [Typical workflows with AI agents](#23-typical-workflows-with-ai-agents)
 
 Below are some concrete ways to combine Studio CLI with an AI coding agent.
 
@@ -407,7 +407,7 @@ This is particularly useful when:
 -   Sharing progress with non-technical stakeholders.
 -   Collaborating with teammates who need to see live behavior without setting up a local environment.
 
-### [Best practices when using AI agents with Studio CLI](#20-best-practices-when-using-ai-agents-with-studio-cli)
+### [Best practices when using AI agents with Studio CLI](#24-best-practices-when-using-ai-agents-with-studio-cli)
 
 -   **Stay in a Studio site root**: Many commands assume the current directory is a Studio-managed site. Remind your agent to `cd` into the correct folder or to use `--path`.
 -   **Be explicit in instructions**: When prompting an agent, mention “use the `studio` CLI” and any constraints, for example:
@@ -419,7 +419,7 @@ This is particularly useful when:
 
 By combining Studio CLI with AI coding agents, you can offload much of the repetitive environment setup, testing, and deployment orchestration, and focus more on writing and reviewing your WordPress code.
 
-## [Getting help](#21-getting-help)
+## [Getting help](#25-getting-help)
 
 Every command and subcommand supports `--help` for inline documentation, usage, and available options. For example:
 

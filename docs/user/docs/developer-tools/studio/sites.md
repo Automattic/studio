@@ -15,7 +15,7 @@ To add a new site to Studio:
 [![Screenshot of the Add site dialog](https://developer.wordpress.com/wp-content/uploads/2025/01/add-a-site.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/add-a-site.png)
 
 3.  For now, stay on **Create**. Under **Choose a starting point**, click **Blank site**.
-4.  On the **Create your site** screen, enter a **Site name**. You can also describe the site you want under **What should we create?**, and attach reference images or files with the **+** button. If you do, Studio creates the site and starts a Studio Code chat with your description. This requires a connected [AI provider](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/#11-ai-providers).
+4.  On the **Create your site** screen, enter a **Site name**. You can also describe the site you want under **What should we create?**, and attach reference images or files with the **+** button. If you do, Studio creates the site and starts a Studio Code chat with your description. This requires a connected [AI provider](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/#ai-providers).
 5.  (Optional) Expand **Advanced settings** to change the following settings:
     -   **Local path**: the folder for the site. It must be empty, or contain an existing WordPress site.
     -   **WordPress version**: keep **Auto-update** to let WordPress update itself, or pick a specific version

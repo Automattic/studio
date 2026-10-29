@@ -41,7 +41,7 @@ We discourage editing this SQLite file directly using third-party tools like a t
 
 Instead, Studio includes a built-in phpMyAdmin interface, adapted to work safely with SQLite while preserving the familiar phpMyAdmin experience. This is the recommended way to browse tables, run queries, and edit your site’s database.
 
-**Using phpMyAdmin**
+#### Using phpMyAdmin
 
 1.  Select the local site within Studio.
 2.  Open the site menu: click the site icon at the top of the chat, or right-click the site in the sidebar.
@@ -86,12 +86,12 @@ For each of your local sites, the following options are available under **Open i
 
 <!-- TODO screenshot: add `site-menu-open-in.webp` from `npm run screenshots` (Studio 2.0) here: the site menu’s Open in submenu. -->
 
-**File Browsers:**
+#### File browsers
 
 -   Finder (for macOS)
 -   File Explorer (for Windows)
 
-**Code Editors:**
+#### Code editors
 
 -   Antigravity
 -   Cursor
@@ -102,7 +102,7 @@ For each of your local sites, the following options are available under **Open i
 -   Windsurf
 -   Zed
 
-**Terminal Applications:**
+#### Terminal applications
 
 -   Terminal (for macOS)
 -   iTerm (for macOS)
@@ -110,7 +110,7 @@ For each of your local sites, the following options are available under **Open i
 -   Command Prompt (for Windows)
 -   Ghostty
 
-**Database Administration Tools:**
+#### Database administration tools
 
 -   phpMyAdmin
 

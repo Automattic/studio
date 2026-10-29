@@ -29,7 +29,7 @@ When a skill is installed, Studio copies it into the site directory:
 
 ![Folder structure of a web development project showing directories and files related to WordPress, including 'wp-config.php' and various folders like 'skills' and 'studio-cli'.](https://developer.wordpress.com/wp-content/uploads/2026/04/image-6.png?w=624)
 
-For agents that use Claude’s directory layout, Studio also creates a symlink at `.claude/skills/\<skill-id>` pointing to the same location. No additional configuration is needed for Claude Code to pick up the skill.
+For agents that use Claude’s directory layout, Studio also creates a symlink at `.claude/skills/<skill-id>` pointing to the same location. No additional configuration is needed for Claude Code to pick up the skill.
 
 ## [Installing and removing skills in Studio](#3-installing-and-removing-skills-in-studio)
 

@@ -80,17 +80,16 @@ Use this fallback only if auto-trust didn’t take effect.
 
 [![](https://developer.wordpress.com/wp-content/uploads/2025/03/cleanshot-2026-05-18-at-11.54.43402x.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/03/cleanshot-2026-05-18-at-11.54.43402x.png)
 
-3\. Switch to the **Authorities** tab and click **Import…**.
+3.  Switch to the **Authorities** tab and click **Import…**.
 
 [![](https://developer.wordpress.com/wp-content/uploads/2025/03/cleanshot-2026-05-18-at-11.54.52402x.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/03/cleanshot-2026-05-18-at-11.54.52402x.png)
 
-4\. Select `~/.studio/certificates/studio-ca.crt`.
-
-5\. Check **Trust this CA to identify websites** and click **OK**.
+4.  Select `~/.studio/certificates/studio-ca.crt`.
+5.  Check **Trust this CA to identify websites** and click **OK**.
 
 [![](https://developer.wordpress.com/wp-content/uploads/2025/03/cleanshot-2026-05-18-at-11.55.19402x.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/03/cleanshot-2026-05-18-at-11.55.19402x.png)
 
-6\. Fully quit and relaunch Firefox.
+6.  Fully quit and relaunch Firefox.
 
 #### Chromium / Chrome / Brave / Edge (CLI)
 

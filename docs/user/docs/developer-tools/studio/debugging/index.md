@@ -38,11 +38,11 @@ The **Debug** page also includes:
 -   **Script debugging**, which sets `SCRIPT_DEBUG`. WordPress then loads the development versions of core CSS and JavaScript instead of the minified files, which is useful for reading React errors in the block editor.
 -   **Environment**, which sets the value returned by `wp_get_environment_type()`: **Local** (the default), **Development**, **Staging**, or **Production**. Plugins and themes use it to vary their behavior between environments.
 
-### [Using AI agents to interpret debug logs](#3-using-ai-agents-to-interpret-debug-logs)
+### [Using AI agents to interpret debug logs](#4-using-ai-agents-to-interpret-debug-logs)
 
 Once your debug log is active, you can point an AI agent directly at it. Tell your agent — whether you’re using Claude Code, Cursor, or another tool — that error logs are available at `wp-content/debug.log`. From there, it can read the output, identify what’s going wrong, and suggest fixes without breaking your flow.
 
-## [Database access with phpMyAdmin](#4-database-access-with-phpmyadmin)
+## [Database access with phpMyAdmin](#5-database-access-with-phpmyadmin)
 
 Inspecting or editing your local database used to mean a separate tool and a separate setup. Studio includes phpMyAdmin access directly in the app — so you can query tables, check data, and debug schema issues without leaving the app or configuring anything.
 
@@ -54,7 +54,7 @@ To open phpMyAdmin for a running site, select the site and use either of these:
 <!-- TODO screenshot: replace with `preview-destinations.webp` from `npm run screenshots` (Studio 2.0): the address bar shortcuts. -->
 [![](https://developer.wordpress.com/wp-content/uploads/2026/04/preview-destinations.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/preview-destinations.png)
 
-## [Step-through debugging with Xdebug](#5-step-through-debugging-with-xdebug)
+## [Step-through debugging with Xdebug](#6-step-through-debugging-with-xdebug)
 
 For deeper investigation, Studio includes [Xdebug](https://xdebug.org/) support. Instead of scattering debug output through your code, you can set breakpoints, step through execution line by line, and inspect variables in real time — all from your editor.
 

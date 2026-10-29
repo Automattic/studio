@@ -4,7 +4,7 @@ The backbone of every WordPress site is the PHP code that runs on the server. PH
 
 Studio runs every site on native PHP binaries. Native PHP runs the code with few abstractions around the system, so sites are fast and behave like they would on a typical PHP server. Studio supports PHP 8.2, 8.3, 8.4, and 8.5.
 
-### What happened to the Sandbox runtime?
+## [What happened to the Sandbox runtime?](#0-what-happened-to-the-sandbox-runtime-)
 
 Earlier versions of Studio offered a second runtime, **Sandbox**, which ran sites on [WordPress Playground](https://wordpress.org/playground/) WebAssembly binaries. Studio 1.24.0 removed the Sandbox runtime, and the **PHP runtime** setting has been removed from the create site form and from site settings.
 
@@ -20,7 +20,7 @@ A few things to be aware of after the move:
 
 The Studio CLI no longer accepts the `--runtime` option for `studio create` or `studio config set`.
 
-### File access
+## [File access](#1-file-access)
 
 The **File access** setting controls which files PHP can access on your computer. It has two options:
 
@@ -44,7 +44,7 @@ studio config set --file-access all-files
 
 Use `--file-access site-directory` to restore the default. You can also pass `--file-access` to `studio create`.
 
-#### Child processes
+### [Child processes](#2-child-processes)
 
 PHP can run external commands and spawn any child process, just like a typical local PHP installation. This keeps plugins and tools that shell out working, such as image processing, backups, and Git.
 

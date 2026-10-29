@@ -4,7 +4,7 @@ Studio Code is an agentic coding tool built into the Studio desktop app and [Stu
 
 It gives you an interactive chat where you can build, customize, and manage WordPress sites conversationally, creating themes and plugins, editing files, running WP-CLI commands, deploying previews and publishing your site.
 
-To use it with WordPress.com AI credits, you need to be logged into your WordPress.com account, and [having a payment method on WordPress.com is required](http://wordpress.com/me/purchases/add-payment-method) to prevent abuse. You can also [use your own Anthropic API key](#17-use-your-own-anthropic-api-key) instead. 
+To use it with WordPress.com AI credits, you need to be logged into your WordPress.com account, and [having a payment method on WordPress.com is required](http://wordpress.com/me/purchases/add-payment-method) to prevent abuse. You can also [use your own Anthropic API key](#use-your-own-anthropic-api-key) instead. 
 
 ## [Getting started](#0-getting-started)
 
@@ -46,7 +46,7 @@ By default, Studio Code uses WordPress.com infrastructure to generate AI respons
 3.  A browser window will open. Log into your WordPress.com account and approve the connection.
 4.  Paste the authorization token back into the terminal to complete the login.
 
-Alternatively, you can [use your own Anthropic API key](#17-use-your-own-anthropic-api-key): type /api-key in the chat in the terminal, or connect **Anthropic** in **Settings → AI Providers** in the desktop app.
+Alternatively, you can [use your own Anthropic API key](#use-your-own-anthropic-api-key): type /api-key in the chat in the terminal, or connect **Anthropic** in **Settings → AI Providers** in the desktop app.
 
 ## [Using Studio Code](#4-using-studio-code)
 
@@ -89,7 +89,7 @@ In the desktop app, a chat for a local site that’s [connected to a WordPress.c
 
 When the agent edits a block theme’s templates, those edits now also apply to customizations made in the Site Editor, instead of being silently skipped.
 
-### [Slash commands](#6-slash-commands)
+### [Slash commands](#8-slash-commands)
 
 While chatting, you can use slash commands for quick actions. In the desktop app, type `/` in the chat box to list the commands and skills that match, or click **+** to see them all under **Commands** and **Skills**. The desktop app shows skills by name, for example **Performance Audit** for `/need-for-speed` and **SEO Audit** for `/rank-me-up`.
 
@@ -115,7 +115,7 @@ While chatting, you can use slash commands for quick actions. In the desktop app
 | /swag | Treat yourself to some WordPress swag | Terminal |
 | /taxonomist | Optimize your category taxonomy | Terminal and desktop |
 
-### [AI model tiers](#7-ai-model-tiers)
+### [AI model tiers](#9-ai-model-tiers)
 
 Studio Code doesn’t ask you to pick a model by name. Instead, you choose a tier based on how much depth the task needs:
 
@@ -134,16 +134,16 @@ Switch tiers at any time, including mid-conversation:
 
 <!-- TODO screenshot: add `model-menu.webp` from `npm run screenshots` (Studio 2.0, signed-in suite) here: the chat box model menu (Fast, Balanced, Strong) with the AI credits remaining. -->
 
-If you use your own Anthropic API key, the model menu lists **Sonnet 5** and **Opus 5** instead of tiers. See [AI providers](#11-ai-providers).
+If you use your own Anthropic API key, the model menu lists **Sonnet 5** and **Opus 5** instead of tiers. See [AI providers](#ai-providers).
 
-### [Uploads](#8-uploads)
+### [Uploads](#10-uploads)
 
 Upload images and files into Studio Code to use across your project:
 
 -   **Desktop**: drag files into the chat, paste them, or click **+** in the chat box and choose **Add files**
 -   **Terminal**: drag into the chat or point to a specific local file or folder
 
-### [New conversations](#9-new-conversations)
+### [New conversations](#11-new-conversations)
 
 Clear your conversation and start a new one:
 
@@ -152,7 +152,7 @@ Clear your conversation and start a new one:
 
 In the desktop app, each site’s chats are listed under the site in the sidebar, and your latest chats also appear under **Recent**. Right-click a chat to **Pin**, **Rename**, **Mark as unread**, or **Archive** it. Archiving removes the chat from the sidebar; click **Undo** in the notification to bring it back.
 
-### [AI providers](#11-ai-providers)
+### [AI providers](#ai-providers)
 
 You can choose how AI responses are generated, in both the desktop app and the terminal:
 
@@ -163,15 +163,15 @@ With your own key, the model menu offers **Sonnet 5** and **Opus 5** instead of 
 
 Switching a chat between WordPress.com and Anthropic models starts a new chat, because the models don’t share memory. In the desktop app, Studio asks you to confirm first (**Start a new chat?**), and your previous chat stays in the sidebar.
 
-## [Terminal-specific guidance](#10-terminal-specific-guidance)
+## [Terminal-specific guidance](#terminal-specific-guidance)
 
 The terminal version of Studio Code has a few additional capabilities:
 
-### [Sessions](#12-sessions)
+### [Sessions](#14-sessions)
 
 Studio Code automatically saves your conversation history so you can pick up where you left off.
 
-**Resume a session**
+#### Resume a session
 
 ```plain
 studio code sessions list                  # View all saved sessions
@@ -183,7 +183,7 @@ studio code sessions resume latest         # Resume the most recent session
 studio code sessions resume <id>           # Resume a specific session by ID
 ```
 
-**Delete a session**
+#### Delete a session
 
 ```plain
 studio code sessions delete                # Interactive picker
@@ -191,7 +191,7 @@ studio code sessions delete                # Interactive picker
 studio code sessions delete <id>           # Delete a specific session
 ```
 
-**Disable session recording**
+#### Disable session recording
 
 If you prefer not to save conversations, use the –no-session-persistence flag:
 
@@ -199,7 +199,7 @@ If you prefer not to save conversations, use the –no-session-persistence flag:
 studio code --no-session-persistence
 ```
 
-**Command references**
+#### Command references
 
 ```plain
 studio code                                # Start a new chat session
@@ -221,13 +221,13 @@ For the full set of options:
 studio code --help
 ```
 
-## [Usage limits](#13-usage-limits)
+## [Usage limits](#15-usage-limits)
 
-### [AI Credits](#14-ai-credits)
+### [AI Credits](#16-ai-credits)
 
 When you use the default WordPress.com provider, Studio Code’s AI usage is paid for with AI Credits. Every account starts with a one-time free allowance, which can be used with the Fast tier. To keep going once it runs out, or to use Balanced and Strong, buy AI Credits from inside Studio Code. See [How AI Credits Work](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/ai-credits-guidelines/) for details on purchases and account rules.
 
-### [Check your usage](#15-check-your-usage)
+### [Check your usage](#17-check-your-usage)
 
 Studio Code shows your remaining AI Credits as you work:
 
@@ -238,7 +238,7 @@ Studio Code shows your remaining AI Credits as you work:
 
 Studio Code warns you when you have used 80% and 90% of your AI Credits.
 
-### [What happens when you reach the limit](#16-what-happens-when-you-reach-the-limit)
+### [What happens when you reach the limit](#18-what-happens-when-you-reach-the-limit)
 
 AI responses pause until you add more AI Credits. Your local sites keep running normally; only the AI agent is unavailable.
 
@@ -247,7 +247,7 @@ When that happens, you have two options:
 1.  **Buy more AI Credits** from inside Studio Code.
 2.  **Use your own Anthropic API key** — Usage through your own key is billed by Anthropic and doesn’t use AI Credits.
 
-### [Use your own Anthropic API key](#17-use-your-own-anthropic-api-key)
+### [Use your own Anthropic API key](#use-your-own-anthropic-api-key)
 
 You can connect Studio Code directly to Anthropic at any time using your own API key. This option is available in the CLI version of Studio Code and in the desktop app.
 
@@ -271,6 +271,5 @@ studio code
 ```
 
 3.  Type `/provider`, and select “Anthropic · API key” in the chat and paste your key when prompted. The key is saved locally for future sessions.
-
-5.  To switch back and forth between providers at any time, use the `/provider` command and choose **WordPress.com** or **Anthropic · API key**.
-6.  To change your API key, use the `/api-key` command, which will prompt you to enter a new key.
+4.  To switch back and forth between providers at any time, use the `/provider` command and choose **WordPress.com** or **Anthropic · API key**.
+5.  To change your API key, use the `/api-key` command, which will prompt you to enter a new key.

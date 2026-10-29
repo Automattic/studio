@@ -94,14 +94,14 @@ Once you’ve logged into WordPress.com, your account menu replaces the **Log in
 
 <!-- TODO screenshot: add `account-menu.webp` from `npm run screenshots` (Studio 2.0, signed-in suite) here: the account menu, with the email masked; `main-window-signed-in.webp` and `settings-account.webp` (Settings → General, account row) are alternatives. -->
 
-## [Next steps and feedback](#5-next-steps-and-feedback)
+## [Next steps and feedback](#6-next-steps-and-feedback)
 
 We hope Studio effortlessly fits into your local development workflow. Be sure to check out our other docs about specific Studio features:
 
 -   [Studio Sites](https://developer.wordpress.com/docs/developer-tools/studio/sites/)
 -   [Preview Sites](https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/)
 -   [Studio Sync](https://developer.wordpress.com/docs/developer-tools/studio/sync/)
--   [](https://developer.wordpress.com/docs/developer-tools/studio/import-export/)[Import & Export](https://developer.wordpress.com/docs/developer-tools/studio/import-export/)
+-   [Import & Export](https://developer.wordpress.com/docs/developer-tools/studio/import-export/)
 -   [Studio Code](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/)
 -   [SSL in Studio](https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/)
 -   [Studio CLI](https://developer.wordpress.com/docs/developer-tools/studio/cli/)

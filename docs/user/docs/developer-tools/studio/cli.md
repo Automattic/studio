@@ -23,7 +23,7 @@ It’s especially useful for:
 3.  On the **General** page, under **Studio CLI**, turn on the **Studio CLI for terminal** option.
 4.  On macOS, you’ll be prompted for your account password to allow installation.
 
-<!-- TODO screenshot: replace with `settings-studio-cli.png` from `npm run screenshots` (Studio 2.0): Settings → General → Studio CLI for terminal. -->
+<!-- TODO screenshot: replace with `settings-studio-cli.webp` from `npm run screenshots` (Studio 2.0): Settings → General → Studio CLI for terminal. -->
 [![](https://developer.wordpress.com/wp-content/uploads/2025/05/app-settings-account.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/05/app-settings-account.png)
 
 ### [Standalone installer](#2-standalone-installer)

@@ -20,7 +20,7 @@ claude mcp add wordpress-studio -- studio mcp
 codex mcp add wordpress-studio -- studio mcp
 ```
 
-<!-- TODO screenshot: replace with `settings-mcp.png` from `npm run screenshots` (Studio 2.0): Settings → MCP. -->
+<!-- TODO screenshot: replace with `settings-mcp.webp` from `npm run screenshots` (Studio 2.0): Settings → MCP. -->
 [![The MCP page of Studio's Settings, with the install instructions and the MCP configuration.](https://developer.wordpress.com/wp-content/uploads/2026/04/app-settings-mcp.png)](https://developer.wordpress.com/wp-content/uploads/2026/04/app-settings-mcp.png)
 
 Common configuration file locations are:

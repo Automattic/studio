@@ -93,7 +93,7 @@ When the agent edits a block theme’s templates, those edits now also apply to 
 
 While chatting, you can use slash commands for quick actions. In the desktop app, type `/` in the chat box to list the commands and skills that match, or click **+** to see them all under **Commands** and **Skills**. The desktop app shows skills by name, for example **Performance Audit** for `/need-for-speed` and **SEO Audit** for `/rank-me-up`.
 
-<!-- TODO screenshot: add `composer-add-menu.png` from `npm run screenshots` (Studio 2.0) here: the chat box + menu with Add files, Auto-start, Connect AI providers, and Skills. -->
+<!-- TODO screenshot: add `composer-add-menu.webp` from `npm run screenshots` (Studio 2.0) here: the chat box + menu with Add files, Auto-start, Connect AI providers, and Skills. -->
 
 | Command | Description | Available in… |
 | --- | --- | --- |
@@ -258,7 +258,7 @@ To use your own key in the desktop app:
 3.  Next to **Anthropic**, click **Connect**, paste your key in the **Anthropic API key** field, and click **Save**.
 4.  In the chat box, choose **Sonnet 5** or **Opus 5** from the model menu.
 
-<!-- TODO screenshot: replace with `settings-ai-providers.png` from `npm run screenshots` (Studio 2.0): Settings → AI Providers. -->
+<!-- TODO screenshot: replace with `settings-ai-providers.webp` from `npm run screenshots` (Studio 2.0): Settings → AI Providers. -->
 [![The AI Providers page of Studio's Settings, with the WordPress.com and Anthropic providers](https://developer.wordpress.com/wp-content/uploads/2026/04/app-settings-ai.png)](https://developer.wordpress.com/wp-content/uploads/2026/04/app-settings-ai.png)
 
 To switch it using CLI:

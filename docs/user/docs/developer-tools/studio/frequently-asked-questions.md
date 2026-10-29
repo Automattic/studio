@@ -52,7 +52,7 @@ You can also open phpMyAdmin inside Studio: click the site preview’s address b
 
 From there, you can browse tables, inspect data, run SQL queries, and make edits through a familiar, safe interface — without needing to touch the underlying `.ht.sqlite` file directly.
 
-<!-- TODO screenshot: add `preview-destinations.png` from `npm run screenshots` (Studio 2.0) here: the address bar shortcuts, with Database. -->
+<!-- TODO screenshot: add `preview-destinations.webp` from `npm run screenshots` (Studio 2.0) here: the address bar shortcuts, with Database. -->
 
 ### [How can I use Studio with the MySQL server of my choice?](#use-studio-with-mysql-server)
 
@@ -84,7 +84,7 @@ You can select the PHP version or the WordPress version for your site when you f
 
 For each of your local sites, the following options are available under **Open in** in the site menu:
 
-<!-- TODO screenshot: add `site-menu-open-in.png` from `npm run screenshots` (Studio 2.0) here: the site menu’s Open in submenu. -->
+<!-- TODO screenshot: add `site-menu-open-in.webp` from `npm run screenshots` (Studio 2.0) here: the site menu’s Open in submenu. -->
 
 **File Browsers:**
 

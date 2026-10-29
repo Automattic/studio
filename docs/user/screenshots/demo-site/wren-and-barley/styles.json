@@ -1,0 +1,274 @@
+{
+	"settings": {
+		"color": {
+			"palette": [
+				{
+					"slug": "base",
+					"color": "#FFFFFF",
+					"name": "Base"
+				},
+				{
+					"slug": "contrast",
+					"color": "#31261D",
+					"name": "Contrast"
+				},
+				{
+					"slug": "accent-1",
+					"color": "#B2583C",
+					"name": "Terracotta"
+				},
+				{
+					"slug": "accent-2",
+					"color": "#F7F2EB",
+					"name": "Cream"
+				},
+				{
+					"slug": "accent-3",
+					"color": "#8A7B6E",
+					"name": "Taupe"
+				},
+				{
+					"slug": "accent-4",
+					"color": "#5C4D40",
+					"name": "Umber"
+				},
+				{
+					"slug": "accent-5",
+					"color": "#EFE7DC",
+					"name": "Sand"
+				},
+				{
+					"slug": "accent-6",
+					"color": "#31261D33",
+					"name": "Shade"
+				}
+			]
+		},
+		"typography": {
+			"fontFamilies": [
+				{
+					"name": "Literata",
+					"slug": "literata",
+					"fontFamily": "Literata, serif",
+					"fontFace": [
+						{
+							"src": [ "file:./assets/fonts/literata/Literata72pt-ExtraLight.woff2" ],
+							"fontWeight": "200",
+							"fontStyle": "normal",
+							"fontFamily": "Literata"
+						},
+						{
+							"src": [ "file:./assets/fonts/literata/Literata72pt-ExtraLightItalic.woff2" ],
+							"fontWeight": "200",
+							"fontStyle": "italic",
+							"fontFamily": "Literata"
+						},
+						{
+							"src": [ "file:./assets/fonts/literata/Literata72pt-Light.woff2" ],
+							"fontWeight": "300",
+							"fontStyle": "normal",
+							"fontFamily": "Literata"
+						},
+						{
+							"src": [ "file:./assets/fonts/literata/Literata72pt-LightItalic.woff2" ],
+							"fontWeight": "300",
+							"fontStyle": "italic",
+							"fontFamily": "Literata"
+						},
+						{
+							"src": [ "file:./assets/fonts/literata/Literata72pt-Regular.woff2" ],
+							"fontWeight": "400",
+							"fontStyle": "normal",
+							"fontFamily": "Literata"
+						},
+						{
+							"src": [ "file:./assets/fonts/literata/Literata72pt-RegularItalic.woff2" ],
+							"fontWeight": "400",
+							"fontStyle": "italic",
+							"fontFamily": "Literata"
+						},
+						{
+							"src": [ "file:./assets/fonts/literata/Literata72pt-Medium.woff2" ],
+							"fontWeight": "500",
+							"fontStyle": "normal",
+							"fontFamily": "Literata"
+						},
+						{
+							"src": [ "file:./assets/fonts/literata/Literata72pt-MediumItalic.woff2" ],
+							"fontWeight": "500",
+							"fontStyle": "italic",
+							"fontFamily": "Literata"
+						},
+						{
+							"src": [ "file:./assets/fonts/literata/Literata72pt-SemiBold.woff2" ],
+							"fontWeight": "600",
+							"fontStyle": "normal",
+							"fontFamily": "Literata"
+						},
+						{
+							"src": [ "file:./assets/fonts/literata/Literata72pt-SemiBoldItalic.woff2" ],
+							"fontWeight": "600",
+							"fontStyle": "italic",
+							"fontFamily": "Literata"
+						},
+						{
+							"src": [ "file:./assets/fonts/literata/Literata72pt-Bold.woff2" ],
+							"fontWeight": "700",
+							"fontStyle": "normal",
+							"fontFamily": "Literata"
+						},
+						{
+							"src": [ "file:./assets/fonts/literata/Literata72pt-BoldItalic.woff2" ],
+							"fontWeight": "700",
+							"fontStyle": "italic",
+							"fontFamily": "Literata"
+						},
+						{
+							"src": [ "file:./assets/fonts/literata/Literata72pt-ExtraBold.woff2" ],
+							"fontWeight": "800",
+							"fontStyle": "normal",
+							"fontFamily": "Literata"
+						},
+						{
+							"src": [ "file:./assets/fonts/literata/Literata72pt-ExtraBoldItalic.woff2" ],
+							"fontWeight": "800",
+							"fontStyle": "italic",
+							"fontFamily": "Literata"
+						},
+						{
+							"src": [ "file:./assets/fonts/literata/Literata72pt-Black.woff2" ],
+							"fontWeight": "900",
+							"fontStyle": "normal",
+							"fontFamily": "Literata"
+						},
+						{
+							"src": [ "file:./assets/fonts/literata/Literata72pt-BlackItalic.woff2" ],
+							"fontWeight": "900",
+							"fontStyle": "italic",
+							"fontFamily": "Literata"
+						}
+					]
+				}
+			]
+		}
+	},
+	"styles": {
+		"color": {
+			"background": "var:preset|color|base",
+			"text": "var:preset|color|contrast"
+		},
+		"typography": {
+			"fontFamily": "var:preset|font-family|literata",
+			"fontSize": "1.05rem",
+			"lineHeight": "1.6"
+		},
+		"elements": {
+			"button": {
+				"color": {
+					"background": "var:preset|color|accent-1",
+					"text": "var:preset|color|base"
+				},
+				"border": {
+					"radius": "0"
+				},
+				"shadow": "none",
+				"typography": {
+					"fontFamily": "var:preset|font-family|literata",
+					"fontSize": "0.8rem",
+					"fontWeight": "500",
+					"letterSpacing": "0.16em",
+					"textTransform": "uppercase"
+				},
+				"spacing": {
+					"padding": {
+						"top": "0.9rem",
+						"bottom": "0.9rem",
+						"left": "1.6rem",
+						"right": "1.6rem"
+					}
+				},
+				":hover": {
+					"color": {
+						"background": "var:preset|color|contrast",
+						"text": "var:preset|color|base"
+					}
+				}
+			},
+			"heading": {
+				"typography": {
+					"fontFamily": "var:preset|font-family|literata",
+					"fontWeight": "400",
+					"letterSpacing": "0.1em",
+					"textTransform": "uppercase",
+					"lineHeight": "1.25"
+				}
+			},
+			"h1": {
+				"typography": {
+					"fontSize": "2.2rem"
+				}
+			},
+			"h2": {
+				"typography": {
+					"fontSize": "1.9rem"
+				}
+			},
+			"h3": {
+				"typography": {
+					"fontSize": "1.05rem",
+					"letterSpacing": "0.16em"
+				}
+			},
+			"link": {
+				"color": {
+					"text": "var:preset|color|accent-1"
+				},
+				":hover": {
+					"color": {
+						"text": "var:preset|color|contrast"
+					}
+				}
+			}
+		},
+		"blocks": {
+			"core/site-title": {
+				"typography": {
+					"fontFamily": "var:preset|font-family|literata",
+					"fontWeight": "400",
+					"letterSpacing": "0.3em",
+					"textTransform": "uppercase"
+				}
+			},
+			"core/navigation": {
+				"typography": {
+					"fontFamily": "var:preset|font-family|literata",
+					"fontSize": "0.82rem",
+					"fontWeight": "500",
+					"letterSpacing": "0.16em",
+					"textTransform": "uppercase"
+				}
+			},
+			"core/post-date": {
+				"typography": {
+					"fontFamily": "var:preset|font-family|literata",
+					"fontSize": "0.78rem",
+					"letterSpacing": "0.12em",
+					"textTransform": "uppercase"
+				},
+				"color": {
+					"text": "var:preset|color|accent-3"
+				}
+			},
+			"core/quote": {
+				"typography": {
+					"fontStyle": "italic"
+				},
+				"border": {
+					"color": "var:preset|color|accent-1",
+					"width": "0 0 0 2px",
+					"style": "solid"
+				}
+			}
+		}
+	}
+}

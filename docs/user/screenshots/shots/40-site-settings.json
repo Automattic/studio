@@ -1,0 +1,151 @@
+{
+	"name": "site-settings",
+	"description": "The Settings dialog, Site scope: Settings, Debug and PHP",
+	"capture": {
+		"target": {
+			"role": "dialog",
+			"name": "Settings",
+			"exact": true
+		}
+	},
+	"shots": [
+		{
+			"name": "site-settings",
+			"description": "Settings dialog, Site scope → Settings (site name, WordPress version, local domain, credentials)",
+			"pages": [ "sites.md" ],
+			"replaces": [ "2025/01/site-settings.png" ],
+			"steps": [
+				{
+					"helper": "openSiteMenu"
+				},
+				{
+					"click": {
+						"role": "menuitem",
+						"name": "Settings",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "tabpanel",
+						"name": "Settings",
+						"exact": true
+					}
+				}
+			]
+		},
+		{
+			"name": "site-settings-domain",
+			"description": "Site settings → Local domain with Use custom domain and Enable HTTPS (not saved)",
+			"pages": [ "ssl-in-studio.md" ],
+			"steps": [
+				{
+					"toggle": {
+						"within": {
+							"role": "tabpanel",
+							"name": "Settings",
+							"exact": true
+						},
+						"name": "Use custom domain"
+					},
+					"on": true
+				},
+				{
+					"toggle": {
+						"within": {
+							"role": "tabpanel",
+							"name": "Settings",
+							"exact": true
+						},
+						"name": "Enable HTTPS"
+					},
+					"on": true
+				},
+				{
+					"scrollTo": {
+						"within": {
+							"role": "tabpanel",
+							"name": "Settings",
+							"exact": true
+						},
+						"text": "Local domain",
+						"exact": true
+					}
+				}
+			],
+			"after": [
+				{
+					"helper": "discardSettings"
+				}
+			]
+		},
+		{
+			"name": "site-settings-debug",
+			"description": "Site settings → Debug with Xdebug turned on (not saved)",
+			"pages": [ "xdebug.md", "debugging/index.md" ],
+			"replaces": [ "2026/01/site-debugging.png" ],
+			"steps": [
+				{
+					"click": {
+						"within": {
+							"role": "tablist",
+							"name": "Settings sections"
+						},
+						"role": "tab",
+						"name": "Debug",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "tabpanel",
+						"name": "Debug",
+						"exact": true
+					}
+				},
+				{
+					"toggle": {
+						"within": {
+							"role": "tabpanel",
+							"name": "Debug",
+							"exact": true
+						},
+						"name": "Xdebug"
+					},
+					"on": true
+				}
+			],
+			"after": [
+				{
+					"helper": "discardSettings"
+				}
+			]
+		},
+		{
+			"name": "site-settings-php",
+			"description": "Site settings → PHP (PHP version, File access)",
+			"pages": [ "php-runtimes.md", "sites.md" ],
+			"replaces": [ "2025/01/site-settings-php.png" ],
+			"steps": [
+				{
+					"click": {
+						"within": {
+							"role": "tablist",
+							"name": "Settings sections"
+						},
+						"role": "tab",
+						"name": "PHP",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "tabpanel",
+						"name": "PHP",
+						"exact": true
+					}
+				}
+			]
+		}
+	]
+}

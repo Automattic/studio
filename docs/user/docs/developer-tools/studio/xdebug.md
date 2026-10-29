@@ -9,7 +9,7 @@ WordPress Studio includes Xdebug support for local sites. [Xdebug](https://xdebu
 3.  Turn on **Xdebug**.
 4.  Click **Save** at the top of the dialog.
 
-<!-- TODO screenshot: replace with `site-settings-debug.png` from `npm run screenshots` (Studio 2.0): the Site scope Debug page with Xdebug turned on. -->
+<!-- TODO screenshot: replace with `site-settings-debug.webp` from `npm run screenshots` (Studio 2.0): the Site scope Debug page with Xdebug turned on. -->
 [![The Debug page of a site's settings in Studio, with Xdebug turned on.](https://developer.wordpress.com/wp-content/uploads/2026/01/site-debugging.png)](https://developer.wordpress.com/wp-content/uploads/2026/01/site-debugging.png)
 
 The site will restart automatically with Xdebug enabled. While Xdebug is enabled, the site shows an Xdebug icon in the sidebar.

@@ -1,0 +1,80 @@
+[
+	{
+		"name": "hero-counter",
+		"file": "File:Bread at a Bakery (Unsplash).jpg",
+		"author": "Roman Kraft",
+		"alt": "A baker behind the counter of a bakery, trays of bread in front"
+	},
+	{
+		"name": "pastry-tray",
+		"file": "File:Mink Mingle 2017 (Unsplash).jpg",
+		"author": "Mink Mingle",
+		"alt": "A tray of croissants and pains au chocolat"
+	},
+	{
+		"name": "two-coffees",
+		"file": "File:Two (Unsplash).jpg",
+		"author": "Matt Hoffman",
+		"alt": "Two cups of coffee on a dark wooden table"
+	},
+	{
+		"name": "rustic-treats",
+		"file": "File:Rustic Bakery Treats (Unsplash).jpg",
+		"author": "Olenka Kotyk",
+		"alt": "Pastries and bread on a dark board"
+	},
+	{
+		"name": "latte-hands",
+		"file": "File:Two Hands Cafe latte art (Unsplash).jpg",
+		"author": "Drew Coffman",
+		"alt": "Two hands around a latte with a leaf in the foam"
+	},
+	{
+		"name": "artisan-loaves",
+		"file": "File:Artisan Loaves of Bread (Unsplash).jpg",
+		"author": "Drew Coffman",
+		"alt": "Baskets of artisan loaves on bakery shelves"
+	},
+	{
+		"name": "coffee-machine",
+		"file": "File:Industrial coffee machine (Unsplash).jpg",
+		"author": "Jordan Whitt",
+		"alt": "An espresso machine behind a dark café counter"
+	},
+	{
+		"name": "coffee-shop",
+		"file": "File:Chatting in a coffee shop (Unsplash).jpg",
+		"author": "Nick Hillier",
+		"alt": "People talking at tables in a coffee shop"
+	},
+	{
+		"name": "bread-shelves",
+		"file": "File:Loaves of Bread (Unsplash).jpg",
+		"author": "Clark Young",
+		"alt": "Wooden shelves stacked with freshly baked loaves"
+	},
+	{
+		"name": "bakery-case",
+		"file": "File:The Bakery (Unsplash).jpg",
+		"author": "Rhett Noonan",
+		"alt": "Pastries behind the glass of a bakery counter"
+	},
+	{
+		"name": "upscale-cafe",
+		"file": "File:Upscale coffee shop (Unsplash).jpg",
+		"author": "Jason Briscoe",
+		"alt": "The counter and tables of a quiet café"
+	},
+	{
+		"name": "coffee-cake",
+		"file": "File:Coffee and coffee cake (Unsplash).jpg",
+		"author": "Stephanie McCabe",
+		"alt": "A slice of coffee cake beside a cup of coffee"
+	},
+	{
+		"name": "baked-trays",
+		"file": "File:Trays of Baked Goods (Unsplash).jpg",
+		"author": "Greta Punch",
+		"alt": "Trays of baked goods on a bakery counter"
+	}
+]

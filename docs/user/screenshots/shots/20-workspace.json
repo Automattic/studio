@@ -1,0 +1,263 @@
+{
+	"name": "workspace",
+	"description": "The main window with the demo site: chat, command palette, site preview, and the site’s start/stop button",
+	"shots": [
+		{
+			"name": "main-window-signed-out",
+			"description": "Main window, signed out: sidebar, Studio Code chat, and the site preview",
+			"pages": [ "index.md", "studio-code/index.md" ],
+			"replaces": [ "2024/04/main-window-signed-out.png" ],
+			"steps": [
+				{
+					"waitFor": {
+						"text": "Loading site preview"
+					},
+					"hidden": true,
+					"timeout": 60000,
+					"optional": true
+				}
+			],
+			"capture": {
+				"settle": 2500
+			},
+			"annotate": [
+				{
+					"badge": {
+						"role": "button",
+						"name": "Add site",
+						"first": true
+					}
+				},
+				{
+					"badge": {
+						"role": "button",
+						"name": "Site actions for {{site.name}}"
+					}
+				},
+				{
+					"badge": {
+						"role": "textbox",
+						"name": "Address"
+					}
+				},
+				{
+					"badge": {
+						"role": "button",
+						"name": "Publish…"
+					}
+				}
+			]
+		},
+		{
+			"name": "composer-add-menu",
+			"description": "Chat box + menu: Add files, Auto-start, Connect AI providers, and Skills",
+			"pages": [ "studio-code/index.md" ],
+			"steps": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Add",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"text": "Add files",
+						"exact": true
+					}
+				}
+			],
+			"after": [
+				{
+					"press": "Escape"
+				},
+				{
+					"waitFor": {
+						"text": "Add files",
+						"exact": true
+					},
+					"hidden": true
+				}
+			],
+			"capture": {
+				"target": [
+					{
+						"role": "dialog",
+						"name": "Commands",
+						"exact": true
+					},
+					{
+						"role": "button",
+						"name": "Add",
+						"exact": true
+					},
+					{
+						"role": "button",
+						"name": "Send message"
+					},
+					{
+						"role": "button",
+						"name": "Log in",
+						"exact": true
+					}
+				],
+				"pad": 32
+			}
+		},
+		{
+			"name": "command-palette",
+			"description": "Command palette (⌘K)",
+			"pages": [ "index.md" ],
+			"steps": [
+				{
+					"press": "ControlOrMeta+K"
+				},
+				{
+					"waitFor": {
+						"role": "combobox",
+						"name": "Search commands"
+					}
+				}
+			],
+			"after": [
+				{
+					"press": "Escape"
+				},
+				{
+					"waitFor": {
+						"role": "combobox",
+						"name": "Search commands"
+					},
+					"hidden": true
+				}
+			],
+			"capture": {
+				"target": {
+					"role": "dialog",
+					"name": "Command palette"
+				}
+			}
+		},
+		{
+			"name": "preview-destinations",
+			"description": "Site preview address bar shortcuts: Front end / WordPress Admin / Database",
+			"pages": [ "sites.md", "debugging/index.md", "frequently-asked-questions.md" ],
+			"replaces": [ "2026/04/preview-destinations.png" ],
+			"steps": [
+				{
+					"click": {
+						"role": "textbox",
+						"name": "Address"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "dialog",
+						"name": "Preview shortcuts"
+					}
+				}
+			],
+			"annotate": [
+				{
+					"outline": {
+						"role": "dialog",
+						"name": "Preview shortcuts"
+					}
+				}
+			],
+			"after": [
+				{
+					"press": "Escape"
+				},
+				{
+					"waitFor": {
+						"role": "dialog",
+						"name": "Preview shortcuts"
+					},
+					"hidden": true
+				}
+			],
+			"capture": {
+				"target": [
+					{
+						"role": "dialog",
+						"name": "Preview shortcuts"
+					},
+					{
+						"role": "textbox",
+						"name": "Address"
+					}
+				],
+				"pad": 32
+			}
+		},
+		{
+			"name": "site-status-button",
+			"description": "Sidebar site row with its Stop button and tooltip",
+			"pages": [ "sites.md" ],
+			"replaces": [ "2025/01/site-status-tooltip.png" ],
+			"steps": [
+				{
+					"hover": {
+						"role": "button",
+						"name": "Stop {{site.name}}",
+						"exact": true,
+						"first": true
+					}
+				},
+				{
+					"wait": 1200
+				}
+			],
+			"capture": {
+				"keepMouse": true,
+				"target": {
+					"role": "button",
+					"name": "Stop {{site.name}}",
+					"exact": true,
+					"first": true
+				},
+				"pad": [ 360, 56 ]
+			},
+			"annotate": [
+				{
+					"arrow": {
+						"role": "button",
+						"name": "Stop {{site.name}}",
+						"exact": true,
+						"first": true
+					},
+					"from": "bottom-right"
+				}
+			]
+		},
+		{
+			"name": "site-stopped",
+			"description": "A stopped site: Start button in the sidebar and the saved preview image",
+			"pages": [ "sites.md" ],
+			"replaces": [ "2025/01/site-stopped.png" ],
+			"steps": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Stop {{site.name}}",
+						"exact": true,
+						"first": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "button",
+						"name": "Start {{site.name}}",
+						"exact": true,
+						"first": true
+					},
+					"timeout": 60000
+				}
+			],
+			"capture": {
+				"settle": 1500
+			}
+		}
+	]
+}

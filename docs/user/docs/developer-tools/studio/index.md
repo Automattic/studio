@@ -56,10 +56,10 @@ The first time you open Studio, it walks you through a short setup:
 
 If you’re upgrading from an earlier version of Studio, your existing sites carry over, and a short **What’s new** guide introduces the redesigned app instead.
 
-<!-- TODO screenshot: replace with `welcome.png` from `npm run screenshots` (Studio 2.0): the Welcome to WordPress Studio dialog. -->
+<!-- TODO screenshot: replace with `welcome.webp` from `npm run screenshots` (Studio 2.0): the Welcome to WordPress Studio dialog. -->
 [![A screenshot of the WordPress Studio welcome screen](https://developer.wordpress.com/wp-content/uploads/2024/04/welcome.png)](https://developer.wordpress.com/wp-content/uploads/2024/04/welcome.png)
 
-<!-- TODO screenshot: add `orientation-guide.png` from `npm run screenshots` (Studio 2.0) here: the orientation guide shown after the first site is created. -->
+<!-- TODO screenshot: add `orientation-guide.webp` from `npm run screenshots` (Studio 2.0) here: the orientation guide shown after the first site is created. -->
 
 ### [Find your way around](#find-your-way-around)
 
@@ -71,8 +71,8 @@ The Studio window has three areas:
 
 Press ⌘K (Ctrl+K on Windows and Linux) to open the command palette, where you can jump to any site or chat, run a site action, or change a setting. Press ⌘, (Ctrl+, on Windows and Linux) to open **Settings**, and ⌘B (Ctrl+B) to show or hide the sidebar. The full list of shortcuts is in **Settings → Keyboard**.
 
-<!-- TODO screenshot: add `command-palette.png` from `npm run screenshots` (Studio 2.0) here: the command palette. -->
-<!-- TODO screenshot: add `settings-keyboard.png` from `npm run screenshots` (Studio 2.0) here: Settings → Keyboard. -->
+<!-- TODO screenshot: add `command-palette.webp` from `npm run screenshots` (Studio 2.0) here: the command palette. -->
+<!-- TODO screenshot: add `settings-keyboard.webp` from `npm run screenshots` (Studio 2.0) here: Settings → Keyboard. -->
 
 ### [Connect to WordPress.com](#connect-wordpress-com)
 
@@ -87,7 +87,7 @@ To connect Studio to WordPress.com:
 3.  On the authorization screen, click **Approve** to connect Studio to your account.
 4.  Once approved, a popup will appear prompting you to open the Studio app. Click on the **“Open Studio”** button to finalize the process.
 
-<!-- TODO screenshot: replace with `main-window-signed-out.png` from `npm run screenshots` (Studio 2.0): the main window, logged out, with Log in at the bottom of the sidebar. -->
+<!-- TODO screenshot: replace with `main-window-signed-out.webp` from `npm run screenshots` (Studio 2.0): the main window, logged out, with Log in at the bottom of the sidebar. -->
 [![A screenshot of a new site and the Log in with WordPress.com button](https://developer.wordpress.com/wp-content/uploads/2024/04/main-window-signed-out.png)](https://developer.wordpress.com/wp-content/uploads/2024/04/main-window-signed-out.png)
 
 Once you’ve logged into WordPress.com, your account menu replaces the **Log in** button at the bottom of the sidebar, Studio Code can use your WordPress.com AI credits, and the **Publish** and **Share** buttons above the site preview let you publish your site and share preview links. If they still ask you to log in, you might need to *restart* the desktop application.

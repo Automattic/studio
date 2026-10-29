@@ -39,7 +39,7 @@ To start working locally on a WordPress.com or Pressable site you don’t have i
 
 Studio creates the local site, saves the connection, and pulls the live site into it.
 
-<!-- TODO screenshot: add `add-site-connect.png` from `npm run screenshots` (Studio 2.0) here: Add site → Connect, logged out. -->
+<!-- TODO screenshot: add `add-site-connect.webp` from `npm run screenshots` (Studio 2.0) here: Add site → Connect, logged out. -->
 <!-- TODO screenshot: capture by hand in Studio 2.0, logged in to WordPress.com: Add site → Connect, listing WordPress.com and Pressable sites. -->
 
 ## [Connect WordPress Studio to an existing WordPress.com site](#connect-existing)

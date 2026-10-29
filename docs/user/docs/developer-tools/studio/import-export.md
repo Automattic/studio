@@ -33,7 +33,7 @@ To add a new site to WordPress Studio from backup, you’ll need a `.tar.gz`, `.
 3.  Name your site and choose its local folder.
 4.  Click **Import site**.
 
-<!-- TODO screenshot: replace with `add-site-import.png` from `npm run screenshots` (Studio 2.0): Add site → Import. -->
+<!-- TODO screenshot: replace with `add-site-import.webp` from `npm run screenshots` (Studio 2.0): Add site → Import. -->
 [![](https://developer.wordpress.com/wp-content/uploads/2025/01/add-a-site-1.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/add-a-site-1.png)
 
 Any imported site is started by default and visible in the sidebar. If the import fails, Studio explains what went wrong in plain language and lets you try again.
@@ -46,7 +46,7 @@ To update an existing Studio site from a backup, you’ll need a `.tar.gz`, `.ta
 2.  Click **Import** and select your backup file.
 3.  When Studio asks whether to overwrite the site, click **Import** to overwrite your Studio site with your backup file.
 
-<!-- TODO screenshot: replace with `import-overwrite-dialog.png` from `npm run screenshots` (Studio 2.0): the Overwrite confirmation. -->
+<!-- TODO screenshot: replace with `import-overwrite-dialog.webp` from `npm run screenshots` (Studio 2.0): the Overwrite confirmation. -->
 [![The overwrite confirmation shown when importing a backup into an existing Studio site.](https://developer.wordpress.com/wp-content/uploads/2025/01/import-overwrite-dialog.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/import-overwrite-dialog.png)
 
 The Studio site will be replaced from the provided `.tar.gz` or `.zip` backup. However, when you import `.sql` file to an existing site, the database dump will be imported on top of the existing site.
@@ -61,7 +61,7 @@ To export a site from Studio:
 2.  Choose **Export**, then **Export site** to generate a full-site `.zip` file, or **Export database** to generate a `.sql` file.
 3.  Choose the destination and click **Save.**
 
-<!-- TODO screenshot: replace with `site-menu-export.png` from `npm run screenshots` (Studio 2.0): the site menu’s Export submenu. -->
+<!-- TODO screenshot: replace with `site-menu-export.webp` from `npm run screenshots` (Studio 2.0): the site menu’s Export submenu. -->
 [![](https://developer.wordpress.com/wp-content/uploads/2025/01/site-overview-1.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/site-overview-1.png)
 
 Other site actions, such as starting and stopping the site, are unavailable while an import or export is running.

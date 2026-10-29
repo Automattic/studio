@@ -1,0 +1,55 @@
+{
+	"name": "manual",
+	"description": "Shots that need a WordPress.com login, a connected live site, or Studio Code output, captured by hand",
+	"manual": true,
+	"shots": [
+		{
+			"description": "Studio Code chat for a selected site, with a reply in the transcript",
+			"pages": [ "studio-code/index.md" ],
+			"replaces": [ "2026/04/studio-code.png" ]
+		},
+		{
+			"description": "Chat box: model menu (Fast / Balanced / Strong) with the AI credits remaining",
+			"pages": [ "studio-code/index.md" ]
+		},
+		{
+			"description": "Share panel with Create preview",
+			"pages": [ "preview-sites.md" ],
+			"replaces": [ "2025/01/studio-site-new-preview-1.png" ]
+		},
+		{
+			"description": "Share panel with a ready preview: image, Preview link, Copy link, Update preview",
+			"pages": [ "preview-sites.md" ],
+			"replaces": [ "2025/01/studio-new-site-preview-link.png" ]
+		},
+		{
+			"description": "Share panel → Preview actions menu (New preview, Rename…, Delete preview)",
+			"pages": [ "preview-sites.md" ],
+			"replaces": [ "2025/01/studio-preview-more-actions.png" ]
+		},
+		{
+			"description": "Settings → Sharing, signed in (live previews, preview sites used)",
+			"pages": [ "preview-sites.md" ],
+			"replaces": [ "2025/01/studio-delete-all-preview-sites.png" ]
+		},
+		{
+			"description": "Settings → Usage, signed in (AI credits, Preview sites, Delete all preview sites menu)",
+			"pages": [ "preview-sites.md", "studio-code/index.md" ]
+		},
+		{
+			"description": "Publish panel → Choose website (WordPress.com and Pressable sites)",
+			"pages": [ "sync.md" ],
+			"replaces": [ "2025/01/studio-connect-live-site.png" ]
+		},
+		{
+			"description": "Pull changes with Include → Choose files…",
+			"pages": [ "sync.md" ],
+			"replaces": [ "2025/01/studio-pull-selective.png" ]
+		},
+		{
+			"description": "Publish panel with Include → Choose files…",
+			"pages": [ "sync.md" ],
+			"replaces": [ "2025/01/studio-selective-push.png" ]
+		}
+	]
+}

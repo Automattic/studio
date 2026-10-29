@@ -39,13 +39,16 @@ Every image on the updated pages shows the old UI. The old `site-overview.png` i
 - `agent-skills-wordpress-studio.md`: `2026/04/app-settings-skills.png`
 - `blueprints/index.md`: `add-a-site.png`, `2025/10/blueprints-library.png`, `2025/10/create-site-from-blueprint.png`
 
-`npm run screenshots` captured all 31 signed-out shots from this branch (`a339eea3a`, Studio 2.0.4, unpackaged build via `STUDIO_APP_DIR`) into `screenshots/out/2026-10/`; its `index.md` lists which upload each one replaces. Every image on the pages above now has a `<!-- TODO screenshot: … -->` note naming its replacement, and notes mark where the new shots without an old image belong (`create-site`, `orientation-guide`, `command-palette`, `settings-keyboard`, `composer-add-menu`, `site-menu-open-in`, `site-settings-domain`, `add-site-connect`). `site-overview-1.png` (import-export.md) is replaced by `site-menu-export.png`. The two shots flagged after the dry run came out right: `site-stopped` shows the saved preview image, and `settings-studio-cli` shows the option.
+`npm run screenshots` captures the 31 signed-out shots, as WebP, into `screenshots/images/`; its `index.md` lists which upload each one replaces. The shots are now defined per feature in `screenshots/shots/*.json` (see README.md): the first-run suite uses an empty profile, and the others open on a demo site, "Wren & Barley", a small bakery-and-café site that the Studio CLI imports from the backup in `screenshots/demo-site/` before Studio launches (`npm run demo-site:build` regenerates it from its block markup and CC0 photos), with two blank sites beside it in the sidebar, so the preview, sidebar and menus show the same content on every machine. Shots can carry annotations (numbered badges, outlines, arrows) and are then saved twice, plain and `-annotated`. A shot is rewritten only when its pixels change. Every image on the pages above has a `<!-- TODO screenshot: … -->` note naming its replacement, and notes mark where the new shots without an old image belong (`create-site`, `orientation-guide`, `command-palette`, `settings-keyboard`, `composer-add-menu`, `site-menu-open-in`, `site-settings-domain`, `add-site-connect`). `site-overview-1.png` (import-export.md) is replaced by `site-menu-export.webp`.
+
+The installed Studio 2.0.4 predates the one-dialog welcome (#5374), so until the next release the shots come from a build of this branch (`STUDIO_APP_DIR=apps/studio`); the script says so when it meets the old welcome.
 
 Still to do:
 
 - Upload the shots, swap the image URLs on the pages, and remove the notes.
 - Capture the logged-in shots by hand (marked “capture by hand” in the pages and listed under **Capture manually** in `index.md`): Studio Code with a reply, the model menu, the Share panel (three shots), Settings → Sharing and Usage, the Publish panel, and Pull changes.
-- In the running-site shots, the default theme's home page looks cut off on the right at the preview's 664px width. The page has no horizontal overflow, so this is the theme's layout at that width rather than a capture problem; a wider window (the `width` option of `launchStudio`) would give a cleaner preview if that matters.
+- The preview and the site in the shots are reviewed for the docs, not final: the demo site's copy, photos and pages live in `screenshots/demo-site/wren-and-barley/` and can change without touching the suites.
+- Decide which shots should carry annotations in the docs; `main-window-signed-out`, `preview-destinations` and `site-status-button` have them as examples.
 
 ## Open questions
 

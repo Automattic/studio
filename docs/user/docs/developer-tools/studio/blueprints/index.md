@@ -24,18 +24,18 @@ Creating local sites from Blueprints is incorporated into the site creation flow
 
 1.  Click the **Add site** (**+**) button next to **Sites** at the top of the Studio sidebar. The **Add site** dialog opens on **Choose a starting point**.
 
-<!-- TODO screenshot: replace with `add-site.png` from `npm run screenshots` (Studio 2.0): the Add site dialog on Choose a starting point. -->
+<!-- TODO screenshot: replace with `add-site.webp` from `npm run screenshots` (Studio 2.0): the Add site dialog on Choose a starting point. -->
 [![The Add site dialog in WordPress Studio.](https://developer.wordpress.com/wp-content/uploads/2025/01/add-a-site.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/add-a-site.png)
 
 2.  Browse the Blueprints library, or pick a category under **Blueprints** on the left: **Business**, **Blog**, **Portfolio**, **Store**, **Events**, or **Development**.
 
-<!-- TODO screenshot: replace with `blueprints-library.png` from `npm run screenshots` (Studio 2.0): the Business Blueprints category. -->
+<!-- TODO screenshot: replace with `blueprints-library.webp` from `npm run screenshots` (Studio 2.0): the Business Blueprints category. -->
 [![](https://developer.wordpress.com/wp-content/uploads/2025/10/blueprints-library.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/10/blueprints-library.png)
 
 3.  Click a Blueprint to see a larger preview. Click **Preview in browser** to try it out first.
 4.  Click **Create site**. Studio creates the site with the Blueprint’s name, in your default site folder. If the Blueprint needs more information, such as a custom domain, or the folder isn’t empty, Studio shows the setup form first: review the Blueprint, including the plugins it installs, give your site a name, and click **Create site from Blueprint**.
 
-<!-- TODO screenshot: replace with `blueprint-details.png` from `npm run screenshots` (Studio 2.0): a Blueprint’s preview with Preview in browser and Create site. -->
+<!-- TODO screenshot: replace with `blueprint-details.webp` from `npm run screenshots` (Studio 2.0): a Blueprint’s preview with Preview in browser and Create site. -->
 [![](https://developer.wordpress.com/wp-content/uploads/2025/10/create-site-from-blueprint.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/10/create-site-from-blueprint.png)
 
 To use your own Blueprint, choose **Blank site**, then drop a Blueprint file (a `.json` file or a `.zip` bundle) anywhere on the **Create your site** screen, or click **upload a file** at the bottom of it. The form then shows the Blueprint, and you create the site with **Create site from Blueprint**. To go back to a blank site, click **Remove** next to the Blueprint.

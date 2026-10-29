@@ -781,7 +781,7 @@ describe( 'Studio workspace', () => {
 		}
 	);
 
-	it( 'keeps the sidebar start and stop control available across preview states', async () => {
+	it( 'keeps sidebar start available and stops running sites through the site menu', async () => {
 		const { connector, history, refreshSessions } = setup( { signedIn: true } );
 		await findComposer();
 		for ( const name of [ 'Address', 'Back', 'Forward', 'Reload preview' ] ) {
@@ -814,13 +814,15 @@ describe( 'Studio workspace', () => {
 		await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
 		fireEvent.load( document.querySelector( 'iframe' )! );
 		await waitFor( () =>
-			expect( screen.getByRole( 'button', { name: 'Stop site' } ) ).toBeVisible()
+			expect( screen.queryByRole( 'button', { name: 'Stop site' } ) ).not.toBeInTheDocument()
 		);
 		expect( await screen.findByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toBeVisible();
-		expect( screen.getByRole( 'button', { name: 'Stop site' } ) ).toBeVisible();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Stop site' } ) );
+		expect( screen.queryByRole( 'button', { name: 'Stop site' } ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop site' } ) );
 		await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledWith( 'one' ) );
 		expect( await screen.findByRole( 'button', { name: 'Start My site' } ) ).toBeVisible();
 	} );

@@ -239,7 +239,11 @@ function DashboardLayout() {
 		);
 
 	return (
-		<SidebarLayout headerAction={ routeSite ? <SiteRunButton site={ routeSite } /> : undefined }>
+		<SidebarLayout
+			headerAction={
+				routeSite && ! routeSite.running ? <SiteRunButton site={ routeSite } /> : undefined
+			}
+		>
 			<AccountPromptDialog
 				open={ providerPromptOpen }
 				onOpenChange={ setProviderPromptOpen }

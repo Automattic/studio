@@ -5,6 +5,7 @@ import { resetPanelLayout, SIDEBAR_PANEL_STORAGE_KEY } from '@/data/resizable-pa
 import { HeaderSidebarToggle } from '@/features/sidebar/sidebar-toggle';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderApp, renderWithProviders } from '@/test/render';
+import styles from './style.module.css';
 import { SidebarLayout } from './index';
 
 const originalWidth = window.innerWidth;
@@ -80,7 +81,7 @@ describe( 'resizable sidebar', () => {
 		fireEvent.mouseDown( handle(), { button: 0, clientX: 256 } );
 		fireEvent.mouseUp( document, { clientX: 320 } );
 		expect( handle() ).toHaveAttribute( 'aria-valuenow', '320' );
-		const sidebar = toggle().closest( 'aside' )!;
+		const sidebar = toggle().closest( 'aside' )!.querySelector( `.${ styles.sidebarScroll }` )!;
 		sidebar.scrollTop = 120;
 		fireEvent.click( toggle() );
 		expect( screen.queryByRole( 'separator', { name: 'Resize sidebar' } ) ).not.toBeInTheDocument();

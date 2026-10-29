@@ -46,7 +46,12 @@ export function SiteListGroup( {
 		return null;
 	}
 	return (
-		<SidebarGroup role="group" aria-label={ title } open={ foldable && expanded }>
+		<SidebarGroup
+			className={ styles.group }
+			role="group"
+			aria-label={ title }
+			open={ foldable && expanded }
+		>
 			<SidebarGroupHeader className={ styles.groupHeader }>
 				<SidebarGroupLabel
 					expanded={ foldable ? expanded : undefined }

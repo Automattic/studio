@@ -33,7 +33,7 @@ export function createPreviewDots(
 ): PreviewDot[] {
 	const centerX = width / 2;
 	const spacing = Math.max( 26, Math.sqrt( ( width * height ) / 1600 ) );
-	const inset = Math.min( 18, width / 2, height / 2 );
+	const inset = Math.min( 24, width / 2, height / 2 );
 	const columns = Math.max( 1, Math.round( ( width - inset * 2 ) / spacing ) + 1 );
 	const rows = Math.max( 1, Math.round( ( height - inset * 2 ) / spacing ) + 1 );
 	const dots: PreviewDot[] = [];

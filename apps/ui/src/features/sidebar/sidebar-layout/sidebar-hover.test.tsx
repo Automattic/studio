@@ -2,6 +2,7 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
+import styles from './style.module.css';
 
 const sites = [
 	makeSite( { id: 'one', name: 'My site' } ),
@@ -70,7 +71,10 @@ describe( 'sidebar hover overlay', () => {
 		).toBeInTheDocument();
 		expect( screen.queryByRole( 'dialog', { name: 'Sidebar' } ) ).not.toBeInTheDocument();
 		expect( document.activeElement ).toHaveAccessibleName( 'Hide sidebar' );
-		expect( document.activeElement?.closest( 'aside' )?.scrollTop ).toBe( 0 );
+		expect(
+			document.activeElement?.closest( 'aside' )?.querySelector( `.${ styles.sidebarScroll }` )
+				?.scrollTop
+		).toBe( 0 );
 	} );
 } );
 

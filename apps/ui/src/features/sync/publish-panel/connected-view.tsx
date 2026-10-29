@@ -180,7 +180,7 @@ export function ConnectedView( {
 						</Button>
 						<Button
 							ref={ publishButton }
-							variant="default"
+							variant="accent"
 							size="lg"
 							disabled={ disabled || Boolean( issue ) }
 							onClick={ () => {
@@ -302,7 +302,7 @@ export function ConnectedView( {
 											{ __( 'Cancel' ) }
 										</Button>
 										<Button
-											variant="default"
+											variant={ direction === 'push' ? 'accent' : 'default' }
 											size="lg"
 											disabled={
 												disabled ||

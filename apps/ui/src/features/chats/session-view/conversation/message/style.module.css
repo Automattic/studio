@@ -63,8 +63,8 @@
 
 .userText {
 	composes: surface from '../bubble.module.css';
-	background-color: light-dark( var( --primary ), var( --surface-3 ) );
-	color: light-dark( var( --surface-0 ), var( --foreground ) );
+	background-color: var( --accent );
+	color: var( --accent-foreground );
 }
 
 .userTextBody {

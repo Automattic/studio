@@ -52,9 +52,9 @@ The first time you open Studio, it walks you through a short setup:
 
 1.  The **Welcome to WordPress Studio** dialog explains what a free WordPress.com account adds: building with the agent, sharing previews, and publishing. Click **Continue with WordPress.com** to log in or create a free account, or click **Not now** to go straight to creating your first local site. You can also choose whether to **Share anonymous usage statistics** here.
 2.  The **Add site** dialog opens. You can create a new site, connect an existing WordPress.com or Pressable site, import a backup, or start from a Blueprint. See [Studio Sites](https://developer.wordpress.com/docs/developer-tools/studio/sites/) for each option.
-3.  Once your first site is ready, a short guide introduces the sidebar, building with Studio Code, and the live site preview. Click **Next** to step through it, or **Skip** to close it.
+3.  Once your first site is ready, a short guide introduces the sidebar, building with Studio Code, and the live site preview. Click **Next** to step through it and **Let’s go** to finish, or **Skip** to close it.
 
-If you’re upgrading from an earlier version of Studio, your existing sites carry over, and a short **What’s new** guide introduces the redesigned app instead.
+If you’re upgrading from an earlier version of Studio, your existing sites carry over, and the same guide opens with **Welcome to WordPress Studio 2.0**. If you’ve already seen the guide, a short **What’s New** guide introduces what changed instead. To see either one again, choose **Help → Getting Started** or **Help → What’s New** in the menu bar.
 
 <!-- TODO screenshot: replace with `welcome.webp` from `npm run screenshots` (Studio 2.0): the Welcome to WordPress Studio dialog. -->
 [![A screenshot of the WordPress Studio welcome screen](https://developer.wordpress.com/wp-content/uploads/2024/04/welcome.png)](https://developer.wordpress.com/wp-content/uploads/2024/04/welcome.png)
@@ -66,8 +66,12 @@ If you’re upgrading from an earlier version of Studio, your existing sites car
 The Studio window has three areas:
 
 -   **Sidebar** (left): your sites, each with its Studio Code chats. Pinned sites and chats appear in a **Pinned** section at the top, and your latest chats appear under **Recent**. Click the **+** next to **Sites** to add a site. At the bottom of the sidebar you’ll find **Log in** (or your account menu once you’re logged in), **Settings**, and your notification history.
--   **Chat** (middle): Studio Code for the selected site. The site icon at the top of the chat opens the site’s actions menu.
--   **Site preview** (right): the selected site, with back, forward, and reload buttons, an address bar, and the **Publish** and **Share** buttons.
+-   **Chat** (middle): Studio Code for the selected site.
+-   **Site preview** (right): the selected site.
+
+The header above the chat and preview starts with the **Site menu** button (globe), which opens the site’s actions menu, and **Close chat** (**Open chat** when the chat is closed). Then come the preview’s **Back**, **Forward**, and **Reload preview** buttons, **Responsive mode**, and the address bar, followed by **Annotate**, **Publish**, and **Share**.
+
+When a new version of Studio is ready to install, an **Update available** button appears at the bottom of the sidebar, next to **Settings**. Click it to update Studio. If the update fails, Studio shows “Couldn’t update Studio” with the reason.
 
 Press ⌘K (Ctrl+K on Windows and Linux) to open the command palette, where you can jump to any site or chat, run a site action, or change a setting. Press ⌘, (Ctrl+, on Windows and Linux) to open **Settings**, and ⌘B (Ctrl+B) to show or hide the sidebar. The full list of shortcuts is in **Settings → Keyboard**.
 

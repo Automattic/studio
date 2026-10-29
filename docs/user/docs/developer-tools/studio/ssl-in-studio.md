@@ -26,7 +26,7 @@ Note that HTTPS requires a custom domain, as it cannot be used with the default 
 
 To enable HTTPS for a new or existing site:
 
-1.  Start by creating a new site, or open an existing site’s settings: choose **Settings** from the site menu (click the site icon at the top of the chat, or right-click the site in the sidebar).
+1.  Start by creating a new site, or open an existing site’s settings: choose **Settings** from the site menu (click the **Site menu** button at the top left of the site’s header, or right-click the site in the sidebar).
 2.  If creating a new site, expand **Advanced settings**.
 3.  Turn on **Use custom domain**. In an existing site’s settings, it’s under **Local domain**.
 4.  If you have not already provided one, enter a domain name (must end with `.local`) or use the automatically generated one.
@@ -39,18 +39,18 @@ To enable HTTPS for a new or existing site:
 
 6.  Click **Create site** or **Save**, depending on whether you are creating a new site or editing an existing one. 
 7.  When prompted, give your permission for WordPress Studio to modify the system hosts file. Studio will configure everything else automatically. 
-8.  For HTTPS connections, a root certificate authority will be generated and installed. On MacOS, you’ll need to manually install the certificate to avoid browser warnings. [Refer to the guide below for more details](#macos).
+8.  For HTTPS connections, a root certificate authority will be generated and installed. Until your computer trusts it, the **Enable HTTPS** option shows a button to fix that: **Show certificate** on macOS, which opens the certificate file in Finder, or **Trust certificate** on Windows and Linux, which trusts it for you. On macOS, you’ll need to manually install the certificate to avoid browser warnings. [Refer to the guide below for more details](#macos).
 9.  Navigate to your site using the custom domain.
 
 ## [Certificate Trust by platform](#3-certificate-trust-by-platform)
 
 ### [Windows](#4-windows)
 
-On Windows, WordPress Studio automatically adds the CA to your system trust store. This process requires administrator privileges, so you may see a User Account Control (UAC) prompt when enabling HTTPS.
+On Windows, WordPress Studio automatically adds the CA to your system trust store. This process requires administrator privileges, so you may see a User Account Control (UAC) prompt when enabling HTTPS. If browsers still warn about your site, click **Trust certificate** under **Enable HTTPS** in the site’s settings.
 
 ### [MacOS](#macos)
 
-On macOS, you need to manually trust the CA. To do this, find the certificate file that Studio automatically installs on your system:
+On macOS, you need to manually trust the CA. To do this, find the certificate file that Studio automatically installs on your system. You can click **Show certificate** under **Enable HTTPS** in the site’s settings to open its folder in Finder and skip step 1, or:
 
 1.  Open a terminal and run the following command: `open ~/.studio/certificates/`
 2.  This will open the folder containing the certificate file (`studio-ca.crt`). Double-click the file to install the certificate and automatically open the **Keychain Access** tool on your machine.

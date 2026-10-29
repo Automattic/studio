@@ -24,7 +24,7 @@ Every account starts with a one-time allowance of free [AI credits](https://deve
 
 ## [Balanced and Strong require purchased credits](#2-balanced-and-strong-require-purchased-credits)
 
-Balanced and Strong are only available to accounts that have purchased AI credits. This applies even if you still have free allowance left, because those can’t be spent on the stronger tiers. If you try to switch to Balanced or Strong before you’ve purchased credits, Studio Code will ask you to top up first.
+Balanced and Strong are only available to accounts that have purchased AI credits. This applies even if you still have free allowance left, because those can’t be spent on the stronger tiers. Until you’ve purchased credits, the desktop model menu shows Balanced and Strong as **Purchased credits required** and doesn’t let you pick them, and the terminal’s `/model` command hides them with a note to add credits. To buy credits in the desktop app, choose **Get more credits** from the model menu.
 
 Once you’ve purchased AI credits, the model picker keeps Balanced and Strong unlocked, even after your purchased balance is spent. When you use Fast, any remaining free allowance is spent first, before your purchased balance. You don’t need to top up between sessions, only when you run out.
 
@@ -42,7 +42,7 @@ Studio Code doesn’t show you exactly how many credits any given reply costs in
 
 Studio Code shows a running AI credits meter as you work, combining whatever’s left of your free allowance with anything you’ve purchased. When you’re getting close to empty, Studio Code will tell you before you run out entirely.
 
-When your purchased balance runs out, Balanced and Strong lock again, but Fast keeps working as long as the free allowance remains. When both are empty, Studio Code stops until you add more AI credits. Add credits from inside Studio Code, or see [How AI Credits Work](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/ai-credits-guidelines/) for how purchases, refunds, and account rules work.
+When your purchased balance runs out, Balanced and Strong stay unlocked in the model picker, but because the free allowance only funds Fast, you need to add more AI credits to keep using them. Fast keeps working as long as the free allowance remains. When both are empty, Studio Code stops until you add more AI credits. Add credits from inside Studio Code, or see [How AI Credits Work](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/ai-credits-guidelines/) for how purchases, refunds, and account rules work.
 
 ## [FAQ](#5-faq)
 

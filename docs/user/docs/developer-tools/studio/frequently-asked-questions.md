@@ -44,7 +44,7 @@ Instead, Studio includes a built-in phpMyAdmin interface, adapted to work safely
 #### Using phpMyAdmin
 
 1.  Select the local site within Studio.
-2.  Open the site menu: click the site icon at the top of the chat, or right-click the site in the sidebar.
+2.  Open the site menu: click the **Site menu** button at the top left of the site’s header, or right-click the site in the sidebar.
 3.  Choose **Open in → phpMyAdmin**.
 4.  Studio will open phpMyAdmin in your browser, connected directly to your site’s database.
 
@@ -65,7 +65,7 @@ If you have already created a site in Studio, and want to switch SQLite to the M
 1.  Stop the site.
 2.  Open your Studio’s site directory.
 3.  Navigate to the `wp-content` directory and delete the `db.php` file and the `database` directory.
-4.  Navigate to the `mu-plugins` directory and delete sqlite-database-integration-main directory.
+4.  Navigate to the `wp-content/mu-plugins` directory and delete the `sqlite-database-integration` directory.
 5.  Update `wp-config.php` file and fill in your MySQL server’s credentials.
 6.  Start your MySQL server.
 7.  Start the Studio’s site.
@@ -75,7 +75,7 @@ If you have already created a site in Studio, and want to switch SQLite to the M
 
 You can select the PHP version or the WordPress version for your site when you first create it. This option is located in the “**Advanced Settings**” section. After creating a site, the current PHP and WordPress versions are displayed in the site’s settings, where you can also edit and change them.
 
-1.  Choose **Settings** from the site menu: click the site icon at the top of the chat, or right-click the site in the sidebar.
+1.  Choose **Settings** from the site menu: click the **Site menu** button at the top left of the site’s header, or right-click the site in the sidebar.
 2.  On the **Settings** page, choose a **WordPress version**, or turn on **Automatic updates** to keep WordPress on the latest release.
 3.  On the **PHP** page, select the **PHP version**.
 4.  Click **Save** at the top of the dialog to persist the changes.  
@@ -90,15 +90,16 @@ For each of your local sites, the following options are available under **Open i
 
 -   Finder (for macOS)
 -   File Explorer (for Windows)
+-   File manager (for Linux)
 
 #### Code editors
 
--   Antigravity
+-   Antigravity IDE
 -   Cursor
 -   Visual Studio Code
 -   PhpStorm
 -   Sublime Text
--   Webstorm
+-   WebStorm
 -   Windsurf
 -   Zed
 
@@ -106,18 +107,24 @@ For each of your local sites, the following options are available under **Open i
 
 -   Terminal (for macOS)
 -   iTerm (for macOS)
--   Warp (for macOS)
+-   Warp (for macOS, Windows, and Linux)
 -   Command Prompt (for Windows)
--   Ghostty
+-   Ghostty (for macOS and Linux)
+
+#### Browser
+
+-   Browser (the site’s front end)
+-   WordPress admin
 
 #### Database administration tools
 
 -   phpMyAdmin
 
-WordPress Studio, the code editors, and terminal applications must live in your Applications folder to ensure the **Open in…** options are available.  If you haven’t selected a preferred code editor in **Settings → General**, no code editor will appear in the **Open in** menu. Similarly, if no terminal application is selected, the default will be:
+On macOS, the code editors and terminal applications must live in your Applications folder (`/Applications` or `~/Applications`) to appear in the **Open in** menu. On Windows, Studio looks for them in their usual install folders, and on Linux, on your `PATH`. If you haven’t chosen a **Code editor** in **Settings → General**, the **Open in** menu uses the first supported editor installed on your computer; with none installed, no code editor appears. Similarly, if no **Terminal** is selected, the default will be:
 
 -   **Terminal** on macOS
 -   **Command Prompt** on Windows
+-   The system terminal on Linux, such as GNOME Terminal or Konsole
 
 ### [How can I make Studio faster on Windows?](#17-how-can-i-make-studio-faster-on-windows-)
 
@@ -125,7 +132,7 @@ If the Real-Time Protection Service of Windows Defender is enabled on your machi
 
 This is why WordPress Studio prompts you to “speed up site creation” when you create your first site, so an exclusion policy can be added to the Real-Time Protection Service.
 
-You can add this exclusion policy manually by navigating to *Help -> Want to speed up site creation?* in Studio .
+You can add this exclusion policy manually by choosing **Help → How can I make WordPress Studio faster?** in Studio. This menu item is only available on Windows.
 
 ### [How can I regenerate my thumbnails?](#18-how-can-i-regenerate-my-thumbnails-)
 
@@ -139,7 +146,7 @@ studio wp media regenerate --yes --only-missing
 
 Occasionally, actions like publishing or pulling changes, or Import and Export, could fail due to different reasons related to PHP, the site’s database, or custom code issue.
 
-If this happens, WordPress Studio will allow you to open logs and may ask to [contact support](https://developer.wordpress.com/contact/). You can also open the logs manually.
+If this happens, WordPress Studio will allow you to open logs and may ask to [contact support](https://developer.wordpress.com/contact/). You can also open the current log file from **Help → Open Application Logs**, or open the logs folder manually.
 
 If you use Studio on Mac:
 
@@ -154,6 +161,14 @@ If you use Studio on Windows:
 2.  Enter command:  
     `ii AppData\Roaming\Studio\logs`
 3.  Locate the latest log file and open it.
+
+If you use Studio on Linux, the logs are in `~/.config/Studio/logs`.
+
+### [Where do emails sent by my site go?](#site-email)
+
+Studio saves every email a local site sends, such as password reset emails and form notifications, instead of delivering it. To see them, choose **Go to → Email** from the site menu: click the **Site menu** button at the top left of the site’s header, or right-click the site in the sidebar. The site’s email folder opens in Finder, File Explorer, or your file manager.
+
+Each email is saved as an `.eml` file, which opens in any mail app, in `~/.studio/email/<site id>/`. Studio keeps the newest 100 emails for each site, and deletes the folder when you delete the site. `studio status` shows the folder as **Email**. Because the folder is outside the site directory, email is never pushed or synced with your site.
 
 ### [Is it possible to change the port or URL of my Studio site?](#10-is-it-possible-to-change-the-port-or-url-of-my-studio-site-)
 
@@ -210,7 +225,9 @@ You can talk with Studio Code in any language you prefer.
 
 ### [Can I use the Studio Code without a WordPress.com account?](#5-can-i-use-the-studio-assistant-without-a-wordpress-com-account-)
 
-No, you [must log into Studio with your WordPress.com account](https://developer.wordpress.com/docs/developer-tools/studio#connect-wordpress-com) to use the Studio Code. This is because we use WordPress.com infrastructure to generate messages and manage access.
+Yes, with your own Anthropic API key. Connect **Anthropic** in **Settings → AI Providers** in the desktop app, or use the `/api-key` command in the terminal. Usage is billed through your Anthropic account. See [Use your own Anthropic API key](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/#use-your-own-anthropic-api-key).
+
+To use WordPress.com AI credits instead, [log into Studio with your WordPress.com account](https://developer.wordpress.com/docs/developer-tools/studio#connect-wordpress-com). Some features, such as [image generation](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/image-generation/), preview sites, and publishing to WordPress.com, also need a WordPress.com login.
 
 ### [Is there any cost to use the Studio Code?](#6-is-there-any-cost-to-use-the-studio-assistant-)
 

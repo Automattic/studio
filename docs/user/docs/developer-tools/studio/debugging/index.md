@@ -8,7 +8,7 @@ Sometimes you just need to see what WordPress is logging. Studio makes that easy
 
 ### [Enabling the debug log](#1-enabling-the-debug-log)
 
-1.  Open the site’s settings: choose **Settings** from the site menu (click the site icon at the top of the chat, or right-click the site in the sidebar).
+1.  Open the site’s settings: choose **Settings** from the site menu (click the **Site menu** button at the top left of the site’s header, or right-click the site in the sidebar).
 2.  Select the **Debug** page.
 3.  Turn on **Debug log**.
 4.  Click **Save** at the top of the dialog.
@@ -58,6 +58,6 @@ To open phpMyAdmin for a running site, select the site and use either of these:
 
 For deeper investigation, Studio includes [Xdebug](https://xdebug.org/) support. Instead of scattering debug output through your code, you can set breakpoints, step through execution line by line, and inspect variables in real time — all from your editor.
 
-Xdebug is available for all Studio sites and requires no system-level installation. Studio listens for debug connections on port `9003`.
+Xdebug is available for all Studio sites and requires no system-level installation. When a request runs, Xdebug connects out to your editor or IDE on port `9003`, so your editor needs to be listening for debug connections on that port.
 
 For full setup instructions, including how to connect VS Code and PhpStorm, see [Xdebug in Studio](https://developer.wordpress.com/docs/developer-tools/studio/xdebug/).

@@ -40,6 +40,14 @@ Open a new terminal so `studio` is on your `PATH`, then verify:
 
 studio --help
 
+#### Uninstall
+
+To remove a CLI installed with the standalone installer, run:
+
+studio uninstall
+
+This stops your running sites and removes the CLI and its `PATH` entry. Your sites and your Studio config in `~/.studio` stay. Add `--purge` to also delete `~/.studio`. A CLI installed with npm is removed with `npm rm -g wp-studio`, and the CLI bundled with the Studio app is removed when you uninstall the app.
+
 ### [npm](#3-npm)
 
 npm install -g wp-studio
@@ -166,7 +174,7 @@ studio create --path /path/to/site
 # Create a new site that keeps WordPress up to date automatically
 studio create --wp auto-update
 
-This will create a new site in your current working directory, start the WordPress server, and open wp-admin in your browser automatically when finished.
+This will create a new site in your current working directory, start the WordPress server, and open the site’s front page in your browser when finished. When the site comes from a Blueprint that sets a `landingPage`, Studio opens that page instead. Use `--skip-browser` to not open the browser.
 
 There are several supported flags that you can use when creating a new site. For the full set of options:
 
@@ -207,6 +215,7 @@ Status output includes information such as:
 
 -   Whether the site is running.
 -   Local URL (for example, `http://localhost:PORT`).
+-   **Email**: the folder where the email the site sends is saved, as `.eml` files.
 -   Key configuration details (PHP version, database status, etc.).
 
 ### [Starting and stopping sites](#14-starting-and-stopping-sites)
@@ -219,15 +228,18 @@ studio stop
 studio start --path /path/to/site
 studio stop --path /path/to/site
 
+# Stop every running site:
+studio stop --all
+
 Starting a site will launch the local services required to access it in a browser, while stopping it shuts those services down.
 
 ### [Deleting a local site](#15-deleting-a-local-site)
 
-\# Delete a site from Studio
+\# Delete a site from Studio and move the site directory to the system trash
 studio delete
 
-# Delete the site and move the site directory to the system trash
-studio delete --files
+# Delete the site from Studio but keep its files on disk
+studio delete --no-files
 
 # Delete several sites at once, by path or ID
 studio delete /path/to/site-one /path/to/site-two
@@ -235,7 +247,7 @@ studio delete /path/to/site-one /path/to/site-two
 # Show which sites and files would be deleted, without deleting anything
 studio delete /path/to/site-one --dry-run
 
-This removes the site from Studio and, optionally, the site files from disk.
+This removes the site from Studio and, unless you pass `--no-files`, moves the site files to the trash.
 
 ### [Configuring site settings](#16-configuring-site-settings)
 
@@ -306,6 +318,20 @@ Press Ctrl+C in the terminal to stop it.
 ## [MCP server](#cli-mcp)
 
 `studio mcp` runs Studio’s MCP server, which lets AI agents create, configure, and inspect your local sites and work with your WordPress.com sites. It also serves Studio’s instructions and skills to the agent on demand. You don’t usually run it yourself: add it to your agent’s MCP configuration instead. See [MCP on Studio](https://developer.wordpress.com/docs/developer-tools/studio/mcp-on-studio/).
+
+## [Studio Code](#cli-code)
+
+`studio code` starts [Studio Code](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/), Studio’s AI agent, as a chat in your terminal. `studio ai` works too.
+
+studio code                            # Start a new chat
+studio code "Create a portfolio site"  # Start with a first message
+studio code sessions list              # List saved chats
+studio code sessions resume latest     # Resume the most recent chat
+studio code sessions delete <id>       # Delete a saved chat
+
+`sessions resume` and `sessions delete` take a session ID, an ID prefix, or `latest`, and show a picker when you leave it out. For the full set of options:
+
+studio code --help
 
 ## [Using WP-CLI through Studio](#21-using-wp-cli-through-studio)
 

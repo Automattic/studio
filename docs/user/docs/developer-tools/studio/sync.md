@@ -34,13 +34,13 @@ To start working locally on a WordPress.com or Pressable site you don’t have i
 
 1.  Click the **Add site** (**+**) button next to **Sites** at the top of the sidebar, and choose **Connect**.
 2.  [Log in to WordPress.com](https://developer.wordpress.com/docs/developer-tools/studio#connect-wordpress-com) if you haven’t already.
-3.  Select the site you want to work on. Each site is labeled as a WordPress.com or Pressable site, and as production or staging. Sites that can’t be connected are listed separately, with the reason.
+3.  Select the site you want to work on. Use **Search sites** to filter the list, or **Refresh list** to load it again. Each site is labeled as a WordPress.com or Pressable site, and as production, staging, or development. Sites you can connect are listed under **Available to connect**. Sites that can’t be connected are listed under **Unavailable**, with the reason. Where it helps, a link takes you to WordPress.com to fix it: **View plans** for a site that needs a supported plan, or **Enable hosting features** for a site that needs hosting features turned on. **Supported sites** explains which sites you can connect.
 4.  Review the site name and local folder, and click **Create site**.
 
-Studio creates the local site, saves the connection, and pulls the live site into it.
+Studio creates the local site, saves the connection, and opens the site. The live site is pulled into it in the background, and the **Publish** panel shows the pull’s progress.
 
 <!-- TODO screenshot: add `add-site-connect.webp` from `npm run screenshots` (Studio 2.0) here: Add site → Connect, logged out. -->
-<!-- TODO screenshot: add `add-site-connect-signed-in.webp` from `npm run screenshots` (Studio 2.0, signed-in suite) here: Add site → Connect, listing WordPress.com and Pressable sites. -->
+<!-- TODO screenshot: add `add-site-connect-signed-in.webp` from `npm run screenshots` (Studio 2.0, signed-in suite) here: Add site → Connect, signed in, with Search sites, Refresh list, and the Available to connect and Unavailable lists of WordPress.com and Pressable sites. -->
 
 ## [Connect WordPress Studio to an existing WordPress.com site](#connect-existing)
 
@@ -51,53 +51,70 @@ To connect a local Studio site to an existing production or staging site on Word
 1.  Select the site you wish to connect from the Studio sidebar.
 2.  Click **Publish** at the top right of the site preview. You can also choose **Publish** from the site menu.
 3.  [Log in to WordPress.com](https://developer.wordpress.com/docs/developer-tools/studio#connect-wordpress-com) if you haven’t already.
-4.  Click **Use an existing website…** to open the **Choose website** list. Each site is labeled as a WordPress.com or Pressable site, and as staging or development where that applies.
-5.  Click the site you want to connect to.
+4.  Click **Existing site…** to open the **Choose an existing site** list. Each row shows the site’s name, its address, and whether it’s a **Production**, **Staging**, or **Development** site. Sites you can’t publish to, such as sites that need a plan upgrade, deleted sites, or sites you don’t have permission to manage, are left out. To load the list again, open **Site actions** (**⋯**) and choose **Refresh**.
+5.  Click the site you want to connect to. To go back without connecting, click **Back to Publish**.
 
-<!-- TODO screenshot: replace with `publish-choose-site.webp` from `npm run screenshots` (Studio 2.0, signed-in suite): Publish → Choose an existing site, with WordPress.com and Pressable sites; `publish-panel.webp` shows the Publish tab before it. -->
+<!-- TODO screenshot: replace with `publish-choose-site.webp` from `npm run screenshots` (Studio 2.0, signed-in suite): Publish → Choose an existing site, with WordPress.com and Pressable sites; `publish-panel.webp` shows the Publish tab before it, with Existing site… and New site…. -->
 [![A screenshot depicting the list that allows you to connect a local Studio site to a production or staging site on WordPress.com or Pressable.](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-connect-live-site.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-connect-live-site.png)
 
-Once connected, the **Publish** panel shows the website you’ll publish to and when you last published. A local site can be connected to more than one website. To see them all, open the **Website actions** (**⋯**) menu in the **Publish** panel and choose **Manage websites…**. From there, you can **Disconnect** a website, or connect another one with **Use another website…**.
+Once connected, the **Publish** panel shows **Publish details**: a card for the website you’ll publish to, with its address and when you last published (or **Not published yet**). Below the card, you’ll see the website’s **Environment** and, once you’ve pulled from it, when it was **Last pulled**. For WordPress.com sites, there are also links to the site’s **Domains**, **Backups**, and **Manage on WordPress.com**.
+
+Open the **Website actions** (**⋯**) menu on the card to **Visit site**, **Copy link**, or **Disconnect…** the website. Disconnecting asks you to confirm, and leaves both your local site and the live website unchanged.
 
 If a connected site was deleted, or you no longer have access to it, Studio tells you, and you can choose another website.
 
 If you’re working in a team, your teammates can repeat the same steps to collaborate on the same site.
+
+### [Switch websites](#switch-websites)
+
+A local site can be connected to more than one website, for example a production site and its staging site. To switch between them:
+
+1.  In the **Publish** panel, click the website card.
+2.  Choose another connected website. The current one is listed first.
+
+The details, links, and the **Pull changes** and **Publish changes** buttons follow the website you choose. To connect one more website, click the card and choose **Connect another site…**. You can’t switch websites while a pull or publish is running.
+
+<!-- TODO screenshot: capture by hand in Studio 2.0, logged in to WordPress.com: the Publish panel’s website switcher open, listing two connected websites and Connect another site…. -->
 
 ## [Connect WordPress Studio to a new WordPress.com site](#connect-new)
 
 If you’d like to publish your local site to a new WordPress.com-hosted site, you can purchase a WordPress.com hosting plan and set up Studio Sync all at once:
 
 1.  Select the site you wish to publish from the Studio sidebar.
-2.  Click **Publish** at the top right of the site preview.
-3.  Click **Publish on WordPress.com** to add a new site in the browser. If the local site is already connected to a website, open **Website actions** (**⋯**) → **Manage websites…** and click **Create a new WordPress.com site** instead.
-4.  Select a plan for a new site and complete the checkout.
+2.  Click **Publish** at the top right of the site preview. If the local site isn’t connected to a website yet, you’ll see **Existing site…** and **New site…**.
+3.  Click **New site…** to set up a new site on WordPress.com in your browser.
+4.  Choose a domain and a plan for the new site, and complete the checkout.
 5.  When the new site is added, accept the prompt to open Studio or click “**Connect Studio**” on your site’s Home screen.
 
-Studio saves the connection to let you easily synchronize the Studio site with the connected WordPress.com site in either direction.
+Studio connects the new site automatically and shows it in the **Publish** panel, so you can synchronize the Studio site with the connected WordPress.com site in either direction. If the new site isn’t available yet, Studio tells you, and you can try again.
 
 ## [Pull a WordPress.com site into WordPress Studio](#pull)
 
 To bring the latest changes from your production or [staging site](https://wordpress.com/support/how-to-create-a-staging-site/) into Studio:
 
 1.  Select the site you wish to synchronize from the Studio sidebar.
-2.  Click **Publish** at the top right of the site preview, and connect a website if you haven’t already.
-3.  Open the **Website actions** (**⋯**) menu and choose **Pull changes…**. You can also choose **Publish → Pull changes…** from the site menu.
+2.  Click **Publish** at the top right of the site preview, and connect a website if you haven’t already. If the local site is connected to more than one website, [choose one](#switch-websites).
+3.  Click **Pull changes**.
 
-<!-- TODO screenshot: capture by hand in Studio 2.0, logged in to WordPress.com: Pull changes with Include → Choose files…. -->
+<!-- TODO screenshot: capture by hand in Studio 2.0, logged in to WordPress.com: the Pull changes review step with Choose files… selected. -->
 [![A screenshot depicting the selective Pull process in Studio Sync.](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-pull-selective.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-pull-selective.png)
 
-4.  Under **Include**, choose what to pull:
-    -   **Files, content, and settings**
+4.  Choose what to pull:
+    -   **Entire site**
     -   **Files only**
     -   **Content and settings only**
     -   **Choose files…**: pick individual items. You can expand the `plugins`, `themes`, and `uploads` folders to select individual items, and choose whether to include **Content and settings** (the database).
 5.  Click **Pull changes**.
 
+If the website doesn’t have a backup yet, only a full-site pull is available.
+
 While a pull or publish is running, other site actions, such as starting and stopping the site, are unavailable for that site. The **Publish** button shows the transfer’s progress, and you can cancel it from the **Publish** panel.
 
 If you quit Studio while a pull or publish is running, Studio warns you first. If the operation can still be cancelled, quitting aborts it. If it can no longer be stopped safely, it keeps running after you quit Studio and appears again in the **Publish** panel when you relaunch Studio.
 
-The selected elements of the Studio site will be replaced by the files (like plugins or themes) and content (like media files and the database) from the remote site. Your website stays unchanged. When the pull is done, Studio shows “Changes pulled into WordPress Studio”. You can work on your site locally now, and publish it back to the live site anytime.
+The selected elements of the Studio site will be replaced by the files (like plugins or themes) and content (like media files and the database) from the remote site. Your website stays unchanged. When the pull is done, Studio shows “Changes pulled into WordPress Studio” and “Your website wasn’t changed.” Click **Done** to go back to **Publish details**. If Studio couldn’t restart the site after the pull, click **Start site**. You can work on your site locally now, and publish it back to the live site anytime.
+
+If a pull fails, Studio shows what went wrong, and you can click **Try pulling again**.
 
 ## [Publish a WordPress Studio site to a WordPress.com site](#push)
 
@@ -105,21 +122,31 @@ When you are happy with the changes made to your Studio site, you can publish th
 
 1.  Select the site you wish to publish from the Studio sidebar.
 2.  Click **Publish** at the top right of the site preview, and connect a website if you haven’t already.
-3.  If the local site is connected to more than one website, choose one under **Publish to**.
+3.  If the local site is connected to more than one website, [choose one](#switch-websites). Then click **Publish changes**.
 
-<!-- TODO screenshot: capture by hand in Studio 2.0, logged in to WordPress.com: the Publish panel with Include → Choose files…. -->
+<!-- TODO screenshot: capture by hand in Studio 2.0, logged in to WordPress.com: the Publish changes review step with Choose files… selected. -->
 [![The Publish panel with "Choose files…" selected](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-selective-push.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-selective-push.png)
 
-4.  Under **Include**, choose what to publish:
-    -   **Files, content, and settings**
+4.  Choose what to publish:
+    -   **Entire site**
     -   **Files only**
     -   **Content and settings only**
     -   **Choose files…**: pick individual items. You can expand the `plugins`, `themes`, and `uploads` folders to select individual items, and choose whether to include **Content and settings** (the database).
-5.  Click **Publish**.
+5.  Click **Publish changes**.
 
-The selected elements of your WordPress.com site will be replaced by the files (like plugins or themes) and content (like media files and the database) from the Studio site. The **Publish** panel tells you what will be overwritten before you start.
+The selected elements of your WordPress.com site will be replaced by the files (like plugins or themes) and content (like media files and the database) from the Studio site. The review step tells you what will be overwritten before you start. If publishing fails, Studio shows what went wrong, and you can click **Try publishing again**.
 
-Note that publishing content and settings will replace the whole database of your live site. If it’s a WooCommerce site, it would include orders, product changes, and customer data. Studio triggers a full site backup before syncing so you can restore your site if you are not happy with the result, but use it with extra caution. To find these backups, open **Website actions** (**⋯**) in the **Publish** panel and choose **View backups**.
+Note that publishing content and settings will replace the whole database of your live site. If it’s a WooCommerce site, it would include orders, product changes, and customer data. Studio triggers a full site backup before syncing so you can restore your site if you are not happy with the result, but use it with extra caution. To find these backups on a WordPress.com site, click **Backups** in the **Publish** panel.
+
+### [When you can’t publish or pull](#cant-publish-or-pull)
+
+Studio disables **Pull changes** and **Publish changes**, and tells you why, when:
+
+-   You don’t have administrator access to the website.
+-   The website needs a hosting plan that supports publishing from WordPress Studio.
+-   Hosting isn’t fully activated yet. Finish activating hosting on WordPress.com first.
+-   The website has been deleted. Choose another website.
+-   You’re offline. Connect to the internet to publish or pull changes.
 
 ### [Exclude files with .deployignore](#8-exclude-files-with-deployignore)
 

@@ -311,6 +311,7 @@ export function SettingsDialog() {
 		<Dialog replaceable open={ !! settings } onOpenChange={ ( isOpen ) => ! isOpen && close() }>
 			<DialogContent
 				layout="settings"
+				className={ styles.dialog }
 				onInputCapture={ () => {
 					pendingExit.current = null;
 				} }
@@ -333,7 +334,7 @@ export function SettingsDialog() {
 					value={ searching ? null : section }
 					onValueChange={ ( next: SettingsSectionId ) => go( next ) }
 				>
-					<TabsSidebar>
+					<TabsSidebar className={ styles.sidebar }>
 						<Tabs
 							value={ scope }
 							onValueChange={ ( next: SettingsScope ) =>

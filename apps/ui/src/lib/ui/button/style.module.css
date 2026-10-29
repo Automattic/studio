@@ -13,7 +13,6 @@
 		border: 1px solid transparent;
 		border-radius: var( --radius-lg );
 		background: var( --button-background, transparent );
-		background-clip: padding-box;
 		font-size: var( --text-xs );
 		font-weight: var( --font-weight-medium );
 		line-height: var( --text-xs--line-height );
@@ -22,14 +21,14 @@
 		outline: none;
 		cursor: pointer;
 		user-select: none;
-		transition-property: color, background-color, border-color, opacity;
+		transition-property: color, background-color, border-color;
 		transition-duration: var( --motion-duration-feedback );
 		transition-timing-function: ease;
 	}
 
 	@media ( prefers-reduced-motion: no-preference ) {
 		.button:not( :focus-visible ) {
-			transition-property: color, background-color, border-color, transform, opacity;
+			transition-property: color, background-color, border-color, transform;
 		}
 	}
 
@@ -84,7 +83,7 @@
 
 	/* Variants. Hover only applies to enabled buttons. */
 	.button:is(
-			:hover:not( :disabled, [data-disabled] ),
+			:is( :hover, :active ):not( :disabled, [data-disabled] ),
 			[aria-expanded='true'],
 			[aria-pressed='true']
 		) {
@@ -99,21 +98,11 @@
 			[data-variant='inline-accent'],
 			[data-variant='overlay']
 		):is(
-			:hover:not( :disabled, [data-disabled] ),
+			:is( :hover, :active ):not( :disabled, [data-disabled] ),
 			[aria-expanded='true'],
 			[aria-pressed='true']
 		) {
 		color: var( --button-hover-color );
-	}
-
-	.button:is(
-			[data-variant='ghost'],
-			[data-variant='muted-ghost'],
-			[data-variant='outline'],
-			[data-variant='segmented'],
-			[data-variant='muted']
-		):is( [aria-expanded='true'], [aria-pressed='true'] ) {
-		background-color: var( --button-selected-background, var( --selected ) );
 	}
 
 	.button[data-variant='default'] {
@@ -141,6 +130,7 @@
 		--button-hover-background: var( --hover );
 
 		border-color: var( --border );
+		color: var( --foreground );
 	}
 
 	.button[data-variant='segmented'] {
@@ -178,7 +168,10 @@
 	}
 
 	.button[data-variant='accent-ghost']:is( [aria-pressed='true'], [aria-expanded='true'] ) {
-		--button-hover-background: color-mix( in srgb, var( --accent ) 15%, transparent );
+		--button-hover-background: light-dark(
+			color-mix( in srgb, var( --accent ) 8%, transparent ),
+			color-mix( in srgb, var( --accent ) 15%, transparent )
+		);
 		--button-hover-color: var( --accent-text );
 	}
 
@@ -186,7 +179,10 @@
 			[aria-pressed='true'],
 			[aria-expanded='true']
 		):hover:not( :disabled, [data-disabled] ) {
-		--button-hover-background: color-mix( in srgb, var( --accent ) 22%, transparent );
+		--button-hover-background: light-dark(
+			color-mix( in srgb, var( --accent ) 14%, transparent ),
+			color-mix( in srgb, var( --accent ) 22%, transparent )
+		);
 	}
 
 	.button[data-variant='muted-ghost'] {

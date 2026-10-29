@@ -346,7 +346,7 @@ export function SiteSettingsForm( {
 		</SettingsRow>
 	);
 	const copyButton = ( key: TextKey, label: string ) => (
-		<CopyButton text={ data[ key ] } label={ label } size="icon-sm" />
+		<CopyButton text={ data[ key ] } label={ label } size="icon" />
 	);
 
 	const resolvedPhpVersion = getClosestSupportedPhpVersion( data.phpVersion ) ?? data.phpVersion;
@@ -374,7 +374,7 @@ export function SiteSettingsForm( {
 									title={ site.path }
 									readOnly
 								/>
-								<CopyButton text={ site.path } label={ __( 'Copy local path' ) } size="icon-sm" />
+								<CopyButton text={ site.path } label={ __( 'Copy local path' ) } size="icon" />
 							</div>
 						) }
 					</SettingsRow>

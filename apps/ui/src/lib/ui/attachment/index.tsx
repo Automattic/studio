@@ -28,7 +28,9 @@ export function AttachmentDropOverlay( {
 }: ComponentProps< 'div' > ) {
 	return (
 		<div { ...props } className={ clsx( styles.dropOverlay, className ) } aria-hidden="true">
-			<span>{ children }</span>
+			<Button variant="accent" tabIndex={ -1 }>
+				{ children }
+			</Button>
 		</div>
 	);
 }

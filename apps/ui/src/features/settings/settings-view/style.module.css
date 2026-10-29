@@ -27,6 +27,11 @@
 	padding-inline: var( --space-5 );
 }
 
+.rowDescription,
+.groupDescription {
+	text-wrap: pretty;
+}
+
 .rowTitle {
 	display: flex;
 	align-items: center;
@@ -288,14 +293,14 @@
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: var( --space-1_5 );
+	gap: var( --space-2 );
 	width: 100%;
 }
 
 .swatch {
 	flex-shrink: 0;
-	width: 24px;
-	height: 24px;
+	width: 20px;
+	height: 20px;
 	border-radius: var( --radius-full );
 	cursor: pointer;
 }

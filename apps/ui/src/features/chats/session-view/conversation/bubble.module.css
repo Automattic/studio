@@ -1,6 +1,6 @@
 .surface {
 	border: 0.5px solid var( --border );
-	border-radius: var( --radius-3xl );
+	border-radius: var( --radius-2xl );
 }
 
 .surface:not( [data-side='user'] )[data-joined-above] {

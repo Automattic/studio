@@ -444,6 +444,21 @@ describe( 'WordPress Studio settings', () => {
 		);
 	} );
 
+	it( 'restores default colors from the first swatch', async () => {
+		const { connector } = await setup( {
+			section: 'appearance',
+			preferences: { colorScheme: 'dark', accentColor: '#069e08', tintIntensity: 40, contrast: 30 },
+		} );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Default' } ) );
+		await waitFor( () =>
+			expect( connector.setUserPreferences ).toHaveBeenCalledWith( DEFAULT_COLOR_TINT, undefined )
+		);
+		expect( screen.getByRole( 'button', { name: 'Default' } ) ).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		);
+	} );
+
 	it( 'restores saved appearance after a failed background save', async () => {
 		const { connector } = await setup( { section: 'appearance' } );
 		let failSave: ( error: Error ) => void = () => {};

@@ -29,13 +29,7 @@
 		color: var( --muted-foreground );
 		font-weight: var( --font-weight-medium );
 		cursor: pointer;
-	}
-
-	.groupLabel,
-	.button {
-		transition:
-			color var( --motion-duration-feedback ) ease,
-			background-color var( --motion-duration-feedback ) ease;
+		transition: color var( --motion-duration-feedback ) ease;
 	}
 
 	.groupLabel:hover {
@@ -49,7 +43,9 @@
 
 	.groupLabel > svg {
 		opacity: 0;
-		transition: rotate var( --motion-duration-feedback ) ease;
+		transition:
+			rotate var( --motion-duration-feedback ) ease,
+			opacity var( --motion-duration-feedback ) ease;
 	}
 
 	.groupLabel[aria-expanded='true'] > svg {
@@ -71,6 +67,7 @@
 	.menu {
 		display: flex;
 		flex-direction: column;
+		gap: 1px;
 	}
 
 	.item {
@@ -127,7 +124,7 @@
 
 	.button:is( [data-active], [data-selected], [data-popup-open] ),
 	.item:is( [data-selected], [data-popup-open] ) > .button {
-		background-color: var( --selected );
+		background-color: var( --hover );
 	}
 
 	.button[data-muted]:hover {

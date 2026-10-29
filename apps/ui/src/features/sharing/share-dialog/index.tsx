@@ -173,14 +173,12 @@ export function SharePanel( {
 			{ usage.error ? (
 				<div className={ styles.error } role="alert">
 					<p>{ __( 'Unable to check preview availability.' ) }</p>
-					<Button variant="outline" onClick={ () => void usage.refetch() }>
-						{ __( 'Reload availability' ) }
-					</Button>
+					<Button onClick={ () => void usage.refetch() }>{ __( 'Reload availability' ) }</Button>
 				</div>
 			) : null }
 
 			{ loadError ? (
-				<div className={ styles.reload }>
+				<div className={ styles.error } role="alert">
 					<Button
 						onClick={ () => {
 							void user.refetch();

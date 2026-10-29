@@ -40,6 +40,8 @@ steps:
           image: "$NODE_DOCKER_IMAGE"
           propagate-environment: true
           propagate-aws-auth-tokens: true
+          environment:
+            - CACHE_BUCKET_NAME
           mount-buildkite-agent: true
           expand-volume-vars: true
           volumes:

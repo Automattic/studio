@@ -8,7 +8,8 @@ import { getFileAccessDescription } from '@studio/common/lib/site-file-access-la
 import { getLatestVersionLabel } from '@studio/common/lib/wordpress-versions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { ChevronDownIcon, ChevronRightIcon, FileIcon } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
 import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
 import {
@@ -72,6 +73,7 @@ interface CreateSiteFormProps {
 	loadingAnnouncement?: string;
 	children?: ReactNode;
 	panelFooter?: ReactNode;
+	actionsContainer?: HTMLElement | null;
 	// What the site starts from, shown under its name.
 	source?: string;
 	sourceIcon?: ReactElement;
@@ -98,6 +100,7 @@ export function CreateSiteForm( {
 	loadingAnnouncement,
 	children,
 	panelFooter,
+	actionsContainer,
 	source,
 	sourceIcon,
 	onExistingChange,
@@ -106,6 +109,7 @@ export function CreateSiteForm( {
 	onDraftChange,
 }: CreateSiteFormProps ) {
 	const { capabilities } = useConnector();
+	const formId = useId();
 	const [ defaults ] = useState( createDefaultFormData );
 	const suggestedFieldsRef = useRef( getSuggestedFields( initialValues ?? {} ) );
 	const [ data, setData ] = useState< FormData >( () =>
@@ -202,11 +206,11 @@ export function CreateSiteForm( {
 		),
 	};
 	const nameError = validateSiteName( data.name );
-	const advancedErrorCount = Object.values( advancedErrors ).filter( Boolean ).length;
-	const showAdvanced =
-		isAdvancedOpen ||
-		( ! data.isPathPending && !! advancedErrors.path ) ||
-		!! advancedErrors.customDomain;
+	const errorCount = Object.values( advancedErrors ).filter( Boolean ).length;
+	const advancedErrorCount = Object.entries( advancedErrors ).filter(
+		( [ field, error ] ) => field !== 'path' && !! error
+	).length;
+	const showAdvanced = isAdvancedOpen || !! advancedErrors.customDomain;
 	useEffect( () => onExistingChange?.( existing ), [ existing, onExistingChange ] );
 	useEffect( () => {
 		const values = { ...getSubmittedValues( data ), name: data.name };
@@ -221,7 +225,7 @@ export function CreateSiteForm( {
 	// every keystroke of the name field while the path auto-gen resolves, and
 	// disabling the submit button on it makes the button blink. Submits that
 	// land inside that window are queued and fired once the path resolves.
-	const canSubmit = ! nameError && ! advancedErrorCount && ! isSubmitting && ! isSubmitDisabled;
+	const canSubmit = ! nameError && ! errorCount && ! isSubmitting && ! isSubmitDisabled;
 
 	const submitForm = () => {
 		onSubmit( getSubmittedValues( data ) );
@@ -251,9 +255,26 @@ export function CreateSiteForm( {
 			unavailableWpVersion
 		);
 	const offlineMessage = __( 'Changing WordPress version requires an internet connection.' );
+	const actions = (
+		<>
+			<Button variant="outline" onClick={ onCancel } disabled={ isSubmitting }>
+				{ cancelLabel ?? __( 'Cancel' ) }
+			</Button>
+			<Button
+				type="submit"
+				form={ formId }
+				disabled={ ! canSubmit }
+				loading={ isSubmitting }
+				loadingAnnouncement={ loadingAnnouncement ?? __( 'Creating site' ) }
+				data-testid="create-site-submit"
+			>
+				{ submitLabel ?? __( 'Create site' ) }
+			</Button>
+		</>
+	);
 
 	return (
-		<form className={ styles.form } onSubmit={ handleSubmit }>
+		<form id={ formId } className={ styles.form } onSubmit={ handleSubmit }>
 			<div className={ styles.panel }>
 				<TextField
 					label={ __( 'Site name' ) }
@@ -275,6 +296,50 @@ export function CreateSiteForm( {
 				) : null }
 
 				{ children }
+
+				{ ( capabilities.siteFolders || capabilities.versionChoice ) && (
+					<FieldGroup>
+						{ capabilities.siteFolders && (
+							<PathField
+								data={ data }
+								error={ advancedErrors.path }
+								requiresEmptyPath={ requiresEmptyPath }
+								onChange={ handleChange }
+							/>
+						) }
+						{ capabilities.versionChoice && (
+							<>
+								{ existing ? null : wpVersionOptions ? (
+									<SelectField
+										label={ __( 'WordPress version' ) }
+										description={ wpVersionDescription }
+										value={ data.wpVersion }
+										options={ wpVersionOptions }
+										disabled={ isOffline }
+										disabledReason={ offlineMessage }
+										onChange={ ( wpVersion ) => handleChange( { wpVersion } ) }
+									/>
+								) : (
+									<TextField
+										label={ __( 'WordPress version' ) }
+										orientation="horizontal"
+										placeholder={ DEFAULT_WORDPRESS_VERSION }
+										value={ data.wpVersion }
+										onChange={ ( event ) => handleChange( { wpVersion: event.target.value } ) }
+									/>
+								) }
+								<SelectField
+									label={ __( 'PHP version' ) }
+									value={ data.phpVersion }
+									options={ getPhpVersionOptions() }
+									onChange={ ( phpVersion ) =>
+										handleChange( { phpVersion: phpVersion as SupportedPHPVersion } )
+									}
+								/>
+							</>
+						) }
+					</FieldGroup>
+				) }
 
 				<Button
 					variant="muted-ghost"
@@ -306,45 +371,6 @@ export function CreateSiteForm( {
 				>
 					<div className={ styles.advancedCollapseInner }>
 						<FieldGroup>
-							{ capabilities.siteFolders && (
-								<PathField
-									data={ data }
-									error={ advancedErrors.path }
-									requiresEmptyPath={ requiresEmptyPath }
-									onChange={ handleChange }
-								/>
-							) }
-							{ capabilities.versionChoice && (
-								<>
-									{ existing ? null : wpVersionOptions ? (
-										<SelectField
-											label={ __( 'WordPress version' ) }
-											description={ wpVersionDescription }
-											value={ data.wpVersion }
-											options={ wpVersionOptions }
-											disabled={ isOffline }
-											disabledReason={ offlineMessage }
-											onChange={ ( wpVersion ) => handleChange( { wpVersion } ) }
-										/>
-									) : (
-										<TextField
-											label={ __( 'WordPress version' ) }
-											orientation="horizontal"
-											placeholder={ DEFAULT_WORDPRESS_VERSION }
-											value={ data.wpVersion }
-											onChange={ ( event ) => handleChange( { wpVersion: event.target.value } ) }
-										/>
-									) }
-									<SelectField
-										label={ __( 'PHP version' ) }
-										value={ data.phpVersion }
-										options={ getPhpVersionOptions() }
-										onChange={ ( phpVersion ) =>
-											handleChange( { phpVersion: phpVersion as SupportedPHPVersion } )
-										}
-									/>
-								</>
-							) }
 							{ capabilities.fileAccess && (
 								<SelectField
 									label={ __( 'File access' ) }
@@ -448,20 +474,11 @@ export function CreateSiteForm( {
 				) }
 			</div>
 
-			<div className={ styles.actions }>
-				<Button variant="outline" onClick={ onCancel } disabled={ isSubmitting }>
-					{ cancelLabel ?? __( 'Cancel' ) }
-				</Button>
-				<Button
-					type="submit"
-					disabled={ ! canSubmit }
-					loading={ isSubmitting }
-					loadingAnnouncement={ loadingAnnouncement ?? __( 'Creating site' ) }
-					data-testid="create-site-submit"
-				>
-					{ submitLabel ?? __( 'Create site' ) }
-				</Button>
-			</div>
+			{ actionsContainer === undefined ? (
+				<div className={ styles.actions }>{ actions }</div>
+			) : actionsContainer ? (
+				createPortal( actions, actionsContainer )
+			) : null }
 		</form>
 	);
 }

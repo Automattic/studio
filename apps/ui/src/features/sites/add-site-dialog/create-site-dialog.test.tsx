@@ -71,19 +71,56 @@ async function submit( name = 'Create site' ) {
 }
 
 describe( 'Add site flow', () => {
+	it( 'retraces tab changes and stops at the initial screen', async () => {
+		setup();
+		await screen.findByRole( 'button', { name: 'Start with Blank site' } );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Connect' } ) );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Import' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Back' } ) );
+		expect( screen.getByRole( 'tab', { name: 'Connect' } ) ).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'Back' } ) );
+		expect( screen.getByRole( 'tab', { name: 'Create' } ) ).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
+		expect( screen.getByRole( 'button', { name: 'Back' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+	} );
+
+	it( 'shows only a spinner while Blueprints load, then focuses Blank', async () => {
+		setup();
+		let resolve!: ( response: Response ) => void;
+		vi.mocked( fetch ).mockReturnValue( new Promise( ( done ) => ( resolve = done ) ) );
+		expect( await screen.findByRole( 'status', { name: 'Loading Blueprints…' } ) ).toBeVisible();
+		expect(
+			screen.queryByRole( 'button', { name: 'Start with Blank site' } )
+		).not.toBeInTheDocument();
+		await act( async () => resolve( Response.json( { blueprints: [ portfolio ] } ) ) );
+		await waitFor( () =>
+			expect( screen.getByRole( 'button', { name: 'Start with Blank site' } ) ).toHaveFocus()
+		);
+	} );
+
 	it( 'opens a title-only picker with grouped navigation and focuses Blank', async () => {
 		setup();
 		const blank = await screen.findByRole( 'button', { name: 'Start with Blank site' } );
 		await waitFor( () => expect( blank ).toHaveFocus() );
-		expect( screen.queryByRole( 'tab', { name: 'Upload' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'tab', { name: 'Upload' } ) ).toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Upload Blueprint…' } ) ).not.toBeInTheDocument();
+
 		expect(
 			screen.queryByRole( 'combobox', { name: 'Blueprint collection' } )
 		).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'searchbox' ) ).not.toBeInTheDocument();
-		expect( screen.getAllByText( 'Choose a starting point' ) ).toHaveLength( 1 );
+		expect( screen.getAllByText( 'Create a new WordPress' ) ).toHaveLength( 1 );
 		expect(
 			within( screen.getByRole( 'tablist', { name: 'Ways to add a site' } ) ).getAllByRole( 'tab' )
-		).toHaveLength( 9 );
+		).toHaveLength( 10 );
 		const card = await screen.findByRole( 'button', { name: 'View Portfolio' } );
 		expect( within( card ).getByText( 'View blueprint' ) ).toBeInTheDocument();
 		expect( within( card ).queryByRole( 'button' ) ).not.toBeInTheDocument();
@@ -108,6 +145,97 @@ describe( 'Add site flow', () => {
 		);
 	} );
 
+	it( 'uploads a Blueprint from Upload and cleans its bundle when returning', async () => {
+		const { connector } = setup();
+		fireEvent.click( await screen.findByRole( 'tab', { name: 'Upload' } ) );
+		await screen.findByRole( 'button', { name: 'Choose file' } );
+		connector.extractBlueprintBundle.mockResolvedValueOnce( {
+			blueprintJson: { meta: { title: 'Uploaded site', author: 'Studio' } },
+			blueprintJsonPath: '/tmp/upload/blueprint.json',
+			tempDir: '/tmp/upload',
+		} );
+		fireEvent.change( document.querySelector( 'input[type="file"]' )!, {
+			target: { files: [ new File( [ 'bundle' ], 'blueprint.zip', { type: 'application/zip' } ) ] },
+		} );
+		expect( await screen.findByRole( 'heading', { name: 'Uploaded site' } ) ).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: 'Create your site' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'button', { name: 'Upload Blueprint…' } ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Back' } ) );
+		await screen.findByRole( 'button', { name: 'Choose file' } );
+		expect( screen.getByRole( 'tab', { name: 'Upload' } ) ).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
+		expect( connector.cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/upload' );
+	} );
+
+	it( 'can start blank while an uploaded bundle is still loading', async () => {
+		const { connector } = setup();
+		fireEvent.click( await screen.findByRole( 'tab', { name: 'Upload' } ) );
+		await screen.findByRole( 'button', { name: 'Choose file' } );
+		let complete!: (
+			value: Awaited< ReturnType< typeof connector.extractBlueprintBundle > >
+		) => void;
+		connector.extractBlueprintBundle.mockReturnValueOnce(
+			new Promise( ( resolve ) => {
+				complete = resolve;
+			} )
+		);
+		fireEvent.change( document.querySelector( 'input[type="file"]' )!, {
+			target: { files: [ new File( [ 'bundle' ], 'blueprint.zip', { type: 'application/zip' } ) ] },
+		} );
+		await waitFor( () => expect( connector.extractBlueprintBundle ).toHaveBeenCalledOnce() );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Create' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Start with Blank site' } ) );
+		await waitFor( () =>
+			expect( screen.getByRole( 'button', { name: 'Create site' } ) ).toBeEnabled()
+		);
+		await act( async () =>
+			complete( {
+				blueprintJson: {},
+				blueprintJsonPath: '/tmp/canceled/blueprint.json',
+				tempDir: '/tmp/canceled',
+			} )
+		);
+		expect( connector.cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/canceled' );
+		expect( screen.getByRole( 'heading', { name: 'Create a blank site' } ) ).toBeVisible();
+	} );
+
+	it( 'scopes backup drag feedback to the import placeholder', async () => {
+		setup( { path: '/?addSite=import' } );
+		const target = ( await screen.findByText( 'Drop a WordPress backup here.' ) ).parentElement!
+			.parentElement!;
+		const dataTransfer = {
+			files: [ new File( [ 'backup' ], 'backup.zip', { type: 'application/zip' } ) ],
+			types: [ 'Files' ],
+		};
+		fireEvent.dragEnter( window, { dataTransfer } );
+		expect( target ).not.toHaveAttribute( 'data-dragging' );
+		fireEvent.dragEnter( target, { dataTransfer } );
+		expect( target ).toHaveAttribute( 'data-dragging' );
+		fireEvent.dragLeave( target, { dataTransfer } );
+		expect( target ).not.toHaveAttribute( 'data-dragging' );
+		fireEvent.drop( target, { dataTransfer } );
+		expect( await screen.findByRole( 'button', { name: 'Import site' } ) ).toBeVisible();
+	} );
+
+	it( 'opens Upload directly and accepts a dropped Blueprint', async () => {
+		setup( { path: '/?addSite=upload' } );
+		expect( await screen.findByRole( 'heading', { name: 'Upload a Blueprint' } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'Upload' } ) ).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
+		const file = new File( [ '{}' ], 'blueprint.json', { type: 'application/json' } );
+		Object.defineProperty( file, 'text', { value: async () => '{}' } );
+		fireEvent.drop( screen.getByText( 'Drop a Blueprint here.' ).parentElement!.parentElement!, {
+			dataTransfer: { files: [ file ], types: [ 'Files' ] },
+		} );
+		expect(
+			await screen.findByRole( 'button', { name: 'Create site from Blueprint' } )
+		).toBeVisible();
+	} );
+
 	it( 'filters by use case and restores the gallery when filters are cleared', async () => {
 		setup();
 		await screen.findByRole( 'button', { name: 'Start with Blank site' } );
@@ -128,7 +256,7 @@ describe( 'Add site flow', () => {
 		fireEvent.click( screen.getByRole( 'tab', { name: 'Portfolio' } ) );
 		expect( screen.queryByRole( 'button', { name: 'Blueprints' } ) ).not.toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Back to Blueprints' } ) );
-		expect( screen.getByText( 'Choose a starting point' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Create a new WordPress' ) ).toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'tab', { name: 'Blog' } ) );
 		expect( await screen.findByText( 'No matching Blueprints.' ) ).toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Clear filters' } ) );

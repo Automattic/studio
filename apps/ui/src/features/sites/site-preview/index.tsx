@@ -270,7 +270,6 @@ export function SitePreview( {
 				},
 		  }
 		: undefined;
-	const [ addressOpen, setAddressOpen ] = useState( false );
 	useSiteHeaderNavigation(
 		canPreview && ! collapsed
 			? {
@@ -280,7 +279,6 @@ export function SitePreview( {
 					back: () => sendBrowserCommand( 'back' ),
 					forward: () => sendBrowserCommand( 'forward' ),
 					reload: () => sendBrowserCommand( 'reload' ),
-					openAddress: () => setAddressOpen( true ),
 					openExternal,
 					responsive,
 					annotate,
@@ -292,8 +290,6 @@ export function SitePreview( {
 
 	const header = (
 		<PreviewHeader
-			addressOpen={ addressOpen }
-			onAddressOpenChange={ setAddressOpen }
 			site={ site }
 			siteUrl={ siteUrl }
 			path={ safePath }

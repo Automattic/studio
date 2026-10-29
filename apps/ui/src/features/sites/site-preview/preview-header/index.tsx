@@ -6,7 +6,7 @@ import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
 import { SiteHeaderSpace, useSiteHeader } from '@/features/sites/site-header-actions';
 import { PreviewAddressBar, type PreviewRealm } from '@/features/sites/site-preview/address-bar';
 import { RotateCwIcon } from '@/lib/icons';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, IconButton } from '@/lib/ui';
+import { IconButton } from '@/lib/ui';
 import { AnnotateButton } from './annotate-button';
 import { BrowserHistoryButton } from './browser-history-button';
 import styles from './style.module.css';
@@ -17,8 +17,6 @@ import type { BrowserShortcutCommand } from '@studio/agent/protocol/inspector/pa
 import type { ComponentProps, ReactNode } from 'react';
 
 interface PreviewHeaderProps {
-	addressOpen: boolean;
-	onAddressOpenChange: ( open: boolean ) => void;
 	site: SiteDetails;
 	siteUrl: string;
 	path: string;
@@ -44,8 +42,6 @@ interface PreviewHeaderProps {
 }
 
 export function PreviewHeader( {
-	addressOpen,
-	onAddressOpenChange,
 	site,
 	siteUrl,
 	path,
@@ -79,14 +75,8 @@ export function PreviewHeader( {
 			siteUrl={ siteUrl }
 			path={ path }
 			remote={ live }
-			onNavigate={ ( nextPath ) => {
-				onPathChange?.( nextPath );
-				onAddressOpenChange( false );
-			} }
-			onSwitchRealm={ ( realm ) => {
-				onSwitchRealm( realm );
-				onAddressOpenChange( false );
-			} }
+			onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
+			onSwitchRealm={ onSwitchRealm }
 			hasDesignSystem={ hasDesignSystem }
 			onOpenExternal={ onOpenExternal }
 			responsive={ responsive }
@@ -193,14 +183,7 @@ export function PreviewHeader( {
 				) : null }
 				{ headerHost === 'preview' && ! collapsed ? <SiteHeaderSpace /> : null }
 			</div>
-			<Dialog open={ addressOpen } onOpenChange={ onAddressOpenChange }>
-				<DialogContent layout="compact">
-					<DialogHeader>
-						<DialogTitle>{ __( 'Go to URL' ) }</DialogTitle>
-					</DialogHeader>
-					{ addressBar }
-				</DialogContent>
-			</Dialog>
+
 			{ progress !== undefined ? (
 				<div className={ styles.loadingProgress } aria-hidden="true">
 					<span style={ { transform: `scaleX(${ Math.min( progress, 1 ) })` } } />

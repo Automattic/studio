@@ -12,7 +12,6 @@ import {
 	ArrowLeftIcon,
 	ArrowRightIcon,
 	ExternalLinkIcon,
-	GlobeIcon,
 	RotateCwIcon,
 	ResponsiveIcon,
 	ShareIcon,
@@ -31,7 +30,6 @@ interface SiteHeaderNavigation {
 	forward: () => void;
 	reload: () => void;
 	openExternal?: () => void;
-	openAddress?: () => void;
 	responsive?: { active: boolean; disabled: boolean; onClick: () => void };
 	annotate?: { active: boolean; disabled: boolean; disabledReason?: string; onClick: () => void };
 	backShortcut: string;
@@ -126,7 +124,6 @@ export function useSiteHeaderNavigation( navigation: SiteHeaderNavigation | null
 	const responsiveActive = navigation?.responsive?.active;
 	const responsiveDisabled = navigation?.responsive?.disabled;
 	const hasResponsive = Boolean( navigation?.responsive );
-	const canOpenAddress = Boolean( navigation?.openAddress );
 	const canOpenExternal = Boolean( navigation?.openExternal );
 	useEffect( () => {
 		if ( ! available ) {
@@ -139,7 +136,6 @@ export function useSiteHeaderNavigation( navigation: SiteHeaderNavigation | null
 			back: () => latest.current?.back(),
 			forward: () => latest.current?.forward(),
 			reload: () => latest.current?.reload(),
-			openAddress: canOpenAddress ? () => latest.current?.openAddress?.() : undefined,
 			openExternal: canOpenExternal ? () => latest.current?.openExternal?.() : undefined,
 			responsive: hasResponsive
 				? {
@@ -170,7 +166,6 @@ export function useSiteHeaderNavigation( navigation: SiteHeaderNavigation | null
 		canGoBack,
 		canGoForward,
 		canOpenExternal,
-		canOpenAddress,
 		disabled,
 		forwardShortcut,
 		hasResponsive,
@@ -267,12 +262,7 @@ export function SiteHeaderActions( { site }: { site: SiteDetails; live?: boolean
 										{ __( 'Responsive mode' ) }
 									</Menu.Item>
 								) : null }
-								{ layout === 'mobile-overflow' && navigation?.openAddress ? (
-									<Menu.Item disabled={ navigation.disabled } onClick={ navigation.openAddress }>
-										<GlobeIcon />
-										{ __( 'Go to URL…' ) }
-									</Menu.Item>
-								) : null }
+
 								{ navigation?.openExternal ? (
 									<Menu.Item disabled={ navigation.disabled } onClick={ navigation.openExternal }>
 										<ExternalLinkIcon />

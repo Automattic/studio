@@ -198,7 +198,6 @@ it( 'exposes browser actions with their navigation availability in overflow', as
 			'Share',
 			'Annotate',
 			'Responsive mode',
-			'Go to URL…',
 			'Open in browser',
 			expect.stringMatching( /^Back/ ),
 			expect.stringMatching( /^Forward/ ),
@@ -276,21 +275,16 @@ it.each( [ true, false ] )(
 	}
 );
 
-it( 'moves URL navigation into More on mobile', async () => {
+it( 'hides URL navigation entirely on mobile', async () => {
 	const { user, resize } = await renderHeader( 'mobile-address', createFakeConnector(), 600 );
 	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
 	await resize( 540 );
 	expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
 	const more = screen.getByRole( 'button', { name: 'More preview actions' } );
 	await user.click( more );
-	await user.click( await screen.findByRole( 'menuitem', { name: 'Go to URL…' } ) );
-	expect( await screen.findByRole( 'dialog', { name: 'Go to URL' } ) ).toBeVisible();
-	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
-	await user.click(
-		within( screen.getByRole( 'dialog', { name: 'Go to URL' } ) ).getByRole( 'button', {
-			name: 'Close',
-		} )
-	);
+	expect( screen.queryByRole( 'menuitem', { name: 'Go to URL…' } ) ).not.toBeInTheDocument();
+	expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument();
+	await user.keyboard( '{Escape}' );
 	await resize( 600 );
 	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
 } );

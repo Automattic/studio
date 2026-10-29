@@ -108,6 +108,24 @@ function isPersistentItem( item: TurnActivity[ 'items' ][ number ] ) {
 	);
 }
 
+const COUNT_THRESHOLD_SECONDS = 10;
+
+export function formatElapsed( totalSeconds: number ) {
+	const hours = Math.floor( totalSeconds / 3600 );
+	const minutes = Math.floor( ( totalSeconds % 3600 ) / 60 );
+	const seconds = totalSeconds % 60;
+	if ( hours > 0 ) {
+		/* translators: %1$d: hours, %2$d: minutes. */
+		return sprintf( __( '%1$dh %2$dm' ), hours, minutes );
+	}
+	if ( minutes > 0 ) {
+		/* translators: %1$d: minutes, %2$d: seconds. */
+		return sprintf( __( '%1$dm %2$ds' ), minutes, seconds );
+	}
+	/* translators: %d: seconds. */
+	return sprintf( __( '%ds' ), seconds );
+}
+
 export const TurnActivityLine = memo( function TurnActivityLine( {
 	activity: { startedAt, endedAt, status, items },
 	waitingOnUser,
@@ -148,8 +166,6 @@ export const TurnActivityLine = memo( function TurnActivityLine( {
 	if ( disclosure.running !== running ) {
 		setDisclosure( { running, open: running } );
 	}
-	const expanded = disclosure.running === running ? disclosure.open : running;
-	const visibleItems = expanded ? items : items.filter( isPersistentItem );
 	const [ now, setNow ] = useState( Date.now );
 	useEffect( () => {
 		if ( ! running ) {
@@ -164,26 +180,43 @@ export const TurnActivityLine = memo( function TurnActivityLine( {
 		startedAt === null || end === null
 			? null
 			: Math.max( 0, Math.floor( ( end - startedAt ) / 1000 ) );
+	const duration = formatElapsed( seconds ?? 0 );
+	const showCount = seconds !== null && seconds >= COUNT_THRESHOLD_SECONDS;
+	const isQuickReply =
+		status === 'success' &&
+		seconds !== null &&
+		! showCount &&
+		! items.some( ( item ) => item.kind === 'tool-use' );
+	const expanded = isQuickReply || ( disclosure.running === running ? disclosure.open : running );
+	const visibleItems = expanded ? items : items.filter( isPersistentItem );
 	const label = waiting
-		? sprintf(
-				/* translators: %d: number of seconds. */
-				__( 'Waiting for %ds' ),
-				seconds ?? 0
-		  )
-		: seconds === null && status !== 'running'
+		? showCount
+			? sprintf(
+					/* translators: %s: elapsed time, e.g. "12s" or "1m 5s". */
+					__( 'Waiting for %s' ),
+					duration
+			  )
+			: __( 'Waiting' )
+		: running
+		? showCount
+			? sprintf(
+					/* translators: %s: elapsed time, e.g. "12s" or "1m 5s". */
+					__( 'Working for %s' ),
+					duration
+			  )
+			: __( 'Working' )
+		: ! showCount
 		? { success: __( 'Worked' ), interrupted: __( 'You stopped' ), error: __( 'Failed' ) }[ status ]
 		: sprintf(
 				{
-					/* translators: %d: number of seconds. */
-					running: __( 'Working for %ds' ),
-					/* translators: %d: number of seconds. */
-					success: __( 'Worked for %ds' ),
-					/* translators: %d: number of seconds. */
-					interrupted: __( 'You stopped after %ds' ),
-					/* translators: %d: number of seconds. */
-					error: __( 'Failed after %ds' ),
+					/* translators: %s: elapsed time, e.g. "12s" or "1m 5s". */
+					success: __( 'Worked for %s' ),
+					/* translators: %s: elapsed time, e.g. "12s" or "1m 5s". */
+					interrupted: __( 'You stopped after %s' ),
+					/* translators: %s: elapsed time, e.g. "12s" or "1m 5s". */
+					error: __( 'Failed after %s' ),
 				}[ status ],
-				seconds ?? 0
+				duration
 		  );
 	const heading = (
 		<span className={ styles.traceLine } data-status={ status === 'error' ? 'error' : undefined }>
@@ -194,7 +227,7 @@ export const TurnActivityLine = memo( function TurnActivityLine( {
 	);
 	return (
 		<div className={ styles.activity } data-turn-activity>
-			{ hasContent ? (
+			{ isQuickReply ? null : hasContent ? (
 				<TraceTrigger
 					aria-expanded={ expanded }
 					aria-controls={ controls }

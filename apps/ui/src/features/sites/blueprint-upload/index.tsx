@@ -1,5 +1,6 @@
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
+import { UploadIcon } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { BlueprintErrorDialog } from '@/features/sites/blueprint-error-dialog';
@@ -12,7 +13,7 @@ import type { ChangeEvent } from 'react';
 export type { SelectedBlueprint } from '@/features/sites/blueprint-selection';
 
 interface BlueprintUploadProps {
-	variant?: 'hint' | 'button' | 'drop-only';
+	variant?: 'hint' | 'panel' | 'drop-only';
 	disabled?: boolean;
 	onSelect: ( blueprint: SelectedBlueprint ) => void;
 	onRemove: () => void;
@@ -121,7 +122,7 @@ export function BlueprintUpload( {
 
 	return (
 		<>
-			<div className={ variant === 'hint' ? styles.root : styles.control }>
+			<div className={ variant === 'drop-only' ? styles.control : styles.root }>
 				<input
 					ref={ fileInputRef }
 					type="file"
@@ -130,15 +131,24 @@ export function BlueprintUpload( {
 					className={ styles.fileInput }
 					disabled={ disabled }
 				/>
-				{ variant === 'button' ? (
-					<Button
-						variant="outline"
-						size="header"
-						disabled={ disabled }
-						onClick={ () => fileInputRef.current?.click() }
-					>
-						{ __( 'Upload Blueprint…' ) }
-					</Button>
+				{ variant === 'panel' ? (
+					<>
+						<div className={ styles.dropZone }>
+							<UploadIcon className={ styles.dropIcon } size={ 24 } />
+							<p className={ styles.dropLabel }>{ __( 'Drop a Blueprint here.' ) }</p>
+							<Button
+								variant="outline"
+								disabled={ disabled }
+								data-blueprint-upload
+								onClick={ () => fileInputRef.current?.click() }
+							>
+								{ __( 'Choose file' ) }
+							</Button>
+						</div>
+						<p className={ styles.dropHelp }>
+							{ __( 'Supports Blueprint JSON files and ZIP bundles.' ) }
+						</p>
+					</>
 				) : variant === 'hint' ? (
 					<p className={ styles.prompt }>
 						{ createInterpolateElement(

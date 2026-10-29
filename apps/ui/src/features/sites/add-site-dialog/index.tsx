@@ -1,6 +1,6 @@
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { ArchiveIcon, ChevronLeftIcon, CloudDownloadIcon } from 'lucide-react';
+import { ArchiveIcon, ChevronLeftIcon, CloudDownloadIcon, UploadIcon } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
@@ -43,6 +43,7 @@ type View =
 	| { name: 'details'; blueprint: Blueprint; useCase?: BlueprintUseCase }
 	| { name: 'setup'; from?: View; remote?: SyncSite }
 	| { name: 'connect' }
+	| { name: 'upload' }
 	| { name: 'import'; backup?: File };
 
 function getInitialView( section: AddSiteSection, behavior?: NewSiteBehavior ): View {
@@ -83,7 +84,7 @@ export function AddSiteDialog() {
 	const getInitialFocus = useCallback(
 		() =>
 			popup.current?.querySelector< HTMLElement >(
-				'input:not([type="file"]), [data-start-blank]'
+				'input:not([type="file"]), [data-start-blank], [data-blueprint-upload]'
 			) ??
 			popup.current ??
 			true,
@@ -171,6 +172,8 @@ export function AddSiteDialog() {
 			? __( 'Connect a site' )
 			: view.name === 'import'
 			? __( 'Import a backup' )
+			: view.name === 'upload'
+			? __( 'Upload a Blueprint' )
 			: view.useCase
 			? getUseCaseLabel( view.useCase )
 			: __( 'Choose a starting point' );
@@ -178,11 +181,13 @@ export function AddSiteDialog() {
 	const hasSidebar =
 		view.name === 'gallery' ||
 		view.name === 'connect' ||
+		view.name === 'upload' ||
 		( view.name === 'import' && ! view.backup );
 	const navValue = view.name === 'gallery' ? view.useCase ?? 'create' : view.name;
 	const navItems = [
 		{ value: 'create', label: __( 'Create' ), icon: <PlusIcon /> },
 		{ value: 'connect', label: __( 'Connect' ), icon: <CloudDownloadIcon /> },
+		{ value: 'upload', label: __( 'Upload' ), icon: <UploadIcon /> },
 		{ value: 'import', label: __( 'Import' ), icon: <ArchiveIcon /> },
 	];
 
@@ -241,7 +246,7 @@ export function AddSiteDialog() {
 							) : null }
 							{ view.name === 'gallery' || ( view.name === 'setup' && ! view.remote ) ? (
 								<BlueprintUpload
-									variant={ view.name === 'gallery' ? 'button' : 'drop-only' }
+									variant="drop-only"
 									disabled={ !! progress }
 									onSelect={ selectBlueprint }
 									onRemove={ removeInvalidBlueprint }
@@ -259,6 +264,14 @@ export function AddSiteDialog() {
 		>
 			<div className={ styles.content } inert={ progress ? true : undefined }>
 				<AddSiteContext.Provider value={ context }>
+					{ view.name === 'upload' ? (
+						<BlueprintUpload
+							variant="panel"
+							onSelect={ selectBlueprint }
+							onRemove={ removeInvalidBlueprint }
+							onValidityChange={ setIsBlueprintValid }
+						/>
+					) : null }
 					{ view.name === 'gallery' ? (
 						<BlueprintGallery
 							useCase={ view.useCase }
@@ -331,7 +344,7 @@ export function AddSiteDialog() {
 						value={ navValue }
 						onValueChange={ ( value: string ) =>
 							setView(
-								value === 'connect' || value === 'import'
+								value === 'connect' || value === 'upload' || value === 'import'
 									? ( { name: value } as View )
 									: {
 											name: 'gallery',

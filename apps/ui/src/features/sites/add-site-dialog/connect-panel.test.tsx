@@ -36,13 +36,13 @@ describe( 'ConnectPanel', () => {
 		const { connector, onConnect } = setup( [], { signedIn: false } );
 		connector.authenticate.mockResolvedValue();
 		expect(
-			await screen.findByText( 'Log in with your WordPress.com account to see your sites.' )
+			await screen.findByRole( 'heading', { name: 'Connect your WordPress' } )
 		).toBeVisible();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Sign up' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Create account' } ) );
 		await waitFor( () =>
 			expect( connector.authenticate ).toHaveBeenCalledWith( true, expect.anything() )
 		);
-		fireEvent.click( screen.getByRole( 'button', { name: /Log in with WordPress.com/ } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Log in' } ) );
 		await waitFor( () =>
 			expect( connector.authenticate ).toHaveBeenCalledWith( false, expect.anything() )
 		);

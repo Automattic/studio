@@ -6,6 +6,30 @@
 	display: contents;
 }
 
+.dropZone {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var( --space-4 );
+	max-width: 512px;
+	margin: var( --space-4 ) auto 0;
+	padding: var( --space-10 );
+	border: 1px dashed var( --border );
+	border-radius: var( --radius-xl );
+}
+
+.dropIcon,
+.dropLabel,
+.dropHelp {
+	color: var( --muted-foreground );
+}
+
+.dropHelp {
+	margin-top: var( --space-3 );
+	font-size: var( --text-xxs );
+	line-height: 1.3;
+}
+
 .fileInput {
 	display: none;
 }

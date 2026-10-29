@@ -66,7 +66,7 @@ export function useSiteHeaderLayout( space: HTMLElement | null, actions: HTMLEle
 							widthOf( element ),
 							element.hasAttribute( 'data-site-header-split-start' )
 								? pixels( style.getPropertyValue( '--preview-header-content-width' ) ) -
-										pixels( style.paddingInlineStart )
+										pixels( style.getPropertyValue( '--header-start-inset' ) )
 								: 0
 						) +
 						pixels( getComputedStyle( element ).marginInlineEnd ) +

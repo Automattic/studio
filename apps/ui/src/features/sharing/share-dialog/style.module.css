@@ -82,59 +82,37 @@
 	text-wrap: pretty;
 }
 
-.previewActions {
-	flex-shrink: 0;
-	margin-block-start: auto;
-	display: grid;
-	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
-	gap: var( --space-2 );
-}
-
-.previewAction {
-	min-width: 0;
-}
-
-.previewTableWrap {
-	min-height: 96px;
+.previewListWrap {
+	min-height: 0;
 	max-height: 200px;
-	overflow: auto;
+	overflow-y: auto;
 }
 
-.previewTable {
-	table-layout: fixed;
-	border-collapse: separate;
-	border-spacing: 0;
-	font-size: var( --text-xs );
-	line-height: var( --text-xs--line-height );
-}
-
-.expiryColumn {
-	width: 72px;
-}
-
-.actionsColumn {
-	width: calc( 32px + var( --space-2 ) * 2 + 1px );
+.previewList {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-2 );
+	margin: 0;
+	padding: 0;
+	list-style: none;
 }
 
 .previewRow {
-	cursor: pointer;
-}
-
-.previewTitle {
-	padding-block: var( --space-1 );
-	display: flex;
 	min-width: 0;
-	align-items: center;
-	gap: var( --space-2 );
 }
 
-.previewTitle a {
+.previewRow:has( input:focus-visible ) {
+	outline: 2px solid var( --ring );
+	outline-offset: -2px;
+	border-radius: var( --radius-xl );
+}
+
+.previewLink {
 	display: inline-flex;
 	align-items: center;
-	gap: 0;
-	color: inherit;
 	min-width: 0;
-	overflow: hidden;
+	max-width: 100%;
+	color: inherit;
 	text-decoration: none;
 }
 
@@ -145,8 +123,7 @@
 	white-space: nowrap;
 }
 
-.previewTitle a:hover .previewLinkText,
-.previewTitle a:focus-visible .previewLinkText {
+.previewLink:is( :hover, :focus-visible ) .previewLinkText {
 	text-decoration: underline;
 }
 
@@ -154,79 +131,11 @@
 	flex-shrink: 0;
 }
 
-.previewDate {
-	color: var( --muted-foreground );
-	white-space: nowrap;
-}
-
-.previewColumn {
-	padding-inline-start: var( --space-3 );
-}
-
-.renameForm {
-	display: contents;
-}
-
-.previewRow:has( input:focus-visible ) {
-	outline: 2px solid var( --ring );
-	outline-offset: -2px;
-}
-
-.previewRow[data-state='selected'] .previewMenuCell {
-	--surface: var( --preview-selected-background );
-}
-
-.previewRow > td {
-	padding-block: var( --space-1_5 );
-	border-block-end: 1px solid var( --border );
-}
-
-.previewRow > td:first-child {
-	border-inline-start: 1px solid var( --border );
-}
-
-.previewRow > td:last-child {
-	border-inline-end: 1px solid var( --border );
-}
-
-.previewRow:first-child > td {
-	border-block-start: 1px solid var( --border );
-}
-
-.previewRow:first-child > td:first-child {
-	border-start-start-radius: var( --radius-lg );
-}
-
-.previewRow:first-child > td:last-child {
-	border-start-end-radius: var( --radius-lg );
-}
-
-.previewRow:last-child > td:first-child {
-	border-end-start-radius: var( --radius-lg );
-}
-
-.previewRow:last-child > td:last-child {
-	border-end-end-radius: var( --radius-lg );
-}
-
-.previewRow[data-state='selected'] {
-	--preview-selected-background: color-mix( in oklab, var( --muted ) 65%, transparent );
-	background: transparent;
-}
-
-.previewRow[data-state='selected'] > td {
-	background: var( --preview-selected-background );
-}
-
 .createAction {
 	margin-block-start: auto;
 }
 
-.singleExpiry {
+.reload {
 	display: flex;
-	flex-direction: column;
-	color: var( --muted-foreground );
-	font-size: var( --text-xs );
-	line-height: var( --text-xs--line-height );
-	text-align: center;
+	justify-content: center;
 }

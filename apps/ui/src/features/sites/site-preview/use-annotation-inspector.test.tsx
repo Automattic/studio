@@ -2,7 +2,7 @@ import { INSPECTOR_PAGE_SCRIPT } from '@studio/common/ai/inspector/page-script';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SessionUIProvider } from '@/data/use-session-ui';
-import { getSiteAnnotations, setAnnotating } from '@/features/annotations';
+import { getSiteAnnotations, pickAnnotation, setAnnotating } from '@/features/annotations';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { SitePreview } from '.';
@@ -59,6 +59,15 @@ async function setup( onStartAnnotating?: () => boolean ) {
 const injections = ( preview: { executeJavaScript: ReturnType< typeof vi.fn > } ) =>
 	preview.executeJavaScript.mock.calls.filter( ( [ code ] ) => code === INSPECTOR_PAGE_SCRIPT );
 
+// The annotation state last mirrored into the page.
+function pageState( preview: { executeJavaScript: ReturnType< typeof vi.fn > } ) {
+	const code = preview.executeJavaScript.mock.calls
+		.map( ( [ call ] ) => String( call ) )
+		.filter( ( call ) => call.includes( '{ detail: ' ) )
+		.at( -1 );
+	return code ? JSON.parse( code.slice( code.indexOf( '{ detail: ' ) + 10, -4 ) ) : null;
+}
+
 describe( 'annotation inspector navigation', () => {
 	it( 'asks before entering annotation mode and leaves it inactive when a provider is required', async () => {
 		const onStartAnnotating = vi.fn().mockReturnValue( false );
@@ -107,5 +116,21 @@ describe( 'annotation inspector navigation', () => {
 		await waitFor( () => expect( annotate() ).toBeEnabled() );
 		await act( async () => reject( new Error( 'Document destroyed' ) ) );
 		expect( annotate() ).toBeEnabled();
+	} );
+
+	it( 'leaves the notes on an email or the design system out of the page', async () => {
+		const { preview, emit, annotate } = await setup();
+		emit( 'dom-ready' );
+		await waitFor( () => expect( annotate() ).toBeEnabled() );
+		act( () => setAnnotating( site.id, true ) );
+		act( () => {
+			pickAnnotation( site.id, {
+				email: { id: 'reset.eml', subject: 'Password Reset', part: 'text', paragraph: 0 },
+			} );
+		} );
+
+		await waitFor( () =>
+			expect( pageState( preview ) ).toMatchObject( { active: true, editingId: null, notes: [] } )
+		);
 	} );
 } );

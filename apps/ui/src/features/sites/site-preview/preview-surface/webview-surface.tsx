@@ -388,10 +388,15 @@ export function WebviewSurface( {
 		const webview = ref.current as WebviewTag | null;
 		if ( ! inspectorReady || ! webview || ! annotations ) return;
 		const theme = getComputedStyle( webview );
+		// Only notes picked on a page. Told about a note on the design system or
+		// in an email, the page would report it off screen and hide its editor.
+		const notes = annotations.notes.filter( ( note ) => note.url );
 		const detail = {
 			active: annotations.active,
-			editingId: annotations.editingId,
-			notes: annotations.notes.map( ( { id, number, selector, url, documentRect, point } ) => ( {
+			editingId: notes.some( ( note ) => note.id === annotations.editingId )
+				? annotations.editingId
+				: null,
+			notes: notes.map( ( { id, number, selector, url, documentRect, point } ) => ( {
 				id,
 				number,
 				selector,

@@ -27,6 +27,7 @@ import {
 	TabsScopeIndicator,
 	TabsTrigger,
 } from '@/lib/ui';
+import { useEmailAnnotations, type EmailAnnotationProps } from './annotations';
 import { EmailHtml, EmailText } from './email-body';
 import styles from './style.module.css';
 import type { SiteEmail, SiteEmailAddress, SiteEmailSummary } from '@/data/core';
@@ -153,18 +154,32 @@ function AddressLine( { label, addresses }: { label: string; addresses: SiteEmai
 }
 
 function EmailMessage( {
+	siteId,
 	email,
+	active,
 	focusOnOpen,
 	onBack,
 	onOpenLink,
-}: {
+	onAnnotationPick,
+	onAnnotationAnchor,
+}: EmailAnnotationProps & {
+	siteId: string;
 	email: SiteEmail;
+	active: boolean;
 	// It replaces the list on screen, so focus moves to it.
 	focusOnOpen: boolean;
 	onBack: () => void;
 	onOpenLink: ( url: string ) => void;
 } ) {
 	const articleRef = useRef< HTMLElement >( null );
+	const annotate = useEmailAnnotations( {
+		siteId,
+		email,
+		active,
+		rootRef: articleRef,
+		onAnnotationPick,
+		onAnnotationAnchor,
+	} );
 	const [ focusOnMount ] = useState( focusOnOpen );
 	useEffect( () => {
 		if ( focusOnMount ) {
@@ -189,7 +204,9 @@ function EmailMessage( {
 			ref={ articleRef }
 			tabIndex={ -1 }
 			className={ styles.message }
+			data-picking={ annotate.isPicking || undefined }
 			aria-label={ email.subject || __( '(No subject)' ) }
+			onClickCapture={ annotate.onClickCapture }
 		>
 			<header className={ styles.messageHeader }>
 				<IconButton
@@ -246,9 +263,14 @@ function EmailMessage( {
 			</header>
 			<div className={ styles.body }>
 				{ view === 'html' && email.html ? (
-					<EmailHtml html={ email.html } onOpenLink={ onOpenLink } />
+					<EmailHtml html={ email.html } onOpenLink={ onOpenLink } annotations={ annotate.frame } />
 				) : view === 'text' && email.text ? (
-					<EmailText text={ email.text } onOpenLink={ onOpenLink } />
+					<EmailText
+						text={ email.text }
+						onOpenLink={ onOpenLink }
+						paragraphProps={ annotate.paragraphProps }
+						paragraphMarker={ annotate.paragraphMarker }
+					/>
 				) : (
 					<CodeBlock code={ email.source } className={ styles.source } />
 				) }
@@ -278,7 +300,9 @@ export function EmailView( {
 	siteId,
 	active,
 	onOpenLink,
-}: {
+	onAnnotationPick,
+	onAnnotationAnchor,
+}: EmailAnnotationProps & {
 	siteId: string;
 	// On screen, so new email is looked for.
 	active: boolean;
@@ -420,13 +444,17 @@ export function EmailView( {
 						) : email.data ? (
 							<EmailMessage
 								key={ email.data.id }
+								siteId={ siteId }
 								email={ email.data }
+								active={ active }
 								focusOnOpen={ single }
 								onBack={ () => {
 									refocusRef.current = selected;
 									setSelectedId( null );
 								} }
 								onOpenLink={ onOpenLink }
+								onAnnotationPick={ onAnnotationPick }
+								onAnnotationAnchor={ onAnnotationAnchor }
 							/>
 						) : email.isPending ? (
 							<div className={ styles.hint }>

@@ -1,5 +1,6 @@
-import { fireEvent, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { setAnnotating } from '@/features/annotations';
 import { createFakeConnector } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { EmailView } from './index';
@@ -25,10 +26,17 @@ function makeEmail( overrides: Partial< SiteEmail > = {} ): SiteEmail {
 function renderEmail( emails: SiteEmail[] ) {
 	const connector = createFakeConnector( { emails: { 'site-1': emails } } );
 	const onOpenLink = vi.fn();
-	renderWithProviders( <EmailView siteId="site-1" active onOpenLink={ onOpenLink } />, {
-		connector,
-	} );
-	return { connector, onOpenLink };
+	const onAnnotationPick = vi.fn();
+	renderWithProviders(
+		<EmailView
+			siteId="site-1"
+			active
+			onOpenLink={ onOpenLink }
+			onAnnotationPick={ onAnnotationPick }
+		/>,
+		{ connector }
+	);
+	return { connector, onOpenLink, onAnnotationPick };
 }
 
 describe( 'EmailView', () => {
@@ -139,5 +147,70 @@ describe( 'EmailView', () => {
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Open email folder' } ) );
 
 		expect( connector.openSiteEmailFolder ).toHaveBeenCalledExactlyOnceWith( 'site-1' );
+	} );
+
+	it( 'picks a paragraph of the text, not a link in it, in annotation mode', async () => {
+		const { onOpenLink, onAnnotationPick } = renderEmail( [
+			makeEmail( {
+				text: 'Someone asked to reset your password.\n\nReset it here:\nhttp://localhost:9010/rp',
+			} ),
+		] );
+		fireEvent.click( await screen.findByRole( 'option', { name: /Password Reset/ } ) );
+		const message = await screen.findByRole( 'article' );
+		act( () => setAnnotating( 'site-1', true ) );
+
+		fireEvent.click( within( message ).getByRole( 'link', { name: 'http://localhost:9010/rp' } ) );
+		fireEvent.click( within( message ).getByRole( 'tab', { name: 'Source' } ) );
+
+		expect( onOpenLink ).not.toHaveBeenCalled();
+		expect( onAnnotationPick ).toHaveBeenCalledExactlyOnceWith(
+			expect.objectContaining( {
+				email: {
+					id: '20261028-090000-000001-aaaaaa.eml',
+					subject: '[My Site] Password Reset',
+					part: 'text',
+					paragraph: 1,
+				},
+				nearbyText: 'Reset it here: http://localhost:9010/rp',
+			} ),
+			expect.any( Object )
+		);
+		expect( within( message ).getByRole( 'tab', { name: 'Source' } ) ).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
+		act( () => setAnnotating( 'site-1', false ) );
+	} );
+
+	it( 'picks an element of the HTML by a selector that finds it again', async () => {
+		const { onAnnotationPick } = renderEmail( [ makeEmail( { html: '<p>Order received</p>' } ) ] );
+		fireEvent.click( await screen.findByRole( 'option', { name: /Password Reset/ } ) );
+		const message = await screen.findByRole( 'article' );
+		const frame = within( message ).getByTitle< HTMLIFrameElement >( 'Email content' );
+		// jsdom loads no `srcdoc`, so the test writes the email into the frame.
+		const document = frame.contentDocument!;
+		document.body.innerHTML =
+			'<table><tbody><tr><td id="content"><p>Order received</p></td></tr></tbody></table>';
+		act( () => setAnnotating( 'site-1', true ) );
+
+		fireEvent.click( document.querySelector( 'p' )! );
+		// A click on the body's margin.
+		fireEvent.click( document.documentElement );
+
+		const [ [ paragraph ], [ margin ] ] = onAnnotationPick.mock.calls;
+		expect( paragraph ).toMatchObject( { selector: '#content > p', tag: 'p' } );
+		expect( document.querySelector( paragraph.selector ) ).toBe( document.querySelector( 'p' ) );
+		expect( margin ).toMatchObject( { selector: 'body', tag: 'body' } );
+		act( () => setAnnotating( 'site-1', false ) );
+	} );
+
+	it( 'keeps the indent of a paragraph after a blank line', async () => {
+		renderEmail( [ makeEmail( { text: 'Order received.\n\n    Total: $10' } ) ] );
+		fireEvent.click( await screen.findByRole( 'option', { name: /Password Reset/ } ) );
+		const message = await screen.findByRole( 'article' );
+
+		expect( within( message ).getByText( /Total: \$10/ ) ).toHaveTextContent( /^ {4}Total: \$10$/, {
+			normalizeWhitespace: false,
+		} );
 	} );
 } );

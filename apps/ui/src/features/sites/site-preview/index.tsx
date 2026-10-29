@@ -126,16 +126,16 @@ export function SitePreview( {
 		!! activeSurface &&
 		loadedFrames[ activeSurfaceKey ] !== getFrameKey( siteUrl, activeSurface );
 	const navigating = canPreview && ! rendered && ( browserState.loading || activeFrameLoading );
-	// Studio renders the design system itself, so it needs no page injection.
+	// Studio renders the design system and the email itself, so they need no
+	// page injection.
 	const showAnnotate =
-		! live &&
-		canPreview &&
-		( connector.capabilities.annotatePreview || activeSurfaceKey === 'design' );
-	const canAnnotateSurface =
-		showAnnotate && activeSurfaceKey !== 'database' && activeSurfaceKey !== 'email';
+		! live && canPreview && ( connector.capabilities.annotatePreview || rendered );
+	const canAnnotateSurface = showAnnotate && activeSurfaceKey !== 'database';
 	const canAnnotate =
 		canAnnotateSurface &&
-		( activeSurfaceKey === 'design' ? !! siteDesign.data : !! activeSurface?.inspectorReady );
+		( activeSurfaceKey === 'design'
+			? !! siteDesign.data
+			: activeSurfaceKey === 'email' || !! activeSurface?.inspectorReady );
 	const progress = browserState.loading
 		? Math.max( browserState.progress, 0.12 )
 		: browserState.progress;
@@ -263,11 +263,7 @@ export function SitePreview( {
 								active: annotations.active,
 								disabled: ! canAnnotate || isAnnotationsBusy( annotations ),
 								disabledReason:
-									activeSurfaceKey === 'database'
-										? __( 'Not available for Database' )
-										: activeSurfaceKey === 'email'
-										? __( 'Not available for Email' )
-										: undefined,
+									activeSurfaceKey === 'database' ? __( 'Not available for Database' ) : undefined,
 								onClick: () => {
 									if ( ! annotations.active && onStartAnnotating?.() === false ) return;
 									setAnnotating( site.id, ! annotations.active );
@@ -315,6 +311,10 @@ export function SitePreview( {
 											siteId={ site.id }
 											active={ active && ! collapsed }
 											onOpenLink={ openEmailLink }
+											onAnnotationPick={ handleAnnotationPick }
+											onAnnotationAnchor={ ( anchor: AnnotationAnchor | null ) =>
+												setAnnotationAnchor( toViewportAnchor( anchor ) )
+											}
 										/>
 									</SurfaceLayer>
 								);

@@ -1,38 +1,65 @@
 import { __ } from '@wordpress/i18n';
-import { useEffect, useEffectEvent, useRef, useState, type MouseEvent } from 'react';
+import {
+	useEffect,
+	useEffectEvent,
+	useRef,
+	useState,
+	type MouseEvent,
+	type ReactNode,
+} from 'react';
+import { EmailFrameAnnotationLayer, type EmailFrameAnnotations } from './annotations';
 import styles from './style.module.css';
 
 // The punctuation a sentence puts after an address is not part of it.
 const URL_PATTERN = /(https?:\/\/[^\s<>"']*[^\s<>"'.,;:!?)\]])/;
+// A blank line, and any more after it. The next paragraph keeps its indent.
+const PARAGRAPH_BREAK = /\n[^\S\n]*\n(?:[^\S\n]*\n)*/;
 
-/** A plain text body, with its web addresses as links. */
+function linkify( text: string, onOpenLink: ( url: string ) => void ) {
+	return text.split( URL_PATTERN ).map( ( part, index ) =>
+		// `split` with a capture group puts each match at an odd index.
+		index % 2 === 1 ? (
+			<a
+				key={ index }
+				className={ styles.link }
+				href={ part }
+				onClick={ ( event: MouseEvent ) => {
+					event.preventDefault();
+					onOpenLink( part );
+				} }
+			>
+				{ part }
+			</a>
+		) : (
+			part
+		)
+	);
+}
+
+/** A plain text body in paragraphs, with its web addresses as links. */
 export function EmailText( {
 	text,
 	onOpenLink,
+	paragraphProps,
+	paragraphMarker,
 }: {
 	text: string;
 	onOpenLink: ( url: string ) => void;
+	// Annotation targets and markers, by the paragraph's index.
+	paragraphProps?: ( index: number ) => Record< string, string >;
+	paragraphMarker?: ( index: number ) => ReactNode;
 } ) {
 	return (
 		<div className={ styles.text }>
-			{ text.split( URL_PATTERN ).map( ( part, index ) =>
-				// `split` with a capture group puts each match at an odd index.
-				index % 2 === 1 ? (
-					<a
-						key={ index }
-						className={ styles.link }
-						href={ part }
-						onClick={ ( event: MouseEvent ) => {
-							event.preventDefault();
-							onOpenLink( part );
-						} }
-					>
-						{ part }
-					</a>
-				) : (
-					part
-				)
-			) }
+			{ text
+				.trim()
+				.split( PARAGRAPH_BREAK )
+				.map( ( paragraph, index ) => (
+					<p key={ index } className={ styles.paragraph } { ...paragraphProps?.( index ) }>
+						{ linkify( paragraph, onOpenLink ) }
+						{ paragraphMarker?.( index ) }
+					</p>
+				) ) }
 		</div>
 	);
 }
@@ -45,9 +72,11 @@ export function EmailText( {
 export function EmailHtml( {
 	html,
 	onOpenLink,
+	annotations,
 }: {
 	html: string;
 	onOpenLink: ( url: string ) => void;
+	annotations?: EmailFrameAnnotations;
 } ) {
 	const frameRef = useRef< HTMLIFrameElement >( null );
 	const [ height, setHeight ] = useState< number >();
@@ -81,14 +110,23 @@ export function EmailHtml( {
 	}, [ loads ] );
 
 	return (
-		<iframe
-			ref={ frameRef }
-			className={ styles.html }
-			title={ __( 'Email content' ) }
-			sandbox="allow-same-origin"
-			srcDoc={ html }
-			style={ { height } }
-			onLoad={ () => setLoads( ( count ) => count + 1 ) }
-		/>
+		<div className={ styles.htmlFrame }>
+			<iframe
+				ref={ frameRef }
+				className={ styles.html }
+				title={ __( 'Email content' ) }
+				sandbox="allow-same-origin"
+				srcDoc={ html }
+				style={ { height } }
+				onLoad={ () => setLoads( ( count ) => count + 1 ) }
+			/>
+			{ annotations ? (
+				<EmailFrameAnnotationLayer
+					frameRef={ frameRef }
+					loads={ loads }
+					annotations={ annotations }
+				/>
+			) : null }
+		</div>
 	);
 }

@@ -229,6 +229,10 @@
 	padding: 0 var( --space-6 ) var( --space-6 );
 }
 
+.htmlFrame {
+	position: relative;
+}
+
 /* An email is drawn for a light page, so it keeps one in dark mode, as mail
    apps do. */
 .html {
@@ -246,6 +250,14 @@
 	line-height: var( --leading-relaxed );
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
+}
+
+.paragraph {
+	margin: 0;
+}
+
+.paragraph + .paragraph {
+	margin-block-start: 1lh;
 }
 
 .link {
@@ -287,4 +299,46 @@
 
 .message:focus {
 	outline: none;
+}
+
+.paragraph[data-email-paragraph] {
+	position: relative;
+}
+
+.message[data-picking] [data-email-paragraph] {
+	cursor: pointer;
+}
+
+.message[data-picking] [data-email-paragraph]:hover {
+	border-radius: var( --radius-xs );
+	outline: 2px solid var( --accent );
+	outline-offset: 2px;
+}
+
+.annotationMarker {
+	position: absolute;
+	z-index: 1;
+	top: calc( var( --space-3 ) * -1 );
+	inset-inline-end: calc( var( --space-3 ) * -1 );
+}
+
+/* Studio draws over the HTML body, which runs no scripts of its own. */
+.frameLayer {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+}
+
+.frameHover {
+	position: absolute;
+	box-sizing: border-box;
+	border: 2px solid var( --accent );
+	background-color: color-mix( in srgb, var( --accent ) 8%, transparent );
+}
+
+.frameMarker {
+	composes: annotationMarker;
+	top: auto;
+	inset-inline-end: auto;
+	transform: translate( -50%, -50% );
 }

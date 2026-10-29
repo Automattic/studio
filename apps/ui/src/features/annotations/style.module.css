@@ -118,3 +118,28 @@
 		}
 	}
 }
+
+/* Matches the markers drawn on preview pages: the accent inside a white ring. */
+.marker {
+	display: inline-flex;
+	box-sizing: content-box;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	/* eslint-disable-next-line studio/use-theme-tokens -- the white ring of the preview's markers. */
+	border: 2px solid #fff;
+	border-radius: var( --radius-full );
+	background: var( --accent );
+	/* eslint-disable-next-line studio/use-theme-tokens -- the preview's marker shadow. */
+	box-shadow:
+		0 0 0 1px var( --accent ),
+		0 1px 3px rgb( 0 0 0 / 10% );
+	color: var( --accent-foreground );
+	font:
+		600 12px/1 system-ui,
+		sans-serif;
+	letter-spacing: normal;
+	text-transform: none;
+	white-space: nowrap;
+}

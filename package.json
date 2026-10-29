@@ -29,6 +29,7 @@
 	],
 	"scripts": {
 		"start": "npm -w studio-app run start",
+		"prototype:build": "node plugins/wp-studio/scripts/build-operation.mjs",
 		"start:test": "DEV_CONFIG_DIR=/tmp/studio-test npm -w studio-app run start",
 		"start-wayland": "npm -w studio-app run start-wayland",
 		"postinstall": "patch-package --patch-dir apps/studio/patches && node --experimental-strip-types ./scripts/download-wp-server-files.ts && node ./scripts/download-available-site-translations.mjs && node --experimental-strip-types ./scripts/download-agent-skills.ts && node --experimental-strip-types ./scripts/download-php-binary.ts",

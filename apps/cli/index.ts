@@ -6,6 +6,7 @@ import yargs from 'yargs';
 import { registerCommand as registerExportCommand } from 'cli/commands/export.command';
 import { registerCommand as registerImportCommand } from 'cli/commands/import.command';
 import { registerCommand as registerMcpCommand } from 'cli/commands/mcp.command';
+import { registerCommand as registerPublishCommand } from 'cli/commands/publish.command';
 import { registerCommand as registerPullReprintCommand } from 'cli/commands/pull-reprint.command';
 import { registerCommand as registerPullCommand } from 'cli/commands/pull.command';
 import { registerCommand as registerPushCommand } from 'cli/commands/push.command';
@@ -293,6 +294,7 @@ async function main() {
 	} );
 
 	registerMcpCommand( studioArgv );
+	registerPublishCommand( studioArgv );
 
 	studioArgv
 		// Deprecated `site` group, kept hidden for backward compatibility. Every

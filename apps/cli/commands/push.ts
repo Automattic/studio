@@ -45,7 +45,7 @@ export async function runCommand(
 	syncOptions?: SyncOption[],
 	remoteSiteIdentifier?: string,
 	logger: Logger< LoggerAction > = defaultLogger,
-	{ includeOnly, suppressTracksEvent = false }: PushFlags = {}
+	{ includeOnly, suppressTracksEvent = false, ...hooks }: PushFlags = {}
 ): Promise< SyncSite | undefined > {
 	const startedAt = Date.now();
 	// The remote site is only known part-way through, but the setup steps before
@@ -55,7 +55,15 @@ export async function runCommand(
 	const pushed: PushOutcome = {};
 
 	try {
-		await runPush( siteFolder, syncOptions, includeOnly, remoteSiteIdentifier, logger, pushed );
+		await runPush(
+			siteFolder,
+			syncOptions,
+			includeOnly,
+			remoteSiteIdentifier,
+			logger,
+			pushed,
+			hooks
+		);
 	} catch ( error ) {
 		if ( pushed.siteId ) {
 			await reportSyncActivity( pushed.siteId, {
@@ -91,7 +99,14 @@ export async function runCommand(
 	return pushed.completed ? pushed.remoteSite : undefined;
 }
 
-type PushFlags = { includeOnly?: string[]; suppressTracksEvent?: boolean };
+export type PushFlags = {
+	includeOnly?: string[];
+	suppressTracksEvent?: boolean;
+	excludePatterns?: string[];
+	beforeExport?: () => Promise< void >;
+	afterExport?: () => Promise< void >;
+	onPhase?: ( phase: PushPhase, progress?: number ) => void;
+};
 type PushOutcome = { siteId?: string; remoteSite?: SyncSite; completed?: boolean };
 
 async function runPush(
@@ -100,7 +115,8 @@ async function runPush(
 	includeOnly: string[] | undefined,
 	remoteSiteIdentifier: string | undefined,
 	logger: Logger< LoggerAction >,
-	pushed: PushOutcome
+	pushed: PushOutcome,
+	hooks: PushFlags = {}
 ): Promise< void > {
 	let remoteSite: SyncSite | undefined;
 
@@ -117,7 +133,8 @@ async function runPush(
 	const site = await getSiteByFolder( siteFolder );
 	logger.reportSuccess( __( 'Site loaded' ) );
 	pushed.siteId = site.id;
-	const reportPhase = ( phase?: PushPhase, progress?: number ) =>
+	const reportPhase = ( phase?: PushPhase, progress?: number ) => {
+		if ( phase ) hooks.onPhase?.( phase, progress );
 		void reportSyncActivity( site.id, {
 			kind: 'pending',
 			direction: 'push',
@@ -125,6 +142,7 @@ async function runPush(
 			...( phase ? { phase } : {} ),
 			...( progress === undefined ? {} : { progress: Math.round( progress ) } ),
 		} );
+	};
 	reportPhase();
 
 	logger.reportStart(
@@ -188,7 +206,10 @@ async function runPush(
 			};
 		}
 
-		const deployIgnore = await createDeployIgnoreFilter( site.path, SYNC_IGNORE_DEFAULTS );
+		const deployIgnore = await createDeployIgnoreFilter( site.path, [
+			...SYNC_IGNORE_DEFAULTS,
+			...( hooks.excludePatterns ?? [] ),
+		] );
 
 		const exporter = await getExporter( {
 			site,
@@ -211,7 +232,14 @@ async function runPush(
 
 		reportPhase( 'creatingBackup' );
 		handleExportEvents( exporter, logger );
-		await withSiteOperation( site.path, 'export', () => exporter.export() );
+		await withSiteOperation( site.path, 'export', async () => {
+			try {
+				await hooks.beforeExport?.();
+				await exporter.export();
+			} finally {
+				await hooks.afterExport?.();
+			}
+		} );
 
 		const archiveSize = fs.statSync( archivePath ).size;
 		if ( archiveSize > SYNC_PUSH_SIZE_LIMIT_BYTES ) {

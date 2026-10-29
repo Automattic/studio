@@ -114,6 +114,7 @@ export function SettingsRow( {
 				{ hasDescription ? (
 					<FieldDescription
 						id={ `${ rowId }-description` }
+						className={ styles.rowDescription }
 						width={ content ? 'default' : 'full' }
 						error={ error }
 						additionalContent={ additionalContent }

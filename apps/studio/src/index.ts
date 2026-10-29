@@ -162,7 +162,7 @@ const gotTheLock = app.requestSingleInstanceLock();
 
 let finishedInitialization = false;
 
-const YOUTUBE_EMBED_REFERRER = 'https://developer.wordpress.com/studio/';
+const YOUTUBE_EMBED_REFERRER = 'https://wordpress.studio/';
 const YOUTUBE_EMBED_URL_PATTERNS = [
 	'https://*.youtube.com/embed/*',
 	'https://youtube.com/embed/*',

@@ -20,7 +20,7 @@ applyTheme( resolveColorScheme( preferences.colorScheme ), preferences.colorTint
 
 ## Surfaces and selection
 
-Use `--hover` for a row under the pointer and `--selected` for its current or selected state. Both follow the enclosing `--surface`, so current sidebar rows and Settings tabs remain distinct from a hover.
+Use `--hover` for neutral hovered, pressed, expanded and selected button or row fills. It follows the enclosing `--surface`, so current sidebar rows and Settings tabs use the same fill as hover. Accent toolbar toggles use an accent fill and text while active.
 
 Floating surfaces set `--surface` to `--popover` and use `--popover-border` for their opaque outline.
 

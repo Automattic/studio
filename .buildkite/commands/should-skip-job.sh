@@ -176,6 +176,8 @@ git_pr_changed_files() {
   return 1
 }
 
+[[ "${BUILDKITE_AGENT_META_DATA_QUEUE:-}" == default ]] && exit 1
+
 case "$job_type" in
   "validation")
     # Skip validation jobs (lint, unit tests, e2e) if ALL changes are in

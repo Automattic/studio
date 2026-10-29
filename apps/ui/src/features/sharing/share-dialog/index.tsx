@@ -189,9 +189,8 @@ export function SharePanel( {
 					</Button>
 				</div>
 			) : user.isPending || snapshots.isPending ? (
-				<div className={ styles.loading } role="status">
+				<div className={ styles.loading }>
 					<Spinner />
-					{ __( 'Loading…' ) }
 				</div>
 			) : (
 				<PreviewSharePanel

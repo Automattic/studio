@@ -3,9 +3,12 @@
 }
 
 .loading {
+	flex: 1;
 	display: flex;
 	align-items: center;
-	gap: var( --space-2 );
+	justify-content: center;
+	min-height: 160px;
+	color: var( --muted-foreground );
 }
 
 .error {

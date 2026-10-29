@@ -484,6 +484,7 @@ describe( 'sidebar site sections', () => {
 		const { connector } = setup( {
 			sites: [ site ],
 			sessions: [ chat( 'waiting', 'one', { title: 'Waiting chat' } ) ],
+			path: '/sessions/waiting',
 			preferences: { showRecentChats: false },
 		} );
 		const siteButton = await screen.findByRole( 'button', { name: 'My site' } );

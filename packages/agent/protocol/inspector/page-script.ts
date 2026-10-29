@@ -199,7 +199,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		const el = hovered || selected;
 		if (el && el.isConnected) {
 			const r = el.getBoundingClientRect();
-			const left = Math.max(1, r.left);
+			const left = Math.max(0, r.left);
 			const top = Math.max(0, r.top);
 			const right = Math.min(innerWidth, r.right);
 			const bottom = Math.min(innerHeight, r.bottom);

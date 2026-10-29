@@ -312,7 +312,7 @@ describe( 'site settings', () => {
 		fireEvent.change( name, { target: { value: 'First edit' } } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Close settings' } ) );
 		expect( screen.getByRole( 'dialog', { name: 'Discard changes?' } ) ).toBeVisible();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel', exact: true } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel' } ) );
 		expect( name ).toHaveValue( 'First edit' );
 		fireEvent.input( name, { target: { value: 'Continued edit' } } );
 		fireEvent.change( name, { target: { value: 'Continued edit' } } );
@@ -338,7 +338,7 @@ describe( 'site settings', () => {
 		const { connector } = setup();
 		fireEvent.change( await siteName(), { target: { value: '' } } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Close settings' } ) );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Discard changes', exact: true } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Discard changes' } ) );
 		await waitFor( () =>
 			expect( screen.queryByRole( 'dialog', { name: 'Settings' } ) ).not.toBeInTheDocument()
 		);

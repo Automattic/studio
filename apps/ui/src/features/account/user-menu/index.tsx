@@ -28,7 +28,6 @@ export function UserMenu() {
 		setPromptOpen( false );
 	}
 	const trigger = useRef< HTMLButtonElement >( null );
-	const [ menuWidth, setMenuWidth ] = useState< number >();
 	const sections = getSections( 'studio', { signedIn: !! user } ).filter( ( section ) =>
 		MENU_SECTIONS.includes( section.id )
 	);
@@ -37,14 +36,7 @@ export function UserMenu() {
 		<div className={ styles.root }>
 			<div className={ styles.row }>
 				{ user ? (
-					<Menu.Root
-						onOpenChange={ ( open ) => {
-							const sidebar = open && trigger.current?.closest( 'aside' );
-							if ( sidebar ) {
-								setMenuWidth( sidebar.offsetWidth - 28 );
-							}
-						} }
-					>
+					<Menu.Root>
 						<Menu.Trigger
 							render={
 								<Button
@@ -57,12 +49,7 @@ export function UserMenu() {
 						>
 							<Gravatar email={ user.email } isDark={ themeIsDark } className={ styles.avatar } />
 						</Menu.Trigger>
-						<Menu.Popup
-							side="top"
-							align="start"
-							className={ styles.popup }
-							style={ { width: menuWidth } }
-						>
+						<Menu.Popup side="top" align="start" className={ styles.popup }>
 							<div className={ styles.account }>
 								<Gravatar email={ user.email } isDark={ themeIsDark } />
 								<div className={ styles.accountText }>

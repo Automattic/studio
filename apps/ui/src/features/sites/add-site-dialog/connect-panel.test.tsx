@@ -95,7 +95,8 @@ describe( 'ConnectPanel', () => {
 		connector.fetchSyncableWpcomSites.mockReturnValue(
 			new Promise( ( done ) => ( resolve = done ) )
 		);
-		expect( await screen.findByRole( 'status' ) ).toHaveTextContent( 'Loading your sites…' );
+		expect( await screen.findByRole( 'status', { name: 'Loading your sites…' } ) ).toBeVisible();
+		expect( screen.queryByText( 'Loading your sites…' ) ).not.toBeInTheDocument();
 		await act( async () => resolve( [] ) );
 		expect( await screen.findByRole( 'heading', { name: 'No sites found' } ) ).toBeVisible();
 	} );

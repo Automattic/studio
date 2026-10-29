@@ -12,9 +12,11 @@ import {
 	EmptyHeader,
 	PreviewFrame,
 	PreviewImage,
+	Spinner,
 } from '@/lib/ui';
 import styles from './blueprint-gallery.module.css';
 import { getBlueprintThumbnail } from './blueprint-screenshots';
+import dialogStyles from './style.module.css';
 import type { BlueprintUseCase } from '@studio/common/lib/blueprint-catalog';
 import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
 
@@ -60,18 +62,21 @@ export function BlueprintGallery( {
 				focusSlug ? `[data-blueprint-slug="${ focusSlug }"]` : '[data-start-blank]'
 			)
 			?.focus( { preventScroll: ! focusSlug } );
-	}, [ focusSlug ] );
+	}, [ focusSlug, isLoading ] );
+
+	if ( isLoading ) {
+		return (
+			<div className={ dialogStyles.loading }>
+				<Spinner aria-label={ __( 'Loading Blueprints…' ) } />
+			</div>
+		);
+	}
 
 	return (
 		<div ref={ root } className={ styles.root }>
 			{ ! blueprints?.length && ( isError || isOffline ) ? (
 				<p className={ styles.notice }>
 					{ __( 'Blueprints could not be loaded. Check your internet connection and try again.' ) }
-				</p>
-			) : null }
-			{ isLoading ? (
-				<p className={ styles.notice } role="status">
-					{ __( 'Loading Blueprints…' ) }
 				</p>
 			) : null }
 			<div className={ styles.grid }>

@@ -32,6 +32,7 @@ import {
 	searchRemoteSites,
 	type ConnectSiteGroup,
 } from './site-presentation';
+import dialogStyles from './style.module.css';
 import type { SyncSite } from '@/data/core';
 
 const createWpcomSiteUrl = new URL( 'https://wordpress.com/setup/new-hosted-site' );
@@ -181,6 +182,18 @@ export function ConnectPanel( { onConnect }: { onConnect: ( site: SyncSite ) => 
 		void remoteSites.refetch();
 	}, [ remoteSites ] );
 
+	if ( isAuthLoading || ( user && ! isOffline && isLoadingSites ) ) {
+		return (
+			<div className={ dialogStyles.loading }>
+				<Spinner
+					aria-label={
+						isAuthLoading ? __( 'Checking your account…' ) : __( 'Loading your sites…' )
+					}
+				/>
+			</div>
+		);
+	}
+
 	if ( ! isAuthLoading && ! user ) {
 		return (
 			<Empty>
@@ -202,24 +215,10 @@ export function ConnectPanel( { onConnect }: { onConnect: ( site: SyncSite ) => 
 				{ __( 'Select a WordPress.com or Pressable site to bring into your WordPress Studio.' ) }
 			</p>
 
-			{ isAuthLoading && (
-				<div className={ styles.state } role="status">
-					<Spinner aria-hidden />
-					<p>{ __( 'Checking your account…' ) }</p>
-				</div>
-			) }
-
 			{ user && isOffline && (
 				<div className={ styles.state } role="status">
 					<h2>{ __( "You're offline" ) }</h2>
 					<p>{ __( 'Reconnect to load your WordPress.com and Pressable sites.' ) }</p>
-				</div>
-			) }
-
-			{ user && ! isOffline && isLoadingSites && (
-				<div className={ styles.state } role="status">
-					<Spinner aria-hidden />
-					<p>{ __( 'Loading your sites…' ) }</p>
 				</div>
 			) }
 

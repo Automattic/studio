@@ -56,6 +56,15 @@ describe( 'getPreviewSplitLayout', () => {
 		expect( getPreviewSplitLayout( 1000, 100 ).previewWidth ).toBe( 680 );
 	} );
 
+	it.each( [ 320, 540 ] )( 'gives chat the full frame at %ipx', ( width ) => {
+		expect( getPreviewSplitLayout( width, 360 ) ).toEqual( {
+			contentWidth: width,
+			previewWidth: 0,
+			previewMinWidth: 0,
+			previewMaxWidth: 0,
+		} );
+	} );
+
 	it( 'splits a frame too narrow for both floors in their proportion, and fixes it', () => {
 		const layout = getPreviewSplitLayout( 544, 600 );
 		expect( layout.contentWidth ).toBe( 256 );

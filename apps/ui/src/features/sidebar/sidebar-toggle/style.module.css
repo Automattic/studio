@@ -52,3 +52,16 @@
 		margin var( --motion-duration-layout ) var( --motion-ease-layout ),
 		opacity 0s var( --motion-duration-layout );
 }
+
+.headerSlotWithAction {
+	gap: var( --space-1 );
+}
+
+.headerSlotVisible.headerSlotWithAction {
+	width: calc( 2 * var( --control-size ) + var( --space-1 ) );
+}
+
+.headerSlotVisible.headerSlotWithAction:has( [data-site-header-run][hidden] ) {
+	width: var( --control-size );
+	gap: 0;
+}

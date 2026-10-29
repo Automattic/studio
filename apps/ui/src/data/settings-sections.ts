@@ -110,7 +110,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				),
 				setting(
 					__( 'When adding a site' ),
-					__( 'Choose what Add site opens on.' ),
+					__( 'Choose a starting point or go straight to creating a blank site.' ),
 					'new-site-behavior'
 				),
 				setting(
@@ -122,6 +122,11 @@ function getStudioSections( signedIn: boolean ): Section[] {
 					__( 'Start site when sending a prompt' ),
 					__( 'Automatically start stopped sites when you send a chat message.' ),
 					'auto-start-site'
+				),
+				setting(
+					__( 'Open chat when starting a site' ),
+					__( 'Show the chat panel alongside the preview when starting a site.' ),
+					'open-chat-on-site-start'
 				),
 				setting(
 					__( 'Show recent chats' ),

@@ -686,6 +686,7 @@ export interface UserPreferences {
 	autoCollapseSites?: boolean;
 	// Start a stopped local site when a chat message is sent to it.
 	autoStartSiteOnChat?: boolean;
+	openChatOnSiteStart?: boolean;
 	// Ask before discarding preview annotations.
 	confirmDeleteAnnotations?: boolean;
 	newSiteBehavior?: NewSiteBehavior;

@@ -1,5 +1,6 @@
 .dialog {
-	padding-bottom: var( --space-16 );
+	row-gap: 0;
+	padding-bottom: var( --space-12 );
 }
 
 .body {

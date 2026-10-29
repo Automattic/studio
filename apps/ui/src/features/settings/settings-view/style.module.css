@@ -93,10 +93,6 @@
 	cursor: pointer;
 }
 
-.pathPickerButton:hover {
-	border-color: var( --muted-foreground );
-}
-
 .pathPickerButton:focus-visible {
 	outline: var( --focus-width ) solid var( --ring );
 	outline-offset: 2px;

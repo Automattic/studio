@@ -1,13 +1,3 @@
-.dialog {
-	box-shadow:
-		0 0 0 1px var( --popover-border ),
-		var( --shadow-sm );
-}
-
-.sidebar {
-	background-color: transparent;
-}
-
 .content {
 	--surface: inherit;
 }

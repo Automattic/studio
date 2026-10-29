@@ -178,3 +178,15 @@ it( 'rejects invalid sort choices and recovers invalid stored values', async () 
 		sidebarChatSort: 'updated',
 	} );
 } );
+
+it( 'opens chat on site start by default and persists the opt-out', async () => {
+	const context = { sitesRoot: configDir };
+	expect( ( await readUserPreferences( context ) ).openChatOnSiteStart ).toBe( true );
+	await writeUserPreferences(
+		userPreferencesPatchSchema.parse( { openChatOnSiteStart: false } ),
+		context
+	);
+	expect( ( await readUserPreferences( context ) ).openChatOnSiteStart ).toBe( false );
+	await writeUserPreferences( { openChatOnSiteStart: null }, context );
+	expect( ( await readUserPreferences( context ) ).openChatOnSiteStart ).toBe( true );
+} );

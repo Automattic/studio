@@ -10,6 +10,8 @@
 }
 
 .sidebar {
+	--sidebar-group-header-top: var( --band-height );
+
 	width: var( --sidebar-width, 320px );
 	/* Both bounds are owned by useResizablePanel, which clamps --sidebar-width
 	   on every path. CSS min/max widths would compete with that single source
@@ -118,10 +120,9 @@
 	justify-content: flex-start;
 }
 
-/* Hovering or dragging the handle darkens the column edge. */
 .root:has( > .resizeHandle:hover ) .sidebarFrame::after,
 .sidebarResizing::after {
-	background-color: color-mix( in oklab, var( --foreground ) 15%, transparent );
+	background-color: var( --surface-4 );
 }
 
 .sidebarCards {
@@ -154,7 +155,7 @@
 }
 
 .sidebarFlyoutContents .sidebarFlyoutList {
-	padding-block-start: var( --space-1 );
+	padding-block-start: var( --space-1_5 );
 }
 
 @media ( prefers-reduced-motion: no-preference ) {

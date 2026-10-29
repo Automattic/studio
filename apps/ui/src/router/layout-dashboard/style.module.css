@@ -4,13 +4,6 @@
 }
 
 .chatToggle {
-	--selected: transparent;
-
 	color: var( --foreground );
-	margin-inline-start: auto;
-	margin-inline-end: var( --space-3 );
-}
-
-.chatToggle:hover {
-	--selected: var( --hover );
+	margin-inline-end: var( --band-inset );
 }

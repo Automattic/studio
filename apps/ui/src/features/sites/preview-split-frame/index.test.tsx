@@ -59,19 +59,22 @@ describe( 'PreviewSplitFrame', () => {
 		beforeEach( () => {
 			vi.useFakeTimers();
 			document.documentElement.style.setProperty( '--motion-duration-layout', '240ms' );
+			document.documentElement.style.setProperty( '--motion-duration-surface', '180ms' );
 		} );
 
 		afterEach( () => {
 			vi.useRealTimers();
 			document.documentElement.style.removeProperty( '--motion-duration-layout' );
+			document.documentElement.style.removeProperty( '--motion-duration-surface' );
 		} );
 
-		function frame( site: string, open: boolean, instant = false ) {
+		function frame( site: string, open: boolean, instant = false, loading = false ) {
 			return (
 				<PreviewSplitFrame
 					siteId="one"
 					previewOpen={ open }
 					instant={ instant }
+					previewLoading={ loading }
 					preview={ ( { collapsed } ) => (
 						<aside aria-label="Site preview" data-collapsed={ collapsed }>
 							{ site }
@@ -82,6 +85,21 @@ describe( 'PreviewSplitFrame', () => {
 				</PreviewSplitFrame>
 			);
 		}
+
+		it( 'enables resizing after the startup fade without remounting the preview', async () => {
+			const { rerender } = render( frame( 'Loading site', false, false, true ) );
+			const preview = screen.getByLabelText( 'Site preview' );
+			rerender( frame( 'Running site', true ) );
+			expect( screen.getByRole( 'complementary', { name: 'Site preview' } ) ).toBe( preview );
+			expect(
+				screen.queryByRole( 'separator', { name: 'Resize site preview' } )
+			).not.toBeInTheDocument();
+			await act( () => vi.advanceTimersByTime( 180 ) );
+			expect(
+				screen.getByRole( 'separator', { name: 'Resize site preview' } )
+			).toBeInTheDocument();
+			expect( screen.getByRole( 'complementary', { name: 'Site preview' } ) ).toBe( preview );
+		} );
 
 		it( 'keeps the outgoing site through the exit, even when another stopped site is selected', async () => {
 			const { rerender } = render( frame( 'Running site', true ) );

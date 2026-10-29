@@ -9,13 +9,14 @@
 
 .logo {
 	position: absolute;
-	top: 50%;
-	left: 50%;
+	inset: 0;
 	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: inherit;
 	color: light-dark( var( --foreground ), var( --muted-foreground ) );
 	opacity: 0;
 	pointer-events: none;
-	transform: translate( -50%, -50% );
 	transition: opacity var( --motion-duration-reveal ) ease;
 }
 

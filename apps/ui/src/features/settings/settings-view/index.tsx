@@ -176,7 +176,7 @@ function PreferencesPanel( {
 					{ __( 'An error occurred while saving settings. Please try again.' ) }
 				</div>
 			) : null }
-			<SettingsGroup>
+			<SettingsGroup title={ __( 'Application' ) }>
 				<SettingsRow
 					title={ __( 'Language' ) }
 					description={ __( 'Default language for WordPress Studio.' ) }
@@ -256,6 +256,16 @@ function PreferencesPanel( {
 						label={ __( 'Start site when sending a prompt' ) }
 						checked={ data.autoStartSiteOnChat }
 						onChange={ ( autoStartSiteOnChat ) => onChange( { autoStartSiteOnChat } ) }
+					/>
+				</SettingsRow>
+				<SettingsRow
+					title={ __( 'Open chat when starting a site' ) }
+					description={ __( 'Show the chat panel alongside the preview when starting a site.' ) }
+				>
+					<SettingsToggle
+						label={ __( 'Open chat when starting a site' ) }
+						checked={ data.openChatOnSiteStart }
+						onChange={ ( openChatOnSiteStart ) => onChange( { openChatOnSiteStart } ) }
 					/>
 				</SettingsRow>
 				<SidebarSettings />

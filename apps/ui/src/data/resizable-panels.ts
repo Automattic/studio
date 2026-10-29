@@ -148,14 +148,23 @@ interface PreviewSplitLayout {
 // frame width and the user's preferred content width, returns the content
 // width clamped so the content column keeps PREVIEW_PANEL_MIN_CONTENT_WIDTH and
 // the preview keeps PREVIEW_PANEL_MIN_WIDTH, plus the derived preview track and
-// the bounds the resize handle reports. A frame too narrow for both floors is
-// split in their proportion, and can't be resized. CSS just consumes the
+// the bounds the resize handle reports. At mobile widths, chat fills the frame.
+// Other frames too narrow for both floors split proportionally without resizing.
+// CSS just consumes the
 // content width; it does not re-clamp.
 export function getPreviewSplitLayout(
 	containerWidth: number,
 	preferredContentWidth: number
 ): PreviewSplitLayout {
 	const width = Math.max( 0, Math.round( containerWidth ) );
+	if ( width <= 540 ) {
+		return {
+			contentWidth: width,
+			previewWidth: 0,
+			previewMinWidth: 0,
+			previewMaxWidth: 0,
+		};
+	}
 	if ( width < PREVIEW_SPLIT_MIN_WIDTH ) {
 		const contentWidth = Math.round(
 			( width * PREVIEW_PANEL_MIN_CONTENT_WIDTH ) / PREVIEW_SPLIT_MIN_WIDTH

@@ -230,7 +230,12 @@ export function SiteHeaderActions( { site }: { site: SiteDetails; live?: boolean
 								<TooltipContent side="bottom">{ __( 'More preview actions' ) }</TooltipContent>
 							</Tooltip>
 							<Menu.Popup side="bottom" align="end">
-								{ layout === 'mobile-overflow' ? <SiteRunMenuItem site={ site } /> : null }
+								{ layout === 'mobile-overflow' ? (
+									<>
+										<SiteRunMenuItem site={ site } />
+										<Menu.Separator />
+									</>
+								) : null }
 								<Menu.Item
 									aria-description={ shareStatus.label }
 									onClick={ () => requestHeaderPanel( { panel: 'share', siteId: site.id } ) }

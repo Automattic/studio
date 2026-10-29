@@ -24,6 +24,13 @@ echo '--- :wordpress: Seed server files'
 # ~/.studio/server-files/wordpress-versions/latest, which the e2e harness requires.
 node apps/cli/dist/cli/main.mjs site list
 
+echo '--- :chromium: Install browser for stylesheet transport tests'
+if [ "$PLATFORM" = "linux" ]; then
+  npx playwright install --with-deps chromium
+else
+  npx playwright install chromium
+fi
+
 echo '--- :vitest: Run CLI E2E Tests'
 # Serialize the files: each spins up its own sandbox WordPress + daemon, and
 # booting several at once starves the CI host, flaking `site start`.

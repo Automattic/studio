@@ -108,7 +108,7 @@ function isPersistentItem( item: TurnActivity[ 'items' ][ number ] ) {
 	);
 }
 
-const LIVE_COUNT_THRESHOLD_SECONDS = 10;
+const COUNT_THRESHOLD_SECONDS = 10;
 
 export function formatElapsed( totalSeconds: number ) {
 	const hours = Math.floor( totalSeconds / 3600 );
@@ -183,9 +183,9 @@ export const TurnActivityLine = memo( function TurnActivityLine( {
 			? null
 			: Math.max( 0, Math.floor( ( end - startedAt ) / 1000 ) );
 	const duration = formatElapsed( seconds ?? 0 );
-	const showLiveCount = seconds !== null && seconds >= LIVE_COUNT_THRESHOLD_SECONDS;
+	const showCount = seconds !== null && seconds >= COUNT_THRESHOLD_SECONDS;
 	const label = waiting
-		? showLiveCount
+		? showCount
 			? sprintf(
 					/* translators: %s: elapsed time, e.g. "12s" or "1m 5s". */
 					__( 'Waiting for %s' ),
@@ -193,14 +193,14 @@ export const TurnActivityLine = memo( function TurnActivityLine( {
 			  )
 			: __( 'Waiting' )
 		: running
-		? showLiveCount
+		? showCount
 			? sprintf(
 					/* translators: %s: elapsed time, e.g. "12s" or "1m 5s". */
 					__( 'Working for %s' ),
 					duration
 			  )
 			: __( 'Working' )
-		: seconds === null
+		: ! showCount
 		? { success: __( 'Worked' ), interrupted: __( 'You stopped' ), error: __( 'Failed' ) }[ status ]
 		: sprintf(
 				{

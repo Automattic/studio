@@ -26,9 +26,9 @@ afterEach( () => vi.useRealTimers() );
 describe( 'turn activity line', () => {
 	it.each( [
 		[ 'running', null, 'Working' ],
-		[ 'success', 4000, 'Worked for 3s' ],
-		[ 'interrupted', 4000, 'You stopped after 3s' ],
-		[ 'error', 4000, 'Failed after 3s' ],
+		[ 'success', 4000, 'Worked' ],
+		[ 'interrupted', 4000, 'You stopped' ],
+		[ 'error', 4000, 'Failed' ],
 	] as const )(
 		'defaults %s activity to the appropriate expansion state',
 		( status, endedAt, label ) => {
@@ -69,6 +69,15 @@ describe( 'turn activity line', () => {
 		[ 3725, '1h 2m' ],
 	] )( 'formats %d seconds as %s', ( seconds, expected ) => {
 		expect( formatElapsed( seconds ) ).toBe( expected );
+	} );
+
+	it.each( [
+		[ 'success', 'Worked for 10s' ],
+		[ 'interrupted', 'You stopped after 10s' ],
+		[ 'error', 'Failed after 10s' ],
+	] as const )( 'shows the duration for a %s turn from 10 seconds', ( status, label ) => {
+		render( line( { status, endedAt: 11000 } ) );
+		expect( screen.getByText( label ) ).toBeVisible();
 	} );
 
 	it( 'omits duration when historical timestamps are unavailable', () => {
@@ -159,15 +168,15 @@ describe( 'waiting activity', () => {
 		expect( screen.getByRole( 'button' ) ).toHaveAttribute( 'aria-expanded', 'false' );
 	} );
 	it( 'does not override a completed status with a stale pending question', () => {
-		render( line( { status: 'success', endedAt: 6000 }, true ) );
-		expect( screen.getByText( 'Worked for 5s' ) ).toBeVisible();
+		render( line( { status: 'success', endedAt: 16000 }, true ) );
+		expect( screen.getByText( 'Worked for 15s' ) ).toBeVisible();
 		expect( screen.queryByText( /^Waiting for/ ) ).not.toBeInTheDocument();
 	} );
 } );
 
-it( 'labels an immediate stop with zero elapsed seconds', () => {
+it( 'omits the duration for turns that finish in under 10 seconds', () => {
 	render( line( { status: 'interrupted', endedAt: 1000, items: [] } ) );
-	expect( screen.getByText( 'You stopped after 0s' ) ).toBeVisible();
+	expect( screen.getByText( 'You stopped' ) ).toBeVisible();
 	expect( screen.queryByRole( 'button' ) ).not.toBeInTheDocument();
 } );
 

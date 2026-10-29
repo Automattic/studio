@@ -9,7 +9,7 @@ export function InputGroup( {
 	className,
 	variant = 'default',
 	...props
-}: ComponentProps< 'div' > & { variant?: 'default' | 'composer' } ) {
+}: ComponentProps< 'div' > & { variant?: 'default' | 'composer' | 'commands' } ) {
 	return (
 		<div
 			role="group"

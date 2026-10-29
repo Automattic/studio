@@ -45,7 +45,7 @@ export function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) 
 				className={ styles.popup }
 				aria-label={ __( 'Command palette' ) }
 			>
-				<InputGroup>
+				<InputGroup variant="commands">
 					<InputGroupInput
 						role="combobox"
 						aria-autocomplete="list"

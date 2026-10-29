@@ -1,16 +1,16 @@
 @layer ui {
-	/* Rows are rounded to sit inside a 24px surface, 10px in. */
+	/* Rows are rounded to sit inside a 24px surface, 6px in. */
 	.sheet {
-		padding: var( --space-2_5 );
+		padding: var( --space-1_5 );
 	}
 
 	/* A sheet grows with its commands, up to the room above its anchor. */
 	.sheet .list {
-		max-height: calc( var( --available-height ) - 22px );
+		max-height: calc( var( --available-height ) - 2 * var( --space-1_5 ) - 2px );
 	}
 
 	.list {
-		--command-radius: 14px;
+		--command-radius: calc( var( --radius-3xl ) - var( --space-1_5 ) );
 
 		max-height: 288px;
 		overflow-x: hidden;
@@ -63,7 +63,7 @@
 		composes: item from '@/lib/ui/surface/style.module.css';
 		min-height: var( --control-size );
 		padding-inline: var( --space-2_5 );
-		border-radius: var( --radius-lg );
+		border-radius: var( --command-radius );
 	}
 
 	.icon {

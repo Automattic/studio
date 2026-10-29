@@ -65,16 +65,13 @@
 	justify-content: space-between;
 	gap: var( --space-2 );
 	min-width: 0;
-	padding: var( --space-1_5 ) var( --space-2 ) var( --space-2 );
+	padding: var( --space-1_5 );
 }
 
 .leftActions,
 .rightActions {
 	display: flex;
 	align-items: center;
-}
-
-.rightActions {
 	gap: var( --space-1 );
 }
 

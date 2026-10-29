@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/buildkite/pipeline-schema/main/schema.json
+---
+
+# The performance tests run once a night instead of on every PR and trunk merge, to keep the busy `mac` queue free during the day.
+# The results are sent to CodeVitals. To compare a branch with `trunk`, run `compare-perf` locally (see tools/metrics/README.md).
+
+# IMAGE_ID is an env var that only macOS agents need.
+env:
+  IMAGE_ID: $IMAGE_ID
+
+steps:
+  - label: ":chart_with_upwards_trend: Performance Metrics"
+    agents:
+      queue: mac
+    command: bash .buildkite/commands/run-metrics-tests.sh
+    artifact_paths:
+      - tools/metrics/artifacts/**/*.json
+    plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]

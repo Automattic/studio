@@ -26,7 +26,7 @@ if [ "${BUILDKITE_PULL_REQUEST}" != "false" ]; then
   REPO_PATH=$(echo $BUILDKITE_REPO | sed 's|^git@github\.com:||' | sed 's|^https://github\.com/||' | sed 's|\.git$||')
   npm -w compare-perf run post-to-github -- $GITHUB_TOKEN $REPO_PATH $BUILDKITE_PULL_REQUEST trunk $BUILDKITE_COMMIT
 elif [ "${BUILDKITE_BRANCH}" == "trunk" ]; then
-  # Trunk push context - compare against baseline
+  # Nightly trunk build - compare against baseline
   BASELINE_COMMIT="b653fe205fd63e1b6846475d4a0f193958d9e4d2"
 
   echo "--- :chart_with_upwards_trend: Running performance comparison against baseline"

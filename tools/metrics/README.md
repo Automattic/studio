@@ -46,10 +46,9 @@ This tool is useful for:
 
 Performance metrics from the `trunk` branch are automatically sent to [CodeVitals](https://www.codevitals.run/project/studio/) for tracking and visualization. This helps in tracking performance trends over time and detecting regressions.
 
-The metrics are sent when:
+The metrics are sent by the nightly Buildkite build on the `trunk` branch (`.buildkite/schedules/nightly-performance-metrics.yml`).
 
-1. A workflow runs on the `trunk` branch
-2. The `CODEVITALS_AUTH_TOKEN` secret is available in the GitHub repository
+Pull requests don't run the performance tests in CI. To compare a branch with `trunk`, run `compare-perf` locally as described above.
 
 Note that the job sends the metrics for the current command and a reference commit as well. This allows CodeVitals to compare the performance metrics between the two commits and normalize the current commit's values to avoid the CI fluctuations.
 

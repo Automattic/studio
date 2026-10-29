@@ -1,7 +1,9 @@
 import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
-import { createChildThemeTool } from '@studio/agent/node/tools/create-child-theme';
+import { getOpenProblems } from '@studio/agent/node/open-problems';
+import { SiteChanges } from '@studio/agent/node/site-changes';
+import { createThemeTool } from '@studio/agent/node/tools/create-theme';
 import { bindTool } from '@studio/agent/node/tools/define-tool';
 import { runWpCli } from '@studio/agent/node/tools/utils';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -22,17 +24,17 @@ foreach ( $styles->to_do as $handle ) {
 }
 echo wp_json_encode( array( get_stylesheet(), get_template(), $queued ) );`;
 
-describe.runIf( WORDPRESS )( 'create_child_theme', () => {
+describe.runIf( WORDPRESS )( 'create_theme', () => {
 	let site: HostSite;
 	let host: StudioAgentHost;
 	let themes: string;
-	const make = ( args: { parent: string; name: string; slug?: string } ) =>
-		bindTool( createChildThemeTool, host ).rawHandler( { nameOrPath: site.name, ...args } );
+	const make = ( args: { parent?: string; name: string; slug?: string } ) =>
+		bindTool( createThemeTool, host ).rawHandler( { nameOrPath: site.name, ...args } );
 	const active = async () =>
 		JSON.parse( await runWpCli( host, site, [ 'eval', ACTIVE ] ) ) as [ string, string, boolean ];
 
 	beforeAll( () => {
-		const root = mkdtempSync( path.join( os.tmpdir(), 'create-child-theme-' ) );
+		const root = mkdtempSync( path.join( os.tmpdir(), 'create-theme-' ) );
 		cpSync( WORDPRESS!, root, { recursive: true } );
 		site = liveSite( root, 'Corner Bakehouse' );
 		host = liveHost( site );
@@ -47,6 +49,31 @@ describe.runIf( WORDPRESS )( 'create_child_theme', () => {
 		);
 	} );
 	afterAll( () => rmSync( site.path, { recursive: true, force: true } ) );
+
+	it( 'makes and activates a block theme that WordPress renders and Studio finds nothing to fix in', async () => {
+		const open = getOpenProblems( host, {} );
+		const changes = new SiteChanges( host, open, async () => [ site ] );
+		await changes.snapshot();
+		await make( { name: 'Corner Bakehouse' } );
+		expect( ( await changes.settle() ).problems ).toEqual( [] );
+		expect( await open.raise() ).toEqual( [] );
+		const rendered = JSON.parse(
+			await runWpCli( host, site, [
+				'eval',
+				`$page = wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'Menu', 'post_content' => '<!-- wp:paragraph --><p>Sourdough</p><!-- /wp:paragraph -->' ) );
+$GLOBALS['wp_query'] = new WP_Query( array( 'page_id' => $page ) );
+$GLOBALS['wp_the_query'] = $GLOBALS['wp_query'];
+$template = get_block_template( get_stylesheet() . '//page' );
+$GLOBALS['_wp_current_template_id'] = $template->id;
+$GLOBALS['_wp_current_template_content'] = $template->content;
+echo wp_json_encode( array( wp_is_block_theme(), get_the_block_template_html() ) );`,
+			] )
+		) as [ boolean, string ];
+		expect( rendered[ 0 ] ).toBe( true );
+		expect( rendered[ 1 ] ).toMatch(
+			/<header[^>]*wp-block-template-part[\s\S]*Sourdough[\s\S]*<footer[^>]*wp-block-template-part/
+		);
+	}, 60_000 );
 
 	it.each( [
 		// Twenty Twenty-Five loads its style.css by its own URI (get_parent_theme_file_uri()).

@@ -39,13 +39,13 @@ describe( 'updatable theme file changes', () => {
 			name: "an edit to an updated theme's file",
 			change: () => write( 'twentytwentyfive/theme.json', '{"version":3,"settings":{}}' ),
 			problem:
-				"it loses the changes to theme.json. Make them in a child theme of twentytwentyfive, which create_child_theme makes and activates; WordPress reads each file the child lacks from twentytwentyfive and merges the child's theme.json over twentytwentyfive's. Or make them in the site's Global Styles",
+				"it loses the changes to theme.json. Make them in a child theme of twentytwentyfive, which create_theme makes and activates; WordPress reads each file the child lacks from twentytwentyfive and merges the child's theme.json over twentytwentyfive's. Or make them in the site's Global Styles",
 		},
 		{
 			name: 'a new file in an updated theme',
 			change: () => write( 'bakery-parent/parts/header.html', '<!-- wp:site-title /-->' ),
 			problem:
-				"it loses the changes to parts/header.html. Make them in a child theme of bakery-parent, which create_child_theme makes and activates; WordPress reads each file the child lacks from bakery-parent and merges the child's theme.json over bakery-parent's. Then restore",
+				"it loses the changes to parts/header.html. Make them in a child theme of bakery-parent, which create_theme makes and activates; WordPress reads each file the child lacks from bakery-parent and merges the child's theme.json over bakery-parent's. Then restore",
 		},
 		{
 			// As run 55's Ollie turn removed the font folder Ollie ships.
@@ -71,7 +71,7 @@ describe( 'updatable theme file changes', () => {
 				write( 'twentytwentyfive/theme.json', '{"version":3,"settings":{}}' );
 			},
 			problem:
-				"it loses the changes to theme.json. assets/a.woff2, assets/b.woff2 of twentytwentyfive's release are gone, and an update brings them back. Make them in a child theme of twentytwentyfive, which create_child_theme makes and activates; WordPress reads each file the child lacks from twentytwentyfive and merges the child's theme.json over twentytwentyfive's. Or make them in the site's Global Styles",
+				"it loses the changes to theme.json. assets/a.woff2, assets/b.woff2 of twentytwentyfive's release are gone, and an update brings them back. Make them in a child theme of twentytwentyfive, which create_theme makes and activates; WordPress reads each file the child lacks from twentytwentyfive and merges the child's theme.json over twentytwentyfive's. Or make them in the site's Global Styles",
 		},
 		{
 			name: "an edit to the user's own theme",
@@ -162,7 +162,7 @@ describe( 'updatable theme file changes', () => {
 		write( 'twentytwentyfive/functions.php', '<?php' );
 		const [ problem ] = ( await check.settle() ).problems;
 		expect( problem ).toContain(
-			'so it loses the changes to theme.json, functions.php. Make them in a child theme of twentytwentyfive, which create_child_theme makes'
+			'so it loses the changes to theme.json, functions.php. Make them in a child theme of twentytwentyfive, which create_theme makes'
 		);
 		// The child theme is named once; only theme.json has another place.
 		expect( problem ).toContain(

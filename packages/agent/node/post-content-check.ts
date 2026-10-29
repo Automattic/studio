@@ -125,6 +125,51 @@ async function themeReport(
 	];
 }
 
+// Gives each saved template part with no area the area of the theme's part
+// it replaces, as the Site Editor's save does when it customizes a theme's
+// part (WP_REST_Templates_Controller::prepare_item_for_database()). WordPress
+// reads a saved part's area from its wp_template_part_area term only
+// (_build_block_template_result_from_post()), and renders a part with none as
+// uncategorized, in a <div> where a footer renders in <footer>
+// (wp-includes/blocks/template-part.php). Returns the areas given, by post.
+async function giveThemeArea(
+	host: StudioAgentHost,
+	site: HostSite,
+	parts: Row[]
+): Promise< Record< string, string > > {
+	const php = `$given = array();
+foreach ( array( ${ parts.map( ( post ) => Number( post.id ) ).join( ', ' ) } ) as $id ) {
+	$theme = wp_get_post_terms( $id, 'wp_theme', array( 'fields' => 'names' ) );
+	if ( has_term( '', 'wp_template_part_area', $id ) || ! $theme ) {
+		continue;
+	}
+	$file = get_block_file_template( $theme[0] . '//' . get_post_field( 'post_name', $id ), 'wp_template_part' );
+	if ( $file && ! empty( $file->area ) && WP_TEMPLATE_PART_AREA_UNCATEGORIZED !== $file->area ) {
+		wp_set_post_terms( $id, $file->area, 'wp_template_part_area' );
+		$given[ $id ] = $file->area;
+	}
+}
+echo 'AREAS=' . wp_json_encode( (object) $given );`;
+	const output = await runWpCli( host, site, [ 'eval', php ] );
+	return JSON.parse( output.slice( output.indexOf( 'AREAS=' ) + 'AREAS='.length ).trim() );
+}
+
+async function areaReport(
+	host: StudioAgentHost,
+	site: HostSite,
+	posts: Row[]
+): Promise< ChangeReport[] > {
+	const parts = posts.filter( ( post ) => post.type === 'wp_template_part' );
+	if ( ! parts.length ) {
+		return [];
+	}
+	const given = await giveThemeArea( host, site, parts ).catch( () => ( {} ) );
+	return Object.entries( given ).map( ( [ id, area ] ) => ( {
+		key: `area of wp_template_part ${ id }`,
+		summary: `${ site.name } wp_template_part ${ id } had no area, and WordPress reads a saved part's area from its wp_template_part_area term only (_build_block_template_result_from_post() in wp-includes/block-template-utils.php), rendering one with none in a <div> (wp-includes/blocks/template-part.php). Studio gave it the area of the theme's part it replaces, ${ area }, as the Site Editor's save does (WP_REST_Templates_Controller::prepare_item_for_database()).`,
+	} ) );
+}
+
 // A lossless fix is saved to the post, as Studio saves one to a file
 // (block-validation-gate.ts). One Studio cannot save stays in the site's tmp/
 // for the agent to apply; named by its absolute path, which holds whatever
@@ -216,6 +261,8 @@ export const postContentChanges: SiteChangeSource = {
 			} );
 		}
 		reports.push( ...( await themeReport( host, site, posts ) ) );
+		// Once each names its theme, whose part it replaces.
+		reports.push( ...( await areaReport( host, site, posts ) ) );
 		// The posts Studio saved are compared from what it saved.
 		return { reports, next: saved ? await readVersions( site.path ) : undefined };
 	},

@@ -272,24 +272,32 @@ describe.runIf( WORDPRESS )( 'a saved template that names no theme', () => {
 			"echo get_block_template( get_stylesheet() . '//footer', 'wp_template_part' )->source;"
 		);
 
-	it.each< { name: string; theme?: string; reported: string[]; source: string } >( [
+	it.each< {
+		name: string;
+		theme?: string;
+		reported: string[];
+		source: string;
+		area: string;
+	} >( [
 		{
-			name: 'is given the active theme, which then serves it',
+			name: "is given the active theme, which then serves it, and the area of the theme's part",
 			reported: [
 				'Workshop wp_template_part ',
 				' "Footer" named no theme, and WordPress serves a saved template or template part only for the theme its wp_theme term names (get_block_templates() in wp-includes/block-template-utils.php). Studio gave it the active theme, twentytwentyfive,',
 			],
 			source: 'custom',
+			area: 'footer',
 		},
 		{
 			name: 'is left as saved when it names one',
 			theme: 'other-theme',
 			reported: [],
 			source: 'theme',
+			area: '',
 		},
 	] )(
 		'$name',
-		async ( { theme, reported, source } ) => {
+		async ( { theme, reported, source, area } ) => {
 			const check = new SiteChanges( liveHost( wordpress ), undefined, async () => [ wordpress ], [
 				postContentChanges,
 			] );
@@ -307,14 +315,21 @@ describe.runIf( WORDPRESS )( 'a saved template that names no theme', () => {
 			if ( theme ) {
 				await wp( 'post', 'term', 'set', id, 'wp_theme', theme );
 			}
-			const summaries = ( await check.settle() ).summaries.filter( ( summary ) =>
-				summary.includes( 'theme' )
-			);
+			const settled = ( await check.settle() ).summaries;
+			const summaries = settled.filter( ( summary ) => summary.includes( 'named no theme' ) );
+			expect(
+				settled.filter( ( summary ) =>
+					summary.includes( `Studio gave it the area of the theme's part it replaces, ${ area },` )
+				)
+			).toHaveLength( area ? 1 : 0 );
 			expect( summaries ).toHaveLength( reported.length ? 1 : 0 );
 			for ( const part of reported ) {
 				expect( summaries[ 0 ] ).toContain( part );
 			}
 			expect( await served() ).toBe( source );
+			expect(
+				await wp( 'post', 'term', 'list', id, 'wp_template_part_area', '--field=slug' )
+			).toBe( area );
 		},
 		120000
 	);

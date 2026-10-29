@@ -41,7 +41,8 @@ Styles sit in the `ui` cascade layer, so a feature's CSS module overrides them w
 
 - Pick a `variant` and `size` first. If none matches, add one here. A primitive that looks wrong everywhere gets fixed here, not on the screen where you noticed it.
 - From a feature, pass `className` for layout: placement, width, margins, grid and flex.
-- Button hover, pressed, open-state and opacity feedback use `--motion-duration-feedback`.
+- Button color, background and border feedback use `--motion-duration-feedback`. Hover-only actions appear immediately, without an opacity transition.
+- Menu items, sidebar rows and tabs respond immediately to hover and selection, without color or background transitions.
 - Change a button's fill with `--button-background`, `--button-hover-background` or `--button-hover-color`, not `background-color`.
 - Don't reach into a primitive's parts with `[data-slot]` selectors, set its other custom properties, or raise specificity to beat it.
 

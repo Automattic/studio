@@ -1,4 +1,4 @@
-import { DAY_MS, DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
+import { getSnapshotExpiry } from '@studio/common/lib/snapshots';
 import { __, sprintf } from '@wordpress/i18n';
 import { EllipsisIcon, RefreshCwIcon } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type RefObject } from 'react';
@@ -69,10 +69,7 @@ export function previewExpiry(
 	return sprintf(
 		/* translators: %s: the date a preview site expires */
 		__( 'Expires %s' ),
-		new Date( snapshot.date + DEMO_SITE_EXPIRATION_DAYS * DAY_MS ).toLocaleDateString(
-			locale,
-			format
-		)
+		new Date( getSnapshotExpiry( snapshot ) ).toLocaleDateString( locale, format )
 	);
 }
 

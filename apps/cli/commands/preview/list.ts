@@ -32,7 +32,7 @@ function buildSnapshotTable( snapshots: Snapshot[] ): string {
 	} );
 
 	for ( const snapshot of snapshots ) {
-		const durationUntilExpiry = formatDurationUntilExpiry( snapshot.date );
+		const durationUntilExpiry = formatDurationUntilExpiry( snapshot );
 		const url = getSnapshotLink( snapshot );
 
 		table.push( [

@@ -2,7 +2,7 @@ import fs from 'fs';
 import { writeFile } from 'atomically';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
-import { pruneEndedPreviews } from 'cli/lib/cli-config/snapshots';
+import { reconcilePreviews } from 'cli/lib/cli-config/snapshots';
 import {
 	deleteSnapshotFromConfig,
 	getSnapshotsFromConfig,
@@ -537,7 +537,7 @@ describe( 'Snapshots Module', () => {
 		} );
 	} );
 
-	describe( 'pruneEndedPreviews', () => {
+	describe( 'reconcilePreviews', () => {
 		const USER_ID = 42;
 		const snapshot = ( url: string, atomicSiteId: number, date: number, userId = USER_ID ) => ( {
 			url,
@@ -547,7 +547,7 @@ describe( 'Snapshots Module', () => {
 			userId,
 		} );
 
-		it( "forgets only the user's WordPress.com previews the server no longer has", async () => {
+		it( "forgets the user's ended WordPress.com previews and records the rest's expiry", async () => {
 			mocks.readFile.mockResolvedValue(
 				JSON.stringify( {
 					version: 1,
@@ -562,15 +562,14 @@ describe( 'Snapshots Module', () => {
 				} )
 			);
 
-			const pruned = await pruneEndedPreviews( USER_ID, new Set( [ 1 ] ), 5000 );
+			await reconcilePreviews( USER_ID, new Map( [ [ 1, 9000 ] ] ), 5000 );
 
-			expect( pruned ).toBe( 1 );
 			const savedData = JSON.parse( mocks.writeFile.mock.calls[ 0 ][ 1 ] );
-			expect( savedData.snapshots.map( ( s: Snapshot ) => s.url ) ).toEqual( [
-				'standing.wpcomstaging.com',
-				'saved-after-check.wpcomstaging.com',
-				'legacy.wp.build',
-				'other-user.wpcomstaging.com',
+			expect( savedData.snapshots.map( ( s: Snapshot ) => [ s.url, s.expiresAt ] ) ).toEqual( [
+				[ 'standing.wpcomstaging.com', 9000 ],
+				[ 'saved-after-check.wpcomstaging.com', undefined ],
+				[ 'legacy.wp.build', undefined ],
+				[ 'other-user.wpcomstaging.com', undefined ],
 			] );
 		} );
 	} );

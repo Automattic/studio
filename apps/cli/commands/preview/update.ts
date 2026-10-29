@@ -1,15 +1,13 @@
 import os from 'node:os';
 import path from 'node:path';
-import { DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { readAuthToken } from '@studio/common/lib/shared-config';
-import { getSnapshotLink, isWpcomPreview } from '@studio/common/lib/snapshots';
+import { getSnapshotLink, isSnapshotExpired, isWpcomPreview } from '@studio/common/lib/snapshots';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { Snapshot } from '@studio/common/types/snapshot';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { addDays } from 'date-fns/addDays';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { cleanup, archiveSiteContent } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
@@ -91,9 +89,7 @@ export async function runCommand(
 		};
 		reportStep( LoggerAction.VALIDATE, __( 'Validating…' ), 0 );
 
-		const now = new Date();
-		const endDate = addDays( snapshotToUpdate.date, DEMO_SITE_EXPIRATION_DAYS );
-		if ( endDate < now ) {
+		if ( isSnapshotExpired( snapshotToUpdate ) ) {
 			throw new LoggerError( __( 'Cannot update an expired preview site.' ), undefined, 'expired' );
 		}
 		await validateSiteSize( siteFolder );

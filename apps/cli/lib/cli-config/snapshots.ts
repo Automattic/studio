@@ -87,6 +87,8 @@ export async function updateSnapshotInConfig(
 
 		snapshot.localSiteId = site.id;
 		snapshot.date = Date.now();
+		// The update restarted the server's window; the next sync reports where it now ends.
+		delete snapshot.expiresAt;
 		if ( shareUrl ) {
 			snapshot.shareUrl = shareUrl;
 		}
@@ -180,33 +182,38 @@ export async function setSnapshotInConfig(
 }
 
 /**
- * Forgets the user's WordPress.com previews that the server no longer has standing, because they
- * were bought, expired or deleted elsewhere. A preview saved after `checkedAt` is kept, since the
- * server's answer may predate it.
+ * Brings the user's WordPress.com previews in line with the server: forgets those it no longer has
+ * standing (bought, expired or deleted elsewhere) and records when the rest expire. A preview saved
+ * after `checkedAt` is left alone, since the server's answer may predate it.
  *
- * @return How many were forgotten.
+ * @param standing The server's standing previews: site ID => expiry (ms).
  */
-export async function pruneEndedPreviews(
+export async function reconcilePreviews(
 	userId: number,
-	standingSiteIds: Set< number >,
+	standing: Map< number, number | undefined >,
 	checkedAt: number
-): Promise< number > {
+): Promise< void > {
 	try {
 		await lockCliConfig();
 		const config = await readCliConfig();
-		const filtered = config.snapshots.filter(
-			( snapshot ) =>
+		const before = JSON.stringify( config.snapshots );
+		config.snapshots = config.snapshots.filter( ( snapshot ) => {
+			if (
 				snapshot.userId !== userId ||
 				! isWpcomPreview( snapshot ) ||
-				snapshot.date > checkedAt ||
-				standingSiteIds.has( snapshot.atomicSiteId )
-		);
-		const pruned = config.snapshots.length - filtered.length;
-		if ( pruned > 0 ) {
-			config.snapshots = filtered;
+				snapshot.date > checkedAt
+			) {
+				return true;
+			}
+			if ( ! standing.has( snapshot.atomicSiteId ) ) {
+				return false;
+			}
+			snapshot.expiresAt = standing.get( snapshot.atomicSiteId );
+			return true;
+		} );
+		if ( JSON.stringify( config.snapshots ) !== before ) {
 			await saveCliConfig( config );
 		}
-		return pruned;
 	} finally {
 		await unlockCliConfig();
 	}

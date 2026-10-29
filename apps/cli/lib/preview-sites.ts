@@ -40,9 +40,11 @@ const siteResponseSchema = z.object( { URL: z.string().url() } );
 
 const previewLinkSchema = z.object( { code: z.string().min( 1 ) } );
 
-// `preview_sites` is left out when the user has none.
+// `preview_sites` is left out when the user has none. `expires_at` is in seconds.
 const standingPreviewsSchema = z.object( {
-	preview_sites: z.array( z.object( { blog_id: z.number() } ) ).optional(),
+	preview_sites: z
+		.array( z.object( { blog_id: z.number(), expires_at: z.number().optional() } ) )
+		.optional(),
 } );
 
 function wpcom( token: string ) {
@@ -205,14 +207,21 @@ export async function updatePreviewSite(
 }
 
 /**
- * The IDs of the user's previews WordPress.com still has standing: unpaid and not torn down. A
- * preview that was bought, expired or deleted elsewhere is not among them.
+ * The user's previews WordPress.com still has standing (unpaid and not torn down), by site ID, with
+ * when each expires (ms). A preview that was bought, expired or deleted elsewhere is not among them.
  */
-export async function getStandingPreviewSiteIds( token: string ): Promise< Set< number > > {
+export async function getStandingPreviews(
+	token: string
+): Promise< Map< number, number | undefined > > {
 	const response = standingPreviewsSchema.parse(
 		await wpcom( token ).req.get( { apiNamespace: 'wpcom/v2', path: '/wow-funnel/pending' } )
 	);
-	return new Set( ( response.preview_sites ?? [] ).map( ( site ) => site.blog_id ) );
+	return new Map(
+		( response.preview_sites ?? [] ).map( ( site ) => [
+			site.blog_id,
+			site.expires_at === undefined ? undefined : site.expires_at * 1000,
+		] )
+	);
 }
 
 export async function deletePreviewSite( siteId: number, token: string ): Promise< void > {

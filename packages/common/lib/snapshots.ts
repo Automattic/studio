@@ -29,8 +29,14 @@ export function isWpcomPreview( snapshot: Snapshot ): boolean {
 	return ! snapshot.url.endsWith( JURASSIC_NINJA_DOMAIN );
 }
 
+// When the preview expires (ms): WordPress.com's answer when Studio has one, else a week after its
+// last update.
+export function getSnapshotExpiry( snapshot: Snapshot ): number {
+	return snapshot.expiresAt ?? snapshot.date + DEMO_SITE_EXPIRATION_DAYS * DAY_MS;
+}
+
 export function isSnapshotExpired( snapshot: Snapshot ): boolean {
-	return snapshot.date + DEMO_SITE_EXPIRATION_DAYS * DAY_MS < Date.now();
+	return getSnapshotExpiry( snapshot ) < Date.now();
 }
 
 // The account's preview-site count and limit on WordPress.com. A user its preview funnel does not

@@ -13,7 +13,7 @@ import { fill, resolveLocator, verbOf } from './locators.mjs';
  *   { "press": "Escape" }
  *   { "toggle": "Enable HTTPS" | LOC, "on": true }   a switch by name, or any locator
  *   { "scrollTo": LOC, "offset"?: px }       scrolls LOC near the top of its scroll area
- *   { "waitForImages": LOC }                 every <img> inside LOC has loaded
+ *   { "waitForImages": LOC }                 LOC has images and every one has loaded
  *   { "setFiles": LOC, "file": "name" }      a file from screenshots/fixtures/
  *   { "wait": ms }
  *   { "helper": "name", "args"?: [...] }     one of HELPERS below
@@ -67,6 +67,10 @@ const STEPS = {
 	},
 	async waitForImages( ctx, step ) {
 		await resolveLocator( ctx, step.waitForImages ).evaluate( async ( el ) => {
+			// Lists such as the Blueprint gallery add their images once their data loads.
+			for ( let i = 0; i < 100 && ! el.querySelector( 'img' ); i++ ) {
+				await new Promise( ( resolve ) => setTimeout( resolve, 200 ) );
+			}
 			const images = [ ...el.querySelectorAll( 'img' ) ];
 			for ( const img of images ) {
 				img.loading = 'eager';

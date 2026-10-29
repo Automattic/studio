@@ -197,6 +197,16 @@
 			"pages": [ "sites.md" ],
 			"steps": [
 				{
+					"click": {
+						"role": "button",
+						"name": "Close chat",
+						"exact": true
+					}
+				},
+				{
+					"wait": 800
+				},
+				{
 					"hover": {
 						"role": "textbox",
 						"name": "Address"
@@ -241,6 +251,15 @@
 					{
 						"role": "toolbar",
 						"name": "Responsive preview"
+					},
+					{
+						"role": "textbox",
+						"name": "Address"
+					},
+					{
+						"role": "button",
+						"name": "Share",
+						"exact": true
 					}
 				],
 				"pad": 24
@@ -277,6 +296,16 @@
 						"name": "Responsive preview"
 					},
 					"hidden": true
+				},
+				{
+					"click": {
+						"role": "button",
+						"name": "Open chat",
+						"exact": true
+					}
+				},
+				{
+					"wait": 800
 				}
 			]
 		},

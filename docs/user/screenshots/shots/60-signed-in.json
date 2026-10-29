@@ -104,19 +104,53 @@
 		},
 		{
 			"name": "annotate-note",
-			"description": "Annotate: a note open on the page heading, typed and not yet saved",
+			"description": "Annotate: two saved notes on the page, and a third open on the hero photo, being typed",
 			"pages": [ "studio-code/index.md" ],
 			"steps": [
 				{
 					"helper": "clickInPreview",
-					"args": [ "h1, h2" ]
+					"args": [ "h1" ]
 				},
 				{
-					"wait": 800
+					"wait": 600
 				},
 				{
 					"helper": "typeText",
 					"args": [ "Make this heading shorter" ]
+				},
+				{
+					"press": "Enter"
+				},
+				{
+					"wait": 600
+				},
+				{
+					"helper": "clickInPreview",
+					"args": [ "header .wp-block-button__link" ]
+				},
+				{
+					"wait": 600
+				},
+				{
+					"helper": "typeText",
+					"args": [ "Make the Order button stand out more" ]
+				},
+				{
+					"press": "Enter"
+				},
+				{
+					"wait": 600
+				},
+				{
+					"helper": "clickInPreview",
+					"args": [ ".wp-block-image.alignfull img" ]
+				},
+				{
+					"wait": 600
+				},
+				{
+					"helper": "typeText",
+					"args": [ "Swap in a photo of our sourdough" ]
 				},
 				{
 					"wait": 500
@@ -134,6 +168,20 @@
 				{
 					"press": "Escape"
 				},
+				{
+					"wait": 600
+				}
+			]
+		},
+		{
+			"name": "annotate-staged",
+			"description": "Annotate: two saved notes marked on the page and waiting in the chat box as \"2 annotations\", with Send in the Annotations toolbar",
+			"pages": [ "studio-code/index.md" ],
+			"steps": [],
+			"capture": {
+				"settle": 1200
+			},
+			"after": [
 				{
 					"helper": "discardAnnotations"
 				}

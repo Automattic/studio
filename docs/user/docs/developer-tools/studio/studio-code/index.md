@@ -103,9 +103,11 @@ Instead of describing which part of the page you mean, you can point at it. In t
 5.  Click more elements to add more notes. Click a marker to edit its note, or click **Delete annotation** (the trash can) to remove it.
 6.  Click **Send** in the toolbar, or send from the chat box. Studio Code gets your message and every note, each with the element it points at.
 
-<!-- TODO screenshot: add `annotate-toolbar.webp` from `npm run screenshots` (Studio 2.0, signed-in suite) here: a site preview in annotation mode with two numbered markers and the Annotations toolbar (Cancel, Send with a count of 2). -->
+<!-- TODO screenshot: add `annotate-toolbar.webp` from `npm run screenshots` (Studio 2.0, signed-in suite) here: annotation mode just turned on, with the Annotations toolbar (Cancel, Send) at the bottom of the site preview. -->
 
-<!-- TODO screenshot: add `annotate-note.webp` from `npm run screenshots` (Studio 2.0, signed-in suite) here: an open note on a clicked heading, with “Make this heading shorter” typed in the Leave a note… box and the Attach image, Delete annotation and Save annotation buttons. -->
+<!-- TODO screenshot: add `annotate-note.webp` from `npm run screenshots` (Studio 2.0, signed-in suite) here: two saved notes, numbered 1 and 2 on the heading and the Order button, and a third open on the hero photo with “Swap in a photo of our sourdough” being typed. -->
+
+<!-- TODO screenshot: add `annotate-staged.webp` from `npm run screenshots` (Studio 2.0, signed-in suite) here: the two saved notes marked on the page and waiting in the chat box as “2 annotations”, with Send (2) in the toolbar. -->
 
 To send a single note right away, press ⌘Enter (Ctrl+Enter on Windows and Linux) in it. If Studio Code is still replying, the note waits in the queue and is sent when the reply ends. Notes staged in the chat box also wait for the reply to end, because they point at the page as it is now.
 

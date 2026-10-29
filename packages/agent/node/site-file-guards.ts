@@ -21,7 +21,11 @@ import {
 import { savedCopyWriteNote } from '@studio/agent/node/saved-copies';
 import { resolveScreenshotDirectory } from '@studio/agent/node/screenshot-storage';
 import { readWordPressSite } from '@studio/agent/node/site-database';
-import { ownThemeHome, updatableThemeChangeHome } from '@studio/agent/node/theme-file-changes';
+import {
+	otherHome,
+	ownThemeHome,
+	updatableThemeChangeHome,
+} from '@studio/agent/node/theme-file-changes';
 import { isUpdatableTheme, wordPressOrgNamesake } from '@studio/agent/node/themes';
 import { captureScreenshotBuffer } from '@studio/agent/node/tools/screenshot-helpers';
 import type { StudioAgentHost } from '@studio/agent/node/host';
@@ -194,11 +198,13 @@ export async function getSiteFileWriteRefusal(
 	) {
 		reason = `${
 			theme.slug
-		} is a theme WordPress updates, and an update overwrites changes to its files. Make the change in ${ updatableThemeChangeHome(
-			theme.dir,
+		} is a theme WordPress updates, and an update overwrites changes to its files. Make the change in ${ ownThemeHome(
+			theme.slug
+		) }.${ otherHome(
 			theme.slug,
-			theme.file
-		) }. ${ ownThemeHome( theme.slug ) }`;
+			updatableThemeChangeHome( theme.dir, theme.slug, theme.file ),
+			'it'
+		) }`;
 	}
 	return reason && ( await host.sites.findByFolder( siteRoot ) ) ? reason : undefined;
 }

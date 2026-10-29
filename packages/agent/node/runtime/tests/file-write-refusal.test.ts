@@ -123,19 +123,22 @@ describe( 'the file write refusal', () => {
 
 		// Checked with an update source, or installed since and on WordPress.org.
 		for ( const updatable of [ 'twentytwentyfive', 'premium', 'fresh' ] ) {
-			expect( await refusal( updatable ) ).toContain( `Template: ${ updatable }` );
-			expect( await refusal( updatable, 'style.css' ) ).toContain( "the site's Additional CSS" );
+			// A child theme first, whatever the change; only one it alone holds names no other place.
+			expect( await refusal( updatable ) ).toMatch(
+				new RegExp(
+					`Make the change in a child theme of ${ updatable }, which create_child_theme makes and activates; .* over ${ updatable }'s\\.$`
+				)
+			);
+			expect( await refusal( updatable, 'style.css' ) ).toContain(
+				". Or make it in the site's Additional CSS"
+			);
 		}
 		writeFileSync(
 			path.join( studioSite(), 'wp-content/themes/premium/theme.json' ),
 			'{"version":3}'
 		);
 		expect( await refusal( 'premium', 'theme.json' ) ).toContain(
-			"Make the change in the site's Global Styles for premium"
-		);
-		// A theme of the site's own is the other place, whatever the change.
-		expect( await refusal( 'premium', 'theme.json' ) ).toMatch(
-			/\. Or make the site's look a theme of its own, a child theme of premium or one that stands alone, which WordPress serves once the site activates it \(switch_theme\(\) in wp-includes\/theme\.php\)\.$/
+			". Or make it in the site's Global Styles for premium"
 		);
 		// Checked, with no update source: the user's own themes.
 		for ( const own of [ 'client-theme', 'café' ] ) {

@@ -79,9 +79,13 @@ export function updatableThemeChangeHome( themeDir: string, slug: string, file: 
 	return `a child theme of ${ slug }, whose style.css names \`Template: ${ slug }\``;
 }
 
-/** The other place for any change to an updatable theme: a theme of the site's own. */
+/** The place for any change to an updatable theme: a child theme of the site's own. */
 export const ownThemeHome = ( slug: string ) =>
-	`Or make the site's look a theme of its own, a child theme of ${ slug } or one that stands alone, which WordPress serves once the site activates it (switch_theme() in wp-includes/theme.php).`;
+	`a child theme of ${ slug }, which create_child_theme makes and activates; WordPress reads each file the child lacks from ${ slug } and merges the child's theme.json over ${ slug }'s`;
+
+/** Where else than a child theme WordPress keeps a change, as a sentence, or nothing. */
+export const otherHome = ( slug: string, home: string, them: string ) =>
+	home.startsWith( `a child theme of ${ slug },` ) ? '' : ` Or make ${ them } in ${ home }.`;
 
 // The theme's templates and parts that show a pattern of its own, by the
 // pattern's Slug header (as _register_theme_block_patterns() reads it, in
@@ -130,14 +134,18 @@ function problem( themeDir: string, slug: string, files: string[], removed: stri
 		const home = updatableThemeChangeHome( themeDir, slug, file );
 		homes.set( home, [ ...( homes.get( home ) ?? [] ), file ] );
 	}
-	const where = [ ...homes ]
-		.map( ( [ home, kept ] ) =>
-			homes.size === 1 ? home : `${ kept.slice( 0, 5 ).join( ', ' ) } in ${ home }`
-		)
-		.join( '; ' );
-	return `${ slug } is a theme WordPress updates, and an update replaces its files, so it loses the changes to ${ named }. ${ gone }Make ${
-		homes.size === 1 ? 'them in ' : 'each where WordPress saves that kind of change: '
-	}${ where }. ${ ownThemeHome( slug ) } Then ${ restore }`;
+	// Where else WordPress saves each kind of change; a child theme holds them all.
+	const elsewhere = [ ...homes ].filter( ( [ home ] ) => otherHome( slug, home, '' ) );
+	const others = elsewhere.length
+		? ` Or make ${ elsewhere
+				.map( ( [ home, kept ] ) =>
+					homes.size === 1 ? `them in ${ home }` : `${ listed( kept ) } in ${ home }`
+				)
+				.join( '; ' ) }.`
+		: '';
+	return `${ slug } is a theme WordPress updates, and an update replaces its files, so it loses the changes to ${ named }. ${ gone }Make them in ${ ownThemeHome(
+		slug
+	) }.${ others } Then ${ restore }`;
 }
 
 export const updatableThemeChanges: SiteChangeSource = {

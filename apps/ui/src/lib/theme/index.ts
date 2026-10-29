@@ -83,3 +83,4 @@ export function previewAccentColor( tint: Partial< ColorTint > ): string {
 }
 
 export { getMotionDuration } from './motion';
+export { getEmbeddedFontData } from './embedded-font';

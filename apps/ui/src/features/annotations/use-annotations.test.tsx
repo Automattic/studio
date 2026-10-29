@@ -156,13 +156,17 @@ describe( 'preview annotation sessions', () => {
 		expect( session().notes[ 0 ].id ).toBe( id );
 	} );
 
-	it( 'sends the open note directly when clicking Send', async () => {
+	it( 'stages the open note from its button and sends it only from the annotation bar', async () => {
 		const { onSend } = await setup();
 		const id = add( 'Make this heading larger' );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Send annotation' } ) );
-		expect( onSend ).toHaveBeenCalledWith( [ id ] );
-		expect( stagedCount() ).toBe( 0 );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Save annotation' } ) );
+		expect( onSend ).not.toHaveBeenCalled();
+		expect( stagedCount() ).toBe( 1 );
+		expect( session().notes[ 0 ].id ).toBe( id );
+		expect( session().active ).toBe( true );
 		expect( session().editingId ).toBeNull();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send 1 annotation' } ) );
+		expect( onSend ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it.each( [ 'metaKey', 'ctrlKey' ] )(

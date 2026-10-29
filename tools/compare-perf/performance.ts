@@ -150,9 +150,11 @@ async function runTestSuite(
 	fs.mkdirSync( path.dirname( testRunnerOutDir ), { recursive: true } );
 	fs.symlinkSync( outDir, testRunnerOutDir, 'dir' );
 
-	// Run the test suite
-	await runShellScript( `${ config.testCommand } ${ testSuite }`, testRunnerDir, {
+	// The suite name is a file name, so it reaches the shell as a variable rather than as syntax.
+	const testSuiteArgument = process.platform === 'win32' ? '%TEST_SUITE%' : '"$TEST_SUITE"';
+	await runShellScript( `${ config.testCommand } ${ testSuiteArgument }`, testRunnerDir, {
 		...process.env,
+		TEST_SUITE: testSuite,
 		ARTIFACTS_PATH: config.artifactsPath,
 		RESULTS_FILE_SUFFIX: config.resultsFileSuffix,
 		RESULTS_ID: runKey,

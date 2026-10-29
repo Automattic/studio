@@ -115,8 +115,17 @@ WP_CLI::add_wp_hook(
 function studio_static_additional_urls() {
 	// Only referenced from the inline emoji settings JSON, which isn't crawled.
 	$urls = array( includes_url( 'js/wp-emoji-release.min.js' ) );
-	if ( wp_sitemaps_get_server()->sitemaps_enabled() ) {
+	$sitemaps = wp_sitemaps_get_server();
+	if ( $sitemaps->sitemaps_enabled() ) {
 		$urls[] = home_url( '/wp-sitemap.xml' );
+		// The index can point at a production domain, which the crawler doesn't follow.
+		foreach ( $sitemaps->registry->get_providers() as $provider ) {
+			foreach ( $provider->get_sitemap_type_data() as $type ) {
+				for ( $page = 1; $page <= $type['pages']; $page++ ) {
+					$urls[] = $provider->get_sitemap_url( $type['name'], $page );
+				}
+			}
+		}
 	}
 	return $urls;
 }

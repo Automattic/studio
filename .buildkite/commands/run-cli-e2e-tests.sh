@@ -30,7 +30,7 @@ echo '--- :vitest: Run CLI E2E Tests'
 # Each test's daemon logs record why a site process died; keep them only when a test fails.
 export STUDIO_E2E_DAEMON_LOGS_DIR=test-results/daemon-logs
 test_exit=0
-npm test -- --project cli --tagsFilter='e2e' --no-file-parallelism .e2e.test.ts || test_exit=$?
+npm test -- --project cli --tagsFilter='e2e' --no-file-parallelism zz-non-ascii-probe.e2e.test.ts || test_exit=$?
 if [ "$test_exit" -eq 0 ]; then
   rm -rf "$STUDIO_E2E_DAEMON_LOGS_DIR"
 fi

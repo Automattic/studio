@@ -155,7 +155,7 @@ describe( 'Studio workspace', () => {
 	} );
 
 	it.each( [ 'site', 'play' ] )(
-		'opens a stopped site from %s without creating or resuming a chat',
+		'opens a stopped site from %s and resumes its conversation without creating a chat',
 		async ( action ) => {
 			const { connector, history } = setup( {
 				signedIn: true,
@@ -173,9 +173,9 @@ describe( 'Studio workspace', () => {
 					name: action === 'site' ? 'Other site' : 'Start Other site',
 				} )
 			);
-			await waitFor( () => expect( history.location.pathname ).toBe( '/sites/two/new' ) );
+			await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/previous' ) );
 			expect( await findComposer() ).toHaveValue( '' );
-			expect( screen.queryByText( 'Old message' ) ).not.toBeInTheDocument();
+			expect( await screen.findByText( 'Old message' ) ).toBeVisible();
 			expect( screen.queryByRole( 'button', { name: 'New chat' } ) ).not.toBeInTheDocument();
 			expect( connector.createSession ).not.toHaveBeenCalled();
 			if ( action === 'play' ) {
@@ -189,7 +189,7 @@ describe( 'Studio workspace', () => {
 			);
 			expect( await screen.findByText( 'Old message' ) ).toBeVisible();
 			fireEvent.click( screen.getByRole( 'button', { name: 'Other site' } ) );
-			await waitFor( () => expect( history.location.pathname ).toBe( '/sites/two/new' ) );
+			await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/previous' ) );
 			expect( await findComposer() ).toHaveValue( '' );
 			expect( connector.createSession ).not.toHaveBeenCalled();
 		}
@@ -274,7 +274,7 @@ describe( 'Studio workspace', () => {
 			} )
 		).toBeVisible();
 		expect( connector.createSession ).toHaveBeenCalledTimes( 1 );
-		fireEvent.click( screen.getByRole( 'button', { name: 'My site' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'New chat for My site' } ) );
 		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
 		expect( await findComposer() ).toHaveValue( '' );
 		expect( connector.createSession ).toHaveBeenCalledTimes( 1 );
@@ -508,6 +508,56 @@ describe( 'Studio workspace', () => {
 		expect( screen.getByRole( 'button', { name: 'Close chat' } ) ).toBe( toggle );
 		expect( input ).toHaveValue( 'Keep this unsent idea' );
 		expect( document.querySelector( 'iframe' ) ).toBe( frame );
+	} );
+
+	it.each( [ false, true ] )(
+		'restores the last conversation and visibility when selecting its site (hidden: %s)',
+		async ( hidden ) => {
+			const { history } = setup( {
+				signedIn: true,
+				path: '/sessions/remembered',
+				sites: [
+					site( { running: true } ),
+					site( { id: 'two', name: 'Second site', path: '/sites/two', running: true } ),
+				],
+				sessions: [
+					chat( { id: 'remembered', title: 'Remembered chat' } ),
+					chat( {
+						id: 'other',
+						title: 'Other chat',
+						ownerSiteId: 'two',
+						ownerSitePath: '/sites/two',
+					} ),
+				],
+			} );
+			await screen.findByRole( 'button', { name: 'Close chat' } );
+			if ( hidden ) fireEvent.click( screen.getByRole( 'button', { name: 'Close chat' } ) );
+			await act( () => history.push( '/sessions/other' ) );
+			await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/other' ) );
+			fireEvent.click( screen.getByRole( 'button', { name: 'My site' } ) );
+			await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/remembered' ) );
+			await screen.findByRole( 'button', { name: hidden ? 'Open chat' : 'Close chat' } );
+		}
+	);
+
+	it( 'returns to a new-chat draft instead of an older conversation', async () => {
+		const { history } = setup( {
+			signedIn: true,
+			path: '/sites/one/new',
+			sites: [
+				site( { running: true } ),
+				site( { id: 'two', name: 'Second site', path: '/sites/two', running: true } ),
+			],
+			sessions: [ chat( { id: 'older', title: 'Older chat' } ) ],
+		} );
+		const input = await findComposer();
+		await waitFor( () => expect( input ).toBeEnabled() );
+		fireEvent.change( input, { target: { value: 'Unsent draft' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Second site' } ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/two/new' ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'My site' } ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
+		expect( await findComposer() ).toHaveValue( 'Unsent draft' );
 	} );
 
 	it( 'remembers each site chat visibility across site switching and reloads', async () => {

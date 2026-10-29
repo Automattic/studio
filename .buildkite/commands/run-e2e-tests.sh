@@ -50,6 +50,7 @@ echo '--- :inbox_tray: Prepare e2e fixtures'
 # cache self-heals rather than failing the run.
 FIXTURES_CACHE_KEY="$BUILDKITE_PIPELINE_SLUG-e2e-fixtures-$(hash_file test-fixtures/manifest.json)"
 restore_cache "$FIXTURES_CACHE_KEY"
+stat -c "TEMP owner uid=%u gid=%g %n" test-fixtures test-fixtures/downloads test-fixtures/downloads/* 2>&1 | head -5 || true
 npm run e2e:fixtures -- --require
 save_cache test-fixtures/downloads "$FIXTURES_CACHE_KEY"
 

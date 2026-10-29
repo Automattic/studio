@@ -4,7 +4,11 @@ import { useLayoutEffect, useRef, useState } from 'react';
  * How the header under the site actions fits them: everything inline, the
  * actions folded into a More menu, or the browser navigation folded in too.
  */
-export type SiteHeaderLayout = 'inline' | 'actions-overflow' | 'navigation-overflow';
+export type SiteHeaderLayout =
+	| 'inline'
+	| 'actions-overflow'
+	| 'navigation-overflow'
+	| 'mobile-overflow';
 
 // The address field's useful width, kept when deciding whether the rest fits.
 const ADDRESS_MIN_WIDTH = 320;
@@ -90,13 +94,21 @@ export function useSiteHeaderLayout( space: HTMLElement | null, actions: HTMLEle
 			} else if ( ! navigation || available >= compact ) {
 				next = 'actions-overflow';
 			}
+			if ( width <= 540 ) {
+				next = 'mobile-overflow';
+			}
 			if ( next !== current ) {
 				const focused = document.activeElement;
 				refocus.current = Boolean(
 					focused &&
 						( actions.querySelector( '[data-site-header-trailing]' )?.contains( focused ) ||
 							( next !== 'inline' && focused.closest( '[data-address-action]' ) ) ||
-							( next === 'navigation-overflow' && navigation?.contains( focused ) ) )
+							( ( next === 'navigation-overflow' || next === 'mobile-overflow' ) &&
+								navigation?.contains( focused ) ) ||
+							( next === 'mobile-overflow' &&
+								( address?.contains( focused ) ||
+									annotation?.contains( focused ) ||
+									focused.closest( '[data-site-header-run]' ) ) ) )
 				);
 				current = next;
 				setLayout( next );

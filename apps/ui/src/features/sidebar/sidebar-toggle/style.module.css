@@ -60,3 +60,8 @@
 .headerSlotVisible.headerSlotWithAction {
 	width: calc( 2 * var( --control-size ) + var( --space-1 ) );
 }
+
+.headerSlotVisible.headerSlotWithAction:has( [data-site-header-run][hidden] ) {
+	width: var( --control-size );
+	gap: 0;
+}

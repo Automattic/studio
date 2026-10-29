@@ -22,6 +22,7 @@ interface PreviewSplitFrameProps {
 	// handles layout transitions.
 	preview?: ( props: PreviewSplitFramePreviewProps ) => ReactNode;
 	previewOpen?: boolean;
+	previewLoading?: boolean;
 	// The preview fills the frame over the hidden chat; the sidebar stays.
 	chatHidden?: boolean;
 	// Open or close without the slide, as when a stopping site drops its preview.
@@ -35,6 +36,7 @@ export function PreviewSplitFrame( {
 	header,
 	preview,
 	previewOpen = false,
+	previewLoading = false,
 	chatHidden = false,
 	instant = false,
 	children,
@@ -54,17 +56,20 @@ export function PreviewSplitFrame( {
 	// class in the same commit as the width change; an effect-based update would
 	// race it.
 	const [ animatingPreviewToggle, setAnimatingPreviewToggle ] = useState( false );
+	const [ fadingPreview, setFadingPreview ] = useState( false );
 	const [ previousPreview, setPreviousPreview ] = useState( {
 		siteId,
 		navigationKey,
 		mounted: preview != null,
 		open: showPreview,
+		loading: previewLoading,
 		collapsed: contentCollapsed,
 	} );
 	if (
 		previousPreview.siteId !== siteId ||
 		previousPreview.navigationKey !== navigationKey ||
 		previousPreview.mounted !== ( preview != null ) ||
+		previousPreview.loading !== previewLoading ||
 		previousPreview.open !== showPreview ||
 		previousPreview.collapsed !== contentCollapsed
 	) {
@@ -73,10 +78,12 @@ export function PreviewSplitFrame( {
 			navigationKey,
 			mounted: preview != null,
 			open: showPreview,
+			loading: previewLoading,
 			collapsed: contentCollapsed,
 		} );
 		const toggled =
 			previousPreview.open !== showPreview || previousPreview.collapsed !== contentCollapsed;
+		setFadingPreview( previousPreview.loading && ! previousPreview.open && showPreview );
 		setAnimatingPreviewToggle(
 			toggled &&
 				previousPreview.siteId === siteId &&
@@ -97,11 +104,21 @@ export function PreviewSplitFrame( {
 		if ( ! animatingPreviewToggle ) {
 			return;
 		}
-		const timeoutId = window.setTimeout( () => {
-			setAnimatingPreviewToggle( false );
-		}, getMotionDuration( 'layout' ) );
+		const timeoutId = window.setTimeout(
+			() => {
+				setAnimatingPreviewToggle( false );
+			},
+			getMotionDuration( fadingPreview ? 'surface' : 'layout' )
+		);
 		return () => window.clearTimeout( timeoutId );
-	}, [ animatingPreviewToggle, siteId, navigationKey, showPreview, contentCollapsed ] );
+	}, [
+		animatingPreviewToggle,
+		fadingPreview,
+		siteId,
+		navigationKey,
+		showPreview,
+		contentCollapsed,
+	] );
 
 	const previewVisible = showPreview || animatingPreviewToggle;
 	const renderPreview = ! showPreview && animatingPreviewToggle ? lastVisiblePreview : preview;
@@ -129,7 +146,8 @@ export function PreviewSplitFrame( {
 					header && styles.rootWithHeader,
 					showPreview && styles.rootPreviewOpen,
 					isResizing && styles.rootPreviewResizing,
-					animatingPreviewToggle && styles.rootPreviewAnimating,
+					animatingPreviewToggle &&
+						( fadingPreview ? styles.rootPreviewFading : styles.rootPreviewAnimating ),
 					showPreview && ! contentCollapsed && ! animatingPreviewToggle && styles.rootEdge
 				) }
 				style={ rootStyle }

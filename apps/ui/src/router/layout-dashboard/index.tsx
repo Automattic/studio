@@ -263,6 +263,7 @@ function DashboardLayout() {
 							: routePreviewContext.pathname
 					}
 					previewOpen={ showPreview }
+					previewLoading={ preview.revealingSiteId === previewSiteId }
 					chatHidden={ chatHidden }
 					instant={ previewStopping }
 					preview={ renderPreview }

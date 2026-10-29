@@ -131,3 +131,16 @@
 .rootPreviewResizing [data-site-header-reserved] {
 	transition: none;
 }
+
+.rootPreviewFading :is( .contentColumn, .previewSlot ) {
+	animation: previewFadeIn var( --motion-duration-surface ) var( --motion-ease-enter ) both;
+}
+
+@keyframes previewFadeIn {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}

@@ -6,7 +6,7 @@ import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
 import { SiteHeaderSpace, useSiteHeader } from '@/features/sites/site-header-actions';
 import { PreviewAddressBar, type PreviewRealm } from '@/features/sites/site-preview/address-bar';
 import { RotateCwIcon } from '@/lib/icons';
-import { IconButton } from '@/lib/ui';
+import { Dialog, DialogContent, DialogTitle, IconButton } from '@/lib/ui';
 import { AnnotateButton } from './annotate-button';
 import { BrowserHistoryButton } from './browser-history-button';
 import styles from './style.module.css';
@@ -17,6 +17,8 @@ import type { BrowserShortcutCommand } from '@studio/agent/protocol/inspector/pa
 import type { ComponentProps, ReactNode } from 'react';
 
 interface PreviewHeaderProps {
+	addressOpen: boolean;
+	onAddressOpenChange: ( open: boolean ) => void;
 	site: SiteDetails;
 	siteUrl: string;
 	path: string;
@@ -42,6 +44,8 @@ interface PreviewHeaderProps {
 }
 
 export function PreviewHeader( {
+	addressOpen,
+	onAddressOpenChange,
 	site,
 	siteUrl,
 	path,
@@ -68,6 +72,27 @@ export function PreviewHeader( {
 	const sidebarCollapsed = useSidebarCollapsed();
 	const windowControlsInset = useWindowControlsInset( 'toolbar' );
 	const { host: headerHost, layout: headerLayout } = useSiteHeader();
+
+	const addressBar = (
+		<PreviewAddressBar
+			site={ site }
+			siteUrl={ siteUrl }
+			path={ path }
+			remote={ live }
+			onNavigate={ ( nextPath ) => {
+				onPathChange?.( nextPath );
+				onAddressOpenChange( false );
+			} }
+			onSwitchRealm={ ( realm ) => {
+				onSwitchRealm( realm );
+				onAddressOpenChange( false );
+			} }
+			hasDesignSystem={ hasDesignSystem }
+			onOpenExternal={ onOpenExternal }
+			responsive={ responsive }
+			hideActions={ headerLayout !== 'inline' }
+		/>
+	);
 
 	return (
 		<div
@@ -102,10 +127,15 @@ export function PreviewHeader( {
 						data-site-header-navigation
 						className={ clsx(
 							styles.navigation,
-							headerLayout === 'navigation-overflow' && styles.navigationHidden
+							( headerLayout === 'navigation-overflow' || headerLayout === 'mobile-overflow' ) &&
+								styles.navigationHidden
 						) }
-						aria-hidden={ headerLayout === 'navigation-overflow' || undefined }
-						inert={ headerLayout === 'navigation-overflow' }
+						aria-hidden={
+							headerLayout === 'navigation-overflow' ||
+							headerLayout === 'mobile-overflow' ||
+							undefined
+						}
+						inert={ headerLayout === 'navigation-overflow' || headerLayout === 'mobile-overflow' }
 					>
 						<BrowserHistoryButton
 							direction="back"
@@ -146,28 +176,29 @@ export function PreviewHeader( {
 						{ isStopping ? __( 'Stopping site…' ) : __( 'Starting site…' ) }
 					</span>
 				) : canPreview ? (
-					<PreviewAddressBar
-						site={ site }
-						siteUrl={ siteUrl }
-						path={ path }
-						remote={ live }
-						onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
-						onSwitchRealm={ onSwitchRealm }
-						hasDesignSystem={ hasDesignSystem }
-						onOpenExternal={ onOpenExternal }
-						responsive={ responsive }
-						hideActions={ headerLayout !== 'inline' }
-					/>
+					headerLayout !== 'mobile-overflow' ? (
+						addressBar
+					) : null
 				) : null }
 			</div>
 			<div className={ styles.headerSide }>
 				{ annotate ? (
-					<span data-site-header-annotate className={ styles.headerItem }>
+					<span
+						data-site-header-annotate
+						className={ styles.headerItem }
+						hidden={ headerLayout === 'mobile-overflow' }
+					>
 						<AnnotateButton { ...annotate } iconOnly={ headerLayout !== 'inline' } />
 					</span>
 				) : null }
 				{ headerHost === 'preview' && ! collapsed ? <SiteHeaderSpace /> : null }
 			</div>
+			<Dialog open={ addressOpen } onOpenChange={ onAddressOpenChange }>
+				<DialogContent layout="compact">
+					<DialogTitle>{ __( 'Go to URL' ) }</DialogTitle>
+					{ addressBar }
+				</DialogContent>
+			</Dialog>
 			{ progress !== undefined ? (
 				<div className={ styles.loadingProgress } aria-hidden="true">
 					<span style={ { transform: `scaleX(${ Math.min( progress, 1 ) })` } } />

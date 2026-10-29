@@ -14,7 +14,6 @@ import { WindowControlsCornerContext } from '@/data/host/use-window-controls-ins
 import { useSiteDesign } from '@/data/queries/use-site-design';
 import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
 import { useResponsivePreview, updateResponsivePreview } from '@/data/responsive-preview';
-import { useOpenSettings } from '@/data/use-open-settings';
 import {
 	AnnotationOverlay,
 	type AnnotationAnchor,
@@ -92,7 +91,6 @@ export function SitePreview( {
 	atWindowStart = false,
 }: SitePreviewProps ) {
 	const connector = useConnector();
-	const openSettings = useOpenSettings();
 	const operation = useSiteOperation( site );
 	const startPending = useIsSiteStarting( site.id );
 	const stopPending = useIsSiteStopping( site.id );
@@ -248,7 +246,6 @@ export function SitePreview( {
 						console.error( 'Failed to open site in browser:', error );
 					} );
 		  };
-	const openSiteSettings = () => openSettings( 'site', site.id );
 	const responsive = canPreview
 		? {
 				active: responsiveEnabled,
@@ -257,6 +254,23 @@ export function SitePreview( {
 					updateResponsivePreview( site.id, { enabled: ! responsiveSettings.enabled } ),
 		  }
 		: undefined;
+	const annotate = showAnnotate
+		? {
+				active: annotations.active,
+				disabled: ! canAnnotate || isAnnotationsBusy( annotations ),
+				disabledReason:
+					activeSurfaceKey === 'database'
+						? __( 'Not available for Database' )
+						: ! canAnnotateSurface
+						? __( 'Site annotation is not available in the browser yet' )
+						: undefined,
+				onClick: () => {
+					if ( ! annotations.active && onStartAnnotating?.() === false ) return;
+					setAnnotating( site.id, ! annotations.active );
+				},
+		  }
+		: undefined;
+	const [ addressOpen, setAddressOpen ] = useState( false );
 	useSiteHeaderNavigation(
 		canPreview && ! collapsed
 			? {
@@ -266,9 +280,10 @@ export function SitePreview( {
 					back: () => sendBrowserCommand( 'back' ),
 					forward: () => sendBrowserCommand( 'forward' ),
 					reload: () => sendBrowserCommand( 'reload' ),
-					settings: openSiteSettings,
+					openAddress: () => setAddressOpen( true ),
 					openExternal,
 					responsive,
+					annotate,
 					backShortcut: browserShortcuts.back.displayShortcut,
 					forwardShortcut: browserShortcuts.forward.displayShortcut,
 			  }
@@ -277,6 +292,8 @@ export function SitePreview( {
 
 	const header = (
 		<PreviewHeader
+			addressOpen={ addressOpen }
+			onAddressOpenChange={ setAddressOpen }
 			site={ site }
 			siteUrl={ siteUrl }
 			path={ safePath }
@@ -296,24 +313,7 @@ export function SitePreview( {
 			hasDesignSystem={ !! siteDesign.data }
 			onOpenExternal={ openExternal }
 			responsive={ responsive }
-			annotate={
-				showAnnotate
-					? {
-							active: annotations.active,
-							disabled: ! canAnnotate || isAnnotationsBusy( annotations ),
-							disabledReason:
-								activeSurfaceKey === 'database'
-									? __( 'Not available for Database' )
-									: ! canAnnotateSurface
-									? __( 'Site annotation is not available in the browser yet' )
-									: undefined,
-							onClick: () => {
-								if ( ! annotations.active && onStartAnnotating?.() === false ) return;
-								setAnnotating( site.id, ! annotations.active );
-							},
-					  }
-					: undefined
-			}
+			annotate={ annotate }
 			progress={ showLoadingProgress ? progress : undefined }
 		/>
 	);

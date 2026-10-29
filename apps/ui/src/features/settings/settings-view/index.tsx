@@ -176,7 +176,7 @@ function PreferencesPanel( {
 					{ __( 'An error occurred while saving settings. Please try again.' ) }
 				</div>
 			) : null }
-			<SettingsGroup>
+			<SettingsGroup title={ __( 'Application' ) }>
 				<SettingsRow
 					title={ __( 'Language' ) }
 					description={ __( 'Default language for WordPress Studio.' ) }

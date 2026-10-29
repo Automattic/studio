@@ -192,6 +192,95 @@
 			}
 		},
 		{
+			"name": "responsive-mode-presets",
+			"description": "Responsive mode: the device menu open, with Responsive and the device sizes",
+			"pages": [ "sites.md" ],
+			"steps": [
+				{
+					"hover": {
+						"role": "textbox",
+						"name": "Address"
+					}
+				},
+				{
+					"click": {
+						"role": "button",
+						"name": "Responsive mode",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "toolbar",
+						"name": "Responsive preview"
+					}
+				},
+				{
+					"click": {
+						"within": {
+							"role": "toolbar",
+							"name": "Responsive preview"
+						},
+						"role": "button",
+						"name": "Responsive",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "menuitemradio",
+						"name": "iPhone 17 ·"
+					}
+				}
+			],
+			"capture": {
+				"target": [
+					{
+						"role": "menu"
+					},
+					{
+						"role": "toolbar",
+						"name": "Responsive preview"
+					}
+				],
+				"pad": 24
+			}
+		},
+		{
+			"name": "responsive-mode",
+			"description": "Responsive mode at a phone size (iPhone 17), with the responsive toolbar above the preview",
+			"pages": [ "sites.md" ],
+			"steps": [
+				{
+					"click": {
+						"role": "menuitemradio",
+						"name": "iPhone 17 ·"
+					}
+				},
+				{
+					"wait": 1500
+				}
+			],
+			"capture": {
+				"settle": 2000
+			},
+			"after": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Exit responsive mode"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "toolbar",
+						"name": "Responsive preview"
+					},
+					"hidden": true
+				}
+			]
+		},
+		{
 			"name": "site-status-button",
 			"description": "Sidebar site row with its Stop button and tooltip",
 			"pages": [ "sites.md" ],

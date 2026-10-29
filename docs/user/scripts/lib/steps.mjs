@@ -155,6 +155,49 @@ const HELPERS = {
 		} );
 	},
 
+	/**
+	 * Clicks the element matching a CSS selector inside the site preview, which
+	 * is a <webview> that locators can't reach, at its centre on screen.
+	 */
+	async clickInPreview( { w }, selector ) {
+		const point = await w.evaluate( async ( sel ) => {
+			const view = document.querySelector( 'webview' );
+			const frame = view.getBoundingClientRect();
+			const inner = await view.executeJavaScript( `(() => {
+				const el = document.querySelector( ${ JSON.stringify( sel ) } );
+				if ( ! el ) return null;
+				el.scrollIntoView( { block: 'center' } );
+				const box = el.getBoundingClientRect();
+				return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+			})()` );
+			return inner && { x: frame.x + inner.x, y: frame.y + inner.y };
+		}, selector );
+		if ( ! point ) {
+			throw new Error( `Nothing in the site preview matches ${ selector }` );
+		}
+		await w.mouse.click( point.x, point.y );
+	},
+
+	/** Types into whatever has focus, such as a field inside the site preview. */
+	async typeText( { w }, text ) {
+		await w.keyboard.type( text );
+	},
+
+	/** Leaves annotation mode, discarding any notes, without sending them. */
+	async discardAnnotations( { w } ) {
+		const toolbar = w.getByRole( 'toolbar', { name: 'Annotations' } );
+		if ( ! ( await toolbar.count() ) ) {
+			return;
+		}
+		await toolbar.getByRole( 'button', { name: 'Cancel', exact: true } ).click();
+		const discard = w.getByRole( 'button', { name: 'Discard', exact: true } );
+		await discard.waitFor( { timeout: 2_000 } ).then(
+			() => discard.click(),
+			() => {}
+		);
+		await toolbar.waitFor( { state: 'hidden' } );
+	},
+
 	/** Undoes unsaved site settings so later shots start clean. */
 	async discardSettings( { w } ) {
 		const discard = w.getByRole( 'button', { name: 'Discard' } );

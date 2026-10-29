@@ -10,16 +10,19 @@ Shots with annotations also have a `<name>-annotated.webp`.
 | `add-site.webp` | first-run | Add site dialog: Create / Connect / Import, Blueprint categories, Choose a starting point | `sites.md`<br>`blueprints/index.md` | `2025/01/add-a-site.png` |
 | `blueprints-library.webp` | first-run | Add site → Blueprints → Business category | `blueprints/index.md` | `2025/10/blueprints-library.png` |
 | `blueprint-details.webp` | first-run | A Blueprint’s details, with Preview in browser and Create site | `blueprints/index.md` | `2025/10/create-site-from-blueprint.png` |
-| `add-site-connect.webp` | first-run | Add site → Connect, signed out | `sync.md` | — |
+| `add-site-connect.webp` | first-run | Add site → Connect, signed out: Connect to an existing WordPress | `sync.md` | — |
 | `add-site-import.webp` | first-run | Add site → Import: Drop a WordPress backup here / Choose file | `import-export.md` | `2025/01/add-a-site-1.png` |
-| `create-site.webp` | first-run | Create your site: Site name and What should we create? | `sites.md` | — |
-| `create-site-advanced.webp` | first-run | Create your site → Advanced settings (local path, WordPress and PHP versions, file access) | `sites.md`<br>`php-runtimes.md` | `2025/01/create-site-advanced.png` |
+| `add-site-upload.webp` | first-run | Add site → Upload: Upload a Blueprint, with its drop area and Choose file | `blueprints/index.md` | — |
+| `create-site.webp` | first-run | Create a blank site: Site name, Local path, and the WordPress and PHP versions | `sites.md` | — |
+| `create-site-advanced.webp` | first-run | Create a blank site → Advanced settings (File access, Use custom domain, admin credentials) | `sites.md`<br>`php-runtimes.md` | `2025/01/create-site-advanced.png` |
 | `create-site-https.webp` | first-run | Create your site → Advanced settings with Use custom domain and Enable HTTPS | `ssl-in-studio.md` | `2025/03/create-site-https.png` |
 | `orientation-guide.webp` | first-run | Orientation guide, page 1, shown after the first site is created | `index.md` | — |
 | `main-window-signed-out.webp` | workspace | Main window, signed out: sidebar, Studio Code chat, and the site preview | `index.md`<br>`studio-code/index.md` | `2024/04/main-window-signed-out.png` |
 | `composer-add-menu.webp` | workspace | Chat box + menu: Add files, Auto-start, Connect AI providers, and Skills | `studio-code/index.md` | — |
 | `command-palette.webp` | workspace | Command palette (⌘K) | `index.md` | — |
 | `preview-destinations.webp` | workspace | Site preview address bar shortcuts: Front end / WordPress Admin / Database | `sites.md`<br>`debugging/index.md`<br>`frequently-asked-questions.md` | `2026/04/preview-destinations.png` |
+| `responsive-mode-presets.webp` | workspace | Responsive mode: the device menu open, with Responsive and the device sizes | `sites.md` | — |
+| `responsive-mode.webp` | workspace | Responsive mode at a phone size (iPhone 17), with the responsive toolbar above the preview | `sites.md` | — |
 | `site-status-button.webp` | workspace | Sidebar site row with its Stop button and tooltip | `sites.md` | `2025/01/site-status-tooltip.png` |
 | `site-stopped.webp` | workspace | A stopped site: Start button in the sidebar and the saved preview image | `sites.md` | `2025/01/site-stopped.png` |
 | `site-menu.webp` | site-menu | The site menu, opened from the site icon at the top of the chat | `sites.md` | `2025/01/sidebar-site-menu.png` |
@@ -39,6 +42,8 @@ Shots with annotations also have a `<name>-annotated.webp`.
 | `settings-keyboard.webp` | studio-settings | Settings → Keyboard (shortcuts) | `index.md` | — |
 | `main-window-signed-in.webp` | signed-in | Main window, signed in: the account menu button at the bottom of the sidebar | `index.md` | — |
 | `account-menu.webp` | signed-in | Account menu: name, email, Settings, Appearance, AI Providers, Usage, Log out | `index.md` | — |
+| `annotate-toolbar.webp` | signed-in | Annotate: the Annotations toolbar over the site preview, with Cancel and Send | `studio-code/index.md` | — |
+| `annotate-note.webp` | signed-in | Annotate: a note open on the page heading, typed and not yet saved | `studio-code/index.md` | — |
 | `share-create-preview.webp` | signed-in | Share and publish → Share, with Create preview | `preview-sites.md` | `2025/01/studio-site-new-preview-1.png` |
 | `publish-panel.webp` | signed-in | Share and publish → Publish: Existing site… and New site… | `sync.md` | — |
 | `publish-choose-site.webp` | signed-in | Publish → Choose an existing site, listing the account’s WordPress.com and Pressable sites | `sync.md` | `2025/01/studio-connect-live-site.png` |

@@ -17,24 +17,28 @@
 			"replaces": [ "2026/04/studio-code.png" ]
 		},
 		{
-			"description": "Share panel with a ready preview: image, Preview link, Copy link, Update preview",
+			"description": "Share tab with previews: the previews list with expiry dates and Create another preview",
 			"pages": [ "preview-sites.md" ],
 			"replaces": [ "2025/01/studio-new-site-preview-link.png" ]
 		},
 		{
-			"description": "Share panel → Preview actions menu (New preview, Rename…, Delete preview)",
+			"description": "Share tab → a preview’s Preview actions menu (Update, Copy link, Visit preview, Rename, Delete preview)",
 			"pages": [ "preview-sites.md" ],
 			"replaces": [ "2025/01/studio-preview-more-actions.png" ]
 		},
 		{
-			"description": "Pull changes with Include → Choose files…",
+			"description": "Publish details → Pull changes → What to pull, with Choose files…",
 			"pages": [ "sync.md" ],
 			"replaces": [ "2025/01/studio-pull-selective.png" ]
 		},
 		{
-			"description": "Publish panel with Include → Choose files…",
+			"description": "Publish details → Publish changes → What to publish, with Choose files…",
 			"pages": [ "sync.md" ],
 			"replaces": [ "2025/01/studio-selective-push.png" ]
+		},
+		{
+			"description": "Publish details for a connected site, and the switcher with Connect another site…",
+			"pages": [ "sync.md" ]
 		}
 	]
 }

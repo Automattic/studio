@@ -8,33 +8,136 @@
 			"description": "Main window, signed in: the account menu button at the bottom of the sidebar",
 			"pages": [ "index.md" ],
 			"steps": [
-				{ "waitFor": { "role": "button", "name": "{{account.name}}", "exact": true } },
 				{
-					"waitFor": { "text": "Loading site preview" },
+					"waitFor": {
+						"role": "button",
+						"name": "{{account.name}}",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"text": "Loading site preview"
+					},
 					"hidden": true,
 					"timeout": 60000,
 					"optional": true
 				}
 			],
-			"capture": { "settle": 2500 }
+			"capture": {
+				"settle": 2500
+			}
 		},
 		{
 			"name": "account-menu",
 			"description": "Account menu: name, email, Settings, Appearance, AI Providers, Usage, Log out",
 			"pages": [ "index.md" ],
 			"steps": [
-				{ "click": { "role": "button", "name": "{{account.name}}", "exact": true } },
-				{ "waitFor": { "role": "menu", "name": "{{account.name}}" } }
+				{
+					"click": {
+						"role": "button",
+						"name": "{{account.name}}",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "menu",
+						"name": "{{account.name}}"
+					}
+				}
 			],
 			"capture": {
 				"target": [
-					{ "role": "menu", "name": "{{account.name}}" },
-					{ "role": "button", "name": "{{account.name}}", "exact": true },
-					{ "role": "button", "name": "Add site", "first": true }
+					{
+						"role": "menu",
+						"name": "{{account.name}}"
+					},
+					{
+						"role": "button",
+						"name": "{{account.name}}",
+						"exact": true
+					},
+					{
+						"role": "button",
+						"name": "Add site",
+						"first": true
+					}
 				],
 				"pad": 24
 			},
-			"after": [ { "press": "Escape" } ]
+			"after": [
+				{
+					"press": "Escape"
+				}
+			]
+		},
+		{
+			"name": "annotate-toolbar",
+			"description": "Annotate: the Annotations toolbar over the site preview, with Cancel and Send",
+			"pages": [ "studio-code/index.md" ],
+			"steps": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Annotate",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "toolbar",
+						"name": "Annotations"
+					}
+				},
+				{
+					"wait": 1000
+				}
+			],
+			"capture": {
+				"target": {
+					"role": "complementary",
+					"name": "Site preview"
+				},
+				"pad": 0
+			}
+		},
+		{
+			"name": "annotate-note",
+			"description": "Annotate: a note open on the page heading, typed and not yet saved",
+			"pages": [ "studio-code/index.md" ],
+			"steps": [
+				{
+					"helper": "clickInPreview",
+					"args": [ "h1, h2" ]
+				},
+				{
+					"wait": 800
+				},
+				{
+					"helper": "typeText",
+					"args": [ "Make this heading shorter" ]
+				},
+				{
+					"wait": 500
+				}
+			],
+			"capture": {
+				"target": {
+					"role": "complementary",
+					"name": "Site preview"
+				},
+				"pad": 0,
+				"keepMouse": true
+			},
+			"after": [
+				{
+					"press": "Escape"
+				},
+				{
+					"helper": "discardAnnotations"
+				}
+			]
 		},
 		{
 			"name": "share-create-preview",
@@ -42,10 +145,27 @@
 			"pages": [ "preview-sites.md" ],
 			"replaces": [ "2025/01/studio-site-new-preview-1.png" ],
 			"steps": [
-				{ "click": { "role": "button", "name": "Share", "exact": true } },
-				{ "waitFor": { "role": "tabpanel", "name": "Share", "exact": true } }
+				{
+					"click": {
+						"role": "button",
+						"name": "Share",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "tabpanel",
+						"name": "Share",
+						"exact": true
+					}
+				}
 			],
-			"capture": { "target": { "role": "dialog", "name": "Share and publish" } }
+			"capture": {
+				"target": {
+					"role": "dialog",
+					"name": "Share and publish"
+				}
+			}
 		},
 		{
 			"name": "publish-panel",
@@ -54,15 +174,28 @@
 			"steps": [
 				{
 					"click": {
-						"within": { "role": "tablist", "name": "Share and publish" },
+						"within": {
+							"role": "tablist",
+							"name": "Share and publish"
+						},
 						"role": "tab",
 						"name": "Publish",
 						"exact": true
 					}
 				},
-				{ "waitFor": { "role": "button", "name": "Existing site…" } }
+				{
+					"waitFor": {
+						"role": "button",
+						"name": "Existing site…"
+					}
+				}
 			],
-			"capture": { "target": { "role": "dialog", "name": "Share and publish" } }
+			"capture": {
+				"target": {
+					"role": "dialog",
+					"name": "Share and publish"
+				}
+			}
 		},
 		{
 			"name": "publish-choose-site",
@@ -70,14 +203,39 @@
 			"pages": [ "sync.md" ],
 			"replaces": [ "2025/01/studio-connect-live-site.png" ],
 			"steps": [
-				{ "click": { "role": "button", "name": "Existing site…" } },
-				{ "waitFor": { "role": "listbox", "name": "Existing sites" } }
+				{
+					"click": {
+						"role": "button",
+						"name": "Existing site…"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "listbox",
+						"name": "Existing sites"
+					}
+				}
 			],
-			"capture": { "target": { "role": "dialog", "name": "Share and publish" } },
+			"capture": {
+				"target": {
+					"role": "dialog",
+					"name": "Share and publish"
+				}
+			},
 			"after": [
-				{ "press": "Escape" },
-				{ "press": "Escape" },
-				{ "waitFor": { "role": "dialog", "name": "Share and publish" }, "hidden": true }
+				{
+					"press": "Escape"
+				},
+				{
+					"press": "Escape"
+				},
+				{
+					"waitFor": {
+						"role": "dialog",
+						"name": "Share and publish"
+					},
+					"hidden": true
+				}
 			]
 		},
 		{
@@ -88,14 +246,33 @@
 				"studio-code/choosing-an-ai-model-tier-in-studio-code.md"
 			],
 			"steps": [
-				{ "click": { "role": "button", "name": "Model" } },
-				{ "waitFor": { "role": "listbox", "name": "Choose a model" } }
+				{
+					"click": {
+						"role": "button",
+						"name": "Model"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "listbox",
+						"name": "Choose a model"
+					}
+				}
 			],
 			"capture": {
 				"target": [
-					{ "role": "dialog", "name": "Choose a model" },
-					{ "role": "combobox", "name": "Message WordPress Studio" },
-					{ "role": "button", "name": "Send message" }
+					{
+						"role": "dialog",
+						"name": "Choose a model"
+					},
+					{
+						"role": "combobox",
+						"name": "Message WordPress Studio"
+					},
+					{
+						"role": "button",
+						"name": "Send message"
+					}
 				],
 				"pad": 24
 			}
@@ -105,28 +282,71 @@
 			"description": "Add AI credits: the four one-time credit amounts",
 			"pages": [ "studio-code/ai-credits-guidelines.md" ],
 			"steps": [
-				{ "click": { "role": "option", "name": "Get more credits" } },
-				{ "waitFor": { "role": "dialog", "name": "Add AI credits" } }
+				{
+					"click": {
+						"role": "option",
+						"name": "Get more credits"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "dialog",
+						"name": "Add AI credits"
+					}
+				}
 			],
-			"capture": { "target": { "role": "dialog", "name": "Add AI credits" } },
-			"after": [ { "click": { "role": "button", "name": "Cancel" } } ]
+			"capture": {
+				"target": {
+					"role": "dialog",
+					"name": "Add AI credits"
+				}
+			},
+			"after": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Cancel"
+					}
+				}
+			]
 		},
 		{
 			"name": "settings-account",
 			"description": "Settings → General, signed in: the account row with Log out",
 			"pages": [ "index.md" ],
 			"steps": [
-				{ "click": { "role": "button", "name": "Settings", "exact": true, "first": true } },
 				{
 					"click": {
-						"within": { "role": "tablist", "name": "Settings scope" },
+						"role": "button",
+						"name": "Settings",
+						"exact": true,
+						"first": true
+					}
+				},
+				{
+					"click": {
+						"within": {
+							"role": "tablist",
+							"name": "Settings scope"
+						},
 						"role": "tab",
 						"name": "Studio"
 					}
 				},
-				{ "waitFor": { "role": "group", "name": "{{account.name}}" } }
+				{
+					"waitFor": {
+						"role": "group",
+						"name": "{{account.name}}"
+					}
+				}
 			],
-			"capture": { "target": { "role": "dialog", "name": "Settings", "exact": true } }
+			"capture": {
+				"target": {
+					"role": "dialog",
+					"name": "Settings",
+					"exact": true
+				}
+			}
 		},
 		{
 			"name": "settings-usage",
@@ -139,15 +359,29 @@
 			"steps": [
 				{
 					"click": {
-						"within": { "role": "tablist", "name": "Settings sections" },
+						"within": {
+							"role": "tablist",
+							"name": "Settings sections"
+						},
 						"role": "tab",
 						"name": "Usage",
 						"exact": true
 					}
 				},
-				{ "waitFor": { "role": "group", "name": "Preview sites" } }
+				{
+					"waitFor": {
+						"role": "group",
+						"name": "Preview sites"
+					}
+				}
 			],
-			"capture": { "target": { "role": "dialog", "name": "Settings", "exact": true } }
+			"capture": {
+				"target": {
+					"role": "dialog",
+					"name": "Settings",
+					"exact": true
+				}
+			}
 		},
 		{
 			"name": "settings-sharing",
@@ -157,15 +391,29 @@
 			"steps": [
 				{
 					"click": {
-						"within": { "role": "tablist", "name": "Settings sections" },
+						"within": {
+							"role": "tablist",
+							"name": "Settings sections"
+						},
 						"role": "tab",
 						"name": "Sharing",
 						"exact": true
 					}
 				},
-				{ "waitFor": { "role": "group", "name": "Sharing previews on WordPress.com" } }
+				{
+					"waitFor": {
+						"role": "group",
+						"name": "Sharing previews on WordPress.com"
+					}
+				}
 			],
-			"capture": { "target": { "role": "dialog", "name": "Settings", "exact": true } }
+			"capture": {
+				"target": {
+					"role": "dialog",
+					"name": "Settings",
+					"exact": true
+				}
+			}
 		},
 		{
 			"name": "settings-ai-providers-signed-in",
@@ -174,34 +422,75 @@
 			"steps": [
 				{
 					"click": {
-						"within": { "role": "tablist", "name": "Settings sections" },
+						"within": {
+							"role": "tablist",
+							"name": "Settings sections"
+						},
 						"role": "tab",
 						"name": "AI Providers",
 						"exact": true
 					}
 				},
-				{ "waitFor": { "role": "group", "name": "WordPress.com" } }
+				{
+					"waitFor": {
+						"role": "group",
+						"name": "WordPress.com"
+					}
+				}
 			],
-			"capture": { "target": { "role": "dialog", "name": "Settings", "exact": true } },
-			"after": [ { "press": "Escape" } ]
+			"capture": {
+				"target": {
+					"role": "dialog",
+					"name": "Settings",
+					"exact": true
+				}
+			},
+			"after": [
+				{
+					"press": "Escape"
+				}
+			]
 		},
 		{
 			"name": "add-site-connect-signed-in",
 			"description": "Add site → Connect, signed in, listing the account’s WordPress.com and Pressable sites",
 			"pages": [ "sync.md" ],
 			"steps": [
-				{ "click": { "role": "button", "name": "Add site", "first": true } },
 				{
 					"click": {
-						"within": { "role": "tablist", "name": "Ways to add a site" },
+						"role": "button",
+						"name": "Add site",
+						"first": true
+					}
+				},
+				{
+					"click": {
+						"within": {
+							"role": "tablist",
+							"name": "Ways to add a site"
+						},
 						"role": "tab",
 						"name": "Connect"
 					}
 				},
-				{ "waitFor": { "role": "heading", "name": "Available to connect" } }
+				{
+					"waitFor": {
+						"role": "heading",
+						"name": "Available to connect"
+					}
+				}
 			],
-			"capture": { "target": { "role": "dialog", "name": "Add site" } },
-			"after": [ { "press": "Escape" } ]
+			"capture": {
+				"target": {
+					"role": "dialog",
+					"name": "Add site"
+				}
+			},
+			"after": [
+				{
+					"press": "Escape"
+				}
+			]
 		}
 	]
 }

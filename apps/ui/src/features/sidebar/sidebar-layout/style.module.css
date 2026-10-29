@@ -141,14 +141,14 @@
 	--surface: var( --chrome );
 	--studio-sidebar-bg: var( --chrome );
 	width: var( --sidebar-width );
-	max-width: calc( 100vw - 16px );
+	max-width: calc( 100vw - 12px );
 	overflow: hidden;
 }
 
 .sidebarFlyoutContents {
 	display: flex;
 	flex-direction: column;
-	height: calc( 100dvh - var( --band-height ) - 16px );
+	height: calc( 100dvh - var( --band-height ) - 12px );
 	overflow-y: auto;
 	scrollbar-width: none;
 	-webkit-app-region: no-drag;
@@ -168,12 +168,12 @@
 	.sidebarFlyout[data-starting-style],
 	.sidebarFlyout[data-ending-style] {
 		scale: 1;
-		translate: calc( -100% - 8px ) 0;
+		translate: calc( -100% - 6px ) 0;
 	}
 
 	.sidebarFlyout:dir( rtl )[data-starting-style],
 	.sidebarFlyout:dir( rtl )[data-ending-style] {
-		translate: calc( 100% + 8px ) 0;
+		translate: calc( 100% + 6px ) 0;
 	}
 }
 

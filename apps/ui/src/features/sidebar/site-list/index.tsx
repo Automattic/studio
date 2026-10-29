@@ -2,7 +2,7 @@ import { sortSites } from '@studio/common/lib/sort-sites';
 import { useParams, useRouterState } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { useSessionsNeedingInput } from '@/data/agent-runs/use-agent-run';
 import { errorMessage, toast } from '@/data/app-messages';
 import { useSessions } from '@/data/queries/use-sessions';
@@ -65,7 +65,9 @@ export function SiteList( {
 	const activeSessionId = params.sessionId;
 	const sessions = useMemo( () => getListedSessions( allSessions ), [ allSessions ] );
 	const activeSiteId = params.siteId;
-	const [ chatNavigation, setChatNavigation ] = useState< 'recent' | 'pinned' >();
+	const chatNavigation = useRouterState( {
+		select: ( state ) => state.location.state.chatNavigation,
+	} );
 	const updateSitesSortOrder = useUpdateSitesSortOrder();
 	const {
 		pins,
@@ -101,12 +103,15 @@ export function SiteList( {
 			chatSort,
 			needingInput,
 		} );
+	const activeChatIsPinned = pinnedItems.some(
+		( item ) => item.session && item.session.id === activeSessionId
+	);
+	const activeChatNavigation = activeChatIsPinned ? 'pinned' : chatNavigation;
 	const activeChatIsShortcut =
-		( chatNavigation === 'recent' &&
+		activeChatIsPinned ||
+		( activeChatNavigation === 'recent' &&
 			showRecentChats &&
-			recentChats.some( ( session ) => session.id === activeSessionId ) ) ||
-		( chatNavigation === 'pinned' &&
-			pinnedItems.some( ( item ) => item.session && item.session.id === activeSessionId ) );
+			recentChats.some( ( session ) => session.id === activeSessionId ) );
 	const activeSiteKey = activeChatSiteKey ?? activeContextSiteKey;
 	const { revealed, collapseAll, fold, toggle } = useRevealedSites(
 		activeSiteKey,
@@ -122,7 +127,7 @@ export function SiteList( {
 			chats={ chatsBySite.get( row.site.id ) ?? [] }
 			isChatActive={ ! activeChatIsShortcut && row.site.id === activeChatSiteKey }
 			isContextActive={ row.site.id === activeContextSiteKey }
-			activeSessionId={ activeSessionId }
+			activeSessionId={ activeChatIsShortcut ? undefined : activeSessionId }
 			expanded={ sections && revealed.has( row.site.id ) }
 			loadError={ sessionsError }
 			reorderable={ reorderable }
@@ -147,10 +152,7 @@ export function SiteList( {
 					__( 'Couldn’t save the chat order' )
 				)
 			}
-			onSiteOpen={ () => {
-				setChatNavigation( undefined );
-				onSiteOpen?.();
-			} }
+			onSiteOpen={ onSiteOpen }
 		/>
 	);
 
@@ -227,13 +229,15 @@ export function SiteList( {
 			key={ session.id }
 			itemProps={ itemProps }
 			session={ session }
-			active={ session.id === activeSessionId }
+			active={
+				session.id === activeSessionId &&
+				( navigation
+					? activeChatIsShortcut && activeChatNavigation === navigation
+					: ! activeChatIsShortcut )
+			}
 			siteName={ siteName }
 			navigation={ navigation }
-			onOpen={ () => {
-				setChatNavigation( navigation );
-				onSiteOpen?.();
-			} }
+			onOpen={ onSiteOpen }
 		/>
 	);
 

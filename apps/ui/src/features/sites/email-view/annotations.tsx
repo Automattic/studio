@@ -20,7 +20,7 @@ import type { AnnotationAnchor } from '@/features/annotations';
 import type {
 	VisualAnnotation,
 	VisualAnnotationTarget,
-} from '@studio/common/ai/visual-annotations';
+} from '@studio/agent/protocol/visual-annotations';
 
 export interface EmailAnnotationProps {
 	// A part of the body was picked; the anchor is in client coordinates.

@@ -119,6 +119,7 @@ export function AddSiteDialog() {
 		if ( progress ) return;
 		void navigate( {
 			to: '.',
+			state: true,
 			search: ( { addSite: _section, pin: _pin, ...rest }: Record< string, unknown > ) => rest,
 			replace: true,
 		} );

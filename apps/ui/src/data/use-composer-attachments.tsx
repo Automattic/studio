@@ -1,5 +1,5 @@
-import { STUDIO_CHAT_MAX_FILES } from '@studio/common/ai/chat-files';
-import { STUDIO_CHAT_MAX_IMAGES } from '@studio/common/ai/chat-images';
+import { STUDIO_CHAT_MAX_FILES } from '@studio/agent/protocol/chat-files';
+import { STUDIO_CHAT_MAX_IMAGES } from '@studio/agent/protocol/chat-images';
 import {
 	getComposerClipboardFiles,
 	mergeComposerAttachments,
@@ -7,7 +7,7 @@ import {
 	toComposerSendAttachments,
 	type ComposerAttachment,
 	type ComposerSendAttachments,
-} from '@studio/common/ai/composer-attachments';
+} from '@studio/agent/protocol/composer-attachments';
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from '@/data/app-messages';

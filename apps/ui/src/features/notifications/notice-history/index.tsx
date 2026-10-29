@@ -115,6 +115,7 @@ export function NoticeHistoryButton() {
 				ref={ bell }
 				render={
 					<IconButton
+						variant="muted-ghost"
 						icon={ <BellIcon /> }
 						label={ __( 'Notification history' ) }
 						aria-label={

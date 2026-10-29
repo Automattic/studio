@@ -5,15 +5,39 @@ import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-a
 import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { __, _n } from '@wordpress/i18n';
 import CliTable3 from 'cli-table3';
+import { type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getPrettyPath } from 'cli/lib/utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
+import type { SiteStatus } from '@studio/common/types/site-status';
 import type { builder } from 'cli/commands/site/status.command';
 import type { CommandArgs } from 'cli/types';
 
 const logger = new Logger< LoggerAction >();
+
+// The site's details. Callers connect to the daemon first.
+export async function getSiteStatus( site: SiteData ): Promise< SiteStatus > {
+	const running = Boolean( await isServerRunning( site.id ) );
+	const url = new URL( getSiteUrl( site ) ).toString();
+	const autoLoginUrl = new URL( url );
+	autoLoginUrl.pathname = `/studio-auto-login`;
+	autoLoginUrl.searchParams.set( 'redirect_to', `/wp-admin/` );
+	return {
+		url,
+		...( running ? { autoLoginUrl: autoLoginUrl.toString() } : {} ),
+		path: site.path,
+		emailPath: getSiteEmailDirectory( site.id ),
+		running,
+		phpVersion: site.phpVersion,
+		wpVersion: getWordPressVersion( site.path ),
+		fileAccess: getSiteFileAccess( site ),
+		xdebug: Boolean( site.enableXdebug ),
+		adminUsername: site.adminUsername ?? 'admin',
+		adminEmail: site.adminEmail,
+	};
+}
 
 export async function runCommand( siteFolder: string, format: 'table' | 'json' ): Promise< void > {
 	try {
@@ -25,59 +49,55 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 		const site = await getSiteByFolder( siteFolder );
 		logger.reportSuccess( __( 'Site loaded' ) );
 
-		const isOnline = Boolean( await isServerRunning( site.id ) );
+		const siteStatus = await getSiteStatus( site );
+		const isOnline = siteStatus.running;
 		const status = isOnline ? `🟢 ${ __( 'Online' ) }` : `🔴 ${ __( 'Offline' ) }`;
-		const siteUrl = getSiteUrl( site );
-		const sitePath = getPrettyPath( site.path );
-		const wpVersion = getWordPressVersion( site.path );
-		const autoLoginUrl = new URL( siteUrl );
-		autoLoginUrl.pathname = `/studio-auto-login`;
-		autoLoginUrl.searchParams.set( 'redirect_to', `/wp-admin/` );
+		const sitePath = getPrettyPath( siteStatus.path );
+		const wpVersion = siteStatus.wpVersion;
 
 		/* translators: status value for the Xdebug setting in the site status output */
-		const xdebugStatus = site.enableXdebug ? __( 'Enabled' ) : __( 'Disabled' );
+		const xdebugStatus = siteStatus.xdebug ? __( 'Enabled' ) : __( 'Disabled' );
 
-		const fileAccess = getSiteFileAccess( site );
 		const fileAccessLabel =
 			/* translators: value for the File access setting in the site status output */
-			fileAccess === SITE_FILE_ACCESS_ALL_FILES ? __( 'All files' ) : __( 'Site directory' );
+			siteStatus.fileAccess === SITE_FILE_ACCESS_ALL_FILES
+				? __( 'All files' )
+				: __( 'Site directory' );
 
 		const siteData: {
 			key: string;
 			jsonKey: string;
 			value: string | undefined;
 			type?: string;
-			hidden?: boolean;
 			secret?: boolean;
 		}[] = [
 			{
 				key: __( 'Site URL' ),
 				jsonKey: 'siteUrl',
-				value: new URL( siteUrl ).toString(),
+				value: siteStatus.url,
 				type: 'url',
 			},
 			{
 				key: __( 'Auto-login URL' ),
 				jsonKey: 'autoLoginUrl',
-				value: autoLoginUrl.toString(),
+				value: siteStatus.autoLoginUrl,
 				type: 'url',
-				hidden: ! isOnline,
 			},
 			{ key: __( 'Site Path' ), jsonKey: 'sitePath', value: sitePath },
 			{
 				key: __( 'Email' ),
 				jsonKey: 'emailPath',
-				value: getPrettyPath( getSiteEmailDirectory( site.id ) ),
+				value: getPrettyPath( siteStatus.emailPath ),
 			},
 			{ key: __( 'Status' ), jsonKey: 'status', value: status },
-			{ key: __( 'PHP version' ), jsonKey: 'phpVersion', value: site.phpVersion },
+			{ key: __( 'PHP version' ), jsonKey: 'phpVersion', value: siteStatus.phpVersion },
 			{ key: __( 'File access' ), jsonKey: 'fileAccess', value: fileAccessLabel },
 			{ key: __( 'WP version' ), jsonKey: 'wpVersion', value: wpVersion },
 			{ key: __( 'Xdebug' ), jsonKey: 'xdebug', value: xdebugStatus },
 			{
 				key: __( 'Admin username' ),
 				jsonKey: 'adminUsername',
-				value: site.adminUsername ?? 'admin',
+				value: siteStatus.adminUsername,
 			},
 			{
 				key: __( 'Admin password' ),
@@ -85,8 +105,8 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 				value: site.adminPassword ? decodePassword( site.adminPassword ) : undefined,
 				secret: true,
 			},
-			{ key: __( 'Admin email' ), jsonKey: 'adminEmail', value: site.adminEmail },
-		].filter( ( { value, hidden } ) => value && ! hidden );
+			{ key: __( 'Admin email' ), jsonKey: 'adminEmail', value: siteStatus.adminEmail },
+		].filter( ( { value } ) => value );
 
 		if ( format === 'table' ) {
 			const table = new CliTable3( {

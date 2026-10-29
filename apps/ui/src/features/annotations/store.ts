@@ -1,12 +1,12 @@
-import { MAX_VISUAL_ANNOTATIONS } from '@studio/common/ai/visual-annotations';
+import { MAX_VISUAL_ANNOTATIONS } from '@studio/agent/protocol/visual-annotations';
 import { __ } from '@wordpress/i18n';
 import { useSyncExternalStore } from 'react';
 import { toast } from '@/data/app-messages';
-import type { ComposerImageAttachment } from '@studio/common/ai/composer-attachments';
+import type { ComposerImageAttachment } from '@studio/agent/protocol/composer-attachments';
 import type {
 	VisualAnnotation,
 	VisualAnnotationTarget,
-} from '@studio/common/ai/visual-annotations';
+} from '@studio/agent/protocol/visual-annotations';
 
 export interface PreviewAnnotation extends VisualAnnotation {
 	images: ComposerImageAttachment[];

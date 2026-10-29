@@ -360,6 +360,9 @@ async function closePhpProxyServer(): Promise< void > {
 
 	await new Promise< void >( ( resolve ) => {
 		proxyServer.close( () => resolve() );
+		// The PHP workers are about to be killed, so no open request can be answered. Drop the
+		// connections rather than waiting for clients to end them.
+		proxyServer.closeAllConnections();
 	} ).catch( () => {} );
 }
 
@@ -473,6 +476,9 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 	// against the imported database would be wrong — and just write Studio's
 	// mu-plugins before starting the workers.
 	const isImportedSite = Boolean( config.autoPrependFile );
+	// Set when this start ran the installer, which created the admin user with the
+	// configured credentials, and no Blueprint ran after it that could change them.
+	let credentialsJustInstalled = false;
 
 	try {
 		stopSignal.throwIfAborted();
@@ -488,12 +494,13 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		stopSignal.throwIfAborted();
 
 		if ( ! isImportedSite ) {
-			await timePhase( 'wordpress_install', () =>
+			const installed = await timePhase( 'wordpress_install', () =>
 				installWordPress( config, phpVersion, stopSignal, FINISH_INSTALL_PATH, logToConsole )
 			);
 			stopSignal.throwIfAborted();
 
 			const blueprint = config.blueprint;
+			credentialsJustInstalled = installed && ! blueprint;
 			if ( blueprint ) {
 				await timePhase( 'blueprint', () =>
 					runBlueprint( config, blueprint, phpVersion, stopSignal )
@@ -543,8 +550,10 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 
 		phpProcess = await doStartServer( config, stopSignal );
 		stopSignal.throwIfAborted();
-		await timePhase( 'admin_credentials', () => setAdminCredentials( config, stopSignal ) );
-		stopSignal.throwIfAborted();
+		if ( ! credentialsJustInstalled ) {
+			await timePhase( 'admin_credentials', () => setAdminCredentials( config, stopSignal ) );
+			stopSignal.throwIfAborted();
+		}
 	} catch ( error ) {
 		killPhpProcess();
 		phpProcess = null;

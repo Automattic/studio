@@ -7,6 +7,38 @@ export interface ResizablePanelConfig {
 export const SIDEBAR_PANEL_STORAGE_KEY = 'studio-ui-sidebar-width';
 export const SIDEBAR_COLLAPSED_STORAGE_KEY = 'studio-ui-sidebar-collapsed';
 export const PREVIEW_CONTENT_WIDTH_STORAGE_KEY = 'studio-ui-preview-content-width';
+export const SITE_CHAT_HIDDEN_STORAGE_KEY = 'studio-ui-chat-hidden-by-site';
+const PREVIEW_CONTENT_WIDTH_SITE_PREFIX = `${ PREVIEW_CONTENT_WIDTH_STORAGE_KEY }:`;
+
+export function getPreviewContentWidthStorageKey( siteId: string ): string {
+	return `${ PREVIEW_CONTENT_WIDTH_SITE_PREFIX }${ siteId }`;
+}
+
+export function getStoredSiteChatVisibility(): Record< string, boolean > {
+	try {
+		const stored: unknown = JSON.parse(
+			window.localStorage.getItem( SITE_CHAT_HIDDEN_STORAGE_KEY ) ?? '{}'
+		);
+		return stored && typeof stored === 'object' && ! Array.isArray( stored )
+			? Object.fromEntries( Object.entries( stored ).filter( ( [ , hidden ] ) => hidden === true ) )
+			: {};
+	} catch {
+		return {};
+	}
+}
+
+export function storeSiteChatVisibility( hiddenBySiteId: Record< string, boolean > ): void {
+	try {
+		if ( Object.values( hiddenBySiteId ).some( Boolean ) ) {
+			window.localStorage.setItem( SITE_CHAT_HIDDEN_STORAGE_KEY, JSON.stringify( hiddenBySiteId ) );
+		} else {
+			window.localStorage.removeItem( SITE_CHAT_HIDDEN_STORAGE_KEY );
+		}
+	} catch {
+		// Keep visibility usable when storage is unavailable.
+	}
+}
+
 export const PREVIEW_CONTENT_DEFAULT_WIDTH = 360;
 export const PREVIEW_PANEL_MIN_WIDTH = 360;
 const PREVIEW_PANEL_MIN_CONTENT_WIDTH = 320;
@@ -66,13 +98,26 @@ export function storeResizablePanelWidth( storageKey: string, width: number ): v
 	}
 }
 
-const PANEL_WIDTH_STORAGE_KEYS = [ SIDEBAR_PANEL_STORAGE_KEY, PREVIEW_CONTENT_WIDTH_STORAGE_KEY ];
+const PANEL_WIDTH_STORAGE_KEYS = [
+	SIDEBAR_PANEL_STORAGE_KEY,
+	PREVIEW_CONTENT_WIDTH_STORAGE_KEY,
+	SITE_CHAT_HIDDEN_STORAGE_KEY,
+];
 export const PANEL_WIDTHS_RESET_EVENT = 'studio-panel-widths-reset';
+
+function getPanelWidthStorageKeys(): string[] {
+	return [
+		...PANEL_WIDTH_STORAGE_KEYS,
+		...Object.keys( window.localStorage ).filter( ( key ) =>
+			key.startsWith( PREVIEW_CONTENT_WIDTH_SITE_PREFIX )
+		),
+	];
+}
 
 export function hasCustomPanelLayout(): boolean {
 	try {
 		return (
-			PANEL_WIDTH_STORAGE_KEYS.some( ( key ) => window.localStorage.getItem( key ) !== null ) ||
+			getPanelWidthStorageKeys().some( ( key ) => window.localStorage.getItem( key ) !== null ) ||
 			window.localStorage.getItem( SIDEBAR_COLLAPSED_STORAGE_KEY ) === 'true'
 		);
 	} catch {
@@ -80,11 +125,10 @@ export function hasCustomPanelLayout(): boolean {
 	}
 }
 
-// Forgets every resized panel width and a hidden sidebar; mounted panels
-// listen for the event.
+// Restores panel widths and visibility; mounted panels listen for the event.
 export function resetPanelLayout(): void {
 	try {
-		[ ...PANEL_WIDTH_STORAGE_KEYS, SIDEBAR_COLLAPSED_STORAGE_KEY ].forEach( ( key ) =>
+		[ ...getPanelWidthStorageKeys(), SIDEBAR_COLLAPSED_STORAGE_KEY ].forEach( ( key ) =>
 			window.localStorage.removeItem( key )
 		);
 	} catch {
@@ -139,9 +183,12 @@ export function getPreviewSplitLayout(
 	};
 }
 
-export function getInitialPreviewContentWidth(): number | null {
+export function getInitialPreviewContentWidth( siteId?: string ): number | null {
+	if ( ! siteId ) return null;
 	try {
-		const storedContentWidth = window.localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY );
+		const storedContentWidth = window.localStorage.getItem(
+			getPreviewContentWidthStorageKey( siteId )
+		);
 		const parsedContentWidth = storedContentWidth ? Number( storedContentWidth ) : NaN;
 		return Number.isFinite( parsedContentWidth ) && parsedContentWidth > 0
 			? Math.round( parsedContentWidth )

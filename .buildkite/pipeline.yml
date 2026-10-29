@@ -29,10 +29,14 @@ e2e_config: &e2e_config
 steps:
   - label: Lint
     agents:
-      queue: mac
+      queue: default
     key: lint
     command: bash .buildkite/commands/run-lint.sh
-    plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+    plugins:
+      - $DOCKER_PLUGIN:
+          image: "$NODE_DOCKER_IMAGE"
+          propagate-environment: true
+          mount-buildkite-agent: true
     notify:
       - github_commit_status:
           context: Lint
@@ -328,7 +332,7 @@ steps:
       buildkite-agent artifact download "*.exe" .
       buildkite-agent artifact download "*.appx" .
       buildkite-agent artifact download "*.nupkg" .
-      buildkite-agent artifact download "*\\RELEASES" .
+      buildkite-agent artifact download "*RELEASES" .
       buildkite-agent artifact download "*.deb" .
       buildkite-agent artifact download "*.tgz" .
       buildkite-agent artifact download "*.tgz.sha256" .

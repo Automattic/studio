@@ -1,21 +1,24 @@
 import {
+	DESIGN_SYSTEM_PREVIEW_PATH,
 	getLocalMediaPath,
 	getMediaAltText,
 	getSafeMediaUrl,
+	isDesignSystemPreviewWidget,
 	type StudioChatArtifactWidgetDraft,
-} from '@studio/common/ai/chat-artifacts';
+} from '@studio/agent/protocol/chat-artifacts';
 import {
 	isAiAccessRequiredError,
 	isAiBlockedError,
 	isOutOfCreditsError,
 	isUsageCapError,
-} from '@studio/common/ai/json-events';
+} from '@studio/agent/protocol/json-events';
 import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
 import { replaceEqualDeep } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { memo, useMemo, useState, type ReactNode } from 'react';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
+import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { AgentQuestionBatch } from '@/features/chats/session-view/conversation/agent-question';
 import { canJoinBubbles } from '@/features/chats/session-view/conversation/joined';
 import { AssistantText, UserTurn } from '@/features/chats/session-view/conversation/message';
@@ -26,6 +29,8 @@ import {
 	getSender,
 } from '@/features/chats/session-view/conversation/transcript-items';
 import { AiAccessRequiredNotice, AiBlockedNotice } from '@/features/credits';
+import { AppearanceIcon } from '@/lib/icons';
+import { Button } from '@/lib/ui';
 import styles from './style.module.css';
 import type { LoadedAiSession } from '@/data/core';
 import type { TranscriptItem } from '@/features/chats/session-view/conversation/transcript-items';
@@ -37,12 +42,31 @@ const ChatArtifact = memo( function ChatArtifact( {
 } ) {
 	return (
 		<div className={ styles.mediaArtifacts }>
-			{ widgets.map( ( widget, index ) => (
-				<MediaArtifactImage key={ `${ widget.type }:${ index }` } widget={ widget } />
-			) ) }
+			{ widgets.map( ( widget, index ) =>
+				isDesignSystemPreviewWidget( widget ) ? (
+					<DesignSystemArtifact key={ `${ widget.type }:${ index }` } />
+				) : (
+					<MediaArtifactImage key={ `${ widget.type }:${ index }` } widget={ widget } />
+				)
+			) }
 		</div>
 	);
 } );
+
+// The agent changed the site's DESIGN.md. The preview stays where it is, so the
+// person sees the change on their site, and this offers the design system view.
+function DesignSystemArtifact() {
+	const preview = useOptionalSessionPreviewUI();
+	return (
+		<div className={ styles.designSystemArtifact }>
+			<span>{ __( 'The design system was updated.' ) }</span>
+			<Button size="sm" onClick={ () => preview?.navigate( DESIGN_SYSTEM_PREVIEW_PATH ) }>
+				<AppearanceIcon />
+				{ __( 'Open design system' ) }
+			</Button>
+		</div>
+	);
+}
 
 function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft } ) {
 	const localPath = getLocalMediaPath( widget );

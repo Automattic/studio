@@ -1,11 +1,10 @@
 import {
 	aiSessionBelongsToSite,
 	findAiSessionOwnerSite,
-} from '@studio/common/ai/sessions/owner-site';
+} from '@studio/agent/protocol/sessions/owner-site';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
-import { MaximizeIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import {
 	useSessionsBusy,
@@ -21,17 +20,9 @@ import {
 	useSidebarPreferences,
 } from '@/data/queries/use-sidebar-pins';
 import { useSites } from '@/data/queries/use-sites';
-import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { getSessionTitle } from '@/features/chats/session-view/session-chat-actions';
-import { usePreviewBeside, useItemShortcuts } from '@/features/sites';
-import {
-	ArchiveIcon,
-	ExitFullScreenIcon,
-	PinIcon,
-	ReadStatusIcon,
-	RenameIcon,
-	UnpinIcon,
-} from '@/lib/icons';
+import { useItemShortcuts } from '@/features/sites';
+import { ArchiveIcon, PinIcon, ReadStatusIcon, RenameIcon, UnpinIcon } from '@/lib/icons';
 import {
 	Spinner,
 	Menu,
@@ -229,64 +220,11 @@ export function ChatActionsMenuItems( {
 	);
 }
 
-// The open chat's pane: right-clicking it opens the chat's actions, except over
-// text fields and the transcript, which keep the browser's menu. It wraps the
-// pane the same way while the chat loads, so the pane doesn't remount.
-export function ChatContextMenu( {
-	session,
-	canExpand = false,
-	children,
-}: {
-	session?: AiSessionSummary;
-	// The site has a preview, which the chat can take the place of.
-	canExpand?: boolean;
-	children: ReactNode;
-} ) {
-	return (
-		<Menu.ContextMenuRoot disabled={ ! session }>
-			<Menu.ContextMenuTrigger
-				className={ styles.pane }
-				onContextMenuCapture={ ( event ) => {
-					if (
-						( event.target as Element ).closest(
-							'input, textarea, [contenteditable="true"], [data-chat-transcript]'
-						)
-					) {
-						event.stopPropagation();
-					}
-				} }
-			>
-				{ children }
-			</Menu.ContextMenuTrigger>
-			{ session ? <OpenChatActions session={ session } canExpand={ canExpand } /> : null }
-		</Menu.ContextMenuRoot>
-	);
-}
-
-// The chat shortcuts act on the open chat.
-function OpenChatActions( {
-	session,
-	canExpand,
-}: {
-	session: AiSessionSummary;
-	canExpand: boolean;
-} ) {
+export function ActiveChatShortcuts( { session }: { session: AiSessionSummary } ) {
 	const actions = useChatActions( session, true );
-	const preview = useOptionalSessionPreviewUI();
-	const expanded = ! usePreviewBeside();
 	return (
 		<>
 			<span hidden { ...actions.shortcuts } data-item-shortcuts-active="chat" />
-			<Menu.ContextPopup { ...actions.shortcuts }>
-				<ChatActionsMenuItems actions={ actions }>
-					{ preview && canExpand ? (
-						<Menu.Item onClick={ () => preview.setOpen( expanded ) }>
-							{ expanded ? <ExitFullScreenIcon /> : <MaximizeIcon /> }
-							{ expanded ? __( 'Exit full screen' ) : __( 'Full screen' ) }
-						</Menu.Item>
-					) : null }
-				</ChatActionsMenuItems>
-			</Menu.ContextPopup>
 			{ actions.renameDialog }
 		</>
 	);

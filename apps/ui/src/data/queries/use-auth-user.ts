@@ -1,7 +1,7 @@
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef } from 'react';
-import { toast } from '@/data/app-messages';
+import { dismissToast, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { clearPreviewReady } from '@/data/preview-ready';
 import { USER_SCOPED_QUERY_KEYS } from '@/data/queries/user-scoped-query-keys';
@@ -35,13 +35,23 @@ export function useSyncAuthUserWithEvents(): void {
 
 // However the account changed: a login here, a logout in the CLI, an expired token.
 export function useAuthChangeToasts() {
-	const { data, isSuccess } = useAuthUser();
+	const { data, isSuccess, error, refetch } = useAuthUser();
+	useEffect( () => {
+		if ( error ) {
+			toast.error( __( 'Couldn’t refresh your account' ), {
+				id: 'auth-user-error',
+				description: error.message,
+				action: { label: __( 'Retry' ), onClick: () => refetch( { throwOnError: true } ) },
+			} );
+		}
+	}, [ error, refetch ] );
 	const userId = data?.id ?? null;
 	const previousUserId = useRef< number | null >( undefined );
 	useEffect( () => {
 		if ( ! isSuccess ) {
 			return;
 		}
+		dismissToast( 'auth-user-error' );
 		if ( previousUserId.current !== undefined && previousUserId.current !== userId ) {
 			toast.success(
 				userId === null ? __( 'Logged out of WordPress.com' ) : __( 'Logged in to WordPress.com' )

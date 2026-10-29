@@ -46,7 +46,7 @@ export async function runCommand(
 	remoteSiteIdentifier?: string,
 	logger: Logger< LoggerAction > = defaultLogger,
 	{ includeOnly, suppressTracksEvent = false }: PushFlags = {}
-): Promise< void > {
+): Promise< SyncSite | undefined > {
 	const startedAt = Date.now();
 	// The remote site is only known part-way through, but the setup steps before
 	// it (auth, site load, remote-site fetch) can fail too — `runPush` reports the
@@ -88,6 +88,7 @@ export async function runCommand(
 	if ( pushed.completed && ! suppressTracksEvent ) {
 		await recordSyncPushEvent( buildSyncEventProps( { startedAt, site: pushed.remoteSite } ) );
 	}
+	return pushed.completed ? pushed.remoteSite : undefined;
 }
 
 type PushFlags = { includeOnly?: string[]; suppressTracksEvent?: boolean };

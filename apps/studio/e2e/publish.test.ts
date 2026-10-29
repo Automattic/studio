@@ -25,19 +25,9 @@ test.describe( 'Share and publish', () => {
 		await session.cleanup();
 	} );
 
-	test( 'shares a preview with the desktop screenshot, copies its link and opens checkout', async () => {
+	test( 'copies a shared preview link and opens checkout from the Publish tab', async () => {
 		const page = session.mainWindow;
 		await expect.poll( () => session.previewText() ).toContain( 'Hello world!' );
-		const guestId = await page
-			.locator( 'webview' )
-			.evaluate( ( element ) =>
-				( element as HTMLElement & { getWebContentsId: () => number } ).getWebContentsId()
-			);
-		const screenshot = await page.evaluate(
-			( { siteId, guestId } ) => window.ipcApi.captureSitePreview( siteId, guestId, '/' ),
-			{ siteId: site.id, guestId }
-		);
-		expect( screenshot ).toMatch( /^data:image\/png;base64,/ );
 
 		await session.electronApp.evaluate( ( { ipcMain }, siteId ) => {
 			const captured = globalThis as typeof globalThis & { checkoutUrl?: string };
@@ -75,22 +65,18 @@ test.describe( 'Share and publish', () => {
 				await page.getByRole( 'menuitem', { name: 'Share', exact: true } ).click();
 			}
 		};
-		const dialog = page.getByRole( 'dialog', { name: 'Share', exact: true } );
+		const dialog = page.getByRole( 'dialog', { name: 'Share and publish', exact: true } );
 		await openShare();
-		await expect(
-			dialog.getByRole( 'img', { name: 'Local site preview of Publishing verification' } )
-		).toHaveAttribute( 'src', screenshot! );
-		await expect( dialog.getByRole( 'textbox', { name: 'Preview link' } ) ).toHaveValue(
-			'https://sharing-verification.wp.build'
-		);
-		await dialog.getByRole( 'button', { name: 'Copy link', exact: true } ).click();
-		await expect( dialog.getByRole( 'button', { name: 'Copied', exact: true } ) ).toBeVisible();
-		expect( await session.electronApp.evaluate( ( { clipboard } ) => clipboard.readText() ) ).toBe(
-			'https://sharing-verification.wp.build'
-		);
+		await expect( dialog.getByRole( 'button', { name: 'Visit preview' } ) ).toBeVisible();
+		await dialog.getByRole( 'button', { name: 'Sharing actions' } ).click();
+		await page.getByRole( 'menuitem', { name: 'Copy link', exact: true } ).click();
+		await expect
+			.poll( () => session.electronApp.evaluate( ( { clipboard } ) => clipboard.readText() ) )
+			.toBe( 'https://sharing-verification.wp.build' );
 
-		await dialog.getByRole( 'button', { name: 'Choose a plan' } ).click();
-		await expect( dialog ).toBeHidden();
+		await dialog.getByRole( 'tab', { name: 'Publish', exact: true } ).click();
+		await dialog.getByRole( 'button', { name: 'New site…', exact: true } ).click();
+		await expect( dialog ).toBeVisible();
 		const checkoutUrl = () =>
 			session.electronApp.evaluate(
 				() => ( globalThis as typeof globalThis & { checkoutUrl?: string } ).checkoutUrl
@@ -101,6 +87,7 @@ test.describe( 'Share and publish', () => {
 			'https://wordpress.com/setup/new-hosted-site'
 		);
 		expect( checkout.searchParams.get( 'studioSiteId' ) ).toBe( site.id );
+		await dialog.getByRole( 'button', { name: 'Close', exact: true } ).click();
 	} );
 
 	test( 'connects a WordPress.com site, then publishes and pulls through the main process', async () => {
@@ -158,13 +145,8 @@ test.describe( 'Share and publish', () => {
 		await page.reload();
 
 		await page.getByRole( 'button', { name: 'Publish…', exact: true } ).click();
-		const setupPanel = page.getByRole( 'dialog', { name: 'Publish your WordPress', exact: true } );
-		await setupPanel
-			.getByRole( 'button', { name: 'Publish on WordPress.com', exact: true } )
-			.click();
-		await expect(
-			setupPanel.getByRole( 'button', { name: 'Waiting for WordPress.com…', exact: true } )
-		).toBeDisabled();
+		const panel = page.getByRole( 'dialog', { name: 'Share and publish', exact: true } );
+		await panel.getByRole( 'button', { name: 'New site…', exact: true } ).click();
 		await session.electronApp.evaluate( ( { BrowserWindow }, studioSiteId ) => {
 			BrowserWindow.getAllWindows()[ 0 ].webContents.send( 'sync-connect-site', {
 				remoteSiteId: 42,
@@ -172,26 +154,32 @@ test.describe( 'Share and publish', () => {
 				autoOpenPush: true,
 			} );
 		}, site.id );
+		await expect(
+			panel.getByRole( 'button', { name: 'Publish changes', exact: true } )
+		).toBeEnabled();
+		expect( await publishCalls() ).toHaveLength( 0 );
+		await panel.getByRole( 'button', { name: 'Publish changes', exact: true } ).click();
+		await expect( panel.getByRole( 'radiogroup', { name: 'What to publish' } ) ).toBeVisible();
+		await expect( page.getByRole( 'alertdialog' ) ).toHaveCount( 0 );
+		await panel.getByRole( 'button', { name: 'Publish changes', exact: true } ).click();
 		await expect.poll( async () => ( await publishCalls() ).length ).toBe( 1 );
 		await finishPublish();
-		const panel = page.getByRole( 'dialog', { name: 'Publish', exact: true } );
-		await expect( panel.getByRole( 'button', { name: 'Publish', exact: true } ) ).toBeEnabled();
 
-		await panel.getByRole( 'combobox', { name: 'What to publish' } ).click();
-		await page.getByRole( 'option', { name: 'Files only', exact: true } ).click();
-		await panel.getByRole( 'button', { name: 'Publish', exact: true } ).click();
+		await panel.getByRole( 'button', { name: 'Publish changes', exact: true } ).click();
+		await panel.getByRole( 'radio', { name: 'Files only', exact: true } ).check();
+		await panel.getByRole( 'button', { name: 'Publish changes', exact: true } ).click();
 		await expect.poll( async () => ( await publishCalls() ).length ).toBe( 2 );
 		await finishPublish();
-		await expect( panel.getByRole( 'button', { name: 'Publish', exact: true } ) ).toBeEnabled();
+		await expect(
+			panel.getByRole( 'button', { name: 'Publish changes', exact: true } )
+		).toBeEnabled();
 
-		await panel.getByRole( 'button', { name: 'Website actions' } ).click();
-		await page.getByRole( 'menuitem', { name: 'Pull changes…' } ).click();
-		const pull = page.getByRole( 'dialog', { name: 'Pull changes', exact: true } );
-		await pull.getByRole( 'combobox', { name: 'What to pull' } ).click();
-		await page.getByRole( 'option', { name: 'Content and settings only', exact: true } ).click();
-		await pull.getByRole( 'button', { name: 'Pull changes', exact: true } ).click();
-		await expect( pull.getByText( 'Changes pulled into WordPress Studio' ) ).toBeVisible();
-		await pull.getByRole( 'button', { name: 'Done', exact: true } ).click();
+		await panel.getByRole( 'button', { name: 'Pull changes', exact: true } ).click();
+		await expect( panel.getByRole( 'radiogroup', { name: 'What to pull' } ) ).toBeVisible();
+		await panel.getByRole( 'radio', { name: 'Content and settings only', exact: true } ).check();
+		await panel.getByRole( 'button', { name: 'Pull changes', exact: true } ).click();
+		await expect( panel.getByText( 'Changes pulled into WordPress Studio' ) ).toBeVisible();
+		await panel.getByRole( 'button', { name: 'Done', exact: true } ).click();
 		await page.keyboard.press( 'Escape' );
 
 		const calls = await publishCalls();

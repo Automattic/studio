@@ -26,28 +26,6 @@
 	min-height: calc( 3lh + 28px );
 }
 
-.dropOverlay {
-	position: absolute;
-	inset: 0;
-	z-index: var( --z-sidebar );
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	border: 2px solid var( --ring );
-	border-radius: inherit;
-	background-color: color-mix( in srgb, var( --accent-text ) 10%, transparent );
-	pointer-events: none;
-}
-
-.dropOverlay span {
-	padding: var( --space-2 ) var( --space-4 );
-	border-radius: var( --radius-xl );
-	background-color: var( --accent );
-	color: var( --accent-foreground );
-	font-size: var( --text-sm );
-	font-weight: var( --font-weight-medium );
-}
-
 .fileInput {
 	display: none;
 }
@@ -109,11 +87,6 @@
 
 .rightActions {
 	flex: 0 0 auto;
-}
-
-/* Inside the composer the menu chevrons keep the text color. */
-.shell [data-dropdown-indicator] {
-	color: var( --foreground );
 }
 
 .dialogDescription {

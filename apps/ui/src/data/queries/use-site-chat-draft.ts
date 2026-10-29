@@ -1,7 +1,7 @@
 import { skipToken, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import type { AiModelId } from '@/data/core';
-import type { AiProviderId } from '@studio/common/ai/providers';
+import type { AiProviderId } from '@studio/agent/protocol/providers';
 
 interface SiteChatDraft {
 	model?: AiModelId;

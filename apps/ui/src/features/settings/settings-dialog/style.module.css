@@ -24,12 +24,32 @@
 
 /* The setting picked from the search results. */
 .content :global( [data-settings-match] ) {
-	margin-inline: calc( var( --space-3 ) * -1 );
-	padding-inline: var( --space-3 );
-	/* eslint-disable-next-line studio/use-theme-tokens -- the search highlight's fixed 8px corner, shaped per row. */
-	border-radius: 8px;
+	position: relative;
+	isolation: isolate;
+}
+
+.content :global( [data-settings-match] )::before {
+	position: absolute;
+	z-index: -1;
+	inset-block: var( --space-1 );
+	inset-inline: calc( var( --space-3 ) * -1 );
+	border-radius: var( --radius-lg );
 	background: color-mix( in srgb, var( --accent-text ) 12%, transparent );
-	transition: background-color var( --motion-duration-layout );
+	pointer-events: none;
+	content: '';
+}
+
+.content :global( [data-settings-match]:first-child )::before {
+	inset-block-start: calc( var( --space-3 ) * -1 );
+}
+
+.content :global( [data-settings-match]:last-child )::before {
+	inset-block-end: calc( var( --space-3 ) * -1 );
+}
+
+.content :global( [data-settings-match] ),
+.content :global( [data-settings-match] + [data-settings-row] ) {
+	border-block-start-color: transparent;
 }
 
 .sections {

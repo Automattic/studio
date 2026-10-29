@@ -33,15 +33,7 @@
 	width: var( --content-column-width );
 }
 
-/* With both panes showing, the divider takes its own column between them:
-   the band's surface in the band, a single border below it. The band's
-   separator sits at the preview's edge. */
-.rootEdge::before {
-	--studio-column-edge: calc( var( --preview-frame-content-width ) + 1px );
-
-	z-index: 2;
-}
-
+/* The divider begins below the shared workspace header. */
 .rootEdge::after {
 	content: '';
 	position: absolute;
@@ -49,11 +41,7 @@
 	inset-inline-start: var( --preview-frame-content-width );
 	z-index: 2;
 	width: 1px;
-	background: linear-gradient(
-			var( --chrome ) var( --band-height ),
-			var( --border ) var( --band-height )
-		)
-		var( --chrome );
+	background: var( --border );
 	pointer-events: none;
 }
 
@@ -69,18 +57,6 @@
 	--content-column-motion: var( --motion-duration-layout );
 }
 
-/* The chat header's actions fade back in once the column is halfway open,
-   and fade out as soon as it closes. */
-.contentColumn [data-header-actions] {
-	transition: opacity var( --motion-duration-feedback ) var( --motion-ease-enter )
-		calc( var( --motion-duration-layout ) / 2 );
-}
-
-.contentColumnCollapsed [data-header-actions] {
-	opacity: 0;
-	transition: opacity var( --motion-duration-feedback ) var( --motion-ease-enter );
-}
-
 /* Full preview: the column is width 0 once the slide finishes; visibility
    keeps the mounted chat out of the focus order and the accessibility tree. */
 .contentColumnHidden {
@@ -88,6 +64,11 @@
 }
 
 .rootPreviewResizing .contentColumn {
+	--content-column-motion: 0ms;
+}
+
+.rootPreviewResizing :is( .contentColumn, .previewSlot, .previewResizeHandle ),
+.rootPreviewResizing::after {
 	user-select: none;
 	transition: none;
 }
@@ -133,4 +114,17 @@
    flips too. */
 .previewResizeHandle:dir( rtl ) {
 	transform: translateX( 4px );
+}
+
+.rootWithHeader :is( .contentColumn, .previewSlot, .previewResizeHandle ),
+.rootWithHeader.rootEdge::after {
+	inset-block-start: var( --band-height );
+}
+
+.rootPreviewAnimating [data-site-header-reserved] {
+	transition: flex-basis var( --motion-duration-layout ) var( --motion-ease-layout );
+}
+
+.rootPreviewResizing [data-site-header-reserved] {
+	transition: none;
 }

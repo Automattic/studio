@@ -1,4 +1,4 @@
-import { getEffectiveSessionProvider } from '@studio/common/ai/providers';
+import { getEffectiveSessionProvider } from '@studio/agent/protocol/providers';
 import { useEffect, useSyncExternalStore } from 'react';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useIsOutOfAiCredits } from '@/data/queries/use-is-out-of-ai-credits';

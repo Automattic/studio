@@ -1,6 +1,8 @@
+import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { useSyncExternalStore, type ComponentProps } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { updateResponsivePreview } from '@/data/responsive-preview';
 import { SessionUIProvider } from '@/data/use-session-ui';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
@@ -133,12 +135,16 @@ describe( 'site preview', () => {
 			await act( async () => {} );
 			expect( connector.captureSitePreview ).not.toHaveBeenCalled();
 			width = 600;
+			Object.defineProperties( page()!, {
+				clientWidth: { value: 400 },
+				clientHeight: { value: 800 },
+			} );
 			await act( async () => {
 				await vi.advanceTimersByTimeAsync( 1000 );
 			} );
 			expect( connector.captureSitePreview ).toHaveBeenCalledExactlyOnceWith(
 				'one',
-				expect.objectContaining( { width: 600, height: 800 } )
+				expect.objectContaining( { width: 400, height: 800 } )
 			);
 		}
 	);
@@ -219,6 +225,8 @@ describe( 'site preview', () => {
 	it( 'reports the guest URL and native history after navigation', async () => {
 		const onPathChange = vi.fn();
 		const { user } = await renderPreview( 'desktop', { onPathChange } );
+		expect( fireEvent.contextMenu( screen.getByRole( 'button', { name: 'Back' } ) ) ).toBe( false );
+		expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument();
 		const goBack = vi.fn();
 		const webview = guest( {
 			getURL: () => `${ SITE_URL }/about/`,
@@ -232,6 +240,7 @@ describe( 'site preview', () => {
 			Object.assign( new Event( 'did-navigate' ), { url: `${ SITE_URL }/about/` } )
 		);
 		expect( onPathChange ).toHaveBeenLastCalledWith( '/about/' );
+		expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Forward' } ) ).toHaveAttribute(
 			'aria-disabled',
 			'true'
@@ -400,20 +409,54 @@ describe( 'site preview controls', () => {
 		} );
 	} );
 
-	it.each( [
-		[ 'the host supports it', true, true ],
-		[ 'the host cannot annotate', false, false ],
-	] )( 'shows Annotate only when %s', async ( _, annotatePreview, shown ) => {
-		const connector = createFakeConnector(
-			{},
-			{ capabilities: { nativeFolderPicker: true, annotatePreview, studioLogs: true } }
-		);
-		await renderPreview( 'browser', {}, connector );
-		expect( screen.getByRole( 'button', { name: 'Reload preview' } ) ).toBeVisible();
-		await waitFor( () =>
-			expect( !! screen.queryByRole( 'button', { name: 'Annotate' } ) ).toBe( shown )
-		);
-	} );
+	it.each( [ true, false ] )(
+		'keeps Annotate visible when host support is %s',
+		async ( annotatePreview ) => {
+			const connector = createFakeConnector(
+				{},
+				{ capabilities: { nativeFolderPicker: true, annotatePreview, studioLogs: true } }
+			);
+			await renderPreview( 'browser', {}, connector );
+			expect( screen.getByRole( 'button', { name: 'Reload preview' } ) ).toBeVisible();
+			const annotate = screen.getByRole( 'button', { name: 'Annotate' } );
+			expect( annotate ).toBeVisible();
+			if ( ! annotatePreview ) {
+				expect( annotate ).toBeDisabled();
+				expect( annotate ).toHaveAttribute(
+					'aria-description',
+					'Site annotation is not available in the browser yet'
+				);
+			}
+		}
+	);
+
+	it.each( [ undefined, 'https://example.wordpress.com' ] )(
+		'keeps responsive settings on site surfaces and suspends the toolbar for tools (live: %s)',
+		async ( liveUrl ) => {
+			const siteId = `responsive-surfaces-${ liveUrl ?? 'local' }`;
+			const { update, user } = await renderPreview( 'browser', {
+				site: site( { id: siteId } ),
+				liveUrl,
+			} );
+			const responsiveToggle = () => screen.getByRole( 'button', { name: 'Responsive mode' } );
+			await user.click( responsiveToggle() );
+			act( () => updateResponsivePreview( siteId, { width: 512 } ) );
+			update( { path: '/phpmyadmin/index.php' } );
+			expect( responsiveToggle() ).toBeDisabled();
+			expect(
+				screen.queryByRole( 'toolbar', { name: 'Responsive preview' } )
+			).not.toBeInTheDocument();
+			update( { path: DESIGN_SYSTEM_PREVIEW_PATH } );
+			expect( responsiveToggle() ).toBeDisabled();
+			expect(
+				screen.queryByRole( 'toolbar', { name: 'Responsive preview' } )
+			).not.toBeInTheDocument();
+			update( { path: '/wp-admin/' } );
+			expect( responsiveToggle() ).toBeEnabled();
+			expect( responsiveToggle() ).toHaveAttribute( 'aria-pressed', 'true' );
+			expect( screen.getByRole( 'textbox', { name: 'Width' } ) ).toHaveValue( '512' );
+		}
+	);
 
 	it.each( [ undefined, 'https://example.wordpress.com' ] )(
 		'leaves WP Admin alone when the host reloads (live: %s)',
@@ -546,13 +589,20 @@ describe( 'preview address bar', () => {
 		expect( address() ).toHaveValue( `${ SITE_URL }/about/` );
 	} );
 
-	it( 'opens site settings directly from the address field', async () => {
-		const onPathChange = vi.fn();
-		const { history, user } = await renderPreview( 'browser', { onPathChange } );
-		await user.click( screen.getByRole( 'button', { name: 'Site settings' } ) );
-		expect( history.location.search ).toBe( '?settings=site&settingsSite=one' );
-		expect( onPathChange ).not.toHaveBeenCalled();
-		expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument();
+	it( 'toggles responsive mode from the address field', async () => {
+		const { user } = await renderPreview( 'browser', {
+			site: site( { id: 'address-responsive' } ),
+		} );
+		const toggle = screen.getByRole( 'button', { name: 'Responsive mode' } );
+		expect( address().closest( 'form' ) ).toContainElement( toggle );
+		await user.click( toggle );
+		expect( toggle ).toHaveAttribute( 'aria-pressed', 'true' );
+		expect( screen.getByRole( 'toolbar', { name: 'Responsive preview' } ) ).toBeInTheDocument();
+		await user.click( toggle );
+		expect( toggle ).toHaveAttribute( 'aria-pressed', 'false' );
+		expect(
+			screen.queryByRole( 'toolbar', { name: 'Responsive preview' } )
+		).not.toBeInTheDocument();
 	} );
 
 	it( 'keeps root addresses stable after loading and preserves page paths', async () => {
@@ -584,14 +634,14 @@ describe( 'preview address bar', () => {
 		expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Start site' } ) ).not.toBeInTheDocument();
 		update( { site: site( { running: false, operation: { pid: 1, kind: 'settings' } } ) } );
-		expect( screen.queryByRole( 'button', { name: 'Site settings' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Responsive mode' } ) ).not.toBeInTheDocument();
 		expect(
 			screen.queryByRole( 'button', { name: 'Open this page in your browser' } )
 		).not.toBeInTheDocument();
 		update( { site: site() } );
 		expect( address() ).toHaveValue( `${ SITE_URL }/about/` );
 		expect( address() ).toBeEnabled();
-		expect( screen.getByRole( 'button', { name: 'Site settings' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Responsive mode' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'selects the whole address on first pointer focus without overriding later clicks', async () => {

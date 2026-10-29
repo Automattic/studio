@@ -98,11 +98,11 @@ export function SiteSection( {
 		openSite( site );
 	};
 	const handleStartSite = () => {
+		preview?.setChatHidden( false, site.id );
 		if ( ! isActive ) {
 			handleOpenSite();
 		} else {
 			preview?.setOpen( true );
-			preview?.setChatHidden( false );
 		}
 	};
 
@@ -152,12 +152,14 @@ export function SiteSection( {
 				data-reorder-exclude
 			>
 				<IconButton
+					className={ styles.rowAction }
 					variant="muted-ghost"
 					size="icon-sm"
 					icon={ <NewChatIcon /> }
 					label={ sprintf( __( 'New chat for %s' ), site.name ) }
 					onClick={ () => {
 						onSiteOpen?.();
+						preview?.setChatHidden( false, site.id );
 						void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 					} }
 				/>

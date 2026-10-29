@@ -9,10 +9,6 @@
 	transition: none;
 }
 
-.inputGroup {
-	border-radius: calc( var( --radius-3xl ) - var( --space-2_5 ) );
-}
-
 .icon {
 	flex: none;
 }

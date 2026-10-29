@@ -12,7 +12,7 @@ import {
 import { createFakeConnector, makeSession, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { AgentRunEvent, SessionEntry } from '@/data/core';
-import type { AiSettings } from '@studio/common/ai/providers';
+import type { AiSettings } from '@studio/agent/protocol/providers';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 
 vi.setConfig( { testTimeout: 30_000 } );
@@ -562,17 +562,13 @@ describe( 'Chat pane context menu', () => {
 		expect( await screen.findByRole( 'dialog', { name: 'Rename chat' } ) ).toBeVisible();
 	} );
 
-	it( 'opens the shared chat actions from the body and toggles full screen', async () => {
+	it( 'leaves the native context menu available on the chat body', async () => {
 		await setupChat( { pinnedProvider: 'wpcom', running: true } );
-		const body = () => document.querySelector( '[data-chat-transcript]' )!.parentElement!;
-		fireEvent.contextMenu( body() );
-		expect( await screen.findByRole( 'menuitem', { name: /^Rename/ } ) ).toBeVisible();
-		expect( screen.getByRole( 'menuitem', { name: /^Pin/ } ) ).toBeVisible();
-		expect( screen.getByRole( 'menuitem', { name: /^Archive/ } ) ).toBeVisible();
-		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Full screen' } ) );
-		await waitFor( () => expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument() );
-		fireEvent.contextMenu( body() );
-		expect( await screen.findByRole( 'menuitem', { name: 'Exit full screen' } ) ).toBeVisible();
+		const body = document.querySelector( '[data-chat-transcript]' )!.parentElement!;
+		const event = new MouseEvent( 'contextmenu', { bubbles: true, cancelable: true } );
+		fireEvent( body, event );
+		expect( event.defaultPrevented ).toBe( false );
+		expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'has no chat actions while the chat is loading', async () => {

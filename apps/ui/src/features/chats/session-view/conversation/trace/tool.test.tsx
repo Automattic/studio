@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { ToolUseRow } from './index';
-import type { NormalizedToolResult } from '@studio/common/ai/tools';
+import type { NormalizedToolResult } from '@studio/agent/protocol/tools';
 
 function ToolRow( { result }: { result?: NormalizedToolResult } ) {
 	return (

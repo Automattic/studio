@@ -164,7 +164,7 @@ describe( 'Preview Create Command', () => {
 	it( 'records a failed preview_site_create Tracks event with a failure_reason', async () => {
 		vi.mocked( uploadArchive ).mockRejectedValue( new LoggerError( 'Failed to upload archive' ) );
 
-		await runCommand( mockFolder );
+		await expect( runCommand( mockFolder ) ).rejects.toThrow( LoggerError );
 
 		expect( recordTracksEvent ).toHaveBeenCalledWith(
 			TRACKS_EVENTS.PREVIEW_SITE_CREATE,
@@ -180,10 +180,7 @@ describe( 'Preview Create Command', () => {
 	it( 'should handle authentication errors', async () => {
 		vi.mocked( readAuthToken ).mockResolvedValue( null );
 
-		await runCommand( mockFolder );
-
-		expect( mockReportError ).toHaveBeenCalled();
-		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		await expect( runCommand( mockFolder ) ).rejects.toThrow( LoggerError );
 		expect( archiveSiteContent ).not.toHaveBeenCalled();
 	} );
 
@@ -192,7 +189,7 @@ describe( 'Preview Create Command', () => {
 			throw new LoggerError( 'Upload failed' );
 		} );
 
-		await runCommand( mockFolder );
+		await expect( runCommand( mockFolder ) ).rejects.toThrow( LoggerError );
 
 		expect( cleanup ).toHaveBeenCalledWith( mockArchivePath );
 	} );

@@ -86,6 +86,9 @@ TEST_PATTERNS=(
 # suites never start an agent turn.
 AGENT_PATTERNS=(
   "apps/cli/ai/**"
+  "packages/agent/node/runtime/**"
+  "packages/agent/node/tools/**"
+  "packages/agent/node/skills/**"
   "apps/cli/commands/ai/**"
   "scripts/eval/**"
 )

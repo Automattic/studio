@@ -1,4 +1,4 @@
-import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
+import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
 import { useNavigate, useParams, useRouter, useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
@@ -184,6 +184,7 @@ export function SettingsDialog() {
 			setTarget( settingsFocus );
 			void navigate( {
 				to: '.',
+				state: true,
 				search: ( { settingsFocus: _focus, ...rest }: Record< string, unknown > ) => rest,
 				replace: true,
 			} );
@@ -208,6 +209,7 @@ export function SettingsDialog() {
 		setTarget( null );
 		void navigate( {
 			to: '.',
+			state: true,
 			search: ( { settingsFocus: _focus, ...previous }: Record< string, unknown > ) => ( {
 				...previous,
 				settings: next,
@@ -232,6 +234,7 @@ export function SettingsDialog() {
 		}
 		void navigate( {
 			to: '.',
+			state: true,
 			search: ( {
 				settings: _section,
 				settingsSite: _site,

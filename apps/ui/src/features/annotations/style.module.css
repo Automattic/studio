@@ -6,6 +6,8 @@
 }
 
 .editor {
+	--surface: var( --composer );
+
 	position: absolute;
 	display: flex;
 	flex-direction: column;
@@ -15,15 +17,13 @@
 	max-height: calc( 100% - 80px );
 	padding: var( --space-1 );
 	overflow-y: auto;
-	border: 1px solid var( --input );
 	border-radius: var( --radius-3xl );
-	background-color: var( --composer );
+	background-color: var( --surface );
 	color: var( --foreground );
+	box-shadow:
+		0 0 0 1px var( --border ),
+		var( --shadow-sm );
 	pointer-events: auto;
-}
-
-.editorDragging {
-	background-color: color-mix( in srgb, var( --accent ) 10%, var( --composer ) );
 }
 
 .images {
@@ -49,25 +49,6 @@
 	object-fit: cover;
 }
 
-.imageRemove {
-	position: absolute;
-	top: calc( var( --space-2 ) * -1 );
-	right: calc( var( --space-2 ) * -1 );
-	z-index: 1;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 24px;
-	height: 24px;
-	border: 1px solid var( --border );
-	border-radius: var( --radius-full );
-	background-color: var( --chrome );
-	/* eslint-disable-next-line studio/use-theme-tokens -- a one-off button shadow. */
-	box-shadow: 0 1px 2px rgb( 0 0 0 / 10% );
-	color: var( --foreground );
-	cursor: pointer;
-}
-
 .toolbar {
 	display: flex;
 	align-items: center;
@@ -77,6 +58,11 @@
 
 .save {
 	margin-inline-start: auto;
+}
+
+.count {
+	font-size: var( --text-xxs );
+	font-weight: 500;
 }
 
 .bar {

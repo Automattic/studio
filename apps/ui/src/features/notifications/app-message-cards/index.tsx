@@ -5,6 +5,7 @@ import {
 } from '@/data/queries/use-app-messages';
 import { AddAiCreditsButton } from '@/features/credits';
 import { NoticeCard } from '@/features/notifications/notice-card';
+import { Button } from '@/lib/ui';
 import styles from './style.module.css';
 
 export function AppMessageCards( { className }: { className?: string } ) {
@@ -20,8 +21,16 @@ export function AppMessageCards( { className }: { className?: string } ) {
 				<div key={ message.id } className={ styles.cell }>
 					<NoticeCard
 						notice={ { ...message, source: 'studio' } }
+						// The card's own button: NoticeCard's runs an action only while a toast or
+						// the history still offers it, and cards are neither.
 						action={
-							message.purchaseCta ? <AddAiCreditsButton variant="outline" size="2xs" /> : undefined
+							message.purchaseCta ? (
+								<AddAiCreditsButton variant="outline" size="2xs" />
+							) : message.action ? (
+								<Button variant="outline" size="2xs" onClick={ message.action.onClick }>
+									{ message.action.label }
+								</Button>
+							) : undefined
 						}
 						onDismiss={ () => dismiss( message ) }
 					/>

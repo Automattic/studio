@@ -37,4 +37,4 @@ export type {
 	UserPreferences,
 	WritableUserPreferences,
 } from './types';
-export type { AgentEvent, AgentRunEvent } from '@studio/common/ai/agent-events';
+export type { AgentEvent, AgentRunEvent } from '@studio/agent/protocol/agent-events';

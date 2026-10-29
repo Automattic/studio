@@ -1,6 +1,7 @@
-import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
+import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
 import { __ } from '@wordpress/i18n';
+import { clsx } from 'clsx';
 import { useEffect, useId, useRef, useState } from 'react';
 import {
 	AppearanceIcon,
@@ -8,7 +9,7 @@ import {
 	ExternalLinkIcon,
 	GlobeIcon,
 	MailIcon,
-	SiteSettingsIcon,
+	ResponsiveIcon,
 	WordPressIcon,
 } from '@/lib/icons';
 import { Tooltip, TooltipContent, TooltipTrigger, Popover, Button } from '@/lib/ui';
@@ -120,8 +121,8 @@ interface PreviewAddressBarProps {
 	onSwitchRealm: ( realm: PreviewRealm ) => void;
 	hasDesignSystem?: boolean;
 	onOpenExternal?: () => void;
-	onOpenSettings?: () => void;
-	// The header is short on room: the field keeps only the address.
+	responsive?: { active: boolean; disabled: boolean; onClick: () => void };
+	// In compact headers, keep only the address and an active responsive toggle.
 	hideActions?: boolean;
 }
 
@@ -190,27 +191,33 @@ function getDisplayUrl( siteUrl: string, path: string ): string {
 	}
 }
 
-// Revealed while the field is hovered or focused, and hidden while typing.
+// Address actions share the field’s compact button treatment.
 function AddressAction( {
 	icon,
 	label,
 	tooltip = label,
 	onClick,
+	active,
+	disabled,
 }: {
 	icon: ReactNode;
 	label: string;
 	tooltip?: string;
 	onClick: () => void;
+	active?: boolean;
+	disabled?: boolean;
 } ) {
 	return (
 		<Tooltip>
 			<TooltipTrigger
 				render={
 					<Button
-						variant="ghost"
+						variant={ active === undefined ? 'ghost' : 'accent-ghost' }
 						size="icon-sm"
 						shape="round"
 						aria-label={ label }
+						aria-pressed={ active }
+						disabled={ disabled }
 						onClick={ onClick }
 					/>
 				}
@@ -231,7 +238,7 @@ export function PreviewAddressBar( {
 	onSwitchRealm,
 	hasDesignSystem = false,
 	onOpenExternal,
-	onOpenSettings,
+	responsive,
 	hideActions = false,
 }: PreviewAddressBarProps ) {
 	const displayUrl = getDisplayUrl( siteUrl, path );
@@ -374,13 +381,22 @@ export function PreviewAddressBar( {
 				}
 			} }
 		>
-			<form ref={ addressBarRef } className={ styles.addressBar } onSubmit={ handleSubmit }>
-				{ hideActions || ! onOpenSettings ? null : (
-					<span className={ `${ styles.actions } ${ styles.settingsAction }` } data-address-action>
+			<form
+				ref={ addressBarRef }
+				className={ clsx( styles.addressBar, responsive?.active && styles.responsiveActive ) }
+				onSubmit={ handleSubmit }
+			>
+				{ ! responsive || ( hideActions && ! responsive.active ) ? null : (
+					<span
+						className={ `${ styles.actions } ${ styles.responsiveAction }` }
+						data-address-action
+					>
 						<AddressAction
-							icon={ <SiteSettingsIcon /> }
-							label={ __( 'Site settings' ) }
-							onClick={ onOpenSettings }
+							icon={ <ResponsiveIcon /> }
+							label={ __( 'Responsive mode' ) }
+							active={ responsive.active }
+							disabled={ responsive.disabled }
+							onClick={ responsive.onClick }
 						/>
 					</span>
 				) }

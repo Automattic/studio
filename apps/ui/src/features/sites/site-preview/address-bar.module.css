@@ -1,4 +1,6 @@
 .addressBar {
+	--surface: var( --composer );
+
 	-webkit-app-region: no-drag;
 	position: relative;
 	display: flex;
@@ -11,6 +13,7 @@
 	align-items: center;
 	border: 1px solid var( --border );
 	border-radius: var( --radius-full );
+	background-color: var( --surface );
 	overflow: hidden;
 }
 
@@ -33,7 +36,7 @@
 .actions {
 	position: absolute;
 	inset-block: 0;
-	inset-inline-end: var( --space-0_5 );
+	inset-inline-end: 0.5px;
 	display: flex;
 	align-items: center;
 	opacity: 0;
@@ -41,8 +44,8 @@
 	transition: opacity var( --motion-duration-feedback ) ease;
 }
 
-.settingsAction {
-	inset-inline: var( --space-0_5 ) auto;
+.responsiveAction {
+	inset-inline: 0.5px auto;
 }
 
 .addressBar:is( :hover, :focus-within ) .actions {
@@ -117,4 +120,9 @@
 	font-size: var( --text-xs );
 	line-height: var( --text-xs--line-height );
 	pointer-events: none;
+}
+
+.addressBar.responsiveActive:not( :has( .input:focus ) ) .actions.responsiveAction {
+	opacity: 1;
+	pointer-events: auto;
 }

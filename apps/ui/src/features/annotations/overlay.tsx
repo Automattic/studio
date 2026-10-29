@@ -1,15 +1,16 @@
-import { isStudioChatImageMimeType } from '@studio/common/ai/chat-images';
-import { getComposerAttachmentImageSrc } from '@studio/common/ai/composer-attachment-preview';
+import { isStudioChatImageMimeType } from '@studio/agent/protocol/chat-images';
+import { getComposerAttachmentImageSrc } from '@studio/agent/protocol/composer-attachment-preview';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { isAppleOS } from '@wordpress/keycodes';
-import { clsx } from 'clsx';
-import { PaperclipIcon, Trash2Icon, XIcon } from 'lucide-react';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { PaperclipIcon, Trash2Icon } from 'lucide-react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { toast } from '@/data/app-messages';
 import { useComposerAttachments, useFileDrop } from '@/data/use-composer-attachments';
 import { SendIcon } from '@/lib/icons';
 import { isImeComposing } from '@/lib/keyboard';
 import {
+	AttachmentDropOverlay,
+	AttachmentRemoveButton,
 	Badge,
 	Button,
 	IconButton,
@@ -41,7 +42,7 @@ import {
 	type PreviewAnnotation,
 } from './store';
 import styles from './style.module.css';
-import type { ComposerImageAttachment } from '@studio/common/ai/composer-attachments';
+import type { ComposerImageAttachment } from '@studio/agent/protocol/composer-attachments';
 
 export interface AnnotationAnchor {
 	left: number;
@@ -57,6 +58,7 @@ interface AnnotationOverlayProps {
 }
 
 const EDGE = 8;
+const ANCHOR_OFFSET = 4;
 // Keeps the editor clear of the Send bar.
 const BAR_CLEARANCE = 72;
 
@@ -130,7 +132,7 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 				>
 					{ __( 'Send' ) }
 					{ stagedCount > 0 ? (
-						<Badge variant="on-accent" size="count" aria-hidden="true">
+						<Badge variant="on-accent" size="count" className={ styles.count } aria-hidden="true">
 							{ sending ? <Spinner /> : stagedCount }
 						</Badge>
 					) : null }
@@ -182,18 +184,21 @@ function NoteEditor( {
 	const { attachments, addFiles, removeAttachment, pasteHandlers } = useComposerAttachments(
 		note.images
 	);
-	const addImages = ( files: FileList | File[] ) => {
-		const list = Array.from( files );
-		if ( list.some( ( file ) => ! isStudioChatImageMimeType( file.type ) ) ) {
-			toast.error( __( 'Only PNG, JPEG, GIF, and WebP images can be attached' ) );
-			return;
-		}
-		const otherImages = getSiteAnnotations( siteId )
-			.notes.filter( ( item ) => item.id !== note.id )
-			.flatMap( ( item ) => item.images );
-		setAnnotationsPreparing( siteId, true );
-		void addFiles( list, otherImages ).finally( () => setAnnotationsPreparing( siteId, false ) );
-	};
+	const addImages = useCallback(
+		( files: FileList | File[] ) => {
+			const list = Array.from( files );
+			if ( list.some( ( file ) => ! isStudioChatImageMimeType( file.type ) ) ) {
+				toast.error( __( 'Only PNG, JPEG, GIF, and WebP images can be attached' ) );
+				return;
+			}
+			const otherImages = getSiteAnnotations( siteId )
+				.notes.filter( ( item ) => item.id !== note.id )
+				.flatMap( ( item ) => item.images );
+			setAnnotationsPreparing( siteId, true );
+			void addFiles( list, otherImages ).finally( () => setAnnotationsPreparing( siteId, false ) );
+		},
+		[ addFiles, note.id, siteId ]
+	);
 	const isDragging = useFileDrop( editorNode, addImages );
 
 	useEffect( () => {
@@ -207,11 +212,14 @@ function NoteEditor( {
 		const measure = () => {
 			const left = Math.max(
 				EDGE,
-				Math.min( anchor.left + EDGE, container.clientWidth - editor.offsetWidth - EDGE )
+				Math.min( anchor.left + ANCHOR_OFFSET, container.clientWidth - editor.offsetWidth - EDGE )
 			);
 			const top = Math.max(
 				EDGE,
-				Math.min( anchor.top + EDGE, container.clientHeight - editor.offsetHeight - BAR_CLEARANCE )
+				Math.min(
+					anchor.top + ANCHOR_OFFSET,
+					container.clientHeight - editor.offsetHeight - BAR_CLEARANCE
+				)
 			);
 			setPosition( ( old ) => ( old.left === left && old.top === top ? old : { left, top } ) );
 		};
@@ -233,8 +241,8 @@ function NoteEditor( {
 		closeAnnotationEditor( siteId );
 	};
 	const submitLabel = isAppleOS()
-		? __( 'Send annotation (⌘Enter). Save to composer (Enter).' )
-		: __( 'Send annotation (Ctrl+Enter). Save to composer (Enter).' );
+		? __( 'Save annotation (Enter). Send annotation (⌘Enter).' )
+		: __( 'Save annotation (Enter). Send annotation (Ctrl+Enter).' );
 
 	return (
 		<div
@@ -244,9 +252,12 @@ function NoteEditor( {
 			} }
 			role="group"
 			aria-label={ __( 'Annotation' ) }
-			className={ clsx( styles.editor, isDragging && styles.editorDragging ) }
+			className={ styles.editor }
 			style={ position }
 		>
+			{ isDragging ? (
+				<AttachmentDropOverlay>{ __( 'Drop to attach' ) }</AttachmentDropOverlay>
+			) : null }
 			{ attachments.length ? (
 				<ul className={ styles.images } aria-label={ __( 'Attachments' ) }>
 					{ attachments.map( ( attachment ) => (
@@ -255,14 +266,10 @@ function NoteEditor( {
 								src={ getComposerAttachmentImageSrc( attachment ) ?? undefined }
 								alt={ attachment.name }
 							/>
-							<button
-								type="button"
-								className={ styles.imageRemove }
+							<AttachmentRemoveButton
 								aria-label={ __( 'Remove attachment' ) }
 								onClick={ () => removeAttachment( attachment.id ) }
-							>
-								<XIcon />
-							</button>
+							/>
 						</li>
 					) ) }
 				</ul>
@@ -288,14 +295,14 @@ function NoteEditor( {
 			/>
 			<div className={ styles.toolbar }>
 				<IconButton
-					size="icon-sm"
+					size="icon"
 					shape="round"
 					icon={ <PaperclipIcon /> }
 					label={ __( 'Attach image' ) }
 					onClick={ () => fileInputRef.current?.click() }
 				/>
 				<IconButton
-					size="icon-sm"
+					size="icon"
 					shape="round"
 					icon={ <Trash2Icon /> }
 					label={ __( 'Delete annotation' ) }
@@ -320,9 +327,9 @@ function NoteEditor( {
 								size="icon"
 								shape="round"
 								className={ styles.save }
-								aria-label={ __( 'Send annotation' ) }
+								aria-label={ __( 'Save annotation' ) }
 								disabled={ ! hasContent }
-								onClick={ () => submit( true ) }
+								onClick={ () => submit( false ) }
 							/>
 						}
 					>

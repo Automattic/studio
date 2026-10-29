@@ -235,7 +235,12 @@ export function SitePreview( {
 	// than always the front end. Admin screens go through /studio-auto-login so
 	// they don't land on the login form; the front end opens logged out.
 	const openExternal = live
-		? () => void connector.openExternalUrl( `${ siteUrl }${ safePath }` )
+		? () =>
+				void connector
+					.openSiteUrl( site.id, `${ siteUrl }${ safePath }`, { autoLogin: false } )
+					.catch( ( error ) => {
+						console.error( 'Failed to open site in browser:', error );
+					} )
 		: activeRealm === 'design'
 		? undefined
 		: () => {

@@ -333,4 +333,40 @@ describe.runIf( WORDPRESS )( 'a saved template that names no theme', () => {
 		},
 		120000
 	);
+
+	it( 'runs no WordPress for a part that keeps its area', async () => {
+		const host = liveHost( wordpress );
+		const ran: string[] = [];
+		const counted = {
+			...host,
+			sites: {
+				...host.sites,
+				wpCli: async ( site: HostSite, args: string[] ) => {
+					ran.push( args.join( ' ' ) );
+					return host.sites.wpCli( site, args );
+				},
+			},
+		};
+		const check = new SiteChanges( counted, undefined, async () => [ wordpress ], [
+			postContentChanges,
+		] );
+		await check.snapshot();
+		const id = await wp(
+			'post',
+			'create',
+			'--porcelain',
+			'--post_type=wp_template_part',
+			'--post_name=footer',
+			'--post_status=publish',
+			`--post_content=${ PARAGRAPH }`
+		);
+		await check.settle();
+		expect( await wp( 'post', 'term', 'list', id, 'wp_template_part_area', '--field=slug' ) ).toBe(
+			'footer'
+		);
+		ran.length = 0;
+		await wp( 'post', 'update', id, `--post_content=${ PARAGRAPH }${ PARAGRAPH }` );
+		await check.settle();
+		expect( ran ).toEqual( [] );
+	}, 120000 );
 } );

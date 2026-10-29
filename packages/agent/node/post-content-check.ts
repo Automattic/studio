@@ -54,24 +54,33 @@ export async function readPosts( sitePath: string, ids: string[] ): Promise< Row
 // wp-includes/block-template-utils.php), so a copy saved without one, as `wp
 // post create` saves it, replaces nothing.
 function unthemedTemplates( sitePath: string, posts: Row[] ): Promise< Row[] > {
-	const templates = posts.filter( ( post ) => TEMPLATE_TYPES.includes( post.type ) );
-	if ( ! templates.length ) {
+	return withoutTerm(
+		sitePath,
+		posts.filter( ( post ) => TEMPLATE_TYPES.includes( post.type ) ),
+		'wp_theme'
+	);
+}
+
+// The posts with no term of `taxonomy`.
+function withoutTerm( sitePath: string, posts: Row[], taxonomy: string ): Promise< Row[] > {
+	if ( ! posts.length ) {
 		return Promise.resolve( [] );
 	}
 	return readWordPressSite( sitePath, ( site ) => {
-		const themed = new Set(
+		const termed = new Set(
 			site
 				.query< { id: number } >(
 					`SELECT tr.object_id AS id FROM ${ site.prefix }term_relationships tr
 					JOIN ${
 						site.prefix
-					}term_taxonomy tt ON tt.term_taxonomy_id = tr.term_taxonomy_id AND tt.taxonomy = 'wp_theme'
-					WHERE tr.object_id IN (${ templates.map( () => '?' ).join( ', ' ) })`,
-					...templates.map( ( post ) => post.id )
+					}term_taxonomy tt ON tt.term_taxonomy_id = tr.term_taxonomy_id AND tt.taxonomy = ?
+					WHERE tr.object_id IN (${ posts.map( () => '?' ).join( ', ' ) })`,
+					taxonomy,
+					...posts.map( ( post ) => post.id )
 				)
 				.map( ( row ) => Number( row.id ) )
 		);
-		return templates.filter( ( post ) => ! themed.has( Number( post.id ) ) );
+		return posts.filter( ( post ) => ! termed.has( Number( post.id ) ) );
 	} );
 }
 
@@ -159,7 +168,12 @@ async function areaReport(
 	site: HostSite,
 	posts: Row[]
 ): Promise< ChangeReport[] > {
-	const parts = posts.filter( ( post ) => post.type === 'wp_template_part' );
+	// A part with an area keeps it, so only the parts with none are looked up.
+	const parts = await withoutTerm(
+		site.path,
+		posts.filter( ( post ) => post.type === 'wp_template_part' ),
+		'wp_template_part_area'
+	);
 	if ( ! parts.length ) {
 		return [];
 	}

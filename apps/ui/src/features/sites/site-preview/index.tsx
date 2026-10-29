@@ -12,7 +12,12 @@ import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
 import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
 import { useSiteDesign } from '@/data/queries/use-site-design';
-import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
+import {
+	useIsSiteStarting,
+	useIsSiteStopping,
+	useSiteOperation,
+	useStartSite,
+} from '@/data/queries/use-sites';
 import { useResponsivePreview, updateResponsivePreview } from '@/data/responsive-preview';
 import {
 	AnnotationOverlay,
@@ -91,6 +96,7 @@ export function SitePreview( {
 	atWindowStart = false,
 }: SitePreviewProps ) {
 	const connector = useConnector();
+	const startSite = useStartSite();
 	const operation = useSiteOperation( site );
 	const startPending = useIsSiteStarting( site.id );
 	const stopPending = useIsSiteStopping( site.id );
@@ -135,7 +141,7 @@ export function SitePreview( {
 	const navigating =
 		canPreview && activeSurfaceKey !== 'design' && ( browserState.loading || activeFrameLoading );
 	// Studio renders the design system itself, so it needs no page injection.
-	const showAnnotate = ! live && canPreview;
+	const showAnnotate = ! live;
 	const canAnnotateSurface =
 		showAnnotate &&
 		activeSurfaceKey !== 'database' &&
@@ -262,7 +268,12 @@ export function SitePreview( {
 	const annotate = showAnnotate
 		? {
 				active: annotations.active,
-				disabled: ! canAnnotate || isAnnotationsBusy( annotations ),
+				disabled:
+					! canAnnotateSurface ||
+					isStarting ||
+					isStopping ||
+					( site.running && ! canAnnotate ) ||
+					isAnnotationsBusy( annotations ),
 				disabledReason:
 					activeSurfaceKey === 'database'
 						? __( 'Not available for Database' )
@@ -272,15 +283,20 @@ export function SitePreview( {
 				onClick: () => {
 					if ( ! annotations.active && onStartAnnotating?.() === false ) return;
 					setAnnotating( site.id, ! annotations.active );
+					if ( ! site.running ) {
+						startSite.mutate( site.id, {
+							onError: () => setAnnotating( site.id, false ),
+						} );
+					}
 				},
 		  }
 		: undefined;
 	useSiteHeaderNavigation(
-		canPreview && ! collapsed
+		! collapsed
 			? {
 					canGoBack: browserState.canGoBack,
 					canGoForward: browserState.canGoForward,
-					disabled: isStopping,
+					disabled: ! canPreview || isStopping,
 					back: () => sendBrowserCommand( 'back' ),
 					forward: () => sendBrowserCommand( 'forward' ),
 					reload: () => sendBrowserCommand( 'reload' ),

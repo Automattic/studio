@@ -108,8 +108,8 @@ const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
 export class SiteChanges {
 	private readonly snapshots = new Map< string, Versions >();
 	private snapshotting?: Promise< void >;
-	// The calls between their snapshot and their end.
-	private running = 0;
+	// The calls begun whose changes are not settled yet.
+	private unsettled = 0;
 	// The snapshot taken as the last call's checks finished, while it still stands.
 	private fresh = false;
 	// Counts what makes a snapshot stale, so one read across it is not taken as fresh.
@@ -117,6 +117,8 @@ export class SiteChanges {
 	private closing?: Promise< void >;
 	// The longest each source's read or check took on a site, since they were last taken.
 	private sourceMs: Record< string, number > = {};
+	// Checks run one call's changes at a time: a check that saves would meet another's.
+	private settling: Promise< unknown > = Promise.resolve();
 
 	constructor(
 		private readonly host: StudioAgentHost,
@@ -138,28 +140,27 @@ export class SiteChanges {
 
 	/**
 	 * Before a call: the sites as they are, unless the snapshot taken as the
-	 * last call's checks finished still stands, as the agent thought. The call
-	 * ends with `end()`.
+	 * last call's checks finished still stands, as the agent thought. Each
+	 * call begun is settled.
 	 */
 	async begin(): Promise< void > {
-		this.running++;
+		// A call not settled yet compares with the snapshot taken before it:
+		// reading the sites again would take its changes as they were before.
+		const alone = this.unsettled++ === 0;
 		await this.closing;
-		if ( ! this.fresh ) {
+		if ( alone && ! this.fresh ) {
 			await this.snapshot();
+		} else {
+			await this.snapshotting;
 		}
 	}
 
-	/** A call begun has run. */
-	end(): void {
-		this.running--;
-	}
-
 	/**
-	 * After a call's checks, which save their fixes, and with no call running:
+	 * After a call's checks, which save their fixes, and with every call settled:
 	 * the snapshot the next call starts from, taken while the agent thinks.
 	 */
 	afterChecks(): void {
-		if ( this.running || this.closing ) {
+		if ( this.unsettled || this.closing ) {
 			return;
 		}
 		const generation = this.generation;
@@ -220,7 +221,17 @@ export class SiteChanges {
 	}
 
 	/** Checks what changed since the snapshot, and snapshots it. */
-	async settle(): Promise< SettledChanges > {
+	settle(): Promise< SettledChanges > {
+		const settled = this.settling
+			.then( () => this.settleNow() )
+			.finally( () => {
+				this.unsettled = Math.max( 0, this.unsettled - 1 );
+			} );
+		this.settling = settled.catch( () => undefined );
+		return settled;
+	}
+
+	private async settleNow(): Promise< SettledChanges > {
 		this.stale();
 		const sites = await this.sites();
 		const reports = await Promise.all( sites.map( ( site ) => this.settleSite( site ) ) );

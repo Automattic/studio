@@ -990,9 +990,6 @@ function toToolDefinition(
 				.execute( toolCallId, params, signal, onUpdate )
 				.finally( () => {
 					ranMs = Date.now() - ranFrom;
-					if ( checksChanges ) {
-						siteChanges.end();
-					}
 				} )
 				.catch( async ( error: unknown ) => {
 					const changed = await settled();

@@ -110,10 +110,10 @@ describe( 'SiteChanges.begin', () => {
 		[ 'reads nothing the snapshot taken as the last checks ended holds', none, none, 0 ],
 		[ 'reads again after Studio changed a site since', none, ( changes ) => changes.stale(), 2 ],
 		[
-			'reads again when a call was running as the checks ended',
+			'reads nothing while a call that began after the checks is not settled',
 			( changes ) => void changes.begin(),
 			none,
-			2,
+			0,
 		],
 	] )( '%s', async ( _name, asChecksEnd, after, reads ) => {
 		let read = 0;
@@ -129,7 +129,6 @@ describe( 'SiteChanges.begin', () => {
 		};
 		const changes = new SiteChanges( createFakeHost(), undefined, async () => sites, [ counted ] );
 		await changes.begin();
-		changes.end();
 		await changes.settle();
 		asChecksEnd( changes );
 		changes.afterChecks();
@@ -138,6 +137,40 @@ describe( 'SiteChanges.begin', () => {
 		read = 0;
 		await changes.begin();
 		expect( read ).toBe( reads );
+	} );
+} );
+
+describe( 'SiteChanges with calls that overlap', () => {
+	it( "reports a running call's change once, whichever call begins or settles meanwhile", async () => {
+		let version = 0;
+		const versioned: SiteChangeSource = {
+			name: 'versioned',
+			saves: true,
+			async read() {
+				return { version: String( version ) };
+			},
+			async check( site, before, after ) {
+				await new Promise( ( resolve ) => setTimeout( resolve, 5 ) );
+				return {
+					reports:
+						before.version === after.version
+							? []
+							: [ { key: 'v', summary: `${ site.path } ${ before.version }->${ after.version }` } ],
+				};
+			},
+		};
+		const changes = new SiteChanges( createFakeHost(), undefined, async () => [ sites[ 0 ] ], [
+			versioned,
+		] );
+		await changes.begin();
+		version = 1;
+		// A second call begins while the first, which changed the site, is not
+		// settled, and a call's checks end meanwhile.
+		await changes.begin();
+		changes.afterChecks();
+		await new Promise( ( resolve ) => setTimeout( resolve, 5 ) );
+		const [ first, second ] = await Promise.all( [ changes.settle(), changes.settle() ] );
+		expect( [ ...first.summaries, ...second.summaries ] ).toEqual( [ '/a 0->1' ] );
 	} );
 } );
 

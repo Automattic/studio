@@ -25,9 +25,17 @@ providers:
   - id: exec:node ../../apps/cli/dist/cli/eval-runner.mjs
     label: studio-agent
 
+# GitHub's API quota as each case starts, for github.mjs:githubAnswered.
+extensions:
+  - file://github.mjs:beforeEach
+
 defaultTest:
   options:
     repeat: 1
+  # A case that used GitHub while its API refused fails as INVALID (environment).
+  assert:
+    - type: javascript
+      value: file://github.mjs:githubAnswered
   vars:
     answers:
       - when: 'classic theme'

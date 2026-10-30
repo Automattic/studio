@@ -1395,6 +1395,7 @@ describe( 'CLI: studio create', () => {
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),
+				'create',
 				expect.objectContaining( {
 					blueprint: expect.any( Object ),
 				} )
@@ -1485,6 +1486,7 @@ describe( 'CLI: studio create', () => {
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),
+				'create',
 				expect.objectContaining( { siteLanguage: 'sv_SE' } )
 			);
 		} );
@@ -1502,6 +1504,7 @@ describe( 'CLI: studio create', () => {
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),
+				'create',
 				expect.objectContaining( { siteLanguage: 'sv_SE' } )
 			);
 		} );

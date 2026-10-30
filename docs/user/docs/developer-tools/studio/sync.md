@@ -75,7 +75,7 @@ A local site can be connected to more than one website, for example a production
 
 The details, links, and the **Pull changes** and **Publish changes** buttons follow the website you choose. To connect one more website, click the card and choose **Connect another site…**. You can’t switch websites while a pull or publish is running.
 
-<!-- TODO screenshot: add `publish-switcher.webp` from `npm run screenshots` (Studio 2.0, signed-in-connected suite) here: the Publish panel’s website switcher open, listing two connected websites and Connect another site…. -->
+[![The Publish tab of the Share and Publish panel in WordPress Studio with the website switcher open, listing two connected websites, a production site with a checkmark and its staging site, each with a thumbnail and when it was updated, and Connect another site… below them.](https://developer.wordpress.com/wp-content/uploads/2025/01/publish-switcher.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/publish-switcher.webp)
 
 ## [Connect WordPress Studio to a new WordPress.com site](#connect-new)
 
@@ -97,8 +97,7 @@ To bring the latest changes from your production or [staging site](https://wordp
 2.  Click **Publish** at the top right of the site preview, and connect a website if you haven’t already. If the local site is connected to more than one website, [choose one](#switch-websites).
 3.  Click **Pull changes**.
 
-<!-- TODO screenshot: replace with `pull-choose-files.webp` from `npm run screenshots` (Studio 2.0, signed-in-connected suite): the Pull changes review step with Choose files… selected. -->
-[![A screenshot depicting the selective Pull process in Studio Sync.](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-pull-selective.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-pull-selective.png)
+[![The Pull changes step of the Publish panel in WordPress Studio with Choose files… selected, showing a file tree with index.php and expandable mu-plugins, plugins, themes, and uploads folders, themes and Content and settings checked, and Cancel and Pull changes buttons.](https://developer.wordpress.com/wp-content/uploads/2025/01/pull-choose-files.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/pull-choose-files.webp)
 
 4.  Choose what to pull:
     -   **Entire site**
@@ -125,8 +124,7 @@ When you are happy with the changes made to your Studio site, you can publish th
 2.  Click **Publish** at the top right of the site preview, and connect a website if you haven’t already.
 3.  If the local site is connected to more than one website, [choose one](#switch-websites). Then click **Publish changes**.
 
-<!-- TODO screenshot: replace with `publish-choose-files.webp` from `npm run screenshots` (Studio 2.0, signed-in-connected suite): the Publish changes review step with Choose files… selected. -->
-[![Push dialog with "Specific files and folders" selected](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-selective-push.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-selective-push.png)
+[![The Publish changes step of the Publish panel in WordPress Studio with Choose files… selected, showing a file tree with expandable mu-plugins, plugins, themes, and uploads folders and index.php, themes and Content and settings checked, and Cancel and Publish changes buttons.](https://developer.wordpress.com/wp-content/uploads/2025/01/publish-choose-files.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/publish-choose-files.webp)
 
 4.  Choose what to publish:
     -   **Entire site**

@@ -12,7 +12,7 @@ export function CollapsiblePanel( {
 	open,
 	className,
 	...props
-}: ComponentProps< typeof Collapsible.Panel > & { open: boolean } ) {
+}: Omit< ComponentProps< typeof Collapsible.Panel >, 'render' > & { open: boolean } ) {
 	return (
 		<Collapsible.Root open={ open } className={ styles.root }>
 			<Collapsible.Panel

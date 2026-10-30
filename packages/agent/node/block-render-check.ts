@@ -13,14 +13,12 @@
  * as nothing there by design, as a query's pagination does with one page of
  * posts, so that is what WordPress shows, not a problem.
  */
-import { readFile, stat } from 'fs/promises';
-import path from 'path';
-import { readPosts, readVersions } from '@studio/agent/node/post-content-check';
-import { readWordPressSite } from '@studio/agent/node/site-database';
-import { themeMarkupFiles } from '@studio/agent/node/site-markup';
+import { readFile } from 'fs/promises';
+import { FILE, readRenderedVersions, renderFrontPage } from '@studio/agent/node/front-page-render';
+import { readPosts } from '@studio/agent/node/post-content-check';
 import { runWpCli } from '@studio/agent/node/tools/utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
-import type { ChangeReport, SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
+import type { ChangeReport, SiteChangeSource } from '@studio/agent/node/site-changes';
 
 // The post types whose content the front end renders through the_content.
 const FRONT_END_TYPES = new Set( [ 'post', 'page' ] );
@@ -75,79 +73,6 @@ foreach ( ${ JSON.stringify( ids ) } as $id ) {
 	$empty[ $id ] = $found;
 }
 echo 'EMPTY_BLOCKS=' . wp_json_encode( (object) $empty );`;
-
-// The front page as template-loader.php resolves it for '/', rendered by
-// get_the_block_template_html() (wp-includes/block-template.php). The blocks a
-// dynamic block renders into its own output, and the content core/post-content
-// renders, which the posts' own check covers, are not named.
-const RENDER_FRONT_PAGE = `
-$_SERVER['REQUEST_URI'] = '/';
-wp();
-$names   = array();
-$content = 0;
-add_filter( 'render_block_data', function ( $parsed, $source, $parent_block ) use ( &$content ) {
-	$parsed['studioSkipped'] = $content > 0 || ( $parent_block && $parent_block->block_type && $parent_block->block_type->is_dynamic() );
-	if ( 'core/post-content' === $parsed['blockName'] ) {
-		++$content;
-	}
-	return $parsed;
-}, PHP_INT_MAX, 3 );
-add_filter( 'render_block', function ( $html, $block ) use ( &$names, &$content ) {
-	if ( 'core/post-content' === $block['blockName'] ) {
-		--$content;
-	}
-	if ( ! empty( $block['blockName'] ) && empty( $block['studioSkipped'] ) && '' === trim( $html ) ) {
-		$names[] = $block['blockName'];
-	}
-	return $html;
-}, PHP_INT_MAX, 2 );
-$template = false;
-foreach ( array( 'is_front_page' => 'get_front_page_template', 'is_home' => 'get_home_template', 'is_page' => 'get_page_template', 'is_singular' => 'get_singular_template' ) as $tag => $getter ) {
-	if ( $tag() && ( $template = $getter() ) ) {
-		break;
-	}
-}
-if ( ! $template ) {
-	get_index_template();
-}
-if ( ! empty( $GLOBALS['_wp_current_template_content'] ) ) {
-	get_the_block_template_html();
-}
-echo 'FRONT_EMPTY=' . wp_json_encode( array_values( array_unique( $names ) ) );`;
-
-/** The blocks of the front page that render as nothing for a visitor who is not logged in. */
-async function frontPageEmptyBlocks( host: StudioAgentHost, site: HostSite ): Promise< string[] > {
-	const output = await runWpCli( host, site, [ 'eval', RENDER_FRONT_PAGE ] );
-	return JSON.parse(
-		output.slice( output.indexOf( 'FRONT_EMPTY=' ) + 'FRONT_EMPTY='.length )
-	) as string[];
-}
-
-const FILE = 'file ';
-
-// The posts the front end renders, and the active theme's template, template
-// part and pattern files, by modification time and size.
-export async function readRenderedVersions( sitePath: string ): Promise< Versions > {
-	const themes = await readWordPressSite( sitePath, ( site ) => [
-		...new Set( [ site.option( 'template' ), site.option( 'stylesheet' ) ] ),
-	] );
-	const files = (
-		await Promise.all(
-			themes
-				.filter( ( theme ): theme is string => typeof theme === 'string' && theme !== '' )
-				.map( ( theme ) =>
-					themeMarkupFiles( path.join( sitePath, 'wp-content', 'themes', theme ) )
-				)
-		)
-	).flat();
-	const versions = await Promise.all(
-		files.map( async ( file ) => {
-			const { mtimeMs, size } = await stat( file );
-			return [ FILE + file, `${ mtimeMs }:${ size }` ];
-		} )
-	);
-	return { ...( await readVersions( sitePath ) ), ...Object.fromEntries( versions ) };
-}
 
 // The blocks a piece of markup holds, by name, as the block parser names them.
 const blockNames = ( markup: string ) =>
@@ -223,7 +148,10 @@ async function frontPageReports(
 	markup: string[]
 ): Promise< ChangeReport[] > {
 	const names = new Set( markup.flatMap( blockNames ) );
-	const empty = await frontPageEmptyBlocks( host, site ).catch( () => [] as string[] );
+	const empty = await renderFrontPage( host, site ).then(
+		( page ) => page.empty,
+		() => [] as string[]
+	);
 	const named = empty.filter( ( name ) => names.has( name ) );
 	return named.length
 		? [

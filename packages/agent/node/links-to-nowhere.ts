@@ -8,17 +8,16 @@
  * a pattern ships, or one written before its page existed, renders so: a
  * navigation link prints its url as its href
  * (render_block_core_navigation_link() in wp-includes/blocks/navigation-link.php).
- * When a call changes what the site renders, Studio fetches the home page as a
- * visitor gets it to show which links do, and where: those the site did not
+ * When a call changes what the site renders, Studio renders the home page as a
+ * visitor gets it (front-page-render.ts) to show which links do, and where: those the site did not
  * have as Studio first saw it, or as a theme WordPress.org releases first
  * rendered it, whose links are the theme's design.
  */
-import { readRenderedVersions } from '@studio/agent/node/block-render-check';
+import { readRenderedVersions, renderFrontPage } from '@studio/agent/node/front-page-render';
 import { templatePart } from '@studio/agent/node/header-menu';
-import { render } from '@studio/agent/node/page-render';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { isUpdatableTheme } from '@studio/agent/node/themes';
-import type { HostSite } from '@studio/agent/node/host';
+import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { SiteChangeSource } from '@studio/agent/node/site-changes';
 
 // A label as the visitor reads it, from the escaped HTML (esc_html()).
@@ -35,12 +34,16 @@ interface NowhereLink {
 // A link as Studio first saw it: where it was, and as rendered.
 type SeenLink = [ place: string, tag: string ];
 
-/** A site's links to nowhere on its home page, while its server renders it. */
+/** A site's links to nowhere on its home page, as WordPress renders it. */
 async function linksToNowhere(
+	host: StudioAgentHost,
 	site: HostSite
 ): Promise< { url: string; links: NowhereLink[] } | undefined > {
 	const url = `${ site.url.replace( /\/$/, '' ) }/`;
-	const html = await render( url );
+	const html = await renderFrontPage( host, site ).then(
+		( page ) => page.html,
+		() => undefined
+	);
 	if ( ! html ) {
 		return undefined;
 	}
@@ -95,10 +98,11 @@ function unseen( links: NowhereLink[], seen: SeenLink[] ): NowhereLink[] {
 
 /** The problem with the links to nowhere a site did not have as Studio first saw it. */
 async function newLinksToNowhere(
+	host: StudioAgentHost,
 	site: HostSite,
 	seen: SeenLink[]
 ): Promise< string | undefined > {
-	const found = await linksToNowhere( site );
+	const found = await linksToNowhere( host, site );
 	if ( ! found ) {
 		return undefined;
 	}
@@ -142,7 +146,7 @@ export const linksToNowhereChanges: SiteChangeSource = {
 			return { ...versions, [ FIRST_SEEN ]: last![ FIRST_SEEN ], [ THEME ]: theme };
 		}
 		const site = await host.sites.findByFolder( sitePath );
-		const found = site ? await linksToNowhere( site ) : undefined;
+		const found = site ? await linksToNowhere( host, site ) : undefined;
 		const added = unseen( found?.links ?? [], seen ?? [] ).map(
 			( { place, tag } ): SeenLink => [ place, tag ]
 		);
@@ -152,7 +156,7 @@ export const linksToNowhereChanges: SiteChangeSource = {
 			[ THEME ]: theme,
 		};
 	},
-	async check( site, before, after ) {
+	async check( site, before, after, host ) {
 		if ( Object.keys( after ).every( ( key ) => before[ key ] === after[ key ] ) ) {
 			return { reports: [] };
 		}
@@ -161,7 +165,7 @@ export const linksToNowhereChanges: SiteChangeSource = {
 			reports: [
 				{
 					key: 'links to nowhere',
-					problem: await newLinksToNowhere( site, seen ),
+					problem: await newLinksToNowhere( host, site, seen ),
 					atTurnEnd: true,
 				},
 			],

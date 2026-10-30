@@ -5,8 +5,19 @@ import { linksToNowhereChanges } from '@studio/agent/node/links-to-nowhere';
 import { createFakeHostWithSites } from '@studio/agent/node/tests/fake-host';
 import type { HostSite } from '@studio/agent/node/host';
 
-vi.mock( '@studio/agent/node/block-render-check', () => ( {
+// The home page WordPress renders; none when WordPress cannot render it.
+const page = vi.hoisted( () => ( { html: undefined as string | undefined } ) );
+const renderFrontPage = vi.hoisted( () =>
+	vi.fn( async () => {
+		if ( page.html === undefined ) {
+			throw new Error( 'the render failed' );
+		}
+		return { html: page.html };
+	} )
+);
+vi.mock( '@studio/agent/node/front-page-render', () => ( {
 	readRenderedVersions: async () => ( { 'post:2': 'a' } ),
+	renderFrontPage,
 } ) );
 // The theme the site's templates come from, and the themes WordPress.org releases.
 const themes = vi.hoisted( () => ( {
@@ -41,21 +52,13 @@ const problem = async () =>
 	( await check( { 'post:2': 'a' }, { 'post:2': 'b' } ) ).reports[ 0 ]?.problem;
 
 afterEach( () => {
-	vi.unstubAllGlobals();
 	themes.active = 'twentytwentyfive';
 } );
 
-// The home page WordPress renders, as the site's server would.
+// The home page WordPress renders from now on.
 function serve( html: string | undefined ) {
-	vi.stubGlobal(
-		'fetch',
-		vi.fn( async ( url: string ) => {
-			if ( url !== 'http://localhost:8881/' || html === undefined ) {
-				throw new TypeError( 'fetch failed' );
-			}
-			return new Response( html );
-		} )
-	);
+	page.html = html;
+	renderFrontPage.mockClear();
 }
 
 const header = ( links: string ) =>
@@ -87,7 +90,7 @@ it.each< { name: string; html: string | undefined; links?: string } >( [
 		name: 'links to pages and sections',
 		html: header( '<a href="/#services">Services</a>' ) + footer( '<a href="/about/">About</a>' ),
 	},
-	{ name: 'a site whose server is not running', html: undefined },
+	{ name: 'a site WordPress cannot render', html: undefined },
 ] )( '$name', async ( { html, links } ) => {
 	serve( html );
 	if ( links ) {
@@ -102,7 +105,7 @@ it.each< { name: string; html: string | undefined; links?: string } >( [
 it( 'renders the site only when a call changed what it renders, and raises the problem at turn end', async () => {
 	serve( header( nav( 'Shop' ) ) );
 	expect( await check( { 'post:2': 'a' }, { 'post:2': 'a' } ) ).toEqual( { reports: [] } );
-	expect( fetch ).not.toHaveBeenCalled();
+	expect( renderFrontPage ).not.toHaveBeenCalled();
 	expect( ( await check( { 'post:2': 'a' }, { 'post:2': 'b' } ) ).reports ).toEqual( [
 		{ key: 'links to nowhere', problem: expect.stringContaining( '"Shop"' ), atTurnEnd: true },
 	] );
@@ -140,7 +143,7 @@ it.each< {
 	serve( header( nav( 'Shop' ) + nav( 'Book' ) ) + STOCK_FOOTER );
 	// A later read keeps what was first seen, without rendering the site.
 	const later = await linksToNowhereChanges.read( sitePath, seen, host );
-	expect( fetch ).not.toHaveBeenCalled();
+	expect( renderFrontPage ).not.toHaveBeenCalled();
 	const { reports } = await check( { ...seen, 'post:2': 'z' }, later );
 	expect( reports[ 0 ]?.problem ).toContain( `the links ${ reported } go nowhere` );
 } );

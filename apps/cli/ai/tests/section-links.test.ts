@@ -1,6 +1,7 @@
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
+import { linksToNowhereChanges } from '@studio/agent/node/links-to-nowhere';
 import { sectionLinks } from '@studio/agent/node/section-links';
 import { runWpCli } from '@studio/agent/node/tools/utils';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -92,6 +93,7 @@ describe.runIf( WORDPRESS )( 'navigation links to sections of the front page', (
 		].join(
 			''
 		) }<!-- /wp:navigation --><!-- wp:studio-test/cta {"url":"#features"} /--></div><!-- /wp:group -->`;
+		const nowhere = await linksToNowhereChanges.read( site.path, undefined, host );
 		const { reports, next } = await check( async () => {
 			writeFileSync( theme( 'parts/header.html' ), header );
 			writeFileSync( theme( 'parts/footer.html' ), `<!-- wp:navigation {"ref":${ menu }} /-->` );
@@ -113,6 +115,11 @@ describe.runIf( WORDPRESS )( 'navigation links to sections of the front page', (
 		expect( ( await wp( 'post', 'get', String( menu ), '--field=post_content' ) ).trim() ).toBe(
 			link( 'About', '/#about' )
 		);
+		// The same render of the front page shows the link no page has a section for.
+		const after = await linksToNowhereChanges.read( site.path, nowhere, host );
+		expect(
+			( await linksToNowhereChanges.check( site, nowhere, after, host ) ).reports[ 0 ].problem
+		).toMatch( /the links "Contact" \(#contact\) in .* go nowhere/ );
 		// Linked to the front page, it is not stated again.
 		expect(
 			( await check( async () => writeFileSync( theme( 'parts/footer.html' ), '' ) ) ).reports

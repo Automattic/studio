@@ -155,7 +155,7 @@ it( 'keeps icon-only annotation available beside overflow with sharing feedback'
 	expect( headerButtons( 'Send 1 annotation' ) ).toHaveLength( 0 );
 } );
 
-it( 'keeps Send available for staged annotations after leaving annotation mode', async () => {
+it( 'hides annotation actions on Escape and restores the notes when annotation mode reopens', async () => {
 	const siteId = 'header-send-site';
 	const onSend = vi.fn();
 	const { user } = await renderHeader( siteId, createFakeConnector(), 1000, true, onSend );
@@ -175,9 +175,16 @@ it( 'keeps Send available for staged annotations after leaving annotation mode',
 	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
 	act( () => stageAnnotations( siteId, [ noteId ] ) );
 	expect( headerButtons( 'Send 1 annotation' )[ 0 ] ).toBeEnabled();
-	await user.click( annotate );
+	await user.keyboard( '{Escape}' );
 	expect( annotate ).toHaveAttribute( 'aria-pressed', 'false' );
+	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
+	expect( headerButtons( 'Discard annotations' ) ).toHaveLength( 0 );
+	expect( screen.queryByRole( 'toolbar', { name: 'Annotations' } ) ).not.toBeInTheDocument();
+	expect( getSiteAnnotations( siteId ).notes[ 0 ].comment ).toBe( 'Make this heading smaller' );
+	await user.click( annotate );
+	expect( annotate ).toHaveAttribute( 'aria-pressed', 'true' );
 	expect( headerButtons( 'Send 1 annotation' )[ 0 ] ).toBeEnabled();
+	expect( headerButtons( 'Discard annotations' )[ 0 ] ).toBeEnabled();
 	act( () => changeAnnotation( siteId, noteId, { comment: '' } ) );
 	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
 	act( () => changeAnnotation( siteId, noteId, { comment: 'Make this heading smaller' } ) );
@@ -186,10 +193,54 @@ it( 'keeps Send available for staged annotations after leaving annotation mode',
 	await user.click( send );
 	expect( onSend ).toHaveBeenCalledExactlyOnceWith( siteId );
 	expect( getSiteAnnotations( siteId ).active ).toBe( false );
-	expect( headerButtons( 'Send 1 annotation' )[ 0 ] ).toBeVisible();
+	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
 	act( () => removeAnnotations( siteId, [ noteId ] ) );
 	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
 } );
+
+it.each( [ true, false ] )(
+	'restores annotation actions before discarding notes (initially active: %s)',
+	async ( active ) => {
+		const siteId = `header-cancel-${ active }`;
+		const onSend = vi.fn();
+		const { user } = await renderHeader( siteId, createFakeConnector(), 1000, true, onSend );
+		readyGuest();
+		await waitFor( () =>
+			expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeEnabled()
+		);
+		expect( headerButtons( 'Discard annotations' ) ).toHaveLength( 0 );
+		act( () => {
+			setAnnotating( siteId, true );
+			const id = pickAnnotation( siteId, { selector: 'h1', tag: 'h1', path: '/' } )!;
+			changeAnnotation( siteId, id, { comment: 'Keep this note until confirmed' } );
+			stageAnnotations( siteId, [ id ] );
+			setAnnotating( siteId, active );
+		} );
+		if ( ! active ) {
+			expect( headerButtons( 'Discard annotations' ) ).toHaveLength( 0 );
+			await user.click( screen.getByRole( 'button', { name: 'Annotate' } ) );
+		}
+		const cancel = headerButtons( 'Discard annotations' )[ 0 ];
+		expect( cancel ).toBeEnabled();
+		expect( headerButtons( 'Send 1 annotation' )[ 0 ] ).toBeEnabled();
+		await user.click( cancel );
+		let dialog = await screen.findByRole( 'alertdialog', {
+			name: 'Discard all pending annotations?',
+		} );
+		await user.click( within( dialog ).getByRole( 'button', { name: 'Cancel' } ) );
+		expect( getSiteAnnotations( siteId ).notes[ 0 ].comment ).toBe(
+			'Keep this note until confirmed'
+		);
+		await user.click( cancel );
+		dialog = await screen.findByRole( 'alertdialog', { name: 'Discard all pending annotations?' } );
+		await user.click( within( dialog ).getByRole( 'button', { name: 'Discard' } ) );
+		expect( getSiteAnnotations( siteId ).notes ).toHaveLength( 0 );
+		expect( getSiteAnnotations( siteId ).active ).toBe( false );
+		expect( headerButtons( 'Discard annotations' ) ).toHaveLength( 0 );
+		expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
+		expect( onSend ).not.toHaveBeenCalled();
+	}
+);
 
 it( 'exposes browser actions with their navigation availability in overflow', async () => {
 	const connector = createFakeConnector();

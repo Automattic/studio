@@ -10,7 +10,7 @@ import { SidebarCollapsedContext } from '@/data/use-sidebar-collapsed';
 import { PreviewSplitFrame } from './index';
 import type { ComponentProps } from 'react';
 
-const SITE_WIDTH_KEY = getPreviewContentWidthStorageKey( 'one' );
+const SITE_WIDTH_KEY = PREVIEW_CONTENT_WIDTH_STORAGE_KEY;
 
 function CornerProbe( { testId }: { testId: string } ) {
 	const inCorner = useContext( WindowControlsCornerContext );
@@ -50,6 +50,7 @@ describe( 'PreviewSplitFrame', () => {
 	afterEach( () => {
 		getBoundingClientRectSpy.mockRestore();
 		window.localStorage.removeItem( SITE_WIDTH_KEY );
+		window.localStorage.removeItem( getPreviewContentWidthStorageKey( 'one' ) );
 		window.localStorage.removeItem( getPreviewContentWidthStorageKey( 'two' ) );
 		window.localStorage.removeItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY );
 		vi.unstubAllGlobals();
@@ -141,6 +142,18 @@ describe( 'PreviewSplitFrame', () => {
 			);
 		} );
 
+		it( 'finishes a manual slide immediately when startup takes over the same open layout', () => {
+			const { rerender } = render( frame( 'Stopped site', false ) );
+			rerender( frame( 'Stopped site', true ) );
+			expect(
+				screen.queryByRole( 'separator', { name: 'Resize site preview' } )
+			).not.toBeInTheDocument();
+			rerender( frame( 'Starting site', true, true ) );
+			expect(
+				screen.getByRole( 'separator', { name: 'Resize site preview' } )
+			).toBeInTheDocument();
+		} );
+
 		it( 'closes immediately when an instant close interrupts an opening preview', async () => {
 			const { rerender } = render( frame( 'Stopped site', false ) );
 			rerender( frame( 'Running site', true ) );
@@ -176,8 +189,8 @@ describe( 'PreviewSplitFrame', () => {
 		expect( screen.getByLabelText( 'Site preview' ) ).toBeVisible();
 	} );
 
-	it( 'restores each site width without remounting the preview', () => {
-		window.localStorage.setItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY, '620' );
+	it( 'shares the resized width across sites and reloads without remounting the preview', () => {
+		window.localStorage.setItem( getPreviewContentWidthStorageKey( 'one' ), '620' );
 		const frame = ( siteId: string ) => (
 			<PreviewSplitFrame
 				siteId={ siteId }
@@ -193,22 +206,22 @@ describe( 'PreviewSplitFrame', () => {
 		fireEvent.keyDown( screen.getByRole( 'separator' ), { key: 'ArrowRight' } );
 		expect( localStorage.getItem( SITE_WIDTH_KEY ) ).toBe( '376' );
 		rerender( frame( 'two' ) );
-		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 360px' );
+		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 376px' );
 		expect( screen.getByLabelText( 'Site preview' ) ).toBe( preview );
 		fireEvent.keyDown( screen.getByRole( 'separator' ), { key: 'ArrowRight', shiftKey: true } );
-		expect( localStorage.getItem( getPreviewContentWidthStorageKey( 'two' ) ) ).toBe( '400' );
+		expect( localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY ) ).toBe( '416' );
 		rerender( frame( 'one' ) );
-		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 376px' );
+		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 416px' );
 		unmount();
 		render( frame( 'two' ) );
-		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 400px' );
+		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 416px' );
 		expect( screen.getByRole( 'separator', { name: 'Resize site preview' } ) ).toHaveAttribute(
 			'aria-valuenow',
-			'600'
+			'584'
 		);
 	} );
 
-	it( 'cancels a drag when switching sites without overwriting either saved width', () => {
+	it( 'cancels a drag when switching sites without overwriting the shared width', () => {
 		localStorage.setItem( SITE_WIDTH_KEY, '500' );
 		const frame = ( siteId: string ) => (
 			<PreviewSplitFrame siteId={ siteId } previewOpen preview={ () => <aside /> }>
@@ -222,7 +235,7 @@ describe( 'PreviewSplitFrame', () => {
 		expect( document.body ).not.toHaveStyle( { cursor: 'col-resize' } );
 		expect( localStorage.getItem( SITE_WIDTH_KEY ) ).toBe( '500' );
 		expect( localStorage.getItem( getPreviewContentWidthStorageKey( 'two' ) ) ).toBeNull();
-		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 360px' );
+		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 500px' );
 	} );
 
 	it( 'keeps the content width stable as the window grows', async () => {

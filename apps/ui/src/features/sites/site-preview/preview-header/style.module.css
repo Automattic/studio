@@ -83,6 +83,7 @@
 
 .annotationSendMotion {
 	display: flex;
+	gap: var( --space-0_5 );
 	flex-shrink: 0;
 	align-items: center;
 	opacity: 0;
@@ -91,6 +92,14 @@
 
 .annotationSendSlot[data-open='true'] .annotationSendMotion {
 	opacity: 1;
+}
+
+.annotationDivider {
+	flex-shrink: 0;
+	width: 1px;
+	height: 10px;
+	margin-inline: var( --space-1 );
+	background-color: var( --border );
 }
 
 .annotationSend {

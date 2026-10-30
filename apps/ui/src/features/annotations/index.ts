@@ -1,3 +1,4 @@
+export { AnnotationCancelButton } from './cancel-button';
 export { type AnnotationAnchor, AnnotationOverlay } from './overlay';
 export {
 	changeAnnotation,

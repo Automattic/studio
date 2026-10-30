@@ -106,7 +106,10 @@ describe( 'annotation inspector navigation', () => {
 		expect( latestCommand() ).toContain( '"pending":true' );
 		expect( latestCommand() ).toContain( '"pendingAnnotationLabel":"Pending annotation"' );
 		act( () => escapeAnnotations( site.id ) );
+		expect( latestCommand() ).toContain( '"active":false' );
 		expect( latestCommand() ).toContain( '"pending":true' );
+		act( () => setAnnotating( site.id, true ) );
+		expect( latestCommand() ).toContain( '"active":true' );
 		act( () => stageAnnotations( site.id, [ id ] ) );
 		expect( latestCommand() ).toContain( '"pending":false' );
 		act( () => editAnnotation( site.id, id ) );

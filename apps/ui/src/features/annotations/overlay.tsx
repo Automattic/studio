@@ -14,21 +14,15 @@ import {
 	Badge,
 	Button,
 	IconButton,
-	AlertDialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
 	Spinner,
 	Textarea,
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
 } from '@/lib/ui';
+import { AnnotationCancelButton } from './cancel-button';
 import {
 	changeAnnotation,
-	clearAnnotations,
 	closeAnnotationEditor,
 	escapeAnnotations,
 	getSiteAnnotations,
@@ -70,8 +64,6 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 	const note = notes.find( ( item ) => item.id === editingId );
 	const count = notes.filter( hasAnnotationContent ).length;
 	const stagedCount = notes.filter( isStagedAnnotation ).length;
-	const [ confirming, setConfirming ] = useState( false );
-	const cancelRef = useRef< HTMLButtonElement >( null );
 
 	useEffect( () => {
 		if ( ! active ) return;
@@ -89,14 +81,6 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 		document.addEventListener( 'keydown', onKeyDown );
 		return () => document.removeEventListener( 'keydown', onKeyDown );
 	}, [ active, siteId ] );
-
-	const cancel = () => {
-		if ( count ) {
-			setConfirming( true );
-		} else {
-			clearAnnotations( siteId );
-		}
-	};
 
 	return (
 		<div className={ styles.overlay } data-annotation-overlay>
@@ -117,9 +101,7 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 				data-open={ active }
 				className={ styles.bar }
 			>
-				<Button variant="ghost" disabled={ busy } onClick={ cancel }>
-					{ __( 'Cancel' ) }
-				</Button>
+				<AnnotationCancelButton siteId={ siteId } />
 				<Button
 					variant="accent"
 					aria-label={ sprintf(
@@ -138,30 +120,6 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 					) : null }
 				</Button>
 			</div>
-			<AlertDialog open={ active && confirming } onOpenChange={ setConfirming }>
-				<DialogContent layout="confirmation" initialFocus={ cancelRef }>
-					<DialogHeader>
-						<DialogTitle>{ __( 'Discard all pending annotations?' ) }</DialogTitle>
-						<DialogDescription tone="default">
-							{ __( 'All edits will be removed from this page.' ) }
-						</DialogDescription>
-					</DialogHeader>
-					<DialogFooter>
-						<Button ref={ cancelRef } variant="outline" onClick={ () => setConfirming( false ) }>
-							{ __( 'Cancel' ) }
-						</Button>
-						<Button
-							variant="destructive"
-							onClick={ () => {
-								setConfirming( false );
-								clearAnnotations( siteId );
-							} }
-						>
-							{ __( 'Discard' ) }
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</AlertDialog>
 		</div>
 	);
 }

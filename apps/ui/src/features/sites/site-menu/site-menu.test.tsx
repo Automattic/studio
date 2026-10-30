@@ -271,7 +271,7 @@ describe( 'Stop other sites', () => {
 		await waitFor( () =>
 			expect( connector.startSite ).toHaveBeenCalledExactlyOnceWith( 'selected' )
 		);
-		expect( screen.getByRole( 'status', { name: 'Preview' } ) ).toBeEmptyDOMElement();
+		expect( screen.getByRole( 'status', { name: 'Preview' } ) ).toHaveTextContent( 'selected /' );
 		finishStart();
 		await waitFor( () =>
 			expect( screen.getByRole( 'status', { name: 'Preview' } ) ).toHaveTextContent(

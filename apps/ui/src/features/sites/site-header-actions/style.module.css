@@ -67,3 +67,19 @@
 .browserSpace:empty {
 	display: none;
 }
+
+.annotationCancel {
+	--button-hover-background: light-dark(
+		color-mix( in srgb, var( --accent ) 8%, transparent ),
+		color-mix( in srgb, var( --accent ) 12%, transparent )
+	);
+	--button-hover-color: var( --accent-text );
+	color: var( --accent-text );
+}
+
+@media ( max-width: 540px ) {
+	.delivery:has( [data-annotation-actions][data-open='true'] )
+		> :is( [data-site-header-share], [data-site-header-publish] ) {
+		display: none;
+	}
+}

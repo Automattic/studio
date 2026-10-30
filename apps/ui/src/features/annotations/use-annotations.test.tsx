@@ -115,7 +115,8 @@ describe( 'preview annotation sessions', () => {
 		act( () => escapeAnnotations( SITE ) );
 		expect( session().notes ).toEqual( [ expect.objectContaining( { id: first, number: 1 } ) ] );
 		expect( session().editingId ).toBeNull();
-		expect( session().active ).toBe( true );
+		expect( session().active ).toBe( false );
+		act( () => setAnnotating( SITE, true ) );
 		add( '' );
 		expect( session().notes.at( -1 )?.number ).toBe( 2 );
 	} );

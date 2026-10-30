@@ -2,6 +2,7 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import { AnnotateIcon } from '@/lib/icons';
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import styles from './style.module.css';
+import type { ReactNode } from 'react';
 
 export function AnnotateButton( {
 	active,
@@ -9,6 +10,7 @@ export function AnnotateButton( {
 	disabledReason,
 	iconOnly,
 	onClick,
+	cancel,
 	send,
 }: {
 	active: boolean;
@@ -16,6 +18,7 @@ export function AnnotateButton( {
 	disabledReason?: string;
 	iconOnly: boolean;
 	onClick: () => void;
+	cancel?: ReactNode;
 	send?: {
 		count: number;
 		visible: boolean;
@@ -24,7 +27,7 @@ export function AnnotateButton( {
 		onClick: () => void;
 	};
 } ) {
-	const showSend = Boolean( send?.visible );
+	const showSend = active && Boolean( send?.visible );
 	return (
 		<span
 			className={ styles.annotationControl }
@@ -62,12 +65,16 @@ export function AnnotateButton( {
 			{ send ? (
 				<span
 					className={ styles.annotationSendSlot }
+					data-annotation-actions
 					data-open={ showSend }
 					aria-hidden={ ! showSend }
 					inert={ ! showSend }
 				>
 					<span className={ styles.annotationSendContent }>
 						<span className={ styles.annotationSendMotion }>
+							<span className={ styles.annotationDivider } aria-hidden="true" />
+							{ cancel }
+							{ cancel ? <span className={ styles.annotationDivider } aria-hidden="true" /> : null }
 							<Button
 								variant="accent"
 								size="2xs"

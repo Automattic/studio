@@ -46,14 +46,14 @@ const image = ( id: string ): ComposerImageAttachment => ( {
 } );
 
 describe( 'AnnotationOverlay', () => {
-	it( 'dismisses an empty annotation with Escape while a notification is visible', async () => {
+	it( 'leaves annotation mode with Escape while a notification is visible', async () => {
 		await setup();
 		render( <div role="dialog" aria-modal="false" data-slot="toast" /> );
 		annotate();
 		pick();
 		fireEvent.keyDown( screen.getByRole( 'textbox', { name: 'Leave a note' } ), { key: 'Escape' } );
 		expect( screen.queryByRole( 'textbox', { name: 'Leave a note' } ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'toolbar', { name: 'Annotations' } ) ).toBeInTheDocument();
+		expect( screen.queryByRole( 'toolbar', { name: 'Annotations' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'leaves the annotation open for Escape in a dialog and ignores closed dialogs', async () => {

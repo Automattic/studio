@@ -7,6 +7,7 @@ import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
 import { useIsSiteBusy, useStartSite } from '@/data/queries/use-sites';
 import { useSessionPreviewUI } from '@/data/use-session-ui';
 import {
+	AnnotationCancelButton,
 	hasAnnotationContent,
 	isStagedAnnotation,
 	isAnnotationsBusy,
@@ -198,7 +199,7 @@ export function SiteHeaderActions( {
 				return;
 			}
 			if ( onStartAnnotating?.() === false ) return;
-			preview.setOpen( true );
+			preview.setOpen( true, { instant: ! site.running } );
 			preview.setChatHidden( narrow, site.id );
 			setAnnotating( site.id, true );
 			if ( ! site.running ) {
@@ -301,6 +302,14 @@ export function SiteHeaderActions( {
 						<AnnotateButton
 							{ ...annotation }
 							iconOnly
+							cancel={
+								<AnnotationCancelButton
+									siteId={ site.id }
+									iconOnly
+									size="icon-xs"
+									className={ styles.annotationCancel }
+								/>
+							}
 							send={ {
 								count: annotations.notes.filter( hasAnnotationContent ).length,
 								visible: annotations.notes.some( isStagedAnnotation ),

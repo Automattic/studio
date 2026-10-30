@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import { useIsSiteBusy } from '@/data/queries/use-sites';
-import { useStartSitePreview } from '@/data/use-start-site-preview';
+import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import { SiteMenuItems, useSiteActions } from '@/features/sites/site-menu';
 import { StartSiteIcon } from '@/lib/icons';
 import { IconButton, Menu } from '@/lib/ui';
@@ -60,7 +60,7 @@ export function StoppedSitePreview( {
 	showStartButton?: boolean;
 } ) {
 	const { data: thumbnail } = useSiteThumbnail( site.id );
-	const startSite = useStartSitePreview();
+	const startSite = useStartSiteWithChat();
 	const isBusy = useIsSiteBusy( site );
 	if ( ! thumbnail ) {
 		return showStartButton ? (

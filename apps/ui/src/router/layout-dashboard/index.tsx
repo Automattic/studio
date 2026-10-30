@@ -1,14 +1,19 @@
 import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
 import { createRoute, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useSession, useSessionLiveSite } from '@/data/queries/use-sessions';
 import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
-import { useIsSiteStopping, useSiteOperation, useSites } from '@/data/queries/use-sites';
+import {
+	useIsSiteStarting,
+	useIsSiteStopping,
+	useSiteOperation,
+	useSites,
+} from '@/data/queries/use-sites';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { pathForSite, useSessionPreviewUI } from '@/data/use-session-ui';
 import { AccountPromptDialog } from '@/features/account';
@@ -127,11 +132,11 @@ function DashboardLayout() {
 	const previewSite = routeSite ?? lastPreviewSite;
 	const previewSiteId = previewSite?.id;
 	const { setSite: setPreviewSite } = preview;
-	useEffect( () => {
+	useLayoutEffect( () => {
 		if ( previewSiteId ) {
-			setPreviewSite( previewSiteId );
+			setPreviewSite( previewSiteId, { running: !! previewSite?.running || !! liveUrl } );
 		}
-	}, [ previewSiteId, setPreviewSite ] );
+	}, [ previewSiteId, previewSite?.running, liveUrl, setPreviewSite ] );
 	// Look up by the route's site so the path is right even before the
 	// `setPreviewSite` effect lands.
 	const previewPath = pathForSite( preview.pathsBySiteId, previewSiteId );
@@ -143,8 +148,10 @@ function DashboardLayout() {
 	);
 	// A site's own page always shows its preview. Beside a chat, stopped sites
 	// can be opened explicitly to show their thumbnail and start control.
+	const startPending = useIsSiteStarting( previewSite?.id );
 	const stopPending = useIsSiteStopping( previewSite?.id );
 	const previewOperation = useSiteOperation( previewSite );
+	const previewStarting = startPending || previewOperation === 'start';
 	const previewStopping = stopPending || previewOperation === 'stop';
 	const previousPreviewSite = useRef< { id: string; running: boolean } | undefined >( undefined );
 	const { setOpen, setChatHidden } = preview;
@@ -161,8 +168,7 @@ function DashboardLayout() {
 			supportsPreview &&
 			! liveUrl
 		) {
-			setOpen( false );
-			setChatHidden( false, previewSite.id );
+			setOpen( false, { instant: true } );
 			if ( homeSiteId ) {
 				void navigate( { to: '/sites/$siteId/new', params: { siteId: homeSiteId } } );
 			}
@@ -181,13 +187,24 @@ function DashboardLayout() {
 	const previewExpanded = showPreview && ( ! narrow || chatHidden );
 	const setPreviewOpen = useCallback(
 		( open: boolean ) => {
+			const stopped = ! liveUrl && ! previewSite?.running;
 			setOpen( open );
-			setChatHidden( open && narrow, previewSiteId );
+			if ( open && ( narrow || stopped ) ) setChatHidden( narrow, previewSiteId );
 			if ( homeSiteId ) {
+				setChatHidden( stopped ? narrow : true, homeSiteId );
 				void navigate( { to: '/sites/$siteId/new', params: { siteId: homeSiteId } } );
 			}
 		},
-		[ setOpen, setChatHidden, narrow, previewSiteId, homeSiteId, navigate ]
+		[
+			setOpen,
+			setChatHidden,
+			narrow,
+			previewSiteId,
+			previewSite?.running,
+			liveUrl,
+			homeSiteId,
+			navigate,
+		]
 	);
 	useEffect(
 		() =>
@@ -283,7 +300,7 @@ function DashboardLayout() {
 					previewOpen={ showPreview }
 					previewLoading={ preview.revealingSiteId === previewSiteId }
 					chatHidden={ chatHidden }
-					instant={ previewStopping }
+					instant={ preview.instant || previewStarting || previewStopping }
 					preview={ renderPreview }
 					header={
 						supportsPreview && routeSite ? (

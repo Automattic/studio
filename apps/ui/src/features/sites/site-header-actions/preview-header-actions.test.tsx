@@ -122,7 +122,7 @@ it( 'keeps icon-only annotation available beside overflow with sharing feedback'
 	await waitFor( () => expect( annotation ).toBeEnabled() );
 	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 	expect( headerButtons( /^Send/ ) ).toHaveLength( 1 );
-	expect( headerButtons( /^Send/ )[ 0 ] ).toHaveAttribute( 'aria-disabled', 'true' );
+	expect( headerButtons( /^Send/ )[ 0 ] ).toBeDisabled();
 	expect( annotation ).toHaveAttribute( 'aria-pressed', 'true' );
 	expect( annotation ).toHaveTextContent( '' );
 	await user.click( annotation );
@@ -163,7 +163,7 @@ it( 'sends pending notes from the expanded Annotate control and keeps the bottom
 	await waitFor( () => expect( annotate ).toBeEnabled() );
 	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
 	await user.click( annotate );
-	expect( headerButtons( /^Send/ )[ 0 ] ).toHaveAttribute( 'aria-disabled', 'true' );
+	expect( headerButtons( /^Send/ )[ 0 ] ).toBeDisabled();
 	await user.click( headerButtons( /^Send/ )[ 0 ] );
 	expect( onSend ).not.toHaveBeenCalled();
 	expect( screen.getByRole( 'toolbar', { name: 'Annotations' } ) ).toBeVisible();

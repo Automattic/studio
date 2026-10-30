@@ -1,6 +1,6 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { AnnotateIcon, SendIcon } from '@/lib/icons';
-import { Button, IconButton, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
+import { AnnotateIcon } from '@/lib/icons';
+import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import styles from './style.module.css';
 
 export function AnnotateButton( {
@@ -55,22 +55,22 @@ export function AnnotateButton( {
 			{ send ? (
 				<span className={ styles.annotationSendSlot } aria-hidden={ ! active } inert={ ! active }>
 					<span className={ styles.annotationSendContent }>
-						<IconButton
+						<Button
 							variant="accent"
-							size="icon-sm"
+							size="header"
 							className={ styles.annotationSend }
-							icon={ <SendIcon /> }
-							label={ sprintf(
+							aria-label={ sprintf(
 								/* translators: %d: number of annotations. */
 								_n( 'Send %d annotation', 'Send %d annotations', send.count ),
 								send.count
 							) }
-							tooltipSide="bottom"
 							disabled={ disabled || send.disabled || ! send.count || ! active }
 							loading={ send.loading }
 							loadingMode="replace"
 							onClick={ send.onClick }
-						/>
+						>
+							{ __( 'Send' ) }
+						</Button>
 					</span>
 				</span>
 			) : null }

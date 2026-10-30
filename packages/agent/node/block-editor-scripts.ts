@@ -14,9 +14,16 @@
  * the site's block editor does not register: another of the plugin's editor
  * scripts can register a block, as a parent block's script registers its
  * inner blocks.
+ *
+ * A plugin WordPress updates, as from WordPress.org, is its author's code: an
+ * update replaces its folder (Plugin_Upgrader::upgrade() in
+ * wp-admin/includes/class-plugin-upgrader.php), and WordPress's last update
+ * check (wp_update_plugins() in wp-includes/update.php) lists it in the
+ * update_plugins transient. Its blocks are not the site's to fix.
  */
 import { activeCodeVersion } from '@studio/agent/node/active-code';
 import { unregisteredInEditor } from '@studio/agent/node/block-validator';
+import { readWordPressSite } from '@studio/agent/node/site-database';
 import { runWpCli } from '@studio/agent/node/tools/utils';
 import type { SiteChangeSource } from '@studio/agent/node/site-changes';
 
@@ -69,6 +76,18 @@ export const blockEditorScripts: SiteChangeSource = {
 			// Code that does not load is reported by what runs it.
 			return { reports: [] };
 		}
+		const updated = await updatedPluginFolders( site.path );
+		for ( const [ name, files ] of Object.entries( without ) ) {
+			const own = files.filter(
+				( file ) =>
+					! updated.some( ( folder ) => file.includes( `/wp-content/plugins/${ folder }/` ) )
+			);
+			if ( own.length ) {
+				without[ name ] = own;
+			} else {
+				delete without[ name ];
+			}
+		}
 		const names = Object.keys( without ).length
 			? await unregisteredInEditor( Object.keys( without ), site.url ).catch( () =>
 					Object.keys( without )
@@ -90,3 +109,18 @@ export const blockEditorScripts: SiteChangeSource = {
 		};
 	},
 };
+
+type UpdateCheck =
+	| Partial< Record< 'response' | 'no_update', Record< string, unknown > > >
+	| undefined;
+
+// The folders of the plugins WordPress's last update check found an update source for.
+async function updatedPluginFolders( sitePath: string ): Promise< string[] > {
+	const updates = await readWordPressSite(
+		sitePath,
+		( site ) => site.option( '_site_transient_update_plugins' ) as UpdateCheck
+	).catch( () => undefined );
+	return [ ...Object.keys( updates?.response ?? {} ), ...Object.keys( updates?.no_update ?? {} ) ]
+		.filter( ( plugin ) => plugin.includes( '/' ) )
+		.map( ( plugin ) => plugin.split( '/' )[ 0 ] );
+}

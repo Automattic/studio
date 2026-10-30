@@ -27,6 +27,12 @@ export interface Row {
 	content: string;
 }
 
+// The version of the code WordPress runs: its active plugins and theme. A call
+// that activates or switches them runs their code, which can write posts of
+// its own, as WooCommerce writes its Shop and Cart pages (WC_Install::create_pages()),
+// in the same call as the agent writes its own: their fixes are stated, not saved.
+const CODE = 'code';
+
 // Each rendered post's content-sensitive version, by post ID.
 export async function readVersions( sitePath: string ): Promise< Versions > {
 	const rows = await readWordPressSite( sitePath, ( site ) =>
@@ -37,6 +43,16 @@ export async function readVersions( sitePath: string ): Promise< Versions > {
 		)
 	);
 	return Object.fromEntries( rows.map( ( row ) => [ row.id, row.version ] ) );
+}
+
+// The posts' versions, and the code's.
+async function readPostsAndCode( sitePath: string ): Promise< Versions > {
+	const code = await readWordPressSite( sitePath, ( site ) =>
+		JSON.stringify(
+			[ 'active_plugins', 'template', 'stylesheet' ].map( ( name ) => site.option( name ) ?? null )
+		)
+	);
+	return { ...( await readVersions( sitePath ) ), [ CODE ]: code };
 }
 
 export async function readPosts( sitePath: string, ids: string[] ): Promise< Row[] > {
@@ -185,14 +201,16 @@ async function areaReport(
 }
 
 // A lossless fix is saved to the post, as Studio saves one to a file
-// (block-validation-gate.ts). One Studio cannot save stays in the site's tmp/
+// (block-validation-gate.ts), unless code activated in the call may have
+// written the post. One Studio does not save stays in the site's tmp/
 // for the agent to apply; named by its absolute path, which holds whatever
 // folder the agent's shell is in, with forward slashes, which the shell keeps
 // where it reads a Windows backslash as an escape.
 async function validatePost(
 	host: StudioAgentHost,
 	site: HostSite,
-	post: Row
+	post: Row,
+	save: boolean
 ): Promise< Omit< ChangeReport, 'key' > & { saved?: boolean } > {
 	const label = `${ site.name } ${ post.type } ${ post.id } "${ post.title }"`;
 	// Before the presets the save stores its blocks with are read.
@@ -219,10 +237,12 @@ async function validatePost(
 	await mkdir( path.dirname( fixFile ), { recursive: true } );
 	await writeFile( fixFile, result.fixedContent, 'utf8' );
 	const saves = describeEditorSave( result, ' that do not match what the block saves' );
-	const saved = await savePost( host, site, post.id, fixFile ).then(
-		() => true,
-		() => false
-	);
+	const saved =
+		save &&
+		( await savePost( host, site, post.id, fixFile ).then(
+			() => true,
+			() => false
+		) );
 	if ( saved ) {
 		await rm( fixFile, { force: true } );
 		return {
@@ -252,14 +272,18 @@ async function validatePost(
 export const postContentChanges: SiteChangeSource = {
 	name: 'posts',
 	saves: true,
-	read: readVersions,
+	read: readPostsAndCode,
 	async check( site, before, after, host ) {
-		const changed = Object.keys( after ).filter( ( id ) => before[ id ] !== after[ id ] );
+		const changed = Object.keys( after ).filter(
+			( id ) => id !== CODE && before[ id ] !== after[ id ]
+		);
 		const reports: ChangeReport[] = [];
 		let saved = false;
 		const posts = changed.length ? await readPosts( site.path, changed ) : [];
+		// What code activated in this call wrote is its own, and stays as it wrote it.
+		const save = before[ CODE ] === after[ CODE ];
 		for ( const post of posts ) {
-			const { saved: savedPost, ...result } = await validatePost( host, site, post ).catch(
+			const { saved: savedPost, ...result } = await validatePost( host, site, post, save ).catch(
 				( error: unknown ) => ( {
 					summary: `${ site.name } ${ post.type } ${ post.id }: not validated (${
 						error instanceof Error ? error.message : String( error )
@@ -280,6 +304,6 @@ export const postContentChanges: SiteChangeSource = {
 		// Once each names its theme, whose part it replaces.
 		reports.push( ...( await areaReport( host, site, posts ) ) );
 		// The posts Studio saved are compared from what it saved.
-		return { reports, next: saved ? await readVersions( site.path ) : undefined };
+		return { reports, next: saved ? await readPostsAndCode( site.path ) : undefined };
 	},
 };

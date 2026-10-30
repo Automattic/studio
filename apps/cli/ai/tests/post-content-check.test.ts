@@ -178,6 +178,19 @@ describe( 'post content changes', () => {
 		expect( ( await check.settle() ).summaries ).toEqual( [] );
 	} );
 
+	// As activating WooCommerce writes its Cart page, in the same call as the agent writes its own.
+	it( 'states the fix of a post written in a call that activated code, and leaves the post as it is', async () => {
+		vi.mocked( validateBlocks ).mockResolvedValue( losslessFix );
+		const check = checkPosts();
+		await check.snapshot();
+		fixture.setOptions( { active_plugins: 'a:1:{i:0;s:27:"woocommerce/woocommerce.php";}' } );
+		fixture.edit( 9, UNWRAPPED_GROUP );
+		const { summaries, problems } = await check.settle();
+		expect( summaries ).toEqual( [ 'Block validation: Bakery page 9 "": 1 invalid block(s)' ] );
+		expect( problems[ 0 ] ).toContain( "Apply it in the site's folder with `wp post update 9 " );
+		expect( fixture.content( 9 ) ).toBe( UNWRAPPED_GROUP );
+	} );
+
 	it( 'saves a lossless editor fix next to the site, with the command that applies it, when it cannot save it', async () => {
 		saves( false );
 		vi.mocked( validateBlocks ).mockResolvedValue( losslessFix );

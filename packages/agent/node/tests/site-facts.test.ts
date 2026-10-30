@@ -276,23 +276,32 @@ it( 'adds to a tool result the facts the agent does not have yet, as they now re
 // Studio defines the address as WP_HOME, so it is what home_url() returns, and
 // WP_DEBUG_LOG from the site's debug log setting.
 it.each( [
-	{ studioSite: { url: 'http://localhost:9098' }, address: 'http://localhost:9098', logged: false },
+	{
+		studioSite: { url: 'http://localhost:9098' },
+		address: 'http://localhost:9098',
+		logged: false,
+		running: true,
+		state: 'Studio is serving the site there now.',
+	},
 	{
 		studioSite: { url: 'https://bakery.local', enableDebugLog: true },
 		address: 'https://bakery.local',
 		logged: true,
+		running: false,
+		state: 'The site is stopped: site_start serves it.',
 	},
 ] )(
-	'states the address Studio serves the site at: $address',
-	async ( { studioSite, address, logged } ) => {
+	'states the address Studio serves the site at, and whether it serves it now: $address',
+	async ( { studioSite, address, logged, running, state } ) => {
 		const site = createSite( 'wp_' );
+		vi.mocked( host.sites.isRunning ).mockResolvedValueOnce( running );
 		vi.mocked( host.sites.findByFolder ).mockImplementation( async ( folder ) =>
 			folder === site.root
 				? ( { ...fakeSite, path: site.root, ...studioSite } as HostSite )
 				: undefined
 		);
 		expect( await site.facts() ).toEqual( [
-			`Address: ${ address } (home_url()).`,
+			`Address: ${ address } (home_url()). ${ state }`,
 			`WP-CLI: \`studio wp <command>\` run in ${ site.root } runs it on this site, on Studio's PHP and with its SQLite database (wp-content/db.php).`,
 			logged
 				? `PHP errors: WordPress logs them to ${ site.root }/wp-content/debug.log (WP_DEBUG_LOG, wp_debug_mode() in wp-includes/load.php).`

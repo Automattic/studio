@@ -35,13 +35,24 @@ function wordPressVersionFact( site: WordPressSite ): string | undefined {
 }
 
 // Studio serves the site at this address and defines it as WP_HOME before
-// WordPress boots (lib/native-php/site-setup.ts), so home_url() returns it.
+// WordPress boots (lib/native-php/site-setup.ts), so home_url() returns it;
+// whether it serves it now is what a request to it, or a screenshot, needs.
 async function siteAddressFact(
 	site: WordPressSite,
 	host: StudioAgentHost
 ): Promise< string | undefined > {
 	const studioSite = await host.sites.findByFolder( site.root );
-	return studioSite ? `Address: ${ studioSite.url } (home_url()).` : undefined;
+	if ( ! studioSite ) {
+		return undefined;
+	}
+	const serving = await host.sites.isRunning( studioSite ).catch( () => undefined );
+	const state =
+		serving === undefined
+			? ''
+			: serving
+			? ' Studio is serving the site there now.'
+			: ' The site is stopped: site_start serves it.';
+	return `Address: ${ studioSite.url } (home_url()).${ state }`;
 }
 
 // `studio wp` runs WP-CLI on the Studio site holding the folder it runs in

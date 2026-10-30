@@ -1,5 +1,7 @@
 import path from 'path';
 import { cliAgentHost } from 'cli/ai/host';
+import { resolveWpCliProcess } from 'cli/commands/wp';
+import { PHP_CHILD_ENV } from 'cli/lib/native-php/php-process';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node';
 import type { SiteData } from 'cli/lib/cli-config/core';
@@ -26,6 +28,15 @@ export function liveHost( ...sites: HostSite[] ): StudioAgentHost {
 				Promise.reject( new Error( `No site ${ nameOrPath }` ) ),
 			findByFolder: async ( folder ) => byFolder( folder ),
 			all: async () => sites,
+			wpCliProcess: async ( folder, argv ) => ( {
+				...( await resolveWpCliProcess( folder, argv, async ( at ) => {
+					const site = byFolder( at );
+					return site
+						? ( site as unknown as SiteData )
+						: Promise.reject( new Error( `No site at ${ at }` ) );
+				} ) ),
+				env: PHP_CHILD_ENV,
+			} ),
 			wpCli: async ( site, args ) => {
 				await using command = await runWpCliCommand( site as unknown as SiteData, args );
 				return {

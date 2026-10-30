@@ -82,6 +82,7 @@ import {
 	updateStudioToolPayloadGuardState,
 } from './tool-safety';
 import { withUsageCapErrorRewrite } from './usage-cap';
+import { serveWpCli } from './wp-cli-server';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 import type { StudioToolResultDetails } from '@studio/agent/node/tools/define-tool';
 import type { AskUserHandler, SiteInfo } from '@studio/agent/node/types';
@@ -458,20 +459,27 @@ async function createStudioAgentSession(
 ): Promise< AgentSession > {
 	const visionEnabled = model.input.includes( 'image' );
 	const confirm = createConfirmer( config.onConfirm ?? config.onAskUser );
-	const [ userInstructions, imageGenerationEnabled, activeSiteFacts, mcpServers ] =
+	const [ userInstructions, imageGenerationEnabled, activeSiteFacts, mcpServers, wpCliServer ] =
 		await Promise.all( [
 			readGlobalInstructions(),
 			isImageGenerationAvailable(),
 			readActiveSiteFacts( config.host, config.activeSite ),
 			readMcpServers( config.host.remoteHosts ),
+			serveWpCli( config.host ),
 		] );
 
 	const skillScope = new SkillToolScope( config.session );
 	let activateTools: () => void = () => {};
-	const tools = buildAgentTools( config, imageGenerationEnabled, visionEnabled, ( skillName ) => {
-		skillScope.unlock( skillName );
-		activateTools();
-	} );
+	const tools = buildAgentTools(
+		config,
+		imageGenerationEnabled,
+		visionEnabled,
+		wpCliServer,
+		( skillName ) => {
+			skillScope.unlock( skillName );
+			activateTools();
+		}
+	);
 	const mcpTools = await createMcpTools(
 		mcpServers,
 		confirm,
@@ -1094,9 +1102,12 @@ function readFileText( file: string ): string | undefined {
 
 // Every chunk of the CLI bundle sits next to `main.mjs`, so it is this
 // module's sibling; `STUDIO_CLI_BIN` points elsewhere in development.
-function getStudioWpSpawnHook() {
+function getStudioWpSpawnHook( wpCliServer: string | undefined ) {
 	const cliPath = process.env.STUDIO_CLI_BIN ?? path.join( import.meta.dirname, 'main.mjs' );
-	return agentShell( ensureStudioShimDirectory( getStudioShims( process.execPath, cliPath ) ) );
+	return agentShell(
+		ensureStudioShimDirectory( getStudioShims( process.execPath, cliPath ) ),
+		wpCliServer
+	);
 }
 
 // Bash starts in the active local site's folder, where most commands run and
@@ -1110,6 +1121,7 @@ function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
 	imageGenerationEnabled: boolean,
 	visionEnabled: boolean,
+	wpCliServer: string | undefined,
 	onSkillLoad: ( skillName: string ) => void
 ): AgentToolAny[] {
 	const { host } = config;
@@ -1136,7 +1148,9 @@ function buildAgentTools(
 		renameTool( createEditTool( sitesRoot ), 'Edit' ),
 		renameTool(
 			withDefaultTimeout(
-				createBashTool( shellDirectory( config ), { spawnHook: getStudioWpSpawnHook() } )
+				createBashTool( shellDirectory( config ), {
+					spawnHook: getStudioWpSpawnHook( wpCliServer ),
+				} )
 			),
 			'Bash'
 		),

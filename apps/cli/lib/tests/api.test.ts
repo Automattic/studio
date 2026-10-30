@@ -90,6 +90,23 @@ describe( 'API Module', () => {
 			).rejects.toThrow( 'Failed to upload archive' );
 		} );
 
+		it.each( [
+			[
+				'an HTTP status',
+				Object.assign( new Error( '413 status code' ), { statusCode: 413 } ),
+				'upload_http_413',
+			],
+			[ 'no response', new Error( 'socket hang up' ), 'upload_network' ],
+		] )( 'tags an upload failure with %s for analytics', async ( _label, mockError, code ) => {
+			vi.mocked( wpcomFactory ).mockReturnValue(
+				createWpcomMock( { post: vi.fn().mockRejectedValue( mockError ) } )
+			);
+
+			await expect(
+				uploadArchive( mockArchivePath, mockToken, mockWordPressVersion )
+			).rejects.toMatchObject( { code } );
+		} );
+
 		it( 'should throw LoggerError for invalid API response', async () => {
 			const invalidResponse = {
 				// Missing required fields

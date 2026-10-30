@@ -3,11 +3,15 @@ import path from 'path';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { STUDIO_LOADER_MU_PLUGIN_FILENAME } from '@studio/common/lib/mu-plugins';
 import { __ } from '@wordpress/i18n';
-import { ZipArchive } from 'archiver';
+import { ZipArchive, type ZipEntryData } from 'archiver';
 import { glob } from 'glob';
 import { LoggerError } from 'cli/logger';
 
 const ZIP_COMPRESSION_LEVEL = 9;
+// Media and archives are already compressed: deflating them again costs most of the archiving
+// time on a media-heavy site and saves almost nothing, so they are stored as they are.
+const ALREADY_COMPRESSED_FILE =
+	/\.(jpe?g|png|gif|webp|avif|heic|mp4|m4v|mov|webm|mp3|m4a|ogg|woff2?|zip|gz|tgz|bz2|xz|7z|rar|pdf)$/i;
 const STUDIO_LOADER_ARCHIVE_PATH = `wp-content/mu-plugins/${ STUDIO_LOADER_MU_PLUGIN_FILENAME }`;
 
 export async function archiveSiteContent(
@@ -59,7 +63,12 @@ export async function archiveSiteContent(
 			// can lead to EMFILE errors.
 			try {
 				const resolvedPath = fs.realpathSync( path.join( wpContentPath, relativePath ) );
-				archiveBuilder.file( resolvedPath, { name: archiveEntryPath } );
+				// `file()` passes the zip-only `store` option through, though its types omit it.
+				const entry: ZipEntryData = {
+					name: archiveEntryPath,
+					store: ALREADY_COMPRESSED_FILE.test( relativePath ),
+				};
+				archiveBuilder.file( resolvedPath, entry );
 			} catch ( error ) {
 				// Dangling symlink. Skip it rather than aborting the whole archive.
 				console.warn( `Skipping ${ archiveEntryPath }: ${ error }` );

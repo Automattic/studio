@@ -8,7 +8,7 @@
 	padding: 0 var( --space-3 ) var( --space-5 );
 	display: flex;
 	flex-direction: column;
-	gap: var( --space-1 );
+	gap: 0;
 	font-size: var( --text-sm );
 	line-height: var( --text-sm--line-height );
 	user-select: none;
@@ -35,8 +35,10 @@
 	background-color: var( --hover );
 }
 
-.groupPanel:not( [data-starting-style], [data-ending-style] ),
-.chatsPanel:not( [data-starting-style], [data-ending-style] ) {
+/* Folding panels clip their rows; once open, drop markers can reach past the
+   edges. */
+.groupPanel[data-settled],
+.chatsPanel[data-settled] {
 	overflow: visible;
 }
 
@@ -96,11 +98,26 @@
 	pointer-events: none;
 }
 
+/* Headers share the full list's sticky bounds so the next one covers the
+   previous one without pushing it out of position. */
+.group {
+	display: contents;
+}
+
+.groupPanel {
+	margin-block-end: var( --space-2 );
+}
+
 .groupHeader {
+	flex-shrink: 0;
 	position: sticky;
-	top: var( --sidebar-group-header-top, 0px );
+	top: 0;
 	z-index: 1;
-	background-color: var( --studio-sidebar-bg );
+	background: linear-gradient(
+		to bottom,
+		var( --studio-sidebar-bg ) calc( 100% - var( --space-2 ) ),
+		transparent
+	);
 }
 
 .groupHeader:hover .groupHoverAction,

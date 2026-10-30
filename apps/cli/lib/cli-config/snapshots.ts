@@ -1,8 +1,10 @@
+import { isWpcomPreview } from '@studio/common/lib/snapshots';
 import { type Snapshot } from '@studio/common/types/snapshot';
 import { __ } from '@wordpress/i18n';
 import { LoggerError } from 'cli/logger';
 import { lockCliConfig, readCliConfig, saveCliConfig, unlockCliConfig } from './core';
 import { getSiteByFolder } from './sites';
+import type { StandingPreview } from 'cli/lib/preview-sites';
 
 export function getNextSnapshotSequence(
 	siteId: string,
@@ -42,7 +44,8 @@ export async function saveSnapshotToConfig(
 	atomicSiteId: number,
 	previewUrl: string,
 	userId: number,
-	name: string
+	name: string,
+	shareUrl?: string
 ): Promise< Snapshot > {
 	const site = await getSiteByFolder( siteFolder );
 	try {
@@ -58,6 +61,7 @@ export async function saveSnapshotToConfig(
 			name,
 			sequence: nextSequenceNumber,
 			userId,
+			shareUrl,
 		};
 
 		config.snapshots.push( snapshot );
@@ -70,7 +74,8 @@ export async function saveSnapshotToConfig(
 
 export async function updateSnapshotInConfig(
 	atomicSiteId: number,
-	siteFolder: string
+	siteFolder: string,
+	shareUrl?: string
 ): Promise< Snapshot > {
 	const site = await getSiteByFolder( siteFolder );
 	try {
@@ -83,6 +88,11 @@ export async function updateSnapshotInConfig(
 
 		snapshot.localSiteId = site.id;
 		snapshot.date = Date.now();
+		// The update restarted the server's window; the next sync reports where it now ends.
+		delete snapshot.expiresAt;
+		if ( shareUrl ) {
+			snapshot.shareUrl = shareUrl;
+		}
 
 		await saveCliConfig( config );
 		return snapshot;
@@ -167,6 +177,49 @@ export async function setSnapshotInConfig(
 
 		await saveCliConfig( config );
 		return snapshot;
+	} finally {
+		await unlockCliConfig();
+	}
+}
+
+/**
+ * Brings the user's WordPress.com previews in line with the server: forgets those it no longer has
+ * standing (bought, expired or deleted elsewhere) and records when the rest expire and the preview
+ * link it hands out for each. A preview saved after `checkedAt` is left alone, since the server's
+ * answer may predate it.
+ *
+ * @param standing The server's standing previews, by site ID.
+ */
+export async function reconcilePreviews(
+	userId: number,
+	standing: Map< number, StandingPreview >,
+	checkedAt: number
+): Promise< void > {
+	try {
+		await lockCliConfig();
+		const config = await readCliConfig();
+		const before = JSON.stringify( config.snapshots );
+		config.snapshots = config.snapshots.filter( ( snapshot ) => {
+			if (
+				snapshot.userId !== userId ||
+				! isWpcomPreview( snapshot ) ||
+				snapshot.date > checkedAt
+			) {
+				return true;
+			}
+			const preview = standing.get( snapshot.atomicSiteId );
+			if ( ! preview ) {
+				return false;
+			}
+			snapshot.expiresAt = preview.expiresAt;
+			if ( preview.shareUrl ) {
+				snapshot.shareUrl = preview.shareUrl;
+			}
+			return true;
+		} );
+		if ( JSON.stringify( config.snapshots ) !== before ) {
+			await saveCliConfig( config );
+		}
 	} finally {
 		await unlockCliConfig();
 	}

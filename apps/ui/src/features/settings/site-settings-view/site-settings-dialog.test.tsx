@@ -99,7 +99,7 @@ describe( 'site settings', () => {
 	it( 'allows switching to Studio with unsaved site edits', async () => {
 		const { connector, settingsParam } = setup();
 		fireEvent.change( await siteName(), { target: { value: 'Edited' } } );
-		fireEvent.click( screen.getByRole( 'tab', { name: 'Studio' } ) );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'App' } ) );
 		await waitFor( () => expect( settingsParam() ).toBe( 'general' ) );
 		expect( connector.updateSite ).not.toHaveBeenCalled();
 		expect( screen.getAllByRole( 'dialog' ) ).toHaveLength( 1 );

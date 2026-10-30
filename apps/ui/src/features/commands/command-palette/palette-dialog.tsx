@@ -51,7 +51,7 @@ export function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) 
 				data-instant={ executing && ! open ? '' : undefined }
 				aria-label={ __( 'Command palette' ) }
 			>
-				<InputGroup variant="commands">
+				<InputGroup variant="commands" className={ styles.input }>
 					<InputGroupInput
 						role="combobox"
 						aria-autocomplete="list"
@@ -74,6 +74,7 @@ export function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) 
 					</InputGroupAddon>
 				</InputGroup>
 				<CommandList
+					className={ styles.list }
 					id={ listId }
 					label={ __( 'Commands' ) }
 					size="default"

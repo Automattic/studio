@@ -97,11 +97,30 @@ describe( 'Archive Module', () => {
 
 			expect( mockArchiver.file ).toHaveBeenCalledWith(
 				fs.realpathSync( path.join( mockWpContentPath, 'index.php' ) ),
-				{ name: 'wp-content/index.php' }
+				{ name: 'wp-content/index.php', store: false }
 			);
 			expect( mockArchiver.file ).toHaveBeenCalledWith(
 				fs.realpathSync( path.join( mockWpContentPath, 'plugins', 'my-plugin.php' ) ),
-				{ name: 'wp-content/plugins/my-plugin.php' }
+				{ name: 'wp-content/plugins/my-plugin.php', store: false }
+			);
+		} );
+
+		it( 'should store already-compressed files without compressing them again', async () => {
+			vol.fromJSON( {
+				[ path.join( mockWpContentPath, 'uploads', 'photo.JPG' ) ]: 'jpg',
+				[ path.join( mockWpContentPath, 'themes', 'style.css' ) ]: 'css',
+			} );
+			mockGlobResults( [ 'uploads/photo.JPG', 'themes/style.css' ] );
+
+			await archiveSiteContent( mockSiteFolder, mockArchivePath );
+
+			expect( mockArchiver.file ).toHaveBeenCalledWith(
+				fs.realpathSync( path.join( mockWpContentPath, 'uploads', 'photo.JPG' ) ),
+				{ name: 'wp-content/uploads/photo.JPG', store: true }
+			);
+			expect( mockArchiver.file ).toHaveBeenCalledWith(
+				fs.realpathSync( path.join( mockWpContentPath, 'themes', 'style.css' ) ),
+				{ name: 'wp-content/themes/style.css', store: false }
 			);
 		} );
 

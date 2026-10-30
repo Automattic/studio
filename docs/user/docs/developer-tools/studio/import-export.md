@@ -19,7 +19,7 @@ Other supported formats are:
 -   The `.wpress` file from the [All-in-One WP Migration and Backup plugin](https://wordpress.com/plugins/all-in-one-wp-migration)
 -   The `.zip` file from the [Local app](https://localwp.com/help-docs/getting-started/how-to-import-a-wordpress-site-into-local/#export-a-site)
 -   The `.zip` file from [WordPress Playground](https://wordpress.github.io/wordpress-playground/quick-start-guide/#save-your-site)
--   Plain `.tar` archives
+-   `.tar` and `.tar.gz` archives
 -   WordPress export files (`.xml`), created with **Tools → Export** in WP Admin
 
 If your site is hosted on a paid WordPress.com plan or on [Pressable](https://pressable.com/), you can use [Studio Sync](https://developer.wordpress.com/docs/developer-tools/studio/sync/) as an alternative. It lets you pull down your production or staging site into Studio, and publish local changes back to the live site when you’re ready.

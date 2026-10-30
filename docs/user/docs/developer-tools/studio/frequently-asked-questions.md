@@ -207,7 +207,7 @@ Your local Studio site should now be accessible through the tunnel URL. If it do
 
 The local URL shown in Studio will not update to reflect the new tunnel URL, and since the ngrok URL changes each time you restart the tunnel, you will need to update the `wp-config.php` file accordingly.
 
-To reset your local site, stop the tunnel in the terminal and shut down the Studio site. Then, remove the changes made to `wp-config.php` and restart your Studio site. It will now revert to the localhost or custom domain shown in the **Settings** tab.
+To reset your local site, stop the tunnel in the terminal and shut down the Studio site. Then, remove the changes made to `wp-config.php` and restart your Studio site. It will now revert to the localhost or custom domain shown under **Local domain** on the **Settings** page of the site’s settings.
 
 ### [How can I export my site for use on the WordPress playground website?](#12-how-can-i-export-my-site-for-use-on-the-wordpress-playground-website-)
 

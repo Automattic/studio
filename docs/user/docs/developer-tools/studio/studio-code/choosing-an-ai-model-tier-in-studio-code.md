@@ -50,4 +50,4 @@ When your purchased balance runs out, Balanced and Strong stay unlocked in the m
 
 **Can I use different tiers in the same project, or even the same conversation?** Yes. Tier is a per-message choice. A common pattern is starting a task on Fast and switching to Balanced or Strong only for the parts that need it.
 
-**Why can’t I switch to Balanced or Strong even though I still have free allowance left?** The free allowance only funds Fast. Balanced and Strong require a purchased AI credits balance, regardless of how much free allowance remains.
+**Why can’t I switch to Balanced or Strong even though I still have free allowance left?** The free allowance only funds Fast. Balanced and Strong unlock only once your account has purchased AI credits, however much free allowance remains.

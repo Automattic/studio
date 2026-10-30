@@ -6,9 +6,9 @@ Studio runs every site on native PHP binaries. Native PHP runs the code with few
 
 ## [What happened to the Sandbox runtime?](#0-what-happened-to-the-sandbox-runtime-)
 
-Earlier versions of Studio offered a second runtime, **Sandbox**, which ran sites on [WordPress Playground](https://wordpress.org/playground/) WebAssembly binaries. Studio 1.24.0 removed the Sandbox runtime, and the **PHP runtime** setting has been removed from the create site form and from site settings.
+Earlier versions of Studio offered a second runtime, **Sandbox**, which ran sites on [WordPress Playground](https://wordpress.org/playground/) WebAssembly binaries. Studio 1.24.0 removed the Sandbox runtime and removed the PHP runtime setting from the create site form and site settings.
 
-Sites that used the Sandbox runtime move to native PHP automatically the first time you open Studio, or run a Studio CLI command, after updating. You don’t need to do anything. If one of these sites was set to a PHP version that Studio no longer supports, such as PHP 7.4, Studio moves it to the closest supported version.
+Sites that used the Sandbox runtime move to native PHP automatically the first time you open Studio or run a Studio CLI command after updating. You don’t need to do anything. If one of these sites was set to a PHP version that Studio no longer supports, such as PHP 7.4, Studio moves it to the closest supported version.
 
 A few things to be aware of after the move:
 
@@ -48,4 +48,4 @@ Use `--file-access site-directory` to restore the default. You can also pass `--
 
 PHP can run external commands and spawn any child process, just like a typical local PHP installation. This keeps plugins and tools that shell out working, such as image processing, backups, and Git.
 
-Child processes run as your user account and are not subject to the `open_basedir` restrictions of the main process. Because of this, the **Site directory** setting is not a safeguard against deliberately malicious plugins or themes. Only install code you trust.
+Child processes run as your user account and are not subject to the `open_basedir` restrictions of the main process. Because of this, the **Site directory** setting does not protect against deliberately malicious plugins or themes. Only install code you trust.

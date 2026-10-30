@@ -59,8 +59,6 @@ If you’re upgrading from an earlier version of Studio, your existing sites car
 <!-- TODO screenshot: replace with `welcome.webp` from `npm run screenshots` (Studio 2.0): the Welcome to WordPress Studio dialog. -->
 [![A screenshot of the WordPress Studio welcome screen](https://developer.wordpress.com/wp-content/uploads/2024/04/welcome.png)](https://developer.wordpress.com/wp-content/uploads/2024/04/welcome.png)
 
-<!-- TODO screenshot: add `orientation-guide.webp` from `npm run screenshots` (Studio 2.0) here: the orientation guide shown after the first site is created. -->
-
 ### [Find your way around](#find-your-way-around)
 
 The Studio window has three areas:
@@ -68,6 +66,8 @@ The Studio window has three areas:
 -   **Sidebar** (left): your sites, each with its Studio Code chats. Pinned sites and chats appear in a **Pinned** section at the top, and your latest chats appear under **Recent**. Click the **+** next to **Sites** to add a site. At the bottom of the sidebar you’ll find **Log in** (or your account menu once you’re logged in), **Settings**, and your notification history.
 -   **Chat** (middle): Studio Code for the selected site.
 -   **Site preview** (right): the selected site.
+
+<!-- TODO screenshot: add `main-window-signed-in.webp` from `npm run screenshots` (Studio 2.0, signed-in suite) here: the full Studio window, with the sidebar, the chat and the site preview, and the header buttons. -->
 
 The header above the chat and preview starts with the **Site menu** button (globe), which opens the site’s actions menu, and **Close chat** (**Open chat** when the chat is closed). Then come the preview’s **Back**, **Forward**, and **Reload preview** buttons, **Responsive mode**, and the address bar, followed by **Annotate**, **Publish**, and **Share**.
 

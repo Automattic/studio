@@ -44,6 +44,8 @@ To use your own Blueprint:
 2.  Drop a Blueprint file (a `.json` file or a `.zip` bundle) on the **Drop a Blueprint here** area, or click **Choose file** and select it.
 3.  The **Create your site** form opens and shows the Blueprint. Give your site a name and click **Create site from Blueprint**.
 
+<!-- TODO screenshot: add `add-site-upload.webp` from `npm run screenshots` (Studio 2.0) here: Add site → Upload, with the Drop a Blueprint here area and Choose file. -->
+
 To use a blank site instead, click **Remove** next to the Blueprint.
 
 A Blueprint that sets up a WordPress multisite requires a custom domain. When you pick one, the form shows “This Blueprint requires a custom domain.” and you need to enter a domain before you can create the site.

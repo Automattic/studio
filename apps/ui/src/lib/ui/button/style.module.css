@@ -283,12 +283,12 @@
 	}
 
 	.button[data-size='2xs'] {
-		--button-padding-inline: 6px;
+		--button-padding-inline: 8px;
 		font-size: var( --text-xxs );
 
 		gap: var( --space-1 );
-		height: var( --button-control-size, 24px );
-		border-radius: var( --radius-md );
+		height: var( --button-control-size, 28px );
+		border-radius: var( --radius-sm );
 	}
 
 	.button[data-size='2xs'] svg:not( [data-size] ) {

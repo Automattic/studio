@@ -26,6 +26,7 @@ import {
 	type UserPreferencesPatch,
 } from '@studio/common/lib/user-settings/user-preferences';
 import { getUserLocaleWithFallback, loadLocaleData, setMacAppLanguage } from 'src/lib/locale-node';
+import { refreshSpotlightIndex } from 'src/lib/spotlight';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { defaultSitePath } from 'src/storage/paths';
 import { OnboardingHintsState } from 'src/storage/storage-types';
@@ -55,6 +56,7 @@ export async function setUserPreferences(
 	if ( parsed.locale ) {
 		loadLocaleData( parsed.locale );
 		setMacAppLanguage( parsed.locale );
+		void refreshSpotlightIndex();
 	}
 }
 

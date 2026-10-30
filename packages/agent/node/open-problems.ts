@@ -107,23 +107,16 @@ export function describeOpenProblems( problems: string[] ): string {
 	);
 }
 
-const bySession = new WeakMap< object, OpenProblems >();
-
-/** The open problems of an agent session, kept across its turns. */
-export function getOpenProblems( host: StudioAgentHost, session: object ): OpenProblems {
-	let open = bySession.get( session );
-	if ( ! open ) {
-		open = new OpenProblems( [
-			unrenderedPages,
-			frontPageIsPostsPage,
-			postsPageContent,
-			( sitePath ) => headerMenu( host, sitePath ),
-			copiedPageChrome,
-			( sitePath ) => missingSourceText( host, sitePath ),
-		] );
-		bySession.set( session, open );
-	}
-	return open;
+/** The open problems of a session, checked with each of Studio's checks of a site. */
+export function createOpenProblems( host: StudioAgentHost ): OpenProblems {
+	return new OpenProblems( [
+		unrenderedPages,
+		frontPageIsPostsPage,
+		postsPageContent,
+		( sitePath ) => headerMenu( host, sitePath ),
+		copiedPageChrome,
+		( sitePath ) => missingSourceText( host, sitePath ),
+	] );
 }
 
 /**

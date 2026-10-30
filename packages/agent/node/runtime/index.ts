@@ -33,14 +33,10 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import { type TSchema } from 'typebox';
 import { classicThemeQuestion } from '@studio/agent/node/block-theme';
-import {
-	getBlockValidationGate,
-	type BlockValidationGate,
-} from '@studio/agent/node/block-validation-gate';
+import { type BlockValidationGate } from '@studio/agent/node/block-validation-gate';
 import { readGlobalInstructions } from '@studio/agent/node/global-instructions';
 import { isImageGenerationAvailable } from '@studio/agent/node/image-generation';
-import { describeOpenProblems, getOpenProblems } from '@studio/agent/node/open-problems';
-import { getRenderCheck, type RenderCheck } from '@studio/agent/node/render-check';
+import { describeOpenProblems } from '@studio/agent/node/open-problems';
 import { NO_CHANGES, SiteChanges } from '@studio/agent/node/site-changes';
 import { readActiveSiteFacts } from '@studio/agent/node/site-facts';
 import { createSiteNotes, type SiteNotes } from '@studio/agent/node/site-notes';
@@ -66,8 +62,8 @@ import { withDefaultTimeout } from './bash-timeout';
 import { createConfirmer, describeDestructiveCall, type Confirmer } from './confirmation';
 import { withLeakedToolCallMarkupRemoved } from './leaked-tool-call-markup';
 import { createMcpTools, isUserMcpTool, readMcpServers } from './mcp-tools';
-import { getPendingWork, type PendingWork } from './pending-work';
 import { changesPreview } from './preview-reload';
+import { getSessionState } from './session-state';
 import { SitePin } from './site-pin';
 import { SkillToolScope } from './skill-tool-scope';
 import { stripStaleImagesFromContext } from './strip-stale-images';
@@ -83,7 +79,9 @@ import {
 } from './tool-safety';
 import { withUsageCapErrorRewrite } from './usage-cap';
 import { serveWpCli } from './wp-cli-server';
+import type { PendingWork } from './pending-work';
 import type { StudioAgentHost } from '@studio/agent/node/host';
+import type { RenderCheck } from '@studio/agent/node/render-check';
 import type { StudioToolResultDetails } from '@studio/agent/node/tools/define-tool';
 import type { AskUserHandler, SiteInfo } from '@studio/agent/node/types';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
@@ -355,7 +353,7 @@ async function runAgentSessionTurn(
 			return;
 		}
 
-		const openProblems = getOpenProblems( config.host, config.session );
+		const state = getSessionState( config.host, config.session );
 		let emptyStopContinues = 0;
 		// What continues the turn after a run ends, if anything: a reply cut off
 		// before it said anything, then the problems still open on the sites.
@@ -379,19 +377,18 @@ async function runAgentSessionTurn(
 			if ( lastAssistant?.stopReason !== 'stop' ) {
 				return undefined;
 			}
-			await getPendingWork( config.session ).settle();
+			await state.pendingWork.settle();
 			// A block file the run wrote last is validated, and its lossless fix
 			// saved, before the sites are checked, as on any later tool result.
-			await getBlockValidationGate( config.host, config.session ).settle();
+			await state.blockValidation.settle();
 			// The pages rendered after the last change: their problems are open
 			// until fixed, and a verdict of none ends nothing.
-			const renderCheck = getRenderCheck( config.host, config.session, openProblems );
-			await renderCheck.settle();
-			renderCheck.takeReports();
-			const problems = await openProblems.raise();
+			await state.renderCheck.settle();
+			state.renderCheck.takeReports();
+			const problems = await state.openProblems.raise();
 			// The notes on the run's last calls, whose checks ran after their results.
 			const content = [
-				studioMessage( 'notes', [ getPendingWork( config.session ).takeReports() ] ),
+				studioMessage( 'notes', [ state.pendingWork.takeReports() ] ),
 				problems.length ? describeOpenProblems( problems ) : undefined,
 			]
 				.filter( Boolean )
@@ -422,7 +419,7 @@ async function runAgentSessionTurn(
 			}
 			await session.sendCustomMessage( { ...next, display: false }, { triggerTurn: true } );
 		}
-		await getPendingWork( config.session ).settle();
+		await state.pendingWork.settle();
 	} catch ( error ) {
 		const aborted = controller.signal.aborted;
 		const message = aborted ? '' : error instanceof Error ? error.message : String( error );
@@ -492,8 +489,12 @@ async function createStudioAgentSession(
 		activeSiteFacts: activeSiteFacts.flat(),
 	} );
 
-	const pendingWork = getPendingWork( config.session );
-	const blockValidationGate = getBlockValidationGate( config.host, config.session );
+	const {
+		openProblems,
+		pendingWork,
+		blockValidation: blockValidationGate,
+		renderCheck,
+	} = getSessionState( config.host, config.session );
 	const sitePin = new SitePin( config.host, config.activeSite );
 	const site = config.activeSite;
 	const localSite = site && ! site.remote ? site.path : undefined;
@@ -501,27 +502,18 @@ async function createStudioAgentSession(
 		// The Active site section already states this turn's facts.
 		stated: new Map( localSite ? [ [ path.resolve( localSite ), activeSiteFacts ] ] : [] ),
 		gate: blockValidationGate,
-		open: getOpenProblems( config.host, config.session ),
+		open: openProblems,
 	} );
 	// What a call changed on the request's sites, or on every local site until
 	// the request has one, reported on its result.
-	const siteChanges = new SiteChanges(
-		config.host,
-		getOpenProblems( config.host, config.session ),
-		async () => {
-			const sites = await config.host.sites.all();
-			const pinned = sitePin.localSitePaths();
-			return pinned.length
-				? sites.filter( ( { path: sitePath } ) => pinned.includes( path.resolve( sitePath ) ) )
-				: sites;
-		}
-	);
+	const siteChanges = new SiteChanges( config.host, openProblems, async () => {
+		const sites = await config.host.sites.all();
+		const pinned = sitePin.localSitePaths();
+		return pinned.length
+			? sites.filter( ( { path: sitePath } ) => pinned.includes( path.resolve( sitePath ) ) )
+			: sites;
+	} );
 	const afterChecks = new AfterChecks( pendingWork );
-	const renderCheck = getRenderCheck(
-		config.host,
-		config.session,
-		getOpenProblems( config.host, config.session )
-	);
 	// The active site as the turn finds it, rendered while the model first thinks.
 	if ( localSite && fs.existsSync( localSite ) ) {
 		void renderCheck.seen( path.resolve( localSite ) ).catch( () => undefined );

@@ -29,10 +29,10 @@ import {
 	type ValidationReportBase,
 } from '@studio/agent/node/block-validator';
 import { rewriteNotes } from '@studio/agent/node/file-rewrites';
-import { getOpenProblems, type OpenProblems } from '@studio/agent/node/open-problems';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { themePresets } from '@studio/agent/node/theme-presets';
 import type { StudioAgentHost } from '@studio/agent/node/host';
+import type { OpenProblems } from '@studio/agent/node/open-problems';
 
 const THEME_MARKUP =
 	/[\\/]wp-content[\\/]themes[\\/][^\\/]+[\\/](templates|parts)[\\/][^\\/]+\.html$/;
@@ -669,16 +669,10 @@ function validateWithSite( host: StudioAgentHost ) {
 		);
 }
 
-const gates = new WeakMap< object, BlockValidationGate >();
-
-export function getBlockValidationGate(
+/** A session's block validation, on the site each file belongs to. */
+export function createBlockValidationGate(
 	host: StudioAgentHost,
-	session: object
+	open: OpenProblems
 ): BlockValidationGate {
-	let gate = gates.get( session );
-	if ( ! gate ) {
-		gate = new BlockValidationGate( validateWithSite( host ), getOpenProblems( host, session ) );
-		gates.set( session, gate );
-	}
-	return gate;
+	return new BlockValidationGate( validateWithSite( host ), open );
 }

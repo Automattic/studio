@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { copiedPageChrome } from '@studio/agent/node/copied-page-chrome';
-import { getOpenProblems } from '@studio/agent/node/open-problems';
+import { createOpenProblems } from '@studio/agent/node/open-problems';
 import { createFakeHost } from '@studio/agent/node/tests/fake-host';
 import { createSite } from '@studio/agent/node/tests/fixtures/wordpress-site';
 
@@ -50,7 +50,7 @@ it.each( [
 
 it( 'is raised at the end of a turn', async () => {
 	const site = createSite();
-	const open = getOpenProblems( createFakeHost(), {} );
+	const open = createOpenProblems( createFakeHost() );
 	await open.see( site.root );
 	open.record( site.root, 'page', undefined );
 	site.save( 9, 'page', 'home', HEADER + body( 'Home' ), 1, 'publish', 'Home' );

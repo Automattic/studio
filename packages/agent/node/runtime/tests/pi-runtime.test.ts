@@ -9,8 +9,9 @@ import { createAgent } from '@studio/agent/node/agent';
 import { checkCustomEndpoint, type StudioAgentTurnConfig } from '@studio/agent/node/runtime';
 import { AI_MODELS } from '@studio/agent/protocol/models';
 import { createFakeHost, fakeSite } from '../../tests/fake-host';
-import { getPendingWork } from '../pending-work';
+import { getSessionState } from '../session-state';
 import type { AgentSessionEvent, CreateAgentSessionOptions } from '@earendil-works/pi-coding-agent';
+import type { StudioAgentHost } from '@studio/agent/node/host';
 import type { AiModelId } from '@studio/agent/protocol/models';
 import type { CustomEndpoint } from '@studio/common/lib/shared-config';
 
@@ -57,24 +58,42 @@ vi.mock( '@studio/agent/node/image-generation', async ( importOriginal ) => ( {
 		} ),
 } ) );
 
-vi.mock( '@studio/agent/node/block-validation-gate', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@studio/agent/node/block-validation-gate') >() ),
-	getBlockValidationGate: () => ( {
-		track: () => undefined,
-		settle: async () => {
-			mocks.turnEnd.push( 'block files settled' );
-			return { summaries: [], problems: [] };
+// The session's checks of its sites, stubbed; the work its tools leave running,
+// and the render of the pages they change, are real.
+vi.mock( '../session-state', async () => {
+	const { PendingWork } = await import( '../pending-work' );
+	const { RenderCheck } = await import( '@studio/agent/node/render-check' );
+	const states = new WeakMap< object, unknown >();
+	return {
+		getSessionState: ( host: StudioAgentHost, session: object ) => {
+			if ( ! states.has( session ) ) {
+				const openProblems = {
+					record: () => undefined,
+					raise: async () => {
+						mocks.turnEnd.push( 'sites checked' );
+						return mocks.openProblems.shift() ?? [];
+					},
+				};
+				states.set( session, {
+					openProblems,
+					pendingWork: new PendingWork(),
+					blockValidation: {
+						track: () => undefined,
+						settle: async () => {
+							mocks.turnEnd.push( 'block files settled' );
+							return { summaries: [], problems: [] };
+						},
+					},
+					renderCheck: new RenderCheck( host, openProblems as never ),
+				} );
+			}
+			return states.get( session );
 		},
-	} ),
-} ) );
+	};
+} );
 
-vi.mock( '@studio/agent/node/open-problems', () => ( {
-	getOpenProblems: () => ( {
-		raise: async () => {
-			mocks.turnEnd.push( 'sites checked' );
-			return mocks.openProblems.shift() ?? [];
-		},
-	} ),
+vi.mock( '@studio/agent/node/open-problems', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/agent/node/open-problems') >() ),
 	describeOpenProblems: ( problems: string[] ) => `checks: ${ problems.join( ' | ' ) }`,
 } ) );
 
@@ -330,9 +349,10 @@ function getCreatedTool( name: string ): RuntimeTool {
 // Studio's notes on the calls so far: its checks run after a call's result,
 // and their notes reach the agent with the next one.
 async function takeNotes(): Promise< string | undefined > {
-	const work = getPendingWork(
+	const work = getSessionState(
+		host,
 		mocks.createdSessions[ 0 ].options.sessionManager as SessionManager
-	);
+	).pendingWork;
 	await work.settle();
 	return work.takeReports();
 }
@@ -1340,7 +1360,7 @@ describe( 'pi runtime', () => {
 			];
 			mocks.openProblems = [ [ 'front page not shown' ] ];
 			const session = newSession();
-			getPendingWork( session ).add( Promise.resolve( 'page 9 changed' ) );
+			getSessionState( host, session ).pendingWork.add( Promise.resolve( 'page 9 changed' ) );
 
 			await runRuntime( { prompt: 'build it', env: WPCOM_ENV, model: 'fast', session } );
 

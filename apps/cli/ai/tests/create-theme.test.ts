@@ -9,7 +9,7 @@ import {
 } from 'fs';
 import os from 'os';
 import path from 'path';
-import { getOpenProblems } from '@studio/agent/node/open-problems';
+import { createOpenProblems } from '@studio/agent/node/open-problems';
 import { SiteChanges } from '@studio/agent/node/site-changes';
 import { createThemeTool } from '@studio/agent/node/tools/create-theme';
 import { bindTool } from '@studio/agent/node/tools/define-tool';
@@ -59,7 +59,7 @@ describe.runIf( WORDPRESS )( 'create_theme', () => {
 	afterAll( () => rmSync( site.path, { recursive: true, force: true } ) );
 
 	it( 'makes and activates a block theme that WordPress renders and Studio finds nothing to fix in', async () => {
-		const open = getOpenProblems( host, {} );
+		const open = createOpenProblems( host );
 		const changes = new SiteChanges( host, open, async () => [ site ] );
 		await changes.snapshot();
 		const made = await make( { name: 'Corner Bakehouse' } );

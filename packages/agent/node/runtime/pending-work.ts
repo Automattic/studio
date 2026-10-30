@@ -1,5 +1,3 @@
-import type { SessionManager } from '@earendil-works/pi-coding-agent';
-
 // Work tools leave running after they return (see ToolResult.pending), kept
 // per chat session so that what it reports reaches the agent with the next
 // tool result, in this turn or a later one.
@@ -52,15 +50,4 @@ function strings( value: unknown ): string[] {
 		return [ value ];
 	}
 	return value && typeof value === 'object' ? Object.values( value ).flatMap( strings ) : [];
-}
-
-const pendingWorkBySession = new WeakMap< SessionManager, PendingWork >();
-
-export function getPendingWork( session: SessionManager ): PendingWork {
-	let pendingWork = pendingWorkBySession.get( session );
-	if ( ! pendingWork ) {
-		pendingWork = new PendingWork();
-		pendingWorkBySession.set( session, pendingWork );
-	}
-	return pendingWork;
 }

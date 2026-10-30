@@ -250,19 +250,3 @@ async function fileVersions( dir: string ): Promise< string[] > {
 			} )
 	).then( ( versions ) => versions.sort() );
 }
-
-const checks = new WeakMap< object, RenderCheck >();
-
-/** The render check of an agent session, kept across its turns. */
-export function getRenderCheck(
-	host: StudioAgentHost,
-	session: object,
-	open?: OpenProblems
-): RenderCheck {
-	let check = checks.get( session );
-	if ( ! check ) {
-		check = new RenderCheck( host, open );
-		checks.set( session, check );
-	}
-	return check;
-}

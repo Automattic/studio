@@ -73,6 +73,57 @@
 			]
 		},
 		{
+			"name": "composer-add-menu",
+			"description": "Chat box + menu, signed in: Add files, the commands, and Skills",
+			"pages": [ "studio-code/index.md" ],
+			"steps": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Add",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"text": "Add files",
+						"exact": true
+					}
+				}
+			],
+			"after": [
+				{
+					"press": "Escape"
+				},
+				{
+					"waitFor": {
+						"text": "Add files",
+						"exact": true
+					},
+					"hidden": true
+				}
+			],
+			"capture": {
+				"target": [
+					{
+						"role": "dialog",
+						"name": "Commands",
+						"exact": true
+					},
+					{
+						"role": "button",
+						"name": "Add",
+						"exact": true
+					},
+					{
+						"role": "button",
+						"name": "Send message"
+					}
+				],
+				"pad": 32
+			}
+		},
+		{
 			"name": "annotate-toolbar",
 			"description": "Annotate: the Annotations toolbar over the site preview, with Cancel and Send",
 			"pages": [ "studio-code/index.md" ],

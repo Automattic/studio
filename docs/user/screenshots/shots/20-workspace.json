@@ -49,62 +49,6 @@
 			]
 		},
 		{
-			"name": "composer-add-menu",
-			"description": "Chat box + menu: Add files, Auto-start, Connect AI providers, and Skills",
-			"pages": [ "studio-code/index.md" ],
-			"steps": [
-				{
-					"click": {
-						"role": "button",
-						"name": "Add",
-						"exact": true
-					}
-				},
-				{
-					"waitFor": {
-						"text": "Add files",
-						"exact": true
-					}
-				}
-			],
-			"after": [
-				{
-					"press": "Escape"
-				},
-				{
-					"waitFor": {
-						"text": "Add files",
-						"exact": true
-					},
-					"hidden": true
-				}
-			],
-			"capture": {
-				"target": [
-					{
-						"role": "dialog",
-						"name": "Commands",
-						"exact": true
-					},
-					{
-						"role": "button",
-						"name": "Add",
-						"exact": true
-					},
-					{
-						"role": "button",
-						"name": "Send message"
-					},
-					{
-						"role": "button",
-						"name": "Log in",
-						"exact": true
-					}
-				],
-				"pad": 32
-			}
-		},
-		{
 			"name": "command-palette",
 			"description": "Command palette (⌘K)",
 			"pages": [ "index.md" ],

@@ -20,8 +20,7 @@ claude mcp add wordpress-studio -- studio mcp
 codex mcp add wordpress-studio -- studio mcp
 ```
 
-<!-- TODO screenshot: replace with `settings-mcp.webp` from `npm run screenshots` (Studio 2.0): Settings → MCP. -->
-[![The MCP page of Studio's Settings, with the install instructions and the MCP configuration.](https://developer.wordpress.com/wp-content/uploads/2026/04/app-settings-mcp.png)](https://developer.wordpress.com/wp-content/uploads/2026/04/app-settings-mcp.png)
+[![The MCP page of Studio's Settings, with the command to install the Studio CLI and the MCP configuration to add to your assistant.](https://developer.wordpress.com/wp-content/uploads/2026/04/settings-mcp.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/settings-mcp.webp)
 
 Common configuration file locations are:
 
@@ -36,7 +35,7 @@ See the full setup guides for [Claude Code](https://code.claude.com/docs/en/mcp)
 
 Once connected, the agent can use Studio tools such as creating sites, running WP-CLI commands, and taking screenshots, in addition to reading the instruction files and skills already present in the site directory.
 
-## What the agent gets
+## [What the agent gets](#0-what-the-agent-gets)
 
 -   **Studio’s instructions and skills, on demand.** The agent calls a `studio_instructions` tool before its first WordPress task, so it follows the same workflow and rules as Studio Code, without Studio filling the agent’s context for every conversation.
 -   **Local and WordPress.com sites.** The agent can work on your local Studio sites and on your WordPress.com sites, and can copy content between them.

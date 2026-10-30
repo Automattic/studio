@@ -56,8 +56,7 @@ The first time you open Studio, it walks you through a short setup:
 
 If you’re upgrading from an earlier version of Studio, your existing sites carry over, and the same guide opens with **Welcome to WordPress Studio 2.0**. If you’ve already seen the guide, a short **What’s New** guide introduces what changed instead. To see either one again, choose **Help → Getting Started** or **Help → What’s New** in the menu bar.
 
-<!-- TODO screenshot: replace with `welcome.webp` from `npm run screenshots` (Studio 2.0): the Welcome to WordPress Studio dialog. -->
-[![A screenshot of the WordPress Studio welcome screen](https://developer.wordpress.com/wp-content/uploads/2024/04/welcome.png)](https://developer.wordpress.com/wp-content/uploads/2024/04/welcome.png)
+[![The Welcome to WordPress Studio dialog with the Continue with WordPress.com and Not now buttons and the Share anonymous usage statistics checkbox](https://developer.wordpress.com/wp-content/uploads/2024/04/welcome.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2024/04/welcome.webp)
 
 ### [Find your way around](#find-your-way-around)
 
@@ -67,7 +66,7 @@ The Studio window has three areas:
 -   **Chat** (middle): Studio Code for the selected site.
 -   **Site preview** (right): the selected site.
 
-<!-- TODO screenshot: add `main-window-signed-in.webp` from `npm run screenshots` (Studio 2.0, signed-in suite) here: the full Studio window, with the sidebar, the chat and the site preview, and the header buttons. -->
+[![The Studio window with the Sites sidebar on the left, the Studio Code chat in the middle, and the site preview on the right, under a header with the Site menu and Close chat buttons, the Back, Forward and Reload preview buttons, the address bar, Annotate, Publish, and Share](https://developer.wordpress.com/wp-content/uploads/2024/04/main-window-signed-in.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2024/04/main-window-signed-in.webp)
 
 The header above the chat and preview starts with the **Site menu** button (globe), which opens the site’s actions menu, and **Close chat** (**Open chat** when the chat is closed). Then come the preview’s **Back**, **Forward**, and **Reload preview** buttons, **Responsive mode**, and the address bar, followed by **Annotate**, **Publish**, and **Share**.
 
@@ -75,8 +74,8 @@ When a new version of Studio is ready to install, an **Update available** button
 
 Press ⌘K (Ctrl+K on Windows and Linux) to open the command palette, where you can jump to any site or chat, run a site action, or change a setting. Press ⌘, (Ctrl+, on Windows and Linux) to open **Settings**, and ⌘B (Ctrl+B) to show or hide the sidebar. The full list of shortcuts is in **Settings → Keyboard**.
 
-<!-- TODO screenshot: add `command-palette.webp` from `npm run screenshots` (Studio 2.0) here: the command palette. -->
-<!-- TODO screenshot: add `settings-keyboard.webp` from `npm run screenshots` (Studio 2.0) here: Settings → Keyboard. -->
+[![The Studio command palette with a Search commands field and lists of quick actions and site actions such as New site, New chat, Settings, and Open WordPress Admin](https://developer.wordpress.com/wp-content/uploads/2024/04/command-palette.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2024/04/command-palette.webp)
+[![The Keyboard section of Studio Settings listing shortcuts such as Open command palette, Open settings, Add site, and Toggle sidebar](https://developer.wordpress.com/wp-content/uploads/2024/04/settings-keyboard.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2024/04/settings-keyboard.webp)
 
 ### [Connect to WordPress.com](#connect-wordpress-com)
 
@@ -91,14 +90,13 @@ To connect Studio to WordPress.com:
 3.  On the authorization screen, click **Approve** to connect Studio to your account.
 4.  Once approved, a popup will appear prompting you to open the Studio app. Click on the **“Open Studio”** button to finalize the process.
 
-<!-- TODO screenshot: replace with `main-window-signed-out.webp` from `npm run screenshots` (Studio 2.0): the main window, logged out, with Log in at the bottom of the sidebar. -->
-[![A screenshot of a new site and the Log in with WordPress.com button](https://developer.wordpress.com/wp-content/uploads/2024/04/main-window-signed-out.png)](https://developer.wordpress.com/wp-content/uploads/2024/04/main-window-signed-out.png)
+[![The Studio window while logged out, with the sites sidebar, the Studio Code chat, and the site preview, and the Log in button at the bottom of the sidebar](https://developer.wordpress.com/wp-content/uploads/2024/04/main-window-signed-out.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2024/04/main-window-signed-out.webp)
 
 Once you’ve logged into WordPress.com, your account menu replaces the **Log in** button at the bottom of the sidebar, Studio Code can use your WordPress.com AI credits, and the **Publish** and **Share** buttons above the site preview let you publish your site and share preview links. If they still ask you to log in, you might need to *restart* the desktop application.
 
-<!-- TODO screenshot: add `account-menu.webp` from `npm run screenshots` (Studio 2.0, signed-in suite) here: the account menu, with the email masked; `main-window-signed-in.webp` and `settings-account.webp` (Settings → General, account row) are alternatives. -->
+[![The account menu open at the bottom of the Studio sidebar, showing the account name and email with Settings, Appearance, AI Providers, Usage, and Log out](https://developer.wordpress.com/wp-content/uploads/2024/04/account-menu.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2024/04/account-menu.webp)
 
-## [Next steps and feedback](#6-next-steps-and-feedback)
+## [Next steps and feedback](#7-next-steps-and-feedback)
 
 We hope Studio effortlessly fits into your local development workflow. Be sure to check out our other docs about specific Studio features:
 

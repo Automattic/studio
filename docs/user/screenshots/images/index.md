@@ -18,7 +18,6 @@ Shots with annotations also have a `<name>-annotated.webp`.
 | `create-site-https.webp` | first-run | Create your site → Advanced settings with Use custom domain and Enable HTTPS | `ssl-in-studio.md` | `2025/03/create-site-https.png` |
 | `orientation-guide.webp` | first-run | Orientation guide, page 1, shown after the first site is created | `index.md` | — |
 | `main-window-signed-out.webp` | workspace | Main window, signed out: sidebar, Studio Code chat, and the site preview | `index.md`<br>`studio-code/index.md` | `2024/04/main-window-signed-out.png` |
-| `composer-add-menu.webp` | workspace | Chat box + menu: Add files, Auto-start, Connect AI providers, and Skills | `studio-code/index.md` | — |
 | `command-palette.webp` | workspace | Command palette (⌘K) | `index.md` | — |
 | `preview-destinations.webp` | workspace | Site preview address bar shortcuts: Front end / WordPress Admin / Database | `sites.md`<br>`debugging/index.md`<br>`frequently-asked-questions.md` | `2026/04/preview-destinations.png` |
 | `responsive-mode-presets.webp` | workspace | Responsive mode: the device menu open, with Responsive and the device sizes | `sites.md` | — |
@@ -42,6 +41,7 @@ Shots with annotations also have a `<name>-annotated.webp`.
 | `settings-keyboard.webp` | studio-settings | Settings → Keyboard (shortcuts) | `index.md` | — |
 | `main-window-signed-in.webp` | signed-in | Main window, signed in: the account menu button at the bottom of the sidebar | `index.md` | — |
 | `account-menu.webp` | signed-in | Account menu: name, email, Settings, Appearance, AI Providers, Usage, Log out | `index.md` | — |
+| `composer-add-menu.webp` | signed-in | Chat box + menu, signed in: Add files, the commands, and Skills | `studio-code/index.md` | — |
 | `annotate-toolbar.webp` | signed-in | Annotate: the Annotations toolbar over the site preview, with Cancel and Send | `studio-code/index.md` | — |
 | `annotate-note.webp` | signed-in | Annotate: two saved notes on the page, and a third open on the hero photo, being typed | `studio-code/index.md` | — |
 | `annotate-staged.webp` | signed-in | Annotate: two saved notes marked on the page and waiting in the chat box as "2 annotations", with Send in the Annotations toolbar | `studio-code/index.md` | — |

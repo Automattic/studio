@@ -12,7 +12,7 @@ Studio Code no longer asks you to pick an AI model by name. Instead, you pick ho
 
 You can switch tiers at any point in a conversation, including mid-task. Studio uses whichever tier is selected for each new message.
 
-<!-- TODO screenshot: add `model-menu.webp` from `npm run screenshots` (Studio 2.0, signed-in suite) here: the model menu, Balanced and Strong requiring purchased credits. -->
+[![The Studio Code model menu open above the chat box, with Fast selected and Balanced and Strong grayed out, and Get more credits and Connect provider listed under Actions.](https://developer.wordpress.com/wp-content/uploads/2026/09/model-menu.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/09/model-menu.webp)
 
 The models behind each tier are updated as newer models become available. For example, Studio 1.23 moved Balanced and Strong to newer models. You don’t need to change anything when this happens: you keep choosing by tier.
 

@@ -15,8 +15,7 @@ To create a preview site:
 3.  [Log in to WordPress.com](https://developer.wordpress.com/docs/developer-tools/studio#connect-wordpress-com) if you haven’t already.
 4.  Under **Share a preview**, click **Create preview**. The button shows **Creating preview…** while Studio builds the preview.
 
-<!-- TODO screenshot: replace with `share-create-preview.webp` from `npm run screenshots` (Studio 2.0, signed-in suite): Share and publish → Share, with Share a preview and Create preview. -->
-[![A screenshot depicting the Share panel in the Studio app.](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-site-new-preview-1.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-site-new-preview-1.png)
+[![The Share tab of the Share and publish panel in Studio, showing Share a preview and the Create preview button.](https://developer.wordpress.com/wp-content/uploads/2025/01/share-create-preview.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/share-create-preview.webp)
 
 Your preview site should be ready to view in a few seconds, and it will be available to access publicly for seven days. You can close the panel while you wait. The **Share** button shows a spinner while a preview is being created or updated, and a dot when the preview is ready. Studio also shows a notification when the preview is ready, with a **Copy link** button.
 
@@ -37,8 +36,7 @@ Studio can’t create or update a preview when:
 -   You’re offline. Connect to the internet to create or update a preview.
 -   Another operation is running on the site. Wait for it to finish before creating or updating a preview.
 
-<!-- TODO screenshot: replace with `share-previews.webp` from `npm run screenshots` (Studio 2.0, signed-in-previews suite): the Share panel with previews in the list, and Create another preview. -->
-[![A screenshot depicting an existing preview in the Share panel in the Studio app.](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-new-site-preview-link.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-new-site-preview-link.png)
+[![The Share tab of the Share and publish panel in Studio, listing two previews with their names and expiry dates, each with a Preview actions menu, and the Create another preview button below.](https://developer.wordpress.com/wp-content/uploads/2025/01/share-previews.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/share-previews.webp)
 
 ## [Rename a preview site](#1-rename-a-preview-site)
 
@@ -49,8 +47,7 @@ You can create multiple preview sites per Studio site. To differentiate between 
 3.  In the **Rename preview** dialog, enter a new name.
 4.  Click **Save**.
 
-<!-- TODO screenshot: replace with `share-preview-actions.webp` from `npm run screenshots` (Studio 2.0, signed-in-previews suite): the Share panel’s Preview actions menu, with Update, Copy link, Visit preview, Rename, and Delete preview. -->
-[![A screenshot depicting the Preview actions menu, with the options to create, rename, or delete a preview.](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-preview-more-actions.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-preview-more-actions.png)
+[![The Preview actions menu open next to a preview in Studio's Share panel, with Update, Copy link, Visit preview, Rename, and Delete preview.](https://developer.wordpress.com/wp-content/uploads/2025/01/share-preview-actions.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/share-preview-actions.webp)
 
 Your preview site will display that name in Studio, while your remote preview site name will remain unchanged.
 
@@ -111,10 +108,9 @@ Expired previews no longer appear in the **Share** panel. To see them, open **Se
 
 **Settings → Sharing** lists the live previews of all your sites under **Live previews**, and how many of your preview sites you’ve used. For each preview, you can click its address to open it, see when it expires, and **Copy link**, **Rename preview**, or **Delete preview**. If you don’t have any live previews, the page shows **Share a preview of your site** instead.
 
-<!-- TODO screenshot: replace with `settings-sharing.webp` from `npm run screenshots` (Studio 2.0, signed-in suite): Settings → Sharing; also consider `settings-usage.webp`, Settings → Usage with Preview sites. -->
-[![Screenshot of the Sharing page of Studio's Settings](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-delete-all-preview-sites.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-delete-all-preview-sites.png)
+[![The Sharing page of Studio's Settings, showing Sharing previews on WordPress.com and the Share a preview of your site prompt.](https://developer.wordpress.com/wp-content/uploads/2025/01/settings-sharing.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/settings-sharing.webp)
 
-## [Delete all preview sites](#6-delete-all-preview-sites)
+## [Delete all preview sites](#7-delete-all-preview-sites)
 
 To quickly delete all of your preview sites within Studio:
 

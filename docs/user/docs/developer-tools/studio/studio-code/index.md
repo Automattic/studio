@@ -55,15 +55,15 @@ In the desktop app, when a WordPress.com chat can’t send a message yet, the ch
 -   “Connect a provider to build and edit your site.” Click **Connect** to log in with WordPress.com or add an Anthropic API key.
 -   “Add a payment method to use WordPress.com AI.” Click **Set up** to add one on WordPress.com. Studio checks again when you come back to the app.
 -   “Studio Code AI is currently available through limited beta access.” Click **Apply for access**.
--   “Add AI credits to send another message.” Click **Add credits** to buy more. See [What happens when you reach the limit](#18-what-happens-when-you-reach-the-limit).
+-   “Add AI credits to send another message.” Click **Add credits** to buy more. See [What happens when you reach the limit](#20-what-happens-when-you-reach-the-limit).
 
 You can still read the chat while the notice shows.
 
-## [Using Studio Code](#4-using-studio-code)
+## [Using Studio Code](#5-using-studio-code)
 
 Type your request in natural language and the AI agent will execute for you, creating files, running commands, and making changes to your site.
 
-### [Example workflows](#5-example-workflows)
+### [Example workflows](#6-example-workflows)
 
 **Create a new site and customize it:**
 
@@ -103,11 +103,11 @@ Instead of describing which part of the page you mean, you can point at it. In t
 5.  Click more elements to add more notes. Click a marker to edit its note, or click **Delete annotation** (the trash can) to remove it.
 6.  Click **Send** in the toolbar, or send from the chat box. Studio Code gets your message and every note, each with the element it points at.
 
-<!-- TODO screenshot: add `annotate-toolbar.webp` from `npm run screenshots` (Studio 2.0, signed-in suite) here: annotation mode just turned on, with the Annotations toolbar (Cancel, Send) at the bottom of the site preview. -->
+[![Studio in annotation mode, with the site preview of a bakery site and the Annotations toolbar, with Cancel and Send buttons, at the bottom of the preview.](https://developer.wordpress.com/wp-content/uploads/2026/04/annotate-toolbar.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/annotate-toolbar.webp)
 
-<!-- TODO screenshot: add `annotate-note.webp` from `npm run screenshots` (Studio 2.0, signed-in suite) here: two saved notes, numbered 1 and 2 on the heading and the Order button, and a third open on the hero photo with “Swap in a photo of our sourdough” being typed. -->
+[![Annotating a site preview: numbered markers 1 and 2 on the heading and the Order button, and an open note on the hero photo reading “Swap in a photo of our sourdough”, with the attach, delete, and save buttons. The chat box shows 2 annotations, and the toolbar shows Send 2.](https://developer.wordpress.com/wp-content/uploads/2026/04/annotate-note.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/annotate-note.webp)
 
-<!-- TODO screenshot: add `annotate-staged.webp` from `npm run screenshots` (Studio 2.0, signed-in suite) here: the two saved notes marked on the page and waiting in the chat box as “2 annotations”, with Send (2) in the toolbar. -->
+[![The Studio window with Annotate turned on above the site preview: two notes marked 1 and 2 on the page wait in the chat box as 2 annotations, and the Annotations toolbar shows Cancel and Send 2.](https://developer.wordpress.com/wp-content/uploads/2026/04/annotate-staged.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/annotate-staged.webp)
 
 To send a single note right away, press ⌘Enter (Ctrl+Enter on Windows and Linux) in it. If Studio Code is still replying, the note waits in the queue and is sent when the reply ends. Notes staged in the chat box also wait for the reply to end, because they point at the page as it is now.
 
@@ -130,11 +130,11 @@ In the desktop app, when a chat for a local site that’s [connected to a WordPr
 
 When the agent edits a block theme’s templates, those edits now also apply to customizations made in the Site Editor, instead of being silently skipped.
 
-### [Slash commands](#8-slash-commands)
+### [Slash commands](#10-slash-commands)
 
-While chatting, you can use slash commands for quick actions. In the desktop app, type `/` in the chat box to list the commands and skills that match, or click **+** to see them all under **Commands** and **Skills**. The desktop app shows commands and skills by name, for example **Choose model** for `/model`, **Performance Audit** for `/need-for-speed`, and **SEO Audit** for `/rank-me-up`.
+While chatting, you can use slash commands for quick actions. In the desktop app, type `/` in the chat box to list the commands and skills that match, or click **+** to see them all: **Add files** and the commands come first, followed by the skills under **Skills**. The desktop app shows commands and skills by name, for example **Choose model** for `/model`, **Performance Audit** for `/need-for-speed`, and **SEO Audit** for `/rank-me-up`.
 
-<!-- TODO screenshot: add `composer-add-menu.webp` from `npm run screenshots` (Studio 2.0) here: the chat box + menu with Add files, Auto-start, Connect AI providers, and Skills. -->
+[![The chat box + menu open, listing Add files, Auto-start, Choose model, and Connect AI providers, then Skills: Visual Annotations, Taxonomist, Performance Audit, SEO Audit, and Liberate.](https://developer.wordpress.com/wp-content/uploads/2026/04/composer-add-menu-1.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/composer-add-menu-1.webp)
 
 | Command | Description | Available in… |
 | --- | --- | --- |
@@ -159,7 +159,7 @@ While chatting, you can use slash commands for quick actions. In the desktop app
 | /swag | Treat yourself to some WordPress swag | Terminal |
 | /taxonomist | Optimize your category taxonomy | Terminal and desktop |
 
-### [AI model tiers](#9-ai-model-tiers)
+### [AI model tiers](#11-ai-model-tiers)
 
 Studio Code doesn’t ask you to pick a model by name. Instead, you choose a tier based on how much depth the task needs:
 
@@ -176,18 +176,18 @@ Switch tiers at any time, including mid-conversation:
 -   **Desktop**: click the model button in the chat box (it shows the current tier, such as **Fast**), or choose **Choose model** from the **+** menu
 -   **Terminal**: run the `/model` command
 
-<!-- TODO screenshot: add `model-menu.webp` from `npm run screenshots` (Studio 2.0, signed-in suite) here: the chat box model menu (Fast, Balanced, Strong) with the AI credits remaining. -->
+[![The Studio Code model menu open above the chat box, with Fast selected and Balanced and Strong grayed out, and Get more credits and Connect provider listed under Actions.](https://developer.wordpress.com/wp-content/uploads/2026/09/model-menu.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/09/model-menu.webp)
 
 If you use your own Anthropic API key, the model menu lists **Sonnet 5** and **Opus 5** instead of tiers. See [AI providers](#ai-providers).
 
-### [Uploads](#10-uploads)
+### [Uploads](#12-uploads)
 
 Upload images and files into Studio Code to use across your project:
 
 -   **Desktop**: drag files into the chat, paste them, or click **+** in the chat box and choose **Add files**
 -   **Terminal**: drag into the chat or point to a specific local file or folder
 
-### [New conversations](#11-new-conversations)
+### [New conversations](#13-new-conversations)
 
 Clear your conversation and start a new one:
 
@@ -211,7 +211,7 @@ Switching a chat between WordPress.com and Anthropic models starts a new chat, b
 
 The terminal version of Studio Code has a few additional capabilities:
 
-### [Sessions](#14-sessions)
+### [Sessions](#16-sessions)
 
 Studio Code automatically saves your conversation history so you can pick up where you left off.
 
@@ -259,24 +259,24 @@ For the full set of options:
 studio code --help
 ```
 
-## [Usage limits](#15-usage-limits)
+## [Usage limits](#17-usage-limits)
 
-### [AI Credits](#16-ai-credits)
+### [AI Credits](#18-ai-credits)
 
 When you use the default WordPress.com provider, Studio Code’s AI usage is paid for with AI Credits. Every account starts with a one-time free allowance, which can be used with the Fast tier. To keep going once it runs out, or to use Balanced and Strong, buy AI Credits from inside Studio Code. See [How AI Credits Work](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/ai-credits-guidelines/) for details on purchases and account rules.
 
-### [Check your usage](#17-check-your-usage)
+### [Check your usage](#19-check-your-usage)
 
 Studio Code shows your remaining AI Credits as you work:
 
 -   **Desktop**: the model menu in the chat box, and **Settings → Usage**
 -   **Terminal**: the stats line at the end of each turn, and the `/credits` command
 
-<!-- TODO screenshot: add `settings-usage.webp` from `npm run screenshots` (Studio 2.0, signed-in suite) here: Settings → Usage, with the AI credits balance. -->
+[![The Usage page of Studio's Settings, showing the WordPress.com AI credits remaining and percentage used, an Add credits amount menu with a Buy credits button, and the number of active preview sites.](https://developer.wordpress.com/wp-content/uploads/2026/04/settings-usage.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/settings-usage.webp)
 
 Studio Code warns you when you have used 80% and 90% of your AI Credits.
 
-### [What happens when you reach the limit](#18-what-happens-when-you-reach-the-limit)
+### [What happens when you reach the limit](#20-what-happens-when-you-reach-the-limit)
 
 AI responses pause until you add more AI Credits. Your local sites keep running normally; only the AI agent is unavailable.
 
@@ -296,8 +296,7 @@ To use your own key in the desktop app:
 3.  Next to **Anthropic**, click **Connect**, paste your key in the **Anthropic API key** field, and click **Save**.
 4.  In the chat box, choose **Sonnet 5** or **Opus 5** from the model menu.
 
-<!-- TODO screenshot: replace with `settings-ai-providers-signed-in.webp` from `npm run screenshots` (Studio 2.0, signed-in suite): Settings → AI Providers with WordPress.com connected, as in the current image (`settings-ai-providers.webp` is the signed-out version). -->
-[![The AI Providers page of Studio's Settings, with the WordPress.com and Anthropic providers](https://developer.wordpress.com/wp-content/uploads/2026/04/app-settings-ai.png)](https://developer.wordpress.com/wp-content/uploads/2026/04/app-settings-ai.png)
+[![The AI Providers page of Studio's Settings, with WordPress.com marked Connected and a Manage button, and Anthropic with a Connect button to use your own API key.](https://developer.wordpress.com/wp-content/uploads/2026/04/settings-ai-providers-signed-in.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/settings-ai-providers-signed-in.webp)
 
 To switch it using CLI:
 

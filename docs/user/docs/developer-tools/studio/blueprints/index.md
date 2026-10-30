@@ -24,19 +24,16 @@ Creating local sites from Blueprints is incorporated into the site creation flow
 
 1.  Click the **Add site** (**+**) button next to **Sites** at the top of the Studio sidebar. The **Add site** dialog opens on **Create**, which shows **Blank site** and the Blueprints library under **Create a new WordPress**.
 
-<!-- TODO screenshot: replace with `add-site.webp` from `npm run screenshots` (Studio 2.0): the Add site dialog on Create, showing Create a new WordPress with the Blank site and Blueprint cards. -->
-[![The Add site dialog in WordPress Studio.](https://developer.wordpress.com/wp-content/uploads/2025/01/add-a-site.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/add-a-site.png)
+[![The Add site dialog in WordPress Studio, open on Create, showing Create a new WordPress with a Blank site card and Blueprint cards such as Wedding RSVP, Stylish Press, and University Website, and categories under By use case on the left.](https://developer.wordpress.com/wp-content/uploads/2025/10/add-site.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/10/add-site.webp)
 
 2.  Browse the Blueprints library, or pick a category under **By use case** on the left: **Business**, **Blog**, **Portfolio**, **Store**, **Events**, or **Development**.
 
-<!-- TODO screenshot: replace with `blueprints-library.webp` from `npm run screenshots` (Studio 2.0): the Business Blueprints category. -->
-[![The Start from a Blueprint section of Studio's Add a site screen, showing a grid of Blueprints such as Theme & plugin development, WordPress.com, and WooCommerce, with a search field and an Upload a Blueprint button.](https://developer.wordpress.com/wp-content/uploads/2025/10/blueprints-library.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/10/blueprints-library.png)
+[![The Business category of the Blueprints library in Studio's Add site dialog, showing the University Website, Non-profit Organization, and Quick Start Blueprints.](https://developer.wordpress.com/wp-content/uploads/2025/10/blueprints-library.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/10/blueprints-library.webp)
 
 3.  Click a Blueprint to see a larger preview. Click **Preview in browser** to try it out first. To go back to the library, click **Blueprints** at the top of the dialog.
 4.  Click **Create site**. Studio creates the site with the Blueprint’s name, in your default site folder. If the Blueprint needs more information, such as a custom domain, or the folder isn’t empty, Studio shows the **Create your site** form first: review the Blueprint, including the plugins and themes it installs, give your site a name, and click **Create site from Blueprint**.
 
-<!-- TODO screenshot: replace with `blueprint-details.webp` from `npm run screenshots` (Studio 2.0): a Blueprint’s preview with Preview in browser and Create site. -->
-[![The Create a new site screen in Studio with the WooCommerce Blueprint selected, listing the plugins it installs and a Create site from Blueprint button.](https://developer.wordpress.com/wp-content/uploads/2025/10/create-site-from-blueprint.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/10/create-site-from-blueprint.png)
+[![A larger preview of the University Website Blueprint in Studio's Add site dialog, with Preview in browser and Create site buttons at the top.](https://developer.wordpress.com/wp-content/uploads/2025/10/blueprint-details.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/10/blueprint-details.webp)
 
 To use your own Blueprint:
 
@@ -44,7 +41,7 @@ To use your own Blueprint:
 2.  Drop a Blueprint file (a `.json` file or a `.zip` bundle) on the **Drop a Blueprint here** area, or click **Choose file** and select it.
 3.  The **Create your site** form opens and shows the Blueprint. Give your site a name and click **Create site from Blueprint**.
 
-<!-- TODO screenshot: add `add-site-upload.webp` from `npm run screenshots` (Studio 2.0) here: Add site → Upload, with the Drop a Blueprint here area and Choose file. -->
+[![The Upload a Blueprint screen in Studio's Add site dialog, with Upload selected on the left and a Drop a Blueprint here area that supports Blueprint JSON files and ZIP bundles, with a Choose file button.](https://developer.wordpress.com/wp-content/uploads/2025/10/add-site-upload.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/10/add-site-upload.webp)
 
 To use a blank site instead, click **Remove** next to the Blueprint.
 

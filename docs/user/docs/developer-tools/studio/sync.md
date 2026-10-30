@@ -4,7 +4,7 @@ Studio Sync lets you publish your WordPress Studio sites to a production or stag
 
 This feature is available for all WordPress.com sites on paid plans and [Pressable sites](https://pressable.com/knowledgebase/studio-for-pressable/) with Jetpack enabled.
 
-If you’re on a WordPress.com plan, [make sure to activate your plan features](https://wordpress.com/support/activate-your-business-plan/). Commerce plan sites are automatically activated. For sites on the Free or Pro (legacy) plans, [upgrade your plan](https://wordpress.com/support/manage-purchases/upgrade-your-plan/) to access Studio Sync.
+If you’re on a WordPress.com plan, [make sure to activate your plan features](https://wordpress.com/support/activate-your-plan/). Commerce plan sites are automatically activated. For sites on the Free or Pro (legacy) plans, [upgrade your plan](https://wordpress.com/support/manage-purchases/upgrade-your-plan/) to access Studio Sync.
 
 ## [Compatible sites](#supported-sites)
 
@@ -39,8 +39,8 @@ To start working locally on a WordPress.com or Pressable site you don’t have i
 
 Studio creates the local site, saves the connection, and opens the site. The live site is pulled into it in the background, and the **Publish** panel shows the pull’s progress.
 
-<!-- TODO screenshot: add `add-site-connect.webp` from `npm run screenshots` (Studio 2.0) here: Add site → Connect, logged out. -->
-<!-- TODO screenshot: add `add-site-connect-signed-in.webp` from `npm run screenshots` (Studio 2.0, signed-in suite) here: Add site → Connect, signed in, with Search sites, Refresh list, and the Available to connect and Unavailable lists of WordPress.com and Pressable sites. -->
+[![The Connect tab of the Add site dialog in WordPress Studio, signed out, titled Connect to an existing WordPress, with Create account and Log in options to connect WordPress.com or Pressable sites.](https://developer.wordpress.com/wp-content/uploads/2025/01/add-site-connect.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/add-site-connect.webp)
+[![The Connect tab of the Add site dialog in WordPress Studio, signed in, with a Search sites field, Refresh list and Supported sites links, WordPress.com and Pressable sites listed under Available to connect, and a site listed under Unavailable.](https://developer.wordpress.com/wp-content/uploads/2025/01/add-site-connect-signed-in.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/add-site-connect-signed-in.webp)
 
 ## [Connect WordPress Studio to an existing WordPress.com site](#connect-existing)
 
@@ -54,8 +54,9 @@ To connect a local Studio site to an existing production or staging site on Word
 4.  Click **Existing site…** to open the **Choose an existing site** list. Each row shows the site’s name, its address, and whether it’s a **Production**, **Staging**, or **Development** site. Sites you can’t publish to, such as sites that need a plan upgrade, deleted sites, or sites you don’t have permission to manage, are left out. To load the list again, open **Site actions** (**⋯**) and choose **Refresh**.
 5.  Click the site you want to connect to. To go back without connecting, click **Back to Publish**.
 
-<!-- TODO screenshot: replace with `publish-choose-site.webp` from `npm run screenshots` (Studio 2.0, signed-in suite): Publish → Choose an existing site, with WordPress.com and Pressable sites; `publish-panel.webp` shows the Publish tab before it, with Existing site… and New site…. -->
-[![A screenshot depicting the list that allows you to connect a local Studio site to a production or staging site on WordPress.com or Pressable.](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-connect-live-site.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-connect-live-site.png)
+[![The Publish tab of the Share and Publish panel in WordPress Studio for a site that isn't connected yet, titled Publish your WordPress, with Existing site… and New site… buttons.](https://developer.wordpress.com/wp-content/uploads/2025/01/publish-panel.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/publish-panel.webp)
+
+[![The Choose an existing site list in the WordPress Studio Publish panel, showing each site's name, address, and Production or Staging environment, with a back button and a Site actions menu.](https://developer.wordpress.com/wp-content/uploads/2025/01/publish-choose-site.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/publish-choose-site.webp)
 
 Once connected, the **Publish** panel shows **Publish details**: a card for the website you’ll publish to, with its address and when you last published (or **Not published yet**). Below the card, you’ll see the website’s **Environment** and, once you’ve pulled from it, when it was **Last pulled**. For WordPress.com sites, there are also links to the site’s **Domains**, **Backups**, and **Manage on WordPress.com**.
 
@@ -125,7 +126,7 @@ When you are happy with the changes made to your Studio site, you can publish th
 3.  If the local site is connected to more than one website, [choose one](#switch-websites). Then click **Publish changes**.
 
 <!-- TODO screenshot: capture by hand in Studio 2.0, logged in to WordPress.com: the Publish changes review step with Choose files… selected. -->
-[![The Publish panel with "Choose files…" selected](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-selective-push.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-selective-push.png)
+[![Push dialog with "Specific files and folders" selected](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-selective-push.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-selective-push.png)
 
 4.  Choose what to publish:
     -   **Entire site**
@@ -148,7 +149,7 @@ Studio disables **Pull changes** and **Publish changes**, and tells you why, whe
 -   The website has been deleted. Choose another website.
 -   You’re offline. Connect to the internet to publish or pull changes.
 
-### [Exclude files with .deployignore](#8-exclude-files-with-deployignore)
+### [Exclude files with .deployignore](#11-exclude-files-with-deployignore)
 
 When publishing a Studio site to WordPress.com or Pressable, Studio honors the same `.deployignore` file [used by Preview Sites](https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/#4-exclude-files-with-deployignore). Place a `.deployignore` file at the root of your site directory to exclude files from the publish — for example, build artifacts, vendor dependencies, or large media folders.
 

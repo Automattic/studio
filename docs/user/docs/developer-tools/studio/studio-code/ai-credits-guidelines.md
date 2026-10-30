@@ -18,7 +18,7 @@ You can buy AI Credits at any time. Purchased AI Credits don’t expire and stay
 
 The purchase amounts currently available are $10, $20, $50, and $100, but the amounts and availability may change.
 
-<!-- TODO screenshot: add `add-ai-credits.webp` from `npm run screenshots` (Studio 2.0, signed-in suite) here: the Add AI credits dialog with the four amounts. -->
+[![The Add AI credits dialog in Studio, offering one-time amounts of $10 (100,000 credits), $20 (200,000 credits), $50 (500,000 credits), and $100 (1,000,000 credits), with Cancel and Continue for $10 buttons.](https://developer.wordpress.com/wp-content/uploads/2026/08/add-ai-credits.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/08/add-ai-credits.webp)
 
 ## [Why similar tasks can cost more or less](#3-why-similar-tasks-can-cost-more-or-less)
 

@@ -13,8 +13,7 @@ Sometimes you just need to see what WordPress is logging. Studio makes that easy
 3.  Turn on **Debug log**.
 4.  Click **Save** at the top of the dialog.
 
-<!-- TODO screenshot: replace with `site-settings-debug.webp` from `npm run screenshots` (Studio 2.0): the Site scope Debug page. -->
-[![The Debug page of a site's settings in Studio.](https://developer.wordpress.com/wp-content/uploads/2026/01/site-debugging.png)](https://developer.wordpress.com/wp-content/uploads/2026/01/site-debugging.png)
+[![The Debug page of a site's settings in Studio, with the Xdebug toggle turned on in the Debugging section.](https://developer.wordpress.com/wp-content/uploads/2026/01/site-settings-debug.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/01/site-settings-debug.webp)
 
 When the debug log is enabled, your site will capture PHP errors, notices, and warnings to `wp-content/debug.log`. Once the file exists, an **Open log file** link appears on the **Debug** page, so you can jump directly to the file without hunting for its path.
 
@@ -51,8 +50,7 @@ To open phpMyAdmin for a running site, select the site and use either of these:
 -   Click the site preview’s address bar and choose **Database**, or choose **Go to → Database** from the site menu. phpMyAdmin opens inside the preview.
 -   Choose **Open in → phpMyAdmin** from the site menu to open it in your browser.
 
-<!-- TODO screenshot: replace with `preview-destinations.webp` from `npm run screenshots` (Studio 2.0): the address bar shortcuts. -->
-[![The address menu in Studio's site preview, open to show the Front end, WP Admin, and Database options.](https://developer.wordpress.com/wp-content/uploads/2026/04/preview-destinations.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/preview-destinations.png)
+[![The address bar menu in Studio's site preview, open to show the Front end, WordPress Admin, and Database options.](https://developer.wordpress.com/wp-content/uploads/2026/04/preview-destinations.webp)](https://developer.wordpress.com/wp-content/uploads/2026/04/preview-destinations.webp)
 
 ## [Step-through debugging with Xdebug](#6-step-through-debugging-with-xdebug)
 

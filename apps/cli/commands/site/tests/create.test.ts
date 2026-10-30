@@ -1931,6 +1931,67 @@ $table_prefix = 'wp_';
 			);
 		} );
 
+		it.each( [ 'url', 'capture', 'directory' ] as const )(
+			'reports flow_type "static_site_import" with source "%s" for --from',
+			async ( source ) => {
+				const root = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-tracks-from-' ) );
+				const sitePath = path.join( root, 'site' );
+				let from = 'https://example.com';
+				if ( source !== 'url' ) {
+					from = path.join( root, source );
+					await fs.promises.mkdir( path.join( from, 'website' ), { recursive: true } );
+					await fs.promises.writeFile(
+						path.join( from, 'website', 'index.html' ),
+						'<main>Hello</main>'
+					);
+					if ( source === 'capture' ) {
+						await fs.promises.writeFile(
+							path.join( from, 'capture-receipt.json' ),
+							JSON.stringify( {
+								schema: 'blocks-engine-capture/capture-receipt/v1',
+								title: 'Example Brand',
+							} )
+						);
+					}
+				}
+				const liberate = vi.fn().mockImplementation( async ( _url: string, outputDir: string ) => {
+					const website = path.join( outputDir, 'example.com', 'website' );
+					await fs.promises.mkdir( website, { recursive: true } );
+					await fs.promises.writeFile(
+						path.join( website, 'index.html' ),
+						'<main>Liberated</main>'
+					);
+					return { websiteDir: website, compareCommand: () => '' };
+				} );
+				vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+				vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+				const parser = registerCommand(
+					yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
+					{ liberate }
+				).exitProcess( false );
+
+				try {
+					await parser.parseAsync( [
+						'create',
+						'--from',
+						from,
+						'--name',
+						'Imported Site',
+						'--no-start',
+						'--skip-browser',
+					] );
+
+					expect( mockRecord ).toHaveBeenCalledTimes( 1 );
+					expect( mockRecord ).toHaveBeenCalledWith(
+						TRACKS_EVENTS.SITE_CREATE,
+						expect.objectContaining( { flow_type: 'static_site_import', source } )
+					);
+				} finally {
+					await fs.promises.rm( root, { recursive: true, force: true } );
+				}
+			}
+		);
+
 		it( 'reports custom_domain/ssl_enabled as booleans and never sends the domain string', async () => {
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,

@@ -9,7 +9,7 @@
 	padding: var( --space-1_5 );
 	border-radius: var( --radius-3xl );
 	scale: 1;
-	transform: translateX( -50% );
+	translate: -50% 0;
 }
 
 .icon {

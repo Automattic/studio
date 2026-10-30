@@ -6,7 +6,7 @@ import { z } from 'zod';
  *
  * Syncs hold the site only while they touch it locally (`import` while
  * writing it, `export` while archiving it), not while waiting on the network.
- * `pull-reprint` streams straight into the site, so it holds it throughout.
+ * `pull` streams straight into the site, so it holds it throughout.
  *
  * Distinct from the site's `status` health field: `status` records durable
  * damage that must survive a crash (a half-written `pull-failed` site stays

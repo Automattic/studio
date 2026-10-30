@@ -469,7 +469,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 	startupAbortController = new AbortController();
 	const stopSignal = AbortSignal.any( [ signal, startupAbortController.signal ] );
 
-	// Sites imported by `studio pull-reprint` arrive with WordPress already
+	// Sites imported by `studio pull` arrive with WordPress already
 	// installed and a database already in place; reprint's auto_prepend_file
 	// owns their constants and SQLite wiring. So we skip wp-config rewriting,
 	// the WordPress installer, and Blueprint execution — running any of them

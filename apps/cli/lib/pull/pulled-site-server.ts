@@ -27,7 +27,7 @@ export function savePulledSiteStartOptions( session: PullSession ): StartServerO
 	const startOptions = getPulledSiteStartOptions( session );
 	if ( ! startOptions ) {
 		throw new LoggerError(
-			`Missing runtime.php in ${ session.runtimeDirectory }. Re-run \`studio pull-reprint\` to regenerate the runtime configuration.`
+			`Missing runtime.php in ${ session.runtimeDirectory }. Re-run \`studio pull\` to regenerate the runtime configuration.`
 		);
 	}
 	fs.writeFileSync(

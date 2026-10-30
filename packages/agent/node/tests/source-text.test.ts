@@ -22,7 +22,8 @@ writeFileSync(
 );
 writeFileSync(
 	path.join( root, 'old-site/about.html' ),
-	`<html><body><p>Harbor Lights started in 1998 with one dinghy.</p>${ FOOTER }</body></html>`
+	// A shortcode WordPress replaces, as run h2h5's pet store saved its products grid.
+	`<html><body><p>Harbor Lights started in 1998 with one dinghy.</p><!-- wp:shortcode -->[products limit="4" columns="4" orderby="date"]<!-- /wp:shortcode -->${ FOOTER }</body></html>`
 );
 // WordPress's own pages are not the site's.
 writeFileSync( path.join( root, 'wp-includes/page.html' ), '<p>Nothing to see here today.</p>' );

@@ -59,11 +59,17 @@ function visible( html: string ): string {
 		.replace( /<!--[\s\S]*?-->/g, ' ' );
 }
 
-// A document's runs of text, each between two tags: a heading, a paragraph, a footer line.
+// A shortcode's opening or closing tag, which WordPress replaces with what its
+// callback returns (do_shortcode() and get_shortcode_regex() in wp-includes/shortcodes.php).
+const SHORTCODE_TAG = /\[\/?[^<>&/[\]\s=]+(?:[\s/][^\]]*)?\]/g;
+
+// A document's runs of text, each between two tags: a heading, a paragraph, a
+// footer line. A page's own markup, as an agent writes it to save as a post,
+// can hold shortcodes, whose tags are not text WordPress shows.
 function runs( html: string ): Array< { text: string; words: string } > {
 	return visible( html )
 		.split( /<[^>]*>/ )
-		.map( ( text ) => text.replace( /\s+/g, ' ' ).trim() )
+		.map( ( text ) => text.replace( SHORTCODE_TAG, ' ' ).replace( /\s+/g, ' ' ).trim() )
 		.map( ( text ) => ( { text, words: words( text ) } ) )
 		.filter( ( run ) => run.words.split( ' ' ).length >= MIN_WORDS );
 }

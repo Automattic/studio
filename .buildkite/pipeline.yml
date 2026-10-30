@@ -168,6 +168,12 @@ steps:
     agents:
       queue: mac
     command: bash .buildkite/commands/run-metrics-tests.sh
+    # Guards the mac queue: some runs hang until the 3-hour default for reasons still unknown (AINFRA-3506).
+    # E.g.:
+    # - https://buildkite.com/automattic/studio/builds/23244
+    # - https://buildkite.com/automattic/studio/builds/24391
+    # - https://buildkite.com/automattic/studio/builds/24395
+    timeout_in_minutes: 30
     artifact_paths:
       - tools/metrics/artifacts/**/*.json
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]

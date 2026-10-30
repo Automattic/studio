@@ -19,7 +19,7 @@ export SKIP_WORKER_THREAD_BUILD='true'
 if [ "${BUILDKITE_PULL_REQUEST}" != "false" ]; then
   # PR context - compare against trunk
   echo "--- :chart_with_upwards_trend: Running performance comparison against trunk"
-  npm -w compare-perf run compare -- perf $BUILDKITE_COMMIT trunk --tests-branch $BUILDKITE_COMMIT --rounds 3
+  npm -w compare-perf run compare -- perf $BUILDKITE_COMMIT trunk --tests-branch $BUILDKITE_COMMIT --rounds 3 --reuse-checkout
 
   echo "--- :github: Posting results to PR"
   # Parse repo from git@github.com:owner/repo.git or https://github.com/owner/repo.git format
@@ -30,7 +30,7 @@ elif [ "${BUILDKITE_BRANCH}" == "trunk" ]; then
   BASELINE_COMMIT="b653fe205fd63e1b6846475d4a0f193958d9e4d2"
 
   echo "--- :chart_with_upwards_trend: Running performance comparison against baseline"
-  npm -w compare-perf run compare -- perf $BUILDKITE_COMMIT $BASELINE_COMMIT --tests-branch $BUILDKITE_COMMIT --rounds 3
+  npm -w compare-perf run compare -- perf $BUILDKITE_COMMIT $BASELINE_COMMIT --tests-branch $BUILDKITE_COMMIT --rounds 3 --reuse-checkout
 
   echo "--- :bar_chart: Logging metrics to CodeVitals"
   COMMITTED_AT=$(git show -s $BUILDKITE_COMMIT --format="%cI")

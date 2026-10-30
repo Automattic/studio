@@ -436,6 +436,7 @@ export function SettingsDialog() {
 						) }
 					</TabsSidebar>
 					<DialogPanel
+						className={ styles.content }
 						id={ panelId }
 						role="tabpanel"
 						aria-label={ current.label }

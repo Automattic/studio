@@ -89,6 +89,10 @@
 		}
 	}
 
+	:is( .content, .overlay )[data-motion='none'] {
+		transition: none;
+	}
+
 	.content:is( [data-layout='compact'], [data-layout='confirmation'] ) {
 		padding-inline-start: var( --space-4 );
 	}

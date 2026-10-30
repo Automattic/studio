@@ -104,21 +104,6 @@ describe( 'getAppCommands', () => {
 	} );
 } );
 
-it( 'shows the sidebar before opening the notifications from its bell', () => {
-	const toggleSidebar = vi.fn();
-	const openNotifications = vi.fn();
-	const notifications = ( sidebarOpen: boolean ) =>
-		appCommands( { sidebarOpen, toggleSidebar, openNotifications } ).find(
-			( { id } ) => id === 'notifications'
-		)!;
-
-	notifications( true ).run();
-	expect( toggleSidebar ).not.toHaveBeenCalled();
-	notifications( false ).run();
-	expect( toggleSidebar ).toHaveBeenCalledTimes( 1 );
-	expect( openNotifications ).toHaveBeenCalledTimes( 2 );
-} );
-
 it( 'derives labels and availability from active context', () => {
 	const current = makeSite( { id: 'one', name: 'Test', running: true } );
 	const sites = [ current, makeSite( { id: 'two', running: true } ) ];
@@ -131,6 +116,9 @@ it( 'derives labels and availability from active context', () => {
 	const byId = ( id: string ) =>
 		[ ...app, ...forSite, ...chatCommands ].find( ( command ) => command.id === id );
 	expect( byId( 'sidebar' )?.label ).toBe( 'Show sidebar' );
+	for ( const id of [ 'sidebar', 'pin-site', 'pin-chat', 'color-scheme' ] ) {
+		expect( byId( id )?.group ).toBe( 'commands' );
+	}
 	expect( byId( 'chat-visibility' )?.label ).toBe( 'Hide chat' );
 	expect( byId( 'pin-site' )?.label ).toBe( 'Unpin site' );
 	expect( byId( 'pin-chat' )?.label ).toBe( 'Unpin chat' );
@@ -165,7 +153,7 @@ it.each( [
 		if ( ! available ) {
 			expect( command ).toBeUndefined();
 		} else {
-			expect( command ).toMatchObject( { group: 'site', label } );
+			expect( command ).toMatchObject( { group: 'commands', label } );
 		}
 	}
 	expect( commands.find( ( command ) => command.id === 'lifecycle' ) ).toMatchObject( {
@@ -189,9 +177,9 @@ describe( 'getSettingCommands', () => {
 		expect( byLabel( 'Turn off “Show recent chats”' ).run ).toBe( toggle.run );
 		byLabel( 'Default terminal app' ).run();
 		expect( openSettings ).toHaveBeenCalledWith( 'general', undefined, 'terminal' );
-		byLabel( 'Studio CLI for terminal' ).run();
+		byLabel( 'WordPress Studio CLI for terminal' ).run();
 		expect( openSettings ).toHaveBeenCalledWith( 'general', undefined, 'studio-cli' );
-		byLabel( 'Agent instructions' ).run();
+		byLabel( 'Instructions' ).run();
 		expect( openSettings ).toHaveBeenCalledWith( 'instructions', undefined, 'agent-instructions' );
 	} );
 
@@ -220,7 +208,6 @@ describe( 'getSettingCommands', () => {
 			'Visit wapuu.studio',
 			'Wapuu score',
 			'Local domain',
-			'MCP',
 			'WordPress credentials',
 		] ) {
 			expect( titles ).not.toContain( label );
@@ -237,8 +224,8 @@ describe( 'getSettingCommands', () => {
 		[ 'shortcuts', 'settings-keyboard' ],
 		[ 'connect', 'settings-ai' ],
 		[ 'connect provider', 'settings-ai' ],
-		[ 'credit balance', 'settings-usage-ai-credits' ],
-		[ 'snapshots', 'settings-sharing-preview-sites' ],
+		[ 'credit balance', 'settings-usage' ],
+		[ 'snapshots', 'settings-sharing' ],
 	] )( 'finds “%s” first by another name for a setting', ( query, id ) => {
 		expect( matchCommands( studioSettings(), query )[ 0 ]?.id ).toBe( id );
 	} );

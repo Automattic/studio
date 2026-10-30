@@ -26,6 +26,9 @@
 
 /* The setting picked from the search results. */
 .content :global( [data-settings-match] ) {
+	--foreground: var( --accent-text );
+	--muted-foreground: var( --accent-text );
+	color: var( --accent-text );
 	position: relative;
 	isolation: isolate;
 }

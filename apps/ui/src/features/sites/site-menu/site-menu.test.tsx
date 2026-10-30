@@ -176,7 +176,7 @@ describe( 'Stop other sites', () => {
 				expect( Object.fromEntries( new URLSearchParams( history.location.search ) ) ).toEqual( {
 					settings: 'site',
 					settingsSite: 'selected',
-					settingsFocus: 'Site name',
+					settingsFocus: 'site-name',
 				} )
 			);
 		}

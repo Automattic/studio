@@ -972,6 +972,28 @@ describe( 'pi runtime', () => {
 			expect( mocks.turnEnd ).toContain( 'block files settled' );
 		} );
 
+		it( 'gives it the site this request works on as its active site', async () => {
+			const site = path.join( mocks.studioRoot, 'shop' );
+			const shop = { ...fakeSite, id: '1', name: 'Shop', path: site };
+			fs.mkdirSync( site, { recursive: true } );
+			const { all, findByFolder } = host.sites;
+			host.sites.all = async () => [ shop ];
+			host.sites.findByFolder = async ( folder ) =>
+				path.resolve( folder ) === path.resolve( site ) ? shop : undefined;
+			try {
+				const { tool } = await subagentTool();
+				await getCreatedTool( 'Write' ).execute( 'w', { path: 'shop/style.css', content: '' } );
+				mocks.nextEvents = [ { type: 'agent_end', willRetry: false, messages: [] } ];
+				await tool.execute( 's', { task: 'write the about page' } );
+				expect( mocks.createdSessions.at( -1 )!.systemPrompt ).toContain(
+					`- Each Bash command starts in ${ site }.`
+				);
+			} finally {
+				Object.assign( host.sites, { all, findByFolder } );
+				fs.rmSync( site, { recursive: true, force: true } );
+			}
+		} );
+
 		it( 'fails with what stopped the turn', async () => {
 			const { tool } = await subagentTool();
 			mocks.nextEvents = [

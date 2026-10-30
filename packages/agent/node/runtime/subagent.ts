@@ -12,7 +12,7 @@ type AssistantMessage = Extract<
 export type RunTurn = (
 	task: string,
 	onEvent: ( event: AgentSessionEvent ) => void
-) => { result: Promise< void >; interrupt(): Promise< void > };
+) => Promise< { result: Promise< void >; interrupt(): Promise< void > } >;
 
 const text = ( message: AssistantMessage | undefined ) =>
 	( message?.content ?? [] )
@@ -39,7 +39,7 @@ export function createSubagentTool(
 		execute: async ( _toolCallId, { task }, signal ) => {
 			const replies: AssistantMessage[] = [];
 			let end: Extract< AgentSessionEvent, { type: 'agent_end' } > | undefined;
-			const turn = runTurn( task, ( event ) => {
+			const turn = await runTurn( task, ( event ) => {
 				if ( event.type === 'message_end' && event.message.role === 'assistant' ) {
 					replies.push( event.message );
 				}

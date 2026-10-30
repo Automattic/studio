@@ -10,7 +10,7 @@ user-invokable: true
 
 Build the whole site from the user's request without asking first: everything they told you goes on it, and anything they left out, choose for them. Everything the user asks the site to do works on the first version: a shop sells, a signup subscribes. Each site gets a custom block theme, made with `create_theme`, unless the user says otherwise. The site's content goes in pages; the theme frames it.
 
-A site of several pages is built at once. Write the theme first: `create_theme`, then its theme.json, header and footer. Then create every page with WP-CLI, so each has its copy, and call `subagent` once per page, all in one message so they run at the same time. Each task gives the page's copy file, the site's voice and look (the theme.json presets to use), the page's sections in order with what each says, and says to write that file only. Once they reply, link the pages in the header's navigation.
+A site of several pages is built at once. Write the theme first: `create_theme`, then its theme.json, header and footer. Then create every page with WP-CLI, so each has its copy, and call `subagent` once per page, all in one message so they run at the same time. Each task names the page, its copy file, and what the page is for in a sentence or two; the agent writes the page's sections and words itself from the theme's presets, and writes that file only. Once they reply, link the pages in the header's navigation.
 
 ## 2. Show it
 

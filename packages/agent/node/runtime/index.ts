@@ -509,6 +509,16 @@ async function createStudioAgentSession(
 	const tools = buildAgentTools(
 		config,
 		{ state, siteChanges },
+		// The site this request works on, once it has one: the active site, or
+		// the one it created or first changed.
+		async () => {
+			const sitePath = sitePin.localRequestSite();
+			if ( config.activeSite || ! sitePath ) {
+				return config.activeSite;
+			}
+			const site = await config.host.sites.findByFolder( sitePath );
+			return site && { ...site, running: await config.host.sites.isRunning( site ) };
+		},
 		imageGenerationEnabled,
 		visionEnabled,
 		wpCliServer,
@@ -871,6 +881,7 @@ function shellDirectory( config: ResolvedStudioAgentTurnConfig ): string {
 function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
 	checks: SubagentParent,
+	requestSite: () => Promise< SiteInfo | null | undefined >,
 	imageGenerationEnabled: boolean,
 	visionEnabled: boolean,
 	wpCliServer: string | undefined,
@@ -916,17 +927,18 @@ function buildAgentTools(
 		visionEnabled,
 	} ) as unknown as AgentToolAny[];
 	// A subagent's turn is this turn's, from a fresh session and with nobody to
-	// ask: confirmations still reach the user.
+	// ask: confirmations still reach the user. Its active site is this
+	// request's, so it starts knowing the site as it is now.
 	const subagentTool: AgentToolAny[] = config.subagentOf
 		? []
 		: [
-				createSubagentTool( ( task, onEvent ) =>
+				createSubagentTool( async ( task, onEvent ) =>
 					runStudioAgentTurn( host, {
 						prompt: task,
 						session: SessionManager.inMemory( sitesRoot ),
 						env: config.env,
 						model: config.model,
-						activeSite: config.activeSite,
+						activeSite: await requestSite(),
 						onConfirm: config.onConfirm ?? config.onAskUser,
 						onEvent,
 						subagentOf: checks,

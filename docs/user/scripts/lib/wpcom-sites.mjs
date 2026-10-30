@@ -7,6 +7,9 @@ import { runCli, stopSite } from './studio-seed.mjs';
 // WordPress.com's screenshot service, which Studio shows a remote site's thumbnail from.
 const MSHOTS = 'https://s0.wp.com/mshots/v1/**';
 const THUMB = { width: 600, height: 400 };
+// The account's preview-site count and limit.
+const USAGE = 'https://public-api.wordpress.com/wpcom/v2/jurassic-ninja/usage';
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * The WordPress.com and Pressable sites signed-in suites show instead of the
@@ -84,14 +87,72 @@ export async function replaceWpcomSites( { app, window }, remoteSites, previews 
 		},
 		remoteSites.map( ( r ) => r.site )
 	);
-	await window.context().route( MSHOTS, ( route ) => {
-		const target = decodeURIComponent(
-			new URL( route.request().url() ).pathname.split( '/' ).pop()
-		);
-		const remote = remoteSites.find( ( r ) => r.site.url === target );
-		const body = remote && previews[ remote.preview ];
-		return body
-			? route.fulfill( { contentType: 'image/jpeg', body } )
-			: route.fulfill( { status: 404 } );
+	await serveThumbnails( window, remoteSites, previews );
+}
+
+/**
+ * The preview sites signed-in suites with `previewSites` show, from
+ * `preview-sites.json`: each a `Snapshot` as Studio's `fetchSnapshots` returns
+ * it, with `site` (the demo site's slug) in place of `localSiteId`, `ageDays`
+ * in place of `date`, and `preview`, the demo site whose front page stands in
+ * for its thumbnail.
+ */
+export async function loadPreviewSites( dir, demoSites ) {
+	const entries = await readJson( path.join( dir, 'preview-sites.json' ) );
+	return entries.map( ( { site, ageDays, preview, ...snapshot } ) => {
+		const local = demoSites.find( ( s ) => s.slug === site );
+		if ( ! local ) {
+			throw new Error( `preview-sites.json: no demo site "${ site }" in sites.json` );
+		}
+		return {
+			site: { ...snapshot, localSiteId: local.id, date: Date.now() - ageDays * DAY_MS },
+			preview,
+		};
 	} );
+}
+
+/**
+ * Makes a running Studio list `previewSites` as the preview sites of the
+ * account `userId`, with a matching usage count, and serves their thumbnails
+ * from `previews`.
+ * Nothing is created or changed on WordPress.com.
+ */
+export async function replacePreviewSites( { app, window }, previewSites, previews, userId ) {
+	await app.evaluate(
+		( { ipcMain }, snapshots ) => {
+			ipcMain.removeHandler( 'fetchSnapshots' );
+			ipcMain.handle( 'fetchSnapshots', () => snapshots );
+		},
+		previewSites.map( ( p ) => ( { ...p.site, userId } ) )
+	);
+	await window.context().route( USAGE, ( route ) =>
+		route.fulfill( {
+			contentType: 'application/json',
+			body: JSON.stringify( {
+				site_count: previewSites.length,
+				site_limit: 10,
+				site_creation_blocked: false,
+			} ),
+		} )
+	);
+	await serveThumbnails( window, previewSites, previews );
+}
+
+// Answers mShots requests for `entries`' URLs with their demo site's front page.
+async function serveThumbnails( window, entries, previews ) {
+	await window.context().route( MSHOTS, ( route ) => {
+		const target = bareUrl(
+			decodeURIComponent( new URL( route.request().url() ).pathname.split( '/' ).pop() )
+		);
+		const entry = entries.find( ( e ) => bareUrl( e.site.url ) === target );
+		const body = entry && previews[ entry.preview ];
+		if ( body ) {
+			return route.fulfill( { contentType: 'image/jpeg', body } );
+		}
+		return route.fallback();
+	} );
+}
+
+function bareUrl( url ) {
+	return url.replace( /^https?:\/\//, '' ).replace( /\/$/, '' );
 }

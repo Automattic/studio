@@ -6,7 +6,13 @@ import { DEMO_SITE_DIR, ROOT, SCREENSHOTS_DIR, SHOTS_DIR, readJson } from './lib
 import { runSteps } from './lib/steps.mjs';
 import { createProfile, launchStudio, readAuthToken } from './lib/studio-app.mjs';
 import { seedSites, siteMetadata } from './lib/studio-seed.mjs';
-import { capturePreviews, loadWpcomSites, replaceWpcomSites } from './lib/wpcom-sites.mjs';
+import {
+	capturePreviews,
+	loadPreviewSites,
+	loadWpcomSites,
+	replacePreviewSites,
+	replaceWpcomSites,
+} from './lib/wpcom-sites.mjs';
 
 const UPLOADS_URL = 'https://developer.wordpress.com/wp-content/uploads/';
 
@@ -110,12 +116,13 @@ async function ensureSiteRunning( ctx, site ) {
 	const button = ( verb ) =>
 		ctx.w.getByRole( 'button', { name: `${ verb } ${ site.name }`, exact: true } ).first();
 	const previewTitle = () =>
-		ctx.w.evaluate( () =>
-			document
-				.querySelector( 'webview' )
-				?.executeJavaScript( 'document.title' )
-				.catch( () => '' )
-		);
+		ctx.w.evaluate( () => {
+			// The element is there before it's attached and can run scripts.
+			const webview = document.querySelector( 'webview' );
+			return typeof webview?.executeJavaScript === 'function'
+				? webview.executeJavaScript( 'document.title' ).catch( () => '' )
+				: '';
+		} );
 	for ( let attempt = 1; ; attempt++ ) {
 		await button( 'Stop' ).waitFor( { timeout: 120000 } );
 		// After a restart the preview still shows the error page until it reloads.
@@ -206,10 +213,15 @@ async function main() {
 	let wpcom = null;
 	if ( selected.some( ( s ) => s.signedIn && ! s.firstRun ) ) {
 		const remoteSites = await loadWpcomSites( DEMO_SITE_DIR );
+		const previewSites = await loadPreviewSites( DEMO_SITE_DIR, demo.sites );
 		console.log( 'Capturing the WordPress.com site thumbnails...' );
 		wpcom = {
 			remoteSites,
-			previews: await capturePreviews( demo.profile, demo.sites, remoteSites ),
+			previewSites,
+			previews: await capturePreviews( demo.profile, demo.sites, [
+				...remoteSites,
+				...previewSites,
+			] ),
 		};
 	}
 
@@ -235,6 +247,9 @@ async function main() {
 			version ??= studio.version;
 			if ( suite.signedIn && wpcom ) {
 				await replaceWpcomSites( studio, wpcom.remoteSites, wpcom.previews );
+				if ( suite.previewSites ) {
+					await replacePreviewSites( studio, wpcom.previewSites, wpcom.previews, authToken.id );
+				}
 			}
 			const ctx = {
 				app: studio.app,

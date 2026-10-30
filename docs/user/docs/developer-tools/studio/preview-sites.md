@@ -37,7 +37,7 @@ Studio can’t create or update a preview when:
 -   You’re offline. Connect to the internet to create or update a preview.
 -   Another operation is running on the site. Wait for it to finish before creating or updating a preview.
 
-<!-- TODO screenshot: capture by hand in Studio 2.0, logged in to WordPress.com: the Share panel with a ready preview in the list, its Preview actions menu open, and Create another preview. -->
+<!-- TODO screenshot: replace with `share-previews.webp` from `npm run screenshots` (Studio 2.0, signed-in-previews suite): the Share panel with previews in the list, and Create another preview. -->
 [![A screenshot depicting an existing preview in the Share panel in the Studio app.](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-new-site-preview-link.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-new-site-preview-link.png)
 
 ## [Rename a preview site](#1-rename-a-preview-site)
@@ -49,7 +49,7 @@ You can create multiple preview sites per Studio site. To differentiate between 
 3.  In the **Rename preview** dialog, enter a new name.
 4.  Click **Save**.
 
-<!-- TODO screenshot: capture by hand in Studio 2.0, logged in to WordPress.com: the Share panel’s Preview actions menu, with Update, Copy link, Visit preview, Rename, and Delete preview. -->
+<!-- TODO screenshot: replace with `share-preview-actions.webp` from `npm run screenshots` (Studio 2.0, signed-in-previews suite): the Share panel’s Preview actions menu, with Update, Copy link, Visit preview, Rename, and Delete preview. -->
 [![A screenshot depicting the Preview actions menu, with the options to create, rename, or delete a preview.](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-preview-more-actions.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-preview-more-actions.png)
 
 Your preview site will display that name in Studio, while your remote preview site name will remain unchanged.

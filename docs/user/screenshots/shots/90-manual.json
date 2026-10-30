@@ -17,16 +17,6 @@
 			"replaces": [ "2026/04/studio-code.png" ]
 		},
 		{
-			"description": "Share tab with previews: the previews list with expiry dates and Create another preview",
-			"pages": [ "preview-sites.md" ],
-			"replaces": [ "2025/01/studio-new-site-preview-link.png" ]
-		},
-		{
-			"description": "Share tab → a preview’s Preview actions menu (Update, Copy link, Visit preview, Rename, Delete preview)",
-			"pages": [ "preview-sites.md" ],
-			"replaces": [ "2025/01/studio-preview-more-actions.png" ]
-		},
-		{
 			"description": "Publish details → Pull changes → What to pull, with Choose files…",
 			"pages": [ "sync.md" ],
 			"replaces": [ "2025/01/studio-pull-selective.png" ]

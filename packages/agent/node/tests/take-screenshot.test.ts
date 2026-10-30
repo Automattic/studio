@@ -5,8 +5,13 @@ import { createTakeScreenshotTool } from '@studio/agent/node/tools/take-screensh
 
 vi.mock( '@studio/agent/node/tools/screenshot-helpers', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/agent/node/tools/screenshot-helpers') >() ),
-	captureScreenshotBuffer: async ( _url: string, viewport: unknown, options: unknown ) => {
-		captureOptions.push( options as { fullPage: boolean } );
+	captureScreenshotBuffer: async (
+		url: string,
+		viewport: { width: number },
+		options: { fullPage: boolean }
+	) => {
+		captureOptions.push( options );
+		captured.push( `${ url } ${ viewport.width }` );
 		return {
 			buffer: Buffer.from( 'jpeg' ),
 			mimeType: 'image/jpeg',
@@ -25,8 +30,10 @@ vi.mock( '@studio/agent/node/tools/screenshot-helpers', async ( importOriginal )
 } ) );
 
 const captureOptions: Array< { fullPage: boolean } > = [];
+const captured: string[] = [];
 beforeEach( () => {
 	captureOptions.length = 0;
+	captured.length = 0;
 } );
 
 const text = async ( result: { content: Array< { type: string; text?: string } > } ) =>
@@ -39,10 +46,32 @@ describe( 'take_screenshot', () => {
 		{ args: { offset: 900 }, fullPage: true, says: 'captured full page' },
 	] )( 'captures $args as fullPage $fullPage', async ( { args, fullPage, says } ) => {
 		const tool = bindTool( createTakeScreenshotTool( { visionEnabled: false } ), createFakeHost() );
-		const result = await tool.rawHandler( { url: 'http://localhost:8881', ...args } );
+		const result = await tool.rawHandler( {
+			url: 'http://localhost:8881',
+			viewport: 'desktop',
+			...args,
+		} );
 
 		expect( captureOptions.map( ( options ) => options.fullPage ) ).toEqual( [ fullPage ] );
 		expect( await text( result ) ).toContain( says );
+	} );
+
+	it( 'captures every page it is given at desktop and mobile in one call', async () => {
+		const tool = bindTool( createTakeScreenshotTool( { visionEnabled: true } ), createFakeHost() );
+		const result = await tool.rawHandler( {
+			url: [ 'http://localhost:8881/', 'http://localhost:8881/about/' ],
+		} );
+
+		expect( captured ).toEqual( [
+			'http://localhost:8881/ 1040',
+			'http://localhost:8881/ 390',
+			'http://localhost:8881/about/ 1040',
+			'http://localhost:8881/about/ 390',
+		] );
+		expect( result.content.filter( ( block ) => block.type === 'image' ) ).toHaveLength( 4 );
+		expect( await text( result ) ).toContain(
+			'- http://localhost:8881/about/ mobile: captured the first screen'
+		);
 	} );
 
 	it.each( [

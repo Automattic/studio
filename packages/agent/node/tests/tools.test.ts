@@ -173,6 +173,7 @@ describe( 'Studio AI MCP tools', () => {
 			const tool = bindTool( createTakeScreenshotTool( { visionEnabled: false } ), host );
 			const result = await tool.rawHandler( {
 				url: 'http://localhost:8903/',
+				viewport: 'desktop',
 				display: false,
 			} as never );
 
@@ -194,6 +195,7 @@ describe( 'Studio AI MCP tools', () => {
 				);
 				const result = await tool!.rawHandler( {
 					url: 'http://localhost:8903/',
+					viewport: 'desktop',
 					display,
 				} as never );
 				return result.content.find( ( block ) => block.type === 'text' )?.text ?? '';

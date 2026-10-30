@@ -408,7 +408,11 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 			return typeof input.command === 'string' ? `wp ${ input.command }` : '';
 		case 'take_screenshot':
 		case 'open_annotation_browser':
-			return typeof input.url === 'string' ? input.url : '';
+			return typeof input.url === 'string'
+				? input.url
+				: Array.isArray( input.url )
+				? input.url.join( ', ' )
+				: '';
 		case 'generate_images': {
 			const count = Array.isArray( input.images ) ? input.images.length : 0;
 			return count > 0 ? sprintf( _n( '%d image', '%d images', count ), count ) : '';

@@ -11,6 +11,7 @@ import {
 	SITE_SERVER_INACTIVITY_TIMEOUT,
 	SITE_SERVER_MAX_TIMEOUT,
 } from '@studio/common/constants';
+import { SITE_START_REQUESTED_AT_ENV } from '@studio/common/lib/cli-events';
 import { readLastLines } from '@studio/common/lib/fs-utils';
 import { STUDIO_ERROR_LOG_FILENAME } from '@studio/common/lib/mu-plugins';
 import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metadata';
@@ -244,6 +245,12 @@ export async function startWordPressServer(
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	const phaseTimings: Record< string, number > = {};
 	const startedAt = Date.now();
+	// Everything before this timer, when an app started the site: spawning and loading this CLI,
+	// and the preparation above.
+	const launchMs = startedAt - Number( process.env[ SITE_START_REQUESTED_AT_ENV ] );
+	if ( launchMs >= 0 ) {
+		phaseTimings.launch_ms = launchMs;
+	}
 	try {
 		const processDesc = await startProcess( processName, WORDPRESS_SERVER_CHILD_PATH );
 		await readyOrExit.waitFor( processDesc.pmId );

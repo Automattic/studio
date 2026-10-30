@@ -190,3 +190,9 @@ export const cliSyncEventSchema = z.object( {
 		.transform( ( val ) => JSON.parse( val ) )
 		.pipe( syncEventSchema ),
 } );
+
+/**
+ * Set by an app on the `site start` it spawns: the time (ms since the epoch) the user asked for the
+ * start, so the CLI's `studio_site_start` event can include the app's side of it.
+ */
+export const SITE_START_REQUESTED_AT_ENV = 'STUDIO_SITE_START_REQUESTED_AT';

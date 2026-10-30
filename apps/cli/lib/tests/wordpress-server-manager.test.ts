@@ -277,6 +277,23 @@ describe( 'WordPress Server Manager', () => {
 			} );
 		} );
 
+		it.each( [
+			[ 'an app request 3 s before the timer', '7000', 3000 ],
+			[ 'no app request', undefined, undefined ],
+			[ 'an unreadable request time', 'soon', undefined ],
+			[ 'a request time after the timer', '12000', undefined ],
+		] )( 'times the start from %s', async ( _case, requestedAt, launchMs ) => {
+			vi.useFakeTimers( { toFake: [ 'Date' ] } );
+			vi.setSystemTime( 10_000 );
+			vi.stubEnv( 'STUDIO_SITE_START_REQUESTED_AT', requestedAt );
+			vi.mocked( daemonClient.startProcess ).mockRejectedValue( new Error( 'Failed' ) );
+
+			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow();
+
+			const [ , props ] = vi.mocked( recordTracksEvent ).mock.calls[ 0 ];
+			expect( props?.launch_ms ).toBe( launchMs );
+		} );
+
 		it( 'should handle start process failure', async () => {
 			vi.mocked( daemonClient.startProcess ).mockRejectedValue(
 				new Error( 'Failed to start process' )

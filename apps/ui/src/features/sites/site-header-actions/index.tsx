@@ -6,7 +6,12 @@ import { useConnector } from '@/data/core';
 import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
 import { useIsSiteBusy, useStartSite } from '@/data/queries/use-sites';
 import { useSessionPreviewUI } from '@/data/use-session-ui';
-import { setAnnotating, useSiteAnnotations } from '@/features/annotations';
+import {
+	hasAnnotationContent,
+	isAnnotationsBusy,
+	setAnnotating,
+	useSiteAnnotations,
+} from '@/features/annotations';
 import { ShareButton, PublishButton, SiteDeliveryDialog } from '@/features/site-delivery';
 import { AnnotateButton } from '@/features/sites/site-preview/preview-header/annotate-button';
 import { useMediaQuery, useWindowControlsOverlay } from '@/lib/hooks';
@@ -164,11 +169,13 @@ export function SiteHeaderActions( {
 	site,
 	live = false,
 	onStartAnnotating,
+	onSendAnnotations,
 	end,
 }: {
 	site: SiteDetails;
 	live?: boolean;
 	onStartAnnotating?: () => boolean;
+	onSendAnnotations?: ( siteId: string ) => void;
 	end?: ReactNode;
 } ) {
 	const { host, layout, navigation, attachActions, browserSpace } = useSiteHeader();
@@ -290,7 +297,19 @@ export function SiteHeaderActions( {
 					: null }
 				<div data-site-header-delivery className={ styles.delivery }>
 					<span data-site-header-annotate className={ styles.item }>
-						<AnnotateButton { ...annotation } iconOnly />
+						<AnnotateButton
+							{ ...annotation }
+							iconOnly
+							send={ {
+								count: annotations.notes.filter( hasAnnotationContent ).length,
+								disabled: isAnnotationsBusy( annotations ) || ! onSendAnnotations,
+								loading: Boolean( annotations.sending ),
+								onClick: () => {
+									onSendAnnotations?.( site.id );
+									setAnnotating( site.id, false );
+								},
+							} }
+						/>
 					</span>
 					<span data-site-header-share className={ styles.item }>
 						<ShareButton site={ site } />

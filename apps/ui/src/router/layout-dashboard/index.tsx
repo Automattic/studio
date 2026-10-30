@@ -298,6 +298,7 @@ function DashboardLayout() {
 										site={ routeSite }
 										live={ !! liveUrl }
 										onStartAnnotating={ startAnnotating }
+										onSendAnnotations={ sendAnnotations }
 										end={
 											<IconButton
 												icon={

@@ -3,7 +3,12 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { markPreviewReady } from '@/data/preview-ready';
 import { applySyncActivity } from '@/data/sync-activity';
 import { SessionUIProvider } from '@/data/use-session-ui';
-import { getSiteAnnotations, setAnnotating } from '@/features/annotations';
+import {
+	changeAnnotation,
+	getSiteAnnotations,
+	pickAnnotation,
+	setAnnotating,
+} from '@/features/annotations';
 import { SessionHeader } from '@/features/chats';
 import { HeaderSidebarToggle } from '@/features/sidebar';
 import { SitePreview } from '@/features/sites/site-preview';
@@ -26,7 +31,8 @@ async function renderHeader(
 	siteId: string,
 	connector = createFakeConnector(),
 	width = 60,
-	running = true
+	running = true,
+	onSendAnnotations = vi.fn()
 ) {
 	Object.defineProperty( window.navigator, 'userAgent', {
 		value: `${ REAL_USER_AGENT } Electron/38.0.0`,
@@ -61,7 +67,7 @@ async function renderHeader(
 					effectiveEnvironment="local"
 				/>
 				<SitePreview site={ site } path="/" reloadNonce={ 0 } />
-				<SiteHeaderActions site={ site } />
+				<SiteHeaderActions site={ site } onSendAnnotations={ onSendAnnotations } />
 			</SessionUIProvider>
 		</SiteHeaderActionsProvider>,
 		{ connector }
@@ -115,7 +121,8 @@ it( 'keeps icon-only annotation available beside overflow with sharing feedback'
 	const annotation = screen.getByRole( 'button', { name: 'Annotate' } );
 	await waitFor( () => expect( annotation ).toBeEnabled() );
 	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
-	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
+	expect( headerButtons( /^Send/ ) ).toHaveLength( 1 );
+	expect( headerButtons( /^Send/ )[ 0 ] ).toHaveAttribute( 'aria-disabled', 'true' );
 	expect( annotation ).toHaveAttribute( 'aria-pressed', 'true' );
 	expect( annotation ).toHaveTextContent( '' );
 	await user.click( annotation );
@@ -145,6 +152,32 @@ it( 'keeps icon-only annotation available beside overflow with sharing feedback'
 	expect( screen.queryByRole( 'menuitemcheckbox', { name: 'Annotate' } ) ).not.toBeInTheDocument();
 	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeInTheDocument();
 	expect( headerButtons( 'Send 1 annotation' ) ).toHaveLength( 0 );
+} );
+
+it( 'sends pending notes from the expanded Annotate control and keeps the bottom toolbar', async () => {
+	const siteId = 'header-send-site';
+	const onSend = vi.fn();
+	const { user } = await renderHeader( siteId, createFakeConnector(), 1000, true, onSend );
+	readyGuest();
+	const annotate = screen.getByRole( 'button', { name: 'Annotate' } );
+	await waitFor( () => expect( annotate ).toBeEnabled() );
+	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
+	await user.click( annotate );
+	expect( headerButtons( /^Send/ )[ 0 ] ).toHaveAttribute( 'aria-disabled', 'true' );
+	await user.click( headerButtons( /^Send/ )[ 0 ] );
+	expect( onSend ).not.toHaveBeenCalled();
+	expect( screen.getByRole( 'toolbar', { name: 'Annotations' } ) ).toBeVisible();
+
+	act( () => {
+		const id = pickAnnotation( siteId, { selector: 'h1', tag: 'h1', path: '/' } )!;
+		changeAnnotation( siteId, id, { comment: 'Make this heading smaller' } );
+	} );
+	const send = headerButtons( 'Send 1 annotation' )[ 0 ];
+	expect( send ).toBeEnabled();
+	await user.click( send );
+	expect( onSend ).toHaveBeenCalledExactlyOnceWith( siteId );
+	expect( getSiteAnnotations( siteId ).active ).toBe( false );
+	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
 } );
 
 it( 'exposes browser actions with their navigation availability in overflow', async () => {

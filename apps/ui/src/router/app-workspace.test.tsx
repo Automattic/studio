@@ -152,7 +152,11 @@ describe( 'Studio workspace', () => {
 			changeAnnotation( 'one', id, { comment: 'Make this heading larger' } );
 		} );
 		try {
-			fireEvent.click( screen.getByRole( 'button', { name: 'Send 1 annotation' } ) );
+			fireEvent.click(
+				within( screen.getByRole( 'toolbar', { name: 'Annotations' } ) ).getByRole( 'button', {
+					name: 'Send 1 annotation',
+				} )
+			);
 			expect(
 				await screen.findByRole( 'dialog', { name: 'Put your feedback to work' } )
 			).toBeVisible();

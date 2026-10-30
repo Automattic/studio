@@ -41,14 +41,56 @@
 	font-size: var( --text-2xs );
 }
 
-.disabledControlTooltipTarget {
-	display: inline-flex;
-	flex-shrink: 0;
-	min-width: max-content;
-}
-
 .annotateButton {
 	gap: var( --space-1 );
+}
+
+.annotationControl {
+	display: inline-flex;
+	flex-shrink: 0;
+	align-items: center;
+	border-radius: var( --radius-lg );
+}
+
+.annotationControl[data-active='true'] {
+	background-color: light-dark(
+		color-mix( in srgb, var( --accent ) 8%, transparent ),
+		color-mix( in srgb, var( --accent ) 15%, transparent )
+	);
+}
+
+.annotationControl[data-active='true'] .annotateButton {
+	--button-hover-background: transparent;
+}
+
+.annotationSendSlot {
+	display: grid;
+	grid-template-columns: 0fr;
+}
+
+.annotationControl[data-active='true'] .annotationSendSlot {
+	grid-template-columns: 1fr;
+}
+
+.annotationSendContent {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+	overflow: hidden;
+}
+
+.annotationSend {
+	margin-inline-end: var( --space-0_5 );
+}
+
+@media ( prefers-reduced-motion: no-preference ) {
+	.annotationSendSlot {
+		transition: grid-template-columns var( --motion-duration-surface ) var( --motion-ease-enter );
+	}
+
+	.annotationControl:has( :focus-visible ) .annotationSendSlot {
+		transition: none;
+	}
 }
 
 .navigation {

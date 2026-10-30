@@ -1,6 +1,6 @@
-import { __ } from '@wordpress/i18n';
-import { AnnotateIcon } from '@/lib/icons';
-import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
+import { __, _n, sprintf } from '@wordpress/i18n';
+import { AnnotateIcon, SendIcon } from '@/lib/icons';
+import { Button, IconButton, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import styles from './style.module.css';
 
 export function AnnotateButton( {
@@ -9,16 +9,19 @@ export function AnnotateButton( {
 	disabledReason,
 	iconOnly,
 	onClick,
+	send,
 }: {
 	active: boolean;
 	disabled: boolean;
 	disabledReason?: string;
 	iconOnly: boolean;
 	onClick: () => void;
+	send?: { count: number; disabled: boolean; loading: boolean; onClick: () => void };
 } ) {
 	return (
 		<span
-			className={ styles.disabledControlTooltipTarget }
+			className={ styles.annotationControl }
+			data-active={ active }
 			title={ disabled ? disabledReason : undefined }
 		>
 			<Tooltip>
@@ -49,6 +52,28 @@ export function AnnotateButton( {
 					{ disabledReason ?? ( active ? __( 'Exit annotation mode' ) : __( 'Annotate' ) ) }
 				</TooltipContent>
 			</Tooltip>
+			{ send ? (
+				<span className={ styles.annotationSendSlot } aria-hidden={ ! active } inert={ ! active }>
+					<span className={ styles.annotationSendContent }>
+						<IconButton
+							variant="accent"
+							size="icon-sm"
+							className={ styles.annotationSend }
+							icon={ <SendIcon /> }
+							label={ sprintf(
+								/* translators: %d: number of annotations. */
+								_n( 'Send %d annotation', 'Send %d annotations', send.count ),
+								send.count
+							) }
+							tooltipSide="bottom"
+							disabled={ disabled || send.disabled || ! send.count || ! active }
+							loading={ send.loading }
+							loadingMode="replace"
+							onClick={ send.onClick }
+						/>
+					</span>
+				</span>
+			) : null }
 		</span>
 	);
 }

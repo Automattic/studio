@@ -117,6 +117,61 @@ async function setupChat( {
 const notice = () => screen.findByRole( 'alert' );
 const sendButton = () => screen.getByRole( 'button', { name: 'Send message' } );
 const COMPOSER = { name: 'Message WordPress Studio' };
+const composerStartButton = () =>
+	within( screen.getByRole( 'combobox', COMPOSER ).closest( '[role="group"]' )! ).getByRole(
+		'button',
+		{ name: 'Start site' }
+	);
+
+describe( 'Composer site start', () => {
+	it( 'starts a stopped site from the empty composer without sending a message', async () => {
+		const { connector, input } = await setupChat( {
+			signedIn: false,
+			hasAnthropicApiKey: false,
+		} );
+		let finishStart!: () => void;
+		connector.startSite.mockImplementationOnce(
+			() =>
+				new Promise( ( resolve ) => {
+					finishStart = () => {
+						const site = {
+							...connector.state.sites[ 0 ],
+							running: true,
+							url: 'http://localhost:8881',
+						};
+						connector.state.sites[ 0 ] = site;
+						resolve( site );
+					};
+				} )
+		);
+		const startButton = composerStartButton();
+		fireEvent.click( startButton );
+		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( SITE_ID ) );
+		await waitFor( () => expect( startButton ).toHaveAttribute( 'aria-disabled', 'true' ) );
+		expect( startButton ).toHaveAccessibleName( 'Starting site' );
+		expect( startButton ).toHaveAttribute( 'aria-busy', 'true' );
+		fireEvent.click( startButton );
+		expect( connector.startSite ).toHaveBeenCalledOnce();
+		expect( connector.continueSession ).not.toHaveBeenCalled();
+		expect( input ).toHaveValue( '' );
+		await act( async () => finishStart() );
+		await waitFor( () => expect( sendButton() ).toHaveAttribute( 'aria-disabled', 'true' ) );
+	} );
+
+	it( 'offers Send when there is text and Start again when it is cleared', async () => {
+		const { connector, input } = await setupChat();
+		fireEvent.change( input, { target: { value: 'Update the homepage' } } );
+		expect( sendButton() ).toBeEnabled();
+		fireEvent.change( input, { target: { value: '  ' } } );
+		expect( composerStartButton() ).toBeEnabled();
+		expect( connector.startSite ).not.toHaveBeenCalled();
+	} );
+
+	it( 'keeps the empty Send button disabled for a running site', async () => {
+		await setupChat( { running: true } );
+		expect( sendButton() ).toHaveAttribute( 'aria-disabled', 'true' );
+	} );
+} );
 
 function anthropicRow( dialog: HTMLElement ) {
 	return within(
@@ -275,7 +330,7 @@ describe( 'Composer access notices', () => {
 			if ( gated ) {
 				const addPayment = await screen.findByRole( 'button', { name: 'Set up' } );
 				expect( input ).toBeEnabled();
-				expect( sendButton() ).toBeDisabled();
+				expect( composerStartButton() ).toBeEnabled();
 				fireEvent.click( addPayment );
 				expect( connector.openExternalUrl ).toHaveBeenCalledWith( ADD_PAYMENT_METHOD_URL );
 				expect( connector.continueSession ).not.toHaveBeenCalled();

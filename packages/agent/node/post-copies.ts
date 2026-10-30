@@ -9,6 +9,11 @@
  * change to a post, in the editor or by any route, rewrites its copy. When a
  * copy and its post both changed, the post stands: the copy is rewritten from
  * it, and the copy's change is kept in <ID>.unsaved.html.
+ *
+ * The active block theme's Global Styles (the wp_global_styles post WordPress
+ * merges over its theme.json) are copied as wp_global_styles/<theme>.json,
+ * holding what the Site Editor starts them with when none are saved yet, and
+ * saved as the Site Editor saves them (saveGlobalStyles()).
  */
 import { createHash } from 'crypto';
 import { existsSync, mkdirSync } from 'fs';
@@ -17,7 +22,9 @@ import path from 'path';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { RENDERED, RENDERED_TYPES, savePost } from '@studio/agent/node/site-markup';
-import type { StudioAgentHost } from '@studio/agent/node/host';
+import { activeThemes } from '@studio/agent/node/themes';
+import { runWpCli } from '@studio/agent/node/tools/utils';
+import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { ChangeReport, SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 import type { WordPressSite } from '@studio/agent/node/site-database';
 
@@ -27,9 +34,12 @@ const MANIFEST = '.copies.json';
 type Manifest = Record< string, { type: string; post: string; file: string } >;
 
 interface Post {
-	id: number;
+	// The post's ID; for Global Styles, the theme they are saved for.
+	id: number | string;
 	type: string;
 	version: string;
+	// Global Styles' post, once one is saved.
+	post?: number;
 }
 
 export function workspaceRoot(): string {
@@ -55,18 +65,92 @@ export function siteIdOfCopy( file: string ): string | undefined {
 
 const hash = ( content: string ) => createHash( 'sha1' ).update( content ).digest( 'hex' );
 
+const GLOBAL_STYLES = 'wp_global_styles';
+
 const copyOf = ( workspace: string, post: Pick< Post, 'id' | 'type' > ) =>
-	path.join( workspace, post.type, `${ post.id }.html` );
+	path.join(
+		workspace,
+		post.type,
+		`${ post.id }.${ post.type === GLOBAL_STYLES ? 'json' : 'html' }`
+	);
+
+// The content WordPress gives a theme's Global Styles post when it makes one
+// (WP_Theme_JSON_Resolver::get_user_data_from_wp_global_styles()).
+const NO_GLOBAL_STYLES = '{"version": 3, "isGlobalStylesUserThemeJSON": true }';
+
+const VERSION = `post_modified_gmt || ' ' || length(post_content)`;
 
 function readPosts( site: WordPressSite ): Post[] {
-	return site.query< Post >(
-		`SELECT ID AS id, post_type AS type, post_modified_gmt || ' ' || length(post_content) AS version
+	const posts = site.query< Post >(
+		`SELECT ID AS id, post_type AS type, ${ VERSION } AS version
 		FROM ${ site.prefix }posts WHERE ${ RENDERED }`,
 		...RENDERED_TYPES
 	);
+	const styles = globalStyles( site );
+	return styles ? [ ...posts, styles ] : posts;
 }
 
-function readContent( site: WordPressSite, id: number ): string {
+// The active block theme's Global Styles: the latest published post its
+// wp_theme term names, as WP_Theme_JSON_Resolver reads them.
+function globalStyles( site: WordPressSite ): Post | undefined {
+	const [ theme ] = activeThemes( site );
+	if (
+		! theme ||
+		! existsSync( path.join( site.root, 'wp-content/themes', theme, 'templates/index.html' ) )
+	) {
+		return undefined;
+	}
+	const [ saved ] = site.query< { post: number; version: string } >(
+		`SELECT p.ID AS post, ${ VERSION } AS version FROM ${ site.prefix }posts p
+		JOIN ${ site.prefix }term_relationships tr ON tr.object_id = p.ID
+		JOIN ${ site.prefix }term_taxonomy tt ON tt.term_taxonomy_id = tr.term_taxonomy_id AND tt.taxonomy = 'wp_theme'
+		JOIN ${ site.prefix }terms t ON t.term_id = tt.term_id
+		WHERE p.post_type = ? AND p.post_status = 'publish' AND t.name = ?
+		ORDER BY p.post_date DESC, p.ID DESC LIMIT 1`,
+		GLOBAL_STYLES,
+		theme
+	);
+	return { id: theme, type: GLOBAL_STYLES, version: saved?.version ?? 'none', post: saved?.post };
+}
+
+/**
+ * Saves a theme's Global Styles from their copy as the Site Editor saves them,
+ * as an administrator: it makes the theme's post when there is none yet
+ * (WP_Theme_JSON_Resolver::get_user_global_styles_post_id()), then PUTs the
+ * copy's styles and settings to /wp/v2/global-styles/<ID>, whose controller
+ * keeps isGlobalStylesUserThemeJSON and the schema version and validates
+ * custom CSS (WP_REST_Global_Styles_Controller::prepare_item_for_database()).
+ * What the copy leaves out, it clears.
+ */
+async function saveGlobalStyles(
+	host: StudioAgentHost,
+	site: HostSite,
+	theme: string,
+	file: string
+): Promise< void > {
+	const php = `$data = json_decode( file_get_contents( ${ JSON.stringify( file ) } ), true );
+if ( ! is_array( $data ) ) { fwrite( STDERR, 'it is not a JSON object: ' . json_last_error_msg() ); exit( 1 ); }
+if ( get_stylesheet() !== ${ JSON.stringify( theme ) } ) { fwrite( STDERR, ${ JSON.stringify(
+		`${ theme } is not the active theme`
+	) } ); exit( 1 ); }
+$admins = get_users( array( 'role' => 'administrator', 'number' => 1, 'fields' => 'ID' ) );
+wp_set_current_user( $admins ? (int) $admins[0] : 0 );
+$request = new WP_REST_Request( 'PUT', '/wp/v2/global-styles/' . WP_Theme_JSON_Resolver::get_user_global_styles_post_id() );
+$request->set_param( 'styles', $data['styles'] ?? array() );
+$request->set_param( 'settings', $data['settings'] ?? array() );
+$response = rest_do_request( $request );
+if ( $response->is_error() ) { fwrite( STDERR, $response->as_error()->get_error_message() ); exit( 1 ); }`;
+	await runWpCli( host, site, [ 'eval', php ] );
+}
+
+function readContent( site: WordPressSite, post: Post | undefined ): string {
+	if ( post?.type === GLOBAL_STYLES && ! post.post ) {
+		return NO_GLOBAL_STYLES;
+	}
+	const id = post?.post ?? post?.id;
+	if ( id === undefined ) {
+		return '';
+	}
 	return (
 		site.query< { content: string } >(
 			`SELECT post_content AS content FROM ${ site.prefix }posts WHERE ID = ?`,
@@ -118,7 +202,7 @@ export async function postCopiesFact(
 	return workspace
 		? `Post content, as WordPress saves it: ${ workspace }/<post type>/<ID>.html, for ${ RENDERED_TYPES.join(
 				', '
-		  ) }. Studio saves a change to one to its post as the editor saves it (wp_update_post()), and rewrites it when the post changes.`
+		  ) }, and ${ workspace }/${ GLOBAL_STYLES }/<theme>.json for the active block theme's Global Styles, which WordPress merges over its theme.json. Studio saves a change to one to its post as the editor saves it (wp_update_post(), or PUT /wp/v2/global-styles for Global Styles), and rewrites it when the post changes.`
 		: undefined;
 }
 
@@ -208,7 +292,7 @@ export const postCopies: SiteChangeSource = {
 			// A post deleted or trashed takes its copy with it.
 			for ( const [ id, { type } ] of Object.entries( manifest ) ) {
 				if ( ! kept.has( id ) ) {
-					await rm( copyOf( workspace, { id: Number( id ), type } ), { force: true } );
+					await rm( copyOf( workspace, { id, type } ), { force: true } );
 					delete manifest[ id ];
 				}
 			}
@@ -218,7 +302,7 @@ export const postCopies: SiteChangeSource = {
 				const last = manifest[ post.id ];
 				const untouched = copy !== undefined && last && hash( copy ) === last.file;
 				if ( copy === undefined || ! last || ( untouched && last.post !== post.version ) ) {
-					const content = readContent( site, post.id );
+					const content = readContent( site, post );
 					await writeCopy( file, content );
 					manifest[ post.id ] = { type: post.type, post: post.version, file: hash( content ) };
 					versions[ post.id ] = `${ post.type } ${ post.version } ${ hash( content ) }`;
@@ -248,13 +332,16 @@ export const postCopies: SiteChangeSource = {
 			if ( ! last || last.file === copyHash ) {
 				continue;
 			}
-			const file = copyOf( workspace, { id: Number( id ), type } );
+			const file = copyOf( workspace, { id, type } );
 			const label = `${ site.name } ${ type } ${ id }`;
 			if ( last.post !== postVersion ) {
-				const unsaved = path.join( path.dirname( file ), `${ id }.unsaved.html` );
+				const unsaved = file.replace( /(\.\w+)$/, '.unsaved$1' );
 				await rename( file, unsaved );
 				const content = await readWordPressSite( site.path, ( wp ) =>
-					readContent( wp, Number( id ) )
+					readContent(
+						wp,
+						readPosts( wp ).find( ( post ) => String( post.id ) === id )
+					)
 				);
 				await writeCopy( file, content );
 				manifest[ id ] = { type, post: postVersion, file: hash( content ) };
@@ -266,7 +353,9 @@ export const postCopies: SiteChangeSource = {
 				continue;
 			}
 			try {
-				await savePost( host, site, Number( id ), file );
+				await ( type === GLOBAL_STYLES
+					? saveGlobalStyles( host, site, id, file )
+					: savePost( host, site, Number( id ), file ) );
 			} catch ( error ) {
 				reports.push( {
 					key: `copy ${ id }`,
@@ -283,7 +372,9 @@ export const postCopies: SiteChangeSource = {
 			next[ id ] = `${ type } ${ manifest[ id ].post } ${ copyHash }`;
 			reports.push( {
 				key: `copy ${ id }`,
-				summary: `${ label }: Studio saved ${ file } to it (wp_update_post())`,
+				summary: `${ label }: Studio saved ${ file } to it (${
+					type === GLOBAL_STYLES ? 'PUT /wp/v2/global-styles' : 'wp_update_post()'
+				})`,
 			} );
 		}
 		await writeFile( path.join( workspace, MANIFEST ), JSON.stringify( manifest ), 'utf8' );

@@ -195,6 +195,68 @@ describe.runIf( WORDPRESS )( 'a copy saved to a real WordPress', () => {
 	}, 60000 );
 } );
 
+describe.runIf( WORDPRESS )( 'Global Styles saved from their copy to a real WordPress', () => {
+	it( 'saves them as the Site Editor does, so WordPress merges them over theme.json, and reports what it refuses', async () => {
+		const root = mkdtempSync( path.join( os.tmpdir(), 'post-copies-' ) );
+		cpSync( WORDPRESS!, root, { recursive: true } );
+		site = liveSite( root, 'Seaside', 'live' );
+		host = liveHost( site );
+		vi.mocked( runWpCliCommand ).mockReset().mockImplementation( realRunWpCliCommand.run! );
+		const php = async ( code: string ) =>
+			( await host.sites.wpCli( site, [ 'eval', code ] ) ).stdout;
+		try {
+			// No Global Styles are saved yet: the copy holds what the Site Editor starts them with.
+			const { fact, check } = await openedWorkspace();
+			expect( fact ).toContain(
+				`${ path.join( config, 'workspace', 'live' ) }/wp_global_styles/<theme>.json`
+			);
+			const file = path.join(
+				config,
+				'workspace',
+				'live',
+				'wp_global_styles',
+				'twentytwentyfive.json'
+			);
+			expect( JSON.parse( read( file ) ) ).toEqual( {
+				version: 3,
+				isGlobalStylesUserThemeJSON: true,
+			} );
+
+			writeFileSync(
+				file,
+				JSON.stringify( {
+					version: 3,
+					settings: { color: { palette: [ { slug: 'clay', color: '#d96b4b', name: 'Clay' } ] } },
+					styles: { color: { background: '#fdf6ec' } },
+				} )
+			);
+			const saved = await check.settle();
+			expect( saved.problems ).toEqual( [] );
+			expect( saved.summaries[ 0 ] ).toContain(
+				`Studio saved ${ file } to it (PUT /wp/v2/global-styles)`
+			);
+			expect(
+				JSON.parse(
+					await php(
+						"echo wp_json_encode( array( wp_get_global_styles( array( 'color', 'background' ) ), wp_get_global_settings( array( 'color', 'palette', 'custom' ) ) ) );"
+					)
+				)
+			).toEqual( [ '#fdf6ec', [ { slug: 'clay', color: '#d96b4b', name: 'Clay' } ] ] );
+
+			// Custom CSS the controller refuses (validate_custom_css()) is reported, and nothing is saved.
+			writeFileSync( file, JSON.stringify( { styles: { css: 'p { color: red } </style>' } } ) );
+			const refused = await check.settle();
+			expect( refused.problems[ 0 ] ).toContain( `Studio could not save ${ file } to it` );
+			expect( refused.problems[ 0 ] ).toContain( 'The CSS must not contain' );
+			expect( await php( "echo wp_get_global_styles( array( 'color', 'background' ) );" ) ).toBe(
+				'#fdf6ec'
+			);
+		} finally {
+			rmSync( root, { recursive: true, force: true } );
+		}
+	}, 120000 );
+} );
+
 async function fixtureContent( root: string, id: number ) {
 	return readWordPressSite(
 		root,

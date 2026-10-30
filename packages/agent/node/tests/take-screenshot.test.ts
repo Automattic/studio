@@ -13,6 +13,7 @@ vi.mock( '@studio/agent/node/tools/screenshot-helpers', async ( importOriginal )
 		captureOptions.push( options );
 		captured.push( `${ url } ${ viewport.width }` );
 		return {
+			url: url.endsWith( '/checkout/' ) ? url.replace( '/checkout/', '/cart/' ) : url,
 			buffer: Buffer.from( 'jpeg' ),
 			mimeType: 'image/jpeg',
 			documentHeight: 900,
@@ -54,6 +55,17 @@ describe( 'take_screenshot', () => {
 
 		expect( captureOptions.map( ( options ) => options.fullPage ) ).toEqual( [ fullPage ] );
 		expect( await text( result ) ).toContain( says );
+	} );
+
+	it( 'identifies the page actually captured after a redirect', async () => {
+		const tool = bindTool( createTakeScreenshotTool( { visionEnabled: false } ), createFakeHost() );
+		expect(
+			await text(
+				await tool.rawHandler( { url: 'http://localhost:8881/checkout/', viewport: 'desktop' } )
+			)
+		).toContain(
+			'Requested http://localhost:8881/checkout/; rendered http://localhost:8881/cart/ after redirect.'
+		);
 	} );
 
 	it( 'captures every page it is given at desktop and mobile in one call', async () => {

@@ -156,6 +156,8 @@ export function createTakeScreenshotTool( {
 						);
 						return {
 							...target,
+							requestedUrl: url,
+							resolvedUrl: capture.url,
 							path: screenshotFile.path,
 							buffer: capture.buffer,
 							modelImage: capture.modelImage,
@@ -212,6 +214,11 @@ export function createTakeScreenshotTool( {
 				const captureLines = captures.map( ( capture ) =>
 					[
 						`${ describeCapture( capture ) } Saved to ${ capture.path }`,
+						...( capture.resolvedUrl && capture.resolvedUrl !== capture.requestedUrl
+							? [
+									`  Requested ${ capture.requestedUrl }; rendered ${ capture.resolvedUrl } after redirect.`,
+							  ]
+							: [] ),
 						...( capture.layout ?? [] ).map( ( line ) => `  ${ line }` ),
 						...( capture.textFit.length
 							? [

@@ -96,6 +96,8 @@ async function applyScreenshotMediaEmulation(
 }
 
 export interface ScreenshotCapture {
+	/** The address actually captured, after redirects. */
+	url: string;
 	buffer: Buffer;
 	modelImage?: { buffer: Buffer; width: number; height: number };
 	documentHeight: number;
@@ -296,6 +298,7 @@ async function capturePage(
 		);
 		const buffer = await page.screenshot( { ...formatOptions } );
 		return {
+			url: page.url(),
 			buffer: Buffer.from( buffer ),
 			modelImage: options.forModel
 				? await scaleForModel( page, buffer, viewport.width * dpr, viewport.height * dpr )
@@ -332,6 +335,7 @@ async function capturePage(
 		clip: { x: 0, y: offset, width: viewport.width, height: capturedHeight },
 	} );
 	return {
+		url: page.url(),
 		buffer: Buffer.from( buffer ),
 		modelImage: options.forModel
 			? await scaleForModel( page, buffer, viewport.width * dpr, capturedHeight * dpr )

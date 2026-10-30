@@ -147,6 +147,8 @@ interface MarkupValidation {
 	fontSizes?: PresetValuesResult[ 'fontSizes' ];
 	/** The spacing values the fix stores as presets. */
 	spacingSizes?: PresetValuesResult[ 'spacingSizes' ];
+	/** Diagnostics for blocks corrected by the save. */
+	corrections?: string[];
 	/** The navigation links the fix binds to the entity they name. */
 	boundLinks?: string[];
 	/** How many runs of HTML comments between blocks the save drops. */
@@ -157,6 +159,7 @@ interface MarkupValidation {
 export function describeEditorSave( result: MarkupValidation, fixes: string ): string[] {
 	return [
 		result.invalidBlocks ? `fixes ${ result.invalidBlocks } block(s)${ fixes }` : undefined,
+		...( result.corrections ?? [] ),
 		result.droppedComments
 			? `drops ${ result.droppedComments } HTML comment(s) between blocks, which the editor would turn into Classic blocks (normalizeRawBlock in @wordpress/blocks wraps text outside a block in paragraphs) and which render nothing`
 			: undefined,
@@ -502,6 +505,13 @@ async function validateSavedMarkup(
 	const saved = stored && {
 		fixedContent: stored.content,
 		invalidBlocks: fixedBlocks,
+		corrections: [
+			...new Set(
+				report.results
+					.filter( ( result ) => ! result.isValid && ! keptAsWritten( result.place ) )
+					.flatMap( ( result ) => result.attributeIssues ?? [] )
+			),
+		],
 		...( stored.paletteColors && { paletteColors: stored.paletteColors } ),
 		...( stored.fontSizes && { fontSizes: stored.fontSizes } ),
 		...( stored.spacingSizes && { spacingSizes: stored.spacingSizes } ),

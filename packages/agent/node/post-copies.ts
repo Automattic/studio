@@ -26,7 +26,7 @@ import {
 	themeGlobalStyles,
 } from '@studio/agent/node/global-styles';
 import { readWordPressSite } from '@studio/agent/node/site-database';
-import { RENDERED, RENDERED_TYPES, savePost } from '@studio/agent/node/site-markup';
+import { POST_VERSION, RENDERED, RENDERED_TYPES, savePost } from '@studio/agent/node/site-markup';
 import { activeIsBlockTheme, activeThemes } from '@studio/agent/node/themes';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { ChangeReport, SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
@@ -80,11 +80,9 @@ const copyOf = ( workspace: string, post: Pick< Post, 'id' | 'type' > ) =>
 // (WP_Theme_JSON_Resolver::get_user_data_from_wp_global_styles()).
 const NO_GLOBAL_STYLES = '{"version": 3, "isGlobalStylesUserThemeJSON": true }';
 
-const VERSION = `post_modified_gmt || ' ' || length(post_content)`;
-
 function readPosts( site: WordPressSite ): Post[] {
 	const posts = site.query< Post >(
-		`SELECT ID AS id, post_type AS type, ${ VERSION } AS version
+		`SELECT ID AS id, post_type AS type, ${ POST_VERSION } AS version
 		FROM ${ site.prefix }posts WHERE ${ RENDERED }`,
 		...RENDERED_TYPES
 	);
@@ -102,7 +100,7 @@ function globalStyles( site: WordPressSite ): Post | undefined {
 	return {
 		id: theme,
 		type: GLOBAL_STYLES,
-		version: saved ? `${ saved.modified } ${ saved.content.length }` : 'none',
+		version: saved ? `${ saved.modified } ${ hash( saved.content ) }` : 'none',
 		post: saved?.id,
 	};
 }

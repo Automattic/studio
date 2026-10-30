@@ -125,6 +125,21 @@ describe( 'validating a file', () => {
 		expect( readFileSync( file, 'utf8' ) ).toBe( original );
 	} );
 
+	it( 'explains ignored attributes even when the editor fixes them without losing markup', async () => {
+		const diagnostic = '"htmlAnchor" is not an attribute of core/group, so WordPress ignores it.';
+		const report = invalidWithFix( fixed );
+		report.results[ 0 ].issues = [ diagnostic ];
+		report.results[ 0 ].attributeIssues = [ diagnostic ];
+		vi.mocked( validateBlocks ).mockResolvedValue( report );
+		const result = await validateBlockMarkupFile(
+			write( 'tmp/home.html', original ),
+			'http://localhost:8881'
+		);
+		expect( result.summary ).toContain( diagnostic );
+		expect( result.problem ).toBeUndefined();
+		expect( result.fixedContent ).toBe( fixed );
+	} );
+
 	it.each( [
 		[ 'wp-content/themes/t/templates/archive.html', 'site' ],
 		[ 'wp-content/themes/t/parts/header.html', 'site' ],

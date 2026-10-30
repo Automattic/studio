@@ -6,6 +6,8 @@ interface BlockValidationResult {
 	place?: string;
 	isValid: boolean;
 	issues: string[];
+	/** Attributes the parser ignored, even when the resulting markup can be fixed. */
+	attributeIssues?: string[];
 	originalContent: string;
 	expectedContent?: string;
 }
@@ -405,6 +407,7 @@ export async function validateBlocks(
 						place,
 						isValid,
 						issues,
+						attributeIssues: attributeProblems,
 						originalContent: block.originalContent || '',
 						expectedContent: isValid ? undefined : expectedContent,
 					} );

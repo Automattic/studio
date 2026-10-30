@@ -3,7 +3,12 @@ import http from 'http';
 import { chromium } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { closeSharedBrowser } from '@studio/agent/node/browser-utils';
-import { captureScreenshotBuffer } from '@studio/agent/node/tools/screenshot-helpers';
+import {
+	captureScreenshotBuffer,
+	inspectPage,
+	renderedCapture,
+	forgetRenders,
+} from '@studio/agent/node/tools/screenshot-helpers';
 import type { AddressInfo } from 'net';
 
 // A real Chromium to load pages with, when one is installed.
@@ -35,7 +40,10 @@ describe.runIf( CHROMIUM )( 'capturing a page', () => {
 					response.writeHead( 200, { 'content-type': type } );
 					response.end( body );
 				}, 400 );
-			if ( request.url === '/content' ) {
+			if ( request.url === '/checkout' ) {
+				response.writeHead( 302, { location: '/cart' } );
+				response.end();
+			} else if ( request.url === '/content' ) {
 				later( 'text/html', '<div style="height:2000px">Loaded</div>' );
 			} else if ( request.url === '/slow.svg' ) {
 				later(
@@ -53,6 +61,27 @@ describe.runIf( CHROMIUM )( 'capturing a page', () => {
 	afterAll( async () => {
 		await closeSharedBrowser();
 		server.close();
+	} );
+
+	it.each( [ true, false ] )(
+		'reports the redirected address (fullPage=%s)',
+		async ( fullPage ) => {
+			const capture = await captureScreenshotBuffer(
+				`${ siteUrl }/checkout`,
+				{ width: 400, height: 300 },
+				{ fullPage }
+			);
+			expect( capture.url ).toBe( `${ siteUrl }/cart` );
+		}
+	);
+
+	it( 'keeps redirect identity when reusing a rendered capture', async () => {
+		const viewport = { width: 400, height: 300 };
+		await inspectPage( `${ siteUrl }/checkout`, viewport );
+		expect( ( await renderedCapture( `${ siteUrl }/checkout`, viewport, true ) )?.url ).toBe(
+			`${ siteUrl }/cart`
+		);
+		forgetRenders();
 	} );
 
 	it.each< string >( Object.keys( PAGES ) )(

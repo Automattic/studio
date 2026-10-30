@@ -115,6 +115,11 @@ describe( 'post content changes', () => {
 			reported: [ 'Block validation: Bakery page 9 "": 1/1 blocks valid' ],
 		},
 		{
+			name: 'an equal-length edit within the same second',
+			change: () => fixture.edit( 9, PARAGRAPH.replace( 'Hello', 'World' ), '2026-10-22 00:00:00' ),
+			reported: [ 'Block validation: Bakery page 9 "": 1/1 blocks valid' ],
+		},
+		{
 			name: 'a new template part',
 			change: () => fixture.save( 10, 'wp_template_part', 'header', PARAGRAPH ),
 			reported: [ 'Block validation: Bakery wp_template_part 10 "": 1/1 blocks valid' ],

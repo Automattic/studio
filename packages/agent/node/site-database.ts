@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { existsSync, readFileSync } from 'fs';
 import path from 'path';
 
@@ -38,7 +39,13 @@ async function openDatabase(
 	}
 	try {
 		const { DatabaseSync } = await import( 'node:sqlite' );
-		return new DatabaseSync( dbPath, { readOnly: true } );
+		const db = new DatabaseSync( dbPath, { readOnly: true } );
+		db.function( 'studio_content_hash', { deterministic: true }, ( content ) =>
+			createHash( 'sha256' )
+				.update( String( content ?? '' ) )
+				.digest( 'hex' )
+		);
+		return db;
 	} catch {
 		return undefined;
 	}

@@ -74,6 +74,7 @@ describe( 'Studio AI MCP tools', () => {
 		scaledBuffer?: Buffer;
 	} ) => ( {
 		emulateMedia: vi.fn(),
+		url: () => 'http://localhost:8903/',
 		goto: vi.fn(),
 		on: vi.fn(),
 		// The page layout's script takes its region limit and returns lines.

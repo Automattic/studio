@@ -14,7 +14,7 @@ import {
 } from '@studio/agent/node/block-validation-gate';
 import { repeatedPostStyleNotes } from '@studio/agent/node/repeated-style-values';
 import { readWordPressSite } from '@studio/agent/node/site-database';
-import { RENDERED, RENDERED_TYPES, savePost } from '@studio/agent/node/site-markup';
+import { POST_VERSION, RENDERED, RENDERED_TYPES, savePost } from '@studio/agent/node/site-markup';
 import { validationSummary } from '@studio/agent/node/studio-message';
 import { runWpCli } from '@studio/agent/node/tools/utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
@@ -27,12 +27,11 @@ export interface Row {
 	content: string;
 }
 
-// Each rendered post's version, by post ID: its modified time and content
-// length, so a check reads the content of changed posts only.
+// Each rendered post's content-sensitive version, by post ID.
 export async function readVersions( sitePath: string ): Promise< Versions > {
 	const rows = await readWordPressSite( sitePath, ( site ) =>
 		site.query< { id: number; version: string } >(
-			`SELECT ID AS id, post_modified_gmt || ' ' || length(post_content) AS version
+			`SELECT ID AS id, ${ POST_VERSION } AS version
 			FROM ${ site.prefix }posts WHERE ${ RENDERED }`,
 			...RENDERED_TYPES
 		)

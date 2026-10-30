@@ -12,6 +12,9 @@ import { readWordPressSite } from '@studio/agent/node/site-database';
 import { AS_ADMINISTRATOR, runWpCli } from '@studio/agent/node/tools/utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 
+/** Same-second edits can have equal lengths; the content hash distinguishes them. */
+export const POST_VERSION = "post_modified_gmt || ' ' || studio_content_hash(post_content)";
+
 export const RENDERED_TYPES = [
 	'post',
 	'page',

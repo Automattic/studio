@@ -99,6 +99,14 @@ describe( 'post copies', () => {
 		expect( path.relative( fixture.root, copy( 'page', 9 ) ).startsWith( '..' ) ).toBe( true );
 	} );
 
+	it( 'refreshes a copy after equal-length edits with the same modified time', async () => {
+		const { check } = await openedWorkspace();
+		const changed = PARAGRAPH.replace( 'Hello', 'World' );
+		fixture.edit( 9, changed, '2026-10-22 00:00:00' );
+		await check.settle();
+		expect( read( copy( 'page', 9 ) ) ).toBe( changed );
+	} );
+
 	it( "copies the Global Styles of a child theme whose parent's templates make it a block theme", async () => {
 		// As create_theme makes a child: a style.css naming its parent, whose templates WordPress reads.
 		const themes = path.join( fixture.root, 'wp-content/themes' );

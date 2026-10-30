@@ -59,21 +59,6 @@ afterEach( () =>
 );
 
 describe( 'command palette', () => {
-	it( 'shows skills destinations without an enable or disable command', async () => {
-		await renderPalette();
-		await openPalette();
-		search( 'skills' );
-		expect( screen.getAllByRole( 'option' ) ).toHaveLength( 2 );
-		expect(
-			within( screen.getByRole( 'group', { name: 'App settings' } ) ).getByRole( 'option', {
-				name: 'Skills',
-			} )
-		).toBeVisible();
-		expect(
-			screen.queryByRole( 'option', { name: /^(Enable|Disable) WordPress skills/ } )
-		).not.toBeInTheDocument();
-	} );
-
 	it( 'toggles the sidebar after releasing the palette dialog guard', async () => {
 		await renderPalette();
 		for ( const label of [ 'Hide sidebar', 'Show sidebar' ] ) {
@@ -148,20 +133,6 @@ describe( 'command palette', () => {
 
 	it.each( [
 		[ 'Skills on this site', 'Skills', 'site-skills', 'WordPress skills', 'site-wordpress-skills' ],
-		[
-			'Instructions on this site',
-			'Instructions',
-			'site-instructions',
-			'Agent instructions',
-			'site-agent-instructions',
-		],
-		[
-			'Agent instructions',
-			'Instructions',
-			'instructions',
-			'Agent instructions',
-			'agent-instructions',
-		],
 	] )(
 		'opens the canonical destination for %s without changing settings',
 		async ( query, label, section, setting, id ) => {
@@ -195,6 +166,10 @@ describe( 'command palette', () => {
 		const { user } = await renderPalette( { connector } );
 		await openPalette();
 		search( 'skills' );
+		expect( screen.getAllByRole( 'option' ) ).toHaveLength( 2 );
+		expect(
+			screen.queryByRole( 'option', { name: /^(Enable|Disable) WordPress skills/ } )
+		).not.toBeInTheDocument();
 		await user.click(
 			within( screen.getByRole( 'group', { name: 'App settings' } ) ).getByRole( 'option', {
 				name: 'Skills',

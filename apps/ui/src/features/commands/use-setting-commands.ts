@@ -113,7 +113,7 @@ export function useSettingCommands(
 	const resetAppearance = useResetAppearance();
 	const resetInterface = useResetInterface();
 
-	const commands = getSettingCommands( {
+	return getSettingCommands( {
 		scope,
 		site,
 		signedIn: ! user.isSuccess || !! user.data,
@@ -138,5 +138,4 @@ export function useSettingCommands(
 		},
 		openSettings,
 	} );
-	return commands;
 }

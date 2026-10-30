@@ -32,22 +32,19 @@ export function useAppCommands(): PaletteCommand[] {
 	const sidebarOpen = useSidebarOpen();
 	const toggleSidebar = useToggleSidebar();
 	const hasOpenDialog = useHasOpenDialog();
-	const [ sidebarToggleRequested, setSidebarToggleRequested ] = useState( false );
+	const [ pendingAction, setPendingAction ] = useState< 'sidebar' | 'notifications' | null >(
+		null
+	);
 	useEffect( () => {
-		if ( ! sidebarToggleRequested || hasOpenDialog ) return;
-		setSidebarToggleRequested( false );
-		toggleSidebar();
-	}, [ sidebarToggleRequested, hasOpenDialog, toggleSidebar ] );
-	const [ notificationsRequested, setNotificationsRequested ] = useState( false );
-	useEffect( () => {
-		if ( ! notificationsRequested || hasOpenDialog ) return;
-		if ( ! sidebarOpen ) {
+		if ( ! pendingAction || hasOpenDialog ) return;
+		if ( pendingAction === 'notifications' && ! sidebarOpen ) {
 			toggleSidebar();
 			return;
 		}
-		setNotificationsRequested( false );
-		openNoticeHistory();
-	}, [ notificationsRequested, hasOpenDialog, sidebarOpen, toggleSidebar ] );
+		setPendingAction( null );
+		if ( pendingAction === 'sidebar' ) toggleSidebar();
+		else openNoticeHistory();
+	}, [ pendingAction, hasOpenDialog, sidebarOpen, toggleSidebar ] );
 	const colorScheme = useColorScheme();
 	const savePreferences = useSaveUserPreferences();
 	const collapseAll = useCollapseAll();
@@ -72,8 +69,8 @@ export function useAppCommands(): PaletteCommand[] {
 			savePreferences.mutate( preferences, {
 				onError: () => toast.error( __( 'Could not update settings. Please try again.' ) ),
 			} ),
-		toggleSidebar: () => setSidebarToggleRequested( true ),
-		openNotifications: () => setNotificationsRequested( true ),
+		toggleSidebar: () => setPendingAction( 'sidebar' ),
+		openNotifications: () => setPendingAction( 'notifications' ),
 		openWhatsNew,
 		collapseAll,
 	} );

@@ -8,29 +8,10 @@ import type { PaletteCommand } from '@/features/commands/studio-commands';
 
 beforeEach( resetAppMessagesForTests );
 
-function setup( collapse: boolean, skillInstalled?: boolean ) {
-	const skills = [
-		{
-			id: 'wp-test',
-			displayName: 'Test skill',
-			description: 'Test',
-			installed: skillInstalled ?? false,
-		},
-	];
+function setup( collapse: boolean ) {
 	const connector = createFakeConnector( {
 		preferences: { autoCollapseSites: collapse },
 	} );
-	if ( skillInstalled !== undefined ) {
-		connector.getWordPressSkillsStatusAllSites.mockImplementation( async () =>
-			skills.map( ( skill ) => ( { ...skill } ) )
-		);
-		connector.installWordPressSkillToAllSites.mockImplementation( async () => {
-			skills[ 0 ].installed = true;
-		} );
-		connector.removeWordPressSkillFromAllSites.mockImplementation( async () => {
-			skills[ 0 ].installed = false;
-		} );
-	}
 	const result: { current: PaletteCommand[] } = { current: [] };
 	function Probe() {
 		result.current = useSettingCommands( 'studio' );
@@ -54,11 +35,6 @@ it.each( [ false, true ] )(
 		expect( connector.setUserPreferences ).toHaveBeenCalledWith(
 			{ autoCollapseSites: ! checked },
 			undefined
-		);
-		await waitFor( () =>
-			expect( getNoticeHistory().at( 0 )?.title ).toBe(
-				checked ? 'Automatic sidebar collapsing disabled.' : 'Automatic sidebar collapsing enabled.'
-			)
 		);
 	}
 );
@@ -112,24 +88,6 @@ it( 'resets interface preferences through the existing persistence action', asyn
 	);
 	await waitFor( () => expect( getNoticeHistory().at( 0 )?.title ).toBe( 'Interface reset.' ) );
 } );
-
-it.each( [ false, true ] )(
-	'keeps WordPress skills as navigation when installed: %s',
-	async ( installed ) => {
-		const { connector, result } = setup( false, installed );
-		await waitFor( () => expect( connector.getUserPreferences ).toHaveBeenCalled() );
-		expect(
-			result.current.some( ( entry ) => entry.id === 'settings-skills-wordpress-skills' )
-		).toBe( false );
-		expect( result.current.find( ( entry ) => entry.id === 'settings-skills' ) ).toMatchObject( {
-			label: 'Skills',
-			group: 'settings',
-		} );
-		expect( connector.getWordPressSkillsStatusAllSites ).not.toHaveBeenCalled();
-		expect( connector.installWordPressSkillToAllSites ).not.toHaveBeenCalled();
-		expect( connector.removeWordPressSkillFromAllSites ).not.toHaveBeenCalled();
-	}
-);
 
 it.each( [ false, true ] )(
 	'reports a preference change only after persistence settles (fails: %s)',

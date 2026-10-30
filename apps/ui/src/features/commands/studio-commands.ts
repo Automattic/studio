@@ -244,43 +244,41 @@ export function getSettingCommands( {
 	actions?: SettingActions;
 	openSettings: OpenSettings;
 } ): PaletteCommand[] {
-	const prefix = scope === 'site' ? 'site-settings' : 'settings';
-	const group = prefix;
+	const group = scope === 'site' ? 'site-settings' : 'settings';
 	if ( scope === 'site' && ! site ) return [];
 	return getSections( scope, { signedIn } ).flatMap( ( section ) => {
 		const folded = section.settings.filter( ( entry ) => entry.palette === 'section' );
-		const navigation: PaletteCommand[] =
-			typeof section.palette === 'string'
-				? [
-						{
-							id: `${ prefix }-${ section.id }`,
-							group,
-							label: section.palette,
-							aliases: [
-								section.label,
-								sprintf(
-									/* translators: %s: the name of a settings section. */
-									__( 'Open %s settings' ),
-									section.label
-								),
-								...( section.aliases ?? [] ),
-								...folded.flatMap( ( entry ) => [ entry.title, ...( entry.aliases ?? [] ) ] ),
-							],
-							icon: section.icon,
-							description: site?.name,
-							keywords: [
-								getGroupLabel( group ),
-								...( scope === 'studio' ? [ 'WordPress Studio' ] : [] ),
-								...folded.map( ( entry ) => entry.description ),
-							],
-							run: () => {
-								const focus = folded.find( ( entry ) => entry.id )?.id;
-								if ( focus ) openSettings( section.id, site?.id, focus );
-								else openSettings( section.id, site?.id );
-							},
+		const navigation: PaletteCommand[] = ! section.command
+			? [
+					{
+						id: `${ group }-${ section.id }`,
+						group,
+						label: section.label,
+						aliases: [
+							section.label,
+							sprintf(
+								/* translators: %s: the name of a settings section. */
+								__( 'Open %s settings' ),
+								section.label
+							),
+							...( section.aliases ?? [] ),
+							...folded.flatMap( ( entry ) => [ entry.title, ...( entry.aliases ?? [] ) ] ),
+						],
+						icon: section.icon,
+						description: site?.name,
+						keywords: [
+							getGroupLabel( group ),
+							...( scope === 'studio' ? [ 'WordPress Studio' ] : [] ),
+							...folded.map( ( entry ) => entry.description ),
+						],
+						run: () => {
+							const focus = folded.find( ( entry ) => entry.id )?.id;
+							if ( focus ) openSettings( section.id, site?.id, focus );
+							else openSettings( section.id, site?.id );
 						},
-				  ]
-				: [];
+					},
+			  ]
+			: [];
 		return [
 			...navigation,
 			...section.settings.flatMap(
@@ -293,7 +291,7 @@ export function getSettingCommands( {
 					if ( palette === 'action' && ! toggle && ! action ) return [];
 					return [
 						{
-							id: `${ prefix }-${ section.id }-${ id }`,
+							id: `${ group }-${ section.id }-${ id }`,
 							group: palette === 'action' ? 'commands' : group,
 							label: toggle
 								? toggle.label ??

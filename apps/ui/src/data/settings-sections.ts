@@ -48,12 +48,7 @@ export function isSiteSection( value: SettingsSectionId ) {
 
 type ExistingPaletteCommand = 'settings' | 'site-settings' | 'rename-site';
 // Fold redundant rows into their section or an existing command; actions need a runtime handler.
-type SettingPalette =
-	| 'navigate'
-	| 'action'
-	| 'section'
-	| { command: ExistingPaletteCommand }
-	| false;
+type SettingPalette = 'navigate' | 'action' | 'section' | { command: ExistingPaletteCommand };
 
 type Setting = {
 	palette: SettingPalette;
@@ -67,7 +62,7 @@ type Setting = {
 type SectionIcon = ComponentType< { className?: string } >;
 
 export type Section = {
-	palette: string | { command: ExistingPaletteCommand } | false;
+	command?: ExistingPaletteCommand;
 	id: SettingsSectionId;
 	label: string;
 	icon: SectionIcon;
@@ -92,7 +87,7 @@ const setting = (
 function getStudioSections( signedIn: boolean ): Section[] {
 	const sections: Section[] = [
 		{
-			palette: { command: 'settings' },
+			command: 'settings',
 			id: 'general',
 			label: __( 'General' ),
 			icon: SettingsIcon,
@@ -205,7 +200,6 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			],
 		},
 		{
-			palette: __( 'Appearance' ),
 			id: 'appearance',
 			label: __( 'Appearance' ),
 			icon: AppearanceIcon,
@@ -236,7 +230,6 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			],
 		},
 		{
-			palette: __( 'Sharing' ),
 			id: 'sharing',
 			label: __( 'Sharing' ),
 			icon: ShareIcon,
@@ -254,7 +247,6 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			],
 		},
 		{
-			palette: __( 'AI Providers' ),
 			id: 'ai',
 			label: __( 'AI Providers' ),
 			icon: IntelligenceIcon,
@@ -281,7 +273,6 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			],
 		},
 		{
-			palette: __( 'MCP' ),
 			id: 'mcp',
 			label: __( 'MCP' ),
 			icon: McpIcon,
@@ -295,7 +286,6 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			],
 		},
 		{
-			palette: __( 'Usage' ),
 			id: 'usage',
 			label: __( 'Usage' ),
 			icon: ChartNoAxesColumnIncreasingIcon,
@@ -324,7 +314,6 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			],
 		},
 		{
-			palette: __( 'Skills' ),
 			id: 'skills',
 			label: __( 'Skills' ),
 			icon: SkillsIcon,
@@ -340,7 +329,6 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			],
 		},
 		{
-			palette: __( 'Instructions' ),
 			id: 'instructions',
 			label: __( 'Instructions' ),
 			icon: FileTextIcon,
@@ -356,7 +344,6 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			],
 		},
 		{
-			palette: __( 'Keyboard' ),
 			id: 'keyboard',
 			label: __( 'Keyboard' ),
 			icon: KeyboardIcon,
@@ -370,7 +357,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 function getSiteSections(): Section[] {
 	return [
 		{
-			palette: { command: 'site-settings' },
+			command: 'site-settings',
 			id: 'site',
 			label: __( 'Settings' ),
 			icon: SiteSettingsIcon,
@@ -426,7 +413,6 @@ function getSiteSections(): Section[] {
 			],
 		},
 		{
-			palette: __( 'Debug' ),
 			id: 'debugging',
 			label: __( 'Debug' ),
 			icon: BugIcon,
@@ -464,7 +450,6 @@ function getSiteSections(): Section[] {
 			],
 		},
 		{
-			palette: __( 'PHP' ),
 			id: 'php',
 			label: __( 'PHP' ),
 			icon: PhpIcon,
@@ -486,14 +471,12 @@ function getSiteSections(): Section[] {
 			],
 		},
 		{
-			palette: __( 'Skills' ),
 			id: 'site-skills',
 			label: __( 'Skills' ),
 			icon: SkillsIcon,
 			settings: [ setting( 'section', __( 'Skills on this site' ), '', 'site-wordpress-skills' ) ],
 		},
 		{
-			palette: __( 'Instructions' ),
 			id: 'site-instructions',
 			label: __( 'Instructions' ),
 			icon: FileTextIcon,
@@ -511,9 +494,7 @@ export function getSections( scope: SettingsScope, { signedIn = true } = {} ): S
 /** Alternate names for existing commands that already own a settings destination. */
 export function getSettingsCommandAliases( scope: SettingsScope, command: ExistingPaletteCommand ) {
 	return getSections( scope ).flatMap( ( section ) => [
-		...( typeof section.palette === 'object' && section.palette.command === command
-			? [ section.label, ...( section.aliases ?? [] ) ]
-			: [] ),
+		...( section.command === command ? [ section.label, ...( section.aliases ?? [] ) ] : [] ),
 		...section.settings.flatMap( ( entry ) =>
 			typeof entry.palette === 'object' && entry.palette.command === command
 				? [ entry.title, ...( entry.aliases ?? [] ) ]

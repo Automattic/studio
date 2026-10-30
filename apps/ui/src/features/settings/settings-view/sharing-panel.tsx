@@ -157,7 +157,7 @@ export function SharingPanel() {
 					description={
 						<>
 							{ __(
-								'Share a temporary copy of your local site with anyone. Preview sites expire seven days after their last update.'
+								'Share a temporary copy of your local site with anyone. A preview site expires if it goes about a week without an update.'
 							) }{ ' ' }
 							<Button
 								variant="inline-accent"

@@ -1,12 +1,14 @@
 /**
  * Builds the demo site backup the screenshots open on
  * (`screenshots/demo-site/wren-and-barley.zip`) from its source folder:
- * `styles.json` (global styles), `images.json` (CC0 photos on Wikimedia
- * Commons) and `content/` (block markup for the pages, posts, templates and
- * template parts).
+ * `theme/` (a Twenty Twenty-Five child theme with the site's palette, type and
+ * buttons), `images.json` (CC0 photos on Wikimedia Commons) and `content/`
+ * (block markup for the pages, posts, templates and template parts).
+ * `DESIGN.md` isn't part of the backup: the screenshot script copies it into
+ * the site's folder (`design` in `sites.json`).
  *
  * The site is built with the Studio CLI in a throwaway profile, so nothing
- * touches your own Studio: create a site, apply the styles, import the
+ * touches your own Studio: create a site, install the theme, import the
  * photos, create the content, export, delete. Run it after editing the source:
  *
  *   npm run demo-site:build
@@ -14,7 +16,7 @@
  * Image placeholders in the markup: {{url:name}}, {{id:name}}, {{alt:name}}.
  */
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { DEMO_SITE_DIR, readJson, slugify } from './lib/common.mjs';
 import { createProfile } from './lib/studio-app.mjs';
@@ -27,7 +29,7 @@ const IMAGE_INFO = path.join( CACHE_DIR, 'images.json' );
 const IMAGE_WIDTH = 1920;
 const USER_AGENT = 'studio-docs-screenshots/1.0 (https://github.com/Automattic/studio)';
 const PAGE_DATE = '2026-09-20 09:00:00';
-const THEME = 'twentytwentyfive';
+const THEME = 'wren-and-barley';
 
 // Pages come from content/pages/<slug>.html, posts from content/posts/<slug of title>.html.
 const PAGES = [
@@ -173,23 +175,11 @@ async function main() {
 		await wp( 'post', 'delete', '1', '2', '--force' );
 		await wp( 'user', 'update', 'admin', '--display_name=Ana Oakes', '--skip-email' );
 		await wp( 'term', 'update', 'category', '1', '--name=Bakery notes', '--slug=bakery-notes' );
-		// `styles.json` (palette, type, buttons) becomes the user's global styles.
-		const styleScript = path.join( work, 'apply-style.php' );
-		await writeFile(
-			styleScript,
-			`<?php
-$styles = json_decode( file_get_contents( ${ JSON.stringify(
-				path.join( SOURCE_DIR, 'styles.json' )
-			) } ), true );
-$styles['isGlobalStylesUserThemeJSON'] = true;
-$styles['version'] = WP_Theme_JSON::LATEST_SCHEMA;
-wp_update_post( array(
-	'ID' => WP_Theme_JSON_Resolver::get_user_global_styles_post_id(),
-	'post_content' => wp_json_encode( $styles ),
-) );
-`
-		);
-		await wp( 'eval-file', styleScript );
+		// The child theme carries the palette, type and buttons (`theme/theme.json`).
+		await cp( path.join( SOURCE_DIR, 'theme' ), path.join( sitePath, 'wp-content/themes', THEME ), {
+			recursive: true,
+		} );
+		await wp( 'theme', 'activate', THEME );
 		// Only the originals are needed, and only the uploads are exported.
 		await writeFile(
 			path.join( sitePath, 'wp-content/mu-plugins/docs-demo-build.php' ),
@@ -274,11 +264,19 @@ add_filter( 'big_image_size_threshold', '__return_false' );
 			}
 		}
 
-		// Every Studio site ships the theme and plugins; the backup only needs
-		// the database and the photos.
+		// Every Studio site ships the parent theme and plugins; the backup only
+		// needs the database, the photos and the child theme.
 		console.log( 'Exporting...' );
 		await rm( backup, { force: true } );
-		await runCli( profile, [ 'export', backup, '--path', sitePath, '--include-only', 'uploads' ] );
+		await runCli( profile, [
+			'export',
+			backup,
+			'--path',
+			sitePath,
+			'--include-only',
+			'uploads',
+			`themes/${ THEME }`,
+		] );
 	} finally {
 		if ( sitePath ) {
 			await stopSite( profile, sitePath ).catch( () => {} );

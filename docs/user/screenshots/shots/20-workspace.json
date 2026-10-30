@@ -136,6 +136,72 @@
 			}
 		},
 		{
+			"name": "design-system",
+			"description": "Site preview → Design system: the demo site’s DESIGN.md as colors, type, components and guidelines",
+			"pages": [ "studio-code/index.md" ],
+			"steps": [
+				{
+					"click": {
+						"role": "textbox",
+						"name": "Address"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "dialog",
+						"name": "Preview shortcuts"
+					}
+				},
+				{
+					"click": {
+						"role": "option",
+						"name": "Design system"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "dialog",
+						"name": "Preview shortcuts"
+					},
+					"hidden": true
+				},
+				{
+					"wait": 2000
+				}
+			],
+			"capture": {
+				"settle": 2500
+			},
+			"after": [
+				{
+					"click": {
+						"role": "textbox",
+						"name": "Address"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "dialog",
+						"name": "Preview shortcuts"
+					}
+				},
+				{
+					"click": {
+						"role": "option",
+						"name": "Front end"
+					}
+				},
+				{
+					"waitFor": {
+						"text": "Loading site preview"
+					},
+					"hidden": true,
+					"timeout": 60000,
+					"optional": true
+				}
+			]
+		},
+		{
 			"name": "responsive-mode-presets",
 			"description": "Responsive mode: the device menu open, with Responsive and the device sizes",
 			"pages": [ "sites.md" ],

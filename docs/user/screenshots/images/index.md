@@ -19,7 +19,8 @@ Shots with annotations also have a `<name>-annotated.webp`.
 | `orientation-guide.webp` | first-run | Orientation guide, page 1, shown after the first site is created | `index.md` | — |
 | `main-window-signed-out.webp` | workspace | Main window, signed out: sidebar, Studio Code chat, and the site preview | `index.md`<br>`studio-code/index.md` | `2024/04/main-window-signed-out.png` |
 | `command-palette.webp` | workspace | Command palette (⌘K) | `index.md` | — |
-| `preview-destinations.webp` | workspace | Site preview address bar shortcuts: Front end / WordPress Admin / Database | `sites.md`<br>`debugging/index.md`<br>`frequently-asked-questions.md` | `2026/04/preview-destinations.png` |
+| `preview-destinations.webp` | workspace | Site preview address bar shortcuts: Front end / WordPress Admin / Database / Design system | `sites.md`<br>`debugging/index.md`<br>`frequently-asked-questions.md` | `2026/04/preview-destinations.png` |
+| `design-system.webp` | workspace | Site preview → Design system: the demo site’s DESIGN.md as colors, type, components and guidelines | `studio-code/index.md` | — |
 | `responsive-mode-presets.webp` | workspace | Responsive mode: the device menu open, with Responsive and the device sizes | `sites.md` | — |
 | `responsive-mode.webp` | workspace | Responsive mode at a phone size (iPhone 17), with the responsive toolbar above the preview | `sites.md` | — |
 | `site-status-button.webp` | workspace | Sidebar site row with its Stop button and tooltip | `sites.md` | `2025/01/site-status-tooltip.png` |

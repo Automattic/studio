@@ -1,4 +1,5 @@
 import { execFile as execFileCallback } from 'node:child_process';
+import { copyFile } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { readJson } from './common.mjs';
@@ -48,7 +49,9 @@ export function stopSite( profile, sitePath ) {
 
 /**
  * Creates the demo sites in a profile from `sites.json` (id, name, slug, and
- * for the site the shots open on, `import`: a Studio backup to load into it).
+ * for the site the shots open on, `import`: a Studio backup to load into it,
+ * and `design`: the DESIGN.md to put in its folder, which the backup can't
+ * carry).
  * Importing needs the site started, so it is stopped after; Studio starts it
  * again on launch through `autoStart` (see `siteMetadata`). The other sites
  * stay blank and stopped: they only fill out the sidebar.
@@ -72,6 +75,9 @@ export async function seedSites( profile, dir ) {
 				await importBackup();
 			} );
 			await stopSite( profile, sitePath );
+		}
+		if ( site.design ) {
+			await copyFile( path.join( dir, site.design ), path.join( sitePath, 'DESIGN.md' ) );
 		}
 	}
 	return sites;

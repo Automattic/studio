@@ -81,6 +81,11 @@ it.each( [
 		reading: { show_on_front: 'page', page_on_front: '0' },
 		fact: 'Homepage: the latest posts (show_on_front).',
 	},
+	// As run h2h5's ceramics site deleted the page set as its homepage, then named another.
+	{
+		reading: { show_on_front: 'posts', page_on_front: '9' },
+		fact: 'Homepage: the latest posts (show_on_front); page 9 "Home", which page_on_front names, shows there only once show_on_front is page. WordPress sets show_on_front to posts when the page set as the homepage is deleted or trashed (_reset_front_page_settings_for_post() in wp-includes/post.php).',
+	},
 ] )( 'states what Settings → Reading shows at the homepage: $fact', async ( { reading, fact } ) => {
 	const site = createSite( 'wp_' );
 	site.save( 9, 'page', 'home', '', 1, 'publish', 'Home' );

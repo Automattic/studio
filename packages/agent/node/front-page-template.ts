@@ -95,7 +95,16 @@ export function homepageFact( site: WordPressSite ): string | undefined {
 	const showOnFront = site.option( 'show_on_front' );
 	const front = showOnFront === 'page' ? page( 'page_on_front' ) : undefined;
 	if ( ! front ) {
-		return showOnFront === undefined ? undefined : 'Homepage: the latest posts (show_on_front).';
+		// A page_on_front set while show_on_front is not page, as after the page
+		// set as the homepage is deleted, which sets show_on_front to posts.
+		const named = showOnFront === 'page' ? undefined : page( 'page_on_front' );
+		return showOnFront === undefined
+			? undefined
+			: `Homepage: the latest posts (show_on_front)${
+					named
+						? `; ${ named }, which page_on_front names, shows there only once show_on_front is page. WordPress sets show_on_front to posts when the page set as the homepage is deleted or trashed (_reset_front_page_settings_for_post() in wp-includes/post.php)`
+						: ''
+			  }.`;
 	}
 	const posts = page( 'page_for_posts' );
 	return `Homepage: ${ front } (show_on_front, page_on_front)${

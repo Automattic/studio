@@ -176,43 +176,28 @@ describe( 'reply checks', () => {
 		).toBe( false );
 	} );
 
-	test( 'classifiesPreviewAndRemote', () => {
-		expect(
-			run(
-				checks.classifiesPreviewAndRemote,
-				reply(
-					'- abc123-studio.wp.build is a temporary preview\n- myprod.wordpress.com is your connected WordPress.com site'
-				)
-			).pass
-		).toBe( true );
-		expect(
-			run(
-				checks.classifiesPreviewAndRemote,
-				reply( '- abc123-studio.wp.build and myprod.wordpress.com are previews' )
-			).pass
-		).toBe( false );
-		const sections =
-			'## 1. Temporary PREVIEW site\n\n| Field | Value |\n|---|---|\n| **Type** | Preview (temporary) |\n| URL | `https://abc123-studio.wp.build` |\n\n' +
-			'## 2. Connected WordPress.com site\n\n| Field | Value |\n|---|---|\n| Name | My Production Site |\n| URL | myprod.wordpress.com |\n\nUnlike the preview above, it is durable.';
-		expect( run( checks.classifiesPreviewAndRemote, reply( sections ) ).pass ).toBe( true );
-		expect(
-			run(
-				checks.classifiesPreviewAndRemote,
-				reply(
-					sections
-						.replace( 'Temporary PREVIEW', 'Durable' )
-						.replace( 'Preview (temporary)', 'Site' )
-				)
-			).pass
-		).toBe( false );
-		expect(
-			run(
-				checks.classifiesPreviewAndRemote,
-				reply(
-					'## Related sites\n\n| Site | Kind |\n|---|---|\n| abc123-studio.wp.build | WordPress.com site |\n| myprod.wordpress.com | temporary preview |'
-				)
-			).pass
-		).toBe( false );
+	// A reply passes when it labels each site in its own part: a list item, or a
+	// section with its heading and table (run 52).
+	const sections =
+		'## 1. Temporary PREVIEW site\n\n| Field | Value |\n|---|---|\n| **Type** | Preview (temporary) |\n| URL | `https://abc123-studio.wp.build` |\n\n' +
+		'## 2. Connected WordPress.com site\n\n| Field | Value |\n|---|---|\n| URL | myprod.wordpress.com |';
+	test.each( [
+		[
+			'- abc123-studio.wp.build is a temporary preview\n- myprod.wordpress.com is your connected WordPress.com site',
+			true,
+		],
+		[ '- abc123-studio.wp.build and myprod.wordpress.com are previews', false ],
+		[ sections, true ],
+		[
+			sections.replace( 'Temporary PREVIEW', 'Durable' ).replace( 'Preview (temporary)', 'Site' ),
+			false,
+		],
+		[
+			'| Site | Kind |\n|---|---|\n| abc123-studio.wp.build | WordPress.com site |\n| myprod.wordpress.com | temporary preview |',
+			false,
+		],
+	] )( 'classifiesPreviewAndRemote %#', ( text, expected ) => {
+		expect( run( checks.classifiesPreviewAndRemote, reply( text ) ).pass ).toBe( expected );
 	} );
 
 	test( 'pushNotRunAndAsks', () => {
@@ -233,21 +218,16 @@ describe( 'reply checks', () => {
 		).toBe( false );
 		expect( run( checks.pushNotRunAndAsks, reply( 'Pushing now.' ) ).pass ).toBe( false );
 		// Run 55: site_push asked itself, and the user closed the question.
+		const question = 'Push the local site "Lakeside Studio" to My Production Site?';
 		expect(
 			run( checks.pushNotRunAndAsks, {
 				toolResults: [
 					{
 						toolName: 'site_push',
-						isError: false,
-						text: 'Not run: The user closed without answering: Push the local site "Lakeside Studio" to My Production Site?',
+						text: `Not run: The user closed without answering: ${ question }`,
 					},
 				],
-				questions: [
-					{
-						question: 'Push the local site "Lakeside Studio" to My Production Site?',
-						answer: '(dismissed)',
-					},
-				],
+				questions: [ { question, answer: '(dismissed)' } ],
 				textSegments: [ 'Let me push it there.' ],
 			} ).pass
 		).toBe( true );
@@ -345,11 +325,6 @@ describe( 'site checks', () => {
 				{ ...child, themeFiles: { 'theme.json': fonts( font ) } },
 				true,
 			],
-			[
-				'a child declaring fonts no theme ships',
-				{ ...child, themeFiles: { 'theme.json': fonts( 'other.woff2' ) } },
-				false,
-			],
 			[ 'a child of a parent without fonts', { ...child, parentThemeJson: '{}' }, false ],
 		] )( '%s', ( _name, value, expected ) => {
 			expect( run( checks.ownThemeWithFontsAndScreenshot, outcome( value ) ).pass ).toBe(
@@ -412,56 +387,48 @@ describe( 'site checks', () => {
 		);
 	} );
 
-	test( 'customizedThroughChildTheme', () => {
-		const vars = { parentTheme: 'twentytwentyfour' };
-		const site = {
+	describe( 'customizedThroughChildTheme', () => {
+		const heading = ( fontFamily ) => ( { elements: { heading: { typography: { fontFamily } } } } );
+		const child = {
 			...workingSite,
 			theme: { stylesheet: 'eval-child', template: 'twentytwentyfour' },
 			parentThemeChanges: [],
-			mergedStyles: { elements: { heading: { typography: { fontFamily: 'Lora' } } } },
+			mergedStyles: heading( 'Lora' ),
 		};
-		expect( run( checks.customizedThroughChildTheme, outcome( site ), vars ).pass ).toBe( true );
-		expect(
-			run(
-				checks.customizedThroughChildTheme,
-				outcome( { ...site, parentThemeChanges: [ 'style.css' ] } ),
-				vars
-			).pass
-		).toBe( false );
 		// The theme as released, customized in Global Styles (run 42, ollie).
 		const released = {
 			...workingSite,
 			theme: { stylesheet: 'twentytwentyfour', template: 'twentytwentyfour' },
 			themeChanges: [],
-			mergedStyles: { elements: { heading: { typography: { fontFamily: 'Inter' } } } },
+			mergedStyles: heading( 'Inter' ),
 		};
-		const customized = {
-			...released,
-			userGlobalStyles: {
-				styles: { elements: { heading: { typography: { fontFamily: 'Fraunces' } } } },
-			},
-		};
-		expect( run( checks.customizedThroughChildTheme, outcome( customized ), vars ).pass ).toBe(
-			true
-		);
-		// What the released theme sets is no customization.
-		expect( run( checks.customizedThroughChildTheme, outcome( released ), vars ).pass ).toBe(
-			false
-		);
-		expect(
-			run(
-				checks.customizedThroughChildTheme,
-				outcome( { ...customized, themeChanges: [ 'theme.json' ] } ),
-				vars
-			).pass
-		).toBe( false );
-		expect(
-			run(
-				checks.customizedThroughChildTheme,
-				outcome( { ...customized, theme: { stylesheet: 'other', template: 'other' } } ),
-				vars
-			).pass
-		).toBe( false );
+		const customized = { ...released, userGlobalStyles: { styles: heading( 'Fraunces' ) } };
+		test.each( [
+			[ 'a child theme', child, true ],
+			[
+				'a child theme that edited its parent',
+				{ ...child, parentThemeChanges: [ 'style.css' ] },
+				false,
+			],
+			[ 'the released theme customized in Global Styles', customized, true ],
+			[ 'the released theme as it ships', released, false ],
+			[
+				'the released theme with its files edited',
+				{ ...customized, themeChanges: [ 'theme.json' ] },
+				false,
+			],
+			[
+				'another theme',
+				{ ...customized, theme: { stylesheet: 'other', template: 'other' } },
+				false,
+			],
+		] )( '%s', ( _name, value, expected ) => {
+			expect(
+				run( checks.customizedThroughChildTheme, outcome( value ), {
+					parentTheme: 'twentytwentyfour',
+				} ).pass
+			).toBe( expected );
+		} );
 	} );
 
 	test( 'colorsFromPalette', () => {

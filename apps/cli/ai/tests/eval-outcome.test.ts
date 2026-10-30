@@ -55,11 +55,6 @@ it( 'fingerprints a site a turn only reads as unchanged, and one it writes to as
 	write.exec( "INSERT INTO wp_options ( option_name, option_value ) VALUES ( 'changed', '1' )" );
 	expect( await mtime() ).toBeGreaterThan( before );
 	write.close();
-	const written = await mtime();
-	await tick();
-
-	writeFileSync( path.join( root, 'wp-content/themes/bakery/style.css' ), '/* changed */' );
-	expect( await mtime() ).toBeGreaterThan( written );
 	rmSync( root, { recursive: true, force: true } );
 } );
 

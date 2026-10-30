@@ -140,8 +140,8 @@ describe( 'Settings search', () => {
 		const { input, matches, section } = await renderSearch();
 		fireEvent.change( input, { target: { value: 'contrast' } } );
 		expect( matches().map( ( tab ) => tab.textContent ) ).toEqual( [
-			'ContrastStudio',
-			'Reset appearanceStudio',
+			'ContrastApp',
+			'Reset appearanceApp',
 		] );
 		fireEvent.keyDown( input, { key: 'Enter' } );
 		await waitFor( () => expect( section() ).toBe( 'appearance' ) );

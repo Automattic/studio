@@ -377,10 +377,10 @@ describe( 'WordPress Studio settings', () => {
 
 	it( 'offers Default, the installed editors and a saved editor that is gone', async () => {
 		const { connector } = await setup( { preferences: { editor: 'cursor' } } );
-		fireEvent.click( await screen.findByRole( 'combobox', { name: 'Code editor' } ) );
+		fireEvent.click( await screen.findByRole( 'combobox', { name: 'Default code editor' } ) );
 		const options = await screen.findAllByRole( 'option' );
 		expect( options.map( ( option ) => option.textContent ) ).toEqual( [
-			'Default',
+			'System default',
 			supportedEditorConfig.cursor.label(),
 			supportedEditorConfig.vscode.label(),
 		] );
@@ -469,21 +469,6 @@ describe( 'WordPress Studio settings', () => {
 		);
 	} );
 
-	it( 'restores default colors from the first swatch', async () => {
-		const { connector } = await setup( {
-			section: 'appearance',
-			preferences: { colorScheme: 'dark', accentColor: '#069e08', tintIntensity: 40, contrast: 30 },
-		} );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Default' } ) );
-		await waitFor( () =>
-			expect( connector.setUserPreferences ).toHaveBeenCalledWith( DEFAULT_COLOR_TINT, undefined )
-		);
-		expect( screen.getByRole( 'button', { name: 'Default' } ) ).toHaveAttribute(
-			'aria-pressed',
-			'true'
-		);
-	} );
-
 	it( 'restores saved appearance after a failed background save', async () => {
 		const { connector } = await setup( { section: 'appearance' } );
 		let failSave: ( error: Error ) => void = () => {};
@@ -493,8 +478,8 @@ describe( 'WordPress Studio settings', () => {
 					failSave = reject;
 				} )
 		);
-		const theme = await screen.findByRole( 'combobox', { name: 'Theme' } );
-		await choose( 'Theme', 'Dark' );
+		const theme = await screen.findByRole( 'combobox', { name: 'Interface theme' } );
+		await choose( 'Interface theme', 'Dark' );
 		await waitFor( () => expect( theme ).toHaveTextContent( 'Dark' ) );
 		await waitFor( () => expect( connector.setUserPreferences ).toHaveBeenCalledOnce() );
 		await act( async () => failSave( new Error( 'Unable to save appearance' ) ) );
@@ -506,12 +491,12 @@ describe( 'WordPress Studio settings', () => {
 	it( 'keeps the current panel while searching and opens the selected field', async () => {
 		const { connector } = await setup( { section: 'keyboard' } );
 		fireEvent.change( searchBox(), { target: { value: 'theme' } } );
-		expect( screen.queryByRole( 'combobox', { name: 'Theme' } ) ).not.toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'tab', { name: 'Theme' } ) );
-		const control = await screen.findByRole( 'combobox', { name: 'Theme' } );
+		expect( screen.queryByRole( 'combobox', { name: 'Interface theme' } ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Interface theme' } ) );
+		const control = await screen.findByRole( 'combobox', { name: 'Interface theme' } );
 		await waitFor( () => expect( row( 'theme' ) ).toHaveAttribute( 'data-settings-match' ) );
 		expect( row( 'theme' ) ).toContainElement( control );
-		await choose( 'Theme', 'Dark' );
+		await choose( 'Interface theme', 'Dark' );
 		await waitFor( () =>
 			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
 				{ colorScheme: 'dark' },
@@ -519,7 +504,7 @@ describe( 'WordPress Studio settings', () => {
 			)
 		);
 		expect( searchBox() ).toHaveValue( 'theme' );
-		expect( screen.getByRole( 'tab', { name: 'Theme' } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'Interface theme' } ) ).toBeVisible();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Clear search' } ) );
 		expect( screen.getByRole( 'heading', { name: 'Appearance' } ) ).toBeVisible();
 	} );

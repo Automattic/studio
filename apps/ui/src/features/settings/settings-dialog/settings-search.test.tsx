@@ -51,18 +51,20 @@ describe( 'Settings search', () => {
 	it( 'temporarily highlights the whole field and restarts when selecting it again', async () => {
 		const { input, unmount } = await renderSearch();
 		fireEvent.change( input, { target: { value: 'theme' } } );
-		fireEvent.click( screen.getByRole( 'tab', { name: 'Theme' } ) );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Interface theme' } ) );
 		await waitFor( () => expect( row( 'theme' ) ).toHaveAttribute( 'data-settings-match' ) );
 		const field = row( 'theme' )!;
-		const control = within( field as HTMLElement ).getByRole( 'combobox', { name: 'Theme' } );
-		expect( within( field as HTMLElement ).getByText( 'Theme' ) ).not.toHaveAttribute(
+		const control = within( field as HTMLElement ).getByRole( 'combobox', {
+			name: 'Interface theme',
+		} );
+		expect( within( field as HTMLElement ).getByText( 'Interface theme' ) ).not.toHaveAttribute(
 			'data-settings-match'
 		);
 		await waitFor( () => expect( field ).not.toHaveAttribute( 'data-settings-match' ), {
 			timeout: 4000,
 		} );
 		expect( control ).toHaveFocus();
-		fireEvent.click( screen.getByRole( 'tab', { name: 'Theme' } ) );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Interface theme' } ) );
 		await waitFor( () => expect( field ).toHaveAttribute( 'data-settings-match' ) );
 		unmount();
 		expect( field ).not.toHaveAttribute( 'data-settings-match' );

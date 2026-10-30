@@ -5,14 +5,14 @@
 		flex-shrink: 0;
 		align-items: center;
 		width: 36px;
-		height: 20px;
-		padding: 1px;
+		height: 22px;
+		padding: 2px;
 		border: 1px solid transparent;
 		border-radius: var( --radius-full );
-		background-color: var( --border );
+		background-color: var( --surface-4 );
 		cursor: pointer;
 		outline: none;
-		transition: background-color var( --motion-duration-feedback );
+		transition: background-color var( --motion-duration-surface ) var( --motion-ease-layout );
 	}
 
 	.switch::after {
@@ -37,23 +37,32 @@
 	}
 
 	.thumb {
+		--thumb-growth: 0px;
 		display: block;
-		width: 16px;
+		width: calc( 16px + var( --thumb-growth ) );
 		height: 16px;
 		border-radius: var( --radius-full );
-		background-color: light-dark( var( --background ), var( --foreground ) );
+		background-color: light-dark( var( --background ), var( --accent-foreground ) );
 		box-shadow: var( --shadow-sm );
 		pointer-events: none;
-		transition: translate var( --motion-duration-surface ) var( --motion-ease-enter );
+		transition:
+			translate var( --motion-duration-surface ) var( --motion-ease-layout ),
+			width var( --motion-duration-surface ) var( --motion-ease-layout );
 	}
 
 	.thumb[data-checked] {
 		background-color: var( --accent-foreground );
-		translate: 16px 0;
+		translate: calc( 14px - var( --thumb-growth ) ) 0;
 	}
 
 	.switch:dir( rtl ) > .thumb[data-checked] {
-		translate: -16px 0;
+		translate: calc( -14px + var( --thumb-growth ) ) 0;
+	}
+
+	@media ( hover: hover ) and ( pointer: fine ) and ( prefers-reduced-motion: no-preference ) {
+		.switch:not( [data-disabled] ):hover > .thumb {
+			--thumb-growth: 2px;
+		}
 	}
 
 	@media ( prefers-reduced-motion: reduce ) {

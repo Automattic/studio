@@ -50,7 +50,9 @@ export function SettingsGroup( {
 					{ description }
 				</FieldDescription>
 			) : null }
-			<FieldGroup variant="settings">{ children }</FieldGroup>
+			<FieldGroup variant="settings" className={ styles.settingsGroup }>
+				{ children }
+			</FieldGroup>
 		</FieldSet>
 	);
 }

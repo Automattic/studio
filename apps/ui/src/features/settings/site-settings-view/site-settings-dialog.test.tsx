@@ -12,8 +12,16 @@ function setup( {
 	sites = [ site ],
 	signedIn = true,
 	section = 'site',
-}: { logExists?: boolean; sites?: SiteDetails[]; signedIn?: boolean; section?: string } = {} ) {
+	wpVersion = '6.9',
+}: {
+	logExists?: boolean;
+	sites?: SiteDetails[];
+	signedIn?: boolean;
+	section?: string;
+	wpVersion?: string;
+} = {} ) {
 	const connector = createFakeConnector( signedIn ? { sites } : { sites, user: null }, {
+		getWpVersion: async () => wpVersion,
 		siteDebugLogExists: async () => logExists,
 		getSiteAgentFiles: async ( _siteId, kind ) =>
 			kind === 'skills'
@@ -116,6 +124,7 @@ describe( 'site settings', () => {
 		fireEvent.click( toggle );
 		expect( selector ).toBeEnabled();
 		expect( selector ).toHaveTextContent( 'Auto-update' );
+		expect( selector ).not.toHaveAttribute( 'data-placeholder' );
 		await choose( 'WordPress version', '6.9' );
 		expect( toggle ).not.toBeChecked();
 		expect( selector ).toHaveTextContent( '6.9' );
@@ -130,12 +139,31 @@ describe( 'site settings', () => {
 		expect( screen.getByRole( 'switch', { name: 'Automatic updates' } ) ).not.toBeChecked();
 		await choose( 'WordPress version', /^Auto-update/ );
 		expect( selector ).toHaveTextContent( 'Auto-update' );
+		expect( selector ).not.toHaveAttribute( 'data-placeholder' );
 		expect( screen.getByRole( 'switch', { name: 'Automatic updates' } ) ).toBeChecked();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
 		await waitFor( () =>
 			expect( connector.updateSite ).toHaveBeenCalledWith(
 				expect.objectContaining( { id: 'one', isWpAutoUpdating: true } ),
 				'latest'
+			)
+		);
+	} );
+
+	it( 'keeps an unreadable pinned version pinned when saving unrelated edits', async () => {
+		const { connector } = setup( {
+			sites: [ { ...site, isWpAutoUpdating: false } ],
+			wpVersion: '-',
+		} );
+		fireEvent.change( await siteName(), { target: { value: 'Renamed' } } );
+		const selector = screen.getByRole( 'combobox', { name: 'WordPress version' } );
+		await waitFor( () => expect( selector ).toHaveTextContent( 'Unknown version' ) );
+		expect( screen.getByRole( 'switch', { name: 'Automatic updates' } ) ).not.toBeChecked();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
+		await waitFor( () =>
+			expect( connector.updateSite ).toHaveBeenCalledWith(
+				expect.objectContaining( { name: 'Renamed', isWpAutoUpdating: false } ),
+				undefined
 			)
 		);
 	} );
@@ -167,12 +195,12 @@ describe( 'site settings', () => {
 		}
 	} );
 
-	it( 'shows the local path read-only and copies it', async () => {
-		const { connector } = setup();
+	it( 'shows the local path read-only without site name or path copy buttons', async () => {
+		setup();
 		await siteName();
 		expect( screen.getByRole( 'textbox', { name: 'Local path' } ) ).toHaveAttribute( 'readonly' );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Copy local path' } ) );
-		await waitFor( () => expect( connector.copyText ).toHaveBeenCalledWith( '/sites/example' ) );
+		expect( screen.queryByRole( 'button', { name: 'Copy local path' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Copy site name' } ) ).not.toBeInTheDocument();
 	} );
 
 	it.each( [

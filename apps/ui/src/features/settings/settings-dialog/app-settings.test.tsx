@@ -125,7 +125,7 @@ it( 'offers installed browsers and saves or clears the site browser preference',
 	connector.getInstalledApps.mockResolvedValue( { ...installed, chrome: true, safari: false } );
 	renderApp( { connector } );
 	await openSettings();
-	const browser = await screen.findByRole( 'combobox', { name: 'Browser' } );
+	const browser = await screen.findByRole( 'combobox', { name: 'Default browser' } );
 	expect( browser ).toHaveTextContent( 'System default' );
 	await userEvent.click( browser );
 	expect( await screen.findByRole( 'option', { name: 'Google Chrome' } ) ).toBeVisible();
@@ -134,7 +134,7 @@ it( 'offers installed browsers and saves or clears the site browser preference',
 	await waitFor( () =>
 		expect( connector.setUserPreferences ).toHaveBeenCalledWith( { browser: 'chrome' }, undefined )
 	);
-	await userEvent.click( screen.getByRole( 'combobox', { name: 'Browser' } ) );
+	await userEvent.click( screen.getByRole( 'combobox', { name: 'Default browser' } ) );
 	await userEvent.click( await screen.findByRole( 'option', { name: 'System default' } ) );
 	await waitFor( () =>
 		expect( connector.setUserPreferences ).toHaveBeenCalledWith( { browser: null }, undefined )

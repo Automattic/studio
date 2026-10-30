@@ -20,6 +20,7 @@ import { useResetAppearance, useResetInterface } from '@/data/queries/use-reset-
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { hasCustomPanelLayout } from '@/data/resizable-panels';
+import { ExternalLinkIcon } from '@/lib/icons';
 import { isDefaultColorTint } from '@/lib/theme';
 import { Input, Button } from '@/lib/ui';
 import { AccountSection } from './account-section';
@@ -325,7 +326,7 @@ function PreferencesPanel( {
 					</Button>
 				</SettingsRow>
 				<SettingsRow
-					title={ __( 'Report an issue' ) }
+					title={ __( 'Report an issue on GitHub' ) }
 					description={ __( 'Report a bug or request a feature.' ) }
 				>
 					<Button
@@ -333,6 +334,7 @@ function PreferencesPanel( {
 						onClick={ () => void connector.openExternalUrl( REPORT_ISSUE_URL ) }
 					>
 						{ __( 'Report' ) }
+						<ExternalLinkIcon data-icon="inline-end" />
 					</Button>
 				</SettingsRow>
 			</SettingsGroup>

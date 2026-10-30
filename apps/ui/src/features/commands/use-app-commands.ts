@@ -1,5 +1,8 @@
 import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
 import { useNavigate } from '@tanstack/react-router';
+import { __ } from '@wordpress/i18n';
+import { useEffect, useState } from 'react';
+import { toast } from '@/data/app-messages';
 import { useColorScheme } from '@/data/host/use-color-scheme';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
@@ -14,6 +17,7 @@ import { openNoticeHistory } from '@/features/notifications';
 import { useOpenWhatsNew } from '@/features/onboarding';
 import { useCollapseAll } from '@/features/sidebar';
 import { useOpenAddSite } from '@/features/sites';
+import { useHasOpenDialog } from '@/lib/ui';
 import type { PaletteCommand } from '@/features/commands/studio-commands';
 
 // The commands available everywhere: sites, chats, settings and the app's own.
@@ -27,6 +31,23 @@ export function useAppCommands(): PaletteCommand[] {
 	const preview = useOptionalSessionPreviewUI();
 	const sidebarOpen = useSidebarOpen();
 	const toggleSidebar = useToggleSidebar();
+	const hasOpenDialog = useHasOpenDialog();
+	const [ sidebarToggleRequested, setSidebarToggleRequested ] = useState( false );
+	useEffect( () => {
+		if ( ! sidebarToggleRequested || hasOpenDialog ) return;
+		setSidebarToggleRequested( false );
+		toggleSidebar();
+	}, [ sidebarToggleRequested, hasOpenDialog, toggleSidebar ] );
+	const [ notificationsRequested, setNotificationsRequested ] = useState( false );
+	useEffect( () => {
+		if ( ! notificationsRequested || hasOpenDialog ) return;
+		if ( ! sidebarOpen ) {
+			toggleSidebar();
+			return;
+		}
+		setNotificationsRequested( false );
+		openNoticeHistory();
+	}, [ notificationsRequested, hasOpenDialog, sidebarOpen, toggleSidebar ] );
 	const colorScheme = useColorScheme();
 	const savePreferences = useSaveUserPreferences();
 	const collapseAll = useCollapseAll();
@@ -47,9 +68,12 @@ export function useAppCommands(): PaletteCommand[] {
 			if ( owner ) preview?.setChatHidden( false, owner.id );
 			void navigate( { to: '/sessions/$sessionId', params: { sessionId: session.id } } );
 		},
-		savePreferences: ( preferences ) => savePreferences.mutate( preferences ),
-		toggleSidebar,
-		openNotifications: openNoticeHistory,
+		savePreferences: ( preferences ) =>
+			savePreferences.mutate( preferences, {
+				onError: () => toast.error( __( 'Could not update settings. Please try again.' ) ),
+			} ),
+		toggleSidebar: () => setSidebarToggleRequested( true ),
+		openNotifications: () => setNotificationsRequested( true ),
 		openWhatsNew,
 		collapseAll,
 	} );

@@ -1,4 +1,6 @@
+import { createElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { getSections, getSettingsCommandAliases, searchSettings } from '@/data/settings-sections';
 import { makeSession, makeSite } from '@/test/fake-connector';
 import { matchCommands } from './command-search';
 import { getSiteCommands } from './site-commands';
@@ -103,21 +105,6 @@ describe( 'getAppCommands', () => {
 	} );
 } );
 
-it( 'shows the sidebar before opening the notifications from its bell', () => {
-	const toggleSidebar = vi.fn();
-	const openNotifications = vi.fn();
-	const notifications = ( sidebarOpen: boolean ) =>
-		appCommands( { sidebarOpen, toggleSidebar, openNotifications } ).find(
-			( { id } ) => id === 'notifications'
-		)!;
-
-	notifications( true ).run();
-	expect( toggleSidebar ).not.toHaveBeenCalled();
-	notifications( false ).run();
-	expect( toggleSidebar ).toHaveBeenCalledTimes( 1 );
-	expect( openNotifications ).toHaveBeenCalledTimes( 2 );
-} );
-
 it( 'derives labels and availability from active context', () => {
 	const current = makeSite( { id: 'one', name: 'Test', running: true } );
 	const sites = [ current, makeSite( { id: 'two', running: true } ) ];
@@ -130,6 +117,9 @@ it( 'derives labels and availability from active context', () => {
 	const byId = ( id: string ) =>
 		[ ...app, ...forSite, ...chatCommands ].find( ( command ) => command.id === id );
 	expect( byId( 'sidebar' )?.label ).toBe( 'Show sidebar' );
+	for ( const id of [ 'sidebar', 'pin-site', 'pin-chat', 'color-scheme' ] ) {
+		expect( byId( id )?.group ).toBe( 'commands' );
+	}
 	expect( byId( 'chat-visibility' )?.label ).toBe( 'Hide chat' );
 	expect( byId( 'pin-site' )?.label ).toBe( 'Unpin site' );
 	expect( byId( 'pin-chat' )?.label ).toBe( 'Unpin chat' );
@@ -164,7 +154,7 @@ it.each( [
 		if ( ! available ) {
 			expect( command ).toBeUndefined();
 		} else {
-			expect( command ).toMatchObject( { group: 'site', label } );
+			expect( command ).toMatchObject( { group: 'commands', label } );
 		}
 	}
 	expect( commands.find( ( command ) => command.id === 'lifecycle' ) ).toMatchObject( {
@@ -173,7 +163,70 @@ it.each( [
 	} );
 } );
 
+it( 'keeps internal and external Admin and database destinations distinct', () => {
+	const openAdmin = vi.fn();
+	const openDatabase = vi.fn();
+	const browserAdmin = vi.fn();
+	const browserDatabase = vi.fn();
+	const current = makeSite( { id: 'one' } );
+	const commands = siteCommands(
+		current,
+		[ current ],
+		{
+			destinations: [
+				{
+					id: 'wp-admin',
+					label: 'WordPress admin',
+					disabled: false,
+					open: browserAdmin,
+					logo: createElement( 'span' ),
+				},
+				{
+					id: 'phpmyadmin',
+					label: 'phpMyAdmin',
+					disabled: false,
+					open: browserDatabase,
+					logo: createElement( 'span' ),
+				},
+			],
+		},
+		{ openAdmin, openDatabase }
+	);
+	for ( const [ label, run ] of [
+		[ 'Open WordPress Admin in preview', openAdmin ],
+		[ 'Open database in preview', openDatabase ],
+		[ 'Open WordPress Admin in browser', browserAdmin ],
+		[ 'Open database in browser', browserDatabase ],
+	] as const ) {
+		commands.find( ( entry ) => entry.label === label )!.run();
+		expect( run ).toHaveBeenCalledOnce();
+	}
+	expect( matchCommands( commands, 'Open in phpMyAdmin' )[ 0 ].label ).toBe(
+		'Open database in browser'
+	);
+} );
+
 describe( 'getSettingCommands', () => {
+	it( 'lists every available settings destination and action without a search', () => {
+		const commands = getSettingCommands( {
+			scope: 'studio',
+			signedIn: true,
+			toggles: { 'show-recent-chats': { checked: true, run: vi.fn() } },
+			actions: { 'reset-appearance': { run: vi.fn() } },
+			openSettings: vi.fn(),
+		} );
+		const visible = matchCommands( commands, '' );
+		expect( visible ).toHaveLength( commands.length );
+		expect( visible.map( ( entry ) => entry.id ) ).toEqual(
+			expect.arrayContaining( [
+				'settings-skills',
+				'settings-general-show-recent-chats',
+				'settings-appearance-reset-appearance',
+				'settings-general-language',
+			] )
+		);
+	} );
+
 	it( 'turns a known switch on or off in place and opens any other setting', () => {
 		const openSettings = vi.fn();
 		const toggle = { checked: true, run: vi.fn() };
@@ -186,11 +239,11 @@ describe( 'getSettingCommands', () => {
 		const byLabel = ( label: string ) => commands.find( ( command ) => command.label === label )!;
 
 		expect( byLabel( 'Turn off “Show recent chats”' ).run ).toBe( toggle.run );
-		byLabel( 'Terminal' ).run();
+		commands.find( ( command ) => command.id === 'settings-general-terminal' )!.run();
 		expect( openSettings ).toHaveBeenCalledWith( 'general', undefined, 'terminal' );
-		byLabel( 'Studio CLI for terminal' ).run();
+		byLabel( 'WordPress Studio CLI for terminal' ).run();
 		expect( openSettings ).toHaveBeenCalledWith( 'general', undefined, 'studio-cli' );
-		byLabel( 'Agent instructions' ).run();
+		byLabel( 'Instructions' ).run();
 		expect( openSettings ).toHaveBeenCalledWith( 'instructions', undefined, 'agent-instructions' );
 	} );
 
@@ -219,7 +272,6 @@ describe( 'getSettingCommands', () => {
 			'Visit wapuu.studio',
 			'Wapuu score',
 			'Local domain',
-			'MCP',
 			'WordPress credentials',
 		] ) {
 			expect( titles ).not.toContain( label );
@@ -232,12 +284,104 @@ describe( 'getSettingCommands', () => {
 		).toBe( toggle.run );
 	} );
 
+	it( 'keeps one navigation destination per scope without a skills action', () => {
+		const openSettings = vi.fn();
+		const run = vi.fn();
+		const site = makeSite( { id: 'one' } );
+		const commands = [
+			...getSettingCommands( {
+				scope: 'studio',
+				signedIn: true,
+				toggles: {
+					'wordpress-skills': { checked: false, label: 'Enable WordPress skills', run },
+				},
+				openSettings,
+			} ),
+			...getSettingCommands( { scope: 'site', site, signedIn: true, toggles: {}, openSettings } ),
+		];
+		expect( matchCommands( commands, 'skills' ).map( ( entry ) => entry.label ) ).toEqual( [
+			'Skills',
+			'Skills',
+		] );
+		expect( matchCommands( commands, 'instructions' ).map( ( entry ) => entry.label ) ).toEqual( [
+			'Instructions',
+			'Instructions',
+		] );
+		for ( const [ query, section, focus ] of [
+			[ 'Skills on this site', 'site-skills', 'site-wordpress-skills' ],
+			[ 'Instructions on this site', 'site-instructions', 'site-agent-instructions' ],
+		] ) {
+			const matches = matchCommands( commands, query );
+			expect( matches ).toHaveLength( 1 );
+			matches[ 0 ].run();
+			expect( openSettings ).toHaveBeenLastCalledWith( section, 'one', focus );
+		}
+		expect( commands.some( ( entry ) => entry.id === 'settings-skills-wordpress-skills' ) ).toBe(
+			false
+		);
+		expect( run ).not.toHaveBeenCalled();
+		expect( new Set( commands.map( ( entry ) => entry.id ) ).size ).toBe( commands.length );
+	} );
+
+	it( 'folds informational rows into their section and keeps distinct control navigation', () => {
+		for ( const query of [
+			'MCP server',
+			'Live previews',
+			'snapshots',
+			'Credit balance',
+			'Agent instructions',
+		] ) {
+			expect( matchCommands( studioSettings(), query ) ).toHaveLength( 1 );
+		}
+		const openSettings = vi.fn();
+		const commands = getSettingCommands( {
+			scope: 'site',
+			site: makeSite( { id: 'one' } ),
+			signedIn: true,
+			toggles: {},
+			openSettings,
+		} );
+		const php = matchCommands( commands, 'PHP version' );
+		expect( php ).toHaveLength( 1 );
+		php[ 0 ].run();
+		expect( openSettings ).toHaveBeenCalledWith( 'php', 'one', 'php-version' );
+		expect( commands.some( ( entry ) => entry.id === 'site-settings-site' ) ).toBe( false );
+		expect( studioSettings().some( ( entry ) => entry.id === 'settings-general' ) ).toBe( false );
+		expect( getSettingsCommandAliases( 'studio', 'settings' ) ).toContain( 'General' );
+		expect( commands.some( ( entry ) => entry.aliases?.includes( 'Site name' ) ) ).toBe( false );
+		expect( getSettingsCommandAliases( 'site', 'rename-site' ) ).toContain( 'Site name' );
+		expect( getSettingsCommandAliases( 'site', 'site-settings' ) ).toContain( 'Settings' );
+	} );
+
+	it( 'requires stable targets and explicit policies without narrowing Settings search', () => {
+		for ( const scope of [ 'studio', 'site' ] as const ) {
+			for ( const section of getSections( scope ) ) {
+				expect( section.palette ).toBeDefined();
+				for ( const entry of section.settings ) {
+					expect( entry.palette ).toBeDefined();
+					if ( entry.palette === 'navigate' || entry.palette === 'action' )
+						expect( entry.id ).toBeTruthy();
+					if ( entry.palette === 'section' ) expect( typeof section.palette ).toBe( 'string' );
+				}
+			}
+		}
+		expect(
+			searchSettings( 'Skills on this site', 'site', { hasSite: true, signedIn: true } )
+		).toHaveLength( 1 );
+		expect(
+			getSettingCommands( { scope: 'site', signedIn: true, toggles: {}, openSettings: vi.fn() } )
+		).toEqual( [] );
+		expect(
+			studioSettings().some( ( entry ) => entry.id === 'settings-skills-wordpress-skills' )
+		).toBe( false );
+	} );
+
 	it.each( [
 		[ 'shortcuts', 'settings-keyboard' ],
 		[ 'connect', 'settings-ai' ],
 		[ 'connect provider', 'settings-ai' ],
-		[ 'credit balance', 'settings-usage-ai-credits' ],
-		[ 'snapshots', 'settings-sharing-preview-sites' ],
+		[ 'credit balance', 'settings-usage' ],
+		[ 'snapshots', 'settings-sharing' ],
 	] )( 'finds “%s” first by another name for a setting', ( query, id ) => {
 		expect( matchCommands( studioSettings(), query )[ 0 ]?.id ).toBe( id );
 	} );

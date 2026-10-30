@@ -63,7 +63,11 @@ export function groupCommands( commands: PaletteCommand[] ): CommandGroup[] {
 		if ( last?.label === label ) {
 			last.items.push( item );
 		} else {
-			groups.push( { label, heading: label, items: [ item ] } );
+			groups.push( {
+				label,
+				heading: label,
+				items: [ item ],
+			} );
 		}
 	}
 	return groups;

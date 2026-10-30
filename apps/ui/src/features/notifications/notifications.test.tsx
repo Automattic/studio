@@ -49,6 +49,29 @@ const bell = () => screen.getByRole( 'button', { name: /Notification history/ } 
 const hasDot = () => bell().getAttribute( 'aria-label' )?.includes( 'notifications available' );
 
 describe( 'notifications popover', () => {
+	it( 'opens only the active sidebar history and transfers it without a duplicate', async () => {
+		const view = renderWithProviders(
+			<>
+				<NoticeHistoryButton active={ false } />
+				<NoticeHistoryButton active />
+			</>
+		);
+		act( () => openNoticeHistory() );
+		await screen.findByText( 'No notifications.' );
+		expect( screen.getAllByRole( 'dialog', { name: 'Notification history' } ) ).toHaveLength( 1 );
+		view.rerender(
+			<>
+				<NoticeHistoryButton active />
+				<NoticeHistoryButton active={ false } />
+			</>
+		);
+		await waitFor( () => expect( screen.getAllByText( 'No notifications.' ) ).toHaveLength( 1 ) );
+		act( () => closeNoticeHistory() );
+		await waitFor( () =>
+			expect( screen.queryByText( 'No notifications.' ) ).not.toBeInTheDocument()
+		);
+	} );
+
 	it( 'places actions beside the expandable summary and outside its button', async () => {
 		showToast( {
 			title: 'A very long notification title',

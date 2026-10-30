@@ -46,9 +46,17 @@ export function isSiteSection( value: SettingsSectionId ) {
 	return ( SITE_SECTIONS as readonly string[] ).includes( value );
 }
 
-// A setting search can find. `id` is the stable name a settings link uses,
-// and `aliases` other names people search for it by.
+type ExistingPaletteCommand = 'settings' | 'site-settings' | 'rename-site';
+// Fold redundant rows into their section or an existing command; actions need a runtime handler.
+type SettingPalette =
+	| 'navigate'
+	| 'action'
+	| 'section'
+	| { command: ExistingPaletteCommand }
+	| false;
+
 type Setting = {
+	palette: SettingPalette;
 	id?: string;
 	title: string;
 	description: string;
@@ -59,6 +67,7 @@ type Setting = {
 type SectionIcon = ComponentType< { className?: string } >;
 
 export type Section = {
+	palette: string | { command: ExistingPaletteCommand } | false;
 	id: SettingsSectionId;
 	label: string;
 	icon: SectionIcon;
@@ -66,7 +75,14 @@ export type Section = {
 	aliases?: string[];
 };
 
-const setting = ( title: string, description = '', id?: string, icon?: SectionIcon ): Setting => ( {
+const setting = (
+	palette: SettingPalette,
+	title: string,
+	description = '',
+	id?: string,
+	icon?: SectionIcon
+): Setting => ( {
+	palette,
 	id,
 	title,
 	description,
@@ -76,113 +92,143 @@ const setting = ( title: string, description = '', id?: string, icon?: SectionIc
 function getStudioSections( signedIn: boolean ): Section[] {
 	const sections: Section[] = [
 		{
+			palette: { command: 'settings' },
 			id: 'general',
 			label: __( 'General' ),
 			icon: SettingsIcon,
 			settings: [
 				setting(
+					'navigate',
 					__( 'Language' ),
 					__( 'Default language for WordPress Studio.' ),
 					'language',
 					LanguageIcon
 				),
 				setting(
+					'navigate',
 					__( 'Code editor' ),
 					__( 'The default code editor for your sites.' ),
 					'code-editor',
 					CodeIcon
 				),
 				setting(
+					'navigate',
 					__( 'Browser' ),
 					__( 'The browser used to open your sites, WP Admin, and phpMyAdmin.' ),
 					'browser'
 				),
 				setting(
+					'navigate',
 					__( 'Terminal' ),
 					__( 'The default terminal for your sites.' ),
 					'terminal',
 					TerminalIcon
 				),
 				setting(
+					'navigate',
 					__( 'Default directory' ),
 					__( 'The folder where WordPress Studio creates new sites.' ),
 					'default-directory'
 				),
 				setting(
+					'action',
 					__( 'Improve WordPress Studio for everyone' ),
 					__( 'Share anonymous usage statistics to improve WordPress Studio.' ),
 					'usage-statistics'
 				),
 				setting(
+					'navigate',
 					__( 'When adding a site' ),
 					__( 'Choose a starting point or go straight to creating a blank site.' ),
 					'new-site-behavior'
 				),
 				setting(
+					'navigate',
 					__( 'When WordPress Studio quits' ),
 					__( 'Choose what happens to running sites when you quit WordPress Studio.' ),
 					'quit-behavior'
 				),
 				setting(
+					'action',
 					__( 'Start site when sending a prompt' ),
 					__( 'Automatically start stopped sites when you send a chat message.' ),
 					'auto-start-site'
 				),
 				setting(
+					'action',
 					__( 'Open chat when starting a site' ),
 					__( 'Show the chat panel alongside the preview when starting a site.' ),
 					'open-chat-on-site-start'
 				),
 				setting(
+					'action',
 					__( 'Show recent chats' ),
 					__( 'Show recent chats in the sidebar.' ),
 					'show-recent-chats'
 				),
 				setting(
+					'action',
 					__( 'Collapse sidebar groups' ),
 					__( 'Opening each site closes all others.' ),
 					'collapse-sidebar-groups'
 				),
 				setting(
+					'action',
 					__( 'Confirm before deleting annotations' ),
 					__( 'Ask before deleting pending notes and attached images.' ),
 					'confirm-delete-annotations'
 				),
 				setting(
+					'action',
 					__( 'Reset interface' ),
 					__( 'Restore default panel widths, theme, colors, and interface settings.' ),
 					'reset-interface'
 				),
 				setting(
-					__( 'Studio CLI for terminal' ),
+					'navigate',
+					__( 'WordPress Studio CLI for terminal' ),
 					__( 'Use the studio command in any terminal to manage sites and run WP-CLI.' ),
 					'studio-cli'
 				),
 				setting(
+					'action',
 					__( 'Documentation' ),
 					__( 'Guides for building and managing sites with WordPress Studio.' ),
 					'documentation'
 				),
 				setting(
-					__( 'Report an issue' ),
+					'action',
+					__( 'Report an issue on GitHub' ),
 					__( 'Report a bug or request a feature.' ),
 					'report-issue'
 				),
 			],
 		},
 		{
+			palette: __( 'Appearance' ),
 			id: 'appearance',
 			label: __( 'Appearance' ),
 			icon: AppearanceIcon,
 			settings: [
-				setting( __( 'Theme' ), __( 'Choose light, dark, or system.' ), 'theme' ),
+				setting( 'navigate', __( 'Theme' ), __( 'Choose light, dark, or system.' ), 'theme' ),
 				{
-					...setting( __( 'Color' ), __( 'Choose an accent color.' ), 'color' ),
+					...setting( 'navigate', __( 'Color' ), __( 'Choose an accent color.' ), 'color' ),
 					aliases: [ __( 'Colour' ), __( 'Change color' ) ],
 				},
-				setting( __( 'Intensity' ), __( 'Adjust the strength of the color tint.' ), 'intensity' ),
-				setting( __( 'Contrast' ), __( 'Increase separation between surfaces.' ), 'contrast' ),
 				setting(
+					'navigate',
+					__( 'Intensity' ),
+					__( 'Adjust the strength of the color tint.' ),
+					'intensity'
+				),
+				setting(
+					'navigate',
+					__( 'Contrast' ),
+					__( 'Increase separation between surfaces.' ),
+					'contrast'
+				),
+				setting(
+					'action',
 					__( 'Reset appearance' ),
 					__( 'Restore the default theme, color, intensity, and contrast.' ),
 					'reset-appearance'
@@ -190,38 +236,44 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			],
 		},
 		{
+			palette: __( 'Sharing' ),
 			id: 'sharing',
 			label: __( 'Sharing' ),
 			icon: ShareIcon,
 			settings: [
 				{
 					...setting(
+						'section',
 						__( 'Sharing previews on WordPress.com' ),
 						__( 'Share a temporary copy of your local site with anyone.' ),
 						'preview-sites'
 					),
 					aliases: [ __( 'Snapshots' ) ],
 				},
-				setting( __( 'Live previews' ) ),
+				setting( 'section', __( 'Live previews' ) ),
 			],
 		},
 		{
+			palette: __( 'AI Providers' ),
 			id: 'ai',
 			label: __( 'AI Providers' ),
 			icon: IntelligenceIcon,
 			aliases: [ __( 'Connect provider' ) ],
 			settings: [
 				setting(
+					'navigate',
 					__( 'WordPress.com' ),
 					__( 'Get started with a one-time free allowance, then buy more as you go.' ),
 					'wpcom-provider'
 				),
 				setting(
+					'navigate',
 					__( 'Anthropic' ),
 					__( 'Use Claude with your own API key.' ),
 					'anthropic-provider'
 				),
 				setting(
+					'navigate',
 					__( 'Default provider' ),
 					__( 'The provider new chats use.' ),
 					'default-provider'
@@ -229,11 +281,13 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			],
 		},
 		{
+			palette: __( 'MCP' ),
 			id: 'mcp',
 			label: __( 'MCP' ),
 			icon: McpIcon,
 			settings: [
 				setting(
+					'section',
 					__( 'MCP server' ),
 					__( 'Connect other AI assistants to WordPress Studio.' ),
 					'mcp-server'
@@ -241,20 +295,28 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			],
 		},
 		{
+			palette: __( 'Usage' ),
 			id: 'usage',
 			label: __( 'Usage' ),
 			icon: ChartNoAxesColumnIncreasingIcon,
 			settings: [
 				{
 					...setting(
+						'section',
 						__( 'WordPress.com AI' ),
 						__( 'Use AI credits to build sites, shape content, and refine your design.' ),
 						'ai-credits'
 					),
 					aliases: [ __( 'Credit balance' ) ],
 				},
-				setting( __( 'Add credits' ), __( 'Get more WordPress.com AI credits to keep building.' ) ),
 				setting(
+					'navigate',
+					__( 'Add credits' ),
+					__( 'Get more WordPress.com AI credits to keep building.' ),
+					'add-credits'
+				),
+				setting(
+					'navigate',
 					__( 'Preview sites' ),
 					__( 'Track your preview site usage.' ),
 					'preview-site-usage'
@@ -262,11 +324,13 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			],
 		},
 		{
+			palette: __( 'Skills' ),
 			id: 'skills',
 			label: __( 'Skills' ),
 			icon: SkillsIcon,
 			settings: [
 				setting(
+					'section',
 					__( 'WordPress skills' ),
 					__(
 						'Turn on WordPress skills for existing and new sites. Manage individual skills below.'
@@ -276,11 +340,13 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			],
 		},
 		{
+			palette: __( 'Instructions' ),
 			id: 'instructions',
 			label: __( 'Instructions' ),
 			icon: FileTextIcon,
 			settings: [
 				setting(
+					'section',
 					__( 'Agent instructions' ),
 					__(
 						'Set coding standards, preferred tools, and response style for new chats across all sites.'
@@ -290,6 +356,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			],
 		},
 		{
+			palette: __( 'Keyboard' ),
 			id: 'keyboard',
 			label: __( 'Keyboard' ),
 			icon: KeyboardIcon,
@@ -303,72 +370,136 @@ function getStudioSections( signedIn: boolean ): Section[] {
 function getSiteSections(): Section[] {
 	return [
 		{
+			palette: { command: 'site-settings' },
 			id: 'site',
 			label: __( 'Settings' ),
 			icon: SiteSettingsIcon,
 			settings: [
-				setting( __( 'Site name' ), __( 'Name shown in WordPress Studio.' ) ),
-				setting( __( 'WordPress version' ), __( 'Choose the WordPress release for this site.' ) ),
 				setting(
+					{ command: 'rename-site' },
+					__( 'Site name' ),
+					__( 'Name shown in WordPress Studio.' ),
+					'site-name'
+				),
+				setting(
+					'navigate',
+					__( 'WordPress version' ),
+					__( 'Choose the WordPress release for this site.' ),
+					'wordpress-version'
+				),
+				setting(
+					'navigate',
 					__( 'Automatic updates' ),
-					__( 'Keep WordPress updated to the latest released version.' )
+					__( 'Keep WordPress updated to the latest released version.' ),
+					'automatic-updates'
 				),
-				setting( __( 'Use custom domain' ), __( 'Use a local address like my-site.local.' ) ),
 				setting(
-					__( 'Enable HTTPS' ),
-					__( 'Test features that require HTTPS and catch issues before your site goes live.' )
+					'navigate',
+					__( 'Use custom domain' ),
+					__( 'Use a local address like my-site.local.' ),
+					'custom-domain'
 				),
-				setting( __( 'Username' ), __( 'The username used to log in to WordPress Admin.' ) ),
-				setting( __( 'Password' ), __( 'The password used to log in to WordPress Admin.' ) ),
-				setting( __( 'Email' ), __( 'The email address used to log in to WordPress Admin.' ) ),
+				setting(
+					'navigate',
+					__( 'Enable HTTPS' ),
+					__( 'Test features that require HTTPS and catch issues before your site goes live.' ),
+					'https'
+				),
+				setting(
+					'navigate',
+					__( 'Username' ),
+					__( 'The username used to log in to WordPress Admin.' ),
+					'username'
+				),
+				setting(
+					'navigate',
+					__( 'Password' ),
+					__( 'The password used to log in to WordPress Admin.' ),
+					'password'
+				),
+				setting(
+					'navigate',
+					__( 'Email' ),
+					__( 'The email address used to log in to WordPress Admin.' ),
+					'email'
+				),
 			],
 		},
 		{
+			palette: __( 'Debug' ),
 			id: 'debugging',
 			label: __( 'Debug' ),
 			icon: BugIcon,
 			settings: [
 				setting(
+					'navigate',
 					__( 'Environment' ),
-					__( 'Sets the value returned by wp_get_environment_type().' )
+					__( 'Sets the value returned by wp_get_environment_type().' ),
+					'environment'
 				),
-				setting( __( 'Xdebug' ), __( 'Connect a debugger to inspect PHP execution.' ) ),
-				setting( __( 'Debug log' ), __( 'Write PHP errors to wp-content/debug.log.' ) ),
 				setting(
+					'navigate',
+					__( 'Xdebug' ),
+					__( 'Connect a debugger to inspect PHP execution.' ),
+					'xdebug'
+				),
+				setting(
+					'navigate',
+					__( 'Debug log' ),
+					__( 'Write PHP errors to wp-content/debug.log.' ),
+					'debug-log'
+				),
+				setting(
+					'navigate',
 					__( 'Script debugging' ),
-					__( 'Load unminified WordPress JavaScript and CSS for easier debugging.' )
+					__( 'Load unminified WordPress JavaScript and CSS for easier debugging.' ),
+					'script-debugging'
 				),
 				setting(
+					'navigate',
 					__( 'Show errors in browser' ),
-					__( 'Display PHP errors, warnings, and notices.' )
+					__( 'Display PHP errors, warnings, and notices.' ),
+					'show-errors'
 				),
 			],
 		},
 		{
+			palette: __( 'PHP' ),
 			id: 'php',
 			label: __( 'PHP' ),
 			icon: PhpIcon,
 			settings: [
-				setting( __( 'PHP version' ), __( 'The PHP version used to run WordPress on this site.' ) ),
 				setting(
+					'navigate',
+					__( 'PHP version' ),
+					__( 'The PHP version used to run WordPress on this site.' ),
+					'php-version'
+				),
+				setting(
+					'navigate',
 					__( 'File access' ),
 					__(
 						'Choose whether this site can access only its own folder or other files on your computer.'
-					)
+					),
+					'file-access'
 				),
 			],
 		},
 		{
+			palette: __( 'Skills' ),
 			id: 'site-skills',
 			label: __( 'Skills' ),
 			icon: SkillsIcon,
-			settings: [ setting( __( 'Skills on this site' ) ) ],
+			settings: [ setting( 'section', __( 'Skills on this site' ), '', 'site-wordpress-skills' ) ],
 		},
 		{
+			palette: __( 'Instructions' ),
 			id: 'site-instructions',
 			label: __( 'Instructions' ),
 			icon: FileTextIcon,
-			settings: [ setting( __( 'Instructions on this site' ) ) ],
+			settings: [
+				setting( 'section', __( 'Instructions on this site' ), '', 'site-agent-instructions' ),
+			],
 		},
 	];
 }
@@ -377,9 +508,26 @@ export function getSections( scope: SettingsScope, { signedIn = true } = {} ): S
 	return scope === 'studio' ? getStudioSections( signedIn ) : getSiteSections();
 }
 
-// The id of a Studio setting titled `title`, for its copy-link button.
-export function findSettingId( title: string ): string | undefined {
-	return getStudioSections( true )
+/** Alternate names for existing commands that already own a settings destination. */
+export function getSettingsCommandAliases( scope: SettingsScope, command: ExistingPaletteCommand ) {
+	return getSections( scope ).flatMap( ( section ) => [
+		...( typeof section.palette === 'object' && section.palette.command === command
+			? [ section.label, ...( section.aliases ?? [] ) ]
+			: [] ),
+		...section.settings.flatMap( ( entry ) =>
+			typeof entry.palette === 'object' && entry.palette.command === command
+				? [ entry.title, ...( entry.aliases ?? [] ) ]
+				: []
+		),
+	] );
+}
+
+// Stable row targets; only WordPress Studio settings expose copyable links.
+export function findSettingId(
+	title: string,
+	scope: SettingsScope = 'studio'
+): string | undefined {
+	return getSections( scope )
 		.flatMap( ( section ) => section.settings )
 		.find( ( entry ) => entry.title === title )?.id;
 }
@@ -421,7 +569,10 @@ export function searchSettings(
 	return scopes
 		.flatMap( ( candidate, scopeIndex ) =>
 			getSections( candidate, { signedIn } ).flatMap( ( section ) =>
-				[ { ...setting( section.label ), aliases: section.aliases }, ...section.settings ]
+				[
+					{ ...setting( 'navigate', section.label ), aliases: section.aliases },
+					...section.settings,
+				]
 					.filter( ( entry ) =>
 						words.every( ( word ) =>
 							[ entry.title, entry.description, ...( entry.aliases ?? [] ) ]

@@ -98,7 +98,7 @@ export function useSiteActions(
 		void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'settings' } );
 		openSettings( 'site', site.id, focus );
 	};
-	const rename = () => openSiteSettings( __( 'Site name' ) );
+	const rename = () => openSiteSettings( 'site-name' );
 	const togglePinned = () => togglePin( sitePinKey( site.id ) );
 	const toggleRunning = () => {
 		if ( site.running ) {

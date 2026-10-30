@@ -1017,6 +1017,7 @@ describe( 'pi runtime', () => {
 				'blockValidation',
 				'pendingWork',
 				'previousChecks',
+				'render',
 				'siteChanges',
 			] );
 		} finally {

@@ -11,9 +11,11 @@ type Page = Awaited< ReturnType< Browser[ 'newPage' ] > >;
 
 // Enough lines for a long page's sections without flooding the result.
 const MAX_REGIONS = 40;
+// The elements named as making a page wider than its viewport.
+const MAX_CAUSES = 5;
 
-export function pageLayout( page: Page ): Promise< string[] > {
-	return page.evaluate( ( maxRegions ) => {
+export async function pageLayout( page: Page ): Promise< string[] > {
+	const regions = page.evaluate( ( maxRegions ) => {
 		// Classes that name a block or the author's own, not the layout WordPress generates.
 		const generated = /^(is-|has-|wp-container-|wp-elements-|wp-block-[a-z-]+-is-layout-)/;
 		const label = ( element: Element ) =>
@@ -56,6 +58,24 @@ export function pageLayout( page: Page ): Promise< string[] > {
 		if ( more ) {
 			lines.push( `…and ${ more } more` );
 		}
+		return lines;
+	}, MAX_REGIONS );
+	return [ ...( await regions ), ...( await pageOverflow( page ) ) ];
+}
+
+/** Whether the page is wider than its viewport, and the elements that make it so. */
+export function pageOverflow( page: Page ): Promise< string[] > {
+	return page.evaluate( ( maxCauses ) => {
+		const generated = /^(is-|has-|wp-container-|wp-elements-|wp-block-[a-z-]+-is-layout-)/;
+		const label = ( element: Element ) =>
+			element.tagName.toLowerCase() +
+			( element.id ? `#${ element.id }` : '' ) +
+			[ ...element.classList ]
+				.filter( ( name ) => ! generated.test( name ) )
+				.slice( 0, 3 )
+				.map( ( name ) => `.${ name }` )
+				.join( '' );
+		const lines: string[] = [];
 		const width = document.documentElement.scrollWidth;
 		if ( width > window.innerWidth ) {
 			lines.push(
@@ -96,7 +116,7 @@ export function pageLayout( page: Page ): Promise< string[] > {
 					) &&
 					widens( element )
 			);
-			for ( const element of causes.slice( 0, 5 ) ) {
+			for ( const element of causes.slice( 0, maxCauses ) ) {
 				const rect = element.getBoundingClientRect();
 				const within = region( element );
 				lines.push(
@@ -105,12 +125,12 @@ export function pageLayout( page: Page ): Promise< string[] > {
 					) }${ within && within !== element ? `, in ${ label( within ) }` : '' }.`
 				);
 			}
-			if ( causes.length > 5 ) {
-				lines.push( `  …and ${ causes.length - 5 } more.` );
+			if ( causes.length > maxCauses ) {
+				lines.push( `  …and ${ causes.length - maxCauses } more.` );
 			}
 		}
 		return lines;
-	}, MAX_REGIONS );
+	}, MAX_CAUSES );
 }
 
 // Enough lines to show where text does not fit without flooding the result.
@@ -206,4 +226,35 @@ export function pageTextFit( page: Page ): Promise< string[] > {
 			? [ ...lines.slice( 0, maxLines ), `…and ${ lines.length - maxLines } more` ]
 			: lines;
 	}, MAX_TEXT_LINES );
+}
+
+/**
+ * What a visitor gets that is broken, as the browser loaded the page: PHP's
+ * own error output, which PHP prints into the page when display_errors is on
+ * (php_error_cb() in main/main.c, as WordPress turns it on with WP_DEBUG in
+ * wp_debug_mode()), WordPress's critical error screen (wp_die() from
+ * WP_Fatal_Error_Handler::display_default_error_template()), and images the
+ * browser could not load.
+ */
+export function pageBreakage( page: Page ): Promise< string[] > {
+	return page.evaluate( () => {
+		const lines: string[] = [];
+		const text = document.body?.innerText ?? '';
+		for ( const match of text.matchAll(
+			/\b(Fatal error|Parse error|Warning|Notice|Deprecated): (.{0,200}?) in (\S+) on line (\d+)/g
+		) ) {
+			lines.push(
+				`PHP printed "${ match[ 1 ] }: ${ match[ 2 ] }" (${ match[ 3 ] }:${ match[ 4 ] }).`
+			);
+		}
+		if ( text.includes( 'There has been a critical error on this website.' ) ) {
+			lines.push( 'WordPress shows its critical error screen in place of the page.' );
+		}
+		for ( const image of document.images ) {
+			if ( image.complete && image.naturalWidth === 0 && image.currentSrc ) {
+				lines.push( `The image ${ image.currentSrc } did not load.` );
+			}
+		}
+		return [ ...new Set( lines ) ];
+	} );
 }

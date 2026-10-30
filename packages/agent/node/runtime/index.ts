@@ -40,6 +40,7 @@ import {
 import { readGlobalInstructions } from '@studio/agent/node/global-instructions';
 import { isImageGenerationAvailable } from '@studio/agent/node/image-generation';
 import { describeOpenProblems, getOpenProblems } from '@studio/agent/node/open-problems';
+import { getRenderCheck, type RenderCheck } from '@studio/agent/node/render-check';
 import { NO_CHANGES, SiteChanges } from '@studio/agent/node/site-changes';
 import { readActiveSiteFacts } from '@studio/agent/node/site-facts';
 import { createSiteNotes, type SiteNotes } from '@studio/agent/node/site-notes';
@@ -381,6 +382,11 @@ async function runAgentSessionTurn(
 			// A block file the run wrote last is validated, and its lossless fix
 			// saved, before the sites are checked, as on any later tool result.
 			await getBlockValidationGate( config.host, config.session ).settle();
+			// The pages rendered after the last change: their problems are open
+			// until fixed, and a verdict of none ends nothing.
+			const renderCheck = getRenderCheck( config.host, config.session, openProblems );
+			await renderCheck.settle();
+			renderCheck.takeReports();
 			const problems = await openProblems.raise();
 			// The notes on the run's last calls, whose checks ran after their results.
 			const content = [
@@ -503,6 +509,15 @@ async function createStudioAgentSession(
 		}
 	);
 	const afterChecks = new AfterChecks( pendingWork );
+	const renderCheck = getRenderCheck(
+		config.host,
+		config.session,
+		getOpenProblems( config.host, config.session )
+	);
+	// The active site as the turn finds it, rendered while the model first thinks.
+	if ( localSite && fs.existsSync( localSite ) ) {
+		void renderCheck.seen( path.resolve( localSite ) ).catch( () => undefined );
+	}
 	const toolDefinitions = [ ...tools, ...mcpTools ].map( ( tool ) =>
 		toToolDefinition( config.host, tool, payloadGuardState, pendingWork, blockValidationGate, {
 			confirm,
@@ -510,6 +525,7 @@ async function createStudioAgentSession(
 			siteNotes,
 			siteChanges,
 			afterChecks,
+			renderCheck,
 		} )
 	);
 	const settingsManager = createSettingsManager( config.env );
@@ -867,12 +883,14 @@ function toToolDefinition(
 		siteNotes,
 		siteChanges,
 		afterChecks,
+		renderCheck,
 	}: {
 		confirm: Confirmer;
 		sitePin: SitePin;
 		siteNotes: SiteNotes;
 		siteChanges: SiteChanges;
 		afterChecks: AfterChecks;
+		renderCheck: RenderCheck;
 	}
 ): ToolDefinition {
 	return {
@@ -954,6 +972,11 @@ function toToolDefinition(
 			);
 			if ( checksChanges ) {
 				await timeCheck( 'siteChanges', () => siteChanges.snapshot().catch( () => undefined ) );
+				await timeCheck( 'render', () =>
+					Promise.all(
+						sitePin.localSitePaths().map( ( sitePath ) => renderCheck.seen( sitePath ) )
+					)
+				);
 			}
 			// A call that fails can still have changed content, as a shell
 			// command does that exits non-zero after saving a page.
@@ -985,7 +1008,15 @@ function toToolDefinition(
 			// The file as the tool left it, which is the text the agent holds.
 			const left = writtenFile ? readFileText( writtenFile ) : undefined;
 			if ( tool.name === 'site_create' ) {
-				await sitePin.created( String( ( params as { name?: unknown } ).name ) );
+				const name = String( ( params as { name?: unknown } ).name );
+				await sitePin.created( name );
+				const created = await host.sites
+					.resolve( name )
+					.then( ( site ) => site.path )
+					.catch( () => undefined );
+				if ( created ) {
+					await renderCheck.seen( created, { created: true } );
+				}
 			}
 			const details = result.details as StudioToolResultDetails | undefined;
 			if ( details?.pending ) {
@@ -1002,6 +1033,13 @@ function toToolDefinition(
 				.join( '\n' );
 			afterChecks.add( async () => {
 				const changed = await settled();
+				if ( checksChanges ) {
+					await timeCheck( 'render', () =>
+						Promise.all(
+							sitePin.localSitePaths().map( ( sitePath ) => renderCheck.changed( sitePath ) )
+						)
+					);
+				}
 				// The files the call wrote, by its file tool or otherwise, as a shell command does.
 				const written = new Set( [
 					...( writtenFile ? [ writtenFile ] : [] ),
@@ -1023,7 +1061,11 @@ function toToolDefinition(
 					.filter( Boolean )
 					.join( '\n' );
 			} );
-			const reports = studioMessage( 'notes', [ ...validationReport, pendingWork.takeReports() ] );
+			const reports = studioMessage( 'notes', [
+				...validationReport,
+				pendingWork.takeReports(),
+				renderCheck.takeReports(),
+			] );
 			const timed = {
 				...result,
 				details: {

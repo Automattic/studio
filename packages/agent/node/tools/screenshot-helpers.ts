@@ -4,7 +4,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { getSharedBrowser } from '@studio/agent/node/browser-utils';
 import { resolveScreenshotDirectory } from '@studio/agent/node/screenshot-storage';
-import { pageLayout, pageTextFit } from './page-layout';
+import { pageBreakage, pageLayout, pageOverflow, pageTextFit } from './page-layout';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 
 type Browser = Awaited< ReturnType< typeof getSharedBrowser > >;
@@ -146,6 +146,62 @@ async function scaleForModel(
 }
 
 /**
+ * Waits for the page's fonts and images. For full-page captures, scrolls through
+ * the entire document so lazy-loaded images begin loading; otherwise waits only
+ * on images that intersect the first viewport, so above-the-fold shots stay quick.
+ */
+async function settleImages( page: Page, fullPage: boolean ): Promise< void > {
+	return page.evaluate(
+		async ( { fullPage, imageSettleTimeoutMs } ) => {
+			const delay = ( ms: number ) =>
+				new Promise< void >( ( resolve ) => setTimeout( resolve, ms ) );
+			const waitForPaint = () =>
+				new Promise< void >( ( resolve ) => {
+					requestAnimationFrame( () => requestAnimationFrame( () => resolve() ) );
+				} );
+
+			await Promise.race( [ document.fonts?.ready ?? Promise.resolve(), delay( 1000 ) ] );
+
+			if ( fullPage ) {
+				const scrollHeight = Math.max(
+					document.body.scrollHeight,
+					document.documentElement.scrollHeight
+				);
+				const viewportHeight = window.innerHeight;
+				for ( let y = 0; y < scrollHeight; y += viewportHeight ) {
+					window.scrollTo( 0, y );
+					await waitForPaint();
+				}
+				window.scrollTo( 0, 0 );
+			}
+
+			const pendingImages = Array.from( document.images ).filter( ( img ) => {
+				if ( img.complete ) {
+					return false;
+				}
+				if ( fullPage ) {
+					return true;
+				}
+				const rect = img.getBoundingClientRect();
+				return rect.bottom > 0 && rect.top < window.innerHeight;
+			} );
+			const timeout = delay( imageSettleTimeoutMs );
+			const allImages = Promise.all(
+				pendingImages.map(
+					( img ) =>
+						new Promise< void >( ( resolve ) => {
+							img.addEventListener( 'load', () => resolve(), { once: true } );
+							img.addEventListener( 'error', () => resolve(), { once: true } );
+						} )
+				)
+			);
+			await Promise.race( [ allImages, timeout ] );
+		},
+		{ fullPage, imageSettleTimeoutMs: IMAGE_SETTLE_TIMEOUT_MS }
+	);
+}
+
+/**
  * Capture a screenshot of `url` at the given viewport. Callers decide whether
  * to expose the image as base64 or a temp local file. Use
  * `jpeg` for vision-model input — full-page PNGs balloon to multi-MB and
@@ -181,58 +237,7 @@ export async function captureScreenshotBuffer(
 		await page.goto( url, { waitUntil: 'domcontentloaded', timeout: 30000 } );
 		await waitForPageToSettle( page, openRequests );
 
-		// For full-page captures, scroll through the entire document so
-		// lazy-loaded images can begin loading. For viewport captures we keep
-		// the page where it is and only wait on images that intersect the
-		// first viewport, so above-the-fold shots stay quick on long pages.
-		await page.evaluate(
-			async ( { fullPage, imageSettleTimeoutMs } ) => {
-				const delay = ( ms: number ) =>
-					new Promise< void >( ( resolve ) => setTimeout( resolve, ms ) );
-				const waitForPaint = () =>
-					new Promise< void >( ( resolve ) => {
-						requestAnimationFrame( () => requestAnimationFrame( () => resolve() ) );
-					} );
-
-				await Promise.race( [ document.fonts?.ready ?? Promise.resolve(), delay( 1000 ) ] );
-
-				if ( fullPage ) {
-					const scrollHeight = Math.max(
-						document.body.scrollHeight,
-						document.documentElement.scrollHeight
-					);
-					const viewportHeight = window.innerHeight;
-					for ( let y = 0; y < scrollHeight; y += viewportHeight ) {
-						window.scrollTo( 0, y );
-						await waitForPaint();
-					}
-					window.scrollTo( 0, 0 );
-				}
-
-				const pendingImages = Array.from( document.images ).filter( ( img ) => {
-					if ( img.complete ) {
-						return false;
-					}
-					if ( fullPage ) {
-						return true;
-					}
-					const rect = img.getBoundingClientRect();
-					return rect.bottom > 0 && rect.top < window.innerHeight;
-				} );
-				const timeout = delay( imageSettleTimeoutMs );
-				const allImages = Promise.all(
-					pendingImages.map(
-						( img ) =>
-							new Promise< void >( ( resolve ) => {
-								img.addEventListener( 'load', () => resolve(), { once: true } );
-								img.addEventListener( 'error', () => resolve(), { once: true } );
-							} )
-					)
-				);
-				await Promise.race( [ allImages, timeout ] );
-			},
-			{ fullPage: options.fullPage, imageSettleTimeoutMs: IMAGE_SETTLE_TIMEOUT_MS }
-		);
+		await settleImages( page, options.fullPage );
 
 		// Hide the WordPress admin bar and scrollbars for cleaner shots.
 		await page.addStyleTag( {
@@ -350,4 +355,43 @@ export async function saveScreenshotFile(
 		name,
 		mimeType,
 	};
+}
+
+/** What a visitor gets that is wrong with a page, at one viewport. */
+export interface PageInspection {
+	// The address the page ended at, after any redirect.
+	url: string;
+	problems: string[];
+}
+
+/**
+ * Loads a page as a visitor's browser does, at one viewport, and states what is
+ * broken on it: an error status, PHP's error output, images that do not load,
+ * a page wider than the screen, and text that does not fit. Nothing is captured.
+ */
+export async function inspectPage(
+	url: string,
+	viewport: { width: number; height: number }
+): Promise< PageInspection > {
+	const browser = await getSharedBrowser();
+	const page = await browser.newPage( { viewport } );
+	const openRequests = trackRequests( page );
+	try {
+		const response = await page.goto( url, { waitUntil: 'domcontentloaded', timeout: 30000 } );
+		await waitForPageToSettle( page, openRequests );
+		await settleImages( page, true );
+		await page.addStyleTag( { content: '#wpadminbar { display: none !important; }' } );
+		const status = response?.status() ?? 0;
+		return {
+			url: page.url(),
+			problems: [
+				...( status >= 400 ? [ `The server answers ${ status }.` ] : [] ),
+				...( await pageBreakage( page ) ),
+				...( await pageOverflow( page ) ),
+				...( await pageTextFit( page ) ),
+			],
+		};
+	} finally {
+		await page.close();
+	}
 }

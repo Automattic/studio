@@ -1,6 +1,7 @@
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { getSiteOperationNoun } from '@studio/common/lib/site-operation-labels';
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
@@ -157,7 +158,19 @@ export function useStartSite() {
 			if ( isSiteMutating( queryClient, STOP_SITE_MUTATION_KEY, id ) ) {
 				return false;
 			}
-			await showSite( queryClient, await connector.startSite( id ) );
+			// Timed from the click until the list shows the result: the CLI's own
+			// `studio_site_start` event can't see the app's side of the start.
+			const startedAt = performance.now();
+			let success = false;
+			try {
+				await showSite( queryClient, await connector.startSite( id ) );
+				success = true;
+			} finally {
+				void connector.trackEvent( TRACKS_EVENTS.UI_SITE_START, {
+					success,
+					time_ms: Math.round( performance.now() - startedAt ),
+				} );
+			}
 			return true;
 		},
 		onError: ( error, id ) => {

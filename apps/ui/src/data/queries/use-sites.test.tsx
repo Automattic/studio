@@ -145,6 +145,18 @@ describe( 'useStartSite', () => {
 		return { result, connector, releaseStop: () => releaseStop() };
 	}
 
+	it( 'records how long each start took to show, and whether it succeeded', async () => {
+		const { result, connector } = renderMutations();
+		await result.current.start.mutateAsync( 'site-1' );
+		connector.startSite.mockRejectedValueOnce( new Error( 'Server could not listen' ) );
+		await expect( result.current.start.mutateAsync( 'site-1' ) ).rejects.toThrow();
+
+		expect( connector.trackEvent.mock.calls ).toEqual( [
+			[ 'studio_ui_site_start', { success: true, time_ms: expect.any( Number ) } ],
+			[ 'studio_ui_site_start', { success: false, time_ms: expect.any( Number ) } ],
+		] );
+	} );
+
 	it( 'starts and stops without a success toast', async () => {
 		const { result, connector, releaseStop } = renderMutations();
 

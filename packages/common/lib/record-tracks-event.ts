@@ -10,6 +10,7 @@ const TRACKS_PIXEL_URL = 'https://pixel.wp.com/t.gif';
 export const TRACKS_EVENTS = {
 	APP_LAUNCH: 'studio_app_launch',
 	SITE_START: 'studio_site_start',
+	UI_SITE_START: 'studio_ui_site_start',
 	SITE_CREATE: 'studio_site_created',
 	SITE_STOP: 'studio_site_stop',
 	SITE_DELETE: 'studio_site_delete',

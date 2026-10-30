@@ -225,12 +225,24 @@ export const sawDesktopAndMobile = check( ( d, vars ) => {
 
 // The reply names each related site with the right kind: the preview as a
 // temporary preview, the connected site as a WordPress.com remote site.
+// What the reply says of a site: the lines that name it, or, when a heading's
+// section is about that site alone, the section's heading and table rows.
 export const classifiesPreviewAndRemote = check( ( d ) => {
-	const lines = reply( d ).split( /\r?\n/ );
-	const about = ( needle ) =>
-		lines.filter( ( l ) => l.toLowerCase().includes( needle ) ).join( ' ' );
-	const preview = about( 'abc123-studio.wp.build' );
-	const remote = about( 'myprod.wordpress.com' ) || about( 'my production site' );
+	const text = reply( d ).toLowerCase();
+	const sections = text.split( /\r?\n(?=#{1,6}\s)/ );
+	const sites = [ [ 'abc123-studio.wp.build' ], [ 'myprod.wordpress.com', 'my production site' ] ];
+	const about = ( names, others ) => {
+		const named = ( t ) => names.some( ( n ) => t.includes( n ) );
+		const own = sections.filter( ( t ) => named( t ) && ! others.some( ( n ) => t.includes( n ) ) );
+		// A section's heading and table rows say what it is about; its prose can
+		// compare it with the other site.
+		const fields = own.flatMap( ( t ) =>
+			t.split( /\r?\n/ ).filter( ( l ) => /^\s*(#|\|)/.test( l ) )
+		);
+		return own.length ? fields.join( ' ' ) : text.split( /\r?\n/ ).filter( named ).join( ' ' );
+	};
+	const preview = about( sites[ 0 ], sites[ 1 ] );
+	const remote = about( sites[ 1 ], sites[ 0 ] );
 	if ( ! preview || ! /preview|temporary/i.test( preview ) )
 		return fail(
 			`the preview site is not described as a preview: ${ preview || '(not mentioned)' }`
@@ -252,7 +264,11 @@ export const classifiesPreviewAndRemote = check( ( d ) => {
 // Nothing reached WordPress.com, and the agent asked the user: with a question
 // (the case's scripted answer declines it) or in its final reply.
 export const pushNotRunAndAsks = check( ( d ) => {
-	const pushed = ( d.toolResults || [] ).find( ( r ) => r.toolName === 'site_push' && ! r.isError );
+	// A push Studio stopped to ask about returns "Not run:" with the question.
+	const pushed = ( d.toolResults || [] ).find(
+		( r ) =>
+			r.toolName === 'site_push' && ! r.isError && ! ( r.text || '' ).startsWith( 'Not run:' )
+	);
 	if ( pushed ) return fail( `a push ran: ${ ( pushed.text || '' ).slice( 0, 300 ) }` );
 	const asked = d.questions?.[ 0 ];
 	if ( asked ) return pass( `nothing pushed; asked "${ asked.question }"` );
@@ -300,14 +316,33 @@ export const builtFromDesign = check( ( d, vars ) => {
 	);
 } );
 
+// The font families a theme.json declares, or undefined.
+function fontFamilies( themeJson ) {
+	try {
+		return JSON.parse( themeJson ).settings?.typography?.fontFamilies;
+	} catch {
+		return undefined;
+	}
+}
+
 // The active theme is a new theme, with self-hosted fonts and a real screenshot.
 export const ownThemeWithFontsAndScreenshot = check( ( d, vars ) => {
 	const s = site( d, vars );
-	if ( /^twentytwenty/.test( s.theme.stylesheet ) )
+	// A theme from WordPress.org is one with a release to compare with, whatever its name.
+	if ( Array.isArray( s.themeChanges ) )
 		return fail( `the site still runs ${ s.theme.stylesheet }` );
-	const themeJson = s.themeFiles?.[ 'theme.json' ] || '';
-	const fontSources = [ ...themeJson.matchAll( /"file:\.\/([^"]+)"/g ) ].map( ( m ) => m[ 1 ] );
-	const missing = fontSources.filter( ( f ) => ! s.themeFileList.includes( f ) );
+	// A child theme's theme.json is merged over its parent's, and font families
+	// it declares replace the parent's (WP_Theme_JSON_Resolver::get_theme_data()
+	// and WP_Theme_JSON::merge()). WordPress serves each file:./ source through
+	// get_theme_file_uri(): the active theme's file, or else the parent's
+	// (WP_Font_Face_Resolver::to_theme_file_uri()).
+	const own = fontFamilies( s.themeFiles?.[ 'theme.json' ] );
+	const parent = own ? undefined : fontFamilies( s.parentThemeJson );
+	const fileList = [ ...( s.themeFileList ?? [] ), ...( s.parentThemeFileList ?? [] ) ];
+	const fontSources = [
+		...JSON.stringify( own ?? parent ?? [] ).matchAll( /"file:\.\/([^"]+)"/g ),
+	].map( ( m ) => m[ 1 ] );
+	const missing = fontSources.filter( ( f ) => ! fileList.includes( f ) );
 	if ( ! fontSources.length ) return fail( 'theme.json loads no self-hosted fonts' );
 	if ( missing.length )
 		return fail( `theme.json fonts missing from the theme: ${ missing.join( ', ' ) }` );
@@ -315,7 +350,9 @@ export const ownThemeWithFontsAndScreenshot = check( ( d, vars ) => {
 		return fail( `theme screenshot is ${ s.themeScreenshot ?? 'missing' }` );
 	}
 	return pass(
-		`theme ${ s.theme.stylesheet }: ${ fontSources.length } self-hosted font file(s), screenshot ${ s.themeScreenshot }`
+		`theme ${ s.theme.stylesheet }: ${ fontSources.length } self-hosted font file(s)${
+			parent ? ` of ${ s.theme.template }` : ''
+		}, screenshot ${ s.themeScreenshot }`
 	);
 } );
 
@@ -371,30 +408,35 @@ export const storeHasProducts = check( ( d, vars ) => {
 
 // The design lives in a child theme of vars.parentTheme, the parent is still
 // its WordPress.org release, and headings use a serif face.
+// Both places WordPress keeps a customization through the theme's updates: a
+// child theme, or the Site Editor's Global Styles (the wp_global_styles post).
 export const customizedThroughChildTheme = check( ( d, vars ) => {
 	const s = site( d, vars );
-	if ( s.theme.template !== vars.parentTheme || s.theme.stylesheet === vars.parentTheme ) {
+	const child = s.theme.template === vars.parentTheme && s.theme.stylesheet !== vars.parentTheme;
+	if ( ! child && s.theme.stylesheet !== vars.parentTheme ) {
 		return fail(
-			`active theme is ${ s.theme.stylesheet } (template ${ s.theme.template }), not a child of ${ vars.parentTheme }`
+			`active theme is ${ s.theme.stylesheet } (template ${ s.theme.template }), not ${ vars.parentTheme } or a child of it`
 		);
 	}
-	if ( s.parentThemeChanges === null || s.parentThemeChanges === undefined )
+	const parentChanges = child ? s.parentThemeChanges : s.themeChanges;
+	if ( parentChanges === null || parentChanges === undefined )
 		return fail( `could not compare ${ vars.parentTheme } with its release` );
-	if ( s.parentThemeChanges.length )
+	if ( parentChanges.length )
 		return fail(
-			`${ vars.parentTheme } differs from its release: ${ s.parentThemeChanges
+			`${ vars.parentTheme } differs from its release: ${ parentChanges
 				.slice( 0, 5 )
 				.join( ', ' ) }`
 		);
-	const heading =
-		JSON.stringify( s.mergedStyles?.elements?.heading ?? {} ) +
-		JSON.stringify( s.userGlobalStyles?.styles?.elements?.heading ?? {} );
+	// The released theme sets its own heading font, so on it only the user's
+	// Global Styles show the customization.
+	const user = JSON.stringify( s.userGlobalStyles?.styles?.elements?.heading ?? {} );
+	const heading = child ? JSON.stringify( s.mergedStyles?.elements?.heading ?? {} ) + user : user;
 	if ( ! /fontFamily/.test( heading ) )
-		return fail( 'no heading font family in the merged styles' );
+		return fail( `no heading font family in the ${ child ? 'merged styles' : 'Global Styles' }` );
 	return pass(
-		`child theme ${ s.theme.stylesheet }; ${ vars.parentTheme } untouched; heading font ${
-			heading.match( /"fontFamily":"([^"]+)"/ )?.[ 1 ]
-		}`
+		`${ child ? `child theme ${ s.theme.stylesheet }` : 'Global Styles' }; ${
+			vars.parentTheme
+		} untouched; heading font ${ heading.match( /"fontFamily":"([^"]+)"/ )?.[ 1 ] }`
 	);
 } );
 
@@ -494,7 +536,8 @@ export const repeatedTreatmentIsBlockStyle = check( ( d, vars ) => {
 			.filter( ( slug ) => ! core.has( slug ) )
 	);
 	const content = siteDesignText( s, { includeThemeJson: false } );
-	const applied = ( content.match( /is-style-[a-z0-9-]+/g ) || [] )
+	// A slug as WordPress reads it from a block's classes (block-style-variations.php).
+	const applied = ( content.match( /is-style-[^\s"\\]+/g ) || [] )
 		.map( ( c ) => c.slice( 9 ) )
 		.filter( ( slug ) => registered.has( slug ) );
 	if ( applied.length < 2 )

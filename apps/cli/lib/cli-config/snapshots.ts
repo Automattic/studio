@@ -74,6 +74,45 @@ export async function saveSnapshotToConfig(
 	}
 }
 
+/**
+ * Attaches a pulled preview to the local site it was pulled into, so updating the preview pushes
+ * this site to it. A preview already attached to another local site keeps that link.
+ */
+export async function linkPulledPreview(
+	localSiteId: string,
+	atomicSiteId: number,
+	userId: number,
+	preview: StandingPreview
+): Promise< void > {
+	try {
+		await lockCliConfig();
+		const config = await readCliConfig();
+		let snapshot = config.snapshots.find( ( s ) => s.atomicSiteId === atomicSiteId );
+		if ( ! snapshot ) {
+			if ( ! preview.hostname ) {
+				return;
+			}
+			snapshot = {
+				url: preview.hostname,
+				atomicSiteId,
+				localSiteId: '',
+				date: Date.now(),
+				userId,
+				shareUrl: preview.shareUrl,
+				expiresAt: preview.expiresAt,
+			};
+			config.snapshots.push( snapshot );
+		}
+		if ( snapshot.localSiteId ) {
+			return;
+		}
+		snapshot.localSiteId = localSiteId;
+		await saveCliConfig( config );
+	} finally {
+		await unlockCliConfig();
+	}
+}
+
 export async function updateSnapshotInConfig(
 	atomicSiteId: number,
 	siteFolder: string,

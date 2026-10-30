@@ -60,6 +60,18 @@ describe( 'getSyncSupport', () => {
 		expect( getSyncSupport( site, [] ) ).toBe( 'needs-upgrade' );
 	} );
 
+	it.each( [
+		[ 'an Atomic site, such as a preview', { is_wpcom_atomic: true, jetpack: true }, 'syncable' ],
+		[ 'a Simple site', { is_wpcom_atomic: false, jetpack: false }, 'needs-transfer' ],
+	] )( 'without a plan, lets a Reprint pull use %s', ( _, shape, expected ) => {
+		const site = {
+			...baseSite,
+			...shape,
+			plan: { ...baseSite.plan, features: { active: [] } },
+		};
+		expect( getSyncSupport( site, [], { planRequired: false } ) ).toBe( expected );
+	} );
+
 	it( 'returns "needs-transfer" if site not Atomic, Jetpack, nor Pressable', () => {
 		const site = {
 			...baseSite,

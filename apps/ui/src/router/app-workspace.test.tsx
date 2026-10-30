@@ -399,7 +399,7 @@ describe( 'Studio workspace', () => {
 				overrides: { getSiteThumbnail: async () => 'data:image/png;base64,eA==' },
 			} );
 			const input = await findComposer();
-			await paletteCommand( 'Hide preview' );
+			expect( screen.getByRole( 'button', { name: 'Show preview' } ) ).toBeVisible();
 			const play =
 				control === 'thumbnail'
 					? await screen.findByRole( 'button', { name: 'Start from preview' } )
@@ -447,6 +447,7 @@ describe( 'Studio workspace', () => {
 		const { connector, history } = setup( {
 			signedIn: true,
 			path: '/sites/one',
+			preferences: { openChatOnSiteStart: false } as FakeConnectorState[ 'preferences' ],
 			overrides: { getSiteThumbnail: async () => 'data:image/png;base64,eA==' },
 		} );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Start from preview' } ) );

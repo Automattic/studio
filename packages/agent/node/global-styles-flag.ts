@@ -20,6 +20,7 @@
  */
 import { GLOBAL_STYLES, saveGlobalStyles } from '@studio/agent/node/global-styles';
 import { readWordPressSite } from '@studio/agent/node/site-database';
+import { wpEvalJson } from '@studio/agent/node/tools/utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 
@@ -47,8 +48,7 @@ async function theme(
 	site: HostSite,
 	id: number
 ): Promise< { empty?: true; theme: string; read: number | null } > {
-	const { stdout: output } = await host.sites.wpCli( site, [ 'eval', giveTheme( id ) ] );
-	return JSON.parse( output.slice( output.indexOf( '{' ) ) );
+	return wpEvalJson( host, site, giveTheme( id ) );
 }
 
 // Saves the post's own settings and styles again, as the Site Editor saves them.

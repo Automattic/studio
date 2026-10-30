@@ -33,6 +33,27 @@ export async function runWpCli(
 	return stdout;
 }
 
+/**
+ * Runs PHP with `wp eval` and returns the JSON object it echoes last, past any
+ * output WordPress prints before it. `data`, when given, reaches the PHP as
+ * the array $data.
+ */
+export async function wpEvalJson< T >(
+	host: StudioAgentHost,
+	site: HostSite,
+	php: string,
+	data?: unknown
+): Promise< T > {
+	const input =
+		data === undefined
+			? ''
+			: `$data = json_decode( base64_decode( '${ Buffer.from( JSON.stringify( data ) ).toString(
+					'base64'
+			  ) }' ), true );\n`;
+	const output = await runWpCli( host, site, [ 'eval', input + php ] );
+	return JSON.parse( output.slice( output.indexOf( '{' ) ) ) as T;
+}
+
 export function textResult( text: string ) {
 	return {
 		content: [ { type: 'text' as const, text } ],

@@ -5,27 +5,16 @@
  * whose wp_theme term names the theme
  * (WP_Theme_JSON_Resolver::get_user_data_from_wp_global_styles()).
  */
-import { AS_ADMINISTRATOR, runWpCli } from '@studio/agent/node/tools/utils';
+import { savedPosts, type SavedPost } from '@studio/agent/node/saved-copies';
+import { AS_ADMINISTRATOR, wpEvalJson } from '@studio/agent/node/tools/utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { WordPressSite } from '@studio/agent/node/site-database';
 
 export const GLOBAL_STYLES = 'wp_global_styles';
 
 /** The Global Styles post WordPress reads for `theme`, read from an open site's database. */
-export function themeGlobalStyles(
-	site: WordPressSite,
-	theme: string
-): { id: number; modified: string; content: string } | undefined {
-	return site.query< { id: number; modified: string; content: string } >(
-		`SELECT p.ID AS id, p.post_modified_gmt AS modified, p.post_content AS content FROM ${ site.prefix }posts p
-		JOIN ${ site.prefix }term_relationships tr ON tr.object_id = p.ID
-		JOIN ${ site.prefix }term_taxonomy tt ON tt.term_taxonomy_id = tr.term_taxonomy_id AND tt.taxonomy = 'wp_theme'
-		JOIN ${ site.prefix }terms t ON t.term_id = tt.term_id
-		WHERE p.post_type = ? AND p.post_status = 'publish' AND t.name = ?
-		ORDER BY p.post_date DESC, p.ID DESC LIMIT 1`,
-		GLOBAL_STYLES,
-		theme
-	)[ 0 ];
+export function themeGlobalStyles( site: WordPressSite, theme: string ): SavedPost | undefined {
+	return savedPosts( site, theme ).find( ( post ) => post.postType === GLOBAL_STYLES );
 }
 
 /**
@@ -50,9 +39,6 @@ $request = new WP_REST_Request( 'PUT', '/wp/v2/global-styles/' . ( ${ post } ) )
 $request->set_body_params( array( 'settings' => $data['settings'] ?? array(), 'styles' => $data['styles'] ?? array() ) );
 $response = rest_do_request( $request );
 echo wp_json_encode( array( 'refused' => $response->is_error() ? $response->as_error()->get_error_message() : null ) );`;
-	const output = await runWpCli( host, site, [ 'eval', php ] );
-	return (
-		( JSON.parse( output.slice( output.indexOf( '{' ) ) ) as { refused: string | null } ).refused ??
-		undefined
-	);
+	const { refused } = await wpEvalJson< { refused: string | null } >( host, site, php );
+	return refused ?? undefined;
 }

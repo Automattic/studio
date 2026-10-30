@@ -15,7 +15,7 @@ import { readFile, stat, writeFile } from 'fs/promises';
 import path from 'path';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { activeThemes, isUpdatableTheme } from '@studio/agent/node/themes';
-import { runWpCli } from '@studio/agent/node/tools/utils';
+import { wpEvalJson } from '@studio/agent/node/tools/utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { SiteChangeSource } from '@studio/agent/node/site-changes';
 
@@ -38,8 +38,7 @@ interface Loaded {
 }
 
 async function loaded( host: StudioAgentHost, site: HostSite ): Promise< Loaded > {
-	const output = await runWpCli( host, site, [ 'eval', LOADED ] );
-	return JSON.parse( output.slice( output.indexOf( '{' ) ) ) as Loaded;
+	return wpEvalJson< Loaded >( host, site, LOADED );
 }
 
 /** Whether a stylesheet holds rules, past its header comment. */

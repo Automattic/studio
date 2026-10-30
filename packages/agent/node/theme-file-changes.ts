@@ -15,6 +15,7 @@ import { existsSync, readdirSync, readFileSync } from 'fs';
 import { readdir, readFile, stat } from 'fs/promises';
 import path from 'path';
 import {
+	isBlockTheme,
 	isUpdatableTheme,
 	namesakeProblem,
 	readThemeHeader,
@@ -58,7 +59,7 @@ async function readFiles( dir: string, slug: string, last: Versions ): Promise< 
  * and the theme's code in a child theme.
  */
 export function updatableThemeChangeHome( themeDir: string, slug: string, file: string ): string {
-	const blockTheme = existsSync( path.join( themeDir, 'theme.json' ) );
+	const blockTheme = isBlockTheme( themeDir );
 	if ( file.endsWith( '.css' ) || file === 'theme.json' || file.startsWith( 'styles/' ) ) {
 		return blockTheme
 			? `the site's Global Styles for ${ slug }, as the Site Editor's Styles panel saves them: the wp_global_styles post whose JSON WordPress merges over the theme's theme.json, with CSS in its styles.css (WP_Theme_JSON_Resolver::get_user_global_styles_post_id() and get_merged_data() in wp-includes/class-wp-theme-json-resolver.php)`

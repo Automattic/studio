@@ -7,8 +7,8 @@ import { validateBlocks } from '@studio/agent/node/block-validator';
 import { getSiteFileWriteRefusal, resolveSiteFile } from '@studio/agent/node/site-file-guards';
 import { saveMarkup } from '@studio/agent/node/site-markup';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
-import { runWpCli, textResult } from './utils';
-import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
+import { textResult, wpEvalJson } from './utils';
+import type { StudioAgentHost } from '@studio/agent/node/host';
 
 interface SupportStylesheet {
 	placement: string;
@@ -147,19 +147,6 @@ add_action( 'enqueue_block_assets', static fn() => is_admin() && blocks_engine_s
 
 const REQUIRE_LOADER = `require_once __DIR__ . '/${ SUPPORT_LOADER }';`;
 
-function evalWithData(
-	host: StudioAgentHost,
-	site: HostSite,
-	php: string,
-	data: unknown
-): Promise< string > {
-	const encoded = Buffer.from( JSON.stringify( data ) ).toString( 'base64' );
-	return runWpCli( host, site, [
-		'eval',
-		`$data = json_decode( base64_decode( '${ encoded }' ), true );\n${ php }`,
-	] );
-}
-
 async function readOptional( file: string ): Promise< string | undefined > {
 	return readFile( file, 'utf8' ).catch( () => undefined );
 }
@@ -248,11 +235,10 @@ export const convertToBlocksTool = defineTool(
 		onProgress( 'Preparing Blocks Engine' );
 		const transformer = await host.blocksEngine();
 		onProgress( `Converting with Blocks Engine ${ transformer.version }` );
-		const output = await evalWithData( host, site, CONVERT, {
+		const conversion = await wpEvalJson< Conversion >( host, site, CONVERT, {
 			bootstrap: transformer.bootstrap,
 			...( file ? { content: await readFile( file, 'utf8' ) } : { post_id: args.postId } ),
 		} );
-		const conversion = JSON.parse( output.slice( output.indexOf( '{' ) ) ) as Conversion;
 		const label = file ? path.relative( site.path, file ) : `post ${ args.postId }`;
 		const diagnostics = Object.entries( conversion.diagnostics )
 			.map( ( [ code, count ] ) => `${ code } ×${ count }` )

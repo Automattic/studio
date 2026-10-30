@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from 'fs';
 import { readFile } from 'fs/promises';
 import path from 'path';
 import { readWordPressSite, type WordPressSite } from '@studio/agent/node/site-database';
@@ -20,6 +21,9 @@ function isUpdated( site: WordPressSite, theme: string ): boolean {
 const UPDATE_CHECK_URL = 'https://api.wordpress.org/themes/update-check/1.1/';
 const asked = new Map< string, Promise< boolean > >();
 
+const headerOf = ( css: string, header: string ) =>
+	css.match( new RegExp( `^[ \\t/*#@]*${ header }:(.*)$`, 'im' ) )?.[ 1 ].trim() ?? '';
+
 /** A header of a theme's style.css, read as get_file_data() reads it. */
 export async function readThemeHeader(
 	root: string,
@@ -27,7 +31,27 @@ export async function readThemeHeader(
 	header: string
 ): Promise< string > {
 	const css = await readFile( path.join( root, 'wp-content/themes', theme, 'style.css' ), 'utf8' );
-	return css.match( new RegExp( `^[ \\t/*#@]*${ header }:(.*)$`, 'im' ) )?.[ 1 ].trim() ?? '';
+	return headerOf( css, header );
+}
+
+/**
+ * Whether WordPress treats a theme as a block theme: it, or the parent its
+ * Template header names, has templates/index.html, or block-templates/index.html
+ * from before WordPress 5.9 (WP_Theme::is_block_theme() and get_file_path()).
+ */
+export function isBlockTheme( themeDir: string ): boolean {
+	let parent = '';
+	try {
+		parent = headerOf( readFileSync( path.join( themeDir, 'style.css' ), 'utf8' ), 'Template' );
+	} catch {
+		// A theme without a readable style.css has no parent.
+	}
+	const dirs = [ themeDir, ...( parent ? [ path.join( path.dirname( themeDir ), parent ) ] : [] ) ];
+	return dirs.some( ( dir ) =>
+		[ 'templates', 'block-templates' ].some( ( folder ) =>
+			existsSync( path.join( dir, folder, 'index.html' ) )
+		)
+	);
 }
 
 // One answer per theme release; an unanswered check is asked again.
@@ -123,6 +147,13 @@ export function namesakeProblem(
 	{ name, version, own }: { name: string; version: string; own: string }
 ): string {
 	return `The theme in ${ theme }/ is "${ own }", and WordPress.org's theme ${ theme } is "${ name }": WordPress checks for theme updates by folder name and offers "${ name }" ${ version } as this theme's update (wp_update_themes() in wp-includes/update.php), which replaces its files with that theme's (Theme_Upgrader::upgrade() in wp-admin/includes/class-theme-upgrader.php). WordPress.org's check skips a theme whose style.css names an \`Update URI\` header (WP_Theme, since WordPress 6.1) other than WordPress.org. Give the theme an \`Update URI\` header, its own URL or \`false\`, or a folder name no WordPress.org theme has.`;
+}
+
+/** Whether the site's active theme is a block theme, by it and the parent WordPress loads with it. */
+export function activeIsBlockTheme( site: WordPressSite ): boolean {
+	return activeThemes( site ).some( ( theme ) =>
+		isBlockTheme( path.join( site.root, 'wp-content/themes', theme ) )
+	);
 }
 
 /**

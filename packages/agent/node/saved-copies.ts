@@ -1,6 +1,5 @@
-import { existsSync } from 'fs';
 import path from 'path';
-import { activeThemes } from '@studio/agent/node/themes';
+import { activeIsBlockTheme, activeThemes } from '@studio/agent/node/themes';
 import type { WordPressSite } from '@studio/agent/node/site-database';
 
 // A block theme's templates, template parts, and theme.json are only what
@@ -61,29 +60,10 @@ function styleAreas( content: string ): string[] {
  * site's database. Global Styles that set nothing are left out.
  */
 export function readSavedCopies( site: WordPressSite ): SavedCopy[] {
-	const { prefix } = site;
 	const [ stylesheet ] = activeThemes( site );
 	if ( ! stylesheet ) return [];
-	// The latest published post per type and slug, for the theme its wp_theme
-	// term names.
-	const rows = site.query< Omit< SavedCopy, 'file' > & { content: string } >(
-		`SELECT p.ID AS id, p.post_type AS postType, p.post_name AS slug, p.post_content AS content
-			FROM ${ prefix }posts p
-			JOIN ${ prefix }term_relationships tr ON tr.object_id = p.ID
-			JOIN ${ prefix }term_taxonomy tt ON tt.term_taxonomy_id = tr.term_taxonomy_id AND tt.taxonomy = 'wp_theme'
-			JOIN ${ prefix }terms t ON t.term_id = tt.term_id
-			WHERE p.post_type IN ( 'wp_template', 'wp_template_part', 'wp_global_styles' )
-				AND p.post_status = 'publish' AND t.name = ?
-			ORDER BY p.post_type, p.post_name, p.post_date DESC, p.ID DESC`,
-		stylesheet
-	);
 	const copies: SavedCopy[] = [];
-	const seen = new Set< string >();
-	for ( const { content, ...row } of rows ) {
-		const key =
-			row.postType === 'wp_global_styles' ? row.postType : `${ row.postType }/${ row.slug }`;
-		if ( seen.has( key ) ) continue;
-		seen.add( key );
+	for ( const { content, modified, ...row } of savedPosts( site, stylesheet ) ) {
 		if ( row.postType === 'wp_global_styles' ) {
 			const sets = styleAreas( content );
 			if ( sets.length ) {
@@ -95,6 +75,45 @@ export function readSavedCopies( site: WordPressSite ): SavedCopy[] {
 		copies.push( { ...row, file: `${ dir }/${ row.slug }.html` } );
 	}
 	return copies;
+}
+
+export interface SavedPost {
+	postType: SavedPostType;
+	id: number;
+	slug: string;
+	modified: string;
+	content: string;
+}
+
+/**
+ * The templates, template parts and Global Styles saved for `theme`, as
+ * WordPress picks them: per template or part slug, and for Global Styles,
+ * the newest published post whose wp_theme term names the theme
+ * (get_block_templates() and
+ * WP_Theme_JSON_Resolver::get_user_data_from_wp_global_styles()).
+ */
+export function savedPosts( site: WordPressSite, theme: string ): SavedPost[] {
+	const { prefix } = site;
+	const rows = site.query< SavedPost >(
+		`SELECT p.ID AS id, p.post_type AS postType, p.post_name AS slug,
+				p.post_modified_gmt AS modified, p.post_content AS content
+			FROM ${ prefix }posts p
+			JOIN ${ prefix }term_relationships tr ON tr.object_id = p.ID
+			JOIN ${ prefix }term_taxonomy tt ON tt.term_taxonomy_id = tr.term_taxonomy_id AND tt.taxonomy = 'wp_theme'
+			JOIN ${ prefix }terms t ON t.term_id = tt.term_id
+			WHERE p.post_type IN ( 'wp_template', 'wp_template_part', 'wp_global_styles' )
+				AND p.post_status = 'publish' AND t.name = ?
+			ORDER BY p.post_type, p.post_name, p.post_date DESC, p.ID DESC`,
+		theme
+	);
+	const seen = new Set< string >();
+	return rows.filter( ( row ) => {
+		const key =
+			row.postType === 'wp_global_styles' ? row.postType : `${ row.postType }/${ row.slug }`;
+		if ( seen.has( key ) ) return false;
+		seen.add( key );
+		return true;
+	} );
 }
 
 function joinList( items: string[] ): string {
@@ -155,10 +174,7 @@ export function savedCopiesFact( site: WordPressSite ): string | undefined {
 			.map( describeCopy )
 			.join( '; ' ) }.`;
 	}
-	const blockTheme = activeThemes( site ).some( ( theme ) =>
-		existsSync( path.join( site.root, 'wp-content/themes', theme, 'templates/index.html' ) )
-	);
-	return blockTheme
+	return activeIsBlockTheme( site )
 		? "Nothing is saved in the Site Editor for the active theme, so WordPress renders its templates, parts and theme.json as the theme's files have them."
 		: undefined;
 }

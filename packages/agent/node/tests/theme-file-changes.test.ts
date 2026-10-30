@@ -24,6 +24,7 @@ const write = ( file: string, content: string ) => {
 beforeEach( () => {
 	fixture = createSite();
 	write( 'twentytwentyfive/theme.json', '{"version":3}' );
+	write( 'twentytwentyfive/templates/index.html', '<!-- wp:post-content /-->' );
 	site = { id: '1', name: 'Bakery', path: fixture.root } as HostSite;
 } );
 

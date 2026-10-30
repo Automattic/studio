@@ -137,6 +137,12 @@ describe( 'the file write refusal', () => {
 			path.join( studioSite(), 'wp-content/themes/premium/theme.json' ),
 			'{"version":3}'
 		);
+		// A block theme, by its templates/index.html (WP_Theme::is_block_theme()).
+		mkdirSync( path.join( studioSite(), 'wp-content/themes/premium/templates' ) );
+		writeFileSync(
+			path.join( studioSite(), 'wp-content/themes/premium/templates/index.html' ),
+			'<!-- wp:post-content /-->'
+		);
 		expect( await refusal( 'premium', 'theme.json' ) ).toContain(
 			". Or make it in the site's Global Styles for premium"
 		);

@@ -27,7 +27,7 @@ import {
 } from '@studio/agent/node/global-styles';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { RENDERED, RENDERED_TYPES, savePost } from '@studio/agent/node/site-markup';
-import { activeThemes } from '@studio/agent/node/themes';
+import { activeIsBlockTheme, activeThemes } from '@studio/agent/node/themes';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { ChangeReport, SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 import type { WordPressSite } from '@studio/agent/node/site-database';
@@ -95,10 +95,7 @@ function readPosts( site: WordPressSite ): Post[] {
 // The active block theme's Global Styles, as WordPress reads them.
 function globalStyles( site: WordPressSite ): Post | undefined {
 	const [ theme ] = activeThemes( site );
-	if (
-		! theme ||
-		! existsSync( path.join( site.root, 'wp-content/themes', theme, 'templates/index.html' ) )
-	) {
+	if ( ! theme || ! activeIsBlockTheme( site ) ) {
 		return undefined;
 	}
 	const saved = themeGlobalStyles( site, theme );

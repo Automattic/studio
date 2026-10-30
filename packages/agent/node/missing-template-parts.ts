@@ -15,6 +15,7 @@
  */
 import { readFile, readdir, stat } from 'fs/promises';
 import path from 'path';
+import { savedPosts } from '@studio/agent/node/saved-copies';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { isUpdatableTheme, readThemeHeader } from '@studio/agent/node/themes';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
@@ -86,16 +87,9 @@ async function missingParts( root: string, theme: string ): Promise< MissingPart
 	}
 	// The parts saved to the site, as the Site Editor saves a part of the theme.
 	const saved = await readWordPressSite( root, ( site ) =>
-		site
-			.query< { slug: string } >(
-				`SELECT p.post_name AS slug FROM ${ site.prefix }posts p
-				JOIN ${ site.prefix }term_relationships r ON r.object_id = p.ID
-				JOIN ${ site.prefix }term_taxonomy x ON x.term_taxonomy_id = r.term_taxonomy_id AND x.taxonomy = 'wp_theme'
-				JOIN ${ site.prefix }terms t ON t.term_id = x.term_id AND t.name = ?
-				WHERE p.post_type = 'wp_template_part' AND p.post_status = 'publish'`,
-				theme
-			)
-			.map( ( row ) => row.slug )
+		savedPosts( site, theme )
+			.filter( ( post ) => post.postType === 'wp_template_part' )
+			.map( ( post ) => post.slug )
 	);
 	return missing.filter( ( part ) => part.theme || ! saved.includes( part.slug ) );
 }

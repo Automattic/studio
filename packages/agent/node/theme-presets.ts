@@ -17,7 +17,7 @@ import { readdir, readFile, stat, writeFile } from 'fs/promises';
 import path from 'path';
 import { readWordPressSite, type WordPressSite } from '@studio/agent/node/site-database';
 import { activeThemes, readThemeHeader } from '@studio/agent/node/themes';
-import { runWpCli } from '@studio/agent/node/tools/utils';
+import { wpEvalJson } from '@studio/agent/node/tools/utils';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 import type { SiteFile } from '@studio/agent/node/site-file-guards';
 
@@ -198,11 +198,11 @@ async function resolve(
 	root: string,
 	theme: string | undefined
 ): Promise< Presets > {
-	const output = await runWpCli( host, await host.sites.resolve( root ), [
-		'eval',
-		( theme ? preview( theme ) : '' ) + RESOLVE,
-	] );
-	return JSON.parse( output.slice( output.indexOf( '{' ) ) ) as Presets;
+	return wpEvalJson< Presets >(
+		host,
+		await host.sites.resolve( root ),
+		( theme ? preview( theme ) : '' ) + RESOLVE
+	);
 }
 
 // The presets as fact lines, one per kind of preset the site has.

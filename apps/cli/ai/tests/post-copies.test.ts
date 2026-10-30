@@ -1,4 +1,12 @@
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import {
+	cpSync,
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from 'fs';
 import os from 'os';
 import path from 'path';
 import {
@@ -89,6 +97,23 @@ describe( 'post copies', () => {
 		expect( read( copy( 'page', 9 ) ) ).toBe( PARAGRAPH );
 		expect( read( copy( 'wp_template_part', 10 ) ) ).toBe( HEADING );
 		expect( path.relative( fixture.root, copy( 'page', 9 ) ).startsWith( '..' ) ).toBe( true );
+	} );
+
+	it( "copies the Global Styles of a child theme whose parent's templates make it a block theme", async () => {
+		// As create_theme makes a child: a style.css naming its parent, whose templates WordPress reads.
+		const themes = path.join( fixture.root, 'wp-content/themes' );
+		writeFileSync(
+			path.join( themes, 'bakery/style.css' ),
+			'/*\nTheme Name: Bakery\nTemplate: bakery-parent\n*/'
+		);
+		mkdirSync( path.join( themes, 'bakery-parent/templates' ) );
+		writeFileSync( path.join( themes, 'bakery-parent/templates/index.html' ), PARAGRAPH );
+		await openedWorkspace();
+		expect(
+			JSON.parse(
+				read( path.join( config, 'workspace', 'abc', 'wp_global_styles', 'bakery.json' ) )
+			)
+		).toEqual( { version: 3, isGlobalStylesUserThemeJSON: true } );
 	} );
 
 	it( "names the site a copy belongs to by its workspace's folder", () => {

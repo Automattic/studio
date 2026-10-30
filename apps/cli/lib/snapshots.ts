@@ -18,7 +18,6 @@ export {
 } from 'cli/lib/cli-config/snapshots';
 
 export {
-	getSnapshotExpiry,
 	getSnapshotLink,
 	isSnapshotExpired,
 	isWpcomPreview,

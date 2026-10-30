@@ -17,11 +17,7 @@ export {
 	pruneExpiredOrphanedSnapshots,
 } from 'cli/lib/cli-config/snapshots';
 
-export {
-	getSnapshotLink,
-	isSnapshotExpired,
-	isWpcomPreview,
-} from '@studio/common/lib/snapshots';
+export { getSnapshotLink, isSnapshotExpired, isWpcomPreview } from '@studio/common/lib/snapshots';
 
 /**
  * Brings saved previews in line with WordPress.com: drops those that ended there, so Studio does not

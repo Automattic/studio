@@ -17,7 +17,7 @@ import { readdir, stat } from 'fs/promises';
 import path from 'path';
 import { readVersions } from '@studio/agent/node/post-content-check';
 import { readWordPressSite } from '@studio/agent/node/site-database';
-import { inspectPage, VIEWPORTS } from '@studio/agent/node/tools/screenshot-helpers';
+import { forgetRenders, inspectPage, VIEWPORTS } from '@studio/agent/node/tools/screenshot-helpers';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 import type { OpenProblems } from '@studio/agent/node/open-problems';
 import type { PageInspection } from '@studio/agent/node/tools/screenshot-helpers';
@@ -102,6 +102,7 @@ export class RenderCheck {
 			return;
 		}
 		state.fingerprint = now;
+		forgetRenders();
 		if ( state.running ) {
 			state.again = true;
 			return;
@@ -159,7 +160,7 @@ export class RenderCheck {
 		this.open?.record( sitePath, `${ sitePath }#rendered pages`, problem );
 		state.verdict =
 			problem ??
-			`${ rendered }: each page loads, PHP prints no errors, every image loads, nothing is wider than the screen, and the text fits${
+			`${ rendered }: each page loads, PHP prints no errors, every image loads, and nothing is wider than the screen${
 				firstSeen.size ? ', past what the site had before' : ''
 			}.`;
 	}

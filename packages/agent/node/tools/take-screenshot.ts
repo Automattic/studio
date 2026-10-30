@@ -2,6 +2,7 @@ import { Type } from 'typebox';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
 import {
 	captureScreenshotBuffer,
+	renderedCapture,
 	saveScreenshotFile,
 	SCREENSHOT_COLOR_SCHEME_VALUES,
 	VIEWPORTS,
@@ -128,13 +129,20 @@ export function createTakeScreenshotTool( {
 					captureTargets.map( async ( target ) => {
 						const { viewportType, colorScheme } = target;
 						const url = target.url ?? urls[ 0 ];
-						const capture = await captureScreenshotBuffer( url, VIEWPORTS[ viewportType ], {
-							fullPage,
-							format: 'jpeg',
-							offset: args.offset,
-							colorScheme,
-							forModel: visionEnabled,
-						} );
+						// The page as Studio rendered it after the last change, while it serves the same HTML.
+						const rendered =
+							visionEnabled && ! colorScheme && ! args.offset
+								? await renderedCapture( url, VIEWPORTS[ viewportType ], fullPage )
+								: undefined;
+						const capture =
+							rendered ??
+							( await captureScreenshotBuffer( url, VIEWPORTS[ viewportType ], {
+								fullPage,
+								format: 'jpeg',
+								offset: args.offset,
+								colorScheme,
+								forModel: visionEnabled,
+							} ) );
 						const screenshotFile = await saveScreenshotFile( context.host, capture.buffer, {
 							viewportType,
 							format: 'jpeg',

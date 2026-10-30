@@ -3,7 +3,12 @@ import http from 'http';
 import { chromium } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { closeSharedBrowser } from '@studio/agent/node/browser-utils';
-import { inspectPage, VIEWPORTS } from '@studio/agent/node/tools/screenshot-helpers';
+import {
+	forgetRenders,
+	inspectPage,
+	renderedCapture,
+	VIEWPORTS,
+} from '@studio/agent/node/tools/screenshot-helpers';
 import type { AddressInfo } from 'net';
 
 // A real Chromium to load pages with, when one is installed.
@@ -31,6 +36,7 @@ const BROKEN = `<!doctype html><meta name="viewport" content="width=device-width
 </div></body>`;
 
 describe.runIf( CHROMIUM )( 'inspecting a page', () => {
+	let formText = 'Book a table';
 	let server: http.Server;
 	let siteUrl: string;
 	beforeAll( async () => {
@@ -41,6 +47,11 @@ describe.runIf( CHROMIUM )( 'inspecting a page', () => {
 			} else if ( request.url === '/' ) {
 				response.writeHead( 200, { 'content-type': 'text/html' } );
 				response.end( HEALTHY );
+			} else if ( request.url === '/form/' ) {
+				response.writeHead( 200, { 'content-type': 'text/html' } );
+				response.end(
+					`${ HEALTHY }<form><input type='hidden' name='_wpnonce' value='${ Math.random() }'><p>${ formText }</p></form>`
+				);
 			} else if ( request.url === '/broken/' ) {
 				response.writeHead( 500, { 'content-type': 'text/html' } );
 				response.end( BROKEN );
@@ -78,5 +89,23 @@ describe.runIf( CHROMIUM )( 'inspecting a page', () => {
 				expect.stringMatching( /^The page is \d+px wide in a 390px viewport/ ),
 			] )
 		);
+	}, 60000 );
+
+	it( 'answers a screenshot from the render while the page serves the same HTML', async () => {
+		const url = `${ siteUrl }/form/`;
+		await inspectPage( url, VIEWPORTS.desktop );
+
+		// A fresh nonce on each request is the same page.
+		const capture = await renderedCapture( url, VIEWPORTS.desktop, true );
+		expect( capture?.buffer.length ).toBeGreaterThan( 0 );
+		expect( ( await renderedCapture( url, VIEWPORTS.desktop, false ) )?.clipped ).toBe( false );
+		expect( await renderedCapture( url, VIEWPORTS.mobile, true ) ).toBeUndefined();
+
+		formText = 'Book a room';
+		expect( await renderedCapture( url, VIEWPORTS.desktop, true ) ).toBeUndefined();
+
+		formText = 'Book a table';
+		forgetRenders();
+		expect( await renderedCapture( url, VIEWPORTS.desktop, true ) ).toBeUndefined();
 	}, 60000 );
 } );

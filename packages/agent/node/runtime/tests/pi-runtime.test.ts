@@ -67,7 +67,10 @@ vi.mock( '../session-state', async () => {
 	const states = new WeakMap< object, Record< string, unknown > >();
 	return {
 		shareSessionState: ( session: object, parent: Record< string, unknown > ) => {
-			const state = { ...parent, pendingWork: new PendingWork() };
+			const state = {
+				...parent,
+				pendingWork: new PendingWork( parent.pendingWork as InstanceType< typeof PendingWork > ),
+			};
 			states.set( session, state );
 			return state;
 		},
@@ -500,6 +503,26 @@ describe( 'pi runtime', () => {
 			expect(
 				mocks.steps.filter( ( step ) => [ 'Bash', 'Write', 'images done' ].includes( step ) )
 			).toEqual( [ 'Bash', 'Write', 'images done', 'Bash' ] );
+			// A subagent given a task naming an image starts at once; its own
+			// calls naming it wait for it.
+			await getCreatedTool( 'generate_images' ).execute( 't', {
+				images: [ { path: image, subject: 'a bench' } ],
+			} );
+			mocks.nextEvents = [ { type: 'agent_end', willRetry: false, messages: [] } ];
+			await getCreatedTool( 'subagent' ).execute( 's', {
+				task: `write a page showing ${ image }`,
+			} );
+			mocks.steps.length = 0;
+			const childBash = (
+				mocks.createdSessions.at( -1 )!.options.customTools as unknown as RuntimeTool[]
+			 ).find( ( tool ) => tool.name === 'Bash' )!;
+			const childNaming = childBash.execute( 't', { command: `file ${ image }` } );
+			await new Promise( ( resolve ) => setTimeout( resolve, 20 ) );
+			mocks.images.finish!();
+			await childNaming;
+			expect(
+				mocks.steps.filter( ( step ) => [ 'Bash', 'images done' ].includes( step ) )
+			).toEqual( [ 'images done', 'Bash' ] );
 		} finally {
 			mocks.images = undefined;
 		}

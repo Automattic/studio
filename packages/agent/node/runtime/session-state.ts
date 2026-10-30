@@ -45,10 +45,11 @@ export function getSessionState( host: StudioAgentHost, session: object ): Sessi
 /**
  * The state of a subagent's session `session`: its parent session's problems,
  * validations, render and writers, so each finding reaches the agent that
- * wrote what it is about, and the work its own tools leave running.
+ * wrote what it is about, and the work its own tools leave running, its
+ * calls waiting for the parent's too.
  */
 export function shareSessionState( session: object, parent: SessionState ): SessionState {
-	const state = { ...parent, pendingWork: new PendingWork() };
+	const state = { ...parent, pendingWork: new PendingWork( parent.pendingWork ) };
 	states.set( session, state );
 	return state;
 }

@@ -27,13 +27,15 @@ const text = ( message: AssistantMessage | undefined ) =>
  */
 export function createSubagentTool(
 	runTurn: RunTurn
-): AgentTool< ReturnType< typeof parameters > > {
+): AgentTool< ReturnType< typeof parameters > > & { startsAtOnce: true } {
 	return {
 		name: 'subagent',
 		label: 'subagent',
 		description:
 			"Runs a task as another Studio Code agent and returns its final reply. That agent starts from the task alone, with Studio's tools on the same sites and none of this conversation, so the task states what it needs and what to reply with. It cannot ask the user questions; Studio still asks the user to confirm what it would confirm for you. Several calls in one message run at the same time.",
 		parameters: parameters(),
+		// Its own calls wait for the work writing the files they name.
+		startsAtOnce: true,
 		execute: async ( _toolCallId, { task }, signal ) => {
 			const replies: AssistantMessage[] = [];
 			let end: Extract< AgentSessionEvent, { type: 'agent_end' } > | undefined;

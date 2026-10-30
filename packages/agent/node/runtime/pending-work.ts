@@ -6,6 +6,9 @@ export class PendingWork {
 	private readonly running = new Map< Promise< void >, string[] >();
 	private readonly reports: string[] = [];
 
+	// `outer`: the work of the session a subagent runs for, whose files its calls wait for too.
+	constructor( private readonly outer?: PendingWork ) {}
+
 	add( pending: Promise< string | undefined >, files: string[] = [] ): void {
 		const settled: Promise< void > = pending
 			.then(
@@ -31,6 +34,7 @@ export class PendingWork {
 	/** Waits for the work writing a file a call's input names, as a command or a path. */
 	async settleFilesIn( input: unknown ): Promise< void > {
 		const texts = strings( input );
+		await this.outer?.settleFilesIn( input );
 		await Promise.all(
 			[ ...this.running ]
 				.filter( ( [ , files ] ) =>

@@ -151,7 +151,7 @@ export function toToolDefinition(
 			await timeCheck( 'pendingWork', async () => {
 				if ( ( tool as { settlesPendingWork?: boolean } ).settlesPendingWork ) {
 					await pendingWork.settle();
-				} else {
+				} else if ( ! ( tool as { startsAtOnce?: boolean } ).startsAtOnce ) {
 					// A file written or edited is all such a call touches: markup naming
 					// an image still being generated reads nothing of it.
 					await pendingWork.settleFilesIn( writtenFile ?? params );

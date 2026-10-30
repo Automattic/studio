@@ -5,6 +5,7 @@ import { STUDIO_LOADER_MU_PLUGIN_FILENAME } from '@studio/common/lib/mu-plugins'
 import { __ } from '@wordpress/i18n';
 import { ZipArchive, type ZipEntryData } from 'archiver';
 import { glob } from 'glob';
+import { readActiveThemes } from 'cli/lib/active-themes';
 import { LoggerError } from 'cli/logger';
 
 const ZIP_COMPRESSION_LEVEL = 9;
@@ -14,11 +15,21 @@ const ALREADY_COMPRESSED_FILE =
 	/\.(jpe?g|png|gif|webp|avif|heic|mp4|m4v|mov|webm|mp3|m4a|ogg|woff2?|zip|gz|tgz|bz2|xz|7z|rar|pdf)$/i;
 const STUDIO_LOADER_ARCHIVE_PATH = `wp-content/mu-plugins/${ STUDIO_LOADER_MU_PLUGIN_FILENAME }`;
 
+/**
+ * Archives a site for a preview. Inactive themes are left out: they don't change what the preview
+ * shows, and the stock default themes alone are most of a small site's archive.
+ */
 export async function archiveSiteContent(
 	siteFolder: string,
 	archivePath: string
 ): Promise< ZipArchive > {
 	const deployIgnore = await createDeployIgnoreFilter( siteFolder );
+	const activeThemes = await readActiveThemes( siteFolder );
+	// Files inside a theme folder (not `themes/index.php`) that belong to no active theme.
+	const isInactiveTheme = ( relativePath: string ) =>
+		!! activeThemes &&
+		/^themes\/[^/]+\//.test( relativePath ) &&
+		! [ ...activeThemes ].some( ( theme ) => relativePath.startsWith( `themes/${ theme }/` ) );
 
 	// `archiver.directory()` does not follow symlinks, so we enumerate the files
 	// with glob ourselves to support symlinked plugins/themes. See
@@ -53,7 +64,7 @@ export async function archiveSiteContent(
 			if ( archiveEntryPath === STUDIO_LOADER_ARCHIVE_PATH ) {
 				continue;
 			}
-			if ( deployIgnore.ignores( archiveEntryPath ) ) {
+			if ( deployIgnore.ignores( archiveEntryPath ) || isInactiveTheme( relativePath ) ) {
 				continue;
 			}
 			// If the source path is a symlink, `Archiver.file()` appends a symlink to

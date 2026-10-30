@@ -7,7 +7,8 @@ import type { TracksProps } from '@studio/common/lib/record-tracks-event';
 
 type Journey = { analytics: AuthAnalytics; startedAt: number };
 const generations = new WeakMap< Connector, number >();
-const journeyGenerations = new WeakMap< AuthAnalytics, number >();
+const journeyContexts = new WeakMap< AuthAnalytics, { generation: number; startedAt: number } >();
+const JOURNEY_WINDOW_MS = 24 * 60 * 60 * 1000;
 const journeys = new WeakMap< Connector, Map< string, Journey > >();
 
 export function rememberAccountJourney(
@@ -20,8 +21,9 @@ export function rememberAccountJourney(
 		pending = new Map();
 		journeys.set( connector, pending );
 	}
-	journeyGenerations.set( analytics, generations.get( connector ) ?? 0 );
-	pending.set( `${ analytics.intent }:${ scope }`, { analytics, startedAt: Date.now() } );
+	const startedAt = Date.now();
+	journeyContexts.set( analytics, { generation: generations.get( connector ) ?? 0, startedAt } );
+	pending.set( `${ analytics.intent }:${ scope }`, { analytics, startedAt } );
 }
 
 export function getAccountJourney(
@@ -32,17 +34,21 @@ export function getAccountJourney(
 	const pending = journeys.get( connector );
 	const key = `${ intent }:${ scope }`;
 	const journey = pending?.get( key );
-	if ( journey && Date.now() - journey.startedAt <= 24 * 60 * 60 * 1000 ) {
+	if ( journey && Date.now() - journey.startedAt <= JOURNEY_WINDOW_MS ) {
 		return journey.analytics;
 	}
+	pending?.delete( key );
 }
 
 const completedJourneys = new WeakMap< Connector, Set< string > >();
 export function completeAccountJourney( connector: Connector, analytics?: AuthAnalytics ) {
+	const context = analytics ? journeyContexts.get( analytics ) : undefined;
 	if (
 		! analytics ||
 		( analytics.journey_id && completedJourneys.get( connector )?.has( analytics.journey_id ) ) ||
-		journeyGenerations.get( analytics ) !== ( generations.get( connector ) ?? 0 )
+		! context ||
+		context.generation !== ( generations.get( connector ) ?? 0 ) ||
+		Date.now() - context.startedAt > JOURNEY_WINDOW_MS
 	)
 		return;
 	if ( analytics.journey_id ) {

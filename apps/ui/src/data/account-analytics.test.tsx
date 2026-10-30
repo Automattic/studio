@@ -31,6 +31,20 @@ describe( 'account journey measurement', () => {
 		completeAccountJourney( connector, captured );
 		expect( connector.trackEvent ).not.toHaveBeenCalled();
 	} );
+	it( 'does not attribute a captured task that finishes after the journey expires', () => {
+		vi.useFakeTimers();
+		const connector = createFakeConnector();
+		const analytics = {
+			placement: 'publish',
+			intent: 'publish',
+			journey_id: crypto.randomUUID(),
+		} as const;
+		rememberAccountJourney( connector, analytics, 'site' );
+		const captured = getAccountJourney( connector, 'publish', 'site' );
+		vi.advanceTimersByTime( 24 * 60 * 60 * 1000 + 1 );
+		completeAccountJourney( connector, captured );
+		expect( connector.trackEvent ).not.toHaveBeenCalled();
+	} );
 	it( 'observes a prompt that mounts after the parent effect', async () => {
 		const observe = vi.fn();
 		vi.stubGlobal(

@@ -1,7 +1,7 @@
 -- Trino / Superset draft. Aggregate output only; not yet executed against the warehouse.
 -- Replace the version filter with the first release containing the account-funnel events.
 -- Keep channel/version/placement/intent separate. Identity represents an installation.
-WITH events AS (
+WITH candidate_events AS (
     SELECT
         userid,
         eventname,
@@ -13,18 +13,25 @@ WITH events AS (
         element_at(eventprops, 'auth_flow') AS auth_flow,
         element_at(eventprops, 'auth_attempt_id') AS attempt_id,
         element_at(eventprops, 'journey_id') AS journey_id,
-        element_at(eventprops, 'success') AS success
+        element_at(eventprops, 'success') AS success,
+        element_at(eventprops, 'is_a11n') AS is_a11n
     FROM tracks.prod_events
     WHERE dateymd >= CAST(date_format(current_date - INTERVAL '16' DAY, '%Y%m%d') AS INTEGER)
       AND dateymd <= CAST(date_format(current_date, '%Y%m%d') AS INTEGER)
       AND ts <= to_unixtime(current_timestamp) * 1000
       AND useridtype = 'anon'
-      AND element_at(eventprops, 'is_a11n') = 'false'
       AND element_at(eventprops, 'app_version') = 'REPLACE_WITH_RELEASE_VERSION'
       AND eventname IN (
           'studio_account_prompt_viewed', 'studio_wpcom_auth_started', 'studio_wpcom_auth',
           'studio_wpcom_auth_cancelled', 'studio_wpcom_auth_launch_failed',
           'studio_account_journey_completed'
+      )
+), events AS (
+    SELECT e.* FROM candidate_events e
+    WHERE e.is_a11n = 'false'
+      AND NOT EXISTS (
+          SELECT 1 FROM candidate_events staff
+          WHERE staff.userid = e.userid AND staff.is_a11n = 'true'
       )
 ), starts AS (
     SELECT userid, channel, app_version, placement, intent, auth_flow, attempt_id, journey_id,

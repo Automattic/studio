@@ -73,7 +73,9 @@ and auth-flow filters visible. Handoff failure is a diagnostic and can overlap l
 
 The query uses the anonymous installation identity, exact attempt-ID joins for auth, and journey-ID
 plus intent joins for tasks. It deduplicates starts and requires a full 24h window for the relevant
-denominator. No raw identifiers are returned. Generic same-user ordered funnels cannot substitute
+denominator. Installations with any known staff event in the candidate release/window are excluded as a whole,
+so a signed-out staff start cannot remain while its authenticated success is removed. Staff not
+identified in that window remain a limitation. No raw identifiers are returned. Generic same-user ordered funnels cannot substitute
 for these joins when attempts overlap. Do not sum rates or compare event counts with install counts.
 
 There is no saved live dashboard yet. A missing release/cohort is “awaiting data,” not zero conversion.

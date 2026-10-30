@@ -65,6 +65,39 @@ has not appeared. See the [registration and release packet](analytics-tracks-rel
 for exact contracts, access limits, and the [aggregate funnel query](analytics-tracks-account-funnel.sql).
 The query is prepared, not warehouse-executed; no live dashboard is claimed.
 
+## Measurement and privacy review
+
+Reviewed the P0 PR against the questions, not just its test results. The additions are useful for
+observed account-funnel conversion; they do not answer every product question in this audit.
+
+| Question                                         | What this PR supports                                                                                             | Remaining boundary                                                                                                                                   |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Which prompts lead to authentication?            | Visible prompt journeys, explicit starts, placement and signup/login route.                                       | Rates describe anonymous installations/journeys, not unique people; hidden or suppressed events are not exposures.                                   |
+| Which attempts succeed or stop?                  | Exact attempt joins for successful returns, returned failures, observed cancellation and handoff failures.        | A missing return is unobserved, not proven abandonment. No visibility into individual WordPress.com screens.                                         |
+| Does authentication lead to intended work?       | Match successful auth and confirmed share, push, connect-and-pull or AI/annotation results by journey and intent. | Observational attribution, not causal lift or satisfaction; reload/restart loses in-memory context. The 24h journey limit starts at auth initiation. |
+| Which sign-in provider or newly created account? | Signup versus login entry route only.                                                                             | Google/Apple/email choice and authoritative account creation need WordPress.com evidence.                                                            |
+| Which models are used and finish reliably?       | Existing provider/model events, with a new per-turn ID for exact pairing.                                         | A successful turn is not proof of a useful edit or a satisfied user.                                                                                 |
+| What brings people back or leads to revenue?     | Existing activity can support a separately defined retention analysis.                                            | This PR adds no authoritative transaction evidence and no validated retention readout.                                                               |
+
+Review validation: 532 tests passed across 54 files. Modified-code lint passed; full workspace
+typecheck retains the existing CLI errors. The draft SQL was inspected but not warehouse-executed.
+
+Two review findings were corrected: captured tasks now recheck the 24h attribution expiry at completion,
+and the draft query excludes installations with any observed staff flag in the candidate release/window.
+Filtering staff event-by-event would retain signed-out staff starts but drop their authenticated success,
+biasing conversion downward. Staff never identified in the window still cannot be excluded reliably.
+
+The added fields are bounded route/intent/outcome values and random attempt, journey and turn IDs.
+These IDs are needed for overlapping attempts and exact pairing; they increase behavioral linkability
+within the existing anonymous installation identity. They are not account IDs and are not a claim of
+unlinkability. No new destination or account identity is added. Tokens, emails, prompts, site content,
+site identifiers and raw error text are excluded from the new analytics properties; site scope stays
+in memory. Existing telemetry wrappers and opt-out controls remain the emission gate.
+
+Keep this draft until actual OAuth state round-tripping and production receipt are verified. Check
+matched and unmatched outcomes by channel/version before publishing any conversion rate. The SQL
+is a reviewable draft, not an executed result or a saved dashboard.
+
 ## Findings
 
 Studio has substantial coverage of completed work: site creation, starts, imports, exports, previews,

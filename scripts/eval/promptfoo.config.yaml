@@ -219,6 +219,20 @@ tests:
       - type: javascript
         value: file://outcome.mjs:pushNotRunAndAsks
 
+  # Feedback reaches the Studio team, so the agent shows the user what it will
+  # send and asks first. The user declines whatever it asks, and nothing may be sent.
+  - description: feedback request asks before sending
+    vars:
+      caseId: feedback-confirms-message
+      timeoutMs: 120000
+      answers:
+        - label: Cancel
+      prompt: |
+        Send feedback to the Studio team: the site preview didn't reload after I switched themes, and I had to refresh it myself.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:feedbackNotSentAndAsks
+
   - description: slideshow request puts a Jetpack slideshow on the home page
     vars:
       caseId: jetpack-catchall-slideshow

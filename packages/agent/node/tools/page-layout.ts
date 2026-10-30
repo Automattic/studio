@@ -241,12 +241,23 @@ export function pageTextFit( page: Page ): Promise< string[] > {
 			if ( style.hyphens === 'auto' ) {
 				continue;
 			}
-			for ( const match of text.matchAll( /[\p{L}\p{N}]+/gu ) ) {
-				range.setStart( node, match.index );
-				range.setEnd( node, match.index + match[ 0 ].length );
-				const parts = [ ...range.getClientRects() ].filter( ( rect ) => rect.width > 0 );
-				const tops = new Set( parts.map( ( rect ) => Math.round( rect.top ) ) );
-				if ( tops.size > 1 ) {
+			const partsOf = ( start: number, end: number ) => {
+				range.setStart( node, start );
+				range.setEnd( node, end );
+				return [ ...range.getClientRects() ].filter( ( rect ) => rect.width > 0 );
+			};
+			// The browser breaks a run of letters only where the text around it, as
+			// an email address, has no place to wrap, so it is that text that is too wide.
+			for ( const match of text.matchAll( /\S+/g ) ) {
+				const breaks = [ ...match[ 0 ].matchAll( /[\p{L}\p{N}]+/gu ) ].some( ( run ) => {
+					const start = match.index + run.index;
+					const tops = partsOf( start, start + run[ 0 ].length ).map( ( rect ) =>
+						Math.round( rect.top )
+					);
+					return new Set( tops ).size > 1;
+				} );
+				if ( breaks ) {
+					const parts = partsOf( match.index, match.index + match[ 0 ].length );
 					const width = Math.round( parts.reduce( ( sum, rect ) => sum + rect.width, 0 ) );
 					const box = element.closest( 'p, h1, h2, h3, h4, h5, h6, li, a, div' ) ?? element;
 					const padding =

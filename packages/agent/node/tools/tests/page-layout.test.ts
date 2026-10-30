@@ -96,6 +96,13 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 			],
 		],
 		[
+			'an email address wider than its column, by the whole address',
+			'<p style="width:156px;margin-left:100px;overflow-wrap:break-word;font:12px/1 monospace">hello@pawswhiskers.shop</p>',
+			[
+				'p: the browser breaks "hello@pawswhiskers.shop" across lines, as the word (166px) is wider than its box (156px).',
+			],
+		],
+		[
 			'a word the page hyphenates',
 			'<div lang="en" style="width:200px;margin-left:100px;word-break:break-word;hyphens:auto"><h1 style="font:40px/1 monospace">Everything</h1></div>',
 			[],

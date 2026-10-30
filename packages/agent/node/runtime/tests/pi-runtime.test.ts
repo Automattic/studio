@@ -174,6 +174,7 @@ vi.mock( '@studio/agent/node/site-notes', () => ( {
 			return [ `wrote ${ file }` ];
 		},
 		afterResult: async ( site: string ) => [ `result on ${ site }` ],
+		takeSourceMs: () => ( {} ),
 	} ),
 } ) );
 

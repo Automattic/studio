@@ -309,7 +309,15 @@ export function toToolDefinition(
 					...( result.details as object ),
 					checksMs: Date.now() - checksStarted - ranMs,
 					checkStagesMs: { ...checkStagesMs, ...afterChecks.takeStagesMs() },
-					checkSourcesMs: checksChanges ? siteChanges.takeSourceMs() : undefined,
+					checkSourcesMs: {
+						...( checksChanges && siteChanges.takeSourceMs() ),
+						...Object.fromEntries(
+							Object.entries( siteNotes.takeSourceMs() ).map( ( [ name, ms ] ) => [
+								`notes ${ name }`,
+								ms,
+							] )
+						),
+					},
 				},
 			};
 			return reports

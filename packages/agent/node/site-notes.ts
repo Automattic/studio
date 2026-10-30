@@ -52,8 +52,9 @@ type Notes = string[] | Promise< string[] >;
 
 interface Sources {
 	beforeWrite: Array< ( file: SiteFile, text: string ) => Notes >;
-	write: Array< ( file: SiteFile ) => Notes >;
-	result: Array< ( sitePath: string, text: string ) => Notes >;
+	// Named, for the time each takes in a profile.
+	write: Record< string, ( file: SiteFile ) => Notes >;
+	result: Record< string, ( sitePath: string, text: string ) => Notes >;
 }
 
 interface SiteNotesOptions {
@@ -120,44 +121,51 @@ function sources(
 					await frontPageTemplateRefusal( file, text ),
 				].filter( Boolean ) as string[],
 		],
-		write: [
+		// In order: each sees the file as the ones before it left it.
+		write: {
 			// Before the gate reads the file and the theme's presets for its save.
-			freeFullWidthBlocks,
-			( file ) => repeatedStyleValueNotes( host, file, { gateSaves: Boolean( gate ) } ),
-			( { siteRoot, relativePath } ) => {
+			'full width blocks': freeFullWidthBlocks,
+			'repeated style values': ( file ) =>
+				repeatedStyleValueNotes( host, file, { gateSaves: Boolean( gate ) } ),
+			'block validation': ( { siteRoot, relativePath } ) => {
 				gate?.track( path.join( siteRoot, relativePath ), siteRoot );
 				return [];
 			},
-			( file ) => clearThemePatternCache( host, file ),
-			selfHostFonts,
-			( file ) => writeThemeThumbnail( host, file ),
-			blockMarkupNotes,
-			themeJsonNotes,
-			( file ) => themeJsonFileNotes( host, file, open ),
-			( file ) => keepThemePresets( host, file ),
-			themeCssNotes,
-			createSharedBlockClassNotes( host ),
-			externalImageNotes,
-			savedCopyNotes,
-			frontPageTemplateNotes,
-		],
-		result: [
-			blockSettingsSource(),
-			createBlockExampleNotes( host ),
-			siteFactsSource( host, stated ),
-		],
+			'theme pattern cache': ( file ) => clearThemePatternCache( host, file ),
+			'theme fonts': selfHostFonts,
+			'theme thumbnail': ( file ) => writeThemeThumbnail( host, file ),
+			'block markup': blockMarkupNotes,
+			'theme.json': themeJsonNotes,
+			'theme.json file': ( file ) => themeJsonFileNotes( host, file, open ),
+			'theme presets': ( file ) => keepThemePresets( host, file ),
+			'theme css': themeCssNotes,
+			'shared block classes': createSharedBlockClassNotes( host ),
+			'external images': externalImageNotes,
+			'saved copies': savedCopyNotes,
+			'front page template': frontPageTemplateNotes,
+		},
+		result: {
+			'block settings': blockSettingsSource(),
+			'block examples': createBlockExampleNotes( host ),
+			'site facts': siteFactsSource( host, stated ),
+		},
 	};
 }
 
 // A source that fails says nothing, so the action it follows stands.
-async function collect( notes: Array< () => Notes > ): Promise< string[] > {
+async function collect(
+	notes: Array< [ string, () => Notes ] >,
+	sourceMs: Record< string, number >
+): Promise< string[] > {
 	const lines: string[] = [];
-	for ( const note of notes ) {
+	for ( const [ name, note ] of notes ) {
+		const from = Date.now();
 		lines.push(
 			...( await Promise.resolve()
 				.then( note )
 				.catch( () => [] ) )
 		);
+		sourceMs[ name ] = ( sourceMs[ name ] ?? 0 ) + Date.now() - from;
 	}
 	return lines;
 }
@@ -188,6 +196,8 @@ export interface SiteNotes {
 	afterWrite( filePath: string, written?: string ): Promise< string[] >;
 	/** The notes on a Studio tool's result about this site. */
 	afterResult( sitePath: string, text: string ): Promise< string[] >;
+	/** The time each source of notes took since the last take, for a profile. */
+	takeSourceMs(): Record< string, number >;
 }
 
 /** One agent session's notes: sources that say a thing once keep that here. */
@@ -196,6 +206,7 @@ export function createSiteNotes(
 	options: SiteNotesOptions = {}
 ): SiteNotes {
 	const { beforeWrite, write, result } = sources( host, options );
+	let sourceMs: Record< string, number > = {};
 	// The notes each file's last write gave, by file: a note said once while
 	// it stands, and again should it come back after a write that gave none.
 	const standing = new Map< string, string[] >();
@@ -221,7 +232,10 @@ export function createSiteNotes(
 			const notes = once(
 				// One file, however the call names it, as /var and /private/var on macOS.
 				realPath( filePath ),
-				await collect( write.map( ( source ) => () => source( file ) ) )
+				await collect(
+					Object.entries( write ).map( ( [ name, source ] ) => [ name, () => source( file ) ] ),
+					sourceMs
+				)
 			);
 			const now = readText( filePath );
 			return written === undefined || now === undefined
@@ -229,7 +243,18 @@ export function createSiteNotes(
 				: [ ...notes, ...rewriteNotes( filePath, written, now ) ];
 		},
 		async afterResult( sitePath, text ) {
-			return collect( result.map( ( source ) => () => source( sitePath, text ) ) );
+			return collect(
+				Object.entries( result ).map( ( [ name, source ] ) => [
+					name,
+					() => source( sitePath, text ),
+				] ),
+				sourceMs
+			);
+		},
+		takeSourceMs() {
+			const taken = sourceMs;
+			sourceMs = {};
+			return taken;
 		},
 	};
 }

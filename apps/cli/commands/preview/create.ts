@@ -10,7 +10,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
-import { getNextSnapshotSequence } from 'cli/lib/cli-config/snapshots';
+import { countSitePreviews, getNextSnapshotSequence } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { createPreviewSite, type PreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
 import { withSiteOperation } from 'cli/lib/site-operations';
@@ -108,7 +108,15 @@ export async function runCommand(
 		);
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 		await emitCliEvent( { event: SNAPSHOT_EVENTS.CREATED, data: { snapshotUrl: snapshot.url } } );
-		await recordPreviewCreateEvent( { success: true, time_ms: Date.now() - startedAt } );
+		await recordPreviewCreateEvent( {
+			success: true,
+			time_ms: Date.now() - startedAt,
+			site_preview_count: countSitePreviews(
+				site.id,
+				await getSnapshotsFromConfig( token.id ),
+				token.id
+			),
+		} );
 		await reportSyncActivity( siteId, { kind: 'success', direction: 'preview' } );
 
 		logger.reportResult( { name: snapshot.name, url: snapshot.url } );
@@ -138,6 +146,9 @@ async function recordPreviewCreateEvent( props: {
 	success: boolean;
 	failure_reason?: string;
 	time_ms: number;
+	// Unexpired previews of this local site, this one included, so we can see how many people keep
+	// several previews of the same site without identifying the site.
+	site_preview_count?: number;
 } ): Promise< void > {
 	try {
 		await recordTracksEvent( TRACKS_EVENTS.PREVIEW_SITE_CREATE, {

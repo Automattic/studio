@@ -373,8 +373,8 @@ coarse and low-cardinality (the raw error is never sent).
 
 | Event | Emitted from | Event-specific props |
 |---|---|---|
-| `studio_preview_site_create` | CLI `preview create` | `success` (boolean), `time_ms` (creation duration). On failure also `failure_reason` (`auth_required`/`size_limit`/`expired`/`not_found`/`timeout`/`upload`/`unknown`). |
-| `studio_preview_site_update` | CLI `preview update` | `success` (boolean), `time_ms` (update duration). On failure also `failure_reason` (same vocabulary as create). |
+| `studio_preview_site_create` | CLI `preview create` | `success` (boolean), `time_ms` (creation duration). On success also `site_preview_count` (the user's unexpired previews of this local site, this one included; tells how many people keep several previews of one site without identifying it). On failure also `failure_reason` (`auth_required`/`size_limit`/`expired`/`not_found`/`timeout`/`upload`/`unknown`). |
+| `studio_preview_site_update` | CLI `preview update` | `success` (boolean), `time_ms` (update duration). On success also `site_preview_count` (as for create). On failure also `failure_reason` (same vocabulary as create). |
 | `studio_preview_site_delete` | CLI `preview delete` (single) | (none). Emitted once per **successful** single delete. |
 | `studio_preview_site_delete_all` | CLI `preview delete --all` | `count` (number of the user's preview sites removed). Emitted once per **successful** delete-all (a single bulk server operation, not per site). |
 | `studio_preview_site_open` | Renderer (Classic Previews list, no longer emitted) | (none — opens the preview URL in the OS browser) |

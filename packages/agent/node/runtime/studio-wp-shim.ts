@@ -2,6 +2,8 @@ import { createHash } from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
+// eslint-disable-next-line import-x/default -- Vite's `?raw` import is the file's text.
+import wpCliClient from './wp-cli-client.mjs?raw';
 import type { BashSpawnHook } from '@earendil-works/pi-coding-agent';
 
 function shellQuote( value: string ): string {
@@ -10,49 +12,6 @@ function shellQuote( value: string ): string {
 
 // The environment variable that holds the address of the agent's WP-CLI server.
 export const WP_CLI_SERVER_ENV = 'STUDIO_AGENT_WP_CLI';
-
-/**
- * Runs `wp`: asks the agent's process, at the address in WP_CLI_SERVER_ENV,
- * for the site's WP-CLI process, and runs it with this shell's stdin, output,
- * environment and exit code. Without an answer it runs `studio wp`.
- */
-const wpCliClient = ( nodePath: string, cliPath: string ) => `import net from 'node:net';
-import { spawn } from 'node:child_process';
-const argv = process.argv.slice( 2 );
-const run = ( command, args, options ) => {
-	const child = spawn( command, args, { stdio: 'inherit', ...options } );
-	for ( const signal of [ 'SIGINT', 'SIGTERM', 'SIGHUP' ] ) {
-		process.on( signal, () => child.kill( signal ) );
-	}
-	child.on( 'error', ( error ) => {
-		process.stderr.write( \`\${ error.message }\\n\` );
-		process.exit( 1 );
-	} );
-	child.on( 'exit', ( code, signal ) => process.exit( code ?? ( signal ? 128 : 1 ) ) );
-};
-const studioWp = () => run( ${ JSON.stringify( nodePath ) }, [ ${ JSON.stringify(
-	cliPath
-) }, 'wp', ...argv, '--avoid-telemetry' ] );
-let answer = '';
-const socket = net.connect( process.env.${ WP_CLI_SERVER_ENV } );
-socket.setEncoding( 'utf8' );
-socket.on( 'connect', () => socket.write( JSON.stringify( { cwd: process.cwd(), argv } ) + '\\n' ) );
-socket.on( 'error', () => {} );
-socket.on( 'close', () => answer.includes( '\\n' ) || studioWp() );
-socket.on( 'data', ( chunk ) => {
-	answer += chunk;
-	if ( ! answer.includes( '\\n' ) ) {
-		return;
-	}
-	socket.destroy();
-	const reply = JSON.parse( answer );
-	if ( reply.error ) {
-		process.stderr.write( \`\${ reply.error }\\n\` );
-		process.exit( 1 );
-	}
-	run( reply.command, reply.args, { cwd: reply.cwd, env: { ...process.env, ...reply.env } } );
-} );
-`;
 
 /**
  * The commands of the agent's shell that run the Studio running the agent:
@@ -72,12 +31,14 @@ socket.on( 'data', ( chunk ) => {
  */
 export function getStudioShims( nodePath: string, cliPath: string ): Record< string, string > {
 	const cli = `${ shellQuote( nodePath ) } ${ shellQuote( cliPath ) }`;
-	const client = `${ shellQuote( nodePath ) } "$(dirname "$0")/wp-cli-client.mjs"`;
+	const client = `${ shellQuote(
+		nodePath
+	) } "$(dirname "$0")/wp-cli-client.mjs" "$${ WP_CLI_SERVER_ENV }" ${ shellQuote( cliPath ) }`;
 	const served = `[ -n "$${ WP_CLI_SERVER_ENV }" ]`;
 	return {
 		studio: `#!/bin/sh\nif [ "$1" = wp ] && ${ served }; then shift; exec ${ client } "$@"; fi\nexec ${ cli } "$@" --avoid-telemetry\n`,
 		wp: `#!/bin/sh\nif ${ served }; then exec ${ client } "$@"; fi\nexec ${ cli } wp "$@" --avoid-telemetry\n`,
-		'wp-cli-client.mjs': wpCliClient( nodePath, cliPath ),
+		'wp-cli-client.mjs': wpCliClient,
 	};
 }
 

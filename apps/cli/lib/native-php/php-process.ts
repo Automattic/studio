@@ -75,11 +75,12 @@ function formatCommandOutputTail( label: string, output: string ): string | unde
 
 // Studio runs WP-CLI on sites it manages, so it skips WP-CLI's root check like the Playground
 // runtime did; otherwise every WP-CLI call fails when Studio runs as root (Docker, Linux CI).
-// What a PHP child's environment adds to its parent's.
-export const PHP_CHILD_ENV = { WP_CLI_ALLOW_ROOT: '1' };
-
-export function getPhpChildEnv( env?: NodeJS.ProcessEnv ): NodeJS.ProcessEnv {
-	return withoutOversizedEnvValues( { ...process.env, ...PHP_CHILD_ENV, ...env } );
+// A PHP child's environment: `base`, this process's unless given, with `env` over it.
+export function getPhpChildEnv(
+	env?: NodeJS.ProcessEnv,
+	base: NodeJS.ProcessEnv = process.env
+): NodeJS.ProcessEnv {
+	return withoutOversizedEnvValues( { ...base, WP_CLI_ALLOW_ROOT: '1', ...env } );
 }
 
 export function spawnPhpProcess(

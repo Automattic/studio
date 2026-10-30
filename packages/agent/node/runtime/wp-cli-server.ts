@@ -9,7 +9,7 @@ const servers = new WeakMap< StudioAgentHost, Promise< string | undefined > >();
 
 /**
  * Serves the agent's shell the WP-CLI process `studio wp` runs, where the host
- * has one: a client sends a line of JSON, `{ cwd, argv }`, and gets one back,
+ * has one: a client sends a line of JSON, `{ cwd, argv, env }`, and gets one back,
  * the process or `{ error }`. Resolves to the server's address, a socket only
  * this user can open, or undefined where the host runs no WP-CLI of its own.
  */
@@ -43,11 +43,12 @@ async function listen( host: StudioAgentHost ): Promise< string | undefined > {
 				return;
 			}
 			const reply = await ( async () => {
-				const { cwd, argv } = JSON.parse( request.slice( 0, end ) ) as {
+				const { cwd, argv, env } = JSON.parse( request.slice( 0, end ) ) as {
 					cwd: string;
 					argv: string[];
+					env: Record< string, string >;
 				};
-				return wpCliProcess( cwd, argv );
+				return wpCliProcess( cwd, argv, env );
 			} )().catch( ( error: unknown ) => ( {
 				error: error instanceof Error ? error.message : String( error ),
 			} ) );

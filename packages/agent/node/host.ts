@@ -20,12 +20,12 @@ export interface HostSite {
 	enableDebugLog?: boolean;
 }
 
-/** A process to spawn: its binary, arguments, directory, and what its environment adds. */
+/** A process to spawn: its binary, arguments, directory and environment. */
 export interface WpCliProcess {
 	command: string;
 	args: string[];
 	cwd: string;
-	env: Record< string, string >;
+	env: Record< string, string | undefined >;
 }
 
 export interface WpCliOutput {
@@ -71,10 +71,15 @@ export interface StudioAgentHost {
 		): Promise< void >;
 		wpCli( site: HostSite, args: string[] ): Promise< WpCliOutput >;
 		/**
-		 * The process `studio wp` runs for the arguments after `wp` in a folder,
-		 * for the agent's shell to run itself; it rejects with why it does not run.
+		 * The process `studio wp` runs for the arguments after `wp`, given in
+		 * folder `cwd` with environment `env`, for the agent's shell to run
+		 * itself; it rejects with why it does not run.
 		 */
-		wpCliProcess?( folder: string, argv: string[] ): Promise< WpCliProcess >;
+		wpCliProcess?(
+			cwd: string,
+			argv: string[],
+			env: Record< string, string | undefined >
+		): Promise< WpCliProcess >;
 	};
 	previews: {
 		list( site: HostSite ): Promise< Snapshot[] >;

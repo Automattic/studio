@@ -24,7 +24,6 @@ import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { findSiteByFolder, getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { resolvePhpTransformer } from 'cli/lib/import-runtime';
-import { PHP_CHILD_ENV } from 'cli/lib/native-php/php-process';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { getSnapshotsFromConfig } from 'cli/lib/snapshots';
@@ -135,10 +134,7 @@ export const cliAgentHost: StudioAgentHost = {
 				false,
 				new Logger( { onProgress } )
 			),
-		wpCliProcess: async ( folder, argv ) => ( {
-			...( await resolveWpCliProcess( folder, argv ) ),
-			env: PHP_CHILD_ENV,
-		} ),
+		wpCliProcess: ( cwd, argv, env ) => resolveWpCliProcess( cwd, argv, env ),
 		wpCli: ( site, args ) =>
 			withDaemon( async () => {
 				await using command = await runWpCliCommand( await getSiteByFolder( site.path ), args );

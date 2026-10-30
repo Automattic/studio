@@ -55,6 +55,17 @@ describe.runIf( WORDPRESS && process.platform !== 'win32' )( 'wp in the agent sh
 			status: 0,
 		} );
 		expect( ( await run( 'wp post get 999999 --field=ID' ) ).status ).toBe( 1 );
+		// The site at --path, from any folder, as studio wp reads it.
+		expect( await run( `cd / && wp --path=${ WORDPRESS } eval 'echo ABSPATH;'` ) ).toMatchObject( {
+			stdout: `${ WORDPRESS }/`,
+			status: 0,
+		} );
+		// The shell's environment, less what Windows could not spawn PHP with.
+		expect(
+			await run(
+				`SMALL=kept BIG=$(printf '%9000s') wp eval 'echo getenv( "SMALL" ), " ", var_export( getenv( "BIG" ), true );'`
+			)
+		).toMatchObject( { stdout: 'kept false', status: 0 } );
 		expect( await run( 'wp shell' ) ).toMatchObject( {
 			stderr: expect.stringContaining( 'does not support the WP-CLI `shell` command' ),
 			status: 1,

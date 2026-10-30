@@ -1,13 +1,15 @@
+import path from 'path';
 import { __ } from '@wordpress/i18n';
 import { ArgumentsCamelCase } from 'yargs';
 import yargsParser from 'yargs-parser';
 import { getSiteContainingFolder } from 'cli/lib/cli-config/sites';
+import { getPhpChildEnv } from 'cli/lib/native-php/php-process';
 import {
 	prepareWpCliCommand,
 	runWpCliCommand,
 	type WpCliProcess,
 } from 'cli/lib/run-wp-cli-command';
-import { validatePhpVersion } from 'cli/lib/utils';
+import { untildify, validatePhpVersion } from 'cli/lib/utils';
 import { getUnsupportedWpCliOptionMessage } from 'cli/lib/wp-cli-options';
 import { Logger, LoggerError } from 'cli/logger';
 import { GlobalOptions } from 'cli/types';
@@ -51,19 +53,29 @@ function removeArgumentFromArgv(
 }
 
 /**
- * What `studio wp` runs for the arguments after `wp` in a folder: the site's
- * WP-CLI process, or a LoggerError saying why it does not run.
+ * What `studio wp` runs for the arguments after `wp`, given in folder `cwd`
+ * with environment `env`: the site's WP-CLI process, for the site at `--path`
+ * or containing `cwd`, or a LoggerError saying why it does not run.
  */
 export async function resolveWpCliProcess(
-	siteFolder: string,
+	cwd: string,
 	argv: string[],
+	env: NodeJS.ProcessEnv,
 	findSite: ( folder: string ) => Promise< SiteData > = getSiteContainingFolder
-): Promise< WpCliProcess > {
+): Promise< WpCliProcess & { env: NodeJS.ProcessEnv } > {
 	const { args, phpVersion } = parseWpCliArgv( argv );
-	const site = await findSite( siteFolder );
-	return prepareWpCliCommand( site, args, {
+	// `studio wp`'s site is its global --path (-p) option, as yargs reads it.
+	const { path: sitePath } = yargsParser( argv, {
+		string: [ 'path' ],
+		alias: { path: [ 'p' ] },
+	} );
+	const site = await findSite(
+		sitePath ? path.resolve( cwd, untildify( String( sitePath ) ) ) : cwd
+	);
+	const command = await prepareWpCliCommand( site, args, {
 		phpVersion: validatePhpVersion( phpVersion ?? site.phpVersion ),
 	} );
+	return { ...command, env: getPhpChildEnv( undefined, env ) };
 }
 
 function parseWpCliArgv( argv: string[] ): { args: string[]; phpVersion?: string } {

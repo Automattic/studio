@@ -1,8 +1,10 @@
 import { getLocalizedLink, REPORT_ISSUE_URL } from '@studio/common/lib/docs-links';
 import { __ } from '@wordpress/i18n';
+import { RotateCcwIcon } from 'lucide-react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
+import { useSetOnboardingHints } from '@/data/queries/use-onboarding-hints';
 import { useResetAppearance, useResetInterface } from '@/data/queries/use-reset-interface';
 import { useSidebarPreferences } from '@/data/queries/use-sidebar-pins';
 import { useUserLocale } from '@/data/queries/use-user-locale';
@@ -112,8 +114,9 @@ export function useSettingCommands(
 	const locale = useUserLocale();
 	const resetAppearance = useResetAppearance();
 	const resetInterface = useResetInterface();
+	const setHints = useSetOnboardingHints();
 
-	return getSettingCommands( {
+	const commands = getSettingCommands( {
 		scope,
 		site,
 		signedIn: ! user.isSuccess || !! user.data,
@@ -138,4 +141,24 @@ export function useSettingCommands(
 		},
 		openSettings,
 	} );
+	if ( scope === 'studio' ) {
+		commands.push( {
+			id: 'reset-tips',
+			group: 'commands',
+			label: __( 'Reset tips' ),
+			icon: RotateCcwIcon,
+			keywords: [ __( 'Hints' ), __( 'First use' ) ],
+			run: () => {
+				if ( setHints.isPending ) return;
+				setHints.mutate(
+					{ annotateHintDismissed: false },
+					{
+						onSuccess: () => toast.success( __( 'Tips reset.' ) ),
+						onError: () => toast.error( __( 'Could not reset tips. Please try again.' ) ),
+					}
+				);
+			},
+		} );
+	}
+	return commands;
 }

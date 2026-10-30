@@ -116,3 +116,17 @@ it.each( [ false, true ] )(
 		);
 	}
 );
+
+it( 'resets tips without resetting guide progress or interface preferences', async () => {
+	const { connector, result } = setup( false );
+	const reset = () => result.current.find( ( entry ) => entry.id === 'reset-tips' );
+	await waitFor( () => expect( reset() ).toBeDefined() );
+	act( () => reset()!.run() );
+	await waitFor( () =>
+		expect( connector.setOnboardingHints ).toHaveBeenCalledWith( {
+			annotateHintDismissed: false,
+		} )
+	);
+	expect( connector.setUserPreferences ).not.toHaveBeenCalled();
+	expect( connector.setOnboardingCompleted ).not.toHaveBeenCalled();
+} );

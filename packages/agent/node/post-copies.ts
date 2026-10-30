@@ -122,6 +122,74 @@ export async function postCopiesFact(
 		: undefined;
 }
 
+const PAGES_INDEX = 'pages.tsv';
+
+// A page's address on the site, as get_permalink() builds it before plugins
+// filter it (_get_page_link() in wp-includes/link-template.php): the homepage
+// Reading picks at the site's root; with pretty permalinks, a page anyone or an
+// administrator can view at its slug under its parents' (get_page_uri()), with
+// a trailing slash when the structure ends in one; any other at ?page_id.
+function pageAddresses( site: WordPressSite ): string[][] {
+	const pages = site.query< {
+		id: number;
+		parent: number;
+		slug: string;
+		status: string;
+		title: string;
+	} >(
+		`SELECT ID AS id, post_parent AS parent, post_name AS slug, post_status AS status, post_title AS title
+		FROM ${ site.prefix }posts WHERE post_type = 'page' AND post_status NOT IN ('auto-draft', 'inherit', 'trash')
+		ORDER BY ID`
+	);
+	const byId = new Map( pages.map( ( page ) => [ page.id, page ] ) );
+	const structure = String( site.option( 'permalink_structure' ) ?? '' );
+	const front =
+		site.option( 'show_on_front' ) === 'page' ? Number( site.option( 'page_on_front' ) ) : 0;
+	const uri = ( page: ( typeof pages )[ number ] ): string => {
+		const parent = byId.get( page.parent );
+		return parent?.slug ? `${ uri( parent ) }/${ page.slug }` : page.slug;
+	};
+	const address = ( page: ( typeof pages )[ number ] ) => {
+		if ( page.id === front ) {
+			return '/';
+		}
+		if ( ! structure || ! [ 'publish', 'private' ].includes( page.status ) ) {
+			return `/?page_id=${ page.id }`;
+		}
+		return `/${ uri( page ) }${ structure.endsWith( '/' ) ? '/' : '' }`;
+	};
+	return pages.map( ( page ) => [
+		String( page.id ),
+		page.status,
+		page.slug,
+		address( page ),
+		page.title.replace( /\s+/g, ' ' ),
+	] );
+}
+
+/**
+ * Site fact: how many pages the site has, with the index Studio keeps of them
+ * in its workspace, one line each, so the fact reads the same at any number.
+ */
+export async function pagesFact(
+	site: WordPressSite,
+	host: StudioAgentHost
+): Promise< string | undefined > {
+	const pages = pageAddresses( site );
+	const workspace = pages.length ? await openWorkspace( host, site.root ) : undefined;
+	if ( ! workspace ) {
+		return undefined;
+	}
+	const index = path.join( workspace, PAGES_INDEX );
+	const content = [ [ 'ID', 'status', 'slug', 'address', 'title' ], ...pages ]
+		.map( ( row ) => row.join( '\t' ) )
+		.join( '\n' );
+	if ( ( await readCopy( index ) ) !== `${ content }\n` ) {
+		await writeFile( index, `${ content }\n`, 'utf8' );
+	}
+	return `Pages: ${ pages.length }; each one's ID, status, slug, address on the site and title are in ${ index }, one per line.`;
+}
+
 export const postCopies: SiteChangeSource = {
 	name: 'post copies',
 	saves: true,

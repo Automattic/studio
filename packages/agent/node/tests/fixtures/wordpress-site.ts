@@ -35,7 +35,7 @@ export function createSite( prefix = 'wp_' ) {
 		}
 	};
 	write( `
-		CREATE TABLE ${ prefix }posts ( ID INTEGER PRIMARY KEY, post_type TEXT, post_status TEXT, post_name TEXT, post_content TEXT, post_date TEXT, post_title TEXT DEFAULT '', post_modified_gmt TEXT DEFAULT '2026-10-22 00:00:00' );
+		CREATE TABLE ${ prefix }posts ( ID INTEGER PRIMARY KEY, post_type TEXT, post_status TEXT, post_name TEXT, post_content TEXT, post_date TEXT, post_title TEXT DEFAULT '', post_parent INTEGER DEFAULT 0, post_modified_gmt TEXT DEFAULT '2026-10-22 00:00:00' );
 		CREATE TABLE ${ prefix }terms ( term_id INTEGER PRIMARY KEY, name TEXT );
 		CREATE TABLE ${ prefix }term_taxonomy ( term_taxonomy_id INTEGER PRIMARY KEY, term_id INTEGER, taxonomy TEXT );
 		CREATE TABLE ${ prefix }term_relationships ( object_id INTEGER, term_taxonomy_id INTEGER );
@@ -53,16 +53,18 @@ export function createSite( prefix = 'wp_' ) {
 		content = '',
 		theme = 1,
 		status = 'publish',
-		title = ''
+		title = '',
+		parent = 0
 	) => {
 		write(
-			`INSERT INTO ${ prefix }posts ( ID, post_type, post_status, post_name, post_content, post_date, post_title ) VALUES ( ?, ?, ?, ?, ?, '2026-10-22', ? )`,
+			`INSERT INTO ${ prefix }posts ( ID, post_type, post_status, post_name, post_content, post_date, post_title, post_parent ) VALUES ( ?, ?, ?, ?, ?, '2026-10-22', ?, ? )`,
 			id,
 			type,
 			status,
 			slug,
 			content,
-			title
+			title,
+			parent
 		);
 		write( `INSERT INTO ${ prefix }term_relationships VALUES ( ?, ? )`, id, theme );
 	};

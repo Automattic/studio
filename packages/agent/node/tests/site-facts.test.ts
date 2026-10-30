@@ -1,4 +1,5 @@
-import { mkdirSync, rmSync, writeFileSync } from 'fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import os from 'os';
 import path from 'path';
 import { expect, it, vi } from 'vitest';
 import { createFakeHost, fakeSite } from '@studio/agent/node/tests/fake-host';
@@ -106,7 +107,6 @@ it.each( [ 'wp_', 'site2_' ] )(
 			'{"version":3,"styles":{"color":{"text":"#000"}}}'
 		);
 		expect( await site.facts() ).toEqual( BASE );
-
 		// An older copy of the header, then the latest, which WordPress renders.
 		site.save( 10, 'wp_template_part', 'header' );
 		site.save( 14, 'wp_template_part', 'header' );
@@ -309,5 +309,64 @@ it.each( [
 			...BASE,
 		] );
 		vi.mocked( host.sites.findByFolder ).mockReset();
+	}
+);
+
+// get_permalink() of each page (_get_page_link()): the homepage at the root, a
+// viewable page at its parents' slugs and its own, any other at ?page_id.
+it.each( [
+	{
+		structure: '/%year%/%postname%/',
+		addresses: [ '/', '/about/', '/about/team/', '/?page_id=12', '/members/' ],
+	},
+	{
+		structure: '/%postname%',
+		addresses: [ '/', '/about', '/about/team', '/?page_id=12', '/members' ],
+	},
+	{
+		structure: '',
+		addresses: [ '/', '/?page_id=10', '/?page_id=11', '/?page_id=12', '/?page_id=13' ],
+	},
+] )(
+	"states how many pages the site has, and keeps each one's address and title in an index: $structure",
+	async ( { structure, addresses } ) => {
+		vi.stubEnv( 'DEV_CONFIG_DIR', mkdtempSync( path.join( os.tmpdir(), 'config-' ) ) );
+		const site = createSite( 'wp_' );
+		site.setOptions( {
+			permalink_structure: structure,
+			show_on_front: 'page',
+			page_on_front: '9',
+		} );
+		site.save( 9, 'page', 'home', '', 1, 'publish', 'Home' );
+		site.save( 10, 'page', 'about', '', 1, 'publish', 'About\tus' );
+		site.save( 11, 'page', 'team', '', 1, 'publish', 'Team', 10 );
+		site.save( 12, 'page', 'draft-page', '', 1, 'draft', 'Draft' );
+		site.save( 13, 'page', 'members', '', 1, 'private', 'Members' );
+		site.save( 14, 'page', 'gone', '', 1, 'trash', 'Gone' );
+		vi.mocked( host.sites.findByFolder ).mockResolvedValue( {
+			...fakeSite,
+			id: 'site-id',
+			path: site.root,
+		} as HostSite );
+		try {
+			const index = path.join( process.env.DEV_CONFIG_DIR!, 'workspace/site-id/pages.tsv' );
+			expect( await site.facts() ).toContain(
+				`Pages: 5; each one's ID, status, slug, address on the site and title are in ${ index }, one per line.`
+			);
+			expect( readFileSync( index, 'utf8' ) ).toBe(
+				[
+					'ID\tstatus\tslug\taddress\ttitle',
+					`9\tpublish\thome\t${ addresses[ 0 ] }\tHome`,
+					`10\tpublish\tabout\t${ addresses[ 1 ] }\tAbout us`,
+					`11\tpublish\tteam\t${ addresses[ 2 ] }\tTeam`,
+					`12\tdraft\tdraft-page\t${ addresses[ 3 ] }\tDraft`,
+					`13\tprivate\tmembers\t${ addresses[ 4 ] }\tMembers`,
+					'',
+				].join( '\n' )
+			);
+		} finally {
+			vi.mocked( host.sites.findByFolder ).mockReset();
+			vi.unstubAllEnvs();
+		}
 	}
 );

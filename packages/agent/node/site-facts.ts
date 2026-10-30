@@ -9,7 +9,7 @@ import {
 	jetpackFact,
 	wooCommerceFact,
 } from '@studio/agent/node/plugins';
-import { postCopiesFact } from '@studio/agent/node/post-copies';
+import { pagesFact, postCopiesFact } from '@studio/agent/node/post-copies';
 import { savedCopiesFact } from '@studio/agent/node/saved-copies';
 import { readWordPressSite, type WordPressSite } from '@studio/agent/node/site-database';
 import { themePresetsFact } from '@studio/agent/node/theme-presets';
@@ -103,6 +103,7 @@ const SITE_FACTS: SiteFact[] = [
 	activeThemeFact,
 	themePresetsFact,
 	homepageFact,
+	pagesFact,
 	postCopiesFact,
 	activePluginsFact,
 	jetpackFact,

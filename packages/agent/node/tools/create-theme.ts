@@ -160,10 +160,18 @@ export const createThemeTool = defineTool(
 		}
 		await runWpCli( context.host, site, [ 'theme', 'activate', slug ] );
 		const written = Object.keys( files ).join( ', ' );
+		// The files as written, which the agent edits next rather than reads.
+		const contents = Object.entries( files ).map(
+			( [ file, content ] ) =>
+				`wp-content/themes/${ slug }/${ file }:\n~~~\n${ content.trimEnd() }\n~~~`
+		);
 		return textResult(
-			child
-				? `Made ${ name }, a child theme of ${ child.parentName }, at wp-content/themes/${ slug }/ (${ written }), and activated it on ${ site.name }. WordPress reads each file it lacks from ${ parent } and merges its theme.json over ${ parent }'s (WP_Theme_JSON_Resolver::get_theme_data() in wp-includes/class-wp-theme-json-resolver.php): add only what changes.`
-				: `Made ${ name }, a block theme, at wp-content/themes/${ slug }/ (${ written }), and activated it on ${ site.name }. It has a structure and no look yet: its palette, fonts and styles go in theme.json, its header and footer in its parts. WordPress renders any template it lacks, such as archive or 404, with templates/index.html (wp-includes/template.php).`
+			[
+				child
+					? `Made ${ name }, a child theme of ${ child.parentName }, at wp-content/themes/${ slug }/ (${ written }), and activated it on ${ site.name }. WordPress reads each file it lacks from ${ parent } and merges its theme.json over ${ parent }'s (WP_Theme_JSON_Resolver::get_theme_data() in wp-includes/class-wp-theme-json-resolver.php): add only what changes.`
+					: `Made ${ name }, a block theme, at wp-content/themes/${ slug }/ (${ written }), and activated it on ${ site.name }. It has a structure and no look yet: its palette, fonts and styles go in theme.json, its header and footer in its parts. WordPress renders any template it lacks, such as archive or 404, with templates/index.html (wp-includes/template.php).`,
+				...contents,
+			].join( '\n\n' )
 		);
 	},
 	{ annotations: LOCAL_CHANGE }

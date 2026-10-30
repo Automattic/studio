@@ -1,4 +1,12 @@
-import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
+import {
+	cpSync,
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from 'fs';
 import os from 'os';
 import path from 'path';
 import { getOpenProblems } from '@studio/agent/node/open-problems';
@@ -54,8 +62,20 @@ describe.runIf( WORDPRESS )( 'create_theme', () => {
 		const open = getOpenProblems( host, {} );
 		const changes = new SiteChanges( host, open, async () => [ site ] );
 		await changes.snapshot();
-		await make( { name: 'Corner Bakehouse' } );
+		const made = await make( { name: 'Corner Bakehouse' } );
 		expect( ( await changes.settle() ).problems ).toEqual( [] );
+		// The result holds each file as written, for the agent to edit without reading it.
+		const text = made.content
+			.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
+			.join( '' );
+		for ( const file of [ 'theme.json', 'parts/header.html', 'templates/page.html' ] ) {
+			expect( text ).toContain(
+				`wp-content/themes/corner-bakehouse/${ file }:\n~~~\n${ readFileSync(
+					path.join( themes, 'corner-bakehouse', file ),
+					'utf8'
+				).trimEnd() }\n~~~`
+			);
+		}
 		expect( await open.raise() ).toEqual( [] );
 		const rendered = JSON.parse(
 			await runWpCli( host, site, [

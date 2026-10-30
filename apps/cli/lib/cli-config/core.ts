@@ -17,7 +17,7 @@ import { StatsMetric } from 'cli/lib/types/bump-stats';
 import { LoggerError } from 'cli/logger';
 
 /**
- * Durable origin of a site that was populated by `studio pull-reprint`:
+ * Durable origin of a site that was populated by `studio pull`:
  * where it syncs from. Present only on reprint-pulled sites.
  */
 const reprintOriginSchema = z.object( {
@@ -37,7 +37,7 @@ const reprintOriginSchema = z.object( {
  *                    written and must not be trusted as a healthy site.
  *   - `pull-failed`  the last reprint pull errored or was killed; the
  *                    site is half-written. Recovered by re-running
- *                    `pull-reprint --path <site>` (idempotent) or `site
+ *                    `pull --path <site>` (idempotent) or `site
  *                    delete`.
  *
  * Absent on records created before this field existed; readers treat a

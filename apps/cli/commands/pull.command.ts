@@ -1,31 +1,32 @@
 import { __ } from '@wordpress/i18n';
-import { parseSyncOptions } from 'cli/lib/sync-api';
 import { StudioArgv } from 'cli/types';
 
-export const builder = ( yargs: StudioArgv ) => {
-	return yargs
-		.option( 'options', {
-			type: 'string',
-			description: __(
-				'Comma-separated sync options: all, sqls, uploads, plugins, themes, contents'
-			),
-			coerce: ( val: string | undefined ) =>
-				val !== undefined ? parseSyncOptions( val ) : undefined,
-		} )
+export const builder = ( builderYargs: StudioArgv ) => {
+	return builderYargs
 		.option( 'remote-site', {
 			type: 'string',
-			description: __( 'Remote site URL or ID' ),
+			describe: __( 'URL or WordPress.com ID of the remote site to pull from' ),
 		} )
-		.option( 'include-path-list', {
-			type: 'array',
-			description: __( 'Backup node ids to pull when using the "paths" option' ),
-			hidden: true,
-			coerce: ( value ) => {
-				if ( ! Array.isArray( value ) ) {
-					throw new Error( __( 'include-path-list must be an array' ) );
-				}
-				return value.map( String );
-			},
+		.option( 'only', {
+			type: 'string',
+			array: true,
+			describe: __(
+				'Restrict the pull to specific wp-content files or folders (e.g. plugins/akismet, themes, uploads/index.php); repeatable.'
+			),
+		} )
+		.option( 'skip-database', {
+			type: 'boolean',
+			describe: __( 'Do not pull the database (keeps the local one)' ),
+		} )
+		.option( 'skip-files', {
+			type: 'boolean',
+			describe: __( 'Pull only the database (keeps the local files)' ),
+			conflicts: [ 'only', 'skip-database' ],
+		} )
+		.option( 'verbose', {
+			type: 'boolean',
+			describe: __( 'Show detailed error information and executed commands' ),
+			default: false,
 		} )
 		.option( 'suppress-tracks-event', {
 			type: 'boolean',
@@ -37,7 +38,7 @@ export const builder = ( yargs: StudioArgv ) => {
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'pull',
-		describe: __( 'Pull a WordPress.com site to your local site' ),
+		describe: __( 'Pull a WordPress.com or Pressable site to your local site' ),
 		builder,
 		handler: async ( argv ) => {
 			const { commandHandler } = await import( 'cli/commands/pull' );

@@ -1,4 +1,4 @@
-import { SyncCommandLoggerAction } from '@studio/common/logger-actions';
+import { PullCommandLoggerAction } from '@studio/common/logger-actions';
 import type { SyncActivity } from '@studio/common/lib/sync/activity';
 import type { PushPhase } from '@studio/common/types/sync';
 
@@ -38,23 +38,17 @@ export function canCancelPush( phase: PushPhase | undefined ): boolean {
 	return phase === undefined || CANCELLABLE_PUSH_PHASES.includes( phase );
 }
 
-// Everything the CLI's `pull` reports before it touches the local site. The
-// first local write is `stopSite`, and the import actions that follow come from
-// a different logger enum — so this is an allow-list rather than a deny-list:
-// an action we don't recognise is treated as local work in progress.
+// Everything the CLI's `pull` reports before it writes to the local site. This is an allow-list
+// rather than a deny-list: an action we don't recognise is treated as local work in progress.
 const PULL_REMOTE_ACTIONS: string[] = [
-	SyncCommandLoggerAction.START_DAEMON,
-	SyncCommandLoggerAction.LOAD_SITES,
-	SyncCommandLoggerAction.FETCH_REMOTE_SITES,
-	SyncCommandLoggerAction.INITIATE_BACKUP,
-	SyncCommandLoggerAction.POLL_BACKUP,
-	SyncCommandLoggerAction.DOWNLOAD,
+	PullCommandLoggerAction.LOAD_SITES,
+	PullCommandLoggerAction.LOAD_WPCOM_SITES,
+	PullCommandLoggerAction.PREFLIGHT,
 ];
 
 /**
- * A pull can be stopped while the work is still remote (creating the backup,
- * downloading it). Once the CLI moves on to writing the local site, killing it
- * would leave a half-imported site behind, so cancelling is refused.
+ * A pull can be stopped until it starts writing the local site. After that,
+ * stopping would leave a half-pulled site behind, so cancelling is refused.
  */
 export function canCancelPull( action: string | undefined ): boolean {
 	// No progress reported yet: the CLI has not started doing anything local.

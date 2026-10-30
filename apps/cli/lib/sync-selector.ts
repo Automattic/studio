@@ -101,42 +101,6 @@ function convertCheckedToSyncOptions( selected: TreeNode[] ): {
 	};
 }
 
-function convertCheckedToPullOptions( selected: TreeNode[] ): {
-	optionsToSync: SyncOption[];
-	includePathList?: string[];
-} {
-	const hasDatabase = selected.some( ( n ) => n.value === 'database' );
-	const wpContentItems = selected.filter(
-		( n ) => n.value !== 'database' && n.value !== 'wp-content'
-	);
-
-	if ( hasDatabase && wpContentItems.length === 0 ) {
-		return { optionsToSync: [ 'sqls' ] };
-	}
-
-	const optionsToSync: SyncOption[] = [];
-	const pathIds: string[] = [];
-
-	if ( hasDatabase ) {
-		optionsToSync.push( 'sqls' );
-	}
-
-	for ( const node of wpContentItems ) {
-		if ( node.pathId ) {
-			pathIds.push( node.pathId );
-		}
-	}
-
-	if ( pathIds.length > 0 ) {
-		optionsToSync.unshift( 'paths' );
-	}
-
-	return {
-		optionsToSync,
-		includePathList: pathIds.length > 0 ? pathIds : undefined,
-	};
-}
-
 function isAllSelected( selected: TreeNode[] ): boolean {
 	const hasDatabase = selected.some( ( n ) => n.value === 'database' );
 	const hasWpContent = selected.some( ( n ) => n.value === 'wp-content' && n.checked );
@@ -181,39 +145,4 @@ export async function fetchPullTree(
 	const wpContentChildren = buildTreeFromRemote( entries );
 	const tree = buildRootTree( wpContentChildren );
 	return { tree, rewindId };
-}
-
-export async function selectSyncItemsForPull(
-	token: string,
-	remoteSiteId: number,
-	tree: TreeNode[]
-): Promise< { optionsToSync: SyncOption[]; includePathList?: string[] } | undefined > {
-	if ( tree.length === 0 ) {
-		return { optionsToSync: [ 'all' ] };
-	}
-
-	const selected = await treeCheckbox( {
-		message: __( 'Select items to sync' ),
-		tree,
-		onExpand: async ( node ) => {
-			const rewindId = await fetchLatestRewindId( token, remoteSiteId );
-			const entries = await fetchRemoteFileTree(
-				token,
-				remoteSiteId,
-				rewindId,
-				`/wp-content/${ node.value }`
-			);
-			return buildTreeFromRemote( entries, node.depth + 1 );
-		},
-	} );
-
-	if ( selected.length === 0 ) {
-		return undefined;
-	}
-
-	if ( isAllSelected( selected ) ) {
-		return { optionsToSync: [ 'all' ] };
-	}
-
-	return convertCheckedToPullOptions( selected );
 }

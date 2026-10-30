@@ -40,12 +40,11 @@ describe( 'pullSite', () => {
 		expect( execute ).not.toHaveBeenCalled();
 	} );
 
-	it( 'passes backup node ids with commas as separate argv values', async () => {
+	it( 'passes each selected path as its own --only flag', async () => {
 		const { emitter, execute } = fakeCli();
-		const includePathList = [ 'cjE6,ZjE6Lw==', 'cjI6,ZjI6Lw==', 'ZjM6Lw==' ];
 		const pulling = pullSite( execute, '/sites/local', 42, {
-			optionsToSync: [ 'paths' ],
-			includePathList,
+			onlyPaths: [ 'themes/one,two', 'uploads' ],
+			skipDatabase: true,
 		} );
 
 		emitter.emit( 'success' );
@@ -58,10 +57,11 @@ describe( 'pullSite', () => {
 				'/sites/local',
 				'--remote-site',
 				'42',
-				'--options',
-				'paths',
-				'--include-path-list',
-				...includePathList,
+				'--only',
+				'themes/one,two',
+				'--only',
+				'uploads',
+				'--skip-database',
 				'--suppress-tracks-event',
 			],
 			{ output: 'capture' }
@@ -111,20 +111,15 @@ describe( 'cancellable phases', () => {
 	} );
 
 	it( 'allows stopping a pull until the CLI starts writing the local site', () => {
-		// Everything the CLI does before the first local write, in the order it
-		// reports it — a pull is cancellable throughout.
+		// Everything the CLI does before the first local write, in the order it reports it.
 		expect( canCancelPull( undefined ) ).toBe( true );
-		expect( canCancelPull( 'startDaemon' ) ).toBe( true );
 		expect( canCancelPull( 'loadSites' ) ).toBe( true );
-		expect( canCancelPull( 'fetchRemoteSites' ) ).toBe( true );
-		expect( canCancelPull( 'initiateBackup' ) ).toBe( true );
-		expect( canCancelPull( 'download' ) ).toBe( true );
+		expect( canCancelPull( 'loadWpComSites' ) ).toBe( true );
+		expect( canCancelPull( 'preflight' ) ).toBe( true );
 
-		// `stopSite` is the first local write; the import actions after it come
-		// from another logger enum, so anything unrecognised is refused too.
-		expect( canCancelPull( 'stopSite' ) ).toBe( false );
-		expect( canCancelPull( 'extractBackup' ) ).toBe( false );
-		expect( canCancelPull( 'importDatabase' ) ).toBe( false );
+		// Downloading writes into the site, and anything unrecognised is refused too.
+		expect( canCancelPull( 'downloadFiles' ) ).toBe( false );
+		expect( canCancelPull( 'createSite' ) ).toBe( false );
 		expect( canCancelPull( 'startSite' ) ).toBe( false );
 	} );
 

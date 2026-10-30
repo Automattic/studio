@@ -10,14 +10,14 @@ describe( 'sync selections', () => {
 		expect( plugin.folder ).toBe( true );
 		expect( plugin.expandable ).toBe( false );
 	} );
-	it( 'sends remote backup IDs for selective pull and paths for push', () => {
+	it( 'sends wp-content paths for selective push and pull', () => {
 		const nodes = checkNodes(
 			remoteNodes( { theme: { id: 'backup-theme-42', type: 'dir' } }, '/wp-content/themes/' ),
 			true
 		);
 		expect( syncOptions( nodes, false ) ).toEqual( {
 			push: { optionsToSync: [ 'themes' ], specificSelectionPaths: [ 'themes/theme' ] },
-			pull: { optionsToSync: [ 'paths' ], includePathList: [ 'backup-theme-42' ] },
+			pull: { onlyPaths: [ 'themes/theme' ], skipDatabase: true },
 		} );
 	} );
 	it( 'marks a parent partially selected without including unselected children', () => {

@@ -9,10 +9,13 @@ import {
 	selectPullItems,
 } from 'cli/lib/pull/reprint-selector';
 import { LoggerError } from 'cli/logger';
+import type { SyncOption } from '@studio/common/types/sync';
 
 /** What to pull. An empty selection pulls everything. */
 export interface PullSelection {
 	skipDatabase?: boolean;
+	/** Pulls only the database and keeps the local files. Only for sites pulled before. */
+	skipFiles?: boolean;
 	fileOnlyPaths?: string[];
 }
 
@@ -20,6 +23,25 @@ export interface PullSelection {
 export interface CliSelectionOptions {
 	only?: string[];
 	skipDatabase?: boolean;
+	skipFiles?: boolean;
+}
+
+const FILE_SYNC_OPTIONS = [ 'plugins', 'themes', 'uploads' ] as const;
+
+/**
+ * The selection for push-style sync options, such as `themes,sqls`. `contents`
+ * stands for the rest of wp-content, so it pulls every file.
+ */
+export function pullSelectionFromSyncOptions( options: SyncOption[] ): CliSelectionOptions {
+	if ( options.length === 0 || options.includes( 'all' ) ) {
+		return {};
+	}
+	const skipDatabase = ! options.includes( 'sqls' );
+	if ( options.includes( 'contents' ) ) {
+		return { skipDatabase };
+	}
+	const only = FILE_SYNC_OPTIONS.filter( ( option ) => options.includes( option ) );
+	return only.length > 0 ? { only, skipDatabase } : { skipFiles: true };
 }
 
 /**
@@ -119,6 +141,19 @@ export async function applySelection( params: {
 			);
 		}
 	};
+
+	if ( cli.skipFiles ) {
+		if ( isFirstPull ) {
+			throw new LoggerError(
+				__(
+					'The first pull of a site has to include its files. Pull the whole site once, then pull only the database.'
+				)
+			);
+		}
+		const selection: PullSelection = { skipFiles: true };
+		savePullSelection( session, selection );
+		return selection;
+	}
 
 	const cliOnly = cli.only?.filter( ( value ) => value.trim().length > 0 ) ?? [];
 	const cliDriven = cliOnly.length > 0 || cli.skipDatabase;

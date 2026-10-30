@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { DAY_MS, DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
-import { isAutomatticianEmail } from '@studio/common/lib/automattician';
+import { isAutomatticianAccount } from '@studio/common/lib/automattician';
 import type { Snapshot } from '@studio/common/types/snapshot';
 
 // WordPress.com's preview funnel reports its own previews and limit.
@@ -35,8 +35,8 @@ export type SnapshotUsage = z.infer< typeof wpcomSnapshotUsageSchema >;
  * opens preview sites to Automatticians first, so this is a rollout gate: once it opens them to
  * everyone, it goes away and every new preview is a WordPress.com site.
  */
-export function createsPreviewsOnWpcom( email: string | undefined | null ): boolean {
-	return isAutomatticianEmail( email );
+export function createsPreviewsOnWpcom( accessToken: string ): Promise< boolean > {
+	return isAutomatticianAccount( accessToken );
 }
 
 // The link to give out: a WordPress.com preview opens for others only through its preview link.
@@ -63,14 +63,11 @@ export function isSnapshotExpired( snapshot: Snapshot ): boolean {
 }
 
 // The account's preview-site count and limit, from wherever it creates new previews.
-export async function fetchSnapshotUsage( token: {
-	accessToken: string;
-	email?: string;
-} ): Promise< SnapshotUsage > {
-	const onWpcom = createsPreviewsOnWpcom( token.email );
+export async function fetchSnapshotUsage( accessToken: string ): Promise< SnapshotUsage > {
+	const onWpcom = await createsPreviewsOnWpcom( accessToken );
 	const endpoint = onWpcom ? 'wow-funnel/pending' : 'jurassic-ninja/usage';
 	const response = await fetch( `https://public-api.wordpress.com/wpcom/v2/${ endpoint }`, {
-		headers: { Authorization: `Bearer ${ token.accessToken }` },
+		headers: { Authorization: `Bearer ${ accessToken }` },
 	} );
 	if ( ! response.ok ) {
 		throw new Error( `Failed to fetch snapshot usage: ${ response.status }` );

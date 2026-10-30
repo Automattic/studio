@@ -403,7 +403,7 @@ export function createIpcConnector(): Connector {
 
 		async getSnapshotUsage(): Promise< SnapshotUsage | null > {
 			const token = ( await ipcApi.getAuthenticationToken() ) as StoredAuthToken | null;
-			return token ? fetchSnapshotUsage( token ) : null;
+			return token ? fetchSnapshotUsage( token.accessToken ) : null;
 		},
 
 		async getStudioAssistantQuota(): Promise< StudioAssistantQuota | null > {

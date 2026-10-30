@@ -1,5 +1,6 @@
 import os from 'os';
 import path from 'path';
+import { isAutomatticianAccount } from '@studio/common/lib/automattician';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
@@ -29,6 +30,9 @@ vi.mock( 'cli/lib/cli-config/sites', async () => ( {
 } ) );
 vi.mock( 'cli/lib/validation', () => ( {
 	validateSiteSize: vi.fn(),
+} ) );
+vi.mock( '@studio/common/lib/automattician', () => ( {
+	isAutomatticianAccount: vi.fn(),
 } ) );
 vi.mock( '@studio/common/lib/get-wordpress-version', () => ( {
 	getWordPressVersion: vi.fn().mockReturnValue( '6.8.1' ),
@@ -77,7 +81,7 @@ describe( 'Preview Create Command', () => {
 		id: 123,
 		expiresIn: 3600,
 		expirationTime: Date.now() + 3600000,
-		email: 'test@automattic.com',
+		email: 'test@example.com',
 		displayName: 'Test User',
 	};
 	const mockArchiver = {
@@ -94,6 +98,7 @@ describe( 'Preview Create Command', () => {
 		vi.spyOn( path, 'basename' ).mockReturnValue( mockBasename );
 
 		vi.mocked( readAuthToken ).mockResolvedValue( mockAuthToken );
+		vi.mocked( isAutomatticianAccount ).mockResolvedValue( true );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( {
 			id: 'site-123',
 			path: mockFolder,
@@ -158,8 +163,8 @@ describe( 'Preview Create Command', () => {
 		expect( cleanup ).toHaveBeenCalledWith( mockArchivePath );
 	} );
 
-	it( 'creates the preview on Jurassic Ninja for accounts WordPress.com does not admit yet', async () => {
-		vi.mocked( readAuthToken ).mockResolvedValue( { ...mockAuthToken, email: 'test@example.com' } );
+	it( 'creates the preview on Jurassic Ninja for accounts outside the Automattic team', async () => {
+		vi.mocked( isAutomatticianAccount ).mockResolvedValue( false );
 		vi.mocked( uploadArchive ).mockResolvedValue( {
 			site_id: mockAtomicSiteId,
 			site_url: 'test-preview.wp.build',

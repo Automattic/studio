@@ -79,7 +79,7 @@ export async function runCommand(
 
 		reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
 		let preview: PreviewSite;
-		if ( createsPreviewsOnWpcom( token.email ) ) {
+		if ( await createsPreviewsOnWpcom( token.accessToken ) ) {
 			const attachmentId = await uploadPreviewArchive( archivePath, token.accessToken );
 			logger.reportSuccess( __( 'Archive uploaded' ) );
 

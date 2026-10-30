@@ -50,6 +50,7 @@
 	flex-shrink: 0;
 	align-items: center;
 	border-radius: var( --radius-lg );
+	transition: background-color var( --motion-duration-feedback ) ease;
 }
 
 .annotationControl[data-active='true'] {
@@ -68,7 +69,7 @@
 	grid-template-columns: 0fr;
 }
 
-.annotationControl[data-active='true'] .annotationSendSlot {
+.annotationSendSlot[data-open='true'] {
 	grid-template-columns: 1fr;
 }
 
@@ -76,19 +77,58 @@
 	display: flex;
 	align-items: center;
 	min-width: 0;
+	padding-block: var( --space-0_5 );
 	overflow: hidden;
 }
 
+.annotationSendMotion {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	opacity: 0;
+	transition: opacity var( --motion-duration-feedback ) ease;
+}
+
+.annotationSendSlot[data-open='true'] .annotationSendMotion {
+	opacity: 1;
+}
+
 .annotationSend {
-	margin-inline-end: var( --space-0_5 );
+	margin-inline-end: var( --space-1 );
+}
+
+.annotationSendSlot[data-open='false'] .annotationSend {
+	--button-background: var( --accent );
+	color: var( --accent-foreground );
+	opacity: 1;
 }
 
 @media ( prefers-reduced-motion: no-preference ) {
 	.annotationSendSlot {
-		transition: grid-template-columns var( --motion-duration-surface ) var( --motion-ease-enter );
+		transition: grid-template-columns var( --motion-duration-surface ) var( --motion-ease-layout );
 	}
 
-	.annotationControl:has( :focus-visible ) .annotationSendSlot {
+	.annotationSendSlot[data-open='true'] {
+		transition-duration: var( --motion-duration-surface );
+		transition-timing-function: var( --motion-ease-enter );
+	}
+
+	.annotationSendMotion {
+		transform: scale( 0.94 );
+		transform-origin: center;
+		transition:
+			opacity var( --motion-duration-feedback ) ease,
+			transform var( --motion-duration-surface ) var( --motion-ease-enter );
+	}
+
+	.annotationSendSlot[data-open='true'] .annotationSendMotion {
+		transform: scale( 1 );
+		transition-duration: var( --motion-duration-feedback ), var( --motion-duration-surface );
+		transition-timing-function: var( --motion-ease-enter ), cubic-bezier( 0.2, 1.9, 0.3, 1 );
+		transition-delay: var( --motion-duration-feedback );
+	}
+
+	.annotationControl:has( :focus-visible ) :is( .annotationSendSlot, .annotationSendMotion ) {
 		transition: none;
 	}
 }

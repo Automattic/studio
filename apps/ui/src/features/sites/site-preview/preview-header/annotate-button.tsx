@@ -16,8 +16,15 @@ export function AnnotateButton( {
 	disabledReason?: string;
 	iconOnly: boolean;
 	onClick: () => void;
-	send?: { count: number; disabled: boolean; loading: boolean; onClick: () => void };
+	send?: {
+		count: number;
+		visible: boolean;
+		disabled: boolean;
+		loading: boolean;
+		onClick: () => void;
+	};
 } ) {
+	const showSend = Boolean( send?.visible );
 	return (
 		<span
 			className={ styles.annotationControl }
@@ -53,24 +60,31 @@ export function AnnotateButton( {
 				</TooltipContent>
 			</Tooltip>
 			{ send ? (
-				<span className={ styles.annotationSendSlot } aria-hidden={ ! active } inert={ ! active }>
+				<span
+					className={ styles.annotationSendSlot }
+					data-open={ showSend }
+					aria-hidden={ ! showSend }
+					inert={ ! showSend }
+				>
 					<span className={ styles.annotationSendContent }>
-						<Button
-							variant="accent"
-							size="header"
-							className={ styles.annotationSend }
-							aria-label={ sprintf(
-								/* translators: %d: number of annotations. */
-								_n( 'Send %d annotation', 'Send %d annotations', send.count ),
-								send.count
-							) }
-							disabled={ disabled || send.disabled || ! send.count || ! active }
-							loading={ send.loading }
-							loadingMode="replace"
-							onClick={ send.onClick }
-						>
-							{ __( 'Send' ) }
-						</Button>
+						<span className={ styles.annotationSendMotion }>
+							<Button
+								variant="accent"
+								size="2xs"
+								className={ styles.annotationSend }
+								aria-label={ sprintf(
+									/* translators: %d: number of annotations. */
+									_n( 'Send %d annotation', 'Send %d annotations', send.count ),
+									send.count
+								) }
+								disabled={ disabled || send.disabled || ! send.count || ! showSend }
+								loading={ send.loading }
+								loadingMode="replace"
+								onClick={ send.onClick }
+							>
+								{ __( 'Send' ) }
+							</Button>
+						</span>
 					</span>
 				</span>
 			) : null }

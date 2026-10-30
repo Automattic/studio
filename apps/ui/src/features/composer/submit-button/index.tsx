@@ -61,7 +61,7 @@ export function StopButton( {
 } ) {
 	return (
 		<IconButton
-			variant="default"
+			variant="accent"
 			size="icon"
 			shape="round"
 			className={ styles.stopButton }

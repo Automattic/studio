@@ -7,7 +7,9 @@ import {
 	changeAnnotation,
 	getSiteAnnotations,
 	pickAnnotation,
+	removeAnnotations,
 	setAnnotating,
+	stageAnnotations,
 } from '@/features/annotations';
 import { SessionHeader } from '@/features/chats';
 import { HeaderSidebarToggle } from '@/features/sidebar';
@@ -121,8 +123,7 @@ it( 'keeps icon-only annotation available beside overflow with sharing feedback'
 	const annotation = screen.getByRole( 'button', { name: 'Annotate' } );
 	await waitFor( () => expect( annotation ).toBeEnabled() );
 	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
-	expect( headerButtons( /^Send/ ) ).toHaveLength( 1 );
-	expect( headerButtons( /^Send/ )[ 0 ] ).toBeDisabled();
+	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
 	expect( annotation ).toHaveAttribute( 'aria-pressed', 'true' );
 	expect( annotation ).toHaveTextContent( '' );
 	await user.click( annotation );
@@ -154,7 +155,7 @@ it( 'keeps icon-only annotation available beside overflow with sharing feedback'
 	expect( headerButtons( 'Send 1 annotation' ) ).toHaveLength( 0 );
 } );
 
-it( 'sends pending notes from the expanded Annotate control and keeps the bottom toolbar', async () => {
+it( 'keeps Send available for staged annotations after leaving annotation mode', async () => {
 	const siteId = 'header-send-site';
 	const onSend = vi.fn();
 	const { user } = await renderHeader( siteId, createFakeConnector(), 1000, true, onSend );
@@ -163,20 +164,30 @@ it( 'sends pending notes from the expanded Annotate control and keeps the bottom
 	await waitFor( () => expect( annotate ).toBeEnabled() );
 	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
 	await user.click( annotate );
-	expect( headerButtons( /^Send/ )[ 0 ] ).toBeDisabled();
-	await user.click( headerButtons( /^Send/ )[ 0 ] );
-	expect( onSend ).not.toHaveBeenCalled();
+	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
 	expect( screen.getByRole( 'toolbar', { name: 'Annotations' } ) ).toBeVisible();
 
+	let noteId = '';
 	act( () => {
-		const id = pickAnnotation( siteId, { selector: 'h1', tag: 'h1', path: '/' } )!;
-		changeAnnotation( siteId, id, { comment: 'Make this heading smaller' } );
+		noteId = pickAnnotation( siteId, { selector: 'h1', tag: 'h1', path: '/' } )!;
+		changeAnnotation( siteId, noteId, { comment: 'Make this heading smaller' } );
 	} );
+	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
+	act( () => stageAnnotations( siteId, [ noteId ] ) );
+	expect( headerButtons( 'Send 1 annotation' )[ 0 ] ).toBeEnabled();
+	await user.click( annotate );
+	expect( annotate ).toHaveAttribute( 'aria-pressed', 'false' );
+	expect( headerButtons( 'Send 1 annotation' )[ 0 ] ).toBeEnabled();
+	act( () => changeAnnotation( siteId, noteId, { comment: '' } ) );
+	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
+	act( () => changeAnnotation( siteId, noteId, { comment: 'Make this heading smaller' } ) );
 	const send = headerButtons( 'Send 1 annotation' )[ 0 ];
 	expect( send ).toBeEnabled();
 	await user.click( send );
 	expect( onSend ).toHaveBeenCalledExactlyOnceWith( siteId );
 	expect( getSiteAnnotations( siteId ).active ).toBe( false );
+	expect( headerButtons( 'Send 1 annotation' )[ 0 ] ).toBeVisible();
+	act( () => removeAnnotations( siteId, [ noteId ] ) );
 	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
 } );
 

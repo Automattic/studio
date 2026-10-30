@@ -8,6 +8,7 @@ import { useIsSiteBusy, useStartSite } from '@/data/queries/use-sites';
 import { useSessionPreviewUI } from '@/data/use-session-ui';
 import {
 	hasAnnotationContent,
+	isStagedAnnotation,
 	isAnnotationsBusy,
 	setAnnotating,
 	useSiteAnnotations,
@@ -302,6 +303,7 @@ export function SiteHeaderActions( {
 							iconOnly
 							send={ {
 								count: annotations.notes.filter( hasAnnotationContent ).length,
+								visible: annotations.notes.some( isStagedAnnotation ),
 								disabled: isAnnotationsBusy( annotations ) || ! onSendAnnotations,
 								loading: Boolean( annotations.sending ),
 								onClick: () => {

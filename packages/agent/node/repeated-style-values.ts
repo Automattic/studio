@@ -20,6 +20,7 @@
 import { readdir, readFile, writeFile } from 'fs/promises';
 import path from 'path';
 import {
+	blockEditorOf,
 	isBlockMarkupFile,
 	sitePresetValues,
 	validateBlockMarkup,
@@ -379,7 +380,13 @@ async function saveWithPresets(
 	for ( const item of holding ) {
 		const { fixedContent } = item.file
 			? await validateBlockMarkupFile( item.file, siteUrl, presetValues )
-			: await validateBlockMarkup( item.content, placeOf( item ), siteUrl, presetValues );
+			: await validateBlockMarkup(
+					item.content,
+					placeOf( item ),
+					siteUrl,
+					presetValues,
+					blockEditorOf( item )
+			  );
 		if ( fixedContent !== undefined ) {
 			await saveMarkup( host, siteRoot, item, fixedContent );
 			saved.push( placeOf( item, theme?.dir ) );

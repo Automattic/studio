@@ -232,7 +232,8 @@ describe( 'post content changes', () => {
 		expect( storePresetValues ).toHaveBeenLastCalledWith(
 			UNWRAPPED_GROUP,
 			'http://localhost:8881',
-			{ colors: [ [ 'accent-3', '#503AA8' ] ], fontSizes: [], spacingSizes: [] }
+			{ colors: [ [ 'accent-3', '#503AA8' ] ], fontSizes: [], spacingSizes: [] },
+			'post'
 		);
 		expect( problems ).toEqual( [] );
 		expect( summaries ).toEqual( [

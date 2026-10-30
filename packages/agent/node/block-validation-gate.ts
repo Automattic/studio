@@ -24,6 +24,7 @@ import {
 	storePresetValues,
 	dropCommentsBetweenBlocks,
 	validateBlocks,
+	type BlockEditor,
 	type PresetValues,
 	type PresetValuesResult,
 	type ValidationReportBase,
@@ -40,6 +41,15 @@ const THEME_MARKUP =
 // includes for what they output (WP_Theme::get_block_patterns(),
 // WP_Block_Patterns_Registry::get_content()).
 const THEME_PATTERN = /[\\/]wp-content[\\/]themes[\\/][^\\/]+[\\/]patterns[\\/].+\.php$/;
+
+/** The editor that edits markup: the Site Editor a theme's template or part, saved or a file. */
+export function blockEditorOf( place: { file?: string; type?: string } ): BlockEditor {
+	return ( place.file && THEME_MARKUP.test( place.file ) ) ||
+		place.type === 'wp_template' ||
+		place.type === 'wp_template_part'
+		? 'site'
+		: 'post';
+}
 // The header comment a pattern opens with, and the newline PHP drops after its closing tag.
 const PATTERN_HEADER = /^\s*<\?php\s*\/\*[\s\S]*?\*\/\s*\?>\n?/;
 
@@ -232,11 +242,12 @@ async function storeAsTheEditorDoes(
 	content: string,
 	siteUrl: string,
 	presetValues: PresetValues,
+	editor: BlockEditor,
 	invalidBefore: () => Promise< number >
 ) {
-	const between = await dropCommentsBetweenBlocks( content, siteUrl );
-	const presets = await storePresetValues( between.content, siteUrl, presetValues );
-	const bound = await bindNavigationLinks( presets.content, siteUrl );
+	const between = await dropCommentsBetweenBlocks( content, siteUrl, editor );
+	const presets = await storePresetValues( between.content, siteUrl, presetValues, editor );
+	const bound = await bindNavigationLinks( presets.content, siteUrl, editor );
 	const stored = {
 		content: bound.content,
 		changed:
@@ -255,7 +266,8 @@ async function storeAsTheEditorDoes(
 	// what it replaces, whatever the pass that changed it.
 	if (
 		stored.changed &&
-		( await validateBlocks( stored.content, siteUrl ) ).invalidBlocks > ( await invalidBefore() )
+		( await validateBlocks( stored.content, siteUrl, editor ) ).invalidBlocks >
+			( await invalidBefore() )
 	) {
 		return { content, changed: false };
 	}
@@ -331,7 +343,8 @@ export async function validateBlockMarkupFile(
 		pattern?.markup ?? content,
 		label,
 		siteUrl,
-		presetValues
+		presetValues,
+		blockEditorOf( { file: filePath } )
 	);
 	if ( result.fixedContent === undefined ) {
 		return { contentHash: hash( content ), summary: result.summary, problem: result.problem };
@@ -404,7 +417,8 @@ export async function validateBlockMarkup(
 	content: string,
 	label: string,
 	siteUrl: string,
-	presetValues: PresetValues = NO_PRESETS
+	presetValues: PresetValues = NO_PRESETS,
+	editor: BlockEditor = 'post'
 ): Promise< MarkupValidation > {
 	// The editor's save of blocks parsed this way repeats what follows them,
 	// so nothing is saved for it.
@@ -419,7 +433,7 @@ export async function validateBlockMarkup(
 		};
 	}
 	const policy = await htmlPolicyProblem( content, label, siteUrl );
-	const result = await validateSavedMarkup( content, label, siteUrl, presetValues );
+	const result = await validateSavedMarkup( content, label, siteUrl, presetValues, editor );
 	return policy
 		? {
 				...result,
@@ -433,9 +447,10 @@ async function validateSavedMarkup(
 	content: string,
 	label: string,
 	siteUrl: string,
-	presetValues: PresetValues
+	presetValues: PresetValues,
+	editor: BlockEditor
 ): Promise< MarkupValidation > {
-	const report = await validateBlocks( content, siteUrl );
+	const report = await validateBlocks( content, siteUrl, editor );
 	if ( report.error ) {
 		return {
 			summary: `${ label }: not validated (${ report.error })`,
@@ -447,7 +462,7 @@ async function validateSavedMarkup(
 			content: stored,
 			changed,
 			...notes
-		} = await storeAsTheEditorDoes( content, siteUrl, presetValues, async () => 0 );
+		} = await storeAsTheEditorDoes( content, siteUrl, presetValues, editor, async () => 0 );
 		return changed ? { summary: valid, fixedContent: stored, ...notes } : { summary: valid };
 	}
 
@@ -480,8 +495,8 @@ async function validateSavedMarkup(
 		( result ) => ! result.isValid && ! keptAsWritten( result.place )
 	).length;
 	const stored = fixedBlocks
-		? await storeAsTheEditorDoes( fix.fixedContent, siteUrl, presetValues, async () =>
-				lost.size ? ( await validateBlocks( fix.fixedContent, siteUrl ) ).invalidBlocks : 0
+		? await storeAsTheEditorDoes( fix.fixedContent, siteUrl, presetValues, editor, async () =>
+				lost.size ? ( await validateBlocks( fix.fixedContent, siteUrl, editor ) ).invalidBlocks : 0
 		  )
 		: undefined;
 	const saved = stored && {

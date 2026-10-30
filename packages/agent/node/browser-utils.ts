@@ -214,11 +214,13 @@ export class EditorPage {
 	private page: Page | null = null;
 	private loading: Promise< Page > | null = null;
 	private readonly siteUrl: string;
+	private readonly editorPath: string;
 	/** What the editor page threw, as message and the script line that threw it. */
 	loadErrors: string[] = [];
 
-	constructor( siteUrl: string ) {
+	constructor( siteUrl: string, editorPath = '/wp-admin/post-new.php' ) {
 		this.siteUrl = siteUrl;
+		this.editorPath = editorPath;
 	}
 
 	/** Get or create a page with the block editor loaded. */
@@ -239,7 +241,7 @@ export class EditorPage {
 		const loadErrors: string[] = [];
 		page.on( 'pageerror', ( error ) => loadErrors.push( thrownAt( error ) ) );
 
-		const editorPath = '/wp-admin/post-new.php';
+		const { editorPath } = this;
 		const loginUrl = `${ this.siteUrl }/studio-auto-login?redirect_to=${ editorPath }`;
 		await page.goto( loginUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 } );
 		// A plugin can send the first admin page after its activation elsewhere

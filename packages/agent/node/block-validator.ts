@@ -37,15 +37,31 @@ export interface ValidationReport extends ValidationReportBase {
 	proposedFix?: BlockFixProposal;
 }
 
-// Cache one EditorPage per site URL so repeated validations reuse the same
+/**
+ * The editor that edits the content: a post's, or the Site Editor for a
+ * template or template part. A plugin can register a block in one only, as
+ * WooCommerce unregisters its template blocks (woocommerce/legacy-template,
+ * breadcrumbs, catalog-sorting, ...) where window.adminpage is post-php or
+ * post-new-php (wc-block-library.js), so a template is validated where it is
+ * edited.
+ */
+export type BlockEditor = 'post' | 'site';
+
+const EDITOR_PATHS: Record< BlockEditor, string > = {
+	post: '/wp-admin/post-new.php',
+	site: '/wp-admin/site-editor.php',
+};
+
+// Cache one EditorPage per site URL and editor so repeated validations reuse the same
 // browser tab instead of navigating and loading the block editor each time.
 const editorPages = new Map< string, EditorPage >();
 
-function getEditorPage( siteUrl: string ): EditorPage {
-	let ep = editorPages.get( siteUrl );
+function getEditorPage( siteUrl: string, editor: BlockEditor = 'post' ): EditorPage {
+	const key = `${ editor } ${ siteUrl }`;
+	let ep = editorPages.get( key );
 	if ( ! ep ) {
-		ep = new EditorPage( siteUrl );
-		editorPages.set( siteUrl, ep );
+		ep = new EditorPage( siteUrl, EDITOR_PATHS[ editor ] );
+		editorPages.set( key, ep );
 	}
 	return ep;
 }
@@ -66,8 +82,8 @@ export function blockNames( content: string ): string[] {
  * name: the editor registers the blocks of the plugins active when it loaded,
  * and a plugin activated since adds its own.
  */
-async function editorKnowing( siteUrl: string, names: string[] ) {
-	const editorPage = getEditorPage( siteUrl );
+async function editorKnowing( siteUrl: string, names: string[], editor: BlockEditor = 'post' ) {
+	const editorPage = getEditorPage( siteUrl, editor );
 	const page = await editorPage.getPage();
 	const knows = ( loaded: typeof page ) =>
 		loaded.evaluate(
@@ -105,20 +121,21 @@ export async function unregisteredInEditor(
  * Validate WordPress block content using the site's own block editor in a
  * real browser.
  *
- * Navigates to `post-new.php` (which loads wp.blocks with all registered
- * blocks — core + plugins) and parses the content with `wp.blocks.parse()`,
+ * Navigates to the editor of the content, `post-new.php` or `site-editor.php`
+ * (which load wp.blocks with the blocks registered there — core + plugins) and parses the content with `wp.blocks.parse()`,
  * reusing the parser's per-block verdict — the same save-function comparison
  * the Gutenberg editor performs on load. `wp.blocks.validateBlock()` is only
  * called on older WordPress versions whose parser does not report one.
  */
 export async function validateBlocks(
 	content: string,
-	siteUrl: string
+	siteUrl: string,
+	editor: BlockEditor = 'post'
 ): Promise< ValidationReport > {
 	try {
-		const page = await editorKnowing( siteUrl, blockNames( content ) );
+		const page = await editorKnowing( siteUrl, blockNames( content ), editor );
 		// What the editor threw beside the content, for a block it did not register.
-		const input = [ content, getEditorPage( siteUrl ).loadErrors ] as const;
+		const input = [ content, getEditorPage( siteUrl, editor ).loadErrors ] as const;
 
 		const validation = await page.evaluate( async ( [ html, thrown ] ) => {
 			/* eslint-disable @typescript-eslint/no-explicit-any */
@@ -1311,8 +1328,8 @@ export async function validateBlocks(
 	} catch ( error ) {
 		// If navigation or evaluation failed, discard the cached page so the
 		// next call gets a fresh one.
-		await getEditorPage( siteUrl ).close();
-		editorPages.delete( siteUrl );
+		await getEditorPage( siteUrl, editor ).close();
+		editorPages.delete( `${ editor } ${ siteUrl }` );
 
 		return {
 			totalBlocks: 0,
@@ -1359,9 +1376,10 @@ export interface PresetValuesResult {
 export async function storePresetValues(
 	content: string,
 	siteUrl: string,
-	{ colors: palette, fontSizes: sizes, spacingSizes: spacings }: PresetValues
+	{ colors: palette, fontSizes: sizes, spacingSizes: spacings }: PresetValues,
+	editor: BlockEditor = 'post'
 ): Promise< PresetValuesResult > {
-	const page = await getEditorPage( siteUrl ).getPage();
+	const page = await getEditorPage( siteUrl, editor ).getPage();
 	return page.evaluate(
 		( { html, presets, fontSizePresets, spacingPresets } ) => {
 			/* eslint-disable @typescript-eslint/no-explicit-any */
@@ -1506,12 +1524,13 @@ export interface BetweenBlockCommentsResult {
  */
 export async function dropCommentsBetweenBlocks(
 	content: string,
-	siteUrl: string
+	siteUrl: string,
+	editor: BlockEditor = 'post'
 ): Promise< BetweenBlockCommentsResult > {
 	if ( ! /<!--(?!\s*\/?wp:)/.test( content ) ) {
 		return { content, comments: 0 };
 	}
-	const page = await getEditorPage( siteUrl ).getPage();
+	const page = await getEditorPage( siteUrl, editor ).getPage();
 	return page.evaluate( ( html ) => {
 		/* eslint-disable @typescript-eslint/no-explicit-any */
 		const wpBlocks = ( window as any ).wp.blocks;
@@ -1558,12 +1577,13 @@ export async function dropCommentsBetweenBlocks(
  */
 export async function bindNavigationLinks(
 	content: string,
-	siteUrl: string
+	siteUrl: string,
+	editor: BlockEditor = 'post'
 ): Promise< NavigationLinksResult > {
 	if ( ! /<!--\s*wp:navigation-(?:link|submenu)\s/.test( content ) ) {
 		return { content, links: [] };
 	}
-	const page = await getEditorPage( siteUrl ).getPage();
+	const page = await getEditorPage( siteUrl, editor ).getPage();
 	return page.evaluate( ( html ) => {
 		/* eslint-disable @typescript-eslint/no-explicit-any */
 		const wpBlocks = ( window as any ).wp.blocks;

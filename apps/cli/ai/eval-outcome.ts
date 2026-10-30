@@ -27,6 +27,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { captureScreenshotBuffer } from '@studio/agent/node';
+import { blockEditorOf } from '@studio/agent/node/block-validation-gate';
 import { validateBlocks } from '@studio/agent/node/block-validator';
 import { getSharedBrowser } from '@studio/agent/node/browser-utils';
 import { STUDIO_LOADER_MU_PLUGIN_FILENAME } from '@studio/common/lib/mu-plugins';
@@ -574,7 +575,7 @@ async function captureSiteOutcome(
 			content: string;
 		} > ) {
 			if ( ! item.content.includes( '<!-- wp:' ) ) continue;
-			const report = await validateBlocks( item.content, url );
+			const report = await validateBlocks( item.content, url, blockEditorOf( item ) );
 			if ( report.invalidBlocks > 0 ) {
 				invalid.push( {
 					id: item.id,
@@ -592,7 +593,7 @@ async function captureSiteOutcome(
 			outcome.themeFiles as Record< string, string >
 		) ) {
 			if ( ! /^(templates|parts)\/.+\.html$/.test( file ) || released( file ) ) continue;
-			const report = await validateBlocks( text, url );
+			const report = await validateBlocks( text, url, 'site' );
 			if ( report.invalidBlocks > 0 ) {
 				invalid.push( {
 					id: 0,

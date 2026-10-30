@@ -893,3 +893,32 @@ describe.runIf( siteUrl && sitePath )( 'a block whose editor script throws (live
 		}
 	}, 60_000 );
 } );
+
+describe.runIf( siteUrl && sitePath )( 'a block the Site Editor registers only (live)', () => {
+	afterAll( cleanupValidatorPages );
+
+	it( 'is valid in a template, validated in the Site Editor', async () => {
+		// As WooCommerce unregisters its template blocks on post screens
+		// (wc-block-library.js), by window.adminpage.
+		const plugin = path.join( sitePath!, 'wp-content/mu-plugins/studio-test-template-only.php' );
+		writeFileSync(
+			plugin,
+			`<?php
+add_action( 'init', fn() => register_block_type( 'studio-test/template-only' ) );
+add_action( 'enqueue_block_editor_assets', function () {
+	wp_add_inline_script( 'wp-blocks', "wp.blocks.registerBlockType( 'studio-test/template-only', { title: 'T', save: () => null } ); if ( [ 'post-php', 'post-new-php' ].includes( window.adminpage ) ) { wp.blocks.unregisterBlockType( 'studio-test/template-only' ); }" );
+} );
+`
+		);
+		try {
+			const markup = '<!-- wp:studio-test/template-only /-->';
+			expect( ( await validateBlocks( markup, siteUrl!, 'post' ) ).invalidBlocks ).toBe( 1 );
+			expect( await validateBlocks( markup, siteUrl!, 'site' ) ).toMatchObject( {
+				totalBlocks: 1,
+				invalidBlocks: 0,
+			} );
+		} finally {
+			rmSync( plugin, { force: true } );
+		}
+	}, 120_000 );
+} );

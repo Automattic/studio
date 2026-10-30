@@ -125,6 +125,16 @@ describe( 'validating a file', () => {
 		expect( readFileSync( file, 'utf8' ) ).toBe( original );
 	} );
 
+	it.each( [
+		[ 'wp-content/themes/t/templates/archive.html', 'site' ],
+		[ 'wp-content/themes/t/parts/header.html', 'site' ],
+		[ 'tmp/home.html', 'post' ],
+	] )( 'validates %s in the editor that edits it, the %s editor', async ( file, editor ) => {
+		vi.mocked( validateBlocks ).mockResolvedValue( invalidWithFix( fixed ) );
+		await validateBlockMarkupFile( write( file, original ), 'http://localhost:8881' );
+		expect( vi.mocked( validateBlocks ).mock.calls[ 0 ][ 2 ] ).toBe( editor );
+	} );
+
 	const GROUP = '<!-- wp:group {"layout":{"type":"constrained"}} -->\n<div class="wp-block-group">';
 	it.each< { name: string; content: string; problems: string[] } >( [
 		{
@@ -238,7 +248,7 @@ describe( 'validating a file', () => {
 		const file = write( 'wp-content/themes/t/patterns/hello.php', header + original );
 		vi.mocked( validateBlocks ).mockResolvedValue( invalidWithFix( fixed ) );
 		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
-		expect( validateBlocks ).toHaveBeenCalledWith( original, 'http://localhost:8881' );
+		expect( validateBlocks ).toHaveBeenCalledWith( original, 'http://localhost:8881', 'post' );
 		expect( result.fixedContent ).toBe( header + fixed );
 	} );
 
@@ -281,7 +291,8 @@ describe( 'validating a file', () => {
 		expect( storePresetValues ).toHaveBeenLastCalledWith(
 			original,
 			'http://localhost:8881',
-			palette
+			palette,
+			'post'
 		);
 		expect( result.summary ).toBe(
 			"parts/hero.html: 1/1 blocks valid; saved through the block editor, which stores #503AA8 as the palette's accent-3, as the editor stores a palette color (encodeColorValueWithPalette in @wordpress/block-editor), so it follows the palette"
@@ -302,7 +313,11 @@ describe( 'validating a file', () => {
 			links: [ 'About' ],
 		} );
 		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
-		expect( bindNavigationLinks ).toHaveBeenLastCalledWith( original, 'http://localhost:8881' );
+		expect( bindNavigationLinks ).toHaveBeenLastCalledWith(
+			original,
+			'http://localhost:8881',
+			'post'
+		);
 		expect( result.summary ).toContain( 'binds the url of the navigation link(s) "About"' );
 		expect( result.fixedContent ).toBe( fixed );
 	} );
@@ -323,13 +338,19 @@ describe( 'validating a file', () => {
 		} );
 		expect( dropCommentsBetweenBlocks ).toHaveBeenLastCalledWith(
 			original,
-			'http://localhost:8881'
+			'http://localhost:8881',
+			'post'
 		);
-		expect( storePresetValues ).toHaveBeenLastCalledWith( fixed, 'http://localhost:8881', {
-			colors: [ [ 'accent-3', '#503AA8' ] ],
-			fontSizes: [],
-			spacingSizes: [],
-		} );
+		expect( storePresetValues ).toHaveBeenLastCalledWith(
+			fixed,
+			'http://localhost:8881',
+			{
+				colors: [ [ 'accent-3', '#503AA8' ] ],
+				fontSizes: [],
+				spacingSizes: [],
+			},
+			'post'
+		);
 		expect( result.summary ).toContain(
 			'drops 2 HTML comment(s) between blocks, which the editor would turn into Classic blocks'
 		);
@@ -349,7 +370,7 @@ describe( 'validating a file', () => {
 			spacingSizes: [],
 		} );
 		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
-		expect( validateBlocks ).toHaveBeenLastCalledWith( fixed, 'http://localhost:8881' );
+		expect( validateBlocks ).toHaveBeenLastCalledWith( fixed, 'http://localhost:8881', 'post' );
 		expect( result ).toEqual( {
 			contentHash: expect.any( String ),
 			summary: 'templates/page.html: 1/1 blocks valid',

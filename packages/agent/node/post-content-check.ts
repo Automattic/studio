@@ -7,6 +7,7 @@
 import { mkdir, rm, writeFile } from 'fs/promises';
 import path from 'path';
 import {
+	blockEditorOf,
 	describeEditorSave,
 	sitePresetValues,
 	validateBlockMarkup,
@@ -207,7 +208,8 @@ async function validatePost(
 		post.content,
 		label,
 		site.url,
-		await sitePresetValues( host, site.path )
+		await sitePresetValues( host, site.path ),
+		blockEditorOf( post )
 	);
 	const madeNotes = presetNotes.length ? `. ${ presetNotes.join( ' ' ) }` : '';
 	if ( result.fixedContent === undefined ) {

@@ -2,7 +2,11 @@ import { createHash } from 'crypto';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { Type } from 'typebox';
-import { sitePresetValues, validateBlockMarkup } from '@studio/agent/node/block-validation-gate';
+import {
+	blockEditorOf,
+	sitePresetValues,
+	validateBlockMarkup,
+} from '@studio/agent/node/block-validation-gate';
 import { validateBlocks } from '@studio/agent/node/block-validator';
 import { getSiteFileWriteRefusal, resolveSiteFile } from '@studio/agent/node/site-file-guards';
 import { saveMarkup } from '@studio/agent/node/site-markup';
@@ -277,12 +281,14 @@ export const convertToBlocksTool = defineTool(
 
 		onProgress( 'Validating blocks' );
 		const siteUrl = site.url;
-		const before = await validateBlocks( conversion.original, siteUrl );
+		const editor = blockEditorOf( { file } );
+		const before = await validateBlocks( conversion.original, siteUrl, editor );
 		const validation = await validateBlockMarkup(
 			conversion.serialized,
 			label,
 			siteUrl,
-			await sitePresetValues( host, site.path )
+			await sitePresetValues( host, site.path ),
+			editor
 		);
 		const content = validation.fixedContent ?? conversion.serialized;
 

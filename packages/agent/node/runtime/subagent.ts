@@ -72,7 +72,8 @@ export function createSubagentTool(
 				content: [
 					{ type: 'text', text: text( replies.at( -1 ) ) || 'The subagent replied nothing.' },
 				],
-				details: { usage },
+				// What it spent, and the model requests it made.
+				details: { usage, requests: replies.length },
 			};
 		},
 	};

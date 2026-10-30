@@ -918,7 +918,7 @@ describe( 'pi runtime', () => {
 			);
 			expect( result ).toMatchObject( {
 				content: [ { type: 'text', text: 'wrote batch-001-results.json: 20 posts' } ],
-				details: { usage: { input: 150, totalTokens: 150 } },
+				details: { usage: { input: 150, totalTokens: 150 }, requests: 2 },
 			} );
 			// It cannot ask the user, nor run subagents of its own; Studio's confirmations still ask.
 			expect( childTools() ).toContain( 'Bash' );

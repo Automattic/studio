@@ -433,6 +433,8 @@ type ToolEvent = {
 	checkStagesMs?: Record< string, number >;
 	// The longest read or check of each site change source since the last call took them.
 	checkSourcesMs?: Record< string, number >;
+	// The model requests a call made of its own, as a subagent's turn does.
+	modelRequests?: number;
 	isError?: boolean;
 	// Length of the result's text block: what the tool adds to the context.
 	outputChars?: number;
@@ -675,10 +677,18 @@ async function runEval( input: EvalRunnerInput ) {
 					evt.durationMs = evt.endedAtMs - evt.startedAtMs;
 					evt.isError = tr.isError;
 					evt.outputChars = tr.text?.length ?? 0;
-					const { checksMs, checkStagesMs, checkSourcesMs } =
+					const { checksMs, checkStagesMs, checkSourcesMs, requests } =
 						( tr.details as
-							| { checksMs?: unknown; checkStagesMs?: unknown; checkSourcesMs?: unknown }
+							| {
+									checksMs?: unknown;
+									checkStagesMs?: unknown;
+									checkSourcesMs?: unknown;
+									requests?: unknown;
+							  }
 							| undefined ) ?? {};
+					if ( typeof requests === 'number' ) {
+						evt.modelRequests = requests;
+					}
 					if ( typeof checksMs === 'number' ) {
 						evt.checksMs = checksMs;
 						evt.checkStagesMs = checkStagesMs as Record< string, number >;

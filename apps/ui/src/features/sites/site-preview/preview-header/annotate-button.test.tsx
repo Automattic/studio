@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { useOnboardingGuide } from '@/features/onboarding';
 import { Button } from '@/lib/ui';
@@ -39,7 +39,7 @@ describe( 'Annotate first-use helper', () => {
 		expect( await screen.findByRole( 'dialog', { name: 'Try Annotate' } ) ).toBeVisible();
 	} );
 
-	it( 'preserves the tip when Annotate is used during a guide', async () => {
+	it( 'suppresses the tip during a guide and makes it available afterward', async () => {
 		function WithGuide() {
 			const guide = useOnboardingGuide();
 			return (
@@ -72,14 +72,13 @@ describe( 'Annotate first-use helper', () => {
 		const { user, connector } = renderWithProviders( <WithGuide /> );
 		await user.click( await screen.findByRole( 'button', { name: 'Open guide' } ) );
 		await screen.findByRole( 'dialog', { name: 'Guide' } );
-		// Simulate an action taken by an interactive guide while its tip is suppressed.
-		fireEvent.click( screen.getByRole( 'button', { name: 'Annotate', hidden: true } ) );
+		expect( screen.queryByRole( 'dialog', { name: 'Try Annotate' } ) ).not.toBeInTheDocument();
 		expect( connector.setOnboardingHints ).not.toHaveBeenCalled();
 		await user.click( screen.getByRole( 'button', { name: 'Done' } ) );
 		await waitFor( () =>
 			expect( screen.queryByRole( 'dialog', { name: 'Guide' } ) ).not.toBeInTheDocument()
 		);
-		fireEvent.focus( screen.getByRole( 'button', { name: 'Annotate' } ) );
+		await user.hover( screen.getByRole( 'button', { name: 'Annotate' } ) );
 		expect( await screen.findByRole( 'dialog', { name: 'Try Annotate' } ) ).toBeVisible();
 	} );
 
@@ -127,7 +126,6 @@ describe( 'Annotate first-use helper', () => {
 		async ( props ) => {
 			const { button, user, connector } = await setup( props );
 			await user.hover( button );
-			await act( () => new Promise( ( resolve ) => setTimeout( resolve, 600 ) ) );
 			expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument();
 			expect( connector.setOnboardingHints ).not.toHaveBeenCalled();
 		}

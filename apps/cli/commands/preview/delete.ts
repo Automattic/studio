@@ -81,7 +81,7 @@ export async function runCommand(
 					await deletePreviewSite( snapshot.atomicSiteId, token.accessToken );
 				}
 			}
-			// Previews made on Jurassic Ninja by an earlier Studio.
+			// Previews made on Jurassic Ninja.
 			await deleteAllSnapshots( token.accessToken );
 			await deleteAllSnapshotsForUserFromConfig( token.id );
 			await emitCliEvent( { event: SNAPSHOT_EVENTS.DELETED_ALL } );

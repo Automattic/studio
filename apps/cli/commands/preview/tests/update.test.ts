@@ -135,15 +135,14 @@ describe( 'Preview Update Command', () => {
 		expect( updatePreviewSite ).toHaveBeenCalledWith(
 			mockAtomicSiteId,
 			678,
-			mockAuthToken.accessToken,
-			shareUrl
+			mockAuthToken.accessToken
 		);
 		expect( uploadArchive ).not.toHaveBeenCalled();
 		expect( updateSnapshotInConfig ).toHaveBeenCalledWith( mockAtomicSiteId, mockFolder, shareUrl );
 		expect( mockReportSuccess ).toHaveBeenCalledWith( `Preview site available at: ${ shareUrl }` );
 	} );
 
-	it( 'updates a Jurassic Ninja preview made by an earlier Studio', async () => {
+	it( 'updates a Jurassic Ninja preview', async () => {
 		vi.mocked( getWordPressVersion ).mockReturnValue( '6.8.1' );
 		await runCommand( mockFolder, mockSiteUrl, false );
 

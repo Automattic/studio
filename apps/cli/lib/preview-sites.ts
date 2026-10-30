@@ -17,6 +17,7 @@ import type { Snapshot } from '@studio/common/types/snapshot';
 const PREVIEW_FUNNEL = 'preview';
 const IMPORT_POLL_INTERVAL_MS = 1000;
 const IMPORT_TIMEOUT_MS = 30 * 60 * 1000;
+const PREVIEW_LINK_TIMEOUT_MS = 60 * 1000;
 
 export type PreviewSite = {
 	siteId: number;
@@ -37,16 +38,25 @@ const importResponseSchema = z
 	.nullable()
 	.catch( null );
 
-const siteResponseSchema = z.object( { URL: z.string().url() } );
-
-const previewLinkSchema = z.object( { code: z.string().min( 1 ) } );
-
-// `preview_sites` is left out when the user has none. `expires_at` is in seconds.
+// `preview_sites` is left out when the user has none. `expires_at` is in seconds. `share_url` is the
+// preview link WordPress.com creates when the site's first build is done, and '' until then.
 const standingPreviewsSchema = z.object( {
 	preview_sites: z
-		.array( z.object( { blog_id: z.number(), expires_at: z.number().optional() } ) )
+		.array(
+			z.object( {
+				blog_id: z.number(),
+				expires_at: z.number().optional(),
+				share_url: z.string().optional(),
+			} )
+		)
 		.optional(),
 } );
+
+export type StandingPreview = {
+	// When it expires (ms).
+	expiresAt?: number;
+	shareUrl?: string;
+};
 
 function wpcom( token: string ) {
 	return wpcomFactory( token, wpcomXhrRequest );
@@ -121,25 +131,21 @@ async function waitForPreviewImport(
 	throw new LoggerError( __( 'The preview site did not become ready within the timeout.' ) );
 }
 
-async function getPreviewHostname( siteId: number, token: string ): Promise< string > {
-	const site = siteResponseSchema.parse(
-		await wpcom( token ).req.get(
-			{ apiNamespace: 'rest/v1.1', path: `/sites/${ siteId }` },
-			{ fields: 'URL' }
-		)
-	);
-	return new URL( site.URL ).hostname;
-}
-
-/** Returns the site's preview link, creating it when the site has none (a site allows only one). */
-async function getShareUrl( siteId: number, hostname: string, token: string ): Promise< string > {
-	// A fresh params object per request: wpcom.js writes the HTTP method into the one it is given.
-	const endpoint = () => ( { apiNamespace: 'wpcom/v2', path: `/sites/${ siteId }/preview-links` } );
-	const [ existing ] = z
-		.array( previewLinkSchema )
-		.parse( await wpcom( token ).req.get( endpoint() ) );
-	const link = existing ?? previewLinkSchema.parse( await wpcom( token ).req.post( endpoint() ) );
-	return `https://${ hostname }/?share=${ link.code }`;
+/**
+ * Waits for the preview link WordPress.com hands out once the site's build is done, and returns the
+ * preview it opens.
+ */
+async function waitForPreviewLink( siteId: number, token: string ): Promise< PreviewSite > {
+	const deadline = Date.now() + PREVIEW_LINK_TIMEOUT_MS;
+	while ( Date.now() < deadline ) {
+		const standing = await getStandingPreviews( token ).catch( () => null );
+		const shareUrl = standing?.get( siteId )?.shareUrl;
+		if ( shareUrl ) {
+			return { siteId, hostname: new URL( shareUrl ).hostname, shareUrl };
+		}
+		await new Promise( ( resolve ) => setTimeout( resolve, IMPORT_POLL_INTERVAL_MS ) );
+	}
+	throw new LoggerError( __( 'The preview site did not get a preview link.' ) );
 }
 
 /** Builds a preview site from an archive uploaded with site ID 0. */
@@ -175,16 +181,14 @@ export async function createPreviewSite(
 	}
 
 	await waitForPreviewImport( siteId, token );
-	const hostname = await getPreviewHostname( siteId, token );
-	return { siteId, hostname, shareUrl: await getShareUrl( siteId, hostname, token ) };
+	return waitForPreviewLink( siteId, token );
 }
 
 /** Rebuilds a preview site from an archive uploaded with its site ID. */
 export async function updatePreviewSite(
 	siteId: number,
 	attachmentId: number,
-	token: string,
-	shareUrl?: string
+	token: string
 ): Promise< PreviewSite > {
 	const previousImportId = ( await getLatestImport( siteId, token ).catch( () => null ) )?.importId;
 
@@ -199,28 +203,26 @@ export async function updatePreviewSite(
 	}
 
 	await waitForPreviewImport( siteId, token, previousImportId );
-	const hostname = await getPreviewHostname( siteId, token );
-	return {
-		siteId,
-		hostname,
-		shareUrl: shareUrl ?? ( await getShareUrl( siteId, hostname, token ) ),
-	};
+	return waitForPreviewLink( siteId, token );
 }
 
 /**
- * The user's previews WordPress.com still has standing (unpaid and not torn down), by site ID, with
- * when each expires (ms). A preview that was bought, expired or deleted elsewhere is not among them.
+ * The user's previews WordPress.com still has standing (unpaid and not torn down), by site ID. A
+ * preview that was bought, expired or deleted elsewhere is not among them.
  */
 export async function getStandingPreviews(
 	token: string
-): Promise< Map< number, number | undefined > > {
+): Promise< Map< number, StandingPreview > > {
 	const response = standingPreviewsSchema.parse(
 		await wpcom( token ).req.get( { apiNamespace: 'wpcom/v2', path: '/wow-funnel/pending' } )
 	);
 	return new Map(
 		( response.preview_sites ?? [] ).map( ( site ) => [
 			site.blog_id,
-			site.expires_at === undefined ? undefined : site.expires_at * 1000,
+			{
+				expiresAt: site.expires_at === undefined ? undefined : site.expires_at * 1000,
+				shareUrl: site.share_url || undefined,
+			},
 		] )
 	);
 }
@@ -246,7 +248,7 @@ export async function deleteSnapshotSite( snapshot: Snapshot, token: string ): P
 	if ( isWpcomPreview( snapshot ) ) {
 		await deletePreviewSite( snapshot.atomicSiteId, token );
 	} else {
-		// A preview made on Jurassic Ninja by an earlier Studio.
+		// A preview made on Jurassic Ninja.
 		await deleteSnapshot( snapshot.atomicSiteId, token );
 	}
 }

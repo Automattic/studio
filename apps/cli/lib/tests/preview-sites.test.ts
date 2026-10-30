@@ -22,6 +22,7 @@ type WpcomFactory = ReturnType< typeof wpcomFactory >;
 describe( 'Preview sites', () => {
 	const token = 'mock-token';
 	const siteId = 12345;
+	const shareUrl = 'https://preview-site.wpcomstaging.com/?share=abc123';
 	const get = vi.fn();
 	const post = vi.fn();
 
@@ -29,34 +30,29 @@ describe( 'Preview sites', () => {
 		vi.clearAllMocks();
 		vi.useFakeTimers();
 		vi.mocked( wpcomFactory ).mockReturnValue( { req: { get, post } } as unknown as WpcomFactory );
-		get.mockImplementation( ( params: { path: string; method?: string } ) => {
-			// Like wpcom.js, which writes the method into the params it is given.
-			params.method = 'GET';
-			if ( params.path === `/sites/${ siteId }` ) {
-				return Promise.resolve( { URL: 'https://preview-site.wpcomstaging.com' } );
-			}
-			if ( params.path === `/sites/${ siteId }/preview-links` ) {
-				return Promise.resolve( [] );
-			}
-			return Promise.resolve( { importId: 'new', importStatus: 'importSuccess' } );
-		} );
-		post.mockImplementation( ( params: { path: string; method?: string } ) => {
-			if ( params.path === '/sites/new' ) {
-				return Promise.resolve( { blog_details: { blogid: String( siteId ) } } );
-			}
-			return Promise.resolve( params.method === 'GET' ? [] : { code: 'abc123' } );
-		} );
+		get.mockImplementation( ( { path }: { path: string } ) =>
+			Promise.resolve(
+				path === '/wow-funnel/pending'
+					? { preview_sites: [ { blog_id: siteId, share_url: shareUrl } ] }
+					: { importId: 'new', importStatus: 'importSuccess' }
+			)
+		);
+		post.mockImplementation( ( { path }: { path: string } ) =>
+			Promise.resolve(
+				path === '/sites/new' ? { blog_details: { blogid: String( siteId ) } } : undefined
+			)
+		);
 	} );
 
 	afterEach( () => {
 		vi.useRealTimers();
 	} );
 
-	it( 'creates a site in the preview funnel and returns its preview link', async () => {
+	it( 'creates a site in the preview funnel and returns the preview link WordPress.com hands out', async () => {
 		await expect( createPreviewSite( 678, 'My Preview', token ) ).resolves.toEqual( {
 			siteId,
 			hostname: 'preview-site.wpcomstaging.com',
-			shareUrl: 'https://preview-site.wpcomstaging.com/?share=abc123',
+			shareUrl,
 		} );
 		expect( post ).toHaveBeenCalledWith(
 			expect.objectContaining( {
@@ -79,20 +75,23 @@ describe( 'Preview sites', () => {
 		await expect( createPreviewSite( 678, 'My Preview', token ) ).rejects.toThrow( LoggerError );
 	} );
 
-	it( 'waits for the new import on update, not the one it replaces', async () => {
+	it( 'waits for the new import on update, then for the preview link', async () => {
 		const imports = [
 			{ importId: 'old', importStatus: 'importSuccess' },
 			{ importId: 'old', importStatus: 'importSuccess' },
 			{ importId: 'new', importStatus: 'importSuccess' },
 		];
+		// The link is '' until the build is done.
+		const links = [ '', shareUrl ];
 		get.mockImplementation( ( { path }: { path: string } ) =>
-			path === `/sites/${ siteId }`
-				? Promise.resolve( { URL: 'https://preview-site.wpcomstaging.com' } )
-				: Promise.resolve( imports.shift() )
+			Promise.resolve(
+				path === '/wow-funnel/pending'
+					? { preview_sites: [ { blog_id: siteId, share_url: links.shift() } ] }
+					: imports.shift()
+			)
 		);
-		const shareUrl = 'https://preview-site.wpcomstaging.com/?share=kept';
 
-		const update = updatePreviewSite( siteId, 679, token, shareUrl );
+		const update = updatePreviewSite( siteId, 679, token );
 		await vi.runAllTimersAsync();
 
 		await expect( update ).resolves.toEqual( {
@@ -101,40 +100,12 @@ describe( 'Preview sites', () => {
 			shareUrl,
 		} );
 		expect( imports ).toHaveLength( 0 );
+		expect( links ).toHaveLength( 0 );
 		expect( post ).toHaveBeenCalledWith( {
 			apiNamespace: 'wpcom/v2',
 			path: `/sites/${ siteId }/wow-funnel/update`,
 			body: { args: { attachment_id: '679' } },
 		} );
-		expect( post ).not.toHaveBeenCalledWith(
-			expect.objectContaining( { path: `/sites/${ siteId }/preview-links` } )
-		);
-	} );
-
-	it( "reuses the site's preview link on update when the snapshot has none", async () => {
-		const imports = [
-			{ importId: 'old', importStatus: 'importSuccess' },
-			{ importId: 'new', importStatus: 'importSuccess' },
-		];
-		get.mockImplementation( ( { path }: { path: string } ) => {
-			if ( path === `/sites/${ siteId }` ) {
-				return Promise.resolve( { URL: 'https://preview-site.wpcomstaging.com' } );
-			}
-			if ( path === `/sites/${ siteId }/preview-links` ) {
-				return Promise.resolve( [ { code: 'existing' } ] );
-			}
-			return Promise.resolve( imports.shift() );
-		} );
-
-		const update = updatePreviewSite( siteId, 679, token );
-		await vi.runAllTimersAsync();
-
-		await expect( update ).resolves.toMatchObject( {
-			shareUrl: 'https://preview-site.wpcomstaging.com/?share=existing',
-		} );
-		expect( post ).not.toHaveBeenCalledWith(
-			expect.objectContaining( { path: `/sites/${ siteId }/preview-links` } )
-		);
 	} );
 
 	it( 'discards the site, and treats one already gone as deleted', async () => {

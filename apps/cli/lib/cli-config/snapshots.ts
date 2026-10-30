@@ -4,6 +4,7 @@ import { __ } from '@wordpress/i18n';
 import { LoggerError } from 'cli/logger';
 import { lockCliConfig, readCliConfig, saveCliConfig, unlockCliConfig } from './core';
 import { getSiteByFolder } from './sites';
+import type { StandingPreview } from 'cli/lib/preview-sites';
 
 export function getNextSnapshotSequence(
 	siteId: string,
@@ -183,14 +184,15 @@ export async function setSnapshotInConfig(
 
 /**
  * Brings the user's WordPress.com previews in line with the server: forgets those it no longer has
- * standing (bought, expired or deleted elsewhere) and records when the rest expire. A preview saved
- * after `checkedAt` is left alone, since the server's answer may predate it.
+ * standing (bought, expired or deleted elsewhere) and records when the rest expire and the preview
+ * link it hands out for each. A preview saved after `checkedAt` is left alone, since the server's
+ * answer may predate it.
  *
- * @param standing The server's standing previews: site ID => expiry (ms).
+ * @param standing The server's standing previews, by site ID.
  */
 export async function reconcilePreviews(
 	userId: number,
-	standing: Map< number, number | undefined >,
+	standing: Map< number, StandingPreview >,
 	checkedAt: number
 ): Promise< void > {
 	try {
@@ -205,10 +207,14 @@ export async function reconcilePreviews(
 			) {
 				return true;
 			}
-			if ( ! standing.has( snapshot.atomicSiteId ) ) {
+			const preview = standing.get( snapshot.atomicSiteId );
+			if ( ! preview ) {
 				return false;
 			}
-			snapshot.expiresAt = standing.get( snapshot.atomicSiteId );
+			snapshot.expiresAt = preview.expiresAt;
+			if ( preview.shareUrl ) {
+				snapshot.shareUrl = preview.shareUrl;
+			}
 			return true;
 		} );
 		if ( JSON.stringify( config.snapshots ) !== before ) {

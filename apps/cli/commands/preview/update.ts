@@ -114,11 +114,10 @@ export async function runCommand(
 			( { shareUrl } = await updatePreviewSite(
 				snapshotToUpdate.atomicSiteId,
 				attachmentId,
-				token.accessToken,
-				snapshotToUpdate.shareUrl
+				token.accessToken
 			) );
 		} else {
-			// A preview made on Jurassic Ninja by an earlier Studio.
+			// A preview made on Jurassic Ninja.
 			await uploadArchive(
 				archivePath,
 				token.accessToken,

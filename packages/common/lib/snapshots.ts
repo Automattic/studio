@@ -44,8 +44,9 @@ export function getSnapshotLink( snapshot: Snapshot ): string {
 	return snapshot.shareUrl ?? `https://${ snapshot.url }`;
 }
 
-// Earlier Studio releases made previews on Jurassic Ninja, always under this domain. They keep
-// working there until they expire; every other preview is a WordPress.com site.
+// Jurassic Ninja previews always live under this domain: those made by earlier Studio releases, and
+// those made for accounts outside the WordPress.com rollout. Every other preview is a WordPress.com
+// site.
 const JURASSIC_NINJA_DOMAIN = '.wp.build';
 
 export function isWpcomPreview( snapshot: Snapshot ): boolean {

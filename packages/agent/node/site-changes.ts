@@ -115,6 +115,8 @@ export class SiteChanges {
 	// Counts what makes a snapshot stale, so one read across it is not taken as fresh.
 	private generation = 0;
 	private closing?: Promise< void >;
+	// The longest each source's read or check took on a site, since they were last taken.
+	private sourceMs: Record< string, number > = {};
 
 	constructor(
 		private readonly host: StudioAgentHost,
@@ -173,6 +175,22 @@ export class SiteChanges {
 			} );
 	}
 
+	/** The longest each source's read or check took on a site since the last take, for a profile. */
+	takeSourceMs(): Record< string, number > {
+		const taken = this.sourceMs;
+		this.sourceMs = {};
+		return taken;
+	}
+
+	private async timed< T >( stage: string, run: () => Promise< T > ): Promise< T > {
+		const from = Date.now();
+		try {
+			return await run();
+		} finally {
+			this.sourceMs[ stage ] = Math.max( this.sourceMs[ stage ] ?? 0, Date.now() - from );
+		}
+	}
+
 	/** Studio changed a site outside a call, as a fix or a background write: the next call snapshots. */
 	stale(): void {
 		this.generation++;
@@ -182,13 +200,18 @@ export class SiteChanges {
 	private async read(): Promise< void > {
 		await Promise.all(
 			( await this.sites() ).map( async ( site ) => {
-				await this.open?.see( site.path );
+				const open = this.open;
+				if ( open ) {
+					await this.timed( 'open problems', () => open.see( site.path ) );
+				}
 				await Promise.all(
 					this.sources.map( async ( source ) => {
 						const key = `${ source.name } ${ site.path }`;
 						this.snapshots.set(
 							key,
-							await source.read( site.path, this.snapshots.get( key ), this.host )
+							await this.timed( `read ${ source.name }`, () =>
+								source.read( site.path, this.snapshots.get( key ), this.host )
+							)
 						);
 					} )
 				);
@@ -221,10 +244,14 @@ export class SiteChanges {
 		const settleSource = async ( source: SiteChangeSource ): Promise< ChangeReport[] > => {
 			const key = `${ source.name } ${ site.path }`;
 			const before = this.snapshots.get( key );
-			const after = await source.read( site.path, before, this.host );
+			const after = await this.timed( `read ${ source.name }`, () =>
+				source.read( site.path, before, this.host )
+			);
 			// A site first seen now has no changes yet.
 			const { reports, next } = before
-				? await source.check( site, before, after, this.host )
+				? await this.timed( `check ${ source.name }`, () =>
+						source.check( site, before, after, this.host )
+				  )
 				: { reports: [], next: undefined };
 			this.snapshots.set( key, next ?? after );
 			return reports;

@@ -140,3 +140,17 @@ describe( 'SiteChanges.begin', () => {
 		expect( read ).toBe( reads );
 	} );
 } );
+
+describe( 'SiteChanges.takeSourceMs', () => {
+	it( 'gives the longest read and check of each source since the last take', async () => {
+		const changes = new SiteChanges( createFakeHost(), undefined, async () => sites, [
+			source( 'slow', 30, [] ),
+		] );
+		await changes.snapshot();
+		await changes.settle();
+		const taken = changes.takeSourceMs();
+		expect( Object.keys( taken ) ).toEqual( [ 'read slow', 'check slow' ] );
+		expect( taken[ 'check slow' ] ).toBeGreaterThanOrEqual( 25 );
+		expect( changes.takeSourceMs() ).toEqual( {} );
+	} );
+} );

@@ -1080,6 +1080,7 @@ function toToolDefinition(
 					...( result.details as object ),
 					checksMs: Date.now() - checksStarted - ranMs,
 					checkStagesMs,
+					checkSourcesMs: checksChanges ? siteChanges.takeSourceMs() : undefined,
 				},
 			};
 			return reports

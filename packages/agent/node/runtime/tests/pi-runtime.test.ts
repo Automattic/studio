@@ -175,6 +175,9 @@ vi.mock( '@studio/agent/node/site-changes', () => ( {
 		end() {}
 		afterChecks() {}
 		stale() {}
+		takeSourceMs() {
+			return {};
+		}
 		async settle() {
 			mocks.steps.push( 'settle' );
 			await new Promise( ( resolve ) => setTimeout( resolve, mocks.settleMs ) );

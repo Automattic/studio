@@ -24,13 +24,11 @@ export type PaletteProps = {
 export function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) {
 	const [ query, setQuery ] = useState( '' );
 	const [ highlight, setHighlight ] = useState< string >();
-	const [ executing, setExecuting ] = useState( false );
 	const listId = useId();
 	const matches = matchCommands( commands, query );
 	const groups = groupCommands( matches );
 	const active = getActiveCommand( groups, highlight );
 	const run = ( id: string ) => {
-		setExecuting( true );
 		onOpenChange( false );
 		matches.find( ( command ) => command.id === id )?.run();
 	};
@@ -42,13 +40,12 @@ export function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) 
 			onOpenChangeComplete={ ( isOpen ) => {
 				if ( ! isOpen ) {
 					setQuery( '' );
-					setExecuting( false );
 				}
 			} }
 		>
 			<DialogContent
 				className={ styles.popup }
-				data-instant={ executing && ! open ? '' : undefined }
+				motion="none"
 				aria-label={ __( 'Command palette' ) }
 			>
 				<InputGroup variant="commands" className={ styles.input }>

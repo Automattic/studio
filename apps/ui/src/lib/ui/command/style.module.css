@@ -25,7 +25,8 @@
 
 	.empty {
 		padding: var( --space-6 ) 0;
-		font-size: var( --text-sm );
+		color: var( --muted-foreground );
+		font-size: var( --text-xs );
 		text-align: center;
 	}
 
@@ -109,6 +110,10 @@
 	.list[data-size='default'] .icon {
 		width: 16px;
 		height: 16px;
+	}
+
+	.list[data-size='default'] .text {
+		gap: var( --space-3 );
 	}
 
 	.list[data-size='default'] .label {

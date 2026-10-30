@@ -1,33 +1,17 @@
 import { act, waitFor } from '@testing-library/react';
-import { expect, it } from 'vitest';
+import { beforeEach, expect, it } from 'vitest';
+import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
 import { useSettingCommands } from '@/features/commands/use-setting-commands';
 import { createFakeConnector } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import type { PaletteCommand } from '@/features/commands/studio-commands';
 
-function setup( collapse: boolean, skillInstalled?: boolean ) {
-	const skills = [
-		{
-			id: 'wp-test',
-			displayName: 'Test skill',
-			description: 'Test',
-			installed: skillInstalled ?? false,
-		},
-	];
+beforeEach( resetAppMessagesForTests );
+
+function setup( collapse: boolean ) {
 	const connector = createFakeConnector( {
 		preferences: { autoCollapseSites: collapse },
 	} );
-	if ( skillInstalled !== undefined ) {
-		connector.getWordPressSkillsStatusAllSites.mockImplementation( async () =>
-			skills.map( ( skill ) => ( { ...skill } ) )
-		);
-		connector.installWordPressSkillToAllSites.mockImplementation( async () => {
-			skills[ 0 ].installed = true;
-		} );
-		connector.removeWordPressSkillFromAllSites.mockImplementation( async () => {
-			skills[ 0 ].installed = false;
-		} );
-	}
 	const result: { current: PaletteCommand[] } = { current: [] };
 	function Probe() {
 		result.current = useSettingCommands( 'studio' );
@@ -67,8 +51,17 @@ it( 'uses direct actions once while keeping CLI and instructions as settings lin
 	expect( result.current.filter( ( entry ) => entry.label === 'Reset appearance' ) ).toHaveLength(
 		1
 	);
-	expect( find( 'settings-general-studio-cli' ).label ).toBe( 'Studio CLI for terminal' );
-	expect( find( 'settings-instructions-agent-instructions' ).label ).toBe( 'Agent instructions' );
+	for ( const id of [
+		'settings-general-open-chat-on-site-start',
+		'settings-appearance-reset-appearance',
+		'settings-general-documentation',
+	] ) {
+		expect( find( id ).group ).toBe( 'commands' );
+	}
+	expect( find( 'settings-general-studio-cli' ).group ).toBe( 'settings' );
+	expect( find( 'settings-instructions' ).group ).toBe( 'settings' );
+	expect( find( 'settings-general-studio-cli' ).label ).toBe( 'WordPress Studio CLI for terminal' );
+	expect( find( 'settings-instructions' ).label ).toBe( 'Instructions' );
 	act( () => find( 'settings-appearance-reset-appearance' ).run() );
 	await waitFor( () =>
 		expect( connector.setUserPreferences ).toHaveBeenCalledWith(
@@ -76,6 +69,7 @@ it( 'uses direct actions once while keeping CLI and instructions as settings lin
 			undefined
 		)
 	);
+	await waitFor( () => expect( getNoticeHistory().at( 0 )?.title ).toBe( 'Appearance reset.' ) );
 	act( () => find( 'settings-general-documentation' ).run() );
 	expect( connector.openExternalUrl ).toHaveBeenCalled();
 } );
@@ -92,26 +86,33 @@ it( 'resets interface preferences through the existing persistence action', asyn
 			undefined
 		)
 	);
+	await waitFor( () => expect( getNoticeHistory().at( 0 )?.title ).toBe( 'Interface reset.' ) );
 } );
 
-it.each( [ false, true ] )( 'toggles WordPress skills directly from %s', async ( installed ) => {
-	const { connector, result } = setup( false, installed );
-	const command = () =>
-		result.current.find( ( entry ) => entry.id === 'settings-skills-wordpress-skills' )!;
-	await waitFor( () =>
-		expect( command()?.label ).toBe(
-			installed ? 'Disable WordPress skills' : 'Enable WordPress skills'
-		)
-	);
-	act( () => command().run() );
-	await waitFor( () =>
-		expect( command().label ).toBe(
-			installed ? 'Enable WordPress skills' : 'Disable WordPress skills'
-		)
-	);
-	expect(
-		installed
-			? connector.removeWordPressSkillFromAllSites
-			: connector.installWordPressSkillToAllSites
-	).toHaveBeenCalledWith( 'wp-test' );
-} );
+it.each( [ false, true ] )(
+	'reports a preference change only after persistence settles (fails: %s)',
+	async ( fails ) => {
+		const { connector, command } = setup( false );
+		await waitFor( () => expect( command() ).toBeDefined() );
+		let settle!: () => void;
+		connector.setUserPreferences.mockImplementation(
+			() =>
+				new Promise< void >( ( resolve, reject ) => {
+					settle = () => ( fails ? reject( new Error( 'Save failed' ) ) : resolve() );
+				} )
+		);
+		act( () => command()!.run() );
+		await waitFor( () => expect( connector.setUserPreferences ).toHaveBeenCalledOnce() );
+		expect( getNoticeHistory() ).toHaveLength( 0 );
+		await act( async () => settle() );
+		await waitFor( () => expect( getNoticeHistory() ).toHaveLength( 1 ) );
+		expect( getNoticeHistory()[ 0 ] ).toMatchObject(
+			fails
+				? {
+						intent: 'error',
+						title: 'Could not update settings. Please try again.',
+				  }
+				: { intent: 'success', title: 'Automatic sidebar collapsing enabled.' }
+		);
+	}
+);

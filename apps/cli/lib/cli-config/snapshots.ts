@@ -71,6 +71,8 @@ export async function saveSnapshotToConfig(
 			shareUrl,
 		};
 
+		// A sync while the preview was being created may already have listed it.
+		config.snapshots = config.snapshots.filter( ( s ) => s.atomicSiteId !== atomicSiteId );
 		config.snapshots.push( snapshot );
 		await saveCliConfig( config );
 		return snapshot;
@@ -191,9 +193,10 @@ export async function setSnapshotInConfig(
 
 /**
  * Brings the user's WordPress.com previews in line with the server: forgets those it no longer has
- * standing (bought, expired or deleted elsewhere) and records when the rest expire and the preview
- * link it hands out for each. A preview saved after `checkedAt` is left alone, since the server's
- * answer may predate it.
+ * standing (bought, expired or deleted elsewhere), records when the rest expire and the preview link
+ * it hands out for each, and lists the ones made elsewhere (another computer or tool), since they
+ * count toward the account's limit too. A preview saved after `checkedAt` is left alone, since the
+ * server's answer may predate it.
  *
  * @param standing The server's standing previews, by site ID.
  */
@@ -224,6 +227,22 @@ export async function reconcilePreviews(
 			}
 			return true;
 		} );
+		const listed = new Set( config.snapshots.map( ( snapshot ) => snapshot.atomicSiteId ) );
+		for ( const [ atomicSiteId, preview ] of standing ) {
+			if ( listed.has( atomicSiteId ) || ! preview.hostname ) {
+				continue;
+			}
+			// Made elsewhere, so no local site: it can be opened, shared and deleted from here.
+			config.snapshots.push( {
+				url: preview.hostname,
+				atomicSiteId,
+				localSiteId: '',
+				date: checkedAt,
+				userId,
+				shareUrl: preview.shareUrl,
+				expiresAt: preview.expiresAt,
+			} );
+		}
 		if ( JSON.stringify( config.snapshots ) !== before ) {
 			await saveCliConfig( config );
 		}

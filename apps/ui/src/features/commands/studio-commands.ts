@@ -1,7 +1,7 @@
 import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
 import { __, sprintf } from '@wordpress/i18n';
 import { PencilIcon, SettingsIcon, SparklesIcon } from 'lucide-react';
-import { getSections } from '@/data/settings-sections';
+import { getSections, getSettingsCommandAliases } from '@/data/settings-sections';
 import { getSessionTitle } from '@/features/chats';
 import {
 	PlusIcon,
@@ -23,11 +23,9 @@ import type { ComponentType } from 'react';
 export const GROUPS = [
 	'quick',
 	'recent',
-	'site',
-	'chat',
+	'commands',
 	'site-settings',
 	'settings',
-	'commands',
 	'sites',
 	'chats',
 ] as const;
@@ -68,11 +66,9 @@ const RECENT_CHATS_LIMIT = 5;
 export function getGroupLabel( group: GroupId ) {
 	return {
 		quick: __( 'Quick actions' ),
-		recent: __( 'Recent' ),
-		site: __( 'Site actions' ),
-		chat: __( 'Chat actions' ),
+		recent: __( 'Recent chats' ),
 		'site-settings': __( 'Site settings' ),
-		settings: __( 'Settings' ),
+		settings: __( 'App settings' ),
 		commands: __( 'Commands' ),
 		sites: __( 'Sites' ),
 		chats: __( 'Chats' ),
@@ -148,7 +144,12 @@ export function getAppCommands( {
 			label: __( 'Settings' ),
 			icon: SettingsIcon,
 			priority: 2,
-			aliases: [ __( 'Open settings' ), __( 'Preferences' ) ],
+			aliases: [
+				__( 'App settings' ),
+				__( 'Open settings' ),
+				__( 'Preferences' ),
+				...getSettingsCommandAliases( 'studio', 'settings' ),
+			],
 			run: openSettings,
 		},
 		...chats.slice( 0, RECENT_CHATS_LIMIT ).map(
@@ -161,7 +162,7 @@ export function getAppCommands( {
 		),
 		{
 			id: 'color-scheme',
-			group: 'settings',
+			group: 'commands',
 			label: colorScheme === 'dark' ? __( 'Use light mode' ) : __( 'Use dark mode' ),
 			icon: AppearanceIcon,
 			aliases: [ __( 'Toggle theme' ) ],
@@ -183,13 +184,7 @@ export function getAppCommands( {
 			label: __( 'Show notifications' ),
 			icon: BellIcon,
 			aliases: [ __( 'Notifications' ) ],
-			// The history opens from the bell in the sidebar.
-			run: () => {
-				if ( ! sidebarOpen ) {
-					toggleSidebar();
-				}
-				openNotifications();
-			},
+			run: openNotifications,
 		},
 		{
 			id: 'whats-new',
@@ -231,8 +226,7 @@ export function getAppCommands( {
 	];
 }
 
-// Every settings section, and every setting in it, shown while searching. A
-// switch or action runs directly; other settings open with their control focused.
+// The settings registry chooses palette destinations and actions independently of Settings search.
 export function getSettingCommands( {
 	scope,
 	site,
@@ -251,42 +245,86 @@ export function getSettingCommands( {
 	openSettings: OpenSettings;
 } ): PaletteCommand[] {
 	const group = scope === 'site' ? 'site-settings' : 'settings';
-	return getSections( scope, { signedIn } ).flatMap( ( section ) => [
-		{
-			id: `${ group }-${ section.id }`,
-			group,
-			label: section.label,
-			aliases: section.aliases,
-			icon: section.icon,
-			description: site?.name,
-			keywords: [ getGroupLabel( group ) ],
-			searchOnly: true,
-			run: () => openSettings( section.id, site?.id ),
-		},
-		...section.settings.map( ( { id, title, description, icon, aliases } ): PaletteCommand => {
-			const toggle = scope === 'studio' && id ? toggles[ id ] : undefined;
-			const action = scope === 'studio' && id ? actions[ id ] : undefined;
-			return {
-				id: `${ group }-${ section.id }-${ id ?? title }`,
-				group,
-				label: toggle
-					? toggle.label ??
-					  sprintf(
-							/* translators: %s: the name of a setting. */
-							toggle.checked ? __( 'Turn off “%s”' ) : __( 'Turn on “%s”' ),
-							title
-					  )
-					: action?.label ?? title,
-				aliases: [ title, ...( aliases ?? [] ), ...( action?.aliases ?? [] ) ],
-				icon: icon ?? section.icon,
-				description: site?.name ?? section.label,
-				keywords: [ section.label, description ],
-				searchOnly: true,
-				run:
-					toggle?.run ?? action?.run ?? ( () => openSettings( section.id, site?.id, id ?? title ) ),
-			};
-		} ),
-	] );
+	if ( scope === 'site' && ! site ) return [];
+	return getSections( scope, { signedIn } ).flatMap( ( section ) => {
+		const folded = section.settings.filter( ( entry ) => entry.palette === 'section' );
+		const navigation: PaletteCommand[] = ! section.command
+			? [
+					{
+						id: `${ group }-${ section.id }`,
+						group,
+						label: section.label,
+						aliases: [
+							section.label,
+							sprintf(
+								/* translators: %s: the name of a settings section. */
+								__( 'Open %s settings' ),
+								section.label
+							),
+							...( section.aliases ?? [] ),
+							...folded.flatMap( ( entry ) => [ entry.title, ...( entry.aliases ?? [] ) ] ),
+						],
+						icon: section.icon,
+						description: site?.name,
+						keywords: [
+							getGroupLabel( group ),
+							...( scope === 'studio' ? [ 'WordPress Studio' ] : [] ),
+							...folded.map( ( entry ) => entry.description ),
+						],
+						run: () => {
+							const focus = folded.find( ( entry ) => entry.id )?.id;
+							if ( focus ) openSettings( section.id, site?.id, focus );
+							else openSettings( section.id, site?.id );
+						},
+					},
+			  ]
+			: [];
+		return [
+			...navigation,
+			...section.settings.flatMap(
+				( { id, title, description, icon, aliases, palette } ): PaletteCommand[] => {
+					if ( palette !== 'navigate' && palette !== 'action' ) return [];
+					const toggle =
+						palette === 'action' && scope === 'studio' && id ? toggles[ id ] : undefined;
+					const action =
+						palette === 'action' && scope === 'studio' && id ? actions[ id ] : undefined;
+					if ( palette === 'action' && ! toggle && ! action ) return [];
+					return [
+						{
+							id: `${ group }-${ section.id }-${ id }`,
+							group: palette === 'action' ? 'commands' : group,
+							label: toggle
+								? toggle.label ??
+								  sprintf(
+										/* translators: %s: the name of a setting. */
+										toggle.checked ? __( 'Turn off “%s”' ) : __( 'Turn on “%s”' ),
+										title
+								  )
+								: action?.label ?? title,
+							aliases: [
+								title,
+								...( palette === 'navigate'
+									? [
+											sprintf(
+												/* translators: %s: the name of a setting. */
+												__( 'Open %s settings' ),
+												title
+											),
+									  ]
+									: [] ),
+								...( aliases ?? [] ),
+								...( action?.aliases ?? [] ),
+							],
+							icon: icon ?? section.icon,
+							description: site?.name ?? section.label,
+							keywords: [ section.label, description ],
+							run: toggle?.run ?? action?.run ?? ( () => openSettings( section.id, site?.id, id ) ),
+						},
+					];
+				}
+			),
+		];
+	} );
 }
 
 export function getChatCommands(
@@ -297,7 +335,7 @@ export function getChatCommands(
 	return [
 		{
 			id: 'pin-chat',
-			group: 'chat',
+			group: 'commands',
 			label: actions.pinned ? __( 'Unpin chat' ) : __( 'Pin chat' ),
 			icon: actions.pinned ? UnpinIcon : PinIcon,
 			description,
@@ -305,7 +343,7 @@ export function getChatCommands(
 		},
 		{
 			id: 'rename-chat',
-			group: 'chat',
+			group: 'commands',
 			label: __( 'Rename chat…' ),
 			icon: PencilIcon,
 			description,
@@ -316,7 +354,7 @@ export function getChatCommands(
 			: [
 					{
 						id: 'archive-chat',
-						group: 'chat' as const,
+						group: 'commands' as const,
 						label: __( 'Archive chat' ),
 						icon: ArchiveIcon,
 						description,

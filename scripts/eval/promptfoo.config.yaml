@@ -10,18 +10,26 @@
 
 description: Studio Code agent evaluation
 
-# Each case creates its sites in its own folder, but two cases starting sites at
-# the same moment can still pick the same free port.
+# Each case creates its sites in its own folder and gives them ports from a
+# range of its own (eval-port-range.ts), so cases run side by side.
 evaluateOptions:
-  maxConcurrency: 1
+  maxConcurrency: 4
 
 providers:
   - id: exec:node ../../apps/cli/dist/cli/eval-runner.mjs
     label: studio-agent
 
+# GitHub's API quota as each case starts, for github.mjs:githubAnswered.
+extensions:
+  - file://github.mjs:beforeEach
+
 defaultTest:
   options:
     repeat: 1
+  # A case that used GitHub while its API refused fails as INVALID (environment).
+  assert:
+    - type: javascript
+      value: file://github.mjs:githubAnswered
 
 tests:
   - description: questionnaire accepts a selection and a skipped question
@@ -258,9 +266,9 @@ tests:
         value: file://outcome.mjs:otherSitesUntouched
 
   # Regression (STU-2017): edits to an installed theme are lost on its next
-  # update. The parent must still match its WordPress.org release, and the
-  # active child theme carries the heading font.
-  - description: customizing an installed theme leaves it as released and works through a child theme
+  # update. The theme must still match its WordPress.org release, and the
+  # heading font lives where an update keeps it: a child theme, or Global Styles.
+  - description: customizing an installed theme leaves it as released and works through a child theme or Global Styles
     vars:
       caseId: child-theme-for-installed-theme
       siteName: "Eval Child Theme Site"
@@ -351,7 +359,7 @@ tests:
 
   # Site pick: with an active site and a prompt that names no other site, the
   # agent builds into the active site instead of asking whether to create a
-  # separate one. Seeds a real (stopped) site as the active site.
+  # separate one. Seeds a real running site as the active site.
   - description: a plan-only request on the active site creates no new site
     vars:
       caseId: active-site-reused

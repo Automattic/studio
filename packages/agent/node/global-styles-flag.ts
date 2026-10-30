@@ -18,6 +18,7 @@
  * no styles, as core makes one on each read while the theme has none, changes
  * nothing WordPress applies.
  */
+import { GLOBAL_STYLES, saveGlobalStyles } from '@studio/agent/node/global-styles';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
@@ -34,7 +35,7 @@ if ( empty( $data['settings'] ) && empty( $data['styles'] ) ) {
 	return;
 }
 $theme = get_stylesheet();
-$read = get_posts( array( 'post_type' => 'wp_global_styles', 'post_status' => 'publish', 'numberposts' => 1, 'fields' => 'ids', 'tax_query' => array( array( 'taxonomy' => 'wp_theme', 'field' => 'name', 'terms' => $theme ) ) ) );
+$read = get_posts( array( 'post_type' => '${ GLOBAL_STYLES }', 'post_status' => 'publish', 'numberposts' => 1, 'fields' => 'ids', 'tax_query' => array( array( 'taxonomy' => 'wp_theme', 'field' => 'name', 'terms' => $theme ) ) ) );
 if ( ! $read ) {
 	wp_set_post_terms( ${ id }, $theme, 'wp_theme' );
 }
@@ -50,36 +51,14 @@ async function theme(
 	return JSON.parse( output.slice( output.indexOf( '{' ) ) );
 }
 
-// The Site Editor's save of a post's settings and styles, as an administrator.
-const resave = ( id: number ) => `
-$data = json_decode( (string) get_post_field( 'post_content', ${ id } ), true );
-if ( ! is_array( $data ) ) {
-	echo wp_json_encode( array( 'status' => 'not JSON' ) );
-	return;
-}
-wp_set_current_user( (int) ( get_users( array( 'role' => 'administrator', 'number' => 1, 'fields' => 'ID' ) )[0] ?? 0 ) );
-$request = new WP_REST_Request( 'POST', '/wp/v2/global-styles/${ id }' );
-$request->set_body_params( array( 'settings' => $data['settings'] ?? array(), 'styles' => $data['styles'] ?? array() ) );
-$response = rest_do_request( $request );
-echo wp_json_encode( array( 'status' => $response->get_status(), 'message' => $response->is_error() ? $response->as_error()->get_error_message() : '' ) );
-`;
-
-async function save(
-	host: StudioAgentHost,
-	site: HostSite,
-	id: number
-): Promise< string | undefined > {
-	try {
-		const { stdout: output } = await host.sites.wpCli( site, [ 'eval', resave( id ) ] );
-		const { status, message } = JSON.parse( output.slice( output.indexOf( '{' ) ) ) as {
-			status: number | string;
-			message?: string;
-		};
-		return status === 200 ? undefined : message || String( status );
-	} catch ( error ) {
-		return error instanceof Error ? error.message : String( error );
-	}
-}
+// Saves the post's own settings and styles again, as the Site Editor saves them.
+const save = ( host: StudioAgentHost, site: HostSite, id: number ) =>
+	saveGlobalStyles(
+		host,
+		site,
+		String( id ),
+		`json_decode( (string) get_post_field( 'post_content', ${ id } ), true )`
+	).catch( ( error: unknown ) => ( error instanceof Error ? error.message : String( error ) ) );
 
 function flagged( content: string ): boolean {
 	try {
@@ -104,7 +83,8 @@ export const globalStylesFlag: SiteChangeSource = {
 			} >(
 				`SELECT p.ID AS id, p.post_modified_gmt AS modified, p.post_content AS content,
 				EXISTS ( SELECT 1 FROM ${ site.prefix }term_relationships r JOIN ${ site.prefix }term_taxonomy x ON x.term_taxonomy_id = r.term_taxonomy_id AND x.taxonomy = 'wp_theme' WHERE r.object_id = p.ID ) AS themed
-				FROM ${ site.prefix }posts p WHERE p.post_type = 'wp_global_styles'`
+				FROM ${ site.prefix }posts p WHERE p.post_type = ?`,
+				GLOBAL_STYLES
 			) ) {
 				versions[ id ] = `${ themed ? '' : UNTHEMED }${
 					flagged( content ) ? '' : UNFLAGGED

@@ -13,17 +13,21 @@
  * The active block theme's Global Styles (the wp_global_styles post WordPress
  * merges over its theme.json) are copied as wp_global_styles/<theme>.json,
  * holding what the Site Editor starts them with when none are saved yet, and
- * saved as the Site Editor saves them (saveGlobalStyles()).
+ * saved as the Site Editor saves them (saveGlobalStyles() in global-styles.ts).
  */
 import { createHash } from 'crypto';
 import { existsSync, mkdirSync } from 'fs';
 import { readFile, rename, rm, writeFile } from 'fs/promises';
 import path from 'path';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
+import {
+	GLOBAL_STYLES,
+	saveGlobalStyles,
+	themeGlobalStyles,
+} from '@studio/agent/node/global-styles';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { RENDERED, RENDERED_TYPES, savePost } from '@studio/agent/node/site-markup';
 import { activeThemes } from '@studio/agent/node/themes';
-import { runWpCli } from '@studio/agent/node/tools/utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { ChangeReport, SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 import type { WordPressSite } from '@studio/agent/node/site-database';
@@ -65,8 +69,6 @@ export function siteIdOfCopy( file: string ): string | undefined {
 
 const hash = ( content: string ) => createHash( 'sha1' ).update( content ).digest( 'hex' );
 
-const GLOBAL_STYLES = 'wp_global_styles';
-
 const copyOf = ( workspace: string, post: Pick< Post, 'id' | 'type' > ) =>
 	path.join(
 		workspace,
@@ -90,8 +92,7 @@ function readPosts( site: WordPressSite ): Post[] {
 	return styles ? [ ...posts, styles ] : posts;
 }
 
-// The active block theme's Global Styles: the latest published post its
-// wp_theme term names, as WP_Theme_JSON_Resolver reads them.
+// The active block theme's Global Styles, as WordPress reads them.
 function globalStyles( site: WordPressSite ): Post | undefined {
 	const [ theme ] = activeThemes( site );
 	if (
@@ -100,47 +101,27 @@ function globalStyles( site: WordPressSite ): Post | undefined {
 	) {
 		return undefined;
 	}
-	const [ saved ] = site.query< { post: number; version: string } >(
-		`SELECT p.ID AS post, ${ VERSION } AS version FROM ${ site.prefix }posts p
-		JOIN ${ site.prefix }term_relationships tr ON tr.object_id = p.ID
-		JOIN ${ site.prefix }term_taxonomy tt ON tt.term_taxonomy_id = tr.term_taxonomy_id AND tt.taxonomy = 'wp_theme'
-		JOIN ${ site.prefix }terms t ON t.term_id = tt.term_id
-		WHERE p.post_type = ? AND p.post_status = 'publish' AND t.name = ?
-		ORDER BY p.post_date DESC, p.ID DESC LIMIT 1`,
-		GLOBAL_STYLES,
-		theme
-	);
-	return { id: theme, type: GLOBAL_STYLES, version: saved?.version ?? 'none', post: saved?.post };
+	const saved = themeGlobalStyles( site, theme );
+	return {
+		id: theme,
+		type: GLOBAL_STYLES,
+		version: saved ? `${ saved.modified } ${ saved.content.length }` : 'none',
+		post: saved?.id,
+	};
 }
 
-/**
- * Saves a theme's Global Styles from their copy as the Site Editor saves them,
- * as an administrator: it makes the theme's post when there is none yet
- * (WP_Theme_JSON_Resolver::get_user_global_styles_post_id()), then PUTs the
- * copy's styles and settings to /wp/v2/global-styles/<ID>, whose controller
- * keeps isGlobalStylesUserThemeJSON and the schema version and validates
- * custom CSS (WP_REST_Global_Styles_Controller::prepare_item_for_database()).
- * What the copy leaves out, it clears.
- */
-async function saveGlobalStyles(
-	host: StudioAgentHost,
-	site: HostSite,
-	theme: string,
-	file: string
-): Promise< void > {
-	const php = `$data = json_decode( file_get_contents( ${ JSON.stringify( file ) } ), true );
-if ( ! is_array( $data ) ) { fwrite( STDERR, 'it is not a JSON object: ' . json_last_error_msg() ); exit( 1 ); }
-if ( get_stylesheet() !== ${ JSON.stringify( theme ) } ) { fwrite( STDERR, ${ JSON.stringify(
-		`${ theme } is not the active theme`
-	) } ); exit( 1 ); }
-$admins = get_users( array( 'role' => 'administrator', 'number' => 1, 'fields' => 'ID' ) );
-wp_set_current_user( $admins ? (int) $admins[0] : 0 );
-$request = new WP_REST_Request( 'PUT', '/wp/v2/global-styles/' . WP_Theme_JSON_Resolver::get_user_global_styles_post_id() );
-$request->set_param( 'styles', $data['styles'] ?? array() );
-$request->set_param( 'settings', $data['settings'] ?? array() );
-$response = rest_do_request( $request );
-if ( $response->is_error() ) { fwrite( STDERR, $response->as_error()->get_error_message() ); exit( 1 ); }`;
-	await runWpCli( host, site, [ 'eval', php ] );
+// Saves the copy of the active theme's Global Styles, making the theme's post
+// first when it has none (WP_Theme_JSON_Resolver::get_user_global_styles_post_id()).
+async function saveStylesCopy( host: StudioAgentHost, site: HostSite, file: string ) {
+	const refused = await saveGlobalStyles(
+		host,
+		site,
+		'WP_Theme_JSON_Resolver::get_user_global_styles_post_id()',
+		`json_decode( (string) file_get_contents( ${ JSON.stringify( file ) } ), true )`
+	);
+	if ( refused ) {
+		throw new Error( refused );
+	}
 }
 
 function readContent( site: WordPressSite, post: Post | undefined ): string {
@@ -355,7 +336,7 @@ export const postCopies: SiteChangeSource = {
 			}
 			try {
 				await ( type === GLOBAL_STYLES
-					? saveGlobalStyles( host, site, id, file )
+					? saveStylesCopy( host, site, file )
 					: savePost( host, site, Number( id ), file ) );
 			} catch ( error ) {
 				reports.push( {

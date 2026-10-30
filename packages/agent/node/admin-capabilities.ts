@@ -30,7 +30,7 @@ import {
 	REMOTE_STYLES,
 	type RemoteStyles,
 } from '@studio/agent/node/remote-font-styles';
-import { runWpCli } from '@studio/agent/node/tools/utils';
+import { AS_ADMINISTRATOR, runWpCli } from '@studio/agent/node/tools/utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 import type { WordPressSite } from '@studio/agent/node/site-database';
@@ -78,10 +78,10 @@ interface Denied {
 }
 
 const DENIED = `global $post_type_meta_caps;
-$admins = get_users( array( 'role' => 'administrator', 'number' => 1, 'fields' => 'ID', 'orderby' => 'ID' ) );
+${ AS_ADMINISTRATOR }
 $role = get_role( 'administrator' );
-$denied = array( 'user' => $admins ? (int) $admins[0] : 0, 'caps' => new stdClass() );
-foreach ( $admins && $role ? array_keys( array_filter( $role->capabilities ) ) : array() as $cap ) {
+$denied = array( 'user' => get_current_user_id(), 'caps' => new stdClass() );
+foreach ( $denied['user'] && $role ? array_keys( array_filter( $role->capabilities ) ) : array() as $cap ) {
 	if ( user_can( $denied['user'], $cap ) ) {
 		continue;
 	}

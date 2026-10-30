@@ -9,6 +9,7 @@ import { readFileSync } from 'fs';
 import { mkdir, readdir, rm, writeFile } from 'fs/promises';
 import path from 'path';
 import { readWordPressSite } from '@studio/agent/node/site-database';
+import { AS_ADMINISTRATOR, runWpCli } from '@studio/agent/node/tools/utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 
 export const RENDERED_TYPES = [
@@ -74,8 +75,9 @@ export async function siteMarkup(
 
 /**
  * Saves a post's content from a file, as an administrator's save
- * in the editor does: through wp_update_post(), without the kses filters a
- * user without unfiltered_html saves through (kses_remove_filters()).
+ * in the editor does: through wp_update_post(), as the site's administrator,
+ * and without the kses filters a user without unfiltered_html saves through
+ * (kses_remove_filters()), which on a multisite only a super admin has.
  */
 export async function savePost(
 	host: StudioAgentHost,
@@ -83,15 +85,13 @@ export async function savePost(
 	id: number,
 	file: string
 ): Promise< void > {
-	const php = `kses_remove_filters();
+	const php = `${ AS_ADMINISTRATOR }
+kses_remove_filters();
 $saved = wp_update_post( wp_slash( array( 'ID' => ${ id }, 'post_content' => file_get_contents( ${ JSON.stringify(
 		file
 	) } ) ) ), true );
 if ( is_wp_error( $saved ) ) { fwrite( STDERR, $saved->get_error_message() ); exit( 1 ); }`;
-	const { exitCode } = await host.sites.wpCli( site, [ 'eval', php ] );
-	if ( exitCode !== 0 ) {
-		throw new Error( `wp eval exited ${ exitCode }` );
-	}
+	await runWpCli( host, site, [ 'eval', php ] );
 }
 
 /** Saves new content to where a piece of markup is held: its file, or its post. */

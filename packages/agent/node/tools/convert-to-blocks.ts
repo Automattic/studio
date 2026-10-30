@@ -5,6 +5,7 @@ import { Type } from 'typebox';
 import { sitePresetValues, validateBlockMarkup } from '@studio/agent/node/block-validation-gate';
 import { validateBlocks } from '@studio/agent/node/block-validator';
 import { getSiteFileWriteRefusal, resolveSiteFile } from '@studio/agent/node/site-file-guards';
+import { saveMarkup } from '@studio/agent/node/site-markup';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
 import { runWpCli, textResult } from './utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
@@ -114,13 +115,6 @@ echo wp_json_encode( array(
 	'lost' => array( 'words' => $lost( $words_before, $words_after ), 'images' => $lost( $images_before, $images_after ) ),
 	'stylesheetDirectory' => get_stylesheet_directory(),
 ) );`;
-
-// A post's content is saved as an administrator, whose content WordPress keeps
-// as written (kses_init() only filters users without unfiltered_html).
-const SAVE_POST = `$admins = get_users( array( 'role' => 'administrator', 'number' => 1, 'fields' => 'ID' ) );
-wp_set_current_user( (int) ( $admins[0] ?? 0 ) );
-$saved = wp_update_post( array( 'ID' => (int) $data['post_id'], 'post_content' => wp_slash( $data['content'] ) ), true );
-echo is_wp_error( $saved ) ? $saved->get_error_message() : 'saved';`;
 
 const SUPPORT_DIRECTORY = 'assets/css/blocks-engine';
 const SUPPORT_LOADER = 'blocks-engine-styles.php';
@@ -309,10 +303,15 @@ export const convertToBlocksTool = defineTool(
 		if ( file ) {
 			await writeFile( file, content );
 		} else {
-			const saved = await evalWithData( host, site, SAVE_POST, { post_id: args.postId, content } );
-			if ( ! saved.includes( 'saved' ) ) {
-				throw new Error( `Saving post ${ args.postId } failed: ${ saved.trim() }` );
-			}
+			await saveMarkup( host, site.path, { post: args.postId, content }, content ).catch(
+				( error: unknown ) => {
+					throw new Error(
+						`Saving post ${ args.postId } failed: ${
+							error instanceof Error ? error.message : String( error )
+						}`
+					);
+				}
+			);
 		}
 		const stylesheets = await installSupportStylesheets(
 			conversion.stylesheetDirectory,

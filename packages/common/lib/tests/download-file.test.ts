@@ -1,16 +1,17 @@
+/**
+ * @vitest-environment node
+ */
 import fs from 'fs';
 import http from 'http';
 import { AddressInfo } from 'net';
 import os from 'os';
 import path from 'path';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { downloadFile } from '../download-file';
 import { isNetworkError } from '../network-utils';
 
 describe( 'downloadFile', () => {
-	let requested = () => {};
 	const server = http.createServer( ( req, res ) => {
-		requested();
 		if ( req.url === '/missing' ) {
 			res.writeHead( 404 ).end();
 		} else if ( req.url === '/slow-body' ) {
@@ -46,24 +47,11 @@ describe( 'downloadFile', () => {
 	} );
 
 	it( 'fails as a network error when no response starts within 5 s', async () => {
-		vi.useFakeTimers( { toFake: [ 'setTimeout', 'clearTimeout' ] } );
-		const reached = new Promise< void >( ( resolve ) => ( requested = resolve ) );
-		const download = failure( `${ base }/silent` );
-		await reached;
-		await vi.advanceTimersByTimeAsync( 5_000 );
-		vi.useRealTimers();
-
-		expect( isNetworkError( await download ) ).toBe( true );
-	} );
+		expect( isNetworkError( await failure( `${ base }/silent` ) ) ).toBe( true );
+	}, 15_000 );
 
 	it( 'gives a body that has started all the time it needs', async () => {
-		vi.useFakeTimers( { toFake: [ 'setTimeout', 'clearTimeout' ] } );
-		const download = downloadFile( `${ base }/slow-body`, destination );
-		await vi.waitFor( () => expect( fs.existsSync( destination ) ).toBe( true ) );
-		await vi.advanceTimersByTimeAsync( 6_000 );
-		vi.useRealTimers();
-		await download;
-
+		await downloadFile( `${ base }/slow-body`, destination );
 		expect( fs.readFileSync( destination, 'utf8' ) ).toBe( 'part1-part2' );
-	} );
+	}, 15_000 );
 } );

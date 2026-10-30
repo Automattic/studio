@@ -27,7 +27,7 @@ export function savePulledSiteStartOptions( session: PullSession ): StartServerO
 	const startOptions = getPulledSiteStartOptions( session );
 	if ( ! startOptions ) {
 		throw new LoggerError(
-			`Missing runtime.php in ${ session.runtimeDirectory }. Re-run \`studio pull-reprint\` to regenerate the runtime configuration.`
+			`Missing runtime.php in ${ session.runtimeDirectory }. Re-run \`studio pull\` to regenerate the runtime configuration.`
 		);
 	}
 	fs.writeFileSync(
@@ -57,7 +57,7 @@ export async function startPulledSite(
 			if ( runningProcess ) {
 				await stopWordPressServer( site.id );
 			}
-			await startWordPressServer( site, logger, 'pull_reprint', runtimeStartOptions );
+			await startWordPressServer( site, logger, 'pull', runtimeStartOptions );
 			logger.reportSuccess( __( 'WordPress server restarted' ) );
 			return;
 		}
@@ -74,7 +74,7 @@ export async function startPulledSite(
 				await updateSiteLatestCliPid( site.id, runningProcess.pid );
 			}
 		} else {
-			await startWordPressServer( site, logger, 'pull_reprint', runtimeStartOptions );
+			await startWordPressServer( site, logger, 'pull', runtimeStartOptions );
 			logger.reportSuccess( __( 'WordPress server started' ) );
 		}
 	} catch ( serverError ) {

@@ -283,8 +283,8 @@ describe( 'command palette', () => {
 	} );
 
 	it.each( [
-		[ 'color', 'Color Appearance', 'Color' ],
-		[ 'colour', 'Color Appearance', 'Color' ],
+		[ 'color', 'Accent Appearance', 'Accent' ],
+		[ 'colour', 'Accent Appearance', 'Accent' ],
 		[ 'tint intensity', 'Intensity Appearance', 'Intensity' ],
 	] )( 'finds appearance controls with %s', async ( query, label, setting ) => {
 		const { history, user } = await renderPalette();

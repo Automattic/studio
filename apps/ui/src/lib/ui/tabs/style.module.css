@@ -61,7 +61,7 @@
 		display: inline-flex;
 		gap: var( --space-1_5 );
 		align-items: center;
-		border-radius: var( --radius-md );
+		border-radius: var( --radius-lg );
 		color: var( --foreground );
 		font-size: var( --text-sm );
 		white-space: nowrap;

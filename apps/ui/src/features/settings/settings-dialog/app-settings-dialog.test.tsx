@@ -340,6 +340,23 @@ describe( 'WordPress Studio settings', () => {
 		expect( screen.queryByText( TEST_USER.email ) ).not.toBeInTheDocument();
 	} );
 
+	it( 'shows account-wide preview usage in Sharing', async () => {
+		await setup( {
+			section: 'sharing',
+			overrides: {
+				getSnapshotUsage: async () => ( {
+					siteCount: 8,
+					siteLimit: 10,
+					siteCreationBlocked: false,
+				} ),
+			},
+		} );
+		const usage = await screen.findByRole( 'group', { name: 'Usage' } );
+		expect( await within( usage ).findByText( '8 of 10 active preview sites' ) ).toBeVisible();
+		expect( within( usage ).getByRole( 'button', { name: 'Preview site actions' } ) ).toBeEnabled();
+		expect( screen.queryByText( '2 of 10 preview sites used' ) ).not.toBeInTheDocument();
+	} );
+
 	it.each( [
 		[ 'Create account', true ],
 		[ 'Log in', false ],

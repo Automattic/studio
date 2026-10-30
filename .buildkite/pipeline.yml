@@ -341,29 +341,31 @@ steps:
       - github_commit_status:
           context: Distribute Dev Builds
 
-  - input: "🚦 Run Performance Metrics?"
-    prompt: "Do you want to compare this PR's performance with trunk?"
-    key: input-metrics
-    if: build.pull_request.base_branch == 'trunk'
-
-  - label: ":chart_with_upwards_trend: Performance Metrics"
-    key: metrics
-    depends_on: input-metrics
-    agents:
-      queue: mac
-    command: bash .buildkite/commands/run-metrics-tests.sh
-    # Guards the mac queue: some runs hang until the 3-hour default for reasons still unknown (AINFRA-3506).
-    # E.g.:
-    # - https://buildkite.com/automattic/studio/builds/23244
-    # - https://buildkite.com/automattic/studio/builds/24391
-    # - https://buildkite.com/automattic/studio/builds/24395
-    timeout_in_minutes: 30
-    artifact_paths:
-      - tools/metrics/artifacts/**/*.json
-    plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+  - group: ":chart_with_upwards_trend: Performance Metrics"
     if: build.branch == 'trunk' || build.pull_request.base_branch == 'trunk'
-    notify:
-      - github_commit_status:
-          context: Performance Metrics
-        # On PRs, a step nobody unblocks would leave its status pending forever.
-        if: build.branch == 'trunk'
+    steps:
+      - input: "🚦 Run Performance Metrics?"
+        prompt: "Do you want to compare this PR's performance with trunk?"
+        key: input-metrics
+        if: build.pull_request.base_branch == 'trunk'
+
+      - label: ":chart_with_upwards_trend: Performance Metrics"
+        key: metrics
+        depends_on: input-metrics
+        agents:
+          queue: mac
+        command: bash .buildkite/commands/run-metrics-tests.sh
+        # Guards the mac queue: some runs hang until the 3-hour default for reasons still unknown (AINFRA-3506).
+        # E.g.:
+        # - https://buildkite.com/automattic/studio/builds/23244
+        # - https://buildkite.com/automattic/studio/builds/24391
+        # - https://buildkite.com/automattic/studio/builds/24395
+        timeout_in_minutes: 30
+        artifact_paths:
+          - tools/metrics/artifacts/**/*.json
+        plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+        notify:
+          - github_commit_status:
+              context: Performance Metrics
+            # On PRs, a step nobody unblocks would leave its status pending forever.
+            if: build.branch == 'trunk'

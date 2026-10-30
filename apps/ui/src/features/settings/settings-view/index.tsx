@@ -1,5 +1,6 @@
 import { getLocalizedLink, REPORT_ISSUE_URL } from '@studio/common/lib/docs-links';
 import { supportedLocaleNames } from '@studio/common/lib/locale';
+import { SUPPORTED_BROWSERS, browserConfig } from '@studio/common/lib/user-settings/browser';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import {
 	getColorTint,
@@ -15,10 +16,12 @@ import {
 	useSetAgentInstructionsEnabled,
 } from '@/data/queries/use-agent-instructions';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
+import { useResetAppearance, useResetInterface } from '@/data/queries/use-reset-interface';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { hasCustomPanelLayout, resetPanelLayout } from '@/data/resizable-panels';
-import { applyColorTint, DEFAULT_COLOR_TINT, isDefaultColorTint } from '@/lib/theme';
+import { hasCustomPanelLayout } from '@/data/resizable-panels';
+import { ExternalLinkIcon } from '@/lib/icons';
+import { isDefaultColorTint } from '@/lib/theme';
 import { Input, Button } from '@/lib/ui';
 import { AccountSection } from './account-section';
 import { ColorTintSettings } from './color-tint-settings';
@@ -45,7 +48,7 @@ import type {
 	UserPreferences,
 } from '@/data/core';
 
-// "Default" first, then the installed apps and the saved one, even if it's gone.
+// "System default" first, then the installed apps and the saved one, even if it's gone.
 function appElements< TApp extends keyof InstalledApps >(
 	apps: readonly TApp[],
 	installedApps: InstalledApps | undefined,
@@ -53,7 +56,7 @@ function appElements< TApp extends keyof InstalledApps >(
 	label: ( app: TApp ) => string
 ) {
 	return [
-		{ value: UNSET, label: __( 'Default' ) },
+		{ value: UNSET, label: __( 'System default' ) },
 		...apps
 			.filter( ( app ) => ! installedApps || installedApps[ app ] || app === saved )
 			.map( ( app ) => ( { value: app, label: label( app ) } ) ),
@@ -188,11 +191,11 @@ function PreferencesPanel( {
 					/>
 				</SettingsRow>
 				<SettingsRow
-					title={ __( 'Code editor' ) }
+					title={ __( 'Default code editor' ) }
 					description={ __( 'The default code editor for your sites.' ) }
 				>
 					<SettingsSelect
-						label={ __( 'Code editor' ) }
+						label={ __( 'Default code editor' ) }
 						value={ data.editor }
 						options={ appElements( SUPPORTED_EDITORS, installedApps, data.editor, ( editor ) =>
 							supportedEditorConfig[ editor ].label()
@@ -201,11 +204,27 @@ function PreferencesPanel( {
 					/>
 				</SettingsRow>
 				<SettingsRow
-					title={ __( 'Terminal' ) }
+					title={ __( 'Default browser' ) }
+					description={ __( 'The browser used to open your sites, WP Admin, and phpMyAdmin.' ) }
+				>
+					<SettingsSelect
+						label={ __( 'Default browser' ) }
+						value={ data.browser }
+						options={ [
+							{ value: UNSET, label: __( 'System default' ) },
+							...SUPPORTED_BROWSERS.filter(
+								( browser ) => installedApps?.[ browser ] || browser === data.browser
+							).map( ( browser ) => ( { value: browser, label: browserConfig[ browser ].name } ) ),
+						] }
+						onChange={ ( browser ) => onChange( { browser } ) }
+					/>
+				</SettingsRow>
+				<SettingsRow
+					title={ __( 'Default terminal app' ) }
 					description={ __( 'The default terminal for your sites.' ) }
 				>
 					<SettingsSelect
-						label={ __( 'Terminal' ) }
+						label={ __( 'Default terminal app' ) }
 						value={ data.terminal }
 						options={ appElements(
 							SUPPORTED_TERMINALS,
@@ -302,11 +321,12 @@ function PreferencesPanel( {
 							void connector.openExternalUrl( getLocalizedLink( locale, 'docsStudio' ) )
 						}
 					>
-						{ __( 'Open docs' ) }
+						{ __( 'Open' ) }
+						<ExternalLinkIcon data-icon="inline-end" />
 					</Button>
 				</SettingsRow>
 				<SettingsRow
-					title={ __( 'Report an issue' ) }
+					title={ __( 'Report an issue on GitHub' ) }
 					description={ __( 'Report a bug or request a feature.' ) }
 				>
 					<Button
@@ -314,6 +334,7 @@ function PreferencesPanel( {
 						onClick={ () => void connector.openExternalUrl( REPORT_ISSUE_URL ) }
 					>
 						{ __( 'Report' ) }
+						<ExternalLinkIcon data-icon="inline-end" />
 					</Button>
 				</SettingsRow>
 			</SettingsGroup>
@@ -374,15 +395,14 @@ function usePreferencesForm() {
 		[ saved, savePreferences ]
 	);
 
-	const resetInterface = () =>
-		savePreferences.mutate( { ...INTERFACE_PREFERENCE_DEFAULTS }, { onSuccess: resetPanelLayout } );
+	const resetInterface = useResetInterface();
 
 	return {
 		saved,
 		data,
 		handleChange,
-		resetInterface,
-		saveError: savePreferences.isError,
+		resetInterface: resetInterface.reset,
+		saveError: savePreferences.isError || resetInterface.isError,
 		loadFailed,
 		retry: () => void refetch(),
 	};
@@ -420,25 +440,25 @@ export function GeneralSettings() {
 export function AppearanceSettings() {
 	const { saved, data, handleChange, saveError, loadFailed, retry } = usePreferencesForm();
 	const savePreferences = useSaveUserPreferences();
+	const resetAppearance = useResetAppearance();
 	if ( ! data || ! saved ) {
 		return <SettingsLoadState loadFailed={ loadFailed } onRetry={ retry } />;
 	}
 	const tint = getColorTint( saved );
-	const resetTint = () => {
-		applyColorTint( DEFAULT_COLOR_TINT );
-		savePreferences.mutate( DEFAULT_COLOR_TINT );
-	};
 	return (
 		<div className={ styles.preferencesPanel }>
-			{ saveError || savePreferences.isError ? (
+			{ saveError || savePreferences.isError || resetAppearance.isError ? (
 				<div className={ styles.errorMessage }>
 					{ __( 'An error occurred while saving settings. Please try again.' ) }
 				</div>
 			) : null }
 			<SettingsGroup>
-				<SettingsRow title={ __( 'Theme' ) } description={ __( 'Choose light, dark, or system.' ) }>
+				<SettingsRow
+					title={ __( 'Interface theme' ) }
+					description={ __( 'Choose light, dark, or system.' ) }
+				>
 					<SettingsSelect
-						label={ __( 'Theme' ) }
+						label={ __( 'Interface theme' ) }
 						value={ data.colorScheme }
 						options={ getColorSchemeElements() }
 						onChange={ ( colorScheme ) => handleChange( { colorScheme } ) }
@@ -449,9 +469,15 @@ export function AppearanceSettings() {
 			<SettingsGroup title={ __( 'Reset' ) }>
 				<SettingsRow
 					title={ __( 'Reset appearance' ) }
-					description={ __( 'Restore the default color, intensity, and contrast.' ) }
+					description={ __(
+						'Restore the default interface theme, accent color, intensity, and contrast.'
+					) }
 				>
-					<Button variant="outline" disabled={ isDefaultColorTint( tint ) } onClick={ resetTint }>
+					<Button
+						variant="outline"
+						disabled={ isDefaultColorTint( tint ) && data.colorScheme === 'system' }
+						onClick={ resetAppearance.reset }
+					>
 						{ __( 'Reset' ) }
 					</Button>
 				</SettingsRow>

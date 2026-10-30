@@ -8,6 +8,7 @@ import { vi } from 'vitest';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { updatePreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { updateSnapshotInConfig, getSnapshotsFromConfig } from 'cli/lib/snapshots';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
@@ -29,6 +30,7 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 } );
 vi.mock( 'cli/lib/archive' );
 vi.mock( 'cli/lib/api' );
+vi.mock( 'cli/lib/preview-sites' );
 vi.mock( 'cli/lib/snapshots' );
 vi.mock( 'cli/lib/validation', () => ( {
 	validateSiteSize: vi.fn(),
@@ -57,7 +59,7 @@ describe( 'Preview Update Command', () => {
 	const mockBasename = 'folder';
 	const mockDate = 1234567890;
 	const mockArchivePath = path.join( os.tmpdir(), `${ mockBasename }-${ mockDate }.zip` );
-	const mockSiteUrl = 'test-preview.example.com';
+	const mockSiteUrl = 'test-preview.wp.build';
 	const mockAtomicSiteId = 12345;
 	const mockAuthToken = {
 		accessToken: 'mock-auth-token',
@@ -110,7 +112,37 @@ describe( 'Preview Update Command', () => {
 		vi.restoreAllMocks();
 	} );
 
-	it( 'should complete the preview update process successfully', async () => {
+	it( 'updates a WordPress.com preview through the preview funnel', async () => {
+		const wpcomHost = 'test-preview.wpcomstaging.com';
+		const shareUrl = `https://${ wpcomHost }/?share=abc123`;
+		const wpcomSnapshot = { ...mockSnapshot, url: wpcomHost, shareUrl };
+		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [ wpcomSnapshot ] );
+		vi.mocked( updateSnapshotInConfig ).mockResolvedValue( wpcomSnapshot );
+		vi.mocked( uploadPreviewArchive ).mockResolvedValue( 678 );
+		vi.mocked( updatePreviewSite ).mockResolvedValue( {
+			siteId: mockAtomicSiteId,
+			hostname: wpcomHost,
+			shareUrl,
+		} );
+
+		await runCommand( mockFolder, wpcomHost, false );
+
+		expect( uploadPreviewArchive ).toHaveBeenCalledWith(
+			mockArchivePath,
+			mockAuthToken.accessToken,
+			mockAtomicSiteId
+		);
+		expect( updatePreviewSite ).toHaveBeenCalledWith(
+			mockAtomicSiteId,
+			678,
+			mockAuthToken.accessToken
+		);
+		expect( uploadArchive ).not.toHaveBeenCalled();
+		expect( updateSnapshotInConfig ).toHaveBeenCalledWith( mockAtomicSiteId, mockFolder, shareUrl );
+		expect( mockReportSuccess ).toHaveBeenCalledWith( `Preview site available at: ${ shareUrl }` );
+	} );
+
+	it( 'updates a Jurassic Ninja preview', async () => {
 		vi.mocked( getWordPressVersion ).mockReturnValue( '6.8.1' );
 		await runCommand( mockFolder, mockSiteUrl, false );
 
@@ -127,7 +159,11 @@ describe( 'Preview Update Command', () => {
 			mockSnapshot.atomicSiteId
 		);
 		expect( waitForSiteReady ).toHaveBeenCalledWith( mockAtomicSiteId, mockAuthToken.accessToken );
-		expect( updateSnapshotInConfig ).toHaveBeenCalledWith( mockAtomicSiteId, mockFolder );
+		expect( updateSnapshotInConfig ).toHaveBeenCalledWith(
+			mockAtomicSiteId,
+			mockFolder,
+			undefined
+		);
 		expect( mockReportSuccess ).toHaveBeenCalledWith(
 			`Preview site available at: https://${ mockSiteUrl }`
 		);

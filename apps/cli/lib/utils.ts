@@ -5,35 +5,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { LoggerError } from 'cli/logger';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 
-// Coarse, low-cardinality classification of a preview-site create/update failure for the
-// `failure_reason` Tracks prop. Never send the raw error message: it can carry site URLs and
-// filesystem paths (PII), and its high cardinality would make the prop unqueryable. Mirrors
-// `classifyStartFailure` in `wordpress-server-manager.ts`.
-export function classifyPreviewFailure( error: unknown ): string {
-	const message = error instanceof Error ? error.message : String( error );
-	const normalized = message.toLowerCase();
-	if ( normalized.includes( 'authentication' ) || normalized.includes( 'log in' ) ) {
-		return 'auth_required';
-	}
-	if ( normalized.includes( 'size limit' ) || normalized.includes( 'exceeds' ) ) {
-		return 'size_limit';
-	}
-	if ( normalized.includes( 'expired' ) ) {
-		return 'expired';
-	}
-	if ( normalized.includes( 'not found' ) ) {
-		return 'not_found';
-	}
-	if ( normalized.includes( 'timeout' ) || normalized.includes( 'timed out' ) ) {
-		return 'timeout';
-	}
-	if ( normalized.includes( 'upload' ) ) {
-		return 'upload';
-	}
-	return 'unknown';
-}
-
-// The known import/export failure points throw `LoggerError`s tagged with a machine-readable
+// The known import/export/preview failure points throw `LoggerError`s tagged with a machine-readable
 // `code`, which these classifiers return as the `failure_reason` Tracks prop. Classifying on the
 // code rather than the message keeps this locale-independent — messages are `__()`-translated
 // display text. Walks the `previousError` chain so a code survives generic wrapping.
@@ -53,7 +25,8 @@ export function findFailureCode( error: unknown ): string | undefined {
 // wins over the phase's own bucket. Never send the raw message: it carries filesystem paths.
 function classifyFailure(
 	error: unknown,
-	untranslatedBuckets: Array< [ string[], string ] >
+	untranslatedBuckets: Array< [ string[], string ] >,
+	fallback = 'unknown'
 ): string {
 	const message = error instanceof Error ? error.message : String( error );
 	const normalized = message.toLowerCase();
@@ -62,7 +35,7 @@ function classifyFailure(
 			return bucket;
 		}
 	}
-	return findFailureCode( error ) ?? 'unknown';
+	return findFailureCode( error ) ?? fallback;
 }
 
 // Coarse classification of a site import failure for the `failure_reason` Tracks prop.
@@ -76,6 +49,13 @@ export function classifyImportFailure( error: unknown ): string {
 // Coarse classification of a site export failure for the `failure_reason` Tracks prop.
 export function classifyExportFailure( error: unknown ): string {
 	return classifyFailure( error, [ [ [ 'enospc', 'no space left' ], 'disk_full' ] ] );
+}
+
+// Coarse classification of a preview-site create/update failure for the `failure_reason` Tracks
+// prop. An error without a code reports the step it failed in (e.g. `archive`), so no failure
+// is left unattributed.
+export function classifyPreviewFailure( error: unknown, step?: string ): string {
+	return classifyFailure( error, [ [ [ 'enospc', 'no space left' ], 'disk_full' ] ], step );
 }
 
 export function validatePhpVersion( rawPhpVersion: string ): SupportedPHPVersion {

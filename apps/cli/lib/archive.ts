@@ -3,18 +3,33 @@ import path from 'path';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { STUDIO_LOADER_MU_PLUGIN_FILENAME } from '@studio/common/lib/mu-plugins';
 import { __ } from '@wordpress/i18n';
-import { ZipArchive } from 'archiver';
+import { ZipArchive, type ZipEntryData } from 'archiver';
 import { glob } from 'glob';
+import { readActiveThemes } from 'cli/lib/active-themes';
 import { LoggerError } from 'cli/logger';
 
 const ZIP_COMPRESSION_LEVEL = 9;
+// Media and archives are already compressed: deflating them again costs most of the archiving
+// time on a media-heavy site and saves almost nothing, so they are stored as they are.
+const ALREADY_COMPRESSED_FILE =
+	/\.(jpe?g|png|gif|webp|avif|heic|mp4|m4v|mov|webm|mp3|m4a|ogg|woff2?|zip|gz|tgz|bz2|xz|7z|rar|pdf)$/i;
 const STUDIO_LOADER_ARCHIVE_PATH = `wp-content/mu-plugins/${ STUDIO_LOADER_MU_PLUGIN_FILENAME }`;
 
+/**
+ * Archives a site for a preview. Inactive themes are left out: they don't change what the preview
+ * shows, and the stock default themes alone are most of a small site's archive.
+ */
 export async function archiveSiteContent(
 	siteFolder: string,
 	archivePath: string
 ): Promise< ZipArchive > {
 	const deployIgnore = await createDeployIgnoreFilter( siteFolder );
+	const activeThemes = await readActiveThemes( siteFolder );
+	// Files inside a theme folder (not `themes/index.php`) that belong to no active theme.
+	const isInactiveTheme = ( relativePath: string ) =>
+		!! activeThemes &&
+		/^themes\/[^/]+\//.test( relativePath ) &&
+		! [ ...activeThemes ].some( ( theme ) => relativePath.startsWith( `themes/${ theme }/` ) );
 
 	// `archiver.directory()` does not follow symlinks, so we enumerate the files
 	// with glob ourselves to support symlinked plugins/themes. See
@@ -49,7 +64,7 @@ export async function archiveSiteContent(
 			if ( archiveEntryPath === STUDIO_LOADER_ARCHIVE_PATH ) {
 				continue;
 			}
-			if ( deployIgnore.ignores( archiveEntryPath ) ) {
+			if ( deployIgnore.ignores( archiveEntryPath ) || isInactiveTheme( relativePath ) ) {
 				continue;
 			}
 			// If the source path is a symlink, `Archiver.file()` appends a symlink to
@@ -59,7 +74,12 @@ export async function archiveSiteContent(
 			// can lead to EMFILE errors.
 			try {
 				const resolvedPath = fs.realpathSync( path.join( wpContentPath, relativePath ) );
-				archiveBuilder.file( resolvedPath, { name: archiveEntryPath } );
+				// `file()` passes the zip-only `store` option through, though its types omit it.
+				const entry: ZipEntryData = {
+					name: archiveEntryPath,
+					store: ALREADY_COMPRESSED_FILE.test( relativePath ),
+				};
+				archiveBuilder.file( resolvedPath, entry );
 			} catch ( error ) {
 				// Dangling symlink. Skip it rather than aborting the whole archive.
 				console.warn( `Skipping ${ archiveEntryPath }: ${ error }` );

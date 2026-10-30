@@ -26,7 +26,7 @@
 	pointer-events: none;
 }
 
-/* Wraps each preview surface and anchors the loading spinner overlay. */
+/* Wraps each preview surface. */
 .surfaceFrame {
 	position: relative;
 	display: flex;
@@ -34,25 +34,6 @@
 	min-width: 0;
 	min-height: 0;
 	overflow: hidden;
-}
-
-.spinnerOverlay {
-	position: absolute;
-	inset: 0;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	pointer-events: none;
-	background-color: color-mix( in srgb, var( --chrome ) 60%, transparent );
-}
-
-.spinner {
-	width: 20px;
-	height: 20px;
-	border-radius: var( --radius-full );
-	border: 2px solid var( --border );
-	border-top-color: var( --accent-text );
-	animation: global( studio-spin ) 0.8s linear infinite;
 }
 
 /* Studio renders the design system itself, so its surface scrolls like a page. */

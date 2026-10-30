@@ -11,6 +11,10 @@
 	gap: var( --space-8 );
 }
 
+.settingsGroup {
+	--surface: color-mix( in oklab, var( --muted ) 60%, var( --chrome ) );
+}
+
 .instructionsHeader {
 	display: flex;
 	align-items: baseline;
@@ -293,23 +297,8 @@
 	width: 100%;
 }
 
-.swatch {
-	flex-shrink: 0;
-	width: 20px;
-	height: 20px;
-	border-radius: var( --radius-full );
-	cursor: pointer;
-}
-
-.swatch:focus-visible,
-.swatch[aria-pressed='true'] {
-	outline: 2px solid var( --accent );
-	outline-offset: 2px;
-}
-
 .hexInput {
-	flex-shrink: 0;
-	width: 128px;
+	width: 100%;
 }
 
 .hexPreview {

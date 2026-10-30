@@ -14,6 +14,19 @@ describe( 'createLocalConnector Connect contracts', () => {
 		vi.unstubAllGlobals();
 	} );
 
+	it( 'delegates browser selection and site URL opening to the local host', async () => {
+		fetchMock.mockResolvedValue( new Response( null, { status: 204 } ) );
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+		await connector.openSiteUrl( 'site-1', '/wp-admin/', { autoLogin: true } );
+		expect( fetchMock ).toHaveBeenCalledWith(
+			'http://localhost:8081/api/sites/site-1/open-in-browser',
+			expect.objectContaining( {
+				method: 'POST',
+				body: JSON.stringify( { relativeUrl: '/wp-admin/', autoLogin: true } ),
+			} )
+		);
+	} );
+
 	it( 'forwards skipStart and requests site and connection sets', async () => {
 		fetchMock.mockImplementation( async ( input: string | URL | Request ) => {
 			const url = String( input );

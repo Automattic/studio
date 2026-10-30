@@ -186,7 +186,7 @@ describe( 'getSettingCommands', () => {
 		const byLabel = ( label: string ) => commands.find( ( command ) => command.label === label )!;
 
 		expect( byLabel( 'Turn off “Show recent chats”' ).run ).toBe( toggle.run );
-		byLabel( 'Terminal' ).run();
+		byLabel( 'Default terminal app' ).run();
 		expect( openSettings ).toHaveBeenCalledWith( 'general', undefined, 'terminal' );
 		byLabel( 'Studio CLI for terminal' ).run();
 		expect( openSettings ).toHaveBeenCalledWith( 'general', undefined, 'studio-cli' );

@@ -13,7 +13,7 @@ export default class Sidebar {
 	}
 
 	getSiteButton( siteName: string ) {
-		return this.locator.getByRole( 'button', { name: siteName, exact: true } );
+		return this.locator.getByRole( 'button', { name: siteName, exact: true } ).first();
 	}
 
 	getSiteRow( siteName: string ) {
@@ -26,7 +26,28 @@ export default class Sidebar {
 
 	getStatusButton( siteName: string ) {
 		// By its state rather than its name, which is translated.
-		return this.getSiteRow( siteName ).locator( 'button[data-state]' );
+		// A flyout adds a second row; keep state reads on the original row.
+		return this.getSiteRow( siteName ).locator( 'button[data-state]' ).first();
+	}
+
+	private get interactiveLocator() {
+		return this.locator.and( this.page.locator( ':not([inert] *)' ) );
+	}
+
+	async ensureOpen() {
+		const toggle = this.page.locator( '[data-sidebar-toggle]:not([inert] *)' );
+		if ( ( await toggle.getAttribute( 'aria-expanded' ) ) === 'false' ) {
+			await toggle.click();
+		}
+		await expect( this.interactiveLocator ).toBeInViewport();
+	}
+
+	async toggleSite( siteName: string ) {
+		await this.ensureOpen();
+		await this.getSiteRow( siteName )
+			.and( this.page.locator( ':not([inert] *)' ) )
+			.locator( 'button[data-state]' )
+			.click();
 	}
 
 	async expectRunning( siteName: string, timeout = 120_000 ) {
@@ -36,12 +57,16 @@ export default class Sidebar {
 	}
 
 	async openSite( siteName: string ) {
-		await this.getSiteButton( siteName ).click();
+		await this.ensureOpen();
+		await this.interactiveLocator.getByRole( 'button', { name: siteName, exact: true } ).click();
 	}
 
 	// Earlier items open submenus: `openContextMenuItem( site, 'Export', 'Export site' )`.
 	async openContextMenuItem( siteName: string, ...items: string[] ) {
-		await this.getSiteButton( siteName ).click( { button: 'right' } );
+		await this.ensureOpen();
+		await this.interactiveLocator
+			.getByRole( 'button', { name: siteName, exact: true } )
+			.click( { button: 'right' } );
 		for ( const item of items ) {
 			await this.page.getByRole( 'menuitem', { name: item, exact: true } ).click();
 		}
@@ -50,7 +75,9 @@ export default class Sidebar {
 	// Imports a backup into a site, confirming the overwrite. The site menu's
 	// "Import" opens this input's native file picker.
 	async importBackup( siteName: string, backupPath: string ) {
+		await this.ensureOpen();
 		await this.getSiteRow( siteName )
+			.and( this.page.locator( ':not([inert] *)' ) )
 			.getByTestId( 'import-backup-file' )
 			.setInputFiles( backupPath );
 		const dialog = this.page.getByRole( 'alertdialog' );

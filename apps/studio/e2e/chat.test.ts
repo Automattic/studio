@@ -86,7 +86,7 @@ test.describe( 'Chat', () => {
 	test( 'starts a stopped site on send when auto-start is on, and keeps the preference', async () => {
 		const page = session.mainWindow;
 		const sidebar = new Sidebar( page );
-		await sidebar.getStatusButton( siteName ).click();
+		await sidebar.toggleSite( siteName );
 		await expect( sidebar.getStatusButton( siteName ) ).toHaveAttribute( 'data-state', 'stopped', {
 			timeout: 120_000,
 		} );
@@ -127,7 +127,7 @@ test.describe( 'Chat', () => {
 			timeout: 120_000,
 		} );
 		if ( ( await status.getAttribute( 'data-state' ) ) === 'stopped' ) {
-			await status.click();
+			await sidebar.toggleSite( siteName );
 			await sidebar.expectRunning( siteName );
 		}
 		await expect.poll( () => session.previewText() ).toContain( 'Hello world!' );

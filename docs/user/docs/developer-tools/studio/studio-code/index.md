@@ -88,6 +88,8 @@ When you ask Studio Code to build a site, it first offers you four looks, and th
 
 To review the design system, click the site preview’s address bar and choose **Design system**, or choose **Go to → Design system** from the site menu. It shows the colors, type scale, spacing and corners, components, and guidelines from `DESIGN.md`. If the theme’s `theme.json` no longer matches `DESIGN.md`, Studio lists each difference: choose **Use DESIGN.md** or **Keep theme.json** for each one, or **Apply all from DESIGN.md**.
 
+[![The Design system view in the site preview of a bakery site: its name and tagline, a terracotta, white, and umber color palette, Literata type styles, and a primary button, with a note that theme.json matches DESIGN.md.](https://developer.wordpress.com/wp-content/uploads/2026/04/design-system.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/design-system.webp)
+
 Studio Code can also generate images for your site. See [Image generation in Studio Code](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/image-generation/).
 
 To give Studio Code instructions that apply to every new chat, across all your sites, add them under **Custom instructions** in **Settings → Instructions** in the desktop app. For example: “Always answer in French. My sites are for restaurants.” The instruction files installed in a particular site, such as `AGENTS.md`, are listed on the **Instructions** page of that site’s settings.

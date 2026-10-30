@@ -2,7 +2,7 @@ import fs from 'fs';
 import { writeFile } from 'atomically';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
-import { reconcilePreviews } from 'cli/lib/cli-config/snapshots';
+import { linkPulledPreview, reconcilePreviews } from 'cli/lib/cli-config/snapshots';
 import {
 	deleteSnapshotFromConfig,
 	getSnapshotsFromConfig,
@@ -585,6 +585,41 @@ describe( 'Snapshots Module', () => {
 				[ 'legacy.wp.build', undefined, undefined ],
 				[ 'other-user.wpcomstaging.com', undefined, undefined ],
 				[ 'elsewhere.wpcomstaging.com', 8000, elsewhereUrl ],
+			] );
+		} );
+	} );
+
+	describe( 'linkPulledPreview', () => {
+		it( 'attaches a pulled preview to the local site, unless another site already has it', async () => {
+			const preview = ( url: string, atomicSiteId: number, localSiteId: string ) => ( {
+				url,
+				atomicSiteId,
+				localSiteId,
+				date: 1000,
+				userId: 42,
+			} );
+			mocks.readFile.mockResolvedValue(
+				JSON.stringify( {
+					version: 1,
+					sites: [],
+					snapshots: [
+						preview( 'made-elsewhere.wpcomstaging.com', 1, '' ),
+						preview( 'taken.wpcomstaging.com', 2, 'other-site' ),
+					],
+				} )
+			);
+			const standing = { hostname: 'unlisted.wpcomstaging.com', expiresAt: 9000 };
+
+			for ( const atomicSiteId of [ 1, 2, 3 ] ) {
+				await linkPulledPreview( 'pulled-site', atomicSiteId, 42, standing );
+				mocks.readFile.mockResolvedValue( mocks.writeFile.mock.lastCall?.[ 1 ] );
+			}
+
+			const savedData = JSON.parse( mocks.writeFile.mock.lastCall?.[ 1 ] );
+			expect( savedData.snapshots.map( ( s: Snapshot ) => [ s.url, s.localSiteId ] ) ).toEqual( [
+				[ 'made-elsewhere.wpcomstaging.com', 'pulled-site' ],
+				[ 'taken.wpcomstaging.com', 'other-site' ],
+				[ 'unlisted.wpcomstaging.com', 'pulled-site' ],
 			] );
 		} );
 	} );

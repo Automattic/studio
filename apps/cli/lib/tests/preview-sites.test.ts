@@ -75,18 +75,16 @@ describe( 'Preview sites', () => {
 		await expect( createPreviewSite( 678, 'My Preview', token ) ).rejects.toThrow( LoggerError );
 	} );
 
-	it( 'waits for the new import on update, then for the preview link', async () => {
+	it( 'waits for the new import on update, then reads the preview link', async () => {
 		const imports = [
 			{ importId: 'old', importStatus: 'importSuccess' },
 			{ importId: 'old', importStatus: 'importSuccess' },
 			{ importId: 'new', importStatus: 'importSuccess' },
 		];
-		// The link is '' until the build is done.
-		const links = [ '', shareUrl ];
 		get.mockImplementation( ( { path }: { path: string } ) =>
 			Promise.resolve(
 				path === '/wow-funnel/pending'
-					? { preview_sites: [ { blog_id: siteId, share_url: links.shift() } ] }
+					? { preview_sites: [ { blog_id: siteId, share_url: shareUrl } ] }
 					: imports.shift()
 			)
 		);
@@ -100,7 +98,6 @@ describe( 'Preview sites', () => {
 			shareUrl,
 		} );
 		expect( imports ).toHaveLength( 0 );
-		expect( links ).toHaveLength( 0 );
 		expect( post ).toHaveBeenCalledWith( {
 			apiNamespace: 'wpcom/v2',
 			path: `/sites/${ siteId }/wow-funnel/update`,

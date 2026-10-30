@@ -17,7 +17,6 @@ import type { Snapshot } from '@studio/common/types/snapshot';
 const PREVIEW_FUNNEL = 'preview';
 const IMPORT_POLL_INTERVAL_MS = 1000;
 const IMPORT_TIMEOUT_MS = 30 * 60 * 1000;
-const PREVIEW_LINK_TIMEOUT_MS = 60 * 1000;
 
 export type PreviewSite = {
 	siteId: number;
@@ -132,20 +131,15 @@ async function waitForPreviewImport(
 }
 
 /**
- * Waits for the preview link WordPress.com hands out once the site's build is done, and returns the
- * preview it opens.
+ * The preview link WordPress.com creates once the site's build is done (before the import reports
+ * success), and the preview it opens.
  */
-async function waitForPreviewLink( siteId: number, token: string ): Promise< PreviewSite > {
-	const deadline = Date.now() + PREVIEW_LINK_TIMEOUT_MS;
-	while ( Date.now() < deadline ) {
-		const standing = await getStandingPreviews( token ).catch( () => null );
-		const shareUrl = standing?.get( siteId )?.shareUrl;
-		if ( shareUrl ) {
-			return { siteId, hostname: new URL( shareUrl ).hostname, shareUrl };
-		}
-		await new Promise( ( resolve ) => setTimeout( resolve, IMPORT_POLL_INTERVAL_MS ) );
+async function getPreviewLink( siteId: number, token: string ): Promise< PreviewSite > {
+	const shareUrl = ( await getStandingPreviews( token ) ).get( siteId )?.shareUrl;
+	if ( ! shareUrl ) {
+		throw new LoggerError( __( 'The preview site has no preview link.' ) );
 	}
-	throw new LoggerError( __( 'The preview site did not get a preview link.' ) );
+	return { siteId, hostname: new URL( shareUrl ).hostname, shareUrl };
 }
 
 /** Builds a preview site from an archive uploaded with site ID 0. */
@@ -181,7 +175,7 @@ export async function createPreviewSite(
 	}
 
 	await waitForPreviewImport( siteId, token );
-	return waitForPreviewLink( siteId, token );
+	return getPreviewLink( siteId, token );
 }
 
 /** Rebuilds a preview site from an archive uploaded with its site ID. */
@@ -203,7 +197,7 @@ export async function updatePreviewSite(
 	}
 
 	await waitForPreviewImport( siteId, token, previousImportId );
-	return waitForPreviewLink( siteId, token );
+	return getPreviewLink( siteId, token );
 }
 
 /**

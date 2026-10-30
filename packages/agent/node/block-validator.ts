@@ -1006,6 +1006,38 @@ export async function validateBlocks(
 				} );
 			}
 
+			// The presets a block's attribute names, with the style the editor saves
+			// for one in its class (getFontSizeClass and getColorClassName in
+			// @wordpress/block-editor), and the site's presets as the editor reads them.
+			const PRESET_STYLES = [
+				[ 'fontSize', 'font-size', 'fontSizes', 'size' ],
+				[ 'textColor', 'color', 'colors', 'color' ],
+				[ 'backgroundColor', 'background-color', 'colors', 'color' ],
+			] as const;
+			const editorSettings =
+				( window as any ).wp?.data?.select( 'core/block-editor' )?.getSettings?.() ?? {};
+			// A preset's value as the browser reads it, as an inline style is read.
+			const asRead = ( property: string, value: string ) => {
+				const scratch = document.createElement( 'div' );
+				scratch.style.setProperty( property, value );
+				return scratch.style.getPropertyValue( property );
+			};
+			// A style written on a block that the preset its fix keeps already
+			// gives it, as font-size:1.05rem on a button whose fontSize is a
+			// medium of 1.05rem, which its save shows as has-medium-font-size.
+			function presetShows( fix: any, style: string ): boolean {
+				return PRESET_STYLES.some( ( [ attribute, property, list, key ] ) => {
+					const slug = fix.attributes?.[ attribute ];
+					const preset = slug
+						? ( editorSettings[ list ] ?? [] ).find( ( one: any ) => one.slug === slug )
+						: undefined;
+					return (
+						typeof preset?.[ key ] === 'string' &&
+						style === `${ property }:${ asRead( property, preset[ key ] ) }`
+					);
+				} );
+			}
+
 			// What the fix loses from each block as written, block by block: its
 			// text, classes, styles and where its inner blocks sit. Its attributes
 			// it keeps, being made from them, apart from the editor's own migrations.
@@ -1028,7 +1060,9 @@ export async function validateBlocks(
 					const missing = ( names: Set< string >, kept: Set< string > ) =>
 						[ ...names ].filter( ( name ) => ! kept.has( name ) );
 					const classes = missing( before.classes, after.classes );
-					const styles = missing( before.styles, after.styles );
+					const styles = missing( before.styles, after.styles ).filter(
+						( style ) => ! presetShows( fix, style )
+					);
 					const lost = {
 						text: before.text !== after.text ? [ 'change the text' ] : [],
 						classes,

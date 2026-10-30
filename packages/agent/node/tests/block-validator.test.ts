@@ -306,6 +306,20 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			losses: [],
 		},
 		{
+			// As run h2h5's pet store wrote its buttons: the medium preset, and its size
+			// inline, which Twenty Twenty-Five, the test site's theme, gives as 1rem.
+			name: 'a style the preset its attribute names gives',
+			written:
+				'<!-- wp:buttons -->\n<div class="wp-block-buttons"><!-- wp:button {"fontSize":"medium"} -->\n<div class="wp-block-button has-custom-font-size" style="font-size:1rem"><a class="wp-block-button__link wp-element-button">Shop</a></div>\n<!-- /wp:button --></div>\n<!-- /wp:buttons -->',
+			losses: [],
+		},
+		{
+			name: 'a style other than the preset its attribute names',
+			written:
+				'<!-- wp:buttons -->\n<div class="wp-block-buttons"><!-- wp:button {"fontSize":"medium"} -->\n<div class="wp-block-button has-custom-font-size" style="font-size:3rem"><a class="wp-block-button__link wp-element-button">Shop</a></div>\n<!-- /wp:button --></div>\n<!-- /wp:buttons -->',
+			losses: [ { place: '/0/0', lost: 'drop the styles font-size:3rem' } ],
+		},
+		{
 			name: 'a display its layout attribute shows otherwise',
 			written:
 				'<!-- wp:group {"layout":{"type":"flex","flexWrap":"nowrap"}} -->\n<div class="wp-block-group" style="display:inline-flex;flex-wrap:nowrap"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:group -->',

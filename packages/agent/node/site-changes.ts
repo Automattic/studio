@@ -45,6 +45,8 @@ export interface ChangeReport {
 	problem?: string;
 	atTurnEnd?: boolean;
 	written?: string;
+	// The post it is about, by ID, when it is about one.
+	post?: number | string;
 }
 
 /** What the calls since the last check changed. */
@@ -220,10 +222,16 @@ export class SiteChanges {
 		);
 	}
 
-	/** Checks what changed since the snapshot, and snapshots it. */
-	settle(): Promise< SettledChanges > {
+	/**
+	 * Checks what changed since the snapshot, and snapshots it. `elsewhere`
+	 * takes a report to another agent than the one whose call this settles,
+	 * as one about a page a subagent is writing, and the result leaves it out.
+	 */
+	settle(
+		elsewhere: ( site: HostSite, report: ChangeReport ) => boolean = () => false
+	): Promise< SettledChanges > {
 		const settled = this.settling
-			.then( () => this.settleNow() )
+			.then( () => this.settleNow( elsewhere ) )
 			.finally( () => {
 				this.unsettled = Math.max( 0, this.unsettled - 1 );
 			} );
@@ -231,7 +239,9 @@ export class SiteChanges {
 		return settled;
 	}
 
-	private async settleNow(): Promise< SettledChanges > {
+	private async settleNow(
+		elsewhere: ( site: HostSite, report: ChangeReport ) => boolean
+	): Promise< SettledChanges > {
 		this.stale();
 		const sites = await this.sites();
 		const reports = await Promise.all( sites.map( ( site ) => this.settleSite( site ) ) );
@@ -242,6 +252,9 @@ export class SiteChanges {
 		sites.forEach( ( site, i ) => {
 			for ( const report of reports[ i ].flat() ) {
 				this.open?.record( site.path, `${ site.path }#${ report.key }`, report.problem );
+				if ( elsewhere( site, report ) ) {
+					continue;
+				}
 				summaries.push( ...( report.summary ? [ report.summary ] : [] ) );
 				problems.push( ...( report.problem && ! report.atTurnEnd ? [ report.problem ] : [] ) );
 				written.push( ...( report.written ? [ report.written ] : [] ) );

@@ -2,6 +2,7 @@ import { createBlockValidationGate } from '@studio/agent/node/block-validation-g
 import { createOpenProblems } from '@studio/agent/node/open-problems';
 import { RenderCheck } from '@studio/agent/node/render-check';
 import { PendingWork } from './pending-work';
+import { Writers } from './writers';
 import type { BlockValidationGate } from '@studio/agent/node/block-validation-gate';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 import type { OpenProblems } from '@studio/agent/node/open-problems';
@@ -17,6 +18,8 @@ export interface SessionState {
 	pendingWork: PendingWork;
 	blockValidation: BlockValidationGate;
 	renderCheck: RenderCheck;
+	// Which of the agents writing to the sites at once wrote what.
+	writers: Writers;
 }
 
 const states = new WeakMap< object, SessionState >();
@@ -26,13 +29,26 @@ export function getSessionState( host: StudioAgentHost, session: object ): Sessi
 	let state = states.get( session );
 	if ( ! state ) {
 		const openProblems = createOpenProblems( host );
+		const pendingWork = new PendingWork();
 		state = {
 			openProblems,
-			pendingWork: new PendingWork(),
+			pendingWork,
+			writers: new Writers( pendingWork ),
 			blockValidation: createBlockValidationGate( host, openProblems ),
 			renderCheck: new RenderCheck( host, openProblems ),
 		};
 		states.set( session, state );
 	}
+	return state;
+}
+
+/**
+ * The state of a subagent's session `session`: its parent session's problems,
+ * validations, render and writers, so each finding reaches the agent that
+ * wrote what it is about, and the work its own tools leave running.
+ */
+export function shareSessionState( session: object, parent: SessionState ): SessionState {
+	const state = { ...parent, pendingWork: new PendingWork() };
+	states.set( session, state );
 	return state;
 }

@@ -256,6 +256,7 @@ describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
 		expect( await reports( { [ id ]: 'written' } ) ).toEqual( [
 			{
 				key: `rendered ${ id }`,
+				post: id,
 				problem: expect.stringContaining(
 					`Seaside Gallery page ${ id } "Gallery": WordPress renders these blocks as nothing on the front end (render_block() through the_content, in wp-includes/blocks.php): core/image, written without saved HTML, which its block.json reads `
 				),
@@ -271,7 +272,7 @@ describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
 			`--post_content=${ savedImage }`,
 		] );
 		expect( await reports( { [ id ]: 'fixed' } ) ).toEqual( [
-			{ key: `rendered ${ id }`, problem: undefined },
+			{ key: `rendered ${ id }`, post: id, problem: undefined },
 		] );
 	} );
 } );

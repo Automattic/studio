@@ -63,7 +63,7 @@ import { createConfirmer, describeDestructiveCall, type Confirmer } from './conf
 import { withLeakedToolCallMarkupRemoved } from './leaked-tool-call-markup';
 import { createMcpTools, isUserMcpTool, readMcpServers } from './mcp-tools';
 import { changesPreview } from './preview-reload';
-import { getSessionState } from './session-state';
+import { getSessionState, shareSessionState, type SessionState } from './session-state';
 import { SitePin } from './site-pin';
 import { SkillToolScope } from './skill-tool-scope';
 import { stripStaleImagesFromContext } from './strip-stale-images';
@@ -80,6 +80,7 @@ import {
 import { withUsageCapErrorRewrite } from './usage-cap';
 import { serveWpCli } from './wp-cli-server';
 import type { PendingWork } from './pending-work';
+import type { Writers } from './writers';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 import type { RenderCheck } from '@studio/agent/node/render-check';
 import type { StudioToolResultDetails } from '@studio/agent/node/tools/define-tool';
@@ -143,7 +144,17 @@ export interface StudioAgentTurnConfig {
 	onConfirm?: AskUserHandler;
 	onEvent: ( event: AgentSessionEvent ) => void;
 	// A turn run for another turn's subagent call, which runs no subagents of its own.
-	subagent?: boolean;
+	subagentOf?: SubagentParent;
+}
+
+/**
+ * The turn running a subagent: the subagent shares its session's state and
+ * its check of what calls change, so each agent hears what Studio finds in
+ * what it wrote, and the parent turn's own checks cover the rest.
+ */
+export interface SubagentParent {
+	state: SessionState;
+	siteChanges: SiteChanges;
 }
 
 interface ResolvedStudioAgentTurnConfig extends StudioAgentTurnConfig {
@@ -326,6 +337,9 @@ async function runAgentSessionTurn(
 	let session: AgentSession | undefined;
 	let unsubscribe: ( () => void ) | undefined;
 	const payloadGuardState: StudioToolPayloadGuardState = {};
+	const state = config.subagentOf
+		? shareSessionState( config.session, config.subagentOf.state )
+		: getSessionState( config.host, config.session );
 	try {
 		session = await createStudioAgentSession( config, resolved, payloadGuardState );
 		setActiveSession( session );
@@ -353,7 +367,7 @@ async function runAgentSessionTurn(
 			return;
 		}
 
-		const state = getSessionState( config.host, config.session );
+		const { writers, pendingWork } = state;
 		let emptyStopContinues = 0;
 		// What continues the turn after a run ends, if anything: a reply cut off
 		// before it said anything, then the problems still open on the sites.
@@ -380,7 +394,14 @@ async function runAgentSessionTurn(
 			await state.pendingWork.settle();
 			// A block file the run wrote last is validated, and its lossless fix
 			// saved, before the sites are checked, as on any later tool result.
-			await state.blockValidation.settle();
+			await state.blockValidation.settle( {
+				mine: ( file ) => writers.ofFile( file ) === pendingWork,
+			} );
+			// The sites as the turn leaves them are the parent turn's to check.
+			if ( config.subagentOf ) {
+				const notes = studioMessage( 'notes', [ state.pendingWork.takeReports() ] );
+				return notes ? { customType: OPEN_PROBLEMS_TYPE, content: notes } : undefined;
+			}
 			// The pages rendered after the last change: their problems are open
 			// until fixed, and a verdict of none ends nothing.
 			await state.renderCheck.settle();
@@ -428,6 +449,7 @@ async function runAgentSessionTurn(
 		unsubscribe?.();
 		session?.dispose();
 		setActiveSession( undefined );
+		state.writers.release( state.pendingWork );
 	}
 }
 
@@ -465,10 +487,41 @@ async function createStudioAgentSession(
 			serveWpCli( config.host ),
 		] );
 
+	const state = getSessionState( config.host, config.session );
+	const {
+		openProblems,
+		pendingWork,
+		blockValidation: blockValidationGate,
+		renderCheck,
+		writers,
+	} = state;
+	const sitePin = new SitePin( config.host, config.activeSite );
+	const site = config.activeSite;
+	const localSite = site && ! site.remote ? site.path : undefined;
+	const siteNotes = createSiteNotes( config.host, {
+		// The Active site section already states this turn's facts.
+		stated: new Map( localSite ? [ [ path.resolve( localSite ), activeSiteFacts ] ] : [] ),
+		gate: blockValidationGate,
+		open: openProblems,
+	} );
+	// What a call changed on the request's sites, or on every local site until
+	// the request has one, reported on its result.
+	const siteChanges =
+		config.subagentOf?.siteChanges ??
+		new SiteChanges( config.host, openProblems, async () => {
+			const sites = await config.host.sites.all();
+			const pinned = sitePin.localSitePaths();
+			return pinned.length
+				? sites.filter( ( { path: sitePath } ) => pinned.includes( path.resolve( sitePath ) ) )
+				: sites;
+		} );
+	const afterChecks = new AfterChecks( pendingWork );
+
 	const skillScope = new SkillToolScope( config.session );
 	let activateTools: () => void = () => {};
 	const tools = buildAgentTools(
 		config,
+		{ state, siteChanges },
 		imageGenerationEnabled,
 		visionEnabled,
 		wpCliServer,
@@ -489,33 +542,10 @@ async function createStudioAgentSession(
 		activeSiteFacts: activeSiteFacts.flat(),
 	} );
 
-	const {
-		openProblems,
-		pendingWork,
-		blockValidation: blockValidationGate,
-		renderCheck,
-	} = getSessionState( config.host, config.session );
-	const sitePin = new SitePin( config.host, config.activeSite );
-	const site = config.activeSite;
-	const localSite = site && ! site.remote ? site.path : undefined;
-	const siteNotes = createSiteNotes( config.host, {
-		// The Active site section already states this turn's facts.
-		stated: new Map( localSite ? [ [ path.resolve( localSite ), activeSiteFacts ] ] : [] ),
-		gate: blockValidationGate,
-		open: openProblems,
-	} );
-	// What a call changed on the request's sites, or on every local site until
-	// the request has one, reported on its result.
-	const siteChanges = new SiteChanges( config.host, openProblems, async () => {
-		const sites = await config.host.sites.all();
-		const pinned = sitePin.localSitePaths();
-		return pinned.length
-			? sites.filter( ( { path: sitePath } ) => pinned.includes( path.resolve( sitePath ) ) )
-			: sites;
-	} );
-	const afterChecks = new AfterChecks( pendingWork );
-	// The active site as the turn finds it, rendered while the model first thinks.
-	if ( localSite && fs.existsSync( localSite ) ) {
+	// The active site as the turn finds it, rendered while the model first
+	// thinks. A subagent's changes are rendered after the parent's call.
+	const renders = ! config.subagentOf;
+	if ( renders && localSite && fs.existsSync( localSite ) ) {
 		void renderCheck.seen( path.resolve( localSite ) ).catch( () => undefined );
 	}
 	const toolDefinitions = [ ...tools, ...mcpTools ].map( ( tool ) =>
@@ -525,7 +555,8 @@ async function createStudioAgentSession(
 			siteNotes,
 			siteChanges,
 			afterChecks,
-			renderCheck,
+			renderCheck: renders ? renderCheck : undefined,
+			writers,
 		} )
 	);
 	const settingsManager = createSettingsManager( config.env );
@@ -884,15 +915,22 @@ function toToolDefinition(
 		siteChanges,
 		afterChecks,
 		renderCheck,
+		writers,
 	}: {
 		confirm: Confirmer;
 		sitePin: SitePin;
 		siteNotes: SiteNotes;
 		siteChanges: SiteChanges;
 		afterChecks: AfterChecks;
-		renderCheck: RenderCheck;
+		// What renders the pages a call changed, unless another turn's calls do.
+		renderCheck: RenderCheck | undefined;
+		writers: Writers;
 	}
 ): ToolDefinition {
+	// This agent's work reports its notes: what Studio finds in what another
+	// agent wrote reaches that one.
+	const mine = ( file: string ) => writers.ofFile( file ) === pendingWork;
+	const elsewhere = writers.elsewhere( pendingWork );
 	return {
 		name: tool.name,
 		label: tool.label,
@@ -944,6 +982,9 @@ function toToolDefinition(
 			if ( fileWriteRefusal ) {
 				throw new Error( fileWriteRefusal );
 			}
+			if ( writtenFile ) {
+				writers.claim( pendingWork, writtenFile );
+			}
 			await timeCheck( 'pendingWork', async () => {
 				if ( ( tool as { settlesPendingWork?: boolean } ).settlesPendingWork ) {
 					await pendingWork.settle();
@@ -959,7 +1000,9 @@ function toToolDefinition(
 			// is still writing, not when it first looks at the page.
 			const validation = await timeCheck( 'blockValidation', () =>
 				blockValidationGate.settle(
-					BLOCK_VALIDATION_GATED_TOOLS.has( tool.name ) ? {} : { ready: true, except: writtenFile }
+					BLOCK_VALIDATION_GATED_TOOLS.has( tool.name )
+						? { mine }
+						: { ready: true, except: writtenFile, mine }
 				)
 			);
 			if ( validation.saved.length ) {
@@ -974,7 +1017,7 @@ function toToolDefinition(
 				await timeCheck( 'siteChanges', () => siteChanges.begin().catch( () => undefined ) );
 				await timeCheck( 'render', () =>
 					Promise.all(
-						sitePin.localSitePaths().map( ( sitePath ) => renderCheck.seen( sitePath ) )
+						sitePin.localSitePaths().map( ( sitePath ) => renderCheck?.seen( sitePath ) )
 					)
 				);
 			}
@@ -982,7 +1025,9 @@ function toToolDefinition(
 			// command does that exits non-zero after saving a page.
 			const settled = async () =>
 				checksChanges
-					? await timeCheck( 'siteChanges', () => siteChanges.settle().catch( () => NO_CHANGES ) )
+					? await timeCheck( 'siteChanges', () =>
+							siteChanges.settle( elsewhere ).catch( () => NO_CHANGES )
+					  )
 					: NO_CHANGES;
 			// The validation report was taken from the gate, so it rides on a failure too.
 			const ranFrom = Date.now();
@@ -1015,7 +1060,7 @@ function toToolDefinition(
 					.then( ( site ) => site.path )
 					.catch( () => undefined );
 				if ( created ) {
-					await renderCheck.seen( created, { created: true } );
+					await renderCheck?.seen( created, { created: true } );
 				}
 			}
 			const details = result.details as StudioToolResultDetails | undefined;
@@ -1038,7 +1083,7 @@ function toToolDefinition(
 				if ( checksChanges ) {
 					await timeCheck( 'render', () =>
 						Promise.all(
-							sitePin.localSitePaths().map( ( sitePath ) => renderCheck.changed( sitePath ) )
+							sitePin.localSitePaths().map( ( sitePath ) => renderCheck?.changed( sitePath ) )
 						)
 					);
 				}
@@ -1069,7 +1114,7 @@ function toToolDefinition(
 			const reports = studioMessage( 'notes', [
 				...validationReport,
 				pendingWork.takeReports(),
-				renderCheck.takeReports(),
+				renderCheck?.takeReports(),
 			] );
 			const timed = {
 				...result,
@@ -1114,6 +1159,7 @@ function shellDirectory( config: ResolvedStudioAgentTurnConfig ): string {
 
 function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
+	checks: SubagentParent,
 	imageGenerationEnabled: boolean,
 	visionEnabled: boolean,
 	wpCliServer: string | undefined,
@@ -1160,7 +1206,7 @@ function buildAgentTools(
 	} ) as unknown as AgentToolAny[];
 	// A subagent's turn is this turn's, from a fresh session and with nobody to
 	// ask: confirmations still reach the user.
-	const subagentTool: AgentToolAny[] = config.subagent
+	const subagentTool: AgentToolAny[] = config.subagentOf
 		? []
 		: [
 				createSubagentTool( ( task, onEvent ) =>
@@ -1172,7 +1218,7 @@ function buildAgentTools(
 						activeSite: config.activeSite,
 						onConfirm: config.onConfirm ?? config.onAskUser,
 						onEvent,
-						subagent: true,
+						subagentOf: checks,
 					} )
 				),
 		  ];

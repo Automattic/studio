@@ -270,6 +270,7 @@ export const postContentChanges: SiteChangeSource = {
 			saved = saved || !! savedPost;
 			reports.push( {
 				key: String( post.id ),
+				post: post.id,
 				...result,
 				summary: result.summary && validationSummary( result.summary ),
 			} );

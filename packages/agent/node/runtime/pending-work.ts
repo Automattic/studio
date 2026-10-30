@@ -40,6 +40,11 @@ export class PendingWork {
 		);
 	}
 
+	/** A note to report with the others. */
+	tell( note: string ): void {
+		this.reports.push( note );
+	}
+
 	takeReports(): string | undefined {
 		return this.reports.splice( 0 ).join( '\n' ) || undefined;
 	}

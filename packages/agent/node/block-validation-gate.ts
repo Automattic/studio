@@ -536,9 +536,15 @@ export class BlockValidationGate {
 	 * Waits for every queued file and returns what is new to report. With
 	 * `ready`, waits for none: reports only the files whose validation of their
 	 * current content has come, leaving out `except`, the file the call about to
-	 * run writes, whose text a saved fix would change under it.
+	 * run writes, whose text a saved fix would change under it. With `mine`,
+	 * settles only the files it holds, as those of the agent calling, which
+	 * the agents writing the others hear about from their own calls.
 	 */
-	async settle( { ready = false, except }: { ready?: boolean; except?: string } = {} ): Promise< {
+	async settle( {
+		ready = false,
+		except,
+		mine = () => true,
+	}: { ready?: boolean; except?: string; mine?: ( file: string ) => boolean } = {} ): Promise< {
 		summaries: string[];
 		problems: string[];
 		saved: string[];
@@ -547,6 +553,9 @@ export class BlockValidationGate {
 		const problems: string[] = [];
 		const saved: string[] = [];
 		for ( const [ filePath, tracked ] of this.files ) {
+			if ( ! mine( filePath ) ) {
+				continue;
+			}
 			if ( ready && ( filePath === except || ! ( await isCurrent( filePath, tracked ) ) ) ) {
 				continue;
 			}

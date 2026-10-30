@@ -63,8 +63,14 @@ vi.mock( '@studio/agent/node/image-generation', async ( importOriginal ) => ( {
 vi.mock( '../session-state', async () => {
 	const { PendingWork } = await import( '../pending-work' );
 	const { RenderCheck } = await import( '@studio/agent/node/render-check' );
-	const states = new WeakMap< object, unknown >();
+	const { Writers } = await import( '../writers' );
+	const states = new WeakMap< object, Record< string, unknown > >();
 	return {
+		shareSessionState: ( session: object, parent: Record< string, unknown > ) => {
+			const state = { ...parent, pendingWork: new PendingWork() };
+			states.set( session, state );
+			return state;
+		},
 		getSessionState: ( host: StudioAgentHost, session: object ) => {
 			if ( ! states.has( session ) ) {
 				const openProblems = {
@@ -74,9 +80,11 @@ vi.mock( '../session-state', async () => {
 						return mocks.openProblems.shift() ?? [];
 					},
 				};
+				const pendingWork = new PendingWork();
 				states.set( session, {
 					openProblems,
-					pendingWork: new PendingWork(),
+					pendingWork,
+					writers: new Writers( pendingWork ),
 					blockValidation: {
 						track: () => undefined,
 						settle: async () => {
@@ -923,6 +931,22 @@ describe( 'pi runtime', () => {
 				'Not run'
 			);
 			expect( onAskUser ).toHaveBeenCalledTimes( 1 );
+		} );
+
+		it( "leaves the sites as the subagent's turn ends to the parent turn's checks", async () => {
+			const { tool } = await subagentTool();
+			const done = reply( 'wrote the about page', 10 );
+			mocks.nextEvents = [
+				done,
+				{ type: 'agent_end', willRetry: false, messages: [ done.message ] },
+			];
+			// Its own turn's end, without the parent's call around it.
+			mocks.turnEnd.length = 0;
+			await ( tool as unknown as { execute: RuntimeTool[ 'execute' ] } ).execute( 's', {
+				task: 'write the about page',
+			} );
+			expect( mocks.turnEnd.filter( ( step ) => step === 'sites checked' ) ).toEqual( [] );
+			expect( mocks.turnEnd ).toContain( 'block files settled' );
 		} );
 
 		it( 'fails with what stopped the turn', async () => {

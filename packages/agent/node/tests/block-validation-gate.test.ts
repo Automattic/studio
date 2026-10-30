@@ -506,6 +506,20 @@ describe( 'the gate', () => {
 		expect( ( await gate.settle() ).summaries ).toEqual( [] );
 	} );
 
+	it( "leaves another agent's files for that agent's settle", async () => {
+		const mine = write( 'wp-content/themes/t/templates/home.html', 'home' );
+		const theirs = write( 'wp-content/themes/t/templates/page.html', 'page' );
+		const gate = new BlockValidationGate( async ( filePath ) =>
+			ok( `validated ${ readFileSync( filePath, 'utf8' ) }`, readFileSync( filePath, 'utf8' ) )
+		);
+		gate.track( mine, site );
+		gate.track( theirs, site );
+		expect( ( await gate.settle( { mine: ( file ) => file === mine } ) ).summaries ).toEqual( [
+			'validated home',
+		] );
+		expect( ( await gate.settle() ).summaries ).toEqual( [ 'validated page' ] );
+	} );
+
 	it( 'reports, without waiting, only the validations of current content that have come', async () => {
 		const done = write( 'wp-content/themes/t/templates/home.html', 'home' );
 		const writing = write( 'wp-content/themes/t/parts/header.html', 'header' );

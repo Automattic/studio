@@ -7,6 +7,7 @@ import {
 	siteIdOfCopy,
 	workspaceRoot,
 } from '@studio/agent/node/post-copies';
+import { Writers } from '@studio/agent/node/runtime/writers';
 import { SiteChanges } from '@studio/agent/node/site-changes';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { createSite } from '@studio/agent/node/tests/fixtures/wordpress-site';
@@ -113,6 +114,25 @@ describe( 'post copies', () => {
 		expect( await check.settle() ).toMatchObject( { problems: [] } );
 		expect( fixture.content( 9 ) ).toBe( HEADING );
 		expect( ( await check.settle() ).summaries ).toEqual( [] );
+	} );
+
+	it( "tells the subagent writing a copy that Studio saved it, whichever agent's call the check follows", async () => {
+		const { check } = await openedWorkspace();
+		const main = { tell: vi.fn() };
+		const subagent = { tell: vi.fn() };
+		const writers = new Writers( main );
+		writers.claim( subagent, copy( 'page', 9 ) );
+		writeFileSync( copy( 'page', 9 ), HEADING );
+		// The session's own agent's call settles while the subagent writes.
+		expect( ( await check.settle( writers.elsewhere( main ) ) ).summaries ).toEqual( [] );
+		expect( subagent.tell ).toHaveBeenCalledWith(
+			`Bakery page 9: Studio saved ${ copy( 'page', 9 ) } to it (wp_update_post())`
+		);
+		// Once the subagent ends, the page is the session's own agent's.
+		writers.release( subagent );
+		writeFileSync( copy( 'page', 9 ), PARAGRAPH );
+		expect( ( await check.settle( writers.elsewhere( main ) ) ).summaries ).toHaveLength( 1 );
+		expect( main.tell ).not.toHaveBeenCalled();
 	} );
 
 	it( 'rewrites the copy of a post changed in WordPress', async () => {

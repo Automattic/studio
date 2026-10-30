@@ -257,6 +257,7 @@ async function postReports(
 		const blocks = empty[ post.id ] ?? [];
 		return {
 			key: `rendered ${ post.id }`,
+			post: post.id,
 			problem: blocks.length
 				? `${ site.name } ${ post.type } ${ post.id } "${
 						post.title

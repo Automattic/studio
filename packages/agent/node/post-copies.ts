@@ -348,6 +348,7 @@ export const postCopies: SiteChangeSource = {
 				next[ id ] = `${ type } ${ postVersion } ${ hash( content ) }`;
 				reports.push( {
 					key: `copy ${ id }`,
+					post: id,
 					problem: `${ label } changed in WordPress after Studio wrote ${ file }, so Studio kept the post: ${ file } now holds it, and the copy's change is in ${ unsaved }.`,
 				} );
 				continue;
@@ -359,6 +360,7 @@ export const postCopies: SiteChangeSource = {
 			} catch ( error ) {
 				reports.push( {
 					key: `copy ${ id }`,
+					post: id,
 					problem: `${ label }: Studio could not save ${ file } to it: ${
 						error instanceof Error ? error.message : String( error )
 					}`,
@@ -372,6 +374,7 @@ export const postCopies: SiteChangeSource = {
 			next[ id ] = `${ type } ${ manifest[ id ].post } ${ copyHash }`;
 			reports.push( {
 				key: `copy ${ id }`,
+				post: id,
 				summary: `${ label }: Studio saved ${ file } to it (${
 					type === GLOBAL_STYLES ? 'PUT /wp/v2/global-styles' : 'wp_update_post()'
 				})`,

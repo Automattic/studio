@@ -547,7 +547,7 @@ describe( 'Snapshots Module', () => {
 			userId,
 		} );
 
-		it( "forgets the user's ended WordPress.com previews and records the rest's expiry and link", async () => {
+		it( "forgets the user's ended WordPress.com previews, updates the rest and lists ones made elsewhere", async () => {
 			mocks.readFile.mockResolvedValue(
 				JSON.stringify( {
 					version: 1,
@@ -563,7 +563,18 @@ describe( 'Snapshots Module', () => {
 			);
 
 			const shareUrl = 'https://standing.wpcomstaging.com/?share=abc';
-			await reconcilePreviews( USER_ID, new Map( [ [ 1, { expiresAt: 9000, shareUrl } ] ] ), 5000 );
+			const elsewhereUrl = 'https://elsewhere.wpcomstaging.com/?share=def';
+			await reconcilePreviews(
+				USER_ID,
+				new Map( [
+					[ 1, { hostname: 'standing.wpcomstaging.com', expiresAt: 9000, shareUrl } ],
+					[
+						6,
+						{ hostname: 'elsewhere.wpcomstaging.com', expiresAt: 8000, shareUrl: elsewhereUrl },
+					],
+				] ),
+				5000
+			);
 
 			const savedData = JSON.parse( mocks.writeFile.mock.calls[ 0 ][ 1 ] );
 			expect(
@@ -573,6 +584,7 @@ describe( 'Snapshots Module', () => {
 				[ 'saved-after-check.wpcomstaging.com', undefined, undefined ],
 				[ 'legacy.wp.build', undefined, undefined ],
 				[ 'other-user.wpcomstaging.com', undefined, undefined ],
+				[ 'elsewhere.wpcomstaging.com', 8000, elsewhereUrl ],
 			] );
 		} );
 	} );

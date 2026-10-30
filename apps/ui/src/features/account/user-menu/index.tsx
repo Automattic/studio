@@ -4,7 +4,6 @@ import { LogOutIcon, SettingsIcon, WifiOffIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
-import { useColorScheme } from '@/data/host/use-color-scheme';
 import { useAuthUser, useLogout } from '@/data/queries/use-auth-user';
 import { getSections } from '@/data/settings-sections';
 import { useOpenSettings } from '@/data/use-open-settings';
@@ -19,7 +18,6 @@ const MENU_SECTIONS: string[] = [ 'appearance', 'ai', 'usage' ];
 
 export function UserMenu() {
 	const { data: user } = useAuthUser();
-	const themeIsDark = useColorScheme() === 'dark';
 	const isOffline = useOffline();
 	const logout = useLogout();
 	const openSettingsDialog = useOpenSettings();
@@ -43,17 +41,17 @@ export function UserMenu() {
 							render={
 								<Button
 									ref={ trigger }
-									variant="ghost"
+									variant="muted-ghost"
 									size="icon"
 									aria-label={ user.displayName || user.email }
 								/>
 							}
 						>
-							<Gravatar email={ user.email } isDark={ themeIsDark } className={ styles.avatar } />
+							<Gravatar email={ user.email } className={ styles.avatar } />
 						</Menu.Trigger>
 						<Menu.Popup side="top" align="start" className={ styles.popup }>
 							<div className={ styles.account }>
-								<Gravatar email={ user.email } isDark={ themeIsDark } />
+								<Gravatar email={ user.email } />
 								<div className={ styles.accountText }>
 									<span className={ styles.accountName }>{ user.displayName || user.email }</span>
 									{ user.displayName ? (

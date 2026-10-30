@@ -81,7 +81,7 @@ vi.mock( '../session-state', async () => {
 						track: () => undefined,
 						settle: async () => {
 							mocks.turnEnd.push( 'block files settled' );
-							return { summaries: [], problems: [] };
+							return { summaries: [], problems: [], saved: [] };
 						},
 					},
 					renderCheck: new RenderCheck( host, openProblems as never ),
@@ -169,9 +169,12 @@ vi.mock( '@studio/agent/node/site-notes', () => ( {
 vi.mock( '@studio/agent/node/site-changes', () => ( {
 	NO_CHANGES: { summaries: [], problems: [], written: [] },
 	SiteChanges: class {
-		async snapshot() {
+		async begin() {
 			mocks.steps.push( 'snapshot' );
 		}
+		end() {}
+		afterChecks() {}
+		stale() {}
 		async settle() {
 			mocks.steps.push( 'settle' );
 			await new Promise( ( resolve ) => setTimeout( resolve, mocks.settleMs ) );

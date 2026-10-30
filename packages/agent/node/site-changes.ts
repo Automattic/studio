@@ -108,6 +108,13 @@ const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
 export class SiteChanges {
 	private readonly snapshots = new Map< string, Versions >();
 	private snapshotting?: Promise< void >;
+	// The calls between their snapshot and their end.
+	private running = 0;
+	// The snapshot taken as the last call's checks finished, while it still stands.
+	private fresh = false;
+	// Counts what makes a snapshot stale, so one read across it is not taken as fresh.
+	private generation = 0;
+	private closing?: Promise< void >;
 
 	constructor(
 		private readonly host: StudioAgentHost,
@@ -125,6 +132,51 @@ export class SiteChanges {
 			this.snapshotting = undefined;
 		} );
 		return this.snapshotting;
+	}
+
+	/**
+	 * Before a call: the sites as they are, unless the snapshot taken as the
+	 * last call's checks finished still stands, as the agent thought. The call
+	 * ends with `end()`.
+	 */
+	async begin(): Promise< void > {
+		this.running++;
+		await this.closing;
+		if ( ! this.fresh ) {
+			await this.snapshot();
+		}
+	}
+
+	/** A call begun has run. */
+	end(): void {
+		this.running--;
+	}
+
+	/**
+	 * After a call's checks, which save their fixes, and with no call running:
+	 * the snapshot the next call starts from, taken while the agent thinks.
+	 */
+	afterChecks(): void {
+		if ( this.running || this.closing ) {
+			return;
+		}
+		const generation = this.generation;
+		this.closing = this.snapshot()
+			.then(
+				() => {
+					this.fresh = generation === this.generation;
+				},
+				() => undefined
+			)
+			.finally( () => {
+				this.closing = undefined;
+			} );
+	}
+
+	/** Studio changed a site outside a call, as a fix or a background write: the next call snapshots. */
+	stale(): void {
+		this.generation++;
+		this.fresh = false;
 	}
 
 	private async read(): Promise< void > {
@@ -146,6 +198,7 @@ export class SiteChanges {
 
 	/** Checks what changed since the snapshot, and snapshots it. */
 	async settle(): Promise< SettledChanges > {
+		this.stale();
 		const sites = await this.sites();
 		const reports = await Promise.all( sites.map( ( site ) => this.settleSite( site ) ) );
 		const summaries: string[] = [];

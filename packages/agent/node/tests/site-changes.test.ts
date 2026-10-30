@@ -101,3 +101,42 @@ describe( 'SiteChanges.settle', () => {
 		expect( reads ).toHaveLength( 4 );
 	} );
 } );
+
+describe( 'SiteChanges.begin', () => {
+	type Step = ( changes: SiteChanges ) => void;
+	const none: Step = () => undefined;
+	// What happens as a call's checks end, and after, until the next call begins and reads `reads` times.
+	it.each< [ string, Step, Step, number ] >( [
+		[ 'reads nothing the snapshot taken as the last checks ended holds', none, none, 0 ],
+		[ 'reads again after Studio changed a site since', none, ( changes ) => changes.stale(), 2 ],
+		[
+			'reads again when a call was running as the checks ended',
+			( changes ) => void changes.begin(),
+			none,
+			2,
+		],
+	] )( '%s', async ( _name, asChecksEnd, after, reads ) => {
+		let read = 0;
+		const counted: SiteChangeSource = {
+			name: 'counted',
+			async read() {
+				read++;
+				return {};
+			},
+			async check() {
+				return { reports: [] };
+			},
+		};
+		const changes = new SiteChanges( createFakeHost(), undefined, async () => sites, [ counted ] );
+		await changes.begin();
+		changes.end();
+		await changes.settle();
+		asChecksEnd( changes );
+		changes.afterChecks();
+		await new Promise( ( resolve ) => setTimeout( resolve, 5 ) );
+		after( changes );
+		read = 0;
+		await changes.begin();
+		expect( read ).toBe( reads );
+	} );
+} );

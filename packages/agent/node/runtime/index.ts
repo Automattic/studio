@@ -957,21 +957,21 @@ function toToolDefinition(
 			// tool puts content on the site or renders it; any other call carries
 			// the validations already done, so a problem is heard while the agent
 			// is still writing, not when it first looks at the page.
-			const validationReport = validationLines(
-				await timeCheck( 'blockValidation', () =>
-					blockValidationGate.settle(
-						BLOCK_VALIDATION_GATED_TOOLS.has( tool.name )
-							? {}
-							: { ready: true, except: writtenFile }
-					)
+			const validation = await timeCheck( 'blockValidation', () =>
+				blockValidationGate.settle(
+					BLOCK_VALIDATION_GATED_TOOLS.has( tool.name ) ? {} : { ready: true, except: writtenFile }
 				)
 			);
+			if ( validation.saved.length ) {
+				siteChanges.stale();
+			}
+			const validationReport = validationLines( validation );
 			const checksChanges = ! (
 				READ_ONLY_TOOLS.has( tool.name ) ||
 				( tool as { annotations?: { readOnlyHint?: boolean } } ).annotations?.readOnlyHint
 			);
 			if ( checksChanges ) {
-				await timeCheck( 'siteChanges', () => siteChanges.snapshot().catch( () => undefined ) );
+				await timeCheck( 'siteChanges', () => siteChanges.begin().catch( () => undefined ) );
 				await timeCheck( 'render', () =>
 					Promise.all(
 						sitePin.localSitePaths().map( ( sitePath ) => renderCheck.seen( sitePath ) )
@@ -990,6 +990,9 @@ function toToolDefinition(
 				.execute( toolCallId, params, signal, onUpdate )
 				.finally( () => {
 					ranMs = Date.now() - ranFrom;
+					if ( checksChanges ) {
+						siteChanges.end();
+					}
 				} )
 				.catch( async ( error: unknown ) => {
 					const changed = await settled();
@@ -1020,6 +1023,8 @@ function toToolDefinition(
 			}
 			const details = result.details as StudioToolResultDetails | undefined;
 			if ( details?.pending ) {
+				// What it writes as it finishes is no call's change.
+				void details.pending.finally( () => siteChanges.stale() ).catch( () => undefined );
 				pendingWork.add( details.pending, details.pendingFiles );
 				delete details.pending;
 				delete details.pendingFiles;
@@ -1052,12 +1057,12 @@ function toToolDefinition(
 						...( await siteNotes.afterWrite( file, file === writtenFile ? left : undefined ) )
 					);
 				}
-				return [
-					...changed.summaries,
-					...changed.problems,
-					...fileNotes,
-					...( resultSite ? await siteNotes.afterResult( resultSite, resultText ) : [] ),
-				]
+				const resultNotes = resultSite ? await siteNotes.afterResult( resultSite, resultText ) : [];
+				if ( checksChanges ) {
+					// The fixes above saved: the next call starts from the sites as they leave them.
+					siteChanges.afterChecks();
+				}
+				return [ ...changed.summaries, ...changed.problems, ...fileNotes, ...resultNotes ]
 					.filter( Boolean )
 					.join( '\n' );
 			} );

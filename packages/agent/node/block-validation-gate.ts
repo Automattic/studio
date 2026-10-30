@@ -541,15 +541,17 @@ export class BlockValidationGate {
 	async settle( { ready = false, except }: { ready?: boolean; except?: string } = {} ): Promise< {
 		summaries: string[];
 		problems: string[];
+		saved: string[];
 	} > {
 		const summaries: string[] = [];
 		const problems: string[] = [];
+		const saved: string[] = [];
 		for ( const [ filePath, tracked ] of this.files ) {
 			if ( ready && ( filePath === except || ! ( await isCurrent( filePath, tracked ) ) ) ) {
 				continue;
 			}
 			const result = await this.current( filePath, tracked.siteRoot ).then(
-				( current ) => current && this.applyFix( filePath, current )
+				( current ) => current && this.applyFix( filePath, current, saved )
 			);
 			this.open?.record( tracked.siteRoot, filePath, result?.problem );
 			if ( ! result ) {
@@ -563,7 +565,7 @@ export class BlockValidationGate {
 				problems.push( ...( result.problem ? [ result.problem ] : [] ) );
 			}
 		}
-		return { summaries, problems };
+		return { summaries, problems, saved };
 	}
 
 	/**
@@ -572,7 +574,8 @@ export class BlockValidationGate {
 	 */
 	private async applyFix(
 		filePath: string,
-		result: FileValidation
+		result: FileValidation,
+		saved: string[]
 	): Promise< FileValidation | undefined > {
 		const { fixedContent, ...validation } = result;
 		if ( fixedContent === undefined ) {
@@ -582,9 +585,10 @@ export class BlockValidationGate {
 		if ( content === undefined || hash( content ) !== result.contentHash ) {
 			// Written again while it was validated: validate what it holds now.
 			const current = await this.current( filePath, this.files.get( filePath )!.siteRoot );
-			return current && this.applyFix( filePath, current );
+			return current && this.applyFix( filePath, current, saved );
 		}
 		await writeFile( filePath, fixedContent, 'utf8' );
+		saved.push( filePath );
 		const fixed = {
 			...validation,
 			// The agent holds the text it wrote, which an edit would no longer find.

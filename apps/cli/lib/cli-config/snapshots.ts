@@ -1,10 +1,17 @@
-import { isWpcomPreview } from '@studio/common/lib/snapshots';
+import { isSnapshotExpired, isWpcomPreview } from '@studio/common/lib/snapshots';
 import { type Snapshot } from '@studio/common/types/snapshot';
 import { __ } from '@wordpress/i18n';
 import { LoggerError } from 'cli/logger';
 import { lockCliConfig, readCliConfig, saveCliConfig, unlockCliConfig } from './core';
 import { getSiteByFolder } from './sites';
 import type { StandingPreview } from 'cli/lib/preview-sites';
+
+/** How many unexpired previews the user has of one local site. */
+export function countSitePreviews( siteId: string, snapshots: Snapshot[], userId: number ): number {
+	return snapshots.filter(
+		( s ) => s.localSiteId === siteId && s.userId === userId && ! isSnapshotExpired( s )
+	).length;
+}
 
 export function getNextSnapshotSequence(
 	siteId: string,

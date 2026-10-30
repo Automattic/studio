@@ -8,7 +8,7 @@ import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { createPreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
 import { withSiteOperation } from 'cli/lib/site-operations';
-import { saveSnapshotToConfig } from 'cli/lib/snapshots';
+import { getSnapshotsFromConfig, saveSnapshotToConfig } from 'cli/lib/snapshots';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { LoggerError } from 'cli/logger';
 import { runCommand } from '../create';
@@ -191,7 +191,24 @@ describe( 'Preview Create Command', () => {
 		);
 	} );
 
-	it( 'records a successful preview_site_create Tracks event', async () => {
+	it( "records a successful preview_site_create Tracks event with the site's preview count", async () => {
+		const preview = ( localSiteId: string, userId: number, date: number ) => ( {
+			url: `${ localSiteId }-${ userId }-${ date }.example.com`,
+			atomicSiteId: 1,
+			localSiteId,
+			userId,
+			name: 'Preview',
+			date,
+		} );
+		// Counts this user's unexpired previews of this site, the new one included.
+		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [
+			preview( 'site-123', mockAuthToken.id, Date.now() ),
+			preview( 'site-123', mockAuthToken.id, Date.now() - 1000 ),
+			preview( 'site-123', mockAuthToken.id, 0 ),
+			preview( 'other-site', mockAuthToken.id, Date.now() ),
+			preview( 'site-123', mockAuthToken.id + 1, Date.now() ),
+		] );
+
 		await runCommand( mockFolder );
 
 		expect( recordTracksEvent ).toHaveBeenCalledWith(
@@ -199,6 +216,7 @@ describe( 'Preview Create Command', () => {
 			expect.objectContaining( {
 				success: true,
 				time_ms: expect.any( Number ),
+				site_preview_count: 2,
 				channel: 'studio-cli',
 			} )
 		);

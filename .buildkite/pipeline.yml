@@ -163,17 +163,17 @@ steps:
               propagate-environment: true
               mount-buildkite-agent: true
 
-  - input: "🚦 Build for Mac?"
-    prompt: "Do you want to build Mac dev binaries for this PR?"
-    key: input-dev-mac
-    if: build.tag !~ /^v[0-9]+/ && build.branch != 'trunk'
-
   - group: 📦 Build for Mac
     key: dev-mac
-    depends_on: input-dev-mac
     if: build.tag !~ /^v[0-9]+/
     steps:
+      - input: "🚦 Build for Mac?"
+        prompt: "Do you want to build Mac dev binaries for this PR?"
+        key: input-dev-mac
+        if: build.branch != 'trunk'
+
       - label: 🔨 Mac Dev Build - {{matrix}}
+        depends_on: input-dev-mac
         agents:
           queue: mac
         command: |
@@ -222,17 +222,17 @@ steps:
           - x64
           - arm64
 
-  - input: "🚦 Build for Windows?"
-    prompt: "Do you want to build Windows dev binaries for this PR?"
-    key: input-dev-windows
-    if: build.tag !~ /^v[0-9]+/ && build.branch != 'trunk'
-
   - group: 📦 Build for Windows
     key: dev-windows
-    depends_on: input-dev-windows
     if: build.tag !~ /^v[0-9]+/
     steps:
+      - input: "🚦 Build for Windows?"
+        prompt: "Do you want to build Windows dev binaries for this PR?"
+        key: input-dev-windows
+        if: build.branch != 'trunk'
+
       - label: 🔨 Windows Dev Build - {{matrix}}
+        depends_on: input-dev-windows
         agents:
           queue: windows
         env:
@@ -250,17 +250,17 @@ steps:
           - x64
           - arm64
 
-  - input: "🚦 Build for Linux?"
-    prompt: "Do you want to build Linux dev binaries for this PR?"
-    key: input-dev-linux
-    if: build.tag !~ /^v[0-9]+/ && build.branch != 'trunk'
-
   - group: 📦 Build for Linux
     key: dev-linux
-    depends_on: input-dev-linux
     if: build.tag !~ /^v[0-9]+/
     steps:
+      - input: "🚦 Build for Linux?"
+        prompt: "Do you want to build Linux dev binaries for this PR?"
+        key: input-dev-linux
+        if: build.branch != 'trunk'
+
       - label: 🔨 Linux Dev Build - {{matrix}}
+        depends_on: input-dev-linux
         agents:
           queue: default
         command: |

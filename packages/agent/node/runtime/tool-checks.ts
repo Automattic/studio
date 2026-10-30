@@ -45,8 +45,27 @@ const READ_ONLY_TOOLS = new Set( [ 'Read', 'Grep', 'Glob', 'Ls' ] );
  */
 export class AfterChecks {
 	private running: Promise< void > = Promise.resolve();
+	// Their time by check, which the next call to return carries, as they
+	// finish after the call they check has returned.
+	private stagesMs: Record< string, number > = {};
 
 	constructor( private readonly pendingWork: PendingWork ) {}
+
+	async timed< T >( stage: string, check: () => Promise< T > ): Promise< T > {
+		const from = Date.now();
+		try {
+			return await check();
+		} finally {
+			const key = `after ${ stage }`;
+			this.stagesMs[ key ] = ( this.stagesMs[ key ] ?? 0 ) + Date.now() - from;
+		}
+	}
+
+	takeStagesMs(): Record< string, number > {
+		const taken = this.stagesMs;
+		this.stagesMs = {};
+		return taken;
+	}
 
 	// Each call's checks start once the checks before them are done: a check
 	// that saves a fix reads and rewrites a file, as theme.json, that another
@@ -186,9 +205,9 @@ export function toToolDefinition(
 			}
 			// A call that fails can still have changed content, as a shell
 			// command does that exits non-zero after saving a page.
-			const settled = async () =>
+			const settled = async ( time: typeof timeCheck ) =>
 				checksChanges
-					? await timeCheck( 'siteChanges', () =>
+					? await time( 'siteChanges', () =>
 							siteChanges.settle( elsewhere ).catch( () => NO_CHANGES )
 					  )
 					: NO_CHANGES;
@@ -200,7 +219,7 @@ export function toToolDefinition(
 					ranMs = Date.now() - ranFrom;
 				} )
 				.catch( async ( error: unknown ) => {
-					const changed = await settled();
+					const changed = await settled( timeCheck );
 					const report = studioMessage( 'notes', [
 						...validationReport,
 						...changed.summaries,
@@ -241,10 +260,11 @@ export function toToolDefinition(
 			const resultText = result.content
 				.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
 				.join( '\n' );
+			const afterTime: typeof timeCheck = ( stage, check ) => afterChecks.timed( stage, check );
 			afterChecks.add( async () => {
-				const changed = await settled();
+				const changed = await settled( afterTime );
 				if ( checksChanges ) {
-					await timeCheck( 'render', () =>
+					await afterTime( 'render', () =>
 						Promise.all(
 							sitePin.localSitePaths().map( ( sitePath ) => renderCheck?.changed( sitePath ) )
 						)
@@ -259,10 +279,14 @@ export function toToolDefinition(
 				const fileNotes: string[] = [];
 				for ( const file of written ) {
 					fileNotes.push(
-						...( await siteNotes.afterWrite( file, file === writtenFile ? left : undefined ) )
+						...( await afterTime( 'fileNotes', () =>
+							siteNotes.afterWrite( file, file === writtenFile ? left : undefined )
+						) )
 					);
 				}
-				const resultNotes = resultSite ? await siteNotes.afterResult( resultSite, resultText ) : [];
+				const resultNotes = resultSite
+					? await afterTime( 'resultNotes', () => siteNotes.afterResult( resultSite, resultText ) )
+					: [];
 				if ( checksChanges ) {
 					// The fixes above saved: the next call starts from the sites as they leave them.
 					siteChanges.afterChecks();
@@ -284,7 +308,7 @@ export function toToolDefinition(
 				details: {
 					...( result.details as object ),
 					checksMs: Date.now() - checksStarted - ranMs,
-					checkStagesMs,
+					checkStagesMs: { ...checkStagesMs, ...afterChecks.takeStagesMs() },
 					checkSourcesMs: checksChanges ? siteChanges.takeSourceMs() : undefined,
 				},
 			};

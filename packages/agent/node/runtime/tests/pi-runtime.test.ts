@@ -1108,7 +1108,13 @@ describe( 'pi runtime', () => {
 			expect( second.checkStagesMs.previousChecks ).toBeGreaterThanOrEqual( 30 );
 			expect( second.checksMs ).toBeGreaterThanOrEqual( second.checkStagesMs.previousChecks );
 			expect( second.checksMs ).toBeLessThan( 60 );
+			// With the time of the first call's checks, which ran after it returned.
+			expect( second.checkStagesMs[ 'after siteChanges' ] ).toBeGreaterThanOrEqual( 30 );
 			expect( Object.keys( second.checkStagesMs ).sort() ).toEqual( [
+				'after fileNotes',
+				'after render',
+				'after resultNotes',
+				'after siteChanges',
 				'blockValidation',
 				'pendingWork',
 				'previousChecks',

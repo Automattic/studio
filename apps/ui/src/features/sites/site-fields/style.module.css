@@ -18,7 +18,6 @@
 	min-width: min( 224px, 100% );
 }
 .selectContent {
-	width: max( 16rem, var( --anchor-width ) );
 	max-width: min( 20rem, var( --available-width ) );
 	max-height: min( 22rem, var( --available-height ) );
 }

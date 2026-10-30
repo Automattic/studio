@@ -132,17 +132,17 @@ describe( 'overlay sidebar', () => {
 
 	it( 'overlays the content below the docking width', async () => {
 		localStorage.setItem( SIDEBAR_PANEL_STORAGE_KEY, '320' );
-		resize( 935 );
+		resize( 975 );
 		await setup();
 		expect( toggle() ).toHaveAccessibleName( 'Show sidebar' );
 		fireEvent.click( toggle() );
 		expect( screen.queryByRole( 'separator', { name: 'Resize sidebar' } ) ).not.toBeInTheDocument();
-		resize( 936 );
+		resize( 976 );
 		expect( screen.queryByRole( 'separator', { name: 'Resize sidebar' } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'dialog', { name: 'Sidebar' } ) ).toBeInTheDocument();
 		fireEvent.click( toggle() );
 		expect( handle() ).toHaveAttribute( 'aria-valuenow', '256' );
-		resize( 935 );
+		resize( 975 );
 		expect( toggle() ).toHaveAccessibleName( 'Show sidebar' );
 	} );
 

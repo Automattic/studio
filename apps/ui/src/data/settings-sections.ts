@@ -101,20 +101,20 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				),
 				setting(
 					'navigate',
-					__( 'Code editor' ),
+					__( 'Default code editor' ),
 					__( 'The default code editor for your sites.' ),
 					'code-editor',
 					CodeIcon
 				),
 				setting(
 					'navigate',
-					__( 'Browser' ),
+					__( 'Default browser' ),
 					__( 'The browser used to open your sites, WP Admin, and phpMyAdmin.' ),
 					'browser'
 				),
 				setting(
 					'navigate',
-					__( 'Terminal' ),
+					__( 'Default terminal app' ),
 					__( 'The default terminal for your sites.' ),
 					'terminal',
 					TerminalIcon
@@ -204,9 +204,19 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			label: __( 'Appearance' ),
 			icon: AppearanceIcon,
 			settings: [
-				setting( 'navigate', __( 'Theme' ), __( 'Choose light, dark, or system.' ), 'theme' ),
+				setting(
+					'navigate',
+					__( 'Interface theme' ),
+					__( 'Choose light, dark, or system.' ),
+					'theme'
+				),
 				{
-					...setting( 'navigate', __( 'Color' ), __( 'Choose an accent color.' ), 'color' ),
+					...setting(
+						'navigate',
+						__( 'Accent' ),
+						__( 'Studio adapts your chosen color to work with your theme.' ),
+						'color'
+					),
 					aliases: [ __( 'Colour' ), __( 'Change color' ) ],
 				},
 				setting(
@@ -224,7 +234,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				setting(
 					'action',
 					__( 'Reset appearance' ),
-					__( 'Restore the default theme, color, intensity, and contrast.' ),
+					__( 'Restore the default interface theme, accent color, intensity, and contrast.' ),
 					'reset-appearance'
 				),
 			],

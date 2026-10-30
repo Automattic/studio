@@ -49,7 +49,7 @@ import type {
 	UserPreferences,
 } from '@/data/core';
 
-// "Default" first, then the installed apps and the saved one, even if it's gone.
+// "System default" first, then the installed apps and the saved one, even if it's gone.
 function appElements< TApp extends keyof InstalledApps >(
 	apps: readonly TApp[],
 	installedApps: InstalledApps | undefined,
@@ -57,7 +57,7 @@ function appElements< TApp extends keyof InstalledApps >(
 	label: ( app: TApp ) => string
 ) {
 	return [
-		{ value: UNSET, label: __( 'Default' ) },
+		{ value: UNSET, label: __( 'System default' ) },
 		...apps
 			.filter( ( app ) => ! installedApps || installedApps[ app ] || app === saved )
 			.map( ( app ) => ( { value: app, label: label( app ) } ) ),
@@ -192,11 +192,11 @@ function PreferencesPanel( {
 					/>
 				</SettingsRow>
 				<SettingsRow
-					title={ __( 'Code editor' ) }
+					title={ __( 'Default code editor' ) }
 					description={ __( 'The default code editor for your sites.' ) }
 				>
 					<SettingsSelect
-						label={ __( 'Code editor' ) }
+						label={ __( 'Default code editor' ) }
 						value={ data.editor }
 						options={ appElements( SUPPORTED_EDITORS, installedApps, data.editor, ( editor ) =>
 							supportedEditorConfig[ editor ].label()
@@ -205,11 +205,11 @@ function PreferencesPanel( {
 					/>
 				</SettingsRow>
 				<SettingsRow
-					title={ __( 'Browser' ) }
+					title={ __( 'Default browser' ) }
 					description={ __( 'The browser used to open your sites, WP Admin, and phpMyAdmin.' ) }
 				>
 					<SettingsSelect
-						label={ __( 'Browser' ) }
+						label={ __( 'Default browser' ) }
 						value={ data.browser }
 						options={ [
 							{ value: UNSET, label: __( 'System default' ) },
@@ -221,11 +221,11 @@ function PreferencesPanel( {
 					/>
 				</SettingsRow>
 				<SettingsRow
-					title={ __( 'Terminal' ) }
+					title={ __( 'Default terminal app' ) }
 					description={ __( 'The default terminal for your sites.' ) }
 				>
 					<SettingsSelect
-						label={ __( 'Terminal' ) }
+						label={ __( 'Default terminal app' ) }
 						value={ data.terminal }
 						options={ appElements(
 							SUPPORTED_TERMINALS,
@@ -322,7 +322,8 @@ function PreferencesPanel( {
 							void connector.openExternalUrl( getLocalizedLink( locale, 'docsStudio' ) )
 						}
 					>
-						{ __( 'Open docs' ) }
+						{ __( 'Open' ) }
+						<ExternalLinkIcon data-icon="inline-end" />
 					</Button>
 				</SettingsRow>
 				<SettingsRow
@@ -453,9 +454,12 @@ export function AppearanceSettings() {
 				</div>
 			) : null }
 			<SettingsGroup>
-				<SettingsRow title={ __( 'Theme' ) } description={ __( 'Choose light, dark, or system.' ) }>
+				<SettingsRow
+					title={ __( 'Interface theme' ) }
+					description={ __( 'Choose light, dark, or system.' ) }
+				>
 					<SettingsSelect
-						label={ __( 'Theme' ) }
+						label={ __( 'Interface theme' ) }
 						value={ data.colorScheme }
 						options={ getColorSchemeElements() }
 						onChange={ ( colorScheme ) => handleChange( { colorScheme } ) }
@@ -466,7 +470,9 @@ export function AppearanceSettings() {
 			<SettingsGroup title={ __( 'Reset' ) }>
 				<SettingsRow
 					title={ __( 'Reset appearance' ) }
-					description={ __( 'Restore the default theme, color, intensity, and contrast.' ) }
+					description={ __(
+						'Restore the default interface theme, accent color, intensity, and contrast.'
+					) }
 				>
 					<Button
 						variant="outline"

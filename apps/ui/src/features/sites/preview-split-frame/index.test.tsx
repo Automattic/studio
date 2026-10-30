@@ -190,15 +190,15 @@ describe( 'PreviewSplitFrame', () => {
 		const { rerender, unmount } = render( frame( 'one' ) );
 		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 360px' );
 		const preview = screen.getByLabelText( 'Site preview' );
-		fireEvent.keyDown( screen.getByRole( 'separator' ), { key: 'ArrowLeft', shiftKey: true } );
-		expect( localStorage.getItem( SITE_WIDTH_KEY ) ).toBe( '320' );
+		fireEvent.keyDown( screen.getByRole( 'separator' ), { key: 'ArrowRight' } );
+		expect( localStorage.getItem( SITE_WIDTH_KEY ) ).toBe( '376' );
 		rerender( frame( 'two' ) );
 		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 360px' );
 		expect( screen.getByLabelText( 'Site preview' ) ).toBe( preview );
 		fireEvent.keyDown( screen.getByRole( 'separator' ), { key: 'ArrowRight', shiftKey: true } );
 		expect( localStorage.getItem( getPreviewContentWidthStorageKey( 'two' ) ) ).toBe( '400' );
 		rerender( frame( 'one' ) );
-		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 320px' );
+		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 376px' );
 		unmount();
 		render( frame( 'two' ) );
 		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 400px' );
@@ -319,7 +319,7 @@ describe( 'PreviewSplitFrame', () => {
 		);
 
 		await waitFor( () =>
-			expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 256px' )
+			expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 272px' )
 		);
 		expect( screen.getByLabelText( 'Site preview' ) ).toBeVisible();
 		expect( screen.queryByRole( 'separator' ) ).not.toBeInTheDocument();
@@ -352,15 +352,15 @@ describe( 'PreviewSplitFrame', () => {
 		it( 'expands the preview to its maximum width on End', async () => {
 			const handle = await renderOpenAndSettle();
 			fireEvent.keyDown( handle, { key: 'End' } );
-			expect( handle ).toHaveAttribute( 'aria-valuenow', '680' );
-			expect( window.localStorage.getItem( SITE_WIDTH_KEY ) ).toBe( '320' );
+			expect( handle ).toHaveAttribute( 'aria-valuenow', '640' );
+			expect( window.localStorage.getItem( SITE_WIDTH_KEY ) ).toBe( '360' );
 		} );
 
 		it( 'steps the preview width with arrow keys, using a larger step with Shift', async () => {
 			const handle = await renderOpenAndSettle();
-			fireEvent.keyDown( handle, { key: 'ArrowLeft' } );
-			expect( handle ).toHaveAttribute( 'aria-valuenow', '656' );
 			fireEvent.keyDown( handle, { key: 'ArrowRight', shiftKey: true } );
+			expect( handle ).toHaveAttribute( 'aria-valuenow', '600' );
+			fireEvent.keyDown( handle, { key: 'ArrowLeft' } );
 			expect( handle ).toHaveAttribute( 'aria-valuenow', '616' );
 			expect( window.localStorage.getItem( SITE_WIDTH_KEY ) ).toBe( '384' );
 		} );

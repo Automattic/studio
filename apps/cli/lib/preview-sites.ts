@@ -44,6 +44,7 @@ const standingPreviewsSchema = z.object( {
 		.array(
 			z.object( {
 				blog_id: z.number(),
+				site_slug: z.string().optional(),
 				expires_at: z.number().optional(),
 				share_url: z.string().optional(),
 			} )
@@ -52,6 +53,8 @@ const standingPreviewsSchema = z.object( {
 } );
 
 export type StandingPreview = {
+	// The host the preview is served from: its preview link's host once it has one.
+	hostname?: string;
 	// When it expires (ms).
 	expiresAt?: number;
 	shareUrl?: string;
@@ -214,6 +217,7 @@ export async function getStandingPreviews(
 		( response.preview_sites ?? [] ).map( ( site ) => [
 			site.blog_id,
 			{
+				hostname: site.share_url ? new URL( site.share_url ).hostname : site.site_slug,
 				expiresAt: site.expires_at === undefined ? undefined : site.expires_at * 1000,
 				shareUrl: site.share_url || undefined,
 			},

@@ -240,7 +240,11 @@ function DialogScrollArea( {
 	const [ scrolled, setScrolled ] = useState( false );
 	useImperativeHandle( ref, () => element.current!, [] );
 	const measure = useCallback( () => {
-		setScrolled( ( element.current?.scrollTop ?? 0 ) > 0 );
+		const node = element.current;
+		if ( ! node ) return;
+		const scrollTop = Math.max( 0, node.scrollTop );
+		node.style.setProperty( '--scroll-fade-size', `${ Math.min( scrollTop, 20 ) }px` );
+		setScrolled( scrollTop > 0 );
 	}, [] );
 	useLayoutEffect( () => {
 		measure();

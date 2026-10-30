@@ -135,6 +135,14 @@ describe( 'post copies', () => {
 		expect( main.tell ).not.toHaveBeenCalled();
 	} );
 
+	it( 'writes the copy of a page created by any route as the call that created it settles', async () => {
+		const { check } = await openedWorkspace();
+		fixture.save( 11, 'page', 'about', PARAGRAPH );
+		expect( existsSync( copy( 'page', 11 ) ) ).toBe( false );
+		await check.settle();
+		expect( read( copy( 'page', 11 ) ) ).toBe( PARAGRAPH );
+	} );
+
 	it( 'rewrites the copy of a post changed in WordPress', async () => {
 		const { check } = await openedWorkspace();
 		fixture.edit( 9, HEADING );

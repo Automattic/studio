@@ -21,7 +21,8 @@ const IMPORT_TIMEOUT_MS = 30 * 60 * 1000;
 export type PreviewSite = {
 	siteId: number;
 	hostname: string;
-	shareUrl: string;
+	// Jurassic Ninja previews are public and have no preview link.
+	shareUrl?: string;
 };
 
 const newSiteResponseSchema = z.object( {

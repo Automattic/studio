@@ -1746,7 +1746,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/snapshots/usage',
 		asyncHandler( async ( _req: Request, res: Response ) => {
 			const token = await readAuthToken();
-			res.json( token?.accessToken ? await fetchSnapshotUsage( token.accessToken ) : null );
+			res.json( token?.accessToken ? await fetchSnapshotUsage( token ) : null );
 		} )
 	);
 

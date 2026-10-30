@@ -2,6 +2,7 @@ import os from 'os';
 import path from 'path';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
+import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { createPreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
@@ -29,7 +30,11 @@ vi.mock( 'cli/lib/cli-config/sites', async () => ( {
 vi.mock( 'cli/lib/validation', () => ( {
 	validateSiteSize: vi.fn(),
 } ) );
+vi.mock( '@studio/common/lib/get-wordpress-version', () => ( {
+	getWordPressVersion: vi.fn().mockReturnValue( '6.8.1' ),
+} ) );
 vi.mock( 'cli/lib/archive' );
+vi.mock( 'cli/lib/api' );
 vi.mock( 'cli/lib/preview-sites' );
 vi.mock( 'cli/lib/snapshots', async () => ( {
 	...( await vi.importActual( 'cli/lib/snapshots' ) ),
@@ -72,7 +77,7 @@ describe( 'Preview Create Command', () => {
 		id: 123,
 		expiresIn: 3600,
 		expirationTime: Date.now() + 3600000,
-		email: 'test@example.com',
+		email: 'test@automattic.com',
 		displayName: 'Test User',
 	};
 	const mockArchiver = {
@@ -151,6 +156,34 @@ describe( 'Preview Create Command', () => {
 		);
 		expect( mockReportError ).not.toHaveBeenCalled();
 		expect( cleanup ).toHaveBeenCalledWith( mockArchivePath );
+	} );
+
+	it( 'creates the preview on Jurassic Ninja for accounts WordPress.com does not admit yet', async () => {
+		vi.mocked( readAuthToken ).mockResolvedValue( { ...mockAuthToken, email: 'test@example.com' } );
+		vi.mocked( uploadArchive ).mockResolvedValue( {
+			site_id: mockAtomicSiteId,
+			site_url: 'test-preview.wp.build',
+		} );
+		vi.mocked( waitForSiteReady ).mockResolvedValue( true );
+
+		await runCommand( mockFolder );
+
+		expect( uploadPreviewArchive ).not.toHaveBeenCalled();
+		expect( createPreviewSite ).not.toHaveBeenCalled();
+		expect( uploadArchive ).toHaveBeenCalledWith(
+			mockArchivePath,
+			mockAuthToken.accessToken,
+			'6.8.1'
+		);
+		expect( waitForSiteReady ).toHaveBeenCalledWith( mockAtomicSiteId, mockAuthToken.accessToken );
+		expect( saveSnapshotToConfig ).toHaveBeenCalledWith(
+			mockFolder,
+			mockAtomicSiteId,
+			'test-preview.wp.build',
+			mockAuthToken.id,
+			'Test Site Preview 1',
+			undefined
+		);
 	} );
 
 	it( 'records a successful preview_site_create Tracks event', async () => {

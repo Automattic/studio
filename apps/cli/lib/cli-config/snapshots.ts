@@ -44,7 +44,7 @@ export async function saveSnapshotToConfig(
 	previewUrl: string,
 	userId: number,
 	name: string,
-	shareUrl: string
+	shareUrl?: string
 ): Promise< Snapshot > {
 	const site = await getSiteByFolder( siteFolder );
 	try {

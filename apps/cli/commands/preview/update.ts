@@ -33,14 +33,16 @@ async function getSnapshotToUpdate(
 
 	const snapshotToUpdate = snapshots.find( ( s ) => s.url === host );
 	if ( ! snapshotToUpdate ) {
-		throw new LoggerError( 'Preview site not found' );
+		throw new LoggerError( 'Preview site not found', undefined, 'not_found' );
 	}
 
 	if ( snapshotToUpdate.localSiteId !== currentSiteId && ! overwrite ) {
 		throw new LoggerError(
 			__(
 				'The specified directory does not match the original site for this preview. If you want to overwrite, run the command with --overwrite.'
-			)
+			),
+			undefined,
+			'site_mismatch'
 		);
 	}
 
@@ -59,12 +61,15 @@ export async function runCommand(
 	);
 	const startedAt = Date.now();
 	let siteId: string | undefined;
+	let step: LoggerAction | undefined;
 
 	try {
 		const token = await readAuthToken();
 		if ( ! token ) {
 			throw new LoggerError(
-				__( 'Authentication required. Please log in with `studio auth login`.' )
+				__( 'Authentication required. Please log in with `studio auth login`.' ),
+				undefined,
+				'auth_required'
 			);
 		}
 		const snapshots = await getSnapshotsFromConfig( token.id );
@@ -72,6 +77,7 @@ export async function runCommand(
 		const site = await getSiteByFolder( siteFolder );
 		siteId = site.id;
 		const reportStep = ( action: LoggerAction, message: string, progress: number ) => {
+			step = action;
 			logger.reportStart( action, message );
 			void reportSyncActivity( site.id, {
 				kind: 'pending',
@@ -86,7 +92,7 @@ export async function runCommand(
 		const now = new Date();
 		const endDate = addDays( snapshotToUpdate.date, DEMO_SITE_EXPIRATION_DAYS );
 		if ( endDate < now ) {
-			throw new LoggerError( __( 'Cannot update an expired preview site.' ) );
+			throw new LoggerError( __( 'Cannot update an expired preview site.' ), undefined, 'expired' );
 		}
 		await validateSiteSize( siteFolder );
 
@@ -131,7 +137,7 @@ export async function runCommand(
 		}
 		await recordPreviewUpdateEvent( {
 			success: false,
-			failure_reason: classifyPreviewFailure( error ),
+			failure_reason: classifyPreviewFailure( error, step ),
 			time_ms: Date.now() - startedAt,
 		} );
 		throw error instanceof LoggerError

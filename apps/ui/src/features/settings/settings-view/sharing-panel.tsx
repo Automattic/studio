@@ -136,6 +136,7 @@ export function SharingPanel() {
 			<Empty>
 				<AccountPrompt
 					flush
+					showStudioIcon={ false }
 					title={ __( 'Share your WordPress' ) }
 					description={ __(
 						'Create an account or log in to share previews and keep your sites in sync.'

@@ -49,7 +49,8 @@
 	--accent-hue: calc( var( --tint-hue, 260 ) + 8.048352 );
 	--accent: var( --accent-fill, oklch( var( --accent-lightness ) var( --accent-chroma ) var( --accent-hue ) ) );
 	--accent-foreground: #fff;
-	--accent-hover: var( --accent );
+	--accent-hover-lightness-offset: 0.03;
+	--accent-hover: oklch( from var( --accent ) calc( l + var( --accent-hover-lightness-offset ) ) c h );
 	--accent-text: var( --accent );
 	--accent-text-hover: var( --accent );
 
@@ -62,7 +63,7 @@
 	--destructive-hover: color-mix( in oklab, var( --destructive ) 8.5%, transparent );
 
 	--border: color-mix( in oklab, oklch( from var( --foreground ) l calc( var( --tint-intensity, 0 ) * 0.0006 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) ) calc( 10% + var( --contrast, 0 ) * 0.2% ), transparent );
-	--popover-border: color-mix( in oklab, oklch( from var( --foreground ) l calc( var( --tint-intensity, 0 ) * 0.0006 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) ) calc( 7% + var( --contrast, 0 ) * 0.2% ), var( --popover ) );
+	--popover-border: rgb( 0 0 0 / 7% );
 	--input: var( --border );
 	--backdrop: color-mix( in oklab, var( --foreground ) 15%, transparent );
 
@@ -176,6 +177,7 @@
 	--chat: var( --surface-0 );
 	--composer: var( --surface-3 );
 	--popover: var( --surface-2 );
+	--popover-border: color-mix( in oklab, oklch( from var( --foreground ) l calc( var( --tint-intensity, 0 ) * 0.0006 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) ) calc( 7% + var( --contrast, 0 ) * 0.2% ), var( --popover ) );
 	--primary: oklch( 0.97 0 0 );
 	--accent-lightness: 0.72;
 	--accent-chroma: 0.2;

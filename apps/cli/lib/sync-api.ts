@@ -1,11 +1,7 @@
 import {
-	checkBackupSize as checkBackupSizeBase,
 	fetchSyncableSites as fetchSyncableSitesBase,
-	initiateBackup as initiateBackupBase,
-	pollBackupStatus as pollBackupStatusBase,
 	initiateImport as initiateImportBase,
 	pollImportStatus as pollImportStatusBase,
-	downloadBackup as downloadBackupBase,
 	fetchLatestRewindId as fetchLatestRewindIdBase,
 	fetchRemoteFileTree as fetchRemoteFileTreeBase,
 } from '@studio/common/lib/sync/sync-api';
@@ -71,26 +67,6 @@ export async function fetchSyncableSites(
 	}
 }
 
-export async function initiateBackup(
-	token: string,
-	remoteSiteId: number,
-	options: { optionsToSync: SyncOption[]; includePathList?: string[] }
-): Promise< number > {
-	try {
-		return await initiateBackupBase( token, remoteSiteId, options );
-	} catch ( error ) {
-		throw wrapError( __( 'Failed to initiate backup' ), error, 'remote_backup' );
-	}
-}
-
-export async function pollBackupStatus( token: string, remoteSiteId: number, backupId: number ) {
-	try {
-		return await pollBackupStatusBase( token, remoteSiteId, backupId );
-	} catch ( error ) {
-		throw wrapError( __( 'Failed to check backup status' ), error, 'remote_backup' );
-	}
-}
-
 export async function initiateImport(
 	token: string,
 	remoteSiteId: number,
@@ -119,22 +95,6 @@ export async function pollImportStatus(
 		return await pollImportStatusBase( token, remoteSiteId );
 	} catch ( error ) {
 		throw wrapError( __( 'Failed to check import status' ), error, 'remote_import' );
-	}
-}
-
-export async function checkBackupSize( url: string ): Promise< number > {
-	try {
-		return await checkBackupSizeBase( url );
-	} catch ( error ) {
-		throw wrapError( __( 'Failed to check backup size' ), error, 'remote_backup' );
-	}
-}
-
-export async function downloadBackup( url: string, destPath: string ): Promise< void > {
-	try {
-		await downloadBackupBase( url, destPath );
-	} catch ( error ) {
-		throw wrapError( __( 'Failed to download backup' ), error, 'network' );
 	}
 }
 

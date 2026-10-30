@@ -199,7 +199,7 @@ export async function startWordPressServer(
 	logger: Logger< string >,
 	options?: StartServerOptions
 ): Promise< ProcessDescription > {
-	// For sites imported via `studio pull-reprint`, the pull command persists
+	// For sites imported via `studio pull`, the pull command persists
 	// the computed start options to start-options.json next to its runtime files.
 	if ( ! options && site.runtimeBlueprintPath ) {
 		const optionsPath = path.join(

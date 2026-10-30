@@ -1,6 +1,5 @@
 import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
 import { __ } from '@wordpress/i18n';
-import { enableReprintExporter, type ReprintExporterStatus } from 'cli/lib/api';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
 import {
 	findSyncSiteByIdentifier,
@@ -12,7 +11,6 @@ import type { SyncSite } from '@studio/common/types/sync';
 
 /** The remote site to pull from, and what the pull needs to reach it. */
 export interface PullSource {
-	exporter: ReprintExporterStatus;
 	url: string;
 	wpComSite: SyncSite;
 	wpComToken: StoredAuthToken;
@@ -34,10 +32,7 @@ export function normalizeSiteUrl( url: string ): string {
  * URL or site ID; the only pullable site; or the user's choice) and opens its exporter. Returns null
  * when the user cancels the picker.
  */
-export async function resolveSourceSite(
-	identifier?: string,
-	verbose = false
-): Promise< PullSource | null > {
+export async function resolveSourceSite( identifier?: string ): Promise< PullSource | null > {
 	const token = await readAuthToken();
 	if ( ! token ) {
 		throw new LoggerError(
@@ -101,7 +96,6 @@ export async function resolveSourceSite(
 
 	return {
 		url: resolvedUrl,
-		exporter: await enableReprintExporter( wpComSite.id, token.accessToken, verbose ),
 		wpComSite,
 		wpComToken: token,
 	};

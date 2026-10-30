@@ -1,15 +1,8 @@
-import fs from 'fs';
-import { Readable } from 'stream';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
-import {
-	sitesEndpointResponseSchema,
-	pullSiteResponseSchema,
-	syncBackupResponseSchema,
-	importResponseSchema,
-} from '@studio/common/types/sync';
+import { sitesEndpointResponseSchema, importResponseSchema } from '@studio/common/types/sync';
 import { backupLsItemSchema, backupLsResponseBodySchema } from '@studio/common/types/sync-tree';
 import { transformSitesResponse } from './transform-sites';
 import type { SyncSite, ImportResponse, SyncOption } from '@studio/common/types/sync';
@@ -53,63 +46,6 @@ export async function fetchSyncableSites(
 	return transformSitesResponse( parsed.sites, options );
 }
 
-export async function initiateBackup(
-	token: string,
-	remoteSiteId: number,
-	options: { optionsToSync: SyncOption[]; includePathList?: string[] }
-): Promise< number > {
-	const wpcom = wpcomFactory( token, wpcomXhrRequest );
-
-	const body: { options: SyncOption[]; include_path_list?: string[] } = {
-		options: options.optionsToSync,
-		include_path_list: options.includePathList,
-	};
-
-	const rawResponse = await wpcom.req.post( {
-		path: `/sites/${ remoteSiteId }/studio-app/sync/backup`,
-		apiNamespace: 'wpcom/v2',
-		body,
-	} );
-
-	const response = pullSiteResponseSchema.parse( rawResponse );
-	if ( ! response.success ) {
-		throw new Error( 'Backup request failed' );
-	}
-
-	return response.backup_id;
-}
-
-export type BackupStatus = {
-	status: 'in-progress' | 'finished' | 'failed';
-	downloadUrl: string | null;
-	percent: number;
-};
-
-export async function pollBackupStatus(
-	token: string,
-	remoteSiteId: number,
-	backupId: number
-): Promise< BackupStatus > {
-	const wpcom = wpcomFactory( token, wpcomXhrRequest );
-
-	const rawResponse = await wpcom.req.get( `/sites/${ remoteSiteId }/studio-app/sync/backup`, {
-		apiNamespace: 'wpcom/v2',
-		backup_id: backupId,
-	} );
-
-	const parseResult = syncBackupResponseSchema.safeParse( rawResponse );
-	if ( ! parseResult.success ) {
-		console.error( 'Unexpected backup status response:', rawResponse );
-		throw new Error( __( 'Unexpected response from server while checking backup status' ) );
-	}
-	const response = parseResult.data;
-	return {
-		status: response.status,
-		downloadUrl: response.download_url ?? null,
-		percent: response.percent,
-	};
-}
-
 export async function initiateImport(
 	token: string,
 	remoteSiteId: number,
@@ -147,35 +83,6 @@ export async function pollImportStatus(
 	} );
 
 	return importResponseSchema.parse( rawResponse );
-}
-
-export async function checkBackupSize( url: string ): Promise< number > {
-	const response = await fetch( url, { method: 'HEAD' } );
-	if ( ! response.ok ) {
-		throw new Error( `Failed to fetch backup size: ${ response.statusText }` );
-	}
-	const contentLength = response.headers.get( 'content-length' );
-	if ( ! contentLength ) {
-		return 0;
-	}
-	return parseInt( contentLength, 10 );
-}
-
-export async function downloadBackup( url: string, destPath: string ): Promise< void > {
-	const response = await fetch( url );
-	if ( ! response.ok || ! response.body ) {
-		throw new Error( 'Failed to download backup' );
-	}
-
-	const fileStream = fs.createWriteStream( destPath );
-	const readable = Readable.fromWeb( response.body as import('stream/web').ReadableStream );
-
-	return new Promise< void >( ( resolve, reject ) => {
-		readable.pipe( fileStream );
-		fileStream.on( 'finish', resolve );
-		fileStream.on( 'error', reject );
-		readable.on( 'error', reject );
-	} );
 }
 
 export async function fetchLatestRewindId(

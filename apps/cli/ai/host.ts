@@ -24,6 +24,7 @@ import { getWpComSites } from 'cli/lib/api';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { findSiteByFolder, getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { pullSelectionFromSyncOptions } from 'cli/lib/pull/pull-selection';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { getSnapshotsFromConfig } from 'cli/lib/snapshots';
@@ -177,10 +178,11 @@ export const cliAgentHost: StudioAgentHost = {
 		pull: async ( site, options, remoteSite, onProgress ) =>
 			runPullCommand(
 				site.path,
-				parseSyncOptions( options ),
 				remoteSite,
-				undefined,
-				new Logger( { onProgress } )
+				false,
+				pullSelectionFromSyncOptions( parseSyncOptions( options ) ),
+				false,
+				onProgress
 			),
 	},
 	wpcom: {

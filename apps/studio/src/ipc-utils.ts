@@ -8,6 +8,7 @@ import type { SyncEvent } from '@studio/common/lib/sync/activity';
 
 export interface IpcEvents {
 	'add-site': [ void ];
+	'open-site': [ { siteId: string } ];
 	'add-site-with-blueprint': [
 		{
 			blueprintPath: string;

@@ -307,15 +307,19 @@ describe( 'WordPress Studio settings', () => {
 	] )( 'hides the CLI fieldset in %s', async ( _host, appGlobals ) => {
 		await setup( { overrides: { getAppGlobals: async () => appGlobals as never } } );
 		await screen.findByRole( 'combobox', { name: 'Language' } );
-		expect( screen.queryByRole( 'group', { name: 'Studio CLI' } ) ).not.toBeInTheDocument();
 		expect(
-			screen.queryByRole( 'switch', { name: 'Studio CLI for terminal' } )
+			screen.queryByRole( 'group', { name: 'WordPress Studio CLI' } )
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'switch', { name: 'WordPress Studio CLI for terminal' } )
 		).not.toBeInTheDocument();
 	} );
 
 	it( 'shows the CLI toggle on desktop', async () => {
 		const { connector } = await setup();
-		const toggle = await screen.findByRole( 'switch', { name: 'Studio CLI for terminal' } );
+		const toggle = await screen.findByRole( 'switch', {
+			name: 'WordPress Studio CLI for terminal',
+		} );
 		expect( toggle ).toBeEnabled();
 		fireEvent.click( toggle );
 		await waitFor( () =>

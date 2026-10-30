@@ -327,7 +327,7 @@ function PreferencesPanel( {
 					</Button>
 				</SettingsRow>
 				<SettingsRow
-					title={ __( 'Report an issue' ) }
+					title={ __( 'Report an issue on GitHub' ) }
 					description={ __( 'Report a bug or request a feature.' ) }
 				>
 					<Button
@@ -335,6 +335,7 @@ function PreferencesPanel( {
 						onClick={ () => void connector.openExternalUrl( REPORT_ISSUE_URL ) }
 					>
 						{ __( 'Report' ) }
+						<ExternalLinkIcon data-icon="inline-end" />
 					</Button>
 				</SettingsRow>
 			</SettingsGroup>

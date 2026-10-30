@@ -15,7 +15,7 @@ import styles from './style.module.css';
 
 const MENU_SECTIONS: string[] = [ 'appearance', 'ai', 'usage' ];
 
-export function UserMenu() {
+export function UserMenu( { active = true }: { active?: boolean } ) {
 	const { data: user } = useAuthUser();
 	const isOffline = useOffline();
 	const logout = useLogout();
@@ -103,7 +103,7 @@ export function UserMenu() {
 					} }
 					onClick={ openSettings }
 				/>
-				<NoticeHistoryButton />
+				<NoticeHistoryButton active={ active } />
 			</div>
 			<AccountPromptDialog
 				open={ promptOpen }

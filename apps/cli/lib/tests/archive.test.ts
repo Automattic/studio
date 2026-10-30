@@ -1,4 +1,5 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { STUDIO_LOADER_MU_PLUGIN_FILENAME } from '@studio/common/lib/mu-plugins';
 import { ZipArchive } from 'archiver';
@@ -172,6 +173,23 @@ describe( 'Archive Module', () => {
 				'wp-content/themes/child/style.css',
 				'wp-content/themes/parent/style.css',
 			] );
+		} );
+
+		it( 'should leave out files a pulled site links from its host, keeping its own', async () => {
+			const raw = path.join( os.homedir(), '.studio', 'pulls', 'site-id', 'raw' );
+			vol.fromJSON( {
+				[ path.join( raw, 'wordpress/plugins/jetpack/latest/jetpack.php' ) ]: '<?php',
+				[ path.join( mockWpContentPath, 'plugins/my-plugin/my-plugin.php' ) ]: '<?php',
+			} );
+			vol.symlinkSync(
+				path.join( raw, 'wordpress/plugins/jetpack/latest' ),
+				path.join( mockWpContentPath, 'plugins/jetpack' )
+			);
+			mockGlobResults( [ 'plugins/jetpack/jetpack.php', 'plugins/my-plugin/my-plugin.php' ] );
+
+			await archiveSiteContent( mockSiteFolder, mockArchivePath );
+
+			expect( archivedNames() ).toEqual( [ 'wp-content/plugins/my-plugin/my-plugin.php' ] );
 		} );
 
 		it( 'should skip a dangling symlink instead of aborting the archive', async () => {

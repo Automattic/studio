@@ -49,7 +49,7 @@
 }
 
 .play {
-	--play-alpha: 85%;
+	--play-alpha: 72%;
 	--play-tone: 80%;
 	--play-fill: color-mix(
 		in srgb,
@@ -76,7 +76,7 @@
 		var( --play-fill ) var( --surface-alpha, var( --play-alpha ) ),
 		transparent
 	);
-	backdrop-filter: blur( 8px );
+	backdrop-filter: blur( 10px );
 	content: '';
 }
 
@@ -94,7 +94,7 @@
 
 @media ( hover: hover ) and ( pointer: fine ) {
 	.root:hover:not( :disabled ) .play {
-		--play-alpha: 95%;
+		--play-alpha: 85%;
 		--play-tone: 60%;
 	}
 }
@@ -104,7 +104,7 @@
 }
 
 .root:focus-visible .play {
-	--play-alpha: 95%;
+	--play-alpha: 85%;
 	--play-tone: 60%;
 
 	outline: var( --focus-width ) solid var( --ring );

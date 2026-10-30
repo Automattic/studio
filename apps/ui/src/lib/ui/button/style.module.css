@@ -112,6 +112,12 @@
 		color: var( --primary-foreground );
 	}
 
+	.button[data-variant='default']:focus-visible {
+		outline: 2px solid var( --primary );
+		outline-offset: 0;
+		box-shadow: none;
+	}
+
 	.button[data-variant='accent'] {
 		--button-hover-background: var( --accent-hover );
 
@@ -131,6 +137,14 @@
 
 		border-color: var( --border );
 		color: var( --foreground );
+	}
+
+	.button[data-variant='outline']:is( :disabled, [data-disabled] ):not(
+			:has( [data-slot='spinner'] ),
+			[data-disabled-appearance]
+		) {
+		opacity: 1;
+		color: color-mix( in srgb, var( --foreground ) 50%, transparent );
 	}
 
 	.button[data-variant='segmented'] {

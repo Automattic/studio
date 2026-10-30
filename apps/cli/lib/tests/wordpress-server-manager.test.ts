@@ -278,11 +278,11 @@ describe( 'WordPress Server Manager', () => {
 		} );
 
 		it.each( [
-			[ 'an app request 3 s before the timer', '7000', 3000 ],
-			[ 'no app request', undefined, undefined ],
-			[ 'an unreadable request time', 'soon', undefined ],
-			[ 'a request time after the timer', '12000', undefined ],
-		] )( 'times the start from %s', async ( _case, requestedAt, launchMs ) => {
+			[ 'the app request when one was made', '7000', 3000 ],
+			[ 'its own start without an app request', undefined, 0 ],
+			[ 'its own start when the request time is unreadable', 'soon', 0 ],
+			[ 'its own start when the request time is in the future', '12000', 0 ],
+		] )( 'times the start from %s', async ( _case, requestedAt, timeMs ) => {
 			vi.useFakeTimers( { toFake: [ 'Date' ] } );
 			vi.setSystemTime( 10_000 );
 			vi.stubEnv( 'STUDIO_SITE_START_REQUESTED_AT', requestedAt );
@@ -291,7 +291,7 @@ describe( 'WordPress Server Manager', () => {
 			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow();
 
 			const [ , props ] = vi.mocked( recordTracksEvent ).mock.calls[ 0 ];
-			expect( props?.launch_ms ).toBe( launchMs );
+			expect( props?.time_ms ).toBe( timeMs );
 		} );
 
 		it( 'should handle start process failure', async () => {

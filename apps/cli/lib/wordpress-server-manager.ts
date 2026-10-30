@@ -244,17 +244,15 @@ export async function startWordPressServer(
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	const phaseTimings: Record< string, number > = {};
-	const startedAt = Date.now();
-	// Everything before this timer, when an app started the site: spawning and loading this CLI,
-	// and the preparation above.
-	const launchMs = startedAt - Number( process.env[ SITE_START_REQUESTED_AT_ENV ] );
-	if ( launchMs >= 0 ) {
-		phaseTimings.launch_ms = launchMs;
-	}
+	const now = Date.now();
+	// Phases time from here; the whole start times from when an app asked for it, so it includes
+	// spawning and loading this CLI and the preparation above.
+	const requestedAt = Number( process.env[ SITE_START_REQUESTED_AT_ENV ] );
+	const startedAt = requestedAt <= now ? requestedAt : now;
 	try {
 		const processDesc = await startProcess( processName, WORDPRESS_SERVER_CHILD_PATH );
 		await readyOrExit.waitFor( processDesc.pmId );
-		phaseTimings.daemon_ms = Date.now() - startedAt;
+		phaseTimings.daemon_ms = Date.now() - now;
 		await sendMessage(
 			processDesc.pmId,
 			processName,

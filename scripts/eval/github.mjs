@@ -33,23 +33,19 @@ export const githubAnswered = async ( output, context ) => {
 	const marker = String( output ).match( /EVAL_RUNNER_RESULT_FILE=(\S+)/ );
 	if ( ! marker ) return { pass: true, score: 1, reason: 'no runner result' };
 	const result = JSON.parse( readFileSync( marker[ 1 ], 'utf8' ) );
-	let transcript = '';
-	try {
-		transcript = readFileSync( result.sessionFile, 'utf8' );
-	} catch {
-		// No transcript: the quota alone decides.
-	}
-	const commands = JSON.stringify( result.toolEvents || [] );
-	if ( ! /github\.com/.test( commands ) ) {
+	if ( ! /github\.com/.test( JSON.stringify( result.toolCalls || [] ) ) ) {
 		return { pass: true, score: 1, reason: 'the agent did not use GitHub' };
 	}
+	const answers = ( result.toolResults || [] )
+		.map( ( toolResult ) => toolResult.text )
+		.join( '\n' );
 	const start = context.vars.githubQuotaAtStart || {};
 	const end = await githubQuota();
 	const problems = [];
 	if ( typeof start.remaining === 'number' && start.remaining < LOW )
 		problems.push( `${ start.remaining } of 60 GitHub API requests left as the case started` );
 	if ( end.remaining === 0 ) problems.push( 'no GitHub API requests left as it ended' );
-	if ( /API rate limit exceeded/.test( transcript ) )
+	if ( /API rate limit exceeded/.test( answers ) )
 		problems.push( 'GitHub answered the agent "API rate limit exceeded"' );
 	const quota = `GitHub API requests left: ${
 		start.remaining ?? start.error ?? 'unknown'

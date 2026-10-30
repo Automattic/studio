@@ -21,6 +21,7 @@ Shots with annotations also have a `<name>-annotated.webp`.
 | `command-palette.webp` | workspace | Command palette (⌘K) | `index.md` | — |
 | `preview-destinations.webp` | workspace | Site preview address bar shortcuts: Front end / WordPress Admin / Database / Design system | `sites.md`<br>`debugging/index.md`<br>`frequently-asked-questions.md` | `2026/04/preview-destinations.png` |
 | `design-system.webp` | workspace | Site preview → Design system: the demo site’s DESIGN.md as colors, type, components and guidelines | `studio-code/index.md` | — |
+| `design-looks.webp` | signed-in-agent | A new blank site's first chat asking for a bakery called Wren & Barley, and the design picker: four looks drawn as design boards, Wren & Barley's among them (Studio Code stood in for) | `studio-code/index.md` | — |
 | `responsive-mode-presets.webp` | workspace | Responsive mode: the device menu open, with Responsive and the device sizes | `sites.md` | — |
 | `responsive-mode.webp` | workspace | Responsive mode at a phone size (iPhone 17), with the responsive toolbar above the preview | `sites.md` | — |
 | `site-status-button.webp` | workspace | Sidebar site row with its Stop button and tooltip | `sites.md` | `2025/01/site-status-tooltip.png` |

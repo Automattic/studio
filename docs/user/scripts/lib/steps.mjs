@@ -1,5 +1,6 @@
+import { copyFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import { FIXTURES_DIR } from './common.mjs';
+import { DEMO_SITE_DIR, FIXTURES_DIR, readJson } from './common.mjs';
 import { fill, resolveLocator, verbOf } from './locators.mjs';
 
 /**
@@ -187,6 +188,20 @@ const HELPERS = {
 		await w.keyboard.type( text );
 	},
 
+	/**
+	 * Drags the separator named `name` (such as "Resize site preview") by `dx`
+	 * pixels; positive is to the right.
+	 */
+	async dragSeparator( { w }, name, dx ) {
+		const box = await w.getByRole( 'separator', { name, exact: true } ).boundingBox();
+		const x = box.x + box.width / 2;
+		const y = box.y + box.height / 2;
+		await w.mouse.move( x, y );
+		await w.mouse.down();
+		await w.mouse.move( x + Number( dx ), y, { steps: 12 } );
+		await w.mouse.up();
+	},
+
 	/** Leaves annotation mode, discarding any notes, without sending them. */
 	async discardAnnotations( { w } ) {
 		const toolbar = w.getByRole( 'toolbar', { name: 'Annotations' } );
@@ -200,6 +215,74 @@ const HELPERS = {
 			() => {}
 		);
 		await toolbar.waitFor( { state: 'hidden' } );
+	},
+
+	/**
+	 * Stands in for Studio Code, for shots of a conversation: from here on,
+	 * sending a prompt answers with a made-up run instead of starting the
+	 * agent, so no model runs and no credits are used. `playAgentTurn` then
+	 * plays that run's events. Stubs the main process's `continueAiSession`
+	 * handler, so the renderer is the real one throughout.
+	 */
+	async stubAgentRuns( { app } ) {
+		await app.evaluate( ( { ipcMain } ) => {
+			ipcMain.removeHandler( 'continueAiSession' );
+			ipcMain.handle( 'continueAiSession', ( _event, sessionId ) => {
+				globalThis.docsAgentRun = { runId: `docs-run-${ Date.now() }`, sessionId };
+				return { runId: globalThis.docsAgentRun.runId };
+			} );
+		} );
+	},
+
+	/**
+	 * Plays the agent events in `screenshots/demo-site/agent-turns/<name>.json`
+	 * to the window as the run `stubAgentRuns` last answered with, as the CLI
+	 * would send them. A string `demo-site:<path>` in an event is a file from
+	 * `screenshots/demo-site/`, copied into the profile's sessions folder,
+	 * where the agent saves its own previews (Studio only shows local media
+	 * from there or a site), and replaced by its path there.
+	 */
+	async playAgentTurn( { app, w, profile }, name ) {
+		const run = await app.evaluate( () => globalThis.docsAgentRun );
+		if ( ! run ) {
+			throw new Error( 'playAgentTurn: send a prompt after stubAgentRuns first' );
+		}
+		const { events } = await readJson(
+			path.join( DEMO_SITE_DIR, 'agent-turns', `${ name }.json` )
+		);
+		// Studio's sessions folder under E2E_APP_DATA_PATH (see createProfile).
+		const mediaDir = path.join(
+			path.dirname( profile.dirs.appData ),
+			'Studio',
+			'sessions',
+			'docs-media'
+		);
+		await mkdir( mediaDir, { recursive: true } );
+		const files = new Map();
+		for ( const match of JSON.stringify( events ).matchAll( /"demo-site:([^"]+)"/g ) ) {
+			const target = path.join( mediaDir, path.basename( match[ 1 ] ) );
+			await copyFile( path.join( DEMO_SITE_DIR, match[ 1 ] ), target );
+			files.set( match[ 1 ], target );
+		}
+		const resolved = JSON.parse(
+			JSON.stringify( events ).replace( /"demo-site:([^"]+)"/g, ( _m, file ) =>
+				JSON.stringify( files.get( file ) )
+			)
+		);
+		for ( const event of resolved ) {
+			await app.evaluate(
+				( { BrowserWindow }, payload ) =>
+					BrowserWindow.getAllWindows().forEach( ( win ) =>
+						win.webContents.send( 'ai-agent-event', payload )
+					),
+				{
+					runId: run.runId,
+					sessionId: run.sessionId,
+					event: { timestamp: new Date().toISOString(), ...event },
+				}
+			);
+			await w.waitForTimeout( 150 );
+		}
 	},
 
 	/** Undoes unsaved site settings so later shots start clean. */

@@ -86,6 +86,8 @@ The agent can read and write files in your site directory, run WP-CLI commands, 
 
 When you ask Studio Code to build a site, it first offers you four looks, and then four layouts previewed in the look you picked. It skips these questions when your request already describes a design. Your choice is saved as `DESIGN.md` in the site’s root folder, and later chats, as well as other coding agents, follow it. Fonts chosen in `DESIGN.md` are self-hosted on the site.
 
+[![Studio Code asking “Which look should I build?” for a neighborhood bakery called Wren & Barley, with four looks drawn as design boards (Quiet luxury editorial, Pastel soft, Mid-century retro, and Scandinavian), Show other options, and the Skip and Done buttons.](https://developer.wordpress.com/wp-content/uploads/2026/04/design-looks.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/design-looks.webp)
+
 To review the design system, click the site preview’s address bar and choose **Design system**, or choose **Go to → Design system** from the site menu. It shows the colors, type scale, spacing and corners, components, and guidelines from `DESIGN.md`. If the theme’s `theme.json` no longer matches `DESIGN.md`, Studio lists each difference: choose **Use DESIGN.md** or **Keep theme.json** for each one, or **Apply all from DESIGN.md**.
 
 [![The Design system view in the site preview of a bakery site: its name and tagline, a terracotta, white, and umber color palette, Literata type styles, and a primary button, with a note that theme.json matches DESIGN.md.](https://developer.wordpress.com/wp-content/uploads/2026/04/design-system.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/design-system.webp)

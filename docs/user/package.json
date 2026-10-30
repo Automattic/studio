@@ -9,7 +9,8 @@
 		"fetch": "node scripts/fetch-section.mjs",
 		"verify": "node scripts/verify-section.mjs",
 		"screenshots": "node scripts/capture-screenshots.mjs",
-		"demo-site:build": "node scripts/build-demo-site.mjs"
+		"demo-site:build": "node scripts/build-demo-site.mjs",
+		"design-looks:build": "node scripts/build-design-looks.mjs"
 	},
 	"dependencies": {
 		"cheerio": "^1.0.0",

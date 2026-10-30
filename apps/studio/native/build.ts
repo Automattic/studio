@@ -2,7 +2,6 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 const studioRoot = path.resolve( import.meta.dirname, '..' );
 
@@ -43,13 +42,4 @@ export function buildSpotlightNative( arch: string, outputPath: string ) {
 		],
 		{ stdio: 'inherit' }
 	);
-}
-
-if ( process.argv[ 1 ] && path.resolve( process.argv[ 1 ] ) === fileURLToPath( import.meta.url ) ) {
-	if ( process.platform === 'darwin' ) {
-		buildSpotlightNative(
-			process.arch,
-			path.join( studioRoot, 'native/build/Release/spotlight.node' )
-		);
-	}
 }

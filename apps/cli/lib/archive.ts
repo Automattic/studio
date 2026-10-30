@@ -6,6 +6,7 @@ import { __ } from '@wordpress/i18n';
 import { ZipArchive, type ZipEntryData } from 'archiver';
 import { glob } from 'glob';
 import { readActiveThemes } from 'cli/lib/active-themes';
+import { isHostManagedPullFile } from 'cli/lib/pull/pull-session';
 import { LoggerError } from 'cli/logger';
 
 const ZIP_COMPRESSION_LEVEL = 9;
@@ -17,7 +18,8 @@ const STUDIO_LOADER_ARCHIVE_PATH = `wp-content/mu-plugins/${ STUDIO_LOADER_MU_PL
 
 /**
  * Archives a site for a preview. Inactive themes are left out: they don't change what the preview
- * shows, and the stock default themes alone are most of a small site's archive.
+ * shows, and the stock default themes alone are most of a small site's archive. Files a pulled
+ * site links from its host's managed tree are left out too: the WordPress.com site has them.
  */
 export async function archiveSiteContent(
 	siteFolder: string,
@@ -74,6 +76,9 @@ export async function archiveSiteContent(
 			// can lead to EMFILE errors.
 			try {
 				const resolvedPath = fs.realpathSync( path.join( wpContentPath, relativePath ) );
+				if ( isHostManagedPullFile( resolvedPath ) ) {
+					continue;
+				}
 				// `file()` passes the zip-only `store` option through, though its types omit it.
 				const entry: ZipEntryData = {
 					name: archiveEntryPath,

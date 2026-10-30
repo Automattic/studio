@@ -28,7 +28,10 @@ import {
 	validateAdminUsername,
 } from '@studio/common/lib/passwords';
 import { portFinder } from '@studio/common/lib/port-finder';
-import { type TracksSiteCreateFlowType } from '@studio/common/lib/record-tracks-event';
+import {
+	type TracksSiteCreateFlowType,
+	type TracksSiteCreateSource,
+} from '@studio/common/lib/record-tracks-event';
 import {
 	hasDefaultDbBlock,
 	removeDbConstants,
@@ -75,6 +78,7 @@ import {
 } from 'cli/lib/static-site-import/prepare';
 import { StaticSiteImportRun } from 'cli/lib/static-site-import/run';
 import {
+	classifySourceImport,
 	isUrl,
 	sourceSiteName,
 	type StaticSiteImportPlan,
@@ -110,6 +114,7 @@ export type CreateCommandOptions = {
 	skipBrowser: boolean;
 	skipLogDetails: boolean;
 	flowType?: TracksSiteCreateFlowType;
+	source?: TracksSiteCreateSource;
 };
 
 const SITE_CREATE_FLOW_TYPES: readonly TracksSiteCreateFlowType[] = [
@@ -469,6 +474,8 @@ export async function runCommand(
 		try {
 			await recordTracksEvent( TRACKS_EVENTS.SITE_CREATE, {
 				flow_type: options.flowType ?? ( blueprint ? 'blueprint' : 'new' ),
+				// Only a static site import carries `source`; every other create omits it.
+				source: options.flowType === 'static_site_import' ? options.source : undefined,
 				php_version: siteDetails.phpVersion,
 				wp_version: getWordPressVersion( sitePath ),
 				custom_domain: !! options.customDomain,
@@ -734,6 +741,10 @@ export async function commandHandler(
 			} );
 			config.blueprint = preparedImport.blueprint;
 			config.name = preparedImport.siteName;
+			// A `--from` create becomes a blueprint internally, so the inference must win over the
+			// `--flow-type` hint to stay measurable as a static site import.
+			config.flowType = 'static_site_import';
+			config.source = classifySourceImport( argv.from );
 		} else if ( argv.blueprint ) {
 			if ( isUrl( argv.blueprint ) ) {
 				config.blueprint = {

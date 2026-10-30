@@ -368,8 +368,26 @@ function PreviewSitesRow( { userId }: { userId: number } ) {
 	);
 }
 
-export function UsagePanel() {
+export function PreviewSitesUsage() {
 	const { data: user } = useAuthUser();
+	const { reason } = useAgenticFeatures();
+	const unavailable = reason !== null || ! user;
+	return (
+		<div className={ unavailable ? styles.usageDisabled : undefined }>
+			<SettingsGroup title={ __( 'Usage' ) }>
+				{ unavailable ? (
+					<Field>
+						<UnavailableMeter />
+					</Field>
+				) : (
+					<PreviewSitesRow userId={ user.id } />
+				) }
+			</SettingsGroup>
+		</div>
+	);
+}
+
+export function UsagePanel() {
 	// Same signed-out/offline split the rest of the app banners use. Either way
 	// the figures can't be read or refreshed, so the meters go disabled rather
 	// than presenting a stale number as current.
@@ -400,15 +418,7 @@ export function UsagePanel() {
 					<AiCreditsRows />
 				) }
 			</SettingsGroup>
-			<SettingsGroup title={ __( 'Preview sites' ) }>
-				{ unavailable || ! user ? (
-					<Field>
-						<UnavailableMeter />
-					</Field>
-				) : (
-					<PreviewSitesRow userId={ user.id } />
-				) }
-			</SettingsGroup>
+			<PreviewSitesUsage />
 		</div>
 	);
 }

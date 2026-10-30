@@ -20,14 +20,9 @@ describe( 'preview particle frames', () => {
 	} );
 
 	it( 'lights the selected-site grid downward in an upward arch with the sides leading', () => {
-		const dots = createPreviewDots( 800, 600 );
-		const top = dots.reduce( ( closest, dot ) =>
-			Math.hypot( dot.x - 400, dot.y - 100 ) < Math.hypot( closest.x - 400, closest.y - 100 )
-				? dot
-				: closest
-		);
+		const top = { ...createPreviewDots( 800, 600 )[ 0 ], x: 400, y: 100 };
 		const bottom = { ...top, y: 500 };
-		const side = { ...bottom, x: 18 };
+		const side = { ...bottom, x: 24 };
 		const wave = ( dot: typeof top, elapsed: number ) =>
 			getSelectionWave( dot, {
 				elapsed: ( elapsed * SELECTION_WAVE_DURATION ) / 1000,

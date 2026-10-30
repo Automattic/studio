@@ -75,6 +75,7 @@ export const TEST_USER: AuthUser = { id: 1, email: 'test@example.test', displayN
 
 const defaultPreferences = (): UserPreferences => ( {
 	editor: 'vscode',
+	browser: null,
 	terminal: 'terminal',
 	colorScheme: 'light',
 	locale: 'en',

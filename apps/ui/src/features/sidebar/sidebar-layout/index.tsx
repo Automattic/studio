@@ -17,7 +17,12 @@ import {
 	SidebarToggleContext,
 } from '@/data/use-sidebar-collapsed';
 import { UserMenu } from '@/features/account';
-import { AppMessageCards, AppMessageHistoryRecorder, AppToasts } from '@/features/notifications';
+import {
+	AppMessageCards,
+	AppMessageHistoryRecorder,
+	AppToasts,
+	closeNoticeHistory,
+} from '@/features/notifications';
 import { SidebarHeader } from '@/features/sidebar/sidebar-header';
 import { SiteList } from '@/features/sidebar/site-list';
 import { useStoredFlag } from '@/lib/hooks';
@@ -34,26 +39,13 @@ const findToggle = () =>
 		( toggle ) => ! toggle.closest( '[inert]' )
 	);
 
-function SidebarContents( {
-	active,
-	floating = false,
-	onSiteOpen,
-}: {
-	active: boolean;
-	floating?: boolean;
-	onSiteOpen?: () => void;
-} ) {
+function SidebarContents( { active, onSiteOpen }: { active: boolean; onSiteOpen?: () => void } ) {
 	return (
 		<>
-			<SiteList
-				className={ floating ? styles.sidebarFlyoutList : undefined }
-				sections
-				active={ active }
-				onSiteOpen={ onSiteOpen }
-			/>
+			<SiteList sections active={ active } onSiteOpen={ onSiteOpen } />
 			<div className={ styles.sidebarFooter }>
 				{ active ? <AppMessageCards className={ styles.sidebarCards } /> : null }
-				<UserMenu />
+				<UserMenu active={ active } />
 			</div>
 		</>
 	);
@@ -81,6 +73,7 @@ export function SidebarLayout( {
 	const sidebarFlyoutOpen = sidebarFlyoutState === 'open';
 	const [ instantSidebarDock, setInstantSidebarDock ] = useState( false );
 	const dockedSidebarRef = useRef< HTMLElement >( null );
+	const dockedSidebarScrollRef = useRef< HTMLDivElement >( null );
 	useLayoutEffect( () => {
 		if ( ! instantSidebarDock ) return;
 		if ( dockedSidebarRef.current ) {
@@ -141,8 +134,14 @@ export function SidebarLayout( {
 	const docked = ! overlay && ! collapsed;
 	const open = docked || sidebarFlyoutOpen;
 	const sidebarFlyoutVisible = sidebarFlyoutState !== 'closed';
+	useEffect( () => {
+		if ( ! docked && ! sidebarFlyoutVisible ) closeNoticeHistory();
+	}, [ docked, sidebarFlyoutVisible ] );
+	useEffect( () => {
+		if ( hasOpenDialog ) closeNoticeHistory();
+	}, [ hasOpenDialog ] );
 	useLayoutEffect( () => {
-		if ( docked && dockedSidebarRef.current ) dockedSidebarRef.current.scrollTop = 0;
+		if ( docked && dockedSidebarScrollRef.current ) dockedSidebarScrollRef.current.scrollTop = 0;
 		if ( sidebarFlyoutVisible && sidebarFlyoutRef.current ) sidebarFlyoutRef.current.scrollTop = 0;
 	}, [ docked, sidebarFlyoutVisible ] );
 	const hoverEnter = useCallback( () => {
@@ -235,8 +234,8 @@ export function SidebarLayout( {
 											anchor={ sidebarFlyoutAnchor }
 											side="bottom"
 											align="start"
-											sideOffset={ 8 }
-											alignOffset={ 8 }
+											sideOffset={ 6 }
+											alignOffset={ 6 }
 											initialFocus={ () =>
 												sidebarFlyoutOpen
 													? sidebarFlyoutRef.current?.querySelector< HTMLElement >(
@@ -261,7 +260,6 @@ export function SidebarLayout( {
 											>
 												<SidebarContents
 													active={ peek || sidebarFlyoutOpen }
-													floating
 													onSiteOpen={ closeSidebarFlyout }
 												/>
 											</aside>
@@ -279,7 +277,9 @@ export function SidebarLayout( {
 								>
 									<aside ref={ dockedSidebarRef } className={ styles.sidebar }>
 										<SidebarHeader action={ docked ? headerAction : undefined } />
-										<SidebarContents active={ docked } />
+										<div ref={ dockedSidebarScrollRef } className={ styles.sidebarScroll }>
+											<SidebarContents active={ docked } />
+										</div>
 									</aside>
 								</div>
 								{ sidebarFlyoutState !== 'closed' ? (

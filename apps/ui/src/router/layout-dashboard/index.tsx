@@ -121,7 +121,7 @@ function DashboardLayout() {
 		if ( sessionSiteId ) {
 			rememberVisit( sessionSiteId, sessionId );
 		} else if ( newSessionSiteId ?? homeSiteId ) {
-			rememberVisit( ( newSessionSiteId ?? homeSiteId )! );
+			rememberVisit( ( newSessionSiteId ?? homeSiteId )!, newSessionSiteId ? null : undefined );
 		}
 	}, [ sessionSiteId, sessionId, newSessionSiteId, homeSiteId ] );
 	const lastPreviewSite = lastPreviewSiteId
@@ -284,7 +284,11 @@ function DashboardLayout() {
 											/>
 										) : null }
 									</div>
-									<SiteHeaderActions site={ routeSite } live={ !! liveUrl } />
+									<SiteHeaderActions
+										site={ routeSite }
+										live={ !! liveUrl }
+										onStartAnnotating={ startAnnotating }
+									/>
 								</div>
 							</WindowControlsCornerContext.Provider>
 						) : null

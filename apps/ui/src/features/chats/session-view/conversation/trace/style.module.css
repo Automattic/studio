@@ -13,16 +13,16 @@
 	padding-inline: var( --space-3 ) var( --space-1 );
 	border-inline-start: 0.5px solid var( --border );
 	color: var( --muted-foreground );
-	font-size: var( --text-xs );
-	line-height: var( --text-xs--line-height );
+	font-size: var( --text-xxs );
+	line-height: var( --text-xxs--line-height );
 	overflow-wrap: break-word;
 }
 
 .activityProgress {
 	composes: truncate from '@/lib/theme/recipes.module.css';
 	color: var( --muted-foreground );
-	font-size: var( --text-sm );
-	line-height: var( --text-sm--line-height );
+	font-size: var( --text-xs );
+	line-height: var( --text-xs--line-height );
 	opacity: 0.8;
 }
 
@@ -33,12 +33,17 @@
 	min-width: 0;
 	max-width: 100%;
 	color: var( --muted-foreground );
-	font-size: var( --text-sm );
-	line-height: var( --text-sm--line-height );
+	font-size: var( --text-xs );
+	line-height: var( --text-xs--line-height );
 }
 
 .traceLine svg {
 	flex: none;
+}
+
+.activityHeading {
+	font-size: var( --text-sm );
+	line-height: var( --text-sm--line-height );
 }
 
 .traceTitle {
@@ -94,7 +99,9 @@
 }
 
 .toolCode pre {
-	padding: var( --space-2 );
+	padding: var( --space-1_5 );
+	font-size: var( --text-xxs );
+	line-height: var( --text-xxs--line-height );
 }
 
 .toolOutput {
@@ -111,4 +118,8 @@
 
 .activityContent[data-separated] {
 	padding-block-start: var( --space-3 );
+}
+
+.activityContent[data-first] {
+	padding-block-start: var( --space-4_5 );
 }

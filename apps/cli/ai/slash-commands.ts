@@ -29,7 +29,7 @@ import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/crea
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { openBrowser } from 'cli/lib/browser';
 import { getAppLocale } from 'cli/lib/i18n';
-import { getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
+import { getSnapshotLink, getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
 import { Logger, LoggerError } from 'cli/logger';
 import type { AiChatUI } from 'cli/ai/ui';
 
@@ -467,7 +467,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 					: await runCreatePreviewCommand( site.path, undefined, logger );
 
 				ctx.ui.setBusy( false );
-				ctx.ui.showSuccess( __( 'Preview site ready!' ) + '\n\n   ' + `https://${ preview.url }` );
+				ctx.ui.showSuccess( __( 'Preview site ready!' ) + '\n\n   ' + getSnapshotLink( preview ) );
 			} catch ( error ) {
 				ctx.ui.setBusy( false );
 				if ( error instanceof LoggerError ) {

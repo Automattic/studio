@@ -1,8 +1,12 @@
 import { isRTL, __ } from '@wordpress/i18n';
 import { EllipsisIcon } from 'lucide-react';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useConnector } from '@/data/core';
 import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
+import { useIsSiteBusy, useStartSite } from '@/data/queries/use-sites';
 import { requestHeaderPanel } from '@/data/use-open-header-panel';
+import { useSessionPreviewUI } from '@/data/use-session-ui';
+import { setAnnotating } from '@/features/annotations';
 import { ShareStatusIcon, useShareStatus } from '@/features/sharing';
 import { ShareButton, PublishButton, SiteDeliveryDialog } from '@/features/site-delivery';
 import { SiteRunMenuItem } from '@/features/sites/site-run-button/site-run-menu-item';
@@ -17,6 +21,7 @@ import {
 	ShareIcon,
 } from '@/lib/icons';
 import { Tooltip, TooltipContent, TooltipTrigger, Menu, Button } from '@/lib/ui';
+import { AnnotateButton } from '../site-preview/preview-header/annotate-button';
 import styles from './style.module.css';
 import { useSiteHeaderLayout, type SiteHeaderLayout } from './use-site-header-layout';
 import type { SiteDetails } from '@/data/core';
@@ -176,8 +181,20 @@ export function useSiteHeaderNavigation( navigation: SiteHeaderNavigation | null
 }
 
 /** A Live chat previews the remote, so only Publish applies. */
-export function SiteHeaderActions( { site }: { site: SiteDetails; live?: boolean } ) {
-	const { layout, navigation, attachActions } = useSiteHeader();
+export function SiteHeaderActions( {
+	site,
+	live,
+	onStartAnnotating,
+}: {
+	site: SiteDetails;
+	live?: boolean;
+	onStartAnnotating?: () => boolean;
+} ) {
+	const connector = useConnector();
+	const startSite = useStartSite();
+	const isBusy = useIsSiteBusy( site );
+	const preview = useSessionPreviewUI();
+	const { host, layout, navigation, attachActions } = useSiteHeader();
 	const root = useRef< HTMLDivElement >( null );
 	const shareStatus = useShareStatus( site.id );
 	const windowControls = useWindowControlsOverlay();
@@ -200,6 +217,24 @@ export function SiteHeaderActions( { site }: { site: SiteDetails; live?: boolean
 		>
 			<SiteDeliveryDialog key={ site.id } site={ site } anchor={ root } />
 			<div ref={ attachActions } className={ styles.actions }>
+				{ host === 'chat' && ! site.running && ! live ? (
+					<AnnotateButton
+						active={ false }
+						iconOnly={ overflow }
+						disabled={ isBusy || ! connector.capabilities.annotatePreview }
+						disabledReason={
+							! connector.capabilities.annotatePreview
+								? __( 'Site annotation is not available in the browser yet' )
+								: undefined
+						}
+						onClick={ () => {
+							if ( onStartAnnotating?.() === false ) return;
+							preview.setOpen( true );
+							setAnnotating( site.id, true );
+							startSite.mutate( site.id, { onError: () => setAnnotating( site.id, false ) } );
+						} }
+					/>
+				) : null }
 				<span data-site-header-publish className={ styles.publish }>
 					<PublishButton site={ site } />
 				</span>

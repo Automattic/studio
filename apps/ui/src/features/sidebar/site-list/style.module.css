@@ -8,7 +8,7 @@
 	padding: 0 var( --space-3 ) var( --space-5 );
 	display: flex;
 	flex-direction: column;
-	gap: var( --space-1 );
+	gap: 0;
 	font-size: var( --text-sm );
 	line-height: var( --text-sm--line-height );
 	user-select: none;
@@ -33,12 +33,12 @@
 	opacity: 0.95;
 	border-radius: var( --radius-md );
 	background-color: var( --hover );
-	/* eslint-disable-next-line studio/use-theme-tokens -- the dragged row's shadow. */
-	filter: drop-shadow( 0 6px 14px rgb( 0 0 0 / 14% ) );
 }
 
-.groupPanel:not( [data-starting-style], [data-ending-style] ),
-.chatsPanel:not( [data-starting-style], [data-ending-style] ) {
+/* Folding panels clip their rows; once open, drop markers can reach past the
+   edges. */
+.groupPanel[data-settled],
+.chatsPanel[data-settled] {
 	overflow: visible;
 }
 
@@ -90,12 +90,6 @@
 	visibility: hidden;
 }
 
-@media ( prefers-reduced-motion: reduce ) {
-	.dragPreview {
-		filter: none;
-	}
-}
-
 .groupHoverAction {
 	transition-property: color, background-color, border-color, transform, opacity;
 	transition-duration: var( --motion-duration-feedback );
@@ -104,11 +98,26 @@
 	pointer-events: none;
 }
 
+/* Headers share the full list's sticky bounds so the next one covers the
+   previous one without pushing it out of position. */
+.group {
+	display: contents;
+}
+
+.groupPanel {
+	margin-block-end: var( --space-2 );
+}
+
 .groupHeader {
+	flex-shrink: 0;
 	position: sticky;
-	top: var( --sidebar-group-header-top, 0px );
+	top: 0;
 	z-index: 1;
-	background-color: var( --studio-sidebar-bg );
+	background: linear-gradient(
+		to bottom,
+		var( --studio-sidebar-bg ) calc( 100% - var( --space-2 ) ),
+		transparent
+	);
 }
 
 .groupHeader:hover .groupHoverAction,

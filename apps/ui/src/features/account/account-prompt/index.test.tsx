@@ -46,6 +46,36 @@ describe( 'AccountPromptDialog', () => {
 		);
 	} );
 
+	it( 'carries placement, intent and an opaque journey through authentication', async () => {
+		const connector = createFakeConnector( { user: null } );
+		renderWithProviders(
+			<AccountPromptDialog
+				open
+				onOpenChange={ () => {} }
+				title="Publish"
+				description="Connect to publish"
+				source="sync_tab"
+				analytics={ { placement: 'publish', intent: 'publish' } }
+				scope="local-site"
+			/>,
+			{ connector }
+		);
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Log in' } ) );
+		await waitFor( () =>
+			expect( connector.authenticate ).toHaveBeenCalledWith(
+				false,
+				'sync_tab',
+				expect.objectContaining( {
+					placement: 'publish',
+					intent: 'publish',
+					journey_id: expect.any( String ),
+				} )
+			)
+		);
+		const metadata = connector.authenticate.mock.calls[ 0 ][ 2 ];
+		expect( metadata ).not.toHaveProperty( 'scope' );
+	} );
+
 	it( 'keeps a login started before the prompt was closed and reopened from starting again', async () => {
 		const connector = createFakeConnector( { user: null } );
 		connector.authenticate.mockReturnValue( new Promise( () => {} ) );

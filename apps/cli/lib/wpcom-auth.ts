@@ -1,4 +1,5 @@
 import { DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
+import { getAuthTracksProps, type AuthAttempt } from '@studio/common/lib/auth-tracks';
 import { AUTH_EVENTS } from '@studio/common/lib/cli-events';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { updateSharedConfig } from '@studio/common/lib/shared-config';
@@ -18,9 +19,14 @@ export async function getCliAuthenticationUrl(): Promise< string > {
 
 // Checks a pasted token against WordPress.com and stores it. Throws a
 // user-facing LoggerError when it fails.
-export async function storeAuthToken( accessToken: string ) {
+export async function storeAuthToken( accessToken: string, attempt?: AuthAttempt ) {
 	// `account_type` is absent throughout: the CLI has no signup path.
-	const authProps = { ...getTracksOrigin(), source: 'cli' as const };
+	const authProps = {
+		...( attempt ? getAuthTracksProps( attempt ) : {} ),
+		...getTracksOrigin(),
+		source: 'cli' as const,
+		account_type: undefined,
+	};
 
 	let user: Awaited< ReturnType< typeof getUserInfo > >;
 	try {

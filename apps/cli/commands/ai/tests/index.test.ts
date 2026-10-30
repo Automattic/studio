@@ -354,6 +354,9 @@ describe( 'AI runCommand — Tracks events', () => {
 			TRACKS_EVENTS.CODE_MESSAGE_SENT,
 			TRACKS_EVENTS.CODE_TURN_COMPLETED,
 		] );
+		const calls = ( recordTracksEvent as Mock ).mock.calls;
+		expect( calls[ 0 ][ 1 ].turn_id ).toEqual( expect.any( String ) );
+		expect( calls[ 1 ][ 1 ].turn_id ).toBe( calls[ 0 ][ 1 ].turn_id );
 	} );
 
 	it( 'reports the turn outcome and the resolved provider and model', async () => {

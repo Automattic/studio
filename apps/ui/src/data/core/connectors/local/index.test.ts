@@ -93,6 +93,60 @@ describe( 'createLocalConnector Connect contracts', () => {
 		expect( popup.location.href ).toBe( 'https://wordpress.com/start' );
 	} );
 
+	it( 'does not resolve another browser attempt when a callback arrives', async () => {
+		const firstId = crypto.randomUUID();
+		const secondId = crypto.randomUUID();
+		const popups = [
+			{ closed: false, close: vi.fn(), location: { href: '' } },
+			{ closed: false, close: vi.fn(), location: { href: '' } },
+		];
+		const open = vi.spyOn( window, 'open' );
+		open
+			.mockReturnValueOnce( popups[ 0 ] as unknown as Window )
+			.mockReturnValueOnce( popups[ 1 ] as unknown as Window );
+		fetchMock
+			.mockResolvedValueOnce(
+				new Response(
+					JSON.stringify( { url: 'https://wordpress.com/first', authAttemptId: firstId } )
+				)
+			)
+			.mockResolvedValueOnce(
+				new Response(
+					JSON.stringify( { url: 'https://wordpress.com/second', authAttemptId: secondId } )
+				)
+			);
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+		let firstDone = false;
+		let secondDone = false;
+		const first = connector.authenticate( false, 'settings' ).then( () => {
+			firstDone = true;
+		} );
+		const second = connector.authenticate( true, 'add_site' ).then( () => {
+			secondDone = true;
+		} );
+		await vi.waitFor( () =>
+			expect( popups[ 1 ].location.href ).toBe( 'https://wordpress.com/second' )
+		);
+		window.dispatchEvent(
+			new MessageEvent( 'message', {
+				origin: window.location.origin,
+				data: { type: 'studio-auth-success', auth_attempt_id: firstId },
+			} )
+		);
+		await first;
+		expect( firstDone ).toBe( true );
+		expect( secondDone ).toBe( false );
+		window.dispatchEvent(
+			new MessageEvent( 'message', {
+				origin: window.location.origin,
+				data: { type: 'studio-auth-success', auth_attempt_id: secondId },
+			} )
+		);
+		await second;
+		expect( secondDone ).toBe( true );
+		expect( open.mock.calls[ 0 ][ 1 ] ).not.toBe( open.mock.calls[ 1 ][ 1 ] );
+	} );
+
 	it( 'reads global preferences from the server, not the browser', async () => {
 		fetchMock.mockResolvedValue( new Response( JSON.stringify( { editor: 'vscode' } ) ) );
 		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );

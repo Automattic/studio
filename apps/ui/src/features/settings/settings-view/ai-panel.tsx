@@ -2,6 +2,8 @@ import { AI_PROVIDER_LABELS } from '@studio/agent/protocol/providers';
 import { __ } from '@wordpress/i18n';
 import { CheckIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { getProviderIntent } from '@/data/account-analytics';
+import { useConnector } from '@/data/core';
 import {
 	useAiSettings,
 	useSaveAnthropicApiKey,
@@ -25,7 +27,18 @@ const connectedBadge = () => (
 function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } ) {
 	const settings = useAiSettings();
 	const { data: user, isLoading: userLoading } = useAuthUser();
-	const signup = useLogin( { signup: true, source: 'settings' } );
+	const origin = getProviderIntent( useConnector() );
+	const { promptRef, ...signup } = useLogin( {
+		signup: true,
+		source: 'settings',
+		analytics: {
+			placement: 'settings_ai',
+			intent: origin?.intent ?? 'build',
+			journey_id: origin?.journey_id,
+		},
+		scope: origin?.scope,
+		trackExposure: ! user && ! userLoading,
+	} );
 	const setProvider = useSetAiProvider();
 	const saveKey = useSaveAnthropicApiKey();
 	const isOffline = useOffline();
@@ -80,6 +93,7 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 			>
 				<Button
 					disabled={ userLoading || ( ! user && isOffline ) }
+					ref={ promptRef }
 					loading={ signup.isPending }
 					loadingAnnouncement={ __( 'Connecting' ) }
 					onClick={ () => {

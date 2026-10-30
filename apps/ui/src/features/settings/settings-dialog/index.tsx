@@ -5,7 +5,9 @@ import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/ke
 import { clsx } from 'clsx';
 import { ChevronLeftIcon, SearchIcon, XIcon } from 'lucide-react';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { setProviderIntent } from '@/data/account-analytics';
 import { toast } from '@/data/app-messages';
+import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
@@ -137,6 +139,7 @@ function focusControl( row: HTMLElement ) {
 export function SettingsDialog() {
 	const router = useRouter();
 	const navigate = useNavigate();
+	const connector = useConnector();
 	const { settings, settingsSite, settingsFocus } = useSearch( { strict: false } ) as {
 		settings?: SettingsSectionId;
 		settingsSite?: string;
@@ -176,13 +179,14 @@ export function SettingsDialog() {
 
 	// Each opening starts fresh.
 	useEffect( () => {
+		if ( settings !== 'ai' ) setProviderIntent( connector );
 		if ( ! settings ) {
 			setHistory( { entries: [], index: -1 } );
 			setQuery( '' );
 			setTarget( null );
 			pendingExit.current = null;
 		}
-	}, [ settings ] );
+	}, [ settings, connector ] );
 
 	// A link's setting leaves the URL once taken, so following it again reveals it again.
 	useEffect( () => {

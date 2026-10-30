@@ -6,7 +6,8 @@ const REDIRECT_URI = `${ PROTOCOL_PREFIX }://auth`;
 
 export function getAuthenticationUrl(
 	locale: SupportedLocale,
-	redirectUri = REDIRECT_URI
+	redirectUri = REDIRECT_URI,
+	state?: string
 ): string {
 	const url = new URL( 'https://public-api.wordpress.com/oauth2/authorize' );
 	url.searchParams.set( 'response_type', 'token' );
@@ -14,6 +15,7 @@ export function getAuthenticationUrl(
 	url.searchParams.set( 'redirect_uri', redirectUri );
 	url.searchParams.set( 'scope', SCOPES );
 	url.searchParams.set( 'locale', locale );
+	if ( state ) url.searchParams.set( 'state', state );
 
 	return url.toString();
 }
@@ -28,10 +30,14 @@ export async function revokeAuthToken( accessToken: string ): Promise< void > {
 	}
 }
 
-export function getSignUpUrl( locale: SupportedLocale, redirectUri?: string ): string {
+export function getSignUpUrl(
+	locale: SupportedLocale,
+	redirectUri?: string,
+	state?: string
+): string {
 	const url = new URL( 'https://wordpress.com/start/wpcc/oauth2-user' );
 	url.searchParams.set( 'oauth2_client_id', CLIENT_ID );
-	url.searchParams.set( 'oauth2_redirect', getAuthenticationUrl( locale, redirectUri ) );
+	url.searchParams.set( 'oauth2_redirect', getAuthenticationUrl( locale, redirectUri, state ) );
 	url.searchParams.set( 'locale', locale );
 	return url.toString();
 }

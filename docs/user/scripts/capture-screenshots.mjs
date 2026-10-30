@@ -5,7 +5,7 @@ import { captureFailure, captureShot } from './lib/capture.mjs';
 import { DEMO_SITE_DIR, ROOT, SCREENSHOTS_DIR, SHOTS_DIR, readJson } from './lib/common.mjs';
 import { runSteps } from './lib/steps.mjs';
 import { createProfile, launchStudio, readAuthToken } from './lib/studio-app.mjs';
-import { seedSites, siteMetadata } from './lib/studio-seed.mjs';
+import { seedChats, seedSites, siteMetadata } from './lib/studio-seed.mjs';
 import {
 	capturePreviews,
 	loadPreviewSites,
@@ -239,10 +239,16 @@ async function main() {
 				profile = await createProfile();
 				profiles.push( profile );
 			}
+			// Chats a suite opens on (`chats`), recorded under their sites for this launch only.
+			const chats = suite.chats
+				? await seedChats( profile, DEMO_SITE_DIR, demo.sites, suite.chats )
+				: null;
 			const studio = await launchStudio( {
 				profile,
 				firstRun,
-				appData: firstRun ? {} : siteMetadata( demo.sites ),
+				appData: firstRun
+					? {}
+					: { ...siteMetadata( demo.sites ), aiSessionPlacements: chats?.placements },
 				authToken: suite.signedIn ? authToken : null,
 			} );
 			version ??= studio.version;
@@ -313,6 +319,7 @@ async function main() {
 				}
 			} finally {
 				await studio.close();
+				await chats?.remove();
 			}
 		}
 	} finally {

@@ -90,6 +90,7 @@ test.describe( 'Chat', () => {
 		await expect( sidebar.getStatusButton( siteName ) ).toHaveAttribute( 'data-state', 'stopped', {
 			timeout: 120_000,
 		} );
+		await sidebar.openSite( siteName );
 		const chatToggle = page.getByRole( 'button', { name: 'Show chat for active site' } );
 		if ( await chatToggle.isVisible() ) {
 			await chatToggle.click();

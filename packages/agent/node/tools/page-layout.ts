@@ -290,6 +290,22 @@ export function pageTextFit( page: Page ): Promise< string[] > {
 				}
 			}
 		}
+		// Text against an edge of a block theme's page whose root padding is core's
+		// 0px: what WordPress pads a page's content from the viewport's edges with.
+		const body = getComputedStyle( document.body );
+		const rootPadding = ( side: 'left' | 'right' ) =>
+			parseFloat( body.getPropertyValue( `--wp--style--root--padding-${ side }` ) || '0' ) +
+			parseFloat( body.getPropertyValue( `padding-${ side }` ) || '0' );
+		if (
+			lines.some( ( line ) => line.includes( "at the viewport's" ) ) &&
+			document.querySelector( '.wp-site-blocks' ) &&
+			rootPadding( 'left' ) === 0 &&
+			rootPadding( 'right' ) === 0
+		) {
+			lines.unshift(
+				"The theme's styles.spacing.padding, the padding WordPress puts between the page's content and the viewport's edges, is core's 0px (wp-includes/theme.json); with settings.useRootPaddingAwareAlignments true, WordPress applies it inside each .has-global-padding container, so full-width blocks still reach the edges (get_root_layout_rules() in wp-includes/class-wp-theme-json.php)."
+			);
+		}
 		return lines.length > maxLines
 			? [ ...lines.slice( 0, maxLines ), `…and ${ lines.length - maxLines } more` ]
 			: lines;

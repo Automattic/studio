@@ -134,6 +134,20 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 				'p "Right": its text ends at the viewport\'s right edge (x 1000).',
 			],
 		],
+		// As every theme of run h2h5 that left styles.spacing.padding unset.
+		[
+			"text against the edge of a block theme's page with core's 0px root padding",
+			'<style>body{padding:0px;--wp--style--root--padding-left:0px}</style><div class="wp-site-blocks"><p class="tagline" style="font:20px/1 monospace">Left</p></div>',
+			[
+				"The theme's styles.spacing.padding, the padding WordPress puts between the page's content and the viewport's edges, is core's 0px (wp-includes/theme.json); with settings.useRootPaddingAwareAlignments true, WordPress applies it inside each .has-global-padding container, so full-width blocks still reach the edges (get_root_layout_rules() in wp-includes/class-wp-theme-json.php).",
+				"p.tagline: its text starts at the viewport's left edge (x 0).",
+			],
+		],
+		[
+			"text against the edge of a block theme's page with root padding, as a full-width block reaches it",
+			'<style>body{--wp--style--root--padding-left:24px;--wp--style--root--padding-right:24px}</style><div class="wp-site-blocks"><p class="tagline" style="font:20px/1 monospace">Left</p></div>',
+			[ "p.tagline: its text starts at the viewport's left edge (x 0)." ],
+		],
 		[
 			'text a visitor does not see, as screen-reader-text clips it',
 			'<a class="screen-reader-text" style="position:absolute;left:0;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)">Skip to content</a>',

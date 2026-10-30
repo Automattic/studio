@@ -66,6 +66,20 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 		] );
 	} );
 
+	// As run h2h5's furniture site on mobile: one of several links, with no class of its own.
+	it( 'names an element with no class of its own by its text', async () => {
+		expect(
+			(
+				await layoutOf( `<main class="wp-block-group" style="height:20px"><p style="width:300px">
+				<a href="#">See the pieces</a>
+				<a href="#" style="display:inline-block;width:170px;margin-left:900px">Commission a piece</a>
+			</p></main>` )
+			).slice( -1 )
+		).toEqual( [
+			'  a "Commission a piece" reaches past it, x 900–1070, in main.wp-block-group.',
+		] );
+	} );
+
 	// As run h2h5's climbing gym footer: an email that does not wrap in its column.
 	it( 'names text that spills past its box when no box does', async () => {
 		expect(
@@ -117,7 +131,7 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 			'<p class="tagline" style="font:20px/1 monospace">Left<br>Again</p><p style="text-align:right;font:20px/1 monospace">Right</p>',
 			[
 				"p.tagline: its text starts at the viewport's left edge (x 0).",
-				"p: its text ends at the viewport's right edge (x 1000).",
+				'p "Right": its text ends at the viewport\'s right edge (x 1000).',
 			],
 		],
 		[

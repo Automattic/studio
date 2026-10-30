@@ -67,14 +67,23 @@ export async function pageLayout( page: Page ): Promise< string[] > {
 export function pageOverflow( page: Page ): Promise< string[] > {
 	return page.evaluate( ( maxCauses ) => {
 		const generated = /^(is-|has-|wp-container-|wp-elements-|wp-block-[a-z-]+-is-layout-)/;
-		const label = ( element: Element ) =>
-			element.tagName.toLowerCase() +
-			( element.id ? `#${ element.id }` : '' ) +
-			[ ...element.classList ]
-				.filter( ( name ) => ! generated.test( name ) )
-				.slice( 0, 3 )
-				.map( ( name ) => `.${ name }` )
-				.join( '' );
+		// An element with no id or class of its own is named by its text, as one
+		// link among many is.
+		const label = ( element: Element, byText = true ) => {
+			const tag = element.tagName.toLowerCase();
+			const named =
+				tag +
+				( element.id ? `#${ element.id }` : '' ) +
+				[ ...element.classList ]
+					.filter( ( name ) => ! generated.test( name ) )
+					.slice( 0, 3 )
+					.map( ( name ) => `.${ name }` )
+					.join( '' );
+			const text = ( element.textContent ?? '' ).replace( /\s+/g, ' ' ).trim();
+			return byText && named === tag && text
+				? `${ tag } "${ text.length > 40 ? `${ text.slice( 0, 40 ) }…` : text }"`
+				: named;
+		};
 		const lines: string[] = [];
 		const width = document.documentElement.scrollWidth;
 		if ( width > window.innerWidth ) {
@@ -120,7 +129,7 @@ export function pageOverflow( page: Page ): Promise< string[] > {
 			);
 			const where = ( element: Element ) => {
 				const within = region( element );
-				return within && within !== element ? `, in ${ label( within ) }` : '';
+				return within && within !== element ? `, in ${ label( within, false ) }` : '';
 			};
 			const found = causes.map( ( element ) => {
 				const rect = element.getBoundingClientRect();
@@ -157,7 +166,7 @@ export function pageOverflow( page: Page ): Promise< string[] > {
 				}
 				const quoted = text.length > 40 ? `${ text.slice( 0, 40 ) }…` : text;
 				found.push(
-					`  The text "${ quoted }" of ${ label( box ) } reaches past it, x ${ Math.round(
+					`  The text "${ quoted }" of ${ label( box, false ) } reaches past it, x ${ Math.round(
 						left
 					) }–${ Math.round( right ) }, wider than its ${
 						box.clientWidth
@@ -186,13 +195,21 @@ const MAX_TEXT_LINES = 10;
 export function pageTextFit( page: Page ): Promise< string[] > {
 	return page.evaluate( ( maxLines ) => {
 		const generated = /^(is-|has-|wp-container-|wp-elements-|wp-block-[a-z-]+-is-layout-)/;
-		const label = ( element: Element ) =>
-			element.tagName.toLowerCase() +
-			[ ...element.classList ]
-				.filter( ( name ) => ! generated.test( name ) )
-				.slice( 0, 2 )
-				.map( ( name ) => `.${ name }` )
-				.join( '' );
+		// An element with no class of its own is named by its text, as one link among many is.
+		const label = ( element: Element, byText = true ) => {
+			const tag = element.tagName.toLowerCase();
+			const named =
+				tag +
+				[ ...element.classList ]
+					.filter( ( name ) => ! generated.test( name ) )
+					.slice( 0, 2 )
+					.map( ( name ) => `.${ name }` )
+					.join( '' );
+			const text = ( element.textContent ?? '' ).replace( /\s+/g, ' ' ).trim();
+			return byText && named === tag && text
+				? `${ tag } "${ text.length > 40 ? `${ text.slice( 0, 40 ) }…` : text }"`
+				: named;
+		};
 		const lines: string[] = [];
 		const add = ( line: string ) => {
 			if ( ! lines.includes( line ) ) {
@@ -264,7 +281,7 @@ export function pageTextFit( page: Page ): Promise< string[] > {
 						parseFloat( getComputedStyle( box ).paddingLeft ) +
 						parseFloat( getComputedStyle( box ).paddingRight );
 					add(
-						`${ label( element ) }: the browser breaks "${
+						`${ label( element, false ) }: the browser breaks "${
 							match[ 0 ]
 						}" across lines, as the word (${ width }px) is wider than its box (${ Math.round(
 							box.clientWidth - padding

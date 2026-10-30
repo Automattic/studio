@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 import { dialog } from 'electron';
-import { readFile, writeFile } from 'atomically';
+import { updateSharedConfig } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { __resetPendingAuthContext, setPendingAuthContext } from 'src/lib/auth-tracks-context';
@@ -11,6 +11,10 @@ import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 
 const mockWpcomGet = vi.fn();
 
+vi.mock( '@studio/common/lib/shared-config', async ( importActual ) => ( {
+	...( await importActual< typeof import('@studio/common/lib/shared-config') >() ),
+	updateSharedConfig: vi.fn(),
+} ) );
 vi.mock( 'src/ipc-utils' );
 vi.mock( 'src/main-window' );
 vi.mock( 'src/lib/tracks', async ( importActual ) => {
@@ -29,8 +33,7 @@ vi.mock( '@studio/common/lib/wpcom-xhr-request-factory', () => ( {
 describe( 'handleAuthDeeplink', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
-		vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( { sites: [] } ) ) );
-		vi.mocked( writeFile ).mockResolvedValue( undefined );
+		vi.mocked( updateSharedConfig ).mockResolvedValue( undefined );
 	} );
 
 	it( 'should handle successful authentication', async () => {
@@ -52,7 +55,7 @@ describe( 'handleAuthDeeplink', () => {
 				displayName: 'Test User',
 			} ),
 		} );
-		expect( writeFile ).toHaveBeenCalled();
+		expect( updateSharedConfig ).toHaveBeenCalled();
 	} );
 
 	const expectErrorDialog = ( message: string ) => {
@@ -61,7 +64,7 @@ describe( 'handleAuthDeeplink', () => {
 			expect.objectContaining( { type: 'error', message } )
 		);
 		expect( sendIpcEventToRenderer ).not.toHaveBeenCalled();
-		expect( writeFile ).not.toHaveBeenCalled();
+		expect( updateSharedConfig ).not.toHaveBeenCalled();
 	};
 
 	it( 'shows "Authorization denied" when the user denies access on WordPress.com', async () => {
@@ -79,7 +82,13 @@ describe( 'handleAuthDeeplink', () => {
 	} );
 
 	describe( 'Tracks event', () => {
-		const successUrl = () => new URL( 'wp-studio://auth#access_token=mock-token&expires_in=3600' );
+		let state: string | undefined;
+		const successUrl = () =>
+			new URL(
+				`wp-studio://auth#access_token=mock-token&expires_in=3600${
+					state ? '&state=' + state : ''
+				}`
+			);
 
 		const lastAuthEventProps = () => {
 			const calls = vi
@@ -90,6 +99,7 @@ describe( 'handleAuthDeeplink', () => {
 
 		beforeEach( () => {
 			__resetPendingAuthContext();
+			state = undefined;
 			mockWpcomGet.mockResolvedValue( {
 				ID: 123,
 				email: 'user@example.com',
@@ -98,11 +108,11 @@ describe( 'handleAuthDeeplink', () => {
 		} );
 
 		it( 'records a successful login with the initiating context', async () => {
-			setPendingAuthContext( 'top_bar', 'existing' );
+			state = setPendingAuthContext( 'top_bar', 'existing' ).auth_attempt_id;
 
 			await handleAuthDeeplink( successUrl() );
 
-			expect( lastAuthEventProps() ).toEqual( {
+			expect( lastAuthEventProps() ).toMatchObject( {
 				success: true,
 				source: 'top_bar',
 				account_type: 'existing',
@@ -112,9 +122,9 @@ describe( 'handleAuthDeeplink', () => {
 		// `is_a11n` is derived from the stored token, so recording before the write would tag every
 		// Automattician's login as `false`.
 		it( 'records the success only after the token is stored', async () => {
-			setPendingAuthContext( 'onboarding', 'new' );
+			state = setPendingAuthContext( 'onboarding', 'new' ).auth_attempt_id;
 			const order: string[] = [];
-			vi.mocked( writeFile ).mockImplementation( async () => {
+			vi.mocked( updateSharedConfig ).mockImplementation( async () => {
 				order.push( 'write' );
 			} );
 			vi.mocked( recordTracksEvent ).mockImplementation( async () => {
@@ -127,11 +137,13 @@ describe( 'handleAuthDeeplink', () => {
 		} );
 
 		it( 'records a denied authorization as a failure', async () => {
-			setPendingAuthContext( 'previews_tab', 'existing' );
+			state = setPendingAuthContext( 'previews_tab', 'existing' ).auth_attempt_id;
 
-			await handleAuthDeeplink( new URL( 'wp-studio://auth#error=access_denied' ) );
+			await handleAuthDeeplink(
+				new URL( `wp-studio://auth#error=access_denied&state=${ state }` )
+			);
 
-			expect( lastAuthEventProps() ).toEqual( {
+			expect( lastAuthEventProps() ).toMatchObject( {
 				success: false,
 				source: 'previews_tab',
 				account_type: 'existing',
@@ -140,7 +152,7 @@ describe( 'handleAuthDeeplink', () => {
 		} );
 
 		it( 'classifies a missing token as a token error', async () => {
-			setPendingAuthContext( 'settings', 'existing' );
+			state = setPendingAuthContext( 'settings', 'existing' ).auth_attempt_id;
 
 			await handleAuthDeeplink( new URL( 'wp-studio://auth#expires_in=0' ) );
 
@@ -151,7 +163,7 @@ describe( 'handleAuthDeeplink', () => {
 		} );
 
 		it( 'classifies a failing profile fetch', async () => {
-			setPendingAuthContext( 'settings', 'existing' );
+			state = setPendingAuthContext( 'settings', 'existing' ).auth_attempt_id;
 			mockWpcomGet.mockRejectedValue( new Error( 'network down' ) );
 
 			await handleAuthDeeplink( successUrl() );
@@ -165,8 +177,8 @@ describe( 'handleAuthDeeplink', () => {
 		// Same failure as the CLI's config-write case, so it must classify the same way — otherwise
 		// `profile_fetch_failed` would mean two different things depending on channel.
 		it( 'classifies a failure to store the token as unknown', async () => {
-			setPendingAuthContext( 'settings', 'existing' );
-			vi.mocked( writeFile ).mockRejectedValue( new Error( 'disk full' ) );
+			state = setPendingAuthContext( 'settings', 'existing' ).auth_attempt_id;
+			vi.mocked( updateSharedConfig ).mockRejectedValue( new Error( 'disk full' ) );
 
 			await handleAuthDeeplink( successUrl() );
 
@@ -184,7 +196,7 @@ describe( 'handleAuthDeeplink', () => {
 
 		// A stale context must not attach itself to an unrelated login.
 		it( 'attributes only the first deep link after an initiation', async () => {
-			setPendingAuthContext( 'add_site', 'existing' );
+			state = setPendingAuthContext( 'add_site', 'existing' ).auth_attempt_id;
 
 			await handleAuthDeeplink( successUrl() );
 			await handleAuthDeeplink( successUrl() );

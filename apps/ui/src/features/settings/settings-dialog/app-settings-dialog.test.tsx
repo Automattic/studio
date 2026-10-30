@@ -284,7 +284,11 @@ describe( 'WordPress Studio settings', () => {
 		await waitFor( () =>
 			expect( screen.queryByRole( 'button', { name: 'Connect' } ) ).not.toBeInTheDocument()
 		);
-		expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith( true, 'settings' );
+		expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith(
+			true,
+			'settings',
+			expect.any( Object )
+		);
 	} );
 
 	it( 'keeps the launch card available when connection fails', async () => {
@@ -352,7 +356,11 @@ describe( 'WordPress Studio settings', () => {
 		expect( await screen.findByRole( 'heading', { name: 'Share your WordPress' } ) ).toBeVisible();
 		fireEvent.click( screen.getByRole( 'button', { name: label } ) );
 		await waitFor( () =>
-			expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith( signup, 'previews_tab' )
+			expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith(
+				signup,
+				'previews_tab',
+				expect.any( Object )
+			)
 		);
 	} );
 
@@ -361,7 +369,11 @@ describe( 'WordPress Studio settings', () => {
 		expect( screen.queryByRole( 'tab', { name: 'Account' } ) ).not.toBeInTheDocument();
 		fireEvent.click( await studioConnect() );
 		await waitFor( () =>
-			expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith( true, 'settings' )
+			expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith(
+				true,
+				'settings',
+				expect.any( Object )
+			)
 		);
 	} );
 
@@ -700,7 +712,11 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		fireEvent.keyDown( searchBox(), { key: 'Escape' } );
 		fireEvent.click( connect );
 		await waitFor( () =>
-			expect( connector.authenticate ).toHaveBeenCalledWith( true, 'settings' )
+			expect( connector.authenticate ).toHaveBeenCalledWith(
+				true,
+				'settings',
+				expect.any( Object )
+			)
 		);
 	} );
 
@@ -730,7 +746,11 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		await waitFor( () => expect( connect ).toBeEnabled() );
 		fireEvent.click( connect );
 		await waitFor( () =>
-			expect( connector.authenticate ).toHaveBeenCalledWith( true, 'settings' )
+			expect( connector.authenticate ).toHaveBeenCalledWith(
+				true,
+				'settings',
+				expect.any( Object )
+			)
 		);
 		expect( connector.setAiProvider ).not.toHaveBeenCalled();
 		connector.state.user = TEST_USER;

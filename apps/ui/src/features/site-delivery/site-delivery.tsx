@@ -186,6 +186,11 @@ export function SiteDeliveryDialog( {
 						: __( 'Create an account or log in to publish a website and keep your sites in sync.' )
 				}
 				source={ tab === 'share' ? 'previews_tab' : 'sync_tab' }
+				analytics={ {
+					placement: tab === 'share' ? 'share' : 'publish',
+					intent: tab === 'share' ? 'share' : 'publish',
+				} }
+				scope={ site.id }
 				onCreateAccount={ tab === 'publish' ? () => setSetupAfterSignup( true ) : undefined }
 			/>
 		</>

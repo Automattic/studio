@@ -38,17 +38,17 @@ We are adopting Tracks **alongside** MC Stats, not as a replacement:
 
 The pieces mirror the MC Stats layering:
 
-| Layer | File | Responsibility                                                                                                                                              |
-|---|---|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Shared core | `packages/common/lib/record-tracks-event.ts` | Pure, environment-agnostic URL builder + fire-and-forget pixel sender. No config/opt-out logic. No-ops in E2E/dev.                                          |
-| Desktop wrapper | `apps/studio/src/lib/tracks.ts` | Single entry point for the desktop (Main process). Enforces the opt-out, attaches common props including `channel` and `ui_version` (always `v2`).                                                             |
-| CLI wrapper | `apps/cli/lib/tracks.ts` | Single entry point for the CLI **and** the `studio ui` server, which is bundled into it. Enforces the opt-out **and** the build-time `__ENABLE_CLI_TELEMETRY__` switch. Resolves origin from `STUDIO_TRACKS_ORIGIN`. |
-| Identity + opt-out | `packages/common/lib/shared-config.ts` | `getOrCreateAnalyticsInstallId()`, `isAnalyticsOptedOut()`, `isAutomatticianFromToken()`. Persisted in `shared.json`.                                       |
+| Layer              | File                                         | Responsibility                                                                                                                                                                                                       |
+| ------------------ | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shared core        | `packages/common/lib/record-tracks-event.ts` | Pure, environment-agnostic URL builder + fire-and-forget pixel sender. No config/opt-out logic. No-ops in E2E/dev.                                                                                                   |
+| Desktop wrapper    | `apps/studio/src/lib/tracks.ts`              | Single entry point for the desktop (Main process). Enforces the opt-out, attaches common props including `channel` and `ui_version` (always `v2`).                                                                   |
+| CLI wrapper        | `apps/cli/lib/tracks.ts`                     | Single entry point for the CLI **and** the `studio ui` server, which is bundled into it. Enforces the opt-out **and** the build-time `__ENABLE_CLI_TELEMETRY__` switch. Resolves origin from `STUDIO_TRACKS_ORIGIN`. |
+| Identity + opt-out | `packages/common/lib/shared-config.ts`       | `getOrCreateAnalyticsInstallId()`, `isAnalyticsOptedOut()`, `isAutomatticianFromToken()`. Persisted in `shared.json`.                                                                                                |
 
 Events are sent as a **pixel GET** to `https://pixel.wp.com/t.gif` with query params. The reserved
 Tracks pixel params the core builder attaches are:
 
-- `_en` — event name (snake_case, `studio_` prefix)
+- `_en` — event name (snake*case, `studio*` prefix)
 - `_ut=anon` + `_ui=<install-uuid>` — anonymous identity (see note below)
 - `_ts` — timestamp (ms)
 - one query param per event property (all values coerced to strings)
@@ -72,14 +72,14 @@ where the sender actually runs — see Testing below for what fires in which bui
   Enforced in both wrappers before any send. The user controls it from Settings → Preferences and the
   onboarding screen, in both the desktop app and `studio ui`: it is the `analyticsEnabled` preference,
   written by `writeUserPreferences` (`packages/common/lib/user-settings/user-preferences.ts`).
-- **What opt-out does *not* affect.** MC Stats (aggregate headcount, not behavioral) and Sentry (crash
+- **What opt-out does _not_ affect.** MC Stats (aggregate headcount, not behavioral) and Sentry (crash
   reports, not analytics) keep sending. Only Tracks stops.
 - **`--avoid-telemetry`.** This existing CLI flag is unrelated to the Tracks opt-out. It prevents the
   MC-Stats launch counters from being double-counted when the desktop spawns the CLI. Tracks
   `studio_site_start` is intentionally **not** suppressed by it: the only thing that stops it is the
   Tracks opt-out (`analyticsOptOut`). **For data consumers:** every site start is counted once, whether
   it originated in a UI (`channel=studio-ui`) or the standalone CLI (`channel=studio-cli`) — app-spawned
-  CLI runs are *not* excluded despite carrying `--avoid-telemetry`. Filter by `channel` to separate UI
+  CLI runs are _not_ excluded despite carrying `--avoid-telemetry`. Filter by `channel` to separate UI
   from CLI starts.
 
 ## Data flow
@@ -156,7 +156,7 @@ where the sender actually runs — see Testing below for what fires in which bui
   the fork via `STUDIO_TRACKS_ORIGIN` (the run-manager's injected `getTracksOrigin`, resolved per run
   because the user can switch renderer mid-session), exactly as for `studio_site_start`. `studio ui`
   supplies no origin — see below.
-- **`studio_code_session_created`** is the exception to the above: sessions are created *in-process*
+- **`studio_code_session_created`** is the exception to the above: sessions are created _in-process_
   via `createOrReuseAiSession` rather than by forking the CLI, so it fires from desktop Main
   (`createAiSession`). `createOrReuseAiSession` reuses an existing empty draft instead of piling up
   orphans, and returns a `created` flag so a reuse isn't counted as a creation.
@@ -184,23 +184,31 @@ where the sender actually runs — see Testing below for what fires in which bui
   ends (`connector.setOnboardingCompleted`). It is emitted only on a genuine `false → true` transition, so
   a re-save can't look like a second user finishing. Its `authenticated` prop is resolved in Main from the
   stored token, which is what makes it the funnel's denominator (see the caveat below).
-- **`studio_wpcom_auth`** fires from desktop Main's **auth deep-link handler** — the one place every
-  desktop login outcome lands, from either renderer — and separately from the **CLI** `auth login`.
-  `source` and `account_type` are known only when auth *starts* (which affordance was clicked, and whether
-  we opened the login or the signup URL), but the outcome arrives later in a deep link carrying only a
-  token. `apps/studio/src/lib/auth-tracks-context.ts` bridges the two with a Main-process pending context,
-  consumed once by the deep-link handler and expiring after 15 minutes. When that link can't be made — the
-  app restarted mid-flow, a cold-start deep link, an expired context, or a second deep link after one
-  initiation — the event still fires, reporting `source: unknown` rather than guessing. Concurrent
-  attempts are last-write-wins: the tab a user finishes is almost always the last one they opened.
-  Both emitters record **after** the token is written, because the wrappers derive `is_a11n` from it.
-- **⚠️ `studio_wpcom_auth` counts outcomes that reached the app, not attempts.** If the user closes the
-  browser tab, or the WordPress.com page errors before redirecting, no deep link fires and **no event is
-  recorded at all**. So `success=false` captures only failures that made it back (a denied authorization,
-  a broken token exchange) — never silent abandonment. Computing conversion as
-  `success / (success + failure)` therefore reads optimistically high. For the onboarding funnel, use
-  `studio_onboarding_complete`'s `authenticated` prop as the denominator instead: it is the only signal
-  that counts users who walked away.
+- **Account funnel.** `studio_account_prompt_viewed` counts visible presentations, not mounted hidden
+  dialogs. `placement` distinguishes current prompts while `source` retains the historical vocabulary.
+  `intent` describes the task and `journey_id` is an opaque, session-local join key.
+- **`studio_wpcom_auth_started`** records an explicit enabled auth action before its browser handoff,
+  including `auth_flow` (`signup`/`login`) and `auth_attempt_id`. Desktop and browser outcomes use a
+  shared attempt store and props builder in `packages/common/lib/auth-tracks.ts`. OAuth `state` carries
+  the attempt ID; parallel tabs are matched by ID, not the last initiation. Context expires after 15
+  minutes and is lost on host restart. Missing context remains `source=unknown`.
+- **`studio_wpcom_auth`** fires after token storage or for a callback/token-validation failure, from
+  Desktop, browser, and CLI. `account_type=new` records signup intent, not confirmed account creation;
+  it is absent on CLI events. `studio_wpcom_auth_cancelled` records only observed popup/paste/input
+  cancellation. `studio_wpcom_auth_launch_failed` records failed browser handoffs. Closing Studio or
+  never returning produces no synthetic failure. CLI authentication already present is not a start.
+- **Funnel denominators.** Use starts for auth conversion, prompt views for start rate, and first
+  welcome exposure for onboarding completion. `studio_onboarding_complete.authenticated` measures
+  authentication among completers only. A completion without an auth outcome does not prove the user
+  never tried; they may have abandoned auth. Infer “no observed outcome within 24h” only for mature
+  starts and keep explicit cancellation and telemetry loss distinct.
+- **Task conversion.** `studio_account_journey_completed` records the first confirmed UI task result
+  for a captured journey: successful preview, push, connect-and-pull, or AI turn (annotation requires
+  a turn carrying annotations). It is a conversion marker, not another operation counter. Existing
+  operation events stay at their owning emitters. Site-scoped journeys cannot complete on another
+  site; a general Settings setup can complete on its first eligible task. Journeys are in memory,
+  expire after 24h, and are invalidated on observed logout/account switch. They do not survive reload
+  or prove satisfaction. Onboarding uses its completion event; account/usage intents end at auth.
 - **`studio ui`** (the browser UI served by `apps/local`) sets `STUDIO_TRACKS_ORIGIN=studio-web:v2` on
   its own process, so everything it forks — site operations and agent runs alike — inherits it and
   lands in `channel=studio-web` rather than being mistaken for standalone-CLI usage. The server has no
@@ -221,16 +229,16 @@ Studio adopts the data team's standardized shared property names so events aggre
 other products. Prefer a standard name over a bespoke one; only introduce a custom property when
 none fits, and flag it for registration.
 
-| Property | Meaning | Studio values |
-|---|---|---|
-| `channel` | Entry platform / application | `studio-ui` (Electron app), `studio-web` (browser UI served by `studio ui`), `studio-cli` (bare terminal invocation), `studio-mcp` (an agent app running `studio mcp`) |
-| `is_a11n` | Automattician flag (shared across products) | `true` / `false` (derived from the auth token email domain) |
-| `platform` | OS | `darwin`, `win32`, `linux` |
-| `arch` | CPU architecture | `arm64`, `x64`, … |
-| `app_version` | Product version | e.g. `1.15.0` |
-| `ui_version` | **Custom (Studio-only):** which renderer chrome is running | `v1` (Classic, until October 2026), `v2` (agentic). Orthogonal to `channel`: it does **not** encode Electron-vs-browser, so the browser UI is `studio-web` + `v2` — it serves the same `apps/ui` bundle the desktop reports as `v2`. Absent for `studio-cli` and `studio-mcp`. No standard slot — must be registered as a Studio-custom property. |
-| `mcp_client` | **Custom (Studio-only):** the agent app, on `channel=studio-mcp` | The MCP client name from the handshake: `codex-mcp-client` (Codex, in the ChatGPT app or terminal), `claude-code`, … |
-| `plugin`, `plugin_version` | **Custom (Studio-only):** the Studio plugin that started `studio mcp` | `wp-studio@studio` and the plugin's version; absent when `studio mcp` was configured by hand, which is how plugin and hand-configured use are told apart |
+| Property                   | Meaning                                                               | Studio values                                                                                                                                                                                                                                                                                                                                     |
+| -------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `channel`                  | Entry platform / application                                          | `studio-ui` (Electron app), `studio-web` (browser UI served by `studio ui`), `studio-cli` (bare terminal invocation), `studio-mcp` (an agent app running `studio mcp`)                                                                                                                                                                            |
+| `is_a11n`                  | Automattician flag (shared across products)                           | `true` / `false` (derived from the auth token email domain)                                                                                                                                                                                                                                                                                       |
+| `platform`                 | OS                                                                    | `darwin`, `win32`, `linux`                                                                                                                                                                                                                                                                                                                        |
+| `arch`                     | CPU architecture                                                      | `arm64`, `x64`, …                                                                                                                                                                                                                                                                                                                                 |
+| `app_version`              | Product version                                                       | e.g. `1.15.0`                                                                                                                                                                                                                                                                                                                                     |
+| `ui_version`               | **Custom (Studio-only):** which renderer chrome is running            | `v1` (Classic, until October 2026), `v2` (agentic). Orthogonal to `channel`: it does **not** encode Electron-vs-browser, so the browser UI is `studio-web` + `v2` — it serves the same `apps/ui` bundle the desktop reports as `v2`. Absent for `studio-cli` and `studio-mcp`. No standard slot — must be registered as a Studio-custom property. |
+| `mcp_client`               | **Custom (Studio-only):** the agent app, on `channel=studio-mcp`      | The MCP client name from the handshake: `codex-mcp-client` (Codex, in the ChatGPT app or terminal), `claude-code`, …                                                                                                                                                                                                                              |
+| `plugin`, `plugin_version` | **Custom (Studio-only):** the Studio plugin that started `studio mcp` | `wp-studio@studio` and the plugin's version; absent when `studio mcp` was configured by hand, which is how plugin and hand-configured use are told apart                                                                                                                                                                                          |
 
 Common props (`platform`, `arch`, `app_version`, `is_a11n`, and `channel`/`ui_version`) are attached by the
 wrappers — pass only event-specific props. On the desktop the wrapper's `commonProps()` attaches
@@ -261,16 +269,17 @@ they aggregate with other Automattic AI products. The shared identity props are 
 events are emitted from two places (the CLI for chat, Main for session creation) and the values must
 not drift.
 
-| Property | Meaning | Studio values |
-|---|---|---|
-| `ai_session_id` | The chat session | The session's `crypto.randomUUID()`. Always the **resolved** id — the IPC/HTTP boundary also accepts an id prefix or `latest`. |
-| `agent_name` | Agent runtime | `pi`; for `studio mcp`, the agent app's MCP client name (`codex-mcp-client`, …) |
-| `client` | AI product | `studio-code`, or `studio-mcp` for an agent app using Studio through `studio mcp` — `channel` still records the surface |
-| `ability_name` | Predefined skill invoked | `annotate`/`taxonomist`/`need-for-speed`/`rank-me-up`/`liberate`; absent for an ordinary message |
-| `outcome` | How a turn ended | `success`/`error`/`interrupted`/`max_turns` (mirrors the session log's `TurnStatus`) |
-| `catalog` | **Custom (Studio-only):** which design catalog a design event is about | `directions` (artistic direction, the look), `layouts` (signature concept, the page structure) |
-| `draw_id` | **Custom (Studio-only):** groups the `option_proposed` rows of one `pick_design` call back into the set shown together | A random UUID per call |
-| `answer_type` | **Custom (Studio-only):** how the user answered a design question | `picked`, `other_options` (asked for a fresh draw), `free_form` (typed their own answer — the text is **never** sent), `none` |
+| Property        | Meaning                                                                                                                | Studio values                                                                                                                  |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `ai_session_id` | The chat session                                                                                                       | The session's `crypto.randomUUID()`. Always the **resolved** id — the IPC/HTTP boundary also accepts an id prefix or `latest`. |
+| `turn_id`       | One dispatched AI turn, shared by its start and completion                                                             | Opaque UUID; distinct from the chat session ID                                                                                 |
+| `agent_name`    | Agent runtime                                                                                                          | `pi`; for `studio mcp`, the agent app's MCP client name (`codex-mcp-client`, …)                                                |
+| `client`        | AI product                                                                                                             | `studio-code`, or `studio-mcp` for an agent app using Studio through `studio mcp` — `channel` still records the surface        |
+| `ability_name`  | Predefined skill invoked                                                                                               | `annotate`/`taxonomist`/`need-for-speed`/`rank-me-up`/`liberate`; absent for an ordinary message                               |
+| `outcome`       | How a turn ended                                                                                                       | `success`/`error`/`interrupted`/`max_turns` (mirrors the session log's `TurnStatus`)                                           |
+| `catalog`       | **Custom (Studio-only):** which design catalog a design event is about                                                 | `directions` (artistic direction, the look), `layouts` (signature concept, the page structure)                                 |
+| `draw_id`       | **Custom (Studio-only):** groups the `option_proposed` rows of one `pick_design` call back into the set shown together | A random UUID per call                                                                                                         |
+| `answer_type`   | **Custom (Studio-only):** how the user answered a design question                                                      | `picked`, `other_options` (asked for a fresh draw), `free_form` (typed their own answer — the text is **never** sent), `none`  |
 
 `is_test` and `agent_version` are not sent: test runs are suppressed at the source rather than
 tagged, and pi is pinned per Studio release so `app_version` already determines it.
@@ -292,12 +301,12 @@ App and site lifecycle. The two site events are emitted by the CLI (the sole emi
 start / creation is counted once whether it originated in a UI or the standalone CLI — filter by
 `channel` to separate them.
 
-| Event | Emitted from | Event-specific props |
-|---|---|---|
-| `studio_app_launch` | Desktop Main (`appBoot`); `studio ui` server start | `is_first_launch` (desktop only) |
-| `studio_mcp_session_start` | CLI MCP server, once an agent app connects | `mcp_apps` (boolean — whether the app renders MCP Apps, such as the design picker and the WordPress tab), plus the `studio-mcp` origin props `mcp_client`, `plugin`, `plugin_version`. One per connection: distinct install IDs on it, split by `plugin`, count the people using Studio from agent apps. |
-| `studio_site_start` | CLI site-start funnel | `success` (boolean), `time_ms` (start duration). On success also `running_site_count` (running Studio sites after this one comes up). On failure instead `failure_reason` (coarse, low-cardinality: `timeout`/`port_unavailable`/`php_error`/`process_exited`/`unknown` — the raw error is never sent). Both also carry the milliseconds of each step that finished: `daemon_ms`, `wp_config_ms`, `wordpress_install_ms`, `blueprint_ms`, `symlink_scan_ms`, `php_workers_ms`, `proxy_ready_ms`, `admin_credentials_ms`; on a failure, the first missing step is the one that did not finish. |
-| `studio_site_created` | CLI site-create funnel | `flow_type` (`new`/`blueprint`/`import`/`sync`/`duplicate`/`ai`), `php_version`, `wp_version` (resolved from disk; `-` if unknown), `custom_domain` (boolean — the domain string is **never** sent), `ssl_enabled` (boolean), `time_ms` (creation duration). Emitted once per **successful** creation. |
+| Event                      | Emitted from                                       | Event-specific props                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| -------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `studio_app_launch`        | Desktop Main (`appBoot`); `studio ui` server start | `is_first_launch` (desktop only)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `studio_mcp_session_start` | CLI MCP server, once an agent app connects         | `mcp_apps` (boolean — whether the app renders MCP Apps, such as the design picker and the WordPress tab), plus the `studio-mcp` origin props `mcp_client`, `plugin`, `plugin_version`. One per connection: distinct install IDs on it, split by `plugin`, count the people using Studio from agent apps.                                                                                                                                                                                                                                                                                      |
+| `studio_site_start`        | CLI site-start funnel                              | `success` (boolean), `time_ms` (start duration). On success also `running_site_count` (running Studio sites after this one comes up). On failure instead `failure_reason` (coarse, low-cardinality: `timeout`/`port_unavailable`/`php_error`/`process_exited`/`unknown` — the raw error is never sent). Both also carry the milliseconds of each step that finished: `daemon_ms`, `wp_config_ms`, `wordpress_install_ms`, `blueprint_ms`, `symlink_scan_ms`, `php_workers_ms`, `proxy_ready_ms`, `admin_credentials_ms`; on a failure, the first missing step is the one that did not finish. |
+| `studio_site_created`      | CLI site-create funnel                             | `flow_type` (`new`/`blueprint`/`import`/`sync`/`duplicate`/`ai`), `php_version`, `wp_version` (resolved from disk; `-` if unknown), `custom_domain` (boolean — the domain string is **never** sent), `ssl_enabled` (boolean), `time_ms` (creation duration). Emitted once per **successful** creation.                                                                                                                                                                                                                                                                                        |
 
 #### Site operation events
 
@@ -305,7 +314,7 @@ Day-to-day site actions. **Stop and delete are emitted by the CLI** (the sole fu
 delegates both to the CLI, so standalone-CLI usage is counted too; filter by `channel`). The **open**
 actions are emitted from the renderer (both Classic and agentic). `open_in_terminal` is the exception:
 it fires from Desktop Main (`openTerminalAtPath`) — a single funnel that also covers the agentic UI,
-whose connector routes through it. `open_in_editor` is *not* emitted in Main's `openAppAtPath`, because
+whose connector routes through it. `open_in_editor` is _not_ emitted in Main's `openAppAtPath`, because
 that handler is shared with single-file opens (AI skills, "Open <file>"); it fires at the three "open
 site in editor" affordances instead (Classic overview button + site-menu, and the agentic UI's
 `openSiteInEditor` connector method).
@@ -320,7 +329,7 @@ preview panel — the overview Customize buttons, and switching the preview's re
 "Open phpMyAdmin"/"Open WP admin" menu items, the site header's "open in your browser" link, and the
 preview's "Open in… → Browser" button. That last button fires the event matching whatever realm the
 preview is currently showing, so opening a WP Admin preview externally is an `open_wp_admin`
-(`external`), not an `open_in_browser`. Free-form navigation *within* the preview panel (typing in the
+(`external`), not an `open_in_browser`. Free-form navigation _within_ the preview panel (typing in the
 address bar) is out of scope here and tracked separately. `studio_panel_opened` fires in **both**
 front-ends: Classic from its tab strip, and the agentic UI from its route navigations (the
 overview/settings/debugging tab switches, the site-list gear → overview, a site-name click → assistant
@@ -329,19 +338,19 @@ UI's General settings tab reports `panel: settings` so it lines up with Classic'
 Debugging tab reports `panel: debugging`. No site names, paths, or URLs are ever sent — only the
 enumerated prop values below.
 
-| Event | Emitted from | Event-specific props |
-|---|---|---|
-| `studio_site_stop` | CLI site-stop funnel | `running_site_count` (running Studio sites remaining after this stop). A "stop all" emits one event per stopped site, counting down to 0. |
-| `studio_site_delete` | CLI site-delete funnel | `delete_files` (boolean — whether the site's files were moved to trash). Emitted once per **successful** delete. |
-| `studio_site_open_in_browser` | Renderer (Classic + agentic) | `browser` (`external`/`internal`) |
-| `studio_site_open_in_editor` | Renderer (Classic + agentic) | `editor` (the resolved editor, e.g. `vscode`/`phpstorm`). Emitted at the "open site in editor" affordances, not in Main's `openAppAtPath` — that handler is shared with single-file opens (AI skills, "Open <file>"), which must not count as opening the site. |
-| `studio_site_open_in_terminal` | Desktop Main (`openTerminalAtPath`) | `terminal` (the resolved terminal, e.g. `terminal`/`iterm`/`ghostty`/`warp`) |
-| `studio_site_open_wp_admin` | Renderer (Classic + agentic) | `browser` (`external`/`internal`) |
-| `studio_site_open_customize` | Renderer (Classic + agentic) | `entry_point` — the affordance clicked: `editor`, `editor_styles`, `editor_patterns`, `editor_navigation`, `editor_templates`, `editor_pages`, `media_library` (block themes) or `customizer`, `menus`, `widgets` (classic themes). Plus `browser` (`external`/`internal`). |
-| `studio_site_open_phpmyadmin` | Renderer (Classic + agentic) | `browser` (`external`/`internal`) |
-| `studio_site_open_design_system` | Renderer (agentic) | `browser` (always `internal` — the design system view only exists in the preview panel) |
-| `studio_site_open_folder` | Renderer (Classic + agentic) | (none — opens the OS file manager) |
-| `studio_panel_opened` | Renderer (Classic tab strip + agentic route navigation) | `panel` — the panel opened. Classic: `overview`/`sync`/`settings`/`assistant`/`import-export`/`previews` (only on a genuine user tab switch, not programmatic changes or re-selecting the current tab). Agentic: `overview`/`settings`/`debugging`/`assistant` (`sync`/`import-export`/`previews` are Classic-only). |
+| Event                            | Emitted from                                            | Event-specific props                                                                                                                                                                                                                                                                                                 |
+| -------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `studio_site_stop`               | CLI site-stop funnel                                    | `running_site_count` (running Studio sites remaining after this stop). A "stop all" emits one event per stopped site, counting down to 0.                                                                                                                                                                            |
+| `studio_site_delete`             | CLI site-delete funnel                                  | `delete_files` (boolean — whether the site's files were moved to trash). Emitted once per **successful** delete.                                                                                                                                                                                                     |
+| `studio_site_open_in_browser`    | Renderer (Classic + agentic)                            | `browser` (`external`/`internal`)                                                                                                                                                                                                                                                                                    |
+| `studio_site_open_in_editor`     | Renderer (Classic + agentic)                            | `editor` (the resolved editor, e.g. `vscode`/`phpstorm`). Emitted at the "open site in editor" affordances, not in Main's `openAppAtPath` — that handler is shared with single-file opens (AI skills, "Open <file>"), which must not count as opening the site.                                                      |
+| `studio_site_open_in_terminal`   | Desktop Main (`openTerminalAtPath`)                     | `terminal` (the resolved terminal, e.g. `terminal`/`iterm`/`ghostty`/`warp`)                                                                                                                                                                                                                                         |
+| `studio_site_open_wp_admin`      | Renderer (Classic + agentic)                            | `browser` (`external`/`internal`)                                                                                                                                                                                                                                                                                    |
+| `studio_site_open_customize`     | Renderer (Classic + agentic)                            | `entry_point` — the affordance clicked: `editor`, `editor_styles`, `editor_patterns`, `editor_navigation`, `editor_templates`, `editor_pages`, `media_library` (block themes) or `customizer`, `menus`, `widgets` (classic themes). Plus `browser` (`external`/`internal`).                                          |
+| `studio_site_open_phpmyadmin`    | Renderer (Classic + agentic)                            | `browser` (`external`/`internal`)                                                                                                                                                                                                                                                                                    |
+| `studio_site_open_design_system` | Renderer (agentic)                                      | `browser` (always `internal` — the design system view only exists in the preview panel)                                                                                                                                                                                                                              |
+| `studio_site_open_folder`        | Renderer (Classic + agentic)                            | (none — opens the OS file manager)                                                                                                                                                                                                                                                                                   |
+| `studio_panel_opened`            | Renderer (Classic tab strip + agentic route navigation) | `panel` — the panel opened. Classic: `overview`/`sync`/`settings`/`assistant`/`import-export`/`previews` (only on a genuine user tab switch, not programmatic changes or re-selecting the current tab). Agentic: `overview`/`settings`/`debugging`/`assistant` (`sync`/`import-export`/`previews` are Classic-only). |
 
 #### Import/export events
 
@@ -354,10 +363,10 @@ the known failure points throw `LoggerError`s tagged with a machine-readable `co
 classifier returns directly — the raw, `__()`-translated error message is never sent or matched on
 (it can carry filesystem paths, and its text varies by locale).
 
-| Event | Emitted from | Event-specific props |
-|---|---|---|
+| Event                  | Emitted from | Event-specific props                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ---------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `studio_site_imported` | CLI `import` | `success` (boolean), `importer_type` (`jetpack`/`local`/`playground`/`sql`/`wpress`/`xml`, or `unknown` when the failure occurred before an importer started), `time_ms` (total command duration, incl. the server restart). On failure also `failure_reason` (`disk_full`/`file_not_found`/`no_backup_handler`/`no_importer_found`/`invalid_zip`/`extract`/`database_import`/`wxr_import`/`bundled_wp_missing`/`unknown`). |
-| `studio_site_exported` | CLI `export` | `success` (boolean), `export_type` (`full`/`content`/`db` — the `--mode` flag; sync pushes are suppressed, so in practice `content` appears only from standalone `studio export --mode content` runs), `time_ms` (export duration). On failure also `failure_reason` (`disk_full`/`no_exporter_found`/`database_export`/`site_meta`/`unknown`). |
+| `studio_site_exported` | CLI `export` | `success` (boolean), `export_type` (`full`/`content`/`db` — the `--mode` flag; sync pushes are suppressed, so in practice `content` appears only from standalone `studio export --mode content` runs), `time_ms` (export duration). On failure also `failure_reason` (`disk_full`/`no_exporter_found`/`database_export`/`site_meta`/`unknown`).                                                                             |
 
 #### Preview site events
 
@@ -367,13 +376,13 @@ standalone-CLI usage is counted too; filter by `channel`). **Open** fires from t
 user clicks a preview's URL to visit it. No site names, paths, or URLs are ever sent. `failure_reason` is
 coarse and low-cardinality (the raw error is never sent).
 
-| Event | Emitted from | Event-specific props |
-|---|---|---|
-| `studio_preview_site_create` | CLI `preview create` | `success` (boolean), `time_ms` (creation duration). On failure also `failure_reason` (`auth_required`/`size_limit`/`expired`/`not_found`/`timeout`/`upload`/`unknown`). |
-| `studio_preview_site_update` | CLI `preview update` | `success` (boolean), `time_ms` (update duration). On failure also `failure_reason` (same vocabulary as create). |
-| `studio_preview_site_delete` | CLI `preview delete` (single) | (none). Emitted once per **successful** single delete. |
-| `studio_preview_site_delete_all` | CLI `preview delete --all` | `count` (number of the user's preview sites removed). Emitted once per **successful** delete-all (a single bulk server operation, not per site). |
-| `studio_preview_site_open` | Renderer (Classic Previews list, no longer emitted) | (none — opens the preview URL in the OS browser) |
+| Event                            | Emitted from                                        | Event-specific props                                                                                                                                                    |
+| -------------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `studio_preview_site_create`     | CLI `preview create`                                | `success` (boolean), `time_ms` (creation duration). On failure also `failure_reason` (`auth_required`/`size_limit`/`expired`/`not_found`/`timeout`/`upload`/`unknown`). |
+| `studio_preview_site_update`     | CLI `preview update`                                | `success` (boolean), `time_ms` (update duration). On failure also `failure_reason` (same vocabulary as create).                                                         |
+| `studio_preview_site_delete`     | CLI `preview delete` (single)                       | (none). Emitted once per **successful** single delete.                                                                                                                  |
+| `studio_preview_site_delete_all` | CLI `preview delete --all`                          | `count` (number of the user's preview sites removed). Emitted once per **successful** delete-all (a single bulk server operation, not per site).                        |
+| `studio_preview_site_open`       | Renderer (Classic Previews list, no longer emitted) | (none — opens the preview URL in the OS browser)                                                                                                                        |
 
 #### Sync events
 
@@ -386,7 +395,7 @@ and how it's deduplicated.
 
 **Cancels emit nothing at all** — not `success=false`. Backing out of the site picker, declining the
 size-limit warning, aborting a download, and Ctrl-C'ing the CLI all produce no row. So `success=false`
-always means a genuine failure and the success rate is clean, but total sync *attempts* undercount by
+always means a genuine failure and the success rate is clean, but total sync _attempts_ undercount by
 the cancel volume.
 
 `studio_sync_create_site` and `studio_sync_publish_site` fire at the **handoff to WordPress.com
@@ -400,14 +409,14 @@ site" button reports as a create.
 
 No site names, URLs, paths, or raw error text are ever sent — `failure_reason` is a fixed bucket enum.
 
-| Event | Emitted from | Event-specific props |
-|---|---|---|
-| `studio_sync_pull` | Classic slice + agentic UI hook + CLI `pull` (standalone only) | `success` (boolean), `sync_type`, `time_ms` (full pull duration, incl. the remote backup and the local import). On failure also `failure_reason`. |
-| `studio_sync_push` | Classic slice + agentic UI hook + CLI `push` (standalone only) | `success` (boolean), `sync_type`, `time_ms` (full push duration, incl. the local export, upload, and the remote import). On failure also `failure_reason`. |
-| `studio_sync_connect` | Classic site-selection handler + agentic UI (publish picker, deep-link listener, onboarding connect) | `success` (boolean), `num_of_sites` (live sites connected to this local site **after** this connect, so a first connection reports 1). On failure also `failure_reason`. |
-| `studio_sync_disconnect` | Classic sync tab + agentic UI disconnect dialog | (none) |
-| `studio_sync_create_site` | Classic Create-site button + agentic UI onboarding connect | (none — opens WordPress.com checkout) |
-| `studio_sync_publish_site` | Classic Publish-site button + agentic UI publish picker | (none — opens WordPress.com checkout) |
+| Event                      | Emitted from                                                                                         | Event-specific props                                                                                                                                                     |
+| -------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `studio_sync_pull`         | Classic slice + agentic UI hook + CLI `pull` (standalone only)                                       | `success` (boolean), `sync_type`, `time_ms` (full pull duration, incl. the remote backup and the local import). On failure also `failure_reason`.                        |
+| `studio_sync_push`         | Classic slice + agentic UI hook + CLI `push` (standalone only)                                       | `success` (boolean), `sync_type`, `time_ms` (full push duration, incl. the local export, upload, and the remote import). On failure also `failure_reason`.               |
+| `studio_sync_connect`      | Classic site-selection handler + agentic UI (publish picker, deep-link listener, onboarding connect) | `success` (boolean), `num_of_sites` (live sites connected to this local site **after** this connect, so a first connection reports 1). On failure also `failure_reason`. |
+| `studio_sync_disconnect`   | Classic sync tab + agentic UI disconnect dialog                                                      | (none)                                                                                                                                                                   |
+| `studio_sync_create_site`  | Classic Create-site button + agentic UI onboarding connect                                           | (none — opens WordPress.com checkout)                                                                                                                                    |
+| `studio_sync_publish_site` | Classic Publish-site button + agentic UI publish picker                                              | (none — opens WordPress.com checkout)                                                                                                                                    |
 
 `sync_type` is the kind of live site the sync exchanged data with: `pressable`, `wpcom`, or `unknown`
 (the connected site wasn't available at emit time — a deep-link connection whose site lookup missed
@@ -436,20 +445,20 @@ a `surface` prop identifying where the change was made — `settings` unless not
 `studio ui` alike; the other events below still fire from Desktop Main only.
 Sensitive values are never sent as strings (see `is_default` and the directory note below).
 
-| Event | Emitted from | Event-specific props |
-|---|---|---|
-| `studio_setting_telemetry_change` | `writeUserPreferences` | `status` (`on`/`off`), `surface` (`onboarding`/`settings`) — recorded while analytics is still ON (before the write when turning off, after it when turning on) so the opt-out gate never self-suppresses it. |
-| `studio_setting_appearance_change` | `writeUserPreferences` | `mode` (`light`/`dark`/`system`), `surface` (`settings`) |
-| `studio_setting_language_change` | `writeUserPreferences` | `locale`, `surface` (`settings`) |
-| `studio_setting_code_editor_change` | `writeUserPreferences` | `editor`, `surface` (`settings`) |
-| `studio_setting_terminal_change` | `writeUserPreferences` | `terminal`, `surface` (`settings`) |
-| `studio_setting_default_directory_change` | `writeUserPreferences` | `is_default` (boolean), `surface` (`settings`) — the directory path is **never** sent (it contains the user's home path). |
-| `studio_setting_quit_action_change` | `writeUserPreferences` | `behavior` (`stop`/`stop-and-auto-start`/`leave-running`), `surface` (`settings`) |
-| `studio_setting_cli_change` | `installStudioCli`/`uninstallStudioCli` | `installed` (boolean), `surface` (`settings`) |
-| `studio_setting_agentic_features_change` | No longer emitted: was the Studio Code on/off toggle in Settings → AI, removed in October 2026 | `enabled` (boolean), `surface` (`settings`) |
-| `studio_setting_ui_change` | No longer emitted: was the Classic ↔ agentic UI switch, removed with Classic in October 2026 | `type` (`classic`/`agentic`), `surface` (`settings`/`banner`/`menu`) |
-| `studio_setting_instructions_change` | `saveGlobalAgentInstructions` | `has_content` (boolean), `length_bucket` (`empty`/`short` ≤200/`medium` ≤1000/`long`), `surface` (`settings`) — the instructions text is **never** sent. See the edit-session note below. |
-| `studio_setting_ai_provider_change` | `saveAnthropicApiKey` | `provider` (`wpcom`/`anthropic-api-key`), `has_anthropic_api_key` (boolean), `surface` (`settings`) — the API key is **never** sent. One event covers both handlers, since clearing the key also falls the provider back to WordPress.com. `studio ui` emits the same event from its own `/ai-settings` routes. |
+| Event                                     | Emitted from                                                                                   | Event-specific props                                                                                                                                                                                                                                                                                            |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `studio_setting_telemetry_change`         | `writeUserPreferences`                                                                         | `status` (`on`/`off`), `surface` (`onboarding`/`settings`) — recorded while analytics is still ON (before the write when turning off, after it when turning on) so the opt-out gate never self-suppresses it.                                                                                                   |
+| `studio_setting_appearance_change`        | `writeUserPreferences`                                                                         | `mode` (`light`/`dark`/`system`), `surface` (`settings`)                                                                                                                                                                                                                                                        |
+| `studio_setting_language_change`          | `writeUserPreferences`                                                                         | `locale`, `surface` (`settings`)                                                                                                                                                                                                                                                                                |
+| `studio_setting_code_editor_change`       | `writeUserPreferences`                                                                         | `editor`, `surface` (`settings`)                                                                                                                                                                                                                                                                                |
+| `studio_setting_terminal_change`          | `writeUserPreferences`                                                                         | `terminal`, `surface` (`settings`)                                                                                                                                                                                                                                                                              |
+| `studio_setting_default_directory_change` | `writeUserPreferences`                                                                         | `is_default` (boolean), `surface` (`settings`) — the directory path is **never** sent (it contains the user's home path).                                                                                                                                                                                       |
+| `studio_setting_quit_action_change`       | `writeUserPreferences`                                                                         | `behavior` (`stop`/`stop-and-auto-start`/`leave-running`), `surface` (`settings`)                                                                                                                                                                                                                               |
+| `studio_setting_cli_change`               | `installStudioCli`/`uninstallStudioCli`                                                        | `installed` (boolean), `surface` (`settings`)                                                                                                                                                                                                                                                                   |
+| `studio_setting_agentic_features_change`  | No longer emitted: was the Studio Code on/off toggle in Settings → AI, removed in October 2026 | `enabled` (boolean), `surface` (`settings`)                                                                                                                                                                                                                                                                     |
+| `studio_setting_ui_change`                | No longer emitted: was the Classic ↔ agentic UI switch, removed with Classic in October 2026  | `type` (`classic`/`agentic`), `surface` (`settings`/`banner`/`menu`)                                                                                                                                                                                                                                            |
+| `studio_setting_instructions_change`      | `saveGlobalAgentInstructions`                                                                  | `has_content` (boolean), `length_bucket` (`empty`/`short` ≤200/`medium` ≤1000/`long`), `surface` (`settings`) — the instructions text is **never** sent. See the edit-session note below.                                                                                                                       |
+| `studio_setting_ai_provider_change`       | `saveAnthropicApiKey`                                                                          | `provider` (`wpcom`/`anthropic-api-key`), `has_anthropic_api_key` (boolean), `surface` (`settings`) — the API key is **never** sent. One event covers both handlers, since clearing the key also falls the provider back to WordPress.com. `studio ui` emits the same event from its own `/ai-settings` routes. |
 
 `studio_setting_instructions_change` is the one settings event Main cannot detect on its own. Classic
 saves on an explicit button press, but the agentic UI autosaves on an 800 ms debounce, so by the time
@@ -467,13 +476,13 @@ surface forks it to run a turn), `session_created` from whichever host created t
 AI identity props described under "Property vocabulary" above. Filter by `channel` to tell desktop
 (`studio-ui`) and browser (`studio-web`) chat apart.
 
-| Event | Emitted from | Event-specific props |
-|---|---|---|
-| `studio_code_message_sent` | CLI `runAgentTurn` | `provider` (`wpcom`/`anthropic-api-key` — the gateway serving the request, not the model vendor), `model` (e.g. `claude-sonnet-5`), `model_family` (`anthropic`/`openai`), `ability_name` (predefined skill, absent for an ordinary message), `has_images`, `has_files` (booleans). One per user turn dispatched. |
-| `studio_code_turn_completed` | CLI `runAgentTurn` | `outcome` (`success`/`error`/`interrupted`/`max_turns`), `duration_ms`, plus the same `provider`/`model`/`model_family`. What happened inside the turn, accumulated from the agent events by `apps/cli/ai/turn-stats.ts` (attempts that pi retries count toward the same turn): `tool_calls` (tool executions that finished), `tool_errors` (of those, how many errored), `failed_tools` (sorted, de-duplicated, comma-separated names of the tools that errored, empty when none; a call to a tool the session doesn't register, which keeps whatever name the model wrote, is reported as `unknown`, so these are only Studio's own tool names or `unknown`), `skills_loaded` (sorted, de-duplicated, comma-separated names of the skills the agent loaded with the `Skill` tool, empty when none; only names of skills Studio ships, so a slash-command start shows here as well as in `studio_code_message_sent`'s `ability_name`), `edits` (successful `Write`/`Edit` calls), `model_requests` (assistant model responses), `input_tokens`/`output_tokens`/`cache_read_tokens`/`cache_write_tokens` (their summed usage, by kind; a long session's tokens are mostly cache reads, so add all four for its size), `error_kind` (only when `outcome=error`: `out_of_credits` — the 402 `studio_out_of_credits` or the monthly cost cap —, `auth`, `model_unavailable`, `rate_limited`, `network`, `other`; classified from the failure, the raw text is never sent), `site_kind` (`local`/`wpcom`/`none`). These props must be registered in the Tracks Registration tool. One per turn finishing. Partially overlaps the MC Stats `recordAgentRun` bump (`packages/agent/node/agent-stats.ts`), which is a bare counter with no model or duration breakdown. |
-| `studio_code_session_created` | Desktop Main (`createAiSession`) | `has_site` (boolean — whether the session is bound to a site; the site name and path are **never** sent). Emitted only when a session is actually created, not when an empty draft is reused. |
-| `studio_code_design_option_proposed` | CLI `pick_design` | `catalog`, `option` (the catalog entry name), `position` (1-based display order), `is_chosen` (boolean — the model picked it itself rather than it being drawn at random; always true for directions), `options_count` (1 when the model settles the entry without asking, up to 4 when the user will pick), `is_redraw` (boolean — a further draw in the same turn after the user asked for other options), `draw_id`. One row **per entry shown**, so a four-option draw is four rows sharing a `draw_id`. |
-| `studio_code_design_option_picked` | CLI `present_design_options` | `catalog` (passed by the model, the same value it gave `pick_design`), `options_count`, `answer_type`, `picked` (the entry name, only when `answer_type=picked`), `pick_index` (1-based position, only when picked). One per question shown. |
+| Event                                | Emitted from                     | Event-specific props                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------ | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `studio_code_message_sent`           | CLI `runAgentTurn`               | `provider` (`wpcom`/`anthropic-api-key` — the gateway serving the request, not the model vendor), `model` (e.g. `claude-sonnet-5`), `model_family` (`anthropic`/`openai`), `ability_name` (predefined skill, absent for an ordinary message), `has_images`, `has_files` (booleans). One per user turn dispatched. `turn_id` is an opaque UUID shared with its completion event for exact pairing.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `studio_code_turn_completed`         | CLI `runAgentTurn`               | `outcome` (`success`/`error`/`interrupted`/`max_turns`), `duration_ms`, `turn_id`, plus the same `provider`/`model`/`model_family`. What happened inside the turn, accumulated from the agent events by `apps/cli/ai/turn-stats.ts` (attempts that pi retries count toward the same turn): `tool_calls` (tool executions that finished), `tool_errors` (of those, how many errored), `failed_tools` (sorted, de-duplicated, comma-separated names of the tools that errored, empty when none; a call to a tool the session doesn't register, which keeps whatever name the model wrote, is reported as `unknown`, so these are only Studio's own tool names or `unknown`), `skills_loaded` (sorted, de-duplicated, comma-separated names of the skills the agent loaded with the `Skill` tool, empty when none; only names of skills Studio ships, so a slash-command start shows here as well as in `studio_code_message_sent`'s `ability_name`), `edits` (successful `Write`/`Edit` calls), `model_requests` (assistant model responses), `input_tokens`/`output_tokens`/`cache_read_tokens`/`cache_write_tokens` (their summed usage, by kind; a long session's tokens are mostly cache reads, so add all four for its size), `error_kind` (only when `outcome=error`: `out_of_credits` — the 402 `studio_out_of_credits` or the monthly cost cap —, `auth`, `model_unavailable`, `rate_limited`, `network`, `other`; classified from the failure, the raw text is never sent), `site_kind` (`local`/`wpcom`/`none`). These props must be registered in the Tracks Registration tool. One per turn finishing. Partially overlaps the MC Stats `recordAgentRun` bump (`packages/agent/node/agent-stats.ts`), which is a bare counter with no model or duration breakdown. |
+| `studio_code_session_created`        | Desktop Main (`createAiSession`) | `has_site` (boolean — whether the session is bound to a site; the site name and path are **never** sent). Emitted only when a session is actually created, not when an empty draft is reused.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `studio_code_design_option_proposed` | CLI `pick_design`                | `catalog`, `option` (the catalog entry name), `position` (1-based display order), `is_chosen` (boolean — the model picked it itself rather than it being drawn at random; always true for directions), `options_count` (1 when the model settles the entry without asking, up to 4 when the user will pick), `is_redraw` (boolean — a further draw in the same turn after the user asked for other options), `draw_id`. One row **per entry shown**, so a four-option draw is four rows sharing a `draw_id`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `studio_code_design_option_picked`   | CLI `present_design_options`     | `catalog` (passed by the model, the same value it gave `pick_design`), `options_count`, `answer_type`, `picked` (the entry name, only when `answer_type=picked`), `pick_index` (1-based position, only when picked). One per question shown.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
 The design pair is a funnel too. `option_proposed` is one row per entry shown, so per-entry rates need
 no unpivoting: an entry's pick rate is its `option_picked` rows (`picked=<name>`) over its
@@ -489,7 +498,7 @@ opening turn, and counting them per id gives messages-per-session. (An `is_resum
 dropped for this reason — every UI turn resumes a session the desktop just created, so it was always
 `true` outside the standalone CLI.)
 
-**Reading `studio_code_session_created`:** it counts sessions that got *used*, not "new chat" clicks.
+**Reading `studio_code_session_created`:** it counts sessions that got _used_, not "new chat" clicks.
 `createOrReuseAiSession` hands back the newest un-prompted, un-archived draft instead of piling up
 orphans, so opening a new chat and leaving it empty emits nothing — however many times it is
 repeated. A session is only created once the previous one has a prompt in it. That makes the event a
@@ -498,31 +507,31 @@ chat affordance.
 
 #### Onboarding & authentication events
 
-First-run onboarding and WordPress.com login. `studio_onboarding_complete` and the desktop half of
-`studio_wpcom_auth` are emitted from **desktop Main** (the `saveOnboarding` handler and the auth deep-link
-handler respectively — each the single funnel both front-ends converge on); the CLI emits
-`studio_wpcom_auth` for its own `auth login` flow. No email addresses, user ids, tokens, or raw error text
-are ever sent.
+First-run onboarding and WordPress.com login, emitted through the existing opt-out/build-gated
+wrappers. Register new events/properties for documentation and integrity checks; validly named events can be queried before registration.
 
-| Event | Emitted from | Event-specific props |
-|---|---|---|
-| `studio_onboarding_complete` | Desktop Main (`saveOnboarding`) | `authenticated` (boolean — whether the user holds a WordPress.com token at the moment onboarding completes). Emitted once, only on a genuine `false → true` transition. |
-| `studio_wpcom_auth` | Desktop Main (auth deep-link handler) + CLI `auth login` | `success` (boolean), `source` (`onboarding`/`sync_tab`/`previews_tab`/`assistant_tab`/`overview_tab`/`settings`/`top_bar`/`site_header`/`add_site`/`cli`/`unknown`), `account_type` (`new`/`existing`). On failure also `failure_reason` (`access_denied`/`token_error`/`profile_fetch_failed`/`unknown`). |
+| Event                              | Emitted from                                                          | Event-specific props                                                                                                                                                             |
+| ---------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `studio_account_prompt_viewed`     | Renderer visibility observer                                          | `source`, `placement`, `intent`, `journey_id`. One per visible presentation; hidden panels and rerenders do not count.                                                           |
+| `studio_onboarding_viewed`         | Renderer visibility observer                                          | `step` (`welcome`/`account`), `journey_id`. One per visible step presentation.                                                                                                   |
+| `studio_onboarding_complete`       | Desktop `saveOnboarding` / browser onboarding route                   | `authenticated`, optional `completion_path` (`authenticated_continue`/`continue_without_account`/`dismissed`), `journey_id`. Preserves the first false-to-true transition guard. |
+| `studio_wpcom_auth_started`        | Desktop authenticate / browser login-URL route / CLI login            | `source`, `auth_flow`, `auth_attempt_id`, optional `account_type`, `placement`, `intent`, `journey_id`.                                                                          |
+| `studio_wpcom_auth`                | Desktop callback / browser token-validation route / CLI token storage | `success`, optional `failure_reason` (`access_denied`/`token_error`/`profile_fetch_failed`/`unknown`), plus matched start context. Missing context reports `source=unknown`.     |
+| `studio_wpcom_auth_cancelled`      | Browser cancellation route / CLI input cancellation                   | Matched start context. Only an observed cancellation.                                                                                                                            |
+| `studio_wpcom_auth_launch_failed`  | Desktop / browser / CLI handoff failure                               | Matched start context. CLI may continue with its printed URL.                                                                                                                    |
+| `studio_account_journey_completed` | Renderer owning-task success handlers                                 | `placement`, `intent`, `journey_id`. One conversion marker per captured journey; join to successful auth by journey ID.                                                          |
 
-**Reading these events.** Onboarding conversion is `AVG(authenticated)` over
-`studio_onboarding_complete` — a single event, no join and no dedupe needed, and it counts users who
-arrive already signed in (Classic completes onboarding for them automatically). Drop-off decomposes by
-joining the two events on the install id: a completion with `authenticated=false` and **no**
-`studio_wpcom_auth` row means the user never tried (a messaging problem), while one with a
-`success=false` row means they tried and it broke (an auth-flow problem). Per-attempt conversion is
-`studio_wpcom_auth WHERE source='onboarding'` — but read the abandonment caveat under "Which surface
-emits what" before treating it as a rate.
+`placement` values are `welcome`, `account_menu`, `share`, `publish`, `add_site_connect`,
+`settings_account`, `settings_ai`, `settings_usage`, `settings_sharing`, `annotation`, `cli`, `unknown`.
+`intent` values are `onboarding`, `account`, `build`, `annotate`, `share`, `publish`, `connect_site`,
+`usage`. These are bounded enums. No email, tokens, site IDs, paths, URLs, prompts, or error text are
+sent in this context. A source such as `settings` is kept for compatibility; use placement to split
+its current affordances. Anonymous installation identity is unchanged.
 
 **Reading `source`.** It records the affordance the login started from, not the app: `ui_version` already
 separates Classic from the agentic UI. `unknown` is structural, not an error — see the caveat above for
-when the initiation context can't be carried to the result. The two Settings surfaces in the agentic UI
-(Account and Usage) both report `settings`, and the site dropdown reports `site_header` for both its
-Preview and Live prompts.
+when the initiation context can't be carried to the result. Settings retains `source=settings` where already used; `placement` distinguishes its current account,
+Usage and provider controls. Share and Publish retain their historical source names.
 
 `onboarding` means **first-run** onboarding only — the agentic UI's welcome and tour. Its add-site flow
 also lives under an `/onboarding/*` route namespace (`/onboarding/connect` and friends), but a login
@@ -597,12 +606,14 @@ What fires depends on the build, so pick the right method:
   (Add `NODE_ENV=development` to also print the `Would have recorded… studio_site_start` line.)
 
   Gotchas, each of which silently produces no output:
+
   - **Watch the terminal, not a log file.** The line is `console` output from the CLI child; it goes to
     the terminal that ran it — for the desktop path, that's the `npm start` terminal, not
     `~/Library/Logs/Studio/`.
   - **`channel`** is `studio-cli` standalone, or the value in `STUDIO_TRACKS_ORIGIN` (with
     `ui_version`) when the host sets one — `studio-ui:v2` as the desktop injects when it spawns the
     CLI, `studio-web:v2` under `studio ui`.
+
 - **The browser UI (`studio ui`).** Build the UI first (plain `cli:build` does not rebuild `apps/ui`):
 
   ```
@@ -614,11 +625,13 @@ What fires depends on the build, so pick the right method:
   `studio_app_launch` logs as the server comes up; drive the UI at `http://localhost:8081` for the
   rest. Everything prints in the terminal that ran `studio ui`, with `channel: studio-web`,
   `ui_version: v2`:
+
   - Events the server records itself (the launch event, renderer events posted to
     `/api/analytics/event`, settings changes, session creation) log directly.
   - Events from forked CLI children (site start/stop, import/export, preview CRUD) log because
     `createCliRunner` inherits the child's stdio in a dev run — `NODE_ENV=development` or
     `STUDIO_DEBUG_TRACKS` — and echoes Tracks lines from commands that capture output.
+
 - **Live pixel to `pixel.wp.com`.** Only a shipped npm/prod build sends the real request (dev/E2E always
   no-ops). Confirm server-side by querying `tracks.prod_events` in Superset.
 

@@ -22,7 +22,10 @@ import type { AiProviderId } from '@studio/agent/protocol/providers';
  * on WordPress.com; the proxy stays the enforcement point, so an unknown
  * quota fails open.
  */
-export function useComposerNotice( provider: AiProviderId ): ComposerNotice | undefined {
+export function useComposerNotice(
+	provider: AiProviderId,
+	siteId?: string
+): ComposerNotice | undefined {
 	const connector = useConnector();
 	const openSettings = useOpenSettings();
 	const isOffline = useOffline();
@@ -71,7 +74,10 @@ export function useComposerNotice( provider: AiProviderId ): ComposerNotice | un
 	if ( provider !== 'wpcom' ) {
 		return;
 	}
-	const connect = { label: __( 'Connect' ), onClick: () => openSettings( 'ai' ) };
+	const connect = {
+		label: __( 'Connect' ),
+		onClick: () => openSettings( 'ai', undefined, undefined, { intent: 'build', scope: siteId } ),
+	};
 	if ( ! user ) {
 		return { message: __( 'Connect a provider to build and edit your site.' ), action: connect };
 	}

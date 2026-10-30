@@ -32,7 +32,7 @@ vi.mock( 'cli/lib/daemon-client', () => ( {
 vi.mock( 'cli/lib/i18n' );
 vi.mock( 'cli/lib/tracks', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('cli/lib/tracks') >() ),
-	recordTracksEvent: vi.fn(),
+	recordTracksEvent: vi.fn( async () => undefined ),
 	getTracksOrigin: () => ( { channel: 'studio-cli' } ),
 } ) );
 vi.mock( 'cli/logger', () => ( {
@@ -172,7 +172,17 @@ describe( 'Auth Login Command', () => {
 		const authEvents = () =>
 			vi
 				.mocked( recordTracksEvent )
-				.mock.calls.filter( ( [ name ] ) => name === TRACKS_EVENTS.WPCOM_AUTH );
+				.mock.calls.filter( ( [ name ] ) => name === TRACKS_EVENTS.WPCOM_AUTH )
+				.map( ( [ name, props ] ) => [
+					name,
+					Object.fromEntries(
+						Object.entries( props ?? {} ).filter(
+							( [ key, value ] ) =>
+								! [ 'placement', 'intent', 'auth_flow', 'auth_attempt_id' ].includes( key ) &&
+								value !== undefined
+						)
+					),
+				] );
 
 		// `account_type` is absent throughout — the CLI has no signup path.
 		it( 'records a successful login', async () => {
@@ -195,7 +205,7 @@ describe( 'Auth Login Command', () => {
 
 			await runCommand();
 
-			expect( order ).toEqual( [ 'write', 'record' ] );
+			expect( order ).toEqual( [ 'record', 'write', 'record' ] );
 		} );
 
 		it( 'records a failure when the token is rejected', async () => {

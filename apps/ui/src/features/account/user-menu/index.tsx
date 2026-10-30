@@ -116,6 +116,7 @@ export function UserMenu() {
 					'Create a free WordPress.com account to build with the agent, share previews, and publish.'
 				) }
 				source="settings"
+				analytics={ { placement: 'account_menu', intent: 'account' } }
 			/>
 		</div>
 	);

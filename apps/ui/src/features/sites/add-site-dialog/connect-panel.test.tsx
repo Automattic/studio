@@ -40,11 +40,19 @@ describe( 'ConnectPanel', () => {
 		).toBeVisible();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Create account' } ) );
 		await waitFor( () =>
-			expect( connector.authenticate ).toHaveBeenCalledWith( true, expect.anything() )
+			expect( connector.authenticate ).toHaveBeenCalledWith(
+				true,
+				'add_site',
+				expect.objectContaining( { placement: 'add_site_connect', intent: 'connect_site' } )
+			)
 		);
 		fireEvent.click( screen.getByRole( 'button', { name: 'Log in' } ) );
 		await waitFor( () =>
-			expect( connector.authenticate ).toHaveBeenCalledWith( false, expect.anything() )
+			expect( connector.authenticate ).toHaveBeenCalledWith(
+				false,
+				'add_site',
+				expect.objectContaining( { placement: 'add_site_connect', intent: 'connect_site' } )
+			)
 		);
 		expect( onConnect ).not.toHaveBeenCalled();
 	} );

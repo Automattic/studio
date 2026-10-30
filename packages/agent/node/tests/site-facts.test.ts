@@ -107,6 +107,17 @@ it.each( [ 'wp_', 'site2_' ] )(
 			'{"version":3,"styles":{"color":{"text":"#000"}}}'
 		);
 		expect( await site.facts() ).toEqual( BASE );
+		// For a block theme, that nothing replaces its files is a fact too.
+		mkdirSync( path.join( site.root, 'wp-content/themes/bakery-parent/templates' ) );
+		writeFileSync(
+			path.join( site.root, 'wp-content/themes/bakery-parent/templates/index.html' ),
+			''
+		);
+		expect( await site.facts() ).toEqual( [
+			...BASE,
+			"Nothing is saved in the Site Editor for the active theme, so WordPress renders its templates, parts and theme.json as the theme's files have them.",
+		] );
+
 		// An older copy of the header, then the latest, which WordPress renders.
 		site.save( 10, 'wp_template_part', 'header' );
 		site.save( 14, 'wp_template_part', 'header' );

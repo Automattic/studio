@@ -1,3 +1,4 @@
+import { existsSync } from 'fs';
 import path from 'path';
 import { activeThemes } from '@studio/agent/node/themes';
 import type { WordPressSite } from '@studio/agent/node/site-database';
@@ -142,12 +143,22 @@ export function savedCopyWriteNote( site: WordPressSite, file: string ): string 
 		  } from its copy saved in the Site Editor (post ${ copy.id }), not from this file.`;
 }
 
-/** Site fact: the copies WordPress renders in place of theme files. */
+/**
+ * Site fact: the copies WordPress renders in place of theme files, or, for a
+ * block theme (templates/index.html, WP_Theme::is_block_theme()), that there
+ * are none, so its files are what WordPress renders.
+ */
 export function savedCopiesFact( site: WordPressSite ): string | undefined {
 	const copies = readSavedCopies( site );
-	return copies.length
-		? `Saved in the Site Editor, so WordPress renders them in place of the active theme's files: ${ copies
-				.map( describeCopy )
-				.join( '; ' ) }.`
+	if ( copies.length ) {
+		return `Saved in the Site Editor, so WordPress renders them in place of the active theme's files: ${ copies
+			.map( describeCopy )
+			.join( '; ' ) }.`;
+	}
+	const blockTheme = activeThemes( site ).some( ( theme ) =>
+		existsSync( path.join( site.root, 'wp-content/themes', theme, 'templates/index.html' ) )
+	);
+	return blockTheme
+		? "Nothing is saved in the Site Editor for the active theme, so WordPress renders its templates, parts and theme.json as the theme's files have them."
 		: undefined;
 }

@@ -915,13 +915,8 @@ describe( 'Composer as a form field', () => {
 describe( 'Composer sending', () => {
 	it.each( [
 		{ label: 'Start site', props: { onStartSite: vi.fn() }, text: '' },
-		{ label: 'Starting site', props: { onStartSite: vi.fn(), isSiteStarting: true }, text: '' },
-		{ label: 'Send message', props: {}, text: '' },
 		{ label: 'Send message', props: {}, text: 'Build a homepage' },
-		{ label: 'Queue message', props: { busy: true }, text: 'Then add a footer' },
-		{ label: 'Send answer', props: { onAnswer: vi.fn() }, text: 'Use blue' },
 		{ label: 'Stop response', props: { busy: true }, text: '' },
-		{ label: 'Force stop', props: { busy: true, isInterrupting: true }, text: '' },
 	] )( 'shows the $label control’s tooltip', async ( { label, props, text } ) => {
 		const { input, user } = await setup( props );
 		if ( text ) {

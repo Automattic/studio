@@ -1,0 +1,206 @@
+{
+	"name": "signed-in-connected",
+	"description": "Signed in, with the demo site connected to two made-up WordPress.com sites from wpcom-sites.json: the Publish panel's website switcher and the Choose files… review steps",
+	"signedIn": true,
+	"connectedSites": true,
+	"shots": [
+		{
+			"name": "publish-switcher",
+			"description": "Publish details → the website switcher, listing two connected websites and Connect another site…",
+			"pages": [ "sync.md" ],
+			"steps": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Share",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"within": {
+							"role": "tablist",
+							"name": "Share and publish"
+						},
+						"role": "tab",
+						"name": "Publish",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"role": "combobox",
+						"pattern": "^Switch website"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "option",
+						"name": "Connect another site…"
+					}
+				}
+			],
+			"after": [
+				{
+					"press": "Escape"
+				},
+				{
+					"waitFor": {
+						"role": "dialog",
+						"name": "Share and publish"
+					},
+					"hidden": true
+				}
+			],
+			"capture": {
+				"target": [
+					{
+						"role": "dialog",
+						"name": "Share and publish"
+					},
+					{
+						"role": "listbox"
+					}
+				]
+			}
+		},
+		{
+			"name": "pull-choose-files",
+			"description": "Publish details → Pull changes → What to pull, with Choose files… and a few items selected",
+			"pages": [ "sync.md" ],
+			"replaces": [ "2025/01/studio-pull-selective.png" ],
+			"steps": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Share",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"within": {
+							"role": "tablist",
+							"name": "Share and publish"
+						},
+						"role": "tab",
+						"name": "Publish",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"role": "button",
+						"name": "Pull changes",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"within": {
+							"role": "radiogroup",
+							"name": "What to pull"
+						},
+						"role": "radio",
+						"name": "Choose files…"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "checkbox",
+						"name": "themes",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"role": "checkbox",
+						"name": "Content and settings",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"role": "checkbox",
+						"name": "themes",
+						"exact": true
+					}
+				}
+			],
+			"after": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Back to Publish"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "button",
+						"name": "Pull changes",
+						"exact": true
+					}
+				}
+			],
+			"capture": {
+				"target": {
+					"role": "dialog",
+					"name": "Share and publish"
+				}
+			}
+		},
+		{
+			"name": "publish-choose-files",
+			"description": "Publish details → Publish changes → What to publish, with Choose files… and a few items selected",
+			"pages": [ "sync.md" ],
+			"replaces": [ "2025/01/studio-selective-push.png" ],
+			"steps": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Publish changes",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"within": {
+							"role": "radiogroup",
+							"name": "What to publish"
+						},
+						"role": "radio",
+						"name": "Choose files…"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "checkbox",
+						"name": "themes",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"role": "checkbox",
+						"name": "Content and settings",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"role": "checkbox",
+						"name": "themes",
+						"exact": true
+					}
+				}
+			],
+			"after": [],
+			"capture": {
+				"target": {
+					"role": "dialog",
+					"name": "Share and publish"
+				}
+			}
+		}
+	]
+}

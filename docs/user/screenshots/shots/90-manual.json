@@ -15,20 +15,6 @@
 			"description": "Studio Code chat for a selected site, with a reply in the transcript",
 			"pages": [ "studio-code/index.md" ],
 			"replaces": [ "2026/04/studio-code.png" ]
-		},
-		{
-			"description": "Publish details → Pull changes → What to pull, with Choose files…",
-			"pages": [ "sync.md" ],
-			"replaces": [ "2025/01/studio-pull-selective.png" ]
-		},
-		{
-			"description": "Publish details → Publish changes → What to publish, with Choose files…",
-			"pages": [ "sync.md" ],
-			"replaces": [ "2025/01/studio-selective-push.png" ]
-		},
-		{
-			"description": "Publish details for a connected site, and the switcher with Connect another site…",
-			"pages": [ "sync.md" ]
 		}
 	]
 }

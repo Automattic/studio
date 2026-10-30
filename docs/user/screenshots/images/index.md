@@ -57,6 +57,9 @@ Shots with annotations also have a `<name>-annotated.webp`.
 | `add-site-connect-signed-in.webp` | signed-in | Add site → Connect, signed in, listing the account’s WordPress.com and Pressable sites | `sync.md` | — |
 | `share-previews.webp` | signed-in-previews | Share tab with previews: the previews list with expiry dates and Create another preview | `preview-sites.md` | `2025/01/studio-new-site-preview-link.png` |
 | `share-preview-actions.webp` | signed-in-previews | Share tab → a preview’s Preview actions menu (Update, Copy link, Visit preview, Rename, Delete preview) | `preview-sites.md` | `2025/01/studio-preview-more-actions.png` |
+| `publish-switcher.webp` | signed-in-connected | Publish details → the website switcher, listing two connected websites and Connect another site… | `sync.md` | — |
+| `pull-choose-files.webp` | signed-in-connected | Publish details → Pull changes → What to pull, with Choose files… and a few items selected | `sync.md` | `2025/01/studio-pull-selective.png` |
+| `publish-choose-files.webp` | signed-in-connected | Publish details → Publish changes → What to publish, with Choose files… and a few items selected | `sync.md` | `2025/01/studio-selective-push.png` |
 
 ## Capture manually
 
@@ -67,6 +70,3 @@ These need a WordPress.com login, a connected live site, or Studio Code output.
 | WordPress.com authorization screen with Approve, opened by Log in | `index.md` | — |
 | Browser prompt to open the Studio app after approving the login | `index.md` | — |
 | Studio Code chat for a selected site, with a reply in the transcript | `studio-code/index.md` | `2026/04/studio-code.png` |
-| Publish details → Pull changes → What to pull, with Choose files… | `sync.md` | `2025/01/studio-pull-selective.png` |
-| Publish details → Publish changes → What to publish, with Choose files… | `sync.md` | `2025/01/studio-selective-push.png` |
-| Publish details for a connected site, and the switcher with Connect another site… | `sync.md` | — |

@@ -75,7 +75,7 @@ A local site can be connected to more than one website, for example a production
 
 The details, links, and the **Pull changes** and **Publish changes** buttons follow the website you choose. To connect one more website, click the card and choose **Connect another site…**. You can’t switch websites while a pull or publish is running.
 
-<!-- TODO screenshot: capture by hand in Studio 2.0, logged in to WordPress.com: the Publish panel’s website switcher open, listing two connected websites and Connect another site…. -->
+<!-- TODO screenshot: add `publish-switcher.webp` from `npm run screenshots` (Studio 2.0, signed-in-connected suite) here: the Publish panel’s website switcher open, listing two connected websites and Connect another site…. -->
 
 ## [Connect WordPress Studio to a new WordPress.com site](#connect-new)
 
@@ -97,14 +97,14 @@ To bring the latest changes from your production or [staging site](https://wordp
 2.  Click **Publish** at the top right of the site preview, and connect a website if you haven’t already. If the local site is connected to more than one website, [choose one](#switch-websites).
 3.  Click **Pull changes**.
 
-<!-- TODO screenshot: capture by hand in Studio 2.0, logged in to WordPress.com: the Pull changes review step with Choose files… selected. -->
+<!-- TODO screenshot: replace with `pull-choose-files.webp` from `npm run screenshots` (Studio 2.0, signed-in-connected suite): the Pull changes review step with Choose files… selected. -->
 [![A screenshot depicting the selective Pull process in Studio Sync.](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-pull-selective.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-pull-selective.png)
 
 4.  Choose what to pull:
     -   **Entire site**
     -   **Files only**
     -   **Content and settings only**
-    -   **Choose files…**: pick individual items. You can expand the `plugins`, `themes`, and `uploads` folders to select individual items, and choose whether to include **Content and settings** (the database).
+    -   **Choose files…**: pick individual items. You can expand folders such as `plugins`, `themes`, and `uploads` to select individual items, and choose whether to include **Content and settings** (the database).
 5.  Click **Pull changes**.
 
 If the website doesn’t have a backup yet, only a full-site pull is available.
@@ -125,14 +125,14 @@ When you are happy with the changes made to your Studio site, you can publish th
 2.  Click **Publish** at the top right of the site preview, and connect a website if you haven’t already.
 3.  If the local site is connected to more than one website, [choose one](#switch-websites). Then click **Publish changes**.
 
-<!-- TODO screenshot: capture by hand in Studio 2.0, logged in to WordPress.com: the Publish changes review step with Choose files… selected. -->
+<!-- TODO screenshot: replace with `publish-choose-files.webp` from `npm run screenshots` (Studio 2.0, signed-in-connected suite): the Publish changes review step with Choose files… selected. -->
 [![Push dialog with "Specific files and folders" selected](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-selective-push.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/studio-selective-push.png)
 
 4.  Choose what to publish:
     -   **Entire site**
     -   **Files only**
     -   **Content and settings only**
-    -   **Choose files…**: pick individual items. You can expand the `plugins`, `themes`, and `uploads` folders to select individual items, and choose whether to include **Content and settings** (the database).
+    -   **Choose files…**: pick individual items. You can expand folders such as `plugins`, `themes`, and `uploads` to select individual items, and choose whether to include **Content and settings** (the database).
 5.  Click **Publish changes**.
 
 The selected elements of your WordPress.com site will be replaced by the files (like plugins or themes) and content (like media files and the database) from the Studio site. The review step tells you what will be overwritten before you start. If publishing fails, Studio shows what went wrong, and you can click **Try publishing again**.

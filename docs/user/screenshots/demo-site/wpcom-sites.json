@@ -7,7 +7,8 @@
 		"isPressable": false,
 		"environmentType": "production",
 		"syncSupport": "syncable",
-		"preview": "wren-and-barley"
+		"preview": "wren-and-barley",
+		"connectedTo": "wren-and-barley"
 	},
 	{
 		"id": 9100002,
@@ -17,7 +18,8 @@
 		"isPressable": false,
 		"environmentType": "staging",
 		"syncSupport": "syncable",
-		"preview": "wren-and-barley"
+		"preview": "wren-and-barley",
+		"connectedTo": "wren-and-barley"
 	},
 	{
 		"id": 9100003,

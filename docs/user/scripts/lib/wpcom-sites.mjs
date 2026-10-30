@@ -1,3 +1,4 @@
+import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from 'playwright';
 import sharp from 'sharp';
@@ -15,13 +16,15 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * The WordPress.com and Pressable sites signed-in suites show instead of the
  * account's own, from `wpcom-sites.json`: each a `SyncSite` as Studio's
  * `fetchSyncableWpcomSites` returns it, plus `preview`, the slug of the demo
- * site whose front page stands in for its thumbnail.
+ * site whose front page stands in for its thumbnail, and optionally
+ * `connectedTo`, the demo site it is connected to in `connectedSites` suites.
  */
 export async function loadWpcomSites( dir ) {
 	const sites = await readJson( path.join( dir, 'wpcom-sites.json' ) );
-	return sites.map( ( { preview, ...site } ) => ( {
+	return sites.map( ( { preview, connectedTo, ...site } ) => ( {
 		site: { localSiteId: '', lastPullTimestamp: null, lastPushTimestamp: null, ...site },
 		preview,
+		connectedTo,
 	} ) );
 }
 
@@ -136,6 +139,73 @@ export async function replacePreviewSites( { app, window }, previewSites, previe
 		} )
 	);
 	await serveThumbnails( window, previewSites, previews );
+}
+
+/**
+ * Makes a running Studio treat the remote sites with `connectedTo` in
+ * `wpcom-sites.json` as connected to that demo site, as if they had been
+ * connected through Publish, and answers what the Publish panel asks
+ * WordPress.com about them: the hosting PHP version, the latest backup, and
+ * the backup's files, which are the demo site's own `wp-content`. Nothing is
+ * sent to WordPress.com, and pulling or publishing is never started.
+ */
+export async function replaceConnectedSites( { app }, remoteSites, demoSites, sitesDir ) {
+	const connected = remoteSites
+		.filter( ( r ) => r.connectedTo )
+		.map( ( r ) => {
+			const local = demoSites.find( ( s ) => s.slug === r.connectedTo );
+			if ( ! local ) {
+				throw new Error( `wpcom-sites.json: no demo site "${ r.connectedTo }" in sites.json` );
+			}
+			return {
+				...r.site,
+				localSiteId: local.id,
+				lastPullTimestamp: new Date( Date.now() - 5 * DAY_MS ).toISOString(),
+				lastPushTimestamp: new Date( Date.now() - 2 * DAY_MS ).toISOString(),
+			};
+		} );
+	const trees = {};
+	for ( const slug of new Set( remoteSites.map( ( r ) => r.connectedTo ).filter( Boolean ) ) ) {
+		await listBackup( path.join( sitesDir, slug ), '/wp-content/', 3, trees );
+	}
+	await app.evaluate(
+		( { ipcMain }, { connected, trees } ) => {
+			const answer = ( name, handler ) => {
+				ipcMain.removeHandler( name );
+				ipcMain.handle( name, handler );
+			};
+			answer( 'getConnectedWpcomSites', ( _event, localSiteId ) =>
+				connected.filter( ( site ) => ! localSiteId || site.localSiteId === localSiteId )
+			);
+			answer( 'getHostingPhpVersion', () => '8.3' );
+			answer( 'getLatestRewindId', () => '1793318400.123' );
+			answer( 'listRemoteFileTree', ( _event, _remoteId, _rewindId, dir ) => trees[ dir ] ?? {} );
+		},
+		{ connected, trees }
+	);
+}
+
+// Studio's SQLite files, which a WordPress.com backup doesn't have.
+const LOCAL_ONLY = new Set( [ '/wp-content/database', '/wp-content/db.php' ] );
+
+// Lists `dir` of a site the way WordPress.com's backup browser does, `depth` levels down.
+async function listBackup( sitePath, dir, depth, trees ) {
+	const entries = ( await readdir( path.join( sitePath, dir ), { withFileTypes: true } ) ).filter(
+		( e ) => ! e.name.startsWith( '.' ) && ! LOCAL_ONLY.has( `${ dir }${ e.name }` )
+	);
+	trees[ dir ] = Object.fromEntries(
+		entries.map( ( e ) => [
+			e.name,
+			e.isDirectory()
+				? { type: 'dir', has_children: true, id: `${ dir }${ e.name }/` }
+				: { type: 'file', id: `${ dir }${ e.name }` },
+		] )
+	);
+	if ( depth > 1 ) {
+		for ( const e of entries.filter( ( entry ) => entry.isDirectory() ) ) {
+			await listBackup( sitePath, `${ dir }${ e.name }/`, depth - 1, trees );
+		}
+	}
 }
 
 // Answers mShots requests for `entries`' URLs with their demo site's front page.

@@ -10,6 +10,7 @@ import {
 	capturePreviews,
 	loadPreviewSites,
 	loadWpcomSites,
+	replaceConnectedSites,
 	replacePreviewSites,
 	replaceWpcomSites,
 } from './lib/wpcom-sites.mjs';
@@ -247,6 +248,14 @@ async function main() {
 			version ??= studio.version;
 			if ( suite.signedIn && wpcom ) {
 				await replaceWpcomSites( studio, wpcom.remoteSites, wpcom.previews );
+				if ( suite.connectedSites ) {
+					await replaceConnectedSites(
+						studio,
+						wpcom.remoteSites,
+						demo.sites,
+						demo.profile.dirs.sites
+					);
+				}
 				if ( suite.previewSites ) {
 					await replacePreviewSites( studio, wpcom.previewSites, wpcom.previews, authToken.id );
 				}

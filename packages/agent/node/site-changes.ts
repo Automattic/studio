@@ -11,10 +11,10 @@ import { adminCapabilities } from '@studio/agent/node/admin-capabilities';
 import { blockEditorScripts } from '@studio/agent/node/block-editor-scripts';
 import { renderedBlocks } from '@studio/agent/node/block-render-check';
 import { blockScriptAssets } from '@studio/agent/node/block-script-assets';
-import { blockStyleClasses } from '@studio/agent/node/block-style-classes';
 import { blockTheme } from '@studio/agent/node/block-theme';
 import { childThemeCopies } from '@studio/agent/node/child-theme-copies';
 import { globalStylesFlag } from '@studio/agent/node/global-styles-flag';
+import { inlineBlockClasses } from '@studio/agent/node/inline-block-classes';
 import { jetpackModules } from '@studio/agent/node/jetpack-modules';
 import { linksToNowhereChanges } from '@studio/agent/node/links-to-nowhere';
 import { missingTemplateParts } from '@studio/agent/node/missing-template-parts';
@@ -103,7 +103,7 @@ const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
 	siteFileWrites,
 	adminCapabilities,
 	blockEditorScripts,
-	blockStyleClasses,
+	inlineBlockClasses,
 	themeLook,
 ];
 

@@ -119,26 +119,25 @@ function inlineDisplayNote( selector: string ): string {
 }
 
 /**
- * The block classNames that the stylesheets in these theme folders make
- * inline-level, each with its note, for blocks whose class arrives after the
- * stylesheet does.
+ * The classes that the stylesheets in these theme folders make inline-level,
+ * each with its note, to check against the classNames of blocks that arrive
+ * after the stylesheet does.
  */
-export function inlineBlockClassNotes(
-	themeDirs: string[],
-	blockClassNames: Set< string >
-): string[] {
-	const notes = new Set< string >();
+export function inlineDisplayClasses( themeDirs: string[] ): { className: string; note: string }[] {
+	const found = new Map< string, { className: string; note: string } >();
 	for ( const file of themeDirs.flatMap( ( dir ) => listFiles( dir, [ '.css' ] ) ) ) {
 		const css = readFileSync( file, 'utf8' ).replace( /\/\*[\s\S]*?\*\//g, '' );
 		for ( const rule of css.matchAll( /([^{}]+)\{([^{}]*)\}/g ) ) {
 			for ( const selector of rule[ 1 ].split( ',' ).map( ( part ) => part.trim() ) ) {
-				if ( inlineBlockClass( selector, rule[ 2 ], blockClassNames ) ) {
-					notes.add( `${ file }: ${ inlineDisplayNote( selector ) }` );
+				const single = selector.match( /^\.([A-Za-z0-9_-]+)$/ );
+				const note = `${ file }: ${ inlineDisplayNote( selector ) }`;
+				if ( single && INLINE_DISPLAY.test( rule[ 2 ] ) ) {
+					found.set( note, { className: single[ 1 ], note } );
 				}
 			}
 		}
 	}
-	return [ ...notes ];
+	return [ ...found.values() ];
 }
 
 /** CSS in a theme stylesheet that fights WordPress's block layout. */

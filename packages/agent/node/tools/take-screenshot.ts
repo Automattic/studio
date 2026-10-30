@@ -214,7 +214,7 @@ export function createTakeScreenshotTool( {
 				const captureLines = captures.map( ( capture ) =>
 					[
 						`${ describeCapture( capture ) } Saved to ${ capture.path }`,
-						...( capture.resolvedUrl && capture.resolvedUrl !== capture.requestedUrl
+						...( capture.resolvedUrl && capture.resolvedUrl !== new URL( capture.requestedUrl ).href
 							? [
 									`  Requested ${ capture.requestedUrl }; rendered ${ capture.resolvedUrl } after redirect.`,
 							  ]

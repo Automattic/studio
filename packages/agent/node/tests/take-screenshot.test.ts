@@ -13,7 +13,8 @@ vi.mock( '@studio/agent/node/tools/screenshot-helpers', async ( importOriginal )
 		captureOptions.push( options );
 		captured.push( `${ url } ${ viewport.width }` );
 		return {
-			url: url.endsWith( '/checkout/' ) ? url.replace( '/checkout/', '/cart/' ) : url,
+			// As page.url() reports it: the URL as the browser parsed it, after any redirect.
+			url: new URL( url.replace( /\/checkout\/$/, '/cart/' ) ).href,
 			buffer: Buffer.from( 'jpeg' ),
 			mimeType: 'image/jpeg',
 			documentHeight: 900,
@@ -57,15 +58,16 @@ describe( 'take_screenshot', () => {
 		expect( await text( result ) ).toContain( says );
 	} );
 
-	it( 'identifies the page actually captured after a redirect', async () => {
+	it.each( [
+		[ 'http://localhost:8881/checkout/', true ],
+		[ 'http://localhost:8881', false ],
+	] )( 'names the page rendered for %s only after a redirect', async ( url, redirected ) => {
 		const tool = bindTool( createTakeScreenshotTool( { visionEnabled: false } ), createFakeHost() );
 		expect(
-			await text(
-				await tool.rawHandler( { url: 'http://localhost:8881/checkout/', viewport: 'desktop' } )
+			( await text( await tool.rawHandler( { url, viewport: 'desktop' } ) ) ).includes(
+				'after redirect'
 			)
-		).toContain(
-			'Requested http://localhost:8881/checkout/; rendered http://localhost:8881/cart/ after redirect.'
-		);
+		).toBe( redirected );
 	} );
 
 	it( 'captures every page it is given at desktop and mobile in one call', async () => {

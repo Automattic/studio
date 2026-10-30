@@ -227,6 +227,28 @@ function pageAddresses( site: WordPressSite ): string[][] {
 	] );
 }
 
+// Each page WordPress gave a numbered slug because another page or an
+// attachment under its parent held the one asked for: wp_unique_post_slug()
+// (wp-includes/post.php) checks a page's slug against both, and suffixes -2,
+// -3 and so on until one is free, so a link to the slug asked for misses it.
+function takenPageSlugs( site: WordPressSite ): string[] {
+	return site
+		.query< { id: number; slug: string; holder: number; type: string; taken: string } >(
+			`SELECT page.ID AS id, page.post_name AS slug, holder.ID AS holder, holder.post_type AS type, holder.post_name AS taken
+			FROM ${ site.prefix }posts page JOIN ${ site.prefix }posts holder
+			ON holder.ID != page.ID AND holder.post_parent = page.post_parent
+			AND holder.post_type IN ('page', 'attachment') AND holder.post_name != ''
+			AND page.post_name LIKE holder.post_name || '-%'
+			WHERE page.post_type = 'page' AND page.post_status NOT IN ('auto-draft', 'inherit', 'trash')
+			ORDER BY page.ID`
+		)
+		.filter( ( { slug, taken } ) => /^\d+$/.test( slug.slice( taken.length + 1 ) ) )
+		.map(
+			( { id, slug, holder, type, taken } ) =>
+				`Page ${ id } has the slug ${ slug }, not ${ taken }, as ${ type } ${ holder } holds ${ taken }: WordPress gives a page and the pages and attachments under its parent one set of slugs (wp_unique_post_slug() in wp-includes/post.php).`
+		);
+}
+
 /**
  * Site fact: how many pages the site has, with the index Studio keeps of them
  * in its workspace, one line each, so the fact reads the same at any number.
@@ -234,7 +256,7 @@ function pageAddresses( site: WordPressSite ): string[][] {
 export async function pagesFact(
 	site: WordPressSite,
 	host: StudioAgentHost
-): Promise< string | undefined > {
+): Promise< string[] | undefined > {
 	const pages = pageAddresses( site );
 	const workspace = pages.length ? await openWorkspace( host, site.root ) : undefined;
 	if ( ! workspace ) {
@@ -247,7 +269,10 @@ export async function pagesFact(
 	if ( ( await readCopy( index ) ) !== `${ content }\n` ) {
 		await writeFile( index, `${ content }\n`, 'utf8' );
 	}
-	return `Pages: ${ pages.length }; each one's ID, status, slug, address on the site and title are in ${ index }, one per line.`;
+	return [
+		`Pages: ${ pages.length }; each one's ID, status, slug, address on the site and title are in ${ index }, one per line.`,
+		...takenPageSlugs( site ),
+	];
 }
 
 export const postCopies: SiteChangeSource = {

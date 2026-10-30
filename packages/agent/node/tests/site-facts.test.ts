@@ -381,3 +381,28 @@ it.each( [
 		}
 	}
 );
+
+// As run h2h5's store: about.jpg's attachment took "about", so its About page got about-2.
+it( 'states each page WordPress gave a numbered slug, and what holds the one asked for', async () => {
+	vi.stubEnv( 'DEV_CONFIG_DIR', mkdtempSync( path.join( os.tmpdir(), 'config-' ) ) );
+	const site = createSite( 'wp_' );
+	site.save( 10, 'page', 'about-2', '', 1, 'publish', 'About' );
+	site.save( 11, 'attachment', 'about', '', 1, 'inherit', 'about' );
+	site.save( 12, 'page', 'shop', '', 1, 'publish', 'Shop' );
+	site.save( 13, 'page', 'team', '', 1, 'publish', 'Team', 12 );
+	site.save( 14, 'page', 'team-2', '', 1, 'publish', 'Team' );
+	site.save( 15, 'page', 'shop-all', '', 1, 'publish', 'All' );
+	vi.mocked( host.sites.findByFolder ).mockResolvedValue( {
+		...fakeSite,
+		id: 'site-id',
+		path: site.root,
+	} as HostSite );
+	try {
+		expect( ( await site.facts() ).filter( ( fact ) => fact.startsWith( 'Page ' ) ) ).toEqual( [
+			'Page 10 has the slug about-2, not about, as attachment 11 holds about: WordPress gives a page and the pages and attachments under its parent one set of slugs (wp_unique_post_slug() in wp-includes/post.php).',
+		] );
+	} finally {
+		vi.mocked( host.sites.findByFolder ).mockReset();
+		vi.unstubAllEnvs();
+	}
+} );

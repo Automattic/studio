@@ -100,6 +100,8 @@ describe.runIf( CHROMIUM )( 'inspecting a page', () => {
 		expect( capture?.buffer.length ).toBeGreaterThan( 0 );
 		expect( ( await renderedCapture( url, VIEWPORTS.desktop, false ) )?.clipped ).toBe( false );
 		expect( await renderedCapture( url, VIEWPORTS.mobile, true ) ).toBeUndefined();
+		await inspectPage( `${ siteUrl }/`, VIEWPORTS.desktop );
+		expect( await renderedCapture( siteUrl, VIEWPORTS.desktop, true ) ).toBeDefined();
 
 		formText = 'Book a room';
 		expect( await renderedCapture( url, VIEWPORTS.desktop, true ) ).toBeUndefined();

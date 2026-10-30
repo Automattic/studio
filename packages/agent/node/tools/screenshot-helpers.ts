@@ -398,7 +398,9 @@ interface Render {
 // from that its HTML does not show, such as a stylesheet, forgets them.
 const renders = new Map< string, Promise< Render | undefined > >();
 let generation = 0;
-const renderKey = ( url: string, viewport: { width: number } ) => `${ url } ${ viewport.width }`;
+// By the address a browser requests: a site's root with or without its slash is one page.
+const renderKey = ( url: string, viewport: { width: number } ) =>
+	`${ URL.canParse( url ) ? new URL( url ).href : url } ${ viewport.width }`;
 
 // Hidden form fields carry tokens WordPress and plugins make for each request
 // (wp_nonce_field, a contact form's token), which a visitor does not see.

@@ -266,7 +266,9 @@ export function toToolDefinition(
 				if ( checksChanges ) {
 					await afterTime( 'render', () =>
 						Promise.all(
-							sitePin.localSitePaths().map( ( sitePath ) => renderCheck?.changed( sitePath ) )
+							sitePin
+								.localSitePaths()
+								.map( ( sitePath ) => renderCheck?.changed( sitePath, pendingWork ) )
 						)
 					);
 				}

@@ -20,6 +20,7 @@ import { readWordPressSite } from '@studio/agent/node/site-database';
 import { forgetRenders, inspectPage, VIEWPORTS } from '@studio/agent/node/tools/screenshot-helpers';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 import type { OpenProblems } from '@studio/agent/node/open-problems';
+import type { PendingWork } from '@studio/agent/node/runtime/pending-work';
 import type { PageInspection } from '@studio/agent/node/tools/screenshot-helpers';
 
 // The front page and the first published pages: a site's own pages, not a shop's catalogue.
@@ -43,6 +44,8 @@ interface SiteState {
 	firstSeen: Promise< Set< string > >;
 	running?: Promise< void >;
 	again: boolean;
+	// The work the last change left running, as images being generated.
+	writing?: PendingWork;
 	verdict?: string;
 }
 
@@ -90,8 +93,14 @@ export class RenderCheck {
 		await state.firstSeen;
 	}
 
-	/** After a call on a site: renders it again when what it renders from changed. */
-	async changed( sitePath: string ): Promise< void > {
+	/**
+	 * After a call on a site: renders it again when what it renders from
+	 * changed, once the work `writing` has running in the site, as images being
+	 * generated, has written its files: a page rendered before then shows an
+	 * image that is still coming as one that did not load, and the files
+	 * finishing changes nothing that renders it again.
+	 */
+	async changed( sitePath: string, writing?: PendingWork ): Promise< void > {
 		const state = this.sites.get( sitePath );
 		if ( ! state ) {
 			return this.seen( sitePath );
@@ -102,6 +111,7 @@ export class RenderCheck {
 			return;
 		}
 		state.fingerprint = now;
+		state.writing = writing;
 		forgetRenders();
 		if ( state.running ) {
 			state.again = true;
@@ -136,6 +146,7 @@ export class RenderCheck {
 
 	private async check( sitePath: string, state: SiteState ): Promise< void > {
 		const renderedFrom = state.fingerprint;
+		await state.writing?.settleFilesUnder( sitePath );
 		const pages = await this.render( sitePath );
 		if ( ! pages || state.fingerprint !== renderedFrom ) {
 			return;

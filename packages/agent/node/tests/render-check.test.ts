@@ -3,6 +3,7 @@ import path from 'path';
 import { describe, expect, it, vi } from 'vitest';
 import { OpenProblems } from '@studio/agent/node/open-problems';
 import { RenderCheck } from '@studio/agent/node/render-check';
+import { PendingWork } from '@studio/agent/node/runtime/pending-work';
 import { createFakeHost } from '@studio/agent/node/tests/fake-host';
 import { createSite } from '@studio/agent/node/tests/fixtures/wordpress-site';
 import type { HostSite } from '@studio/agent/node/host';
@@ -57,6 +58,30 @@ describe( 'RenderCheck', () => {
 		);
 		expect( await open.raise() ).toEqual( [] );
 		expect( check.takeReports() ).toBe( '' );
+	} );
+
+	// As run h2h5's dog groomer changed an option while its images were being generated.
+	it( 'renders once the images being generated in the site are written', async () => {
+		const { site, check, problems } = setup();
+		await check.seen( site.root, { created: true } );
+		const image = path.join( site.root, 'wp-content/uploads/2026/10/hero.png' );
+		problems[ '/ desktop' ] = [ 'The image http://localhost:8881/hero.png did not load.' ];
+		let written: () => void = () => {};
+		const work = new PendingWork();
+		work.add(
+			new Promise( ( resolve ) => {
+				written = () => {
+					problems[ '/ desktop' ] = [];
+					resolve( undefined );
+				};
+			} ),
+			[ image ]
+		);
+		appendFileSync( path.join( site.root, 'wp-content/themes/bakery/style.css' ), '\n' );
+		await check.changed( site.root, work );
+		setTimeout( written, 50 );
+		await check.settle();
+		expect( check.takeReports() ).toMatch( /: each page loads, .* every image loads/ );
 	} );
 
 	it( 'reports every problem on a site the session created', async () => {

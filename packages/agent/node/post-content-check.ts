@@ -212,6 +212,11 @@ async function validatePost(
 	post: Row,
 	save: boolean
 ): Promise< Omit< ChangeReport, 'key' > & { saved?: boolean } > {
+	// A post with no content yet, as `wp post create` makes one, has no blocks
+	// to validate, and the editor is not loaded to find none.
+	if ( ! post.content.trim() ) {
+		return {};
+	}
 	const label = `${ site.name } ${ post.type } ${ post.id } "${ post.title }"`;
 	// Before the presets the save stores its blocks with are read.
 	const presetNotes = await repeatedPostStyleNotes(

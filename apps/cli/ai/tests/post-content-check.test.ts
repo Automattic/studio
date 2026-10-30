@@ -133,11 +133,19 @@ describe( 'post content changes', () => {
 			},
 			reported: [],
 		},
+		{
+			// As `wp post create --post_title=Home` makes one, filled in later.
+			name: 'a new page with no content',
+			change: () => fixture.save( 14, 'page', 'home-2', ' \n' ),
+			reported: [],
+		},
 	] )( 'reports what a call changed: $name', async ( { change, reported } ) => {
 		const check = checkPosts();
 		await check.snapshot();
 		change();
 		expect( ( await check.settle() ).summaries ).toEqual( reported );
+		// The block editor is loaded only for content to validate.
+		expect( vi.mocked( validateBlocks ).mock.calls.length ).toBe( reported.length );
 		// Reported once: the check moves its snapshot on.
 		expect( ( await check.settle() ).summaries ).toEqual( [] );
 	} );

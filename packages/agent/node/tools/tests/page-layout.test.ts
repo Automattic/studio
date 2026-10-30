@@ -66,6 +66,21 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 		] );
 	} );
 
+	// As run h2h5's climbing gym footer: an email that does not wrap in its column.
+	it( 'names text that spills past its box when no box does', async () => {
+		expect(
+			(
+				await layoutOf( `<footer style="height:20px"><div style="width:180px;margin-left:800px;font:20px/1 monospace">
+				<p class="wp-block-paragraph">hello@climbinggym.com<br>Open daily</p>
+				<p style="overflow:hidden">clipped@nowhere.example</p>
+			</div></footer>` )
+			).slice( -2 )
+		).toEqual( [
+			'The page is 1052px wide in a 1000px viewport, so it scrolls sideways.',
+			'  The text "hello@climbinggym.com" of p.wp-block-paragraph reaches past it, x 800–1052, wider than its 180px box, as the browser does not wrap it there, in footer.',
+		] );
+	} );
+
 	it( 'counts the regions past its limit', async () => {
 		const layout = await layoutOf( '<p style="height:5px"></p>'.repeat( 45 ) );
 		expect( layout ).toHaveLength( 41 );

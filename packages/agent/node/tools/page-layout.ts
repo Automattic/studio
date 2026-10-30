@@ -88,7 +88,9 @@ export function pageOverflow( page: Page ): Promise< string[] > {
 				const rect = element.getBoundingClientRect();
 				return rect.width > 0 && rect.height > 0 && ( rect.right > viewport + 1 || rect.left < -1 );
 			};
-			const widens = ( element: Element ) => {
+			// Content that a box clips does not widen the page; a box's own clipping
+			// counts for its text, not for the box itself.
+			const widens = ( element: Element, clipsItself = false ) => {
 				for (
 					let box: Element | null = element;
 					box && box !== document.body;
@@ -97,7 +99,7 @@ export function pageOverflow( page: Page ): Promise< string[] > {
 					const style = getComputedStyle( box );
 					if (
 						style.position === 'fixed' ||
-						( box !== element && style.overflowX !== 'visible' )
+						( ( clipsItself || box !== element ) && style.overflowX !== 'visible' )
 					) {
 						return false;
 					}
@@ -116,17 +118,55 @@ export function pageOverflow( page: Page ): Promise< string[] > {
 					) &&
 					widens( element )
 			);
-			for ( const element of causes.slice( 0, maxCauses ) ) {
-				const rect = element.getBoundingClientRect();
+			const where = ( element: Element ) => {
 				const within = region( element );
-				lines.push(
-					`  ${ label( element ) } reaches past it, x ${ Math.round( rect.left ) }–${ Math.round(
-						rect.right
-					) }${ within && within !== element ? `, in ${ label( within ) }` : '' }.`
+				return within && within !== element ? `, in ${ label( within ) }` : '';
+			};
+			const found = causes.map( ( element ) => {
+				const rect = element.getBoundingClientRect();
+				return `  ${ label( element ) } reaches past it, x ${ Math.round(
+					rect.left
+				) }–${ Math.round( rect.right ) }${ where( element ) }.`;
+			} );
+			// Text that does not wrap within its box spills past it, as a box's
+			// overflow is visible by default, while the box itself fits.
+			const walker = document.createTreeWalker( document.body, NodeFilter.SHOW_TEXT );
+			const range = document.createRange();
+			for ( let node = walker.nextNode(); node; node = walker.nextNode() ) {
+				const element = node.parentElement;
+				const text = ( node.textContent ?? '' ).replace( /\s+/g, ' ' ).trim();
+				if (
+					! element ||
+					! text ||
+					causes.some( ( cause ) => cause.contains( element ) ) ||
+					! widens( element, true )
+				) {
+					continue;
+				}
+				range.selectNodeContents( node );
+				const rects = [ ...range.getClientRects() ].filter( ( rect ) => rect.width > 0 );
+				const left = Math.min( ...rects.map( ( rect ) => rect.left ) );
+				const right = Math.max( ...rects.map( ( rect ) => rect.right ) );
+				if ( ! rects.length || ( right <= viewport + 1 && left >= -1 ) ) {
+					continue;
+				}
+				// The box the text lays out in: an inline element, as a link, has none of its own.
+				let box = element;
+				while ( box.parentElement && getComputedStyle( box ).display === 'inline' ) {
+					box = box.parentElement;
+				}
+				const quoted = text.length > 40 ? `${ text.slice( 0, 40 ) }…` : text;
+				found.push(
+					`  The text "${ quoted }" of ${ label( box ) } reaches past it, x ${ Math.round(
+						left
+					) }–${ Math.round( right ) }, wider than its ${
+						box.clientWidth
+					}px box, as the browser does not wrap it there${ where( box ) }.`
 				);
 			}
-			if ( causes.length > maxCauses ) {
-				lines.push( `  …and ${ causes.length - maxCauses } more.` );
+			lines.push( ...found.slice( 0, maxCauses ) );
+			if ( found.length > maxCauses ) {
+				lines.push( `  …and ${ found.length - maxCauses } more.` );
 			}
 		}
 		return lines;

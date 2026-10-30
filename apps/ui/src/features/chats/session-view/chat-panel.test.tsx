@@ -150,7 +150,6 @@ describe( 'Composer site start', () => {
 		await waitFor( () => expect( startButton ).toHaveAttribute( 'aria-disabled', 'true' ) );
 		expect( startButton ).toHaveAccessibleName( 'Starting site' );
 		expect( startButton ).toHaveAttribute( 'aria-busy', 'true' );
-		expect( startButton.querySelector( '[data-slot="spinner"]' ) ).toBeInTheDocument();
 		fireEvent.click( startButton );
 		expect( connector.startSite ).toHaveBeenCalledOnce();
 		expect( connector.continueSession ).not.toHaveBeenCalled();

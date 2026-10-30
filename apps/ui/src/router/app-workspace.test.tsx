@@ -390,6 +390,33 @@ describe( 'Studio workspace', () => {
 		}
 	);
 
+	it( 'opens the preview over chat when starting from the composer on a narrow screen', async () => {
+		const matchMedia = window.matchMedia.bind( window );
+		const mediaSpy = vi.spyOn( window, 'matchMedia' ).mockImplementation( ( query ) => ( {
+			...matchMedia( query ),
+			matches: query === '(max-width: 540px)',
+		} ) );
+		try {
+			const { connector } = setup( { signedIn: true, path: '/sites/one/new' } );
+			const input = await findComposer();
+			fireEvent.click(
+				within( input.closest( '[role="group"]' )! ).getByRole( 'button', { name: 'Start site' } )
+			);
+			await waitFor( () => expect( connector.startSite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );
+			await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
+			fireEvent.load( document.querySelector( 'iframe' )! );
+			expect( await screen.findByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
+			await waitFor( () =>
+				expect(
+					screen.queryByRole( 'combobox', { name: 'Message WordPress Studio' } )
+				).not.toBeInTheDocument()
+			);
+			expect( screen.getByRole( 'button', { name: 'Open chat' } ) ).toBeVisible();
+		} finally {
+			mediaSpy.mockRestore();
+		}
+	} );
+
 	it( 'keeps a full-width site preview open when starting from its thumbnail', async () => {
 		const { connector, history } = setup( {
 			signedIn: true,

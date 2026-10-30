@@ -25,6 +25,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { validateBlocks } from '@studio/agent/node';
+import { STUDIO_LOADER_MU_PLUGIN_FILENAME } from '@studio/common/lib/mu-plugins';
 import { cliAgentHost } from 'cli/ai/host';
 import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
 import { Mode as StopMode, runCommand as runStopSiteCommand } from 'cli/commands/site/stop';
@@ -40,12 +41,22 @@ export interface SiteFingerprint {
 	path: string;
 	name: string;
 	mtimeMs: number;
+	// The site's mu-plugins, by name, which a removal changes only in the
+	// folder's own time, left out below.
+	muPlugins: string[];
 }
 
 // The newest modification time under a site's database and wp-content, which
-// moves whenever the site is changed.
+// moves whenever the site is changed. A read of the SQLite database moves its
+// -shm file, the WAL index, which holds none of the site
+// (https://sqlite.org/walformat.html).
+// Studio's loader mu-plugin, which Studio writes into each site it runs
+// (writeStudioMuPlugins()) and leaves out of archives and exports, is not the
+// site's, nor is the mu-plugins folder's own time, which its rewrite moves.
 function newestMtime( dir: string, depth = 6 ): number {
 	let newest = 0;
+	const muPlugins = path.join( dir, 'wp-content', 'mu-plugins' );
+	const loader = path.join( muPlugins, STUDIO_LOADER_MU_PLUGIN_FILENAME );
 	const walk = ( current: string, level: number ) => {
 		let entries;
 		try {
@@ -54,10 +65,21 @@ function newestMtime( dir: string, depth = 6 ): number {
 			return;
 		}
 		for ( const entry of entries ) {
-			if ( entry.name === 'node_modules' || entry.name === 'cache' ) continue;
+			if ( [ 'node_modules', 'cache' ].includes( entry.name ) || entry.name.endsWith( '-shm' ) )
+				continue;
 			const full = path.join( current, entry.name );
+			if ( full === loader ) continue;
 			try {
-				newest = Math.max( newest, statSync( full ).mtimeMs );
+				const stat = statSync( full );
+				// SQLite's WAL files: a read-only read creates the WAL index (-shm)
+				// and an empty WAL, and cannot remove them, so it changes the
+				// database folder; a write adds frames to the WAL or, on the last
+				// close, checkpoints them into the database
+				// (https://sqlite.org/walformat.html).
+				const readOnlyTrace =
+					( level === 0 && entry.name === 'database' ) ||
+					( entry.name.endsWith( '-wal' ) && ! stat.size );
+				if ( ! readOnlyTrace && full !== muPlugins ) newest = Math.max( newest, stat.mtimeMs );
 			} catch {
 				continue;
 			}
@@ -72,7 +94,22 @@ export async function fingerprintSites(): Promise< SiteFingerprint[] > {
 	const { sites } = await readCliConfig();
 	return sites
 		.filter( ( site ) => existsSync( site.path ) )
-		.map( ( site ) => ( { path: site.path, name: site.name, mtimeMs: newestMtime( site.path ) } ) );
+		.map( ( site ) => ( {
+			path: site.path,
+			name: site.name,
+			mtimeMs: newestMtime( site.path ),
+			muPlugins: siteMuPlugins( site.path ),
+		} ) );
+}
+
+function siteMuPlugins( sitePath: string ): string[] {
+	try {
+		return readdirSync( path.join( sitePath, 'wp-content', 'mu-plugins' ) )
+			.filter( ( name ) => name !== STUDIO_LOADER_MU_PLUGIN_FILENAME )
+			.sort();
+	} catch {
+		return [];
+	}
 }
 
 const PROBE_PHP = String.raw`
@@ -89,11 +126,13 @@ foreach ( get_posts( array( 'post_type' => array( 'page', 'post', 'wp_template',
 	$count( parse_blocks( $post->post_content ), $blocks );
 	$content[] = array( 'id' => $post->ID, 'type' => $post->post_type, 'slug' => $post->post_name, 'title' => $post->post_title, 'isFront' => $post->ID === $front, 'blocks' => $blocks, 'content' => $post->post_content );
 }
+// Reading the theme's data registers the block styles of its styles/blocks/*.json
+// files (WP_Theme_JSON_Resolver::get_theme_data), so it comes first.
+$merged = WP_Theme_JSON_Resolver::get_merged_data()->get_raw_data();
 $styles = array();
 foreach ( WP_Block_Styles_Registry::get_instance()->get_all_registered() as $block => $variations ) {
 	$styles[ $block ] = array_keys( $variations );
 }
-$merged = WP_Theme_JSON_Resolver::get_merged_data()->get_raw_data();
 $palette = array();
 foreach ( (array) ( $merged['settings']['color']['palette'] ?? array() ) as $entries ) {
 	foreach ( (array) $entries as $entry ) { $palette[] = $entry; }
@@ -253,11 +292,11 @@ async function captureSiteOutcome(
 		// Files changed from the WordPress.org release (null for themes not from there).
 		outcome.themeChanges = await changedFromRelease( themeDir, stylesheet, stylesheetVersion );
 		if ( template !== stylesheet ) {
-			outcome.parentThemeChanges = await changedFromRelease(
-				path.join( themes, template ),
-				template,
-				templateVersion
-			);
+			const parentDir = path.join( themes, template );
+			outcome.parentThemeChanges = await changedFromRelease( parentDir, template, templateVersion );
+			// The parent's theme.json, which the child's is merged over.
+			outcome.parentThemeJson = readThemeText( parentDir )[ 'theme.json' ];
+			outcome.parentThemeFileList = Object.keys( hashFiles( parentDir ) ).sort();
 		}
 		const designPath = path.join( sitePath, 'DESIGN.md' );
 		outcome.designMd = existsSync( designPath ) ? readFileSync( designPath, 'utf8' ) : null;
@@ -290,10 +329,14 @@ async function captureSiteOutcome(
 				} );
 			}
 		}
+		// A file as its WordPress.org release ships it is the theme author's, and
+		// may hold blocks of a plugin the site does not run.
+		const released = ( file: string ) =>
+			Array.isArray( outcome.themeChanges ) && ! outcome.themeChanges.includes( file );
 		for ( const [ file, text ] of Object.entries(
 			outcome.themeFiles as Record< string, string >
 		) ) {
-			if ( ! /^(templates|parts)\/.+\.html$/.test( file ) ) continue;
+			if ( ! /^(templates|parts)\/.+\.html$/.test( file ) || released( file ) ) continue;
 			const report = await validateBlocks( cliAgentHost.pages, text, url );
 			if ( report.invalidBlocks > 0 ) {
 				invalid.push( {
@@ -333,8 +376,13 @@ export async function captureTurnOutcome(
 	const after = new Map( ( await fingerprintSites() ).map( ( site ) => [ site.path, site ] ) );
 	const beforePaths = new Set( before.map( ( site ) => site.path ) );
 	const created = [ ...after.values() ].filter( ( site ) => ! beforePaths.has( site.path ) );
-	const changed = ( site: SiteFingerprint ) =>
-		( after.get( site.path )?.mtimeMs ?? 0 ) > site.mtimeMs;
+	const changed = ( site: SiteFingerprint ) => {
+		const now = after.get( site.path );
+		return (
+			( now?.mtimeMs ?? 0 ) > site.mtimeMs ||
+			now?.muPlugins.join( '\n' ) !== site.muPlugins.join( '\n' )
+		);
+	};
 	const requestBefore = before.find( ( site ) => site.path === requestSitePath );
 	const others = before.filter( ( site ) => site.path !== requestSitePath );
 

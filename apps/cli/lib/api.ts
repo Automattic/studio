@@ -289,8 +289,12 @@ function jetpackBridgeErrorCode( envelope: unknown ): string | undefined {
 	if ( ! inner || typeof inner !== 'object' ) {
 		return undefined;
 	}
-	const { code } = inner as { code?: unknown };
-	return typeof code === 'string' ? code : undefined;
+	// A WP_Error reaches us as `code`, or as `error` once WordPress.com's Jetpack proxy has relayed it.
+	const { code, error } = inner as { code?: unknown; error?: unknown };
+	if ( typeof code === 'string' ) {
+		return code;
+	}
+	return typeof error === 'string' ? error : undefined;
 }
 
 /** The site's HTTP status. A missing route can arrive as a 200 with a `rest_no_route` body. */

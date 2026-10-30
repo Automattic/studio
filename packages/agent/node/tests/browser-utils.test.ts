@@ -78,6 +78,7 @@ describe( 'browser-utils', () => {
 		const page = {
 			on: vi.fn(),
 			goto: vi.fn(),
+			waitForLoadState: vi.fn(),
 			url: () => 'http://localhost:8881/wp-admin/post-new.php',
 			waitForFunction: vi.fn(),
 			isClosed: () => false,

@@ -936,3 +936,40 @@ add_action( 'enqueue_block_editor_assets', function () {
 		}
 	}, 120_000 );
 } );
+
+describe.runIf( siteUrl && sitePath )(
+	'a plugin sending the first admin page elsewhere (live)',
+	() => {
+		afterAll( cleanupValidatorPages );
+
+		it( 'loads the editor without waiting for the page it was sent to', async () => {
+			// As WooCommerce sends the first admin page after its activation to its
+			// setup wizard, here a page that sends its head and then takes 40s.
+			const plugin = path.join( sitePath!, 'wp-content/mu-plugins/studio-test-redirect.php' );
+			const once = `studio_test_redirected_${ Date.now() }`;
+			writeFileSync(
+				plugin,
+				`<?php
+add_action( 'admin_init', function () {
+	if ( isset( $_GET['studio-test-slow'] ) ) {
+		echo '<html><head><script src="http://192.0.2.1/never.js"></script></head></html>';
+		exit;
+	}
+	if ( ! get_option( '${ once }' ) ) {
+		update_option( '${ once }', 1 );
+		wp_safe_redirect( admin_url( '?studio-test-slow=1' ) ); exit;
+	}
+} );
+`
+			);
+			await cleanupValidatorPages();
+			try {
+				expect(
+					await validateBlocks( '<!-- wp:paragraph --><p>Hi</p><!-- /wp:paragraph -->', siteUrl! )
+				).toMatchObject( { totalBlocks: 1, invalidBlocks: 0 } );
+			} finally {
+				rmSync( plugin, { force: true } );
+			}
+		}, 120_000 );
+	}
+);

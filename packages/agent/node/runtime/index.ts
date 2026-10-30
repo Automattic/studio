@@ -936,12 +936,18 @@ function toToolDefinition(
 				}
 			} );
 			// Block markup written since the last check is validated before any
-			// tool puts content on the site or renders it.
-			const validationReport = BLOCK_VALIDATION_GATED_TOOLS.has( tool.name )
-				? validationLines(
-						await timeCheck( 'blockValidation', () => blockValidationGate.settle() )
-				  )
-				: [];
+			// tool puts content on the site or renders it; any other call carries
+			// the validations already done, so a problem is heard while the agent
+			// is still writing, not when it first looks at the page.
+			const validationReport = validationLines(
+				await timeCheck( 'blockValidation', () =>
+					blockValidationGate.settle(
+						BLOCK_VALIDATION_GATED_TOOLS.has( tool.name )
+							? {}
+							: { ready: true, except: writtenFile }
+					)
+				)
+			);
 			const checksChanges = ! (
 				READ_ONLY_TOOLS.has( tool.name ) ||
 				( tool as { annotations?: { readOnlyHint?: boolean } } ).annotations?.readOnlyHint

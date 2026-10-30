@@ -506,6 +506,35 @@ describe( 'the gate', () => {
 		expect( ( await gate.settle() ).summaries ).toEqual( [] );
 	} );
 
+	it( 'reports, without waiting, only the validations of current content that have come', async () => {
+		const done = write( 'wp-content/themes/t/templates/home.html', 'home' );
+		const writing = write( 'wp-content/themes/t/parts/header.html', 'header' );
+		const changed = write( 'wp-content/themes/t/parts/footer.html', 'footer' );
+		const slow = write( 'wp-content/themes/t/templates/page.html', 'page' );
+		let finish: () => void = () => {};
+		const gate = new BlockValidationGate( async ( filePath ) => {
+			const content = readFileSync( filePath, 'utf8' );
+			if ( content === 'page' ) {
+				await new Promise< void >( ( resolve ) => ( finish = resolve ) );
+			}
+			return ok( `validated ${ content }`, content );
+		} );
+		for ( const file of [ done, writing, changed, slow ] ) {
+			gate.track( file, site );
+		}
+		await new Promise( ( resolve ) => setTimeout( resolve, 10 ) );
+		writeFileSync( changed, 'footer v2' );
+		expect( ( await gate.settle( { ready: true, except: writing } ) ).summaries ).toEqual( [
+			'validated home',
+		] );
+		finish();
+		expect( ( await gate.settle() ).summaries ).toEqual( [
+			'validated header',
+			'validated footer v2',
+			'validated page',
+		] );
+	} );
+
 	it( 'saves a lossless fix once settled, never over a write made while it validated', async () => {
 		const file = write( 'wp-content/themes/t/templates/home.html', 'v1' );
 		let finish: () => void = () => {};

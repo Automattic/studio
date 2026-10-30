@@ -1014,6 +1014,7 @@ describe( 'pi runtime', () => {
 			expect( second.checksMs ).toBeGreaterThanOrEqual( second.checkStagesMs.previousChecks );
 			expect( second.checksMs ).toBeLessThan( 60 );
 			expect( Object.keys( second.checkStagesMs ).sort() ).toEqual( [
+				'blockValidation',
 				'pendingWork',
 				'previousChecks',
 				'siteChanges',

@@ -509,6 +509,8 @@ async function validateSavedMarkup(
 interface Tracked {
 	siteRoot: string;
 	result: Promise< FileValidation >;
+	// The result once it has come, which a call that does not wait can report.
+	validated?: FileValidation;
 	reported?: string;
 }
 
@@ -526,15 +528,26 @@ export class BlockValidationGate {
 	/** Queues a written file and starts validating it in the background. */
 	track( filePath: string, siteRoot: string ): void {
 		if ( isBlockMarkupFile( filePath ) ) {
-			this.files.set( filePath, { siteRoot, result: this.validate( filePath, siteRoot ) } );
+			this.files.set( filePath, this.start( { siteRoot }, filePath ) );
 		}
 	}
 
-	/** Waits for every queued file and returns what is new to report. */
-	async settle(): Promise< { summaries: string[]; problems: string[] } > {
+	/**
+	 * Waits for every queued file and returns what is new to report. With
+	 * `ready`, waits for none: reports only the files whose validation of their
+	 * current content has come, leaving out `except`, the file the call about to
+	 * run writes, whose text a saved fix would change under it.
+	 */
+	async settle( { ready = false, except }: { ready?: boolean; except?: string } = {} ): Promise< {
+		summaries: string[];
+		problems: string[];
+	} > {
 		const summaries: string[] = [];
 		const problems: string[] = [];
 		for ( const [ filePath, tracked ] of this.files ) {
+			if ( ready && ( filePath === except || ! ( await isCurrent( filePath, tracked ) ) ) ) {
+				continue;
+			}
 			const result = await this.current( filePath, tracked.siteRoot ).then(
 				( current ) => current && this.applyFix( filePath, current )
 			);
@@ -580,7 +593,9 @@ export class BlockValidationGate {
 			),
 			contentHash: hash( fixedContent ),
 		};
-		this.files.get( filePath )!.result = Promise.resolve( fixed );
+		const tracked = this.files.get( filePath )!;
+		tracked.result = Promise.resolve( fixed );
+		tracked.validated = fixed;
 		return fixed;
 	}
 
@@ -596,17 +611,25 @@ export class BlockValidationGate {
 		if ( content === undefined ) {
 			return undefined;
 		}
-		const tracked = this.files.get( filePath ) ?? {
-			siteRoot,
-			result: this.validate( filePath, siteRoot ),
-		};
+		const tracked = this.files.get( filePath ) ?? this.start( { siteRoot }, filePath );
 		let result = await tracked.result;
 		if ( result.contentHash !== hash( content ) ) {
-			tracked.result = this.validate( filePath, siteRoot );
-			result = await tracked.result;
+			result = await this.start( tracked, filePath ).result;
 		}
 		this.files.set( filePath, tracked );
 		return result;
+	}
+
+	/** Starts validating a file's current content. */
+	private start( tracked: Omit< Tracked, 'result' > & Partial< Tracked >, filePath: string ) {
+		const result = this.validate( filePath, tracked.siteRoot );
+		Object.assign( tracked, { result, validated: undefined } );
+		void result.then( ( validated ) => {
+			if ( tracked.result === result ) {
+				tracked.validated = validated;
+			}
+		} );
+		return tracked as Tracked;
 	}
 
 	/** Validates a file; a validation that cannot run is reported, never skipped. */
@@ -618,6 +641,15 @@ export class BlockValidationGate {
 			})`,
 		} ) );
 	}
+}
+
+// Whether a file's validation has come, for the content it holds now.
+async function isCurrent( filePath: string, tracked: Tracked ): Promise< boolean > {
+	if ( ! tracked.validated ) {
+		return false;
+	}
+	const content = await readFile( filePath, 'utf8' ).catch( () => undefined );
+	return content !== undefined && hash( content ) === tracked.validated.contentHash;
 }
 
 // The theme a file is in, by its folder under wp-content/themes.

@@ -31,11 +31,13 @@ export async function runCommand(
 	);
 	const startedAt = Date.now();
 	let siteId: string | undefined;
+	let step: LoggerAction | undefined;
 
 	try {
 		const site = await getSiteByFolder( siteFolder );
 		siteId = site.id;
 		const reportStep = ( action: LoggerAction, message: string, progress: number ) => {
+			step = action;
 			logger.reportStart( action, message );
 			void reportSyncActivity( site.id, {
 				kind: 'pending',
@@ -49,7 +51,9 @@ export async function runCommand(
 		const token = await readAuthToken();
 		if ( ! token ) {
 			throw new LoggerError(
-				__( 'Authentication required. Please log in with `studio auth login`.' )
+				__( 'Authentication required. Please log in with `studio auth login`.' ),
+				undefined,
+				'auth_required'
 			);
 		}
 
@@ -106,7 +110,7 @@ export async function runCommand(
 		}
 		await recordPreviewCreateEvent( {
 			success: false,
-			failure_reason: classifyPreviewFailure( error ),
+			failure_reason: classifyPreviewFailure( error, step ),
 			time_ms: Date.now() - startedAt,
 		} );
 		throw error instanceof LoggerError

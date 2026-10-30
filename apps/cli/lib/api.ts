@@ -76,10 +76,21 @@ export async function uploadArchive(
 		}
 
 		if ( error instanceof z.ZodError ) {
-			throw new LoggerError( __( 'Invalid API response format' ), error );
+			throw new LoggerError(
+				__( 'Invalid API response format' ),
+				error,
+				'upload_invalid_response'
+			);
 		}
 
-		throw new LoggerError( __( 'Failed to upload archive' ), error );
+		// The HTTP status separates rejected uploads (4xx), server failures (5xx), and requests
+		// that never got a response.
+		const status = error instanceof Error && 'statusCode' in error ? error.statusCode : undefined;
+		throw new LoggerError(
+			__( 'Failed to upload archive' ),
+			error,
+			typeof status === 'number' ? `upload_http_${ status }` : 'upload_network'
+		);
 	}
 }
 
@@ -114,7 +125,9 @@ export async function waitForSiteReady( siteId: number, token: string ): Promise
 	}
 
 	throw new LoggerError(
-		__( 'Failed to create preview site: site did not become ready within timeout' )
+		__( 'Failed to create preview site: site did not become ready within timeout' ),
+		undefined,
+		'timeout'
 	);
 }
 

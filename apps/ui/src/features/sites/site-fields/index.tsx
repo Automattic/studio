@@ -373,7 +373,7 @@ export function SiteSelect( {
 			<SelectTrigger { ...props }>
 				<SelectValue />
 			</SelectTrigger>
-			<SelectContent className={ styles.selectContent } alignItemWithTrigger={ false } align="end">
+			<SelectContent className={ styles.selectContent }>
 				{ groups.map( ( group ) => (
 					<SelectGroup key={ group ?? '' } className={ styles.selectGroup }>
 						{ group && <SelectLabel>{ group }</SelectLabel> }

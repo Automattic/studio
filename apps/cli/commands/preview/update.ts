@@ -1,18 +1,18 @@
 import os from 'node:os';
 import path from 'node:path';
-import { DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import { getSnapshotLink, isSnapshotExpired, isWpcomPreview } from '@studio/common/lib/snapshots';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { Snapshot } from '@studio/common/types/snapshot';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { addDays } from 'date-fns/addDays';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { cleanup, archiveSiteContent } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { emitCliEvent } from 'cli/lib/daemon-client';
+import { updatePreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSnapshotsFromConfig, updateSnapshotInConfig } from 'cli/lib/snapshots';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
@@ -33,14 +33,16 @@ async function getSnapshotToUpdate(
 
 	const snapshotToUpdate = snapshots.find( ( s ) => s.url === host );
 	if ( ! snapshotToUpdate ) {
-		throw new LoggerError( 'Preview site not found' );
+		throw new LoggerError( 'Preview site not found', undefined, 'not_found' );
 	}
 
 	if ( snapshotToUpdate.localSiteId !== currentSiteId && ! overwrite ) {
 		throw new LoggerError(
 			__(
 				'The specified directory does not match the original site for this preview. If you want to overwrite, run the command with --overwrite.'
-			)
+			),
+			undefined,
+			'site_mismatch'
 		);
 	}
 
@@ -59,12 +61,15 @@ export async function runCommand(
 	);
 	const startedAt = Date.now();
 	let siteId: string | undefined;
+	let step: LoggerAction | undefined;
 
 	try {
 		const token = await readAuthToken();
 		if ( ! token ) {
 			throw new LoggerError(
-				__( 'Authentication required. Please log in with `studio auth login`.' )
+				__( 'Authentication required. Please log in with `studio auth login`.' ),
+				undefined,
+				'auth_required'
 			);
 		}
 		const snapshots = await getSnapshotsFromConfig( token.id );
@@ -72,6 +77,7 @@ export async function runCommand(
 		const site = await getSiteByFolder( siteFolder );
 		siteId = site.id;
 		const reportStep = ( action: LoggerAction, message: string, progress: number ) => {
+			step = action;
 			logger.reportStart( action, message );
 			void reportSyncActivity( site.id, {
 				kind: 'pending',
@@ -83,10 +89,8 @@ export async function runCommand(
 		};
 		reportStep( LoggerAction.VALIDATE, __( 'Validating…' ), 0 );
 
-		const now = new Date();
-		const endDate = addDays( snapshotToUpdate.date, DEMO_SITE_EXPIRATION_DAYS );
-		if ( endDate < now ) {
-			throw new LoggerError( __( 'Cannot update an expired preview site.' ) );
+		if ( isSnapshotExpired( snapshotToUpdate ) ) {
+			throw new LoggerError( __( 'Cannot update an expired preview site.' ), undefined, 'expired' );
 		}
 		await validateSiteSize( siteFolder );
 
@@ -97,23 +101,44 @@ export async function runCommand(
 		logger.reportSuccess( __( 'Archive created' ) );
 
 		reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
-		const wordpressVersion = getWordPressVersion( siteFolder );
-		const uploadResponse = await uploadArchive(
-			archivePath,
-			token.accessToken,
-			wordpressVersion,
-			snapshotToUpdate.atomicSiteId
-		);
-		logger.reportSuccess( __( 'Archive uploaded' ) );
+		let shareUrl: string | undefined;
+		if ( isWpcomPreview( snapshotToUpdate ) ) {
+			const attachmentId = await uploadPreviewArchive(
+				archivePath,
+				token.accessToken,
+				snapshotToUpdate.atomicSiteId
+			);
+			logger.reportSuccess( __( 'Archive uploaded' ) );
 
-		reportStep( LoggerAction.READY, __( 'Updating preview site…' ), 60 );
-		await waitForSiteReady( uploadResponse.site_id, token.accessToken );
-		logger.reportSuccess(
-			sprintf( __( 'Preview site available at: %s' ), `https://${ uploadResponse.site_url }` )
-		);
+			reportStep( LoggerAction.READY, __( 'Updating preview site…' ), 60 );
+			( { shareUrl } = await updatePreviewSite(
+				snapshotToUpdate.atomicSiteId,
+				attachmentId,
+				token.accessToken
+			) );
+		} else {
+			// A preview made on Jurassic Ninja.
+			await uploadArchive(
+				archivePath,
+				token.accessToken,
+				getWordPressVersion( siteFolder ),
+				snapshotToUpdate.atomicSiteId
+			);
+			logger.reportSuccess( __( 'Archive uploaded' ) );
+
+			reportStep( LoggerAction.READY, __( 'Updating preview site…' ), 60 );
+			await waitForSiteReady( snapshotToUpdate.atomicSiteId, token.accessToken );
+		}
 
 		reportStep( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ), 95 );
-		const snapshot = await updateSnapshotInConfig( uploadResponse.site_id, siteFolder );
+		const snapshot = await updateSnapshotInConfig(
+			snapshotToUpdate.atomicSiteId,
+			siteFolder,
+			shareUrl
+		);
+		logger.reportSuccess(
+			sprintf( __( 'Preview site available at: %s' ), getSnapshotLink( snapshot ) )
+		);
 		await emitCliEvent( { event: SNAPSHOT_EVENTS.UPDATED, data: { snapshotUrl: snapshot.url } } );
 		await recordPreviewUpdateEvent( { success: true, time_ms: Date.now() - startedAt } );
 		await reportSyncActivity( siteId, { kind: 'success', direction: 'preview' } );
@@ -131,7 +156,7 @@ export async function runCommand(
 		}
 		await recordPreviewUpdateEvent( {
 			success: false,
-			failure_reason: classifyPreviewFailure( error ),
+			failure_reason: classifyPreviewFailure( error, step ),
 			time_ms: Date.now() - startedAt,
 		} );
 		throw error instanceof LoggerError

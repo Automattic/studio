@@ -35,8 +35,10 @@
 	background-color: var( --hover );
 }
 
-.groupPanel:not( [data-starting-style], [data-ending-style] ),
-.chatsPanel:not( [data-starting-style], [data-ending-style] ) {
+/* Folding panels clip their rows; once open, drop markers can reach past the
+   edges. */
+.groupPanel[data-settled],
+.chatsPanel[data-settled] {
 	overflow: visible;
 }
 

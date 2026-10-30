@@ -51,6 +51,7 @@ export function SiteAgentFiles( {
 			{ update.error ? <p className={ styles.error }>{ update.error.message }</p> : null }
 			<SettingsGroup>
 				<SettingsRow
+					settingId={ skills ? 'site-wordpress-skills' : 'site-agent-instructions' }
 					title={ title }
 					description={
 						skills

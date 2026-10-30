@@ -1,5 +1,6 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { closeNoticeHistory } from '@/features/notifications';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import styles from './style.module.css';
@@ -38,12 +39,35 @@ const switcherClosed = () =>
 		expect( screen.queryByRole( 'button', { name: 'Close sidebar' } ) ).not.toBeInTheDocument()
 	);
 
-beforeEach( () => localStorage.clear() );
+beforeEach( () => {
+	localStorage.clear();
+	closeNoticeHistory();
+} );
 afterEach( () =>
 	Object.defineProperty( window, 'innerWidth', { configurable: true, value: originalWidth } )
 );
 
 describe( 'sidebar hover overlay', () => {
+	it( 'closes notification history when the palette hides its sidebar and does not reopen it', async () => {
+		const { user, trigger, open } = await setup( 540 );
+		const switcher = await open();
+		fireEvent.click( within( switcher ).getByRole( 'button', { name: /Notification history/ } ) );
+		expect( await screen.findByText( 'No notifications.' ) ).toBeVisible();
+		const isApple = /Mac|iPhone|iPad/.test( navigator.platform );
+		fireEvent.keyDown( document, { code: 'KeyK', key: 'k', metaKey: isApple, ctrlKey: ! isApple } );
+		const input = await screen.findByRole( 'combobox', { name: 'Search commands' } );
+		await waitFor( () =>
+			expect( screen.queryByText( 'No notifications.' ) ).not.toBeInTheDocument()
+		);
+		fireEvent.keyDown( input, { key: 'Escape' } );
+		await waitFor( () =>
+			expect( screen.queryByRole( 'dialog', { name: 'Command palette' } ) ).not.toBeInTheDocument()
+		);
+		await user.unhover( trigger );
+		await open();
+		expect( screen.queryByText( 'No notifications.' ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'lists the sites on hover and closes once one opens', async () => {
 		const { connector, history, open } = await setup();
 		const switcher = await open();

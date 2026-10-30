@@ -1,5 +1,4 @@
 import { __, sprintf } from '@wordpress/i18n';
-import { EllipsisIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { getSessionTitle } from '@/features/chats';
 import {
@@ -68,7 +67,6 @@ export function SiteChats( {
 					inset
 					onClick={ () => setChatCount( ( count ) => count + CHATS_PAGE_SIZE ) }
 				>
-					<EllipsisIcon />
 					<SidebarMenuLabel>{ __( 'Show more' ) }</SidebarMenuLabel>
 				</SidebarMenuButton>
 			</SidebarMenuItem>

@@ -63,7 +63,7 @@ export function storePreviewVisibility( open: boolean | null ): void {
 
 export const PREVIEW_CONTENT_DEFAULT_WIDTH = 360;
 export const PREVIEW_PANEL_MIN_WIDTH = 360;
-const PREVIEW_PANEL_MIN_CONTENT_WIDTH = 320;
+const PREVIEW_PANEL_MIN_CONTENT_WIDTH = 360;
 export const PREVIEW_SPLIT_MIN_WIDTH = PREVIEW_PANEL_MIN_WIDTH + PREVIEW_PANEL_MIN_CONTENT_WIDTH;
 
 export const SIDEBAR_PANEL_CONFIG: ResizablePanelConfig = {

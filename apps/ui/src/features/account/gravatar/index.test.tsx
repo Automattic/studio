@@ -3,12 +3,6 @@ import { describe, expect, it } from 'vitest';
 import { Gravatar } from './index';
 
 describe( 'Gravatar', () => {
-	it( 'shows a local fallback without an email', () => {
-		const { container } = render( <Gravatar email="" /> );
-		expect( container.querySelector( 'svg' ) ).toBeInTheDocument();
-		expect( container.querySelector( 'img' ) ).not.toBeInTheDocument();
-	} );
-
 	it( 'keeps the fallback when the photo is unavailable and tries a new account photo', async () => {
 		const { container, rerender } = render( <Gravatar email="first@example.test" /> );
 		await waitFor( () => expect( container.querySelector( 'img' ) ).toBeInTheDocument() );

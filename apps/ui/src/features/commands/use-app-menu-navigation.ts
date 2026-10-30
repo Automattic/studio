@@ -5,12 +5,24 @@ import { resolveSettingsLink } from '@/data/settings-sections';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { useOpenAddSite, createSelectedBlueprint, pendingBlueprintSlot } from '@/features/sites';
 
+function isPoetryOpen() {
+	return !! document.querySelector(
+		'[data-slot="dialog-content"][data-poetry]:not([data-closed])'
+	);
+}
+
 export function useAppMenuNavigation() {
 	const connector = useConnector();
 	const openSettings = useOpenSettings();
 	const openAddSite = useOpenAddSite();
 
-	useEffect( () => connector.onAddSite( () => openAddSite() ), [ connector, openAddSite ] );
+	useEffect(
+		() =>
+			connector.onAddSite( () => {
+				if ( ! isPoetryOpen() ) openAddSite();
+			} ),
+		[ connector, openAddSite ]
+	);
 	useEffect(
 		() =>
 			connector.onAddSiteWithBlueprint( ( { blueprintPath } ) => {
@@ -52,11 +64,12 @@ export function useAppMenuNavigation() {
 	);
 	useEffect(
 		() =>
-			connector.onOpenSettings( ( { settingId } ) =>
-				settingId
+			connector.onOpenSettings( ( { settingId } ) => {
+				if ( isPoetryOpen() ) return;
+				return settingId
 					? openSettings( resolveSettingsLink( settingId ), undefined, settingId )
-					: openSettings()
-			),
+					: openSettings();
+			} ),
 		[ connector, openSettings ]
 	);
 }

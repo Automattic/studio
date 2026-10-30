@@ -43,3 +43,53 @@
 .icon {
 	flex: none;
 }
+
+.poetryPopup {
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	max-width: none;
+	max-height: none;
+	overflow: hidden;
+	padding: 0;
+	border-radius: 0;
+	background-color: var( --background );
+	box-shadow: none;
+	scale: 1;
+	transform: none;
+	transition-property: opacity;
+	-webkit-app-region: no-drag;
+}
+
+.poetryPopup:is( [data-starting-style], [data-ending-style] ) {
+	scale: 1;
+}
+
+@starting-style {
+	.poetryPopup {
+		scale: 1;
+	}
+}
+
+.poetryScene {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	cursor: default;
+	outline: none;
+	animation: poetry-reveal var( --motion-duration-surface ) var( --motion-ease-enter ) both;
+}
+
+@keyframes poetry-reveal {
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
+	}
+}

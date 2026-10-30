@@ -1061,6 +1061,9 @@ function toToolDefinition(
 					.filter( Boolean )
 					.join( '\n' );
 			} );
+			if ( ( tool as { reportsChecks?: boolean } ).reportsChecks ) {
+				await timeCheck( 'ownChecks', () => afterChecks.settle() );
+			}
 			const reports = studioMessage( 'notes', [
 				...validationReport,
 				pendingWork.takeReports(),

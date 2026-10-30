@@ -68,5 +68,6 @@ export const createSiteTool = defineTool(
 	{
 		annotations: LOCAL_CHANGE,
 		siteParam: 'name',
+		reportsChecks: true,
 	}
 );

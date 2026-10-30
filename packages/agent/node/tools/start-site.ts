@@ -19,5 +19,5 @@ export const startSiteTool = defineTool(
 			);
 		}
 	},
-	{ annotations: LOCAL_CHANGE }
+	{ annotations: LOCAL_CHANGE, reportsChecks: true }
 );

@@ -121,6 +121,10 @@ export interface ToolOptions {
 	// The tool renders the site, so it runs only once the pending work of
 	// earlier tools, such as images still being generated, has settled.
 	settlesPendingWork?: boolean;
+	// What the agent does next depends on what Studio knows of the site the
+	// call makes or starts, so its result waits for Studio's checks of the
+	// call, the site's facts among them, which otherwise come with the next.
+	reportsChecks?: boolean;
 	// The argument that names the local site a call is about, when it is not
 	// `nameOrPath`: notes on the result, such as the site's facts, are about it.
 	siteParam?: string;
@@ -165,6 +169,7 @@ export interface AnyStudioAgentTool {
 	prepareArguments?: ( args: unknown ) => unknown;
 	executionMode?: unknown;
 	settlesPendingWork?: boolean;
+	reportsChecks?: boolean;
 	annotations: ToolAnnotations;
 	siteParam?: string;
 }
@@ -182,6 +187,7 @@ export function defineTool< TProps extends TProperties >(
 		parameters: Type.Object( properties ),
 		label: name,
 		...( options.settlesPendingWork ? { settlesPendingWork: true } : {} ),
+		...( options.reportsChecks ? { reportsChecks: true } : {} ),
 		...( options.forHost ? { forHost: options.forHost } : {} ),
 		...( options.siteParam ? { siteParam: options.siteParam } : {} ),
 		annotations: options.annotations,

@@ -20,5 +20,6 @@ export const getSiteInfoTool = defineTool(
 	},
 	{
 		annotations: READ_ONLY,
+		reportsChecks: true,
 	}
 );

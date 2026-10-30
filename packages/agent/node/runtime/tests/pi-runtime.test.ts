@@ -1027,6 +1027,35 @@ describe( 'pi runtime', () => {
 		}
 	} );
 
+	it( "carries a site tool's own checks, the site's facts among them, in its result", async () => {
+		await runRuntime( {
+			prompt: 'hello',
+			env: WPCOM_ENV,
+			session: newSession(),
+			activeSite: {
+				name: 'A',
+				path: '/sites/a',
+				running: false,
+			} as StudioAgentTurnConfig[ 'activeSite' ],
+		} );
+		mocks.settleMs = 20;
+		try {
+			const result = ( await getCreatedTool( 'site_info' )
+				.execute( 's', { nameOrPath: 'A' } )
+				.catch( ( error: Error ) => ( {
+					content: [ { type: 'text', text: error.message } ],
+				} ) ) ) as {
+				content: Array< { type: string; text: string } >;
+			};
+			expect( result.content.map( ( part ) => part.text ).join( '\n' ) ).toContain(
+				'<studio-notes>\nresult on '
+			);
+			expect( await takeNotes() ).toBeUndefined();
+		} finally {
+			mocks.settleMs = 0;
+		}
+	} );
+
 	it( 'tells the notes the text the file tool left, before Studio acts on it', async () => {
 		await runRuntime( { prompt: 'hello', env: WPCOM_ENV, session: newSession() } );
 		const file = path.resolve( mocks.studioRoot, 'a/style.css' );

@@ -972,6 +972,33 @@ describe.runIf( siteUrl && sitePath )( 'a block whose editor script throws (live
 	}, 60_000 );
 } );
 
+describe.runIf( siteUrl && sitePath )( 'a theme without sticky positions (live)', () => {
+	afterAll( cleanupValidatorPages );
+
+	it( 'names no attribute for a sticky style the theme renders nothing from', async () => {
+		// WordPress renders style.position sticky only when the theme opts in
+		// (wp_render_position_support in wp-includes/block-supports/position.php).
+		const plugin = path.join( sitePath!, 'wp-content/mu-plugins/studio-test-no-sticky.php' );
+		writeFileSync(
+			plugin,
+			`<?php
+add_filter( 'wp_theme_json_data_theme', fn( $data ) => $data->update_with( array( 'version' => 3, 'settings' => array( 'position' => array( 'sticky' => false ) ) ) ) );
+`
+		);
+		try {
+			const result = await validateBlocks(
+				'<!-- wp:group -->\n<div class="wp-block-group" style="position:sticky;top:0px"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:group -->',
+				siteUrl!
+			);
+			expect( result.proposedFix?.losses.map( ( { lost } ) => lost ) ).toEqual( [
+				'drop the styles position:sticky; top:0px',
+			] );
+		} finally {
+			rmSync( plugin, { force: true } );
+		}
+	}, 120_000 );
+} );
+
 describe.runIf( siteUrl && sitePath )( 'a block the Site Editor registers only (live)', () => {
 	afterAll( cleanupValidatorPages );
 

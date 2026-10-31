@@ -1408,7 +1408,12 @@ export async function validateBlocks(
 					fromValue( 'flex-wrap', { nowrap: 'nowrap', wrap: 'wrap' }, 'flexWrap' );
 					fromValue( 'flex-direction', { column: 'vertical', row: 'horizontal' }, 'orientation' );
 				}
+				// WordPress renders a sticky position only when the theme opts in
+				// (wp_render_position_support in wp-includes/block-supports/position.php).
+				const themeSticky =
+					editorSettings.__experimentalFeatures?.position?.sticky === true;
 				if (
+					themeSticky &&
 					supports( 'position.sticky' ) &&
 					( value.get( 'position' ) === 'sticky' || value.has( 'top' ) )
 				) {

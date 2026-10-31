@@ -10,6 +10,8 @@ const MSHOTS = 'https://s0.wp.com/mshots/v1/**';
 const THUMB = { width: 600, height: 400 };
 // The account's preview-site count and limit.
 const USAGE = 'https://public-api.wordpress.com/wpcom/v2/jurassic-ninja/usage';
+// The account's AI credits, `STUDIO_ASSISTANT_QUOTA_URL` in the Studio source.
+const AI_QUOTA = 'https://public-api.wordpress.com/wpcom/v2/studio-app/ai-assistant/quota';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
@@ -116,8 +118,7 @@ export async function loadPreviewSites( dir, demoSites ) {
 
 /**
  * Makes a running Studio list `previewSites` as the preview sites of the
- * account `userId`, with a matching usage count, and serves their thumbnails
- * from `previews`.
+ * account `userId`, and serves their thumbnails from `previews`.
  * Nothing is created or changed on WordPress.com.
  */
 export async function replacePreviewSites( { app, window }, previewSites, previews, userId ) {
@@ -128,17 +129,27 @@ export async function replacePreviewSites( { app, window }, previewSites, previe
 		},
 		previewSites.map( ( p ) => ( { ...p.site, userId } ) )
 	);
-	await window.context().route( USAGE, ( route ) =>
-		route.fulfill( {
-			contentType: 'application/json',
-			body: JSON.stringify( {
-				site_count: previewSites.length,
-				site_limit: 10,
-				site_creation_blocked: false,
-			} ),
-		} )
-	);
 	await serveThumbnails( window, previewSites, previews );
+}
+
+/**
+ * What every signed-in suite answers for the account instead of WordPress.com,
+ * as `launchStudio` routes: the AI credits from `ai-quota.json` (a free account
+ * partway through its allowance, so no shot shows the real account's balance)
+ * and a preview-site usage that matches `preview-sites.json`.
+ */
+export async function loadAccountRoutes( dir ) {
+	const [ quota, previewSites ] = await Promise.all( [
+		readJson( path.join( dir, 'ai-quota.json' ) ),
+		readJson( path.join( dir, 'preview-sites.json' ) ),
+	] );
+	return [
+		{ url: AI_QUOTA, json: quota },
+		{
+			url: USAGE,
+			json: { site_count: previewSites.length, site_limit: 10, site_creation_blocked: false },
+		},
+	];
 }
 
 /**

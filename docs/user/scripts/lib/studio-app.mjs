@@ -225,7 +225,9 @@ function buildAppConfig( { firstRun, appData } ) {
 
 /**
  * Launches Studio against a profile from `createProfile()`, in a window of a
- * fixed size so the shots match across machines.
+ * fixed size so the shots match across machines. `routes` (`{ url, json }`)
+ * answer the window's requests to `url` with `json`; the window is reloaded
+ * once they are in place, so nothing it fetched before them is shown.
  */
 export async function launchStudio( {
 	profile,
@@ -234,6 +236,7 @@ export async function launchStudio( {
 	firstRun = false,
 	appData = {},
 	authToken = null,
+	routes = [],
 } ) {
 	if ( appDir ) {
 		appDir = resolveAppDir( appDir );
@@ -273,6 +276,12 @@ export async function launchStudio( {
 		win?.center();
 	}, WINDOW );
 	await window.waitForLoadState( 'domcontentloaded' );
+	if ( routes.length ) {
+		for ( const { url, json } of routes ) {
+			await app.context().route( url, ( route ) => route.fulfill( { json } ) );
+		}
+		await window.reload( { waitUntil: 'domcontentloaded' } );
+	}
 
 	return {
 		app,

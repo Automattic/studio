@@ -8,6 +8,7 @@ import { createProfile, launchStudio, readAuthToken } from './lib/studio-app.mjs
 import { seedChats, seedSites, siteMetadata } from './lib/studio-seed.mjs';
 import {
 	capturePreviews,
+	loadAccountRoutes,
 	loadPreviewSites,
 	loadWpcomSites,
 	replaceConnectedSites,
@@ -210,6 +211,7 @@ async function main() {
 
 	// Read before anything launches, so a missing login fails the run up front.
 	const authToken = selected.some( ( s ) => s.signedIn ) ? await readAuthToken() : null;
+	const accountRoutes = authToken ? await loadAccountRoutes( DEMO_SITE_DIR ) : [];
 	// Signed-in suites list made-up WordPress.com sites, not the account's own.
 	let wpcom = null;
 	if ( selected.some( ( s ) => s.signedIn && ! s.firstRun ) ) {
@@ -250,6 +252,7 @@ async function main() {
 					? {}
 					: { ...siteMetadata( demo.sites ), aiSessionPlacements: chats?.placements },
 				authToken: suite.signedIn ? authToken : null,
+				routes: suite.signedIn ? accountRoutes : [],
 			} );
 			version ??= studio.version;
 			if ( suite.signedIn && wpcom ) {

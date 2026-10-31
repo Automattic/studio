@@ -1,5 +1,10 @@
 import os from 'node:os';
-import { classifyExportFailure, classifyImportFailure, getPrettyPath } from 'cli/lib/utils';
+import {
+	classifyExportFailure,
+	classifyImportFailure,
+	classifyPreviewFailure,
+	getPrettyPath,
+} from 'cli/lib/utils';
 import { LoggerError } from 'cli/logger';
 
 describe( 'getPrettyPath', () => {
@@ -147,5 +152,28 @@ describe( 'classifyExportFailure', () => {
 			new LoggerError( 'Database export failed', undefined, 'database_export' )
 		);
 		expect( classifyExportFailure( error ) ).toBe( 'database_export' );
+	} );
+} );
+
+describe( 'classifyPreviewFailure', () => {
+	it( 'returns the code carried by a LoggerError, whatever the display language', () => {
+		const error = new LoggerError(
+			'Échec du téléversement de l’archive',
+			new LoggerError( 'Failed to upload archive', undefined, 'upload_http_502' )
+		);
+		expect( classifyPreviewFailure( error, 'upload' ) ).toBe( 'upload_http_502' );
+	} );
+
+	it( 'classifies untranslated ENOSPC errors as disk_full', () => {
+		expect(
+			classifyPreviewFailure( new Error( 'ENOSPC: no space left on device' ), 'archive' )
+		).toBe( 'disk_full' );
+	} );
+
+	it( 'falls back to the step that failed, then to unknown', () => {
+		expect( classifyPreviewFailure( new Error( 'zip stream ended' ), 'archive' ) ).toBe(
+			'archive'
+		);
+		expect( classifyPreviewFailure( new Error( 'Something else' ) ) ).toBe( 'unknown' );
 	} );
 } );

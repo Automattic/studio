@@ -89,6 +89,7 @@ export function DialogContent( {
 	layout = 'default',
 	backdrop = 'dimmed',
 	keepMounted = false,
+	motion = 'default',
 	...props
 }: ComponentProps< typeof BaseDialog.Popup > & {
 	showCloseButton?: boolean;
@@ -97,14 +98,20 @@ export function DialogContent( {
 	backdrop?: 'dimmed' | 'transparent';
 	/** Keeps ongoing operations and form state alive after dismissal. */
 	keepMounted?: boolean;
+	motion?: 'default' | 'none';
 } ) {
 	return (
 		<BaseDialog.Portal keepMounted={ keepMounted }>
-			<BaseDialog.Backdrop data-variant={ backdrop } className={ styles.overlay } />
+			<BaseDialog.Backdrop
+				data-variant={ backdrop }
+				data-motion={ motion }
+				className={ styles.overlay }
+			/>
 			<BaseDialog.Popup
 				data-slot="dialog-content"
 				data-layout={ layout }
 				data-backdrop={ backdrop }
+				data-motion={ motion }
 				className={ clsx( surfaceStyles.floating, styles.content, className ) }
 				{ ...props }
 			>
@@ -233,7 +240,11 @@ function DialogScrollArea( {
 	const [ scrolled, setScrolled ] = useState( false );
 	useImperativeHandle( ref, () => element.current!, [] );
 	const measure = useCallback( () => {
-		setScrolled( ( element.current?.scrollTop ?? 0 ) > 0 );
+		const node = element.current;
+		if ( ! node ) return;
+		const scrollTop = Math.max( 0, node.scrollTop );
+		node.style.setProperty( '--scroll-fade-size', `${ Math.min( scrollTop, 20 ) }px` );
+		setScrolled( scrollTop > 0 );
 	}, [] );
 	useLayoutEffect( () => {
 		measure();

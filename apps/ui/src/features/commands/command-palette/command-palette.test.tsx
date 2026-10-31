@@ -2,6 +2,7 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetAppMessagesForTests } from '@/data/app-messages';
 import { setCommandPaletteOpen } from '@/data/use-command-palette';
+import { closeNoticeHistory } from '@/features/notifications';
 import {
 	createFakeConnector,
 	makeSession,
@@ -50,9 +51,51 @@ const revealed = ( setting: string ) =>
 const searchParams = ( history: { location: { search: string } } ) =>
 	Object.fromEntries( new URLSearchParams( history.location.search ) );
 
-afterEach( () => act( () => setCommandPaletteOpen( false ) ) );
+afterEach( () =>
+	act( () => {
+		setCommandPaletteOpen( false );
+		closeNoticeHistory();
+	} )
+);
 
 describe( 'command palette', () => {
+	it( 'toggles the sidebar after releasing the palette dialog guard', async () => {
+		await renderPalette();
+		for ( const label of [ 'Hide sidebar', 'Show sidebar' ] ) {
+			await openPalette();
+			search( label );
+			fireEvent.click( option( label ) );
+			await paletteClosed();
+			await waitFor( () =>
+				expect(
+					screen
+						.getAllByRole( 'button', {
+							name: label === 'Hide sidebar' ? 'Show sidebar' : 'Hide sidebar',
+						} )
+						.some( ( button ) => ! button.closest( '[inert]' ) )
+				).toBe( true )
+			);
+		}
+	} );
+
+	it( 'opens one notification history from a collapsed sidebar after the palette closes', async () => {
+		await renderPalette();
+		fireEvent.click( screen.getAllByRole( 'button', { name: 'Hide sidebar' } )[ 0 ] );
+		for ( let attempt = 0; attempt < 2; attempt++ ) {
+			await openPalette();
+			await waitFor( () =>
+				expect( screen.queryByText( 'No notifications.' ) ).not.toBeInTheDocument()
+			);
+			search( 'Show notifications' );
+			fireEvent.click( option( 'Show notifications' ) );
+			await paletteClosed();
+			await screen.findByText( 'No notifications.' );
+			expect( screen.getAllByRole( 'dialog', { name: 'Notification history' } ) ).toHaveLength( 1 );
+			const bell = screen.getByRole( 'button', { name: 'Notification history' } );
+			expect( bell.closest( '[inert]' ) ).toBeNull();
+		}
+	} );
+
 	it.each( [ false, true ] )(
 		'offers the Usage section only when signed in to WordPress.com: %s',
 		async ( signedIn ) => {
@@ -74,18 +117,84 @@ describe( 'command palette', () => {
 		[ 'MCP', 'MCP', 'mcp' ],
 		[ 'Connect', 'AI Providers', 'ai' ],
 		[ 'Connect provider', 'AI Providers', 'ai' ],
-		[ 'credits', 'WordPress.com AI Usage', 'usage' ],
-		[ 'AI credits', 'WordPress.com AI Usage', 'usage' ],
-		[ 'credit balance', 'WordPress.com AI Usage', 'usage' ],
+		[ 'credits', 'Usage', 'usage' ],
+		[ 'AI credits', 'Usage', 'usage' ],
+		[ 'credit balance', 'Usage', 'usage' ],
 		[ 'Sharing', 'Sharing', 'sharing' ],
-		[ 'Previews', 'Sharing previews on WordPress.com Sharing', 'sharing' ],
-		[ 'snapshots', 'Sharing previews on WordPress.com Sharing', 'sharing' ],
+		[ 'Previews', 'Sharing', 'sharing' ],
+		[ 'snapshots', 'Sharing', 'sharing' ],
 	] )( 'searches for %s and opens its settings tab', async ( query, label, tab ) => {
 		const { history, user } = await renderPalette();
 		await openPalette();
 		search( query );
 		await user.click( option( label ) );
 		await waitFor( () => expect( searchParams( history ).settings ).toBe( tab ) );
+	} );
+
+	it.each( [
+		[ 'Skills on this site', 'Skills', 'site-skills', 'WordPress skills', 'site-wordpress-skills' ],
+	] )(
+		'opens the canonical destination for %s without changing settings',
+		async ( query, label, section, setting, id ) => {
+			const { history, user, connector } = await renderPalette();
+			await openPalette();
+			search( query );
+			expect( screen.getAllByRole( 'option' ) ).toHaveLength( 1 );
+			await user.click( option( new RegExp( `^${ label }` ) ) );
+			await waitFor( () => expect( searchParams( history ).settings ).toBe( section ) );
+			await revealed( setting );
+			expect( document.querySelector( '[data-settings-match]' ) ).toHaveAttribute(
+				'data-setting-id',
+				id
+			);
+			expect( connector.setUserPreferences ).not.toHaveBeenCalled();
+			expect( connector.installWordPressSkillToAllSites ).not.toHaveBeenCalled();
+			expect( connector.removeWordPressSkillFromAllSites ).not.toHaveBeenCalled();
+		}
+	);
+
+	it( 'highlights the app Skills control through its consolidated destination', async () => {
+		const connector = createFakeConnector( { sites: [ testSite ] } );
+		connector.getWordPressSkillsStatusAllSites.mockResolvedValue( [
+			{
+				id: 'wp-test',
+				displayName: 'Test skill',
+				description: 'Test',
+				installed: true,
+			},
+		] );
+		const { user } = await renderPalette( { connector } );
+		await openPalette();
+		search( 'skills' );
+		expect( screen.getAllByRole( 'option' ) ).toHaveLength( 2 );
+		expect(
+			screen.queryByRole( 'option', { name: /^(Enable|Disable) WordPress skills/ } )
+		).not.toBeInTheDocument();
+		await user.click(
+			within( screen.getByRole( 'group', { name: 'App settings' } ) ).getByRole( 'option', {
+				name: 'Skills',
+			} )
+		);
+		await revealed( 'WordPress skills' );
+		expect( document.querySelector( '[data-settings-match]' ) ).toHaveAttribute(
+			'data-setting-id',
+			'wordpress-skills'
+		);
+	} );
+
+	it( 'uses Rename site as the only Site name destination and focuses its stable target', async () => {
+		const { history, user } = await renderPalette();
+		await openPalette();
+		search( 'Site name' );
+		expect( screen.getAllByRole( 'option' ) ).toHaveLength( 1 );
+		await user.click( option( 'Rename site… Test site' ) );
+		await waitFor( () => expect( searchParams( history ).settings ).toBe( 'site' ) );
+		await revealed( 'Site name' );
+		expect( document.querySelector( '[data-settings-match]' ) ).toHaveAttribute(
+			'data-setting-id',
+			'site-name'
+		);
+		expect( screen.getByRole( 'textbox', { name: 'Site name' } ) ).toHaveFocus();
 	} );
 
 	it( 'searches settings details and runs their deep link, and clears search on reopening', async () => {
@@ -139,7 +248,7 @@ describe( 'command palette', () => {
 		expect( screen.queryByRole( 'option', { name: /^Start site/ } ) ).not.toBeInTheDocument();
 		search( 'Open WordPress Admin' );
 		expect(
-			screen.queryByRole( 'option', { name: /Open WordPress Admin/ } )
+			screen.queryByRole( 'option', { name: /^Open WordPress Admin in preview/ } )
 		).not.toBeInTheDocument();
 	} );
 
@@ -161,7 +270,7 @@ describe( 'command palette', () => {
 		await waitFor( () => expect( searchParams( history ).addSite ).toBe( 'create' ) );
 	} );
 
-	it( 'shows the available commands before typing', async () => {
+	it( 'shows the available commands and settings destinations before typing', async () => {
 		await renderPalette();
 		await openPalette();
 		for ( const name of [
@@ -172,6 +281,10 @@ describe( 'command palette', () => {
 			'Settings',
 			'Site settings Test site',
 			'Use dark mode',
+			'Skills',
+			'Skills Test site',
+			'Language General',
+			'Reset appearance Appearance',
 		] ) {
 			expect( option( name ) ).toBeVisible();
 		}
@@ -227,14 +340,14 @@ describe( 'command palette', () => {
 			connector: createFakeConnector( { sites: [ testSite ], sessions } ),
 		} );
 		await openPalette();
-		const recent = await screen.findByRole( 'group', { name: 'Recent' } );
+		const recent = await screen.findByRole( 'group', { name: 'Recent chats' } );
 		expect(
 			within( recent )
 				.getAllByRole( 'option' )
 				.map( ( row ) => row.textContent )
 		).toEqual( [ 6, 5, 4, 3, 2 ].map( ( index ) => `Conversation ${ index }Test site` ) );
 		search( 'Conversation 0' );
-		expect( screen.queryByRole( 'group', { name: 'Recent' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'group', { name: 'Recent chats' } ) ).not.toBeInTheDocument();
 		expect( screen.getAllByRole( 'option', { name: 'Conversation 0 Test site' } ) ).toHaveLength(
 			1
 		);
@@ -271,7 +384,12 @@ describe( 'command palette', () => {
 		const { connector, user } = await renderPalette();
 		await openPalette();
 		search( 'Collapse sidebar groups' );
-		const row = option( /^Turn (on|off) “Collapse sidebar groups”/ );
+		const row = option( /^(Enable|Disable) automatic sidebar collapsing/ );
+		expect(
+			within( screen.getByRole( 'group', { name: 'Commands' } ) ).getByRole( 'option', {
+				name: /^(Enable|Disable) automatic sidebar collapsing/,
+			} )
+		).toBe( row );
 		expect( screen.queryByRole( 'switch' ) ).not.toBeInTheDocument();
 		await user.click( row );
 		await waitFor( () =>
@@ -283,8 +401,8 @@ describe( 'command palette', () => {
 	} );
 
 	it.each( [
-		[ 'color', 'Color Appearance', 'Color' ],
-		[ 'colour', 'Color Appearance', 'Color' ],
+		[ 'color', 'Accent Appearance', 'Accent' ],
+		[ 'colour', 'Accent Appearance', 'Accent' ],
 		[ 'tint intensity', 'Intensity Appearance', 'Intensity' ],
 	] )( 'finds appearance controls with %s', async ( query, label, setting ) => {
 		const { history, user } = await renderPalette();
@@ -406,7 +524,7 @@ describe( 'Command palette in the Studio workspace', () => {
 		} );
 		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
 		pressK();
-		const recentGroup = await screen.findByRole( 'group', { name: 'Recent' } );
+		const recentGroup = await screen.findByRole( 'group', { name: 'Recent chats' } );
 		expect(
 			within( recentGroup ).queryByRole( 'option', { name: /Archived|Missing/ } )
 		).not.toBeInTheDocument();
@@ -495,10 +613,10 @@ describe( 'Command palette in the Studio workspace', () => {
 		expect( connector.importSiteFromBackup ).not.toHaveBeenCalled();
 		fireEvent.click( within( confirmation ).getByRole( 'button', { name: 'Cancel' } ) );
 		expect( connector.importSiteFromBackup ).not.toHaveBeenCalled();
-		await paletteCommand( 'reset appearance', /^Reset appearance tint/ );
+		await paletteCommand( 'reset appearance', /^Reset appearance/ );
 		await waitFor( () =>
 			expect( connector.setUserPreferences ).toHaveBeenCalledExactlyOnceWith(
-				{ accentColor: '#3858e9', tintIntensity: 0, contrast: 0 },
+				{ accentColor: '#3858e9', tintIntensity: 0, contrast: 0, colorScheme: 'system' },
 				undefined
 			)
 		);

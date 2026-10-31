@@ -102,7 +102,7 @@ describe( 'CLI: studio site delete', () => {
 	};
 
 	const testSnapshot1 = {
-		url: 'https://preview1.example.com',
+		url: 'preview1.wp.build',
 		atomicSiteId: 123456,
 		localSiteId: 'test-site-id',
 		date: 1234567890000,
@@ -112,7 +112,7 @@ describe( 'CLI: studio site delete', () => {
 	};
 
 	const testSnapshot2 = {
-		url: 'https://preview2.example.com',
+		url: 'preview2.wp.build',
 		atomicSiteId: 123457,
 		localSiteId: 'test-site-id',
 		date: 1234567890000,

@@ -123,6 +123,8 @@ import {
 	readOnboardingCompleted,
 	writeOnboardingCompleted,
 } from '@studio/common/lib/user-settings/onboarding';
+import { openSiteInBrowser } from '@studio/common/lib/user-settings/open-browser';
+import { getSiteBrowserUrl } from '@studio/common/lib/user-settings/site-browser-url';
 import {
 	onboardingHintsSchema,
 	readDefaultSiteDirectory,
@@ -154,7 +156,14 @@ import { createSyncRunner } from '@studio/common/sites/sync';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
-import { isEditor, isTerminal, openInEditor, openInTerminal, openPath } from './open-in-os';
+import {
+	isEditor,
+	isTerminal,
+	openInEditor,
+	openInTerminal,
+	openPath,
+	openUrl,
+} from './open-in-os';
 import type { StudioChatFileAttachment } from '@studio/agent/protocol/chat-files';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
 import type { AiSettings } from '@studio/agent/protocol/providers';
@@ -1586,6 +1595,22 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		return terminal && isTerminal( terminal ) ? terminal : 'terminal';
 	};
 
+	api.post(
+		'/sites/:id/open-in-browser',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: 'Site not found' } );
+				return;
+			}
+			const relativeUrl = typeof req.body?.relativeUrl === 'string' ? req.body.relativeUrl : '';
+			await openSiteInBrowser(
+				getSiteBrowserUrl( site, relativeUrl, req.body?.autoLogin !== false ),
+				openUrl
+			);
+			res.status( 204 ).end();
+		} )
+	);
 	api.post(
 		'/sites/:id/open-in-editor',
 		asyncHandler( async ( req: Request, res: Response ) => {

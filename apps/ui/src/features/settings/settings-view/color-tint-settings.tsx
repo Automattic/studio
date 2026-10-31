@@ -1,63 +1,10 @@
-import {
-	DEFAULT_ACCENT_COLOR,
-	getColorTint,
-	type ColorTint,
-} from '@studio/common/lib/user-settings/preferences';
+import { getColorTint, type ColorTint } from '@studio/common/lib/user-settings/preferences';
 import { __ } from '@wordpress/i18n';
-import { useEffect, useLayoutEffect, useState } from 'react';
-import {
-	applyColorTint,
-	DEFAULT_COLOR_TINT,
-	isDefaultColorTint,
-	previewAccentColor,
-} from '@/lib/theme';
-import {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupInput,
-	Slider,
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from '@/lib/ui';
+import { useEffect, useState } from 'react';
+import { applyColorTint } from '@/lib/theme';
+import { InputGroup, InputGroupAddon, InputGroupInput, Slider } from '@/lib/ui';
 import { SettingsRow } from './rows';
 import styles from './style.module.css';
-
-const getColorPresets = () => [
-	{ label: __( 'Default' ), color: DEFAULT_ACCENT_COLOR },
-	{ label: __( 'Green' ), color: '#069e08', tintIntensity: 20 },
-	{ label: __( 'Purple' ), color: '#8c52d9' },
-];
-
-function ColorSwatch( {
-	label,
-	color,
-	selected,
-	onClick,
-}: {
-	label: string;
-	color: string;
-	selected: boolean;
-	onClick: () => void;
-} ) {
-	return (
-		<Tooltip>
-			<TooltipTrigger
-				render={
-					<button
-						type="button"
-						className={ styles.swatch }
-						aria-label={ label }
-						aria-pressed={ selected }
-						style={ { backgroundColor: color } }
-						onClick={ onClick }
-					/>
-				}
-			/>
-			<TooltipContent>{ label }</TooltipContent>
-		</Tooltip>
-	);
-}
 
 // The accent color, tint intensity and contrast rows. Sliders preview while
 // dragging and save on release.
@@ -76,35 +23,6 @@ export function ColorTintSettings( {
 		setHex( accentColor );
 	}, [ accentColor, tintIntensity, contrast ] );
 
-	// Each preset in the accent the active theme gives it.
-	const [ previewColors, setPreviewColors ] = useState< Record< string, string > >( {} );
-	useLayoutEffect( () => {
-		const update = () =>
-			setPreviewColors(
-				Object.fromEntries(
-					getColorPresets().map( ( preset ) => [
-						preset.color,
-						previewAccentColor( {
-							...( preset.color === DEFAULT_ACCENT_COLOR ? DEFAULT_COLOR_TINT : draft ),
-							accentColor: preset.color,
-							tintIntensity:
-								preset.tintIntensity ??
-								( preset.color === DEFAULT_ACCENT_COLOR
-									? DEFAULT_COLOR_TINT.tintIntensity
-									: draft.tintIntensity ),
-						} ),
-					] )
-				)
-			);
-		update();
-		const observer = new MutationObserver( update );
-		observer.observe( document.documentElement, {
-			attributes: true,
-			attributeFilter: [ 'data-color-scheme' ],
-		} );
-		return () => observer.disconnect();
-	}, [ draft ] );
-
 	const preview = ( patch: Partial< ColorTint > ) => {
 		const next = { ...draft, ...patch };
 		setDraft( next );
@@ -115,31 +33,11 @@ export function ColorTintSettings( {
 
 	return (
 		<>
-			<SettingsRow title={ __( 'Color' ) } description={ __( 'Choose an accent color.' ) }>
-				<div role="group" aria-label={ __( 'Color' ) } className={ styles.colorControl }>
-					{ getColorPresets().map( ( preset ) => (
-						<ColorSwatch
-							key={ preset.color }
-							label={ preset.label }
-							color={ previewColors[ preset.color ] ?? preset.color }
-							selected={
-								preset.color === DEFAULT_ACCENT_COLOR
-									? isDefaultColorTint( draft )
-									: draft.accentColor === preset.color
-							}
-							onClick={ () => {
-								setHex( preset.color );
-								if ( preset.color === DEFAULT_ACCENT_COLOR ) {
-									commit( DEFAULT_COLOR_TINT );
-									return;
-								}
-								commit( {
-									accentColor: preset.color,
-									tintIntensity: preset.tintIntensity ?? draft.tintIntensity,
-								} );
-							} }
-						/>
-					) ) }
+			<SettingsRow
+				title={ __( 'Accent' ) }
+				description={ __( 'Studio adapts your chosen color to work with your theme.' ) }
+			>
+				<div role="group" aria-label={ __( 'Accent' ) } className={ styles.colorControl }>
 					<InputGroup className={ styles.hexInput }>
 						<InputGroupInput
 							aria-label={ __( 'Hex color' ) }

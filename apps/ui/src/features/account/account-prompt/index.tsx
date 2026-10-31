@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { useId, type RefObject } from 'react';
+import { useId, type ComponentProps, type ReactNode, type Ref, type RefObject } from 'react';
 import { useLogin } from '@/data/queries/use-auth-user';
 import { useOffline } from '@/lib/hooks';
 import {
@@ -34,6 +34,7 @@ export function AccountPrompt( {
 	busy,
 	disabled,
 	flush,
+	showStudioIcon = true,
 	className,
 }: {
 	title: string;
@@ -48,6 +49,7 @@ export function AccountPrompt( {
 	disabled?: boolean;
 	/** Drops the offsets that space it inside a dialog, for a container that spaces it already. */
 	flush?: boolean;
+	showStudioIcon?: boolean;
 	className?: string;
 } ) {
 	const offline = useOffline();
@@ -62,7 +64,7 @@ export function AccountPrompt( {
 				<span className={ styles.cardStart } style={ { backgroundImage: `url(${ site1 })` } } />
 				<span className={ styles.cardEnd } style={ { backgroundImage: `url(${ site3 })` } } />
 				<span className={ styles.cardCenter } style={ { backgroundImage: `url(${ site2 })` } } />
-				<StudioIcon className={ styles.studioIcon } />
+				{ showStudioIcon ? <StudioIcon className={ styles.studioIcon } /> : null }
 			</div>
 			<h2 className={ styles.title }>{ title }</h2>
 			<p id={ descriptionId } className={ styles.description }>
@@ -126,19 +128,27 @@ export function AccountPromptDialog( {
 	open,
 	onOpenChange,
 	finalFocus,
+	initialFocus,
+	ref,
+	footer,
 	...prompt
 }: Parameters< typeof AccountPrompt >[ 0 ] & {
 	open: boolean;
 	onOpenChange: ( open: boolean ) => void;
 	finalFocus?: RefObject< HTMLElement | null >;
+	initialFocus?: ComponentProps< typeof DialogContent >[ 'initialFocus' ];
+	ref?: Ref< HTMLDivElement >;
+	footer?: ReactNode;
 } ) {
 	const descriptionId = useId();
 	return (
 		<Dialog open={ open } onOpenChange={ onOpenChange }>
 			<DialogContent
-				className={ styles.dialog }
+				ref={ ref }
+				className={ clsx( styles.dialog, footer && styles.dialogWithFooter ) }
 				aria-describedby={ descriptionId }
 				finalFocus={ finalFocus }
+				initialFocus={ initialFocus }
 			>
 				<DialogHeader>
 					<VisuallyHidden>
@@ -146,6 +156,7 @@ export function AccountPromptDialog( {
 					</VisuallyHidden>
 				</DialogHeader>
 				<AccountPrompt { ...prompt } descriptionId={ descriptionId } flush />
+				{ footer && <div className={ styles.footer }>{ footer }</div> }
 			</DialogContent>
 		</Dialog>
 	);

@@ -250,3 +250,13 @@ describe( 'GET/PATCH /api/onboarding', () => {
 		}
 	);
 } );
+
+it( 'shares the browser preference over HTTP and clears it back to the OS default', async () => {
+	expect( ( await getPreferences() ).browser ).toBeNull();
+	expect( ( await patchPreferences( { browser: 'chrome' } ) ).status ).toBe( 204 );
+	expect( ( await getPreferences() ).browser ).toBe( 'chrome' );
+	expect( readAppConfigFile().preferredBrowser ).toBe( 'chrome' );
+	expect( ( await patchPreferences( { browser: 'unknown' } ) ).status ).toBe( 400 );
+	expect( ( await patchPreferences( { browser: null } ) ).status ).toBe( 204 );
+	expect( ( await getPreferences() ).browser ).toBeNull();
+} );

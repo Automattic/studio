@@ -1,4 +1,4 @@
-import { DAY_MS, DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
+import { getSnapshotExpiry } from '@studio/common/lib/snapshots';
 import { __, sprintf } from '@wordpress/i18n';
 import { EllipsisIcon, RefreshCwIcon } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type RefObject } from 'react';
@@ -7,7 +7,7 @@ import { useCopyText } from '@/data/host/use-copy-text';
 import { markPreviewSeen } from '@/data/preview-ready';
 import { useRenameSnapshot } from '@/data/queries/use-snapshots';
 import { useUserLocale } from '@/data/queries/use-user-locale';
-import { getSnapshotHostname, getSnapshotUrl } from '@/data/snapshot-url';
+import { getSnapshotHostname, getSnapshotOpenUrl, getSnapshotUrl } from '@/data/snapshot-url';
 import { SiteCard, getWebsiteThumbnailUrl } from '@/features/site-card';
 import { DuplicateIcon, ExternalLinkIcon, RenameIcon, TrashIcon } from '@/lib/icons';
 import {
@@ -53,7 +53,7 @@ function PreviewLinkActions( {
 				<DuplicateIcon />
 				{ __( 'Copy link' ) }
 			</Menu.Item>
-			<Menu.Item onClick={ () => void connector.openExternalUrl( url ) }>
+			<Menu.Item onClick={ () => void connector.openExternalUrl( getSnapshotOpenUrl( snapshot ) ) }>
 				<ExternalLinkIcon />
 				{ __( 'Visit preview' ) }
 			</Menu.Item>
@@ -69,10 +69,7 @@ export function previewExpiry(
 	return sprintf(
 		/* translators: %s: the date a preview site expires */
 		__( 'Expires %s' ),
-		new Date( snapshot.date + DEMO_SITE_EXPIRATION_DAYS * DAY_MS ).toLocaleDateString(
-			locale,
-			format
-		)
+		new Date( getSnapshotExpiry( snapshot ) ).toLocaleDateString( locale, format )
 	);
 }
 
@@ -280,7 +277,7 @@ export function PreviewSharePanel( {
 												title={ title }
 												onClick={ ( event ) => {
 													event.preventDefault();
-													void connector.openExternalUrl( getSnapshotUrl( item ) );
+													void connector.openExternalUrl( getSnapshotOpenUrl( item ) );
 												} }
 											>
 												<span className={ styles.previewLinkText }>{ title }</span>
@@ -341,6 +338,7 @@ export function PreviewSharePanel( {
 
 			<Button
 				className={ styles.createAction }
+				variant="accent"
 				ref={ primaryAction }
 				size="lg"
 				aria-busy={ creating || undefined }

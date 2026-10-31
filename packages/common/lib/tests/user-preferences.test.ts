@@ -190,3 +190,16 @@ it( 'opens chat on site start by default and persists the opt-out', async () => 
 	await writeUserPreferences( { openChatOnSiteStart: null }, context );
 	expect( ( await readUserPreferences( context ) ).openChatOnSiteStart ).toBe( true );
 } );
+
+it( 'saves and clears the browser preference without changing the editor', async () => {
+	const context = { sitesRoot: configDir };
+	expect( ( await readUserPreferences( context ) ).browser ).toBeNull();
+	await writeUserPreferences( { browser: 'chrome' }, context );
+	expect( await readUserPreferences( context ) ).toMatchObject( {
+		browser: 'chrome',
+		editor: 'vscode',
+	} );
+	await writeUserPreferences( { browser: null }, context );
+	expect( ( await readUserPreferences( context ) ).browser ).toBeNull();
+	expect( userPreferencesPatchSchema.safeParse( { browser: 'unknown' } ).success ).toBe( false );
+} );

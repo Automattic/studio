@@ -6,6 +6,7 @@ import {
 	getSnapshotsFromConfig,
 	isSnapshotExpired,
 	pruneExpiredOrphanedSnapshots,
+	syncPreviewsWithServer,
 } from 'cli/lib/snapshots';
 import {
 	mockReportStart,
@@ -386,6 +387,11 @@ describe( 'Preview List Command', () => {
 		it( 'should output only the authenticated user’s snapshots', async () => {
 			await runCommand( mockFolder, 'json' );
 
+			expect( syncPreviewsWithServer ).toHaveBeenCalledWith(
+				mockAuthToken.id,
+				mockAuthToken.accessToken
+			);
+
 			expect( getSnapshotsFromConfig ).toHaveBeenCalledWith( mockAuthToken.id );
 			const json = JSON.stringify( mockSnapshots );
 			expect( consoleLogSpy ).toHaveBeenCalledWith( json );
@@ -410,6 +416,10 @@ describe( 'Preview List Command', () => {
 		expect( pruneExpiredOrphanedSnapshots ).toHaveBeenCalledWith(
 			mockAuthToken.id,
 			isSnapshotExpired
+		);
+		expect( syncPreviewsWithServer ).toHaveBeenCalledWith(
+			mockAuthToken.id,
+			mockAuthToken.accessToken
 		);
 	} );
 } );

@@ -4,6 +4,7 @@ import { useSyncExternalStore, type ComponentProps } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { updateResponsivePreview } from '@/data/responsive-preview';
 import { SessionUIProvider } from '@/data/use-session-ui';
+import { getSiteAnnotations } from '@/features/annotations';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { SitePreview } from './index';
@@ -415,6 +416,20 @@ describe( 'site preview controls', () => {
 		expect( connector.openSiteUrl ).toHaveBeenLastCalledWith( 'one', '/wp-admin/', {
 			autoLogin: true,
 		} );
+	} );
+
+	it( 'starts a stopped site with annotation mode selected', async () => {
+		const connector = createFakeConnector(
+			{},
+			{ capabilities: { nativeFolderPicker: true, annotatePreview: true, studioLogs: true } }
+		);
+		const stopped = makeSite( { id: 'annotate-stopped', running: false } );
+		const { user } = await renderPreview( 'desktop', { site: stopped }, connector );
+		const annotate = screen.getByRole( 'button', { name: 'Annotate' } );
+		expect( annotate ).toBeEnabled();
+		await user.click( annotate );
+		expect( connector.startSite ).toHaveBeenCalledWith( stopped.id );
+		expect( getSiteAnnotations( stopped.id ).active ).toBe( true );
 	} );
 
 	it.each( [ true, false ] )(

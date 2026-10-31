@@ -22,6 +22,7 @@ import {
 	SUPPORTED_COLOR_SCHEMES,
 } from '@studio/common/lib/user-settings/preferences';
 import { DEFAULT_TERMINAL, SUPPORTED_TERMINALS } from '@studio/common/lib/user-settings/terminal';
+import { SUPPORTED_BROWSERS, type SupportedBrowser } from './browser';
 import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type {
@@ -43,6 +44,7 @@ import type { SupportedTerminal } from '@studio/common/lib/user-settings/termina
 export interface UserPreferences extends ColorTint {
 	// `null` is the default: the first installed editor, the system terminal.
 	editor: SupportedEditor | null;
+	browser: SupportedBrowser | null;
 	terminal: SupportedTerminal | null;
 	colorScheme: ColorScheme;
 	quitSitesBehavior?: QuitSitesBehavior;
@@ -92,6 +94,7 @@ const sidebarChatOrderSchema = z.record( z.string(), z.array( z.string() ) );
 // so a clear can't travel as one.
 export const userPreferencesPatchSchema = z.object( {
 	editor: editorSchema.nullish(),
+	browser: z.enum( SUPPORTED_BROWSERS ).nullish(),
 	terminal: z.enum( SUPPORTED_TERMINALS ).nullish(),
 	colorScheme: z.enum( SUPPORTED_COLOR_SCHEMES ).nullish(),
 	quitSitesBehavior: z.enum( QUIT_SITES_BEHAVIORS ).nullish(),
@@ -126,6 +129,7 @@ export type UserPreferencesPatch = z.infer< typeof userPreferencesPatchSchema >;
 // Patch key -> `app.json` field. Also answers whether the lock is needed.
 const APP_CONFIG_KEYS = [
 	[ 'editor', 'preferredEditor' ],
+	[ 'browser', 'preferredBrowser' ],
 	[ 'terminal', 'preferredTerminal' ],
 	[ 'colorScheme', 'colorScheme' ],
 	[ 'quitSitesBehavior', 'quitSitesBehavior' ],
@@ -171,6 +175,11 @@ export async function readUserPreferences( {
 	const sidebarChatOrder = sidebarChatOrderSchema.catch( {} ).parse( config.sidebarChatOrder );
 	return {
 		editor: optionalEditor.parse( config.preferredEditor ?? null ),
+		browser: z
+			.enum( SUPPORTED_BROWSERS )
+			.nullable()
+			.catch( null )
+			.parse( config.preferredBrowser ?? null ),
 		terminal: optionalTerminal.parse( config.preferredTerminal ?? null ),
 		colorScheme: colorSchemeWithDefault.parse( config.colorScheme ),
 		quitSitesBehavior: optionalQuitSitesBehavior.parse( config.quitSitesBehavior ),

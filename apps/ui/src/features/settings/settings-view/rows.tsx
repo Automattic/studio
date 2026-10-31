@@ -50,7 +50,9 @@ export function SettingsGroup( {
 					{ description }
 				</FieldDescription>
 			) : null }
-			<FieldGroup variant="settings">{ children }</FieldGroup>
+			<FieldGroup variant="settings" className={ styles.settingsGroup }>
+				{ children }
+			</FieldGroup>
 		</FieldSet>
 	);
 }
@@ -63,6 +65,7 @@ const SettingsRowContext = createContext< ControlProps >( {} );
 /** A setting: its name and description on the left, its control on the right. */
 export function SettingsRow( {
 	title,
+	settingId,
 	badge,
 	description,
 	additionalContent,
@@ -71,6 +74,7 @@ export function SettingsRow( {
 	children,
 }: {
 	title: string;
+	settingId?: string;
 	// Shown next to the title, like a "Connected" status.
 	badge?: ReactNode;
 	description?: ReactNode;
@@ -84,7 +88,9 @@ export function SettingsRow( {
 	// other controls take it from a function child.
 	children?: ReactNode | ( ( control: ControlProps ) => ReactNode );
 } ) {
-	const id = useContext( SettingsLinkContext ) ? findSettingId( title ) : undefined;
+	const linkable = useContext( SettingsLinkContext );
+	const id = settingId ?? findSettingId( title, linkable ? 'studio' : 'site' );
+	const linkId = linkable ? id : undefined;
 	const rowId = useId();
 	const hasDescription = !! ( description || additionalContent || error );
 	const control: ControlProps = {
@@ -102,11 +108,11 @@ export function SettingsRow( {
 			data-setting-id={ id }
 		>
 			<FieldContent>
-				{ id || badge ? (
+				{ linkId || badge ? (
 					<div className={ styles.rowTitle }>
 						{ fieldTitle }
 						{ badge }
-						{ id ? <SettingLinkButton id={ id } title={ title } /> : null }
+						{ linkId ? <SettingLinkButton id={ linkId } title={ title } /> : null }
 					</div>
 				) : (
 					fieldTitle

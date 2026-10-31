@@ -1,6 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { CircleAlertIcon, CircleCheckIcon, CircleStopIcon } from 'lucide-react';
+import { CircleAlertIcon, CircleStopIcon } from 'lucide-react';
 import {
 	Fragment,
 	memo,
@@ -11,7 +11,7 @@ import {
 	type ComponentProps,
 } from 'react';
 import { getToolDisplay } from '@/features/chats/session-view/conversation/trace/tool-display';
-import { ChevronDownIcon } from '@/lib/icons';
+import { ChevronDownIcon, CircleCheckIcon } from '@/lib/icons';
 import { CodeBlock, CollapsiblePanel, Spinner } from '@/lib/ui';
 import styles from './style.module.css';
 import type { TurnActivity } from '@/features/chats/session-view/conversation/transcript-items';
@@ -188,7 +188,10 @@ export const TurnActivityLine = memo( function TurnActivityLine( {
 				seconds ?? 0
 		  );
 	const heading = (
-		<span className={ styles.traceLine } data-status={ status === 'error' ? 'error' : undefined }>
+		<span
+			className={ clsx( styles.traceLine, styles.activityHeading ) }
+			data-status={ status === 'error' ? 'error' : undefined }
+		>
 			<span className={ clsx( styles.traceTitle, running && ! waitingOnUser && 'studio-shimmer' ) }>
 				{ label }
 			</span>
@@ -213,7 +216,11 @@ export const TurnActivityLine = memo( function TurnActivityLine( {
 				const separated =
 					! previous || ( first.kind === 'tool-use' ) !== ( previous.kind === 'tool-use' );
 				const content = (
-					<div className={ styles.activityContent } data-separated={ separated || undefined }>
+					<div
+						className={ styles.activityContent }
+						data-separated={ separated || undefined }
+						data-first={ ! previous || undefined }
+					>
 						{ renderItems?.( section.items, visibleItems ) }
 					</div>
 				);

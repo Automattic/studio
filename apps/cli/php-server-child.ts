@@ -167,7 +167,7 @@ function pickPhpWorker( req: http.IncomingMessage ): { index: number; port: numb
 	return { index: bestIndex, port: phpWorkerPorts[ bestIndex ] };
 }
 
-async function waitForServerReady( url: string, signal?: AbortSignal ): Promise< void > {
+export async function waitForServerReady( url: string, signal?: AbortSignal ): Promise< void > {
 	const pollIntervalMs = 50;
 	const timeoutMs = 30_000;
 	const deadline = Date.now() + timeoutMs;
@@ -175,7 +175,10 @@ async function waitForServerReady( url: string, signal?: AbortSignal ): Promise<
 	while ( true ) {
 		signal?.throwIfAborted();
 		try {
-			await fetch( url, { redirect: 'manual', signal } );
+			const response = await fetch( url, { redirect: 'manual', signal } );
+			// Leaving the body unread can crash undici's parser when the server closes the
+			// connection to end the response, as the PHP dev server does.
+			await response.body?.cancel();
 			return;
 		} catch {
 			signal?.throwIfAborted();

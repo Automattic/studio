@@ -14,6 +14,10 @@
  * merges over its theme.json) are copied as wp_global_styles/<theme>.json,
  * holding what the Site Editor starts them with when none are saved yet, and
  * saved as the Site Editor saves them (saveGlobalStyles() in global-styles.ts).
+ *
+ * A post whose content a call left empty, as a shell pipeline whose edit
+ * failed leaves it when it saves what the edit printed, keeps the content its
+ * copy held in <ID>.previous.html, and Studio says so.
  */
 import { createHash } from 'crypto';
 import { existsSync, mkdirSync } from 'fs';
@@ -68,6 +72,8 @@ export function siteIdOfCopy( file: string ): string | undefined {
 }
 
 const hash = ( content: string ) => createHash( 'sha1' ).update( content ).digest( 'hex' );
+const EMPTY = hash( '' );
+const previousOf = ( file: string ) => file.replace( /(\.\w+)$/, '.previous$1' );
 
 const copyOf = ( workspace: string, post: Pick< Post, 'id' | 'type' > ) =>
 	path.join(
@@ -304,6 +310,9 @@ export const postCopies: SiteChangeSource = {
 				const untouched = copy !== undefined && last && hash( copy ) === last.file;
 				if ( copy === undefined || ! last || ( untouched && last.post !== post.version ) ) {
 					const content = readContent( site, post );
+					if ( copy?.trim() && ! content ) {
+						await writeFile( previousOf( file ), copy, 'utf8' );
+					}
 					await writeCopy( file, content );
 					manifest[ post.id ] = { type: post.type, post: post.version, file: hash( content ) };
 					versions[ post.id ] = `${ post.type } ${ post.version } ${ hash( content ) }`;
@@ -317,7 +326,7 @@ export const postCopies: SiteChangeSource = {
 	},
 	// Saves each copy changed since Studio wrote it to its post, unless the
 	// post changed too.
-	async check( site, _before, after, host ) {
+	async check( site, before, after, host ) {
 		const workspace = workspaceOfSite( site.id );
 		if ( ! existsSync( workspace ) ) {
 			return { reports: [] };
@@ -330,11 +339,23 @@ export const postCopies: SiteChangeSource = {
 			const copyHash = rest.pop();
 			const postVersion = rest.join( ' ' );
 			const last = manifest[ id ];
+			const file = copyOf( workspace, { id, type } );
+			const label = `${ site.name } ${ type } ${ id }`;
+			const was = before[ id ]?.split( ' ' ).pop();
+			if ( was && was !== copyHash && type !== GLOBAL_STYLES ) {
+				const previous = previousOf( file );
+				const kept = copyHash === EMPTY ? await readCopy( previous ) : undefined;
+				reports.push( {
+					key: `content ${ id }`,
+					post: id,
+					problem: kept
+						? `${ label } is now empty: this call replaced its ${ kept.length } characters of content with none. Studio kept what it held in ${ previous }.`
+						: undefined,
+				} );
+			}
 			if ( ! last || last.file === copyHash ) {
 				continue;
 			}
-			const file = copyOf( workspace, { id, type } );
-			const label = `${ site.name } ${ type } ${ id }`;
 			if ( last.post !== postVersion ) {
 				const unsaved = file.replace( /(\.\w+)$/, '.unsaved$1' );
 				await rename( file, unsaved );

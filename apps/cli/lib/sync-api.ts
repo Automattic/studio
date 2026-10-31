@@ -60,9 +60,12 @@ function withServerDetail( error: unknown ): unknown {
 	return Object.assign( new Error( `${ error.message } (${ error.error })` ), { cause: error } );
 }
 
-export async function fetchSyncableSites( token: string ): Promise< SyncSite[] > {
+export async function fetchSyncableSites(
+	token: string,
+	options: { planRequired?: boolean } = {}
+): Promise< SyncSite[] > {
 	try {
-		return await fetchSyncableSitesBase( token );
+		return await fetchSyncableSitesBase( token, options );
 	} catch ( error ) {
 		throw wrapError( __( 'Failed to fetch WordPress.com sites' ), error, 'site_fetch' );
 	}

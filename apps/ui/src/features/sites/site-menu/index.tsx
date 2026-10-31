@@ -43,6 +43,7 @@ import {
 	ExternalLinkIcon,
 	GlobeIcon,
 	MailIcon,
+	NewChatIcon,
 	PinIcon,
 	RenameIcon,
 	RotateCwIcon,
@@ -133,6 +134,11 @@ export function useSiteActions(
 		running,
 		othersRunning,
 		shortcuts,
+		newChat: () => {
+			onOpen?.();
+			preview.setChatHidden( false, site.id );
+			void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+		},
 		openSiteSettings: () => openSiteSettings(),
 		rename,
 		pinned: isPinned( sitePinKey( site.id ) ),
@@ -216,6 +222,10 @@ export function SiteMenuItems( {
 
 	return (
 		<div className={ styles.items }>
+			<Menu.Item onClick={ actions.newChat }>
+				<NewChatIcon />
+				{ __( 'New chat' ) }
+			</Menu.Item>
 			<Menu.Item onClick={ actions.openSiteSettings }>
 				<SiteSettingsIcon />
 				{ __( 'Settings' ) }
@@ -267,7 +277,7 @@ export function SiteMenuItems( {
 			<Menu.SubmenuRoot>
 				<Menu.SubmenuTrigger disabled={ busy }>
 					<ArrowRightIcon />
-					{ __( 'Go to' ) }
+					{ __( 'Tools' ) }
 				</Menu.SubmenuTrigger>
 				<Menu.SubmenuPopup>
 					<Menu.Item onClick={ actions.openAdmin }>

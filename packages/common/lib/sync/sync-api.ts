@@ -30,7 +30,7 @@ const SITE_FIELDS = [
 
 export async function fetchSyncableSites(
 	token: string,
-	connectedSiteIds?: number[]
+	options: { connectedSiteIds?: number[]; planRequired?: boolean } = {}
 ): Promise< SyncSite[] > {
 	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 
@@ -48,7 +48,7 @@ export async function fetchSyncableSites(
 	);
 
 	const parsed = sitesEndpointResponseSchema.parse( rawResponse );
-	return transformSitesResponse( parsed.sites, { connectedSiteIds } );
+	return transformSitesResponse( parsed.sites, options );
 }
 
 export async function initiateBackup(

@@ -31,7 +31,13 @@ function needsTransfer( site: SitesEndpointSite ): boolean {
 	return ! site.jetpack && ! isAtomicSite( site );
 }
 
-export function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): SyncSupport {
+// Backup-based push and pull need a plan with the Studio sync feature. A Reprint pull reads the site
+// through Jetpack, so it only needs an Atomic or Pressable site: unpaid preview sites qualify.
+export function getSyncSupport(
+	site: SitesEndpointSite,
+	connectedSiteIds: number[],
+	{ planRequired = true }: { planRequired?: boolean } = {}
+): SyncSupport {
 	if ( site.is_deleted ) {
 		return 'deleted';
 	}
@@ -41,7 +47,7 @@ export function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: numbe
 	if ( isUnsupported( site ) && ! isPressableSite( site ) ) {
 		return 'unsupported';
 	}
-	if ( ! hasSupportedPlan( site ) && ! isPressableSite( site ) ) {
+	if ( planRequired && ! hasSupportedPlan( site ) && ! isPressableSite( site ) ) {
 		return 'needs-upgrade';
 	}
 	if ( needsTransfer( site ) && ! isPressableSite( site ) ) {

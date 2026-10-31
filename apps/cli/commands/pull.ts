@@ -221,7 +221,7 @@ export async function runCommand(
 					if ( wasServerRunning ) {
 						try {
 							logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
-							await startWordPressServer( site, logger );
+							await startWordPressServer( site, logger, 'pull' );
 							logger.reportSuccess( __( 'WordPress server started' ) );
 						} catch ( error ) {
 							restartSiteError = error;

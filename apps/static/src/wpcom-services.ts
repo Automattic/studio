@@ -272,7 +272,7 @@ export class WpcomServices {
 			return [];
 		}
 		const connectedSiteIds = ( await this.connections() ).map( ( site ) => site.id );
-		return fetchSyncableSites( token.accessToken, connectedSiteIds );
+		return fetchSyncableSites( token.accessToken, { connectedSiteIds } );
 	}
 
 	async getConnectedSites( localSiteId?: string ): Promise< SyncSite[] > {

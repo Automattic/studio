@@ -1,10 +1,17 @@
-import { isWpcomPreview } from '@studio/common/lib/snapshots';
+import { isSnapshotExpired, isWpcomPreview } from '@studio/common/lib/snapshots';
 import { type Snapshot } from '@studio/common/types/snapshot';
 import { __ } from '@wordpress/i18n';
 import { LoggerError } from 'cli/logger';
 import { lockCliConfig, readCliConfig, saveCliConfig, unlockCliConfig } from './core';
 import { getSiteByFolder } from './sites';
 import type { StandingPreview } from 'cli/lib/preview-sites';
+
+/** How many unexpired previews the user has of one local site. */
+export function countSitePreviews( siteId: string, snapshots: Snapshot[], userId: number ): number {
+	return snapshots.filter(
+		( s ) => s.localSiteId === siteId && s.userId === userId && ! isSnapshotExpired( s )
+	).length;
+}
 
 export function getNextSnapshotSequence(
 	siteId: string,
@@ -69,6 +76,45 @@ export async function saveSnapshotToConfig(
 		config.snapshots.push( snapshot );
 		await saveCliConfig( config );
 		return snapshot;
+	} finally {
+		await unlockCliConfig();
+	}
+}
+
+/**
+ * Attaches a pulled preview to the local site it was pulled into, so updating the preview pushes
+ * this site to it. A preview already attached to another local site keeps that link.
+ */
+export async function linkPulledPreview(
+	localSiteId: string,
+	atomicSiteId: number,
+	userId: number,
+	preview: StandingPreview
+): Promise< void > {
+	try {
+		await lockCliConfig();
+		const config = await readCliConfig();
+		let snapshot = config.snapshots.find( ( s ) => s.atomicSiteId === atomicSiteId );
+		if ( ! snapshot ) {
+			if ( ! preview.hostname ) {
+				return;
+			}
+			snapshot = {
+				url: preview.hostname,
+				atomicSiteId,
+				localSiteId: '',
+				date: Date.now(),
+				userId,
+				shareUrl: preview.shareUrl,
+				expiresAt: preview.expiresAt,
+			};
+			config.snapshots.push( snapshot );
+		}
+		if ( snapshot.localSiteId ) {
+			return;
+		}
+		snapshot.localSiteId = localSiteId;
+		await saveCliConfig( config );
 	} finally {
 		await unlockCliConfig();
 	}

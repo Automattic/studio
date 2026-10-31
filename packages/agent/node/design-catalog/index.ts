@@ -27,7 +27,13 @@ function parseEntry( contents: string ): DesignEntry | undefined {
 		return value ? String( JSON.parse( value ) ) : undefined;
 	};
 	const [ title, description ] = [ field( 'title' ), field( 'description' ) ];
-	const details = match?.[ 2 ].trim();
+	// The body says what to build; its Avoid line, a list of what to leave out,
+	// stays in the catalog.
+	const details = match?.[ 2 ]
+		.split( '\n' )
+		.filter( ( line ) => ! /^(\*\*)?Avoid(\*\*)?:/.test( line ) )
+		.join( '\n' )
+		.trim();
 	return title && description && details ? { name: title, description, details } : undefined;
 }
 

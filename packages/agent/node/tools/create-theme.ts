@@ -170,7 +170,7 @@ export const createThemeTool = defineTool(
 		const design = child
 			? []
 			: [
-					"Studio drew this site's look and layout at random from its design catalogs, so one site differs from the next; a look or layout the user's request names takes the place of the one drawn.",
+					"Studio drew this site's look and layout at random from its design catalogs, so each site gets a look of its own. Build this look and layout whatever the site is about; a look or layout the user describes in their own words takes their place.",
 					`Look: ${ look.name }. ${ look.description }\n${ look.details }`,
 					`Layout: ${ layout.name }. ${ layout.description }\n${ layout.details }`,
 			  ];

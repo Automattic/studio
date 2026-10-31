@@ -12,6 +12,7 @@ describe( 'the design catalogs', () => {
 		expect( entries ).toHaveLength( files.length );
 		for ( const entry of entries ) {
 			expect( entry.name && entry.description && entry.details ).toBeTruthy();
+			expect( entry.details ).not.toMatch( /^Avoid/m );
 		}
 	} );
 

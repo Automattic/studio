@@ -4,7 +4,7 @@ import {
 	getInitialPreviewContentWidth,
 	getPreviewSplitLayout,
 	PANEL_WIDTHS_RESET_EVENT,
-	getPreviewContentWidthStorageKey,
+	PREVIEW_CONTENT_WIDTH_STORAGE_KEY,
 	PREVIEW_CONTENT_DEFAULT_WIDTH,
 	PREVIEW_PANEL_MIN_WIDTH,
 	storeResizablePanelWidth,
@@ -51,7 +51,7 @@ export function usePreviewSplit( {
 	// stored back. Recomputing from a previously-clamped displayed value would
 	// lose the intent on shrink-then-grow.
 	const [ preferredContentWidth, setPreferredContentWidth ] = useState< number | null >( () =>
-		getInitialPreviewContentWidth( siteId )
+		getInitialPreviewContentWidth()
 	);
 	const [ containerWidth, setContainerWidth ] = useState< number | null >( null );
 	// Mirrors preferredContentWidth so event handlers read the latest value
@@ -78,11 +78,9 @@ export function usePreviewSplit( {
 	const persistContentWidth = useCallback(
 		( next: number ) => {
 			setPreferred( next );
-			if ( siteId ) {
-				storeResizablePanelWidth( getPreviewContentWidthStorageKey( siteId ), Math.round( next ) );
-			}
+			storeResizablePanelWidth( PREVIEW_CONTENT_WIDTH_STORAGE_KEY, Math.round( next ) );
 		},
-		[ setPreferred, siteId ]
+		[ setPreferred ]
 	);
 
 	const ensurePreferred = useCallback( () => {
@@ -159,9 +157,6 @@ export function usePreviewSplit( {
 
 	useLayoutEffect( () => {
 		cancel();
-		const width = getInitialPreviewContentWidth( siteId );
-		preferredRef.current = width;
-		setPreferredContentWidth( width );
 	}, [ cancel, siteId ] );
 
 	// End an in-flight drag if the preview closes mid-resize.

@@ -57,6 +57,7 @@ export function PreviewSplitFrame( {
 	// race it.
 	const [ animatingPreviewToggle, setAnimatingPreviewToggle ] = useState( false );
 	const [ fadingPreview, setFadingPreview ] = useState( false );
+	if ( instant && animatingPreviewToggle ) setAnimatingPreviewToggle( false );
 	const [ previousPreview, setPreviousPreview ] = useState( {
 		siteId,
 		navigationKey,

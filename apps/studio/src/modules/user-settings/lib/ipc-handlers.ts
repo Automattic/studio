@@ -11,7 +11,7 @@ import {
 import { isAiProviderId } from '@studio/agent/protocol/providers';
 import { getInstructionsLengthBucket } from '@studio/common/lib/record-tracks-event';
 import {
-	detectInstalledApps,
+	detectInstalledAppsWithDefaultBrowser,
 	type InstalledApps,
 } from '@studio/common/lib/user-settings/installed-apps';
 import { DEFAULT_COLOR_SCHEME } from '@studio/common/lib/user-settings/preferences';
@@ -32,8 +32,8 @@ import { OnboardingHintsState } from 'src/storage/storage-types';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import type { AiSettings } from '@studio/agent/protocol/providers';
 
-export function getInstalledAppsAndTerminals(): InstalledApps {
-	return detectInstalledApps();
+export async function getInstalledAppsAndTerminals(): Promise< InstalledApps > {
+	return detectInstalledAppsWithDefaultBrowser();
 }
 
 export async function getUserPreferences() {

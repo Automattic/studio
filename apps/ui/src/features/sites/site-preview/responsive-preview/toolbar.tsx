@@ -21,6 +21,7 @@ function DimensionInput( {
 	const [ focused, setFocused ] = useState( false );
 	return (
 		<Input
+			variant="ghost"
 			className={ styles.dimension }
 			aria-label={ label }
 			inputMode="numeric"

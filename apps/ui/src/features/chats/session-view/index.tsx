@@ -41,7 +41,7 @@ import {
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSelectionTime } from '@/data/use-open-site';
 import { SessionUIProvider, useOptionalSessionPreviewUI } from '@/data/use-session-ui';
-import { useStartSitePreview } from '@/data/use-start-site-preview';
+import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import {
 	getSiteAnnotations,
 	hasAnnotationContent,
@@ -60,7 +60,7 @@ import {
 	pendingPromptSlot,
 	type ComposerHandle,
 } from '@/features/composer';
-import { PreviewParticles, StoppedSitePreview } from '@/features/sites';
+import { useHeaderPrototype, PreviewParticles, StoppedSitePreview } from '@/features/sites';
 import { getMotionDuration } from '@/lib/theme';
 import { Button, IconButton } from '@/lib/ui';
 import { Conversation } from './conversation';
@@ -79,6 +79,7 @@ interface SessionViewProps {
 	siteId?: string;
 	headerStart?: ReactNode;
 	hideHeader?: boolean;
+	previewVisible?: boolean;
 }
 
 export function SessionView( props: SessionViewProps ) {
@@ -89,7 +90,13 @@ export function SessionView( props: SessionViewProps ) {
 	);
 }
 
-function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: SessionViewProps ) {
+function SessionViewContent( {
+	sessionId,
+	siteId,
+	headerStart,
+	hideHeader,
+	previewVisible = false,
+}: SessionViewProps ) {
 	const draftKey = sessionId ?? `site:${ siteId }`;
 	const { draft, update: updateDraft } = useSiteChatDraft( siteId );
 	const sendDraft = useSendSiteDraft( siteId );
@@ -270,12 +277,17 @@ function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: Ses
 	const [ frameNode, setFrameNode ] = useState< HTMLDivElement | null >( null );
 	const { data: preferences } = useUserPreferences();
 	const { mutate: startSite } = useStartSite();
-	const { mutate: startSitePreview } = useStartSitePreview();
+	const { mutate: startSitePreview } = useStartSiteWithChat();
 	const isSiteStarting = useIsSiteStarting( ownerSite?.id );
 	const isSiteStopping = useIsSiteStopping( ownerSite?.id );
+	const headerPrototype = useHeaderPrototype();
+	const displaySiteStopping = isSiteStopping && ! headerPrototype;
 	const revealingSiteId = useOptionalSessionPreviewUI()?.revealingSiteId;
 	const siteLoading =
-		isSiteStarting || isSiteStopping || ( !! ownerSite && revealingSiteId === ownerSite.id );
+		! ( headerPrototype && isSiteStopping ) &&
+		( isSiteStarting ||
+			displaySiteStopping ||
+			( !! ownerSite && revealingSiteId === ownerSite.id ) );
 	const selectionTime = useSiteSelectionTime( ownerSite?.id );
 	const isSiteBusy = useIsSiteBusy( ownerSite );
 	const canAutoStart = !! ownerSite && effectiveEnvironment === 'local';
@@ -300,7 +312,7 @@ function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: Ses
 		? sprintf(
 				isSiteStarting
 					? /* translators: %s: site name. */ __( 'Starting %s' )
-					: isSiteStopping
+					: displaySiteStopping
 					? /* translators: %s: site name. */ __( 'Stopping %s' )
 					: /* translators: %s: site name. */ __( 'Work with %s' ),
 				ownerSite.name
@@ -498,10 +510,11 @@ function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: Ses
 						ownerSiteId={ ownerSite?.id }
 						onSwitchSession={ switchSession }
 						placeholder={ composerPlaceholder }
-						placeholderBusy={ isSiteStarting || isSiteStopping }
+						placeholderBusy={ isSiteStarting || displaySiteStopping }
 						canAutoStart={ canAutoStart }
 						onStartSite={
-							canAutoStart && ( ! ownerSite.running || isSiteStarting )
+							canAutoStart &&
+							( ! ownerSite.running || isSiteStarting || ( headerPrototype && isSiteStopping ) )
 								? () => startSitePreview( ownerSite.id )
 								: undefined
 						}
@@ -529,11 +542,13 @@ function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: Ses
 			{ emptySessionId === draftKey ? (
 				<div className={ styles.emptyState } data-hidden={ ! showEmpty || undefined }>
 					<PreviewParticles
-						active={ siteLoading }
-						showLogo={ siteLoading }
+						active={ siteLoading && ! previewVisible }
+						showLogo={ siteLoading && ! previewVisible }
 						selectionTime={ ownerSite?.running ? undefined : selectionTime }
 					/>
-					{ ownerSite && ! ownerSite.running && ! isSiteStarting ? (
+					{ ownerSite &&
+					( ! ownerSite.running || ( headerPrototype && isSiteStopping ) ) &&
+					! isSiteStarting ? (
 						<StoppedSitePreview site={ ownerSite } />
 					) : null }
 				</div>

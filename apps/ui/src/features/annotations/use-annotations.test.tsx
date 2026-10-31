@@ -115,7 +115,8 @@ describe( 'preview annotation sessions', () => {
 		act( () => escapeAnnotations( SITE ) );
 		expect( session().notes ).toEqual( [ expect.objectContaining( { id: first, number: 1 } ) ] );
 		expect( session().editingId ).toBeNull();
-		expect( session().active ).toBe( true );
+		expect( session().active ).toBe( false );
+		act( () => setAnnotating( SITE, true ) );
 		add( '' );
 		expect( session().notes.at( -1 )?.number ).toBe( 2 );
 	} );
@@ -156,7 +157,7 @@ describe( 'preview annotation sessions', () => {
 		expect( session().notes[ 0 ].id ).toBe( id );
 	} );
 
-	it( 'stages the open note from its button and sends it only from the annotation bar', async () => {
+	it( 'stages the open note from its button without rendering another send action', async () => {
 		const { onSend } = await setup();
 		const id = add( 'Make this heading larger' );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Save annotation' } ) );
@@ -165,8 +166,7 @@ describe( 'preview annotation sessions', () => {
 		expect( session().notes[ 0 ].id ).toBe( id );
 		expect( session().active ).toBe( true );
 		expect( session().editingId ).toBeNull();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Send 1 annotation' } ) );
-		expect( onSend ).toHaveBeenCalledTimes( 1 );
+		expect( screen.queryByRole( 'button', { name: 'Send 1 annotation' } ) ).not.toBeInTheDocument();
 	} );
 
 	it.each( [ 'metaKey', 'ctrlKey' ] )(
@@ -183,13 +183,16 @@ describe( 'preview annotation sessions', () => {
 	);
 
 	it( 'ignores empty notes and blocks sends during attachment preparation', async () => {
-		await setup();
+		const { onSend } = await setup();
 		add( '   ' );
-		expect( screen.getByRole( 'button', { name: /^Send \d+ annotation/ } ) ).toBeDisabled();
+		expect( screen.getByRole( 'button', { name: 'Save annotation' } ) ).toBeDisabled();
 		add( 'Image coming' );
-		expect( screen.getByRole( 'button', { name: 'Send 1 annotation' } ) ).toBeEnabled();
+		expect( screen.getByRole( 'button', { name: 'Save annotation' } ) ).toBeEnabled();
 		act( () => setAnnotationsPreparing( SITE, true ) );
-		expect( screen.getByRole( 'button', { name: 'Send 1 annotation' } ) ).toBeDisabled();
+		expect( screen.getByRole( 'button', { name: 'Save annotation' } ) ).toBeDisabled();
+		fireEvent.keyDown( note(), { key: 'Enter', ctrlKey: true } );
+		expect( onSend ).not.toHaveBeenCalled();
+		expect( session().editingId ).not.toBeNull();
 	} );
 
 	it( 'prevents duplicate submissions while acceptance is pending', async () => {
@@ -203,11 +206,12 @@ describe( 'preview annotation sessions', () => {
 		const unsubscribe = subscribeAnnotationSend( SITE, accept );
 		try {
 			await setup( ( noteIds?: string[] ) => requestAnnotationSend( { siteId: SITE, noteIds } ) );
-			add( 'Once' );
-			const send = screen.getByRole( 'button', { name: 'Send 1 annotation' } );
-			fireEvent.click( send );
-			expect( send ).toBeDisabled();
-			fireEvent.click( send );
+			const id = add( 'Once' );
+			fireEvent.keyDown( note(), { key: 'Enter', ctrlKey: true } );
+			expect( session().sending ).toBe( true );
+			act( () => editAnnotation( SITE, id ) );
+			expect( screen.getByRole( 'button', { name: 'Save annotation' } ) ).toBeDisabled();
+			fireEvent.keyDown( note(), { key: 'Enter', ctrlKey: true } );
 			expect( accept ).toHaveBeenCalledTimes( 1 );
 			await act( async () => resolve() );
 			await waitFor( () => expect( session().sending ).toBe( false ) );

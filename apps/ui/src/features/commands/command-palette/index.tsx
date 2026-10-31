@@ -24,6 +24,11 @@ import { replaceOpenDialogs } from '@/lib/ui';
 import { PaletteDialog, type PaletteProps } from './palette-dialog';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
+interface PreviewFullscreen {
+	active: boolean;
+	onChange: ( active: boolean ) => void;
+}
+
 /**
  * ⌘K (Ctrl+K elsewhere) searches sites, chats and the commands for the current
  * site and chat.
@@ -32,11 +37,13 @@ export function CommandPalette( {
 	site,
 	session,
 	chatHidden,
+	previewFullscreen,
 }: {
 	site?: SiteDetails;
 	session?: AiSessionSummary;
 	// Set where the chat can be hidden beside the preview.
 	chatHidden?: boolean;
+	previewFullscreen?: PreviewFullscreen;
 } ) {
 	const open = useCommandPaletteOpen();
 	const commands = useAppCommands();
@@ -65,6 +72,7 @@ export function CommandPalette( {
 			site={ site }
 			session={ session }
 			chatHidden={ chatHidden }
+			previewFullscreen={ previewFullscreen }
 			{ ...palette }
 		/>
 	) : (
@@ -76,9 +84,15 @@ function SiteCommands( {
 	site,
 	session,
 	chatHidden,
+	previewFullscreen,
 	commands,
 	...palette
-}: PaletteProps & { site: SiteDetails; session?: AiSessionSummary; chatHidden?: boolean } ) {
+}: PaletteProps & {
+	site: SiteDetails;
+	session?: AiSessionSummary;
+	chatHidden?: boolean;
+	previewFullscreen?: PreviewFullscreen;
+} ) {
 	const navigate = useNavigate();
 	const openSettings = useOpenSettings();
 	const connector = useConnector();
@@ -97,7 +111,7 @@ function SiteCommands( {
 	const siteCommands = getSiteCommands( {
 		site,
 		chatHidden,
-		previewShown: preview.open && preview.siteId === site.id,
+		previewShown: !! site.running || !! previewFullscreen?.active,
 		canAnnotate: connector.capabilities.annotatePreview,
 		annotating: annotations.active,
 		actions,
@@ -112,11 +126,10 @@ function SiteCommands( {
 		},
 		reloadPreview: () => dispatch( { type: 'preview/reload' } ),
 		annotate: ( active ) => setAnnotating( site.id, active ),
-		showPreview: ( show ) => {
-			preview.setSite( site.id );
-			preview.setOpen( show );
+		setChatHidden: ( hidden ) => {
+			if ( previewFullscreen ) previewFullscreen.onChange( hidden );
+			else preview.setChatHidden( hidden, site.id );
 		},
-		setChatHidden: ( hidden ) => preview.setChatHidden( hidden, site.id ),
 		copyUrl: () =>
 			void connector
 				.copyText( getSiteUrl( site ) )

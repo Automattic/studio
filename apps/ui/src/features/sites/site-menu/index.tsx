@@ -349,7 +349,7 @@ export function SiteMenuItems( {
 	);
 }
 
-// The site's control in the top band: a globe and a chevron.
+// The site's control in the top band.
 export function SiteMenu( { site }: { site: SiteDetails } ) {
 	const actions = useSiteActions( site );
 	const label = __( 'Site menu' );
@@ -374,6 +374,7 @@ export function SiteMenu( { site }: { site: SiteDetails } ) {
 						}
 					>
 						<GlobeIcon data-icon="inline-start" />
+						<span className={ styles.siteName }>{ site.name }</span>
 						<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
 					</Menu.Trigger>
 					<TooltipContent side="bottom">{ label }</TooltipContent>

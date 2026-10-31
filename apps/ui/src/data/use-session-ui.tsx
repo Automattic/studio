@@ -8,9 +8,11 @@ import {
 	type Dispatch,
 	type ReactNode,
 } from 'react';
-import { useConnector } from '@/data/core';
 import {
 	getStoredSiteChatVisibility,
+	getStoredPreviewLayout,
+	storePreviewLayout,
+	type PreviewLayout,
 	storeSiteChatVisibility,
 	PANEL_WIDTHS_RESET_EVENT,
 } from '@/data/resizable-panels';
@@ -29,6 +31,8 @@ import {
 
 interface PreviewUIState {
 	open: boolean;
+	instant: boolean;
+	layout: PreviewLayout;
 	// The chat pane is hidden and the preview takes its place; the sidebar stays.
 	// Only applied while the preview is open.
 	chatHiddenBySiteId: Record< string, boolean >;
@@ -55,10 +59,10 @@ interface SessionUIState {
 }
 
 type SessionUIAction =
-	| { type: 'preview/set-open'; value: boolean }
+	| { type: 'preview/set-open'; value: boolean; instant?: boolean }
 	| { type: 'preview/toggle' }
 	| { type: 'preview/set-chat-hidden'; value: boolean; siteId?: string }
-	| { type: 'preview/reset-chat-hidden' }
+	| { type: 'preview/reset-layout' }
 	| { type: 'preview/navigate'; path: string }
 	| { type: 'preview/reload' }
 	| { type: 'preview/update-path'; path: string }
@@ -68,6 +72,8 @@ type SessionUIAction =
 const INITIAL_STATE: SessionUIState = {
 	preview: {
 		open: true,
+		instant: false,
+		layout: { open: true, chatHidden: false },
 		chatHiddenBySiteId: {},
 		reloadNonce: 0,
 		siteId: null,
@@ -78,50 +84,63 @@ const INITIAL_STATE: SessionUIState = {
 
 function reducer( state: SessionUIState, action: SessionUIAction ): SessionUIState {
 	switch ( action.type ) {
-		case 'preview/set-open':
-			return state.preview.open === action.value
-				? state
-				: {
-						...state,
-						preview: {
-							...state.preview,
-							open: action.value,
-						},
-				  };
+		case 'preview/set-open': {
+			if (
+				state.preview.open === action.value &&
+				state.preview.instant === ( action.instant ?? false )
+			)
+				return state;
+			return {
+				...state,
+				preview: rememberLayout( {
+					...state.preview,
+					open: action.value,
+					instant: action.instant ?? false,
+				} ),
+			};
+		}
 		case 'preview/toggle':
 			return {
 				...state,
-				preview: {
+				preview: rememberLayout( {
 					...state.preview,
 					open: ! state.preview.open,
-				},
+					instant: false,
+				} ),
 			};
 		case 'preview/set-chat-hidden': {
 			const siteId = action.siteId ?? state.preview.siteId;
 			if ( ! siteId || ( state.preview.chatHiddenBySiteId[ siteId ] ?? false ) === action.value )
 				return state;
+			const preview = {
+				...state.preview,
+				chatHiddenBySiteId: { ...state.preview.chatHiddenBySiteId, [ siteId ]: action.value },
+			};
+			return {
+				...state,
+				preview: siteId === preview.siteId ? rememberLayout( preview ) : preview,
+			};
+		}
+		case 'preview/reset-layout':
 			return {
 				...state,
 				preview: {
 					...state.preview,
-					chatHiddenBySiteId: {
-						...state.preview.chatHiddenBySiteId,
-						[ siteId ]: action.value,
-					},
+					open: true,
+					instant: false,
+					chatHiddenBySiteId: {},
+					layout: { open: true, chatHidden: false },
 				},
 			};
-		}
-		case 'preview/reset-chat-hidden':
-			return { ...state, preview: { ...state.preview, chatHiddenBySiteId: {} } };
 		case 'preview/navigate':
 			return {
 				...state,
-				preview: {
+				preview: rememberLayout( {
 					...state.preview,
 					pathsBySiteId: rememberPath( state.preview, action.path ),
 					reloadNonce: state.preview.reloadNonce + 1,
 					open: true,
-				},
+				} ),
 			};
 		case 'preview/reload':
 			// Reload in place, without opening a closed panel.
@@ -135,10 +154,21 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 				? state
 				: { ...state, preview: { ...state.preview, pathsBySiteId } };
 		}
-		case 'preview/set-site':
-			return state.preview.siteId === action.siteId
-				? state
-				: { ...state, preview: { ...state.preview, siteId: action.siteId } };
+		case 'preview/set-site': {
+			if ( state.preview.siteId === action.siteId ) return state;
+			return {
+				...state,
+				preview: {
+					...state.preview,
+					siteId: action.siteId,
+					instant: true,
+					chatHiddenBySiteId: {
+						...state.preview.chatHiddenBySiteId,
+						[ action.siteId ]: state.preview.layout.chatHidden,
+					},
+				},
+			};
+		}
 		case 'preview/set-revealing': {
 			const revealingSiteId = action.value
 				? action.siteId
@@ -150,6 +180,16 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 				: { ...state, preview: { ...state.preview, revealingSiteId } };
 		}
 	}
+}
+
+function rememberLayout( preview: PreviewUIState ): PreviewUIState {
+	return {
+		...preview,
+		layout: {
+			open: preview.open,
+			chatHidden: preview.chatHiddenBySiteId[ preview.siteId ?? '' ] ?? preview.layout.chatHidden,
+		},
+	};
 }
 
 function rememberPath( preview: PreviewUIState, path: string ): Record< string, string > {
@@ -179,22 +219,25 @@ export function SessionUIProvider( { children }: { children: ReactNode } ) {
 function SessionUIProviderRoot( { children }: { children: ReactNode } ) {
 	const [ state, dispatch ] = useReducer( reducer, INITIAL_STATE, ( initial ) => ( {
 		...initial,
-		preview: { ...initial.preview, chatHiddenBySiteId: getStoredSiteChatVisibility() },
+		preview: {
+			...initial.preview,
+			open: getStoredPreviewLayout().open,
+			layout: getStoredPreviewLayout(),
+			chatHiddenBySiteId: getStoredSiteChatVisibility(),
+		},
 	} ) );
-	const connector = useConnector();
+	useEffect( () => {
+		storePreviewLayout( state.preview.layout );
+	}, [ state.preview.layout ] );
 	useEffect( () => {
 		storeSiteChatVisibility( state.preview.chatHiddenBySiteId );
 	}, [ state.preview.chatHiddenBySiteId ] );
 	useEffect( () => {
-		const reset = () => dispatch( { type: 'preview/reset-chat-hidden' } );
+		const reset = () => dispatch( { type: 'preview/reset-layout' } );
 		window.addEventListener( PANEL_WIDTHS_RESET_EVENT, reset );
 		return () => window.removeEventListener( PANEL_WIDTHS_RESET_EVENT, reset );
 	}, [] );
-	useEffect( () => {
-		return connector.onToggleSitePreview( () => {
-			dispatch( { type: 'preview/toggle' } );
-		} );
-	}, [ connector ] );
+
 	return (
 		<SessionUIDispatchContext.Provider value={ dispatch }>
 			<SessionUIStateContext.Provider value={ state }>{ children }</SessionUIStateContext.Provider>
@@ -212,6 +255,7 @@ export function useSessionUIDispatch(): Dispatch< SessionUIAction > {
 
 interface SessionPreviewUI {
 	readonly open: boolean;
+	readonly instant: boolean;
 	readonly chatHidden: boolean;
 	readonly chatHiddenBySiteId: Record< string, boolean >;
 	readonly path: string;
@@ -219,13 +263,13 @@ interface SessionPreviewUI {
 	readonly siteId: string | null;
 	readonly pathsBySiteId: Record< string, string >;
 	readonly revealingSiteId: string | null;
-	setOpen: ( value: boolean ) => void;
+	setOpen: ( value: boolean, options?: { instant?: boolean } ) => void;
 	toggle: () => void;
 	setChatHidden: ( value: boolean, siteId?: string ) => void;
 	// Opens the panel on `path` and reloads it, like an agent-driven navigation.
 	navigate: ( path: string ) => void;
 	updatePath: ( path: string ) => void;
-	setSite: ( siteId: string ) => void;
+	setSite: ( siteId: string, options?: { running: boolean } ) => void;
 	setRevealing: ( siteId: string, value: boolean ) => void;
 }
 
@@ -236,7 +280,8 @@ export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 	const state = useContext( SessionUIStateContext );
 	const dispatch = useContext( SessionUIDispatchContext );
 	const setOpen = useCallback(
-		( value: boolean ) => dispatch?.( { type: 'preview/set-open', value } ),
+		( value: boolean, { instant = false }: { instant?: boolean } = {} ) =>
+			dispatch?.( { type: 'preview/set-open', value, instant } ),
 		[ dispatch ]
 	);
 	const toggle = useCallback( () => dispatch?.( { type: 'preview/toggle' } ), [ dispatch ] );
@@ -268,6 +313,7 @@ export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 		}
 		return {
 			open: state.preview.open,
+			instant: state.preview.instant,
 			chatHidden:
 				state.preview.open &&
 				( state.preview.chatHiddenBySiteId[ state.preview.siteId ?? '' ] ?? false ),

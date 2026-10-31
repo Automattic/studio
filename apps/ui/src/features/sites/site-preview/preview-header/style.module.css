@@ -1,30 +1,10 @@
-/* Navigation at the start, the address centred in the room left over, and
-   actions at the end. */
+/* Compact browser controls with a fluid address field. */
 .header {
-	--header-start-inset: var( --band-inset );
-	composes: bandEdge from '@/lib/theme/recipes.module.css';
+	composes: toolbar from '../responsive-preview/style.module.css';
+	--preview-control-size: 32px;
+	--preview-toolbar-inline-inset: var( --band-inset );
+
 	position: relative;
-	display: flex;
-	align-items: center;
-	gap: var( --space-0_5 );
-	padding-inline: var( --band-inset );
-	height: var( --band-height );
-	flex-shrink: 0;
-	transition: padding var( --motion-duration-layout ) var( --motion-ease-layout );
-	background-color: var( --chrome );
-	-webkit-app-region: drag;
-}
-
-/* Clears the macOS traffic lights, which always sit at the window's physical
-   top-left — hence the physical padding rather than an inline-start one. */
-.headerTrafficLights {
-	--header-start-inset: var( --traffic-light-space );
-	padding-left: var( --traffic-light-space );
-}
-
-/* The toolbar doubles as a window drag region; the controls (including the
-   omnibox trigger button) opt back out so they keep receiving mouse events. */
-.header button {
 	-webkit-app-region: no-drag;
 }
 
@@ -32,44 +12,15 @@
 	display: flex;
 	flex-shrink: 0;
 	align-items: center;
-	gap: var( --space-2 );
+	gap: var( --space-1 );
 }
 
 .browserLocation {
-	--preview-address-max-width: 360px;
-
 	display: flex;
 	flex: 1;
 	align-items: center;
 	justify-content: center;
 	min-width: 0;
-}
-
-.header:not( [data-site-header-layout='inline'] ) .browserLocation {
-	--preview-address-max-width: 240px;
-}
-
-/* Out of room, the address gives way rather than push the actions over it. */
-.browserLocationInline[data-site-header-address] {
-	min-width: 72px;
-}
-
-/* Holds the address field's place while the site starts or stops. */
-.addressStatus {
-	composes: truncate from '@/lib/theme/recipes.module.css';
-	display: flex;
-	flex: 1 1 auto;
-	min-width: 0;
-	max-width: var( --preview-address-max-width );
-	height: var( --control-size );
-	align-items: center;
-	justify-content: center;
-	padding-inline: var( --space-3 );
-	border: 1px solid var( --border );
-	border-radius: var( --radius-full );
-	color: var( --muted-foreground );
-	font-size: var( --text-xxs );
-	user-select: none;
 }
 
 .historyEntry {
@@ -90,118 +41,123 @@
 	font-size: var( --text-2xs );
 }
 
-.disabledControlTooltipTarget {
-	display: inline-flex;
-	flex-shrink: 0;
-	min-width: max-content;
-}
-
 .annotateButton {
 	gap: var( --space-1 );
 }
 
-/* 2px bar overlapping the header's bottom border, like a browser's page-load
-   indicator. The inner span is scaled by inline style as progress advances. */
-.loadingProgress {
-	position: absolute;
-	bottom: -1px;
-	left: 0;
-	right: 0;
-	z-index: 1;
-	height: 2px;
+.annotationControl {
+	display: inline-flex;
+	flex-shrink: 0;
+	align-items: center;
+	border-radius: var( --radius-lg );
+	transition: background-color var( --motion-duration-feedback ) ease;
+}
+
+.annotationControl[data-has-annotations='true'] {
+	background-color: light-dark(
+		color-mix( in srgb, var( --accent ) 8%, transparent ),
+		color-mix( in srgb, var( --accent ) 15%, transparent )
+	);
+}
+
+.annotationControl[data-has-annotations='true'] .annotateButton {
+	--button-hover-background: transparent;
+}
+
+.annotationSendSlot {
+	display: grid;
+	grid-template-columns: 0fr;
+}
+
+.annotationSendSlot[data-open='true'] {
+	grid-template-columns: 1fr;
+}
+
+.annotationSendContent {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+	padding-block: var( --space-0_5 );
 	overflow: hidden;
-	pointer-events: none;
 }
 
-.loadingProgress span {
-	position: absolute;
-	inset: 0;
-	display: block;
-	width: 100%;
-	background-color: var( --accent-text );
-	transform-origin: left center;
-	transition: transform 160ms ease-out;
+.annotationSendMotion {
+	display: flex;
+	gap: var( --space-0_5 );
+	flex-shrink: 0;
+	align-items: center;
+	opacity: 0;
+	transition: opacity var( --motion-duration-feedback ) ease;
 }
 
-/* Page-load progress grows from the reading start. */
-.loadingProgress span:dir( rtl ) {
-	transform-origin: right center;
+.annotationSendSlot[data-open='true'] .annotationSendMotion {
+	opacity: 1;
+}
+
+.annotationDivider {
+	flex-shrink: 0;
+	width: 1px;
+	height: 10px;
+	margin-inline: var( --space-1 );
+	background-color: var( --border );
+}
+
+.annotationSend {
+	margin-inline-end: var( --space-1 );
+}
+
+.annotationSendSlot[data-open='false'] .annotationSend {
+	--button-background: var( --accent );
+	color: var( --accent-foreground );
+	opacity: 1;
+}
+
+@media ( prefers-reduced-motion: no-preference ) {
+	.annotationSendSlot {
+		transition: grid-template-columns var( --motion-duration-surface ) var( --motion-ease-layout );
+	}
+
+	.annotationSendSlot[data-open='true'] {
+		transition-duration: var( --motion-duration-surface );
+		transition-timing-function: var( --motion-ease-enter );
+	}
+
+	.annotationSendMotion {
+		transform: scale( 0.94 );
+		transform-origin: center;
+		transition:
+			opacity var( --motion-duration-feedback ) ease,
+			transform var( --motion-duration-surface ) var( --motion-ease-enter );
+	}
+
+	.annotationSendSlot[data-open='true'] .annotationSendMotion {
+		transform: scale( 1 );
+		transition-duration: var( --motion-duration-feedback ), var( --motion-duration-surface );
+		transition-timing-function: var( --motion-ease-enter ), cubic-bezier( 0.2, 1.9, 0.3, 1 );
+		transition-delay: var( --motion-duration-feedback );
+	}
+
+	.annotationControl:has( :focus-visible ) :is( .annotationSendSlot, .annotationSendMotion ) {
+		transition: none;
+	}
 }
 
 .navigation {
 	display: flex;
 	align-items: center;
-	gap: 0;
-}
-
-/* Out of room: the navigation moves into the More menu, but keeps its size
-   so the header can tell when it fits again. */
-.navigationHidden {
-	position: absolute;
-	visibility: hidden;
-	pointer-events: none;
-}
-
-.toolbarStart,
-.headerItem {
-	display: flex;
-	align-items: center;
-	gap: var( --space-0_5 );
-	flex-shrink: 0;
-}
-
-.toolbarStart {
-	position: relative;
-	flex-basis: calc( var( --preview-header-content-width, 0px ) - var( --header-start-inset ) );
-	min-width: max-content;
-	margin-inline-end: calc( var( --space-1 ) + 1px - var( --space-0_5 ) );
-}
-
-.loadingProgress {
-	inset-inline-start: var( --preview-header-content-width, 0px );
-}
-
-.toolbarStart::after {
-	content: '';
-	position: absolute;
-	inset-inline-end: -1px;
-	top: 50%;
-	width: 1px;
-	height: var( --band-separator-height );
-	background-color: var( --border );
-	transform: translateY( -50% );
-	pointer-events: none;
-}
-
-.header:is(
-		[data-site-header-layout='navigation-overflow'],
-		[data-site-header-layout='mobile-overflow']
-	)
-	.toolbarStart {
-	flex-basis: auto;
-}
-
-.header:is(
-		[data-site-header-layout='navigation-overflow'],
-		[data-site-header-layout='mobile-overflow']
-	)
-	.toolbarStart::after {
-	display: none;
-}
-
-.headerSide:empty,
-.headerSide:has( > .navigationHidden ) {
-	display: none;
-}
-
-.headerItem[hidden] {
-	display: none;
+	gap: var( --space-1 );
 }
 
 .header[data-site-header-layout='mobile-overflow'] .browserLocation {
 	display: none;
 }
 
-.header[data-site-header-layout='mobile-overflow'] .toolbarStart {
-	margin-inline-end: 0;
+.headerSide:last-child {
+	margin-inline-start: auto;
+}
+
+.previewActions {
+	display: flex;
+	align-items: center;
+	gap: var( --space-1 );
 }

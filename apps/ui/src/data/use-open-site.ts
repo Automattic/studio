@@ -33,7 +33,7 @@ export function useOpenSite() {
 		selection = { siteId: site.id, time: performance.now() };
 		selectionListeners.forEach( ( listener ) => listener() );
 		void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'assistant' } );
-		preview?.setOpen( true );
+		preview?.setSite( site.id );
 		const session = resumeChat(
 			site.id,
 			( sessions ?? [] ).filter(

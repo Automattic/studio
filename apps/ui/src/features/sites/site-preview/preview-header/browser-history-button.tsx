@@ -37,6 +37,7 @@ export function BrowserHistoryButton( {
 	const [ menuOpen, setMenuOpen ] = useState( false );
 	const trigger = (
 		<IconButton
+			size="icon-sm"
 			icon={ back ? <ArrowLeftIcon /> : <ArrowRightIcon /> }
 			label={ label }
 			shortcut={ shortcut }

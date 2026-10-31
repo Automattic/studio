@@ -1,16 +1,6 @@
 import { __ } from '@wordpress/i18n';
-import {
-	Suspense,
-	useCallback,
-	useEffect,
-	useLayoutEffect,
-	useRef,
-	useState,
-	type ReactNode,
-} from 'react';
-import { createPortal } from 'react-dom';
+import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
-import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
 import { useSiteDesign } from '@/data/queries/use-site-design';
 import {
 	useIsSiteStarting,
@@ -56,6 +46,7 @@ import type { InspectorEvent } from '@studio/agent/protocol/inspector/page-scrip
 
 interface SitePreviewProps {
 	site: SiteDetails;
+	fullscreen?: { active: boolean; onClick: () => void };
 	// The connected remote to show instead, for a chat switched to Live.
 	liveUrl?: string;
 	// Path to display within the previewed site, controlled by the parent so
@@ -75,15 +66,11 @@ interface SitePreviewProps {
 	// True while the panel is toggled off but kept mounted (so the webview
 	// stays warm). Disables the global browser shortcuts in that state.
 	collapsed?: boolean;
-	toolbarStart?: ReactNode;
-	headerContainer?: HTMLElement | null;
-	// The preview is the leftmost pane, so with the sidebar out of the way its
-	// toolbar reaches the window's start edge, where the macOS traffic lights sit.
-	atWindowStart?: boolean;
 }
 
 export function SitePreview( {
 	site,
+	fullscreen,
 	liveUrl,
 	path,
 	reloadNonce,
@@ -91,9 +78,6 @@ export function SitePreview( {
 	onStartAnnotating,
 	onPathChange,
 	collapsed = false,
-	toolbarStart,
-	headerContainer,
-	atWindowStart = false,
 }: SitePreviewProps ) {
 	const connector = useConnector();
 	const startSite = useStartSite();
@@ -149,10 +133,6 @@ export function SitePreview( {
 	const canAnnotate =
 		canAnnotateSurface &&
 		( activeSurfaceKey === 'design' ? !! siteDesign.data : !! activeSurface?.inspectorReady );
-	const progress = browserState.loading
-		? Math.max( browserState.progress, 0.12 )
-		: browserState.progress;
-	const showLoadingProgress = canPreview && progress > 0;
 	const viewportRef = useRef< HTMLDivElement | null >( null );
 	const responsiveSettings = useResponsivePreview( site.id );
 	const responsiveEnabled = responsiveSettings.enabled && canPreview && activeSurfaceKey === 'site';
@@ -233,7 +213,7 @@ export function SitePreview( {
 	);
 
 	const browserShortcuts = useBrowserShortcuts(
-		canPreview && ! isStopping && ! collapsed,
+		canPreview && ! isStarting && ! isStopping && ! collapsed,
 		sendBrowserCommand
 	);
 
@@ -241,12 +221,7 @@ export function SitePreview( {
 	// than always the front end. Admin screens go through /studio-auto-login so
 	// they don't land on the login form; the front end opens logged out.
 	const openExternal = live
-		? () =>
-				void connector
-					.openSiteUrl( site.id, `${ siteUrl }${ safePath }`, { autoLogin: false } )
-					.catch( ( error ) => {
-						console.error( 'Failed to open site in browser:', error );
-					} )
+		? () => void connector.openExternalUrl( `${ siteUrl }${ safePath }` )
 		: activeRealm === 'design'
 		? undefined
 		: () => {
@@ -257,14 +232,11 @@ export function SitePreview( {
 						console.error( 'Failed to open site in browser:', error );
 					} );
 		  };
-	const responsive = canPreview
-		? {
-				active: responsiveEnabled,
-				disabled: isStopping || activeSurfaceKey !== 'site',
-				onClick: () =>
-					updateResponsivePreview( site.id, { enabled: ! responsiveSettings.enabled } ),
-		  }
-		: undefined;
+	const responsive = {
+		active: responsiveEnabled,
+		disabled: ! canPreview || isStarting || isStopping || activeSurfaceKey !== 'site',
+		onClick: () => updateResponsivePreview( site.id, { enabled: ! responsiveSettings.enabled } ),
+	};
 	const annotate = showAnnotate
 		? {
 				active: annotations.active,
@@ -291,23 +263,7 @@ export function SitePreview( {
 				},
 		  }
 		: undefined;
-	useSiteHeaderNavigation(
-		! collapsed
-			? {
-					canGoBack: browserState.canGoBack,
-					canGoForward: browserState.canGoForward,
-					disabled: ! canPreview || isStopping,
-					back: () => sendBrowserCommand( 'back' ),
-					forward: () => sendBrowserCommand( 'forward' ),
-					reload: () => sendBrowserCommand( 'reload' ),
-					openExternal,
-					responsive,
-					annotate,
-					backShortcut: browserShortcuts.back.displayShortcut,
-					forwardShortcut: browserShortcuts.forward.displayShortcut,
-			  }
-			: null
-	);
+	useSiteHeaderNavigation( ! collapsed ? { annotate } : null );
 
 	const header = (
 		<PreviewHeader
@@ -318,9 +274,6 @@ export function SitePreview( {
 			canPreview={ canPreview }
 			isStarting={ isStarting }
 			isStopping={ isStopping }
-			collapsed={ collapsed }
-			toolbarStart={ toolbarStart }
-			atWindowStart={ atWindowStart }
 			browserState={ browserState }
 			shortcuts={ browserShortcuts }
 			onBrowserCommand={ sendBrowserCommand }
@@ -330,23 +283,13 @@ export function SitePreview( {
 			hasDesignSystem={ !! siteDesign.data }
 			onOpenExternal={ openExternal }
 			responsive={ responsive }
-			annotate={ annotate }
-			progress={ showLoadingProgress ? progress : undefined }
+			fullscreen={ fullscreen }
 		/>
 	);
 
 	return (
 		<aside className={ styles.root } aria-label={ __( 'Site preview' ) }>
-			{ headerContainer
-				? collapsed
-					? null
-					: createPortal(
-							<WindowControlsCornerContext.Provider value={ true }>
-								{ header }
-							</WindowControlsCornerContext.Provider>,
-							headerContainer
-					  )
-				: header }
+			{ canPreview || isStarting || isStopping || fullscreen ? header : null }
 			{ responsiveEnabled ? (
 				<ResponsiveToolbar
 					siteId={ site.id }
@@ -454,7 +397,7 @@ export function SitePreview( {
 							) : null }
 							{ canPreview ? null : (
 								<div className={ styles.emptyContent }>
-									{ isStarting ? null : <StoppedSitePreview site={ site } /> }
+									{ isStarting ? null : <StoppedSitePreview site={ site } showStartButton /> }
 								</div>
 							) }
 						</div>

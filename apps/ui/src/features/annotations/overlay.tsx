@@ -1,6 +1,6 @@
 import { isStudioChatImageMimeType } from '@studio/agent/protocol/chat-images';
 import { getComposerAttachmentImageSrc } from '@studio/agent/protocol/composer-attachment-preview';
-import { __, _n, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { isAppleOS } from '@wordpress/keycodes';
 import { PaperclipIcon, Trash2Icon } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -11,16 +11,8 @@ import { isImeComposing } from '@/lib/keyboard';
 import {
 	AttachmentDropOverlay,
 	AttachmentRemoveButton,
-	Badge,
 	Button,
 	IconButton,
-	AlertDialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-	Spinner,
 	Textarea,
 	Tooltip,
 	TooltipContent,
@@ -28,13 +20,11 @@ import {
 } from '@/lib/ui';
 import {
 	changeAnnotation,
-	clearAnnotations,
 	closeAnnotationEditor,
 	escapeAnnotations,
 	getSiteAnnotations,
 	hasAnnotationContent,
 	isAnnotationsBusy,
-	isStagedAnnotation,
 	removeAnnotations,
 	setAnnotationsPreparing,
 	stageAnnotations,
@@ -59,19 +49,12 @@ interface AnnotationOverlayProps {
 
 const EDGE = 8;
 const ANCHOR_OFFSET = 4;
-// Keeps the editor clear of the Send bar.
-const BAR_CLEARANCE = 72;
-
-/** The note editor and the Cancel / Send bar drawn over an annotated preview. */
+/** The note editor drawn over an annotated preview. */
 export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlayProps ) {
 	const annotations = useSiteAnnotations( siteId );
-	const { active, notes, editingId, sending } = annotations;
+	const { active, notes, editingId } = annotations;
 	const busy = isAnnotationsBusy( annotations );
 	const note = notes.find( ( item ) => item.id === editingId );
-	const count = notes.filter( hasAnnotationContent ).length;
-	const stagedCount = notes.filter( isStagedAnnotation ).length;
-	const [ confirming, setConfirming ] = useState( false );
-	const cancelRef = useRef< HTMLButtonElement >( null );
 
 	useEffect( () => {
 		if ( ! active ) return;
@@ -90,14 +73,6 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 		return () => document.removeEventListener( 'keydown', onKeyDown );
 	}, [ active, siteId ] );
 
-	const cancel = () => {
-		if ( count ) {
-			setConfirming( true );
-		} else {
-			clearAnnotations( siteId );
-		}
-	};
-
 	return (
 		<div className={ styles.overlay } data-annotation-overlay>
 			{ active && note && anchor ? (
@@ -106,62 +81,10 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 					siteId={ siteId }
 					note={ note }
 					anchor={ anchor }
+					busy={ busy }
 					onSend={ onSend }
 				/>
 			) : null }
-			<div
-				role="toolbar"
-				aria-label={ __( 'Annotations' ) }
-				aria-hidden={ ! active }
-				inert={ ! active }
-				data-open={ active }
-				className={ styles.bar }
-			>
-				<Button variant="ghost" disabled={ busy } onClick={ cancel }>
-					{ __( 'Cancel' ) }
-				</Button>
-				<Button
-					variant="accent"
-					aria-label={ sprintf(
-						/* translators: %d: number of annotations. */
-						_n( 'Send %d annotation', 'Send %d annotations', count ),
-						count
-					) }
-					disabled={ ! count || busy }
-					onClick={ () => onSend() }
-				>
-					{ __( 'Send' ) }
-					{ stagedCount > 0 ? (
-						<Badge variant="on-accent" size="count" className={ styles.count } aria-hidden="true">
-							{ sending ? <Spinner /> : stagedCount }
-						</Badge>
-					) : null }
-				</Button>
-			</div>
-			<AlertDialog open={ active && confirming } onOpenChange={ setConfirming }>
-				<DialogContent layout="confirmation" initialFocus={ cancelRef }>
-					<DialogHeader>
-						<DialogTitle>{ __( 'Discard all pending annotations?' ) }</DialogTitle>
-						<DialogDescription tone="default">
-							{ __( 'All edits will be removed from this page.' ) }
-						</DialogDescription>
-					</DialogHeader>
-					<DialogFooter>
-						<Button ref={ cancelRef } variant="outline" onClick={ () => setConfirming( false ) }>
-							{ __( 'Cancel' ) }
-						</Button>
-						<Button
-							variant="destructive"
-							onClick={ () => {
-								setConfirming( false );
-								clearAnnotations( siteId );
-							} }
-						>
-							{ __( 'Discard' ) }
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</AlertDialog>
 		</div>
 	);
 }
@@ -170,11 +93,13 @@ function NoteEditor( {
 	siteId,
 	note,
 	anchor,
+	busy,
 	onSend,
 }: {
 	siteId: string;
 	note: PreviewAnnotation;
 	anchor: AnnotationAnchor;
+	busy: boolean;
 	onSend: ( noteIds?: string[] ) => void;
 } ) {
 	const editorRef = useRef< HTMLDivElement | null >( null );
@@ -216,10 +141,7 @@ function NoteEditor( {
 			);
 			const top = Math.max(
 				EDGE,
-				Math.min(
-					anchor.top + ANCHOR_OFFSET,
-					container.clientHeight - editor.offsetHeight - BAR_CLEARANCE
-				)
+				Math.min( anchor.top + ANCHOR_OFFSET, container.clientHeight - editor.offsetHeight - EDGE )
 			);
 			setPosition( ( old ) => ( old.left === left && old.top === top ? old : { left, top } ) );
 		};
@@ -232,7 +154,7 @@ function NoteEditor( {
 
 	const hasContent = hasAnnotationContent( note );
 	const submit = ( direct: boolean ) => {
-		if ( ! hasContent ) return;
+		if ( ! hasContent || busy ) return;
 		if ( direct ) {
 			onSend( [ note.id ] );
 		} else {
@@ -328,7 +250,7 @@ function NoteEditor( {
 								shape="round"
 								className={ styles.save }
 								aria-label={ __( 'Save annotation' ) }
-								disabled={ ! hasContent }
+								disabled={ ! hasContent || busy }
 								onClick={ () => submit( false ) }
 							/>
 						}

@@ -4,7 +4,6 @@ import { useSyncExternalStore, type ComponentProps } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { updateResponsivePreview } from '@/data/responsive-preview';
 import { SessionUIProvider } from '@/data/use-session-ui';
-import { getSiteAnnotations } from '@/features/annotations';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { SitePreview } from './index';
@@ -418,41 +417,6 @@ describe( 'site preview controls', () => {
 		} );
 	} );
 
-	it( 'starts a stopped site with annotation mode selected', async () => {
-		const connector = createFakeConnector(
-			{},
-			{ capabilities: { nativeFolderPicker: true, annotatePreview: true, studioLogs: true } }
-		);
-		const stopped = makeSite( { id: 'annotate-stopped', running: false } );
-		const { user } = await renderPreview( 'desktop', { site: stopped }, connector );
-		const annotate = screen.getByRole( 'button', { name: 'Annotate' } );
-		expect( annotate ).toBeEnabled();
-		await user.click( annotate );
-		expect( connector.startSite ).toHaveBeenCalledWith( stopped.id );
-		expect( getSiteAnnotations( stopped.id ).active ).toBe( true );
-	} );
-
-	it.each( [ true, false ] )(
-		'keeps Annotate visible when host support is %s',
-		async ( annotatePreview ) => {
-			const connector = createFakeConnector(
-				{},
-				{ capabilities: { nativeFolderPicker: true, annotatePreview, studioLogs: true } }
-			);
-			await renderPreview( 'browser', {}, connector );
-			expect( screen.getByRole( 'button', { name: 'Reload preview' } ) ).toBeVisible();
-			const annotate = screen.getByRole( 'button', { name: 'Annotate' } );
-			expect( annotate ).toBeVisible();
-			if ( ! annotatePreview ) {
-				expect( annotate ).toBeDisabled();
-				expect( annotate ).toHaveAttribute(
-					'aria-description',
-					'Site annotation is not available in the browser yet'
-				);
-			}
-		}
-	);
-
 	it.each( [ undefined, 'https://example.wordpress.com' ] )(
 		'keeps responsive settings on site surfaces and suspends the toolbar for tools (live: %s)',
 		async ( liveUrl ) => {
@@ -465,17 +429,17 @@ describe( 'site preview controls', () => {
 			await user.click( responsiveToggle() );
 			act( () => updateResponsivePreview( siteId, { width: 512 } ) );
 			update( { path: '/phpmyadmin/index.php' } );
-			expect( responsiveToggle() ).toBeDisabled();
+			expect( responsiveToggle() ).toHaveAttribute( 'aria-disabled', 'true' );
 			expect(
 				screen.queryByRole( 'toolbar', { name: 'Responsive preview' } )
 			).not.toBeInTheDocument();
 			update( { path: DESIGN_SYSTEM_PREVIEW_PATH } );
-			expect( responsiveToggle() ).toBeDisabled();
+			expect( responsiveToggle() ).toHaveAttribute( 'aria-disabled', 'true' );
 			expect(
 				screen.queryByRole( 'toolbar', { name: 'Responsive preview' } )
 			).not.toBeInTheDocument();
 			update( { path: '/wp-admin/' } );
-			expect( responsiveToggle() ).toBeEnabled();
+			expect( responsiveToggle() ).not.toHaveAttribute( 'aria-disabled', 'true' );
 			expect( responsiveToggle() ).toHaveAttribute( 'aria-pressed', 'true' );
 			expect( screen.getByRole( 'textbox', { name: 'Width' } ) ).toHaveValue( '512' );
 		}
@@ -525,16 +489,39 @@ describe( 'site preview controls', () => {
 } );
 
 describe( 'preview address bar', () => {
-	it( 'shows immediate startup feedback and restores the address when running', async () => {
-		const { update } = await renderPreview( 'browser', {
-			site: site( { running: false, operation: { pid: 1, kind: 'start' } } ),
-		} );
-		expect( screen.getByText( 'Starting site…' ) ).toHaveAttribute( 'role', 'status' );
-		expect( screen.queryByRole( 'textbox' ) ).not.toBeInTheDocument();
-		update( { site: site() } );
-		expect( screen.queryByText( 'Starting site…' ) ).not.toBeInTheDocument();
-		expect( address() ).toHaveValue( SITE_URL );
-	} );
+	it.each( [ 'browser', 'desktop' ] as const )(
+		'keeps the full toolbar mounted and disables unavailable controls during startup in %s',
+		async ( runtime ) => {
+			const { update } = await renderPreview( runtime, {
+				site: site( { running: false, operation: { pid: 1, kind: 'start' } } ),
+			} );
+			expect( screen.getByText( 'Starting site…' ) ).toHaveAttribute( 'role', 'status' );
+			const input = address();
+			expect( input ).toBeVisible();
+			expect( input ).toBeDisabled();
+			expect( input ).toHaveValue( SITE_URL );
+			const controls = [
+				'Back',
+				'Forward',
+				'Reload preview',
+				'Responsive mode',
+				'Open this page in your browser',
+			].map( ( name ) => screen.getByRole( 'button', { name } ) );
+			for ( const control of controls ) {
+				expect( control.matches( ':disabled, [aria-disabled="true"]' ) ).toBe( true );
+			}
+			update( { site: site() } );
+			expect( screen.queryByText( 'Starting site…' ) ).not.toBeInTheDocument();
+			expect( address() ).toBe( input );
+			expect( input ).toBeEnabled();
+			for ( const control of controls.slice( 2 ) ) {
+				expect(
+					screen.getByRole( 'button', { name: control.getAttribute( 'aria-label' )! } )
+				).toBe( control );
+				expect( control.matches( ':disabled, [aria-disabled="true"]' ) ).toBe( false );
+			}
+		}
+	);
 
 	it( 'shows stopping feedback until shutdown completes, even after the preview is hidden', async () => {
 		const stopping = { pid: 1, kind: 'stop' } as const;
@@ -543,7 +530,8 @@ describe( 'preview address bar', () => {
 			site: site( { operation: stopping } ),
 		} );
 		expect( screen.getByText( 'Stopping site…' ) ).toHaveAttribute( 'role', 'status' );
-		expect( screen.queryByRole( 'textbox' ) ).not.toBeInTheDocument();
+		expect( address() ).toBeDisabled();
+		expect( address() ).toHaveValue( `${ SITE_URL }/about/` );
 		update( { site: site( { running: false, operation: stopping } ) } );
 		expect( screen.getByText( 'Stopping site…' ) ).toHaveAttribute( 'role', 'status' );
 		update( { site: site( { running: false } ) } );
@@ -552,12 +540,15 @@ describe( 'preview address bar', () => {
 		expect( address() ).toHaveValue( `${ SITE_URL }/about/` );
 	} );
 
-	it( 'toggles responsive mode from the address field', async () => {
+	it( 'toggles responsive mode from the preview toolbar', async () => {
 		const { user } = await renderPreview( 'browser', {
 			site: site( { id: 'address-responsive' } ),
 		} );
 		const toggle = screen.getByRole( 'button', { name: 'Responsive mode' } );
-		expect( address().closest( 'form' ) ).toContainElement( toggle );
+		expect( address().closest( 'form' ) ).not.toContainElement( toggle );
+		expect( screen.getByRole( 'toolbar', { name: 'Preview browser controls' } ) ).toContainElement(
+			toggle
+		);
 		await user.click( toggle );
 		expect( toggle ).toHaveAttribute( 'aria-pressed', 'true' );
 		expect( address() ).not.toHaveFocus();
@@ -593,12 +584,12 @@ describe( 'preview address bar', () => {
 		expect( connector.openExternalUrl ).not.toHaveBeenCalled();
 	} );
 
-	it( 'keeps an empty pill while stopped and restores the editable address when started', async () => {
+	it( 'shows Start in the stopped preview and restores the editable address when started', async () => {
 		const { update } = await renderPreview( 'browser', { path: '/about/' } );
 		expect( address() ).toHaveValue( `${ SITE_URL }/about/` );
 		update( { site: site( { running: false } ) } );
 		expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: 'Start site' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Start site' } ) ).toBeVisible();
 		update( { site: site( { running: false, operation: { pid: 1, kind: 'settings' } } ) } );
 		expect( screen.queryByRole( 'button', { name: 'Responsive mode' } ) ).not.toBeInTheDocument();
 		expect(

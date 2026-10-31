@@ -24,14 +24,14 @@ export function SessionHeader( {
 	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 	const windowControlsInset = useWindowControlsInset( 'toolbar' );
 	const { host } = useSiteHeader();
-	const local = site && effectiveEnvironment === 'local';
+	const withSiteActions = !! site && host !== null;
 
 	return (
 		<header
 			data-site-header
 			className={ clsx(
 				styles.header,
-				local && host === 'chat' && styles.headerWithSiteActions,
+				withSiteActions && styles.headerWithSiteActions,
 				sidebarCollapsed && reserveTrafficLightSpace && styles.headerSidebarCollapsed
 			) }
 			style={
@@ -57,7 +57,7 @@ export function SessionHeader( {
 				) : null }
 			</div>
 			<span className={ styles.headerSpacer } aria-hidden="true" />
-			{ local && host === 'chat' ? <SiteHeaderSpace /> : null }
+			{ withSiteActions ? <SiteHeaderSpace /> : null }
 		</header>
 	);
 }

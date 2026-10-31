@@ -7,6 +7,8 @@ export interface ResizablePanelConfig {
 export const SIDEBAR_PANEL_STORAGE_KEY = 'studio-ui-sidebar-width';
 export const SIDEBAR_COLLAPSED_STORAGE_KEY = 'studio-ui-sidebar-collapsed';
 export const PREVIEW_CONTENT_WIDTH_STORAGE_KEY = 'studio-ui-preview-content-width';
+export const PREVIEW_OPEN_STORAGE_KEY = 'studio-ui-preview-open';
+export const PREVIEW_LAYOUT_STORAGE_KEY = 'studio-ui-running-preview-layout';
 export const SITE_CHAT_HIDDEN_STORAGE_KEY = 'studio-ui-chat-hidden-by-site';
 const PREVIEW_CONTENT_WIDTH_SITE_PREFIX = `${ PREVIEW_CONTENT_WIDTH_STORAGE_KEY }:`;
 
@@ -36,6 +38,49 @@ export function storeSiteChatVisibility( hiddenBySiteId: Record< string, boolean
 		}
 	} catch {
 		// Keep visibility usable when storage is unavailable.
+	}
+}
+
+export function getStoredPreviewVisibility(): boolean | null {
+	try {
+		const stored = window.localStorage.getItem( PREVIEW_OPEN_STORAGE_KEY );
+		return stored === 'true' ? true : stored === 'false' ? false : null;
+	} catch {
+		return null;
+	}
+}
+
+export interface PreviewLayout {
+	open: boolean;
+	chatHidden: boolean;
+}
+
+export function getStoredPreviewLayout(): PreviewLayout {
+	try {
+		const stored: unknown = JSON.parse(
+			window.localStorage.getItem( PREVIEW_LAYOUT_STORAGE_KEY ) ?? 'null'
+		);
+		if (
+			stored &&
+			typeof stored === 'object' &&
+			'open' in stored &&
+			'chatHidden' in stored &&
+			typeof stored.open === 'boolean' &&
+			typeof stored.chatHidden === 'boolean'
+		) {
+			return { open: stored.open, chatHidden: stored.chatHidden };
+		}
+	} catch {
+		// Fall back to the previous visibility preference.
+	}
+	return { open: getStoredPreviewVisibility() ?? true, chatHidden: false };
+}
+
+export function storePreviewLayout( layout: PreviewLayout ): void {
+	try {
+		window.localStorage.setItem( PREVIEW_LAYOUT_STORAGE_KEY, JSON.stringify( layout ) );
+	} catch {
+		// Keep layout changes usable without storage.
 	}
 }
 
@@ -102,6 +147,8 @@ const PANEL_WIDTH_STORAGE_KEYS = [
 	SIDEBAR_PANEL_STORAGE_KEY,
 	PREVIEW_CONTENT_WIDTH_STORAGE_KEY,
 	SITE_CHAT_HIDDEN_STORAGE_KEY,
+	PREVIEW_OPEN_STORAGE_KEY,
+	PREVIEW_LAYOUT_STORAGE_KEY,
 ];
 export const PANEL_WIDTHS_RESET_EVENT = 'studio-panel-widths-reset';
 
@@ -117,8 +164,13 @@ function getPanelWidthStorageKeys(): string[] {
 export function hasCustomPanelLayout(): boolean {
 	try {
 		return (
-			getPanelWidthStorageKeys().some( ( key ) => window.localStorage.getItem( key ) !== null ) ||
-			window.localStorage.getItem( SIDEBAR_COLLAPSED_STORAGE_KEY ) === 'true'
+			getPanelWidthStorageKeys().some( ( key ) => {
+				if ( key === PREVIEW_LAYOUT_STORAGE_KEY ) {
+					const layout = getStoredPreviewLayout();
+					return ! layout.open || layout.chatHidden;
+				}
+				return window.localStorage.getItem( key ) !== null;
+			} ) || window.localStorage.getItem( SIDEBAR_COLLAPSED_STORAGE_KEY ) === 'true'
 		);
 	} catch {
 		return false;
@@ -192,12 +244,9 @@ export function getPreviewSplitLayout(
 	};
 }
 
-export function getInitialPreviewContentWidth( siteId?: string ): number | null {
-	if ( ! siteId ) return null;
+export function getInitialPreviewContentWidth(): number | null {
 	try {
-		const storedContentWidth = window.localStorage.getItem(
-			getPreviewContentWidthStorageKey( siteId )
-		);
+		const storedContentWidth = window.localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY );
 		const parsedContentWidth = storedContentWidth ? Number( storedContentWidth ) : NaN;
 		return Number.isFinite( parsedContentWidth ) && parsedContentWidth > 0
 			? Math.round( parsedContentWidth )

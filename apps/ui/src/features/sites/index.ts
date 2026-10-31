@@ -32,4 +32,9 @@ export { type AddSiteSection, isAddSiteSection, useOpenAddSite } from './use-ope
 export { useItemShortcuts } from './use-item-shortcuts';
 export { useSiteManagementActions } from './use-site-management-actions';
 
-export { SiteRunButton } from './site-run-button';
+export {
+	useHeaderPrototype,
+	HeaderPrototypePicker,
+	PrototypeStartButton,
+	PrototypePreviewControls,
+} from './header-prototype';

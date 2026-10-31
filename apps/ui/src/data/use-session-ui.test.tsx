@@ -1,6 +1,6 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { act, renderHook } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { ConnectorProvider } from '@/data/core';
 import {
 	SessionUIProvider,
@@ -9,6 +9,8 @@ import {
 } from '@/data/use-session-ui';
 import { createFakeConnector } from '@/test/fake-connector';
 import type { ReactNode } from 'react';
+
+beforeEach( () => localStorage.clear() );
 
 function wrapper( { children }: { children: ReactNode } ) {
 	return (

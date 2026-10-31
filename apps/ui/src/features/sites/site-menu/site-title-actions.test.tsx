@@ -116,6 +116,31 @@ describe( 'site title actions', () => {
 		}
 	);
 
+	it.each( [
+		[ null, 'Safari' ],
+		[ 'chrome', 'Google Chrome' ],
+	] as const )(
+		'shows the system browser unless a Studio browser is selected (%s)',
+		async ( browser, label ) => {
+			const initial = createFakeConnector();
+			const installed = await initial.getInstalledApps();
+			const preferences = await initial.getUserPreferences();
+			const { connector } = setup( [ site( { running: true } ) ], {
+				getInstalledApps: async () => ( {
+					...installed,
+					defaultBrowser: { name: 'Safari', browser: 'safari' },
+				} ),
+				getUserPreferences: async () => ( { ...preferences, browser } ),
+			} );
+			fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
+			await waitFor( () =>
+				expect( connector.openSiteUrl ).toHaveBeenCalledWith( 'one', '/', { autoLogin: false } )
+			);
+		}
+	);
+
 	it( 'opens the configured editor', async () => {
 		const { connector } = setup();
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );

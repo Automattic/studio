@@ -4,8 +4,6 @@ import {
 	CodeIcon,
 	DatabaseIcon,
 	DownloadIcon,
-	EyeIcon,
-	EyeOffIcon,
 	FolderIcon,
 	PencilIcon,
 	RefreshCwIcon,
@@ -16,7 +14,8 @@ import {
 import { getSettingsCommandAliases } from '@/data/settings-sections';
 import {
 	AnnotateIcon,
-	ChatIcon,
+	ExpandIcon,
+	CollapseIcon,
 	DuplicateIcon,
 	ExternalLinkIcon,
 	NewChatIcon,
@@ -65,7 +64,6 @@ export function getSiteCommands( {
 	newChat,
 	reloadPreview,
 	annotate,
-	showPreview,
 	setChatHidden,
 	copyUrl,
 }: {
@@ -83,7 +81,6 @@ export function getSiteCommands( {
 	newChat: () => void;
 	reloadPreview: () => void;
 	annotate: ( active: boolean ) => void;
-	showPreview: ( open: boolean ) => void;
 	setChatHidden: ( hidden: boolean ) => void;
 	copyUrl: () => void;
 } ): PaletteCommand[] {
@@ -251,24 +248,13 @@ export function getSiteCommands( {
 			  ]
 			: [] ),
 		{
-			id: 'preview-visibility',
+			id: 'preview-fullscreen',
 			group: 'commands',
-			label: previewShown ? __( 'Hide preview' ) : __( 'Show preview' ),
-			icon: previewShown ? EyeOffIcon : EyeIcon,
+			label: chatHidden ? __( 'Exit fullscreen' ) : __( 'Enter fullscreen' ),
+			icon: chatHidden ? CollapseIcon : ExpandIcon,
 			description,
-			run: () => showPreview( ! previewShown ),
+			run: () => setChatHidden( ! chatHidden ),
 		},
-		...( chatHidden === undefined
-			? []
-			: [
-					{
-						id: 'chat-visibility',
-						group: 'commands' as const,
-						label: chatHidden ? __( 'Show chat' ) : __( 'Hide chat' ),
-						icon: ChatIcon,
-						run: () => setChatHidden( ! chatHidden ),
-					},
-			  ] ),
 		{
 			id: 'share',
 			group: 'commands',

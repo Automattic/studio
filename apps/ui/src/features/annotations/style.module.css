@@ -15,7 +15,7 @@
 	gap: var( --space-1 );
 	width: 320px;
 	max-width: calc( 100% - 16px );
-	max-height: calc( 100% - 80px );
+	max-height: calc( 100% - 16px );
 	padding: var( --space-1 );
 	overflow-y: auto;
 	border-radius: var( --radius-3xl );
@@ -59,49 +59,4 @@
 
 .save {
 	margin-inline-start: auto;
-}
-
-.count {
-	font-size: var( --text-xxs );
-	font-weight: 500;
-}
-
-.bar {
-	position: absolute;
-	bottom: var( --space-4 );
-	left: 50%;
-	display: flex;
-	align-items: center;
-	gap: var( --space-1 );
-	padding: var( --space-1_5 );
-	border-radius: var( --radius-xl );
-	background-color: var( --popover );
-	box-shadow:
-		0 0 0 1px var( --border ),
-		var( --shadow-sm );
-	pointer-events: auto;
-	transform: translateX( -50% );
-}
-
-.bar[data-open='false'] {
-	visibility: hidden;
-	opacity: 0;
-	pointer-events: none;
-	transform: translate( -50%, calc( 100% + 16px ) );
-}
-
-@media ( prefers-reduced-motion: no-preference ) {
-	.bar {
-		transition:
-			transform var( --motion-duration-layout ) var( --motion-ease-enter ),
-			opacity var( --motion-duration-layout ) var( --motion-ease-enter ),
-			visibility var( --motion-duration-layout );
-	}
-
-	@starting-style {
-		.bar[data-open='true'] {
-			opacity: 0;
-			transform: translate( -50%, calc( 100% + 16px ) );
-		}
-	}
 }

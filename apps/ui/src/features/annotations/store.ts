@@ -146,18 +146,13 @@ export function closeAnnotationEditor( siteId: string ) {
 	);
 }
 
-// With a note open, Escape closes it; otherwise it leaves annotation mode and
-// keeps the notes.
+// Escape leaves annotation mode and keeps notes that have content.
 export function escapeAnnotations( siteId: string ) {
 	const current = getSiteAnnotations( siteId );
 	if ( isAnnotationsBusy( current ) ) {
 		return;
 	}
-	if ( current.editingId ) {
-		closeAnnotationEditor( siteId );
-	} else {
-		setAnnotating( siteId, false );
-	}
+	setAnnotating( siteId, false );
 }
 
 export function stageAnnotations( siteId: string, ids?: string[] ) {

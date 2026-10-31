@@ -1,17 +1,15 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
 import { __ } from '@wordpress/i18n';
-import { clsx } from 'clsx';
 import { useEffect, useId, useRef, useState } from 'react';
 import {
 	AppearanceIcon,
 	DatabaseIcon,
 	ExternalLinkIcon,
 	GlobeIcon,
-	ResponsiveIcon,
 	WordPressIcon,
 } from '@/lib/icons';
-import { Tooltip, TooltipContent, TooltipTrigger, Popover, Button } from '@/lib/ui';
+import { Tooltip, TooltipContent, TooltipTrigger, Popover, Button, Input } from '@/lib/ui';
 import { CommandList, handleCommandKey, type CommandGroup } from '@/lib/ui';
 import styles from './address-bar.module.css';
 import type { SiteDetails } from '@/data/core';
@@ -112,9 +110,9 @@ interface PreviewAddressBarProps {
 	onSwitchRealm: ( realm: PreviewRealm ) => void;
 	hasDesignSystem?: boolean;
 	onOpenExternal?: () => void;
-	responsive?: { active: boolean; disabled: boolean; onClick: () => void };
-	// In compact headers, keep only the address and an active responsive toggle.
+	// In compact headers, keep only the address.
 	hideActions?: boolean;
+	disabled?: boolean;
 }
 
 interface RecentPreviewLocation {
@@ -185,14 +183,12 @@ function AddressAction( {
 	label,
 	tooltip = label,
 	onClick,
-	active,
 	disabled,
 }: {
 	icon: ReactNode;
 	label: string;
 	tooltip?: string;
 	onClick: () => void;
-	active?: boolean;
 	disabled?: boolean;
 } ) {
 	return (
@@ -200,12 +196,10 @@ function AddressAction( {
 			<TooltipTrigger
 				render={
 					<Button
-						variant={ active === undefined ? 'ghost' : 'accent-ghost' }
+						variant="ghost"
 						size="icon-sm"
-						shape="round"
 						className={ styles.action }
 						aria-label={ label }
-						aria-pressed={ active }
 						disabled={ disabled }
 						onClick={ onClick }
 					/>
@@ -227,8 +221,8 @@ export function PreviewAddressBar( {
 	onSwitchRealm,
 	hasDesignSystem = false,
 	onOpenExternal,
-	responsive,
 	hideActions = false,
+	disabled = false,
 }: PreviewAddressBarProps ) {
 	const displayUrl = getDisplayUrl( siteUrl, path );
 	const [ value, setValue ] = useState( displayUrl );
@@ -241,27 +235,7 @@ export function PreviewAddressBar( {
 		loadRecentLocations( site.id )
 	);
 	const addressBarRef = useRef< HTMLFormElement | null >( null );
-	const addressTextRef = useRef< HTMLSpanElement | null >( null );
 	const selectOnMouseUp = useRef( false );
-
-	const animateAddressAlignment = ( input: HTMLInputElement, focused: boolean ) => {
-		const style = getComputedStyle( input );
-		const currentOffset =
-			style.transform && style.transform !== 'none'
-				? new DOMMatrixReadOnly( style.transform ).m41
-				: 0;
-		input.getAnimations?.().forEach( ( animation ) => animation.cancel() );
-		const textWidth = addressTextRef.current?.getBoundingClientRect().width ?? 0;
-		const offset = Math.max( 0, ( input.clientWidth - textWidth ) / 2 );
-		if ( ! offset || window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches ) return;
-		const direction = style.direction === 'rtl' ? -1 : 1;
-		const start = currentOffset + offset * direction * ( focused ? 1 : -1 );
-		const duration = style.getPropertyValue( '--motion-duration-surface' ).trim();
-		input.animate( [ { transform: `translateX(${ start }px)` }, { transform: 'translateX(0)' } ], {
-			duration: parseFloat( duration ) * ( duration.endsWith( 'ms' ) ? 1 : 1000 ),
-			easing: style.getPropertyValue( '--motion-ease-enter' ).trim(),
-		} );
-	};
 
 	const restore = () => {
 		setValue( displayUrl );
@@ -272,9 +246,16 @@ export function PreviewAddressBar( {
 		setInvalid( false );
 	}, [ displayUrl ] );
 	useEffect( () => setRecentLocations( loadRecentLocations( site.id ) ), [ site.id ] );
+	useEffect( () => {
+		if ( disabled ) {
+			setShortcutsOpen( false );
+			setHighlighted( undefined );
+		}
+	}, [ disabled ] );
 
 	const handleSubmit = ( event: FormEvent< HTMLFormElement > ) => {
 		event.preventDefault();
+		if ( disabled ) return;
 		const intent = parseOmniboxInput( value, siteUrl );
 		if ( ! intent ) {
 			setInvalid( value.trim() !== '' );
@@ -350,10 +331,11 @@ export function PreviewAddressBar( {
 	return (
 		<Popover.Root
 			triggerId={ addressInputId }
-			open={ shortcutsOpen }
+			open={ shortcutsOpen && ! disabled }
 			// The webview swallows outside clicks; the modal backdrop catches them.
 			modal
 			onOpenChange={ ( open, details ) => {
+				if ( disabled ) return;
 				if ( details.reason === 'trigger-press' && ( shortcutsOpen || remote ) ) return;
 				setShortcutsOpen( open );
 				setHighlighted( undefined );
@@ -362,34 +344,14 @@ export function PreviewAddressBar( {
 				}
 			} }
 		>
-			<form
-				ref={ addressBarRef }
-				className={ clsx( styles.addressBar, responsive?.active && styles.responsiveActive ) }
-				onSubmit={ handleSubmit }
-			>
-				{ ! responsive || ( hideActions && ! responsive.active ) ? null : (
-					<span
-						className={ `${ styles.actions } ${ styles.responsiveAction }` }
-						data-address-action
-					>
-						<AddressAction
-							icon={ <ResponsiveIcon /> }
-							label={ __( 'Responsive mode' ) }
-							tooltip={ responsive.active ? __( 'Exit responsive mode' ) : __( 'Responsive mode' ) }
-							active={ responsive.active }
-							disabled={ responsive.disabled }
-							onClick={ responsive.onClick }
-						/>
-					</span>
-				) }
-				<span ref={ addressTextRef } className={ styles.addressText } aria-hidden="true">
-					{ value }
-				</span>
+			<form ref={ addressBarRef } className={ styles.addressBar } onSubmit={ handleSubmit }>
 				<Popover.Trigger
 					id={ addressInputId }
 					nativeButton={ false }
 					render={
-						<input
+						<Input
+							variant="ghost"
+							disabled={ disabled }
 							role="textbox"
 							value={ value }
 							onMouseDown={ ( event ) => {
@@ -406,11 +368,9 @@ export function PreviewAddressBar( {
 							onFocus={ ( event ) => {
 								event.currentTarget.select();
 								if ( ! remote ) setShortcutsOpen( true );
-								animateAddressAlignment( event.currentTarget, true );
 							} }
-							onBlur={ ( event ) => {
+							onBlur={ () => {
 								selectOnMouseUp.current = false;
-								animateAddressAlignment( event.currentTarget, false );
 							} }
 							onChange={ ( event ) => {
 								setValue( event.target.value );
@@ -458,6 +418,7 @@ export function PreviewAddressBar( {
 								label={ __( 'Open this page in your browser' ) }
 								tooltip={ __( 'Open in browser' ) }
 								onClick={ onOpenExternal }
+								disabled={ disabled }
 							/>
 						) : null }
 					</span>

@@ -80,8 +80,6 @@ export function WebviewSurface( {
 	const inspectorEnabledRef = useRef( inspector );
 	const currentUrlRef = useRef( url );
 	const lastReloadNonceRef = useRef( reloadNonce );
-	const progressTimerRef = useRef< ReturnType< typeof setInterval > | null >( null );
-	const progressResetTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
 	useEffect( () => {
 		onInspectorReadyRef.current = onInspectorReady;
 	}, [ onInspectorReady ] );
@@ -138,41 +136,6 @@ export function WebviewSurface( {
 		browserStateRef.current = next;
 		onBrowserStateChangeRef.current?.( next );
 	}, [] );
-
-	const clearProgressTimers = useCallback( () => {
-		if ( progressTimerRef.current ) {
-			clearInterval( progressTimerRef.current );
-			progressTimerRef.current = null;
-		}
-		if ( progressResetTimerRef.current ) {
-			clearTimeout( progressResetTimerRef.current );
-			progressResetTimerRef.current = null;
-		}
-	}, [] );
-
-	// The webview emits no incremental load progress, so the bar is
-	// simulated: it eases toward 88% while loading and snaps to 100% on
-	// completion before resetting.
-	const startProgress = useCallback( () => {
-		clearProgressTimers();
-		publishBrowserState( {
-			loading: true,
-			progress: Math.max( browserStateRef.current.progress, 0.12 ),
-		} );
-		progressTimerRef.current = setInterval( () => {
-			const current = browserStateRef.current.progress;
-			const next = Math.min( 0.88, current + Math.max( 0.02, ( 0.88 - current ) * 0.18 ) );
-			publishBrowserState( { loading: true, progress: next } );
-		}, 250 );
-	}, [ clearProgressTimers, publishBrowserState ] );
-
-	const finishProgress = useCallback( () => {
-		clearProgressTimers();
-		publishBrowserState( { loading: false, progress: 1 } );
-		progressResetTimerRef.current = setTimeout( () => {
-			publishBrowserState( { loading: false, progress: 0 } );
-		}, 180 );
-	}, [ clearProgressTimers, publishBrowserState ] );
 
 	// The mount-time url is loaded via the `src` attribute (calling `loadURL`
 	// before `dom-ready` throws); it must stay stable so later navigation
@@ -301,11 +264,10 @@ export function WebviewSurface( {
 		};
 		const handleStartLoading = () => {
 			didReadTitleAfterLoad = false;
-			publishBrowserState( { title: null, failed: false } );
-			startProgress();
+			publishBrowserState( { loading: true, title: null, failed: false } );
 		};
 		const handleStopLoading = () => {
-			finishProgress();
+			publishBrowserState( { loading: false } );
 			publishNavigationHistory();
 			if ( domReadyRef.current && ! didReadTitleAfterLoad ) {
 				didReadTitleAfterLoad = true;
@@ -339,7 +301,6 @@ export function WebviewSurface( {
 		publishBrowserState();
 		return () => {
 			domReadyRef.current = false;
-			clearProgressTimers();
 			webview.removeEventListener( 'dom-ready', handleDomReady );
 			webview.removeEventListener( 'console-message', handleConsoleMessage );
 			webview.removeEventListener( 'page-title-updated', handlePageTitleUpdated );
@@ -352,7 +313,7 @@ export function WebviewSurface( {
 			webview.removeEventListener( 'did-fail-load', handleFailLoad );
 			webview.removeEventListener( 'did-finish-load', handleStopLoading );
 		};
-	}, [ clearProgressTimers, finishProgress, publishBrowserState, startProgress ] );
+	}, [ publishBrowserState ] );
 
 	// Navigation effect — gated on `ready` so the first call happens after
 	// `dom-ready` (the initial url is loaded by the `src` attribute on the

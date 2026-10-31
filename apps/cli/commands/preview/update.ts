@@ -4,7 +4,6 @@ import path from 'node:path';
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
-import { readAuthToken } from '@studio/common/lib/shared-config';
 import { getSnapshotLink, isSnapshotExpired, isWpcomPreview } from '@studio/common/lib/snapshots';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { Snapshot } from '@studio/common/types/snapshot';
@@ -21,6 +20,7 @@ import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { classifyPreviewFailure } from 'cli/lib/utils';
 import { validateSiteSize } from 'cli/lib/validation';
+import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -67,14 +67,7 @@ export async function runCommand(
 	let archiveBytes: number | undefined;
 
 	try {
-		const token = await readAuthToken();
-		if ( ! token ) {
-			throw new LoggerError(
-				__( 'Authentication required. Please log in with `studio auth login`.' ),
-				undefined,
-				'auth_required'
-			);
-		}
+		const token = await requireAuthToken();
 		const snapshots = await getSnapshotsFromConfig( token.id );
 		const snapshotToUpdate = await getSnapshotToUpdate( snapshots, host, siteFolder, overwrite );
 		const site = await getSiteByFolder( siteFolder );

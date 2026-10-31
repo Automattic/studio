@@ -15,6 +15,7 @@ import {
 	syncPreviewsWithServer,
 } from 'cli/lib/snapshots';
 import { getColumnWidths } from 'cli/lib/utils';
+import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -72,12 +73,7 @@ export async function runCommand(
 		if ( ! all ) {
 			await getSiteByFolder( siteFolder );
 		}
-		const token = await readAuthToken();
-		if ( ! token ) {
-			throw new LoggerError(
-				__( 'Authentication required. Please log in with `studio auth login`.' )
-			);
-		}
+		const token = await requireAuthToken();
 
 		logger.reportStart( LoggerAction.LOAD, __( 'Loading preview sites…' ) );
 

@@ -6,7 +6,6 @@ import {
 	markConnectedWpcomSiteSynced,
 } from '@studio/common/lib/connected-sites';
 import { formatProgressLabel } from '@studio/common/lib/progress-label';
-import { readAuthToken } from '@studio/common/lib/shared-config';
 import { buildSyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
 import {
 	SYNC_MAX_STALLED_ATTEMPTS,
@@ -38,6 +37,7 @@ import {
 	startWordPressServer,
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
+import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { handleImportEvents } from './import';
 import type { SyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
@@ -65,14 +65,7 @@ export async function runCommand(
 	const startedAt = Date.now();
 
 	try {
-		const token = await readAuthToken();
-		if ( ! token ) {
-			throw new LoggerError(
-				__( 'Authentication required. Please log in with `studio auth login`.' ),
-				undefined,
-				'auth'
-			);
-		}
+		const token = await requireAuthToken( 'auth' );
 
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
 		await connectToDaemon();

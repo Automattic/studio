@@ -1,9 +1,10 @@
 import os from 'os';
 import path from 'path';
 import { isAutomatticianAccount } from '@studio/common/lib/automattician';
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { input } from '@inquirer/prompts';
+import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
-import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
+import { getUserInfo, uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { createPreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
@@ -19,7 +20,10 @@ const mockReportError = vi.fn();
 vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) => ( {
 	...( await importOriginal() ),
 	readAuthToken: vi.fn(),
+	updateSharedConfig: vi.fn(),
 } ) );
+vi.mock( '@inquirer/prompts' );
+vi.mock( 'cli/lib/browser' );
 vi.mock( 'cli/lib/cli-config/snapshots', async () => ( {
 	...( await vi.importActual( 'cli/lib/cli-config/snapshots' ) ),
 	getNextSnapshotSequence: vi.fn().mockReturnValue( 1 ),
@@ -245,6 +249,30 @@ describe( 'Preview Create Command', () => {
 
 		await expect( runCommand( mockFolder ) ).rejects.toThrow( LoggerError );
 		expect( archiveSiteContent ).not.toHaveBeenCalled();
+	} );
+
+	it( 'should sign in at a terminal and carry on creating the preview', async () => {
+		vi.mocked( readAuthToken ).mockResolvedValue( null );
+		vi.mocked( input ).mockResolvedValue( 'pasted-token' );
+		vi.mocked( getUserInfo, { partial: true } ).mockResolvedValue( {
+			ID: 123,
+			email: 'test@example.com',
+			display_name: 'Test User',
+		} );
+		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		const isTTY = [ process.stdin.isTTY, process.stdout.isTTY ];
+		process.stdin.isTTY = process.stdout.isTTY = true;
+
+		try {
+			await runCommand( mockFolder );
+		} finally {
+			[ process.stdin.isTTY, process.stdout.isTTY ] = isTTY;
+		}
+
+		expect( updateSharedConfig ).toHaveBeenCalledWith( {
+			authToken: expect.objectContaining( { accessToken: 'pasted-token', id: 123 } ),
+		} );
+		expect( createPreviewSite ).toHaveBeenCalled();
 	} );
 
 	it( 'should always clean up archive file even on error', async () => {

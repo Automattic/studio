@@ -86,19 +86,8 @@ $transformer->to_file( $wp_config_path );
 	}
 }
 
-function getSiteUrlPrependContent(
-	siteUrl: string,
-	originalAutoPrependFile?: string,
-	frontendUrl?: string
-): string {
+function getSiteUrlPrependContent( siteUrl: string, originalAutoPrependFile?: string ): string {
 	const escapedSiteUrl = escapePhpSingleQuotedString( siteUrl );
-	const frontendConstant = frontendUrl
-		? `if ( ! defined( 'STUDIO_FRONTEND_URL' ) ) {
-	define( 'STUDIO_FRONTEND_URL', '${ escapePhpSingleQuotedString(
-		frontendUrl.replace( /\/$/, '' )
-	) }' );
-}`
-		: '';
 	const chained = originalAutoPrependFile
 		? `require '${ escapePhpSingleQuotedString( originalAutoPrependFile ) }';`
 		: '';
@@ -113,7 +102,6 @@ if ( ! defined( 'WP_HOME' ) ) {
 if ( ! defined( 'WP_SITEURL' ) ) {
 	define( 'WP_SITEURL', '${ escapedSiteUrl }' );
 }
-${ frontendConstant }
 ${ chained }
 `;
 }
@@ -125,17 +113,13 @@ ${ chained }
  */
 export function writeSiteUrlPrependFile(
 	siteUrl: string,
-	originalAutoPrependFile?: string,
-	frontendUrl?: string
+	originalAutoPrependFile?: string
 ): string {
 	const dir = fs.mkdtempSync(
 		path.join( getFullyResolvedTmpDirPath(), 'studio-siteurl-prepend-' )
 	);
 	const prependPath = path.join( dir, 'prepend.php' );
-	fs.writeFileSync(
-		prependPath,
-		getSiteUrlPrependContent( siteUrl, originalAutoPrependFile, frontendUrl )
-	);
+	fs.writeFileSync( prependPath, getSiteUrlPrependContent( siteUrl, originalAutoPrependFile ) );
 	return prependPath;
 }
 

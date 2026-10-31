@@ -6,15 +6,14 @@ import { readSites } from '@studio/common/sites/site-path';
  * frontend's. A headless site runs on two origins, and the preview pane treats
  * links between them as staying on the site.
  *
- * Navigation guards run synchronously, so they read a cached copy that
- * refreshes in the background, from `cli.json` rather than a CLI fork.
+ * Navigation guards run synchronously, so they read a cached copy, read from
+ * `cli.json` rather than a CLI fork: warmed at boot and refreshed on each CLI
+ * site event (`cli-events-subscriber.ts`).
  */
 
-const CACHE_TTL_MS = 5_000;
-
 let cachedGroups: string[][] = [];
-let cachedAt = 0;
-let refreshing: Promise< void > | null = null;
+// Refreshes run one after another, so the last one reads the newest `cli.json`.
+let refreshQueue: Promise< void > = Promise.resolve();
 
 function toOrigin( url: string ): string | null {
 	try {
@@ -62,23 +61,17 @@ export function areSameSiteOrigins( groups: string[][], a: string, b: string ): 
 }
 
 export function refreshHeadlessSiteOrigins(): Promise< void > {
-	refreshing ??= readSites()
-		.then( ( sites ) => {
-			cachedGroups = getHeadlessSiteOriginGroups( sites );
-			cachedAt = Date.now();
-		} )
-		.catch( () => undefined )
-		.finally( () => {
-			refreshing = null;
-		} );
-	return refreshing;
+	refreshQueue = refreshQueue.then( async () => {
+		try {
+			cachedGroups = getHeadlessSiteOriginGroups( await readSites() );
+		} catch {
+			// Keep the last known groups.
+		}
+	} );
+	return refreshQueue;
 }
 
-// Whether two URLs belong to one site, from the cache; a stale cache answers
-// and refreshes for the next check.
+// Whether two URLs belong to one site, from the cache.
 export function isSameSitePreviewOrigin( a: string, b: string ): boolean {
-	if ( Date.now() - cachedAt > CACHE_TTL_MS ) {
-		void refreshHeadlessSiteOrigins();
-	}
 	return areSameSiteOrigins( cachedGroups, a, b );
 }

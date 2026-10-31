@@ -7,7 +7,7 @@
  * record lives on the site in `cli.json`, so the CLI can start and stop it,
  * and travels to both front ends with the rest of the site details.
  */
-import path from 'path';
+import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
 
 export const siteFrontendKindSchema = z.enum( [ 'static', 'command' ] );
@@ -46,30 +46,41 @@ export const siteFrontendSchema = z
 
 export type SiteFrontend = z.infer< typeof siteFrontendSchema >;
 
+// The frameworks a new headless site can be created with (`custom` is only for
+// attached projects). The CLI flag's choices, the HTTP route's validation and
+// the create form all derive from this schema.
+export const frontendCreateFrameworkSchema = siteFrontendFrameworkSchema.exclude( [ 'custom' ] );
+
 // What a user picks when creating a headless site; everything else in the
 // `SiteFrontend` record is derived by the CLI. Shared by the create form, the
 // connectors, `buildSiteCreateArgs` (`--frontend <framework> --frontend-api <api>`)
 // and the CLI's `CreateCommandOptions`.
-export interface FrontendCreateChoice {
-	framework: Exclude< SiteFrontendFramework, 'custom' >;
-	api?: SiteFrontendApi;
+export const frontendCreateChoiceSchema = z.object( {
+	framework: frontendCreateFrameworkSchema,
+	api: siteFrontendApiSchema.optional(),
+} );
+export type FrontendCreateChoice = z.infer< typeof frontendCreateChoiceSchema >;
+
+// A user-facing name for a frontend framework, the same in every surface.
+export function getFrontendFrameworkLabel( framework: SiteFrontendFramework | undefined ): string {
+	switch ( framework ) {
+		case 'static':
+			return __( 'Static HTML' );
+		case 'astro':
+			return 'Astro';
+		case 'next':
+			return 'Next.js';
+		default:
+			return __( 'Custom' );
+	}
 }
 
-// A new headless site is a container folder holding both halves side by side.
-// The site record's `path` points at `wordpress/`, so every existing site
-// operation keeps seeing a plain WordPress install.
+// The folder names of a headless site created with the default layout: a
+// container holding `wordpress/` (the site record's `path`) and `frontend/`.
+// The CLI joins them (`apps/cli/lib/frontend/layout.ts`); this module stays
+// free of Node imports so the renderer can use it.
 export const HEADLESS_WORDPRESS_SUBDIR = 'wordpress';
 export const HEADLESS_FRONTEND_SUBDIR = 'frontend';
-
-export function getHeadlessContainerLayout( containerPath: string ): {
-	wordpressPath: string;
-	frontendPath: string;
-} {
-	return {
-		wordpressPath: path.join( containerPath, HEADLESS_WORDPRESS_SUBDIR ),
-		frontendPath: path.join( containerPath, HEADLESS_FRONTEND_SUBDIR ),
-	};
-}
 
 // The least-privilege WordPress user the frontend authenticates as.
 export const HEADLESS_FRONTEND_USER = 'studio-frontend';
@@ -97,6 +108,15 @@ export const FRONTEND_ENV = {
 	STUDIO_REVALIDATE_SECRET: 'STUDIO_REVALIDATE_SECRET',
 	PORT: 'PORT',
 } as const;
+
+// The frontend record as the apps and `site list` may see it: the secrets stay
+// in `cli.json` and the frontend's `.env.local`.
+export function omitFrontendSecrets( frontend: SiteFrontend ): SiteFrontend {
+	const { previewSecret, revalidateSecret, ...rest } = frontend;
+	void previewSecret;
+	void revalidateSecret;
+	return rest;
+}
 
 export function isHeadlessSite< T extends { frontend?: SiteFrontend | undefined } >(
 	site: T

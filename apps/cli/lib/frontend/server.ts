@@ -9,6 +9,7 @@
 import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import { readLastLines } from '@studio/common/lib/fs-utils';
 import {
 	buildFrontendEnv,
 	FRONTEND_ENV,
@@ -19,11 +20,9 @@ import { __, sprintf } from '@wordpress/i18n';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import {
 	connectToDaemon,
-	getDaemonBus,
 	isProcessRunning,
 	startProcess,
 	stopProcess,
-	type DaemonBusEventMap,
 } from 'cli/lib/daemon-client';
 import {
 	buildFrontendChildEnv,
@@ -31,15 +30,17 @@ import {
 	getServedDirectory,
 } from 'cli/lib/frontend/child-config';
 import { readDotenvFile } from 'cli/lib/frontend/dotenv';
+import { getFrontendEnvPath } from 'cli/lib/frontend/provision';
 import {
 	buildShellInvocation,
 	getNodeDetectionScript,
 	getNodeMajorVersion,
 	parseNodeDetectionOutput,
 } from 'cli/lib/frontend/shell';
-import { PROCESS_MANAGER_LOGS_DIR } from 'cli/lib/paths';
+import { findLatestProcessLogPaths } from 'cli/lib/process-logs';
+import { subscribeForReadyOrExit } from 'cli/lib/wordpress-server-manager';
 import { LoggerError } from 'cli/logger';
-import type { SiteData } from 'cli/lib/cli-config/core';
+import type { HeadlessSite } from 'cli/lib/cli-config/core';
 import type { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import type { Logger } from 'cli/logger';
 
@@ -49,7 +50,7 @@ export function getFrontendProcessName( siteId: string ): string {
 	return `${ FRONTEND_PROCESS_PREFIX }${ siteId }`;
 }
 
-export type HeadlessSite = SiteData & { frontend: SiteFrontend };
+export type { HeadlessSite };
 
 export interface NodeRuntime {
 	// Absolute path to the `node` binary resolved through the user's login shell.
@@ -58,14 +59,13 @@ export interface NodeRuntime {
 	npmPath?: string;
 }
 
-const MIN_FRONTEND_NODE_MAJOR = 20;
+export const MIN_FRONTEND_NODE_MAJOR = 20;
 
 const FRONTEND_CHILD_PATH = path.resolve( import.meta.dirname, 'frontend-server-child.mjs' );
 const NODE_PROBE_TIMEOUT_MS = 15_000;
 // The child gives up on its own after FRONTEND_READY_TIMEOUT_MS; this only
 // covers a child that hangs without exiting.
 const READY_WAIT_MARGIN_MS = 15_000;
-const STDERR_TAIL_LINES = 20;
 
 function runShellProbe( command: string, interactive: boolean ): Promise< string > {
 	const invocation = buildShellInvocation( command, { interactive } );
@@ -136,7 +136,9 @@ export function resetNodeRuntimeCache(): void {
 	nodeRuntimePromise = undefined;
 }
 
-async function requireNodeRuntime( devCommand: string ): Promise< NodeRuntime > {
+// The Node.js the frontend's commands run with, or a LoggerError saying how to
+// get one. Shared by the dev server start and the template's dependency install.
+export async function requireNodeRuntime( devCommand: string ): Promise< NodeRuntime > {
 	const runtime = await detectNodeRuntime();
 	if ( ! runtime ) {
 		throw new LoggerError(
@@ -172,81 +174,13 @@ async function requireNodeRuntime( devCommand: string ): Promise< NodeRuntime > 
  * password is read back from the frontend's `.env.local`, where create wrote it.
  */
 export function getFrontendEnv( site: HeadlessSite ): Record< string, string > {
-	const dotenv = readDotenvFile( path.join( site.frontend.path, '.env.local' ) );
+	const dotenv = readDotenvFile( getFrontendEnvPath( site.frontend ) );
 	return buildFrontendEnv( {
 		siteUrl: getSiteUrl( site ),
 		frontend: site.frontend,
 		applicationUser: dotenv[ FRONTEND_ENV.WORDPRESS_APPLICATION_USER ],
 		applicationPassword: dotenv[ FRONTEND_ENV.WORDPRESS_APPLICATION_PASSWORD ],
 	} );
-}
-
-function tailLines( text: string | undefined, maxLines: number ): string {
-	if ( ! text?.trim() ) {
-		return '';
-	}
-	return text.trimEnd().split( '\n' ).slice( -maxLines ).join( '\n' );
-}
-
-async function subscribeForReadyOrExit( processName: string ): Promise< {
-	waitFor: ( pmId: number, timeoutMs: number ) => Promise< void >;
-	dispose: () => void;
-} > {
-	const bus = await getDaemonBus();
-	const readyIds = new Set< number >();
-	const exits = new Map< number, string | undefined >();
-	let notify: () => void = () => {};
-
-	const messageHandler = ( packet: DaemonBusEventMap[ 'process-message' ] ) => {
-		if ( packet.process.name === processName && packet.raw.topic === 'ready' ) {
-			readyIds.add( packet.process.pm_id );
-			notify();
-		}
-	};
-	const eventHandler = ( event: DaemonBusEventMap[ 'process-event' ] ) => {
-		if ( event.process.name === processName && event.event === 'exit' ) {
-			exits.set( event.process.pm_id, event.stderrTail );
-			notify();
-		}
-	};
-	bus.on( 'process-message', messageHandler );
-	bus.on( 'process-event', eventHandler );
-
-	const waitFor = ( pmId: number, timeoutMs: number ) => {
-		let timeoutId: NodeJS.Timeout | undefined;
-		return new Promise< void >( ( resolve, reject ) => {
-			const check = () => {
-				if ( readyIds.has( pmId ) ) {
-					resolve();
-				} else if ( exits.has( pmId ) ) {
-					const stderr = tailLines( exits.get( pmId ), STDERR_TAIL_LINES );
-					reject(
-						new Error(
-							stderr
-								? `${ __( 'The frontend process exited before it was ready' ) }\n${ stderr }`
-								: __( 'The frontend process exited before it was ready' )
-						)
-					);
-				}
-			};
-			notify = check;
-			timeoutId = setTimeout(
-				() => reject( new Error( __( 'Timed out waiting for the frontend to start' ) ) ),
-				timeoutMs
-			);
-			check();
-		} ).finally( () => {
-			clearTimeout( timeoutId );
-			notify = () => {};
-		} );
-	};
-
-	const dispose = () => {
-		bus.off( 'process-message', messageHandler );
-		bus.off( 'process-event', eventHandler );
-	};
-
-	return { waitFor, dispose };
 }
 
 function assertFrontendRunnable( frontend: SiteFrontend ): void {
@@ -316,10 +250,12 @@ export async function startFrontendServer(
 		nodePath,
 	} );
 
-	const readyOrExit = await subscribeForReadyOrExit( processName );
+	const readyOrExit = await subscribeForReadyOrExit( processName, {
+		timeoutMs: FRONTEND_READY_TIMEOUT_MS + READY_WAIT_MARGIN_MS,
+	} );
 	try {
 		const processDesc = await startProcess( processName, FRONTEND_CHILD_PATH, { env } );
-		await readyOrExit.waitFor( processDesc.pmId, FRONTEND_READY_TIMEOUT_MS + READY_WAIT_MARGIN_MS );
+		await readyOrExit.waitFor( processDesc.pmId );
 		return processDesc;
 	} catch ( error ) {
 		try {
@@ -351,69 +287,15 @@ export async function isFrontendRunning(
 	return isProcessRunning( getFrontendProcessName( siteId ) );
 }
 
-function formatLogDateTag( date: Date ): string {
-	const year = date.getFullYear();
-	const month = String( date.getMonth() + 1 ).padStart( 2, '0' );
-	const day = String( date.getDate() ).padStart( 2, '0' );
-	return `${ year }${ month }${ day }`;
-}
-
-// The daemon names logs `<process>-{out,error}-<YYYYMMDD>.log` after the day the
-// process started and keeps writing there, so the newest file is the current one.
-function findLatestLogPath( processName: string, stream: 'out' | 'error' ): string {
-	const prefix = `${ processName }-${ stream }-`;
-	let latest: string | undefined;
-	try {
-		for ( const entry of fs.readdirSync( PROCESS_MANAGER_LOGS_DIR ) ) {
-			if (
-				entry.startsWith( prefix ) &&
-				/^\d{8}\.log$/.test( entry.slice( prefix.length ) ) &&
-				( ! latest || entry > latest )
-			) {
-				latest = entry;
-			}
-		}
-	} catch {
-		// No logs directory yet.
-	}
-	return path.join(
-		PROCESS_MANAGER_LOGS_DIR,
-		latest ?? `${ prefix }${ formatLogDateTag( new Date() ) }.log`
-	);
-}
-
 /** Paths of the daemon's stdout and stderr log files for the frontend process. */
 export function getFrontendLogPaths( siteId: string ): { out: string; error: string } {
-	const processName = getFrontendProcessName( siteId );
-	return {
-		out: findLatestLogPath( processName, 'out' ),
-		error: findLatestLogPath( processName, 'error' ),
-	};
+	const { stdoutLogPath, stderrLogPath } = findLatestProcessLogPaths(
+		getFrontendProcessName( siteId )
+	);
+	return { out: stdoutLogPath, error: stderrLogPath };
 }
 
 const LOG_TAIL_MAX_BYTES = 256 * 1024;
-
-function readTailLines( filePath: string, maxLines: number ): string[] {
-	let fd: number | undefined;
-	try {
-		fd = fs.openSync( filePath, 'r' );
-		const { size } = fs.fstatSync( fd );
-		const length = Math.min( size, LOG_TAIL_MAX_BYTES );
-		const buffer = Buffer.alloc( length );
-		fs.readSync( fd, buffer, 0, length, size - length );
-		const lines = buffer.toString( 'utf8' ).split( '\n' );
-		if ( length < size ) {
-			lines.shift();
-		}
-		return lines.filter( ( line ) => line.trim() ).slice( -maxLines );
-	} catch {
-		return [];
-	} finally {
-		if ( fd !== undefined ) {
-			fs.closeSync( fd );
-		}
-	}
-}
 
 /**
  * The last `lines` lines of the frontend's output, stdout and stderr merged in
@@ -421,17 +303,13 @@ function readTailLines( filePath: string, maxLines: number ): string[] {
  */
 export function readFrontendLogTail( siteId: string, lines = 100 ): string[] {
 	const { out, error } = getFrontendLogPaths( siteId );
-	const merged = [ ...readTailLines( out, lines ), ...readTailLines( error, lines ) ];
-	const timestamp = ( line: string ) => line.slice( 0, line.indexOf( ' ' ) );
+	const merged = [
+		...( readLastLines( out, lines, LOG_TAIL_MAX_BYTES ) ?? [] ),
+		...( readLastLines( error, lines, LOG_TAIL_MAX_BYTES ) ?? [] ),
+	];
 	return merged
-		.map( ( line, index ) => ( { line, index } ) )
-		.sort(
-			( a, b ) => timestamp( a.line ).localeCompare( timestamp( b.line ) ) || a.index - b.index
-		)
+		.map( ( line, index ) => ( { line, index, timestamp: line.slice( 0, line.indexOf( ' ' ) ) } ) )
+		.sort( ( a, b ) => a.timestamp.localeCompare( b.timestamp ) || a.index - b.index )
 		.map( ( { line } ) => line )
 		.slice( -lines );
-}
-
-export function getSiteFrontendUrl( site: HeadlessSite ): string {
-	return getFrontendUrl( site.frontend );
 }

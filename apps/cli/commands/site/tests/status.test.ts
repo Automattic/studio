@@ -2,11 +2,7 @@ import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { vi } from 'vitest';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import {
-	getFrontendLogPaths,
-	getSiteFrontendUrl,
-	isFrontendRunning,
-} from 'cli/lib/frontend/server';
+import { getFrontendLogPaths, isFrontendRunning } from 'cli/lib/frontend/server';
 import { getSiteEmailDirectory } from 'cli/lib/site-email';
 import { getPrettyPath } from 'cli/lib/utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
@@ -54,7 +50,6 @@ describe( 'CLI: studio site status', () => {
 		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
 		vi.mocked( getWordPressVersion ).mockReturnValue( '6.4' );
 		vi.mocked( isFrontendRunning ).mockResolvedValue( undefined );
-		vi.mocked( getSiteFrontendUrl ).mockReturnValue( 'http://localhost:4321' );
 		vi.mocked( getFrontendLogPaths ).mockReturnValue( {
 			out: '/logs/studio-frontend-site-1-out-20261031.log',
 			error: '/logs/studio-frontend-site-1-error-20261031.log',

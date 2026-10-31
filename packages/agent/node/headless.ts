@@ -64,7 +64,7 @@ export async function resolveSitePageUrl(
 	url: string | undefined,
 	nameOrPath: string | undefined
 ): Promise< string > {
-	if ( url && /^[a-z][a-z0-9+.-]*:/i.test( url ) ) {
+	if ( url && /^[a-z][a-z0-9+.-]*:\/\//i.test( url ) ) {
 		return url;
 	}
 	if ( ! nameOrPath ) {

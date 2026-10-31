@@ -121,7 +121,9 @@ describe( 'site title actions', () => {
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Visual Studio Code' } ) );
-		await waitFor( () => expect( connector.openSiteInEditor ).toHaveBeenCalledWith( 'one' ) );
+		await waitFor( () =>
+			expect( connector.openSiteInEditor ).toHaveBeenCalledWith( 'one', undefined )
+		);
 	} );
 
 	describe( 'for a headless site', () => {

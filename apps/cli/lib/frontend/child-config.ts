@@ -16,7 +16,6 @@ export const FRONTEND_CHILD_ENV = {
 	SERVED_DIR: 'STUDIO_FRONTEND_SERVED_DIR',
 	COMMAND: 'STUDIO_FRONTEND_COMMAND',
 	NODE_BIN_DIR: 'STUDIO_FRONTEND_NODE_BIN_DIR',
-	READY_TIMEOUT_MS: 'STUDIO_FRONTEND_READY_TIMEOUT_MS',
 } as const;
 
 // `npm install` on a first start or a cold Astro/Next compile can take a while.
@@ -41,7 +40,6 @@ const childConfigSchema = z.discriminatedUnion( 'kind', [
 		port: z.number().int().positive(),
 		projectPath: z.string().min( 1 ),
 		servedDir: z.string().min( 1 ),
-		readyTimeoutMs: z.number().int().positive(),
 	} ),
 	z.object( {
 		kind: z.literal( 'command' ),
@@ -49,7 +47,6 @@ const childConfigSchema = z.discriminatedUnion( 'kind', [
 		projectPath: z.string().min( 1 ),
 		command: z.string().min( 1 ),
 		nodeBinDir: z.string().optional(),
-		readyTimeoutMs: z.number().int().positive(),
 	} ),
 ] );
 
@@ -64,7 +61,6 @@ export function buildFrontendChildEnv( options: {
 	frontend: SiteFrontend;
 	contractEnv: Record< string, string >;
 	nodePath?: string;
-	readyTimeoutMs?: number;
 } ): NodeJS.ProcessEnv {
 	const { frontend } = options;
 	const env: NodeJS.ProcessEnv = {
@@ -73,9 +69,6 @@ export function buildFrontendChildEnv( options: {
 		[ FRONTEND_CHILD_ENV.KIND ]: frontend.kind,
 		[ FRONTEND_CHILD_ENV.PORT ]: String( frontend.port ),
 		[ FRONTEND_CHILD_ENV.PATH ]: frontend.path,
-		[ FRONTEND_CHILD_ENV.READY_TIMEOUT_MS ]: String(
-			options.readyTimeoutMs ?? FRONTEND_READY_TIMEOUT_MS
-		),
 	};
 	if ( frontend.kind === 'static' ) {
 		env[ FRONTEND_CHILD_ENV.SERVED_DIR ] = getServedDirectory( frontend );
@@ -95,9 +88,6 @@ export function parseFrontendChildConfig( env: NodeJS.ProcessEnv ): FrontendChil
 	const common = {
 		port: Number( env[ FRONTEND_CHILD_ENV.PORT ] ),
 		projectPath: env[ FRONTEND_CHILD_ENV.PATH ],
-		readyTimeoutMs: Number(
-			env[ FRONTEND_CHILD_ENV.READY_TIMEOUT_MS ] ?? FRONTEND_READY_TIMEOUT_MS
-		),
 	};
 	return childConfigSchema.parse(
 		env[ FRONTEND_CHILD_ENV.KIND ] === 'static'

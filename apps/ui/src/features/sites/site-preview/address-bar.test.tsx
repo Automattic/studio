@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	DATABASE_HOME_PATH,
 	getFrontendAppRelativePath,
+	getFrontendOrigin,
 	getPathFromPreviewUrl,
 	getPreviewLocationFromUrl,
 	getPreviewRealm,
@@ -138,7 +139,11 @@ describe( 'preview realms', () => {
 	} );
 
 	it( 'classifies addresses on a headless site’s frontend origin as the frontend app', () => {
-		const frontendUrl = 'http://localhost:3000';
+		const frontendUrl = getFrontendOrigin( 'http://localhost:3000' );
+		expect( frontendUrl ).toBe( 'http://localhost:3000' );
+		expect( getFrontendOrigin( 'http://Example.local:80/' ) ).toBe( 'http://example.local' );
+		expect( getFrontendOrigin( 'not a url' ) ).toBeUndefined();
+		expect( getFrontendOrigin( undefined ) ).toBeUndefined();
 		expect( getPreviewRealm( 'http://localhost:3000/', frontendUrl ) ).toBe( 'frontend-app' );
 		expect( getPreviewRealm( 'http://localhost:3000/wp-admin/', frontendUrl ) ).toBe(
 			'frontend-app'

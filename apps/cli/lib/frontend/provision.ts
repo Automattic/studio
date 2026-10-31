@@ -19,11 +19,9 @@ import { __, sprintf } from '@wordpress/i18n';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { LoggerError, type Logger } from 'cli/logger';
-import type { SiteData } from 'cli/lib/cli-config/core';
+import type { HeadlessSite, SiteData } from 'cli/lib/cli-config/core';
 
 const FRONTEND_ENV_FILENAME = '.env.local';
-
-type HeadlessSite = SiteData & { frontend: SiteFrontend };
 
 interface WpCliResult {
 	exitCode: number;
@@ -51,12 +49,17 @@ async function wpOrThrow( site: SiteData, args: string[], message: string ): Pro
 	return result.stdout.trim();
 }
 
+/** The frontend's `.env.local`, which carries the env contract. */
+export function getFrontendEnvPath( frontend: Pick< SiteFrontend, 'path' > ): string {
+	return path.join( frontend.path, FRONTEND_ENV_FILENAME );
+}
+
 export function writeFrontendEnvFile(
 	frontend: SiteFrontend,
 	env: Record< string, string >
 ): string {
 	fs.mkdirSync( frontend.path, { recursive: true } );
-	const envPath = path.join( frontend.path, FRONTEND_ENV_FILENAME );
+	const envPath = getFrontendEnvPath( frontend );
 	fs.writeFileSync( envPath, formatEnvFile( env ), { mode: 0o600 } );
 	return envPath;
 }

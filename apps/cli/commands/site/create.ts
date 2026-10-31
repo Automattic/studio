@@ -41,8 +41,8 @@ import { type SiteFileAccess } from '@studio/common/lib/site-file-access';
 import {
 	buildFrontendEnv,
 	getFrontendUrl,
-	getHeadlessContainerLayout,
 	isHeadlessSite,
+	omitFrontendSecrets,
 	type FrontendCreateChoice,
 	type SiteFrontend,
 } from '@studio/common/lib/site-frontend';
@@ -58,6 +58,7 @@ import {
 import { __, sprintf } from '@wordpress/i18n';
 import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
 import {
+	HeadlessSite,
 	lockCliConfig,
 	readCliConfig,
 	saveCliConfig,
@@ -73,6 +74,7 @@ import {
 } from 'cli/lib/dependency-management/paths';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
+import { getHeadlessContainerLayout } from 'cli/lib/frontend/layout';
 import { provisionHeadlessBackend, writeFrontendEnvFile } from 'cli/lib/frontend/provision';
 import { startFrontendServer } from 'cli/lib/frontend/server';
 import { installFrontendDependencies, scaffoldFrontend } from 'cli/lib/frontend/templates';
@@ -177,7 +179,7 @@ function buildFrontendRecord(
 // Without `start`, only the project and an env file without credentials are
 // written: the application password needs WordPress running.
 async function setUpHeadlessFrontend(
-	site: SiteData & { frontend: SiteFrontend },
+	site: HeadlessSite,
 	start: boolean,
 	logger: Logger< LoggerAction >
 ): Promise< void > {
@@ -215,10 +217,9 @@ export async function runCommand(
 ): Promise< void > {
 	const phpVersion = validateSupportedPhpVersion( options.phpVersion );
 	// A headless site's path is a container for the `wordpress/` and `frontend/` folders.
-	const containerPath = options.frontend ? requestedPath : undefined;
-	const sitePath = containerPath
-		? getHeadlessContainerLayout( containerPath ).wordpressPath
-		: requestedPath;
+	const layout = options.frontend ? getHeadlessContainerLayout( requestedPath ) : undefined;
+	const containerPath = layout ? requestedPath : undefined;
+	const sitePath = layout?.wordpressPath ?? requestedPath;
 	const staticSiteImport = options.blueprint?.staticSiteImport;
 	const importRun = staticSiteImport
 		? new StaticSiteImportRun( sitePath, staticSiteImport, logger )
@@ -405,16 +406,12 @@ export async function runCommand(
 		logger.reportSuccess( sprintf( __( 'Port assigned: %d' ), port ) );
 
 		let frontend: SiteFrontend | undefined;
-		if ( options.frontend && containerPath ) {
+		if ( options.frontend && layout ) {
 			logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning frontend port…' ) );
 			const frontendPort = await portFinder.getOpenPort();
 			// translators: %d is the port number
 			logger.reportSuccess( sprintf( __( 'Frontend port assigned: %d' ), frontendPort ) );
-			frontend = buildFrontendRecord(
-				options.frontend,
-				getHeadlessContainerLayout( containerPath ).frontendPath,
-				frontendPort
-			);
+			frontend = buildFrontendRecord( options.frontend, layout.frontendPath, frontendPort );
 		}
 
 		const siteName = options.name || path.basename( containerPath ?? sitePath );
@@ -594,7 +591,11 @@ export async function runCommand(
 			}
 		}
 
-		logger.reportResult( { ...siteDetails, url: getSiteUrl( siteDetails ) } );
+		logger.reportResult( {
+			...siteDetails,
+			url: getSiteUrl( siteDetails ),
+			...( siteDetails.frontend && { frontend: omitFrontendSecrets( siteDetails.frontend ) } ),
+		} );
 
 		// Tracks: the CLI is the sole emitter of site-creation, so every path a site comes into
 		// existence (new/blueprint/import/sync/duplicate, app-spawned or standalone) is counted once.

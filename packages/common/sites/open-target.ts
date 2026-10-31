@@ -9,9 +9,3 @@ export function getSiteFolderForTarget(
 ): string {
 	return target === 'frontend' && site.frontend ? site.frontend.path : site.path;
 }
-
-// The frontend app's address for `relativeUrl`, from its origin
-// (`getFrontendUrl` in `@studio/common/lib/site-frontend`).
-export function getFrontendBrowserUrl( frontendUrl: string, relativeUrl = '' ): string {
-	return new URL( relativeUrl || '/', frontendUrl ).toString();
-}

@@ -1,16 +1,12 @@
 import { updateManagedInstructionFiles } from '@studio/common/lib/agent-skills';
 import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
-import { isHeadlessSite } from '@studio/common/lib/site-frontend';
+import { getFrontendUrl, isHeadlessSite } from '@studio/common/lib/site-frontend';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getAiInstructionsPath } from 'cli/lib/dependency-management/paths';
-import {
-	getSiteFrontendUrl,
-	isFrontendRunning,
-	startFrontendServer,
-} from 'cli/lib/frontend/server';
+import { isFrontendRunning, startFrontendServer } from 'cli/lib/frontend/server';
 import { getSiteDetails } from 'cli/lib/site-details';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
@@ -23,7 +19,9 @@ import type { CommandArgs } from 'cli/types';
 
 const defaultLogger = new Logger< LoggerAction >();
 
-// WordPress runs first: the frontend is pointed at the site URL and fetches from it.
+// WordPress runs first: the frontend is pointed at the site URL and fetches from
+// it. A frontend that fails to start (no Node.js, a broken project) is reported
+// without failing the start: WordPress is up, and the frontend's logs say why.
 async function startFrontendIfHeadless(
 	site: SiteData,
 	logger: Logger< LoggerAction >
@@ -36,12 +34,22 @@ async function startFrontendIfHeadless(
 		return;
 	}
 	logger.reportStart( LoggerAction.START_FRONTEND, __( 'Starting frontend…' ) );
-	await startFrontendServer( site, logger );
+	try {
+		await startFrontendServer( site, logger );
+	} catch ( error ) {
+		logger.reportError(
+			error instanceof LoggerError
+				? error
+				: new LoggerError( __( 'Failed to start the frontend' ), error ),
+			false
+		);
+		return;
+	}
 	logger.reportSuccess(
 		sprintf(
 			// translators: %s: the frontend URL, e.g. http://localhost:4321
 			__( 'Frontend started at %s' ),
-			getSiteFrontendUrl( site )
+			getFrontendUrl( site.frontend )
 		)
 	);
 }

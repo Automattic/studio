@@ -10,20 +10,23 @@ import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
+import { isPortFree } from '@studio/common/lib/port-finder';
 import {
 	buildDevServerEnv,
+	FRONTEND_READY_TIMEOUT_MS,
 	parseFrontendChildConfig,
 	type FrontendChildConfig,
 } from './lib/frontend/child-config';
-import { isPortListening, PortWaitAbortedError, waitForPortListening } from './lib/frontend/port';
 import { buildShellInvocation } from './lib/frontend/shell';
 import { getContentType, getNotFoundPage, resolveStaticRequest } from './lib/frontend/static-files';
+import { waitForServerReady } from './lib/wait-for-server-ready';
 
 type StaticConfig = Extract< FrontendChildConfig, { kind: 'static' } >;
 type CommandConfig = Extract< FrontendChildConfig, { kind: 'command' } >;
 
 // Below the daemon's own 2.5 s stop timeout, so the group is killed by us first.
 const KILL_GRACE_MS = 2_000;
+const READY_POLL_INTERVAL_MS = 250;
 
 let staticServer: http.Server | null = null;
 let devServer: ChildProcess | null = null;
@@ -73,14 +76,19 @@ function serveFile(
 	stream.pipe( res );
 }
 
-function handleStaticRequest( root: string, req: http.IncomingMessage, res: http.ServerResponse ) {
+function handleStaticRequest(
+	realRoot: string,
+	notFoundPage: string | undefined,
+	req: http.IncomingMessage,
+	res: http.ServerResponse
+) {
 	if ( req.method !== 'GET' && req.method !== 'HEAD' ) {
 		res.writeHead( 405, { Allow: 'GET, HEAD', 'Content-Type': 'text/plain; charset=utf-8' } );
 		res.end( 'Method Not Allowed' );
 		return;
 	}
 
-	const resolution = resolveStaticRequest( root, req.url ?? '/' );
+	const resolution = resolveStaticRequest( realRoot, req.url ?? '/' );
 	if ( resolution.type === 'file' ) {
 		serveFile( req, res, resolution.filePath );
 		return;
@@ -91,7 +99,6 @@ function handleStaticRequest( root: string, req: http.IncomingMessage, res: http
 		return;
 	}
 
-	const notFoundPage = getNotFoundPage( root );
 	if ( notFoundPage ) {
 		serveFile( req, res, notFoundPage, 404 );
 		return;
@@ -105,8 +112,16 @@ async function startStaticServer( config: StaticConfig ): Promise< void > {
 		exitWithError( `The folder to serve does not exist: ${ config.servedDir }` );
 	}
 
+	let realRoot: string;
+	try {
+		realRoot = fs.realpathSync( config.servedDir );
+	} catch ( error ) {
+		exitWithError( `Could not serve ${ config.servedDir }: ${ String( error ) }` );
+	}
+	const notFoundPage = getNotFoundPage( realRoot );
+
 	const server = http.createServer( ( req, res ) =>
-		handleStaticRequest( config.servedDir, req, res )
+		handleStaticRequest( realRoot, notFoundPage, req, res )
 	);
 	staticServer = server;
 	try {
@@ -182,7 +197,7 @@ async function startDevServer( config: CommandConfig ): Promise< void > {
 	}
 	// A dev server that finds its port taken picks another (Next.js does), and a
 	// readiness check on our port would then pass against the wrong process.
-	if ( await isPortListening( config.port ) ) {
+	if ( ! ( await isPortFree( config.port ) ) ) {
 		exitWithError( `Port ${ config.port } is already in use by another process` );
 	}
 
@@ -197,6 +212,7 @@ async function startDevServer( config: CommandConfig ): Promise< void > {
 		windowsVerbatimArguments: invocation.windowsVerbatimArguments,
 	} );
 	devServer = child;
+	const devServerExit = new AbortController();
 
 	child.once( 'error', ( error ) => {
 		devServerExited = true;
@@ -204,6 +220,7 @@ async function startDevServer( config: CommandConfig ): Promise< void > {
 	} );
 	child.once( 'exit', ( code, signal ) => {
 		devServerExited = true;
+		devServerExit.abort();
 		if ( isShuttingDown ) {
 			return;
 		}
@@ -225,19 +242,21 @@ async function startDevServer( config: CommandConfig ): Promise< void > {
 	}
 
 	try {
-		await waitForPortListening( config.port, {
-			timeoutMs: config.readyTimeoutMs,
-			isAborted: () => devServerExited,
+		await waitForServerReady( `http://localhost:${ config.port }/`, {
+			timeoutMs: FRONTEND_READY_TIMEOUT_MS,
+			pollIntervalMs: READY_POLL_INTERVAL_MS,
+			signal: devServerExit.signal,
 		} );
-	} catch ( error ) {
-		if ( error instanceof PortWaitAbortedError ) {
+	} catch {
+		// The exit handler reports a dev server that exited while we waited.
+		if ( devServerExit.signal.aborted ) {
 			return;
 		}
 		isShuttingDown = true;
 		await stopDevServer();
 		exitWithError(
 			`The dev server did not start listening on port ${ config.port } within ${ Math.round(
-				config.readyTimeoutMs / 1000
+				FRONTEND_READY_TIMEOUT_MS / 1000
 			) }s. Check that its command uses the port Studio passes (\${port} or PORT).`
 		);
 	}

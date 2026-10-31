@@ -226,6 +226,8 @@ function launchExtensionBackgroundWorkers( appSession = session.defaultSession )
 
 async function appBoot() {
 	app.setName( packageJson.productName );
+	// Warm before the first preview link is clicked; the guard answers synchronously.
+	void refreshHeadlessSiteOrigins();
 
 	Menu.setApplicationMenu( null );
 
@@ -277,8 +279,6 @@ async function appBoot() {
 			// reset waits a tick.
 			contents.on( 'did-navigate', () => {
 				setImmediate( () => resetPreviewZoom( contents ) );
-				// Fresh before the page's links are clicked.
-				void refreshHeadlessSiteOrigins();
 			} );
 		}
 

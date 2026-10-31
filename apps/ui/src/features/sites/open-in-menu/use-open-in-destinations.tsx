@@ -167,11 +167,7 @@ export function useOpenInDestinations(
 			logo: <AppIcon app={ editor } fallback={ <CodeIcon /> } />,
 			disabled: false,
 			open: () =>
-				open( 'editor', editorLabel, () =>
-					projectTarget
-						? connector.openSiteInEditor( site.id, projectTarget )
-						: connector.openSiteInEditor( site.id )
-				),
+				open( 'editor', editorLabel, () => connector.openSiteInEditor( site.id, projectTarget ) ),
 		},
 		{
 			id: 'terminal',
@@ -185,9 +181,7 @@ export function useOpenInDestinations(
 			disabled: false,
 			open: () =>
 				open( 'terminal', terminalLabel, () =>
-					projectTarget
-						? connector.openSiteInTerminal( site.id, projectTarget )
-						: connector.openSiteInTerminal( site.id )
+					connector.openSiteInTerminal( site.id, projectTarget )
 				),
 		},
 		{

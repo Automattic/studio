@@ -47,7 +47,7 @@ function toHostSite( site: SiteData ): HostSite {
 		url: getSiteUrl( site ),
 		phpVersion: site.phpVersion,
 		adminPassword: site.adminPassword,
-		...( site.frontend ? { frontend: site.frontend } : {} ),
+		frontend: site.frontend,
 	};
 }
 
@@ -126,7 +126,7 @@ export const cliAgentHost: StudioAgentHost = {
 					noStart: false,
 					skipBrowser: true,
 					skipLogDetails: true,
-					...( options?.frontend ? { frontend: options.frontend } : {} ),
+					frontend: options?.frontend,
 				},
 				new Logger( { onProgress } )
 			),

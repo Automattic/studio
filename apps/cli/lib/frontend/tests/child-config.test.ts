@@ -3,7 +3,6 @@ import {
 	buildDevServerEnv,
 	buildFrontendChildEnv,
 	FRONTEND_CHILD_ENV,
-	FRONTEND_READY_TIMEOUT_MS,
 	parseFrontendChildConfig,
 } from 'cli/lib/frontend/child-config';
 
@@ -24,7 +23,6 @@ describe( 'frontend child config', () => {
 			port: 4321,
 			projectPath: '/sites/demo/frontend',
 			servedDir: path.resolve( '/sites/demo/frontend', 'public' ),
-			readyTimeoutMs: FRONTEND_READY_TIMEOUT_MS,
 		} );
 	} );
 
@@ -48,7 +46,6 @@ describe( 'frontend child config', () => {
 			},
 			contractEnv,
 			nodePath: '/opt/node/bin/node',
-			readyTimeoutMs: 5_000,
 		} );
 
 		expect( parseFrontendChildConfig( env ) ).toEqual( {
@@ -57,7 +54,6 @@ describe( 'frontend child config', () => {
 			projectPath: '/sites/demo/frontend',
 			command: 'npm run dev -- --port 3000',
 			nodeBinDir: '/opt/node/bin',
-			readyTimeoutMs: 5_000,
 		} );
 	} );
 

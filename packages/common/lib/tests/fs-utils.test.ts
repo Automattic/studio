@@ -2,7 +2,11 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { vi } from 'vitest';
-import { calculateDirectorySizeForArchive, confineToRoot } from '@studio/common/lib/fs-utils';
+import {
+	calculateDirectorySizeForArchive,
+	confineToRoot,
+	readLastLines,
+} from '@studio/common/lib/fs-utils';
 
 describe( 'calculateDirectorySizeForArchive', () => {
 	let tempDir: string;
@@ -87,5 +91,43 @@ describe( 'confineToRoot', () => {
 
 	it( 'resolves relative candidates against the root, not the cwd', () => {
 		expect( confineToRoot( root, 'my-site' ) ).toBe( path.resolve( root, 'my-site' ) );
+	} );
+} );
+
+describe( 'readLastLines', () => {
+	let tempDir: string;
+	let filePath: string;
+
+	beforeEach( () => {
+		tempDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-last-lines-' ) );
+		filePath = path.join( tempDir, 'log.txt' );
+		fs.writeFileSync( filePath, 'first line\n\nsecond line\nthird line\n' );
+	} );
+
+	afterEach( () => {
+		fs.rmSync( tempDir, { recursive: true, force: true } );
+	} );
+
+	it( 'returns the last non-blank lines', () => {
+		expect( readLastLines( filePath, 2 ) ).toEqual( [ 'second line', 'third line' ] );
+		expect( readLastLines( filePath, 10 ) ).toEqual( [
+			'first line',
+			'second line',
+			'third line',
+		] );
+	} );
+
+	it( 'returns undefined for a missing file', () => {
+		expect( readLastLines( path.join( tempDir, 'missing.txt' ), 2 ) ).toBeUndefined();
+	} );
+
+	it( 'reads only the last maxBytes, dropping the partial first line', () => {
+		// The last 16 bytes are "line\nthird line\n"; "line" is the tail of "second line".
+		expect( readLastLines( filePath, 10, 16 ) ).toEqual( [ 'third line' ] );
+		expect( readLastLines( filePath, 10, 1024 ) ).toEqual( [
+			'first line',
+			'second line',
+			'third line',
+		] );
 	} );
 } );

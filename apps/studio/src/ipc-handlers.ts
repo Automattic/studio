@@ -110,7 +110,6 @@ import {
 	stopSite,
 } from '@studio/common/sites/lifecycle';
 import { updateSiteMetadata } from '@studio/common/sites/metadata';
-import { getFrontendBrowserUrl, type SiteOpenTarget } from '@studio/common/sites/open-target';
 import {
 	designFixesSchema,
 	fixSiteDesign,
@@ -184,6 +183,7 @@ import type {
 	LoadedAiSession,
 } from '@studio/agent/protocol/sessions/types';
 import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
+import type { SiteOpenTarget } from '@studio/common/sites/open-target';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 
 export {
@@ -910,7 +910,7 @@ export async function openSiteURL(
 
 	await openSiteInBrowser(
 		target === 'frontend' && site.frontend
-			? getFrontendBrowserUrl( getFrontendUrl( site.frontend ), relativeURL )
+			? getSiteBrowserUrl( { url: getFrontendUrl( site.frontend ) }, relativeURL, false )
 			: getSiteBrowserUrl( site, relativeURL, autoLogin ),
 		shellOpenExternalWrapper
 	);

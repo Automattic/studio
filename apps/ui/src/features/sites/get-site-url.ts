@@ -1,3 +1,4 @@
+import { getFrontendUrl } from '@studio/common/lib/site-frontend';
 import type { SiteDetails } from '@/data/core';
 
 // Computes the site URL from the site object so callers don't depend on
@@ -15,16 +16,9 @@ export function getSiteUrl( site: SiteDetails ): string {
 }
 
 // The origin a headless site's frontend runs on, beside WordPress at
-// `getSiteUrl`; undefined for a classic site. Mirrors `getFrontendUrl` in
-// `@studio/common/lib/site-frontend`, which depends on Node modules.
+// `getSiteUrl`; undefined for a classic site.
 export function getSiteFrontendUrl( site: Pick< SiteDetails, 'frontend' > ): string | undefined {
-	const { frontend } = site;
-	if ( ! frontend ) {
-		return undefined;
-	}
-	return frontend.customDomain
-		? `http://${ frontend.customDomain }`
-		: `http://localhost:${ frontend.port }`;
+	return site.frontend ? getFrontendUrl( site.frontend ) : undefined;
 }
 
 // Where a site's preview opens: a headless site's frontend app, which the

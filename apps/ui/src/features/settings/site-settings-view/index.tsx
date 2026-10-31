@@ -12,6 +12,7 @@ import {
 	validateAdminUsername,
 } from '@studio/common/lib/passwords';
 import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
+import { getFrontendFrameworkLabel } from '@studio/common/lib/site-frontend';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import {
 	getClosestSupportedPhpVersion,
@@ -102,19 +103,6 @@ function initialFormData( site: SiteDetails, installedWpVersion?: string ): Form
 		enableScriptDebug: site.enableScriptDebug ?? false,
 		environmentType: getWpEnvironmentType( site ),
 	};
-}
-
-function getFrontendFrameworkLabel( framework: string | undefined ): string {
-	switch ( framework ) {
-		case 'static':
-			return __( 'Static HTML' );
-		case 'astro':
-			return 'Astro';
-		case 'next':
-			return 'Next.js';
-		default:
-			return __( 'Custom' );
-	}
 }
 
 function ReadOnlyValue( {

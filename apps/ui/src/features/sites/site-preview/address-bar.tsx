@@ -2,7 +2,7 @@ import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifact
 import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { getSiteFrontendUrl } from '@/features/sites/get-site-url';
 import {
 	AppearanceIcon,
@@ -45,24 +45,29 @@ export const DATABASE_HOME_PATH = '/phpmyadmin/index.php?route=/database/structu
 const isAdminPath = ( path: string ) => /^\/wp-admin(?:[/?#]|$)/.test( path );
 const isAbsoluteUrl = ( path: string ) => /^https?:\/\//i.test( path );
 
-function getOrigin( url: string ): string | null {
+// A headless site's frontend URL as the origin the realm helpers compare
+// against. Parse it once and pass the result to `getPreviewRealm` and
+// `isFrontendAppPath`, which run for every location shown.
+export function getFrontendOrigin( frontendUrl: string | undefined ): string | undefined {
+	if ( ! frontendUrl ) {
+		return undefined;
+	}
 	try {
-		return new URL( url ).origin;
+		return new URL( frontendUrl ).origin;
 	} catch {
-		return null;
+		return undefined;
 	}
 }
 
 // The frontend app location for `url` (its absolute URL) when it is on the
 // frontend's origin.
-function getFrontendAppPath( url: string, frontendUrl: string | undefined ) {
-	if ( ! frontendUrl || ! isAbsoluteUrl( url ) ) {
+function getFrontendAppPath( url: string, frontendOrigin: string | undefined ) {
+	if ( ! frontendOrigin || ! isAbsoluteUrl( url ) ) {
 		return null;
 	}
-	const origin = getOrigin( frontendUrl );
 	try {
 		const parsed = new URL( url );
-		return origin && parsed.origin === origin ? parsed.toString() : null;
+		return parsed.origin === frontendOrigin ? parsed.toString() : null;
 	} catch {
 		return null;
 	}
@@ -77,8 +82,8 @@ export function toFrontendAppPath( path: string, frontendUrl: string ): string {
 	}
 }
 
-export function isFrontendAppPath( path: string, frontendUrl: string | undefined ): boolean {
-	return getFrontendAppPath( path, frontendUrl ) !== null;
+export function isFrontendAppPath( path: string, frontendOrigin: string | undefined ): boolean {
+	return getFrontendAppPath( path, frontendOrigin ) !== null;
 }
 
 // A url the preview reported, as a location: an absolute URL on the frontend
@@ -88,7 +93,10 @@ export function getPreviewLocationFromUrl(
 	siteUrl: string,
 	frontendUrl: string | undefined
 ): string | null {
-	return getFrontendAppPath( url, frontendUrl ) ?? getPathFromPreviewUrl( url, siteUrl );
+	return (
+		getFrontendAppPath( url, getFrontendOrigin( frontendUrl ) ) ??
+		getPathFromPreviewUrl( url, siteUrl )
+	);
 }
 
 // The path within the frontend app's origin, for opening it elsewhere.
@@ -101,11 +109,11 @@ export function getFrontendAppRelativePath( path: string ): string {
 	}
 }
 
-export function getPreviewRealm( path: string, frontendUrl?: string ): PreviewRealm {
+export function getPreviewRealm( path: string, frontendOrigin?: string ): PreviewRealm {
 	if ( path === DESIGN_SYSTEM_PREVIEW_PATH ) {
 		return 'design';
 	}
-	if ( isFrontendAppPath( path, frontendUrl ) ) {
+	if ( isFrontendAppPath( path, frontendOrigin ) ) {
 		return 'frontend-app';
 	}
 	let target = path;
@@ -174,7 +182,8 @@ export function parseOmniboxInput(
 	// `//host/` is an address on another host, not a path.
 	if ( /^(?:https?:)?\/\//i.test( value ) ) {
 		const path =
-			getFrontendAppPath( value, frontendUrl ) ?? getPathFromPreviewUrl( value, siteUrl );
+			getFrontendAppPath( value, getFrontendOrigin( frontendUrl ) ) ??
+			getPathFromPreviewUrl( value, siteUrl );
 		return path ? { type: 'path', path } : null;
 	}
 	if ( /\s/.test( value ) ) {
@@ -323,7 +332,8 @@ export function PreviewAddressBar( {
 	hideActions = false,
 }: PreviewAddressBarProps ) {
 	const frontendUrl = remote ? undefined : getSiteFrontendUrl( site );
-	const inFrontendApp = getPreviewRealm( path, frontendUrl ) === 'frontend-app';
+	const frontendOrigin = useMemo( () => getFrontendOrigin( frontendUrl ), [ frontendUrl ] );
+	const inFrontendApp = getPreviewRealm( path, frontendOrigin ) === 'frontend-app';
 	const displayUrl = getDisplayUrl( siteUrl, path );
 	const [ value, setValue ] = useState( displayUrl );
 	const [ invalid, setInvalid ] = useState( false );
@@ -356,6 +366,11 @@ export function PreviewAddressBar( {
 			easing: style.getPropertyValue( '--motion-ease-enter' ).trim(),
 		} );
 	};
+
+	const recentLocationRealms = useMemo(
+		() => recentLocations.map( ( recent ) => getPreviewRealm( recent.path, frontendOrigin ) ),
+		[ recentLocations, frontendOrigin ]
+	);
 
 	const restore = () => {
 		setValue( displayUrl );
@@ -430,10 +445,10 @@ export function PreviewAddressBar( {
 		{
 			label: __( 'Recent' ),
 			heading: __( 'Recent' ),
-			items: recentLocations.map( ( recent ) => ( {
+			items: recentLocations.map( ( recent, index ) => ( {
 				value: `recent:${ recent.path }`,
 				label: recent.label,
-				icon: realmIcons[ getPreviewRealm( recent.path, frontendUrl ) ],
+				icon: realmIcons[ recentLocationRealms[ index ] ],
 			} ) ),
 		},
 	];

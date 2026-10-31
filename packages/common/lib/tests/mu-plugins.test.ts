@@ -337,42 +337,93 @@ describe( 'getMuPlugins admin API', () => {
 } );
 
 describe( 'getMuPlugins headless', () => {
-	it( 'should write the headless mu-plugin only when a frontend is set', async () => {
+	it( 'should write the headless mu-plugin only for a headless site', async () => {
 		const withoutFrontend = await getMuPlugins();
 		expect( existsSync( join( withoutFrontend, '0-headless.php' ) ) ).toBe( false );
 
-		const withFrontend = await getMuPlugins( {
-			frontend: {
-				url: 'http://localhost:3000/',
-				previewSecret: "pre'view\\secret",
-				revalidateSecret: 'revalidate-secret',
-				headlessMode: true,
-				api: 'graphql',
-			},
-		} );
+		const withFrontend = await getMuPlugins( { headless: true } );
 		expect( withFrontend ).not.toBe( withoutFrontend );
 		const content = await readFile( join( withFrontend, '0-headless.php' ), 'utf8' );
-		expect( content ).toContain( "define( 'STUDIO_FRONTEND_URL', 'http://localhost:3000' );" );
-		expect( content ).toContain( "define( 'STUDIO_PREVIEW_SECRET', 'pre\\'view\\\\secret' );" );
-		expect( content ).toContain( "define( 'STUDIO_REVALIDATE_SECRET', 'revalidate-secret' );" );
-		expect( content ).toContain( "define( 'STUDIO_HEADLESS_MODE', true );" );
+		expect( content ).toContain( "! defined( 'STUDIO_FRONTEND_URL' )" );
 		expect( content ).toContain( "'X-Studio-Revalidate-Secret' => STUDIO_REVALIDATE_SECRET" );
 		expect( content ).toContain( "studio_headless_frontend_url( '/api/draft' )" );
 		expect( content ).toContain( "'template_redirect'" );
 	} );
+} );
 
-	it( 'should point the loader at the headless mu-plugins directory', async () => {
+describe( 'writeStudioMuPlugins headless', () => {
+	let sitePaths: string[] = [];
+
+	async function makeSite(): Promise< string > {
 		const sitePath = await mkdtemp( join( tmpdir(), 'studio-test-site-' ) );
-		const muPluginsDir = await writeStudioMuPlugins( sitePath, false, {
-			url: 'http://localhost:3001',
-		} );
-		const content = await readFile( join( muPluginsDir, '0-headless.php' ), 'utf8' );
-		expect( content ).toContain( "define( 'STUDIO_HEADLESS_MODE', false );" );
-		const loader = await readFile(
+		sitePaths.push( sitePath );
+		return sitePath;
+	}
+
+	function readLoader( sitePath: string ): Promise< string > {
+		return readFile(
 			join( sitePath, 'wp-content', 'mu-plugins', STUDIO_LOADER_MU_PLUGIN_FILENAME ),
 			'utf8'
 		);
+	}
+
+	afterEach( async () => {
+		await Promise.all(
+			sitePaths.map( ( sitePath ) => rm( sitePath, { recursive: true, force: true } ) )
+		);
+		sitePaths = [];
+	} );
+
+	it( "defines the site's settings in its loader, before it loads the bundle", async () => {
+		const sitePath = await makeSite();
+		const muPluginsDir = await writeStudioMuPlugins( sitePath, false, {
+			url: 'http://localhost:3000/',
+			previewSecret: "pre'view\\secret",
+			revalidateSecret: 'revalidate-secret',
+			headlessMode: true,
+			api: 'graphql',
+		} );
+
+		const loader = await readLoader( sitePath );
+		expect( loader ).toContain(
+			"if ( ! defined( 'STUDIO_FRONTEND_URL' ) ) define( 'STUDIO_FRONTEND_URL', 'http://localhost:3000' );"
+		);
+		expect( loader ).toContain( "define( 'STUDIO_PREVIEW_SECRET', 'pre\\'view\\\\secret' );" );
+		expect( loader ).toContain( "define( 'STUDIO_REVALIDATE_SECRET', 'revalidate-secret' );" );
+		expect( loader ).toContain( "define( 'STUDIO_FRONTEND_API', 'graphql' );" );
+		expect( loader ).toContain( "define( 'STUDIO_HEADLESS_MODE', true );" );
+		expect( loader.indexOf( 'STUDIO_FRONTEND_URL' ) ).toBeLessThan(
+			loader.indexOf( 'require_once' )
+		);
 		expect( loader ).toContain( muPluginsDir );
-		await rm( sitePath, { recursive: true, force: true } );
+
+		const bundled = await readFile( join( muPluginsDir, '0-headless.php' ), 'utf8' );
+		expect( bundled ).not.toContain( "pre\\'view" );
+		expect( bundled ).not.toContain( 'revalidate-secret' );
+		expect( bundled ).not.toContain( 'localhost:3000' );
+	} );
+
+	it( 'shares one bundle directory between headless sites', async () => {
+		const firstSite = await makeSite();
+		const secondSite = await makeSite();
+		const classicSite = await makeSite();
+
+		const firstDir = await writeStudioMuPlugins( firstSite, false, {
+			url: 'http://localhost:3001',
+			previewSecret: 'first',
+		} );
+		const secondDir = await writeStudioMuPlugins( secondSite, false, {
+			url: 'http://localhost:3002',
+			previewSecret: 'second',
+			headlessMode: true,
+		} );
+		const classicDir = await writeStudioMuPlugins( classicSite, false );
+
+		expect( secondDir ).toBe( firstDir );
+		expect( classicDir ).not.toBe( firstDir );
+		expect( await readLoader( firstSite ) ).toContain( "'http://localhost:3001'" );
+		expect( await readLoader( secondSite ) ).toContain( "'http://localhost:3002'" );
+		expect( await readLoader( firstSite ) ).toContain( "define( 'STUDIO_HEADLESS_MODE', false );" );
+		expect( await readLoader( classicSite ) ).not.toContain( 'STUDIO_FRONTEND_URL' );
 	} );
 } );

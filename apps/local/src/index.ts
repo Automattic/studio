@@ -101,9 +101,8 @@ import {
 	getSiteAgentFilePaths,
 } from '@studio/common/lib/site-agent-file-paths';
 import {
+	frontendCreateChoiceSchema,
 	getFrontendUrl,
-	siteFrontendApiSchema,
-	siteFrontendFrameworkSchema,
 	type FrontendCreateChoice,
 } from '@studio/common/lib/site-frontend';
 import {
@@ -149,11 +148,7 @@ import { buildSiteSetArgs, getSiteEditOptions } from '@studio/common/sites/edit'
 import { deleteSite, startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
 import { listSitesWithMetadata, updateSiteMetadata } from '@studio/common/sites/metadata';
-import {
-	getFrontendBrowserUrl,
-	getSiteFolderForTarget,
-	type SiteOpenTarget,
-} from '@studio/common/sites/open-target';
+import { getSiteFolderForTarget, type SiteOpenTarget } from '@studio/common/sites/open-target';
 import { designFixesSchema, fixSiteDesign, readSiteDesign } from '@studio/common/sites/site-design';
 import { readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import {
@@ -1125,7 +1120,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				adminEmail?: string;
 				skipStart?: boolean;
 				flowType?: TracksSiteCreateFlowType;
-				frontend?: { framework?: unknown; api?: unknown };
+				frontend?: unknown;
 				// Optional Blueprint to apply on creation: `blueprint` is the parsed
 				// blueprint JSON; `filePath` (set for uploaded ZIP bundles) lets the
 				// CLI resolve relative assets. `bundleUrl` names a bundle from Studio's
@@ -1143,15 +1138,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			let frontend: FrontendCreateChoice | undefined;
 			if ( body.frontend ) {
-				const framework = siteFrontendFrameworkSchema
-					.exclude( [ 'custom' ] )
-					.safeParse( body.frontend.framework );
-				const api = siteFrontendApiSchema.optional().safeParse( body.frontend.api );
-				if ( ! framework.success || ! api.success ) {
+				const parsed = frontendCreateChoiceSchema.safeParse( body.frontend );
+				if ( ! parsed.success ) {
 					res.status( 400 ).json( { error: 'Unsupported frontend' } );
 					return;
 				}
-				frontend = { framework: framework.data, api: api.data };
+				frontend = parsed.data;
 			}
 			const siteId = crypto.randomUUID();
 			// Build the create args with the same shared helper the desktop uses, so
@@ -1634,7 +1626,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			const relativeUrl = typeof req.body?.relativeUrl === 'string' ? req.body.relativeUrl : '';
 			await openSiteInBrowser(
 				readOpenTarget( req ) === 'frontend' && site.frontend
-					? getFrontendBrowserUrl( getFrontendUrl( site.frontend ), relativeUrl )
+					? getSiteBrowserUrl( { url: getFrontendUrl( site.frontend ) }, relativeUrl, false )
 					: getSiteBrowserUrl( site, relativeUrl, req.body?.autoLogin !== false ),
 				openUrl
 			);

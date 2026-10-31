@@ -2,11 +2,7 @@ import { vi } from 'vitest';
 import { SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import {
-	getSiteFrontendUrl,
-	isFrontendRunning,
-	startFrontendServer,
-} from 'cli/lib/frontend/server';
+import { isFrontendRunning, startFrontendServer } from 'cli/lib/frontend/server';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
@@ -67,7 +63,6 @@ describe( 'CLI: studio site start', () => {
 		vi.mocked( openSiteInBrowser ).mockResolvedValue( undefined );
 		vi.mocked( isFrontendRunning ).mockResolvedValue( undefined );
 		vi.mocked( startFrontendServer ).mockResolvedValue( testProcessDescription );
-		vi.mocked( getSiteFrontendUrl ).mockReturnValue( 'http://localhost:4321' );
 	} );
 
 	afterEach( () => {
@@ -208,14 +203,14 @@ describe( 'CLI: studio site start', () => {
 			expect( startFrontendServer ).not.toHaveBeenCalled();
 		} );
 
-		it( 'fails the start when the frontend fails, without blaming WordPress', async () => {
-			vi.mocked( startFrontendServer ).mockRejectedValue(
-				new LoggerError( 'Failed to start the frontend' )
-			);
+		it( 'reports a frontend failure without failing the start', async () => {
+			const frontendError = new LoggerError( 'Failed to start the frontend' );
+			vi.mocked( startFrontendServer ).mockRejectedValue( frontendError );
+			const logger = new Logger();
+			const reportError = vi.spyOn( logger, 'reportError' ).mockImplementation( () => {} );
 
-			const error = await runCommand( '/test/site' ).catch( ( caught: Error ) => caught );
-			expect( error ).toBeInstanceOf( LoggerError );
-			expect( ( error as Error ).message ).toBe( 'Failed to start the frontend' );
+			await expect( runCommand( '/test/site', true, true, logger ) ).resolves.toBeUndefined();
+			expect( reportError ).toHaveBeenCalledWith( frontendError, false );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 	} );

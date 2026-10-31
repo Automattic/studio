@@ -1,5 +1,13 @@
-import { describe, expect, it } from 'vitest';
-import { areSameSiteOrigins, getHeadlessSiteOriginGroups } from 'src/lib/site-preview-origins';
+import { readSites } from '@studio/common/sites/site-path';
+import { describe, expect, it, vi } from 'vitest';
+import {
+	areSameSiteOrigins,
+	getHeadlessSiteOriginGroups,
+	isSameSitePreviewOrigin,
+	refreshHeadlessSiteOrigins,
+} from 'src/lib/site-preview-origins';
+
+vi.mock( '@studio/common/sites/site-path' );
 
 const frontend = { path: '/sites/blog/frontend', kind: 'static', port: 3000 };
 
@@ -63,5 +71,30 @@ describe( 'areSameSiteOrigins', () => {
 			false
 		);
 		expect( areSameSiteOrigins( groups, 'not a url', 'http://localhost:3000/' ) ).toBe( false );
+	} );
+} );
+
+describe( 'isSameSitePreviewOrigin', () => {
+	it( 'answers from the groups read by the last refresh', async () => {
+		vi.mocked( readSites ).mockResolvedValueOnce( [
+			{ id: 'blog', path: '/sites/blog/wordpress', port: 8881, frontend },
+		] as never );
+		await refreshHeadlessSiteOrigins();
+		expect( isSameSitePreviewOrigin( 'http://localhost:3000/', 'http://localhost:8881/' ) ).toBe(
+			true
+		);
+
+		vi.mocked( readSites ).mockRejectedValueOnce( new Error( 'unreadable' ) );
+		await refreshHeadlessSiteOrigins();
+		expect( isSameSitePreviewOrigin( 'http://localhost:3000/', 'http://localhost:8881/' ) ).toBe(
+			true
+		);
+
+		vi.mocked( readSites ).mockResolvedValueOnce( [] as never );
+		await refreshHeadlessSiteOrigins();
+		expect( isSameSitePreviewOrigin( 'http://localhost:3000/', 'http://localhost:8881/' ) ).toBe(
+			false
+		);
+		expect( readSites ).toHaveBeenCalledTimes( 3 );
 	} );
 } );

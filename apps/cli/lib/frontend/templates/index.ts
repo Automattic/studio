@@ -9,7 +9,8 @@ import path from 'path';
 import { type SiteFrontend, type SiteFrontendFramework } from '@studio/common/lib/site-frontend';
 import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
-import { detectNodeRuntime } from 'cli/lib/frontend/server';
+import { MIN_FRONTEND_NODE_MAJOR, requireNodeRuntime } from 'cli/lib/frontend/server';
+import { buildShellInvocation, prependToPath } from 'cli/lib/frontend/shell';
 import { LoggerError, type Logger } from 'cli/logger';
 import { getAstroTemplate } from './astro';
 import { getNextTemplate } from './next';
@@ -17,8 +18,6 @@ import { toPackageName, type FrontendTemplateContext, type FrontendTemplateFiles
 import { getStaticTemplate } from './static';
 
 type FrontendTemplate = ( context: FrontendTemplateContext ) => FrontendTemplateFiles;
-
-const MINIMUM_NODE_MAJOR_VERSION = 20;
 
 export function getFrontendTemplate( framework: SiteFrontendFramework ): FrontendTemplate {
 	switch ( framework ) {
@@ -68,21 +67,13 @@ export async function scaffoldFrontend(
 	return written;
 }
 
-function quoteForShell( value: string ): string {
-	return `'${ value.replace( /'/g, `'\\''` ) }'`;
-}
-
-function getNodeMajorVersion( version: string ): number {
-	return Number.parseInt( version.replace( /^v/, '' ), 10 );
-}
-
 function getInstallRetryHint( frontend: SiteFrontend ): string {
 	return sprintf(
 		/* translators: %1$d: minimum Node.js major version, %2$s: frontend folder */
 		__(
 			'The frontend needs Node.js %1$d or later. Install it (for example from nodejs.org or with nvm), then run "npm install" in %2$s and start the site again.'
 		),
-		MINIMUM_NODE_MAJOR_VERSION,
+		MIN_FRONTEND_NODE_MAJOR,
 		frontend.path
 	);
 }
@@ -100,35 +91,23 @@ export async function installFrontendDependencies(
 		__( 'Installing frontend dependencies…' )
 	);
 
-	const runtime = await detectNodeRuntime().catch( () => undefined );
-	if ( ! runtime || getNodeMajorVersion( runtime.version ) < MINIMUM_NODE_MAJOR_VERSION ) {
-		const found = runtime
-			? sprintf(
-					/* translators: %s: the Node.js version found */
-					__( 'Found Node.js %s.' ),
-					runtime.version
-			  )
-			: __( 'No Node.js was found.' );
-		throw new LoggerError( `${ found } ${ getInstallRetryHint( frontend ) }` );
+	let runtime;
+	try {
+		runtime = await requireNodeRuntime( 'npm install' );
+	} catch ( error ) {
+		const reason = error instanceof Error ? error.message : String( error );
+		throw new LoggerError( `${ reason } ${ getInstallRetryHint( frontend ) }` );
 	}
 
-	const npm = runtime.npmPath ?? 'npm';
-	const npmArgs = [ 'install', '--no-audit', '--no-fund' ];
+	const invocation = buildShellInvocation( 'npm install --no-audit --no-fund' );
 	let output = '';
 	const exitCode = await new Promise< number >( ( resolve, reject ) => {
-		const child =
-			process.platform === 'win32'
-				? spawn( 'npm', npmArgs, { cwd: frontend.path, shell: true, env: process.env } )
-				: spawn(
-						process.env.SHELL || '/bin/sh',
-						[
-							'-lc',
-							`export PATH=${ quoteForShell(
-								path.dirname( runtime.nodePath )
-							) }:"$PATH"; exec ${ quoteForShell( npm ) } ${ npmArgs.join( ' ' ) }`,
-						],
-						{ cwd: frontend.path, env: process.env }
-				  );
+		const child = spawn( invocation.file, invocation.args, {
+			cwd: frontend.path,
+			env: prependToPath( process.env, path.dirname( runtime.nodePath ) ),
+			windowsHide: true,
+			windowsVerbatimArguments: invocation.windowsVerbatimArguments,
+		} );
 		const collect = ( chunk: Buffer ) => {
 			output = ( output + chunk.toString() ).slice( -8000 );
 			const line = chunk.toString().trim().split( '\n' ).pop();

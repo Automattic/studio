@@ -5,6 +5,10 @@ import {
 } from '@studio/common/lib/domains';
 import { validateAdminEmail, validateAdminUsername } from '@studio/common/lib/passwords';
 import { getFileAccessDescription } from '@studio/common/lib/site-file-access-labels';
+import {
+	frontendCreateFrameworkSchema,
+	getFrontendFrameworkLabel,
+} from '@studio/common/lib/site-frontend';
 import { getLatestVersionLabel } from '@studio/common/lib/wordpress-versions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { ChevronDownIcon, ChevronRightIcon, FileIcon } from 'lucide-react';
@@ -57,9 +61,11 @@ export type { CreateSiteFormValues } from './form-data';
 function getFrontendOptions(): Array< { value: FrontendChoice; label: string } > {
 	return [
 		{ value: 'theme', label: __( 'WordPress theme' ) },
-		{ value: 'static', label: __( 'Headless: Static HTML' ) },
-		{ value: 'astro', label: __( 'Headless: Astro' ) },
-		{ value: 'next', label: __( 'Headless: Next.js' ) },
+		...frontendCreateFrameworkSchema.options.map( ( framework ) => ( {
+			value: framework,
+			// translators: %s: a frontend framework name, e.g. "Astro".
+			label: sprintf( __( 'Headless: %s' ), getFrontendFrameworkLabel( framework ) ),
+		} ) ),
 	];
 }
 

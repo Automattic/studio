@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { confineToRoot } from '@studio/common/lib/fs-utils';
 
 const CONTENT_TYPES: Record< string, string > = {
 	'.html': 'text/html; charset=utf-8',
@@ -39,11 +40,6 @@ export function getContentType( filePath: string ): string {
 	return CONTENT_TYPES[ path.extname( filePath ).toLowerCase() ] ?? 'application/octet-stream';
 }
 
-function isInsideDirectory( root: string, target: string ): boolean {
-	const relative = path.relative( root, target );
-	return relative === '' || ( ! relative.startsWith( '..' ) && ! path.isAbsolute( relative ) );
-}
-
 export type StaticResolution =
 	| { type: 'file'; filePath: string }
 	| { type: 'redirect'; location: string }
@@ -70,34 +66,28 @@ function statOrUndefined( filePath: string ): fs.Stats | undefined {
 // from outside the served folder.
 function insideRealRoot( realRoot: string, filePath: string ): boolean {
 	try {
-		return isInsideDirectory( realRoot, fs.realpathSync( filePath ) );
+		return confineToRoot( realRoot, fs.realpathSync( filePath ) ) !== null;
 	} catch {
 		return false;
 	}
 }
 
 /**
- * Maps a request URL to a file under `root`: `index.html` for `/` and
+ * Maps a request URL to a file under `realRoot`: `index.html` for `/` and
  * directories (redirecting `/dir` to `/dir/` so relative links resolve),
- * `<path>.html` for clean URLs, and nothing for anything outside `root`.
+ * `<path>.html` for clean URLs, and nothing for anything outside the folder.
+ * `realRoot` is the served folder's real path (`fs.realpathSync`), resolved
+ * once when the server starts.
  */
-export function resolveStaticRequest( root: string, requestUrl: string ): StaticResolution {
+export function resolveStaticRequest( realRoot: string, requestUrl: string ): StaticResolution {
 	const url = new URL( requestUrl, 'http://localhost' );
 	const pathname = decodePathname( url.pathname );
 	if ( pathname === undefined ) {
 		return { type: 'not-found' };
 	}
 
-	const absoluteRoot = path.resolve( root );
-	const target = path.resolve( absoluteRoot, '.' + path.posix.normalize( '/' + pathname ) );
-	if ( ! isInsideDirectory( absoluteRoot, target ) ) {
-		return { type: 'not-found' };
-	}
-
-	let realRoot: string;
-	try {
-		realRoot = fs.realpathSync( absoluteRoot );
-	} catch {
+	const target = confineToRoot( realRoot, '.' + path.posix.normalize( '/' + pathname ) );
+	if ( ! target ) {
 		return { type: 'not-found' };
 	}
 

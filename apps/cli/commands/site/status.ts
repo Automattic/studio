@@ -1,18 +1,18 @@
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { getSiteFileAccess, SITE_FILE_ACCESS_ALL_FILES } from '@studio/common/lib/site-file-access';
-import { isHeadlessSite, type SiteFrontendFramework } from '@studio/common/lib/site-frontend';
+import {
+	getFrontendFrameworkLabel,
+	getFrontendUrl,
+	isHeadlessSite,
+} from '@studio/common/lib/site-frontend';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n } from '@wordpress/i18n';
 import CliTable3 from 'cli-table3';
 import { type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import {
-	getFrontendLogPaths,
-	getSiteFrontendUrl,
-	isFrontendRunning,
-} from 'cli/lib/frontend/server';
+import { getFrontendLogPaths, isFrontendRunning } from 'cli/lib/frontend/server';
 import { getSiteEmailDirectory } from 'cli/lib/site-email';
 import { getPrettyPath } from 'cli/lib/utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
@@ -29,72 +29,54 @@ type StatusRow = {
 	value: string | undefined;
 	type?: string;
 	secret?: boolean;
+	// Extra fields the JSON output carries next to this row.
+	json?: Record< string, unknown >;
 };
-
-function getFrameworkLabel( framework: SiteFrontendFramework | undefined ): string | undefined {
-	switch ( framework ) {
-		case 'static':
-			return __( 'Static files' );
-		case 'astro':
-			return 'Astro';
-		case 'next':
-			return 'Next.js';
-		case 'custom':
-			return __( 'Custom' );
-		default:
-			return undefined;
-	}
-}
 
 function formatOnlineStatus( isOnline: boolean ): string {
 	return isOnline ? `🟢 ${ __( 'Online' ) }` : `🔴 ${ __( 'Offline' ) }`;
 }
 
-async function getFrontendRows( site: SiteData ): Promise< {
-	rows: StatusRow[];
-	isFrontendOnline?: boolean;
-} > {
+async function getFrontendRows( site: SiteData ): Promise< StatusRow[] > {
 	if ( ! isHeadlessSite( site ) ) {
-		return { rows: [] };
+		return [];
 	}
 	const isFrontendOnline = Boolean( await isFrontendRunning( site.id ) );
 	const logPaths = getFrontendLogPaths( site.id );
-	return {
-		isFrontendOnline,
-		rows: [
-			{
-				key: __( 'Frontend URL' ),
-				jsonKey: 'frontendUrl',
-				value: getSiteFrontendUrl( site ),
-				type: 'url',
-			},
-			{
-				key: __( 'Frontend framework' ),
-				jsonKey: 'frontendFramework',
-				value: getFrameworkLabel( site.frontend.framework ),
-			},
-			{
-				key: __( 'Frontend status' ),
-				jsonKey: 'frontendStatus',
-				value: formatOnlineStatus( isFrontendOnline ),
-			},
-			{
-				key: __( 'Frontend path' ),
-				jsonKey: 'frontendPath',
-				value: getPrettyPath( site.frontend.path ),
-			},
-			{
-				key: __( 'Frontend log' ),
-				jsonKey: 'frontendLogPath',
-				value: getPrettyPath( logPaths.out ),
-			},
-			{
-				key: __( 'Frontend error log' ),
-				jsonKey: 'frontendErrorLogPath',
-				value: getPrettyPath( logPaths.error ),
-			},
-		],
-	};
+	return [
+		{
+			key: __( 'Frontend URL' ),
+			jsonKey: 'frontendUrl',
+			value: getFrontendUrl( site.frontend ),
+			type: 'url',
+		},
+		{
+			key: __( 'Frontend framework' ),
+			jsonKey: 'frontendFramework',
+			value: getFrontendFrameworkLabel( site.frontend.framework ),
+		},
+		{
+			key: __( 'Frontend status' ),
+			jsonKey: 'frontendStatus',
+			value: formatOnlineStatus( isFrontendOnline ),
+			json: { isFrontendOnline },
+		},
+		{
+			key: __( 'Frontend path' ),
+			jsonKey: 'frontendPath',
+			value: getPrettyPath( site.frontend.path ),
+		},
+		{
+			key: __( 'Frontend log' ),
+			jsonKey: 'frontendLogPath',
+			value: getPrettyPath( logPaths.out ),
+		},
+		{
+			key: __( 'Frontend error log' ),
+			jsonKey: 'frontendErrorLogPath',
+			value: getPrettyPath( logPaths.error ),
+		},
+	];
 }
 
 // The site's details. Callers connect to the daemon first.
@@ -129,10 +111,12 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 		const site = await getSiteByFolder( siteFolder );
 		logger.reportSuccess( __( 'Site loaded' ) );
 
-		const siteStatus = await getSiteStatus( site );
+		const [ siteStatus, frontendRows ] = await Promise.all( [
+			getSiteStatus( site ),
+			getFrontendRows( site ),
+		] );
 		const isOnline = siteStatus.running;
 		const status = formatOnlineStatus( isOnline );
-		const frontend = await getFrontendRows( site );
 		/* translators: value for the Type field in the site status output */
 		const siteType = isHeadlessSite( site ) ? __( 'Headless' ) : __( 'WordPress' );
 		const sitePath = getPrettyPath( siteStatus.path );
@@ -166,9 +150,9 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 				jsonKey: 'emailPath',
 				value: getPrettyPath( siteStatus.emailPath ),
 			},
-			{ key: __( 'Status' ), jsonKey: 'status', value: status },
+			{ key: __( 'Status' ), jsonKey: 'status', value: status, json: { isOnline } },
 			{ key: __( 'Type' ), jsonKey: 'type', value: siteType },
-			...frontend.rows,
+			...frontendRows,
 			{ key: __( 'PHP version' ), jsonKey: 'phpVersion', value: siteStatus.phpVersion },
 			{ key: __( 'File access' ), jsonKey: 'fileAccess', value: fileAccessLabel },
 			{ key: __( 'WP version' ), jsonKey: 'wpVersion', value: wpVersion },
@@ -206,21 +190,10 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 			const logData = Object.fromEntries(
 				siteData
 					.filter( ( { secret } ) => ! secret )
-					.flatMap( ( { jsonKey, value } ) => {
-						if ( jsonKey === 'status' ) {
-							return [
-								[ jsonKey, value ],
-								[ 'isOnline', isOnline ],
-							];
-						}
-						if ( jsonKey === 'frontendStatus' ) {
-							return [
-								[ jsonKey, value ],
-								[ 'isFrontendOnline', frontend.isFrontendOnline ],
-							];
-						}
-						return [ [ jsonKey, value ] ];
-					} )
+					.flatMap( ( { jsonKey, value, json } ) => [
+						[ jsonKey, value ],
+						...Object.entries( json ?? {} ),
+					] )
 			);
 
 			console.log( JSON.stringify( logData, null, 2 ) );

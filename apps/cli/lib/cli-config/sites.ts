@@ -63,7 +63,7 @@ export async function findSiteById( siteId: string ): Promise< SiteData | undefi
 // The folder holding both halves of a headless site created with the default
 // layout (`<container>/wordpress` + `<container>/frontend`); the WordPress
 // directory itself otherwise.
-function getHeadlessContainerPath( site: SiteData ): string {
+export function getHeadlessContainerPath( site: SiteData ): string {
 	if ( site.frontend && path.basename( site.path ) === HEADLESS_WORDPRESS_SUBDIR ) {
 		return path.dirname( site.path );
 	}

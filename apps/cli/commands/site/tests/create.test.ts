@@ -1550,8 +1550,12 @@ describe( 'CLI: studio create', () => {
 				expect.objectContaining( { path: wordpressPath, frontend: savedSite().frontend } ),
 				expect.anything()
 			);
+			// The result the apps receive carries the frontend without its secrets.
+			const { previewSecret, revalidateSecret, ...publicFrontend } = savedSite().frontend ?? {};
+			expect( previewSecret ).toBeDefined();
+			expect( revalidateSecret ).toBeDefined();
 			expect( reportResult ).toHaveBeenCalledWith(
-				expect.objectContaining( { frontend: savedSite().frontend } )
+				expect.objectContaining( { frontend: publicFrontend } )
 			);
 			expect( printedOutput() ).toContain( `Frontend: http://localhost:${ frontendPort }` );
 			expect( recordTracksEvent ).toHaveBeenCalledWith(

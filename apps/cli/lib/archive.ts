@@ -16,10 +16,27 @@ const ALREADY_COMPRESSED_FILE =
 	/\.(jpe?g|png|gif|webp|avif|heic|mp4|m4v|mov|webm|mp3|m4a|ogg|woff2?|zip|gz|tgz|bz2|xz|7z|rar|pdf)$/i;
 const STUDIO_LOADER_ARCHIVE_PATH = `wp-content/mu-plugins/${ STUDIO_LOADER_MU_PLUGIN_FILENAME }`;
 
+// Plugins WordPress.com provides on every Atomic site. Their folders are left out of preview
+// archives: WordPress.com's importer keeps its own managed copy and ignores uploaded ones
+// (wpcomsh skips any uploaded plugin directory that `/wordpress/plugins/<slug>/latest` covers),
+// and activation lives in the database, so the plugin stays active on the preview.
+const WORDPRESS_COM_PROVIDED_PLUGINS = new Set( [
+	'jetpack',
+	'akismet',
+	'gutenberg',
+	'classic-editor',
+	'crowdsignal-forms',
+	'gravatar-enhanced',
+	'layout-grid',
+	'page-optimize',
+	'polldaddy',
+] );
+
 /**
  * Archives a site for a preview. Inactive themes are left out: they don't change what the preview
  * shows, and the stock default themes alone are most of a small site's archive. Files a pulled
  * site links from its host's managed tree are left out too: the WordPress.com site has them.
+ * Plugins WordPress.com provides are left out for the same reason.
  */
 export async function archiveSiteContent(
 	siteFolder: string,
@@ -32,6 +49,11 @@ export async function archiveSiteContent(
 		!! activeThemes &&
 		/^themes\/[^/]+\//.test( relativePath ) &&
 		! [ ...activeThemes ].some( ( theme ) => relativePath.startsWith( `themes/${ theme }/` ) );
+	// Files inside a WordPress.com-provided plugin's folder (not `plugins/index.php`).
+	const isWordPressComProvidedPlugin = ( relativePath: string ) => {
+		const match = relativePath.match( /^plugins\/([^/]+)\// );
+		return match !== null && WORDPRESS_COM_PROVIDED_PLUGINS.has( match[ 1 ] );
+	};
 
 	// `archiver.directory()` does not follow symlinks, so we enumerate the files
 	// with glob ourselves to support symlinked plugins/themes. See
@@ -66,7 +88,11 @@ export async function archiveSiteContent(
 			if ( archiveEntryPath === STUDIO_LOADER_ARCHIVE_PATH ) {
 				continue;
 			}
-			if ( deployIgnore.ignores( archiveEntryPath ) || isInactiveTheme( relativePath ) ) {
+			if (
+				deployIgnore.ignores( archiveEntryPath ) ||
+				isInactiveTheme( relativePath ) ||
+				isWordPressComProvidedPlugin( relativePath )
+			) {
 				continue;
 			}
 			// If the source path is a symlink, `Archiver.file()` appends a symlink to

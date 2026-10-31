@@ -1310,7 +1310,7 @@ test( 'restyleApplied judges the last turn against the first', () => {
 			{ buttons: [ { ...last.buttons[ 0 ], background: 'rgb(120, 200, 140)' } ] },
 			'0 of 1 filled buttons are a dark green',
 		],
-		[ { headings: [ { ...first.headings[ 0 ], textTransform: 'lowercase' } ] }, 'the first h1' ],
+		[ { headings: [ { ...first.headings[ 0 ], textTransform: 'lowercase' } ] }, 'the top title' ],
 		[
 			{
 				headings: [

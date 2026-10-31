@@ -544,15 +544,24 @@ async function homeStyles( url: string ) {
 							height: Math.round( el.getBoundingClientRect().height ),
 						};
 					} );
-				const firstH1 = document.querySelector( 'main h1, h1' );
-				const headings = [ ...document.querySelectorAll( 'h1, h2, h3, h4, h5, h6' ) ]
-					.filter( visible )
-					.map( ( el ) => ( {
-						tag: el.tagName.toLowerCase(),
-						text: ( el.textContent ?? '' ).trim().slice( 0, 60 ),
-						textTransform: getComputedStyle( el ).textTransform,
-						first: el === firstH1,
-					} ) );
+				// "The big title at the top": the largest heading on the first
+				// screen, whichever its level (eval5's Athletic hero was an h2).
+				const shown = [ ...document.querySelectorAll( 'h1, h2, h3, h4, h5, h6' ) ].filter(
+					visible
+				);
+				const size = ( el: Element ) => parseFloat( getComputedStyle( el ).fontSize );
+				const topTitle = shown
+					.filter( ( el ) => el.getBoundingClientRect().top < window.innerHeight )
+					.reduce< Element | undefined >(
+						( largest, el ) => ( ! largest || size( el ) > size( largest ) ? el : largest ),
+						undefined
+					);
+				const headings = shown.map( ( el ) => ( {
+					tag: el.tagName.toLowerCase(),
+					text: ( el.textContent ?? '' ).trim().slice( 0, 60 ),
+					textTransform: getComputedStyle( el ).textTransform,
+					first: el === topTitle,
+				} ) );
 				const footerText = footer
 					? [ ...footer.querySelectorAll( 'p, a' ) ]
 							.filter( ( el ) => visible( el ) && ( el.textContent ?? '' ).trim() )

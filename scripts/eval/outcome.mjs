@@ -1147,7 +1147,7 @@ function hueAndLightness( [ r, g, b ] ) {
 // name and menu trade the sides the first turn gave them; the buttons are a
 // little rounded (corners above 0, under a quarter of their height, so the
 // pills asked for first no longer pass); every heading displays lowercase but
-// the first h1, which keeps its capitals; some of the footer's text is smaller
+// the big title at the top (the largest on the first screen), which keeps its capitals; some of the footer's text is smaller
 // than the first turn's; and the filled buttons are a dark green.
 export const restyleApplied = check( ( d, vars ) => {
 	const s = site( d, vars );
@@ -1196,7 +1196,7 @@ export const restyleApplied = check( ( d, vars ) => {
 			heading.textTransform === 'lowercase' ||
 			( heading.textTransform !== 'uppercase' && heading.text === heading.text.toLowerCase() );
 		if ( heading.first && ( lower || heading.textTransform === 'uppercase' ) )
-			misses.push( `the first h1 "${ heading.text }" displays ${ heading.textTransform }` );
+			misses.push( `the top title "${ heading.text }" displays ${ heading.textTransform }` );
 		if ( ! heading.first && ! lower )
 			misses.push( `${ heading.tag } "${ heading.text }" is not lowercase` );
 	}

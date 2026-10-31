@@ -342,12 +342,19 @@ export const postCopies: SiteChangeSource = {
 			const file = copyOf( workspace, { id, type } );
 			const label = `${ site.name } ${ type } ${ id }`;
 			const was = before[ id ]?.split( ' ' ).pop();
-			if ( was && was !== copyHash && type !== GLOBAL_STYLES ) {
+			// A post this call made or changed in WordPress, not through its copy:
+			// before it, the copies were read (so a new post's absence is known).
+			const changed = was ? was !== copyHash : Object.keys( before ).length > 0;
+			if ( changed && type !== GLOBAL_STYLES ) {
 				const previous = previousOf( file );
 				const kept = copyHash === EMPTY ? await readCopy( previous ) : undefined;
 				reports.push( {
 					key: `content ${ id }`,
 					post: id,
+					summary:
+						last?.file === copyHash
+							? `${ label }'s content is in ${ file }; Studio saves an edit there to the post.`
+							: undefined,
 					problem: kept
 						? `${ label } is now empty: this call replaced its ${ kept.length } characters of content with none. Studio kept what it held in ${ previous }.`
 						: undefined,

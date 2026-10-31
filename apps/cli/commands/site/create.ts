@@ -386,7 +386,7 @@ export async function runCommand(
 				: __( 'Starting WordPress server…' );
 			logger.reportStart( LoggerAction.START_SITE, startMessage );
 			try {
-				await startWordPressServer( siteDetails, logger, {
+				await startWordPressServer( siteDetails, logger, 'create', {
 					wpVersion: options.wpVersion,
 					blueprint,
 					blueprintUri,

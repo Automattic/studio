@@ -1,5 +1,9 @@
 import { __ } from '@wordpress/i18n';
-import { siteListItemSchema, type SiteListItem } from '@studio/common/lib/cli-events';
+import {
+	SITE_START_REQUESTED_AT_ENV,
+	siteListItemSchema,
+	type SiteListItem,
+} from '@studio/common/lib/cli-events';
 import {
 	CliCommandError,
 	runCliCommand,
@@ -32,10 +36,11 @@ function runSiteCommand(
 async function runSiteStateCommand(
 	execute: ExecuteCliCommand,
 	args: string[],
-	baseMessage: string
+	baseMessage: string,
+	env?: NodeJS.ProcessEnv
 ): Promise< SiteListItem > {
 	try {
-		return await runCliCommand( execute, args, siteListItemSchema );
+		return await runCliCommand( execute, args, siteListItemSchema, { env } );
 	} catch ( error ) {
 		if ( error instanceof CliCommandError ) {
 			error.baseMessage = baseMessage;
@@ -52,6 +57,7 @@ export async function startSite(
 	execute: ExecuteCliCommand,
 	sitePath: string
 ): Promise< SiteListItem > {
+	const requestedAt = Date.now();
 	const maintenance = checkMaintenanceFile( sitePath );
 	if ( maintenance.exists && ! maintenance.isStale ) {
 		throw new SiteStartRefusedError(
@@ -64,7 +70,9 @@ export async function startSite(
 		return await runSiteStateCommand(
 			execute,
 			[ 'site', 'start', '--path', sitePath, '--skip-browser', '--skip-log-details' ],
-			'Failed to start site'
+			'Failed to start site',
+			// Lets the CLI time the start from here, not from when its own process got going.
+			{ [ SITE_START_REQUESTED_AT_ENV ]: String( requestedAt ) }
 		);
 	} catch ( error ) {
 		const lastErrorMessage = ( error as { lastErrorMessage?: string } ).lastErrorMessage;

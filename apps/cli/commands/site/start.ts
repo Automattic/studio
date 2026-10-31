@@ -95,7 +95,7 @@ async function startSite(
 
 		logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 		try {
-			await startWordPressServer( site, logger );
+			await startWordPressServer( site, logger, 'start' );
 
 			logger.reportSuccess( __( 'WordPress server started' ) );
 

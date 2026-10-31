@@ -1,7 +1,12 @@
 import { existsSync } from 'fs';
 import { chromium } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { pageContrast, pageLayout, pageTextFit } from '@studio/agent/node/tools/page-layout';
+import {
+	pageContrast,
+	pageLayout,
+	pageSticky,
+	pageTextFit,
+} from '@studio/agent/node/tools/page-layout';
 
 type Browser = Awaited< ReturnType< typeof chromium.launch > >;
 type Page = Awaited< ReturnType< Browser[ 'newPage' ] > >;
@@ -216,6 +221,24 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 			'  h2 "Below the fold", at y 2038, is #0b1633 text on #0b1633, a contrast ratio of 1.0:1. Its section sets the text color #ffffff, which the heading does not take: a heading color in theme.json (styles.elements.heading, styles.elements.h2 or styles.blocks.core/heading) is a rule on the heading itself, which wins over the color it would inherit.',
 			'  p "Faded", at y 2140, is #aaaeb8 text on #ffffff, a contrast ratio of 2.2:1.',
 			'  p "Dim", at y 2158, is #1a2540 text on #0b1633, a contrast ratio of 1.2:1.',
+		] );
+	} );
+
+	it( 'names a sticky element its parent is too short to let stick', async () => {
+		expect(
+			await open(
+				`<header class="wp-block-template-part"><div class="wp-block-group site-header has-background" style="position:sticky;top:0;height:80px"></div></header>
+				<div class="tall" style="height:1000px"><nav class="toc" style="position:sticky;top:0;height:40px"></nav></div>
+				<header class="wp-block-template-part" style="position:sticky;top:0"><div class="site-header" style="height:80px"></div></header>
+				<div class="row" style="height:40px"><aside class="pin" style="position:sticky;top:10px;height:40px"></aside></div>
+				<div style="height:60px"><p style="position:sticky;top:0;height:40px"></p></div>
+				<div style="height:40px"><span style="display:block;position:relative;top:0;height:40px"></span></div>
+				<div style="height:40px"><footer style="position:sticky;bottom:0;height:40px"></footer></div>`,
+				pageSticky
+			)
+		).toEqual( [
+			"`div.wp-block-group.site-header` is position: sticky inside `header.wp-block-template-part`, a wrapper exactly its height, so it scrolls away with that wrapper: a sticky element sticks within its parent's box. WordPress wraps each template part in that element, so the wrapper is the one to make sticky.",
+			"`aside.pin` is position: sticky inside `div.row`, a wrapper exactly its height, so it scrolls away with that wrapper: a sticky element sticks within its parent's box.",
 		] );
 	} );
 } );

@@ -617,6 +617,55 @@ export function pageContrast( page: Page ): Promise< string[] > {
 	}, MAX_TEXT_LINES );
 }
 
+// Each element styled to stick to the top whose parent is no taller than it:
+// a sticky element moves only within its parent's box, so it scrolls away
+// with that parent. WordPress wraps each template part in an element of its
+// own (render_block_core_template_part()), as tall as the part's group.
+export function pageSticky( page: Page ): Promise< string[] > {
+	return page.evaluate( () => {
+		const generated = /^(is-|has-|wp-container-|wp-elements-|wp-block-[a-z-]+-is-layout-)/;
+		const label = ( element: Element ) =>
+			element.tagName.toLowerCase() +
+			[ ...element.classList ]
+				.filter( ( name ) => ! generated.test( name ) )
+				.slice( 0, 3 )
+				.map( ( name ) => `.${ name }` )
+				.join( '' );
+		const lines: string[] = [];
+		for ( const element of document.querySelectorAll( 'body *' ) ) {
+			const style = getComputedStyle( element );
+			const parent = element.parentElement;
+			if ( style.position !== 'sticky' || style.top === 'auto' || ! parent ) {
+				continue;
+			}
+			const box = parent.getBoundingClientRect();
+			const parentStyle = getComputedStyle( parent );
+			const room =
+				box.height -
+				parseFloat( parentStyle.paddingTop ) -
+				parseFloat( parentStyle.paddingBottom ) -
+				parseFloat( parentStyle.borderTopWidth ) -
+				parseFloat( parentStyle.borderBottomWidth ) -
+				element.getBoundingClientRect().height -
+				parseFloat( style.marginTop ) -
+				parseFloat( style.marginBottom );
+			if ( ! box.height || room >= 1 ) {
+				continue;
+			}
+			lines.push(
+				`\`${ label( element ) }\` is position: sticky inside \`${ label(
+					parent
+				) }\`, a wrapper exactly its height, so it scrolls away with that wrapper: a sticky element sticks within its parent's box.${
+					parent.classList.contains( 'wp-block-template-part' )
+						? ' WordPress wraps each template part in that element, so the wrapper is the one to make sticky.'
+						: ''
+				}`
+			);
+		}
+		return lines;
+	} );
+}
+
 /**
  * What a visitor gets that is broken, as the browser loaded the page: PHP's
  * own error output, which PHP prints into the page when display_errors is on

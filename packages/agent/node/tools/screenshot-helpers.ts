@@ -7,6 +7,7 @@ import { resolveScreenshotDirectory } from '@studio/agent/node/screenshot-storag
 import {
 	pageBreakage,
 	pageContrast,
+	pageSticky,
 	pageLayout,
 	pageOverflow,
 	pageTextFit,
@@ -474,6 +475,7 @@ export async function inspectPage(
 			...( await pageBreakage( page ) ),
 			...( await pageOverflow( page ) ),
 			...( await pageContrast( page ) ),
+			...( await pageSticky( page ) ),
 		];
 		const html = await response?.text().catch( () => undefined );
 		const options = { format: 'jpeg' as const, forModel: true };

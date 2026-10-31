@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
@@ -63,6 +64,7 @@ export async function runCommand(
 	const startedAt = Date.now();
 	let siteId: string | undefined;
 	let step: LoggerAction | undefined;
+	let archiveBytes: number | undefined;
 
 	try {
 		const token = await readAuthToken();
@@ -99,6 +101,7 @@ export async function runCommand(
 		await withSiteOperation( siteFolder, 'export', () =>
 			archiveSiteContent( siteFolder, archivePath )
 		);
+		archiveBytes = fs.statSync( archivePath, { throwIfNoEntry: false } )?.size;
 		logger.reportSuccess( __( 'Archive created' ) );
 
 		reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
@@ -144,6 +147,7 @@ export async function runCommand(
 		await recordPreviewUpdateEvent( {
 			success: true,
 			time_ms: Date.now() - startedAt,
+			archive_bytes: archiveBytes,
 			site_preview_count: countSitePreviews( site.id, snapshots, token.id ),
 		} );
 		await reportSyncActivity( siteId, { kind: 'success', direction: 'preview' } );
@@ -163,6 +167,7 @@ export async function runCommand(
 			success: false,
 			failure_reason: classifyPreviewFailure( error, step ),
 			time_ms: Date.now() - startedAt,
+			archive_bytes: archiveBytes,
 		} );
 		throw error instanceof LoggerError
 			? error
@@ -176,6 +181,8 @@ async function recordPreviewUpdateEvent( props: {
 	success: boolean;
 	failure_reason?: string;
 	time_ms: number;
+	// Size of the uploaded archive, so preview times and failures can be read against site size.
+	archive_bytes?: number;
 	// Unexpired previews of this local site, this one included, so we can see how many people keep
 	// several previews of the same site without identifying the site.
 	site_preview_count?: number;

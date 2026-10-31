@@ -4,6 +4,10 @@ import { generateBackupFilename } from '@studio/common/lib/generate-backup-filen
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import { __, sprintf } from '@wordpress/i18n';
 import { move } from 'fs-extra';
+import {
+	getTablesWithBinaryLiteralDefaults,
+	restoreBinaryLiteralDefaults,
+} from 'cli/lib/import-export/export/binary-literal-defaults';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { replaceMysql8OnlyCollations } from 'cli/lib/sqlite-collations';
 import { summarizeWpCliStderr } from 'cli/lib/wp-cli-stderr';
@@ -51,6 +55,10 @@ export async function exportDatabaseToFile(
 
 	const tempFilePath = path.join( site.path, tempFileName );
 	await move( tempFilePath, finalDestination );
+
+	if ( ( await getTablesWithBinaryLiteralDefaults( site.path ) ).size > 0 ) {
+		await restoreBinaryLiteralDefaults( finalDestination );
+	}
 }
 
 export async function exportDatabaseToMultipleFiles(
@@ -99,6 +107,7 @@ export async function exportDatabaseToMultipleFiles(
 		);
 	}
 
+	const tablesWithBinaryLiteralDefaults = await getTablesWithBinaryLiteralDefaults( site.path );
 	const tmpFiles: string[] = [];
 
 	for ( const table of tables ) {
@@ -138,6 +147,10 @@ export async function exportDatabaseToMultipleFiles(
 		const tempFilePath = path.join( site.path, fileName );
 		const finalDestination = path.join( finalDestinationDir, fileName );
 		await move( tempFilePath, finalDestination );
+
+		if ( tablesWithBinaryLiteralDefaults.has( table ) ) {
+			await restoreBinaryLiteralDefaults( finalDestination );
+		}
 
 		tmpFiles.push( finalDestination );
 	}

@@ -3,11 +3,16 @@ import { move } from 'fs-extra';
 import { vi } from 'vitest';
 import { runWpCliCommand, WpCliResponse } from 'cli/lib/run-wp-cli-command';
 import { LoggerError } from 'cli/logger';
+import {
+	getTablesWithBinaryLiteralDefaults,
+	restoreBinaryLiteralDefaults,
+} from '../binary-literal-defaults';
 import { exportDatabaseToFile, exportDatabaseToMultipleFiles } from '../export-database';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
 vi.mock( 'fs-extra' );
 vi.mock( 'cli/lib/run-wp-cli-command' );
+vi.mock( '../binary-literal-defaults' );
 
 const site = { id: 'site-1', name: 'Test Site', path: '/test/site' } as SiteData;
 
@@ -34,6 +39,7 @@ describe( 'export-database', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		vi.mocked( getTablesWithBinaryLiteralDefaults ).mockResolvedValue( new Set() );
 		consoleErrorSpy = vi.spyOn( console, 'error' ).mockImplementation( () => {} );
 	} );
 
@@ -52,6 +58,18 @@ describe( 'export-database', () => {
 				'/dest/db.sql'
 			);
 			expect( consoleErrorSpy ).not.toHaveBeenCalled();
+			expect( restoreBinaryLiteralDefaults ).not.toHaveBeenCalled();
+		} );
+
+		it( 'restores binary literal defaults in the moved dump', async () => {
+			mockWpCliResult( {} );
+			vi.mocked( getTablesWithBinaryLiteralDefaults ).mockResolvedValue(
+				new Set( [ 'wp_wfcrawlers' ] )
+			);
+
+			await exportDatabaseToFile( site, '/dest/db.sql' );
+
+			expect( restoreBinaryLiteralDefaults ).toHaveBeenCalledWith( '/dest/db.sql' );
 		} );
 
 		it( 'logs and includes the WP-CLI SQLite error when the export fails', async () => {
@@ -128,6 +146,22 @@ describe( 'export-database', () => {
 
 			expect( files ).toEqual( [ path.join( '/dest', 'wp_options.sql' ) ] );
 			expect( runWpCliCommand ).toHaveBeenCalledTimes( 2 );
+		} );
+
+		it( 'restores binary literal defaults only in the tables that have them', async () => {
+			mockWpCliResult( { stdout: '["wp_options","wp_wfcrawlers"]' } );
+			mockWpCliResult( {} );
+			mockWpCliResult( {} );
+			vi.mocked( getTablesWithBinaryLiteralDefaults ).mockResolvedValue(
+				new Set( [ 'wp_wfcrawlers' ] )
+			);
+
+			await exportDatabaseToMultipleFiles( site, '/dest' );
+
+			expect( restoreBinaryLiteralDefaults ).toHaveBeenCalledTimes( 1 );
+			expect( restoreBinaryLiteralDefaults ).toHaveBeenCalledWith(
+				path.join( '/dest', 'wp_wfcrawlers.sql' )
+			);
 		} );
 	} );
 } );

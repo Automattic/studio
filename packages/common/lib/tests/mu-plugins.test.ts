@@ -4,6 +4,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import {
 	cleanupLegacyMuPlugins,
+	escapePhpSingleQuotedString,
 	getMuPlugins,
 	STUDIO_LOADER_MU_PLUGIN_FILENAME,
 	writeStudioMuPlugins,
@@ -395,7 +396,8 @@ describe( 'writeStudioMuPlugins headless', () => {
 		expect( loader.indexOf( 'STUDIO_FRONTEND_URL' ) ).toBeLessThan(
 			loader.indexOf( 'require_once' )
 		);
-		expect( loader ).toContain( muPluginsDir );
+		// The loader quotes the directory for PHP, which doubles Windows backslashes.
+		expect( loader ).toContain( `'${ escapePhpSingleQuotedString( muPluginsDir ) }'` );
 
 		const bundled = await readFile( join( muPluginsDir, '0-headless.php' ), 'utf8' );
 		expect( bundled ).not.toContain( "pre\\'view" );

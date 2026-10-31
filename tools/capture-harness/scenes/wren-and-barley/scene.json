@@ -1,0 +1,32 @@
+{
+	"$schema": "../../schemas/scene.schema.json",
+	"name": "wren-and-barley",
+	"description": "Wren & Barley, a small bakery-and-café site, running and selected, with two blank sites below it in the sidebar, and a made-up WordPress.com account: its sites, preview sites and AI credits",
+	"sites": [
+		{
+			"id": "6c6f6361-6b62-4616-8b65-727900000001",
+			"name": "Wren & Barley",
+			"slug": "wren-and-barley",
+			"import": "wren-and-barley.zip",
+			"design": "source/DESIGN.md"
+		},
+		{
+			"id": "6c6f6361-6b62-4616-8b65-727900000002",
+			"name": "Bistro Lune",
+			"slug": "bistro-lune"
+		},
+		{
+			"id": "6c6f6361-6b62-4616-8b65-727900000003",
+			"name": "Ada Portfolio",
+			"slug": "ada-portfolio"
+		}
+	],
+	"account": {
+		"wpcomSites": "wpcom-sites.json",
+		"previewSites": "preview-sites.json",
+		"aiQuota": "ai-quota.json"
+	},
+	"chats": "chats",
+	"agentTurns": "agent-turns",
+	"files": "files"
+}

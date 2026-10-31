@@ -1,4 +1,5 @@
 {
+	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
 	"name": "signed-in",
 	"description": "Signed in to WordPress.com: the account menu, Share and publish, the model menu, and the account settings",
 	"signedIn": true,

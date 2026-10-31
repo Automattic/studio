@@ -1,4 +1,5 @@
 {
+	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
 	"name": "site-menu",
 	"description": "The site menu and the dialogs it opens: Open in, Export, Delete site, and importing a backup",
 	"capture": {

@@ -1,74 +1,33 @@
-import { execFile as execFileCallback } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { copyFile, mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { promisify } from 'node:util';
-import { readJson } from './common.mjs';
-import { CLI_MAIN } from './studio-app.mjs';
-
-const execFile = promisify( execFileCallback );
-
-/**
- * Runs the built Studio CLI inside a profile, so it reads and writes the
- * profile's `cli.json`, sites and daemon rather than the user's. Resolves with
- * the command's stdout.
- */
-export async function runCli( profile, args ) {
-	const { stdout } = await execFile( process.execPath, [ CLI_MAIN, ...args ], {
-		env: profile.env,
-		maxBuffer: 16 * 1024 * 1024,
-	} ).catch( ( error ) => {
-		const tail = `${ error.stdout }${ error.stderr }`.trim().split( '\n' ).slice( -8 ).join( '\n' );
-		throw new Error(
-			`studio ${ args.slice( 0, 2 ).join( ' ' ) } failed (${ error.code }):\n${ tail }`
-		);
-	} );
-	return stdout;
-}
-
-/** Creates a site in the profile's sites directory; resolves with its path. */
-export async function createSite( profile, { slug, name, id, start = false } ) {
-	const sitePath = path.join( profile.dirs.sites, slug );
-	await runCli( profile, [
-		'site',
-		'create',
-		'--path',
-		sitePath,
-		'--name',
-		name,
-		...( id ? [ '--id', id ] : [] ),
-		...( start ? [ '--start' ] : [] ),
-		'--skip-browser',
-		'--skip-log-details',
-	] );
-	return sitePath;
-}
-
-export function stopSite( profile, sitePath ) {
-	return runCli( profile, [ 'site', 'stop', '--path', sitePath ] );
-}
+import { readJson } from './paths.ts';
+import { createSite, runCli, stopSite } from './studio-cli.ts';
+import type { Profile } from './profile.ts';
+import type { LoadedScene, ResolvedSite } from './scene.ts';
 
 /**
- * Creates the demo sites in a profile from `sites.json` (id, name, slug, and
- * for the site the shots open on, `import`: a Studio backup to load into it,
- * and `design`: the DESIGN.md to put in its folder, which the backup can't
- * carry).
- * Importing needs the site started, so it is stopped after; Studio starts it
- * again on launch through `autoStart` (see `siteMetadata`). The other sites
- * stay blank and stopped: they only fill out the sidebar.
+ * Creates the scene's sites in a profile. A site with `import` is created
+ * started, loaded from its backup, and stopped; one with `blueprint` is
+ * created from it. Either way Studio starts it again on launch (`autoStart`,
+ * see `siteMetadata`). Other sites stay blank and stopped: they fill out the
+ * sidebar. A `design` file is copied in as the site's DESIGN.md, which a
+ * backup can't carry.
  */
-export async function seedSites( profile, dir ) {
-	const sites = await readJson( path.join( dir, 'sites.json' ) );
-	for ( const site of sites ) {
-		const sitePath = await createSite( profile, { ...site, start: !! site.import } );
+export async function seedSites( profile: Profile, scene: LoadedScene ) {
+	for ( const site of scene.sites ) {
+		const sitePath = await createSite( profile, {
+			...site,
+			start: Boolean( site.import ),
+		} );
 		if ( site.import ) {
+			const backup = site.import;
 			// The import restarts the site's server, which occasionally crashes on
 			// start (an undici assertion in Studio's server child); once more then.
-			const importBackup = () =>
-				runCli( profile, [ 'import', path.join( dir, site.import ), '--path', sitePath ] );
-			await importBackup().catch( async ( error ) => {
-				console.log(
-					`  Importing ${ site.import } failed (${
+			const importBackup = () => runCli( profile, [ 'import', backup, '--path', sitePath ] );
+			await importBackup().catch( async ( error: Error ) => {
+				console.error(
+					`  Importing ${ path.basename( backup ) } failed (${
 						error.message.split( '\n' )[ 0 ]
 					}); trying again...`
 				);
@@ -78,54 +37,72 @@ export async function seedSites( profile, dir ) {
 			await stopSite( profile, sitePath );
 		}
 		if ( site.design ) {
-			await copyFile( path.join( dir, site.design ), path.join( sitePath, 'DESIGN.md' ) );
+			await copyFile( site.design, path.join( sitePath, 'DESIGN.md' ) );
 		}
 	}
-	return sites;
+	return scene.sites;
 }
 
 /**
- * The `app.json` fields for the seeded sites: the sidebar keeps the order of
- * `sites.json`, and Studio starts the imported site on launch.
+ * The `app.json` fields for the seeded sites: the sidebar keeps the scene's
+ * order, and Studio starts the sites with content on launch.
  */
-export function siteMetadata( sites ) {
+export function siteMetadata( sites: ResolvedSite[] ) {
 	return {
 		siteMetadata: Object.fromEntries(
-			sites.map( ( site, index ) => [ site.id, { sortOrder: index, autoStart: !! site.import } ] )
+			sites.map( ( site, index ) => [ site.id, { sortOrder: index, autoStart: site.content } ] )
 		),
 	};
 }
 
+interface ToolCall {
+	name: string;
+	args?: Record< string, unknown >;
+	result?: string;
+	isError?: boolean;
+	details?: unknown;
+}
+
+interface Chat {
+	site: string;
+	title?: string;
+	minutesAgo?: number;
+	turns: { prompt: string; after?: number; replies: ( string | ToolCall )[][] }[];
+}
+
 /**
- * Writes the chats in `<dir>/chats/<name>.json` into the profile's sessions
- * folder, as Studio Code records them, so a suite opens on a conversation
- * that already happened. A chat names its `site` (a slug in `sites.json`),
- * how many `minutesAgo` it started, and its `turns`: each a `prompt` and the
- * agent's `replies`, one message each, made of text and tool calls
- * (`{ name, args, result, isError?, details? }`, as the chat shows them).
- * A `title` names it in the sidebar, as renaming a chat does (in the
+ * Writes the scene's chats named in `names` (`<chats>/<name>.json`) into the
+ * profile's sessions folder, as Studio Code records them, so a script opens
+ * on a conversation that already happened. A chat names its `site` (a slug in
+ * the scene), how many `minutesAgo` it started, and its `turns`: each a
+ * `prompt` and the agent's `replies`, one message each, made of text and tool
+ * calls (`{ name, args, result, isError?, details? }`, as the chat shows
+ * them). A `title` names it in the sidebar, as renaming a chat does (in the
  * profile's `shared.json`); without one Studio shows the first prompt.
  * Resolves with the `app.json` placements that put each chat under its site,
  * and a `remove()` that deletes the files and titles again, since the profile
  * is shared.
  */
-export async function seedChats( profile, dir, sites, names ) {
+export async function seedChats( profile: Profile, scene: LoadedScene, names: string[] ) {
+	if ( ! scene.chats ) {
+		throw new Error( `Scene ${ scene.name } has no chats folder` );
+	}
 	const sessionsDir = path.join( profile.dirs.appData, 'sessions' );
 	const sharedPath = path.join( profile.dirs.sharedConfig, 'shared.json' );
-	const placements = {};
-	const titles = {};
-	const files = [];
+	const placements: Record< string, unknown > = {};
+	const titles: Record< string, { title: string } > = {};
+	const files: string[] = [];
 	for ( const name of names ) {
-		const chat = await readJson( path.join( dir, 'chats', `${ name }.json` ) );
-		const site = sites.find( ( s ) => s.slug === chat.site );
+		const chat = await readJson< Chat >( path.join( scene.chats, `${ name }.json` ) );
+		const site = scene.sites.find( ( s ) => s.slug === chat.site );
 		if ( ! site ) {
-			throw new Error( `chats/${ name }.json: no demo site "${ chat.site }" in sites.json` );
+			throw new Error( `chats/${ name }.json: no site "${ chat.site }" in the scene` );
 		}
 		const sitePath = path.join( profile.dirs.sites, site.slug );
 		const sessionId = randomUUID();
 		let clock = Date.now() - ( chat.minutesAgo ?? 30 ) * 60_000;
 		const startedAt = new Date( clock );
-		const lines = [
+		const lines: Record< string, unknown >[] = [
 			{
 				type: 'session',
 				version: 3,
@@ -134,14 +111,14 @@ export async function seedChats( profile, dir, sites, names ) {
 				cwd: '~/Studio',
 			},
 		];
-		let lastId = null;
-		const add = ( entry, seconds ) => {
+		let lastId: string | null = null;
+		const add = ( entry: Record< string, unknown >, seconds: number ) => {
 			clock += seconds * 1000;
 			const id = randomUUID().slice( 0, 8 );
 			lines.push( { id, parentId: lastId, timestamp: new Date( clock ).toISOString(), ...entry } );
 			lastId = id;
 		};
-		const custom = ( customType, data, seconds = 1 ) =>
+		const custom = ( customType: string, data: unknown, seconds = 1 ) =>
 			add( { type: 'custom', customType, data }, seconds );
 		custom( 'studio.site_selected', { siteName: site.name, sitePath, siteId: site.id } );
 		let call = 0;
@@ -210,7 +187,7 @@ export async function seedChats( profile, dir, sites, names ) {
 			titles[ sessionId ] = { title: chat.title };
 		}
 	}
-	const shared = await readJson( sharedPath );
+	const shared = await readJson< { sessions?: Record< string, unknown > } >( sharedPath );
 	await writeFile(
 		sharedPath,
 		JSON.stringify( { ...shared, sessions: { ...shared.sessions, ...titles } }, null, 2 )
@@ -219,7 +196,9 @@ export async function seedChats( profile, dir, sites, names ) {
 		placements,
 		remove: async () => {
 			await Promise.all( files.map( ( file ) => rm( file, { force: true } ) ) );
-			const { sessions, ...rest } = await readJson( sharedPath );
+			const { sessions, ...rest } = await readJson< { sessions?: Record< string, unknown > } >(
+				sharedPath
+			);
 			const kept = Object.fromEntries(
 				Object.entries( sessions ?? {} ).filter( ( [ id ] ) => ! titles[ id ] )
 			);

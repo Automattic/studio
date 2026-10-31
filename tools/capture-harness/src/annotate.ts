@@ -7,14 +7,14 @@
  *   { "badge": LOC }                       numbered in order, at the top-left corner
  *   { "arrow": LOC, "from"?: "top-right" }
  */
-import { boundingBoxOf, verbOf } from './locators.mjs';
+import { boundingBoxOf, verbOf, type Box } from './locators.ts';
+import { ANNOTATION_TYPES, type Annotation } from './schema.ts';
+import type { Ctx } from './context.ts';
 
-const OVERLAY_ID = 'studio-docs-annotations';
-const TYPES = [ 'outline', 'badge', 'arrow' ];
+const OVERLAY_ID = 'studio-capture-annotations';
 
-const STYLE = {
-	accent: '#3858e9',
-	halo: '#ffffff',
+// The marks' sizes; their colors come from the look (`annotations`).
+const SIZES = {
 	outline: { width: 3, radius: 6, gap: 4 },
 	badge: {
 		size: 26,
@@ -23,20 +23,31 @@ const STYLE = {
 	arrow: { width: 3, length: 48, head: 14, gap: 6 },
 };
 
+interface Item {
+	type: ( typeof ANNOTATION_TYPES )[ number ];
+	box: Box;
+	label?: string;
+	from?: string;
+}
+
 /** Draws `annotations`; returns the drawn extents and a function that removes the overlay. */
-export async function drawAnnotations( ctx, annotations ) {
-	const items = [];
+export async function drawAnnotations( ctx: Ctx, annotations: Annotation[] ) {
+	const items: Item[] = [];
 	let badges = 0;
 	for ( const annotation of annotations ) {
-		const type = verbOf( annotation, TYPES, 'annotation' );
-		const item = { type, box: await boundingBoxOf( ctx, annotation[ type ] ) };
+		const type = verbOf( annotation, ANNOTATION_TYPES, 'annotation' );
+		const item: Item = {
+			type,
+			box: await boundingBoxOf( ctx, ( annotation as Record< typeof type, never > )[ type ] ),
+		};
 		if ( type === 'badge' ) {
 			item.label = String( ++badges );
 		} else if ( type === 'arrow' ) {
-			item.from = annotation.from ?? 'top-right';
+			item.from = ( 'from' in annotation && annotation.from ) || 'top-right';
 		}
 		items.push( item );
 	}
+	const style = { ...SIZES, ...ctx.look.annotations };
 
 	const extents = await ctx.w.evaluate(
 		( { id, items: list, s } ) => {
@@ -49,9 +60,9 @@ export async function drawAnnotations( ctx, annotations ) {
 				pointerEvents: 'none',
 				zIndex: '2147483647',
 			} );
-			const out = [];
+			const out: Box[] = [];
 			const halo = 2;
-			const place = ( el, x, y, w, h ) =>
+			const place = ( el: HTMLElement | SVGElement, x: number, y: number, w: number, h: number ) =>
 				Object.assign( el.style, {
 					position: 'absolute',
 					left: `${ x }px`,
@@ -99,7 +110,7 @@ export async function drawAnnotations( ctx, annotations ) {
 						boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
 						outline: `${ halo }px solid ${ s.halo }`,
 					} );
-					el.textContent = item.label;
+					el.textContent = item.label ?? '';
 					layer.appendChild( el );
 					out.push( {
 						x: x - halo,
@@ -109,7 +120,7 @@ export async function drawAnnotations( ctx, annotations ) {
 					} );
 				} else if ( item.type === 'arrow' ) {
 					const a = s.arrow;
-					const dirs = {
+					const dirs: Record< string, [ number, number ] > = {
 						top: [ 0, 1 ],
 						bottom: [ 0, -1 ],
 						left: [ 1, 0 ],
@@ -119,7 +130,7 @@ export async function drawAnnotations( ctx, annotations ) {
 						'bottom-left': [ 1, -1 ],
 						'bottom-right': [ -1, -1 ],
 					};
-					const [ ux, uy ] = dirs[ item.from ];
+					const [ ux, uy ] = dirs[ item.from ?? 'top-right' ];
 					const norm = Math.hypot( ux, uy );
 					const dx = ux / norm;
 					const dy = uy / norm;
@@ -151,7 +162,7 @@ export async function drawAnnotations( ctx, annotations ) {
 						height: '100%',
 						overflow: 'visible',
 					} );
-					const draw = ( color, extra ) => {
+					const draw = ( color: string, extra: number ) => {
 						const line = document.createElementNS( ns, 'line' );
 						line.setAttribute( 'x1', tailX.toFixed( 2 ) );
 						line.setAttribute( 'y1', tailY.toFixed( 2 ) );
@@ -187,7 +198,7 @@ export async function drawAnnotations( ctx, annotations ) {
 			document.body.appendChild( layer );
 			return out;
 		},
-		{ id: OVERLAY_ID, items, s: STYLE }
+		{ id: OVERLAY_ID, items, s: style }
 	);
 
 	return {

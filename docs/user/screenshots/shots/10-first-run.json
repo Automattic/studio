@@ -1,4 +1,5 @@
 {
+	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
 	"name": "first-run",
 	"description": "First launch, signed out: the welcome dialog, Add site, creating a site, and the orientation guide",
 	"firstRun": true,

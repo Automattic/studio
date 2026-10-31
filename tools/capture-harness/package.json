@@ -1,0 +1,25 @@
+{
+	"name": "@studio/capture-harness",
+	"private": true,
+	"version": "1.0.0",
+	"type": "module",
+	"description": "Captures screenshots and recordings of the Studio app from swappable scenes, scripts and looks, for docs, marketing and more",
+	"bin": {
+		"studio-capture": "./cli.ts"
+	},
+	"scripts": {
+		"capture": "node --experimental-strip-types cli.ts",
+		"schemas": "node --experimental-strip-types cli.ts schemas",
+		"wren-and-barley:build": "node --experimental-strip-types scenes/wren-and-barley/build-site.ts",
+		"wren-and-barley:looks": "node --experimental-strip-types scenes/wren-and-barley/build-design-looks.ts",
+		"lint": "eslint .",
+		"typecheck": "tsc -p tsconfig.json --noEmit"
+	},
+	"dependencies": {
+		"esbuild": "^0.28.0",
+		"pixelmatch": "^7.2.0",
+		"playwright": "^1.64.1",
+		"sharp": "^0.34.3",
+		"zod": "^4.3.6"
+	}
+}

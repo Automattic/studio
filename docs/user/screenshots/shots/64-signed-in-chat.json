@@ -1,4 +1,5 @@
 {
+	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
 	"name": "signed-in-chat",
 	"description": "Signed in, with a recorded Studio Code chat on the demo site (chats/): the workspace mid-conversation",
 	"signedIn": true,

@@ -45,6 +45,10 @@
 			"entry": ["globals.ts"],
 			"project": "**/*.ts"
 		},
+		"tools/capture-harness": {
+			"entry": ["scenes/*/build-*.ts", "src/tests/*.test.ts"],
+			"project": "**/*.ts"
+		},
 		"tools/eslint-plugin-studio": {
 			"project": "**/*.{js,ts}"
 		}
@@ -52,5 +56,5 @@
 	"ignoreDependencies": [
 		"@automattic/wp-babel-makepot"
 	],
-	"ignoreBinaries": ["mdfind", "attrib"]
+	"ignoreBinaries": ["mdfind", "attrib", "apt-get"]
 }

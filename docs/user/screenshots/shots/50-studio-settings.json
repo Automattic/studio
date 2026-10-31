@@ -1,4 +1,5 @@
 {
+	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
 	"name": "studio-settings",
 	"description": "The Settings dialog, App scope: General, AI Providers, Skills, MCP and Keyboard",
 	"capture": {

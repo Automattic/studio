@@ -1,0 +1,23 @@
+{
+	"$schema": "../schemas/look.schema.json",
+	"name": "social",
+	"description": "Social posts: the marketing frame fitted to a 1200×630 link card, a 1080×1080 square and a 1600×900 post, and short recordings as MP4 and GIF",
+	"window": { "width": 1440, "height": 900 },
+	"scale": 2,
+	"appearance": { "colorScheme": "light" },
+	"frame": {
+		"background": [ "#EEF1FF", "#CDD6FF" ],
+		"padding": 0.05,
+		"radius": 0.014,
+		"shadow": 0.22,
+		"blur": 0.02,
+		"hairline": "rgba(0,0,0,0.08)"
+	},
+	"outputs": [
+		{ "suffix": "card", "width": 1200, "height": 630, "margin": 0.07 },
+		{ "suffix": "square", "width": 1080, "height": 1080, "margin": 0.08 },
+		{ "suffix": "wide", "width": 1600, "height": 900, "margin": 0.07 }
+	],
+	"keepRaw": false,
+	"video": { "formats": [ "mp4", "gif" ], "fps": 12, "width": 1200, "hold": 1500, "cursor": true, "typingDelay": 55 }
+}

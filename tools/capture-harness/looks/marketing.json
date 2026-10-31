@@ -1,0 +1,18 @@
+{
+	"$schema": "../schemas/look.schema.json",
+	"name": "marketing",
+	"description": "Landing pages and launch material: framed on a soft WordPress blue, a 2400×1500 hero next to the plain still, and recordings as MP4, WebM and animated WebP",
+	"window": { "width": 1440, "height": 900 },
+	"scale": 2,
+	"appearance": { "colorScheme": "light" },
+	"frame": {
+		"background": [ "#EEF1FF", "#CDD6FF" ],
+		"padding": 0.07,
+		"radius": 0.012,
+		"shadow": 0.22,
+		"blur": 0.02,
+		"hairline": "rgba(0,0,0,0.08)"
+	},
+	"outputs": [ { "suffix": "hero", "width": 2400, "height": 1500, "margin": 0.06 } ],
+	"video": { "formats": [ "mp4", "webm", "webp" ], "fps": 15, "width": 1920, "hold": 2000, "cursor": true, "typingDelay": 55 }
+}

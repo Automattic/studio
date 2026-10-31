@@ -1,4 +1,5 @@
 {
+	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
 	"name": "signed-in-agent",
 	"description": "Signed in on an empty profile, with Studio Code stood in for (stubAgentRuns): a new blank site's first chat and the design picker, played from agent-turns/",
 	"firstRun": true,

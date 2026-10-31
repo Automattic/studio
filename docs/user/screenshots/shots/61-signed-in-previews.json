@@ -1,4 +1,5 @@
 {
+	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
 	"name": "signed-in-previews",
 	"description": "Signed in, with made-up preview sites from preview-sites.json: the Share panel's previews list and a preview's actions",
 	"signedIn": true,

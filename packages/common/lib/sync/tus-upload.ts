@@ -2,6 +2,10 @@ import fs from 'fs';
 import nodePath from 'path';
 import { Upload } from 'tus-js-client';
 
+// Each chunk waits for a server round trip, so larger chunks upload faster; a failed chunk is
+// resent whole. 10 MB matches WordPress.com's own tus uploaders (Calypso media, VideoPress).
+const TUS_CHUNK_SIZE = 10_000_000;
+
 /**
  * 5xx and network errors (status 0) are transient. 4xx are terminal, except 409
  * (Conflict) and 423 (Locked), which the resumable protocol uses transiently.
@@ -58,7 +62,7 @@ export function createTusUpload( options: TusUploadOptions ): {
 
 			const upload = new Upload( file, {
 				endpoint: `https://public-api.wordpress.com/rest/v1.1/studio-file-uploads/${ remoteSiteId }`,
-				chunkSize: 500000,
+				chunkSize: TUS_CHUNK_SIZE,
 				retryDelays: [ 0, 1000, 3000, 5000, 10000, 25000 ],
 				overridePatchMethod: true,
 				removeFingerprintOnSuccess: true,

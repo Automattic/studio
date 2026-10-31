@@ -138,6 +138,7 @@ export const baseConfig = defineConfig( {
 				'process-manager-daemon': resolve( __dirname, 'process-manager-daemon.ts' ),
 				'proxy-daemon': resolve( __dirname, 'proxy-daemon.ts' ),
 				'php-server-child': resolve( __dirname, 'php-server-child.ts' ),
+				'frontend-server-child': resolve( __dirname, 'frontend-server-child.ts' ),
 			},
 			name: 'StudioCLI',
 			formats: [ 'es' ],

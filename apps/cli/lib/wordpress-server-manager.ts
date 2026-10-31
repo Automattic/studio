@@ -13,7 +13,10 @@ import {
 } from '@studio/common/constants';
 import { SITE_START_REQUESTED_AT_ENV } from '@studio/common/lib/cli-events';
 import { readLastLines } from '@studio/common/lib/fs-utils';
-import { STUDIO_ERROR_LOG_FILENAME } from '@studio/common/lib/mu-plugins';
+import {
+	getHeadlessMuPluginOptions,
+	STUDIO_ERROR_LOG_FILENAME,
+} from '@studio/common/lib/mu-plugins';
 import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metadata';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
@@ -167,6 +170,11 @@ function buildServerConfig(
 	}
 
 	serverConfig.environmentType = getWpEnvironmentType( site );
+
+	const frontend = getHeadlessMuPluginOptions( site.frontend );
+	if ( frontend ) {
+		serverConfig.frontend = frontend;
+	}
 
 	return serverConfig;
 }

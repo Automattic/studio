@@ -53,6 +53,9 @@ export enum SiteCommandLoggerAction {
 	DELETE_FILES = 'deleteFiles',
 	CHECKING_DEPENDENCY_UPDATES = 'checkingDependencyUpdates',
 	ENSURE_PHP_BINARY = 'ensurePhpBinary',
+	SETUP_FRONTEND = 'setupFrontend',
+	START_FRONTEND = 'startFrontend',
+	STOP_FRONTEND = 'stopFrontend',
 }
 
 export enum PullReprintCommandLoggerAction {

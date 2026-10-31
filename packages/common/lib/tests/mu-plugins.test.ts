@@ -335,3 +335,44 @@ describe( 'getMuPlugins admin API', () => {
 		expect( content ).toContain( 'clean_user_cache( $previous_user )' );
 	} );
 } );
+
+describe( 'getMuPlugins headless', () => {
+	it( 'should write the headless mu-plugin only when a frontend is set', async () => {
+		const withoutFrontend = await getMuPlugins();
+		expect( existsSync( join( withoutFrontend, '0-headless.php' ) ) ).toBe( false );
+
+		const withFrontend = await getMuPlugins( {
+			frontend: {
+				url: 'http://localhost:3000/',
+				previewSecret: "pre'view\\secret",
+				revalidateSecret: 'revalidate-secret',
+				headlessMode: true,
+				api: 'graphql',
+			},
+		} );
+		expect( withFrontend ).not.toBe( withoutFrontend );
+		const content = await readFile( join( withFrontend, '0-headless.php' ), 'utf8' );
+		expect( content ).toContain( "define( 'STUDIO_FRONTEND_URL', 'http://localhost:3000' );" );
+		expect( content ).toContain( "define( 'STUDIO_PREVIEW_SECRET', 'pre\\'view\\\\secret' );" );
+		expect( content ).toContain( "define( 'STUDIO_REVALIDATE_SECRET', 'revalidate-secret' );" );
+		expect( content ).toContain( "define( 'STUDIO_HEADLESS_MODE', true );" );
+		expect( content ).toContain( "'X-Studio-Revalidate-Secret' => STUDIO_REVALIDATE_SECRET" );
+		expect( content ).toContain( "studio_headless_frontend_url( '/api/draft' )" );
+		expect( content ).toContain( "'template_redirect'" );
+	} );
+
+	it( 'should point the loader at the headless mu-plugins directory', async () => {
+		const sitePath = await mkdtemp( join( tmpdir(), 'studio-test-site-' ) );
+		const muPluginsDir = await writeStudioMuPlugins( sitePath, false, {
+			url: 'http://localhost:3001',
+		} );
+		const content = await readFile( join( muPluginsDir, '0-headless.php' ), 'utf8' );
+		expect( content ).toContain( "define( 'STUDIO_HEADLESS_MODE', false );" );
+		const loader = await readFile(
+			join( sitePath, 'wp-content', 'mu-plugins', STUDIO_LOADER_MU_PLUGIN_FILENAME ),
+			'utf8'
+		);
+		expect( loader ).toContain( muPluginsDir );
+		await rm( sitePath, { recursive: true, force: true } );
+	} );
+} );

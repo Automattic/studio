@@ -15,6 +15,7 @@ The build works on exactly one site, settled before anything else: do not plan a
 - **Active site, and the prompt gives no site or business name, or gives the active site's name** (including "redesign" / "update" / "change this site"): Build on the active site. Do not ask whether to create a new one.
 - **Active site, and the prompt gives a site or business name that differs from the active site's name** (e.g. active site "Test" and "build a site for Joe's Bakery" or "a site named Joe's Bakery"): STOP and ask before doing anything else. The name may be the brand for the active site or a request for a second site, and only the user can tell you which. Never resolve this yourself, and never call site_create or start building before the answer. Use AskUserQuestion when available with options like "Use current site" and "Create new site"; otherwise ask in your text output and end your turn.
 - **Explicit "new" / "separate" / "another" site, or no active site**: Call site_create. If the prompt gives no name, ask for one in your text output and wait for the reply.
+- **Headless**: pass `frontend` to site_create only when the user explicitly asks for a headless or decoupled site or a JavaScript framework frontend (Astro, Next.js). On a headless site the target is the frontend URL: settle the Site Spec and design as below, then load the `headless-frontend` skill and follow it instead of steps 3–5 and 7, since the pages are frontend code, not a theme.
 
 ## 2. Site Spec
 

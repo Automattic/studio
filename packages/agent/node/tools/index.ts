@@ -5,6 +5,8 @@ import { bindTool } from './define-tool';
 import { deletePreviewTool } from './delete-preview';
 import { deleteSiteTool } from './delete-site';
 import { exportSiteTool } from './export-site';
+import { frontendLogsTool } from './frontend-logs';
+import { frontendRestartTool } from './frontend-restart';
 import { generateImagesTool } from './generate-images';
 import { importSiteTool } from './import-site';
 import { createInspectDesignTool, inspectDesignTool } from './inspect-design';
@@ -43,6 +45,8 @@ export const studioToolDefinitions: StudioToolDefinition[] = [
 	startSiteTool,
 	stopSiteTool,
 	deleteSiteTool,
+	frontendRestartTool,
+	frontendLogsTool,
 	createPreviewTool,
 	listPreviewsTool,
 	updatePreviewTool,

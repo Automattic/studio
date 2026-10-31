@@ -163,8 +163,19 @@ export function createInMemoryConnector(
 			const site = makeSite( {
 				id: `created-${ nextId++ }`,
 				name: params.name,
-				path: params.path,
+				path: params.frontend ? `${ params.path }/wordpress` : params.path,
 				running: ! params.skipStart,
+				...( params.frontend
+					? {
+							frontend: {
+								path: `${ params.path }/frontend`,
+								kind: params.frontend.framework === 'static' ? 'static' : 'command',
+								framework: params.frontend.framework,
+								api: params.frontend.api,
+								port: 3000,
+							},
+					  }
+					: {} ),
 			} );
 			state.sites = [ ...state.sites, site ];
 			emitSiteEvent( SITE_EVENTS.CREATED, site );

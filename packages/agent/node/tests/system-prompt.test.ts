@@ -2,6 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
+import { getHeadlessDetails } from '@studio/agent/node/headless';
 import { loadSkills } from '@studio/agent/node/skills';
 import { buildSystemPrompt } from '@studio/agent/node/system-prompt';
 import { resolveStudioTools, type StudioToolsOptions } from '@studio/agent/node/tools';
@@ -158,6 +159,51 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).toContain(
 			'## Active site\n\n"Live" (ID: 123) at https://example.wordpress.com (WordPress.com)'
 		);
+	} );
+
+	it( 'marks a headless active site with its frontend and API endpoints', () => {
+		const prompt = buildSystemPrompt( {
+			activeSite: { name: 'My Site', path: '/sites/my-site/wordpress', running: true },
+			activeSiteHeadless: getHeadlessDetails( {
+				url: 'http://localhost:8888',
+				frontend: {
+					path: '/sites/my-site/frontend',
+					kind: 'command',
+					framework: 'next',
+					port: 3000,
+					api: 'graphql',
+					previewSecret: 'preview-secret',
+				},
+			} ),
+		} );
+
+		expect( prompt ).toContain(
+			'"My Site" at /sites/my-site/wordpress (running)\n\nHeadless: yes. WordPress is the backend only'
+		);
+		expect( prompt ).toContain(
+			'- Frontend: Next.js project at /sites/my-site/frontend, served at http://localhost:3000'
+		);
+		expect( prompt ).toContain(
+			'GraphQL at http://localhost:8888/graphql (REST also at http://localhost:8888/wp-json/wp/v2)'
+		);
+		expect( prompt ).not.toContain( 'preview-secret' );
+		expect(
+			buildSystemPrompt( {
+				activeSite: { name: 'My Site', path: '/sites/my-site', running: true },
+			} )
+		).not.toContain( 'Headless: yes' );
+	} );
+
+	it( 'routes frontend work on a headless site to the headless-frontend skill', () => {
+		const prompt = buildSystemPrompt();
+		const skill = loadSkills().find( ( candidate ) => candidate.name === 'headless-frontend' );
+
+		expect( prompt ).toContain(
+			'When the active site is headless and the request is about its frontend'
+		);
+		expect( prompt ).toContain( 'load the `headless-frontend` skill first' );
+		expect( skill?.userInvokable ).toBe( false );
+		expect( skill?.body ).toContain( 'frontend_restart' );
 	} );
 
 	it( "names the active site's design system when it has a DESIGN.md", () => {

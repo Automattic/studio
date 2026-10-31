@@ -123,6 +123,20 @@ export const builder = ( yargs: StudioArgv ) => {
 				return pluginPath;
 			},
 		} )
+		.option( 'frontend', {
+			type: 'string',
+			describe: __(
+				'Create a headless site: WordPress plus a frontend project (static HTML, Astro or Next.js) that Studio runs next to it'
+			),
+			choices: [ 'static', 'astro', 'next' ] as const,
+			conflicts: 'from',
+		} )
+		.option( 'frontend-api', {
+			type: 'string',
+			describe: __( 'The WordPress API the frontend template reads from (with --frontend)' ),
+			choices: [ 'rest', 'graphql' ] as const,
+			default: 'rest' as const,
+		} )
 		.option( 'original-blueprint-path', {
 			type: 'string',
 			hidden: true,

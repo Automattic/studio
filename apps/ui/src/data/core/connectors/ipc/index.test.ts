@@ -93,6 +93,21 @@ describe( 'createIpcConnector openSiteInEditor', () => {
 		expect( openAppAtPath ).toHaveBeenCalledWith( 'vscode', '/Users/x/Studio/demo' );
 	} );
 
+	it( 'opens a headless site’s frontend project when asked for the frontend', async () => {
+		getSiteDetails.mockResolvedValueOnce( [
+			{
+				id: 'site-1',
+				name: 'Demo',
+				path: '/Users/x/Studio/demo/wordpress',
+				frontend: { path: '/Users/x/Studio/demo/frontend', kind: 'static', port: 3000 },
+			},
+		] );
+
+		await createIpcConnector().openSiteInEditor( 'site-1', { target: 'frontend' } );
+
+		expect( openAppAtPath ).toHaveBeenCalledWith( 'vscode', '/Users/x/Studio/demo/frontend' );
+	} );
+
 	it( 'does not record or launch when no editor is configured', async () => {
 		getUserPreferences.mockResolvedValueOnce( { editor: null } );
 

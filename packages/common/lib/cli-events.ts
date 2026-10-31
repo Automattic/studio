@@ -7,6 +7,7 @@
 import { z } from 'zod';
 import { authTokenSchema } from '@studio/common/lib/auth-token-schema';
 import { siteFileAccessSchema } from '@studio/common/lib/site-file-access';
+import { siteFrontendSchema } from '@studio/common/lib/site-frontend';
 import { siteOperationSchema } from '@studio/common/lib/site-operation';
 import { syncEventSchema } from '@studio/common/lib/sync/activity';
 import { wpEnvironmentTypeSchema } from '@studio/common/lib/wp-environment-type';
@@ -42,6 +43,8 @@ export const siteDetailsSchema = z.object( {
 	operation: siteOperationSchema.optional(),
 	// The folder the email the site sends is saved in.
 	emailPath: z.string().optional(),
+	// The frontend half of a headless site; absent for a classic site.
+	frontend: siteFrontendSchema.optional(),
 } );
 
 export type SiteDetails = z.infer< typeof siteDetailsSchema >;

@@ -43,6 +43,7 @@ import type {
 
 const OPEN_IN_ICONS: Record< OpenInDestination, PaletteCommand[ 'icon' ] > = {
 	browser: ExternalLinkIcon,
+	'browser-wordpress': ExternalLinkIcon,
 	'wp-admin': WordPressIcon,
 	files: FolderIcon,
 	editor: CodeIcon,
@@ -206,6 +207,8 @@ export function getSiteCommands( {
 					label:
 						destination.id === 'wp-admin'
 							? __( 'Open WordPress Admin in browser' )
+							: destination.id === 'browser-wordpress'
+							? __( 'Open WordPress in browser' )
 							: destination.id === 'phpmyadmin'
 							? __( 'Open database in browser' )
 							: sprintf(

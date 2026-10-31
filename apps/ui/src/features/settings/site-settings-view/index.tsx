@@ -36,6 +36,7 @@ import {
 	getEnvironmentTypeOptions,
 	getFileAccessOptions,
 	getPhpVersionOptions,
+	getSiteFrontendUrl,
 	getWpVersionOptions,
 	SiteSelect,
 	validateAdminPassword,
@@ -101,6 +102,112 @@ function initialFormData( site: SiteDetails, installedWpVersion?: string ): Form
 		enableScriptDebug: site.enableScriptDebug ?? false,
 		environmentType: getWpEnvironmentType( site ),
 	};
+}
+
+function getFrontendFrameworkLabel( framework: string | undefined ): string {
+	switch ( framework ) {
+		case 'static':
+			return __( 'Static HTML' );
+		case 'astro':
+			return 'Astro';
+		case 'next':
+			return 'Next.js';
+		default:
+			return __( 'Custom' );
+	}
+}
+
+function ReadOnlyValue( {
+	label,
+	value,
+	control,
+}: {
+	label: string;
+	value: string;
+	control: ComponentProps< typeof Input >;
+} ) {
+	return (
+		<div className={ styles.field }>
+			<Input { ...control } aria-label={ label } value={ value } title={ value } readOnly />
+		</div>
+	);
+}
+
+// What Studio runs beside WordPress for a headless site. Read-only: the CLI
+// owns the record.
+function FrontendSettingsGroup( { site }: { site: SiteDetails } ) {
+	const connector = useConnector();
+	const frontend = site.frontend;
+	const frontendUrl = getSiteFrontendUrl( site );
+	if ( ! frontend || ! frontendUrl ) {
+		return null;
+	}
+	return (
+		<SettingsGroup
+			title={ __( 'Frontend' ) }
+			description={ __( 'WordPress serves the content; Studio runs this frontend beside it.' ) }
+		>
+			<SettingsRow title={ __( 'Framework' ) }>
+				<span className={ styles.frontendValue }>
+					{ getFrontendFrameworkLabel( frontend.framework ) }
+				</span>
+			</SettingsRow>
+			<SettingsRow title={ __( 'Content API' ) }>
+				<span className={ styles.frontendValue }>
+					{ frontend.api === 'graphql' ? __( 'WPGraphQL' ) : __( 'REST API' ) }
+				</span>
+			</SettingsRow>
+			<SettingsRow title={ __( 'Frontend URL' ) }>
+				<Button
+					variant="link"
+					size="inline"
+					onClick={ () =>
+						void connector
+							.openSiteUrl( site.id, '/', { autoLogin: false, target: 'frontend' } )
+							.catch( () => undefined )
+					}
+				>
+					{ frontendUrl }
+				</Button>
+			</SettingsRow>
+			<SettingsRow
+				title={ __( 'Project path' ) }
+				description={ __( 'Where the frontend project’s files are stored.' ) }
+			>
+				{ ( control ) => (
+					<ReadOnlyValue
+						label={ __( 'Project path' ) }
+						value={ frontend.path }
+						control={ control }
+					/>
+				) }
+			</SettingsRow>
+			{ frontend.kind === 'static' ? (
+				<SettingsRow title={ __( 'Served folder' ) }>
+					{ ( control ) => (
+						<ReadOnlyValue
+							label={ __( 'Served folder' ) }
+							value={ frontend.servedDir || '.' }
+							control={ control }
+						/>
+					) }
+				</SettingsRow>
+			) : (
+				<SettingsRow title={ __( 'Dev command' ) }>
+					{ ( control ) => (
+						<ReadOnlyValue
+							label={ __( 'Dev command' ) }
+							value={ frontend.devCommand ?? '' }
+							control={ control }
+						/>
+					) }
+				</SettingsRow>
+			) }
+			<SettingsRow title={ __( 'Port' ) }>
+				<span className={ styles.frontendValue }>{ String( frontend.port ) }</span>
+			</SettingsRow>
+		</SettingsGroup>
+	);
 }
 
 const FORM_ID = 'site-settings-form';
@@ -414,6 +521,7 @@ export function SiteSettingsForm( {
 						/>
 					</SettingsRow>
 				</SettingsGroup>
+				{ site.frontend ? <FrontendSettingsGroup site={ site } /> : null }
 				<SettingsGroup title={ __( 'Local domain' ) }>
 					{ toggleRow(
 						'useCustomDomain',

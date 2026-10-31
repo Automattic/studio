@@ -1,3 +1,4 @@
+import { isHeadlessSite } from '@studio/common/lib/site-frontend';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import {
@@ -13,6 +14,7 @@ import {
 	disconnectFromDaemon,
 	killDaemonAndChildren,
 } from 'cli/lib/daemon-client';
+import { isFrontendRunning, stopFrontendServer } from 'cli/lib/frontend/server';
 import { getSiteDetails } from 'cli/lib/site-details';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
@@ -82,6 +84,17 @@ async function stopSites(
 		if ( target === Mode.STOP_SINGLE_SITE && siteFolder ) {
 			const site = await getSiteByFolder( siteFolder );
 
+			// The frontend goes first, and also when WordPress has already stopped.
+			if ( isHeadlessSite( site ) && ( await isFrontendRunning( site.id ) ) ) {
+				logger.reportStart( LoggerAction.STOP_FRONTEND, __( 'Stopping frontend…' ) );
+				try {
+					await stopFrontendServer( site.id );
+					logger.reportSuccess( __( 'Frontend stopped' ) );
+				} catch ( error ) {
+					throw new LoggerError( __( 'Failed to stop frontend' ), error );
+				}
+			}
+
 			const runningProcess = await isServerRunning( site.id );
 			if ( ! runningProcess ) {
 				logger.reportSuccess( __( 'WordPress server is not running' ) );
@@ -130,6 +143,7 @@ async function stopSites(
 
 				logger.reportStart( LoggerAction.STOP_ALL_SITES, __( 'Stopping all WordPress servers…' ) );
 
+				// Takes every frontend process down with the WordPress servers.
 				await killDaemonAndChildren();
 				logger.reportSuccess(
 					sprintf(

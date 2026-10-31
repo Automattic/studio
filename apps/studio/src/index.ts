@@ -46,6 +46,7 @@ import { maybePromptNightlySwitch, startNightlyPromptPoller } from 'src/lib/nigh
 import { forwardPreviewCommandPalette } from 'src/lib/preview-shortcuts';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { parseWebUrl } from 'src/lib/shell-open-external-wrapper';
+import { isSameSitePreviewOrigin, refreshHeadlessSiteOrigins } from 'src/lib/site-preview-origins';
 import { getSites, stopAllServers } from 'src/lib/sites';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { setupLogging } from 'src/logging';
@@ -78,9 +79,10 @@ import packageJson from '../package.json';
 
 const STOP_ALL_SERVERS_ON_QUIT_TIMEOUT_MS = process.env.E2E ? 20_000 : 6_000;
 
+// A headless site's WordPress and frontend origins count as one site.
 function isOtherSiteThanPreview( contents: WebContents, url: string ) {
 	const currentUrl = parseWebUrl( contents.getURL() );
-	return ! currentUrl || new URL( url ).origin !== new URL( currentUrl ).origin;
+	return ! currentUrl || ! isSameSitePreviewOrigin( url, currentUrl );
 }
 
 // Links to the site shown in the pane open in the pane; others open in the
@@ -275,6 +277,8 @@ async function appBoot() {
 			// reset waits a tick.
 			contents.on( 'did-navigate', () => {
 				setImmediate( () => resetPreviewZoom( contents ) );
+				// Fresh before the page's links are clicked.
+				void refreshHeadlessSiteOrigins();
 			} );
 		}
 

@@ -6,6 +6,7 @@ import {
 	disconnectFromDaemon,
 	killDaemonAndChildren,
 } from 'cli/lib/daemon-client';
+import { isFrontendRunning, stopFrontendServer } from 'cli/lib/frontend/server';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
@@ -42,6 +43,7 @@ vi.mock( 'cli/lib/site-operations', async ( importOriginal ) => ( {
 } ) );
 vi.mock( 'cli/lib/site-utils' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
+vi.mock( 'cli/lib/frontend/server' );
 vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 	const actual = await importActual< typeof import('cli/lib/tracks') >();
 	return { ...actual, recordTracksEvent: vi.fn() };
@@ -78,10 +80,75 @@ describe( 'CLI: studio site stop', () => {
 		vi.mocked( stopProxyIfNoSitesNeedIt ).mockResolvedValue( undefined );
 		vi.mocked( killDaemonAndChildren ).mockResolvedValue( undefined );
 		vi.mocked( getRunningSiteCount ).mockResolvedValue( 0 );
+		vi.mocked( isFrontendRunning ).mockResolvedValue( undefined );
+		vi.mocked( stopFrontendServer ).mockResolvedValue( undefined );
 	} );
 
 	afterEach( () => {
 		vi.restoreAllMocks();
+	} );
+
+	describe( 'Headless sites', () => {
+		const headlessSite: SiteData = {
+			...testSite,
+			frontend: { path: '/test/frontend', kind: 'command', devCommand: 'npm run dev', port: 4321 },
+		};
+		const frontendProcess: ProcessDescription = {
+			name: 'studio-frontend-site-1',
+			pmId: 1,
+			pid: 23456,
+			status: 'online',
+		};
+
+		beforeEach( () => {
+			vi.mocked( getSiteByFolder ).mockResolvedValue( headlessSite );
+			vi.mocked( isFrontendRunning ).mockResolvedValue( frontendProcess );
+		} );
+
+		it( 'stops the frontend before WordPress', async () => {
+			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
+
+			await runCommand( Mode.STOP_SINGLE_SITE, '/test/site' );
+
+			expect( stopFrontendServer ).toHaveBeenCalledWith( testSite.id );
+			expect( vi.mocked( stopFrontendServer ).mock.invocationCallOrder[ 0 ] ).toBeLessThan(
+				vi.mocked( stopWordPressServer ).mock.invocationCallOrder[ 0 ]
+			);
+		} );
+
+		it( 'stops a frontend left running after WordPress stopped', async () => {
+			await runCommand( Mode.STOP_SINGLE_SITE, '/test/site' );
+
+			expect( stopFrontendServer ).toHaveBeenCalledWith( testSite.id );
+			expect( stopWordPressServer ).not.toHaveBeenCalled();
+		} );
+
+		it( 'skips a frontend that is not running', async () => {
+			vi.mocked( isFrontendRunning ).mockResolvedValue( undefined );
+			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
+
+			await runCommand( Mode.STOP_SINGLE_SITE, '/test/site' );
+
+			expect( stopFrontendServer ).not.toHaveBeenCalled();
+			expect( stopWordPressServer ).toHaveBeenCalledWith( testSite.id );
+		} );
+
+		it( 'throws when the frontend fails to stop', async () => {
+			vi.mocked( stopFrontendServer ).mockRejectedValue( new Error( 'boom' ) );
+
+			await expect( runCommand( Mode.STOP_SINGLE_SITE, '/test/site' ) ).rejects.toThrow(
+				'Failed to stop frontend'
+			);
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+
+		it( 'does not look for a frontend on a classic site', async () => {
+			vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
+
+			await runCommand( Mode.STOP_SINGLE_SITE, '/test/site' );
+
+			expect( isFrontendRunning ).not.toHaveBeenCalled();
+		} );
 	} );
 
 	describe( 'Error Cases', () => {

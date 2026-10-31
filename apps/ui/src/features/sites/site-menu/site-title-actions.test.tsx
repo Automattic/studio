@@ -124,6 +124,78 @@ describe( 'site title actions', () => {
 		await waitFor( () => expect( connector.openSiteInEditor ).toHaveBeenCalledWith( 'one' ) );
 	} );
 
+	describe( 'for a headless site', () => {
+		const headless = () =>
+			site( {
+				running: true,
+				frontend: {
+					path: '/sites/my-site/frontend',
+					kind: 'command',
+					framework: 'astro',
+					port: 4321,
+				},
+			} );
+		const openIn = async ( label: string ) => {
+			fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
+		};
+
+		it( 'opens the frontend app in the browser, and WordPress from its own entry', async () => {
+			const { connector } = setup( [ headless() ] );
+			await openIn( 'Browser' );
+			await waitFor( () =>
+				expect( connector.openSiteUrl ).toHaveBeenLastCalledWith( 'one', '/', {
+					autoLogin: false,
+					target: 'frontend',
+				} )
+			);
+			await waitFor( () => expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument() );
+			await openIn( 'WordPress front end' );
+			await waitFor( () =>
+				expect( connector.openSiteUrl ).toHaveBeenLastCalledWith( 'one', '/', {
+					autoLogin: false,
+				} )
+			);
+			await waitFor( () => expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument() );
+			await openIn( 'WordPress admin' );
+			await waitFor( () =>
+				expect( connector.openSiteUrl ).toHaveBeenLastCalledWith( 'one', '/wp-admin/' )
+			);
+		} );
+
+		it( 'opens the frontend project in the editor and terminal', async () => {
+			const { connector } = setup( [ headless() ] );
+			await openIn( 'Visual Studio Code' );
+			await waitFor( () =>
+				expect( connector.openSiteInEditor ).toHaveBeenCalledWith( 'one', { target: 'frontend' } )
+			);
+			await waitFor( () => expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument() );
+			await openIn( 'Terminal' );
+			await waitFor( () =>
+				expect( connector.openSiteInTerminal ).toHaveBeenCalledWith( 'one', { target: 'frontend' } )
+			);
+		} );
+
+		it( 'offers no WordPress browser entry for a classic site', async () => {
+			setup();
+			fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
+			await screen.findByRole( 'menuitem', { name: 'Browser' } );
+			expect(
+				screen.queryByRole( 'menuitem', { name: 'WordPress front end' } )
+			).not.toBeInTheDocument();
+		} );
+
+		it( 'labels the site as headless in the sidebar', async () => {
+			setup( [ headless(), site( { id: 'two', name: 'Classic', path: '/sites/classic' } ) ] );
+			const row = await screen.findByRole( 'button', { name: 'My site' } );
+			expect( within( row.parentElement! ).getByText( 'Headless' ) ).toBeVisible();
+			const classic = screen.getByRole( 'button', { name: 'Classic' } );
+			expect( within( classic.parentElement! ).queryByText( 'Headless' ) ).not.toBeInTheDocument();
+		} );
+	} );
+
 	it( 'confirms a backup import before touching the site and permits cancellation', async () => {
 		const { connector, container } = setup( [ site( { id: 'backup', path: '/sites/backup' } ) ], {
 			getFilePath: async () => '/tmp/backup.zip',

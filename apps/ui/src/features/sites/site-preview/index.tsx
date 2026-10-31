@@ -27,12 +27,12 @@ import {
 	useSiteAnnotations,
 } from '@/features/annotations';
 import { DesignSystemView } from '@/features/sites/design-system-view';
-import { getSiteUrl } from '@/features/sites/get-site-url';
+import { getSiteFrontendUrl, getSiteUrl } from '@/features/sites/get-site-url';
 import { PreviewParticles } from '@/features/sites/preview-particles';
 import { useSiteHeaderNavigation } from '@/features/sites/site-header-actions';
 import { SiteContextMenu, StoppedSitePreview } from '@/features/sites/stopped-site-preview';
 import { VisuallyHidden } from '@/lib/ui';
-import { getRealmOpenEvent } from './address-bar';
+import { getFrontendAppRelativePath, getRealmOpenEvent } from './address-bar';
 import { EMPTY_BROWSER_STATE, type BrowserNavigationState } from './browser-state';
 import { PreviewHeader } from './preview-header';
 import {
@@ -45,7 +45,13 @@ import {
 import { getFitScale } from './responsive-preview/settings';
 import { ResponsiveToolbar } from './responsive-preview/toolbar';
 import styles from './style.module.css';
-import { getFrameKey, getSafePath, type PreviewSurfaceKey } from './surfaces';
+import {
+	getFrameKey,
+	getSafePath,
+	getSurfaceUrl,
+	isPageSurface,
+	type PreviewSurfaceKey,
+} from './surfaces';
 import { useBrowserShortcuts } from './use-browser-shortcuts';
 import { useLoadingStage } from './use-loading-stage';
 import { usePreviewAnnotations } from './use-preview-annotations';
@@ -105,6 +111,7 @@ export function SitePreview( {
 	const isStarting = ! live && ( startPending || operation === 'start' );
 	const isStopping = ! live && ( stopPending || operation === 'stop' );
 	const siteUrl = liveUrl ?? getSiteUrl( site );
+	const frontendUrl = live ? undefined : getSiteFrontendUrl( site );
 	const canPreview = live || site.running;
 	const canUseWebview = isElectron();
 	const safePath = getSafePath( path );
@@ -120,7 +127,14 @@ export function SitePreview( {
 		sendBrowserCommand,
 		goToHistoryIndex,
 		switchRealm,
-	} = usePreviewSurfaces( { siteId: site.id, siteUrl, path: safePath, reloadNonce, onPathChange } );
+	} = usePreviewSurfaces( {
+		siteId: site.id,
+		siteUrl,
+		frontendUrl,
+		path: safePath,
+		reloadNonce,
+		onPathChange,
+	} );
 	const siteDesign = useSiteDesign( site );
 	const annotations = useSiteAnnotations( site.id );
 	const { loadingStage, reveal } = useLoadingStage( {
@@ -155,7 +169,8 @@ export function SitePreview( {
 	const showLoadingProgress = canPreview && progress > 0;
 	const viewportRef = useRef< HTMLDivElement | null >( null );
 	const responsiveSettings = useResponsivePreview( site.id );
-	const responsiveEnabled = responsiveSettings.enabled && canPreview && activeSurfaceKey === 'site';
+	const responsiveEnabled =
+		responsiveSettings.enabled && canPreview && isPageSurface( activeSurfaceKey );
 	const [ availableSize, setAvailableSize ] = useState( { width: 0, height: 0 } );
 	useLayoutEffect( () => {
 		const viewport = viewportRef.current;
@@ -249,6 +264,18 @@ export function SitePreview( {
 					} )
 		: activeRealm === 'design'
 		? undefined
+		: activeRealm === 'frontend-app'
+		? () => {
+				void connector.trackEvent( getRealmOpenEvent( activeRealm ), { browser: 'external' } );
+				void connector
+					.openSiteUrl( site.id, getFrontendAppRelativePath( safePath ), {
+						autoLogin: false,
+						target: 'frontend',
+					} )
+					.catch( ( error ) => {
+						console.error( 'Failed to open the frontend in browser:', error );
+					} );
+		  }
 		: () => {
 				void connector.trackEvent( getRealmOpenEvent( activeRealm ), { browser: 'external' } );
 				void connector
@@ -260,7 +287,7 @@ export function SitePreview( {
 	const responsive = canPreview
 		? {
 				active: responsiveEnabled,
-				disabled: isStopping || activeSurfaceKey !== 'site',
+				disabled: isStopping || ! isPageSurface( activeSurfaceKey ),
 				onClick: () =>
 					updateResponsivePreview( site.id, { enabled: ! responsiveSettings.enabled } ),
 		  }
@@ -367,7 +394,8 @@ export function SitePreview( {
 								return null;
 							}
 							const active = key === activeSurfaceKey;
-							const surfaceUrl = `${ siteUrl }${ surface.path }`;
+							const surfaceUrl = getSurfaceUrl( key, surface.path, siteUrl, frontendUrl );
+							const pageSurface = isPageSurface( key );
 							if ( key === 'design' ) {
 								return (
 									<SurfaceLayer key={ key } active={ active } design>
@@ -394,7 +422,7 @@ export function SitePreview( {
 									key={ key }
 									active={ active }
 									responsive={
-										key === 'site'
+										pageSurface
 											? { siteId: site.id, settings: responsiveSettings, scale: responsiveScale }
 											: undefined
 									}
@@ -407,8 +435,8 @@ export function SitePreview( {
 											reloadNonce={ surface.reloadNonce }
 											// phpMyAdmin isn't an annotation target, so the
 											// inspector never goes near it.
-											inspector={ key === 'site' }
-											annotations={ key === 'site' ? annotations : undefined }
+											inspector={ pageSurface }
+											annotations={ pageSurface ? annotations : undefined }
 											onInspectorReady={ ( inspectorReady ) => {
 												patchSurface( key, { inspectorReady } );
 												if ( ! inspectorReady ) setAnnotationAnchor( null );

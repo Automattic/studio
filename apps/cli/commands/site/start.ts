@@ -1,10 +1,16 @@
 import { updateManagedInstructionFiles } from '@studio/common/lib/agent-skills';
 import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
+import { isHeadlessSite } from '@studio/common/lib/site-frontend';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getAiInstructionsPath } from 'cli/lib/dependency-management/paths';
+import {
+	getSiteFrontendUrl,
+	isFrontendRunning,
+	startFrontendServer,
+} from 'cli/lib/frontend/server';
 import { getSiteDetails } from 'cli/lib/site-details';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
@@ -12,9 +18,33 @@ import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import type { builder } from 'cli/commands/site/start.command';
+import type { SiteData } from 'cli/lib/cli-config/core';
 import type { CommandArgs } from 'cli/types';
 
 const defaultLogger = new Logger< LoggerAction >();
+
+// WordPress runs first: the frontend is pointed at the site URL and fetches from it.
+async function startFrontendIfHeadless(
+	site: SiteData,
+	logger: Logger< LoggerAction >
+): Promise< void > {
+	if ( ! isHeadlessSite( site ) ) {
+		return;
+	}
+	if ( await isFrontendRunning( site.id ) ) {
+		logger.reportSuccess( __( 'Frontend is already running' ) );
+		return;
+	}
+	logger.reportStart( LoggerAction.START_FRONTEND, __( 'Starting frontend…' ) );
+	await startFrontendServer( site, logger );
+	logger.reportSuccess(
+		sprintf(
+			// translators: %s: the frontend URL, e.g. http://localhost:4321
+			__( 'Frontend started at %s' ),
+			getSiteFrontendUrl( site )
+		)
+	);
+}
 
 export async function runCommand(
 	sitePath: string,
@@ -68,6 +98,7 @@ async function startSite(
 			if ( runningProcess.status === 'online' ) {
 				await updateSiteLatestCliPid( site.id, runningProcess.pid );
 			}
+			await startFrontendIfHeadless( site, logger );
 			if ( ! skipBrowser ) {
 				await openSiteInBrowser( site );
 			}
@@ -109,16 +140,18 @@ async function startSite(
 			await startWordPressServer( site, logger, 'start' );
 
 			logger.reportSuccess( __( 'WordPress server started' ) );
-
-			if ( ! skipLogDetails ) {
-				logSiteDetails( site );
-			}
-
-			if ( ! skipBrowser ) {
-				await openSiteInBrowser( site );
-			}
 		} catch ( error ) {
 			throw new LoggerError( __( 'Failed to start WordPress server' ), error );
+		}
+
+		await startFrontendIfHeadless( site, logger );
+
+		if ( ! skipLogDetails ) {
+			logSiteDetails( site );
+		}
+
+		if ( ! skipBrowser ) {
+			await openSiteInBrowser( site );
 		}
 	} finally {
 		await disconnectFromDaemon();

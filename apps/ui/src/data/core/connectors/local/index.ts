@@ -369,6 +369,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					adminEmail: params.adminEmail,
 					skipStart: params.skipStart,
 					flowType: params.flowType,
+					frontend: params.frontend,
 					// The server writes this to a temp file and passes --blueprint to
 					// the CLI (featured blueprint JSON, or an uploaded bundle's filePath).
 					blueprint: params.blueprint,
@@ -817,8 +818,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		// The server resolves the preference; a 400 means none is configured and
 		// callers route the user to Settings, matching the desktop contract.
-		async openSiteInEditor( siteId ) {
-			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-editor`, { method: 'POST' } );
+		async openSiteInEditor( siteId, options ) {
+			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-editor`, {
+				method: 'POST',
+				body: JSON.stringify( { target: options?.target } ),
+			} );
 		},
 		async openSiteAgentFile( siteId, kind, id, target ) {
 			await api(
@@ -828,8 +832,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				{ method: 'POST', body: JSON.stringify( { target } ) }
 			);
 		},
-		async openSiteInTerminal( siteId ) {
-			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-terminal`, { method: 'POST' } );
+		async openSiteInTerminal( siteId, options ) {
+			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-terminal`, {
+				method: 'POST',
+				body: JSON.stringify( { target: options?.target } ),
+			} );
 		},
 
 		// Resolved server-side, so no host path crosses into the browser.
@@ -871,10 +878,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async popupAppMenu() {},
 		showsAppMenuButton: false,
-		async openSiteUrl( siteId, relativeUrl = '', { autoLogin = true } = {} ) {
+		async openSiteUrl( siteId, relativeUrl = '', { autoLogin = true, target } = {} ) {
 			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-browser`, {
 				method: 'POST',
-				body: JSON.stringify( { relativeUrl, autoLogin } ),
+				body: JSON.stringify( { relativeUrl, autoLogin, target } ),
 			} );
 		},
 		async getWordPressSkillsStatusAllSites() {

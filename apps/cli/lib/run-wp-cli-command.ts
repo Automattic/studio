@@ -3,7 +3,7 @@ import path from 'node:path';
 import { PassThrough, Readable, Writable } from 'node:stream';
 import { buffer, text } from 'node:stream/consumers';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
-import { writeStudioMuPlugins } from '@studio/common/lib/mu-plugins';
+import { getHeadlessMuPluginOptions, writeStudioMuPlugins } from '@studio/common/lib/mu-plugins';
 import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metadata';
 import {
 	getPhpBinaryPath,
@@ -213,7 +213,11 @@ export async function runWpCliCommand(
 ): Promise< DisposableWpCliResponse | DisposableExitCode > {
 	const phpVersion = resolveSupportedPhpVersion( options.phpVersion ?? DEFAULT_PHP_VERSION );
 	await ensurePhpBinaryAvailable( phpVersion );
-	await writeStudioMuPlugins( site.path, site.isWpAutoUpdating );
+	await writeStudioMuPlugins(
+		site.path,
+		site.isWpAutoUpdating,
+		getHeadlessMuPluginOptions( site.frontend )
+	);
 
 	// Reprint-pulled sites wire SQLite through runtime.php (loaded as auto_prepend_file),
 	// so load it here too. No-op for normal sites (helper returns undefined).

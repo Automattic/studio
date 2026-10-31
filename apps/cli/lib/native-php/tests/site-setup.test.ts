@@ -1,5 +1,6 @@
+import fs from 'node:fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ensureWpConfig } from 'cli/lib/native-php/site-setup';
+import { ensureWpConfig, writeSiteUrlPrependFile } from 'cli/lib/native-php/site-setup';
 
 const runPhpCommand = vi.hoisted( () => vi.fn() );
 
@@ -60,5 +61,19 @@ describe( 'ensureWpConfig', () => {
 
 		expect( constants.WP_DEBUG ).toBe( true );
 		expect( constants.WP_DEBUG_LOG ).toBe( true );
+	} );
+} );
+
+describe( 'writeSiteUrlPrependFile', () => {
+	it( 'defines STUDIO_FRONTEND_URL only for a headless site', () => {
+		const classic = fs.readFileSync( writeSiteUrlPrependFile( 'http://localhost:8881' ), 'utf8' );
+		expect( classic ).toContain( "define( 'WP_HOME', 'http://localhost:8881' );" );
+		expect( classic ).not.toContain( 'STUDIO_FRONTEND_URL' );
+
+		const headless = fs.readFileSync(
+			writeSiteUrlPrependFile( 'http://localhost:8881', undefined, "http://it's.local/" ),
+			'utf8'
+		);
+		expect( headless ).toContain( "define( 'STUDIO_FRONTEND_URL', 'http://it\\'s.local' );" );
 	} );
 } );

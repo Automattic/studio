@@ -12,7 +12,7 @@ Run a performance audit on a WordPress site to measure Core Web Vitals and page 
 
 1. Determine which site to audit. If the user hasn't specified, ask them or use the site from the current context.
 2. Ensure the site is running (use `site_start` if needed).
-3. Call `need_for_speed` with the site name and path (defaults to `/`).
+3. Call `need_for_speed` with the site name and path (defaults to `/`). On a headless site it audits the frontend URL, and fixes belong in the frontend code (images, bundles, caching, data fetching), not in WordPress plugins or `theme.json`.
 4. Analyze the results using the interpretation guide below.
 5. Present a clear summary with specific, actionable recommendations.
 

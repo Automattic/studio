@@ -43,8 +43,8 @@ const api: IpcApi = {
 	renamePreviewSite: ( hostname, name ) => ipcRendererInvoke( 'renamePreviewSite', hostname, name ),
 	deleteAllSnapshots: () => ipcRendererInvoke( 'deleteAllSnapshots' ),
 	getSiteDetails: () => ipcRendererInvoke( 'getSiteDetails' ),
-	openSiteURL: ( id, relativeURL = '', { autoLogin = true } = {} ) =>
-		ipcRendererSend( 'openSiteURL', id, relativeURL, { autoLogin } ),
+	openSiteURL: ( id, relativeURL = '', { autoLogin = true, target } = {} ) =>
+		ipcRendererSend( 'openSiteURL', id, relativeURL, { autoLogin, target } ),
 	openURL: ( url ) => ipcRendererSend( 'openURL', url ),
 	showOpenFolderDialog: ( title, defaultDialogPath ) =>
 		ipcRendererInvoke( 'showOpenFolderDialog', title, defaultDialogPath ),

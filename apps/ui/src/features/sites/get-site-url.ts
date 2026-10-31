@@ -13,3 +13,23 @@ export function getSiteUrl( site: SiteDetails ): string {
 	}
 	return `http://localhost:${ site.port }`;
 }
+
+// The origin a headless site's frontend runs on, beside WordPress at
+// `getSiteUrl`; undefined for a classic site. Mirrors `getFrontendUrl` in
+// `@studio/common/lib/site-frontend`, which depends on Node modules.
+export function getSiteFrontendUrl( site: Pick< SiteDetails, 'frontend' > ): string | undefined {
+	const { frontend } = site;
+	if ( ! frontend ) {
+		return undefined;
+	}
+	return frontend.customDomain
+		? `http://${ frontend.customDomain }`
+		: `http://localhost:${ frontend.port }`;
+}
+
+// Where a site's preview opens: a headless site's frontend app, which the
+// preview addresses by absolute URL; otherwise WordPress's home page.
+export function getPreviewHomePath( site: Pick< SiteDetails, 'frontend' > ): string {
+	const frontendUrl = getSiteFrontendUrl( site );
+	return frontendUrl ? `${ frontendUrl }/` : '/';
+}

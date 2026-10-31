@@ -151,4 +151,13 @@ describe( 'openSiteInBrowser', () => {
 				encodeURIComponent( 'http://localhost:8881/wp-admin/edit.php' )
 		);
 	} );
+
+	it( 'opens the frontend of a headless site', async () => {
+		await openSiteInBrowser( {
+			...site,
+			frontend: { path: '/sites/site-frontend', kind: 'static', port: 4321 },
+		} );
+
+		expect( openBrowser ).toHaveBeenCalledWith( 'http://localhost:4321/' );
+	} );
 } );

@@ -34,6 +34,9 @@ import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { liberateWebsite } from 'cli/lib/data-liberation-client';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
+import { provisionHeadlessBackend, writeFrontendEnvFile } from 'cli/lib/frontend/provision';
+import { startFrontendServer } from 'cli/lib/frontend/server';
+import { installFrontendDependencies, scaffoldFrontend } from 'cli/lib/frontend/templates';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
@@ -98,6 +101,9 @@ vi.mock( '@studio/common/lib/agent-skills' );
 vi.mock( 'cli/lib/sqlite-integration' );
 vi.mock( 'cli/lib/run-wp-cli-command' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
+vi.mock( 'cli/lib/frontend/server' );
+vi.mock( 'cli/lib/frontend/provision' );
+vi.mock( 'cli/lib/frontend/templates' );
 const { staticSiteImporterFixture } = vi.hoisted( () => {
 	const nodeFs = require( 'node:fs' ) as typeof import('node:fs');
 
@@ -1470,6 +1476,217 @@ describe( 'CLI: studio create', () => {
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Run "studio start" to start the site.' );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+	} );
+
+	describe( 'Headless sites', () => {
+		const wordpressPath = path.join( mockSitePath, 'wordpress' );
+		const frontendPath = path.join( mockSitePath, 'frontend' );
+		const frontendPort = 3000;
+		const savedSite = () => vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ].sites[ 0 ];
+
+		beforeEach( () => {
+			vi.mocked( portFinder.getOpenPort )
+				.mockResolvedValueOnce( mockPort )
+				.mockResolvedValueOnce( frontendPort );
+			vi.mocked( scaffoldFrontend ).mockResolvedValue( [] );
+			vi.mocked( provisionHeadlessBackend ).mockResolvedValue( undefined );
+			vi.mocked( installFrontendDependencies ).mockResolvedValue( undefined );
+			vi.mocked( startFrontendServer ).mockResolvedValue( mockProcessDescription );
+		} );
+
+		it( 'installs WordPress in the container and starts the frontend next to it', async () => {
+			const order: string[] = [];
+			vi.mocked( startWordPressServer ).mockImplementation( async () => {
+				order.push( 'wordpress' );
+				return mockProcessDescription;
+			} );
+			vi.mocked( scaffoldFrontend ).mockImplementation( async () => {
+				order.push( 'scaffold' );
+				return [];
+			} );
+			vi.mocked( provisionHeadlessBackend ).mockImplementation( async () => {
+				order.push( 'provision' );
+			} );
+			vi.mocked( installFrontendDependencies ).mockImplementation( async () => {
+				order.push( 'install' );
+			} );
+			vi.mocked( startFrontendServer ).mockImplementation( async () => {
+				order.push( 'frontend' );
+				return mockProcessDescription;
+			} );
+			const reportResult = vi.spyOn( Logger.prototype, 'reportResult' );
+
+			await runCommand( mockSitePath, {
+				...defaultTestOptions,
+				frontend: { framework: 'next', api: 'graphql' },
+			} );
+
+			expect( recursiveCopyDirectory ).toHaveBeenCalledWith(
+				path.join( '/test/server-files', 'wordpress-versions', 'latest' ),
+				wordpressPath
+			);
+			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( wordpressPath );
+			expect( savedSite() ).toMatchObject( {
+				name: 'new-site',
+				path: wordpressPath,
+				port: mockPort,
+				frontend: {
+					path: frontendPath,
+					kind: 'command',
+					framework: 'next',
+					devCommand: 'npm run dev -- -p ${port}',
+					port: frontendPort,
+					api: 'graphql',
+					previewSecret: expect.stringMatching( /^[0-9a-f]{32}$/ ),
+					revalidateSecret: expect.stringMatching( /^[0-9a-f]{32}$/ ),
+				},
+			} );
+			expect( savedSite().frontend?.previewSecret ).not.toBe(
+				savedSite().frontend?.revalidateSecret
+			);
+			expect( order ).toEqual( [ 'wordpress', 'scaffold', 'provision', 'install', 'frontend' ] );
+			expect( startFrontendServer ).toHaveBeenCalledWith(
+				expect.objectContaining( { path: wordpressPath, frontend: savedSite().frontend } ),
+				expect.anything()
+			);
+			expect( reportResult ).toHaveBeenCalledWith(
+				expect.objectContaining( { frontend: savedSite().frontend } )
+			);
+			expect( printedOutput() ).toContain( `Frontend: http://localhost:${ frontendPort }` );
+			expect( recordTracksEvent ).toHaveBeenCalledWith(
+				TRACKS_EVENTS.SITE_CREATE,
+				expect.objectContaining( { site_type: 'headless', frontend_framework: 'next' } )
+			);
+		} );
+
+		it( 'serves a static frontend without installing dependencies', async () => {
+			await runCommand( mockSitePath, {
+				...defaultTestOptions,
+				frontend: { framework: 'static' },
+			} );
+
+			expect( savedSite().frontend ).toMatchObject( {
+				kind: 'static',
+				framework: 'static',
+				servedDir: 'public',
+				api: 'rest',
+			} );
+			expect( savedSite().frontend?.devCommand ).toBeUndefined();
+			expect( installFrontendDependencies ).not.toHaveBeenCalled();
+			expect( startFrontendServer ).toHaveBeenCalled();
+		} );
+
+		it( 'uses the Astro dev command', async () => {
+			await runCommand( mockSitePath, {
+				...defaultTestOptions,
+				frontend: { framework: 'astro' },
+			} );
+
+			expect( savedSite().frontend?.devCommand ).toBe( 'npm run dev -- --port ${port}' );
+		} );
+
+		it( 'only scaffolds the frontend with --no-start', async () => {
+			await runCommand( mockSitePath, {
+				...defaultTestOptions,
+				noStart: true,
+				frontend: { framework: 'next' },
+			} );
+
+			expect( scaffoldFrontend ).toHaveBeenCalledWith(
+				expect.objectContaining( { path: frontendPath } ),
+				'new-site',
+				`http://localhost:${ mockPort }`
+			);
+			expect( writeFrontendEnvFile ).toHaveBeenCalledWith(
+				expect.objectContaining( { path: frontendPath } ),
+				expect.objectContaining( { WORDPRESS_URL: `http://localhost:${ mockPort }` } )
+			);
+			expect( provisionHeadlessBackend ).not.toHaveBeenCalled();
+			expect( installFrontendDependencies ).not.toHaveBeenCalled();
+			expect( startFrontendServer ).not.toHaveBeenCalled();
+		} );
+
+		it( 'rejects a container that is not empty', async () => {
+			createPathExistsMock( true );
+			vi.mocked( isEmptyDir ).mockResolvedValue( false );
+
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions, frontend: { framework: 'next' } } )
+			).rejects.toThrow( 'A headless site needs an empty or new directory' );
+			expect( saveCliConfig ).not.toHaveBeenCalled();
+		} );
+
+		it( 'keeps the site and reports the error when the frontend fails to set up', async () => {
+			vi.mocked( installFrontendDependencies ).mockRejectedValue(
+				new Error( 'The frontend needs Node.js 20 or later.' )
+			);
+
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions, frontend: { framework: 'next' } } )
+			).rejects.toThrow( 'Failed to set up the frontend' );
+			expect( removeSiteFromConfig ).not.toHaveBeenCalled();
+			expect( startFrontendServer ).not.toHaveBeenCalled();
+		} );
+
+		it( 'removes the whole container when WordPress fails to start', async () => {
+			const rmSpy = vi.spyOn( fs.promises, 'rm' ).mockResolvedValue( undefined );
+			vi.mocked( startWordPressServer ).mockRejectedValue( new Error( 'Server start failed' ) );
+
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions, frontend: { framework: 'next' } } )
+			).rejects.toThrow( 'Failed to start WordPress server' );
+			expect( rmSpy ).toHaveBeenCalledWith( mockSitePath, { recursive: true, force: true } );
+			expect( scaffoldFrontend ).not.toHaveBeenCalled();
+		} );
+
+		it( 'maps the --frontend and --frontend-api flags', async () => {
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } )
+			).exitProcess( false );
+
+			await parser.parseAsync( [
+				'create',
+				'--name',
+				'Headless',
+				'--wp',
+				'latest',
+				'--php',
+				'8.3',
+				'--frontend',
+				'next',
+				'--frontend-api',
+				'graphql',
+				'--no-start',
+			] );
+
+			expect( savedSite() ).toMatchObject( {
+				path: wordpressPath,
+				frontend: { framework: 'next', api: 'graphql' },
+			} );
+		} );
+
+		it( 'rejects --frontend with --from', () => {
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } )
+			).exitProcess( false );
+
+			expect( () =>
+				parser.parse( [ 'create', '--frontend', 'next', '--from', '/tmp/source' ] )
+			).toThrow( 'mutually exclusive' );
+		} );
+
+		it( 'records a classic site as wordpress', async () => {
+			vi.mocked( portFinder.getOpenPort ).mockReset().mockResolvedValue( mockPort );
+
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
+
+			expect( savedSite().path ).toBe( mockSitePath );
+			expect( savedSite().frontend ).toBeUndefined();
+			expect( recordTracksEvent ).toHaveBeenCalledWith(
+				TRACKS_EVENTS.SITE_CREATE,
+				expect.objectContaining( { site_type: 'wordpress', frontend_framework: undefined } )
+			);
 		} );
 	} );
 

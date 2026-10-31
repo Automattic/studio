@@ -395,6 +395,7 @@ export function CreatePanel( {
 					onBlankChange( ! isExisting && ! selectedBlueprintRef.current );
 				} }
 				requiresEmptyPath={ !! remote }
+				showFrontendChoice={ ! remote }
 				draft={ restoredDraft }
 				onDraftChange={ setSetupDraft }
 				panelFooter={

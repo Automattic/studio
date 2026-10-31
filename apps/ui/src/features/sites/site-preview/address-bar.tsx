@@ -3,8 +3,10 @@ import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-t
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useEffect, useId, useRef, useState } from 'react';
+import { getSiteFrontendUrl } from '@/features/sites/get-site-url';
 import {
 	AppearanceIcon,
+	CodeIcon,
 	DatabaseIcon,
 	ExternalLinkIcon,
 	GlobeIcon,
@@ -30,15 +32,81 @@ export function getPathFromPreviewUrl( url: string, baseUrl: string ) {
 	}
 }
 
-export type PreviewRealm = 'frontend' | 'admin' | 'database' | 'design';
+/**
+ * Where the preview is pointed. `frontend` is WordPress's own front end;
+ * `frontend-app` is a headless site's frontend project, which runs on an origin
+ * of its own, so its locations are absolute URLs on that origin rather than
+ * paths on the site.
+ */
+export type PreviewRealm = 'frontend-app' | 'frontend' | 'admin' | 'database' | 'design';
 
 export const DATABASE_HOME_PATH = '/phpmyadmin/index.php?route=/database/structure&db=wordpress';
 
 const isAdminPath = ( path: string ) => /^\/wp-admin(?:[/?#]|$)/.test( path );
+const isAbsoluteUrl = ( path: string ) => /^https?:\/\//i.test( path );
 
-export function getPreviewRealm( path: string ): PreviewRealm {
+function getOrigin( url: string ): string | null {
+	try {
+		return new URL( url ).origin;
+	} catch {
+		return null;
+	}
+}
+
+// The frontend app location for `url` (its absolute URL) when it is on the
+// frontend's origin.
+function getFrontendAppPath( url: string, frontendUrl: string | undefined ) {
+	if ( ! frontendUrl || ! isAbsoluteUrl( url ) ) {
+		return null;
+	}
+	const origin = getOrigin( frontendUrl );
+	try {
+		const parsed = new URL( url );
+		return origin && parsed.origin === origin ? parsed.toString() : null;
+	} catch {
+		return null;
+	}
+}
+
+// A path within the frontend app, resolved against its origin.
+export function toFrontendAppPath( path: string, frontendUrl: string ): string {
+	try {
+		return new URL( path, frontendUrl ).toString();
+	} catch {
+		return `${ frontendUrl }${ path }`;
+	}
+}
+
+export function isFrontendAppPath( path: string, frontendUrl: string | undefined ): boolean {
+	return getFrontendAppPath( path, frontendUrl ) !== null;
+}
+
+// A url the preview reported, as a location: an absolute URL on the frontend
+// app's origin, or a path on the WordPress site. Null for anywhere else.
+export function getPreviewLocationFromUrl(
+	url: string,
+	siteUrl: string,
+	frontendUrl: string | undefined
+): string | null {
+	return getFrontendAppPath( url, frontendUrl ) ?? getPathFromPreviewUrl( url, siteUrl );
+}
+
+// The path within the frontend app's origin, for opening it elsewhere.
+export function getFrontendAppRelativePath( path: string ): string {
+	try {
+		const parsed = new URL( path );
+		return `${ parsed.pathname }${ parsed.search }${ parsed.hash }`;
+	} catch {
+		return path;
+	}
+}
+
+export function getPreviewRealm( path: string, frontendUrl?: string ): PreviewRealm {
 	if ( path === DESIGN_SYSTEM_PREVIEW_PATH ) {
 		return 'design';
+	}
+	if ( isFrontendAppPath( path, frontendUrl ) ) {
+		return 'frontend-app';
 	}
 	let target = path;
 	if ( path.startsWith( '/studio-auto-login' ) ) {
@@ -56,6 +124,7 @@ export function getPreviewRealm( path: string ): PreviewRealm {
 }
 
 const REALM_OPEN_EVENTS: Record< PreviewRealm, TracksEventName > = {
+	'frontend-app': TRACKS_EVENTS.SITE_OPEN_IN_BROWSER,
 	frontend: TRACKS_EVENTS.SITE_OPEN_IN_BROWSER,
 	admin: TRACKS_EVENTS.SITE_OPEN_WP_ADMIN,
 	database: TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN,
@@ -80,26 +149,49 @@ export function getRealmNavigationPath( path: string, siteUrl: string ): string 
 
 type OmniboxIntent = { type: 'path'; path: string } | { type: 'search'; term: string };
 
-export function parseOmniboxInput( raw: string, siteUrl: string ): OmniboxIntent | null {
+// WordPress tools a headless site keeps on the WordPress origin, whichever realm
+// the address is typed in.
+const isWordPressToolPath = ( path: string ) =>
+	isAdminPath( path ) || /^\/(?:phpmyadmin|wp-login\.php)(?:[/?#]|$)/.test( path );
+
+export function parseOmniboxInput(
+	raw: string,
+	siteUrl: string,
+	{
+		frontendUrl,
+		inFrontendApp = false,
+	}: {
+		// A headless site's frontend origin, whose addresses are accepted too.
+		frontendUrl?: string;
+		// Relative paths resolve within the frontend app.
+		inFrontendApp?: boolean;
+	} = {}
+): OmniboxIntent | null {
 	const value = raw.trim();
 	if ( ! value ) {
 		return null;
 	}
 	// `//host/` is an address on another host, not a path.
 	if ( /^(?:https?:)?\/\//i.test( value ) ) {
-		const path = getPathFromPreviewUrl( value, siteUrl );
+		const path =
+			getFrontendAppPath( value, frontendUrl ) ?? getPathFromPreviewUrl( value, siteUrl );
 		return path ? { type: 'path', path } : null;
 	}
 	if ( /\s/.test( value ) ) {
 		return { type: 'search', term: value };
 	}
-	if ( value.startsWith( '/' ) ) {
-		return { type: 'path', path: value };
+	const path = value.startsWith( '/' )
+		? value
+		: value.includes( '/' ) || value.includes( '?' )
+		? `/${ value }`
+		: null;
+	if ( path === null ) {
+		return { type: 'search', term: value };
 	}
-	if ( value.includes( '/' ) || value.includes( '?' ) ) {
-		return { type: 'path', path: `/${ value }` };
+	if ( inFrontendApp && frontendUrl && ! isWordPressToolPath( path ) ) {
+		return { type: 'path', path: toFrontendAppPath( path, frontendUrl ) };
 	}
-	return { type: 'search', term: value };
+	return { type: 'path', path };
 }
 
 interface PreviewAddressBarProps {
@@ -230,6 +322,8 @@ export function PreviewAddressBar( {
 	responsive,
 	hideActions = false,
 }: PreviewAddressBarProps ) {
+	const frontendUrl = remote ? undefined : getSiteFrontendUrl( site );
+	const inFrontendApp = getPreviewRealm( path, frontendUrl ) === 'frontend-app';
 	const displayUrl = getDisplayUrl( siteUrl, path );
 	const [ value, setValue ] = useState( displayUrl );
 	const [ invalid, setInvalid ] = useState( false );
@@ -275,7 +369,7 @@ export function PreviewAddressBar( {
 
 	const handleSubmit = ( event: FormEvent< HTMLFormElement > ) => {
 		event.preventDefault();
-		const intent = parseOmniboxInput( value, siteUrl );
+		const intent = parseOmniboxInput( value, siteUrl, { frontendUrl, inFrontendApp } );
 		if ( ! intent ) {
 			setInvalid( value.trim() !== '' );
 			return;
@@ -303,18 +397,22 @@ export function PreviewAddressBar( {
 		onNavigate( recent.path );
 	};
 	const realmIcons: Record< PreviewRealm, ComponentType< { className?: string } > > = {
+		'frontend-app': CodeIcon,
 		frontend: GlobeIcon,
 		admin: WordPressIcon,
 		database: DatabaseIcon,
 		design: AppearanceIcon,
 	};
 	const realmLabels: Record< PreviewRealm, string > = {
-		frontend: __( 'Front end' ),
+		'frontend-app': __( 'Frontend app' ),
+		// Beside a headless site's frontend app, its own front end is WordPress's.
+		frontend: frontendUrl ? __( 'WordPress' ) : __( 'Front end' ),
 		admin: __( 'WordPress Admin' ),
 		database: __( 'Database' ),
 		design: __( 'Design system' ),
 	};
 	const realms: PreviewRealm[] = [
+		...( frontendUrl ? [ 'frontend-app' as const ] : [] ),
 		'frontend',
 		'admin',
 		'database',
@@ -335,7 +433,7 @@ export function PreviewAddressBar( {
 			items: recentLocations.map( ( recent ) => ( {
 				value: `recent:${ recent.path }`,
 				label: recent.label,
-				icon: realmIcons[ getPreviewRealm( recent.path ) ],
+				icon: realmIcons[ getPreviewRealm( recent.path, frontendUrl ) ],
 			} ) ),
 		},
 	];

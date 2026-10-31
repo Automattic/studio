@@ -34,3 +34,8 @@
 	color: var( --muted-foreground );
 	font-size: var( --text-xs );
 }
+
+.frontendValue {
+	color: var( --muted-foreground );
+	font-size: var( --text-sm );
+}

@@ -2,6 +2,11 @@ import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { vi } from 'vitest';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import {
+	getFrontendLogPaths,
+	getSiteFrontendUrl,
+	isFrontendRunning,
+} from 'cli/lib/frontend/server';
 import { getSiteEmailDirectory } from 'cli/lib/site-email';
 import { getPrettyPath } from 'cli/lib/utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
@@ -16,6 +21,7 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 } );
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
+vi.mock( 'cli/lib/frontend/server' );
 vi.mock( '@studio/common/lib/get-wordpress-version' );
 
 describe( 'CLI: studio site status', () => {
@@ -47,6 +53,12 @@ describe( 'CLI: studio site status', () => {
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
 		vi.mocked( getWordPressVersion ).mockReturnValue( '6.4' );
+		vi.mocked( isFrontendRunning ).mockResolvedValue( undefined );
+		vi.mocked( getSiteFrontendUrl ).mockReturnValue( 'http://localhost:4321' );
+		vi.mocked( getFrontendLogPaths ).mockReturnValue( {
+			out: '/logs/studio-frontend-site-1-out-20261031.log',
+			error: '/logs/studio-frontend-site-1-error-20261031.log',
+		} );
 	} );
 
 	afterEach( () => {
@@ -76,6 +88,7 @@ describe( 'CLI: studio site status', () => {
 						emailPath: getPrettyPath( getSiteEmailDirectory( 'site-1' ) ),
 						status: '🔴 Offline',
 						isOnline: false,
+						type: 'WordPress',
 						phpVersion: '8.0',
 						fileAccess: 'Site directory',
 						wpVersion: '6.4',
@@ -132,6 +145,7 @@ describe( 'CLI: studio site status', () => {
 						emailPath: getPrettyPath( getSiteEmailDirectory( 'site-1' ) ),
 						status: '🟢 Online',
 						isOnline: true,
+						type: 'WordPress',
 						phpVersion: '8.0',
 						fileAccess: 'Site directory',
 						wpVersion: '6.4',
@@ -179,6 +193,7 @@ describe( 'CLI: studio site status', () => {
 						emailPath: getPrettyPath( getSiteEmailDirectory( 'site-1' ) ),
 						status: '🔴 Offline',
 						isOnline: false,
+						type: 'WordPress',
 						fileAccess: 'Site directory',
 						wpVersion: '6.4',
 						xdebug: 'Disabled',
@@ -188,6 +203,56 @@ describe( 'CLI: studio site status', () => {
 					2
 				)
 			);
+
+			consoleSpy.mockRestore();
+		} );
+
+		it( 'reports the frontend of a headless site', async () => {
+			vi.mocked( getSiteByFolder ).mockResolvedValue( {
+				...testSite,
+				frontend: {
+					path: '/path/to/frontend',
+					kind: 'command',
+					framework: 'astro',
+					devCommand: 'npm run dev',
+					port: 4321,
+				},
+			} );
+			vi.mocked( isFrontendRunning ).mockResolvedValue( {
+				name: 'studio-frontend-site-1',
+				pmId: 1,
+				status: 'online',
+				pid: 23456,
+			} );
+
+			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
+
+			await runCommand( '/path/to/site', 'json' );
+
+			const parsed = JSON.parse( String( consoleSpy.mock.calls[ 0 ][ 0 ] ) );
+			expect( parsed ).toMatchObject( {
+				type: 'Headless',
+				frontendUrl: 'http://localhost:4321',
+				frontendFramework: 'Astro',
+				frontendStatus: '🟢 Online',
+				isFrontendOnline: true,
+				frontendPath: '/path/to/frontend',
+				frontendLogPath: '/logs/studio-frontend-site-1-out-20261031.log',
+				frontendErrorLogPath: '/logs/studio-frontend-site-1-error-20261031.log',
+			} );
+			expect( isFrontendRunning ).toHaveBeenCalledWith( 'site-1' );
+
+			consoleSpy.mockRestore();
+		} );
+
+		it( 'does not report frontend fields for a classic site', async () => {
+			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
+
+			await runCommand( '/path/to/site', 'json' );
+
+			const stdout = String( consoleSpy.mock.calls[ 0 ][ 0 ] );
+			expect( stdout ).not.toContain( 'frontend' );
+			expect( isFrontendRunning ).not.toHaveBeenCalled();
 
 			consoleSpy.mockRestore();
 		} );

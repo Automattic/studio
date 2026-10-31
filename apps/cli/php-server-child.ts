@@ -490,7 +490,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 			stopSignal.throwIfAborted();
 		}
 
-		await writeStudioMuPlugins( config.sitePath, config.isWpAutoUpdating );
+		await writeStudioMuPlugins( config.sitePath, config.isWpAutoUpdating, config.frontend );
 		stopSignal.throwIfAborted();
 
 		if ( ! isImportedSite ) {
@@ -593,7 +593,11 @@ async function doStartServer(
 	try {
 		const phpMyAdminWpEnvPath = await writeNativePhpMyAdminWpEnv( config );
 		const siteUrl = config.absoluteUrl || `http://localhost:${ config.port }`;
-		const autoPrependFile = writeSiteUrlPrependFile( siteUrl, config.autoPrependFile );
+		const autoPrependFile = writeSiteUrlPrependFile(
+			siteUrl,
+			config.autoPrependFile,
+			config.frontend?.url
+		);
 		// Created up front so the folder opens from the app before the site sends any email.
 		// The site still starts without it: sendmail.php then reports each email it can't save.
 		const emailDirectory = getSiteEmailDirectory( config.siteId );
@@ -809,7 +813,11 @@ async function ipcMessageHandler( packet: unknown ) {
 					abortController.signal,
 					blueprintConfig
 				);
-				await writeStudioMuPlugins( blueprintConfig.sitePath, blueprintConfig.isWpAutoUpdating );
+				await writeStudioMuPlugins(
+					blueprintConfig.sitePath,
+					blueprintConfig.isWpAutoUpdating,
+					blueprintConfig.frontend
+				);
 				await installWordPress(
 					blueprintConfig,
 					blueprintPhpVersion,

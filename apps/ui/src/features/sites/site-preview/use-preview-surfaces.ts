@@ -5,10 +5,12 @@ import { useConnector } from '@/data/core';
 import { siteDesignQueryKey } from '@/data/queries/use-site-design';
 import {
 	DATABASE_HOME_PATH,
-	getPathFromPreviewUrl,
+	getPreviewLocationFromUrl,
 	getPreviewRealm,
 	getRealmNavigationPath,
 	getRealmOpenEvent,
+	isFrontendAppPath,
+	toFrontendAppPath,
 	type PreviewRealm,
 } from './address-bar';
 import { EMPTY_BROWSER_STATE, type BrowserCommand } from './browser-state';
@@ -23,12 +25,15 @@ import {
 } from './surfaces';
 
 // Where each realm segment lands before its per-realm memory has anything better.
-const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
-	frontend: '/',
-	admin: '/wp-admin/',
-	database: DATABASE_HOME_PATH,
-	design: DESIGN_SYSTEM_PREVIEW_PATH,
-};
+function getDefaultRealmPaths( frontendUrl: string | undefined ): Record< PreviewRealm, string > {
+	return {
+		'frontend-app': frontendUrl ? toFrontendAppPath( '/', frontendUrl ) : '/',
+		frontend: '/',
+		admin: '/wp-admin/',
+		database: DATABASE_HOME_PATH,
+		design: DESIGN_SYSTEM_PREVIEW_PATH,
+	};
+}
 
 /**
  * The preview's surfaces, where each one is pointed, and the commands sent to
@@ -38,12 +43,15 @@ const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
 export function usePreviewSurfaces( {
 	siteId,
 	siteUrl,
+	frontendUrl,
 	path,
 	reloadNonce,
 	onPathChange,
 }: {
 	siteId: string;
 	siteUrl: string;
+	// A headless site's frontend origin.
+	frontendUrl?: string;
 	path: string;
 	reloadNonce: number;
 	onPathChange?: ( path: string ) => void;
@@ -53,7 +61,7 @@ export function usePreviewSurfaces( {
 	// Which realm the host is pointing the preview at. Derived from the path
 	// rather than stored alongside it, so the parent stays the single source of
 	// truth for where the preview is aimed.
-	const activeRealm = getPreviewRealm( path );
+	const activeRealm = getPreviewRealm( path, frontendUrl );
 	const activeSurfaceKey = getSurfaceKey( activeRealm );
 	// Surfaces mounted so far. Once created a surface stays mounted and warm;
 	// only the active one is visible.
@@ -72,11 +80,15 @@ export function usePreviewSurfaces( {
 	);
 	const handleSurfaceNavigation = useCallback(
 		( key: PreviewSurfaceKey, url: string ) => {
-			const nextPath = getPathFromPreviewUrl( url, siteUrl );
+			const nextPath = getPreviewLocationFromUrl( url, siteUrl, frontendUrl );
 			if ( ! nextPath ) {
 				return;
 			}
-			patchSurface( key, { path: nextPath } );
+			// A link between a headless site's two origins leaves the surface on the
+			// other origin's page, which only an absolute URL addresses from there.
+			// The other surface takes over showing it.
+			const crossedOrigin = ( key === 'app' ) !== isFrontendAppPath( nextPath, frontendUrl );
+			patchSurface( key, { path: crossedOrigin ? url : nextPath } );
 			// Only the visible surface speaks for the preview's location, so the
 			// hidden one settling a redirect can't move the address bar. This is also
 			// what lights up the WordPress segment when a front-end link points at
@@ -85,7 +97,7 @@ export function usePreviewSurfaces( {
 				onPathChange?.( nextPath );
 			}
 		},
-		[ activeSurfaceKey, onPathChange, patchSurface, path, siteUrl ]
+		[ activeSurfaceKey, frontendUrl, onPathChange, patchSurface, path, siteUrl ]
 	);
 	// Commands are addressed to the surface on screen. Each has its own slot, so
 	// the hidden one never sees a command it should have missed — and never
@@ -153,19 +165,19 @@ export function usePreviewSurfaces( {
 
 	// Where each realm was last seen, so flipping to WP Admin and back returns
 	// to the exact front-end page rather than the site root.
-	const lastRealmPathsRef = useRef< Record< PreviewRealm, string > >( {
-		...DEFAULT_REALM_PATHS,
-	} );
+	const lastRealmPathsRef = useRef< Record< PreviewRealm, string > >(
+		getDefaultRealmPaths( frontendUrl )
+	);
 	useEffect( () => {
-		lastRealmPathsRef.current = { ...DEFAULT_REALM_PATHS };
-	}, [ siteId ] );
+		lastRealmPathsRef.current = getDefaultRealmPaths( frontendUrl );
+	}, [ siteId, frontendUrl ] );
 	useEffect( () => {
 		// Auto-login is a transient hop, not a place to return to.
 		if ( path.startsWith( '/studio-auto-login' ) ) {
 			return;
 		}
-		lastRealmPathsRef.current[ getPreviewRealm( path ) ] = path;
-	}, [ path ] );
+		lastRealmPathsRef.current[ getPreviewRealm( path, frontendUrl ) ] = path;
+	}, [ path, frontendUrl ] );
 
 	// Realm segments (front end / WP Admin / database). Moving between the front
 	// end and WP Admin is a navigation inside the shared site surface, so they

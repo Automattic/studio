@@ -110,6 +110,9 @@ export async function resolveSourceSite(
 /** The URL of the Jetpack Reprint exporter on a site. */
 export function getReprintApiUrlForSite( siteUrl: string ): string {
 	const apiUrl = new URL( siteUrl );
+	// WordPress.com and Pressable sites always serve HTTPS, but WordPress.com can still list a new
+	// site under the http:// address it was created with, which Reprint refuses.
+	apiUrl.protocol = 'https:';
 	apiUrl.search = '?reprint-api-jetpack';
 	return apiUrl.toString();
 }

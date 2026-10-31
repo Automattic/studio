@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type ReactElement, type ReactNode } from 'react';
+import { useEffect, useId, useState, type ReactElement } from 'react';
 import { useOnboardingHints, useSetOnboardingHints } from '@/data/queries/use-onboarding-hints';
 import { FeaturePopover, Popover, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import { useOnboardingGuide } from './onboarding-guide/use-onboarding-guide';
@@ -11,7 +11,7 @@ export function FirstUseTip( {
 	dismissalKey,
 	title,
 	description,
-	illustration,
+	badge,
 }: {
 	children: ReactElement;
 	enabled: boolean;
@@ -19,7 +19,7 @@ export function FirstUseTip( {
 	dismissalKey: 'annotateHintDismissed';
 	title: string;
 	description: string;
-	illustration?: ReactNode;
+	badge?: string;
 } ) {
 	const { data: hints } = useOnboardingHints();
 	const setHints = useSetOnboardingHints();
@@ -80,7 +80,10 @@ export function FirstUseTip( {
 				title={ title }
 				description={ description }
 				descriptionId={ descriptionId }
-				illustration={ illustration }
+				tone="accent"
+				badge={ badge }
+				onDismiss={ dismiss }
+				sideOffset={ 10 }
 			/>
 		</Popover.Root>
 	);

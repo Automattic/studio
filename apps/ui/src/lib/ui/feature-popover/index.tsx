@@ -1,7 +1,8 @@
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
+import { XIcon } from 'lucide-react';
 import { useId } from 'react';
-import { Button } from '@/lib/ui/button';
+import { Button, IconButton } from '@/lib/ui/button';
 import * as Popover from '@/lib/ui/popover';
 import styles from './style.module.css';
 import type { ComponentProps, ReactNode, Ref } from 'react';
@@ -30,32 +31,45 @@ export function Popup( {
 	title,
 	description,
 	descriptionId: providedDescriptionId,
-	illustration,
 	footer,
+	tone = 'default',
+	badge,
+	onDismiss,
 	className,
 	...props
 }: Omit< ComponentProps< typeof Popover.Popup >, 'children' | 'aria-describedby' > & {
 	title: string;
 	description: string;
 	descriptionId?: string;
-	illustration?: ReactNode;
 	footer?: ReactNode;
+	tone?: 'default' | 'accent';
+	badge?: string;
+	onDismiss?: () => void;
 } ) {
 	const generatedId = useId();
 	const descriptionId = providedDescriptionId ?? generatedId;
 	return (
 		<Popover.Popup
-			className={ clsx( styles.card, className ) }
+			className={ clsx( styles.card, tone === 'accent' && styles.accent, className ) }
 			{ ...props }
 			aria-describedby={ descriptionId }
 		>
-			{ illustration ? (
-				<div className={ styles.illustration } aria-hidden="true" inert>
-					{ illustration }
-				</div>
+			{ tone === 'accent' ? <Popover.Arrow className={ styles.arrow } /> : null }
+			{ onDismiss ? (
+				<IconButton
+					className={ styles.dismiss }
+					size="icon-sm"
+					icon={ <XIcon size={ 16 } /> }
+					label={ __( 'Dismiss tip' ) }
+					tooltip={ false }
+					onClick={ onDismiss }
+				/>
 			) : null }
 			<div className={ styles.copy }>
-				<Popover.Title>{ title }</Popover.Title>
+				<div className={ styles.heading }>
+					<Popover.Title>{ title }</Popover.Title>
+					{ badge ? <span className={ styles.badge }>{ badge }</span> : null }
+				</div>
 				<Popover.Description id={ descriptionId }>{ description }</Popover.Description>
 			</div>
 			{ footer ? <div className={ styles.footer }>{ footer }</div> : null }
@@ -85,11 +99,11 @@ export function Navigation( {
 			) : null }
 			<div className={ styles.actions }>
 				{ onSkip ? (
-					<Button variant="ghost" size="sm" onClick={ onSkip }>
+					<Button variant="ghost" size="header" onClick={ onSkip }>
 						{ __( 'Skip' ) }
 					</Button>
 				) : null }
-				<Button ref={ nextButtonRef } variant="accent" size="sm" onClick={ onNext }>
+				<Button ref={ nextButtonRef } variant="accent" size="header" onClick={ onNext }>
 					{ nextLabel }
 				</Button>
 			</div>

@@ -25,9 +25,31 @@ it( 'renders accessible copy and forwards the footer actions', async () => {
 	expect( dialog ).toHaveAccessibleDescription(
 		'Point to anything and describe what you want to change.'
 	);
+	expect( within( dialog ).queryByText( 'New' ) ).not.toBeInTheDocument();
 	expect( within( dialog ).getByRole( 'status' ) ).toHaveTextContent( '1 of 2' );
 	await user.click( within( dialog ).getByRole( 'button', { name: 'Next' } ) );
 	expect( onNext ).toHaveBeenCalledOnce();
 	await user.click( within( dialog ).getByRole( 'button', { name: 'Skip' } ) );
 	expect( onSkip ).toHaveBeenCalledOnce();
+} );
+
+it( 'renders an optional announcement badge and forwards dismissal', async () => {
+	const onDismiss = vi.fn();
+	const { user } = renderWithProviders(
+		<FeaturePopover.Root>
+			<FeaturePopover.Trigger render={ <Button>Annotate</Button> } />
+			<FeaturePopover.Popup
+				tone="accent"
+				title="Try Annotate"
+				description="Leave a note."
+				badge="New"
+				onDismiss={ onDismiss }
+			/>
+		</FeaturePopover.Root>
+	);
+	await user.click( await screen.findByRole( 'button', { name: 'Annotate' } ) );
+	const dialog = await screen.findByRole( 'dialog', { name: 'Try Annotate' } );
+	expect( within( dialog ).getByText( 'New' ) ).toBeVisible();
+	await user.click( within( dialog ).getByRole( 'button', { name: 'Dismiss tip' } ) );
+	expect( onDismiss ).toHaveBeenCalledOnce();
 } );

@@ -50,6 +50,10 @@
 	--accent: var( --accent-fill, oklch( var( --accent-lightness ) var( --accent-chroma ) var( --accent-hue ) ) );
 	--accent-foreground: #fff;
 	--accent-hover: var( --accent );
+	--accent-surface-primary-hover: color-mix( in srgb, var( --accent-foreground ) 82%, var( --accent ) );
+	--accent-surface-muted: color-mix( in srgb, var( --accent-foreground ) 12%, var( --accent ) );
+	--accent-surface-muted-hover: color-mix( in srgb, var( --accent-foreground ) 18%, var( --accent ) );
+	--accent-surface-muted-foreground: color-mix( in srgb, var( --accent-foreground ) 80%, var( --accent ) );
 	--accent-text: var( --accent );
 	--accent-text-hover: var( --accent );
 

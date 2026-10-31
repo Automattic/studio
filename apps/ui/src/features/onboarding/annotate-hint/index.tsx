@@ -1,6 +1,5 @@
 import { __ } from '@wordpress/i18n';
 import { FirstUseTip } from '../first-use-tip';
-import { AnnotateIllustration } from './illustration';
 import type { ComponentProps } from 'react';
 
 export function AnnotateHint(
@@ -10,9 +9,9 @@ export function AnnotateHint(
 		<FirstUseTip
 			{ ...props }
 			dismissalKey="annotateHintDismissed"
+			badge={ __( 'New' ) }
 			title={ __( 'Try Annotate' ) }
 			description={ __( 'Point to anything and describe what you want to change.' ) }
-			illustration={ <AnnotateIllustration /> }
 		/>
 	);
 }

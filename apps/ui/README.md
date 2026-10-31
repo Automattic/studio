@@ -18,6 +18,7 @@ data/core/
   connectors/
     ipc/index.ts          # Electron IPC implementation
     local/index.ts        # `studio ui` HTTP/SSE implementation
+    static/index.ts       # Studio on the web, over apps/static's in-page backend
 ```
 
 Components access data through the `useConnector()` hook, which pulls the active connector from React Context. This keeps all UI code environment-agnostic.
@@ -123,6 +124,12 @@ For hot reload in the browser, keep that server running and start the Vite dev s
 
 ```bash
 npm -w @studio/ui run dev:local
+```
+
+Or run Studio on the web, which needs no Studio server: its backend (`apps/static`) runs in the page, with sites in WordPress Playground. Open http://localhost:3456, or build the static site into `dist-static/` with `build:static`:
+
+```bash
+npm -w @studio/ui run dev:static
 ```
 
 ## Testing

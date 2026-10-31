@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { NOTE_EDITOR_EVENT } from '@studio/agent/node/inspector/note-editor';
-import { bindTool } from '@studio/agent/node/tools/define-tool';
-import { openAnnotationBrowserTool } from '@studio/agent/node/tools/open-annotation-browser';
+import { nodeHostServices } from '@studio/agent/node/node-host';
 import {
 	INSPECTOR_BRIDGE_PREFIX,
 	INSPECTOR_COMMAND_EVENT,
 } from '@studio/agent/protocol/inspector/page-script';
+import { bindTool } from '@studio/agent/shared/tools/define-tool';
+import { openAnnotationBrowserTool } from '@studio/agent/shared/tools/open-annotation-browser';
 import { createFakeHost } from './fake-host';
 
 const page = vi.hoisted( () => ( {
@@ -46,7 +47,10 @@ function editingId(): string {
 
 describe( 'open_annotation_browser', () => {
 	it( 'returns the notes once the user clicks Send', async () => {
-		const result = bindTool( openAnnotationBrowserTool, createFakeHost() ).rawHandler( {
+		const result = bindTool( openAnnotationBrowserTool, {
+			...createFakeHost(),
+			annotate: nodeHostServices().annotate,
+		} ).rawHandler( {
 			url: 'http://localhost:8881',
 		} );
 		await vi.waitFor( () => expect( page.editor ).toBeDefined() );

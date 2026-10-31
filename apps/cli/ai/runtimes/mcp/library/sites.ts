@@ -1,6 +1,7 @@
 import { captureScreenshotBuffer } from '@studio/agent/node';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
+import { cliAgentHost } from 'cli/ai/host';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getSitesRunningStatus } from 'cli/lib/site-utils';
@@ -54,9 +55,10 @@ export async function readWpcomSites() {
 // A small JPEG of a site's front page, as a data URL.
 export async function capturePreview( url: string ) {
 	const { buffer } = await captureScreenshotBuffer(
-		url,
+		cliAgentHost.pages,
+		{ url },
 		{ width: 1280, height: 582 },
 		{ fullPage: false, format: 'jpeg', deviceScaleFactor: 0.5 }
 	);
-	return `data:image/jpeg;base64,${ buffer.toString( 'base64' ) }`;
+	return `data:image/jpeg;base64,${ Buffer.from( buffer ).toString( 'base64' ) }`;
 }

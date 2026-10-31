@@ -4,7 +4,7 @@ import path from 'path';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { getFileWriteRefusal } from '@studio/agent/node/runtime/tool-safety';
-import { buildSystemPrompt } from '@studio/agent/node/system-prompt';
+import { buildSystemPrompt } from '@studio/agent/shared/system-prompt';
 
 let root: string;
 const studioSite = () => path.join( root, 'my-site' );

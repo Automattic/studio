@@ -1,34 +1,32 @@
 import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
-import { readAuthToken } from '@studio/common/lib/shared-config';
-import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { vi } from 'vitest';
-import { validateBlocks } from '@studio/agent/node/block-validator';
 import { getSharedBrowser } from '@studio/agent/node/browser-utils';
-import { generateImages, isImageGenerationAvailable } from '@studio/agent/node/image-generation';
+import { nodeHostServices } from '@studio/agent/node/node-host';
+import { validateBlocks } from '@studio/agent/shared/block-validator';
+import { generateImages } from '@studio/agent/shared/image-generation';
 import {
 	resolveStudioTools,
 	studioToolDefinitions,
 	withChatArtifactEmission,
 	type StudioToolsOptions,
-} from '@studio/agent/node/tools';
-import { createSiteTool } from '@studio/agent/node/tools/create-site';
+} from '@studio/agent/shared/tools';
+import { createSiteTool } from '@studio/agent/shared/tools/create-site';
 import {
 	bindTool,
 	LOCAL_CHANGE,
 	READ_ONLY,
 	REMOTE_READ,
 	type AnyStudioAgentTool,
-} from '@studio/agent/node/tools/define-tool';
-import { enrichPreviewListOutput } from '@studio/agent/node/tools/list-previews';
-import { createTakeScreenshotTool } from '@studio/agent/node/tools/take-screenshot';
-import { splitCommandArgs } from '@studio/agent/node/tools/wp-cli';
+} from '@studio/agent/shared/tools/define-tool';
+import { enrichPreviewListOutput } from '@studio/agent/shared/tools/list-previews';
+import { createTakeScreenshotTool } from '@studio/agent/shared/tools/take-screenshot';
+import { splitCommandArgs } from '@studio/agent/shared/tools/wp-cli';
 import { createFakeHost, fakeSite } from './fake-host';
-import type { StudioAgentHost } from '@studio/agent/node/host';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
 
-vi.mock( '@studio/agent/node/block-validator', () => ( {
+vi.mock( '@studio/agent/shared/block-validator', () => ( {
 	validateBlocks: vi.fn(),
 } ) );
 
@@ -36,21 +34,9 @@ vi.mock( '@studio/agent/node/browser-utils', () => ( {
 	getSharedBrowser: vi.fn(),
 } ) );
 
-vi.mock( '@studio/agent/node/image-generation', async () => ( {
-	...( await vi.importActual( '@studio/agent/node/image-generation' ) ),
+vi.mock( '@studio/agent/shared/image-generation', async () => ( {
+	...( await vi.importActual( '@studio/agent/shared/image-generation' ) ),
 	generateImages: vi.fn(),
-	isImageGenerationAvailable: vi.fn(),
-} ) );
-
-vi.mock( '@studio/common/lib/connected-sites', () => ( {
-	getConnectedWpcomSitesForLocalSite: vi.fn(),
-} ) );
-
-vi.mock( '@studio/common/lib/sync/sync-api', () => ( { fetchSyncableSites: vi.fn() } ) );
-
-vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@studio/common/lib/shared-config') >() ),
-	readAuthToken: vi.fn(),
 } ) );
 
 describe( 'Studio AI MCP tools', () => {
@@ -58,7 +44,7 @@ describe( 'Studio AI MCP tools', () => {
 	let host: StudioAgentHost;
 
 	const getTool = ( name: string ) => {
-		const tool = studioToolDefinitions.find( ( definition ) => definition.name === name );
+		const tool = studioToolDefinitions( host ).find( ( definition ) => definition.name === name );
 		expect( tool ).toBeDefined();
 		return bindTool( tool!, host );
 	};
@@ -134,7 +120,8 @@ describe( 'Studio AI MCP tools', () => {
 
 	beforeEach( () => {
 		vi.resetAllMocks();
-		host = createFakeHost( os.tmpdir() );
+		// The Node pages over a faked Playwright browser.
+		host = { ...createFakeHost( os.tmpdir() ), pages: nodeHostServices().pages };
 	} );
 
 	it( 'offers refresh_browser only when a Studio UI shows the preview', async () => {
@@ -149,7 +136,7 @@ describe( 'Studio AI MCP tools', () => {
 
 	it( 'marks only reads and non-destructive local changes as safe to run without asking', () => {
 		const annotations = Object.fromEntries(
-			studioToolDefinitions.map( ( tool ) => [ tool.name, tool.annotations ] )
+			studioToolDefinitions( host ).map( ( tool ) => [ tool.name, tool.annotations ] )
 		);
 		expect( annotations.site_list ).toEqual( REMOTE_READ );
 		expect( annotations.site_info ).toEqual( READ_ONLY );
@@ -201,6 +188,7 @@ describe( 'Studio AI MCP tools', () => {
 		} as never );
 
 		expect( validateBlocks ).toHaveBeenCalledWith(
+			host.pages,
 			originalContent,
 			expect.stringContaining( 'localhost:8888' )
 		);
@@ -275,7 +263,9 @@ describe( 'Studio AI MCP tools', () => {
 
 		beforeEach( async () => {
 			screenshotDirectory = await mkdtemp( path.join( os.tmpdir(), 'studio-screenshots-' ) );
-			host.screenshotsDirectory = () => screenshotDirectory;
+			host.saveImage = nodeHostServices( {
+				imagesDirectory: () => screenshotDirectory,
+			} ).saveImage;
 		} );
 
 		afterEach( async () => {
@@ -628,17 +618,15 @@ describe( 'Studio AI MCP tools', () => {
 			lastPullTimestamp: null,
 			lastPushTimestamp: null,
 		};
-		vi.mocked( getConnectedWpcomSitesForLocalSite ).mockResolvedValue( [
-			{ ...site, localSiteId: 'site-123', name: 'Name at connect time' },
+		vi.mocked( host.wpcom.connectedSites ).mockResolvedValue( [
+			{ ...site, localSiteId: 'site-123', syncSupport: 'already-connected' },
 		] );
-		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
-		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ site ] );
 
 		const result = await getTool( 'site_connected_remote_sites' ).rawHandler( {
 			nameOrPath: 'My Site',
 		} as never );
 
-		expect( getConnectedWpcomSitesForLocalSite ).toHaveBeenCalledWith( 'site-123' );
+		expect( host.wpcom.connectedSites ).toHaveBeenCalledWith( mockSite );
 		const parsed = JSON.parse( getTextContent( result ) ?? '[]' );
 		expect( parsed ).toEqual( [
 			{
@@ -664,14 +652,14 @@ describe( 'Studio AI MCP tools', () => {
 		} );
 
 		it( 'lists local and WordPress.com sites together', async () => {
-			vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
+			vi.mocked( host.wpcom.token ).mockResolvedValue( 'token' );
 			vi.mocked( host.wpcom.sites ).mockResolvedValue( [
 				{ id: 111, name: 'My Production Site', url: 'https://myprod.wordpress.com' },
 			] );
 
 			const result = await getTool( 'site_list' ).rawHandler( {} as never );
 
-			expect( host.wpcom.sites ).toHaveBeenCalledWith( 'token' );
+			expect( host.wpcom.sites ).toHaveBeenCalled();
 			expect( JSON.parse( getTextContent( result )! ) ).toEqual( {
 				local: [ { id: 'site-123', name: 'My Site', running: false } ],
 				wordpressCom: {
@@ -682,7 +670,7 @@ describe( 'Studio AI MCP tools', () => {
 		} );
 
 		it( 'says when the user is not logged in to WordPress.com', async () => {
-			vi.mocked( readAuthToken ).mockResolvedValue( null );
+			vi.mocked( host.wpcom.token ).mockResolvedValue( undefined );
 
 			const result = await getTool( 'site_list' ).rawHandler( {} as never );
 
@@ -694,7 +682,7 @@ describe( 'Studio AI MCP tools', () => {
 		} );
 
 		it( 'keeps the local sites when WordPress.com cannot be reached', async () => {
-			vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
+			vi.mocked( host.wpcom.token ).mockResolvedValue( 'token' );
 			vi.mocked( host.wpcom.sites ).mockRejectedValue( new Error( 'Failed to fetch' ) );
 
 			const parsed = JSON.parse(
@@ -824,7 +812,7 @@ describe( 'Studio AI MCP tools', () => {
 		const themeImage = path.join( sitePath, 'wp-content/themes/acme/assets/images/band.png' );
 		const urlOf = ( name: string ) => `http://localhost:8888/wp-content/uploads/2026/09/${ name }`;
 		vi.mocked( host.sites.all ).mockResolvedValue( [ mockSite, site ] );
-		vi.mocked( isImageGenerationAvailable ).mockResolvedValue( true );
+		vi.mocked( host.wpcom.imageToken ).mockResolvedValue( 'token' );
 		vi.mocked( generateImages ).mockResolvedValue( [
 			{ ok: true, bytes: Buffer.from( 'jpeg' ) },
 			{ ok: false, error: 'Timed out' },

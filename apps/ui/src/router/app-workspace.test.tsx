@@ -13,6 +13,7 @@ import {
 } from '@/features/annotations';
 import { clearComposerDrafts } from '@/features/composer';
 import {
+	ALL_CAPABILITIES,
 	createFakeConnector,
 	makeSession,
 	makeSite,
@@ -913,7 +914,7 @@ describe( 'Studio workspace', () => {
 		const { connector } = setup( {
 			signedIn: true,
 			overrides: {
-				capabilities: { nativeFolderPicker: true, annotatePreview: true, studioLogs: true },
+				capabilities: ALL_CAPABILITIES,
 			},
 		} );
 		await findComposer();

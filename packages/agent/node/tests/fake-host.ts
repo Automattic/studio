@@ -1,5 +1,6 @@
 import { vi } from 'vitest';
-import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
+import { nodeHostServices } from '@studio/agent/node/node-host';
+import type { HostSite, StudioAgentHost } from '@studio/agent/shared/host';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
 
@@ -37,7 +38,6 @@ export const fakeRemoteSite: SyncSite = {
 export function createFakeHost( sitesRoot = '/sites' ): StudioAgentHost {
 	return {
 		sitesRoot,
-		userAgent: 'WordPressStudio/test',
 		sites: {
 			resolve: vi.fn( async () => fakeSite ),
 			findByFolder: vi.fn( async () => undefined ),
@@ -73,10 +73,28 @@ export function createFakeHost( sitesRoot = '/sites' ): StudioAgentHost {
 			pull: vi.fn( async () => fakeRemoteSite ),
 		},
 		wpcom: {
+			token: vi.fn( async () => 'token' ),
+			imageToken: vi.fn( async () => 'token' ),
 			sites: vi.fn( async () => [] ),
+			connectedSites: vi.fn( async () => [] ),
+			request: vi.fn( async () => ( {} ) ),
+			payloadsDirectory: '/payloads',
 		},
 		tracks: {
 			record: vi.fn( async () => {} ),
 		},
+		// The real file system and paths, so tests work in temporary folders.
+		path: nodeHostServices().path,
+		files: nodeHostServices().files,
+		pages: {
+			open: vi.fn( async () => {
+				throw new Error( 'No browser in tests' );
+			} ),
+			fetchText: vi.fn( async () => ( { status: 404, body: '' } ) ),
+		},
+		saveImage: vi.fn( async ( _bytes: Uint8Array, name: string ) => ( {
+			path: `/images/${ name }`,
+			url: `file:///images/${ name }`,
+		} ) ),
 	};
 }

@@ -9,7 +9,7 @@ import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
 import { getSyncActivity, useSiteSyncActivity } from '@/data/sync-activity';
-import { createFakeConnector, makeSite } from '@/test/fake-connector';
+import { ALL_CAPABILITIES, createFakeConnector, makeSite } from '@/test/fake-connector';
 import { createTestQueryClient } from '@/test/render';
 import { usePullSiteFromLive, usePushSiteToLive, useSyncActivityEvents } from './use-sync-site';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
@@ -36,7 +36,9 @@ function setup(
 ) {
 	const connector = createFakeConnector(
 		{},
-		{ capabilities: { nativeFolderPicker: true, annotatePreview: true, studioLogs } }
+		{
+			capabilities: { ...ALL_CAPABILITIES, studioLogs },
+		}
 	);
 	render(
 		<ConnectorProvider connector={ connector }>

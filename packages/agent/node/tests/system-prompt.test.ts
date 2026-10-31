@@ -1,12 +1,9 @@
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
 import { describe, expect, it } from 'vitest';
-import { loadSkills } from '@studio/agent/node/skills';
-import { buildSystemPrompt } from '@studio/agent/node/system-prompt';
-import { resolveStudioTools, type StudioToolsOptions } from '@studio/agent/node/tools';
+import { loadSkills } from '@studio/agent/shared/skills';
+import { buildSystemPrompt } from '@studio/agent/shared/system-prompt';
+import { resolveStudioTools, type StudioToolsOptions } from '@studio/agent/shared/tools';
 import { createFakeHost } from './fake-host';
-import type { StudioAgentHost } from '@studio/agent/node/host';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
 
 function extractReferencedSkillNames( prompt: string ): string[] {
 	return [
@@ -21,6 +18,16 @@ const toolsFor = ( options: StudioToolsOptions, host: StudioAgentHost = createFa
 	} ) );
 
 describe( 'buildSystemPrompt', () => {
+	it( 'mentions a shell only to agents that have one', () => {
+		expect( buildSystemPrompt( { tools: [ { name: 'Bash' } ] } ) ).toContain(
+			'Never run `wp` commands via Bash'
+		);
+		expect( buildSystemPrompt( { external: true, tools: [] } ) ).toContain(
+			'Never run `wp` commands via Bash'
+		);
+		expect( buildSystemPrompt( { tools: [ { name: 'wp_cli' } ] } ) ).not.toContain( 'Bash' );
+	} );
+
 	it( 'routes plugin-specific feature work to the plugin recommendations skill', () => {
 		const prompt = buildSystemPrompt();
 
@@ -161,21 +168,13 @@ describe( 'buildSystemPrompt', () => {
 	} );
 
 	it( "names the active site's design system when it has a DESIGN.md", () => {
-		const sitePath = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-active-site-' ) );
-		try {
-			fs.writeFileSync( path.join( sitePath, 'DESIGN.md' ), '# Design' );
-			const prompt = buildSystemPrompt( {
-				activeSite: { name: 'Designed', path: sitePath, running: false },
-			} );
-			expect( prompt ).toContain(
-				`"Designed" at ${ sitePath } (stopped), design system: ${ path.join(
-					sitePath,
-					'DESIGN.md'
-				) }`
-			);
-		} finally {
-			fs.rmSync( sitePath, { recursive: true, force: true } );
-		}
+		const prompt = buildSystemPrompt( {
+			activeSite: { name: 'Designed', path: '/sites/designed', running: false },
+			activeSiteDesignPath: '/sites/designed/DESIGN.md',
+		} );
+		expect( prompt ).toContain(
+			'"Designed" at /sites/designed (stopped), design system: /sites/designed/DESIGN.md'
+		);
 	} );
 
 	it( 'appends the user global instructions when set', () => {

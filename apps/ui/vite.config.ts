@@ -1,3 +1,4 @@
+import { copyFileSync } from 'fs';
 import { createRequire } from 'module';
 import { resolve } from 'path';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
@@ -23,9 +24,19 @@ const directDeps = Object.entries( pkg.dependencies ?? {} )
 // standalone browser app wired to the HTTP/SSE `local` connector instead of the
 // Electron IPC bridge. It uses its own entry/output/port so the default
 // Electron-renderer build (`dist/`, port 5200) stays byte-for-byte unchanged.
-const isBrowser = process.env.STUDIO_TARGET === 'local';
-const active = isBrowser
-	? { entry: 'index.local.html', outDir: 'dist-local', port: 5400 }
+// `STUDIO_TARGET=static` builds Studio on the web: a static site wired to the
+// `static` connector, which needs no Studio server at all.
+const isStatic = process.env.STUDIO_TARGET === 'static';
+const isBrowser = process.env.STUDIO_TARGET === 'local' || isStatic;
+const active = isStatic
+	? {
+			entry: 'index.static.html',
+			outDir: 'dist-static',
+			port: 3456,
+			pages: [ 'site-viewer.html' ],
+	  }
+	: isBrowser
+	? { entry: 'index.local.html', outDir: 'dist-local', port: 5400, pages: [] }
 	: undefined;
 
 // The Electron renderer reports errors through the desktop app's Sentry
@@ -65,6 +76,18 @@ const browserDevEntryPlugin: Plugin = {
 	},
 };
 
+// Static hosts serve `index.html`, and `404.html` for the app's other routes
+// (`/sessions/:id`, `/sites/:id`), which the router resolves client-side.
+const staticHostPagesPlugin: Plugin = {
+	name: 'studio-static-host-pages',
+	apply: 'build',
+	closeBundle() {
+		const outDir = resolve( __dirname, 'dist-static' );
+		copyFileSync( resolve( outDir, 'index.static.html' ), resolve( outDir, 'index.html' ) );
+		copyFileSync( resolve( outDir, 'index.static.html' ), resolve( outDir, '404.html' ) );
+	},
+};
+
 // The browser dev server proxies the `studio ui` server, so the app calls it
 // same-origin, as it does when that server serves the built app.
 const studioUiServer = process.env.STUDIO_UI_SERVER ?? 'http://localhost:8081';
@@ -73,6 +96,7 @@ export default defineConfig( {
 	plugins: [
 		react(),
 		...( devEntry ? [ browserDevEntryPlugin ] : [] ),
+		...( isStatic ? [ staticHostPagesPlugin ] : [] ),
 		// Sentry must be the last plugin
 		uploadSourceMaps &&
 			sentryVitePlugin( {
@@ -102,18 +126,24 @@ export default defineConfig( {
 	},
 	server: {
 		port: active?.port ?? 5200,
-		proxy: isBrowser
-			? {
-					'/api': { target: studioUiServer, changeOrigin: true },
-					'/auth/callback': { target: studioUiServer, changeOrigin: true },
-			  }
-			: undefined,
+		proxy:
+			isBrowser && ! isStatic
+				? {
+						'/api': { target: studioUiServer, changeOrigin: true },
+						'/auth/callback': { target: studioUiServer, changeOrigin: true },
+				  }
+				: undefined,
 	},
+	// The static web build previews at the dev server's origin, where the OAuth
+	// redirect is registered.
+	preview: isStatic ? { port: active?.port } : undefined,
 	build: {
 		outDir: active?.outDir ?? 'dist',
 		sourcemap: ! isBrowser,
 		rolldownOptions: {
-			input: resolve( __dirname, active?.entry ?? 'index.html' ),
+			input: [ active?.entry ?? 'index.html', ...( active?.pages ?? [] ) ].map( ( page ) =>
+				resolve( __dirname, page )
+			),
 		},
 	},
 } );

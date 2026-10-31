@@ -8,6 +8,7 @@ import {
 import type { Connector } from '@/data/core';
 
 export {
+	ALL_CAPABILITIES,
 	makeSession,
 	makeSite,
 	TEST_USER,

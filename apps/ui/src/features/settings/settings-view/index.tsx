@@ -191,56 +191,63 @@ function PreferencesPanel( {
 						onChange={ ( locale ) => onChange( { locale } ) }
 					/>
 				</SettingsRow>
-				<SettingsRow
-					title={ __( 'Default code editor' ) }
-					description={ __( 'The default code editor for your sites.' ) }
-				>
-					<SettingsSelect
-						label={ __( 'Default code editor' ) }
-						value={ data.editor }
-						options={ appElements( SUPPORTED_EDITORS, installedApps, data.editor, ( editor ) =>
-							supportedEditorConfig[ editor ].label()
-						) }
-						onChange={ ( editor ) => onChange( { editor } ) }
-					/>
-				</SettingsRow>
-				<SettingsRow
-					title={ __( 'Default browser' ) }
-					description={ __( 'The browser used to open your sites, WP Admin, and phpMyAdmin.' ) }
-				>
-					<SettingsSelect
-						label={ __( 'Default browser' ) }
-						value={ data.browser }
-						options={ [
-							{ value: UNSET, label: __( 'System default' ) },
-							...SUPPORTED_BROWSERS.filter(
-								( browser ) => installedApps?.[ browser ] || browser === data.browser
-							).map( ( browser ) => ( { value: browser, label: browserConfig[ browser ].name } ) ),
-						] }
-						onChange={ ( browser ) => onChange( { browser } ) }
-					/>
-				</SettingsRow>
-				<SettingsRow
-					title={ __( 'Default terminal app' ) }
-					description={ __( 'The default terminal for your sites.' ) }
-				>
-					<SettingsSelect
-						label={ __( 'Default terminal app' ) }
-						value={ data.terminal }
-						options={ appElements(
-							SUPPORTED_TERMINALS,
-							installedApps,
-							data.terminal,
-							( terminal ) => terminalConfig[ terminal ].name()
-						) }
-						onChange={ ( terminal ) => onChange( { terminal } ) }
-					/>
-				</SettingsRow>
-				<DefaultSiteDirectoryRow
-					value={ data.defaultSiteDirectory }
-					onSelect={ onDefaultSiteDirectorySelect }
-					onSave={ ( defaultSiteDirectory ) => onChange( { defaultSiteDirectory } ) }
-				/>
+				{ connector.capabilities.siteFolders && (
+					<>
+						<SettingsRow
+							title={ __( 'Default code editor' ) }
+							description={ __( 'The default code editor for your sites.' ) }
+						>
+							<SettingsSelect
+								label={ __( 'Default code editor' ) }
+								value={ data.editor }
+								options={ appElements( SUPPORTED_EDITORS, installedApps, data.editor, ( editor ) =>
+									supportedEditorConfig[ editor ].label()
+								) }
+								onChange={ ( editor ) => onChange( { editor } ) }
+							/>
+						</SettingsRow>
+						<SettingsRow
+							title={ __( 'Default browser' ) }
+							description={ __( 'The browser used to open your sites, WP Admin, and phpMyAdmin.' ) }
+						>
+							<SettingsSelect
+								label={ __( 'Default browser' ) }
+								value={ data.browser }
+								options={ [
+									{ value: UNSET, label: __( 'System default' ) },
+									...SUPPORTED_BROWSERS.filter(
+										( browser ) => installedApps?.[ browser ] || browser === data.browser
+									).map( ( browser ) => ( {
+										value: browser,
+										label: browserConfig[ browser ].name,
+									} ) ),
+								] }
+								onChange={ ( browser ) => onChange( { browser } ) }
+							/>
+						</SettingsRow>
+						<SettingsRow
+							title={ __( 'Default terminal app' ) }
+							description={ __( 'The default terminal for your sites.' ) }
+						>
+							<SettingsSelect
+								label={ __( 'Default terminal app' ) }
+								value={ data.terminal }
+								options={ appElements(
+									SUPPORTED_TERMINALS,
+									installedApps,
+									data.terminal,
+									( terminal ) => terminalConfig[ terminal ].name()
+								) }
+								onChange={ ( terminal ) => onChange( { terminal } ) }
+							/>
+						</SettingsRow>
+						<DefaultSiteDirectoryRow
+							value={ data.defaultSiteDirectory }
+							onSelect={ onDefaultSiteDirectorySelect }
+							onSave={ ( defaultSiteDirectory ) => onChange( { defaultSiteDirectory } ) }
+						/>
+					</>
+				) }
 				<SettingsRow
 					title={ __( 'Improve WordPress Studio for everyone' ) }
 					description={ __( 'Share anonymous usage statistics to improve WordPress Studio.' ) }

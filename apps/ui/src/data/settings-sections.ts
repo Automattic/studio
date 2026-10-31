@@ -18,6 +18,7 @@ import {
 	SiteSettingsIcon,
 	SkillsIcon,
 } from '@/lib/icons';
+import type { ConnectorCapabilities } from '@/data/core';
 import type { ComponentType } from 'react';
 
 const STUDIO_SECTIONS = [
@@ -84,7 +85,10 @@ const setting = (
 	icon,
 } );
 
-function getStudioSections( signedIn: boolean ): Section[] {
+function getStudioSections(
+	signedIn: boolean,
+	{ siteFolders = true, siteAgentFiles = true }: Partial< SettingsCapabilities > = {}
+): Section[] {
 	const sections: Section[] = [
 		{
 			command: 'settings',
@@ -99,32 +103,36 @@ function getStudioSections( signedIn: boolean ): Section[] {
 					'language',
 					LanguageIcon
 				),
-				setting(
-					'navigate',
-					__( 'Default code editor' ),
-					__( 'The default code editor for your sites.' ),
-					'code-editor',
-					CodeIcon
-				),
-				setting(
-					'navigate',
-					__( 'Default browser' ),
-					__( 'The browser used to open your sites, WP Admin, and phpMyAdmin.' ),
-					'browser'
-				),
-				setting(
-					'navigate',
-					__( 'Default terminal app' ),
-					__( 'The default terminal for your sites.' ),
-					'terminal',
-					TerminalIcon
-				),
-				setting(
-					'navigate',
-					__( 'Default directory' ),
-					__( 'The folder where WordPress Studio creates new sites.' ),
-					'default-directory'
-				),
+				...( siteFolders
+					? [
+							setting(
+								'navigate',
+								__( 'Default code editor' ),
+								__( 'The default code editor for your sites.' ),
+								'code-editor',
+								CodeIcon
+							),
+							setting(
+								'navigate',
+								__( 'Default browser' ),
+								__( 'The browser used to open your sites, WP Admin, and phpMyAdmin.' ),
+								'browser'
+							),
+							setting(
+								'navigate',
+								__( 'Default terminal app' ),
+								__( 'The default terminal for your sites.' ),
+								'terminal',
+								TerminalIcon
+							),
+							setting(
+								'navigate',
+								__( 'Default directory' ),
+								__( 'The folder where WordPress Studio creates new sites.' ),
+								'default-directory'
+							),
+					  ]
+					: [] ),
 				setting(
 					'action',
 					__( 'Improve WordPress Studio for everyone' ),
@@ -361,11 +369,30 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			aliases: [ __( 'Keyboard shortcuts' ) ],
 		},
 	];
-	return sections.filter( ( section ) => signedIn || section.id !== 'usage' );
+	// MCP sets up the local CLI, and skills are installed into site folders.
+	return sections.filter(
+		( section ) =>
+			( signedIn || section.id !== 'usage' ) &&
+			( siteFolders || section.id !== 'mcp' ) &&
+			( siteAgentFiles || section.id !== 'skills' )
+	);
 }
 
-function getSiteSections(): Section[] {
-	return [
+// What the host supports of the settings, by connector capability. All of it
+// when left out.
+type SettingsCapabilities = Pick<
+	ConnectorCapabilities,
+	'customDomains' | 'xdebug' | 'siteAgentFiles' | 'fileAccess' | 'versionChoice' | 'siteFolders'
+>;
+
+function getSiteSections( {
+	customDomains = true,
+	xdebug = true,
+	siteAgentFiles = true,
+	fileAccess = true,
+	versionChoice = true,
+}: Partial< SettingsCapabilities > = {} ): Section[] {
+	const sections: Section[] = [
 		{
 			command: 'site-settings',
 			id: 'site',
@@ -378,30 +405,40 @@ function getSiteSections(): Section[] {
 					__( 'Name shown in WordPress Studio.' ),
 					'site-name'
 				),
-				setting(
-					'navigate',
-					__( 'WordPress version' ),
-					__( 'Choose the WordPress release for this site.' ),
-					'wordpress-version'
-				),
-				setting(
-					'navigate',
-					__( 'Automatic updates' ),
-					__( 'Keep WordPress updated to the latest released version.' ),
-					'automatic-updates'
-				),
-				setting(
-					'navigate',
-					__( 'Use custom domain' ),
-					__( 'Use a local address like my-site.local.' ),
-					'custom-domain'
-				),
-				setting(
-					'navigate',
-					__( 'Enable HTTPS' ),
-					__( 'Test features that require HTTPS and catch issues before your site goes live.' ),
-					'https'
-				),
+				...( versionChoice
+					? [
+							setting(
+								'navigate',
+								__( 'WordPress version' ),
+								__( 'Choose the WordPress release for this site.' ),
+								'wordpress-version'
+							),
+							setting(
+								'navigate',
+								__( 'Automatic updates' ),
+								__( 'Keep WordPress updated to the latest released version.' ),
+								'automatic-updates'
+							),
+					  ]
+					: [] ),
+				...( customDomains
+					? [
+							setting(
+								'navigate',
+								__( 'Use custom domain' ),
+								__( 'Use a local address like my-site.local.' ),
+								'custom-domain'
+							),
+							setting(
+								'navigate',
+								__( 'Enable HTTPS' ),
+								__(
+									'Test features that require HTTPS and catch issues before your site goes live.'
+								),
+								'https'
+							),
+					  ]
+					: [] ),
 				setting(
 					'navigate',
 					__( 'Username' ),
@@ -433,12 +470,16 @@ function getSiteSections(): Section[] {
 					__( 'Sets the value returned by wp_get_environment_type().' ),
 					'environment'
 				),
-				setting(
-					'navigate',
-					__( 'Xdebug' ),
-					__( 'Connect a debugger to inspect PHP execution.' ),
-					'xdebug'
-				),
+				...( xdebug
+					? [
+							setting(
+								'navigate',
+								__( 'Xdebug' ),
+								__( 'Connect a debugger to inspect PHP execution.' ),
+								'xdebug'
+							),
+					  ]
+					: [] ),
 				setting(
 					'navigate',
 					__( 'Debug log' ),
@@ -464,20 +505,28 @@ function getSiteSections(): Section[] {
 			label: __( 'PHP' ),
 			icon: PhpIcon,
 			settings: [
-				setting(
-					'navigate',
-					__( 'PHP version' ),
-					__( 'The PHP version used to run WordPress on this site.' ),
-					'php-version'
-				),
-				setting(
-					'navigate',
-					__( 'File access' ),
-					__(
-						'Choose whether this site can access only its own folder or other files on your computer.'
-					),
-					'file-access'
-				),
+				...( versionChoice
+					? [
+							setting(
+								'navigate',
+								__( 'PHP version' ),
+								__( 'The PHP version used to run WordPress on this site.' ),
+								'php-version'
+							),
+					  ]
+					: [] ),
+				...( fileAccess
+					? [
+							setting(
+								'navigate',
+								__( 'File access' ),
+								__(
+									'Choose whether this site can access only its own folder or other files on your computer.'
+								),
+								'file-access'
+							),
+					  ]
+					: [] ),
 			],
 		},
 		{
@@ -495,10 +544,24 @@ function getSiteSections(): Section[] {
 			],
 		},
 	];
+	return sections.filter(
+		( section ) =>
+			( siteAgentFiles ||
+				( section.id !== 'site-skills' && section.id !== 'site-instructions' ) ) &&
+			( section.id !== 'php' || section.settings.length > 0 )
+	);
 }
 
-export function getSections( scope: SettingsScope, { signedIn = true } = {} ): Section[] {
-	return scope === 'studio' ? getStudioSections( signedIn ) : getSiteSections();
+export function getSections(
+	scope: SettingsScope,
+	{
+		signedIn = true,
+		capabilities,
+	}: { signedIn?: boolean; capabilities?: Partial< SettingsCapabilities > } = {}
+): Section[] {
+	return scope === 'studio'
+		? getStudioSections( signedIn, capabilities )
+		: getSiteSections( capabilities );
 }
 
 /** Alternate names for existing commands that already own a settings destination. */
@@ -543,7 +606,11 @@ export type SearchResult = { scope: SettingsScope; section: Section; setting?: S
 export function searchSettings(
 	query: string,
 	scope: SettingsScope,
-	{ hasSite, signedIn }: { hasSite: boolean; signedIn: boolean }
+	{
+		hasSite,
+		signedIn,
+		capabilities,
+	}: { hasSite: boolean; signedIn: boolean; capabilities?: Partial< SettingsCapabilities > }
 ): SearchResult[] {
 	const words = query.trim().toLocaleLowerCase().split( /\s+/ ).filter( Boolean );
 	if ( ! words.length ) {
@@ -559,7 +626,7 @@ export function searchSettings(
 	};
 	return scopes
 		.flatMap( ( candidate, scopeIndex ) =>
-			getSections( candidate, { signedIn } ).flatMap( ( section ) =>
+			getSections( candidate, { signedIn, capabilities } ).flatMap( ( section ) =>
 				[
 					{ ...setting( 'navigate', section.label ), aliases: section.aliases },
 					...section.settings,

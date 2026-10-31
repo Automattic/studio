@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	STALE_IMAGE_PLACEHOLDER_TEXT,
 	stripStaleImagesFromContext,
-} from '@studio/agent/node/runtime/strip-stale-images';
+} from '@studio/agent/shared/runtime-guards/strip-stale-images';
 import type { Message } from '@earendil-works/pi-ai';
 
 const screenshot = ( id: number, bytes: number ): Message => ( {

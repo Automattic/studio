@@ -1,0 +1,194 @@
+import { Type } from 'typebox';
+import { validateHtmlBlockPolicy } from '@studio/agent/shared/block-content-policy';
+import { validateBlocks, type ValidationReportBase } from '@studio/agent/shared/block-validator';
+import { generateUnifiedPatch } from '@studio/agent/shared/unified-patch';
+import { defineTool, LOCAL_OVERWRITE } from './define-tool';
+import { textResult } from './utils';
+
+function formatPreview( content: string ): string {
+	const compact = content.replace( /\s+/g, ' ' ).trim();
+	return compact.length > 500 ? compact.slice( 0, 500 ) + '…' : compact;
+}
+
+function formatInvalidBlocks( report: ValidationReportBase ): string[] {
+	const lines: string[] = [];
+	for ( const result of report.results ) {
+		if ( ! result.isValid ) {
+			lines.push( `  - ${ result.blockName }` );
+			for ( const issue of result.issues ) {
+				lines.push( `    ${ issue }` );
+			}
+			if ( result.expectedContent !== undefined ) {
+				lines.push( `    Expected: ${ result.expectedContent }` );
+				lines.push( `    Actual:   ${ result.originalContent }` );
+			}
+		}
+	}
+	return lines;
+}
+
+function formatMarkdownFence( language: string, content: string ): string {
+	const longestBacktickRun = Math.max(
+		0,
+		...Array.from( content.matchAll( /`+/g ), ( match ) => match[ 0 ].length )
+	);
+	const fence = '`'.repeat( Math.max( 3, longestBacktickRun + 1 ) );
+	return `${ fence }${ language }\n${ content }\n${ fence }`;
+}
+
+export const validateBlocksTool = defineTool(
+	'validate_blocks',
+	"Validates WordPress block content in two stages and returns a combined report. First runs a static core/html block policy check; if it finds invalid core/html blocks, it returns only those (rewrite them as editable core or plugin blocks and call again) without touching the editor. Once the policy check passes, it validates the content in the site's real block editor: with filePath it applies safe live-editor serialization fixes directly to the file and returns a CSS-review diff; with inline content it returns the exact fixed block content plus the diff. The site must be running, with the theme and the plugins the content uses already active: the editor only recognizes the active theme and registered plugin blocks. Validate block content before it reaches the site: before `wp post create/update`, and before `wp_cli eval` that imports a scratch file such as `<site>/tmp/page-<slug>.html`. Theme `templates/*.html` and `parts/*.html` files are live the moment they are written, so validate each one with `filePath` right after writing or editing it. If an auto-fix was applied, the file already holds the fixed content; do not replace markup or re-validate unless you change the markup, and use the diff only to update CSS selectors for class/nesting changes. For inline content, use the returned fixed content exactly.",
+	{
+		nameOrPath: Type.String( {
+			description: 'The site name or file system path — the site must be running',
+		} ),
+		filePath: Type.Optional(
+			Type.String( {
+				description:
+					'Path to a file containing WordPress block content to validate and fix — absolute, or relative to the site root',
+			} )
+		),
+		content: Type.Optional(
+			Type.String( {
+				description: 'Raw WordPress block content (HTML with block comments) to validate and fix',
+			} )
+		),
+	},
+	async ( args, context ) => {
+		try {
+			const { files, path } = context.host;
+			const site = await context.host.sites.resolve( args.nameOrPath );
+			let blockContent: string;
+			let fileName = 'inline content';
+			let filePath: string | undefined;
+
+			if ( args.filePath ) {
+				filePath = path.resolve( site.path, args.filePath );
+				blockContent = await files.readText( filePath );
+				fileName = filePath.split( path.sep ).slice( -2 ).join( '/' );
+			} else if ( args.content !== undefined ) {
+				blockContent = args.content;
+			} else {
+				throw new Error( 'Either content or filePath must be provided.' );
+			}
+
+			// Stage 1: static core/html policy check. Acts as a gate — if it
+			// fails we stop here instead of paying the live-editor round-trip on
+			// content we already know needs rewriting.
+			context.onProgress( `Checking HTML blocks in ${ fileName }…` );
+			const htmlReport = validateHtmlBlockPolicy( blockContent );
+
+			if ( htmlReport.invalidHtmlBlocks.length > 0 ) {
+				context.onProgress(
+					`${ fileName }: ${ htmlReport.invalidHtmlBlocks.length }/${ htmlReport.totalHtmlBlocks } core/html blocks invalid`
+				);
+				const lines = [
+					`HTML block policy: ${ htmlReport.invalidHtmlBlocks.length }/${ htmlReport.totalHtmlBlocks } core/html blocks invalid`,
+					'',
+					'Invalid HTML blocks:',
+					...htmlReport.invalidHtmlBlocks.flatMap( ( block ) => [
+						`  - #${ block.blockNumber } line ${ block.line }`,
+						...block.issues.map( ( issue ) => `    ${ issue }` ),
+						`    Content: ${ formatPreview( block.content ) }`,
+					] ),
+					'',
+					'Rewrite each invalid core/html block as editable core or plugin blocks, then call validate_blocks again. Editor validation was skipped until the HTML policy passes.',
+				];
+				return textResult( lines.join( '\n' ) );
+			}
+
+			const htmlSummary =
+				htmlReport.totalHtmlBlocks === 0
+					? 'HTML block policy: no core/html blocks found.'
+					: `HTML block policy: all ${ htmlReport.totalHtmlBlocks } core/html blocks within policy.`;
+
+			// Stage 2: validate (and fix) in the site's real block editor.
+			context.onProgress( `Validating and fixing blocks in ${ fileName }…` );
+
+			const siteUrl = site.url;
+			const report = await validateBlocks( context.host.pages, blockContent, siteUrl );
+
+			if ( report.error ) {
+				context.onProgress(
+					`Validation failed for ${ fileName }: ${ report.error.slice( 0, 80 ) }`
+				);
+				throw new Error( `Block validation failed: ${ report.error }` );
+			}
+
+			if ( report.invalidBlocks === 0 ) {
+				context.onProgress( `${ fileName }: all ${ report.totalBlocks } blocks valid` );
+				return textResult(
+					[
+						htmlSummary,
+						`Validation: ${ report.validBlocks }/${ report.totalBlocks } blocks valid`,
+						'No editor serialization fixes needed.',
+					].join( '\n' )
+				);
+			}
+
+			const invalidNames = report.results
+				.filter( ( result ) => ! result.isValid )
+				.map( ( result ) => result.blockName )
+				.join( ', ' );
+			context.onProgress( `${ fileName }: ${ report.invalidBlocks } invalid (${ invalidNames })` );
+
+			const lines = [
+				htmlSummary,
+				`Validation: ${ report.validBlocks }/${ report.totalBlocks } blocks valid`,
+				'',
+				'Invalid blocks:',
+				...formatInvalidBlocks( report ),
+			];
+
+			if ( report.proposedFix ) {
+				const fixedReport = report.proposedFix.report;
+				if ( fixedReport.error ) {
+					lines.push( '', `Auto-fix proposal failed validation: ${ fixedReport.error }` );
+				} else if ( fixedReport.invalidBlocks === 0 ) {
+					const fixedContent = report.proposedFix.fixedContent;
+					const diff = generateUnifiedPatch( fileName, blockContent, fixedContent );
+					if ( filePath ) {
+						await files.write( filePath, fixedContent );
+						context.onProgress( `${ fileName }: editor serialization fix applied` );
+						lines.push(
+							'',
+							`Auto-fix applied: ${ fixedReport.validBlocks }/${ fixedReport.totalBlocks } blocks valid after live-editor serialization.`,
+							`The fixed block content has already been written to ${ fileName }. Do not replace it manually. Use the diff only to review class/nesting changes and update CSS selectors if needed.`
+						);
+					} else {
+						lines.push(
+							'',
+							`Auto-fix proposal: ${ fixedReport.validBlocks }/${ fixedReport.totalBlocks } blocks valid after live-editor serialization.`,
+							'Use the fixed block content below as the replacement block content. Use the diff only to review class/nesting changes and update CSS selectors if needed.',
+							'',
+							'Fixed block content:',
+							formatMarkdownFence( 'html', fixedContent )
+						);
+					}
+					lines.push( '', 'Diff for CSS review:', '```diff', diff, '```' );
+				} else {
+					lines.push(
+						'',
+						`Auto-fix proposal still has ${ fixedReport.invalidBlocks } invalid block(s), so no trusted diff is returned.`,
+						'Remaining invalid blocks:',
+						...formatInvalidBlocks( fixedReport )
+					);
+				}
+			} else {
+				lines.push( '', 'No automatic editor serialization fix was available.' );
+			}
+
+			return textResult( lines.join( '\n' ) );
+		} catch ( error ) {
+			throw new Error(
+				`Block validation failed: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	},
+	{
+		annotations: LOCAL_OVERWRITE,
+		promptSnippet:
+			"Validate block content in two stages and return a combined report. First a static core/html policy check; if it finds invalid core/html blocks it returns only those (rewrite them as editable core or plugin blocks and call again) and skips the editor. Once it passes, validates in the running site's real block editor: with filePath, applies safe editor fixes directly to the file and returns a CSS-review diff; with inline content, returns exact fixed block content plus the diff. Requires a site name or path. Call after every file write/edit that contains block content.",
+	}
+);

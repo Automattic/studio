@@ -1,10 +1,8 @@
 import {
-	INSPECTOR_COMMAND_EVENT,
 	INSPECTOR_PAGE_SCRIPT,
 	parseInspectorMessage,
 	type InspectorEvent,
 } from '@studio/agent/protocol/inspector/page-script';
-import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useColorScheme } from '@/data/host/use-color-scheme';
 import {
@@ -15,6 +13,7 @@ import {
 	type BrowserNavigationState,
 } from '@/features/sites/site-preview/browser-state';
 import { getEmbeddedFontData } from '@/lib/theme';
+import { buildInspectorCommandScript } from './inspector-command';
 import styles from './style.module.css';
 import {
 	ERR_ABORTED,
@@ -408,36 +407,8 @@ export function WebviewSurface( {
 	useEffect( () => {
 		const webview = ref.current as WebviewTag | null;
 		if ( ! inspectorReady || ! webview || ! annotations ) return;
-		const theme = getComputedStyle( webview );
-		const detail = {
-			active: annotations.active,
-			editingId: annotations.editingId,
-			notes: annotations.notes.map(
-				( { id, number, selector, url, documentRect, point, staged } ) => ( {
-					id,
-					number,
-					selector,
-					url,
-					documentRect,
-					point,
-					pending: ! staged,
-				} )
-			),
-			annotationLabel: __( 'Annotation' ),
-			pendingAnnotationLabel: __( 'Pending annotation' ),
-			fontFamily: '"Studio Annotation", system-ui',
-			accent: theme.getPropertyValue( '--accent' ).trim(),
-			onAccent: theme.getPropertyValue( '--accent-foreground' ).trim(),
-			motionDuration: theme.getPropertyValue( '--motion-duration-surface' ).trim(),
-			motionEasing: theme.getPropertyValue( '--motion-ease-enter' ).trim(),
-		};
 		webview
-			.executeJavaScript(
-				`window.dispatchEvent(new CustomEvent(${ JSON.stringify(
-					INSPECTOR_COMMAND_EVENT
-				) }, { detail: ${ JSON.stringify( detail ) } }));`,
-				false
-			)
+			.executeJavaScript( buildInspectorCommandScript( annotations, webview ), false )
 			.catch( () => undefined );
 	}, [ annotations, colorScheme, inspectorReady ] );
 

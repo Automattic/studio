@@ -249,7 +249,9 @@ async function runPush(
 		const { promise: uploadPromise, abort: abortUpload } = createTusUpload( {
 			token: token.accessToken,
 			remoteSiteId: remoteSite.id,
-			archivePath,
+			file: fs.createReadStream( archivePath ),
+			filename: path.basename( archivePath ),
+			size: archiveSize,
 			onProgress: ( percent ) => {
 				if ( Math.round( percent ) !== uploadPercent ) {
 					uploadPercent = Math.round( percent );

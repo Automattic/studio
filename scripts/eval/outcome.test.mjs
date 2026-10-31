@@ -1290,6 +1290,14 @@ test( 'restyleApplied judges the last turn against the first', () => {
 			homeStylesByTurn: [ { 'Spoke & Chain': first } ],
 		} );
 	expect( result( last ).pass ).toBe( true );
+	// eval7 picky 1: 12px corners on 48px buttons, and footer text reworded as it shrank.
+	expect(
+		result( {
+			...last,
+			buttons: [ { ...last.buttons[ 0 ], radii: Array( 4 ).fill( '12px' ) } ],
+			footerText: [ { text: '© 2026 Spoke & Chain', fontSize: '12.8px' } ],
+		} ).pass
+	).toBe( true );
 	// eval6's Athletic site: lime buttons on a dark green header and page.
 	const lime = [ { ...last.buttons[ 0 ], background: 'rgb(143, 209, 79)' } ];
 	for ( const surface of [ 'headerBackground', 'pageBackground' ] )

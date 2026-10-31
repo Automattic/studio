@@ -1145,7 +1145,7 @@ function hueAndLightness( [ r, g, b ] ) {
 // A picky user's restyle, then their change to it, reached the home page as a
 // browser renders it: the header stays at the top after a scroll; the shop
 // name and menu trade the sides the first turn gave them; the buttons are a
-// little rounded (corners above 0, under a quarter of their height, so the
+// little rounded (corners above 0, at most a third of their height, so the
 // pills asked for first no longer pass); every heading displays lowercase but
 // the big title at the top (the largest on the first screen), which keeps its capitals; some of the footer's text is smaller
 // than the first turn's; and dark green is the site's color (most filled
@@ -1171,7 +1171,7 @@ export const restyleApplied = check( ( d, vars ) => {
 		);
 	for ( const button of styles.buttons ) {
 		const radii = button.radii.map( parseFloat );
-		if ( radii.some( ( radius ) => ! ( radius > 0 && radius < button.height / 4 ) ) )
+		if ( radii.some( ( radius ) => ! ( radius > 0 && radius <= button.height / 3 ) ) )
 			misses.push(
 				`button "${ button.text }" (${ button.height }px tall) has corners ${ button.radii.join(
 					' '
@@ -1213,15 +1213,17 @@ export const restyleApplied = check( ( d, vars ) => {
 			misses.push( `${ heading.tag } "${ heading.text }" is not lowercase` );
 	}
 	// "The small print" may be all of the footer's text or only its fine print:
-	// some of it got smaller, matched by its text.
+	// some of it got smaller, matched by its text, or, reworded, the footer's
+	// smallest text is smaller than it was.
 	const before = new Map(
 		first.footerText.map( ( text ) => [ text.text, parseFloat( text.fontSize ) ] )
 	);
 	const smaller = styles.footerText.filter(
 		( text ) => parseFloat( text.fontSize ) < ( before.get( text.text ) ?? 0 )
 	);
+	const smallest = ( texts ) => Math.min( ...texts.map( ( text ) => parseFloat( text.fontSize ) ) );
 	if ( ! styles.footerText.length ) misses.push( 'no footer text' );
-	else if ( ! smaller.length )
+	else if ( ! smaller.length && ! ( smallest( styles.footerText ) < smallest( first.footerText ) ) )
 		misses.push(
 			`no footer text got smaller: ${ styles.footerText
 				.map( ( text ) => `"${ text.text }" ${ text.fontSize }` )

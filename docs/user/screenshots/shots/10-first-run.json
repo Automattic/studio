@@ -1,0 +1,396 @@
+{
+	"name": "first-run",
+	"description": "First launch, signed out: the welcome dialog, Add site, creating a site, and the orientation guide",
+	"firstRun": true,
+	"capture": {
+		"target": {
+			"role": "dialog",
+			"has": {
+				"role": "tablist",
+				"name": "Ways to add a site"
+			}
+		}
+	},
+	"shots": [
+		{
+			"name": "welcome",
+			"description": "First-run Welcome to WordPress Studio dialog",
+			"pages": [ "index.md" ],
+			"replaces": [ "2024/04/welcome.png" ],
+			"steps": [
+				{
+					"waitFor": {
+						"role": "dialog",
+						"name": "Welcome to WordPress Studio"
+					}
+				}
+			],
+			"after": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Not now"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "dialog",
+						"name": "Welcome to WordPress Studio"
+					},
+					"hidden": true
+				}
+			],
+			"capture": {
+				"target": {
+					"role": "dialog",
+					"name": "Welcome to WordPress Studio"
+				}
+			}
+		},
+		{
+			"name": "add-site",
+			"description": "Add site dialog: Create / Connect / Import, Blueprint categories, Choose a starting point",
+			"pages": [ "sites.md", "blueprints/index.md" ],
+			"replaces": [ "2025/01/add-a-site.png" ],
+			"steps": [
+				{
+					"helper": "openAddSite"
+				},
+				{
+					"waitFor": {
+						"text": "Loading Blueprints…"
+					},
+					"hidden": true,
+					"timeout": 30000,
+					"optional": true
+				},
+				{
+					"waitForImages": {
+						"role": "dialog",
+						"has": {
+							"role": "tablist",
+							"name": "Ways to add a site"
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "blueprints-library",
+			"description": "Add site → Blueprints → Business category",
+			"pages": [ "blueprints/index.md" ],
+			"replaces": [ "2025/10/blueprints-library.png" ],
+			"steps": [
+				{
+					"click": {
+						"within": {
+							"role": "tablist",
+							"name": "Ways to add a site"
+						},
+						"role": "tab",
+						"name": "Business",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"text": "Loading Blueprints…"
+					},
+					"hidden": true,
+					"timeout": 30000,
+					"optional": true
+				},
+				{
+					"waitForImages": {
+						"role": "dialog",
+						"has": {
+							"role": "tablist",
+							"name": "Ways to add a site"
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "blueprint-details",
+			"description": "A Blueprint’s details, with Preview in browser and Create site",
+			"pages": [ "blueprints/index.md" ],
+			"replaces": [ "2025/10/create-site-from-blueprint.png" ],
+			"steps": [
+				{
+					"click": {
+						"within": {
+							"role": "dialog",
+							"has": {
+								"role": "tablist",
+								"name": "Ways to add a site"
+							}
+						},
+						"css": "[data-blueprint-slug]",
+						"first": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "button",
+						"name": "Preview in browser"
+					}
+				},
+				{
+					"waitForImages": {
+						"role": "dialog",
+						"has": {
+							"role": "button",
+							"name": "Preview in browser"
+						}
+					}
+				}
+			],
+			"after": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Back to Blueprints"
+					}
+				},
+				{
+					"waitFor": {
+						"within": {
+							"role": "tablist",
+							"name": "Ways to add a site"
+						},
+						"role": "tab",
+						"name": "Business",
+						"exact": true
+					}
+				}
+			],
+			"capture": {
+				"target": {
+					"role": "dialog",
+					"has": {
+						"role": "button",
+						"name": "Preview in browser"
+					}
+				}
+			}
+		},
+		{
+			"name": "add-site-connect",
+			"description": "Add site → Connect, signed out: Connect to an existing WordPress",
+			"pages": [ "sync.md" ],
+			"steps": [
+				{
+					"click": {
+						"within": {
+							"role": "tablist",
+							"name": "Ways to add a site"
+						},
+						"role": "tab",
+						"name": "Connect",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "heading",
+						"name": "Connect to an existing WordPress"
+					}
+				}
+			]
+		},
+		{
+			"name": "add-site-import",
+			"description": "Add site → Import: Drop a WordPress backup here / Choose file",
+			"pages": [ "import-export.md" ],
+			"replaces": [ "2025/01/add-a-site-1.png" ],
+			"steps": [
+				{
+					"click": {
+						"within": {
+							"role": "tablist",
+							"name": "Ways to add a site"
+						},
+						"role": "tab",
+						"name": "Import",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"text": "Drop a WordPress backup here."
+					}
+				}
+			]
+		},
+		{
+			"name": "add-site-upload",
+			"description": "Add site → Upload: Upload a Blueprint, with its drop area and Choose file",
+			"pages": [ "blueprints/index.md" ],
+			"steps": [
+				{
+					"click": {
+						"within": {
+							"role": "tablist",
+							"name": "Ways to add a site"
+						},
+						"role": "tab",
+						"name": "Upload",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"text": "Drop a Blueprint here."
+					}
+				}
+			]
+		},
+		{
+			"name": "create-site",
+			"description": "Create a blank site: Site name, Local path, and the WordPress and PHP versions",
+			"pages": [ "sites.md" ],
+			"steps": [
+				{
+					"click": {
+						"within": {
+							"role": "tablist",
+							"name": "Ways to add a site"
+						},
+						"role": "tab",
+						"name": "Create",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"role": "button",
+						"name": "Start with Blank site"
+					}
+				},
+				{
+					"fill": {
+						"role": "textbox",
+						"name": "Site name"
+					},
+					"value": "My WordPress Website",
+					"blur": true
+				}
+			],
+			"capture": {
+				"target": {
+					"role": "dialog",
+					"has": {
+						"role": "textbox",
+						"name": "Site name"
+					}
+				}
+			}
+		},
+		{
+			"name": "create-site-advanced",
+			"description": "Create a blank site → Advanced settings (File access, Use custom domain, admin credentials)",
+			"pages": [ "sites.md", "php-runtimes.md" ],
+			"replaces": [ "2025/01/create-site-advanced.png" ],
+			"steps": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Advanced settings"
+					}
+				},
+				{
+					"scrollTo": {
+						"text": "Advanced settings"
+					},
+					"offset": 80
+				}
+			],
+			"capture": {
+				"target": {
+					"role": "dialog",
+					"has": {
+						"role": "textbox",
+						"name": "Site name"
+					}
+				}
+			}
+		},
+		{
+			"name": "create-site-https",
+			"description": "Create your site → Advanced settings with Use custom domain and Enable HTTPS",
+			"pages": [ "ssl-in-studio.md" ],
+			"replaces": [ "2025/03/create-site-https.png" ],
+			"steps": [
+				{
+					"toggle": "Use custom domain",
+					"on": true
+				},
+				{
+					"toggle": "Enable HTTPS",
+					"on": true
+				},
+				{
+					"scrollTo": {
+						"role": "switch",
+						"name": "Use custom domain"
+					},
+					"offset": 120
+				}
+			],
+			"after": [
+				{
+					"toggle": "Enable HTTPS",
+					"on": false
+				},
+				{
+					"toggle": "Use custom domain",
+					"on": false
+				}
+			],
+			"capture": {
+				"target": {
+					"role": "dialog",
+					"has": {
+						"role": "textbox",
+						"name": "Site name"
+					}
+				}
+			}
+		},
+		{
+			"name": "orientation-guide",
+			"description": "Orientation guide, page 1, shown after the first site is created",
+			"pages": [ "index.md" ],
+			"steps": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Create site",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "dialog",
+						"name": "Welcome to WordPress Studio"
+					},
+					"timeout": 180000
+				},
+				{
+					"waitFor": {
+						"css": "button[aria-label=\"Stop My WordPress Website\"]",
+						"first": true
+					},
+					"timeout": 120000
+				}
+			],
+			"capture": {
+				"target": {
+					"role": "dialog",
+					"name": "Welcome to WordPress Studio"
+				}
+			}
+		}
+	]
+}

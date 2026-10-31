@@ -2,7 +2,7 @@
 
 Agent instruction files tell agents how to work with a Studio site, but they do not give agents direct access to it. For that, Studio also exposes an MCP (Model Context Protocol) server that agents connect to in order to create, start, stop, and interact with your local WordPress sites.
 
-To connect an agent, open **App settings** in Studio (at the bottom of the sidebar, or ⌘, / Ctrl+,), select the **MCP** tab, and click **Copy MCP configuration** to copy the JSON configuration shown there. Add it to your agent’s MCP settings:
+To connect an agent, open **Settings** in Studio (at the bottom of the sidebar, or ⌘, / Ctrl+,) and select the **MCP** page. Under **Install instructions**, Studio shows the command to install the Studio CLI and the JSON configuration to add; use **Copy MCP configuration** to copy it. Add it to your agent’s MCP settings:
 
 ```json
 {
@@ -20,7 +20,7 @@ claude mcp add wordpress-studio -- studio mcp
 codex mcp add wordpress-studio -- studio mcp
 ```
 
-[![The MCP tab of Studio's App settings, with the MCP configuration and the Copy MCP configuration button.](https://developer.wordpress.com/wp-content/uploads/2026/04/app-settings-mcp.png)](https://developer.wordpress.com/wp-content/uploads/2026/04/app-settings-mcp.png)
+[![The MCP page of Studio's Settings, with the command to install the Studio CLI and the MCP configuration to add to your assistant.](https://developer.wordpress.com/wp-content/uploads/2026/04/settings-mcp.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/settings-mcp.webp)
 
 Common configuration file locations are:
 
@@ -35,7 +35,7 @@ See the full setup guides for [Claude Code](https://code.claude.com/docs/en/mcp)
 
 Once connected, the agent can use Studio tools such as creating sites, running WP-CLI commands, and taking screenshots, in addition to reading the instruction files and skills already present in the site directory.
 
-## What the agent gets
+## [What the agent gets](#0-what-the-agent-gets)
 
 -   **Studio’s instructions and skills, on demand.** The agent calls a `studio_instructions` tool before its first WordPress task, so it follows the same workflow and rules as Studio Code, without Studio filling the agent’s context for every conversation.
 -   **Local and WordPress.com sites.** The agent can work on your local Studio sites and on your WordPress.com sites, and can copy content between them.

@@ -1,0 +1,20 @@
+{
+	"name": "manual",
+	"description": "Shots that need a live site connected to the demo site, a ready preview, Studio Code output, or pages outside Studio, captured by hand",
+	"manual": true,
+	"shots": [
+		{
+			"description": "WordPress.com authorization screen with Approve, opened by Log in",
+			"pages": [ "index.md" ]
+		},
+		{
+			"description": "Browser prompt to open the Studio app after approving the login",
+			"pages": [ "index.md" ]
+		},
+		{
+			"description": "Studio Code chat for a selected site, with a reply in the transcript",
+			"pages": [ "studio-code/index.md" ],
+			"replaces": [ "2026/04/studio-code.png" ]
+		}
+	]
+}

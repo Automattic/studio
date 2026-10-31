@@ -1,0 +1,167 @@
+{
+	"name": "site-menu",
+	"description": "The site menu and the dialogs it opens: Open in, Export, Delete site, and importing a backup",
+	"capture": {
+		"target": [
+			{
+				"role": "menu",
+				"all": true
+			},
+			{
+				"role": "button",
+				"name": "Site menu"
+			},
+			{
+				"role": "button",
+				"name": "Add site",
+				"first": true
+			}
+		],
+		"pad": 24
+	},
+	"shots": [
+		{
+			"name": "site-menu",
+			"description": "The site menu, opened from the site icon at the top of the chat",
+			"pages": [ "sites.md" ],
+			"replaces": [ "2025/01/sidebar-site-menu.png" ],
+			"steps": [
+				{
+					"helper": "openSiteMenu"
+				}
+			]
+		},
+		{
+			"name": "site-menu-open-in",
+			"description": "Site menu → Open in (browser, file manager, editor, terminal, phpMyAdmin)",
+			"pages": [ "sites.md", "frequently-asked-questions.md" ],
+			"steps": [
+				{
+					"helper": "openSubmenu",
+					"args": [ "Open in", "phpMyAdmin" ]
+				}
+			],
+			"capture": {
+				"keepMouse": true
+			}
+		},
+		{
+			"name": "site-menu-export",
+			"description": "Site menu → Export (Export site / Export database)",
+			"pages": [ "import-export.md" ],
+			"replaces": [ "2025/01/site-overview-1.png" ],
+			"steps": [
+				{
+					"helper": "openSubmenu",
+					"args": [ "Export", "Export database" ]
+				}
+			],
+			"capture": {
+				"keepMouse": true
+			},
+			"after": [
+				{
+					"helper": "closeMenus"
+				}
+			]
+		},
+		{
+			"name": "delete-site-dialog",
+			"description": "Delete site confirmation, with Also move files and database to Trash",
+			"pages": [ "sites.md" ],
+			"replaces": [ "2025/01/delete-site-dialog.png" ],
+			"steps": [
+				{
+					"helper": "closeMenus"
+				},
+				{
+					"click": {
+						"text": "{{site.name}}",
+						"exact": true,
+						"first": true
+					},
+					"button": "right"
+				},
+				{
+					"click": {
+						"role": "menuitem",
+						"name": "Delete site"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "alertdialog"
+					}
+				}
+			],
+			"after": [
+				{
+					"click": {
+						"within": {
+							"role": "alertdialog"
+						},
+						"role": "button",
+						"name": "Cancel"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "alertdialog"
+					},
+					"hidden": true
+				}
+			],
+			"capture": {
+				"target": {
+					"role": "alertdialog"
+				},
+				"pad": 48
+			}
+		},
+		{
+			"name": "import-overwrite-dialog",
+			"description": "Import a backup into an existing site: the overwrite confirmation",
+			"pages": [ "import-export.md" ],
+			"replaces": [ "2025/01/import-overwrite-dialog.png" ],
+			"steps": [
+				{
+					"setFiles": {
+						"css": "input[type=file][accept*=\".sql\"]",
+						"first": true
+					},
+					"file": "empty-backup.zip"
+				},
+				{
+					"waitFor": {
+						"role": "alertdialog",
+						"pattern": "^Overwrite"
+					}
+				}
+			],
+			"after": [
+				{
+					"click": {
+						"within": {
+							"role": "alertdialog"
+						},
+						"role": "button",
+						"name": "Cancel"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "alertdialog"
+					},
+					"hidden": true
+				}
+			],
+			"capture": {
+				"target": {
+					"role": "alertdialog",
+					"pattern": "^Overwrite"
+				},
+				"pad": 48
+			}
+		}
+	]
+}

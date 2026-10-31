@@ -429,7 +429,7 @@
 							"name": "Settings scope"
 						},
 						"role": "tab",
-						"name": "Studio"
+						"name": "App"
 					}
 				},
 				{
@@ -468,10 +468,7 @@
 					}
 				},
 				{
-					"waitFor": {
-						"role": "group",
-						"name": "Preview sites"
-					}
+					"waitFor": { "role": "group", "name": "Usage", "exact": true }
 				}
 			],
 			"capture": {

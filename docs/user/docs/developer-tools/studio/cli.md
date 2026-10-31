@@ -20,10 +20,10 @@ It’s especially useful for:
 
 1.  Open the **“WordPress Studio**” application.
 2.  Click **Settings** at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux).
-3.  On the **General** page, under **Studio CLI**, turn on the **Studio CLI for terminal** option.
+3.  On the **General** page, under **WordPress Studio CLI**, turn on the **WordPress Studio CLI for terminal** option.
 4.  On macOS, you’ll be prompted for your account password to allow installation.
 
-[![The General page of Studio's Settings, with the Studio CLI for terminal option turned on under Studio CLI.](https://developer.wordpress.com/wp-content/uploads/2025/05/settings-studio-cli.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/05/settings-studio-cli.webp)
+[![The General page of Studio's Settings, with the WordPress Studio CLI for terminal option turned on under WordPress Studio CLI.](https://developer.wordpress.com/wp-content/uploads/2025/05/settings-studio-cli.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/05/settings-studio-cli.webp)
 
 ### [Standalone installer](#2-standalone-installer)
 

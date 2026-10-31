@@ -14,7 +14,7 @@
 					"click": {
 						"within": { "role": "tablist", "name": "Settings scope" },
 						"role": "tab",
-						"name": "Studio"
+						"name": "App"
 					}
 				},
 				{

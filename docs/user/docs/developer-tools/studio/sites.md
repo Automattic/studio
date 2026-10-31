@@ -175,7 +175,7 @@ You can also open your sites with several terminal applications:
 
 To select a preferred code editor, browser, or terminal application, click **Settings** at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux). On the **General** page, choose a **Default code editor**, **Default browser**, and **Default terminal app**. With **Default browser** set to **System default**, sites open in your computer’s default browser, and the **Open in** menu shows **Browser**.
 
-[![The General page of Studio's Settings, with the Language, Code editor, Terminal, and Default directory options under Application.](https://developer.wordpress.com/wp-content/uploads/2025/01/settings-general.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/settings-general.webp)
+[![The General page of Studio's Settings, with the Language, Default code editor, Default browser, Default terminal app, and Default directory options under Application.](https://developer.wordpress.com/wp-content/uploads/2025/01/settings-general.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/settings-general.webp)
 
 ## [Site settings](#site-settings)
 

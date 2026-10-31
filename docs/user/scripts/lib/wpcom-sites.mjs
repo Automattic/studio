@@ -8,8 +8,10 @@ import { runCli, stopSite } from './studio-seed.mjs';
 // WordPress.com's screenshot service, which Studio shows a remote site's thumbnail from.
 const MSHOTS = 'https://s0.wp.com/mshots/v1/**';
 const THUMB = { width: 600, height: 400 };
-// The account's preview-site count and limit.
+// The account's preview-site count and limit: Jurassic Ninja's, or WordPress.com's for
+// accounts that create previews there (Automatticians first; `fetchSnapshotUsage` in Studio).
 const USAGE = 'https://public-api.wordpress.com/wpcom/v2/jurassic-ninja/usage';
+const WPCOM_USAGE = 'https://public-api.wordpress.com/wpcom/v2/wow-funnel/pending';
 // The account's AI credits, `STUDIO_ASSISTANT_QUOTA_URL` in the Studio source.
 const AI_QUOTA = 'https://public-api.wordpress.com/wpcom/v2/studio-app/ai-assistant/quota';
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -148,6 +150,14 @@ export async function loadAccountRoutes( dir ) {
 		{
 			url: USAGE,
 			json: { site_count: previewSites.length, site_limit: 10, site_creation_blocked: false },
+		},
+		{
+			url: WPCOM_USAGE,
+			json: {
+				preview_sites: previewSites.map( ( p ) => p.url ),
+				preview_site_limit: 10,
+				preview_sites_blocked: false,
+			},
 		},
 	];
 }

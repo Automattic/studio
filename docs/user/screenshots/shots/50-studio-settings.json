@@ -1,6 +1,6 @@
 {
 	"name": "studio-settings",
-	"description": "The Settings dialog, Studio scope: General, AI Providers, Skills, MCP and Keyboard",
+	"description": "The Settings dialog, App scope: General, AI Providers, Skills, MCP and Keyboard",
 	"capture": {
 		"target": {
 			"role": "dialog",
@@ -11,7 +11,7 @@
 	"shots": [
 		{
 			"name": "settings-general",
-			"description": "Settings dialog, Studio scope → General (language, code editor, terminal, …)",
+			"description": "Settings dialog, App scope → General (language, default code editor, browser and terminal, …)",
 			"pages": [ "sites.md" ],
 			"replaces": [ "2025/01/app-settings.png" ],
 			"steps": [
@@ -36,7 +36,7 @@
 							"name": "Settings scope"
 						},
 						"role": "tab",
-						"name": "Studio"
+						"name": "App"
 					}
 				},
 				{
@@ -61,7 +61,7 @@
 							"name": "General",
 							"exact": true
 						},
-						"text": "Studio CLI for terminal",
+						"text": "WordPress Studio CLI for terminal",
 						"exact": true
 					},
 					"offset": 120

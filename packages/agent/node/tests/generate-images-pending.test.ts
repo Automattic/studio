@@ -20,7 +20,7 @@ vi.mock( '@studio/agent/node/image-generation', async ( importOriginal ) => ( {
 } ) );
 
 describe( 'the files images generating in the background will be', () => {
-	it.each< { name: string; paths: string[]; files: string[] } >( [
+	it.each< { name: string; paths: string[]; files: string[]; folder?: string } >( [
 		{
 			name: 'are named as paths in their site',
 			paths: [
@@ -28,19 +28,21 @@ describe( 'the files images generating in the background will be', () => {
 				`${ SITE }/wp-content/themes/oak/b.png`,
 			],
 			files: [ 'wp-content/themes/oak/assets/a.png', 'wp-content/themes/oak/b.png' ],
+			folder: SITE,
 		},
 		{
 			name: 'are named by their absolute paths outside any site',
 			paths: [ `${ STUDIO_SITES_ROOT }/elsewhere/a.png` ],
 			files: [ `${ STUDIO_SITES_ROOT }/elsewhere/a.png` ],
 		},
-	] )( '$name', async ( { paths, files } ) => {
+	] )( '$name', async ( { paths, files, folder } ) => {
 		const result = await bindTool( generateImagesTool, host ).rawHandler( {
 			images: paths.map( ( p ) => ( { path: p, subject: 'a bench' } ) ),
 		} as never );
 		expect( result.pendingFiles ).toEqual(
 			files.map( ( file ) => file.split( '/' ).join( path.sep ) )
 		);
+		expect( result.pendingFolder ).toBe( folder );
 		expect( await result.pending ).toContain( 'not generated' );
 	} );
 } );

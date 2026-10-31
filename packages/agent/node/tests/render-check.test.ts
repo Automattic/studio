@@ -64,7 +64,6 @@ describe( 'RenderCheck', () => {
 	it( 'renders once the images being generated in the site are written', async () => {
 		const { site, check, problems } = setup();
 		await check.seen( site.root, { created: true } );
-		const image = path.join( site.root, 'wp-content/uploads/2026/10/hero.png' );
 		problems[ '/ desktop' ] = [ 'The image http://localhost:8881/hero.png did not load.' ];
 		let written: () => void = () => {};
 		const work = new PendingWork();
@@ -75,7 +74,9 @@ describe( 'RenderCheck', () => {
 					resolve( undefined );
 				};
 			} ),
-			[ image ]
+			// As generate_images names them: paths in the site.
+			[ 'wp-content/uploads/2026/10/hero.png' ],
+			site.root
 		);
 		appendFileSync( path.join( site.root, 'wp-content/themes/bakery/style.css' ), '\n' );
 		await check.changed( site.root, work );

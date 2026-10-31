@@ -5,14 +5,14 @@ import path from 'path';
 // per chat session so that what it reports reaches the agent with the next
 // tool result, in this turn or a later one.
 export class PendingWork {
-	// Each running work, with the files it writes.
-	private readonly running = new Map< Promise< void >, string[] >();
+	// Each running work, with the files it writes and the folder they are paths in, when relative.
+	private readonly running = new Map< Promise< void >, { files: string[]; folder?: string } >();
 	private readonly reports: string[] = [];
 
 	// `outer`: the work of the session a subagent runs for, whose files its calls wait for too.
 	constructor( private readonly outer?: PendingWork ) {}
 
-	add( pending: Promise< string | undefined >, files: string[] = [] ): void {
+	add( pending: Promise< string | undefined >, files: string[] = [], folder?: string ): void {
 		const settled: Promise< void > = pending
 			.then(
 				( report ) => {
@@ -25,7 +25,7 @@ export class PendingWork {
 				}
 			)
 			.finally( () => this.running.delete( settled ) );
-		this.running.set( settled, files );
+		this.running.set( settled, { files, folder } );
 	}
 
 	async settle(): Promise< void > {
@@ -40,7 +40,7 @@ export class PendingWork {
 		await this.outer?.settleFilesIn( input );
 		await Promise.all(
 			[ ...this.running ]
-				.filter( ( [ , files ] ) =>
+				.filter( ( [ , { files } ] ) =>
 					files.some( ( file ) => texts.some( ( text ) => text.includes( file ) ) )
 				)
 				.map( ( [ work ] ) => work )
@@ -53,12 +53,14 @@ export class PendingWork {
 		const within = realPath( folder ) + path.sep;
 		await Promise.all(
 			[ ...this.running ]
-				.filter( ( [ , files ] ) =>
-					files.some( ( file ) =>
-						path
-							.join( realPath( path.dirname( file ) ), path.basename( file ) )
-							.startsWith( within )
-					)
+				.filter( ( [ , { files, folder: filesFolder } ] ) =>
+					files
+						.map( ( file ) => path.resolve( filesFolder ?? '', file ) )
+						.some( ( file ) =>
+							path
+								.join( realPath( path.dirname( file ) ), path.basename( file ) )
+								.startsWith( within )
+						)
 				)
 				.map( ( [ work ] ) => work )
 		);

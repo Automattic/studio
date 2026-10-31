@@ -249,9 +249,10 @@ export function toToolDefinition(
 			if ( details?.pending ) {
 				// What it writes as it finishes is no call's change.
 				void details.pending.finally( () => siteChanges.stale() ).catch( () => undefined );
-				pendingWork.add( details.pending, details.pendingFiles );
+				pendingWork.add( details.pending, details.pendingFiles, details.pendingFolder );
 				delete details.pending;
 				delete details.pendingFiles;
+				delete details.pendingFolder;
 			}
 			// The site a call names, or else the request's own, whose facts any
 			// call can change, as a shell command installing a plugin does.

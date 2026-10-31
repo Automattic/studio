@@ -319,6 +319,7 @@ export const generateImagesTool = defineTool(
 				const file = attachments.get( target.resolvedPath )?.file ?? target.resolvedPath;
 				return forSite ? path.relative( path.resolve( forSite.path ), file ) : file;
 			} ),
+			pendingFolder: forSite?.path,
 		};
 	},
 	{

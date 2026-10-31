@@ -39,12 +39,15 @@ export interface ToolResult {
 	// The files that work writes, as paths in their site: a call naming one
 	// waits for the work.
 	pendingFiles?: string[];
+	// The folder of the site pendingFiles are paths in.
+	pendingFolder?: string;
 }
 
 export interface StudioToolResultDetails {
 	studioArtifacts?: StudioChatArtifactWidgetDraft[];
 	pending?: Promise< string | undefined >;
 	pendingFiles?: string[];
+	pendingFolder?: string;
 }
 
 export interface ToolContext {
@@ -219,6 +222,7 @@ export function bindTool< TProps extends TProperties >(
 							studioArtifacts: result.studioArtifacts,
 							pending: result.pending,
 							pendingFiles: result.pendingFiles,
+							pendingFolder: result.pendingFolder,
 					  }
 					: undefined;
 			return {

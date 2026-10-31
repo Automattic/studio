@@ -8,11 +8,14 @@ import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import {
 	formatDurationUntilExpiry,
+	getSnapshotLink,
 	getSnapshotsFromConfig,
 	isSnapshotExpired,
 	pruneExpiredOrphanedSnapshots,
+	syncPreviewsWithServer,
 } from 'cli/lib/snapshots';
 import { getColumnWidths } from 'cli/lib/utils';
+import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -30,11 +33,12 @@ function buildSnapshotTable( snapshots: Snapshot[] ): string {
 	} );
 
 	for ( const snapshot of snapshots ) {
-		const durationUntilExpiry = formatDurationUntilExpiry( snapshot.date );
-		const url = `https://${ snapshot.url }`;
+		const durationUntilExpiry = formatDurationUntilExpiry( snapshot );
+		const url = getSnapshotLink( snapshot );
 
 		table.push( [
-			{ href: url, content: url },
+			// The share link is too long for the column; show the host, linked to it.
+			{ href: url, content: snapshot.url },
 			snapshot.name,
 			format( snapshot.date, 'yyyy-MM-dd HH:mm' ),
 			durationUntilExpiry,
@@ -56,6 +60,9 @@ export async function runCommand(
 			// Snapshots are per-user; when logged out emit an empty list instead of
 			// erroring so consumers (e.g. the desktop app) degrade gracefully.
 			const token = await readAuthToken();
+			if ( token ) {
+				await syncPreviewsWithServer( token.id, token.accessToken );
+			}
 			const snapshots = token ? await getSnapshotsFromConfig( token.id ) : [];
 			console.log( JSON.stringify( snapshots ) );
 			logger.reportResult( snapshots );
@@ -66,17 +73,13 @@ export async function runCommand(
 		if ( ! all ) {
 			await getSiteByFolder( siteFolder );
 		}
-		const token = await readAuthToken();
-		if ( ! token ) {
-			throw new LoggerError(
-				__( 'Authentication required. Please log in with `studio auth login`.' )
-			);
-		}
+		const token = await requireAuthToken();
 
 		logger.reportStart( LoggerAction.LOAD, __( 'Loading preview sites…' ) );
 
 		// Expired orphans are almost certainly already deleted server-side — clean them up.
 		await pruneExpiredOrphanedSnapshots( token.id, isSnapshotExpired );
+		await syncPreviewsWithServer( token.id, token.accessToken );
 
 		const snapshots = await getSnapshotsFromConfig( token.id, all ? undefined : siteFolder );
 

@@ -41,6 +41,7 @@ import {
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSelectionTime } from '@/data/use-open-site';
 import { SessionUIProvider, useOptionalSessionPreviewUI } from '@/data/use-session-ui';
+import { useStartSitePreview } from '@/data/use-start-site-preview';
 import {
 	getSiteAnnotations,
 	hasAnnotationContent,
@@ -269,6 +270,7 @@ function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: Ses
 	const [ frameNode, setFrameNode ] = useState< HTMLDivElement | null >( null );
 	const { data: preferences } = useUserPreferences();
 	const { mutate: startSite } = useStartSite();
+	const { mutate: startSitePreview } = useStartSitePreview();
 	const isSiteStarting = useIsSiteStarting( ownerSite?.id );
 	const isSiteStopping = useIsSiteStopping( ownerSite?.id );
 	const revealingSiteId = useOptionalSessionPreviewUI()?.revealingSiteId;
@@ -498,6 +500,13 @@ function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: Ses
 						placeholder={ composerPlaceholder }
 						placeholderBusy={ isSiteStarting || isSiteStopping }
 						canAutoStart={ canAutoStart }
+						onStartSite={
+							canAutoStart && ( ! ownerSite.running || isSiteStarting )
+								? () => startSitePreview( ownerSite.id )
+								: undefined
+						}
+						startSiteDisabled={ isSiteBusy }
+						isSiteStarting={ isSiteStarting }
 						environment={ effectiveEnvironment }
 						onEnvironmentChange={
 							ownerSite

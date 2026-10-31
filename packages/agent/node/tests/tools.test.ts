@@ -606,6 +606,7 @@ describe( 'Studio AI MCP tools', () => {
 				type: 'preview',
 				name: 'My Site',
 				url: 'https://demo-studio.wp.build',
+				shareUrl: 'https://demo-studio.wp.build',
 				atomicSiteId: 12345,
 				localSiteId: 'site-123',
 				date: futureDate,

@@ -9,7 +9,6 @@ import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import trash from 'trash';
-import { deleteSnapshot } from 'cli/lib/api';
 import { deleteSiteCertificate } from 'cli/lib/certificate-manager';
 import {
 	lockCliConfig,
@@ -20,6 +19,7 @@ import {
 } from 'cli/lib/cli-config/core';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
+import { deleteSnapshotSite } from 'cli/lib/preview-sites';
 import { getSiteEmailDirectory } from 'cli/lib/site-email';
 import { withSiteOperations } from 'cli/lib/site-operations';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
@@ -93,7 +93,7 @@ async function deletePreviewSites(
 
 			await Promise.all(
 				snapshots.map( async ( snapshot ) => {
-					await deleteSnapshot( snapshot.atomicSiteId, authToken.accessToken );
+					await deleteSnapshotSite( snapshot, authToken.accessToken );
 					await deleteSnapshotFromConfig( snapshot.url );
 				} )
 			);

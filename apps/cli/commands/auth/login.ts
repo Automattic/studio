@@ -1,11 +1,7 @@
-import { createAuthAttempt, getAuthTracksProps } from '@studio/common/lib/auth-tracks';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { AuthCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
-import { openBrowser } from 'cli/lib/browser';
-import { input } from 'cli/lib/prompts';
-import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
-import { getCliAuthenticationUrl, storeAuthToken } from 'cli/lib/wpcom-auth';
+import { signInInteractively } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -25,41 +21,11 @@ export async function runCommand(): Promise< void > {
 		return;
 	}
 
-	const attempt = createAuthAttempt( 'cli', false, { placement: 'cli', intent: 'account' } );
-	const props = { ...getAuthTracksProps( attempt ), ...getTracksOrigin(), account_type: undefined };
-	void recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH_STARTED, props ).catch( () => undefined );
-	const authUrl = await getCliAuthenticationUrl();
-
 	logger.reportStart( LoggerAction.LOGIN, __( 'Opening browser for authentication…' ) );
 	try {
-		await openBrowser( authUrl );
-		logger.reportSuccess( __( 'Browser opened successfully' ) );
-	} catch ( error ) {
-		void recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH_LAUNCH_FAILED, props ).catch(
-			() => undefined
-		);
-		logger.reportWarning(
-			__( "Couldn't open a browser automatically. Use the URL below instead." ) +
-				( error instanceof Error ? `: ${ error.message }` : '' )
-		);
-	}
-
-	// Always surface the URL explicitly so users on remote/headless machines
-	// have a usable link to open on another device.
-	console.log( '' );
-	console.log( __( 'To authenticate, open this URL in a browser on any device:' ) );
-	console.log( authUrl );
-	console.log( '' );
-	console.log( __( 'After approving access, copy the generated token and paste it here.' ) );
-	console.log( '' );
-
-	try {
-		const accessToken = await input( { message: __( 'Authentication token:' ) } );
-		await storeAuthToken( accessToken, attempt );
+		await signInInteractively();
 		logger.reportSuccess( __( 'Authentication completed successfully!' ) );
 	} catch ( error ) {
-		if ( error instanceof Error && error.name === 'ExitPromptError' )
-			void recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH_CANCELLED, props ).catch( () => undefined );
 		logger.reportError(
 			error instanceof LoggerError ? error : new LoggerError( __( 'Authentication failed' ), error )
 		);

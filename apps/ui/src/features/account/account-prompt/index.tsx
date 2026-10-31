@@ -47,6 +47,7 @@ export function AccountPrompt( {
 	busy,
 	disabled,
 	flush,
+	showStudioIcon = true,
 	className,
 }: {
 	title: string;
@@ -64,6 +65,7 @@ export function AccountPrompt( {
 	disabled?: boolean;
 	/** Drops the offsets that space it inside a dialog, for a container that spaces it already. */
 	flush?: boolean;
+	showStudioIcon?: boolean;
 	className?: string;
 } ) {
 	const offline = useOffline();
@@ -87,7 +89,7 @@ export function AccountPrompt( {
 				<span className={ styles.cardStart } style={ { backgroundImage: `url(${ site1 })` } } />
 				<span className={ styles.cardEnd } style={ { backgroundImage: `url(${ site3 })` } } />
 				<span className={ styles.cardCenter } style={ { backgroundImage: `url(${ site2 })` } } />
-				<StudioIcon className={ styles.studioIcon } />
+				{ showStudioIcon ? <StudioIcon className={ styles.studioIcon } /> : null }
 			</div>
 			<h2 className={ styles.title }>{ title }</h2>
 			<p id={ descriptionId } className={ styles.description }>

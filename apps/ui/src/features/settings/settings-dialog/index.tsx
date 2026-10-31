@@ -356,7 +356,7 @@ export function SettingsDialog() {
 								aria-label={ __( 'Settings scope' ) }
 								className={ styles.scopes }
 							>
-								<TabsTrigger value="studio">{ __( 'Studio' ) }</TabsTrigger>
+								<TabsTrigger value="studio">{ __( 'App' ) }</TabsTrigger>
 								<TabsTrigger value="site" disabled={ ! site }>
 									{ __( 'Site' ) }
 								</TabsTrigger>
@@ -424,7 +424,7 @@ export function SettingsDialog() {
 											<item.section.icon />
 											<MarqueeLabel>{ item.setting?.title ?? item.section.label }</MarqueeLabel>
 											<TabsScopeLabel>
-												{ item.scope === 'site' ? __( 'Site' ) : __( 'Studio' ) }
+												{ item.scope === 'site' ? __( 'Site' ) : __( 'App' ) }
 											</TabsScopeLabel>
 										</TabsTrigger>
 									) ) }
@@ -437,6 +437,7 @@ export function SettingsDialog() {
 						) }
 					</TabsSidebar>
 					<DialogPanel
+						className={ styles.content }
 						id={ panelId }
 						role="tabpanel"
 						aria-label={ current.label }

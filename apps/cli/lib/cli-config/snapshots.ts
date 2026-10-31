@@ -1,8 +1,17 @@
+import { isSnapshotExpired, isWpcomPreview } from '@studio/common/lib/snapshots';
 import { type Snapshot } from '@studio/common/types/snapshot';
 import { __ } from '@wordpress/i18n';
 import { LoggerError } from 'cli/logger';
 import { lockCliConfig, readCliConfig, saveCliConfig, unlockCliConfig } from './core';
 import { getSiteByFolder } from './sites';
+import type { StandingPreview } from 'cli/lib/preview-sites';
+
+/** How many unexpired previews the user has of one local site. */
+export function countSitePreviews( siteId: string, snapshots: Snapshot[], userId: number ): number {
+	return snapshots.filter(
+		( s ) => s.localSiteId === siteId && s.userId === userId && ! isSnapshotExpired( s )
+	).length;
+}
 
 export function getNextSnapshotSequence(
 	siteId: string,
@@ -42,7 +51,8 @@ export async function saveSnapshotToConfig(
 	atomicSiteId: number,
 	previewUrl: string,
 	userId: number,
-	name: string
+	name: string,
+	shareUrl?: string
 ): Promise< Snapshot > {
 	const site = await getSiteByFolder( siteFolder );
 	try {
@@ -58,8 +68,11 @@ export async function saveSnapshotToConfig(
 			name,
 			sequence: nextSequenceNumber,
 			userId,
+			shareUrl,
 		};
 
+		// A sync while the preview was being created may already have listed it.
+		config.snapshots = config.snapshots.filter( ( s ) => s.atomicSiteId !== atomicSiteId );
 		config.snapshots.push( snapshot );
 		await saveCliConfig( config );
 		return snapshot;
@@ -68,9 +81,49 @@ export async function saveSnapshotToConfig(
 	}
 }
 
+/**
+ * Attaches a pulled preview to the local site it was pulled into, so updating the preview pushes
+ * this site to it. A preview already attached to another local site keeps that link.
+ */
+export async function linkPulledPreview(
+	localSiteId: string,
+	atomicSiteId: number,
+	userId: number,
+	preview: StandingPreview
+): Promise< void > {
+	try {
+		await lockCliConfig();
+		const config = await readCliConfig();
+		let snapshot = config.snapshots.find( ( s ) => s.atomicSiteId === atomicSiteId );
+		if ( ! snapshot ) {
+			if ( ! preview.hostname ) {
+				return;
+			}
+			snapshot = {
+				url: preview.hostname,
+				atomicSiteId,
+				localSiteId: '',
+				date: Date.now(),
+				userId,
+				shareUrl: preview.shareUrl,
+				expiresAt: preview.expiresAt,
+			};
+			config.snapshots.push( snapshot );
+		}
+		if ( snapshot.localSiteId ) {
+			return;
+		}
+		snapshot.localSiteId = localSiteId;
+		await saveCliConfig( config );
+	} finally {
+		await unlockCliConfig();
+	}
+}
+
 export async function updateSnapshotInConfig(
 	atomicSiteId: number,
-	siteFolder: string
+	siteFolder: string,
+	shareUrl?: string
 ): Promise< Snapshot > {
 	const site = await getSiteByFolder( siteFolder );
 	try {
@@ -83,6 +136,11 @@ export async function updateSnapshotInConfig(
 
 		snapshot.localSiteId = site.id;
 		snapshot.date = Date.now();
+		// The update restarted the server's window; the next sync reports where it now ends.
+		delete snapshot.expiresAt;
+		if ( shareUrl ) {
+			snapshot.shareUrl = shareUrl;
+		}
 
 		await saveCliConfig( config );
 		return snapshot;
@@ -167,6 +225,66 @@ export async function setSnapshotInConfig(
 
 		await saveCliConfig( config );
 		return snapshot;
+	} finally {
+		await unlockCliConfig();
+	}
+}
+
+/**
+ * Brings the user's WordPress.com previews in line with the server: forgets those it no longer has
+ * standing (bought, expired or deleted elsewhere), records when the rest expire and the preview link
+ * it hands out for each, and lists the ones made elsewhere (another computer or tool), since they
+ * count toward the account's limit too. A preview saved after `checkedAt` is left alone, since the
+ * server's answer may predate it.
+ *
+ * @param standing The server's standing previews, by site ID.
+ */
+export async function reconcilePreviews(
+	userId: number,
+	standing: Map< number, StandingPreview >,
+	checkedAt: number
+): Promise< void > {
+	try {
+		await lockCliConfig();
+		const config = await readCliConfig();
+		const before = JSON.stringify( config.snapshots );
+		config.snapshots = config.snapshots.filter( ( snapshot ) => {
+			if (
+				snapshot.userId !== userId ||
+				! isWpcomPreview( snapshot ) ||
+				snapshot.date > checkedAt
+			) {
+				return true;
+			}
+			const preview = standing.get( snapshot.atomicSiteId );
+			if ( ! preview ) {
+				return false;
+			}
+			snapshot.expiresAt = preview.expiresAt;
+			if ( preview.shareUrl ) {
+				snapshot.shareUrl = preview.shareUrl;
+			}
+			return true;
+		} );
+		const listed = new Set( config.snapshots.map( ( snapshot ) => snapshot.atomicSiteId ) );
+		for ( const [ atomicSiteId, preview ] of standing ) {
+			if ( listed.has( atomicSiteId ) || ! preview.hostname ) {
+				continue;
+			}
+			// Made elsewhere, so no local site: it can be opened, shared and deleted from here.
+			config.snapshots.push( {
+				url: preview.hostname,
+				atomicSiteId,
+				localSiteId: '',
+				date: checkedAt,
+				userId,
+				shareUrl: preview.shareUrl,
+				expiresAt: preview.expiresAt,
+			} );
+		}
+		if ( JSON.stringify( config.snapshots ) !== before ) {
+			await saveCliConfig( config );
+		}
 	} finally {
 		await unlockCliConfig();
 	}

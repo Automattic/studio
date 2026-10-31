@@ -13,6 +13,7 @@ import {
 	UploadIcon,
 	XIcon,
 } from 'lucide-react';
+import { getSettingsCommandAliases } from '@/data/settings-sections';
 import {
 	AnnotateIcon,
 	ChatIcon,
@@ -123,6 +124,7 @@ export function getSiteCommands( {
 			id: 'site-settings',
 			group: 'quick',
 			label: __( 'Site settings' ),
+			aliases: getSettingsCommandAliases( 'site', 'site-settings' ),
 			icon: SiteSettingsIcon,
 			priority: 2,
 			description,
@@ -130,8 +132,9 @@ export function getSiteCommands( {
 		},
 		{
 			id: 'rename-site',
-			group: 'site',
+			group: 'commands',
 			label: __( 'Rename site…' ),
+			aliases: getSettingsCommandAliases( 'site', 'rename-site' ),
 			icon: PencilIcon,
 			description,
 			run: actions.rename,
@@ -141,8 +144,9 @@ export function getSiteCommands( {
 			: [
 					{
 						id: 'admin',
-						group: 'site' as const,
-						label: __( 'Open WordPress Admin' ),
+						group: 'commands' as const,
+						label: __( 'Open WordPress Admin in preview' ),
+						aliases: [ __( 'Open WordPress Admin' ) ],
 						icon: WordPressIcon,
 						description,
 						keywords: keywords[ 'wp-admin' ],
@@ -150,8 +154,9 @@ export function getSiteCommands( {
 					},
 					{
 						id: 'database',
-						group: 'site' as const,
-						label: __( 'Open database' ),
+						group: 'commands' as const,
+						label: __( 'Open database in preview' ),
+						aliases: [ __( 'Open database' ) ],
 						icon: DatabaseIcon,
 						description,
 						keywords: keywords.phpmyadmin,
@@ -161,7 +166,7 @@ export function getSiteCommands( {
 						? [
 								{
 									id: 'restart',
-									group: 'site' as const,
+									group: 'commands' as const,
 									label: __( 'Restart site' ),
 									icon: RotateCwIcon,
 									description,
@@ -173,7 +178,7 @@ export function getSiteCommands( {
 						? [
 								{
 									id: 'stop-others',
-									group: 'site' as const,
+									group: 'commands' as const,
 									label: __( 'Stop other sites' ),
 									icon: StopOtherSitesIcon,
 									run: () => actions.stop( othersRunning ),
@@ -185,7 +190,7 @@ export function getSiteCommands( {
 			? [
 					{
 						id: 'stop-all',
-						group: 'site' as const,
+						group: 'commands' as const,
 						label: __( 'Stop all sites' ),
 						icon: StopOtherSitesIcon,
 						run: () => actions.stop( running ),
@@ -197,12 +202,24 @@ export function getSiteCommands( {
 			.map(
 				( destination ): PaletteCommand => ( {
 					id: `open-${ destination.id }`,
-					group: 'site',
-					label: sprintf(
-						/* translators: %s is the name of the app. E.g. "Open in Cursor" */
-						__( 'Open in %s' ),
-						destination.label
-					),
+					group: 'commands',
+					label:
+						destination.id === 'wp-admin'
+							? __( 'Open WordPress Admin in browser' )
+							: destination.id === 'phpmyadmin'
+							? __( 'Open database in browser' )
+							: sprintf(
+									/* translators: %s is the name of the app. E.g. "Open in Cursor" */
+									__( 'Open in %s' ),
+									destination.label
+							  ),
+					aliases: [
+						sprintf(
+							/* translators: %s: the name of an app. */
+							__( 'Open in %s' ),
+							destination.label
+						),
+					],
 					icon: OPEN_IN_ICONS[ destination.id ],
 					description,
 					keywords: keywords[ destination.id ],
@@ -213,7 +230,7 @@ export function getSiteCommands( {
 			? [
 					{
 						id: 'reload',
-						group: 'site' as const,
+						group: 'commands' as const,
 						label: __( 'Reload preview' ),
 						icon: RefreshCwIcon,
 						keywords: [ __( 'Refresh' ) ],
@@ -225,7 +242,7 @@ export function getSiteCommands( {
 			? [
 					{
 						id: 'annotate',
-						group: 'site' as const,
+						group: 'commands' as const,
 						label: annotating ? __( 'Exit annotations' ) : __( 'Annotate' ),
 						icon: annotating ? XIcon : AnnotateIcon,
 						description,
@@ -235,7 +252,7 @@ export function getSiteCommands( {
 			: [] ),
 		{
 			id: 'preview-visibility',
-			group: 'site',
+			group: 'commands',
 			label: previewShown ? __( 'Hide preview' ) : __( 'Show preview' ),
 			icon: previewShown ? EyeOffIcon : EyeIcon,
 			description,
@@ -246,7 +263,7 @@ export function getSiteCommands( {
 			: [
 					{
 						id: 'chat-visibility',
-						group: 'site' as const,
+						group: 'commands' as const,
 						label: chatHidden ? __( 'Show chat' ) : __( 'Hide chat' ),
 						icon: ChatIcon,
 						run: () => setChatHidden( ! chatHidden ),
@@ -254,7 +271,7 @@ export function getSiteCommands( {
 			  ] ),
 		{
 			id: 'share',
-			group: 'site',
+			group: 'commands',
 			label: __( 'Share site…' ),
 			icon: ShareIcon,
 			description,
@@ -263,7 +280,7 @@ export function getSiteCommands( {
 		},
 		{
 			id: 'publish',
-			group: 'site',
+			group: 'commands',
 			label: __( 'Publish & Sync…' ),
 			icon: ArrowRightLeftIcon,
 			description,
@@ -272,7 +289,7 @@ export function getSiteCommands( {
 		},
 		{
 			id: 'copy-url',
-			group: 'site',
+			group: 'commands',
 			label: __( 'Copy site URL' ),
 			icon: DuplicateIcon,
 			description,
@@ -281,7 +298,7 @@ export function getSiteCommands( {
 		},
 		{
 			id: 'pin-site',
-			group: 'site',
+			group: 'commands',
 			label: actions.pinned ? __( 'Unpin site' ) : __( 'Pin site' ),
 			icon: actions.pinned ? UnpinIcon : PinIcon,
 			description,
@@ -292,7 +309,7 @@ export function getSiteCommands( {
 			.map(
 				( action ): PaletteCommand => ( {
 					id: action.id,
-					group: 'site',
+					group: 'commands',
 					label:
 						action.id === 'duplicate'
 							? __( 'Duplicate site' )

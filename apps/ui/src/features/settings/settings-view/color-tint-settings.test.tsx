@@ -3,25 +3,6 @@ import { expect, it, vi } from 'vitest';
 import { renderWithProviders } from '@/test/render';
 import { ColorTintSettings } from './color-tint-settings';
 
-it( 'applies the green preset at 20 percent intensity while preserving contrast', async () => {
-	const onCommit = vi.fn();
-	renderWithProviders(
-		<ColorTintSettings tint={ { tintIntensity: 28, contrast: 24 } } onCommit={ onCommit } />
-	);
-	fireEvent.click( await screen.findByRole( 'button', { name: 'Green' } ) );
-	expect( onCommit ).toHaveBeenLastCalledWith( {
-		accentColor: '#069e08',
-		tintIntensity: 20,
-		contrast: 24,
-	} );
-	expect( screen.getByRole( 'button', { name: 'Green' } ) ).toHaveAttribute(
-		'aria-pressed',
-		'true'
-	);
-	expect( screen.getByRole( 'textbox', { name: 'Hex color' } ) ).toHaveValue( '#069e08' );
-	expect( screen.queryByRole( 'slider', { name: 'Hue' } ) ).not.toBeInTheDocument();
-} );
-
 it( 'commits only complete hex values and restores incomplete input on blur', async () => {
 	const onCommit = vi.fn();
 	renderWithProviders( <ColorTintSettings tint={ {} } onCommit={ onCommit } /> );

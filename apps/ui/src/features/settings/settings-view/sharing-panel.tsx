@@ -4,9 +4,9 @@ import { PencilIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
-import { useDeleteSnapshot, useSnapshotUsage, useSnapshots } from '@/data/queries/use-snapshots';
+import { useDeleteSnapshot, useSnapshots } from '@/data/queries/use-snapshots';
 import { useUserLocale } from '@/data/queries/use-user-locale';
-import { getSnapshotHostname, getSnapshotUrl } from '@/data/snapshot-url';
+import { getSnapshotHostname, getSnapshotOpenUrl, getSnapshotUrl } from '@/data/snapshot-url';
 import { AccountPrompt, previewSiteImage } from '@/features/account';
 import { CopyButton } from '@/features/chats';
 import { previewExpiry, RenamePreview } from '@/features/sharing';
@@ -26,6 +26,7 @@ import {
 } from '@/lib/ui';
 import { SettingsGroup, SettingsRow } from './rows';
 import styles from './style.module.css';
+import { PreviewSitesUsage } from './usage-panel';
 import type { Snapshot } from '@/data/core';
 
 function PreviewRow( {
@@ -59,7 +60,7 @@ function PreviewRow( {
 							type="button"
 							className={ styles.previewLink }
 							title={ url }
-							onClick={ () => void connector.openExternalUrl( url ) }
+							onClick={ () => void connector.openExternalUrl( getSnapshotOpenUrl( snapshot ) ) }
 						>
 							{ getSnapshotHostname( snapshot ) }
 						</button>
@@ -117,7 +118,6 @@ export function SharingPanel() {
 	const connector = useConnector();
 	const user = useAuthUser();
 	const snapshots = useSnapshots( user.data?.id );
-	const usage = useSnapshotUsage( user.data?.id );
 	const remove = useDeleteSnapshot();
 	const [ deleting, setDeleting ] = useState< Snapshot | null >( null );
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
@@ -136,6 +136,7 @@ export function SharingPanel() {
 			<Empty>
 				<AccountPrompt
 					flush
+					showStudioIcon={ false }
 					title={ __( 'Share your WordPress' ) }
 					description={ __(
 						'Create an account or log in to share previews and keep your sites in sync.'
@@ -158,7 +159,7 @@ export function SharingPanel() {
 					description={
 						<>
 							{ __(
-								'Share a temporary copy of your local site with anyone. Preview sites expire seven days after their last update.'
+								'Share a temporary copy of your local site with anyone. A preview site expires if it goes about a week without an update.'
 							) }{ ' ' }
 							<Button
 								variant="inline-accent"
@@ -173,18 +174,9 @@ export function SharingPanel() {
 							</Button>
 						</>
 					}
-					additionalContent={
-						live.length
-							? sprintf(
-									/* translators: 1: number of live previews, 2: the account's limit. */
-									__( '%1$d of %2$d preview sites used' ),
-									live.length,
-									usage.data?.siteLimit ?? 10
-							  )
-							: null
-					}
 				/>
 			</SettingsGroup>
+			<PreviewSitesUsage />
 			{ snapshots.error ? (
 				<div className={ styles.errorMessage }>{ snapshots.error.message }</div>
 			) : null }

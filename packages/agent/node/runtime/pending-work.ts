@@ -41,7 +41,7 @@ export class PendingWork {
 		await Promise.all(
 			[ ...this.running ]
 				.filter( ( [ , { files } ] ) =>
-					files.some( ( file ) => texts.some( ( text ) => text.includes( file ) ) )
+					files.some( ( file ) => texts.some( ( text ) => namesFile( text, file ) ) )
 				)
 				.map( ( [ work ] ) => work )
 		);
@@ -88,6 +88,23 @@ function realPath( file: string ): string {
 			? resolved
 			: path.join( realPath( parent ), path.basename( resolved ) );
 	}
+}
+
+// Whether a text names a file as a path, not only in a URL: markup that
+// shows an image being generated, as `<img src="http://…/wp-content/uploads/a.jpg">`
+// or `/wp-content/uploads/a.jpg`, reads nothing of it.
+function namesFile( text: string, file: string ): boolean {
+	for ( let at = text.indexOf( file ); at !== -1; at = text.indexOf( file, at + 1 ) ) {
+		const token =
+			text
+				.slice( 0, at )
+				.split( /[\s"'(=]/ )
+				.pop() ?? '';
+		if ( ! /^(https?:)?\/\//.test( token ) && token !== '/' ) {
+			return true;
+		}
+	}
+	return false;
 }
 
 function strings( value: unknown ): string[] {

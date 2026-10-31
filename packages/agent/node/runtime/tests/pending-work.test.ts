@@ -25,6 +25,16 @@ describe( 'a call naming a file that work left running writes', () => {
 			input: { command: 'ls wp-content/uploads' },
 			waits: false,
 		},
+		{
+			// eval7 wpbest 3: a heredoc writing a page's copy held the call 131s.
+			name: 'does not wait for markup that shows it by its URL',
+			input: {
+				command:
+					'cat >> 6.html <<\'EOF\'\n<img src="http://localhost:8881/wp-content/uploads/2026/10/hero.png"/>' +
+					'<div style="background-image:url(/wp-content/uploads/2026/10/hero.png)"></div>\nEOF',
+			},
+			waits: false,
+		},
 		{ name: 'does not wait for a call without arguments', input: undefined, waits: false },
 	] )( '$name', async ( { input, waits } ) => {
 		const work = new PendingWork();

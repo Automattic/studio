@@ -60,7 +60,102 @@ export async function pageLayout( page: Page ): Promise< string[] > {
 		}
 		return lines;
 	}, MAX_REGIONS );
-	return [ ...( await regions ), ...( await pageOverflow( page ) ) ];
+	return [
+		...( await regions ),
+		...( await pageBandGaps( page ) ),
+		...( await pageOverflow( page ) ),
+	];
+}
+
+/**
+ * Where the page's background shows as a strip between two full-width blocks
+ * of the page, or of main, painted other than it at the edges that face each
+ * other: the later block's top margin, as WordPress spaces each block after
+ * the first in a layout by its block gap.
+ */
+export function pageBandGaps( page: Page ): Promise< string[] > {
+	return page.evaluate( () => {
+		const generated = /^(is-|has-|wp-container-|wp-elements-|wp-block-[a-z-]+-is-layout-)/;
+		const label = ( element: Element ) =>
+			element.tagName.toLowerCase() +
+			[ ...element.classList ]
+				.filter( ( name ) => ! generated.test( name ) )
+				.slice( 0, 3 )
+				.map( ( name ) => `.${ name }` )
+				.join( '' );
+		const viewport = document.documentElement.clientWidth;
+		const transparent = ( color: string ) =>
+			color === 'transparent' || /^rgba\(.*,\s*0\)$/.test( color );
+		const shown = ( element: Element ) => element.getBoundingClientRect().height > 0;
+		// What a block shows at its top or bottom edge: its own background, or
+		// that of the block it starts or ends with.
+		const edge = ( element: Element, side: 'top' | 'bottom' ): string | undefined => {
+			const style = getComputedStyle( element );
+			if ( style.backgroundImage !== 'none' || element.classList.contains( 'wp-block-cover' ) ) {
+				return 'image';
+			}
+			if ( ! transparent( style.backgroundColor ) ) {
+				return style.backgroundColor;
+			}
+			const children = [ ...element.children ].filter( shown );
+			const child = side === 'top' ? children[ 0 ] : children[ children.length - 1 ];
+			// Only a block that reaches the edge, past no padding, shows there.
+			return child &&
+				Math.abs(
+					child.getBoundingClientRect()[ side ] - element.getBoundingClientRect()[ side ]
+				) < 1
+				? edge( child, side )
+				: undefined;
+		};
+		const behind = ( element: Element ): string => {
+			for ( let at: Element | null = element; at; at = at.parentElement ) {
+				const color = getComputedStyle( at ).backgroundColor;
+				if ( ! transparent( color ) ) {
+					return color;
+				}
+			}
+			return 'rgb(255, 255, 255)';
+		};
+		const gaps: { y: number; line: string }[] = [];
+		const site = document.querySelector( '.wp-site-blocks' );
+		const main = site?.querySelector( ':scope > main' );
+		const wraps = ( box: Element ): Element =>
+			box.children.length === 1 ? wraps( box.children[ 0 ] ) : box;
+		for ( const parent of [ site, main && wraps( main ) ] ) {
+			if ( ! parent ) {
+				continue;
+			}
+			const blocks = [ ...parent.children ].filter( ( element ) => {
+				const rect = element.getBoundingClientRect();
+				return rect.height > 0 && rect.left <= 0 && rect.right >= viewport - 1;
+			} );
+			const background = behind( parent );
+			blocks.slice( 1 ).forEach( ( block, index ) => {
+				const before = blocks[ index ];
+				const bottom = before.getBoundingClientRect().bottom + window.scrollY;
+				const gap = Math.round( block.getBoundingClientRect().top + window.scrollY - bottom );
+				const faces = [ edge( before, 'bottom' ), edge( block, 'top' ) ];
+				if (
+					gap > 0 &&
+					parseFloat( getComputedStyle( block ).marginTop ) > 0 &&
+					faces.every( ( face ) => face && face !== background )
+				) {
+					gaps.push( {
+						y: bottom,
+						line: `y ${ Math.round( bottom ) }–${
+							Math.round( bottom ) + gap
+						} (${ gap }px), between ${ label( before ) } and ${ label( block ) }`,
+					} );
+				}
+			} );
+		}
+		return gaps.length
+			? [
+					"The page's background shows as a strip between full-width blocks, the top margin WordPress gives each block after the first in a layout from its block gap (wp_get_layout_style() in wp-includes/block-supports/layout.php; for the header, main and footer, :where(.wp-site-blocks) > * in WP_Theme_JSON::get_root_layout_rules()):",
+					...gaps.sort( ( a, b ) => a.y - b.y ).map( ( gap ) => `  ${ gap.line }` ),
+			  ]
+			: [];
+	} );
 }
 
 /** Whether the page is wider than its viewport, and the elements that make it so. */

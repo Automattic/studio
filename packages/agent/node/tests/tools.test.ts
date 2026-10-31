@@ -77,9 +77,9 @@ describe( 'Studio AI MCP tools', () => {
 		url: () => 'http://localhost:8903/',
 		goto: vi.fn(),
 		on: vi.fn(),
-		// The page layout's script takes its region limit and returns lines.
-		evaluate: vi.fn( async ( _script: unknown, args?: number | { source?: string } ) => {
-			if ( typeof args === 'number' ) {
+		// The page layout's scripts read the page's blocks and return lines.
+		evaluate: vi.fn( async ( script: unknown, args?: number | { source?: string } ) => {
+			if ( typeof args === 'number' || String( script ).includes( 'wp-site-blocks' ) ) {
 				return [ 'main: y 0–900 (900px tall), x 0–1040' ];
 			}
 			return args?.source ? scaledBuffer.toString( 'base64' ) : documentHeight;

@@ -49,6 +49,27 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 		] );
 	} );
 
+	it( "names the page's background where it shows between full-width blocks", async () => {
+		const gap = ':where(.wp-site-blocks) > * + *, .is-layout-flow > * + * { margin-top: 24px }';
+		const layout = await layoutOf( `<style>${ gap }</style><div class="wp-site-blocks">
+			<header class="wp-block-template-part"><div class="wp-block-group" style="background:#10111a;height:90px"></div></header>
+			<main class="wp-block-group is-layout-flow">
+				<div class="wp-block-group alignfull hero" style="background:#10111a;height:500px"></div>
+				<div class="wp-block-group alignfull stats" style="background:#2743c4;height:200px"></div>
+				<div class="wp-block-group alignfull" style="padding:40px 0"><div class="card" style="background:#2743c4;height:160px"></div></div>
+				<div class="wp-block-group alignfull" style="background:#10111a;height:200px"></div>
+			</main>
+		</div>` );
+		// Not where the page's color meets the gap, as past a block's padding, which reads as its own space.
+		expect(
+			layout.filter( ( line ) => line.includes( 'background' ) || line.startsWith( '  y' ) )
+		).toEqual( [
+			"The page's background shows as a strip between full-width blocks, the top margin WordPress gives each block after the first in a layout from its block gap (wp_get_layout_style() in wp-includes/block-supports/layout.php; for the header, main and footer, :where(.wp-site-blocks) > * in WP_Theme_JSON::get_root_layout_rules()):",
+			'  y 90–114 (24px), between header.wp-block-template-part and main.wp-block-group',
+			'  y 614–638 (24px), between div.wp-block-group.alignfull.hero and div.wp-block-group.alignfull.stats',
+		] );
+	} );
+
 	it( 'says when the page is wider than its viewport, and what reaches past it', async () => {
 		expect(
 			await layoutOf( `<footer class="wp-block-template-part" style="height:20px"><div style="width:300px">

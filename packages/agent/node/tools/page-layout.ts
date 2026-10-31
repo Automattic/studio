@@ -426,6 +426,198 @@ export function pageTextFit( page: Page ): Promise< TextFit > {
 }
 
 /**
+ * Text a visitor cannot read against what is behind it: a contrast ratio
+ * under 3:1, which WCAG 2's 1.4.3 fails at every text size (4.5:1 for text,
+ * 3:1 for large text). What is behind the text is the colors the browser
+ * paints under its first line, from the text's own box down to the page; text
+ * over an image, a gradient or a pseudo-element's background is not measured,
+ * as no one color is behind it.
+ */
+export function pageContrast( page: Page ): Promise< string[] > {
+	return page.evaluate( ( maxLines ) => {
+		const generated = /^(is-|has-|wp-container-|wp-elements-|wp-block-[a-z-]+-is-layout-)/;
+		const label = ( element: Element ) => {
+			const tag = element.tagName.toLowerCase();
+			const named =
+				tag +
+				[ ...element.classList ]
+					.filter( ( name ) => ! generated.test( name ) )
+					.slice( 0, 3 )
+					.map( ( name ) => `.${ name }` )
+					.join( '' );
+			const text = ( element.textContent ?? '' ).replace( /\s+/g, ' ' ).trim();
+			return `${ named } "${ text.length > 40 ? `${ text.slice( 0, 40 ) }…` : text }"`;
+		};
+		// Any CSS color, as color-mix() and oklch() compute, read as sRGB by a canvas.
+		const canvas = document.createElement( 'canvas' );
+		canvas.width = canvas.height = 1;
+		const context = canvas.getContext( '2d', { willReadFrequently: true } );
+		const rgba = ( color: string ) => {
+			if ( ! context ) {
+				return [ 0, 0, 0, 0 ];
+			}
+			context.clearRect( 0, 0, 1, 1 );
+			context.fillStyle = color;
+			context.fillRect( 0, 0, 1, 1 );
+			const [ r, g, b, a ] = context.getImageData( 0, 0, 1, 1 ).data;
+			return [ r, g, b, a / 255 ];
+		};
+		const over = ( top: number[], alpha: number, bottom: number[] ) =>
+			bottom.map( ( channel, i ) => ( i < 3 ? top[ i ] * alpha + channel * ( 1 - alpha ) : 1 ) );
+		const luminance = ( color: number[] ) => {
+			const [ r, g, b ] = color.slice( 0, 3 ).map( ( channel ) => {
+				const c = channel / 255;
+				return c <= 0.04045 ? c / 12.92 : ( ( c + 0.055 ) / 1.055 ) ** 2.4;
+			} );
+			return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+		};
+		const hex = ( color: number[] ) =>
+			'#' +
+			color
+				.slice( 0, 3 )
+				.map( ( channel ) => Math.round( channel ).toString( 16 ).padStart( 2, '0' ) )
+				.join( '' );
+		const unmeasured = ( element: Element ) => {
+			if ( element.matches( 'img, picture, video, canvas, svg, iframe, object, embed' ) ) {
+				return true;
+			}
+			return [ undefined, '::before', '::after' ].some( ( pseudo ) => {
+				const style = getComputedStyle( element, pseudo );
+				if ( pseudo && style.content === 'none' ) {
+					return false;
+				}
+				return (
+					style.backgroundImage !== 'none' ||
+					( !! pseudo && rgba( style.backgroundColor )[ 3 ] > 0 )
+				);
+			} );
+		};
+		const opacity = ( element: Element | null ) => {
+			let product = 1;
+			for ( let node = element; node; node = node.parentElement ) {
+				product *= parseFloat( getComputedStyle( node ).opacity );
+			}
+			return product;
+		};
+
+		const lines: string[] = [];
+		const seen = new Set< Element >();
+		const scrollY = window.scrollY;
+		const walker = document.createTreeWalker( document.body, NodeFilter.SHOW_TEXT );
+		for ( let node = walker.nextNode(); node; node = walker.nextNode() ) {
+			const element = node.parentElement;
+			if ( ! element || seen.has( element ) || ! node.textContent?.trim() ) {
+				continue;
+			}
+			seen.add( element );
+			const style = getComputedStyle( element );
+			if (
+				style.visibility !== 'visible' ||
+				style.textShadow !== 'none' ||
+				element.closest( 'script, style, noscript, template, .screen-reader-text' )
+			) {
+				continue;
+			}
+			const range = document.createRange();
+			range.selectNodeContents( node );
+			const first = [ ...range.getClientRects() ].find(
+				( rect ) => rect.width > 1 && rect.height > 1
+			);
+			if ( ! first ) {
+				continue;
+			}
+			// The browser names what it paints at a point inside the viewport.
+			window.scrollTo( 0, window.scrollY + first.top + first.height / 2 - window.innerHeight / 2 );
+			const rect = [ ...range.getClientRects() ].find( ( r ) => r.width > 1 && r.height > 1 );
+			if ( ! rect ) {
+				continue;
+			}
+			const x = Math.min( rect.left + Math.min( rect.width, 20 ) / 2, window.innerWidth - 1 );
+			const stack = document.elementsFromPoint( x, rect.top + rect.height / 2 );
+			const index = stack.indexOf( element );
+			if ( index < 0 ) {
+				continue;
+			}
+			const layers: number[][] = [];
+			let backdrop: Element | undefined;
+			let measured = true;
+			for ( const layer of stack.slice( index ) ) {
+				if ( unmeasured( layer ) ) {
+					measured = false;
+					break;
+				}
+				const color = rgba( getComputedStyle( layer ).backgroundColor );
+				const alpha = color[ 3 ] * parseFloat( getComputedStyle( layer ).opacity );
+				if ( alpha > 0 ) {
+					layers.push( [ ...color.slice( 0, 3 ), alpha ] );
+				}
+				if ( alpha >= 1 ) {
+					backdrop = layer;
+					break;
+				}
+			}
+			if ( ! measured ) {
+				continue;
+			}
+			const background = layers
+				.reverse()
+				.reduce( ( below, layer ) => over( layer, layer[ 3 ], below ), [ 255, 255, 255, 1 ] );
+			const fill = style.getPropertyValue( '-webkit-text-fill-color' );
+			const text = rgba( fill && rgba( fill )[ 3 ] > 0 ? fill : style.color );
+			const shown = over( text, text[ 3 ] * opacity( element ), background );
+			const [ light, dark ] = [ luminance( shown ), luminance( background ) ].sort(
+				( a, b ) => b - a
+			);
+			const ratio = ( light + 0.05 ) / ( dark + 0.05 );
+			if ( ratio >= 3 ) {
+				continue;
+			}
+			const y = Math.round( window.scrollY + rect.top );
+			let line = `${ label( element ) }, at y ${ y }, is ${ hex( shown ) } text on ${ hex(
+				background
+			) }, a contrast ratio of ${ ratio.toFixed( 1 ) }:1.`;
+			// A heading colored by a rule of its own does not take the color its section sets.
+			const section = element.parentElement?.closest( '.has-text-color' );
+			if (
+				/^H[1-6]$/.test( element.tagName ) &&
+				! element.classList.contains( 'has-text-color' ) &&
+				! /(^|;)\s*color\s*:/.test( element.getAttribute( 'style' ) ?? '' ) &&
+				section &&
+				getComputedStyle( section ).color !== style.color
+			) {
+				line += ` Its section sets the text color ${ hex(
+					rgba( getComputedStyle( section ).color )
+				) }, which the heading does not take: a heading color in theme.json (styles.elements.heading, styles.elements.${ element.tagName.toLowerCase() } or styles.blocks.core/heading) is a rule on the heading itself, which wins over the color it would inherit.`;
+			}
+			// A block that sets a background and no text color leaves its text the color it inherits.
+			if (
+				backdrop?.classList.contains( 'has-background' ) &&
+				! backdrop.classList.contains( 'has-text-color' ) &&
+				! line.includes( 'Its section' )
+			) {
+				line += ` The background is ${ label( backdrop ).replace(
+					/ ".*$/,
+					''
+				) }'s, a block with a background color (has-background) and no text color of its own (has-text-color).`;
+			}
+			lines.push( line );
+		}
+		window.scrollTo( 0, scrollY );
+		if ( ! lines.length ) {
+			return [];
+		}
+		const shown =
+			lines.length > maxLines
+				? [ ...lines.slice( 0, maxLines ), `…and ${ lines.length - maxLines } more` ]
+				: lines;
+		return [
+			'Text a visitor cannot read, under the 3:1 contrast WCAG 2 asks of large text (4.5:1 of other text; success criterion 1.4.3):',
+			...shown.map( ( line ) => `  ${ line }` ),
+		];
+	}, MAX_TEXT_LINES );
+}
+
+/**
  * What a visitor gets that is broken, as the browser loaded the page: PHP's
  * own error output, which PHP prints into the page when display_errors is on
  * (php_error_cb() in main/main.c, as WordPress turns it on with WP_DEBUG in

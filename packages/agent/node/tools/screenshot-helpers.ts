@@ -4,7 +4,14 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { getSharedBrowser } from '@studio/agent/node/browser-utils';
 import { resolveScreenshotDirectory } from '@studio/agent/node/screenshot-storage';
-import { pageBreakage, pageLayout, pageOverflow, pageTextFit, type TextFit } from './page-layout';
+import {
+	pageBreakage,
+	pageContrast,
+	pageLayout,
+	pageOverflow,
+	pageTextFit,
+	type TextFit,
+} from './page-layout';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 
 type Browser = Awaited< ReturnType< typeof getSharedBrowser > >;
@@ -466,6 +473,7 @@ export async function inspectPage(
 			...( status >= 400 ? [ `The server answers ${ status }.` ] : [] ),
 			...( await pageBreakage( page ) ),
 			...( await pageOverflow( page ) ),
+			...( await pageContrast( page ) ),
 		];
 		const html = await response?.text().catch( () => undefined );
 		const options = { format: 'jpeg' as const, forModel: true };

@@ -641,3 +641,35 @@ The install UUID is a persistent pseudonymous identifier; events are anonymous (
 no PII (no site names, paths, or WordPress.com user id). Analytics defaults ON with an opt-out in
 Settings and onboarding, plus a Privacy Policy reference. `is_a11n` is a boolean flag, not an
 identifier.
+
+### Account journey result meaning
+
+`studio_account_journey_completed` carries `completion_kind`: `ai_response`, `ai_edit`,
+`preview_create`, `preview_update`, `sync_push`, or `sync_pull` (the completed pull in connect-and-pull).
+A successful AI turn reports `ai_response`; it reports `ai_edit` only when that same turn has a
+successful Write/Edit call. Missing edit statistics do not establish an edit. Neither kind proves a
+successful site build, correctness, or satisfaction. Preview kinds follow the requested create/update
+operation; they do not describe preview inventory.
+
+For AI, the UI generates an opaque UUID at dispatch and passes it through the existing session input
+payload. The CLI uses it as `turn_id` in its existing start/completion events and returns it with the
+turn's edit summary over the existing JSON transport. The UI emits a journey marker only for a
+successful exact-turn match, including queued sends. Missing or reordered unrelated results cannot
+complete another turn's journey. Reload loses the in-memory attribution; it is not reconstructed.
+
+Journey expiry is checked at task start and completion, 24 hours from authentication initiation.
+Auth callback context expires after 15 minutes. Account changes invalidate waiting task attribution.
+Retried authentication can refresh initiation; a query must use the matching initiation window, not
+24 hours after a successful callback. Failed/cancelled/unobserved auth outcomes remain separate;
+missing context is unknown. Handoff failure is a diagnostic that can overlap later CLI success.
+
+These random correlation IDs increase behavioral linkability within the existing anonymous
+installation identity. New properties contain no account/site identifiers, content, credentials,
+paths, URLs, or raw errors. The existing sender, opt-out and environment gates remain authoritative.
+See [account event validation](analytics-tracks-release-checklist.md) for the release checks.
+
+The optional numeric `journey_started_at` is captured at authentication initiation and accompanies
+that attempt and its task marker. It is the same millisecond clock used for the 24h expiry check;
+a retry refreshes it. Correlation requires matching journey, placement, intent and initiation timestamp,
+with task completion after successful auth and no later than initiation plus 24h. This adds timing
+metadata, not a new identifier, destination or identity mechanism.

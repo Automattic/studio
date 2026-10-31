@@ -251,6 +251,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					method: 'POST',
 					body: JSON.stringify( { auth_attempt_id: authAttemptId, launch_failed: launchFailed } ),
 				} ).catch( () => undefined );
+			const analyticsParams = new URLSearchParams( { source } );
+			for ( const [ key, value ] of Object.entries( analytics ?? {} ) ) {
+				if ( value !== undefined ) analyticsParams.set( key, String( value ) );
+			}
 			try {
 				( { url: loginUrl, authAttemptId } = await api< {
 					url: string | null;
@@ -258,7 +262,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				} >(
 					`/auth/login-url?redirect_uri=${ encodeURIComponent(
 						`${ window.location.origin }/auth/callback`
-					) }${ signup ? '&signup=1' : '' }&${ new URLSearchParams( { source, ...analytics } ) }`
+					) }${ signup ? '&signup=1' : '' }&${ analyticsParams }`
 				) );
 			} catch {
 				loginUrl = null;
@@ -713,6 +717,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'POST',
 				body: JSON.stringify( {
 					prompt,
+					turnId: options?.turnId,
 					displayMessage: options?.displayMessage,
 					images: options?.images,
 					files: options?.files,

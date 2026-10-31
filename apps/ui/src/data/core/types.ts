@@ -388,6 +388,7 @@ export interface Connector {
 		sessionId: string,
 		prompt: string,
 		options?: {
+			turnId?: string;
 			displayMessage?: string;
 			images?: StudioChatImage[];
 			files?: StudioChatFileAttachment[];

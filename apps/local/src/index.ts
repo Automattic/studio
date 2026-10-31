@@ -583,7 +583,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	// connector falls back to the paste flow.
 	api.get( '/auth/login-url', ( req: Request, res: Response ) => {
 		const redirectUri = typeof req.query.redirect_uri === 'string' ? req.query.redirect_uri : '';
-		const analytics = authAnalyticsSchema.safeParse( req.query ).data;
+		const analytics = authAnalyticsSchema.safeParse( {
+			...req.query,
+			journey_started_at:
+				typeof req.query.journey_started_at === 'string'
+					? Number( req.query.journey_started_at )
+					: undefined,
+		} ).data;
 		const attempt = createAuthAttempt(
 			authSourceSchema.catch( 'unknown' ).parse( req.query.source ),
 			req.query.signup === '1',
@@ -2117,6 +2123,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			const { runId } = runManager.startAgentRun( {
 				sessionId: req.params.id,
 				prompt: expandSkillCommandPrompt( prompt ),
+				turnId: typeof req.body.turnId === 'string' ? req.body.turnId : undefined,
 				displayMessage,
 				images,
 				files,

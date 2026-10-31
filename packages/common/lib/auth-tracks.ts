@@ -41,6 +41,7 @@ export const authAnalyticsSchema = z.object( {
 		'usage',
 	] ),
 	journey_id: z.string().uuid().optional(),
+	journey_started_at: z.number().int().nonnegative().max( Number.MAX_SAFE_INTEGER ).optional(),
 } );
 
 export type AuthAnalytics = z.infer< typeof authAnalyticsSchema >;
@@ -108,3 +109,7 @@ export const onboardingAnalyticsSchema = z.object( {
 	journey_id: z.string().uuid().optional(),
 } );
 export type OnboardingAnalytics = z.infer< typeof onboardingAnalyticsSchema >;
+
+export type AccountJourneyCompletion =
+	| { completion_kind: 'ai_response' | 'ai_edit'; turn_id: string }
+	| { completion_kind: 'preview_create' | 'preview_update' | 'sync_push' | 'sync_pull' };

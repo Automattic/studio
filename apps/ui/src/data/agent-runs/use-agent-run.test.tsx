@@ -1,7 +1,9 @@
 import { SKIPPED_QUESTION, STOPPED_WITHOUT_ANSWER } from '@studio/agent/protocol/tools';
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { rememberAccountJourney } from '@/data/account-analytics';
 import { createLocalConnector } from '@/data/core/connectors/local';
 import { ASSISTANT_QUOTA_QUERY_KEY } from '@/data/queries/use-assistant-quota';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
@@ -620,5 +622,176 @@ describe( 'useAgentRun queued handoff', () => {
 
 		emit( 'message_end', [ text( 'Updating the header.' ), toolCall ] );
 		expect( contents() ).toEqual( [ [ text( 'Updating the header.' ), toolCall ] ] );
+	} );
+} );
+
+describe( 'account journeys follow the dispatched turn', () => {
+	const journey = () =>
+		( {
+			placement: 'settings_ai',
+			intent: 'build',
+			journey_id: crypto.randomUUID(),
+		} ) as const;
+	const completed = (
+		runId: string,
+		turnId?: string,
+		edits?: number,
+		status: 'success' | 'error' = 'success'
+	) =>
+		event( runId, {
+			type: 'turn.completed',
+			timestamp: new Date().toISOString(),
+			sessionId: 'session-1',
+			status,
+			turnId,
+			edits,
+		} );
+
+	it.each( [
+		[ undefined, 'ai_response' ],
+		[ 0, 'ai_response' ],
+		[ 2, 'ai_edit' ],
+	] as const )( 'keeps edit evidence honest (edits=%s)', async ( edits, kind ) => {
+		const { connector } = await setup();
+		const context = journey();
+		rememberAccountJourney( connector, context );
+		connector.continueSession.mockResolvedValue( { runId: 'run-a' } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledOnce() );
+		const turnId = connector.continueSession.mock.calls[ 0 ][ 2 ]!.turnId!;
+		await act( async () =>
+			connector.emit( 'onAgentEvent', completed( 'run-a', crypto.randomUUID(), 3 ) )
+		);
+		expect( connector.trackEvent ).not.toHaveBeenCalledWith(
+			TRACKS_EVENTS.ACCOUNT_JOURNEY_COMPLETED,
+			expect.anything()
+		);
+		await act( async () => connector.emit( 'onAgentEvent', completed( 'run-a', turnId, edits ) ) );
+		expect( connector.trackEvent ).toHaveBeenCalledWith( TRACKS_EVENTS.ACCOUNT_JOURNEY_COMPLETED, {
+			...context,
+			completion_kind: kind,
+			turn_id: turnId,
+		} );
+		await act( async () => connector.emit( 'onAgentEvent', completed( 'run-a', turnId, edits ) ) );
+		expect(
+			connector.trackEvent.mock.calls.filter(
+				( [ name ] ) => name === TRACKS_EVENTS.ACCOUNT_JOURNEY_COMPLETED
+			)
+		).toHaveLength( 1 );
+	} );
+
+	it( 'does not complete a queued journey from the previous turn', async () => {
+		const { connector } = await setup();
+		act( () => connector.emit( 'onAgentEvent', started( 'run-old' ) ) );
+		rememberAccountJourney( connector, journey() );
+		connector.continueSession.mockResolvedValue( { runId: 'run-new' } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+		expect( connector.continueSession ).not.toHaveBeenCalled();
+		await act( async () =>
+			connector.emit( 'onAgentEvent', completed( 'run-old', crypto.randomUUID(), 1 ) )
+		);
+		await act( async () => connector.emit( 'onAgentEvent', exited( 'run-old' ) ) );
+		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledOnce() );
+		const turnId = connector.continueSession.mock.calls[ 0 ][ 2 ]!.turnId!;
+		await act( async () => connector.emit( 'onAgentEvent', completed( 'run-old', turnId, 1 ) ) );
+		expect( connector.trackEvent ).not.toHaveBeenCalledWith(
+			TRACKS_EVENTS.ACCOUNT_JOURNEY_COMPLETED,
+			expect.anything()
+		);
+		await act( async () => connector.emit( 'onAgentEvent', completed( 'run-new', turnId, 1 ) ) );
+		expect( connector.trackEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.ACCOUNT_JOURNEY_COMPLETED,
+			expect.objectContaining( { turn_id: turnId, completion_kind: 'ai_edit' } )
+		);
+	} );
+
+	it( 'does not convert failed turns or reconstruct attribution after reload', async () => {
+		const view = await setup();
+		const { connector } = view;
+		rememberAccountJourney( connector, journey() );
+		connector.continueSession.mockResolvedValue( { runId: 'run-a' } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledOnce() );
+		const turnId = connector.continueSession.mock.calls[ 0 ][ 2 ]!.turnId!;
+		await act( async () =>
+			connector.emit( 'onAgentEvent', completed( 'run-a', turnId, 1, 'error' ) )
+		);
+		expect( connector.trackEvent ).not.toHaveBeenCalledWith(
+			TRACKS_EVENTS.ACCOUNT_JOURNEY_COMPLETED,
+			expect.anything()
+		);
+		view.unmount();
+		await setup( { connector } );
+		await act( async () => connector.emit( 'onAgentEvent', completed( 'run-a', turnId, 1 ) ) );
+		expect( connector.trackEvent ).not.toHaveBeenCalledWith(
+			TRACKS_EVENTS.ACCOUNT_JOURNEY_COMPLETED,
+			expect.anything()
+		);
+	} );
+} );
+
+it( 'does not cross attribution between overlapping sessions', async () => {
+	function Parallel() {
+		const a = useAgentRun( 'session-1' );
+		const b = useAgentRun( 'session-2' );
+		return (
+			<>
+				<button onClick={ () => void a.sendMessage( 'a' ) }>Send A</button>
+				<button onClick={ () => void b.sendMessage( 'b' ) }>Send B</button>
+			</>
+		);
+	}
+	const first = session();
+	const second = {
+		summary: makeSession( { id: 'session-2', ownerSiteId: 'site-b' } ),
+		entries: [],
+	};
+	first.summary.ownerSiteId = 'site-a';
+	const connector = createFakeConnector( { sessions: [ first, second ] } );
+	const queryClient = createTestQueryClient();
+	queryClient.setQueryData( [ ...SESSIONS_QUERY_KEY, 'session-1' ], first );
+	queryClient.setQueryData( [ ...SESSIONS_QUERY_KEY, 'session-2' ], second );
+	await setup( { connector, queryClient }, <Parallel /> );
+	const a = { placement: 'settings_ai', intent: 'build', journey_id: crypto.randomUUID() } as const;
+	const b = { ...a, journey_id: crypto.randomUUID() };
+	rememberAccountJourney( connector, a, 'site-a' );
+	rememberAccountJourney( connector, b, 'site-b' );
+	connector.continueSession.mockImplementation( async ( id ) => ( { runId: `run-${ id }` } ) );
+	fireEvent.click( screen.getByRole( 'button', { name: 'Send A' } ) );
+	fireEvent.click( screen.getByRole( 'button', { name: 'Send B' } ) );
+	await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledTimes( 2 ) );
+	const idA = connector.continueSession.mock.calls.find( ( [ id ] ) => id === 'session-1' )![ 2 ]!
+		.turnId!;
+	const idB = connector.continueSession.mock.calls.find( ( [ id ] ) => id === 'session-2' )![ 2 ]!
+		.turnId!;
+	const finish = ( sessionId: string, turnId: string ) =>
+		connector.emit( 'onAgentEvent', {
+			sessionId,
+			runId: `run-${ sessionId }`,
+			event: {
+				type: 'turn.completed',
+				sessionId,
+				timestamp: new Date().toISOString(),
+				status: 'success',
+				turnId,
+				edits: 1,
+			},
+		} );
+	await act( async () => finish( 'session-2', idA ) );
+	expect( connector.trackEvent ).not.toHaveBeenCalledWith(
+		TRACKS_EVENTS.ACCOUNT_JOURNEY_COMPLETED,
+		expect.anything()
+	);
+	await act( async () => finish( 'session-2', idB ) );
+	expect( connector.trackEvent ).toHaveBeenCalledWith( TRACKS_EVENTS.ACCOUNT_JOURNEY_COMPLETED, {
+		...b,
+		turn_id: idB,
+		completion_kind: 'ai_edit',
+	} );
+	await act( async () => finish( 'session-1', idA ) );
+	expect( connector.trackEvent ).toHaveBeenCalledWith( TRACKS_EVENTS.ACCOUNT_JOURNEY_COMPLETED, {
+		...a,
+		turn_id: idA,
+		completion_kind: 'ai_edit',
 	} );
 } );

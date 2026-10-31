@@ -26,9 +26,11 @@ export function usePublishPreviewSite() {
 				getAccountJourney( connector, 'share', siteId ) ?? getAccountJourney( connector, 'share' )
 			);
 		},
-		onSuccess: ( _result, { siteId }, journey ) => {
+		onSuccess: ( _result, { siteId, existingHostname }, journey ) => {
 			settleFromMutation( siteId, 'preview' );
-			completeAccountJourney( connector, journey );
+			completeAccountJourney( connector, journey, {
+				completion_kind: existingHostname ? 'preview_update' : 'preview_create',
+			} );
 		},
 		onError: ( error, { siteId } ) => settleFromMutation( siteId, 'preview', error ),
 	} );

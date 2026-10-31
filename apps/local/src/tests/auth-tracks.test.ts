@@ -44,6 +44,7 @@ async function start( placement = 'share' ) {
 		placement,
 		intent: 'share',
 		journey_id: crypto.randomUUID(),
+		journey_started_at: '1234',
 	} );
 	return ( await fetch( `${ server.url }/api/auth/login-url?${ query }` ) ).json() as Promise< {
 		url: string;
@@ -84,6 +85,7 @@ describe( 'browser auth Tracks parity', () => {
 			expect.objectContaining( {
 				auth_attempt_id: second.authAttemptId,
 				placement: 'settings_sharing',
+				journey_started_at: 1234,
 				success: true,
 			} )
 		);

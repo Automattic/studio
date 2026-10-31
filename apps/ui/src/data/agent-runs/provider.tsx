@@ -52,7 +52,9 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	const [ stateStore ] = useState( createSessionStateStore );
-	const accountJourneysRef = useRef( new Map< string, AuthAnalytics[] >() );
+	const accountJourneysRef = useRef(
+		new Map< string, { turnId: string; journeys: AuthAnalytics[] } >()
+	);
 	const subscribedRunIdsBySessionRef = useRef< Map< string, string > >( new Map() );
 	const ignoredRunIdsRef = useRef< Set< string > >( new Set() );
 	const interruptPendingStartSessionIdsRef = useRef< Set< string > >( new Set() );
@@ -218,13 +220,26 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				case 'error':
 					toast.error( event.message );
 					return;
-				case 'turn.completed':
-					if ( event.status === 'success' )
-						for ( const journey of accountJourneysRef.current.get( payload.sessionId ) ?? [] )
-							completeAccountJourney( connector, journey );
-					accountJourneysRef.current.delete( payload.sessionId );
+				case 'turn.completed': {
+					const captured = accountJourneysRef.current.get( payload.sessionId );
+					if ( captured && event.turnId && event.turnId !== captured.turnId ) return;
+					if ( captured && event.turnId === captured.turnId ) {
+						if ( event.status === 'success' )
+							for ( const journey of captured.journeys )
+								completeAccountJourney( connector, journey, {
+									completion_kind:
+										event.edits !== undefined &&
+										Number.isSafeInteger( event.edits ) &&
+										event.edits > 0
+											? 'ai_edit'
+											: 'ai_response',
+									turn_id: captured.turnId,
+								} );
+						accountJourneysRef.current.delete( payload.sessionId );
+					}
 					dispatchSession( payload.sessionId, { type: 'turn_completed' } );
 					return;
+				}
 				case 'run.interrupting':
 					dispatchSession( payload.sessionId, { type: 'interrupt_requested' } );
 					return;
@@ -388,16 +403,17 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				...SESSIONS_QUERY_KEY,
 				sessionId,
 			] )?.summary.ownerSiteId;
-			accountJourneysRef.current.set(
-				sessionId,
-				[
+			const turnId = crypto.randomUUID();
+			accountJourneysRef.current.set( sessionId, {
+				turnId,
+				journeys: [
 					getAccountJourney( connector, 'build', ownerSiteId ) ??
 						getAccountJourney( connector, 'build' ),
 					...( options.visualAnnotations?.length
 						? [ getAccountJourney( connector, 'annotate', ownerSiteId ) ]
 						: [] ),
-				].filter( ( journey ): journey is AuthAnalytics => !! journey )
-			);
+				].filter( ( journey ): journey is AuthAnalytics => !! journey ),
+			} );
 			const displayMessage = options.displayMessage ?? prompt;
 			const images = options.images ?? [];
 			const files = options.files ?? [];
@@ -424,6 +440,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 
 			try {
 				const { runId: newRunId } = await connector.continueSession( sessionId, prompt, {
+					turnId,
 					displayMessage,
 					images,
 					files,

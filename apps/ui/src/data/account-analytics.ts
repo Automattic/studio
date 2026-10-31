@@ -2,7 +2,7 @@ import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useConnector } from '@/data/core';
 import type { Connector } from '@/data/core';
-import type { AuthAnalytics } from '@studio/common/lib/auth-tracks';
+import type { AccountJourneyCompletion, AuthAnalytics } from '@studio/common/lib/auth-tracks';
 import type { TracksProps } from '@studio/common/lib/record-tracks-event';
 
 type Journey = { analytics: AuthAnalytics; startedAt: number };
@@ -22,6 +22,7 @@ export function rememberAccountJourney(
 		journeys.set( connector, pending );
 	}
 	const startedAt = Date.now();
+	analytics.journey_started_at = startedAt;
 	journeyContexts.set( analytics, { generation: generations.get( connector ) ?? 0, startedAt } );
 	pending.set( `${ analytics.intent }:${ scope }`, { analytics, startedAt } );
 }
@@ -41,7 +42,11 @@ export function getAccountJourney(
 }
 
 const completedJourneys = new WeakMap< Connector, Set< string > >();
-export function completeAccountJourney( connector: Connector, analytics?: AuthAnalytics ) {
+export function completeAccountJourney(
+	connector: Connector,
+	analytics: AuthAnalytics | undefined,
+	completion: AccountJourneyCompletion
+) {
 	const context = analytics ? journeyContexts.get( analytics ) : undefined;
 	if (
 		! analytics ||
@@ -62,7 +67,7 @@ export function completeAccountJourney( connector: Connector, analytics?: AuthAn
 			journeys.get( connector )?.delete( key );
 	}
 	void connector
-		.trackEvent( TRACKS_EVENTS.ACCOUNT_JOURNEY_COMPLETED, analytics )
+		.trackEvent( TRACKS_EVENTS.ACCOUNT_JOURNEY_COMPLETED, { ...analytics, ...completion } )
 		.catch( () => undefined );
 }
 

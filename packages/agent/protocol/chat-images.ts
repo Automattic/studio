@@ -26,6 +26,7 @@ export interface StudioChatImage extends StudioChatImageAttachment {
 }
 
 export interface StudioAiSessionInputPayload {
+	turnId?: string;
 	prompt: string;
 	displayMessage?: string;
 	images?: StudioChatImage[];

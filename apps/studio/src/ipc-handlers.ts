@@ -300,6 +300,7 @@ export async function continueAiSession(
 	sessionId: string,
 	prompt: string,
 	options: {
+		turnId?: string;
 		displayMessage?: string;
 		images?: StudioChatImage[];
 		files?: StudioChatFileAttachment[];
@@ -313,6 +314,7 @@ export async function continueAiSession(
 	return startAgentRun( {
 		sessionId,
 		prompt: expandSkillCommandPrompt( prompt ),
+		turnId: options.turnId,
 		displayMessage: options.displayMessage,
 		images,
 		files,

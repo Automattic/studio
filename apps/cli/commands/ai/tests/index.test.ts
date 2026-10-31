@@ -377,6 +377,71 @@ describe( 'AI runCommand — Tracks events', () => {
 		expect( props.duration_ms ).toBeTypeOf( 'number' );
 	} );
 
+	it( 'returns the same turn identity and edit count used by Tracks', async () => {
+		const adapter = new JsonAdapter();
+		const emit = vi.spyOn( adapter, 'emitTurnCompleted' );
+		const turnId = crypto.randomUUID();
+		await runCommand( { adapter, initialMessage: 'hello', initialTurnId: turnId } );
+		const props = ( recordTracksEvent as Mock ).mock.calls.find(
+			( [ name ] ) => name === TRACKS_EVENTS.CODE_TURN_COMPLETED
+		)![ 1 ];
+		expect( props.turn_id ).toBe( turnId );
+		expect( emit ).toHaveBeenCalledWith( expect.any( String ), 'session-id', undefined, {
+			turnId,
+			edits: props.edits,
+		} );
+	} );
+
+	it( 'does not accept arbitrary text as a correlation identifier', async () => {
+		await runCommand( {
+			adapter: new JsonAdapter(),
+			initialMessage: 'hello',
+			initialTurnId: 'private-input',
+		} );
+		const props = ( recordTracksEvent as Mock ).mock.calls[ 0 ][ 1 ];
+		expect( props.turn_id ).toMatch( /^[0-9a-f-]{36}$/ );
+		expect( JSON.stringify( ( recordTracksEvent as Mock ).mock.calls ) ).not.toContain(
+			'private-input'
+		);
+	} );
+
+	it.each( [
+		[ undefined, false, 0 ],
+		[ 'Read', false, 0 ],
+		[ 'Write', true, 0 ],
+		[ 'Edit', false, 1 ],
+	] as const )(
+		'returns successful-turn edit evidence for %s (failed=%s)',
+		async ( toolName, isError, expectedEdits ) => {
+			( runStudioAgentTurn as Mock ).mockImplementationOnce(
+				( _host: unknown, { onEvent }: { onEvent: ( event: unknown ) => void } ) => {
+					if ( toolName )
+						onEvent( {
+							type: 'tool_execution_end',
+							toolCallId: 'tool-1',
+							toolName,
+							result: {},
+							isError,
+						} );
+					onEvent( { type: 'agent_end', messages: [] } );
+					return { result: Promise.resolve(), interrupt: vi.fn(), hasTool: () => true };
+				}
+			);
+			const adapter = new JsonAdapter();
+			const emit = vi.spyOn( adapter, 'emitTurnCompleted' );
+			const turnId = crypto.randomUUID();
+			await runCommand( { adapter, initialMessage: 'hello', initialTurnId: turnId } );
+			expect( emit ).toHaveBeenCalledWith( 'success', 'session-id', undefined, {
+				turnId,
+				edits: expectedEdits,
+			} );
+			expect( recordTracksEvent ).toHaveBeenCalledWith(
+				TRACKS_EVENTS.CODE_TURN_COMPLETED,
+				expect.objectContaining( { turn_id: turnId, edits: expectedEdits, outcome: 'success' } )
+			);
+		}
+	);
+
 	it( 'adds the turn stats gathered from the agent events', async () => {
 		( runStudioAgentTurn as Mock ).mockImplementationOnce(
 			( _host: unknown, { onEvent }: { onEvent: ( event: unknown ) => void } ) => {

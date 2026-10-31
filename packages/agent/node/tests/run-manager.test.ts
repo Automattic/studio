@@ -1,5 +1,6 @@
 import { fork } from 'node:child_process';
 import { EventEmitter } from 'node:events';
+import fs from 'node:fs';
 import { updateSharedSession } from '@studio/common/lib/shared-config';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAgentRunManager } from '@studio/agent/node/run-manager';
@@ -131,4 +132,23 @@ describe( 'createAgentRunManager active runs', () => {
 		);
 		expect( updateSharedSession ).toHaveBeenCalledWith( 'session-1', { unread: true } );
 	} );
+} );
+
+it( 'passes the exact dispatched turn ID through the existing input payload', () => {
+	const child = createChild();
+	mockFork.mockReturnValueOnce( child as never );
+	const manager = createAgentRunManager( {
+		cliBinary: '/cli.mjs',
+		surface: 'desktop',
+		emit: vi.fn(),
+	} );
+	const turnId = crypto.randomUUID();
+	manager.startAgentRun( { sessionId: 'correlated', prompt: 'hello', turnId } );
+	const args = mockFork.mock.calls.at( -1 )![ 1 ] as string[];
+	const input = args[ args.indexOf( '--input-payload' ) + 1 ];
+	expect( JSON.parse( fs.readFileSync( input, 'utf8' ) ) ).toMatchObject( {
+		prompt: 'hello',
+		turnId,
+	} );
+	child.emit( 'exit', 0 );
 } );

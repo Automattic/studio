@@ -132,7 +132,7 @@ export function useConnectSite() {
 						// cache the hook would otherwise read has nothing for it yet.
 						syncSite: remote,
 					} );
-					completeAccountJourney( connector, journey );
+					completeAccountJourney( connector, journey, { completion_kind: 'sync_pull' } );
 				},
 				startLocalSite: async ( localSiteId ) => {
 					await startSite.mutateAsync( localSiteId );

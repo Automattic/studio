@@ -255,7 +255,7 @@ function useLiveSync< Options >(
 			};
 		},
 		onSuccess: ( _result, variables, { startedAt, journey } ) => {
-			completeAccountJourney( connector, journey );
+			completeAccountJourney( connector, journey, { completion_kind: 'sync_push' } );
 			settleFromMutation( variables.siteId, direction );
 			track( variables, startedAt );
 		},

@@ -33,6 +33,7 @@ import {
 import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { __, sprintf } from '@wordpress/i18n';
+import { z } from 'zod';
 import {
 	getAvailableAiProviders,
 	isAiProviderReady,
@@ -142,6 +143,7 @@ async function resolveWpcomDefaultModel(): Promise< AiModelId > {
 export async function runCommand( options: {
 	adapter: AiOutputAdapter;
 	initialMessage?: string;
+	initialTurnId?: string;
 	initialDisplayMessage?: string;
 	initialImages?: StudioChatImage[];
 	initialFiles?: StudioChatFileAttachment[];
@@ -584,8 +586,9 @@ export async function runCommand( options: {
 		displayMessage = prompt,
 		images: StudioChatImage[] = [],
 		files: StudioChatFileAttachment[] = [],
-		visualAnnotations?: StudioVisualAnnotationSummary[]
-	): Promise< { status: TurnStatus; sessionId: string } > {
+		visualAnnotations?: StudioVisualAnnotationSummary[],
+		requestedTurnId?: string
+	): Promise< { status: TurnStatus; sessionId: string; turnId: string; edits?: number } > {
 		// The quota-based default must land before the turn captures its model.
 		await wpcomDefaultModelResolution;
 		await maybeAutoSwitchProvider();
@@ -637,7 +640,7 @@ export async function runCommand( options: {
 		// Sole emitter of the chat events: every surface forks this process, and only this layer holds
 		// the provider, model and outcome together. `channel` separates them.
 		const tracksProps = {
-			turn_id: crypto.randomUUID(),
+			turn_id: z.string().uuid().safeParse( requestedTurnId ).data ?? crypto.randomUUID(),
 			...getTracksOrigin(),
 			...getAiTracksIdentity( sessionId ),
 			provider: currentProvider,
@@ -668,6 +671,8 @@ export async function runCommand( options: {
 			status: 'interrupted',
 		};
 		const turnStats = createTurnStatsTracker();
+		let edits: number | undefined;
+		let statsComplete = true;
 
 		const agentQuery = agent.runTurn( {
 			prompt: enrichedPrompt,
@@ -682,6 +687,7 @@ export async function runCommand( options: {
 				try {
 					turnStats.handleEvent( event );
 				} catch {
+					statsComplete = false;
 					// Stats only feed analytics, which must never break the chat.
 				}
 				// An `agent_end` with `willRetry` is not final — the session
@@ -732,23 +738,30 @@ export async function runCommand( options: {
 				} )
 			);
 			// No `errorMessage`: raw error text can embed paths and site names.
-			await recordChatTracksEvent( TRACKS_EVENTS.CODE_TURN_COMPLETED, () => ( {
-				...tracksProps,
-				outcome: turnState.status,
-				duration_ms: Date.now() - turnStartedAt,
-				...turnStats.getProps( {
+			await recordChatTracksEvent( TRACKS_EVENTS.CODE_TURN_COMPLETED, () => {
+				const stats = turnStats.getProps( {
 					outcome: turnState.status,
 					failure: turnState.failure,
 					site,
 					hasTool: ( name ) => agentQuery.hasTool( name ),
-				} ),
-			} ) );
+				} );
+				edits = statsComplete ? stats.edits : undefined;
+				return {
+					...tracksProps,
+					outcome: turnState.status,
+					duration_ms: Date.now() - turnStartedAt,
+					...stats,
+					edits,
+				};
+			} );
 			ui.endAgentTurn();
 		}
 
 		return {
 			status: turnState.status,
 			sessionId,
+			turnId: tracksProps.turn_id,
+			edits,
 		};
 	}
 
@@ -762,10 +775,14 @@ export async function runCommand( options: {
 				displayMessage,
 				options.initialImages,
 				options.initialFiles,
-				options.initialVisualAnnotations
+				options.initialVisualAnnotations,
+				options.initialTurnId
 			);
 			const jsonStatus = result.status === 'interrupted' ? 'error' : result.status;
-			( ui as JsonAdapter ).emitTurnCompleted( jsonStatus, result.sessionId );
+			( ui as JsonAdapter ).emitTurnCompleted( jsonStatus, result.sessionId, undefined, {
+				turnId: result.turnId,
+				edits: result.edits,
+			} );
 		} catch ( error ) {
 			process.exitCode = 1;
 			handleAgentTurnError( error );

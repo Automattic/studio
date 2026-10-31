@@ -11,6 +11,7 @@ import {
 	rememberAccountJourney,
 	useAnalyticsExposure,
 } from './account-analytics';
+import type { AuthAnalytics } from '@studio/common/lib/auth-tracks';
 
 afterEach( () => {
 	vi.unstubAllGlobals();
@@ -28,7 +29,7 @@ describe( 'account journey measurement', () => {
 		rememberAccountJourney( connector, analytics, 'site' );
 		const captured = getAccountJourney( connector, 'publish', 'site' );
 		clearAccountJourneys( connector );
-		completeAccountJourney( connector, captured );
+		completeAccountJourney( connector, captured, { completion_kind: 'preview_create' } );
 		expect( connector.trackEvent ).not.toHaveBeenCalled();
 	} );
 	it( 'does not attribute a captured task that finishes after the journey expires', () => {
@@ -42,9 +43,33 @@ describe( 'account journey measurement', () => {
 		rememberAccountJourney( connector, analytics, 'site' );
 		const captured = getAccountJourney( connector, 'publish', 'site' );
 		vi.advanceTimersByTime( 24 * 60 * 60 * 1000 + 1 );
-		completeAccountJourney( connector, captured );
+		completeAccountJourney( connector, captured, { completion_kind: 'preview_create' } );
 		expect( connector.trackEvent ).not.toHaveBeenCalled();
 	} );
+	it( 'keeps the emitted initiation timestamp equal to the expiry clock across retries', () => {
+		vi.useFakeTimers();
+		const connector = createFakeConnector();
+		const context: AuthAnalytics = {
+			placement: 'publish',
+			intent: 'publish',
+			journey_id: crypto.randomUUID(),
+		};
+		rememberAccountJourney( connector, context, 'site' );
+		expect( context.journey_started_at ).toBe( Date.now() );
+		vi.advanceTimersByTime( 1_000 );
+		const retry: AuthAnalytics = { ...context };
+		rememberAccountJourney( connector, retry, 'site' );
+		expect( retry.journey_started_at ).toBe( Date.now() );
+		vi.advanceTimersByTime( 24 * 60 * 60 * 1000 );
+		completeAccountJourney( connector, context, { completion_kind: 'sync_push' } );
+		expect( connector.trackEvent ).not.toHaveBeenCalled();
+		completeAccountJourney( connector, retry, { completion_kind: 'sync_push' } );
+		expect( connector.trackEvent ).toHaveBeenCalledWith( TRACKS_EVENTS.ACCOUNT_JOURNEY_COMPLETED, {
+			...retry,
+			completion_kind: 'sync_push',
+		} );
+	} );
+
 	it( 'observes a prompt that mounts after the parent effect', async () => {
 		const observe = vi.fn();
 		vi.stubGlobal(
@@ -81,11 +106,11 @@ describe( 'account journey measurement', () => {
 		rememberAccountJourney( connector, analytics, 'site-a' );
 		expect( getAccountJourney( connector, 'share', 'site-b' ) ).toBeUndefined();
 		const captured = getAccountJourney( connector, 'share', 'site-a' );
-		completeAccountJourney( connector, captured );
-		completeAccountJourney( connector, captured );
+		completeAccountJourney( connector, captured, { completion_kind: 'preview_create' } );
+		completeAccountJourney( connector, captured, { completion_kind: 'preview_create' } );
 		expect( connector.trackEvent ).toHaveBeenCalledExactlyOnceWith(
 			TRACKS_EVENTS.ACCOUNT_JOURNEY_COMPLETED,
-			analytics
+			{ ...analytics, completion_kind: 'preview_create' }
 		);
 		rememberAccountJourney(
 			connector,

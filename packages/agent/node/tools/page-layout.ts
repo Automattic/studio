@@ -527,7 +527,11 @@ export function pageContrast( page: Page ): Promise< string[] > {
 				continue;
 			}
 			// The browser names what it paints at a point inside the viewport.
-			window.scrollTo( 0, window.scrollY + first.top + first.height / 2 - window.innerHeight / 2 );
+			// At once, as a theme's `scroll-behavior: smooth` would only start it.
+			window.scrollTo( {
+				top: window.scrollY + first.top + first.height / 2 - window.innerHeight / 2,
+				behavior: 'instant',
+			} );
 			const rect = [ ...range.getClientRects() ].find( ( r ) => r.width > 1 && r.height > 1 );
 			if ( ! rect ) {
 				continue;
@@ -602,7 +606,7 @@ export function pageContrast( page: Page ): Promise< string[] > {
 			}
 			lines.push( line );
 		}
-		window.scrollTo( 0, scrollY );
+		window.scrollTo( { top: scrollY, behavior: 'instant' } );
 		if ( ! lines.length ) {
 			return [];
 		}

@@ -179,10 +179,11 @@ async function settleImages( page: Page, fullPage: boolean ): Promise< void > {
 				);
 				const viewportHeight = window.innerHeight;
 				for ( let y = 0; y < scrollHeight; y += viewportHeight ) {
-					window.scrollTo( 0, y );
+					// At once, as a theme's `scroll-behavior: smooth` would only start it.
+					window.scrollTo( { top: y, behavior: 'instant' } );
 					await waitForPaint();
 				}
-				window.scrollTo( 0, 0 );
+				window.scrollTo( { top: 0, behavior: 'instant' } );
 			}
 
 			const pendingImages = Array.from( document.images ).filter( ( img ) => {

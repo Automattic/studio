@@ -203,9 +203,13 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 		expect( lines.at( -1 ) ).toBe( '…and 2 more' );
 	} );
 
-	it( 'names text a visitor cannot read against what is painted behind it', async () => {
-		const lines = await open(
-			`<style>body{color:#0b1633} h1,h2{color:#0b1633} .tall{height:2000px}</style>
+	// eval7 picky 1: a theme's `html { scroll-behavior: smooth }` left text
+	// below the first screen unread, as a scroll to it had not moved yet.
+	it.each( [ '', 'html{scroll-behavior:smooth}' ] )(
+		'names text a visitor cannot read against what is painted behind it (%s)',
+		async ( smooth ) => {
+			const lines = await open(
+				`<style>${ smooth } body{color:#0b1633} h1,h2{color:#0b1633} .tall{height:2000px}</style>
 			<div class="wp-block-group has-background" style="background:#0b1633"><p>Readable?</p></div>
 			<div class="tall"></div>
 			<div class="wp-block-group has-text-color has-background" style="background:#0b1633;color:#fff"><h2>Below the fold</h2><p>White</p></div>
@@ -213,16 +217,17 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 			<div style="position:relative"><span style="position:absolute;inset:0;background:#0b1633"></span><p style="position:relative;color:#fff">Over an overlay</p></div>
 			<p style="color:rgba(11,22,51,.35)">Faded</p>
 			<div class="wp-block-group has-text-color has-background" style="background:#0b1633;color:#1a2540"><p>Dim</p></div>`,
-			pageContrast
-		);
-		expect( lines ).toEqual( [
-			'Text a visitor cannot read, under the 3:1 contrast WCAG 2 asks of large text (4.5:1 of other text; success criterion 1.4.3):',
-			'  p "Readable?", at y 0, is #0b1633 text on #0b1633, a contrast ratio of 1.0:1. The background is div.wp-block-group\'s, a block with a background color (has-background) and no text color of its own (has-text-color).',
-			'  h2 "Below the fold", at y 2038, is #0b1633 text on #0b1633, a contrast ratio of 1.0:1. Its section sets the text color #ffffff, which the heading does not take: a heading color in theme.json (styles.elements.heading, styles.elements.h2 or styles.blocks.core/heading) is a rule on the heading itself, which wins over the color it would inherit.',
-			'  p "Faded", at y 2140, is #aaaeb8 text on #ffffff, a contrast ratio of 2.2:1.',
-			'  p "Dim", at y 2158, is #1a2540 text on #0b1633, a contrast ratio of 1.2:1.',
-		] );
-	} );
+				pageContrast
+			);
+			expect( lines ).toEqual( [
+				'Text a visitor cannot read, under the 3:1 contrast WCAG 2 asks of large text (4.5:1 of other text; success criterion 1.4.3):',
+				'  p "Readable?", at y 0, is #0b1633 text on #0b1633, a contrast ratio of 1.0:1. The background is div.wp-block-group\'s, a block with a background color (has-background) and no text color of its own (has-text-color).',
+				'  h2 "Below the fold", at y 2038, is #0b1633 text on #0b1633, a contrast ratio of 1.0:1. Its section sets the text color #ffffff, which the heading does not take: a heading color in theme.json (styles.elements.heading, styles.elements.h2 or styles.blocks.core/heading) is a rule on the heading itself, which wins over the color it would inherit.',
+				'  p "Faded", at y 2140, is #aaaeb8 text on #ffffff, a contrast ratio of 2.2:1.',
+				'  p "Dim", at y 2158, is #1a2540 text on #0b1633, a contrast ratio of 1.2:1.',
+			] );
+		}
+	);
 
 	it( 'names a sticky element its parent is too short to let stick', async () => {
 		expect(

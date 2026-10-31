@@ -2,8 +2,9 @@ import fs from 'fs';
 import nodePath from 'path';
 import { Upload } from 'tus-js-client';
 
-// 5 MB balances fewer server round trips (faster uploads) against the data resent when a chunk fails and is retried.
-const TUS_CHUNK_SIZE = 5 * 1024 * 1024;
+// Each chunk waits for a server round trip, so larger chunks upload faster; a failed chunk is
+// resent whole. 10 MB matches WordPress.com's own tus uploaders (Calypso media, VideoPress).
+const TUS_CHUNK_SIZE = 10_000_000;
 
 /**
  * 5xx and network errors (status 0) are transient. 4xx are terminal, except 409

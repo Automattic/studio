@@ -1,6 +1,7 @@
 import { mkdir, readdir, readFile, stat, writeFile } from 'fs/promises';
 import path from 'path';
 import { Type } from 'typebox';
+import { drawDesign } from '@studio/agent/node/design-catalog';
 import { readThemeHeader } from '@studio/agent/node/themes';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
 import { runWpCli, textResult } from './utils';
@@ -165,11 +166,20 @@ export const createThemeTool = defineTool(
 			( [ file, content ] ) =>
 				`wp-content/themes/${ slug }/${ file }:\n~~~\n${ content.trimEnd() }\n~~~`
 		);
+		const { look, layout } = drawDesign();
+		const design = child
+			? []
+			: [
+					"Studio drew this site's look and layout at random from its design catalogs, so one site differs from the next; a look or layout the user's request names takes the place of the one drawn.",
+					`Look: ${ look.name }. ${ look.description }\n${ look.details }`,
+					`Layout: ${ layout.name }. ${ layout.description }\n${ layout.details }`,
+			  ];
 		return textResult(
 			[
 				child
 					? `Made ${ name }, a child theme of ${ child.parentName }, at wp-content/themes/${ slug }/ (${ written }), and activated it on ${ site.name }. WordPress reads each file it lacks from ${ parent } and merges its theme.json over ${ parent }'s (WP_Theme_JSON_Resolver::get_theme_data() in wp-includes/class-wp-theme-json-resolver.php): add only what changes. A \`file:\` path in its theme.json resolves to its own file, or else the parent's (get_theme_file_uri()).`
 					: `Made ${ name }, a block theme, at wp-content/themes/${ slug }/ (${ written }), and activated it on ${ site.name }. It has a structure and no look yet: its palette, fonts and styles go in theme.json, its header and footer in its parts. WordPress renders any template it lacks, such as archive or 404, with templates/index.html (wp-includes/template.php).`,
+				...design,
 				...contents,
 			].join( '\n\n' )
 		);

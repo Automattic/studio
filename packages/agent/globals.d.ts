@@ -7,3 +7,11 @@ declare module '*?raw' {
 	const content: string;
 	export default content;
 }
+
+// Files' text, as Vite bundles them with `import.meta.glob( …, { query: '?raw', import: 'default', eager: true } )`.
+interface ImportMeta {
+	glob(
+		pattern: string,
+		options: { query: '?raw'; import: 'default'; eager: true }
+	): Record< string, string >;
+}

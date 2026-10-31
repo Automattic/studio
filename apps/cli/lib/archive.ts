@@ -32,16 +32,20 @@ const WORDPRESS_COM_PROVIDED_PLUGINS = new Set( [
 	'polldaddy',
 ] );
 
+type ArchiveEntry = {
+	// Path inside the archive, e.g. `wp-content/plugins/my-plugin/my-plugin.php`.
+	name: string;
+	// Real path of the file to read, with symlinks resolved.
+	sourcePath: string;
+};
+
 /**
- * Archives a site for a preview. Inactive themes are left out: they don't change what the preview
- * shows, and the stock default themes alone are most of a small site's archive. Files a pulled
- * site links from its host's managed tree are left out too: the WordPress.com site has them.
- * Plugins WordPress.com provides are left out for the same reason.
+ * Lists the files a site's preview archive holds. Inactive themes are left out: they don't change
+ * what the preview shows, and the stock default themes alone are most of a small site's archive.
+ * Files a pulled site links from its host's managed tree are left out too: the WordPress.com site
+ * has them. Plugins WordPress.com provides are left out for the same reason.
  */
-export async function archiveSiteContent(
-	siteFolder: string,
-	archivePath: string
-): Promise< ZipArchive > {
+async function listArchiveEntries( siteFolder: string ): Promise< ArchiveEntry[] > {
 	const deployIgnore = await createDeployIgnoreFilter( siteFolder );
 	const activeThemes = await readActiveThemes( siteFolder );
 	// Files inside a theme folder (not `themes/index.php`) that belong to no active theme.
@@ -68,6 +72,56 @@ export async function archiveSiteContent(
 		posix: true,
 	} );
 
+	const entries: ArchiveEntry[] = [];
+	for ( const relativePath of relativePaths ) {
+		const name = `wp-content/${ relativePath }`;
+		if (
+			name === STUDIO_LOADER_ARCHIVE_PATH ||
+			deployIgnore.ignores( name ) ||
+			isInactiveTheme( relativePath ) ||
+			isWordPressComProvidedPlugin( relativePath )
+		) {
+			continue;
+		}
+		// If the source path is a symlink, `Archiver.file()` appends a symlink to
+		// the archive instead of the target file. We don't want this. By calling
+		// realpath first, we ensure the source file data is always appended. This
+		// is preferable to passing readable streams to `Archiver.append()`, which
+		// can lead to EMFILE errors.
+		try {
+			const sourcePath = fs.realpathSync( path.join( wpContentPath, relativePath ) );
+			if ( ! isHostManagedPullFile( sourcePath ) ) {
+				entries.push( { name, sourcePath } );
+			}
+		} catch ( error ) {
+			// Dangling symlink. Skip it rather than aborting the whole archive.
+			console.warn( `Skipping ${ name }: ${ error }` );
+		}
+	}
+
+	const wpConfigPath = path.join( siteFolder, 'wp-config.php' );
+	if ( fs.existsSync( wpConfigPath ) ) {
+		entries.push( { name: 'wp-config.php', sourcePath: wpConfigPath } );
+	}
+	return entries;
+}
+
+/**
+ * Total size of the files a site's preview archive holds, before compression. The size limit
+ * applies to this, so files the archive leaves out don't count against it.
+ */
+export async function getArchiveContentSize( siteFolder: string ): Promise< number > {
+	const entries = await listArchiveEntries( siteFolder );
+	return entries.reduce( ( total, entry ) => total + fs.statSync( entry.sourcePath ).size, 0 );
+}
+
+/** Archives a site for a preview; see `listArchiveEntries` for what it holds. */
+export async function archiveSiteContent(
+	siteFolder: string,
+	archivePath: string
+): Promise< ZipArchive > {
+	const entries = await listArchiveEntries( siteFolder );
+
 	return new Promise( ( resolve, reject ) => {
 		const output = fs.createWriteStream( archivePath );
 		const archiveBuilder = new ZipArchive( {
@@ -83,43 +137,10 @@ export async function archiveSiteContent(
 
 		archiveBuilder.pipe( output );
 
-		for ( const relativePath of relativePaths ) {
-			const archiveEntryPath = `wp-content/${ relativePath }`;
-			if ( archiveEntryPath === STUDIO_LOADER_ARCHIVE_PATH ) {
-				continue;
-			}
-			if (
-				deployIgnore.ignores( archiveEntryPath ) ||
-				isInactiveTheme( relativePath ) ||
-				isWordPressComProvidedPlugin( relativePath )
-			) {
-				continue;
-			}
-			// If the source path is a symlink, `Archiver.file()` appends a symlink to
-			// the archive instead of the target file. We don't want this. By calling
-			// realpath first, we ensure the source file data is always appended. This
-			// is preferable to passing readable streams to `Archiver.append()`, which
-			// can lead to EMFILE errors.
-			try {
-				const resolvedPath = fs.realpathSync( path.join( wpContentPath, relativePath ) );
-				if ( isHostManagedPullFile( resolvedPath ) ) {
-					continue;
-				}
-				// `file()` passes the zip-only `store` option through, though its types omit it.
-				const entry: ZipEntryData = {
-					name: archiveEntryPath,
-					store: ALREADY_COMPRESSED_FILE.test( relativePath ),
-				};
-				archiveBuilder.file( resolvedPath, entry );
-			} catch ( error ) {
-				// Dangling symlink. Skip it rather than aborting the whole archive.
-				console.warn( `Skipping ${ archiveEntryPath }: ${ error }` );
-			}
-		}
-
-		const wpConfigPath = path.join( siteFolder, 'wp-config.php' );
-		if ( fs.existsSync( wpConfigPath ) ) {
-			archiveBuilder.file( wpConfigPath, { name: 'wp-config.php' } );
+		for ( const { name, sourcePath } of entries ) {
+			// `file()` passes the zip-only `store` option through, though its types omit it.
+			const entry: ZipEntryData = { name, store: ALREADY_COMPRESSED_FILE.test( name ) };
+			archiveBuilder.file( sourcePath, entry );
 		}
 
 		archiveBuilder.finalize().catch( reject );

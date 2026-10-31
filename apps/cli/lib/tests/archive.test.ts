@@ -7,7 +7,7 @@ import { glob } from 'glob';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
 import { readActiveThemes } from 'cli/lib/active-themes';
-import { archiveSiteContent, cleanup } from 'cli/lib/archive';
+import { archiveSiteContent, cleanup, getArchiveContentSize } from 'cli/lib/archive';
 
 vi.mock( 'fs' );
 vi.mock( 'archiver', () => ( {
@@ -202,6 +202,16 @@ describe( 'Archive Module', () => {
 			await archiveSiteContent( mockSiteFolder, mockArchivePath );
 
 			expect( archivedNames() ).toEqual( [ 'wp-content/plugins/my-plugin/my-plugin.php' ] );
+		} );
+
+		it( 'should size only the files the archive holds', async () => {
+			vol.fromJSON( {
+				[ path.join( mockWpContentPath, 'plugins/jetpack/jetpack.php' ) ]: 'x'.repeat( 1000 ),
+				[ path.join( mockWpContentPath, 'plugins/my-plugin/my-plugin.php' ) ]: 'x'.repeat( 10 ),
+			} );
+			mockGlobResults( [ 'plugins/jetpack/jetpack.php', 'plugins/my-plugin/my-plugin.php' ] );
+
+			expect( await getArchiveContentSize( mockSiteFolder ) ).toBe( 10 );
 		} );
 
 		it( 'should skip a dangling symlink instead of aborting the archive', async () => {

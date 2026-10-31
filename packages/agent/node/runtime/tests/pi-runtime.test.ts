@@ -10,6 +10,7 @@ import { checkCustomEndpoint, type StudioAgentTurnConfig } from '@studio/agent/n
 import { AI_MODELS } from '@studio/agent/protocol/models';
 import { createFakeHost, fakeSite } from '../../tests/fake-host';
 import { getSessionState } from '../session-state';
+import type { AgentMessage } from '@earendil-works/pi-agent-core';
 import type { AgentSessionEvent, CreateAgentSessionOptions } from '@earendil-works/pi-coding-agent';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 import type { AiModelId } from '@studio/agent/protocol/models';
@@ -298,6 +299,10 @@ class FakeSession {
 			messages: options.sessionManager?.buildSessionContext().messages.slice() ?? [],
 		};
 	}
+
+	agent: {
+		transformContext?: ( messages: AgentMessage[] ) => Promise< AgentMessage[] >;
+	} = {};
 
 	setActiveToolsByName( names: string[] ): void {
 		this.activeToolNames = names;
@@ -1433,6 +1438,34 @@ describe( 'pi runtime', () => {
 			const ends = agentEnds( events );
 			expect( ends.map( ( event ) => event.willRetry ) ).toEqual( [ true, false ] );
 			expect( ends[ 1 ].messages[ 0 ] ).toMatchObject( { content: [ { text: 'Fixed.' } ] } );
+			// eval5-7: the reply the checks came after reached the user as the
+			// turn's end, and the reply after them was about Studio's checks.
+			// The turn continues from before it: neither the user nor the agent sees it.
+			const replies = events.flatMap( ( event ) =>
+				event.type === 'message_end' && event.message.role === 'assistant'
+					? event.message.content.flatMap( ( block ) =>
+							block.type === 'text' ? block.text : []
+					  )
+					: []
+			);
+			expect( replies ).toEqual( [ 'Fixed.' ] );
+			const lastCall = { role: 'toolResult', toolCallId: 'call-1' } as unknown as AgentMessage;
+			const checks = {
+				role: 'custom',
+				customType: 'studio.open_problems',
+			} as unknown as AgentMessage;
+			const reply = ( text: string ) =>
+				( { role: 'assistant', content: [ { type: 'text', text } ] } ) as unknown as AgentMessage;
+			const context = mocks.createdSessions[ 0 ].agent.transformContext!;
+			expect( await context( [ lastCall, reply( 'Done.' ), checks, reply( 'Fixed.' ) ] ) ).toEqual(
+				[ lastCall, checks, reply( 'Fixed.' ) ]
+			);
+		} );
+
+		it( 'shows a reply the checks find nothing after as it is', async () => {
+			mocks.nextEvents = runEndingWith( assistantMessage( [ { type: 'text', text: 'Done.' } ] ) );
+
+			expect( findAssistantText( await runFast() ) ).toBe( 'Done.' );
 		} );
 
 		it( "continues a finished turn with the notes on the run's last calls", async () => {

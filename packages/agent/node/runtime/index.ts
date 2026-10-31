@@ -58,6 +58,12 @@ import {
 import { findLastAssistant, isEmptyStop } from '@studio/agent/protocol/session-events';
 import { withDefaultTimeout } from './bash-timeout';
 import { createConfirmer } from './confirmation';
+import {
+	endsTurn,
+	OPEN_PROBLEMS_TYPE,
+	withoutContinuedReplies,
+	withoutReplyText,
+} from './held-reply';
 import { withLeakedToolCallMarkupRemoved } from './leaked-tool-call-markup';
 import { createMcpTools, isUserMcpTool, readMcpServers } from './mcp-tools';
 import { changesPreview } from './preview-reload';
@@ -112,7 +118,6 @@ const PORTABLE_COMPLETIONS_COMPAT = {
 // starts the same reasoning over and runs out again.
 const MAX_EMPTY_STOP_CONTINUES = 2;
 const EMPTY_STOP_CONTINUE_TYPE = 'studio.empty_stop_continue';
-const OPEN_PROBLEMS_TYPE = 'studio.open_problems';
 const STUDIO_COMPACTION_SETTINGS = {
 	enabled: true,
 	reserveTokens: 16_384,
@@ -326,6 +331,7 @@ async function runAgentSessionTurn(
 	let session: AgentSession | undefined;
 	let unsubscribe: ( () => void ) | undefined;
 	const payloadGuardState: StudioToolPayloadGuardState = {};
+	let heldReply: AgentSessionEvent[] = [];
 	const state = config.subagentOf
 		? shareSessionState( config.session, config.subagentOf.state )
 		: getSessionState( config.host, config.session );
@@ -339,7 +345,8 @@ async function runAgentSessionTurn(
 			}
 		};
 		// The end of each run is held until it is known whether the turn
-		// continues: consumers wait for the turn's real end.
+		// continues: consumers wait for the turn's real end. So is a reply that
+		// would end it, and what follows it, until Studio's checks of the turn.
 		let heldEnd: Extract< AgentSessionEvent, { type: 'agent_end' } > | undefined;
 		unsubscribe = session.subscribe( ( event ) => {
 			updateStudioToolPayloadGuardState( event, payloadGuardState );
@@ -347,8 +354,15 @@ async function runAgentSessionTurn(
 				heldEnd = event;
 				return;
 			}
+			if ( heldReply.length || endsTurn( event ) ) {
+				heldReply.push( event );
+				return;
+			}
 			emit( event );
 		} );
+		const continueFrom = session.agent.transformContext;
+		session.agent.transformContext = async ( messages, signal ) =>
+			withoutContinuedReplies( continueFrom ? await continueFrom( messages, signal ) : messages );
 
 		if ( controller.signal.aborted ) {
 			await session.abort();
@@ -418,10 +432,15 @@ async function runAgentSessionTurn(
 		for ( let end = heldEnd; end; end = heldEnd ) {
 			heldEnd = undefined;
 			const next = await continuation( end );
+			const held = heldReply;
+			heldReply = [];
 			if ( ! next ) {
+				held.forEach( emit );
 				emit( end );
 				break;
 			}
+			const rewinds = next.customType === OPEN_PROBLEMS_TYPE;
+			held.forEach( ( event ) => emit( rewinds ? withoutReplyText( event ) : event ) );
 			emit( { ...end, willRetry: true } );
 			if ( controller.signal.aborted ) {
 				config.onEvent( syntheticErrorAgentEnd( 'aborted', '' ) );
@@ -431,6 +450,7 @@ async function runAgentSessionTurn(
 		}
 		await state.pendingWork.settle();
 	} catch ( error ) {
+		heldReply.forEach( config.onEvent );
 		const aborted = controller.signal.aborted;
 		const message = aborted ? '' : error instanceof Error ? error.message : String( error );
 		config.onEvent( syntheticErrorAgentEnd( aborted ? 'aborted' : 'error', message ) );

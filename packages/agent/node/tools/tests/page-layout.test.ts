@@ -55,12 +55,14 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 				<div class="wp-block-group footer-grid" style="width:1400px;height:10px"><p style="height:5px"></p></div>
 				<div style="overflow:hidden"><div style="width:1600px;height:5px"></div></div>
 				<div style="position:fixed;left:1200px;width:900px;height:5px"></div>
+				<div class="bleed" style="margin-left:-40px;width:300px;height:5px"></div>
 			</div></footer>` )
 		).toEqual( [
 			'footer.wp-block-template-part: y 0–20 (20px tall), x 0–1000',
 			'  div.wp-block-group.footer-grid: y 0–10 (10px tall), x 0–1400',
 			'  div: y 10–15 (5px tall), x 0–300',
 			'  div: y 15–20 (5px tall), x 1200–2100',
+			'  div.bleed: y 15–20 (5px tall), x -40–260',
 			'The page is 1400px wide in a 1000px viewport, so it scrolls sideways.',
 			'  div.wp-block-group.footer-grid reaches past it, x 0–1400, in footer.wp-block-template-part.',
 		] );
@@ -81,12 +83,14 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 	} );
 
 	// As run h2h5's climbing gym footer: an email that does not wrap in its column.
+	// Text past the page's start edge widens nothing, as the page does not scroll there.
 	it( 'names text that spills past its box when no box does', async () => {
 		expect(
 			(
 				await layoutOf( `<footer style="height:20px"><div style="width:180px;margin-left:800px;font:20px/1 monospace">
 				<p class="wp-block-paragraph">hello@climbinggym.com<br>Open daily</p>
 				<p style="overflow:hidden">clipped@nowhere.example</p>
+				<p style="text-indent:-900px">before@its.start</p>
 			</div></footer>` )
 			).slice( -2 )
 		).toEqual( [

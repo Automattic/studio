@@ -92,10 +92,15 @@ export function pageOverflow( page: Page ): Promise< string[] > {
 			);
 			// What makes it wider: each element past the viewport whose parent is not.
 			// A box that clips its overflow, or a fixed one, adds nothing to the page's width.
+			// The page scrolls toward its end side only, so content past its start
+			// edge (the left, unless the page is right to left) widens nothing.
 			const viewport = document.documentElement.clientWidth;
+			const rtl = getComputedStyle( document.documentElement ).direction === 'rtl';
 			const past = ( element: Element ) => {
 				const rect = element.getBoundingClientRect();
-				return rect.width > 0 && rect.height > 0 && ( rect.right > viewport + 1 || rect.left < -1 );
+				return (
+					rect.width > 0 && rect.height > 0 && ( rtl ? rect.left < -1 : rect.right > viewport + 1 )
+				);
 			};
 			// Content that a box clips does not widen the page; a box's own clipping
 			// counts for its text, not for the box itself.
@@ -156,7 +161,7 @@ export function pageOverflow( page: Page ): Promise< string[] > {
 				const rects = [ ...range.getClientRects() ].filter( ( rect ) => rect.width > 0 );
 				const left = Math.min( ...rects.map( ( rect ) => rect.left ) );
 				const right = Math.max( ...rects.map( ( rect ) => rect.right ) );
-				if ( ! rects.length || ( right <= viewport + 1 && left >= -1 ) ) {
+				if ( ! rects.length || ( rtl ? left >= -1 : right <= viewport + 1 ) ) {
 					continue;
 				}
 				// The box the text lays out in: an inline element, as a link, has none of its own.

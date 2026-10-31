@@ -24,6 +24,8 @@ export interface BuildSystemPromptOptions {
 	remoteHosts?: Record< string, RemoteHost >;
 	// The folder each Bash command starts in.
 	shellDirectory?: string;
+	// Facts about the computer Bash commands run on, one line each.
+	environmentFacts?: string[];
 }
 
 // The WordPress.com AI proxy admits Studio requests only when the system prompt
@@ -42,7 +44,8 @@ function hostEnvironment( remoteHosts: Record< string, RemoteHost > ): string {
 
 const environment = (
 	remoteHosts: Record< string, RemoteHost >,
-	shellDirectory?: string
+	shellDirectory?: string,
+	facts: string[] = []
 ) => `## Environment
 
 - Studio runs the user's local WordPress sites on this computer. Each one is a complete WordPress install in its own folder: WordPress core (\`wp-includes/\`, \`wp-admin/\`) and every installed theme and plugin (\`wp-content/\`) are on disk.${ hostEnvironment(
@@ -50,7 +53,7 @@ const environment = (
 ) }
 - The active site is the one the user has open in Studio.${
 	shellDirectory ? `\n- Each Bash command starts in ${ shellDirectory }.` : ''
-}`;
+}${ facts.map( ( fact ) => `\n- ${ fact }` ).join( '' ) }`;
 
 const externalEnvironment = ( remoteHosts: Record< string, RemoteHost > ) => `## Environment
 
@@ -65,7 +68,7 @@ export function buildSystemPrompt( options: BuildSystemPromptOptions = {} ): str
 	const remoteHosts = options.remoteHosts ?? {};
 	const environmentSection = options.external
 		? externalEnvironment( remoteHosts )
-		: environment( remoteHosts, options.shellDirectory );
+		: environment( remoteHosts, options.shellDirectory, options.environmentFacts );
 	return `${ identity }
 
 ${ environmentSection }${ buildActiveSiteSection(

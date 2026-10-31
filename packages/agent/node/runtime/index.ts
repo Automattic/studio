@@ -31,6 +31,7 @@ import {
 	SessionManager,
 } from '@earendil-works/pi-coding-agent';
 import { type TSchema } from 'typebox';
+import { environmentFacts } from '@studio/agent/node/environment-facts';
 import { readGlobalInstructions } from '@studio/agent/node/global-instructions';
 import { isImageGenerationAvailable } from '@studio/agent/node/image-generation';
 import { describeOpenProblems } from '@studio/agent/node/open-problems';
@@ -534,6 +535,7 @@ async function createStudioAgentSession(
 	);
 	const systemPrompt = buildSystemPrompt( {
 		shellDirectory: shellDirectory( config ),
+		environmentFacts: environmentFacts(),
 		userInstructions,
 		activeSite: config.activeSite,
 		activeSiteFacts: activeSiteFacts.flat(),

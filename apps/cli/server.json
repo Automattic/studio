@@ -2,7 +2,7 @@
 	"$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
 	"name": "io.github.Automattic/wordpress-studio",
 	"title": "WordPress Studio",
-	"description": "Build and manage local WordPress sites with your AI agent, using real WordPress tools.",
+	"description": "Make your AI agent a WordPress expert: design and build sites, themes and plugins locally.",
 	"websiteUrl": "https://wordpress.studio/",
 	"repository": {
 		"url": "https://github.com/Automattic/studio",

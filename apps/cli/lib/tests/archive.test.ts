@@ -192,6 +192,18 @@ describe( 'Archive Module', () => {
 			expect( archivedNames() ).toEqual( [ 'wp-content/plugins/my-plugin/my-plugin.php' ] );
 		} );
 
+		it( 'should leave out plugins WordPress.com provides, keeping other plugins', async () => {
+			const files = [ 'plugins/jetpack/jetpack.php', 'plugins/my-plugin/my-plugin.php' ];
+			vol.fromJSON(
+				Object.fromEntries( files.map( ( file ) => [ path.join( mockWpContentPath, file ), '' ] ) )
+			);
+			mockGlobResults( files );
+
+			await archiveSiteContent( mockSiteFolder, mockArchivePath );
+
+			expect( archivedNames() ).toEqual( [ 'wp-content/plugins/my-plugin/my-plugin.php' ] );
+		} );
+
 		it( 'should skip a dangling symlink instead of aborting the archive', async () => {
 			vol.fromJSON( {
 				[ path.join( mockWpContentPath, 'index.php' ) ]: '<?php',

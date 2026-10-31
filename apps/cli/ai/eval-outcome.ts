@@ -526,6 +526,20 @@ async function homeStyles( url: string ) {
 				const scrolled = window.scrollY;
 				const navTopAfterScroll = nav ? Math.round( nav.getBoundingClientRect().top ) : null;
 				window.scrollTo( 0, 0 );
+				// The color a visitor sees behind a point: the first opaque
+				// background in the stack of elements painted there.
+				const opaque = ( color: string ) => ! /, 0\)$|^transparent$/.test( color );
+				const backgroundAt = ( x: number, y: number ) =>
+					document
+						.elementsFromPoint( x, y )
+						.map( ( el ) => getComputedStyle( el ).backgroundColor )
+						.find( opaque ) ?? null;
+				const headerBox = header?.getBoundingClientRect();
+				const headerBackground = headerBox
+					? backgroundAt( headerBox.left + 8, headerBox.top + headerBox.height / 2 )
+					: null;
+				const bodyColor = getComputedStyle( document.body ).backgroundColor;
+				const pageBackground = opaque( bodyColor ) ? bodyColor : null;
 				const buttons = [
 					...document.querySelectorAll( '.wp-block-button__link, .wp-element-button' ),
 				]
@@ -580,6 +594,8 @@ async function homeStyles( url: string ) {
 					scrolled,
 					navTopAfterScroll,
 					buttons,
+					headerBackground,
+					pageBackground,
 					headings,
 					footerText,
 					palette,

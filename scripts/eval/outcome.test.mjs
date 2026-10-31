@@ -1290,6 +1290,13 @@ test( 'restyleApplied judges the last turn against the first', () => {
 			homeStylesByTurn: [ { 'Spoke & Chain': first } ],
 		} );
 	expect( result( last ).pass ).toBe( true );
+	// eval6's Athletic site: lime buttons on a dark green header and page.
+	const lime = [ { ...last.buttons[ 0 ], background: 'rgb(143, 209, 79)' } ];
+	for ( const surface of [ 'headerBackground', 'pageBackground' ] )
+		expect(
+			result( { ...last, buttons: lime, [ surface ]: 'rgb(22, 74, 46)' } ).pass,
+			surface
+		).toBe( true );
 	for ( const [ change, miss ] of [
 		[ { navTopAfterScroll: -900 }, 'after a 1000px scroll' ],
 		[ { navLeft: 300, titleLeft: 300 }, 'now 300 and 300' ],
@@ -1308,7 +1315,7 @@ test( 'restyleApplied judges the last turn against the first', () => {
 		],
 		[
 			{ buttons: [ { ...last.buttons[ 0 ], background: 'rgb(120, 200, 140)' } ] },
-			'0 of 1 filled buttons are a dark green',
+			"dark green is not the site's color: 0 of 1",
 		],
 		[ { headings: [ { ...first.headings[ 0 ], textTransform: 'lowercase' } ] }, 'the top title' ],
 		[

@@ -1148,7 +1148,8 @@ function hueAndLightness( [ r, g, b ] ) {
 // little rounded (corners above 0, under a quarter of their height, so the
 // pills asked for first no longer pass); every heading displays lowercase but
 // the big title at the top (the largest on the first screen), which keeps its capitals; some of the footer's text is smaller
-// than the first turn's; and the filled buttons are a dark green.
+// than the first turn's; and dark green is the site's color (most filled
+// buttons, or the header or the page background).
 export const restyleApplied = check( ( d, vars ) => {
 	const s = site( d, vars );
 	const styles = s.home?.styles;
@@ -1177,19 +1178,30 @@ export const restyleApplied = check( ( d, vars ) => {
 				) }`
 			);
 	}
-	// Most filled buttons are dark green; a light one in a dark section can stay.
+	// Dark green is the site's color: most filled buttons are dark green, or
+	// the header or the page background is.
+	const darkGreen = ( color ) => {
+		if ( ! color || ! rgbOf( color ) ) return false;
+		const { hue, lightness } = hueAndLightness( rgbOf( color ) );
+		return hue !== null && hue >= 80 && hue <= 180 && lightness <= 35;
+	};
 	const filled = styles.buttons.filter(
 		( button ) => rgbOf( button.background ) && ! /, 0\)$/.test( button.background )
 	);
-	const green = filled.filter( ( button ) => {
-		const { hue, lightness } = hueAndLightness( rgbOf( button.background ) );
-		return hue !== null && hue >= 80 && hue <= 180 && lightness <= 35;
-	} );
-	if ( styles.buttons.length && green.length * 2 <= filled.length )
+	const green = filled.filter( ( button ) => darkGreen( button.background ) );
+	if (
+		! ( filled.length && green.length * 2 > filled.length ) &&
+		! darkGreen( styles.headerBackground ) &&
+		! darkGreen( styles.pageBackground )
+	)
 		misses.push(
-			`${ green.length } of ${ filled.length } filled buttons are a dark green: ${ filled
+			`dark green is not the site's color: ${ green.length } of ${
+				filled.length
+			} filled buttons are a dark green (${ filled
 				.map( ( button ) => `"${ button.text }" ${ button.background }` )
-				.join( ', ' ) }`
+				.join( ', ' ) }), the header is ${ styles.headerBackground }, the page ${
+				styles.pageBackground
+			}`
 		);
 	for ( const heading of styles.headings ) {
 		const lower =

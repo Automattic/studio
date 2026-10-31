@@ -1,0 +1,29 @@
+{
+	"$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+	"name": "io.github.Automattic/wordpress-studio",
+	"title": "WordPress Studio",
+	"description": "Build and manage local WordPress sites with your AI agent, using real WordPress tools.",
+	"websiteUrl": "https://wordpress.studio/",
+	"repository": {
+		"url": "https://github.com/Automattic/studio",
+		"source": "github",
+		"subfolder": "apps/cli"
+	},
+	"version": "2.1.0",
+	"packages": [
+		{
+			"registryType": "npm",
+			"identifier": "wp-studio",
+			"version": "2.1.0",
+			"transport": {
+				"type": "stdio"
+			},
+			"packageArguments": [
+				{
+					"type": "positional",
+					"value": "mcp"
+				}
+			]
+		}
+	]
+}

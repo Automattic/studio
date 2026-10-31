@@ -2,6 +2,9 @@ import fs from 'fs';
 import nodePath from 'path';
 import { Upload } from 'tus-js-client';
 
+// 5 MB balances fewer server round trips (faster uploads) against the data resent when a chunk fails and is retried.
+const TUS_CHUNK_SIZE = 5 * 1024 * 1024;
+
 /**
  * 5xx and network errors (status 0) are transient. 4xx are terminal, except 409
  * (Conflict) and 423 (Locked), which the resumable protocol uses transiently.
@@ -58,7 +61,7 @@ export function createTusUpload( options: TusUploadOptions ): {
 
 			const upload = new Upload( file, {
 				endpoint: `https://public-api.wordpress.com/rest/v1.1/studio-file-uploads/${ remoteSiteId }`,
-				chunkSize: 500000,
+				chunkSize: TUS_CHUNK_SIZE,
 				retryDelays: [ 0, 1000, 3000, 5000, 10000, 25000 ],
 				overridePatchMethod: true,
 				removeFingerprintOnSuccess: true,

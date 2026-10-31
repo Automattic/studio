@@ -522,10 +522,11 @@ async function homeStyles( url: string ) {
 					el ? Math.round( el.getBoundingClientRect().left ) : null;
 				const navLeft = left( nav );
 				const titleLeft = left( title );
-				window.scrollTo( 0, 1000 );
+				// At once, as a theme's `scroll-behavior: smooth` would only start it.
+				window.scrollTo( { top: 1000, behavior: 'instant' } );
 				const scrolled = window.scrollY;
 				const navTopAfterScroll = nav ? Math.round( nav.getBoundingClientRect().top ) : null;
-				window.scrollTo( 0, 0 );
+				window.scrollTo( { top: 0, behavior: 'instant' } );
 				// The color a visitor sees behind a point: the first opaque
 				// background in the stack of elements painted there.
 				const opaque = ( color: string ) => ! /, 0\)$|^transparent$/.test( color );

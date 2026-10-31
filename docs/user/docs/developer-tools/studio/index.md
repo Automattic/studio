@@ -4,7 +4,7 @@
 
 Your sites and their Studio Code chats share one sidebar, with the live site preview right beside the chat. The preview lets you browse the front end, WP Admin, and the site database without leaving the app. Batch smaller updates quickly and easily and dispatch them to the Studio Code agent with one click using the Annotate tool. 
 
-Studio sites support [SSL](https://developer.wordpress.com/docs/developer-tools/studio/ssl/) and custom local domains to match your production environment. Use [Blueprints](https://developer.wordpress.com/docs/developer-tools/studio/blueprints/) to define exactly which plugins, themes, and content each site starts with, so you can reproduce the same setup every time.
+Studio sites support [SSL](https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/) and custom local domains to match your production environment. Use [Blueprints](https://developer.wordpress.com/docs/developer-tools/studio/blueprints/) to define exactly which plugins, themes, and content each site starts with, so you can reproduce the same setup every time.
 
 Manage your site from the terminal with [Studio CLI](https://developer.wordpress.com/docs/developer-tools/studio/cli/) or use the [built-in debugging tools](https://developer.wordpress.com/docs/developer-tools/studio/debugging/), including a debug log, phpMyAdmin, and [Xdebug](https://developer.wordpress.com/docs/developer-tools/studio/xdebug/), to help you diagnose issues.
 

@@ -80,7 +80,7 @@ Type your request in natural language and the AI agent will execute for you, cre
 
 -   Publish “My Portfolio” site to examplesite.com
 
-The agent can read and write files in your site directory, run WP-CLI commands, take screenshots of your site, and push changes to WordPress.com, all based on your instructions.
+The agent can read and write files in your site directory, run WP-CLI commands, take screenshots of your site, and publish changes to WordPress.com, all based on your instructions.
 
 ### [Designing a site](#designing-a-site)
 
@@ -88,7 +88,7 @@ When you ask Studio Code to build a site, it first offers you four looks, and th
 
 [![Studio Code asking “Which look should I build?” for a neighborhood bakery called Wren & Barley, with four looks drawn as design boards (Quiet luxury editorial, Pastel soft, Mid-century retro, and Scandinavian), Show other options, and the Skip and Done buttons.](https://developer.wordpress.com/wp-content/uploads/2026/04/design-looks.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/design-looks.webp)
 
-To review the design system, click the site preview’s address bar and choose **Design system**, or choose **Go to → Design system** from the site menu. It shows the colors, type scale, spacing and corners, components, and guidelines from `DESIGN.md`. If the theme’s `theme.json` no longer matches `DESIGN.md`, Studio lists each difference: choose **Use DESIGN.md** or **Keep theme.json** for each one, or **Apply all from DESIGN.md**.
+To review the design system, click the site preview’s address bar and choose **Design system**, or choose **Tools → Design system** from the site menu. It shows the colors, type scale, spacing and corners, components, and guidelines from `DESIGN.md`. If the theme’s `theme.json` no longer matches `DESIGN.md`, Studio lists each difference: choose **Use DESIGN.md** or **Keep theme.json** for each one, or **Apply all from DESIGN.md**.
 
 [![The Design system view in the site preview of a bakery site: its name and tagline, a terracotta, white, and umber color palette, Literata type styles, and a primary button, with a note that theme.json matches DESIGN.md.](https://developer.wordpress.com/wp-content/uploads/2026/04/design-system.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/design-system.webp)
 
@@ -98,7 +98,7 @@ To give Studio Code instructions that apply to every new chat, across all your s
 
 ### [Annotate](#annotate)
 
-Instead of describing which part of the page you mean, you can point at it. In the desktop app, annotate a running local site’s preview:
+Instead of describing which part of the page you mean, you can point at it. In the desktop app, annotate a local site’s preview. If the site is stopped, clicking **Annotate** starts it first:
 
 1.  Click **Annotate** above the site preview. The preview switches to annotation mode, and an **Annotations** toolbar appears at the bottom of it.
 2.  Click an element in the preview. A numbered marker appears on it, with a note box.
@@ -130,9 +130,9 @@ If you haven’t connected an AI provider, clicking **Annotate** opens **Put you
 
 One Studio Code agent handles both your local sites and your WordPress.com sites, so a single chat can, for example, copy a live post into a local site. When the active site is a WordPress.com site, the agent works on the live site and only makes a local copy if you ask.
 
-In the desktop app, when a chat for a local site that’s [connected to a WordPress.com site](https://developer.wordpress.com/docs/developer-tools/studio/sync/) works on the live site, a **Live** chip appears in the chat box. To switch back, click **+** and choose **Work on local site**, or remove the chip. The agent never pulls a live site over a local one without your confirmation. See [Studio Sync](https://developer.wordpress.com/docs/developer-tools/studio/sync/) for how pulling and pushing work.
+In the desktop app, when a chat for a local site that’s [connected to a WordPress.com site](https://developer.wordpress.com/docs/developer-tools/studio/sync/) works on the live site, a **Live** chip appears in the chat box. To switch back, click **+** and choose **Work on local site**, or remove the chip. The agent never pulls a live site over a local one without your confirmation. See [Studio Sync](https://developer.wordpress.com/docs/developer-tools/studio/sync/) for how pulling and publishing work.
 
-When the agent edits a block theme’s templates, those edits now also apply to customizations made in the Site Editor, instead of being silently skipped.
+When the agent edits a block theme’s template or template part that you’ve customized in the Site Editor, it makes the change in your customized copy too, keeps your other edits, and tells you.
 
 ### [Slash commands](#10-slash-commands)
 
@@ -156,7 +156,7 @@ While chatting, you can use slash commands for quick actions. In the desktop app
 | /logout | Log out of WordPress.com | Terminal |
 | /model | Switch the AI model tier (shown as **Choose model** in the desktop app) | Terminal and desktop |
 | /need-for-speed | Run a performance audit on your site | Terminal and desktop |
-| /preview | Push the active site to WordPress.com as a preview | Terminal |
+| /preview | Create or update a preview site of the active site on WordPress.com | Terminal |
 | /provider | Switch between WordPress.com and Anthropic API | Terminal |
 | /publish | Publish the active site to WordPress.com | Terminal |
 | /rank-me-up | Run an on-page SEO audit on your site | Terminal and desktop |

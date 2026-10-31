@@ -62,7 +62,7 @@ On macOS, you need to manually trust the CA. To do this, find the certificate fi
 
 ![A screenshot depicting the Keychain Access application on a Mac and how to set the SSL setting to "Always Trust" on the WordPress Studio CA certificate.](https://developer.wordpress.com/wp-content/uploads/2025/03/ssl-certificate-always-trust.png)
 
-7.  Close the dialog and enter your password to confirm.
+6.  Close the dialog and enter your password to confirm.
 
 Once the certificate is trusted, your browser will recognize it and indicate that your HTTPS sites are secure.
 

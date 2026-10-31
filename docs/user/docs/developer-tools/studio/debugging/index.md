@@ -47,7 +47,7 @@ Inspecting or editing your local database used to mean a separate tool and a sep
 
 To open phpMyAdmin for a running site, select the site and use either of these:
 
--   Click the site preview’s address bar and choose **Database**, or choose **Go to → Database** from the site menu. phpMyAdmin opens inside the preview.
+-   Click the site preview’s address bar and choose **Database**, or choose **Tools → Database** from the site menu. phpMyAdmin opens inside the preview.
 -   Choose **Open in → phpMyAdmin** from the site menu to open it in your browser.
 
 [![The address bar menu in Studio's site preview, open to show the Front end, WordPress Admin, and Database options.](https://developer.wordpress.com/wp-content/uploads/2026/04/preview-destinations.webp)](https://developer.wordpress.com/wp-content/uploads/2026/04/preview-destinations.webp)

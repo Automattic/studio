@@ -2,7 +2,7 @@
 
 ## [The short version](#0-the-short-version)
 
-Studio Code no longer asks you to pick an AI model by name. Instead, you pick how much depth the job needs:
+Instead of picking an AI model by name, you pick how much depth the job needs:
 
 | Tier | What it’s for | Can use free allowance? |
 | --- | --- | --- |

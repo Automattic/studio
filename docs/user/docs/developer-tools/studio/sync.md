@@ -54,7 +54,7 @@ To connect a local Studio site to an existing production or staging site on Word
 4.  Click **Existing site…** to open the **Choose an existing site** list. Each row shows the site’s name, its address, and whether it’s a **Production**, **Staging**, or **Development** site. Sites you can’t publish to, such as sites that need a plan upgrade, deleted sites, or sites you don’t have permission to manage, are left out. To load the list again, open **Site actions** (**⋯**) and choose **Refresh**.
 5.  Click the site you want to connect to. To go back without connecting, click **Back to Publish**.
 
-[![The Publish tab of the Share and Publish panel in WordPress Studio for a site that isn't connected yet, titled Publish your WordPress, with Existing site… and New site… buttons.](https://developer.wordpress.com/wp-content/uploads/2025/01/publish-panel.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/publish-panel.webp)
+[![The Publish tab of the Share and publish panel in WordPress Studio for a site that isn't connected yet, titled Publish your WordPress, with Existing site… and New site… buttons.](https://developer.wordpress.com/wp-content/uploads/2025/01/publish-panel.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/publish-panel.webp)
 
 [![The Choose an existing site list in the WordPress Studio Publish panel, showing each site's name, address, and Production or Staging environment, with a back button and a Site actions menu.](https://developer.wordpress.com/wp-content/uploads/2025/01/publish-choose-site.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/publish-choose-site.webp)
 
@@ -75,7 +75,7 @@ A local site can be connected to more than one website, for example a production
 
 The details, links, and the **Pull changes** and **Publish changes** buttons follow the website you choose. To connect one more website, click the card and choose **Connect another site…**. You can’t switch websites while a pull or publish is running.
 
-[![The Publish tab of the Share and Publish panel in WordPress Studio with the website switcher open, listing two connected websites, a production site with a checkmark and its staging site, each with a thumbnail and when it was updated, and Connect another site… below them.](https://developer.wordpress.com/wp-content/uploads/2025/01/publish-switcher.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/publish-switcher.webp)
+[![The Publish tab of the Share and publish panel in WordPress Studio with the website switcher open, listing two connected websites, a production site with a checkmark and its staging site, each with a thumbnail and when it was updated, and Connect another site… below them.](https://developer.wordpress.com/wp-content/uploads/2025/01/publish-switcher.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/publish-switcher.webp)
 
 ## [Connect WordPress Studio to a new WordPress.com site](#connect-new)
 
@@ -159,7 +159,8 @@ shouldn’t be uploaded to the remote site:
 database
 db.php
 debug.log
+studio-error.log
 sqlite-database-integration
-cache
+/wp-content/cache
 
 Excluded files are hidden from the file tree when you choose files to publish, and omitted from the archive uploaded to the remote site.

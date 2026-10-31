@@ -47,7 +47,7 @@ To update an existing Studio site from a backup, you’ll need a `.tar.gz`, `.ta
 
 [![The confirmation Studio shows before importing a backup into an existing site, asking whether to overwrite it, with Cancel and Import buttons.](https://developer.wordpress.com/wp-content/uploads/2025/01/import-overwrite-dialog.webp)](https://developer.wordpress.com/wp-content/uploads/2025/01/import-overwrite-dialog.webp)
 
-The Studio site will be replaced from the provided `.tar.gz` or `.zip` backup. However, when you import `.sql` file to an existing site, the database dump will be imported on top of the existing site.
+The Studio site will be replaced from the provided `.tar.gz`, `.tar`, `.zip`, or `.wpress` backup. However, when you import a `.sql` file to an existing site, the database dump will be imported on top of the existing site, and when you import a WordPress export (`.xml`) file, its posts, pages, terms, authors, and media are added to the existing site.
 
 ## [How to export a site from WordPress Studio](#2-how-to-export-a-site-from-wordpress-studio)
 

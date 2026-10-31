@@ -48,7 +48,7 @@ Instead, Studio includes a built-in phpMyAdmin interface, adapted to work safely
 3.  Choose **Open in → phpMyAdmin**.
 4.  Studio will open phpMyAdmin in your browser, connected directly to your site’s database.
 
-You can also open phpMyAdmin inside Studio: click the site preview’s address bar and choose **Database**, or choose **Go to → Database** from the site menu.
+You can also open phpMyAdmin inside Studio: click the site preview’s address bar and choose **Database**, or choose **Tools → Database** from the site menu.
 
 From there, you can browse tables, inspect data, run SQL queries, and make edits through a familiar, safe interface — without needing to touch the underlying `.ht.sqlite` file directly.
 
@@ -73,7 +73,7 @@ If you have already created a site in Studio, and want to switch SQLite to the M
 
 ### [How do I select the PHP and WordPress versions for my site?](#15-how-do-i-change-the-php-version-used-for-my-site-) 
 
-You can select the PHP version or the WordPress version for your site when you first create it. This option is located in the “**Advanced Settings**” section. After creating a site, the current PHP and WordPress versions are displayed in the site’s settings, where you can also edit and change them.
+You can select the **WordPress version** and the **PHP version** for your site when you first create it, on the form where you name the site. After creating a site, the current PHP and WordPress versions are displayed in the site’s settings, where you can also edit and change them.
 
 1.  Choose **Settings** from the site menu: click the **Site menu** button at the top left of the site’s header, or right-click the site in the sidebar.
 2.  On the **Settings** page, choose a **WordPress version**, or turn on **Automatic updates** to keep WordPress on the latest release.
@@ -105,10 +105,9 @@ For each of your local sites, the following options are available under **Open i
 
 #### Terminal applications
 
--   Terminal (for macOS)
+-   Terminal (for macOS, Windows, and Linux; on Windows it opens Command Prompt)
 -   iTerm (for macOS)
 -   Warp (for macOS, Windows, and Linux)
--   Command Prompt (for Windows)
 -   Ghostty (for macOS and Linux)
 
 #### Browser
@@ -120,7 +119,7 @@ For each of your local sites, the following options are available under **Open i
 
 -   phpMyAdmin
 
-On macOS, the code editors and terminal applications must live in your Applications folder (`/Applications` or `~/Applications`) to appear in the **Open in** menu. On Windows, Studio looks for them in their usual install folders, and on Linux, on your `PATH`. If you haven’t chosen a **Code editor** in **Settings → General**, the **Open in** menu uses the first supported editor installed on your computer; with none installed, no code editor appears. Similarly, if no **Terminal** is selected, the default will be:
+On macOS, the code editors and terminal applications must live in your Applications folder (`/Applications` or `~/Applications`) to appear in the **Open in** menu. On Windows, Studio looks for them in their usual install folders, and on Linux, on your `PATH`. If you haven’t chosen a **Default code editor** in **Settings → General**, the **Open in** menu uses the first supported editor installed on your computer; with none installed, no code editor appears. Similarly, if no **Default terminal app** is selected, the default will be:
 
 -   **Terminal** on macOS
 -   **Command Prompt** on Windows
@@ -166,9 +165,9 @@ If you use Studio on Linux, the logs are in `~/.config/Studio/logs`.
 
 ### [Where do emails sent by my site go?](#site-email)
 
-Studio saves every email a local site sends, such as password reset emails and form notifications, instead of delivering it. To see them, choose **Go to → Email** from the site menu: click the **Site menu** button at the top left of the site’s header, or right-click the site in the sidebar. The site’s email folder opens in Finder, File Explorer, or your file manager.
+Studio saves every email a local site sends, such as password reset emails and form notifications, instead of delivering it. To see them, choose **Tools → Email** from the site menu: click the **Site menu** button at the top left of the site’s header, or right-click the site in the sidebar. The site’s email folder opens in Finder, File Explorer, or your file manager.
 
-Each email is saved as an `.eml` file, which opens in any mail app, in `~/.studio/email/<site id>/`. Studio keeps the newest 100 emails for each site, and deletes the folder when you delete the site. `studio status` shows the folder as **Email**. Because the folder is outside the site directory, email is never pushed or synced with your site.
+Each email is saved as an `.eml` file, which opens in any mail app, in `~/.studio/email/<site id>/`. Studio keeps the newest 100 emails for each site, and deletes the folder when you delete the site. `studio status` shows the folder as **Email**. Because the folder is outside the site directory, email is never published or synced with your site.
 
 ### [Is it possible to change the port or URL of my Studio site?](#10-is-it-possible-to-change-the-port-or-url-of-my-studio-site-)
 
@@ -217,34 +216,34 @@ To import your local site to [playground.wordpress.net](https://playground.wordp
 
 ## [Studio Code FAQs](#studio-code)
 
-Here are some answers to common questions about the Studio Code. Please review [the Studio Code doc](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/) for step-by step instructions and helpful tips for using this feature.
+Here are some answers to common questions about Studio Code. Please review [the Studio Code doc](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/) for step-by step instructions and helpful tips for using this feature.
 
-### [What languages does the Studio Code support?](#3-where-do-the-assistant-s-answers-come-from-)
+### [What languages does Studio Code support?](#3-where-do-the-assistant-s-answers-come-from-)
 
 You can talk with Studio Code in any language you prefer.
 
-### [Can I use the Studio Code without a WordPress.com account?](#5-can-i-use-the-studio-assistant-without-a-wordpress-com-account-)
+### [Can I use Studio Code without a WordPress.com account?](#5-can-i-use-the-studio-assistant-without-a-wordpress-com-account-)
 
 Yes, with your own Anthropic API key. Connect **Anthropic** in **Settings → AI Providers** in the desktop app, or use the `/api-key` command in the terminal. Usage is billed through your Anthropic account. See [Use your own Anthropic API key](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/#use-your-own-anthropic-api-key).
 
 To use WordPress.com AI credits instead, [log into Studio with your WordPress.com account](https://developer.wordpress.com/docs/developer-tools/studio#connect-wordpress-com). Some features, such as [image generation](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/image-generation/), preview sites, and publishing to WordPress.com, also need a WordPress.com login.
 
-### [Is there any cost to use the Studio Code?](#6-is-there-any-cost-to-use-the-studio-assistant-)
+### [Is there any cost to use Studio Code?](#6-is-there-any-cost-to-use-the-studio-assistant-)
 
 Studio Code uses AI Credits to pay for AI usage. Every account starts with a one-time free allowance of AI Credits, which can be used with the Fast tier. To keep using Studio Code after that, or to use the Balanced and Strong tiers, you’ll need to buy AI Credits. See [How AI Credits Work](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/ai-credits-guidelines/) for details.
 
 ### [How many prompts can I use per month?](#7-how-many-prompts-can-i-use-per-month-)
 
-AI responses pause until you add more AI Credits. Your local sites keep running normally. You can buy more AI Credits from inside Studio Code, or use your own Anthropic API key instead. Usage through your own key is billed by Anthropic and doesn’t use AI Credits.
+There’s no monthly prompt limit. Each prompt uses AI Credits, and when you run out, AI responses pause until you add more; your local sites keep running normally. You can buy more AI Credits from inside Studio Code, or use your own Anthropic API key, which is billed by Anthropic and doesn’t use AI Credits.
 
-### [Where can I give feedback about the Studio Code responses?](#8-where-can-i-give-feedback-about-the-studio-assistant-s-responses-)
+### [Where can I give feedback about Studio Code responses?](#8-where-can-i-give-feedback-about-the-studio-assistant-s-responses-)
 
-You can [write into support](https://developer.wordpress.com/contact/) to share specific feedback about the Studio Code responses. 
+You can [write into support](https://developer.wordpress.com/contact/) to share specific feedback about Studio Code responses. 
 
 ## [Studio Sync FAQs](#sync)
 
 Here are some answers to common questions about the Studio Sync feature. Please review [the Studio Sync doc](https://developer.wordpress.com/docs/developer-tools/studio/sync/) for step-by step instructions and helpful tips for using this feature.
 
-### [Why don’t my local users appear on the WordPress.com site after pushing?](#local-users)
+### [Why don’t my local users appear on the WordPress.com site after publishing?](#local-users)
 
-When pushing, WordPress Studio exports all your content and your entire database except for the `wp_users` and `wp_usermeta` tables. This ensures that the Jetpack-powered features on your WordPress.com website (like single sign-on or image optimization) continue working after the push.
+When publishing, WordPress Studio exports all your content and your entire database except for the `wp_users` and `wp_usermeta` tables. This ensures that the Jetpack-powered features on your WordPress.com website (like single sign-on or image optimization) continue working after you publish.

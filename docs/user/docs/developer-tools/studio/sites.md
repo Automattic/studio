@@ -115,13 +115,14 @@ Each site keeps its responsive settings until you quit Studio. Responsive mode i
 
 Each site has a menu with quick access to everything you can do with it. To open it, click the **Site menu** button (globe) at the top left of the site’s header, or right-click the site in the sidebar.
 
-[![The site menu in Studio, open from the globe button in the site's header, with Settings, Stop, Restart site, Go to, Open in, Pin, Rename, Import, Export, Duplicate, Share, Publish, and Delete site.](https://developer.wordpress.com/wp-content/uploads/2025/01/site-menu.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/site-menu.webp)
+[![The site menu in Studio, open from the globe button in the site's header, with New chat, Settings, Stop, Restart site, Tools, Open in, Pin, Rename, Import, Export, Duplicate, Share, Publish, and Delete site.](https://developer.wordpress.com/wp-content/uploads/2025/01/site-menu.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/site-menu.webp)
 
 The site menu includes:
 
+-   **New chat**: starts a new [Studio Code](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/) chat for the site
 -   **Settings**: opens the site’s [settings](#site-settings)
 -   **Start site**, or **Stop** (**Stop site**, **Stop other sites**, or **Stop all sites**) and **Restart site**
--   **Go to**: shows **WordPress Admin**, the **Database**, or the site’s **Design system** in the site preview. **Email** opens the folder of emails the site has sent (see [Site email](#site-email)).
+-   **Tools**: shows **WordPress Admin**, the **Database**, or the site’s **Design system** (when it has one) in the site preview. **Email** opens the folder of emails the site has sent (see [Site email](#site-email)).
 -   **Open in**: opens the site in other apps (see below)
 -   **Pin** or **Unpin**: keeps the site in the **Pinned** section at the top of the sidebar
 -   **Rename**
@@ -135,7 +136,7 @@ Site actions are also available in the command palette: press ⌘K (Ctrl+K on Wi
 
 ### [Site email](#site-email)
 
-Studio saves the emails your site sends, such as password resets and notifications, instead of sending them. To see them, open the site menu and choose **Go to → Email**. Studio opens the site’s email folder in Finder (macOS), File Explorer (Windows), or your file manager (Linux).
+Studio saves the emails your site sends, such as password resets and notifications, instead of sending them. To see them, open the site menu and choose **Tools → Email**. Studio opens the site’s email folder in Finder (macOS), File Explorer (Windows), or your file manager (Linux).
 
 Each email is saved as an `.eml` file, which opens in your mail app. The folder is in `~/.studio/email/`, not in the site’s files, so emails aren’t exported, published, or shared with the site. Studio keeps the 100 most recent emails for each site, and deletes the folder when you delete the site.
 
@@ -144,10 +145,10 @@ Each email is saved as an `.eml` file, which opens in your mail app. The folder 
 The **Open in** submenu lists the apps on your computer that can open the site:
 
 -   **Finder** (macOS), **File Explorer** (Windows), or your **File manager** (Linux)
--   **Browser**: the site’s front end, in your browser
+-   **Browser**, or the name of your default browser if you chose one: the site’s front end, in that browser
 -   Your code editor
 -   Your terminal
--   **WordPress admin**: the site’s dashboard in your browser, logged in
+-   **WordPress admin**: the site’s dashboard in that browser, logged in
 -   **phpMyAdmin**
 
 If the site is stopped, **Browser**, **WordPress admin**, and **phpMyAdmin** start it first.
@@ -167,23 +168,22 @@ Studio can open sites in the following code editors:
 
 You can also open your sites with several terminal applications:
 
--   Terminal (macOS and Linux)
--   Command Prompt (Windows)
+-   Terminal (opens Terminal on macOS, Command Prompt on Windows, and your system terminal on Linux)
 -   iTerm (macOS)
 -   Warp
 -   Ghostty (macOS and Linux)
 
-To select a preferred code editor or terminal application, click **Settings** at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux). On the **General** page, choose a **Code editor** and a **Terminal**.
+To select a preferred code editor, browser, or terminal application, click **Settings** at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux). On the **General** page, choose a **Default code editor**, **Default browser**, and **Default terminal app**. With **Default browser** set to **System default**, sites open in your computer’s default browser, and the **Open in** menu shows **Browser**.
 
 [![The General page of Studio's Settings, with the Language, Code editor, Terminal, and Default directory options under Application.](https://developer.wordpress.com/wp-content/uploads/2025/01/settings-general.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/settings-general.webp)
 
 ## [Site settings](#site-settings)
 
-Studio keeps the settings for the app and for each site in one **Settings** dialog. Use the **Studio** and **Site** switch at the top left to move between them, or search for a setting by name.
+Studio keeps the settings for the app and for each site in one **Settings** dialog. Use the **App** and **Site** switch at the top left to move between them, or search for a setting by name.
 
 To open a site’s settings, choose **Settings** from the [site menu](#site-menu), or search for **Site settings** in the command palette.
 
-[![The Settings page of a site's settings in Studio, with Site selected in the Studio and Site switch, showing Site name, Local path, WordPress version, Automatic updates, and Use custom domain under Local domain.](https://developer.wordpress.com/wp-content/uploads/2025/01/site-settings.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/site-settings.webp)
+[![The Settings page of a site's settings in Studio, with Site selected in the App and Site switch, showing Site name, Local path, WordPress version, Automatic updates, and Use custom domain under Local domain.](https://developer.wordpress.com/wp-content/uploads/2025/01/site-settings.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/site-settings.webp)
 
 A site’s settings are grouped into these pages:
 

@@ -79,7 +79,7 @@ studio auth status     # Check authentication status
 -   `studio auth status` reports whether you are currently authenticated and shows which account is in use.
 -   `studio auth logout` disconnects the CLI from your WordPress.com account and clears stored credentials.
 
-If you run a command that requires authentication (such as `studio preview create`) while logged out, the CLI will return an error and guide you to log in.
+If you run a command that requires authentication (such as `studio preview create`, `studio push`, or `studio pull`) in a terminal while logged out, the CLI asks “You’re not logged in to WordPress.com. Log in now?” Answer yes to log in and continue the command. If you answer no, or the command runs without a terminal (for example, from a script), it stops and asks you to log in with `studio auth login`.
 
 Use the `--help` flag for detailed options on any auth command:
 
@@ -119,7 +119,7 @@ To view all preview sites associated with your account:
 
 studio preview list
 
-This shows each preview’s host (for example, `example-preview.wpcomstaging.com`), which you’ll use with the `update` and `delete` commands.
+This shows each preview’s host (for example, `example-preview.wp.build`), which you’ll use with the `update` and `delete` commands.
 
 ### [Updating and deleting preview sites](#9-updating-and-deleting-preview-sites)
 

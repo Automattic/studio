@@ -8,6 +8,11 @@ import {
 	useSetAiProvider,
 } from '@/data/queries/use-ai-settings';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
+import {
+	useSpacefastLogin,
+	useSpacefastLogout,
+	useSpacefastSignedIn,
+} from '@/data/queries/use-spacefast';
 import { LearnMoreLink } from '@/features/onboarding';
 import { useOffline } from '@/lib/hooks';
 import { Badge, Button, Input } from '@/lib/ui';
@@ -183,6 +188,34 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 	);
 }
 
+function PublishingSection() {
+	const signedIn = useSpacefastSignedIn();
+	const login = useSpacefastLogin();
+	const logout = useSpacefastLogout();
+	const isOffline = useOffline();
+	const connected = !! signedIn.data;
+	return (
+		<SettingsGroup title={ __( 'Publishing' ) }>
+			<SettingsRow
+				title={ __( 'Spacefast' ) }
+				badge={ connected ? connectedBadge() : null }
+				description={ __( 'Publish a static copy of your sites to a Spacefast Space.' ) }
+				error={ ( login.error ?? logout.error )?.message }
+			>
+				<Button
+					variant="outline"
+					disabled={ signedIn.isLoading || logout.isPending || ( ! connected && isOffline ) }
+					loading={ login.isPending }
+					loadingAnnouncement={ __( 'Waiting for approval' ) }
+					onClick={ () => ( connected ? logout.mutate() : login.mutate() ) }
+				>
+					{ connected ? __( 'Disconnect' ) : __( 'Connect' ) }
+				</Button>
+			</SettingsRow>
+		</SettingsGroup>
+	);
+}
+
 export function AiPanel( { onManageCredits }: { onManageCredits: () => void } ) {
 	return (
 		<div className={ styles.preferencesPanel }>
@@ -200,6 +233,7 @@ export function AiPanel( { onManageCredits }: { onManageCredits: () => void } ) 
 				/>
 			</SettingsGroup>
 			<ProvidersSection onManageCredits={ onManageCredits } />
+			<PublishingSection />
 		</div>
 	);
 }

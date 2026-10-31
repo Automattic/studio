@@ -3,6 +3,7 @@ import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-wa
 import { __, sprintf } from '@wordpress/i18n';
 import semver from 'semver';
 import yargs from 'yargs';
+import { registerCommand as registerExportStaticCommand } from 'cli/commands/export-static.command';
 import { registerCommand as registerExportCommand } from 'cli/commands/export.command';
 import { registerCommand as registerImportCommand } from 'cli/commands/import.command';
 import { registerCommand as registerMcpCommand } from 'cli/commands/mcp.command';
@@ -15,6 +16,7 @@ import { registerCommand as registerSiteListCommand } from 'cli/commands/site/li
 import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/start.command';
 import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status.command';
 import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop.command';
+import { registerCommand as registerSpacefastCommand } from 'cli/commands/spacefast.command';
 import { registerCommand as registerUiCommand } from 'cli/commands/ui.command';
 import { registerCommand as registerUninstallCommand } from 'cli/commands/uninstall.command';
 import {
@@ -218,6 +220,8 @@ async function main() {
 
 	registerImportCommand( studioArgv );
 	registerExportCommand( studioArgv );
+	registerExportStaticCommand( studioArgv );
+	registerSpacefastCommand( studioArgv );
 
 	registerUiCommand( studioArgv );
 	registerUninstallCommand( studioArgv );

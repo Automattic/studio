@@ -6,7 +6,18 @@ import type { ComponentProps, CSSProperties, ReactNode } from 'react';
 
 export const Root = BasePopover.Root;
 export const Trigger = BasePopover.Trigger;
-export const Title = BasePopover.Title;
+export function Title( { className, ...props }: ComponentProps< typeof BasePopover.Title > ) {
+	return <BasePopover.Title { ...props } className={ clsx( styles.title, className ) } />;
+}
+
+export function Description( {
+	className,
+	...props
+}: ComponentProps< typeof BasePopover.Description > ) {
+	return (
+		<BasePopover.Description { ...props } className={ clsx( styles.description, className ) } />
+	);
+}
 
 type PositionerProps = ComponentProps< typeof BasePopover.Positioner >;
 type PopupProps = ComponentProps< typeof BasePopover.Popup >;
@@ -34,6 +45,7 @@ export function Popup( {
 	finalFocus,
 	variant = 'floating',
 	'aria-label': ariaLabel,
+	'aria-describedby': ariaDescribedBy,
 }: {
 	children: ReactNode;
 	side?: PositionerProps[ 'side' ];
@@ -50,6 +62,7 @@ export function Popup( {
 	finalFocus?: PopupProps[ 'finalFocus' ];
 	variant?: 'floating' | 'commands';
 	'aria-label'?: string;
+	'aria-describedby'?: string;
 } ) {
 	const commands = variant === 'commands';
 	return (
@@ -72,6 +85,7 @@ export function Popup( {
 					initialFocus={ initialFocus }
 					finalFocus={ finalFocus }
 					aria-label={ ariaLabel }
+					aria-describedby={ ariaDescribedBy }
 					render={
 						commands ? (
 							<div className={ clsx( styles.commands, className ) } style={ style } />

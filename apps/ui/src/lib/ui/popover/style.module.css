@@ -1,4 +1,18 @@
 @layer ui {
+	.title {
+		margin: 0;
+		font-size: var( --text-sm );
+		font-weight: var( --font-weight-medium );
+		line-height: var( --text-sm--line-height );
+	}
+
+	.description {
+		margin: var( --space-1 ) 0 0;
+		color: var( --muted-foreground );
+		font-size: var( --text-xs );
+		line-height: var( --text-xs--line-height );
+	}
+
 	.positioner {
 		z-index: var( --z-popover );
 		outline: none;

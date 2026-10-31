@@ -329,6 +329,7 @@ export const onboardingHintsSchema = z
 		tourDismissedVersion: z.number().optional(),
 		migratedFromClassic: z.boolean().optional(),
 		whatsNewSeenVersion: z.number().optional(),
+		annotateHintDismissed: z.boolean().optional(),
 	} )
 	.loose();
 

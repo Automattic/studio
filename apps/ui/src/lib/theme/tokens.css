@@ -85,11 +85,12 @@
 	--font-sans: 'Inter Variable', -apple-system, system-ui, 'Segoe UI', 'Roboto', 'Oxygen-Sans', 'Ubuntu',
 		'Cantarell', 'Helvetica Neue', sans-serif;
 	--font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+	--text-3xs: 0.625rem;
 	--text-2xs: 0.6875rem;
 	--text-xxs: 0.75rem;
 	--text-xxs--line-height: 1.1rem;
 	--text-xs: 0.8125rem;
-	--text-xs--line-height: 1.25rem;
+	--text-xs--line-height: 1.0625rem;
 	--text-sm: 0.875rem;
 	--text-sm--line-height: 1.25rem;
 	--text-md: 0.9375rem;

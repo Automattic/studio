@@ -332,6 +332,24 @@ async function capturePage(
 	}
 	const remaining = documentHeight - offset;
 	const capturedHeight = Math.min( remaining, maxCssHeight );
+	// A full-page capture keeps the viewport's size and paints a background
+	// fixed to the viewport (`background-attachment: fixed`, as a page's
+	// gradient or a parallax cover block uses) over the first screen only,
+	// leaving it white further down, where a visitor sees it behind every
+	// screen. Attached to its element for the capture, it paints wherever its
+	// element is.
+	const fixed = await page.evaluate(
+		() =>
+			Array.from( document.querySelectorAll< HTMLElement >( '*' ) ).filter( ( element ) => {
+				if ( ! getComputedStyle( element ).backgroundAttachment.includes( 'fixed' ) ) {
+					return false;
+				}
+				element.dataset.studioFixedBackground =
+					element.style.getPropertyValue( 'background-attachment' );
+				element.style.setProperty( 'background-attachment', 'scroll', 'important' );
+				return true;
+			} ).length
+	);
 	// `fullPage: true` is required alongside `clip` so Playwright renders
 	// the entire document and crops to the requested region. Without it,
 	// the "resulting image" is the viewport and any clip.y beyond the
@@ -342,6 +360,20 @@ async function capturePage(
 		fullPage: true,
 		clip: { x: 0, y: offset, width: viewport.width, height: capturedHeight },
 	} );
+	if ( fixed ) {
+		await page.evaluate( () => {
+			for ( const element of document.querySelectorAll< HTMLElement >(
+				'[data-studio-fixed-background]'
+			) ) {
+				const before = element.dataset.studioFixedBackground ?? '';
+				element.style.removeProperty( 'background-attachment' );
+				if ( before ) {
+					element.style.setProperty( 'background-attachment', before );
+				}
+				delete element.dataset.studioFixedBackground;
+			}
+		} );
+	}
 	return {
 		url: page.url(),
 		buffer: Buffer.from( buffer ),

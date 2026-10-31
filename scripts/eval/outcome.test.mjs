@@ -1252,3 +1252,77 @@ test( 'list vars in the config are lists of objects', () => {
 	);
 	expect( scalarLists ).toEqual( [] );
 } );
+
+test( 'restyleApplied judges the last turn against the first', () => {
+	const first = {
+		navLeft: 800,
+		titleLeft: 300,
+		scrolled: 1000,
+		navTopAfterScroll: -900,
+		buttons: [
+			{
+				text: 'Book',
+				radii: Array( 4 ).fill( '999px' ),
+				background: 'rgb(56, 88, 233)',
+				height: 48,
+			},
+		],
+		headings: [ { tag: 'h1', text: 'Fast Repairs', textTransform: 'none', first: true } ],
+		footerText: [ { text: 'Hours', fontSize: '18px' } ],
+	};
+	const last = {
+		...first,
+		navLeft: 1000,
+		titleLeft: 1100,
+		navTopAfterScroll: 0,
+		buttons: [
+			{ text: 'Book', radii: Array( 4 ).fill( '6px' ), background: 'rgb(31, 77, 58)', height: 48 },
+		],
+		headings: [
+			first.headings[ 0 ],
+			{ tag: 'h2', text: 'Our Services', textTransform: 'lowercase', first: false },
+		],
+		footerText: [ { text: 'Hours', fontSize: '13px' } ],
+	};
+	const result = ( styles ) =>
+		run( checks.restyleApplied, {
+			...outcome( { name: 'Spoke & Chain', created: true, home: { styles } } ),
+			homeStylesByTurn: [ { 'Spoke & Chain': first } ],
+		} );
+	expect( result( last ).pass ).toBe( true );
+	for ( const [ change, miss ] of [
+		[ { navTopAfterScroll: -900 }, 'after a 1000px scroll' ],
+		[ { navLeft: 1200 }, 'the menu was at x 800' ],
+		[
+			{ buttons: [ { ...last.buttons[ 0 ], radii: Array( 4 ).fill( '999px' ) } ] },
+			'has corners 999px',
+		],
+		[
+			{ buttons: [ { ...last.buttons[ 0 ], radii: Array( 4 ).fill( '20px' ) } ] },
+			'has corners 20px',
+		],
+		[
+			{ buttons: [ { ...last.buttons[ 0 ], radii: Array( 4 ).fill( '0px' ) } ] },
+			'has corners 0px',
+		],
+		[
+			{ buttons: [ { ...last.buttons[ 0 ], background: 'rgb(120, 200, 140)' } ] },
+			'0 of 1 filled buttons are a dark green',
+		],
+		[ { headings: [ { ...first.headings[ 0 ], textTransform: 'lowercase' } ] }, 'the first h1' ],
+		[
+			{
+				headings: [
+					...last.headings,
+					{ tag: 'h3', text: 'Tune Ups', textTransform: 'none', first: false },
+				],
+			},
+			'h3 "Tune Ups" is not lowercase',
+		],
+		[ { footerText: first.footerText }, 'the footer text was 18px and is 18px' ],
+	] ) {
+		const failed = result( { ...last, ...change } );
+		expect( failed.pass ).toBe( false );
+		expect( failed.reason ).toContain( miss );
+	}
+} );

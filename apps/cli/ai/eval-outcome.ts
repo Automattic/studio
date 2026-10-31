@@ -496,6 +496,94 @@ async function homeImageFrames( url: string ) {
 	}
 }
 
+// What a visitor sees of the home page's chrome at 1280px, as computed
+// styles: where the header sits after a scroll, the order of its menu and
+// title, the buttons' corners and colors, the headings' case, the footer's
+// text sizes and the palette's colors.
+async function homeStyles( url: string ) {
+	try {
+		const browser = await getSharedBrowser();
+		const page = await browser.newPage( { viewport: { width: 1280, height: 900 } } );
+		try {
+			await page.goto( url, { waitUntil: 'load', timeout: 30000 } );
+			return await page.evaluate( () => {
+				const visible = ( el: Element ) => {
+					const box = el.getBoundingClientRect();
+					const style = getComputedStyle( el );
+					return box.width > 0 && box.height > 0 && style.visibility !== 'hidden';
+				};
+				const header = document.querySelector( 'header.wp-block-template-part, header' );
+				const footer = [
+					...document.querySelectorAll( 'footer.wp-block-template-part, footer' ),
+				].at( -1 );
+				const nav = header?.querySelector( '.wp-block-navigation' );
+				const title = header?.querySelector( '.wp-block-site-title, .wp-block-site-logo' );
+				const left = ( el: Element | null | undefined ) =>
+					el ? Math.round( el.getBoundingClientRect().left ) : null;
+				const navLeft = left( nav );
+				const titleLeft = left( title );
+				window.scrollTo( 0, 1000 );
+				const scrolled = window.scrollY;
+				const navTopAfterScroll = nav ? Math.round( nav.getBoundingClientRect().top ) : null;
+				window.scrollTo( 0, 0 );
+				const buttons = [
+					...document.querySelectorAll( '.wp-block-button__link, .wp-element-button' ),
+				]
+					.filter( visible )
+					.map( ( el ) => {
+						const style = getComputedStyle( el );
+						return {
+							text: ( el.textContent ?? '' ).trim().slice( 0, 40 ),
+							radii: [
+								style.borderTopLeftRadius,
+								style.borderTopRightRadius,
+								style.borderBottomRightRadius,
+								style.borderBottomLeftRadius,
+							],
+							background: style.backgroundColor,
+							height: Math.round( el.getBoundingClientRect().height ),
+						};
+					} );
+				const firstH1 = document.querySelector( 'main h1, h1' );
+				const headings = [ ...document.querySelectorAll( 'h1, h2, h3, h4, h5, h6' ) ]
+					.filter( visible )
+					.map( ( el ) => ( {
+						tag: el.tagName.toLowerCase(),
+						text: ( el.textContent ?? '' ).trim().slice( 0, 60 ),
+						textTransform: getComputedStyle( el ).textTransform,
+						first: el === firstH1,
+					} ) );
+				const footerText = footer
+					? [ ...footer.querySelectorAll( 'p, a' ) ]
+							.filter( ( el ) => visible( el ) && ( el.textContent ?? '' ).trim() )
+							.map( ( el ) => ( {
+								text: ( el.textContent ?? '' ).trim().slice( 0, 40 ),
+								fontSize: getComputedStyle( el ).fontSize,
+							} ) )
+					: [];
+				const body = getComputedStyle( document.body );
+				const palette = [ ...body ]
+					.filter( ( name ) => name.startsWith( '--wp--preset--color--' ) )
+					.map( ( name ) => body.getPropertyValue( name ).trim() );
+				return {
+					navLeft,
+					titleLeft,
+					scrolled,
+					navTopAfterScroll,
+					buttons,
+					headings,
+					footerText,
+					palette,
+				};
+			} );
+		} finally {
+			await page.close();
+		}
+	} catch ( error ) {
+		return { error: error instanceof Error ? error.message : String( error ) };
+	}
+}
+
 interface SiteOutcome {
 	name: string;
 	path: string;
@@ -547,6 +635,7 @@ async function captureSiteOutcome(
 		const home = {
 			...( await renderHome( url ) ),
 			imageFrames: await homeImageFrames( url ),
+			styles: await homeStyles( url ),
 		};
 		outcome.homeScreenshot = ( await saveHomeScreenshot( url, screenshot ) )
 			? screenshot
@@ -621,6 +710,24 @@ export interface TurnOutcome {
 	// Sites that existed before the turn and were changed or removed by it.
 	otherSitesChanged: string[];
 	otherSitesRemoved: string[];
+}
+
+// The home page styles of each site created since `before`, by name: what a
+// later turn's changes are judged against.
+export async function captureHomeStyles( before: SiteFingerprint[] ) {
+	const beforePaths = new Set( before.map( ( site ) => site.path ) );
+	const styles: Record< string, unknown > = {};
+	for ( const { path: sitePath, name } of await fingerprintSites() ) {
+		if ( beforePaths.has( sitePath ) ) continue;
+		try {
+			await connectToDaemon();
+			await runStartSiteCommand( sitePath, true, true, new Logger() );
+			styles[ name ] = await homeStyles( getSiteUrl( await getSiteByFolder( sitePath ) ) );
+		} catch ( error ) {
+			styles[ name ] = { error: error instanceof Error ? error.message : String( error ) };
+		}
+	}
+	return styles;
 }
 
 export async function captureTurnOutcome(

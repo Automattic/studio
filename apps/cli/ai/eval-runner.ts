@@ -46,7 +46,12 @@ import {
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
 import { createScriptedUser, evalAnswersSchema, type EvalAnswers } from 'cli/ai/eval-answers';
-import { captureTurnOutcome, fingerprintSites, type TurnOutcome } from 'cli/ai/eval-outcome';
+import {
+	captureHomeStyles,
+	captureTurnOutcome,
+	fingerprintSites,
+	type TurnOutcome,
+} from 'cli/ai/eval-outcome';
 import { summarizeTiming, type ModelRequestRecord } from 'cli/ai/eval-timing';
 import { cliAgentHost } from 'cli/ai/host';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
@@ -741,6 +746,8 @@ async function runEval( input: EvalRunnerInput ) {
 			...( input.model ? { model: input.model } : {} ),
 		} );
 	const sitesBeforeTurn = await fingerprintSites();
+	// Each created site's home page styles after every turn but the last.
+	const homeStylesByTurn: Array< Record< string, unknown > > = [];
 	let query = runTurn( prompt );
 	phaseTimingsMs.start_ai_agent_ms = Date.now() - phaseStartedAt;
 
@@ -756,6 +763,8 @@ async function runEval( input: EvalRunnerInput ) {
 				break;
 			}
 			systemPrompts.push( query.systemPrompt() ?? '' );
+			// What this turn left, for judging what the next one changes.
+			homeStylesByTurn.push( await captureHomeStyles( sitesBeforeTurn ) );
 			query = runTurn( followUp.prompt );
 			await query.result;
 		}
@@ -794,6 +803,7 @@ async function runEval( input: EvalRunnerInput ) {
 		requests,
 		turnDurationsMs,
 		systemPrompts,
+		homeStylesByTurn,
 		toolCalls,
 		toolResults,
 		toolEvents,

@@ -1404,3 +1404,32 @@ tests:
         value: file://outcome.mjs:siteHasItsOwnDesign
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
+
+  # A picky user takes the first version apart in their own words, then changes
+  # their own changes: judged on the home page as a browser renders it after the
+  # last turn, against what the first turn built.
+  - description: a picky user's large changes, then changes to those changes, all reach the rendered site
+    vars:
+      caseId: picky-restyle
+      timeoutMs: 1500000
+      prompt: build a site for my bike repair shop, Spoke & Chain
+      followUps:
+        - prompt: >-
+            Honestly I don't love it. I want the menu to stay at the top while people
+            scroll down. Can the shop name and the menu swap sides? The buttons should
+            be shaped like pills. Make all the titles lowercase, that's kind of our
+            brand thing. The small print at the bottom is too big. And it doesn't feel
+            like a bike shop to me. Make it dark green, like the sign over our door.
+        - prompt: >-
+            Hmm, the pill buttons look too bubbly now, just round the corners a
+            little. And keep the lowercase except for the big title at the top of the
+            home page, that one should look normal.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:restyleApplied
+      - type: javascript
+        value: file://outcome.mjs:turnsAreResponsive
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched

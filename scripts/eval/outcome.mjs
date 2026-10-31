@@ -1123,3 +1123,98 @@ export const questionnaireSkip = check( ( d ) => {
 		? pass( 'Selected page and skipped layout are reflected in the reply.' )
 		: fail( `The reply did not preserve the selection and skip: ${ text }` );
 } );
+
+// [r, g, b] of a computed `rgb()`/`rgba()` color, or undefined.
+const rgbOf = ( color ) =>
+	color
+		?.match( /rgba?\((\d+), (\d+), (\d+)/ )
+		?.slice( 1 )
+		.map( Number );
+
+// Hue in degrees and lightness in percent of [r, g, b].
+function hueAndLightness( [ r, g, b ] ) {
+	const [ max, min ] = [ Math.max( r, g, b ), Math.min( r, g, b ) ];
+	const lightness = ( ( max + min ) / 2 / 255 ) * 100;
+	if ( max === min ) return { hue: null, lightness };
+	const d = max - min;
+	const hue =
+		max === r ? ( ( g - b ) / d + 6 ) % 6 : max === g ? ( b - r ) / d + 2 : ( r - g ) / d + 4;
+	return { hue: hue * 60, lightness };
+}
+
+const median = ( values ) =>
+	[ ...values ].sort( ( a, b ) => a - b )[ Math.floor( values.length / 2 ) ];
+
+// A picky user's restyle, then their change to it, reached the home page as a
+// browser renders it: the header stays at the top after a scroll; the shop
+// name and menu trade the sides the first turn gave them; the buttons are a
+// little rounded (corners above 0, under a quarter of their height, so the
+// pills asked for first no longer pass); every heading displays lowercase but
+// the first h1, which keeps its capitals; the footer's text is smaller than the
+// first turn's; and the filled buttons are a dark green.
+export const restyleApplied = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const styles = s.home?.styles;
+	const first = d.homeStylesByTurn?.[ 0 ]?.[ s.name ];
+	if ( ! styles || styles.error ) return fail( `no home page styles: ${ styles?.error }` );
+	if ( ! first || first.error )
+		return fail( `no home page styles after the first turn: ${ first?.error }` );
+	const misses = [];
+	if ( styles.scrolled < 1000 ) misses.push( `the page scrolls only ${ styles.scrolled }px` );
+	else if ( styles.navTopAfterScroll === null ) misses.push( 'no navigation in the header' );
+	else if ( styles.navTopAfterScroll < 0 || styles.navTopAfterScroll > 150 )
+		misses.push( `after a 1000px scroll the header menu is at y ${ styles.navTopAfterScroll }` );
+	const side = ( st ) =>
+		st.navLeft === null || st.titleLeft === null ? null : Math.sign( st.navLeft - st.titleLeft );
+	if ( ! side( first ) || ! side( styles ) || side( first ) === side( styles ) )
+		misses.push(
+			`the menu was at x ${ first.navLeft } and the name at x ${ first.titleLeft }; now ${ styles.navLeft } and ${ styles.titleLeft }`
+		);
+	if ( ! styles.buttons.length ) misses.push( 'no buttons' );
+	for ( const button of styles.buttons ) {
+		const radii = button.radii.map( parseFloat );
+		if ( radii.some( ( radius ) => ! ( radius > 0 && radius < button.height / 4 ) ) )
+			misses.push(
+				`button "${ button.text }" (${ button.height }px tall) has corners ${ button.radii.join(
+					' '
+				) }`
+			);
+	}
+	// Most filled buttons are dark green; a light one in a dark section can stay.
+	const filled = styles.buttons.filter(
+		( button ) => rgbOf( button.background ) && ! /, 0\)$/.test( button.background )
+	);
+	const green = filled.filter( ( button ) => {
+		const { hue, lightness } = hueAndLightness( rgbOf( button.background ) );
+		return hue !== null && hue >= 80 && hue <= 180 && lightness <= 35;
+	} );
+	if ( styles.buttons.length && green.length * 2 <= filled.length )
+		misses.push(
+			`${ green.length } of ${ filled.length } filled buttons are a dark green: ${ filled
+				.map( ( button ) => `"${ button.text }" ${ button.background }` )
+				.join( ', ' ) }`
+		);
+	for ( const heading of styles.headings ) {
+		const lower =
+			heading.textTransform === 'lowercase' ||
+			( heading.textTransform !== 'uppercase' && heading.text === heading.text.toLowerCase() );
+		if ( heading.first && ( lower || heading.textTransform === 'uppercase' ) )
+			misses.push( `the first h1 "${ heading.text }" displays ${ heading.textTransform }` );
+		if ( ! heading.first && ! lower )
+			misses.push( `${ heading.tag } "${ heading.text }" is not lowercase` );
+	}
+	const footer = ( st ) => median( st.footerText.map( ( text ) => parseFloat( text.fontSize ) ) );
+	if ( ! styles.footerText.length || ! first.footerText.length ) misses.push( 'no footer text' );
+	else if ( ! ( footer( styles ) < footer( first ) ) )
+		misses.push( `the footer text was ${ footer( first ) }px and is ${ footer( styles ) }px` );
+	return misses.length
+		? fail(
+				misses.slice( 0, 12 ).join( '; ' ) +
+					( misses.length > 12 ? `; …${ misses.length - 12 } more` : '' )
+		  )
+		: pass(
+				`restyle applied: ${ styles.buttons.length } buttons, ${
+					styles.headings.length
+				} headings, footer ${ footer( first ) }px to ${ footer( styles ) }px`
+		  );
+} );

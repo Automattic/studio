@@ -135,7 +135,8 @@ describe( 'validating a file', () => {
 			write( 'tmp/home.html', original ),
 			'http://localhost:8881'
 		);
-		expect( result.summary ).toContain( diagnostic );
+		// Its own sentence, after the one that names the save.
+		expect( result.summary ).toContain( `which fixes 1 block(s). ${ diagnostic }` );
 		expect( result.problem ).toBeUndefined();
 		expect( result.fixedContent ).toBe( fixed );
 	} );

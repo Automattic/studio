@@ -169,13 +169,18 @@ describe( 'post content changes', () => {
 	} );
 
 	it( 'saves a lossless editor fix to the post, and compares the post from it', async () => {
-		vi.mocked( validateBlocks ).mockResolvedValue( losslessFix );
+		// With an attribute the fix drops, which its own sentence names.
+		const ignored = '"id" is not an attribute of core/group, so WordPress ignores it.';
+		vi.mocked( validateBlocks ).mockResolvedValue( {
+			...losslessFix,
+			results: [ { ...losslessFix.results[ 0 ], attributeIssues: [ ignored ] } ],
+		} );
 		const check = checkPosts();
 		await check.snapshot();
 		fixture.edit( 9, UNWRAPPED_GROUP );
 		expect( await check.settle() ).toEqual( {
 			summaries: [
-				'Block validation: Bakery page 9 "": Studio saved the block editor\'s save of it, which fixes 1 block(s) that do not match what the block saves, losing nothing, so it now holds what the editor saves',
+				`Block validation: Bakery page 9 "": Studio saved the block editor's save of it, which fixes 1 block(s) that do not match what the block saves, losing nothing, so it now holds what the editor saves. ${ ignored }`,
 			],
 			problems: [],
 			written: [],

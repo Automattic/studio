@@ -159,7 +159,6 @@ interface MarkupValidation {
 export function describeEditorSave( result: MarkupValidation, fixes: string ): string[] {
 	return [
 		result.invalidBlocks ? `fixes ${ result.invalidBlocks } block(s)${ fixes }` : undefined,
-		...( result.corrections ?? [] ),
 		result.droppedComments
 			? `drops ${ result.droppedComments } HTML comment(s) between blocks, which the editor would turn into Classic blocks (normalizeRawBlock in @wordpress/blocks wraps text outside a block in paragraphs) and which render nothing`
 			: undefined,
@@ -168,6 +167,14 @@ export function describeEditorSave( result: MarkupValidation, fixes: string ): s
 		result.spacingSizes?.length ? describeSpacingSizes( result.spacingSizes ) : undefined,
 		result.boundLinks?.length ? describeBoundLinks( result.boundLinks ) : undefined,
 	].filter( ( note ): note is string => Boolean( note ) );
+}
+
+/**
+ * What the editor's save corrects in the comment attributes, as sentences
+ * of their own that end the one naming the save.
+ */
+export function describeCorrections( result: MarkupValidation ): string {
+	return result.corrections?.length ? `. ${ result.corrections.join( ' ' ) }` : '';
 }
 
 /** How the editor links a navigation link to the post or term it names, for a note. */
@@ -357,7 +364,7 @@ export async function validateBlockMarkupFile(
 		contentHash: hash( content ),
 		summary: `${ result.summary }; saved through the block editor, which ${ notes.join(
 			' and '
-		) }`,
+		) }${ describeCorrections( result ) }`,
 		...( result.problem && { problem: result.problem } ),
 		fixedContent: ( pattern?.header ?? '' ) + result.fixedContent,
 	};

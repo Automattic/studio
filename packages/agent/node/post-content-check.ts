@@ -8,6 +8,7 @@ import { mkdir, rm, writeFile } from 'fs/promises';
 import path from 'path';
 import {
 	blockEditorOf,
+	describeCorrections,
 	describeEditorSave,
 	sitePresetValues,
 	validateBlockMarkup,
@@ -233,9 +234,10 @@ async function validatePost(
 		await sitePresetValues( host, site.path ),
 		blockEditorOf( post )
 	);
-	const madeNotes = presetNotes.length ? `. ${ presetNotes.join( ' ' ) }` : '';
+	// Sentences of their own, after the one they follow.
+	const sentences = ( notes: string[] ) => ( notes.length ? `. ${ notes.join( ' ' ) }` : '' );
 	if ( result.fixedContent === undefined ) {
-		return { ...result, summary: result.summary + madeNotes };
+		return { ...result, summary: result.summary + sentences( presetNotes ) };
 	}
 	const relativePath = `tmp/${ post.type }-${ post.id }.html`;
 	const fixFile = path.join( site.path, relativePath );
@@ -253,7 +255,10 @@ async function validatePost(
 		return {
 			summary: `${ label }: Studio saved the block editor's save of it, which ${ saves.join(
 				' and '
-			) }, losing nothing, so it now holds what the editor saves${ madeNotes }`,
+			) }, losing nothing, so it now holds what the editor saves${ sentences( [
+				...( result.corrections ?? [] ),
+				...presetNotes,
+			] ) }`,
 			problem: result.problem,
 			saved: true,
 		};
@@ -268,7 +273,7 @@ async function validatePost(
 				' and '
 			) }, losing nothing; it is saved in ${ shellPath }. Apply it in the site's folder with \`wp post update ${
 				post.id
-			} ${ shellPath }\`.`,
+			} ${ shellPath }\`${ describeCorrections( result ) || '.' }`,
 			...( result.problem ? [ result.problem ] : [] ),
 		].join( '\n' ),
 	};

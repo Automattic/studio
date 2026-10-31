@@ -1,7 +1,7 @@
 import os from 'os';
 import path from 'path';
-import { isAutomatticianAccount } from '@studio/common/lib/automattician';
 import { input } from '@inquirer/prompts';
+import { isAutomatticianAccount } from '@studio/common/lib/automattician';
 import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
 import { getUserInfo, uploadArchive, waitForSiteReady } from 'cli/lib/api';

@@ -18,6 +18,7 @@ import { inlineBlockClasses } from '@studio/agent/node/inline-block-classes';
 import { jetpackModules } from '@studio/agent/node/jetpack-modules';
 import { linksToNowhereChanges } from '@studio/agent/node/links-to-nowhere';
 import { missingTemplateParts } from '@studio/agent/node/missing-template-parts';
+import { navigationRefs } from '@studio/agent/node/navigation-refs';
 import { postContentChanges } from '@studio/agent/node/post-content-check';
 import { postCopies } from '@studio/agent/node/post-copies';
 import { sectionLinks } from '@studio/agent/node/section-links';
@@ -99,6 +100,7 @@ const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
 	themeErrors,
 	templatePartAreas,
 	missingTemplateParts,
+	navigationRefs,
 	themeStylesheet,
 	siteFileWrites,
 	adminCapabilities,

@@ -54,7 +54,7 @@ it( 'reopens a queued message for editing and queues only the revision', async (
 	expect( screen.getByText( 'Original follow-up' ) ).toBeVisible();
 	fireEvent.click( await screen.findByRole( 'button', { name: 'Stop My site' } ) );
 	await screen.findByRole( 'button', { name: 'Start My site' } );
-	expect( screen.getByRole( 'complementary', { name: 'Site preview' } ) ).toBeVisible();
+	expect( screen.queryByRole( 'complementary', { name: 'Site preview' } ) ).not.toBeInTheDocument();
 	expect( screen.getByRole( 'combobox', COMPOSER ) ).toBe( input );
 	expect( screen.getByRole( 'button', { name: 'Stop response' } ) ).toBeVisible();
 	fireEvent.click( await screen.findByRole( 'button', { name: 'Edit queued message' } ) );

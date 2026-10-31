@@ -166,7 +166,8 @@ it( 'hides annotation actions on Escape and restores the notes when annotation m
 	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
 	await user.click( annotate );
 	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
-	expect( screen.getByRole( 'toolbar', { name: 'Annotations' } ) ).toBeVisible();
+	expect( getSiteAnnotations( siteId ).active ).toBe( true );
+	expect( screen.queryByRole( 'toolbar', { name: 'Annotations' } ) ).not.toBeInTheDocument();
 
 	let noteId = '';
 	act( () => {
@@ -176,12 +177,20 @@ it( 'hides annotation actions on Escape and restores the notes when annotation m
 	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
 	act( () => stageAnnotations( siteId, [ noteId ] ) );
 	expect( headerButtons( 'Send 1 annotation' )[ 0 ] ).toBeEnabled();
+	fireEvent(
+		document.querySelector( 'webview' )!,
+		Object.assign( new Event( 'did-start-navigation' ), { isMainFrame: true, isInPlace: false } )
+	);
+	expect( annotate ).toBeDisabled();
+	expect( headerButtons( 'Send 1 annotation' )[ 0 ] ).toBeEnabled();
 	await user.keyboard( '{Escape}' );
 	expect( annotate ).toHaveAttribute( 'aria-pressed', 'false' );
 	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
 	expect( headerButtons( 'Discard annotations' ) ).toHaveLength( 0 );
 	expect( screen.queryByRole( 'toolbar', { name: 'Annotations' } ) ).not.toBeInTheDocument();
 	expect( getSiteAnnotations( siteId ).notes[ 0 ].comment ).toBe( 'Make this heading smaller' );
+	readyGuest();
+	await waitFor( () => expect( annotate ).toBeEnabled() );
 	await user.click( annotate );
 	expect( annotate ).toHaveAttribute( 'aria-pressed', 'true' );
 	expect( headerButtons( 'Send 1 annotation' )[ 0 ] ).toBeEnabled();

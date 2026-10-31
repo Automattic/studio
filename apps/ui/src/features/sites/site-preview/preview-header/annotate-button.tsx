@@ -38,7 +38,7 @@ export function AnnotateButton( {
 				<TooltipTrigger
 					render={
 						<Button
-							variant={ showSend ? 'accent-ghost' : 'ghost' }
+							variant="accent-ghost"
 							size={ iconOnly ? 'icon' : 'default' }
 							className={ styles.annotateButton }
 							aria-label={ __( 'Annotate' ) }
@@ -84,7 +84,7 @@ export function AnnotateButton( {
 									_n( 'Send %d annotation', 'Send %d annotations', send.count ),
 									send.count
 								) }
-								disabled={ disabled || send.disabled || ! send.count || ! showSend }
+								disabled={ send.disabled || ! send.count || ! showSend }
 								loading={ send.loading }
 								loadingMode="replace"
 								onClick={ send.onClick }

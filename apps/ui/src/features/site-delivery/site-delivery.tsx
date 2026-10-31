@@ -238,7 +238,7 @@ export function PublishButton( props: { site: SiteDetails } ) {
 	}, [ transfer?.kind ] );
 	return (
 		<Button
-			variant="ghost"
+			variant="accent"
 			aria-label={ __( 'Publish…' ) }
 			aria-description={
 				setupError ??

@@ -46,6 +46,7 @@ import type { InspectorEvent } from '@studio/agent/protocol/inspector/page-scrip
 
 interface SitePreviewProps {
 	site: SiteDetails;
+	fullscreen?: { active: boolean; onClick: () => void };
 	// The connected remote to show instead, for a chat switched to Live.
 	liveUrl?: string;
 	// Path to display within the previewed site, controlled by the parent so
@@ -65,11 +66,11 @@ interface SitePreviewProps {
 	// True while the panel is toggled off but kept mounted (so the webview
 	// stays warm). Disables the global browser shortcuts in that state.
 	collapsed?: boolean;
-	fullscreen?: { active: boolean; onClick: () => void };
 }
 
 export function SitePreview( {
 	site,
+	fullscreen,
 	liveUrl,
 	path,
 	reloadNonce,
@@ -77,7 +78,6 @@ export function SitePreview( {
 	onStartAnnotating,
 	onPathChange,
 	collapsed = false,
-	fullscreen,
 }: SitePreviewProps ) {
 	const connector = useConnector();
 	const startSite = useStartSite();
@@ -289,7 +289,7 @@ export function SitePreview( {
 
 	return (
 		<aside className={ styles.root } aria-label={ __( 'Site preview' ) }>
-			{ canPreview || isStarting || isStopping ? header : null }
+			{ canPreview || isStarting || isStopping || fullscreen ? header : null }
 			{ responsiveEnabled ? (
 				<ResponsiveToolbar
 					siteId={ site.id }

@@ -13,6 +13,7 @@ import {
 	useSiteAnnotations,
 } from '@/features/annotations';
 import { ShareButton, PublishButton, SiteDeliveryDialog } from '@/features/site-delivery';
+import { PrototypeStartButton } from '@/features/sites/header-prototype';
 import { AnnotateButton } from '@/features/sites/site-preview/preview-header/annotate-button';
 import { useMediaQuery, useWindowControlsOverlay } from '@/lib/hooks';
 import styles from './style.module.css';
@@ -197,6 +198,7 @@ export function SiteHeaderActions( {
 			<SiteDeliveryDialog key={ site.id } site={ site } anchor={ root } />
 			<div ref={ attachActions } className={ styles.actions }>
 				<div data-site-header-delivery className={ styles.delivery }>
+					<PrototypeStartButton site={ site } live={ live } />
 					<span data-site-header-annotate className={ styles.item }>
 						<AnnotateButton
 							{ ...annotation }

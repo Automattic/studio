@@ -14,6 +14,7 @@ import {
 	getSiteAnnotations,
 	pickAnnotation,
 	setAnnotating,
+	stageAnnotations,
 } from '@/features/annotations';
 import { clearComposerDrafts } from '@/features/composer';
 import {
@@ -118,8 +119,8 @@ async function paletteCommand( query: string ) {
 }
 
 async function setChatFullscreen( fullscreen: boolean ) {
-	await screen.findByRole( 'button', { name: 'Hide preview' } );
-	await paletteCommand( fullscreen ? 'Hide chat' : 'Show chat' );
+	await screen.findByRole( 'button', { name: /^(Enter|Exit) fullscreen$/ } );
+	await paletteCommand( fullscreen ? 'Enter fullscreen' : 'Exit fullscreen' );
 }
 
 async function waitForFullscreen( fullscreen: boolean ) {
@@ -130,7 +131,9 @@ async function waitForFullscreen( fullscreen: boolean ) {
 		} );
 		expect( !! input.closest( '[aria-hidden="true"]' ) ).toBe( fullscreen );
 	} );
-	return screen.findByRole( 'button', { name: 'Hide preview' } );
+	return screen.findByRole( 'button', {
+		name: fullscreen ? 'Exit fullscreen' : 'Enter fullscreen',
+	} );
 }
 
 beforeEach( () => {
@@ -150,17 +153,19 @@ describe( 'Studio workspace', () => {
 			sites: [ site( { running: true } ) ],
 		} );
 		await screen.findByRole( 'toolbar', { name: 'Preview browser controls' } );
+		fireEvent.load( document.querySelector( 'iframe' )! );
 		act( () => {
 			setAnnotating( 'one', true );
 			const id = pickAnnotation( 'one', { selector: 'h1', tag: 'h1', path: '/' } )!;
 			changeAnnotation( 'one', id, { comment: 'Make this heading larger' } );
+			stageAnnotations( 'one' );
 		} );
 		try {
-			fireEvent.click(
-				within( screen.getByRole( 'toolbar', { name: 'Annotations' } ) ).getByRole( 'button', {
-					name: 'Send 1 annotation',
-				} )
-			);
+			const send = within(
+				document.querySelector< HTMLElement >( '[data-site-header-actions]' )!
+			).getByRole( 'button', { name: 'Send 1 annotation' } );
+			await waitFor( () => expect( send ).toBeEnabled() );
+			fireEvent.click( send );
 			expect(
 				await screen.findByRole( 'dialog', { name: 'Put your feedback to work' } )
 			).toBeVisible();
@@ -400,7 +405,9 @@ describe( 'Studio workspace', () => {
 				overrides: { getSiteThumbnail: async () => 'data:image/png;base64,eA==' },
 			} );
 			const input = await findComposer();
-			expect( screen.getByRole( 'button', { name: 'Show preview' } ) ).toBeVisible();
+			expect(
+				screen.queryByRole( 'button', { name: 'Enter fullscreen' } )
+			).not.toBeInTheDocument();
 			const play =
 				control === 'thumbnail'
 					? await screen.findByRole( 'button', { name: 'Start from preview' } )
@@ -512,8 +519,6 @@ describe( 'Studio workspace', () => {
 		await setChatFullscreen( true );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Stopped site' } ) );
 		await screen.findByRole( 'button', { name: 'Site menu' } );
-		await waitForFullscreen( true );
-		await setChatFullscreen( false );
 		const input = await findComposer();
 		expect( input ).toBeVisible();
 		fireEvent.change( input, { target: { value: 'Keep this draft' } } );
@@ -521,7 +526,7 @@ describe( 'Studio workspace', () => {
 		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'two' ) );
 		await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
 		expect( await findComposer() ).toHaveValue( 'Keep this draft' );
-		expect( screen.getByRole( 'button', { name: 'Hide preview' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Enter fullscreen' } ) ).toBeVisible();
 	} );
 
 	it.each( [ 'thumbnail', 'composer' ] as const )(
@@ -554,9 +559,8 @@ describe( 'Studio workspace', () => {
 			fireEvent.click( play );
 			await waitFor( () => expect( connector.startSite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );
 			const panel = await screen.findByRole( 'complementary', { name: 'Site preview' } );
-			expect( screen.getByRole( 'button', { name: 'Hide preview' } ) ).toHaveAttribute(
-				'aria-expanded',
-				'true'
+			expect( screen.getByRole( 'button', { name: 'Enter fullscreen' } ) ).not.toHaveAttribute(
+				'aria-pressed'
 			);
 			await act( async () => finishStart() );
 			await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
@@ -582,7 +586,7 @@ describe( 'Studio workspace', () => {
 			} );
 			if ( path.endsWith( '/new' ) ) {
 				await findComposer();
-				fireEvent.click( screen.getByRole( 'button', { name: 'Show preview' } ) );
+				await paletteCommand( 'Enter fullscreen' );
 			}
 			const panel = await screen.findByRole( 'complementary', { name: 'Site preview' } );
 			let finishStart!: () => void;
@@ -630,9 +634,8 @@ describe( 'Studio workspace', () => {
 			fireEvent.load( document.querySelector( 'iframe' )! );
 			expect( await screen.findByRole( 'button', { name: 'Exit fullscreen' } ) ).toBeVisible();
 			await waitFor( () => expect( input.closest( '[aria-hidden="true"]' ) ).not.toBeNull() );
-			expect( screen.getByRole( 'button', { name: 'Hide preview' } ) ).toHaveAttribute(
-				'aria-expanded',
-				'true'
+			expect( screen.getByRole( 'button', { name: 'Exit fullscreen' } ) ).not.toHaveAttribute(
+				'aria-pressed'
 			);
 		} finally {
 			media.mockRestore();
@@ -692,39 +695,9 @@ describe( 'Studio workspace', () => {
 		}
 	);
 
-	it( 'keeps preview available before and after starting from the composer', async () => {
-		localStorage.setItem( PREVIEW_OPEN_STORAGE_KEY, 'false' );
-		const { connector } = setup( { signedIn: true } );
-		await findComposer();
-		const publish = screen.getByRole( 'button', { name: 'Publish…' } );
-		const actions = publish.closest< HTMLElement >( '[data-site-header-actions]' )!;
-		expect(
-			within( actions ).queryByRole( 'button', { name: 'Start site' } )
-		).not.toBeInTheDocument();
-		expect( within( actions ).getByRole( 'button', { name: 'Show preview' } ) ).toHaveAttribute(
-			'aria-disabled',
-			'false'
-		);
-		fireEvent.click( composerStartButton() );
-		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
-		await waitFor( () =>
-			expect( within( actions ).getByRole( 'button', { name: 'Hide preview' } ) ).toBeVisible()
-		);
-		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBe( publish );
-		expect( screen.queryByRole( 'button', { name: 'Stop site' } ) ).not.toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Hide preview' } ) );
-		await waitFor( () =>
-			expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument()
-		);
-		expect(
-			within( actions ).queryByRole( 'button', { name: 'Stop site' } )
-		).not.toBeInTheDocument();
-	} );
-
 	it.each( [ false, true ] )(
-		'shows a stopped preview beside the existing chat without starting it (thumbnail: %s)',
+		'keeps full-screen controls inside an empty preview opened from the palette (thumbnail: %s)',
 		async ( thumbnail ) => {
-			localStorage.setItem( PREVIEW_OPEN_STORAGE_KEY, 'false' );
 			const { connector } = setup( {
 				signedIn: true,
 				overrides: {
@@ -732,283 +705,97 @@ describe( 'Studio workspace', () => {
 				},
 			} );
 			const input = await findComposer();
-			fireEvent.change( input, { target: { value: 'Keep this draft' } } );
-			const publish = screen.getByRole( 'button', { name: 'Publish…' } );
-			const chatThumbnail = thumbnail
-				? await screen.findByRole( 'button', { name: 'Start from preview' } )
-				: null;
-			fireEvent.click( screen.getByRole( 'button', { name: 'Show preview' } ) );
+			fireEvent.change( input, { target: { value: 'Keep my draft' } } );
+			expect(
+				screen.queryByRole( 'button', { name: 'Enter fullscreen' } )
+			).not.toBeInTheDocument();
+			expect(
+				screen.queryByRole( 'complementary', { name: 'Site preview' } )
+			).not.toBeInTheDocument();
+			await paletteCommand( 'Enter fullscreen' );
 			const panel = await screen.findByRole( 'complementary', { name: 'Site preview' } );
-			const start = await within( panel ).findByRole( 'button', {
-				name: thumbnail ? 'Start from preview' : 'Start site',
-			} );
-			expect( connector.startSite ).not.toHaveBeenCalled();
-			expect( connector.createSession ).not.toHaveBeenCalled();
-			expect( panel ).not.toContainElement( input );
 			expect(
-				screen.getAllByRole( 'combobox', { name: 'Message WordPress Studio' } )
-			).toHaveLength( 1 );
-			expect( input ).toHaveValue( 'Keep this draft' );
-			if ( thumbnail ) {
-				expect( screen.getAllByAltText( 'Saved site preview' ) ).toHaveLength( 2 );
-				expect( chatThumbnail ).toBeVisible();
-				expect( panel ).not.toContainElement( chatThumbnail );
-			}
-			fireEvent.click( start );
-			await waitFor( () => expect( connector.startSite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );
-			expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBe( publish );
-			expect( input ).toHaveValue( 'Keep this draft' );
-		}
-	);
-
-	it.each( [ false, true ] )(
-		'remembers the preview visibility after reloading (open: %s)',
-		async ( open ) => {
-			localStorage.setItem( PREVIEW_OPEN_STORAGE_KEY, 'false' );
-			const initial = {
-				signedIn: true,
-				path: '/sites/one/new',
-				sites: [ site( { running: true } ) ],
-			};
-			const { unmount } = setup( initial );
-			await findComposer();
-			fireEvent.click( screen.getByRole( 'button', { name: 'Show preview' } ) );
-			const hide = await screen.findByRole( 'button', { name: 'Hide preview' } );
-			if ( ! open ) fireEvent.click( hide );
-			await screen.findByRole( 'button', { name: open ? 'Hide preview' : 'Show preview' } );
-			unmount();
-			const { connector } = setup( initial );
-			await findComposer();
-			expect(
-				await screen.findByRole( 'button', { name: open ? 'Hide preview' : 'Show preview' } )
-			).toHaveAttribute( 'aria-expanded', String( open ) );
-			expect( connector.startSite ).not.toHaveBeenCalled();
-		}
-	);
-
-	it.each(
-		[ undefined, true, false ].flatMap( ( openChatOnSiteStart ) =>
-			[ 'header', 'palette', 'app menu' ].flatMap( ( control ) =>
-				[ '/sites/one', '/sites/one/new' ].map( ( path ) => ( {
-					openChatOnSiteStart,
-					control,
-					path,
-				} ) )
-			)
-		)
-	)(
-		'manually toggles a stopped preview beside chat from $control at $path (start chat: $openChatOnSiteStart)',
-		async ( { openChatOnSiteStart, control, path } ) => {
-			localStorage.setItem( PREVIEW_OPEN_STORAGE_KEY, 'false' );
-			localStorage.setItem( SITE_CHAT_HIDDEN_STORAGE_KEY, JSON.stringify( { one: true } ) );
-			const { connector } = setup( {
-				signedIn: true,
-				path,
-				preferences: { openChatOnSiteStart } as FakeConnectorState[ 'preferences' ],
-			} );
-			await screen.findByRole( 'button', { name: 'Site menu' } );
-			const toggle = async ( label: string ) => {
-				if ( control === 'header' )
-					fireEvent.click( screen.getByRole( 'button', { name: label } ) );
-				else if ( control === 'palette' ) await paletteCommand( label );
-				else await act( () => connector.emit( 'onToggleSitePreview' ) );
-			};
-			if ( path === '/sites/one' ) await toggle( 'Hide preview' );
-			const input = await findComposer();
-			fireEvent.change( input, { target: { value: 'Keep this draft' } } );
-			for ( const open of [ true, false, true ] ) {
-				await toggle( open ? 'Show preview' : 'Hide preview' );
-				await waitFor( () => {
-					expect( !! screen.queryByRole( 'complementary', { name: 'Site preview' } ) ).toBe( open );
-					expect( input ).toBeVisible();
-					expect( input.closest( '[aria-hidden="true"]' ) ).toBeNull();
-				} );
-				expect( composer() ).toBe( input );
-				expect( input ).toHaveValue( 'Keep this draft' );
-			}
-			expect( connector.startSite ).not.toHaveBeenCalled();
-			expect( connector.createSession ).not.toHaveBeenCalled();
-		}
-	);
-
-	it( 'shows startup animation only in the preview when chat is beside it', async () => {
-		localStorage.setItem( PREVIEW_OPEN_STORAGE_KEY, 'false' );
-		const { connector } = setup( { signedIn: true } );
-		let finishStart!: () => void;
-		connector.startSite.mockImplementationOnce(
-			() =>
-				new Promise( ( resolve ) => {
-					finishStart = () => {
-						connector.state.sites = [ site( { running: true } ) ];
-						resolve();
-					};
+				await within( panel ).findByRole( 'button', {
+					name: thumbnail ? 'Start from preview' : 'Start site',
 				} )
-		);
-		await findComposer();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Show preview' } ) );
-		const panel = await screen.findByRole( 'complementary', { name: 'Site preview' } );
-		fireEvent.click( within( panel ).getByRole( 'button', { name: 'Start site' } ) );
-		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
-		await screen.findByText( 'Loading site preview' );
-		const logos = document.querySelectorAll( 'canvas ~ span[aria-hidden="true"]' );
-		expect( logos ).toHaveLength( 1 );
-		expect( panel ).toContainElement( logos[ 0 ] as HTMLElement );
-		await act( async () => finishStart() );
-	} );
-
-	it( 'expands and restores the preview from its own toolbar without replacing the chat', async () => {
-		const { connector } = setup( { signedIn: true, sites: [ site( { running: true } ) ] } );
-		const input = await findComposer();
-		fireEvent.change( input, { target: { value: 'Keep this draft' } } );
-		const toolbar = await screen.findByRole( 'toolbar', { name: 'Preview browser controls' } );
-		const expand = within( toolbar ).getByRole( 'button', { name: 'Enter fullscreen' } );
-		expect( document.querySelector( '[data-site-header-actions]' ) ).not.toContainElement( expand );
-		const frame = document.querySelector( 'iframe' );
-		const publish = screen.getByRole( 'button', { name: 'Publish…' } );
-		fireEvent.click( expand );
-		await waitForFullscreen( true );
-		expect( within( toolbar ).getByRole( 'button', { name: 'Exit fullscreen' } ) ).toBe( expand );
-		fireEvent.click( expand );
-		await waitForFullscreen( false );
-		expect( composer() ).toBe( input );
-		expect( input ).toHaveValue( 'Keep this draft' );
-		expect( document.querySelector( 'iframe' ) ).toBe( frame );
-		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBe( publish );
-		expect( connector.startSite ).not.toHaveBeenCalled();
-		expect( connector.stopSite ).not.toHaveBeenCalled();
-	} );
-
-	it( 'returns from a full-width site preview to chat using its toolbar', async () => {
-		const { history } = setup( {
-			signedIn: true,
-			sites: [ site( { running: true } ) ],
-			path: '/sites/one',
-		} );
-		const collapse = await screen.findByRole( 'button', { name: 'Exit fullscreen' } );
-		const frame = document.querySelector( 'iframe' );
-		fireEvent.click( collapse );
-		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
-		expect( await findComposer() ).toBeVisible();
-		expect( await screen.findByRole( 'button', { name: 'Enter fullscreen' } ) ).toBeVisible();
-		expect( document.querySelector( 'iframe' ) ).toBe( frame );
-	} );
-
-	it( 'preserves the header, draft, and preview through fullscreen commands', async () => {
-		setup( { signedIn: true, sites: [ site( { running: true } ) ] } );
-		const input = await findComposer();
-		fireEvent.change( input, { target: { value: 'Keep this draft' } } );
-		const toggle = await screen.findByRole( 'button', { name: 'Hide preview' } );
-		const publish = screen.getByRole( 'button', { name: 'Publish…' } );
-		const frame = document.querySelector( 'iframe' );
-		await setChatFullscreen( true );
-		await waitForFullscreen( true );
-		expect( screen.getByRole( 'button', { name: 'Hide preview' } ) ).toBe( toggle );
-		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBe( publish );
-		await setChatFullscreen( false );
-		await waitForFullscreen( false );
-		expect( input ).toHaveValue( 'Keep this draft' );
-		expect( document.querySelector( 'iframe' ) ).toBe( frame );
-	} );
-
-	it.each( [ false, true ] )(
-		'toggles the preview from its persistent header control and preserves the chat (fullscreen: %s)',
-		async ( fullscreen ) => {
-			const { connector } = setup( {
-				signedIn: true,
-				sites: [ site( { running: true } ) ],
-				sessions: [ chat( { id: 'close-preview', title: 'Existing chat' } ) ],
-				path: '/sessions/close-preview',
-			} );
-			const input = await findComposer();
-			await waitFor( () => expect( input ).toBeEnabled() );
-			fireEvent.change( input, { target: { value: 'Keep this unsent idea' } } );
-			await waitForFullscreen( false );
-			const frame = document.querySelector( 'iframe' );
-			if ( fullscreen ) {
-				await setChatFullscreen( true );
-			}
-			const toggle = screen.getByRole( 'button', { name: 'Hide preview' } );
-			const delivery = document.querySelector< HTMLElement >( '[data-site-header-delivery]' )!;
-			const publish = within( delivery ).getByRole( 'button', { name: 'Publish…', hidden: true } );
-			expect( toggle ).toHaveAttribute( 'aria-expanded', 'true' );
-			toggle.focus();
-			fireEvent.click( toggle );
+			).toBeVisible();
+			expect( input.closest( '[aria-hidden="true"]' ) ).not.toBeNull();
+			fireEvent.click(
+				within( screen.getByRole( 'toolbar', { name: 'Preview browser controls' } ) ).getByRole(
+					'button',
+					{ name: 'Exit fullscreen' }
+				)
+			);
 			await waitFor( () =>
 				expect(
 					screen.queryByRole( 'complementary', { name: 'Site preview' } )
 				).not.toBeInTheDocument()
 			);
-			expect( input ).toBeVisible();
-			expect( input ).toHaveValue( 'Keep this unsent idea' );
-			expect( screen.queryByRole( 'button', { name: 'Hide preview' } ) ).not.toBeInTheDocument();
-			expect( screen.getByRole( 'button', { name: 'Show preview' } ) ).toBe( toggle );
-			expect( toggle ).toHaveAttribute( 'aria-expanded', 'false' );
-			expect( toggle ).toHaveFocus();
-			expect( delivery ).toBeVisible();
-			expect( within( delivery ).getByRole( 'button', { name: 'Publish…' } ) ).toBe( publish );
-			expect( connector.stopSite ).not.toHaveBeenCalled();
-			fireEvent.click( toggle );
-			expect( await screen.findByRole( 'button', { name: 'Hide preview' } ) ).toBe( toggle );
-			expect( toggle ).toHaveAttribute( 'aria-expanded', 'true' );
-			expect( delivery ).toBeVisible();
-			expect( screen.getByRole( 'button', { name: 'Hide preview' } ) ).toBeVisible();
-			await waitForFullscreen( fullscreen );
-			expect(
-				screen.getByRole( 'combobox', { name: 'Message WordPress Studio', hidden: true } )
-			).toBe( input );
-			expect( document.querySelector( 'iframe' ) ).toBe( frame );
-		}
-	);
-
-	it.each( [ 'header', 'palette', 'app menu' ] )(
-		'opens and closes the preview full width from the %s on a narrow screen',
-		async ( control ) => {
-			const matchMedia = window.matchMedia.bind( window );
-			const media = vi.spyOn( window, 'matchMedia' ).mockImplementation( ( query ) => ( {
-				...matchMedia( query ),
-				matches: query === '(max-width: 540px)' || matchMedia( query ).matches,
-			} ) );
-			try {
-				const { connector } = setup( { signedIn: true, sites: [ site( { running: true } ) ] } );
-				const input = await findComposer();
-				const toggle = await screen.findByRole( 'button', { name: 'Show preview' } );
-				const run = async ( label: string ) => {
-					if ( control === 'header' ) fireEvent.click( toggle );
-					else if ( control === 'palette' ) await paletteCommand( label );
-					else await act( () => connector.emit( 'onToggleSitePreview' ) );
-				};
-				await run( 'Show preview' );
-				await waitFor( () => expect( input.closest( '[aria-hidden="true"]' ) ).not.toBeNull() );
-				expect( screen.getByRole( 'button', { name: 'Hide preview' } ) ).toBe( toggle );
-				await run( 'Hide preview' );
-				await waitFor( () => expect( input.closest( '[aria-hidden="true"]' ) ).toBeNull() );
-				expect( screen.getByRole( 'button', { name: 'Show preview' } ) ).toBe( toggle );
-			} finally {
-				media.mockRestore();
-			}
-		}
-	);
-
-	it.each( [ 'header', 'palette', 'app menu' ] )(
-		'opens a full-width chat when closing the preview from a site page using the %s',
-		async ( control ) => {
-			const { history, connector } = setup( {
-				signedIn: true,
-				sites: [ site( { running: true } ) ],
-				path: '/sites/one',
-			} );
-			const toggle = await screen.findByRole( 'button', { name: 'Hide preview' } );
-			if ( control === 'header' ) fireEvent.click( toggle );
-			else if ( control === 'palette' ) await paletteCommand( 'Hide preview' );
-			else await act( () => connector.emit( 'onToggleSitePreview' ) );
-			await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
-			expect( await findComposer() ).toBeVisible();
-			expect( screen.queryByRole( 'button', { name: 'Hide preview' } ) ).not.toBeInTheDocument();
-			expect( screen.getByRole( 'button', { name: 'Show preview' } ) ).toBeVisible();
-			expect( connector.stopSite ).not.toHaveBeenCalled();
+			expect( composer() ).toBe( input );
+			expect( input ).toHaveValue( 'Keep my draft' );
+			expect( connector.startSite ).not.toHaveBeenCalled();
 			expect( connector.createSession ).not.toHaveBeenCalled();
 		}
 	);
+
+	it.each( [ 'preview bar', 'palette', 'native shortcut' ] )(
+		'toggles a running preview between split and full screen from the %s while preserving its chat',
+		async ( control ) => {
+			localStorage.setItem( PREVIEW_OPEN_STORAGE_KEY, 'false' );
+			const { connector } = setup( {
+				signedIn: true,
+				path: '/sites/one/new',
+				sites: [ site( { running: true } ) ],
+			} );
+			const input = await findComposer();
+			fireEvent.change( input, { target: { value: 'Keep my draft' } } );
+			const address = await screen.findByRole( 'textbox', { name: 'Address' } );
+			const toolbar = screen.getByRole( 'toolbar', { name: 'Preview browser controls' } );
+			expect( within( toolbar ).getByRole( 'button', { name: 'Enter fullscreen' } ) ).toBeVisible();
+			expect(
+				within(
+					document.querySelector< HTMLElement >( '[data-site-header-actions]' )!
+				).queryByRole( 'button', { name: 'Enter fullscreen' } )
+			).not.toBeInTheDocument();
+			const toggle = async ( fullscreen: boolean ) => {
+				if ( control === 'preview bar' )
+					fireEvent.click(
+						screen.getByRole( 'button', {
+							name: fullscreen ? 'Enter fullscreen' : 'Exit fullscreen',
+						} )
+					);
+				else if ( control === 'palette' )
+					await paletteCommand( fullscreen ? 'Enter fullscreen' : 'Exit fullscreen' );
+				else act( () => connector.emit( 'onToggleSitePreview' ) );
+			};
+			await toggle( true );
+			if ( control === 'preview bar' ) {
+				expect( document.querySelector( '[class*="rootPreviewAnimating"]' ) ).not.toBeNull();
+				expect( screen.getByRole( 'button', { name: 'Exit fullscreen' } ) ).not.toHaveAttribute(
+					'aria-pressed'
+				);
+			}
+			await waitForFullscreen( true );
+			await toggle( false );
+			await waitForFullscreen( false );
+			expect( composer() ).toBe( input );
+			expect( input ).toHaveValue( 'Keep my draft' );
+			expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBe( address );
+			expect( connector.startSite ).not.toHaveBeenCalled();
+			expect( connector.stopSite ).not.toHaveBeenCalled();
+		}
+	);
+
+	it( 'returns from a full-width site preview to chat using the preview bar', async () => {
+		const { history } = setup( {
+			signedIn: true,
+			path: '/sites/one',
+			sites: [ site( { running: true } ) ],
+		} );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Exit fullscreen' } ) );
+		await waitForFullscreen( false );
+		expect( history.location.pathname ).toBe( '/sites/one/new' );
+	} );
 
 	it.each( [ false, true ] )(
 		'restores the last conversation and visibility when selecting its site (hidden: %s)',
@@ -1081,55 +868,28 @@ describe( 'Studio workspace', () => {
 		await waitForFullscreen( true );
 	} );
 
-	it.each( [ 'closed', 'split', 'fullscreen' ] as const )(
-		'reveals running sites and preserves the %s layout when selecting stopped sites',
-		async ( mode ) => {
-			const initial = {
-				signedIn: true,
-				path: '/sites/one/new',
-				sites: [
-					site( { running: true } ),
-					site( { id: 'two', name: 'Second site', path: '/sites/two', running: true } ),
-					site( { id: 'three', name: 'Stopped site', path: '/sites/three' } ),
-				],
-			};
-			const { connector, unmount, history } = setup( initial );
-			await waitForFullscreen( false );
-			if ( mode === 'closed' )
-				fireEvent.click( screen.getByRole( 'button', { name: 'Hide preview' } ) );
-			if ( mode === 'fullscreen' ) await setChatFullscreen( true );
-			const assertLayout = async ( open = true ) => {
-				if ( ! open ) {
-					await screen.findByRole( 'button', { name: 'Show preview' } );
-					expect( await findComposer() ).toBeVisible();
-					expect(
-						screen.queryByRole( 'complementary', { name: 'Site preview' } )
-					).not.toBeInTheDocument();
-				} else await waitForFullscreen( mode === 'fullscreen' );
-			};
-			await assertLayout( mode !== 'closed' );
-			fireEvent.click( screen.getByRole( 'button', { name: 'Second site' } ) );
-			await waitFor( () => expect( history.location.pathname ).toBe( '/sites/two/new' ) );
-			await assertLayout();
-			fireEvent.click( screen.getByRole( 'button', { name: 'Stopped site' } ) );
-			await waitFor( () => expect( history.location.pathname ).toBe( '/sites/three/new' ) );
-			await assertLayout();
-			fireEvent.click( screen.getByRole( 'button', { name: 'Second site' } ) );
-			await waitFor( () => expect( history.location.pathname ).toBe( '/sites/two/new' ) );
-			fireEvent.click( screen.getByRole( 'button', { name: 'Hide preview' } ) );
-			await assertLayout( false );
-			fireEvent.click( screen.getByRole( 'button', { name: 'Stopped site' } ) );
-			await waitFor( () => expect( history.location.pathname ).toBe( '/sites/three/new' ) );
-			await assertLayout( false );
-			fireEvent.click( screen.getByRole( 'button', { name: 'My site' } ) );
-			await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
-			await assertLayout();
-			expect( connector.startSite ).not.toHaveBeenCalled();
-			unmount();
-			setup( initial );
-			await assertLayout();
-		}
-	);
+	it( 'keeps the shared running layout when visiting or expanding a stopped site', async () => {
+		const { history } = setup( {
+			signedIn: true,
+			path: '/sites/one/new',
+			sites: [
+				site( { running: true } ),
+				site( { id: 'two', name: 'Stopped site', path: '/sites/two' } ),
+			],
+		} );
+		await setChatFullscreen( true );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Stopped site' } ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/two/new' ) );
+		expect( await findComposer() ).toBeVisible();
+		expect(
+			screen.queryByRole( 'complementary', { name: 'Site preview' } )
+		).not.toBeInTheDocument();
+		await paletteCommand( 'Enter fullscreen' );
+		await screen.findByRole( 'complementary', { name: 'Site preview' } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'My site' } ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
+		await waitForFullscreen( true );
+	} );
 
 	it.each( [ 'sidebar', 'command palette' ] )(
 		'reveals a saved hidden chat from the %s',
@@ -1155,7 +915,7 @@ describe( 'Studio workspace', () => {
 				await paletteCommand( 'Remembered chat' );
 			}
 			await waitFor( () =>
-				expect( screen.getByRole( 'button', { name: 'Hide preview' } ) ).toBeVisible()
+				expect( screen.getByRole( 'button', { name: 'Enter fullscreen' } ) ).toBeVisible()
 			);
 		}
 	);
@@ -1443,7 +1203,7 @@ describe( 'Studio workspace', () => {
 		await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
 		fireEvent.load( document.querySelector( 'iframe' )! );
 		await waitFor( () =>
-			expect( screen.getByRole( 'button', { name: 'Hide preview' } ) ).toBeVisible()
+			expect( screen.getByRole( 'button', { name: 'Enter fullscreen' } ) ).toBeVisible()
 		);
 		expect( await screen.findByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
@@ -1457,7 +1217,7 @@ describe( 'Studio workspace', () => {
 	} );
 
 	it.each( [ 'split', 'fullscreen', 'site' ] )(
-		'keeps the preview open after stopping from the %s layout',
+		'returns to chat after stopping from the %s layout',
 		async ( layout ) => {
 			localStorage.setItem( PREVIEW_OPEN_STORAGE_KEY, 'true' );
 			localStorage.setItem(
@@ -1469,14 +1229,18 @@ describe( 'Studio workspace', () => {
 				path: layout === 'site' ? '/sites/one' : '/sites/one/new',
 				sites: [ site( { running: true } ) ],
 			} );
-			await screen.findByRole( 'button', { name: 'Hide preview' } );
+			await screen.findByRole( 'button', {
+				name: layout === 'split' ? 'Enter fullscreen' : 'Exit fullscreen',
+			} );
 			fireEvent.click( screen.getByRole( 'button', { name: 'Stop My site' } ) );
 			await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledWith( 'one' ) );
-			expect( await screen.findByRole( 'button', { name: 'Hide preview' } ) ).toBeVisible();
-			await waitForFullscreen( layout !== 'split' );
+			await screen.findByRole( 'button', { name: 'Start My site' } );
+			expect( await findComposer() ).toBeVisible();
 			expect( JSON.parse( localStorage.getItem( PREVIEW_LAYOUT_STORAGE_KEY )! ).open ).toBe( true );
 			expect( history.location.pathname ).toBe( '/sites/one/new' );
-			expect( await screen.findByRole( 'complementary', { name: 'Site preview' } ) ).toBeVisible();
+			expect(
+				screen.queryByRole( 'complementary', { name: 'Site preview' } )
+			).not.toBeInTheDocument();
 			expect( connector.createSession ).not.toHaveBeenCalled();
 		}
 	);
@@ -1514,13 +1278,11 @@ describe( 'Studio workspace', () => {
 			).toHaveAttribute( 'aria-disabled', 'true' )
 		);
 		expect( input ).toBeEnabled();
-		expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
 		for ( const running of [ true, false, true ] ) {
 			await emitSites( site( { running } ) );
-			await screen.findByRole( 'button', { name: 'Show preview' } );
-			expect(
-				screen.queryByRole( 'complementary', { name: 'Site preview' } )
-			).not.toBeInTheDocument();
+			await screen.findByRole( 'button', { name: running ? 'Stop My site' : 'Start My site' } );
+			expect( !! screen.queryByRole( 'complementary', { name: 'Site preview' } ) ).toBe( running );
 			expect( composer() ).toBe( input );
 			expect( input ).toHaveValue( 'Keep this draft' );
 			expect( screen.getByText( 'notes.txt' ) ).toBeVisible();
@@ -1543,12 +1305,12 @@ describe( 'Studio workspace', () => {
 		await waitFor( () => expect( input ).toBeEnabled() );
 		fireEvent.change( input, { target: { value: 'Keep this draft' } } );
 		await screen.findByRole( 'button', { name: 'Publish…' } );
-		await paletteCommand( 'Hide preview' );
+		await paletteCommand( 'Enter fullscreen' );
 		await waitFor( () =>
 			expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible()
 		);
 		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toBeVisible();
-		await paletteCommand( 'Show preview' );
+		await paletteCommand( 'Exit fullscreen' );
 		expect( await screen.findByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 		expect( composer() ).toBe( input );
 		expect( input ).toHaveValue( 'Keep this draft' );
@@ -1584,7 +1346,7 @@ describe( 'Studio workspace', () => {
 			fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
 			await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledTimes( 1 ) );
 			expect( connector.startSite ).toHaveBeenCalledExactlyOnceWith( 'one' );
-			expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
+			expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
 			expect( document.querySelector( 'iframe' ) ).toBeNull();
 			const nextInput = composer();
 			fireEvent.change( nextInput, { target: { value: 'Add a footer too' } } );
@@ -1594,10 +1356,10 @@ describe( 'Studio workspace', () => {
 			expect( connector.continueSession ).toHaveBeenCalledTimes( 1 );
 			await act( async () => finishStart() );
 			await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
-			expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
+			expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
 			fireEvent.load( document.querySelector( 'iframe' )! );
-			expect( await screen.findByRole( 'button', { name: 'Show preview' } ) ).toBeVisible();
-			expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
+			expect( await screen.findByRole( 'button', { name: 'Enter fullscreen' } ) ).toBeVisible();
+			expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
 		} );
 
 		it.each( [

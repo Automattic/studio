@@ -241,7 +241,7 @@ describe( 'site lifecycle and preview', () => {
 	} );
 
 	it.each( [ false, true ] )(
-		'preserves the preview layout when stopped from the sidebar (chat initially visible: %s)',
+		'returns to chat when stopped from the sidebar (chat initially visible: %s)',
 		async ( chatVisible ) => {
 			const { connector } = setup( [ site( { running: true } ) ], '/sessions/one-chat' );
 			await screen.findByRole( 'textbox', { name: 'Address' } );
@@ -263,9 +263,9 @@ describe( 'site lifecycle and preview', () => {
 			connector.state.sites = [ site() ];
 			await act( async () => stop.resolve() );
 			await screen.findByRole( 'button', { name: 'Start My site' } );
-			expect( previewShown() ).toBe( true );
+			expect( previewShown() ).toBe( false );
 			expect( layoutMotion() ).toBeNull();
-			expect( !! composer.closest( '[aria-hidden="true"]' ) ).toBe( ! chatVisible );
+			expect( composer ).toBeVisible();
 			expect( composer ).toHaveValue( 'Keep this site draft' );
 			expect( screen.getByRole( 'combobox', { ...COMPOSER, hidden: true } ) ).toBe( composer );
 			expect( connector.createSession ).not.toHaveBeenCalled();
@@ -550,7 +550,7 @@ describe( 'site lifecycle and preview', () => {
 		loadWebview();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Stop My site' } ) );
 		await screen.findByRole( 'button', { name: 'Start My site' } );
-		expect( previewShown() ).toBe( true );
+		expect( previewShown() ).toBe( false );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Start My site' } ) );
 		await screen.findByRole( 'button', { name: 'Stop My site' } );
 		expect( connector.startSite ).toHaveBeenCalledTimes( 2 );

@@ -59,7 +59,6 @@ const siteCommands = (
 		newChat: vi.fn(),
 		reloadPreview: vi.fn(),
 		annotate: vi.fn(),
-		showPreview: vi.fn(),
 		setChatHidden: vi.fn(),
 		copyUrl: vi.fn(),
 		...overrides,
@@ -118,7 +117,7 @@ it( 'derives labels and availability from active context', () => {
 	for ( const id of [ 'sidebar', 'pin-site', 'pin-chat', 'color-scheme' ] ) {
 		expect( byId( id )?.group ).toBe( 'commands' );
 	}
-	expect( byId( 'chat-visibility' )?.label ).toBe( 'Hide chat' );
+	expect( byId( 'preview-fullscreen' )?.label ).toBe( 'Enter fullscreen' );
 	expect( byId( 'pin-site' )?.label ).toBe( 'Unpin site' );
 	expect( byId( 'pin-chat' )?.label ).toBe( 'Unpin chat' );
 	expect( byId( 'archive-chat' ) ).toBeUndefined();

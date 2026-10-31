@@ -34,7 +34,6 @@ export function useOpenSite() {
 		selectionListeners.forEach( ( listener ) => listener() );
 		void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'assistant' } );
 		preview?.setSite( site.id );
-		if ( site.running ) preview?.setOpen( true, { instant: true } );
 		const session = resumeChat(
 			site.id,
 			( sessions ?? [] ).filter(

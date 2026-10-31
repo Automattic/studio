@@ -494,7 +494,6 @@ describe( 'preview address bar', () => {
 		async ( runtime ) => {
 			const { update } = await renderPreview( runtime, {
 				site: site( { running: false, operation: { pid: 1, kind: 'start' } } ),
-				fullscreen: { active: false, onClick: vi.fn() },
 			} );
 			expect( screen.getByText( 'Starting site…' ) ).toHaveAttribute( 'role', 'status' );
 			const input = address();
@@ -511,7 +510,6 @@ describe( 'preview address bar', () => {
 			for ( const control of controls ) {
 				expect( control.matches( ':disabled, [aria-disabled="true"]' ) ).toBe( true );
 			}
-			expect( screen.getByRole( 'button', { name: 'Enter fullscreen' } ) ).toBeEnabled();
 			update( { site: site() } );
 			expect( screen.queryByText( 'Starting site…' ) ).not.toBeInTheDocument();
 			expect( address() ).toBe( input );

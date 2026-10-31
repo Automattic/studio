@@ -1,4 +1,5 @@
 import { __ } from '@wordpress/i18n';
+import { useHeaderPrototype } from '@/features/sites/header-prototype';
 import { SiteHeaderBrowserSpace, useSiteHeader } from '@/features/sites/site-header-actions';
 import { PreviewAddressBar, type PreviewRealm } from '@/features/sites/site-preview/address-bar';
 import { RotateCwIcon, ResponsiveIcon, ExpandIcon, CollapseIcon } from '@/lib/icons';
@@ -26,8 +27,8 @@ interface PreviewHeaderProps {
 	onSwitchRealm: ( realm: PreviewRealm ) => void;
 	hasDesignSystem: boolean;
 	onOpenExternal?: () => void;
-	responsive?: { active: boolean; disabled: boolean; onClick: () => void };
 	fullscreen?: { active: boolean; onClick: () => void };
+	responsive?: { active: boolean; disabled: boolean; onClick: () => void };
 }
 
 export function PreviewHeader( {
@@ -50,6 +51,7 @@ export function PreviewHeader( {
 	fullscreen,
 }: PreviewHeaderProps ) {
 	const { layout: headerLayout } = useSiteHeader();
+	const prototype = useHeaderPrototype();
 	const disabled = ! canPreview || isStarting || isStopping;
 
 	const addressBar = (
@@ -129,7 +131,7 @@ export function PreviewHeader( {
 								tooltipSide="bottom"
 							/>
 						) : null }
-						{ fullscreen ? (
+						{ fullscreen && ! prototype ? (
 							<IconButton
 								size="icon-sm"
 								icon={ fullscreen.active ? <CollapseIcon /> : <ExpandIcon /> }

@@ -30,10 +30,10 @@ import type { CommandArgs } from 'cli/types';
 
 const logger = new Logger< string >();
 
-// Hosting files Spacefast reads from the root of a version. WordPress never serves them, so the
-// static export can't crawl them; a site that needs redirects, headers or a robots.txt keeps them
+// Files served from the root of a version. WordPress never serves them, so the static export
+// can't crawl them; a site that needs redirects, headers, a robots.txt or an llms.txt keeps them
 // at its root and they are published as they are.
-const SPACEFAST_SITE_FILES = [ '_redirects', '_headers', 'robots.txt' ];
+const SPACEFAST_SITE_FILES = [ '_redirects', '_headers', 'robots.txt', 'llms.txt' ];
 
 export async function copySpacefastSiteFiles(
 	sitePath: string,

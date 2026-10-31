@@ -187,7 +187,7 @@ export const generateImagesTool = defineTool(
 	async ( args, { host } ) => {
 		if ( ! ( await isImageGenerationAvailable() ) ) {
 			throw new Error(
-				'Image generation is not available in this session. Build the site without generated imagery.'
+				'Image generation is off in this session. Build the site\'s imagery from type, color and shape.'
 			);
 		}
 
@@ -251,7 +251,7 @@ export const generateImagesTool = defineTool(
 						const target = targets[ index ];
 						if ( ! result.ok || ! result.bytes ) {
 							const hint = result.filtered
-								? ' (safety filter — rewrite the subject to avoid the sensitive element and call generate_images again for this image)'
+								? ' (safety filter — rewrite the subject in plain, everyday terms and call generate_images again for this image)'
 								: '';
 							failures.push( `FAILED ${ target.path }: ${ result.error }${ hint }` );
 							return;

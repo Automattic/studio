@@ -298,6 +298,29 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 		60_000
 	);
 
+	// A block's supports give it their classes and styles a render after it
+	// shows, so a read before then finds the fix without them, as run h2h6's
+	// pizzeria footer then read as losing the border it keeps.
+	it( 'reads the fix as rendered once its supports apply', async () => {
+		const written = [
+			'<!-- wp:group {"tagName":"footer","align":"full","className":"ember-footer","style":{"spacing":{"padding":{"top":"var:preset|spacing|60","bottom":"var:preset|spacing|60"},"blockGap":"0.5rem"},"color":{"background":"var:preset|color|accent-6","text":"var:preset|color|accent-5"},"border":{"top":{"width":"4px","style":"solid","color":"var:preset|color|accent-1"}}},"layout":{"type":"constrained"}} -->',
+			'<footer class="wp-block-group alignfull ember-footer" style="padding-top:var(--wp--preset--spacing--60);padding-bottom:var(--wp--preset--spacing--60);background-color:var(--wp--preset--color--accent-6);color:var(--wp--preset--color--accent-5);border-top:4px solid var(--wp--preset--color--accent-1)">',
+			'<!-- wp:site-title {"level":1,"style":{"color":{"text":"var:preset|color|base"},"typography":{"fontSize":"var:preset|font-size|x-large"}}} /-->',
+			'<!-- wp:paragraph {"style":{"color":{"text":"var:preset|color|accent-2"},"typography":{"letterSpacing":"1.4px","textTransform":"uppercase","fontSize":"var:preset|font-size|small","fontWeight":"700"}}} -->',
+			'<p style="color:var(--wp--preset--color--accent-2);font-size:var(--wp--preset--font-size--small);font-weight:700;letter-spacing:1.4px;text-transform:uppercase">Wood-fired sourdough \u00b7 Tuesday to Sunday, 5&nbsp;pm to 10&nbsp;pm</p>',
+			'<!-- /wp:paragraph -->',
+			'<!-- wp:paragraph {"style":{"color":{"text":"var:preset|color|accent-4"},"typography":{"fontSize":"var:preset|font-size|small"}}} -->',
+			'<p style="color:var(--wp--preset--color--accent-4);font-size:var(--wp--preset--font-size--small)">\u00a9 2026 Ember Street Pizza. Fired with care since 2011.</p>',
+			'<!-- /wp:paragraph -->',
+			'</footer>',
+			'<!-- /wp:group -->',
+		].join( '\n' );
+		for ( let i = 0; i < 12; i++ ) {
+			const report = await validateBlocks( written, siteUrl!, 'site' );
+			expect( report.proposedFix?.losses ).toEqual( [] );
+		}
+	}, 120_000 );
+
 	it.each< { name: string; written: string; losses: { place: string; lost: string }[] } >( [
 		{
 			name: 'a flex layout its layout attribute already shows',

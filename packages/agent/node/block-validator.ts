@@ -1155,11 +1155,28 @@ export async function validateBlocks(
 							?.contentDocument?.querySelectorAll< HTMLElement >(
 								'.is-root-container > [data-block]'
 							) ?? [];
-					for ( let wait = 0; rendered().length < outermost.length && wait < 100; wait++ ) {
-						await new Promise( ( resolve ) => setTimeout( resolve, 50 ) );
+					// The blocks are read once they have held still for a few frames:
+					// a block's supports give it their classes and styles from an
+					// effect, a render after the block shows (BlockProps in
+					// @wordpress/block-editor's hooks/utils.js), and the preview's
+					// frame can unmount its blocks and mount them again on its next
+					// load. Its styles load beside the blocks.
+					const settled = () =>
+						rendered().length < outermost.length
+							? ''
+							: [
+									...( host
+										.querySelector( 'iframe' )
+										?.contentDocument?.querySelectorAll< HTMLElement >( '[data-block]' ) ?? [] ),
+							  ]
+									.map( ( block ) => `${ block.className }\n${ block.style.cssText }` )
+									.join( '\n' );
+					for ( let wait = 0, still = 0, last = ''; still < 3 && wait < 300; wait++ ) {
+						await new Promise( ( resolve ) => requestAnimationFrame( () => resolve( null ) ) );
+						const now = settled();
+						still = now && now === last ? still + 1 : 0;
+						last = now;
 					}
-					// Its styles load beside the blocks.
-					await new Promise( ( resolve ) => requestAnimationFrame( () => resolve( null ) ) );
 					const top = [ ...rendered() ];
 					if ( top.length !== outermost.length ) {
 						return kept;

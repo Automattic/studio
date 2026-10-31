@@ -4,7 +4,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { getSharedBrowser } from '@studio/agent/node/browser-utils';
 import { resolveScreenshotDirectory } from '@studio/agent/node/screenshot-storage';
-import { pageBreakage, pageLayout, pageOverflow, pageTextFit } from './page-layout';
+import { pageBreakage, pageLayout, pageOverflow, pageTextFit, type TextFit } from './page-layout';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 
 type Browser = Awaited< ReturnType< typeof getSharedBrowser > >;
@@ -109,7 +109,7 @@ export interface ScreenshotCapture {
 	/** The page's layout as text, for a model that cannot view the capture. */
 	layout?: string[];
 	/** Where the page's text does not fit, as the browser lays it out. */
-	textFit: string[];
+	textFit: TextFit;
 }
 
 /** A JPEG copy that fits {@link MODEL_IMAGE_MAX_EDGE_PX}, or undefined when the capture already does. */

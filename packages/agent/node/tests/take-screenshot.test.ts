@@ -22,7 +22,12 @@ vi.mock( '@studio/agent/node/tools/screenshot-helpers', async ( importOriginal )
 			capturedHeight: 900,
 			offset: 0,
 			clipped: false,
-			textFit: [ "p.tagline: its text starts at the viewport's left edge (x 0)." ],
+			textFit: {
+				edges: [ "p.tagline: its text starts at the viewport's left edge (x 0)." ],
+				breaks: [
+					'h1: the browser breaks "Everything" across lines, as the word (240px) is wider than its box (180px).',
+				],
+			},
 		};
 	},
 	saveScreenshotFile: async () => ( {
@@ -105,12 +110,17 @@ describe( 'take_screenshot', () => {
 		}
 	);
 
-	it( 'states where the text does not fit, to a model that views the capture too', async () => {
+	it( 'states text against the edge and words the browser breaks, under their own headings, to a model that views the capture too', async () => {
 		const tool = bindTool( createTakeScreenshotTool( { visionEnabled: true } ), createFakeHost() );
 		const result = await tool.rawHandler( { url: 'http://localhost:8881' } );
 
 		expect( await text( result ) ).toContain(
-			"\n  Text the browser does not fit:\n    p.tagline: its text starts at the viewport's left edge (x 0)."
+			[
+				"  Text against the viewport's edge:",
+				"    p.tagline: its text starts at the viewport's left edge (x 0).",
+				'  Words the browser breaks across lines:',
+				'    h1: the browser breaks "Everything" across lines, as the word (240px) is wider than its box (180px).',
+			].join( '\n' )
 		);
 	} );
 

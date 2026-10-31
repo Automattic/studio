@@ -211,6 +211,8 @@ export function createTakeScreenshotTool( {
 					}
 					return `${ label }: captured full page (${ capture.documentHeight }px tall${ shown }).`;
 				};
+				const heading = ( title: string, lines: string[] ) =>
+					lines.length ? [ `  ${ title }`, ...lines.map( ( line ) => `    ${ line }` ) ] : [];
 				const captureLines = captures.map( ( capture ) =>
 					[
 						`${ describeCapture( capture ) } Saved to ${ capture.path }`,
@@ -220,12 +222,8 @@ export function createTakeScreenshotTool( {
 							  ]
 							: [] ),
 						...( capture.layout ?? [] ).map( ( line ) => `  ${ line }` ),
-						...( capture.textFit.length
-							? [
-									'  Text the browser does not fit:',
-									...capture.textFit.map( ( line ) => `    ${ line }` ),
-							  ]
-							: [] ),
+						...heading( "Text against the viewport's edge:", capture.textFit.edges ),
+						...heading( 'Words the browser breaks across lines:', capture.textFit.breaks ),
 					].join( '\n' )
 				);
 				const textLines =

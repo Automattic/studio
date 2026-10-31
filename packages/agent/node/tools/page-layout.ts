@@ -285,14 +285,21 @@ export function pageOverflow( page: Page ): Promise< string[] > {
 // Enough lines to show where text does not fit without flooding the result.
 const MAX_TEXT_LINES = 10;
 
+/** Text against the viewport's edge, and words the browser breaks across lines. */
+export interface TextFit {
+	edges: string[];
+	breaks: string[];
+}
+
 /**
- * Where a rendered page's text does not fit, as the browser lays it out: a
- * word it breaks across lines because the word is wider than its box (as the
- * word-break and overflow-wrap rules of core's block styles let it, in
- * wp-includes/css/dist/block-library/style.css), and text that starts or ends
- * at the viewport's edge. A word the page hyphenates is not counted.
+ * Where a rendered page's text does not fit, as the browser lays it out: text
+ * that starts or ends at the viewport's edge, and a word it breaks across
+ * lines because the word is wider than its box (as the word-break and
+ * overflow-wrap rules of core's block styles let it, in
+ * wp-includes/css/dist/block-library/style.css). A word the page hyphenates
+ * is not counted.
  */
-export function pageTextFit( page: Page ): Promise< string[] > {
+export function pageTextFit( page: Page ): Promise< TextFit > {
 	return page.evaluate( ( maxLines ) => {
 		const generated = /^(is-|has-|wp-container-|wp-elements-|wp-block-[a-z-]+-is-layout-)/;
 		// An element with no class of its own is named by its text, as one link among many is.
@@ -310,8 +317,9 @@ export function pageTextFit( page: Page ): Promise< string[] > {
 				? `${ tag } "${ text.length > 40 ? `${ text.slice( 0, 40 ) }…` : text }"`
 				: named;
 		};
-		const lines: string[] = [];
-		const add = ( line: string ) => {
+		const edges: string[] = [];
+		const breaks: string[] = [];
+		const add = ( lines: string[], line: string ) => {
 			if ( ! lines.includes( line ) ) {
 				lines.push( line );
 			}
@@ -344,12 +352,14 @@ export function pageTextFit( page: Page ): Promise< string[] > {
 			const right = Math.max( ...rects.map( ( rect ) => rect.right ) );
 			if ( left < 1 ) {
 				add(
+					edges,
 					`${ label( element ) }: its text starts at the viewport's left edge (x ${ Math.round(
 						left
 					) }).`
 				);
 			} else if ( right > viewport - 1 && right <= viewport + 1 ) {
 				add(
+					edges,
 					`${ label( element ) }: its text ends at the viewport's right edge (x ${ Math.round(
 						right
 					) }).`
@@ -366,14 +376,14 @@ export function pageTextFit( page: Page ): Promise< string[] > {
 			// The browser breaks a run of letters only where the text around it, as
 			// an email address, has no place to wrap, so it is that text that is too wide.
 			for ( const match of text.matchAll( /\S+/g ) ) {
-				const breaks = [ ...match[ 0 ].matchAll( /[\p{L}\p{N}]+/gu ) ].some( ( run ) => {
+				const broken = [ ...match[ 0 ].matchAll( /[\p{L}\p{N}]+/gu ) ].some( ( run ) => {
 					const start = match.index + run.index;
 					const tops = partsOf( start, start + run[ 0 ].length ).map( ( rect ) =>
 						Math.round( rect.top )
 					);
 					return new Set( tops ).size > 1;
 				} );
-				if ( breaks ) {
+				if ( broken ) {
 					const parts = partsOf( match.index, match.index + match[ 0 ].length );
 					const width = Math.round( parts.reduce( ( sum, rect ) => sum + rect.width, 0 ) );
 					const box = element.closest( 'p, h1, h2, h3, h4, h5, h6, li, a, div' ) ?? element;
@@ -381,6 +391,7 @@ export function pageTextFit( page: Page ): Promise< string[] > {
 						parseFloat( getComputedStyle( box ).paddingLeft ) +
 						parseFloat( getComputedStyle( box ).paddingRight );
 					add(
+						breaks,
 						`${ label( element, false ) }: the browser breaks "${
 							match[ 0 ]
 						}" across lines, as the word (${ width }px) is wider than its box (${ Math.round(
@@ -397,18 +408,20 @@ export function pageTextFit( page: Page ): Promise< string[] > {
 			parseFloat( body.getPropertyValue( `--wp--style--root--padding-${ side }` ) || '0' ) +
 			parseFloat( body.getPropertyValue( `padding-${ side }` ) || '0' );
 		if (
-			lines.some( ( line ) => line.includes( "at the viewport's" ) ) &&
+			edges.length &&
 			document.querySelector( '.wp-site-blocks' ) &&
 			rootPadding( 'left' ) === 0 &&
 			rootPadding( 'right' ) === 0
 		) {
-			lines.unshift(
+			edges.unshift(
 				"The theme's styles.spacing.padding, the padding WordPress puts between the page's content and the viewport's edges, is core's 0px (wp-includes/theme.json); with settings.useRootPaddingAwareAlignments true, WordPress applies it inside each .has-global-padding container, so full-width blocks still reach the edges (get_root_layout_rules() in wp-includes/class-wp-theme-json.php)."
 			);
 		}
-		return lines.length > maxLines
-			? [ ...lines.slice( 0, maxLines ), `…and ${ lines.length - maxLines } more` ]
-			: lines;
+		const limit = ( lines: string[] ) =>
+			lines.length > maxLines
+				? [ ...lines.slice( 0, maxLines ), `…and ${ lines.length - maxLines } more` ]
+				: lines;
+		return { edges: limit( edges ), breaks: limit( breaks ) };
 	}, MAX_TEXT_LINES );
 }
 

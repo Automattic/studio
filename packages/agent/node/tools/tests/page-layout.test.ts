@@ -23,7 +23,10 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 			await page.close();
 		}
 	};
-	const textFitOf = ( body: string ) => open( body, pageTextFit );
+	const textFitOf = async ( body: string ) => {
+		const { edges, breaks } = await open( body, pageTextFit );
+		return [ ...edges, ...breaks ];
+	};
 
 	const layoutOf = ( body: string ) => open( body, pageLayout );
 

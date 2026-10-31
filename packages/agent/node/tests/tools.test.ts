@@ -79,6 +79,9 @@ describe( 'Studio AI MCP tools', () => {
 		on: vi.fn(),
 		// The page layout's scripts read the page's blocks and return lines.
 		evaluate: vi.fn( async ( script: unknown, args?: number | { source?: string } ) => {
+			if ( String( script ).includes( 'hyphens' ) ) {
+				return { edges: [], breaks: [] };
+			}
 			if ( typeof args === 'number' || String( script ).includes( 'wp-site-blocks' ) ) {
 				return [ 'main: y 0–900 (900px tall), x 0–1040' ];
 			}

@@ -1320,6 +1320,109 @@ export async function validateBlocks(
 			// The fix for every block that loses nothing. A block that would lose
 			// something stays as written, inner blocks and all: the serializer
 			// keeps a block that does not validate from its source.
+			// Where a block keeps the layout and position styles a fix drops: its
+			// layout attribute and its spacing and position supports, which the
+			// block renders as a class (wp_render_layout_support_flag and
+			// wp_render_position_support in wp-includes/block-supports), so no
+			// save holds them inline. `[ attributes, the styles they hold ]`, for
+			// a block that supports them.
+			function storedAs( place: string, styles: string[] ) {
+				const block = place
+					.split( '/' )
+					.slice( 1 )
+					.reduce< any >(
+						( at, index ) =>
+							( at === null ? fixed.blocks : at.innerBlocks ?? [] )[ Number( index ) ],
+						null
+					);
+				const name = block?.name;
+				if ( ! name ) {
+					return null;
+				}
+				const supports = ( feature: string ) => wpBlocks.hasBlockSupport( name, feature );
+				const layoutSupport = wpBlocks.getBlockType( name )?.supports?.layout;
+				const layoutType =
+					block.attributes.layout?.type ??
+					( typeof layoutSupport === 'object' ? layoutSupport.default?.type : undefined );
+				const value = new Map(
+					styles.map( ( style ) => [
+						style.slice( 0, style.indexOf( ':' ) ),
+						style.slice( style.indexOf( ':' ) + 1 ),
+					] )
+				);
+				const attributes: Record< string, any > = {};
+				const held: string[] = [];
+				const hold = ( keys: string[], at: string[], stored: unknown ) => {
+					const leaf = at
+						.slice( 0, -1 )
+						.reduce( ( into: any, key ) => ( into[ key ] ??= {} ), attributes );
+					leaf[ at[ at.length - 1 ] ] = stored;
+					held.push( ...keys.map( ( key ) => `${ key }:${ value.get( key ) }` ) );
+				};
+				if ( layoutSupport && layoutType !== 'flex' && value.get( 'display' ) === 'flex' ) {
+					hold( [ 'display' ], [ 'layout', 'type' ], 'flex' );
+				}
+				const flex = layoutType === 'flex' || attributes.layout?.type === 'flex';
+				const row = value.get( 'row-gap' );
+				const column = value.get( 'column-gap' );
+				if (
+					( flex || layoutType === 'grid' ) &&
+					supports( 'spacing.blockGap' ) &&
+					( row || column )
+				) {
+					hold(
+						[ 'row-gap', 'column-gap' ].filter( ( key ) => value.get( key ) ),
+						[ 'style', 'spacing', 'blockGap' ],
+						row === column
+							? row
+							: { ...( row ? { top: row } : {} ), ...( column ? { left: column } : {} ) }
+					);
+				}
+				if ( flex && layoutSupport ) {
+					const justify: Record< string, string > = {
+						left: 'left',
+						start: 'left',
+						'flex-start': 'left',
+						center: 'center',
+						right: 'right',
+						end: 'right',
+						'flex-end': 'right',
+						'space-between': 'space-between',
+					};
+					const align: Record< string, string > = {
+						start: 'top',
+						'flex-start': 'top',
+						center: 'center',
+						end: 'bottom',
+						'flex-end': 'bottom',
+						stretch: 'stretch',
+					};
+					const fromValue = ( key: string, names: Record< string, string >, attribute: string ) => {
+						const stored = names[ value.get( key ) ?? '' ];
+						if ( stored ) {
+							hold( [ key ], [ 'layout', attribute ], stored );
+						}
+					};
+					fromValue( 'justify-content', justify, 'justifyContent' );
+					fromValue( 'align-items', align, 'verticalAlignment' );
+					fromValue( 'flex-wrap', { nowrap: 'nowrap', wrap: 'wrap' }, 'flexWrap' );
+					fromValue( 'flex-direction', { column: 'vertical', row: 'horizontal' }, 'orientation' );
+				}
+				if (
+					supports( 'position.sticky' ) &&
+					( value.get( 'position' ) === 'sticky' || value.has( 'top' ) )
+				) {
+					hold(
+						[ 'position', 'top' ].filter( ( key ) => value.has( key ) ),
+						[ 'style', 'position' ],
+						{ type: 'sticky', ...( value.has( 'top' ) ? { top: value.get( 'top' ) } : {} ) }
+					);
+				}
+				return held.length
+					? ( [ JSON.stringify( attributes ).slice( 1, -1 ), held ] as const )
+					: null;
+			}
+
 			const found = losses( initial.blocks, fixed.blocks );
 			const rendering = await renderedAlready(
 				found.filter( ( loss ) => loss.onRoot.length || loss.classesOn.length )
@@ -1328,6 +1431,20 @@ export async function validateBlocks(
 				.map( ( { place, blockName, lost } ) => {
 					const kept = rendering.get( place ) ?? new Set();
 					const styles = lost.styles.filter( ( style: string ) => ! kept.has( style ) );
+					const hint = ( dropped: string[] ) => {
+						const stored = storedAs( place, dropped );
+						if ( ! stored ) {
+							return '';
+						}
+						// Named when the block has nowhere for the others.
+						const which =
+							stored[ 1 ].length < dropped.length
+								? stored[ 1 ].join( '; ' )
+								: stored[ 1 ].length > 1
+								? 'them'
+								: 'it';
+						return ` — store ${ which } as ${ stored[ 0 ] }`;
+					};
 					const classes = lost.classes.filter( ( name: string ) => ! kept.has( name ) );
 					return {
 						place,
@@ -1335,7 +1452,7 @@ export async function validateBlocks(
 						lost: [
 							...lost.text,
 							classes.length ? `drop the classes ${ classes.join( ' ' ) }` : '',
-							styles.length ? `drop the styles ${ styles.join( '; ' ) }` : '',
+							styles.length ? `drop the styles ${ styles.join( '; ' ) }${ hint( styles ) }` : '',
 							...lost.moves,
 						]
 							.filter( Boolean )

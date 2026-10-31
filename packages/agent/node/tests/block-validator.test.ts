@@ -298,6 +298,47 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 		60_000
 	);
 
+	// Layout and position styles render from attributes as a class, so the
+	// fix's loss names the attributes; stored there, nothing is lost.
+	it.each( [
+		{
+			name: 'a flex group',
+			written:
+				'<!-- wp:group {"layout":{"type":"flex"}} -->\n<div class="wp-block-group" style="justify-content:right;gap:2rem"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:group -->',
+			lost: 'drop the styles justify-content:right; row-gap:2rem; column-gap:2rem — store them as "style":{"spacing":{"blockGap":"2rem"}},"layout":{"justifyContent":"right"}',
+			stored:
+				'<!-- wp:group {"layout":{"type":"flex","justifyContent":"right"},"style":{"spacing":{"blockGap":"2rem"}}} -->\n<div class="wp-block-group"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:group -->',
+			still: [],
+		},
+		{
+			name: 'a group written as flex inline',
+			written:
+				'<!-- wp:group -->\n<div class="wp-block-group" style="display:flex;align-items:center;gap:1rem"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:group -->',
+			lost: 'drop the styles display:flex; align-items:center; row-gap:1rem; column-gap:1rem — store them as "layout":{"type":"flex","verticalAlignment":"center"},"style":{"spacing":{"blockGap":"1rem"}}',
+			stored:
+				'<!-- wp:group {"layout":{"type":"flex","verticalAlignment":"center"},"style":{"spacing":{"blockGap":"1rem"}}} -->\n<div class="wp-block-group"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:group -->',
+			still: [],
+		},
+		{
+			name: 'a sticky group, with a style it has nowhere for',
+			written:
+				'<!-- wp:group {"style":{"position":{"type":"sticky"}}} -->\n<div class="wp-block-group" style="position:sticky;top:0px;z-index:100"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:group -->',
+			lost: 'drop the styles top:0px; z-index:100 — store top:0px as "style":{"position":{"type":"sticky","top":"0px"}}',
+			stored:
+				'<!-- wp:group {"style":{"position":{"type":"sticky","top":"0px"}}} -->\n<div class="wp-block-group" style="z-index:100"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:group -->',
+			still: [ 'drop the styles z-index:100' ],
+		},
+	] )(
+		'names the attributes a style it drops renders from: $name',
+		async ( { written, lost, stored, still } ) => {
+			const report = await validateBlocks( written, siteUrl! );
+			expect( report.proposedFix?.losses.map( ( loss ) => loss.lost ) ).toEqual( [ lost ] );
+			const after = await validateBlocks( stored, siteUrl! );
+			expect( after.proposedFix?.losses.map( ( loss ) => loss.lost ) ?? [] ).toEqual( still );
+		},
+		60_000
+	);
+
 	// A block's supports give it their classes and styles a render after it
 	// shows, so a read before then finds the fix without them, as run h2h6's
 	// pizzeria footer then read as losing the border it keeps.

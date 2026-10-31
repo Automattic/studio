@@ -6,7 +6,7 @@ import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useDeleteSnapshot, useSnapshots } from '@/data/queries/use-snapshots';
 import { useUserLocale } from '@/data/queries/use-user-locale';
-import { getSnapshotHostname, getSnapshotUrl } from '@/data/snapshot-url';
+import { getSnapshotHostname, getSnapshotOpenUrl, getSnapshotUrl } from '@/data/snapshot-url';
 import { AccountPrompt, previewSiteImage } from '@/features/account';
 import { CopyButton } from '@/features/chats';
 import { previewExpiry, RenamePreview } from '@/features/sharing';
@@ -60,7 +60,7 @@ function PreviewRow( {
 							type="button"
 							className={ styles.previewLink }
 							title={ url }
-							onClick={ () => void connector.openExternalUrl( url ) }
+							onClick={ () => void connector.openExternalUrl( getSnapshotOpenUrl( snapshot ) ) }
 						>
 							{ getSnapshotHostname( snapshot ) }
 						</button>

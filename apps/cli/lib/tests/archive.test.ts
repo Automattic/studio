@@ -247,6 +247,7 @@ describe( 'Archive Module', () => {
 
 			expect( mockArchiver.file ).toHaveBeenCalledWith( mockWpConfigPath, {
 				name: 'wp-config.php',
+				store: false,
 			} );
 		} );
 

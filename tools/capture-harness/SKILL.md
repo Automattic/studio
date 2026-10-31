@@ -15,7 +15,7 @@ Run from the repo root. `SC` below means `npx studio-capture` (or `node --experi
 2. `SC doctor` says what is still missing and how to fix it.
 3. Signed-in scripts need `STUDIO_CAPTURE_AUTH_TOKEN` set to the **demo account's** token. Never copy or ask for a person's login; in CI the harness refuses one.
 
-Pick a driver: `--driver electron` (default) is Studio Desktop, with every feature; on Linux it runs under xvfb automatically. `--driver browser` is `studio ui` in headless Chromium: lighter, no display needed, no desktop-only features and no macOS window buttons. Docs images use Studio Desktop.
+Pick a driver: `--driver electron` (default) is Studio Desktop, with every feature; on Linux it starts a virtual display (Xvfb) automatically. `--driver browser` is `studio ui` in headless Chromium: lighter, no display needed, no desktop-only features and no macOS window buttons. Docs images use Studio Desktop.
 
 ## The loop
 
@@ -31,7 +31,7 @@ Pick a driver: `--driver electron` (default) is Studio Desktop, with every featu
 - Someone's own site: `--blueprint <file|url>`; for reruns that must match, `SC bake --blueprint <file|url> --out <dir>` and capture from the baked scene.
 - Marketing or social: `--look marketing` (framed, plus a 2400×1500 hero) or `--look social` (1200×630, 1080×1080, 1600×900). `examples/workspace-tour.json` works on any scene with a site.
 - Video: `SC record <script> --only <shot> --look marketing --out <dir>`. Steps play at a watchable pace with a drawn pointer. MP4 and WebM need ffmpeg; WebP and GIF don't.
-- Did anything change? `SC check <scripts> --out <images dir> --diff-dir <dir> --json` writes nothing and exits 1 when pixels changed.
+- Did anything change? `SC check <scripts> --out <images dir> --diff-dir <dir> --json` leaves the images alone and exits 1 when pixels changed.
 
 ## Rules
 

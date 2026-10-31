@@ -97,6 +97,9 @@ export async function runCommand( command: string, refs: string[], args: Command
 							`${ summary.unchanged } unchanged`,
 					  ]
 					: [ `${ summary.new + summary.changed } written`, `${ summary.unchanged } unchanged` ];
+			if ( summary.skipped ) {
+				parts.push( `${ summary.skipped } skipped (Studio Desktop only)` );
+			}
 			if ( summary.failed ) {
 				parts.push( `${ summary.failed } failed` );
 			}

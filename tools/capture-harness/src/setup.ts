@@ -39,11 +39,70 @@ function playwrightCache() {
 	);
 }
 
-const hasPlaywrightChromium = () =>
-	existsSync( playwrightCache() ) &&
-	readdirSync( playwrightCache() ).some( ( name ) =>
-		/^chromium(_headless_shell)?-\d+$/.test( name )
+/**
+ * The Chromium builds the installed Playwright launches. A cache can hold
+ * others (a sandbox image's own, an older install) that it won't use.
+ */
+function playwrightChromiumDirs() {
+	const manifest = path.join( REPO_ROOT, 'node_modules/playwright-core/browsers.json' );
+	if ( ! existsSync( manifest ) ) {
+		return [];
+	}
+	const { browsers } = JSON.parse( readFileSync( manifest, 'utf8' ) ) as {
+		browsers: { name: string; revision: string }[];
+	};
+	return browsers
+		.filter(
+			( browser ) => browser.name === 'chromium' || browser.name === 'chromium-headless-shell'
+		)
+		.map( ( browser ) => `${ browser.name.replace( /-/g, '_' ) }-${ browser.revision }` );
+}
+
+const hasPlaywrightChromium = () => {
+	const dirs = playwrightChromiumDirs();
+	return (
+		dirs.length > 0 && dirs.every( ( dir ) => existsSync( path.join( playwrightCache(), dir ) ) )
 	);
+};
+
+/** A PHP binary in `dir`, or in one of its version folders, as `~/.studio/php-bin` keeps them. */
+function phpBinaryIn( dir: string ) {
+	const exe = process.platform === 'win32' ? 'php.exe' : 'php';
+	if ( ! existsSync( dir ) ) {
+		return undefined;
+	}
+	return [ dir, ...readdirSync( dir ).map( ( name ) => path.join( dir, name ) ) ]
+		.map( ( candidate ) => path.join( candidate, exe ) )
+		.find( ( candidate ) => existsSync( candidate ) );
+}
+
+const PHP_BIN_DIR = path.join( homedir(), '.studio', 'php-bin' );
+
+/**
+ * The repo's WordPress server files missing from the CLI build: the build
+ * copies `wp-files`, so a build made before `npm install` finished lacks some.
+ */
+function missingFromCliBuild() {
+	const source = path.join( REPO_ROOT, 'wp-files' );
+	const built = path.join( path.dirname( REPO_CLI ), 'wp-files' );
+	if ( ! existsSync( source ) ) {
+		return [];
+	}
+	return readdirSync( source ).filter(
+		( name ) => ! name.startsWith( '.' ) && ! existsSync( path.join( built, name ) )
+	);
+}
+
+/**
+ * Whether `npm install` ran to the end. Its postinstall downloads WordPress,
+ * then the other server files, the agent skills and last PHP, so a failed
+ * download leaves the first of them in place and the rest missing.
+ */
+const dependenciesComplete = () =>
+	installed( 'playwright' ) &&
+	existsSync( path.join( REPO_ROOT, 'wp-files/sqlite-database-integration' ) ) &&
+	existsSync( path.join( REPO_ROOT, 'wp-files/skills' ) ) &&
+	phpBinaryIn( PHP_BIN_DIR ) !== undefined;
 
 function electronReady() {
 	const dir = path.join( REPO_ROOT, 'node_modules/electron' );
@@ -94,31 +153,34 @@ export function doctor( env = process.env ): Check[] {
 		} );
 	} else if (
 		cli.path === REPO_CLI &&
-		! existsSync( path.join( path.dirname( REPO_CLI ), 'wp-files/sqlite-database-integration' ) )
+		( ! existsSync(
+			path.join( path.dirname( REPO_CLI ), 'wp-files/sqlite-database-integration' )
+		) ||
+			missingFromCliBuild().length )
 	) {
 		add( {
 			name: 'Studio CLI',
 			status: 'missing',
-			detail: `${ cli.path } was built without the WordPress server files, so it can't create sites`,
-			fix: '`npm install` at the repo root (its postinstall downloads them), then `npm run cli:build:ui`.',
+			detail: `${ cli.path } was built without all the WordPress server files${
+				missingFromCliBuild().length ? ` (missing ${ missingFromCliBuild().join( ', ' ) })` : ''
+			}, so it can't create sites`,
+			fix: '`npm install` at the repo root (its postinstall downloads them), then `npx studio-capture setup --rebuild`.',
 		} );
 	} else {
 		add( { name: 'Studio CLI', status: 'ok', detail: `${ cli.path } (${ cli.source })` } );
 	}
 
-	const phpRoots = [
-		path.join( homedir(), '.studio', 'php-bin' ),
-		...( cli ? [ path.join( path.dirname( cli.path ), 'php' ) ] : [] ),
-	];
-	const php = phpRoots.find( ( dir ) => existsSync( dir ) && readdirSync( dir ).length );
+	const php = [ PHP_BIN_DIR, ...( cli ? [ path.join( path.dirname( cli.path ), 'php' ) ] : [] ) ]
+		.map( phpBinaryIn )
+		.find( Boolean );
 	add(
 		php
-			? { name: 'PHP', status: 'ok', detail: php }
+			? { name: 'PHP', status: 'ok', detail: path.dirname( php ) }
 			: {
 					name: 'PHP',
 					status: 'missing',
 					detail: 'no PHP binary in ~/.studio/php-bin or next to the CLI',
-					fix: '`npm install` at the repo root (its postinstall downloads PHP to ~/.studio/php-bin).',
+					fix: '`npm install` at the repo root (its postinstall downloads PHP to ~/.studio/php-bin last, so a failed download earlier in it skips PHP).',
 			  }
 	);
 
@@ -137,12 +199,17 @@ export function doctor( env = process.env ): Check[] {
 
 	add(
 		hasPlaywrightChromium()
-			? { name: 'Chromium', status: 'ok', detail: playwrightCache() }
+			? {
+					name: 'Chromium',
+					status: 'ok',
+					detail: `${ playwrightChromiumDirs().join( ', ' ) } in ${ playwrightCache() }`,
+			  }
 			: {
 					name: 'Chromium',
 					status: 'missing',
-					detail:
-						"Playwright's Chromium isn't downloaded (it runs the browser driver and takes thumbnails)",
+					detail: `Playwright's Chromium (${
+						playwrightChromiumDirs().join( ', ' ) || 'the build it needs'
+					}) isn't in ${ playwrightCache() } (it runs the browser driver and takes thumbnails)`,
 					fix: `\`npx playwright install chromium${
 						process.platform === 'linux' ? ' --with-deps' : ''
 					}\`.`,
@@ -190,17 +257,17 @@ export function doctor( env = process.env ): Check[] {
 
 	if ( process.platform === 'linux' ) {
 		add(
-			env.DISPLAY || has( 'xvfb-run' )
+			env.DISPLAY || has( 'Xvfb' )
 				? {
 						name: 'Display',
 						status: 'ok',
-						detail: env.DISPLAY ? `DISPLAY=${ env.DISPLAY }` : 'xvfb-run (used automatically)',
+						detail: env.DISPLAY ? `DISPLAY=${ env.DISPLAY }` : 'Xvfb (started automatically)',
 						for: 'electron',
 				  }
 				: {
 						name: 'Display',
 						status: 'missing',
-						detail: 'no DISPLAY and no xvfb-run, which Studio Desktop needs on Linux',
+						detail: 'no DISPLAY and no Xvfb, which Studio Desktop needs on Linux',
 						fix: '`npx studio-capture setup --driver electron` (as root) installs xvfb, or use `--driver browser`.',
 						for: 'electron',
 				  }
@@ -261,6 +328,7 @@ const LINUX_PACKAGES = [
 	'xvfb',
 	'xauth',
 	'libgtk-3-0',
+	'libgtk-3-0t64',
 	'libnss3',
 	'libgbm1',
 	'libasound2',
@@ -273,9 +341,19 @@ const LINUX_PACKAGES = [
 	'fonts-noto-color-emoji',
 ];
 
+/**
+ * Behind a proxy (`HTTPS_PROXY`, as in most cloud sandboxes), Node's own
+ * `fetch` in the download scripts goes through it only when told to.
+ */
+function childEnv(): NodeJS.ProcessEnv {
+	const env = process.env;
+	const proxied = env.HTTPS_PROXY || env.https_proxy || env.HTTP_PROXY || env.http_proxy;
+	return proxied ? { ...env, NODE_USE_ENV_PROXY: env.NODE_USE_ENV_PROXY ?? '1' } : env;
+}
+
 function run( command: string, args: string[], log: ( message: string ) => void, cwd = REPO_ROOT ) {
 	log( `$ ${ [ command, ...args ].join( ' ' ) }` );
-	const result = spawnSync( command, args, { cwd, stdio: 'inherit', env: process.env } );
+	const result = spawnSync( command, args, { cwd, stdio: 'inherit', env: childEnv() } );
 	if ( result.status !== 0 ) {
 		throw new Error(
 			`\`${ [ command, ...args ].join( ' ' ) }\` failed (${
@@ -310,16 +388,13 @@ export function setup(
 		}
 	}
 
-	if (
-		! installed( 'playwright' ) ||
-		! existsSync( path.join( REPO_ROOT, 'wp-files/sqlite-database-integration' ) )
-	) {
+	if ( ! dependenciesComplete() ) {
 		log( 'Installing the repo dependencies (this downloads WordPress and PHP too)...' );
 		run( npm, [ 'install', '--no-audit', '--no-fund' ], log );
 	}
 
 	const uiBuilt = existsSync( path.join( path.dirname( REPO_CLI ), 'ui' ) );
-	if ( rebuild || ! existsSync( REPO_CLI ) || ! uiBuilt ) {
+	if ( rebuild || ! existsSync( REPO_CLI ) || ! uiBuilt || missingFromCliBuild().length ) {
 		log( 'Building the CLI and its browser app...' );
 		run( npm, [ 'run', 'cli:build:ui' ], log );
 	}

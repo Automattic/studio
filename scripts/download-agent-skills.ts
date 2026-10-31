@@ -1,14 +1,16 @@
+import { spawnSync } from 'child_process';
 import os from 'os';
 import path from 'path';
 import fs from 'fs-extra';
 import { extractZip } from '../packages/common/lib/extract-zip.ts';
-import { fetch } from './lib/with-retry.ts';
+import { fetch, sharedDispatcher } from './lib/with-retry.ts';
 
 const WP_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );
 const AI_SKILLS_PATH = path.join( WP_FILES_PATH, 'skills' );
 const LOCAL_AI_SKILLS_PATH = path.join( import.meta.dirname, '..', 'skills' );
 
 const REPO_ZIP_URL = 'https://github.com/WordPress/agent-skills/archive/refs/heads/trunk.zip';
+const REPO_GIT_URL = 'https://github.com/WordPress/agent-skills.git';
 
 const REMOTE_SKILL_IDS = [
 	'wp-plugin-development',
@@ -24,18 +26,39 @@ async function downloadRemoteSkills(): Promise< void > {
 	const zipPath = path.join( os.tmpdir(), 'agent-skills.zip' );
 	const extractPath = path.join( os.tmpdir(), 'agent-skills-extracted' );
 
-	// Download the repository archive
-	const response = await fetch( REPO_ZIP_URL );
-	if ( ! response.ok ) {
-		throw new Error( `Failed to download agent-skills: ${ response.status }` );
-	}
-	const buffer = Buffer.from( await response.arrayBuffer() );
-	await fs.writeFile( zipPath, buffer );
-
-	// Extract to a temporary directory
 	await fs.remove( extractPath );
 	await fs.ensureDir( extractPath );
-	await extractZip( zipPath, extractPath );
+	try {
+		const response = await fetch( REPO_ZIP_URL, { dispatcher: sharedDispatcher } );
+		if ( ! response.ok ) {
+			throw new Error( `Failed to download agent-skills: ${ response.status }` );
+		}
+		await fs.writeFile( zipPath, Buffer.from( await response.arrayBuffer() ) );
+		await extractZip( zipPath, extractPath );
+	} catch ( error ) {
+		// Some sandboxes allow git reads of GitHub but not archive downloads.
+		console.warn(
+			`[ai-skills] ${
+				error instanceof Error ? error.message : error
+			}; cloning the repository instead`
+		);
+		await fs.emptyDir( extractPath );
+		const clone = spawnSync(
+			'git',
+			[
+				'clone',
+				'--quiet',
+				'--depth',
+				'1',
+				REPO_GIT_URL,
+				path.join( extractPath, 'agent-skills-trunk' ),
+			],
+			{ stdio: 'inherit' }
+		);
+		if ( clone.status !== 0 ) {
+			throw error;
+		}
+	}
 
 	// Find the extracted root directory (e.g., agent-skills-trunk/)
 	const extractedDirs = await fs.readdir( extractPath );

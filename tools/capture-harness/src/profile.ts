@@ -87,6 +87,8 @@ export async function createProfile(): Promise< Profile > {
 			E2E: 'true',
 			E2E_APP_DATA_PATH: path.dirname( dirs.appData ),
 			E2E_HOME_PATH: dirs.home,
+			// The CLI's default site folder (`studio ui` creates sites through it).
+			E2E_SITES_ROOT: dirs.sites,
 			E2E_CLI_CONFIG_PATH: dirs.cliConfig,
 			E2E_SHARED_CONFIG_PATH: dirs.sharedConfig,
 			DEV_CONFIG_DIR: dirs.sharedConfig,

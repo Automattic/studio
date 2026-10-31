@@ -660,6 +660,10 @@
 							]
 						}
 					},
+					"desktopOnly": {
+						"description": "Shows something only Studio Desktop has; skipped with the browser driver",
+						"type": "boolean"
+					},
 					"pages": {
 						"description": "Docs pages that use the shot",
 						"type": "array",

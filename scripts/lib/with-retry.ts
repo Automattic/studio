@@ -1,11 +1,11 @@
-import { Agent, fetch } from 'undici';
+import { EnvHttpProxyAgent, fetch } from 'undici';
 
 export { fetch };
 
 export const DEFAULT_MAX_ATTEMPTS = 3;
 export const DEFAULT_CONNECT_TIMEOUT_MS = 10_000;
 
-export const sharedDispatcher = new Agent( {
+export const sharedDispatcher = new EnvHttpProxyAgent( {
 	connect: { timeout: DEFAULT_CONNECT_TIMEOUT_MS },
 } );
 

@@ -18,7 +18,7 @@ On a fresh clone, one command installs and builds everything, and checks the res
 node --experimental-strip-types tools/capture-harness/cli.ts setup   # at the repo root; Node 24
 ```
 
-`setup` runs `npm install` at the repo root (which also downloads the WordPress server files and PHP), builds the CLI with its browser app (`npm run cli:build:ui`), downloads Playwright's Chromium, and for Studio Desktop downloads Electron and builds `apps/studio`. On Linux as root it first installs xvfb, the libraries Electron and Chromium need, and fonts (`apt-get`). It skips what is already there; `--rebuild` builds the CLI and app again, and `--driver browser` leaves Studio Desktop out. After it, run the harness as `npx studio-capture <command>` from the repo root (the workspace links its bin).
+`setup` runs `npm install` at the repo root (which also downloads the WordPress server files and PHP), builds the CLI with its browser app (`npm run cli:build:ui`), downloads the Chromium build this Playwright launches (another build already on the machine doesn't count), and for Studio Desktop downloads Electron and builds `apps/studio`. On Linux as root it first installs xvfb, the libraries Electron and Chromium need, and fonts (`apt-get`). It skips what is already there, and runs `npm install` again if an earlier one stopped partway (PHP is its last download) and the CLI build again if it lacks some of the WordPress server files; `--rebuild` builds the CLI and app again, and `--driver browser` leaves Studio Desktop out. After it, run the harness as `npx studio-capture <command>` from the repo root (the workspace links its bin).
 
 `npx studio-capture doctor` checks the same things without changing anything, and names the fix for each missing one (`--json` for agents). It exits non-zero when something a capture needs is missing.
 
@@ -32,12 +32,23 @@ The harness finds the rest itself:
 
 The harness drives either front end of Studio; `--driver`, or a script's `driver`, picks one.
 
-- **`electron`** (the default): Studio Desktop. Every feature, and the docs images. It needs a display: on Linux without one, the harness reruns itself under `xvfb-run` automatically, and passes Chromium's `--no-sandbox` when running as root, as in most containers.
+- **`electron`** (the default): Studio Desktop. Every feature, and the docs images. It needs a display: on Linux without one, the harness starts a virtual one (Xvfb) for the run, and passes Chromium's `--no-sandbox` when running as root, as in most containers.
 - **`browser`**: `studio ui`, the browser app the CLI serves, in headless Chromium. The renderer is the same `apps/ui`, so most screens look the same, without the macOS window buttons; it needs no display, Electron or app build, so it is the lighter choice in a container. Desktop-only features (Annotate, opening sites in other apps, native dialogs) aren't there. Stubs and the signed-in guard answer the browser app's `/api` requests instead of IPC.
 
 ### In the cloud
 
-The harness runs in a headless Linux sandbox, such as a Claude Code cloud session or another agent's cloud machine, from a fresh clone with open internet: `setup`, then capture. Downloads come from npm, GitHub (Electron), WordPress.org and Studio's PHP CDN (via `npm install`), and Playwright's CDN (Chromium). Signed-in scripts need `STUDIO_CAPTURE_AUTH_TOKEN`, set as the sandbox's secret, since there is no local login. For the docs images, which should come from one fixed environment, capture on macOS with Studio Desktop.
+The harness runs in a headless Linux sandbox, such as a Claude Code cloud session or another agent's cloud machine, from a fresh clone, as root or not: `setup`, then capture. Behind a proxy (`HTTPS_PROXY`, as in most sandboxes) the downloads go through it. The sandbox needs to reach:
+
+| Host | For |
+| --- | --- |
+| `registry.npmjs.org` | the repo's dependencies |
+| `wordpress.org`, `api.wordpress.org`, `downloads.wordpress.org` | WordPress, its translations and plugins (`npm install`) |
+| `appscdn.wordpress.com` | Studio's PHP (`npm install`) |
+| `public-api.wordpress.com` | the Blueprints in Add site, while capturing |
+| `github.com`, `raw.githubusercontent.com`, `release-assets.githubusercontent.com` | Electron, WP-CLI, the SQLite files and the agent skills |
+| `cdn.playwright.dev` | Playwright's Chromium |
+
+Signed-in scripts need `STUDIO_CAPTURE_AUTH_TOKEN`, set as the sandbox's secret, since there is no local login. Linux captures show Linux keyboard shortcuts (`Ctrl+Alt+P`, not `⌥⌘P`) and scrollbars, so for the docs images, which should come from one fixed environment, capture on macOS with Studio Desktop.
 
 ## Commands
 
@@ -45,7 +56,7 @@ The harness runs in a headless Linux sandbox, such as a Claude Code cloud sessio
 npx studio-capture help
 studio-capture setup | doctor [--driver electron|browser]
 studio-capture capture <script|dir>… [--scene <name|file> | --blueprint <file|url>] [--look <name|file>] [--out <dir>]
-studio-capture check   <script|dir>… --out <dir> [--diff-dir <dir>]   # visual check: what changed, nothing written
+studio-capture check   <script|dir>… --out <dir> [--diff-dir <dir>]   # visual check: what changed, images left alone
 studio-capture record  <script|dir>… --only <shot> [--look marketing] # video of a shot's steps
 studio-capture inspect [--scene … | --blueprint …] [--script <file> --until <shot>] [--steps '<json>']
 studio-capture validate <file|dir>…
@@ -55,7 +66,7 @@ studio-capture list <script|dir>…
 studio-capture schemas [--check]
 ```
 
-Common options: `--driver electron|browser` picks the front end (see **Drivers**), `--suite <a,b>` runs only those scripts, `--only <a,b>` keeps only those shots (the steps of the shots before them still run), `--json` prints the results as JSON on stdout (progress goes to stderr), `--keep-profile` keeps the throwaway profiles to look at afterwards. A failed shot stops its script; the window at that moment is saved under `<out>/failures/`. The exit code is non-zero when a shot fails, and in `check` when any shot changed.
+Common options: `--driver electron|browser` picks the front end (see **Drivers**), `--suite <a,b>` runs only those scripts, `--only <a,b>` keeps only those shots (the steps of the shots before them still run), `--json` prints the results as JSON on stdout (progress goes to stderr), `--keep-profile` keeps the throwaway profiles to look at afterwards. A failed shot stops its script; the window at that moment is saved under `<out>/failures/`. A shot also fails when the window shows a could-not-load message (the Blueprints list without internet, say) instead of saving it. The exit code is non-zero when a shot fails, and in `check` when any shot changed.
 
 A scene or look named without a path (`wren-and-barley`, `marketing`) is a bundled one; anything else is a file. Precedence: `--scene`/`--look` on the command line, then the script's own `scene`/`look`, then `wren-and-barley` and `docs`.
 
@@ -157,7 +168,7 @@ Each script launches Studio afresh, so its shots stand on their own; its shots r
 
 **Annotations**: `outline`, `badge` (numbered in order) and `arrow` (with `from`, such as `top-right`), drawn over the real UI in the look's accent color. A shot with annotations is saved twice, `<name>` and `<name>-annotated`, so the plain image can be reused elsewhere.
 
-`pages`, `replaces` and `meta` are passed through to the JSON results for the consumer (the docs index uses `pages` and `replaces`). A script with `"manual": true` lists shots captured by hand, by description only.
+`pages`, `replaces` and `meta` are passed through to the JSON results for the consumer (the docs index uses `pages` and `replaces`). A script with `"manual": true` lists shots captured by hand, by description only. A shot with `"desktopOnly": true` shows something only Studio Desktop has (the CLI installer in Settings, say): the browser driver skips it.
 
 ## Looks
 
@@ -177,8 +188,8 @@ A look sets how Studio is shown and what is made of each still. Every field has 
 
 - **Stills**, `<name>[-annotated][-<variant>].webp`. A file is rewritten only when its pixels change beyond anti-aliasing noise (pixelmatch's threshold), so unchanged shots leave git clean.
 - **Video**, `record`: each selected shot's steps play at a watchable pace (the pointer glides to each target, text is typed out, a pause after each step) and are recorded from Electron's own capture, then the last frame holds with the shot's annotations drawn. Earlier shots' steps run at full speed, unrecorded, to reach the start.
-- **Visual check**, `check` (or `capture --check`): every shot is captured and compared with the file in `--out`, which is left alone. Each file is `new`, `changed` (with `diffPixels`, and a picture of the differences in `--diff-dir`) or `unchanged`; the exit code is 1 if any is new or changed.
-- **Results**, `--json`: the mode, Studio version, scripts (scene, look, signed in), and per shot its status, files (`file`, `status`, `diffPixels`, `diff`), videos, error and failure picture, plus `pages`, `replaces` and `meta`; and a summary. Manual shots are listed under `manual`.
+- **Visual check**, `check` (or `capture --check`): every shot is captured and compared with the file in `--out`, which is left alone (a failed shot's picture still goes to `<out>/failures/`). Each file is `new`, `changed` (with `diffPixels`, and a picture of the differences in `--diff-dir`) or `unchanged`; the exit code is 1 if any is new or changed.
+- **Results**, `--json`: the mode, Studio version, scripts (scene, look, signed in), and per shot its status (`ok`, `failed`, or `skipped` for a desktop-only shot in the browser), files (`file`, `status`, `diffPixels`, `diff`), videos, error and failure picture, plus `pages`, `replaces` and `meta`; and a summary. Manual shots are listed under `manual`.
 
 ## Signed in
 

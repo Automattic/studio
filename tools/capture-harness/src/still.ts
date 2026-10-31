@@ -84,6 +84,23 @@ export async function assertEmailHidden( ctx: Ctx ) {
 	}
 }
 
+// What Studio shows when something it loads from the internet fails (the
+// Blueprints list, say): a shot of that is a broken shot, not a picture of Studio.
+const LOAD_ERRORS = [ 'Check your internet connection' ];
+
+/** Throws if the window shows one of Studio's could-not-load messages. */
+async function assertLoaded( ctx: Ctx ) {
+	const text = await ctx.w.evaluate( () => document.body.innerText );
+	const error = LOAD_ERRORS.find( ( message ) => text.includes( message ) );
+	if ( error ) {
+		const line = text
+			.split( '\n' )
+			.find( ( l ) => l.includes( error ) )
+			?.trim();
+		throw new Error( `The window shows a loading error: "${ line }". Check the network.` );
+	}
+}
+
 const CARET_STYLE = 'studio-capture-carets';
 const HIDE_CARETS = `(() => {
 	if ( ! document.getElementById( '${ CARET_STYLE }' ) ) {
@@ -314,6 +331,7 @@ export async function writeIfChanged(
 export async function captureShot( ctx: Ctx, shot: Shot, outDir: string, mode: WriteMode = {} ) {
 	const capture = shot.capture ?? {};
 	await prepareFrame( ctx, capture );
+	await assertLoaded( ctx );
 	const clip = await clipFor( ctx, capture );
 	const results: FileResult[] = [];
 	// The capture takes the compositor's latest frame; wait for one that has the overlays.

@@ -57,7 +57,7 @@ interface ShotResult {
 	script: string;
 	name: string;
 	description: string;
-	status: 'ok' | 'failed';
+	status: 'ok' | 'failed' | 'skipped';
 	files: FileResult[];
 	videos?: VideoResult[];
 	error?: string;
@@ -87,6 +87,7 @@ export interface RunResult {
 		changed: number;
 		unchanged: number;
 		failed: number;
+		skipped: number;
 		videos: number;
 	};
 }
@@ -297,7 +298,7 @@ export async function runScripts( options: RunOptions ): Promise< RunResult > {
 		} ) ),
 		shots: [],
 		manual,
-		summary: { new: 0, changed: 0, unchanged: 0, failed: 0, videos: 0 },
+		summary: { new: 0, changed: 0, unchanged: 0, failed: 0, skipped: 0, videos: 0 },
 	};
 
 	const profiles: Profile[] = [];
@@ -441,6 +442,15 @@ export async function runScripts( options: RunOptions ): Promise< RunResult > {
 						replaces: shot.replaces,
 						meta: shot.meta,
 					};
+					if ( shot.desktopOnly && driver === 'browser' ) {
+						if ( wanted && options.mode !== 'inspect' ) {
+							shotResult.status = 'skipped';
+							result.shots.push( shotResult );
+							result.summary.skipped++;
+							log( `  skipped   ${ name } (Studio Desktop only)` );
+						}
+						continue;
+					}
 					try {
 						if ( options.mode === 'inspect' && wanted ) {
 							await runSteps( ctx, shot.steps );
@@ -493,6 +503,9 @@ export async function runScripts( options: RunOptions ): Promise< RunResult > {
 			} finally {
 				await studio.close();
 				await chats?.remove();
+				// Each profile's sites take ports from the same range, so the next
+				// script's (a first run's new site, another scene) would collide.
+				await stopAllSites( profile );
 			}
 		}
 	} finally {

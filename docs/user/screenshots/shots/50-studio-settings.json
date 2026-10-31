@@ -52,6 +52,7 @@
 		{
 			"name": "settings-studio-cli",
 			"description": "Settings → General → Studio CLI for terminal",
+			"desktopOnly": true,
 			"pages": [ "cli.md" ],
 			"replaces": [ "2025/05/app-settings-account.png" ],
 			"steps": [

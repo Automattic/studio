@@ -6,7 +6,7 @@
  * Only Node built-ins load up front, so `setup` and `doctor` work on a fresh
  * clone; the commands that need the repo's dependencies load after.
  */
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { parseArgs } from 'node:util';
 import { DRIVERS, type DriverName } from './src/drivers/types.ts';
 import { DEFAULT_SCENE } from './src/paths.ts';
@@ -47,7 +47,7 @@ inspect: --script <file> [--until <shot>] runs a script's steps first; or
 bake: --out <dir> for the backups, --scene-out <file> for the baked scene.
 setup: --driver electron|browser (default both), --rebuild to build again.
 
-On Linux without a display, Studio Desktop runs under xvfb-run automatically.
+On Linux without a display, Studio Desktop runs on a virtual one (Xvfb) automatically.
 `;
 
 const { values: args, positionals } = parseArgs( {
@@ -82,33 +82,44 @@ const [ command = 'help', ...refs ] = positionals;
 const LAUNCHES = new Set( [ 'capture', 'check', 'record', 'inspect' ] );
 
 /**
- * On Linux without a display, Studio Desktop needs a virtual one: run this
- * same command again under `xvfb-run`, unless only the browser driver runs.
+ * On Linux without a display, Studio Desktop needs a virtual one: start Xvfb
+ * for this run, unless only the browser driver runs. In this process rather
+ * than under `xvfb-run`, which merges stderr into stdout and so breaks `--json`.
  */
-function rerunUnderXvfb() {
+async function startVirtualDisplay() {
 	if (
 		process.platform !== 'linux' ||
 		process.env.DISPLAY ||
-		process.env.STUDIO_CAPTURE_IN_XVFB ||
 		args.driver === 'browser' ||
-		! LAUNCHES.has( command ) ||
-		spawnSync( 'xvfb-run', [ '--help' ], { stdio: 'ignore' } ).error
+		! LAUNCHES.has( command )
 	) {
-		return false;
+		return;
 	}
-	const result = spawnSync(
-		'xvfb-run',
-		[
-			'-a',
-			'--server-args=-screen 0 2560x1600x24',
-			process.execPath,
-			...process.execArgv,
-			...process.argv.slice( 1 ),
-		],
-		{ stdio: 'inherit', env: { ...process.env, STUDIO_CAPTURE_IN_XVFB: '1' } }
+	// -displayfd: Xvfb picks a free display and writes its number to fd 3.
+	const xvfb = spawn(
+		'Xvfb',
+		[ '-displayfd', '3', '-screen', '0', '2560x1600x24', '-nolisten', 'tcp' ],
+		{ stdio: [ 'ignore', 'ignore', 'ignore', 'pipe' ] }
 	);
-	process.exitCode = result.status ?? 1;
-	return true;
+	const display = await new Promise< string | undefined >( ( resolve ) => {
+		let output = '';
+		xvfb.stdio[ 3 ]?.on( 'data', ( chunk: Buffer ) => {
+			output += chunk.toString();
+			if ( output.includes( '\n' ) ) {
+				resolve( output.trim() );
+			}
+		} );
+		xvfb.on( 'error', () => resolve( undefined ) );
+		xvfb.on( 'exit', () => resolve( undefined ) );
+	} );
+	if ( ! display ) {
+		return;
+	}
+	process.env.DISPLAY = `:${ display }`;
+	// Let the run end on its own; Xvfb goes with it.
+	xvfb.stdio[ 3 ]?.destroy();
+	xvfb.unref();
+	process.on( 'exit', () => xvfb.kill() );
 }
 
 function driversOption(): DriverName[] {
@@ -153,9 +164,7 @@ async function main() {
 		console.error( '\nReady to capture.' );
 		return;
 	}
-	if ( rerunUnderXvfb() ) {
-		return;
-	}
+	await startVirtualDisplay();
 	if (
 		! ready(
 			doctor().filter( ( check ) => check.name === 'Dependencies' ),

@@ -5,7 +5,7 @@ import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages'
 import {
 	PREVIEW_OPEN_STORAGE_KEY,
 	SITE_CHAT_HIDDEN_STORAGE_KEY,
-	RUNNING_PREVIEW_LAYOUT_STORAGE_KEY,
+	PREVIEW_LAYOUT_STORAGE_KEY,
 } from '@/data/resizable-panels';
 import { setCommandPaletteOpen } from '@/data/use-command-palette';
 import {
@@ -393,6 +393,7 @@ describe( 'Studio workspace', () => {
 	it.each( [ 'thumbnail', 'composer' ] as const )(
 		'reveals a hidden preview when starting with the %s',
 		async ( control ) => {
+			localStorage.setItem( PREVIEW_OPEN_STORAGE_KEY, 'false' );
 			const { connector } = setup( {
 				signedIn: true,
 				path: '/sites/one/new',
@@ -511,6 +512,8 @@ describe( 'Studio workspace', () => {
 		await setChatFullscreen( true );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Stopped site' } ) );
 		await screen.findByRole( 'button', { name: 'Site menu' } );
+		await waitForFullscreen( true );
+		await setChatFullscreen( false );
 		const input = await findComposer();
 		expect( input ).toBeVisible();
 		fireEvent.change( input, { target: { value: 'Keep this draft' } } );
@@ -569,7 +572,7 @@ describe( 'Studio workspace', () => {
 	it.each( [ '/sites/one', '/sites/one/new' ] )(
 		'starts into a full-width preview with chat-on-start disabled from %s',
 		async ( path ) => {
-			localStorage.setItem( PREVIEW_OPEN_STORAGE_KEY, path.endsWith( '/new' ) ? 'true' : 'false' );
+			localStorage.setItem( PREVIEW_OPEN_STORAGE_KEY, 'false' );
 			localStorage.setItem( SITE_CHAT_HIDDEN_STORAGE_KEY, JSON.stringify( { one: true } ) );
 			const { connector, history } = setup( {
 				signedIn: true,
@@ -690,6 +693,7 @@ describe( 'Studio workspace', () => {
 	);
 
 	it( 'keeps preview available before and after starting from the composer', async () => {
+		localStorage.setItem( PREVIEW_OPEN_STORAGE_KEY, 'false' );
 		const { connector } = setup( { signedIn: true } );
 		await findComposer();
 		const publish = screen.getByRole( 'button', { name: 'Publish…' } );
@@ -720,6 +724,7 @@ describe( 'Studio workspace', () => {
 	it.each( [ false, true ] )(
 		'shows a stopped preview beside the existing chat without starting it (thumbnail: %s)',
 		async ( thumbnail ) => {
+			localStorage.setItem( PREVIEW_OPEN_STORAGE_KEY, 'false' );
 			const { connector } = setup( {
 				signedIn: true,
 				overrides: {
@@ -827,6 +832,7 @@ describe( 'Studio workspace', () => {
 	);
 
 	it( 'shows startup animation only in the preview when chat is beside it', async () => {
+		localStorage.setItem( PREVIEW_OPEN_STORAGE_KEY, 'false' );
 		const { connector } = setup( { signedIn: true } );
 		let finishStart!: () => void;
 		connector.startSite.mockImplementationOnce(
@@ -1076,7 +1082,7 @@ describe( 'Studio workspace', () => {
 	} );
 
 	it.each( [ 'closed', 'split', 'fullscreen' ] as const )(
-		'carries the %s layout across running sites without saving stopped-site overrides',
+		'reveals running sites and preserves the %s layout when selecting stopped sites',
 		async ( mode ) => {
 			const initial = {
 				signedIn: true,
@@ -1092,8 +1098,8 @@ describe( 'Studio workspace', () => {
 			if ( mode === 'closed' )
 				fireEvent.click( screen.getByRole( 'button', { name: 'Hide preview' } ) );
 			if ( mode === 'fullscreen' ) await setChatFullscreen( true );
-			const assertLayout = async () => {
-				if ( mode === 'closed' ) {
+			const assertLayout = async ( open = true ) => {
+				if ( ! open ) {
 					await screen.findByRole( 'button', { name: 'Show preview' } );
 					expect( await findComposer() ).toBeVisible();
 					expect(
@@ -1101,20 +1107,20 @@ describe( 'Studio workspace', () => {
 					).not.toBeInTheDocument();
 				} else await waitForFullscreen( mode === 'fullscreen' );
 			};
-			await assertLayout();
+			await assertLayout( mode !== 'closed' );
 			fireEvent.click( screen.getByRole( 'button', { name: 'Second site' } ) );
 			await waitFor( () => expect( history.location.pathname ).toBe( '/sites/two/new' ) );
 			await assertLayout();
 			fireEvent.click( screen.getByRole( 'button', { name: 'Stopped site' } ) );
 			await waitFor( () => expect( history.location.pathname ).toBe( '/sites/three/new' ) );
-			await screen.findByRole( 'button', { name: 'Show preview' } );
-			expect( await findComposer() ).toBeVisible();
-			expect(
-				screen.queryByRole( 'complementary', { name: 'Site preview' } )
-			).not.toBeInTheDocument();
-			fireEvent.click( screen.getByRole( 'button', { name: 'Show preview' } ) );
-			await screen.findByRole( 'complementary', { name: 'Site preview' } );
-			expect( await findComposer() ).toBeVisible();
+			await assertLayout();
+			fireEvent.click( screen.getByRole( 'button', { name: 'Second site' } ) );
+			await waitFor( () => expect( history.location.pathname ).toBe( '/sites/two/new' ) );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Hide preview' } ) );
+			await assertLayout( false );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Stopped site' } ) );
+			await waitFor( () => expect( history.location.pathname ).toBe( '/sites/three/new' ) );
+			await assertLayout( false );
 			fireEvent.click( screen.getByRole( 'button', { name: 'My site' } ) );
 			await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
 			await assertLayout();
@@ -1129,7 +1135,7 @@ describe( 'Studio workspace', () => {
 		'reveals a saved hidden chat from the %s',
 		async ( source ) => {
 			localStorage.setItem(
-				RUNNING_PREVIEW_LAYOUT_STORAGE_KEY,
+				PREVIEW_LAYOUT_STORAGE_KEY,
 				JSON.stringify( { open: true, chatHidden: true } )
 			);
 			setup( {
@@ -1156,7 +1162,7 @@ describe( 'Studio workspace', () => {
 
 	it( 'reveals a saved hidden chat when resetting the interface', async () => {
 		localStorage.setItem(
-			RUNNING_PREVIEW_LAYOUT_STORAGE_KEY,
+			PREVIEW_LAYOUT_STORAGE_KEY,
 			JSON.stringify( { open: true, chatHidden: true } )
 		);
 		setup( { signedIn: true, path: '/sites/one/new', sites: [ site( { running: true } ) ] } );
@@ -1401,6 +1407,7 @@ describe( 'Studio workspace', () => {
 	} );
 
 	it( 'starts from the composer and stops through the site menu without a sidebar start button', async () => {
+		localStorage.setItem( PREVIEW_OPEN_STORAGE_KEY, 'false' );
 		const { connector, history, refreshSessions } = setup( { signedIn: true } );
 		await findComposer();
 		for ( const name of [ 'Address', 'Back', 'Forward', 'Reload preview' ] ) {
@@ -1450,11 +1457,11 @@ describe( 'Studio workspace', () => {
 	} );
 
 	it.each( [ 'split', 'fullscreen', 'site' ] )(
-		'closes the preview after stopping from the %s layout',
+		'keeps the preview open after stopping from the %s layout',
 		async ( layout ) => {
 			localStorage.setItem( PREVIEW_OPEN_STORAGE_KEY, 'true' );
 			localStorage.setItem(
-				RUNNING_PREVIEW_LAYOUT_STORAGE_KEY,
+				PREVIEW_LAYOUT_STORAGE_KEY,
 				JSON.stringify( { open: true, chatHidden: layout !== 'split' } )
 			);
 			const { connector, history } = setup( {
@@ -1465,19 +1472,17 @@ describe( 'Studio workspace', () => {
 			await screen.findByRole( 'button', { name: 'Hide preview' } );
 			fireEvent.click( screen.getByRole( 'button', { name: 'Stop My site' } ) );
 			await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledWith( 'one' ) );
-			expect( await screen.findByRole( 'button', { name: 'Show preview' } ) ).toBeVisible();
-			expect( await findComposer() ).toBeVisible();
-			expect( JSON.parse( localStorage.getItem( RUNNING_PREVIEW_LAYOUT_STORAGE_KEY )! ).open ).toBe(
-				true
-			);
+			expect( await screen.findByRole( 'button', { name: 'Hide preview' } ) ).toBeVisible();
+			await waitForFullscreen( layout !== 'split' );
+			expect( JSON.parse( localStorage.getItem( PREVIEW_LAYOUT_STORAGE_KEY )! ).open ).toBe( true );
 			expect( history.location.pathname ).toBe( '/sites/one/new' );
-			fireEvent.click( screen.getByRole( 'button', { name: 'Show preview' } ) );
 			expect( await screen.findByRole( 'complementary', { name: 'Site preview' } ) ).toBeVisible();
 			expect( connector.createSession ).not.toHaveBeenCalled();
 		}
 	);
 
 	it( 'preserves draft and attachments through external start and stop events', async () => {
+		localStorage.setItem( PREVIEW_OPEN_STORAGE_KEY, 'false' );
 		const { connector } = setup( { signedIn: true } );
 		const input = await findComposer();
 		await waitFor( () => expect( input ).toBeEnabled() );
@@ -1512,13 +1517,10 @@ describe( 'Studio workspace', () => {
 		expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
 		for ( const running of [ true, false, true ] ) {
 			await emitSites( site( { running } ) );
-			if ( running ) {
-				await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
-				fireEvent.load( document.querySelector( 'iframe' )! );
-			}
-			await waitFor( () =>
-				expect( !! screen.queryByRole( 'textbox', { name: 'Address' } ) ).toBe( running )
-			);
+			await screen.findByRole( 'button', { name: 'Show preview' } );
+			expect(
+				screen.queryByRole( 'complementary', { name: 'Site preview' } )
+			).not.toBeInTheDocument();
 			expect( composer() ).toBe( input );
 			expect( input ).toHaveValue( 'Keep this draft' );
 			expect( screen.getByText( 'notes.txt' ) ).toBeVisible();
@@ -1566,6 +1568,7 @@ describe( 'Studio workspace', () => {
 		}
 
 		it( 'sends immediately while startup is pending and does not start again for queued messages', async () => {
+			localStorage.setItem( PREVIEW_OPEN_STORAGE_KEY, 'false' );
 			const { connector, input } = await prepare();
 			let finishStart!: () => void;
 			connector.startSite.mockImplementation(
@@ -1593,7 +1596,8 @@ describe( 'Studio workspace', () => {
 			await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
 			expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
 			fireEvent.load( document.querySelector( 'iframe' )! );
-			expect( await screen.findByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
+			expect( await screen.findByRole( 'button', { name: 'Show preview' } ) ).toBeVisible();
+			expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
 		} );
 
 		it.each( [

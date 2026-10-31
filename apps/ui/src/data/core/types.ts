@@ -25,7 +25,7 @@ import type { SnapshotUsage } from '@studio/common/lib/snapshots';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
-import type { SupportedBrowser } from '@studio/common/lib/user-settings/browser';
+import type { SupportedBrowser, SystemBrowser } from '@studio/common/lib/user-settings/browser';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type {
 	SidebarPinnedSort,
@@ -72,7 +72,7 @@ export type { SiteDesign } from '@studio/common/sites/site-design';
 export type InstalledApps = Record<
 	SupportedEditor | SupportedTerminal | SupportedBrowser,
 	boolean
->;
+> & { defaultBrowser?: SystemBrowser | null };
 
 interface AiSessionSitePlacement {
 	kind: 'site';

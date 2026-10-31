@@ -1,15 +1,8 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 
-export type SiteHeaderLayout =
-	| 'inline'
-	| 'actions-overflow'
-	| 'navigation-overflow'
-	| 'mobile-overflow';
+export type SiteHeaderLayout = 'inline' | 'mobile-overflow';
 
-const ADDRESS_MIN_WIDTH = 320;
-const COMPACT_ADDRESS_MIN_WIDTH = 160;
 const widthOf = ( element: Element | null ) => element?.getBoundingClientRect().width ?? 0;
-const pixels = ( value: string ) => parseFloat( value ) || 0;
 
 /** The main header reserves its actions; the browser row fits its own controls. */
 export function useSiteHeaderLayout(
@@ -38,42 +31,13 @@ export function useSiteHeaderLayout(
 		const header = browserSpace?.closest< HTMLElement >( '[data-preview-browser-controls]' );
 		if ( ! header ) return;
 		let current: SiteHeaderLayout = 'inline';
-		let navigationWidth = 0;
 		const measure = () => {
-			const width = header.clientWidth;
-			if ( ! width ) return;
-			const style = getComputedStyle( header );
-			const gap = pixels( style.columnGap );
-			const navigation = header.querySelector( '[data-site-header-navigation]' );
-			navigationWidth = Math.max( navigationWidth, widthOf( navigation ) );
 			const address = header.querySelector( '[data-site-header-address]' );
-			const previewActions = header.querySelector( '[data-preview-actions]' );
-			const available = width - pixels( style.paddingLeft ) - pixels( style.paddingRight );
-			const full =
-				( navigation ? navigationWidth + gap : 0 ) +
-				( previewActions ? widthOf( previewActions ) + gap : 0 ) +
-				( address ? ADDRESS_MIN_WIDTH : 0 );
-			const compact =
-				full +
-				( pixels( style.getPropertyValue( '--preview-control-size' ) ) || 32 ) +
-				gap -
-				( address ? ADDRESS_MIN_WIDTH - COMPACT_ADDRESS_MIN_WIDTH : 0 );
-			let next: SiteHeaderLayout =
-				available >= full
-					? 'inline'
-					: available >= compact
-					? 'actions-overflow'
-					: 'navigation-overflow';
-			if ( window.innerWidth <= 540 ) next = 'mobile-overflow';
+			const next: SiteHeaderLayout = window.innerWidth <= 540 ? 'mobile-overflow' : 'inline';
 			if ( next !== current ) {
 				const focused = document.activeElement;
 				refocus.current = Boolean(
-					focused &&
-						header.contains( focused ) &&
-						( focused.closest( '[data-site-header-trailing]' ) ||
-							( next !== 'inline' && focused.closest( '[data-address-action]' ) ) ||
-							( next === 'navigation-overflow' && navigation?.contains( focused ) ) ||
-							( next === 'mobile-overflow' && address?.contains( focused ) ) )
+					focused && next === 'mobile-overflow' && address?.contains( focused )
 				);
 				current = next;
 				setLayout( next );

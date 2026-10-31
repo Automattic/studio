@@ -109,7 +109,7 @@ function readyGuest( extra: Record< string, unknown > = {} ) {
 	return webview as HTMLElement & Record< string, ReturnType< typeof vi.fn > >;
 }
 
-it( 'keeps icon-only annotation available beside overflow with sharing feedback', async () => {
+it( 'keeps icon-only annotation available in a narrow preview with sharing feedback', async () => {
 	setAnnotating( 'annotate-site', true );
 	const { user } = await renderHeader( 'annotate-site', createFakeConnector(), 340 );
 	await act( async () => {
@@ -118,7 +118,9 @@ it( 'keeps icon-only annotation available beside overflow with sharing feedback'
 			.style.setProperty( '--preview-header-content-width', '400px' );
 	} );
 	const webview = readyGuest();
-	const more = screen.getByRole( 'button', { name: 'More preview actions' } );
+	expect(
+		screen.queryByRole( 'button', { name: 'More preview actions' } )
+	).not.toBeInTheDocument();
 	const share = screen.getByRole( 'button', { name: 'Share' } );
 	const annotation = screen.getByRole( 'button', { name: 'Annotate' } );
 	await waitFor( () => expect( annotation ).toBeEnabled() );
@@ -149,7 +151,6 @@ it( 'keeps icon-only annotation available beside overflow with sharing feedback'
 		Object.assign( new Event( 'did-start-navigation' ), { isMainFrame: true, isInPlace: false } )
 	);
 	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeDisabled();
-	await user.click( more );
 	expect( screen.queryByRole( 'menuitemcheckbox', { name: 'Annotate' } ) ).not.toBeInTheDocument();
 	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeInTheDocument();
 	expect( headerButtons( 'Send 1 annotation' ) ).toHaveLength( 0 );
@@ -242,9 +243,10 @@ it.each( [ true, false ] )(
 	}
 );
 
-it( 'exposes browser actions with their navigation availability in overflow', async () => {
+it( 'keeps browser actions directly available in a narrow preview', async () => {
 	const connector = createFakeConnector();
-	const { user } = await renderHeader( 'navigation-site', connector );
+	const { user, resize } = await renderHeader( 'navigation-site', connector, 360 );
+	await resize( 360, 1000 );
 	const webview = readyGuest( {
 		canGoBack: () => false,
 		canGoForward: () => true,
@@ -257,17 +259,22 @@ it( 'exposes browser actions with their navigation availability in overflow', as
 	const effects = [
 		[ 'Forward', () => expect( webview.goForward ).toHaveBeenCalledOnce() ],
 		[ 'Reload preview', () => expect( webview.reload ).toHaveBeenCalledOnce() ],
-		[ 'Open in browser', () => expect( connector.openSiteUrl ).toHaveBeenCalledOnce() ],
+		[
+			'Open this page in your browser',
+			() => expect( connector.openSiteUrl ).toHaveBeenCalledOnce(),
+		],
 	] as const;
 	for ( const [ name, effect ] of effects ) {
-		await user.click( screen.getByRole( 'button', { name: 'More preview actions' } ) );
-		expect( await screen.findByRole( 'menuitem', { name: /^Back/ } ) ).toHaveAttribute(
+		expect(
+			screen.queryByRole( 'button', { name: 'More preview actions' } )
+		).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Back' } ) ).toHaveAttribute(
 			'aria-disabled',
 			'true'
 		);
 		expect( screen.queryByRole( 'menuitem', { name: 'Site settings' } ) ).not.toBeInTheDocument();
 
-		await user.click( screen.getByRole( 'menuitem', { name: new RegExp( `^${ name }` ) } ) );
+		await user.click( screen.getByRole( 'button', { name } ) );
 		await waitFor( effect );
 	}
 } );
@@ -379,14 +386,14 @@ it( 'moves focus to responsive mode when a narrow window hides the address', asy
 	expect( screen.getByRole( 'button', { name: 'Responsive mode' } ) ).toHaveFocus();
 } );
 
-it( 'keeps browser focus reachable as navigation folds and unfolds', async () => {
+it( 'keeps browser navigation focused when the preview narrows', async () => {
 	const { resize } = await renderHeader( 'navigation-focus', createFakeConnector(), 1000 );
 	screen.getByRole( 'button', { name: 'Reload preview' } ).focus();
-	await resize( 60, 1000 );
-	expect( screen.getByRole( 'button', { name: 'More preview actions' } ) ).toHaveFocus();
+	await resize( 360, 1000 );
+	expect( screen.getByRole( 'button', { name: 'Reload preview' } ) ).toHaveFocus();
 	await resize( 1000 );
 	expect(
 		screen.queryByRole( 'button', { name: 'More preview actions' } )
 	).not.toBeInTheDocument();
-	expect( screen.getByRole( 'button', { name: 'Responsive mode' } ) ).toHaveFocus();
+	expect( screen.getByRole( 'button', { name: 'Reload preview' } ) ).toHaveFocus();
 } );

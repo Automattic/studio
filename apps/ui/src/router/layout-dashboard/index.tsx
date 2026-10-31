@@ -134,9 +134,9 @@ function DashboardLayout() {
 	const { setSite: setPreviewSite } = preview;
 	useLayoutEffect( () => {
 		if ( previewSiteId ) {
-			setPreviewSite( previewSiteId, { running: !! previewSite?.running || !! liveUrl } );
+			setPreviewSite( previewSiteId );
 		}
-	}, [ previewSiteId, previewSite?.running, liveUrl, setPreviewSite ] );
+	}, [ previewSiteId, setPreviewSite ] );
 	// Look up by the route's site so the path is right even before the
 	// `setPreviewSite` effect lands.
 	const previewPath = pathForSite( preview.pathsBySiteId, previewSiteId );
@@ -146,8 +146,7 @@ function DashboardLayout() {
 		( path: string ) => setLivePath( { url: liveUrl, path } ),
 		[ liveUrl ]
 	);
-	// A site's own page always shows its preview. Beside a chat, stopped sites
-	// can be opened explicitly to show their thumbnail and start control.
+	// A site's own page always shows its preview.
 	const startPending = useIsSiteStarting( previewSite?.id );
 	const stopPending = useIsSiteStopping( previewSite?.id );
 	const previewOperation = useSiteOperation( previewSite );
@@ -168,20 +167,12 @@ function DashboardLayout() {
 			supportsPreview &&
 			! liveUrl
 		) {
-			setOpen( false, { instant: true } );
 			if ( homeSiteId ) {
 				void navigate( { to: '/sites/$siteId/new', params: { siteId: homeSiteId } } );
 			}
 		}
 	}, [ previewSite, supportsPreview, liveUrl, setOpen, setChatHidden, homeSiteId, navigate ] );
-	const canPreview =
-		!! liveUrl ||
-		( !! previewSite?.running && ! previewStopping && preview.revealingSiteId !== previewSite.id );
-	const showPreview =
-		( preview.open || !! homeSiteId ) &&
-		supportsPreview &&
-		!! previewSite &&
-		( !! homeSiteId || canPreview || preview.explicitlyOpen );
+	const showPreview = ( preview.open || !! homeSiteId ) && supportsPreview && !! previewSite;
 	const chatHidden =
 		( preview.chatHiddenBySiteId[ previewSiteId ?? '' ] || !! homeSiteId ) && showPreview;
 	const previewExpanded = showPreview && ( ! narrow || chatHidden );

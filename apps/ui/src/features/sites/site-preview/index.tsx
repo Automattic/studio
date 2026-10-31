@@ -263,22 +263,7 @@ export function SitePreview( {
 				},
 		  }
 		: undefined;
-	useSiteHeaderNavigation(
-		! collapsed
-			? {
-					canGoBack: browserState.canGoBack,
-					canGoForward: browserState.canGoForward,
-					disabled: ! canPreview || isStarting || isStopping,
-					back: () => sendBrowserCommand( 'back' ),
-					forward: () => sendBrowserCommand( 'forward' ),
-					reload: () => sendBrowserCommand( 'reload' ),
-					openExternal,
-					annotate,
-					backShortcut: browserShortcuts.back.displayShortcut,
-					forwardShortcut: browserShortcuts.forward.displayShortcut,
-			  }
-			: null
-	);
+	useSiteHeaderNavigation( ! collapsed ? { annotate } : null );
 
 	const header = (
 		<PreviewHeader

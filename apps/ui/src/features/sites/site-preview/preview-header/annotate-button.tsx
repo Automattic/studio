@@ -31,14 +31,14 @@ export function AnnotateButton( {
 	return (
 		<span
 			className={ styles.annotationControl }
-			data-active={ active }
+			data-has-annotations={ showSend }
 			title={ disabled ? disabledReason : undefined }
 		>
 			<Tooltip>
 				<TooltipTrigger
 					render={
 						<Button
-							variant="accent-ghost"
+							variant={ showSend ? 'accent-ghost' : 'ghost' }
 							size={ iconOnly ? 'icon' : 'default' }
 							className={ styles.annotateButton }
 							aria-label={ __( 'Annotate' ) }

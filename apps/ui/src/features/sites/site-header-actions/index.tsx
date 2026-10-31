@@ -1,7 +1,5 @@
 import { isRTL, __ } from '@wordpress/i18n';
-import { EllipsisIcon } from 'lucide-react';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
 import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
 import { useIsSiteBusy, useStartSite } from '@/data/queries/use-sites';
@@ -17,24 +15,13 @@ import {
 import { ShareButton, PublishButton, SiteDeliveryDialog } from '@/features/site-delivery';
 import { AnnotateButton } from '@/features/sites/site-preview/preview-header/annotate-button';
 import { useMediaQuery, useWindowControlsOverlay } from '@/lib/hooks';
-import { ArrowLeftIcon, ArrowRightIcon, ExternalLinkIcon, RotateCwIcon } from '@/lib/icons';
-import { Tooltip, TooltipContent, TooltipTrigger, Menu, Button } from '@/lib/ui';
 import styles from './style.module.css';
 import { useSiteHeaderLayout, type SiteHeaderLayout } from './use-site-header-layout';
 import type { SiteDetails } from '@/data/core';
 
-/** The preview's browser controls, for the More menu once they no longer fit. */
+/** Annotation availability from the visible preview surface. */
 interface SiteHeaderNavigation {
-	canGoBack: boolean;
-	canGoForward: boolean;
-	disabled: boolean;
-	back: () => void;
-	forward: () => void;
-	reload: () => void;
-	openExternal?: () => void;
 	annotate?: { active: boolean; disabled: boolean; disabledReason?: string; onClick: () => void };
-	backShortcut: string;
-	forwardShortcut: string;
 }
 
 interface SiteHeaderContextValue {
@@ -100,13 +87,13 @@ export function SiteHeaderSpace() {
 	return <div className={ styles.space } style={ { width: actionsWidth } } />;
 }
 
-/** The preview row hosts its overflow controls independently of the main header. */
+/** Registers the preview row for its narrow-window layout. */
 export function SiteHeaderBrowserSpace() {
 	const { attachBrowserSpace } = useSiteHeader();
 	return <div ref={ attachBrowserSpace } className={ styles.browserSpace } />;
 }
 
-/** Hands the preview's browser controls to the More menu while it's on screen. */
+/** Keeps the header annotation action connected to the visible preview. */
 export function useSiteHeaderNavigation( navigation: SiteHeaderNavigation | null ) {
 	const { setNavigation } = useSiteHeader();
 	const latest = useRef( navigation );
@@ -114,30 +101,15 @@ export function useSiteHeaderNavigation( navigation: SiteHeaderNavigation | null
 		latest.current = navigation;
 	} );
 	const available = navigation !== null;
-	const {
-		canGoBack = false,
-		canGoForward = false,
-		disabled = false,
-		backShortcut = '',
-		forwardShortcut = '',
-	} = navigation ?? {};
 	const annotateActive = navigation?.annotate?.active;
 	const annotateDisabled = navigation?.annotate?.disabled;
 	const annotateDisabledReason = navigation?.annotate?.disabledReason;
 	const hasAnnotate = Boolean( navigation?.annotate );
-	const canOpenExternal = Boolean( navigation?.openExternal );
 	useEffect( () => {
 		if ( ! available ) {
 			return;
 		}
 		setNavigation( {
-			canGoBack,
-			canGoForward,
-			disabled,
-			back: () => latest.current?.back(),
-			forward: () => latest.current?.forward(),
-			reload: () => latest.current?.reload(),
-			openExternal: canOpenExternal ? () => latest.current?.openExternal?.() : undefined,
 			annotate: hasAnnotate
 				? {
 						active: annotateActive ?? false,
@@ -146,8 +118,6 @@ export function useSiteHeaderNavigation( navigation: SiteHeaderNavigation | null
 						onClick: () => latest.current?.annotate?.onClick(),
 				  }
 				: undefined,
-			backShortcut,
-			forwardShortcut,
 		} );
 		return () => setNavigation( null );
 	}, [
@@ -156,12 +126,6 @@ export function useSiteHeaderNavigation( navigation: SiteHeaderNavigation | null
 		annotateDisabledReason,
 		hasAnnotate,
 		available,
-		backShortcut,
-		canGoBack,
-		canGoForward,
-		canOpenExternal,
-		disabled,
-		forwardShortcut,
 		setNavigation,
 	] );
 }
@@ -180,7 +144,7 @@ export function SiteHeaderActions( {
 	onSendAnnotations?: ( siteId: string ) => void;
 	end?: ReactNode;
 } ) {
-	const { host, layout, navigation, attachActions, browserSpace } = useSiteHeader();
+	const { navigation, attachActions } = useSiteHeader();
 	const connector = useConnector();
 	const startSite = useStartSite();
 	const busy = useIsSiteBusy( site );
@@ -210,7 +174,6 @@ export function SiteHeaderActions( {
 	const root = useRef< HTMLDivElement >( null );
 	const windowControls = useWindowControlsOverlay();
 	const trafficLightSpace = useTrafficLightSpace();
-	const overflow = host === 'preview' && layout !== 'inline' && layout !== 'mobile-overflow';
 	// The Windows/Linux window controls sit at the physical right, the macOS
 	// traffic lights at the physical left: whichever the inline end reaches.
 	let inset = 0;
@@ -229,74 +192,10 @@ export function SiteHeaderActions( {
 			ref={ root }
 			className={ styles.root }
 			style={ { paddingInlineEnd: `calc( var( --band-inset ) + ${ inset }px )` } }
-			data-site-header-actions={ layout }
+			data-site-header-actions
 		>
 			<SiteDeliveryDialog key={ site.id } site={ site } anchor={ root } />
 			<div ref={ attachActions } className={ styles.actions }>
-				{ overflow && browserSpace
-					? createPortal(
-							<span data-site-header-trailing className={ styles.item }>
-								<Menu.Root modal={ false }>
-									<Tooltip>
-										<Menu.Trigger
-											render={
-												<TooltipTrigger
-													render={
-														<Button
-															variant="ghost"
-															size="icon-sm"
-															data-share-overflow-trigger
-															aria-label={ __( 'More preview actions' ) }
-														/>
-													}
-												/>
-											}
-										>
-											<EllipsisIcon />
-										</Menu.Trigger>
-										<TooltipContent side="bottom">{ __( 'More preview actions' ) }</TooltipContent>
-									</Tooltip>
-									<Menu.Popup side="bottom" align="end">
-										{ navigation?.openExternal ? (
-											<Menu.Item
-												disabled={ navigation.disabled }
-												onClick={ navigation.openExternal }
-											>
-												<ExternalLinkIcon />
-												{ __( 'Open in browser' ) }
-											</Menu.Item>
-										) : null }
-										{ layout === 'navigation-overflow' && navigation ? (
-											<>
-												<Menu.Separator />
-												<Menu.Item
-													disabled={ navigation.disabled || ! navigation.canGoBack }
-													onClick={ navigation.back }
-												>
-													<ArrowLeftIcon />
-													{ __( 'Back' ) }
-													<Menu.Shortcut>{ navigation.backShortcut }</Menu.Shortcut>
-												</Menu.Item>
-												<Menu.Item
-													disabled={ navigation.disabled || ! navigation.canGoForward }
-													onClick={ navigation.forward }
-												>
-													<ArrowRightIcon />
-													{ __( 'Forward' ) }
-													<Menu.Shortcut>{ navigation.forwardShortcut }</Menu.Shortcut>
-												</Menu.Item>
-												<Menu.Item disabled={ navigation.disabled } onClick={ navigation.reload }>
-													<RotateCwIcon />
-													{ __( 'Reload preview' ) }
-												</Menu.Item>
-											</>
-										) : null }
-									</Menu.Popup>
-								</Menu.Root>
-							</span>,
-							browserSpace
-					  )
-					: null }
 				<div data-site-header-delivery className={ styles.delivery }>
 					<span data-site-header-annotate className={ styles.item }>
 						<AnnotateButton

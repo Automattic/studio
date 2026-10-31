@@ -53,14 +53,14 @@
 	transition: background-color var( --motion-duration-feedback ) ease;
 }
 
-.annotationControl[data-active='true'] {
+.annotationControl[data-has-annotations='true'] {
 	background-color: light-dark(
 		color-mix( in srgb, var( --accent ) 8%, transparent ),
 		color-mix( in srgb, var( --accent ) 15%, transparent )
 	);
 }
 
-.annotationControl[data-active='true'] .annotateButton {
+.annotationControl[data-has-annotations='true'] .annotateButton {
 	--button-hover-background: transparent;
 }
 
@@ -146,20 +146,6 @@
 	display: flex;
 	align-items: center;
 	gap: var( --space-1 );
-}
-
-/* Out of room: the navigation moves into the More menu, but keeps its size
-   so the header can tell when it fits again. */
-.navigationHidden {
-	position: absolute;
-	visibility: hidden;
-	pointer-events: none;
-}
-
-.headerSide:empty,
-.headerSide:has( > .navigationHidden ),
-.headerSide:has( > :only-child:empty ) {
-	display: none;
 }
 
 .header[data-site-header-layout='mobile-overflow'] .browserLocation {

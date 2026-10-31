@@ -118,7 +118,10 @@ import {
 } from '@studio/common/lib/sync/sync-api';
 import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
 import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/editor';
-import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
+import {
+	detectInstalledApps,
+	detectInstalledAppsWithDefaultBrowser,
+} from '@studio/common/lib/user-settings/installed-apps';
 import {
 	readOnboardingCompleted,
 	writeOnboardingCompleted,
@@ -1465,7 +1468,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.get(
 		'/installed-apps',
 		asyncHandler( async ( _req: Request, res: Response ) => {
-			res.json( detectInstalledApps() );
+			res.json( await detectInstalledAppsWithDefaultBrowser() );
 		} )
 	);
 

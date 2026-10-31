@@ -52,6 +52,7 @@ interface StartedSiteDetails extends StoppedSiteDetails {
 type SiteDetails = StartedSiteDetails | StoppedSiteDetails;
 
 type InstalledApps = {
+	defaultBrowser?: import('@studio/common/lib/user-settings/browser').SystemBrowser | null;
 	antigravity: boolean;
 	vscode: boolean;
 	phpstorm: boolean;

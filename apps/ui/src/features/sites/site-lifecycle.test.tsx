@@ -241,7 +241,7 @@ describe( 'site lifecycle and preview', () => {
 	} );
 
 	it.each( [ false, true ] )(
-		'restores the stopped workspace from the sidebar (chat initially visible: %s)',
+		'preserves the preview layout when stopped from the sidebar (chat initially visible: %s)',
 		async ( chatVisible ) => {
 			const { connector } = setup( [ site( { running: true } ) ], '/sessions/one-chat' );
 			await screen.findByRole( 'textbox', { name: 'Address' } );
@@ -262,12 +262,12 @@ describe( 'site lifecycle and preview', () => {
 			await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledWith( 'one' ) );
 			connector.state.sites = [ site() ];
 			await act( async () => stop.resolve() );
-			const stoppedComposer = await screen.findByRole( 'combobox', COMPOSER );
-			expect( previewShown() ).toBe( false );
+			await screen.findByRole( 'button', { name: 'Start My site' } );
+			expect( previewShown() ).toBe( true );
 			expect( layoutMotion() ).toBeNull();
-			expect( stoppedComposer ).toBeVisible();
-			expect( stoppedComposer ).toHaveValue( 'Keep this site draft' );
-			expect( stoppedComposer ).toBe( composer );
+			expect( !! composer.closest( '[aria-hidden="true"]' ) ).toBe( ! chatVisible );
+			expect( composer ).toHaveValue( 'Keep this site draft' );
+			expect( screen.getByRole( 'combobox', { ...COMPOSER, hidden: true } ) ).toBe( composer );
 			expect( connector.createSession ).not.toHaveBeenCalled();
 		}
 	);
@@ -549,7 +549,8 @@ describe( 'site lifecycle and preview', () => {
 		await waitFor( () => expect( frame() ).toHaveAttribute( 'src', 'http://localhost:9010/' ) );
 		loadWebview();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Stop My site' } ) );
-		await waitFor( () => expect( previewShown() ).toBe( false ) );
+		await screen.findByRole( 'button', { name: 'Start My site' } );
+		expect( previewShown() ).toBe( true );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Start My site' } ) );
 		await screen.findByRole( 'button', { name: 'Stop My site' } );
 		expect( connector.startSite ).toHaveBeenCalledTimes( 2 );

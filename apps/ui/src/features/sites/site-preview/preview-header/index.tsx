@@ -1,5 +1,4 @@
 import { __ } from '@wordpress/i18n';
-import { clsx } from 'clsx';
 import { SiteHeaderBrowserSpace, useSiteHeader } from '@/features/sites/site-header-actions';
 import { PreviewAddressBar, type PreviewRealm } from '@/features/sites/site-preview/address-bar';
 import { RotateCwIcon, ResponsiveIcon, ExpandIcon, CollapseIcon } from '@/lib/icons';
@@ -63,7 +62,6 @@ export function PreviewHeader( {
 			onSwitchRealm={ onSwitchRealm }
 			hasDesignSystem={ hasDesignSystem }
 			onOpenExternal={ onOpenExternal }
-			hideActions={ headerLayout !== 'inline' }
 			disabled={ disabled }
 		/>
 	);
@@ -82,15 +80,7 @@ export function PreviewHeader( {
 				</VisuallyHidden>
 			) : null }
 			<div className={ styles.headerSide }>
-				<div
-					data-site-header-navigation
-					className={ clsx(
-						styles.navigation,
-						headerLayout === 'navigation-overflow' && styles.navigationHidden
-					) }
-					aria-hidden={ headerLayout === 'navigation-overflow' || undefined }
-					inert={ headerLayout === 'navigation-overflow' }
-				>
+				<div data-site-header-navigation className={ styles.navigation }>
 					<BrowserHistoryButton
 						direction="back"
 						browserState={ browserState }

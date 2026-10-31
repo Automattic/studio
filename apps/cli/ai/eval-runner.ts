@@ -53,6 +53,7 @@ import {
 	type TurnOutcome,
 } from 'cli/ai/eval-outcome';
 import { summarizeTiming, type ModelRequestRecord } from 'cli/ai/eval-timing';
+import { extractToolResult } from 'cli/ai/eval-tool-results';
 import { cliAgentHost } from 'cli/ai/host';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
@@ -461,46 +462,6 @@ function extractTextSegments( event: AgentSessionEvent ): string[] {
 	return event.message.content
 		.filter( ( block ): block is { type: 'text'; text: string } => block.type === 'text' )
 		.map( ( block ) => block.text );
-}
-
-function extractToolResult( event: AgentSessionEvent ): {
-	toolUseId: string;
-	isError: boolean;
-	text?: string;
-	images?: Array< { mimeType: string; data: string } >;
-	details?: unknown;
-} | null {
-	if ( event.type !== 'tool_execution_end' ) {
-		return null;
-	}
-	const result = event.result as
-		| {
-				content?: Array< { type: string; text?: string; data?: string; mimeType?: string } >;
-				details?: unknown;
-		  }
-		| undefined;
-	let text: string | undefined;
-	let images: Array< { mimeType: string; data: string } > | undefined;
-	if ( result?.content && Array.isArray( result.content ) ) {
-		const textBlock = result.content.find(
-			( b ): b is { type: 'text'; text: string } => b.type === 'text' && typeof b.text === 'string'
-		);
-		if ( textBlock ) text = textBlock.text;
-		const imageBlocks = result.content.filter(
-			( b ): b is { type: 'image'; data: string; mimeType?: string } =>
-				b.type === 'image' && typeof b.data === 'string'
-		);
-		if ( imageBlocks.length > 0 ) {
-			images = imageBlocks.map( ( b ) => ( { mimeType: b.mimeType ?? '', data: b.data } ) );
-		}
-	}
-	return {
-		toolUseId: event.toolCallId,
-		isError: event.isError,
-		text,
-		images,
-		details: result?.details,
-	};
 }
 
 function readInput(): EvalRunnerInput {

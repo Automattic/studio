@@ -16,10 +16,11 @@ const ALREADY_COMPRESSED_FILE =
 	/\.(jpe?g|png|gif|webp|avif|heic|mp4|m4v|mov|webm|mp3|m4a|ogg|woff2?|zip|gz|tgz|bz2|xz|7z|rar|pdf)$/i;
 const STUDIO_LOADER_ARCHIVE_PATH = `wp-content/mu-plugins/${ STUDIO_LOADER_MU_PLUGIN_FILENAME }`;
 
-// Plugins WordPress.com provides on every Atomic site. Their folders are left out of preview
-// archives: WordPress.com's importer keeps its own managed copy and ignores uploaded ones
+// Plugins WordPress.com provides on every Atomic site. Their folders are left out of WordPress.com
+// preview archives: WordPress.com's importer keeps its own managed copy and ignores uploaded ones
 // (wpcomsh skips any uploaded plugin directory that `/wordpress/plugins/<slug>/latest` covers),
-// and activation lives in the database, so the plugin stays active on the preview.
+// and activation lives in the database, so the plugin stays active on the preview. A Jurassic
+// Ninja preview replaces its whole `wp-content` with the archive, so its archive keeps them.
 const WORDPRESS_COM_PROVIDED_PLUGINS = new Set( [
 	'jetpack',
 	'akismet',
@@ -39,13 +40,22 @@ type ArchiveEntry = {
 	sourcePath: string;
 };
 
+export type PreviewArchiveOptions = {
+	// Whether the archive goes to a WordPress.com preview, which already has WordPress.com's
+	// managed plugins and themes. A Jurassic Ninja preview needs every file the site runs.
+	onWpcom: boolean;
+};
+
 /**
  * Lists the files a site's preview archive holds. Inactive themes are left out: they don't change
  * what the preview shows, and the stock default themes alone are most of a small site's archive.
- * Files a pulled site links from its host's managed tree are left out too: the WordPress.com site
- * has them. Plugins WordPress.com provides are left out for the same reason.
+ * For a WordPress.com preview, files a pulled site links from its host's managed tree are left out
+ * too, as are plugins WordPress.com provides: the WordPress.com site has them.
  */
-async function listArchiveEntries( siteFolder: string ): Promise< ArchiveEntry[] > {
+async function listArchiveEntries(
+	siteFolder: string,
+	{ onWpcom }: PreviewArchiveOptions
+): Promise< ArchiveEntry[] > {
 	const deployIgnore = await createDeployIgnoreFilter( siteFolder );
 	const activeThemes = await readActiveThemes( siteFolder );
 	// Files inside a theme folder (not `themes/index.php`) that belong to no active theme.
@@ -79,7 +89,7 @@ async function listArchiveEntries( siteFolder: string ): Promise< ArchiveEntry[]
 			name === STUDIO_LOADER_ARCHIVE_PATH ||
 			deployIgnore.ignores( name ) ||
 			isInactiveTheme( relativePath ) ||
-			isWordPressComProvidedPlugin( relativePath )
+			( onWpcom && isWordPressComProvidedPlugin( relativePath ) )
 		) {
 			continue;
 		}
@@ -90,7 +100,7 @@ async function listArchiveEntries( siteFolder: string ): Promise< ArchiveEntry[]
 		// can lead to EMFILE errors.
 		try {
 			const sourcePath = fs.realpathSync( path.join( wpContentPath, relativePath ) );
-			if ( ! isHostManagedPullFile( sourcePath ) ) {
+			if ( ! onWpcom || ! isHostManagedPullFile( sourcePath ) ) {
 				entries.push( { name, sourcePath } );
 			}
 		} catch ( error ) {
@@ -110,17 +120,21 @@ async function listArchiveEntries( siteFolder: string ): Promise< ArchiveEntry[]
  * Total size of the files a site's preview archive holds, before compression. The size limit
  * applies to this, so files the archive leaves out don't count against it.
  */
-export async function getArchiveContentSize( siteFolder: string ): Promise< number > {
-	const entries = await listArchiveEntries( siteFolder );
+export async function getArchiveContentSize(
+	siteFolder: string,
+	options: PreviewArchiveOptions
+): Promise< number > {
+	const entries = await listArchiveEntries( siteFolder, options );
 	return entries.reduce( ( total, entry ) => total + fs.statSync( entry.sourcePath ).size, 0 );
 }
 
 /** Archives a site for a preview; see `listArchiveEntries` for what it holds. */
 export async function archiveSiteContent(
 	siteFolder: string,
-	archivePath: string
+	archivePath: string,
+	options: PreviewArchiveOptions
 ): Promise< ZipArchive > {
-	const entries = await listArchiveEntries( siteFolder );
+	const entries = await listArchiveEntries( siteFolder, options );
 
 	return new Promise( ( resolve, reject ) => {
 		const output = fs.createWriteStream( archivePath );

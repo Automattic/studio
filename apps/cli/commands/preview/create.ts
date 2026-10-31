@@ -52,11 +52,12 @@ export async function runCommand(
 		};
 		const token = await requireAuthToken();
 		reportStep( LoggerAction.VALIDATE, __( 'Validating…' ), 0 );
-		await validateSiteSize( siteFolder );
+		const onWpcom = await createsPreviewsOnWpcom( token.accessToken );
+		await validateSiteSize( siteFolder, { onWpcom } );
 
 		reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
 		await withSiteOperation( siteFolder, 'export', () =>
-			archiveSiteContent( siteFolder, archivePath )
+			archiveSiteContent( siteFolder, archivePath, { onWpcom } )
 		);
 		archiveBytes = fs.statSync( archivePath, { throwIfNoEntry: false } )?.size;
 		logger.reportSuccess( __( 'Archive created' ) );
@@ -75,7 +76,7 @@ export async function runCommand(
 
 		reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
 		let preview: PreviewSite;
-		if ( await createsPreviewsOnWpcom( token.accessToken ) ) {
+		if ( onWpcom ) {
 			const attachmentId = await uploadPreviewArchive( archivePath, token.accessToken );
 			logger.reportSuccess( __( 'Archive uploaded' ) );
 

@@ -142,7 +142,9 @@ describe( 'Preview Create Command', () => {
 			'export',
 			expect.any( Function )
 		);
-		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath );
+		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath, {
+			onWpcom: true,
+		} );
 		expect( uploadPreviewArchive ).toHaveBeenCalledWith(
 			mockArchivePath,
 			mockAuthToken.accessToken
@@ -177,6 +179,9 @@ describe( 'Preview Create Command', () => {
 
 		await runCommand( mockFolder );
 
+		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath, {
+			onWpcom: false,
+		} );
 		expect( uploadPreviewArchive ).not.toHaveBeenCalled();
 		expect( createPreviewSite ).not.toHaveBeenCalled();
 		expect( uploadArchive ).toHaveBeenCalledWith(

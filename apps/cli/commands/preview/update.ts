@@ -88,18 +88,19 @@ export async function runCommand(
 		if ( isSnapshotExpired( snapshotToUpdate ) ) {
 			throw new LoggerError( __( 'Cannot update an expired preview site.' ), undefined, 'expired' );
 		}
-		await validateSiteSize( siteFolder );
+		const onWpcom = isWpcomPreview( snapshotToUpdate );
+		await validateSiteSize( siteFolder, { onWpcom } );
 
 		reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
 		await withSiteOperation( siteFolder, 'export', () =>
-			archiveSiteContent( siteFolder, archivePath )
+			archiveSiteContent( siteFolder, archivePath, { onWpcom } )
 		);
 		archiveBytes = fs.statSync( archivePath, { throwIfNoEntry: false } )?.size;
 		logger.reportSuccess( __( 'Archive created' ) );
 
 		reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
 		let shareUrl: string | undefined;
-		if ( isWpcomPreview( snapshotToUpdate ) ) {
+		if ( onWpcom ) {
 			const attachmentId = await uploadPreviewArchive(
 				archivePath,
 				token.accessToken,

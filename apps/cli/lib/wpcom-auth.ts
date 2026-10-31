@@ -11,7 +11,7 @@ import { getUserInfo } from 'cli/lib/api';
 import { openBrowser } from 'cli/lib/browser';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { getAppLocale } from 'cli/lib/i18n';
-import { input } from 'cli/lib/prompts';
+import { confirm, input } from 'cli/lib/prompts';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { LoggerError } from 'cli/logger';
 
@@ -97,9 +97,9 @@ export async function signInInteractively(): Promise< StoredAuthToken > {
 }
 
 /**
- * Returns the stored WordPress.com token. When there is none and someone is at the terminal, signs
- * them in and carries on with the command instead of failing; otherwise (the app, agents, scripts)
- * throws a LoggerError tagged with `failureCode`.
+ * Returns the stored WordPress.com token. When there is none and someone is at the terminal, offers
+ * to sign them in and carries on with the command. Otherwise (declined, or the app, agents and
+ * scripts) throws a LoggerError tagged with `failureCode`.
  */
 export async function requireAuthToken(
 	failureCode = 'auth_required'
@@ -108,8 +108,11 @@ export async function requireAuthToken(
 	if ( token ) {
 		return token;
 	}
-	if ( process.stdin.isTTY && process.stdout.isTTY ) {
-		console.log( __( 'This command needs you to be logged in to WordPress.com.' ) );
+	if (
+		process.stdin.isTTY &&
+		process.stdout.isTTY &&
+		( await confirm( { message: __( "You're not logged in to WordPress.com. Log in now?" ) } ) )
+	) {
 		return signInInteractively();
 	}
 	throw new LoggerError(

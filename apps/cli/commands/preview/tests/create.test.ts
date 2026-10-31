@@ -1,6 +1,6 @@
 import os from 'os';
 import path from 'path';
-import { input } from '@inquirer/prompts';
+import { confirm, input } from '@inquirer/prompts';
 import { isAutomatticianAccount } from '@studio/common/lib/automattician';
 import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
@@ -251,8 +251,9 @@ describe( 'Preview Create Command', () => {
 		expect( archiveSiteContent ).not.toHaveBeenCalled();
 	} );
 
-	it( 'should sign in at a terminal and carry on creating the preview', async () => {
+	it( 'should offer to sign in at a terminal and carry on creating the preview', async () => {
 		vi.mocked( readAuthToken ).mockResolvedValue( null );
+		vi.mocked( confirm ).mockResolvedValue( true );
 		vi.mocked( input ).mockResolvedValue( 'pasted-token' );
 		vi.mocked( getUserInfo, { partial: true } ).mockResolvedValue( {
 			ID: 123,

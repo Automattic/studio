@@ -4,8 +4,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-// A file URL, which an ES module import takes on Windows too, where an absolute
-// path (C:\…) is no URL.
+// A file URL: an import of a bare Windows path (C:\...) reads its drive as a URL scheme.
 const module = JSON.stringify(
 	pathToFileURL( path.resolve( import.meta.dirname, '../eval-port-range.ts' ) ).href
 );

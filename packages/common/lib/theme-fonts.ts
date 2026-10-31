@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 /** A theme.json `fontFace` entry. */
@@ -126,4 +126,184 @@ export async function downloadThemeFonts(
 		} );
 	}
 	return fonts;
+}
+
+interface FontFamilyPreset {
+	slug?: string;
+	name?: string;
+	fontFamily?: string;
+	fontFace?: unknown[];
+}
+
+export interface SelfHostedFonts {
+	/** Families whose font files were downloaded and declared. */
+	hosted: string[];
+	/** Of those, the families whose fontFace named files the browser cannot load. */
+	missing: string[];
+	/** Families whose fontFace named font files by URL, now downloaded into the theme. */
+	downloaded: string[];
+	/** Families whose first font Google Fonts had no files for, with why. */
+	failed: { family: string; font: string; error: string }[];
+}
+
+// Every weight a theme.json's styles set, and 400. Styles inherit their font
+// family, so a weight set on its own can still be a weight of any family.
+function weightsOf( styles: unknown ): string[] {
+	const weights = new Set< string >( [ '400' ] );
+	const walk = ( node: unknown ) => {
+		if ( ! node || typeof node !== 'object' ) {
+			return;
+		}
+		const { fontWeight } = node as { fontWeight?: unknown };
+		if ( /^\d{3}$/.test( String( fontWeight ) ) ) {
+			weights.add( String( fontWeight ) );
+		}
+		Object.values( node ).forEach( walk );
+	};
+	walk( styles );
+	return [ ...weights ].sort();
+}
+
+// Whether a family's fontFace names a file the browser cannot load. WordPress
+// serves a "file:./" source from the theme or its parent: WP_Font_Face_Resolver's
+// to_theme_file_uri() (wp-includes/fonts/class-wp-font-face-resolver.php) takes
+// it through get_theme_file_uri() (wp-includes/link-template.php). It gives the
+// browser any other source as written, so another file: path loads nothing, and
+// a URL loads what its host serves.
+async function namesMissingFiles( family: FontFamilyPreset, dirs: string[] ): Promise< boolean > {
+	const files = ( family.fontFace ?? [] ).flatMap( ( face ) => {
+		const src = ( face as { src?: unknown } )?.src;
+		return ( Array.isArray( src ) ? src : [ src ] ).filter(
+			( file ): file is string => typeof file === 'string'
+		);
+	} );
+	const found = await Promise.all(
+		files.map( async ( file ) => {
+			if ( /^https?:\/\//.test( file ) ) {
+				// A host that cannot be reached may serve it to visitors.
+				return fetch( file ).then(
+					( response ) => response.ok,
+					() => true
+				);
+			}
+			if ( ! file.startsWith( 'file:./' ) ) {
+				return ! file.startsWith( 'file:' );
+			}
+			for ( const dir of dirs ) {
+				if (
+					await access( path.join( dir, file.slice( 'file:./'.length ) ) ).then(
+						() => true,
+						() => false
+					)
+				) {
+					return true;
+				}
+			}
+			return false;
+		} )
+	);
+	return found.includes( false );
+}
+
+// Downloads the font files a family's fontFace names by URL into the theme's
+// assets/fonts and names them as "file:./" sources, as the Font Library keeps
+// each font it installs as a file on the site (wp_font_dir() in
+// wp-includes/fonts.php). Returns whether it downloaded any; a file its host
+// does not serve now is left as written.
+async function downloadSources( family: FontFamilyPreset, themeDir: string ): Promise< boolean > {
+	let downloaded = false;
+	const familySlug = slugify( family.slug ?? family.name ?? 'font' );
+	for ( const face of family.fontFace ?? [] ) {
+		const holder = face as { src?: unknown };
+		const sources = Array.isArray( holder.src ) ? holder.src : [ holder.src ];
+		const local = await Promise.all(
+			sources.map( async ( written ) => {
+				// WordPress takes a src as a bare URL and drops one whose extension is
+				// not a font format (WP_Font_Face::order_src() in
+				// wp-includes/fonts/class-wp-font-face.php), so a CSS url() loads nothing.
+				const source =
+					typeof written === 'string'
+						? written.match( /^\s*url\(\s*['"]?([^'")\s]+)/ )?.[ 1 ] ?? written
+						: written;
+				if ( typeof source !== 'string' || ! /^https?:\/\//.test( source ) ) {
+					return written;
+				}
+				const file = path.posix.join(
+					'assets',
+					'fonts',
+					familySlug,
+					path.posix.basename( new URL( source ).pathname )
+				);
+				try {
+					const data = Buffer.from( await ( await fetchOk( source ) ).arrayBuffer() );
+					await mkdir( path.join( themeDir, path.dirname( file ) ), { recursive: true } );
+					await writeFile( path.join( themeDir, file ), data );
+				} catch {
+					return written;
+				}
+				downloaded = true;
+				return `file:./${ file }`;
+			} )
+		);
+		holder.src = Array.isArray( holder.src ) ? local : local[ 0 ];
+	}
+	return downloaded;
+}
+
+// The theme's folder, then its parent's, by the Template header of its style.css.
+async function themeDirs( themeDir: string ): Promise< string[] > {
+	const css = await readFile( path.join( themeDir, 'style.css' ), 'utf8' ).catch( () => '' );
+	const parent = css.match( /^[ \t/*#@]*Template:(.*)$/im )?.[ 1 ].trim();
+	return parent ? [ themeDir, path.join( path.dirname( themeDir ), parent ) ] : [ themeDir ];
+}
+
+/**
+ * Self-hosts a theme's fonts: each font family preset in its theme.json that
+ * declares no font files, or names files the browser cannot load, gets them
+ * from Google Fonts, in the weights its styles use, downloaded into
+ * assets/fonts and declared as its `fontFace`. Font files a fontFace names by
+ * URL are downloaded into assets/fonts too.
+ */
+export async function selfHostThemeJsonFonts( themeDir: string ): Promise< SelfHostedFonts > {
+	const themeJsonPath = path.join( themeDir, 'theme.json' );
+	const themeJson = JSON.parse( await readFile( themeJsonPath, 'utf8' ) );
+	const families: FontFamilyPreset[] = themeJson?.settings?.typography?.fontFamilies ?? [];
+	const result: SelfHostedFonts = { hosted: [], missing: [], downloaded: [], failed: [] };
+	const dirs = await themeDirs( themeDir );
+	for ( const family of families ) {
+		// The font the browser asks for first; the preset's name is only its label.
+		const font = family.fontFamily
+			?.split( ',' )[ 0 ]
+			.trim()
+			.replace( /^['"]|['"]$/g, '' );
+		const name = family.name ?? font;
+		if ( await downloadSources( family, themeDir ) ) {
+			result.downloaded.push( name ?? family.slug ?? '' );
+		}
+		const missing = !! family.fontFace?.length && ( await namesMissingFiles( family, dirs ) );
+		if ( ( family.fontFace?.length && ! missing ) || ! font || ! name ) {
+			continue;
+		}
+		const url = `https://fonts.googleapis.com/css2?family=${ font.replace(
+			/ /g,
+			'+'
+		) }:wght@${ weightsOf( themeJson.styles ).join( ';' ) }&display=swap`;
+		try {
+			family.fontFace = Object.values( await downloadThemeFonts( url, themeDir ) ).flat();
+			result.hosted.push( name );
+			if ( missing ) {
+				result.missing.push( name );
+			}
+		} catch ( error ) {
+			result.failed.push( {
+				family: name,
+				font,
+				error: error instanceof Error ? error.message : String( error ),
+			} );
+		}
+	}
+	if ( result.hosted.length || result.downloaded.length ) {
+		await writeFile( themeJsonPath, JSON.stringify( themeJson, null, '\t' ) + '\n' );
+	}
+	return result;
 }

@@ -1,4 +1,4 @@
-/* Colors come from the site's DESIGN.md (inline --ds-*), not the app theme. */
+/* Colors come from the site's Styles (inline --ds-*), not the app theme. */
 .root {
 	--ds-hairline: color-mix( in srgb, var( --ds-text ) 18%, transparent );
 	container-type: inline-size;
@@ -27,76 +27,6 @@
 	opacity: 0.65;
 	text-transform: uppercase;
 	letter-spacing: 0.12em;
-}
-
-.title {
-	font-size: clamp( 40px, 9cqi, 104px );
-	line-height: 0.95;
-	overflow-wrap: anywhere;
-}
-
-.description {
-	max-width: 60ch;
-	font-size: var( --text-xl );
-	opacity: 0.8;
-}
-
-.sync {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: baseline;
-	gap: var( --space-1 ) var( --space-4 );
-	margin: var( --space-2 ) 0 0;
-	font-size: var( --text-xs );
-	opacity: 0.75;
-}
-
-.sync summary {
-	cursor: pointer;
-}
-
-.sync details[open] {
-	flex-basis: 100%;
-}
-
-.driftList {
-	display: grid;
-	gap: var( --space-1_5 );
-	margin: var( --space-3 ) 0 0;
-	padding: var( --space-3 ) var( --space-3_5 );
-	border: 1px solid var( --ds-hairline );
-	border-radius: 8px;
-}
-
-.driftList div {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var( --space-1 ) var( --space-3 );
-}
-
-.driftList dt {
-	font-weight: var( --font-weight-semibold );
-}
-
-.driftList .driftActions {
-	display: flex;
-	gap: var( --space-3 );
-	margin-inline-start: auto;
-}
-
-.driftAction {
-	text-decoration: underline;
-	text-underline-offset: 3px;
-	cursor: pointer;
-}
-
-.driftAction:disabled {
-	cursor: default;
-	opacity: 0.5;
-}
-
-.driftError {
-	flex-basis: 100%;
 }
 
 .sections {
@@ -390,44 +320,6 @@
 .corner figcaption {
 	margin-top: var( --space-2 );
 	opacity: 0.65;
-}
-
-.guidelines {
-	display: grid;
-	grid-template-columns: repeat( auto-fill, minmax( min( 100%, 320px ), 1fr ) );
-	gap: var( --space-8 ) var( --space-12 );
-}
-
-.guideline h3 {
-	margin: 0 0 var( --space-2 );
-	font-size: var( --text-2xl );
-	line-height: 1.2;
-}
-
-.guideline p,
-.guideline ul,
-.guideline ol {
-	margin: 0 0 0.75em;
-	opacity: 0.85;
-}
-
-/* DESIGN.md prose keeps the browser's list and link styles. */
-.guideline :is( ul, ol, a ) {
-	padding-inline-start: revert;
-	list-style: revert;
-	color: revert;
-	text-decoration: revert;
-}
-
-.guideline :last-child {
-	margin-bottom: 0;
-}
-
-.guideline code {
-	font-size: 0.9em;
-	padding: 1px var( --space-1 );
-	border-radius: 4px;
-	background-color: color-mix( in srgb, var( --ds-text ) 10%, transparent );
 }
 
 .message {

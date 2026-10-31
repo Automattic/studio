@@ -1,3 +1,5 @@
+import type { RemoteSite } from './remote-hosts';
+
 export interface AskUserQuestion {
 	question: string;
 	options: { label: string; description: string; image?: string }[];
@@ -16,7 +18,7 @@ export interface SiteInfo {
 	name: string;
 	path: string;
 	running: boolean;
-	remote?: boolean;
+	// A site on a host other than this computer; a local site has none.
+	remote?: RemoteSite;
 	url?: string;
-	wpcomSiteId?: number;
 }

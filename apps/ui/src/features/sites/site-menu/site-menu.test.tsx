@@ -50,8 +50,7 @@ function setup( {
 		{ sites, user: connections ? TEST_USER : null },
 		{
 			getConnectedWpcomSites: async () => connections ?? [],
-			getSiteDesign: async () =>
-				designAvailable ? { design: '# Example', themeJson: {} } : null,
+			getGlobalStyles: async () => ( designAvailable ? { settings: {}, styles: {} } : null ),
 		}
 	);
 	const site = busy

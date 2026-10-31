@@ -26,6 +26,8 @@ type ToolContent = ToolTextContent | ToolImageContent;
 
 export interface ToolResult {
 	content: ToolContent[];
+	// Ends the turn after this call, as Pi's AgentToolResult.terminate does.
+	terminate?: boolean;
 	studioArtifacts?: StudioChatArtifactWidgetDraft[];
 	// Data for the host's MCP App, kept out of the model's context. Not
 	// `structuredContent`: Claude Code gives that to the model instead of `content`.
@@ -34,16 +36,25 @@ export interface ToolResult {
 	// report for the agent. A runtime that cannot wait for it later awaits it
 	// before answering.
 	pending?: Promise< string | undefined >;
+	// The files that work writes, as paths in their site: a call naming one
+	// waits for the work.
+	pendingFiles?: string[];
+	// The folder of the site pendingFiles are paths in.
+	pendingFolder?: string;
 }
 
 export interface StudioToolResultDetails {
 	studioArtifacts?: StudioChatArtifactWidgetDraft[];
 	pending?: Promise< string | undefined >;
+	pendingFiles?: string[];
+	pendingFolder?: string;
 }
 
 export interface ToolContext {
 	host: StudioAgentHost;
 	onProgress: ( message: string, update?: boolean ) => void;
+	/** Aborted when the turn is stopped, so a tool that waits stops waiting. */
+	signal?: AbortSignal;
 }
 
 // What a caller of a bound tool passes; the host is already bound.
@@ -53,13 +64,6 @@ export type ToolHandler< TProps extends TProperties > = (
 	args: Static< TObject< TProps > >,
 	context: ToolContext
 ) => Promise< ToolResult >;
-
-// One-line snippet for the prompt's tool list, the way pi's own tools declare
-// it: the system prompt is assembled from the registered tools, so a tool is
-// documented where it is defined.
-interface ToolPromptOptions {
-	promptSnippet?: string;
-}
 
 // What a call can change, for hosts that ask the user before running a tool
 // (MCP tool annotations). Hosts run read-only tools, and those that neither
@@ -95,11 +99,38 @@ export const REMOTE_OVERWRITE: ToolAnnotations = {
 	openWorldHint: true,
 };
 
-export interface ToolOptions extends ToolPromptOptions {
+// What the agent running Studio's tools (Studio Code, an MCP client) can do.
+// Each tool decides from it whether and how it appears there.
+export interface StudioToolsOptions {
+	// The agent has a shell whose `wp` runs Studio's WP-CLI (Studio Code's Bash).
+	shell?: boolean;
+	// Studio can generate images, and the agent has no image tool of its own.
+	imageGeneration?: boolean;
+	// False for models that cannot view images. Defaults to true.
+	visionEnabled?: boolean;
+	// How a local image is linked in the agent's reply so the host shows it to the user.
+	// Set by hosts without Studio's chat UI, which shows images as chat artifacts instead.
+	imageLink?: ( file: string ) => string;
+}
+
+export interface ToolOptions {
 	annotations: ToolAnnotations;
+	// The tool as it appears to an agent, or undefined where it does not.
+	// Without it the tool appears everywhere as defined.
+	forHost?: (
+		options: StudioToolsOptions,
+		host: StudioAgentHost
+	) => StudioToolDefinition | undefined;
 	// The tool renders the site, so it runs only once the pending work of
 	// earlier tools, such as images still being generated, has settled.
 	settlesPendingWork?: boolean;
+	// What the agent does next depends on what Studio knows of the site the
+	// call makes or starts, so its result waits for Studio's checks of the
+	// call, the site's facts among them, which otherwise come with the next.
+	reportsChecks?: boolean;
+	// The argument that names the local site a call is about, when it is not
+	// `nameOrPath`: notes on the result, such as the site's facts, are about it.
+	siteParam?: string;
 }
 
 // A tool as defined: everything but the host it runs against.
@@ -117,7 +148,7 @@ export interface StudioToolDefinition< TProps extends TProperties = TProperties 
 export type StudioAgentTool< TProps extends TProperties = TProperties > = AgentTool<
 	TObject< TProps >
 > &
-	ToolOptions & {
+	Omit< ToolOptions, 'forHost' > & {
 		rawHandler: (
 			args: Static< TObject< TProps > >,
 			context?: CallContext
@@ -140,9 +171,10 @@ export interface AnyStudioAgentTool {
 	) => Promise< { content: ToolContent[]; details?: unknown; terminate?: boolean } >;
 	prepareArguments?: ( args: unknown ) => unknown;
 	executionMode?: unknown;
-	promptSnippet?: string;
 	settlesPendingWork?: boolean;
+	reportsChecks?: boolean;
 	annotations: ToolAnnotations;
+	siteParam?: string;
 }
 
 export function defineTool< TProps extends TProperties >(
@@ -157,24 +189,27 @@ export function defineTool< TProps extends TProperties >(
 		description,
 		parameters: Type.Object( properties ),
 		label: name,
-		...( options.promptSnippet ? { promptSnippet: options.promptSnippet } : {} ),
 		...( options.settlesPendingWork ? { settlesPendingWork: true } : {} ),
+		...( options.reportsChecks ? { reportsChecks: true } : {} ),
+		...( options.forHost ? { forHost: options.forHost } : {} ),
+		...( options.siteParam ? { siteParam: options.siteParam } : {} ),
 		annotations: options.annotations,
 		handler,
 	};
 }
 
 export function bindTool< TProps extends TProperties >(
-	{ handler, ...tool }: StudioToolDefinition< TProps >,
+	{ handler, forHost: _forHost, ...tool }: StudioToolDefinition< TProps >,
 	host: StudioAgentHost
 ): StudioAgentTool< TProps > {
 	return {
 		...tool,
 		rawHandler: ( args, context ) =>
 			handler( args, { host, onProgress: context?.onProgress ?? ( () => {} ) } ),
-		execute: async ( _toolCallId, params, _signal, onUpdate ) => {
+		execute: async ( _toolCallId, params, signal, onUpdate ) => {
 			const context: ToolContext = {
 				host,
+				signal,
 				onProgress: ( message, update ) => {
 					const details: StudioToolProgressUpdate = { studioProgress: { message, update } };
 					onUpdate?.( { content: [], details } );
@@ -183,9 +218,18 @@ export function bindTool< TProps extends TProperties >(
 			const result = await handler( params as never, context );
 			const details: StudioToolResultDetails | undefined =
 				result.studioArtifacts?.length || result.pending
-					? { studioArtifacts: result.studioArtifacts, pending: result.pending }
+					? {
+							studioArtifacts: result.studioArtifacts,
+							pending: result.pending,
+							pendingFiles: result.pendingFiles,
+							pendingFolder: result.pendingFolder,
+					  }
 					: undefined;
-			return { content: result.content, details };
+			return {
+				content: result.content,
+				details,
+				...( result.terminate ? { terminate: true } : {} ),
+			};
 		},
 	};
 }

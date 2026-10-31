@@ -1,10 +1,10 @@
+import type { RemoteHost } from './remote-hosts';
 import type { SiteInfo } from './types';
 import type { StudioChatArtifactData } from '@studio/agent/protocol/chat-artifacts';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { SiteStatus } from '@studio/common/types/site-status';
 import type { Snapshot } from '@studio/common/types/snapshot';
-import type { SyncSite } from '@studio/common/types/sync';
 
 export type ProgressCallback = ( message: string, update?: boolean ) => void;
 
@@ -16,6 +16,16 @@ export interface HostSite {
 	url: string;
 	phpVersion: string;
 	adminPassword?: string;
+	// WordPress logs PHP errors to wp-content/debug.log (WP_DEBUG_LOG).
+	enableDebugLog?: boolean;
+}
+
+/** A process to spawn: its binary, arguments, directory and environment. */
+export interface WpCliProcess {
+	command: string;
+	args: string[];
+	cwd: string;
+	env: Record< string, string | undefined >;
 }
 
 export interface WpCliOutput {
@@ -60,6 +70,16 @@ export interface StudioAgentHost {
 			onProgress: ProgressCallback
 		): Promise< void >;
 		wpCli( site: HostSite, args: string[] ): Promise< WpCliOutput >;
+		/**
+		 * The process `studio wp` runs for the arguments after `wp`, given in
+		 * folder `cwd` with environment `env`, for the agent's shell to run
+		 * itself; it rejects with why it does not run.
+		 */
+		wpCliProcess?(
+			cwd: string,
+			argv: string[],
+			env: Record< string, string | undefined >
+		): Promise< WpCliProcess >;
 	};
 	previews: {
 		list( site: HostSite ): Promise< Snapshot[] >;
@@ -72,25 +92,11 @@ export interface StudioAgentHost {
 		): Promise< Snapshot >;
 		delete( hostname: string, onProgress: ProgressCallback ): Promise< void >;
 	};
-	// Push and pull return the WordPress.com site they synced with, or nothing when
-	// the user backed out.
-	sync: {
-		push(
-			site: HostSite,
-			options: string,
-			remoteSite: string | undefined,
-			onProgress: ProgressCallback
-		): Promise< SyncSite | undefined >;
-		pull(
-			site: HostSite,
-			options: string,
-			remoteSite: string | undefined,
-			onProgress: ProgressCallback
-		): Promise< SyncSite | undefined >;
-	};
-	wpcom: {
-		sites( accessToken: string ): Promise< unknown[] >;
-	};
+	// Blocks Engine's PHP transformer, which convert_to_blocks runs in a site's
+	// WordPress: the file that loads it, and its version. Installed on first use.
+	blocksEngine(): Promise< { bootstrap: string; version: string } >;
+	// The hosts besides this computer that the user's sites are on, by id.
+	remoteHosts: Record< string, RemoteHost >;
 	tracks: {
 		record( event: TracksEventName, props: TracksProps ): Promise< void >;
 	};

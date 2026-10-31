@@ -7,9 +7,9 @@ import pluginImport from 'eslint-plugin-import-x';
 import pluginJestDom from 'eslint-plugin-jest-dom';
 import pluginPrettier from 'eslint-plugin-prettier/recommended';
 import pluginReactHooks from 'eslint-plugin-react-hooks';
+import pluginStudio from 'eslint-plugin-studio';
 import globals from 'globals';
 import tsEslint from 'typescript-eslint';
-import pluginStudio from 'eslint-plugin-studio';
 
 const WP_UI_PACKAGES = {
 	group: [ 'components', 'dataviews', 'theme', 'ui' ].flatMap( ( name ) => [
@@ -147,7 +147,6 @@ export default defineConfig(
 						path.join( import.meta.dirname, 'apps/ui/tsconfig.json' ),
 						path.join( import.meta.dirname, 'packages/agent/tsconfig.json' ),
 						path.join( import.meta.dirname, 'packages/common/tsconfig.json' ),
-						path.join( import.meta.dirname, 'packages/design-md/tsconfig.json' ),
 						path.join( import.meta.dirname, 'tools/compare-perf/tsconfig.json' ),
 						path.join( import.meta.dirname, 'tools/metrics/tsconfig.json' ),
 					],

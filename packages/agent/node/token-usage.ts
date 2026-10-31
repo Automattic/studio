@@ -12,6 +12,28 @@ export function createTokenUsage(): TokenUsage {
 	return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0 };
 }
 
+function add( total: TokenUsage, usage: TokenUsage ) {
+	total.input += usage.input;
+	total.output += usage.output;
+	total.cacheRead += usage.cacheRead;
+	total.cacheWrite += usage.cacheWrite;
+	total.totalTokens += usage.totalTokens;
+}
+
+/**
+ * Adds what a finished tool call spent on models of its own, as a subagent
+ * does (its result's `details.usage`), to `total`.
+ */
+export function addToolCallUsage( total: TokenUsage, event: AgentSessionEvent ): void {
+	const usage =
+		event.type === 'tool_execution_end'
+			? ( event.result as { details?: { usage?: TokenUsage } } | undefined )?.details?.usage
+			: undefined;
+	if ( usage ) {
+		add( total, usage );
+	}
+}
+
 /**
  * Adds an assistant `message_end`'s usage to `total` and returns that usage, or
  * `undefined` for any other event (or an assistant message with no usage).
@@ -27,10 +49,6 @@ export function addAssistantMessageUsage(
 	if ( ! messageUsage ) {
 		return undefined;
 	}
-	total.input += messageUsage.input;
-	total.output += messageUsage.output;
-	total.cacheRead += messageUsage.cacheRead;
-	total.cacheWrite += messageUsage.cacheWrite;
-	total.totalTokens += messageUsage.totalTokens;
+	add( total, messageUsage );
 	return messageUsage;
 }

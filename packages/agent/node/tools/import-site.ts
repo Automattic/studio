@@ -22,8 +22,6 @@ export const importSiteTool = defineTool(
 		}
 	},
 	{
-		promptSnippet:
-			'Import a backup file (.zip, .tar.gz, .sql, .wpress, .xml WordPress export) into a local site.',
 		annotations: LOCAL_OVERWRITE,
 	}
 );

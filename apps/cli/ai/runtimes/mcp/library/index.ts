@@ -4,7 +4,7 @@ import { getCliAuthenticationUrl, storeAuthToken } from 'cli/lib/wpcom-auth';
 import { createSiteWatcher } from './site-changes';
 import { capturePreview, readLocalSites, readWpcomSites } from './sites';
 
-export { type AppPage, libraryPage } from './page';
+export { libraryPage, MCP_APP_MIME_TYPE } from './page';
 
 // The WordPress library: an MCP App (apps/mcp-ui) listing the user's local
 // Studio and WordPress.com sites, which OpenAI hosts open from their sidebar.

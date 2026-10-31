@@ -6,6 +6,8 @@ import {
 	loadCaptureEngine,
 	resolveCaptureEngineAsset,
 	type CaptureEngine,
+	type PublishedSite,
+	type PublishingEngine,
 } from 'cli/lib/import-runtime';
 
 type LoadEngine = () => Promise< CaptureEngine >;
@@ -48,6 +50,8 @@ function routeIdentity( url: string ): string {
 type LiberateWebsiteOptions = {
 	onProgress?: ( message: string ) => void;
 	loadEngine?: LoadEngine;
+	/** Origins the caller vouches for, such as a site on this computer. */
+	trustedOrigins?: string[];
 };
 
 type LiberatedWebsite = {
@@ -70,7 +74,7 @@ function compareCommand( packageUrl: string, captureRoot: string, siteUrl: strin
 }
 
 // The release engine drives a real browser, so it is only loaded once Chromium is present.
-async function loadEngineWithBrowser(): Promise< CaptureEngine > {
+async function loadEngineWithBrowser(): Promise< PublishingEngine > {
 	const { chromium } = await import( 'playwright' );
 	const browserProblem = await ensurePlaywrightChromiumInstalled( chromium );
 	if ( browserProblem ) {
@@ -117,6 +121,7 @@ export async function liberateWebsite(
 	const result = await engine.captureWebsite( {
 		url: parsed.href,
 		outputDir,
+		...( options.trustedOrigins ? { trustedOrigins: options.trustedOrigins } : {} ),
 		onProgress: ( progress ) => {
 			options.onProgress?.(
 				progress.phase === 'capturing' && progress.total
@@ -203,4 +208,48 @@ function checkPartialCapture(
 		);
 	}
 	return { routesDiscovered, droppedRoutes, diagnosticsPath };
+}
+
+/**
+ * A static copy of the site Studio runs at `siteUrl`: every route it serves, captured, and
+ * compared with the site before anything publishes it. A copy that lost a page, or that
+ * differs from the site, is refused, because the published copy would show the difference.
+ */
+export async function captureLocalSite(
+	siteUrl: string,
+	outputBase: string,
+	onProgress?: ( message: string ) => void,
+	loadEngine: () => Promise< PublishingEngine > = loadEngineWithBrowser
+): Promise< {
+	websiteDir: string;
+	publish: (
+		options: Omit< Parameters< PublishingEngine[ 'publishSite' ] >[ 0 ], 'directory' >
+	) => Promise< PublishedSite >;
+} > {
+	const engine = await loadEngine();
+	const liberated = await liberateWebsite( siteUrl, outputBase, {
+		onProgress,
+		loadEngine: async () => engine,
+		trustedOrigins: [ siteUrl ],
+	} );
+	if ( liberated.partialCapture ) {
+		const routes = liberated.partialCapture.droppedRoutes.map( ( route ) => route.url );
+		throw new Error( `Data Liberation could not capture ${ routes.join( ', ' ) }.` );
+	}
+	onProgress?.( '[liberate] comparing the copy with the site' );
+	const captureRoot = captureRootFor( siteUrl, outputBase );
+	const report = await engine.checkFidelity( { directory: captureRoot } );
+	if ( ! report.pass ) {
+		throw new Error(
+			`The copy differs from the site in ${
+				report.failed
+			} checks. See where with: npx --yes --package=${
+				engine.packageUrl
+			} data-liberation compare ${ JSON.stringify( captureRoot ) }`
+		);
+	}
+	return {
+		websiteDir: liberated.websiteDir,
+		publish: ( options ) => engine.publishSite( { ...options, directory: liberated.websiteDir } ),
+	};
 }

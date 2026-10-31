@@ -58,8 +58,7 @@ const api: IpcApi = {
 	getAppUpdateStatus: () => ipcRendererInvoke( 'getAppUpdateStatus' ),
 	installAppUpdate: () => ipcRendererInvoke( 'installAppUpdate' ),
 	getWpVersion: ( id ) => ipcRendererInvoke( 'getWpVersion', id ),
-	getSiteDesign: ( id ) => ipcRendererInvoke( 'getSiteDesign', id ),
-	fixSiteDesignDrift: ( id, fixes ) => ipcRendererInvoke( 'fixSiteDesignDrift', id, fixes ),
+	getGlobalStyles: ( id ) => ipcRendererInvoke( 'getGlobalStyles', id ),
 	getIsMultisite: ( id ) => ipcRendererInvoke( 'getIsMultisite', id ),
 	generateProposedSitePath: ( siteName ) =>
 		ipcRendererInvoke( 'generateProposedSitePath', siteName ),
@@ -141,11 +140,10 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'installWordPressSkillsToAllSites', options ),
 	removeWordPressSkillFromAllSites: ( skillId ) =>
 		ipcRendererInvoke( 'removeWordPressSkillFromAllSites', skillId ),
-	getSiteAgentFiles: ( siteId, kind ) => ipcRendererInvoke( 'getSiteAgentFiles', siteId, kind ),
-	setSiteAgentFileEnabled: ( siteId, kind, id, enabled ) =>
-		ipcRendererInvoke( 'setSiteAgentFileEnabled', siteId, kind, id, enabled ),
-	removeSiteAgentFile: ( siteId, kind, id ) =>
-		ipcRendererInvoke( 'removeSiteAgentFile', siteId, kind, id ),
+	getSiteAgentFiles: ( siteId ) => ipcRendererInvoke( 'getSiteAgentFiles', siteId ),
+	setSiteAgentFileEnabled: ( siteId, id, enabled ) =>
+		ipcRendererInvoke( 'setSiteAgentFileEnabled', siteId, id, enabled ),
+	removeSiteAgentFile: ( siteId, id ) => ipcRendererInvoke( 'removeSiteAgentFile', siteId, id ),
 	getGlobalInstructionsEnabled: () => ipcRendererInvoke( 'getGlobalInstructionsEnabled' ),
 	setGlobalInstructionsEnabled: ( enabled ) =>
 		ipcRendererInvoke( 'setGlobalInstructionsEnabled', enabled ),

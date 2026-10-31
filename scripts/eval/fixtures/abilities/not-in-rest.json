@@ -1,0 +1,125 @@
+{
+	"book": "The Left Hand of Darkness",
+	"abilities": [
+		{
+			"name": "book-club/list-books",
+			"inRest": true,
+			"annotations": {
+				"readonly": false,
+				"destructive": null,
+				"idempotent": null
+			},
+			"inputSchema": []
+		},
+		{
+			"name": "book-club/add-book",
+			"inRest": false,
+			"annotations": {
+				"readonly": null,
+				"destructive": null,
+				"idempotent": null
+			},
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"title": {
+						"type": "string"
+					},
+					"author": {
+						"type": "string"
+					}
+				},
+				"required": [ "title" ]
+			}
+		}
+	],
+	"runs": [
+		{
+			"name": "book-club/list-books",
+			"method": "POST",
+			"user": 0,
+			"input": null,
+			"status": 401,
+			"body": {
+				"code": "rest_ability_cannot_execute",
+				"message": "Sorry, you are not allowed to execute this ability.",
+				"data": {
+					"status": 401
+				}
+			}
+		},
+		{
+			"name": "book-club/add-book",
+			"method": "POST",
+			"user": 0,
+			"input": {
+				"title": "The Left Hand of Darkness",
+				"author": "The Left Hand of Darkness"
+			},
+			"status": 404,
+			"body": {
+				"code": "rest_ability_not_found",
+				"message": "Ability not found.",
+				"data": {
+					"status": 404
+				}
+			}
+		},
+		{
+			"name": "book-club/list-books",
+			"method": "POST",
+			"user": 1,
+			"input": null,
+			"status": 200,
+			"body": [
+				{
+					"id": 707,
+					"title": "The Left Hand of Darkness",
+					"author": "The Left Hand of Darkness"
+				},
+				{
+					"id": 706,
+					"title": "The Left Hand of Darkness",
+					"author": "The Left Hand of Darkness"
+				},
+				{
+					"id": 705,
+					"title": "The Left Hand of Darkness",
+					"author": "The Left Hand of Darkness"
+				},
+				{
+					"id": 704,
+					"title": "The Left Hand of Darkness",
+					"author": "The Left Hand of Darkness"
+				},
+				{
+					"id": 703,
+					"title": "The Left Hand of Darkness",
+					"author": "The Left Hand of Darkness"
+				},
+				{
+					"id": 702,
+					"title": "The Left Hand of Darkness",
+					"author": "The Left Hand of Darkness"
+				}
+			]
+		},
+		{
+			"name": "book-club/add-book",
+			"method": "POST",
+			"user": 1,
+			"input": {
+				"title": "The Left Hand of Darkness",
+				"author": "The Left Hand of Darkness"
+			},
+			"status": 404,
+			"body": {
+				"code": "rest_ability_not_found",
+				"message": "Ability not found.",
+				"data": {
+					"status": 404
+				}
+			}
+		}
+	]
+}

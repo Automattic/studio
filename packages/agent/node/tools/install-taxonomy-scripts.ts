@@ -9,7 +9,7 @@ const TAXONOMIST_SCRIPTS_DIR = 'tmp/taxonomist';
 
 export const installTaxonomyScriptsTool = defineTool(
 	'install_taxonomy_scripts',
-	'Copies the Taxonomist PHP scripts into a site so they can be run via wp_cli eval-file. ' +
+	'Copies the Taxonomist PHP scripts into a site so they can be run with `wp eval-file`. ' +
 		'Call this once before running any Taxonomist eval-file commands.',
 	{
 		nameOrPath: Type.String( { description: 'The site name or file system path to the site' } ),

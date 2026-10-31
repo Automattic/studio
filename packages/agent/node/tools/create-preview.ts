@@ -21,8 +21,6 @@ export const createPreviewTool = defineTool(
 		}, 'Failed to create preview site' );
 	},
 	{
-		promptSnippet:
-			'Create a preview site (a temporary, expiring hosted preview) for a local site; when a local site is selected, preview that site instead of creating a new local site; requires WordPress.com authentication and can take a few minutes, so tell the user to wait',
 		annotations: REMOTE_CHANGE,
 	}
 );

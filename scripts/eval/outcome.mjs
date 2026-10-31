@@ -2,8 +2,7 @@
 //
 // Each check judges what the turn left behind — the site's WordPress state,
 // its rendered home page, its theme files, and what the user was told — not
-// which tools the agent called. The one exception is `skillsLoadedFirst`, for
-// routing cases: which runbooks the agent read before starting the work. The runner captures that state after the turn
+// which tools the agent called. The runner captures that state after the turn
 // (apps/cli/ai/eval-outcome.ts) into the result's `outcome` field.
 //
 // Use from promptfoo.config.yaml as `type: javascript` with
@@ -40,13 +39,22 @@ const asksUser = ( text ) =>
 		text
 	);
 
-// The site a case is about: the one the turn created with `vars.siteName`,
-// otherwise the seeded active site.
+// The site a case is about: the one named `vars.siteName`; with a seeded
+// active site, that one, as the request is about it; otherwise the site the
+// turn created.
 function site( d, vars ) {
 	const sites = d.outcome?.sites || [];
+	const created = sites.filter( ( s ) => s.created );
+	if ( ! vars.siteName && ! vars.seed?.activeSite && created.length > 1 ) {
+		throw new Error(
+			`the turn created ${ created.length } sites: ${ created
+				.map( ( s ) => `"${ s.name }"` )
+				.join( ', ' ) }`
+		);
+	}
 	const found = vars.siteName
 		? sites.find( ( s ) => s.name === vars.siteName )
-		: sites.find( ( s ) => ! s.created ) || sites[ 0 ];
+		: ( vars.seed?.activeSite ? null : created[ 0 ] ) || sites.find( ( s ) => ! s.created );
 	if ( ! found ) {
 		throw new Error(
 			`no site${
@@ -75,6 +83,103 @@ function siteDesignText( s, { includeThemeJson = true } = {} ) {
 	return [ ...content, ...files, s.customCss || '' ].join( '\n' );
 }
 
+// Every stylesheet that reaches the page, each on its own (in a blob joined
+// with block markup, the first rule's selector would start with the markup
+// before it), in roughly the order they load, comments stripped: theme `.css`
+// files, `css` in theme.json files and saved Global Styles, `<style>` blocks
+// in content, and custom CSS.
+function stylesheets( s ) {
+	const all = siteDesignText( s );
+	const jsonCss = [
+		...Object.entries( s.themeFiles || {} )
+			.filter( ( [ file ] ) => file.endsWith( '.json' ) )
+			.map( ( [ , text ] ) => text ),
+		JSON.stringify( s.userGlobalStyles ?? {} ),
+	].join( '\n' );
+	const sheets = [
+		...Object.entries( s.themeFiles || {} )
+			.filter( ( [ file ] ) => file.endsWith( '.css' ) )
+			.map( ( [ file, css ] ) => ( { source: file, css } ) ),
+		...[ ...jsonCss.matchAll( /"css"\s*:\s*"((?:[^"\\]|\\.)*)"/g ) ].map( ( m ) => ( {
+			source: 'theme.json css',
+			css: JSON.parse( `"${ m[ 1 ] }"` ),
+		} ) ),
+		...[ ...all.matchAll( /<style[^>]*>([\s\S]*?)<\/style>/g ) ].map( ( m ) => ( {
+			source: '<style>',
+			css: m[ 1 ],
+		} ) ),
+		{ source: 'custom CSS', css: s.customCss || '' },
+	];
+	return sheets.map( ( sheet ) => ( {
+		...sheet,
+		css: sheet.css.replace( /\/\*[\s\S]*?\*\//g, ' ' ),
+	} ) );
+}
+
+// The code files the turn added or changed on the active site.
+function codeChanges( s ) {
+	if ( ! Array.isArray( s.codeChanges ) )
+		throw new Error( `no record of the code the turn changed on "${ s.name }"` );
+	return s.codeChanges.filter( ( c ) => c.status !== 'removed' );
+}
+
+// Block markup with each `wp:pattern` and synced pattern (`wp:block`) it
+// references replaced by that pattern's content, a few levels deep.
+function expandPatterns( s, text, depth = 3 ) {
+	if ( depth <= 0 ) return text;
+	const patterns = Object.entries( s.themeFiles || {} )
+		.filter( ( [ file ] ) => /^patterns\/.+\.php$/.test( file ) )
+		.map( ( [ , src ] ) => [ src.match( /^[\s*]*Slug:\s*(\S+)/m )?.[ 1 ], src ] );
+	return text
+		.replace( /<!-- wp:pattern (\{.*?\}) \/-->/g, ( whole, attrs ) => {
+			const slug = attrs.match( /"slug"\s*:\s*"([^"]+)"/ )?.[ 1 ];
+			const file = patterns.find( ( [ patternSlug ] ) => slug && patternSlug === slug );
+			return file ? expandPatterns( s, file[ 1 ], depth - 1 ) : whole;
+		} )
+		.replace( /<!-- wp:block (\{.*?\}) \/-->/g, ( whole, attrs ) => {
+			const ref = Number( attrs.match( /"ref"\s*:\s*(\d+)/ )?.[ 1 ] );
+			const block = ( s.content || [] ).find( ( c ) => c.type === 'wp_block' && c.id === ref );
+			return block ? expandPatterns( s, block.content, depth - 1 ) : whole;
+		} );
+}
+
+// The template part WordPress renders for each slug: the copy saved in the
+// Site Editor, otherwise the theme's file, with its patterns expanded.
+function renderedParts( s ) {
+	const parts = {};
+	for ( const [ file, text ] of Object.entries( s.themeFiles || {} ) ) {
+		const slug = file.match( /^parts\/(.+)\.html$/ )?.[ 1 ];
+		if ( slug ) parts[ slug ] = text;
+	}
+	for ( const c of s.content || [] ) {
+		if ( c.type === 'wp_template_part' ) parts[ c.slug ] = c.content;
+	}
+	return Object.fromEntries(
+		Object.entries( parts ).map( ( [ slug, text ] ) => [ slug, expandPatterns( s, text ) ] )
+	);
+}
+
+// The markup the home page is built from: the static front page's content,
+// otherwise the front-page or home template (saved or theme file).
+function frontMarkup( s ) {
+	const front = frontPage( s );
+	if ( s.showOnFront === 'page' && front )
+		return { source: `page "${ front.title }"`, text: expandPatterns( s, front.content ) };
+	for ( const slug of [ 'front-page', 'home', 'index' ] ) {
+		const saved = ( s.content || [] ).find( ( c ) => c.type === 'wp_template' && c.slug === slug );
+		const text = saved?.content ?? s.themeFiles?.[ `templates/${ slug }.html` ];
+		if ( text !== undefined )
+			return {
+				source: `${ saved ? 'saved' : 'theme' } ${ slug } template`,
+				text: expandPatterns( s, text ),
+			};
+	}
+	return { source: 'nothing', text: '' };
+}
+
+const countBlocks = ( text, name ) =>
+	( text.match( new RegExp( `<!-- wp:${ name }(?=[\\s/])`, 'g' ) ) || [] ).length;
+
 // --- Shared outcome checks ---------------------------------------------------
 
 // The site the case is about exists, renders, and every published page,
@@ -93,6 +198,42 @@ export const siteWorks = check( ( d, vars ) => {
 		);
 	}
 	return pass( `"${ s.name }" renders at ${ s.url } with valid blocks` );
+} );
+
+// The rendered home page, as the capture saved it.
+const homeHtml = ( s ) => ( s.home?.htmlFile ? readFileSync( s.home.htmlFile, 'utf8' ) : '' );
+
+// The rendered home page shows each `vars.homeText`, and each plugin in
+// `vars.plugins` is still active: the feature works, not just the site.
+// (Both are lists of objects, like `followUps`, so promptfoo keeps them in one test.)
+export const featureStillWorks = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const plugins = ( vars.plugins || [] ).map( ( p ) => p.name );
+	const texts = ( vars.homeText || [] ).map( ( t ) => t.text );
+	const inactive = plugins.filter( ( plugin ) => ! ( s.plugins || [] ).includes( plugin ) );
+	if ( inactive.length )
+		return fail( `not active: ${ inactive.join( ', ' ) }; active: ${ s.plugins }` );
+	const html = homeHtml( s );
+	const missing = texts.filter( ( text ) => ! html.includes( text ) );
+	if ( missing.length ) return fail( `home page does not show: ${ missing.join( ', ' ) }` );
+	return pass( `active: ${ plugins.join( ', ' ) }; home page shows ${ texts.join( ', ' ) }` );
+} );
+
+// Every image on the rendered home page loads from the site itself, and
+// there are at least `vars.minImages` of them.
+export const homeImagesLoad = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const images = s.home?.images || [];
+	const broken = images.filter( ( image ) => image.status !== 200 );
+	if ( images.length < ( vars.minImages ?? 1 ) )
+		return fail( `home page shows ${ images.length } images, expected ${ vars.minImages ?? 1 }` );
+	if ( broken.length )
+		return fail(
+			`images that do not load from the site: ${ broken
+				.map( ( image ) => `${ image.src } (${ image.status ?? 'another site' })` )
+				.join( ', ' ) }`
+		);
+	return pass( `all ${ images.length } home page images load from the site` );
 } );
 
 // No other site the user has was changed or removed.
@@ -277,14 +418,17 @@ export const pushNotRunAndAsks = check( ( d ) => {
 		: fail( `the agent did not ask the user: ${ finalReply( d ).slice( 0, 300 ) }` );
 } );
 
-// No site was created or changed, and the reply asks whether to use the active site or make a new one.
-export const asksCurrentOrNew = check( ( d ) => {
+// No site was created or changed, and the user was asked whether to use the
+// active site or make a new one: by a question to the user, or in the reply.
+export const asksCurrentOrNew = check( ( d, vars ) => {
 	const created = ( d.outcome?.sites || [] ).filter( ( s ) => s.created );
 	if ( created.length ) return fail( `created "${ created[ 0 ].name }" without asking` );
 	if ( d.outcome?.requestSiteChanged ) return fail( 'changed the active site without asking' );
-	const text = reply( d );
+	const text = [ ...( d.questions || [] ).map( ( q ) => q.question ), reply( d ) ].join( '\n' );
+	const active = vars.seed?.activeSite?.name;
 	const offers =
-		/(current|existing|active)\s+site|Eval Active Site/i.test( text ) &&
+		( /(current|existing|active)\s+site/i.test( text ) ||
+			Boolean( active && text.includes( active ) ) ) &&
 		/\b(new|separate|another|second)\b/i.test( text );
 	return offers && asksUser( text )
 		? pass( 'asked: active site or a new one' )
@@ -293,27 +437,15 @@ export const asksCurrentOrNew = check( ( d ) => {
 
 // --- Site outcome checks -------------------------------------------------------
 
-// A static front page with block content, and the active theme looks the way DESIGN.md says.
-export const builtFromDesign = check( ( d, vars ) => {
+// A static front page with block content.
+export const builtFrontPage = check( ( d, vars ) => {
 	const s = site( d, vars );
 	const front = frontPage( s );
 	if ( s.showOnFront !== 'page' || ! front )
 		return fail( `no static front page (show_on_front=${ s.showOnFront })` );
 	if ( Object.keys( front.blocks ).length < 2 )
 		return fail( `the front page has almost no blocks: ${ JSON.stringify( front.blocks ) }` );
-	if ( ! s.designMd ) return fail( 'no DESIGN.md at the site root' );
-	const designColors = [ ...s.designMd.matchAll( /#[0-9a-f]{6}\b/gi ) ].map( ( m ) =>
-		m[ 0 ].toLowerCase()
-	);
-	const palette = new Set( ( s.palette || [] ).map( ( p ) => String( p.color ).toLowerCase() ) );
-	const followed = designColors.filter( ( c ) => palette.has( c ) );
-	if ( designColors.length && ! followed.length )
-		return fail(
-			`none of DESIGN.md's colors are in the theme palette: ${ designColors.join( ', ' ) }`
-		);
-	return pass(
-		`front page "${ front.title }" built; ${ followed.length }/${ designColors.length } DESIGN.md colors in the palette`
-	);
+	return pass( `front page "${ front.title }" built` );
 } );
 
 // The font families a theme.json declares, or undefined.
@@ -325,12 +457,52 @@ function fontFamilies( themeJson ) {
 	}
 }
 
-// The active theme is a new theme, with self-hosted fonts and a real screenshot.
-export const ownThemeWithFontsAndScreenshot = check( ( d, vars ) => {
+// The design is the site's own, kept where WordPress keeps a design: a theme
+// of its own (or a child theme), with the fonts it resolves self-hosted and a
+// screenshot; or a theme from WordPress.org customized as the Site Editor does,
+// through Global Styles (the wp_global_styles post) or templates saved for the
+// theme (get_block_templates() in wp-includes/block-template-utils.php), with
+// the fonts it adds served by the site. Template parts saved alone do not
+// count: run variants5 passed two sites that looked as Twenty Twenty-Five
+// ships, with only their footer saved.
+export const siteHasItsOwnDesign = check( ( d, vars ) => {
 	const s = site( d, vars );
-	// A theme from WordPress.org is one with a release to compare with, whatever its name.
-	if ( Array.isArray( s.themeChanges ) )
-		return fail( `the site still runs ${ s.theme.stylesheet }` );
+	// The active theme has a WordPress.org release to compare with.
+	if ( Array.isArray( s.themeChanges ) ) {
+		const user = s.userGlobalStyles ?? {};
+		// Global Styles save the site's settings, such as its palette, fonts and
+		// spacing, as well as its styles; either changes every block that uses them
+		// (WP_Theme_JSON_Resolver::get_merged_data() merges the user origin last).
+		const styled = [ user.styles, user.settings ].some(
+			( part ) => Object.keys( part ?? {} ).length > 0
+		);
+		const saved = ( s.content || [] )
+			.filter( ( c ) => [ 'wp_template', 'wp_template_part' ].includes( c.type ) )
+			.map( ( c ) => `${ c.type === 'wp_template' ? 'template' : 'part' } ${ c.slug }` );
+		// A part (header, footer) is the chrome around every page; on its own it
+		// leaves the page's look as the theme ships it.
+		if ( ! styled && ! saved.some( ( item ) => item.startsWith( 'template ' ) ) )
+			return fail(
+				`the site runs ${ s.theme.stylesheet } with no Global Styles and no saved templates${
+					saved.length ? `, only ${ saved.join( ', ' ) }` : ''
+				}`
+			);
+		const origin = new URL( s.url ).origin;
+		const remote = [
+			...JSON.stringify( user.settings?.typography ?? {} ).matchAll( /"(https?:[^"]+)"/g ),
+		]
+			.map( ( m ) => m[ 1 ] )
+			.filter( ( src ) => new URL( src ).origin !== origin );
+		if ( remote.length )
+			return fail(
+				`Global Styles load fonts from another host: ${ remote.slice( 0, 3 ).join( ', ' ) }`
+			);
+		return pass(
+			`${ s.theme.stylesheet } customized: ${ [ styled ? 'Global Styles' : '', ...saved ]
+				.filter( Boolean )
+				.join( ', ' ) }`
+		);
+	}
 	// A child theme's theme.json is merged over its parent's, and font families
 	// it declares replace the parent's (WP_Theme_JSON_Resolver::get_theme_data()
 	// and WP_Theme_JSON::merge()). WordPress serves each file:./ source through
@@ -382,34 +554,56 @@ export const navAnchorsWorkEverywhere = check( ( d, vars ) => {
 } );
 
 // The listed plugins are active and the front page uses a block from one of them.
-export const pluginBlockOnFrontPage = check( ( d, vars ) => {
-	const s = site( d, vars );
-	if ( ! s.plugins.includes( vars.plugin ) )
-		return fail( `${ vars.plugin } is not active: ${ JSON.stringify( s.plugins ) }` );
-	const front = frontPage( s );
-	const used = Object.keys( front?.blocks || {} ).filter( ( b ) =>
-		b.startsWith( vars.blockPrefix )
+// The home page holds a slideshow of at least `minSlides` images, by any
+// plugin or code: one frame holding them that shows fewer at once than it
+// holds, as a slideshow or carousel does. A gallery shows all of its images.
+export const slideshowOnHomePage = check( ( d, vars ) => {
+	const frames = site( d, vars ).home?.imageFrames;
+	if ( ! Array.isArray( frames ) )
+		return fail( `the home page was not measured: ${ JSON.stringify( frames ) }` );
+	const needed = vars.minSlides ?? 3;
+	const slideshow = frames.find(
+		( f ) => f.images >= needed && f.shown >= 1 && f.shown < f.images
 	);
-	return used.length
-		? pass( `front page uses ${ used.join( ', ' ) }` )
-		: fail(
-				`no ${ vars.blockPrefix }* block on the front page: ${ JSON.stringify( front?.blocks ) }`
-		  );
+	return slideshow
+		? pass(
+				`${ slideshow.element } holds ${ slideshow.images } images and shows ${ slideshow.shown } at once`
+		  )
+		: fail( `no frame shows fewer of its images than it holds: ${ JSON.stringify( frames ) }` );
 } );
 
 export const storeHasProducts = check( ( d, vars ) => {
 	const s = site( d, vars );
 	if ( ! s.plugins.includes( 'woocommerce' ) )
 		return fail( `WooCommerce is not active: ${ JSON.stringify( s.plugins ) }` );
-	return s.products > 0
-		? pass( `${ s.products } published product(s)` )
-		: fail( 'no published products' );
+	if ( s.shopPage !== 'publish' ) return fail( `the shop page is ${ s.shopPage || 'missing' }` );
+	const forSale = ( s.products || [] ).filter( ( p ) => p.purchasable && p.visible );
+	const needed = vars.minProducts ?? 1;
+	return forSale.length >= needed
+		? pass(
+				`${ forSale.length } product(s) for sale in the shop: ${ forSale
+					.map( ( p ) => `${ p.name } (${ p.price })` )
+					.join( ', ' ) }`
+		  )
+		: fail(
+				`${ forSale.length } of ${ needed } product(s) for sale; published: ${ JSON.stringify(
+					s.products
+				).slice( 0, 300 ) }`
+		  );
 } );
 
 // The design lives in a child theme of vars.parentTheme, the parent is still
 // its WordPress.org release, and headings use a serif face.
 // Both places WordPress keeps a customization through the theme's updates: a
 // child theme, or the Site Editor's Global Styles (the wp_global_styles post).
+// The site runs the theme the user asked for (vars.theme).
+export const runsTheTheme = check( ( d, vars ) => {
+	const { stylesheet } = site( d, vars ).theme;
+	return stylesheet === vars.theme
+		? pass( `the site runs ${ stylesheet }` )
+		: fail( `the site runs ${ stylesheet }, not ${ vars.theme }, the theme the user asked for` );
+} );
+
 export const customizedThroughChildTheme = check( ( d, vars ) => {
 	const s = site( d, vars );
 	const child = s.theme.template === vars.parentTheme && s.theme.stylesheet !== vars.parentTheme;
@@ -478,21 +672,8 @@ export const noInlineDisplayOnBlockWrappers = check( ( d, vars ) => {
 			.flatMap( ( m ) => m[ 1 ].split( /\s+/ ) )
 			.filter( Boolean )
 	);
-	// Each stylesheet on its own: in a blob joined with block markup, the
-	// first rule's selector would start with the markup before it.
-	const stylesheets = [
-		...Object.entries( s.themeFiles || {} )
-			.filter( ( [ file ] ) => file.endsWith( '.css' ) )
-			.map( ( [ , text ] ) => text ),
-		s.customCss || '',
-		...[ ...all.matchAll( /<style[^>]*>([\s\S]*?)<\/style>/g ) ].map( ( m ) => m[ 1 ] ),
-		...[ ...all.matchAll( /"css"\s*:\s*"((?:[^"\\]|\\.)*)"/g ) ].map( ( m ) =>
-			JSON.parse( `"${ m[ 1 ] }"` )
-		),
-	];
 	const offenders = [];
-	for ( const sheet of stylesheets ) {
-		const css = sheet.replace( /\/\*[\s\S]*?\*\//g, ' ' );
+	for ( const { css } of stylesheets( s ) ) {
 		for ( const m of css.matchAll(
 			/([^{}]+)\{([^{}]*display\s*:\s*inline(?:-block|-flex|-grid|-table)?(?![\w-])[^{}]*)\}/g
 		) ) {
@@ -559,38 +740,366 @@ export const repeatedTreatmentIsBlockStyle = check( ( d, vars ) => {
 	return pass( `variation "${ applied[ 0 ] }" applied ${ applied.length } times` );
 } );
 
-// DESIGN.md's token changed and the active theme's palette carries the new value.
-export const designTokenReachedTheme = check( ( d, vars ) => {
-	const s = site( d, vars );
-	const value = s.designMd
-		?.match( new RegExp( `${ vars.token }:\\s*"?(#[0-9a-fA-F]{3,8})` ) )?.[ 1 ]
-		?.toLowerCase();
-	if ( ! value || value === vars.originalValue.toLowerCase() )
-		return fail( `DESIGN.md ${ vars.token } is ${ value ?? 'missing' }` );
-	const inPalette = ( s.palette || [] ).some( ( p ) => String( p.color ).toLowerCase() === value );
-	return inPalette
-		? pass( `DESIGN.md ${ vars.token } is ${ value }, and the theme palette has it` )
-		: fail( `DESIGN.md ${ vars.token } is ${ value }, but the theme palette does not have it` );
+// The palette preset `vars.slug` resolves to a color other than
+// `vars.originalValue`. The resolved palette lists core's, the theme's and the
+// user's presets in that order, so the last of a slug is the one WordPress uses.
+export const presetColorChanged = check( ( d, vars ) => {
+	const color = ( site( d, vars ).palette || [] )
+		.filter( ( p ) => p.slug === vars.slug )
+		.pop()
+		?.color?.toLowerCase();
+	if ( ! color ) return fail( `no ${ vars.slug } color in the resolved palette` );
+	return color === vars.originalValue.toLowerCase()
+		? fail( `${ vars.slug } is still ${ color }` )
+		: pass( `${ vars.slug } resolves to ${ color }` );
 } );
 
-// Routing: every skill in `vars.skills` was loaded before the run's stop call
-// (`vars.stopAt`), that is, before the agent started the work. A run that never
-// reached a stop call is judged on all of its calls.
-export const skillsLoadedFirst = check( ( d, vars ) => {
-	const calls = d.stoppedAt
-		? ( d.toolCalls || [] ).slice( 0, d.stoppedAt.index )
-		: d.toolCalls || [];
-	const loaded = calls.filter( ( c ) => c.name === 'Skill' ).map( ( c ) => c.input?.name );
-	// Objects, not strings: promptfoo would expand an array of strings into one test per element.
-	const missing = ( vars.skills || [] )
-		.map( ( skill ) => skill.name )
-		.filter( ( name ) => ! loaded.includes( name ) );
-	const before = d.stoppedAt ? `before ${ d.stoppedAt.toolName }` : 'in the whole run';
-	return missing.length
-		? fail(
-				`not loaded ${ before }: ${ missing.join( ', ' ) }; loaded: ${ JSON.stringify( loaded ) }`
+const pathOf = ( url ) => new URL( url ).pathname.replace( /\/?$/, '/' );
+
+// Each page the prompt asks for (`vars.pages`, by `title`) is published, is in
+// the rendered navigation, and its link opens it.
+export const menuReachesPages = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const published = ( s.content || [] ).filter( ( c ) => c.type === 'page' && ! c.isFront );
+	const titled = ( title ) =>
+		published.find( ( p ) => p.title.trim().toLowerCase() === title.toLowerCase() );
+	const wanted = vars.pages.map( ( p ) => p.title );
+	const absent = wanted.filter( ( title ) => ! titled( title ) );
+	if ( absent.length )
+		return fail(
+			`no published page titled ${ absent
+				.map( ( t ) => `"${ t }"` )
+				.join( ', ' ) }: ${ JSON.stringify( published.map( ( p ) => p.title ) ) }`
+		);
+	const reached = Object.values( s.home?.navTargets || {} )
+		.filter( ( t ) => t.status === 200 )
+		.map( ( t ) => pathOf( t.url ) );
+	const missing = wanted.filter(
+		( title ) => ! reached.includes( pathOf( titled( title ).link ) )
+	);
+	if ( missing.length )
+		return fail(
+			`the navigation does not open ${ missing
+				.map( ( t ) => `"${ t }"` )
+				.join( ', ' ) }; it leads to ${ JSON.stringify( s.home?.navTargets ) }`
+		);
+	return pass( `the navigation opens ${ wanted.map( ( t ) => `"${ t }"` ).join( ', ' ) }` );
+} );
+
+// The abilities the turn added, run through the Abilities API's REST routes by
+// the case's inspection (INSPECT_JSON: each added ability, and each run with
+// its method, user, input, status and body). Each one that writes is in REST
+// and refuses a visitor; run by an administrator, one adds the case's book,
+// and then a read-only one lists it.
+export const abilitiesWork = check( ( d ) => {
+	const raw = ( d.inspections || [] )
+		.map( ( i ) => i.stdout )
+		.join( '\n' )
+		.match( /INSPECT_JSON=(.*)/ );
+	if ( ! raw )
+		return fail(
+			`no abilities inspection: ${ JSON.stringify( d.inspections || d.error || null ).slice(
+				0,
+				300
+			) }`
+		);
+	const { book, abilities, runs } = JSON.parse( raw[ 1 ] );
+	if ( ! abilities.length ) return fail( 'no ability was added' );
+	const hidden = abilities.filter( ( a ) => ! a.inRest ).map( ( a ) => a.name );
+	if ( hidden.length )
+		return fail( `not shown in REST (meta.show_in_rest): ${ hidden.join( ', ' ) }` );
+	const ok = ( r ) => r.status >= 200 && r.status < 300;
+	const open = runs.filter( ( r ) => r.user === 0 && ok( r ) ).map( ( r ) => r.name );
+	if ( open.length ) return fail( `a visitor ran ${ open.join( ', ' ) }` );
+	const adds = runs.filter( ( r ) => r.user !== 0 && r.method !== 'GET' );
+	if ( ! adds.some( ok ) )
+		return fail(
+			`no ability added the book: ${ JSON.stringify(
+				adds.map( ( r ) => [ r.name, r.status, r.body ] )
+			).slice( 0, 300 ) }`
+		);
+	const reads = runs.filter( ( r ) => r.method === 'GET' );
+	if ( ! reads.length )
+		return fail( 'no read-only ability (meta.annotations.readonly) to list the books' );
+	const lists = reads.filter( ( r ) => ok( r ) && JSON.stringify( r.body ).includes( book ) );
+	return lists.length
+		? pass(
+				`${ adds.find( ok ).name } added "${ book }" and ${
+					lists[ 0 ].name
+				} lists it; a visitor is refused`
 		  )
-		: pass( `loaded ${ before }: ${ JSON.stringify( loaded ) }` );
+		: fail(
+				`no read-only ability lists "${ book }": ${ JSON.stringify(
+					reads.map( ( r ) => [ r.name, r.status, r.body ] )
+				).slice( 0, 300 ) }`
+		  );
+} );
+
+// The home page shows a block that a plugin registers with WordPress, with an
+// editor script so editors can insert it, and it renders `vars.text`.
+export const pluginBlockRendered = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const used = Object.keys( frontPage( s )?.blocks || {} );
+	const fromPlugin = ( s.blockTypes || [] ).filter(
+		( t ) =>
+			used.includes( t.name ) &&
+			t.editorScripts.some( ( src ) => String( src ).includes( '/wp-content/plugins/' ) )
+	);
+	if ( ! fromPlugin.length )
+		return fail(
+			`the home page uses no block a plugin registers with an editor script; it uses ${ JSON.stringify(
+				used
+			) }, and plugins register ${ JSON.stringify( s.blockTypes ) }`
+		);
+	if ( ! homeHtml( s ).includes( vars.text ) )
+		return fail( `the rendered home page does not show "${ vars.text }"` );
+	return pass( `the home page shows ${ fromPlugin.map( ( t ) => t.name ).join( ', ' ) }` );
+} );
+
+// At least `vars.minPosts` new posts, each category in `vars.categories` used,
+// and the rendered home page lists every new post.
+export const blogPostsOnHome = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const posts = ( s.content || [] ).filter(
+		( c ) => c.type === 'post' && c.slug !== 'hello-world'
+	);
+	if ( posts.length < vars.minPosts ) return fail( `${ posts.length } new published post(s)` );
+	const empty = vars.categories
+		.map( ( c ) => c.name )
+		.filter( ( name ) => ! posts.some( ( p ) => p.categories.includes( name ) ) );
+	if ( empty.length ) return fail( `no new post is filed under ${ empty.join( ', ' ) }` );
+	const html = homeHtml( s );
+	const unlisted = posts.filter( ( p ) => ! html.includes( p.renderedTitle ) );
+	if ( unlisted.length )
+		return fail(
+			`the home page does not list ${ unlisted.map( ( p ) => `"${ p.title }"` ).join( ', ' ) }`
+		);
+	return pass(
+		`${ posts.length } posts in ${ vars.categories
+			.map( ( c ) => c.name )
+			.join( ', ' ) }, all on the home page`
+	);
+} );
+
+// --- Native WordPress features over custom code ------------------------------
+
+// The header WordPress renders carries WooCommerce's Mini-Cart block, and the
+// turn added no cart-count code of its own to themes or plugins.
+export const miniCartInHeader = check( ( d, vars ) => {
+	const s = site( d, vars );
+	if ( ! ( s.plugins || [] ).includes( 'woocommerce' ) )
+		return fail( `WooCommerce is not active: ${ JSON.stringify( s.plugins ) }` );
+	const custom = codeChanges( s ).filter(
+		( c ) =>
+			/\.(php|m?js|jsx|tsx?)$/.test( c.file ) &&
+			! c.file.startsWith( 'plugins/woocommerce/' ) &&
+			/woocommerce_add_to_cart_fragments|add_to_cart_fragments|get_cart_contents_count|cart_contents_count|wc_cart_fragments|wc-cart-fragments|added_to_cart|wc_fragments/.test(
+				c.text || ''
+			)
+	);
+	if ( custom.length )
+		return fail( `custom cart-count code added: ${ custom.map( ( c ) => c.file ).join( ', ' ) }` );
+	const headers = Object.entries( renderedParts( s ) ).filter( ( [ slug ] ) =>
+		/header/.test( slug )
+	);
+	const withCart = headers.filter( ( [ , text ] ) => countBlocks( text, 'woocommerce/mini-cart' ) );
+	return withCart.length
+		? pass(
+				`header part ${ withCart
+					.map( ( [ slug ] ) => `"${ slug }"` )
+					.join( ', ' ) } has the Mini-Cart block`
+		  )
+		: fail(
+				`no woocommerce/mini-cart block in the header parts ${ JSON.stringify(
+					headers.map( ( [ slug ] ) => slug )
+				) }`
+		  );
+} );
+
+// The home page has at least three Details (or Accordion item) blocks, no
+// Custom HTML block or inline script, and the turn added no JavaScript file.
+export const faqUsesDetailsBlocks = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const { source, text } = frontMarkup( s );
+	const items = countBlocks( text, 'details' ) + countBlocks( text, 'accordion-item' );
+	if ( items < 3 )
+		return fail( `${ source } has ${ items } Details/Accordion item block(s), not three` );
+	if ( countBlocks( text, 'html' ) ) return fail( `${ source } has a Custom HTML block` );
+	if ( /<script\b/i.test( text ) ) return fail( `${ source } has an inline script` );
+	const scripts = codeChanges( s ).filter( ( c ) => /\.(m?js|jsx|tsx?)$/.test( c.file ) );
+	if ( scripts.length )
+		return fail( `JavaScript added: ${ scripts.map( ( c ) => c.file ).join( ', ' ) }` );
+	return pass(
+		`${ source } has ${ items } Details/Accordion item blocks and no custom HTML or JS`
+	);
+} );
+
+// A published About page built from native blocks (heading, paragraph, image),
+// with no Custom HTML block, and no theme template of raw HTML from the turn.
+export const pageInNativeBlocks = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const title = new RegExp( vars.pageTitle ?? 'about', 'i' );
+	const page = ( s.content || [] ).find( ( c ) => c.type === 'page' && title.test( c.title ) );
+	if ( ! page ) return fail( `no published page titled like ${ title }` );
+	const blocks = page.blocks || {};
+	if ( blocks[ 'core/html' ] ) return fail( `"${ page.title }" has a Custom HTML block` );
+	const missing = [
+		[ 'heading', [ 'core/heading' ] ],
+		[ 'paragraph', [ 'core/paragraph' ] ],
+		[ 'image', [ 'core/image', 'core/cover', 'core/media-text' ] ],
+	].filter( ( [ , names ] ) => ! names.some( ( n ) => blocks[ n ] ) );
+	if ( missing.length )
+		return fail(
+			`"${ page.title }" has no ${ missing
+				.map( ( [ k ] ) => k )
+				.join( ', ' ) } block: ${ JSON.stringify( blocks ) }`
+		);
+	const rawHtml = ( text ) =>
+		countBlocks( text, 'html' ) > 0 || ( ! text.includes( '<!-- wp:' ) && /<[a-z]/i.test( text ) );
+	const templates = [
+		...codeChanges( s )
+			.filter(
+				( c ) =>
+					/^themes\/[^/]+\/(templates|parts)\/.+\.html$/.test( c.file ) && rawHtml( c.text || '' )
+			)
+			.map( ( c ) => c.file ),
+		...codeChanges( s )
+			.filter(
+				( c ) =>
+					/^themes\/[^/]+\/(?:templates\/[^/]+|(?:page|front-page|home|index|singular|single)[\w-]*)\.php$/.test(
+						c.file
+					) || /Template Name:/.test( c.text || '' )
+			)
+			.map( ( c ) => c.file ),
+		...( s.content || [] )
+			.filter( ( c ) => c.type === 'wp_template' && rawHtml( c.content ) )
+			.map( ( c ) => `saved template "${ c.slug }"` ),
+	];
+	if ( templates.length ) return fail( `templates of raw HTML: ${ templates.join( ', ' ) }` );
+	return pass( `"${ page.title }" built from blocks: ${ Object.keys( blocks ).join( ', ' ) }` );
+} );
+
+// --- Design changes through theme.json -----------------------------------------
+
+// The theme has a valid style variation (`styles/*.json`) whose palette or
+// background differs from the theme's own, and no stylesheet carries a
+// dark mode of its own (`prefers-color-scheme`, `.dark`-style selectors).
+export const darkStyleVariation = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const parse = ( text ) => {
+		try {
+			return JSON.parse( text );
+		} catch {
+			return null;
+		}
+	};
+	const base = parse( s.themeFiles?.[ 'theme.json' ] || '{}' ) || {};
+	const look = ( json ) =>
+		JSON.stringify( [
+			json?.settings?.color?.palette ?? null,
+			json?.styles?.color?.background ?? null,
+		] );
+	const variations = Object.entries( s.themeFiles || {} ).filter( ( [ file ] ) =>
+		/^styles\/[^/]+\.json$/.test( file )
+	);
+	if ( ! variations.length )
+		return fail( `${ s.theme?.stylesheet } has no styles/*.json variation` );
+	const invalid = variations.filter( ( [ , text ] ) => ! parse( text )?.version );
+	if ( invalid.length )
+		return fail( `invalid variation(s): ${ invalid.map( ( [ file ] ) => file ).join( ', ' ) }` );
+	const effective = ( json ) =>
+		look( {
+			settings: {
+				color: { palette: json.settings?.color?.palette ?? base.settings?.color?.palette },
+			},
+			styles: {
+				color: { background: json.styles?.color?.background ?? base.styles?.color?.background },
+			},
+		} );
+	const differing = variations.filter(
+		( [ , text ] ) => effective( parse( text ) ) !== look( base )
+	);
+	if ( ! differing.length )
+		return fail(
+			`no variation changes the palette or background: ${ variations
+				.map( ( [ f ] ) => f )
+				.join( ', ' ) }`
+		);
+	const darkCss = stylesheets( s ).filter( ( { css } ) =>
+		/prefers-color-scheme|(?:^|[\s,>+~}(])(?:html|body)?\.(?:is-)?dark(?:-mode|-theme)?(?![\w-])|\[data-(?:theme|color-scheme|mode)\s*=\s*["']?dark/i.test(
+			css
+		)
+	);
+	if ( darkCss.length )
+		return fail( `dark-mode CSS in ${ darkCss.map( ( c ) => c.source ).join( ', ' ) }` );
+	return pass(
+		`variation ${ differing
+			.map( ( [ f ] ) => f )
+			.join( ', ' ) } changes the colors, no dark-mode CSS`
+	);
+} );
+
+// A Custom HTML block holding a form: markup WordPress keeps but no block owns.
+const htmlBlockForm = ( text ) =>
+	[ ...String( text ).matchAll( /<!--\s*wp:html\b[\s\S]*?<!--\s*\/wp:html\s*-->/g ) ].some( ( m ) =>
+		/<form\b/i.test( m[ 0 ] )
+	);
+
+// A visitor's message, sent through a published page's form, is stored on the
+// site (formsSent: the post types, meta keys or options now holding it), and
+// the page's form is not a Custom HTML block.
+export const contactFormWorks = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const sent = ( s.formsSent || [] ).filter( ( f ) => f.page );
+	if ( ! sent.length )
+		return fail(
+			`no published page has a form that takes a message: ${ JSON.stringify( s.formsSent ) }`
+		);
+	const where = ( f ) => [
+		...( f.stored?.postTypes || [] ).map( ( t ) => `a ${ t } post` ),
+		...( f.stored?.metaKeys || [] ).map( ( k ) => `post meta ${ k }` ),
+		...( f.stored?.optionNames || [] ).map( ( o ) => `option ${ o }` ),
+	];
+	const stored = sent.find( ( f ) => where( f ).length );
+	if ( ! stored )
+		return fail(
+			`the message sent from ${ sent
+				.map( ( f ) => f.page )
+				.join( ', ' ) } is stored nowhere on the site; the page then read: ${ sent
+				.map( ( f ) => f.error || f.afterText.slice( 0, 300 ) )
+				.join( ' | ' ) }`
+		);
+	const page = ( s.content || [] ).find( ( c ) => c.link === stored.page );
+	if ( page && htmlBlockForm( page.content ) )
+		return fail( `${ stored.page } builds its form in a Custom HTML block` );
+	return pass(
+		`the message sent from ${ stored.page } is stored as ${ where( stored ).join( ', ' ) }`
+	);
+} );
+
+// The rendered home page's footer (or what follows its main content) has an email signup form, and no footer part
+// builds it in a Custom HTML block.
+export const newsletterSignupInFooter = check( ( d, vars ) => {
+	const s = site( d, vars );
+	// The footer: <footer> elements, and whatever follows the main content.
+	const html = homeHtml( s );
+	const footers = [
+		...[ ...html.matchAll( /<footer\b[\s\S]*?<\/footer>/g ) ].map( ( m ) => m[ 0 ] ),
+		html.includes( '</main>' ) ? html.slice( html.lastIndexOf( '</main>' ) ) : '',
+	];
+	const signup = footers.find( ( f ) => /<form\b[\s\S]*?<input\b[^>]*type=["']?email/i.test( f ) );
+	if ( ! signup )
+		return fail( `the rendered footer has no email signup form after the main content` );
+	const raw = Object.entries( renderedParts( s ) ).filter(
+		( [ slug, text ] ) => /footer/.test( slug ) && htmlBlockForm( text )
+	);
+	if ( raw.length )
+		return fail(
+			`footer part ${ raw
+				.map( ( [ slug ] ) => slug )
+				.join( ', ' ) } builds its form in a Custom HTML block`
+		);
+	return pass( 'the rendered footer has an email signup form built from blocks' );
 } );
 
 export const questionnaireSkip = check( ( d ) => {

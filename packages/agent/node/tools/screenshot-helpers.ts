@@ -1,9 +1,17 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { getSharedBrowser } from '@studio/agent/node/browser-utils';
 import { resolveScreenshotDirectory } from '@studio/agent/node/screenshot-storage';
+import {
+	pageBreakage,
+	pageContrast,
+	pageLayout,
+	pageOverflow,
+	pageTextFit,
+	type TextFit,
+} from './page-layout';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 
 type Browser = Awaited< ReturnType< typeof getSharedBrowser > >;
@@ -42,25 +50,49 @@ const MODEL_IMAGE_MAX_EDGE_PX = 2000;
 const IMAGE_SETTLE_TIMEOUT_MS = 3000;
 const PAGE_SETTLE_TIMEOUT_MS = 2500;
 
-async function waitForPageToSettle( page: Page ): Promise< void > {
-	await page
-		.waitForLoadState( 'networkidle', { timeout: PAGE_SETTLE_TIMEOUT_MS } )
-		.catch( () => {} );
+// The requests a page has open, from before it navigates: what it loads
+// without them is all it loads, where waiting for 500ms of no network
+// activity ('networkidle') adds that half second to every capture.
+function trackRequests( page: Page ): () => number {
+	const open = new Set< unknown >();
+	const done = ( request: unknown ) => open.delete( request );
+	page.on( 'request', ( request ) => open.add( request ) );
+	page.on( 'requestfinished', done );
+	page.on( 'requestfailed', done );
+	return () => open.size;
+}
+
+// Settled once no request the page made is open across a paint: what it
+// loads, and what its scripts fetch as it loads.
+async function waitForPageToSettle( page: Page, openRequests: () => number ): Promise< void > {
+	const end = Date.now() + PAGE_SETTLE_TIMEOUT_MS;
+	const paint = () =>
+		page
+			.evaluate(
+				() =>
+					new Promise< void >( ( resolve ) =>
+						requestAnimationFrame( () => requestAnimationFrame( () => resolve() ) )
+					)
+			)
+			.catch( () => {} );
+	await paint();
+	while ( openRequests() > 0 && Date.now() < end ) {
+		await new Promise( ( resolve ) => setTimeout( resolve, 50 ) );
+		if ( openRequests() === 0 ) {
+			await paint();
+		}
+	}
 }
 
 export type ScreenshotFormat = 'png' | 'jpeg';
 
 export const SCREENSHOT_COLOR_SCHEME_VALUES = [ 'light', 'dark' ] as const;
 export type ScreenshotColorScheme = ( typeof SCREENSHOT_COLOR_SCHEME_VALUES )[ number ];
-export const SCREENSHOT_COLOR_SCHEME_DESCRIPTION =
-	'Color scheme to emulate: "light" or "dark". Defaults to the browser/system preference.';
 
 /**
- * Apply the media emulation shared by every browser-driving tool. Keeping
- * this in one place guarantees `inspect_design` reports styles under the same
- * prefers-color-scheme mode `take_screenshot` renders.
+ * Apply the prefers-color-scheme emulation a capture asks for.
  */
-export async function applyScreenshotMediaEmulation(
+async function applyScreenshotMediaEmulation(
 	page: Page,
 	colorScheme?: ScreenshotColorScheme
 ): Promise< void > {
@@ -71,6 +103,8 @@ export async function applyScreenshotMediaEmulation(
 }
 
 export interface ScreenshotCapture {
+	/** The address actually captured, after redirects. */
+	url: string;
 	buffer: Buffer;
 	modelImage?: { buffer: Buffer; width: number; height: number };
 	documentHeight: number;
@@ -79,6 +113,10 @@ export interface ScreenshotCapture {
 	capturedHeight: number;
 	offset: number;
 	clipped: boolean;
+	/** The page's layout as text, for a model that cannot view the capture. */
+	layout?: string[];
+	/** Where the page's text does not fit, as the browser lays it out. */
+	textFit: TextFit;
 }
 
 /** A JPEG copy that fits {@link MODEL_IMAGE_MAX_EDGE_PX}, or undefined when the capture already does. */
@@ -117,6 +155,62 @@ async function scaleForModel(
 }
 
 /**
+ * Waits for the page's fonts and images. For full-page captures, scrolls through
+ * the entire document so lazy-loaded images begin loading; otherwise waits only
+ * on images that intersect the first viewport, so above-the-fold shots stay quick.
+ */
+async function settleImages( page: Page, fullPage: boolean ): Promise< void > {
+	return page.evaluate(
+		async ( { fullPage, imageSettleTimeoutMs } ) => {
+			const delay = ( ms: number ) =>
+				new Promise< void >( ( resolve ) => setTimeout( resolve, ms ) );
+			const waitForPaint = () =>
+				new Promise< void >( ( resolve ) => {
+					requestAnimationFrame( () => requestAnimationFrame( () => resolve() ) );
+				} );
+
+			await Promise.race( [ document.fonts?.ready ?? Promise.resolve(), delay( 1000 ) ] );
+
+			if ( fullPage ) {
+				const scrollHeight = Math.max(
+					document.body.scrollHeight,
+					document.documentElement.scrollHeight
+				);
+				const viewportHeight = window.innerHeight;
+				for ( let y = 0; y < scrollHeight; y += viewportHeight ) {
+					window.scrollTo( 0, y );
+					await waitForPaint();
+				}
+				window.scrollTo( 0, 0 );
+			}
+
+			const pendingImages = Array.from( document.images ).filter( ( img ) => {
+				if ( img.complete ) {
+					return false;
+				}
+				if ( fullPage ) {
+					return true;
+				}
+				const rect = img.getBoundingClientRect();
+				return rect.bottom > 0 && rect.top < window.innerHeight;
+			} );
+			const timeout = delay( imageSettleTimeoutMs );
+			const allImages = Promise.all(
+				pendingImages.map(
+					( img ) =>
+						new Promise< void >( ( resolve ) => {
+							img.addEventListener( 'load', () => resolve(), { once: true } );
+							img.addEventListener( 'error', () => resolve(), { once: true } );
+						} )
+				)
+			);
+			await Promise.race( [ allImages, timeout ] );
+		},
+		{ fullPage, imageSettleTimeoutMs: IMAGE_SETTLE_TIMEOUT_MS }
+	);
+}
+
+/**
  * Capture a screenshot of `url` at the given viewport. Callers decide whether
  * to expose the image as base64 or a temp local file. Use
  * `jpeg` for vision-model input — full-page PNGs balloon to multi-MB and
@@ -139,148 +233,128 @@ export async function captureScreenshotBuffer(
 		forModel?: boolean;
 	}
 ): Promise< ScreenshotCapture > {
-	const format = options.format ?? 'png';
 	const browser = await getSharedBrowser();
 	const page = await browser.newPage( {
 		viewport,
 		deviceScaleFactor: options.deviceScaleFactor,
 	} );
-
 	try {
-		await applyScreenshotMediaEmulation( page, options.colorScheme );
-		await page.goto( url, { waitUntil: 'domcontentloaded', timeout: 30000 } );
-		await waitForPageToSettle( page );
-
-		// For full-page captures, scroll through the entire document so
-		// lazy-loaded images can begin loading. For viewport captures we keep
-		// the page where it is and only wait on images that intersect the
-		// first viewport, so above-the-fold shots stay quick on long pages.
-		await page.evaluate(
-			async ( { fullPage, imageSettleTimeoutMs } ) => {
-				const delay = ( ms: number ) =>
-					new Promise< void >( ( resolve ) => setTimeout( resolve, ms ) );
-				const waitForPaint = () =>
-					new Promise< void >( ( resolve ) => {
-						requestAnimationFrame( () => requestAnimationFrame( () => resolve() ) );
-					} );
-
-				await Promise.race( [ document.fonts?.ready ?? Promise.resolve(), delay( 1000 ) ] );
-
-				if ( fullPage ) {
-					const scrollHeight = Math.max(
-						document.body.scrollHeight,
-						document.documentElement.scrollHeight
-					);
-					const viewportHeight = window.innerHeight;
-					for ( let y = 0; y < scrollHeight; y += viewportHeight ) {
-						window.scrollTo( 0, y );
-						await waitForPaint();
-					}
-					window.scrollTo( 0, 0 );
-				}
-
-				const pendingImages = Array.from( document.images ).filter( ( img ) => {
-					if ( img.complete ) {
-						return false;
-					}
-					if ( fullPage ) {
-						return true;
-					}
-					const rect = img.getBoundingClientRect();
-					return rect.bottom > 0 && rect.top < window.innerHeight;
-				} );
-				const timeout = delay( imageSettleTimeoutMs );
-				const allImages = Promise.all(
-					pendingImages.map(
-						( img ) =>
-							new Promise< void >( ( resolve ) => {
-								img.addEventListener( 'load', () => resolve(), { once: true } );
-								img.addEventListener( 'error', () => resolve(), { once: true } );
-							} )
-					)
-				);
-				await Promise.race( [ allImages, timeout ] );
-			},
-			{ fullPage: options.fullPage, imageSettleTimeoutMs: IMAGE_SETTLE_TIMEOUT_MS }
-		);
-
-		// Hide the WordPress admin bar and scrollbars for cleaner shots.
-		await page.addStyleTag( {
-			content: `
-				#wpadminbar { display: none !important; }
-				html { margin-top: 0 !important; }
-				::-webkit-scrollbar { display: none !important; }
-				html, body { scrollbar-width: none !important; }
-			`,
-		} );
-
-		const dpr = options.deviceScaleFactor ?? 1;
-		const maxCssHeight = Math.floor( MAX_IMAGE_DIMENSION_PX / dpr );
-		const formatOptions =
-			format === 'jpeg'
-				? { type: 'jpeg' as const, quality: MODEL_JPEG_QUALITY }
-				: { type: 'png' as const };
-
-		if ( ! options.fullPage ) {
-			const contentHeight = await page.evaluate( () =>
-				Math.ceil(
-					Array.from( document.body.querySelectorAll( '*' ) ).reduce( ( bottom, element ) => {
-						const rect = element.getBoundingClientRect();
-						return rect.width > 0 && rect.height > 0
-							? Math.max( bottom, rect.bottom + window.scrollY )
-							: bottom;
-					}, 0 )
-				)
-			);
-			const buffer = await page.screenshot( { ...formatOptions } );
-			return {
-				buffer: Buffer.from( buffer ),
-				modelImage: options.forModel
-					? await scaleForModel( page, buffer, viewport.width * dpr, viewport.height * dpr )
-					: undefined,
-				documentHeight: viewport.height,
-				contentHeight,
-				capturedHeight: viewport.height,
-				offset: 0,
-				clipped: false,
-			};
-		}
-
-		const documentHeight = await page.evaluate( () =>
-			Math.max( document.body.scrollHeight, document.documentElement.scrollHeight )
-		);
-		const offset = Math.max( 0, Math.floor( options.offset ?? 0 ) );
-		if ( offset >= documentHeight ) {
-			throw new Error(
-				`offset ${ offset } exceeds document height ${ documentHeight }; nothing to capture.`
-			);
-		}
-		const remaining = documentHeight - offset;
-		const capturedHeight = Math.min( remaining, maxCssHeight );
-		// `fullPage: true` is required alongside `clip` so Playwright renders
-		// the entire document and crops to the requested region. Without it,
-		// the "resulting image" is the viewport and any clip.y beyond the
-		// viewport height fails with "Clipped area is either empty or outside
-		// the resulting image".
-		const buffer = await page.screenshot( {
-			...formatOptions,
-			fullPage: true,
-			clip: { x: 0, y: offset, width: viewport.width, height: capturedHeight },
-		} );
-		return {
-			buffer: Buffer.from( buffer ),
-			modelImage: options.forModel
-				? await scaleForModel( page, buffer, viewport.width * dpr, capturedHeight * dpr )
-				: undefined,
-			documentHeight,
-			contentHeight: documentHeight,
-			capturedHeight,
-			offset,
-			clipped: offset + capturedHeight < documentHeight,
-		};
+		await loadPage( page, url, options );
+		return await capturePage( page, viewport, options );
 	} finally {
 		await page.close();
 	}
+}
+
+// Loads a page as a visitor's browser does, without the admin bar and scrollbars.
+async function loadPage(
+	page: Page,
+	url: string,
+	options: { fullPage: boolean; colorScheme?: ScreenshotColorScheme }
+) {
+	const openRequests = trackRequests( page );
+	await applyScreenshotMediaEmulation( page, options.colorScheme );
+	const response = await page.goto( url, { waitUntil: 'domcontentloaded', timeout: 30000 } );
+	await waitForPageToSettle( page, openRequests );
+
+	await settleImages( page, options.fullPage );
+
+	// Hide the WordPress admin bar and scrollbars for cleaner shots.
+	await page.addStyleTag( {
+		content: `
+			#wpadminbar { display: none !important; }
+			html { margin-top: 0 !important; }
+			::-webkit-scrollbar { display: none !important; }
+			html, body { scrollbar-width: none !important; }
+		`,
+	} );
+	return response;
+}
+
+async function capturePage(
+	page: Page,
+	viewport: { width: number; height: number },
+	options: {
+		fullPage: boolean;
+		deviceScaleFactor?: number;
+		format?: ScreenshotFormat;
+		offset?: number;
+		forModel?: boolean;
+	}
+): Promise< ScreenshotCapture > {
+	const format = options.format ?? 'png';
+	const layout = options.forModel === false ? await pageLayout( page ) : undefined;
+	const textFit = await pageTextFit( page );
+	const dpr = options.deviceScaleFactor ?? 1;
+	const maxCssHeight = Math.floor( MAX_IMAGE_DIMENSION_PX / dpr );
+	const formatOptions =
+		format === 'jpeg'
+			? { type: 'jpeg' as const, quality: MODEL_JPEG_QUALITY }
+			: { type: 'png' as const };
+
+	if ( ! options.fullPage ) {
+		const contentHeight = await page.evaluate( () =>
+			Math.ceil(
+				Array.from( document.body.querySelectorAll( '*' ) ).reduce( ( bottom, element ) => {
+					const rect = element.getBoundingClientRect();
+					return rect.width > 0 && rect.height > 0
+						? Math.max( bottom, rect.bottom + window.scrollY )
+						: bottom;
+				}, 0 )
+			)
+		);
+		const buffer = await page.screenshot( { ...formatOptions } );
+		return {
+			url: page.url(),
+			buffer: Buffer.from( buffer ),
+			modelImage: options.forModel
+				? await scaleForModel( page, buffer, viewport.width * dpr, viewport.height * dpr )
+				: undefined,
+			documentHeight: viewport.height,
+			contentHeight,
+			capturedHeight: viewport.height,
+			offset: 0,
+			clipped: false,
+			layout,
+			textFit,
+		};
+	}
+
+	const documentHeight = await page.evaluate( () =>
+		Math.max( document.body.scrollHeight, document.documentElement.scrollHeight )
+	);
+	const offset = Math.max( 0, Math.floor( options.offset ?? 0 ) );
+	if ( offset >= documentHeight ) {
+		throw new Error(
+			`offset ${ offset } exceeds document height ${ documentHeight }; nothing to capture.`
+		);
+	}
+	const remaining = documentHeight - offset;
+	const capturedHeight = Math.min( remaining, maxCssHeight );
+	// `fullPage: true` is required alongside `clip` so Playwright renders
+	// the entire document and crops to the requested region. Without it,
+	// the "resulting image" is the viewport and any clip.y beyond the
+	// viewport height fails with "Clipped area is either empty or outside
+	// the resulting image".
+	const buffer = await page.screenshot( {
+		...formatOptions,
+		fullPage: true,
+		clip: { x: 0, y: offset, width: viewport.width, height: capturedHeight },
+	} );
+	return {
+		url: page.url(),
+		buffer: Buffer.from( buffer ),
+		modelImage: options.forModel
+			? await scaleForModel( page, buffer, viewport.width * dpr, capturedHeight * dpr )
+			: undefined,
+		documentHeight,
+		contentHeight: documentHeight,
+		capturedHeight,
+		offset,
+		clipped: offset + capturedHeight < documentHeight,
+		layout,
+		textFit,
+	};
 }
 
 export async function saveScreenshotFile(
@@ -314,4 +388,112 @@ export async function saveScreenshotFile(
 		name,
 		mimeType,
 	};
+}
+
+/** What a visitor gets that is wrong with a page, at one viewport. */
+export interface PageInspection {
+	// The address the page ended at, after any redirect.
+	url: string;
+	problems: string[];
+}
+
+interface Render {
+	// The page's HTML as served, without its per-request form tokens.
+	version: string;
+	fullPage: ScreenshotCapture;
+	screen: ScreenshotCapture;
+}
+
+// The pages Studio last rendered, by address and viewport, as take_screenshot
+// captures them for a model that views images. A change to what a site renders
+// from that its HTML does not show, such as a stylesheet, forgets them.
+const renders = new Map< string, Promise< Render | undefined > >();
+let generation = 0;
+// By the address a browser requests: a site's root with or without its slash is one page.
+const renderKey = ( url: string, viewport: { width: number } ) =>
+	`${ URL.canParse( url ) ? new URL( url ).href : url } ${ viewport.width }`;
+
+// Hidden form fields carry tokens WordPress and plugins make for each request
+// (wp_nonce_field, a contact form's token), which a visitor does not see.
+function pageVersion( html: string ): string {
+	return createHash( 'sha256' )
+		.update( html.replace( /<input\b[^>]*\btype=["']?hidden["']?[^>]*>/gi, '' ) )
+		.digest( 'hex' );
+}
+
+/** Forgets every render, as what the pages render from has changed. */
+export function forgetRenders(): void {
+	generation++;
+	renders.clear();
+}
+
+/**
+ * The capture Studio made of a page when it last rendered it, waiting for one
+ * under way, while the page still serves the same HTML.
+ */
+export async function renderedCapture(
+	url: string,
+	viewport: { width: number; height: number },
+	fullPage: boolean
+): Promise< ScreenshotCapture | undefined > {
+	const render = await renders.get( renderKey( url, viewport ) );
+	if ( ! render ) {
+		return undefined;
+	}
+	const html = await fetch( url, { signal: AbortSignal.timeout( 10000 ) } )
+		.then( ( response ) => response.text() )
+		.catch( () => undefined );
+	if ( html === undefined || pageVersion( html ) !== render.version ) {
+		return undefined;
+	}
+	return fullPage ? render.fullPage : render.screen;
+}
+
+/**
+ * Loads a page as a visitor's browser does, at one viewport, and states what is
+ * broken on it: an error status, PHP's error output, images that do not load
+ * and a page wider than the screen. It also captures the page as take_screenshot
+ * does for a model that views images, to answer a screenshot of it.
+ */
+export async function inspectPage(
+	url: string,
+	viewport: { width: number; height: number }
+): Promise< PageInspection > {
+	const browser = await getSharedBrowser();
+	const page = await browser.newPage( { viewport } );
+	const started = generation;
+	let finish: ( render: Render | undefined ) => void = () => {};
+	const rendering = new Promise< Render | undefined >( ( resolve ) => ( finish = resolve ) );
+	renders.set( renderKey( url, viewport ), rendering );
+	let render: Render | undefined;
+	try {
+		const response = await loadPage( page, url, { fullPage: true } );
+		const status = response?.status() ?? 0;
+		const problems = [
+			...( status >= 400 ? [ `The server answers ${ status }.` ] : [] ),
+			...( await pageBreakage( page ) ),
+			...( await pageOverflow( page ) ),
+			...( await pageContrast( page ) ),
+		];
+		const html = await response?.text().catch( () => undefined );
+		const options = { format: 'jpeg' as const, forModel: true };
+		if ( html !== undefined && status < 400 ) {
+			render = {
+				version: pageVersion( html ),
+				fullPage: await capturePage( page, viewport, { ...options, fullPage: true } ),
+				screen: await capturePage( page, viewport, { ...options, fullPage: false } ),
+			};
+		}
+		return { url: page.url(), problems };
+	} finally {
+		await page.close();
+		const current = started === generation ? render : undefined;
+		finish( current );
+		if ( current && page.url() !== url ) {
+			renders.set( renderKey( page.url(), viewport ), rendering );
+		}
+		if ( ! current && renders.get( renderKey( url, viewport ) ) === rendering ) {
+			renders.delete( renderKey( url, viewport ) );
+		}
+	}
 }

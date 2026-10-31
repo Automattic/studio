@@ -1,18 +1,18 @@
-import { copyFile } from 'node:fs/promises';
-import path from 'node:path';
 import { Type } from 'typebox';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
 import {
 	captureScreenshotBuffer,
+	renderedCapture,
 	saveScreenshotFile,
 	SCREENSHOT_COLOR_SCHEME_VALUES,
 	VIEWPORTS,
 	type ScreenshotColorScheme,
 } from './screenshot-helpers';
+import type { StudioToolDefinition } from './define-tool';
 
 const screenshotViewportSchema = Type.Enum( [ 'desktop', 'mobile', 'all' ], {
 	description:
-		'Viewport size: "desktop" (1040x1248), "mobile" (390x844), or "all" to capture both in one tool call. Defaults to desktop.',
+		'Viewport size: "desktop" (1040x1248), "mobile" (390x844), or "all" for both. Defaults to all.',
 } );
 type ScreenshotViewportArgument = 'desktop' | 'mobile' | 'all';
 type ScreenshotViewportType = keyof typeof VIEWPORTS;
@@ -27,7 +27,7 @@ function resolveViewportTypes( viewport?: ScreenshotViewportArgument ): Screensh
 	if ( viewport === 'all' ) {
 		return [ 'desktop', 'mobile' ];
 	}
-	return [ viewport ?? 'desktop' ];
+	return viewport ? [ viewport ] : [ 'desktop', 'mobile' ];
 }
 
 function resolveColorSchemes(
@@ -39,58 +39,64 @@ function resolveColorSchemes(
 	return [ colorScheme ];
 }
 
-function getCaptureLabel( target: {
+interface CaptureTarget {
+	// Set when the call captures more than one page, to tell them apart.
+	url?: string;
 	viewportType: ScreenshotViewportType;
 	colorScheme?: ScreenshotColorScheme;
-} ): string {
-	return target.colorScheme
-		? `${ target.viewportType } ${ target.colorScheme }`
-		: target.viewportType;
 }
 
-function getCaptureListLabel(
-	targets: Array< { viewportType: ScreenshotViewportType; colorScheme?: ScreenshotColorScheme } >
-): string {
-	return targets.map( getCaptureLabel ).join( ', ' );
+function getCaptureLabel( target: CaptureTarget ): string {
+	return [ target.url, target.viewportType, target.colorScheme ].filter( Boolean ).join( ' ' );
 }
+
+// The pages one call captures, each at every viewport it asks for.
+const MAX_URLS = 6;
 
 const TEXT_ONLY_NOTE =
-	'This model cannot view images, so the capture is not shown to you: verify the rendered page with inspect_design.';
+	'This model cannot view images, so the capture is not shown to you; its layout, as the browser rendered it, is.';
 
-// Text-only models still get the tool (it sets the theme screenshot) but no
-// image block, which they would otherwise describe without seeing.
+// Text-only models still get the tool, to show the user a page, but no image
+// block, which they would otherwise describe without seeing.
 export function createTakeScreenshotTool( {
 	visionEnabled,
 	imageLink,
-	userSeesCapture = true,
+	userSeesCaptures = true,
 }: {
 	visionEnabled: boolean;
 	imageLink?: ( file: string ) => string;
-	// False in a terminal session: no UI shows the capture, only its file path.
-	userSeesCapture?: boolean;
+	// False in a terminal session: the user sees only the saved file's path.
+	userSeesCaptures?: boolean;
 } ) {
 	return defineTool(
 		'take_screenshot',
-		'Takes a full-page screenshot of a URL. ' +
+		'Takes a screenshot of a URL: the first screen, or the whole page with `fullPage: true`. ' +
 			( visionEnabled
 				? 'Returns the screenshot as an image that you can analyze visually; tall pages are scaled down to 2000 pixels on their longest side, and the saved file keeps full resolution. '
 				: `${ TEXT_ONLY_NOTE } ` ) +
-			'Supports desktop and mobile viewports; pass `viewport: "all"` when you need both for design verification. ' +
-			'Pass `colorScheme: "light"`, `colorScheme: "dark"`, or `colorScheme: "all"` to verify pages that respond to prefers-color-scheme. ' +
-			'Long pages are clipped at 8000 vertical pixels; the response reports the document height and whether more remains, and you can call again with `offset` to fetch the next slice. ' +
-			'Use this to verify the site looks correct after building it. ' +
+			'Captures desktop and mobile unless `viewport` names one, and every page in `url` when it lists several, all in one call. ' +
+			'Pass `colorScheme: "light"`, `colorScheme: "dark"`, or `colorScheme: "all"` for pages that respond to prefers-color-scheme. ' +
+			'Full-page captures of long pages are clipped at 8000 vertical pixels; the response reports the document height and whether more remains, and you can call again with `offset` to fetch the next slice. ' +
+			'The user sees the site itself, in Studio or their browser, so a capture is yours alone; ' +
 			( imageLink
-				? 'Captures meant for the user come back with image lines to put in your reply, which show them; '
-				: 'Captures are shown to the user in the chat by default; ' ) +
-			'pass `display: false` for internal verification captures while iterating so the user only sees deliberate milestones.',
+				? 'pass `display: true` for one to show the user, which comes back with image lines to put in your reply.'
+				: 'pass `display: true` to show one to the user in the chat as well.' ),
 		{
-			url: Type.String( { description: 'The URL to screenshot' } ),
+			url: Type.Union(
+				[ Type.String(), Type.Array( Type.String(), { minItems: 1, maxItems: MAX_URLS } ) ],
+				{ description: `The URL to screenshot, or up to ${ MAX_URLS } URLs to capture together` }
+			),
 			viewport: Type.Optional( screenshotViewportSchema ),
 			colorScheme: Type.Optional( screenshotColorSchemeSchema ),
-			display: Type.Optional(
+			fullPage: Type.Optional(
 				Type.Boolean( {
 					description:
-						'Whether to show the capture to the user in the chat. Defaults to true; set false for internal verification captures the user does not need to see.',
+						'Capture the whole page rather than the first screen. Defaults to false; passing `offset` implies it.',
+				} )
+			),
+			display: Type.Optional(
+				Type.Boolean( {
+					description: 'Whether to show the capture to the user in the chat. Defaults to false.',
 				} )
 			),
 			offset: Type.Optional(
@@ -100,40 +106,43 @@ export function createTakeScreenshotTool( {
 						'Y-offset in CSS pixels for the capture region. Defaults to 0 (top of page). When a previous call reports the page was clipped, pass `offset` equal to where that capture ended to fetch the next slice.',
 				} )
 			),
-			themeScreenshot: Type.Optional(
-				Type.String( {
-					description:
-						"The absolute path of a theme's directory in a Studio site (`<site path>/wp-content/themes/<slug>`): also saves the desktop capture there as screenshot.jpg, the theme's thumbnail in Appearance → Themes.",
-				} )
-			),
 		},
 		async ( args, context ) => {
 			try {
-				const themeDirectory = args.themeScreenshot && path.resolve( args.themeScreenshot );
-				if ( themeDirectory && ! themeDirectory.startsWith( context.host.sitesRoot + path.sep ) ) {
-					throw new Error(
-						`themeScreenshot must be the absolute path of a theme directory in a Studio site (${ context.host.sitesRoot }/<site>/wp-content/themes/<slug>).`
-					);
-				}
+				const urls = typeof args.url === 'string' ? [ args.url ] : args.url;
 				const viewportTypes = resolveViewportTypes( args.viewport );
-				if ( themeDirectory && ! viewportTypes.includes( 'desktop' ) ) {
-					throw new Error( 'themeScreenshot needs a desktop capture.' );
-				}
 				const colorSchemes = resolveColorSchemes( args.colorScheme );
-				const captureTargets = viewportTypes.flatMap( ( viewportType ) =>
-					colorSchemes.map( ( colorScheme ) => ( { viewportType, colorScheme } ) )
-				);
-				const captureLabel = getCaptureListLabel( captureTargets );
-				context.onProgress( `Taking ${ captureLabel } screenshot of ${ args.url }…` );
-				const captures = await Promise.all(
-					captureTargets.map( async ( { viewportType, colorScheme } ) => {
-						const capture = await captureScreenshotBuffer( args.url, VIEWPORTS[ viewportType ], {
-							fullPage: true,
-							format: 'jpeg',
-							offset: args.offset,
+				const captureTargets: CaptureTarget[] = urls.flatMap( ( url ) =>
+					viewportTypes.flatMap( ( viewportType ) =>
+						colorSchemes.map( ( colorScheme ) => ( {
+							url: urls.length > 1 ? url : undefined,
+							viewportType,
 							colorScheme,
-							forModel: visionEnabled,
-						} );
+						} ) )
+					)
+				);
+				const captureLabel = captureTargets.map( getCaptureLabel ).join( ', ' );
+				const fullPage = args.fullPage === true || args.offset !== undefined;
+				const display = args.display === true;
+				context.onProgress( `Taking ${ captureLabel } screenshot of ${ urls.join( ', ' ) }…` );
+				const captures = await Promise.all(
+					captureTargets.map( async ( target ) => {
+						const { viewportType, colorScheme } = target;
+						const url = target.url ?? urls[ 0 ];
+						// The page as Studio rendered it after the last change, while it serves the same HTML.
+						const rendered =
+							visionEnabled && ! colorScheme && ! args.offset
+								? await renderedCapture( url, VIEWPORTS[ viewportType ], fullPage )
+								: undefined;
+						const capture =
+							rendered ??
+							( await captureScreenshotBuffer( url, VIEWPORTS[ viewportType ], {
+								fullPage,
+								format: 'jpeg',
+								offset: args.offset,
+								colorScheme,
+								forModel: visionEnabled,
+							} ) );
 						const screenshotFile = await saveScreenshotFile( context.host, capture.buffer, {
 							viewportType,
 							format: 'jpeg',
@@ -143,27 +152,29 @@ export function createTakeScreenshotTool( {
 						// desktop conversation history, where the inline artifact is the
 						// UI), so this is the terminal user's only handle on the file.
 						context.onProgress(
-							`Saved ${ getCaptureLabel( { viewportType, colorScheme } ) } screenshot to ${
-								screenshotFile.fileUrl
-							}`
+							`Saved ${ getCaptureLabel( target ) } screenshot to ${ screenshotFile.fileUrl }`
 						);
 						return {
-							viewportType,
-							colorScheme,
+							...target,
+							requestedUrl: url,
+							resolvedUrl: capture.url,
 							path: screenshotFile.path,
 							buffer: capture.buffer,
 							modelImage: capture.modelImage,
 							documentHeight: capture.documentHeight,
+							contentHeight: capture.contentHeight,
 							capturedHeight: capture.capturedHeight,
 							offset: capture.offset,
 							clipped: capture.clipped,
+							layout: capture.layout,
+							textFit: capture.textFit,
 							mimeType: screenshotFile.mimeType,
 							mediaWidgetPayload: {
 								type: 'media',
 								widgetProps: {
 									url: screenshotFile.fileUrl,
 									mediaKind: 'image',
-									alt: `Screenshot of ${ args.url } (${ getCaptureLabel( {
+									alt: `Screenshot of ${ url } (${ getCaptureLabel( {
 										viewportType,
 										colorScheme,
 									} ) })`,
@@ -185,6 +196,13 @@ export function createTakeScreenshotTool( {
 					const shown = capture.modelImage
 						? `, shown at ${ capture.modelImage.width }x${ capture.modelImage.height }`
 						: '';
+					if ( ! fullPage ) {
+						return `${ label }: captured the first screen (${
+							VIEWPORTS[ capture.viewportType ].width
+						}x${ capture.capturedHeight }) of a ${
+							capture.contentHeight
+						}px page${ shown }. Pass fullPage: true for the whole page.`;
+					}
 					if ( capture.clipped ) {
 						return `${ label }: captured rows ${ capture.offset }-${ captureEnd } of a ${ capture.documentHeight }px page${ shown }. Page was clipped; call again with offset:${ captureEnd } to fetch the next slice.`;
 					}
@@ -193,30 +211,32 @@ export function createTakeScreenshotTool( {
 					}
 					return `${ label }: captured full page (${ capture.documentHeight }px tall${ shown }).`;
 				};
-				const captureLines = captures.map(
-					( capture ) => `${ describeCapture( capture ) } Saved to ${ capture.path }`
+				const heading = ( title: string, lines: string[] ) =>
+					lines.length ? [ `  ${ title }`, ...lines.map( ( line ) => `    ${ line }` ) ] : [];
+				const captureLines = captures.map( ( capture ) =>
+					[
+						`${ describeCapture( capture ) } Saved to ${ capture.path }`,
+						...( capture.resolvedUrl && capture.resolvedUrl !== new URL( capture.requestedUrl ).href
+							? [
+									`  Requested ${ capture.requestedUrl }; rendered ${ capture.resolvedUrl } after redirect.`,
+							  ]
+							: [] ),
+						...( capture.layout ?? [] ).map( ( line ) => `  ${ line }` ),
+						...heading( "Text against the viewport's edge:", capture.textFit.edges ),
+						...heading( 'Words the browser breaks across lines:', capture.textFit.breaks ),
+					].join( '\n' )
 				);
 				const textLines =
 					captures.length === 1
 						? [ `Screenshot captured — ${ captureLines[ 0 ] }` ]
 						: [ 'Screenshots captured:', ...captureLines.map( ( line ) => `- ${ line }` ) ];
-				const desktop = captures.find( ( capture ) => capture.viewportType === 'desktop' );
-				if ( themeDirectory && desktop ) {
-					const themeScreenshot = path.join( themeDirectory, 'screenshot.jpg' );
-					await copyFile( desktop.path, themeScreenshot );
-					textLines.push(
-						`Saved the desktop capture as the theme screenshot: ${ themeScreenshot }`
-					);
-				}
 				if ( ! visionEnabled ) {
 					textLines.push( TEXT_ONLY_NOTE );
 				}
-				if ( ! userSeesCapture ) {
-					textLines.push(
-						'The user does not see this capture: the terminal shows them only the saved file path.'
-					);
+				if ( ! userSeesCaptures && ! imageLink ) {
+					textLines.push( 'The user does not see this capture, only the saved file path.' );
 				}
-				if ( imageLink && args.display !== false ) {
+				if ( imageLink && display ) {
 					textLines.push(
 						'To show the user, put these lines in your reply:',
 						...captures.map(
@@ -240,9 +260,9 @@ export function createTakeScreenshotTool( {
 							  } ) )
 							: [] ),
 					],
-					...( args.display === false
-						? {}
-						: { studioArtifacts: captures.map( ( capture ) => capture.mediaWidgetPayload ) } ),
+					...( display
+						? { studioArtifacts: captures.map( ( capture ) => capture.mediaWidgetPayload ) }
+						: {} ),
 				};
 			} catch ( error ) {
 				throw new Error(
@@ -253,9 +273,13 @@ export function createTakeScreenshotTool( {
 		{
 			settlesPendingWork: true,
 			annotations: LOCAL_CHANGE,
-			promptSnippet: visionEnabled
-				? 'Take a full-page screenshot of a URL (supports desktop, mobile, or `viewport: "all"` for both). Use this to visually check the site after building it.'
-				: 'Save a full-page screenshot of a URL to a file (supports desktop, mobile, or `viewport: "all"` for both). You cannot view the image, but it still sets the theme screenshot.',
+			forHost: ( options, host ): StudioToolDefinition | undefined =>
+				createTakeScreenshotTool( {
+					visionEnabled: options.visionEnabled !== false,
+					imageLink: options.imageLink,
+					// An app showing the conversation shows the captures as artifacts.
+					userSeesCaptures: Boolean( host.ui ) || Boolean( options.imageLink ),
+				} ),
 		}
 	);
 }

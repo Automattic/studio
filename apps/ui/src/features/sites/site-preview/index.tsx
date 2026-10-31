@@ -11,7 +11,7 @@ import {
 import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
 import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
-import { useSiteDesign } from '@/data/queries/use-site-design';
+import { useGlobalStyles } from '@/data/queries/use-global-styles';
 import {
 	useIsSiteStarting,
 	useIsSiteStopping,
@@ -121,7 +121,7 @@ export function SitePreview( {
 		goToHistoryIndex,
 		switchRealm,
 	} = usePreviewSurfaces( { siteId: site.id, siteUrl, path: safePath, reloadNonce, onPathChange } );
-	const siteDesign = useSiteDesign( site );
+	const globalStyles = useGlobalStyles( site );
 	const annotations = useSiteAnnotations( site.id );
 	const { loadingStage, reveal } = useLoadingStage( {
 		siteId: site.id,
@@ -148,7 +148,7 @@ export function SitePreview( {
 		( connector.capabilities.annotatePreview || activeSurfaceKey === 'design' );
 	const canAnnotate =
 		canAnnotateSurface &&
-		( activeSurfaceKey === 'design' ? !! siteDesign.data : !! activeSurface?.inspectorReady );
+		( activeSurfaceKey === 'design' ? !! globalStyles.data : !! activeSurface?.inspectorReady );
 	const progress = browserState.loading
 		? Math.max( browserState.progress, 0.12 )
 		: browserState.progress;
@@ -327,7 +327,7 @@ export function SitePreview( {
 			onJump={ goToHistoryIndex }
 			onPathChange={ onPathChange }
 			onSwitchRealm={ switchRealm }
-			hasDesignSystem={ !! siteDesign.data }
+			hasDesignSystem={ !! globalStyles.data }
 			onOpenExternal={ openExternal }
 			responsive={ responsive }
 			annotate={ annotate }
@@ -373,11 +373,11 @@ export function SitePreview( {
 									<SurfaceLayer key={ key } active={ active } design>
 										{ /* The view waits for the site's font stylesheet; only this pane should. */ }
 										<Suspense fallback={ null }>
-											{ siteDesign.isPending ||
-											( siteDesign.isFetching && ! siteDesign.data ) ? null : (
+											{ globalStyles.isPending ||
+											( globalStyles.isFetching && ! globalStyles.data ) ? null : (
 												<DesignSystemView
 													siteId={ site.id }
-													siteDesign={ siteDesign.data ?? null }
+													globalStyles={ globalStyles.data ?? null }
 													onAnnotationPick={ handleAnnotationPick }
 													onAnnotationAnchor={ ( anchor: AnnotationAnchor ) =>
 														setAnnotationAnchor( toViewportAnchor( anchor ) )

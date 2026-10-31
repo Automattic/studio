@@ -3,12 +3,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { SiteAgentFiles } from './site-agent-files';
-import type { SiteAgentFileKind } from '@/data/core';
 
-function setup( enabled = true, fail = false, kind: SiteAgentFileKind = 'skills' ) {
+function setup( enabled = true, fail = false ) {
 	const file = {
-		id: kind === 'skills' ? 'studio-cli' : 'agents',
-		displayName: kind === 'skills' ? 'Studio CLI' : 'AGENTS.md',
+		id: 'studio-cli',
+		displayName: 'Studio CLI',
 		description: 'CLI workflows',
 		installed: true,
 		enabled,
@@ -17,7 +16,7 @@ function setup( enabled = true, fail = false, kind: SiteAgentFileKind = 'skills'
 		{ preferences: { editor: null, terminal: null } as never },
 		{
 			getSiteAgentFiles: async () => [ { ...file } ],
-			setSiteAgentFileEnabled: async ( _siteId, _kind, _id, value ) => {
+			setSiteAgentFileEnabled: async ( _siteId, _id, value ) => {
 				if ( fail ) {
 					throw new Error( 'Could not update skill' );
 				}
@@ -30,8 +29,10 @@ function setup( enabled = true, fail = false, kind: SiteAgentFileKind = 'skills'
 		}
 	);
 	renderWithProviders(
-		<SiteAgentFiles site={ makeSite( { id: 'one' } ) } kind={ kind } onManageAll={ vi.fn() } />,
-		{ connector }
+		<SiteAgentFiles site={ makeSite( { id: 'one' } ) } onManageAll={ vi.fn() } />,
+		{
+			connector,
+		}
 	);
 	return connector;
 }
@@ -43,12 +44,7 @@ describe( 'site skill rows', () => {
 		await waitFor( () =>
 			expect( screen.getByRole( 'switch', { name: 'WordPress skills' } ) ).not.toBeChecked()
 		);
-		expect( connector.setSiteAgentFileEnabled ).toHaveBeenCalledWith(
-			'one',
-			'skills',
-			'studio-cli',
-			false
-		);
+		expect( connector.setSiteAgentFileEnabled ).toHaveBeenCalledWith( 'one', 'studio-cli', false );
 		expect( connector.removeSiteAgentFile ).not.toHaveBeenCalled();
 		expect( screen.getByRole( 'button', { name: 'Actions for Studio CLI' } ) ).toBeInTheDocument();
 		await waitFor( () =>
@@ -60,7 +56,6 @@ describe( 'site skill rows', () => {
 		);
 		expect( connector.setSiteAgentFileEnabled ).toHaveBeenLastCalledWith(
 			'one',
-			'skills',
 			'studio-cli',
 			true
 		);
@@ -72,12 +67,7 @@ describe( 'site skill rows', () => {
 		await waitFor( () =>
 			expect( screen.getByRole( 'switch', { name: 'Studio CLI' } ) ).not.toBeChecked()
 		);
-		expect( connector.setSiteAgentFileEnabled ).toHaveBeenCalledWith(
-			'one',
-			'skills',
-			'studio-cli',
-			false
-		);
+		expect( connector.setSiteAgentFileEnabled ).toHaveBeenCalledWith( 'one', 'studio-cli', false );
 		expect( connector.removeSiteAgentFile ).not.toHaveBeenCalled();
 		await waitFor( () =>
 			expect( screen.getByRole( 'switch', { name: 'Studio CLI' } ) ).toBeEnabled()
@@ -88,7 +78,6 @@ describe( 'site skill rows', () => {
 		);
 		expect( connector.setSiteAgentFileEnabled ).toHaveBeenLastCalledWith(
 			'one',
-			'skills',
 			'studio-cli',
 			true
 		);
@@ -104,12 +93,7 @@ describe( 'site skill rows', () => {
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
 		await waitFor( () =>
-			expect( connector.openSiteAgentFile ).toHaveBeenCalledWith(
-				'one',
-				'skills',
-				'studio-cli',
-				target
-			)
+			expect( connector.openSiteAgentFile ).toHaveBeenCalledWith( 'one', 'studio-cli', target )
 		);
 	} );
 
@@ -134,7 +118,7 @@ describe( 'site skill rows', () => {
 				screen.queryByRole( 'button', { name: 'Actions for Studio CLI' } )
 			).not.toBeInTheDocument()
 		);
-		expect( connector.removeSiteAgentFile ).toHaveBeenCalledWith( 'one', 'skills', 'studio-cli' );
+		expect( connector.removeSiteAgentFile ).toHaveBeenCalledWith( 'one', 'studio-cli' );
 		expect( screen.getByRole( 'switch', { name: 'Studio CLI' } ) ).not.toBeChecked();
 	} );
 
@@ -146,16 +130,5 @@ describe( 'site skill rows', () => {
 		await waitFor( () =>
 			expect( screen.getByRole( 'switch', { name: 'Studio CLI' } ) ).toBeEnabled()
 		);
-	} );
-} );
-
-describe( 'site instruction rows', () => {
-	it( 'links to the instructions documentation', async () => {
-		const connector = setup( true, false, 'instructions' );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Learn more…' } ) );
-		expect( connector.openExternalUrl ).toHaveBeenCalledWith(
-			'https://developer.wordpress.com/docs/developer-tools/studio/cli/'
-		);
-		expect( screen.queryByRole( 'button', { name: 'Install all' } ) ).not.toBeInTheDocument();
 	} );
 } );

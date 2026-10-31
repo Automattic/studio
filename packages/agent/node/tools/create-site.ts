@@ -66,7 +66,8 @@ export const createSiteTool = defineTool(
 		}
 	},
 	{
-		promptSnippet: 'Create a new WordPress site (name only — handles everything automatically)',
 		annotations: LOCAL_CHANGE,
+		siteParam: 'name',
+		reportsChecks: true,
 	}
 );

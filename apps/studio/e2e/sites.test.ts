@@ -259,16 +259,24 @@ test.describe( 'Site settings', () => {
 		await settings.open( siteName );
 		await settings.showSection( 'Debug' );
 		await expect( page.getByRole( 'switch', { name: 'Debug log', exact: true } ) ).toBeChecked();
-		await settings.showSection( 'Instructions' );
-		const agentsFile = path.join( ( await session.waitForSite( siteName ) ).path, 'AGENTS.md' );
-		await page.getByRole( 'button', { name: 'Actions for AGENTS.md', exact: true } ).click();
+		await settings.showSection( 'Skills' );
+		const skillFile = path.join(
+			( await session.waitForSite( siteName ) ).path,
+			'.agents',
+			'skills',
+			'wp-plugin-development',
+			'SKILL.md'
+		);
+		const skill = page.getByRole( 'switch', { name: 'Plugin Development', exact: true } );
+		await skill.click();
+		await expect( skill ).toBeChecked();
+		await expect.poll( () => pathExists( skillFile ) ).toBe( true );
+		await page
+			.getByRole( 'button', { name: 'Actions for Plugin Development', exact: true } )
+			.click();
 		await page.getByRole( 'menuitem', { name: 'Uninstall', exact: true } ).click();
-		const agents = page.getByRole( 'switch', { name: 'AGENTS.md', exact: true } );
-		await expect( agents ).not.toBeChecked();
-		await expect.poll( () => pathExists( agentsFile ) ).toBe( false );
-		await agents.click();
-		await expect( agents ).toBeChecked();
-		await expect.poll( () => pathExists( agentsFile ) ).toBe( true );
+		await expect( skill ).not.toBeChecked();
+		await expect.poll( () => pathExists( skillFile ) ).toBe( false );
 		await settings.close();
 	} );
 

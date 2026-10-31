@@ -308,20 +308,14 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 		preview_list: __( 'List previews' ),
 		preview_update: __( 'Update preview' ),
 		preview_delete: __( 'Delete preview' ),
-		refresh_browser: __( 'Refresh preview' ),
-		site_connected_remote_sites: __( 'List connected remote sites' ),
-		scaffold_theme: __( 'Scaffold theme' ),
-		pick_design: __( 'Pick design' ),
-		present_design_options: __( 'Present design options' ),
-		inspect_design: __( 'Inspect design' ),
-		validate_blocks: __( 'Validate blocks' ),
+		site_publish_targets: __( 'List publish targets' ),
+		create_theme: __( 'Create theme' ),
 		take_screenshot: __( 'Take screenshot' ),
 		generate_images: __( 'Generate images' ),
 		open_annotation_browser: __( 'Open annotation browser' ),
 		need_for_speed: __( 'Audit performance' ),
 		rank_me_up: __( 'Audit SEO' ),
 		install_taxonomy_scripts: __( 'Install taxonomy scripts' ),
-		wpcom_request: __( 'WordPress.com API' ),
 		AskUserQuestion: __( 'Ask user' ),
 		Read: __( 'Read' ),
 		Write: __( 'Write' ),
@@ -331,8 +325,6 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 		Grep: __( 'Search' ),
 		Ls: __( 'List' ),
 		Skill: __( 'Load skill' ),
-		Task: __( 'Run task' ),
-		TodoWrite: __( 'Update todo list' ),
 	};
 	return displayNames[ name ] ?? name;
 }
@@ -394,6 +386,7 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 	}
 	switch ( name ) {
 		case 'site_create':
+		case 'create_theme':
 			return typeof input.name === 'string' ? input.name : '';
 		case 'site_info':
 		case 'site_start':
@@ -411,36 +404,15 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 			return typeof input.host === 'string' ? input.host : '';
 		case 'AskUserQuestion':
 			return getAskUserDetail( input );
-		case 'wpcom_request': {
-			const method = typeof input.method === 'string' ? input.method : '';
-			const path = typeof input.path === 'string' ? input.path : '';
-			return [ method, path ].filter( Boolean ).join( ' ' );
-		}
 		case 'wp_cli':
 			return typeof input.command === 'string' ? `wp ${ input.command }` : '';
-		case 'scaffold_theme':
-			return typeof input.name === 'string' ? input.name : '';
-		case 'present_design_options':
-			return ( Array.isArray( input.options ) ? input.options : [] )
-				.map( ( option ) =>
-					option &&
-					typeof option === 'object' &&
-					typeof ( option as { label?: unknown } ).label === 'string'
-						? ( option as { label: string } ).label
-						: ''
-				)
-				.filter( Boolean )
-				.join( ' · ' );
-		case 'inspect_design':
-			return typeof input.url === 'string' ? input.url : '';
-		case 'validate_blocks':
-			if ( typeof input.filePath === 'string' ) {
-				return input.filePath.split( '/' ).slice( -2 ).join( '/' );
-			}
-			return __( 'inline content' );
 		case 'take_screenshot':
 		case 'open_annotation_browser':
-			return typeof input.url === 'string' ? input.url : '';
+			return typeof input.url === 'string'
+				? input.url
+				: Array.isArray( input.url )
+				? input.url.join( ', ' )
+				: '';
 		case 'generate_images': {
 			const count = Array.isArray( input.images ) ? input.images.length : 0;
 			return count > 0 ? sprintf( _n( '%d image', '%d images', count ), count ) : '';

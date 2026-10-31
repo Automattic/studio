@@ -43,15 +43,14 @@ const MiB = 1024 * 1024;
 const LIMITS = { zip: 100 * MiB, unpacked: 512 * MiB, entries: 5000, entry: 100 * MiB };
 const DIRECTORY_LIMITS = { unpacked: 50 * MiB, entries: 512, entry: 5 * MiB };
 
-// What only Codex reads: its manifest, MCP config, app metadata, screenshots and launchers.
+// What only Codex reads: its manifest, MCP config, app metadata and screenshots. Both read the
+// launchers, which run the hooks.
 const CODEX_ONLY = [
 	'.codex-plugin',
 	'.mcp.json',
 	'agents',
 	'assets/screenshot-layout.png',
 	'assets/screenshot-look.png',
-	'scripts/launch-mcp',
-	'scripts/launch-mcp.cmd',
 ];
 
 // Codex gives a plugin's server about ten seconds to start, less than unpacking the CLI can take,

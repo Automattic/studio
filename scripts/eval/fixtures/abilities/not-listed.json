@@ -1,0 +1,76 @@
+{
+	"book": "The Left Hand of Darkness",
+	"abilities": [
+		{
+			"name": "book-club/list-books",
+			"inRest": true,
+			"annotations": {
+				"readonly": true,
+				"destructive": null,
+				"idempotent": null
+			},
+			"inputSchema": []
+		},
+		{
+			"name": "book-club/add-book",
+			"inRest": true,
+			"annotations": {
+				"readonly": null,
+				"destructive": null,
+				"idempotent": null
+			},
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"title": {
+						"type": "string"
+					},
+					"author": {
+						"type": "string"
+					}
+				},
+				"required": [ "title" ]
+			}
+		}
+	],
+	"runs": [
+		{
+			"name": "book-club/add-book",
+			"method": "POST",
+			"user": 0,
+			"input": {
+				"title": "The Left Hand of Darkness",
+				"author": "The Left Hand of Darkness"
+			},
+			"status": 401,
+			"body": {
+				"code": "rest_ability_cannot_execute",
+				"message": "Sorry, you are not allowed to execute this ability.",
+				"data": {
+					"status": 401
+				}
+			}
+		},
+		{
+			"name": "book-club/add-book",
+			"method": "POST",
+			"user": 1,
+			"input": {
+				"title": "The Left Hand of Darkness",
+				"author": "The Left Hand of Darkness"
+			},
+			"status": 200,
+			"body": {
+				"id": false
+			}
+		},
+		{
+			"name": "book-club/list-books",
+			"method": "GET",
+			"user": 1,
+			"input": null,
+			"status": 200,
+			"body": []
+		}
+	]
+}

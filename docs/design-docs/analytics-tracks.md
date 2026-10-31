@@ -164,22 +164,10 @@ where the sender actually runs — see Testing below for what fires in which bui
   via `createOrReuseAiSession` rather than by forking the CLI, so it fires from desktop Main
   (`createAiSession`). `createOrReuseAiSession` reuses an existing empty draft instead of piling up
   orphans, and returns a `created` flag so a reuse isn't counted as a creation.
-- **`studio_code_design_option_proposed`/`studio_code_design_option_picked`** are emitted **only** by
-  the CLI, from the two design tools every chat surface runs: `pick_design`
-  (`packages/agent/node/tools/pick-design.ts`) is the single place catalog entries are drawn, so it records what
-  was proposed; `present_design_options` (`packages/agent/node/tools/present-design-options.ts`) is the single
-  place the user's answer lands, so it records the pick. Both take the `ai_session_id` from the running
-  turn (`packages/agent/node/runtime/index.ts`); the MCP server gives each agent-app connection its own
-  `ai_session_id`, with the app's MCP client name as `agent_name` and `client=studio-mcp`
-  (`apps/cli/ai/runtimes/mcp/index.ts`). `channel`/`ui_version` resolve from `STUDIO_TRACKS_ORIGIN` exactly as for
-  `studio_code_message_sent`. **Coverage caveat:** `present_design_options` only exists when a Studio UI
-  is attached (rendered previews need a chat pane), so a terminal `studio code` session still records
-  proposals but picks made through the generic `AskUserQuestion` tool are not distinguishable and are
-  not recorded.
 - **`studio_mcp_session_start`** fires from the MCP server (`apps/cli/ai/runtimes/mcp/index.ts`) once
   an agent app (Codex, Claude Code, …) has connected to `studio mcp`. `studio mcp` sets
   `STUDIO_TRACKS_ORIGIN=studio-mcp` for itself, so every event from its process and the processes it
-  starts (the site, preview, sync and design events the agent triggers) carries `channel=studio-mcp`
+  starts (the site, preview and sync events the agent triggers) carries `channel=studio-mcp`
   instead of counting as terminal use, plus `mcp_client` and, when the Studio plugin started the server,
   `plugin` and `plugin_version`: the plugin's MCP config sets `STUDIO_PLUGIN_ID` and its launcher sets
   `STUDIO_PLUGIN_VERSION`, while a hand-configured `studio mcp` has neither.
@@ -272,9 +260,6 @@ not drift.
 | `client` | AI product | `studio-code`, or `studio-mcp` for an agent app using Studio through `studio mcp` — `channel` still records the surface |
 | `ability_name` | Predefined skill invoked | `annotate`/`taxonomist`/`need-for-speed`/`rank-me-up`/`liberate`; absent for an ordinary message |
 | `outcome` | How a turn ended | `success`/`error`/`interrupted`/`max_turns` (mirrors the session log's `TurnStatus`) |
-| `catalog` | **Custom (Studio-only):** which design catalog a design event is about | `directions` (artistic direction, the look), `layouts` (signature concept, the page structure) |
-| `draw_id` | **Custom (Studio-only):** groups the `option_proposed` rows of one `pick_design` call back into the set shown together | A random UUID per call |
-| `answer_type` | **Custom (Studio-only):** how the user answered a design question | `picked`, `other_options` (asked for a fresh draw), `free_form` (typed their own answer — the text is **never** sent), `none` |
 
 `is_test` and `agent_version` are not sent: test runs are suppressed at the source rather than
 tagged, and pi is pinned per Studio release so `app_version` already determines it.
@@ -299,7 +284,7 @@ start / creation is counted once whether it originated in a UI or the standalone
 | Event | Emitted from | Event-specific props |
 |---|---|---|
 | `studio_app_launch` | Desktop Main (`appBoot`); `studio ui` server start | `is_first_launch` (desktop only) |
-| `studio_mcp_session_start` | CLI MCP server, once an agent app connects | `mcp_apps` (boolean — whether the app renders MCP Apps, such as the design picker and the WordPress tab), plus the `studio-mcp` origin props `mcp_client`, `plugin`, `plugin_version`. One per connection: distinct install IDs on it, split by `plugin`, count the people using Studio from agent apps. |
+| `studio_mcp_session_start` | CLI MCP server, once an agent app connects | `mcp_apps` (boolean — whether the app renders MCP Apps, such as the WordPress tab), plus the `studio-mcp` origin props `mcp_client`, `plugin`, `plugin_version`. One per connection: distinct install IDs on it, split by `plugin`, count the people using Studio from agent apps. |
 | `studio_site_start` | CLI site-start funnel | `command` (the command that started the site: `start`/`create`/`import`/`pull`/`pull_reprint`/`config`), `success` (boolean), `time_ms` (start duration). On success also `running_site_count` (running Studio sites after this one comes up). On failure instead `failure_reason` (coarse, low-cardinality: `timeout`/`port_unavailable`/`php_error`/`process_exited`/`unknown` — the raw error is never sent). Both also carry the milliseconds of each step that finished: `daemon_ms`, `wp_config_ms`, `wordpress_install_ms`, `blueprint_ms`, `symlink_scan_ms`, `php_workers_ms`, `proxy_ready_ms`, `admin_credentials_ms`; on a failure, the first missing step is the one that did not finish. `time_ms` is the whole start: for a `site start` an app requested, it counts from the request, so it includes the app spawning and loading the CLI and the CLI's checks before the steps above (in versions after 2.1.0; through 2.1.0 it counted from the server start, the first step). |
 | `studio_site_created` | CLI site-create funnel | `flow_type` (`new`/`blueprint`/`import`/`sync`/`duplicate`/`ai`/`static_site_import`), `source` (`url`/`capture`/`directory` — the kind of `--from` source, only present when `flow_type` is `static_site_import`; the URL/path itself is **never** sent), `php_version`, `wp_version` (resolved from disk; `-` if unknown), `custom_domain` (boolean — the domain string is **never** sent), `ssl_enabled` (boolean), `time_ms` (creation duration). Emitted once per **successful** creation. |
 
@@ -476,16 +461,6 @@ AI identity props described under "Property vocabulary" above. Filter by `channe
 | `studio_code_message_sent` | CLI `runAgentTurn` | `provider` (`wpcom`/`anthropic-api-key` — the gateway serving the request, not the model vendor), `model` (e.g. `claude-sonnet-5`), `model_family` (`anthropic`/`openai`), `ability_name` (predefined skill, absent for an ordinary message), `has_images`, `has_files` (booleans). One per user turn dispatched. |
 | `studio_code_turn_completed` | CLI `runAgentTurn` | `outcome` (`success`/`error`/`interrupted`/`max_turns`), `duration_ms`, plus the same `provider`/`model`/`model_family`. What happened inside the turn, accumulated from the agent events by `apps/cli/ai/turn-stats.ts` (attempts that pi retries count toward the same turn): `tool_calls` (tool executions that finished), `tool_errors` (of those, how many errored), `failed_tools` (sorted, de-duplicated, comma-separated names of the tools that errored, empty when none; a call to a tool the session doesn't register, which keeps whatever name the model wrote, is reported as `unknown`, so these are only Studio's own tool names or `unknown`), `skills_loaded` (sorted, de-duplicated, comma-separated names of the skills the agent loaded with the `Skill` tool, empty when none; only names of skills Studio ships, so a slash-command start shows here as well as in `studio_code_message_sent`'s `ability_name`), `edits` (successful `Write`/`Edit` calls), `model_requests` (assistant model responses), `input_tokens`/`output_tokens`/`cache_read_tokens`/`cache_write_tokens` (their summed usage, by kind; a long session's tokens are mostly cache reads, so add all four for its size), `error_kind` (only when `outcome=error`: `out_of_credits` — the 402 `studio_out_of_credits` or the monthly cost cap —, `auth`, `model_unavailable`, `rate_limited`, `network`, `other`; classified from the failure, the raw text is never sent), `site_kind` (`local`/`wpcom`/`none`). These props must be registered in the Tracks Registration tool. One per turn finishing. Partially overlaps the MC Stats `recordAgentRun` bump (`packages/agent/node/agent-stats.ts`), which is a bare counter with no model or duration breakdown. |
 | `studio_code_session_created` | Desktop Main (`createAiSession`) | `has_site` (boolean — whether the session is bound to a site; the site name and path are **never** sent). Emitted only when a session is actually created, not when an empty draft is reused. |
-| `studio_code_design_option_proposed` | CLI `pick_design` | `catalog`, `option` (the catalog entry name), `position` (1-based display order), `is_chosen` (boolean — the model picked it itself rather than it being drawn at random; always true for directions), `options_count` (1 when the model settles the entry without asking, up to 4 when the user will pick), `is_redraw` (boolean — a further draw in the same turn after the user asked for other options), `draw_id`. One row **per entry shown**, so a four-option draw is four rows sharing a `draw_id`. |
-| `studio_code_design_option_picked` | CLI `present_design_options` | `catalog` (passed by the model, the same value it gave `pick_design`), `options_count`, `answer_type`, `picked` (the entry name, only when `answer_type=picked`), `pick_index` (1-based position, only when picked). One per question shown. |
-
-The design pair is a funnel too. `option_proposed` is one row per entry shown, so per-entry rates need
-no unpivoting: an entry's pick rate is its `option_picked` rows (`picked=<name>`) over its
-`option_proposed` rows, and `draw_id` regroups a draw when the whole set matters (e.g. what Noir was
-shown against when it lost). Join the two events on `ai_session_id` and `catalog`, ordered by time, to
-pair each draw with its answer; `answer_type=other_options` is echoed on the next draw as
-`is_redraw=true`. `options_count=1` rows are not proposals: they are the model settling an entry
-without asking, which happens when the brief already names the look or when the session cannot ask.
 
 Both events carry `ai_session_id`, so turn position is a funnel rather than a prop: the first
 `studio_code_message_sent` after a `studio_code_session_created` with the same id is a conversation's

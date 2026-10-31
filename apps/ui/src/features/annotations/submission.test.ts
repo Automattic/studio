@@ -71,20 +71,22 @@ describe( 'annotationSubmission', () => {
 		}
 	} );
 
-	it( 'reads as the note count when there is no message, and points design notes at DESIGN.md', () => {
+	it( "reads as the note count when there is no message, and names a design note's Styles value", () => {
 		const { prompt, options } = annotationSubmission(
 			'',
 			[],
-			[ note( { tag: undefined, designToken: 'colors.primary', path: 'DESIGN.md' } ) ]
+			[ note( { tag: undefined, designToken: 'var:preset|color|primary', path: undefined } ) ]
 		);
 
 		expect( options.displayMessage ).toBe( '1 annotation submitted' );
 		expect( options.visualAnnotations ).toEqual( [
-			expect.objectContaining( { comment: 'Make this bigger', elementLabel: 'colors.primary' } ),
+			expect.objectContaining( {
+				comment: 'Make this bigger',
+				elementLabel: 'var:preset|color|primary',
+			} ),
 		] );
-		expect( prompt ).toContain(
-			"Annotations from the Design system page are about the site's DESIGN.md"
-		);
+		expect( prompt ).toContain( 'design token `var:preset|color|primary`' );
+		expect( prompt ).toContain( "- Page: Design system (the site's Styles)" );
 	} );
 
 	it( 'refuses more images than one message carries', () => {

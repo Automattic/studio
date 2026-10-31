@@ -1,11 +1,64 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
-import { bindTool, createResultNotes, defineTool, READ_ONLY } from '@studio/agent/node';
+import {
+	bindTool,
+	createSiteNotes,
+	defineTool,
+	LOCAL_CHANGE,
+	READ_ONLY,
+	SiteChanges,
+	type StudioToolDefinition,
+} from '@studio/agent/node';
+import { createSite } from '@studio/agent/node/tests/fixtures/wordpress-site';
 import { Type } from 'typebox';
 import { expect, it, vi } from 'vitest';
 import { cliAgentHost } from 'cli/ai/host';
 import { runServedTool } from 'cli/ai/runtimes/mcp/served-tool';
+
+// The fixture is a site's files and database, not a WordPress install, so the
+// checks that ask WordPress (wp-cli) find nothing to report, as they do when a
+// site's PHP cannot run.
+// The site's block editor finds the content's blocks valid.
+vi.mock( '@studio/agent/node/block-validator', async () => ( {
+	validateBlocks: vi.fn( async () => ( {
+		totalBlocks: 1,
+		validBlocks: 1,
+		invalidBlocks: 0,
+		results: [],
+	} ) ),
+	storePresetValues: vi.fn( async ( content: string ) => ( {
+		content,
+		colors: [],
+		fontSizes: [],
+		spacingSizes: [],
+	} ) ),
+	bindNavigationLinks: vi.fn( async ( content: string ) => ( { content, links: [] } ) ),
+	dropCommentsBetweenBlocks: vi.fn( async ( content: string ) => ( { content, comments: 0 } ) ),
+	insertedTemplates: vi.fn( async () => [] ),
+	blocksSavingElements: vi.fn( async () => [] ),
+	blockNames: (
+		await vi.importActual< typeof import('@studio/agent/node/block-validator') >(
+			'@studio/agent/node/block-validator'
+		)
+	).blockNames,
+} ) );
+vi.mock( 'cli/lib/run-wp-cli-command', () => ( {
+	runWpCliCommand: vi.fn( async () => {
+		throw new Error( 'No WordPress to run.' );
+	} ),
+} ) );
+vi.mock( 'cli/lib/daemon-client', () => ( {
+	connectToDaemon: vi.fn(),
+	disconnectFromDaemon: vi.fn(),
+} ) );
+
+const host = cliAgentHost;
+const serve = (
+	tool: StudioToolDefinition,
+	args: Record< string, unknown >,
+	...rest: [ ReturnType< typeof createSiteNotes >, SiteChanges? ]
+) => runServedTool( host, bindTool( tool, host ), args, ...rest );
 
 it( 'adds the declared settings of the core blocks a result shows, from the site the call names, once', async () => {
 	const root = mkdtempSync( path.join( tmpdir(), 'served-tool-' ) );
@@ -27,11 +80,9 @@ it( 'adds the declared settings of the core blocks a result shows, from the site
 		async () => ( { content: [ { type: 'text', text: '<!-- wp:navigation /-->' } ] } ),
 		{ annotations: READ_ONLY }
 	);
-	const resultNotes = createResultNotes();
+	const siteNotes = createSiteNotes( host );
 	const notes = async ( args: Record< string, unknown > ) =>
-		(
-			await runServedTool( cliAgentHost, bindTool( tool, cliAgentHost ), args, resultNotes )
-		).content
+		( await serve( tool, args, siteNotes ) ).content
 			.slice( 1 )
 			.map( ( part ) => ( part.type === 'text' ? part.text : '' ) );
 	const blockJson = path.join( sitePath, 'wp-includes/blocks/navigation/block.json' );
@@ -39,10 +90,116 @@ it( 'adds the declared settings of the core blocks a result shows, from the site
 	expect( await notes( {} ) ).toEqual( [] );
 	expect( await notes( { nameOrPath: 'Missing Site' } ) ).toEqual( [] );
 	expect( await notes( { nameOrPath: 'My Site' } ) ).toEqual( [
-		`core/navigation settings, declared in ${ blockJson
+		`<studio-notes>\ncore/navigation settings, declared in ${ blockJson
 			.split( path.sep )
-			.join( '/' ) }: submenuVisibility ("hover"|"click").`,
+			.join(
+				'/'
+			) }: submenuVisibility ("hover"|"click").\nAddress: http://localhost:8881 (home_url()).\nWP-CLI: \`studio wp <command>\` run in ${ sitePath } runs it on this site, on Studio's PHP and with its SQLite database (wp-content/db.php).\nPHP errors: WordPress logs none, as WP_DEBUG_LOG is off (wp_debug_mode() in wp-includes/load.php). \`studio config set --debug-log\` run in ${ sitePath } turns it on and restarts the site, and WordPress then logs them to ${ path.join(
+			sitePath,
+			'wp-content',
+			'debug.log'
+		) }; Studio defines WP_DEBUG and WP_DEBUG_LOG in wp-config.php from that setting each time the site starts.\nWordPress is not installed yet (is_blog_installed()): Studio installs it, with its database, when the site first starts (site_start).\n</studio-notes>`,
 	] );
 	// Once per MCP session, as once per Studio Code turn.
 	expect( await notes( { nameOrPath: 'My Site' } ) ).toEqual( [] );
+
+	// A tool that names its site by another argument, such as the site it creates.
+	const create = defineTool(
+		'site_create',
+		'Creates a site.',
+		{ name: Type.String() },
+		async () => ( { content: [ { type: 'text', text: 'Created.' } ] } ),
+		{ annotations: LOCAL_CHANGE, siteParam: 'name' }
+	);
+	const created = await serve( create, { name: 'My Site' }, createSiteNotes( host ) );
+	expect( JSON.stringify( created.content ) ).toContain( 'Address: http://localhost:8881' );
+} );
+
+it( 'reports the block validation of post content the call changed, on any site', async () => {
+	const fixture = createSite();
+	fixture.save( 9, 'page', 'home', '<!-- wp:paragraph -->\n<p>Hi</p>\n<!-- /wp:paragraph -->' );
+	const root = mkdtempSync( path.join( tmpdir(), 'served-tool-' ) );
+	const site = { id: '1', name: 'Bakery', path: fixture.root, port: 8881, phpVersion: '8.3' };
+	writeFileSync( path.join( root, 'cli.json' ), JSON.stringify( { version: 1, sites: [ site ] } ) );
+	vi.stubEnv( 'E2E', '1' );
+	vi.stubEnv( 'E2E_CLI_CONFIG_PATH', root );
+
+	// As `wp post update` would, with the content from any file or inline.
+	const tool = defineTool(
+		'wp_cli',
+		'Runs WP-CLI.',
+		{},
+		async () => {
+			fixture.edit( 9, '<!-- wp:html -->\n<div class="hero"><h1>Hi</h1></div>\n<!-- /wp:html -->' );
+			return { content: [ { type: 'text', text: 'Success: Updated post 9.' } ] };
+		},
+		{ annotations: LOCAL_CHANGE }
+	);
+	const result = await serve( tool, {}, createSiteNotes( host ), new SiteChanges( host ) );
+	expect( result.content.map( ( part ) => ( part.type === 'text' ? part.text : '' ) ) ).toEqual( [
+		'Success: Updated post 9.',
+		expect.stringMatching(
+			/^<studio-notes>\nBlock validation: Bakery page 9 "": 1\/1 blocks valid; core\/html policy failed\nBakery page 9 "": 1 core\/html block\(s\) hold markup the editor shows as raw HTML/
+		),
+	] );
+
+	// A call that fails after changing content reports it too.
+	const failing = defineTool(
+		'wp_cli',
+		'Runs WP-CLI.',
+		{},
+		async () => {
+			fixture.edit(
+				9,
+				'<!-- wp:html -->\n<p>Hi again</p>\n<!-- /wp:html -->',
+				'2026-10-24 00:00:00'
+			);
+			throw new Error( 'Command exited with code 1' );
+		},
+		{ annotations: LOCAL_CHANGE }
+	);
+	const failed = await serve( failing, {}, createSiteNotes( host ), new SiteChanges( host ) );
+	expect( failed.isError ).toBe( true );
+	expect( JSON.stringify( failed.content ) ).toMatch(
+		/Command exited with code 1\\n<studio-notes>\\nBlock validation: Bakery page 9 \\"\\": 1\/1 blocks valid; core\/html policy failed/
+	);
+} );
+
+it( 'reports on the next call what the client changed between calls, by its own tools', async () => {
+	const fixture = createSite();
+	fixture.save( 9, 'page', 'home', '<!-- wp:paragraph -->\n<p>Hi</p>\n<!-- /wp:paragraph -->' );
+	const root = mkdtempSync( path.join( tmpdir(), 'served-tool-' ) );
+	const site = { id: '1', name: 'Bakery', path: fixture.root, port: 8881, phpVersion: '8.3' };
+	writeFileSync( path.join( root, 'cli.json' ), JSON.stringify( { version: 1, sites: [ site ] } ) );
+	vi.stubEnv( 'E2E', '1' );
+	vi.stubEnv( 'E2E_CLI_CONFIG_PATH', root );
+	const tracked: string[] = [];
+	const siteNotes = createSiteNotes( host, {
+		gate: { track: ( file: string ) => tracked.push( file ) } as never,
+	} );
+	const siteChanges = new SiteChanges( host );
+	const list = defineTool(
+		'site_list',
+		'Lists sites.',
+		{},
+		async () => ( { content: [ { type: 'text', text: 'Bakery' } ] } ),
+		{ annotations: READ_ONLY }
+	);
+	const call = async () =>
+		( await serve( list, {}, siteNotes, siteChanges ) ).content.map( ( part ) =>
+			part.type === 'text' ? part.text : ''
+		);
+
+	expect( await call() ).toEqual( [ 'Bakery' ] );
+	// As the client's own Edit and shell would, outside Studio's tools.
+	fixture.edit( 9, '<!-- wp:html -->\n<div class="hero"><h1>Hi</h1></div>\n<!-- /wp:html -->' );
+	const template = path.join( fixture.root, 'wp-content/themes/bakery/templates/index.html' );
+	mkdirSync( path.dirname( template ), { recursive: true } );
+	writeFileSync( template, '<!-- wp:paragraph --><p>Hi</p><!-- /wp:paragraph -->' );
+
+	expect( ( await call() )[ 1 ] ).toMatch(
+		/^<studio-notes>\nBlock validation: Bakery page 9 "": 1\/1 blocks valid; core\/html policy failed\n/
+	);
+	expect( tracked ).toEqual( [ template ] );
+	expect( await call() ).toEqual( [ 'Bakery' ] );
 } );

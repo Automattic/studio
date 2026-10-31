@@ -43,6 +43,7 @@ import { buildSystemPrompt } from '@studio/agent/node/system-prompt';
 import { resolveStudioTools } from '@studio/agent/node/tools';
 import { createAskUserQuestionTool } from '@studio/agent/node/tools/ask-user-question';
 import { bindTool } from '@studio/agent/node/tools/define-tool';
+import { withStringEdits } from '@studio/agent/node/tools/edit-arguments';
 import { createSkillTool } from '@studio/agent/node/tools/skill';
 import {
 	aiModelSupportsImages,
@@ -910,7 +911,7 @@ function buildAgentTools(
 			'Read'
 		),
 		renameTool( createWriteTool( sitesRoot ), 'Write' ),
-		renameTool( createEditTool( sitesRoot ), 'Edit' ),
+		renameTool( withStringEdits( createEditTool( sitesRoot ) ), 'Edit' ),
 		renameTool(
 			withDefaultTimeout(
 				createBashTool( shellDirectory( config ), {

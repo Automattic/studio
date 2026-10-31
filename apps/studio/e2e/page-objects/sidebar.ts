@@ -59,6 +59,11 @@ export default class Sidebar {
 	async openSite( siteName: string ) {
 		await this.ensureOpen();
 		await this.interactiveLocator.getByRole( 'button', { name: siteName, exact: true } ).click();
+		const close = this.page.getByRole( 'button', { name: 'Close sidebar', exact: true } );
+		if ( await close.isVisible() ) {
+			await close.click();
+			await expect( this.page.getByRole( 'dialog', { name: 'Sidebar' } ) ).toBeHidden();
+		}
 	}
 
 	// Earlier items open submenus: `openContextMenuItem( site, 'Export', 'Export site' )`.

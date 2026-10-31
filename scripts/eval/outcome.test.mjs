@@ -1292,6 +1292,7 @@ test( 'restyleApplied judges the last turn against the first', () => {
 	expect( result( last ).pass ).toBe( true );
 	for ( const [ change, miss ] of [
 		[ { navTopAfterScroll: -900 }, 'after a 1000px scroll' ],
+		[ { navLeft: 300, titleLeft: 300 }, 'now 300 and 300' ],
 		[ { navLeft: 1200 }, 'the menu was at x 800' ],
 		[
 			{ buttons: [ { ...last.buttons[ 0 ], radii: Array( 4 ).fill( '999px' ) } ] },
@@ -1319,7 +1320,7 @@ test( 'restyleApplied judges the last turn against the first', () => {
 			},
 			'h3 "Tune Ups" is not lowercase',
 		],
-		[ { footerText: first.footerText }, 'the footer text was 18px and is 18px' ],
+		[ { footerText: first.footerText }, 'no footer text got smaller' ],
 	] ) {
 		const failed = result( { ...last, ...change } );
 		expect( failed.pass ).toBe( false );

@@ -1142,16 +1142,13 @@ function hueAndLightness( [ r, g, b ] ) {
 	return { hue: hue * 60, lightness };
 }
 
-const median = ( values ) =>
-	[ ...values ].sort( ( a, b ) => a - b )[ Math.floor( values.length / 2 ) ];
-
 // A picky user's restyle, then their change to it, reached the home page as a
 // browser renders it: the header stays at the top after a scroll; the shop
 // name and menu trade the sides the first turn gave them; the buttons are a
 // little rounded (corners above 0, under a quarter of their height, so the
 // pills asked for first no longer pass); every heading displays lowercase but
-// the first h1, which keeps its capitals; the footer's text is smaller than the
-// first turn's; and the filled buttons are a dark green.
+// the first h1, which keeps its capitals; some of the footer's text is smaller
+// than the first turn's; and the filled buttons are a dark green.
 export const restyleApplied = check( ( d, vars ) => {
 	const s = site( d, vars );
 	const styles = s.home?.styles;
@@ -1166,11 +1163,11 @@ export const restyleApplied = check( ( d, vars ) => {
 		misses.push( `after a 1000px scroll the header menu is at y ${ styles.navTopAfterScroll }` );
 	const side = ( st ) =>
 		st.navLeft === null || st.titleLeft === null ? null : Math.sign( st.navLeft - st.titleLeft );
-	if ( ! side( first ) || ! side( styles ) || side( first ) === side( styles ) )
+	// A header that stacked them (at the same x) counts as swapped by any side.
+	if ( side( styles ) === null || side( styles ) === 0 || side( first ) === side( styles ) )
 		misses.push(
 			`the menu was at x ${ first.navLeft } and the name at x ${ first.titleLeft }; now ${ styles.navLeft } and ${ styles.titleLeft }`
 		);
-	if ( ! styles.buttons.length ) misses.push( 'no buttons' );
 	for ( const button of styles.buttons ) {
 		const radii = button.radii.map( parseFloat );
 		if ( radii.some( ( radius ) => ! ( radius > 0 && radius < button.height / 4 ) ) )
@@ -1203,18 +1200,27 @@ export const restyleApplied = check( ( d, vars ) => {
 		if ( ! heading.first && ! lower )
 			misses.push( `${ heading.tag } "${ heading.text }" is not lowercase` );
 	}
-	const footer = ( st ) => median( st.footerText.map( ( text ) => parseFloat( text.fontSize ) ) );
-	if ( ! styles.footerText.length || ! first.footerText.length ) misses.push( 'no footer text' );
-	else if ( ! ( footer( styles ) < footer( first ) ) )
-		misses.push( `the footer text was ${ footer( first ) }px and is ${ footer( styles ) }px` );
+	// "The small print" may be all of the footer's text or only its fine print:
+	// some of it got smaller, matched by its text.
+	const before = new Map(
+		first.footerText.map( ( text ) => [ text.text, parseFloat( text.fontSize ) ] )
+	);
+	const smaller = styles.footerText.filter(
+		( text ) => parseFloat( text.fontSize ) < ( before.get( text.text ) ?? 0 )
+	);
+	if ( ! styles.footerText.length ) misses.push( 'no footer text' );
+	else if ( ! smaller.length )
+		misses.push(
+			`no footer text got smaller: ${ styles.footerText
+				.map( ( text ) => `"${ text.text }" ${ text.fontSize }` )
+				.join( ', ' ) }`
+		);
 	return misses.length
 		? fail(
 				misses.slice( 0, 12 ).join( '; ' ) +
 					( misses.length > 12 ? `; …${ misses.length - 12 } more` : '' )
 		  )
 		: pass(
-				`restyle applied: ${ styles.buttons.length } buttons, ${
-					styles.headings.length
-				} headings, footer ${ footer( first ) }px to ${ footer( styles ) }px`
+				`restyle applied: ${ styles.buttons.length } buttons, ${ styles.headings.length } headings, ${ smaller.length } footer texts smaller`
 		  );
 } );

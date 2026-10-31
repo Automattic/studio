@@ -38,3 +38,4 @@ Pick a driver: `--driver electron` (default) is Studio Desktop, with every featu
 - Scripts never log out, publish, pull, buy or start a real agent run. Signed-in launches block these, and a step that tries one fails. Use the `stubAgentRuns` and `playAgentTurn` helpers to show a conversation.
 - Review signed-in shots before sharing them: the email is masked, but the account's name and avatar are real.
 - Don't edit WordPress core files or the user's own Studio profile. The harness works in a throwaway profile.
+- Hand the images over before you finish: the harness uploads nothing, and a cloud machine is thrown away. Send the files from `--out` to the person, or commit them on a branch when they belong in the repo (see **Getting the images out** in the README).

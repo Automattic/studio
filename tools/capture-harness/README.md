@@ -191,6 +191,16 @@ A look sets how Studio is shown and what is made of each still. Every field has 
 - **Visual check**, `check` (or `capture --check`): every shot is captured and compared with the file in `--out`, which is left alone (a failed shot's picture still goes to `<out>/failures/`). Each file is `new`, `changed` (with `diffPixels`, and a picture of the differences in `--diff-dir`) or `unchanged`; the exit code is 1 if any is new or changed.
 - **Results**, `--json`: the mode, Studio version, scripts (scene, look, signed in), and per shot its status (`ok`, `failed`, or `skipped` for a desktop-only shot in the browser), files (`file`, `status`, `diffPixels`, `diff`), videos, error and failure picture, plus `pages`, `replaces` and `meta`; and a summary. Manual shots are listed under `manual`.
 
+### Getting the images out
+
+The harness writes to `--out` on the machine it runs on and uploads nothing. On a cloud machine that is thrown away after the session, move the images off it before it ends:
+
+- **Images that live in the repo**, such as the docs images: capture into their folder (`--out docs/user/screenshots/images`), then commit and push them on a branch. A file is rewritten only when its pixels change, so the diff holds just the shots that moved.
+- **Images for someone in a chat**, such as marketing stills or a recording: an agent sends the files from `--out` to the person, with its tool for sending files where it has one, or captures into the repo and pushes a branch where it doesn't.
+- **Scheduled and CI runs**: upload `--out` and the `--json` results (`results.json`) as the job's artifacts (see **Running it as a job**).
+
+`--out` outside the repo, such as `/tmp/captures`, keeps throwaway captures out of `git status`.
+
 ## Signed in
 
 Signed-in scripts use `STUDIO_CAPTURE_AUTH_TOKEN` (the `authToken` object of a Studio `shared.json`, as JSON; `STUDIO_DOCS_AUTH_TOKEN` also works), else the login of the Studio on this machine. **Bots and CI use a dedicated demo account's token in that variable, never a person's login**: with `CI` set, the harness refuses to fall back to the local one. Only the throwaway profile gets a copy of the token.

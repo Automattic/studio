@@ -20,7 +20,7 @@ import { cp, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { DEMO_SITE_DIR, readJson, slugify } from './lib/common.mjs';
 import { createProfile } from './lib/studio-app.mjs';
-import { createSite, runCli, stopSite } from './lib/studio-seed.mjs';
+import { createSite, runCli } from './lib/studio-seed.mjs';
 
 const SOURCE_DIR = path.join( DEMO_SITE_DIR, 'wren-and-barley' );
 const CACHE_DIR = path.join( SOURCE_DIR, '.cache' );
@@ -278,9 +278,8 @@ add_filter( 'big_image_size_threshold', '__return_false' );
 			`themes/${ THEME }`,
 		] );
 	} finally {
-		if ( sitePath ) {
-			await stopSite( profile, sitePath ).catch( () => {} );
-		}
+		// `--all` also stops the profile's daemon, which stopping one site leaves running.
+		await runCli( profile, [ 'site', 'stop', '--all' ] ).catch( () => {} );
 		await profile.remove();
 	}
 

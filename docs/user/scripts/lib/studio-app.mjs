@@ -36,6 +36,24 @@ const DEFAULT_STUDIO_APP =
 
 const WINDOW = { width: 1440, height: 900 };
 
+// Main-process handlers that change something on WordPress.com, or spend the
+// account's credits, or revoke its token. Signed-in launches replace them
+// with ones that throw, so no step can run them with the real login; a suite
+// that needs one answers it itself (`stubAgentRuns` for `continueAiSession`).
+const BLOCKED_SIGNED_IN_HANDLERS = [
+	'clearAuthenticationToken',
+	'connectWpcomSites',
+	'continueAiSession',
+	'deleteAllSnapshots',
+	'deletePreviewSite',
+	'disconnectWpcomSites',
+	'publishPreviewSite',
+	'pullSiteFromLive',
+	'pushSiteToLive',
+	'renamePreviewSite',
+];
+const WPCOM_API = 'https://public-api.wordpress.com/**';
+
 // `ORIENTATION_GUIDE_VERSION` and `WHATS_NEW_VERSION` in the Studio source,
 // apps/ui/src/features/onboarding/onboarding-guide/ (2 and 1 as of 2.0).
 const ORIENTATION_GUIDE_VERSION = 2;
@@ -269,18 +287,41 @@ export async function launchStudio( {
 		env: profile.env,
 		timeout: 60_000,
 	} );
-	const window = await app.firstWindow( { timeout: 60_000 } );
-	await app.evaluate( ( { BrowserWindow }, size ) => {
-		const win = BrowserWindow.getAllWindows()[ 0 ];
-		win?.setContentSize( size.width, size.height );
-		win?.center();
-	}, WINDOW );
-	await window.waitForLoadState( 'domcontentloaded' );
-	if ( routes.length ) {
-		for ( const { url, json } of routes ) {
-			await app.context().route( url, ( route ) => route.fulfill( { json } ) );
+	let window;
+	try {
+		window = await app.firstWindow( { timeout: 60_000 } );
+		await app.evaluate( ( { BrowserWindow }, size ) => {
+			const win = BrowserWindow.getAllWindows()[ 0 ];
+			win?.setContentSize( size.width, size.height );
+			win?.center();
+		}, WINDOW );
+		await window.waitForLoadState( 'domcontentloaded' );
+		if ( authToken ) {
+			await app.evaluate( ( { ipcMain }, names ) => {
+				for ( const name of names ) {
+					ipcMain.removeHandler( name );
+					ipcMain.handle( name, () => {
+						throw new Error( `${ name } is blocked while capturing docs screenshots` );
+					} );
+				}
+			}, BLOCKED_SIGNED_IN_HANDLERS );
+			// The window only reads from WordPress.com; anything else is aborted.
+			await app
+				.context()
+				.route( WPCOM_API, ( route ) =>
+					route.request().method() === 'GET' ? route.fallback() : route.abort()
+				);
 		}
-		await window.reload( { waitUntil: 'domcontentloaded' } );
+		if ( routes.length ) {
+			for ( const { url, json } of routes ) {
+				await app.context().route( url, ( route ) => route.fulfill( { json } ) );
+			}
+			await window.reload( { waitUntil: 'domcontentloaded' } );
+		}
+	} catch ( error ) {
+		// Otherwise Electron keeps running, signed in, on a profile about to be removed.
+		await app.close().catch( () => {} );
+		throw error;
 	}
 
 	return {

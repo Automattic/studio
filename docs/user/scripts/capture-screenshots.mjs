@@ -5,7 +5,7 @@ import { captureFailure, captureShot } from './lib/capture.mjs';
 import { DEMO_SITE_DIR, ROOT, SCREENSHOTS_DIR, SHOTS_DIR, readJson } from './lib/common.mjs';
 import { runSteps } from './lib/steps.mjs';
 import { createProfile, launchStudio, readAuthToken } from './lib/studio-app.mjs';
-import { seedChats, seedSites, siteMetadata } from './lib/studio-seed.mjs';
+import { runCli, seedChats, seedSites, siteMetadata } from './lib/studio-seed.mjs';
 import {
 	capturePreviews,
 	loadAccountRoutes,
@@ -190,49 +190,50 @@ async function main() {
 	const outDir = args.out ?? path.join( SCREENSHOTS_DIR, 'images' );
 	await mkdir( outDir, { recursive: true } );
 
-	// Every suite launches Studio afresh, so each feature's shots stand on their
-	// own. First-run suites get an empty profile each; the others share one
-	// profile with the demo sites, whose running site Studio starts on launch.
-	const profiles = [];
-	let demo = null;
-	if ( selected.some( ( s ) => ! s.firstRun ) ) {
-		console.log( 'Creating the demo sites...' );
-		const profile = await createProfile();
-		profiles.push( profile );
-		const sites = await seedSites( profile, DEMO_SITE_DIR );
-		const site = sites.find( ( s ) => s.import );
-		if ( ! site ) {
-			throw new Error(
-				'One site in screenshots/demo-site/sites.json must have an `import` backup: the shots open on it.'
-			);
-		}
-		demo = { profile, sites, site };
-	}
-
-	// Read before anything launches, so a missing login fails the run up front.
+	// Read before anything else, so a missing login fails the run up front.
 	const authToken = selected.some( ( s ) => s.signedIn ) ? await readAuthToken() : null;
 	const accountRoutes = authToken ? await loadAccountRoutes( DEMO_SITE_DIR ) : [];
-	// Signed-in suites list made-up WordPress.com sites, not the account's own.
-	let wpcom = null;
-	if ( selected.some( ( s ) => s.signedIn && ! s.firstRun ) ) {
-		const remoteSites = await loadWpcomSites( DEMO_SITE_DIR );
-		const previewSites = await loadPreviewSites( DEMO_SITE_DIR, demo.sites );
-		console.log( 'Capturing the WordPress.com site thumbnails...' );
-		wpcom = {
-			remoteSites,
-			previewSites,
-			previews: await capturePreviews( demo.profile, demo.sites, [
-				...remoteSites,
-				...previewSites,
-			] ),
-		};
-	}
 
+	const profiles = [];
+	let demo = null;
+	let wpcom = null;
 	let version = null;
 	const failed = [];
 	let written = 0;
 	let unchanged = 0;
 	try {
+		// Every suite launches Studio afresh, so each feature's shots stand on their
+		// own. First-run suites get an empty profile each; the others share one
+		// profile with the demo sites, whose running site Studio starts on launch.
+		if ( selected.some( ( s ) => ! s.firstRun ) ) {
+			console.log( 'Creating the demo sites...' );
+			const profile = await createProfile();
+			profiles.push( profile );
+			const sites = await seedSites( profile, DEMO_SITE_DIR );
+			const site = sites.find( ( s ) => s.import );
+			if ( ! site ) {
+				throw new Error(
+					'One site in screenshots/demo-site/sites.json must have an `import` backup: the shots open on it.'
+				);
+			}
+			demo = { profile, sites, site };
+		}
+
+		// Signed-in suites list made-up WordPress.com sites, not the account's own.
+		if ( selected.some( ( s ) => s.signedIn && ! s.firstRun ) ) {
+			const remoteSites = await loadWpcomSites( DEMO_SITE_DIR );
+			const previewSites = await loadPreviewSites( DEMO_SITE_DIR, demo.sites );
+			console.log( 'Capturing the WordPress.com site thumbnails...' );
+			wpcom = {
+				remoteSites,
+				previewSites,
+				previews: await capturePreviews( demo.profile, demo.sites, [
+					...remoteSites,
+					...previewSites,
+				] ),
+			};
+		}
+
 		for ( const suite of selected ) {
 			console.log( `\n${ suite.name }: ${ suite.description }` );
 			const firstRun = suite.firstRun ?? false;
@@ -327,6 +328,8 @@ async function main() {
 		}
 	} finally {
 		for ( const profile of profiles ) {
+			// Quitting Studio stops the sites, but not when setup failed before it launched.
+			await runCli( profile, [ 'site', 'stop', '--all' ] ).catch( () => {} );
 			if ( args.keepProfile ) {
 				console.log( `\nProfile kept at ${ profile.dirs.root }` );
 			} else {

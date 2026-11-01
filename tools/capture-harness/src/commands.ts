@@ -22,6 +22,7 @@ export interface CommandArgs {
 	blueprint?: string;
 	look?: string;
 	background?: string;
+	persona?: string;
 	driver?: string;
 	suite?: string;
 	only?: string;
@@ -80,6 +81,7 @@ export async function runCommand( command: string, refs: string[], args: Command
 			scene: await sceneOption(),
 			look: args.look,
 			background: args.background,
+			persona: args.persona,
 			driver: driverOption(),
 			suites: names( args.suite ),
 			only: names( args.only ),

@@ -6,9 +6,11 @@ export { HARNESS_DIR, REPO_ROOT } from './locate.ts';
 export const LOOKS_DIR = path.join( HARNESS_DIR, 'looks' );
 export const SCENES_DIR = path.join( HARNESS_DIR, 'scenes' );
 export const SCHEMAS_DIR = path.join( HARNESS_DIR, 'schemas' );
+export const PERSONAS_DIR = path.join( HARNESS_DIR, 'personas' );
 
 export const DEFAULT_SCENE = 'wren-and-barley';
 export const DEFAULT_LOOK = 'docs';
+export const DEFAULT_PERSONA = 'maya-okafor';
 
 export async function readJson< T = unknown >( file: string ): Promise< T > {
 	return JSON.parse( await readFile( file, 'utf8' ) ) as T;

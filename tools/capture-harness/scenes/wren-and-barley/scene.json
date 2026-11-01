@@ -24,7 +24,8 @@
 	"account": {
 		"wpcomSites": "wpcom-sites.json",
 		"previewSites": "preview-sites.json",
-		"aiQuota": "ai-quota.json"
+		"aiQuota": "ai-quota.json",
+		"aiTopUpPricing": "ai-top-up-pricing.json"
 	},
 	"chats": "chats",
 	"agentTurns": "agent-turns",

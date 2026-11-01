@@ -32,6 +32,7 @@ Inputs:
   --blueprint <file|url>  A one-site scene made from a Blueprint, instead of --scene
   --look <name|file>      Look to capture with (default: the script's, else docs)
   --background <bg>       Frame on another background: dots-light, dots-dark, a color
+  --persona <name|file>   Demo person signed-in scripts sign in as (default: maya-okafor)
   --driver <name>         electron (Studio Desktop; the default on macOS, Windows) or browser
                           (\`studio ui\` in headless Chromium: no display needed;
                           the default on Linux)
@@ -59,6 +60,7 @@ const { values: args, positionals } = parseArgs( {
 		blueprint: { type: 'string' },
 		look: { type: 'string' },
 		background: { type: 'string' },
+		persona: { type: 'string' },
 		driver: { type: 'string' },
 		suite: { type: 'string' },
 		only: { type: 'string' },

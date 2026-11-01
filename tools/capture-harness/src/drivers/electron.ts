@@ -12,6 +12,7 @@ import { _electron as electron, type ElectronApplication, type Page } from 'play
 import { guardElectron } from '../guard.ts';
 import { REPO_ROOT, cliMain, findStudioApp, platform } from '../locate.ts';
 import { readJson } from '../paths.ts';
+import { answerGravatar } from './avatar.ts';
 import type { Box } from '../locators.ts';
 import type { LaunchOptions, RemoteTrees, Studio, Stubs } from './types.ts';
 
@@ -21,6 +22,9 @@ const USAGE = 'https://public-api.wordpress.com/wpcom/v2/jurassic-ninja/usage';
 const WPCOM_USAGE = 'https://public-api.wordpress.com/wpcom/v2/wow-funnel/pending';
 // The account's AI credits, `STUDIO_ASSISTANT_QUOTA_URL` in the Studio source.
 const AI_QUOTA = 'https://public-api.wordpress.com/wpcom/v2/studio-app/ai-assistant/quota';
+// The AI credit top-ups, with a `_locale` query: `STUDIO_ASSISTANT_TOP_UP_PRICING_URL`.
+const AI_TOP_UP_PRICING =
+	'https://public-api.wordpress.com/wpcom/v2/studio-app/ai-assistant/top-up-pricing*';
 
 /**
  * An unpackaged build (`STUDIO_APP_DIR=apps/studio`) runs in a copy of the
@@ -199,6 +203,7 @@ export async function launchElectron( {
 	profile,
 	look,
 	authToken,
+	avatar,
 	account,
 }: LaunchOptions ): Promise< Studio > {
 	const { executablePath, args } = await resolveApp();
@@ -230,9 +235,15 @@ export async function launchElectron( {
 		if ( authToken ) {
 			await guardElectron( app );
 		}
+		if ( avatar !== undefined ) {
+			await answerGravatar( app.context(), avatar );
+		}
 		const routes: { url: string; json: unknown }[] = [];
 		if ( account?.aiQuota ) {
 			routes.push( { url: AI_QUOTA, json: account.aiQuota } );
+		}
+		if ( account?.aiTopUpPricing ) {
+			routes.push( { url: AI_TOP_UP_PRICING, json: account.aiTopUpPricing } );
 		}
 		if ( account?.previewSiteUrls ) {
 			const urls = account.previewSiteUrls;

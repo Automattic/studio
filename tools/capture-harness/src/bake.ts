@@ -83,6 +83,7 @@ export async function bake(
 			wpcomSites: fromScene( source.account.wpcomSites ),
 			previewSites: fromScene( source.account.previewSites ),
 			aiQuota: fromScene( source.account.aiQuota ),
+			aiTopUpPricing: fromScene( source.account.aiTopUpPricing ),
 		},
 		chats: fromScene( source.chats ),
 		agentTurns: fromScene( source.agentTurns ),

@@ -205,9 +205,11 @@ The harness writes to `--out` on the machine it runs on and uploads nothing. On 
 
 ## Signed in
 
-Signed-in scripts use `STUDIO_CAPTURE_AUTH_TOKEN` (the `authToken` object of a Studio `shared.json`, as JSON; `STUDIO_DOCS_AUTH_TOKEN` also works), else the login of the Studio on this machine. **Bots and CI use a dedicated demo account's token in that variable, never a person's login**: with `CI` set, the harness refuses to fall back to the local one. Only the throwaway profile gets a copy of the token.
+Signed-in scripts need no WordPress.com account. They sign in as a made-up demo person from `personas/` (`maya-okafor`, `kenji-watanabe`, `lucia-herrera`; `--persona <name|file>` picks one): Studio trusts the login it has stored and checks it with WordPress.com only when someone logs in, so a demo login shows as signed in, and the scene answers for the account (its WordPress.com sites, preview sites, AI credits and top-up prices). A persona is a `name`, an `email` at example.com, an `id` and an optional `avatar` image, which the harness serves for Studio's Gravatar requests; without one Studio draws its placeholder. Avatars are licensed photos or AI-generated faces, never a real person without their permission.
 
-Every signed-in launch is guarded, whatever script runs: logging out (which would revoke the token), publishing, pulling, connecting sites, changing preview sites and starting an agent run throw instead (`BLOCKED_SIGNED_IN_HANDLERS` in `src/guard.ts`), and the window's requests to WordPress.com other than reads are aborted. The account's email is replaced by `you@example.com` on screen before every capture (and kept replaced while recording), and a shot fails rather than save if it reappears. The name and avatar are the account's own, so review those shots before publishing them.
+`STUDIO_CAPTURE_AUTH_TOKEN` (the `authToken` object of a Studio `shared.json`, as JSON; `STUDIO_DOCS_AUTH_TOKEN` also works) signs in as a real account instead, for a screen the scene doesn't answer for. Only the throwaway profile gets a copy of the token; the harness never uses a local login.
+
+Every signed-in launch is guarded, whatever script runs: logging out (which would revoke the token), publishing, pulling, connecting sites, changing preview sites and starting an agent run throw instead (`BLOCKED_SIGNED_IN_HANDLERS` in `src/guard.ts`), and the window's requests to WordPress.com other than reads are aborted. With a real account, its email is replaced by `you@example.com` on screen before every capture (and kept replaced while recording), and a shot fails rather than save if it reappears; its name and avatar are its own, so review those shots before publishing them.
 
 ## For agents
 
@@ -222,7 +224,7 @@ The loop is: open the scene and read the screen, write a step, validate, capture
 
 ## Running it as a job
 
-Any agent that can run commands can run the harness where it is (see **In the cloud**). For the official docs images, a follow-up is a Buildkite step on a pinned macOS agent that runs `capture --json` with the demo account's token as a secret and uploads the images and `results.json` as artifacts, so who triggers a run doesn't change the pixels. `results.json` records the Studio version each run captured.
+Any agent that can run commands can run the harness where it is (see **In the cloud**). For the official docs images, a follow-up is a Buildkite step on a pinned macOS agent that runs `capture --json` and uploads the images and `results.json` as artifacts, so who triggers a run doesn't change the pixels. `results.json` records the Studio version each run captured.
 
 ## Sharing with `apps/studio/e2e`
 

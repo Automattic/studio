@@ -288,6 +288,10 @@ export const Scene = z
 				wpcomSites: z.string().optional().describe( 'Made-up WordPress.com and Pressable sites' ),
 				previewSites: z.string().optional().describe( 'Made-up preview sites' ),
 				aiQuota: z.string().optional().describe( 'Made-up AI credits' ),
+				aiTopUpPricing: z
+					.string()
+					.optional()
+					.describe( 'The AI credit top-ups the Add AI credits dialog offers' ),
 			} )
 			.strict()
 			.optional()
@@ -430,7 +434,26 @@ export const Look = z
 	.strict();
 export type Look = z.infer< typeof Look >;
 
-export const SCHEMAS = { scene: Scene, script: Script, look: Look } as const;
+export const Persona = z
+	.object( {
+		$schema: z.string().optional(),
+		name: z.string().describe( 'The made-up name Studio shows for the account' ),
+		email: z
+			.string()
+			.regex( /@example\.(com|org|net)$/ )
+			.describe( 'A made-up address at example.com' ),
+		id: z.number().int().positive().describe( 'A made-up WordPress.com user ID' ),
+		avatar: z
+			.string()
+			.optional()
+			.describe(
+				'The avatar image, relative to this file: a licensed photo or AI-generated face, never a real person without their permission'
+			),
+	} )
+	.strict();
+export type Persona = z.infer< typeof Persona >;
+
+export const SCHEMAS = { scene: Scene, script: Script, look: Look, persona: Persona } as const;
 export type SchemaKind = keyof typeof SCHEMAS;
 
 /** The JSON Schema written to `schemas/<kind>.schema.json`. */

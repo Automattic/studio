@@ -171,12 +171,15 @@ export async function replacePreviewSites(
 /**
  * What every signed-in script reports for the account instead of
  * WordPress.com: the AI credits from `account.aiQuota`, so no shot shows the
- * real account's balance, and a preview-site usage that matches
+ * real account's balance, the credit top-ups from `account.aiTopUpPricing`, and a preview-site usage that matches
  * `account.previewSites`. A scene without them shows the account's own.
  */
 export async function loadAccount( scene: LoadedScene ) {
 	return {
 		aiQuota: scene.account.aiQuota ? await readJson( scene.account.aiQuota ) : undefined,
+		aiTopUpPricing: scene.account.aiTopUpPricing
+			? await readJson( scene.account.aiTopUpPricing )
+			: undefined,
 		previewSiteUrls: scene.account.previewSites
 			? ( await readJson< { url: string }[] >( scene.account.previewSites ) ).map( ( p ) => p.url )
 			: undefined,

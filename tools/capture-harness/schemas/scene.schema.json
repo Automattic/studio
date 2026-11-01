@@ -73,6 +73,10 @@
 				"aiQuota": {
 					"description": "Made-up AI credits",
 					"type": "string"
+				},
+				"aiTopUpPricing": {
+					"description": "The AI credit top-ups the Add AI credits dialog offers",
+					"type": "string"
 				}
 			},
 			"additionalProperties": false

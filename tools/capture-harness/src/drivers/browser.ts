@@ -11,6 +11,7 @@ import { createServer } from 'node:net';
 import { chromium, type BrowserContext, type Route } from 'playwright';
 import sharp from 'sharp';
 import { cliMain } from '../locate.ts';
+import { answerGravatar } from './avatar.ts';
 import type { Box } from '../locators.ts';
 import type { AgentRunEvent, LaunchOptions, RemoteTrees, Studio, Stubs } from './types.ts';
 
@@ -63,6 +64,18 @@ export function parseQuota( raw: Record< string, unknown > ) {
 		purchasedAtTopUp: raw.purchased_at_top_up ?? undefined,
 	};
 }
+
+type TopUpOption = { credits: number; display: string };
+
+/**
+ * The AI credit top-ups as `/api/top-up-pricing` serves them: WordPress.com's
+ * answer parsed by `studioAssistantTopUpPricingSchema`, cheapest first.
+ */
+const parseTopUpPricing = ( raw: { options: TopUpOption[] } ) => ( {
+	options: raw.options
+		.map( ( { credits, display } ) => ( { credits, display } ) )
+		.sort( ( a, b ) => a.credits - b.credits ),
+} );
 
 /** The preview-site usage as `/api/snapshots/usage` serves it (`fetchSnapshotUsage`). */
 const previewUsage = ( urls: string[] ) => ( {
@@ -204,6 +217,7 @@ export async function launchBrowser( {
 	profile,
 	look,
 	authToken,
+	avatar,
 	account,
 }: LaunchOptions ): Promise< Studio > {
 	const server = await startServer( profile.env );
@@ -232,9 +246,16 @@ export async function launchBrowser( {
 			route.request().method() === 'GET' ? route.fallback() : route.abort()
 		);
 	}
+	if ( avatar !== undefined ) {
+		await answerGravatar( context, avatar );
+	}
 	if ( account?.aiQuota ) {
 		const quota = parseQuota( account.aiQuota as Record< string, unknown > );
 		api.answer( 'GET', /^\/quota$/, () => quota );
+	}
+	if ( account?.aiTopUpPricing ) {
+		const pricing = parseTopUpPricing( account.aiTopUpPricing as { options: TopUpOption[] } );
+		api.answer( 'GET', /^\/top-up-pricing$/, () => pricing );
 	}
 	if ( account?.previewSiteUrls ) {
 		const usage = previewUsage( account.previewSiteUrls );

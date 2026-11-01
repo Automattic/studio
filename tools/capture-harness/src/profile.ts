@@ -6,7 +6,7 @@ import { cliMain } from './locate.ts';
 
 // Studio's own WordPress and PHP caches. Linking them into the profile lets the
 // CLI create sites offline and without re-downloading PHP; it only reads them.
-export const REAL_STUDIO_DIR = path.join( homedir(), '.studio' );
+const REAL_STUDIO_DIR = path.join( homedir(), '.studio' );
 const SHARED_CACHES = [ 'server-files', 'php-bin' ];
 
 export interface Profile {

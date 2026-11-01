@@ -71,6 +71,9 @@ export interface LaunchOptions {
 	firstRun?: boolean;
 	appData?: Record< string, unknown >;
 	authToken?: AuthToken | null;
+	// Answers Studio's Gravatar requests (`null`: none, so Studio draws its own);
+	// unset leaves them to Gravatar.
+	avatar?: Buffer | null;
 	// What the signed-in account reports, instead of WordPress.com's answers.
-	account?: { aiQuota?: unknown; previewSiteUrls?: string[] };
+	account?: { aiQuota?: unknown; aiTopUpPricing?: unknown; previewSiteUrls?: string[] };
 }

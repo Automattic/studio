@@ -1,0 +1,6 @@
+{
+	"$schema": "../schemas/persona.schema.json",
+	"name": "Lucía Herrera",
+	"email": "lucia.herrera@example.com",
+	"id": 424203
+}

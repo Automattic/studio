@@ -21,13 +21,13 @@ export interface Validation {
 
 const LOOK_KEYS = [ 'window', 'scale', 'appearance', 'frame', 'outputs', 'video', 'still', 'crop' ];
 
-/** Whether a file is a scene, script or look: by its `$schema`, else by its shape. */
+/** Whether a file is a scene, script, look or persona: by its `$schema`, else by its shape. */
 export function detectKind( data: unknown ): SchemaKind | null {
 	if ( ! data || typeof data !== 'object' || Array.isArray( data ) ) {
 		return null;
 	}
 	const record = data as Record< string, unknown >;
-	const named = /(scene|script|look)\.schema\.json$/.exec( String( record.$schema ?? '' ) );
+	const named = /(scene|script|look|persona)\.schema\.json$/.exec( String( record.$schema ?? '' ) );
 	if ( named ) {
 		return named[ 1 ] as SchemaKind;
 	}
@@ -39,6 +39,9 @@ export function detectKind( data: unknown ): SchemaKind | null {
 	}
 	if ( LOOK_KEYS.some( ( key ) => key in record ) ) {
 		return 'look';
+	}
+	if ( 'email' in record && 'name' in record ) {
+		return 'persona';
 	}
 	return null;
 }
@@ -154,7 +157,7 @@ export async function validateFiles(
 					file,
 					kind,
 					ok: false,
-					errors: [ 'Not a scene, script or look (set $schema to say which)' ],
+					errors: [ 'Not a scene, script, look or persona (set $schema to say which)' ],
 				} );
 			}
 			continue;

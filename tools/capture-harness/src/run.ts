@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { drawAnnotations } from './annotate.ts';
-import { readAuthToken, type AuthToken } from './auth.ts';
+import { signIn, type SignedInAs } from './auth.ts';
 import { DEFAULT_DRIVER, type DriverName } from './drivers/types.ts';
 import { launchStudio, type Studio } from './launch.ts';
 import { loadLook, withBackground } from './look.ts';
@@ -44,6 +44,8 @@ export interface RunOptions {
 	look?: string;
 	// Puts the look's frame on another background.
 	background?: string;
+	// The demo person signed-in scripts sign in as (`personas/`).
+	persona?: string;
 	// Override the front end every script names.
 	driver?: DriverName;
 	suites?: Set< string > | null;
@@ -286,9 +288,10 @@ export async function runScripts( options: RunOptions ): Promise< RunResult > {
 	}
 
 	// Read before anything else, so a missing login fails the run up front.
-	const authToken: AuthToken | null = selected.some( ( s ) => s.signedIn )
-		? await readAuthToken()
+	const signedInAs: SignedInAs | null = selected.some( ( s ) => s.signedIn )
+		? await signIn( options.persona )
 		: null;
+	const authToken = signedInAs?.token ?? null;
 
 	const result: RunResult = {
 		mode: options.mode,
@@ -374,6 +377,7 @@ export async function runScripts( options: RunOptions ): Promise< RunResult > {
 						? {}
 						: { ...siteMetadata( scene.sites ), aiSessionPlacements: chats?.placements },
 					authToken: signedIn ? authToken : null,
+					avatar: signedIn ? signedInAs?.avatar : undefined,
 					account: signedIn ? await loadAccount( scene ) : undefined,
 				} );
 			} catch ( error ) {
@@ -406,7 +410,7 @@ export async function runScripts( options: RunOptions ): Promise< RunResult > {
 				profile,
 				scene,
 				look,
-				email: signedIn && authToken ? authToken.email : null,
+				email: signedIn ? signedInAs?.hideEmail ?? null : null,
 				vars: {
 					site: scene.open ?? scene.sites[ 0 ],
 					account: signedIn && authToken ? { name: authToken.displayName } : undefined,

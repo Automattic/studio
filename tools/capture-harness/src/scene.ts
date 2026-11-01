@@ -24,7 +24,12 @@ export interface LoadedScene {
 	sites: ResolvedSite[];
 	// The site scripts open on, if any has content.
 	open: ResolvedSite | null;
-	account: { wpcomSites?: string; previewSites?: string; aiQuota?: string };
+	account: {
+		wpcomSites?: string;
+		previewSites?: string;
+		aiQuota?: string;
+		aiTopUpPricing?: string;
+	};
 	chats?: string;
 	agentTurns?: string;
 	files?: string;
@@ -100,6 +105,7 @@ export function resolveScene( scene: Scene, dir: string, file: string | null ): 
 			wpcomSites: local( scene.account?.wpcomSites ),
 			previewSites: local( scene.account?.previewSites ),
 			aiQuota: local( scene.account?.aiQuota ),
+			aiTopUpPricing: local( scene.account?.aiTopUpPricing ),
 		},
 		chats: local( scene.chats ),
 		agentTurns: local( scene.agentTurns ),

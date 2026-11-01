@@ -127,6 +127,7 @@
 		{
 			"name": "annotate-toolbar",
 			"description": "Annotate: the Annotations toolbar over the site preview, with Cancel and Send",
+			"desktopOnly": true,
 			"pages": [ "studio-code/index.md" ],
 			"steps": [
 				{
@@ -157,6 +158,7 @@
 		{
 			"name": "annotate-note",
 			"description": "Annotate: two saved notes on the page, and a third open on the hero photo, being typed",
+			"desktopOnly": true,
 			"pages": [ "studio-code/index.md" ],
 			"steps": [
 				{
@@ -228,6 +230,7 @@
 		{
 			"name": "annotate-staged",
 			"description": "Annotate: two saved notes marked on the page and waiting in the chat box as \"2 annotations\", with Send in the Annotations toolbar",
+			"desktopOnly": true,
 			"pages": [ "studio-code/index.md" ],
 			"steps": [],
 			"capture": {

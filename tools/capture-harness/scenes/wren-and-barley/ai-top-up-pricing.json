@@ -1,0 +1,20 @@
+{
+	"options": [
+		{
+			"credits": 100000,
+			"display": "$10"
+		},
+		{
+			"credits": 200000,
+			"display": "$20"
+		},
+		{
+			"credits": 500000,
+			"display": "$50"
+		},
+		{
+			"credits": 1000000,
+			"display": "$100"
+		}
+	]
+}

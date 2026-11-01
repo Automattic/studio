@@ -286,18 +286,13 @@ export function doctor( env = process.env ): Check[] {
 	);
 
 	const token = env.STUDIO_CAPTURE_AUTH_TOKEN ?? env.STUDIO_DOCS_AUTH_TOKEN;
-	add(
-		token
-			? { name: 'WordPress.com login', status: 'ok', detail: 'STUDIO_CAPTURE_AUTH_TOKEN is set' }
-			: {
-					name: 'WordPress.com login',
-					status: 'optional',
-					detail: env.CI
-						? 'signed-in scripts need STUDIO_CAPTURE_AUTH_TOKEN in CI'
-						: 'signed-in scripts use STUDIO_CAPTURE_AUTH_TOKEN, else the local Studio login',
-					fix: "Set STUDIO_CAPTURE_AUTH_TOKEN to the demo account's token (the `authToken` of a Studio shared.json).",
-			  }
-	);
+	add( {
+		name: 'Signed in',
+		status: 'ok',
+		detail: token
+			? 'as the WordPress.com account in STUDIO_CAPTURE_AUTH_TOKEN'
+			: 'as a made-up demo person (personas/, --persona); no account needed',
+	} );
 	return checks;
 }
 

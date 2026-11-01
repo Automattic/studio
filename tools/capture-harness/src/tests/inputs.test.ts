@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { readAuthToken } from '../auth.ts';
+import { signIn } from '../auth.ts';
 import { loadLook } from '../look.ts';
 import { HARNESS_DIR, REPO_ROOT, SCHEMAS_DIR } from '../paths.ts';
 import { idForSlug, loadScene, resolveScene, sceneFromBlueprint } from '../scene.ts';
@@ -174,22 +174,36 @@ describe( 'scenes', () => {
 	} );
 } );
 
-describe( 'readAuthToken', () => {
+describe( 'signIn', () => {
 	const token = { accessToken: 'x', expirationTime: Date.now() + 60_000, id: 1, email: 'a@b.c' };
 
-	it( 'reads the token from STUDIO_CAPTURE_AUTH_TOKEN', async () => {
-		await expect(
-			readAuthToken( { STUDIO_CAPTURE_AUTH_TOKEN: JSON.stringify( token ) } )
-		).resolves.toMatchObject( { id: 1 } );
+	it( 'signs in as a made-up demo person by default, with nothing to hide', async () => {
+		const signedIn = await signIn( undefined, {} );
+		expect( signedIn.token ).toMatchObject( {
+			displayName: 'Maya Okafor',
+			email: 'maya.okafor@example.com',
+		} );
+		expect( signedIn.token.expirationTime ).toBeGreaterThan( Date.now() );
+		expect( signedIn.hideEmail ).toBeNull();
 	} );
 
-	it( 'never falls back to a local login in CI', async () => {
-		await expect( readAuthToken( { CI: 'true' } ) ).rejects.toThrow( /STUDIO_CAPTURE_AUTH_TOKEN/ );
+	it( 'signs in as another persona by name', async () => {
+		const signedIn = await signIn( 'kenji-watanabe', {} );
+		expect( signedIn.token.displayName ).toBe( 'Kenji Watanabe' );
+	} );
+
+	it( 'signs in as a real account from STUDIO_CAPTURE_AUTH_TOKEN, hiding its email', async () => {
+		const signedIn = await signIn( undefined, {
+			STUDIO_CAPTURE_AUTH_TOKEN: JSON.stringify( token ),
+		} );
+		expect( signedIn.token ).toMatchObject( { id: 1 } );
+		expect( signedIn.hideEmail ).toBe( 'a@b.c' );
+		expect( signedIn.avatar ).toBeUndefined();
 	} );
 
 	it( 'refuses an expired token', async () => {
 		await expect(
-			readAuthToken( {
+			signIn( undefined, {
 				STUDIO_DOCS_AUTH_TOKEN: JSON.stringify( { ...token, expirationTime: 1 } ),
 			} )
 		).rejects.toThrow( /expired/ );

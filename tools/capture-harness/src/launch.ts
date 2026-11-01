@@ -53,7 +53,15 @@ function buildAppConfig( {
  */
 export async function launchStudio(
 	driver: DriverName,
-	{ profile, look, firstRun = false, appData = {}, authToken = null, account }: LaunchOptions
+	{
+		profile,
+		look,
+		firstRun = false,
+		appData = {},
+		authToken = null,
+		avatar,
+		account,
+	}: LaunchOptions
 ): Promise< Studio > {
 	await writeFile(
 		path.join( profile.dirs.sharedConfig, 'app.json' ),
@@ -68,5 +76,5 @@ export async function launchStudio(
 		JSON.stringify( authToken ? { ...shared, authToken } : shared, null, 2 )
 	);
 	const launch = driver === 'browser' ? launchBrowser : launchElectron;
-	return launch( { profile, look, firstRun, appData, authToken, account } );
+	return launch( { profile, look, firstRun, appData, authToken, avatar, account } );
 }

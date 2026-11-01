@@ -1,0 +1,73 @@
+{
+	"name": "signed-in-previews",
+	"description": "Signed in, with made-up preview sites from preview-sites.json: the Share panel's previews list and a preview's actions",
+	"signedIn": true,
+	"previewSites": true,
+	"shots": [
+		{
+			"name": "share-previews",
+			"description": "Share tab with previews: the previews list with expiry dates and Create another preview",
+			"pages": [ "preview-sites.md" ],
+			"replaces": [ "2025/01/studio-new-site-preview-link.png" ],
+			"steps": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Share",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "button",
+						"name": "Create another preview"
+					}
+				},
+				{
+					"waitForImages": {
+						"role": "list",
+						"name": "Previews"
+					}
+				}
+			],
+			"capture": {
+				"target": {
+					"role": "dialog",
+					"name": "Share and publish"
+				}
+			}
+		},
+		{
+			"name": "share-preview-actions",
+			"description": "Share tab → a preview’s Preview actions menu (Update, Copy link, Visit preview, Rename, Delete preview)",
+			"pages": [ "preview-sites.md" ],
+			"replaces": [ "2025/01/studio-preview-more-actions.png" ],
+			"steps": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Preview actions",
+						"first": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "menuitem",
+						"name": "Delete preview"
+					}
+				}
+			],
+			"capture": {
+				"target": [
+					{
+						"role": "dialog",
+						"name": "Share and publish"
+					},
+					{
+						"role": "menu"
+					}
+				]
+			}
+		}
+	]
+}

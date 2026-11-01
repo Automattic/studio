@@ -2,7 +2,7 @@
 
 ## [The short version](#0-the-short-version)
 
-Studio Code no longer asks you to pick an AI model by name. Instead, you pick how much depth the job needs:
+Instead of picking an AI model by name, you pick how much depth the job needs:
 
 | Tier | What it’s for | Can use free allowance? |
 | --- | --- | --- |
@@ -11,6 +11,8 @@ Studio Code no longer asks you to pick an AI model by name. Instead, you pick ho
 | Strong | Complex, high-stakes, or architecture-level work | No, requires purchased credits |
 
 You can switch tiers at any point in a conversation, including mid-task. Studio uses whichever tier is selected for each new message.
+
+[![The Studio Code model menu open above the chat box, with Fast selected and Balanced and Strong grayed out, and Get more credits and Connect provider listed under Actions.](https://developer.wordpress.com/wp-content/uploads/2026/09/model-menu.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/09/model-menu.webp)
 
 The models behind each tier are updated as newer models become available. For example, Studio 1.23 moved Balanced and Strong to newer models. You don’t need to change anything when this happens: you keep choosing by tier.
 
@@ -22,7 +24,7 @@ Every account starts with a one-time allowance of free [AI credits](https://deve
 
 ## [Balanced and Strong require purchased credits](#2-balanced-and-strong-require-purchased-credits)
 
-Balanced and Strong are only available to accounts that have purchased AI credits. This applies even if you still have free allowance left, because those can’t be spent on the stronger tiers. If you try to switch to Balanced or Strong before you’ve purchased credits, Studio Code will ask you to top up first.
+Balanced and Strong are only available to accounts that have purchased AI credits. This applies even if you still have free allowance left, because those can’t be spent on the stronger tiers. Until you’ve purchased credits, the desktop model menu shows Balanced and Strong as **Purchased credits required** and doesn’t let you pick them, and the terminal’s `/model` command hides them with a note to add credits. To buy credits in the desktop app, choose **Get more credits** from the model menu.
 
 Once you’ve purchased AI credits, the model picker keeps Balanced and Strong unlocked, even after your purchased balance is spent. When you use Fast, any remaining free allowance is spent first, before your purchased balance. You don’t need to top up between sessions, only when you run out.
 
@@ -40,7 +42,7 @@ Studio Code doesn’t show you exactly how many credits any given reply costs in
 
 Studio Code shows a running AI credits meter as you work, combining whatever’s left of your free allowance with anything you’ve purchased. When you’re getting close to empty, Studio Code will tell you before you run out entirely.
 
-When your purchased balance runs out, Balanced and Strong lock again, but Fast keeps working as long as the free allowance remains. When both are empty, Studio Code stops until you add more AI credits. Add credits from inside Studio Code, or see [How AI Credits Work](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/ai-credits-guidelines/) for how purchases, refunds, and account rules work.
+When your purchased balance runs out, Balanced and Strong stay unlocked in the model picker, but because the free allowance only funds Fast, you need to add more AI credits to keep using them. Fast keeps working as long as the free allowance remains. When both are empty, Studio Code stops until you add more AI credits. Add credits from inside Studio Code, or see [How AI Credits Work](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/ai-credits-guidelines/) for how purchases, refunds, and account rules work.
 
 ## [FAQ](#5-faq)
 
@@ -48,4 +50,4 @@ When your purchased balance runs out, Balanced and Strong lock again, but Fast k
 
 **Can I use different tiers in the same project, or even the same conversation?** Yes. Tier is a per-message choice. A common pattern is starting a task on Fast and switching to Balanced or Strong only for the parts that need it.
 
-**Why can’t I switch to Balanced or Strong even though I still have free allowance left?** The free allowance only funds Fast. Balanced and Strong require a purchased AI credits balance, regardless of how much free allowance remains.
+**Why can’t I switch to Balanced or Strong even though I still have free allowance left?** The free allowance only funds Fast. Balanced and Strong unlock only once your account has purchased AI credits, however much free allowance remains.

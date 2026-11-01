@@ -1,0 +1,175 @@
+{
+	"name": "studio-settings",
+	"description": "The Settings dialog, App scope: General, AI Providers, Skills, MCP and Keyboard",
+	"capture": {
+		"target": {
+			"role": "dialog",
+			"name": "Settings",
+			"exact": true
+		}
+	},
+	"shots": [
+		{
+			"name": "settings-general",
+			"description": "Settings dialog, App scope → General (language, default code editor, browser and terminal, …)",
+			"pages": [ "sites.md" ],
+			"replaces": [ "2025/01/app-settings.png" ],
+			"steps": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Settings",
+						"exact": true,
+						"first": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "tablist",
+						"name": "Settings scope"
+					}
+				},
+				{
+					"click": {
+						"within": {
+							"role": "tablist",
+							"name": "Settings scope"
+						},
+						"role": "tab",
+						"name": "App"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "tabpanel",
+						"name": "General",
+						"exact": true
+					}
+				}
+			]
+		},
+		{
+			"name": "settings-studio-cli",
+			"description": "Settings → General → Studio CLI for terminal",
+			"pages": [ "cli.md" ],
+			"replaces": [ "2025/05/app-settings-account.png" ],
+			"steps": [
+				{
+					"scrollTo": {
+						"within": {
+							"role": "tabpanel",
+							"name": "General",
+							"exact": true
+						},
+						"text": "WordPress Studio CLI for terminal",
+						"exact": true
+					},
+					"offset": 120
+				}
+			]
+		},
+		{
+			"name": "settings-ai-providers",
+			"description": "Settings → AI Providers (WordPress.com and Anthropic)",
+			"pages": [ "studio-code/index.md" ],
+			"replaces": [ "2026/04/app-settings-ai.png" ],
+			"steps": [
+				{
+					"click": {
+						"within": {
+							"role": "tablist",
+							"name": "Settings sections"
+						},
+						"role": "tab",
+						"name": "AI Providers",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "tabpanel",
+						"name": "AI Providers",
+						"exact": true
+					}
+				}
+			]
+		},
+		{
+			"name": "settings-skills",
+			"description": "Settings → Skills",
+			"pages": [ "agent-skills-wordpress-studio.md" ],
+			"replaces": [ "2026/04/app-settings-skills.png" ],
+			"steps": [
+				{
+					"click": {
+						"within": {
+							"role": "tablist",
+							"name": "Settings sections"
+						},
+						"role": "tab",
+						"name": "Skills",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "tabpanel",
+						"name": "Skills",
+						"exact": true
+					}
+				}
+			]
+		},
+		{
+			"name": "settings-mcp",
+			"description": "Settings → MCP (install instructions and MCP configuration)",
+			"pages": [ "mcp-on-studio.md" ],
+			"replaces": [ "2026/04/app-settings-mcp.png" ],
+			"steps": [
+				{
+					"click": {
+						"within": {
+							"role": "tablist",
+							"name": "Settings sections"
+						},
+						"role": "tab",
+						"name": "MCP",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "tabpanel",
+						"name": "MCP",
+						"exact": true
+					}
+				}
+			]
+		},
+		{
+			"name": "settings-keyboard",
+			"description": "Settings → Keyboard (shortcuts)",
+			"pages": [ "index.md" ],
+			"steps": [
+				{
+					"click": {
+						"within": {
+							"role": "tablist",
+							"name": "Settings sections"
+						},
+						"role": "tab",
+						"name": "Keyboard",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "tabpanel",
+						"name": "Keyboard",
+						"exact": true
+					}
+				}
+			]
+		}
+	]
+}

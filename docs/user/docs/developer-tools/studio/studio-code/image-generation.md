@@ -32,24 +32,24 @@ You can also steer the agent directly:
 Use warm natural window light and soft, muted color for all the imagery.
 ```
 
-The agent plans every image a page needs **before** it writes the markup, then generates them together and points the markup at the finished files. That ordering is deliberate: your pages never reference an image that doesn’t exist yet.
+The agent plans every image a page needs **before** it writes the markup. It asks for them all at once and gets each image’s file path, and for media library images the attachment ID and URL, right away. The images are then generated in the background, five at a time, while the agent writes the markup that uses them. Screenshots and design previews wait for the images to finish, and if an image fails, the agent is told so it can generate it again or adapt the layout. Your pages never keep a reference to an image that doesn’t exist.
 
-Generation takes a few seconds per image, and it generates a page’s worth of images in parallel. A single request can cover up to 20 images, so a whole page — or a small site — is usually one batch.
+A single request can cover up to 20 images, so a whole page — or a small site — is usually one batch.
 
 ## [What gets produced](#2-what-gets-produced)
 
-All generated images are **JPEGs**. Full-width formats are rendered at a higher resolution than contained ones, so cover images stay sharp edge to edge without making every thumbnail expensive.
+All generated images are **PNGs**. They come in three canvas sizes: 1024×1024 (square), 1536×1024 (landscape), and 1024×1536 (portrait).
 
-The agent picks a canvas shape to match the layout slot:
+The agent asks for a shape to match the layout slot, and Studio renders it on the nearest canvas. The page’s CSS then crops the image to its slot:
 
-| Shape | Ratio | Typical use |
-| --- | --- | --- |
-| landscape | 16:9 | Cover and banner images, wide feature rows — the default |
-| ultrawide | 21:9 | Full-bleed backgrounds spanning the viewport edge to edge |
-| portrait | 9:16 | Tall editorial shots, full-height panels |
-| card-landscape | 4:3 | Product cards, blog thumbnails, feature images in columns |
-| card-portrait | 3:4 | Team headshots, tall product cards, framed insets |
-| square | 1:1 | Slots that are genuinely square |
+| Shape | Ratio | Typical use | Canvas |
+| --- | --- | --- | --- |
+| landscape | 16:9 | Cover and banner images, wide feature rows — the default | 1536×1024 |
+| ultrawide | 21:9 | Full-bleed backgrounds spanning the viewport edge to edge | 1536×1024 |
+| portrait | 9:16 | Tall editorial shots, full-height panels | 1024×1536 |
+| card-landscape | 4:3 | Product cards, blog thumbnails, feature images in columns | 1536×1024 |
+| card-portrait | 3:4 | Team headshots, tall product cards, framed insets | 1024×1536 |
+| square | 1:1 | Slots that are genuinely square | 1024×1024 |
 
 Images shown together in one row or grid always share a shape, so grids stay even.
 
@@ -57,10 +57,10 @@ Eight rendering styles are available — `photorealistic` (the default), `digita
 
 ## [Where the files go](#3-where-the-files-go)
 
-Generated images are written inside your site directory, and where they land depends on what the image is for:
+Generated images are written inside your site directory, and where they land depends on where the image is shown:
 
--   **Theme imagery** — cover backgrounds in templates and template parts, section background bands, anything that belongs to the theme’s design — is written to `wp-content/themes/<theme-slug>/assets/images/` and referenced from the markup by path. It travels with the theme when you export or sync it.
--   **Content imagery** — product shots, team photos, gallery items, feature images that live inside a page or post — is imported into the **media library** as a real attachment. Blocks reference it by attachment ID and URL, exactly as they would an image you uploaded yourself, so you can swap, crop, or reuse it from the editor afterward.
+-   **Theme imagery** — images shown by the theme’s own files: templates, template parts such as the header or footer, and `style.css` — is written to `wp-content/themes/<theme-slug>/assets/images/` and referenced from the markup by path. It travels with the theme when you export or sync it.
+-   **Content imagery** — every image shown inside a page or post, including a page’s cover image, product shots, team photos, and gallery items — is imported into the **media library** as a real attachment. Blocks reference it by attachment ID and URL, exactly as they would an image you uploaded yourself, so you can swap, crop, or reuse it from the editor afterward.
 
 Every content image is given descriptive alt text in the markup. Cover backgrounds are treated as decorative and left with empty alt, which is the correct accessible behavior for a background image sitting behind its own heading.
 

@@ -19,25 +19,33 @@ It’s especially useful for:
 ### [Studio app](#1-studio-app)
 
 1.  Open the **“WordPress Studio**” application.
-2.  Click **App settings** at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux).
-3.  On the **Settings** tab, turn on the **Studio CLI for terminal** option.
+2.  Click **Settings** at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux).
+3.  On the **General** page, under **WordPress Studio CLI**, turn on the **WordPress Studio CLI for terminal** option.
 4.  On macOS, you’ll be prompted for your account password to allow installation.
 
-[![](https://developer.wordpress.com/wp-content/uploads/2025/05/app-settings-account.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/05/app-settings-account.png)
+[![The General page of Studio's Settings, with the WordPress Studio CLI for terminal option turned on under WordPress Studio CLI.](https://developer.wordpress.com/wp-content/uploads/2025/05/settings-studio-cli.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/05/settings-studio-cli.webp)
 
 ### [Standalone installer](#2-standalone-installer)
 
-**macOS / Linux**
+#### macOS / Linux
 
 curl -fsSL https://wordpress.studio/install.sh | bash
 
-**Windows (PowerShell)**
+#### Windows (PowerShell)
 
 irm https://wordpress.studio/install.ps1 | iex
 
 Open a new terminal so `studio` is on your `PATH`, then verify:
 
 studio --help
+
+#### Uninstall
+
+To remove a CLI installed with the standalone installer, run:
+
+studio uninstall
+
+This stops your running sites and removes the CLI and its `PATH` entry. Your sites and your Studio config in `~/.studio` stay. Add `--purge` to also delete `~/.studio`. A CLI installed with npm is removed with `npm rm -g wp-studio`, and the CLI bundled with the Studio app is removed when you uninstall the app.
 
 ### [npm](#3-npm)
 
@@ -71,7 +79,7 @@ studio auth status     # Check authentication status
 -   `studio auth status` reports whether you are currently authenticated and shows which account is in use.
 -   `studio auth logout` disconnects the CLI from your WordPress.com account and clears stored credentials.
 
-If you run a command that requires authentication (such as `studio preview create`) while logged out, the CLI will return an error and guide you to log in.
+If you run a command that requires authentication (such as `studio preview create`, `studio push`, or `studio pull`) in a terminal while logged out, the CLI asks “You’re not logged in to WordPress.com. Log in now?” Answer yes to log in and continue the command. If you answer no, or the command runs without a terminal (for example, from a script), it stops and asks you to log in with `studio auth login`.
 
 Use the `--help` flag for detailed options on any auth command:
 
@@ -111,7 +119,7 @@ To view all preview sites associated with your account:
 
 studio preview list
 
-This shows each preview’s host (for example, `example-preview.wpcomstaging.com`), which you’ll use with the `update` and `delete` commands.
+This shows each preview’s host (for example, `example-preview.wp.build`), which you’ll use with the `update` and `delete` commands.
 
 ### [Updating and deleting preview sites](#9-updating-and-deleting-preview-sites)
 
@@ -165,7 +173,7 @@ studio create --path /path/to/site
 # Create a new site that keeps WordPress up to date automatically
 studio create --wp auto-update
 
-This will create a new site in your current working directory, start the WordPress server, and open wp-admin in your browser automatically when finished.
+This will create a new site in your current working directory, start the WordPress server, and open the site’s front page in your browser when finished. When the site comes from a Blueprint that sets a `landingPage`, Studio opens that page instead. Use `--skip-browser` to not open the browser.
 
 There are several supported flags that you can use when creating a new site. For the full set of options:
 
@@ -178,7 +186,7 @@ Use `--from` to build a new site from existing static content: compiled build ou
 \# Create a site from a directory of static files
 studio create --from ./build
 
-# Create a site from a live website
+\# Create a site from a live website
 studio create --from https://example.com
 
 ### [Creating a local site using Blueprints Gallery](#12-creating-a-local-site-using-blueprints-gallery)
@@ -206,6 +214,7 @@ Status output includes information such as:
 
 -   Whether the site is running.
 -   Local URL (for example, `http://localhost:PORT`).
+-   **Email**: the folder where the email the site sends is saved, as `.eml` files.
 -   Key configuration details (PHP version, database status, etc.).
 
 ### [Starting and stopping sites](#14-starting-and-stopping-sites)
@@ -218,15 +227,18 @@ studio stop
 studio start --path /path/to/site
 studio stop --path /path/to/site
 
+# Stop every running site:
+studio stop --all
+
 Starting a site will launch the local services required to access it in a browser, while stopping it shuts those services down.
 
 ### [Deleting a local site](#15-deleting-a-local-site)
 
-\# Delete a site from Studio
+\# Delete a site from Studio and move the site directory to the system trash
 studio delete
 
-# Delete the site and move the site directory to the system trash
-studio delete --files
+# Delete the site from Studio but keep its files on disk
+studio delete --no-files
 
 # Delete several sites at once, by path or ID
 studio delete /path/to/site-one /path/to/site-two
@@ -234,7 +246,7 @@ studio delete /path/to/site-one /path/to/site-two
 # Show which sites and files would be deleted, without deleting anything
 studio delete /path/to/site-one --dry-run
 
-This removes the site from Studio and, optionally, the site files from disk.
+This removes the site from Studio and, unless you pass `--no-files`, moves the site files to the trash.
 
 ### [Configuring site settings](#16-configuring-site-settings)
 
@@ -306,7 +318,21 @@ Press Ctrl+C in the terminal to stop it.
 
 `studio mcp` runs Studio’s MCP server, which lets AI agents create, configure, and inspect your local sites and work with your WordPress.com sites. It also serves Studio’s instructions and skills to the agent on demand. You don’t usually run it yourself: add it to your agent’s MCP configuration instead. See [MCP on Studio](https://developer.wordpress.com/docs/developer-tools/studio/mcp-on-studio/).
 
-## [Using WP-CLI through Studio](#17-using-wp-cli-through-studio)
+## [Studio Code](#cli-code)
+
+`studio code` starts [Studio Code](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/), Studio’s AI agent, as a chat in your terminal. `studio ai` works too.
+
+studio code                            # Start a new chat
+studio code "Create a portfolio site"  # Start with a first message
+studio code sessions list              # List saved chats
+studio code sessions resume latest     # Resume the most recent chat
+studio code sessions delete <id>       # Delete a saved chat
+
+`sessions resume` and `sessions delete` take a session ID, an ID prefix, or `latest`, and show a picker when you leave it out. For the full set of options:
+
+studio code --help
+
+## [Using WP-CLI through Studio](#22-using-wp-cli-through-studio)
 
 The `studio wp` command gives you access to WP-CLI within the context of a Studio-managed site, without requiring you to install or configure WP-CLI separately.
 
@@ -336,7 +362,7 @@ For a complete list of supported WP-CLI subcommands and arguments, refer to the 
 studio wp help
 studio wp help <command>
 
-## [Using Studio CLI with AI coding agents](#18-using-studio-cli-with-ai-coding-agents)
+## [Using Studio CLI with AI coding agents](#23-using-studio-cli-with-ai-coding-agents)
 
 The Studio CLI works well with AI-assisted development tools and agents such as **Claude Code**, **Cursor**, and other IDE extensions that can run shell commands on your behalf.
 
@@ -346,7 +372,7 @@ Because these tools can see your project files and execute terminal commands, th
 -   Call `studio` commands automatically to manage local sites, previews, and WP-CLI tasks.
 -   Use command output to guide further code changes or debugging steps.
 
-### [Typical workflows with AI agents](#19-typical-workflows-with-ai-agents)
+### [Typical workflows with AI agents](#24-typical-workflows-with-ai-agents)
 
 Below are some concrete ways to combine Studio CLI with an AI coding agent.
 
@@ -406,7 +432,7 @@ This is particularly useful when:
 -   Sharing progress with non-technical stakeholders.
 -   Collaborating with teammates who need to see live behavior without setting up a local environment.
 
-### [Best practices when using AI agents with Studio CLI](#20-best-practices-when-using-ai-agents-with-studio-cli)
+### [Best practices when using AI agents with Studio CLI](#25-best-practices-when-using-ai-agents-with-studio-cli)
 
 -   **Stay in a Studio site root**: Many commands assume the current directory is a Studio-managed site. Remind your agent to `cd` into the correct folder or to use `--path`.
 -   **Be explicit in instructions**: When prompting an agent, mention “use the `studio` CLI” and any constraints, for example:
@@ -418,7 +444,7 @@ This is particularly useful when:
 
 By combining Studio CLI with AI coding agents, you can offload much of the repetitive environment setup, testing, and deployment orchestration, and focus more on writing and reviewing your WordPress code.
 
-## [Getting help](#21-getting-help)
+## [Getting help](#26-getting-help)
 
 Every command and subcommand supports `--help` for inline documentation, usage, and available options. For example:
 

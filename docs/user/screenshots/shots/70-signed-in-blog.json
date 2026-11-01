@@ -1,0 +1,34 @@
+{
+	"name": "signed-in-blog",
+	"description": "Signed in: one-off images for blog posts and announcements, not used in the docs. Frame them with npm run screenshots:frame",
+	"signedIn": true,
+	"shots": [
+		{
+			"name": "blog-settings-appearance",
+			"description": "Settings → Appearance, signed in: Theme, Color, Intensity and Contrast over the bakery (the 2026 workspace announcement)",
+			"pages": [],
+			"steps": [
+				{ "click": { "role": "button", "name": "Settings", "exact": true, "first": true } },
+				{ "waitFor": { "role": "tablist", "name": "Settings scope" } },
+				{
+					"click": {
+						"within": { "role": "tablist", "name": "Settings scope" },
+						"role": "tab",
+						"name": "App"
+					}
+				},
+				{
+					"click": {
+						"within": { "role": "tablist", "name": "Settings sections" },
+						"role": "tab",
+						"name": "Appearance",
+						"exact": true
+					}
+				},
+				{ "waitFor": { "role": "tabpanel", "name": "Appearance", "exact": true } }
+			],
+			"capture": { "target": { "role": "dialog", "name": "Settings", "exact": true } },
+			"after": [ { "press": "Escape" } ]
+		}
+	]
+}

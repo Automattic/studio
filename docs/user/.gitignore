@@ -1,2 +1,4 @@
 node_modules/
-screenshots/out/
+screenshots/images/failures/
+screenshots/demo-site/wren-and-barley/.cache/
+screenshots/framed/

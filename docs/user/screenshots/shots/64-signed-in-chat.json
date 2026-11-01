@@ -1,0 +1,29 @@
+{
+	"name": "signed-in-chat",
+	"description": "Signed in, with a recorded Studio Code chat on the demo site (chats/): the workspace mid-conversation",
+	"signedIn": true,
+	"chats": [ "wren-and-barley-homepage" ],
+	"shots": [
+		{
+			"name": "workspace-chat",
+			"description": "The main window with Wren & Barley pinned and a conversation polishing its home page",
+			"pages": [],
+			"steps": [
+				{ "waitFor": { "role": "button", "name": "{{account.name}}", "exact": true } },
+				{
+					"waitFor": { "text": "Loading site preview" },
+					"hidden": true,
+					"timeout": 60000,
+					"optional": true
+				},
+				{ "helper": "openSiteMenu" },
+				{ "click": { "role": "menuitem", "name": "Pin" } },
+				{ "waitFor": { "text": "Pinned", "exact": true } },
+				{ "click": { "text": "Polish the home page", "first": true } },
+				{ "waitFor": { "text": "Want me to do the", "first": true } },
+				{ "wait": 1500 }
+			],
+			"capture": { "settle": 2500 }
+		}
+	]
+}

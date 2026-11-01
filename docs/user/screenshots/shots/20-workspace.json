@@ -1,0 +1,391 @@
+{
+	"name": "workspace",
+	"description": "The main window with the demo site: chat, command palette, site preview, and the site’s start/stop button",
+	"shots": [
+		{
+			"name": "main-window-signed-out",
+			"description": "Main window, signed out: sidebar, Studio Code chat, and the site preview",
+			"pages": [ "index.md", "studio-code/index.md" ],
+			"replaces": [ "2024/04/main-window-signed-out.png" ],
+			"steps": [
+				{
+					"waitFor": {
+						"text": "Loading site preview"
+					},
+					"hidden": true,
+					"timeout": 60000,
+					"optional": true
+				}
+			],
+			"capture": {
+				"settle": 2500
+			},
+			"annotate": [
+				{
+					"badge": {
+						"role": "button",
+						"name": "Add site",
+						"first": true
+					}
+				},
+				{
+					"badge": {
+						"role": "button",
+						"name": "Site menu"
+					}
+				},
+				{
+					"badge": {
+						"role": "textbox",
+						"name": "Address"
+					}
+				},
+				{
+					"badge": {
+						"role": "button",
+						"name": "Publish…"
+					}
+				}
+			]
+		},
+		{
+			"name": "command-palette",
+			"description": "Command palette (⌘K)",
+			"pages": [ "index.md" ],
+			"steps": [
+				{
+					"press": "ControlOrMeta+K"
+				},
+				{
+					"waitFor": {
+						"role": "combobox",
+						"name": "Search commands"
+					}
+				}
+			],
+			"after": [
+				{
+					"press": "Escape"
+				},
+				{
+					"waitFor": {
+						"role": "combobox",
+						"name": "Search commands"
+					},
+					"hidden": true
+				}
+			],
+			"capture": {
+				"target": {
+					"role": "dialog",
+					"name": "Command palette"
+				}
+			}
+		},
+		{
+			"name": "preview-destinations",
+			"description": "Site preview address bar shortcuts: Front end / WordPress Admin / Database",
+			"pages": [ "sites.md", "debugging/index.md", "frequently-asked-questions.md" ],
+			"replaces": [ "2026/04/preview-destinations.png" ],
+			"steps": [
+				{
+					"click": {
+						"role": "textbox",
+						"name": "Address"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "dialog",
+						"name": "Preview shortcuts"
+					}
+				}
+			],
+			"annotate": [
+				{
+					"outline": {
+						"role": "dialog",
+						"name": "Preview shortcuts"
+					}
+				}
+			],
+			"after": [
+				{
+					"press": "Escape"
+				},
+				{
+					"waitFor": {
+						"role": "dialog",
+						"name": "Preview shortcuts"
+					},
+					"hidden": true
+				}
+			],
+			"capture": {
+				"target": [
+					{
+						"role": "dialog",
+						"name": "Preview shortcuts"
+					},
+					{
+						"role": "textbox",
+						"name": "Address"
+					}
+				],
+				"pad": 32
+			}
+		},
+		{
+			"name": "design-system",
+			"description": "Site preview → Design system: the demo site’s DESIGN.md as colors, type, components and guidelines",
+			"pages": [ "studio-code/index.md" ],
+			"steps": [
+				{
+					"click": {
+						"role": "textbox",
+						"name": "Address"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "dialog",
+						"name": "Preview shortcuts"
+					}
+				},
+				{
+					"click": {
+						"role": "option",
+						"name": "Design system"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "dialog",
+						"name": "Preview shortcuts"
+					},
+					"hidden": true
+				},
+				{
+					"wait": 2000
+				}
+			],
+			"capture": {
+				"settle": 2500
+			},
+			"after": [
+				{
+					"click": {
+						"role": "textbox",
+						"name": "Address"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "dialog",
+						"name": "Preview shortcuts"
+					}
+				},
+				{
+					"click": {
+						"role": "option",
+						"name": "Front end"
+					}
+				},
+				{
+					"waitFor": {
+						"text": "Loading site preview"
+					},
+					"hidden": true,
+					"timeout": 60000,
+					"optional": true
+				}
+			]
+		},
+		{
+			"name": "responsive-mode-presets",
+			"description": "Responsive mode: the device menu open, with Responsive and the device sizes",
+			"pages": [ "sites.md" ],
+			"steps": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Close chat",
+						"exact": true
+					}
+				},
+				{
+					"wait": 800
+				},
+				{
+					"hover": {
+						"role": "textbox",
+						"name": "Address"
+					}
+				},
+				{
+					"click": {
+						"role": "button",
+						"name": "Responsive mode",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "toolbar",
+						"name": "Responsive preview"
+					}
+				},
+				{
+					"click": {
+						"within": {
+							"role": "toolbar",
+							"name": "Responsive preview"
+						},
+						"role": "button",
+						"name": "Responsive",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "menuitemradio",
+						"name": "iPhone 17 ·"
+					}
+				}
+			],
+			"capture": {
+				"target": [
+					{
+						"role": "menu"
+					},
+					{
+						"role": "toolbar",
+						"name": "Responsive preview"
+					},
+					{
+						"role": "textbox",
+						"name": "Address"
+					},
+					{
+						"role": "button",
+						"name": "Share",
+						"exact": true
+					}
+				],
+				"pad": 24
+			}
+		},
+		{
+			"name": "responsive-mode",
+			"description": "Responsive mode at a phone size (iPhone 17), with the responsive toolbar above the preview",
+			"pages": [ "sites.md" ],
+			"steps": [
+				{
+					"click": {
+						"role": "menuitemradio",
+						"name": "iPhone 17 ·"
+					}
+				},
+				{
+					"wait": 1500
+				}
+			],
+			"capture": {
+				"settle": 2000
+			},
+			"after": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Exit responsive mode"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "toolbar",
+						"name": "Responsive preview"
+					},
+					"hidden": true
+				},
+				{
+					"click": {
+						"role": "button",
+						"name": "Open chat",
+						"exact": true
+					}
+				},
+				{
+					"wait": 800
+				}
+			]
+		},
+		{
+			"name": "site-status-button",
+			"description": "Sidebar site row with its Stop button and tooltip",
+			"pages": [ "sites.md" ],
+			"replaces": [ "2025/01/site-status-tooltip.png" ],
+			"steps": [
+				{
+					"hover": {
+						"role": "button",
+						"name": "Stop {{site.name}}",
+						"exact": true,
+						"first": true
+					}
+				},
+				{
+					"wait": 1200
+				}
+			],
+			"capture": {
+				"keepMouse": true,
+				"target": {
+					"role": "button",
+					"name": "Stop {{site.name}}",
+					"exact": true,
+					"first": true
+				},
+				"pad": [ 360, 56 ]
+			},
+			"annotate": [
+				{
+					"arrow": {
+						"role": "button",
+						"name": "Stop {{site.name}}",
+						"exact": true,
+						"first": true
+					},
+					"from": "bottom-right"
+				}
+			]
+		},
+		{
+			"name": "site-stopped",
+			"description": "A stopped site: Start button in the sidebar and the saved preview image",
+			"pages": [ "sites.md" ],
+			"replaces": [ "2025/01/site-stopped.png" ],
+			"steps": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Stop {{site.name}}",
+						"exact": true,
+						"first": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "button",
+						"name": "Start {{site.name}}",
+						"exact": true,
+						"first": true
+					},
+					"timeout": 60000
+				}
+			],
+			"capture": {
+				"settle": 1500
+			}
+		}
+	]
+}

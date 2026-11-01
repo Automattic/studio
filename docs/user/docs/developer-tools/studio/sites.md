@@ -8,29 +8,34 @@ WordPress Studio allows you to create, maintain, and work on **unlimited local W
 
 To add a new site to Studio:
 
-1.  Click the **Add site** (**+**) button at the top of the sidebar to display the **Add a site** screen.
-2.  You will be presented with three options: **Create a new site**, **Connect a site**, or **Import from a backup**. You can also choose a Blueprint under **Start from a Blueprint**; see [Blueprints](https://developer.wordpress.com/docs/developer-tools/studio/blueprints/).
+1.  Click the **Add site** (**+**) button next to **Sites** at the top of the sidebar, or press ⌘N (Ctrl+N on Windows and Linux), to open the **Add site** dialog.
+2.  The dialog lists the ways to add a site on the left: **Create**, **Connect** (see [Studio Sync](https://developer.wordpress.com/docs/developer-tools/studio/sync/)), **Upload** (see [Blueprints](https://developer.wordpress.com/docs/developer-tools/studio/blueprints/)), and **Import** (see [Import & export](https://developer.wordpress.com/docs/developer-tools/studio/import-export/)), followed by Blueprint categories under **By use case**.
 
-[![Screenshot of the Add a site screen](https://developer.wordpress.com/wp-content/uploads/2025/01/add-a-site.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/add-a-site.png)
+[![The Add site dialog in WordPress Studio, open on Create, showing Create a new WordPress with a Blank site card and Blueprint cards such as Wedding RSVP, Stylish Press, and University Website, and categories under By use case on the left.](https://developer.wordpress.com/wp-content/uploads/2025/10/add-site.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/10/add-site.webp)
 
-3.  For now, select the **Create a new site** option.
-4.  Enter a **Site name**. If you’re logged in to WordPress.com with Studio Code turned on, you can also describe the site you want under **What should we create?**: Studio creates the site and opens its chat with your description already sent.
-5.  (Optional) Expand **Advanced settings** to enable the following additional settings:
-    -   Select a custom local path
-    -   Select a WordPress version, or keep **Automatic updates** to let WordPress update itself
-    -   Select a custom PHP version
-    -   Select [file access](https://developer.wordpress.com/docs/developer-tools/studio/php-runtimes/)
-    -   Select admin credentials
-    -   [Use a custom domain.](#Using-a-custom-domain-and-SSL)
+3.  For now, stay on **Create**. Under **Create a new WordPress**, click **Blank site**.
+4.  On the **Create a blank site** screen, enter a **Site name**. Studio fills in these settings for you, and you can change them:
+    -   **Local path**: the folder for the site. It must be empty, or contain an existing WordPress site.
+    -   **WordPress version**: keep **Auto-update** to let WordPress update itself, or pick a specific version
+    -   **PHP version**
+5.  (Optional) Expand **Advanced settings** to change the following settings:
+    -   **File access**: see [PHP runtimes](https://developer.wordpress.com/docs/developer-tools/studio/php-runtimes/)
+    -   **Use custom domain**: see [Using a custom domain and SSL](#Using-a-custom-domain-and-SSL)
+    -   **Admin username**, **Admin password**, and **Admin email**
 6.  Click **Create site**.
 
-[![Screenshot of the Create a new site screen](https://developer.wordpress.com/wp-content/uploads/2025/01/create-site-advanced.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/create-site-advanced.png)
+[![The Create a blank site screen in Studio's Add site dialog, with Site name, Local path, WordPress version set to Auto-update, PHP version, and Advanced settings collapsed, above the Cancel and Create site buttons.](https://developer.wordpress.com/wp-content/uploads/2025/01/create-site.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/create-site.webp)
+[![The Create a blank site screen in Studio with Advanced settings expanded, showing File access set to Site directory and the Use custom domain toggle, which notes that your system password will be required.](https://developer.wordpress.com/wp-content/uploads/2025/01/create-site-advanced.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/create-site-advanced.webp)
 
-Any new site is started by default, which is depicted by a green dot next to the site in the sidebar.
+Any new site is started by default and opens in the site preview.
+
+To go back to an earlier screen of the **Add site** dialog, click **Back** at its top left. Studio keeps what you entered.
+
+If you always start from a blank site, open **Settings → General** and set **When adding a site** to **Start with a blank site**. **Add site** then opens straight on the **Create a blank site** screen.
 
 ### [Using a custom domain and SSL](#Using-a-custom-domain-and-SSL)
 
-By default, new Studio sites use `localhost`. If you prefer to use a custom domain, select **Use custom domain** under **Advanced settings → Domain** when creating the site. Studio will suggest a domain for you but you can also enter your own. Custom domains must end in `.local`.
+By default, new Studio sites use `localhost`. If you prefer to use a custom domain, expand **Advanced settings** when creating the site and turn on **Use custom domain**. Studio will suggest a domain for you but you can also enter your own. Custom domains must end in `.local`.
 
 After clicking **Create site**, you will be prompted to enter your system password. Once confirmed, the custom domain will then point to your Studio site.
 
@@ -41,81 +46,116 @@ You can optionally enable HTTPS (SSL) for your custom domain. Refer to the [“S
 You can also add a site to Studio using an existing WordPress directory:
 
 1.  Remove `wp-config.php` file from the existing WordPress site directory.
-2.  Click the **Add site** (**+**) button and select **Create a new site**.
-3.  Name your site, expand **Advanced settings**, choose the directory with the existing WordPress site as the **Local path**, and click **Create site**.
+2.  Click the **Add site** (**+**) button and choose **Blank site**.
+3.  Name your site, and choose the directory with the existing WordPress site as the **Local path**. Studio shows “The existing WordPress site at this path will be added.”
+4.  Click **Create site**.
 
 If you’d prefer to use an existing `wp-config.php` file, [you can follow these instructions](https://developer.wordpress.com/docs/developer-tools/studio/frequently-asked-questions/#use-studio-with-mysql-server).
 
 ## [Starting and stopping sites](#start-stop)
 
-You can view any *running* site in your browser. With a *stopped site*, viewing the site in your browser will be disabled until you start it again.
+A site needs to be running to show in the site preview. If you open a stopped site in your browser from the site menu’s **Open in** submenu, Studio starts it first.
 
-Each site in the sidebar has a status button next to its name, which shows a green dot while the site is running. Hover over the button to see the site’s status, then click it to start or stop the site.
+Each site in the sidebar has a **Start site** or **Stop site** button next to its name. Click it to start or stop the site. When you open a stopped site, a **Start site** button also appears in the header at the top of the window.
 
-[![The site status button in the Studio sidebar, with its "Site status: Running" tooltip.](https://developer.wordpress.com/wp-content/uploads/2025/01/site-status-tooltip.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/site-status-tooltip.png)
+[![A running site in the Studio sidebar, with the Stop site tooltip over the stop button next to the site's name.](https://developer.wordpress.com/wp-content/uploads/2025/01/site-status-button.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/site-status-button.webp)
 
-When a site is stopped, the site preview shows a **Start site** button, which you can also click to start it.
+When a site is stopped, the site preview shows a saved image of the site with a start button over it. Click the image to start the site.
 
-[![](https://developer.wordpress.com/wp-content/uploads/2025/01/site-stopped.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/site-stopped.png)
+[![A stopped site in Studio, with a saved image of the site and a start button over it in the preview, and Start site buttons in the sidebar and the header.](https://developer.wordpress.com/wp-content/uploads/2025/01/site-stopped.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/site-stopped.webp)
 
-You can also right-click a site in the sidebar and choose **Start site** or **Stop site**.
+You can also start, stop, and restart a site from its [site menu](#site-menu), or press ⌥⌘S (Ctrl+Alt+S on Windows and Linux) to start or stop the active site. When several sites are running, the menu’s **Stop** submenu also offers **Stop other sites** and **Stop all sites**.
 
-When you quit Studio while sites are running, Studio asks what to do with them. To choose a default, open **App settings** and set **When quitting with running sites** to **Keep sites running**, **Stop, restart on next launch**, or **Stop sites**.
+When you quit Studio while sites are running, Studio asks what to do with them. To choose a default, open **Settings → General** and set **When WordPress Studio quits** to **Keep sites running**, **Stop, restart on next launch**, or **Stop sites**.
+
+If you send a Studio Code message to a stopped site, Studio starts it for you. To change this, turn off **Start site when sending a prompt** in **Settings → General**. To choose whether the chat opens next to the preview when you start a site, turn **Open chat when starting a site** on or off in the same place.
 
 ### [View sites](#4-view-sites)
 
-The selected site is shown in the site preview, on the right of the Studio window. Use the preview’s address menu to switch between the site’s front end, **WP Admin**, and the database.
+The selected site is shown in the site preview, on the right of the Studio window. The header above the chat and preview has the **Site menu** button (globe) at its top left, followed by **Close chat**, **Back**, **Forward**, **Reload preview**, **Responsive mode**, and the address bar, with **Annotate**, **Publish**, and **Share** at the end.
+
+Click the address bar to switch between the site’s **Front end**, **WordPress Admin**, and **Database** (and its **Design system**, when it has one), or to go back to a page under **Recent**. You can also type a path or an address on the site and press Enter. If you type words instead, Studio searches the site for them.
+
+[![The address bar menu in Studio's site preview, open to show the Front end, WordPress Admin, and Database options.](https://developer.wordpress.com/wp-content/uploads/2026/04/preview-destinations.webp)](https://developer.wordpress.com/wp-content/uploads/2026/04/preview-destinations.webp)
+
+You do not need a username or password to view your site’s dashboard in the preview, as you will be automatically logged in.
 
 To view a running site in your browser:
 
--   **WP admin**: Click **Open in…** at the top of the window and choose **Browser (WP Admin)** to open your local site’s dashboard.
--   **Open site**: Click **Open in…** and choose **Browser**, or click **Open this page in your browser** in the site preview, to open your local site’s homepage. The front end opens in your external browser without logging you into WP Admin.
-
-You do not need a username or password to view your site’s dashboard as you will be automatically logged in.
+-   **Open this page**: Click **Open this page in your browser** at the end of the address bar to open the page shown in the preview in your browser.
+-   **Open site**: Open the site menu and choose **Open in → Browser** to open your local site’s homepage. The front end opens in your external browser without logging you into WP Admin.
+-   **WP Admin**: Open the site menu and choose **Open in → WordPress admin** to open your local site’s dashboard, logged in.
 
 Links in the site preview that open a new window, such as **View post** and the editor’s **Preview**, open in the preview pane. Links to other websites open in your system browser.
 
-## [Site overview](#site-overview)
+To give the preview more room, click **Close chat** in the header. Click **Open chat** to bring it back. To hide the preview instead, press ⇧⌘B (Ctrl+Shift+B on Windows and Linux). Each site remembers whether its chat is open and how wide the chat and preview are. To restore the defaults, click **Reset interface** in **Settings → General**.
 
-Each local site has its own quick-access buttons on the **Overview** tab of the site overview, for easy navigation and an efficient workflow. To open it, click the **Site overview** button next to the site’s name in the sidebar.
+When the Studio window is narrow, some of these buttons move into the **More preview actions** (**…**) menu at the end of the header.
 
-[![The Overview tab of the site overview in Studio, with the About, WP Admin, Shortcuts, Open in…, and Manage sections.](https://developer.wordpress.com/wp-content/uploads/2025/01/site-overview.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/site-overview.png)
+### [Responsive mode](#responsive-mode)
 
-The **Overview** tab includes:
+Responsive mode shows the site preview at the size of another screen, such as a phone, a tablet, or a large desktop, so you can check how your site looks there.
 
--   **About**: a screenshot of the site, its WordPress and PHP versions, and how much disk space it uses
--   **WP Admin**: the admin username, password, and email, each with a copy button
--   **Shortcuts**: one-click links to site setting pages
--   **Open in…**: buttons that open the site in other apps
--   **Manage**: **Duplicate**, **Import**, **Export entire site**, **Export database**, and **Delete**
+To turn it on, point at the address bar and click **Responsive mode** at its start. In a narrow window, open **More preview actions** and choose **Responsive mode**. A toolbar appears above the preview, and the page is shown at the chosen size:
 
-Select one of your sites and [make sure that it is running](#start-stop). Under **Shortcuts**, you can quickly open site setting pages with just one click. 
+-   **Device**: the menu at the start of the toolbar. Choose **Responsive** to set any size, or pick a device such as **iPhone 17**, **Pixel 10**, **iPad mini**, **Laptop**, or **Desktop**. Each device shows its width and height.
+-   **Width** and **Height**: type a size in pixels and press Enter. Sizes can be from 100 to 3840 pixels. Press Escape to cancel.
+-   **Rotate to landscape** or **Rotate to portrait**: swaps the width and height.
+-   **Zoom**: **Fit** scales the page to fit the preview. You can also choose 50%, 75%, 100%, 125%, or 150%.
 
-If you’re using a block theme on your local site, you’ll see the following options:
+[![A site in Studio's responsive mode at the iPhone 17 size, with the toolbar above the preview showing the device menu, the 402 by 874 size, the rotate button, and Fit zoom, and drag handles on the edges of the page.](https://developer.wordpress.com/wp-content/uploads/2025/01/responsive-mode.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/responsive-mode.webp)
 
--   Site Editor
--   Styles
--   Patterns
--   Navigation
--   Templates
+To resize the page by hand, drag any of its edges. You can also click an edge and use the arrow keys; hold Shift to move 10 pixels at a time. When you change the size by hand, the device menu switches to **Responsive**.
 
-If you’re using a classic theme on your local site, you’ll see the following options, depending on their availability in the theme:
+[![The device menu of Studio's responsive mode toolbar open, listing Responsive and device sizes such as iPhone 17, Pixel 10, iPad mini, Laptop, and Desktop, each with its width and height.](https://developer.wordpress.com/wp-content/uploads/2025/01/responsive-mode-presets.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/responsive-mode-presets.webp)
 
--   Customizer
--   Menus
--   Widgets
+Each site keeps its responsive settings until you quit Studio. Responsive mode isn’t available while the preview shows the **Database** or the **Design system**. To go back to the full-size preview, click **Exit responsive mode** (**×**) at the end of the toolbar, or click **Responsive mode** in the address bar again.
 
-With any theme, you’ll also see **Posts**, **Pages**, and **Media Library**.
+## [Site menu](#site-menu)
 
-### [“Open in…” section](#6--open-in-section)
+Each site has a menu with quick access to everything you can do with it. To open it, click the **Site menu** button (globe) at the top left of the site’s header, or right-click the site in the sidebar.
 
-Under the “**Open in…**” heading, Studio will show buttons that will open your site in the following apps if detected on your computer:
+[![The site menu in Studio, open from the globe button in the site's header, with New chat, Settings, Stop, Restart site, Tools, Open in, Pin, Rename, Import, Export, Duplicate, Share, Publish, and Delete site.](https://developer.wordpress.com/wp-content/uploads/2025/01/site-menu.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/site-menu.webp)
 
--   Finder (macOS only)
--   File Explorer (Windows only)
--   File manager (Linux only)
+The site menu includes:
 
-Additionally, Studio allows opening files in the following code editors:
+-   **New chat**: starts a new [Studio Code](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/) chat for the site
+-   **Settings**: opens the site’s [settings](#site-settings)
+-   **Start site**, or **Stop** (**Stop site**, **Stop other sites**, or **Stop all sites**) and **Restart site**
+-   **Tools**: shows **WordPress Admin**, the **Database**, or the site’s **Design system** (when it has one) in the site preview. **Email** opens the folder of emails the site has sent (see [Site email](#site-email)).
+-   **Open in**: opens the site in other apps (see below)
+-   **Pin** or **Unpin**: keeps the site in the **Pinned** section at the top of the sidebar
+-   **Rename**
+-   **Import** and **Export** (**Export site** or **Export database**): see [Import & export](https://developer.wordpress.com/docs/developer-tools/studio/import-export/)
+-   **Duplicate**
+-   **Share**: see [Preview sites](https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/)
+-   **Publish**: see [Studio Sync](https://developer.wordpress.com/docs/developer-tools/studio/sync/)
+-   **Delete site**
+
+Site actions are also available in the command palette: press ⌘K (Ctrl+K on Windows and Linux) and start typing.
+
+### [Site email](#site-email)
+
+Studio saves the emails your site sends, such as password resets and notifications, instead of sending them. To see them, open the site menu and choose **Tools → Email**. Studio opens the site’s email folder in Finder (macOS), File Explorer (Windows), or your file manager (Linux).
+
+Each email is saved as an `.eml` file, which opens in your mail app. The folder is in `~/.studio/email/`, not in the site’s files, so emails aren’t exported, published, or shared with the site. Studio keeps the 100 most recent emails for each site, and deletes the folder when you delete the site.
+
+### [“Open in” menu](#8--open-in-menu)
+
+The **Open in** submenu lists the apps on your computer that can open the site:
+
+-   **Finder** (macOS), **File Explorer** (Windows), or your **File manager** (Linux)
+-   **Browser**, or the name of your default browser if you chose one: the site’s front end, in that browser
+-   Your code editor
+-   Your terminal
+-   **WordPress admin**: the site’s dashboard in that browser, logged in
+-   **phpMyAdmin**
+
+If the site is stopped, **Browser**, **WordPress admin**, and **phpMyAdmin** start it first.
+
+[![The site menu in Studio with its Open in submenu open, showing Finder, Browser, Visual Studio Code, Terminal, WordPress admin, and phpMyAdmin.](https://developer.wordpress.com/wp-content/uploads/2025/01/site-menu-open-in.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/site-menu-open-in.webp)
+
+Studio can open sites in the following code editors:
 
 -   Antigravity IDE
 -   Cursor
@@ -128,71 +168,62 @@ Additionally, Studio allows opening files in the following code editors:
 
 You can also open your sites with several terminal applications:
 
--   Terminal (macOS and Linux)
--   Command Prompt (Windows)
+-   Terminal (opens Terminal on macOS, Command Prompt on Windows, and your system terminal on Linux)
 -   iTerm (macOS)
 -   Warp
 -   Ghostty (macOS and Linux)
 
-Studio also allows you to open your site’s database with the database editor:
+To select a preferred code editor, browser, or terminal application, click **Settings** at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux). On the **General** page, choose a **Default code editor**, **Default browser**, and **Default terminal app**. With **Default browser** set to **System default**, sites open in your computer’s default browser, and the **Open in** menu shows **Browser**.
 
--   phpMyAdmin
-
-To select a preferred code editor or terminal application, click **App settings** at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux). On the **Settings** tab, choose a **Preferred editor** and a **Preferred terminal**.
-
-[![The Settings tab of Studio's App settings, with the Preferred editor and Preferred terminal options.](https://developer.wordpress.com/wp-content/uploads/2025/01/app-settings.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/app-settings.png)
+[![The General page of Studio's Settings, with the Language, Default code editor, Default browser, Default terminal app, and Default directory options under Application.](https://developer.wordpress.com/wp-content/uploads/2025/01/settings-general.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/settings-general.webp)
 
 ## [Site settings](#site-settings)
 
-You can view and edit each site’s settings on the **Settings** tab of the site overview. To open it, click the **Site overview** button next to the site’s name in the sidebar and select the **Settings** tab, or right-click the site in the sidebar and choose **Site settings**.
+Studio keeps the settings for the app and for each site in one **Settings** dialog. Use the **App** and **Site** switch at the top left to move between them, or search for a setting by name.
 
-[![The Settings tab of the site overview in Studio, with the site name and WordPress version settings.](https://developer.wordpress.com/wp-content/uploads/2025/01/site-settings.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/site-settings.png)
+To open a site’s settings, choose **Settings** from the [site menu](#site-menu), or search for **Site settings** in the command palette.
 
-**Site details:**
+[![The Settings page of a site's settings in Studio, with Site selected in the App and Site switch, showing Site name, Local path, WordPress version, Automatic updates, and Use custom domain under Local domain.](https://developer.wordpress.com/wp-content/uploads/2025/01/site-settings.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/site-settings.webp)
 
--   **Site name**: Your local site’s name.
--   **WordPress version**: Keep **Automatic updates** to let WordPress install updates on its own schedule, or choose **Select a version** to pin a specific WordPress version.
+A site’s settings are grouped into these pages:
 
-**PHP environment:**
+**Settings:**
 
--   **PHP version**: The PHP version used for your local site.
--   **File access**: See [PHP runtimes in Studio](https://developer.wordpress.com/docs/developer-tools/studio/php-runtimes/).
+-   **Site name**: Your local site’s name, as shown in Studio.
+-   **Local path**: The folder where the site’s files are stored. You can’t change it here, but you can copy it with the copy button.
+-   **WordPress version**: The WordPress release for this site. Turn on **Automatic updates** to keep WordPress updated to the latest released version.
+-   **Local domain**: **Use custom domain**, **Domain**, and **Enable HTTPS**. See [Using a custom domain and SSL](#Using-a-custom-domain-and-SSL).
+-   **WordPress credentials**: The **Username**, **Password**, and **Email** for the admin account, each with a copy button. You can use them to log into WP Admin on your local site and on your preview sites.
 
-**WordPress admin:**
+**Debug:** **Environment**, **Xdebug**, **Debug log**, **Script debugging**, and **Show errors in browser**. See [Debugging in Studio](https://developer.wordpress.com/docs/developer-tools/studio/debugging/).
 
--   **Admin username**: The username for the admin account on your local site and can be used to log into your preview site. 
--   **Admin password**: The password for the admin account on your local site and can be used to log into your preview site. 
--   **Admin email**: The email address for the admin account.
+**PHP:** **PHP version** and **File access**. See [PHP runtimes](https://developer.wordpress.com/docs/developer-tools/studio/php-runtimes/).
 
-**Domain:**
+**Skills** and **Instructions:** the agent skills and instruction files installed on this site. See [Agent Skills in Studio](https://developer.wordpress.com/docs/developer-tools/studio/agent-skills-wordpress-studio/).
 
--   **Use custom domain** and **Enable HTTPS**: See [Using a custom domain and SSL](#Using-a-custom-domain-and-SSL).
+### [Edit a site](#10-edit-a-site)
 
-### [Edit a site](#8-edit-a-site)
+To edit a site, change any of its settings. **Save** and **Discard** buttons appear at the top of the dialog as soon as you change something; click **Save** to apply your changes. You can edit the site’s name, switch to different PHP and WordPress versions, and change the admin credentials and domain. Saving settings doesn’t overwrite the WordPress admin email, and changing only the admin username renames the admin user. You can also change the WordPress version of a site that has never been started.
 
-To edit a site, change any of the settings on the **Settings** tab and click **Save settings**. You can edit the site’s name, switch to different PHP and WordPress versions, and change the admin credentials and domain. Saving settings doesn’t overwrite the WordPress admin email, and changing only the admin username renames the admin user. You can also change the WordPress version of a site that has never been started.
-
-[![The PHP environment settings on the site's Settings tab: PHP version and File access.](https://developer.wordpress.com/wp-content/uploads/2025/01/site-settings-php.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/site-settings-php.png)
+[![The PHP page of a site's settings in Studio, with the PHP version set to 8.4 and File access set to Site directory.](https://developer.wordpress.com/wp-content/uploads/2026/06/site-settings-php.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/06/site-settings-php.webp)
 
 Please note that when selecting different PHP and WordPress versions, ensure they are compatible with the plugins and themes installed on your site. If you encounter any errors on your Studio site after making these changes, reviewing your active plugins and themes is a good first step in troubleshooting.
 
-Site actions such as starting, stopping, and editing a site are unavailable while a sync, import, or export is running on that site.
+Site actions such as starting, stopping, and editing a site are unavailable while a publish, pull, import, or export is running on that site.
 
-### [Site menu](#site-menu)
+### [Organize the sidebar](#organize-the-sidebar)
 
-Right-click a site in the sidebar to open its menu, with quick access to:
+Each site in the sidebar can be expanded to show its Studio Code chats. To keep the sidebar tidy:
 
--   **Start site** or **Stop site**
--   **Site settings**
--   **Duplicate site**
--   **Open in** your browser (the site or WP Admin), file manager, editor, terminal, or phpMyAdmin
--   **Export entire site** and **Export database**
--   **Delete site**
+-   **Pin** the sites and chats you use most, from their menus or with ⌥⌘P (Ctrl+Alt+P on Windows and Linux). They appear in the **Pinned** section at the top of the sidebar.
+-   Drag sites and chats to reorder them, or use the **Sort by** menu next to **Sites** to sort sites by **Status** or **Manual order**, and chats by **Last updated** or **Manual order**.
+-   ⌘-click (Ctrl-click on Windows and Linux) or Shift-click to select several sites or chats and act on them together, for example to pin, mark as read, archive, or delete them.
+-   In **Settings → General**, turn on **Collapse sidebar groups** so that opening a site closes all others, or turn off **Show recent chats** to hide the **Recent** section.
 
-[![The site menu in the Studio sidebar.](https://developer.wordpress.com/wp-content/uploads/2025/01/sidebar-site-menu.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/sidebar-site-menu.png)
+### [Delete a site](#12-delete-a-site)
 
-### [Delete a site](#9-delete-a-site)
+To delete a local site, choose **Delete site** from the [site menu](#site-menu). Studio asks you to confirm that you want to remove the site from Studio. To also delete its files from your computer, select **Also move files and database to Trash**, then click **Remove site**.
 
-You may also delete your local site by clicking **Delete** under **Manage** on the site overview’s **Overview** tab, or by right-clicking the site in the sidebar and choosing **Delete site**. You’ll have the option to delete site files from your computer before confirming the deletion with **Delete site**.
+To delete several sites at once, select them in the sidebar, right-click the selection, and choose **Delete *N* sites**. To keep one of them, click **Exclude** (**×**) next to its name in the confirmation, then click **Remove sites**.
 
-[![The Delete site confirmation in Studio, with the option to delete site files from your computer.](https://developer.wordpress.com/wp-content/uploads/2025/01/delete-site-dialog.png)](https://developer.wordpress.com/wp-content/uploads/2025/01/delete-site-dialog.png)
+[![The confirmation Studio shows before removing a site, asking to remove the site and delete its chats and any shared preview sites, with an Also move files and database to Trash checkbox and Cancel and Remove site buttons.](https://developer.wordpress.com/wp-content/uploads/2025/01/delete-site-dialog.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/delete-site-dialog.webp)

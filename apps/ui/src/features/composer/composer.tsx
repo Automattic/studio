@@ -27,7 +27,7 @@ import { FamilySwitchConfirmDialog } from '@/features/composer/family-switch-con
 import { ModeChip } from '@/features/composer/mode-chip';
 import { ModelPicker } from '@/features/composer/model-picker';
 import { NoticeTab, type ComposerNotice } from '@/features/composer/notice-tab';
-import { SendButton, StopButton } from '@/features/composer/submit-button';
+import { SendButton, StartButton, StopButton } from '@/features/composer/submit-button';
 import { useAddCredits } from '@/features/composer/use-add-credits';
 import { useCommandSheet } from '@/features/composer/use-command-sheet';
 import { useComposerHandle, type ComposerHandle } from '@/features/composer/use-composer-handle';
@@ -99,6 +99,9 @@ interface ComposerProps {
 	placeholderBusy?: boolean;
 	// Offers the auto-start preference, for a chat on a local site.
 	canAutoStart?: boolean;
+	onStartSite?: () => void;
+	startSiteDisabled?: boolean;
+	isSiteStarting?: boolean;
 	// The site the chat works on; a chat on the live site can switch back to local.
 	environment?: 'local' | 'live';
 	onEnvironmentChange?: ( environment: 'local' | 'live' ) => void;
@@ -139,6 +142,9 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		placeholder: placeholderOverride,
 		placeholderBusy = false,
 		canAutoStart = false,
+		onStartSite,
+		startSiteDisabled = false,
+		isSiteStarting = false,
 		environment = 'local',
 		onEnvironmentChange,
 		dropTarget,
@@ -390,6 +396,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	}, [] );
 
 	const showStop = ! isField && busy && ( sending || ! hasContent );
+	const showStart = ! busy && ! sending && ! hasContent && !! onStartSite;
 	const canSend = hasContent && ! sending;
 	const placeholder = answerQuestion
 		? __( 'Your answer' )
@@ -558,6 +565,12 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 							) : null }
 							{ isField ? null : showStop ? (
 								<StopButton isInterrupting={ isInterrupting } onStop={ () => void onInterrupt() } />
+							) : showStart ? (
+								<StartButton
+									disabled={ startSiteDisabled }
+									isStarting={ isSiteStarting }
+									onStart={ onStartSite }
+								/>
 							) : (
 								<SendButton
 									label={ sendLabel }

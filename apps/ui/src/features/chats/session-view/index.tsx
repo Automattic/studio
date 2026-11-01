@@ -28,6 +28,7 @@ import { useIsOutOfAiCredits } from '@/data/queries/use-is-out-of-ai-credits';
 import {
 	useSession,
 	useSessionLiveSite,
+	useSessions,
 	useSetSessionEnvironment,
 } from '@/data/queries/use-sessions';
 import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
@@ -41,6 +42,7 @@ import {
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSelectionTime } from '@/data/use-open-site';
 import { SessionUIProvider, useOptionalSessionPreviewUI } from '@/data/use-session-ui';
+import { useStartSitePreview } from '@/data/use-start-site-preview';
 import {
 	getSiteAnnotations,
 	hasAnnotationContent,
@@ -95,8 +97,10 @@ function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: Ses
 	const navigate = useNavigate();
 	const { data, isLoading, error, refetch } = useSession( sessionId );
 	const { data: sites } = useSites();
+	const { data: sessions } = useSessions();
+	const sessionSummary = data?.summary ?? sessions?.find( ( session ) => session.id === sessionId );
 	const ownerSite = sessionId
-		? findAiSessionOwnerSite( sites, data?.summary )
+		? findAiSessionOwnerSite( sites, sessionSummary )
 		: sites?.find( ( site ) => site.id === siteId );
 	useEffect( () => {
 		if ( ! sessionId && sites && ! ownerSite ) {
@@ -104,7 +108,7 @@ function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: Ses
 		}
 	}, [ navigate, ownerSite, sessionId, sites ] );
 	const effectiveEnvironment = useSessionLiveSite(
-		sessionId ? data?.summary : draft,
+		sessionId ? sessionSummary : draft,
 		ownerSite?.id
 	)
 		? 'live'
@@ -269,6 +273,7 @@ function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: Ses
 	const [ frameNode, setFrameNode ] = useState< HTMLDivElement | null >( null );
 	const { data: preferences } = useUserPreferences();
 	const { mutate: startSite } = useStartSite();
+	const { mutate: startSitePreview } = useStartSitePreview();
 	const isSiteStarting = useIsSiteStarting( ownerSite?.id );
 	const isSiteStopping = useIsSiteStopping( ownerSite?.id );
 	const revealingSiteId = useOptionalSessionPreviewUI()?.revealingSiteId;
@@ -498,6 +503,13 @@ function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: Ses
 						placeholder={ composerPlaceholder }
 						placeholderBusy={ isSiteStarting || isSiteStopping }
 						canAutoStart={ canAutoStart }
+						onStartSite={
+							canAutoStart && ( ! ownerSite.running || isSiteStarting )
+								? () => startSitePreview( ownerSite.id )
+								: undefined
+						}
+						startSiteDisabled={ isSiteBusy }
+						isSiteStarting={ isSiteStarting }
 						environment={ effectiveEnvironment }
 						onEnvironmentChange={
 							ownerSite

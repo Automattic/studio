@@ -117,8 +117,12 @@ where the sender actually runs — see Testing below for what fires in which bui
   `createSite`, then populated), and duplicate (`copySite` copies the files, then also creates via the
   CLI). The CLI infers `flow_type=blueprint` from the blueprint arg; the callers thread the other
   non-`new` values down as a `--flow-type` hint (built into the CLI args by `buildSiteCreateArgs` in
-  `packages/common/sites/create.ts`). `channel`/`ui_version` resolve from `STUDIO_TRACKS_ORIGIN` exactly
-  as for `studio_site_start`.
+  `packages/common/sites/create.ts`). The CLI also infers `flow_type=static_site_import` from a
+  `--from <source>` arg — the source import becomes a blueprint internally, so that inference wins
+  over any `--flow-type` hint — and records the kind of source as `source`: `url` (captured live by
+  Data Liberation), `capture` (a local Data Liberation capture root), or `directory` (any other local
+  static source). The URL or path itself is never sent. `channel`/`ui_version` resolve from
+  `STUDIO_TRACKS_ORIGIN` exactly as for `studio_site_start`.
 - **`studio_preview_site_create`/`_update`/`_delete`/`_delete_all`** are emitted **only** by the CLI,
   from the `preview` commands (`apps/cli/commands/preview/{create,update,delete}.ts`). Every desktop
   Previews-tab action (create/update/delete/delete-all) delegates to the app-spawned CLI (via the
@@ -296,8 +300,8 @@ start / creation is counted once whether it originated in a UI or the standalone
 |---|---|---|
 | `studio_app_launch` | Desktop Main (`appBoot`); `studio ui` server start | `is_first_launch` (desktop only) |
 | `studio_mcp_session_start` | CLI MCP server, once an agent app connects | `mcp_apps` (boolean — whether the app renders MCP Apps, such as the design picker and the WordPress tab), plus the `studio-mcp` origin props `mcp_client`, `plugin`, `plugin_version`. One per connection: distinct install IDs on it, split by `plugin`, count the people using Studio from agent apps. |
-| `studio_site_start` | CLI site-start funnel | `success` (boolean), `time_ms` (start duration). On success also `running_site_count` (running Studio sites after this one comes up). On failure instead `failure_reason` (coarse, low-cardinality: `timeout`/`port_unavailable`/`php_error`/`process_exited`/`unknown` — the raw error is never sent). Both also carry the milliseconds of each step that finished: `daemon_ms`, `wp_config_ms`, `wordpress_install_ms`, `blueprint_ms`, `symlink_scan_ms`, `php_workers_ms`, `proxy_ready_ms`, `admin_credentials_ms`; on a failure, the first missing step is the one that did not finish. |
-| `studio_site_created` | CLI site-create funnel | `flow_type` (`new`/`blueprint`/`import`/`sync`/`duplicate`/`ai`), `php_version`, `wp_version` (resolved from disk; `-` if unknown), `custom_domain` (boolean — the domain string is **never** sent), `ssl_enabled` (boolean), `time_ms` (creation duration). Emitted once per **successful** creation. |
+| `studio_site_start` | CLI site-start funnel | `command` (the command that started the site: `start`/`create`/`import`/`pull`/`pull_reprint`/`config`), `success` (boolean), `time_ms` (start duration). On success also `running_site_count` (running Studio sites after this one comes up). On failure instead `failure_reason` (coarse, low-cardinality: `timeout`/`port_unavailable`/`php_error`/`process_exited`/`unknown` — the raw error is never sent). Both also carry the milliseconds of each step that finished: `daemon_ms`, `wp_config_ms`, `wordpress_install_ms`, `blueprint_ms`, `symlink_scan_ms`, `php_workers_ms`, `proxy_ready_ms`, `admin_credentials_ms`; on a failure, the first missing step is the one that did not finish. `time_ms` is the whole start: for a `site start` an app requested, it counts from the request, so it includes the app spawning and loading the CLI and the CLI's checks before the steps above (in versions after 2.1.0; through 2.1.0 it counted from the server start, the first step). |
+| `studio_site_created` | CLI site-create funnel | `flow_type` (`new`/`blueprint`/`import`/`sync`/`duplicate`/`ai`/`static_site_import`), `source` (`url`/`capture`/`directory` — the kind of `--from` source, only present when `flow_type` is `static_site_import`; the URL/path itself is **never** sent), `php_version`, `wp_version` (resolved from disk; `-` if unknown), `custom_domain` (boolean — the domain string is **never** sent), `ssl_enabled` (boolean), `time_ms` (creation duration). Emitted once per **successful** creation. |
 
 #### Site operation events
 
@@ -369,8 +373,8 @@ coarse and low-cardinality (the raw error is never sent).
 
 | Event | Emitted from | Event-specific props |
 |---|---|---|
-| `studio_preview_site_create` | CLI `preview create` | `success` (boolean), `time_ms` (creation duration). On failure also `failure_reason` (`auth_required`/`size_limit`/`expired`/`not_found`/`timeout`/`upload`/`unknown`). |
-| `studio_preview_site_update` | CLI `preview update` | `success` (boolean), `time_ms` (update duration). On failure also `failure_reason` (same vocabulary as create). |
+| `studio_preview_site_create` | CLI `preview create` | `success` (boolean), `time_ms` (creation duration). On success also `site_preview_count` (the user's unexpired previews of this local site, this one included; tells how many people keep several previews of one site without identifying it). On failure also `failure_reason` (`auth_required`/`size_limit`/`expired`/`not_found`/`timeout`/`upload`/`unknown`). |
+| `studio_preview_site_update` | CLI `preview update` | `success` (boolean), `time_ms` (update duration). On success also `site_preview_count` (as for create). On failure also `failure_reason` (same vocabulary as create). |
 | `studio_preview_site_delete` | CLI `preview delete` (single) | (none). Emitted once per **successful** single delete. |
 | `studio_preview_site_delete_all` | CLI `preview delete --all` | `count` (number of the user's preview sites removed). Emitted once per **successful** delete-all (a single bulk server operation, not per site). |
 | `studio_preview_site_open` | Renderer (Classic Previews list, no longer emitted) | (none — opens the preview URL in the OS browser) |

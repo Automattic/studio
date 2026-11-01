@@ -58,6 +58,7 @@ import {
 import { findLastAssistant, isEmptyStop } from '@studio/agent/protocol/session-events';
 import { withDefaultTimeout } from './bash-timeout';
 import { createConfirmer } from './confirmation';
+import { FileViews } from './file-views';
 import {
 	endsTurn,
 	OPEN_PROBLEMS_TYPE,
@@ -525,6 +526,7 @@ async function createStudioAgentSession(
 				: sites;
 		} );
 	const afterChecks = new AfterChecks( pendingWork );
+	const fileViews = new FileViews();
 
 	const skillScope = new SkillToolScope( config.session );
 	let activateTools: () => void = () => {};
@@ -577,6 +579,7 @@ async function createStudioAgentSession(
 			afterChecks,
 			renderCheck: renders ? renderCheck : undefined,
 			writers,
+			fileViews,
 		} )
 	);
 	const settingsManager = createSettingsManager( config.env );

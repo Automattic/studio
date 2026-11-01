@@ -1185,6 +1185,51 @@ describe( 'pi runtime', () => {
 		] );
 	} );
 
+	// eval5-9: 7 branch Edits missed their text in a file Studio had rewritten
+	// since the agent wrote it (its fonts, its blocks), and the agent re-read it.
+	it( 'shows an Edit missing its text how the file changed since the agent held it', async () => {
+		await runRuntime( { prompt: 'hello', env: WPCOM_ENV, session: newSession() } );
+		const file = path.resolve( mocks.studioRoot, 'a/theme.json' );
+		const lines = Array.from( { length: 12 }, ( _, index ) => `line ${ index }` );
+		fs.mkdirSync( path.dirname( file ), { recursive: true } );
+		const failedEdit = async () => {
+			mocks.failNext = true;
+			return getCreatedTool( 'Edit' )
+				.execute( 'e', { path: 'a/theme.json', edits: [ { oldText: 'x', newText: 'y' } ] } )
+				.then(
+					() => '',
+					( error: Error ) => error.message
+				);
+		};
+		try {
+			fs.writeFileSync( file, lines.join( '\n' ) );
+			await getCreatedTool( 'Write' ).execute( 'w', { path: 'a/theme.json', content: '' } );
+			await takeNotes();
+			// Studio saves a fix to two of its lines.
+			fs.writeFileSync(
+				file,
+				lines
+					.map( ( line, index ) => ( [ 2, 9 ].includes( index ) ? `${ line }!` : line ) )
+					.join( '\n' )
+			);
+			expect( await failedEdit() ).toBe(
+				[
+					'exit 1',
+					'<studio-notes>',
+					`${ file } changed after your Write of it. Its changes since, line by line (- as your Write left it, + as it is now):`,
+					...[ '  line 0', '  line 1', '- line 2', '+ line 2!', '  line 3', '  line 4' ],
+					...[ '  …', '  line 7', '  line 8', '- line 9', '+ line 9!', '  line 10', '  line 11' ],
+					'</studio-notes>',
+				].join( '\n' )
+			);
+			// Read whole, the file is as the agent holds it.
+			await getCreatedTool( 'Read' ).execute( 'r', { path: 'a/theme.json' } );
+			expect( await failedEdit() ).toBe( 'exit 1' );
+		} finally {
+			fs.rmSync( file, { force: true } );
+		}
+	} );
+
 	// port c-2 climbing-gym: three files' notes each added a preset to theme.json
 	// at once, and the writes left one theme.json with another's end after it.
 	it( 'runs the notes on each file a call wrote, and on parallel calls, one at a time', async () => {

@@ -17,8 +17,10 @@ import {
 	getIncompleteToolCallReason,
 	getWrittenFile,
 	getWrittenText,
+	resolveToolPath,
 	type StudioToolPayloadGuardState,
 } from './tool-safety';
+import type { FileViews } from './file-views';
 import type { PendingWork } from './pending-work';
 import type { SitePin } from './site-pin';
 import type { Writers } from './writers';
@@ -98,6 +100,7 @@ export function toToolDefinition(
 		afterChecks,
 		renderCheck,
 		writers,
+		fileViews,
 	}: {
 		confirm: Confirmer;
 		sitePin: SitePin;
@@ -107,6 +110,7 @@ export function toToolDefinition(
 		// What renders the pages a call changed, unless another turn's calls do.
 		renderCheck: RenderCheck | undefined;
 		writers: Writers;
+		fileViews: FileViews;
 	}
 ): ToolDefinition {
 	// This agent's work reports its notes: what Studio finds in what another
@@ -222,6 +226,10 @@ export function toToolDefinition(
 					const changed = await settled( timeCheck );
 					const report = studioMessage( 'notes', [
 						...validationReport,
+						// An Edit missing its text in a file changed after the agent held it.
+						tool.name === 'Edit' && writtenFile
+							? fileViews.changeSince( writtenFile, readFileText( writtenFile ) )
+							: undefined,
 						...changed.summaries,
 						...changed.problems,
 					] );
@@ -234,6 +242,16 @@ export function toToolDefinition(
 				} );
 			// The file as the tool left it, which is the text the agent holds.
 			const left = writtenFile ? readFileText( writtenFile ) : undefined;
+			if ( writtenFile ) {
+				fileViews.saw( writtenFile, tool.name, left );
+			}
+			const readPath = tool.name === 'Read' && ( params as { path?: unknown } ).path;
+			if ( typeof readPath === 'string' ) {
+				const { offset, limit } = params as { offset?: unknown; limit?: unknown };
+				const file = resolveToolPath( readPath, host.sitesRoot );
+				// Part of a file is all the agent holds of it.
+				fileViews.saw( file, 'Read', offset || limit ? undefined : readFileText( file ) );
+			}
 			if ( tool.name === 'site_create' ) {
 				const name = String( ( params as { name?: unknown } ).name );
 				await sitePin.created( name );

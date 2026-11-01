@@ -14,7 +14,7 @@ function getStringParam( params: unknown, key: string ): string | undefined {
 	return typeof value === 'string' ? value : undefined;
 }
 
-function resolveToolPath( filePath: string, cwd: string ): string {
+export function resolveToolPath( filePath: string, cwd: string ): string {
 	const withoutAt = filePath.replace( /^@/, '' );
 	const expanded =
 		withoutAt === '~' || withoutAt.startsWith( '~/' )

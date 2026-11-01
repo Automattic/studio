@@ -1,4 +1,4 @@
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { cpSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
 import { postCopies, postCopiesFact } from '@studio/agent/node/post-copies';
@@ -76,6 +76,10 @@ describe.runIf( WORDPRESS )( 'the settings copy saved to a real WordPress', () =
 				blogname: 'Spoke & Chain',
 				page_on_front: Number( home.stdout.trim() ),
 			} );
+			// eval11 wpbest 1: the model read a hidden .settings.json beside it as the settings.
+			expect( readdirSync( workspace ).filter( ( name ) => name.includes( 'settings' ) ) ).toEqual(
+				[ 'settings.json' ]
+			);
 			// The copy as saved is no change.
 			expect( ( await check.settle() ).summaries ).toEqual( [] );
 		} finally {

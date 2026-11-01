@@ -8,7 +8,9 @@
  * (update_option()); a page may be named by its slug as well as its ID, and the
  * copy is rewritten with the ID. A change to the options rewrites the copy.
  * When both changed, the options stand: the copy is rewritten from them, and
- * its change is kept in settings.unsaved.json.
+ * its change is kept in settings.unsaved.json. What Studio last wrote or saved
+ * is in its snapshot of the site, so a session starts with the copy rewritten
+ * from the options.
  */
 import { createHash } from 'crypto';
 import { existsSync } from 'fs';
@@ -22,7 +24,6 @@ import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes
 import type { WordPressSite } from '@studio/agent/node/site-database';
 
 export const SETTINGS_COPY = 'settings.json';
-const MANIFEST = '.settings.json';
 const KEY = 'settings';
 
 // The options the copy holds, in the order Settings shows them.
@@ -69,18 +70,16 @@ async function workspaceOf( host: StudioAgentHost, sitePath: string ) {
 
 const readText = ( file: string ) => readFile( file, 'utf8' ).catch( () => undefined );
 
-async function readManifest( workspace: string ): Promise< { options?: string; file?: string } > {
-	return JSON.parse( ( await readText( path.join( workspace, MANIFEST ) ) ) ?? '{}' );
+async function writeCopy( workspace: string, options: string ): Promise< Versions > {
+	await writeFile( path.join( workspace, SETTINGS_COPY ), options, 'utf8' );
+	return { [ KEY ]: `${ hash( options ) } ${ hash( options ) }` };
 }
 
-async function writeCopy( workspace: string, content: string ) {
-	await writeFile( path.join( workspace, SETTINGS_COPY ), content, 'utf8' );
-	await writeFile(
-		path.join( workspace, MANIFEST ),
-		JSON.stringify( { options: hash( content ), file: hash( content ) } ),
-		'utf8'
-	);
-}
+// The options' hash and the copy's, as a snapshot holds them.
+const hashesOf = ( versions: Versions | undefined ) => {
+	const [ options, copy ] = ( versions?.[ KEY ] ?? '' ).split( ' ' );
+	return { options, copy };
+};
 
 // Saves the options the copy changed, each as Settings saves it, with a page
 // named by its slug saved as its ID; refuses a page that does not exist.
@@ -103,38 +102,40 @@ echo wp_json_encode( array( 'saved' => $saved ) );`;
 export const siteSettingsCopy: SiteChangeSource = {
 	name: 'settings copy',
 	saves: true,
-	// Writes the copy when it is missing, or when the options changed while the
-	// copy did not, and returns the options' and the copy's hashes.
-	async read( sitePath, _last, host ): Promise< Versions > {
+	// Writes the copy when it is missing or new to this session, or when the
+	// options changed while the copy did not, and returns the options' and the
+	// copy's hashes.
+	async read( sitePath, last, host ): Promise< Versions > {
 		const workspace = await workspaceOf( host, sitePath );
 		if ( ! workspace || ! existsSync( workspace ) ) {
 			return {};
 		}
 		const options = await readWordPressSite( sitePath, readSettings );
 		const copy = await readText( path.join( workspace, SETTINGS_COPY ) );
-		const manifest = await readManifest( workspace );
-		const untouched = copy !== undefined && hash( copy ) === manifest.file;
-		if ( copy === undefined || ( untouched && manifest.options !== hash( options ) ) ) {
-			await writeCopy( workspace, options );
-			return { [ KEY ]: `${ hash( options ) } ${ hash( options ) }` };
+		const was = hashesOf( last );
+		if (
+			copy === undefined ||
+			! was.copy ||
+			( hash( copy ) === was.copy && hash( options ) !== was.options )
+		) {
+			return writeCopy( workspace, options );
 		}
 		return { [ KEY ]: `${ hash( options ) } ${ hash( copy ) }` };
 	},
 	async check( site, before, after, host ) {
 		const workspace = path.join( workspaceRoot(), site.id );
-		const [ optionsHash, copyHash ] = ( after[ KEY ] ?? '' ).split( ' ' );
-		const manifest = existsSync( workspace ) ? await readManifest( workspace ) : {};
-		// Unchanged, or as it was when Studio last could not save it.
-		if ( ! copyHash || copyHash === manifest.file || before[ KEY ] === after[ KEY ] ) {
+		const was = hashesOf( before );
+		const now = hashesOf( after );
+		// Unchanged since Studio wrote or last saved it, or new this call.
+		if ( ! was.copy || ! now.copy || now.copy === was.copy ) {
 			return { reports: [] };
 		}
 		const file = path.join( workspace, SETTINGS_COPY );
 		const reread = async () => {
 			const options = await readWordPressSite( site.path, readSettings );
-			await writeCopy( workspace, options );
-			return { [ KEY ]: `${ hash( options ) } ${ hash( options ) }` };
+			return writeCopy( workspace, options );
 		};
-		if ( optionsHash !== manifest.options ) {
+		if ( now.options !== was.options ) {
 			const unsaved = path.join( workspace, 'settings.unsaved.json' );
 			await rename( file, unsaved );
 			return {
@@ -147,13 +148,13 @@ export const siteSettingsCopy: SiteChangeSource = {
 				next: await reread(),
 			};
 		}
-		const was = JSON.parse( await readWordPressSite( site.path, readSettings ) );
+		const options = JSON.parse( await readWordPressSite( site.path, readSettings ) );
 		let changed: Record< string, unknown >;
 		try {
 			const copy = JSON.parse( ( await readText( file ) ) ?? '' );
 			changed = Object.fromEntries(
 				OPTIONS.filter(
-					( name ) => name in copy && String( copy[ name ] ) !== String( was[ name ] )
+					( name ) => name in copy && String( copy[ name ] ) !== String( options[ name ] )
 				).map( ( name ) => [ name, copy[ name ] ] )
 			);
 		} catch ( error ) {

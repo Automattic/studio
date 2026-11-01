@@ -9,7 +9,7 @@ import { readFileSync } from 'fs';
 import { mkdir, readdir, rm, writeFile } from 'fs/promises';
 import path from 'path';
 import { readWordPressSite } from '@studio/agent/node/site-database';
-import { AS_ADMINISTRATOR, runWpCli } from '@studio/agent/node/tools/utils';
+import { AS_ADMINISTRATOR, runWpCli, wpEvalJson } from '@studio/agent/node/tools/utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 
 /** Same-second edits can have equal lengths; the content hash distinguishes them. */
@@ -95,6 +95,28 @@ $saved = wp_update_post( wp_slash( array( 'ID' => ${ id }, 'post_content' => fil
 	) } ) ) ), true );
 if ( is_wp_error( $saved ) ) { fwrite( STDERR, $saved->get_error_message() ); exit( 1 ); }`;
 	await runWpCli( host, site, [ 'eval', php ] );
+}
+
+/**
+ * Publishes a new post of `type` with `slug` and `title`, its content from
+ * `file`, as an administrator publishes one in the editor (wp_insert_post()),
+ * and returns its ID and its address, which get_permalink() gives it.
+ */
+export async function createPost(
+	host: StudioAgentHost,
+	site: HostSite,
+	post: { type: string; slug: string; title: string; file: string }
+): Promise< { id: number; link: string } > {
+	return wpEvalJson(
+		host,
+		site,
+		`${ AS_ADMINISTRATOR }
+kses_remove_filters();
+$id = wp_insert_post( wp_slash( array( 'post_type' => $data['type'], 'post_status' => 'publish', 'post_name' => $data['slug'], 'post_title' => $data['title'], 'post_content' => file_get_contents( $data['file'] ) ) ), true );
+if ( is_wp_error( $id ) ) { fwrite( STDERR, $id->get_error_message() ); exit( 1 ); }
+echo wp_json_encode( array( 'id' => $id, 'link' => get_permalink( $id ) ) );`,
+		post
+	);
 }
 
 /** Saves new content to where a piece of markup is held: its file, or its post. */

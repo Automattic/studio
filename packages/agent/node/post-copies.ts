@@ -15,13 +15,17 @@
  * holding what the Site Editor starts them with when none are saved yet, and
  * saved as the Site Editor saves them (saveGlobalStyles() in global-styles.ts).
  *
+ * A new file in the page or post folder named for a slug, not an ID, is
+ * published as a new post of that type with that slug, titled after it
+ * (createPost() in site-markup.ts), and becomes its copy.
+ *
  * A post whose content a call left empty, as a shell pipeline whose edit
  * failed leaves it when it saves what the edit printed, keeps the content its
  * copy held in <ID>.previous.html, and Studio says so.
  */
 import { createHash } from 'crypto';
 import { existsSync, mkdirSync } from 'fs';
-import { readFile, rename, rm, writeFile } from 'fs/promises';
+import { readFile, readdir, rename, rm, writeFile } from 'fs/promises';
 import path from 'path';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import {
@@ -30,7 +34,13 @@ import {
 	themeGlobalStyles,
 } from '@studio/agent/node/global-styles';
 import { readWordPressSite } from '@studio/agent/node/site-database';
-import { POST_VERSION, RENDERED, RENDERED_TYPES, savePost } from '@studio/agent/node/site-markup';
+import {
+	POST_VERSION,
+	RENDERED,
+	RENDERED_TYPES,
+	createPost,
+	savePost,
+} from '@studio/agent/node/site-markup';
 import { activeIsBlockTheme, activeThemes } from '@studio/agent/node/themes';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { ChangeReport, SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
@@ -70,6 +80,24 @@ export function siteIdOfCopy( file: string ): string | undefined {
 	const [ id ] = relative.split( path.sep );
 	return id && ! relative.startsWith( '..' ) && ! path.isAbsolute( relative ) ? id : undefined;
 }
+
+// The types of post a new file in their folder publishes one of.
+const NEW_TYPES = [ 'page', 'post' ];
+
+// The slug a new file's name gives its post: a name with no other dot, not a
+// number, as a copy's ID is.
+const slugOf = ( name: string ) => {
+	const slug = name.match( /^([^.]+)\.html$/ )?.[ 1 ];
+	return slug && ! /^\d+$/.test( slug ) ? slug : undefined;
+};
+
+// A title from a slug: its words, each capitalized.
+const titleOf = ( slug: string ) =>
+	slug
+		.split( /[-_\s]+/ )
+		.filter( Boolean )
+		.map( ( word ) => word[ 0 ].toUpperCase() + word.slice( 1 ) )
+		.join( ' ' );
 
 const hash = ( content: string ) => createHash( 'sha1' ).update( content ).digest( 'hex' );
 const EMPTY = hash( '' );
@@ -184,7 +212,7 @@ export async function postCopiesFact(
 	return workspace
 		? `Post content, as WordPress saves it: ${ workspace }/<post type>/<ID>.html, for ${ RENDERED_TYPES.join(
 				', '
-		  ) }, and ${ workspace }/${ GLOBAL_STYLES }/<theme>.json for the active block theme's Global Styles, which WordPress merges over its theme.json. Studio saves a change to one to its post as the editor saves it (wp_update_post(), or PUT /wp/v2/global-styles for Global Styles), and rewrites it when the post changes.`
+		  ) }, and ${ workspace }/${ GLOBAL_STYLES }/<theme>.json for the active block theme's Global Styles, which WordPress merges over its theme.json. Studio saves a change to one to its post as the editor saves it (wp_update_post(), or PUT /wp/v2/global-styles for Global Styles), and rewrites it when the post changes. A new file there named for a slug, such as ${ workspace }/page/about-us.html, is published as a new page with that slug and titled after it.`
 		: undefined;
 }
 
@@ -321,6 +349,14 @@ export const postCopies: SiteChangeSource = {
 				versions[ post.id ] = `${ post.type } ${ post.version } ${ hash( copy ) }`;
 			}
 		} );
+		for ( const type of NEW_TYPES ) {
+			for ( const name of await readdir( path.join( workspace, type ) ).catch( () => [] ) ) {
+				if ( slugOf( name ) ) {
+					const content = await readCopy( path.join( workspace, type, name ) );
+					versions[ `${ type }/${ name }` ] = `new ${ hash( content ?? '' ) }`;
+				}
+			}
+		}
 		await writeFile( path.join( workspace, MANIFEST ), JSON.stringify( manifest ), 'utf8' );
 		return versions;
 	},
@@ -334,7 +370,52 @@ export const postCopies: SiteChangeSource = {
 		const manifest = await readManifest( workspace );
 		const reports: ChangeReport[] = [];
 		const next: Versions = { ...after };
+		for ( const [ key, version ] of Object.entries( after ) ) {
+			// A new file, unless it is as it was when Studio last could not publish it.
+			if ( ! key.includes( '/' ) || before[ key ] === version ) {
+				continue;
+			}
+			const [ type, name ] = key.split( '/' );
+			const file = path.join( workspace, key );
+			const slug = slugOf( name )!;
+			try {
+				const { id, link } = await createPost( host, site, {
+					type,
+					slug,
+					title: titleOf( slug ),
+					file,
+				} );
+				const copy = copyOf( workspace, { id, type } );
+				const post = await readWordPressSite( site.path, ( wp ) => {
+					const made = readPosts( wp ).find( ( each ) => each.id === id );
+					return { version: made?.version ?? '', content: readContent( wp, made ) };
+				} );
+				await writeCopy( copy, post.content );
+				await rm( file, { force: true } );
+				manifest[ id ] = { type, post: post.version, file: hash( post.content ) };
+				delete next[ key ];
+				next[ id ] = `${ type } ${ post.version } ${ hash( post.content ) }`;
+				const { pathname, search } = new URL( link, 'http://localhost' );
+				reports.push( {
+					key: `new ${ key }`,
+					post: String( id ),
+					summary: `Studio created ${ type } ${ id } "${ titleOf(
+						slug
+					) }" (${ pathname }${ search }) from ${ file }; its content is now in ${ copy }.`,
+				} );
+			} catch ( error ) {
+				reports.push( {
+					key: `new ${ key }`,
+					problem: `Studio could not publish ${ file } as a new ${ type }: ${
+						error instanceof Error ? error.message : String( error )
+					}`,
+				} );
+			}
+		}
 		for ( const [ id, version ] of Object.entries( after ) ) {
+			if ( id.includes( '/' ) ) {
+				continue;
+			}
 			const [ type, ...rest ] = version.split( ' ' );
 			const copyHash = rest.pop();
 			const postVersion = rest.join( ' ' );

@@ -1,8 +1,8 @@
+import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
-import { readAuthToken } from '@studio/common/lib/shared-config';
 import { createsPreviewsOnWpcom } from '@studio/common/lib/snapshots';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { type Snapshot } from '@studio/common/types/snapshot';
@@ -19,6 +19,7 @@ import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { classifyPreviewFailure } from 'cli/lib/utils';
 import { validateSiteSize } from 'cli/lib/validation';
+import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -34,6 +35,7 @@ export async function runCommand(
 	const startedAt = Date.now();
 	let siteId: string | undefined;
 	let step: LoggerAction | undefined;
+	let archiveBytes: number | undefined;
 
 	try {
 		const site = await getSiteByFolder( siteFolder );
@@ -48,21 +50,16 @@ export async function runCommand(
 				progress,
 			} );
 		};
+		const token = await requireAuthToken();
 		reportStep( LoggerAction.VALIDATE, __( 'Validating…' ), 0 );
-		await validateSiteSize( siteFolder );
-		const token = await readAuthToken();
-		if ( ! token ) {
-			throw new LoggerError(
-				__( 'Authentication required. Please log in with `studio auth login`.' ),
-				undefined,
-				'auth_required'
-			);
-		}
+		const onWpcom = await createsPreviewsOnWpcom( token.accessToken );
+		await validateSiteSize( siteFolder, { onWpcom } );
 
 		reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
 		await withSiteOperation( siteFolder, 'export', () =>
-			archiveSiteContent( siteFolder, archivePath )
+			archiveSiteContent( siteFolder, archivePath, { onWpcom } )
 		);
+		archiveBytes = fs.statSync( archivePath, { throwIfNoEntry: false } )?.size;
 		logger.reportSuccess( __( 'Archive created' ) );
 
 		let snapshotName = name;
@@ -79,7 +76,7 @@ export async function runCommand(
 
 		reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
 		let preview: PreviewSite;
-		if ( await createsPreviewsOnWpcom( token.accessToken ) ) {
+		if ( onWpcom ) {
 			const attachmentId = await uploadPreviewArchive( archivePath, token.accessToken );
 			logger.reportSuccess( __( 'Archive uploaded' ) );
 
@@ -111,6 +108,7 @@ export async function runCommand(
 		await recordPreviewCreateEvent( {
 			success: true,
 			time_ms: Date.now() - startedAt,
+			archive_bytes: archiveBytes,
 			site_preview_count: countSitePreviews(
 				site.id,
 				await getSnapshotsFromConfig( token.id ),
@@ -133,6 +131,7 @@ export async function runCommand(
 			success: false,
 			failure_reason: classifyPreviewFailure( error, step ),
 			time_ms: Date.now() - startedAt,
+			archive_bytes: archiveBytes,
 		} );
 		throw error instanceof LoggerError
 			? error
@@ -146,6 +145,8 @@ async function recordPreviewCreateEvent( props: {
 	success: boolean;
 	failure_reason?: string;
 	time_ms: number;
+	// Size of the uploaded archive, so preview times and failures can be read against site size.
+	archive_bytes?: number;
 	// Unexpired previews of this local site, this one included, so we can see how many people keep
 	// several previews of the same site without identifying the site.
 	site_preview_count?: number;

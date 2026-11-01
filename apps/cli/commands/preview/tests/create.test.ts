@@ -1,9 +1,10 @@
 import os from 'os';
 import path from 'path';
+import { confirm, input } from '@inquirer/prompts';
 import { isAutomatticianAccount } from '@studio/common/lib/automattician';
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
-import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
+import { getUserInfo, uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { createPreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
@@ -19,7 +20,10 @@ const mockReportError = vi.fn();
 vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) => ( {
 	...( await importOriginal() ),
 	readAuthToken: vi.fn(),
+	updateSharedConfig: vi.fn(),
 } ) );
+vi.mock( '@inquirer/prompts' );
+vi.mock( 'cli/lib/browser' );
 vi.mock( 'cli/lib/cli-config/snapshots', async () => ( {
 	...( await vi.importActual( 'cli/lib/cli-config/snapshots' ) ),
 	getNextSnapshotSequence: vi.fn().mockReturnValue( 1 ),
@@ -138,7 +142,9 @@ describe( 'Preview Create Command', () => {
 			'export',
 			expect.any( Function )
 		);
-		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath );
+		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath, {
+			onWpcom: true,
+		} );
 		expect( uploadPreviewArchive ).toHaveBeenCalledWith(
 			mockArchivePath,
 			mockAuthToken.accessToken
@@ -173,6 +179,9 @@ describe( 'Preview Create Command', () => {
 
 		await runCommand( mockFolder );
 
+		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath, {
+			onWpcom: false,
+		} );
 		expect( uploadPreviewArchive ).not.toHaveBeenCalled();
 		expect( createPreviewSite ).not.toHaveBeenCalled();
 		expect( uploadArchive ).toHaveBeenCalledWith(
@@ -245,6 +254,31 @@ describe( 'Preview Create Command', () => {
 
 		await expect( runCommand( mockFolder ) ).rejects.toThrow( LoggerError );
 		expect( archiveSiteContent ).not.toHaveBeenCalled();
+	} );
+
+	it( 'should offer to sign in at a terminal and carry on creating the preview', async () => {
+		vi.mocked( readAuthToken ).mockResolvedValue( null );
+		vi.mocked( confirm ).mockResolvedValue( true );
+		vi.mocked( input ).mockResolvedValue( 'pasted-token' );
+		vi.mocked( getUserInfo, { partial: true } ).mockResolvedValue( {
+			ID: 123,
+			email: 'test@example.com',
+			display_name: 'Test User',
+		} );
+		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		const isTTY = [ process.stdin.isTTY, process.stdout.isTTY ];
+		process.stdin.isTTY = process.stdout.isTTY = true;
+
+		try {
+			await runCommand( mockFolder );
+		} finally {
+			[ process.stdin.isTTY, process.stdout.isTTY ] = isTTY;
+		}
+
+		expect( updateSharedConfig ).toHaveBeenCalledWith( {
+			authToken: expect.objectContaining( { accessToken: 'pasted-token', id: 123 } ),
+		} );
+		expect( createPreviewSite ).toHaveBeenCalled();
 	} );
 
 	it( 'should always clean up archive file even on error', async () => {

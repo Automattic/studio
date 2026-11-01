@@ -63,7 +63,7 @@ If you have already created a site in Studio, and want to switch SQLite to the M
 1.  Stop the site.
 2.  Open your Studio’s site directory.
 3.  Navigate to the `wp-content` directory and delete the `db.php` file and the `database` directory.
-4.  Navigate to the `mu-plugins` directory and delete sqlite-database-integration-main directory.
+4.  Navigate to the `wp-content/mu-plugins` directory and delete the `sqlite-database-integration` directory.
 5.  Update `wp-config.php` file and fill in your MySQL server’s credentials.
 6.  Start your MySQL server.
 7.  Start the Studio’s site.

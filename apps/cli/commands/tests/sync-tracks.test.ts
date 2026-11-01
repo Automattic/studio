@@ -1,3 +1,4 @@
+import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { enableReprintExporter } from 'cli/lib/api';
@@ -39,6 +40,9 @@ vi.mock( 'cli/lib/sync-site-picker', async ( importActual ) => ( {
 	...( await importActual< typeof import('cli/lib/sync-site-picker') >() ),
 	pickSyncSite: vi.fn(),
 } ) );
+vi.mock( 'cli/lib/preview-sites', () => ( {
+	getStandingPreviews: vi.fn().mockResolvedValue( new Map() ),
+} ) );
 vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 	const actual = await importActual< typeof import('cli/lib/tracks') >();
 	return { ...actual, recordTracksEvent: vi.fn() };
@@ -70,6 +74,7 @@ const remoteSite = {
 beforeEach( () => {
 	vi.clearAllMocks();
 	vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
+	vi.mocked( getConnectedWpcomSitesForLocalSite ).mockResolvedValue( [] );
 	vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
 	vi.mocked( fetchSyncableSites ).mockResolvedValue( [ remoteSite ] );
 	vi.mocked( pickSyncSite ).mockResolvedValue( remoteSite );
@@ -88,6 +93,7 @@ describe( 'CLI: studio pull Tracks events', () => {
 			expect.objectContaining( {
 				success: false,
 				sync_type: 'pressable',
+				site_kind: 'site',
 				failure_reason: 'remote_backup',
 				time_ms: expect.any( Number ),
 				// Proves `getTracksOrigin()` was spread in.

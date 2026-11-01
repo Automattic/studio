@@ -106,6 +106,19 @@ import {
 	writeSitePreview,
 } from '@studio/common/lib/site-preview-cache';
 import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
+import {
+	listSpacefastSpaces,
+	listSpacefastTeams,
+	startSpacefastDeviceLogin,
+	waitForSpacefastDeviceLogin,
+} from '@studio/common/lib/spacefast/api';
+import {
+	clearSpacefastAuth,
+	getSpacefastConnection,
+	readSpacefastAuth,
+	removeSpacefastConnection,
+	saveSpacefastAuth,
+} from '@studio/common/lib/spacefast/config';
 import { requestStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
@@ -152,7 +165,12 @@ import {
 	publishPreviewSite,
 	renamePreviewSite,
 } from '@studio/common/sites/snapshots';
+import { publishSiteToSpacefast } from '@studio/common/sites/spacefast';
 import { createSyncRunner } from '@studio/common/sites/sync';
+import {
+	spacefastDeviceLoginSchema,
+	spacefastPublishTargetSchema,
+} from '@studio/common/types/spacefast';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
@@ -1907,6 +1925,95 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			res.json( await syncRunner.push( req.params.id, site.path, remoteSiteId, options ) );
+		} )
+	);
+
+	// Spacefast: sign-in (device login), Spaces, and publishing a static export of a
+	// site through `studio spacefast publish`, which reports its progress as sync activity.
+	const requireSpacefastApiKey = async ( res: Response ): Promise< string | null > => {
+		const auth = await readSpacefastAuth();
+		if ( ! auth ) {
+			res.status( 401 ).json( { error: 'Log in to Spacefast first.' } );
+		}
+		return auth?.apiKey ?? null;
+	};
+	api.get(
+		'/spacefast/account',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( { signedIn: ( await readSpacefastAuth() ) !== null } );
+		} )
+	);
+	api.post(
+		'/spacefast/login',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( await startSpacefastDeviceLogin() );
+		} )
+	);
+	api.post(
+		'/spacefast/login/complete',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const login = spacefastDeviceLoginSchema.safeParse( req.body );
+			if ( ! login.success ) {
+				res.status( 400 ).json( { error: 'Invalid device login' } );
+				return;
+			}
+			await saveSpacefastAuth( await waitForSpacefastDeviceLogin( login.data ) );
+			res.json( { signedIn: true } );
+		} )
+	);
+	api.post(
+		'/spacefast/logout',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			await clearSpacefastAuth();
+			res.json( { signedIn: false } );
+		} )
+	);
+	api.get(
+		'/spacefast/spaces',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			const apiKey = await requireSpacefastApiKey( res );
+			if ( apiKey ) {
+				res.json( await listSpacefastSpaces( apiKey ) );
+			}
+		} )
+	);
+	api.get(
+		'/spacefast/teams',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			const apiKey = await requireSpacefastApiKey( res );
+			if ( apiKey ) {
+				res.json( await listSpacefastTeams( apiKey ) );
+			}
+		} )
+	);
+	api.get(
+		'/sites/:id/spacefast',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			res.json( await getSpacefastConnection( req.params.id ) );
+		} )
+	);
+	api.delete(
+		'/sites/:id/spacefast',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			await removeSpacefastConnection( req.params.id );
+			res.json( null );
+		} )
+	);
+	api.post(
+		'/sites/:id/spacefast/publish',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const target = spacefastPublishTargetSchema.safeParse( req.body?.target );
+			if ( ! target.success ) {
+				res.status( 400 ).json( { error: 'Invalid publish target' } );
+				return;
+			}
+			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			const connection = await publishSiteToSpacefast( execute, site.path, target.data );
+			res.json( connection );
 		} )
 	);
 

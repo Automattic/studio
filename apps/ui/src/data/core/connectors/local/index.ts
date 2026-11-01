@@ -26,6 +26,10 @@ import type {
 	SkillStatus,
 	Snapshot,
 	SnapshotUsage,
+	SpacefastConnection,
+	SpacefastDeviceLogin,
+	SpacefastSpace,
+	SpacefastTeam,
 	StudioAssistantQuota,
 	StudioAssistantTopUpPricing,
 	SyncSite,
@@ -582,6 +586,38 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			await api( `/sites/${ encodeURIComponent( siteId ) }/watch-published-site`, {
 				method: 'POST',
 			} );
+		},
+		async isSpacefastSignedIn() {
+			return ( await api< { signedIn: boolean } >( '/spacefast/account' ) ).signedIn;
+		},
+		async startSpacefastLogin() {
+			return api< SpacefastDeviceLogin >( '/spacefast/login', { method: 'POST' } );
+		},
+		async completeSpacefastLogin( login ) {
+			await api( '/spacefast/login/complete', { method: 'POST', body: JSON.stringify( login ) } );
+		},
+		async logoutSpacefast() {
+			await api( '/spacefast/logout', { method: 'POST' } );
+		},
+		async listSpacefastSpaces() {
+			return api< SpacefastSpace[] >( '/spacefast/spaces' );
+		},
+		async listSpacefastTeams() {
+			return api< SpacefastTeam[] >( '/spacefast/teams' );
+		},
+		async getSpacefastConnection( siteId ) {
+			return api< SpacefastConnection | null >(
+				`/sites/${ encodeURIComponent( siteId ) }/spacefast`
+			);
+		},
+		async disconnectSpacefastSite( siteId ) {
+			await api( `/sites/${ encodeURIComponent( siteId ) }/spacefast`, { method: 'DELETE' } );
+		},
+		async publishToSpacefast( siteId, target ) {
+			return api< SpacefastConnection >(
+				`/sites/${ encodeURIComponent( siteId ) }/spacefast/publish`,
+				{ method: 'POST', body: JSON.stringify( { target } ) }
+			);
 		},
 		async pushSiteToLive( siteId, remoteSiteId, options ) {
 			const result = await api< { cancelled?: boolean } >(

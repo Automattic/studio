@@ -41,6 +41,13 @@ import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import type { SiteDesign } from '@studio/common/sites/site-design';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
+import type {
+	SpacefastConnection,
+	SpacefastDeviceLogin,
+	SpacefastPublishTarget,
+	SpacefastSpace,
+	SpacefastTeam,
+} from '@studio/common/types/spacefast';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { DesignFix } from '@studio/design-md';
@@ -60,6 +67,13 @@ export type { StudioCustomEntry } from '@studio/agent/protocol/sessions/entry-ty
 export type { AiModelId } from '@studio/agent/protocol/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
 export type { SnapshotUsage } from '@studio/common/lib/snapshots';
+export type {
+	SpacefastConnection,
+	SpacefastDeviceLogin,
+	SpacefastPublishTarget,
+	SpacefastSpace,
+	SpacefastTeam,
+} from '@studio/common/types/spacefast';
 export type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
@@ -367,6 +381,24 @@ export interface Connector {
 	// surfaces that can't receive the desktop's wp-studio:// deep link — the local
 	// web server polls the account's sites instead.
 	watchForPublishedSite?( siteId: string ): Promise< void >;
+
+	// Spacefast static publishing. Sign-in is a device login: open the returned
+	// `verificationUrl`, then `completeSpacefastLogin` resolves once the user approves.
+	isSpacefastSignedIn(): Promise< boolean >;
+	startSpacefastLogin(): Promise< SpacefastDeviceLogin >;
+	completeSpacefastLogin( login: SpacefastDeviceLogin ): Promise< void >;
+	logoutSpacefast(): Promise< void >;
+	listSpacefastSpaces(): Promise< SpacefastSpace[] >;
+	listSpacefastTeams(): Promise< SpacefastTeam[] >;
+	// The Space a local site publishes to, or `null` before its first publish.
+	getSpacefastConnection( siteId: string ): Promise< SpacefastConnection | null >;
+	disconnectSpacefastSite( siteId: string ): Promise< void >;
+	// Exports the site as static files and publishes them as the Space's live version. Progress
+	// arrives as `spacefast` sync activity, like any other sync.
+	publishToSpacefast(
+		siteId: string,
+		target: SpacefastPublishTarget
+	): Promise< SpacefastConnection >;
 
 	// AI sessions (shared with the CLI — stored as JSONL on disk)
 	getSessions(): Promise< AiSessionSummary[] >;

@@ -96,6 +96,8 @@ function linuxArgs() {
 	return [
 		...( root || process.env.STUDIO_CAPTURE_NO_SANDBOX ? [ '--no-sandbox' ] : [] ),
 		'--disable-dev-shm-usage',
+		// Linux scrollbars stay on screen; macOS hides them until you scroll.
+		'--hide-scrollbars',
 	];
 }
 

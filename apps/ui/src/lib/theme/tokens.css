@@ -51,6 +51,10 @@
 	--accent-foreground: #fff;
 	--accent-hover-lightness-offset: 0.03;
 	--accent-hover: oklch( from var( --accent ) calc( l + var( --accent-hover-lightness-offset ) ) c h );
+	--accent-surface-primary-hover: color-mix( in srgb, var( --accent-foreground ) 82%, var( --accent ) );
+	--accent-surface-muted: color-mix( in srgb, var( --accent-foreground ) 12%, var( --accent ) );
+	--accent-surface-muted-hover: color-mix( in srgb, var( --accent-foreground ) 18%, var( --accent ) );
+	--accent-surface-muted-foreground: color-mix( in srgb, var( --accent-foreground ) 80%, var( --accent ) );
 	--accent-text: var( --accent );
 	--accent-text-hover: var( --accent );
 
@@ -85,11 +89,12 @@
 	--font-sans: 'Inter Variable', -apple-system, system-ui, 'Segoe UI', 'Roboto', 'Oxygen-Sans', 'Ubuntu',
 		'Cantarell', 'Helvetica Neue', sans-serif;
 	--font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+	--text-3xs: 0.625rem;
 	--text-2xs: 0.6875rem;
 	--text-xxs: 0.75rem;
 	--text-xxs--line-height: 1.1rem;
 	--text-xs: 0.8125rem;
-	--text-xs--line-height: 1.25rem;
+	--text-xs--line-height: 1.0625rem;
 	--text-sm: 0.875rem;
 	--text-sm--line-height: 1.25rem;
 	--text-md: 0.9375rem;

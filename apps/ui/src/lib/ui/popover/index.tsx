@@ -6,7 +6,19 @@ import type { ComponentProps, CSSProperties, ReactNode } from 'react';
 
 export const Root = BasePopover.Root;
 export const Trigger = BasePopover.Trigger;
-export const Title = BasePopover.Title;
+export const Arrow = BasePopover.Arrow;
+export function Title( { className, ...props }: ComponentProps< typeof BasePopover.Title > ) {
+	return <BasePopover.Title { ...props } className={ clsx( styles.title, className ) } />;
+}
+
+export function Description( {
+	className,
+	...props
+}: ComponentProps< typeof BasePopover.Description > ) {
+	return (
+		<BasePopover.Description { ...props } className={ clsx( styles.description, className ) } />
+	);
+}
 
 type PositionerProps = ComponentProps< typeof BasePopover.Positioner >;
 type PopupProps = ComponentProps< typeof BasePopover.Popup >;
@@ -33,7 +45,9 @@ export function Popup( {
 	initialFocus,
 	finalFocus,
 	variant = 'floating',
+	'data-color-scheme': colorScheme,
 	'aria-label': ariaLabel,
+	'aria-describedby': ariaDescribedBy,
 }: {
 	children: ReactNode;
 	side?: PositionerProps[ 'side' ];
@@ -49,7 +63,9 @@ export function Popup( {
 	initialFocus?: PopupProps[ 'initialFocus' ];
 	finalFocus?: PopupProps[ 'finalFocus' ];
 	variant?: 'floating' | 'commands';
+	'data-color-scheme'?: 'light' | 'dark';
 	'aria-label'?: string;
+	'aria-describedby'?: string;
 } ) {
 	const commands = variant === 'commands';
 	return (
@@ -58,6 +74,8 @@ export function Popup( {
 			{ /* Fixed, so a popup sliding in from off-screen can't scroll the page sideways. */ }
 			<BasePopover.Positioner
 				positionMethod="fixed"
+				data-color-scheme={ colorScheme }
+				style={ colorScheme ? ( { '--accent-fill': 'initial' } as CSSProperties ) : undefined }
 				side={ side }
 				align={ align }
 				sideOffset={ sideOffset }
@@ -72,6 +90,7 @@ export function Popup( {
 					initialFocus={ initialFocus }
 					finalFocus={ finalFocus }
 					aria-label={ ariaLabel }
+					aria-describedby={ ariaDescribedBy }
 					render={
 						commands ? (
 							<div className={ clsx( styles.commands, className ) } style={ style } />

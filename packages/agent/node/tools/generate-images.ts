@@ -17,13 +17,19 @@ import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 const MAX_IMAGES_PER_CALL = 20;
 const UPLOADS_DIR = path.sep + path.join( 'wp-content', 'uploads' ) + path.sep;
 
-// Exported for tests. Generated files are jailed to the sites root like the
-// pi Write tool, which resolves a relative path from it too.
-export function resolveImageFilePath( sitesRoot: string, filePath: string ): string {
+// Exported for tests. Generated files are jailed to the sites root, which a
+// relative path is resolved from as the pi Write tool does, and to the folders
+// of the user's Studio sites, which a site created in a folder of its own is in.
+export function resolveImageFilePath(
+	sitesRoot: string,
+	siteFolders: string[],
+	filePath: string
+): string {
 	const resolved = path.resolve( sitesRoot, filePath );
-	if ( resolved !== sitesRoot && ! resolved.startsWith( sitesRoot + path.sep ) ) {
+	const inside = ( folder: string ) => resolved.startsWith( path.resolve( folder ) + path.sep );
+	if ( resolved !== sitesRoot && ! inside( sitesRoot ) && ! siteFolders.some( inside ) ) {
 		throw new Error(
-			`Image path must be inside the Studio sites directory (${ sitesRoot }): ${ filePath }`
+			`Image path must be inside the Studio sites directory (${ sitesRoot }) or a Studio site's folder: ${ filePath }`
 		);
 	}
 	return resolved;
@@ -191,9 +197,10 @@ export const generateImagesTool = defineTool(
 			);
 		}
 
+		const siteFolders = ( await host.sites.all() ).map( ( site ) => site.path );
 		const targets = args.images.map( ( image ) => ( {
 			...image,
-			resolvedPath: resolveImageFilePath( host.sitesRoot, image.path ),
+			resolvedPath: resolveImageFilePath( host.sitesRoot, siteFolders, image.path ),
 		} ) );
 		const libraryTargets = targets.filter( ( target ) =>
 			target.resolvedPath.includes( UPLOADS_DIR )

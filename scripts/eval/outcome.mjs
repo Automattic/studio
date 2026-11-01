@@ -171,6 +171,15 @@ export const replyIncludes = check( ( d, vars ) =>
 		: fail( `reply lacks ${ vars.expectedText }: ${ reply( d ).slice( 0, 300 ) }` )
 );
 
+export const offersAudits = check( ( d ) => {
+	const text = finalReply( d );
+	return /next steps/i.test( text ) &&
+		/performance|need-for-speed/i.test( text ) &&
+		/\bSEO\b|rank-me-up/i.test( text )
+		? pass( 'next steps offer the performance and SEO audits' )
+		: fail( `final reply lacks the next steps: ${ text.slice( -300 ) }` );
+} );
+
 // Desktop and mobile captures reached the model, quickly. Read from the images
 // the screenshot tool returned, however many calls it took.
 export const sawDesktopAndMobile = check( ( d, vars ) => {

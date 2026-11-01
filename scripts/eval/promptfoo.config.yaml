@@ -132,6 +132,8 @@ tests:
       - type: javascript
         value: file://outcome.mjs:turnsAreResponsive
       - type: javascript
+        value: file://outcome.mjs:offersAudits
+      - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
 
   # The header renders on every template, so a bare "#contact" only works on

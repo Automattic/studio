@@ -9,7 +9,7 @@
 /* Collapsible row: @starting-style animates 0fr→1fr on mount so an arriving
    card pushes its neighbors instead of making them jump. */
 .cell {
-	container-type: inline-size;
+	container: notice-cell / inline-size;
 	display: grid;
 	grid-template-rows: 1fr;
 	margin-top: var( --space-2 );

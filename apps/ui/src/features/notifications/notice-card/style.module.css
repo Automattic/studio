@@ -248,3 +248,34 @@
 .titleSummary .chevron {
 	height: var( --text-sm--line-height );
 }
+
+/* A sidebar card, too narrow to share a line with its action. */
+@container notice-cell ( max-width: 320px ) {
+	.card {
+		display: grid;
+		grid-template-columns: var( --notice-icon-size ) minmax( 0, 1fr );
+		align-items: center;
+		column-gap: var( --space-2 );
+	}
+	.row {
+		display: contents;
+	}
+	.details {
+		grid-column: 2;
+		padding-inline-start: 0;
+	}
+	.trailing {
+		grid-row: 3;
+		grid-column: 1 / -1;
+		max-width: 100%;
+		margin-top: var( --space-2 );
+	}
+	.description {
+		/* Browsers without calc-size close the text without animating it. */
+		height: auto;
+		height: calc-size( auto, min( size, 3lh ) );
+	}
+	.description[data-clamped] {
+		-webkit-line-clamp: 3;
+	}
+}

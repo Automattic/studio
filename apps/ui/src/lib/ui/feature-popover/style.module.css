@@ -49,15 +49,6 @@
 		padding-inline-end: var( --space-6 );
 	}
 
-	.badge {
-		padding: 1px var( --space-1_5 );
-		border-radius: var( --radius-sm );
-		background: var( --accent-foreground );
-		color: var( --accent );
-		font-size: var( --text-xxs );
-		line-height: var( --text-xs--line-height );
-	}
-
 	.dismiss {
 		position: absolute;
 		top: var( --space-2 );

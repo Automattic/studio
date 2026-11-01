@@ -2,6 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { XIcon } from 'lucide-react';
 import { useId } from 'react';
+import { Badge } from '@/lib/ui/badge';
 import { Button, IconButton } from '@/lib/ui/button';
 import * as Popover from '@/lib/ui/popover';
 import styles from './style.module.css';
@@ -49,7 +50,11 @@ export function Popup( {
 			<div className={ styles.copy }>
 				<div className={ styles.heading }>
 					<Popover.Title>{ title }</Popover.Title>
-					{ badge ? <span className={ styles.badge }>{ badge }</span> : null }
+					{ badge ? (
+						<Badge variant="on-accent" size="xs">
+							{ badge }
+						</Badge>
+					) : null }
 				</div>
 				<Popover.Description id={ descriptionId }>{ description }</Popover.Description>
 			</div>

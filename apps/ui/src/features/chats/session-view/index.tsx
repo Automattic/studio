@@ -60,7 +60,7 @@ import {
 	pendingPromptSlot,
 	type ComposerHandle,
 } from '@/features/composer';
-import { useHeaderPrototype, PreviewParticles, StoppedSitePreview } from '@/features/sites';
+import { PreviewParticles, StoppedSitePreview } from '@/features/sites';
 import { getMotionDuration } from '@/lib/theme';
 import { Button, IconButton } from '@/lib/ui';
 import { Conversation } from './conversation';
@@ -280,14 +280,9 @@ function SessionViewContent( {
 	const { mutate: startSitePreview } = useStartSiteWithChat();
 	const isSiteStarting = useIsSiteStarting( ownerSite?.id );
 	const isSiteStopping = useIsSiteStopping( ownerSite?.id );
-	const headerPrototype = useHeaderPrototype();
-	const displaySiteStopping = isSiteStopping && ! headerPrototype;
 	const revealingSiteId = useOptionalSessionPreviewUI()?.revealingSiteId;
 	const siteLoading =
-		! ( headerPrototype && isSiteStopping ) &&
-		( isSiteStarting ||
-			displaySiteStopping ||
-			( !! ownerSite && revealingSiteId === ownerSite.id ) );
+		! isSiteStopping && ( isSiteStarting || ( !! ownerSite && revealingSiteId === ownerSite.id ) );
 	const selectionTime = useSiteSelectionTime( ownerSite?.id );
 	const isSiteBusy = useIsSiteBusy( ownerSite );
 	const canAutoStart = !! ownerSite && effectiveEnvironment === 'local';
@@ -312,8 +307,6 @@ function SessionViewContent( {
 		? sprintf(
 				isSiteStarting
 					? /* translators: %s: site name. */ __( 'Starting %s' )
-					: displaySiteStopping
-					? /* translators: %s: site name. */ __( 'Stopping %s' )
 					: /* translators: %s: site name. */ __( 'Work with %s' ),
 				ownerSite.name
 		  )
@@ -510,11 +503,10 @@ function SessionViewContent( {
 						ownerSiteId={ ownerSite?.id }
 						onSwitchSession={ switchSession }
 						placeholder={ composerPlaceholder }
-						placeholderBusy={ isSiteStarting || displaySiteStopping }
+						placeholderBusy={ isSiteStarting }
 						canAutoStart={ canAutoStart }
 						onStartSite={
-							canAutoStart &&
-							( ! ownerSite.running || isSiteStarting || ( headerPrototype && isSiteStopping ) )
+							canAutoStart && ( ! ownerSite.running || isSiteStarting || isSiteStopping )
 								? () => startSitePreview( ownerSite.id )
 								: undefined
 						}
@@ -547,7 +539,8 @@ function SessionViewContent( {
 						selectionTime={ ownerSite?.running ? undefined : selectionTime }
 					/>
 					{ ownerSite &&
-					( ! ownerSite.running || ( headerPrototype && isSiteStopping ) ) &&
+					! previewVisible &&
+					( ! ownerSite.running || isSiteStopping ) &&
 					! isSiteStarting ? (
 						<StoppedSitePreview site={ ownerSite } />
 					) : null }

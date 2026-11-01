@@ -31,6 +31,8 @@
 
 /* The negative margin cancels the header's gap while the slot is empty. */
 .headerSlot {
+	--control-size: 32px;
+
 	display: inline-flex;
 	flex-shrink: 0;
 	width: 0;

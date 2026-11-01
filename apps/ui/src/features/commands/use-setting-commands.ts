@@ -78,16 +78,6 @@ function useSettingToggles(): SettingToggles {
 				? __( 'Annotation deletion confirmation disabled.' )
 				: __( 'Annotation deletion confirmation enabled.' )
 		),
-		'open-chat-on-site-start': toggle(
-			'openChatOnSiteStart',
-			preferences.openChatOnSiteStart,
-			preferences.openChatOnSiteStart
-				? __( 'Disable chat opening on site start' )
-				: __( 'Enable chat opening on site start' ),
-			preferences.openChatOnSiteStart
-				? __( 'Chat opening on site start disabled.' )
-				: __( 'Chat opening on site start enabled.' )
-		),
 		'usage-statistics': toggle(
 			'analyticsEnabled',
 			preferences.analyticsEnabled,

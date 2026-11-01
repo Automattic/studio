@@ -251,7 +251,10 @@ describe( 'sidebar site sections', () => {
 		expect( connector.updateSessionMetadata ).toHaveBeenCalledWith( 'rename-chat', {
 			title: 'Homepage polish',
 		} );
-		expect( screen.getByRole( 'button', { name: 'Enter fullscreen' } ) ).toBeVisible();
+		expect( await screen.findByRole( 'button', { name: 'Preview layout' } ) ).toHaveAttribute(
+			'data-preview-layout',
+			'split'
+		);
 		fireEvent.contextMenu( renamed );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Rename' } ) );
 		fireEvent.change( await screen.findByRole( 'textbox', { name: 'Chat title' } ), {
@@ -261,7 +264,10 @@ describe( 'sidebar site sections', () => {
 		const restored = await within( sites ).findByRole( 'button', {
 			name: 'Make the heading larger',
 		} );
-		expect( screen.getByRole( 'button', { name: 'Enter fullscreen' } ) ).toBeVisible();
+		expect( await screen.findByRole( 'button', { name: 'Preview layout' } ) ).toHaveAttribute(
+			'data-preview-layout',
+			'split'
+		);
 		fireEvent.contextMenu( restored );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Archive' } ) );
 		await waitFor( () =>

@@ -84,15 +84,15 @@ export function PreviewSplitFrame( {
 		} );
 		const toggled =
 			previousPreview.open !== showPreview || previousPreview.collapsed !== contentCollapsed;
-		setFadingPreview( previousPreview.loading && ! previousPreview.open && showPreview );
-		setAnimatingPreviewToggle(
-			toggled &&
-				previousPreview.siteId === siteId &&
-				previousPreview.navigationKey === navigationKey &&
-				previousPreview.mounted &&
-				preview != null &&
-				! instant
-		);
+		const samePreview =
+			previousPreview.siteId === siteId &&
+			previousPreview.navigationKey === navigationKey &&
+			previousPreview.mounted &&
+			preview != null;
+		if ( toggled || ! samePreview ) {
+			setFadingPreview( previousPreview.loading && ! previousPreview.open && showPreview );
+			setAnimatingPreviewToggle( toggled && samePreview && ! instant );
+		}
 	}
 
 	// Keep the outgoing site in the closing pane until it is hidden.
@@ -121,12 +121,16 @@ export function PreviewSplitFrame( {
 		contentCollapsed,
 	] );
 
+	const [ lastExpanded, setLastExpanded ] = useState( contentCollapsed );
+	if ( showPreview && lastExpanded !== contentCollapsed ) setLastExpanded( contentCollapsed );
 	const previewVisible = showPreview || animatingPreviewToggle;
 	const renderPreview = ! showPreview && animatingPreviewToggle ? lastVisiblePreview : preview;
 	const renderedPreview = renderPreview?.( { collapsed: ! showPreview } );
 	const rootStyle = {
 		'--preview-frame-content-width': contentWidthVar,
-		'--preview-frame-visible-content-width': contentCollapsed ? '0px' : contentWidthVar,
+		'--preview-frame-visible-content-width': ( showPreview ? contentCollapsed : lastExpanded )
+			? '0px'
+			: contentWidthVar,
 		'--preview-header-content-width': showPreview && ! contentCollapsed ? contentWidthVar : '0px',
 	} as CSSProperties;
 	// The preview covers the chat as it closes; keep its layout intact underneath.
@@ -149,9 +153,10 @@ export function PreviewSplitFrame( {
 					isResizing && styles.rootPreviewResizing,
 					animatingPreviewToggle &&
 						( fadingPreview ? styles.rootPreviewFading : styles.rootPreviewAnimating ),
-					showPreview && ! contentCollapsed && ! animatingPreviewToggle && styles.rootEdge
+					showPreview && ! contentCollapsed && styles.rootEdge
 				) }
 				style={ rootStyle }
+				data-layout-moving={ animatingPreviewToggle || undefined }
 			>
 				{ header }
 				<div

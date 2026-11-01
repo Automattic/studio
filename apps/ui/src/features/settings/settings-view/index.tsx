@@ -277,16 +277,6 @@ function PreferencesPanel( {
 						onChange={ ( autoStartSiteOnChat ) => onChange( { autoStartSiteOnChat } ) }
 					/>
 				</SettingsRow>
-				<SettingsRow
-					title={ __( 'Open chat when starting a site' ) }
-					description={ __( 'Show the chat panel alongside the preview when starting a site.' ) }
-				>
-					<SettingsToggle
-						label={ __( 'Open chat when starting a site' ) }
-						checked={ data.openChatOnSiteStart }
-						onChange={ ( openChatOnSiteStart ) => onChange( { openChatOnSiteStart } ) }
-					/>
-				</SettingsRow>
 				<SidebarSettings />
 				<SettingsRow
 					title={ __( 'Confirm before deleting annotations' ) }

@@ -43,16 +43,15 @@ it( 'uses direct actions once while keeping CLI and instructions as settings lin
 	const { connector, result } = setup( false );
 	await waitFor( () =>
 		expect(
-			result.current.find( ( entry ) => entry.id === 'settings-general-open-chat-on-site-start' )
-				?.label
-		).toMatch( /^(Enable|Disable) chat opening/ )
+			result.current.find( ( entry ) => entry.id === 'settings-general-auto-start-site' )?.label
+		).toMatch( /^(Enable|Disable) automatic site start/ )
 	);
 	const find = ( id: string ) => result.current.find( ( entry ) => entry.id === id )!;
 	expect( result.current.filter( ( entry ) => entry.label === 'Reset appearance' ) ).toHaveLength(
 		1
 	);
 	for ( const id of [
-		'settings-general-open-chat-on-site-start',
+		'settings-general-auto-start-site',
 		'settings-appearance-reset-appearance',
 		'settings-general-documentation',
 	] ) {

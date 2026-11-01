@@ -1,5 +1,7 @@
 /* Drawn over the header under it, which keeps a matching space free. */
 .root {
+	--band-gap: var( --space-1 );
+
 	position: absolute;
 	top: 0;
 	inset-inline-end: 0;
@@ -33,20 +35,6 @@
 	flex-shrink: 0;
 }
 
-.publish {
-	align-items: center;
-	gap: var( --space-1 );
-	margin-inline-start: var( --space-1 );
-}
-
-.publish::before {
-	content: '';
-	flex-shrink: 0;
-	width: 1px;
-	height: var( --band-separator-height );
-	background-color: var( --border );
-}
-
 .publish[hidden],
 .item[hidden],
 .item [hidden] {
@@ -67,30 +55,6 @@
 	display: none;
 }
 
-.annotationCancel {
-	--button-hover-background: light-dark(
-		color-mix( in srgb, var( --accent ) 8%, transparent ),
-		color-mix( in srgb, var( --accent ) 12%, transparent )
-	);
-	--button-hover-color: var( --accent-text );
-	color: var( --accent-text );
-}
-
-@media ( max-width: 540px ) {
-	.delivery:has( [data-annotation-actions][data-open='true'] )
-		> :is( [data-site-header-share], [data-site-header-publish] ) {
-		display: none;
-	}
-}
-
 .item[data-site-header-end]:empty {
 	display: none;
-}
-
-.item[data-site-header-end]:has( [data-open] ) {
-	transition: margin-inline-start var( --motion-duration-layout ) var( --motion-ease-layout );
-}
-
-.item[data-site-header-end]:has( [data-open='false'] ) {
-	margin-inline-start: calc( -1 * var( --band-gap ) );
 }

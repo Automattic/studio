@@ -363,6 +363,7 @@ export function SiteMenu( { site }: { site: SiteDetails } ) {
 								render={
 									<Button
 										variant="ghost"
+										size="header"
 										aria-label={ label }
 										aria-busy={ actions.busy || undefined }
 										className={ styles.trigger }

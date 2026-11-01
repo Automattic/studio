@@ -1,11 +1,10 @@
-import { useNavigate, useRouterState } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useEffect, useRef } from 'react';
 import { useSiteAgentActivity } from '@/data/agent-runs/use-agent-run';
 import { sitePinKey } from '@/data/queries/use-sidebar-pins';
 import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
-import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useOpenSite } from '@/data/use-open-site';
 import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
@@ -98,28 +97,14 @@ export function SiteSection( {
 	const displayActivity = siteActivity ?? 'idle';
 	const openSite = useOpenSite();
 	const preview = useOptionalSessionPreviewUI();
-	const pathname = useRouterState( { select: ( state ) => state.location.pathname } );
-	const emptyChatOpen =
-		pathname === `/sites/${ encodeURIComponent( site.id ) }/new` && ! preview?.chatHidden;
 	const handleOpenSite = () => {
 		onOpen?.();
 		onSiteOpen?.();
 		openSite( site );
 	};
-	const { data: preferences } = useUserPreferences();
 	const handleStartSite = () => {
-		if ( ! isActive ) {
-			if ( preferences?.openChatOnSiteStart ?? true ) {
-				handleOpenSite();
-			} else {
-				onOpen?.();
-				onSiteOpen?.();
-				preview?.setOpen( true );
-				void navigate( { to: '/sites/$siteId', params: { siteId: site.id } } );
-			}
-		} else {
-			preview?.setOpen( true );
-		}
+		if ( ! isActive ) handleOpenSite();
+		else preview?.setOpen( true );
 	};
 
 	return (
@@ -186,14 +171,7 @@ export function SiteSection( {
 					label={ sprintf( __( 'New chat for %s' ), site.name ) }
 					onClick={ () => {
 						onSiteOpen?.();
-						const hideChat =
-							emptyChatOpen &&
-							preview?.open &&
-							site.running &&
-							! isStopping &&
-							operation !== 'stop' &&
-							preview.revealingSiteId !== site.id;
-						preview?.setChatHidden( !! hideChat, site.id );
+						preview?.setChatHidden( false, site.id );
 						void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 					} }
 				/>

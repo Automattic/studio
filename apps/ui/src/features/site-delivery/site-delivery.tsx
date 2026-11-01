@@ -201,8 +201,8 @@ export function ShareButton( props: { site: SiteDetails; className?: string } ) 
 				<TooltipTrigger
 					render={
 						<Button
-							variant="ghost"
-							size="icon"
+							variant="outline"
+							size="header"
 							aria-label={ __( 'Share' ) }
 							aria-description={ status.label }
 							onClick={ ( event ) =>
@@ -216,6 +216,7 @@ export function ShareButton( props: { site: SiteDetails; className?: string } ) 
 					}
 				>
 					<ShareStatusIcon icon={ <ShareIcon /> } status={ status } />
+					<span>{ __( 'Share' ) }</span>
 				</TooltipTrigger>
 				<TooltipContent side="bottom">{ __( 'Share' ) }</TooltipContent>
 			</Tooltip>
@@ -238,7 +239,8 @@ export function PublishButton( props: { site: SiteDetails } ) {
 	}, [ transfer?.kind ] );
 	return (
 		<Button
-			variant="accent"
+			variant="default"
+			size="header"
 			aria-label={ __( 'Publish…' ) }
 			aria-description={
 				setupError ??

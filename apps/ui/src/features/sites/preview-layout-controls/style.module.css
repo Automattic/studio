@@ -1,0 +1,3 @@
+.trigger[aria-expanded='true']:not( :hover, :active ) {
+	--button-hover-background: var( --button-background, transparent );
+}

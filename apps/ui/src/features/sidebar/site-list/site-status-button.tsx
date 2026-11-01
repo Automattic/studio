@@ -1,7 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { useIsSiteBusy, useSiteOperation, useStopSite } from '@/data/queries/use-sites';
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
-import { useHeaderPrototype } from '@/features/sites';
 import { StartSiteIcon, StopSiteIcon } from '@/lib/icons';
 import { Button, Spinner, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import { getSiteStatus, getSiteStatusName } from './site-status';
@@ -23,8 +22,7 @@ export function SiteStatusButton( {
 	const stopSite = useStopSite();
 	const busy = useIsSiteBusy( site );
 	const operation = useSiteOperation( site );
-	const prototype = useHeaderPrototype();
-	const visuallyStopped = prototype && ( isStopping || operation === 'stop' );
+	const visuallyStopped = isStopping || operation === 'stop';
 	const visualBusy = busy && ! visuallyStopped;
 	const visualRunning = !! site.running && ! visuallyStopped;
 	const status = getSiteStatus( site, isStarting, isStopping, operation );

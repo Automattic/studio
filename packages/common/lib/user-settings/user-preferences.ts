@@ -165,7 +165,6 @@ export async function readUserPreferences( {
 	const [ config, shared ] = await Promise.all( [ readAppConfig(), readSharedConfig() ] );
 	const {
 		autoStartSiteOnChat,
-		openChatOnSiteStart,
 		confirmDeleteAnnotations,
 		showRecentChats,
 		autoCollapseSites,
@@ -203,10 +202,7 @@ export async function readUserPreferences( {
 			.boolean()
 			.catch( autoStartSiteOnChat )
 			.parse( config.autoStartSiteOnChat ),
-		openChatOnSiteStart: z
-			.boolean()
-			.catch( openChatOnSiteStart )
-			.parse( config.openChatOnSiteStart ),
+		openChatOnSiteStart: z.boolean().catch( true ).parse( config.openChatOnSiteStart ),
 		confirmDeleteAnnotations: z
 			.boolean()
 			.catch( confirmDeleteAnnotations )

@@ -1,4 +1,6 @@
 .root {
+	--motion-ease-layout: var( --motion-ease-drawer );
+
 	/* The sidebar and its sticky header/footer share one surface. */
 	--studio-sidebar-bg: var( --chrome );
 
@@ -140,6 +142,7 @@
 }
 
 .sidebarFlyout {
+	--motion-ease-layout: var( --motion-ease-drawer );
 	--surface: var( --chrome );
 	--studio-sidebar-bg: var( --chrome );
 	--sidebar-flyout-top-inset: calc( var( --space-3 ) - var( --space-0_5 ) );

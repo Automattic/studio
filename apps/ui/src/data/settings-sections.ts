@@ -151,12 +151,6 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				),
 				setting(
 					'action',
-					__( 'Open chat when starting a site' ),
-					__( 'Show the chat panel alongside the preview when starting a site.' ),
-					'open-chat-on-site-start'
-				),
-				setting(
-					'action',
 					__( 'Show recent chats' ),
 					__( 'Show recent chats in the sidebar.' ),
 					'show-recent-chats'

@@ -50,17 +50,17 @@
 	flex-shrink: 0;
 	align-items: center;
 	border-radius: var( --radius-lg );
-	transition: background-color var( --motion-duration-feedback ) ease;
+	transition: background-color var( --motion-duration-surface ) var( --motion-ease-enter );
 }
 
-.annotationControl[data-has-annotations='true'] {
+.annotationControl[data-active='true'] {
 	background-color: light-dark(
 		color-mix( in srgb, var( --accent ) 8%, transparent ),
 		color-mix( in srgb, var( --accent ) 15%, transparent )
 	);
 }
 
-.annotationControl[data-has-annotations='true'] .annotateButton {
+.annotationControl[data-active='true'] .annotateButton {
 	--button-hover-background: transparent;
 }
 
@@ -77,7 +77,6 @@
 	display: flex;
 	align-items: center;
 	min-width: 0;
-	padding-block: var( --space-0_5 );
 	overflow: hidden;
 }
 
@@ -87,11 +86,16 @@
 	flex-shrink: 0;
 	align-items: center;
 	opacity: 0;
-	transition: opacity var( --motion-duration-feedback ) ease;
+	transition: opacity var( --motion-duration-feedback ) var( --motion-ease-enter );
 }
 
 .annotationSendSlot[data-open='true'] .annotationSendMotion {
 	opacity: 1;
+}
+
+.annotationAction {
+	display: inline-flex;
+	flex-shrink: 0;
 }
 
 .annotationDivider {
@@ -112,32 +116,58 @@
 	opacity: 1;
 }
 
+@media ( hover: hover ) {
+	.annotationControl[data-active='true'][data-has-annotations='false']:has(
+			.annotateButton:hover:not( :disabled, [data-disabled] )
+		) {
+		background-color: light-dark(
+			color-mix( in srgb, var( --accent ) 14%, transparent ),
+			color-mix( in srgb, var( --accent ) 22%, transparent )
+		);
+	}
+}
+
 @media ( prefers-reduced-motion: no-preference ) {
-	.annotationSendSlot {
-		transition: grid-template-columns var( --motion-duration-surface ) var( --motion-ease-layout );
-	}
-
-	.annotationSendSlot[data-open='true'] {
-		transition-duration: var( --motion-duration-surface );
-		transition-timing-function: var( --motion-ease-enter );
-	}
-
 	.annotationSendMotion {
-		transform: scale( 0.94 );
+		opacity: 1;
+		transition: none;
+	}
+
+	.annotationSendSlot {
+		transition: grid-template-columns var( --motion-duration-layout ) var( --motion-ease-drawer );
+	}
+
+	.annotationAction,
+	.annotationDivider {
+		opacity: 0;
+		transition: opacity var( --motion-duration-feedback ) var( --motion-ease-enter );
+	}
+
+	.annotationAction {
+		transform: translateX( 3px ) scale( 0.98 );
 		transform-origin: center;
 		transition:
-			opacity var( --motion-duration-feedback ) ease,
-			transform var( --motion-duration-surface ) var( --motion-ease-enter );
+			opacity var( --motion-duration-feedback ) var( --motion-ease-enter ),
+			transform var( --motion-duration-feedback ) var( --motion-ease-enter );
 	}
 
-	.annotationSendSlot[data-open='true'] .annotationSendMotion {
-		transform: scale( 1 );
+	.annotationSendSlot[data-open='true'] :is( .annotationAction, .annotationDivider ) {
+		opacity: 1;
+		transition-delay: calc( var( --motion-duration-layout ) * 0.25 );
+	}
+
+	.annotationSendSlot[data-open='true'] .annotationAction {
+		transform: translateX( 0 ) scale( 1 );
 		transition-duration: var( --motion-duration-feedback ), var( --motion-duration-surface );
-		transition-timing-function: var( --motion-ease-enter ), cubic-bezier( 0.2, 1.9, 0.3, 1 );
-		transition-delay: var( --motion-duration-feedback );
+		transition-timing-function: var( --motion-ease-enter ), var( --motion-ease-drawer );
 	}
 
-	.annotationControl:has( :focus-visible ) :is( .annotationSendSlot, .annotationSendMotion ) {
+	.annotationSendSlot[data-open='true'] .annotationAction:last-child {
+		transition-delay: calc( var( --motion-duration-layout ) * 0.375 );
+	}
+
+	.annotationControl:has( :focus-visible )
+		:is( .annotationSendSlot, .annotationSendMotion, .annotationAction, .annotationDivider ) {
 		transition: none;
 	}
 }
@@ -160,4 +190,13 @@
 	display: flex;
 	align-items: center;
 	gap: var( --space-1 );
+}
+
+.annotationCancel {
+	--button-hover-background: light-dark(
+		color-mix( in srgb, var( --accent ) 8%, transparent ),
+		color-mix( in srgb, var( --accent ) 12%, transparent )
+	);
+	--button-hover-color: var( --accent-text );
+	color: var( --accent-text );
 }

@@ -14,14 +14,12 @@ async function renderActions( {
 	running = false,
 	host = 'chat',
 	headerWidth = 1000,
-	live = false,
 	navigation = false,
 	operation,
 }: {
 	running?: boolean;
 	host?: 'chat' | 'preview';
 	headerWidth?: number;
-	live?: boolean;
 	navigation?: boolean;
 	operation?: SiteDetails[ 'operation' ];
 } = {} ) {
@@ -56,7 +54,7 @@ async function renderActions( {
 					) : null }
 					<SiteHeaderSpace />
 				</div>
-				<SiteHeaderActions site={ site } live={ live } />
+				<SiteHeaderActions site={ site } />
 			</SiteHeaderActionsProvider>
 		</SessionUIProvider>,
 		{ connector }
@@ -125,23 +123,31 @@ describe( 'SiteHeaderActions', () => {
 	it( 'keeps Share inline when it fits', async () => {
 		await renderActions( { headerWidth: 1000 } );
 
-		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toHaveAttribute(
+			'data-variant',
+			'outline'
+		);
+		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toHaveTextContent( 'Share' );
+		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toHaveAttribute(
+			'data-variant',
+			'default'
+		);
 		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
 		expect(
 			screen.queryByRole( 'button', { name: 'More preview actions' } )
 		).not.toBeInTheDocument();
 	} );
 
-	it( 'keeps Publish and Share inline over a Live preview, even with the local site stopped', async () => {
-		await renderActions( { host: 'preview', live: true, headerWidth: 60 } );
+	it( 'keeps Publish and Share inline in a narrow header with the local site stopped', async () => {
+		await renderActions( { host: 'preview', headerWidth: 60 } );
 
 		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toBeVisible();
 	} );
 
-	it( 'keeps Share beside Publish over a Live chat’s preview when it fits', async () => {
-		await renderActions( { host: 'preview', live: true, headerWidth: 1000 } );
+	it( 'keeps Share beside Publish in a wide preview header', async () => {
+		await renderActions( { host: 'preview', headerWidth: 1000 } );
 
 		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toBeInTheDocument();

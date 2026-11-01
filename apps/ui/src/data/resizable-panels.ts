@@ -10,38 +10,59 @@ export const PREVIEW_CONTENT_WIDTH_STORAGE_KEY = 'studio-ui-preview-content-widt
 export const PREVIEW_OPEN_STORAGE_KEY = 'studio-ui-preview-open';
 export const PREVIEW_LAYOUT_STORAGE_KEY = 'studio-ui-running-preview-layout';
 export const SITE_CHAT_HIDDEN_STORAGE_KEY = 'studio-ui-chat-hidden-by-site';
+const SITE_PREVIEW_OPEN_STORAGE_KEY = 'studio-ui-preview-open-by-site';
 const PREVIEW_CONTENT_WIDTH_SITE_PREFIX = `${ PREVIEW_CONTENT_WIDTH_STORAGE_KEY }:`;
 
 export function getPreviewContentWidthStorageKey( siteId: string ): string {
 	return `${ PREVIEW_CONTENT_WIDTH_SITE_PREFIX }${ siteId }`;
 }
 
-export function getStoredSiteChatVisibility(): Record< string, boolean > {
+function getStoredBooleanRecord( key: string ): Record< string, boolean > {
 	try {
-		const stored: unknown = JSON.parse(
-			window.localStorage.getItem( SITE_CHAT_HIDDEN_STORAGE_KEY ) ?? '{}'
-		);
+		const stored: unknown = JSON.parse( window.localStorage.getItem( key ) ?? '{}' );
 		return stored && typeof stored === 'object' && ! Array.isArray( stored )
-			? Object.fromEntries( Object.entries( stored ).filter( ( [ , hidden ] ) => hidden === true ) )
+			? Object.fromEntries(
+					Object.entries( stored ).filter( ( [ , value ] ) => typeof value === 'boolean' )
+			  )
 			: {};
 	} catch {
 		return {};
 	}
 }
 
-export function storeSiteChatVisibility( hiddenBySiteId: Record< string, boolean > ): void {
+function storeBooleanRecord( key: string, value: Record< string, boolean > ): void {
 	try {
-		if ( Object.values( hiddenBySiteId ).some( Boolean ) ) {
-			window.localStorage.setItem( SITE_CHAT_HIDDEN_STORAGE_KEY, JSON.stringify( hiddenBySiteId ) );
-		} else {
-			window.localStorage.removeItem( SITE_CHAT_HIDDEN_STORAGE_KEY );
-		}
+		if ( Object.keys( value ).length ) window.localStorage.setItem( key, JSON.stringify( value ) );
+		else window.localStorage.removeItem( key );
 	} catch {
-		// Keep visibility usable when storage is unavailable.
+		/* Keep the panel usable when storage is unavailable. */
 	}
 }
 
-export function getStoredPreviewVisibility(): boolean | null {
+export function getStoredSitePreviewVisibility(): Record< string, boolean > {
+	return getStoredBooleanRecord( SITE_PREVIEW_OPEN_STORAGE_KEY );
+}
+
+export function storeSitePreviewVisibility( value: Record< string, boolean > ): void {
+	storeBooleanRecord( SITE_PREVIEW_OPEN_STORAGE_KEY, value );
+}
+
+export function getStoredSiteChatVisibility(): Record< string, boolean > {
+	return Object.fromEntries(
+		Object.entries( getStoredBooleanRecord( SITE_CHAT_HIDDEN_STORAGE_KEY ) ).filter(
+			( [ , hidden ] ) => hidden
+		)
+	);
+}
+
+export function storeSiteChatVisibility( value: Record< string, boolean > ): void {
+	storeBooleanRecord(
+		SITE_CHAT_HIDDEN_STORAGE_KEY,
+		Object.fromEntries( Object.entries( value ).filter( ( [ , hidden ] ) => hidden ) )
+	);
+}
+
+function getStoredPreviewVisibility(): boolean | null {
 	try {
 		const stored = window.localStorage.getItem( PREVIEW_OPEN_STORAGE_KEY );
 		return stored === 'true' ? true : stored === 'false' ? false : null;
@@ -147,6 +168,7 @@ const PANEL_WIDTH_STORAGE_KEYS = [
 	SIDEBAR_PANEL_STORAGE_KEY,
 	PREVIEW_CONTENT_WIDTH_STORAGE_KEY,
 	SITE_CHAT_HIDDEN_STORAGE_KEY,
+	SITE_PREVIEW_OPEN_STORAGE_KEY,
 	PREVIEW_OPEN_STORAGE_KEY,
 	PREVIEW_LAYOUT_STORAGE_KEY,
 ];

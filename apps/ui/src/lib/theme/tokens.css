@@ -134,7 +134,7 @@
 	   drawn inside it. */
 	--band-height: 48px;
 	--control-size: 36px;
-	--band-inset: calc( ( var( --band-height ) - var( --control-size ) ) / 2 );
+	--band-inset: var( --space-2 );
 	--band-separator-height: 16px;
 	--band-gap: var( --space-0_5 );
 	--band-group-gap: var( --space-2 );
@@ -146,6 +146,7 @@
 	--motion-duration-layout: 240ms;
 	--motion-duration-reveal: 600ms;
 	--motion-ease-layout: cubic-bezier( 0.645, 0.045, 0.355, 1 );
+	--motion-ease-drawer: cubic-bezier( 0.32, 0.72, 0, 1 );
 	--motion-ease-enter: cubic-bezier( 0.165, 0.84, 0.44, 1 );
 
 	/* Layers inside the workspace: a sticky row over its scroller, overlays and

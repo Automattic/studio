@@ -50,7 +50,7 @@ async function setup( onStartAnnotating?: () => boolean ) {
 					reloadNonce={ 0 }
 					onStartAnnotating={ onStartAnnotating }
 				/>
-				<SiteHeaderActions site={ site } onStartAnnotating={ onStartAnnotating } />
+				<SiteHeaderActions site={ site } />
 			</SiteHeaderActionsProvider>
 		</SessionUIProvider>,
 		{

@@ -68,8 +68,13 @@ async function renderHeader(
 					start={ <HeaderSidebarToggle /> }
 					effectiveEnvironment="local"
 				/>
-				<SitePreview site={ site } path="/" reloadNonce={ 0 } />
-				<SiteHeaderActions site={ site } onSendAnnotations={ onSendAnnotations } />
+				<SitePreview
+					site={ site }
+					path="/"
+					reloadNonce={ 0 }
+					onSendAnnotations={ onSendAnnotations }
+				/>
+				<SiteHeaderActions site={ site } />
 			</SessionUIProvider>
 		</SiteHeaderActionsProvider>,
 		{ connector }
@@ -90,10 +95,9 @@ async function renderHeader(
 }
 
 const headerButtons = ( name: string | RegExp ) =>
-	[ '[data-site-header]', '[data-site-header-actions]' ].flatMap( ( selector ) =>
-		within( document.querySelector< HTMLElement >( selector )! ).queryAllByRole( 'button', {
-			name,
-		} )
+	within( screen.getByRole( 'toolbar', { name: 'Preview browser controls' } ) ).queryAllByRole(
+		'button',
+		{ name }
 	);
 
 function readyGuest( extra: Record< string, unknown > = {} ) {
@@ -109,7 +113,7 @@ function readyGuest( extra: Record< string, unknown > = {} ) {
 	return webview as HTMLElement & Record< string, ReturnType< typeof vi.fn > >;
 }
 
-it( 'keeps icon-only annotation available in a narrow preview with sharing feedback', async () => {
+it( 'keeps labeled annotation available in a narrow preview with sharing feedback', async () => {
 	setAnnotating( 'annotate-site', true );
 	const { user } = await renderHeader( 'annotate-site', createFakeConnector(), 340 );
 	await act( async () => {
@@ -127,7 +131,7 @@ it( 'keeps icon-only annotation available in a narrow preview with sharing feedb
 	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
 	expect( annotation ).toHaveAttribute( 'aria-pressed', 'true' );
-	expect( annotation ).toHaveTextContent( '' );
+	expect( annotation ).toHaveTextContent( 'Annotate' );
 	await user.click( annotation );
 	expect( annotation ).toHaveAttribute( 'aria-pressed', 'false' );
 	act( () => {
@@ -142,7 +146,7 @@ it( 'keeps icon-only annotation available in a narrow preview with sharing feedb
 		markPreviewReady( 'annotate-site' );
 	} );
 	expect( share ).toHaveAttribute( 'aria-description', 'Preview ready' );
-	expect( share ).toHaveTextContent( '' );
+	expect( share ).toHaveTextContent( 'Share' );
 	await user.click( share );
 	expect( await screen.findByRole( 'dialog' ) ).toBeInTheDocument();
 	await user.keyboard( '{Escape}' );
@@ -312,7 +316,7 @@ it( 'keeps responsive mode on the right as the browser row compacts', async () =
 	expect( screen.getByRole( 'button', { name: 'Responsive mode' } ) ).toBe( toggle );
 } );
 
-it( 'keeps Annotate in its fixed header group at mobile widths', async () => {
+it( 'keeps Annotate in the preview bar at mobile widths', async () => {
 	const { resize } = await renderHeader( 'mobile-annotate', createFakeConnector(), 600 );
 	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeVisible();
 	await resize( 390 );
@@ -331,8 +335,8 @@ it( 'keeps site actions in the main header without mobile browser overflow', asy
 	const publish = screen.getByRole( 'button', { name: 'Publish…' } );
 	expect( browser ).toContainElement( screen.getByRole( 'textbox', { name: 'Address' } ) );
 	expect( mainHeader ).not.toContainElement( browser );
-	for ( const action of [ annotate, share, publish ] )
-		expect( browser ).not.toContainElement( action );
+	expect( browser ).toContainElement( annotate );
+	for ( const action of [ share, publish ] ) expect( browser ).not.toContainElement( action );
 	await resize( 540 );
 	expect(
 		screen.queryByRole( 'button', { name: 'More preview actions' } )
@@ -356,14 +360,11 @@ it( 'hides URL navigation entirely on mobile', async () => {
 	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
 } );
 
-it( 'starts a stopped site with annotation mode selected', async () => {
+it( 'hides annotation with the browser bar while a site is stopped', async () => {
 	const connector = createFakeConnector();
-	const { user } = await renderHeader( 'annotate-stopped', connector, 1000, false );
-	const annotate = screen.getByRole( 'button', { name: 'Annotate' } );
-	expect( annotate ).toBeEnabled();
-	await user.click( annotate );
-	expect( connector.startSite ).toHaveBeenCalledWith( 'annotate-stopped' );
-	expect( getSiteAnnotations( 'annotate-stopped' ).active ).toBe( true );
+	await renderHeader( 'annotate-stopped', connector, 1000, false );
+	expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
+	expect( connector.startSite ).not.toHaveBeenCalled();
 } );
 
 it.each( [ true, false ] )(

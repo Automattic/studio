@@ -20,7 +20,12 @@ export function SidebarHeader( { action }: { action?: ReactNode } ) {
 	return (
 		<div className={ clsx( styles.root, ! reserveTrafficLightSpace && styles.flush ) }>
 			{ connector.showsAppMenuButton && (
-				<IconButton icon={ <MenuIcon /> } label={ __( 'Menu' ) } onClick={ handleOpenAppMenu } />
+				<IconButton
+					size="icon-sm"
+					icon={ <MenuIcon /> }
+					label={ __( 'Menu' ) }
+					onClick={ handleOpenAppMenu }
+				/>
 			) }
 			<span className={ styles.toggleSlot } data-sidebar-open={ sidebarOpen }>
 				<SidebarToggle />

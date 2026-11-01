@@ -1,8 +1,7 @@
 import { __ } from '@wordpress/i18n';
-import { useHeaderPrototype } from '@/features/sites/header-prototype';
 import { SiteHeaderBrowserSpace, useSiteHeader } from '@/features/sites/site-header-actions';
 import { PreviewAddressBar, type PreviewRealm } from '@/features/sites/site-preview/address-bar';
-import { RotateCwIcon, ResponsiveIcon, ExpandIcon, CollapseIcon } from '@/lib/icons';
+import { RotateCwIcon, ResponsiveIcon } from '@/lib/icons';
 import { IconButton, VisuallyHidden } from '@/lib/ui';
 import { BrowserHistoryButton } from './browser-history-button';
 import styles from './style.module.css';
@@ -10,6 +9,7 @@ import type { SiteDetails } from '@/data/core';
 import type { BrowserNavigationState } from '@/features/sites/site-preview/browser-state';
 import type { useBrowserShortcuts } from '@/features/sites/site-preview/use-browser-shortcuts';
 import type { BrowserShortcutCommand } from '@studio/agent/protocol/inspector/page-script';
+import type { ReactNode } from 'react';
 
 interface PreviewHeaderProps {
 	site: SiteDetails;
@@ -27,7 +27,7 @@ interface PreviewHeaderProps {
 	onSwitchRealm: ( realm: PreviewRealm ) => void;
 	hasDesignSystem: boolean;
 	onOpenExternal?: () => void;
-	fullscreen?: { active: boolean; onClick: () => void };
+	annotationControl?: ReactNode;
 	responsive?: { active: boolean; disabled: boolean; onClick: () => void };
 }
 
@@ -48,10 +48,9 @@ export function PreviewHeader( {
 	hasDesignSystem,
 	onOpenExternal,
 	responsive,
-	fullscreen,
+	annotationControl,
 }: PreviewHeaderProps ) {
 	const { layout: headerLayout } = useSiteHeader();
-	const prototype = useHeaderPrototype();
 	const disabled = ! canPreview || isStarting || isStopping;
 
 	const addressBar = (
@@ -115,8 +114,9 @@ export function PreviewHeader( {
 			</div>
 			<div className={ styles.headerSide }>
 				<SiteHeaderBrowserSpace />
-				{ responsive || fullscreen ? (
+				{ responsive || annotationControl ? (
 					<div className={ styles.previewActions } data-preview-actions>
+						{ annotationControl }
 						{ responsive ? (
 							<IconButton
 								size="icon-sm"
@@ -128,15 +128,6 @@ export function PreviewHeader( {
 								aria-pressed={ responsive.active }
 								disabled={ responsive.disabled }
 								onClick={ responsive.onClick }
-								tooltipSide="bottom"
-							/>
-						) : null }
-						{ fullscreen && ! prototype ? (
-							<IconButton
-								size="icon-sm"
-								icon={ fullscreen.active ? <CollapseIcon /> : <ExpandIcon /> }
-								label={ fullscreen.active ? __( 'Exit fullscreen' ) : __( 'Enter fullscreen' ) }
-								onClick={ fullscreen.onClick }
 								tooltipSide="bottom"
 							/>
 						) : null }

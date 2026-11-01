@@ -26,6 +26,8 @@ import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
 interface PreviewFullscreen {
 	active: boolean;
+	open?: boolean;
+	onOpenChange?: ( open: boolean ) => void;
 	onChange: ( active: boolean ) => void;
 }
 
@@ -111,7 +113,8 @@ function SiteCommands( {
 	const siteCommands = getSiteCommands( {
 		site,
 		chatHidden,
-		previewShown: !! site.running || !! previewFullscreen?.active,
+		previewShown: previewFullscreen?.open ?? preview.open,
+		showPreview: previewFullscreen?.onOpenChange,
 		canAnnotate: connector.capabilities.annotatePreview,
 		annotating: annotations.active,
 		actions,

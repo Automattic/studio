@@ -14,6 +14,7 @@ import {
 import { getSettingsCommandAliases } from '@/data/settings-sections';
 import {
 	AnnotateIcon,
+	SidebarIcon,
 	ExpandIcon,
 	CollapseIcon,
 	DuplicateIcon,
@@ -65,6 +66,7 @@ export function getSiteCommands( {
 	reloadPreview,
 	annotate,
 	setChatHidden,
+	showPreview,
 	copyUrl,
 }: {
 	site: SiteDetails;
@@ -82,6 +84,7 @@ export function getSiteCommands( {
 	reloadPreview: () => void;
 	annotate: ( active: boolean ) => void;
 	setChatHidden: ( hidden: boolean ) => void;
+	showPreview?: ( open: boolean ) => void;
 	copyUrl: () => void;
 } ): PaletteCommand[] {
 	const { busy, running, othersRunning } = actions;
@@ -244,6 +247,18 @@ export function getSiteCommands( {
 						icon: annotating ? XIcon : AnnotateIcon,
 						description,
 						run: () => annotate( ! annotating ),
+					},
+			  ]
+			: [] ),
+		...( showPreview
+			? [
+					{
+						id: 'preview-visibility',
+						group: 'commands' as const,
+						label: previewShown ? __( 'Hide preview' ) : __( 'Show preview' ),
+						icon: SidebarIcon,
+						description,
+						run: () => showPreview( ! previewShown ),
 					},
 			  ]
 			: [] ),

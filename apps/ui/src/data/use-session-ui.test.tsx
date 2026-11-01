@@ -90,3 +90,55 @@ describe( 'useSessionPreviewUI agent reloads', () => {
 		expect( result.current.preview.open ).toBe( true );
 	} );
 } );
+
+it( 'persists independent preview visibility and chat layout for each site', () => {
+	const view = renderHook( () => useSessionPreviewUI(), { wrapper } );
+	act( () => view.result.current.setSite( 'a', { running: true } ) );
+	act( () => view.result.current.setOpen( false ) );
+	act( () => view.result.current.setSite( 'b', { running: true } ) );
+	expect( view.result.current.open ).toBe( true );
+	act( () => view.result.current.setChatHidden( true ) );
+	act( () => view.result.current.setSite( 'a', { running: true } ) );
+	expect( view.result.current.open ).toBe( false );
+	expect( view.result.current.chatHidden ).toBe( false );
+	act( () => view.result.current.setSite( 'b', { running: true } ) );
+	expect( view.result.current.chatHidden ).toBe( true );
+	act( () => view.result.current.setOpen( false, { siteId: 'a' } ) );
+	expect( view.result.current.open ).toBe( true );
+	view.unmount();
+	const reloaded = renderHook( () => useSessionPreviewUI(), { wrapper } );
+	act( () => reloaded.result.current.setSite( 'a', { running: true } ) );
+	expect( reloaded.result.current.open ).toBe( false );
+	act( () => reloaded.result.current.setSite( 'b', { running: true } ) );
+	expect( reloaded.result.current.chatHidden ).toBe( true );
+	act( () => reloaded.result.current.setSite( 'split', { running: true } ) );
+	expect( reloaded.result.current.chatHidden ).toBe( false );
+} );
+
+it( 'does not apply another site fullscreen layout when reloading a split preview', () => {
+	const view = renderHook( () => useSessionPreviewUI(), { wrapper } );
+	act( () => view.result.current.setSite( 'split', { running: true } ) );
+	act( () => view.result.current.setOpen( true ) );
+	act( () => view.result.current.setSite( 'full', { running: true } ) );
+	act( () => view.result.current.setChatHidden( true ) );
+	view.unmount();
+	const reloaded = renderHook( () => useSessionPreviewUI(), { wrapper } );
+	act( () => reloaded.result.current.setSite( 'split', { running: true } ) );
+	expect( reloaded.result.current.open ).toBe( true );
+	expect( reloaded.result.current.chatHidden ).toBe( false );
+} );
+
+it( 'persists each site’s current layout, including an explicit split choice', () => {
+	const view = renderHook( () => useSessionPreviewUI(), { wrapper } );
+	act( () => view.result.current.setSite( 'full', { running: true } ) );
+	act( () => view.result.current.setChatHidden( true ) );
+	act( () => view.result.current.setChatHidden( true, 'split' ) );
+	act( () => view.result.current.setChatHidden( false, 'split' ) );
+	view.unmount();
+	const reloaded = renderHook( () => useSessionPreviewUI(), { wrapper } );
+	expect( reloaded.result.current.chatHiddenBySiteId ).toEqual( { full: true } );
+	act( () => reloaded.result.current.setSite( 'full', { running: true } ) );
+	expect( reloaded.result.current.chatHidden ).toBe( true );
+	act( () => reloaded.result.current.setSite( 'split', { running: true } ) );
+	expect( reloaded.result.current.chatHidden ).toBe( false );
+} );

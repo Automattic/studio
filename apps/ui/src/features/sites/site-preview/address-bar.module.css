@@ -19,8 +19,8 @@
 .actions {
 	position: absolute;
 	z-index: 1;
-	inset-block: var( --space-0_5 );
-	inset-inline-end: var( --space-0_5 );
+	inset-block: 0;
+	inset-inline-end: 0;
 	display: flex;
 	align-items: center;
 	border-radius: var( --radius-md );
@@ -31,7 +31,7 @@
 }
 
 .action {
-	width: calc( var( --preview-control-size, 32px ) - 2px - 2 * var( --space-0_5 ) );
+	width: var( --preview-control-size, 32px );
 	height: 100%;
 }
 

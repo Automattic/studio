@@ -87,6 +87,22 @@ describe( 'PreviewSplitFrame', () => {
 			);
 		}
 
+		it( 'keeps the slide running when loading changes midway through it', async () => {
+			const { rerender } = render( frame( 'Stopped', false ) );
+			rerender( frame( 'Starting', true, false, true ) );
+			await act( () => vi.advanceTimersByTime( 120 ) );
+			rerender( frame( 'Ready', true, false, false ) );
+			expect( getFrameRoot() ).toHaveAttribute( 'data-layout-moving', 'true' );
+			expect(
+				screen.queryByRole( 'separator', { name: 'Resize site preview' } )
+			).not.toBeInTheDocument();
+			await act( () => vi.advanceTimersByTime( 120 ) );
+			expect( getFrameRoot() ).not.toHaveAttribute( 'data-layout-moving' );
+			expect(
+				screen.getByRole( 'separator', { name: 'Resize site preview' } )
+			).toBeInTheDocument();
+		} );
+
 		it( 'enables resizing after the startup fade without remounting the preview', async () => {
 			const { rerender } = render( frame( 'Loading site', false, false, true ) );
 			const preview = screen.getByLabelText( 'Site preview' );

@@ -523,17 +523,19 @@ describe( 'preview address bar', () => {
 		}
 	);
 
-	it( 'shows stopping feedback until shutdown completes, even after the preview is hidden', async () => {
+	it( 'hides the browser bar as soon as stopping begins and restores its path on restart', async () => {
 		const stopping = { pid: 1, kind: 'stop' } as const;
 		const { update } = await renderPreview( 'browser', {
 			path: '/about/',
 			site: site( { operation: stopping } ),
 		} );
-		expect( screen.getByText( 'Stopping site…' ) ).toHaveAttribute( 'role', 'status' );
-		expect( address() ).toBeDisabled();
-		expect( address() ).toHaveValue( `${ SITE_URL }/about/` );
+		expect(
+			screen.queryByRole( 'toolbar', { name: 'Preview browser controls' } )
+		).not.toBeInTheDocument();
 		update( { site: site( { running: false, operation: stopping } ) } );
-		expect( screen.getByText( 'Stopping site…' ) ).toHaveAttribute( 'role', 'status' );
+		expect(
+			screen.queryByRole( 'toolbar', { name: 'Preview browser controls' } )
+		).not.toBeInTheDocument();
 		update( { site: site( { running: false } ) } );
 		expect( screen.queryByText( 'Stopping site…' ) ).not.toBeInTheDocument();
 		update( { site: site() } );
@@ -588,7 +590,9 @@ describe( 'preview address bar', () => {
 		const { update } = await renderPreview( 'browser', { path: '/about/' } );
 		expect( address() ).toHaveValue( `${ SITE_URL }/about/` );
 		update( { site: site( { running: false } ) } );
-		expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'toolbar', { name: 'Preview browser controls' } )
+		).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Start site' } ) ).toBeVisible();
 		update( { site: site( { running: false, operation: { pid: 1, kind: 'settings' } } ) } );
 		expect( screen.queryByRole( 'button', { name: 'Responsive mode' } ) ).not.toBeInTheDocument();
@@ -599,6 +603,10 @@ describe( 'preview address bar', () => {
 		expect( address() ).toHaveValue( `${ SITE_URL }/about/` );
 		expect( address() ).toBeEnabled();
 		expect( screen.getByRole( 'button', { name: 'Responsive mode' } ) ).toBeInTheDocument();
+		update( { site: site( { operation: { pid: 1, kind: 'stop' } } ) } );
+		expect(
+			screen.queryByRole( 'toolbar', { name: 'Preview browser controls' } )
+		).not.toBeInTheDocument();
 	} );
 
 	it( 'selects the whole address on first pointer focus without overriding later clicks', async () => {

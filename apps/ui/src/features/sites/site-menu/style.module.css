@@ -1,9 +1,11 @@
 .trigger {
+	--control-size: 32px;
 	min-width: max-content;
 	padding-inline-start: calc( ( var( --control-size ) - 16px ) / 2 - 1px );
 	padding-inline-end: var( --space-1_5 );
 	color: var( --foreground );
 	font-size: var( --text-sm );
+	font-weight: var( --font-weight-normal );
 	line-height: var( --text-sm--line-height );
 	-webkit-app-region: no-drag;
 }

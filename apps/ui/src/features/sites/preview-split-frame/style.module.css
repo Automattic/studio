@@ -1,4 +1,6 @@
 .root {
+	--motion-ease-layout: var( --motion-ease-drawer );
+
 	height: 100%;
 	min-height: 0;
 	position: relative;
@@ -38,6 +40,7 @@
 	inset-inline-start: var( --preview-frame-content-width );
 	z-index: 2;
 	width: 1px;
+	opacity: 1;
 	background: var( --border );
 	pointer-events: none;
 }
@@ -47,12 +50,14 @@
 	background-color: var( --surface-4 );
 }
 
-.rootEdge .previewSlot {
-	width: calc( 100% - var( --preview-frame-content-width ) - 1px );
+.rootPreviewAnimating .contentColumn {
+	transition: width var( --motion-duration-layout ) var( --motion-ease-layout );
 }
 
-.rootPreviewAnimating :is( .contentColumn, .previewSlot ) {
-	transition: width var( --motion-duration-layout ) var( --motion-ease-layout );
+.rootPreviewAnimating .previewSlot {
+	transition:
+		transform var( --motion-duration-layout ) var( --motion-ease-layout ),
+		width var( --motion-duration-layout ) var( --motion-ease-layout );
 }
 
 .rootPreviewAnimating .contentColumn {
@@ -79,7 +84,8 @@
 	inset-block: 0;
 	inset-inline-end: 0;
 	z-index: 2;
-	width: 0;
+	width: calc( 100% - var( --preview-frame-visible-content-width ) );
+	transform: translateX( 100% );
 	min-width: 0;
 	overflow: hidden;
 	background-color: var( --chat );
@@ -94,7 +100,23 @@
 
 /* Expand over the stationary chat so its composer and dot field never squeeze. */
 .rootPreviewOpen .previewSlot {
-	width: calc( 100% - var( --preview-frame-visible-content-width ) );
+	transform: translateX( 0 );
+}
+
+.previewSlot:dir( rtl ) {
+	transform: translateX( -100% );
+}
+
+.rootPreviewOpen .previewSlot:dir( rtl ) {
+	transform: translateX( 0 );
+}
+
+.rootPreviewAnimating.rootEdge::after {
+	opacity: 0;
+}
+
+.root::after {
+	transition: opacity var( --motion-duration-feedback ) var( --motion-ease-enter );
 }
 
 .previewSlotInteractive {

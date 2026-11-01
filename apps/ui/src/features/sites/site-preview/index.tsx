@@ -19,12 +19,12 @@ import {
 import { DesignSystemView } from '@/features/sites/design-system-view';
 import { getSiteUrl } from '@/features/sites/get-site-url';
 import { PreviewParticles } from '@/features/sites/preview-particles';
-import { useSiteHeaderNavigation } from '@/features/sites/site-header-actions';
 import { SiteContextMenu, StoppedSitePreview } from '@/features/sites/stopped-site-preview';
 import { VisuallyHidden } from '@/lib/ui';
 import { getRealmOpenEvent } from './address-bar';
 import { EMPTY_BROWSER_STATE, type BrowserNavigationState } from './browser-state';
 import { PreviewHeader } from './preview-header';
+import { PreviewAnnotationActions } from './preview-header/annotation-actions';
 import {
 	FrameSurface,
 	isElectron,
@@ -46,7 +46,6 @@ import type { InspectorEvent } from '@studio/agent/protocol/inspector/page-scrip
 
 interface SitePreviewProps {
 	site: SiteDetails;
-	fullscreen?: { active: boolean; onClick: () => void };
 	// The connected remote to show instead, for a chat switched to Live.
 	liveUrl?: string;
 	// Path to display within the previewed site, controlled by the parent so
@@ -70,7 +69,6 @@ interface SitePreviewProps {
 
 export function SitePreview( {
 	site,
-	fullscreen,
 	liveUrl,
 	path,
 	reloadNonce,
@@ -263,7 +261,6 @@ export function SitePreview( {
 				},
 		  }
 		: undefined;
-	useSiteHeaderNavigation( ! collapsed ? { annotate } : null );
 
 	const header = (
 		<PreviewHeader
@@ -283,13 +280,21 @@ export function SitePreview( {
 			hasDesignSystem={ !! siteDesign.data }
 			onOpenExternal={ openExternal }
 			responsive={ responsive }
-			fullscreen={ fullscreen }
+			annotationControl={
+				annotate ? (
+					<PreviewAnnotationActions
+						siteId={ site.id }
+						annotation={ annotate }
+						onSend={ onSendAnnotations ? () => onSendAnnotations( site.id ) : undefined }
+					/>
+				) : null
+			}
 		/>
 	);
 
 	return (
 		<aside className={ styles.root } aria-label={ __( 'Site preview' ) }>
-			{ canPreview || isStarting || isStopping || fullscreen ? header : null }
+			{ ( canPreview || isStarting ) && ! isStopping ? header : null }
 			{ responsiveEnabled ? (
 				<ResponsiveToolbar
 					siteId={ site.id }

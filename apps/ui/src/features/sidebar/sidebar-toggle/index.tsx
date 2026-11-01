@@ -21,7 +21,7 @@ export function SidebarToggle() {
 	const control = (
 		<Button
 			variant="ghost"
-			size="icon"
+			size="icon-sm"
 			aria-label={ collapsed || hover.peek ? __( 'Show sidebar' ) : __( 'Hide sidebar' ) }
 			aria-expanded={ ! collapsed || hover.peek }
 			data-sidebar-toggle

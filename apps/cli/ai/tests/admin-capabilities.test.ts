@@ -303,6 +303,62 @@ add_action( 'wp_enqueue_scripts', function () { ${ styles.join( ' ' ) } } );
 				}
 			}, 120000 );
 
+			it( 'states that a theme loads from another host the fonts its theme.json declares', async () => {
+				const css =
+					"@font-face {\n  font-family: 'Fraunces';\n  src: url(https://fonts.gstatic.com/s/fraunces/v38/a.woff2) format('woff2');\n}";
+				vi.stubGlobal( 'fetch', async () => new Response( css ) );
+				try {
+					const dir = path.join( site.path, 'wp-content/themes/reading' );
+					mkdirSync( path.join( dir, 'templates' ), { recursive: true } );
+					writeFileSync( path.join( dir, 'style.css' ), '/*\nTheme Name: Reading\n*/\n' );
+					writeFileSync( path.join( dir, 'templates/index.html' ), '' );
+					writeFileSync(
+						path.join( dir, 'theme.json' ),
+						JSON.stringify( {
+							version: 3,
+							settings: {
+								typography: {
+									fontFamilies: [
+										{
+											name: 'Fraunces',
+											slug: 'fraunces',
+											fontFamily: 'Fraunces, serif',
+											fontFace: [
+												{ fontFamily: 'Fraunces', src: [ 'file:./assets/fonts/fraunces.woff2' ] },
+											],
+										},
+									],
+								},
+							},
+						} )
+					);
+					const { DatabaseSync } = await import( 'node:sqlite' );
+					const db = new DatabaseSync( path.join( site.path, 'wp-content/database/.ht.sqlite' ) );
+					db.prepare(
+						"UPDATE wp_options SET option_value = 'reading' WHERE option_name IN ( 'template', 'stylesheet' )"
+					).run();
+					db.close();
+					const before = await adminCapabilities.read( site.path, undefined, host );
+					writeFileSync(
+						path.join( dir, 'functions.php' ),
+						"<?php\nadd_action( 'wp_enqueue_scripts', function () { wp_enqueue_style( 'reading-fonts', 'https://fonts.googleapis.com/css2?family=Fraunces&display=swap', array(), null ); } );\n"
+					);
+					const { reports } = await adminCapabilities.check(
+						site,
+						before,
+						await adminCapabilities.read( site.path, undefined, host ),
+						host
+					);
+					expect( reportOf( reports, 'remote fonts' ) ).toEqual( {
+						key: 'remote fonts',
+						summary:
+							"Reading Room: the front end loads https://fonts.googleapis.com/css2?family=Fraunces&display=swap (handle reading-fonts, in wp-content/themes/reading/functions.php), which has each visitor's browser download Fraunces from fonts.gstatic.com. theme.json already declares its files in the site, which WordPress prints as @font-face rules (wp_print_font_faces() in wp-includes/fonts.php), so each visitor downloads this font twice. The site serves it without this stylesheet.",
+					} );
+				} finally {
+					vi.unstubAllGlobals();
+				}
+			}, 120000 );
+
 			it( 'states nothing when a plugin is only deactivated', async () => {
 				await activate( READING_LIST, [ 'hello.php' ] );
 				const before = await adminCapabilities.read( site.path, undefined, host );

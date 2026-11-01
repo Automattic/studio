@@ -119,6 +119,8 @@ async function askWordPress(
 	registered: Registered;
 	outOfRest: Registered;
 	remoteStyles: RemoteStyles;
+	hostedFonts: string[];
+	activeThemes: string[];
 } > {
 	const output = await runWpCli( host, site, [
 		'eval',
@@ -127,6 +129,8 @@ async function askWordPress(
 	] );
 	return {
 		remoteStyles: printed( output, 'REMOTE_STYLES=' ),
+		hostedFonts: printed( output, 'HOSTED_FONTS=' ),
+		activeThemes: printed( output, 'ACTIVE_THEMES=' ),
 		denied: printed( output, 'DENIED_CAPS=' ),
 		registered: printed( output, 'REGISTERED=' ),
 		outOfRest: printed( output, 'OUT_OF_REST=' ),
@@ -336,7 +340,13 @@ export const adminCapabilities: SiteChangeSource = {
 			] )
 		);
 		const remoteFonts = changed.length
-			? await describeRemoteFonts( site, without.remoteStyles, withCode.remoteStyles )
+			? await describeRemoteFonts(
+					site,
+					without.remoteStyles,
+					withCode.remoteStyles,
+					withCode.hostedFonts,
+					withCode.activeThemes
+			  )
 			: undefined;
 		return {
 			reports: [

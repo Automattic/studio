@@ -8,9 +8,8 @@ it( 'renders accessible copy and forwards the footer actions', async () => {
 	const onSkip = vi.fn();
 	const { user } = renderWithProviders(
 		<FeaturePopover.Root>
-			<FeaturePopover.Target highlighted>
-				<FeaturePopover.Trigger render={ <Button>Annotate</Button> } />
-			</FeaturePopover.Target>
+			<FeaturePopover.Trigger render={ <Button>Annotate</Button> } />
+
 			<FeaturePopover.Popup
 				title="Try Annotate"
 				description="Point to anything and describe what you want to change."
@@ -39,7 +38,6 @@ it( 'renders an optional announcement badge and forwards dismissal', async () =>
 		<FeaturePopover.Root>
 			<FeaturePopover.Trigger render={ <Button>Annotate</Button> } />
 			<FeaturePopover.Popup
-				tone="accent"
 				title="Try Annotate"
 				description="Leave a note."
 				badge="New"

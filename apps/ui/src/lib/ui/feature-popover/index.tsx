@@ -5,34 +5,16 @@ import { useId } from 'react';
 import { Button, IconButton } from '@/lib/ui/button';
 import * as Popover from '@/lib/ui/popover';
 import styles from './style.module.css';
-import type { ComponentProps, ReactNode, Ref } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 
 export const Root = Popover.Root;
 export const Trigger = Popover.Trigger;
-
-export function Target( {
-	children,
-	highlighted = false,
-	className,
-	...props
-}: ComponentProps< 'span' > & { highlighted?: boolean } ) {
-	return (
-		<span
-			className={ clsx( styles.target, className ) }
-			{ ...props }
-			data-highlighted={ highlighted || undefined }
-		>
-			{ children }
-		</span>
-	);
-}
 
 export function Popup( {
 	title,
 	description,
 	descriptionId: providedDescriptionId,
 	footer,
-	tone = 'default',
 	badge,
 	onDismiss,
 	className,
@@ -42,7 +24,6 @@ export function Popup( {
 	description: string;
 	descriptionId?: string;
 	footer?: ReactNode;
-	tone?: 'default' | 'accent';
 	badge?: string;
 	onDismiss?: () => void;
 } ) {
@@ -50,11 +31,11 @@ export function Popup( {
 	const descriptionId = providedDescriptionId ?? generatedId;
 	return (
 		<Popover.Popup
-			className={ clsx( styles.card, tone === 'accent' && styles.accent, className ) }
+			className={ clsx( styles.card, className ) }
 			{ ...props }
 			aria-describedby={ descriptionId }
 		>
-			{ tone === 'accent' ? <Popover.Arrow className={ styles.arrow } /> : null }
+			<Popover.Arrow className={ styles.arrow } />
 			{ onDismiss ? (
 				<IconButton
 					className={ styles.dismiss }
@@ -82,13 +63,11 @@ export function Navigation( {
 	nextLabel = __( 'Next' ),
 	onNext,
 	onSkip,
-	nextButtonRef,
 }: {
 	stepLabel?: string;
 	nextLabel?: string;
 	onNext: () => void;
 	onSkip?: () => void;
-	nextButtonRef?: Ref< HTMLButtonElement >;
 } ) {
 	return (
 		<div className={ styles.navigation }>
@@ -103,7 +82,7 @@ export function Navigation( {
 						{ __( 'Skip' ) }
 					</Button>
 				) : null }
-				<Button ref={ nextButtonRef } variant="accent" size="header" onClick={ onNext }>
+				<Button variant="accent" size="header" onClick={ onNext }>
 					{ nextLabel }
 				</Button>
 			</div>

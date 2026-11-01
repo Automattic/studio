@@ -24,7 +24,6 @@ function Tip() {
 					align="end"
 					sideOffset={ 10 }
 					initialFocus={ false }
-					tone="accent"
 					badge="New"
 					title="Try Annotate"
 					description="Point to anything and describe what you want to change."
@@ -64,7 +63,6 @@ function Walkthrough() {
 						render={ <Button variant="accent-ghost">Publish</Button> }
 					/>
 					<FeaturePopover.Popup
-						tone="accent"
 						side="bottom"
 						align="end"
 						sideOffset={ 10 }

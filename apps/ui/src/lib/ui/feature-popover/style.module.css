@@ -1,11 +1,5 @@
 @layer ui {
 	.card {
-		width: 264px;
-		max-width: calc( 100vw - 24px );
-		padding: var( --space-4 );
-	}
-
-	.accent {
 		--surface: var( --accent );
 		--ring: var( --accent-foreground );
 		--muted: var( --accent-surface-muted );
@@ -14,6 +8,7 @@
 		--foreground: var( --accent-foreground );
 		position: relative;
 		width: 320px;
+		max-width: calc( 100vw - 24px );
 		padding: var( --space-4 );
 		background-color: var( --accent );
 		color: var( --accent-foreground );
@@ -22,25 +17,25 @@
 			var( --shadow-sm );
 	}
 
-	.accent .copy > p {
+	.card .copy > p {
 		margin-top: var( --space-2 );
 		color: inherit;
 		font-size: var( --text-sm );
 		line-height: var( --text-sm--line-height );
 	}
 
-	.accent .progress {
+	.card .progress {
 		color: var( --muted-foreground );
 	}
 
-	.accent .actions button {
+	.card .actions button {
 		--button-background: var( --muted );
 		--button-hover-background: var( --hover );
 		--button-hover-color: var( --accent-foreground );
 		color: var( --accent-foreground );
 	}
 
-	.accent .actions button[data-variant='accent'] {
+	.card .actions button[data-variant='accent'] {
 		--button-background: var( --accent-foreground );
 		--button-hover-background: var( --accent-surface-primary-hover );
 		--button-hover-color: var( --accent );
@@ -127,50 +122,5 @@
 		color: var( --muted-foreground );
 		font-size: var( --text-xs );
 		line-height: var( --text-xs--line-height );
-	}
-
-	.target {
-		position: relative;
-		display: inline-flex;
-		border-radius: var( --radius-lg );
-	}
-
-	.target[data-highlighted]::before,
-	.target[data-highlighted]::after {
-		position: absolute;
-		inset: -2px;
-		border: 2px solid var( --accent );
-		border-radius: inherit;
-		content: '';
-		pointer-events: none;
-	}
-
-	.target[data-highlighted]::before {
-		opacity: 0.45;
-	}
-
-	.target[data-highlighted]::after {
-		opacity: 0;
-		transform-origin: center;
-		animation: target-pulse calc( var( --motion-duration-reveal ) * 3 ) var( --motion-ease-enter )
-			infinite;
-	}
-
-	@keyframes target-pulse {
-		0% {
-			transform: scale( 1 );
-			opacity: 0.75;
-		}
-		75%,
-		100% {
-			transform: scale( 1.22, 1.7 );
-			opacity: 0;
-		}
-	}
-
-	@media ( prefers-reduced-motion: reduce ) {
-		.target[data-highlighted]::after {
-			animation: none;
-		}
 	}
 }

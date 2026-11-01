@@ -80,7 +80,6 @@ export function FirstUseTip( {
 				title={ title }
 				description={ description }
 				descriptionId={ descriptionId }
-				tone="accent"
 				badge={ badge }
 				onDismiss={ dismiss }
 				sideOffset={ 10 }

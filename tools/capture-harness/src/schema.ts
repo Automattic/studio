@@ -348,9 +348,15 @@ export const Look = z
 		frame: z
 			.object( {
 				background: z
-					.union( [ Color, z.tuple( [ Color, Color ] ) ] )
+					.union( [
+						z.enum( [ 'dots', 'dots-light', 'dots-dark' ] ),
+						Color,
+						z.tuple( [ Color, Color ] ),
+					] )
 					.default( [ '#F7F7F7', '#F1F1F1' ] )
-					.describe( 'A color, or a diagonal gradient' ),
+					.describe(
+						"Studio's dot field (`dots` follows the look's color scheme, `dots-light` and `dots-dark` pin one; drawn at the app's size), a color, or a diagonal gradient"
+					),
 				padding: z.number().default( 0.06 ).describe( 'Margin, as a share of the width' ),
 				radius: z.number().default( 0.012 ).describe( 'Corner radius, as a share of the width' ),
 				shadow: z.number().min( 0 ).max( 1 ).default( 0.14 ).describe( 'Shadow opacity' ),

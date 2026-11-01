@@ -152,8 +152,16 @@
 						"#F7F7F7",
 						"#F1F1F1"
 					],
-					"description": "A color, or a diagonal gradient",
+					"description": "Studio's dot field (`dots` follows the look's color scheme, `dots-light` and `dots-dark` pin one; drawn at the app's size), a color, or a diagonal gradient",
 					"anyOf": [
+						{
+							"type": "string",
+							"enum": [
+								"dots",
+								"dots-light",
+								"dots-dark"
+							]
+						},
 						{
 							"type": "string",
 							"description": "A CSS color"

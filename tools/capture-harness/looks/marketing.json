@@ -1,12 +1,12 @@
 {
 	"$schema": "../schemas/look.schema.json",
 	"name": "marketing",
-	"description": "Landing pages and launch material: framed on a soft WordPress blue, a 2400×1500 hero next to the plain still, and recordings as MP4, WebM and animated WebP",
+	"description": "Landing pages and launch material: framed on Studio's own dot field, at the size it is in the app, a 2400×1500 hero next to the plain still, and recordings as MP4, WebM and animated WebP",
 	"window": { "width": 1440, "height": 900 },
 	"scale": 2,
 	"appearance": { "colorScheme": "light" },
 	"frame": {
-		"background": [ "#EEF1FF", "#CDD6FF" ],
+		"background": "dots",
 		"padding": 0.07,
 		"radius": 0.012,
 		"shadow": 0.22,

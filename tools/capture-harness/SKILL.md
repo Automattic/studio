@@ -29,7 +29,17 @@ Pick a driver: `--driver electron` (default) is Studio Desktop, with every featu
 
 - Docs images: the docs scripts in `docs/user/screenshots/shots/` on the default scene and `docs` look (`npm run screenshots` in `docs/user`). Do not change a docs image's look.
 - Someone's own site: `--blueprint <file|url>`; for reruns that must match, `SC bake --blueprint <file|url> --out <dir>` and capture from the baked scene.
-- Marketing or social: `--look marketing` (framed, plus a 2400×1500 hero) or `--look social` (1200×630, 1080×1080, 1600×900). `examples/workspace-tour.json` works on any scene with a site.
+- Marketing or social: `--look marketing` (framed on Studio's dot field, plus a 2400×1500 hero) or `--look social` (1200×630, 1080×1080, 1600×900); `marketing-dark` and `social-dark` for the dark app on the dark dot field. `examples/workspace-tour.json` works on any scene with a site.
+
+## Asking what the person wants
+
+When the request doesn't say how the images will be used, ask once before capturing, and offer the choices rather than an open question:
+
+1. **Where they go**: the docs (`docs`), a blog post (`blog`), a landing page or launch (`marketing`), social posts (`social`), or just plain stills (`docs`, unframed).
+2. **Light or dark** (default light): picks the `-dark` look where there is one.
+3. **Framed or plain**: framed looks save the plain still too (`keepRaw`), so this rarely needs asking; mention it.
+
+Say they can give their own instructions instead (a size, more padding, no shadow, another background). Then write a look file for this request next to the output (copy the closest bundled look, change only what they asked, keep the `$schema` line, `SC validate` it) and pass it as `--look <file>`. Don't edit the bundled looks for one request: they are the shared design language, and the docs and every agent use them.
 - Video: `SC record <script> --only <shot> --look marketing --out <dir>`. Steps play at a watchable pace with a drawn pointer. MP4 and WebM need ffmpeg; WebP and GIF don't.
 - Did anything change? `SC check <scripts> --out <images dir> --diff-dir <dir> --json` leaves the images alone and exits 1 when pixels changed.
 

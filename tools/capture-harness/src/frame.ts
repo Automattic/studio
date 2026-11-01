@@ -1,7 +1,8 @@
 /**
  * Frames stills for places that show them on a page of their own, where the
  * app's white edges would wash out: rounded corners, a hairline, a soft
- * shadow and a margin of the look's background. Everything scales with the
+ * shadow and a margin of the look's background (a color, a gradient, or
+ * Studio's own dot field). Everything scales with the
  * image's width, so small crops and full windows look alike. A look's
  * `outputs` then fit the framed still into fixed-size canvases, such as the
  * 1200×630 of a social card.
@@ -17,8 +18,65 @@ const svg = ( width: number, height: number, body: string ) =>
 		`<svg width="${ width }" height="${ height }" xmlns="http://www.w3.org/2000/svg">${ body }</svg>`
 	);
 
-function backgroundSvg( width: number, height: number, background: Frame[ 'background' ] ) {
-	const [ from, to ] = Array.isArray( background ) ? background : [ background, background ];
+/**
+ * The dot field behind an empty chat in Studio (`apps/ui/src/features/sites/
+ * preview-particles`): dots of a 1px radius every 26px, in CSS pixels, in the
+ * colors `--preview-dot` and `--chat` resolve to at the default appearance.
+ */
+export const DOTS = {
+	spacing: 26,
+	radius: 1,
+	light: { background: '#ffffff', dot: '#c3c3c3' },
+	dark: { background: '#181818', dot: '#414141' },
+} as const;
+
+type DotScheme = 'light' | 'dark';
+
+/** A frame background as drawn: colors, or the dot field in one scheme. */
+type Background = { colors: [ string, string ] } | { dots: DotScheme };
+
+function resolveBackground( background: Frame[ 'background' ], look: Look ): Background {
+	if ( background === 'dots' ) {
+		return { dots: look.appearance.colorScheme === 'dark' ? 'dark' : 'light' };
+	}
+	if ( background === 'dots-light' || background === 'dots-dark' ) {
+		return { dots: background === 'dots-dark' ? 'dark' : 'light' };
+	}
+	return { colors: Array.isArray( background ) ? background : [ background, background ] };
+}
+
+/** One tile of the dot field at 1x, as an SVG, for pages that repeat it. */
+export function dotsTileSvg( scheme: DotScheme ) {
+	const { background, dot } = DOTS[ scheme ];
+	const half = DOTS.spacing / 2;
+	return `<svg xmlns="http://www.w3.org/2000/svg" width="${ DOTS.spacing }" height="${ DOTS.spacing }" viewBox="0 0 ${ DOTS.spacing } ${ DOTS.spacing }"><rect width="${ DOTS.spacing }" height="${ DOTS.spacing }" fill="${ background }"/><circle cx="${ half }" cy="${ half }" r="${ DOTS.radius }" fill="${ dot }"/></svg>\n`;
+}
+
+/**
+ * The background at `width` × `height` pixels. `pixelRatio` is how many of
+ * its pixels make one CSS pixel of the app next to it, so the dots come out
+ * the size they are in Studio; the grid is centred on the canvas.
+ */
+function backgroundSvg(
+	width: number,
+	height: number,
+	background: Background,
+	pixelRatio: number
+) {
+	if ( 'dots' in background ) {
+		const { background: fill, dot } = DOTS[ background.dots ];
+		const step = DOTS.spacing * pixelRatio;
+		return svg(
+			width,
+			height,
+			`<defs><pattern id="d" patternUnits="userSpaceOnUse" x="${ width / 2 - step / 2 }" y="${
+				height / 2 - step / 2
+			}" width="${ step }" height="${ step }"><circle cx="${ step / 2 }" cy="${ step / 2 }" r="${
+				DOTS.radius * pixelRatio
+			}" fill="${ dot }"/></pattern></defs><rect width="100%" height="100%" fill="${ fill }"/><rect width="100%" height="100%" fill="url(#d)"/>`
+		);
+	}
+	const [ from, to ] = background.colors;
 	return svg(
 		width,
 		height,
@@ -27,7 +85,12 @@ function backgroundSvg( width: number, height: number, background: Frame[ 'backg
 }
 
 /** `image` framed on the look's background, as a PNG. */
-async function frameImage( image: Buffer, frame: Frame ): Promise< Buffer > {
+async function frameImage(
+	image: Buffer,
+	frame: Frame,
+	background: Background,
+	pixelRatio: number
+): Promise< Buffer > {
 	const { width = 0, height = 0 } = await sharp( image ).metadata();
 	const pad = Math.round( width * frame.padding );
 	const radius = Math.round( width * frame.radius );
@@ -71,7 +134,7 @@ async function frameImage( image: Buffer, frame: Frame ): Promise< Buffer > {
 			height - line
 		}" rx="${ radius }" fill="none" stroke="${ frame.hairline }" stroke-width="${ line }"/>`
 	);
-	return sharp( backgroundSvg( W, H, frame.background ) )
+	return sharp( backgroundSvg( W, H, background, pixelRatio ) )
 		.composite( [
 			{ input: shadow, left: 0, top: 0 },
 			{ input: rounded, left: pad, top: pad },
@@ -88,7 +151,8 @@ async function frameImage( image: Buffer, frame: Frame ): Promise< Buffer > {
 async function fitToOutput(
 	framed: Buffer,
 	output: Output,
-	background: Frame[ 'background' ]
+	background: Background,
+	pixelRatio: number
 ): Promise< Buffer > {
 	const { width = 0, height = 0 } = await sharp( framed ).metadata();
 	const room = {
@@ -101,7 +165,8 @@ async function fitToOutput(
 		.png()
 		.toBuffer();
 	const size = await sharp( fitted ).metadata();
-	return sharp( backgroundSvg( output.width, output.height, background ) )
+	// The still shrinks to fit, and the dots with it.
+	return sharp( backgroundSvg( output.width, output.height, background, pixelRatio * scale ) )
 		.composite( [
 			{
 				input: fitted,
@@ -124,12 +189,13 @@ export async function renderLook( png: Buffer, look: Look ): Promise< [ string, 
 		out.push( [ '', png ] );
 	}
 	if ( look.frame ) {
-		const framed = await frameImage( png, look.frame );
+		const background = resolveBackground( look.frame.background, look );
+		const framed = await frameImage( png, look.frame, background, look.scale );
 		if ( look.outputs?.length ) {
 			for ( const output of look.outputs ) {
 				out.push( [
 					output.suffix ? `-${ output.suffix }` : '',
-					await fitToOutput( framed, output, look.frame.background ),
+					await fitToOutput( framed, output, background, look.scale ),
 				] );
 			}
 		} else {

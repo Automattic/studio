@@ -1,12 +1,12 @@
 {
 	"$schema": "../schemas/look.schema.json",
 	"name": "social",
-	"description": "Social posts: the marketing frame fitted to a 1200×630 link card, a 1080×1080 square and a 1600×900 post, and short recordings as MP4 and GIF",
+	"description": "Social posts: the marketing frame, on Studio's dot field, fitted to a 1200×630 link card, a 1080×1080 square and a 1600×900 post, and short recordings as MP4 and GIF",
 	"window": { "width": 1440, "height": 900 },
 	"scale": 2,
 	"appearance": { "colorScheme": "light" },
 	"frame": {
-		"background": [ "#EEF1FF", "#CDD6FF" ],
+		"background": "dots",
 		"padding": 0.05,
 		"radius": 0.014,
 		"shadow": 0.22,

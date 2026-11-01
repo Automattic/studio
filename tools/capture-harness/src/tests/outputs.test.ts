@@ -3,8 +3,9 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import sharp from 'sharp';
 import { afterEach, describe, expect, it } from 'vitest';
-import { renderLook } from '../frame.ts';
+import { DOTS, dotsTileSvg, renderLook } from '../frame.ts';
 import { loadLook } from '../look.ts';
+import { LOOKS_DIR } from '../paths.ts';
 import { cropFor, encodeStill, writeIfChanged } from '../still.ts';
 import { collapseRepeats, encodeVideo, resample } from '../video.ts';
 
@@ -107,6 +108,79 @@ describe( 'renderLook', () => {
 		expect( out.map( ( [ suffix ] ) => suffix ) ).toEqual( [ '', '-framed' ] );
 		const { width } = await sharp( out[ 1 ][ 1 ] ).metadata();
 		expect( width ).toBe( 300 + Math.round( 300 * 0.06 ) * 2 );
+	} );
+} );
+
+describe( 'dot field', () => {
+	// Columns of the image's top row that hold a dot, in the given dot color.
+	const dotColumns = async ( image: Buffer, dot: string ) => {
+		const { data, info } = await sharp( image )
+			.extract( {
+				left: 0,
+				top: 0,
+				width: ( await sharp( image ).metadata() ).width ?? 0,
+				height: 60,
+			} )
+			.removeAlpha()
+			.raw()
+			.toBuffer( { resolveWithObject: true } );
+		const [ r, g, b ] = [ 1, 3, 5 ].map( ( i ) => parseInt( dot.slice( i, i + 2 ), 16 ) );
+		for ( let y = 0; y < info.height; y++ ) {
+			const columns: number[] = [];
+			for ( let x = 0; x < info.width; x++ ) {
+				const i = ( y * info.width + x ) * 3;
+				if (
+					Math.abs( data[ i ] - r ) +
+						Math.abs( data[ i + 1 ] - g ) +
+						Math.abs( data[ i + 2 ] - b ) <
+					12
+				) {
+					columns.push( x );
+				}
+			}
+			// Each dot is several pixels wide at 2x: keep where each one starts.
+			const starts = columns.filter( ( x, i ) => i === 0 || x - columns[ i - 1 ] > 1 );
+			if ( starts.length > 2 ) {
+				return starts;
+			}
+		}
+		return [];
+	};
+
+	it( 'spaces the dots as Studio does, at the capture scale', async () => {
+		const look = await loadLook( 'marketing' );
+		const [ , framed ] = (
+			await renderLook( await solid( 2880, 1800, '#ffffff' ), {
+				...look,
+				outputs: undefined,
+			} )
+		)[ 1 ];
+		const columns = await dotColumns( framed, DOTS.light.dot );
+		expect( columns.length ).toBeGreaterThan( 2 );
+		expect( columns[ 1 ] - columns[ 0 ] ).toBe( DOTS.spacing * look.scale );
+	} );
+
+	it( 'draws the dark field for a dark look', async () => {
+		const out = await renderLook(
+			await solid( 2880, 1800, '#181818' ),
+			await loadLook( 'marketing-dark' )
+		);
+		const [ , hero ] = out.find( ( [ suffix ] ) => suffix === '-hero' )!;
+		const { data } = await sharp( hero )
+			.extract( { left: 0, top: 0, width: 1, height: 1 } )
+			.raw()
+			.toBuffer( { resolveWithObject: true } );
+		expect( [ data[ 0 ], data[ 1 ], data[ 2 ] ] ).toEqual( [ 0x18, 0x18, 0x18 ] );
+	} );
+
+	it( 'keeps the tiles in looks/backgrounds the same as the frame draws', async () => {
+		for ( const scheme of [ 'light', 'dark' ] as const ) {
+			const tile = await readFile(
+				path.join( LOOKS_DIR, 'backgrounds', `dots-${ scheme }.svg` ),
+				'utf8'
+			);
+			expect( tile ).toBe( dotsTileSvg( scheme ) );
+		}
 	} );
 } );
 

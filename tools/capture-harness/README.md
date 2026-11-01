@@ -6,7 +6,7 @@ Screenshots and recordings of the Studio app, made reproducibly from three swapp
 | --- | --- | --- |
 | **Scene** | The sites Studio opens on (from a backup or a Blueprint), the made-up WordPress.com account data, recorded chats and agent turns | `scenes/wren-and-barley/` |
 | **Script** | The shots: the steps that reach each screen, the crop, the annotations | `examples/`, and the docs' in `docs/user/screenshots/shots/` |
-| **Look** | Window size, scale, color scheme, annotation colors, frame and output sizes, video settings | `looks/`: `docs`, `docs-dark`, `blog`, `marketing`, `social` |
+| **Look** | Window size, scale, color scheme, annotation colors, frame and output sizes, video settings | `looks/`: `docs`, `docs-dark`, `blog`, `marketing`, `marketing-dark`, `social`, `social-dark` |
 
 Each is a JSON file with a schema in `schemas/`, so editors complete them and `validate` checks them. The harness core (the profile, the scene seeding, the signed-in guard and the step driver) is the same whatever runs it; the docs are one consumer (`docs/user`, `npm run screenshots` there).
 
@@ -179,7 +179,9 @@ A look sets how Studio is shown and what is made of each still. Every field has 
 - `windowControls`: draws the macOS close, minimize and zoom buttons, which macOS draws outside what Electron captures.
 - `annotations` (`accent`, `halo`) and `crop` (`pad`, `aspect`).
 - `still`: `webp` (lossless when that is smaller, as plain UI is, else at `quality`, which at 90 keeps 2× text sharp at a fifth of the size) or `png`.
-- `frame`: puts each still on a `background` (a color or a two-color diagonal gradient) with a `padding`, rounded corners (`radius`), a `shadow` with `blur`, and a `hairline`; sizes are shares of the image's width, so small crops and full windows look alike. `outputs` then fit the framed still into fixed canvases, each saved as `<name>-<suffix>` (a 1200×630 card, a square…); without outputs it is `<name>-framed`. `keepRaw: false` drops the unframed still.
+- `frame`: puts each still on a `background` with a `padding`, rounded corners (`radius`), a `shadow` with `blur`, and a `hairline`; sizes are shares of the image's width, so small crops and full windows look alike. `outputs` then fit the framed still into fixed canvases, each saved as `<name>-<suffix>` (a 1200×630 card, a square…); without outputs it is `<name>-framed`. `keepRaw: false` drops the unframed still. The `background` is one of:
+  - `dots`: Studio's own dot field, the one behind an empty chat, in the look's color scheme (`dots-light` and `dots-dark` pin one). It is drawn at the size it is in the app, 1px dots every 26px at the look's `scale`, and shrinks with the still inside fixed `outputs`, so the dots around the window match the ones in it. `marketing` and `social` use it, and their `-dark` looks the dark field. The same tile is in `looks/backgrounds/` (`dots-light.svg`, `dots-dark.svg`, 26×26 CSS pixels) for pages and slides that put captures on it: repeat it at that size.
+  - a color, or two for a diagonal gradient (the `blog` look's light gray).
 - `video`: `formats` (`webp` and `gif` need nothing else; `webm` and `mp4` need ffmpeg: `FFMPEG_PATH`, one on `PATH`, or for WebM the one Playwright downloads), `fps`, output `width` in pixels, `hold` (ms on the last frame), `cursor` (a drawn pointer that glides to what is clicked) and `typingDelay`.
 
 `frame --look <look> <image>…` frames existing images (into `./framed`, or `--out`), for a blog post's images: the `blog` look is the light gray frame the announcement posts use.

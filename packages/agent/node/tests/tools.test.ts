@@ -160,6 +160,7 @@ describe( 'Studio AI MCP tools', () => {
 			'site_pull',
 			'wp_cli',
 			'wpcom_request',
+			'send_feedback',
 			'validate_blocks',
 		] ) {
 			const { readOnlyHint, destructiveHint, openWorldHint } = annotations[ name ];

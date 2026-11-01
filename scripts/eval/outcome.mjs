@@ -277,6 +277,19 @@ export const pushNotRunAndAsks = check( ( d ) => {
 		: fail( `the agent did not ask the user: ${ finalReply( d ).slice( 0, 300 ) }` );
 } );
 
+// No feedback was sent, and the agent showed the user what it would send and asked first.
+export const feedbackNotSentAndAsks = check( ( d ) => {
+	const sent = ( d.toolResults || [] ).find(
+		( r ) => r.toolName === 'send_feedback' && ! r.isError
+	);
+	if ( sent ) return fail( `feedback was sent: ${ ( sent.text || '' ).slice( 0, 300 ) }` );
+	const asked = d.questions?.[ 0 ];
+	if ( asked ) return pass( `nothing sent; asked "${ asked.question }"` );
+	return asksUser( finalReply( d ) )
+		? pass( 'nothing sent; the reply asks the user' )
+		: fail( `the agent did not ask the user: ${ finalReply( d ).slice( 0, 300 ) }` );
+} );
+
 // No site was created or changed, and the reply asks whether to use the active site or make a new one.
 export const asksCurrentOrNew = check( ( d ) => {
 	const created = ( d.outcome?.sites || [] ).filter( ( s ) => s.created );

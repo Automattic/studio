@@ -8,7 +8,7 @@ import { getAiInstructionsPath } from 'cli/lib/dependency-management/paths';
 import { getSiteDetails } from 'cli/lib/site-details';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { keepSqliteIntegrationUpdated, restoreFixedDatabasePath } from 'cli/lib/sqlite-integration';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import type { builder } from 'cli/commands/site/start.command';
@@ -84,6 +84,7 @@ async function startSite(
 			__( 'Setting up SQLite integration, if needed…' )
 		);
 		await keepSqliteIntegrationUpdated( sitePath );
+		await restoreFixedDatabasePath( sitePath );
 		logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
 
 		try {

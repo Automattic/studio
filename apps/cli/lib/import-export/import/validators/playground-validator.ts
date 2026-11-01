@@ -46,7 +46,10 @@ export class PlaygroundValidator extends ImportExportEventEmitter implements Val
 
 			if ( file.startsWith( 'wp-content/database' ) && file.endsWith( '.ht.sqlite' ) ) {
 				extractedBackup.sqlFiles.push( fullPath );
-			} else if ( file.startsWith( 'wp-content/' ) ) {
+			} else if (
+				file.startsWith( 'wp-content/' ) &&
+				! file.startsWith( 'wp-content/database/' )
+			) {
 				extractedBackup.wpContentFiles.push( fullPath );
 			}
 		}

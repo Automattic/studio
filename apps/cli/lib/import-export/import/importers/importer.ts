@@ -18,7 +18,7 @@ import trash from 'trash';
 import { SiteData } from 'cli/lib/cli-config/core';
 import { ensureWpConfig } from 'cli/lib/native-php/site-setup';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { keepSqliteIntegrationUpdated, restoreFixedDatabasePath } from 'cli/lib/sqlite-integration';
 import { summarizeWpCliStderr } from 'cli/lib/wp-cli-stderr';
 import { LoggerError } from 'cli/logger';
 import { ImportExportEventEmitter } from '../../events';
@@ -180,6 +180,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 				const databaseDir = path.join( site.path, 'wp-content', 'database' );
 				const dbPath = path.join( databaseDir, '.ht.sqlite' );
 
+				await restoreFixedDatabasePath( site.path );
 				await this.moveExistingDatabaseToTrash( dbPath );
 				await this.createEmptyDatabase( dbPath );
 				await this.importDatabase( site, this.backup.sqlFiles );
@@ -432,6 +433,7 @@ export class SQLImporter extends BaseImporter {
 		this.emit( ImportEvents.IMPORT_START, 'sql' );
 
 		try {
+			await restoreFixedDatabasePath( site.path );
 			await this.importDatabase( site, this.backup.sqlFiles );
 
 			this.emit( ImportEvents.IMPORT_COMPLETE, 'sql' );

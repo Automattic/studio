@@ -43,6 +43,28 @@ describe( 'buildSystemPrompt', () => {
 		}
 	} );
 
+	it( "names the user's local sites when none is active, up to a bound", () => {
+		const sites = Array.from( { length: 23 }, ( _, i ) => ( {
+			name: `Site ${ i }`,
+			path: i ? `/sites/site-${ i }` : '/elsewhere/site-0',
+		} ) );
+		const prompt = buildSystemPrompt( { shellDirectory: '/sites', localSites: sites } );
+		expect( prompt ).toContain(
+			'- No site is open in Studio. The user\'s local sites: "Site 0" (/elsewhere/site-0), "Site 1" (site-1),'
+		);
+		expect( prompt ).toContain( '"Site 19" (site-19), and 3 more.' );
+		expect( prompt ).not.toContain( 'Site 20' );
+		expect( buildSystemPrompt( { localSites: [] } ) ).toContain(
+			'No site is open in Studio, and the user has no local sites yet.'
+		);
+		expect(
+			buildSystemPrompt( {
+				localSites: sites,
+				activeSite: { name: 'My Site', path: '/sites/my-site', running: true },
+			} )
+		).not.toContain( 'Site 0' );
+	} );
+
 	it( 'leaves the identity to the external agent', () => {
 		expect( buildSystemPrompt( { external: true } ) ).not.toContain( 'You are' );
 	} );

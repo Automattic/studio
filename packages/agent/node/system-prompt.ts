@@ -1,3 +1,4 @@
+import path from 'path';
 import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from './global-instructions';
 import { formatActiveSite } from './site-selection';
 import type { RemoteHost } from './remote-hosts';
@@ -26,6 +27,33 @@ export interface BuildSystemPromptOptions {
 	shellDirectory?: string;
 	// Facts about the computer Bash commands run on, one line each.
 	environmentFacts?: string[];
+	// The user's local sites, stated when no site is active.
+	localSites?: Array< { name: string; path: string } >;
+}
+
+// Enough to recognize a site by name; a longer list ends with how many more.
+export const LISTED_SITES_MAX = 20;
+
+// The user's local sites by name and folder: under the folder Bash starts in
+// by its relative path, elsewhere by its absolute one.
+function localSitesLine(
+	sites: Array< { name: string; path: string } >,
+	shellDirectory?: string
+): string {
+	if ( ! sites.length ) {
+		return '\n- No site is open in Studio, and the user has no local sites yet.';
+	}
+	const folder = ( sitePath: string ) =>
+		shellDirectory && sitePath.startsWith( shellDirectory + path.sep )
+			? sitePath.slice( shellDirectory.length + 1 )
+			: sitePath;
+	const listed = sites
+		.slice( 0, LISTED_SITES_MAX )
+		.map( ( site ) => `"${ site.name }" (${ folder( site.path ) })` );
+	const more = sites.length - listed.length;
+	return `\n- No site is open in Studio. The user's local sites: ${ listed.join( ', ' ) }${
+		more ? `, and ${ more } more` : ''
+	}.`;
 }
 
 // The WordPress.com AI proxy admits Studio requests only when the system prompt
@@ -45,15 +73,18 @@ function hostEnvironment( remoteHosts: Record< string, RemoteHost > ): string {
 const environment = (
 	remoteHosts: Record< string, RemoteHost >,
 	shellDirectory?: string,
-	facts: string[] = []
+	facts: string[] = [],
+	localSites?: Array< { name: string; path: string } >
 ) => `## Environment
 
 - Studio runs the user's local WordPress sites on this computer. Each one is a complete WordPress install in its own folder: WordPress core (\`wp-includes/\`, \`wp-admin/\`) and every installed theme and plugin (\`wp-content/\`) are on disk.${ hostEnvironment(
 	remoteHosts
 ) }
 - The active site is the one the user has open in Studio.${
-	shellDirectory ? `\n- Each Bash command starts in ${ shellDirectory }.` : ''
-}${ facts.map( ( fact ) => `\n- ${ fact }` ).join( '' ) }`;
+	localSites ? localSitesLine( localSites, shellDirectory ) : ''
+}${ shellDirectory ? `\n- Each Bash command starts in ${ shellDirectory }.` : '' }${ facts
+	.map( ( fact ) => `\n- ${ fact }` )
+	.join( '' ) }`;
 
 const externalEnvironment = ( remoteHosts: Record< string, RemoteHost > ) => `## Environment
 
@@ -68,7 +99,12 @@ export function buildSystemPrompt( options: BuildSystemPromptOptions = {} ): str
 	const remoteHosts = options.remoteHosts ?? {};
 	const environmentSection = options.external
 		? externalEnvironment( remoteHosts )
-		: environment( remoteHosts, options.shellDirectory, options.environmentFacts );
+		: environment(
+				remoteHosts,
+				options.shellDirectory,
+				options.environmentFacts,
+				options.activeSite ? undefined : options.localSites
+		  );
 	return `${ identity }
 
 ${ environmentSection }${ buildActiveSiteSection(

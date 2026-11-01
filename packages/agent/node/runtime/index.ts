@@ -491,14 +491,22 @@ async function createStudioAgentSession(
 ): Promise< AgentSession > {
 	const visionEnabled = model.input.includes( 'image' );
 	const confirm = createConfirmer( config.onConfirm ?? config.onAskUser );
-	const [ userInstructions, imageGenerationEnabled, activeSiteFacts, mcpServers, wpCliServer ] =
-		await Promise.all( [
-			readGlobalInstructions(),
-			isImageGenerationAvailable(),
-			readActiveSiteFacts( config.host, config.activeSite ),
-			readMcpServers( config.host.remoteHosts ),
-			serveWpCli( config.host ),
-		] );
+	const [
+		userInstructions,
+		imageGenerationEnabled,
+		activeSiteFacts,
+		mcpServers,
+		wpCliServer,
+		localSites,
+	] = await Promise.all( [
+		readGlobalInstructions(),
+		isImageGenerationAvailable(),
+		readActiveSiteFacts( config.host, config.activeSite ),
+		readMcpServers( config.host.remoteHosts ),
+		serveWpCli( config.host ),
+		// With no active site, the prompt names the user's sites.
+		config.activeSite ? undefined : config.host.sites.all(),
+	] );
 
 	const state = getSessionState( config.host, config.session );
 	const {
@@ -565,6 +573,7 @@ async function createStudioAgentSession(
 		userInstructions,
 		activeSite: config.activeSite,
 		activeSiteFacts: activeSiteFacts.flat(),
+		localSites,
 	} );
 
 	// The active site as the turn finds it, rendered while the model first

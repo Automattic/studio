@@ -86,10 +86,12 @@ $GLOBALS['wp_the_query'] = $GLOBALS['wp_query'];
 $template = get_block_template( get_stylesheet() . '//page' );
 $GLOBALS['_wp_current_template_id'] = $template->id;
 $GLOBALS['_wp_current_template_content'] = $template->content;
-echo wp_json_encode( array( wp_is_block_theme(), get_the_block_template_html() ) );`,
+echo wp_json_encode( array( wp_is_block_theme(), get_the_block_template_html(), wp_get_global_settings( array( 'useRootPaddingAwareAlignments' ) ) ) );`,
 			] )
-		) as [ boolean, string ];
+		) as [ boolean, string, boolean ];
 		expect( rendered[ 0 ] ).toBe( true );
+		// eval6–11: 7 of 48 builds found full-width blocks fighting the page padding and set it later.
+		expect( rendered[ 2 ] ).toBe( true );
 		expect( rendered[ 1 ] ).toMatch(
 			/<header[^>]*wp-block-template-part[\s\S]*Sourdough[\s\S]*<footer[^>]*wp-block-template-part/
 		);

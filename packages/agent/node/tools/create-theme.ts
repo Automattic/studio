@@ -39,6 +39,10 @@ const blockThemeFiles = ( name: string, slug: string ): Record< string, string >
 			settings: {
 				appearanceTools: true,
 				layout: { contentSize: '720px', wideSize: '1200px' },
+				// As Twenty Twenty-Three to Twenty-Five set it: the root padding goes
+				// inside each .has-global-padding container, and full-width blocks
+				// still reach the viewport's edges (get_root_layout_rules()).
+				useRootPaddingAwareAlignments: true,
 			},
 			templateParts: [
 				{ name: 'header', title: 'Header', area: 'header' },

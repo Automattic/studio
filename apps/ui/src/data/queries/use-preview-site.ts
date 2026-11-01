@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
+import { getAccountJourney, completeAccountJourney } from '@/data/account-analytics';
 import { useConnector } from '@/data/core';
 import { useSettleFromMutation } from '@/data/queries/use-sync-site';
 import { applySyncActivity } from '@/data/sync-activity';
@@ -21,8 +22,16 @@ export function usePublishPreviewSite() {
 				direction: 'preview',
 				hostname: existingHostname,
 			} );
+			return (
+				getAccountJourney( connector, 'share', siteId ) ?? getAccountJourney( connector, 'share' )
+			);
 		},
-		onSuccess: ( _result, { siteId } ) => settleFromMutation( siteId, 'preview' ),
+		onSuccess: ( _result, { siteId, existingHostname }, journey ) => {
+			settleFromMutation( siteId, 'preview' );
+			completeAccountJourney( connector, journey, {
+				completion_kind: existingHostname ? 'preview_update' : 'preview_create',
+			} );
+		},
 		onError: ( error, { siteId } ) => settleFromMutation( siteId, 'preview', error ),
 	} );
 }

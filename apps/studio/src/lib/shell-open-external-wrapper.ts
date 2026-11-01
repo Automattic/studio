@@ -12,7 +12,10 @@ const shouldMute = ( error: Error ) => {
 // This wrapper handles shell.openExternal errors, showing appropriate dialog messages
 // while only reporting specific errors to Sentry. Some common "application not found"
 // errors are muted to avoid unnecessary error reporting.
-export const shellOpenExternalWrapper = async ( url: string ) => {
+export const shellOpenExternalWrapper = async (
+	url: string,
+	options: { throwOnError?: boolean } = {}
+) => {
 	try {
 		await shell.openExternal( url );
 	} catch ( error ) {
@@ -20,6 +23,7 @@ export const shellOpenExternalWrapper = async ( url: string ) => {
 			Sentry.captureException( error );
 		}
 
+		if ( options.throwOnError ) throw error;
 		let title = '';
 		let message = '';
 		if ( url.startsWith( 'vscode://file/' ) ) {

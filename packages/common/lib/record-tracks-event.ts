@@ -5,8 +5,8 @@
 
 const TRACKS_PIXEL_URL = 'https://pixel.wp.com/t.gif';
 
-// Event names. Product-prefixed, snake_case (Tracks convention). Must be registered server-side in
-// the Tracks event schema before data is queryable — see the design doc.
+// Event names follow Tracks naming rules. Register them for documentation and integrity checks;
+// validly named events can be collected and queried before registration. See the design doc.
 export const TRACKS_EVENTS = {
 	APP_LAUNCH: 'studio_app_launch',
 	SITE_START: 'studio_site_start',
@@ -46,6 +46,12 @@ export const TRACKS_EVENTS = {
 	MCP_SESSION_START: 'studio_mcp_session_start',
 	ONBOARDING_COMPLETE: 'studio_onboarding_complete',
 	WPCOM_AUTH: 'studio_wpcom_auth',
+	ACCOUNT_PROMPT_VIEWED: 'studio_account_prompt_viewed',
+	WPCOM_AUTH_STARTED: 'studio_wpcom_auth_started',
+	WPCOM_AUTH_CANCELLED: 'studio_wpcom_auth_cancelled',
+	WPCOM_AUTH_LAUNCH_FAILED: 'studio_wpcom_auth_launch_failed',
+	ONBOARDING_VIEWED: 'studio_onboarding_viewed',
+	ACCOUNT_JOURNEY_COMPLETED: 'studio_account_journey_completed',
 	SYNC_PULL: 'studio_sync_pull',
 	SYNC_PUSH: 'studio_sync_push',
 	SYNC_CONNECT: 'studio_sync_connect',
@@ -177,8 +183,8 @@ export type TracksAuthSource =
 	| 'cli'
 	| 'unknown';
 
-// Whether the user signed up or logged in with an existing account. Known only at initiation (the
-// desktop opens a different URL for each); absent on CLI events, which have no signup path.
+// Which route the user chose: signup or login. This does not prove account creation.
+// Absent on CLI events, which have no signup path.
 export type TracksAuthAccountType = 'new' | 'existing';
 
 // Coarse, low-cardinality auth failure classification. The raw error is never sent — it can embed the

@@ -67,6 +67,17 @@ describe( 'createLocalConnector Connect contracts', () => {
 		);
 	} );
 
+	it( 'preserves the dispatched turn ID in the message request', async () => {
+		fetchMock.mockResolvedValue( new Response( JSON.stringify( { runId: 'run-a' } ) ) );
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+		const turnId = crypto.randomUUID();
+		await connector.continueSession( 'session-a', 'hello', { turnId } );
+		expect( JSON.parse( String( fetchMock.mock.calls[ 0 ][ 1 ]?.body ) ) ).toMatchObject( {
+			prompt: 'hello',
+			turnId,
+		} );
+	} );
+
 	it( 'requests the signup-aware login URL', async () => {
 		fetchMock.mockResolvedValue(
 			new Response( JSON.stringify( { url: 'https://wordpress.com/start' } ) )
@@ -79,7 +90,11 @@ describe( 'createLocalConnector Connect contracts', () => {
 		vi.spyOn( window, 'open' ).mockReturnValue( popup as unknown as Window );
 		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
 
-		const authenticating = connector.authenticate( true );
+		const authenticating = connector.authenticate( true, 'settings', {
+			placement: 'settings_ai',
+			intent: 'build',
+			journey_started_at: 1234,
+		} );
 		await vi.waitFor( () => expect( popup.location.href ).toBe( 'https://wordpress.com/start' ) );
 		window.dispatchEvent(
 			new MessageEvent( 'message', {
@@ -90,7 +105,64 @@ describe( 'createLocalConnector Connect contracts', () => {
 		await authenticating;
 
 		expect( String( fetchMock.mock.calls[ 0 ][ 0 ] ) ).toContain( '&signup=1' );
+		expect(
+			new URL( String( fetchMock.mock.calls[ 0 ][ 0 ] ) ).searchParams.get( 'journey_started_at' )
+		).toBe( '1234' );
 		expect( popup.location.href ).toBe( 'https://wordpress.com/start' );
+	} );
+
+	it( 'does not resolve another browser attempt when a callback arrives', async () => {
+		const firstId = crypto.randomUUID();
+		const secondId = crypto.randomUUID();
+		const popups = [
+			{ closed: false, close: vi.fn(), location: { href: '' } },
+			{ closed: false, close: vi.fn(), location: { href: '' } },
+		];
+		const open = vi.spyOn( window, 'open' );
+		open
+			.mockReturnValueOnce( popups[ 0 ] as unknown as Window )
+			.mockReturnValueOnce( popups[ 1 ] as unknown as Window );
+		fetchMock
+			.mockResolvedValueOnce(
+				new Response(
+					JSON.stringify( { url: 'https://wordpress.com/first', authAttemptId: firstId } )
+				)
+			)
+			.mockResolvedValueOnce(
+				new Response(
+					JSON.stringify( { url: 'https://wordpress.com/second', authAttemptId: secondId } )
+				)
+			);
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+		let firstDone = false;
+		let secondDone = false;
+		const first = connector.authenticate( false, 'settings' ).then( () => {
+			firstDone = true;
+		} );
+		const second = connector.authenticate( true, 'add_site' ).then( () => {
+			secondDone = true;
+		} );
+		await vi.waitFor( () =>
+			expect( popups[ 1 ].location.href ).toBe( 'https://wordpress.com/second' )
+		);
+		window.dispatchEvent(
+			new MessageEvent( 'message', {
+				origin: window.location.origin,
+				data: { type: 'studio-auth-success', auth_attempt_id: firstId },
+			} )
+		);
+		await first;
+		expect( firstDone ).toBe( true );
+		expect( secondDone ).toBe( false );
+		window.dispatchEvent(
+			new MessageEvent( 'message', {
+				origin: window.location.origin,
+				data: { type: 'studio-auth-success', auth_attempt_id: secondId },
+			} )
+		);
+		await second;
+		expect( secondDone ).toBe( true );
+		expect( open.mock.calls[ 0 ][ 1 ] ).not.toBe( open.mock.calls[ 1 ][ 1 ] );
 	} );
 
 	it( 'reads global preferences from the server, not the browser', async () => {

@@ -142,6 +142,7 @@ export function SharingPanel() {
 						'Create an account or log in to share previews and keep your sites in sync.'
 					) }
 					source="previews_tab"
+					analytics={ { placement: 'settings_sharing', intent: 'share' } }
 				/>
 			</Empty>
 		);

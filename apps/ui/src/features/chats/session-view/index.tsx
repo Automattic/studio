@@ -141,7 +141,7 @@ function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: Ses
 		( ! sessionId && draft.provider ) ||
 		getEffectiveSessionProvider( data?.entries ?? [], aiSettings );
 	const isWpcom = sessionProvider === 'wpcom';
-	const notice = useComposerNotice( sessionProvider );
+	const notice = useComposerNotice( sessionProvider, ownerSite?.id );
 	// A fresh wpcom session defaults to balanced when the paid tiers are
 	// unlocked, fast otherwise.
 	const defaultModel = useMemo(

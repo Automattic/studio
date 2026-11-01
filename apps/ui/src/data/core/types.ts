@@ -10,6 +10,7 @@ import type {
 } from '@studio/agent/protocol/sessions/types';
 import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 import type { SiteAgentFile, SiteAgentFileKind } from '@studio/common/lib/agent-skills';
+import type { AuthAnalytics, OnboardingAnalytics } from '@studio/common/lib/auth-tracks';
 import type { SiteEvent, SiteListItem, SnapshotEvent } from '@studio/common/lib/cli-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type {
@@ -165,16 +166,19 @@ export interface Connector {
 	// Auth
 	agenticRequiresAuth: boolean;
 	getAuthUser(): Promise< AuthUser | null >;
-	// `source` records the affordance the login started from, for `studio_wpcom_auth`. Only the IPC
-	// connector can report it — the browser connectors have no Main process to record through.
-	authenticate( signup?: boolean, source?: TracksAuthSource ): Promise< void >;
+	// Authentication context is shared by the Desktop and browser outcome emitters.
+	authenticate(
+		signup?: boolean,
+		source?: TracksAuthSource,
+		analytics?: AuthAnalytics
+	): Promise< void >;
 	logout(): Promise< void >;
 	onAuthStateChanged?( listener: () => void ): () => void;
 
 	// Onboarding — whether the user has been through (or skipped) the
 	// first-run welcome screen.
 	getOnboardingCompleted(): Promise< boolean >;
-	setOnboardingCompleted( completed: boolean ): Promise< void >;
+	setOnboardingCompleted( completed: boolean, analytics?: OnboardingAnalytics ): Promise< void >;
 
 	// Sites
 	getSites(): Promise< SiteDetails[] >;
@@ -384,6 +388,7 @@ export interface Connector {
 		sessionId: string,
 		prompt: string,
 		options?: {
+			turnId?: string;
 			displayMessage?: string;
 			images?: StudioChatImage[];
 			files?: StudioChatFileAttachment[];

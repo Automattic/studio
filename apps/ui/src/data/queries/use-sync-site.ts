@@ -4,6 +4,7 @@ import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect } from 'react';
+import { getAccountJourney, completeAccountJourney } from '@/data/account-analytics';
 import { openStudioLogsAction, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { markPreviewReady, markPreviewSeen } from '@/data/preview-ready';
@@ -247,9 +248,14 @@ function useLiveSync< Options >(
 			sync( connector, siteId, remoteSiteId, options ),
 		onMutate: ( { siteId, remoteSiteId } ) => {
 			applySyncActivity( siteId, { kind: 'pending', direction, remoteSiteId } );
-			return { startedAt: Date.now() };
+			return {
+				startedAt: Date.now(),
+				journey:
+					direction === 'push' ? getAccountJourney( connector, 'publish', siteId ) : undefined,
+			};
 		},
-		onSuccess: ( _result, variables, { startedAt } ) => {
+		onSuccess: ( _result, variables, { startedAt, journey } ) => {
+			completeAccountJourney( connector, journey, { completion_kind: 'sync_push' } );
 			settleFromMutation( variables.siteId, direction );
 			track( variables, startedAt );
 		},

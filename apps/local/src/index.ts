@@ -50,6 +50,14 @@ import {
 	setSiteAgentFileEnabled,
 	type SiteAgentFileKind,
 } from '@studio/common/lib/agent-skills';
+import {
+	onboardingAnalyticsSchema,
+	authAnalyticsSchema,
+	authSourceSchema,
+	createAuthAttempt,
+	createAuthAttemptStore,
+	getAuthTracksProps,
+} from '@studio/common/lib/auth-tracks';
 import { downloadAndExtractBlueprintBundle } from '@studio/common/lib/blueprint-bundle';
 import {
 	cliAuthEventSchema,
@@ -247,9 +255,8 @@ const AUTH_CALLBACK_HTML = `<!DOCTYPE html>
 	var params=new URLSearchParams(location.hash.slice(1));
 	var token=params.get('access_token');
 	var error=params.get('error');
-	function notify(type,message){try{if(window.opener){window.opener.postMessage({type:type,message:message},location.origin);}}catch(e){}}
-	if(error||!token){msg.textContent='Login failed: '+(error||'no token returned');notify('studio-auth-error',error||'no token');return;}
-	fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:token})})
+	function notify(type,message){try{if(window.opener){window.opener.postMessage({type:type,message:message,auth_attempt_id:params.get('state')},location.origin);}}catch(e){}}
+	fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:token,error:error,auth_attempt_id:params.get('state')})})
 		.then(function(r){if(!r.ok){throw new Error('Token could not be validated');}return r.json();})
 		.then(function(){msg.textContent='Signed in! You can close this window.';notify('studio-auth-success');setTimeout(function(){window.close();},800);})
 		.catch(function(e){msg.textContent='Login failed: '+e.message;notify('studio-auth-error',e.message);});
@@ -335,6 +342,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	const host = options.host ?? '127.0.0.1';
 
 	// Analytics must never fail a user action, so every call is fire-and-forget.
+	const authAttempts = createAuthAttemptStore();
+
 	function trackEvent( event: TracksEventName, props?: TracksProps ): void {
 		void options.recordTracksEvent?.( event, props ).catch( () => undefined );
 	}
@@ -574,56 +583,99 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	// connector falls back to the paste flow.
 	api.get( '/auth/login-url', ( req: Request, res: Response ) => {
 		const redirectUri = typeof req.query.redirect_uri === 'string' ? req.query.redirect_uri : '';
-		if ( ! redirectUri ) {
-			res.json( { url: null } );
-			return;
-		}
+		const analytics = authAnalyticsSchema.safeParse( {
+			...req.query,
+			journey_started_at:
+				typeof req.query.journey_started_at === 'string'
+					? Number( req.query.journey_started_at )
+					: undefined,
+		} ).data;
+		const attempt = createAuthAttempt(
+			authSourceSchema.catch( 'unknown' ).parse( req.query.source ),
+			req.query.signup === '1',
+			analytics
+		);
+		authAttempts.add( attempt );
+		trackEvent( TRACKS_EVENTS.WPCOM_AUTH_STARTED, getAuthTracksProps( attempt ) );
 		res.json( {
-			url:
-				req.query.signup === '1'
-					? getSignUpUrl( 'en', redirectUri )
-					: getAuthenticationUrl( 'en', redirectUri ),
+			url: redirectUri
+				? attempt.auth_flow === 'signup'
+					? getSignUpUrl( 'en', redirectUri, attempt.auth_attempt_id )
+					: getAuthenticationUrl( 'en', redirectUri, attempt.auth_attempt_id )
+				: null,
+			authAttemptId: attempt.auth_attempt_id,
 		} );
 	} );
 
-	// Log in by storing a token from the redirect callback (or pasted from
-	// WordPress.com's copy-token page — the same implicit-OAuth flow
-	// `studio auth login` uses). The token is validated against /me before being
-	// written to the shared config.
+	api.post( '/auth/cancel', ( req: Request, res: Response ) => {
+		const attempt = authAttempts.take( req.body?.auth_attempt_id );
+		if ( attempt )
+			trackEvent(
+				req.body?.launch_failed === true
+					? TRACKS_EVENTS.WPCOM_AUTH_LAUNCH_FAILED
+					: TRACKS_EVENTS.WPCOM_AUTH_CANCELLED,
+				getAuthTracksProps( attempt )
+			);
+		res.status( 204 ).end();
+	} );
+
 	api.post(
 		'/auth/login',
 		asyncHandler( async ( req: Request, res: Response ) => {
+			const attempt = authAttempts.take(
+				typeof req.body?.auth_attempt_id === 'string' ? req.body.auth_attempt_id : undefined
+			);
+			const props = getAuthTracksProps( attempt );
+			const fail = ( status: number, message: string, reason: string ) => {
+				trackEvent( TRACKS_EVENTS.WPCOM_AUTH, {
+					...props,
+					success: false,
+					failure_reason: reason,
+				} );
+				res.status( status ).json( { error: message } );
+			};
 			const token = typeof req.body?.token === 'string' ? req.body.token.trim() : '';
-			if ( ! token ) {
-				res.status( 400 ).json( { error: 'token required' } );
+			if ( req.body?.error || ! token ) {
+				fail(
+					400,
+					'Authentication failed',
+					req.body?.error === 'access_denied' ? 'access_denied' : 'token_error'
+				);
 				return;
 			}
 			let me: { ID: number; email: string; display_name: string };
 			try {
-				const meResponse = await fetch(
+				const response = await fetch(
 					'https://public-api.wordpress.com/rest/v1.1/me?fields=ID,email,display_name',
 					{ headers: { Authorization: `Bearer ${ token }` } }
 				);
-				if ( ! meResponse.ok ) {
-					res.status( 401 ).json( { error: 'Invalid authentication token' } );
+				if ( ! response.ok ) {
+					fail( 401, 'Invalid authentication token', 'profile_fetch_failed' );
 					return;
 				}
-				me = ( await meResponse.json() ) as { ID: number; email: string; display_name: string };
-			} catch ( error ) {
-				console.error( 'Auth login: failed to reach WordPress.com:', error );
-				res.status( 502 ).json( { error: 'Could not reach WordPress.com to validate the token.' } );
+				me = z
+					.object( { ID: z.number(), email: z.string(), display_name: z.string() } )
+					.parse( await response.json() );
+			} catch {
+				fail( 502, 'Could not reach WordPress.com to validate the token.', 'profile_fetch_failed' );
 				return;
 			}
-			await updateSharedConfig( {
-				authToken: {
-					accessToken: token,
-					id: me.ID,
-					email: me.email,
-					displayName: me.display_name,
-					expiresIn: DEFAULT_TOKEN_LIFETIME_MS / 1000,
-					expirationTime: Date.now() + DEFAULT_TOKEN_LIFETIME_MS,
-				},
-			} );
+			try {
+				await updateSharedConfig( {
+					authToken: {
+						accessToken: token,
+						id: me.ID,
+						email: me.email,
+						displayName: me.display_name,
+						expiresIn: DEFAULT_TOKEN_LIFETIME_MS / 1000,
+						expirationTime: Date.now() + DEFAULT_TOKEN_LIFETIME_MS,
+					},
+				} );
+			} catch {
+				fail( 500, 'Could not save authentication.', 'unknown' );
+				return;
+			}
+			trackEvent( TRACKS_EVENTS.WPCOM_AUTH, { ...props, success: true } );
 			res.json( { id: me.ID, email: me.email, displayName: me.display_name } );
 		} )
 	);
@@ -1526,7 +1578,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.patch(
 		'/onboarding',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const parsed = z.object( { completed: z.boolean() } ).safeParse( req.body );
+			const parsed = z
+				.object( { completed: z.boolean(), analytics: onboardingAnalyticsSchema.optional() } )
+				.safeParse( req.body );
 			if ( ! parsed.success ) {
 				res.status( 400 ).json( { error: 'Invalid onboarding state' } );
 				return;
@@ -1534,6 +1588,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			if ( await writeOnboardingCompleted( parsed.data.completed ) ) {
 				trackEvent( TRACKS_EVENTS.ONBOARDING_COMPLETE, {
 					authenticated: !! ( await readAuthToken() ),
+					...parsed.data.analytics,
 				} );
 			}
 			res.status( 204 ).end();
@@ -2068,6 +2123,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			const { runId } = runManager.startAgentRun( {
 				sessionId: req.params.id,
 				prompt: expandSkillCommandPrompt( prompt ),
+				turnId: typeof req.body.turnId === 'string' ? req.body.turnId : undefined,
 				displayMessage,
 				images,
 				files,

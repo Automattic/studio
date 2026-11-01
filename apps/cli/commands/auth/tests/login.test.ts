@@ -1,4 +1,4 @@
-import { input } from '@inquirer/prompts';
+import { confirm, input } from '@inquirer/prompts';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
@@ -6,6 +6,7 @@ import { getUserInfo } from 'cli/lib/api';
 import { openBrowser } from 'cli/lib/browser';
 import { getAppLocale } from 'cli/lib/i18n';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
+import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { LoggerError } from 'cli/logger';
 import {
 	mockReportStart,
@@ -32,7 +33,7 @@ vi.mock( 'cli/lib/daemon-client', () => ( {
 vi.mock( 'cli/lib/i18n' );
 vi.mock( 'cli/lib/tracks', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('cli/lib/tracks') >() ),
-	recordTracksEvent: vi.fn(),
+	recordTracksEvent: vi.fn( async () => undefined ),
 	getTracksOrigin: () => ( { channel: 'studio-cli' } ),
 } ) );
 vi.mock( 'cli/logger', () => ( {
@@ -172,7 +173,17 @@ describe( 'Auth Login Command', () => {
 		const authEvents = () =>
 			vi
 				.mocked( recordTracksEvent )
-				.mock.calls.filter( ( [ name ] ) => name === TRACKS_EVENTS.WPCOM_AUTH );
+				.mock.calls.filter( ( [ name ] ) => name === TRACKS_EVENTS.WPCOM_AUTH )
+				.map( ( [ name, props ] ) => [
+					name,
+					Object.fromEntries(
+						Object.entries( props ?? {} ).filter(
+							( [ key, value ] ) =>
+								! [ 'placement', 'intent', 'auth_flow', 'auth_attempt_id' ].includes( key ) &&
+								value !== undefined
+						)
+					),
+				] );
 
 		// `account_type` is absent throughout — the CLI has no signup path.
 		it( 'records a successful login', async () => {
@@ -181,6 +192,84 @@ describe( 'Auth Login Command', () => {
 			expect( authEvents() ).toEqual( [
 				[ TRACKS_EVENTS.WPCOM_AUTH, { channel: 'studio-cli', source: 'cli', success: true } ],
 			] );
+		} );
+
+		it( 'correlates login start and success without including the pasted token', async () => {
+			await runCommand();
+
+			const calls = vi.mocked( recordTracksEvent ).mock.calls;
+			const started = calls.find( ( [ name ] ) => name === TRACKS_EVENTS.WPCOM_AUTH_STARTED );
+			const succeeded = calls.find( ( [ name ] ) => name === TRACKS_EVENTS.WPCOM_AUTH );
+			expect( started?.[ 1 ] ).toEqual(
+				expect.objectContaining( {
+					auth_attempt_id: expect.any( String ),
+					source: 'cli',
+					placement: 'cli',
+					intent: 'account',
+				} )
+			);
+			expect( succeeded?.[ 1 ] ).toEqual(
+				expect.objectContaining( {
+					...started?.[ 1 ],
+					success: true,
+				} )
+			);
+			expect( JSON.stringify( calls ) ).not.toContain( mockAccessToken );
+		} );
+
+		it( 'retains attribution when the browser fails and the pasted token succeeds', async () => {
+			vi.mocked( openBrowser ).mockRejectedValue( new Error( 'browser unavailable' ) );
+			await runCommand();
+
+			const calls = vi.mocked( recordTracksEvent ).mock.calls;
+			const started = calls.find( ( [ name ] ) => name === TRACKS_EVENTS.WPCOM_AUTH_STARTED );
+			expect( calls ).toContainEqual( [ TRACKS_EVENTS.WPCOM_AUTH_LAUNCH_FAILED, started?.[ 1 ] ] );
+			expect( calls ).toContainEqual( [
+				TRACKS_EVENTS.WPCOM_AUTH,
+				{ ...started?.[ 1 ], success: true },
+			] );
+		} );
+
+		it( 'records a cancelled prompt against the started attempt', async () => {
+			const error = new Error( 'cancelled' );
+			error.name = 'ExitPromptError';
+			vi.mocked( input ).mockRejectedValue( error );
+			await runCommand();
+
+			const calls = vi.mocked( recordTracksEvent ).mock.calls;
+			const started = calls.find( ( [ name ] ) => name === TRACKS_EVENTS.WPCOM_AUTH_STARTED );
+			expect( calls ).toContainEqual( [ TRACKS_EVENTS.WPCOM_AUTH_CANCELLED, started?.[ 1 ] ] );
+			expect( authEvents() ).toEqual( [] );
+		} );
+
+		it( 'correlates sign-in offered inside a terminal command', async () => {
+			const streams = [ process.stdin, process.stdout ];
+			const descriptors = streams.map( ( stream ) =>
+				Object.getOwnPropertyDescriptor( stream, 'isTTY' )
+			);
+			try {
+				for ( const stream of streams ) {
+					Object.defineProperty( stream, 'isTTY', { value: true, configurable: true } );
+				}
+				vi.mocked( confirm ).mockResolvedValue( true );
+				await requireAuthToken();
+
+				const calls = vi.mocked( recordTracksEvent ).mock.calls;
+				const started = calls.find( ( [ name ] ) => name === TRACKS_EVENTS.WPCOM_AUTH_STARTED );
+				expect( started?.[ 1 ] ).toEqual(
+					expect.objectContaining( { auth_attempt_id: expect.any( String ) } )
+				);
+				expect( calls ).toContainEqual( [
+					TRACKS_EVENTS.WPCOM_AUTH,
+					{ ...started?.[ 1 ], success: true },
+				] );
+			} finally {
+				streams.forEach( ( stream, i ) => {
+					const descriptor = descriptors[ i ];
+					if ( descriptor ) Object.defineProperty( stream, 'isTTY', descriptor );
+					else Reflect.deleteProperty( stream, 'isTTY' );
+				} );
+			}
 		} );
 
 		// `is_a11n` is derived from the stored token, so the event must follow the write.
@@ -195,7 +284,7 @@ describe( 'Auth Login Command', () => {
 
 			await runCommand();
 
-			expect( order ).toEqual( [ 'write', 'record' ] );
+			expect( order ).toEqual( [ 'record', 'write', 'record' ] );
 		} );
 
 		it( 'records a failure when the token is rejected', async () => {

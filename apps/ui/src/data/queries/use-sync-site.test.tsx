@@ -1,7 +1,9 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { SYNC_CANCELLED_MESSAGE } from '@studio/common/lib/sync/cancel';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { rememberAccountJourney } from '@/data/account-analytics';
 import { getNoticeHistory } from '@/data/app-messages';
 import { ConnectorProvider } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
@@ -11,6 +13,7 @@ import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
 import { getSyncActivity, useSiteSyncActivity } from '@/data/sync-activity';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { createTestQueryClient } from '@/test/render';
+import { usePublishPreviewSite } from './use-preview-site';
 import { usePullSiteFromLive, usePushSiteToLive, useSyncActivityEvents } from './use-sync-site';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { QueryClient } from '@tanstack/react-query';
@@ -278,3 +281,35 @@ describe( 'sync Tracks events', () => {
 		}
 	);
 } );
+
+it.each( [
+	[ undefined, 'preview_create' ],
+	[ 'preview.example', 'preview_update' ],
+] as const )(
+	'reports the requested preview operation kind (%s)',
+	async ( existingHostname, kind ) => {
+		function Preview() {
+			const publish = usePublishPreviewSite();
+			return (
+				<button onClick={ () => publish.mutate( { siteId: 'site-1', existingHostname } ) }>
+					Publish preview
+				</button>
+			);
+		}
+		const { connector } = setup( <Preview /> );
+		connector.publishPreviewSite.mockResolvedValue( { url: 'https://preview.example' } );
+		const context = {
+			placement: 'share',
+			intent: 'share',
+			journey_id: crypto.randomUUID(),
+		} as const;
+		rememberAccountJourney( connector, context, 'site-1' );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Publish preview' } ) );
+		await waitFor( () =>
+			expect( connector.trackEvent ).toHaveBeenCalledWith(
+				TRACKS_EVENTS.ACCOUNT_JOURNEY_COMPLETED,
+				{ ...context, completion_kind: kind }
+			)
+		);
+	}
+);

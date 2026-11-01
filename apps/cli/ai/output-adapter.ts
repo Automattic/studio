@@ -144,7 +144,8 @@ export class JsonAdapter implements AiOutputAdapter {
 	emitTurnCompleted(
 		status: TurnCompletedStatus,
 		sessionId: string,
-		usage?: { numTurns: number; costUsd?: number }
+		usage?: { numTurns: number; costUsd?: number },
+		result?: { turnId: string; edits?: number }
 	): void {
 		emitEvent( {
 			type: 'turn.completed',
@@ -152,6 +153,7 @@ export class JsonAdapter implements AiOutputAdapter {
 			sessionId,
 			status,
 			usage,
+			...result,
 		} );
 	}
 

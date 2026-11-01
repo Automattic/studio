@@ -1,5 +1,6 @@
 import { dialog } from 'electron';
 import * as Sentry from '@sentry/electron/main';
+import { getAuthTracksProps } from '@studio/common/lib/auth-tracks';
 import { updateSharedConfig, authTokenSchema } from '@studio/common/lib/shared-config';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
@@ -88,11 +89,12 @@ async function handleAuthCallback( hash: string ): Promise< StoredAuthToken > {
 export async function handleAuthDeeplink( urlObject: URL ): Promise< void > {
 	const { hash } = urlObject;
 	// Taken once, up front, so both branches see it and it is consumed exactly once.
-	const context = takePendingAuthContext();
-	const authProps = {
-		source: context?.source ?? 'unknown',
-		account_type: context?.accountType,
-	};
+	const context = takePendingAuthContext(
+		new URLSearchParams( hash.substring( 1 ) ).get( 'state' ) ??
+			urlObject.searchParams.get( 'state' ) ??
+			undefined
+	);
+	const authProps = getAuthTracksProps( context );
 
 	try {
 		const authResult = await handleAuthCallback( hash );

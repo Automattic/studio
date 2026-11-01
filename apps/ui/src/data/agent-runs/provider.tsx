@@ -4,6 +4,7 @@ import { getStudioToolProgress } from '@studio/agent/protocol/tool-progress';
 import { SKIPPED_QUESTION, STOPPED_WITHOUT_ANSWER } from '@studio/agent/protocol/tools';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
+import { getAccountJourney, completeAccountJourney } from '@/data/account-analytics';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { ASSISTANT_QUOTA_QUERY_KEY } from '@/data/queries/use-assistant-quota';
@@ -25,6 +26,7 @@ import type {
 	StudioCustomEntry,
 } from '@/data/core';
 import type { ActiveAgentRun } from '@studio/agent/protocol/agent-events';
+import type { AuthAnalytics } from '@studio/common/lib/auth-tracks';
 
 function nowIso(): string {
 	return new Date().toISOString();
@@ -50,6 +52,9 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	const [ stateStore ] = useState( createSessionStateStore );
+	const accountJourneysRef = useRef(
+		new Map< string, { turnId: string; journeys: AuthAnalytics[] } >()
+	);
 	const subscribedRunIdsBySessionRef = useRef< Map< string, string > >( new Map() );
 	const ignoredRunIdsRef = useRef< Set< string > >( new Set() );
 	const interruptPendingStartSessionIdsRef = useRef< Set< string > >( new Set() );
@@ -215,14 +220,32 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				case 'error':
 					toast.error( event.message );
 					return;
-				case 'turn.completed':
+				case 'turn.completed': {
+					const captured = accountJourneysRef.current.get( payload.sessionId );
+					if ( captured && event.turnId && event.turnId !== captured.turnId ) return;
+					if ( captured && event.turnId === captured.turnId ) {
+						if ( event.status === 'success' )
+							for ( const journey of captured.journeys )
+								completeAccountJourney( connector, journey, {
+									completion_kind:
+										event.edits !== undefined &&
+										Number.isSafeInteger( event.edits ) &&
+										event.edits > 0
+											? 'ai_edit'
+											: 'ai_response',
+									turn_id: captured.turnId,
+								} );
+						accountJourneysRef.current.delete( payload.sessionId );
+					}
 					dispatchSession( payload.sessionId, { type: 'turn_completed' } );
 					return;
+				}
 				case 'run.interrupting':
 					dispatchSession( payload.sessionId, { type: 'interrupt_requested' } );
 					return;
 				case 'run.exited':
 				case 'run.interrupted': {
+					accountJourneysRef.current.delete( payload.sessionId );
 					if ( event.type === 'run.interrupted' ) {
 						// Synthetic studio.turn_closed for immediate "Interrupted
 						// by you" rendering; the CLI also writes a real one.
@@ -376,6 +399,21 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 
 	const startRun = useCallback(
 		async ( sessionId: string, prompt: string, options: SendMessageOptions = {} ) => {
+			const ownerSiteId = queryClient.getQueryData< LoadedAiSession >( [
+				...SESSIONS_QUERY_KEY,
+				sessionId,
+			] )?.summary.ownerSiteId;
+			const turnId = crypto.randomUUID();
+			accountJourneysRef.current.set( sessionId, {
+				turnId,
+				journeys: [
+					getAccountJourney( connector, 'build', ownerSiteId ) ??
+						getAccountJourney( connector, 'build' ),
+					...( options.visualAnnotations?.length
+						? [ getAccountJourney( connector, 'annotate', ownerSiteId ) ]
+						: [] ),
+				].filter( ( journey ): journey is AuthAnalytics => !! journey ),
+			} );
 			const displayMessage = options.displayMessage ?? prompt;
 			const images = options.images ?? [];
 			const files = options.files ?? [];
@@ -402,6 +440,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 
 			try {
 				const { runId: newRunId } = await connector.continueSession( sessionId, prompt, {
+					turnId,
 					displayMessage,
 					images,
 					files,
@@ -432,6 +471,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				} );
 				subscribedRunIdsBySessionRef.current.set( sessionId, newRunId );
 			} catch ( err ) {
+				accountJourneysRef.current.delete( sessionId );
 				updateCache( sessionId, ( entries ) => {
 					const idx = entries.lastIndexOf( optimisticEntry );
 					if ( idx === -1 ) return entries;

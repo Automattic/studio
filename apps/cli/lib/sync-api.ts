@@ -4,6 +4,7 @@ import {
 	initiateBackup as initiateBackupBase,
 	pollBackupStatus as pollBackupStatusBase,
 	initiateImport as initiateImportBase,
+	prepareImport as prepareImportBase,
 	pollImportStatus as pollImportStatusBase,
 	downloadBackup as downloadBackupBase,
 	fetchLatestRewindId as fetchLatestRewindIdBase,
@@ -88,6 +89,17 @@ export async function pollBackupStatus( token: string, remoteSiteId: number, bac
 		return await pollBackupStatusBase( token, remoteSiteId, backupId );
 	} catch ( error ) {
 		throw wrapError( __( 'Failed to check backup status' ), error, 'remote_backup' );
+	}
+}
+
+/**
+ * Best effort: when the live site can't prepare its backup, the import queues one itself.
+ */
+export async function prepareImport( token: string, remoteSiteId: number ): Promise< void > {
+	try {
+		await prepareImportBase( token, remoteSiteId );
+	} catch {
+		// The import backs the site up itself.
 	}
 }
 

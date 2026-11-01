@@ -110,6 +110,19 @@ export async function pollBackupStatus(
 	};
 }
 
+/**
+ * Starts the live site's safety backup before the archive is uploaded, so it runs during the export
+ * and upload. The import initiated next waits for this backup instead of queuing its own.
+ */
+export async function prepareImport( token: string, remoteSiteId: number ): Promise< void > {
+	const wpcom = wpcomFactory( token, wpcomXhrRequest );
+
+	await wpcom.req.post( {
+		path: `/sites/${ remoteSiteId }/studio-app/sync/import/prepare`,
+		apiNamespace: 'wpcom/v2',
+	} );
+}
+
 export async function initiateImport(
 	token: string,
 	remoteSiteId: number,

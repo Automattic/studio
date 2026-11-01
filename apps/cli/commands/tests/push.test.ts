@@ -4,7 +4,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
-import { fetchSyncableSites, pollImportStatus } from 'cli/lib/sync-api';
+import {
+	fetchSyncableSites,
+	initiateImport,
+	pollImportStatus,
+	prepareImport,
+} from 'cli/lib/sync-api';
 import { runCommand } from '../push';
 import type { SyncSite } from '@studio/common/types/sync';
 import type { SiteData } from 'cli/lib/cli-config/core';
@@ -37,6 +42,7 @@ vi.mock( 'cli/lib/sync-api', async ( importActual ) => ( {
 	fetchSyncableSites: vi.fn(),
 	initiateImport: vi.fn(),
 	pollImportStatus: vi.fn(),
+	prepareImport: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/tracks' );
 
@@ -81,6 +87,28 @@ describe( 'CLI: studio push', () => {
 			'success',
 		] );
 		expect( reported()[ 1 ] ).toMatchObject( { remoteSiteId: remoteSite.id } );
+	} );
+
+	// The backup then runs during the export and upload instead of after them.
+	it( "starts the live site's backup before exporting", async () => {
+		const exportArchive = vi.fn( async ( backupFile: string ) =>
+			fs.writeFileSync( backupFile, 'archive' )
+		);
+		vi.mocked( getExporter ).mockImplementation( async ( { backupFile } ) => {
+			return { on: vi.fn(), export: () => exportArchive( backupFile ) } as never;
+		} );
+		vi.mocked( pollImportStatus ).mockResolvedValue( {
+			success: true,
+			status: 'finished',
+		} as never );
+
+		await runCommand( site.path, [ 'all' ], String( remoteSite.id ) );
+
+		expect( prepareImport ).toHaveBeenCalledWith( 'token', remoteSite.id );
+		expect( vi.mocked( prepareImport ).mock.invocationCallOrder[ 0 ] ).toBeLessThan(
+			exportArchive.mock.invocationCallOrder[ 0 ]
+		);
+		expect( vi.mocked( initiateImport ) ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( "keeps Studio's local wp-config.php constants out of the pushed archive", async () => {

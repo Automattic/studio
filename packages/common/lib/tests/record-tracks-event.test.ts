@@ -125,6 +125,14 @@ describe( '__recordTracksEvent', () => {
 		expect( fetch ).not.toHaveBeenCalled();
 	} );
 
+	it( 'no-ops in tests', () => {
+		delete process.env.E2E;
+		process.env.NODE_ENV = 'test';
+
+		expect( __recordTracksEvent( TRACKS_EVENTS.APP_LAUNCH, IDENTITY, {} ) ).toBe( false );
+		expect( fetch ).not.toHaveBeenCalled();
+	} );
+
 	// The dev log stands in for the request, so an optional prop that was never sent must not appear
 	// in it as `undefined`.
 	it( 'logs only the props that would be sent', () => {

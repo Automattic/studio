@@ -96,11 +96,6 @@ async function resolveAnthropicApiKey( options?: {
 	return trimmedKey;
 }
 
-export function getStudioUserAgent(): string {
-	const version = typeof __STUDIO_CLI_VERSION__ === 'string' ? __STUDIO_CLI_VERSION__ : '';
-	return version ? `WordPressStudio/${ version }` : 'WordPressStudio';
-}
-
 async function hasValidWpcomAuth(): Promise< boolean > {
 	const token = await readAuthToken();
 	return token !== null;
@@ -160,7 +155,6 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 			env.STUDIO_WPCOM_BASE_URL = `${ gatewayBaseUrl.replace( /\/+$/, '' ) }/v1`;
 			env.STUDIO_WPCOM_API_KEY = accessToken;
 			const headers: Record< string, string > = {
-				'User-Agent': getStudioUserAgent(),
 				'X-WPCOM-AI-Feature': WPCOM_AI_FEATURE_HEADER,
 			};
 			if ( options?.sessionId ) {

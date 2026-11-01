@@ -39,9 +39,6 @@ if ( ! minimumNodeVersion ) {
 
 const bundledWpFilesPath = resolve( __dirname, '..', '..', 'wp-files' );
 const phpSourceCodePath = resolve( __dirname, 'php' );
-// The Skill tool loads skills from `<chunk dir>/skills` at runtime (see
-// `@studio/agent/node/skills.ts`), so they must sit directly next to the built chunks.
-const skillsSourcePath = resolve( __dirname, '../../packages/agent/node/skills' );
 
 // The `studio ui` command serves the built browser UI (apps/ui `dist-local`)
 // from `<chunk dir>/ui`, so it must sit next to the built chunks too. Built
@@ -116,9 +113,6 @@ export const baseConfig = defineConfig( {
 				}
 				if ( existsSync( bundledWpFilesPath ) ) {
 					cpSync( bundledWpFilesPath, resolve( outDir, 'wp-files' ), { recursive: true } );
-				}
-				if ( existsSync( skillsSourcePath ) ) {
-					cpSync( skillsSourcePath, resolve( outDir, 'skills' ), { recursive: true } );
 				}
 
 				if ( existsSync( localUiDistPath ) ) {

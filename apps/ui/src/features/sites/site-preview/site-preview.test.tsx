@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { updateResponsivePreview } from '@/data/responsive-preview';
 import { SessionUIProvider } from '@/data/use-session-ui';
 import { getSiteAnnotations } from '@/features/annotations';
-import { createFakeConnector, makeSite } from '@/test/fake-connector';
+import { ALL_CAPABILITIES, createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { SitePreview } from './index';
 
@@ -419,10 +419,7 @@ describe( 'site preview controls', () => {
 	} );
 
 	it( 'starts a stopped site with annotation mode selected', async () => {
-		const connector = createFakeConnector(
-			{},
-			{ capabilities: { nativeFolderPicker: true, annotatePreview: true, studioLogs: true } }
-		);
+		const connector = createFakeConnector( {}, { capabilities: ALL_CAPABILITIES } );
 		const stopped = makeSite( { id: 'annotate-stopped', running: false } );
 		const { user } = await renderPreview( 'desktop', { site: stopped }, connector );
 		const annotate = screen.getByRole( 'button', { name: 'Annotate' } );
@@ -437,7 +434,7 @@ describe( 'site preview controls', () => {
 		async ( annotatePreview ) => {
 			const connector = createFakeConnector(
 				{},
-				{ capabilities: { nativeFolderPicker: true, annotatePreview, studioLogs: true } }
+				{ capabilities: { ...ALL_CAPABILITIES, annotatePreview } }
 			);
 			await renderPreview( 'browser', {}, connector );
 			expect( screen.getByRole( 'button', { name: 'Reload preview' } ) ).toBeVisible();

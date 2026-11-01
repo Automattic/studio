@@ -5,6 +5,7 @@ import type {
 	AiSessionSummary,
 	AuthUser,
 	Connector,
+	ConnectorCapabilities,
 	InstalledApps,
 	LoadedAiSession,
 	SiteDetails,
@@ -70,6 +71,19 @@ export function makeSession( overrides: Partial< AiSessionSummary > = {} ): AiSe
 // Shared across connectors so ids never repeat within a test file, where
 // module-level stores keyed by id (composer drafts) outlive a render.
 let nextId = 1;
+
+export const ALL_CAPABILITIES: ConnectorCapabilities = {
+	nativeFolderPicker: true,
+	annotatePreview: true,
+	studioLogs: true,
+	siteFolders: true,
+	phpMyAdmin: true,
+	customDomains: true,
+	xdebug: true,
+	siteAgentFiles: true,
+	fileAccess: true,
+	versionChoice: true,
+};
 
 export const TEST_USER: AuthUser = { id: 1, email: 'test@example.test', displayName: 'Test User' };
 
@@ -248,6 +262,7 @@ export function createInMemoryConnector(
 		getPublishCheckoutUrl: () => undefined,
 		onSyncConnectSite: subscribe( 'onSyncConnectSite' ),
 		watchForPublishedSite: async () => {},
+		connectPreviewFrame: () => ( { run: () => {}, dispose: () => {} } ),
 		getSessions: async () => state.sessions.map( ( session ) => session.summary ),
 		getSession: async ( id ) => findSession( id ),
 		updateSessionMetadata: async ( id, patch ) => {
@@ -359,11 +374,7 @@ export function createInMemoryConnector(
 	};
 
 	return {
-		capabilities: {
-			nativeFolderPicker: true,
-			annotatePreview: true,
-			studioLogs: true,
-		},
+		capabilities: ALL_CAPABILITIES,
 		agenticRequiresAuth: true,
 		showsAppMenuButton: false,
 		reservesTrafficLightSpace: false,

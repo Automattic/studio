@@ -15,7 +15,12 @@ import {
 	SidebarIcon,
 	UnpinIcon,
 } from '@/lib/icons';
-import type { AiSessionSummary, SiteDetails, WritableUserPreferences } from '@/data/core';
+import type {
+	AiSessionSummary,
+	ConnectorCapabilities,
+	SiteDetails,
+	WritableUserPreferences,
+} from '@/data/core';
 import type { useOpenSettings } from '@/data/use-open-settings';
 import type { useChatActions } from '@/features/chats';
 import type { ComponentType } from 'react';
@@ -231,6 +236,7 @@ export function getSettingCommands( {
 	scope,
 	site,
 	signedIn,
+	capabilities,
 	toggles,
 	actions = {},
 	openSettings,
@@ -238,6 +244,7 @@ export function getSettingCommands( {
 	scope: 'studio' | 'site';
 	site?: SiteDetails;
 	signedIn: boolean;
+	capabilities?: ConnectorCapabilities;
 	// The boolean preferences setting commands turn on or off in place, by the
 	// id of their row in Settings.
 	toggles: SettingToggles;
@@ -246,7 +253,7 @@ export function getSettingCommands( {
 } ): PaletteCommand[] {
 	const group = scope === 'site' ? 'site-settings' : 'settings';
 	if ( scope === 'site' && ! site ) return [];
-	return getSections( scope, { signedIn } ).flatMap( ( section ) => {
+	return getSections( scope, { signedIn, capabilities } ).flatMap( ( section ) => {
 		const folded = section.settings.filter( ( entry ) => entry.palette === 'section' );
 		const navigation: PaletteCommand[] = ! section.command
 			? [

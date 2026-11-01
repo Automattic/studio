@@ -7,7 +7,7 @@ import {
 	DEFAULT_ADMIN_USERNAME,
 	decodeAdminPassword,
 } from '@studio/common/lib/passwords';
-import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
+import { getSettingsWpConfigConstants } from '@studio/common/lib/wp-config-constants';
 import { getWpCliPharPath } from 'cli/lib/dependency-management/paths';
 import { ensurePhpBinaryAvailable } from '../dependency-management/php-binary';
 import { runPhpCommand } from './php-process';
@@ -52,17 +52,9 @@ $transformer->to_file( $wp_config_path );
 		await fs.promises.copyFile( wpConfigSamplePath, wpConfigPath );
 	}
 
-	const enableDebugLog = config?.enableDebugLog ?? false;
-	const enableDebugDisplay = config?.enableDebugDisplay ?? false;
 	const constants = {
 		...DEFAULT_WP_CONFIG_CONSTANTS,
-		WP_DEBUG: enableDebugLog || enableDebugDisplay,
-		WP_DEBUG_LOG: enableDebugLog,
-		WP_DEBUG_DISPLAY: enableDebugDisplay,
-		// SCRIPT_DEBUG is independent of WP_DEBUG in WordPress, so it must not
-		// feed the WP_DEBUG expression above.
-		SCRIPT_DEBUG: config?.enableScriptDebug ?? false,
-		WP_ENVIRONMENT_TYPE: getWpEnvironmentType( config ?? {} ),
+		...getSettingsWpConfigConstants( config ?? {} ),
 	};
 	await ensurePhpBinaryAvailable( phpVersion );
 

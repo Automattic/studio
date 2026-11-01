@@ -1,8 +1,6 @@
-import { chromium } from 'playwright';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	buildChromiumLaunchAttempts,
-	EditorPage,
 	ensurePlaywrightChromiumInstalled,
 } from '@studio/agent/node/browser-utils';
 
@@ -72,17 +70,5 @@ describe( 'browser-utils', () => {
 
 		expect( error ).toContain( 'auto-install Playwright Chromium' );
 		expect( error ).toContain( 'network unavailable' );
-	} );
-
-	it( 'loads the block editor once for concurrent validations', async () => {
-		const page = { goto: vi.fn(), waitForFunction: vi.fn(), isClosed: () => false };
-		const newPage = vi.fn().mockResolvedValue( page );
-		vi.mocked( chromium.launch ).mockResolvedValue( { newPage, close: vi.fn() } as never );
-
-		const editor = new EditorPage( 'http://localhost:8881' );
-		const pages = await Promise.all( [ editor.getPage(), editor.getPage(), editor.getPage() ] );
-
-		expect( pages ).toEqual( [ page, page, page ] );
-		expect( newPage ).toHaveBeenCalledTimes( 1 );
 	} );
 } );

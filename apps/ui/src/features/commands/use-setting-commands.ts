@@ -120,6 +120,7 @@ export function useSettingCommands(
 		scope,
 		site,
 		signedIn: ! user.isSuccess || !! user.data,
+		capabilities: connector.capabilities,
 		toggles,
 		actions: {
 			'reset-appearance': {

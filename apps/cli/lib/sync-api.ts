@@ -1,3 +1,4 @@
+import { downloadBackup as downloadBackupBase } from '@studio/common/lib/sync/download-backup';
 import {
 	checkBackupSize as checkBackupSizeBase,
 	fetchSyncableSites as fetchSyncableSitesBase,
@@ -5,7 +6,6 @@ import {
 	pollBackupStatus as pollBackupStatusBase,
 	initiateImport as initiateImportBase,
 	pollImportStatus as pollImportStatusBase,
-	downloadBackup as downloadBackupBase,
 	fetchLatestRewindId as fetchLatestRewindIdBase,
 	fetchRemoteFileTree as fetchRemoteFileTreeBase,
 } from '@studio/common/lib/sync/sync-api';

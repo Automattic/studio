@@ -10,6 +10,7 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import { ChevronDownIcon, ChevronRightIcon, FileIcon } from 'lucide-react';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useConnector } from '@/data/core';
 import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
 import {
 	CertificateTrustNotice,
@@ -107,6 +108,7 @@ export function CreateSiteForm( {
 	draft,
 	onDraftChange,
 }: CreateSiteFormProps ) {
+	const { capabilities } = useConnector();
 	const formId = useId();
 	const [ defaults ] = useState( createDefaultFormData );
 	const suggestedFieldsRef = useRef( getSuggestedFields( initialValues ?? {} ) );
@@ -295,41 +297,49 @@ export function CreateSiteForm( {
 
 				{ children }
 
-				<FieldGroup>
-					<PathField
-						data={ data }
-						error={ advancedErrors.path }
-						requiresEmptyPath={ requiresEmptyPath }
-						onChange={ handleChange }
-					/>
-					{ existing ? null : wpVersionOptions ? (
-						<SelectField
-							label={ __( 'WordPress version' ) }
-							description={ wpVersionDescription }
-							value={ data.wpVersion }
-							options={ wpVersionOptions }
-							disabled={ isOffline }
-							disabledReason={ offlineMessage }
-							onChange={ ( wpVersion ) => handleChange( { wpVersion } ) }
-						/>
-					) : (
-						<TextField
-							label={ __( 'WordPress version' ) }
-							orientation="horizontal"
-							placeholder={ DEFAULT_WORDPRESS_VERSION }
-							value={ data.wpVersion }
-							onChange={ ( event ) => handleChange( { wpVersion: event.target.value } ) }
-						/>
-					) }
-					<SelectField
-						label={ __( 'PHP version' ) }
-						value={ data.phpVersion }
-						options={ getPhpVersionOptions() }
-						onChange={ ( phpVersion ) =>
-							handleChange( { phpVersion: phpVersion as SupportedPHPVersion } )
-						}
-					/>
-				</FieldGroup>
+				{ ( capabilities.siteFolders || capabilities.versionChoice ) && (
+					<FieldGroup>
+						{ capabilities.siteFolders && (
+							<PathField
+								data={ data }
+								error={ advancedErrors.path }
+								requiresEmptyPath={ requiresEmptyPath }
+								onChange={ handleChange }
+							/>
+						) }
+						{ capabilities.versionChoice && (
+							<>
+								{ existing ? null : wpVersionOptions ? (
+									<SelectField
+										label={ __( 'WordPress version' ) }
+										description={ wpVersionDescription }
+										value={ data.wpVersion }
+										options={ wpVersionOptions }
+										disabled={ isOffline }
+										disabledReason={ offlineMessage }
+										onChange={ ( wpVersion ) => handleChange( { wpVersion } ) }
+									/>
+								) : (
+									<TextField
+										label={ __( 'WordPress version' ) }
+										orientation="horizontal"
+										placeholder={ DEFAULT_WORDPRESS_VERSION }
+										value={ data.wpVersion }
+										onChange={ ( event ) => handleChange( { wpVersion: event.target.value } ) }
+									/>
+								) }
+								<SelectField
+									label={ __( 'PHP version' ) }
+									value={ data.phpVersion }
+									options={ getPhpVersionOptions() }
+									onChange={ ( phpVersion ) =>
+										handleChange( { phpVersion: phpVersion as SupportedPHPVersion } )
+									}
+								/>
+							</>
+						) }
+					</FieldGroup>
+				) }
 
 				<Button
 					variant="muted-ghost"
@@ -361,44 +371,50 @@ export function CreateSiteForm( {
 				>
 					<div className={ styles.advancedCollapseInner }>
 						<FieldGroup>
-							<SelectField
-								label={ __( 'File access' ) }
-								description={ getFileAccessDescription( data.fileAccess ) }
-								value={ data.fileAccess }
-								options={ getFileAccessOptions() }
-								onChange={ ( fileAccess ) =>
-									handleChange( { fileAccess: fileAccess as SiteFileAccess } )
-								}
-							/>
+							{ capabilities.fileAccess && (
+								<SelectField
+									label={ __( 'File access' ) }
+									description={ getFileAccessDescription( data.fileAccess ) }
+									value={ data.fileAccess }
+									options={ getFileAccessOptions() }
+									onChange={ ( fileAccess ) =>
+										handleChange( { fileAccess: fileAccess as SiteFileAccess } )
+									}
+								/>
+							) }
 							{ ! existing && (
 								<>
-									<ToggleField
-										label={ __( 'Use custom domain' ) }
-										description={
-											requiresCustomDomain
-												? __( 'This Blueprint requires a custom domain.' )
-												: __( 'Your system password will be required to set up the domain.' )
-										}
-										checked={ data.useCustomDomain }
-										disabled={ requiresCustomDomain }
-										onChange={ ( useCustomDomain ) => handleChange( { useCustomDomain } ) }
-									/>
-									{ data.useCustomDomain && (
+									{ capabilities.customDomains && (
 										<>
-											<TextField
-												label={ __( 'Domain name' ) }
-												value={ data.customDomain }
-												error={ advancedErrors.customDomain }
-												onChange={ ( event ) =>
-													handleChange( { customDomain: event.target.value } )
-												}
-											/>
 											<ToggleField
-												label={ __( 'Enable HTTPS' ) }
-												description={ <CertificateTrustNotice /> }
-												checked={ data.enableHttps }
-												onChange={ ( enableHttps ) => handleChange( { enableHttps } ) }
+												label={ __( 'Use custom domain' ) }
+												description={
+													requiresCustomDomain
+														? __( 'This Blueprint requires a custom domain.' )
+														: __( 'Your system password will be required to set up the domain.' )
+												}
+												checked={ data.useCustomDomain }
+												disabled={ requiresCustomDomain }
+												onChange={ ( useCustomDomain ) => handleChange( { useCustomDomain } ) }
 											/>
+											{ data.useCustomDomain && (
+												<>
+													<TextField
+														label={ __( 'Domain name' ) }
+														value={ data.customDomain }
+														error={ advancedErrors.customDomain }
+														onChange={ ( event ) =>
+															handleChange( { customDomain: event.target.value } )
+														}
+													/>
+													<ToggleField
+														label={ __( 'Enable HTTPS' ) }
+														description={ <CertificateTrustNotice /> }
+														checked={ data.enableHttps }
+														onChange={ ( enableHttps ) => handleChange( { enableHttps } ) }
+													/>
+												</>
+											) }
 										</>
 									) }
 									<TextField

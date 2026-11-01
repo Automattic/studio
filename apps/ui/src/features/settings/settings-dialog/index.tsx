@@ -6,6 +6,7 @@ import { clsx } from 'clsx';
 import { ChevronLeftIcon, SearchIcon, XIcon } from 'lucide-react';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { toast } from '@/data/app-messages';
+import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
@@ -303,7 +304,8 @@ export function SettingsDialog() {
 		};
 	}, [ target, section, content ] );
 
-	const results = searchSettings( query, scope, { hasSite: !! site, signedIn } );
+	const { capabilities } = useConnector();
+	const results = searchSettings( query, scope, { hasSite: !! site, signedIn, capabilities } );
 	const searching = !! query.trim();
 	const open = ( result: SearchResult ) => {
 		go( result.section.id );
@@ -311,7 +313,8 @@ export function SettingsDialog() {
 			setTarget( result.setting.id ?? result.setting.title );
 		}
 	};
-	const current = getSections( scope, { signedIn } ).find( ( entry ) => entry.id === section )!;
+	const sections = getSections( scope, { signedIn, capabilities } );
+	const current = sections.find( ( entry ) => entry.id === section ) ?? sections[ 0 ];
 
 	return (
 		<Dialog replaceable open={ !! settings } onOpenChange={ ( isOpen ) => ! isOpen && close() }>
@@ -391,7 +394,7 @@ export function SettingsDialog() {
 						</InputGroup>
 						{ ! searching ? (
 							<TabsList variant="sidebar" aria-label={ __( 'Settings sections' ) }>
-								{ getSections( scope, { signedIn } ).map( ( entry ) => (
+								{ sections.map( ( entry ) => (
 									<TabsTrigger key={ entry.id } value={ entry.id } aria-controls={ panelId }>
 										<entry.icon />
 										<MarqueeLabel>{ entry.label }</MarqueeLabel>

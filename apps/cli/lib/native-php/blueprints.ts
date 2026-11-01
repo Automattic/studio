@@ -4,7 +4,7 @@ import {
 	createBlueprintTempDir,
 	removeBlueprintTempDir,
 } from '@studio/common/lib/blueprint-bundle';
-import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
+import { getSettingsWpConfigConstants } from '@studio/common/lib/wp-config-constants';
 import { parse as parseShellCommand } from 'shell-quote';
 import {
 	getBlueprintsPharPath,
@@ -232,18 +232,10 @@ export async function runBlueprint(
 		throw new Error( `Remote blueprint URIs are not supported: ${ blueprint.uri }` );
 	}
 
-	const enableDebugLog = config.enableDebugLog ?? false;
-	const enableDebugDisplay = config.enableDebugDisplay ?? false;
 	const defaultConstants: Record< string, boolean | string > = {
 		// The SQLite driver requires a non-empty DB_NAME at runtime.
 		DB_NAME: 'wordpress',
-		WP_DEBUG: enableDebugLog || enableDebugDisplay,
-		WP_DEBUG_LOG: enableDebugLog,
-		WP_DEBUG_DISPLAY: enableDebugDisplay,
-		// SCRIPT_DEBUG is independent of WP_DEBUG in WordPress, so it must not
-		// feed the WP_DEBUG expression above.
-		SCRIPT_DEBUG: config.enableScriptDebug ?? false,
-		WP_ENVIRONMENT_TYPE: getWpEnvironmentType( config ),
+		...getSettingsWpConfigConstants( config ),
 	};
 
 	blueprint.contents.constants = {

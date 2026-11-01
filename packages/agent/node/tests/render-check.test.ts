@@ -31,7 +31,7 @@ function setup( { running = true } = {} ) {
 		change();
 		await check.changed( site.root );
 		await check.settle();
-		return check.takeReports();
+		return await check.takeReports();
 	};
 	return { site, check, open, problems, inspect, after };
 }
@@ -57,7 +57,7 @@ describe( 'RenderCheck', () => {
 			/after the last change: each page loads, .* past what the site had before\.$/
 		);
 		expect( await open.raise() ).toEqual( [] );
-		expect( check.takeReports() ).toBe( '' );
+		expect( await check.takeReports() ).toBe( '' );
 	} );
 
 	// As run h2h5's dog groomer changed an option while its images were being generated.
@@ -82,7 +82,7 @@ describe( 'RenderCheck', () => {
 		await check.changed( site.root, work );
 		setTimeout( written, 50 );
 		await check.settle();
-		expect( check.takeReports() ).toMatch( /: each page loads, .* every image loads/ );
+		expect( await check.takeReports() ).toMatch( /: each page loads, .* every image loads/ );
 	} );
 
 	it( 'reports every problem on a site the session created', async () => {
@@ -118,11 +118,29 @@ describe( 'RenderCheck', () => {
 		held = new Promise< void >( ( resolve ) => ( release = resolve ) );
 		first();
 		await vi.waitFor( () => expect( inspect ).toHaveBeenCalledTimes( 8 ) );
-		expect( check.takeReports() ).toBe( '' );
+		expect( await check.takeReports() ).toBe( '' );
 
 		release();
 		await check.settle();
-		expect( check.takeReports() ).toContain( '- / (desktop): current' );
+		expect( await check.takeReports() ).toContain( '- / (desktop): current' );
+	} );
+
+	// eval9 picky 2: the render of one Edit came with the result of the next,
+	// which had fixed what it found, and read as that fix's.
+	it( 'drops a verdict a later change has made stale, for the render of that change', async () => {
+		const { site, check, problems } = setup();
+		await check.seen( site.root );
+		problems[ '/ desktop' ] = [ 'stale' ];
+		appendFileSync( path.join( site.root, 'wp-content/themes/bakery/style.css' ), '\n' );
+		await check.changed( site.root );
+		await check.settle();
+
+		problems[ '/ desktop' ] = [];
+		appendFileSync( path.join( site.root, 'wp-content/themes/bakery/style.css' ), '\n' );
+		expect( await check.takeReports() ).toBe( '' );
+		await check.changed( site.root );
+		await check.settle();
+		expect( await check.takeReports() ).toMatch( /: each page loads/ );
 	} );
 
 	it( 'renders nothing while the site is stopped', async () => {

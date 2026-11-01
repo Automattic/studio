@@ -322,7 +322,7 @@ export function toToolDefinition(
 			const reports = studioMessage( 'notes', [
 				...validationReport,
 				pendingWork.takeReports(),
-				renderCheck?.takeReports(),
+				await renderCheck?.takeReports(),
 			] );
 			const timed = {
 				...result,

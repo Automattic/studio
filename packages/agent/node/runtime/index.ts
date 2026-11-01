@@ -409,7 +409,7 @@ async function runAgentSessionTurn(
 			// The pages rendered after the last change: their problems are open
 			// until fixed, and a verdict of none ends nothing.
 			await state.renderCheck.settle();
-			state.renderCheck.takeReports();
+			await state.renderCheck.takeReports();
 			const problems = await state.openProblems.raise();
 			// The notes on the run's last calls, whose checks ran after their results.
 			const content = [

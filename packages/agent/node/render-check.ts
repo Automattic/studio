@@ -47,6 +47,8 @@ interface SiteState {
 	// The work the last change left running, as images being generated.
 	writing?: PendingWork;
 	verdict?: string;
+	// What the site rendered from when it got the verdict.
+	verdictFrom?: string;
 }
 
 // A problem by page, viewport and kind, without the measures that move as the page changes.
@@ -130,13 +132,20 @@ export class RenderCheck {
 		state.running = run();
 	}
 
-	/** The verdicts that have come since the last call, each once. */
-	takeReports(): string {
-		const verdicts = [ ...this.sites.values() ].flatMap( ( state ) =>
-			state.verdict ? [ state.verdict ] : []
+	/**
+	 * The verdicts that have come since the last call, each once, while the
+	 * site renders from what it did: a call that changed it since has a
+	 * render of its own coming.
+	 */
+	async takeReports(): Promise< string > {
+		const verdicts = await Promise.all(
+			[ ...this.sites ].map( async ( [ sitePath, state ] ) => {
+				const { verdict, verdictFrom } = state;
+				state.verdict = undefined;
+				return verdict && ( await fingerprint( sitePath ) ) === verdictFrom ? [ verdict ] : [];
+			} )
 		);
-		this.sites.forEach( ( state ) => ( state.verdict = undefined ) );
-		return verdicts.join( '\n' );
+		return verdicts.flat().join( '\n' );
 	}
 
 	/** Waits for every render under way, as the turn ends. */
@@ -169,6 +178,7 @@ export class RenderCheck {
 			  )
 			: undefined;
 		this.open?.record( sitePath, `${ sitePath }#rendered pages`, problem );
+		state.verdictFrom = renderedFrom;
 		state.verdict =
 			problem ??
 			`${ rendered }: each page loads, PHP prints no errors, every image loads, and nothing is wider than the screen${

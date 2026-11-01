@@ -198,6 +198,36 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio import', () => {
 	}
 
 	it(
+		'imports a backup over a Playground site with a randomized database path',
+		{ tags: [ 'e2e' ], timeout: 300_000 },
+		async () => {
+			if ( ! env ) {
+				throw new Error( 'CLI e2e env was not initialised' );
+			}
+
+			const sitePath = await createStoppedSite(
+				env,
+				'Randomized Database Import E2E Site',
+				'import-randomized-database'
+			);
+
+			for ( const file of [ 'playground-randomized-database.zip', 'jetpack-backup.tar.gz' ] ) {
+				const result = await runCli(
+					[ 'import', path.join( FIXTURES_DIR, file ), '--path', sitePath ],
+					env
+				);
+				expect( result.code, result.stderr ).toBe( 0 );
+			}
+
+			expect(
+				fs.existsSync( path.join( sitePath, 'wp-content', 'database', 'db-path.php' ) )
+			).toBe( false );
+			assertImportedSiteOnDisk( sitePath );
+			await assertImportedContent( env, sitePath );
+		}
+	);
+
+	it(
 		'imports a backup into a running site and restores it to running',
 		{ tags: [ 'e2e' ], timeout: 300_000 },
 		async () => {

@@ -22,7 +22,12 @@ export const syncActivitySchema = z.discriminatedUnion( 'kind', [
 		// The connected site a push or pull targets, once the command knows it.
 		remoteSiteId: z.number().optional(),
 	} ),
-	z.object( { kind: z.literal( 'success' ), direction: syncDirectionSchema } ),
+	z.object( {
+		kind: z.literal( 'success' ),
+		direction: syncDirectionSchema,
+		// Something the user should know about a sync that worked, e.g. a pulled site too big to push.
+		warning: z.string().optional(),
+	} ),
 	z.object( { kind: z.literal( 'cancelled' ), direction: syncDirectionSchema } ),
 	z.object( {
 		kind: z.literal( 'error' ),

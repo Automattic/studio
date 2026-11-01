@@ -165,25 +165,27 @@ async function rememberConnection( localSiteId: string, remoteSite: SyncSite ): 
  * archive, so the uncompressed tally over-reports, which is why the warning says "may": a false
  * alarm is cheap, a missed one surfaces as a failed push. Goes away when push moves to Reprint.
  */
-async function warnIfTooBigToPush( sitePath: string ): Promise< void > {
+async function warnIfTooBigToPush( sitePath: string ): Promise< string | undefined > {
 	try {
 		const wpContentSize = await calculateDirectorySizeForArchive(
 			path.join( sitePath, 'wp-content' ),
 			await createDeployIgnoreFilter( sitePath ),
 			'wp-content'
 		);
-		if ( wpContentSize > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
-			logger.reportWarning(
-				sprintf(
-					__(
-						'This site is over %d GB, so pushing it back to WordPress.com may fail. Push a smaller selection with `studio push --include-only`.'
-					),
-					SYNC_PUSH_SIZE_LIMIT_GB
-				)
-			);
+		if ( wpContentSize <= SYNC_PUSH_SIZE_LIMIT_BYTES ) {
+			return undefined;
 		}
+		const warning = sprintf(
+			__(
+				'This site is over %d GB, so publishing it back to WordPress.com may fail. Publish a smaller selection of files instead.'
+			),
+			SYNC_PUSH_SIZE_LIMIT_GB
+		);
+		logger.reportWarning( warning );
+		return warning;
 	} catch {
 		// Measuring is advice; the pull has already succeeded.
+		return undefined;
 	}
 }
 
@@ -202,6 +204,8 @@ interface PullRun {
 	siteId?: string;
 	remoteSite?: SyncSite;
 	preview?: StandingPreview | null;
+	// Shown with the success, e.g. that the site is too big to push back.
+	warning?: string;
 	localChangesApplied: boolean;
 	completed: boolean;
 }
@@ -251,7 +255,9 @@ export async function runCommand(
 						message: pullError instanceof Error ? pullError.message : String( pullError ),
 						localChangesApplied: run.localChangesApplied,
 				  }
-				: { kind: run.completed ? 'success' : 'cancelled', direction: 'pull' }
+				: run.completed
+				? { kind: 'success', direction: 'pull', warning: run.warning }
+				: { kind: 'cancelled', direction: 'pull' }
 		);
 	}
 
@@ -435,7 +441,7 @@ async function pullSite(
 				await linkPreview( site.id, sourceSite, run.preview );
 			}
 			await rememberConnection( site.id, sourceSite.wpComSite );
-			await warnIfTooBigToPush( site.path );
+			run.warning = await warnIfTooBigToPush( site.path );
 
 			// The pulled database has no local admin user, so auto-login needs credentials to create one.
 			if ( ! site.adminPassword ) {

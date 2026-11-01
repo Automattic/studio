@@ -406,7 +406,7 @@ No site names, URLs, paths, or raw error text are ever sent — `failure_reason`
 
 | Event | Emitted from | Event-specific props |
 |---|---|---|
-| `studio_sync_pull` | Classic slice + agentic UI hook + CLI `pull` (standalone only) | `success` (boolean), `sync_type`, `time_ms` (full pull duration, incl. the remote backup and the local import). On failure also `failure_reason`. |
+| `studio_sync_pull` | Classic slice + agentic UI hook + CLI `pull` (standalone only) | `success` (boolean), `sync_type`, `time_ms` (full pull duration, incl. the remote backup and the local import). On failure also `failure_reason`. The CLI also sends `site_kind` (`preview` when the source is one of the user's preview sites, `site` otherwise, `unknown` when previews could not be listed). |
 | `studio_sync_push` | Classic slice + agentic UI hook + CLI `push` (standalone only) | `success` (boolean), `sync_type`, `time_ms` (full push duration, incl. the local export, upload, and the remote import). On failure also `failure_reason`. |
 | `studio_sync_connect` | Classic site-selection handler + agentic UI (publish picker, deep-link listener, onboarding connect) | `success` (boolean), `num_of_sites` (live sites connected to this local site **after** this connect, so a first connection reports 1). On failure also `failure_reason`. |
 | `studio_sync_disconnect` | Classic sync tab + agentic UI disconnect dialog | (none) |

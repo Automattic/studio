@@ -7,18 +7,25 @@ import fs from 'fs';
 import path from 'path';
 import {
 	addConnectedWpcomSite,
+	getConnectedWpcomSitesForLocalSite,
 	markConnectedWpcomSiteSynced,
 } from '@studio/common/lib/connected-sites';
+import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
+import { calculateDirectorySizeForArchive } from '@studio/common/lib/fs-utils';
 import { encodePassword } from '@studio/common/lib/passwords';
 import { buildSyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
+import {
+	SYNC_PUSH_SIZE_LIMIT_BYTES,
+	SYNC_PUSH_SIZE_LIMIT_GB,
+} from '@studio/common/lib/sync/constants';
 import { PullCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import chalk from 'chalk';
 import { enableReprintExporter } from 'cli/lib/api';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { linkPulledPreview } from 'cli/lib/cli-config/snapshots';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { getStandingPreviews } from 'cli/lib/preview-sites';
+import { getStandingPreviews, type StandingPreview } from 'cli/lib/preview-sites';
 import {
 	applySelection,
 	type CliSelectionOptions,
@@ -91,32 +98,92 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 }
 
 /**
- * When the pulled site is one of the user's preview sites, makes it this local site's preview, so
- * updating it pushes this site's changes back. Best-effort: the pull has already succeeded.
+ * The source site's standing preview, or null when it is not one of the user's previews. Undefined
+ * when previews could not be listed: that is not worth failing a pull over.
  */
-async function linkIfPreview( localSiteId: string, source: PullSource ): Promise< void > {
+async function findPreview( source: PullSource ): Promise< StandingPreview | null | undefined > {
 	try {
-		const preview = ( await getStandingPreviews( source.wpComToken.accessToken ) ).get(
-			source.wpComSite.id
-		);
-		if ( preview ) {
-			await linkPulledPreview( localSiteId, source.wpComSite.id, source.wpComToken.id, preview );
-		}
+		const previews = await getStandingPreviews( source.wpComToken.accessToken );
+		return previews.get( source.wpComSite.id ) ?? null;
 	} catch {
-		// Listing previews is not worth failing a finished pull over.
+		return undefined;
 	}
+}
+
+/**
+ * Makes a pulled preview this local site's preview, so updating it pushes this site's changes back.
+ * Best-effort: the pull has already succeeded.
+ */
+async function linkPreview(
+	localSiteId: string,
+	source: PullSource,
+	preview: StandingPreview
+): Promise< void > {
+	try {
+		await linkPulledPreview( localSiteId, source.wpComSite.id, source.wpComToken.id, preview );
+	} catch {
+		// The pulled site still works; only the preview link is missing.
+	}
+}
+
+/** `site_kind` for `studio_sync_pull`: whether the pull came from one of the user's previews. */
+function getSiteKind( run: PullRun ): 'preview' | 'site' | 'unknown' {
+	if ( run.preview === undefined ) {
+		return 'unknown';
+	}
+	return run.preview ? 'preview' : 'site';
 }
 
 /**
  * Remembers the remote site, so later pushes and pulls, and the Studio app, offer it without
  * picking it again. Best-effort: the pull has already succeeded.
  */
+/** The connected site this local site was last pulled from, so a repeat `studio pull` needs no site. */
+async function lastPulledFrom( localSiteId: string ): Promise< string | undefined > {
+	const pulled = ( await getConnectedWpcomSitesForLocalSite( localSiteId ) )
+		.filter( ( connected ) => connected.lastPullTimestamp )
+		.sort( ( a, b ) =>
+			String( b.lastPullTimestamp ).localeCompare( String( a.lastPullTimestamp ) )
+		);
+	return pulled[ 0 ]?.url;
+}
+
 async function rememberConnection( localSiteId: string, remoteSite: SyncSite ): Promise< void > {
 	try {
 		await addConnectedWpcomSite( localSiteId, { ...remoteSite, localSiteId } );
 		await markConnectedWpcomSiteSynced( localSiteId, remoteSite.id, 'pull' );
 	} catch ( error ) {
 		logger.reportError( new LoggerError( __( 'Failed to save connected site' ), error ), false );
+	}
+}
+
+/**
+ * Warns when the pulled site looks too big to push back to WordPress.com.
+ *
+ * Reprint streams the site in pieces, so unlike the Jetpack backup there is no archive size to check
+ * before downloading; this measures what landed in wp-content instead. Push uploads a gzipped
+ * archive, so the uncompressed tally over-reports, which is why the warning says "may": a false
+ * alarm is cheap, a missed one surfaces as a failed push. Goes away when push moves to Reprint.
+ */
+async function warnIfTooBigToPush( sitePath: string ): Promise< void > {
+	try {
+		const wpContentSize = await calculateDirectorySizeForArchive(
+			path.join( sitePath, 'wp-content' ),
+			await createDeployIgnoreFilter( sitePath ),
+			'wp-content'
+		);
+		if ( wpContentSize > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
+			logger.reportWarning(
+				sprintf(
+					__(
+						'This site is over %d GB, so pushing it back to WordPress.com may fail. Push a smaller selection with `studio push --include-only`.'
+					),
+					SYNC_PUSH_SIZE_LIMIT_GB
+				)
+			);
+		}
+	} catch {
+		// Measuring is advice; the pull has already succeeded.
 	}
 }
 
@@ -134,6 +201,7 @@ class PullError extends LoggerError {
 interface PullRun {
 	siteId?: string;
 	remoteSite?: SyncSite;
+	preview?: StandingPreview | null;
 	localChangesApplied: boolean;
 	completed: boolean;
 }
@@ -197,6 +265,7 @@ export async function runCommand(
 					error: pullError,
 					hint: { code: findFailureCode( pullError ) },
 				} ),
+				site_kind: getSiteKind( run ),
 				...getTracksOrigin(),
 			} );
 		} catch {
@@ -245,11 +314,12 @@ async function pullSite(
 	run.siteId = site.id;
 	onSiteLoaded( site.id );
 
-	const sourceSite = await resolveSourceSite( remoteSite ?? site.reprintOrigin?.remoteUrl );
+	const sourceSite = await resolveSourceSite( remoteSite ?? ( await lastPulledFrom( site.id ) ) );
 	if ( ! sourceSite ) {
 		return;
 	}
 	run.remoteSite = sourceSite.wpComSite;
+	run.preview = await findPreview( sourceSite );
 	const exporter = await enableReprintExporter(
 		sourceSite.wpComSite.id,
 		sourceSite.wpComToken.accessToken,
@@ -317,7 +387,7 @@ async function pullSite(
 				stateDirectory: studioMetadata.stateDirectory,
 				verbose,
 			} );
-		const preflight = await runPreflight( studioMetadata, apiUrl, verbose, reinstallKey );
+		await runPreflight( studioMetadata, apiUrl, verbose, reinstallKey );
 		const reprintMetadata = await getReprintMetadata( {
 			apiUrl,
 			stateDirectory: studioMetadata.stateDirectory,
@@ -338,16 +408,9 @@ async function pullSite(
 		}
 
 		await withSiteOperation( site.path, 'import', async () => {
-			const origin = {
-				remoteUrl: normalizedRemoteUrl,
-				remoteSiteUrl: preflight.siteurl || normalizedRemoteUrl,
-				tablePrefix: preflight.table_prefix || undefined,
-			};
 			site.status = 'pulling';
-			site.reprintOrigin = origin;
 			await updateSiteRecord( site.id, ( record ) => {
 				record.status = 'pulling';
-				record.reprintOrigin = origin;
 			} );
 
 			run.localChangesApplied = true;
@@ -368,8 +431,11 @@ async function pullSite(
 				record.runtimeBlueprintPath = studioMetadata.runtimeBlueprintPath;
 			} );
 			logger.reportSuccess( `Site "${ site.name }" updated` );
-			await linkIfPreview( site.id, sourceSite );
+			if ( run.preview ) {
+				await linkPreview( site.id, sourceSite, run.preview );
+			}
 			await rememberConnection( site.id, sourceSite.wpComSite );
+			await warnIfTooBigToPush( site.path );
 
 			// The pulled database has no local admin user, so auto-login needs credentials to create one.
 			if ( ! site.adminPassword ) {
@@ -435,24 +501,19 @@ async function pullSite(
 }
 
 /**
- * Checks that the remote exporter is reachable and returns the site details
- * the pull needs, cached in `preflight.json` for resumed pulls.
+ * Checks that the remote exporter is reachable. A passing check is cached in
+ * `preflight.json` so a resumed pull skips it.
  */
 async function runPreflight(
 	sessionMetadata: PullSession,
 	sourceSiteApiUrl: string,
 	verbose = false,
 	reinstallKey?: () => Promise< void >
-): Promise< {
-	siteurl?: string;
-	wp_version?: string;
-	php_version?: string;
-	table_prefix?: string;
-} > {
+): Promise< void > {
 	const preflightCachePath = path.join( sessionMetadata.stateDirectory, 'preflight.json' );
 
 	if ( fs.existsSync( preflightCachePath ) ) {
-		return JSON.parse( fs.readFileSync( preflightCachePath, 'utf-8' ) );
+		return;
 	}
 
 	logger.reportStart( LoggerAction.PREFLIGHT, __( 'Initiating the migration…' ) );
@@ -506,20 +567,17 @@ async function runPreflight(
 		);
 	}
 
-	const preflight = {
-		siteurl: preflightData.database?.wp?.siteurl || undefined,
+	const versions = {
 		wp_version: preflightData.database?.wp?.wp_version || undefined,
 		php_version: preflightData.php?.version || undefined,
-		table_prefix: preflightData.database?.wp?.table_prefix || undefined,
 	};
 
-	fs.writeFileSync( preflightCachePath, JSON.stringify( preflight, null, 2 ) + '\n' );
+	fs.writeFileSync( preflightCachePath, JSON.stringify( versions, null, 2 ) + '\n' );
 	logger.reportSuccess(
-		`Connected – WordPress ${ preflight.wp_version || 'unknown' }, PHP ${
-			preflight.php_version || 'unknown'
+		`Connected – WordPress ${ versions.wp_version || 'unknown' }, PHP ${
+			versions.php_version || 'unknown'
 		}`
 	);
-	return preflight;
 }
 
 /**

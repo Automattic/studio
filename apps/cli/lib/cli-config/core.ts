@@ -17,16 +17,6 @@ import { StatsMetric } from 'cli/lib/types/bump-stats';
 import { LoggerError } from 'cli/logger';
 
 /**
- * Durable origin of a site that was populated by `studio pull`:
- * where it syncs from. Present only on reprint-pulled sites.
- */
-const reprintOriginSchema = z.object( {
-	remoteUrl: z.string(),
-	remoteSiteUrl: z.string().optional(),
-	tablePrefix: z.string().optional(),
-} );
-
-/**
  * Health of a site's local install.
  *
  *   - `ready`        a normal, fully-written site (the default; `site
@@ -49,7 +39,6 @@ const siteSchema = siteDetailsSchema
 	.extend( {
 		url: z.string().optional(),
 		latestCliPid: z.number().optional(),
-		reprintOrigin: reprintOriginSchema.optional(),
 		// True once a full reprint pull has completed at least once
 		importComplete: z.boolean().optional(),
 		status: siteStatusSchema.default( 'ready' ).optional(),

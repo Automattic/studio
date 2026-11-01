@@ -57,6 +57,7 @@ import {
 } from '@studio/agent/protocol/models';
 import { findLastAssistant, isEmptyStop } from '@studio/agent/protocol/session-events';
 import { withDefaultTimeout } from './bash-timeout';
+import { placeCallNotes } from './call-notes';
 import { createConfirmer } from './confirmation';
 import { FileViews } from './file-views';
 import {
@@ -363,7 +364,9 @@ async function runAgentSessionTurn(
 		} );
 		const continueFrom = session.agent.transformContext;
 		session.agent.transformContext = async ( messages, signal ) =>
-			withoutContinuedReplies( continueFrom ? await continueFrom( messages, signal ) : messages );
+			placeCallNotes(
+				withoutContinuedReplies( continueFrom ? await continueFrom( messages, signal ) : messages )
+			);
 
 		if ( controller.signal.aborted ) {
 			await session.abort();

@@ -1,27 +1,39 @@
 import fs from 'fs';
 import path from 'path';
 
+/** Studio's notes on earlier calls, by their tool call ID. */
+export type CallNotes = Record< string, string >;
+
 // Work tools leave running after they return (see ToolResult.pending), kept
 // per chat session so that what it reports reaches the agent with the next
 // tool result, in this turn or a later one.
 export class PendingWork {
 	// Each running work, with the files it writes and the folder they are paths in, when relative.
 	private readonly running = new Map< Promise< void >, { files: string[]; folder?: string } >();
-	private readonly reports: string[] = [];
+	// Each report, with the call it is on when it is a check of one.
+	private readonly reports: Array< { text: string; onCall?: string } > = [];
 
 	// `outer`: the work of the session a subagent runs for, whose files its calls wait for too.
 	constructor( private readonly outer?: PendingWork ) {}
 
-	add( pending: Promise< string | undefined >, files: string[] = [], folder?: string ): void {
+	add(
+		pending: Promise< string | undefined >,
+		files: string[] = [],
+		folder?: string,
+		onCall?: string
+	): void {
 		const settled: Promise< void > = pending
 			.then(
 				( report ) => {
 					if ( report ) {
-						this.reports.push( report );
+						this.reports.push( { text: report, onCall } );
 					}
 				},
 				( error ) => {
-					this.reports.push( error instanceof Error ? error.message : String( error ) );
+					this.reports.push( {
+						text: error instanceof Error ? error.message : String( error ),
+						onCall,
+					} );
 				}
 			)
 			.finally( () => this.running.delete( settled ) );
@@ -68,11 +80,31 @@ export class PendingWork {
 
 	/** A note to report with the others. */
 	tell( note: string ): void {
-		this.reports.push( note );
+		this.reports.push( { text: note } );
 	}
 
 	takeReports(): string | undefined {
-		return this.reports.splice( 0 ).join( '\n' ) || undefined;
+		return (
+			this.reports
+				.splice( 0 )
+				.map( ( { text } ) => text )
+				.join( '\n' ) || undefined
+		);
+	}
+
+	/** The reports on calls other than `except`, by call, each once. */
+	takeCallNotes( except: string ): CallNotes {
+		const notes: CallNotes = {};
+		for ( let i = 0; i < this.reports.length;  ) {
+			const { text, onCall } = this.reports[ i ];
+			if ( onCall && onCall !== except ) {
+				notes[ onCall ] = [ notes[ onCall ], text ].filter( Boolean ).join( '\n' );
+				this.reports.splice( i, 1 );
+			} else {
+				i++;
+			}
+		}
+		return notes;
 	}
 }
 

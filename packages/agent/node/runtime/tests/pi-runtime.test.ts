@@ -1346,12 +1346,31 @@ describe( 'pi runtime', () => {
 		const result = await getCreatedTool( 'Bash' ).execute( 'b', { command: 'true' } );
 		expect( mocks.steps ).toEqual( [ 'snapshot', 'Bash', 'settle' ] );
 		expect( result.content.map( ( part ) => part.text ) ).toEqual( [ '' ] );
-		// Its notes reach the agent with the next result.
-		const next = await getCreatedTool( 'Read' ).execute( 'r', { path: 'a/style.css' } );
-		expect( next.content.map( ( part ) => part.text ) ).toEqual( [
-			'',
-			'<studio-notes>\npage 9 changed\npage 9 problem\n</studio-notes>',
+		// Its notes come with the next result, and the context has them on its own:
+		// eval9 picky 1 heard a palette's old colors right after the call that rewrote it.
+		const next = ( await getCreatedTool( 'Read' ).execute( 'r', {
+			path: 'a/style.css',
+		} ) ) as { content: Array< { text: string } >; details?: unknown };
+		expect( next.content.map( ( part ) => part.text ) ).toEqual( [ '' ] );
+		const toolResult = ( toolCallId: string, details?: unknown ) =>
+			( {
+				role: 'toolResult',
+				toolCallId,
+				content: [ { type: 'text', text: '' } ],
+				details,
+			} ) as unknown as AgentMessage;
+		const context = mocks.createdSessions[ 0 ].agent.transformContext!;
+		const texts = async ( messages: AgentMessage[] ) =>
+			( await context( messages ) ).map( ( message ) =>
+				( message as { content: Array< { text: string } > } ).content.map( ( part ) => part.text )
+			);
+		const notes = '<studio-notes>\npage 9 changed\npage 9 problem\n</studio-notes>';
+		expect( await texts( [ toolResult( 'b' ), toolResult( 'r', next.details ) ] ) ).toEqual( [
+			[ '', notes ],
+			[ '' ],
 		] );
+		// Without its call's result, as a compacted context has, they stay on the next.
+		expect( await texts( [ toolResult( 'r', next.details ) ] ) ).toEqual( [ [ '', notes ] ] );
 		// A failed call reports what it changed too.
 		mocks.failNext = true;
 		await expect( getCreatedTool( 'Bash' ).execute( 'b', { command: 'false' } ) ).rejects.toThrow(

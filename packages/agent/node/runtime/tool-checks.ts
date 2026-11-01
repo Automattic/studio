@@ -40,8 +40,9 @@ const READ_ONLY_TOOLS = new Set( [ 'Read', 'Grep', 'Glob', 'Ls' ] );
 /**
  * The checks of what a call changed, run while the model reads its result and
  * decides on the next call: in the eval the model took 3s (median) after a
- * result, the checks 1.3s. Their notes reach the agent with the next result,
- * or at the end of the turn. Each call waits for them before it runs, so
+ * result, the checks 1.3s. Their notes go on the result of the call they
+ * check, which the agent has them on from its next result (placeCallNotes),
+ * or come at the end of the turn. Each call waits for them before it runs, so
  * every check sees the site as the call left it, a fix a check saves never
  * meets the next call's writes, and the next call's snapshot follows them.
  */
@@ -72,9 +73,9 @@ export class AfterChecks {
 	// Each call's checks start once the checks before them are done: a check
 	// that saves a fix reads and rewrites a file, as theme.json, that another
 	// call's checks rewrite too, when the model makes calls in parallel.
-	add( checks: () => Promise< string | undefined > ): void {
+	add( toolCallId: string, checks: () => Promise< string | undefined > ): void {
 		const run = this.running.then( checks );
-		this.pendingWork.add( run );
+		this.pendingWork.add( run, [], undefined, toolCallId );
 		this.running = run.then(
 			() => undefined,
 			() => undefined
@@ -280,7 +281,7 @@ export function toToolDefinition(
 				.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
 				.join( '\n' );
 			const afterTime: typeof timeCheck = ( stage, check ) => afterChecks.timed( stage, check );
-			afterChecks.add( async () => {
+			afterChecks.add( toolCallId, async () => {
 				const changed = await settled( afterTime );
 				if ( checksChanges ) {
 					await afterTime( 'render', () =>
@@ -319,6 +320,8 @@ export function toToolDefinition(
 			if ( ( tool as { reportsChecks?: boolean } ).reportsChecks ) {
 				await timeCheck( 'ownChecks', () => afterChecks.settle() );
 			}
+			// The checks of earlier calls, which go on those calls' results (see placeCallNotes).
+			const callNotes = pendingWork.takeCallNotes( toolCallId );
 			const reports = studioMessage( 'notes', [
 				...validationReport,
 				pendingWork.takeReports(),
@@ -328,6 +331,7 @@ export function toToolDefinition(
 				...result,
 				details: {
 					...( result.details as object ),
+					...( Object.keys( callNotes ).length && { callNotes } ),
 					checksMs: Date.now() - checksStarted - ranMs,
 					checkStagesMs: { ...checkStagesMs, ...afterChecks.takeStagesMs() },
 					checkSourcesMs: {

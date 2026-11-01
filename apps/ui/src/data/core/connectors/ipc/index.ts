@@ -880,6 +880,12 @@ export function createIpcConnector(): Connector {
 			);
 		},
 
+		onOpenSite( listener ) {
+			return ipcListener.subscribe( 'open-site', ( _event: unknown, payload: { siteId: string } ) =>
+				listener( payload )
+			);
+		},
+
 		onOpenSettings( listener ) {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;

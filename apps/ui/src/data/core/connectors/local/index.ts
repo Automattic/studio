@@ -946,6 +946,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		onAddSiteWithBlueprint() {
 			return () => {};
 		},
+		onOpenSite() {
+			// Spotlight opens the installed desktop app.
+			return () => {};
+		},
 		onOpenSettings( listener ) {
 			return onMenuShortcut( () => listener( {} ), ',' );
 		},

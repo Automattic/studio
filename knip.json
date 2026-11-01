@@ -11,6 +11,7 @@
 				"src/preload.ts",
 				"src/migrations/index.ts",
 				"forge.config.ts",
+				"native/build.ts",
 				"e2e/global-setup.ts",
 				"e2e/**/*.test.ts"
 			],

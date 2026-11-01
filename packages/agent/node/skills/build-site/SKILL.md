@@ -79,5 +79,5 @@ When the active theme was scaffolded by Studio Code, pass its directory as `them
 
 End your closing message with a short **Next steps** list. Put first whatever the site still needs from the user, such as content to confirm or pages left to build, then offer what they can ask for now:
 
-- A performance audit (`need-for-speed`): Core Web Vitals, page weight, and what to fix first.
-- An SEO audit (`rank-me-up`): titles, meta tags, headings, structured data, and what to fix first.
+- A performance audit (`/need-for-speed`): Core Web Vitals, page weight, and what to fix first.
+- An SEO audit (`/rank-me-up`): titles, meta tags, headings, structured data, and what to fix first.

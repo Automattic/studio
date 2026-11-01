@@ -25,7 +25,12 @@ import { ExportOptions } from 'cli/lib/import-export/export/types';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { exitOnCancel, reportSyncActivity } from 'cli/lib/sync-activity';
-import { fetchSyncableSites, initiateImport, pollImportStatus } from 'cli/lib/sync-api';
+import {
+	fetchSyncableSites,
+	initiateImport,
+	pollImportStatus,
+	prepareImport,
+} from 'cli/lib/sync-api';
 import { selectSyncItemsForPush } from 'cli/lib/sync-selector';
 import { findSyncSiteByIdentifier, pickSyncSite } from 'cli/lib/sync-site-picker';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
@@ -157,6 +162,9 @@ async function runPush(
 		specificSelectionPaths = selection.specificSelectionPaths;
 	}
 
+	// The live site backs itself up while this site exports and uploads.
+	const backupPrepared = prepareImport( token.accessToken, remoteSite.id );
+
 	const tempDir = await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio-sync' ) );
 
 	try {
@@ -279,6 +287,7 @@ async function runPush(
 		reportPhase( 'creatingRemoteBackup' );
 		// Initiate import: 40%
 		logger.reportProgress( formatProgressLabel( __( 'Initiating import…' ), 40 ) );
+		await backupPrepared;
 		await initiateImport( token.accessToken, remoteSite.id, attachmentId, {
 			optionsToSync,
 			specificSelectionPaths,

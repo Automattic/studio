@@ -44,6 +44,12 @@ const blockThemeFiles = ( name: string, slug: string ): Record< string, string >
 				// still reach the viewport's edges (get_root_layout_rules()).
 				useRootPaddingAwareAlignments: true,
 			},
+			// Twenty Twenty-Five's: content keeps clear of the viewport's sides.
+			styles: {
+				spacing: {
+					padding: { left: 'var:preset|spacing|50', right: 'var:preset|spacing|50' },
+				},
+			},
 			templateParts: [
 				{ name: 'header', title: 'Header', area: 'header' },
 				{ name: 'footer', title: 'Footer', area: 'footer' },

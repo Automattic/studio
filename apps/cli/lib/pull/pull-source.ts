@@ -1,4 +1,3 @@
-import type { StoredAuthToken } from '@studio/common/lib/shared-config';
 import { __ } from '@wordpress/i18n';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
 import {
@@ -8,6 +7,7 @@ import {
 } from 'cli/lib/sync-site-picker';
 import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { LoggerError } from 'cli/logger';
+import type { StoredAuthToken } from '@studio/common/lib/shared-config';
 import type { SyncSite } from '@studio/common/types/sync';
 
 /** The remote site to pull from, and what the pull needs to reach it. */

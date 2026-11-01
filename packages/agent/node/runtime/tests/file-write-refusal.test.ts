@@ -126,7 +126,7 @@ describe( 'the file write refusal', () => {
 			// A child theme first, whatever the change; only one it alone holds names no other place.
 			expect( await refusal( updatable ) ).toMatch(
 				new RegExp(
-					`Make the change in a child theme of ${ updatable }, which create_theme makes and activates; .* over ${ updatable }'s\\.$`
+					`Make the change in a child theme of ${ updatable }, which scaffold_theme makes and activates; .* over ${ updatable }'s\\.$`
 				)
 			);
 			expect( await refusal( updatable, 'style.css' ) ).toContain(

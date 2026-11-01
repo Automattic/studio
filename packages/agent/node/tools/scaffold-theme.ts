@@ -121,15 +121,15 @@ async function childThemeFiles(
 	return { files, parentName };
 }
 
-export const createThemeTool = defineTool(
-	'create_theme',
+export const scaffoldThemeTool = defineTool(
+	'scaffold_theme',
 	'Makes a theme on a local site and activates it. ' +
 		'Without a parent, a new block theme with its structure and none of its look: theme.json declaring the header and footer parts, templates/index.html, page.html and single.html around core/post-content, and parts/header.html and footer.html. ' +
 		"With a parent, a child theme of that installed theme, so the site's own changes to its look, templates and code live where its updates leave them: style.css naming the parent as its Template, and, when the parent loads its stylesheet by the active theme's URI, a functions.php that loads the parent's.",
 	{
 		nameOrPath: Type.String( { description: 'The site name or file system path to the site' } ),
 		name: Type.String( { description: 'The theme\'s name, e.g. "Fern & Field".' } ),
-		parent: Type.Optional(
+		parentTheme: Type.Optional(
 			Type.String( {
 				description: "For a child theme, the parent theme's folder name, e.g. 'ollie'.",
 			} )
@@ -156,7 +156,7 @@ export const createThemeTool = defineTool(
 				'The theme needs a name, and a slug of lowercase letters, digits and dashes.'
 			);
 		}
-		const parent = args.parent?.trim();
+		const parent = args.parentTheme?.trim();
 		const child = parent
 			? await childThemeFiles( site.path, themes, parent, name, slug, site.name )
 			: undefined;

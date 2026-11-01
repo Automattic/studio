@@ -309,7 +309,7 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 		preview_update: __( 'Update preview' ),
 		preview_delete: __( 'Delete preview' ),
 		site_publish_targets: __( 'List publish targets' ),
-		create_theme: __( 'Create theme' ),
+		scaffold_theme: __( 'Scaffold theme' ),
 		take_screenshot: __( 'Take screenshot' ),
 		generate_images: __( 'Generate images' ),
 		open_annotation_browser: __( 'Open annotation browser' ),
@@ -386,7 +386,7 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 	}
 	switch ( name ) {
 		case 'site_create':
-		case 'create_theme':
+		case 'scaffold_theme':
 			return typeof input.name === 'string' ? input.name : '';
 		case 'site_info':
 		case 'site_start':

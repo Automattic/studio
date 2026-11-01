@@ -11,7 +11,7 @@ import os from 'os';
 import path from 'path';
 import { createOpenProblems } from '@studio/agent/node/open-problems';
 import { SiteChanges } from '@studio/agent/node/site-changes';
-import { createThemeTool } from '@studio/agent/node/tools/create-theme';
+import { scaffoldThemeTool } from '@studio/agent/node/tools/scaffold-theme';
 import { bindTool } from '@studio/agent/node/tools/define-tool';
 import { runWpCli } from '@studio/agent/node/tools/utils';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -32,17 +32,17 @@ foreach ( $styles->to_do as $handle ) {
 }
 echo wp_json_encode( array( get_stylesheet(), get_template(), $queued ) );`;
 
-describe.runIf( WORDPRESS )( 'create_theme', () => {
+describe.runIf( WORDPRESS )( 'scaffold_theme', () => {
 	let site: HostSite;
 	let host: StudioAgentHost;
 	let themes: string;
-	const make = ( args: { parent?: string; name: string; slug?: string } ) =>
-		bindTool( createThemeTool, host ).rawHandler( { nameOrPath: site.name, ...args } );
+	const make = ( args: { parentTheme?: string; name: string; slug?: string } ) =>
+		bindTool( scaffoldThemeTool, host ).rawHandler( { nameOrPath: site.name, ...args } );
 	const active = async () =>
 		JSON.parse( await runWpCli( host, site, [ 'eval', ACTIVE ] ) ) as [ string, string, boolean ];
 
 	beforeAll( () => {
-		const root = mkdtempSync( path.join( os.tmpdir(), 'create-theme-' ) );
+		const root = mkdtempSync( path.join( os.tmpdir(), 'scaffold-theme-' ) );
 		cpSync( WORDPRESS!, root, { recursive: true } );
 		site = liveSite( root, 'Corner Bakehouse' );
 		host = liveHost( site );
@@ -107,7 +107,7 @@ echo wp_json_encode( array( wp_is_block_theme(), get_the_block_template_html(), 
 	] )(
 		'makes and activates a child of $parent that WordPress serves with its parent’s styles',
 		async ( { parent, name, slug, functions } ) => {
-			await make( { parent, name } );
+			await make( { parentTheme: parent, name } );
 			expect( existsSync( path.join( themes, slug, 'functions.php' ) ) ).toBe( functions );
 			expect( await active() ).toEqual( [ slug, parent, true ] );
 		}
@@ -126,6 +126,6 @@ echo wp_json_encode( array( wp_is_block_theme(), get_the_block_template_html(), 
 			error: 'wp-content/themes/bakehouse already exists',
 		},
 	] )( 'refuses $name of $parent', async ( { parent, name, error } ) => {
-		await expect( make( { parent, name } ) ).rejects.toThrow( error );
+		await expect( make( { parentTheme: parent, name } ) ).rejects.toThrow( error );
 	} );
 } );

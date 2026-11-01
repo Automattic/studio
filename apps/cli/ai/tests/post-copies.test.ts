@@ -108,7 +108,7 @@ describe( 'post copies', () => {
 	} );
 
 	it( "copies the Global Styles of a child theme whose parent's templates make it a block theme", async () => {
-		// As create_theme makes a child: a style.css naming its parent, whose templates WordPress reads.
+		// As scaffold_theme makes a child: a style.css naming its parent, whose templates WordPress reads.
 		const themes = path.join( fixture.root, 'wp-content/themes' );
 		writeFileSync(
 			path.join( themes, 'bakery/style.css' ),

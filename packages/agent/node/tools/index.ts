@@ -2,7 +2,7 @@ import { emitChatArtifactWidgets } from '@studio/agent/node/chat-artifacts';
 import { convertToBlocksTool } from './convert-to-blocks';
 import { createPreviewTool } from './create-preview';
 import { createSiteTool } from './create-site';
-import { createThemeTool } from './create-theme';
+import { scaffoldThemeTool } from './scaffold-theme';
 import { bindTool } from './define-tool';
 import { deletePreviewTool } from './delete-preview';
 import { deleteSiteTool } from './delete-site';
@@ -45,7 +45,7 @@ export const studioToolDefinitions: StudioToolDefinition[] = [
 	updatePreviewTool,
 	deletePreviewTool,
 	runWpCliTool,
-	createThemeTool,
+	scaffoldThemeTool,
 	convertToBlocksTool,
 	takeScreenshotTool,
 	generateImagesTool,

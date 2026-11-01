@@ -83,7 +83,7 @@ export function updatableThemeChangeHome( themeDir: string, slug: string, file: 
 
 /** The place for any change to an updatable theme: a child theme of the site's own. */
 export const ownThemeHome = ( slug: string ) =>
-	`a child theme of ${ slug }, which create_theme makes and activates; WordPress reads each file the child lacks from ${ slug } and merges the child's theme.json over ${ slug }'s`;
+	`a child theme of ${ slug }, which scaffold_theme makes and activates; WordPress reads each file the child lacks from ${ slug } and merges the child's theme.json over ${ slug }'s`;
 
 /** Where else than a child theme WordPress keeps a change, as a sentence, or nothing. */
 export const otherHome = ( slug: string, home: string, them: string ) =>

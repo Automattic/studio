@@ -11,7 +11,13 @@
 	box-shadow: var( --shadow-xs );
 }
 
-.shell:has( .input:focus-visible ):not( :has( [aria-invalid='true'] ) ) {
+.shell:has( .input:focus ):not( :has( [aria-invalid='true'] ) ) {
+	border-color: var( --input-focus-border );
+}
+
+.shell:has( .input:focus-visible:not( [data-pointer-focus] ) ):not(
+		:has( [aria-invalid='true'] )
+	) {
 	border-color: var( --ring );
 	box-shadow:
 		inset 0 0 0 1px var( --ring ),
@@ -24,7 +30,7 @@
 	background-color: color-mix( in srgb, var( --chrome ) 60%, transparent );
 }
 
-.shellField:has( .input:focus-visible ) {
+.shellField:has( .input:focus-visible:not( [data-pointer-focus] ) ) {
 	border-color: var( --input );
 	box-shadow: none;
 	outline: var( --focus-width ) solid var( --ring );

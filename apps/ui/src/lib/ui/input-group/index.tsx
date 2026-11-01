@@ -26,9 +26,13 @@ function focusControl( event: MouseEvent< HTMLDivElement > ) {
 	if ( ! event.currentTarget.contains( target ) || target.closest( 'button' ) ) {
 		return;
 	}
-	event.currentTarget.parentElement
-		?.querySelector< HTMLInputElement | HTMLTextAreaElement >( 'input, textarea' )
-		?.focus();
+	const control = event.currentTarget.parentElement?.querySelector<
+		HTMLInputElement | HTMLTextAreaElement
+	>( 'input, textarea' );
+	if ( control ) {
+		control.dataset.pointerFocus = '';
+		control.focus();
+	}
 }
 
 export function InputGroupAddon( {

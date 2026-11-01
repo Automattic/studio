@@ -59,6 +59,25 @@ export function applyColorTint(
 	root.style.setProperty( '--tint-intensity', String( tintIntensity ) );
 	root.style.setProperty( '--contrast', String( contrast ) );
 	applyAccentContrast( root );
+	root.style.setProperty(
+		'--accent-solid-fill',
+		root.closest( '[data-color-scheme]' )?.getAttribute( 'data-color-scheme' ) === 'dark'
+			? getLightAccentColor( tint )
+			: root.style.getPropertyValue( '--accent-fill' ) || accentColor
+	);
+}
+
+function getLightAccentColor( tint: Partial< ColorTint > ): string {
+	const preview = document.createElement( 'span' );
+	preview.dataset.colorScheme = 'light';
+	preview.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none';
+	document.documentElement.append( preview );
+	try {
+		applyColorTint( tint, preview );
+		return preview.style.getPropertyValue( '--accent-solid-fill' );
+	} finally {
+		preview.remove();
+	}
 }
 
 export function applyTheme( colorScheme: 'light' | 'dark', tint: Partial< ColorTint > ): void {

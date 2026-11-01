@@ -1,5 +1,8 @@
 @layer ui {
 	.card {
+		--accent: var( --accent-solid );
+		--accent-foreground: var( --accent-solid-foreground );
+		--floating-surface-shadow: var( --accent-inset-shadow ), var( --shadow-sm );
 		--surface: var( --accent );
 		--ring: var( --accent-foreground );
 		--muted: var( --accent-surface-muted );
@@ -12,9 +15,6 @@
 		padding: var( --space-4 );
 		background-color: var( --accent );
 		color: var( --accent-foreground );
-		box-shadow:
-			inset 0 0 0 0.5px color-mix( in oklab, var( --accent-foreground ) 18%, transparent ),
-			var( --shadow-sm );
 	}
 
 	.card .copy > p {
@@ -62,7 +62,7 @@
 		height: 14px;
 		border-radius: calc( var( --radius-sm ) / 4 );
 		background: var( --accent );
-		border: 0.5px solid color-mix( in oklab, var( --accent-foreground ) 18%, transparent );
+		border: 0.5px solid var( --accent-inset-color );
 		transform: rotate( 45deg );
 	}
 

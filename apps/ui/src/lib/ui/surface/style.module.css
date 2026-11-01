@@ -19,9 +19,11 @@
 		background-color: var( --surface );
 		color: var( --popover-foreground );
 		outline: none;
-		box-shadow:
+		box-shadow: var(
+			--floating-surface-shadow,
 			0 0 0 1px var( --popover-border ),
-			var( --shadow-sm );
+			var( --shadow-sm )
+		);
 	}
 
 	.popup {

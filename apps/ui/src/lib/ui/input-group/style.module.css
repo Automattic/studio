@@ -11,7 +11,11 @@
 		outline: none;
 	}
 
-	.group:has( [data-slot='input-group-control']:focus-visible ):not(
+	.group:has( [data-slot='input-group-control']:focus ):not( :has( [aria-invalid='true'] ) ) {
+		border-color: var( --input-focus-border );
+	}
+
+	.group:has( [data-slot='input-group-control']:focus-visible:not( [data-pointer-focus] ) ):not(
 			:has( [aria-invalid='true'] )
 		) {
 		border-color: var( --ring );
@@ -44,9 +48,9 @@
 		color: var( --foreground );
 	}
 
-	.group[data-variant='composer']:has( [data-slot='input-group-control']:focus-visible ):not(
-			:has( [aria-invalid='true'] )
-		) {
+	.group[data-variant='composer']:has(
+			[data-slot='input-group-control']:focus-visible:not( [data-pointer-focus] )
+		):not( :has( [aria-invalid='true'] ) ) {
 		box-shadow:
 			inset 0 0 0 1px var( --ring ),
 			var( --shadow-sm );

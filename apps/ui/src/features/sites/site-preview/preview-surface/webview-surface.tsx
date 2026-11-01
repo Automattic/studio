@@ -428,6 +428,8 @@ export function WebviewSurface( {
 			fontFamily: '"Studio Annotation", system-ui',
 			accent: theme.getPropertyValue( '--accent' ).trim(),
 			onAccent: theme.getPropertyValue( '--accent-foreground' ).trim(),
+			markerAccent: theme.getPropertyValue( '--accent-solid' ).trim(),
+			onMarkerAccent: theme.getPropertyValue( '--accent-solid-foreground' ).trim(),
 			motionDuration: theme.getPropertyValue( '--motion-duration-surface' ).trim(),
 			motionEasing: theme.getPropertyValue( '--motion-ease-enter' ).trim(),
 		};

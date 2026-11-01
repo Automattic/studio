@@ -357,7 +357,9 @@ describe( 'pi runtime', () => {
 			}
 
 			const [ url, init ] = request!;
-			expect( String( url ) ).toBe( expectedUrl );
+			// pi's Anthropic client adds `?beta=true`; the endpoint is what matters.
+			const sent = new URL( String( url ) );
+			expect( sent.origin + sent.pathname ).toBe( expectedUrl );
 			expect( JSON.parse( String( init?.body ) ).model ).toBe( expectedModel );
 			expect( new Headers( init?.headers ).get( 'authorization' ) ).toBe( 'Bearer wpcom-token' );
 			expect( options.model!.id ).toBe( model );

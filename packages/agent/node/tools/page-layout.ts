@@ -317,6 +317,14 @@ export function pageTextFit( page: Page ): Promise< TextFit > {
 				? `${ tag } "${ text.length > 40 ? `${ text.slice( 0, 40 ) }…` : text }"`
 				: named;
 		};
+		// A class many blocks share names no one of them, so the block is also named by its text.
+		const quoted = ( element: Element ) => {
+			const named = label( element );
+			const text = ( ( element as HTMLElement ).innerText ?? '' ).replace( /\s+/g, ' ' ).trim();
+			return named.includes( '"' ) || ! text
+				? named
+				: `${ named } "${ text.length > 40 ? `${ text.slice( 0, 40 ) }…` : text }"`;
+		};
 		const edges: string[] = [];
 		const breaks: string[] = [];
 		const add = ( lines: string[], line: string ) => {
@@ -353,14 +361,14 @@ export function pageTextFit( page: Page ): Promise< TextFit > {
 			if ( left < 1 ) {
 				add(
 					edges,
-					`${ label( element ) }: its text starts at the viewport's left edge (x ${ Math.round(
+					`${ quoted( element ) }: its text starts at the viewport's left edge (x ${ Math.round(
 						left
 					) }).`
 				);
 			} else if ( right > viewport - 1 && right <= viewport + 1 ) {
 				add(
 					edges,
-					`${ label( element ) }: its text ends at the viewport's right edge (x ${ Math.round(
+					`${ quoted( element ) }: its text ends at the viewport's right edge (x ${ Math.round(
 						right
 					) }).`
 				);

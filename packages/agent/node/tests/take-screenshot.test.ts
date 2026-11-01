@@ -23,7 +23,7 @@ vi.mock( '@studio/agent/node/tools/screenshot-helpers', async ( importOriginal )
 			offset: 0,
 			clipped: false,
 			textFit: {
-				edges: [ "p.tagline: its text starts at the viewport's left edge (x 0)." ],
+				edges: [ "p.tagline \"Left\": its text starts at the viewport's left edge (x 0)." ],
 				breaks: [
 					'h1: the browser breaks "Everything" across lines, as the word (240px) is wider than its box (180px).',
 				],
@@ -117,7 +117,7 @@ describe( 'take_screenshot', () => {
 		expect( await text( result ) ).toContain(
 			[
 				"  Text against the viewport's edge:",
-				"    p.tagline: its text starts at the viewport's left edge (x 0).",
+				"    p.tagline \"Left\": its text starts at the viewport's left edge (x 0).",
 				'  Words the browser breaks across lines:',
 				'    h1: the browser breaks "Everything" across lines, as the word (240px) is wider than its box (180px).',
 			].join( '\n' )

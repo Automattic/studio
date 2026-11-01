@@ -1,6 +1,5 @@
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
-import { readAuthToken } from '@studio/common/lib/shared-config';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { deleteAllSnapshots } from 'cli/lib/api';
@@ -14,6 +13,7 @@ import {
 	isWpcomPreview,
 } from 'cli/lib/snapshots';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
+import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -38,12 +38,7 @@ export async function runCommand(
 	logger: Logger< LoggerAction > = new Logger< LoggerAction >()
 ): Promise< void > {
 	try {
-		const token = await readAuthToken();
-		if ( ! token ) {
-			throw new LoggerError(
-				__( 'Authentication required. Please log in with `studio auth login`.' )
-			);
-		}
+		const token = await requireAuthToken();
 
 		const snapshots = await getSnapshotsFromConfig( token.id );
 

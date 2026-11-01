@@ -3,7 +3,6 @@ import os from 'os';
 import path from 'path';
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
-import { readAuthToken } from '@studio/common/lib/shared-config';
 import { createsPreviewsOnWpcom } from '@studio/common/lib/snapshots';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { type Snapshot } from '@studio/common/types/snapshot';
@@ -20,6 +19,7 @@ import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { classifyPreviewFailure } from 'cli/lib/utils';
 import { validateSiteSize } from 'cli/lib/validation';
+import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -50,20 +50,14 @@ export async function runCommand(
 				progress,
 			} );
 		};
+		const token = await requireAuthToken();
 		reportStep( LoggerAction.VALIDATE, __( 'Validating…' ), 0 );
-		await validateSiteSize( siteFolder );
-		const token = await readAuthToken();
-		if ( ! token ) {
-			throw new LoggerError(
-				__( 'Authentication required. Please log in with `studio auth login`.' ),
-				undefined,
-				'auth_required'
-			);
-		}
+		const onWpcom = await createsPreviewsOnWpcom( token.accessToken );
+		await validateSiteSize( siteFolder, { onWpcom } );
 
 		reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
 		await withSiteOperation( siteFolder, 'export', () =>
-			archiveSiteContent( siteFolder, archivePath )
+			archiveSiteContent( siteFolder, archivePath, { onWpcom } )
 		);
 		archiveBytes = fs.statSync( archivePath, { throwIfNoEntry: false } )?.size;
 		logger.reportSuccess( __( 'Archive created' ) );
@@ -82,7 +76,7 @@ export async function runCommand(
 
 		reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
 		let preview: PreviewSite;
-		if ( await createsPreviewsOnWpcom( token.accessToken ) ) {
+		if ( onWpcom ) {
 			const attachmentId = await uploadPreviewArchive( archivePath, token.accessToken );
 			logger.reportSuccess( __( 'Archive uploaded' ) );
 

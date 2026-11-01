@@ -127,6 +127,9 @@ describe( 'Preview Update Command', () => {
 
 		await runCommand( mockFolder, wpcomHost, false );
 
+		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath, {
+			onWpcom: true,
+		} );
 		expect( uploadPreviewArchive ).toHaveBeenCalledWith(
 			mockArchivePath,
 			mockAuthToken.accessToken,
@@ -151,7 +154,9 @@ describe( 'Preview Update Command', () => {
 			'export',
 			expect.any( Function )
 		);
-		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath );
+		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath, {
+			onWpcom: false,
+		} );
 		expect( uploadArchive ).toHaveBeenCalledWith(
 			mockArchivePath,
 			mockAuthToken.accessToken,
@@ -253,6 +258,8 @@ describe( 'Preview Update Command', () => {
 			phpVersion: '8.0',
 		} );
 		await runCommand( mockFolder, mockSiteUrl, true );
-		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath );
+		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath, {
+			onWpcom: false,
+		} );
 	} );
 } );

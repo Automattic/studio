@@ -355,26 +355,24 @@ describe( 'formatAiCreditsCallout', () => {
 } );
 
 describe( 'resolveAiCreditsThresholdNotice', () => {
-	// The agentic sidebar owns the 80% step; the composer strip owns 90%.
-	const SIDEBAR = [ 'warning' ] as const;
-	// Classic has one slot above its composer, so it carries both steps.
-	const CLASSIC = [ 'warning', 'critical' ] as const;
+	// The sidebar owns the 80% and 90% steps; the composer notice owns exhaustion.
+	const SIDEBAR = [ 'warning', 'critical' ] as const;
 
 	it( 'shows an undismissed notice at a step the surface owns', () => {
 		expect( resolveAiCreditsThresholdNotice( 'warning', null, SIDEBAR ).visible ).toBe( true );
-		expect( resolveAiCreditsThresholdNotice( 'critical', null, CLASSIC ).visible ).toBe( true );
+		expect( resolveAiCreditsThresholdNotice( 'critical', null, SIDEBAR ).visible ).toBe( true );
 	} );
 
 	it( 'leaves a step it does not own to the surface that does', () => {
-		// The composer strip announces 90% in the agentic UI, so the sidebar
-		// stays quiet rather than repeating it.
-		expect( resolveAiCreditsThresholdNotice( 'critical', null, SIDEBAR ).visible ).toBe( false );
+		expect( resolveAiCreditsThresholdNotice( 'critical', null, [ 'warning' ] ).visible ).toBe(
+			false
+		);
 	} );
 
 	it( 'shows nothing below the first step, or once exhausted', () => {
-		expect( resolveAiCreditsThresholdNotice( 'ok', null, CLASSIC ).visible ).toBe( false );
-		expect( resolveAiCreditsThresholdNotice( 'exhausted', null, CLASSIC ).visible ).toBe( false );
-		expect( resolveAiCreditsThresholdNotice( null, null, CLASSIC ).visible ).toBe( false );
+		expect( resolveAiCreditsThresholdNotice( 'ok', null, SIDEBAR ).visible ).toBe( false );
+		expect( resolveAiCreditsThresholdNotice( 'exhausted', null, SIDEBAR ).visible ).toBe( false );
+		expect( resolveAiCreditsThresholdNotice( null, null, SIDEBAR ).visible ).toBe( false );
 	} );
 
 	it( 'stays hidden at the step it was dismissed at', () => {
@@ -384,7 +382,7 @@ describe( 'resolveAiCreditsThresholdNotice', () => {
 	} );
 
 	it( 're-arms when usage escalates past the dismissed step', () => {
-		const state = resolveAiCreditsThresholdNotice( 'critical', 'warning', CLASSIC );
+		const state = resolveAiCreditsThresholdNotice( 'critical', 'warning', SIDEBAR );
 		expect( state.visible ).toBe( true );
 		expect( state.dismissedIntent ).toBeNull();
 	} );
@@ -396,14 +394,14 @@ describe( 'resolveAiCreditsThresholdNotice', () => {
 			resolveAiCreditsThresholdNotice( 'ok', 'warning', SIDEBAR ).dismissedIntent
 		).toBeNull();
 		expect(
-			resolveAiCreditsThresholdNotice( 'exhausted', 'critical', CLASSIC ).dismissedIntent
+			resolveAiCreditsThresholdNotice( 'exhausted', 'critical', SIDEBAR ).dismissedIntent
 		).toBeNull();
 	} );
 
 	it( 'retires a dismissal even at a step the surface does not own', () => {
-		// The sidebar's 80% dismissal must not outlive a trip through 90%.
+		// The sidebar's 80% dismissal must not outlive a trip through exhaustion.
 		expect(
-			resolveAiCreditsThresholdNotice( 'critical', 'warning', SIDEBAR ).dismissedIntent
+			resolveAiCreditsThresholdNotice( 'exhausted', 'warning', SIDEBAR ).dismissedIntent
 		).toBeNull();
 	} );
 } );

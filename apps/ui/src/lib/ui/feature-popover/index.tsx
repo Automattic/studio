@@ -35,6 +35,7 @@ export function Popup( {
 			className={ clsx( styles.card, className ) }
 			{ ...props }
 			aria-describedby={ descriptionId }
+			data-color-scheme="light"
 		>
 			<Popover.Arrow className={ styles.arrow } />
 			{ onDismiss ? (

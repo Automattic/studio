@@ -45,6 +45,7 @@ export function Popup( {
 	initialFocus,
 	finalFocus,
 	variant = 'floating',
+	'data-color-scheme': colorScheme,
 	'aria-label': ariaLabel,
 	'aria-describedby': ariaDescribedBy,
 }: {
@@ -62,6 +63,7 @@ export function Popup( {
 	initialFocus?: PopupProps[ 'initialFocus' ];
 	finalFocus?: PopupProps[ 'finalFocus' ];
 	variant?: 'floating' | 'commands';
+	'data-color-scheme'?: 'light' | 'dark';
 	'aria-label'?: string;
 	'aria-describedby'?: string;
 } ) {
@@ -72,6 +74,8 @@ export function Popup( {
 			{ /* Fixed, so a popup sliding in from off-screen can't scroll the page sideways. */ }
 			<BasePopover.Positioner
 				positionMethod="fixed"
+				data-color-scheme={ colorScheme }
+				style={ colorScheme ? ( { '--accent-fill': 'initial' } as CSSProperties ) : undefined }
 				side={ side }
 				align={ align }
 				sideOffset={ sideOffset }

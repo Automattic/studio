@@ -2,6 +2,22 @@
 	.card {
 		--accent: var( --accent-solid );
 		--accent-foreground: var( --accent-solid-foreground );
+		--accent-surface-primary-hover: color-mix(
+			in srgb,
+			var( --accent-foreground ) 82%,
+			var( --accent )
+		);
+		--accent-surface-muted: color-mix( in srgb, var( --accent-foreground ) 12%, var( --accent ) );
+		--accent-surface-muted-hover: color-mix(
+			in srgb,
+			var( --accent-foreground ) 18%,
+			var( --accent )
+		);
+		--accent-surface-muted-foreground: color-mix(
+			in srgb,
+			var( --accent-foreground ) 80%,
+			var( --accent )
+		);
 		--floating-surface-shadow: var( --accent-inset-shadow ), var( --shadow-sm );
 		--surface: var( --accent );
 		--ring: var( --accent-foreground );
@@ -30,7 +46,7 @@
 
 	.card .actions button {
 		--button-background: var( --muted );
-		--button-hover-background: var( --hover );
+		--button-hover-background: var( --accent-surface-muted-hover );
 		--button-hover-color: var( --accent-foreground );
 		color: var( --accent-foreground );
 	}

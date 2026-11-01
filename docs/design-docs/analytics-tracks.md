@@ -40,7 +40,7 @@ The pieces mirror the MC Stats layering:
 
 | Layer | File | Responsibility                                                                                                                                              |
 |---|---|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Shared core | `packages/common/lib/record-tracks-event.ts` | Pure, environment-agnostic URL builder + fire-and-forget pixel sender. No config/opt-out logic. No-ops in E2E/dev.                                          |
+| Shared core | `packages/common/lib/record-tracks-event.ts` | Pure, environment-agnostic URL builder + fire-and-forget pixel sender. No config/opt-out logic. No-ops in E2E/dev/tests.                                    |
 | Desktop wrapper | `apps/studio/src/lib/tracks.ts` | Single entry point for the desktop (Main process). Enforces the opt-out, attaches common props including `channel` and `ui_version` (always `v2`).                                                             |
 | CLI wrapper | `apps/cli/lib/tracks.ts` | Single entry point for the CLI **and** the `studio ui` server, which is bundled into it. Enforces the opt-out **and** the build-time `__ENABLE_CLI_TELEMETRY__` switch. Resolves origin from `STUDIO_TRACKS_ORIGIN`. |
 | Identity + opt-out | `packages/common/lib/shared-config.ts` | `getOrCreateAnalyticsInstallId()`, `isAnalyticsOptedOut()`, `isAutomatticianFromToken()`. Persisted in `shared.json`.                                       |
@@ -93,7 +93,7 @@ where the sender actually runs — see Testing below for what fires in which bui
                                  └──────────────┬─────────────────────────┘
                                                 ▼
                           packages/common/lib/record-tracks-event.ts
-                                  (build pixel URL, no-op in E2E/dev)
+                                (build pixel URL, no-op in E2E/dev/tests)
                                                 ▼
                               GET https://pixel.wp.com/t.gif?...
 ```
@@ -231,7 +231,7 @@ none fits, and flag it for registration.
 | `is_a11n` | Automattician flag (shared across products) | `true` / `false` (derived from the auth token email domain) |
 | `platform` | OS | `darwin`, `win32`, `linux` |
 | `arch` | CPU architecture | `arm64`, `x64`, … |
-| `app_version` | Product version | e.g. `1.15.0` |
+| `app_version` | Product version | e.g. `1.15.0`. Exclude `1.0.0` from queries: it predates Tracks, so those events came from unit tests run on developer machines before the shared core stopped sending in tests. |
 | `ui_version` | **Custom (Studio-only):** which renderer chrome is running | `v1` (Classic, until October 2026), `v2` (agentic). Orthogonal to `channel`: it does **not** encode Electron-vs-browser, so the browser UI is `studio-web` + `v2` — it serves the same `apps/ui` bundle the desktop reports as `v2`. Absent for `studio-cli` and `studio-mcp`. No standard slot — must be registered as a Studio-custom property. |
 | `mcp_client` | **Custom (Studio-only):** the agent app, on `channel=studio-mcp` | The MCP client name from the handshake: `codex-mcp-client` (Codex, in the ChatGPT app or terminal), `claude-code`, … |
 | `plugin`, `plugin_version` | **Custom (Studio-only):** the Studio plugin that started `studio mcp` | `wp-studio@studio` and the plugin's version; absent when `studio mcp` was configured by hand, which is how plugin and hand-configured use are told apart |

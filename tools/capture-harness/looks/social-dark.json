@@ -8,6 +8,7 @@
 	"annotations": { "accent": "#7b90ff", "halo": "#1e1e1e" },
 	"frame": {
 		"background": "dots",
+		"dotScale": 1.6,
 		"padding": 0.05,
 		"radius": 0.0083,
 		"shadow": "auto",

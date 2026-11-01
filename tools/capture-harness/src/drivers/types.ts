@@ -7,6 +7,13 @@ import type { Page } from 'playwright';
 export const DRIVERS = [ 'electron', 'browser' ] as const;
 export type DriverName = ( typeof DRIVERS )[ number ];
 
+/**
+ * The front end when neither `--driver` nor the script names one: Studio
+ * Desktop where people run it (macOS, Windows), the browser app on Linux,
+ * where captures run in cloud machines and CI with no display or Desktop app.
+ */
+export const DEFAULT_DRIVER: DriverName = process.platform === 'linux' ? 'browser' : 'electron';
+
 // What a run of Studio Code looks like to the window: `AgentRunEvent` in
 // packages/agent/protocol/agent-events.ts.
 export interface AgentRunEvent {

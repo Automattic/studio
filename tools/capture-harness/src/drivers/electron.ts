@@ -99,6 +99,34 @@ function linuxArgs() {
 	];
 }
 
+/**
+ * On Linux and Windows, Studio shows an app-menu button and leaves room for
+ * the system's window buttons, which a virtual display doesn't draw: an
+ * empty gap. Captures show the window without either, as the browser app
+ * and the Mac app (whose traffic lights `windowControls` draws) look.
+ */
+const CHROMELESS = `(() => {
+	const overlay = navigator.windowControlsOverlay;
+	if ( overlay ) {
+		Object.defineProperty( overlay, 'visible', { configurable: true, get: () => false } );
+		overlay.dispatchEvent?.( new Event( 'geometrychange' ) );
+	}
+	const hide = () => {
+		if ( document.getElementById( 'studio-capture-chromeless' ) ) {
+			return;
+		}
+		const style = document.createElement( 'style' );
+		style.id = 'studio-capture-chromeless';
+		style.textContent = 'button[aria-label="Menu"]:has(svg.lucide-menu) { display: none !important; }';
+		document.head.appendChild( style );
+	};
+	if ( document.head ) {
+		hide();
+	} else {
+		document.addEventListener( 'DOMContentLoaded', hide );
+	}
+})()`;
+
 function electronStubs( app: ElectronApplication, window: Page ): Stubs {
 	const answer = ( name: string, value: unknown ) =>
 		app.evaluate(
@@ -193,6 +221,10 @@ export async function launchElectron( {
 			win?.center();
 		}, look.window );
 		await window.waitForLoadState( 'domcontentloaded' );
+		if ( process.platform !== 'darwin' ) {
+			await app.context().addInitScript( CHROMELESS );
+			await window.evaluate( CHROMELESS );
+		}
 		if ( authToken ) {
 			await guardElectron( app );
 		}

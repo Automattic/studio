@@ -7,6 +7,7 @@
 	"appearance": { "colorScheme": "light" },
 	"frame": {
 		"background": "dots",
+		"dotScale": 1.6,
 		"padding": [ 0.08, 0.08 ],
 		"radius": 0.0083,
 		"shadow": "auto",

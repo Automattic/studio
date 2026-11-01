@@ -184,6 +184,12 @@
 						}
 					]
 				},
+				"dotScale": {
+					"default": 1,
+					"description": "Size of the dot field's dots and gaps against the app's (1: as in Studio; above 1 spaces them out, zoomed in)",
+					"type": "number",
+					"exclusiveMinimum": 0
+				},
 				"padding": {
 					"default": 0.06,
 					"description": "Margin, as a share of the width on every side, or [x, y] as shares of the width and of the height (equal shares keep the window's proportions)",

@@ -159,7 +159,7 @@ async function frameImage(
 			height - line
 		}" rx="${ radius }" fill="none" stroke="${ hairlineColor }" stroke-width="${ line }"/>`
 	);
-	return sharp( backgroundSvg( W, H, background, pixelRatio ) )
+	return sharp( backgroundSvg( W, H, background, pixelRatio * frame.dotScale ) )
 		.composite( [
 			{ input: shadow, left: 0, top: 0 },
 			{ input: rounded, left: padX, top: padY },
@@ -220,7 +220,7 @@ export async function renderLook( png: Buffer, look: Look ): Promise< [ string, 
 			for ( const output of look.outputs ) {
 				out.push( [
 					output.suffix ? `-${ output.suffix }` : '',
-					await fitToOutput( framed, output, background, look.scale ),
+					await fitToOutput( framed, output, background, look.scale * look.frame.dotScale ),
 				] );
 			}
 		} else {

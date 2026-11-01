@@ -15,7 +15,7 @@ Run from the repo root. `SC` below means `npx studio-capture` (or `node --experi
 2. `SC doctor` says what is still missing and how to fix it.
 3. Signed-in scripts need `STUDIO_CAPTURE_AUTH_TOKEN` set to the **demo account's** token. Never copy or ask for a person's login; in CI the harness refuses one.
 
-Pick a driver: `--driver electron` (default) is Studio Desktop, with every feature; on Linux it starts a virtual display (Xvfb) automatically. `--driver browser` is `studio ui` in headless Chromium: lighter, no display needed, no desktop-only features and no macOS window buttons. Docs images use Studio Desktop.
+Pick a driver, or take the default: the browser driver on Linux (a cloud machine, CI), Studio Desktop on macOS and Windows. `--driver browser` is `studio ui` in headless Chromium: lighter, no display needed, the same screens, without desktop-only features (those shots are skipped). `--driver electron` is Studio Desktop, with every feature; on Linux it starts a virtual display (Xvfb) automatically. The official docs images come from Studio Desktop on macOS.
 
 ## The loop
 

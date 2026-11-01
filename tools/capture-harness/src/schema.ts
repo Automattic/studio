@@ -357,6 +357,13 @@ export const Look = z
 					.describe(
 						"Studio's dot field (`dots` follows the look's color scheme, `dots-light` and `dots-dark` pin one; drawn at the app's size), a color, or a diagonal gradient"
 					),
+				dotScale: z
+					.number()
+					.positive()
+					.default( 1 )
+					.describe(
+						"Size of the dot field's dots and gaps against the app's (1: as in Studio; above 1 spaces them out, zoomed in)"
+					),
 				padding: z
 					.union( [ z.number(), z.tuple( [ z.number(), z.number() ] ) ] )
 					.default( 0.06 )

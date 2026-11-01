@@ -32,8 +32,8 @@ The harness finds the rest itself:
 
 The harness drives either front end of Studio; `--driver`, or a script's `driver`, picks one.
 
-- **`electron`** (the default): Studio Desktop. Every feature, and the docs images. It needs a display: on Linux without one, the harness starts a virtual one (Xvfb) for the run, and passes Chromium's `--no-sandbox` when running as root, as in most containers.
-- **`browser`**: `studio ui`, the browser app the CLI serves, in headless Chromium. The renderer is the same `apps/ui`, so most screens look the same, without the macOS window buttons; it needs no display, Electron or app build, so it is the lighter choice in a container. Desktop-only features (Annotate, opening sites in other apps, native dialogs) aren't there. Stubs and the signed-in guard answer the browser app's `/api` requests instead of IPC.
+- **`electron`** (the default on macOS and Windows): Studio Desktop. Every feature, and the docs images. It needs a display: on Linux without one, the harness starts a virtual one (Xvfb) for the run, and passes Chromium's `--no-sandbox` when running as root, as in most containers. Off macOS, captures leave out the app-menu button and the room Studio keeps for the system's window buttons, so the window looks as it does in the browser app.
+- **`browser`** (the default on Linux, so in cloud machines and CI): `studio ui`, the browser app the CLI serves, in headless Chromium. The renderer is the same `apps/ui`, so most screens look the same, without the macOS window buttons; it needs no display, Electron or app build, so it is the lighter choice in a container. Desktop-only features (Annotate, opening sites in other apps, native dialogs) aren't there. Stubs and the signed-in guard answer the browser app's `/api` requests instead of IPC.
 
 ### In the cloud
 

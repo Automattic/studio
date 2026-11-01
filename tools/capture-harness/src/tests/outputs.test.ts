@@ -147,7 +147,7 @@ describe( 'dot field', () => {
 		return [];
 	};
 
-	it( 'spaces the dots as Studio does, at the capture scale', async () => {
+	it( "spaces the dots as Studio does, at the capture scale and the look's dot scale", async () => {
 		const look = await loadLook( 'marketing' );
 		const [ , framed ] = (
 			await renderLook( await solid( 2880, 1800, '#ffffff' ), {
@@ -157,7 +157,10 @@ describe( 'dot field', () => {
 		)[ 1 ];
 		const columns = await dotColumns( framed, DOTS.light.dot );
 		expect( columns.length ).toBeGreaterThan( 2 );
-		expect( columns[ 1 ] - columns[ 0 ] ).toBe( DOTS.spacing * look.scale );
+		expect( columns[ 1 ] - columns[ 0 ] ).toBeCloseTo(
+			DOTS.spacing * look.scale * ( look.frame?.dotScale ?? 1 ),
+			-0.5
+		);
 	} );
 
 	it( 'draws the dark field for a dark look', async () => {

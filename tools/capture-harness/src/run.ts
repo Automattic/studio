@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { drawAnnotations } from './annotate.ts';
 import { readAuthToken, type AuthToken } from './auth.ts';
+import { DEFAULT_DRIVER, type DriverName } from './drivers/types.ts';
 import { launchStudio, type Studio } from './launch.ts';
 import { loadLook, withBackground } from './look.ts';
 import { DEFAULT_LOOK, DEFAULT_SCENE, firstLine } from './paths.ts';
@@ -29,7 +30,6 @@ import {
 	type RemoteEntry,
 } from './wpcom.ts';
 import type { Ctx } from './context.ts';
-import type { DriverName } from './drivers/types.ts';
 import type { Look, Shot } from './schema.ts';
 import type { LoadedScript } from './script.ts';
 
@@ -281,7 +281,7 @@ export async function runScripts( options: RunOptions ): Promise< RunResult > {
 			scene,
 			look,
 			lookName: look.name,
-			driver: options.driver ?? script.driver ?? 'electron',
+			driver: options.driver ?? script.driver ?? DEFAULT_DRIVER,
 		} );
 	}
 

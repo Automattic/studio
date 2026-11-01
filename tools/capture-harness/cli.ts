@@ -32,8 +32,9 @@ Inputs:
   --blueprint <file|url>  A one-site scene made from a Blueprint, instead of --scene
   --look <name|file>      Look to capture with (default: the script's, else docs)
   --background <bg>       Frame on another background: dots-light, dots-dark, a color
-  --driver <name>         electron (Studio Desktop, the default) or browser
-                          (\`studio ui\` in headless Chromium: no display needed)
+  --driver <name>         electron (Studio Desktop; the default on macOS, Windows) or browser
+                          (\`studio ui\` in headless Chromium: no display needed;
+                          the default on Linux)
 
 Options:
   --suite <a,b>           Only these scripts       --only <a,b>    Only these shots

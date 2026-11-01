@@ -147,6 +147,29 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 			);
 		} );
 
+		it( 'should remove a db-path.php so the pin is the only database path', async () => {
+			await provider.installSqliteIntegration( MOCK_SITE_PATH );
+
+			expect( fs.promises.rm ).toHaveBeenCalledWith(
+				normalize( `${ MOCK_SITE_PATH }/wp-content/database/db-path.php` ),
+				{ force: true }
+			);
+		} );
+
+		it( 'should keep a db-path.php when keeping a custom drop-in', async () => {
+			volFromJSON( {
+				[ normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ) ]:
+					"<?php\ndefine( 'SQLITE_DB_DROPIN_VERSION', '1.8.0' );",
+			} );
+
+			await provider.installSqliteIntegration( MOCK_SITE_PATH );
+
+			expect( fs.promises.rm ).not.toHaveBeenCalledWith(
+				normalize( `${ MOCK_SITE_PATH }/wp-content/database/db-path.php` ),
+				{ force: true }
+			);
+		} );
+
 		it( 'should still copy the mu-plugin when keeping a custom drop-in', async () => {
 			volFromJSON( {
 				[ normalize( `wp-files/${ SQLITE_DIRNAME }/db.copy` ) ]:

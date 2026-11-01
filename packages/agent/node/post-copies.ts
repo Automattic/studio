@@ -212,7 +212,7 @@ export async function postCopiesFact(
 	return workspace
 		? `Post content, as WordPress saves it: ${ workspace }/<post type>/<ID>.html, for ${ RENDERED_TYPES.join(
 				', '
-		  ) }, and ${ workspace }/${ GLOBAL_STYLES }/<theme>.json for the active block theme's Global Styles, which WordPress merges over its theme.json. Studio saves a change to one to its post as the editor saves it (wp_update_post(), or PUT /wp/v2/global-styles for Global Styles), and rewrites it when the post changes. A new file there named for a slug, such as ${ workspace }/page/about-us.html, is published as a new page with that slug and titled after it.`
+		  ) }, and ${ workspace }/${ GLOBAL_STYLES }/<theme>.json for the active block theme's Global Styles, which WordPress merges over its theme.json. Studio saves a change to one to its post as the editor saves it (wp_update_post(), or PUT /wp/v2/global-styles for Global Styles), and rewrites it when the post changes. A new file there named for a slug, such as ${ workspace }/page/about-us.html, is published as a new page with that slug and titled after it. The site's title, tagline and homepage are in ${ workspace }/settings.json (blogname, blogdescription, show_on_front, page_on_front, page_for_posts), which Studio saves as Settings saves them (update_option()); a page there is named by its ID or its slug.`
 		: undefined;
 }
 

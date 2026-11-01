@@ -18,9 +18,9 @@ const MAX_IMAGES_PER_CALL = 20;
 const UPLOADS_DIR = path.sep + path.join( 'wp-content', 'uploads' ) + path.sep;
 
 // Exported for tests. Generated files are jailed to the sites root like the
-// pi Write tool.
+// pi Write tool, which resolves a relative path from it too.
 export function resolveImageFilePath( sitesRoot: string, filePath: string ): string {
-	const resolved = path.resolve( filePath );
+	const resolved = path.resolve( sitesRoot, filePath );
 	if ( resolved !== sitesRoot && ! resolved.startsWith( sitesRoot + path.sep ) ) {
 		throw new Error(
 			`Image path must be inside the Studio sites directory (${ sitesRoot }): ${ filePath }`
@@ -187,7 +187,7 @@ export const generateImagesTool = defineTool(
 	async ( args, { host } ) => {
 		if ( ! ( await isImageGenerationAvailable() ) ) {
 			throw new Error(
-				'Image generation is off in this session. Build the site\'s imagery from type, color and shape.'
+				"Image generation is off in this session. Build the site's imagery from type, color and shape."
 			);
 		}
 

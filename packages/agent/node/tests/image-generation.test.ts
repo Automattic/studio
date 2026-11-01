@@ -164,9 +164,11 @@ describe( 'interpretImageResponse', () => {
 } );
 
 describe( 'resolveImageFilePath', () => {
-	it( 'accepts paths inside the sites root', () => {
+	// eval9 picky 1: `spoke-chain/wp-content/uploads/hero.jpg` was refused.
+	it( 'accepts paths inside the sites root, a relative one from it as Write takes it', () => {
 		const target = path.join( SITES_ROOT, 'my-site', 'wp-content', 'a.png' );
 		expect( resolveImageFilePath( SITES_ROOT, target ) ).toBe( target );
+		expect( resolveImageFilePath( SITES_ROOT, 'my-site/wp-content/a.png' ) ).toBe( target );
 	} );
 
 	it( 'rejects paths escaping the sites root', () => {

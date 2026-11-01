@@ -11,8 +11,8 @@
 		},
 		"email": {
 			"type": "string",
-			"pattern": "@example\\.(com|org|net)$",
-			"description": "A made-up address at example.com"
+			"pattern": "@(wordpress\\.studio|example\\.(com|org|net))$",
+			"description": "A made-up address at wordpress.studio (no such mailboxes exist) or example.com"
 		},
 		"id": {
 			"type": "integer",

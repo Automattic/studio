@@ -181,15 +181,16 @@ describe( 'signIn', () => {
 		const signedIn = await signIn( undefined, {} );
 		expect( signedIn.token ).toMatchObject( {
 			displayName: 'Maya Okafor',
-			email: 'maya.okafor@example.com',
+			email: 'maya.okafor@wordpress.studio',
 		} );
 		expect( signedIn.token.expirationTime ).toBeGreaterThan( Date.now() );
 		expect( signedIn.hideEmail ).toBeNull();
 	} );
 
 	it( 'signs in as another persona by name', async () => {
-		const signedIn = await signIn( 'kenji-watanabe', {} );
-		expect( signedIn.token.displayName ).toBe( 'Kenji Watanabe' );
+		const signedIn = await signIn( 'amira-haddad', {} );
+		expect( signedIn.token.displayName ).toBe( 'Amira Haddad' );
+		expect( signedIn.avatar?.subarray( 0, 2 ).toString( 'hex' ) ).toBe( 'ffd8' );
 	} );
 
 	it( 'signs in as a real account from STUDIO_CAPTURE_AUTH_TOKEN, hiding its email', async () => {

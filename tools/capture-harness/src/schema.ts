@@ -440,8 +440,8 @@ export const Persona = z
 		name: z.string().describe( 'The made-up name Studio shows for the account' ),
 		email: z
 			.string()
-			.regex( /@example\.(com|org|net)$/ )
-			.describe( 'A made-up address at example.com' ),
+			.regex( /@(wordpress\.studio|example\.(com|org|net))$/ )
+			.describe( 'A made-up address at wordpress.studio (no such mailboxes exist) or example.com' ),
 		id: z.number().int().positive().describe( 'A made-up WordPress.com user ID' ),
 		avatar: z
 			.string()

@@ -1,6 +1,0 @@
-{
-	"$schema": "../schemas/persona.schema.json",
-	"name": "Kenji Watanabe",
-	"email": "kenji.watanabe@example.com",
-	"id": 424202
-}

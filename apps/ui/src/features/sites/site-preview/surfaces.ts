@@ -14,11 +14,37 @@ import type { PreviewRealm } from './address-bar';
  * it. phpMyAdmin is a separate tool nothing links to, and the only realm that
  * isn't responsive — so it gets its own surface, which never resizes when the
  * preview flips to it. The design system isn't a web page: Studio renders it.
+ * A headless site's frontend app runs on an origin of its own, so it has its
+ * own surface, `app`, whose locations are absolute URLs on that origin.
  */
-export type PreviewSurfaceKey = 'site' | 'database' | 'design';
+export type PreviewSurfaceKey = 'app' | 'site' | 'database' | 'design';
 
 export function getSurfaceKey( realm: PreviewRealm ): PreviewSurfaceKey {
+	if ( realm === 'frontend-app' ) {
+		return 'app';
+	}
 	return realm === 'frontend' || realm === 'admin' ? 'site' : realm;
+}
+
+// The surfaces showing pages people browse, which take Responsive mode and the
+// annotation inspector.
+export function isPageSurface( key: PreviewSurfaceKey ): boolean {
+	return key === 'site' || key === 'app';
+}
+
+// The url a surface loads. A surface left on the other origin of a headless
+// site, after a link took it there, holds that page's absolute URL.
+export function getSurfaceUrl(
+	key: PreviewSurfaceKey,
+	path: string,
+	siteUrl: string,
+	frontendUrl?: string
+): string {
+	if ( /^https?:\/\//i.test( path ) ) {
+		return path;
+	}
+	const base = key === 'app' && frontendUrl ? frontendUrl : siteUrl;
+	return `${ base }${ path }`;
 }
 
 // A mounted preview surface: its url, plus the load state and pending commands

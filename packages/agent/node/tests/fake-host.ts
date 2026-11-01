@@ -12,6 +12,20 @@ export const fakeSite: HostSite = {
 	adminPassword: 'password',
 };
 
+export const fakeHeadlessSite: HostSite = {
+	...fakeSite,
+	path: '/sites/my-site/wordpress',
+	frontend: {
+		path: '/sites/my-site/frontend',
+		kind: 'command',
+		framework: 'astro',
+		port: 3000,
+		api: 'rest',
+		previewSecret: 'preview-secret',
+		revalidateSecret: 'revalidate-secret',
+	},
+};
+
 export const fakePreview: Snapshot = {
 	url: 'demo.wp.build',
 	atomicSiteId: 12345,
@@ -61,6 +75,8 @@ export function createFakeHost( sitesRoot = '/sites' ): StudioAgentHost {
 			import: vi.fn( async () => {} ),
 			export: vi.fn( async () => {} ),
 			wpCli: vi.fn( async () => ( { exitCode: 0, stdout: '', stderr: '' } ) ),
+			frontendRestart: vi.fn( async () => {} ),
+			frontendLogs: vi.fn( async () => '' ),
 		},
 		previews: {
 			list: vi.fn( async () => [] ),

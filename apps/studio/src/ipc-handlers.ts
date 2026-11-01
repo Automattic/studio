@@ -77,6 +77,7 @@ import {
 } from '@studio/common/lib/root-ca-trust';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
+import { getFrontendUrl, type FrontendCreateChoice } from '@studio/common/lib/site-frontend';
 import {
 	isSitePreviewPath,
 	readSitePreview,
@@ -182,6 +183,7 @@ import type {
 	LoadedAiSession,
 } from '@studio/agent/protocol/sessions/types';
 import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
+import type { SiteOpenTarget } from '@studio/common/sites/open-target';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 
 export {
@@ -492,6 +494,7 @@ export async function createSite(
 		adminEmail?: string;
 		noStart?: boolean;
 		flowType?: TracksSiteCreateFlowType;
+		frontend?: FrontendCreateChoice;
 	} = {}
 ): Promise< SiteDetails > {
 	const {
@@ -508,6 +511,7 @@ export async function createSite(
 		adminEmail,
 		noStart = false,
 		flowType,
+		frontend,
 	} = config;
 
 	const siteId = providedSiteId || crypto.randomUUID();
@@ -542,6 +546,7 @@ export async function createSite(
 			adminEmail,
 			noStart,
 			flowType,
+			frontend,
 		} );
 
 		// An uploaded bundle is kept on failure, so the user can retry without uploading it again.
@@ -891,7 +896,7 @@ export async function openSiteURL(
 	event: IpcMainInvokeEvent,
 	id: string,
 	relativeURL = '',
-	{ autoLogin = true }: { autoLogin?: boolean } = {}
+	{ autoLogin = true, target }: { autoLogin?: boolean; target?: SiteOpenTarget } = {}
 ) {
 	const site = await getSite( id );
 	if ( ! site ) {
@@ -904,7 +909,9 @@ export async function openSiteURL(
 	}
 
 	await openSiteInBrowser(
-		getSiteBrowserUrl( site, relativeURL, autoLogin ),
+		target === 'frontend' && site.frontend
+			? getSiteBrowserUrl( { url: getFrontendUrl( site.frontend ) }, relativeURL, false )
+			: getSiteBrowserUrl( site, relativeURL, autoLogin ),
 		shellOpenExternalWrapper
 	);
 }

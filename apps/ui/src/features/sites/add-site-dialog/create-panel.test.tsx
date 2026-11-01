@@ -159,3 +159,50 @@ describe( 'Add site › blank setup', () => {
 		expect( connector.continueSession ).not.toHaveBeenCalled();
 	} );
 } );
+
+describe( 'Add site › frontend', () => {
+	async function chooseOption( dialog: HTMLElement, select: string, option: string ) {
+		fireEvent.click( within( dialog ).getByRole( 'combobox', { name: select } ) );
+		const item = await screen.findByRole( 'option', { name: option } );
+		fireEvent.pointerDown( item, { pointerType: 'mouse' } );
+		fireEvent.click( item );
+	}
+
+	it( 'creates a WordPress theme site by default', async () => {
+		const { connector, dialog } = await setup();
+		expect( within( dialog ).getByRole( 'combobox', { name: 'Frontend' } ) ).toHaveTextContent(
+			'WordPress theme'
+		);
+		expect(
+			within( dialog ).queryByRole( 'combobox', { name: 'Content API' } )
+		).not.toBeInTheDocument();
+		await createSite( dialog );
+		await waitFor( () => expect( connector.createSite ).toHaveBeenCalledOnce() );
+		expect( connector.createSite.mock.calls[ 0 ][ 0 ].frontend ).toBeUndefined();
+	} );
+
+	it( 'creates a headless site with the chosen framework and content API', async () => {
+		const { connector, dialog, history } = await setup();
+		await chooseOption( dialog, 'Frontend', 'Headless: Astro' );
+		expect(
+			within( dialog ).getByText(
+				'WordPress runs as the content API; Studio also runs the frontend. Astro and Next.js need Node.js installed.'
+			)
+		).toBeVisible();
+		expect( within( dialog ).getByRole( 'combobox', { name: 'Content API' } ) ).toHaveTextContent(
+			'REST API'
+		);
+		await chooseOption( dialog, 'Content API', 'WPGraphQL' );
+		await createSite( dialog );
+		await waitFor( () =>
+			expect( history.location.pathname ).toMatch( /^\/sites\/created-.*\/new$/ )
+		);
+		expect( connector.createSite ).toHaveBeenCalledWith(
+			expect.objectContaining( { frontend: { framework: 'astro', api: 'graphql' } } )
+		);
+		expect( connector.state.sites.at( -1 )?.frontend ).toMatchObject( {
+			framework: 'astro',
+			api: 'graphql',
+		} );
+	} );
+} );

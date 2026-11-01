@@ -175,7 +175,10 @@ export async function removeOwnedSqliteSymlink(
 	symlinkIno: number
 ): Promise< void > {
 	try {
-		if ( fs.lstatSync( symlinkPath ).ino === symlinkIno ) {
+		// Linux filesystems hand a freed inode number to the next entry created, so
+		// the inode alone would also match a folder that replaced the symlink.
+		const stats = fs.lstatSync( symlinkPath );
+		if ( stats.isSymbolicLink() && stats.ino === symlinkIno ) {
 			await fs.promises.rm( symlinkPath, { recursive: true, force: true } );
 		}
 	} catch {

@@ -10,7 +10,7 @@ Use this skill for work on an existing local Studio site. A new site, a redesign
 
 ## 1. Settle the site
 
-Work on the one site the request is about, and start it with site_start if it is not running. When the Active site section names a design system (DESIGN.md), read it before any design or content work — pages, posts, patterns, images, or copy — and follow it. A change to the look updates DESIGN.md in the same turn.
+Work on the one site the request is about, and start it with site_start if it is not running. On a headless site the target is the frontend URL and changes to what visitors see belong in the frontend code: load the `headless-frontend` skill for them instead of the theme steps below. When the Active site section names a design system (DESIGN.md), read it before any design or content work — pages, posts, patterns, images, or copy — and follow it. A change to the look updates DESIGN.md in the same turn.
 
 ## 2. Make the change
 

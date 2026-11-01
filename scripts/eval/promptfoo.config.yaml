@@ -693,6 +693,35 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst
+  # A headless request creates the site with a frontend. Stops at site_create,
+  # so it judges the routing and the create arguments, not the built frontend.
+  - description: "routing: a headless Astro site loads build-site and creates the site with an Astro frontend"
+    vars:
+      caseId: routing-new-headless-site
+      timeoutMs: 300000
+      skills: [{ name: build-site }]
+      stopAt:
+        - tool: site_create
+        - tool: scaffold_theme
+        - tool: Write
+        - tool: Edit
+      prompt: Create a headless WordPress site named "Eval Headless" with an Astro frontend that renders the latest posts. Skip the questions and go.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const create = (d.toolCalls || []).find(c => c.name === 'site_create');
+            if (!create) return { pass: false, score: 0, reason: `site_create never called; stopped at ${d.stoppedAt?.toolName}` };
+            const framework = create.input?.frontend?.framework;
+            return framework === 'astro'
+              ? { pass: true, score: 1, reason: 'site_create asked for an Astro frontend' }
+              : { pass: false, score: 0, reason: `site_create frontend: ${JSON.stringify(create.input?.frontend)}` };
+          });
   - description: "routing: a new site with a form loads build-site and plugin-recommendations before the work"
     vars:
       caseId: routing-new-site-contact-form

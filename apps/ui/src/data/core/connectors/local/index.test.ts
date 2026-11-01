@@ -27,6 +27,30 @@ describe( 'createLocalConnector Connect contracts', () => {
 		);
 	} );
 
+	it( 'sends a headless site’s frontend choice and which half to open', async () => {
+		fetchMock.mockImplementation(
+			async () => new Response( JSON.stringify( { id: 'site-1' } ), { status: 200 } )
+		);
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+		await connector.createSite( {
+			name: 'Headless',
+			path: '/sites/headless',
+			frontend: { framework: 'next', api: 'graphql' },
+		} );
+		await connector.openSiteUrl( 'site-1', '/about/', { autoLogin: false, target: 'frontend' } );
+		await connector.openSiteInEditor( 'site-1', { target: 'frontend' } );
+		await connector.openSiteInTerminal( 'site-1', { target: 'frontend' } );
+		const bodies = fetchMock.mock.calls.map( ( call ) => JSON.parse( String( call[ 1 ]?.body ) ) );
+		expect( bodies[ 0 ] ).toMatchObject( { frontend: { framework: 'next', api: 'graphql' } } );
+		expect( bodies[ 1 ] ).toEqual( {
+			relativeUrl: '/about/',
+			autoLogin: false,
+			target: 'frontend',
+		} );
+		expect( bodies[ 2 ] ).toEqual( { target: 'frontend' } );
+		expect( bodies[ 3 ] ).toEqual( { target: 'frontend' } );
+	} );
+
 	it( 'forwards skipStart and requests site and connection sets', async () => {
 		fetchMock.mockImplementation( async ( input: string | URL | Request ) => {
 			const url = String( input );

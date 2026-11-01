@@ -8,6 +8,12 @@
 import { createHash, randomUUID } from 'crypto';
 import { mkdir, readdir, readFile, rename, rm, unlink, writeFile } from 'fs/promises';
 import path from 'path';
+import {
+	getFrontendUrl,
+	HEADLESS_ROUTES,
+	REVALIDATE_SECRET_HEADER,
+	type SiteFrontend,
+} from './site-frontend.ts';
 import { getMuPluginsPath } from './well-known-paths.ts';
 
 export interface MuPlugin {
@@ -17,18 +23,71 @@ export interface MuPlugin {
 
 export const STUDIO_ERROR_LOG_FILENAME = 'studio-error.log';
 
+export interface HeadlessMuPluginOptions {
+	url: string;
+	previewSecret?: string;
+	revalidateSecret?: string;
+	headlessMode?: boolean;
+	api?: 'rest' | 'graphql';
+}
+
 export interface MuPluginOptions {
 	isWpAutoUpdating?: boolean;
 	errorLogPath?: string;
 	errorLogStopAfterBoot?: boolean;
+	// Adds the headless mu-plugin, which reads its per-site settings from the
+	// STUDIO_* constants the site's loader defines (`writeStudioMuPlugins`).
+	headless?: boolean;
+}
+
+export function getHeadlessMuPluginOptions(
+	frontend: SiteFrontend | undefined
+): HeadlessMuPluginOptions | undefined {
+	if ( ! frontend ) {
+		return undefined;
+	}
+	return {
+		url: getFrontendUrl( frontend ),
+		previewSecret: frontend.previewSecret,
+		revalidateSecret: frontend.revalidateSecret,
+		headlessMode: frontend.headlessMode,
+		api: frontend.api,
+	};
 }
 
 export function escapePhpSingleQuotedString( value: string ): string {
 	return value.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
 }
 
-function getLoaderMuPluginContent( muPluginsDir: string ): string {
+// The per-site settings of the headless mu-plugin. They live in the site's own
+// loader rather than in the shared bundle, so every headless site loads the same
+// bundle directory. `if ! defined` leaves an override in wp-config.php in place.
+function getHeadlessConstants( frontend: HeadlessMuPluginOptions ): string {
+	const constant = ( name: string, value: string ) =>
+		`if ( ! defined( '${ name }' ) ) define( '${ name }', ${ value } );`;
+	const quoted = ( value: string ) => `'${ escapePhpSingleQuotedString( value ) }'`;
+	return [
+		constant( 'STUDIO_FRONTEND_URL', quoted( frontend.url.replace( /\/$/, '' ) ) ),
+		constant( 'STUDIO_PREVIEW_SECRET', quoted( frontend.previewSecret ?? '' ) ),
+		constant( 'STUDIO_REVALIDATE_SECRET', quoted( frontend.revalidateSecret ?? '' ) ),
+		constant( 'STUDIO_FRONTEND_API', quoted( frontend.api ?? 'rest' ) ),
+		constant( 'STUDIO_HEADLESS_MODE', frontend.headlessMode ? 'true' : 'false' ),
+	]
+		.map( ( line ) => `\t\t${ line }` )
+		.join( '\n' );
+}
+
+function getLoaderMuPluginContent(
+	muPluginsDir: string,
+	frontend?: HeadlessMuPluginOptions
+): string {
 	const escapedMuPluginsDir = escapePhpSingleQuotedString( muPluginsDir );
+	const headlessConstants = frontend
+		? `
+		// Studio headless site: where the headless mu-plugin sends links, previews and revalidation.
+${ getHeadlessConstants( frontend ) }
+`
+		: '';
 
 	return `<?php
 		/**
@@ -48,7 +107,7 @@ function getLoaderMuPluginContent( muPluginsDir: string ): string {
 
 		// Set environment type to local if not already defined
 		if ( ! defined( 'WP_ENVIRONMENT_TYPE' ) ) define( 'WP_ENVIRONMENT_TYPE', 'local' );
-
+${ headlessConstants }
 		$studio_mu_plugins_dir = '${ escapedMuPluginsDir }';
 
 		if ( is_dir( $studio_mu_plugins_dir ) ) {
@@ -66,8 +125,219 @@ function getLoaderMuPluginContent( muPluginsDir: string ): string {
 		`;
 }
 
+function getHeadlessMuPluginContent(): string {
+	return `<?php
+/**
+ * Studio headless backend: sends view links, previews and revalidation to the
+ * site's frontend project, and lets it call WPGraphQL with credentials. The
+ * site's loader mu-plugin defines its settings (STUDIO_FRONTEND_URL and co.).
+ */
+if ( ! function_exists( 'add_filter' ) || ! defined( 'STUDIO_FRONTEND_URL' ) || defined( 'STUDIO_HEADLESS_LOADED' ) ) {
+	return;
+}
+define( 'STUDIO_HEADLESS_LOADED', true );
+if ( ! defined( 'STUDIO_PREVIEW_SECRET' ) ) define( 'STUDIO_PREVIEW_SECRET', '' );
+if ( ! defined( 'STUDIO_REVALIDATE_SECRET' ) ) define( 'STUDIO_REVALIDATE_SECRET', '' );
+if ( ! defined( 'STUDIO_FRONTEND_API' ) ) define( 'STUDIO_FRONTEND_API', 'rest' );
+if ( ! defined( 'STUDIO_HEADLESS_MODE' ) ) define( 'STUDIO_HEADLESS_MODE', false );
+
+function studio_headless_frontend_url( $path = '/' ) {
+	return rtrim( STUDIO_FRONTEND_URL, '/' ) . '/' . ltrim( $path, '/' );
+}
+
+function studio_headless_frontend_origin() {
+	$parts = wp_parse_url( STUDIO_FRONTEND_URL );
+	if ( empty( $parts['scheme'] ) || empty( $parts['host'] ) ) {
+		return STUDIO_FRONTEND_URL;
+	}
+	$origin = $parts['scheme'] . '://' . $parts['host'];
+	if ( ! empty( $parts['port'] ) ) {
+		$origin .= ':' . $parts['port'];
+	}
+	return $origin;
+}
+
+// APIs keep returning WordPress's own URLs.
+function studio_headless_is_api_request() {
+	return ( defined( 'REST_REQUEST' ) && REST_REQUEST ) || defined( 'GRAPHQL_REQUEST' );
+}
+
+// The frontend route for a post: pages at /<path>, posts at /posts/<slug>,
+// other public types at /<type>/<slug>. Null when the post has no public URL.
+function studio_headless_post_path( $post ) {
+	$post = get_post( $post );
+	if ( ! $post || 'publish' !== $post->post_status || '' === $post->post_name ) {
+		return null;
+	}
+	if ( 'page' === $post->post_type ) {
+		if ( (int) get_option( 'page_on_front' ) === $post->ID ) {
+			return '/';
+		}
+		return '/' . get_page_uri( $post );
+	}
+	if ( 'post' === $post->post_type ) {
+		return '/posts/' . $post->post_name;
+	}
+	return '/' . $post->post_type . '/' . $post->post_name;
+}
+
+function studio_headless_filter_post_link( $link, $post ) {
+	if ( studio_headless_is_api_request() ) {
+		return $link;
+	}
+	$path = studio_headless_post_path( $post );
+	return null === $path ? $link : studio_headless_frontend_url( $path );
+}
+
+add_filter( 'post_link', 'studio_headless_filter_post_link', 20, 2 );
+add_filter( 'page_link', 'studio_headless_filter_post_link', 20, 2 );
+add_filter( 'post_type_link', 'studio_headless_filter_post_link', 20, 2 );
+
+add_filter(
+	'preview_post_link',
+	function ( $link, $post ) {
+		if ( ! $post || '' === STUDIO_PREVIEW_SECRET || ! current_user_can( 'edit_post', $post->ID ) ) {
+			return $link;
+		}
+		return add_query_arg(
+			array(
+				'secret' => rawurlencode( STUDIO_PREVIEW_SECRET ),
+				'id'     => $post->ID,
+				'type'   => rawurlencode( $post->post_type ),
+				'status' => rawurlencode( $post->post_status ),
+			),
+			studio_headless_frontend_url( '${ HEADLESS_ROUTES.draft }' )
+		);
+	},
+	20,
+	2
+);
+
+add_filter(
+	'graphql_response_headers_to_send',
+	function ( $headers ) {
+		$headers['Access-Control-Allow-Origin']      = studio_headless_frontend_origin();
+		$headers['Access-Control-Allow-Credentials'] = 'true';
+		$headers['Vary']                             = empty( $headers['Vary'] ) ? 'Origin' : $headers['Vary'] . ', Origin';
+		return $headers;
+	}
+);
+
+add_filter(
+	'graphql_access_control_allow_headers',
+	function ( $headers ) {
+		$headers[] = 'X-WP-Nonce';
+		return array_values( array_unique( $headers ) );
+	}
+);
+
+// Collected over the request and sent once at shutdown, so a save that fires
+// both hooks below revalidates once.
+function studio_headless_queue_revalidation( $post ) {
+	global $studio_headless_revalidate;
+	$post = get_post( $post );
+	if ( ! $post || '' === STUDIO_REVALIDATE_SECRET || wp_is_post_revision( $post ) || wp_is_post_autosave( $post ) ) {
+		return;
+	}
+	$type = get_post_type_object( $post->post_type );
+	if ( ! $type || ! $type->public ) {
+		return;
+	}
+	if ( ! is_array( $studio_headless_revalidate ) ) {
+		$studio_headless_revalidate = array(
+			'paths' => array( '/' ),
+			'tags'  => array(),
+		);
+		add_action( 'shutdown', 'studio_headless_send_revalidation' );
+	}
+	$path = studio_headless_post_path( $post );
+	if ( null !== $path ) {
+		$studio_headless_revalidate['paths'][] = $path;
+	}
+	$studio_headless_revalidate['tags'][] = $post->post_type;
+	$studio_headless_revalidate['tags'][] = $post->post_type . ':' . $post->ID;
+	if ( '' !== $post->post_name ) {
+		$studio_headless_revalidate['tags'][] = $post->post_type . ':' . $post->post_name;
+	}
+}
+
+function studio_headless_send_revalidation() {
+	global $studio_headless_revalidate;
+	if ( ! is_array( $studio_headless_revalidate ) ) {
+		return;
+	}
+	$body = array(
+		'paths' => array_values( array_unique( $studio_headless_revalidate['paths'] ) ),
+		'tags'  => array_values( array_unique( $studio_headless_revalidate['tags'] ) ),
+	);
+	$studio_headless_revalidate = null;
+	$response = wp_remote_post(
+		studio_headless_frontend_url( '${ HEADLESS_ROUTES.revalidate }' ),
+		array(
+			'blocking'  => false,
+			'timeout'   => 5,
+			'sslverify' => false,
+			'headers'   => array(
+				'Content-Type' => 'application/json',
+				'${ REVALIDATE_SECRET_HEADER }' => STUDIO_REVALIDATE_SECRET,
+			),
+			'body'      => wp_json_encode( $body ),
+		)
+	);
+	if ( is_wp_error( $response ) ) {
+		error_log( '[studio-headless] revalidate failed: ' . $response->get_error_message() );
+	}
+}
+
+add_action(
+	'transition_post_status',
+	function ( $new_status, $old_status, $post ) {
+		if ( 'publish' === $new_status || 'publish' === $old_status ) {
+			studio_headless_queue_revalidation( $post );
+		}
+	},
+	10,
+	3
+);
+
+add_action(
+	'save_post',
+	function ( $post_id, $post ) {
+		if ( $post && 'publish' === $post->post_status ) {
+			studio_headless_queue_revalidation( $post );
+		}
+	},
+	10,
+	2
+);
+
+if ( STUDIO_HEADLESS_MODE ) {
+	add_action(
+		'template_redirect',
+		function () {
+			if ( is_admin() || wp_doing_ajax() || wp_doing_cron() || studio_headless_is_api_request()
+				|| is_preview() || is_feed() || is_robots() || is_favicon() || is_trackback() ) {
+				return;
+			}
+			$path = is_singular() ? studio_headless_post_path( get_queried_object() ) : null;
+			wp_redirect( studio_headless_frontend_url( null === $path ? '/' : $path ), 302 );
+			exit;
+		},
+		0
+	);
+}
+`;
+}
+
 function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	const muPlugins: MuPlugin[] = [];
+
+	if ( options.headless ) {
+		muPlugins.push( {
+			filename: '0-headless.php',
+			content: getHeadlessMuPluginContent(),
+		} );
+	}
 
 	// Capture PHP errors so a failed site start can show why (STU-1757).
 	if ( options.errorLogPath ) {
@@ -575,16 +845,20 @@ export async function getMuPlugins( options: MuPluginOptions = {} ): Promise< st
  */
 export async function writeStudioMuPlugins(
 	siteFolder: string,
-	isWpAutoUpdating: MuPluginOptions[ 'isWpAutoUpdating' ]
+	isWpAutoUpdating: MuPluginOptions[ 'isWpAutoUpdating' ],
+	frontend?: HeadlessMuPluginOptions
 ): Promise< string > {
 	const muPluginsDir = path.join( siteFolder, 'wp-content', 'mu-plugins' );
 	await mkdir( muPluginsDir, { recursive: true } );
 	await cleanupLegacyMuPlugins( siteFolder );
 
-	const studioMuPluginsDir = await getMuPlugins( { isWpAutoUpdating } );
+	const studioMuPluginsDir = await getMuPlugins( {
+		isWpAutoUpdating,
+		headless: Boolean( frontend ),
+	} );
 	await writeFileIfChanged(
 		path.join( muPluginsDir, STUDIO_LOADER_MU_PLUGIN_FILENAME ),
-		getLoaderMuPluginContent( studioMuPluginsDir )
+		getLoaderMuPluginContent( studioMuPluginsDir, frontend )
 	);
 	return studioMuPluginsDir;
 }

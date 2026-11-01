@@ -2,11 +2,12 @@ import { vi } from 'vitest';
 import { SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { isFrontendRunning, startFrontendServer } from 'cli/lib/frontend/server';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
-import { Logger } from 'cli/logger';
+import { Logger, LoggerError } from 'cli/logger';
 import { runCommand } from '../start';
 
 vi.mock( 'cli/lib/cli-config/sites', async () => ( {
@@ -25,6 +26,7 @@ vi.mock( 'cli/lib/site-operations', async ( importOriginal ) => ( {
 vi.mock( 'cli/lib/site-utils' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
 vi.mock( 'cli/lib/sqlite-integration' );
+vi.mock( 'cli/lib/frontend/server' );
 
 describe( 'CLI: studio site start', () => {
 	// Simple test data
@@ -59,6 +61,8 @@ describe( 'CLI: studio site start', () => {
 		vi.mocked( updateSiteLatestCliPid ).mockResolvedValue( undefined );
 		vi.mocked( logSiteDetails ).mockImplementation( () => {} );
 		vi.mocked( openSiteInBrowser ).mockResolvedValue( undefined );
+		vi.mocked( isFrontendRunning ).mockResolvedValue( undefined );
+		vi.mocked( startFrontendServer ).mockResolvedValue( testProcessDescription );
 	} );
 
 	afterEach( () => {
@@ -138,6 +142,75 @@ describe( 'CLI: studio site start', () => {
 			);
 			expect( openSiteInBrowser ).not.toHaveBeenCalled();
 			expect( logSiteDetails ).toHaveBeenCalledWith( testSite );
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+	} );
+
+	describe( 'Headless sites', () => {
+		const headlessSite: SiteData = {
+			...testSite,
+			frontend: { path: '/test/frontend', kind: 'static', port: 4321 },
+		};
+
+		beforeEach( () => {
+			vi.mocked( getSiteByFolder ).mockResolvedValue( headlessSite );
+		} );
+
+		it( 'does not start a frontend for a classic site', async () => {
+			vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
+
+			await runCommand( '/test/site' );
+
+			expect( startFrontendServer ).not.toHaveBeenCalled();
+		} );
+
+		it( 'starts the frontend after WordPress', async () => {
+			await runCommand( '/test/site' );
+
+			expect( startFrontendServer ).toHaveBeenCalledWith( headlessSite, expect.any( Logger ) );
+			expect( vi.mocked( startWordPressServer ).mock.invocationCallOrder[ 0 ] ).toBeLessThan(
+				vi.mocked( startFrontendServer ).mock.invocationCallOrder[ 0 ]
+			);
+			expect( vi.mocked( startFrontendServer ).mock.invocationCallOrder[ 0 ] ).toBeLessThan(
+				vi.mocked( openSiteInBrowser ).mock.invocationCallOrder[ 0 ]
+			);
+		} );
+
+		it( 'reports a "Starting frontend…" step', async () => {
+			const logger = new Logger< string >();
+			const reportStart = vi.spyOn( logger, 'reportStart' ).mockImplementation( () => {} );
+			vi.spyOn( logger, 'reportSuccess' ).mockImplementation( () => {} );
+
+			await runCommand( '/test/site', true, true, logger );
+
+			expect( reportStart ).toHaveBeenCalledWith( 'startFrontend', 'Starting frontend…' );
+		} );
+
+		it( 'starts the frontend when WordPress is already running', async () => {
+			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
+
+			await runCommand( '/test/site' );
+
+			expect( startWordPressServer ).not.toHaveBeenCalled();
+			expect( startFrontendServer ).toHaveBeenCalledWith( headlessSite, expect.any( Logger ) );
+		} );
+
+		it( 'leaves a running frontend alone', async () => {
+			vi.mocked( isFrontendRunning ).mockResolvedValue( testProcessDescription );
+
+			await runCommand( '/test/site' );
+
+			expect( startFrontendServer ).not.toHaveBeenCalled();
+		} );
+
+		it( 'reports a frontend failure without failing the start', async () => {
+			const frontendError = new LoggerError( 'Failed to start the frontend' );
+			vi.mocked( startFrontendServer ).mockRejectedValue( frontendError );
+			const logger = new Logger();
+			const reportError = vi.spyOn( logger, 'reportError' ).mockImplementation( () => {} );
+
+			await expect( runCommand( '/test/site', true, true, logger ) ).resolves.toBeUndefined();
+			expect( reportError ).toHaveBeenCalledWith( frontendError, false );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 	} );

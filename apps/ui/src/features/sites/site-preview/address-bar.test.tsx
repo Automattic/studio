@@ -4,12 +4,16 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	DATABASE_HOME_PATH,
+	getFrontendAppRelativePath,
+	getFrontendOrigin,
 	getPathFromPreviewUrl,
+	getPreviewLocationFromUrl,
 	getPreviewRealm,
 	getRealmNavigationPath,
 	getRealmOpenEvent,
 	parseOmniboxInput,
 	PreviewAddressBar,
+	toFrontendAppPath,
 	type PreviewRealm,
 } from './address-bar';
 import type { SiteDetails } from '@/data/core';
@@ -79,6 +83,26 @@ describe( 'parseOmniboxInput', () => {
 			term: 'hello world',
 		} );
 	} );
+
+	it( 'accepts a headless site’s frontend addresses and resolves paths typed in it', () => {
+		const frontendUrl = 'http://localhost:3000';
+		expect( parseOmniboxInput( 'http://localhost:3000/blog', SITE_URL, { frontendUrl } ) ).toEqual(
+			{ type: 'path', path: 'http://localhost:3000/blog' }
+		);
+		const inApp = { frontendUrl, inFrontendApp: true };
+		expect( parseOmniboxInput( 'about/', SITE_URL, inApp ) ).toEqual( {
+			type: 'path',
+			path: 'http://localhost:3000/about/',
+		} );
+		expect( parseOmniboxInput( '/wp-admin/', SITE_URL, inApp ) ).toEqual( {
+			type: 'path',
+			path: '/wp-admin/',
+		} );
+		expect( parseOmniboxInput( '/about/', SITE_URL, { frontendUrl } ) ).toEqual( {
+			type: 'path',
+			path: '/about/',
+		} );
+	} );
 } );
 
 describe( 'getPathFromPreviewUrl', () => {
@@ -112,6 +136,43 @@ describe( 'preview realms', () => {
 		expect( getRealmOpenEvent( 'admin' ) ).toBe( 'studio_site_open_wp_admin' );
 		expect( getRealmOpenEvent( 'database' ) ).toBe( 'studio_site_open_phpmyadmin' );
 		expect( getRealmOpenEvent( 'design' ) ).toBe( 'studio_site_open_design_system' );
+	} );
+
+	it( 'classifies addresses on a headless site’s frontend origin as the frontend app', () => {
+		const frontendUrl = getFrontendOrigin( 'http://localhost:3000' );
+		expect( frontendUrl ).toBe( 'http://localhost:3000' );
+		expect( getFrontendOrigin( 'http://Example.local:80/' ) ).toBe( 'http://example.local' );
+		expect( getFrontendOrigin( 'not a url' ) ).toBeUndefined();
+		expect( getFrontendOrigin( undefined ) ).toBeUndefined();
+		expect( getPreviewRealm( 'http://localhost:3000/', frontendUrl ) ).toBe( 'frontend-app' );
+		expect( getPreviewRealm( 'http://localhost:3000/wp-admin/', frontendUrl ) ).toBe(
+			'frontend-app'
+		);
+		expect( getPreviewRealm( '/', frontendUrl ) ).toBe( 'frontend' );
+		expect( getPreviewRealm( '/wp-admin/', frontendUrl ) ).toBe( 'admin' );
+		expect( getPreviewRealm( 'http://localhost:3001/', frontendUrl ) ).toBe( 'frontend' );
+		expect( getPreviewRealm( 'http://localhost:3000/' ) ).toBe( 'frontend' );
+		expect( getRealmOpenEvent( 'frontend-app' ) ).toBe( 'studio_site_open_in_browser' );
+	} );
+
+	it( 'reads reported urls as frontend app addresses or site paths, by origin', () => {
+		const frontendUrl = 'http://localhost:3000';
+		expect(
+			getPreviewLocationFromUrl( 'http://localhost:3000/blog?p=2', SITE_URL, frontendUrl )
+		).toBe( 'http://localhost:3000/blog?p=2' );
+		expect( getPreviewLocationFromUrl( `${ SITE_URL }/wp-admin/`, SITE_URL, frontendUrl ) ).toBe(
+			'/wp-admin/'
+		);
+		expect( getPreviewLocationFromUrl( 'https://example.com/', SITE_URL, frontendUrl ) ).toBe(
+			null
+		);
+		expect( getPreviewLocationFromUrl( 'http://localhost:3000/', SITE_URL, undefined ) ).toBe(
+			null
+		);
+		expect( toFrontendAppPath( '/about/', frontendUrl ) ).toBe( 'http://localhost:3000/about/' );
+		expect( getFrontendAppRelativePath( 'http://localhost:3000/about/?a=1#b' ) ).toBe(
+			'/about/?a=1#b'
+		);
 	} );
 
 	it( 'routes admin paths through auto-login', () => {

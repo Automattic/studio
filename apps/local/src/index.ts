@@ -101,6 +101,11 @@ import {
 	getSiteAgentFilePaths,
 } from '@studio/common/lib/site-agent-file-paths';
 import {
+	frontendCreateChoiceSchema,
+	getFrontendUrl,
+	type FrontendCreateChoice,
+} from '@studio/common/lib/site-frontend';
+import {
 	isSitePreviewPath,
 	readSitePreview,
 	writeSitePreview,
@@ -143,6 +148,7 @@ import { buildSiteSetArgs, getSiteEditOptions } from '@studio/common/sites/edit'
 import { deleteSite, startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
 import { listSitesWithMetadata, updateSiteMetadata } from '@studio/common/sites/metadata';
+import { getSiteFolderForTarget, type SiteOpenTarget } from '@studio/common/sites/open-target';
 import { designFixesSchema, fixSiteDesign, readSiteDesign } from '@studio/common/sites/site-design';
 import { readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import {
@@ -281,6 +287,7 @@ function toSiteDetails( site: SiteListItem, sortOrder?: number ) {
 		environmentType: site.environmentType,
 		operation: site.operation,
 		emailPath: site.emailPath,
+		frontend: site.frontend,
 		sortOrder,
 	};
 }
@@ -1113,6 +1120,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				adminEmail?: string;
 				skipStart?: boolean;
 				flowType?: TracksSiteCreateFlowType;
+				frontend?: unknown;
 				// Optional Blueprint to apply on creation: `blueprint` is the parsed
 				// blueprint JSON; `filePath` (set for uploaded ZIP bundles) lets the
 				// CLI resolve relative assets. `bundleUrl` names a bundle from Studio's
@@ -1127,6 +1135,15 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			if ( ! body.name || ! body.path ) {
 				res.status( 400 ).json( { error: 'name and path are required' } );
 				return;
+			}
+			let frontend: FrontendCreateChoice | undefined;
+			if ( body.frontend ) {
+				const parsed = frontendCreateChoiceSchema.safeParse( body.frontend );
+				if ( ! parsed.success ) {
+					res.status( 400 ).json( { error: 'Unsupported frontend' } );
+					return;
+				}
+				frontend = parsed.data;
 			}
 			const siteId = crypto.randomUUID();
 			// Build the create args with the same shared helper the desktop uses, so
@@ -1168,6 +1185,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					adminEmail: body.adminEmail,
 					noStart: body.skipStart,
 					flowType: body.flowType,
+					frontend,
 					blueprint: body.blueprint?.blueprint,
 					originalBlueprintPath: blueprintFilePath,
 				} );
@@ -1586,6 +1604,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	const readOpenTarget = ( req: Request ): SiteOpenTarget =>
+		req.body?.target === 'frontend' ? 'frontend' : 'wordpress';
 	const readPreferredEditor = async () =>
 		( await readUserPreferences( preferencesContext() ) ).editor ??
 		getFirstInstalledEditor( detectInstalledApps() );
@@ -1605,7 +1625,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			const relativeUrl = typeof req.body?.relativeUrl === 'string' ? req.body.relativeUrl : '';
 			await openSiteInBrowser(
-				getSiteBrowserUrl( site, relativeUrl, req.body?.autoLogin !== false ),
+				readOpenTarget( req ) === 'frontend' && site.frontend
+					? getSiteBrowserUrl( { url: getFrontendUrl( site.frontend ) }, relativeUrl, false )
+					: getSiteBrowserUrl( site, relativeUrl, req.body?.autoLogin !== false ),
 				openUrl
 			);
 			res.status( 204 ).end();
@@ -1624,7 +1646,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			await openInEditor( editor, site.path );
+			await openInEditor( editor, getSiteFolderForTarget( site, readOpenTarget( req ) ) );
 			res.status( 204 ).end();
 		} )
 	);
@@ -1642,7 +1664,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			await openInTerminal( terminal, site.path );
+			await openInTerminal( terminal, getSiteFolderForTarget( site, readOpenTarget( req ) ) );
 			res.status( 204 ).end();
 		} )
 	);

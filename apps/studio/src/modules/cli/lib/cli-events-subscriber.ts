@@ -12,6 +12,7 @@ import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { trackSyncActivity } from 'src/lib/active-sync-operations';
 import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
 import { isInErrorRecovery } from 'src/lib/php-error-recovery';
+import { refreshHeadlessSiteOrigins } from 'src/lib/site-preview-origins';
 import { forgetSite, getSites } from 'src/lib/sites';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 
@@ -22,6 +23,10 @@ let seeded: Promise< void > = Promise.resolve();
 
 const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > => {
 	const { event: eventType, siteId, site } = event;
+
+	if ( eventType !== SITE_EVENTS.OPERATIONS_CHANGED ) {
+		void refreshHeadlessSiteOrigins();
+	}
 
 	if ( eventType === SITE_EVENTS.DELETED ) {
 		lastRunning.delete( siteId );

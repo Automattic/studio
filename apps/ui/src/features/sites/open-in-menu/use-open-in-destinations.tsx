@@ -28,6 +28,7 @@ import type { ReactElement } from 'react';
 
 export type OpenInDestination =
 	| 'browser'
+	| 'browser-wordpress'
 	| 'wp-admin'
 	| 'files'
 	| 'editor'
@@ -67,6 +68,9 @@ function getFileManager(): { label: string; logo: ReactElement } {
  * The editor is the preferred one, else the first one installed; with neither
  * there's no editor entry. Browser, WordPress admin and phpMyAdmin
  * start a stopped site first. A failure to open is reported.
+ *
+ * For a headless site, the browser, editor and terminal open its frontend
+ * app, and a second browser entry opens WordPress's own front end.
  */
 export function useOpenInDestinations(
 	site: SiteDetails,
@@ -102,7 +106,12 @@ export function useOpenInDestinations(
 		} );
 	};
 
-	const openSiteUrl = async ( path: string, options?: { autoLogin: boolean } ) => {
+	const headless = !! site.frontend;
+	const projectTarget = headless ? { target: 'frontend' as const } : undefined;
+	const openSiteUrl = async (
+		path: string,
+		options?: { autoLogin: boolean; target?: 'frontend' }
+	) => {
 		// A failed start reports itself.
 		if ( ! site.running && ! ( await startSite.mutateAsync( site.id ).catch( () => false ) ) ) {
 			return;
@@ -114,6 +123,9 @@ export function useOpenInDestinations(
 		}
 	};
 
+	const browserLogo = (
+		<AppIcon app={ userPreferences?.browser ?? undefined } fallback={ <ExternalLinkIcon /> } />
+	);
 	const destinations: Array< OpenInDestinationEntry | false > = [
 		{
 			id: 'files',
@@ -129,14 +141,23 @@ export function useOpenInDestinations(
 		{
 			id: 'browser',
 			label: browserLabel,
-			logo: (
-				<AppIcon app={ userPreferences?.browser ?? undefined } fallback={ <ExternalLinkIcon /> } />
-			),
+			logo: browserLogo,
 			disabled: false,
 			open: () =>
 				open( 'browser', __( 'Browser' ), () => {
 					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER, { browser: 'external' } );
 					// The front end opens logged out; only WP Admin signs the user in.
+					return openSiteUrl( '/', { autoLogin: false, ...projectTarget } );
+				} ),
+		},
+		headless && {
+			id: 'browser-wordpress',
+			label: __( 'WordPress front end' ),
+			logo: browserLogo,
+			disabled: false,
+			open: () =>
+				open( 'browser-wordpress', __( 'Browser' ), () => {
+					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER, { browser: 'external' } );
 					return openSiteUrl( '/', { autoLogin: false } );
 				} ),
 		},
@@ -145,7 +166,8 @@ export function useOpenInDestinations(
 			label: editorLabel,
 			logo: <AppIcon app={ editor } fallback={ <CodeIcon /> } />,
 			disabled: false,
-			open: () => open( 'editor', editorLabel, () => connector.openSiteInEditor( site.id ) ),
+			open: () =>
+				open( 'editor', editorLabel, () => connector.openSiteInEditor( site.id, projectTarget ) ),
 		},
 		{
 			id: 'terminal',
@@ -157,7 +179,10 @@ export function useOpenInDestinations(
 				/>
 			),
 			disabled: false,
-			open: () => open( 'terminal', terminalLabel, () => connector.openSiteInTerminal( site.id ) ),
+			open: () =>
+				open( 'terminal', terminalLabel, () =>
+					connector.openSiteInTerminal( site.id, projectTarget )
+				),
 		},
 		{
 			id: 'wp-admin',

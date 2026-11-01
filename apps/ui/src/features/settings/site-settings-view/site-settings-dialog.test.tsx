@@ -68,6 +68,47 @@ async function choose( combobox: string, option: string | RegExp ) {
 	fireEvent.click( item );
 }
 
+describe( 'site settings › frontend', () => {
+	it( 'shows a headless site’s frontend, read-only', async () => {
+		const { connector } = setup( {
+			sites: [
+				{
+					...site,
+					frontend: {
+						path: '/sites/example/frontend',
+						kind: 'command',
+						framework: 'next',
+						api: 'graphql',
+						devCommand: 'npm run dev -- --port ${port}',
+						port: 3000,
+					},
+				},
+			],
+		} );
+		const group = ( await screen.findByRole( 'group', { name: 'Frontend' } ) ) as HTMLElement;
+		expect( within( group ).getByText( 'Next.js' ) ).toBeVisible();
+		expect( within( group ).getByText( 'WPGraphQL' ) ).toBeVisible();
+		expect( within( group ).getByText( '3000' ) ).toBeVisible();
+		expect( within( group ).getByRole( 'textbox', { name: 'Project path' } ) ).toHaveValue(
+			'/sites/example/frontend'
+		);
+		expect( within( group ).getByRole( 'textbox', { name: 'Dev command' } ) ).toHaveAttribute(
+			'readonly'
+		);
+		fireEvent.click( within( group ).getByRole( 'button', { name: 'http://localhost:3000' } ) );
+		expect( connector.openSiteUrl ).toHaveBeenCalledWith( 'one', '/', {
+			autoLogin: false,
+			target: 'frontend',
+		} );
+	} );
+
+	it( 'has no frontend group for a classic site', async () => {
+		setup();
+		await siteName();
+		expect( screen.queryByRole( 'group', { name: 'Frontend' } ) ).not.toBeInTheDocument();
+	} );
+} );
+
 describe( 'site settings', () => {
 	it( 'shows header actions only while there are unsaved changes', async () => {
 		setup();

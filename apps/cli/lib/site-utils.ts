@@ -1,6 +1,7 @@
 import { PROXY_PROCESS_NAME } from '@studio/common/constants';
 import { getProxyPortConflictMessage } from '@studio/common/lib/domains';
 import { decodePassword } from '@studio/common/lib/passwords';
+import { getFrontendUrl, isHeadlessSite } from '@studio/common/lib/site-frontend';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { openBrowser } from 'cli/lib/browser';
@@ -62,14 +63,18 @@ export function buildAutoLoginUrl( siteUrl: string, redirectTo?: string ): strin
 
 /**
  * Opens the site in the browser: the Blueprint `landingPage` when the site has one, logged in so
- * admin landing pages don't bounce to the login screen, and the front page otherwise.
+ * admin landing pages don't bounce to the login screen, and the front page otherwise (the
+ * frontend's, for a headless site).
  */
 export async function openSiteInBrowser( site: SiteData ): Promise< void > {
 	const siteUrl = getSiteUrl( site );
 	try {
-		const url = site.landingPage
-			? buildAutoLoginUrl( siteUrl, new URL( site.landingPage, siteUrl ).toString() )
-			: `${ siteUrl }/`;
+		let url = `${ siteUrl }/`;
+		if ( site.landingPage ) {
+			url = buildAutoLoginUrl( siteUrl, new URL( site.landingPage, siteUrl ).toString() );
+		} else if ( isHeadlessSite( site ) ) {
+			url = `${ getFrontendUrl( site.frontend ) }/`;
+		}
 		await openBrowser( url );
 	} catch ( error ) {
 		// Silently fail if browser can't be opened
@@ -81,6 +86,9 @@ export async function openSiteInBrowser( site: SiteData ): Promise< void > {
  */
 export function logSiteDetails( site: SiteData ): void {
 	const siteUrl = getSiteUrl( site );
+	if ( isHeadlessSite( site ) ) {
+		console.log( __( 'Frontend URL: ' ), getFrontendUrl( site.frontend ) );
+	}
 	console.log( __( 'Site URL: ' ), siteUrl );
 	console.log( __( 'Username: ' ), site.adminUsername || 'admin' );
 	if ( site.adminPassword ) {

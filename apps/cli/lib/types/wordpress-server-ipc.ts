@@ -1,4 +1,5 @@
 import { siteFileAccessSchema } from '@studio/common/lib/site-file-access';
+import { siteFrontendApiSchema } from '@studio/common/lib/site-frontend';
 import { wpEnvironmentTypeSchema } from '@studio/common/lib/wp-environment-type';
 import { z } from 'zod';
 
@@ -31,6 +32,16 @@ export const serverConfigSchema = z.object( {
 		.optional(),
 	autoPrependFile: z.string().optional(),
 	openBasedirAllowList: z.array( z.string() ).optional(),
+	// A headless site's frontend, for the headless mu-plugin and the prepend file.
+	frontend: z
+		.object( {
+			url: z.string(),
+			previewSecret: z.string().optional(),
+			revalidateSecret: z.string().optional(),
+			headlessMode: z.boolean().optional(),
+			api: siteFrontendApiSchema.optional(),
+		} )
+		.optional(),
 } );
 
 export type ServerConfig = z.infer< typeof serverConfigSchema >;

@@ -12,7 +12,7 @@ Run an on-page SEO audit on a WordPress site to surface missing meta tags, broke
 
 1. Determine which site to audit. If the user hasn't specified, ask them or use the site from the current context.
 2. Ensure the site is running (use `site_start` if needed).
-3. Call `rank_me_up` with the site name and path (defaults to `/`).
+3. Call `rank_me_up` with the site name and path (defaults to `/`). On a headless site it audits the frontend URL, and fixes belong in the frontend code (its head tags, sitemap, robots.txt), not in an SEO plugin, which a headless frontend does not render.
 4. **Inspect the SEO toolchain already on the site** (mandatory before suggesting plugin installs — see "Check Active Plugins First" below).
 5. Analyze the results using the interpretation guide.
 6. Present a prioritized list of fixes — most impactful first — with the specific change to make, routed through whatever plugin is already active.

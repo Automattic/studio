@@ -181,7 +181,7 @@ describe( 'signIn', () => {
 		const signedIn = await signIn( undefined, {} );
 		expect( signedIn.token ).toMatchObject( {
 			displayName: 'Maya Okafor',
-			email: 'maya.okafor@wordpress.studio',
+			email: 'maya@wordpress.studio',
 		} );
 		expect( signedIn.token.expirationTime ).toBeGreaterThan( Date.now() );
 		expect( signedIn.hideEmail ).toBeNull();

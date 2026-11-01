@@ -1,7 +1,7 @@
 {
 	"$schema": "../schemas/persona.schema.json",
 	"name": "Maya Okafor",
-	"email": "maya.okafor@wordpress.studio",
+	"email": "maya@wordpress.studio",
 	"id": 424201,
 	"avatar": "maya-okafor.jpg"
 }

@@ -1,0 +1,357 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"type": "object",
+	"properties": {
+		"$schema": {
+			"type": "string"
+		},
+		"name": {
+			"type": "string"
+		},
+		"description": {
+			"type": "string"
+		},
+		"window": {
+			"default": {
+				"width": 1440,
+				"height": 900
+			},
+			"description": "The window's content size, in points",
+			"type": "object",
+			"properties": {
+				"width": {
+					"type": "integer",
+					"exclusiveMinimum": 0,
+					"maximum": 9007199254740991
+				},
+				"height": {
+					"type": "integer",
+					"exclusiveMinimum": 0,
+					"maximum": 9007199254740991
+				}
+			},
+			"required": [
+				"width",
+				"height"
+			],
+			"additionalProperties": false
+		},
+		"scale": {
+			"default": 2,
+			"description": "Device scale factor of the capture",
+			"type": "number",
+			"exclusiveMinimum": 0
+		},
+		"appearance": {
+			"default": {
+				"colorScheme": "light"
+			},
+			"description": "Studio's Appearance settings",
+			"type": "object",
+			"properties": {
+				"colorScheme": {
+					"default": "light",
+					"type": "string",
+					"enum": [
+						"light",
+						"dark",
+						"system"
+					]
+				},
+				"accentColor": {
+					"type": "string",
+					"pattern": "^#[0-9a-f]{6}$"
+				},
+				"tintIntensity": {
+					"type": "number",
+					"minimum": 0,
+					"maximum": 100
+				},
+				"contrast": {
+					"type": "number",
+					"minimum": 0,
+					"maximum": 100
+				}
+			},
+			"additionalProperties": false
+		},
+		"windowControls": {
+			"default": true,
+			"description": "Draw the macOS window buttons, which Electron leaves out of captures",
+			"type": "boolean"
+		},
+		"annotations": {
+			"default": {
+				"accent": "#3858e9",
+				"halo": "#ffffff"
+			},
+			"type": "object",
+			"properties": {
+				"accent": {
+					"default": "#3858e9",
+					"type": "string",
+					"description": "A CSS color"
+				},
+				"halo": {
+					"default": "#ffffff",
+					"type": "string",
+					"description": "A CSS color"
+				}
+			},
+			"additionalProperties": false
+		},
+		"crop": {
+			"default": {
+				"pad": 48,
+				"aspect": 1.5
+			},
+			"description": "Defaults for cropped shots",
+			"type": "object",
+			"properties": {
+				"pad": {
+					"default": 48,
+					"type": "number"
+				},
+				"aspect": {
+					"default": 1.5,
+					"type": "number"
+				}
+			},
+			"additionalProperties": false
+		},
+		"still": {
+			"default": {
+				"format": "webp",
+				"quality": 90
+			},
+			"type": "object",
+			"properties": {
+				"format": {
+					"default": "webp",
+					"type": "string",
+					"enum": [
+						"webp",
+						"png"
+					]
+				},
+				"quality": {
+					"default": 90,
+					"type": "number",
+					"minimum": 1,
+					"maximum": 100
+				}
+			},
+			"additionalProperties": false
+		},
+		"frame": {
+			"description": "Frames each still on a background, for pages where its edges would wash out",
+			"type": "object",
+			"properties": {
+				"background": {
+					"default": [
+						"#F7F7F7",
+						"#F1F1F1"
+					],
+					"description": "Studio's dot field (`dots` follows the look's color scheme, `dots-light` and `dots-dark` pin one; drawn at the app's size), a color, or a diagonal gradient",
+					"anyOf": [
+						{
+							"type": "string",
+							"enum": [
+								"dots",
+								"dots-light",
+								"dots-dark"
+							]
+						},
+						{
+							"type": "string",
+							"description": "A CSS color"
+						},
+						{
+							"type": "array",
+							"prefixItems": [
+								{
+									"type": "string",
+									"description": "A CSS color"
+								},
+								{
+									"type": "string",
+									"description": "A CSS color"
+								}
+							],
+							"items": false,
+							"minItems": 2,
+							"maxItems": 2
+						}
+					]
+				},
+				"dotScale": {
+					"default": 1,
+					"description": "Size of the dot field's dots and gaps against the app's (1: as in Studio; above 1 spaces them out, zoomed in)",
+					"type": "number",
+					"exclusiveMinimum": 0
+				},
+				"padding": {
+					"default": 0.06,
+					"description": "Margin, as a share of the width on every side, or [x, y] as shares of the width and of the height (equal shares keep the window's proportions)",
+					"anyOf": [
+						{
+							"type": "number"
+						},
+						{
+							"type": "array",
+							"prefixItems": [
+								{
+									"type": "number"
+								},
+								{
+									"type": "number"
+								}
+							],
+							"items": false,
+							"minItems": 2,
+							"maxItems": 2
+						}
+					]
+				},
+				"radius": {
+					"default": 0.012,
+					"description": "Corner radius, as a share of the width",
+					"type": "number"
+				},
+				"shadow": {
+					"default": 0.14,
+					"description": "Shadow opacity; `auto` picks one for how light the background is",
+					"anyOf": [
+						{
+							"type": "number",
+							"minimum": 0,
+							"maximum": 1
+						},
+						{
+							"type": "string",
+							"const": "auto"
+						}
+					]
+				},
+				"blur": {
+					"default": 0.015,
+					"description": "Shadow blur, as a share of the width",
+					"type": "number"
+				},
+				"hairline": {
+					"default": "rgba(0,0,0,0.10)",
+					"description": "Edge line color; `auto` picks one for how light the background is",
+					"type": "string"
+				}
+			},
+			"additionalProperties": false
+		},
+		"outputs": {
+			"description": "Fixed-size canvases the framed still is fitted into, as <name>-<suffix>",
+			"type": "array",
+			"items": {
+				"type": "object",
+				"properties": {
+					"suffix": {
+						"type": "string",
+						"pattern": "^[a-z0-9-]*$"
+					},
+					"width": {
+						"type": "integer",
+						"exclusiveMinimum": 0,
+						"maximum": 9007199254740991
+					},
+					"height": {
+						"type": "integer",
+						"exclusiveMinimum": 0,
+						"maximum": 9007199254740991
+					},
+					"margin": {
+						"default": 0.08,
+						"description": "Least margin, as a share of the canvas",
+						"type": "number",
+						"minimum": 0,
+						"maximum": 0.45
+					}
+				},
+				"required": [
+					"suffix",
+					"width",
+					"height"
+				],
+				"additionalProperties": false
+			}
+		},
+		"keepRaw": {
+			"default": true,
+			"description": "Also save the unframed still as <name> when the look frames",
+			"type": "boolean"
+		},
+		"video": {
+			"default": {
+				"formats": [
+					"webp"
+				],
+				"fps": 12,
+				"width": 1440,
+				"hold": 1500,
+				"cursor": true,
+				"typingDelay": 45
+			},
+			"type": "object",
+			"properties": {
+				"formats": {
+					"default": [
+						"webp"
+					],
+					"description": "webp and gif need nothing else; webm and mp4 need ffmpeg",
+					"type": "array",
+					"items": {
+						"type": "string",
+						"enum": [
+							"webp",
+							"gif",
+							"webm",
+							"mp4"
+						]
+					}
+				},
+				"fps": {
+					"default": 12,
+					"type": "integer",
+					"minimum": 1,
+					"maximum": 30
+				},
+				"width": {
+					"default": 1440,
+					"description": "Output width in pixels",
+					"type": "integer",
+					"exclusiveMinimum": 0,
+					"maximum": 9007199254740991
+				},
+				"hold": {
+					"default": 1500,
+					"description": "Milliseconds to hold the last frame",
+					"type": "number"
+				},
+				"cursor": {
+					"default": true,
+					"description": "Draw a pointer and glide it to clicks",
+					"type": "boolean"
+				},
+				"typingDelay": {
+					"default": 45,
+					"description": "Milliseconds per typed character",
+					"type": "number"
+				}
+			},
+			"additionalProperties": false
+		}
+	},
+	"required": [
+		"name"
+	],
+	"additionalProperties": false,
+	"$id": "https://github.com/Automattic/studio/tools/capture-harness/schemas/look.schema.json",
+	"title": "Studio capture look"
+}

@@ -1,0 +1,59 @@
+{
+	"$schema": "../schemas/script.schema.json",
+	"name": "workspace-tour",
+	"description": "A short tour that works on any scene with a site of its own (a backup or a Blueprint): the workspace on the site, its site menu, and Settings → Appearance. Record it for a clip of opening Settings",
+	"shots": [
+		{
+			"name": "workspace",
+			"description": "The workspace on the scene's site: sidebar, chat and the site preview",
+			"steps": [
+				{
+					"waitFor": { "text": "Loading site preview" },
+					"hidden": true,
+					"timeout": 60000,
+					"optional": true
+				}
+			],
+			"capture": { "settle": 2500 }
+		},
+		{
+			"name": "site-menu",
+			"description": "The site menu, opened from the site icon at the top of the chat",
+			"steps": [ { "helper": "openSiteMenu" } ],
+			"capture": {
+				"target": [
+					{ "role": "menu", "all": true },
+					{ "role": "button", "name": "Site menu", "exact": true }
+				],
+				"pad": 32
+			},
+			"after": [ { "helper": "closeMenus" } ]
+		},
+		{
+			"name": "settings-appearance",
+			"description": "Settings → Appearance: theme, color, intensity and contrast over the site",
+			"steps": [
+				{ "click": { "role": "button", "name": "Settings", "exact": true, "first": true } },
+				{ "waitFor": { "role": "tablist", "name": "Settings scope" } },
+				{
+					"click": {
+						"within": { "role": "tablist", "name": "Settings scope" },
+						"role": "tab",
+						"name": "App"
+					}
+				},
+				{
+					"click": {
+						"within": { "role": "tablist", "name": "Settings sections" },
+						"role": "tab",
+						"name": "Appearance",
+						"exact": true
+					}
+				},
+				{ "waitFor": { "role": "tabpanel", "name": "Appearance", "exact": true } }
+			],
+			"capture": { "target": { "role": "dialog", "name": "Settings", "exact": true } },
+			"after": [ { "press": "Escape" } ]
+		}
+	]
+}

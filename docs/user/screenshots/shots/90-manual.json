@@ -1,4 +1,5 @@
 {
+	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
 	"name": "manual",
 	"description": "Shots that need a live site connected to the demo site, a ready preview, Studio Code output, or pages outside Studio, captured by hand",
 	"manual": true,

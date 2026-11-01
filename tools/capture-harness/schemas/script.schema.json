@@ -1,0 +1,800 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"type": "object",
+	"properties": {
+		"$schema": {
+			"type": "string"
+		},
+		"name": {
+			"type": "string",
+			"pattern": "^[a-z0-9][a-z0-9-]*$"
+		},
+		"description": {
+			"type": "string"
+		},
+		"scene": {
+			"description": "Scene to open on: a bundled scene name or a path relative to this file",
+			"type": "string"
+		},
+		"look": {
+			"description": "Look to capture with: a bundled look name or a path",
+			"type": "string"
+		},
+		"driver": {
+			"description": "Front end to drive: the Desktop app (default) or `studio ui` in a browser",
+			"type": "string",
+			"enum": [
+				"electron",
+				"browser"
+			]
+		},
+		"firstRun": {
+			"description": "Start on an empty profile at the Welcome dialog",
+			"type": "boolean"
+		},
+		"signedIn": {
+			"description": "Signed in to WordPress.com (guarded)",
+			"type": "boolean"
+		},
+		"previewSites": {
+			"description": "List the scene's made-up preview sites (signed in)",
+			"type": "boolean"
+		},
+		"connectedSites": {
+			"description": "Connect the scene's made-up WordPress.com sites (signed in)",
+			"type": "boolean"
+		},
+		"chats": {
+			"description": "Chats from the scene to open on",
+			"type": "array",
+			"items": {
+				"type": "string"
+			}
+		},
+		"capture": {
+			"description": "Defaults for every shot",
+			"type": "object",
+			"properties": {
+				"target": {
+					"description": "Crop to this element, or frame several together; the whole window if unset",
+					"anyOf": [
+						{
+							"$ref": "#/$defs/Locator"
+						},
+						{
+							"type": "array",
+							"items": {
+								"$ref": "#/$defs/Locator"
+							}
+						}
+					]
+				},
+				"pad": {
+					"description": "Margin around the target, or [x, y]; the look's crop.pad if unset",
+					"anyOf": [
+						{
+							"type": "number"
+						},
+						{
+							"type": "array",
+							"prefixItems": [
+								{
+									"type": "number"
+								},
+								{
+									"type": "number"
+								}
+							],
+							"items": false,
+							"minItems": 2,
+							"maxItems": 2
+						}
+					]
+				},
+				"aspect": {
+					"description": "Least width-to-height ratio of a crop; the look's crop.aspect if unset",
+					"type": "number"
+				},
+				"settle": {
+					"description": "Milliseconds to wait before capturing",
+					"type": "number"
+				},
+				"keepMouse": {
+					"description": "Leave the pointer and focus where they are",
+					"type": "boolean"
+				}
+			},
+			"additionalProperties": false
+		},
+		"manual": {
+			"description": "Shots captured by hand, listed only",
+			"type": "boolean"
+		},
+		"shots": {
+			"minItems": 1,
+			"type": "array",
+			"items": {
+				"type": "object",
+				"properties": {
+					"name": {
+						"description": "File name of the output; required unless the script is manual",
+						"type": "string",
+						"pattern": "^[a-z0-9][a-z0-9-]*$"
+					},
+					"description": {
+						"type": "string"
+					},
+					"steps": {
+						"description": "What reaches the screen",
+						"type": "array",
+						"items": {
+							"anyOf": [
+								{
+									"type": "object",
+									"properties": {
+										"waitFor": {
+											"$ref": "#/$defs/Locator"
+										},
+										"hidden": {
+											"description": "Wait for it to disappear instead",
+											"type": "boolean"
+										},
+										"timeout": {
+											"type": "number"
+										},
+										"optional": {
+											"description": "Carry on if it never comes",
+											"type": "boolean"
+										}
+									},
+									"required": [
+										"waitFor"
+									],
+									"additionalProperties": false
+								},
+								{
+									"type": "object",
+									"properties": {
+										"click": {
+											"$ref": "#/$defs/Locator"
+										},
+										"button": {
+											"type": "string",
+											"enum": [
+												"left",
+												"right",
+												"middle"
+											]
+										}
+									},
+									"required": [
+										"click"
+									],
+									"additionalProperties": false
+								},
+								{
+									"type": "object",
+									"properties": {
+										"hover": {
+											"$ref": "#/$defs/Locator"
+										}
+									},
+									"required": [
+										"hover"
+									],
+									"additionalProperties": false
+								},
+								{
+									"type": "object",
+									"properties": {
+										"fill": {
+											"$ref": "#/$defs/Locator"
+										},
+										"value": {
+											"type": "string"
+										},
+										"blur": {
+											"type": "boolean"
+										}
+									},
+									"required": [
+										"fill",
+										"value"
+									],
+									"additionalProperties": false
+								},
+								{
+									"type": "object",
+									"properties": {
+										"press": {
+											"type": "string",
+											"description": "A key, e.g. \"Escape\" or \"Meta+K\""
+										}
+									},
+									"required": [
+										"press"
+									],
+									"additionalProperties": false
+								},
+								{
+									"type": "object",
+									"properties": {
+										"toggle": {
+											"anyOf": [
+												{
+													"type": "string",
+													"description": "A switch by name"
+												},
+												{
+													"description": "A locator; its role is switch unless it says",
+													"$ref": "#/$defs/LocatorFields"
+												}
+											]
+										},
+										"on": {
+											"type": "boolean"
+										}
+									},
+									"required": [
+										"toggle",
+										"on"
+									],
+									"additionalProperties": false
+								},
+								{
+									"type": "object",
+									"properties": {
+										"scrollTo": {
+											"$ref": "#/$defs/Locator"
+										},
+										"offset": {
+											"description": "Pixels below the top of its scroll area",
+											"type": "number"
+										}
+									},
+									"required": [
+										"scrollTo"
+									],
+									"additionalProperties": false
+								},
+								{
+									"type": "object",
+									"properties": {
+										"waitForImages": {
+											"$ref": "#/$defs/Locator"
+										}
+									},
+									"required": [
+										"waitForImages"
+									],
+									"additionalProperties": false
+								},
+								{
+									"type": "object",
+									"properties": {
+										"setFiles": {
+											"$ref": "#/$defs/Locator"
+										},
+										"file": {
+											"type": "string",
+											"description": "A file in the scene's `files` folder"
+										}
+									},
+									"required": [
+										"setFiles",
+										"file"
+									],
+									"additionalProperties": false
+								},
+								{
+									"type": "object",
+									"properties": {
+										"wait": {
+											"type": "number",
+											"description": "Milliseconds"
+										}
+									},
+									"required": [
+										"wait"
+									],
+									"additionalProperties": false
+								},
+								{
+									"type": "object",
+									"properties": {
+										"helper": {
+											"type": "string",
+											"enum": [
+												"openAddSite",
+												"closeMenus",
+												"openSiteMenu",
+												"openSubmenu",
+												"clickInPreview",
+												"typeText",
+												"dragSeparator",
+												"discardAnnotations",
+												"stubAgentRuns",
+												"playAgentTurn",
+												"discardSettings"
+											]
+										},
+										"args": {
+											"type": "array",
+											"items": {
+												"type": [
+													"string",
+													"number"
+												]
+											}
+										}
+									},
+									"required": [
+										"helper"
+									],
+									"additionalProperties": false
+								}
+							]
+						}
+					},
+					"capture": {
+						"type": "object",
+						"properties": {
+							"target": {
+								"description": "Crop to this element, or frame several together; the whole window if unset",
+								"anyOf": [
+									{
+										"$ref": "#/$defs/Locator"
+									},
+									{
+										"type": "array",
+										"items": {
+											"$ref": "#/$defs/Locator"
+										}
+									}
+								]
+							},
+							"pad": {
+								"description": "Margin around the target, or [x, y]; the look's crop.pad if unset",
+								"anyOf": [
+									{
+										"type": "number"
+									},
+									{
+										"type": "array",
+										"prefixItems": [
+											{
+												"type": "number"
+											},
+											{
+												"type": "number"
+											}
+										],
+										"items": false,
+										"minItems": 2,
+										"maxItems": 2
+									}
+								]
+							},
+							"aspect": {
+								"description": "Least width-to-height ratio of a crop; the look's crop.aspect if unset",
+								"type": "number"
+							},
+							"settle": {
+								"description": "Milliseconds to wait before capturing",
+								"type": "number"
+							},
+							"keepMouse": {
+								"description": "Leave the pointer and focus where they are",
+								"type": "boolean"
+							}
+						},
+						"additionalProperties": false
+					},
+					"annotate": {
+						"description": "Also saves <name>-annotated with these marks",
+						"type": "array",
+						"items": {
+							"anyOf": [
+								{
+									"type": "object",
+									"properties": {
+										"outline": {
+											"$ref": "#/$defs/Locator"
+										}
+									},
+									"required": [
+										"outline"
+									],
+									"additionalProperties": false
+								},
+								{
+									"type": "object",
+									"properties": {
+										"badge": {
+											"$ref": "#/$defs/Locator"
+										}
+									},
+									"required": [
+										"badge"
+									],
+									"additionalProperties": false,
+									"description": "Numbered in order"
+								},
+								{
+									"type": "object",
+									"properties": {
+										"arrow": {
+											"$ref": "#/$defs/Locator"
+										},
+										"from": {
+											"type": "string",
+											"enum": [
+												"top",
+												"bottom",
+												"left",
+												"right",
+												"top-left",
+												"top-right",
+												"bottom-left",
+												"bottom-right"
+											]
+										}
+									},
+									"required": [
+										"arrow"
+									],
+									"additionalProperties": false
+								}
+							]
+						}
+					},
+					"after": {
+						"description": "Undoes the steps for the next shot",
+						"type": "array",
+						"items": {
+							"anyOf": [
+								{
+									"type": "object",
+									"properties": {
+										"waitFor": {
+											"$ref": "#/$defs/Locator"
+										},
+										"hidden": {
+											"description": "Wait for it to disappear instead",
+											"type": "boolean"
+										},
+										"timeout": {
+											"type": "number"
+										},
+										"optional": {
+											"description": "Carry on if it never comes",
+											"type": "boolean"
+										}
+									},
+									"required": [
+										"waitFor"
+									],
+									"additionalProperties": false
+								},
+								{
+									"type": "object",
+									"properties": {
+										"click": {
+											"$ref": "#/$defs/Locator"
+										},
+										"button": {
+											"type": "string",
+											"enum": [
+												"left",
+												"right",
+												"middle"
+											]
+										}
+									},
+									"required": [
+										"click"
+									],
+									"additionalProperties": false
+								},
+								{
+									"type": "object",
+									"properties": {
+										"hover": {
+											"$ref": "#/$defs/Locator"
+										}
+									},
+									"required": [
+										"hover"
+									],
+									"additionalProperties": false
+								},
+								{
+									"type": "object",
+									"properties": {
+										"fill": {
+											"$ref": "#/$defs/Locator"
+										},
+										"value": {
+											"type": "string"
+										},
+										"blur": {
+											"type": "boolean"
+										}
+									},
+									"required": [
+										"fill",
+										"value"
+									],
+									"additionalProperties": false
+								},
+								{
+									"type": "object",
+									"properties": {
+										"press": {
+											"type": "string",
+											"description": "A key, e.g. \"Escape\" or \"Meta+K\""
+										}
+									},
+									"required": [
+										"press"
+									],
+									"additionalProperties": false
+								},
+								{
+									"type": "object",
+									"properties": {
+										"toggle": {
+											"anyOf": [
+												{
+													"type": "string",
+													"description": "A switch by name"
+												},
+												{
+													"description": "A locator; its role is switch unless it says",
+													"$ref": "#/$defs/LocatorFields"
+												}
+											]
+										},
+										"on": {
+											"type": "boolean"
+										}
+									},
+									"required": [
+										"toggle",
+										"on"
+									],
+									"additionalProperties": false
+								},
+								{
+									"type": "object",
+									"properties": {
+										"scrollTo": {
+											"$ref": "#/$defs/Locator"
+										},
+										"offset": {
+											"description": "Pixels below the top of its scroll area",
+											"type": "number"
+										}
+									},
+									"required": [
+										"scrollTo"
+									],
+									"additionalProperties": false
+								},
+								{
+									"type": "object",
+									"properties": {
+										"waitForImages": {
+											"$ref": "#/$defs/Locator"
+										}
+									},
+									"required": [
+										"waitForImages"
+									],
+									"additionalProperties": false
+								},
+								{
+									"type": "object",
+									"properties": {
+										"setFiles": {
+											"$ref": "#/$defs/Locator"
+										},
+										"file": {
+											"type": "string",
+											"description": "A file in the scene's `files` folder"
+										}
+									},
+									"required": [
+										"setFiles",
+										"file"
+									],
+									"additionalProperties": false
+								},
+								{
+									"type": "object",
+									"properties": {
+										"wait": {
+											"type": "number",
+											"description": "Milliseconds"
+										}
+									},
+									"required": [
+										"wait"
+									],
+									"additionalProperties": false
+								},
+								{
+									"type": "object",
+									"properties": {
+										"helper": {
+											"type": "string",
+											"enum": [
+												"openAddSite",
+												"closeMenus",
+												"openSiteMenu",
+												"openSubmenu",
+												"clickInPreview",
+												"typeText",
+												"dragSeparator",
+												"discardAnnotations",
+												"stubAgentRuns",
+												"playAgentTurn",
+												"discardSettings"
+											]
+										},
+										"args": {
+											"type": "array",
+											"items": {
+												"type": [
+													"string",
+													"number"
+												]
+											}
+										}
+									},
+									"required": [
+										"helper"
+									],
+									"additionalProperties": false
+								}
+							]
+						}
+					},
+					"desktopOnly": {
+						"description": "Shows something only Studio Desktop has; skipped with the browser driver",
+						"type": "boolean"
+					},
+					"pages": {
+						"description": "Docs pages that use the shot",
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					},
+					"replaces": {
+						"description": "Uploads the shot replaces",
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					},
+					"meta": {
+						"description": "Passed through to results",
+						"type": "object",
+						"propertyNames": {
+							"type": "string"
+						},
+						"additionalProperties": {}
+					}
+				},
+				"required": [
+					"description"
+				],
+				"additionalProperties": false
+			}
+		}
+	},
+	"required": [
+		"name",
+		"description",
+		"shots"
+	],
+	"additionalProperties": false,
+	"$defs": {
+		"Locator": {
+			"type": "object",
+			"properties": {
+				"role": {
+					"description": "ARIA role, e.g. \"button\", \"dialog\", \"menuitem\"",
+					"type": "string"
+				},
+				"name": {
+					"description": "Accessible name; may use {{site.name}} or {{account.name}}",
+					"type": "string"
+				},
+				"pattern": {
+					"description": "Accessible name as a regular expression",
+					"type": "string"
+				},
+				"text": {
+					"description": "Visible text, for elements without a useful role",
+					"type": "string"
+				},
+				"css": {
+					"description": "CSS selector; also sees what an open modal hides from role queries",
+					"type": "string"
+				},
+				"exact": {
+					"description": "Match the name or text exactly",
+					"type": "boolean"
+				},
+				"first": {
+					"description": "Take the first match",
+					"type": "boolean"
+				},
+				"all": {
+					"description": "Every visible match, framed together (crops only)",
+					"type": "boolean"
+				},
+				"has": {
+					"description": "Keep only matches that contain this element",
+					"$ref": "#/$defs/Locator"
+				},
+				"within": {
+					"description": "Look only inside this element",
+					"$ref": "#/$defs/Locator"
+				}
+			},
+			"additionalProperties": false,
+			"$ref": "#/$defs/LocatorFields"
+		},
+		"LocatorFields": {
+			"type": "object",
+			"properties": {
+				"role": {
+					"description": "ARIA role, e.g. \"button\", \"dialog\", \"menuitem\"",
+					"type": "string"
+				},
+				"name": {
+					"description": "Accessible name; may use {{site.name}} or {{account.name}}",
+					"type": "string"
+				},
+				"pattern": {
+					"description": "Accessible name as a regular expression",
+					"type": "string"
+				},
+				"text": {
+					"description": "Visible text, for elements without a useful role",
+					"type": "string"
+				},
+				"css": {
+					"description": "CSS selector; also sees what an open modal hides from role queries",
+					"type": "string"
+				},
+				"exact": {
+					"description": "Match the name or text exactly",
+					"type": "boolean"
+				},
+				"first": {
+					"description": "Take the first match",
+					"type": "boolean"
+				},
+				"all": {
+					"description": "Every visible match, framed together (crops only)",
+					"type": "boolean"
+				},
+				"has": {
+					"description": "Keep only matches that contain this element",
+					"$ref": "#/$defs/Locator"
+				},
+				"within": {
+					"description": "Look only inside this element",
+					"$ref": "#/$defs/Locator"
+				}
+			},
+			"additionalProperties": false
+		}
+	},
+	"$id": "https://github.com/Automattic/studio/tools/capture-harness/schemas/script.schema.json",
+	"title": "Studio capture script"
+}

@@ -1,0 +1,13 @@
+{
+	"$schema": "../schemas/look.schema.json",
+	"name": "docs",
+	"description": "The Studio docs on developer.wordpress.com: a 1440×900 window at 2×, light, crops at least 3:2, WebP, no frame",
+	"window": { "width": 1440, "height": 900 },
+	"scale": 2,
+	"appearance": { "colorScheme": "light" },
+	"windowControls": true,
+	"annotations": { "accent": "#3858e9", "halo": "#ffffff" },
+	"crop": { "pad": 48, "aspect": 1.5 },
+	"still": { "format": "webp", "quality": 90 },
+	"video": { "formats": [ "webp" ], "fps": 12, "width": 1440, "hold": 1500, "cursor": true, "typingDelay": 45 }
+}

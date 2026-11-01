@@ -1,4 +1,5 @@
 {
+	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
 	"name": "signed-in-blog",
 	"description": "Signed in: one-off images for blog posts and announcements, not used in the docs. Frame them with npm run screenshots:frame",
 	"signedIn": true,

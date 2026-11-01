@@ -1,4 +1,5 @@
 {
+	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
 	"name": "signed-in-connected",
 	"description": "Signed in, with the demo site connected to two made-up WordPress.com sites from wpcom-sites.json: the Publish panel's website switcher and the Choose files… review steps",
 	"signedIn": true,

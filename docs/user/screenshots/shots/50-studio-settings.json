@@ -1,4 +1,5 @@
 {
+	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
 	"name": "studio-settings",
 	"description": "The Settings dialog, App scope: General, AI Providers, Skills, MCP and Keyboard",
 	"capture": {
@@ -51,6 +52,7 @@
 		{
 			"name": "settings-studio-cli",
 			"description": "Settings → General → Studio CLI for terminal",
+			"desktopOnly": true,
 			"pages": [ "cli.md" ],
 			"replaces": [ "2025/05/app-settings-account.png" ],
 			"steps": [

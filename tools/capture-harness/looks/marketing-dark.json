@@ -1,0 +1,19 @@
+{
+	"$schema": "../schemas/look.schema.json",
+	"name": "marketing-dark",
+	"description": "The marketing look with Studio in its dark color scheme, on the dark dot field",
+	"window": { "width": 1440, "height": 900 },
+	"scale": 2,
+	"appearance": { "colorScheme": "dark" },
+	"annotations": { "accent": "#7b90ff", "halo": "#1e1e1e" },
+	"frame": {
+		"background": "dots",
+		"dotScale": 1.6,
+		"padding": [ 0.08, 0.08 ],
+		"radius": 0.0083,
+		"shadow": "auto",
+		"blur": 0.007,
+		"hairline": "auto"
+	},
+	"video": { "formats": [ "mp4", "webm", "webp" ], "fps": 15, "width": 1920, "hold": 2000, "cursor": true, "typingDelay": 55 }
+}

@@ -1,0 +1,36 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"type": "object",
+	"properties": {
+		"$schema": {
+			"type": "string"
+		},
+		"name": {
+			"type": "string",
+			"description": "The made-up name Studio shows for the account"
+		},
+		"email": {
+			"type": "string",
+			"pattern": "@(wordpress\\.studio|example\\.(com|org|net))$",
+			"description": "A made-up address at wordpress.studio (no such mailboxes exist) or example.com"
+		},
+		"id": {
+			"type": "integer",
+			"exclusiveMinimum": 0,
+			"maximum": 9007199254740991,
+			"description": "A made-up WordPress.com user ID"
+		},
+		"avatar": {
+			"description": "The avatar image, relative to this file: a licensed photo or AI-generated face, never a real person without their permission",
+			"type": "string"
+		}
+	},
+	"required": [
+		"name",
+		"email",
+		"id"
+	],
+	"additionalProperties": false,
+	"$id": "https://github.com/Automattic/studio/tools/capture-harness/schemas/persona.schema.json",
+	"title": "Studio capture persona"
+}

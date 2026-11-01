@@ -357,11 +357,21 @@ export const Look = z
 					.describe(
 						"Studio's dot field (`dots` follows the look's color scheme, `dots-light` and `dots-dark` pin one; drawn at the app's size), a color, or a diagonal gradient"
 					),
-				padding: z.number().default( 0.06 ).describe( 'Margin, as a share of the width' ),
+				padding: z
+					.union( [ z.number(), z.tuple( [ z.number(), z.number() ] ) ] )
+					.default( 0.06 )
+					.describe(
+						"Margin, as a share of the width on every side, or [x, y] as shares of the width and of the height (equal shares keep the window's proportions)"
+					),
 				radius: z.number().default( 0.012 ).describe( 'Corner radius, as a share of the width' ),
-				shadow: z.number().min( 0 ).max( 1 ).default( 0.14 ).describe( 'Shadow opacity' ),
+				shadow: z
+					.union( [ z.number().min( 0 ).max( 1 ), z.literal( 'auto' ) ] )
+					.default( 0.14 )
+					.describe( 'Shadow opacity; `auto` picks one for how light the background is' ),
 				blur: z.number().default( 0.015 ).describe( 'Shadow blur, as a share of the width' ),
-				hairline: Color.default( 'rgba(0,0,0,0.10)' ),
+				hairline: Color.default( 'rgba(0,0,0,0.10)' ).describe(
+					'Edge line color; `auto` picks one for how light the background is'
+				),
 			} )
 			.strict()
 			.optional()

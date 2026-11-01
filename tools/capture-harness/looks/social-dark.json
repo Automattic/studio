@@ -1,7 +1,7 @@
 {
 	"$schema": "../schemas/look.schema.json",
 	"name": "social-dark",
-	"description": "The social look in Studio's dark color scheme, on the dark dot field",
+	"description": "The social look with Studio in its dark color scheme, on the dark dot field",
 	"window": { "width": 1440, "height": 900 },
 	"scale": 2,
 	"appearance": { "colorScheme": "dark" },
@@ -9,10 +9,10 @@
 	"frame": {
 		"background": "dots",
 		"padding": 0.05,
-		"radius": 0.014,
-		"shadow": 0.5,
-		"blur": 0.02,
-		"hairline": "rgba(255,255,255,0.10)"
+		"radius": 0.0083,
+		"shadow": "auto",
+		"blur": 0.007,
+		"hairline": "auto"
 	},
 	"outputs": [
 		{ "suffix": "card", "width": 1200, "height": 630, "margin": 0.07 },

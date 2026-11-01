@@ -31,6 +31,7 @@ Inputs:
   --scene <name|file>     Scene to open on (default: the script's, else ${ DEFAULT_SCENE })
   --blueprint <file|url>  A one-site scene made from a Blueprint, instead of --scene
   --look <name|file>      Look to capture with (default: the script's, else docs)
+  --background <bg>       Frame on another background: dots-light, dots-dark, a color
   --driver <name>         electron (Studio Desktop, the default) or browser
                           (\`studio ui\` in headless Chromium: no display needed)
 
@@ -56,6 +57,7 @@ const { values: args, positionals } = parseArgs( {
 		scene: { type: 'string' },
 		blueprint: { type: 'string' },
 		look: { type: 'string' },
+		background: { type: 'string' },
 		driver: { type: 'string' },
 		suite: { type: 'string' },
 		only: { type: 'string' },
@@ -95,10 +97,11 @@ async function startVirtualDisplay() {
 	) {
 		return;
 	}
-	// -displayfd: Xvfb picks a free display and writes its number to fd 3.
+	// -displayfd: Xvfb picks a free display and writes its number to fd 3. The
+	// screen is larger than any window at its scale: Electron shrinks a window to fit it.
 	const xvfb = spawn(
 		'Xvfb',
-		[ '-displayfd', '3', '-screen', '0', '2560x1600x24', '-nolisten', 'tcp' ],
+		[ '-displayfd', '3', '-screen', '0', '7680x4320x24', '-nolisten', 'tcp' ],
 		{ stdio: [ 'ignore', 'ignore', 'ignore', 'pipe' ] }
 	);
 	const display = await new Promise< string | undefined >( ( resolve ) => {

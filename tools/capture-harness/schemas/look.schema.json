@@ -186,8 +186,26 @@
 				},
 				"padding": {
 					"default": 0.06,
-					"description": "Margin, as a share of the width",
-					"type": "number"
+					"description": "Margin, as a share of the width on every side, or [x, y] as shares of the width and of the height (equal shares keep the window's proportions)",
+					"anyOf": [
+						{
+							"type": "number"
+						},
+						{
+							"type": "array",
+							"prefixItems": [
+								{
+									"type": "number"
+								},
+								{
+									"type": "number"
+								}
+							],
+							"items": false,
+							"minItems": 2,
+							"maxItems": 2
+						}
+					]
 				},
 				"radius": {
 					"default": 0.012,
@@ -196,10 +214,18 @@
 				},
 				"shadow": {
 					"default": 0.14,
-					"description": "Shadow opacity",
-					"type": "number",
-					"minimum": 0,
-					"maximum": 1
+					"description": "Shadow opacity; `auto` picks one for how light the background is",
+					"anyOf": [
+						{
+							"type": "number",
+							"minimum": 0,
+							"maximum": 1
+						},
+						{
+							"type": "string",
+							"const": "auto"
+						}
+					]
 				},
 				"blur": {
 					"default": 0.015,
@@ -208,8 +234,8 @@
 				},
 				"hairline": {
 					"default": "rgba(0,0,0,0.10)",
-					"type": "string",
-					"description": "A CSS color"
+					"description": "Edge line color; `auto` picks one for how light the background is",
+					"type": "string"
 				}
 			},
 			"additionalProperties": false

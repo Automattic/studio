@@ -26,3 +26,20 @@ export async function loadLook( ref: string, relativeTo?: string ): Promise< Loo
 	const file = lookFile( ref, relativeTo );
 	return parseLook( await readJson( file ), file );
 }
+
+/**
+ * `look` with its frame on another background (`--background`): the dot
+ * field in the other scheme, say, to put the light app on dark dots.
+ */
+export function withBackground( look: Look, background?: string ): Look {
+	if ( ! background ) {
+		return look;
+	}
+	if ( ! look.frame ) {
+		throw new Error( `--background needs a look with a frame; ${ look.name } has none.` );
+	}
+	return parseLook(
+		{ ...look, frame: { ...look.frame, background } },
+		`${ look.name } with --background ${ background }`
+	);
+}

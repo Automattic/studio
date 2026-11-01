@@ -8,7 +8,7 @@ import { bake } from './bake.ts';
 import { DRIVERS, type DriverName } from './drivers/types.ts';
 import { renderLook } from './frame.ts';
 import { inspect } from './inspect.ts';
-import { loadLook } from './look.ts';
+import { loadLook, withBackground } from './look.ts';
 import { SCHEMAS_DIR } from './paths.ts';
 import { runScripts, type Mode } from './run.ts';
 import { loadScene, sceneFromBlueprint } from './scene.ts';
@@ -21,6 +21,7 @@ export interface CommandArgs {
 	scene?: string;
 	blueprint?: string;
 	look?: string;
+	background?: string;
 	driver?: string;
 	suite?: string;
 	only?: string;
@@ -78,6 +79,7 @@ export async function runCommand( command: string, refs: string[], args: Command
 			outDir,
 			scene: await sceneOption(),
 			look: args.look,
+			background: args.background,
 			driver: driverOption(),
 			suites: names( args.suite ),
 			only: names( args.only ),
@@ -193,7 +195,7 @@ export async function runCommand( command: string, refs: string[], args: Command
 		}
 		case 'frame': {
 			needRefs( 'images to frame' );
-			const look = await loadLook( args.look ?? 'blog' );
+			const look = withBackground( await loadLook( args.look ?? 'blog' ), args.background );
 			if ( ! look.frame ) {
 				throw new Error( `Look ${ look.name } has no frame.` );
 			}

@@ -2,7 +2,7 @@ import path from 'node:path';
 import { drawAnnotations } from './annotate.ts';
 import { readAuthToken, type AuthToken } from './auth.ts';
 import { launchStudio, type Studio } from './launch.ts';
-import { loadLook } from './look.ts';
+import { loadLook, withBackground } from './look.ts';
 import { DEFAULT_LOOK, DEFAULT_SCENE, firstLine } from './paths.ts';
 import { createProfile, type Profile } from './profile.ts';
 import { loadScene, type LoadedScene, type ResolvedSite } from './scene.ts';
@@ -42,6 +42,8 @@ export interface RunOptions {
 	// Override the scene and look every script names.
 	scene?: LoadedScene;
 	look?: string;
+	// Puts the look's frame on another background.
+	background?: string;
 	// Override the front end every script names.
 	driver?: DriverName;
 	suites?: Set< string > | null;
@@ -268,7 +270,11 @@ export async function runScripts( options: RunOptions ): Promise< RunResult > {
 		const lookRef = options.look ?? script.look ?? DEFAULT_LOOK;
 		const lookKey = `${ options.look ? process.cwd() : dir }\0${ lookRef }`;
 		const look =
-			looks.get( lookKey ) ?? ( await loadLook( lookRef, options.look ? undefined : dir ) );
+			looks.get( lookKey ) ??
+			withBackground(
+				await loadLook( lookRef, options.look ? undefined : dir ),
+				options.background
+			);
 		looks.set( lookKey, look );
 		plan.push( {
 			script,

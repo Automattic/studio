@@ -26,7 +26,8 @@ const svg = ( width: number, height: number, body: string ) =>
 export const DOTS = {
 	spacing: 26,
 	radius: 1,
-	light: { background: '#ffffff', dot: '#c3c3c3' },
+	// A step off the app's white, so a white window's edge still reads on it.
+	light: { background: '#fafafa', dot: '#c3c3c3' },
 	dark: { background: '#181818', dot: '#414141' },
 } as const;
 
@@ -44,6 +45,27 @@ function resolveBackground( background: Frame[ 'background' ], look: Look ): Bac
 	}
 	return { colors: Array.isArray( background ) ? background : [ background, background ] };
 }
+
+/**
+ * Whether a background is dark. The window's edge follows the background,
+ * not the app: on a dark one it needs a light line and a deeper shadow.
+ */
+function isDark( background: Background ) {
+	if ( 'dots' in background ) {
+		return background.dots === 'dark';
+	}
+	const hex = /^#([0-9a-f]{6})$/i.exec( background.colors[ 0 ] )?.[ 1 ];
+	if ( ! hex ) {
+		return false;
+	}
+	const [ r, g, b ] = [ 0, 2, 4 ].map( ( i ) => parseInt( hex.slice( i, i + 2 ), 16 ) );
+	return 0.2126 * r + 0.7152 * g + 0.0722 * b < 128;
+}
+
+const AUTO_EDGE = {
+	light: { shadow: 0.08, hairline: 'rgba(0,0,0,0.07)' },
+	dark: { shadow: 0.45, hairline: 'rgba(255,255,255,0.12)' },
+};
 
 /** One tile of the dot field at 1x, as an SVG, for pages that repeat it. */
 export function dotsTileSvg( scheme: DotScheme ) {
@@ -92,22 +114,25 @@ async function frameImage(
 	pixelRatio: number
 ): Promise< Buffer > {
 	const { width = 0, height = 0 } = await sharp( image ).metadata();
-	const pad = Math.round( width * frame.padding );
+	const [ padX, padY ] = Array.isArray( frame.padding )
+		? [ Math.round( width * frame.padding[ 0 ] ), Math.round( height * frame.padding[ 1 ] ) ]
+		: [ Math.round( width * frame.padding ), Math.round( width * frame.padding ) ];
 	const radius = Math.round( width * frame.radius );
 	const blur = Math.round( width * frame.blur );
+	const auto = AUTO_EDGE[ isDark( background ) ? 'dark' : 'light' ];
+	const shadowOpacity = frame.shadow === 'auto' ? auto.shadow : frame.shadow;
+	const hairlineColor = frame.hairline === 'auto' ? auto.hairline : frame.hairline;
 	const line = Math.max( 1, Math.round( width / 1400 ) );
-	const W = width + pad * 2;
-	const H = height + pad * 2;
+	const W = width + padX * 2;
+	const H = height + padY * 2;
 
 	const shadow = await sharp(
 		svg(
 			W,
 			H,
-			`<rect x="${ pad }" y="${
-				pad + blur / 2
-			}" width="${ width }" height="${ height }" rx="${ radius }" fill="rgba(0,0,0,${
-				frame.shadow
-			})"/>`
+			`<rect x="${ padX }" y="${
+				padY + blur / 2
+			}" width="${ width }" height="${ height }" rx="${ radius }" fill="rgba(0,0,0,${ shadowOpacity })"/>`
 		)
 	)
 		.blur( Math.max( 0.3, blur ) )
@@ -130,14 +155,14 @@ async function frameImage(
 	const hairline = svg(
 		W,
 		H,
-		`<rect x="${ pad + line / 2 }" y="${ pad + line / 2 }" width="${ width - line }" height="${
+		`<rect x="${ padX + line / 2 }" y="${ padY + line / 2 }" width="${ width - line }" height="${
 			height - line
-		}" rx="${ radius }" fill="none" stroke="${ frame.hairline }" stroke-width="${ line }"/>`
+		}" rx="${ radius }" fill="none" stroke="${ hairlineColor }" stroke-width="${ line }"/>`
 	);
 	return sharp( backgroundSvg( W, H, background, pixelRatio ) )
 		.composite( [
 			{ input: shadow, left: 0, top: 0 },
-			{ input: rounded, left: pad, top: pad },
+			{ input: rounded, left: padX, top: padY },
 			{ input: hairline, left: 0, top: 0 },
 		] )
 		.png()

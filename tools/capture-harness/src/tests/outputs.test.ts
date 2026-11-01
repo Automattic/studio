@@ -4,7 +4,7 @@ import path from 'node:path';
 import sharp from 'sharp';
 import { afterEach, describe, expect, it } from 'vitest';
 import { DOTS, dotsTileSvg, renderLook } from '../frame.ts';
-import { loadLook } from '../look.ts';
+import { loadLook, withBackground } from '../look.ts';
 import { LOOKS_DIR } from '../paths.ts';
 import { cropFor, encodeStill, writeIfChanged } from '../still.ts';
 import { collapseRepeats, encodeVideo, resample } from '../video.ts';
@@ -165,8 +165,26 @@ describe( 'dot field', () => {
 			await solid( 2880, 1800, '#181818' ),
 			await loadLook( 'marketing-dark' )
 		);
-		const [ , hero ] = out.find( ( [ suffix ] ) => suffix === '-hero' )!;
-		const { data } = await sharp( hero )
+		const [ , framed ] = out.find( ( [ suffix ] ) => suffix === '-framed' )!;
+		const { data } = await sharp( framed )
+			.extract( { left: 0, top: 0, width: 1, height: 1 } )
+			.raw()
+			.toBuffer( { resolveWithObject: true } );
+		expect( [ data[ 0 ], data[ 1 ], data[ 2 ] ] ).toEqual( [ 0x18, 0x18, 0x18 ] );
+	} );
+
+	it( "keeps the window's proportions with an equal margin on each axis", async () => {
+		const [ , framed ] = (
+			await renderLook( await solid( 2880, 1800, '#ffffff' ), await loadLook( 'marketing' ) )
+		)[ 1 ];
+		const { width = 0, height = 0 } = await sharp( framed ).metadata();
+		expect( width / height ).toBeCloseTo( 2880 / 1800, 2 );
+	} );
+
+	it( 'puts the light app on the dark field with --background', async () => {
+		const look = withBackground( await loadLook( 'marketing' ), 'dots-dark' );
+		const [ , framed ] = ( await renderLook( await solid( 2880, 1800, '#ffffff' ), look ) )[ 1 ];
+		const { data } = await sharp( framed )
 			.extract( { left: 0, top: 0, width: 1, height: 1 } )
 			.raw()
 			.toBuffer( { resolveWithObject: true } );

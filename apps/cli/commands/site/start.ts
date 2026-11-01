@@ -55,7 +55,7 @@ async function startSite(
 				sprintf(
 					// translators: %s: explanation of why the site is not ready to start.
 					__(
-						'This site is not ready to start. %s Re-run `studio pull-reprint` to finish the pull, or `studio delete` to remove the site.'
+						'This site is not ready to start. %s Re-run `studio pull` to finish the pull, or `studio delete` to remove the site.'
 					),
 					detail
 				)

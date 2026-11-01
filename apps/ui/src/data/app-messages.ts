@@ -58,8 +58,8 @@ export type NoticeRecord = {
 };
 
 const DEFAULT_TOAST_TTL_MS = 4_500;
-// Failures linger so a glance away doesn't miss them.
-const ERROR_TOAST_TTL_MS = 10_000;
+// Failures, and successes with a caveat, linger so a glance away doesn't miss them.
+export const ERROR_TOAST_TTL_MS = 10_000;
 const MAX_VISIBLE_TOASTS = 3;
 // The length of the deck's exit slide, before the queue is promoted.
 export const TOAST_EXIT_MS = 240;

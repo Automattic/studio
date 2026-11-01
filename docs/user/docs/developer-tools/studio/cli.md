@@ -268,8 +268,9 @@ studio pull
 
 # Choose the live site by URL or ID, and sync only some parts of the site
 studio push --remote-site example.com --options plugins,themes
+studio pull --remote-site example.com --only themes/my-theme --skip-database
 
-The `--options` flag takes a comma-separated list of `all`, `sqls` (the database), `uploads`, `plugins`, `themes`, and `contents`. For the full set of options:
+For `push`, the `--options` flag takes a comma-separated list of `all`, `sqls` (the database), `uploads`, `plugins`, `themes`, and `contents`. For `pull`, `--only` takes a path inside `wp-content` and can be repeated; `--skip-database` keeps the local database, and `--skip-files` pulls only the database. The first pull copies the whole site; later pulls only fetch what changed. For the full set of options:
 
 studio push --help
 studio pull --help

@@ -1,7 +1,10 @@
+import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { enableReprintExporter } from 'cli/lib/api';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
-import { fetchSyncableSites, initiateBackup, pollBackupStatus } from 'cli/lib/sync-api';
+import { reportSyncActivity } from 'cli/lib/sync-activity';
+import { fetchSyncableSites } from 'cli/lib/sync-api';
 import { pickSyncSite } from 'cli/lib/sync-site-picker';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { LoggerError } from 'cli/logger';
@@ -27,12 +30,18 @@ vi.mock( 'cli/lib/sqlite-integration' );
 vi.mock( 'cli/lib/sync-api', async ( importActual ) => ( {
 	...( await importActual< typeof import('cli/lib/sync-api') >() ),
 	fetchSyncableSites: vi.fn(),
-	initiateBackup: vi.fn(),
-	pollBackupStatus: vi.fn(),
 } ) );
+vi.mock( 'cli/lib/api', async ( importActual ) => ( {
+	...( await importActual< typeof import('cli/lib/api') >() ),
+	enableReprintExporter: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/sync-activity' );
 vi.mock( 'cli/lib/sync-site-picker', async ( importActual ) => ( {
 	...( await importActual< typeof import('cli/lib/sync-site-picker') >() ),
 	pickSyncSite: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/preview-sites', () => ( {
+	getStandingPreviews: vi.fn().mockResolvedValue( new Map() ),
 } ) );
 vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 	const actual = await importActual< typeof import('cli/lib/tracks') >();
@@ -65,79 +74,62 @@ const remoteSite = {
 beforeEach( () => {
 	vi.clearAllMocks();
 	vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
+	vi.mocked( getConnectedWpcomSitesForLocalSite ).mockResolvedValue( [] );
 	vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
 	vi.mocked( fetchSyncableSites ).mockResolvedValue( [ remoteSite ] );
 	vi.mocked( pickSyncSite ).mockResolvedValue( remoteSite );
 } );
 
 describe( 'CLI: studio pull Tracks events', () => {
-	it( "records a failure with the site's sync type and a classified reason", async () => {
-		vi.mocked( initiateBackup ).mockResolvedValue( 7 as never );
-		vi.mocked( pollBackupStatus ).mockResolvedValue( { status: 'failed', percent: 0 } as never );
+	it( "records a failure with the site's sync type and a classified reason, and tells the app", async () => {
+		vi.mocked( enableReprintExporter ).mockRejectedValue(
+			new LoggerError( 'Failed to enable the export', undefined, 'remote_backup' )
+		);
 
-		await expect( runPull( testSite.path, [ 'all' ], String( remoteSite.id ) ) ).rejects.toThrow();
+		await expect( runPull( testSite.path, String( remoteSite.id ) ) ).rejects.toThrow();
 
 		expect( recordTracksEvent ).toHaveBeenCalledWith(
 			TRACKS_EVENTS.SYNC_PULL,
 			expect.objectContaining( {
 				success: false,
 				sync_type: 'pressable',
+				site_kind: 'site',
 				failure_reason: 'remote_backup',
 				time_ms: expect.any( Number ),
 				// Proves `getTracksOrigin()` was spread in.
 				channel: 'studio-cli',
 			} )
 		);
+		expect( vi.mocked( reportSyncActivity ).mock.calls.at( -1 ) ).toEqual( [
+			testSite.id,
+			expect.objectContaining( { kind: 'error', direction: 'pull', localChangesApplied: false } ),
+		] );
 	} );
 
 	// The agentic UI drives its pulls by forking this very command, and emits the
 	// event itself — without the flag the same pull would be counted twice.
 	it( 'records nothing when suppressed', async () => {
-		vi.mocked( initiateBackup ).mockResolvedValue( 7 as never );
-		vi.mocked( pollBackupStatus ).mockResolvedValue( { status: 'failed', percent: 0 } as never );
+		vi.mocked( fetchSyncableSites ).mockRejectedValue( new Error( 'offline' ) );
 
 		await expect(
-			runPull( testSite.path, [ 'all' ], String( remoteSite.id ), undefined, undefined, true )
+			runPull( testSite.path, String( remoteSite.id ), false, {}, true )
 		).rejects.toThrow();
 
 		expect( recordTracksEvent ).not.toHaveBeenCalled();
 	} );
 
 	it( 'records nothing when the user backs out of the site picker', async () => {
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ remoteSite, { ...remoteSite, id: 43 } ] );
 		vi.mocked( pickSyncSite ).mockResolvedValue( undefined as never );
+		process.stdin.isTTY = true;
 
-		await runPull( testSite.path, [ 'all' ] );
+		try {
+			await runPull( testSite.path );
+		} finally {
+			process.stdin.isTTY = false;
+		}
 
 		expect( recordTracksEvent ).not.toHaveBeenCalled();
-	} );
-
-	// The remote steps in `sync-api` tag their own failures. Without those codes a
-	// remote failure inherited the emitter's fallback and was misreported as a
-	// local import that never ran.
-	it( 'attributes a remote-side failure to the remote step, not the local import', async () => {
-		vi.mocked( fetchSyncableSites ).mockRejectedValue(
-			new LoggerError( 'Failed to fetch WordPress.com sites', undefined, 'site_fetch' )
-		);
-
-		await expect( runPull( testSite.path, [ 'all' ], String( remoteSite.id ) ) ).rejects.toThrow();
-
-		expect( recordTracksEvent ).toHaveBeenCalledWith(
-			TRACKS_EVENTS.SYNC_PULL,
-			expect.objectContaining( { success: false, failure_reason: 'site_fetch' } )
-		);
-	} );
-
-	it( 'attributes a backup-initiation failure to the remote backup', async () => {
-		vi.mocked( initiateBackup ).mockRejectedValue(
-			new LoggerError( 'Failed to initiate backup', undefined, 'remote_backup' )
-		);
-
-		await expect( runPull( testSite.path, [ 'all' ], String( remoteSite.id ) ) ).rejects.toThrow();
-
-		expect( recordTracksEvent ).toHaveBeenCalledWith(
-			TRACKS_EVENTS.SYNC_PULL,
-			expect.objectContaining( { success: false, failure_reason: 'remote_backup' } )
-		);
 	} );
 } );
 

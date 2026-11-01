@@ -17,16 +17,6 @@ import { StatsMetric } from 'cli/lib/types/bump-stats';
 import { LoggerError } from 'cli/logger';
 
 /**
- * Durable origin of a site that was populated by `studio pull-reprint`:
- * where it syncs from. Present only on reprint-pulled sites.
- */
-const reprintOriginSchema = z.object( {
-	remoteUrl: z.string(),
-	remoteSiteUrl: z.string().optional(),
-	tablePrefix: z.string().optional(),
-} );
-
-/**
  * Health of a site's local install.
  *
  *   - `ready`        a normal, fully-written site (the default; `site
@@ -37,7 +27,7 @@ const reprintOriginSchema = z.object( {
  *                    written and must not be trusted as a healthy site.
  *   - `pull-failed`  the last reprint pull errored or was killed; the
  *                    site is half-written. Recovered by re-running
- *                    `pull-reprint --path <site>` (idempotent) or `site
+ *                    `pull --path <site>` (idempotent) or `site
  *                    delete`.
  *
  * Absent on records created before this field existed; readers treat a
@@ -49,7 +39,6 @@ const siteSchema = siteDetailsSchema
 	.extend( {
 		url: z.string().optional(),
 		latestCliPid: z.number().optional(),
-		reprintOrigin: reprintOriginSchema.optional(),
 		// True once a full reprint pull has completed at least once
 		importComplete: z.boolean().optional(),
 		status: siteStatusSchema.default( 'ready' ).optional(),

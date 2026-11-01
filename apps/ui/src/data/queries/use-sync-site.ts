@@ -4,7 +4,7 @@ import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect } from 'react';
-import { openStudioLogsAction, toast } from '@/data/app-messages';
+import { ERROR_TOAST_TTL_MS, openStudioLogsAction, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { markPreviewReady, markPreviewSeen } from '@/data/preview-ready';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
@@ -124,6 +124,8 @@ export function useSettleSync() {
 						siteName()
 					),
 					{
+						description: settled.warning,
+						durationMs: settled.warning ? ERROR_TOAST_TTL_MS : undefined,
 						action: viewSite && { label: __( 'View' ), onClick: () => void viewSite() },
 					}
 				);

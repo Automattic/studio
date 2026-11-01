@@ -2,10 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useConnector } from '@/data/core';
 import type { OnboardingHintsState } from '@/data/core';
 
-// Persisted first-run onboarding state (the orientation and What's New
-// guides), kept in app.json by both the desktop and `studio ui`. Read once
-// and kept forever — writes are rare and go through the optimistic mutation
-// below.
+// Guide progress and first-use tips are shared by Desktop and `studio ui`.
+// Writes are rare and update this cache optimistically.
 
 const ONBOARDING_HINTS_QUERY_KEY = [ 'onboarding-hints' ] as const;
 
@@ -25,8 +23,7 @@ export function useSetOnboardingHints() {
 	return useMutation( {
 		mutationFn: ( partial: Partial< OnboardingHintsState > ) =>
 			connector.setOnboardingHints( partial ),
-		// Optimistic so the UI reacts immediately; the connector write is the
-		// source of truth on next launch.
+		onError: () => queryClient.invalidateQueries( { queryKey: ONBOARDING_HINTS_QUERY_KEY } ),
 		onMutate: ( partial ) => {
 			queryClient.setQueryData(
 				ONBOARDING_HINTS_QUERY_KEY,

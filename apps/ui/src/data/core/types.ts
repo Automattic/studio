@@ -678,6 +678,7 @@ export interface OnboardingHintsState {
 	migratedFromClassic?: boolean;
 	// WHATS_NEW_VERSION of the What's New guide the user last saw.
 	whatsNewSeenVersion?: number;
+	annotateHintDismissed?: boolean;
 }
 
 export type { SiteAgentFile, SiteAgentFileKind };

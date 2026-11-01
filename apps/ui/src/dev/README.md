@@ -12,3 +12,5 @@ It opens http://localhost:5300, which links to each page:
 - `/animation.html`: the preview loading animation, active, still, easing and the selection wave.
 
 Each page shows light and dark side by side, or one scheme from the header. To add a page, add `<name>.html` next to `index.html`, an entry here that imports the theme CSS first and calls `renderPlayground`, a link in `playground.html`, and the entry to `knip.json`.
+
+- `/annotate-tip.html`: accent feature announcements and a two-step walkthrough, with optional badges and footer actions in light and dark.

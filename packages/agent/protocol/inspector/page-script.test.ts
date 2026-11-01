@@ -87,6 +87,28 @@ describe( 'annotation inspector', () => {
 		expect( events().at( -1 ) ).toMatchObject( { type: 'edit', id: 'n1' } );
 	} );
 
+	it( 'keeps marker colors separate from the selection highlight and supports older hosts', () => {
+		mount();
+		publish( {
+			accent: '#aabbff',
+			onAccent: '#141414',
+			markerAccent: '#3858e9',
+			onMarkerAccent: '#ffffff',
+		} );
+		const host = document.getElementById( '__studio-inspector-host' ) as HTMLElement;
+		expect( host.style.getPropertyValue( '--accent' ) ).toBe( '#aabbff' );
+		expect( host.style.getPropertyValue( '--on-accent' ) ).toBe( '#ffffff' );
+		expect( decodeURIComponent( host.style.getPropertyValue( '--marker' ) ) ).toContain(
+			'fill="#3858e9"'
+		);
+
+		publish( { accent: '#3858e9', onAccent: '#ffffff' } );
+		expect( host.style.getPropertyValue( '--on-accent' ) ).toBe( '#ffffff' );
+		expect( decodeURIComponent( host.style.getPropertyValue( '--marker' ) ) ).toContain(
+			'fill="#3858e9"'
+		);
+	} );
+
 	it.each( [ 0, -20 ] )( 'keeps the highlight flush with the viewport at x=%s', ( left ) => {
 		document.body.innerHTML = '<header>Welcome</header>';
 		const header = document.querySelector( 'header' ) as HTMLElement;

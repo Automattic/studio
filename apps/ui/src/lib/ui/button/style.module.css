@@ -119,10 +119,14 @@
 	}
 
 	.button[data-variant='accent'] {
-		--button-hover-background: var( --accent-hover );
+		--button-hover-background: var( --accent-solid-hover );
 
-		--button-background: var( --accent );
-		color: var( --accent-foreground );
+		--button-background: var( --accent-solid );
+		color: var( --accent-solid-foreground );
+	}
+
+	.button[data-variant='accent']:not( :focus-visible, :disabled, [data-disabled] ) {
+		box-shadow: var( --accent-inset-shadow );
 	}
 
 	.button[data-variant='destructive'] {

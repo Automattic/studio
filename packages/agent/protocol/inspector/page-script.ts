@@ -238,9 +238,9 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 			state = e.detail;
 			if (!state.active) hovered = null;
 			host.style.setProperty('--accent', state.accent);
-			host.style.setProperty('--on-accent', state.onAccent);
+			host.style.setProperty('--on-accent', state.onMarkerAccent || state.onAccent);
 			host.style.setProperty('--marker-font-family', state.fontFamily || 'system-ui');
-			host.style.setProperty('--marker', art(state.accent, state.onAccent));
+			host.style.setProperty('--marker', art(state.markerAccent || state.accent, state.onMarkerAccent || state.onAccent));
 			host.style.setProperty('--motion-duration-surface', state.motionDuration || '180ms');
 			host.style.setProperty('--motion-ease-enter', state.motionEasing || 'cubic-bezier(.165,.84,.44,1)');
 			cursorStyle.textContent = state.active ? '*{cursor:crosshair!important}' : '';

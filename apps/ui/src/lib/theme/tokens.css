@@ -37,6 +37,7 @@
 
 	--ring: var( --accent-text );
 	--input-ring: color-mix( in oklab, var( --surface-4 ), var( --foreground ) 20% );
+	--input-focus-border: color-mix( in oklab, var( --surface-4 ), var( --foreground ) 25% );
 
 	--primary: oklch( 0.2 0 0 );
 	--primary-hover: var( --foreground );
@@ -57,6 +58,11 @@
 	--accent-surface-muted-foreground: color-mix( in srgb, var( --accent-foreground ) 80%, var( --accent ) );
 	--accent-text: var( --accent );
 	--accent-text-hover: var( --accent );
+	--accent-solid: var( --accent-solid-fill, oklch( 0.530598 0.220974 var( --accent-hue ) ) );
+	--accent-solid-foreground: #fff;
+	--accent-solid-hover: oklch( from var( --accent-solid ) calc( l + 0.03 ) c h );
+	--accent-inset-color: color-mix( in oklab, var( --accent-solid-foreground ) 20%, transparent );
+	--accent-inset-shadow: inset 0 0 0 0.5px var( --accent-inset-color );
 
 	--success: #008a20;
 	--warning: #996800;
@@ -171,6 +177,7 @@
 /* prettier-ignore */
 [data-color-scheme='dark'] {
 	color-scheme: dark;
+	--input-focus-border: color-mix( in oklab, var( --surface-4 ), var( --foreground ) 40% );
 	--surface-offset: 3%;
 	--surface-step: calc( 10% + var( --contrast, 0 ) * 0.033333% );
 	--surface-0: oklch( from #181818 calc( l - var( --contrast, 0 ) * 0.0006 ) calc( var( --tint-intensity, 0 ) * 0.00025 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );

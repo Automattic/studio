@@ -1,4 +1,5 @@
 import { clsx } from 'clsx';
+import { inputFocusHandlers } from '@/lib/ui/input/focus';
 import styles from './style.module.css';
 import type { ComponentProps } from 'react';
 
@@ -21,6 +22,7 @@ export function Textarea( {
 			data-sizing={ sizing }
 			className={ clsx( styles.textarea, className ) }
 			{ ...props }
+			{ ...inputFocusHandlers< HTMLTextAreaElement >( props ) }
 		/>
 	);
 }

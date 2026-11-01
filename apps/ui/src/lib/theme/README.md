@@ -24,6 +24,8 @@ Use `--hover` for neutral hovered, pressed, expanded and selected button or row 
 
 Floating surfaces set `--surface` to `--popover` and use `--popover-border` for their opaque outline.
 
+Filled accent buttons, feature popovers and annotation markers use `--accent-solid` with `--accent-solid-foreground`. This pair keeps the light scheme's contrast-adjusted accent and white foreground in both schemes. Buttons and feature popovers share `--accent-inset-shadow`; the popover arrow uses its `--accent-inset-color`. Text, icons, focus rings and subtle accent states keep using the scheme-aware `--accent-text` and `--accent` tokens.
+
 ## Constraints
 
 - The two stylesheets are imported once, by the app entries, before anything else.

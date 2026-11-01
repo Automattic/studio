@@ -392,7 +392,10 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			return;
 		}
 		event.preventDefault();
-		textareaRef.current?.focus();
+		if ( textareaRef.current ) {
+			textareaRef.current.dataset.pointerFocus = '';
+			textareaRef.current.focus();
+		}
 	}, [] );
 
 	const showStop = ! isField && busy && ( sending || ! hasContent );

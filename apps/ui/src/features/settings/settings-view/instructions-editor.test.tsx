@@ -44,6 +44,18 @@ describe( 'Agent instructions editor', () => {
 		expect( connector.saveAgentInstructions ).not.toHaveBeenCalled();
 	} );
 
+	it( 'uses pointer focus when clicking its label and keyboard focus when tabbing back', async () => {
+		const { user } = await setup();
+		const textbox = screen.getByRole( 'textbox', { name: 'WordPress Studio instructions' } );
+		await user.click( screen.getByText( 'WordPress Studio instructions' ) );
+		expect( textbox ).toHaveFocus();
+		expect( textbox ).toHaveAttribute( 'data-pointer-focus' );
+		await user.tab();
+		await user.tab( { shift: true } );
+		expect( textbox ).toHaveFocus();
+		expect( textbox ).not.toHaveAttribute( 'data-pointer-focus' );
+	} );
+
 	it( 'flushes a pending edit with its edit session when the panel closes mid-debounce', async () => {
 		const { connector, type, unmount } = await setup();
 		type( 'Half-typed thought' );

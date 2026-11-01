@@ -48,25 +48,6 @@
 					}
 				}
 			],
-			"capture": {
-				"target": [
-					{
-						"role": "menu",
-						"name": "{{account.name}}"
-					},
-					{
-						"role": "button",
-						"name": "{{account.name}}",
-						"exact": true
-					},
-					{
-						"role": "button",
-						"name": "Add site",
-						"first": true
-					}
-				],
-				"pad": 24
-			},
 			"after": [
 				{
 					"press": "Escape"
@@ -146,14 +127,7 @@
 				{
 					"wait": 1000
 				}
-			],
-			"capture": {
-				"target": {
-					"role": "complementary",
-					"name": "Site preview"
-				},
-				"pad": 0
-			}
+			]
 		},
 		{
 			"name": "annotate-note",
@@ -211,11 +185,6 @@
 				}
 			],
 			"capture": {
-				"target": {
-					"role": "complementary",
-					"name": "Site preview"
-				},
-				"pad": 0,
 				"keepMouse": true
 			},
 			"after": [

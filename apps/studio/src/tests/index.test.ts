@@ -113,6 +113,7 @@ function mockElectron() {
 				setName: vi.fn(),
 				setAsDefaultProtocolClient: vi.fn(),
 				enableSandbox: vi.fn(),
+				commandLine: { hasSwitch: vi.fn().mockReturnValue( false ) },
 				setAppLogsPath: vi.fn(),
 				getLocale: vi.fn().mockReturnValue( 'en-US' ),
 				getSystemLocale: vi.fn().mockReturnValue( 'en-US' ),
@@ -177,6 +178,27 @@ afterAll( () => {
 } );
 
 describe( 'App initialization', () => {
+	it( 'sandboxes every renderer', async () => {
+		mockElectron();
+		vi.resetModules();
+		const { app } = await import( 'electron' );
+		await import( '../index' );
+
+		expect( app.enableSandbox ).toHaveBeenCalled();
+	} );
+
+	it( 'leaves the sandbox off when started with --no-sandbox, as root in a container', async () => {
+		mockElectron();
+		vi.resetModules();
+		const { app } = await import( 'electron' );
+		vi.mocked( app.commandLine.hasSwitch ).mockImplementation(
+			( name: string ) => name === 'no-sandbox'
+		);
+		await import( '../index' );
+
+		expect( app.enableSandbox ).not.toHaveBeenCalled();
+	} );
+
 	it( 'should identify YouTube embed requests with the Studio referrer', async () => {
 		const { mockedEvents } = mockElectron();
 		vi.resetModules();

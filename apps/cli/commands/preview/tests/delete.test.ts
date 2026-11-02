@@ -49,7 +49,7 @@ vi.mock( 'cli/logger', () => ( {
 } ) );
 
 describe( 'Preview Delete Command', () => {
-	const mockSiteUrl = 'test-preview.example.com';
+	const mockSiteUrl = 'test-preview.wp.build';
 	const mockAtomicSiteId = 12345;
 	const mockAuthToken = {
 		accessToken: 'mock-auth-token',

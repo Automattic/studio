@@ -17,7 +17,7 @@
 .actions {
 	display: flex;
 	align-items: center;
-	gap: var( --space-3 );
+	gap: var( --space-2 );
 }
 
 .hidden {
@@ -26,6 +26,9 @@
 
 /* The setting picked from the search results. */
 .content :global( [data-settings-match] ) {
+	--foreground: var( --accent-text );
+	--muted-foreground: var( --accent-text );
+	color: var( --accent-text );
 	position: relative;
 	isolation: isolate;
 }

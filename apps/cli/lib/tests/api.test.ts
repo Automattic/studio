@@ -301,9 +301,10 @@ describe( 'API Module', () => {
 			vi.mocked( fetch ).mockResolvedValue( {
 				ok: true,
 				json: vi.fn().mockResolvedValue( {
+					// As WordPress.com's Jetpack proxy relays the site's WP_Error.
 					code: 409,
 					body: {
-						code: 'jetpack_reprint_no_credential',
+						error: 'jetpack_reprint_no_credential',
 						message: 'Install a public key first.',
 						data: { status: 409 },
 					},

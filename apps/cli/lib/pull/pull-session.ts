@@ -23,6 +23,16 @@ export interface PullSession {
 	runtimeBlueprintPath: string;
 }
 
+/**
+ * Whether a file belongs to the tree a pulled site's host manages outside the docroot (on
+ * WordPress.com, `/wordpress`: core and the managed plugins and themes). The pulled site links
+ * to these files; the host already has them.
+ */
+export function isHostManagedPullFile( realPath: string ): boolean {
+	const relative = path.relative( PULLS_ROOT, realPath ).split( path.sep );
+	return relative.length > 3 && relative[ 1 ] === 'raw' && relative[ 2 ] === 'wordpress';
+}
+
 // Keyed by site rather than remote, so the files follow the local site.
 function getPullTechnicalDirectory( siteId: string ): string {
 	return path.join( PULLS_ROOT, siteId );

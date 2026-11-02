@@ -364,11 +364,85 @@ describe( 'Studio workspace', () => {
 		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
 	} );
 
+	it.each( [ 'thumbnail', 'composer' ] as const )(
+		'reveals a hidden preview when starting with the %s',
+		async ( control ) => {
+			const { connector } = setup( {
+				signedIn: true,
+				path: '/sites/one/new',
+				overrides: { getSiteThumbnail: async () => 'data:image/png;base64,eA==' },
+			} );
+			const input = await findComposer();
+			await paletteCommand( 'Hide preview' );
+			const play =
+				control === 'thumbnail'
+					? await screen.findByRole( 'button', { name: 'Start from preview' } )
+					: within( input.closest( '[role="group"]' )! ).getByRole( 'button', {
+							name: 'Start site',
+					  } );
+			fireEvent.click( play );
+			await waitFor( () => expect( connector.startSite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );
+			await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
+			fireEvent.load( document.querySelector( 'iframe' )! );
+			expect( await screen.findByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
+			expect( composer() ).toBe( input );
+			expect( connector.createSession ).not.toHaveBeenCalled();
+		}
+	);
+
+	it( 'opens the preview over chat when starting from the composer on a narrow screen', async () => {
+		const matchMedia = window.matchMedia.bind( window );
+		const mediaSpy = vi.spyOn( window, 'matchMedia' ).mockImplementation( ( query ) => ( {
+			...matchMedia( query ),
+			matches: query === '(max-width: 540px)',
+		} ) );
+		try {
+			const { connector } = setup( { signedIn: true, path: '/sites/one/new' } );
+			const input = await findComposer();
+			fireEvent.click(
+				within( input.closest( '[role="group"]' )! ).getByRole( 'button', { name: 'Start site' } )
+			);
+			await waitFor( () => expect( connector.startSite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );
+			await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
+			fireEvent.load( document.querySelector( 'iframe' )! );
+			expect( await screen.findByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
+			await waitFor( () =>
+				expect(
+					screen.queryByRole( 'combobox', { name: 'Message WordPress Studio' } )
+				).not.toBeInTheDocument()
+			);
+			expect( screen.getByRole( 'button', { name: 'Open chat' } ) ).toBeVisible();
+		} finally {
+			mediaSpy.mockRestore();
+		}
+	} );
+
+	it( 'keeps a full-width site preview open when starting from its thumbnail', async () => {
+		const { connector, history } = setup( {
+			signedIn: true,
+			path: '/sites/one',
+			overrides: { getSiteThumbnail: async () => 'data:image/png;base64,eA==' },
+		} );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Start from preview' } ) );
+		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );
+		await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
+		fireEvent.load( document.querySelector( 'iframe' )! );
+		expect( await screen.findByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
+		expect( history.location.pathname ).toBe( '/sites/one' );
+		expect(
+			screen.queryByRole( 'combobox', { name: 'Message WordPress Studio' } )
+		).not.toBeInTheDocument();
+	} );
+
 	it( 'keeps manual startup available when AI needs setup', async () => {
 		setup();
 		expect( await screen.findByRole( 'button', { name: 'Start My site' } ) ).toBeEnabled();
 		expect( await findComposer() ).toBeEnabled();
-		expect( screen.getByRole( 'button', { name: 'Send message' } ) ).toBeDisabled();
+		expect(
+			within( composer().closest( '[role="group"]' )! ).getByRole( 'button', {
+				name: 'Start site',
+			} )
+		).toBeEnabled();
 		expect( screen.queryByRole( 'button', { name: 'Close chat' } ) ).not.toBeInTheDocument();
 	} );
 
@@ -880,7 +954,9 @@ describe( 'Studio workspace', () => {
 		expect(
 			within( screen.getByRole( 'banner' ) ).getByRole( 'button', { name: 'Start site' } )
 		).toBeVisible();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Start site' } ) );
+		fireEvent.click(
+			within( screen.getByRole( 'banner' ) ).getByRole( 'button', { name: 'Start site' } )
+		);
 		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
 		await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
 		fireEvent.load( document.querySelector( 'iframe' )! );

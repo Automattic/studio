@@ -68,19 +68,5 @@ export function applyTheme( colorScheme: 'light' | 'dark', tint: Partial< ColorT
 	applyColorTint( tint, root );
 }
 
-/** The accent fill a tint would get in the current color scheme. */
-export function previewAccentColor( tint: Partial< ColorTint > ): string {
-	const preview = document.createElement( 'span' );
-	preview.dataset.colorScheme = document.documentElement.dataset.colorScheme ?? 'light';
-	preview.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none';
-	document.documentElement.append( preview );
-	try {
-		applyColorTint( tint, preview );
-		return preview.style.getPropertyValue( '--accent-fill' ) || getColorTint( tint ).accentColor;
-	} finally {
-		preview.remove();
-	}
-}
-
 export { getMotionDuration } from './motion';
 export { getEmbeddedFontData } from './embedded-font';

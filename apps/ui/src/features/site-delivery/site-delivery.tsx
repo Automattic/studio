@@ -177,6 +177,7 @@ export function SiteDeliveryDialog( {
 			) : null }
 			<AccountPromptDialog
 				open={ open && signedOut }
+				showStudioIcon={ false }
 				onOpenChange={ setOpen }
 				finalFocus={ finalFocus }
 				title={ tab === 'share' ? __( 'Share your WordPress' ) : __( 'Publish your WordPress' ) }

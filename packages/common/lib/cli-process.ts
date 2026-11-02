@@ -344,11 +344,19 @@ export function runCliCommand< T >(
 	execute: ExecuteCliCommand,
 	args: string[],
 	schema: z.ZodType< T >,
-	options: { logPrefix?: string; onProgress?: ( message: string ) => void } = {}
+	options: {
+		logPrefix?: string;
+		env?: NodeJS.ProcessEnv;
+		onProgress?: ( message: string ) => void;
+	} = {}
 ): Promise< T > {
 	return new Promise( ( resolve, reject ) => {
 		let result: z.ZodSafeParseResult< T > | undefined;
-		const [ emitter ] = execute( args, { output: 'capture', logPrefix: options.logPrefix } );
+		const [ emitter ] = execute( args, {
+			output: 'capture',
+			logPrefix: options.logPrefix,
+			env: options.env,
+		} );
 		const settle = () => {
 			if ( result?.success ) {
 				resolve( result.data );

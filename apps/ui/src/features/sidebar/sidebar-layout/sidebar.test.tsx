@@ -132,17 +132,17 @@ describe( 'overlay sidebar', () => {
 
 	it( 'overlays the content below the docking width', async () => {
 		localStorage.setItem( SIDEBAR_PANEL_STORAGE_KEY, '320' );
-		resize( 935 );
+		resize( 975 );
 		await setup();
 		expect( toggle() ).toHaveAccessibleName( 'Show sidebar' );
 		fireEvent.click( toggle() );
 		expect( screen.queryByRole( 'separator', { name: 'Resize sidebar' } ) ).not.toBeInTheDocument();
-		resize( 936 );
+		resize( 976 );
 		expect( screen.queryByRole( 'separator', { name: 'Resize sidebar' } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'dialog', { name: 'Sidebar' } ) ).toBeInTheDocument();
 		fireEvent.click( toggle() );
 		expect( handle() ).toHaveAttribute( 'aria-valuenow', '256' );
-		resize( 935 );
+		resize( 975 );
 		expect( toggle() ).toHaveAccessibleName( 'Show sidebar' );
 	} );
 
@@ -163,7 +163,7 @@ describe( 'overlay sidebar', () => {
 		await waitFor( () => expect( toggle() ).toHaveFocus() );
 	} );
 
-	it( 'focuses its first item on open and closes after a site pick', async () => {
+	it( 'focuses its first item on open and stays open after toggling a site', async () => {
 		resize( 800 );
 		renderApp( {
 			connector: createFakeConnector( { sites: [ makeSite( { name: 'My site' } ) ] } ),
@@ -178,7 +178,7 @@ describe( 'overlay sidebar', () => {
 			} )
 		);
 		fireEvent.click( await within( sidebar ).findByRole( 'button', { name: /^My site/ } ) );
-		expect( screen.queryByRole( 'button', { name: 'Close sidebar' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Close sidebar' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'does not replace a saved closed preference when opened with the keyboard', async () => {

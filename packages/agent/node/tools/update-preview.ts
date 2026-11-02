@@ -1,4 +1,5 @@
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
+import { getSnapshotLink } from '@studio/common/lib/snapshots';
 import { Type } from 'typebox';
 import { defineTool, REMOTE_OVERWRITE } from './define-tool';
 import { runPreviewCommand } from './preview-helpers';
@@ -28,7 +29,9 @@ export const updatePreviewTool = defineTool(
 				args.overwrite ?? false,
 				context.onProgress
 			);
-			return `Preview site "${ preview.name }" updated from "${ site.name }": https://${ preview.url }`;
+			return `Preview site "${ preview.name }" updated from "${ site.name }": ${ getSnapshotLink(
+				preview
+			) }`;
 		}, 'Failed to update preview site' );
 	},
 	{

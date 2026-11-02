@@ -104,6 +104,7 @@ function initialFormData( site: SiteDetails, installedWpVersion?: string ): Form
 }
 
 const FORM_ID = 'site-settings-form';
+const AUTO_UPDATE_SELECT_VALUE = 'auto-update';
 
 type TextKey = 'name' | 'customDomain' | 'adminUsername' | 'adminPassword' | 'adminEmail';
 type ToggleKey =
@@ -337,10 +338,23 @@ export function SiteSettingsForm( {
 					{ ...control }
 					size="sm"
 					aria-label={ title }
-					value={ data[ key ] }
-					options={ options }
+					value={
+						key === 'wpVersion' && data[ key ] === '' ? AUTO_UPDATE_SELECT_VALUE : data[ key ]
+					}
+					options={
+						key === 'wpVersion'
+							? options.map( ( option ) => ( {
+									...option,
+									value: option.value === '' ? AUTO_UPDATE_SELECT_VALUE : option.value,
+							  } ) )
+							: options
+					}
 					disabled={ disabled || locked }
-					onChange={ ( value ) => handleChange( { [ key ]: value } ) }
+					onChange={ ( value ) =>
+						handleChange( {
+							[ key ]: key === 'wpVersion' && value === AUTO_UPDATE_SELECT_VALUE ? '' : value,
+						} )
+					}
 				/>
 			) }
 		</SettingsRow>
@@ -360,9 +374,7 @@ export function SiteSettingsForm( {
 			<>
 				<ConnectionCard />
 				<SettingsGroup>
-					{ textRow( 'name', __( 'Site name' ), __( 'Name shown in WordPress Studio.' ), {
-						action: copyButton( 'name', __( 'Copy site name' ) ),
-					} ) }
+					{ textRow( 'name', __( 'Site name' ), __( 'Name shown in WordPress Studio.' ) ) }
 					<SettingsRow
 						title={ __( 'Local path' ) }
 						description={ __( 'Where this site’s files are stored.' ) }
@@ -376,7 +388,6 @@ export function SiteSettingsForm( {
 									title={ site.path }
 									readOnly
 								/>
-								<CopyButton text={ site.path } label={ __( 'Copy local path' ) } size="icon" />
 							</div>
 						) }
 					</SettingsRow>
@@ -603,7 +614,7 @@ export function SiteSettingsForm( {
 							<Button
 								type="submit"
 								form={ FORM_ID }
-								variant={ canSubmit ? 'default' : 'outline' }
+								variant={ canSubmit ? 'accent' : 'outline' }
 								size="header"
 								disabled={ ! canSubmit }
 								loading={ updateSite.isPending }

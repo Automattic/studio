@@ -43,6 +43,7 @@ import {
 	ExternalLinkIcon,
 	GlobeIcon,
 	MailIcon,
+	NewChatIcon,
 	PinIcon,
 	RenameIcon,
 	RotateCwIcon,
@@ -98,7 +99,7 @@ export function useSiteActions(
 		void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'settings' } );
 		openSettings( 'site', site.id, focus );
 	};
-	const rename = () => openSiteSettings( __( 'Site name' ) );
+	const rename = () => openSiteSettings( 'site-name' );
 	const togglePinned = () => togglePin( sitePinKey( site.id ) );
 	const toggleRunning = () => {
 		if ( site.running ) {
@@ -133,6 +134,11 @@ export function useSiteActions(
 		running,
 		othersRunning,
 		shortcuts,
+		newChat: () => {
+			onOpen?.();
+			preview.setChatHidden( false, site.id );
+			void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+		},
 		openSiteSettings: () => openSiteSettings(),
 		rename,
 		pinned: isPinned( sitePinKey( site.id ) ),
@@ -215,6 +221,10 @@ export function SiteMenuItems( {
 
 	return (
 		<div className={ styles.items }>
+			<Menu.Item onClick={ actions.newChat }>
+				<NewChatIcon />
+				{ __( 'New chat' ) }
+			</Menu.Item>
 			<Menu.Item onClick={ actions.openSiteSettings }>
 				<SiteSettingsIcon />
 				{ __( 'Settings' ) }
@@ -266,7 +276,7 @@ export function SiteMenuItems( {
 			<Menu.SubmenuRoot>
 				<Menu.SubmenuTrigger disabled={ busy }>
 					<ArrowRightIcon />
-					{ __( 'Go to' ) }
+					{ __( 'Tools' ) }
 				</Menu.SubmenuTrigger>
 				<Menu.SubmenuPopup>
 					<Menu.Item onClick={ actions.openAdmin }>

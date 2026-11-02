@@ -57,7 +57,7 @@ export async function startPulledSite(
 			if ( runningProcess ) {
 				await stopWordPressServer( site.id );
 			}
-			await startWordPressServer( site, logger, runtimeStartOptions );
+			await startWordPressServer( site, logger, 'pull_reprint', runtimeStartOptions );
 			logger.reportSuccess( __( 'WordPress server restarted' ) );
 			return;
 		}
@@ -74,7 +74,7 @@ export async function startPulledSite(
 				await updateSiteLatestCliPid( site.id, runningProcess.pid );
 			}
 		} else {
-			await startWordPressServer( site, logger, runtimeStartOptions );
+			await startWordPressServer( site, logger, 'pull_reprint', runtimeStartOptions );
 			logger.reportSuccess( __( 'WordPress server started' ) );
 		}
 	} catch ( serverError ) {

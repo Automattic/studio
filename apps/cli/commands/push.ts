@@ -7,7 +7,6 @@ import {
 } from '@studio/common/lib/connected-sites';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { formatProgressLabel } from '@studio/common/lib/progress-label';
-import { readAuthToken } from '@studio/common/lib/shared-config';
 import { buildSyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
 import {
 	SYNC_IGNORE_DEFAULTS,
@@ -31,6 +30,7 @@ import { selectSyncItemsForPush } from 'cli/lib/sync-selector';
 import { findSyncSiteByIdentifier, pickSyncSite } from 'cli/lib/sync-site-picker';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { findFailureCode } from 'cli/lib/utils';
+import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { handleExportEvents } from './export';
 import type { SyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
@@ -104,14 +104,7 @@ async function runPush(
 ): Promise< void > {
 	let remoteSite: SyncSite | undefined;
 
-	const token = await readAuthToken();
-	if ( ! token ) {
-		throw new LoggerError(
-			__( 'Authentication required. Please log in with `studio auth login`.' ),
-			undefined,
-			'auth'
-		);
-	}
+	const token = await requireAuthToken( 'auth' );
 
 	logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
 	const site = await getSiteByFolder( siteFolder );

@@ -7,7 +7,7 @@
 		{
 			"name": "blog-settings-appearance",
 			"description": "Settings → Appearance, signed in: Theme, Color, Intensity and Contrast over the bakery (the 2026 workspace announcement)",
-			"pages": [],
+			"meta": { "pages": [] },
 			"steps": [
 				{ "click": { "role": "button", "name": "Settings", "exact": true, "first": true } },
 				{ "waitFor": { "role": "tablist", "name": "Settings scope" } },

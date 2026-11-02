@@ -664,22 +664,8 @@
 						"description": "Shows something only Studio Desktop has; skipped with the browser driver",
 						"type": "boolean"
 					},
-					"pages": {
-						"description": "Docs pages that use the shot",
-						"type": "array",
-						"items": {
-							"type": "string"
-						}
-					},
-					"replaces": {
-						"description": "Uploads the shot replaces",
-						"type": "array",
-						"items": {
-							"type": "string"
-						}
-					},
 					"meta": {
-						"description": "Passed through to results",
+						"description": "Anything for whoever reads the results, passed through to them (the docs keep the pages that use a shot here)",
 						"type": "object",
 						"propertyNames": {
 							"type": "string"

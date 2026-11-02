@@ -186,9 +186,12 @@ export const Shot = z
 			.boolean()
 			.optional()
 			.describe( 'Shows something only Studio Desktop has; skipped with the browser driver' ),
-		pages: z.array( z.string() ).optional().describe( 'Docs pages that use the shot' ),
-		replaces: z.array( z.string() ).optional().describe( 'Uploads the shot replaces' ),
-		meta: z.record( z.string(), z.unknown() ).optional().describe( 'Passed through to results' ),
+		meta: z
+			.record( z.string(), z.unknown() )
+			.optional()
+			.describe(
+				'Anything for whoever reads the results, passed through to them (the docs keep the pages that use a shot here)'
+			),
 	} )
 	.strict();
 export type Shot = z.infer< typeof Shot >;

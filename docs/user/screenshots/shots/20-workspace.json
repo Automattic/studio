@@ -6,8 +6,7 @@
 		{
 			"name": "main-window-signed-out",
 			"description": "Main window, signed out: sidebar, Studio Code chat, and the site preview",
-			"pages": [ "index.md", "studio-code/index.md" ],
-			"replaces": [ "2024/04/main-window-signed-out.png" ],
+			"meta": { "pages": [ "index.md", "studio-code/index.md" ], "replaces": [ "2024/04/main-window-signed-out.png" ] },
 			"steps": [
 				{
 					"waitFor": {
@@ -52,7 +51,7 @@
 		{
 			"name": "command-palette",
 			"description": "Command palette (⌘K)",
-			"pages": [ "index.md" ],
+			"meta": { "pages": [ "index.md" ] },
 			"steps": [
 				{
 					"press": "ControlOrMeta+K"
@@ -86,8 +85,7 @@
 		{
 			"name": "preview-destinations",
 			"description": "Site preview address bar shortcuts: Front end / WordPress Admin / Database",
-			"pages": [ "sites.md", "debugging/index.md", "frequently-asked-questions.md" ],
-			"replaces": [ "2026/04/preview-destinations.png" ],
+			"meta": { "pages": [ "sites.md", "debugging/index.md", "frequently-asked-questions.md" ], "replaces": [ "2026/04/preview-destinations.png" ] },
 			"steps": [
 				{
 					"click": {
@@ -139,7 +137,7 @@
 		{
 			"name": "design-system",
 			"description": "Site preview → Design system: the demo site’s DESIGN.md as colors, type, components and guidelines",
-			"pages": [ "studio-code/index.md" ],
+			"meta": { "pages": [ "studio-code/index.md" ] },
 			"steps": [
 				{
 					"click": {
@@ -205,7 +203,7 @@
 		{
 			"name": "responsive-mode-presets",
 			"description": "Responsive mode: the device menu open, with Responsive and the device sizes",
-			"pages": [ "sites.md" ],
+			"meta": { "pages": [ "sites.md" ] },
 			"steps": [
 				{
 					"click": {
@@ -279,7 +277,7 @@
 		{
 			"name": "responsive-mode",
 			"description": "Responsive mode at a phone size (iPhone 17), with the responsive toolbar above the preview",
-			"pages": [ "sites.md" ],
+			"meta": { "pages": [ "sites.md" ] },
 			"steps": [
 				{
 					"click": {
@@ -323,8 +321,7 @@
 		{
 			"name": "site-status-button",
 			"description": "Sidebar site row with its Stop button and tooltip",
-			"pages": [ "sites.md" ],
-			"replaces": [ "2025/01/site-status-tooltip.png" ],
+			"meta": { "pages": [ "sites.md" ], "replaces": [ "2025/01/site-status-tooltip.png" ] },
 			"steps": [
 				{
 					"hover": {
@@ -363,8 +360,7 @@
 		{
 			"name": "site-stopped",
 			"description": "A stopped site: Start button in the sidebar and the saved preview image",
-			"pages": [ "sites.md" ],
-			"replaces": [ "2025/01/site-stopped.png" ],
+			"meta": { "pages": [ "sites.md" ], "replaces": [ "2025/01/site-stopped.png" ] },
 			"steps": [
 				{
 					"click": {

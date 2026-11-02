@@ -6,16 +6,15 @@
 	"shots": [
 		{
 			"description": "WordPress.com authorization screen with Approve, opened by Log in",
-			"pages": [ "index.md" ]
+			"meta": { "pages": [ "index.md" ] }
 		},
 		{
 			"description": "Browser prompt to open the Studio app after approving the login",
-			"pages": [ "index.md" ]
+			"meta": { "pages": [ "index.md" ] }
 		},
 		{
 			"description": "Studio Code chat for a selected site, with a reply in the transcript",
-			"pages": [ "studio-code/index.md" ],
-			"replaces": [ "2026/04/studio-code.png" ]
+			"meta": { "pages": [ "studio-code/index.md" ], "replaces": [ "2026/04/studio-code.png" ] }
 		}
 	]
 }

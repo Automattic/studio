@@ -30,7 +30,7 @@ Commands:
 Inputs:
   --scene <name|file>     Scene to open on (default: the script's, else ${ DEFAULT_SCENE })
   --blueprint <file|url>  A one-site scene made from a Blueprint, instead of --scene
-  --look <name|file>      Look to capture with (default: the script's, else docs)
+  --look <name|file>      Look to capture with (default: the script's, else plain)
   --background <bg>       Frame on another background: dots-light, dots-dark, a color
   --persona <name|file>   Demo person signed-in scripts sign in as (default: maya-okafor)
   --signed-in             Sign every script in (capture, check, record), as --persona

@@ -13,8 +13,7 @@
 		{
 			"name": "settings-general",
 			"description": "Settings dialog, App scope → General (language, default code editor, browser and terminal, …)",
-			"pages": [ "sites.md" ],
-			"replaces": [ "2025/01/app-settings.png" ],
+			"meta": { "pages": [ "sites.md" ], "replaces": [ "2025/01/app-settings.png" ] },
 			"steps": [
 				{
 					"click": {
@@ -53,8 +52,7 @@
 			"name": "settings-studio-cli",
 			"description": "Settings → General → Studio CLI for terminal",
 			"desktopOnly": true,
-			"pages": [ "cli.md" ],
-			"replaces": [ "2025/05/app-settings-account.png" ],
+			"meta": { "pages": [ "cli.md" ], "replaces": [ "2025/05/app-settings-account.png" ] },
 			"steps": [
 				{
 					"scrollTo": {
@@ -73,8 +71,7 @@
 		{
 			"name": "settings-ai-providers",
 			"description": "Settings → AI Providers (WordPress.com and Anthropic)",
-			"pages": [ "studio-code/index.md" ],
-			"replaces": [ "2026/04/app-settings-ai.png" ],
+			"meta": { "pages": [ "studio-code/index.md" ], "replaces": [ "2026/04/app-settings-ai.png" ] },
 			"steps": [
 				{
 					"click": {
@@ -99,8 +96,7 @@
 		{
 			"name": "settings-skills",
 			"description": "Settings → Skills",
-			"pages": [ "agent-skills-wordpress-studio.md" ],
-			"replaces": [ "2026/04/app-settings-skills.png" ],
+			"meta": { "pages": [ "agent-skills-wordpress-studio.md" ], "replaces": [ "2026/04/app-settings-skills.png" ] },
 			"steps": [
 				{
 					"click": {
@@ -125,8 +121,7 @@
 		{
 			"name": "settings-mcp",
 			"description": "Settings → MCP (install instructions and MCP configuration)",
-			"pages": [ "mcp-on-studio.md" ],
-			"replaces": [ "2026/04/app-settings-mcp.png" ],
+			"meta": { "pages": [ "mcp-on-studio.md" ], "replaces": [ "2026/04/app-settings-mcp.png" ] },
 			"steps": [
 				{
 					"click": {
@@ -151,7 +146,7 @@
 		{
 			"name": "settings-keyboard",
 			"description": "Settings → Keyboard (shortcuts)",
-			"pages": [ "index.md" ],
+			"meta": { "pages": [ "index.md" ] },
 			"steps": [
 				{
 					"click": {

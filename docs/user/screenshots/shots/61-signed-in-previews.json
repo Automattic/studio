@@ -8,8 +8,7 @@
 		{
 			"name": "share-previews",
 			"description": "Share tab with previews: the previews list with expiry dates and Create another preview",
-			"pages": [ "preview-sites.md" ],
-			"replaces": [ "2025/01/studio-new-site-preview-link.png" ],
+			"meta": { "pages": [ "preview-sites.md" ], "replaces": [ "2025/01/studio-new-site-preview-link.png" ] },
 			"steps": [
 				{
 					"click": {
@@ -41,8 +40,7 @@
 		{
 			"name": "share-preview-actions",
 			"description": "Share tab → a preview’s Preview actions menu (Update, Copy link, Visit preview, Rename, Delete preview)",
-			"pages": [ "preview-sites.md" ],
-			"replaces": [ "2025/01/studio-preview-more-actions.png" ],
+			"meta": { "pages": [ "preview-sites.md" ], "replaces": [ "2025/01/studio-preview-more-actions.png" ] },
 			"steps": [
 				{
 					"click": {

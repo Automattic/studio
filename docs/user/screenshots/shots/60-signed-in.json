@@ -7,7 +7,7 @@
 		{
 			"name": "main-window-signed-in",
 			"description": "Main window, signed in: the account menu button at the bottom of the sidebar",
-			"pages": [ "index.md" ],
+			"meta": { "pages": [ "index.md" ] },
 			"steps": [
 				{
 					"waitFor": {
@@ -32,7 +32,7 @@
 		{
 			"name": "account-menu",
 			"description": "Account menu: name, email, Settings, Appearance, AI Providers, Usage, Log out",
-			"pages": [ "index.md" ],
+			"meta": { "pages": [ "index.md" ] },
 			"steps": [
 				{
 					"click": {
@@ -57,7 +57,7 @@
 		{
 			"name": "composer-add-menu",
 			"description": "Chat box + menu, signed in: Add files, the commands, and Skills",
-			"pages": [ "studio-code/index.md" ],
+			"meta": { "pages": [ "studio-code/index.md" ] },
 			"steps": [
 				{
 					"click": {
@@ -109,7 +109,7 @@
 			"name": "annotate-toolbar",
 			"description": "Annotate: the Annotations toolbar over the site preview, with Cancel and Send",
 			"desktopOnly": true,
-			"pages": [ "studio-code/index.md" ],
+			"meta": { "pages": [ "studio-code/index.md" ] },
 			"steps": [
 				{
 					"click": {
@@ -133,7 +133,7 @@
 			"name": "annotate-note",
 			"description": "Annotate: two saved notes on the page, and a third open on the hero photo, being typed",
 			"desktopOnly": true,
-			"pages": [ "studio-code/index.md" ],
+			"meta": { "pages": [ "studio-code/index.md" ] },
 			"steps": [
 				{
 					"helper": "clickInPreview",
@@ -200,7 +200,7 @@
 			"name": "annotate-staged",
 			"description": "Annotate: two saved notes marked on the page and waiting in the chat box as \"2 annotations\", with Send in the Annotations toolbar",
 			"desktopOnly": true,
-			"pages": [ "studio-code/index.md" ],
+			"meta": { "pages": [ "studio-code/index.md" ] },
 			"steps": [],
 			"capture": {
 				"settle": 1200
@@ -214,8 +214,7 @@
 		{
 			"name": "share-create-preview",
 			"description": "Share and publish → Share, with Create preview",
-			"pages": [ "preview-sites.md" ],
-			"replaces": [ "2025/01/studio-site-new-preview-1.png" ],
+			"meta": { "pages": [ "preview-sites.md" ], "replaces": [ "2025/01/studio-site-new-preview-1.png" ] },
 			"steps": [
 				{
 					"click": {
@@ -242,7 +241,7 @@
 		{
 			"name": "publish-panel",
 			"description": "Share and publish → Publish: Existing site… and New site…",
-			"pages": [ "sync.md" ],
+			"meta": { "pages": [ "sync.md" ] },
 			"steps": [
 				{
 					"click": {
@@ -272,8 +271,7 @@
 		{
 			"name": "publish-choose-site",
 			"description": "Publish → Choose an existing site, listing the account’s WordPress.com and Pressable sites",
-			"pages": [ "sync.md" ],
-			"replaces": [ "2025/01/studio-connect-live-site.png" ],
+			"meta": { "pages": [ "sync.md" ], "replaces": [ "2025/01/studio-connect-live-site.png" ] },
 			"steps": [
 				{
 					"click": {
@@ -313,10 +311,7 @@
 		{
 			"name": "model-menu",
 			"description": "Chat box model menu: Fast, Balanced and Strong, with the AI credits remaining",
-			"pages": [
-				"studio-code/index.md",
-				"studio-code/choosing-an-ai-model-tier-in-studio-code.md"
-			],
+			"meta": { "pages": [ "studio-code/index.md", "studio-code/choosing-an-ai-model-tier-in-studio-code.md" ] },
 			"steps": [
 				{
 					"click": {
@@ -352,7 +347,7 @@
 		{
 			"name": "add-ai-credits",
 			"description": "Add AI credits: the four one-time credit amounts",
-			"pages": [ "studio-code/ai-credits-guidelines.md" ],
+			"meta": { "pages": [ "studio-code/ai-credits-guidelines.md" ] },
 			"steps": [
 				{
 					"click": {
@@ -385,7 +380,7 @@
 		{
 			"name": "settings-account",
 			"description": "Settings → General, signed in: the account row with Log out",
-			"pages": [ "index.md" ],
+			"meta": { "pages": [ "index.md" ] },
 			"steps": [
 				{
 					"click": {
@@ -423,11 +418,7 @@
 		{
 			"name": "settings-usage",
 			"description": "Settings → Usage: AI credits remaining, Add credits, and Preview sites",
-			"pages": [
-				"preview-sites.md",
-				"studio-code/index.md",
-				"studio-code/ai-credits-guidelines.md"
-			],
+			"meta": { "pages": [ "preview-sites.md", "studio-code/index.md", "studio-code/ai-credits-guidelines.md" ] },
 			"steps": [
 				{
 					"click": {
@@ -455,8 +446,7 @@
 		{
 			"name": "settings-sharing",
 			"description": "Settings → Sharing, signed in",
-			"pages": [ "preview-sites.md" ],
-			"replaces": [ "2025/01/studio-delete-all-preview-sites.png" ],
+			"meta": { "pages": [ "preview-sites.md" ], "replaces": [ "2025/01/studio-delete-all-preview-sites.png" ] },
 			"steps": [
 				{
 					"click": {
@@ -487,7 +477,7 @@
 		{
 			"name": "settings-ai-providers-signed-in",
 			"description": "Settings → AI Providers, signed in: WordPress.com connected",
-			"pages": [ "studio-code/index.md" ],
+			"meta": { "pages": [ "studio-code/index.md" ] },
 			"steps": [
 				{
 					"click": {
@@ -523,7 +513,7 @@
 		{
 			"name": "add-site-connect-signed-in",
 			"description": "Add site → Connect, signed in, listing the account’s WordPress.com and Pressable sites",
-			"pages": [ "sync.md" ],
+			"meta": { "pages": [ "sync.md" ] },
 			"steps": [
 				{
 					"click": {

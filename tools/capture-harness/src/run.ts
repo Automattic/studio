@@ -67,8 +67,6 @@ interface ShotResult {
 	error?: string;
 	// What the window showed when the shot failed.
 	failure?: string;
-	pages?: string[];
-	replaces?: string[];
 	meta?: Record< string, unknown >;
 }
 
@@ -85,7 +83,7 @@ export interface RunResult {
 		signedIn: boolean;
 	}[];
 	shots: ShotResult[];
-	manual: { script: string; description: string; pages?: string[]; replaces?: string[] }[];
+	manual: { script: string; description: string; meta?: Record< string, unknown > }[];
 	summary: {
 		new: number;
 		changed: number;
@@ -246,8 +244,7 @@ export async function runScripts( options: RunOptions ): Promise< RunResult > {
 			s.shots.map( ( shot ) => ( {
 				script: s.name,
 				description: shot.description,
-				pages: shot.pages,
-				replaces: shot.replaces,
+				meta: shot.meta,
 			} ) )
 		);
 
@@ -448,8 +445,6 @@ export async function runScripts( options: RunOptions ): Promise< RunResult > {
 						description: shot.description,
 						status: 'ok',
 						files: [],
-						pages: shot.pages,
-						replaces: shot.replaces,
 						meta: shot.meta,
 					};
 					if ( shot.desktopOnly && driver === 'browser' ) {

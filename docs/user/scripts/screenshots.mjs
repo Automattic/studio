@@ -33,8 +33,8 @@ function formatIndex( { shots, manual, studioVersion } ) {
 		...shots.map(
 			( shot ) =>
 				`| \`${ shot.name }.webp\` | ${ shot.script } | ${ shot.description } | ${ cell(
-					shot.pages
-				) } | ${ cell( shot.replaces ) } |`
+					shot.meta?.pages
+				) } | ${ cell( shot.meta?.replaces ) } |`
 		),
 	];
 	if ( failed.length ) {
@@ -56,7 +56,9 @@ function formatIndex( { shots, manual, studioVersion } ) {
 			'| --- | --- | --- |',
 			...manual.map(
 				( shot ) =>
-					`| ${ shot.description } | ${ cell( shot.pages ) } | ${ cell( shot.replaces ) } |`
+					`| ${ shot.description } | ${ cell( shot.meta?.pages ) } | ${ cell(
+						shot.meta?.replaces
+					) } |`
 			)
 		);
 	}

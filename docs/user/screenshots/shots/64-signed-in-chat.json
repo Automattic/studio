@@ -8,7 +8,7 @@
 		{
 			"name": "workspace-chat",
 			"description": "The main window with Wren & Barley pinned and a conversation polishing its home page",
-			"pages": [],
+			"meta": { "pages": [] },
 			"steps": [
 				{ "waitFor": { "role": "button", "name": "{{account.name}}", "exact": true } },
 				{

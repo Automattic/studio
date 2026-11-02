@@ -16,8 +16,7 @@
 		{
 			"name": "welcome",
 			"description": "First-run Welcome to WordPress Studio dialog",
-			"pages": [ "index.md" ],
-			"replaces": [ "2024/04/welcome.png" ],
+			"meta": { "pages": [ "index.md" ], "replaces": [ "2024/04/welcome.png" ] },
 			"steps": [
 				{
 					"waitFor": {
@@ -51,8 +50,7 @@
 		{
 			"name": "add-site",
 			"description": "Add site dialog: Create / Connect / Import, Blueprint categories, Choose a starting point",
-			"pages": [ "sites.md", "blueprints/index.md" ],
-			"replaces": [ "2025/01/add-a-site.png" ],
+			"meta": { "pages": [ "sites.md", "blueprints/index.md" ], "replaces": [ "2025/01/add-a-site.png" ] },
 			"steps": [
 				{
 					"helper": "openAddSite"
@@ -79,8 +77,7 @@
 		{
 			"name": "blueprints-library",
 			"description": "Add site → Blueprints → Business category",
-			"pages": [ "blueprints/index.md" ],
-			"replaces": [ "2025/10/blueprints-library.png" ],
+			"meta": { "pages": [ "blueprints/index.md" ], "replaces": [ "2025/10/blueprints-library.png" ] },
 			"steps": [
 				{
 					"click": {
@@ -115,8 +112,7 @@
 		{
 			"name": "blueprint-details",
 			"description": "A Blueprint’s details, with Preview in browser and Create site",
-			"pages": [ "blueprints/index.md" ],
-			"replaces": [ "2025/10/create-site-from-blueprint.png" ],
+			"meta": { "pages": [ "blueprints/index.md" ], "replaces": [ "2025/10/create-site-from-blueprint.png" ] },
 			"steps": [
 				{
 					"click": {
@@ -179,7 +175,7 @@
 		{
 			"name": "add-site-connect",
 			"description": "Add site → Connect, signed out: Connect to an existing WordPress",
-			"pages": [ "sync.md" ],
+			"meta": { "pages": [ "sync.md" ] },
 			"steps": [
 				{
 					"click": {
@@ -203,8 +199,7 @@
 		{
 			"name": "add-site-import",
 			"description": "Add site → Import: Drop a WordPress backup here / Choose file",
-			"pages": [ "import-export.md" ],
-			"replaces": [ "2025/01/add-a-site-1.png" ],
+			"meta": { "pages": [ "import-export.md" ], "replaces": [ "2025/01/add-a-site-1.png" ] },
 			"steps": [
 				{
 					"click": {
@@ -227,7 +222,7 @@
 		{
 			"name": "add-site-upload",
 			"description": "Add site → Upload: Upload a Blueprint, with its drop area and Choose file",
-			"pages": [ "blueprints/index.md" ],
+			"meta": { "pages": [ "blueprints/index.md" ] },
 			"steps": [
 				{
 					"click": {
@@ -250,7 +245,7 @@
 		{
 			"name": "create-site",
 			"description": "Create a blank site: Site name, Local path, and the WordPress and PHP versions",
-			"pages": [ "sites.md" ],
+			"meta": { "pages": [ "sites.md" ] },
 			"steps": [
 				{
 					"click": {
@@ -291,8 +286,7 @@
 		{
 			"name": "create-site-advanced",
 			"description": "Create a blank site → Advanced settings (File access, Use custom domain, admin credentials)",
-			"pages": [ "sites.md", "php-runtimes.md" ],
-			"replaces": [ "2025/01/create-site-advanced.png" ],
+			"meta": { "pages": [ "sites.md", "php-runtimes.md" ], "replaces": [ "2025/01/create-site-advanced.png" ] },
 			"steps": [
 				{
 					"click": {
@@ -320,8 +314,7 @@
 		{
 			"name": "create-site-https",
 			"description": "Create your site → Advanced settings with Use custom domain and Enable HTTPS",
-			"pages": [ "ssl-in-studio.md" ],
-			"replaces": [ "2025/03/create-site-https.png" ],
+			"meta": { "pages": [ "ssl-in-studio.md" ], "replaces": [ "2025/03/create-site-https.png" ] },
 			"steps": [
 				{
 					"toggle": "Use custom domain",
@@ -362,7 +355,7 @@
 		{
 			"name": "orientation-guide",
 			"description": "Orientation guide, page 1, shown after the first site is created",
-			"pages": [ "index.md" ],
+			"meta": { "pages": [ "index.md" ] },
 			"steps": [
 				{
 					"click": {

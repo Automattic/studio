@@ -6,7 +6,7 @@ Screenshots and recordings of the Studio app, made reproducibly from three swapp
 | --- | --- | --- |
 | **Scene** | The sites Studio opens on (from a backup or a Blueprint), the made-up WordPress.com account data, recorded chats and agent turns | `scenes/wren-and-barley/` |
 | **Script** | The shots: the steps that reach each screen, the crop, the annotations | `examples/`, and the docs' in `docs/user/screenshots/shots/` |
-| **Look** | Window size, scale, color scheme, annotation colors, frame and output sizes, video settings | `looks/`: `docs`, `docs-dark`, `blog`, `marketing`, `marketing-dark`, `social`, `social-dark` |
+| **Look** | Window size, scale, color scheme, annotation colors, frame and output sizes, video settings | `looks/`: `plain` (the default), `docs`, `docs-dark`, `blog`, `marketing`, `marketing-dark`, `social`, `social-dark` |
 
 Each is a JSON file with a schema in `schemas/`, so editors complete them and `validate` checks them. The harness core (the profile, the scene seeding, the signed-in guard and the step driver) is the same whatever runs it; the docs are one consumer (`docs/user`, `npm run screenshots` there).
 
@@ -68,7 +68,7 @@ studio-capture schemas [--check]
 
 Common options: `--driver electron|browser` picks the front end (see **Drivers**), `--suite <a,b>` runs only those scripts, `--only <a,b>` keeps only those shots (the steps of the shots before them still run), `--json` prints the results as JSON on stdout (progress goes to stderr), `--keep-profile` keeps the throwaway profiles to look at afterwards. `--signed-in` captures any script signed in, as the demo person `--persona` names: a signed-in variant of a signed-out shot. `--chat <name>` opens any script on one of the scene's chats, for a variant with a conversation beside the screen (Wren & Barley has `wren-and-barley-homepage` and `wren-and-barley-design-system`). A failed shot stops its script; the window at that moment is saved under `<out>/failures/`. A shot also fails when the window shows a could-not-load message (the Blueprints list without internet, say) instead of saving it. The exit code is non-zero when a shot fails, and in `check` when any shot changed.
 
-A scene or look named without a path (`wren-and-barley`, `marketing`) is a bundled one; anything else is a file. Precedence: `--scene`/`--look` on the command line, then the script's own `scene`/`look`, then `wren-and-barley` and `docs`.
+A scene or look named without a path (`wren-and-barley`, `marketing`) is a bundled one; anything else is a file. Precedence: `--scene`/`--look` on the command line, then the script's own `scene`/`look`, then `wren-and-barley` and `plain`.
 
 ### Examples
 
@@ -168,11 +168,11 @@ Each script launches Studio afresh, so its shots stand on their own; its shots r
 
 **Annotations**: `outline`, `badge` (numbered in order) and `arrow` (with `from`, such as `top-right`), drawn over the real UI in the look's accent color. A shot with annotations is saved twice, `<name>` and `<name>-annotated`, so the plain image can be reused elsewhere.
 
-`pages`, `replaces` and `meta` are passed through to the JSON results for the consumer (the docs index uses `pages` and `replaces`). A script with `"manual": true` lists shots captured by hand, by description only. A shot with `"desktopOnly": true` shows something only Studio Desktop has (the CLI installer in Settings, say): the browser driver skips it.
+`meta` is passed through to the JSON results for whoever reads them: the docs keep the pages that use a shot and the uploads it replaces there, for their index. A script with `"manual": true` lists shots captured by hand, by description only. A shot with `"desktopOnly": true` shows something only Studio Desktop has (the CLI installer in Settings, say): the browser driver skips it.
 
 ## Looks
 
-A look sets how Studio is shown and what is made of each still. Every field has a default (the docs look's), so a look only says what it changes:
+A look sets how Studio is shown and what is made of each still. Every field has a default (the `plain` look is nothing but those: a 1440×900 window at 2×, light, unframed), so a look only says what it changes:
 
 - `window` (`{ width, height }`, points) and `scale` (device scale factor, 2): the capture is `width × scale` pixels wide whatever the display.
 - `appearance`: Studio's `colorScheme` (`light`, `dark`, `system`), `accentColor`, `tintIntensity` and `contrast`.
@@ -191,7 +191,7 @@ A look sets how Studio is shown and what is made of each still. Every field has 
 - **Stills**, `<name>[-annotated][-<variant>].webp`. A file is rewritten only when its pixels change beyond anti-aliasing noise (pixelmatch's threshold), so unchanged shots leave git clean.
 - **Video**, `record`: each selected shot's steps play at a watchable pace (the pointer glides to each target, text is typed out, a pause after each step) and are recorded from Electron's own capture, then the last frame holds with the shot's annotations drawn. Earlier shots' steps run at full speed, unrecorded, to reach the start.
 - **Visual check**, `check` (or `capture --check`): every shot is captured and compared with the file in `--out`, which is left alone (a failed shot's picture still goes to `<out>/failures/`). Each file is `new`, `changed` (with `diffPixels`, and a picture of the differences in `--diff-dir`) or `unchanged`; the exit code is 1 if any is new or changed.
-- **Results**, `--json`: the mode, Studio version, scripts (scene, look, signed in), and per shot its status (`ok`, `failed`, or `skipped` for a desktop-only shot in the browser), files (`file`, `status`, `diffPixels`, `diff`), videos, error and failure picture, plus `pages`, `replaces` and `meta`; and a summary. Manual shots are listed under `manual`.
+- **Results**, `--json`: the mode, Studio version, scripts (scene, look, signed in), and per shot its status (`ok`, `failed`, or `skipped` for a desktop-only shot in the browser), files (`file`, `status`, `diffPixels`, `diff`), videos, error and failure picture, plus `meta`; and a summary. Manual shots are listed under `manual`.
 
 ### Getting the images out
 

@@ -13,8 +13,7 @@
 		{
 			"name": "site-settings",
 			"description": "Settings dialog, Site scope → Settings (site name, WordPress version, local domain, credentials)",
-			"pages": [ "sites.md" ],
-			"replaces": [ "2025/01/site-settings.png" ],
+			"meta": { "pages": [ "sites.md" ], "replaces": [ "2025/01/site-settings.png" ] },
 			"steps": [
 				{
 					"helper": "openSiteMenu"
@@ -38,7 +37,7 @@
 		{
 			"name": "site-settings-domain",
 			"description": "Site settings → Local domain with Use custom domain and Enable HTTPS (not saved)",
-			"pages": [ "ssl-in-studio.md" ],
+			"meta": { "pages": [ "ssl-in-studio.md" ] },
 			"steps": [
 				{
 					"toggle": {
@@ -83,8 +82,7 @@
 		{
 			"name": "site-settings-debug",
 			"description": "Site settings → Debug with Xdebug turned on (not saved)",
-			"pages": [ "xdebug.md", "debugging/index.md" ],
-			"replaces": [ "2026/01/site-debugging.png" ],
+			"meta": { "pages": [ "xdebug.md", "debugging/index.md" ], "replaces": [ "2026/01/site-debugging.png" ] },
 			"steps": [
 				{
 					"click": {
@@ -125,8 +123,7 @@
 		{
 			"name": "site-settings-php",
 			"description": "Site settings → PHP (PHP version, File access)",
-			"pages": [ "php-runtimes.md", "sites.md" ],
-			"replaces": [ "2025/01/site-settings-php.png" ],
+			"meta": { "pages": [ "php-runtimes.md", "sites.md" ], "replaces": [ "2025/01/site-settings-php.png" ] },
 			"steps": [
 				{
 					"click": {

@@ -3,7 +3,7 @@ import path from 'node:path';
 import pixelmatch from 'pixelmatch';
 import sharp from 'sharp';
 import { drawAnnotations } from './annotate.ts';
-import { renderLook } from './frame.ts';
+import { edgesOf, renderLook } from './frame.ts';
 import { boundingBoxOf, union, type Box } from './locators.ts';
 import type { Ctx } from './context.ts';
 import type { Capture, Look, Shot } from './schema.ts';
@@ -220,7 +220,8 @@ export function cropFor(
 /** The clip for a shot's `capture.target`, or the whole window without one. */
 async function clipFor(
 	ctx: Ctx,
-	capture: Capture
+	capture: Capture,
+	viewport: { width: number; height: number }
 ): Promise< ( extents: Box[] ) => Box | undefined > {
 	if ( ! capture.target ) {
 		return () => undefined;
@@ -228,8 +229,6 @@ async function clipFor(
 	const box = union(
 		await Promise.all( [ capture.target ].flat().map( ( target ) => boundingBoxOf( ctx, target ) ) )
 	);
-	// Electron windows have no Playwright viewport; the clip must stay inside the window.
-	const viewport = await ctx.w.evaluate( () => ( { width: innerWidth, height: innerHeight } ) );
 	return cropFor(
 		box,
 		{ pad: capture.pad ?? ctx.look.crop.pad, aspect: capture.aspect ?? ctx.look.crop.aspect },
@@ -332,7 +331,9 @@ export async function captureShot( ctx: Ctx, shot: Shot, outDir: string, mode: W
 	const capture = shot.capture ?? {};
 	await prepareFrame( ctx, capture );
 	await assertLoaded( ctx );
-	const clip = await clipFor( ctx, capture );
+	// Electron windows have no Playwright viewport; the clip must stay inside the window.
+	const viewport = await ctx.w.evaluate( () => ( { width: innerWidth, height: innerHeight } ) );
+	const clip = await clipFor( ctx, capture, viewport );
 	const results: FileResult[] = [];
 	// The capture takes the compositor's latest frame; wait for one that has the overlays.
 	const painted = async () => {
@@ -344,10 +345,12 @@ export async function captureShot( ctx: Ctx, shot: Shot, outDir: string, mode: W
 	const ext = ctx.look.still.format;
 	const save = async ( suffix: string, extents: Box[] ) => {
 		let png: Buffer;
+		let box: Box | undefined;
 		for ( let attempt = 1; ; attempt++ ) {
 			await tidyText( ctx );
 			await painted();
-			png = await screenshotWindow( ctx, clip( extents ) );
+			box = clip( extents );
+			png = await screenshotWindow( ctx, box );
 			// A re-render after the rewrite can put a profile path or the
 			// account's email back on screen, and into this capture; take another.
 			if ( ! ( await tidyText( ctx ) ) ) {
@@ -359,7 +362,11 @@ export async function captureShot( ctx: Ctx, shot: Shot, outDir: string, mode: W
 				);
 			}
 		}
-		for ( const [ variant, image ] of await renderLook( png, ctx.look ) ) {
+		const variants = await renderLook( png, ctx.look, {
+			edges: edgesOf( box, viewport ),
+			frame: capture.frame,
+		} );
+		for ( const [ variant, image ] of variants ) {
 			const file = path.join( outDir, `${ shot.name }${ suffix }${ variant }.${ ext }` );
 			results.push(
 				await writeIfChanged( file, await encodeStill( image, ctx.look.still ), mode )

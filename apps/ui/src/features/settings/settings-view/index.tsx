@@ -191,7 +191,7 @@ function PreferencesPanel( {
 						onChange={ ( locale ) => onChange( { locale } ) }
 					/>
 				</SettingsRow>
-				{ connector.capabilities.siteFolders && (
+				{ connector.capabilities.nativeSites && (
 					<>
 						<SettingsRow
 							title={ __( 'Default code editor' ) }

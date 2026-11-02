@@ -115,7 +115,7 @@ export function useOpenInDestinations(
 	};
 
 	const destinations: Array< OpenInDestinationEntry | false > = [
-		connector.capabilities.siteFolders && {
+		connector.capabilities.nativeSites && {
 			id: 'files',
 			label: fileManager.label,
 			logo: fileManager.logo,
@@ -140,7 +140,7 @@ export function useOpenInDestinations(
 					return openSiteUrl( '/', { autoLogin: false } );
 				} ),
 		},
-		connector.capabilities.siteFolders &&
+		connector.capabilities.nativeSites &&
 			!! editor && {
 				id: 'editor',
 				label: editorLabel,
@@ -148,7 +148,7 @@ export function useOpenInDestinations(
 				disabled: false,
 				open: () => open( 'editor', editorLabel, () => connector.openSiteInEditor( site.id ) ),
 			},
-		connector.capabilities.siteFolders && {
+		connector.capabilities.nativeSites && {
 			id: 'terminal',
 			label: terminalLabel,
 			logo: (
@@ -171,7 +171,7 @@ export function useOpenInDestinations(
 					return openSiteUrl( '/wp-admin/' );
 				} ),
 		},
-		connector.capabilities.phpMyAdmin && {
+		connector.capabilities.nativeSites && {
 			id: 'phpmyadmin',
 			label: __( 'phpMyAdmin' ),
 			logo: <AppIcon app="phpmyadmin" fallback={ <DatabaseIcon /> } />,
@@ -183,5 +183,5 @@ export function useOpenInDestinations(
 				} ),
 		},
 	];
-	return destinations.filter( ( destination ) => !! destination );
+	return destinations.filter( ( destination ) => destination !== false );
 }

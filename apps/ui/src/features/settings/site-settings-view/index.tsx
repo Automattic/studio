@@ -375,26 +375,24 @@ export function SiteSettingsForm( {
 				<ConnectionCard />
 				<SettingsGroup>
 					{ textRow( 'name', __( 'Site name' ), __( 'Name shown in WordPress Studio.' ) ) }
-					{ connector.capabilities.siteFolders && (
-						<SettingsRow
-							title={ __( 'Local path' ) }
-							description={ __( 'Where this site’s files are stored.' ) }
-						>
-							{ ( control ) => (
-								<div className={ styles.field }>
-									<Input
-										{ ...control }
-										aria-label={ __( 'Local path' ) }
-										value={ site.path }
-										title={ site.path }
-										readOnly
-									/>
-								</div>
-							) }
-						</SettingsRow>
-					) }
-					{ connector.capabilities.versionChoice && (
+					{ connector.capabilities.nativeSites && (
 						<>
+							<SettingsRow
+								title={ __( 'Local path' ) }
+								description={ __( 'Where this site’s files are stored.' ) }
+							>
+								{ ( control ) => (
+									<div className={ styles.field }>
+										<Input
+											{ ...control }
+											aria-label={ __( 'Local path' ) }
+											value={ site.path }
+											title={ site.path }
+											readOnly
+										/>
+									</div>
+								) }
+							</SettingsRow>
 							{ selectRow(
 								'wpVersion',
 								__( 'WordPress version' ),
@@ -420,7 +418,7 @@ export function SiteSettingsForm( {
 						</>
 					) }
 				</SettingsGroup>
-				{ connector.capabilities.customDomains && (
+				{ connector.capabilities.nativeSites && (
 					<SettingsGroup title={ __( 'Local domain' ) }>
 						{ toggleRow(
 							'useCustomDomain',
@@ -496,31 +494,29 @@ export function SiteSettingsForm( {
 		),
 		php: (
 			<SettingsGroup>
-				{ connector.capabilities.versionChoice &&
-					selectRow(
-						'phpVersion',
-						__( 'PHP version' ),
-						resolvedPhpVersion === data.phpVersion
-							? __( 'The PHP version used to run WordPress on this site.' )
-							: sprintf(
-									/* translators: %s: the supported PHP version that runs instead, like 8.2. */
-									__( 'Native PHP will use %s' ),
-									resolvedPhpVersion
-							  ),
-						phpVersionOptions
-					) }
-				{ connector.capabilities.fileAccess &&
-					selectRow(
-						'fileAccess',
-						__( 'File access' ),
-						<>
-							{ __(
-								'Choose whether this site can access only its own folder or other files on your computer.'
-							) }
-							{ learnMore( 'docsFileAccess' ) }
-						</>,
-						getFileAccessOptions()
-					) }
+				{ selectRow(
+					'phpVersion',
+					__( 'PHP version' ),
+					resolvedPhpVersion === data.phpVersion
+						? __( 'The PHP version used to run WordPress on this site.' )
+						: sprintf(
+								/* translators: %s: the supported PHP version that runs instead, like 8.2. */
+								__( 'Native PHP will use %s' ),
+								resolvedPhpVersion
+						  ),
+					phpVersionOptions
+				) }
+				{ selectRow(
+					'fileAccess',
+					__( 'File access' ),
+					<>
+						{ __(
+							'Choose whether this site can access only its own folder or other files on your computer.'
+						) }
+						{ learnMore( 'docsFileAccess' ) }
+					</>,
+					getFileAccessOptions()
+				) }
 			</SettingsGroup>
 		),
 		debugging: (
@@ -539,7 +535,7 @@ export function SiteSettingsForm( {
 					) }
 				</SettingsGroup>
 				<SettingsGroup title={ __( 'Debugging' ) }>
-					{ connector.capabilities.xdebug &&
+					{ connector.capabilities.nativeSites &&
 						toggleRow(
 							'enableXdebug',
 							__( 'Xdebug' ),

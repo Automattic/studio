@@ -1,3 +1,6 @@
+import { readBlobAsDataUrl } from '@studio/agent/protocol/composer-attachments';
+import { fromBase64 } from '@studio/agent/shared/base64';
+import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { syncOptionSchema, type SyncOption, SyncSite } from '@studio/common/types/sync';
 import { posix } from 'pathe';
@@ -24,7 +27,6 @@ const WP_CLI_PATH = '/tmp/wp-cli.phar';
 const SITES_ROOT = '/sites';
 // eslint-disable-next-line no-control-regex
 const ANSI_ESCAPE = /\u001b\[[0-9;]*m/g;
-const MAX_CAPTURE_HEIGHT = 8000;
 
 const path: HostPath = {
 	join: posix.join,
@@ -38,67 +40,21 @@ const path: HostPath = {
 	fileURLToPath: ( url ) => decodeURIComponent( new URL( url ).pathname ),
 };
 
-function normalizeHostname( value: string ): string {
-	return value
-		.trim()
-		.replace( /^https?:\/\//, '' )
-		.replace( /\/.*$/, '' );
-}
-
 function parseSyncOptions( value: string ): SyncOption[] {
-	return value.split( ',' ).map( ( option ) => {
-		const parsed = syncOptionSchema.safeParse( option.trim() );
-		if ( ! parsed.success ) {
-			throw new Error(
-				`Invalid sync option: ${ option.trim() }. Valid options: ${ syncOptionSchema.options.join(
-					', '
-				) }`
-			);
-		}
-		return parsed.data;
-	} );
-}
-
-function bytesOfDataUrl( dataUrl: string ): Uint8Array {
-	return Uint8Array.from( atob( dataUrl.slice( dataUrl.indexOf( ',' ) + 1 ) ), ( char ) =>
-		char.charCodeAt( 0 )
-	);
-}
-
-function dataUrlOf( bytes: Uint8Array, mimeType: string ): Promise< string > {
-	return new Promise( ( resolve ) => {
-		const reader = new FileReader();
-		reader.onload = () => resolve( String( reader.result ) );
-		reader.readAsDataURL( new Blob( [ bytes as BlobPart ], { type: mimeType } ) );
-	} );
+	return value.split( ',' ).map( ( option ) => syncOptionSchema.parse( option.trim() ) );
 }
 
 // wp-cli.phar lives in the runtime's /tmp, which a restart empties.
-const wpCliReady = new WeakMap< PlaygroundClient, Promise< void > >();
-let wpCliPhar: Promise< Uint8Array > | undefined;
-function ensureWpCli( client: PlaygroundClient ): Promise< void > {
-	let ready = wpCliReady.get( client );
-	if ( ! ready ) {
-		ready = ( async () => {
-			if ( await client.fileExists( WP_CLI_PATH ) ) {
-				return;
-			}
-			wpCliPhar ??= loadPlaygroundClient()
-				.then( ( playground ) =>
-					fetch( ( playground.defaultWpCliResource as { url: string } ).url )
-				)
-				.then( async ( response ) => {
-					if ( ! response.ok ) {
-						throw new Error( 'WP-CLI could not be downloaded.' );
-					}
-					return new Uint8Array( await response.arrayBuffer() );
-				} );
-			await client.writeFile( WP_CLI_PATH, await wpCliPhar );
-		} )();
-		ready.catch( () => wpCliReady.delete( client ) );
-		wpCliReady.set( client, ready );
+async function ensureWpCli( client: PlaygroundClient ): Promise< void > {
+	if ( await client.fileExists( WP_CLI_PATH ) ) {
+		return;
 	}
-	return ready;
+	const { defaultWpCliResource } = await loadPlaygroundClient();
+	const response = await fetch( ( defaultWpCliResource as { url: string } ).url );
+	if ( ! response.ok ) {
+		throw new Error( 'WP-CLI could not be downloaded.' );
+	}
+	await client.writeFile( WP_CLI_PATH, new Uint8Array( await response.arrayBuffer() ) );
 }
 
 // Browsers cannot put an element in :hover from a script, so the stylesheet's
@@ -162,12 +118,9 @@ function toHostPage( page: SitePage, url: string, status: number ): HostPage {
 			await page.evaluate( hoverScript, selector );
 		},
 		// The page bridge captures JPEGs, from `clip.y` down.
-		screenshot: async ( { fullPage, clip } ) => {
-			const capture = await page.capture( {
-				offset: clip?.y ?? 0,
-				maxHeight: clip?.height ?? ( fullPage ? MAX_CAPTURE_HEIGHT : undefined ),
-			} );
-			return bytesOfDataUrl( capture.dataUrl );
+		screenshot: async ( { clip } ) => {
+			const dataUrl = await page.capture( { offset: clip?.y ?? 0, maxHeight: clip?.height } );
+			return fromBase64( dataUrl.slice( dataUrl.indexOf( ',' ) + 1 ) );
 		},
 		url: () => url,
 		status: () => status,
@@ -179,6 +132,20 @@ function toHostPage( page: SitePage, url: string, status: number ): HostPage {
 	} as HostPage;
 }
 
+// What the page provides for the agent.
+export interface StaticAgentPage {
+	// A file the user attached to the chat, by the path its prompt names.
+	readAttachment( path: string ): File | undefined;
+	// Saves a file to the user's computer through the browser.
+	download( data: BlobPart, filename: string, type: string ): void;
+}
+
+export interface StaticAgentHostDeps extends StaticAgentPage {
+	sites: StaticSites;
+	auth: WpcomAuth;
+	wpcom: WpcomServices;
+}
+
 /**
  * The agent's host in Studio on the web: sites run in Playground, their files
  * are the runtimes' files under `/sites/<slug>`, pages load in off-screen
@@ -186,15 +153,7 @@ function toHostPage( page: SitePage, url: string, status: number ): HostPage {
  * such as images the agent saved and files the user attached, live in memory
  * for as long as the page.
  */
-export function createStaticAgentHost( deps: {
-	sites: StaticSites;
-	auth: WpcomAuth;
-	wpcom: WpcomServices;
-	// A file the user attached to the chat, by the path its prompt names.
-	readAttachment( path: string ): File | undefined;
-	// Saves a file to the user's computer through the browser.
-	download( data: BlobPart, filename: string, type: string ): void;
-} ): StudioAgentHost {
+export function createStaticAgentHost( deps: StaticAgentHostDeps ): StudioAgentHost {
 	const { sites, auth, wpcom } = deps;
 	const memory = new Map< string, Uint8Array >();
 
@@ -360,7 +319,7 @@ echo implode( "\\n", $found );`,
 
 	const pages: HostPages = {
 		async open( target, options = {} ) {
-			const size = { ...( options.viewport ?? {} ), settleMs: 600 };
+			const size = options.viewport;
 			let page: SitePage;
 			let url: string;
 			if ( 'html' in target ) {
@@ -447,14 +406,7 @@ echo implode( "\\n", $found );`,
 			},
 			all: async () => ( await sites.list() ).map( hostSite ),
 			list: async () =>
-				( await sites.list() ).map( ( record ) => {
-					const { adminPassword: _password, ...details } = sites.toDetails( record );
-					return {
-						...details,
-						url: getSiteUrl( record.scope ),
-						running: sites.runtimes.isRunning( record.id ),
-					};
-				} ),
+				( await sites.getDetails() ).map( ( { adminPassword: _password, ...details } ) => details ),
 			status: async ( site ) => {
 				const record = await sites.get( site.id );
 				return {
@@ -522,15 +474,7 @@ echo implode( "\\n", $found );`,
 		},
 		previews: {
 			list: snapshotsOf,
-			create: async ( site ) => {
-				const { url } = await wpcom.publishPreview( site.id );
-				const hostname = normalizeHostname( url );
-				const snapshot = ( await snapshotsOf( site ) ).find( ( entry ) => entry.url === hostname );
-				if ( ! snapshot ) {
-					throw new Error( `The preview site ${ hostname } was not recorded.` );
-				}
-				return snapshot;
-			},
+			create: ( site ) => wpcom.publishPreview( site.id ),
 			update: async ( site, hostname ) => {
 				const host = normalizeHostname( hostname );
 				const existing = ( await wpcom.getSnapshots() ).find( ( entry ) => entry.url === host );
@@ -540,8 +484,7 @@ echo implode( "\\n", $found );`,
 				if ( isSnapshotExpired( existing ) ) {
 					throw new Error( `The preview site "${ host }" has expired.` );
 				}
-				await wpcom.publishPreview( site.id, host );
-				return ( await wpcom.getSnapshots() ).find( ( entry ) => entry.url === host ) ?? existing;
+				return wpcom.publishPreview( site.id, host );
 			},
 			delete: ( hostname ) => wpcom.deleteSnapshot( normalizeHostname( hostname ) ),
 		},
@@ -586,7 +529,10 @@ echo implode( "\\n", $found );`,
 		saveImage: async ( bytes, name, mimeType ) => {
 			const file = `/images/${ name }`;
 			memory.set( file, bytes );
-			return { path: file, url: await dataUrlOf( bytes, mimeType ) };
+			return {
+				path: file,
+				url: await readBlobAsDataUrl( new Blob( [ bytes as BlobPart ], { type: mimeType } ) ),
+			};
 		},
 	};
 }

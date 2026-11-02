@@ -328,7 +328,7 @@ export function SitePreview( {
 			onPathChange={ onPathChange }
 			onSwitchRealm={ switchRealm }
 			hasDesignSystem={ !! siteDesign.data }
-			hasDatabase={ connector.capabilities.phpMyAdmin }
+			hasDatabase={ connector.capabilities.nativeSites }
 			onOpenExternal={ openExternal }
 			responsive={ responsive }
 			annotate={ annotate }
@@ -390,6 +390,14 @@ export function SitePreview( {
 								);
 							}
 							const frameKey = getFrameKey( siteUrl, surface );
+							const inspectorProps = {
+								annotations: key === 'site' ? annotations : undefined,
+								onInspectorReady: ( inspectorReady: boolean ) => {
+									patchSurface( key, { inspectorReady } );
+									if ( ! inspectorReady ) setAnnotationAnchor( null );
+								},
+								onInspectorEvent: handleInspectorEvent,
+							};
 							return (
 								<SurfaceLayer
 									key={ key }
@@ -409,12 +417,7 @@ export function SitePreview( {
 											// phpMyAdmin isn't an annotation target, so the
 											// inspector never goes near it.
 											inspector={ key === 'site' }
-											annotations={ key === 'site' ? annotations : undefined }
-											onInspectorReady={ ( inspectorReady ) => {
-												patchSurface( key, { inspectorReady } );
-												if ( ! inspectorReady ) setAnnotationAnchor( null );
-											} }
-											onInspectorEvent={ handleInspectorEvent }
+											{ ...inspectorProps }
 											browserCommand={ surface.browserCommand }
 											onBrowserStateChange={ ( state ) => handleSurfaceBrowserState( key, state ) }
 											onNavigate={ ( url ) => handleSurfaceNavigation( key, url ) }
@@ -425,13 +428,7 @@ export function SitePreview( {
 											key={ frameKey }
 											src={ surfaceUrl }
 											title={ site.name }
-											inspector={ key === 'site' && connector.capabilities.annotatePreview }
-											annotations={ key === 'site' ? annotations : undefined }
-											onInspectorReady={ ( inspectorReady ) => {
-												patchSurface( key, { inspectorReady } );
-												if ( ! inspectorReady ) setAnnotationAnchor( null );
-											} }
-											onInspectorEvent={ handleInspectorEvent }
+											{ ...inspectorProps }
 											onLoad={ ( src ) => {
 												setLoadedFrames( ( frames ) => ( { ...frames, [ key ]: frameKey } ) );
 												handleSurfaceNavigation( key, src );

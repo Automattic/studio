@@ -15,7 +15,7 @@ npm -w @studio/ui run build:static   # apps/ui/dist-static/, for any static host
 
 The build serves `index.html` and `404.html` alike, so a static host resolves the app's routes. Sign-in needs the deployment's origin registered with WordPress.com (below).
 
-Pulling a site needs a worker too: WordPress.com's backup download can't be read cross-origin, so the app reads it in chunks from `/wpcom-backup/<site>/<download>/data`. That route is `functions/wpcom-backup/`, which the build copies into `dist-static/functions/` and the dev and preview servers run themselves. A host needs to serve that route, so a plain static host can't pull.
+Pulling a site needs a worker too: WordPress.com's backup download can't be read cross-origin, so the app reads it in chunks from `/wpcom-backup/<site>/<download>/data`. That route is `functions/wpcom-backup/`, which the build copies into `dist-static/functions/` and the dev server runs itself. A host needs to serve that route, so a plain static host can't pull.
 
 Publishing a GitHub release deploys the build to Spacefast (`.github/workflows/deploy-static.yml`, which needs the `SPACEFAST_TOKEN` secret). Running that workflow by hand makes a preview version, or deploys `live` from `trunk` or a release tag.
 
@@ -68,10 +68,7 @@ functions/          workers for the host
 
 ## Configuration
 
-Build-time variables, all optional:
-
-- `VITE_PLAYGROUND_REMOTE_URL`: the Playground runtime to load (default `https://playground.wordpress.net/remote.html`).
-- `VITE_WPCOM_CLIENT_ID`, `VITE_WPCOM_REDIRECT_URI`: the WordPress.com OAuth app and its redirect. By default it uses Studio's app and `<origin>/auth/callback`, which must be registered on that app for the origin to sign in.
+Sign-in uses Studio's WordPress.com OAuth app and `<origin>/auth/callback`, which must be registered on that app for the origin to sign in.
 
 ## What the web can't do yet
 
@@ -81,7 +78,5 @@ Build-time variables, all optional:
 
 ## Boundaries
 
-Enforced by lint (`eslint.config.mjs`):
-
-- This package never imports the UI (`@/*`, `@studio/ui`).
-- In `apps/ui`, only the static connector imports `@studio/static`; features go through `useConnector()`.
+- This package never imports the UI: it has no `@studio/ui` dependency and no `@/*` path.
+- In `apps/ui`, only the static connector imports `@studio/static`, which lint enforces (`eslint.config.mjs`); features go through `useConnector()`.

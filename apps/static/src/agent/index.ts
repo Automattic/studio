@@ -8,8 +8,8 @@ import {
 	type AiProviderId,
 	type AiSettings,
 } from '@studio/agent/protocol/providers';
+import { resolveActiveSiteFromEntries } from '@studio/agent/protocol/sessions/active-site';
 import { pickLiveSite } from '@studio/agent/protocol/sessions/effective-site';
-import { isStudioCustomEntryOfType } from '@studio/agent/protocol/sessions/entry-types';
 import {
 	canUsePaidAiModels,
 	fetchStudioAssistantQuota,
@@ -17,9 +17,9 @@ import {
 import { __ } from '@wordpress/i18n';
 import { getSiteUrl } from '../playground';
 import { kvGet, kvSet } from '../store';
-import { createStaticAgentHost } from './host';
+import { createStaticAgentHost, type StaticAgentHostDeps } from './host';
 import { StaticSessions } from './sessions';
-import type { StaticSiteRecord, StaticSites } from '../sites';
+import type { StaticSiteRecord } from '../sites';
 import type {
 	ActiveAgentRun,
 	AiSessionMetadata,
@@ -31,8 +31,6 @@ import type {
 	StudioChatImage,
 	StudioVisualAnnotationSummary,
 } from '../types';
-import type { WpcomAuth } from '../wpcom-auth';
-import type { WpcomServices } from '../wpcom-services';
 import type { AskUserQuestion, Message, SiteInfo, StudioAgentHost } from '@studio/agent/browser';
 import type { AgentEvent, AgentRunEvent } from '@studio/agent/protocol/agent-events';
 import type { StudioChatArtifactData } from '@studio/agent/protocol/chat-artifacts';
@@ -58,6 +56,13 @@ interface Run {
 }
 
 type NewEntry = Omit< SessionEntry, 'id' | 'parentId' | 'timestamp' >;
+
+interface TurnOptions {
+	displayMessage?: string;
+	images?: StudioChatImage[];
+	files?: StudioChatFileAttachment[];
+	visualAnnotations?: StudioVisualAnnotationSummary[];
+}
 
 function nowIso() {
 	return new Date().toISOString();
@@ -126,15 +131,7 @@ export class StaticAgentRuns {
 	>();
 	private readonly host: StudioAgentHost;
 
-	constructor(
-		private readonly deps: {
-			sites: StaticSites;
-			auth: WpcomAuth;
-			wpcom: WpcomServices;
-			readAttachment( path: string ): File | undefined;
-			download( data: BlobPart, filename: string, type: string ): void;
-		}
-	) {
+	constructor( private readonly deps: StaticAgentHostDeps ) {
 		this.host = createStaticAgentHost( deps );
 	}
 
@@ -282,28 +279,21 @@ export class StaticAgentRuns {
 	// WordPress.com site when switched to Live and still connected.
 	private async activeSite( sessionId: string ): Promise< SiteInfo | undefined > {
 		const session = await this.sessions.read( sessionId );
-		const selected = session?.entries
-			.slice()
-			.reverse()
-			.find( ( entry ) => isStudioCustomEntryOfType( entry, 'studio.site_selected' ) );
-		const data =
-			selected && isStudioCustomEntryOfType( selected, 'studio.site_selected' )
-				? selected.data
-				: undefined;
-		if ( data?.remote && data.wpcomSiteId && data.url && data.siteId ) {
-			const connected = await this.deps.wpcom.getConnectedSites( data.siteId ).catch( () => [] );
-			if ( connected.some( ( site ) => site.id === data.wpcomSiteId ) ) {
+		const selected = resolveActiveSiteFromEntries( session?.entries ?? [] );
+		if ( selected?.remote && selected.wpcomSiteId && selected.url && selected.id ) {
+			const connected = await this.deps.wpcom.getConnectedSites( selected.id ).catch( () => [] );
+			if ( connected.some( ( site ) => site.id === selected.wpcomSiteId ) ) {
 				return {
-					name: data.siteName,
+					name: selected.name,
 					path: '',
 					running: true,
 					remote: true,
-					url: data.url,
-					wpcomSiteId: data.wpcomSiteId,
+					url: selected.url,
+					wpcomSiteId: selected.wpcomSiteId,
 				};
 			}
 		}
-		const siteId = data?.siteId ?? session?.owner?.siteId;
+		const siteId = selected?.id ?? session?.owner?.siteId;
 		const site = siteId ? await this.deps.sites.get( siteId ).catch( () => undefined ) : undefined;
 		return (
 			site && {
@@ -319,12 +309,7 @@ export class StaticAgentRuns {
 	async continueSession(
 		sessionId: string,
 		prompt: string,
-		options: {
-			displayMessage?: string;
-			images?: StudioChatImage[];
-			files?: StudioChatFileAttachment[];
-			visualAnnotations?: StudioVisualAnnotationSummary[];
-		} = {}
+		options: TurnOptions = {}
 	): Promise< { runId: string } > {
 		if ( [ ...this.runs.values() ].some( ( run ) => run.sessionId === sessionId ) ) {
 			throw new Error( __( 'This conversation is already running.' ) );
@@ -343,16 +328,7 @@ export class StaticAgentRuns {
 		return { runId: run.runId };
 	}
 
-	private async execute(
-		run: Run,
-		prompt: string,
-		options: {
-			displayMessage?: string;
-			images?: StudioChatImage[];
-			files?: StudioChatFileAttachment[];
-			visualAnnotations?: StudioVisualAnnotationSummary[];
-		}
-	) {
+	private async execute( run: Run, prompt: string, options: TurnOptions ) {
 		const { sessionId } = run;
 		this.emit( run, { type: 'run.started', timestamp: nowIso() } );
 		this.emit( run, { type: 'turn.started', timestamp: nowIso() } );

@@ -418,7 +418,7 @@ fclose( $out );
 	return text;
 }
 
-export interface PushArchiveOptions {
+interface PushArchiveOptions {
 	database: boolean;
 	wpContent: boolean;
 	// Paths under wp-content to include instead of all of it.
@@ -510,14 +510,6 @@ export async function readWordPressVersion( client: PlaygroundClient ): Promise<
 	}
 }
 
-// Copies every file of one site, database included, into another running site.
-export async function copySiteFiles(
-	source: PlaygroundClient,
-	target: PlaygroundClient
-): Promise< void > {
-	await importBackup( target, 'copy.zip', await exportSiteZip( source ) );
-}
-
 // A site folder's files as the push dialog's selective-sync tree lists them:
 // what push leaves out (dotfiles included) is left out, and folders are
 // expanded `depth` levels, but not inside a plugin or theme.
@@ -545,10 +537,7 @@ function studio_tree( $base, $relative, $depth, $ignored ) {
 	}
 	return $entries;
 }
-echo json_encode( studio_tree( '/wordpress', ${ phpQuote( relative ) }, ${ Math.max(
-				0,
-				depth
-			) }, $ignored ) );
+echo json_encode( studio_tree( '/wordpress', ${ phpQuote( relative ) }, ${ depth }, $ignored ) );
 `
 		)
 	) as RawDirectoryEntry[];

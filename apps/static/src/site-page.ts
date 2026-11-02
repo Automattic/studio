@@ -1,13 +1,5 @@
 import { buildBridgeScript, getSiteOrigin, getSiteUrl } from './playground';
 
-interface PageCapture {
-	dataUrl: string;
-	// The page's full height, and the slice the capture covers.
-	pageHeight: number;
-	offset: number;
-	height: number;
-}
-
 // A page of a running site, loaded in an off-screen frame of a given size. The
 // site's bridge script (see playground.ts) runs page scripts and captures in it.
 export interface SitePage {
@@ -18,19 +10,21 @@ export interface SitePage {
 	): Promise< Awaited< R > >;
 	waitFor( condition: () => boolean, timeoutMs?: number ): Promise< void >;
 	setColorScheme( scheme: 'light' | 'dark' ): Promise< void >;
-	// Captures from `offset` down, at most `maxHeight` pixels (the viewport by default).
-	capture( options?: { offset?: number; maxHeight?: number } ): Promise< PageCapture >;
+	// Captures from `offset` down, at most `maxHeight` pixels (the viewport by
+	// default), as a JPEG data URL.
+	capture( options?: { offset?: number; maxHeight?: number } ): Promise< string >;
 	close(): void;
 }
 
 const LOAD_TIMEOUT_MS = 90_000;
+const SETTLE_MS = 600;
 
 // A page of a running site, or a document of its own (`html`), which loads in
 // a sandboxed frame without the app's origin and answers through the same
 // bridge script.
 export async function openSitePage(
 	target: { scope: string; path: string } | { html: string },
-	{ width = 1280, height = 800, settleMs = 600 } = {}
+	{ width = 1280, height = 800 } = {}
 ): Promise< SitePage > {
 	const iframe = document.createElement( 'iframe' );
 	iframe.setAttribute( 'aria-hidden', 'true' );
@@ -49,8 +43,7 @@ export async function openSitePage(
 			? target.html.replace( /<\/body>/i, `${ bridge }</body>` )
 			: `${ target.html }${ bridge }`;
 	} else {
-		const relative = target.path.replace( /^\/?(scope:[^/]+\/?)?/, '/' );
-		iframe.src = `${ getSiteUrl( target.scope ) }${ relative }`;
+		iframe.src = `${ getSiteUrl( target.scope ) }${ target.path }`;
 	}
 	document.body.appendChild( iframe );
 	try {
@@ -60,7 +53,7 @@ export async function openSitePage(
 		throw error;
 	}
 	// Give web fonts and late layout a moment to settle.
-	await new Promise( ( resolve ) => setTimeout( resolve, settleMs ) );
+	await new Promise( ( resolve ) => setTimeout( resolve, SETTLE_MS ) );
 
 	async function request< T >( action: string, payload: Record< string, unknown > ): Promise< T > {
 		const id = crypto.randomUUID();
@@ -126,10 +119,9 @@ export function connectPreviewFrame(
 export async function withSitePage< T >(
 	scope: string,
 	path: string,
-	options: Parameters< typeof openSitePage >[ 1 ],
 	task: ( page: SitePage ) => Promise< T >
 ): Promise< T > {
-	const page = await openSitePage( { scope, path }, options );
+	const page = await openSitePage( { scope, path } );
 	try {
 		return await task( page );
 	} finally {

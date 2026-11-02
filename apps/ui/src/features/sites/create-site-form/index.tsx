@@ -108,7 +108,7 @@ export function CreateSiteForm( {
 	draft,
 	onDraftChange,
 }: CreateSiteFormProps ) {
-	const { capabilities } = useConnector();
+	const { nativeSites } = useConnector().capabilities;
 	const formId = useId();
 	const [ defaults ] = useState( createDefaultFormData );
 	const suggestedFieldsRef = useRef( getSuggestedFields( initialValues ?? {} ) );
@@ -297,47 +297,41 @@ export function CreateSiteForm( {
 
 				{ children }
 
-				{ ( capabilities.siteFolders || capabilities.versionChoice ) && (
+				{ nativeSites && (
 					<FieldGroup>
-						{ capabilities.siteFolders && (
-							<PathField
-								data={ data }
-								error={ advancedErrors.path }
-								requiresEmptyPath={ requiresEmptyPath }
-								onChange={ handleChange }
+						<PathField
+							data={ data }
+							error={ advancedErrors.path }
+							requiresEmptyPath={ requiresEmptyPath }
+							onChange={ handleChange }
+						/>
+						{ existing ? null : wpVersionOptions ? (
+							<SelectField
+								label={ __( 'WordPress version' ) }
+								description={ wpVersionDescription }
+								value={ data.wpVersion }
+								options={ wpVersionOptions }
+								disabled={ isOffline }
+								disabledReason={ offlineMessage }
+								onChange={ ( wpVersion ) => handleChange( { wpVersion } ) }
+							/>
+						) : (
+							<TextField
+								label={ __( 'WordPress version' ) }
+								orientation="horizontal"
+								placeholder={ DEFAULT_WORDPRESS_VERSION }
+								value={ data.wpVersion }
+								onChange={ ( event ) => handleChange( { wpVersion: event.target.value } ) }
 							/>
 						) }
-						{ capabilities.versionChoice && (
-							<>
-								{ existing ? null : wpVersionOptions ? (
-									<SelectField
-										label={ __( 'WordPress version' ) }
-										description={ wpVersionDescription }
-										value={ data.wpVersion }
-										options={ wpVersionOptions }
-										disabled={ isOffline }
-										disabledReason={ offlineMessage }
-										onChange={ ( wpVersion ) => handleChange( { wpVersion } ) }
-									/>
-								) : (
-									<TextField
-										label={ __( 'WordPress version' ) }
-										orientation="horizontal"
-										placeholder={ DEFAULT_WORDPRESS_VERSION }
-										value={ data.wpVersion }
-										onChange={ ( event ) => handleChange( { wpVersion: event.target.value } ) }
-									/>
-								) }
-								<SelectField
-									label={ __( 'PHP version' ) }
-									value={ data.phpVersion }
-									options={ getPhpVersionOptions() }
-									onChange={ ( phpVersion ) =>
-										handleChange( { phpVersion: phpVersion as SupportedPHPVersion } )
-									}
-								/>
-							</>
-						) }
+						<SelectField
+							label={ __( 'PHP version' ) }
+							value={ data.phpVersion }
+							options={ getPhpVersionOptions() }
+							onChange={ ( phpVersion ) =>
+								handleChange( { phpVersion: phpVersion as SupportedPHPVersion } )
+							}
+						/>
 					</FieldGroup>
 				) }
 
@@ -371,7 +365,7 @@ export function CreateSiteForm( {
 				>
 					<div className={ styles.advancedCollapseInner }>
 						<FieldGroup>
-							{ capabilities.fileAccess && (
+							{ nativeSites && (
 								<SelectField
 									label={ __( 'File access' ) }
 									description={ getFileAccessDescription( data.fileAccess ) }
@@ -384,7 +378,7 @@ export function CreateSiteForm( {
 							) }
 							{ ! existing && (
 								<>
-									{ capabilities.customDomains && (
+									{ nativeSites && (
 										<>
 											<ToggleField
 												label={ __( 'Use custom domain' ) }

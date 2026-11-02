@@ -1,4 +1,5 @@
-import { downloadBackup as downloadBackupBase } from '@studio/common/lib/sync/download-backup';
+import fs from 'fs';
+import { Readable } from 'stream';
 import {
 	checkBackupSize as checkBackupSizeBase,
 	fetchSyncableSites as fetchSyncableSitesBase,
@@ -132,7 +133,20 @@ export async function checkBackupSize( url: string ): Promise< number > {
 
 export async function downloadBackup( url: string, destPath: string ): Promise< void > {
 	try {
-		await downloadBackupBase( url, destPath );
+		const response = await fetch( url );
+		if ( ! response.ok || ! response.body ) {
+			throw new Error( 'Failed to download backup' );
+		}
+
+		const fileStream = fs.createWriteStream( destPath );
+		const readable = Readable.fromWeb( response.body as import('stream/web').ReadableStream );
+
+		await new Promise< void >( ( resolve, reject ) => {
+			readable.pipe( fileStream );
+			fileStream.on( 'finish', resolve );
+			fileStream.on( 'error', reject );
+			readable.on( 'error', reject );
+		} );
 	} catch ( error ) {
 		throw wrapError( __( 'Failed to download backup' ), error, 'network' );
 	}

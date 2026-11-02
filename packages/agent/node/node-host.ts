@@ -49,6 +49,15 @@ const nodeFiles: HostFiles = {
 			name: entry.name,
 			directory: entry.isDirectory(),
 		} ) ),
+	walk: async ( directory ) =>
+		( await readdir( directory, { recursive: true, withFileTypes: true } ) )
+			.filter( ( entry ) => ! entry.isDirectory() )
+			.map( ( entry ) =>
+				path
+					.relative( directory, path.join( entry.parentPath, entry.name ) )
+					.split( path.sep )
+					.join( '/' )
+			),
 };
 
 const PAGE_LOAD_TIMEOUT_MS = 30_000;

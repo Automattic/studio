@@ -1,12 +1,6 @@
-import { streamSimple as streamAnthropicMessages } from '@earendil-works/pi-ai/api/anthropic-messages';
-import { streamSimple as streamOpenAiCompletions } from '@earendil-works/pi-ai/api/openai-completions';
-import { streamSimple as streamOpenAiResponses } from '@earendil-works/pi-ai/api/openai-responses';
-import { getAiModel, getAiModelFamily, type AiModelId } from '@studio/agent/protocol/models';
+import { getAiModelFamily, type AiModelId } from '@studio/agent/protocol/models';
 import { getWpcomAiGatewayBaseUrl } from '@studio/agent/shared/ai-gateway';
-import { buildStudioModel } from '@studio/agent/shared/models';
-import { withLeakedToolCallMarkupRemoved } from '@studio/agent/shared/runtime-guards/leaked-tool-call-markup';
-import { stripStaleImagesFromContext } from '@studio/agent/shared/runtime-guards/strip-stale-images';
-import { withUsageCapErrorRewrite } from '@studio/agent/shared/runtime-guards/usage-cap';
+import { buildStudioModel, streamStudioModel } from '@studio/agent/shared/models';
 import type { StreamFn } from '@earendil-works/pi-agent-core';
 import type { Api, Model } from '@earendil-works/pi-ai';
 
@@ -53,41 +47,10 @@ const proxyFetch: typeof fetch = ( input, init ) => {
 };
 
 export function createStreamFn( modelId: AiModelId, credentials: ModelCredentials ): StreamFn {
-	const apiModelId = getAiModel( modelId ).apiModelId;
-	return ( model, context, options ) => {
-		const apiKey =
-			getAiModelFamily( modelId ) === 'anthropic'
-				? credentials.anthropicApiKey
-				: credentials.wpcomToken;
-		const streamOptions = {
-			...options,
-			apiKey,
-			fetch: proxyFetch,
-			...( apiModelId
-				? {
-						onPayload: async ( params: unknown, payloadModel: Model< Api > ) => {
-							const next = ( await options?.onPayload?.( params, payloadModel ) ) ?? params;
-							return { ...( next as Record< string, unknown > ), model: apiModelId };
-						},
-				  }
-				: {} ),
-		};
-		const stream =
-			model.api === 'anthropic-messages'
-				? streamAnthropicMessages
-				: model.api === 'openai-responses'
-				? streamOpenAiResponses
-				: streamOpenAiCompletions;
-		// The same guards as the Node runtime: a bounded image history, tool calls
-		// leaked as text dropped, and the usage cap made non-retryable.
-		return withUsageCapErrorRewrite(
-			withLeakedToolCallMarkupRemoved(
-				( stream as typeof streamOpenAiCompletions )(
-					model as Model< 'openai-completions' >,
-					stripStaleImagesFromContext( context ),
-					streamOptions
-				)
-			)
-		);
-	};
+	const apiKey =
+		getAiModelFamily( modelId ) === 'anthropic'
+			? credentials.anthropicApiKey
+			: credentials.wpcomToken;
+	return ( model, context, options ) =>
+		streamStudioModel( model, context, { ...options, apiKey, fetch: proxyFetch } );
 }

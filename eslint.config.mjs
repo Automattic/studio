@@ -24,14 +24,14 @@ const AGENT_NODE = {
 	message: 'Apps that show the agent import its contract, @studio/agent/protocol, not the agent.',
 };
 
-// `apps/ui/src` is layered as internal packages (`lib/*`), product areas (`features/*`),
-// then `data/`, `router/` and `app/`. See apps/ui/README.md.
 // Studio on the web's backend (`apps/static`) is reached through its connector.
 const STATIC_BACKEND = {
 	group: [ '@studio/static', '@studio/static/*' ],
 	message: 'Only the static connector imports @studio/static; features use useConnector().',
 };
 
+// `apps/ui/src` is layered as internal packages (`lib/*`), product areas (`features/*`),
+// then `data/`, `router/` and `app/`. See apps/ui/README.md.
 const UI_SRC = path.join( import.meta.dirname, 'apps/ui/src' );
 const uiDirs = ( dir ) =>
 	fs
@@ -332,23 +332,6 @@ export default defineConfig(
 		files: [ 'apps/ui/src/data/core/connectors/static/**/*.{ts,tsx}' ],
 		rules: {
 			'no-restricted-imports': [ 'error', { patterns: [ WP_UI_PACKAGES, AGENT_NODE ] } ],
-		},
-	},
-	{
-		// Studio on the web's backend: the UI reaches it through its connector, never the reverse.
-		files: [ 'apps/static/**/*.ts' ],
-		rules: {
-			'no-restricted-imports': [
-				'error',
-				{
-					patterns: [
-						{
-							group: [ '@/*', '@studio/ui', '@studio/ui/*' ],
-							message: "apps/static is the UI's backend and never imports the UI.",
-						},
-					],
-				},
-			],
 		},
 	},
 	{

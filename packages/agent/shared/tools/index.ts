@@ -1,4 +1,5 @@
 import { emitChatArtifactWidgets } from '@studio/agent/shared/chat-artifacts';
+import { createAskUserQuestionTool } from './ask-user-question';
 import { createPreviewTool } from './create-preview';
 import { createSiteTool } from './create-site';
 import { bindTool } from './define-tool';
@@ -15,12 +16,14 @@ import { listSitesTool } from './list-sites';
 import { auditPerformanceTool } from './need-for-speed';
 import { openAnnotationBrowserTool } from './open-annotation-browser';
 import { createPickDesignTool, pickDesignTool } from './pick-design';
+import { createPresentDesignOptionsTool } from './present-design-options';
 import { pullSiteTool } from './pull-site';
 import { pushSiteTool } from './push-site';
 import { auditSeoTool } from './rank-me-up';
 import { refreshBrowserTool } from './refresh-browser';
 import { scaffoldThemeTool } from './scaffold-theme';
 import { getSiteInfoTool } from './site-info';
+import { createSkillTool } from './skill';
 import { startSiteTool } from './start-site';
 import { stopSiteTool } from './stop-site';
 import { createTakeScreenshotTool, takeScreenshotTool } from './take-screenshot';
@@ -35,6 +38,7 @@ import type {
 } from './define-tool';
 import type { DesignTracksContext } from '@studio/agent/shared/design-tracks';
 import type { StudioAgentHost, StudioAgentUi } from '@studio/agent/shared/host';
+import type { AskUserHandler } from '@studio/agent/shared/types';
 
 // The tools as defined for `host`.
 export function studioToolDefinitions( host: StudioAgentHost ): StudioToolDefinition[] {
@@ -71,9 +75,7 @@ export function studioToolDefinitions( host: StudioAgentHost ): StudioToolDefini
 }
 
 export interface StudioToolsOptions {
-	// Enable generate_images. Callers resolve isImageGenerationAvailable()
-	// (async) and pass it; when off, sessions behave exactly as before the tool
-	// existed (no tool, no imagery prompt sections).
+	// Enable generate_images, when the host has an image token.
 	imageGeneration?: boolean;
 	// False for models that cannot view images. Defaults to true.
 	visionEnabled?: boolean;
@@ -128,6 +130,30 @@ export function resolveStudioTools(
 		}
 		return [ withChatArtifactEmission( bindTool( tool, host ), host.ui ) ];
 	} );
+}
+
+// The tools of a conversation with the model: Studio's, the questions when the
+// user can answer them, and the skills.
+export function resolveConversationTools(
+	host: StudioAgentHost,
+	{
+		onAskUser,
+		tracks,
+		...options
+	}: Pick< StudioToolsOptions, 'imageGeneration' | 'visionEnabled' > & {
+		onAskUser?: AskUserHandler;
+		tracks: DesignTracksContext;
+	}
+): AnyStudioAgentTool[] {
+	const skillTool = createSkillTool();
+	return [
+		...resolveStudioTools( host, { ...options, canAskUser: Boolean( onAskUser ), tracks } ),
+		...( onAskUser ? [ bindTool( createAskUserQuestionTool( onAskUser ), host ) ] : [] ),
+		...( onAskUser && host.ui
+			? [ bindTool( createPresentDesignOptionsTool( { onAskUser, tracks } ), host ) ]
+			: [] ),
+		...( skillTool ? [ bindTool( skillTool, host ) ] : [] ),
+	] as AnyStudioAgentTool[];
 }
 
 export function withChatArtifactEmission< TTool extends AnyStudioAgentTool >(

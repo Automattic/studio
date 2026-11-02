@@ -10,28 +10,22 @@ const CALLBACK_PATH = '/auth/callback';
 const RETURN_TO_KEY = 'studio-auth-return-to';
 // The sign-in this page started: a callback with any other `state` is not ours.
 const STATE_KEY = 'studio-auth-state';
+
 // WordPress.com sends the token only to a redirect URL registered on the OAuth
 // app, and answers browser requests made with its tokens only from origins
-// the app allows. A deployment registers `<origin>/auth/callback`, or sets its
-// own app and redirect URL.
-const OAUTH_CLIENT_ID = import.meta.env.VITE_WPCOM_CLIENT_ID ?? CLIENT_ID;
-
-function getRedirectUri(): string {
-	return import.meta.env.VITE_WPCOM_REDIRECT_URI ?? `${ window.location.origin }${ CALLBACK_PATH }`;
-}
-
-function getAuthorizeUrl( redirectUri: string, state: string, signup: boolean ): string {
+// the app allows. A deployment registers `<origin>/auth/callback`.
+function getAuthorizeUrl( state: string, signup: boolean ): string {
 	const authorize = new URL( `${ API_BASE }/oauth2/authorize` );
 	authorize.searchParams.set( 'response_type', 'token' );
-	authorize.searchParams.set( 'client_id', OAUTH_CLIENT_ID );
-	authorize.searchParams.set( 'redirect_uri', redirectUri );
+	authorize.searchParams.set( 'client_id', CLIENT_ID );
+	authorize.searchParams.set( 'redirect_uri', `${ window.location.origin }${ CALLBACK_PATH }` );
 	authorize.searchParams.set( 'scope', 'global' );
 	authorize.searchParams.set( 'state', state );
 	if ( ! signup ) {
 		return authorize.toString();
 	}
 	const start = new URL( 'https://wordpress.com/start/wpcc/oauth2-user' );
-	start.searchParams.set( 'oauth2_client_id', OAUTH_CLIENT_ID );
+	start.searchParams.set( 'oauth2_client_id', CLIENT_ID );
 	start.searchParams.set( 'oauth2_redirect', authorize.toString() );
 	return start.toString();
 }
@@ -53,7 +47,7 @@ async function wpcomFetch( url: string, init?: RequestInit ): Promise< Response 
 	}
 }
 
-export interface WpcomToken extends AuthUser {
+interface WpcomToken extends AuthUser {
 	accessToken: string;
 }
 
@@ -124,22 +118,19 @@ export class WpcomAuth {
 		);
 		const state = crypto.randomUUID();
 		window.sessionStorage.setItem( STATE_KEY, state );
-		window.location.assign( getAuthorizeUrl( getRedirectUri(), state, signup ) );
+		window.location.assign( getAuthorizeUrl( state, signup ) );
 		// The page is navigating away.
 		await new Promise( () => {} );
 	}
 
 	// A WordPress.com REST request with the user's token.
-	async request< T >( path: string, init: RequestInit & { apiBase?: string } = {} ): Promise< T > {
+	async request< T >( path: string, init: RequestInit = {} ): Promise< T > {
 		const accessToken = await this.requireToken();
-		const response = await wpcomFetch( `${ init.apiBase ?? API_BASE }${ path }`, {
+		const response = await wpcomFetch( `${ API_BASE }${ path }`, {
 			...init,
 			headers: {
 				Authorization: `Bearer ${ accessToken }`,
-				...( init.body && ! ( init.body instanceof FormData ) && typeof init.body === 'string'
-					? { 'Content-Type': 'application/json' }
-					: {} ),
-				...init.headers,
+				...( typeof init.body === 'string' ? { 'Content-Type': 'application/json' } : {} ),
 			},
 		} );
 		const text = await response.text();

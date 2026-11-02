@@ -74,7 +74,7 @@ export function createTusUpload( options: TusUploadOptions ): {
 					filename,
 					filetype: 'application/gzip',
 				},
-				...( size === undefined ? {} : { uploadSize: size } ),
+				uploadSize: size,
 				onBeforeRequest: ( req ) => {
 					if ( req.getMethod() === 'HEAD' ) {
 						// @ts-expect-error Override method to get response headers

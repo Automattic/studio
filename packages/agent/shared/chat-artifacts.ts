@@ -48,10 +48,12 @@ interface FileWritingTool {
  */
 export function withDesignSystemPreview< TTool extends FileWritingTool >(
 	tool: TTool,
-	host: StudioAgentHost,
-	ui: StudioAgentUi
+	host: StudioAgentHost
 ): TTool {
-	const { path } = host;
+	const { path, ui } = host;
+	if ( ! ui ) {
+		return tool;
+	}
 	return {
 		...tool,
 		async execute( toolCallId: string, params: { path?: unknown }, ...rest: unknown[] ) {

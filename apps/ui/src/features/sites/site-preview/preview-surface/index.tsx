@@ -68,7 +68,6 @@ export function FrameSurface( {
 	title,
 	onLoad,
 	onSettle,
-	inspector = false,
 	annotations,
 	onInspectorReady,
 	onInspectorEvent,
@@ -78,15 +77,14 @@ export function FrameSurface( {
 	onLoad: ( src: string ) => void;
 	// Whether the server answered for the page, once asked.
 	onSettle: ( src: string, title: string | null, failed: boolean ) => void;
-	inspector?: boolean;
 	annotations?: SiteAnnotations;
 	onInspectorReady?: ( ready: boolean ) => void;
 	onInspectorEvent?: ( event: InspectorEvent ) => void;
 } ) {
 	const connector = useConnector();
 	const ref = useRef< HTMLIFrameElement | null >( null );
-	const [ frame, setFrame ] = useState< { run( script: string ): void } | null >( null );
-	const [ inspectorReady, setInspectorReady ] = useState( false );
+	const [ page, setPage ] = useState< { run( script: string ): void } | null >( null );
+	const inspector = !! annotations;
 	const listenersRef = useRef( { onInspectorReady, onInspectorEvent } );
 	useEffect( () => {
 		listenersRef.current = { onInspectorReady, onInspectorEvent };
@@ -98,7 +96,8 @@ export function FrameSurface( {
 		const connection = connector.connectPreviewFrame( iframe, {
 			onPage() {
 				connection.run( INSPECTOR_PAGE_SCRIPT );
-				setInspectorReady( true );
+				// A new object for each page: its inspector starts with no notes.
+				setPage( { ...connection } );
 				listenersRef.current.onInspectorReady?.( true );
 			},
 			onLog( message ) {
@@ -106,11 +105,9 @@ export function FrameSurface( {
 				if ( event ) listenersRef.current.onInspectorEvent?.( event );
 			},
 		} );
-		setFrame( connection );
 		return () => {
 			connection.dispose();
-			setFrame( null );
-			setInspectorReady( false );
+			setPage( null );
 			listenersRef.current.onInspectorReady?.( false );
 		};
 	}, [ connector, inspector ] );
@@ -118,10 +115,10 @@ export function FrameSurface( {
 	// Mirrors the notes into the page, in the theme's accent.
 	const colorScheme = useColorScheme();
 	useEffect( () => {
-		if ( inspectorReady && frame && annotations && ref.current ) {
-			frame.run( buildInspectorCommandScript( annotations, ref.current ) );
+		if ( page && annotations && ref.current ) {
+			page.run( buildInspectorCommandScript( annotations, ref.current ) );
 		}
-	}, [ annotations, colorScheme, frame, inspectorReady ] );
+	}, [ annotations, colorScheme, page ] );
 
 	return (
 		<iframe

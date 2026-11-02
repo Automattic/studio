@@ -2,7 +2,7 @@ import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { SITE_EVENTS, type SiteEvent } from '@studio/common/lib/cli-events';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
 import { PlaygroundRuntimes, getSiteUrl, type FreshSiteOptions } from './playground';
-import { applySettingsToWpConfig, copySiteFiles, importBackup, removeSiteFiles } from './site-data';
+import { applySettingsToWpConfig, exportSiteZip, importBackup, removeSiteFiles } from './site-data';
 import { kvDelete, kvGet, kvSet, kvUpdate } from './store';
 import type { CreateSiteParams, StaticSiteDetails, StaticSiteSettings } from './types';
 import type { SiteOperationKind } from '@studio/common/lib/site-operation';
@@ -74,7 +74,7 @@ export class StaticSites {
 		);
 	}
 
-	toDetails( record: StaticSiteRecord ): StaticSiteDetails {
+	private toDetails( record: StaticSiteRecord ): StaticSiteDetails {
 		const running = this.runtimes.isRunning( record.id );
 		const operation = this.operations.get( record.id );
 		return {
@@ -255,7 +255,7 @@ export class StaticSites {
 		const copy = await this.create( {
 			name,
 			path: await this.uniquePath( name ),
-			phpVersion: source.phpVersion as CreateSiteParams[ 'phpVersion' ],
+			phpVersion: source.phpVersion,
 			wpVersion: source.wpVersion,
 			adminUsername: source.adminUsername,
 			adminPassword: source.adminPassword,
@@ -266,7 +266,7 @@ export class StaticSites {
 			const wasRunning = this.runtimes.isRunning( sourceId );
 			const sourceClient = await this.client( sourceId );
 			const targetClient = await this.boot( copy.id );
-			await copySiteFiles( sourceClient, targetClient );
+			await importBackup( targetClient, 'copy.zip', await exportSiteZip( sourceClient ) );
 			if ( ! wasRunning ) {
 				await this.runtimes.stop( sourceId );
 			}
@@ -274,13 +274,11 @@ export class StaticSites {
 		return this.toDetails( await this.get( copy.id ) );
 	}
 
-	async update( site: StaticSiteSettings, wpVersion?: string ): Promise< void > {
+	async update( site: StaticSiteSettings ): Promise< void > {
 		const record = await this.get( site.id );
 		const next: StaticSiteRecord = {
 			...record,
 			name: site.name,
-			phpVersion: site.phpVersion,
-			wpVersion: wpVersion ?? ( site.isWpAutoUpdating === false ? record.wpVersion : 'latest' ),
 			adminUsername: site.adminUsername ?? record.adminUsername,
 			adminPassword: site.adminPassword
 				? decodePassword( site.adminPassword )
@@ -292,21 +290,11 @@ export class StaticSites {
 			environmentType: site.environmentType,
 		};
 		await this.save( next );
-		const restart =
-			this.runtimes.isRunning( site.id ) &&
-			( next.phpVersion !== record.phpVersion || next.wpVersion !== record.wpVersion );
-		if ( restart ) {
-			await this.withOperation( site.id, 'settings', async () => {
-				await this.runtimes.stop( site.id );
-				await this.boot( site.id );
-			} );
-		} else {
-			const client = this.runtimes.client( site.id );
-			if ( client ) {
-				await applySettingsToWpConfig( await client, next );
-			}
-			await this.emit( SITE_EVENTS.UPDATED, site.id );
+		const client = this.runtimes.client( site.id );
+		if ( client ) {
+			await applySettingsToWpConfig( await client, next );
 		}
+		await this.emit( SITE_EVENTS.UPDATED, site.id );
 	}
 
 	async updateSortOrder( updates: { siteId: string; sortOrder: number }[] ) {

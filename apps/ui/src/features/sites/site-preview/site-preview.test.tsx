@@ -1,11 +1,12 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
+import { INSPECTOR_PAGE_SCRIPT } from '@studio/agent/protocol/inspector/page-script';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { useSyncExternalStore, type ComponentProps } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { updateResponsivePreview } from '@/data/responsive-preview';
 import { SessionUIProvider } from '@/data/use-session-ui';
 import { getSiteAnnotations } from '@/features/annotations';
-import { ALL_CAPABILITIES, createFakeConnector, makeSite } from '@/test/fake-connector';
+import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { SitePreview } from './index';
 
@@ -231,6 +232,14 @@ describe( 'site preview', () => {
 		}
 	);
 
+	it( 'keeps the page showing when a running site is started again', async () => {
+		const { update } = await renderPreview( 'browser' );
+		finishLoading( 'browser' );
+		update( { site: site( { operation: { pid: 1, kind: 'start' } } ) } );
+		update( { site: site() } );
+		expect( isPageHidden() ).toBe( false );
+	} );
+
 	it( 'reports the guest URL and native history after navigation', async () => {
 		const onPathChange = vi.fn();
 		const { user } = await renderPreview( 'desktop', { onPathChange } );
@@ -419,7 +428,7 @@ describe( 'site preview controls', () => {
 	} );
 
 	it( 'starts a stopped site with annotation mode selected', async () => {
-		const connector = createFakeConnector( {}, { capabilities: ALL_CAPABILITIES } );
+		const connector = createFakeConnector();
 		const stopped = makeSite( { id: 'annotate-stopped', running: false } );
 		const { user } = await renderPreview( 'desktop', { site: stopped }, connector );
 		const annotate = screen.getByRole( 'button', { name: 'Annotate' } );
@@ -434,7 +443,7 @@ describe( 'site preview controls', () => {
 		async ( annotatePreview ) => {
 			const connector = createFakeConnector(
 				{},
-				{ capabilities: { ...ALL_CAPABILITIES, annotatePreview } }
+				{ capabilities: { nativeFolderPicker: true, annotatePreview, studioLogs: true } }
 			);
 			await renderPreview( 'browser', {}, connector );
 			expect( screen.getByRole( 'button', { name: 'Reload preview' } ) ).toBeVisible();
@@ -449,6 +458,18 @@ describe( 'site preview controls', () => {
 			}
 		}
 	);
+
+	it( 'sends the notes to each page a browser preview loads', async () => {
+		const run = vi.fn();
+		const connector = createFakeConnector();
+		connector.connectPreviewFrame.mockReturnValue( { run, dispose: vi.fn() } );
+		await renderPreview( 'browser', {}, connector );
+		const { onPage } = connector.connectPreviewFrame.mock.calls[ 0 ][ 1 ];
+		act( () => onPage() );
+		act( () => onPage() );
+		const commands = run.mock.calls.filter( ( [ script ] ) => script !== INSPECTOR_PAGE_SCRIPT );
+		expect( commands ).toHaveLength( 2 );
+	} );
 
 	it.each( [ undefined, 'https://example.wordpress.com' ] )(
 		'keeps responsive settings on site surfaces and suspends the toolbar for tools (live: %s)',

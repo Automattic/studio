@@ -55,7 +55,6 @@ export function getSiteCommands( {
 	chatHidden,
 	previewShown,
 	canAnnotate,
-	canOpenDatabase,
 	annotating,
 	actions,
 	destinations,
@@ -74,7 +73,6 @@ export function getSiteCommands( {
 	chatHidden?: boolean;
 	previewShown: boolean;
 	canAnnotate: boolean;
-	canOpenDatabase: boolean;
 	annotating: boolean;
 	actions: ReturnType< typeof useSiteActions >;
 	destinations: ReturnType< typeof useOpenInDestinations >;
@@ -91,6 +89,7 @@ export function getSiteCommands( {
 } ): PaletteCommand[] {
 	const { busy, running, othersRunning } = actions;
 	const description = site.name;
+	const canOpenDatabase = destinations.some( ( destination ) => destination.id === 'phpmyadmin' );
 	const keywords: Record< string, string[] > = {
 		files: [ __( 'Folder' ), __( 'Directory' ), __( 'Finder' ) ],
 		editor: [ __( 'Code editor' ), __( 'IDE' ) ],

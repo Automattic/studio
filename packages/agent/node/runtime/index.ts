@@ -1,14 +1,6 @@
 import fs from 'fs';
 import { type AgentTool } from '@earendil-works/pi-agent-core';
-import {
-	type Credential,
-	type CredentialInfo,
-	type CredentialStore,
-	type SimpleStreamOptions,
-} from '@earendil-works/pi-ai';
-import { streamSimple as streamAnthropicMessages } from '@earendil-works/pi-ai/api/anthropic-messages';
-import { streamSimple as streamOpenAiCompletions } from '@earendil-works/pi-ai/api/openai-completions';
-import { streamSimple as streamOpenAiResponses } from '@earendil-works/pi-ai/api/openai-responses';
+import { type Credential, type CredentialInfo, type CredentialStore } from '@earendil-works/pi-ai';
 import {
 	createAgentSession,
 	createBashTool,
@@ -32,32 +24,25 @@ import { readGlobalInstructions } from '@studio/agent/node/global-instructions';
 import {
 	aiModelSupportsImages,
 	DEFAULT_MODEL,
-	getAiModel,
 	getAiModelFamily,
 	type AiModelFamily,
 	type AiModelId,
 } from '@studio/agent/protocol/models';
-import { findLastAssistant, isEmptyStop } from '@studio/agent/protocol/session-events';
+import {
+	findLastAssistant,
+	getEmptyStopContinuation,
+	isEmptyStop,
+	MAX_EMPTY_STOP_CONTINUES,
+} from '@studio/agent/protocol/session-events';
 import { withDesignSystemPreview } from '@studio/agent/shared/chat-artifacts';
 import { getFileToolPrompt } from '@studio/agent/shared/file-tool-prompts';
-import {
-	buildStudioModel,
-	type StudioModel,
-	type StudioWpcomModel,
-} from '@studio/agent/shared/models';
-import { runWithPendingWork } from '@studio/agent/shared/pending-work';
+import { buildStudioModel, streamStudioModel, type StudioModel } from '@studio/agent/shared/models';
+import { runWithPendingWork, type PendingWork } from '@studio/agent/shared/pending-work';
 import { createResultNotes } from '@studio/agent/shared/result-notes';
-import { withLeakedToolCallMarkupRemoved } from '@studio/agent/shared/runtime-guards/leaked-tool-call-markup';
-import { stripStaleImagesFromContext } from '@studio/agent/shared/runtime-guards/strip-stale-images';
-import { withUsageCapErrorRewrite } from '@studio/agent/shared/runtime-guards/usage-cap';
 import { findActiveSiteDesign } from '@studio/agent/shared/site-selection';
 import { buildSystemPrompt, type ToolPromptContribution } from '@studio/agent/shared/system-prompt';
-import { resolveStudioTools } from '@studio/agent/shared/tools';
-import { createAskUserQuestionTool } from '@studio/agent/shared/tools/ask-user-question';
-import { bindTool } from '@studio/agent/shared/tools/define-tool';
-import { createPresentDesignOptionsTool } from '@studio/agent/shared/tools/present-design-options';
-import { createSkillTool } from '@studio/agent/shared/tools/skill';
-import { getPendingWork, type PendingWork } from './pending-work';
+import { resolveConversationTools } from '@studio/agent/shared/tools';
+import { getPendingWork } from './pending-work';
 import {
 	getIncompleteToolCallReason,
 	getFileWriteRefusal,
@@ -73,12 +58,6 @@ import type { AskUserHandler, SiteInfo } from '@studio/agent/shared/types';
 type AgentToolAny = AgentTool< any >;
 type ProviderConfigInput = Parameters< ModelRuntime[ 'registerProvider' ] >[ 1 ];
 
-// A reply with nothing in it ends the turn without the user seeing why (see
-// `isEmptyStop`). Resume it with a message the user doesn't see, up to this
-// many times per turn. pi leaves a reply that has only reasoning out of the
-// next request, so the message carries that reasoning; otherwise the model
-// starts the same reasoning over and runs out again.
-const MAX_EMPTY_STOP_CONTINUES = 2;
 const EMPTY_STOP_CONTINUE_TYPE = 'studio.empty_stop_continue';
 const STUDIO_COMPACTION_SETTINGS = {
 	enabled: true,
@@ -251,7 +230,7 @@ async function runAgentSessionTurn(
 		setActiveSession( session );
 		let emptyStopContinues = 0;
 		let continueAfterEmptyStop = false;
-		let cutOffReasoning = '';
+		let continuation = '';
 		unsubscribe = session.subscribe( ( event ) => {
 			updateStudioToolPayloadGuardState( event, payloadGuardState );
 			if (
@@ -263,10 +242,7 @@ async function runAgentSessionTurn(
 				if ( isEmptyStop( lastAssistant ) ) {
 					// Not final: consumers wait for the turn's real end.
 					continueAfterEmptyStop = true;
-					cutOffReasoning = ( lastAssistant?.content ?? [] )
-						.map( ( block ) => ( block.type === 'thinking' ? block.thinking : '' ) )
-						.join( '' )
-						.trim();
+					continuation = getEmptyStopContinuation( lastAssistant );
 					config.onEvent( { ...event, willRetry: true } );
 					return;
 				}
@@ -299,9 +275,7 @@ async function runAgentSessionTurn(
 			await session.sendCustomMessage(
 				{
 					customType: EMPTY_STOP_CONTINUE_TYPE,
-					content: cutOffReasoning
-						? `Your reasoning was cut off before you replied. Continue from where it stopped:\n\n${ cutOffReasoning }`
-						: 'continue',
+					content: continuation,
 					display: false,
 				},
 				{ triggerTurn: true }
@@ -432,10 +406,7 @@ async function createModelRuntime(
 	} );
 
 	if ( family === 'studio' ) {
-		modelRuntime.registerProvider(
-			model.provider,
-			createWpcomProviderConfig( model as StudioWpcomModel, creds )
-		);
+		modelRuntime.registerProvider( model.provider, createWpcomProviderConfig( model, creds ) );
 		return modelRuntime;
 	}
 
@@ -456,46 +427,17 @@ function escapePiConfigValue( value: string ): string {
 }
 
 // The wpcom lane only needs pi's stock streaming for each tier's API; the
-// custom provider exists to wrap the stream with the usage-cap 429 rewrite and
-// the leaked tool-call cleanup, and to strip stale screenshots, which would
-// otherwise bloat requests past the proxy's body limit.
+// custom provider exists to run it through `streamStudioModel`.
 function createWpcomProviderConfig(
-	model: StudioWpcomModel,
+	model: StudioModel,
 	creds: ResolvedCredentials
 ): ProviderConfigInput {
-	// pi types `streamSimple` against `Model<Api>`; each API's stream function
-	// is narrower, and the model registered below is the one passed in.
-	const stream = (
-		model.api === 'openai-completions'
-			? streamOpenAiCompletions
-			: model.api === 'anthropic-messages'
-			? streamAnthropicMessages
-			: streamOpenAiResponses
-	) as NonNullable< ProviderConfigInput[ 'streamSimple' ] >;
-	// The model keeps its stable id for pi and the session history; only the
-	// request names the proxy's current upstream alias.
-	const apiModelId = getAiModel( model.id as AiModelId )?.apiModelId;
 	return {
 		baseUrl: creds.baseURL,
 		apiKey: escapePiConfigValue( creds.apiKey ),
 		api: model.api,
 		headers: creds.extraHeaders,
-		streamSimple: ( m, ctx, options?: SimpleStreamOptions ) =>
-			withUsageCapErrorRewrite(
-				withLeakedToolCallMarkupRemoved(
-					stream( m, stripStaleImagesFromContext( ctx ), {
-						...options,
-						...( apiModelId
-							? {
-									onPayload: async ( params: unknown, payloadModel ) => {
-										const next = ( await options?.onPayload?.( params, payloadModel ) ) ?? params;
-										return { ...( next as Record< string, unknown > ), model: apiModelId };
-									},
-							  }
-							: {} ),
-					} )
-				)
-			),
+		streamSimple: streamStudioModel,
 		models: [
 			{
 				id: model.id,
@@ -583,47 +525,29 @@ function buildAgentTools(
 	visionEnabled: boolean
 ): AgentToolAny[] {
 	const { host } = config;
-	const askUserTool: AgentToolAny[] = config.onAskUser
-		? [ bindTool( createAskUserQuestionTool( config.onAskUser ), host ) ]
-		: [];
-	const tracks = getAiTracksIdentity( config.session.getSessionId() );
-	const designOptionsTool: AgentToolAny[] =
-		config.onAskUser && host.ui
-			? [
-					bindTool(
-						createPresentDesignOptionsTool( { onAskUser: config.onAskUser, tracks } ),
-						host
-					) as unknown as AgentToolAny,
-			  ]
-			: [];
-
-	const skillToolDef = createSkillTool();
-	const skillTool: AgentToolAny[] = skillToolDef ? [ bindTool( skillToolDef, host ) ] : [];
 
 	// pi's tools are registered under Studio's names; the prompt text for them
 	// is Studio's too (file-tool-prompts.ts), so nothing of pi's wording leaks.
 	const renameTool = < S extends TSchema >( tool: AgentTool< S >, name: string ): AgentTool< S > =>
 		( { ...tool, name, label: name, ...getFileToolPrompt( name ) } ) as AgentTool< S >;
 
-	const { sitesRoot, ui } = host;
-	const designSystemPreview = < TTool extends AgentToolAny >( tool: TTool ) =>
-		ui ? withDesignSystemPreview( tool, host, ui ) : tool;
+	const { sitesRoot } = host;
 	const piTools: AgentToolAny[] = [
 		renameTool( createReadTool( sitesRoot ), 'Read' ),
-		designSystemPreview( renameTool( createWriteTool( sitesRoot ), 'Write' ) ),
-		designSystemPreview( renameTool( createEditTool( sitesRoot ), 'Edit' ) ),
+		withDesignSystemPreview( renameTool( createWriteTool( sitesRoot ), 'Write' ), host ),
+		withDesignSystemPreview( renameTool( createEditTool( sitesRoot ), 'Edit' ), host ),
 		renameTool( createBashTool( sitesRoot ), 'Bash' ),
 		renameTool( createGrepTool( sitesRoot ), 'Grep' ),
 		renameTool( createFindTool( sitesRoot ), 'Glob' ),
 		renameTool( createLsTool( sitesRoot ), 'Ls' ),
 	];
-	const studioTools = resolveStudioTools( host, {
+	const conversationTools = resolveConversationTools( host, {
 		imageGeneration: imageGenerationEnabled,
 		visionEnabled,
-		canAskUser: Boolean( config.onAskUser ),
-		tracks,
+		onAskUser: config.onAskUser,
+		tracks: getAiTracksIdentity( config.session.getSessionId() ),
 	} ) as unknown as AgentToolAny[];
-	return [ ...studioTools, ...askUserTool, ...designOptionsTool, ...skillTool, ...piTools ];
+	return [ ...conversationTools, ...piTools ];
 }
 
 function parseJsonHeaderEnv(

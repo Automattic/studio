@@ -1,8 +1,7 @@
 // Shows one page of a site that a Studio tab is running. The site is served by
 // Playground's service worker, which reaches that tab's runtime only from pages
 // of this origin, so a site opens here rather than at its Playground URL.
-const PLAYGROUND_REMOTE_URL =
-	import.meta.env.VITE_PLAYGROUND_REMOTE_URL ?? 'https://playground.wordpress.net/remote.html';
+const PLAYGROUND_REMOTE_URL = 'https://playground.wordpress.net/remote.html';
 
 const params = new URLSearchParams( window.location.search );
 const scope = params.get( 'scope' ) ?? '';
@@ -26,3 +25,5 @@ const origin = siteOrigin();
 if ( origin && /^[a-z0-9-]+$/.test( scope ) ) {
 	frame.src = `${ origin }/scope:${ scope }${ path }`;
 }
+
+export {};

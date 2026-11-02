@@ -1,3 +1,4 @@
+import { generateBackupFilename } from '@studio/common/lib/generate-backup-filename';
 import { DEFAULT_COLOR_SCHEME } from '@studio/common/lib/user-settings/preferences';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import {
@@ -77,9 +78,12 @@ function download( data: BlobPart, filename: string, type: string ): string {
 	return filename;
 }
 
-function backupFilename( siteName: string, extension: string ): string {
-	const stamp = new Date().toISOString().replace( /[:.]/g, '-' ).slice( 0, 19 );
-	return `${ siteName.replace( /[^a-z0-9-_]+/gi, '-' ) }-${ stamp }.${ extension }`;
+function numberedName( baseName: string, usedNames: Set< string > ): string {
+	let name = baseName;
+	for ( let suffix = 2; usedNames.has( name ); suffix++ ) {
+		name = `${ baseName } ${ suffix }`;
+	}
+	return name;
 }
 
 /**
@@ -115,13 +119,7 @@ export function createStaticConnector(): Connector {
 			nativeFolderPicker: false,
 			annotatePreview: true,
 			studioLogs: false,
-			siteFolders: false,
-			phpMyAdmin: false,
-			customDomains: false,
-			xdebug: false,
-			siteAgentFiles: false,
-			fileAccess: false,
-			versionChoice: false,
+			nativeSites: false,
 		},
 
 		agenticRequiresAuth: false,
@@ -152,31 +150,24 @@ export function createStaticConnector(): Connector {
 		async copySite( sourceSiteId ) {
 			const source = await sites.get( sourceSiteId );
 			const names = new Set( ( await sites.list() ).map( ( site ) => site.name ) );
-			let name = `${ source.name } Copy`;
-			for ( let suffix = 2; names.has( name ); suffix++ ) {
-				name = `${ source.name } Copy ${ suffix }`;
-			}
-			return sites.copy( sourceSiteId, name );
+			return sites.copy( sourceSiteId, numberedName( `${ source.name } Copy`, names ) );
 		},
 		startSite: ( id ) => sites.start( id ),
 		stopSite: ( id ) => sites.stop( id ),
-		updateSite: ( site, wpVersion ) => sites.update( site, wpVersion ),
+		updateSite: ( site ) => sites.update( site ),
 		updateSitesSortOrder: ( updates ) => sites.updateSortOrder( updates ),
 		getSiteThumbnail: ( siteId ) => sites.getThumbnail( siteId ),
 		async captureSitePreview( siteId, { path } ) {
-			if ( /^\/?wp-(admin|login)/.test( path.replace( /^\/scope:[^/]+/, '' ) ) ) {
+			if ( /^\/?wp-(admin|login)/.test( path ) ) {
 				return null;
 			}
 			const record = await sites.get( siteId );
 			if ( ! sites.runtimes.isRunning( siteId ) ) {
 				return null;
 			}
-			const thumbnail = await withSitePage(
-				record.scope,
-				path.replace( /^\/scope:[^/]+/, '' ),
-				{ width: 1280, height: 800 },
-				async ( page ) => ( await page.capture() ).dataUrl
-			).catch( () => null );
+			const thumbnail = await withSitePage( record.scope, path, ( page ) => page.capture() ).catch(
+				() => null
+			);
 			if ( thumbnail ) {
 				await sites.setThumbnail( siteId, thumbnail );
 			}
@@ -192,12 +183,13 @@ export function createStaticConnector(): Connector {
 		async exportFullSite( siteId ) {
 			const record = await sites.get( siteId );
 			const zip = await exportSiteZip( await sites.client( siteId ) );
-			return download( zip as BlobPart, backupFilename( record.name, 'zip' ), 'application/zip' );
+			const filename = `${ generateBackupFilename( record.name ) }.zip`;
+			return download( zip as BlobPart, filename, 'application/zip' );
 		},
 		async exportDatabase( siteId ) {
 			const record = await sites.get( siteId );
 			const sql = await exportDatabaseSql( await sites.client( siteId ) );
-			return download( sql, backupFilename( record.name, 'sql' ), 'application/sql' );
+			return download( sql, `${ generateBackupFilename( record.name ) }.sql`, 'application/sql' );
 		},
 
 		async generateProposedSitePath( siteName ) {
@@ -207,12 +199,7 @@ export function createStaticConnector(): Connector {
 			return this.generateNumberedSiteName( __( 'My WordPress Website' ), usedSites );
 		},
 		async generateNumberedSiteName( baseName, usedSites ) {
-			const used = new Set( usedSites.map( ( site ) => site.name ) );
-			let name = baseName;
-			for ( let suffix = 2; used.has( name ); suffix++ ) {
-				name = `${ baseName } ${ suffix }`;
-			}
-			return name;
+			return numberedName( baseName, new Set( usedSites.map( ( site ) => site.name ) ) );
 		},
 		// Sites have no folder to choose: the create form hides the path field.
 		async selectSiteFolder(): Promise< SelectedSiteFolder | null > {
@@ -308,8 +295,10 @@ export function createStaticConnector(): Connector {
 				)
 			);
 		},
-		publishPreviewSite: ( siteId, existingHostname, name ) =>
-			wpcom.publishPreview( siteId, existingHostname, name ),
+		async publishPreviewSite( siteId, existingHostname, name ) {
+			const { url } = await wpcom.publishPreview( siteId, existingHostname, name );
+			return { url: `https://${ url }` };
+		},
 		deleteSnapshot: ( hostname ) => wpcom.deleteSnapshot( hostname ),
 		renameSnapshot: ( hostname, name ) => wpcom.renameSnapshot( hostname, name ),
 		getConnectedWpcomSites: ( localSiteId ) => wpcom.getConnectedSites( localSiteId ),

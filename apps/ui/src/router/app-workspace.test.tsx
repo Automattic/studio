@@ -13,7 +13,6 @@ import {
 } from '@/features/annotations';
 import { clearComposerDrafts } from '@/features/composer';
 import {
-	ALL_CAPABILITIES,
 	createFakeConnector,
 	makeSession,
 	makeSite,
@@ -911,12 +910,7 @@ describe( 'Studio workspace', () => {
 	);
 
 	it( 'starts a stopped site from Annotate in the chat header', async () => {
-		const { connector } = setup( {
-			signedIn: true,
-			overrides: {
-				capabilities: ALL_CAPABILITIES,
-			},
-		} );
+		const { connector } = setup( { signedIn: true } );
 		await findComposer();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Annotate' } ) );
 		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );

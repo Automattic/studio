@@ -133,9 +133,9 @@ export interface AuthUser {
 
 // What native affordances the host environment offers, so the UI can choose
 // between a native flow and a browser-friendly fallback (instead of branching on
-// "am I in Electron"). The desktop app has them all; the browser (`studio ui`)
-// does not.
-export interface ConnectorCapabilities {
+// "am I in Electron"). The desktop app has them all; `studio ui` and Studio on
+// the web have fewer.
+interface ConnectorCapabilities {
 	// A native OS folder picker is available (`selectSiteFolder`). When false,
 	// the UI offers an editable path field instead.
 	nativeFolderPicker: boolean;
@@ -150,24 +150,11 @@ export interface ConnectorCapabilities {
 	// `~/.studio/daemon/logs` and everything else to the terminal that started
 	// it, so there is no single log to point a browser user at.
 	studioLogs: boolean;
-	// The site's files are a folder on this machine that the file manager, an
-	// editor or a terminal can open. Studio on the web keeps them in the browser.
-	siteFolders: boolean;
-	// Sites serve phpMyAdmin at /phpmyadmin.
-	phpMyAdmin: boolean;
-	// Sites can have a custom domain, served over HTTPS with Studio's certificate.
-	// Studio on the web serves each site at its Playground address.
-	customDomains: boolean;
-	// Sites can run with Xdebug, which needs native PHP and a debugger connection.
-	xdebug: boolean;
-	// A site's own agent skills and instruction files (`getSiteAgentFiles`).
-	siteAgentFiles: boolean;
-	// A site's PHP can be limited to its folder or reach other files on this
-	// machine. Studio on the web's sites see only their own files.
-	fileAccess: boolean;
-	// Sites can run a chosen PHP and WordPress version. Studio on the web hosts
-	// one PHP build and runs the latest WordPress.
-	versionChoice: boolean;
+	// Sites run on native PHP from a folder on this machine, with what that
+	// brings: opening the folder in an app, site email, phpMyAdmin, custom
+	// domains, Xdebug, a site's agent files, file access, and a choice of PHP and
+	// WordPress versions. Studio on the web runs them in Playground instead.
+	nativeSites: boolean;
 }
 
 export interface Connector {

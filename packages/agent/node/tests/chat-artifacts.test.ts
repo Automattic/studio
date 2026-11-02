@@ -25,8 +25,7 @@ it( "opens the design system in the preview when a site's DESIGN.md is written",
 				.fn< ( id: string, params: { path?: unknown } ) => Promise< string > >()
 				.mockResolvedValue( 'ok' ),
 		},
-		createFakeHost( sitesRoot ),
-		ui
+		{ ...createFakeHost( sitesRoot ), ui }
 	);
 
 	await expect( write.execute( 'call-1', { path: 'bakery/notes/DESIGN.md' } ) ).resolves.toBe(

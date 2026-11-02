@@ -32,14 +32,9 @@ const directDeps = Object.entries( pkg.dependencies ?? {} )
 const isStatic = process.env.STUDIO_TARGET === 'static';
 const isBrowser = process.env.STUDIO_TARGET === 'local' || isStatic;
 const active = isStatic
-	? {
-			entry: 'index.static.html',
-			outDir: 'dist-static',
-			port: 3456,
-			pages: [ 'site-viewer.html' ],
-	  }
+	? { entry: 'index.static.html', outDir: 'dist-static', port: 3456 }
 	: isBrowser
-	? { entry: 'index.local.html', outDir: 'dist-local', port: 5400, pages: [] }
+	? { entry: 'index.local.html', outDir: 'dist-local', port: 5400 }
 	: undefined;
 
 // The Electron renderer reports errors through the desktop app's Sentry
@@ -79,8 +74,8 @@ const browserDevEntryPlugin: Plugin = {
 	},
 };
 
-// The static host serves `functions/` as workers. The dev and preview servers
-// run the same handler, which the static app reads WordPress.com backups through.
+// The static host serves `functions/` as workers. The dev server runs the same
+// handler, which the static app reads WordPress.com backups through.
 const wpcomBackupMiddleware: Connect.NextHandleFunction = ( req, res, next ) => {
 	const [ , site, download ] = req.url?.match( /^\/wpcom-backup\/([^/]+)\/([^/]+)\/data/ ) ?? [];
 	if ( ! site ) {
@@ -99,7 +94,6 @@ const wpcomBackupMiddleware: Connect.NextHandleFunction = ( req, res, next ) => 
 const wpcomBackupPlugin: Plugin = {
 	name: 'studio-wpcom-backup',
 	configureServer: ( server ) => void server.middlewares.use( wpcomBackupMiddleware ),
-	configurePreviewServer: ( server ) => void server.middlewares.use( wpcomBackupMiddleware ),
 };
 
 // Static hosts serve `index.html`, and `404.html` for the app's other routes
@@ -163,15 +157,12 @@ export default defineConfig( {
 				  }
 				: undefined,
 	},
-	// The static web build previews at the dev server's origin, where the OAuth
-	// redirect is registered.
-	preview: isStatic ? { port: active?.port } : undefined,
 	build: {
 		outDir: active?.outDir ?? 'dist',
 		sourcemap: ! isBrowser,
 		rolldownOptions: {
-			input: [ active?.entry ?? 'index.html', ...( active?.pages ?? [] ) ].map( ( page ) =>
-				resolve( __dirname, page )
+			input: [ active?.entry ?? 'index.html', ...( isStatic ? [ 'site-viewer.html' ] : [] ) ].map(
+				( page ) => resolve( __dirname, page )
 			),
 		},
 	},

@@ -6,7 +6,7 @@ The Studio Code agent: the model loop, its tools and skills, its system prompt, 
 protocol/   the contract between the agent and the apps that show it
 shared/     what every agent runs, in Node or a browser: tools, skills, the system prompt, the host interface
 node/       the agent in Node: pi's coding-agent runtime and file tools, sessions, run-manager
-browser/    the agent in a browser: pi-agent-core's loop, with the file tools rebuilt over the host
+browser/    the agent in a browser: pi-agent-core's loop and file tools, over the host
 ```
 
 The apps that show the agent import its **protocol**; the apps that run it import **node** or **browser**.
@@ -55,7 +55,7 @@ Every host provides these, each a named interface in `shared/host.ts`:
 - `pages` (`HostPages`): pages loaded in the host's browser, for screenshots, design inspection, audits and block validation. Page scripts are shared; the host only opens the page.
 - `saveImage`: where images the agent makes, such as screenshots, are kept for the user.
 - `tracks` (`HostTracks`): where analytics events go.
-- `sitesRoot`, `userAgent`: the folder sites live in, and the User-Agent of requests to WordPress.com.
+- `sitesRoot`: the folder sites live in.
 
 Some capabilities only some hosts have. Each is an optional member, and a host has the capability exactly when it provides the member:
 
@@ -93,7 +93,7 @@ Where guidance goes: the system prompt (`shared/system-prompt.ts`) holds only wh
 
 ### In a browser
 
-`createBrowserAgent( { host } )`, from `@studio/agent/browser`, runs a turn with the same tools, skills and prompt. The model is called from the page, and Read, Write, Edit, Grep, Glob and Ls are rebuilt over `host.files` with pi's names, schemas and descriptions (there is no Bash). The app stores the conversation and passes its messages in with each turn:
+`createBrowserAgent( { host } )`, from `@studio/agent/browser`, runs a turn with the same tools, skills and prompt. The model is called from the page. Read, Write and Edit are pi-agent-core's over `host.files`, and Grep, Glob and Ls are rebuilt over it with pi's names, schemas and descriptions (there is no Bash). The app stores the conversation and passes its messages in with each turn:
 
 ```ts
 const turn = createBrowserAgent( { host } ).runTurn( {

@@ -1,4 +1,7 @@
 import {
+	COMPACTION_SUMMARY_PREFIX,
+	COMPACTION_SUMMARY_SUFFIX,
+	DEFAULT_COMPACTION_SETTINGS,
 	estimateContextTokens,
 	estimateTokens,
 	generateSummary,
@@ -7,9 +10,6 @@ import {
 	type StreamFn,
 } from '@earendil-works/pi-agent-core';
 import type { Api, Message, Model, Models } from '@earendil-works/pi-ai';
-
-// The Node runtime's settings.
-const COMPACTION_SETTINGS = { enabled: true, reserveTokens: 16_384, keepRecentTokens: 20_000 };
 
 export interface Compaction {
 	summary: string;
@@ -23,7 +23,7 @@ export function compactionSummaryMessage( summary: string ): Message {
 		content: [
 			{
 				type: 'text',
-				text: `The conversation history before this point was compacted into the following summary:\n\n<summary>\n${ summary }\n</summary>`,
+				text: `${ COMPACTION_SUMMARY_PREFIX }${ summary }${ COMPACTION_SUMMARY_SUFFIX }`,
 			},
 		],
 		timestamp: Date.now(),
@@ -54,11 +54,11 @@ export function createCompactor(
 			? [ compacted.summary, ...messages.slice( compacted.summarized ) ]
 			: messages;
 		const { tokens } = estimateContextTokens( view );
-		if ( ! shouldCompact( tokens, model.contextWindow, COMPACTION_SETTINGS ) ) {
+		if ( ! shouldCompact( tokens, model.contextWindow, DEFAULT_COMPACTION_SETTINGS ) ) {
 			return view;
 		}
 		let cut = view.length;
-		for ( let kept = 0; cut > 0 && kept < COMPACTION_SETTINGS.keepRecentTokens;  ) {
+		for ( let kept = 0; cut > 0 && kept < DEFAULT_COMPACTION_SETTINGS.keepRecentTokens;  ) {
 			cut--;
 			kept += estimateTokens( view[ cut ] );
 		}
@@ -73,7 +73,7 @@ export function createCompactor(
 			view.slice( 0, cut ),
 			models,
 			model,
-			COMPACTION_SETTINGS.reserveTokens,
+			DEFAULT_COMPACTION_SETTINGS.reserveTokens,
 			signal
 		);
 		if ( ! summary.ok ) {

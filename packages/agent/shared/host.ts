@@ -55,9 +55,8 @@ export interface HostFiles {
 	isDirectory( path: string ): Promise< boolean >;
 	mkdir( path: string ): Promise< void >;
 	list( directory: string ): Promise< { name: string; directory: boolean }[] >;
-	// Every file under `directory`, relative to it, in one call: for hosts where
-	// listing folder by folder is slow. Optional.
-	walk?( directory: string ): Promise< string[] >;
+	// Every file under `directory`, by its `/`-separated path relative to it.
+	walk( directory: string ): Promise< string[] >;
 }
 
 export interface PageOptions {

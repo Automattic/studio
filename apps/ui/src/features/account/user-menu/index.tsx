@@ -3,7 +3,6 @@ import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
 import { LogOutIcon, SettingsIcon, WifiOffIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { toast } from '@/data/app-messages';
-import { useConnector } from '@/data/core';
 import { useAuthUser, useLogout } from '@/data/queries/use-auth-user';
 import { getSections } from '@/data/settings-sections';
 import { useOpenSettings } from '@/data/use-open-settings';
@@ -27,9 +26,8 @@ export function UserMenu( { active = true }: { active?: boolean } ) {
 		setPromptOpen( false );
 	}
 	const trigger = useRef< HTMLButtonElement >( null );
-	const { capabilities } = useConnector();
-	const sections = getSections( 'studio', { signedIn: !! user, capabilities } ).filter(
-		( section ) => MENU_SECTIONS.includes( section.id )
+	const sections = getSections( 'studio', { signedIn: !! user } ).filter( ( section ) =>
+		MENU_SECTIONS.includes( section.id )
 	);
 
 	return (

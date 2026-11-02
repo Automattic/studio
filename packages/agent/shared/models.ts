@@ -1,18 +1,61 @@
+import { streamSimple as streamAnthropicMessages } from '@earendil-works/pi-ai/api/anthropic-messages';
+import { streamSimple as streamOpenAiCompletions } from '@earendil-works/pi-ai/api/openai-completions';
+import { streamSimple as streamOpenAiResponses } from '@earendil-works/pi-ai/api/openai-responses';
 import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
 import {
 	aiModelSupportsImages,
+	getAiModel,
 	type AiModelFamily,
 	type AiModelId,
 } from '@studio/agent/protocol/models';
-import type { Model } from '@earendil-works/pi-ai';
+import { withLeakedToolCallMarkupRemoved } from './runtime-guards/leaked-tool-call-markup';
+import { stripStaleImagesFromContext } from './runtime-guards/strip-stale-images';
+import { withUsageCapErrorRewrite } from './runtime-guards/usage-cap';
+import type { Api, Context, Model, SimpleStreamOptions } from '@earendil-works/pi-ai';
 
-export type StudioWpcomModel =
+export type StudioModel =
 	| Model< 'openai-completions' >
 	| Model< 'openai-responses' >
 	| Model< 'anthropic-messages' >;
-export type StudioModel = StudioWpcomModel | Model< 'anthropic-messages' >;
 
-export const STUDIO_WPCOM_PROVIDER = 'studio-wpcom';
+const STUDIO_WPCOM_PROVIDER = 'studio-wpcom';
+
+// pi's stock stream for the model's API, with the usage-cap 429 rewrite, the
+// leaked tool-call cleanup, and stale screenshots stripped, which would
+// otherwise bloat requests past the proxy's body limit.
+export function streamStudioModel(
+	model: Model< Api >,
+	context: Context,
+	options?: SimpleStreamOptions
+) {
+	// Each API's stream function is narrower than `Model< Api >`; the model is
+	// the one its API's function expects.
+	const stream = (
+		model.api === 'openai-completions'
+			? streamOpenAiCompletions
+			: model.api === 'anthropic-messages'
+			? streamAnthropicMessages
+			: streamOpenAiResponses
+	) as typeof streamOpenAiCompletions;
+	// The model keeps its stable id for pi and the session history; only the
+	// request names the proxy's current upstream alias.
+	const apiModelId = getAiModel( model.id as AiModelId )?.apiModelId;
+	return withUsageCapErrorRewrite(
+		withLeakedToolCallMarkupRemoved(
+			stream( model as Model< 'openai-completions' >, stripStaleImagesFromContext( context ), {
+				...options,
+				...( apiModelId
+					? {
+							onPayload: async ( params: unknown, payloadModel: Model< Api > ) => {
+								const next = ( await options?.onPayload?.( params, payloadModel ) ) ?? params;
+								return { ...( next as Record< string, unknown > ), model: apiModelId };
+							},
+					  }
+					: {} ),
+			} )
+		)
+	);
+}
 
 // The model pi calls for a Studio model id: a WordPress.com capability tier
 // through the AI proxy, or an Anthropic model with the user's key.

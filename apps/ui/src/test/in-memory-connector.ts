@@ -5,7 +5,6 @@ import type {
 	AiSessionSummary,
 	AuthUser,
 	Connector,
-	ConnectorCapabilities,
 	InstalledApps,
 	LoadedAiSession,
 	SiteDetails,
@@ -41,6 +40,10 @@ export type FakeConnectorInitialState = Partial< Omit< FakeConnectorState, 'pref
 	preferences?: Partial< UserPreferences >;
 };
 
+export type ConnectorOverrides = Partial< Omit< Connector, 'capabilities' > > & {
+	capabilities?: Partial< Connector[ 'capabilities' ] >;
+};
+
 export function makeSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
 	const id = overrides.id ?? 'site-1';
 	return {
@@ -72,19 +75,6 @@ export function makeSession( overrides: Partial< AiSessionSummary > = {} ): AiSe
 // module-level stores keyed by id (composer drafts) outlive a render.
 let nextId = 1;
 
-export const ALL_CAPABILITIES: ConnectorCapabilities = {
-	nativeFolderPicker: true,
-	annotatePreview: true,
-	studioLogs: true,
-	siteFolders: true,
-	phpMyAdmin: true,
-	customDomains: true,
-	xdebug: true,
-	siteAgentFiles: true,
-	fileAccess: true,
-	versionChoice: true,
-};
-
 export const TEST_USER: AuthUser = { id: 1, email: 'test@example.test', displayName: 'Test User' };
 
 const defaultPreferences = (): UserPreferences => ( {
@@ -115,7 +105,7 @@ const installedApps = () =>
  */
 export function createInMemoryConnector(
 	initial: FakeConnectorInitialState = {},
-	overrides: Partial< Connector > = {}
+	overrides: ConnectorOverrides = {}
 ): InMemoryConnector {
 	const state: FakeConnectorState = {
 		sites: [],
@@ -374,12 +364,18 @@ export function createInMemoryConnector(
 	};
 
 	return {
-		capabilities: ALL_CAPABILITIES,
 		agenticRequiresAuth: true,
 		showsAppMenuButton: false,
 		reservesTrafficLightSpace: false,
 		...methods,
 		...overrides,
+		capabilities: {
+			nativeFolderPicker: true,
+			annotatePreview: true,
+			studioLogs: true,
+			nativeSites: true,
+			...overrides.capabilities,
+		},
 		state,
 		emit,
 		listenerCount: ( event ) => listeners.get( event )?.size ?? 0,

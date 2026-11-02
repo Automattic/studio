@@ -284,17 +284,17 @@ export function SiteMenuItems( {
 						<WordPressIcon />
 						{ __( 'WordPress Admin' ) }
 					</Menu.Item>
-					{ connector.capabilities.phpMyAdmin && (
-						<Menu.Item onClick={ actions.openDatabase }>
-							<DatabaseIcon />
-							{ __( 'Database' ) }
-						</Menu.Item>
-					) }
-					{ connector.capabilities.siteFolders && (
-						<Menu.Item onClick={ actions.openEmail }>
-							<MailIcon />
-							{ __( 'Email' ) }
-						</Menu.Item>
+					{ connector.capabilities.nativeSites && (
+						<>
+							<Menu.Item onClick={ actions.openDatabase }>
+								<DatabaseIcon />
+								{ __( 'Database' ) }
+							</Menu.Item>
+							<Menu.Item onClick={ actions.openEmail }>
+								<MailIcon />
+								{ __( 'Email' ) }
+							</Menu.Item>
+						</>
 					) }
 					{ siteDesign.data ? (
 						<Menu.Item onClick={ actions.openDesignSystem }>

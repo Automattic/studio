@@ -8,7 +8,7 @@ import type {
 
 const SESSION_PREFIX = 'agent-session:';
 
-export interface SessionOwner {
+interface SessionOwner {
 	siteId: string;
 	sitePath: string;
 	siteName: string;
@@ -28,7 +28,7 @@ interface SessionRecord {
 	summary?: AiSessionSummary;
 }
 
-export interface StoredSession extends SessionRecord {
+interface StoredSession extends SessionRecord {
 	entries: SessionEntry[];
 }
 
@@ -119,9 +119,8 @@ export class StaticSessions {
 	}
 
 	async append( id: string, entry: NewEntry ) {
-		let appended: SessionEntry | undefined;
 		await this.update( id, async ( record ) => {
-			appended = {
+			const appended = {
 				...entry,
 				id: shortId(),
 				parentId: record.lastEntryId,
@@ -135,7 +134,6 @@ export class StaticSessions {
 				summary: undefined,
 			};
 		} );
-		return appended!;
 	}
 
 	appendCustom< T extends StudioCustomEntryType >(

@@ -1,5 +1,4 @@
 import type { SiteListItem } from '@studio/common/lib/cli-events';
-import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type { ActiveAgentRun } from '@studio/agent/protocol/agent-events';
@@ -22,11 +21,10 @@ export type { SyncSite } from '@studio/common/types/sync';
 export type StaticSiteDetails = SiteListItem & { sortOrder?: number };
 
 // What updating a site's settings changes.
-export type StaticSiteSettings = Pick< StaticSiteDetails, 'id' | 'name' | 'phpVersion' > &
+export type StaticSiteSettings = Pick< StaticSiteDetails, 'id' | 'name' > &
 	Partial<
 		Pick<
 			StaticSiteDetails,
-			| 'isWpAutoUpdating'
 			| 'adminUsername'
 			| 'adminPassword'
 			| 'adminEmail'
@@ -48,7 +46,6 @@ export interface CreateSiteParams {
 	name: string;
 	path: string;
 	phpVersion?: string;
-	fileAccess?: SiteFileAccess;
 	wpVersion?: string;
 	adminUsername?: string;
 	adminPassword?: string;

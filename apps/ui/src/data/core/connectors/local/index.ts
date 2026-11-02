@@ -219,13 +219,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			nativeFolderPicker: false,
 			annotatePreview: false,
 			studioLogs: false,
-			siteFolders: true,
-			phpMyAdmin: true,
-			customDomains: true,
-			xdebug: true,
-			siteAgentFiles: true,
-			fileAccess: true,
-			versionChoice: true,
+			nativeSites: true,
 		},
 
 		// Auth — surfaces the WordPress.com user the CLI is already logged in as

@@ -9,8 +9,7 @@ import type { BlueprintBundle, PlaygroundClient } from '@wp-playground/client';
 // `<site origin>/scope:<scope>/`. Any other iframe on this page can load that
 // URL while the remote iframe is alive, so the preview is a plain iframe.
 // Files persist in Playground's origin-private file system (OPFS).
-const PLAYGROUND_REMOTE_URL =
-	import.meta.env.VITE_PLAYGROUND_REMOTE_URL ?? 'https://playground.wordpress.net/remote.html';
+const PLAYGROUND_REMOTE_URL = 'https://playground.wordpress.net/remote.html';
 // The client comes from the same deployment as remote.html, which
 // playground.wordpress.net updates several times a day, so the two always match.
 const PLAYGROUND_CLIENT_URL = new URL( '/client/index.js', PLAYGROUND_REMOTE_URL ).href;
@@ -51,7 +50,7 @@ const DOCROOT = '/wordpress';
 const BRIDGE_PATH = '/internal/shared/mu-plugins/studio-bridge.php';
 const SCREENSHOT_LIBRARY = 'https://cdn.jsdelivr.net/npm/modern-screenshot@4.6.0/+esm';
 
-export interface SiteRuntimeConfig {
+interface SiteRuntimeConfig {
 	id: string;
 	scope: string;
 	phpVersion: string;
@@ -125,10 +124,7 @@ function pageBridge( appOrigin: string, screenshotLibrary: string, consolePrefix
 	};
 	// Emulates prefers-color-scheme by switching the page's color-scheme media
 	// rules on or off.
-	const applyColorScheme = ( scheme: unknown ) => {
-		if ( scheme !== 'light' && scheme !== 'dark' ) {
-			return;
-		}
+	const applyColorScheme = ( scheme: string ) => {
 		const visit = ( rules: CSSRuleList ) => {
 			for ( const rule of Array.from( rules ) ) {
 				if (
@@ -168,14 +164,13 @@ function pageBridge( appOrigin: string, screenshotLibrary: string, consolePrefix
 				pageHeight - offset,
 				payload.maxHeight ? Number( payload.maxHeight ) : window.innerHeight
 			);
-			const dataUrl = await lib.domToJpeg( root, {
+			return lib.domToJpeg( root, {
 				quality: 0.85,
 				width: window.innerWidth,
 				height,
 				backgroundColor: '#ffffff',
 				...( offset ? { style: { transform: `translateY(-${ offset }px)` } } : {} ),
 			} );
-			return { dataUrl, pageHeight, offset, height };
 		},
 		async evaluate( payload ) {
 			const run = new Function( `return (${ String( payload.source ) })` )() as (
@@ -188,7 +183,7 @@ function pageBridge( appOrigin: string, screenshotLibrary: string, consolePrefix
 			return true;
 		},
 		async 'color-scheme'( payload ) {
-			applyColorScheme( payload.scheme );
+			applyColorScheme( String( payload.scheme ) );
 			return true;
 		},
 		async 'wait-for'( payload ) {
@@ -203,7 +198,6 @@ function pageBridge( appOrigin: string, screenshotLibrary: string, consolePrefix
 			return true;
 		},
 	};
-	const actionsByName = new Map( Object.entries( actions ) );
 	window.addEventListener( 'message', ( event: MessageEvent ) => {
 		const data = event.data as {
 			type?: string;
@@ -214,28 +208,17 @@ function pageBridge( appOrigin: string, screenshotLibrary: string, consolePrefix
 		if ( event.origin !== appOrigin || data?.type !== 'studio:request' || ! data.action ) {
 			return;
 		}
-		const action = actionsByName.get( data.action );
 		const reply = ( message: Record< string, unknown > ) =>
 			( event.source as Window ).postMessage(
 				{ type: 'studio:response', id: data.id, ...message },
 				appOrigin
 			);
-		if ( typeof action !== 'function' ) {
-			reply( { error: `Unknown action ${ data.action }` } );
-			return;
-		}
-		action( data.payload ?? {} ).then(
+		actions[ data.action ]( data.payload ?? {} ).then(
 			( result ) => reply( { result } ),
 			( error: unknown ) => reply( { error: String( ( error as Error )?.message ?? error ) } )
 		);
 	} );
-	const announce = () =>
-		post( { type: 'studio:loaded', href: location.href, title: document.title } );
-	if ( document.readyState === 'complete' ) {
-		announce();
-	} else {
-		window.addEventListener( 'load', announce );
-	}
+	window.addEventListener( 'load', () => post( { type: 'studio:loaded' } ) );
 }
 
 // The bridge script a page answers this app's requests with.
@@ -419,7 +402,6 @@ function adminAccountSteps(
 			step: 'runPHP',
 			code: `<?php
 require '/wordpress/wp-load.php';
-$user = get_user_by( 'id', 1 );
 global $wpdb;
 ${
 	adminUsername

@@ -99,7 +99,6 @@ function SiteCommands( {
 		chatHidden,
 		previewShown: preview.open && preview.siteId === site.id,
 		canAnnotate: connector.capabilities.annotatePreview,
-		canOpenDatabase: connector.capabilities.phpMyAdmin,
 		annotating: annotations.active,
 		actions,
 		destinations,

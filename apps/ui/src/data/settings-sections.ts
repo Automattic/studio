@@ -18,7 +18,6 @@ import {
 	SiteSettingsIcon,
 	SkillsIcon,
 } from '@/lib/icons';
-import type { ConnectorCapabilities } from '@/data/core';
 import type { ComponentType } from 'react';
 
 const STUDIO_SECTIONS = [
@@ -85,10 +84,7 @@ const setting = (
 	icon,
 } );
 
-function getStudioSections(
-	signedIn: boolean,
-	{ siteFolders = true, siteAgentFiles = true }: Partial< SettingsCapabilities > = {}
-): Section[] {
+function getStudioSections( signedIn: boolean, nativeSites = true ): Section[] {
 	const sections: Section[] = [
 		{
 			command: 'settings',
@@ -103,7 +99,7 @@ function getStudioSections(
 					'language',
 					LanguageIcon
 				),
-				...( siteFolders
+				...( nativeSites
 					? [
 							setting(
 								'navigate',
@@ -373,25 +369,11 @@ function getStudioSections(
 	return sections.filter(
 		( section ) =>
 			( signedIn || section.id !== 'usage' ) &&
-			( siteFolders || section.id !== 'mcp' ) &&
-			( siteAgentFiles || section.id !== 'skills' )
+			( nativeSites || ( section.id !== 'mcp' && section.id !== 'skills' ) )
 	);
 }
 
-// What the host supports of the settings, by connector capability. All of it
-// when left out.
-type SettingsCapabilities = Pick<
-	ConnectorCapabilities,
-	'customDomains' | 'xdebug' | 'siteAgentFiles' | 'fileAccess' | 'versionChoice' | 'siteFolders'
->;
-
-function getSiteSections( {
-	customDomains = true,
-	xdebug = true,
-	siteAgentFiles = true,
-	fileAccess = true,
-	versionChoice = true,
-}: Partial< SettingsCapabilities > = {} ): Section[] {
+function getSiteSections( nativeSites = true ): Section[] {
 	const sections: Section[] = [
 		{
 			command: 'site-settings',
@@ -405,7 +387,7 @@ function getSiteSections( {
 					__( 'Name shown in WordPress Studio.' ),
 					'site-name'
 				),
-				...( versionChoice
+				...( nativeSites
 					? [
 							setting(
 								'navigate',
@@ -419,10 +401,6 @@ function getSiteSections( {
 								__( 'Keep WordPress updated to the latest released version.' ),
 								'automatic-updates'
 							),
-					  ]
-					: [] ),
-				...( customDomains
-					? [
 							setting(
 								'navigate',
 								__( 'Use custom domain' ),
@@ -470,7 +448,7 @@ function getSiteSections( {
 					__( 'Sets the value returned by wp_get_environment_type().' ),
 					'environment'
 				),
-				...( xdebug
+				...( nativeSites
 					? [
 							setting(
 								'navigate',
@@ -505,28 +483,20 @@ function getSiteSections( {
 			label: __( 'PHP' ),
 			icon: PhpIcon,
 			settings: [
-				...( versionChoice
-					? [
-							setting(
-								'navigate',
-								__( 'PHP version' ),
-								__( 'The PHP version used to run WordPress on this site.' ),
-								'php-version'
-							),
-					  ]
-					: [] ),
-				...( fileAccess
-					? [
-							setting(
-								'navigate',
-								__( 'File access' ),
-								__(
-									'Choose whether this site can access only its own folder or other files on your computer.'
-								),
-								'file-access'
-							),
-					  ]
-					: [] ),
+				setting(
+					'navigate',
+					__( 'PHP version' ),
+					__( 'The PHP version used to run WordPress on this site.' ),
+					'php-version'
+				),
+				setting(
+					'navigate',
+					__( 'File access' ),
+					__(
+						'Choose whether this site can access only its own folder or other files on your computer.'
+					),
+					'file-access'
+				),
 			],
 		},
 		{
@@ -546,22 +516,17 @@ function getSiteSections( {
 	];
 	return sections.filter(
 		( section ) =>
-			( siteAgentFiles ||
-				( section.id !== 'site-skills' && section.id !== 'site-instructions' ) ) &&
-			( section.id !== 'php' || section.settings.length > 0 )
+			nativeSites || ! [ 'php', 'site-skills', 'site-instructions' ].includes( section.id )
 	);
 }
 
 export function getSections(
 	scope: SettingsScope,
-	{
-		signedIn = true,
-		capabilities,
-	}: { signedIn?: boolean; capabilities?: Partial< SettingsCapabilities > } = {}
+	{ signedIn = true, nativeSites }: { signedIn?: boolean; nativeSites?: boolean } = {}
 ): Section[] {
 	return scope === 'studio'
-		? getStudioSections( signedIn, capabilities )
-		: getSiteSections( capabilities );
+		? getStudioSections( signedIn, nativeSites )
+		: getSiteSections( nativeSites );
 }
 
 /** Alternate names for existing commands that already own a settings destination. */
@@ -606,11 +571,7 @@ export type SearchResult = { scope: SettingsScope; section: Section; setting?: S
 export function searchSettings(
 	query: string,
 	scope: SettingsScope,
-	{
-		hasSite,
-		signedIn,
-		capabilities,
-	}: { hasSite: boolean; signedIn: boolean; capabilities?: Partial< SettingsCapabilities > }
+	{ hasSite, signedIn, nativeSites }: { hasSite: boolean; signedIn: boolean; nativeSites: boolean }
 ): SearchResult[] {
 	const words = query.trim().toLocaleLowerCase().split( /\s+/ ).filter( Boolean );
 	if ( ! words.length ) {
@@ -626,7 +587,7 @@ export function searchSettings(
 	};
 	return scopes
 		.flatMap( ( candidate, scopeIndex ) =>
-			getSections( candidate, { signedIn, capabilities } ).flatMap( ( section ) =>
+			getSections( candidate, { signedIn, nativeSites } ).flatMap( ( section ) =>
 				[
 					{ ...setting( 'navigate', section.label ), aliases: section.aliases },
 					...section.settings,

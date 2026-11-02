@@ -11,19 +11,18 @@ import {
 } from '@studio/agent/protocol/chat-files';
 import { getAgentEndFailure } from '@studio/agent/protocol/json-events';
 import { aiModelSupportsImages, type AiModelId } from '@studio/agent/protocol/models';
-import { findLastAssistant, isEmptyStop } from '@studio/agent/protocol/session-events';
-import { withDesignSystemPreview } from '@studio/agent/shared/chat-artifacts';
+import {
+	findLastAssistant,
+	getEmptyStopContinuation,
+	isEmptyStop,
+	MAX_EMPTY_STOP_CONTINUES,
+} from '@studio/agent/protocol/session-events';
 import { PendingWork, runWithPendingWork } from '@studio/agent/shared/pending-work';
 import { createResultNotes } from '@studio/agent/shared/result-notes';
 import { findActiveSiteDesign } from '@studio/agent/shared/site-selection';
 import { buildSystemPrompt } from '@studio/agent/shared/system-prompt';
-import { resolveStudioTools, type StudioToolsOptions } from '@studio/agent/shared/tools';
-import { createAskUserQuestionTool } from '@studio/agent/shared/tools/ask-user-question';
-import { bindTool } from '@studio/agent/shared/tools/define-tool';
-import { createPresentDesignOptionsTool } from '@studio/agent/shared/tools/present-design-options';
-import { createSkillTool } from '@studio/agent/shared/tools/skill';
+import { resolveConversationTools } from '@studio/agent/shared/tools';
 import { createCompactor, type Compaction } from './compaction';
-import { prepareEditArguments } from './edit-text';
 import { createFileTools } from './file-tools';
 import { buildModel, createStreamFn } from './models';
 import type { Message } from '@earendil-works/pi-ai';
@@ -34,11 +33,7 @@ import type { AskUserHandler, SiteInfo } from '@studio/agent/shared/types';
 
 export { compactionSummaryMessage, type Compaction } from './compaction';
 
-// A reply with neither text nor a tool call ends the turn with nothing to show
-// (see `isEmptyStop`); like the Node runtime, resume it up to this many times.
-const MAX_EMPTY_STOP_CONTINUES = 2;
-
-export interface BrowserAgentTurnConfig {
+interface BrowserAgentTurnConfig {
 	// The conversation the turn belongs to, for the model proxy and Tracks.
 	sessionId: string;
 	prompt: string;
@@ -59,15 +54,10 @@ export interface BrowserAgentTurnConfig {
 	onCompaction( compaction: Compaction, kept: number ): Promise< void >;
 }
 
-export interface BrowserAgentTurnHandle {
+interface BrowserAgentTurnHandle {
 	// Settles when the turn ends: with the model's failure, if it reported one.
 	result: Promise< { failure?: string } >;
 	interrupt(): void;
-}
-
-export interface StudioBrowserAgent {
-	runTurn( config: BrowserAgentTurnConfig ): BrowserAgentTurnHandle;
-	tools( options?: StudioToolsOptions ): AnyStudioAgentTool[];
 }
 
 // Runs a Studio tool as the Node runtime does (see runWithPendingWork).
@@ -98,38 +88,15 @@ async function runTurn(
 ): Promise< { failure?: string } > {
 	const visionEnabled = aiModelSupportsImages( config.model );
 	const imageGeneration = Boolean( await host.wpcom.imageToken() );
-	const tracks = getAiTracksIdentity( config.sessionId );
-	const { ui } = host;
-	const designSystemPreview = < TTool extends AnyStudioAgentTool >( tool: TTool ) =>
-		ui ? withDesignSystemPreview( tool, host, ui ) : tool;
-	const skillTool = createSkillTool();
-	const tools: AnyStudioAgentTool[] = [
-		...resolveStudioTools( host, {
+	const tools = [
+		...resolveConversationTools( host, {
 			imageGeneration,
 			visionEnabled,
-			canAskUser: Boolean( config.onAskUser ),
-			tracks,
+			onAskUser: config.onAskUser,
+			tracks: getAiTracksIdentity( config.sessionId ),
 		} ),
-		...( config.onAskUser
-			? [ bindTool( createAskUserQuestionTool( config.onAskUser ), host ) ]
-			: [] ),
-		...( config.onAskUser && ui
-			? [
-					bindTool(
-						createPresentDesignOptionsTool( { onAskUser: config.onAskUser, tracks } ),
-						host
-					),
-			  ]
-			: [] ),
-		...( skillTool ? [ bindTool( skillTool, host ) ] : [] ),
-		...createFileTools( host, { visionEnabled } ).map( ( definition ) => {
-			const tool = bindTool( definition, host );
-			if ( definition.name === 'Edit' ) {
-				return designSystemPreview( { ...tool, prepareArguments: prepareEditArguments } );
-			}
-			return definition.name === 'Write' ? designSystemPreview( tool ) : tool;
-		} ),
-	] as AnyStudioAgentTool[];
+		...createFileTools( host ),
+	];
 
 	const site = config.activeSite;
 	const systemPrompt = buildSystemPrompt( {
@@ -166,7 +133,7 @@ async function runTurn(
 
 	let finalEvent: AgentEvent | undefined;
 	let emptyStopContinues = 0;
-	let cutOffReasoning: string | undefined;
+	let continuation: string | undefined;
 	agent.subscribe( async ( event ) => {
 		if ( event.type === 'message_end' ) {
 			await config.onMessage( event.message );
@@ -180,10 +147,7 @@ async function runTurn(
 				isEmptyStop( lastAssistant )
 			) {
 				willRetry = true;
-				cutOffReasoning = ( lastAssistant?.content ?? [] )
-					.map( ( block ) => ( block.type === 'thinking' ? block.thinking : '' ) )
-					.join( '' )
-					.trim();
+				continuation = getEmptyStopContinuation( lastAssistant );
 			}
 		}
 		const forwarded = event.type === 'agent_end' ? { ...event, willRetry } : event;
@@ -201,15 +165,11 @@ async function runTurn(
 			mimeType: image.mimeType,
 		} ) )
 	);
-	while ( cutOffReasoning !== undefined && ! isInterrupted() ) {
-		const reasoning = cutOffReasoning;
-		cutOffReasoning = undefined;
+	while ( continuation && ! isInterrupted() ) {
+		const message = continuation;
+		continuation = undefined;
 		emptyStopContinues++;
-		await agent.prompt(
-			reasoning
-				? `Your reasoning was cut off before you replied. Continue from where it stopped:\n\n${ reasoning }`
-				: 'continue'
-		);
+		await agent.prompt( message );
 	}
 	await pendingWork.settle();
 	const failure = finalEvent ? getAgentEndFailure( finalEvent as never ) : null;
@@ -223,12 +183,12 @@ const pendingWorkBySession = new Map< string, PendingWork >();
 /**
  * Studio Code for hosts without Node, such as Studio in a browser: the same
  * tools, skills and system prompt as `createAgent`, with pi-agent-core's loop
- * calling the model from the page, and pi's file tools rebuilt over the host's
- * files. The app stores the conversation and passes it in with each turn.
+ * calling the model from the page, and the file tools over the host's files.
+ * The app stores the conversation and passes it in with each turn.
  */
-export function createBrowserAgent( { host }: { host: StudioAgentHost } ): StudioBrowserAgent {
+export function createBrowserAgent( { host }: { host: StudioAgentHost } ) {
 	return {
-		runTurn: ( config ) => {
+		runTurn: ( config: BrowserAgentTurnConfig ): BrowserAgentTurnHandle => {
 			let pendingWork = pendingWorkBySession.get( config.sessionId );
 			if ( ! pendingWork ) {
 				pendingWork = new PendingWork();
@@ -250,7 +210,6 @@ export function createBrowserAgent( { host }: { host: StudioAgentHost } ): Studi
 				},
 			};
 		},
-		tools: ( options ) => resolveStudioTools( host, options ),
 	};
 }
 
@@ -261,7 +220,6 @@ export type {
 	HostPath,
 	HostSite,
 	StudioAgentHost,
-	StudioAgentUi,
 } from '@studio/agent/shared/host';
 export type { AskUserQuestion, SiteInfo } from '@studio/agent/shared/types';
 export type { Message } from '@earendil-works/pi-ai';

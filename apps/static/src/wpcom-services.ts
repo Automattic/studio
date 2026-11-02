@@ -89,8 +89,6 @@ export class WpcomServices {
 		return user ? `${ prefix }:${ user.id }` : null;
 	}
 
-	// --- AI credits ---------------------------------------------------------
-
 	async getQuota(): Promise< StudioAssistantQuota | null > {
 		const token = await this.auth.token();
 		return token ? fetchStudioAssistantQuota( token.accessToken ) : null;
@@ -100,8 +98,6 @@ export class WpcomServices {
 		const token = await this.auth.token();
 		return token ? fetchStudioAssistantTopUpPricing( token.accessToken, locale ) : null;
 	}
-
-	// --- Preview sites ------------------------------------------------------
 
 	async getSnapshots(): Promise< Snapshot[] > {
 		const key = await this.userKey( 'snapshots' );
@@ -124,7 +120,7 @@ export class WpcomServices {
 		siteId: string,
 		existingHostname?: string,
 		name?: string
-	): Promise< { url: string } > {
+	): Promise< Snapshot > {
 		const existing = existingHostname
 			? ( await this.getSnapshots() ).find( ( snapshot ) => snapshot.url === existingHostname )
 			: undefined;
@@ -196,7 +192,7 @@ export class WpcomServices {
 				snapshotUrl: snapshot.url,
 			} );
 			this.emitSyncActivity( siteId, { kind: 'success', direction: 'preview' } );
-			return { url: `https://${ snapshot.url }` };
+			return snapshot;
 		} catch ( error ) {
 			this.emitSyncActivity( siteId, {
 				kind: 'error',
@@ -252,8 +248,6 @@ export class WpcomServices {
 			snapshotUrl: hostname,
 		} );
 	}
-
-	// --- Connections --------------------------------------------------------
 
 	private async connections(): Promise< SyncSite[] > {
 		const key = await this.userKey( 'connections' );
@@ -356,14 +350,6 @@ export class WpcomServices {
 		);
 	}
 
-	// --- Push and pull ------------------------------------------------------
-
-	private beginSync( siteId: string, remoteSiteId: number ): AbortSignal {
-		const controller = new AbortController();
-		this.cancellations.set( `${ siteId }:${ remoteSiteId }`, controller );
-		return controller.signal;
-	}
-
 	async cancelSync( siteId: string, remoteSiteId: number ): Promise< void > {
 		this.cancellations.get( `${ siteId }:${ remoteSiteId }` )?.abort();
 	}
@@ -374,7 +360,9 @@ export class WpcomServices {
 		direction: 'push' | 'pull',
 		run: ( signal: AbortSignal ) => Promise< void >
 	) {
-		const signal = this.beginSync( siteId, remoteSiteId );
+		const controller = new AbortController();
+		const { signal } = controller;
+		this.cancellations.set( `${ siteId }:${ remoteSiteId }`, controller );
 		try {
 			await run( signal );
 			await this.recordSync( siteId, remoteSiteId, direction );
@@ -421,14 +409,16 @@ export class WpcomServices {
 			} );
 			signal.throwIfAborted();
 			progress( 'uploading', 20, __( 'Uploading…' ) );
-			const attachmentId = await this.uploadArchive(
-				remoteSiteId,
-				new Blob( [ archive as BlobPart ], { type: 'application/gzip' } ),
-				`push-${ siteId }-${ Date.now() }.tar.gz`,
-				signal,
-				( percent ) => progress( 'uploading', 20 + percent * 0.2, __( 'Uploading…' ) )
-			);
 			const token = await this.auth.requireToken();
+			const upload = createTusUpload( {
+				token,
+				remoteSiteId,
+				file: new Blob( [ archive as BlobPart ], { type: 'application/gzip' } ),
+				filename: `push-${ siteId }-${ Date.now() }.tar.gz`,
+				onProgress: ( percent ) => progress( 'uploading', 20 + percent * 0.2, __( 'Uploading…' ) ),
+			} );
+			signal.addEventListener( 'abort', upload.abort );
+			const attachmentId = await upload.promise;
 			await initiateImport( token, remoteSiteId, attachmentId, {
 				optionsToSync,
 				specificSelectionPaths: options?.specificSelectionPaths,
@@ -456,28 +446,6 @@ export class WpcomServices {
 				);
 			}
 		} );
-	}
-
-	private async uploadArchive(
-		remoteSiteId: number,
-		file: Blob,
-		filename: string,
-		signal: AbortSignal,
-		onProgress: ( percent: number ) => void
-	): Promise< string > {
-		const upload = createTusUpload( {
-			token: await this.auth.requireToken(),
-			remoteSiteId,
-			file,
-			filename,
-			onProgress,
-		} );
-		signal.addEventListener( 'abort', upload.abort );
-		try {
-			return await upload.promise;
-		} catch ( error ) {
-			throw signal.aborted ? new SyncCancelledError() : error;
-		}
 	}
 
 	async pull( siteId: string, remoteSiteId: number, options?: PullSyncOptions ): Promise< void > {

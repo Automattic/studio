@@ -2,6 +2,7 @@ import { StaticAgentRuns } from './agent';
 import { StaticSites } from './sites';
 import { WpcomAuth } from './wpcom-auth';
 import { WpcomServices } from './wpcom-services';
+import type { StaticAgentPage } from './agent/host';
 
 export { AGENT_INSTRUCTIONS_ENABLED_KEY, AGENT_INSTRUCTIONS_KEY } from './agent';
 export {
@@ -27,12 +28,7 @@ export type { BlueprintBundle } from '@wp-playground/client';
  * Playground, the WordPress.com account and its services, and Studio Code's
  * runs. The static connector in `apps/ui` maps the UI's calls onto it.
  */
-export function createStaticBackend( deps: {
-	// A file the user attached to the chat, by the path its prompt names.
-	readAttachment( path: string ): File | undefined;
-	// Saves a file to the user's computer through the browser.
-	download( data: BlobPart, filename: string, type: string ): void;
-} ) {
+export function createStaticBackend( deps: StaticAgentPage ) {
 	const sites = new StaticSites();
 	const auth = new WpcomAuth();
 	const wpcom = new WpcomServices( auth, sites );

@@ -304,8 +304,8 @@ export function SettingsDialog() {
 		};
 	}, [ target, section, content ] );
 
-	const { capabilities } = useConnector();
-	const results = searchSettings( query, scope, { hasSite: !! site, signedIn, capabilities } );
+	const { nativeSites } = useConnector().capabilities;
+	const results = searchSettings( query, scope, { hasSite: !! site, signedIn, nativeSites } );
 	const searching = !! query.trim();
 	const open = ( result: SearchResult ) => {
 		go( result.section.id );
@@ -313,7 +313,7 @@ export function SettingsDialog() {
 			setTarget( result.setting.id ?? result.setting.title );
 		}
 	};
-	const sections = getSections( scope, { signedIn, capabilities } );
+	const sections = getSections( scope, { signedIn, nativeSites } );
 	const current = sections.find( ( entry ) => entry.id === section ) ?? sections[ 0 ];
 
 	return (

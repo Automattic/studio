@@ -544,7 +544,10 @@ export async function validateBlocks(
 								continue;
 							}
 							const made = sameBlock
-								? withWrittenClasses( withWrittenStyles( created, raw ), raw )
+								? withWrittenClasses(
+										withWrittenStyles( withWrittenSources( created, raw ), raw ),
+										raw
+								  )
 								: created;
 							if ( ! sameBlock || keepsWritten( made, raw ) ) {
 								return made;
@@ -591,6 +594,100 @@ export async function validateBlocks(
 					return [ ...ownMarkup( String( raw.innerHTML ?? '' ) ).classes ].every( ( name ) =>
 						saved.has( name )
 					);
+				}
+
+				// The block made again with each value written in an attribute of
+				// an element in its own markup that it would drop, as an image's src
+				// or alt, stored in the comment attribute the block saves that value
+				// from: core/cover saves its background image's src from url and its
+				// alt from alt (cover/save.js). As withWrittenClasses reads classes,
+				// each attribute is made with a probe value, and the element
+				// attribute holding it read; one a stored value brings in, as alt
+				// with the image url brings, the next round reads.
+				function withWrittenSources( made: any, raw: any ) {
+					if ( typeof rawParse !== 'function' ) {
+						return made;
+					}
+					const valuesOf = ( html: string ) =>
+						elementsOf( html ).flatMap( ( element ) =>
+							Array.from( element.attributes )
+								.filter( ( { name, value } ) => value && name !== 'class' && name !== 'style' )
+								.map( ( { name, value } ) => ( {
+									place: `${ element.tagName } ${ name }`,
+									value,
+								} ) )
+						);
+					const ownHtml = ( one: any ) =>
+						String( rawParse( wpBlocks.serialize( [ one ] ) )?.[ 0 ]?.innerHTML ?? '' );
+					const written = valuesOf( String( raw.innerHTML ?? '' ) );
+					const attributes = Object.entries( wpBlocks.getBlockType( made.name )?.attributes ?? {} );
+					let result = made;
+					for ( let round = 0; round < 3; round++ ) {
+						const saved = new Set(
+							valuesOf( ownHtml( result ) ).map( ( { place, value } ) => `${ place }=${ value }` )
+						);
+						const dropped = written.filter(
+							( { place, value } ) => ! saved.has( `${ place }=${ value }` )
+						);
+						let stored = false;
+						for ( const [ key, schema ] of attributes as Array< [ string, any ] > ) {
+							const kind =
+								schema.type === 'string'
+									? 'string'
+									: [ 'number', 'integer' ].includes( schema.type )
+									? 'number'
+									: undefined;
+							// The comment's own value stands, as the editor makes a block
+							// from its comment.
+							if ( ! kind || key === 'className' || raw.attrs?.[ key ] !== undefined ) {
+								continue;
+							}
+							const probe = String( PROBE[ kind ] );
+							let probed: Array< { place: string; value: string } >;
+							try {
+								probed = valuesOf(
+									ownHtml(
+										wpBlocks.createBlock(
+											result.name,
+											{ ...result.attributes, [ key ]: PROBE[ kind ] },
+											result.innerBlocks
+										)
+									)
+								);
+							} catch {
+								continue;
+							}
+							for ( const { place, value: template } of probed ) {
+								const at = template.indexOf( probe );
+								if ( at < 0 ) {
+									continue;
+								}
+								const before = template.slice( 0, at );
+								const after = template.slice( at + probe.length );
+								const value = dropped
+									.filter( ( one ) => one.place === place )
+									.map( ( one ) =>
+										one.value.startsWith( before ) && one.value.endsWith( after )
+											? one.value.slice( before.length, one.value.length - after.length )
+											: ''
+									)
+									.find( ( one ) => one && ( kind === 'string' || /^\d+$/.test( one ) ) );
+								if ( value && String( result.attributes[ key ] ?? '' ) !== value ) {
+									result = wpBlocks.createBlock(
+										result.name,
+										{ ...result.attributes, [ key ]: kind === 'number' ? Number( value ) : value },
+										result.innerBlocks
+									);
+									stored = true;
+									break;
+								}
+							}
+						}
+						if ( ! stored ) {
+							break;
+						}
+					}
+					return result;
 				}
 
 				// The block made again with each class written in its own markup that

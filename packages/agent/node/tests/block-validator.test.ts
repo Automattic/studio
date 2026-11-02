@@ -319,6 +319,19 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 		60_000
 	);
 
+	it( 'stores the values an element holds where the block saves them from: core/cover', async () => {
+		const report = await validateBlocks(
+			'<!-- wp:cover {"dimRatio":60,"isDark":true} -->\n<div class="wp-block-cover is-dark"><span aria-hidden="true" class="wp-block-cover__background has-background-dim-60 has-background-dim"></span><img class="wp-block-cover__image-background" alt="A bright dental office" src="https://example.com/hero.jpg" data-object-fit="cover"/><div class="wp-block-cover__inner-container"></div></div>\n<!-- /wp:cover -->',
+			siteUrl!
+		);
+		expect( report.invalidBlocks ).toBeGreaterThan( 0 );
+		expect( report.proposedFix?.losses ).toEqual( [] );
+		expect( report.proposedFix?.report.invalidBlocks ).toBe( 0 );
+		expect( report.proposedFix?.fixedContent ).toContain(
+			'"url":"https://example.com/hero.jpg","alt":"A bright dental office"'
+		);
+	}, 60_000 );
+
 	it.each( [
 		{
 			name: 'a class the block already saves',

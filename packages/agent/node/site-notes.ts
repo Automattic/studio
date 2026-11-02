@@ -44,6 +44,7 @@ import {
 } from '@studio/agent/node/site-file-guards';
 import { themeJsonFileNotes } from '@studio/agent/node/theme-json-files';
 import { keepThemePresets } from '@studio/agent/node/theme-presets';
+import { themeStyleOverrideNotes } from '@studio/agent/node/theme-style-overrides';
 import type { BlockValidationGate } from '@studio/agent/node/block-validation-gate';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 import type { OpenProblems } from '@studio/agent/node/open-problems';
@@ -52,8 +53,10 @@ type Notes = string[] | Promise< string[] >;
 
 interface Sources {
 	beforeWrite: Array< ( file: SiteFile, text: string ) => Notes >;
-	// Named, for the time each takes in a profile.
-	write: Record< string, ( file: SiteFile ) => Notes >;
+	// Named, for the time each takes in a profile. `before` is the file's text
+	// before a file tool's write, '' for a file it creates, and unknown for any
+	// other write.
+	write: Record< string, ( file: SiteFile, before?: string ) => Notes >;
 	result: Record< string, ( sitePath: string, text: string ) => Notes >;
 }
 
@@ -138,6 +141,7 @@ function sources(
 			'theme.json': themeJsonNotes,
 			'theme.json file': ( file ) => themeJsonFileNotes( host, file, open ),
 			'theme presets': ( file ) => keepThemePresets( host, file ),
+			'theme style overrides': themeStyleOverrideNotes,
 			'theme css': themeCssNotes,
 			'shared block classes': createSharedBlockClassNotes( host ),
 			'external images': externalImageNotes,
@@ -170,11 +174,15 @@ async function collect(
 	return lines;
 }
 
+// A file not yet written by its folder's real path.
 function realPath( filePath: string ): string {
 	try {
 		return fs.realpathSync( filePath );
 	} catch {
-		return filePath;
+		const folder = path.dirname( filePath );
+		return folder === filePath
+			? filePath
+			: path.join( realPath( folder ), path.basename( filePath ) );
 	}
 }
 
@@ -210,6 +218,8 @@ export function createSiteNotes(
 	// The notes each file's last write gave, by file: a note said once while
 	// it stands, and again should it come back after a write that gave none.
 	const standing = new Map< string, string[] >();
+	// Each file's text before the file tool's write in progress.
+	const held = new Map< string, string >();
 	const once = ( file: string, notes: string[] ) => {
 		const said = standing.get( file ) ?? [];
 		standing.set( file, notes );
@@ -219,21 +229,34 @@ export function createSiteNotes(
 		async beforeWrite( filePath, text = '' ) {
 			// Unlike a note, a refusal that fails stops the write.
 			const file = resolveSiteFile( filePath );
+			if ( file ) {
+				held.set( realPath( filePath ), readText( filePath ) ?? '' );
+			}
 			const refusals = file
 				? ( await Promise.all( beforeWrite.map( ( source ) => source( file, text ) ) ) ).flat()
 				: [];
-			return refusals.length ? `Not run: ${ refusals.join( ' ' ) }` : undefined;
+			if ( ! refusals.length ) {
+				return undefined;
+			}
+			held.delete( realPath( filePath ) );
+			return `Not run: ${ refusals.join( ' ' ) }`;
 		},
 		async afterWrite( filePath, written = readText( filePath ) ) {
 			const file = resolveSiteFile( filePath );
 			if ( ! file ) {
 				return [];
 			}
+			// One file, however the call names it, as /var and /private/var on macOS.
+			const key = realPath( filePath );
+			const before = held.get( key );
+			held.delete( key );
 			const notes = once(
-				// One file, however the call names it, as /var and /private/var on macOS.
-				realPath( filePath ),
+				key,
 				await collect(
-					Object.entries( write ).map( ( [ name, source ] ) => [ name, () => source( file ) ] ),
+					Object.entries( write ).map( ( [ name, source ] ) => [
+						name,
+						() => source( file, before ),
+					] ),
 					sourceMs
 				)
 			);

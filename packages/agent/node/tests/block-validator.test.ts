@@ -477,6 +477,16 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			losses: [ { place: '/0', lost: 'drop the classes has-border-color' } ],
 		},
 		{
+			// The editor makes the block from its comment's textColor (eval13:
+			// an edit to the comment was otherwise saved back to the class's).
+			name: 'a preset class the comment names another preset for',
+			written: paragraph(
+				'{"style":{"typography":{"fontWeight":"600"}},"textColor":"tertiary"}',
+				'<p class="has-secondary-color has-text-color" style="font-weight:600">20</p>'
+			),
+			losses: [ { place: '/0', lost: 'drop the classes has-secondary-color' } ],
+		},
+		{
 			// The editor's own styles for its blocks set it there.
 			name: 'a style only the editor gives its blocks',
 			written:

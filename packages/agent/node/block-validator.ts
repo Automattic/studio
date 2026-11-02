@@ -673,6 +673,11 @@ export async function validateBlocks(
 						if ( ! value ) {
 							continue;
 						}
+						// The comment's own value stands, as the editor makes a
+						// block from its comment, and the class is lost.
+						if ( raw.attrs?.[ key ] !== undefined && String( raw.attrs[ key ] ) !== value ) {
+							break;
+						}
 						result = wpBlocks.createBlock(
 							result.name,
 							{ ...result.attributes, [ key ]: kind === 'number' ? Number( value ) : value },

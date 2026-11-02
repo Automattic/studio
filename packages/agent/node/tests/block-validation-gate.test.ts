@@ -152,6 +152,54 @@ describe( 'validating a file', () => {
 		expect( vi.mocked( validateBlocks ).mock.calls[ 0 ][ 2 ] ).toBe( editor );
 	} );
 
+	// A preset the site does not have renders nothing, as a slug made up after
+	// the site's own did, so the block shows the size it inherits.
+	it.each( [
+		{
+			name: 'a font size',
+			attrs: { fontSize: 'size-0-6875-rem' },
+			named: 'font size size-0-6875-rem',
+		},
+		{
+			name: 'a color in the style',
+			attrs: { style: { color: { text: 'var:preset|color|pine' } } },
+			named: 'color pine',
+		},
+		{ name: 'presets the site has', attrs: { fontSize: 'small', textColor: 'ink' } },
+		{
+			name: 'a color its own style sets',
+			attrs: { backgroundColor: '#31405f', style: { color: { background: '#31405f' } } },
+		},
+		{
+			name: 'a kind whose presets were not read',
+			attrs: { style: { spacing: { padding: { top: 'var:preset|spacing|90' } } } },
+		},
+	] )( 'names $name the site does not have', async ( { attrs, named } ) => {
+		vi.mocked( validateBlocks ).mockResolvedValue( {
+			totalBlocks: 1,
+			validBlocks: 1,
+			invalidBlocks: 0,
+			results: [],
+		} );
+		const result = await validateBlockMarkupFile(
+			write(
+				'wp-content/themes/t/parts/footer.html',
+				`<!-- wp:paragraph ${ JSON.stringify( attrs ) } -->\n<p>© 2025</p>\n<!-- /wp:paragraph -->`
+			),
+			'http://localhost:8881',
+			{
+				colors: [ [ 'ink', '#1c2a1e' ] ],
+				fontSizes: [ [ 'small', '0.9375rem' ] ],
+				spacingSizes: [],
+			}
+		);
+		if ( named ) {
+			expect( result.problem ).toContain( `line 1: core/paragraph ${ named }` );
+		} else {
+			expect( result.problem ).toBeUndefined();
+		}
+	} );
+
 	const GROUP = '<!-- wp:group {"layout":{"type":"constrained"}} -->\n<div class="wp-block-group">';
 	it.each< { name: string; content: string; problems: string[] } >( [
 		{

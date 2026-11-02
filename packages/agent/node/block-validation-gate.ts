@@ -439,14 +439,123 @@ export async function validateBlockMarkup(
 		};
 	}
 	const policy = await htmlPolicyProblem( content, label, siteUrl );
+	const unknown = unknownPresetsProblem( content, label, presetValues );
 	const result = await validateSavedMarkup( content, label, siteUrl, presetValues, editor );
-	return policy
+	const problems = [ policy, unknown, result.problem ].filter( Boolean );
+	return policy || unknown
 		? {
 				...result,
-				summary: `${ result.summary }; core/html policy failed`,
-				problem: [ policy, ...( result.problem ? [ result.problem ] : [] ) ].join( '\n' ),
+				summary: [
+					result.summary,
+					policy && 'core/html policy failed',
+					unknown && 'names presets the site does not have',
+				]
+					.filter( Boolean )
+					.join( '; ' ),
+				problem: problems.join( '\n' ),
 		  }
 		: result;
+}
+
+// The presets a block can name, by the attribute or `var:preset|<kind>|` that
+// names it. An attribute's value is the block's own style at the path given,
+// where its style sets one, as a block support renders it inline.
+const PRESET_KINDS: Array< {
+	kind: keyof PresetValues;
+	name: string;
+	attributes: Record< string, string | undefined >;
+	variable: string;
+} > = [
+	{
+		kind: 'colors',
+		name: 'color',
+		attributes: {
+			textColor: 'color.text',
+			backgroundColor: 'color.background',
+			borderColor: 'border.color',
+			overlayColor: undefined,
+		},
+		variable: 'color',
+	},
+	{
+		kind: 'fontSizes',
+		name: 'font size',
+		attributes: { fontSize: 'typography.fontSize' },
+		variable: 'font-size',
+	},
+	{ kind: 'spacingSizes', name: 'spacing size', attributes: {}, variable: 'spacing' },
+];
+
+const BLOCK_OPENER = /<!--\s+wp:([a-z0-9-]+(?:\/[a-z0-9-]+)?)\s+(\{.*?\})\s+\/?-->/g;
+
+function styleAt( style: unknown, at: string ): unknown {
+	return at
+		.split( '.' )
+		.reduce< unknown >(
+			( value, key ) =>
+				value && typeof value === 'object'
+					? ( value as Record< string, unknown > )[ key ]
+					: undefined,
+			style
+		);
+}
+
+/**
+ * The blocks that name a preset the site does not have. WordPress outputs a
+ * preset's class and CSS variable only for the presets its settings resolve
+ * (WP_Theme_JSON::get_preset_classes() and compute_preset_vars() in
+ * wp-includes/class-wp-theme-json.php), so such a block shows the value it
+ * inherits. A kind the site's presets were not read for is left out.
+ */
+export function unknownPresetsProblem(
+	content: string,
+	label: string,
+	presets: PresetValues
+): string | undefined {
+	const found: string[] = [];
+	const kinds = new Set< ( typeof PRESET_KINDS )[ number ] >();
+	for ( const match of content.matchAll( BLOCK_OPENER ) ) {
+		let attrs: Record< string, unknown >;
+		try {
+			attrs = JSON.parse( match[ 2 ] );
+		} catch {
+			continue;
+		}
+		const json = JSON.stringify( attrs.style ?? {} );
+		for ( const preset of PRESET_KINDS ) {
+			const known = new Set( presets[ preset.kind ].map( ( [ slug ] ) => slug ) );
+			if ( ! known.size ) {
+				continue;
+			}
+			const named = [
+				...Object.entries( preset.attributes )
+					.filter( ( [ , style ] ) => ! style || styleAt( attrs.style, style ) === undefined )
+					.map( ( [ attribute ] ) => attrs[ attribute ] ),
+				...[
+					...json.matchAll( new RegExp( `var:preset\\|${ preset.variable }\\|([^"|]+)`, 'g' ) ),
+				].map( ( [ , slug ] ) => slug ),
+			].filter( ( slug ): slug is string => typeof slug === 'string' && ! known.has( slug ) );
+			for ( const slug of new Set( named ) ) {
+				const line = content.slice( 0, match.index ).split( '\n' ).length;
+				const block = match[ 1 ].includes( '/' ) ? match[ 1 ] : `core/${ match[ 1 ] }`;
+				found.push( `  - line ${ line }: ${ block } ${ preset.name } ${ slug }` );
+				kinds.add( preset );
+			}
+		}
+	}
+	if ( ! found.length ) {
+		return undefined;
+	}
+	return [
+		`${ label }: ${ found.length } preset(s) named that the site does not have, so WordPress outputs no class or CSS variable for them and each block shows the value it inherits (WP_Theme_JSON::get_preset_classes() and compute_preset_vars() in wp-includes/class-wp-theme-json.php):`,
+		...found,
+		...[ ...kinds ].map(
+			( { kind, name } ) =>
+				`The site's ${ name } presets (wp_get_global_settings()): ${ presets[ kind ]
+					.map( ( [ slug, value ] ) => `${ slug } ${ value }` )
+					.join( ', ' ) }. A block names one of them or sets its own value.`
+		),
+	].join( '\n' );
 }
 
 async function validateSavedMarkup(

@@ -51,6 +51,14 @@ interface SiteState {
 	verdictFrom?: string;
 }
 
+// The y position is the only part of a contrast observation excluded from its grouping key.
+const contrastObservation =
+	/^( {2}.+?), at y (-?\d+), is (.+), a contrast ratio of ([\d.]+:1)(\..*)$/;
+const contrastKey = ( problem: string ) => {
+	const match = contrastObservation.exec( problem );
+	return match ? JSON.stringify( [ match[ 1 ], match[ 3 ], match[ 4 ], match[ 5 ] ] ) : undefined;
+};
+
 // A problem by page, viewport and kind, without the measures that move as the page changes.
 const problemKey = ( page: { url: string; viewport: Viewport }, problem: string ) =>
 	`${ new URL( page.url ).pathname } ${ page.viewport } ${ problem.replace( /\d+/g, '#' ) }`;
@@ -161,13 +169,53 @@ export class RenderCheck {
 			return;
 		}
 		const firstSeen = await state.firstSeen;
-		const found = pages.flatMap( ( page ) =>
+		const observations = pages.flatMap( ( page ) =>
 			page.problems
 				.filter( ( problem ) => ! firstSeen.has( problemKey( page, problem ) ) )
-				.map(
-					( problem ) => `- ${ new URL( page.url ).pathname } (${ page.viewport }): ${ problem }`
-				)
+				.map( ( problem ) => ( { page, problem } ) )
 		);
+		const groups = new Map< string, typeof observations >();
+		for ( const observation of observations ) {
+			const key = contrastKey( observation.problem );
+			if ( key ) {
+				const group = groups.get( key ) ?? [];
+				group.push( observation );
+				groups.set( key, group );
+			}
+		}
+		const emitted = new Set< ( typeof observations )[ number ] >();
+		const found: string[] = [];
+		for ( const observation of observations ) {
+			const key = contrastKey( observation.problem );
+			const group = key ? groups.get( key ) : undefined;
+			if ( ! group || group.length < 2 ) {
+				found.push(
+					`- ${ new URL( observation.page.url ).pathname } (${ observation.page.viewport }): ${
+						observation.problem
+					}`
+				);
+				continue;
+			}
+			if ( emitted.has( observation ) ) {
+				continue;
+			}
+			const locations = new Map< string, string[] >();
+			for ( const item of group ) {
+				emitted.add( item );
+				const pathname = new URL( item.page.url ).pathname;
+				const at = locations.get( pathname ) ?? [];
+				at.push( `${ item.page.viewport } y${ contrastObservation.exec( item.problem )![ 2 ] }` );
+				locations.set( pathname, at );
+			}
+			const match = contrastObservation.exec( observation.problem )!;
+			found.push(
+				`- ${ match[ 1 ].trimStart() }: ${ match[ 3 ] }, a contrast ratio of ${ match[ 4 ] }${
+					match[ 5 ]
+				}\n  Seen on:\n${ [ ...locations ]
+					.map( ( [ pathname, at ] ) => `  ${ pathname } — ${ at.join( '; ' ) }` )
+					.join( '\n' ) }`
+			);
+		}
 		const paths = [ ...new Set( pages.map( ( page ) => new URL( page.url ).pathname ) ) ];
 		const rendered = `Studio rendered ${ paths.join(
 			', '

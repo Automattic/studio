@@ -4,6 +4,8 @@ import {
 	buildChromiumLaunchAttempts,
 	EditorPage,
 	ensurePlaywrightChromiumInstalled,
+	launchChromiumWithInstall,
+	withTimeout,
 } from '@studio/agent/node/browser-utils';
 
 vi.mock( 'playwright', () => ( {
@@ -29,6 +31,7 @@ describe( 'browser-utils', () => {
 		expect( options ).toEqual( {
 			args: [ '--ignore-certificate-errors' ],
 			executablePath,
+			timeout: 30_000,
 		} );
 	} );
 
@@ -39,6 +42,7 @@ describe( 'browser-utils', () => {
 
 		expect( candidates.at( -1 ) ).toEqual( {
 			args: [ '--ignore-certificate-errors' ],
+			timeout: 30_000,
 		} );
 	} );
 
@@ -74,10 +78,87 @@ describe( 'browser-utils', () => {
 		expect( error ).toContain( 'network unavailable' );
 	} );
 
+	it( 'uses installed Chrome without downloading Chromium', async () => {
+		const browser = { close: vi.fn() };
+		const launch = vi.fn().mockImplementation( async ( options ) => {
+			if ( options.channel === 'chrome' ) {
+				return browser;
+			}
+			throw new Error( 'browser missing' );
+		} );
+		const installBrowser = vi.fn();
+
+		await expect(
+			launchChromiumWithInstall(
+				{},
+				{
+					chromium: { executablePath: () => '/missing/chromium', launch },
+					installBrowser,
+				}
+			)
+		).resolves.toBe( browser );
+		expect( launch ).toHaveBeenCalledWith(
+			expect.objectContaining( { channel: 'chrome', timeout: 30_000 } )
+		);
+		expect( installBrowser ).not.toHaveBeenCalled();
+	} );
+
+	it( 'returns promptly during a single background install and launches after it finishes', async () => {
+		let finishInstall!: () => void;
+		let installed = false;
+		const browser = { close: vi.fn() };
+		const launch = vi.fn().mockImplementation( async () => {
+			if ( installed ) {
+				return browser;
+			}
+			throw new Error( 'browser missing' );
+		} );
+		const installBrowser = vi.fn(
+			() =>
+				new Promise< void >( ( resolve ) => {
+					finishInstall = () => {
+						installed = true;
+						resolve();
+					};
+				} )
+		);
+		const dependencies = {
+			chromium: {
+				executablePath: () => ( installed ? process.execPath : '/missing/chromium' ),
+				launch,
+			},
+			installBrowser,
+		};
+
+		try {
+			await Promise.all(
+				[ 1, 2 ].map( () =>
+					expect(
+						withTimeout( launchChromiumWithInstall( {}, dependencies ), 200, 'Test call' )
+					).rejects.toThrow( 'Studio is downloading the browser' )
+				)
+			);
+			await expect( launchChromiumWithInstall( {}, dependencies ) ).rejects.toThrow(
+				'Try again in a minute'
+			);
+			expect( installBrowser ).toHaveBeenCalledTimes( 1 );
+			for ( const [ options ] of launch.mock.calls ) {
+				expect( options ).toEqual( expect.objectContaining( { timeout: 30_000 } ) );
+			}
+		} finally {
+			finishInstall();
+			await new Promise( ( resolve ) => setTimeout( resolve, 0 ) );
+		}
+		await expect( launchChromiumWithInstall( {}, dependencies ) ).resolves.toBe( browser );
+	} );
+
 	it( 'loads the block editor once for concurrent validations', async () => {
 		const page = { goto: vi.fn(), waitForFunction: vi.fn(), isClosed: () => false };
 		const newPage = vi.fn().mockResolvedValue( page );
-		vi.mocked( chromium.launch ).mockResolvedValue( { newPage, close: vi.fn() } as never );
+		vi.mocked( chromium.launch ).mockResolvedValue( {
+			newPage,
+			close: vi.fn().mockResolvedValue( undefined ),
+		} as never );
 
 		const editor = new EditorPage( 'http://localhost:8881' );
 		const pages = await Promise.all( [ editor.getPage(), editor.getPage(), editor.getPage() ] );

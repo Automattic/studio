@@ -251,11 +251,15 @@ function useLiveSync< Options >(
 			return {
 				startedAt: Date.now(),
 				journey:
-					direction === 'push' ? getAccountJourney( connector, 'publish', siteId ) : undefined,
+					direction === 'push'
+						? getAccountJourney( connector, 'publish', siteId )
+						: getAccountJourney( connector, 'connect_site', `${ siteId }:${ remoteSiteId }` ),
 			};
 		},
 		onSuccess: ( _result, variables, { startedAt, journey } ) => {
-			completeAccountJourney( connector, journey, { completion_kind: 'sync_push' } );
+			completeAccountJourney( connector, journey, {
+				completion_kind: direction === 'push' ? 'sync_push' : 'sync_pull',
+			} );
 			settleFromMutation( variables.siteId, direction );
 			track( variables, startedAt );
 		},

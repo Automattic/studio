@@ -490,7 +490,12 @@ export function SettingsDialog() {
 												styles.hidden
 										) }
 									>
-										<SiteSettingsForm key={ site.id } site={ site } section={ formSection } />
+										<SiteSettingsForm
+											key={ site.id }
+											site={ site }
+											section={ formSection }
+											active={ scope === 'site' && SITE_FORM_SECTIONS.includes( section ) }
+										/>
 									</div>
 								</>
 							) : null }

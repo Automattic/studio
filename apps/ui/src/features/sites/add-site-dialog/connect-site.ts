@@ -2,7 +2,7 @@ import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failure';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { getAccountJourney, completeAccountJourney } from '@/data/account-analytics';
+import { getAccountJourney, scopeAccountJourney } from '@/data/account-analytics';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useCreateSite, useDeleteSite, useStartSite } from '@/data/queries/use-sites';
@@ -117,6 +117,7 @@ export function useConnectSite() {
 						} );
 						throw error;
 					}
+					scopeAccountJourney( connector, journey, `${ localSiteId }:${ remote.id }` );
 					// The local site is created by this same flow, so it always ends up
 					// with exactly this one connection.
 					void connector.trackEvent( TRACKS_EVENTS.SYNC_CONNECT, {
@@ -132,7 +133,6 @@ export function useConnectSite() {
 						// cache the hook would otherwise read has nothing for it yet.
 						syncSite: remote,
 					} );
-					completeAccountJourney( connector, journey, { completion_kind: 'sync_pull' } );
 				},
 				startLocalSite: async ( localSiteId ) => {
 					await startSite.mutateAsync( localSiteId );

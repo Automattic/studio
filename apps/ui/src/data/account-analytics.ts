@@ -41,6 +41,19 @@ export function getAccountJourney(
 	pending?.delete( key );
 }
 
+export function scopeAccountJourney(
+	connector: Connector,
+	analytics: AuthAnalytics | undefined,
+	scope: string
+) {
+	if ( ! analytics || getAccountJourney( connector, analytics.intent ) !== analytics ) return;
+	const pending = journeys.get( connector )!;
+	const key = `${ analytics.intent }:`;
+	const journey = pending.get( key )!;
+	pending.delete( key );
+	pending.set( `${ analytics.intent }:${ scope }`, journey );
+}
+
 const completedJourneys = new WeakMap< Connector, Set< string > >();
 export function completeAccountJourney(
 	connector: Connector,

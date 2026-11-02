@@ -9,6 +9,7 @@ import {
 	clearAccountJourneys,
 	getAccountJourney,
 	rememberAccountJourney,
+	scopeAccountJourney,
 	useAnalyticsExposure,
 } from './account-analytics';
 import type { AuthAnalytics } from '@studio/common/lib/auth-tracks';
@@ -19,6 +20,29 @@ afterEach( () => {
 } );
 
 describe( 'account journey measurement', () => {
+	it( 'scopes a connect journey without resetting its initiation or expiry', () => {
+		vi.useFakeTimers();
+		const connector = createFakeConnector();
+		const context: AuthAnalytics = {
+			placement: 'add_site_connect',
+			intent: 'connect_site',
+			journey_id: crypto.randomUUID(),
+		};
+		rememberAccountJourney( connector, context );
+		const startedAt = context.journey_started_at;
+		vi.advanceTimersByTime( 23 * 60 * 60 * 1000 );
+		scopeAccountJourney( connector, context, 'local:42' );
+		expect( context.journey_started_at ).toBe( startedAt );
+		expect( getAccountJourney( connector, 'connect_site' ) ).toBeUndefined();
+		expect( getAccountJourney( connector, 'connect_site', 'local:42' ) ).toBe( context );
+		scopeAccountJourney( connector, context, 'other:42' );
+		expect( getAccountJourney( connector, 'connect_site', 'other:42' ) ).toBeUndefined();
+		vi.advanceTimersByTime( 60 * 60 * 1000 + 1 );
+		completeAccountJourney( connector, context, { completion_kind: 'sync_pull' } );
+		expect( getAccountJourney( connector, 'connect_site', 'local:42' ) ).toBeUndefined();
+		expect( connector.trackEvent ).not.toHaveBeenCalled();
+	} );
+
 	it( 'invalidates captured work on account changes', () => {
 		const connector = createFakeConnector();
 		const analytics = {

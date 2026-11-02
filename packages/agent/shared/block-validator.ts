@@ -1,4 +1,7 @@
+import { withTimeout } from '@studio/agent/shared/tools/utils';
 import type { HostPage, HostPages } from '@studio/agent/shared/host';
+
+const BLOCK_EVALUATION_TIMEOUT_MS = 60_000;
 
 interface BlockValidationResult {
 	blockName: string;
@@ -140,7 +143,7 @@ export async function validateBlocks(
 	try {
 		const page = await getEditorPage( pages, siteUrl );
 
-		const validation = await page.evaluate( ( html: string ) => {
+		const evaluation = page.evaluate( ( html: string ) => {
 			/* eslint-disable @typescript-eslint/no-explicit-any */
 			const wpBlocks = ( window as any ).wp?.blocks;
 			if ( ! wpBlocks ) {
@@ -389,6 +392,11 @@ export async function validateBlocks(
 			};
 			/* eslint-enable @typescript-eslint/no-explicit-any */
 		}, content );
+		const validation = await withTimeout(
+			evaluation,
+			BLOCK_EVALUATION_TIMEOUT_MS,
+			'Evaluating blocks in the editor'
+		);
 
 		const report = validation.report as ValidationReport;
 
@@ -410,9 +418,7 @@ export async function validateBlocks(
 			validBlocks: 0,
 			invalidBlocks: 0,
 			results: [],
-			error: `Block validation error: ${
-				error instanceof Error ? error.message : String( error )
-			}`,
+			error: error instanceof Error ? error.message : String( error ),
 		};
 	}
 }

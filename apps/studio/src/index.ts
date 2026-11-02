@@ -462,7 +462,7 @@ async function appBoot() {
 				"script-src-attr 'none'",
 				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com https://blueprintslibraryv2.wpcomstaging.com data:",
 				"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com", // unsafe-inline: components inject their styles at runtime
-				// The agentic UI's design system view loads DESIGN.md fonts.
+				// The agentic UI's design system view loads the Styles' fonts.
 				"font-src 'self' https://fonts.gstatic.com",
 				process.env.NODE_ENV === 'development'
 					? "script-src 'self' 'unsafe-eval' 'unsafe-inline' data: http://localhost:*"

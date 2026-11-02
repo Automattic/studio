@@ -200,6 +200,12 @@ async function getPageDiagnostics( page: Page ): Promise< string > {
 	}
 }
 
+/** An error a page threw, with the script line it threw from. */
+function thrownAt( error: Error ): string {
+	const frame = error.stack?.match( /\(?(https?:\/\/[^\s)]+?)(?:\?[^\s):]*)?:(\d+):\d+\)?/ );
+	return frame ? `${ error.message } (${ frame[ 1 ] } line ${ frame[ 2 ] })` : error.message;
+}
+
 /**
  * A long-lived page that stays open on a site's block editor so repeated
  * validation calls don't have to re-navigate and re-load all block scripts.
@@ -208,9 +214,13 @@ export class EditorPage {
 	private page: Page | null = null;
 	private loading: Promise< Page > | null = null;
 	private readonly siteUrl: string;
+	private readonly editorPath: string;
+	/** What the editor page threw, as message and the script line that threw it. */
+	loadErrors: string[] = [];
 
-	constructor( siteUrl: string ) {
+	constructor( siteUrl: string, editorPath = '/wp-admin/post-new.php' ) {
 		this.siteUrl = siteUrl;
+		this.editorPath = editorPath;
 	}
 
 	/** Get or create a page with the block editor loaded. */
@@ -228,9 +238,25 @@ export class EditorPage {
 		const page = await browser.newPage( {
 			ignoreHTTPSErrors: true,
 		} );
+		const loadErrors: string[] = [];
+		page.on( 'pageerror', ( error ) => loadErrors.push( thrownAt( error ) ) );
 
-		const loginUrl = `${ this.siteUrl }/studio-auto-login?redirect_to=/wp-admin/post-new.php`;
-		await page.goto( loginUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 } );
+		const { editorPath } = this;
+		const loginUrl = `${ this.siteUrl }/studio-auto-login?redirect_to=${ editorPath }`;
+		await page.goto( loginUrl, { waitUntil: 'commit', timeout: 30_000 } );
+		// A plugin can send the first admin page after its activation elsewhere
+		// once, as WooCommerce's setup wizard does with a transient it deletes on
+		// redirecting, so the editor is loaded again where the login lands elsewhere,
+		// and the page it landed on is left as soon as its address is known: the
+		// wizard's scripts and styles took 5-6s of a cold editor load.
+		if ( ! new URL( page.url() ).pathname.endsWith( editorPath ) ) {
+			await page.goto( `${ this.siteUrl }${ editorPath }`, {
+				waitUntil: 'domcontentloaded',
+				timeout: 30_000,
+			} );
+		} else {
+			await page.waitForLoadState( 'domcontentloaded', { timeout: 30_000 } );
+		}
 
 		// Wait for the block editor scripts to be fully loaded and blocks registered.
 		// wp is set early as a global but wp.blocks is populated later, so every
@@ -264,6 +290,7 @@ export class EditorPage {
 		}
 
 		this.page = page;
+		this.loadErrors = loadErrors;
 		return page;
 	}
 

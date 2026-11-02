@@ -6,7 +6,6 @@ import {
 	fetchStudioAssistantQuota,
 } from '@studio/common/lib/studio-assistant-quota';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { toolResultRenderers } from 'cli/ai/tool-result-renderers';
 import { AiChatUI } from 'cli/ai/ui';
 import { openBrowser } from 'cli/lib/browser';
 import { readCliConfig } from 'cli/lib/cli-config/core';
@@ -386,7 +385,7 @@ describe( 'AiChatUI.handleEvent', () => {
 						type: 'toolCall',
 						id: 'toolu_remote',
 						name: 'Skill',
-						arguments: { name: 'edit-manage-remote-site' },
+						arguments: { name: 'taxonomist' },
 					},
 					{
 						type: 'toolCall',
@@ -407,7 +406,7 @@ describe( 'AiChatUI.handleEvent', () => {
 					content: [
 						{
 							type: 'text',
-							text: '# WordPress.com Remote Management\n\n## Tool Shape\n\nUse wpcom_request.',
+							text: '# Taxonomist\n\n## Tool Shape\n\nUse install_taxonomy_scripts.',
 						},
 					],
 				},
@@ -425,8 +424,8 @@ describe( 'AiChatUI.handleEvent', () => {
 		} );
 
 		const renderedText = renderedContainerText( messages );
-		const remoteRow = renderedText.indexOf( 'Load skill edit-manage-remote-site' );
-		const remoteSummary = renderedText.indexOf( 'Loaded WordPress.com Remote Management' );
+		const remoteRow = renderedText.indexOf( 'Load skill taxonomist' );
+		const remoteSummary = renderedText.indexOf( 'Loaded Taxonomist' );
 		const remoteHidden = renderedText.indexOf( 'Full skill body hidden' );
 		const designRow = renderedText.indexOf( 'Load skill visual-design' );
 		const designSummary = renderedText.indexOf( 'Loaded Visual Design' );
@@ -441,7 +440,7 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( renderedText ).not.toContain( '# Visual Design' );
 	} );
 
-	it( 'renders concise summaries for API, Bash, and Read tool output', () => {
+	it( 'renders concise summaries for Bash and Read tool output', () => {
 		const { ui, messages } = makeRenderUi();
 
 		ui.handleEvent( {
@@ -449,12 +448,6 @@ describe( 'AiChatUI.handleEvent', () => {
 			message: {
 				role: 'assistant',
 				content: [
-					{
-						type: 'toolCall',
-						id: 'toolu_api',
-						name: 'wpcom_request',
-						arguments: { method: 'GET', path: '/posts' },
-					},
 					{
 						type: 'toolCall',
 						id: 'toolu_bash',
@@ -475,16 +468,6 @@ describe( 'AiChatUI.handleEvent', () => {
 			type: 'turn_end',
 			toolResults: [
 				{
-					toolCallId: 'toolu_api',
-					isError: false,
-					content: [
-						{
-							type: 'text',
-							text: JSON.stringify( { found: 2, posts: [ { id: 1 }, { id: 2 } ] } ),
-						},
-					],
-				},
-				{
 					toolCallId: 'toolu_bash',
 					isError: false,
 					content: [ { type: 'text', text: '2 tests passed\nDuration 1s' } ],
@@ -499,13 +482,9 @@ describe( 'AiChatUI.handleEvent', () => {
 
 		const joined = renderedContainerText( messages );
 
-		expect( joined ).toContain( 'WordPress.com API GET /posts' );
-		expect( joined ).toContain( 'GET /posts: Returned 2 posts' );
-		expect( joined ).toContain( 'Full API response hidden' );
 		expect( joined ).toContain( '$ npm test' );
 		expect( joined ).toContain( '2 tests passed' );
 		expect( joined ).toContain( 'style.css' );
-		expect( joined ).not.toContain( '"posts"' );
 		expect( joined ).not.toContain( '.wp-site-blocks' );
 	} );
 
@@ -742,21 +721,6 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( expanded ).toContain( 'line 1' );
 		expect( expanded ).not.toContain( 'earlier lines' );
 		expect( expanded ).toContain( 'Pick a clear direction.' );
-	} );
-
-	it( 'fully strips rendered HTML tags that recombine after a single pass', () => {
-		const rendered = toolResultRenderers.wpcom_request(
-			{
-				input: { method: 'GET', path: '/sites/1/posts/1' },
-				text: JSON.stringify( {
-					title: { rendered: '<scr<script>ipt>alert(1)</scr</script>ipt>' },
-				} ),
-				isError: false,
-			},
-			false
-		);
-
-		expect( stripAnsi( rendered ?? '' ) ).not.toContain( '<' );
 	} );
 
 	it( 'does not trigger cap detection for non-wpcom providers even with a 429 error', () => {

@@ -19,7 +19,7 @@ export const getSiteInfoTool = defineTool(
 		}
 	},
 	{
-		promptSnippet: 'Get details about a specific site (path, URL, admin username, running status)',
 		annotations: READ_ONLY,
+		reportsChecks: true,
 	}
 );

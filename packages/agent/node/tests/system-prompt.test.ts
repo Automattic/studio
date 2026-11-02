@@ -1,133 +1,72 @@
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
 import { describe, expect, it } from 'vitest';
-import { loadSkills } from '@studio/agent/node/skills';
-import { buildSystemPrompt } from '@studio/agent/node/system-prompt';
-import { resolveStudioTools, type StudioToolsOptions } from '@studio/agent/node/tools';
-import { createFakeHost } from './fake-host';
-import type { StudioAgentHost } from '@studio/agent/node/host';
+import { getSkillScopedToolNames, loadSkills } from '../skills';
+import { buildSystemPrompt, PROXY_IDENTITY } from '../system-prompt';
+import { resolveStudioTools } from '../tools';
+import { createFakeHost, fakeWpcom } from './fake-host';
 
-function extractReferencedSkillNames( prompt: string ): string[] {
-	return [
-		...new Set( Array.from( prompt.matchAll( /`([a-z0-9-]+)` skill/g ), ( match ) => match[ 1 ] ) ),
-	].sort();
-}
-
-const toolsFor = ( options: StudioToolsOptions, host: StudioAgentHost = createFakeHost() ) =>
-	resolveStudioTools( host, options ).map( ( tool ) => ( {
-		name: tool.name,
-		promptSnippet: tool.promptSnippet,
-	} ) );
+// Every tool Studio has: an app shows the conversation and Studio generates images.
+const allTools = () =>
+	resolveStudioTools(
+		{ ...createFakeHost(), ui: { showArtifact: () => {}, reloadPreview: () => {} } },
+		{ imageGeneration: true }
+	);
 
 describe( 'buildSystemPrompt', () => {
-	it( 'routes plugin-specific feature work to the plugin recommendations skill', () => {
-		const prompt = buildSystemPrompt();
-
-		expect( prompt ).toContain( 'plugin-recommendations' );
-		expect( prompt ).toContain( 'any feature that core WordPress blocks do not cleanly provide' );
-		expect( prompt ).not.toContain( '## Jetpack Forms' );
-		expect( prompt ).not.toContain( 'wp_cli jetpack module activate contact-form' );
+	// The WordPress.com AI proxy refuses any other opening with a 403.
+	it( 'opens with the line the WordPress.com AI proxy admits, byte for byte', () => {
+		expect( PROXY_IDENTITY ).toBe( 'You are WordPress Studio, built by Automattic.' );
+		expect( buildSystemPrompt().startsWith( `${ PROXY_IDENTITY }\n\n## Environment` ) ).toBe(
+			true
+		);
 	} );
 
-	it( 'routes block markup recipes to the block content skill', () => {
-		const prompt = buildSystemPrompt();
-
-		expect( prompt ).toContain( 'block-content' );
-		expect( prompt ).toContain( 'page/post content, template or template-part content' );
-		expect( prompt ).not.toContain( '## Block-theme layout cascade' );
-		expect( prompt ).not.toContain( 'core/post-content' );
-	} );
-
-	it( 'routes site builds to the build-site skill in every runtime', () => {
-		for ( const prompt of [ buildSystemPrompt( {} ), buildSystemPrompt( { external: true } ) ] ) {
-			expect( prompt ).toContain( 'load the `build-site` skill first' );
+	it( 'states identity and environment only', () => {
+		const remoteHosts = { wpcom: fakeWpcom() };
+		for ( const prompt of [
+			buildSystemPrompt( { remoteHosts } ),
+			buildSystemPrompt( { external: true, remoteHosts } ),
+		] ) {
+			expect( prompt ).toContain( 'wp-includes/' );
+			expect( prompt ).toContain( remoteHosts.wpcom.environment );
+			expect( prompt ).not.toMatch( /\b(MUST|never|always|do not|don't)\b/i );
+			expect( prompt.length ).toBeLessThan( 1600 );
 		}
 	} );
 
-	it( 'carries the remote-site runbook only when a WordPress.com site is active', () => {
-		const remote = buildSystemPrompt( {
-			activeSite: {
-				name: 'Live',
-				path: '',
-				running: false,
-				remote: true,
-				url: 'https://example.wordpress.com',
-				wpcomSiteId: 123,
-			},
-		} );
-		const local = buildSystemPrompt( {
-			activeSite: { name: 'My Site', path: '/sites/my-site', running: true },
-		} );
-		const runbook = loadSkills().find( ( skill ) => skill.name === 'edit-manage-remote-site' );
-
-		expect( remote ).toContain( runbook?.body );
-		expect( remote.indexOf( '## Active site' ) ).toBeLessThan(
-			remote.indexOf( '## Common wp/v2 Endpoints' )
-		);
-		expect( local ).not.toContain( '## Common wp/v2 Endpoints' );
-		expect( buildSystemPrompt( {} ) ).not.toContain( '## Common wp/v2 Endpoints' );
+	it( 'names no tool and no skill; their definitions describe themselves', () => {
+		const prompt = buildSystemPrompt();
+		for ( const tool of allTools() ) {
+			expect( prompt ).not.toContain( tool.name );
+		}
+		for ( const skill of loadSkills() ) {
+			expect( prompt ).not.toContain( `\`${ skill.name }\`` );
+		}
 	} );
 
-	it( 'lists the remote-site skill with what it covers, for sites the user names', () => {
-		const runbook = loadSkills().find( ( skill ) => skill.name === 'edit-manage-remote-site' );
-
-		expect( runbook?.userInvokable ).toBe( true );
-		expect( runbook?.description ).toContain( 'live remote sites' );
-	} );
-
-	it( 'leaves plan questions to the hosting-plans-helper skill index entry', () => {
-		const helper = loadSkills().find( ( skill ) => skill.name === 'hosting-plans-helper' );
-
-		expect( helper?.description ).toContain( 'Load before answering ANY plan' );
-		expect( buildSystemPrompt() ).not.toContain( 'hosting-plans-helper' );
-	} );
-
-	it( 'references only bundled skills', () => {
-		const availableSkillNames = new Set( loadSkills().map( ( skill ) => skill.name ) );
-		const missingSkillNames = extractReferencedSkillNames( buildSystemPrompt() ).filter(
-			( skillName ) => ! availableSkillNames.has( skillName )
-		);
-
-		expect( missingSkillNames ).toEqual( [] );
-	} );
-
-	it( 'lists the registered tools that have a snippet', () => {
-		const prompt = buildSystemPrompt( {
-			tools: [
-				{ name: 'wp_cli', promptSnippet: 'Run WP-CLI commands on a running site' },
-				{ name: 'hidden' },
-			],
-		} );
+	it( "names the user's local sites when none is active, up to a bound", () => {
+		const sites = Array.from( { length: 23 }, ( _, i ) => ( {
+			name: `Site ${ i }`,
+			path: i ? `/sites/site-${ i }` : '/elsewhere/site-0',
+		} ) );
+		const prompt = buildSystemPrompt( { shellDirectory: '/sites', localSites: sites } );
 		expect( prompt ).toContain(
-			'## Available tools\n\n- wp_cli: Run WP-CLI commands on a running site'
+			'- No site is open in Studio. The user\'s local sites: "Site 0" (/elsewhere/site-0), "Site 1" (site-1),'
 		);
-		expect( prompt ).not.toContain( '- hidden' );
-	} );
-
-	it( "gives external agents their own intro instead of Studio Code's identity and cadence", () => {
-		const prompt = buildSystemPrompt( { external: true } );
-		expect( prompt ).toContain( 'Edit site files with your own file tools' );
-		expect( prompt ).not.toContain( 'WordPress Studio Code' );
-		expect( prompt ).not.toContain( '## Working cadence' );
-	} );
-
-	it( 'describes the screenshot and inspect tools for models without vision', () => {
-		const withVision = buildSystemPrompt( { tools: toolsFor( { visionEnabled: true } ) } );
-		expect( withVision ).toContain( 'Pair with take_screenshot' );
-		expect( withVision ).not.toContain( 'You cannot view' );
-
-		const textOnly = buildSystemPrompt( { tools: toolsFor( { visionEnabled: false } ) } );
-		expect( textOnly ).toContain( 'it still sets the theme screenshot' );
-		expect( textOnly ).not.toContain( 'Pair with take_screenshot' );
-	} );
-
-	it( 'lists refresh_browser only when a Studio UI is attached', () => {
-		const ui = { showArtifact: () => {}, reloadPreview: () => {} };
-		expect( buildSystemPrompt( { tools: toolsFor( {}, { ...createFakeHost(), ui } ) } ) ).toContain(
-			'- refresh_browser:'
+		expect( prompt ).toContain( '"Site 19" (site-19), and 3 more.' );
+		expect( prompt ).not.toContain( 'Site 20' );
+		expect( buildSystemPrompt( { localSites: [] } ) ).toContain(
+			'No site is open in Studio, and the user has no local sites yet.'
 		);
-		expect( buildSystemPrompt( { tools: toolsFor( {} ) } ) ).not.toContain( 'refresh_browser' );
+		expect(
+			buildSystemPrompt( {
+				localSites: sites,
+				activeSite: { name: 'My Site', path: '/sites/my-site', running: true },
+			} )
+		).not.toContain( 'Site 0' );
+	} );
+
+	it( 'leaves the identity to the external agent', () => {
+		expect( buildSystemPrompt( { external: true } ) ).not.toContain( 'You are' );
 	} );
 
 	it( 'states the active site in its own section, above the user instructions', () => {
@@ -138,9 +77,18 @@ describe( 'buildSystemPrompt', () => {
 
 		expect( prompt ).toContain( '## Active site\n\n"My Site" at /sites/my-site (running)' );
 		expect( prompt.indexOf( '## Active site' ) ).toBeLessThan(
-			prompt.indexOf( "## User's global instructions" )
+			prompt.indexOf( "## The user's standing instructions" )
 		);
 		expect( buildSystemPrompt( {} ) ).not.toContain( '## Active site' );
+	} );
+
+	it( "lists the active site's facts under it, one per line", () => {
+		const prompt = buildSystemPrompt( {
+			activeSite: { name: 'My Site', path: '/sites/my-site', running: true },
+			activeSiteFacts: [ 'WordPress 7.1.3.' ],
+		} );
+
+		expect( prompt ).toContain( '"My Site" at /sites/my-site (running)\nWordPress 7.1.3.' );
 	} );
 
 	it( 'states a WordPress.com active site with its ID and URL', () => {
@@ -149,10 +97,10 @@ describe( 'buildSystemPrompt', () => {
 				name: 'Live',
 				path: '',
 				running: false,
-				remote: true,
+				remote: { host: 'wpcom', id: 123 },
 				url: 'https://example.wordpress.com',
-				wpcomSiteId: 123,
 			},
+			remoteHosts: { wpcom: fakeWpcom() },
 		} );
 
 		expect( prompt ).toContain(
@@ -160,35 +108,25 @@ describe( 'buildSystemPrompt', () => {
 		);
 	} );
 
-	it( "names the active site's design system when it has a DESIGN.md", () => {
-		const sitePath = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-active-site-' ) );
-		try {
-			fs.writeFileSync( path.join( sitePath, 'DESIGN.md' ), '# Design' );
-			const prompt = buildSystemPrompt( {
-				activeSite: { name: 'Designed', path: sitePath, running: false },
-			} );
-			expect( prompt ).toContain(
-				`"Designed" at ${ sitePath } (stopped), design system: ${ path.join(
-					sitePath,
-					'DESIGN.md'
-				) }`
-			);
-		} finally {
-			fs.rmSync( sitePath, { recursive: true, force: true } );
-		}
-	} );
-
-	it( 'appends the user global instructions when set', () => {
+	it( 'appends the user standing instructions when set', () => {
 		const prompt = buildSystemPrompt( { userInstructions: 'Always answer in French.' } );
-		expect( prompt ).toContain( "## User's global instructions" );
+		expect( prompt ).toContain( "## The user's standing instructions" );
 		expect( prompt ).toContain( 'Always answer in French.' );
-		expect( buildSystemPrompt( {} ) ).not.toContain( "## User's global instructions" );
+		expect( buildSystemPrompt() ).not.toContain( 'standing instructions' );
 	} );
 
-	it( 'truncates oversized global instructions with a visible notice', () => {
+	it( 'truncates oversized standing instructions with a visible notice', () => {
 		const prompt = buildSystemPrompt( { userInstructions: 'a'.repeat( 20_000 ) } );
-
-		expect( prompt ).toContain( 'was truncated here' );
+		expect( prompt ).toContain( 'truncated here' );
 		expect( prompt ).not.toContain( 'a'.repeat( 17_000 ) );
+	} );
+} );
+
+describe( 'skill-scoped tools', () => {
+	it( 'every tool a skill brings is a Studio tool', () => {
+		const known = new Set( allTools().map( ( tool ) => tool.name ) );
+		for ( const name of getSkillScopedToolNames() ) {
+			expect( known ).toContain( name );
+		}
 	} );
 } );

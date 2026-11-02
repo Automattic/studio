@@ -78,6 +78,49 @@ describe( 'shared checks', () => {
 		expect( run( checks.siteWorks, { outcome: { sites: [] } } ).pass ).toBe( false );
 	} );
 
+	// siteWorks passes only on the site whose home page loads.
+	const broken = { ...workingSite, home: { status: 500, phpErrors: [] } };
+	test.each( [
+		{
+			name: 'the one the turn created',
+			sites: [
+				{ ...broken, name: 'Old' },
+				{ ...workingSite, name: 'Lotus', created: true },
+			],
+			vars: {},
+			pass: true,
+		},
+		{
+			name: 'the seeded active site, beside one the turn created',
+			sites: [
+				{ ...workingSite, name: 'Mine' },
+				{ ...broken, name: 'Extra', created: true },
+			],
+			vars: { seed: { activeSite: { name: 'Mine' } } },
+			pass: true,
+		},
+		{
+			name: 'the one named',
+			sites: [
+				{ ...broken, name: 'B', created: true },
+				{ ...workingSite, name: 'A', created: true },
+			],
+			vars: { siteName: 'A' },
+			pass: true,
+		},
+		{
+			name: 'none of several the turn created',
+			sites: [
+				{ ...workingSite, name: 'A', created: true },
+				{ ...workingSite, name: 'B', created: true },
+			],
+			vars: {},
+			pass: false,
+		},
+	] )( 'judges $name', ( { sites, vars, pass } ) => {
+		expect( run( checks.siteWorks, outcome( sites[ 0 ], { sites } ), vars ).pass ).toBe( pass );
+	} );
+
 	test( 'otherSitesUntouched', () => {
 		expect( run( checks.otherSitesUntouched, outcome( workingSite ) ).pass ).toBe( true );
 		expect(
@@ -185,28 +228,43 @@ describe( 'reply checks', () => {
 		).toBe( false );
 	} );
 
-	// A reply passes when it labels each site in its own part: a list item, or a
-	// section with its heading and table (run 52).
-	const sections =
-		'## 1. Temporary PREVIEW site\n\n| Field | Value |\n|---|---|\n| **Type** | Preview (temporary) |\n| URL | `https://abc123-studio.wp.build` |\n\n' +
-		'## 2. Connected WordPress.com site\n\n| Field | Value |\n|---|---|\n| URL | myprod.wordpress.com |';
-	test.each( [
-		[
-			'- abc123-studio.wp.build is a temporary preview\n- myprod.wordpress.com is your connected WordPress.com site',
-			true,
-		],
-		[ '- abc123-studio.wp.build and myprod.wordpress.com are previews', false ],
-		[ sections, true ],
-		[
-			sections.replace( 'Temporary PREVIEW', 'Durable' ).replace( 'Preview (temporary)', 'Site' ),
-			false,
-		],
-		[
-			'| Site | Kind |\n|---|---|\n| abc123-studio.wp.build | WordPress.com site |\n| myprod.wordpress.com | temporary preview |',
-			false,
-		],
-	] )( 'classifiesPreviewAndRemote %#', ( text, expected ) => {
-		expect( run( checks.classifiesPreviewAndRemote, reply( text ) ).pass ).toBe( expected );
+	test( 'classifiesPreviewAndRemote', () => {
+		expect(
+			run(
+				checks.classifiesPreviewAndRemote,
+				reply(
+					'- abc123-studio.wp.build is a temporary preview\n- myprod.wordpress.com is your connected WordPress.com site'
+				)
+			).pass
+		).toBe( true );
+		expect(
+			run(
+				checks.classifiesPreviewAndRemote,
+				reply( '- abc123-studio.wp.build and myprod.wordpress.com are previews' )
+			).pass
+		).toBe( false );
+		const sections =
+			'## 1. Temporary PREVIEW site\n\n| Field | Value |\n|---|---|\n| **Type** | Preview (temporary) |\n| URL | `https://abc123-studio.wp.build` |\n\n' +
+			'## 2. Connected WordPress.com site\n\n| Field | Value |\n|---|---|\n| Name | My Production Site |\n| URL | myprod.wordpress.com |\n\nUnlike the preview above, it is durable.';
+		expect( run( checks.classifiesPreviewAndRemote, reply( sections ) ).pass ).toBe( true );
+		expect(
+			run(
+				checks.classifiesPreviewAndRemote,
+				reply(
+					sections
+						.replace( 'Temporary PREVIEW', 'Durable' )
+						.replace( 'Preview (temporary)', 'Site' )
+				)
+			).pass
+		).toBe( false );
+		expect(
+			run(
+				checks.classifiesPreviewAndRemote,
+				reply(
+					'## Related sites\n\n| Site | Kind |\n|---|---|\n| abc123-studio.wp.build | WordPress.com site |\n| myprod.wordpress.com | temporary preview |'
+				)
+			).pass
+		).toBe( false );
 	} );
 
 	test( 'pushNotRunAndAsks', () => {
@@ -227,16 +285,21 @@ describe( 'reply checks', () => {
 		).toBe( false );
 		expect( run( checks.pushNotRunAndAsks, reply( 'Pushing now.' ) ).pass ).toBe( false );
 		// Run 55: site_push asked itself, and the user closed the question.
-		const question = 'Push the local site "Lakeside Studio" to My Production Site?';
 		expect(
 			run( checks.pushNotRunAndAsks, {
 				toolResults: [
 					{
 						toolName: 'site_push',
-						text: `Not run: The user closed without answering: ${ question }`,
+						isError: false,
+						text: 'Not run: The user closed without answering: Push the local site "Lakeside Studio" to My Production Site?',
 					},
 				],
-				questions: [ { question, answer: '(dismissed)' } ],
+				questions: [
+					{
+						question: 'Push the local site "Lakeside Studio" to My Production Site?',
+						answer: '(dismissed)',
+					},
+				],
 				textSegments: [ 'Let me push it there.' ],
 			} ).pass
 		).toBe( true );
@@ -256,7 +319,62 @@ describe( 'reply checks', () => {
 		expect(
 			run( checks.asksCurrentOrNew, { ...outcome( workingSite ), ...reply( 'Done.' ) } ).pass
 		).toBe( false );
+		// Studio asked before site_create, and the user cancelled.
+		const asked = {
+			questions: [
+				{
+					question: 'Create a new site "Joe\'s Bakery"? This request is about "Corner Crumb".',
+					answer: 'Cancel',
+				},
+			],
+		};
+		expect(
+			run(
+				checks.asksCurrentOrNew,
+				{ ...outcome( workingSite ), ...reply( 'Done.' ), ...asked },
+				{ seed: { activeSite: { name: 'Corner Crumb' } } }
+			).pass
+		).toBe( true );
+		expect(
+			run( checks.asksCurrentOrNew, { ...outcome( workingSite ), ...reply( 'Done.' ), ...asked } )
+				.pass
+		).toBe( false );
 	} );
+} );
+
+// What the abilities case's inspection printed on a site with a reading-list
+// plugin, as written and with one thing changed each.
+const abilitiesRun = ( name ) => ( {
+	inspections: [
+		{
+			stdout: `INSPECT_JSON=${ JSON.stringify(
+				JSON.parse(
+					readFileSync( new URL( `./fixtures/abilities/${ name }.json`, import.meta.url ), 'utf8' )
+				)
+			) }\n`,
+		},
+	],
+} );
+
+test.each( [
+	{ name: 'added', pass: true, reason: 'book-club/add-book added' },
+	{ name: 'visitor-runs', pass: false, reason: 'a visitor ran book-club/add-book' },
+	{ name: 'no-read-only', pass: false, reason: 'meta.annotations.readonly' },
+	{ name: 'not-in-rest', pass: false, reason: 'not shown in REST' },
+	{ name: 'add-refused', pass: false, reason: 'no ability added the book' },
+	{ name: 'not-listed', pass: false, reason: 'no read-only ability lists' },
+] )( 'abilitiesWork: $name', ( { name, pass, reason } ) => {
+	const result = run( checks.abilitiesWork, abilitiesRun( name ) );
+	expect( result.pass ).toBe( pass );
+	expect( result.reason ).toContain( reason );
+} );
+
+test( 'abilitiesWork fails with no ability added or no inspection', () => {
+	const none = {
+		inspections: [ { stdout: 'INSPECT_JSON={"book":"B","abilities":[],"runs":[]}\n' } ],
+	};
+	expect( run( checks.abilitiesWork, none ).reason ).toContain( 'no ability was added' );
+	expect( run( checks.abilitiesWork, {} ).reason ).toContain( 'no abilities inspection' );
 } );
 
 describe( 'site checks', () => {
@@ -268,77 +386,196 @@ describe( 'site checks', () => {
 		blocks,
 	} );
 
-	test( 'builtFromDesign', () => {
+	test( 'builtFrontPage', () => {
 		const site = {
 			...workingSite,
 			showOnFront: 'page',
 			content: [ front( '', { 'core/group': 1, 'core/heading': 1 } ) ],
-			designMd: 'primary: "#112233"',
-			palette: [ { color: '#112233' } ],
 		};
-		expect( run( checks.builtFromDesign, outcome( site ) ).pass ).toBe( true );
-		expect(
-			run( checks.builtFromDesign, outcome( { ...site, palette: [ { color: '#ffffff' } ] } ) ).pass
-		).toBe( false );
-		expect( run( checks.builtFromDesign, outcome( { ...site, showOnFront: 'posts' } ) ).pass ).toBe(
+		expect( run( checks.builtFrontPage, outcome( site ) ).pass ).toBe( true );
+		expect( run( checks.builtFrontPage, outcome( { ...site, showOnFront: 'posts' } ) ).pass ).toBe(
 			false
 		);
 	} );
 
-	describe( 'ownThemeWithFontsAndScreenshot', () => {
-		const fonts = ( file ) =>
-			JSON.stringify( {
-				settings: {
-					typography: { fontFamilies: [ { fontFace: [ { src: [ `file:./${ file }` ] } ] } ] },
-				},
-			} );
-		const font = 'assets/fonts/inter.woff2';
+	describe( 'runsTheTheme', () => {
+		test.each( [
+			{ stylesheet: 'twentytwentyfive', pass: true },
+			{ stylesheet: 'still-water', pass: false },
+		] )( '$stylesheet', ( { stylesheet, pass } ) => {
+			const result = run(
+				checks.runsTheTheme,
+				outcome( { ...workingSite, theme: { stylesheet, template: stylesheet } } ),
+				{ theme: 'twentytwentyfive' }
+			);
+			expect( result.pass ).toBe( pass );
+		} );
+	} );
+
+	describe( 'siteHasItsOwnDesign', () => {
+		const font = ( src ) => ( {
+			settings: {
+				typography: { fontFamilies: { custom: [ { fontFace: [ { src: [ src ] } ] } ] } },
+			},
+		} );
+		const themeJson = ( src ) =>
+			JSON.stringify( { version: 3, settings: { typography: font( src ).settings.typography } } );
 		const site = {
 			...workingSite,
-			theme: { stylesheet: 'eval-theme' },
-			themeFiles: { 'theme.json': fonts( font ) },
-			themeFileList: [ font ],
+			theme: { stylesheet: 'eval-theme', template: 'eval-theme' },
+			themeFiles: { 'theme.json': themeJson( 'file:./assets/fonts/inter.woff2' ) },
+			themeFileList: [ 'assets/fonts/inter.woff2' ],
 			themeScreenshot: 'png:1200x900',
+			themeChanges: null,
 		};
-		// A child theme of raft with no theme.json of its own, as run 48's was.
 		const child = {
 			...site,
-			theme: { stylesheet: 'raft-child', template: 'raft' },
-			themeFiles: {},
-			themeFileList: [],
-			parentThemeJson: fonts( font ),
-			parentThemeFileList: [ font ],
+			theme: { stylesheet: 'eval-child', template: 'raft' },
+			themeFiles: { 'style.css': '/* Template: raft */' },
+			themeFileList: [ 'style.css' ],
+			parentThemeJson: themeJson( 'file:./assets/fonts/figtree.woff2' ),
+			parentThemeFileList: [ 'assets/fonts/figtree.woff2' ],
 		};
+		const tt5 = {
+			...workingSite,
+			url: 'http://localhost:8890',
+			theme: { stylesheet: 'twentytwentyfive', template: 'twentytwentyfive' },
+			themeChanges: [],
+		};
+		const part = { type: 'wp_template_part', slug: 'header', content: '' };
 		test.each( [
-			[ 'its own theme with its fonts', site, true ],
-			[
-				'its own theme with a twentytwenty name',
-				{ ...site, theme: { stylesheet: 'twentytwenty-bakery' } },
-				true,
-			],
-			[
-				'a theme from WordPress.org',
-				{ ...site, theme: { stylesheet: 'raft' }, themeChanges: [] },
-				false,
-			],
-			[ 'a font file the theme does not have', { ...site, themeFileList: [] }, false ],
-			[
-				'a font outside fontFamilies',
-				{ ...site, themeFiles: { 'theme.json': `{"src":["file:./${ font }"]}` } },
-				false,
-			],
-			[ "a child theme with its parent's fonts", child, true ],
-			// WordPress serves a child's file:./ source from the parent when the child lacks it.
-			[
-				'a child declaring fonts its parent ships',
-				{ ...child, themeFiles: { 'theme.json': fonts( font ) } },
-				true,
-			],
-			[ 'a child of a parent without fonts', { ...child, parentThemeJson: '{}' }, false ],
-		] )( '%s', ( _name, value, expected ) => {
-			expect( run( checks.ownThemeWithFontsAndScreenshot, outcome( value ) ).pass ).toBe(
-				expected
-			);
+			{ name: 'its own theme', site, pass: true },
+			{
+				name: 'its own theme with no fonts',
+				site: { ...site, themeFiles: { 'theme.json': '{}' } },
+				pass: false,
+			},
+			{
+				name: 'its own theme naming a font outside its font families',
+				site: {
+					...site,
+					themeFiles: {
+						'theme.json': '{"settings":{"custom":{"hero":"file:./assets/fonts/inter.woff2"}}}',
+					},
+				},
+				pass: false,
+			},
+			{ name: 'a child theme with the fonts of its parent', site: child, pass: true },
+			{
+				name: 'a child theme of a parent without fonts',
+				site: { ...child, parentThemeJson: '{"version":3}' },
+				pass: false,
+			},
+			{
+				// Run 57: get_theme_file_uri() serves the parent's file.
+				name: "a child theme whose font families name a file of its parent's",
+				site: {
+					...child,
+					themeFiles: { 'theme.json': themeJson( 'file:./assets/fonts/figtree.woff2' ) },
+				},
+				pass: true,
+			},
+			{
+				name: 'a child theme whose font families name a file neither theme has',
+				site: {
+					...child,
+					themeFiles: { 'theme.json': themeJson( 'file:./assets/fonts/vollkorn.woff2' ) },
+				},
+				pass: false,
+			},
+			{
+				name: 'its own theme named like a WordPress.org theme it is not',
+				site: { ...site, theme: { stylesheet: 'twentytwenty-oak' } },
+				pass: true,
+			},
+			{
+				name: 'another WordPress.org theme with its Global Styles',
+				site: {
+					...tt5,
+					theme: { stylesheet: 'raft', template: 'raft' },
+					userGlobalStyles: { styles: { color: { background: '#111' } } },
+				},
+				pass: true,
+			},
+			{
+				name: 'its own theme without its fonts',
+				site: { ...site, themeFileList: [] },
+				pass: false,
+			},
+			{
+				name: 'its own theme without a screenshot',
+				site: { ...site, themeScreenshot: undefined },
+				pass: false,
+			},
+			{ name: 'the installed theme as released', site: tt5, pass: false },
+			{
+				name: 'only a template part saved for it',
+				site: { ...tt5, content: [ part ] },
+				pass: false,
+			},
+			{
+				name: 'a template part with its Global Styles',
+				site: {
+					...tt5,
+					content: [ part ],
+					userGlobalStyles: { styles: { color: { background: '#111' } } },
+				},
+				pass: true,
+			},
+			{
+				name: 'a template saved for it',
+				site: { ...tt5, content: [ { ...part, type: 'wp_template', slug: 'page' } ] },
+				pass: true,
+			},
+			{
+				name: 'a page only',
+				site: { ...tt5, content: [ { ...part, type: 'page' } ] },
+				pass: false,
+			},
+			{
+				name: 'its Global Styles',
+				site: { ...tt5, userGlobalStyles: { styles: { color: { background: '#111' } } } },
+				pass: true,
+			},
+			{
+				name: 'Global Styles with a palette of its own',
+				site: {
+					...tt5,
+					userGlobalStyles: {
+						settings: { color: { palette: { custom: [ { slug: 'base', color: '#F8F3E9' } ] } } },
+					},
+				},
+				pass: true,
+			},
+			{
+				name: 'Global Styles saved with nothing in them',
+				site: { ...tt5, userGlobalStyles: { settings: {}, styles: {} } },
+				pass: false,
+			},
+			{
+				name: 'Global Styles with a font the site serves',
+				site: {
+					...tt5,
+					userGlobalStyles: {
+						styles: { color: {} },
+						...font( 'http://localhost:8890/wp-content/uploads/fonts/a.woff2' ),
+					},
+				},
+				pass: true,
+			},
+			{
+				name: 'Global Styles with a font from another host',
+				site: {
+					...tt5,
+					userGlobalStyles: {
+						styles: { color: {} },
+						...font( 'https://fonts.gstatic.com/a.woff2' ),
+					},
+				},
+				pass: false,
+			},
+		] )( '$name', ( { site: s, pass } ) => {
+			expect( run( checks.siteHasItsOwnDesign, outcome( s ) ).pass ).toBe( pass );
 		} );
 	} );
 
@@ -358,86 +595,107 @@ describe( 'site checks', () => {
 		).toBe( false );
 	} );
 
-	test( 'pluginBlockOnFrontPage', () => {
-		const vars = { plugin: 'jetpack', blockPrefix: 'jetpack/' };
-		const site = ( plugins, blocks ) => ( {
-			...workingSite,
-			plugins,
-			content: [ front( '', blocks ) ],
-		} );
+	test( 'slideshowOnHomePage', () => {
+		const frames = ( imageFrames ) =>
+			outcome( { ...workingSite, home: { ...workingSite.home, imageFrames } } );
+		const slideshow = {
+			element: 'div.wp-block-jetpack-slideshow',
+			width: 600,
+			height: 400,
+			images: 5,
+			shown: 1,
+		};
+		const gallery = {
+			element: 'figure.wp-block-gallery',
+			width: 900,
+			height: 200,
+			images: 3,
+			shown: 3,
+		};
+		expect( run( checks.slideshowOnHomePage, frames( [ gallery, slideshow ] ) ).pass ).toBe( true );
 		expect(
-			run(
-				checks.pluginBlockOnFrontPage,
-				outcome( site( [ 'jetpack' ], { 'jetpack/slideshow': 1 } ) ),
-				vars
-			).pass
-		).toBe( true );
-		expect(
-			run(
-				checks.pluginBlockOnFrontPage,
-				outcome( site( [ 'jetpack' ], { 'core/gallery': 1 } ) ),
-				vars
-			).pass
+			run( checks.slideshowOnHomePage, frames( [ { ...slideshow, images: 2 } ] ) ).pass
 		).toBe( false );
-		expect(
-			run( checks.pluginBlockOnFrontPage, outcome( site( [], { 'jetpack/slideshow': 1 } ) ), vars )
-				.pass
-		).toBe( false );
-	} );
-
-	test( 'storeHasProducts', () => {
-		const site = { ...workingSite, plugins: [ 'woocommerce' ], products: 3 };
-		expect( run( checks.storeHasProducts, outcome( site ) ).pass ).toBe( true );
-		expect( run( checks.storeHasProducts, outcome( { ...site, products: 0 } ) ).pass ).toBe(
+		expect( run( checks.slideshowOnHomePage, frames( [ gallery ] ) ).pass ).toBe( false );
+		// A frame the page hides shows none of its images.
+		expect( run( checks.slideshowOnHomePage, frames( [ { ...slideshow, shown: 0 } ] ) ).pass ).toBe(
 			false
 		);
-		expect( run( checks.storeHasProducts, outcome( { ...site, plugins: [] } ) ).pass ).toBe(
+		expect( run( checks.slideshowOnHomePage, frames( { error: 'no browser' } ) ).pass ).toBe(
 			false
 		);
 	} );
 
-	describe( 'customizedThroughChildTheme', () => {
-		const heading = ( fontFamily ) => ( { elements: { heading: { typography: { fontFamily } } } } );
-		const child = {
+	// As WooCommerce reported them on a live site.
+	const store = {
+		...workingSite,
+		plugins: [ 'woocommerce' ],
+		shopPage: 'publish',
+		products: [
+			{ name: 'Hidden Bed', price: '40', purchasable: true, visible: false },
+			{ name: 'No Price Toy', price: '', purchasable: false, visible: true },
+			{ name: 'Chew Rope', price: '12', purchasable: true, visible: true },
+		],
+	};
+	test.each( [
+		{ name: 'one product for sale', site: store, vars: {}, pass: true },
+		{ name: 'fewer for sale than asked', site: store, vars: { minProducts: 2 }, pass: false },
+		{ name: 'no shop page', site: { ...store, shopPage: 'trash' }, vars: {}, pass: false },
+		{ name: 'no WooCommerce', site: { ...store, plugins: [] }, vars: {}, pass: false },
+	] )( 'storeHasProducts: $name', ( { site, vars, pass } ) => {
+		expect( run( checks.storeHasProducts, outcome( site ), vars ).pass ).toBe( pass );
+	} );
+
+	test( 'customizedThroughChildTheme', () => {
+		const vars = { parentTheme: 'twentytwentyfour' };
+		const site = {
 			...workingSite,
 			theme: { stylesheet: 'eval-child', template: 'twentytwentyfour' },
 			parentThemeChanges: [],
-			mergedStyles: heading( 'Lora' ),
+			mergedStyles: { elements: { heading: { typography: { fontFamily: 'Lora' } } } },
 		};
+		expect( run( checks.customizedThroughChildTheme, outcome( site ), vars ).pass ).toBe( true );
+		expect(
+			run(
+				checks.customizedThroughChildTheme,
+				outcome( { ...site, parentThemeChanges: [ 'style.css' ] } ),
+				vars
+			).pass
+		).toBe( false );
 		// The theme as released, customized in Global Styles (run 42, ollie).
 		const released = {
 			...workingSite,
 			theme: { stylesheet: 'twentytwentyfour', template: 'twentytwentyfour' },
 			themeChanges: [],
-			mergedStyles: heading( 'Inter' ),
+			mergedStyles: { elements: { heading: { typography: { fontFamily: 'Inter' } } } },
 		};
-		const customized = { ...released, userGlobalStyles: { styles: heading( 'Fraunces' ) } };
-		test.each( [
-			[ 'a child theme', child, true ],
-			[
-				'a child theme that edited its parent',
-				{ ...child, parentThemeChanges: [ 'style.css' ] },
-				false,
-			],
-			[ 'the released theme customized in Global Styles', customized, true ],
-			[ 'the released theme as it ships', released, false ],
-			[
-				'the released theme with its files edited',
-				{ ...customized, themeChanges: [ 'theme.json' ] },
-				false,
-			],
-			[
-				'another theme',
-				{ ...customized, theme: { stylesheet: 'other', template: 'other' } },
-				false,
-			],
-		] )( '%s', ( _name, value, expected ) => {
-			expect(
-				run( checks.customizedThroughChildTheme, outcome( value ), {
-					parentTheme: 'twentytwentyfour',
-				} ).pass
-			).toBe( expected );
-		} );
+		const customized = {
+			...released,
+			userGlobalStyles: {
+				styles: { elements: { heading: { typography: { fontFamily: 'Fraunces' } } } },
+			},
+		};
+		expect( run( checks.customizedThroughChildTheme, outcome( customized ), vars ).pass ).toBe(
+			true
+		);
+		// What the released theme sets is no customization.
+		expect( run( checks.customizedThroughChildTheme, outcome( released ), vars ).pass ).toBe(
+			false
+		);
+		expect(
+			run(
+				checks.customizedThroughChildTheme,
+				outcome( { ...customized, themeChanges: [ 'theme.json' ] } ),
+				vars
+			).pass
+		).toBe( false );
+		expect(
+			run(
+				checks.customizedThroughChildTheme,
+				outcome( { ...customized, theme: { stylesheet: 'other', template: 'other' } } ),
+				vars
+			).pass
+		).toBe( false );
 	} );
 
 	test( 'colorsFromPalette', () => {
@@ -549,54 +807,441 @@ describe( 'site checks', () => {
 		).toBe( false );
 	} );
 
-	test( 'designTokenReachedTheme', () => {
-		const vars = { token: 'primary', originalValue: '#000000' };
-		const site = ( designMd, palette ) => ( { ...workingSite, designMd, palette } );
+	test( 'presetColorChanged', () => {
+		const vars = { slug: 'accent-1', originalValue: '#FFEE58' };
+		const theme = { slug: 'accent-1', color: '#FFEE58' };
+		const cases = [
+			[ [ theme, { slug: 'accent-1', color: '#C2552B' } ], true ],
+			[ [ { slug: 'accent-1', color: '#C2552B' }, theme ], false ],
+			[ [ theme, { slug: 'accent-2', color: '#C2552B' } ], false ],
+			[ [], false ],
+		];
+		for ( const [ palette, expected ] of cases ) {
+			expect(
+				run( checks.presetColorChanged, outcome( { ...workingSite, palette } ), vars ).pass
+			).toBe( expected );
+		}
+	} );
+} );
+
+describe( 'new-case checks', () => {
+	const homeFile = ( html ) => {
+		const file = path.join( dir, `home-${ count++ }.html` );
+		writeFileSync( file, html );
+		return file;
+	};
+	const page = ( title, link, extra = {} ) => ( {
+		type: 'page',
+		title,
+		link,
+		blocks: {},
+		...extra,
+	} );
+
+	test( 'menuReachesPages', () => {
+		const site = ( navTargets, pages = [ 'About', 'Classes', 'Sample Page' ] ) => ( {
+			...workingSite,
+			content: [
+				page( 'Home', 'http://localhost:8881/', { isFront: true } ),
+				...pages.map( ( title ) =>
+					page( title, `http://localhost:8881/${ title.toLowerCase() }/` )
+				),
+			],
+			home: { ...workingSite.home, navTargets },
+		} );
+		const opens = ( slug, status = 200 ) => ( {
+			status,
+			url: `http://localhost:8881/${ slug }`,
+		} );
+		const vars = { pages: [ { title: 'About' }, { title: 'Classes' } ] };
+		const judge = ( s ) => run( checks.menuReachesPages, outcome( s ), vars ).pass;
+		expect(
+			judge( site( { '/about': opens( 'about' ), '?page_id=7': opens( 'classes' ) } ) )
+		).toBe( true );
+		expect( judge( site( { '/about': opens( 'about' ) } ) ) ).toBe( false );
+		expect(
+			judge( site( { '/about': opens( 'about' ), '/classes': opens( 'classes', 404 ) } ) )
+		).toBe( false );
+		expect( judge( site( { '/about': opens( 'about' ) }, [ 'About' ] ) ) ).toBe( false );
+	} );
+
+	test( 'pluginBlockRendered', () => {
+		const site = ( editorScripts, html = '<p>Monday 9am</p>', blocks = { 'acme/hours': 1 } ) => ( {
+			...workingSite,
+			content: [ page( 'Home', '/', { isFront: true, blocks } ) ],
+			blockTypes: [ { name: 'acme/hours', editorScripts } ],
+			home: { ...workingSite.home, htmlFile: homeFile( html ) },
+		} );
+		const plugin = [ 'http://localhost:8881/wp-content/plugins/acme/build/index.js' ];
+		const vars = { text: 'Monday' };
+		const judge = ( s ) => run( checks.pluginBlockRendered, outcome( s ), vars ).pass;
+		expect( judge( site( plugin ) ) ).toBe( true );
+		expect( judge( site( [] ) ) ).toBe( false );
+		expect( judge( site( [ 'http://localhost:8881/wp-content/themes/acme/index.js' ] ) ) ).toBe(
+			false
+		);
+		expect( judge( site( plugin, '<p>Tuesday</p>' ) ) ).toBe( false );
+		expect( judge( site( plugin, undefined, { 'core/paragraph': 1 } ) ) ).toBe( false );
+	} );
+
+	test( 'blogPostsOnHome', () => {
+		const post = ( title, categories ) => ( {
+			type: 'post',
+			slug: title.toLowerCase(),
+			title,
+			renderedTitle: `${ title } &#8217;s`,
+			categories,
+		} );
+		const site = ( posts, html ) => ( {
+			...workingSite,
+			content: [ post( 'Hello-world', [ 'Uncategorized' ] ), ...posts ].map( ( p, i ) =>
+				i === 0 ? { ...p, slug: 'hello-world' } : p
+			),
+			home: { ...workingSite.home, htmlFile: homeFile( html ) },
+		} );
+		const posts = [ post( 'Rome', [ 'Europe' ] ), post( 'Kyoto', [ 'Asia' ] ) ];
+		const listed = '<h2>Rome &#8217;s</h2><h2>Kyoto &#8217;s</h2>';
+		const vars = { minPosts: 2, categories: [ { name: 'Europe' }, { name: 'Asia' } ] };
+		const judge = ( s ) => run( checks.blogPostsOnHome, outcome( s ), vars ).pass;
+		expect( judge( site( posts, listed ) ) ).toBe( true );
+		expect( judge( site( posts.slice( 0, 1 ), listed ) ) ).toBe( false );
+		expect( judge( site( [ posts[ 0 ], post( 'Kyoto', [ 'Europe' ] ) ], listed ) ) ).toBe( false );
+		expect( judge( site( posts, '<h2>Rome &#8217;s</h2>' ) ) ).toBe( false );
+	} );
+} );
+
+describe( 'native feature checks', () => {
+	const page = ( fields ) => ( {
+		type: 'page',
+		isFront: false,
+		content: '',
+		blocks: {},
+		...fields,
+	} );
+
+	test.each( [
+		[
+			'stored as a feedback post',
+			{ postTypes: [ 'feedback' ] },
+			'<!-- wp:jetpack/contact-form /-->',
+			true,
+		],
+		[
+			'stored in post meta',
+			{ metaKeys: [ '_field_message' ] },
+			'<!-- wp:jetpack/contact-form /-->',
+			true,
+		],
+		[
+			'stored nowhere',
+			{ postTypes: [], metaKeys: [], optionNames: [] },
+			'<!-- wp:jetpack/contact-form /-->',
+			false,
+		],
+		[
+			'from a Custom HTML form',
+			{ postTypes: [ 'feedback' ] },
+			'<!-- wp:html --><form><textarea></textarea></form><!-- /wp:html -->',
+			false,
+		],
+	] )( 'contactFormWorks: a message %s', ( _, stored, content, passes ) => {
+		const link = 'http://localhost:8881/contact/';
+		const site = {
+			...workingSite,
+			content: [ page( { link, content } ) ],
+			formsSent: [ { page: link, marker: 'm', afterText: 'Thanks', stored } ],
+		};
+		expect( run( checks.contactFormWorks, outcome( site ) ).pass ).toBe( passes );
+	} );
+
+	test.each( [
+		[
+			'a footer element',
+			'<main></main><footer><form><input type="email"></form></footer>',
+			{},
+			true,
+		],
+		[
+			'what follows the main content',
+			'<main></main><div><form><input type=email></form></div>',
+			{},
+			true,
+		],
+		[
+			'only the main content',
+			'<main><form><input type="email"></form></main><footer></footer>',
+			{},
+			false,
+		],
+		[
+			'a Custom HTML footer',
+			'<main></main><footer><form><input type="email"></form></footer>',
+			{ 'parts/footer.html': '<!-- wp:html --><form></form><!-- /wp:html -->' },
+			false,
+		],
+	] )( 'newsletterSignupInFooter: an email form in %s', ( name, html, themeFiles, passes ) => {
+		const htmlFile = path.join( dir, `${ name.replace( / /g, '-' ) }.html` );
+		writeFileSync( htmlFile, html );
+		const site = {
+			...workingSite,
+			home: { ...workingSite.home, htmlFile },
+			themeFiles,
+			content: [],
+		};
+		expect( run( checks.newsletterSignupInFooter, outcome( site ) ).pass ).toBe( passes );
+	} );
+
+	test( 'miniCartInHeader', () => {
+		const site = ( fields ) => ( {
+			...workingSite,
+			plugins: [ 'woocommerce' ],
+			themeFiles: {
+				'parts/header.html': '<!-- wp:pattern {"slug":"twentytwentyfive/header"} /-->',
+				'patterns/header.php':
+					'<?php\n/**\n * Title: Header\n * Slug: twentytwentyfive/header\n */\n?>\n<!-- wp:site-title /-->',
+			},
+			content: [],
+			codeChanges: [],
+			...fields,
+		} );
+		const savedHeader = {
+			type: 'wp_template_part',
+			slug: 'header',
+			content: '<!-- wp:site-title /--><!-- wp:woocommerce/mini-cart /-->',
+		};
+		expect(
+			run( checks.miniCartInHeader, outcome( site( { content: [ savedHeader ] } ) ) ).pass
+		).toBe( true );
+		// Through the pattern the theme's header part renders.
 		expect(
 			run(
-				checks.designTokenReachedTheme,
-				outcome( site( 'primary: "#2255aa"', [ { color: '#2255AA' } ] ) ),
-				vars
+				checks.miniCartInHeader,
+				outcome(
+					site( {
+						themeFiles: {
+							...site().themeFiles,
+							'patterns/header.php':
+								'<?php\n/**\n * Slug: twentytwentyfive/header\n */\n?>\n<!-- wp:woocommerce/mini-cart {"hasHiddenPrice":true} /-->',
+						},
+					} )
+				)
 			).pass
 		).toBe( true );
+		expect( run( checks.miniCartInHeader, outcome( site() ) ).pass ).toBe( false );
 		expect(
 			run(
-				checks.designTokenReachedTheme,
-				outcome( site( 'primary: "#2255aa"', [ { color: '#000000' } ] ) ),
-				vars
+				checks.miniCartInHeader,
+				outcome(
+					site( {
+						content: [ savedHeader ],
+						codeChanges: [
+							{
+								file: 'themes/twentytwentyfive/functions.php',
+								status: 'added',
+								text: "add_filter( 'woocommerce_add_to_cart_fragments', 'cart_count' );",
+							},
+						],
+					} )
+				)
+			).pass
+		).toBe( false );
+		expect(
+			run( checks.miniCartInHeader, outcome( site( { content: [ savedHeader ], plugins: [] } ) ) )
+				.pass
+		).toBe( false );
+	} );
+
+	test( 'faqUsesDetailsBlocks', () => {
+		const details = '<!-- wp:details --><details></details><!-- /wp:details -->';
+		const site = ( content, codeChanges = [] ) => ( {
+			...workingSite,
+			showOnFront: 'page',
+			content: [ page( { isFront: true, title: 'Home', content } ) ],
+			codeChanges,
+		} );
+		expect( run( checks.faqUsesDetailsBlocks, outcome( site( details.repeat( 3 ) ) ) ).pass ).toBe(
+			true
+		);
+		// WordPress's Accordion block is the other native FAQ.
+		const accordionItem =
+			'<!-- wp:accordion-item --><div class="wp-block-accordion-item"></div><!-- /wp:accordion-item -->';
+		expect(
+			run( checks.faqUsesDetailsBlocks, outcome( site( accordionItem.repeat( 3 ) ) ) ).pass
+		).toBe( true );
+		// The home template, when the front page lists posts.
+		expect(
+			run(
+				checks.faqUsesDetailsBlocks,
+				outcome( {
+					...workingSite,
+					showOnFront: 'posts',
+					content: [ { type: 'wp_template', slug: 'home', content: details.repeat( 3 ) } ],
+					codeChanges: [],
+				} )
+			).pass
+		).toBe( true );
+		expect( run( checks.faqUsesDetailsBlocks, outcome( site( details.repeat( 2 ) ) ) ).pass ).toBe(
+			false
+		);
+		expect(
+			run(
+				checks.faqUsesDetailsBlocks,
+				outcome( site( details.repeat( 3 ) + '<!-- wp:html --><div></div><!-- /wp:html -->' ) )
 			).pass
 		).toBe( false );
 		expect(
 			run(
-				checks.designTokenReachedTheme,
-				outcome( site( 'primary: "#000000"', [ { color: '#000000' } ] ) ),
-				vars
+				checks.faqUsesDetailsBlocks,
+				outcome(
+					site( details.repeat( 3 ), [
+						{ file: 'themes/twentytwentyfive/assets/faq.js', status: 'added', text: '' },
+					] )
+				)
+			).pass
+		).toBe( false );
+	} );
+
+	test( 'pageInNativeBlocks', () => {
+		const about = page( {
+			title: 'About',
+			blocks: { 'core/heading': 1, 'core/paragraph': 2, 'core/image': 1 },
+		} );
+		const site = ( fields ) => ( {
+			...workingSite,
+			content: [ about ],
+			codeChanges: [],
+			...fields,
+		} );
+		expect( run( checks.pageInNativeBlocks, outcome( site() ) ).pass ).toBe( true );
+		expect(
+			run(
+				checks.pageInNativeBlocks,
+				outcome( site( { content: [ { ...about, blocks: { 'core/html': 1 } } ] } ) )
+			).pass
+		).toBe( false );
+		expect(
+			run(
+				checks.pageInNativeBlocks,
+				outcome(
+					site( {
+						codeChanges: [
+							{
+								file: 'themes/twentytwentyfive/templates/page-about.html',
+								status: 'added',
+								text: '<main><h1>About</h1><p>We bake.</p></main>',
+							},
+						],
+					} )
+				)
+			).pass
+		).toBe( false );
+		expect( run( checks.pageInNativeBlocks, outcome( site( { content: [] } ) ) ).pass ).toBe(
+			false
+		);
+	} );
+} );
+
+describe( 'theme.json checks', () => {
+	const themeJson = JSON.stringify( {
+		version: 3,
+		settings: { color: { palette: [ { slug: 'base', color: '#ffffff' } ] } },
+		styles: { color: { background: 'var:preset|color|base' } },
+	} );
+
+	test( 'darkStyleVariation', () => {
+		const dark = JSON.stringify( {
+			version: 3,
+			title: 'Dark',
+			settings: { color: { palette: [ { slug: 'base', color: '#111111' } ] } },
+		} );
+		const site = ( files, customCss = '' ) => ( {
+			...workingSite,
+			theme: { stylesheet: 'eval-theme' },
+			themeFiles: { 'theme.json': themeJson, ...files },
+			customCss,
+		} );
+		expect(
+			run( checks.darkStyleVariation, outcome( site( { 'styles/dark.json': dark } ) ) ).pass
+		).toBe( true );
+		expect( run( checks.darkStyleVariation, outcome( site( {} ) ) ).pass ).toBe( false );
+		expect(
+			run(
+				checks.darkStyleVariation,
+				outcome( site( { 'styles/dark.json': JSON.stringify( { version: 3, title: 'Same' } ) } ) )
+			).pass
+		).toBe( false );
+		expect(
+			run(
+				checks.darkStyleVariation,
+				outcome(
+					site(
+						{ 'styles/dark.json': dark },
+						'@media (prefers-color-scheme: dark) { body { background: #000; } }'
+					)
+				)
+			).pass
+		).toBe( false );
+		expect(
+			run(
+				checks.darkStyleVariation,
+				outcome(
+					site( {
+						'styles/dark.json': dark,
+						'style.css': 'body.is-dark { background: #000; }',
+					} )
+				)
 			).pass
 		).toBe( false );
 	} );
 } );
 
-describe( 'routing checks', () => {
-	const skill = ( name ) => ( { name: 'Skill', input: { name } } );
-	const vars = { skills: [ { name: 'block-content' }, { name: 'imagery' } ] };
+describe( 'debugging checks', () => {
+	const homeFile = ( html ) => {
+		const file = path.join( dir, `home-${ count++ }.html` );
+		writeFileSync( file, html );
+		return file;
+	};
+	const vars = {
+		plugins: [ { name: 'opening-hours' } ],
+		homeText: [ { text: 'Open Mon-Fri 7am-6pm' } ],
+	};
+	const hours = '<p class="opening-hours">Open Mon-Fri 7am-6pm, Sat 8am-2pm</p>';
 
-	test( 'skillsLoadedFirst', () => {
-		const calls = [ skill( 'block-content' ), { name: 'Write', input: {} }, skill( 'imagery' ) ];
-		expect(
-			run(
-				checks.skillsLoadedFirst,
-				{ toolCalls: calls, stoppedAt: { toolName: 'Write', index: 1 } },
-				vars
-			).pass
-		).toBe( false );
-		expect(
-			run(
-				checks.skillsLoadedFirst,
-				{ toolCalls: [ skill( 'imagery' ), ...calls ], stoppedAt: { toolName: 'Write', index: 2 } },
-				vars
-			).pass
-		).toBe( true );
-		expect( run( checks.skillsLoadedFirst, { toolCalls: calls }, vars ).pass ).toBe( true );
+	test.each( [
+		[ 'the plugin is active and shows its hours', [ 'opening-hours' ], hours, true ],
+		[ 'the plugin was deactivated to stop the error', [], '<p>Welcome</p>', false ],
+		[ 'the plugin was deactivated and its hours pasted in', [], hours, false ],
+		[ 'the plugin is active but its output is gone', [ 'opening-hours' ], '<p>Welcome</p>', false ],
+	] )( 'featureStillWorks: %s', ( _, plugins, html, expected ) => {
+		const site = {
+			...workingSite,
+			plugins,
+			home: { ...workingSite.home, htmlFile: homeFile( html ) },
+		};
+		expect( run( checks.featureStillWorks, outcome( site ), vars ).pass ).toBe( expected );
+	} );
+
+	const image = ( src, status ) => ( { src, status } );
+	test.each( [
+		[
+			'every image loads from the site',
+			[ image( 'http://localhost:8881/a.jpg', 200 ), image( 'http://localhost:8881/b.jpg', 200 ) ],
+			true,
+		],
+		[
+			'an image still points at the old domain',
+			[ image( 'http://localhost:8881/a.jpg', 200 ), image( 'https://example.com/b.jpg', null ) ],
+			false,
+		],
+		[
+			'an image on the site is missing',
+			[ image( 'http://localhost:8881/a.jpg', 200 ), image( 'http://localhost:8881/b.jpg', 404 ) ],
+			false,
+		],
+		[ 'the images were removed', [ image( 'http://localhost:8881/a.jpg', 200 ) ], false ],
+	] )( 'homeImagesLoad: %s', ( _, images, expected ) => {
+		const site = { ...workingSite, home: { ...workingSite.home, images } };
+		expect( run( checks.homeImagesLoad, outcome( site ), { minImages: 2 } ).pass ).toBe( expected );
 	} );
 } );
 
@@ -615,4 +1260,94 @@ test( 'list vars in the config are lists of objects', () => {
 			.map( ( [ name ] ) => `${ vars.caseId }.${ name }` )
 	);
 	expect( scalarLists ).toEqual( [] );
+} );
+
+test( 'restyleApplied judges the last turn against the first', () => {
+	const first = {
+		navLeft: 800,
+		titleLeft: 300,
+		scrolled: 1000,
+		navTopAfterScroll: -900,
+		buttons: [
+			{
+				text: 'Book',
+				radii: Array( 4 ).fill( '999px' ),
+				background: 'rgb(56, 88, 233)',
+				height: 48,
+			},
+		],
+		headings: [ { tag: 'h1', text: 'Fast Repairs', textTransform: 'none', first: true } ],
+		footerText: [ { text: 'Hours', fontSize: '18px' } ],
+	};
+	const last = {
+		...first,
+		navLeft: 1000,
+		titleLeft: 1100,
+		navTopAfterScroll: 0,
+		buttons: [
+			{ text: 'Book', radii: Array( 4 ).fill( '6px' ), background: 'rgb(31, 77, 58)', height: 48 },
+		],
+		headings: [
+			first.headings[ 0 ],
+			{ tag: 'h2', text: 'Our Services', textTransform: 'lowercase', first: false },
+		],
+		footerText: [ { text: 'Hours', fontSize: '13px' } ],
+	};
+	const result = ( styles ) =>
+		run( checks.restyleApplied, {
+			...outcome( { name: 'Spoke & Chain', created: true, home: { styles } } ),
+			homeStylesByTurn: [ { 'Spoke & Chain': first } ],
+		} );
+	expect( result( last ).pass ).toBe( true );
+	// eval7 picky 1: 12px corners on 48px buttons, and footer text reworded as it shrank.
+	expect(
+		result( {
+			...last,
+			buttons: [ { ...last.buttons[ 0 ], radii: Array( 4 ).fill( '12px' ) } ],
+			footerText: [ { text: '© 2026 Spoke & Chain', fontSize: '12.8px' } ],
+		} ).pass
+	).toBe( true );
+	// eval6's Athletic site: lime buttons on a dark green header and page.
+	const lime = [ { ...last.buttons[ 0 ], background: 'rgb(143, 209, 79)' } ];
+	for ( const surface of [ 'headerBackground', 'pageBackground' ] )
+		expect(
+			result( { ...last, buttons: lime, [ surface ]: 'rgb(22, 74, 46)' } ).pass,
+			surface
+		).toBe( true );
+	for ( const [ change, miss ] of [
+		[ { navTopAfterScroll: -900 }, 'after a 1000px scroll' ],
+		[ { navLeft: 300, titleLeft: 300 }, 'now 300 and 300' ],
+		[ { navLeft: 1200 }, 'the menu was at x 800' ],
+		[
+			{ buttons: [ { ...last.buttons[ 0 ], radii: Array( 4 ).fill( '999px' ) } ] },
+			'has corners 999px',
+		],
+		[
+			{ buttons: [ { ...last.buttons[ 0 ], radii: Array( 4 ).fill( '20px' ) } ] },
+			'has corners 20px',
+		],
+		[
+			{ buttons: [ { ...last.buttons[ 0 ], radii: Array( 4 ).fill( '0px' ) } ] },
+			'has corners 0px',
+		],
+		[
+			{ buttons: [ { ...last.buttons[ 0 ], background: 'rgb(120, 200, 140)' } ] },
+			"dark green is not the site's color: 0 of 1",
+		],
+		[ { headings: [ { ...first.headings[ 0 ], textTransform: 'lowercase' } ] }, 'the top title' ],
+		[
+			{
+				headings: [
+					...last.headings,
+					{ tag: 'h3', text: 'Tune Ups', textTransform: 'none', first: false },
+				],
+			},
+			'h3 "Tune Ups" is not lowercase',
+		],
+		[ { footerText: first.footerText }, 'no footer text got smaller' ],
+	] ) {
+		const failed = result( { ...last, ...change } );
+		expect( failed.pass ).toBe( false );
+		expect( failed.reason ).toContain( miss );
+	}
 } );

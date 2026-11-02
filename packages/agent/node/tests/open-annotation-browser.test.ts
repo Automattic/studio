@@ -12,6 +12,7 @@ const page = vi.hoisted( () => ( {
 	handlers: {} as Record< string, ( ( value?: unknown ) => void )[] >,
 	editor: undefined as ( ( action: unknown ) => void ) | undefined,
 	evaluate: vi.fn( async ( ..._args: unknown[] ) => undefined ),
+	goto: vi.fn( async ( _url: string ) => undefined ),
 } ) );
 const close = vi.hoisted( () => vi.fn( async () => undefined ) );
 
@@ -27,7 +28,7 @@ vi.mock( '@studio/agent/node/browser-utils', () => ( {
 			on: ( event: string, fn: () => void ) => {
 				( page.handlers[ event ] ??= [] ).push( fn );
 			},
-			goto: async () => undefined,
+			goto: page.goto,
 			bringToFront: async () => undefined,
 			isClosed: () => false,
 		} ),
@@ -45,9 +46,10 @@ function editingId(): string {
 }
 
 describe( 'open_annotation_browser', () => {
-	it( 'returns the notes once the user clicks Send', async () => {
+	it( 'opens the page of the site it names, and returns the notes once the user clicks Send', async () => {
 		const result = bindTool( openAnnotationBrowserTool, createFakeHost() ).rawHandler( {
-			url: 'http://localhost:8881',
+			nameOrPath: 'My Site',
+			page: '/about',
 		} );
 		await vi.waitFor( () => expect( page.editor ).toBeDefined() );
 
@@ -96,6 +98,27 @@ describe( 'open_annotation_browser', () => {
 			type: 'text',
 			text: expect.stringContaining( '- Comment: Make it bigger' ),
 		} );
+		expect( close ).toHaveBeenCalled();
+		expect( page.goto.mock.calls[ 0 ][ 0 ] ).toBe( 'http://localhost:8888/about' );
+	} );
+
+	it( 'closes the browser and stops waiting when the turn is stopped', async () => {
+		close.mockClear();
+		page.editor = undefined;
+		const turn = new AbortController();
+		const result = bindTool( openAnnotationBrowserTool, createFakeHost() ).execute(
+			'a',
+			{ nameOrPath: 'My Site' } as never,
+			turn.signal
+		);
+		await vi.waitFor( () => expect( page.editor ).toBeDefined() );
+		turn.abort();
+		expect( ( await result ).content ).toEqual( [
+			{
+				type: 'text',
+				text: 'The user closed the annotation browser without sending annotations.',
+			},
+		] );
 		expect( close ).toHaveBeenCalled();
 	} );
 } );

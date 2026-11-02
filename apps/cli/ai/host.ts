@@ -3,6 +3,7 @@ import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
 import { __ } from '@wordpress/i18n';
+import { HOSTS } from 'cli/ai/hosts';
 import { getStudioUserAgent } from 'cli/ai/providers';
 import { runCommand as runExportCommand } from 'cli/commands/export';
 import { runCommand as runImportCommand } from 'cli/commands/import';
@@ -12,22 +13,20 @@ import {
 	runCommand as runDeletePreviewCommand,
 } from 'cli/commands/preview/delete';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
-import { runCommand as runPullCommand } from 'cli/commands/pull';
-import { runCommand as runPushCommand } from 'cli/commands/push';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
 import { listSites } from 'cli/commands/site/list';
 import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
 import { getSiteStatus } from 'cli/commands/site/status';
 import { Mode as StopMode, runCommand as runStopSiteCommand } from 'cli/commands/site/stop';
-import { getWpComSites } from 'cli/lib/api';
+import { resolveWpCliProcess } from 'cli/commands/wp';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { findSiteByFolder, getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { resolvePhpTransformer } from 'cli/lib/import-runtime';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { getSnapshotsFromConfig } from 'cli/lib/snapshots';
-import { parseSyncOptions } from 'cli/lib/sync-api';
 import { getTracksOrigin, recordTracksEvent } from 'cli/lib/tracks';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
@@ -41,6 +40,7 @@ function toHostSite( site: SiteData ): HostSite {
 		url: getSiteUrl( site ),
 		phpVersion: site.phpVersion,
 		adminPassword: site.adminPassword,
+		enableDebugLog: site.enableDebugLog,
 	};
 }
 
@@ -134,6 +134,7 @@ export const cliAgentHost: StudioAgentHost = {
 				false,
 				new Logger( { onProgress } )
 			),
+		wpCliProcess: ( cwd, argv, env ) => resolveWpCliProcess( cwd, argv, env ),
 		wpCli: ( site, args ) =>
 			withDaemon( async () => {
 				await using command = await runWpCliCommand( await getSiteByFolder( site.path ), args );
@@ -166,26 +167,8 @@ export const cliAgentHost: StudioAgentHost = {
 				new Logger( { onProgress } )
 			),
 	},
-	sync: {
-		push: async ( site, options, remoteSite, onProgress ) =>
-			runPushCommand(
-				site.path,
-				parseSyncOptions( options ),
-				remoteSite,
-				new Logger( { onProgress } )
-			),
-		pull: async ( site, options, remoteSite, onProgress ) =>
-			runPullCommand(
-				site.path,
-				parseSyncOptions( options ),
-				remoteSite,
-				undefined,
-				new Logger( { onProgress } )
-			),
-	},
-	wpcom: {
-		sites: ( accessToken ) => getWpComSites( accessToken ),
-	},
+	blocksEngine: () => resolvePhpTransformer(),
+	remoteHosts: HOSTS,
 	tracks: {
 		record: ( event, props ) => recordTracksEvent( event, { ...getTracksOrigin(), ...props } ),
 	},

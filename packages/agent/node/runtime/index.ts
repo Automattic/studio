@@ -1,6 +1,8 @@
 import fs from 'fs';
+import path from 'path';
 import { type AgentTool } from '@earendil-works/pi-agent-core';
 import {
+	type Api,
 	type Credential,
 	type CredentialInfo,
 	type CredentialStore,
@@ -11,6 +13,7 @@ import { streamSimple as streamAnthropicMessages } from '@earendil-works/pi-ai/a
 import { streamSimple as streamOpenAiCompletions } from '@earendil-works/pi-ai/api/openai-completions';
 import { streamSimple as streamOpenAiResponses } from '@earendil-works/pi-ai/api/openai-responses';
 import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
+import { normalizeContext } from '@earendil-works/pi-ai/utils/transcript';
 import {
 	createAgentSession,
 	createBashTool,
@@ -25,20 +28,22 @@ import {
 	SettingsManager,
 	type AgentSession,
 	type AgentSessionEvent,
-	type SessionManager,
-	type ToolDefinition,
+	SessionManager,
 } from '@earendil-works/pi-coding-agent';
-import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
 import { type TSchema } from 'typebox';
-import { withDesignSystemPreview } from '@studio/agent/node/chat-artifacts';
+import { environmentFacts } from '@studio/agent/node/environment-facts';
 import { readGlobalInstructions } from '@studio/agent/node/global-instructions';
 import { isImageGenerationAvailable } from '@studio/agent/node/image-generation';
-import { createResultNotes } from '@studio/agent/node/result-notes';
-import { buildSystemPrompt, type ToolPromptContribution } from '@studio/agent/node/system-prompt';
+import { describeOpenProblems } from '@studio/agent/node/open-problems';
+import { SiteChanges } from '@studio/agent/node/site-changes';
+import { readActiveSiteFacts } from '@studio/agent/node/site-facts';
+import { createSiteNotes } from '@studio/agent/node/site-notes';
+import { studioMessage } from '@studio/agent/node/studio-message';
+import { buildSystemPrompt } from '@studio/agent/node/system-prompt';
 import { resolveStudioTools } from '@studio/agent/node/tools';
 import { createAskUserQuestionTool } from '@studio/agent/node/tools/ask-user-question';
 import { bindTool } from '@studio/agent/node/tools/define-tool';
-import { createPresentDesignOptionsTool } from '@studio/agent/node/tools/present-design-options';
+import { withStringEdits } from '@studio/agent/node/tools/edit-arguments';
 import { createSkillTool } from '@studio/agent/node/tools/skill';
 import {
 	aiModelSupportsImages,
@@ -47,24 +52,38 @@ import {
 	getAiModelFamily,
 	type AiModelFamily,
 	type AiModelId,
+	customModelName,
+	type CustomModelId,
 } from '@studio/agent/protocol/models';
 import { findLastAssistant, isEmptyStop } from '@studio/agent/protocol/session-events';
-import { getFileToolPrompt } from './file-tool-prompts';
-import { withLeakedToolCallMarkupRemoved } from './leaked-tool-call-markup';
-import { getPendingWork, type PendingWork } from './pending-work';
-import { stripStaleImagesFromContext } from './strip-stale-images';
+import { withDefaultTimeout } from './bash-timeout';
+import { placeCallNotes } from './call-notes';
+import { createConfirmer } from './confirmation';
+import { FileViews } from './file-views';
 import {
-	getIncompleteToolCallReason,
-	getFileWriteRefusal,
-	getPayloadLimitViolation,
-	type StudioToolPayloadGuardState,
-	updateStudioToolPayloadGuardState,
-} from './tool-safety';
+	endsTurn,
+	OPEN_PROBLEMS_TYPE,
+	withoutContinuedReplies,
+	withoutReplyText,
+} from './held-reply';
+import { withLeakedToolCallMarkupRemoved } from './leaked-tool-call-markup';
+import { createMcpTools, isUserMcpTool, readMcpServers } from './mcp-tools';
+import { changesPreview } from './preview-reload';
+import { getSessionState, shareSessionState, type SessionState } from './session-state';
+import { SitePin } from './site-pin';
+import { SkillToolScope } from './skill-tool-scope';
+import { stripStaleImagesFromContext } from './strip-stale-images';
+import { agentShell, ensureStudioShimDirectory, getStudioShims } from './studio-wp-shim';
+import { createSubagentTool } from './subagent';
+import { withTextOnlyImages } from './text-only-read';
+import { AfterChecks, toToolDefinition } from './tool-checks';
+import { type StudioToolPayloadGuardState, updateStudioToolPayloadGuardState } from './tool-safety';
 import { withUsageCapErrorRewrite } from './usage-cap';
+import { serveWpCli } from './wp-cli-server';
 import type { StudioAgentHost } from '@studio/agent/node/host';
-import type { StudioToolResultDetails } from '@studio/agent/node/tools/define-tool';
 import type { AskUserHandler, SiteInfo } from '@studio/agent/node/types';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
+import type { CustomEndpoint } from '@studio/common/lib/shared-config';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
@@ -76,6 +95,24 @@ type StudioModel = StudioWpcomModel | Model< 'anthropic-messages' >;
 type ProviderConfigInput = Parameters< ModelRuntime[ 'registerProvider' ] >[ 1 ];
 
 const STUDIO_WPCOM_PROVIDER = 'studio-wpcom';
+const STUDIO_CUSTOM_PROVIDER = 'studio-custom';
+
+/** A turn's model and the runtime that serves it. */
+interface TurnModel {
+	model: Model< Api >;
+	modelRuntime: ModelRuntime;
+}
+
+// Chat Completions without the OpenAI-only fields other upstreams reject. With
+// `supportsReasoningEffort` false no thinking switch is sent at all and each
+// upstream uses its own default.
+const PORTABLE_COMPLETIONS_COMPAT = {
+	supportsStore: false,
+	supportsDeveloperRole: false,
+	supportsReasoningEffort: false,
+	supportsStrictMode: false,
+	maxTokensField: 'max_tokens',
+} as const;
 // A reply with nothing in it ends the turn without the user seeing why (see
 // `isEmptyStop`). Resume it with a message the user doesn't see, up to this
 // many times per turn. pi leaves a reply that has only reasoning out of the
@@ -97,7 +134,23 @@ export interface StudioAgentTurnConfig {
 	model?: AiModelId;
 	activeSite?: SiteInfo | null;
 	onAskUser?: AskUserHandler;
+	// Answers the harness's confirmations of irreversible calls. Defaults to
+	// onAskUser; a scripted user (the eval runner) answers without exposing
+	// AskUserQuestion to the agent.
+	onConfirm?: AskUserHandler;
 	onEvent: ( event: AgentSessionEvent ) => void;
+	// A turn run for another turn's subagent call, which runs no subagents of its own.
+	subagentOf?: SubagentParent;
+}
+
+/**
+ * The turn running a subagent: the subagent shares its session's state and
+ * its check of what calls change, so each agent hears what Studio finds in
+ * what it wrote, and the parent turn's own checks cover the rest.
+ */
+export interface SubagentParent {
+	state: SessionState;
+	siteChanges: SiteChanges;
 }
 
 interface ResolvedStudioAgentTurnConfig extends StudioAgentTurnConfig {
@@ -111,6 +164,8 @@ export interface StudioAgentTurnHandle {
 	interrupt(): Promise< void >;
 	/** Whether `name` is one of the turn's registered tools, not a name the model made up. */
 	hasTool( name: string ): boolean;
+	/** The system prompt the turn's model requests carry, once its session is set up. */
+	systemPrompt(): string | undefined;
 }
 
 export function runStudioAgentTurn(
@@ -119,6 +174,7 @@ export function runStudioAgentTurn(
 ): StudioAgentTurnHandle {
 	const controller = new AbortController();
 	let activeSession: AgentSession | undefined;
+	let systemPrompt: string | undefined;
 	const resolvedConfig: ResolvedStudioAgentTurnConfig = {
 		...config,
 		host,
@@ -132,6 +188,7 @@ export function runStudioAgentTurn(
 
 	const result = runAgentSessionTurn( resolvedConfig, controller, ( session ) => {
 		activeSession = session;
+		systemPrompt = session?.systemPrompt ?? systemPrompt;
 	} );
 
 	return {
@@ -141,7 +198,15 @@ export function runStudioAgentTurn(
 			await activeSession?.abort();
 		},
 		hasTool( name ) {
-			return activeSession?.getAllTools().some( ( tool ) => tool.name === name ) ?? false;
+			// A tool from the user's own MCP server is reported like a made-up one,
+			// so its name stays out of telemetry.
+			return (
+				! isUserMcpTool( name ) &&
+				( activeSession?.getAllTools().some( ( tool ) => tool.name === name ) ?? false )
+			);
+		},
+		systemPrompt() {
+			return systemPrompt;
 		},
 	};
 }
@@ -150,12 +215,32 @@ interface ResolvedCredentials {
 	apiKey: string;
 	baseURL: string;
 	extraHeaders?: Record< string, string >;
+	// The API and image support of a custom endpoint, which its connection states.
+	endpoint?: Pick< CustomEndpoint, 'api' | 'images' >;
+}
+
+function customEndpointCredentials( endpoint: CustomEndpoint ): ResolvedCredentials {
+	return {
+		apiKey: endpoint.apiKey,
+		baseURL: endpoint.baseUrl,
+		endpoint: { api: endpoint.api, images: endpoint.images },
+	};
 }
 
 function resolveCredentials(
 	family: AiModelFamily,
 	env: Record< string, string >
 ): { ok: true; creds: ResolvedCredentials } | { ok: false; reason: string } {
+	if ( family === 'custom' ) {
+		const endpoint = env.STUDIO_CUSTOM_ENDPOINT;
+		if ( ! endpoint ) {
+			return {
+				ok: false,
+				reason: 'No custom endpoint is connected — connect one with /provider.',
+			};
+		}
+		return { ok: true, creds: customEndpointCredentials( JSON.parse( endpoint ) ) };
+	}
 	if ( family === 'studio' ) {
 		const apiKey = env.STUDIO_WPCOM_API_KEY?.trim();
 		if ( ! apiKey ) {
@@ -239,8 +324,7 @@ async function runAgentSessionTurn(
 	controller: AbortController,
 	setActiveSession: ( session: AgentSession | undefined ) => void
 ): Promise< void > {
-	const family = getAiModelFamily( config.model );
-	const resolved = resolveCredentials( family, config.env );
+	const resolved = await resolveTurnModel( config );
 	if ( ! resolved.ok ) {
 		config.onEvent( syntheticErrorAgentEnd( 'error', resolved.reason ) );
 		return;
@@ -249,39 +333,96 @@ async function runAgentSessionTurn(
 	let session: AgentSession | undefined;
 	let unsubscribe: ( () => void ) | undefined;
 	const payloadGuardState: StudioToolPayloadGuardState = {};
+	let heldReply: AgentSessionEvent[] = [];
+	const state = config.subagentOf
+		? shareSessionState( config.session, config.subagentOf.state )
+		: getSessionState( config.host, config.session );
 	try {
-		session = await createStudioAgentSession( config, family, resolved.creds, payloadGuardState );
+		session = await createStudioAgentSession( config, resolved, payloadGuardState );
 		setActiveSession( session );
-		let emptyStopContinues = 0;
-		let continueAfterEmptyStop = false;
-		let cutOffReasoning = '';
+		const emit = ( event: AgentSessionEvent ) => {
+			config.onEvent( event );
+			if ( changesPreview( event ) ) {
+				config.host.ui?.reloadPreview();
+			}
+		};
+		// The end of each run is held until it is known whether the turn
+		// continues: consumers wait for the turn's real end. So is a reply that
+		// would end it, and what follows it, until Studio's checks of the turn.
+		let heldEnd: Extract< AgentSessionEvent, { type: 'agent_end' } > | undefined;
 		unsubscribe = session.subscribe( ( event ) => {
 			updateStudioToolPayloadGuardState( event, payloadGuardState );
-			if (
-				event.type === 'agent_end' &&
-				! event.willRetry &&
-				emptyStopContinues < MAX_EMPTY_STOP_CONTINUES
-			) {
-				const lastAssistant = findLastAssistant( event.messages );
-				if ( isEmptyStop( lastAssistant ) ) {
-					// Not final: consumers wait for the turn's real end.
-					continueAfterEmptyStop = true;
-					cutOffReasoning = ( lastAssistant?.content ?? [] )
-						.map( ( block ) => ( block.type === 'thinking' ? block.thinking : '' ) )
-						.join( '' )
-						.trim();
-					config.onEvent( { ...event, willRetry: true } );
-					return;
-				}
+			if ( event.type === 'agent_end' && ! event.willRetry ) {
+				heldEnd = event;
+				return;
 			}
-			config.onEvent( event );
+			if ( heldReply.length || endsTurn( event ) ) {
+				heldReply.push( event );
+				return;
+			}
+			emit( event );
 		} );
+		const continueFrom = session.agent.transformContext;
+		session.agent.transformContext = async ( messages, signal ) =>
+			placeCallNotes(
+				withoutContinuedReplies( continueFrom ? await continueFrom( messages, signal ) : messages )
+			);
 
 		if ( controller.signal.aborted ) {
 			await session.abort();
 			config.onEvent( syntheticErrorAgentEnd( 'aborted', '' ) );
 			return;
 		}
+
+		const { writers, pendingWork } = state;
+		let emptyStopContinues = 0;
+		// What continues the turn after a run ends, if anything: a reply cut off
+		// before it said anything, then the problems still open on the sites.
+		const continuation = async (
+			end: Extract< AgentSessionEvent, { type: 'agent_end' } >
+		): Promise< { customType: string; content: string } | undefined > => {
+			const lastAssistant = findLastAssistant( end.messages );
+			if ( isEmptyStop( lastAssistant ) && emptyStopContinues < MAX_EMPTY_STOP_CONTINUES ) {
+				emptyStopContinues++;
+				const cutOffReasoning = ( lastAssistant?.content ?? [] )
+					.map( ( block ) => ( block.type === 'thinking' ? block.thinking : '' ) )
+					.join( '' )
+					.trim();
+				return {
+					customType: EMPTY_STOP_CONTINUE_TYPE,
+					content: cutOffReasoning
+						? `Your reasoning was cut off before you replied. Continue from where it stopped:\n\n${ cutOffReasoning }`
+						: 'continue',
+				};
+			}
+			if ( lastAssistant?.stopReason !== 'stop' ) {
+				return undefined;
+			}
+			await state.pendingWork.settle();
+			// A block file the run wrote last is validated, and its lossless fix
+			// saved, before the sites are checked, as on any later tool result.
+			await state.blockValidation.settle( {
+				mine: ( file ) => writers.ofFile( file ) === pendingWork,
+			} );
+			// The sites as the turn leaves them are the parent turn's to check.
+			if ( config.subagentOf ) {
+				const notes = studioMessage( 'notes', [ state.pendingWork.takeReports() ] );
+				return notes ? { customType: OPEN_PROBLEMS_TYPE, content: notes } : undefined;
+			}
+			// The pages rendered after the last change: their problems are open
+			// until fixed, and a verdict of none ends nothing.
+			await state.renderCheck.settle();
+			await state.renderCheck.takeReports();
+			const problems = await state.openProblems.raise();
+			// The notes on the run's last calls, whose checks ran after their results.
+			const content = [
+				studioMessage( 'notes', [ state.pendingWork.takeReports() ] ),
+				problems.length ? describeOpenProblems( problems ) : undefined,
+			]
+				.filter( Boolean )
+				.join( '\n' );
+			return content ? { customType: OPEN_PROBLEMS_TYPE, content } : undefined;
+		};
 
 		await session.prompt( config.prompt, {
 			expandPromptTemplates: false,
@@ -292,26 +433,28 @@ async function runAgentSessionTurn(
 				mimeType: image.mimeType,
 			} ) ),
 		} );
-		while ( continueAfterEmptyStop ) {
-			continueAfterEmptyStop = false;
+		for ( let end = heldEnd; end; end = heldEnd ) {
+			heldEnd = undefined;
+			const next = await continuation( end );
+			const held = heldReply;
+			heldReply = [];
+			if ( ! next ) {
+				held.forEach( emit );
+				emit( end );
+				break;
+			}
+			const rewinds = next.customType === OPEN_PROBLEMS_TYPE;
+			held.forEach( ( event ) => emit( rewinds ? withoutReplyText( event ) : event ) );
+			emit( { ...end, willRetry: true } );
 			if ( controller.signal.aborted ) {
 				config.onEvent( syntheticErrorAgentEnd( 'aborted', '' ) );
 				break;
 			}
-			emptyStopContinues++;
-			await session.sendCustomMessage(
-				{
-					customType: EMPTY_STOP_CONTINUE_TYPE,
-					content: cutOffReasoning
-						? `Your reasoning was cut off before you replied. Continue from where it stopped:\n\n${ cutOffReasoning }`
-						: 'continue',
-					display: false,
-				},
-				{ triggerTurn: true }
-			);
+			await session.sendCustomMessage( { ...next, display: false }, { triggerTurn: true } );
 		}
-		await getPendingWork( config.session ).settle();
+		await state.pendingWork.settle();
 	} catch ( error ) {
+		heldReply.forEach( config.onEvent );
 		const aborted = controller.signal.aborted;
 		const message = aborted ? '' : error instanceof Error ? error.message : String( error );
 		config.onEvent( syntheticErrorAgentEnd( aborted ? 'aborted' : 'error', message ) );
@@ -319,38 +462,138 @@ async function runAgentSessionTurn(
 		unsubscribe?.();
 		session?.dispose();
 		setActiveSession( undefined );
+		state.writers.release( state.pendingWork );
 	}
+}
+
+// The turn's model and the runtime that serves it: a Studio model with the
+// credentials of its provider, or a models.json model through pi's registry.
+async function resolveTurnModel(
+	config: ResolvedStudioAgentTurnConfig
+): Promise< ( { ok: true } & TurnModel ) | { ok: false; reason: string } > {
+	const family = getAiModelFamily( config.model );
+	const resolved = resolveCredentials( family, config.env );
+	if ( ! resolved.ok ) {
+		return resolved;
+	}
+	const model = buildModel( config.model, family, resolved.creds );
+	return {
+		ok: true,
+		model,
+		modelRuntime: await createModelRuntime( model, family, resolved.creds ),
+	};
 }
 
 async function createStudioAgentSession(
 	config: ResolvedStudioAgentTurnConfig,
-	family: AiModelFamily,
-	creds: ResolvedCredentials,
+	{ model, modelRuntime }: TurnModel,
 	payloadGuardState: StudioToolPayloadGuardState
 ): Promise< AgentSession > {
-	const model = buildModel( config.model, family, creds );
-	const visionEnabled = aiModelSupportsImages( config.model );
-	const [ userInstructions, imageGenerationEnabled ] = await Promise.all( [
+	const visionEnabled = model.input.includes( 'image' );
+	const confirm = createConfirmer( config.onConfirm ?? config.onAskUser );
+	const [
+		userInstructions,
+		imageGenerationEnabled,
+		activeSiteFacts,
+		mcpServers,
+		wpCliServer,
+		localSites,
+	] = await Promise.all( [
 		readGlobalInstructions(),
 		isImageGenerationAvailable(),
+		readActiveSiteFacts( config.host, config.activeSite ),
+		readMcpServers( config.host.remoteHosts ),
+		serveWpCli( config.host ),
+		// With no active site, the prompt names the user's sites.
+		config.activeSite ? undefined : config.host.sites.all(),
 	] );
 
-	const tools = buildAgentTools( config, imageGenerationEnabled, visionEnabled );
+	const state = getSessionState( config.host, config.session );
+	const {
+		openProblems,
+		pendingWork,
+		blockValidation: blockValidationGate,
+		renderCheck,
+		writers,
+	} = state;
+	const sitePin = new SitePin( config.host, config.activeSite );
+	const site = config.activeSite;
+	const localSite = site && ! site.remote ? site.path : undefined;
+	const siteNotes = createSiteNotes( config.host, {
+		// The Active site section already states this turn's facts.
+		stated: new Map( localSite ? [ [ path.resolve( localSite ), activeSiteFacts ] ] : [] ),
+		gate: blockValidationGate,
+		open: openProblems,
+	} );
+	// What a call changed on the request's sites, or on every local site until
+	// the request has one, reported on its result.
+	const siteChanges =
+		config.subagentOf?.siteChanges ??
+		new SiteChanges( config.host, openProblems, async () => {
+			const sites = await config.host.sites.all();
+			const pinned = sitePin.localSitePaths();
+			return pinned.length
+				? sites.filter( ( { path: sitePath } ) => pinned.includes( path.resolve( sitePath ) ) )
+				: sites;
+		} );
+	const afterChecks = new AfterChecks( pendingWork );
+	const fileViews = new FileViews();
+
+	const skillScope = new SkillToolScope( config.session );
+	let activateTools: () => void = () => {};
+	const tools = buildAgentTools(
+		config,
+		{ state, siteChanges },
+		// The site this request works on, once it has one: the active site, or
+		// the one it created or first changed.
+		async () => {
+			const sitePath = sitePin.localRequestSite();
+			if ( config.activeSite || ! sitePath ) {
+				return config.activeSite;
+			}
+			const site = await config.host.sites.findByFolder( sitePath );
+			return site && { ...site, running: await config.host.sites.isRunning( site ) };
+		},
+		imageGenerationEnabled,
+		visionEnabled,
+		wpCliServer,
+		( skillName ) => {
+			skillScope.unlock( skillName );
+			activateTools();
+		}
+	);
+	const mcpTools = await createMcpTools(
+		mcpServers,
+		confirm,
+		tools.map( ( tool ) => tool.name )
+	);
 	const systemPrompt = buildSystemPrompt( {
+		shellDirectory: shellDirectory( config ),
+		environmentFacts: environmentFacts(),
 		userInstructions,
-		tools: tools.map( toolPromptContribution ),
 		activeSite: config.activeSite,
+		activeSiteFacts: activeSiteFacts.flat(),
+		localSites,
 	} );
 
-	const pendingWork = getPendingWork( config.session );
-	const site = config.activeSite;
-	const notes = createResultNotes();
-	const resultNotes =
-		site && ! site.remote ? ( text: string ) => notes( site.path, text ) : undefined;
-	const toolDefinitions = tools.map( ( tool ) =>
-		toToolDefinition( config.host, tool, payloadGuardState, pendingWork, resultNotes )
+	// The active site as the turn finds it, rendered while the model first
+	// thinks. A subagent's changes are rendered after the parent's call.
+	const renders = ! config.subagentOf;
+	if ( renders && localSite && fs.existsSync( localSite ) ) {
+		void renderCheck.seen( path.resolve( localSite ) ).catch( () => undefined );
+	}
+	const toolDefinitions = [ ...tools, ...mcpTools ].map( ( tool ) =>
+		toToolDefinition( config.host, tool, payloadGuardState, pendingWork, blockValidationGate, {
+			confirm,
+			sitePin,
+			siteNotes,
+			siteChanges,
+			afterChecks,
+			renderCheck: renders ? renderCheck : undefined,
+			writers,
+			fileViews,
+		} )
 	);
-	const modelRuntime = await createModelRuntime( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
 	const { sitesRoot } = config.host;
 	const resourceLoader = new DefaultResourceLoader( {
@@ -381,6 +624,10 @@ async function createStudioAgentSession(
 		sessionStartEvent: { type: 'session_start', reason: 'startup' },
 	} );
 
+	const allToolNames = toolDefinitions.map( ( tool ) => tool.name );
+	activateTools = () =>
+		result.session.setActiveToolsByName( skillScope.activeToolNames( allToolNames ) );
+	activateTools();
 	return result.session;
 }
 
@@ -401,6 +648,25 @@ function buildModel(
 		...( creds.extraHeaders ? { headers: creds.extraHeaders } : {} ),
 	};
 
+	if ( family === 'custom' ) {
+		// The connected endpoint names the model; its connection states the
+		// API and whether the model takes images. Thinking is left to the
+		// upstream's default, as for the proxy tiers.
+		const name = customModelName( modelId as CustomModelId );
+		const { api, images } = creds.endpoint!;
+		const shared = {
+			...common,
+			id: name,
+			name,
+			input: images ? [ 'text' as const, 'image' as const ] : [ 'text' as const ],
+			provider: STUDIO_CUSTOM_PROVIDER,
+			contextWindow: 200_000,
+			maxTokens: 32_000,
+		};
+		return api === 'openai-completions'
+			? { ...shared, api, reasoning: true, compat: PORTABLE_COMPLETIONS_COMPAT }
+			: { ...shared, api, reasoning: false };
+	}
 	if ( family === 'studio' ) {
 		// The capability tiers are resolved to upstream models by the wpcom
 		// proxy. The context window is a conservative floor across the
@@ -446,13 +712,7 @@ function buildModel(
 			reasoning: true,
 			contextWindow: 200_000,
 			maxTokens: 32_000,
-			compat: {
-				supportsStore: false,
-				supportsDeveloperRole: false,
-				supportsReasoningEffort: false,
-				supportsStrictMode: false,
-				maxTokensField: 'max_tokens',
-			},
+			compat: PORTABLE_COMPLETIONS_COMPAT,
 		};
 	}
 	// Without `compat.forceAdaptiveThinking` pi-ai sends the legacy
@@ -513,6 +773,27 @@ class InMemoryCredentialStore implements CredentialStore {
 	}
 }
 
+/**
+ * Whether the connected endpoint answers a short request for `model` the way a
+ * turn sends it. Undefined when it does; otherwise the error it gave.
+ */
+export async function checkCustomEndpoint(
+	endpoint: CustomEndpoint,
+	model: CustomModelId
+): Promise< string | undefined > {
+	const creds = customEndpointCredentials( endpoint );
+	const built = buildModel( model, 'custom', creds ) as StudioWpcomModel;
+	const { streamSimple } = createRegisteredProviderConfig( built, creds, false );
+	const reply = await streamSimple!(
+		built,
+		normalizeContext( {
+			messages: [ { role: 'user', content: 'Reply with: ok', timestamp: Date.now() } ],
+		} ),
+		{ apiKey: creds.apiKey, maxTokens: 16 }
+	).result();
+	return reply.stopReason === 'error' ? reply.errorMessage ?? 'The request failed.' : undefined;
+}
+
 async function createModelRuntime(
 	model: StudioModel,
 	family: AiModelFamily,
@@ -523,10 +804,10 @@ async function createModelRuntime(
 		modelsPath: null,
 	} );
 
-	if ( family === 'studio' ) {
+	if ( family !== 'anthropic' ) {
 		modelRuntime.registerProvider(
 			model.provider,
-			createWpcomProviderConfig( model as StudioWpcomModel, creds )
+			createRegisteredProviderConfig( model as StudioWpcomModel, creds, family === 'studio' )
 		);
 		return modelRuntime;
 	}
@@ -547,13 +828,15 @@ function escapePiConfigValue( value: string ): string {
 	return dollarEscaped.startsWith( '!' ) ? `$${ dollarEscaped }` : dollarEscaped;
 }
 
-// The wpcom lane only needs pi's stock streaming for each tier's API; the
-// custom provider exists to wrap the stream with the usage-cap 429 rewrite and
-// the leaked tool-call cleanup, and to strip stale screenshots, which would
-// otherwise bloat requests past the proxy's body limit.
-function createWpcomProviderConfig(
+// The wpcom proxy and a custom endpoint only need pi's stock streaming for each
+// model's API; the provider is registered to wrap the stream with the leaked
+// tool-call cleanup and to strip stale screenshots, which would otherwise bloat
+// requests past a body limit. The proxy's stream also gets its usage-cap 429
+// rewrite, and its requests name the tier's current upstream alias.
+function createRegisteredProviderConfig(
 	model: StudioWpcomModel,
-	creds: ResolvedCredentials
+	creds: ResolvedCredentials,
+	proxy: boolean
 ): ProviderConfigInput {
 	// pi types `streamSimple` against `Model<Api>`; each API's stream function
 	// is narrower, and the model registered below is the one passed in.
@@ -566,28 +849,30 @@ function createWpcomProviderConfig(
 	) as NonNullable< ProviderConfigInput[ 'streamSimple' ] >;
 	// The model keeps its stable id for pi and the session history; only the
 	// request names the proxy's current upstream alias.
-	const apiModelId = getAiModel( model.id as AiModelId )?.apiModelId;
+	const apiModelId = proxy ? getAiModel( model.id as AiModelId ).apiModelId : undefined;
+	const clean: NonNullable< ProviderConfigInput[ 'streamSimple' ] > = ( m, ctx, options ) =>
+		withLeakedToolCallMarkupRemoved(
+			stream( m, stripStaleImagesFromContext( ctx ), {
+				...options,
+				...( apiModelId
+					? {
+							onPayload: async ( params: unknown, payloadModel ) => {
+								const next = ( await options?.onPayload?.( params, payloadModel ) ) ?? params;
+								return { ...( next as Record< string, unknown > ), model: apiModelId };
+							},
+					  }
+					: {} ),
+			} )
+		);
 	return {
 		baseUrl: creds.baseURL,
 		apiKey: escapePiConfigValue( creds.apiKey ),
 		api: model.api,
 		headers: creds.extraHeaders,
-		streamSimple: ( m, ctx, options?: SimpleStreamOptions ) =>
-			withUsageCapErrorRewrite(
-				withLeakedToolCallMarkupRemoved(
-					stream( m, stripStaleImagesFromContext( ctx ), {
-						...options,
-						...( apiModelId
-							? {
-									onPayload: async ( params: unknown, payloadModel ) => {
-										const next = ( await options?.onPayload?.( params, payloadModel ) ) ?? params;
-										return { ...( next as Record< string, unknown > ), model: apiModelId };
-									},
-							  }
-							: {} ),
-					} )
-				)
-			),
+		streamSimple: proxy
+			? ( m, ctx, options?: SimpleStreamOptions ) =>
+					withUsageCapErrorRewrite( clean( m, ctx, options ) )
+			: clean,
 		models: [
 			{
 				id: model.id,
@@ -616,116 +901,89 @@ function createSettingsManager( _env: Record< string, string > ): SettingsManage
 	);
 }
 
-// pi's tools declare a prompt snippet and so do Studio's (see define-tool.ts);
-// the AgentTool type does not carry it, hence the cast.
-type ToolPromptFields = { promptSnippet?: string };
-
-function toolPromptContribution( tool: AgentToolAny ): ToolPromptContribution {
-	return { name: tool.name, promptSnippet: ( tool as ToolPromptFields ).promptSnippet };
+function getStudioWpSpawnHook( wpCliServer: string | undefined ) {
+	const cliPath = process.env.STUDIO_CLI_BIN ?? path.join( import.meta.dirname, 'main.mjs' );
+	return agentShell(
+		ensureStudioShimDirectory( getStudioShims( process.execPath, cliPath ) ),
+		wpCliServer
+	);
 }
 
-function toToolDefinition(
-	host: StudioAgentHost,
-	tool: AgentToolAny,
-	payloadGuardState: StudioToolPayloadGuardState,
-	pendingWork: PendingWork,
-	resultNotes?: ( text: string ) => Promise< string >
-): ToolDefinition {
-	return {
-		name: tool.name,
-		label: tool.label,
-		description: tool.description,
-		parameters: tool.parameters,
-		prepareArguments: tool.prepareArguments,
-		executionMode: tool.executionMode,
-		promptSnippet: ( tool as ToolPromptFields ).promptSnippet,
-		execute: async ( toolCallId, params, signal, onUpdate ) => {
-			const incompleteToolCallReason = getIncompleteToolCallReason( payloadGuardState, toolCallId );
-			if ( incompleteToolCallReason ) {
-				throw new Error( incompleteToolCallReason );
-			}
-			const payloadLimitViolation = getPayloadLimitViolation( tool.name, params );
-			if ( payloadLimitViolation ) {
-				throw new Error( payloadLimitViolation );
-			}
-			const fileWriteRefusal = await getFileWriteRefusal(
-				tool.name,
-				params,
-				host.sitesRoot,
-				async ( folder ) => Boolean( await host.sites.findByFolder( folder ) )
-			);
-			if ( fileWriteRefusal ) {
-				throw new Error( fileWriteRefusal );
-			}
-			if ( ( tool as { settlesPendingWork?: boolean } ).settlesPendingWork ) {
-				await pendingWork.settle();
-			}
-			const result = await tool.execute( toolCallId, params, signal, onUpdate );
-			const details = result.details as StudioToolResultDetails | undefined;
-			if ( details?.pending ) {
-				pendingWork.add( details.pending );
-				delete details.pending;
-			}
-			const resultText = result.content
-				.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
-				.join( '\n' );
-			const notes = [ await resultNotes?.( resultText ), pendingWork.takeReports() ]
-				.filter( Boolean )
-				.join( '\n' );
-			return notes
-				? { ...result, content: [ ...result.content, { type: 'text', text: notes } ] }
-				: result;
-		},
-	};
+// Bash starts in the active local site's folder, where most commands run and
+// where `studio wp` finds the site (getSiteContainingFolder() in cli/commands/wp.ts).
+function shellDirectory( config: ResolvedStudioAgentTurnConfig ): string {
+	const site = config.activeSite;
+	return site && ! site.remote && fs.existsSync( site.path ) ? site.path : config.host.sitesRoot;
 }
 
 function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
+	checks: SubagentParent,
+	requestSite: () => Promise< SiteInfo | null | undefined >,
 	imageGenerationEnabled: boolean,
-	visionEnabled: boolean
+	visionEnabled: boolean,
+	wpCliServer: string | undefined,
+	onSkillLoad: ( skillName: string ) => void
 ): AgentToolAny[] {
 	const { host } = config;
 	const askUserTool: AgentToolAny[] = config.onAskUser
 		? [ bindTool( createAskUserQuestionTool( config.onAskUser ), host ) ]
 		: [];
-	const tracks = getAiTracksIdentity( config.session.getSessionId() );
-	const designOptionsTool: AgentToolAny[] =
-		config.onAskUser && host.ui
-			? [
-					bindTool(
-						createPresentDesignOptionsTool( { onAskUser: config.onAskUser, tracks } ),
-						host
-					) as unknown as AgentToolAny,
-			  ]
-			: [];
 
-	const skillToolDef = createSkillTool();
+	const skillToolDef = createSkillTool( ( skill ) => onSkillLoad( skill.name ) );
 	const skillTool: AgentToolAny[] = skillToolDef ? [ bindTool( skillToolDef, host ) ] : [];
 
-	// pi's tools are registered under Studio's names; the prompt text for them
-	// is Studio's too (file-tool-prompts.ts), so nothing of pi's wording leaks.
+	// pi's tools are registered under Studio's names.
 	const renameTool = < S extends TSchema >( tool: AgentTool< S >, name: string ): AgentTool< S > =>
-		( { ...tool, name, label: name, ...getFileToolPrompt( name ) } ) as AgentTool< S >;
+		( { ...tool, name, label: name } ) as AgentTool< S >;
 
-	const { sitesRoot, ui } = host;
-	const designSystemPreview = < TTool extends AgentToolAny >( tool: TTool ) =>
-		ui ? withDesignSystemPreview( tool, sitesRoot, ui ) : tool;
+	const { sitesRoot } = host;
 	const piTools: AgentToolAny[] = [
-		renameTool( createReadTool( sitesRoot ), 'Read' ),
-		designSystemPreview( renameTool( createWriteTool( sitesRoot ), 'Write' ) ),
-		designSystemPreview( renameTool( createEditTool( sitesRoot ), 'Edit' ) ),
-		renameTool( createBashTool( sitesRoot ), 'Bash' ),
+		renameTool(
+			visionEnabled
+				? createReadTool( sitesRoot )
+				: withTextOnlyImages( createReadTool( sitesRoot ) ),
+			'Read'
+		),
+		renameTool( createWriteTool( sitesRoot ), 'Write' ),
+		renameTool( withStringEdits( createEditTool( sitesRoot ) ), 'Edit' ),
+		renameTool(
+			withDefaultTimeout(
+				createBashTool( shellDirectory( config ), {
+					spawnHook: getStudioWpSpawnHook( wpCliServer ),
+				} )
+			),
+			'Bash'
+		),
 		renameTool( createGrepTool( sitesRoot ), 'Grep' ),
 		renameTool( createFindTool( sitesRoot ), 'Glob' ),
 		renameTool( createLsTool( sitesRoot ), 'Ls' ),
 	];
 	const studioTools = resolveStudioTools( host, {
+		shell: true,
 		imageGeneration: imageGenerationEnabled,
 		visionEnabled,
-		canAskUser: Boolean( config.onAskUser ),
-		tracks,
 	} ) as unknown as AgentToolAny[];
-	return [ ...studioTools, ...askUserTool, ...designOptionsTool, ...skillTool, ...piTools ];
+	// A subagent's turn is this turn's, from a fresh session and with nobody to
+	// ask: confirmations still reach the user. Its active site is this
+	// request's, so it starts knowing the site as it is now.
+	const subagentTool: AgentToolAny[] = config.subagentOf
+		? []
+		: [
+				createSubagentTool( async ( task, onEvent ) =>
+					runStudioAgentTurn( host, {
+						prompt: task,
+						session: SessionManager.inMemory( sitesRoot ),
+						env: config.env,
+						model: config.model,
+						activeSite: await requestSite(),
+						onConfirm: config.onConfirm ?? config.onAskUser,
+						onEvent,
+						subagentOf: checks,
+					} )
+				),
+		  ];
+	return [ ...studioTools, ...askUserTool, ...skillTool, ...subagentTool, ...piTools ];
 }
 
 function parseJsonHeaderEnv(

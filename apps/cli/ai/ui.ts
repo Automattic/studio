@@ -44,6 +44,7 @@ import {
 	DescriptionAwareAutocompleteProvider,
 	dimUnhighlighted,
 } from 'cli/ai/description-autocomplete';
+import { HOST_IDS, HOSTS, type HostId } from 'cli/ai/hosts';
 import { buildOptionPickerLines, OTHER_VALUE } from 'cli/ai/option-picker';
 import { type AiOutputAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
@@ -51,7 +52,6 @@ import { getActiveSlashCommands } from 'cli/ai/slash-commands';
 import { initStudioTheme, refineStudioTheme, theme } from 'cli/ai/theme';
 import { getToolRenderDefinition } from 'cli/ai/tool-render-definitions';
 import { formatToolOutputLines } from 'cli/ai/tool-result-renderers';
-import { getWpComSites } from 'cli/lib/api';
 import { openBrowser } from 'cli/lib/browser';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
@@ -62,8 +62,12 @@ import type { ToolResultMessage } from '@earendil-works/pi-ai';
 import type { AskUserQuestion, SiteInfo } from '@studio/agent/node';
 
 const SITE_PICKER_TAB_LOCAL = 'local' as const;
-const SITE_PICKER_TAB_REMOTE = 'remote' as const;
-type SitePickerTab = typeof SITE_PICKER_TAB_LOCAL | typeof SITE_PICKER_TAB_REMOTE;
+type SitePickerTab = typeof SITE_PICKER_TAB_LOCAL | HostId;
+// The local sites, then the sites of each host Studio works on.
+const SITE_PICKER_TABS: SitePickerTab[] = [
+	SITE_PICKER_TAB_LOCAL,
+	...HOST_IDS.filter( ( id ) => HOSTS[ id ].sites ),
+];
 
 const sitePickerTheme: SelectListTheme = {
 	selectedPrefix: ( text ) => theme.fg( 'accent', text ),
@@ -542,12 +546,15 @@ export class AiChatUI implements AiOutputAdapter {
 					void this.openSelectedSite();
 					return { consume: true };
 				}
-				if ( matchesKey( data, 'right' ) && this.sitePickerTab === SITE_PICKER_TAB_LOCAL ) {
-					void this.switchToRemoteSites();
-					return { consume: true };
-				}
-				if ( matchesKey( data, 'left' ) && this.sitePickerTab === SITE_PICKER_TAB_REMOTE ) {
-					this.switchToLocalSites();
+				const step = matchesKey( data, 'right' ) ? 1 : matchesKey( data, 'left' ) ? -1 : 0;
+				const tab =
+					step && SITE_PICKER_TABS[ SITE_PICKER_TABS.indexOf( this.sitePickerTab ) + step ];
+				if ( tab ) {
+					if ( tab === SITE_PICKER_TAB_LOCAL ) {
+						this.switchToLocalSites();
+					} else {
+						void this.switchToHostSites( tab );
+					}
 					return { consume: true };
 				}
 				if ( matchesKey( data, 'escape' ) ) {
@@ -629,34 +636,41 @@ export class AiChatUI implements AiOutputAdapter {
 		this.renderSitePicker();
 	}
 
-	private async switchToRemoteSites(): Promise< void > {
-		this.resetSitePickerTab( SITE_PICKER_TAB_REMOTE );
+	private async switchToHostSites( hostId: HostId ): Promise< void > {
+		this.resetSitePickerTab( hostId );
 		this.sitePickerRemoteLoading = true;
 		this.sitePickerRemoteItems = [];
 		this.renderSitePicker();
 
-		const token = await readAuthToken();
-		if ( ! token ) {
+		const host = HOSTS[ hostId ];
+		const listing = ( await host.sites?.list() ) ?? { signedIn: true, sites: [] };
+		if ( this.sitePickerTab !== hostId ) {
+			return;
+		}
+		if ( ! listing.signedIn ) {
 			this.showSitePickerError( __( 'Not logged in. Use /login first.' ) );
 			return;
 		}
-
-		try {
-			const sites = await getWpComSites( token.accessToken );
-			this.sitePickerRemoteItems = sites.map( ( site ) => ( {
-				name: site.name,
-				path: '',
-				running: false,
-				remote: true,
-				url: site.url,
-				wpcomSiteId: site.id,
-			} ) );
-			this.sitePickerRemoteLoading = false;
-			this.rebuildSitePickerList();
-			this.renderSitePicker();
-		} catch {
-			this.showSitePickerError( __( 'Failed to load WordPress.com sites. Please try again.' ) );
+		if ( listing.error ) {
+			this.showSitePickerError(
+				sprintf(
+					/* translators: %s: a host, such as WordPress.com */
+					__( 'Failed to load %s sites. Please try again.' ),
+					host.name
+				)
+			);
+			return;
 		}
+		this.sitePickerRemoteItems = listing.sites.map( ( site ) => ( {
+			name: site.name,
+			path: '',
+			running: false,
+			remote: { host: hostId, id: site.id },
+			url: site.url,
+		} ) );
+		this.sitePickerRemoteLoading = false;
+		this.rebuildSitePickerList();
+		this.renderSitePicker();
 	}
 
 	private showSitePickerError( message: string ): void {
@@ -715,9 +729,9 @@ export class AiChatUI implements AiOutputAdapter {
 
 	private rebuildSitePickerList(): void {
 		const allItems =
-			this.sitePickerTab === SITE_PICKER_TAB_REMOTE
-				? this.sitePickerRemoteItems
-				: this.sitePickerItems;
+			this.sitePickerTab === SITE_PICKER_TAB_LOCAL
+				? this.sitePickerItems
+				: this.sitePickerRemoteItems;
 		const filtered = this.sitePickerQuery
 			? allItems.filter( ( site ) => {
 					const query = this.sitePickerQuery.toLowerCase();
@@ -751,12 +765,12 @@ export class AiChatUI implements AiOutputAdapter {
 		this.sitePickerContainer.clear();
 
 		const isLocal = this.sitePickerTab === SITE_PICKER_TAB_LOCAL;
-		const localTab = isLocal ? theme.bold( __( '[Local]' ) ) : theme.fg( 'muted', __( 'Local' ) );
-		const remoteTab = isLocal
-			? theme.fg( 'muted', 'WordPress.com' )
-			: theme.bold( '[WordPress.com]' );
+		const tabs = SITE_PICKER_TABS.map( ( tab ) => {
+			const name = tab === SITE_PICKER_TAB_LOCAL ? __( 'Local' ) : HOSTS[ tab ].name;
+			return tab === this.sitePickerTab ? theme.bold( `[${ name }]` ) : theme.fg( 'muted', name );
+		} );
 		const pad = ' ';
-		const header = `${ pad }${ localTab }  ${ remoteTab }`;
+		const header = `${ pad }${ tabs.join( '  ' ) }`;
 
 		const searchLine = this.sitePickerQuery
 			? `${ pad }${ theme.fg( 'muted', __( 'Search:' ) ) } ${ this.sitePickerQuery }`
@@ -776,7 +790,12 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 
 		if ( ! isLocal && this.sitePickerRemoteLoading ) {
-			lines.push( theme.fg( 'muted', `${ pad }  ${ __( 'Loading WordPress.com sites…' ) }` ) );
+			const loading = sprintf(
+				/* translators: %s: a host, such as WordPress.com */
+				__( 'Loading %s sites…' ),
+				HOSTS[ this.sitePickerTab as HostId ].name
+			);
+			lines.push( theme.fg( 'muted', `${ pad }  ${ loading }` ) );
 		} else if ( this.sitePickerSelectList ) {
 			const termWidth = process.stdout.columns ?? 80;
 			lines.push(
@@ -799,9 +818,10 @@ export class AiChatUI implements AiOutputAdapter {
 		this.refreshPromptChrome();
 		const label = site.remote
 			? sprintf(
-					/* translators: %s: site name */
-					__( ' Selected site: %s (WordPress.com)' ),
-					site.name
+					/* translators: 1: site name, 2: the host the site is on, such as WordPress.com */
+					__( ' Selected site: %1$s (%2$s)' ),
+					site.name,
+					HOSTS[ site.remote.host as HostId ].name
 			  )
 			: sprintf(
 					/* translators: %s: site name */
@@ -851,7 +871,7 @@ export class AiChatUI implements AiOutputAdapter {
 			return false;
 		}
 		// Remote sites have no stable path, so never match them against local sites
-		if ( a.remote !== b.remote ) {
+		if ( Boolean( a.remote ) !== Boolean( b.remote ) ) {
 			return false;
 		}
 		return a.path === b.path || a.name.toLowerCase() === b.name.toLowerCase();
@@ -903,11 +923,9 @@ export class AiChatUI implements AiOutputAdapter {
 				}
 				break;
 			}
-			case 'wp_cli':
 			case 'preview_create':
 			case 'preview_list':
-			case 'preview_update':
-			case 'validate_blocks': {
+			case 'preview_update': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
 					await this.selectLocalSiteFromTool( nameOrPath );

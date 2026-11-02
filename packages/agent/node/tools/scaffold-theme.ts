@@ -1,593 +1,200 @@
-import { mkdir, readFile, stat, writeFile } from 'fs/promises';
+import { mkdir, readdir, readFile, stat, writeFile } from 'fs/promises';
 import path from 'path';
-import { downloadThemeFonts } from '@studio/common/lib/theme-fonts';
-import { parseDesignMd, ThemeJson, themeJsonFromDesign } from '@studio/design-md';
 import { Type } from 'typebox';
+import { drawDesign } from '@studio/agent/node/design-catalog';
+import { readThemeHeader } from '@studio/agent/node/themes';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
 import { runWpCli, textResult } from './utils';
-import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 
-async function activateTheme(
-	host: StudioAgentHost,
-	site: HostSite,
-	slug: string
-): Promise< { ok: boolean; message: string } > {
-	try {
-		if ( ! ( await host.sites.isRunning( site ) ) ) {
-			return {
-				ok: false,
-				message: `Site is not running. Start it (site_start) then run \`wp theme activate ${ slug }\`.`,
-			};
-		}
-		const stdout = await runWpCli( host, site, [ 'theme', 'activate', slug ] );
-		return { ok: true, message: stdout || `Activated theme '${ slug }'.` };
-	} catch ( error ) {
-		return {
-			ok: false,
-			message: error instanceof Error ? error.message : String( error ),
-		};
-	}
-}
+const SLUG = /^[a-z0-9][a-z0-9-]*$/;
 
-function deriveSlug( input: string ): string {
-	return input
-		.toLowerCase()
-		.replace( /[^a-z0-9]+/g, '-' )
-		.replace( /^-+|-+$/g, '' );
-}
+const exists = ( file: string ) =>
+	stat( file ).then(
+		() => true,
+		() => false
+	);
 
-async function pathExists( p: string ): Promise< boolean > {
-	try {
-		await stat( p );
-		return true;
-	} catch {
-		return false;
-	}
-}
+const HEADER = '<!-- wp:template-part {"slug":"header"} /-->';
+const FOOTER = '<!-- wp:template-part {"slug":"footer"} /-->';
+const main = ( blocks: string ) =>
+	`${ HEADER }\n\n<!-- wp:group {"tagName":"main","layout":{"type":"constrained"}} -->\n<main class="wp-block-group">${ blocks }</main>\n<!-- /wp:group -->\n\n${ FOOTER }\n`;
+const part = ( blocks: string ) =>
+	`<!-- wp:group {"layout":{"type":"constrained"}} -->\n<div class="wp-block-group">${ blocks }</div>\n<!-- /wp:group -->\n`;
 
-function renderStyleCss( name: string, slug: string ): string {
-	return `/*
-Theme Name: ${ name }
-Description: A custom block theme scaffolded by Studio Code.
-Requires at least: 6.7
-Tested up to: 6.9
-Requires PHP: 7.2
-Version: 0.1.0
-License: GNU General Public License v2 or later
-License URI: http://www.gnu.org/licenses/gpl-2.0.html
-Text Domain: ${ slug }
-Tags: full-site-editing, block-patterns, block-styles, wide-blocks, accessibility-ready, style-variations
-*/
-
-/* WordPress inserts a margin-block-start equal to the block gap (24px unless
-   theme.json sets styles.spacing.blockGap) between the template's top-level
-   sections (header part, main, footer part) — a gap that exists even when no
-   markup asks for it. Zero it so sections butt edge-to-edge and own their
-   vertical rhythm via padding; this does not affect block gaps inside nested
-   layouts. */
-.wp-site-blocks > * + * {
-	margin-block-start: 0;
-}
-
-/* With that gap gone, main carries its own vertical padding so templates this
-   theme does not author (WooCommerce shop, product, cart…) still clear the
-   header and footer. A descendant selector, not a child one: WooCommerce wraps
-   the single-product main in an extra group. Templates built from full-bleed
-   sections opt out with is-flush and let the sections own the rhythm. */
-.wp-site-blocks main {
-	padding-block: var(--wp--preset--spacing--60) var(--wp--preset--spacing--70);
-}
-.wp-site-blocks main.is-flush {
-	padding-block: 0;
-}
-`;
-}
-
-function renderChildStyleCss( name: string, slug: string, parentSlug: string ): string {
-	return `/*
-Theme Name: ${ name }
-Description: A child theme of ${ parentSlug }, scaffolded by Studio Code.
-Template: ${ parentSlug }
-Requires at least: 6.7
-Tested up to: 6.9
-Requires PHP: 7.2
-Version: 0.1.0
-License: GNU General Public License v2 or later
-License URI: http://www.gnu.org/licenses/gpl-2.0.html
-Text Domain: ${ slug }
-Tags: full-site-editing, block-patterns, block-styles, wide-blocks, accessibility-ready, style-variations
-*/
-`;
-}
-
-function baseThemeJson(): ThemeJson {
-	return {
-		$schema: 'https://schemas.wp.org/wp/6.7/theme.json',
-		version: 3,
-		settings: {
-			appearanceTools: true,
-			// Without these, WordPress omits the max-width declaration from the
-			// constrained-layout rules entirely, so `layout: constrained` stops
-			// constraining anything and every block runs the full viewport width.
-			layout: {
-				contentSize: '1000px',
-				wideSize: '1280px',
+/**
+ * A block theme's structure, and none of its look: WordPress takes a theme
+ * with templates/index.html as a block theme (WP_Theme::is_block_theme() in
+ * wp-includes/class-wp-theme.php) and falls back to index.html for any
+ * template the theme lacks (wp-includes/template.php); a page or post renders
+ * through core/post-content (wp-includes/blocks/post-content.php); and a part
+ * takes its header or footer area only from theme.json templateParts
+ * (_add_block_template_part_area_info() in wp-includes/block-template-utils.php).
+ */
+const blockThemeFiles = ( name: string, slug: string ): Record< string, string > => ( {
+	'style.css': `/*\nTheme Name: ${ name }\nDescription: The block theme of ${ name }.\nVersion: 1.0.0\nText Domain: ${ slug }\n*/\n`,
+	'theme.json': `${ JSON.stringify(
+		{
+			$schema: 'https://schemas.wp.org/trunk/theme.json',
+			version: 3,
+			settings: {
+				appearanceTools: true,
+				layout: { contentSize: '720px', wideSize: '1200px' },
+				// As Twenty Twenty-Three to Twenty-Five set it: the root padding goes
+				// inside each .has-global-padding container, and full-width blocks
+				// still reach the viewport's edges (get_root_layout_rules()).
+				useRootPaddingAwareAlignments: true,
 			},
-			// Puts the horizontal padding below on `.has-global-padding` (every
-			// constrained block) rather than on `.wp-site-blocks`, so section
-			// backgrounds still reach the viewport edge while their content does not.
-			useRootPaddingAwareAlignments: true,
-		},
-		styles: {
-			spacing: {
-				padding: {
-					top: '0px',
-					right: 'clamp(1.25rem, 5vw, 3rem)',
-					bottom: '0px',
-					left: 'clamp(1.25rem, 5vw, 3rem)',
+			// Twenty Twenty-Five's: content keeps clear of the viewport's sides.
+			styles: {
+				spacing: {
+					padding: { left: 'var:preset|spacing|50', right: 'var:preset|spacing|50' },
 				},
 			},
+			templateParts: [
+				{ name: 'header', title: 'Header', area: 'header' },
+				{ name: 'footer', title: 'Footer', area: 'footer' },
+			],
 		},
-		// `page.html` renders the post title as the page's h1. A designed page whose
-		// hero carries its own heading needs a way to opt out of that title without
-		// removing it from `page.html`, which every ordinary page still wants.
-		customTemplates: [
-			{
-				name: 'page-no-title',
-				title: 'Page (no title)',
-				postTypes: [ 'page' ],
-			},
-		],
-	};
-}
+		null,
+		'\t'
+	) }\n`,
+	'templates/index.html': main(
+		'<!-- wp:query {"query":{"inherit":true}} -->\n<div class="wp-block-query"><!-- wp:post-template -->\n<!-- wp:post-title {"isLink":true} /-->\n\n<!-- wp:post-excerpt /-->\n<!-- /wp:post-template -->\n\n<!-- wp:query-no-results -->\n<!-- wp:paragraph -->\n<p>Nothing was found.</p>\n<!-- /wp:paragraph -->\n<!-- /wp:query-no-results --></div>\n<!-- /wp:query -->'
+	),
+	'templates/page.html': main( '<!-- wp:post-content {"layout":{"type":"constrained"},"align":"full"} /-->' ),
+	'templates/single.html': main(
+		'<!-- wp:post-title {"level":1} /-->\n\n<!-- wp:post-date /-->\n\n<!-- wp:post-content {"layout":{"type":"constrained"},"align":"full"} /-->'
+	),
+	'parts/header.html': part( '<!-- wp:site-title {"level":0} /-->' ),
+	'parts/footer.html': part( '<!-- wp:site-title {"level":0} /-->' ),
+} );
 
-function childThemeJson(): ThemeJson {
-	return {
-		$schema: 'https://schemas.wp.org/wp/6.7/theme.json',
-		version: 3,
-	};
-}
-
-function renderThemeJson( data: ThemeJson ): string {
-	return JSON.stringify( data, null, '\t' ) + '\n';
-}
-
-function renderFunctionsPhp( name: string, slug: string ): string {
-	return `<?php
 /**
- * ${ name } theme functions.
- *
- * @package ${ slug }
+ * Whether the parent loads its stylesheet by the active theme's URI:
+ * get_stylesheet_uri() and get_stylesheet_directory_uri() name the child once
+ * it is active (wp-includes/theme.php), so the parent's style.css stops loading.
  */
-
-add_action( 'wp_enqueue_scripts', function () {
-	wp_enqueue_style(
-		'${ slug }-style',
-		get_parent_theme_file_uri( 'style.css' ),
-		array(),
-		wp_get_theme()->get( 'Version' )
-	);
-} );
-
-add_action( 'after_setup_theme', function () {
-	add_editor_style( 'style.css' );
-} );
-`;
+async function loadsStylesheetOfActiveTheme( parentDir: string ): Promise< boolean > {
+	const files = await readdir( parentDir, { recursive: true } ).catch( () => [] as string[] );
+	for ( const file of files.filter( ( name ) => name.endsWith( '.php' ) ) ) {
+		const php = await readFile( path.join( parentDir, file ), 'utf8' ).catch( () => '' );
+		if (
+			/\bget_stylesheet_uri\s*\(|\bget_stylesheet_directory_uri\s*\(\s*\)\s*\.\s*['"]\/style\.css/.test(
+				php
+			)
+		) {
+			return true;
+		}
+	}
+	return false;
 }
 
-function renderChildFunctionsPhp( name: string, slug: string, parentSlug: string ): string {
-	return `<?php
-/**
- * ${ name } child theme functions.
- *
- * @package ${ slug }
- */
-
-add_action( 'wp_enqueue_scripts', function () {
-	// Parents that enqueue their stylesheet via get_stylesheet_uri() would load
-	// the child's near-empty style.css instead — enqueue the parent's directly.
-	wp_enqueue_style(
-		'${ parentSlug }-parent-style',
-		get_template_directory_uri() . '/style.css',
-		array(),
-		wp_get_theme( get_template() )->get( 'Version' )
-	);
-	wp_enqueue_style(
-		'${ slug }-style',
-		get_stylesheet_directory_uri() . '/style.css',
-		array( '${ parentSlug }-parent-style' ),
-		wp_get_theme()->get( 'Version' )
-	);
-} );
-
-add_action( 'after_setup_theme', function () {
-	add_editor_style( 'style.css' );
-} );
-`;
+/** A child theme's files: its style.css naming the parent, and a functions.php when the parent needs one. */
+async function childThemeFiles(
+	sitePath: string,
+	themes: string,
+	parent: string,
+	name: string,
+	slug: string,
+	siteName: string
+): Promise< { files: Record< string, string >; parentName: string } > {
+	if ( ! SLUG.test( parent ) || ! ( await exists( path.join( themes, parent, 'style.css' ) ) ) ) {
+		throw new Error(
+			`No theme ${ parent } is installed on ${ siteName }: wp-content/themes/${ parent }/style.css is missing.`
+		);
+	}
+	const grandparent = await readThemeHeader( sitePath, parent, 'Template' );
+	if ( grandparent ) {
+		throw new Error(
+			`${ parent } is a child theme of ${ grandparent }, and WordPress allows two generations: a child of a child theme gets the theme_parent_invalid error and no parent (WP_Theme::__construct() in wp-includes/class-wp-theme.php). Make the child theme of ${ grandparent }, or change ${ parent } itself if it is the site's own.`
+		);
+	}
+	const parentName = ( await readThemeHeader( sitePath, parent, 'Theme Name' ) ) || parent;
+	const files: Record< string, string > = {
+		'style.css': `/*\nTheme Name: ${ name }\nTemplate: ${ parent }\nDescription: A child theme of ${ parentName }.\nVersion: 1.0.0\nText Domain: ${ slug }\n*/\n`,
+	};
+	if ( await loadsStylesheetOfActiveTheme( path.join( themes, parent ) ) ) {
+		files[
+			'functions.php'
+		] = `<?php\n/**\n * ${ parentName } loads its stylesheet by the active theme's URI, which names this theme;\n * load ${ parentName }'s here.\n */\nadd_action(\n\t'wp_enqueue_scripts',\n\tfunction () {\n\t\twp_enqueue_style( '${ parent }-parent-style', get_template_directory_uri() . '/style.css', array(), wp_get_theme( get_template() )->get( 'Version' ) );\n\t},\n\t1\n);\n`;
+	}
+	return { files, parentName };
 }
-
-const TEMPLATE_INDEX = `<!-- wp:template-part {"slug":"header","tagName":"header"} /-->
-
-<!-- wp:group {"tagName":"main"} -->
-<main class="wp-block-group">
-	<!-- wp:group {"layout":{"type":"constrained"}} -->
-	<div class="wp-block-group">
-		<!-- wp:query {"queryId":1,"query":{"perPage":10,"pages":0,"offset":0,"postType":"post","order":"desc","orderBy":"date","inherit":true}} -->
-		<div class="wp-block-query">
-			<!-- wp:post-template -->
-				<!-- wp:post-title {"isLink":true,"level":2} /-->
-				<!-- wp:post-date /-->
-				<!-- wp:post-excerpt /-->
-			<!-- /wp:post-template -->
-
-			<!-- wp:query-pagination -->
-				<!-- wp:query-pagination-previous /-->
-				<!-- wp:query-pagination-numbers /-->
-				<!-- wp:query-pagination-next /-->
-			<!-- /wp:query-pagination -->
-
-			<!-- wp:query-no-results -->
-				<!-- wp:paragraph -->
-				<p>No posts were found.</p>
-				<!-- /wp:paragraph -->
-			<!-- /wp:query-no-results -->
-		</div>
-		<!-- /wp:query -->
-	</div>
-	<!-- /wp:group -->
-</main>
-<!-- /wp:group -->
-
-<!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->
-`;
-
-const TEMPLATE_SINGLE = `<!-- wp:template-part {"slug":"header","tagName":"header"} /-->
-
-<!-- wp:group {"tagName":"main"} -->
-<main class="wp-block-group">
-	<!-- wp:group {"layout":{"type":"constrained"}} -->
-	<div class="wp-block-group">
-		<!-- wp:post-title {"level":1} /-->
-		<!-- wp:post-date /-->
-		<!-- wp:post-featured-image /-->
-	</div>
-	<!-- /wp:group -->
-
-	<!-- wp:post-content {"layout":{"type":"constrained"}} /-->
-
-	<!-- wp:group {"layout":{"type":"constrained"}} -->
-	<div class="wp-block-group">
-		<!-- wp:post-comments-form /-->
-	</div>
-	<!-- /wp:group -->
-</main>
-<!-- /wp:group -->
-
-<!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->
-`;
-
-const TEMPLATE_PAGE = `<!-- wp:template-part {"slug":"header","tagName":"header"} /-->
-
-<!-- wp:group {"tagName":"main"} -->
-<main class="wp-block-group">
-	<!-- wp:group {"layout":{"type":"constrained"}} -->
-	<div class="wp-block-group">
-		<!-- wp:post-title {"level":1} /-->
-	</div>
-	<!-- /wp:group -->
-
-	<!-- wp:post-content {"layout":{"type":"constrained"}} /-->
-</main>
-<!-- /wp:group -->
-
-<!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->
-`;
-
-const TEMPLATE_PAGE_NO_TITLE = `<!-- wp:template-part {"slug":"header","tagName":"header"} /-->
-
-<!-- wp:group {"tagName":"main","className":"is-flush"} -->
-<main class="wp-block-group is-flush">
-	<!-- wp:post-content {"layout":{"type":"constrained"}} /-->
-</main>
-<!-- /wp:group -->
-
-<!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->
-`;
-
-const TEMPLATE_ARCHIVE = `<!-- wp:template-part {"slug":"header","tagName":"header"} /-->
-
-<!-- wp:group {"tagName":"main"} -->
-<main class="wp-block-group">
-	<!-- wp:group {"layout":{"type":"constrained"}} -->
-	<div class="wp-block-group">
-		<!-- wp:query-title {"type":"archive"} /-->
-		<!-- wp:term-description /-->
-
-		<!-- wp:query {"queryId":1,"query":{"perPage":10,"pages":0,"offset":0,"postType":"post","order":"desc","orderBy":"date","inherit":true}} -->
-		<div class="wp-block-query">
-			<!-- wp:post-template -->
-				<!-- wp:post-title {"isLink":true,"level":2} /-->
-				<!-- wp:post-date /-->
-				<!-- wp:post-excerpt /-->
-			<!-- /wp:post-template -->
-
-			<!-- wp:query-pagination -->
-				<!-- wp:query-pagination-previous /-->
-				<!-- wp:query-pagination-numbers /-->
-				<!-- wp:query-pagination-next /-->
-			<!-- /wp:query-pagination -->
-		</div>
-		<!-- /wp:query -->
-	</div>
-	<!-- /wp:group -->
-</main>
-<!-- /wp:group -->
-
-<!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->
-`;
-
-const TEMPLATE_404 = `<!-- wp:template-part {"slug":"header","tagName":"header"} /-->
-
-<!-- wp:group {"tagName":"main"} -->
-<main class="wp-block-group">
-	<!-- wp:group {"layout":{"type":"constrained"}} -->
-	<div class="wp-block-group">
-		<!-- wp:heading {"level":1} -->
-		<h1 class="wp-block-heading">Page not found</h1>
-		<!-- /wp:heading -->
-
-		<!-- wp:paragraph -->
-		<p>The page you were looking for doesn't exist. Try a search instead.</p>
-		<!-- /wp:paragraph -->
-
-		<!-- wp:search {"label":"Search","showLabel":false,"buttonText":"Search"} /-->
-	</div>
-	<!-- /wp:group -->
-</main>
-<!-- /wp:group -->
-
-<!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->
-`;
-
-const PART_HEADER = `<!-- wp:group {"layout":{"type":"constrained"}} -->
-<div class="wp-block-group">
-	<!-- wp:group {"layout":{"type":"flex","justifyContent":"space-between"},"style":{"spacing":{"padding":{"top":"var:preset|spacing|40","bottom":"var:preset|spacing|40"}}}} -->
-	<div class="wp-block-group" style="padding-top:var(--wp--preset--spacing--40);padding-bottom:var(--wp--preset--spacing--40)">
-		<!-- wp:site-title {"level":0} /-->
-		<!-- wp:navigation /-->
-	</div>
-	<!-- /wp:group -->
-</div>
-<!-- /wp:group -->
-`;
-
-const PART_FOOTER = `<!-- wp:group {"layout":{"type":"constrained"},"style":{"spacing":{"padding":{"top":"var:preset|spacing|50","bottom":"var:preset|spacing|50"}}}} -->
-<div class="wp-block-group" style="padding-top:var(--wp--preset--spacing--50);padding-bottom:var(--wp--preset--spacing--50)">
-	<!-- wp:group {"layout":{"type":"flex","justifyContent":"center"}} -->
-	<div class="wp-block-group">
-		<!-- wp:paragraph -->
-		<p>©</p>
-		<!-- /wp:paragraph -->
-		<!-- wp:site-title {"isLink":false,"level":0} /-->
-	</div>
-	<!-- /wp:group -->
-</div>
-<!-- /wp:group -->
-`;
 
 export const scaffoldThemeTool = defineTool(
 	'scaffold_theme',
-	'Scaffolds a minimal block theme into the given site at wp-content/themes/<slug>/ and activates it by default. ' +
-		'Drops in style.css (theme header, a reset zeroing the default block gap between top-level template sections, and default vertical padding on main that full-bleed templates opt out of with the is-flush class), ' +
-		'theme.json (appearanceTools, a content/wide layout width, and root-padding-aware horizontal padding so content never touches the viewport edge), ' +
-		'functions.php (frontend + editor style enqueue), default templates (index, single, page, archive, 404), ' +
-		'a registered page-no-title template to assign to designed pages whose content carries its own heading, ' +
-		'header/footer parts, and empty assets/fonts and patterns directories. ' +
-		'The result holds the content of every file it wrote, so edit them without reading them first. ' +
-		'When the site has a DESIGN.md, theme.json is filled from its tokens — palette, font families and sizes, spacing, rounded, and root, heading, link and button styles under the same names — and its Google Fonts are downloaded to assets/fonts and declared in theme.json. ' +
-		'Use when the user wants to start a new custom theme — the agent fills in design-specific content afterwards. ' +
-		'Pass parentTheme to scaffold a child theme of an installed theme instead — required when customizing a third-party theme, whose files must never be edited directly. ' +
-		'Block themes only; does not support classic (PHP template) themes. ' +
-		'Fails if the target theme directory already exists. ' +
-		'When the site is not running or activation fails, the scaffold still succeeds and the result reports the manual activation command.',
+	'Makes a theme on a local site and activates it. ' +
+		'Without a parent, a new block theme with its structure and none of its look: theme.json declaring the header and footer parts, templates/index.html, page.html and single.html around core/post-content, and parts/header.html and footer.html. ' +
+		"With a parent, a child theme of that installed theme, so the site's own changes to its look, templates and code live where its updates leave them: style.css naming the parent as its Template, and, when the parent loads its stylesheet by the active theme's URI, a functions.php that loads the parent's.",
 	{
-		nameOrPath: Type.String( {
-			description: 'The site name or filesystem path of the site to scaffold the theme into.',
-		} ),
-		name: Type.String( {
-			description:
-				'Display name of the theme (e.g. "Acme Studio"). Used in style.css Theme Name header.',
-		} ),
-		slug: Type.Optional(
-			Type.String( {
-				description:
-					'Optional theme slug (lowercase letters, digits, dashes). Used as the directory name and text domain. Derived from the name when omitted.',
-			} )
-		),
+		nameOrPath: Type.String( { description: 'The site name or file system path to the site' } ),
+		name: Type.String( { description: 'The theme\'s name, e.g. "Fern & Field".' } ),
 		parentTheme: Type.Optional(
 			Type.String( {
-				description:
-					"Slug of an installed theme to use as the parent (e.g. 'ollie'). When set, scaffolds a CHILD theme instead of a blank theme — templates, parts, patterns, theme.json settings, and styles inherit from the parent. Use to customize an installed third-party theme instead of editing its files (a theme update would wipe direct edits). The parent must already exist under wp-content/themes/.",
+				description: "For a child theme, the parent theme's folder name, e.g. 'ollie'.",
 			} )
 		),
-		activate: Type.Optional(
-			Type.Boolean( {
-				description:
-					'Whether to activate the theme after scaffolding via WP-CLI (`theme activate <slug>`). Defaults to true. Set to false to leave the theme inactive.',
+		slug: Type.Optional(
+			Type.String( {
+				description: "The theme's folder name; from the name when not given.",
 			} )
 		),
 	},
 	async ( args, context ) => {
-		try {
-			const site = await context.host.sites.resolve( args.nameOrPath );
-
-			const trimmedName = args.name.trim();
-			if ( ! trimmedName ) {
-				throw new Error( 'Theme name must not be empty.' );
-			}
-
-			const slug = ( args.slug ?? deriveSlug( trimmedName ) ).trim();
-			if ( ! slug || ! /^[a-z0-9][a-z0-9-]*$/.test( slug ) ) {
-				throw new Error(
-					'Theme slug must contain only lowercase letters, digits and dashes, and start with a letter or digit.'
-				);
-			}
-
-			const themesDir = path.join( site.path, 'wp-content', 'themes' );
-			if ( ! ( await pathExists( themesDir ) ) ) {
-				throw new Error( `wp-content/themes directory not found in site: ${ themesDir }` );
-			}
-
-			// An empty parentTheme means "no parent" — models tend to send "" for
-			// optional fields, and rejecting it as a bad slug nudges them into naming
-			// the active theme as parent when they wanted a blank scaffold.
-			const parentSlug = args.parentTheme?.trim() || undefined;
-			if ( parentSlug !== undefined ) {
-				if ( ! parentSlug || ! /^[a-z0-9][a-z0-9-]*$/.test( parentSlug ) ) {
-					throw new Error(
-						'Parent theme slug must contain only lowercase letters, digits and dashes, and start with a letter or digit.'
-					);
-				}
-				if ( parentSlug === slug ) {
-					throw new Error(
-						'parentTheme must be different from the child theme slug. Pick a distinct slug for the child theme.'
-					);
-				}
-				const parentStyleCssPath = path.join( themesDir, parentSlug, 'style.css' );
-				if ( ! ( await pathExists( parentStyleCssPath ) ) ) {
-					throw new Error(
-						`Parent theme '${ parentSlug }' is not installed at wp-content/themes/${ parentSlug }/.`
-					);
-				}
-				const grandparentMatch = ( await readFile( parentStyleCssPath, 'utf8' ) ).match(
-					/^[ \t/*#@]*Template:[ \t]*(\S+)/im
-				);
-				if ( grandparentMatch ) {
-					throw new Error(
-						`'${ parentSlug }' is itself a child theme of '${ grandparentMatch[ 1 ] }' — WordPress does not support grandchild themes. Use parentTheme: '${ grandparentMatch[ 1 ] }' instead.`
-					);
-				}
-			}
-
-			const themeDir = path.join( themesDir, slug );
-			if ( await pathExists( themeDir ) ) {
-				throw new Error(
-					`A theme already exists at wp-content/themes/${ slug }. Choose a different slug or remove the existing directory first.`
-				);
-			}
-
-			const baseJson = parentSlug !== undefined ? childThemeJson() : baseThemeJson();
-			const designPath = path.join( site.path, 'DESIGN.md' );
-			const tokens = ( await pathExists( designPath ) )
-				? parseDesignMd( await readFile( designPath, 'utf8' ) )
-				: undefined;
-			let design = tokens && themeJsonFromDesign( tokens, baseJson );
-			let fontsError: string | undefined;
-			if ( tokens && design?.fontsUrl ) {
-				try {
-					design = themeJsonFromDesign(
-						tokens,
-						baseJson,
-						await downloadThemeFonts( design.fontsUrl, themeDir )
-					);
-				} catch ( error ) {
-					fontsError = error instanceof Error ? error.message : String( error );
-				}
-			}
-			const themeJson = design?.themeJson ?? baseJson;
-
-			let files: Array< [ string, string ] >;
-			if ( parentSlug !== undefined ) {
-				// A block child theme inherits templates, parts, patterns, theme.json
-				// settings, and styles from the parent by path resolution — the child
-				// only needs the three root files until the agent adds overrides.
-				await mkdir( themeDir, { recursive: true } );
-				files = [
-					[ 'style.css', renderChildStyleCss( trimmedName, slug, parentSlug ) ],
-					[ 'theme.json', renderThemeJson( themeJson ) ],
-					[ 'functions.php', renderChildFunctionsPhp( trimmedName, slug, parentSlug ) ],
-				];
-			} else {
-				await mkdir( path.join( themeDir, 'templates' ), { recursive: true } );
-				await mkdir( path.join( themeDir, 'parts' ), { recursive: true } );
-				await mkdir( path.join( themeDir, 'assets', 'fonts' ), { recursive: true } );
-				await mkdir( path.join( themeDir, 'patterns' ), { recursive: true } );
-
-				files = [
-					[ 'style.css', renderStyleCss( trimmedName, slug ) ],
-					[ 'theme.json', renderThemeJson( themeJson ) ],
-					[ 'functions.php', renderFunctionsPhp( trimmedName, slug ) ],
-					[ path.join( 'templates', 'index.html' ), TEMPLATE_INDEX ],
-					[ path.join( 'templates', 'single.html' ), TEMPLATE_SINGLE ],
-					[ path.join( 'templates', 'page.html' ), TEMPLATE_PAGE ],
-					[ path.join( 'templates', 'page-no-title.html' ), TEMPLATE_PAGE_NO_TITLE ],
-					[ path.join( 'templates', 'archive.html' ), TEMPLATE_ARCHIVE ],
-					[ path.join( 'templates', '404.html' ), TEMPLATE_404 ],
-					[ path.join( 'parts', 'header.html' ), PART_HEADER ],
-					[ path.join( 'parts', 'footer.html' ), PART_FOOTER ],
-				];
-			}
-
-			for ( const [ relPath, content ] of files ) {
-				await writeFile( path.join( themeDir, relPath ), content, 'utf8' );
-			}
-
-			const shouldActivate = args.activate ?? true;
-			const activation = shouldActivate ? await activateTheme( context.host, site, slug ) : null;
-
-			const summaryLines =
-				parentSlug !== undefined
-					? [
-							`Child theme '${ trimmedName }' of '${ parentSlug }' scaffolded at wp-content/themes/${ slug }/.`,
-							`Templates, parts, patterns, theme.json settings, and styles inherit from '${ parentSlug }'.`,
-							'Override by creating files at the same relative path inside the child theme; put CSS and theme.json changes in the child, never in the parent.',
-					  ]
-					: [ `Block theme '${ trimmedName }' scaffolded at wp-content/themes/${ slug }/.` ];
-
-			if ( design ) {
-				summaryLines.push(
-					`theme.json carries the DESIGN.md tokens under the same names (${ design.summary })${
-						design.fontsUrl && ! fontsError
-							? ', with its fonts downloaded to assets/fonts and declared as fontFace'
-							: ''
-					}. Edit it only for what DESIGN.md does not cover.`
-				);
-			}
-			if ( fontsError ) {
-				summaryLines.push(
-					`Downloading the fonts failed (${ fontsError }): theme.json declares the font families without font files.`
-				);
-			}
-
-			if ( ! activation ) {
-				summaryLines.push( `Activate with: wp theme activate ${ slug }` );
-			} else if ( activation.ok ) {
-				summaryLines.push( `Activated: ${ activation.message }` );
-			} else {
-				summaryLines.push(
-					`Activation skipped: ${ activation.message }`,
-					`Activate manually with: wp theme activate ${ slug }`
-				);
-			}
-
-			summaryLines.push(
-				'',
-				'The files it wrote, in full: Edit or overwrite them without reading them first.',
-				...files.map(
-					( [ relPath, content ] ) => `\n<file path="${ relPath }">\n${ content }</file>`
-				)
-			);
-
-			return textResult( summaryLines.join( '\n' ) );
-		} catch ( error ) {
+		const site = await context.host.sites.resolve( args.nameOrPath );
+		const themes = path.join( site.path, 'wp-content/themes' );
+		const name = args.name.trim();
+		const slug = (
+			args.slug?.trim() ||
+			name
+				.toLowerCase()
+				.replace( /[^a-z0-9]+/g, '-' )
+				.replace( /^-+|-+$/g, '' )
+		).trim();
+		if ( ! name || ! SLUG.test( slug ) ) {
 			throw new Error(
-				`Failed to scaffold theme: ${ error instanceof Error ? error.message : String( error ) }`
+				'The theme needs a name, and a slug of lowercase letters, digits and dashes.'
 			);
 		}
+		const parent = args.parentTheme?.trim();
+		const child = parent
+			? await childThemeFiles( site.path, themes, parent, name, slug, site.name )
+			: undefined;
+		const dir = path.join( themes, slug );
+		if ( await exists( dir ) ) {
+			throw new Error( `wp-content/themes/${ slug } already exists. Choose another slug.` );
+		}
+		const files = child?.files ?? blockThemeFiles( name, slug );
+		for ( const [ file, content ] of Object.entries( files ) ) {
+			await mkdir( path.dirname( path.join( dir, file ) ), { recursive: true } );
+			await writeFile( path.join( dir, file ), content );
+		}
+		await runWpCli( context.host, site, [ 'theme', 'activate', slug ] );
+		const written = Object.keys( files ).join( ', ' );
+		// The files as written, which the agent edits next rather than reads.
+		const contents = Object.entries( files ).map(
+			( [ file, content ] ) =>
+				`wp-content/themes/${ slug }/${ file }:\n~~~\n${ content.trimEnd() }\n~~~`
+		);
+		const { look, layout } = drawDesign();
+		const design = child
+			? []
+			: [
+					'This is the design you chose for the site: build this look and layout whatever the site is about, and present them to the user as your choices for them. A look or layout the user describes in their own words takes their place.',
+					`Look: ${ look.name }. ${ look.description }\n${ look.details }`,
+					`Layout: ${ layout.name }. ${ layout.description }\n${ layout.details }`,
+			  ];
+		return textResult(
+			[
+				child
+					? `Made ${ name }, a child theme of ${ child.parentName }, at wp-content/themes/${ slug }/ (${ written }), and activated it on ${ site.name }. WordPress reads each file it lacks from ${ parent } and merges its theme.json over ${ parent }'s (WP_Theme_JSON_Resolver::get_theme_data() in wp-includes/class-wp-theme-json-resolver.php): add only what changes. A \`file:\` path in its theme.json resolves to its own file, or else the parent's (get_theme_file_uri()).`
+					: `Made ${ name }, a block theme, at wp-content/themes/${ slug }/ (${ written }), and activated it on ${ site.name }. It has a structure and no look yet: its palette, fonts and styles go in theme.json, its header and footer in its parts. WordPress renders any template it lacks, such as archive or 404, with templates/index.html (wp-includes/template.php).`,
+				// What selfHostFonts() in site-file-guards.ts does after each theme.json write.
+				'Studio downloads the files of each Google Fonts family theme.json declares into assets/fonts and declares them as its fontFace.',
+				...design,
+				...contents,
+			].join( '\n\n' )
+		);
 	},
-	{
-		annotations: LOCAL_CHANGE,
-		promptSnippet:
-			"Scaffold a minimal block theme (style.css, theme.json, functions.php with frontend + editor enqueue, default templates and parts, empty assets/fonts and patterns dirs) into a site, activate it, and return every file's content; when the site has a DESIGN.md, theme.json is filled from its tokens under the same names and its Google Fonts are downloaded into the theme. Use as the first step when starting a new custom theme; the agent fills design-specific content afterwards. Pass parentTheme with an installed theme's slug to scaffold a child theme instead of editing that theme's files. Block themes only.",
-	}
+	{ annotations: LOCAL_CHANGE }
 );

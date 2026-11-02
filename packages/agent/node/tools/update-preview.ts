@@ -35,8 +35,6 @@ export const updatePreviewTool = defineTool(
 		}, 'Failed to update preview site' );
 	},
 	{
-		promptSnippet:
-			'Update an existing preview site from a local site; this can take a few minutes, so tell the user to wait',
 		annotations: REMOTE_OVERWRITE,
 	}
 );

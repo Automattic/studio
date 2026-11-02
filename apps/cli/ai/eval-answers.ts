@@ -1,0 +1,45 @@
+import { z } from 'zod';
+import type { AskUserHandler } from '@studio/agent/node/types';
+
+// A case's scripted user. Each answer is a reply the user gives to any
+// question it fits: one whose text matches `when` (a regex, case-insensitive;
+// every question without it), and that takes the reply: a typed answer where
+// the question allows one, otherwise one of its option labels. The first
+// answer that fits is given, so answers do not depend on the order the agent
+// asks in; a question none fits is dismissed, as a user does who closes the
+// picker, and is left out of the answers.
+export const evalAnswersSchema = z.array(
+	z.object( { label: z.string(), when: z.string().optional() } )
+);
+
+export type EvalAnswers = z.infer< typeof evalAnswersSchema >;
+
+// The answer recorded for a question the scripted user dismissed.
+export const DISMISSED = '(dismissed)';
+
+export interface AskedQuestion {
+	question: string;
+	options: string[];
+	answer: string;
+}
+
+export function createScriptedUser( answers: EvalAnswers ): {
+	onAskUser: AskUserHandler;
+	questions: AskedQuestion[];
+} {
+	const questions: AskedQuestion[] = [];
+	const onAskUser: AskUserHandler = async ( asked ) =>
+		Object.fromEntries(
+			asked.flatMap( ( { question, options, allowFreeForm } ) => {
+				const labels = options.map( ( option ) => option.label );
+				const answer = answers.find(
+					( { label, when } ) =>
+						( ! when || new RegExp( when, 'i' ).test( question ) ) &&
+						( allowFreeForm || labels.includes( label ) )
+				)?.label;
+				questions.push( { question, options: labels, answer: answer ?? DISMISSED } );
+				return answer === undefined ? [] : [ [ question, answer ] ];
+			} )
+		);
+	return { onAskUser, questions };
+}

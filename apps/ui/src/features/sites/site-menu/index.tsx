@@ -7,9 +7,9 @@ import { displayShortcut } from '@wordpress/keycodes';
 import { useRef, useState } from 'react';
 import { useSessionsBusy } from '@/data/agent-runs/use-agent-run';
 import { useConnector } from '@/data/core';
+import { useGlobalStyles } from '@/data/queries/use-global-styles';
 import { useSessions } from '@/data/queries/use-sessions';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
-import { useSiteDesign } from '@/data/queries/use-site-design';
 import { useIsSiteBusy, useSites, useStopSite } from '@/data/queries/use-sites';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { useSessionPreviewUI } from '@/data/use-session-ui';
@@ -195,7 +195,7 @@ export function SiteMenuItems( {
 	current?: boolean;
 } ) {
 	const { site, busy, running, othersRunning } = actions;
-	const siteDesign = useSiteDesign( site );
+	const globalStyles = useGlobalStyles( site );
 	const destinations = useOpenInDestinations( site );
 	const manage = Object.fromEntries(
 		useSiteManagementActions( site, {
@@ -291,7 +291,7 @@ export function SiteMenuItems( {
 						<MailIcon />
 						{ __( 'Email' ) }
 					</Menu.Item>
-					{ siteDesign.data ? (
+					{ globalStyles.data ? (
 						<Menu.Item onClick={ actions.openDesignSystem }>
 							<AppearanceIcon />
 							{ __( 'Design system' ) }

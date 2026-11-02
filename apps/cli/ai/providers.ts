@@ -1,21 +1,28 @@
 import { getWpcomAiGatewayBaseUrl } from '@studio/agent/node';
-import { persistAnthropicApiKey, readAnthropicApiKey } from '@studio/agent/node/settings-store';
-import { DEFAULT_MODEL, type AiModelId } from '@studio/agent/protocol/models';
+import {
+	persistAnthropicApiKey,
+	persistCustomEndpoint,
+	readAnthropicApiKey,
+	readCustomEndpoint,
+} from '@studio/agent/node/settings-store';
+import { DEFAULT_MODEL, toCustomModelId, type AiModelId } from '@studio/agent/protocol/models';
 import {
 	AI_PROVIDER_IDS,
 	DEFAULT_AI_PROVIDER,
 	getAiProviderModels,
+	providerServesModel,
 	type AiProviderId,
 } from '@studio/agent/protocol/providers';
 import { validateAnthropicApiKey } from '@studio/common/lib/anthropic-key';
-import { readAuthToken } from '@studio/common/lib/shared-config';
-import { __ } from '@wordpress/i18n';
-import { password } from 'cli/lib/prompts';
+import { readAuthToken, type CustomEndpoint } from '@studio/common/lib/shared-config';
+import { __, sprintf } from '@wordpress/i18n';
+import { confirm, input, password } from 'cli/lib/prompts';
 import { LoggerError } from 'cli/logger';
 
 export const AI_PROVIDERS: Record< AiProviderId, string > = {
 	wpcom: 'WordPress.com',
 	'anthropic-api-key': 'Anthropic · API key',
+	'custom-endpoint': 'Custom endpoint',
 };
 
 export type { AiProviderId };
@@ -37,11 +44,10 @@ export interface ResolveAiEnvironmentOptions {
 export interface AiProviderDefinition {
 	id: AiProviderId;
 	autoFallbackWhenUnavailable: boolean;
-	// Derived from the provider's model families (see
-	// `@studio/agent/protocol/providers`), kept on the definition so callers don't
-	// have to filter AI_MODELS themselves.
-	readonly availableModels: readonly AiModelId[];
-	readonly defaultModel: AiModelId;
+	// The models it offers, the first being its default: those of its model
+	// families (see `@studio/agent/protocol/providers`), or for the custom endpoint
+	// the ones its connection names.
+	getModels(): Promise< readonly AiModelId[] >;
 	supportsModel( model: AiModelId ): boolean;
 	isVisible: () => Promise< boolean >;
 	isReady: () => Promise< boolean >;
@@ -49,20 +55,97 @@ export interface AiProviderDefinition {
 	resolveEnv: ( options?: ResolveAiEnvironmentOptions ) => Promise< Record< string, string > >;
 }
 
-// Fills in `availableModels`, `defaultModel`, and `supportsModel` from the
-// provider id's model families.
+// Fills in `getModels` (unless given) and `supportsModel` from the provider
+// id's model families.
 function defineProvider(
-	partial: Omit< AiProviderDefinition, 'availableModels' | 'defaultModel' | 'supportsModel' >
+	partial: Omit< AiProviderDefinition, 'getModels' | 'supportsModel' > &
+		Partial< Pick< AiProviderDefinition, 'getModels' > >
 ): AiProviderDefinition {
-	const availableModels = getAiProviderModels( partial.id ).map( ( model ) => model.id );
+	const familyModels = getAiProviderModels( partial.id ).map( ( model ) => model.id );
 	return {
+		getModels: async () => familyModels,
 		...partial,
-		availableModels,
-		defaultModel: availableModels[ 0 ] ?? DEFAULT_MODEL,
 		supportsModel( model ) {
-			return availableModels.includes( model );
+			return providerServesModel( partial.id, model );
 		},
 	};
+}
+
+/** The model a provider falls back to: the first it offers. */
+export async function getProviderDefaultModel(
+	definition: AiProviderDefinition
+): Promise< AiModelId > {
+	return ( await definition.getModels() )[ 0 ] ?? DEFAULT_MODEL;
+}
+
+// The APIs a custom endpoint may speak, in the order the connect check tries
+// them: Chat Completions first, as nearly every gateway and local server takes
+// it. Each is given the URL as the user entered it, except that Anthropic
+// Messages appends `/v1/messages` itself.
+const CUSTOM_ENDPOINT_APIS: ReadonlyArray< {
+	api: CustomEndpoint[ 'api' ];
+	baseUrl: ( url: string ) => string;
+} > = [
+	{ api: 'openai-completions', baseUrl: ( url ) => url },
+	{ api: 'anthropic-messages', baseUrl: ( url ) => url.replace( /\/v1$/, '' ) },
+];
+
+// Asks where the endpoint is, its key, its models and whether they take
+// images, then sends the first model a short request the way a turn does, in
+// each API until one answers. Only a connection that answers is saved, with
+// the API it answered in.
+async function connectCustomEndpoint(): Promise< void > {
+	const url = (
+		await input( {
+			message: __( 'Endpoint URL (e.g. https://openrouter.ai/api/v1):' ),
+			validate: ( value ) => URL.canParse( value.trim() ) || __( 'Enter a full URL.' ),
+		} )
+	)
+		.trim()
+		.replace( /\/+$/, '' );
+	const apiKey = (
+		await password( {
+			message: __( 'API key (will be saved for future use):' ),
+			mask: '*',
+			validate: ( value ) => Boolean( value.trim() ) || __( 'API key is required' ),
+		} )
+	).trim();
+	const models = (
+		await input( {
+			message: __( 'Model names, separated by commas (the first is the default):' ),
+			validate: ( value ) => Boolean( value.trim() ) || __( 'Name at least one model.' ),
+		} )
+	)
+		.split( ',' )
+		.map( ( name ) => name.trim() )
+		.filter( Boolean );
+	const images = await confirm( { message: __( 'Do these models take images?' ), default: true } );
+
+	const { checkCustomEndpoint } = await import( '@studio/agent/node/runtime' );
+	const failures: string[] = [];
+	for ( const candidate of CUSTOM_ENDPOINT_APIS ) {
+		const endpoint: CustomEndpoint = {
+			baseUrl: candidate.baseUrl( url ),
+			api: candidate.api,
+			apiKey,
+			models,
+			images,
+		};
+		const failure = await checkCustomEndpoint( endpoint, toCustomModelId( models[ 0 ] ) );
+		if ( ! failure ) {
+			await persistCustomEndpoint( endpoint );
+			return;
+		}
+		failures.push( failure );
+	}
+	throw new LoggerError(
+		sprintf(
+			/* translators: 1: model name, 2: the endpoint's errors, one per API tried */
+			__( 'The endpoint did not answer for %1$s, so it was not saved: %2$s' ),
+			models[ 0 ],
+			failures.join( ' / ' )
+		)
+	);
 }
 
 async function resolveAnthropicApiKey( options?: {
@@ -126,6 +209,7 @@ function createBaseEnvironment(): Record< string, string > {
 	delete env.STUDIO_WPCOM_API_KEY;
 	delete env.STUDIO_WPCOM_BASE_URL;
 	delete env.STUDIO_WPCOM_DEFAULT_HEADERS;
+	delete env.STUDIO_CUSTOM_ENDPOINT;
 
 	return env;
 }
@@ -193,6 +277,43 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 
 			const env = createBaseEnvironment();
 			env.ANTHROPIC_API_KEY = apiKey;
+			return env;
+		},
+	} ),
+	'custom-endpoint': defineProvider( {
+		id: 'custom-endpoint',
+		autoFallbackWhenUnavailable: false,
+		isVisible: async () => true,
+		isReady: async () => Boolean( await readCustomEndpoint() ),
+		getModels: async () => ( await readCustomEndpoint() )?.models.map( toCustomModelId ) ?? [],
+		// A connected endpoint is kept unless the user asks to connect another.
+		prepare: async ( options ) => {
+			const saved = await readCustomEndpoint();
+			if (
+				saved &&
+				! options?.force &&
+				( await confirm( {
+					message: sprintf(
+						/* translators: %s: the endpoint's URL */
+						__( 'Keep the endpoint at %s?' ),
+						saved.baseUrl
+					),
+					default: true,
+				} ) )
+			) {
+				return;
+			}
+			await connectCustomEndpoint();
+		},
+		resolveEnv: async () => {
+			const endpoint = await readCustomEndpoint();
+			if ( ! endpoint ) {
+				throw new LoggerError(
+					__( 'No custom endpoint is connected. Connect one with /provider.' )
+				);
+			}
+			const env = createBaseEnvironment();
+			env.STUDIO_CUSTOM_ENDPOINT = JSON.stringify( endpoint );
 			return env;
 		},
 	} ),

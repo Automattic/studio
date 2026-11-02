@@ -2,6 +2,7 @@
 name: rank-me-up
 description: Run an on-page SEO audit on a WordPress site and get actionable recommendations to improve search visibility.
 user-invokable: true
+tools: rank_me_up, need_for_speed
 ---
 
 # SEO Audit
@@ -21,13 +22,7 @@ Run an on-page SEO audit on a WordPress site to surface missing meta tags, broke
 
 The audit only sees rendered HTML — it can't tell *why* a tag is missing. Before recommending an install, find out what's already wired up. Skipping this step leads to dumb suggestions like "install Jetpack" when Jetpack is already active and just needs a module enabled.
 
-**Step 1 — list active plugins:**
-
-```
-wp_cli: plugin list --status=active --field=name
-```
-
-Look for known SEO providers:
+Look for known SEO providers among the site's active plugins (a site fact):
 
 | Slug | Plugin |
 |------|--------|
@@ -38,18 +33,14 @@ Look for known SEO providers:
 | `wp-seopress` | SEOPress |
 | `the-seo-framework` | The SEO Framework |
 
-**Step 2 — if Jetpack is active, list its enabled modules** (Jetpack is modular; SEO features live in the `seo-tools` module and don't run unless that specific module is on):
-
-```
-wp_cli: jetpack module list
-```
+**If Jetpack is active, check its active modules** in the Active site section (Jetpack is modular; SEO features live in the `seo-tools` module and don't run unless that specific module is on).
 
 Then map the audit findings:
 
 - **Jetpack active + `seo-tools` module active** → don't install anything. Tell the user the issue is in *configuration* (e.g. empty default title format, missing per-post meta description). Point them at **Jetpack → Settings → Traffic → SEO Tools** in `wp-admin`.
 - **Jetpack active + `seo-tools` module inactive** → enable the module instead of installing a new plugin:
   ```
-  wp_cli: jetpack module activate seo-tools
+  wp jetpack module activate seo-tools
   ```
   Then re-run `rank_me_up` to confirm the tags appear.
 - **Another SEO plugin active** → don't recommend installing Jetpack on top of it (two SEO plugins fight over the same `<head>` tags). Surface the *settings page* for the active plugin instead — e.g. for Yoast: **SEO → Search Appearance**; for Rank Math: **Rank Math → Titles & Meta**.
@@ -58,7 +49,7 @@ Then map the audit findings:
 **Also worth checking for non-plugin fixes:**
 
 ```
-wp_cli: option get blog_public
+wp option get blog_public
 ```
 
 If it returns `0`, the site has "Discourage search engines" enabled — no plugin can override that. Fix with `wp option update blog_public 1`.
@@ -104,7 +95,7 @@ Missing OG tags don't hurt rankings directly but kill click-through from social 
 ### Resources
 
 - **`robotsTxtFound: false`**: WordPress generates a virtual one — usually fine, but a real file gives more control.
-- **`robotsTxtBlocksAll: true`**: CRITICAL — `Disallow: /` blocks all crawlers. Often a forgotten "Discourage search engines" setting in WP Admin → Reading.
+- **`robotsTxtBlocksAll: true`**: the most serious finding — `Disallow: /` blocks all crawlers. Often a forgotten "Discourage search engines" setting in WP Admin → Reading.
 - **`sitemapFound: false`**: Install Jetpack and enable its SEO Tools module, or enable WP core's sitemap (`/wp-sitemap.xml`). See "Recommended SEO Plugin" below.
 
 ### Links
@@ -119,8 +110,8 @@ Missing OG tags don't hurt rankings directly but kill click-through from social 
 **Install, activate, and enable the SEO module:**
 
 ```
-wp_cli: plugin install jetpack --activate
-wp_cli: jetpack module activate seo-tools
+wp plugin install jetpack --activate
+wp jetpack module activate seo-tools
 ```
 
 **What the `seo-tools` module covers:**
@@ -141,7 +132,7 @@ Based on the metrics, suggest specific actions. Route each fix through whatever 
 
 - **Missing title/description**:
   - *Jetpack active + `seo-tools` on*: user needs to *configure* title formats at **Jetpack → Settings → Traffic → SEO Tools** and fill meta descriptions per-post (paid plan required for per-post).
-  - *Jetpack active + `seo-tools` off*: `wp_cli: jetpack module activate seo-tools`.
+  - *Jetpack active + `seo-tools` off*: `wp jetpack module activate seo-tools`.
   - *Another SEO plugin active*: point to its title/meta settings page — don't install Jetpack on top.
   - *Nothing active*: install Jetpack (see "Recommended SEO Plugin" above).
   - *Plugins refused*: set the title via theme `wp_title()` and description via a `<meta>` tag in `header.php` / a block theme template part.
@@ -154,7 +145,7 @@ Based on the metrics, suggest specific actions. Route each fix through whatever 
   - *Another SEO plugin active*: enable its social-meta feature (Yoast: **SEO → Social**; Rank Math: **Rank Math → Titles & Meta → Social Meta**).
   - *Nothing active*: install Jetpack, or hook into `wp_head` to emit tags manually.
 - **No JSON-LD**: WordPress core does not emit JSON-LD. Jetpack adds basic `WebSite` / `SearchAction` markup when the `seo-tools` module is on. For richer schemas (Product, FAQ, Article, BreadcrumbList) use a dedicated schema plugin (e.g. Yoast/Rank Math handle these) or custom `wp_head` output.
-- **`robotsTxtBlocksAll: true`**: Run `wp_cli: option update blog_public 1` to undo the "Discourage search engines" setting. No plugin can override this.
+- **`robotsTxtBlocksAll: true`**: Run `wp option update blog_public 1` to undo the "Discourage search engines" setting. No plugin can override this.
 - **Missing sitemap**: Verify `blog_public` is `1` first. Then check `/wp-sitemap.xml` (WP core since 5.5) or `/sitemap.xml` (Jetpack). If Jetpack is active but the sitemap is missing, enable the `seo-tools` module. If another SEO plugin is active, it may have disabled core sitemaps in favor of its own — check its sitemap settings.
 - **Missing viewport meta**: Theme bug — add `<meta name="viewport" content="width=device-width, initial-scale=1">` in the `<head>`. Not a plugin concern.
 - **Missing `htmlLang`**: Theme should output `<html <?php language_attributes(); ?>>` (block themes do this automatically; classic themes need it added). Not a plugin concern.

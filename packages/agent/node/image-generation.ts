@@ -105,6 +105,29 @@ export interface ImagePromptSpec {
 export interface ImagePromptContext {
 	siteContext?: string;
 	imageGrade?: string;
+	/** The site's name, which the prompt leaves out: the model paints a name it is given in as a wordmark. */
+	siteName?: string;
+}
+
+const escapeRegExp = ( text: string ) => text.replace( /[.*+?^${}()|[\]\\]/g, '\\$&' );
+
+/** The text without the name, and without the gap or comma the name leaves. */
+export function withoutName( text: string, name: string | undefined ): string {
+	const trimmed = name?.trim();
+	if ( ! trimmed ) {
+		return text;
+	}
+	const pattern = new RegExp(
+		`(?<![\\p{L}\\p{N}])${ escapeRegExp( trimmed ) }(?:['’]s)?(?![\\p{L}\\p{N}])`,
+		'giu'
+	);
+	return text
+		.replace( pattern, '' )
+		.replace( /\s+([,.;:])/g, '$1' )
+		.replace( /([,;:])(?:\s*[,;:])+/g, '$1' )
+		.replace( /^[\s,;:]+/, '' )
+		.replace( /\s{2,}/g, ' ' )
+		.trim();
 }
 
 // Text-carrying objects the image model reliably completes with garbled fake
@@ -149,10 +172,11 @@ export function composeImagePrompt(
 	spec: ImagePromptSpec,
 	context: ImagePromptContext = {}
 ): string {
-	const subject = spec.subject.trim();
+	const name = context.siteName;
+	const subject = withoutName( spec.subject.trim(), name );
 	const style = spec.style?.trim() ?? '';
-	const pageContext = spec.pageContext?.trim().replace( /\.$/, '' ) ?? '';
-	const siteContext = context.siteContext?.trim() ?? '';
+	const pageContext = withoutName( spec.pageContext?.trim() ?? '', name ).replace( /\.$/, '' );
+	const siteContext = withoutName( context.siteContext?.trim() ?? '', name );
 	const imageGrade = context.imageGrade?.trim() ?? '';
 
 	const parts = [ style ? `${ subject }. Style: ${ style }` : subject ];

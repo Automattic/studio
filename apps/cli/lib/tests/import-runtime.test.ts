@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { ZipArchive } from 'archiver';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	downloadVerifiedAsset,
@@ -9,6 +10,7 @@ import {
 	publishStagedInstall,
 	resetImportRuntimeCacheForTests,
 	resolveLatestReleaseAsset,
+	resolvePhpTransformer,
 	resolveStaticSiteImporterPlugin,
 	type ReleaseAsset,
 } from '../import-runtime';
@@ -71,6 +73,24 @@ describe( 'resolveLatestReleaseAsset', () => {
 				} )
 			)
 		).rejects.toThrow( /missing its verifiable runtime asset/ );
+	} );
+
+	it( 'reads the version from a tag naming the package', async () => {
+		const asset = await resolveLatestReleaseAsset(
+			'Automattic/blocks-engine',
+			( name ) => name === 'php-transformer.zip',
+			releaseFetch( {
+				tag_name: 'php-transformer-v0.44.179',
+				assets: [
+					{
+						name: 'php-transformer.zip',
+						browser_download_url: 'https://example.com/php-transformer.zip',
+						digest: `sha256:${ digest( 'transformer' ) }`,
+					},
+				],
+			} )
+		);
+		expect( asset.version ).toBe( '0.44.179' );
 	} );
 
 	it( 'refuses a prerelease tag', async () => {
@@ -290,6 +310,92 @@ describe( 'linkPlaywright', () => {
 
 		expect( fs.realpathSync( target() ) ).toBe( fs.realpathSync( current ) );
 		expect( fs.readdirSync( path.dirname( target() ) ) ).toEqual( [ 'playwright' ] );
+	} );
+} );
+
+describe( 'resolvePhpTransformer', () => {
+	const install = ( version: string, complete = true ) => {
+		const directory = path.join( configDirectory, 'import-runtime', 'php-transformer', version );
+		fs.mkdirSync( path.join( directory, 'php-transformer' ), { recursive: true } );
+		if ( complete ) {
+			fs.writeFileSync( path.join( directory, 'php-transformer', 'php-transformer.php' ), '<?php' );
+		}
+		return path.join( directory, 'php-transformer', 'php-transformer.php' );
+	};
+	const newerRelease = {
+		tag_name: 'php-transformer-v0.44.20',
+		assets: [
+			{
+				name: 'php-transformer.zip',
+				browser_download_url: 'https://example.com/php-transformer.zip',
+				digest: `sha256:${ digest( 'zip' ) }`,
+			},
+		],
+	};
+
+	it( 'converts with the newest installed transformer while the newest release downloads', async () => {
+		install( '0.44.9' );
+		const newest = install( '0.44.10' );
+		install( '0.44.11', false );
+		// Staged by a process that stopped before publishing it.
+		install( '0.44.99.staging-1' );
+		const requested: string[] = [];
+		const downloading = ( async ( url: string ) => {
+			requested.push( String( url ) );
+			if ( String( url ).includes( 'api.github.com' ) ) {
+				return new Response( JSON.stringify( newerRelease ) );
+			}
+			// The release download does not finish during this conversion.
+			return new Promise< Response >( () => undefined );
+		} ) as unknown as typeof fetch;
+
+		const transformer = await resolvePhpTransformer( downloading );
+
+		expect( transformer ).toEqual( { bootstrap: newest, version: '0.44.10' } );
+		await vi.waitFor( () =>
+			expect( requested ).toContain( 'https://example.com/php-transformer.zip' )
+		);
+	} );
+
+	it( 'removes the versions before the previous one once the newest installs', async () => {
+		install( '0.43.0' );
+		install( '0.44.9' );
+		install( '0.44.10' );
+		const zip = new ZipArchive();
+		zip.append( '<?php', { name: 'php-transformer/php-transformer.php' } );
+		void zip.finalize();
+		const chunks: Buffer[] = [];
+		for await ( const chunk of zip ) {
+			chunks.push( chunk as Buffer );
+		}
+		const bytes = Buffer.concat( chunks );
+		const release = {
+			...newerRelease,
+			assets: [
+				{
+					...newerRelease.assets[ 0 ],
+					digest: `sha256:${ crypto.createHash( 'sha256' ).update( bytes ).digest( 'hex' ) }`,
+				},
+			],
+		};
+		const releasing = ( async ( url: string ) =>
+			new URL( url ).hostname === 'api.github.com'
+				? new Response( JSON.stringify( release ) )
+				: new Response( bytes ) ) as unknown as typeof fetch;
+
+		expect( ( await resolvePhpTransformer( releasing ) ).version ).toBe( '0.44.10' );
+		const directory = path.join( configDirectory, 'import-runtime', 'php-transformer' );
+		await vi.waitFor( () =>
+			expect( fs.readdirSync( directory ).sort() ).toEqual( [ '0.44.10', '0.44.20' ] )
+		);
+	} );
+
+	it( 'waits for the install on a machine with no transformer', async () => {
+		const failing = releaseFetch( {}, 404 );
+
+		await expect( resolvePhpTransformer( failing ) ).rejects.toThrow(
+			'latest release lookup failed'
+		);
 	} );
 } );
 

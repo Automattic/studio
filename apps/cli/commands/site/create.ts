@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
-import { installAiInstructionsToSite } from '@studio/common/lib/agent-skills';
+import { installSelectedSkillsToSite } from '@studio/common/lib/agent-skills';
 import {
 	__isStepDefinition,
 	extractFormValuesFromBlueprint,
@@ -59,10 +59,7 @@ import {
 import { getSiteUrl, removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { type liberateWebsite } from 'cli/lib/data-liberation-client';
-import {
-	getAiInstructionsPath,
-	getWordPressVersionPath,
-} from 'cli/lib/dependency-management/paths';
+import { getBundledSkillsPath, getWordPressVersionPath } from 'cli/lib/dependency-management/paths';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
@@ -294,14 +291,14 @@ export async function runCommand(
 		try {
 			const sharedConfig = await readSharedConfig();
 			const selectedSkills = sharedConfig.selectedSkills ?? [];
-			await installAiInstructionsToSite(
+			await installSelectedSkillsToSite(
 				{ path: sitePath },
-				getAiInstructionsPath(),
+				getBundledSkillsPath(),
 				selectedSkills
 			);
 		} catch ( error ) {
 			logger.reportError(
-				new LoggerError( __( 'Failed to install AI instructions. Proceeding anyway…' ), error ),
+				new LoggerError( __( 'Failed to install agent skills. Proceeding anyway…' ), error ),
 				false
 			);
 		}

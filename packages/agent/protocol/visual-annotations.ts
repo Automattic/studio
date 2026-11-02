@@ -1,7 +1,8 @@
 import { STUDIO_CHAT_MAX_IMAGES } from '@studio/agent/protocol/chat-images';
 
-// What a note points at: an element on a site page, or a DESIGN.md token on
-// the design system page.
+// What a note points at: an element on a site page, or a value of the site's
+// Styles on the design system page, named as theme.json names it (a preset by
+// its `var:preset|…` reference, a style by its path in `styles`).
 export interface VisualAnnotationTarget {
 	selector?: string;
 	tag?: string;
@@ -114,10 +115,6 @@ function truncateText( text: string, maxLength: number ): string {
 	return text.length <= maxLength ? text : `${ text.slice( 0, maxLength - 1 ) }...`;
 }
 
-function isDesignSystemAnnotation( note: VisualAnnotation ): boolean {
-	return note.path === 'DESIGN.md';
-}
-
 /**
  * The agent's view of the notes. `images` is the message's attachment order,
  * which the notes' images are numbered by.
@@ -136,12 +133,6 @@ export function formatVisualAnnotationsPrompt(
 		'When you reference an annotation for the user, identify the element by what is visible on the page rather than by selector. Use selectors and raw annotation data only for implementation.',
 		'',
 	];
-	if ( notes.some( isDesignSystemAnnotation ) ) {
-		lines.push(
-			"Annotations from the Design system page are about the site's DESIGN.md: make the change there, then update the matching presets in the active theme's theme.json so the site follows it.",
-			''
-		);
-	}
 	lines.push( '## Submitted Annotations', '' );
 
 	notes.forEach( ( note, index ) => {
@@ -153,8 +144,8 @@ export function formatVisualAnnotationsPrompt(
 		const nearbyText = note.nearbyText?.trim()
 			? ` - "${ truncateText( note.nearbyText.trim(), 120 ) }"`
 			: '';
-		const page = isDesignSystemAnnotation( note )
-			? 'Design system (DESIGN.md)'
+		const page = note.designToken
+			? "Design system (the site's Styles)"
 			: note.url || note.path || '/';
 		const imageNumbers = note.images.map(
 			( image ) => images.findIndex( ( item ) => item.id === image.id ) + 1

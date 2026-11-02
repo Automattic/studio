@@ -8,6 +8,6 @@ description: Build, design, redesign, and manage websites with WordPress Studio 
 WordPress Studio runs WordPress sites locally and gives you its site-building tools through the `wordpress-studio` MCP server.
 
 1. Call the `studio_instructions` tool before your first site task and follow what it returns for the rest of the session: it is the Studio workflow, including when to load each Studio runbook with its `skill` argument.
-2. Manage sites only with the Studio tools (`site_create`, `site_start`, `wp_cli`, …); never run `wp` or start servers from the shell. Edit the site's theme and plugin files with your own file tools.
+2. Manage sites only with the Studio tools (`site_create`, `site_start`, …); never start servers from the shell. Run a runbook's `wp` commands with the `wp_cli` tool, or as `studio wp` in the site's folder: both run on the site's own PHP and database, which a plain `wp` does not. Edit the site's theme and plugin files with your own file tools.
 
 If the `wordpress-studio` tools are missing, WordPress Studio did not start: ask the user to restart the app, and to reinstall the plugin if the tools are still missing.

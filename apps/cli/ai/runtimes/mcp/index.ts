@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 // eslint-disable-next-line import-x/no-unresolved -- subpath resolved via package's wildcard export, which the lint resolver doesn't follow
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -14,15 +13,14 @@ import {
 	bindTool,
 	buildSystemPrompt,
 	createAgent,
-	createPresentDesignOptionsTool,
-	createResultNotes,
+	createSiteNotes,
 	defineTool,
 	isImageGenerationAvailable,
 	loadSkills,
 	READ_ONLY,
 	renderSkill,
+	SiteChanges,
 	textResult,
-	type DesignTracksContext,
 	type StudioAgent,
 	type StudioAgentHost,
 	type StudioAgentTool,
@@ -30,17 +28,12 @@ import {
 import { Type, type TSchema } from 'typebox';
 import { Value } from 'typebox/value';
 import { cliAgentHost } from 'cli/ai/host';
-import {
-	DESIGN_PICKER_HTML,
-	DESIGN_PICKER_URI,
-	MCP_APP_MIME_TYPE,
-} from 'cli/ai/runtimes/mcp/design-picker';
-import { type AppPage, createLibraryTools, libraryPage } from 'cli/ai/runtimes/mcp/library';
+import { createLibraryTools, libraryPage, MCP_APP_MIME_TYPE } from 'cli/ai/runtimes/mcp/library';
 import { runServedTool } from 'cli/ai/runtimes/mcp/served-tool';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 
 interface ClientSupport {
-	// Renders MCP Apps, such as the design picker.
+	// Renders MCP Apps, such as the WordPress library.
 	apps: boolean;
 	// Shows a local image in its conversation only from a file:// link; Claude's
 	// desktop app blocks those and opens a bare path in its side panel instead.
@@ -48,9 +41,6 @@ interface ClientSupport {
 	// Makes images with a tool of its own, on the user's plan, which the
 	// runbooks use when generate_images is left out.
 	ownImageTool: boolean;
-	// Gets wpcom_request, which reaches any WordPress.com endpoint. OpenAI's plugin
-	// review asks for a tool per operation instead, so Codex goes without it for now.
-	wpcomRequest: boolean;
 }
 
 function describeClient( server: Server ): ClientSupport {
@@ -63,7 +53,6 @@ function describeClient( server: Server ): ClientSupport {
 		apps: codex || Boolean( capabilities?.extensions?.[ 'io.modelcontextprotocol/ui' ] ),
 		fileImageLinks: codex,
 		ownImageTool: codex,
-		wpcomRequest: ! codex,
 	};
 }
 
@@ -77,22 +66,14 @@ function createTools(
 	agent: StudioAgent,
 	host: StudioAgentHost,
 	client: ClientSupport,
-	imageGeneration: boolean,
-	tracks?: DesignTracksContext
+	imageGeneration: boolean
 ): ServedTool[] {
 	const imageLink = ( file: string ) =>
 		client.fileImageLinks ? pathToFileURL( file ).href : file;
 	const definitions = agent.tools( {
 		imageGeneration: imageGeneration && ! client.ownImageTool,
-		canAskUser: true,
 		imageLink,
-		tracks,
-		wpcomRequest: client.wpcomRequest,
 	} );
-	const designOptions = bindTool(
-		createPresentDesignOptionsTool( { imageLink, picker: client.apps, tracks } ),
-		host
-	);
 	// Fetched on demand rather than sent as the server's instructions, which
 	// hosts keep in context for every conversation and may truncate.
 	const instructionsTool = defineTool(
@@ -112,19 +93,13 @@ function createTools(
 		},
 		async ( args ) =>
 			textResult(
-				args.skill
-					? renderSkill( args.skill )
-					: buildSystemPrompt( { external: true, tools: [ ...definitions, designOptions ] } )
+				args.skill ? renderSkill( args.skill ) : buildSystemPrompt( { external: true } )
 			),
 		{ annotations: READ_ONLY }
 	);
 	const library = client.apps ? libraryPage() : null;
 	return [
 		...[ bindTool( instructionsTool, host ), ...definitions ].map( ( tool ) => ( { tool } ) ),
-		{
-			tool: designOptions,
-			listing: client.apps ? { _meta: { ui: { resourceUri: DESIGN_PICKER_URI } } } : undefined,
-		},
 		...( library
 			? createLibraryTools( library.uri ).map( ( { tool, listing } ) => ( {
 					tool: bindTool( tool, host ),
@@ -134,13 +109,10 @@ function createTools(
 	] as ServedTool[];
 }
 
-// The MCP App pages: the design picker, and the WordPress library once built.
-function appPages(): AppPage[] {
+// The MCP App pages: the WordPress library, once built.
+function appPages() {
 	const library = libraryPage();
-	return [
-		{ uri: DESIGN_PICKER_URI, name: 'Design options', text: DESIGN_PICKER_HTML },
-		...( library ? [ library ] : [] ),
-	];
+	return library ? [ library ] : [];
 }
 
 // Uses the low-level Server API rather than McpServer.registerTool, which only
@@ -151,8 +123,8 @@ export async function startMcpStdioServer(): Promise< void > {
 	process.env.STUDIO_TRACKS_ORIGIN = 'studio-mcp';
 	const host = cliAgentHost;
 	const agent = createAgent( { host } );
-	const sessionId = randomUUID();
-	const resultNotes = createResultNotes();
+	const siteNotes = createSiteNotes( host );
+	const siteChanges = new SiteChanges( host );
 	const imageGeneration = await isImageGenerationAvailable();
 	const server = new Server(
 		{ name: 'studio', version: '1.0.0' },
@@ -168,11 +140,7 @@ export async function startMcpStdioServer(): Promise< void > {
 	server.oninitialized = () => {
 		client = describeClient( server );
 		process.env.STUDIO_MCP_CLIENT = server.getClientVersion()?.name ?? '';
-		tools = createTools( agent, host, client, imageGeneration, {
-			ai_session_id: sessionId,
-			agent_name: process.env.STUDIO_MCP_CLIENT || 'unknown',
-			client: 'studio-mcp',
-		} );
+		tools = createTools( agent, host, client, imageGeneration );
 		void recordTracksEvent( TRACKS_EVENTS.MCP_SESSION_START, {
 			...getTracksOrigin(),
 			mcp_apps: client.apps,
@@ -210,7 +178,7 @@ export async function startMcpStdioServer(): Promise< void > {
 				isError: true,
 			};
 		}
-		return runServedTool( host, tool, args, resultNotes );
+		return runServedTool( host, tool, args, siteNotes, siteChanges );
 	} );
 
 	// Only clients that render MCP Apps get the pages listed.

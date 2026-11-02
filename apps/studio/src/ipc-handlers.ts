@@ -44,7 +44,6 @@ import {
 	removeSkillFromAllSites,
 	setSiteAgentFileEnabled as writeSiteAgentFileEnabled,
 	type SiteAgentFile,
-	type SiteAgentFileKind,
 	type SkillStatus,
 } from '@studio/common/lib/agent-skills';
 import {
@@ -109,13 +108,7 @@ import {
 	stopSite,
 } from '@studio/common/sites/lifecycle';
 import { updateSiteMetadata } from '@studio/common/sites/metadata';
-import {
-	designFixesSchema,
-	fixSiteDesign,
-	readSiteDesign,
-	type SiteDesign,
-} from '@studio/common/sites/site-design';
-import { readThemeDetails } from '@studio/common/sites/site-identity';
+import { readGlobalStyles, type GlobalStyles } from '@studio/common/sites/site-identity';
 import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import { __ } from '@wordpress/i18n';
 import { DEFAULT_TERMINAL } from 'src/constants';
@@ -136,7 +129,7 @@ import {
 	startErrorRecovery,
 	stopErrorRecovery,
 } from 'src/lib/php-error-recovery';
-import { getAiInstructionsPath } from 'src/lib/server-files-paths';
+import { getBundledSkillsPath } from 'src/lib/server-files-paths';
 import { parseWebUrl, shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { getSite, getSites } from 'src/lib/sites';
 import {
@@ -383,7 +376,7 @@ export async function installWordPressSkillsToAllSites(
 	_event: IpcMainInvokeEvent,
 	options: { skillId: string; overwrite?: boolean }
 ): Promise< void > {
-	await installSkillToAllSites( getAiInstructionsPath(), options.skillId, options.overwrite );
+	await installSkillToAllSites( getBundledSkillsPath(), options.skillId, options.overwrite );
 }
 
 export async function removeWordPressSkillFromAllSites(
@@ -395,23 +388,20 @@ export async function removeWordPressSkillFromAllSites(
 
 export async function getSiteAgentFiles(
 	_event: IpcMainInvokeEvent,
-	siteId: string,
-	kind: SiteAgentFileKind
+	siteId: string
 ): Promise< SiteAgentFile[] > {
-	return readSiteAgentFiles( await requireSitePath( siteId ), kind );
+	return readSiteAgentFiles( await requireSitePath( siteId ) );
 }
 
 export async function setSiteAgentFileEnabled(
 	_event: IpcMainInvokeEvent,
 	siteId: string,
-	kind: SiteAgentFileKind,
 	id: string,
 	enabled: boolean
 ): Promise< void > {
 	await writeSiteAgentFileEnabled(
 		await requireSitePath( siteId ),
-		getAiInstructionsPath(),
-		kind,
+		getBundledSkillsPath(),
 		id,
 		enabled
 	);
@@ -420,10 +410,9 @@ export async function setSiteAgentFileEnabled(
 export async function removeSiteAgentFile(
 	_event: IpcMainInvokeEvent,
 	siteId: string,
-	kind: SiteAgentFileKind,
 	id: string
 ): Promise< void > {
-	await deleteSiteAgentFile( await requireSitePath( siteId ), kind, id );
+	await deleteSiteAgentFile( await requireSitePath( siteId ), id );
 }
 
 export async function getGlobalInstructionsEnabled(): Promise< boolean > {
@@ -935,26 +924,12 @@ export async function getWpVersion( _event: IpcMainInvokeEvent, id: string ) {
 	return sitePath ? getWordPressVersion( sitePath ) : '-';
 }
 
-const activeThemeSlug = ( sitePath: string ) => async () =>
-	( await readThemeDetails( executeCliCommand, sitePath ).catch( () => undefined ) )?.slug;
-
-export async function getSiteDesign(
+export async function getGlobalStyles(
 	_event: IpcMainInvokeEvent,
 	id: string
-): Promise< SiteDesign | null > {
+): Promise< GlobalStyles > {
 	const sitePath = await readSitePath( id );
-	return sitePath ? readSiteDesign( sitePath, activeThemeSlug( sitePath ) ) : null;
-}
-
-export async function fixSiteDesignDrift(
-	_event: IpcMainInvokeEvent,
-	id: string,
-	fixes: unknown
-): Promise< SiteDesign | null > {
-	const sitePath = await readSitePath( id );
-	return sitePath
-		? fixSiteDesign( sitePath, activeThemeSlug( sitePath ), designFixesSchema.parse( fixes ) )
-		: null;
+	return sitePath ? readGlobalStyles( executeCliCommand, sitePath ) : null;
 }
 
 export async function getIsMultisite( _event: IpcMainInvokeEvent, id: string ) {

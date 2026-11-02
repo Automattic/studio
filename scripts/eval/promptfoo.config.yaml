@@ -6,7 +6,13 @@
 # state, rendered home page, block validity, theme files), the other sites it
 # left alone, and what the user was told. The runner captures that state after
 # the turn; the checks live in outcome.mjs and read their parameters from the
-# case's vars (`siteName` names the site the case asks for).
+# case's vars. The site judged is the seeded active site the request is about,
+# or else the one the turn created.
+#
+# Prompts read as a user would write them. The scripted user (answers in
+# defaultTest, eval-answers.ts) leaves the choices to the agent, keeps to
+# WordPress's default of a block theme, and declines what it does not fit;
+# a case overrides it to test a particular answer.
 
 description: Studio Code agent evaluation
 
@@ -30,6 +36,11 @@ defaultTest:
   assert:
     - type: javascript
       value: file://github.mjs:githubAnswered
+  vars:
+    answers:
+      - when: 'classic theme'
+        label: 'No'
+      - label: 'Whatever you think is best.'
 
 tests:
   - description: questionnaire accepts a selection and a skipped question
@@ -77,10 +88,9 @@ tests:
   - description: asking for a site leaves a working new site
     vars:
       caseId: site-creation
-      siteName: "Eval Test Site"
       timeoutMs: 120000
       prompt: |
-        Create a new site named "Eval Test Site".
+        Create a new site named "Maple Street Books".
     assert:
       - type: javascript
         value: file://outcome.mjs:siteWorks
@@ -93,14 +103,12 @@ tests:
   - description: screenshot verification shows the model desktop and mobile quickly
     vars:
       caseId: screenshot-all-timing
-      siteName: "Eval Screenshot Timing"
       model: balanced
       timeoutMs: 240000
       prompt: |
-        Create a new site named "Eval Screenshot Timing". Do not
-        customize the theme. Verify the homepage visually with screenshots
-        for both desktop and mobile, then briefly report whether the
-        screenshots were captured.
+        Create a new site called "Northwind Notes" and keep the theme it comes
+        with. Check the homepage on desktop and on mobile with screenshots,
+        and tell me briefly how it looks.
     assert:
       - type: javascript
         value: file://outcome.mjs:sawDesktopAndMobile
@@ -108,27 +116,119 @@ tests:
         value: file://outcome.mjs:otherSitesUntouched
 
   # A fresh build: the site renders with valid blocks, has a static front
-  # page, runs its own theme with self-hosted fonts and a real screenshot,
-  # and its palette carries the DESIGN.md colors. Every turn stays under 60s
-  # so the UI never stalls.
-  - description: single-page build leaves a working site in its own theme, built from DESIGN.md
+  # page, and runs its own theme with self-hosted fonts and a real
+  # screenshot. Every turn stays under 60s so the UI never stalls.
+  - description: single-page build leaves a working site with its own design
     vars:
       caseId: single-page-build-turn-cadence
-      siteName: "Eval Turn Timing"
       timeoutMs: 600000
       prompt: |
-        Build a simple WordPress site named "Eval Turn Timing". The
-        site only needs a single page — no extra pages, no blog posts, no
-        navigation menu beyond what a one-page site requires. Use the site
-        name as the brand and skip the discovery questions: nobody can
-        answer during this run, so make every choice yourself.
+        Build a simple one-page website for Juniper & Oak, a small furniture
+        workshop. Just the one page: no blog and no extra pages.
     assert:
       - type: javascript
         value: file://outcome.mjs:siteWorks
       - type: javascript
-        value: file://outcome.mjs:builtFromDesign
+        value: file://outcome.mjs:builtFrontPage
       - type: javascript
-        value: file://outcome.mjs:ownThemeWithFontsAndScreenshot
+        value: file://outcome.mjs:siteHasItsOwnDesign
+      - type: javascript
+        value: file://outcome.mjs:turnsAreResponsive
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
+  - description: single-page variant ceramics
+    vars:
+      caseId: single-page-variant-ceramics
+      timeoutMs: 600000
+      prompt: |
+        Build a simple one-page website for Saltmarsh Ceramics, a two-person pottery
+        studio. Just the one page.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:builtFrontPage
+      - type: javascript
+        value: file://outcome.mjs:siteHasItsOwnDesign
+      - type: javascript
+        value: file://outcome.mjs:turnsAreResponsive
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
+  - description: single-page variant dog-grooming
+    vars:
+      caseId: single-page-variant-dog-grooming
+      timeoutMs: 600000
+      prompt: |
+        I need a website for my dog-grooming business, Tidy Paws. One page is fine.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:builtFrontPage
+      - type: javascript
+        value: file://outcome.mjs:siteHasItsOwnDesign
+      - type: javascript
+        value: file://outcome.mjs:turnsAreResponsive
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
+  - description: single-page variant default theme
+    vars:
+      caseId: single-page-variant-default-theme
+      timeoutMs: 600000
+      theme: twentytwentyfive
+      prompt: |
+        Make a one-page site for my yoga studio, Still Water. Keep the default
+        WordPress theme, just give it our colors: sage green and cream.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:builtFrontPage
+      - type: javascript
+        value: file://outcome.mjs:runsTheTheme
+      - type: javascript
+        value: file://outcome.mjs:siteHasItsOwnDesign
+      - type: javascript
+        value: file://outcome.mjs:turnsAreResponsive
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
+  - description: single-page variant bakery
+    vars:
+      caseId: single-page-variant-bakery
+      timeoutMs: 600000
+      prompt: |
+        One-page site for Harbor Lane Bakery: our hours are Tue–Sun 7–2, we're at
+        14 Harbor Lane, and we take custom cake orders by email. No blog.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:builtFrontPage
+      - type: javascript
+        value: file://outcome.mjs:siteHasItsOwnDesign
+      - type: javascript
+        value: file://outcome.mjs:turnsAreResponsive
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
+  - description: single-page variant climbing-gym
+    vars:
+      caseId: single-page-variant-climbing-gym
+      timeoutMs: 600000
+      prompt: |
+        Build a one-page site for Northwind Climbing Gym. Dark, bold, energetic.
+        Just one page.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:builtFrontPage
+      - type: javascript
+        value: file://outcome.mjs:siteHasItsOwnDesign
       - type: javascript
         value: file://outcome.mjs:turnsAreResponsive
       - type: javascript
@@ -142,13 +242,11 @@ tests:
   - description: one-page site section links work from every page
     vars:
       caseId: one-page-nav-anchor-links
-      siteName: "Eval One Page Nav"
       timeoutMs: 600000
       prompt: |
-        Build a one-page site named "Eval One Page Nav": a single
-        scrollable home page with Features, About, and Contact sections, and
-        a header navigation menu whose items jump to those sections. Keep the
-        design simple — no extra pages and no blog posts.
+        Build a one-page site for Brightline Bikes: one scrolling home page
+        with Features, About and Contact sections, and a header menu that
+        jumps to each section. Keep it simple, with no extra pages or blog.
     assert:
       - type: javascript
         value: file://outcome.mjs:siteWorks
@@ -167,7 +265,7 @@ tests:
       seed:
         localSite:
           id: eval-site-categories
-          name: Eval Site Categories
+          name: Harbor Lights
           path: /tmp/eval-site-categories
           port: 8881
         connectedWpcomSites:
@@ -186,9 +284,9 @@ tests:
             atomicSiteId: 111
             localSiteId: eval-site-categories
             date: 1900000000000
-            name: Eval Site Categories
+            name: Harbor Lights
       prompt: |
-        For the local site named "Eval Site Categories", list everything it is
+        For the local site named "Harbor Lights", list everything it is
         connected or related to. For each item, tell me clearly whether it is a
         temporary PREVIEW site or a durable connected WordPress.com remote site.
         Do not create, delete, or modify anything — only inspect and report.
@@ -209,7 +307,7 @@ tests:
       seed:
         localSite:
           id: eval-site-push
-          name: Eval Site Push
+          name: Lakeside Studio
           path: /tmp/eval-site-push
           port: 8882
         connectedWpcomSites:
@@ -224,46 +322,89 @@ tests:
             lastPullTimestamp: null
             lastPushTimestamp: null
       prompt: |
-        Push my local site "Eval Site Push" to WordPress.com.
+        Push my local site "Lakeside Studio" to WordPress.com.
     assert:
       - type: javascript
         value: file://outcome.mjs:pushNotRunAndAsks
 
-  - description: slideshow request puts a Jetpack slideshow on the home page
+  - description: slideshow request puts a slideshow on the home page
     vars:
       caseId: jetpack-catchall-slideshow
-      siteName: "Catchall Eval Site"
-      plugin: jetpack
-      blockPrefix: jetpack/
       timeoutMs: 600000
       prompt: |
-        Create a new site named "Catchall Eval Site" and add a
-        slideshow of three placeholder images to its homepage.
+        Create a new site called "Seaside Gallery" and add a slideshow of
+        three placeholder images to its homepage.
     assert:
       - type: javascript
         value: file://outcome.mjs:siteWorks
       - type: javascript
-        value: file://outcome.mjs:pluginBlockOnFrontPage
+        value: file://outcome.mjs:slideshowOnHomePage
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
 
   # Regression: a "shop"/"store" request framed with qualifiers ("small",
   # "for inspiration") must still end with a working store: WooCommerce
-  # active and products published.
-  - description: shop request leaves WooCommerce with products
+  # active, its shop page published, and a dog and a cat product that
+  # WooCommerce shows in the catalog and lets a visitor buy.
+  - description: shop request leaves WooCommerce with products for sale
     vars:
       caseId: woocommerce-shop-setup
-      siteName: "Eval Shop Site"
+      minProducts: 2
       timeoutMs: 600000
       prompt: |
-        Build a small pet shop site named "Eval Shop Site" — keep it
-        small, just a couple of pages, look at a clean modern store for
-        inspiration. I want to sell dog and cat products.
+        Build a small online pet shop called "Paws & Whiskers", just a couple
+        of pages with the feel of a clean modern store. I want to sell dog and
+        cat products.
     assert:
       - type: javascript
         value: file://outcome.mjs:siteWorks
       - type: javascript
         value: file://outcome.mjs:storeHasProducts
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
+  # A contact page works when a visitor's message reaches the site: the
+  # runner sends each published page's message form as a visitor would, and
+  # the check passes when the message is stored (whichever plugin stores it)
+  # from a form that is not a Custom HTML block.
+  - description: contact page takes a visitor's message and the site stores it
+    vars:
+      caseId: contact-form-works
+      timeoutMs: 600000
+      seed:
+        activeSite:
+          name: Crumb & Co
+          wpCli:
+            - [theme, activate, twentytwentyfive]
+      prompt: |
+        Add a Contact page to my bakery site where customers can send us a
+        message.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:contactFormWorks
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
+  # A newsletter signup in the footer is an email form built from blocks,
+  # shown on every page through the footer.
+  - description: newsletter signup in the footer is an email form built from blocks
+    vars:
+      caseId: newsletter-signup
+      timeoutMs: 600000
+      seed:
+        activeSite:
+          name: Crumb & Co
+          wpCli:
+            - [theme, activate, twentytwentyfive]
+      prompt: |
+        Add a newsletter signup to the footer so visitors can subscribe.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:newsletterSignupInFooter
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
 
@@ -273,15 +414,13 @@ tests:
   - description: customizing an installed theme leaves it as released and works through a child theme or Global Styles
     vars:
       caseId: child-theme-for-installed-theme
-      siteName: "Eval Child Theme Site"
       parentTheme: ollie
       timeoutMs: 600000
       prompt: |
-        Create a new site named "Eval Child Theme Site", install and
-        activate the Ollie theme from the WordPress.org directory, and
-        customize the design: make all headings a serif font and shift the
-        color palette warmer. Keep it quick — only typography and color
-        changes, no new pages or content.
+        Create a new site called "Fern & Field", install the Ollie theme from
+        WordPress.org, and customize the design: serif headings and a warmer
+        color palette. Only typography and color for now, no new pages or
+        content.
     assert:
       - type: javascript
         value: file://outcome.mjs:siteWorks
@@ -296,17 +435,14 @@ tests:
   - description: added sections take their colors from the theme palette
     vars:
       caseId: section-uses-theme-palette
-      siteName: "Eval Palette Site"
       theme: twentytwentyfive
       timeoutMs: 600000
       prompt: |
-        Create a new site named "Eval Palette Site". Keep its current
-        default theme — do not create, scaffold, or switch themes.
-
-        Add two visually distinct sections to the site's homepage: a hero
-        section with a colored background and a heading, and a call-to-action
-        section with a contrasting colored background and a button. Make the
-        colors feel cohesive with the site's existing theme.
+        Create a new site called "Copper Kettle Café" and keep the theme it
+        comes with. Add two sections to the homepage: a hero with a colored
+        background and a heading, and a call to action with a contrasting
+        colored background and a button. The colors should feel like they
+        belong to the theme.
     assert:
       - type: javascript
         value: file://outcome.mjs:siteWorks
@@ -321,15 +457,13 @@ tests:
   - description: hero eyebrow pill keeps content-column alignment
     vars:
       caseId: inline-block-constrained-alignment
-      siteName: "Eval Eyebrow Site"
       timeoutMs: 600000
       prompt: |
-        Build a simple one-page site named "Eval Eyebrow Site". The
-        homepage needs a full-width hero section whose content stays in the
-        normal content column, containing: a small uppercase eyebrow label
-        styled as a pill (rounded background that hugs the text) sitting
-        above the main heading, the main heading, and a short subtitle.
-        Keep the rest of the page minimal — no extra sections needed.
+        Build a simple one-page site for Summit Coaching. The homepage needs a
+        full-width hero whose content stays in the normal content column: a
+        small uppercase label styled as a pill (a rounded background that hugs
+        the text) above the main heading, then the heading and a short
+        subtitle. Keep the rest of the page minimal.
     assert:
       - type: javascript
         value: file://outcome.mjs:siteWorks
@@ -344,13 +478,12 @@ tests:
   - description: repeated card treatment is a registered block style variation
     vars:
       caseId: repeated-treatment-uses-block-style
-      siteName: "Eval Block Style Site"
       timeoutMs: 600000
       prompt: |
-        Create a new site named "Eval Block Style Site" and build a simple
-        homepage for a coffee shop with a fresh scaffolded theme. The homepage
-        must include a features section of three cards that all share the same
-        visual treatment: same background, border radius, padding, and shadow.
+        Create a new site for my coffee shop, Ember Roasters, with a fresh
+        custom theme and a simple homepage. It needs a features section of
+        three cards that share the same look: same background, rounded
+        corners, padding and shadow.
     assert:
       - type: javascript
         value: file://outcome.mjs:siteWorks
@@ -368,12 +501,11 @@ tests:
       timeoutMs: 180000
       seed:
         activeSite:
-          name: Eval Active Site
+          name: Sunrise Bakery
       prompt: |
-        Build me a minimal one-page site for a small neighborhood bakery: a
-        hero and a short about section. Skip the discovery questions. Before
-        writing any files, state the Site Spec and stop — I will confirm the
-        plan first.
+        Build me a minimal one-page site for my neighborhood bakery: a hero
+        and a short about section. Show me your plan before you write
+        anything; I'll confirm it first.
     assert:
       - type: javascript
         value: file://outcome.mjs:noSiteCreated
@@ -381,15 +513,16 @@ tests:
         value: file://outcome.mjs:otherSitesUntouched
 
   # Site pick: with an active site and a prompt that names a different site,
-  # the agent asks whether to update the active site or create a new one
-  # before calling site_create.
+  # the user is asked whether to update the active site or create a new one
+  # before either happens. The user dismisses whatever is asked.
   - description: a different site name asks before using or replacing the active site
     vars:
       caseId: active-site-different-name
       timeoutMs: 180000
+      answers: []
       seed:
         activeSite:
-          name: Eval Active Site Two
+          name: Corner Crumb
       prompt: |
         Build a one-page site named "Joe's Bakery".
     assert:
@@ -398,34 +531,18 @@ tests:
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
 
-  # An annotation left on the preview's Design system page names a DESIGN.md
-  # token. The agent changes it in DESIGN.md and carries it to theme.json.
-  - description: design system annotation reaches DESIGN.md and the theme palette
+  # An annotation left on the preview's Design system page names a preset of
+  # the site's Styles, as theme.json names it. Passes when WordPress resolves
+  # the preset to a new color.
+  - description: design system annotation changes the preset WordPress resolves
     vars:
       caseId: design-system-annotation
-      token: primary
-      originalValue: "#2F6BFF"
+      slug: accent-1
+      originalValue: '#FFEE58'
       timeoutMs: 420000
       seed:
         activeSite:
-          name: Eval Design Annotation
-          files:
-            DESIGN.md: |
-              ---
-              name: "Eval Design Annotation"
-              colors:
-                primary: "#2F6BFF"
-                background: "#FFFFFF"
-                text: "#111111"
-              typography:
-                body:
-                  fontFamily: "Inter"
-                  fontSize: "1rem"
-                  fontWeight: 400
-              ---
-
-              # Overview
-              A calm, minimal site.
+          name: Calm Corner
       prompt: |
         The user submitted 1 visual annotation from the site preview.
 
@@ -433,27 +550,24 @@ tests:
 
         When you reference an annotation for the user, identify the element by what is visible on the page rather than by selector. Use selectors and raw annotation data only for implementation.
 
-        Annotations from the Design system page are about the site's DESIGN.md: make the change there, then update the matching presets in the active theme's theme.json so the site follows it.
-
         ## Submitted Annotations
 
-        ### 1. design token `colors.primary` - "primary: #2F6BFF"
-        - Page: Design system (DESIGN.md)
-        - Comment: Make the primary color a warm terracotta instead of this blue.
+        ### 1. design token `var:preset|color|accent-1` - "accent-1: #FFEE58"
+        - Page: Design system (the site's Styles)
+        - Comment: Make this accent a warm terracotta instead of this yellow.
 
         ```json
         {
           "id": "a_1",
-          "comment": "Make the primary color a warm terracotta instead of this blue.",
-          "nearbyText": "primary: #2F6BFF",
-          "designToken": "colors.primary",
-          "path": "DESIGN.md",
+          "comment": "Make this accent a warm terracotta instead of this yellow.",
+          "nearbyText": "accent-1: #FFEE58",
+          "designToken": "var:preset|color|accent-1",
           "timestamp": 1790000000000
         }
         ```
     assert:
       - type: javascript
-        value: file://outcome.mjs:designTokenReachedTheme
+        value: file://outcome.mjs:presetColorChanged
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
 
@@ -472,7 +586,7 @@ tests:
       timeoutMs: 420000
       seed:
         activeSite:
-          name: Eval Template Override
+          name: Golden Crust Bakery
           files: &stu2155_theme_files
             wp-content/themes/bakery/style.css: |
               /*
@@ -615,7 +729,7 @@ tests:
       timeoutMs: 420000
       seed:
         activeSite:
-          name: Eval Global Styles Override
+          name: Crumb & Co
           files: *stu2155_theme_files
           wpCli:
             - [theme, activate, bakery]
@@ -672,213 +786,652 @@ tests:
             return { pass: false, score: 0, reason: `change never reached the rendered styles and the agent did not ask; ${state}; final reply: ${finalText.slice(0, 300)}` };
           });
 
-  # Routing: which skills (runbooks) the agent loads before it starts the work.
-  # Each run stops at its first call that does the work (`stopAt`), so a case
-  # costs only the turns up to that point, and `skillsLoadedFirst` checks the
-  # skills named in `skills` were loaded before it. The new-site cases also stop
-  # at the site's creation. The outcome cases above judge the work itself.
-  - description: "routing: a request to make a site loads build-site before creating it"
+
+  # Cases written before any fix for them, to see whether the agent holds up
+  # on work the other cases do not cover: a multi-page site, a plugin, a blog.
+  - description: a multi-page site's menu opens every page
     vars:
-      caseId: routing-new-site-make
-      timeoutMs: 300000
-      skills: [{ name: build-site }]
-      stopAt:
-        - tool: site_create
-        - tool: scaffold_theme
-        - tool: Write
-        - tool: Edit
-        - tool: generate_images
-        - tool: wp_cli
-          input:
-            command: '\b(post|plugin|theme|option|menu|media|term|widget)\s+(create|update|install|activate|import|add|set)\b'
-      prompt: Make me a website for my bakery, Flour & Ember. Skip the questions and go.
+      caseId: multi-page-site-menu
+      pages:
+        - title: Classes
+        - title: About
+        - title: Contact
+      timeoutMs: 600000
+      prompt: |
+        Build a site for my small yoga studio, Lotus Flow Yoga, with four
+        pages (Home, Classes, About and Contact) and a header menu that links
+        to each page.
     assert:
       - type: javascript
-        value: file://outcome.mjs:skillsLoadedFirst
-  - description: "routing: a new site with a form loads build-site and plugin-recommendations before the work"
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:builtFrontPage
+      - type: javascript
+        value: file://outcome.mjs:menuReachesPages
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
+  - description: a custom block from a new plugin is on the home page
     vars:
-      caseId: routing-new-site-contact-form
-      timeoutMs: 300000
-      skills: [{ name: build-site }, { name: plugin-recommendations }]
-      stopAt: &stopAtWork
-        - tool: Write
-        - tool: Edit
-        - tool: generate_images
-        - tool: wp_cli
-          input:
-            command: '\b(post|plugin|theme|option|menu|media|term|widget)\s+(create|update|install|activate|import|add|set)\b'
-      prompt: Create a site named Harbor Dental and add a contact page with a form patients can use to request an appointment.
+      caseId: custom-block-plugin
+      text: Monday
+      timeoutMs: 600000
+      prompt: |
+        Create a new site for Corner Bakehouse and write a small plugin for it
+        that adds an "Opening hours" block, which editors can insert from the
+        block inserter and edit the hours in. Put the block on the home page
+        with the hours Monday to Friday, 9am to 5pm.
     assert:
       - type: javascript
-        value: file://outcome.mjs:skillsLoadedFirst
-  - description: "routing: a new site with a slideshow loads build-site and plugin-recommendations before the work"
-    vars:
-      caseId: routing-new-site-slideshow
-      timeoutMs: 300000
-      skills: [{ name: build-site }, { name: plugin-recommendations }]
-      stopAt: *stopAtWork
-      prompt: Create a new site named "Routing Slideshow Site" and add a slideshow of three placeholder images to its homepage.
-    assert:
+        value: file://outcome.mjs:siteWorks
       - type: javascript
-        value: file://outcome.mjs:skillsLoadedFirst
-  - description: "routing: a contact form loads plugin-recommendations before the work"
+        value: file://outcome.mjs:pluginBlockRendered
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
+  - description: a blog's new posts are filed in their categories and listed on the home page
     vars:
-      caseId: routing-form
-      timeoutMs: 300000
-      skills: [{ name: plugin-recommendations }]
-      stopAt: *stopAtWork
+      caseId: travel-blog-posts
+      minPosts: 3
+      categories:
+        - name: Europe
+        - name: Asia
+      timeoutMs: 600000
       seed:
         activeSite:
-          name: Eval Routing Site
-      prompt: Add a contact form to the homepage.
+          name: Wander Notes
+      prompt: |
+        Turn this site into my travel blog: write three short posts about
+        trips, filed under the categories Europe and Asia (at least one in
+        each), and make the home page show the latest posts.
     assert:
       - type: javascript
-        value: file://outcome.mjs:skillsLoadedFirst
-  - description: "routing: a carousel loads plugin-recommendations before the work"
-    vars:
-      caseId: routing-carousel
-      timeoutMs: 300000
-      skills: [{ name: plugin-recommendations }]
-      stopAt: *stopAtWork
-      seed:
-        activeSite:
-          name: Eval Routing Site
-      prompt: Add a carousel of our recent projects to the homepage.
-    assert:
+        value: file://outcome.mjs:siteWorks
       - type: javascript
-        value: file://outcome.mjs:skillsLoadedFirst
-  - description: "routing: a newsletter signup loads plugin-recommendations before the work"
-    vars:
-      caseId: routing-newsletter
-      timeoutMs: 300000
-      skills: [{ name: plugin-recommendations }]
-      stopAt: *stopAtWork
-      seed:
-        activeSite:
-          name: Eval Routing Site
-      prompt: Add a newsletter signup to the footer.
-    assert:
+        value: file://outcome.mjs:blogPostsOnHome
       - type: javascript
-        value: file://outcome.mjs:skillsLoadedFirst
-  - description: "routing: a poll loads plugin-recommendations before the work"
+        value: file://outcome.mjs:otherSitesUntouched
+
+  # A plugin that gives AI agents its own abilities through the Abilities API
+  # (wp-includes/abilities-api.php, WordPress 6.9). The seed records the
+  # abilities the site already has; after the turn the inspection runs each new
+  # one through its REST route (/wp-abilities/v1/abilities/<name>/run), with an
+  # input made from its input schema: those that write as a visitor and as an
+  # administrator, then the read-only ones, which must list the added book.
+  - description: a plugin's abilities let an agent add a book and list it
     vars:
-      caseId: routing-poll
-      timeoutMs: 300000
-      skills: [{ name: plugin-recommendations }]
-      stopAt: *stopAtWork
+      caseId: abilities-plugin
+      timeoutMs: 600000
       seed:
         activeSite:
-          name: Eval Routing Site
-      prompt: Add a quick poll asking visitors which pastry we should bake next.
-    assert:
-      - type: javascript
-        value: file://outcome.mjs:skillsLoadedFirst
-  - description: "routing: an events page loads plugin-recommendations before the work"
-    vars:
-      caseId: routing-events
-      timeoutMs: 300000
-      skills: [{ name: plugin-recommendations }]
-      stopAt: *stopAtWork
-      seed:
-        activeSite:
-          name: Eval Routing Site
-      prompt: Add an upcoming events page listing our three spring workshops.
-    assert:
-      - type: javascript
-        value: file://outcome.mjs:skillsLoadedFirst
-  - description: "routing: a typography change loads visual-design before the work"
-    vars:
-      caseId: routing-typography
-      timeoutMs: 300000
-      skills: [{ name: visual-design }]
-      stopAt: *stopAtWork
-      seed:
-        activeSite:
-          name: Eval Routing Site
-      prompt: Make the headings use a more elegant serif font.
-    assert:
-      - type: javascript
-        value: file://outcome.mjs:skillsLoadedFirst
-  - description: "routing: a redesign loads visual-design before the work"
-    vars:
-      caseId: routing-redesign
-      timeoutMs: 300000
-      skills: [{ name: visual-design }]
-      stopAt: *stopAtWork
-      seed:
-        activeSite:
-          name: Eval Routing Site
-      prompt: Redesign this site to feel like a modern Scandinavian design studio.
-    assert:
-      - type: javascript
-        value: file://outcome.mjs:skillsLoadedFirst
-  - description: "routing: a new section loads block-content before the work"
-    vars:
-      caseId: routing-section
-      timeoutMs: 300000
-      skills: [{ name: block-content }]
-      stopAt: *stopAtWork
-      seed:
-        activeSite:
-          name: Eval Routing Site
-      prompt: Add a testimonials section with three customer quotes to the homepage.
-    assert:
-      - type: javascript
-        value: file://outcome.mjs:skillsLoadedFirst
-  - description: "routing: a template part edit loads block-content before the work"
-    vars:
-      caseId: routing-template-part
-      timeoutMs: 300000
-      skills: [{ name: block-content }]
-      stopAt: *stopAtWork
-      seed:
-        activeSite:
-          name: Eval Routing Site
-      prompt: Add a search block to the header template part.
-    assert:
-      - type: javascript
-        value: file://outcome.mjs:skillsLoadedFirst
-  - description: "routing: a section with a photo loads block-content and imagery before the work"
-    vars:
-      caseId: routing-hero-image
-      timeoutMs: 300000
-      skills: [{ name: block-content }, { name: imagery }]
-      stopAt: *stopAtWork
-      seed:
-        activeSite:
-          name: Eval Routing Site
-      prompt: Add a hero section to the homepage with a photo of a sunlit bakery counter.
-    assert:
-      - type: javascript
-        value: file://outcome.mjs:skillsLoadedFirst
-  - description: "routing: a layout complaint loads visual-polish before the work"
-    vars:
-      caseId: routing-polish
-      timeoutMs: 300000
-      skills: [{ name: visual-polish }]
-      stopAt: *stopAtWork
-      seed:
-        activeSite:
-          name: Eval Routing Site
+          name: Chapter & Verse
           wpCli:
             - - eval
               - |
-                $content = '<!-- wp:group {"style":{"spacing":{"padding":{"top":"8px","bottom":"120px","left":"4px","right":"60px"}}}} --><div class="wp-block-group" style="padding-top:8px;padding-right:60px;padding-bottom:120px;padding-left:4px"><!-- wp:heading {"level":1} --><h1 class="wp-block-heading">Fresh bread every morning</h1><!-- /wp:heading --><!-- wp:paragraph --><p>Sourdough, rye, and pastries baked before sunrise.</p><!-- /wp:paragraph --><!-- wp:buttons --><div class="wp-block-buttons"><!-- wp:button {"style":{"spacing":{"padding":{"top":"2px","bottom":"30px"}}}} --><div class="wp-block-button"><a class="wp-block-button__link wp-element-button" style="padding-top:2px;padding-bottom:30px">Order now</a></div><!-- /wp:button --><!-- wp:button {"style":{"spacing":{"padding":{"left":"80px"}}}} --><div class="wp-block-button"><a class="wp-block-button__link wp-element-button" style="padding-left:80px">Visit us</a></div><!-- /wp:button --></div><!-- /wp:buttons --></div><!-- /wp:group --><!-- wp:group {"style":{"spacing":{"padding":{"top":"0px","bottom":"0px"}}}} --><div class="wp-block-group" style="padding-top:0px;padding-bottom:0px"><!-- wp:heading --><h2 class="wp-block-heading">Our story</h2><!-- /wp:heading --><!-- wp:paragraph --><p>A family bakery since 1987.</p><!-- /wp:paragraph --></div><!-- /wp:group -->';
-                $id = wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'Home', 'post_content' => $content ) );
-                if ( ! $id ) { echo 'SEED_ERROR'; }
-                update_option( 'show_on_front', 'page' );
-                update_option( 'page_on_front', $id );
-      prompt: The homepage spacing looks off and the buttons are misaligned. Fix it.
+                update_option( 'eval_abilities_before', array_map( function ( $ability ) { return $ability->get_name(); }, wp_get_abilities() ), false );
+          inspect:
+            - - eval
+              - |
+                $book = 'The Left Hand of Darkness';
+                $fill = function ( $schema ) use ( &$fill, $book ) {
+                	$schema = (array) $schema;
+                	if ( isset( $schema['enum'] ) ) { return $schema['enum'][0]; }
+                	$type = (array) ( $schema['type'] ?? 'string' );
+                	// An ability that takes no input declares it as null.
+                	if ( array( 'null' ) === $type ) { return null; }
+                	if ( in_array( 'object', $type, true ) ) {
+                		$value = array();
+                		foreach ( (array) ( $schema['properties'] ?? array() ) as $key => $property ) { $value[ $key ] = $fill( $property ); }
+                		return $value;
+                	}
+                	if ( in_array( 'array', $type, true ) ) { return array(); }
+                	if ( array_intersect( array( 'integer', 'number' ), $type ) ) { return max( 1, (int) ( $schema['minimum'] ?? 1 ) ); }
+                	if ( in_array( 'boolean', $type, true ) ) { return false; }
+                	$formats = array( 'date' => '2026-01-15', 'date-time' => '2026-01-15T10:00:00', 'email' => 'reader@example.com', 'uri' => 'https://example.com/', 'url' => 'https://example.com/' );
+                	return $formats[ $schema['format'] ?? '' ] ?? $book;
+                };
+                $run = function ( $ability, $user ) use ( $fill ) {
+                	wp_set_current_user( $user );
+                	$annotations = (array) $ability->get_meta_item( 'annotations', array() );
+                	$method = ! empty( $annotations['readonly'] ) ? 'GET' : ( ! empty( $annotations['destructive'] ) && ! empty( $annotations['idempotent'] ) ? 'DELETE' : 'POST' );
+                	$request = new WP_REST_Request( $method, '/wp-abilities/v1/abilities/' . $ability->get_name() . '/run' );
+                	$schema = $ability->get_input_schema();
+                	$input = $schema ? $fill( $schema ) : null;
+                	if ( 'POST' === $method ) {
+                		$request->set_header( 'Content-Type', 'application/json' );
+                		$request->set_body( wp_json_encode( array( 'input' => $input ) ) );
+                	} elseif ( null !== $input ) {
+                		$request->set_query_params( array( 'input' => $input ) );
+                	}
+                	$response = rest_do_request( $request );
+                	return array( 'name' => $ability->get_name(), 'method' => $method, 'user' => $user, 'input' => $input, 'status' => $response->get_status(), 'body' => $response->get_data() );
+                };
+                $admins = get_users( array( 'role' => 'administrator', 'number' => 1, 'fields' => 'ID' ) );
+                $admin = (int) ( $admins[0] ?? 1 );
+                // The abilities the site had before the turn, recorded by the seed.
+                $before = (array) get_option( 'eval_abilities_before', array() );
+                $abilities = array_values( array_filter( wp_get_abilities(), function ( $ability ) use ( $before ) { return ! in_array( $ability->get_name(), $before, true ); } ) );
+                $listed = array();
+                foreach ( $abilities as $ability ) {
+                	$listed[] = array( 'name' => $ability->get_name(), 'inRest' => (bool) $ability->get_meta_item( 'show_in_rest' ), 'annotations' => $ability->get_meta_item( 'annotations' ), 'inputSchema' => $ability->get_input_schema() );
+                }
+                $writes = array_filter( $abilities, function ( $ability ) { $a = (array) $ability->get_meta_item( 'annotations', array() ); return empty( $a['readonly'] ) && empty( $a['destructive'] ); } );
+                $reads = array_filter( $abilities, function ( $ability ) { $a = (array) $ability->get_meta_item( 'annotations', array() ); return ! empty( $a['readonly'] ); } );
+                $runs = array();
+                foreach ( $writes as $ability ) { $runs[] = $run( $ability, 0 ); }
+                foreach ( $writes as $ability ) { $runs[] = $run( $ability, $admin ); }
+                foreach ( $reads as $ability ) { $runs[] = $run( $ability, $admin ); }
+                echo 'INSPECT_JSON=' . wp_json_encode( array( 'book' => $book, 'abilities' => $listed, 'runs' => $runs ) ) . "\n";
+      prompt: |
+        Write a plugin for my book club's site that keeps our reading list,
+        with a title and an author for each book. I want AI agents to be able
+        to list the books and add new ones through the WordPress Abilities API.
     assert:
       - type: javascript
-        value: file://outcome.mjs:skillsLoadedFirst
-  - description: "routing: a plan question loads hosting-plans-helper"
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:abilitiesWork
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
+  # The failures users report most (from user interviews and support reports).
+  # Each case asks for something WordPress already does natively, the way a
+  # user would ask, and passes only when the site the turn leaves behind uses
+  # that native feature instead of custom code, CSS or raw HTML.
+  # Each also has a tool call and token budget with headroom over five passing
+  # runs, so a run that reaches the right result by looping fails. Mini-Cart's
+  # normal runs took 23-36 tool calls; two that looped for 73-76 calls on a
+  # block hidden by WooCommerce's Coming soon mode go over its budget.
+
+  # A cart count is WooCommerce's Mini-Cart block, not hand-written fragments
+  # code. Passes when the rendered header (theme part or saved copy) has the
+  # block and the turn added no PHP or JS that reads the cart count.
+  - description: cart icon in the header is WooCommerce's Mini-Cart block
     vars:
-      caseId: routing-plan-question
-      timeoutMs: 300000
-      skills: [{ name: hosting-plans-helper }]
-      stopAt: *stopAtWork
-      prompt: Which WordPress.com plan do I need to install my own plugins?
+      caseId: woo-mini-cart
+      timeoutMs: 600000
+      maxToolCalls: 40
+      maxTokens: 1200000
+      seed:
+        activeSite:
+          name: Hearth & Clay
+          wpCli:
+            - [theme, activate, twentytwentyfive]
+            - [plugin, install, woocommerce, --activate]
+            - - eval
+              - |
+                if ( ! class_exists( 'WC_Product_Simple' ) ) { echo 'SEED_ERROR: WooCommerce is not loaded'; return; }
+                foreach ( array( 'Ceramic Mug' => '18', 'Canvas Tote' => '24', 'Linen Apron' => '32' ) as $name => $price ) {
+                	$product = new WC_Product_Simple();
+                	$product->set_name( $name );
+                	$product->set_regular_price( $price );
+                	$product->set_status( 'publish' );
+                	if ( ! $product->save() ) { echo 'SEED_ERROR: could not create ' . $name; return; }
+                }
+      prompt: |
+        Add a cart icon to the header that shows how many items are in the cart.
     assert:
       - type: javascript
-        value: file://outcome.mjs:skillsLoadedFirst
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:miniCartInHeader
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+      - type: javascript
+        value: file://outcome.mjs:withinBudget
+
+  # Questions that open on click are Details blocks (or Accordion), not a
+  # Custom HTML block with a script.
+  - description: FAQ that opens on click is built from Details blocks
+    vars:
+      caseId: faq-details-block
+      timeoutMs: 600000
+      maxToolCalls: 30
+      maxTokens: 450000
+      seed:
+        activeSite:
+          name: Brightwater Dental
+          wpCli:
+            - [theme, activate, twentytwentyfive]
+      prompt: |
+        Add an FAQ section to the home page with three questions that open when you click them.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:faqUsesDetailsBlocks
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+      - type: javascript
+        value: file://outcome.mjs:withinBudget
+
+  # A look the user can switch to in the Site Editor is a theme style
+  # variation (styles/*.json), not dark-mode CSS. The seeded theme is the
+  # site's own, so editing it is legitimate, and carries no dark CSS.
+  - description: a dark look to switch to is a theme style variation
+    vars:
+      caseId: style-variation-for-dark-look
+      timeoutMs: 600000
+      maxToolCalls: 35
+      maxTokens: 550000
+      seed:
+        activeSite:
+          name: Lumen Design Studio
+          files: &eval_lumen_theme_files
+            wp-content/themes/lumen/style.css: |
+              /*
+              Theme Name: Lumen
+              Description: A custom block theme scaffolded by Studio Code.
+              Requires at least: 6.7
+              Tested up to: 6.9
+              Requires PHP: 7.2
+              Version: 0.1.0
+              License: GNU General Public License v2 or later
+              License URI: http://www.gnu.org/licenses/gpl-2.0.html
+              Text Domain: lumen
+              */
+            wp-content/themes/lumen/functions.php: |
+              <?php
+              /**
+               * Lumen theme functions.
+               *
+               * @package lumen
+               */
+
+              add_action( 'wp_enqueue_scripts', function () {
+              	wp_enqueue_style(
+              		'lumen-style',
+              		get_parent_theme_file_uri( 'style.css' ),
+              		array(),
+              		wp_get_theme()->get( 'Version' )
+              	);
+              } );
+            wp-content/themes/lumen/theme.json: |
+              {
+              	"$schema": "https://schemas.wp.org/wp/6.7/theme.json",
+              	"version": 3,
+              	"settings": {
+              		"appearanceTools": true,
+              		"layout": { "contentSize": "720px", "wideSize": "1200px" },
+              		"color": {
+              			"palette": [
+              				{ "slug": "base", "name": "Base", "color": "#ffffff" },
+              				{ "slug": "contrast", "name": "Contrast", "color": "#111111" },
+              				{ "slug": "accent", "name": "Accent", "color": "#2563eb" }
+              			]
+              		},
+              		"typography": {
+              			"fontFamilies": [
+              				{ "slug": "system-sans", "name": "System Sans", "fontFamily": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }
+              			]
+              		}
+              	},
+              	"styles": {
+              		"color": { "background": "var:preset|color|base", "text": "var:preset|color|contrast" },
+              		"typography": { "fontFamily": "var:preset|font-family|system-sans" },
+              		"elements": {
+              			"link": { "color": { "text": "var:preset|color|accent" } }
+              		}
+              	}
+              }
+            wp-content/themes/lumen/templates/index.html: |
+              <!-- wp:template-part {"slug":"header","tagName":"header"} /-->
+
+              <!-- wp:group {"tagName":"main","layout":{"type":"constrained"}} -->
+              <main class="wp-block-group">
+              	<!-- wp:heading -->
+              	<h2 class="wp-block-heading">Welcome to the studio</h2>
+              	<!-- /wp:heading -->
+
+              	<!-- wp:paragraph -->
+              	<p>We design calm, useful things.</p>
+              	<!-- /wp:paragraph -->
+              </main>
+              <!-- /wp:group -->
+
+              <!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->
+            wp-content/themes/lumen/parts/header.html: |
+              <!-- wp:group {"layout":{"type":"flex","justifyContent":"space-between"}} -->
+              <div class="wp-block-group">
+              	<!-- wp:site-title {"level":0} /-->
+              	<!-- wp:navigation /-->
+              </div>
+              <!-- /wp:group -->
+            wp-content/themes/lumen/parts/footer.html: |
+              <!-- wp:group {"layout":{"type":"constrained"}} -->
+              <div class="wp-block-group">
+              	<!-- wp:site-title {"isLink":false,"level":0} /-->
+              </div>
+              <!-- /wp:group -->
+          wpCli:
+            - [theme, activate, lumen]
+      prompt: |
+        Give the site a dark version of its look that I can switch to in the Site Editor.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:darkStyleVariation
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+      - type: javascript
+        value: file://outcome.mjs:withinBudget
+
+  # A single page is built from native blocks, not a Custom HTML block or a
+  # hand-written template of raw markup.
+  - description: an About page is built from native blocks
+    vars:
+      caseId: page-in-native-blocks
+      pageTitle: about
+      timeoutMs: 600000
+      maxToolCalls: 30
+      maxTokens: 450000
+      seed:
+        activeSite:
+          name: Oakline Carpentry
+          wpCli:
+            - [theme, activate, twentytwentyfive]
+      prompt: |
+        Add an About page with a heading, two short paragraphs about the business, and a team photo placeholder.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:pageInNativeBlocks
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+      - type: javascript
+        value: file://outcome.mjs:withinBudget
+
+  # Debugging, the way users ask for it: a plugin update left the site with
+  # a fatal error on every page. The update reads its saved hours as a
+  # list, but they were saved as text. Passes when the site renders with the
+  # plugin still active and still showing the hours.
+  - description: a site broken by a plugin update works again with the plugin's feature
+    vars:
+      caseId: debug-plugin-fatal
+      timeoutMs: 600000
+      plugins: [{ name: opening-hours }]
+      homeText: [{ text: Open Mon-Fri 7am-6pm }]
+      seed:
+        activeSite:
+          name: Daybreak Coffee
+          files:
+            wp-content/plugins/opening-hours/opening-hours.php: |
+              <?php
+              /**
+               * Plugin Name: Opening Hours
+               * Description: Shows the shop's opening hours in the site footer.
+               * Version: 1.2.0
+               */
+
+              add_action( 'wp_footer', function () {
+              	$hours = get_option( 'opening_hours' );
+              	echo '<p class="opening-hours">Open ' . esc_html( implode( ', ', $hours ) ) . '</p>';
+              } );
+          wpCli:
+            - [plugin, activate, opening-hours]
+            - [option, update, opening_hours, "Mon-Fri 7am-6pm, Sat 8am-2pm"]
+      prompt: My site broke after I updated a plugin, it just shows an error now. Can you fix it?
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:featureStillWorks
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
+  # Debugging after a move: the content still points its images at the old
+  # domain, though the uploads came along. Passes when every image on the home
+  # page loads from the site itself.
+  - description: images broken by a move to Studio load from the site again
+    vars:
+      caseId: debug-migrated-images
+      timeoutMs: 600000
+      minImages: 3
+      seed:
+        activeSite:
+          name: Flour & Ember
+          wpCli:
+            - - eval
+              - |
+                $jpg = base64_decode( '/9j/4AAQSkZJRgABAQAASABIAAD/4QESRXhpZgAATU0AKgAAAAgACgEGAAMAAAABAAIAAAESAAMAAAABAAEAAAEaAAUAAAABAAAAhgEbAAUAAAABAAAAjgEoAAMAAAABAAIAAAExAAIAAAAhAAAAlgEyAAIAAAAUAAAAuAFCAAQAAAABAAAEAAFDAAQAAAABAAAEAIdpAAQAAAABAAAAzAAAAAAAAABIAAAAAQAAAEgAAAABQWRvYmUgUGhvdG9zaG9wIDI2LjAgKE1hY2ludG9zaCkAADIwMjU6MDk6MjkgMTA6MzQ6NTcAAAOQBAACAAAAFAAAAPagAgAEAAAAAQAAABCgAwAEAAAAAQAAABAAAAAAMjAyNTowNzoyNCAxMzozNjoyMgD/7QA4UGhvdG9zaG9wIDMuMAA4QklNBAQAAAAAAAA4QklNBCUAAAAAABDUHYzZjwCyBOmACZjs+EJ+/+ICKElDQ19QUk9GSUxFAAEBAAACGGFwcGwEAAAAbW50clJHQiBYWVogB+YAAQABAAAAAAAAYWNzcEFQUEwAAAAAQVBQTAAAAAAAAAAAAAAAAAAAAAAAAPbWAAEAAAAA0y1hcHBsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKZGVzYwAAAPwAAAAwY3BydAAAASwAAABQd3RwdAAAAXwAAAAUclhZWgAAAZAAAAAUZ1hZWgAAAaQAAAAUYlhZWgAAAbgAAAAUclRSQwAAAcwAAAAgY2hhZAAAAewAAAAsYlRSQwAAAcwAAAAgZ1RSQwAAAcwAAAAgbWx1YwAAAAAAAAABAAAADGVuVVMAAAAUAAAAHABEAGkAcwBwAGwAYQB5ACAAUAAzbWx1YwAAAAAAAAABAAAADGVuVVMAAAA0AAAAHABDAG8AcAB5AHIAaQBnAGgAdAAgAEEAcABwAGwAZQAgAEkAbgBjAC4ALAAgADIAMAAyADJYWVogAAAAAAAA9tUAAQAAAADTLFhZWiAAAAAAAACD3wAAPb////+7WFlaIAAAAAAAAEq/AACxNwAACrlYWVogAAAAAAAAKDgAABELAADIuXBhcmEAAAAAAAMAAAACZmYAAPKnAAANWQAAE9AAAApbc2YzMgAAAAAAAQxCAAAF3v//8yYAAAeTAAD9kP//+6L///2jAAAD3AAAwG7/wAARCAAQABADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9sAQwAJCQkJCQkQCQkQFhAQEBYeFhYWFh4mHh4eHh4mLiYmJiYmJi4uLi4uLi4uNzc3Nzc3QEBAQEBISEhISEhISEhI/9sAQwELDAwSERIfEREfSzMqM0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tL/90ABAAB/9oADAMBAAIRAxEAPwC/P4mt7l0TTyzyOQowcBR2LewPWiz1sNctbTJK9wmRtXJDAdSOgxnvWjaQWOmPLHaxhR5WVO3kseev9KsXK2c1ul0WMUwULvj4fnkjGOma991Ka0UNPxPNVOLThzan/9k=' );
+                $dir = wp_upload_dir( '2024/05' );
+                $blocks = '';
+                foreach ( array( 'sourdough' => 'Sourdough loaves', 'croissants' => 'Butter croissants', 'storefront' => 'Our shop on Main Street' ) as $name => $alt ) {
+                	file_put_contents( $dir['path'] . "/$name.jpg", $jpg );
+                	$old = "https://flourandember.com/wp-content/uploads/2024/05/$name.jpg";
+                	$id = wp_insert_attachment( array( 'guid' => $old, 'post_mime_type' => 'image/jpeg', 'post_title' => $alt, 'post_status' => 'inherit' ), "2024/05/$name.jpg" );
+                	$blocks .= "<!-- wp:image {\"id\":$id,\"sizeSlug\":\"full\"} -->\n<figure class=\"wp-block-image size-full\"><img src=\"$old\" alt=\"$alt\" class=\"wp-image-$id\"/></figure>\n<!-- /wp:image -->\n\n";
+                }
+                $page = wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'Home', 'post_content' => "<!-- wp:paragraph -->\n<p>Fresh bread every morning.</p>\n<!-- /wp:paragraph -->\n\n" . $blocks ), true );
+                if ( is_wp_error( $page ) ) { echo 'SEED_ERROR: ' . $page->get_error_message(); return; }
+                update_option( 'show_on_front', 'page' );
+                update_option( 'page_on_front', $page );
+      prompt: I moved my site to Studio and now all the images are broken. Can you fix them?
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:homeImagesLoad
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
+  # Moving a hand-written HTML site onto WordPress: three pages sharing one
+  # stylesheet and nav, with photos. Passes when the site renders the old
+  # home page's words with valid blocks and photos served by the site, its
+  # menu opens the old site's other pages, and the About page is native blocks.
+  - description: a hand-written HTML site moved onto WordPress keeps its pages, words and photos
+    vars:
+      caseId: html-site-move
+      pageTitle: about us
+      minImages: 1
+      plugins: []
+      homeText:
+        - text: Learn to sail on Harbor Bay
+        - text: Teaching sailors since 1998
+      pages:
+        - title: Courses
+        - title: About Us
+      timeoutMs: 900000
+      seed:
+        activeSite:
+          name: Harbor Lights Sailing
+          files:
+            old-site/style.css: |
+              body { margin: 0; font-family: Georgia, serif; color: #12324a; background: #f6f1e7; }
+              header { display: flex; justify-content: space-between; align-items: center; padding: 20px 40px; background: #12324a; }
+              header a { color: #f6f1e7; text-decoration: none; margin-left: 24px; font-family: Helvetica, Arial, sans-serif; }
+              .logo { font-size: 22px; font-weight: bold; margin-left: 0; }
+              .hero { padding: 80px 40px; text-align: center; }
+              .hero h1 { font-size: 48px; margin: 0 0 12px; }
+              .hero img, .about img { max-width: 100%; border-radius: 8px; }
+              .courses { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; padding: 40px; }
+              .course { background: #fff; padding: 24px; border-radius: 8px; }
+              .button { display: inline-block; padding: 12px 28px; background: #e07a3f; color: #fff; border-radius: 24px; text-decoration: none; }
+              footer { padding: 30px 40px; background: #0b2233; color: #c9d6df; font-size: 14px; }
+            old-site/index.html: |
+              <!DOCTYPE html>
+              <html lang="en">
+              <head><meta charset="utf-8"><title>Harbor Lights Sailing School</title><link rel="stylesheet" href="style.css"></head>
+              <body>
+              <header><a class="logo" href="index.html">Harbor Lights</a><nav><a href="courses.html">Courses</a><a href="about.html">About Us</a></nav></header>
+              <section class="hero">
+                <h1>Learn to sail on Harbor Bay</h1>
+                <p>Small classes, patient instructors, and the best light on the coast.</p>
+                <img src="images/harbor.webp" alt="Sailboats at the harbor at dusk">
+                <p><a class="button" href="courses.html">See our courses</a></p>
+              </section>
+              <section class="courses">
+                <div class="course"><h3>First Sail</h3><p>A three-hour taster for complete beginners.</p></div>
+                <div class="course"><h3>Weekend Skipper</h3><p>Two days to your first solo tack and jibe.</p></div>
+                <div class="course"><h3>Coastal Cruising</h3><p>Navigation, anchoring and overnight passages.</p></div>
+              </section>
+              <footer>Harbor Lights Sailing School &middot; Pier 4, Harbor Bay &middot; Teaching sailors since 1998</footer>
+              </body>
+              </html>
+            old-site/courses.html: |
+              <!DOCTYPE html>
+              <html lang="en">
+              <head><meta charset="utf-8"><title>Courses | Harbor Lights</title><link rel="stylesheet" href="style.css"></head>
+              <body>
+              <header><a class="logo" href="index.html">Harbor Lights</a><nav><a href="courses.html">Courses</a><a href="about.html">About Us</a></nav></header>
+              <section class="hero"><h1>Courses</h1><p>Every course includes a life jacket, a logbook and hot chocolate afterwards.</p></section>
+              <section class="courses">
+                <div class="course"><h3>First Sail</h3><p>3 hours &middot; $95</p><p>No experience needed. You will steer, trim a sail and learn the basic knots.</p></div>
+                <div class="course"><h3>Weekend Skipper</h3><p>2 days &middot; $420</p><p>Rigging, tacking, jibing, man-overboard drills and your first solo sail.</p></div>
+                <div class="course"><h3>Coastal Cruising</h3><p>5 days &middot; $1,150</p><p>Chart work, tides, anchoring and two overnight passages along the coast.</p></div>
+              </section>
+              <footer>Harbor Lights Sailing School &middot; Pier 4, Harbor Bay &middot; Teaching sailors since 1998</footer>
+              </body>
+              </html>
+            old-site/about.html: |
+              <!DOCTYPE html>
+              <html lang="en">
+              <head><meta charset="utf-8"><title>About Us | Harbor Lights</title><link rel="stylesheet" href="style.css"></head>
+              <body>
+              <header><a class="logo" href="index.html">Harbor Lights</a><nav><a href="courses.html">Courses</a><a href="about.html">About Us</a></nav></header>
+              <section class="about hero">
+                <h1>About Us</h1>
+                <img src="images/crew.webp" alt="Our instructors on the dock">
+                <p>Harbor Lights started in 1998 with one dinghy and a borrowed mooring. Today our six instructors teach more than four hundred students a year.</p>
+                <p>We believe anyone can learn to sail, and that the best way to learn is on the water, in small groups, with someone patient beside you.</p>
+              </section>
+              <footer>Harbor Lights Sailing School &middot; Pier 4, Harbor Bay &middot; Teaching sailors since 1998</footer>
+              </body>
+              </html>
+          wpCli:
+            - - eval
+              - |
+                $images = ABSPATH . 'old-site/images';
+                wp_mkdir_p( $images );
+                $theme = get_theme_root() . '/twentytwentyfive/assets/images';
+                if ( ! copy( "$theme/hero-podcast.webp", "$images/harbor.webp" ) || ! copy( "$theme/book-image.webp", "$images/crew.webp" ) ) { echo 'SEED_ERROR: could not copy the photos'; }
+      prompt: |
+        I've had a hand-coded HTML site for years and I'm tired of editing the
+        files by hand. They're in the old-site folder in my Studio site. Can you
+        move it onto WordPress so I can edit it myself?
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:featureStillWorks
+      - type: javascript
+        value: file://outcome.mjs:menuReachesPages
+      - type: javascript
+        value: file://outcome.mjs:pageInNativeBlocks
+      - type: javascript
+        value: file://outcome.mjs:homeImagesLoad
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
+  # Debugging, as users report it: a snippet pasted into the theme's
+  # functions.php has a syntax error, so every page is blank. Passes when the
+  # site renders and the snippet's banner shows on the home page.
+  - description: a white screen from a pasted functions.php snippet is fixed with the snippet working
+    vars:
+      caseId: debug-functions-snippet
+      plugins: []
+      homeText: [{ text: Free delivery on orders over $30 }]
+      timeoutMs: 600000
+      seed:
+        activeSite:
+          name: Copper Kettle Tea
+          files:
+            wp-content/themes/copper-kettle/style.css: |
+              /*
+              Theme Name: Copper Kettle
+              Template: twentytwentyfive
+              Version: 1.0.0
+              */
+              .delivery-banner { padding: 8px; text-align: center; background: #b5651d; color: #fff; }
+            wp-content/themes/copper-kettle/functions.php: |
+              <?php
+              add_action( 'wp_enqueue_scripts', function () {
+              	wp_enqueue_style( 'copper-kettle', get_stylesheet_uri() );
+              } );
+
+              // Free delivery banner at the top of every page.
+              add_action( 'wp_body_open', 'ck_delivery_banner' )
+              function ck_delivery_banner() {
+              	echo '<div class="delivery-banner">Free delivery on orders over $30</div>';
+              }
+          wpCli:
+            - [theme, activate, copper-kettle]
+      prompt: |
+        I pasted a snippet from a tutorial into my theme's functions.php to show a
+        free delivery banner, and now my whole site is just a white page. Help!
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:featureStillWorks
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
+  # A redesign of an existing site on a WordPress.org theme: the user's home
+  # page content stays, and the new look is kept where WordPress keeps a
+  # design. Passes when the home page still shows the content and the design
+  # is the site's own.
+  - description: a plain existing site gets a distinctive look and keeps its content
+    vars:
+      caseId: redesign-existing-site
+      plugins: []
+      homeText:
+        - text: Wood-fired sourdough pizza since 2011
+        - text: Tuesday to Sunday, 5pm to 10pm
+      timeoutMs: 900000
+      seed:
+        activeSite:
+          name: Ember Street Pizza
+          wpCli:
+            - [theme, activate, twentytwentyfive]
+            - - eval
+              - |
+                $content = "<!-- wp:heading {\"level\":1} -->\n<h1 class=\"wp-block-heading\">Ember Street Pizza</h1>\n<!-- /wp:heading -->\n\n<!-- wp:paragraph -->\n<p>Wood-fired sourdough pizza since 2011</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:heading -->\n<h2 class=\"wp-block-heading\">Our menu</h2>\n<!-- /wp:heading -->\n\n<!-- wp:list -->\n<ul class=\"wp-block-list\"><!-- wp:list-item -->\n<li>Margherita, $14</li>\n<!-- /wp:list-item -->\n\n<!-- wp:list-item -->\n<li>Fennel sausage and honey, $17</li>\n<!-- /wp:list-item -->\n\n<!-- wp:list-item -->\n<li>Wild mushroom and taleggio, $18</li>\n<!-- /wp:list-item --></ul>\n<!-- /wp:list -->\n\n<!-- wp:heading -->\n<h2 class=\"wp-block-heading\">Hours</h2>\n<!-- /wp:heading -->\n\n<!-- wp:paragraph -->\n<p>Tuesday to Sunday, 5pm to 10pm</p>\n<!-- /wp:paragraph -->";
+                $page = wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'Home', 'post_content' => $content ), true );
+                if ( is_wp_error( $page ) ) { echo 'SEED_ERROR: ' . $page->get_error_message(); return; }
+                update_option( 'show_on_front', 'page' );
+                update_option( 'page_on_front', $page );
+      prompt: |
+        My pizza place's site looks really plain and generic. Can you give it a
+        warmer, more distinctive look that feels like a wood-fired pizzeria? Keep
+        all my content.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:featureStillWorks
+      - type: javascript
+        value: file://outcome.mjs:siteHasItsOwnDesign
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
+  # A picky user takes the first version apart in their own words, then changes
+  # their own changes: judged on the home page as a browser renders it after the
+  # last turn, against what the first turn built.
+  - description: a picky user's large changes, then changes to those changes, all reach the rendered site
+    vars:
+      caseId: picky-restyle
+      timeoutMs: 1500000
+      prompt: build a site for my bike repair shop, Spoke & Chain
+      followUps:
+        - prompt: >-
+            Honestly I don't love it. I want the menu to stay at the top while people
+            scroll down. Can the shop name and the menu swap sides? The buttons should
+            be shaped like pills. Make all the titles lowercase, that's kind of our
+            brand thing. The small print at the bottom is too big. And it doesn't feel
+            like a bike shop to me. Make it dark green, like the sign over our door.
+        - prompt: >-
+            Hmm, the pill buttons look too bubbly now, just round the corners a
+            little. And keep the lowercase except for the big title at the top of the
+            home page, that one should look normal.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:restyleApplied
+      - type: javascript
+        value: file://outcome.mjs:turnsAreResponsive
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched

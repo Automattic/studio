@@ -22,6 +22,7 @@ import path from 'node:path';
 import { SessionManager } from '@earendil-works/pi-coding-agent';
 import {
 	addAssistantMessageUsage,
+	addToolCallUsage,
 	createAgent,
 	createTokenUsage,
 	type AskUserHandler,
@@ -44,9 +45,15 @@ import {
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
-import { captureTurnOutcome, fingerprintSites, type TurnOutcome } from 'cli/ai/eval-outcome';
-import { matchesStopRule, stopRuleSchema, type StopRule } from 'cli/ai/eval-stop';
+import { createScriptedUser, evalAnswersSchema, type EvalAnswers } from 'cli/ai/eval-answers';
+import {
+	captureHomeStyles,
+	captureTurnOutcome,
+	fingerprintSites,
+	type TurnOutcome,
+} from 'cli/ai/eval-outcome';
 import { summarizeTiming, type ModelRequestRecord } from 'cli/ai/eval-timing';
+import { extractToolResult } from 'cli/ai/eval-tool-results';
 import { cliAgentHost } from 'cli/ai/host';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
@@ -115,17 +122,13 @@ interface EvalRunnerInput {
 	// Objects rather than strings: promptfoo expands an array of strings into
 	// one test case per element.
 	followUps?: Array< { prompt: string } >;
-	// Scripted replies for the questions the agent asks the user, in order:
-	// each question takes the next label. With answers set, the turn runs with
-	// Studio chat's ask-the-user handler, so AskUserQuestion and tools that
-	// confirm with the user work; once they run out, the user cancels.
-	answers?: Array< { label: string } >;
+	// The scripted user's replies (eval-answers.ts). With answers set, the turn
+	// runs with Studio chat's ask-the-user handler, so AskUserQuestion and
+	// tools that confirm with the user work.
+	answers?: EvalAnswers;
 	timeoutMs?: number;
 	model?: AiModelId;
 	seed?: EvalSeed;
-	// Ends the run at the first tool call matching one of these rules, before
-	// any follow-ups; the result's `stoppedAt` names it.
-	stopAt?: StopRule[];
 }
 
 interface Inspection {
@@ -389,7 +392,13 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 		inspect,
 		activeSitePath,
 		activeSite: remoteActiveSite
-			? { ...remoteActiveSite, path: '', running: false, remote: true }
+			? {
+					name: remoteActiveSite.name,
+					url: remoteActiveSite.url,
+					path: '',
+					running: false,
+					remote: { host: 'wpcom', id: remoteActiveSite.wpcomSiteId },
+			  }
 			: seededSite,
 	};
 }
@@ -425,6 +434,13 @@ type ToolEvent = {
 	startedAtMs: number;
 	endedAtMs?: number;
 	durationMs?: number;
+	// Studio's checks around the tool's run, within durationMs.
+	checksMs?: number;
+	checkStagesMs?: Record< string, number >;
+	// The longest read or check of each site change source since the last call took them.
+	checkSourcesMs?: Record< string, number >;
+	// The model requests a call made of its own, as a subagent's turn does.
+	modelRequests?: number;
 	isError?: boolean;
 	// Length of the result's text block: what the tool adds to the context.
 	outputChars?: number;
@@ -446,46 +462,6 @@ function extractTextSegments( event: AgentSessionEvent ): string[] {
 	return event.message.content
 		.filter( ( block ): block is { type: 'text'; text: string } => block.type === 'text' )
 		.map( ( block ) => block.text );
-}
-
-function extractToolResult( event: AgentSessionEvent ): {
-	toolUseId: string;
-	isError: boolean;
-	text?: string;
-	images?: Array< { mimeType: string; data: string } >;
-	details?: unknown;
-} | null {
-	if ( event.type !== 'tool_execution_end' ) {
-		return null;
-	}
-	const result = event.result as
-		| {
-				content?: Array< { type: string; text?: string; data?: string; mimeType?: string } >;
-				details?: unknown;
-		  }
-		| undefined;
-	let text: string | undefined;
-	let images: Array< { mimeType: string; data: string } > | undefined;
-	if ( result?.content && Array.isArray( result.content ) ) {
-		const textBlock = result.content.find(
-			( b ): b is { type: 'text'; text: string } => b.type === 'text' && typeof b.text === 'string'
-		);
-		if ( textBlock ) text = textBlock.text;
-		const imageBlocks = result.content.filter(
-			( b ): b is { type: 'image'; data: string; mimeType?: string } =>
-				b.type === 'image' && typeof b.data === 'string'
-		);
-		if ( imageBlocks.length > 0 ) {
-			images = imageBlocks.map( ( b ) => ( { mimeType: b.mimeType ?? '', data: b.data } ) );
-		}
-	}
-	return {
-		toolUseId: event.toolCallId,
-		isError: event.isError,
-		text,
-		images,
-		details: result?.details,
-	};
 }
 
 function readInput(): EvalRunnerInput {
@@ -517,16 +493,13 @@ function readInput(): EvalRunnerInput {
 		? z.array( z.object( { prompt: z.string() } ) ).parse( vars.followUps )
 		: undefined;
 
-	const answers = vars.answers
-		? z.array( z.object( { label: z.string() } ) ).parse( vars.answers )
-		: undefined;
+	const answers = vars.answers ? evalAnswersSchema.parse( vars.answers ) : undefined;
 
 	return {
 		prompt: ( vars.prompt as string ) ?? prompt,
 		followUps,
 		answers,
 		timeoutMs: typeof vars.timeoutMs === 'number' ? vars.timeoutMs : undefined,
-		stopAt: vars.stopAt ? z.array( stopRuleSchema ).parse( vars.stopAt ) : undefined,
 		model,
 		seed,
 	};
@@ -571,34 +544,21 @@ async function runEval( input: EvalRunnerInput ) {
 	const toolEvents: ToolEvent[] = [];
 	const requests: ModelRequestRecord[] = [];
 	const textSegments: string[] = [];
-	const questions: Array< { question: string; options: string[]; answer: string } > = [];
-	const pendingAnswers = [ ...( input.answers ?? [] ) ];
-	const onAskUser: AskUserHandler | undefined = input.answers
-		? async ( asked ) =>
-				Object.fromEntries(
-					asked.map( ( { question, options } ) => {
-						const answer = pendingAnswers.shift()?.label ?? 'Cancel';
-						questions.push( {
-							question,
-							options: options.map( ( option ) => option.label ),
-							answer,
-						} );
-						return [ question, answer ];
-					} )
-				)
-		: undefined;
+	const scriptedUser = input.answers ? createScriptedUser( input.answers ) : undefined;
+	const onAskUser: AskUserHandler | undefined = scriptedUser?.onAskUser;
 	const toolNameById = new Map< string, string >();
 	const toolEventById = new Map< string, ToolEvent >();
 	let firstToolError: FirstToolError | null = null;
 	// Wall-clock per turn, measured between successive assistant messages.
 	const turnDurationsMs: number[] = [];
+	// Each turn's system prompt, so a result shows the facts the agent was given.
+	const systemPrompts: string[] = [];
 	let turnIndex = 0;
 	let numTurns = 0;
 	let numTurnsResult: number | null = null;
 	let success = false;
 	let error: string | null = null;
 	let timedOut = false;
-	let stoppedAt: { toolUseId: string; toolName: string; index: number } | null = null;
 	// From the last assistant message: a provider failure ends the turn with
 	// stopReason "error" and its message here, without throwing.
 	let stopReason: string | null = null;
@@ -658,10 +618,6 @@ async function runEval( input: EvalRunnerInput ) {
 			turnStart = now;
 		}
 		for ( const tc of extractToolCalls( event ) ) {
-			if ( input.stopAt && ! stoppedAt && matchesStopRule( tc, input.stopAt ) ) {
-				stoppedAt = { toolUseId: tc.id, toolName: tc.name, index: toolCalls.length };
-				void query.interrupt();
-			}
 			toolCalls.push( tc );
 			toolNameById.set( tc.id, tc.name );
 			const evt: ToolEvent = {
@@ -677,6 +633,7 @@ async function runEval( input: EvalRunnerInput ) {
 		textSegments.push( ...extractTextSegments( event ) );
 
 		if ( event.type === 'tool_execution_end' ) {
+			addToolCallUsage( usage, event );
 			const tr = extractToolResult( event );
 			if ( tr ) {
 				const id = tr.toolUseId;
@@ -686,6 +643,23 @@ async function runEval( input: EvalRunnerInput ) {
 					evt.durationMs = evt.endedAtMs - evt.startedAtMs;
 					evt.isError = tr.isError;
 					evt.outputChars = tr.text?.length ?? 0;
+					const { checksMs, checkStagesMs, checkSourcesMs, requests } =
+						( tr.details as
+							| {
+									checksMs?: unknown;
+									checkStagesMs?: unknown;
+									checkSourcesMs?: unknown;
+									requests?: unknown;
+							  }
+							| undefined ) ?? {};
+					if ( typeof requests === 'number' ) {
+						evt.modelRequests = requests;
+					}
+					if ( typeof checksMs === 'number' ) {
+						evt.checksMs = checksMs;
+						evt.checkStagesMs = checkStagesMs as Record< string, number >;
+						evt.checkSourcesMs = checkSourcesMs as Record< string, number > | undefined;
+					}
 				}
 				if ( tr.isError && ! firstToolError ) {
 					firstToolError = {
@@ -733,6 +707,8 @@ async function runEval( input: EvalRunnerInput ) {
 			...( input.model ? { model: input.model } : {} ),
 		} );
 	const sitesBeforeTurn = await fingerprintSites();
+	// Each created site's home page styles after every turn but the last.
+	const homeStylesByTurn: Array< Record< string, unknown > > = [];
 	let query = runTurn( prompt );
 	phaseTimingsMs.start_ai_agent_ms = Date.now() - phaseStartedAt;
 
@@ -744,9 +720,12 @@ async function runEval( input: EvalRunnerInput ) {
 	try {
 		await query.result;
 		for ( const followUp of input.followUps ?? [] ) {
-			if ( timedOut || stoppedAt ) {
+			if ( timedOut ) {
 				break;
 			}
+			systemPrompts.push( query.systemPrompt() ?? '' );
+			// What this turn left, for judging what the next one changes.
+			homeStylesByTurn.push( await captureHomeStyles( sitesBeforeTurn ) );
 			query = runTurn( followUp.prompt );
 			await query.result;
 		}
@@ -754,6 +733,7 @@ async function runEval( input: EvalRunnerInput ) {
 		error = caught instanceof Error ? caught.message : String( caught );
 	} finally {
 		clearTimeout( timeout );
+		systemPrompts.push( query.systemPrompt() ?? '' );
 		outcome = await captureTurnOutcome(
 			sitesBeforeTurn,
 			seeded?.activeSitePath,
@@ -773,7 +753,6 @@ async function runEval( input: EvalRunnerInput ) {
 		success,
 		error,
 		timedOut,
-		stoppedAt,
 		model: resolvedModel,
 		numTurns: numTurnsResult,
 		stopReason,
@@ -784,12 +763,14 @@ async function runEval( input: EvalRunnerInput ) {
 		timing: summarizeTiming( requests, toolEvents ),
 		requests,
 		turnDurationsMs,
+		systemPrompts,
+		homeStylesByTurn,
 		toolCalls,
 		toolResults,
 		toolEvents,
 		firstToolError,
 		textSegments,
-		questions,
+		questions: scriptedUser?.questions ?? [],
 		inspections,
 		outcome,
 	};

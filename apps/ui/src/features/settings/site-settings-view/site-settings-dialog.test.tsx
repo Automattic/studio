@@ -23,26 +23,15 @@ function setup( {
 	const connector = createFakeConnector( signedIn ? { sites } : { sites, user: null }, {
 		getWpVersion: async () => wpVersion,
 		siteDebugLogExists: async () => logExists,
-		getSiteAgentFiles: async ( _siteId, kind ) =>
-			kind === 'skills'
-				? [
-						{
-							id: 'studio-cli',
-							displayName: 'WordPress Studio CLI',
-							description: 'CLI',
-							installed: false,
-							enabled: false,
-						},
-				  ]
-				: [
-						{
-							id: 'agents',
-							displayName: 'AGENTS.md',
-							description: 'Instructions',
-							installed: false,
-							enabled: false,
-						},
-				  ],
+		getSiteAgentFiles: async () => [
+			{
+				id: 'studio-cli',
+				displayName: 'WordPress Studio CLI',
+				description: 'CLI',
+				installed: false,
+				enabled: false,
+			},
+		],
 	} );
 	connector.updateSite.mockImplementation( async ( updated ) => {
 		connector.state.sites = connector.state.sites.map( ( entry ) =>
@@ -80,9 +69,6 @@ describe( 'site settings', () => {
 		expect( screen.queryByRole( 'button', { name: 'Save' } ) ).not.toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'tab', { name: 'Skills' } ) );
 		await screen.findByText( 'WordPress Studio CLI' );
-		expect( screen.queryByRole( 'button', { name: 'Save' } ) ).not.toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'tab', { name: 'Instructions' } ) );
-		await screen.findByText( 'AGENTS.md' );
 		expect( screen.queryByRole( 'button', { name: 'Save' } ) ).not.toBeInTheDocument();
 	} );
 
@@ -376,16 +362,11 @@ describe( 'site settings', () => {
 	it( 'installs site-specific files immediately without saving the draft', async () => {
 		const { connector } = setup();
 		await siteName();
-		fireEvent.click( screen.getByRole( 'tab', { name: 'Instructions' } ) );
-		await screen.findByText( 'AGENTS.md' );
-		fireEvent.click( screen.getByRole( 'switch', { name: 'AGENTS.md' } ) );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Skills' } ) );
+		await screen.findByText( 'WordPress Studio CLI' );
+		fireEvent.click( screen.getByRole( 'switch', { name: 'WordPress Studio CLI' } ) );
 		await waitFor( () =>
-			expect( connector.setSiteAgentFileEnabled ).toHaveBeenCalledWith(
-				'one',
-				'instructions',
-				'agents',
-				true
-			)
+			expect( connector.setSiteAgentFileEnabled ).toHaveBeenCalledWith( 'one', 'studio-cli', true )
 		);
 		expect( connector.updateSite ).not.toHaveBeenCalled();
 	} );

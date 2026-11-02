@@ -124,6 +124,7 @@ it.each( [ 'wp_', 'site2_' ] )(
 		] );
 
 		// An older copy of the header, then the latest, which WordPress renders.
+		// The theme file each replaces is WordPress's to say (apps/cli/ai/tests/saved-copies.test.ts).
 		site.save( 10, 'wp_template_part', 'header' );
 		site.save( 14, 'wp_template_part', 'header' );
 		site.save( 16, 'wp_template', 'front-page' );
@@ -135,7 +136,7 @@ it.each( [ 'wp_', 'site2_' ] )(
 		);
 		expect( await site.facts() ).toEqual( [
 			...BASE,
-			"Saved in the Site Editor, so WordPress renders them in place of the active theme's files: Global Styles (post 15), setting color, typography, 1 block style, and color settings over theme.json; the template front-page (post 16), instead of templates/front-page.html; the template part header (post 14), instead of parts/header.html.",
+			"Saved in the Site Editor, so WordPress renders them in place of the active theme's files: Global Styles (post 15), setting color, typography, 1 block style, and color settings over theme.json; the template front-page (post 16); the template part header (post 14).",
 		] );
 	}
 );

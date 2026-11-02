@@ -1,5 +1,8 @@
+import { readdir } from 'fs/promises';
 import path from 'path';
 import { activeIsBlockTheme, activeThemes } from '@studio/agent/node/themes';
+import { wpEvalJson } from '@studio/agent/node/tools/utils';
+import type { StudioAgentHost } from '@studio/agent/node/host';
 import type { WordPressSite } from '@studio/agent/node/site-database';
 
 // A block theme's templates, template parts, and theme.json are only what
@@ -16,8 +19,8 @@ export interface SavedCopy {
 	id: number;
 	// The template or part's slug (the file name without .html).
 	slug: string;
-	// The theme file WordPress renders when the copy is not saved, relative to
-	// the theme (or its parent).
+	// The theme file the copy is matched to a write by, relative to the theme
+	// (or its parent).
 	file: string;
 	// For Global Styles: the areas they set, such as `color` or `14 block styles`.
 	sets?: string[];
@@ -128,14 +131,64 @@ const KIND: Record< SavedPostType, string > = {
 	wp_global_styles: 'Global Styles',
 };
 
-function describeCopy( copy: SavedCopy ): string {
-	const { file } = copy;
-	if ( copy.postType === 'wp_global_styles' ) {
-		return `Global Styles (post ${ copy.id }), setting ${ joinList(
-			copy.sets ?? []
-		) } over ${ file }`;
+// The theme file WordPress renders for each saved template and part when it
+// is not saved, relative to its theme, or null when the theme has none
+// (_get_block_template_file() in wp-includes/block-template-utils.php).
+const THEME_FILES = `
+$root = wp_normalize_path( realpath( get_theme_root() ) );
+$out  = array();
+foreach ( $data as $copy ) {
+	$file = _get_block_template_file( $copy[0], $copy[1] );
+	$out[ implode( '/', $copy ) ] = $file ? substr( wp_normalize_path( $file['path'] ), strlen( "$root/{$file['theme']}/" ) ) : null;
+}
+echo wp_json_encode( (object) $out );`;
+
+const themeFiles = new Map< string, Promise< Record< string, string | null > | undefined > >();
+
+// WordPress's theme files of the copies, asked again when the copies, the
+// active themes, or the names of their template and part files change.
+async function themeFilesOf(
+	host: StudioAgentHost,
+	site: WordPressSite,
+	copies: SavedCopy[]
+): Promise< Record< string, string | null > | undefined > {
+	const templates = copies.filter( ( copy ) => copy.postType !== 'wp_global_styles' );
+	const studioSite = templates.length && ( await host.sites.findByFolder( site.root ) );
+	if ( ! studioSite ) {
+		return undefined;
 	}
-	return `the ${ KIND[ copy.postType ] } ${ copy.slug } (post ${ copy.id }), instead of ${ file }`;
+	const themes = activeThemes( site );
+	const names = await Promise.all(
+		themes.flatMap( ( theme ) =>
+			[ 'templates', 'block-templates', 'parts', 'block-template-parts' ].map( ( folder ) =>
+				readdir( path.join( site.root, 'wp-content', 'themes', theme, folder ) ).catch( () => [] )
+			)
+		)
+	);
+	const key = JSON.stringify( [ site.root, templates, themes, names ] );
+	let files = themeFiles.get( key );
+	if ( ! files ) {
+		files = wpEvalJson< Record< string, string | null > >(
+			host,
+			studioSite,
+			THEME_FILES,
+			templates.map( ( copy ) => [ copy.postType, copy.slug ] )
+		).catch( () => undefined );
+		themeFiles.set( key, files );
+	}
+	return files;
+}
+
+function describeCopy( copy: SavedCopy, files?: Record< string, string | null > ): string {
+	if ( copy.postType === 'wp_global_styles' ) {
+		return `Global Styles (post ${ copy.id }), setting ${ joinList( copy.sets ?? [] ) } over ${
+			copy.file
+		}`;
+	}
+	const file = files?.[ `${ copy.postType }/${ copy.slug }` ];
+	return `the ${ KIND[ copy.postType ] } ${ copy.slug } (post ${ copy.id })${
+		file ? `, instead of ${ file }` : ''
+	}`;
 }
 
 /**
@@ -167,11 +220,15 @@ export function savedCopyWriteNote( site: WordPressSite, file: string ): string 
  * block theme (templates/index.html, WP_Theme::is_block_theme()), that there
  * are none, so its files are what WordPress renders.
  */
-export function savedCopiesFact( site: WordPressSite ): string | undefined {
+export async function savedCopiesFact(
+	site: WordPressSite,
+	host: StudioAgentHost
+): Promise< string | undefined > {
 	const copies = readSavedCopies( site );
 	if ( copies.length ) {
+		const files = await themeFilesOf( host, site, copies );
 		return `Saved in the Site Editor, so WordPress renders them in place of the active theme's files: ${ copies
-			.map( describeCopy )
+			.map( ( copy ) => describeCopy( copy, files ) )
 			.join( '; ' ) }.`;
 	}
 	return activeIsBlockTheme( site )

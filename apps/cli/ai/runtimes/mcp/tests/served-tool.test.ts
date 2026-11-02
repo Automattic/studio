@@ -1,20 +1,22 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
 import {
 	bindTool,
 	createSiteNotes,
 	defineTool,
+	getSessionState,
 	LOCAL_CHANGE,
 	READ_ONLY,
 	SiteChanges,
 	type StudioToolDefinition,
 } from '@studio/agent/node';
+import { validateBlocks } from '@studio/agent/node/block-validator';
 import { createSite } from '@studio/agent/node/tests/fixtures/wordpress-site';
 import { Type } from 'typebox';
 import { expect, it, vi } from 'vitest';
 import { cliAgentHost } from 'cli/ai/host';
-import { runServedTool } from 'cli/ai/runtimes/mcp/served-tool';
+import { runServedTool, type ServedChecks } from 'cli/ai/runtimes/mcp/served-tool';
 
 // The fixture is a site's files and database, not a WordPress install, so the
 // checks that ask WordPress (wp-cli) find nothing to report, as they do when a
@@ -59,8 +61,10 @@ const host = cliAgentHost;
 const serve = (
 	tool: StudioToolDefinition,
 	args: Record< string, unknown >,
-	...rest: [ ReturnType< typeof createSiteNotes >, SiteChanges? ]
-) => runServedTool( host, bindTool( tool, host ), args, ...rest );
+	siteNotes: ReturnType< typeof createSiteNotes >,
+	siteChanges?: SiteChanges,
+	gate?: ServedChecks[ 'gate' ]
+) => runServedTool( host, bindTool( tool, host ), args, { siteNotes, siteChanges, gate } );
 
 it( 'adds the declared settings of the core blocks a result shows, from the site the call names, once', async () => {
 	const root = mkdtempSync( path.join( tmpdir(), 'served-tool-' ) );
@@ -175,10 +179,8 @@ it( 'reports on the next call what the client changed between calls, by its own 
 	writeFileSync( path.join( root, 'cli.json' ), JSON.stringify( { version: 1, sites: [ site ] } ) );
 	vi.stubEnv( 'E2E', '1' );
 	vi.stubEnv( 'E2E_CLI_CONFIG_PATH', root );
-	const tracked: string[] = [];
-	const siteNotes = createSiteNotes( host, {
-		gate: { track: ( file: string ) => tracked.push( file ) } as never,
-	} );
+	const { blockValidation: gate, openProblems: open } = getSessionState( host, {} );
+	const siteNotes = createSiteNotes( host, { gate, open } );
 	const siteChanges = new SiteChanges( host );
 	const list = defineTool(
 		'site_list',
@@ -188,7 +190,7 @@ it( 'reports on the next call what the client changed between calls, by its own 
 		{ annotations: READ_ONLY }
 	);
 	const call = async () =>
-		( await serve( list, {}, siteNotes, siteChanges ) ).content.map( ( part ) =>
+		( await serve( list, {}, siteNotes, siteChanges, gate ) ).content.map( ( part ) =>
 			part.type === 'text' ? part.text : ''
 		);
 
@@ -199,9 +201,55 @@ it( 'reports on the next call what the client changed between calls, by its own 
 	mkdirSync( path.dirname( template ), { recursive: true } );
 	writeFileSync( template, '<!-- wp:paragraph --><p>Hi</p><!-- /wp:paragraph -->' );
 
-	expect( ( await call() )[ 1 ] ).toMatch(
+	const notes = ( await call() )[ 1 ];
+	expect( notes ).toMatch(
 		/^<studio-notes>\nBlock validation: Bakery page 9 "": 1\/1 blocks valid; core\/html policy failed\n/
 	);
-	expect( tracked ).toEqual( [ template ] );
+	// The template the client wrote, validated as one Studio Code writes is.
+	expect( notes ).toContain( 'Block validation: templates/index.html: 1/1 blocks valid' );
+	expect( await call() ).toEqual( [ 'Bakery' ] );
+} );
+
+it( "leaves the fix Studio saves to a file the client wrote out of the next call's changes", async () => {
+	const fixture = createSite();
+	const root = mkdtempSync( path.join( tmpdir(), 'served-tool-' ) );
+	const site = { id: '1', name: 'Bakery', path: fixture.root, port: 8881, phpVersion: '8.3' };
+	writeFileSync( path.join( root, 'cli.json' ), JSON.stringify( { version: 1, sites: [ site ] } ) );
+	vi.stubEnv( 'E2E', '1' );
+	vi.stubEnv( 'E2E_CLI_CONFIG_PATH', root );
+	const { blockValidation: gate, openProblems: open } = getSessionState( host, {} );
+	const siteNotes = createSiteNotes( host, { gate, open } );
+	const siteChanges = new SiteChanges( host );
+	const list = defineTool(
+		'site_list',
+		'Lists sites.',
+		{},
+		async () => ( { content: [ { type: 'text', text: 'Bakery' } ] } ),
+		{ annotations: READ_ONLY }
+	);
+	const call = async () =>
+		( await serve( list, {}, siteNotes, siteChanges, gate ) ).content.map( ( part ) =>
+			part.type === 'text' ? part.text : ''
+		);
+	expect( await call() ).toEqual( [ 'Bakery' ] );
+
+	const fixed = '<!-- wp:paragraph -->\n<p>Hi</p>\n<!-- /wp:paragraph -->';
+	vi.mocked( validateBlocks ).mockResolvedValueOnce( {
+		totalBlocks: 1,
+		validBlocks: 0,
+		invalidBlocks: 1,
+		results: [ { blockName: 'core/paragraph', isValid: false, issues: [], originalContent: '' } ],
+		proposedFix: {
+			fixedContent: fixed,
+			report: { totalBlocks: 1, validBlocks: 1, invalidBlocks: 0, results: [] },
+			losses: [],
+		},
+	} );
+	const template = path.join( fixture.root, 'wp-content/themes/bakery/templates/index.html' );
+	mkdirSync( path.dirname( template ), { recursive: true } );
+	writeFileSync( template, '<!-- wp:paragraph --><p>Hi</p><!-- /wp:paragraph -->' );
+
+	expect( ( await call() )[ 1 ] ).toContain( 'Studio changed' );
+	expect( readFileSync( template, 'utf8' ) ).toBe( fixed );
 	expect( await call() ).toEqual( [ 'Bakery' ] );
 } );

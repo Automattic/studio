@@ -45,9 +45,10 @@ export { buildSystemPrompt } from './system-prompt';
 export { isImageGenerationAvailable } from './image-generation';
 
 // What Studio says about a site after a served tool's call, for `studio mcp`.
-export { createSiteNotes, type SiteNotes } from './site-notes';
+export { createSiteNotes, notesAfterCall, type SiteNotes } from './site-notes';
 export { NO_CHANGES, SiteChanges, type SettledChanges } from './site-changes';
-export { studioMessage } from './studio-message';
+export { studioMessage, validationLines } from './studio-message';
+export { getSessionState } from './runtime/session-state';
 
 // Turns as the host records them.
 export { resolveResumeSessionContext } from './sessions/context';

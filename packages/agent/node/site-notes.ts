@@ -281,3 +281,41 @@ export function createSiteNotes(
 		},
 	};
 }
+
+/**
+ * The notes on a call that ran: on each file it wrote, one at a time as the
+ * notes on each can save a fix to the same file, with `left` the text the file
+ * tool left in `writtenFile`, then on its result about `site`.
+ */
+export async function notesAfterCall(
+	siteNotes: SiteNotes,
+	{
+		written,
+		writtenFile,
+		left,
+		site,
+		resultText,
+	}: {
+		written: Iterable< string >;
+		writtenFile?: string;
+		left?: string;
+		site?: string;
+		resultText: string;
+	},
+	time: < T >( stage: string, run: () => Promise< T > ) => Promise< T > = ( _stage, run ) => run()
+): Promise< string[] > {
+	const notes: string[] = [];
+	for ( const file of new Set( written ) ) {
+		notes.push(
+			...( await time( 'fileNotes', () =>
+				siteNotes.afterWrite( file, file === writtenFile ? left : undefined )
+			) )
+		);
+	}
+	if ( site ) {
+		notes.push(
+			...( await time( 'resultNotes', () => siteNotes.afterResult( site, resultText ) ) )
+		);
+	}
+	return notes;
+}

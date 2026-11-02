@@ -15,6 +15,7 @@ import {
 	createAgent,
 	createSiteNotes,
 	defineTool,
+	getSessionState,
 	isImageGenerationAvailable,
 	loadSkills,
 	READ_ONLY,
@@ -123,8 +124,6 @@ export async function startMcpStdioServer(): Promise< void > {
 	process.env.STUDIO_TRACKS_ORIGIN = 'studio-mcp';
 	const host = cliAgentHost;
 	const agent = createAgent( { host } );
-	const siteNotes = createSiteNotes( host );
-	const siteChanges = new SiteChanges( host );
 	const imageGeneration = await isImageGenerationAvailable();
 	const server = new Server(
 		{ name: 'studio', version: '1.0.0' },
@@ -134,6 +133,10 @@ export async function startMcpStdioServer(): Promise< void > {
 				'WordPress Studio builds and manages local WordPress sites. Before any WordPress site task, call studio_instructions and follow what it returns.',
 		}
 	);
+	// The server's calls are one session, whose block files the gate validates as Studio Code's are.
+	const { blockValidation: gate, openProblems: open } = getSessionState( host, server );
+	const siteNotes = createSiteNotes( host, { gate, open } );
+	const siteChanges = new SiteChanges( host );
 	// The tools depend on what the client supports, known once it has connected.
 	let client = describeClient( server );
 	let tools = createTools( agent, host, client, imageGeneration );
@@ -178,7 +181,7 @@ export async function startMcpStdioServer(): Promise< void > {
 				isError: true,
 			};
 		}
-		return runServedTool( host, tool, args, siteNotes, siteChanges );
+		return runServedTool( host, tool, args, { siteNotes, siteChanges, gate } );
 	} );
 
 	// Only clients that render MCP Apps get the pages listed.

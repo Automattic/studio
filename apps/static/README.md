@@ -17,10 +17,10 @@ The build serves `index.html` and `404.html` alike, so a static host resolves th
 
 Pulling a site needs a worker too: WordPress.com's backup download can't be read cross-origin, so the app reads it in chunks from `/wpcom-backup/<site>/<download>/data`. That route is `functions/wpcom-backup/`, which the build copies into `dist-static/functions/` and the dev and preview servers run themselves. A host needs to serve that route, so a plain static host can't pull.
 
-On Spacefast, publish with the CLI, which compiles the worker (the API alone can't):
+On Spacefast, publish the build with `--prebuilt`. Without it the CLI detects `apps/ui`'s Vite project, builds the Electron renderer and publishes that instead. A plain API upload can't publish the worker: it has to go through the CLI, MCP or a Spacefast build.
 
 ```bash
-cd apps/ui/dist-static && npx spacefast publish --space studioweb
+cd apps/ui/dist-static && npx spacefast publish . --prebuilt --space studioweb
 ```
 
 Spacefast's proxy rules aren't an alternative: they refuse responses over 1 MiB. A worker's stream can also end early with no error after about a minute, so keep each chunk well under that, and check its size.

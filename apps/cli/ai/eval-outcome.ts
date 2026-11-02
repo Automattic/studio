@@ -627,8 +627,9 @@ async function homeStyles( url: string ) {
 						)
 					);
 				};
+				// A link in a paragraph is measured with the paragraph's lines.
 				const footerText = footer
-					? [ ...footer.querySelectorAll( 'p, a' ) ]
+					? [ ...footer.querySelectorAll( 'p, a:not(p a)' ) ]
 							.filter( ( el ) => visible( el ) && ( el.textContent ?? '' ).trim() )
 							.map( ( el ) => ( {
 								text: ( el.textContent ?? '' ).trim().slice( 0, 40 ),

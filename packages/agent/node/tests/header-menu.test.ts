@@ -17,7 +17,8 @@ it.each( [
 	{
 		name: 'links to several pages with no navigation',
 		html: part( brand + links + '<p><a href="/classes/">Book</a></p>' ),
-		problem: 'The header of http://localhost:8881 links to /classes/, /about/ with no navigation',
+		problem:
+			'The header of http://localhost:8881 links to /classes/, /about/ outside a core/navigation block, so the site has no menu',
 	},
 	{
 		name: 'the same links in core/navigation',
@@ -37,7 +38,8 @@ it.each( [
 			brand +
 				'<p><a href="/#features">Features</a></p><p><a href="http://localhost:8881/#about">About</a></p>'
 		),
-		problem: 'The header of http://localhost:8881 links to /#features, /#about with no navigation',
+		problem:
+			'The header of http://localhost:8881 links to /#features, /#about outside a core/navigation block, so the site has no menu',
 	},
 	{ name: 'a page with no header template part', html: `<div>${ links }</div>` },
 	{ name: 'a site whose server is not running', html: undefined },

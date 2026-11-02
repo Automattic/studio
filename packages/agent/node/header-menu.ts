@@ -56,5 +56,5 @@ export async function headerMenu(
 	}
 	return `The header of ${ url } links to ${ [ ...pages ].join(
 		', '
-	) } with no navigation: core/navigation is the block that renders a site's menu, as a <nav> landmark the Site Editor edits as the menu (wp-includes/blocks/navigation.php), as the header of WordPress's default theme does. Put these links in a core/navigation block in the header, with a core/navigation-link to each.`;
+	) } outside a core/navigation block, so the site has no menu: on a phone these links keep their desktop layout, where core/navigation collapses into a menu button (its overlayMenu, "mobile" by default, in wp-includes/blocks/navigation/block.json); screen readers find no <nav> landmark (wp-includes/blocks/navigation.php); and the Site Editor edits them as text rather than as the site's menu. Put these links in a core/navigation block in the header, with a core/navigation-link to each, and give the block their look with its typography and color settings.`;
 }

@@ -10,7 +10,6 @@
 import { mkdir, readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import PostalMime, { type Address } from 'postal-mime';
-import { confineToRoot } from '../lib/fs-utils';
 import { getConfigDirectory } from '../lib/well-known-paths';
 
 export interface SiteEmailAddress {
@@ -48,13 +47,24 @@ export interface SiteEmail extends SiteEmailSummary {
 // leading dot is a message still being written.
 const EMAIL_FILE = /^[\w-][\w.-]*\.eml$/;
 
+// The path of `name` as an entry directly in `directory`, or null when `name` is
+// empty, `.`, `..` or has more than one segment. CodeQL takes this `startsWith`
+// check on the resolved path as a path-injection barrier, which `confineToRoot`'s
+// `=== root ||` form is not.
+function resolveEntry( directory: string, name: string ): string | null {
+	const entry = path.resolve( directory, name );
+	if ( ! entry.startsWith( directory + path.sep ) || path.dirname( entry ) !== directory ) {
+		return null;
+	}
+	return entry;
+}
+
 // Under Studio's own directory rather than the site's, so a site's email is never
 // committed, pushed or synced with its files.
 export function getSiteEmailDirectory( siteId: string ): string {
-	const root = path.resolve( getConfigDirectory(), 'email' );
-	const directory = confineToRoot( root, siteId );
 	// Deleting a site removes this folder, so it must be one site's, not the root or elsewhere.
-	if ( ! directory || path.dirname( directory ) !== root ) {
+	const directory = resolveEntry( path.resolve( getConfigDirectory(), 'email' ), siteId );
+	if ( ! directory ) {
 		throw new Error( `Invalid site ID: ${ siteId }` );
 	}
 	return directory;
@@ -125,10 +135,12 @@ export async function readSiteEmail(
 	siteId: string,
 	emailId: string
 ): Promise< SiteEmail | null > {
-	if ( ! EMAIL_FILE.test( emailId ) ) {
+	const filePath = EMAIL_FILE.test( emailId )
+		? resolveEntry( getSiteEmailDirectory( siteId ), emailId )
+		: null;
+	if ( ! filePath ) {
 		return null;
 	}
-	const filePath = path.join( getSiteEmailDirectory( siteId ), emailId );
 	let source: Buffer;
 	try {
 		source = await readFile( filePath );

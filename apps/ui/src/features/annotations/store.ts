@@ -12,6 +12,7 @@ export interface PreviewAnnotation extends VisualAnnotation {
 	images: ComposerImageAttachment[];
 	// Saved to the chat draft, so the composer sends it with the next message.
 	staged?: boolean;
+	batched?: boolean;
 }
 
 export interface SiteAnnotations {
@@ -42,6 +43,10 @@ export function getSiteAnnotations( siteId: string | undefined ): SiteAnnotation
 
 export function isStagedAnnotation( note: PreviewAnnotation ) {
 	return Boolean( note.staged ) && hasAnnotationContent( note );
+}
+
+export function isBatchedAnnotation( note: PreviewAnnotation ) {
+	return Boolean( note.batched ) && isStagedAnnotation( note );
 }
 
 export function getStagedAnnotations( siteId: string | undefined ) {
@@ -77,6 +82,7 @@ export function setAnnotating( siteId: string, active: boolean ) {
 		current.active === active
 			? current
 			: {
+					...current,
 					active,
 					notes: active ? current.notes : withoutEmpty( current.notes ),
 					editingId: active ? current.editingId : null,
@@ -155,12 +161,12 @@ export function escapeAnnotations( siteId: string ) {
 	setAnnotating( siteId, false );
 }
 
-export function stageAnnotations( siteId: string, ids?: string[] ) {
+export function stageAnnotations( siteId: string, ids?: string[], batch = false ) {
 	update( siteId, ( current ) => ( {
 		...current,
 		notes: current.notes.map( ( note ) =>
 			hasAnnotationContent( note ) && ( ! ids || ids.includes( note.id ) )
-				? { ...note, staged: true }
+				? { ...note, staged: true, ...( batch ? { batched: true } : {} ) }
 				: note
 		),
 	} ) );

@@ -36,7 +36,7 @@ describe( 'responsive mode', () => {
 		expect( screen.getByRole( 'button', { name: 'Fit' } ) ).toBeInTheDocument();
 		expect( width() ).toHaveValue( '400' );
 		expect( height() ).toHaveValue( '800' );
-		await view.user.click( screen.getByRole( 'button', { name: 'Responsive' } ) );
+		await view.user.click( screen.getByRole( 'button', { name: 'Freeform' } ) );
 		await view.user.click(
 			await screen.findByRole( 'menuitemradio', { name: /iPhone 17 Pro Max/ } )
 		);
@@ -88,7 +88,7 @@ describe( 'responsive mode', () => {
 		expect( height() ).toHaveValue( '800' );
 	} );
 
-	it( 'resizes with keyboard handles and returns presets to Responsive', async () => {
+	it( 'resizes with keyboard handles and returns presets to Freeform', async () => {
 		const { user } = await renderPreview( 'responsive-handles' );
 		await user.click( toggle() );
 		act( () =>
@@ -102,7 +102,7 @@ describe( 'responsive mode', () => {
 		edge.focus();
 		await user.keyboard( '{ArrowRight}{Shift>}{ArrowRight}{/Shift}' );
 		expect( width() ).toHaveValue( '401' );
-		expect( screen.getByRole( 'button', { name: 'Responsive' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Freeform' } ) ).toBeInTheDocument();
 		fireEvent.keyDown( screen.getByRole( 'button', { name: 'Resize viewport: Top' } ), {
 			key: 'ArrowUp',
 		} );

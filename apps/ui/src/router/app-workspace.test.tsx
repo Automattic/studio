@@ -141,7 +141,7 @@ async function findLayoutControl( layout: 'chat' | 'split' | 'preview' ) {
 
 async function setChatFullscreen( fullscreen: boolean ) {
 	await screen.findByRole( 'button', { name: 'Preview layout' } );
-	await paletteCommand( fullscreen ? 'Enter fullscreen' : 'Exit fullscreen' );
+	await paletteCommand( fullscreen ? 'Switch to Browser' : 'Switch to Split view' );
 }
 
 async function waitForFullscreen( fullscreen: boolean ) {
@@ -166,25 +166,24 @@ afterEach( () => {
 } );
 
 describe( 'Studio workspace', () => {
-	it( 'asks for a provider before sending annotations and preserves notes when opening provider settings', async () => {
+	it( 'asks for a provider before entering annotations and preserves notes when opening provider settings', async () => {
 		const { history, connector } = setup( {
-			path: '/sites/one',
-			sites: [ site( { running: true } ) ],
+			path: '/sites/one/new',
+			overrides: {
+				capabilities: { annotatePreview: true, nativeFolderPicker: true, studioLogs: true },
+			},
 		} );
-		await screen.findByRole( 'toolbar', { name: 'Preview browser controls' } );
-		fireEvent.load( document.querySelector( 'iframe' )! );
+		await findComposer();
 		act( () => {
 			setAnnotating( 'one', true );
 			const id = pickAnnotation( 'one', { selector: 'h1', tag: 'h1', path: '/' } )!;
 			changeAnnotation( 'one', id, { comment: 'Make this heading larger' } );
-			stageAnnotations( 'one' );
+			setAnnotating( 'one', false );
 		} );
 		try {
-			const send = within(
-				screen.getByRole( 'toolbar', { name: 'Preview browser controls' } )
-			).getByRole( 'button', { name: 'Send 1 annotation' } );
-			await waitFor( () => expect( send ).toBeEnabled() );
-			fireEvent.click( send );
+			const annotate = screen.getByRole( 'button', { name: 'Annotate' } );
+			await waitFor( () => expect( annotate ).toBeEnabled() );
+			fireEvent.click( annotate );
 			expect(
 				await screen.findByRole( 'dialog', { name: 'Put your feedback to work' } )
 			).toBeVisible();
@@ -199,6 +198,59 @@ describe( 'Studio workspace', () => {
 					'one',
 					getSiteAnnotations( 'one' ).notes.map( ( note ) => note.id )
 				);
+				setAnnotating( 'one', false );
+			} );
+		}
+	} );
+
+	it.each( [ 'Chat', 'Browser' ] as const )(
+		'opens Split view when annotation starts from %s',
+		async ( layout ) => {
+			const { connector } = setup( {
+				signedIn: true,
+				path: '/sites/one/new',
+				preferences: { ...createFakeConnector().state.preferences, openChatOnSiteStart: false },
+			} );
+			await findComposer();
+			await choosePreviewLayout( layout );
+			try {
+				fireEvent.click( screen.getByRole( 'button', { name: 'Annotate' } ) );
+				await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
+				await waitFor( () => expect( document.querySelector( 'iframe' ) ).not.toBeNull() );
+				fireEvent.load( document.querySelector( 'iframe' )! );
+				await findLayoutControl( 'split' );
+				expect( getSiteAnnotations( 'one' ).active ).toBe( true );
+			} finally {
+				act( () => setAnnotating( 'one', false ) );
+			}
+		}
+	);
+
+	it( 'returns to Split view and annotation mode when reviewing a batch from Browser', async () => {
+		setup( { signedIn: true, path: '/sites/one/new' } );
+		await findComposer();
+		let id = '';
+		act( () => {
+			setAnnotating( 'one', true );
+			id = pickAnnotation( 'one', { selector: 'h1', path: '/' } )!;
+			changeAnnotation( 'one', id, { comment: 'Review this heading' } );
+			stageAnnotations( 'one', [ id ], true );
+			setAnnotating( 'one', false );
+		} );
+		try {
+			await choosePreviewLayout( 'Browser' );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Review annotations' } ) );
+			await waitFor( () => expect( getSiteAnnotations( 'one' ).active ).toBe( true ) );
+			await waitFor( () => expect( document.querySelector( 'iframe' ) ).not.toBeNull() );
+			fireEvent.load( document.querySelector( 'iframe' )! );
+			await findLayoutControl( 'split' );
+			fireEvent.click(
+				screen.getByRole( 'button', { name: 'Edit annotation 1: Review this heading' } )
+			);
+			expect( getSiteAnnotations( 'one' ).editingId ).toBe( id );
+		} finally {
+			act( () => {
+				removeAnnotations( 'one', [ id ] );
 				setAnnotating( 'one', false );
 			} );
 		}
@@ -386,6 +438,8 @@ describe( 'Studio workspace', () => {
 			await screen.findByText( 'You are offline. Reconnect to send a message.' );
 			expect( composer() ).toBeEnabled();
 			fireEvent.click( screen.getByRole( 'button', { name: 'Start My site' } ) );
+			await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
+			fireEvent.load( document.querySelector( 'iframe' )! );
 			await screen.findByLabelText( 'Site preview' );
 			await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
 		} finally {
@@ -410,6 +464,8 @@ describe( 'Studio workspace', () => {
 		await screen.findByText( 'Add AI credits to send another message.' );
 		expect( composer() ).toBeEnabled();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Start My site' } ) );
+		await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
+		fireEvent.load( document.querySelector( 'iframe' )! );
 		await screen.findByLabelText( 'Site preview' );
 		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
 	} );
@@ -543,8 +599,9 @@ describe( 'Studio workspace', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Start Stopped site' } ) );
 		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'two' ) );
 		await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
+		fireEvent.load( document.querySelector( 'iframe' )! );
 		expect( await findComposer() ).toHaveValue( 'Keep this draft' );
-		expect( getLayoutControl( 'split' ) ).toBeVisible();
+		expect( await findLayoutControl( 'split' ) ).toBeVisible();
 	} );
 
 	it.each( [ 'thumbnail', 'composer' ] as const )(
@@ -576,13 +633,17 @@ describe( 'Studio workspace', () => {
 					: composerStartButton();
 			fireEvent.click( play );
 			await waitFor( () => expect( connector.startSite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );
-			const panel = await screen.findByRole( 'complementary', { name: 'Site preview' } );
-			expect( getLayoutControl( 'split' ) ).not.toHaveAttribute( 'aria-pressed' );
+			expect(
+				screen.queryByRole( 'complementary', { name: 'Site preview' } )
+			).not.toBeInTheDocument();
+			expect( composer() ).toBeVisible();
 			await act( async () => finishStart() );
 			await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
 			fireEvent.load( document.querySelector( 'iframe' )! );
 			expect( await screen.findByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
-			expect( panel ).toContainElement( document.querySelector( 'iframe' ) );
+			expect( screen.getByRole( 'complementary', { name: 'Site preview' } ) ).toContainElement(
+				document.querySelector( 'iframe' )
+			);
 			expect( composer() ).toBe( input );
 			expect( input ).toHaveValue( control === 'thumbnail' ? 'Keep this draft' : '' );
 			expect( connector.createSession ).not.toHaveBeenCalled();
@@ -602,7 +663,7 @@ describe( 'Studio workspace', () => {
 			} );
 			if ( path.endsWith( '/new' ) ) {
 				await findComposer();
-				await paletteCommand( 'Enter fullscreen' );
+				await paletteCommand( 'Switch to Browser' );
 			}
 			const panel = await screen.findByRole( 'complementary', { name: 'Site preview' } );
 			let finishStart!: () => void;
@@ -619,7 +680,8 @@ describe( 'Studio workspace', () => {
 				await within( panel ).findByRole( 'button', { name: 'Start from preview' } )
 			);
 			await waitFor( () => expect( connector.startSite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );
-			expect( await findLayoutControl( 'preview' ) ).toBeVisible();
+			expect( getLayoutControl( 'chat' ) ).toBeVisible();
+			expect( composer() ).toBeVisible();
 			expect( history.location.pathname ).toBe( '/sites/one/new' );
 			await act( async () => finishStart() );
 			await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
@@ -724,7 +786,7 @@ describe( 'Studio workspace', () => {
 			expect(
 				screen.queryByRole( 'complementary', { name: 'Site preview' } )
 			).not.toBeInTheDocument();
-			await paletteCommand( 'Enter fullscreen' );
+			await paletteCommand( 'Switch to Browser' );
 			const panel = await screen.findByRole( 'complementary', { name: 'Site preview' } );
 			expect(
 				await within( panel ).findByRole( 'button', {
@@ -763,12 +825,12 @@ describe( 'Studio workspace', () => {
 				if ( control === 'header' )
 					await choosePreviewLayout( fullscreen ? 'Browser' : 'Split view' );
 				else if ( control === 'palette' )
-					await paletteCommand( fullscreen ? 'Enter fullscreen' : 'Exit fullscreen' );
+					await paletteCommand( fullscreen ? 'Switch to Browser' : 'Switch to Split view' );
 				else act( () => connector.emit( 'onToggleSitePreview' ) );
 			};
 			await toggle( true );
 			if ( control === 'header' ) {
-				expect( document.querySelector( '[class*="rootPreviewAnimating"]' ) ).not.toBeNull();
+				expect( document.querySelector( '[class*="rootPreviewAnimating"]' ) ).toBeNull();
 				expect( getLayoutControl( 'preview' ) ).not.toHaveAttribute( 'aria-pressed' );
 			}
 			await waitForFullscreen( true );
@@ -880,7 +942,7 @@ describe( 'Studio workspace', () => {
 		expect(
 			screen.queryByRole( 'complementary', { name: 'Site preview' } )
 		).not.toBeInTheDocument();
-		await paletteCommand( 'Enter fullscreen' );
+		await paletteCommand( 'Switch to Browser' );
 		await screen.findByRole( 'complementary', { name: 'Site preview' } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'My site' } ) );
 		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
@@ -1111,7 +1173,7 @@ describe( 'Studio workspace', () => {
 		}
 	);
 
-	it( 'shows Annotate in the preview bar after starting from the composer', async () => {
+	it( 'shows icon-only Annotate in the top header after starting from the composer', async () => {
 		const { connector } = setup( {
 			signedIn: true,
 			overrides: {
@@ -1119,17 +1181,18 @@ describe( 'Studio workspace', () => {
 			},
 		} );
 		await findComposer();
-		expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeVisible();
 		fireEvent.click( composerStartButton() );
 		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
 		await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
+		fireEvent.load( document.querySelector( 'iframe' )! );
 		const annotate = await screen.findByRole( 'button', { name: 'Annotate' } );
-		expect( document.querySelector( '[data-site-header-actions]' ) ).not.toContainElement(
-			annotate
-		);
-		expect( screen.getByRole( 'toolbar', { name: 'Preview browser controls' } ) ).toContainElement(
-			annotate
-		);
+		expect( document.querySelector( '[data-site-header-actions]' ) ).toContainElement( annotate );
+		expect( annotate ).toHaveTextContent( /^$/ );
+		expect( annotate ).toHaveAttribute( 'data-variant', 'accent-ghost' );
+		expect(
+			await screen.findByRole( 'toolbar', { name: 'Preview browser controls' } )
+		).not.toContainElement( annotate );
 	} );
 
 	it( 'starts from the composer and stops through the site menu without a sidebar start button', async () => {
@@ -1154,7 +1217,7 @@ describe( 'Studio workspace', () => {
 		expect( screen.queryByRole( 'button', { name: /Chat actions/ } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
-		expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeVisible();
 		fireEvent.click(
 			within( screen.getByRole( 'complementary' ) ).getByRole( 'button', { name: 'Hide sidebar' } )
 		);
@@ -1242,11 +1305,17 @@ describe( 'Studio workspace', () => {
 			).toHaveAttribute( 'aria-disabled', 'true' )
 		);
 		expect( input ).toBeEnabled();
-		expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
 		for ( const running of [ true, false, true ] ) {
 			await emitSites( site( { running } ) );
 			await screen.findByRole( 'button', { name: running ? 'Stop My site' : 'Start My site' } );
-			expect( !! screen.queryByRole( 'complementary', { name: 'Site preview' } ) ).toBe( running );
+			if ( running ) {
+				await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
+				fireEvent.load( document.querySelector( 'iframe' )! );
+			}
+			await waitFor( () =>
+				expect( !! screen.queryByRole( 'complementary', { name: 'Site preview' } ) ).toBe( running )
+			);
 			expect( composer() ).toBe( input );
 			expect( input ).toHaveValue( 'Keep this draft' );
 			expect( screen.getByText( 'notes.txt' ) ).toBeVisible();
@@ -1269,12 +1338,12 @@ describe( 'Studio workspace', () => {
 		await waitFor( () => expect( input ).toBeEnabled() );
 		fireEvent.change( input, { target: { value: 'Keep this draft' } } );
 		await screen.findByRole( 'button', { name: 'Publish…' } );
-		await paletteCommand( 'Enter fullscreen' );
+		await paletteCommand( 'Switch to Browser' );
 		await waitFor( () =>
 			expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible()
 		);
 		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toBeVisible();
-		await paletteCommand( 'Exit fullscreen' );
+		await paletteCommand( 'Switch to Split view' );
 		expect( await screen.findByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 		expect( composer() ).toBe( input );
 		expect( input ).toHaveValue( 'Keep this draft' );
@@ -1310,7 +1379,7 @@ describe( 'Studio workspace', () => {
 			fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
 			await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledTimes( 1 ) );
 			expect( connector.startSite ).toHaveBeenCalledExactlyOnceWith( 'one' );
-			expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
+			expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
 			expect( document.querySelector( 'iframe' ) ).toBeNull();
 			const nextInput = composer();
 			fireEvent.change( nextInput, { target: { value: 'Add a footer too' } } );
@@ -1320,7 +1389,7 @@ describe( 'Studio workspace', () => {
 			expect( connector.continueSession ).toHaveBeenCalledTimes( 1 );
 			await act( async () => finishStart() );
 			await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
-			expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
+			expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
 			fireEvent.load( document.querySelector( 'iframe' )! );
 			expect( await findLayoutControl( 'split' ) ).toBeVisible();
 			expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();

@@ -9,7 +9,6 @@ import type { SiteDetails } from '@/data/core';
 import type { BrowserNavigationState } from '@/features/sites/site-preview/browser-state';
 import type { useBrowserShortcuts } from '@/features/sites/site-preview/use-browser-shortcuts';
 import type { BrowserShortcutCommand } from '@studio/agent/protocol/inspector/page-script';
-import type { ReactNode } from 'react';
 
 interface PreviewHeaderProps {
 	site: SiteDetails;
@@ -27,7 +26,6 @@ interface PreviewHeaderProps {
 	onSwitchRealm: ( realm: PreviewRealm ) => void;
 	hasDesignSystem: boolean;
 	onOpenExternal?: () => void;
-	annotationControl?: ReactNode;
 	responsive?: { active: boolean; disabled: boolean; onClick: () => void };
 }
 
@@ -48,7 +46,6 @@ export function PreviewHeader( {
 	hasDesignSystem,
 	onOpenExternal,
 	responsive,
-	annotationControl,
 }: PreviewHeaderProps ) {
 	const { layout: headerLayout } = useSiteHeader();
 	const disabled = ! canPreview || isStarting || isStopping;
@@ -66,6 +63,21 @@ export function PreviewHeader( {
 			disabled={ disabled }
 		/>
 	);
+
+	const responsiveButton = responsive ? (
+		<IconButton
+			size="icon-sm"
+			data-preview-responsive
+			icon={ <ResponsiveIcon /> }
+			label={ responsive.active ? __( 'Exit responsive mode' ) : __( 'Responsive mode' ) }
+			aria-label={ __( 'Responsive mode' ) }
+			variant="accent-ghost"
+			aria-pressed={ responsive.active }
+			disabled={ responsive.disabled }
+			onClick={ responsive.onClick }
+			tooltipSide="bottom"
+		/>
+	) : null;
 
 	return (
 		<div
@@ -114,25 +126,7 @@ export function PreviewHeader( {
 			</div>
 			<div className={ styles.headerSide }>
 				<SiteHeaderBrowserSpace />
-				{ responsive || annotationControl ? (
-					<div className={ styles.previewActions } data-preview-actions>
-						{ annotationControl }
-						{ responsive ? (
-							<IconButton
-								size="icon-sm"
-								data-preview-responsive
-								icon={ <ResponsiveIcon /> }
-								label={ responsive.active ? __( 'Exit responsive mode' ) : __( 'Responsive mode' ) }
-								aria-label={ __( 'Responsive mode' ) }
-								variant="ghost"
-								aria-pressed={ responsive.active }
-								disabled={ responsive.disabled }
-								onClick={ responsive.onClick }
-								tooltipSide="bottom"
-							/>
-						) : null }
-					</div>
-				) : null }
+				{ responsiveButton }
 			</div>
 		</div>
 	);

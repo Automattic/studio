@@ -14,10 +14,15 @@ import {
 	useSiteOperation,
 	useSites,
 } from '@/data/queries/use-sites';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { pathForSite, useSessionPreviewUI } from '@/data/use-session-ui';
 import { AccountPromptDialog } from '@/features/account';
-import { requestAnnotationSend } from '@/features/annotations';
+import {
+	getSiteAnnotations,
+	requestAnnotationSend,
+	useSiteAnnotations,
+} from '@/features/annotations';
 import { SiteWorkspace, SessionHeader } from '@/features/chats';
 import { CommandPalette } from '@/features/commands';
 import {
@@ -35,6 +40,7 @@ import {
 	PreviewLayoutControls,
 } from '@/features/sites';
 import { useMediaQuery } from '@/lib/hooks';
+import { isDialogOpen } from '@/lib/keyboard';
 import { rootRoute } from '../layout-root';
 import styles from './style.module.css';
 
@@ -91,6 +97,7 @@ function DashboardLayout() {
 	useWhatsNewAutostart();
 	useWhatsNewReplay();
 	const preview = useSessionPreviewUI();
+	const { data: preferences } = useUserPreferences();
 	const sessionSite = findAiSessionOwnerSite( sites, sessionData?.summary );
 	// A chat switched to Live previews its remote instead of the local site.
 	const { draft } = useSiteChatDraft( newSessionSiteId );
@@ -134,6 +141,7 @@ function DashboardLayout() {
 		: undefined;
 	const previewSite = routeSite ?? lastPreviewSite;
 	const previewSiteId = previewSite?.id;
+	const annotations = useSiteAnnotations( previewSiteId );
 	const { setSite: setPreviewSite } = preview;
 	useLayoutEffect( () => {
 		if ( previewSiteId ) {
@@ -159,7 +167,10 @@ function DashboardLayout() {
 	const localPreviewStopping = previewStopping && ! liveUrl;
 	const siteActive =
 		! localPreviewStopping && ( !! liveUrl || !! previewSite?.running || previewStarting );
+	const previewLoading =
+		! liveUrl && ( previewStarting || preview.revealingSiteId === previewSiteId );
 	const showPreview =
+		! previewLoading &&
 		! localPreviewStopping &&
 		supportsPreview &&
 		!! previewSite &&
@@ -171,31 +182,43 @@ function DashboardLayout() {
 		showPreview &&
 		( narrow || !! homeSiteId || !! preview.chatHiddenBySiteId[ previewSiteId ?? '' ] );
 	const previewExpanded = showPreview && ( ! narrow || chatHidden );
-	const previousSites = useRef( new Map< string, boolean >() );
+	const previousSites = useRef( new Map< string, { running: boolean; starting: boolean } >() );
 	useEffect( () => {
 		for ( const site of sites ?? [] ) {
-			if ( previousSites.current.get( site.id ) === false && site.running )
-				setOpen( true, { siteId: site.id } );
+			const previous = previousSites.current.get( site.id );
+			const starting =
+				site.operation?.kind === 'start' || ( site.id === previewSiteId && startPending );
 			if (
-				previousSites.current.get( site.id ) &&
-				( ! site.running || site.operation?.kind === 'stop' )
+				( starting && ! previous?.starting ) ||
+				( previous?.running === false && site.running && ! previous.starting )
 			) {
+				setChatHidden(
+					! getSiteAnnotations( site.id ).active && ! ( preferences?.openChatOnSiteStart ?? true ),
+					site.id
+				);
+				setOpen( true, { siteId: site.id } );
+			}
+			if ( previous?.running && ( ! site.running || site.operation?.kind === 'stop' ) ) {
 				setOpen( false, { siteId: site.id } );
 			}
-			previousSites.current.set( site.id, !! site.running );
+			previousSites.current.set( site.id, { running: !! site.running, starting } );
 		}
-	}, [ sites, setOpen ] );
-	useEffect( () => {
-		if ( startPending && previewSiteId ) setOpen( true, { siteId: previewSiteId } );
-	}, [ startPending, previewSiteId, setOpen ] );
+	}, [
+		sites,
+		previewSiteId,
+		startPending,
+		preferences?.openChatOnSiteStart,
+		setChatHidden,
+		setOpen,
+	] );
 	useEffect( () => {
 		if ( previewStopping && previewSiteId && ! liveUrl ) {
 			setOpen( false, { siteId: previewSiteId } );
 		}
 	}, [ previewStopping, previewSiteId, liveUrl, setOpen ] );
 	const setPreviewOpen = useCallback(
-		( open: boolean ) => {
-			setOpen( open, { siteId: previewSiteId } );
+		( open: boolean, options?: { instant?: boolean } ) => {
+			setOpen( open, { siteId: previewSiteId, ...options } );
 			if ( homeSiteId )
 				void navigate( { to: '/sites/$siteId/new', params: { siteId: homeSiteId } } );
 		},
@@ -211,9 +234,9 @@ function DashboardLayout() {
 		}
 	}, [ homeSiteId, previewSiteId, siteActive, navigate ] );
 	const setPreviewFullscreen = useCallback(
-		( fullscreen: boolean ) => {
-			setOpen( true );
-			setChatHidden( fullscreen, previewSiteId );
+		( fullscreen: boolean, options?: { instant?: boolean } ) => {
+			setOpen( true, options );
+			setChatHidden( fullscreen, previewSiteId, options );
 			if ( homeSiteId ) {
 				void navigate( { to: '/sites/$siteId/new', params: { siteId: homeSiteId } } );
 			}
@@ -228,11 +251,28 @@ function DashboardLayout() {
 		[ connector, supportsPreview, routeSite, setPreviewOpen, showPreview ]
 	);
 
+	useEffect(
+		() =>
+			connector.onSetPreviewLayout?.( ( layout ) => {
+				if ( ! supportsPreview || ! routeSite || isDialogOpen() ) return;
+				if ( layout === 'chat' ) setPreviewOpen( false, { instant: true } );
+				else setPreviewFullscreen( layout === 'preview', { instant: true } );
+			} ),
+		[ connector, supportsPreview, routeSite, setPreviewOpen, setPreviewFullscreen ]
+	);
+
+	useEffect( () => {
+		if ( annotations.active ) setPreviewFullscreen( false );
+	}, [ annotations.active, setPreviewFullscreen ] );
+
 	const startAnnotating = useCallback( () => {
-		if ( hasProvider ) return true;
+		if ( hasProvider ) {
+			setPreviewFullscreen( false );
+			return true;
+		}
 		setProviderPromptOpen( true );
 		return false;
-	}, [ hasProvider ] );
+	}, [ hasProvider, setPreviewFullscreen ] );
 	// The notes go to the chat beside the preview, or to a new one for the site.
 	const sendAnnotations = useCallback(
 		( siteId: string, noteIds?: string[] ) => {
@@ -303,9 +343,12 @@ function DashboardLayout() {
 							: routePreviewContext.pathname
 					}
 					previewOpen={ showPreview }
-					previewLoading={ preview.revealingSiteId === previewSiteId }
+					previewLoading={ previewLoading }
 					chatHidden={ chatHidden }
-					instant={ chatHidden && ( previewStarting || preview.instant ) }
+					instant={
+						previewLoading ||
+						( ! previewStopping && ( preview.instant || ( chatHidden && previewStarting ) ) )
+					}
 					preview={ renderPreview }
 					header={
 						supportsPreview && routeSite ? (
@@ -321,9 +364,11 @@ function DashboardLayout() {
 										end={
 											<PreviewLayoutControls
 												open={ showPreview }
-												onOpenChange={ setPreviewOpen }
+												onOpenChange={ ( open ) => setPreviewOpen( open, { instant: true } ) }
 												fullscreen={ chatHidden }
-												onFullscreenChange={ setPreviewFullscreen }
+												onFullscreenChange={ ( fullscreen ) =>
+													setPreviewFullscreen( fullscreen, { instant: true } )
+												}
 											/>
 										}
 									/>
@@ -341,9 +386,9 @@ function DashboardLayout() {
 				chatHidden={ chatHidden }
 				previewFullscreen={ {
 					active: chatHidden,
-					onChange: setPreviewFullscreen,
+					onChange: ( fullscreen ) => setPreviewFullscreen( fullscreen, { instant: true } ),
 					open: showPreview,
-					onOpenChange: setPreviewOpen,
+					onOpenChange: ( open ) => setPreviewOpen( open, { instant: true } ),
 				} }
 			/>
 		</SidebarLayout>

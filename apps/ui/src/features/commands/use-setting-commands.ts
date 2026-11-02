@@ -68,6 +68,13 @@ function useSettingToggles(): SettingToggles {
 				? __( 'Automatic site start on prompt disabled.' )
 				: __( 'Automatic site start on prompt enabled.' )
 		),
+		'batch-notes': toggle(
+			'batchAnnotations',
+			preferences.batchAnnotations ?? false,
+			preferences.batchAnnotations ? __( 'Disable batch notes' ) : __( 'Enable batch notes' ),
+			preferences.batchAnnotations ? __( 'Batch notes disabled.' ) : __( 'Batch notes enabled.' )
+		),
+
 		'confirm-delete-annotations': toggle(
 			'confirmDeleteAnnotations',
 			preferences.confirmDeleteAnnotations,
@@ -77,6 +84,16 @@ function useSettingToggles(): SettingToggles {
 			preferences.confirmDeleteAnnotations
 				? __( 'Annotation deletion confirmation disabled.' )
 				: __( 'Annotation deletion confirmation enabled.' )
+		),
+		'open-chat-on-site-start': toggle(
+			'openChatOnSiteStart',
+			preferences.openChatOnSiteStart,
+			preferences.openChatOnSiteStart
+				? __( 'Disable starting sites in split view' )
+				: __( 'Enable starting sites in split view' ),
+			preferences.openChatOnSiteStart
+				? __( 'Sites will start in browser view.' )
+				: __( 'Sites will start in split view.' )
 		),
 		'usage-statistics': toggle(
 			'analyticsEnabled',

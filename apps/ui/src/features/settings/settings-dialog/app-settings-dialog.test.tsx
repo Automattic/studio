@@ -122,13 +122,22 @@ const studioConnect = async () => {
 const searchBox = () => screen.getByRole( 'textbox', { name: 'Search settings' } );
 
 describe( 'WordPress Studio settings', () => {
-	it( 'uses remembered preview layouts instead of offering a chat-on-start setting', async () => {
-		await setup( { preferences: { openChatOnSiteStart: false } } );
-		expect(
-			screen.queryByRole( 'switch', { name: 'Open chat when starting a site' } )
-		).not.toBeInTheDocument();
-		expect( await screen.findByRole( 'button', { name: 'Reset interface' } ) ).toBeDisabled();
-	} );
+	it.each( [ undefined, true, false ] )(
+		'saves the split-view startup setting from %s',
+		async ( value ) => {
+			const { connector } = await setup( { preferences: { openChatOnSiteStart: value } } );
+			const toggle = await screen.findByRole( 'switch', { name: 'Start sites in split view' } );
+			if ( value ?? true ) expect( toggle ).toBeChecked();
+			else expect( toggle ).not.toBeChecked();
+			fireEvent.click( toggle );
+			await waitFor( () =>
+				expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+					{ openChatOnSiteStart: ! ( value ?? true ) },
+					undefined
+				)
+			);
+		}
+	);
 
 	it.each( [ undefined, true, false ] )(
 		'saves recent chats visibility from %s',
@@ -887,4 +896,20 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		);
 		expect( screen.queryByText( 'Copied' ) ).not.toBeInTheDocument();
 	} );
+	it.each( [ undefined, false, true ] )(
+		'persists the Batch notes interface setting from %s',
+		async ( value ) => {
+			const { connector } = await setup( { preferences: { batchAnnotations: value } } );
+			const control = await screen.findByRole( 'switch', { name: 'Batch notes' } );
+			if ( value ) expect( control ).toBeChecked();
+			else expect( control ).not.toBeChecked();
+			fireEvent.click( control );
+			await waitFor( () =>
+				expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+					{ batchAnnotations: ! value },
+					undefined
+				)
+			);
+		}
+	);
 } );

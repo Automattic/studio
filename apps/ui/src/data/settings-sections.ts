@@ -151,6 +151,12 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				),
 				setting(
 					'action',
+					__( 'Start sites in split view' ),
+					__( 'Show chat beside the browser when starting a site.' ),
+					'open-chat-on-site-start'
+				),
+				setting(
+					'action',
 					__( 'Show recent chats' ),
 					__( 'Show recent chats in the sidebar.' ),
 					'show-recent-chats'
@@ -161,6 +167,13 @@ function getStudioSections( signedIn: boolean ): Section[] {
 					__( 'Opening each site closes all others.' ),
 					'collapse-sidebar-groups'
 				),
+				setting(
+					'action',
+					__( 'Batch notes' ),
+					__( 'Collect annotations and send them together instead of one at a time.' ),
+					'batch-notes'
+				),
+
 				setting(
 					'action',
 					__( 'Confirm before deleting annotations' ),

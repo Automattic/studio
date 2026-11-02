@@ -34,13 +34,7 @@ export function SessionHeader( {
 				withSiteActions && styles.headerWithSiteActions,
 				sidebarCollapsed && reserveTrafficLightSpace && styles.headerSidebarCollapsed
 			) }
-			style={
-				windowControlsInset > 0
-					? {
-							paddingRight: windowControlsInset + 8,
-					  }
-					: undefined
-			}
+			style={ windowControlsInset > 0 ? { paddingRight: windowControlsInset + 8 } : undefined }
 		>
 			<div data-site-header-reserved className={ styles.headerLead }>
 				{ start }
@@ -56,6 +50,7 @@ export function SessionHeader( {
 					</>
 				) : null }
 			</div>
+
 			<span className={ styles.headerSpacer } aria-hidden="true" />
 			{ withSiteActions ? <SiteHeaderSpace /> : null }
 		</header>

@@ -49,6 +49,8 @@ it( 'reopens a queued message for editing and queues only the revision', async (
 	fireEvent.click( await screen.findByRole( 'button', { name: 'Queue message' } ) );
 	await screen.findByRole( 'button', { name: 'Edit queued message' } );
 	fireEvent.click( screen.getByRole( 'button', { name: 'Start My site' } ) );
+	await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
+	fireEvent.load( document.querySelector( 'iframe' )! );
 	await screen.findByRole( 'complementary', { name: 'Site preview' } );
 	expect( screen.getByRole( 'combobox', COMPOSER ) ).toBe( input );
 	expect( screen.getByText( 'Original follow-up' ) ).toBeVisible();

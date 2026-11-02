@@ -1,9 +1,14 @@
 import { __ } from '@wordpress/i18n';
 import { Trash2Icon } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
+import { toast } from '@/data/app-messages';
+import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import {
 	AlertDialog,
 	Button,
+	Checkbox,
+	Field,
+	FieldLabel,
 	IconButton,
 	DialogContent,
 	DialogDescription,
@@ -31,11 +36,19 @@ export function AnnotationCancelButton( {
 	className?: string;
 } ) {
 	const annotations = useSiteAnnotations( siteId );
+	const { data: preferences } = useUserPreferences();
+	const savePreferences = useSaveUserPreferences();
 	const [ confirming, setConfirming ] = useState( false );
+	const [ dontAskAgain, setDontAskAgain ] = useState( false );
+	const preferenceId = useId();
 	const cancelRef = useRef< HTMLButtonElement >( null );
 	const disabled = isAnnotationsBusy( annotations );
 	const cancel = () => {
-		if ( annotations.notes.some( hasAnnotationContent ) ) {
+		if (
+			preferences?.confirmDeleteAnnotations !== false &&
+			annotations.notes.some( hasAnnotationContent )
+		) {
+			setDontAskAgain( false );
 			setConfirming( true );
 		} else {
 			clearAnnotations( siteId );
@@ -73,6 +86,16 @@ export function AnnotationCancelButton( {
 							{ __( 'All edits will be removed from this page.' ) }
 						</DialogDescription>
 					</DialogHeader>
+					<Field orientation="horizontal">
+						<Checkbox
+							id={ preferenceId }
+							checked={ dontAskAgain }
+							onCheckedChange={ setDontAskAgain }
+						/>
+						<FieldLabel htmlFor={ preferenceId } tone="muted">
+							{ __( "Don't ask again" ) }
+						</FieldLabel>
+					</Field>
 					<DialogFooter>
 						<Button ref={ cancelRef } variant="outline" onClick={ () => setConfirming( false ) }>
 							{ __( 'Cancel' ) }
@@ -80,6 +103,14 @@ export function AnnotationCancelButton( {
 						<Button
 							variant="destructive"
 							onClick={ () => {
+								if ( dontAskAgain ) {
+									savePreferences.mutate(
+										{ confirmDeleteAnnotations: false },
+										{
+											onError: () => toast.error( __( 'Failed to save preference' ) ),
+										}
+									);
+								}
 								setConfirming( false );
 								clearAnnotations( siteId );
 							} }

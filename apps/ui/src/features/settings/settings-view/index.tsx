@@ -277,6 +277,29 @@ function PreferencesPanel( {
 						onChange={ ( autoStartSiteOnChat ) => onChange( { autoStartSiteOnChat } ) }
 					/>
 				</SettingsRow>
+				<SettingsRow
+					title={ __( 'Start sites in split view' ) }
+					description={ __( 'Show chat beside the browser when starting a site.' ) }
+				>
+					<SettingsToggle
+						label={ __( 'Start sites in split view' ) }
+						checked={ data.openChatOnSiteStart }
+						onChange={ ( openChatOnSiteStart ) => onChange( { openChatOnSiteStart } ) }
+					/>
+				</SettingsRow>
+				<SettingsRow
+					title={ __( 'Batch notes' ) }
+					description={ __(
+						'Collect annotations and send them together instead of one at a time.'
+					) }
+				>
+					<SettingsToggle
+						label={ __( 'Batch notes' ) }
+						checked={ data.batchAnnotations }
+						onChange={ ( batchAnnotations ) => onChange( { batchAnnotations } ) }
+					/>
+				</SettingsRow>
+
 				<SidebarSettings />
 				<SettingsRow
 					title={ __( 'Confirm before deleting annotations' ) }

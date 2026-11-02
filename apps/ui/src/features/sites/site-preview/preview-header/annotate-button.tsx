@@ -1,101 +1,152 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { AnnotateIcon } from '@/lib/icons';
-import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
-import styles from './style.module.css';
-import type { ReactNode } from 'react';
+import { useRef, useState } from 'react';
+import { AnnotateIcon, ChevronDownIcon } from '@/lib/icons';
+import { Button, IconButton, Popover } from '@/lib/ui';
+import styles from './annotation-batch.module.css';
+import type { PreviewAnnotation } from '@/features/annotations';
+
+interface AnnotationBatch {
+	notes: PreviewAnnotation[];
+	busy: boolean;
+	onSend: () => void;
+	onReview: () => boolean;
+	onEdit: ( id: string ) => void;
+	onClear: () => void;
+}
 
 export function AnnotateButton( {
 	active,
 	disabled,
 	disabledReason,
 	onClick,
-	cancel,
-	send,
+	batch,
 }: {
 	active: boolean;
 	disabled: boolean;
 	disabledReason?: string;
 	onClick: () => void;
-	cancel?: ReactNode;
-	send?: {
-		count: number;
-		visible: boolean;
-		disabled: boolean;
-		loading: boolean;
-		onClick: () => void;
-	};
+	batch?: AnnotationBatch;
 } ) {
-	const showSend = active && Boolean( send?.visible );
-	return (
-		<span
-			className={ styles.annotationControl }
-			data-active={ active }
-			data-has-annotations={ showSend }
-			title={ disabled ? disabledReason : undefined }
-		>
-			<Tooltip>
-				<TooltipTrigger
-					render={
-						<Button
-							variant="outline"
-							size="header"
-							className={ styles.annotateButton }
-							aria-label={ __( 'Annotate' ) }
-							aria-pressed={ active }
-							aria-description={
-								disabled
-									? disabledReason
-									: active
-									? __( 'Exit annotation mode. Your notes will be kept.' )
-									: undefined
-							}
-							disabled={ disabled }
-							onClick={ onClick }
-						>
-							<AnnotateIcon data-icon="inline-start" />
-							<span>{ __( 'Annotate' ) }</span>
-						</Button>
-					}
-				/>
-				<TooltipContent side="bottom">
-					{ disabledReason ?? ( active ? __( 'Exit annotation mode' ) : __( 'Annotate' ) ) }
-				</TooltipContent>
-			</Tooltip>
-			{ send ? (
-				<span
-					className={ styles.annotationSendSlot }
-					data-annotation-actions
-					data-open={ showSend }
-					aria-hidden={ ! showSend }
-					inert={ ! showSend }
+	const [ open, setOpen ] = useState( false );
+	const editingNote = useRef( false );
+	const firstNote = useRef< HTMLButtonElement >( null );
+	const notes = batch?.notes ?? [];
+	if ( batch && notes.length ) {
+		return (
+			<span className={ styles.control }>
+				<Button
+					variant="accent"
+					size="header"
+					className={ styles.send }
+					disabled={ batch.busy }
+					loading={ batch.busy }
+					onClick={ batch.onSend }
+					aria-label={ sprintf(
+						_n( 'Send %d annotation', 'Send %d annotations', notes.length ),
+						notes.length
+					) }
 				>
-					<span className={ styles.annotationSendContent }>
-						<span className={ styles.annotationSendMotion }>
-							<span className={ styles.annotationDivider } aria-hidden="true" />
-							{ cancel ? <span className={ styles.annotationAction }>{ cancel }</span> : null }
-							{ cancel ? <span className={ styles.annotationDivider } aria-hidden="true" /> : null }
-							<span className={ styles.annotationAction }>
-								<Button
-									variant="accent"
-									size="header"
-									className={ styles.annotationSend }
-									aria-label={ sprintf(
-										/* translators: %d: number of annotations. */
-										_n( 'Send %d annotation', 'Send %d annotations', send.count ),
-										send.count
-									) }
-									disabled={ send.disabled || ! send.count || ! showSend }
-									loading={ send.loading }
-									loadingMode="replace"
-									onClick={ send.onClick }
-								>
-									{ __( 'Send' ) }
-								</Button>
-							</span>
-						</span>
-					</span>
-				</span>
-			) : null }
-		</span>
+					{ __( 'Send' ) } <span className={ styles.count }>{ notes.length }</span>
+				</Button>
+				<Popover.Root
+					open={ open }
+					onOpenChange={ ( next ) => {
+						if ( next && ! batch.onReview() ) return;
+						setOpen( next );
+					} }
+				>
+					<Popover.Trigger
+						render={
+							<IconButton
+								variant="accent"
+								size="icon-sm"
+								className={ styles.dropdown }
+								icon={ <ChevronDownIcon /> }
+								label={ __( 'Review annotations' ) }
+								disabled={ batch.busy }
+								tooltipSide="bottom"
+							/>
+						}
+					/>
+					<Popover.Popup
+						align="end"
+						initialFocus={ firstNote }
+						className={ styles.popup }
+						aria-label={ __( 'Batched annotations' ) }
+						finalFocus={ () => {
+							if ( editingNote.current ) {
+								editingNote.current = false;
+								return false;
+							}
+						} }
+					>
+						<div className={ styles.heading }>
+							<Popover.Title>
+								{ sprintf( _n( '%d annotation', '%d annotations', notes.length ), notes.length ) }
+							</Popover.Title>
+							<Button
+								variant="ghost"
+								size="header"
+								disabled={ batch.busy }
+								onClick={ () => {
+									setOpen( false );
+									batch.onClear();
+								} }
+							>
+								{ __( 'Clear all' ) }
+							</Button>
+						</div>
+						<ul className={ styles.notes }>
+							{ notes.map( ( note ) => (
+								<li key={ note.id }>
+									<Button
+										variant="ghost"
+										size="header"
+										className={ styles.note }
+										ref={ note.id === notes[ 0 ]?.id ? firstNote : undefined }
+										aria-label={ sprintf(
+											__( 'Edit annotation %d: %s' ),
+											note.number,
+											note.comment || __( 'Image annotation' )
+										) }
+										onClick={ () => {
+											editingNote.current = true;
+											setOpen( false );
+											batch.onEdit( note.id );
+										} }
+									>
+										<span className={ styles.number }>{ note.number }</span>
+										<span className={ styles.label }>
+											{ note.comment || __( 'Image annotation' ) }
+										</span>
+									</Button>
+								</li>
+							) ) }
+						</ul>
+					</Popover.Popup>
+				</Popover.Root>
+			</span>
+		);
+	}
+	return (
+		<IconButton
+			variant="accent-ghost"
+			size="icon-sm"
+			icon={ <AnnotateIcon /> }
+			label={ disabledReason ?? ( active ? __( 'Exit annotation mode' ) : __( 'Annotate' ) ) }
+			aria-label={ __( 'Annotate' ) }
+			aria-pressed={ active }
+			aria-description={
+				disabled
+					? disabledReason
+					: active
+					? __( 'Exit annotation mode. Your notes will be kept.' )
+					: undefined
+			}
+			disabled={ disabled }
+			focusableWhenDisabled={ false }
+			tooltipSide="bottom"
+			onClick={ onClick }
+		/>
 	);
 }

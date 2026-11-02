@@ -55,6 +55,7 @@
 	display: none;
 }
 
-.item[data-site-header-end]:empty {
+.item[data-site-header-end]:empty,
+.item[data-site-header-annotations]:empty {
 	display: none;
 }

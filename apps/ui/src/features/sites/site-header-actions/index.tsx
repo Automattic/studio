@@ -1,6 +1,7 @@
 import { isRTL } from '@wordpress/i18n';
 import { createContext, useContext, useRef, useState, type ReactNode } from 'react';
 import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
+import { isBatchedAnnotation, useSiteAnnotations } from '@/features/annotations';
 import { ShareButton, PublishButton, SiteDeliveryDialog } from '@/features/site-delivery';
 import { useWindowControlsOverlay } from '@/lib/hooks';
 import styles from './style.module.css';
@@ -13,6 +14,8 @@ interface SiteHeaderContextValue {
 	host: 'chat' | 'preview' | null;
 	layout: SiteHeaderLayout;
 	actionsWidth: number;
+	annotationSpace: HTMLElement | null;
+	attachAnnotationSpace: ( node: HTMLElement | null ) => void;
 	browserSpace: HTMLElement | null;
 	attachBrowserSpace: ( node: HTMLElement | null ) => void;
 	attachActions: ( node: HTMLElement | null ) => void;
@@ -22,6 +25,8 @@ const SiteHeaderContext = createContext< SiteHeaderContextValue >( {
 	host: null,
 	layout: 'inline',
 	actionsWidth: 0,
+	annotationSpace: null,
+	attachAnnotationSpace: () => undefined,
 	browserSpace: null,
 	attachBrowserSpace: () => undefined,
 	attachActions: () => undefined,
@@ -37,6 +42,7 @@ export function SiteHeaderActionsProvider( {
 	host: 'chat' | 'preview';
 	children: ReactNode;
 } ) {
+	const [ annotationSpace, attachAnnotationSpace ] = useState< HTMLElement | null >( null );
 	const [ actions, attachActions ] = useState< HTMLElement | null >( null );
 	const [ browserSpace, attachBrowserSpace ] = useState< HTMLElement | null >( null );
 	const { layout, actionsWidth } = useSiteHeaderLayout( actions, browserSpace );
@@ -47,6 +53,8 @@ export function SiteHeaderActionsProvider( {
 				host,
 				layout,
 				actionsWidth,
+				annotationSpace,
+				attachAnnotationSpace,
 				browserSpace,
 				attachBrowserSpace,
 				attachActions,
@@ -71,7 +79,8 @@ export function SiteHeaderBrowserSpace() {
 
 /** Site actions stay in one place as the preview opens and closes. */
 export function SiteHeaderActions( { site, end }: { site: SiteDetails; end?: ReactNode } ) {
-	const { attachActions } = useSiteHeader();
+	const { attachActions, attachAnnotationSpace } = useSiteHeader();
+	const annotations = useSiteAnnotations( site.id );
 	const root = useRef< HTMLDivElement >( null );
 	const windowControls = useWindowControlsOverlay();
 	const trafficLightSpace = useTrafficLightSpace();
@@ -85,7 +94,10 @@ export function SiteHeaderActions( { site, end }: { site: SiteDetails; end?: Rea
 	}
 	const publishButton = (
 		<span data-site-header-publish className={ styles.publish }>
-			<PublishButton site={ site } />
+			<PublishButton
+				site={ site }
+				variant={ annotations.notes.some( isBatchedAnnotation ) ? 'outline' : 'accent' }
+			/>
 		</span>
 	);
 	return (
@@ -98,6 +110,11 @@ export function SiteHeaderActions( { site, end }: { site: SiteDetails; end?: Rea
 			<SiteDeliveryDialog key={ site.id } site={ site } anchor={ root } />
 			<div ref={ attachActions } className={ styles.actions }>
 				<div data-site-header-delivery className={ styles.delivery }>
+					<span
+						ref={ attachAnnotationSpace }
+						data-site-header-annotations
+						className={ styles.item }
+					/>
 					<span data-site-header-share className={ styles.item }>
 						<ShareButton site={ site } />
 					</span>

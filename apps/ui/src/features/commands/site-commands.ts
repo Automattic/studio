@@ -14,9 +14,9 @@ import {
 import { getSettingsCommandAliases } from '@/data/settings-sections';
 import {
 	AnnotateIcon,
-	SidebarIcon,
-	ExpandIcon,
-	CollapseIcon,
+	ChatIcon,
+	GlobeIcon,
+	SplitViewIcon,
 	DuplicateIcon,
 	ExternalLinkIcon,
 	NewChatIcon,
@@ -84,7 +84,7 @@ export function getSiteCommands( {
 	reloadPreview: () => void;
 	annotate: ( active: boolean ) => void;
 	setChatHidden: ( hidden: boolean ) => void;
-	showPreview?: ( open: boolean ) => void;
+	showPreview: ( open: boolean ) => void;
 	copyUrl: () => void;
 } ): PaletteCommand[] {
 	const { busy, running, othersRunning } = actions;
@@ -250,26 +250,45 @@ export function getSiteCommands( {
 					},
 			  ]
 			: [] ),
-		...( showPreview
+		...( previewShown
 			? [
 					{
-						id: 'preview-visibility',
+						id: 'layout-chat',
 						group: 'commands' as const,
-						label: previewShown ? __( 'Hide preview' ) : __( 'Show preview' ),
-						icon: SidebarIcon,
+						label: __( 'Switch to Chat' ),
+						icon: ChatIcon,
 						description,
-						run: () => showPreview( ! previewShown ),
+						keywords: [ __( 'Layout' ), __( 'Hide preview' ) ],
+						run: () => showPreview( false ),
 					},
 			  ]
 			: [] ),
-		{
-			id: 'preview-fullscreen',
-			group: 'commands',
-			label: chatHidden ? __( 'Exit fullscreen' ) : __( 'Enter fullscreen' ),
-			icon: chatHidden ? CollapseIcon : ExpandIcon,
-			description,
-			run: () => setChatHidden( ! chatHidden ),
-		},
+		...( ! previewShown || chatHidden
+			? [
+					{
+						id: 'layout-split',
+						group: 'commands' as const,
+						label: __( 'Switch to Split view' ),
+						icon: SplitViewIcon,
+						description,
+						keywords: [ __( 'Layout' ), __( 'Show preview' ), __( 'Exit fullscreen' ) ],
+						run: () => setChatHidden( false ),
+					},
+			  ]
+			: [] ),
+		...( ! previewShown || ! chatHidden
+			? [
+					{
+						id: 'layout-browser',
+						group: 'commands' as const,
+						label: __( 'Switch to Browser' ),
+						icon: GlobeIcon,
+						description,
+						keywords: [ __( 'Layout' ), __( 'Preview' ), __( 'Enter fullscreen' ) ],
+						run: () => setChatHidden( true ),
+					},
+			  ]
+			: [] ),
 		{
 			id: 'share',
 			group: 'commands',

@@ -180,7 +180,8 @@
 	--chat: var( --surface-0 );
 	--composer: var( --surface-3 );
 	--popover: var( --surface-2 );
-	--popover-border: color-mix( in oklab, oklch( from var( --foreground ) l calc( var( --tint-intensity, 0 ) * 0.0006 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) ) calc( 7% + var( --contrast, 0 ) * 0.2% ), var( --popover ) );
+	--border: color-mix( in oklab, oklch( from var( --foreground ) l calc( var( --tint-intensity, 0 ) * 0.0006 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) ) calc( 8% + var( --contrast, 0 ) * 0.2% ), transparent );
+	--popover-border: color-mix( in oklab, oklch( from var( --foreground ) l calc( var( --tint-intensity, 0 ) * 0.0006 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) ) calc( 6% + var( --contrast, 0 ) * 0.2% ), var( --popover ) );
 	--primary: oklch( 0.97 0 0 );
 	--accent-lightness: 0.72;
 	--accent-chroma: 0.2;

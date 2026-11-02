@@ -8,9 +8,9 @@ import type { PaletteCommand } from '@/features/commands/studio-commands';
 
 beforeEach( resetAppMessagesForTests );
 
-function setup( collapse: boolean ) {
+function setup( collapse: boolean, openChatOnSiteStart = true, batchAnnotations = false ) {
 	const connector = createFakeConnector( {
-		preferences: { autoCollapseSites: collapse },
+		preferences: { autoCollapseSites: collapse, openChatOnSiteStart, batchAnnotations },
 	} );
 	const result: { current: PaletteCommand[] } = { current: [] };
 	function Probe() {
@@ -112,6 +112,48 @@ it.each( [ false, true ] )(
 						title: 'Could not update settings. Please try again.',
 				  }
 				: { intent: 'success', title: 'Automatic sidebar collapsing enabled.' }
+		);
+	}
+);
+
+it.each( [ false, true ] )(
+	'changes the startup layout from the command palette (split: %s)',
+	async ( split ) => {
+		const { connector, result } = setup( false, split );
+		const command = () =>
+			result.current.find( ( entry ) => entry.id === 'settings-general-open-chat-on-site-start' );
+		await waitFor( () =>
+			expect( command()?.label ).toBe(
+				split ? 'Disable starting sites in split view' : 'Enable starting sites in split view'
+			)
+		);
+		act( () => command()!.run() );
+		await waitFor( () =>
+			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+				{
+					openChatOnSiteStart: ! split,
+				},
+				undefined
+			)
+		);
+	}
+);
+
+it.each( [ false, true ] )(
+	'toggles app-wide Batch notes from the palette (%s)',
+	async ( checked ) => {
+		const { connector, result } = setup( false, true, checked );
+		const command = () =>
+			result.current.find( ( entry ) => entry.id === 'settings-general-batch-notes' );
+		await waitFor( () =>
+			expect( command()?.label ).toBe( checked ? 'Disable batch notes' : 'Enable batch notes' )
+		);
+		act( () => command()!.run() );
+		await waitFor( () =>
+			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+				{ batchAnnotations: ! checked },
+				undefined
+			)
 		);
 	}
 );

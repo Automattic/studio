@@ -125,12 +125,12 @@ describe( 'SiteHeaderActions', () => {
 
 		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toHaveAttribute(
 			'data-variant',
-			'outline'
+			'ghost'
 		);
-		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toHaveTextContent( 'Share' );
+		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toHaveTextContent( /^$/ );
 		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toHaveAttribute(
 			'data-variant',
-			'default'
+			'accent'
 		);
 		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
 		expect(

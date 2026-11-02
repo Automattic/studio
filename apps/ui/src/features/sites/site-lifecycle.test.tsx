@@ -81,7 +81,7 @@ afterEach( () => {
 
 describe( 'site lifecycle and preview', () => {
 	it.each( [ undefined, true, false ] )(
-		'defaults to split regardless of the retired start preference: %s',
+		'uses the startup layout preference: %s',
 		async ( openChatOnSiteStart ) => {
 			const connector = createFakeConnector( {
 				sites: [ site() ],
@@ -97,7 +97,7 @@ describe( 'site lifecycle and preview', () => {
 	);
 
 	it.each( [ true, false ] )(
-		'opens another site beside chat regardless of the retired start preference: %s',
+		'opens another site using the startup preference: %s',
 		async ( openChatOnSiteStart ) => {
 			const connector = createFakeConnector( {
 				sites: [ site(), site( { id: 'two', name: 'Second', path: '/sites/two' } ) ],
@@ -120,12 +120,12 @@ describe( 'site lifecycle and preview', () => {
 			)
 		)
 	)(
-		'restores the saved layout ($fullscreen) from $control at $path',
+		'uses the startup setting ($fullscreen), overriding the saved layout, from $control at $path',
 		async ( { fullscreen, control, path } ) => {
 			localStorage.setItem( PREVIEW_OPEN_STORAGE_KEY, 'false' );
-			localStorage.setItem( SITE_CHAT_HIDDEN_STORAGE_KEY, JSON.stringify( { one: fullscreen } ) );
+			localStorage.setItem( SITE_CHAT_HIDDEN_STORAGE_KEY, JSON.stringify( { one: ! fullscreen } ) );
 			const connector = createFakeConnector(
-				{ sites: [ site() ] },
+				{ sites: [ site() ], preferences: { openChatOnSiteStart: ! fullscreen } },
 				{ getSiteThumbnail: async () => 'data:image/png;base64,eA==' }
 			);
 			const { history } = renderApp( { connector, path } );
@@ -154,8 +154,6 @@ describe( 'site lifecycle and preview', () => {
 			} else {
 				fireEvent.click( screen.getByRole( 'button', { name: 'Start My site' } ) );
 			}
-			if ( fullscreen ) expect( layoutMotion() ).toBeNull();
-			else expect( layoutMotion() ).not.toBeNull();
 			await waitFor( () => expect( connector.startSite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );
 			const openChat = ! fullscreen;
 			const assertLayout = () => {
@@ -164,10 +162,12 @@ describe( 'site lifecycle and preview', () => {
 				else expect( chat ).not.toBeInTheDocument();
 				expect( previewShown() ).toBe( true );
 			};
-			await waitFor( assertLayout );
+			expect( screen.getByRole( 'combobox', COMPOSER ) ).toBeVisible();
+			expect( previewShown() ).toBe( false );
 			connector.state.sites = [ site( { running: true } ) ];
 			await act( async () => start.resolve() );
 			await waitFor( () => expect( frame() ).toBeInTheDocument() );
+			expect( previewShown() ).toBe( false );
 			fireEvent.load( frame()! );
 			await waitFor( assertLayout );
 			await waitFor( () => expect( layoutMotion() ).toBeNull() );
@@ -177,7 +177,7 @@ describe( 'site lifecycle and preview', () => {
 	);
 
 	it.each( [ 'browser', 'desktop' ] as const )(
-		'keeps the %s startup toolbar visible while the preview loads',
+		'keeps chat visible until the %s startup preview is ready',
 		async ( runtime ) => {
 			if ( runtime === 'desktop' ) {
 				useElectron();
@@ -190,7 +190,7 @@ describe( 'site lifecycle and preview', () => {
 			connector.startSite.mockImplementationOnce( () => start.promise );
 			fireEvent.click( screen.getByRole( 'button', { name: 'Start My site' } ) );
 			await waitFor( () => expect( connector.startSite ).toHaveBeenCalled() );
-			expect( previewShown() ).toBe( true );
+			expect( previewShown() ).toBe( false );
 			expect( frame() ).toBeNull();
 			connector.state.sites = [ site( { running: true } ) ];
 			await act( () =>
@@ -200,12 +200,14 @@ describe( 'site lifecycle and preview', () => {
 					running: true,
 				} )
 			);
-			expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBeDisabled();
+			expect(
+				screen.queryByRole( 'toolbar', { name: 'Preview browser controls' } )
+			).not.toBeInTheDocument();
 			await waitFor( () => expect( frame() ).toBeInTheDocument() );
 			await act( async () => start.resolve() );
 			await waitFor( () => expect( frame() ).toBeInTheDocument() );
-			expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBeEnabled();
-			expect( previewShown() ).toBe( true );
+			expect( screen.getByRole( 'combobox', COMPOSER ) ).toBeVisible();
+			expect( previewShown() ).toBe( false );
 			if ( runtime === 'desktop' ) {
 				loadWebview();
 			} else {

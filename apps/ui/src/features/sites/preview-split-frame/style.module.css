@@ -32,7 +32,7 @@
 	width: var( --content-column-width );
 }
 
-/* The divider begins below the shared workspace header. */
+/* The divider separates the workspace panes below the shared header. */
 .rootEdge::after {
 	content: '';
 	position: absolute;
@@ -43,6 +43,10 @@
 	opacity: 1;
 	background: var( --border );
 	pointer-events: none;
+}
+
+.rootWithHeader.rootEdge::after {
+	inset-block-start: var( --band-height );
 }
 
 .rootEdge:has( > .previewResizeHandle:hover )::after,
@@ -141,8 +145,7 @@
 	transform: translateX( 4px );
 }
 
-.rootWithHeader :is( .contentColumn, .previewSlot, .previewResizeHandle ),
-.rootWithHeader.rootEdge::after {
+.rootWithHeader :is( .contentColumn, .previewSlot, .previewResizeHandle ) {
 	inset-block-start: var( --band-height );
 }
 

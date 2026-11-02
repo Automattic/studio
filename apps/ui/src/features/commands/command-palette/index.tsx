@@ -114,7 +114,10 @@ function SiteCommands( {
 		site,
 		chatHidden,
 		previewShown: previewFullscreen?.open ?? preview.open,
-		showPreview: previewFullscreen?.onOpenChange,
+		showPreview: ( open ) => {
+			if ( previewFullscreen?.onOpenChange ) previewFullscreen.onOpenChange( open );
+			else preview.setOpen( open, { siteId: site.id, instant: true } );
+		},
 		canAnnotate: connector.capabilities.annotatePreview,
 		annotating: annotations.active,
 		actions,
@@ -131,7 +134,10 @@ function SiteCommands( {
 		annotate: ( active ) => setAnnotating( site.id, active ),
 		setChatHidden: ( hidden ) => {
 			if ( previewFullscreen ) previewFullscreen.onChange( hidden );
-			else preview.setChatHidden( hidden, site.id );
+			else {
+				preview.setOpen( true, { siteId: site.id, instant: true } );
+				preview.setChatHidden( hidden, site.id, { instant: true } );
+			}
 		},
 		copyUrl: () =>
 			void connector

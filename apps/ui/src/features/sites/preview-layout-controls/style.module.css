@@ -1,3 +1,8 @@
-.trigger[aria-expanded='true']:not( :hover, :active ) {
-	--button-hover-background: var( --button-background, transparent );
+.itemWithShortcuts {
+	display: grid;
+	grid-template-columns: var( --space-4 ) minmax( 0, 1fr ) max-content var( --space-4 );
+}
+
+.indicatorSpace {
+	width: var( --space-4 );
 }

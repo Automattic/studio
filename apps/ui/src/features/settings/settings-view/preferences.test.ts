@@ -35,7 +35,9 @@ describe( 'settings preference helpers', () => {
 			analyticsEnabled: true,
 			defaultSiteDirectory: '/Users/example/Studio',
 			autoStartSiteOnChat: false,
+			openChatOnSiteStart: true,
 			confirmDeleteAnnotations: true,
+			batchAnnotations: false,
 		} );
 	} );
 

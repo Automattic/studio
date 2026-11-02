@@ -63,7 +63,7 @@ interface SessionUIState {
 type SessionUIAction =
 	| { type: 'preview/set-open'; value: boolean; instant?: boolean; siteId?: string }
 	| { type: 'preview/toggle' }
-	| { type: 'preview/set-chat-hidden'; value: boolean; siteId?: string }
+	| { type: 'preview/set-chat-hidden'; value: boolean; siteId?: string; instant?: boolean }
 	| { type: 'preview/reset-layout' }
 	| { type: 'preview/navigate'; path: string }
 	| { type: 'preview/reload' }
@@ -128,6 +128,7 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 				return state;
 			const preview = {
 				...state.preview,
+				instant: siteId === state.preview.siteId ? action.instant ?? false : state.preview.instant,
 				chatHiddenBySiteId: { ...state.preview.chatHiddenBySiteId, [ siteId ]: action.value },
 			};
 			return {
@@ -155,6 +156,7 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 					pathsBySiteId: rememberPath( state.preview, action.path ),
 					reloadNonce: state.preview.reloadNonce + 1,
 					open: true,
+					instant: false,
 				} ),
 			};
 		case 'preview/reload':
@@ -293,7 +295,7 @@ interface SessionPreviewUI {
 	readonly revealingSiteId: string | null;
 	setOpen: ( value: boolean, options?: { instant?: boolean; siteId?: string } ) => void;
 	toggle: () => void;
-	setChatHidden: ( value: boolean, siteId?: string ) => void;
+	setChatHidden: ( value: boolean, siteId?: string, options?: { instant?: boolean } ) => void;
 	// Opens the panel on `path` and reloads it, like an agent-driven navigation.
 	navigate: ( path: string ) => void;
 	updatePath: ( path: string ) => void;
@@ -314,8 +316,8 @@ export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 	);
 	const toggle = useCallback( () => dispatch?.( { type: 'preview/toggle' } ), [ dispatch ] );
 	const setChatHidden = useCallback(
-		( value: boolean, siteId?: string ) =>
-			dispatch?.( { type: 'preview/set-chat-hidden', value, siteId } ),
+		( value: boolean, siteId?: string, options?: { instant?: boolean } ) =>
+			dispatch?.( { type: 'preview/set-chat-hidden', value, siteId, instant: options?.instant } ),
 		[ dispatch ]
 	);
 	const navigate = useCallback(

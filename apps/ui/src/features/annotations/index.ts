@@ -1,4 +1,3 @@
-export { AnnotationCancelButton } from './cancel-button';
 export { type AnnotationAnchor, AnnotationOverlay } from './overlay';
 export {
 	changeAnnotation,
@@ -9,11 +8,13 @@ export {
 	hasAnnotationContent,
 	isAnnotationsBusy,
 	isStagedAnnotation,
+	isBatchedAnnotation,
 	pickAnnotation,
 	removeAnnotations,
 	requestAnnotationSend,
 	setAnnotating,
 	type SiteAnnotations,
+	type PreviewAnnotation,
 	stageAnnotations,
 	subscribeAnnotationSend,
 	useSiteAnnotations,

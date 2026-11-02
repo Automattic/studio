@@ -68,10 +68,8 @@ export function ResponsiveToolbar( {
 	return (
 		<div className={ styles.toolbar } role="toolbar" aria-label={ __( 'Responsive preview' ) }>
 			<Menu.Root>
-				<Menu.Trigger
-					render={ <Button variant="ghost" size="header" className={ styles.device } /> }
-				>
-					<span>{ settings.preset === 'responsive' ? __( 'Responsive' ) : settings.preset }</span>
+				<Menu.Trigger render={ <Button variant="ghost" size="sm" className={ styles.device } /> }>
+					<span>{ settings.preset === 'responsive' ? __( 'Freeform' ) : settings.preset }</span>
 					<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
 				</Menu.Trigger>
 				<Menu.Popup side="bottom">
@@ -86,15 +84,20 @@ export function ResponsiveToolbar( {
 							);
 						} }
 					>
-						<Menu.RadioItem value="responsive">{ __( 'Responsive' ) }</Menu.RadioItem>
+						<Menu.RadioItem value="responsive">{ __( 'Freeform' ) }</Menu.RadioItem>
 						{ devicePresets.map( ( preset ) => (
-							<Menu.RadioItem key={ preset.name } value={ preset.name }>
-								<span className={ styles.presetLabel }>
-									{ preset.name }{ ' ' }
-									<span className={ styles.presetDimensions }>
-										· { preset.width } × { preset.height }
-									</span>
+							<Menu.RadioItem
+								key={ preset.name }
+								value={ preset.name }
+								className={ styles.presetItem }
+							>
+								<span>{ preset.name }</span>
+								<span className={ styles.presetDimensions }>
+									{ preset.width } × { preset.height }
 								</span>
+								{ settings.preset !== preset.name && (
+									<span className={ styles.indicatorSpace } aria-hidden="true" />
+								) }
 							</Menu.RadioItem>
 						) ) }
 					</Menu.RadioGroup>
@@ -132,7 +135,7 @@ export function ResponsiveToolbar( {
 			/>
 			<span className={ styles.divider } aria-hidden="true" />
 			<Menu.Root>
-				<Menu.Trigger render={ <Button variant="ghost" size="header" /> }>
+				<Menu.Trigger render={ <Button variant="ghost" size="sm" /> }>
 					{ settings.zoom === 'fit' ? __( 'Fit' ) : `${ settings.zoom * 100 }%` }
 					<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
 				</Menu.Trigger>
@@ -151,7 +154,6 @@ export function ResponsiveToolbar( {
 								</span>
 							</span>
 						</Menu.RadioItem>
-						<Menu.Separator />
 						{ [ 0.5, 0.75, 1, 1.25, 1.5 ].map( ( zoom ) => (
 							<Menu.RadioItem key={ zoom } value={ String( zoom ) }>
 								{ zoom * 100 }%

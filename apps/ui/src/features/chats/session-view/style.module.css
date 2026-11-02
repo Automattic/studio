@@ -1,7 +1,7 @@
 /* The chat column. The site preview panel lives in the dashboard layout's
    PreviewSplitFrame, which hosts this view in its content column. */
 .root {
-	--column-inline-gutter: var( --space-5 );
+	--column-inline-gutter: var( --space-4 );
 	--column-max-width: 644px;
 	--header-height: var( --band-height );
 	--composer-height: 0px;
@@ -25,6 +25,7 @@
 	height: var( --band-height );
 	transition: padding var( --motion-duration-layout ) var( --motion-ease-layout );
 	background-color: var( --chrome );
+	box-shadow: inset 0 -1px 0 var( --border );
 	font-size: var( --text-xxs );
 	color: var( --foreground );
 	-webkit-app-region: drag;

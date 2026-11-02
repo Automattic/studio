@@ -5,6 +5,8 @@ import {
 	changeAnnotation,
 	escapeAnnotations,
 	getSiteAnnotations,
+	isBatchedAnnotation,
+	stageAnnotations,
 	pickAnnotation,
 	requestAnnotationSend,
 	setAnnotating,
@@ -37,6 +39,25 @@ describe( 'annotation store', () => {
 
 		expect( pickAnnotation( 'design-site', { designKey: 'colors.primary' } ) ).toBe( id );
 		expect( getSiteAnnotations( 'design-site' ).notes ).toHaveLength( 1 );
+	} );
+
+	it( 'keeps batched notes distinct from immediate submissions when annotation mode changes', () => {
+		const siteId = 'batch-store-site';
+		setAnnotating( siteId, true );
+		const direct = pickAnnotation( siteId, { selector: 'h1' } )!;
+		changeAnnotation( siteId, direct, { comment: 'Immediate' } );
+		stageAnnotations( siteId, [ direct ] );
+		expect( getSiteAnnotations( siteId ).notes.filter( isBatchedAnnotation ) ).toHaveLength( 0 );
+		const batched = pickAnnotation( siteId, { selector: 'p' } )!;
+		changeAnnotation( siteId, batched, { comment: 'Batch this' } );
+		stageAnnotations( siteId, [ batched ], true );
+		setAnnotating( siteId, false );
+		setAnnotating( siteId, true );
+		expect(
+			getSiteAnnotations( siteId )
+				.notes.filter( isBatchedAnnotation )
+				.map( ( note ) => note.id )
+		).toEqual( [ batched ] );
 	} );
 
 	it( 'holds a send request until a chat for that site takes it', () => {

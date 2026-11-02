@@ -62,7 +62,7 @@ import {
 } from '@/features/composer';
 import { PreviewParticles, StoppedSitePreview } from '@/features/sites';
 import { getMotionDuration } from '@/lib/theme';
-import { Button, IconButton } from '@/lib/ui';
+import { Button, IconButton, VisuallyHidden } from '@/lib/ui';
 import { Conversation } from './conversation';
 import { QueuedPrompts } from './queued-prompts';
 import { SessionFrame } from './session-frame';
@@ -533,6 +533,9 @@ function SessionViewContent( {
 		>
 			{ emptySessionId === draftKey ? (
 				<div className={ styles.emptyState } data-hidden={ ! showEmpty || undefined }>
+					{ siteLoading && ! previewVisible ? (
+						<VisuallyHidden role="status">{ __( 'Loading site preview' ) }</VisuallyHidden>
+					) : null }
 					<PreviewParticles
 						active={ siteLoading && ! previewVisible }
 						showLogo={ siteLoading && ! previewVisible }

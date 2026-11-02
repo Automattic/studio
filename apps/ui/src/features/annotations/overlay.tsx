@@ -1,10 +1,10 @@
 import { isStudioChatImageMimeType } from '@studio/agent/protocol/chat-images';
 import { getComposerAttachmentImageSrc } from '@studio/agent/protocol/composer-attachment-preview';
 import { __ } from '@wordpress/i18n';
-import { isAppleOS } from '@wordpress/keycodes';
-import { PaperclipIcon, Trash2Icon } from 'lucide-react';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { PaperclipIcon } from 'lucide-react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { toast } from '@/data/app-messages';
+import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useComposerAttachments, useFileDrop } from '@/data/use-composer-attachments';
 import { SendIcon } from '@/lib/icons';
 import { isImeComposing } from '@/lib/keyboard';
@@ -14,6 +14,7 @@ import {
 	Button,
 	IconButton,
 	Textarea,
+	Switch,
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
@@ -25,7 +26,6 @@ import {
 	getSiteAnnotations,
 	hasAnnotationContent,
 	isAnnotationsBusy,
-	removeAnnotations,
 	setAnnotationsPreparing,
 	stageAnnotations,
 	useSiteAnnotations,
@@ -153,18 +153,16 @@ function NoteEditor( {
 	}, [ anchor ] );
 
 	const hasContent = hasAnnotationContent( note );
-	const submit = ( direct: boolean ) => {
+	const { data: preferences } = useUserPreferences();
+	const savePreferences = useSaveUserPreferences();
+	const batchNotes = preferences?.batchAnnotations ?? false;
+	const batchSwitchId = useId();
+	const submit = () => {
 		if ( ! hasContent || busy ) return;
-		if ( direct ) {
-			onSend( [ note.id ] );
-		} else {
-			stageAnnotations( siteId, [ note.id ] );
-		}
+		if ( batchNotes ) stageAnnotations( siteId, [ note.id ], true );
+		else onSend( [ note.id ] );
 		closeAnnotationEditor( siteId );
 	};
-	const submitLabel = isAppleOS()
-		? __( 'Save annotation (Enter). Send annotation (⌘Enter).' )
-		: __( 'Save annotation (Enter). Send annotation (Ctrl+Enter).' );
 
 	return (
 		<div
@@ -212,7 +210,7 @@ function NoteEditor( {
 				onKeyDown={ ( event ) => {
 					if ( isImeComposing( event ) || event.key !== 'Enter' || event.shiftKey ) return;
 					event.preventDefault();
-					submit( event.metaKey || event.ctrlKey );
+					submit();
 				} }
 			/>
 			<div className={ styles.toolbar }>
@@ -223,13 +221,25 @@ function NoteEditor( {
 					label={ __( 'Attach image' ) }
 					onClick={ () => fileInputRef.current?.click() }
 				/>
-				<IconButton
-					size="icon"
-					shape="round"
-					icon={ <Trash2Icon /> }
-					label={ __( 'Delete annotation' ) }
-					onClick={ () => removeAnnotations( siteId, [ note.id ] ) }
-				/>
+				<div className={ styles.batchSetting }>
+					<Switch
+						id={ batchSwitchId }
+						className={ styles.batchSwitch }
+						checked={ batchNotes }
+						aria-label={ __( 'Batch notes' ) }
+						onCheckedChange={ ( batchAnnotations ) =>
+							savePreferences.mutate(
+								{ batchAnnotations },
+								{
+									onError: () =>
+										toast.error( __( 'Could not update settings. Please try again.' ) ),
+								}
+							)
+						}
+					/>
+					<label htmlFor={ batchSwitchId }>{ __( 'Batch notes' ) }</label>
+				</div>
+
 				<input
 					ref={ fileInputRef }
 					type="file"
@@ -249,15 +259,21 @@ function NoteEditor( {
 								size="icon"
 								shape="round"
 								className={ styles.save }
-								aria-label={ __( 'Save annotation' ) }
+								aria-label={
+									batchNotes ? __( 'Add annotation to batch' ) : __( 'Send annotation' )
+								}
 								disabled={ ! hasContent || busy }
-								onClick={ () => submit( false ) }
+								onClick={ submit }
 							/>
 						}
 					>
 						<SendIcon />
 					</TooltipTrigger>
-					<TooltipContent>{ submitLabel }</TooltipContent>
+					<TooltipContent>
+						{ batchNotes
+							? __( 'Add annotation to batch (Enter)' )
+							: __( 'Send annotation (Enter)' ) }
+					</TooltipContent>
 				</Tooltip>
 			</div>
 		</div>

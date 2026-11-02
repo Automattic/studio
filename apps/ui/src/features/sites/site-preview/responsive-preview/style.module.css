@@ -1,4 +1,5 @@
 .toolbar {
+	--control-size: 32px;
 	display: flex;
 	align-items: center;
 	flex-shrink: 0;
@@ -7,7 +8,7 @@
 	box-sizing: border-box;
 	padding: var( --space-1 ) var( --preview-toolbar-inline-inset, var( --space-1 ) );
 	border-bottom: 1px solid var( --border );
-	background: var( --chrome );
+	background: var( --preview-toolbar-background, var( --chrome ) );
 	color: var( --foreground );
 	overflow-x: auto;
 }
@@ -25,12 +26,20 @@
 }
 
 .presetDimensions {
+	padding-inline-start: var( --space-4 );
 	color: var( --muted-foreground );
-	font-size: var( --text-2xs );
+	font-size: var( --text-xs );
+	font-variant-numeric: tabular-nums;
+	text-align: end;
 }
 
-.presetLabel {
-	padding-inline-end: var( --space-2 );
+.presetItem {
+	display: grid;
+	grid-template-columns: minmax( 0, 1fr ) max-content var( --space-4 );
+}
+
+.indicatorSpace {
+	width: var( --space-4 );
 }
 
 .device span {

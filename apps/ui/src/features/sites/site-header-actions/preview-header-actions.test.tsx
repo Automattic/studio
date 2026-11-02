@@ -7,7 +7,6 @@ import {
 	changeAnnotation,
 	getSiteAnnotations,
 	pickAnnotation,
-	removeAnnotations,
 	setAnnotating,
 	stageAnnotations,
 } from '@/features/annotations';
@@ -95,7 +94,7 @@ async function renderHeader(
 }
 
 const headerButtons = ( name: string | RegExp ) =>
-	within( screen.getByRole( 'toolbar', { name: 'Preview browser controls' } ) ).queryAllByRole(
+	within( document.querySelector< HTMLElement >( '[data-site-header-actions]' )! ).queryAllByRole(
 		'button',
 		{ name }
 	);
@@ -113,7 +112,7 @@ function readyGuest( extra: Record< string, unknown > = {} ) {
 	return webview as HTMLElement & Record< string, ReturnType< typeof vi.fn > >;
 }
 
-it( 'keeps labeled annotation available in a narrow preview with sharing feedback', async () => {
+it( 'keeps icon-only annotation available in a narrow preview with sharing feedback', async () => {
 	setAnnotating( 'annotate-site', true );
 	const { user } = await renderHeader( 'annotate-site', createFakeConnector(), 340 );
 	await act( async () => {
@@ -131,9 +130,18 @@ it( 'keeps labeled annotation available in a narrow preview with sharing feedbac
 	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
 	expect( annotation ).toHaveAttribute( 'aria-pressed', 'true' );
-	expect( annotation ).toHaveTextContent( 'Annotate' );
+	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toHaveAttribute(
+		'data-variant',
+		'accent'
+	);
+	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeEnabled();
+	expect( annotation ).toHaveTextContent( /^$/ );
 	await user.click( annotation );
 	expect( annotation ).toHaveAttribute( 'aria-pressed', 'false' );
+	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toHaveAttribute(
+		'data-variant',
+		'accent'
+	);
 	act( () => {
 		applySyncActivity( 'annotate-site', { kind: 'pending', direction: 'preview' } );
 	} );
@@ -146,7 +154,7 @@ it( 'keeps labeled annotation available in a narrow preview with sharing feedbac
 		markPreviewReady( 'annotate-site' );
 	} );
 	expect( share ).toHaveAttribute( 'aria-description', 'Preview ready' );
-	expect( share ).toHaveTextContent( 'Share' );
+	expect( share ).toHaveTextContent( /^$/ );
 	await user.click( share );
 	expect( await screen.findByRole( 'dialog' ) ).toBeInTheDocument();
 	await user.keyboard( '{Escape}' );
@@ -160,101 +168,48 @@ it( 'keeps labeled annotation available in a narrow preview with sharing feedbac
 	expect( headerButtons( 'Send 1 annotation' ) ).toHaveLength( 0 );
 } );
 
-it( 'hides annotation actions on Escape and restores the notes when annotation mode reopens', async () => {
-	const siteId = 'header-send-site';
+it( 'reviews, reopens, sends, and clears batched annotations from the header', async () => {
+	const siteId = 'header-batch-site';
 	const onSend = vi.fn();
 	const { user } = await renderHeader( siteId, createFakeConnector(), 1000, true, onSend );
 	readyGuest();
 	const annotate = screen.getByRole( 'button', { name: 'Annotate' } );
 	await waitFor( () => expect( annotate ).toBeEnabled() );
-	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
 	await user.click( annotate );
-	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
-	expect( getSiteAnnotations( siteId ).active ).toBe( true );
-	expect( screen.queryByRole( 'toolbar', { name: 'Annotations' } ) ).not.toBeInTheDocument();
-
-	let noteId = '';
+	let id = '';
 	act( () => {
-		noteId = pickAnnotation( siteId, { selector: 'h1', tag: 'h1', path: '/' } )!;
-		changeAnnotation( siteId, noteId, { comment: 'Make this heading smaller' } );
+		id = pickAnnotation( siteId, { selector: 'h1', tag: 'h1', path: '/' } )!;
+		changeAnnotation( siteId, id, { comment: 'Make the heading smaller' } );
+		stageAnnotations( siteId, [ id ], true );
+		setAnnotating( siteId, false );
 	} );
-	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
-	act( () => stageAnnotations( siteId, [ noteId ] ) );
-	expect( headerButtons( 'Send 1 annotation' )[ 0 ] ).toBeEnabled();
-	fireEvent(
-		document.querySelector( 'webview' )!,
-		Object.assign( new Event( 'did-start-navigation' ), { isMainFrame: true, isInPlace: false } )
+	const send = screen.getByRole( 'button', { name: 'Send 1 annotation' } );
+	expect( send ).toHaveTextContent( 'Send 1' );
+	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toHaveAttribute(
+		'data-variant',
+		'outline'
 	);
-	expect( annotate ).toBeDisabled();
-	expect( headerButtons( 'Send 1 annotation' )[ 0 ] ).toBeEnabled();
-	await user.keyboard( '{Escape}' );
-	expect( annotate ).toHaveAttribute( 'aria-pressed', 'false' );
-	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
-	expect( headerButtons( 'Discard annotations' ) ).toHaveLength( 0 );
-	expect( screen.queryByRole( 'toolbar', { name: 'Annotations' } ) ).not.toBeInTheDocument();
-	expect( getSiteAnnotations( siteId ).notes[ 0 ].comment ).toBe( 'Make this heading smaller' );
-	readyGuest();
-	await waitFor( () => expect( annotate ).toBeEnabled() );
-	await user.click( annotate );
-	expect( annotate ).toHaveAttribute( 'aria-pressed', 'true' );
-	expect( headerButtons( 'Send 1 annotation' )[ 0 ] ).toBeEnabled();
-	expect( headerButtons( 'Discard annotations' )[ 0 ] ).toBeEnabled();
-	act( () => changeAnnotation( siteId, noteId, { comment: '' } ) );
-	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
-	act( () => changeAnnotation( siteId, noteId, { comment: 'Make this heading smaller' } ) );
-	const send = headerButtons( 'Send 1 annotation' )[ 0 ];
-	expect( send ).toBeEnabled();
+	await user.click( screen.getByRole( 'button', { name: 'Review annotations' } ) );
+	expect( getSiteAnnotations( siteId ).active ).toBe( true );
+	await user.click(
+		screen.getByRole( 'button', { name: 'Edit annotation 1: Make the heading smaller' } )
+	);
+	expect( getSiteAnnotations( siteId ).editingId ).toBe( id );
 	await user.click( send );
-	expect( onSend ).toHaveBeenCalledExactlyOnceWith( siteId );
-	expect( getSiteAnnotations( siteId ).active ).toBe( false );
-	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
-	act( () => removeAnnotations( siteId, [ noteId ] ) );
-	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
+	expect( onSend ).toHaveBeenCalledExactlyOnceWith( siteId, [ id ] );
+	await user.click( screen.getByRole( 'button', { name: 'Review annotations' } ) );
+	await user.click( screen.getByRole( 'button', { name: 'Clear all' } ) );
+	expect( getSiteAnnotations( siteId ).notes ).toHaveLength( 0 );
+	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toHaveAttribute(
+		'data-variant',
+		'accent'
+	);
+	expect( screen.queryByRole( 'button', { name: 'Send 1 annotation' } ) ).not.toBeInTheDocument();
+	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toHaveAttribute(
+		'aria-pressed',
+		'true'
+	);
 } );
-
-it.each( [ true, false ] )(
-	'restores annotation actions before discarding notes (initially active: %s)',
-	async ( active ) => {
-		const siteId = `header-cancel-${ active }`;
-		const onSend = vi.fn();
-		const { user } = await renderHeader( siteId, createFakeConnector(), 1000, true, onSend );
-		readyGuest();
-		await waitFor( () =>
-			expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeEnabled()
-		);
-		expect( headerButtons( 'Discard annotations' ) ).toHaveLength( 0 );
-		act( () => {
-			setAnnotating( siteId, true );
-			const id = pickAnnotation( siteId, { selector: 'h1', tag: 'h1', path: '/' } )!;
-			changeAnnotation( siteId, id, { comment: 'Keep this note until confirmed' } );
-			stageAnnotations( siteId, [ id ] );
-			setAnnotating( siteId, active );
-		} );
-		if ( ! active ) {
-			expect( headerButtons( 'Discard annotations' ) ).toHaveLength( 0 );
-			await user.click( screen.getByRole( 'button', { name: 'Annotate' } ) );
-		}
-		const cancel = headerButtons( 'Discard annotations' )[ 0 ];
-		expect( cancel ).toBeEnabled();
-		expect( headerButtons( 'Send 1 annotation' )[ 0 ] ).toBeEnabled();
-		await user.click( cancel );
-		let dialog = await screen.findByRole( 'alertdialog', {
-			name: 'Discard all pending annotations?',
-		} );
-		await user.click( within( dialog ).getByRole( 'button', { name: 'Cancel' } ) );
-		expect( getSiteAnnotations( siteId ).notes[ 0 ].comment ).toBe(
-			'Keep this note until confirmed'
-		);
-		await user.click( cancel );
-		dialog = await screen.findByRole( 'alertdialog', { name: 'Discard all pending annotations?' } );
-		await user.click( within( dialog ).getByRole( 'button', { name: 'Discard' } ) );
-		expect( getSiteAnnotations( siteId ).notes ).toHaveLength( 0 );
-		expect( getSiteAnnotations( siteId ).active ).toBe( false );
-		expect( headerButtons( 'Discard annotations' ) ).toHaveLength( 0 );
-		expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
-		expect( onSend ).not.toHaveBeenCalled();
-	}
-);
 
 it( 'keeps browser actions directly available in a narrow preview', async () => {
 	const connector = createFakeConnector();
@@ -316,7 +271,7 @@ it( 'keeps responsive mode on the right as the browser row compacts', async () =
 	expect( screen.getByRole( 'button', { name: 'Responsive mode' } ) ).toBe( toggle );
 } );
 
-it( 'keeps Annotate in the preview bar at mobile widths', async () => {
+it( 'keeps Annotate in the main header at mobile widths', async () => {
 	const { resize } = await renderHeader( 'mobile-annotate', createFakeConnector(), 600 );
 	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeVisible();
 	await resize( 390 );
@@ -335,7 +290,8 @@ it( 'keeps site actions in the main header without mobile browser overflow', asy
 	const publish = screen.getByRole( 'button', { name: 'Publish…' } );
 	expect( browser ).toContainElement( screen.getByRole( 'textbox', { name: 'Address' } ) );
 	expect( mainHeader ).not.toContainElement( browser );
-	expect( browser ).toContainElement( annotate );
+	expect( browser ).not.toContainElement( annotate );
+	expect( document.querySelector( '[data-site-header-actions]' ) ).toContainElement( annotate );
 	for ( const action of [ share, publish ] ) expect( browser ).not.toContainElement( action );
 	await resize( 540 );
 	expect(
@@ -344,6 +300,7 @@ it( 'keeps site actions in the main header without mobile browser overflow', asy
 	expect( screen.queryByRole( 'button', { name: 'Stop site' } ) ).not.toBeInTheDocument();
 	for ( const name of [ 'Back', 'Forward', 'Reload preview', 'Responsive mode' ] )
 		expect( within( browser ).getByRole( 'button', { name } ) ).toBeVisible();
+	expect( screen.getByRole( 'button', { name: 'Responsive mode' } ) ).toBeVisible();
 	await resize( 1000 );
 	expect(
 		screen.queryByRole( 'button', { name: 'More preview actions' } )
@@ -360,11 +317,20 @@ it( 'hides URL navigation entirely on mobile', async () => {
 	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
 } );
 
-it( 'hides annotation with the browser bar while a site is stopped', async () => {
+it( 'starts a stopped site in annotation mode from the header', async () => {
 	const connector = createFakeConnector();
-	await renderHeader( 'annotate-stopped', connector, 1000, false );
-	expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
+	const { user } = await renderHeader( 'annotate-stopped', connector, 1000, false );
+	const annotate = screen.getByRole( 'button', { name: 'Annotate' } );
+	expect( annotate ).toBeEnabled();
+	expect(
+		screen.queryByRole( 'toolbar', { name: 'Preview browser controls' } )
+	).not.toBeInTheDocument();
 	expect( connector.startSite ).not.toHaveBeenCalled();
+	await user.click( annotate );
+	await waitFor( () =>
+		expect( connector.startSite ).toHaveBeenCalledExactlyOnceWith( 'annotate-stopped' )
+	);
+	expect( getSiteAnnotations( 'annotate-stopped' ).active ).toBe( true );
 } );
 
 it.each( [ true, false ] )(

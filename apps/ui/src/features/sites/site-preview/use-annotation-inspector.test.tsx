@@ -49,6 +49,7 @@ async function setup( onStartAnnotating?: () => boolean ) {
 					path="/"
 					reloadNonce={ 0 }
 					onStartAnnotating={ onStartAnnotating }
+					onSendAnnotations={ () => undefined }
 				/>
 				<SiteHeaderActions site={ site } />
 			</SiteHeaderActionsProvider>
@@ -114,6 +115,29 @@ describe( 'annotation inspector navigation', () => {
 		expect( latestCommand() ).toContain( '"pending":false' );
 		act( () => editAnnotation( site.id, id ) );
 		expect( latestCommand() ).toContain( '"pending":false' );
+	} );
+
+	it( 'shows saved markers while the batch review dropdown is open', async () => {
+		const { preview, emit, annotate, user } = await setup();
+		emit( 'dom-ready' );
+		await waitFor( () => expect( annotate() ).toBeEnabled() );
+		let id = '';
+		act( () => {
+			setAnnotating( site.id, true );
+			id = pickAnnotation( site.id, { selector: 'h1', url: 'http://localhost:9010/' } )!;
+			changeAnnotation( site.id, id, { comment: 'Make the heading smaller' } );
+			stageAnnotations( site.id, [ id ], true );
+			setAnnotating( site.id, false );
+		} );
+		await user.click( screen.getByRole( 'button', { name: 'Review annotations' } ) );
+		expect(
+			screen.getByRole( 'button', { name: 'Edit annotation 1: Make the heading smaller' } )
+		).toBeVisible();
+		const command = preview.executeJavaScript.mock.calls.at( -1 )?.[ 0 ];
+		expect( command ).toContain( '"active":true' );
+		expect( command ).toContain( `"id":"${ id }"` );
+		expect( command ).toContain( '"number":1' );
+		expect( command ).toContain( '"pending":false' );
 	} );
 
 	it( 'asks before entering annotation mode and leaves it inactive when a provider is required', async () => {

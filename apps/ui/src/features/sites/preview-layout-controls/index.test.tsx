@@ -25,6 +25,7 @@ it.each( [ true, false ] )(
 			[ 'Browser', 'preview' ],
 		] as const ) {
 			await chooseLayout( label );
+			expect( document.querySelector( '[data-layout-moving]' ) ).not.toBeInTheDocument();
 			expect( trigger ).toHaveAttribute( 'data-preview-layout', value );
 			expect( trigger ).not.toHaveAttribute( 'aria-pressed' );
 			await waitFor( () =>
@@ -50,15 +51,18 @@ it.each( [ true, false ] )(
 );
 
 it.each( [ 'Split view', 'Browser' ] as const )(
-	'restores %s on start and returns to Chat on stop',
+	'uses the %s startup setting and returns to Chat on stop',
 	async ( layout ) => {
 		const connector = createFakeConnector( {
 			sites: [ makeSite( { id: 'one', running: false } ) ],
+			preferences: { openChatOnSiteStart: layout === 'Split view' },
 		} );
 		renderApp( { connector, path: '/sites/one/new' } );
-		await chooseLayout( layout );
+		await chooseLayout( layout === 'Browser' ? 'Split view' : 'Browser' );
 		await chooseLayout( 'Chat' );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Start My site' } ) );
+		await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
+		fireEvent.load( document.querySelector( 'iframe' )! );
 		await waitFor( () =>
 			expect( screen.getByRole( 'button', { name: 'Preview layout' } ) ).toHaveAttribute(
 				'data-preview-layout',
@@ -106,4 +110,67 @@ it( 'remembers each site’s layout and preserves the draft across layout change
 			'chat'
 		)
 	);
+} );
+
+it( 'explains the layout control on hover', async () => {
+	const { user } = renderApp( {
+		connector: createFakeConnector( { sites: [ makeSite( { id: 'one', running: true } ) ] } ),
+		path: '/sites/one/new',
+	} );
+	await user.hover( await screen.findByRole( 'button', { name: 'Preview layout' } ) );
+	expect( await screen.findByText( 'Change workspace layout' ) ).toBeVisible();
+} );
+
+it( 'keeps automatic chat reveals animated after an immediate layout choice', async () => {
+	const connector = createFakeConnector( {
+		sites: [ makeSite( { id: 'one', running: true } ) ],
+	} );
+	renderApp( { connector, path: '/sites/one/new' } );
+	await chooseLayout( 'Browser' );
+	expect( document.querySelector( '[data-layout-moving]' ) ).not.toBeInTheDocument();
+	fireEvent.click( screen.getByRole( 'button', { name: 'New chat for My site' } ) );
+	expect( document.querySelector( '[data-layout-moving]' ) ).toBeInTheDocument();
+} );
+
+it( 'keeps stopping animated after an immediate layout choice', async () => {
+	const connector = createFakeConnector( {
+		sites: [ makeSite( { id: 'one', running: true } ) ],
+	} );
+	renderApp( { connector, path: '/sites/one/new' } );
+	await chooseLayout( 'Chat' );
+	await chooseLayout( 'Split view' );
+	fireEvent.click( screen.getByRole( 'button', { name: 'Stop My site' } ) );
+	await waitFor( () =>
+		expect( document.querySelector( '[data-layout-moving]' ) ).toBeInTheDocument()
+	);
+} );
+
+it.each( [ true, false ] )(
+	'selects layouts from desktop shortcuts without changing site lifecycle (running: %s)',
+	async ( running ) => {
+		const connector = createFakeConnector( { sites: [ makeSite( { id: 'one', running } ) ] } );
+		renderApp( { connector, path: '/sites/one/new' } );
+		const trigger = await screen.findByRole( 'button', { name: 'Preview layout' } );
+		for ( const layout of [ 'preview', 'split', 'chat' ] as const ) {
+			act( () => connector.emit( 'onSetPreviewLayout', layout ) );
+			expect( trigger ).toHaveAttribute( 'data-preview-layout', layout );
+			expect( document.querySelector( '[data-layout-moving]' ) ).not.toBeInTheDocument();
+		}
+		expect( connector.startSite ).not.toHaveBeenCalled();
+		expect( connector.stopSite ).not.toHaveBeenCalled();
+	}
+);
+
+it( 'does not advertise desktop shortcuts in browser hosts', async () => {
+	const connector = createFakeConnector(
+		{ sites: [ makeSite( { id: 'one', running: true } ) ] },
+		{ onSetPreviewLayout: undefined }
+	);
+	renderApp( { connector, path: '/sites/one/new' } );
+	fireEvent.click( await screen.findByRole( 'button', { name: 'Preview layout' } ) );
+	for ( const name of [ 'Chat', 'Split view', 'Browser' ] ) {
+		expect( await screen.findByRole( 'menuitemradio', { name } ) ).not.toHaveAttribute(
+			'aria-keyshortcuts'
+		);
+	}
 } );

@@ -60,6 +60,7 @@ const siteCommands = (
 		reloadPreview: vi.fn(),
 		annotate: vi.fn(),
 		setChatHidden: vi.fn(),
+		showPreview: vi.fn(),
 		copyUrl: vi.fn(),
 		...overrides,
 	} );
@@ -117,7 +118,9 @@ it( 'derives labels and availability from active context', () => {
 	for ( const id of [ 'sidebar', 'pin-site', 'pin-chat', 'color-scheme' ] ) {
 		expect( byId( id )?.group ).toBe( 'commands' );
 	}
-	expect( byId( 'preview-fullscreen' )?.label ).toBe( 'Enter fullscreen' );
+	expect( byId( 'layout-browser' )?.label ).toBe( 'Switch to Browser' );
+	expect( byId( 'preview-fullscreen' ) ).toBeUndefined();
+	expect( byId( 'preview-visibility' ) ).toBeUndefined();
 	expect( byId( 'pin-site' )?.label ).toBe( 'Unpin site' );
 	expect( byId( 'pin-chat' )?.label ).toBe( 'Unpin chat' );
 	expect( byId( 'archive-chat' ) ).toBeUndefined();
@@ -288,4 +291,36 @@ describe( 'command search', () => {
 			).map( ( { label } ) => label )
 		).toEqual( [ 'Collapse all' ] );
 	} );
+} );
+
+it.each( [
+	{
+		name: 'Chat',
+		previewShown: false,
+		chatHidden: true,
+		ids: [ 'layout-split', 'layout-browser' ],
+	},
+	{
+		name: 'Split view',
+		previewShown: true,
+		chatHidden: false,
+		ids: [ 'layout-chat', 'layout-browser' ],
+	},
+	{ name: 'Browser', previewShown: true, chatHidden: true, ids: [ 'layout-chat', 'layout-split' ] },
+] )( 'offers the other workspace layouts from $name', ( { previewShown, chatHidden, ids } ) => {
+	const showPreview = vi.fn();
+	const setChatHidden = vi.fn();
+	const commands = siteCommands( makeSite(), [], {
+		previewShown,
+		chatHidden,
+		showPreview,
+		setChatHidden,
+	} );
+	const layouts = commands.filter( ( { id } ) => id.startsWith( 'layout-' ) );
+	expect( layouts.map( ( { id } ) => id ) ).toEqual( ids );
+	for ( const command of layouts ) {
+		command.run();
+		if ( command.id === 'layout-chat' ) expect( showPreview ).toHaveBeenCalledWith( false );
+		else expect( setChatHidden ).toHaveBeenCalledWith( command.id === 'layout-browser' );
+	}
 } );

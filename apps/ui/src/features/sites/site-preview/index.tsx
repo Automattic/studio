@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
 import { useSiteDesign } from '@/data/queries/use-site-design';
 import {
@@ -13,18 +14,22 @@ import {
 	AnnotationOverlay,
 	type AnnotationAnchor,
 	isAnnotationsBusy,
+	isBatchedAnnotation,
+	editAnnotation,
+	removeAnnotations,
 	setAnnotating,
 	useSiteAnnotations,
 } from '@/features/annotations';
 import { DesignSystemView } from '@/features/sites/design-system-view';
 import { getSiteUrl } from '@/features/sites/get-site-url';
 import { PreviewParticles } from '@/features/sites/preview-particles';
+import { useSiteHeader } from '@/features/sites/site-header-actions';
 import { SiteContextMenu, StoppedSitePreview } from '@/features/sites/stopped-site-preview';
 import { VisuallyHidden } from '@/lib/ui';
 import { getRealmOpenEvent } from './address-bar';
 import { EMPTY_BROWSER_STATE, type BrowserNavigationState } from './browser-state';
 import { PreviewHeader } from './preview-header';
-import { PreviewAnnotationActions } from './preview-header/annotation-actions';
+import { AnnotateButton } from './preview-header/annotate-button';
 import {
 	FrameSurface,
 	isElectron,
@@ -78,6 +83,7 @@ export function SitePreview( {
 	collapsed = false,
 }: SitePreviewProps ) {
 	const connector = useConnector();
+	const { annotationSpace } = useSiteHeader();
 	const startSite = useStartSite();
 	const operation = useSiteOperation( site );
 	const startPending = useIsSiteStarting( site.id );
@@ -235,6 +241,17 @@ export function SitePreview( {
 		disabled: ! canPreview || isStarting || isStopping || activeSurfaceKey !== 'site',
 		onClick: () => updateResponsivePreview( site.id, { enabled: ! responsiveSettings.enabled } ),
 	};
+	const beginAnnotating = () => {
+		if ( onStartAnnotating?.() === false ) return false;
+		setAnnotating( site.id, true );
+		if ( ! site.running && ! isStarting )
+			startSite.mutate( site.id, {
+				onError: () => setAnnotating( site.id, false ),
+			} );
+		return true;
+	};
+	const batchNotes = annotations.notes.filter( isBatchedAnnotation );
+
 	const annotate = showAnnotate
 		? {
 				active: annotations.active,
@@ -251,13 +268,8 @@ export function SitePreview( {
 						? __( 'Site annotation is not available in the browser yet' )
 						: undefined,
 				onClick: () => {
-					if ( ! annotations.active && onStartAnnotating?.() === false ) return;
-					setAnnotating( site.id, ! annotations.active );
-					if ( ! site.running ) {
-						startSite.mutate( site.id, {
-							onError: () => setAnnotating( site.id, false ),
-						} );
-					}
+					if ( annotations.active ) setAnnotating( site.id, false );
+					else beginAnnotating();
 				},
 		  }
 		: undefined;
@@ -280,20 +292,45 @@ export function SitePreview( {
 			hasDesignSystem={ !! siteDesign.data }
 			onOpenExternal={ openExternal }
 			responsive={ responsive }
-			annotationControl={
-				annotate ? (
-					<PreviewAnnotationActions
-						siteId={ site.id }
-						annotation={ annotate }
-						onSend={ onSendAnnotations ? () => onSendAnnotations( site.id ) : undefined }
-					/>
-				) : null
-			}
 		/>
 	);
 
 	return (
 		<aside className={ styles.root } aria-label={ __( 'Site preview' ) }>
+			{ annotate && annotationSpace
+				? createPortal(
+						<AnnotateButton
+							{ ...annotate }
+							batch={ {
+								notes: batchNotes,
+								busy: isAnnotationsBusy( annotations ) || ! onSendAnnotations,
+								onSend: () =>
+									onSendAnnotations?.(
+										site.id,
+										batchNotes.map( ( note ) => note.id )
+									),
+								onReview: () => {
+									if ( activeSurfaceKey === 'database' ) switchRealm( 'frontend' );
+									return beginAnnotating();
+								},
+								onEdit: ( id ) => {
+									const note = batchNotes.find( ( note ) => note.id === id );
+									if ( ! note ) return;
+									setAnnotationAnchor( null );
+									if ( note.designKey ) switchRealm( 'design' );
+									else if ( note.path ) onPathChange?.( note.path );
+									editAnnotation( site.id, id );
+								},
+								onClear: () =>
+									removeAnnotations(
+										site.id,
+										batchNotes.map( ( note ) => note.id )
+									),
+							} }
+						/>,
+						annotationSpace
+				  )
+				: null }
 			{ ( canPreview || isStarting ) && ! isStopping ? header : null }
 			{ responsiveEnabled ? (
 				<ResponsiveToolbar
@@ -396,7 +433,10 @@ export function SitePreview( {
 						} ) }
 					<SiteContextMenu site={ site } disabled={ canPreview }>
 						<div className={ styles.empty }>
-							<PreviewParticles active={ loadingStage } showLogo={ loadingStage } />
+							<PreviewParticles
+								active={ loadingStage && ! collapsed }
+								showLogo={ loadingStage && ! collapsed }
+							/>
 							{ loadingStage || navigating ? (
 								<VisuallyHidden role="status">{ __( 'Loading site preview' ) }</VisuallyHidden>
 							) : null }

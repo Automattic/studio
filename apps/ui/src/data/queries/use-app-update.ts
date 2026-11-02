@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect } from 'react';
-import { DISMISSED_MESSAGES_QUERY_KEY, toast } from '@/data/app-messages';
+import { DISMISSED_MESSAGES_QUERY_KEY, openStudioLogsAction, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import type { AppUpdateStatus } from '@/data/core';
 
@@ -25,6 +25,7 @@ export function useAppUpdateStatus() {
 export function useSyncAppUpdateStatus(): void {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
+	const { data: status } = useAppUpdateStatus();
 	useEffect( () => {
 		return connector.onAppUpdateStatusChanged( ( status: AppUpdateStatus ) => {
 			queryClient.setQueryData( APP_UPDATE_STATUS_QUERY_KEY, status );
@@ -34,6 +35,15 @@ export function useSyncAppUpdateStatus(): void {
 			}
 		} );
 	}, [ connector, queryClient ] );
+
+	useEffect( () => {
+		if ( status?.state !== 'error' ) return;
+		toast.error( __( 'Couldn’t update Studio' ), {
+			id: 'app-update-error',
+			description: status.detail ?? __( 'We’ll try again the next time we check for updates.' ),
+			action: openStudioLogsAction( connector ),
+		} );
+	}, [ status, connector ] );
 
 	// A toast rather than a card: there's nothing to act on, so it shouldn't linger.
 	useEffect( () => {

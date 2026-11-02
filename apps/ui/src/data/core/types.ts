@@ -43,6 +43,7 @@ import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
+import type { WorkspaceLayout } from '@studio/common/types/workspace-layout';
 import type { DesignFix } from '@studio/design-md';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
@@ -578,6 +579,9 @@ export interface Connector {
 	// application menu.
 	onToggleSitePreview( listener: () => void ): () => void;
 
+	// Desktop-only layout accelerators; browser hosts reserve these keys for tabs.
+	onSetPreviewLayout?( listener: ( layout: WorkspaceLayout ) => void ): () => void;
+
 	// Fires when the user activates the sidebar toggle shortcut or menu command.
 	onToggleSidebar( listener: () => void ): () => void;
 
@@ -694,6 +698,7 @@ export interface UserPreferences {
 	openChatOnSiteStart?: boolean;
 	// Ask before discarding preview annotations.
 	confirmDeleteAnnotations?: boolean;
+	batchAnnotations?: boolean;
 	newSiteBehavior?: NewSiteBehavior;
 	// The appearance tint: a `#rrggbb` accent color, and percentages.
 	accentColor?: string;

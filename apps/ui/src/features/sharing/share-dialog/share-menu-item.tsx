@@ -1,16 +1,81 @@
-import { __ } from '@wordpress/i18n';
+import { isSnapshotExpired } from '@studio/common/lib/snapshots';
+import { __, sprintf } from '@wordpress/i18n';
+import { toast } from '@/data/app-messages';
+import { useConnector } from '@/data/core';
+import { markPreviewSeen } from '@/data/preview-ready';
+import { useAuthUser } from '@/data/queries/use-auth-user';
+import { useSnapshots } from '@/data/queries/use-snapshots';
+import { getSnapshotUrl } from '@/data/snapshot-url';
 import { useOpenHeaderPanel } from '@/data/use-open-header-panel';
-import { ShareIcon } from '@/lib/icons';
+import { DuplicateIcon, ShareIcon } from '@/lib/icons';
 import { Menu } from '@/lib/ui';
-import type { SiteDetails } from '@/data/core';
+import styles from './share-menu-item.module.css';
+import type { SiteDetails, Snapshot } from '@/data/core';
+
+function PreviewLink( {
+	snapshot,
+	siteId,
+	sequence,
+}: {
+	snapshot: Snapshot;
+	siteId: string;
+	sequence: number;
+} ) {
+	const connector = useConnector();
+	return (
+		<Menu.Item
+			onClick={ () => {
+				void connector.copyText( getSnapshotUrl( snapshot ) ).then(
+					() => toast.success( __( 'Link copied' ) ),
+					() => toast.error( __( 'Could not copy' ) )
+				);
+				markPreviewSeen( siteId );
+			} }
+		>
+			<DuplicateIcon />
+			<span className={ styles.label }>
+				{ snapshot.name || sprintf( __( 'Preview %d' ), snapshot.sequence ?? sequence ) }
+			</span>
+		</Menu.Item>
+	);
+}
 
 export function SiteShareMenuItem( { site, disabled }: { site: SiteDetails; disabled: boolean } ) {
 	const openHeaderPanel = useOpenHeaderPanel();
+	const user = useAuthUser();
+	const snapshots = useSnapshots( user.data?.id );
+	const previews = ( snapshots.data ?? [] )
+		.filter( ( snapshot ) => snapshot.localSiteId === site.id && ! isSnapshotExpired( snapshot ) )
+		.sort( ( a, b ) => b.date - a.date );
+	const openSharing = () => openHeaderPanel( { panel: 'share', siteId: site.id } );
+	if ( previews.length ) {
+		return (
+			<Menu.SubmenuRoot>
+				<Menu.SubmenuTrigger disabled={ disabled }>
+					<ShareIcon />
+					{ __( 'Share' ) }
+				</Menu.SubmenuTrigger>
+				<Menu.SubmenuPopup>
+					<div className={ styles.heading }>{ __( 'Copy links' ) }</div>
+					{ previews.map( ( snapshot, index ) => (
+						<PreviewLink
+							key={ snapshot.atomicSiteId }
+							snapshot={ snapshot }
+							sequence={ previews.length - index }
+							siteId={ site.id }
+						/>
+					) ) }
+					<Menu.Separator />
+					<Menu.Item onClick={ openSharing }>
+						<ShareIcon />
+						{ __( 'Manage sharing…' ) }
+					</Menu.Item>
+				</Menu.SubmenuPopup>
+			</Menu.SubmenuRoot>
+		);
+	}
 	return (
-		<Menu.Item
-			disabled={ disabled }
-			onClick={ () => openHeaderPanel( { panel: 'share', siteId: site.id } ) }
-		>
+		<Menu.Item disabled={ disabled } onClick={ openSharing }>
 			<ShareIcon />
 			{ __( 'Share' ) }
 		</Menu.Item>

@@ -198,12 +198,43 @@ export function defineTool< TProps extends TProperties >(
 	};
 }
 
+// A list sent as the JSON text of an array, parsed for each argument whose
+// schema takes an array. Models send one so now and then (eval12-13:
+// take_screenshot's url as "[\"http://…/\", …]", which passed as a string
+// and failed as an address).
+function parseJsonLists( parameters: TObject, args: unknown ): unknown {
+	if ( ! args || typeof args !== 'object' ) {
+		return args;
+	}
+	const takesArray = ( schema: { type?: unknown; anyOf?: unknown[] } ): boolean =>
+		schema.type === 'array' ||
+		( schema.anyOf ?? [] ).some( ( member ) => takesArray( member as typeof schema ) );
+	const parsed: Record< string, unknown > = { ...args };
+	for ( const [ key, schema ] of Object.entries( parameters.properties ) ) {
+		const value = parsed[ key ];
+		if ( typeof value !== 'string' || ! value.trim().startsWith( '[' ) || ! takesArray( schema ) ) {
+			continue;
+		}
+		try {
+			const list: unknown = JSON.parse( value );
+			if ( Array.isArray( list ) ) {
+				parsed[ key ] = list;
+			}
+		} catch {
+			// Not JSON: the string as sent.
+		}
+	}
+	return parsed;
+}
+
 export function bindTool< TProps extends TProperties >(
 	{ handler, forHost: _forHost, ...tool }: StudioToolDefinition< TProps >,
 	host: StudioAgentHost
 ): StudioAgentTool< TProps > {
 	return {
 		...tool,
+		prepareArguments: ( args ) =>
+			parseJsonLists( tool.parameters, args ) as Static< TObject< TProps > >,
 		rawHandler: ( args, context ) =>
 			handler( args, { host, onProgress: context?.onProgress ?? ( () => {} ) } ),
 		execute: async ( _toolCallId, params, signal, onUpdate ) => {

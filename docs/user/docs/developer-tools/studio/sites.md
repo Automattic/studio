@@ -138,7 +138,7 @@ Site actions are also available in the command palette: press ⌘K (Ctrl+K on Wi
 
 Studio saves the emails your site sends, such as password resets and notifications, instead of sending them. To see them, open the site menu and choose **Tools → Email**. Studio opens the site’s email folder in Finder (macOS), File Explorer (Windows), or your file manager (Linux).
 
-Each email is saved as an `.eml` file, which opens in your mail app. The folder is in `~/.studio/email/`, not in the site’s files, so emails aren’t exported, published, or shared with the site. Studio keeps the 100 most recent emails for each site, and deletes the folder when you delete the site.
+Each email is saved as an `.eml` file, which opens in your mail app. The folder is in `~/.studio/email/`, not in the site’s files, so emails aren’t exported, published, or shared with the site. Studio keeps the 100 most recent emails for each site, and deletes the folder when you delete the site. In the terminal, `studio status` shows the folder as **Email**.
 
 ### [“Open in” menu](#8--open-in-menu)
 

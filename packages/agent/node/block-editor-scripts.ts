@@ -24,7 +24,7 @@
 import { activeCodeVersion } from '@studio/agent/node/active-code';
 import { unregisteredInEditor } from '@studio/agent/node/block-validator';
 import { readWordPressSite } from '@studio/agent/node/site-database';
-import { runWpCli } from '@studio/agent/node/tools/utils';
+import { printedJson, runWpCli } from '@studio/agent/node/tools/utils';
 import type { SiteChangeSource } from '@studio/agent/node/site-changes';
 
 const KEY = 'block editor scripts';
@@ -69,9 +69,7 @@ export const blockEditorScripts: SiteChangeSource = {
 		let without: Record< string, string[] >;
 		try {
 			const output = await runWpCli( host, site, [ 'eval', WITHOUT ] );
-			without = JSON.parse(
-				output.slice( output.indexOf( 'WITHOUT_EDITOR_SCRIPT=' ) + 'WITHOUT_EDITOR_SCRIPT='.length )
-			) as Record< string, string[] >;
+			without = printedJson( output, 'WITHOUT_EDITOR_SCRIPT=' );
 		} catch {
 			// Code that does not load is reported by what runs it.
 			return { reports: [] };

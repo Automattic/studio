@@ -54,6 +54,15 @@ export async function wpEvalJson< T >(
 	return JSON.parse( output.slice( output.indexOf( '{' ) ) ) as T;
 }
 
+/** The JSON WordPress printed after `marker`, on its line. */
+export function printedJson< T >( output: string, marker: string ): T {
+	const at = output.indexOf( marker );
+	if ( at === -1 ) {
+		throw new Error( `WordPress printed no ${ marker } line: ${ output.slice( 0, 500 ) }` );
+	}
+	return JSON.parse( output.slice( at + marker.length ).split( '\n' )[ 0 ] ) as T;
+}
+
 export function textResult( text: string ) {
 	return {
 		content: [ { type: 'text' as const, text } ],

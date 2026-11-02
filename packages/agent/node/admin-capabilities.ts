@@ -30,7 +30,7 @@ import {
 	REMOTE_STYLES,
 	type RemoteStyles,
 } from '@studio/agent/node/remote-font-styles';
-import { AS_ADMINISTRATOR, runWpCli } from '@studio/agent/node/tools/utils';
+import { AS_ADMINISTRATOR, printedJson, runWpCli } from '@studio/agent/node/tools/utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 import type { WordPressSite } from '@studio/agent/node/site-database';
@@ -106,10 +106,6 @@ foreach ( $denied['user'] && $role ? array_keys( array_filter( $role->capabiliti
 }
 echo 'DENIED_CAPS=' . wp_json_encode( $denied ) . "\\n";`;
 
-// What WordPress prints after a marker, on its line.
-const printed = ( output: string, marker: string ) =>
-	JSON.parse( output.slice( output.indexOf( marker ) + marker.length ).split( '\n' )[ 0 ] );
-
 async function askWordPress(
 	host: StudioAgentHost,
 	site: HostSite,
@@ -128,12 +124,12 @@ async function askWordPress(
 		...skip,
 	] );
 	return {
-		remoteStyles: printed( output, 'REMOTE_STYLES=' ),
-		hostedFonts: printed( output, 'HOSTED_FONTS=' ),
-		activeThemes: printed( output, 'ACTIVE_THEMES=' ),
-		denied: printed( output, 'DENIED_CAPS=' ),
-		registered: printed( output, 'REGISTERED=' ),
-		outOfRest: printed( output, 'OUT_OF_REST=' ),
+		remoteStyles: printedJson( output, 'REMOTE_STYLES=' ),
+		hostedFonts: printedJson( output, 'HOSTED_FONTS=' ),
+		activeThemes: printedJson( output, 'ACTIVE_THEMES=' ),
+		denied: printedJson( output, 'DENIED_CAPS=' ),
+		registered: printedJson( output, 'REGISTERED=' ),
+		outOfRest: printedJson( output, 'OUT_OF_REST=' ),
 	};
 }
 

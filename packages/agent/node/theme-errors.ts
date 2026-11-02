@@ -17,7 +17,7 @@
 import { readdir, stat } from 'fs/promises';
 import path from 'path';
 import { readThemeHeader } from '@studio/agent/node/themes';
-import { runWpCli } from '@studio/agent/node/tools/utils';
+import { printedJson, runWpCli } from '@studio/agent/node/tools/utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { ChangeReport, SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 
@@ -42,9 +42,7 @@ async function errorsOf(
 	themes: string[]
 ): Promise< Record< string, string > > {
 	const output = await runWpCli( host, site, [ 'eval', ERRORS( themes ) ] );
-	return JSON.parse(
-		output.slice( output.indexOf( 'THEME_ERRORS=' ) + 'THEME_ERRORS='.length )
-	) as Record< string, string >;
+	return printedJson( output, 'THEME_ERRORS=' );
 }
 
 const exists = ( file: string ) => stat( file ).then( Boolean, () => false );

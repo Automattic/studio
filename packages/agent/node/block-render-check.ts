@@ -16,7 +16,7 @@
 import { readFile } from 'fs/promises';
 import { FILE, readRenderedVersions, renderFrontPage } from '@studio/agent/node/front-page-render';
 import { readPosts } from '@studio/agent/node/post-content-check';
-import { runWpCli } from '@studio/agent/node/tools/utils';
+import { printedJson, runWpCli } from '@studio/agent/node/tools/utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { ChangeReport, SiteChangeSource } from '@studio/agent/node/site-changes';
 
@@ -94,9 +94,7 @@ export async function emptyBlocks(
 	ids: number[]
 ): Promise< Record< string, EmptyBlock[] > > {
 	const output = await runWpCli( host, site, [ 'eval', RENDER( ids ) ] );
-	return JSON.parse(
-		output.slice( output.indexOf( 'EMPTY_BLOCKS=' ) + 'EMPTY_BLOCKS='.length )
-	) as Record< string, EmptyBlock[] >;
+	return printedJson( output, 'EMPTY_BLOCKS=' );
 }
 
 // Whether the block is one written without the saved HTML its attributes are read from.

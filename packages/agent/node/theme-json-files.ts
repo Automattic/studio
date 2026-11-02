@@ -10,7 +10,7 @@
  * which WordPress reads as an array, failed every page. Of a style
  * variation of the active theme, it says what WordPress lists it as.
  */
-import { runWpCli } from '@studio/agent/node/tools/utils';
+import { printedJson, runWpCli } from '@studio/agent/node/tools/utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { OpenProblems } from '@studio/agent/node/open-problems';
 import type { SiteFile } from '@studio/agent/node/site-file-guards';
@@ -132,9 +132,7 @@ export async function themeJsonFileRead(
 	relativePath: string
 ): Promise< { problem?: string; notes: string[] } > {
 	const output = await runWpCli( host, site, [ 'eval', READ( file ) ] );
-	const read = JSON.parse(
-		output.slice( output.indexOf( 'THEME_JSON_READ=' ) + 'THEME_JSON_READ='.length )
-	) as Read;
+	const read = printedJson< Read >( output, 'THEME_JSON_READ=' );
 	const problem = ! read.decoded
 		? `WordPress cannot decode ${ relativePath } as JSON (wp_json_file_decode in wp-includes/functions.php): ${ read.error }. It reads nothing from it until the file is valid JSON.`
 		: read.fails

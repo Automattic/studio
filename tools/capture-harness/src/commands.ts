@@ -34,6 +34,7 @@ export interface CommandArgs {
 	until?: string;
 	'first-run'?: boolean;
 	'signed-in'?: boolean;
+	chat?: string;
 	steps?: string;
 	within?: string;
 	screenshot?: string;
@@ -74,10 +75,17 @@ export async function runCommand( command: string, refs: string[], args: Command
 		needRefs( 'one or more scripts or folders of them' );
 		const outDir = path.resolve( args.out ?? 'captures' );
 		await mkdir( outDir, { recursive: true } );
-		// --signed-in captures any suite signed in, as a demo person: a variant of a
-		// signed-out shot for a post, say.
+		// --signed-in and --chat make variants of any script: signed in as a demo
+		// person, or open on one of the scene's chats.
+		const chats = names( args.chat );
 		const scripts = ( await loadScripts( refs ) ).map( ( script ) =>
-			args[ 'signed-in' ] && ! script.firstRun ? { ...script, signedIn: true } : script
+			script.firstRun
+				? script
+				: {
+						...script,
+						signedIn: args[ 'signed-in' ] || script.signedIn,
+						chats: chats ? [ ...chats ] : script.chats,
+				  }
 		);
 		const result = await runScripts( {
 			scripts,

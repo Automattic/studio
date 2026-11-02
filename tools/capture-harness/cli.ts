@@ -34,6 +34,7 @@ Inputs:
   --background <bg>       Frame on another background: dots-light, dots-dark, a color
   --persona <name|file>   Demo person signed-in scripts sign in as (default: maya-okafor)
   --signed-in             Sign every script in (capture, check, record), as --persona
+  --chat <name>           Open every script on this chat of the scene (chats/<name>.json)
   --driver <name>         electron (Studio Desktop; the default on macOS, Windows) or browser
                           (\`studio ui\` in headless Chromium: no display needed;
                           the default on Linux)
@@ -62,6 +63,7 @@ const { values: args, positionals } = parseArgs( {
 		look: { type: 'string' },
 		background: { type: 'string' },
 		persona: { type: 'string' },
+		chat: { type: 'string' },
 		driver: { type: 'string' },
 		suite: { type: 'string' },
 		only: { type: 'string' },

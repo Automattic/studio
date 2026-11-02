@@ -1,0 +1,63 @@
+{
+	"description": "Writing down the Wren & Barley design system with Studio Code, so the site preview's Design system view has a conversation beside it.",
+	"title": "Write down the design system",
+	"site": "wren-and-barley",
+	"minutesAgo": 25,
+	"turns": [
+		{
+			"prompt": "Can you write down the design system for the site, so every page we add stays on brand?",
+			"replies": [
+				[
+					"I'll start from the theme's colors and type.",
+					{
+						"name": "Read",
+						"args": { "path": "wp-content/themes/wren-and-barley/theme.json" },
+						"result": "{\n  \"version\": 3,\n  \"settings\": {\n    \"color\": {\n      \"palette\": [\n        { \"slug\": \"primary\", \"color\": \"#B2583C\", \"name\": \"Primary\" },\n        { \"slug\": \"text\", \"color\": \"#31261D\", \"name\": \"Text\" },\n…"
+					}
+				],
+				[
+					{
+						"name": "Write",
+						"args": {
+							"path": "DESIGN.md",
+							"content": "---\nname: Wren & Barley\ndescription: Bakery and café on Mill Lane\ncolors:\n  primary: \"#B2583C\"\n  background: \"#FFFFFF\"\n  text: \"#31261D\"\n…"
+						},
+						"result": "Wrote DESIGN.md (2.1 KB)."
+					}
+				],
+				[
+					"I wrote **DESIGN.md** from the theme: terracotta (#B2583C) for actions and the header, deep brown (#31261D) for text, warm creams and taupes as accents, and Literata for everything, set in spaced capitals for headings. Open **Design system** in the preview to see it laid out."
+				]
+			]
+		},
+		{
+			"prompt": "Nice. Are the buttons in it too? They should stay flat and square.",
+			"replies": [
+				[
+					{
+						"name": "Edit",
+						"args": {
+							"path": "DESIGN.md",
+							"edits": [ { "oldText": "components:", "newText": "components:\n  button-primary:" } ]
+						},
+						"result": "Successfully replaced 1 block(s).",
+						"details": {
+							"diff": "@@ -38,2 +38,7 @@\n components:\n+  button-primary:\n+    backgroundColor: \"{colors.primary}\"\n+    textColor: \"{colors.background}\"\n+    rounded: 0\n+    padding: 0.9rem 1.6rem"
+						}
+					}
+				],
+				[
+					"Added them: primary buttons are terracotta with white text, square corners and no shadow, the same as the **Order** button on the site."
+				]
+			]
+		},
+		{
+			"prompt": "Does the theme still match the doc?",
+			"replies": [
+				[
+					"Yes. Every color, font and size in theme.json matches DESIGN.md, and the Design system view says so at the top: **theme.json matches DESIGN.md**."
+				]
+			]
+		}
+	]
+}

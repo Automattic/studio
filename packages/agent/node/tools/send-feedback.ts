@@ -39,7 +39,6 @@ async function submitFeedback(
 		} );
 		return result;
 	} finally {
-		await transport.terminateSession().catch( () => undefined );
 		await client.close().catch( () => undefined );
 	}
 }

@@ -213,6 +213,10 @@ function thrownAt( error: Error ): string {
 export class EditorPage {
 	private page: Page | null = null;
 	private loading: Promise< Page > | null = null;
+	// The calls using a page now, and the pages replaced while calls used them,
+	// which close once no call does.
+	private users = 0;
+	private retired: Page[] = [];
 	private readonly siteUrl: string;
 	private readonly editorPath: string;
 	/** What the editor page threw, as message and the script line that threw it. */
@@ -294,10 +298,43 @@ export class EditorPage {
 		return page;
 	}
 
-	async close(): Promise< void > {
-		if ( this.page && ! this.page.isClosed() ) {
-			await this.page.close();
+	/**
+	 * Runs `fn` on the editor's page. Calls run side by side; a page replaced
+	 * meanwhile stays open for the calls using it.
+	 */
+	async use< T >( fn: ( page: Page ) => Promise< T > ): Promise< T > {
+		this.users++;
+		try {
+			return await fn( await this.getPage() );
+		} finally {
+			this.users--;
+			await this.closeRetired();
 		}
-		this.page = null;
+	}
+
+	/** Loads the editor again for the next call, as calls using the page finish on it. */
+	async replace(): Promise< void > {
+		await this.retire( false );
+	}
+
+	/** Closes the editor's pages, including those calls use. */
+	async close(): Promise< void > {
+		await this.retire( true );
+	}
+
+	private async retire( now: boolean ): Promise< void > {
+		if ( this.page ) {
+			this.retired.push( this.page );
+			this.page = null;
+		}
+		await this.closeRetired( now );
+	}
+
+	private async closeRetired( now = false ): Promise< void > {
+		if ( now || ! this.users ) {
+			await Promise.all(
+				this.retired.splice( 0 ).map( ( page ) => page.close().catch( () => {} ) )
+			);
+		}
 	}
 }

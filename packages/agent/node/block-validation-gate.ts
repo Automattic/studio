@@ -386,11 +386,33 @@ export async function validateBlockMarkupFile(
  */
 function unclosedBlocks( content: string ): string[] {
 	const lineAt = ( offset: number ) => content.slice( 0, offset ).split( '\n' ).length;
-	const open: { name: string; line: number }[] = [];
+	const delimiters = [ ...content.matchAll( BLOCK_DELIMITER ) ];
+	// The line of the closer the parser closes each block at, by the offset of its opener.
+	const parsedEnd = new Map< number, number >();
+	const parsing: number[] = [];
+	for ( const match of delimiters ) {
+		const [ , closer, , , , , isVoid ] = match;
+		if ( isVoid ) {
+			continue;
+		}
+		if ( closer ) {
+			const opener = parsing.pop();
+			if ( opener !== undefined ) {
+				parsedEnd.set( opener, lineAt( match.index ) );
+			}
+		} else {
+			parsing.push( match.index );
+		}
+	}
+	const open: { name: string; line: number; offset: number }[] = [];
 	const problems: string[] = [];
-	for ( const match of content.matchAll( BLOCK_DELIMITER ) ) {
+	for ( const match of delimiters ) {
 		const [ , closer, namespace = 'core/', name, , , isVoid ] = match;
-		const block = { name: `${ namespace }${ name }`, line: lineAt( match.index ) };
+		const block = {
+			name: `${ namespace }${ name }`,
+			line: lineAt( match.index ),
+			offset: match.index,
+		};
 		if ( isVoid ) {
 			continue;
 		}
@@ -402,11 +424,28 @@ function unclosedBlocks( content: string ): string[] {
 		// their own; a closer that names no open block closes the innermost.
 		const at = open.map( ( opened ) => opened.name ).lastIndexOf( block.name );
 		const unclosed = at === -1 ? open.slice( -1 ) : open.slice( at + 1 );
+		// The outermost block around them, which the parser closes later too when
+		// they took the closer of a block around them.
+		const outer = at !== -1 ? open[ 0 ] : undefined;
 		open.length = at === -1 ? Math.max( 0, open.length - 1 ) : at;
+		const later = unclosed.length === 1 ? 'one closer later' : `${ unclosed.length } closers later`;
+		const holds =
+			outer &&
+			`, and each block around it ${ later }: the ${ outer.name } opened on line ${
+				outer.line
+			} holds ${
+				parsedEnd.has( outer.offset )
+					? `everything to line ${ parsedEnd.get( outer.offset ) }`
+					: 'the rest of the content'
+			}`;
 		problems.push(
 			...unclosed.map(
 				( opened ) =>
-					`  - line ${ opened.line }: ${ opened.name } has no closer of its own, so the parser closes it at the ${ block.name } closer on line ${ block.line }`
+					`  - line ${ opened.line }: ${
+						opened.name
+					} has no closer of its own, so the parser closes it at the ${
+						block.name
+					} closer on line ${ block.line }${ holds ?? '' }`
 			)
 		);
 	}

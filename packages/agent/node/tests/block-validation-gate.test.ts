@@ -206,14 +206,14 @@ describe( 'validating a file', () => {
 			name: 'a block another closer closes',
 			content: `${ GROUP }<!-- wp:paragraph -->\n<p>One</p>\n<!-- wp:heading -->\n<h2 class="wp-block-heading">Two</h2>\n<!-- /wp:heading --></div>\n<!-- /wp:group -->`,
 			problems: [
-				'line 2: core/paragraph has no closer of its own, so the parser closes it at the core/group closer on line 7',
+				'line 2: core/paragraph has no closer of its own, so the parser closes it at the core/group closer on line 7, and each block around it one closer later: the core/group opened on line 1 holds the rest of the content',
 			],
 		},
 		{
 			name: 'a block inside groups in a group',
 			content: `${ GROUP }${ GROUP }<!-- wp:paragraph -->\n<p>a</p></div>\n<!-- /wp:group --></div>\n<!-- /wp:group -->`,
 			problems: [
-				'line 3: core/paragraph has no closer of its own, so the parser closes it at the core/group closer on line 5',
+				'line 3: core/paragraph has no closer of its own, so the parser closes it at the core/group closer on line 5, and each block around it one closer later: the core/group opened on line 1 holds the rest of the content',
 			],
 		},
 		{
@@ -235,7 +235,7 @@ describe( 'validating a file', () => {
 			content:
 				'<!-- wp:columns -->\n<!-- wp:my-plugin/card {"a":"}"} -->\n<p>x</p>\n<!-- /wp:columns -->',
 			problems: [
-				'line 2: my-plugin/card has no closer of its own, so the parser closes it at the core/columns closer on line 4',
+				'line 2: my-plugin/card has no closer of its own, so the parser closes it at the core/columns closer on line 4, and each block around it one closer later: the core/columns opened on line 1 holds the rest of the content',
 			],
 		},
 	] )(

@@ -127,20 +127,12 @@ export async function ensurePlaywrightChromiumInstalled(
  */
 export async function launchChromiumWithInstall(
 	overrides: ChromiumLaunchOptions = {},
-	{
-		toolContext = 'Studio MCP screenshot/validation tools',
-		chromium,
-		installBrowser,
-	}: {
-		toolContext?: string;
-		chromium?: Pick< Chromium, 'launch' | 'executablePath' >;
-		installBrowser?: InstallBrowserFn;
-	} = {}
+	toolContext = 'Studio MCP screenshot/validation tools'
 ): Promise< Browser > {
 	if ( install ) {
 		throw downloadingError();
 	}
-	chromium ??= ( await import( 'playwright' ) ).chromium;
+	const { chromium } = await import( 'playwright' );
 	const launchErrors: string[] = [];
 	const browser = await tryLaunchChromium( chromium, launchErrors, overrides );
 	if ( browser ) {
@@ -153,7 +145,7 @@ export async function launchChromiumWithInstall(
 			lastInstallError = null;
 			install = {
 				startedAt: Date.now(),
-				promise: ensurePlaywrightChromiumInstalled( chromium, installBrowser )
+				promise: ensurePlaywrightChromiumInstalled( chromium )
 					.then( ( error ) => {
 						lastInstallError = error;
 					} )

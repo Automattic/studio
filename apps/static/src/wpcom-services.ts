@@ -17,6 +17,7 @@ import {
 import { withWpcomDetails } from '@studio/common/lib/sync/transform-sites';
 import { createTusUpload } from '@studio/common/lib/sync/tus-upload';
 import { __ } from '@wordpress/i18n';
+import { downloadBackup } from './backup-download';
 import { buildPushArchive, exportSiteZip, importBackup } from './site-data';
 import { kvGet, kvUpdate } from './store';
 import type { StaticSites } from './sites';
@@ -41,9 +42,6 @@ const PREVIEW_STATUS_ACTIVE = '2';
 const PREVIEW_MAX_POLLS = 100;
 const PUBLISH_WATCH_ATTEMPTS = 60;
 const PUBLISH_WATCH_INTERVAL_MS = 5_000;
-
-const WPCOM_BACKUP_DOWNLOAD_URL =
-	/^https:\/\/public-api\.wordpress\.com\/wpcom\/v2\/sites\/(\d+)\/rewind\/downloads\/(\d+)\/data/;
 
 const sleep = ( ms: number ) => new Promise( ( resolve ) => setTimeout( resolve, ms ) );
 
@@ -513,16 +511,10 @@ export class WpcomServices {
 				}
 			}
 			progress( 50, __( 'Downloading…' ) );
-			// WordPress.com's download can't be read cross-origin, so it goes through the app's host.
-			const proxiedUrl = downloadUrl.replace(
-				WPCOM_BACKUP_DOWNLOAD_URL,
-				'/wpcom-backup/$1/$2/data'
-			);
-			const response = await fetch( proxiedUrl, { signal } );
-			if ( ! response.ok ) {
-				throw new Error( __( 'The backup could not be downloaded.' ) );
-			}
-			const bytes = new Uint8Array( await response.arrayBuffer() );
+			const bytes = await downloadBackup( downloadUrl, {
+				signal,
+				onProgress: ( fraction ) => progress( 50 + fraction * 30, __( 'Downloading…' ) ),
+			} );
 			signal.throwIfAborted();
 			progress( 80, __( 'Importing…' ) );
 			await importBackup( await this.sites.client( siteId ), 'pull.tar.gz', bytes );

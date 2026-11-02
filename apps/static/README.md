@@ -15,7 +15,15 @@ npm -w @studio/ui run build:static   # apps/ui/dist-static/, for any static host
 
 The build serves `index.html` and `404.html` alike, so a static host resolves the app's routes. Sign-in needs the deployment's origin registered with WordPress.com (below).
 
-Pulling a site needs the host too: WordPress.com's backup download can't be read cross-origin, so the app fetches it from `/wpcom-backup/<site>/<download>/data`. The build's `_redirects` file proxies that path to WordPress.com; a host that doesn't read that file needs the same rule. The dev and preview servers proxy it themselves.
+Pulling a site needs a worker too: WordPress.com's backup download can't be read cross-origin, so the app reads it in chunks from `/wpcom-backup/<site>/<download>/data`. That route is `functions/wpcom-backup/`, which the build copies into `dist-static/functions/` and the dev and preview servers run themselves. A host needs to serve that route, so a plain static host can't pull.
+
+On Spacefast, publish with the CLI, which compiles the worker (the API alone can't):
+
+```bash
+cd apps/ui/dist-static && npx spacefast publish --space studioweb
+```
+
+Spacefast's proxy rules aren't an alternative: they refuse responses over 1 MiB. A worker's stream can also end early with no error after about a minute, so keep each chunk well under that, and check its size.
 
 ## The backend
 
@@ -40,11 +48,13 @@ src/
   site-page.ts      pages of a site, or documents of the agent's, in off-screen frames
   wpcom-auth.ts     WordPress.com sign-in
   wpcom-services.ts previews, sync and the AI quota
+  backup-download.ts chunked backup downloads, through the host's worker
   store.ts          the key-value store
   agent/
     host.ts         the agent's host: files, WP-CLI, pages and WordPress.com, over the above
     index.ts        StaticAgentRuns: turns, their events, AI settings and instructions
     sessions.ts     conversations, stored as the entries the CLI writes
+functions/          workers for the host
 ```
 
 ## Where things live

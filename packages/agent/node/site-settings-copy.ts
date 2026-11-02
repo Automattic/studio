@@ -126,8 +126,9 @@ export const siteSettingsCopy: SiteChangeSource = {
 		const workspace = path.join( workspaceRoot(), site.id );
 		const was = hashesOf( before );
 		const now = hashesOf( after );
-		// Unchanged since Studio wrote or last saved it, or new this call.
-		if ( ! was.copy || ! now.copy || now.copy === was.copy ) {
+		// Unchanged since Studio wrote or last saved it, new this call, or
+		// rewritten by Studio from the options, which leaves it holding them.
+		if ( ! was.copy || ! now.copy || now.copy === was.copy || now.copy === now.options ) {
 			return { reports: [] };
 		}
 		const file = path.join( workspace, SETTINGS_COPY );

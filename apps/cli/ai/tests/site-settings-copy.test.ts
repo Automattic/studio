@@ -88,4 +88,31 @@ describe.runIf( WORDPRESS )( 'the settings copy saved to a real WordPress', () =
 			rmSync( config, { recursive: true, force: true } );
 		}
 	}, 120000 );
+
+	// eval12-13: 9 of 12 builds set the homepage with WP-CLI, and Studio called
+	// its own rewrite of the copy a change the agent made.
+	it( 'rewrites the copy from options WP-CLI changed, with no conflict', async () => {
+		const root = mkdtempSync( path.join( os.tmpdir(), 'settings-copy-' ) );
+		const config = mkdtempSync( path.join( os.tmpdir(), 'studio-config-' ) );
+		vi.stubEnv( 'DEV_CONFIG_DIR', config );
+		cpSync( WORDPRESS!, root, { recursive: true } );
+		site = liveSite( root, 'Spoke', 'live' );
+		const host = liveHost( site );
+		try {
+			await readWordPressSite( root, ( wp ) => postCopiesFact( wp, host ) );
+			const workspace = path.join( config, 'workspace', 'live' );
+			const check = new SiteChanges( host, undefined, async () => [ site ], [ siteSettingsCopy ] );
+			await check.snapshot();
+			await host.sites.wpCli( site, [ 'option', 'update', 'blogname', 'Spoke Two' ] );
+			expect( ( await check.settle() ).problems ).toEqual( [] );
+			expect(
+				JSON.parse( readFileSync( path.join( workspace, 'settings.json' ), 'utf8' ) )
+			).toMatchObject( { blogname: 'Spoke Two' } );
+			expect( readdirSync( workspace ) ).toEqual( [ 'settings.json' ] );
+		} finally {
+			vi.unstubAllEnvs();
+			rmSync( root, { recursive: true, force: true } );
+			rmSync( config, { recursive: true, force: true } );
+		}
+	}, 120000 );
 } );

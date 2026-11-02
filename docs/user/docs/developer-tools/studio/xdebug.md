@@ -1,4 +1,4 @@
-# Xdebug in WordPress WordPress Studio
+# Xdebug in WordPress Studio
 
 WordPress Studio includes Xdebug support for local sites. [Xdebug](https://xdebug.org/) is a debugging extension for PHP that enables you to set breakpoints, inspect variables, and step through your code.
 

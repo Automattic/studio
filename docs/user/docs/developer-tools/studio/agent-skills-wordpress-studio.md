@@ -1,4 +1,4 @@
-# Agent Skills in WordPress WordPress Studio
+# Agent Skills in WordPress Studio
 
 Agent Skills give your AI coding agent specialized knowledge about WordPress development. WordPress Studio bundles a set of skills you can install into your sites so agents like Claude Code or Cursor pick them up automatically.
 

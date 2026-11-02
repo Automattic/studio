@@ -3,7 +3,7 @@
  * Pages for one set of values, such as opening hours. These are ordinary
  * Settings API pages, saved through `options.php`.
  *
- * @package ClientAdmin
+ * @package CurateAdmin
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -13,15 +13,15 @@ defined( 'ABSPATH' ) || exit;
  *
  * @param array $setting Setting from the manifest.
  */
-function client_admin_settings_page( array $setting ): string {
-	return "client-admin-{$setting['id']}";
+function curate_admin_settings_page( array $setting ): string {
+	return "curate-admin-{$setting['id']}";
 }
 
 add_action(
 	'admin_init',
 	static function () {
-		foreach ( client_admin_settings() as $setting ) {
-			$page = client_admin_settings_page( $setting );
+		foreach ( curate_admin_settings() as $setting ) {
+			$page = curate_admin_settings_page( $setting );
 
 			register_setting(
 				$page,
@@ -30,7 +30,7 @@ add_action(
 					'type'              => 'object',
 					'default'           => array(),
 					'sanitize_callback' => static function ( $values ) use ( $setting ) {
-						return client_admin_sanitize_settings( $setting, (array) $values );
+						return curate_admin_sanitize_settings( $setting, (array) $values );
 					},
 				)
 			);
@@ -42,7 +42,7 @@ add_action(
 				static function () {
 					// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 					$saving = 'update' === ( $_REQUEST['action'] ?? '' );
-					return $saving && client_admin_is_staff() ? 'read' : 'manage_options';
+					return $saving && curate_admin_is_staff() ? 'read' : 'manage_options';
 				}
 			);
 
@@ -51,11 +51,11 @@ add_action(
 				add_settings_field(
 					$field['key'],
 					esc_html( $field['label'] ),
-					'client_admin_render_setting',
+					'curate_admin_render_setting',
 					$page,
 					'default',
 					array(
-						'label_for' => "client-admin-{$field['key']}",
+						'label_for' => "curate-admin-{$field['key']}",
 						'setting'   => $setting,
 						'field'     => $field,
 					)
@@ -71,7 +71,7 @@ add_action(
  * @param array $setting Setting from the manifest.
  * @param array $values  Submitted values.
  */
-function client_admin_sanitize_settings( array $setting, array $values ): array {
+function curate_admin_sanitize_settings( array $setting, array $values ): array {
 	$clean = get_option( $setting['option'], array() );
 	foreach ( $setting['fields'] as $field ) {
 		if ( array_key_exists( $field['key'], $values ) ) {
@@ -88,7 +88,7 @@ function client_admin_sanitize_settings( array $setting, array $values ): array 
  *
  * @param array $args Field arguments from `add_settings_field`.
  */
-function client_admin_render_setting( array $args ): void {
+function curate_admin_render_setting( array $args ): void {
 	$setting = $args['setting'];
 	$field   = $args['field'];
 	$id      = $args['label_for'];
@@ -115,12 +115,12 @@ function client_admin_render_setting( array $args ): void {
 add_action(
 	'admin_menu',
 	static function () {
-		foreach ( client_admin_settings() as $setting ) {
-			$page = client_admin_settings_page( $setting );
+		foreach ( curate_admin_settings() as $setting ) {
+			$page = curate_admin_settings_page( $setting );
 			add_menu_page(
 				$setting['title'],
 				$setting['label'] ?? $setting['title'],
-				client_admin_is_staff() ? 'read' : 'manage_options',
+				curate_admin_is_staff() ? 'read' : 'manage_options',
 				$page,
 				static function () use ( $setting, $page ) {
 					?>

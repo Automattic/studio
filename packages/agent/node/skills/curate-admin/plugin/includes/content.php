@@ -7,7 +7,7 @@
  * the page's layout. A date has no block to edit it in, so it gets a sidebar
  * panel instead (`assets/editor.js`).
  *
- * @package ClientAdmin
+ * @package CurateAdmin
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -17,12 +17,12 @@ defined( 'ABSPATH' ) || exit;
  *
  * @param string $post_type Post type.
  */
-function client_admin_post_type( string $post_type ): ?array {
+function curate_admin_post_type( string $post_type ): ?array {
 	$object = get_post_type_object( $post_type );
-	if ( ! $object || empty( $object->client_admin ) ) {
+	if ( ! $object || empty( $object->curate_admin ) ) {
 		return null;
 	}
-	foreach ( client_admin_post_types() as $type ) {
+	foreach ( curate_admin_post_types() as $type ) {
 		if ( $type['slug'] === $post_type ) {
 			return $type;
 		}
@@ -36,7 +36,7 @@ function client_admin_post_type( string $post_type ): ?array {
  * @param array $type  Post type from the manifest.
  * @param array $kinds Field types.
  */
-function client_admin_fields( array $type, array $kinds ): array {
+function curate_admin_fields( array $type, array $kinds ): array {
 	return array_filter(
 		$type['fields'] ?? array(),
 		static function ( array $field ) use ( $kinds ) {
@@ -50,7 +50,7 @@ function client_admin_fields( array $type, array $kinds ): array {
  *
  * @param array $type Post type from the manifest.
  */
-function client_admin_labels( array $type ): array {
+function curate_admin_labels( array $type ): array {
 	$singular = $type['singular'];
 	$plural   = $type['plural'];
 	return array(
@@ -58,15 +58,15 @@ function client_admin_labels( array $type ): array {
 		'menu_name'     => $plural,
 		'singular_name' => $singular,
 		/* translators: %s: singular name, such as Dish. */
-		'add_new'       => sprintf( __( 'Add %s', 'client-admin' ), $singular ),
+		'add_new'       => sprintf( __( 'Add %s', 'curate-admin' ), $singular ),
 		/* translators: %s: singular name, such as Dish. */
-		'add_new_item'  => sprintf( __( 'Add %s', 'client-admin' ), $singular ),
+		'add_new_item'  => sprintf( __( 'Add %s', 'curate-admin' ), $singular ),
 		/* translators: %s: singular name, such as Dish. */
-		'edit_item'     => sprintf( __( 'Edit %s', 'client-admin' ), $singular ),
+		'edit_item'     => sprintf( __( 'Edit %s', 'curate-admin' ), $singular ),
 		/* translators: %s: plural name, such as Dishes. */
-		'search_items'  => sprintf( __( 'Search %s', 'client-admin' ), $plural ),
+		'search_items'  => sprintf( __( 'Search %s', 'curate-admin' ), $plural ),
 		/* translators: %s: plural name, such as Dishes. */
-		'not_found'     => sprintf( __( 'No %s yet', 'client-admin' ), $plural ),
+		'not_found'     => sprintf( __( 'No %s yet', 'curate-admin' ), $plural ),
 	);
 }
 
@@ -75,9 +75,9 @@ function client_admin_labels( array $type ): array {
  *
  * @param array $type Post type from the manifest.
  */
-function client_admin_item_template( array $type ): array {
+function curate_admin_item_template( array $type ): array {
 	$template = $type['template'] ?? array();
-	foreach ( client_admin_fields( $type, array( 'text', 'textarea' ) ) as $field ) {
+	foreach ( curate_admin_fields( $type, array( 'text', 'textarea' ) ) as $field ) {
 		$template[] = array(
 			'core/paragraph',
 			array(
@@ -103,12 +103,12 @@ function client_admin_item_template( array $type ): array {
  *
  * @param array $type Post type from the manifest.
  */
-function client_admin_item_markup( array $type ): string {
+function curate_admin_item_markup( array $type ): string {
 	if ( ! empty( $type['template'] ) ) {
 		return '';
 	}
 	$blocks = array();
-	foreach ( client_admin_item_template( $type ) as $block ) {
+	foreach ( curate_admin_item_template( $type ) as $block ) {
 		$blocks[] = array(
 			'blockName'    => $block[0],
 			'attrs'        => $block[1],
@@ -124,9 +124,9 @@ function client_admin_item_markup( array $type ): string {
 add_filter(
 	'wp_insert_post_data',
 	static function ( $data ) {
-		$type = client_admin_post_type( (string) $data['post_type'] );
+		$type = curate_admin_post_type( (string) $data['post_type'] );
 		if ( $type && '' === trim( (string) $data['post_content'] ) ) {
-			$data['post_content'] = wp_slash( client_admin_item_markup( $type ) );
+			$data['post_content'] = wp_slash( curate_admin_item_markup( $type ) );
 		}
 		return $data;
 	}
@@ -139,7 +139,7 @@ add_filter(
  * @param string       $post_type Post type.
  * @param bool         $public    Whether the post type has URLs of its own.
  */
-function client_admin_register_taxonomy( $taxonomy, string $post_type, bool $public ): void {
+function curate_admin_register_taxonomy( $taxonomy, string $post_type, bool $public ): void {
 	if ( is_string( $taxonomy ) ) {
 		register_taxonomy_for_object_type( $taxonomy, $post_type );
 		return;
@@ -165,8 +165,8 @@ function client_admin_register_taxonomy( $taxonomy, string $post_type, bool $pub
 /**
  * Registers the manifest's post types.
  */
-function client_admin_register_content(): void {
-	foreach ( client_admin_post_types() as $type ) {
+function curate_admin_register_content(): void {
+	foreach ( curate_admin_post_types() as $type ) {
 		// Only a post type it creates, so it can't change another plugin's.
 		$post_type = $type['slug'];
 		if ( post_type_exists( $post_type ) ) {
@@ -183,8 +183,8 @@ function client_admin_register_content(): void {
 		register_post_type(
 			$post_type,
 			array(
-				'client_admin'        => true,
-				'labels'              => client_admin_labels( $type ),
+				'curate_admin'        => true,
+				'labels'              => curate_admin_labels( $type ),
 				'public'              => $public,
 				// Query Loops only show viewable post types. A private type has no URLs
 				// of its own: see the redirect below.
@@ -197,14 +197,14 @@ function client_admin_register_content(): void {
 				'show_in_rest'        => true,
 				'supports'            => array_merge( $supports, empty( $type['fields'] ) ? array() : array( 'custom-fields' ) ),
 				'menu_icon'           => $type['icon'] ?? 'dashicons-admin-post',
-				'template'            => client_admin_item_template( $type ),
+				'template'            => curate_admin_item_template( $type ),
 				// Core's root `contentOnly` leaves blocks removable: see `editor.php`.
 				'template_lock'       => 'contentOnly' === $lock ? 'all' : $lock,
 			)
 		);
 
 		foreach ( $type['taxonomies'] ?? array() as $taxonomy ) {
-			client_admin_register_taxonomy( $taxonomy, $post_type, $public );
+			curate_admin_register_taxonomy( $taxonomy, $post_type, $public );
 		}
 
 		foreach ( $type['fields'] ?? array() as $field ) {
@@ -226,8 +226,8 @@ function client_admin_register_content(): void {
 			static function ( array $columns ) use ( $type ) {
 				$date = $columns['date'] ?? null;
 				unset( $columns['date'] );
-				foreach ( client_admin_fields( $type, array( 'text', 'date' ) ) as $field ) {
-					$columns[ "client-admin-{$field['key']}" ] = esc_html( $field['label'] );
+				foreach ( curate_admin_fields( $type, array( 'text', 'date' ) ) as $field ) {
+					$columns[ "curate-admin-{$field['key']}" ] = esc_html( $field['label'] );
 				}
 				return $date ? $columns + array( 'date' => $date ) : $columns;
 			}
@@ -235,8 +235,8 @@ function client_admin_register_content(): void {
 		add_action(
 			"manage_{$post_type}_posts_custom_column",
 			static function ( string $column, int $post_id ) {
-				if ( 0 === strpos( $column, 'client-admin-' ) ) {
-					echo esc_html( (string) get_post_meta( $post_id, substr( $column, strlen( 'client-admin-' ) ), true ) );
+				if ( 0 === strpos( $column, 'curate-admin-' ) ) {
+					echo esc_html( (string) get_post_meta( $post_id, substr( $column, strlen( 'curate-admin-' ) ), true ) );
 				}
 			},
 			10,
@@ -245,27 +245,27 @@ function client_admin_register_content(): void {
 	}
 
 	register_block_bindings_source(
-		'client-admin/setting',
+		'curate-admin/setting',
 		array(
-			'label'              => __( 'Client admin setting', 'client-admin' ),
-			'get_value_callback' => 'client_admin_setting_binding',
+			'label'              => __( 'Curated admin setting', 'curate-admin' ),
+			'get_value_callback' => 'curate_admin_setting_binding',
 		)
 	);
 	register_block_bindings_source(
-		'client-admin/date',
+		'curate-admin/date',
 		array(
-			'label'              => __( 'Client admin date', 'client-admin' ),
-			'get_value_callback' => 'client_admin_date_binding',
+			'label'              => __( 'Curated admin date', 'curate-admin' ),
+			'get_value_callback' => 'curate_admin_date_binding',
 			'uses_context'       => array( 'postId' ),
 		)
 	);
 
 	// Single and archive templates that don't depend on the active theme.
-	$directory = (string) apply_filters( 'client_admin_templates_directory', '' );
+	$directory = (string) apply_filters( 'curate_admin_templates_directory', '' );
 	foreach ( $directory ? (array) glob( "{$directory}/*.html" ) : array() as $file ) {
 		$slug = basename( (string) $file, '.html' );
 		register_block_template(
-			"client-admin-site//{$slug}",
+			"curate-admin-site//{$slug}",
 			array(
 				'title'   => ucwords( str_replace( '-', ' ', $slug ) ),
 				// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
@@ -275,15 +275,15 @@ function client_admin_register_content(): void {
 	}
 }
 // After other plugins' post types, which usually register at 5 or 10, so that one
-// is never taken over. Before `client_admin_sync`, which needs the taxonomies.
-add_action( 'init', 'client_admin_register_content', 15 );
+// is never taken over. Before `curate_admin_sync`, which needs the taxonomies.
+add_action( 'init', 'curate_admin_register_content', 15 );
 
 // A Query Loop has no date filter or meta sort, so a type's `order` adds them.
 add_filter(
 	'query_loop_block_query_vars',
 	static function ( array $query ) {
 		$post_type = is_string( $query['post_type'] ?? null ) ? $query['post_type'] : '';
-		$order     = client_admin_post_type( $post_type )['order'] ?? null;
+		$order     = curate_admin_post_type( $post_type )['order'] ?? null;
 		if ( ! $order ) {
 			return $query;
 		}
@@ -309,7 +309,7 @@ add_filter(
 add_filter(
 	'enter_title_here',
 	static function ( $title, $post ) {
-		return client_admin_post_type( $post->post_type )['titleLabel'] ?? $title;
+		return curate_admin_post_type( $post->post_type )['titleLabel'] ?? $title;
 	},
 	10,
 	2
@@ -323,7 +323,7 @@ add_action(
 			$post_types[] = get_post_type();
 		}
 		foreach ( $post_types as $post_type ) {
-			$type = client_admin_post_type( (string) $post_type );
+			$type = curate_admin_post_type( (string) $post_type );
 			if ( $type && empty( $type['public'] ) ) {
 				wp_safe_redirect( home_url( $type['previewPath'] ?? '/' ) );
 				exit;
@@ -337,9 +337,9 @@ add_action(
  *
  * @param array $args Binding arguments: `setting` and `key`.
  */
-function client_admin_setting_binding( array $args ): ?string {
+function curate_admin_setting_binding( array $args ): ?string {
 	$key = $args['key'] ?? '';
-	foreach ( client_admin_settings() as $setting ) {
+	foreach ( curate_admin_settings() as $setting ) {
 		if ( is_string( $key ) && ( $args['setting'] ?? '' ) === $setting['id'] ) {
 			$value = get_option( $setting['option'], array() )[ $key ] ?? null;
 			return is_scalar( $value ) ? (string) $value : null;
@@ -354,10 +354,10 @@ function client_admin_setting_binding( array $args ): ?string {
  * @param array    $args  Binding arguments: `key`.
  * @param WP_Block $block The bound block.
  */
-function client_admin_date_binding( array $args, WP_Block $block ): ?string {
+function curate_admin_date_binding( array $args, WP_Block $block ): ?string {
 	$post_id = (int) ( $block->context['postId'] ?? 0 );
-	$type    = client_admin_post_type( (string) get_post_type( $post_id ) );
-	$keys    = $type ? array_column( client_admin_fields( $type, array( 'date' ) ), 'key' ) : array();
+	$type    = curate_admin_post_type( (string) get_post_type( $post_id ) );
+	$keys    = $type ? array_column( curate_admin_fields( $type, array( 'date' ) ), 'key' ) : array();
 	if ( ! in_array( $args['key'] ?? '', $keys, true ) ) {
 		return null;
 	}

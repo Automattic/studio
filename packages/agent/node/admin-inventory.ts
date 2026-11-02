@@ -23,9 +23,9 @@ export async function readAdminInventory( site: HostSite ): Promise< AdminInvent
 	const context = await browser.newContext( { ignoreHTTPSErrors: true } );
 	const page = await context.newPage();
 	try {
-		// `client-admin-full` shows the uncurated admin to an administrator, so a
+		// `curate-admin-full` shows the uncurated admin to an administrator, so a
 		// second run still sees everything on the site.
-		const target = encodeURIComponent( `${ site.url }/wp-admin/?client-admin-full=1` );
+		const target = encodeURIComponent( `${ site.url }/wp-admin/?curate-admin-full=1` );
 		await page.goto( `${ site.url }/studio-auto-login?redirect_to=${ target }`, {
 			waitUntil: 'domcontentloaded',
 			timeout: WAIT_MS,

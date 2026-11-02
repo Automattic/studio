@@ -1,20 +1,20 @@
 /**
- * Editor behaviour for clients: skips the welcome guide, limits locked posts to
- * their text and photos, and lets a client ask the agency for anything else.
+ * Editor behaviour in the curated admin: skips the welcome guide, limits locked posts to
+ * their text and photos, and lets staff ask the agency for anything else.
  */
 ( function ( wp ) {
-	const settings = window.clientAdminEditor;
+	const settings = window.curateAdminEditor;
 	const { __, sprintf } = wp.i18n;
 	const { dispatch, select, subscribe } = wp.data;
 	const { createElement: el, useState } = wp.element;
 
-	wp.i18n.setLocaleData( settings.translations, 'client-admin' );
+	wp.i18n.setLocaleData( settings.translations, 'curate-admin' );
 
 	dispatch( wp.preferences.store ).set( 'core/edit-post', 'welcomeGuide', false );
 	dispatch( wp.preferences.store ).set( 'core', 'distractionFree', false );
 
 	wp.blocks.registerBlockBindingsSource( {
-		name: 'client-admin/setting',
+		name: 'curate-admin/setting',
 		getValues: ( { bindings } ) =>
 			Object.fromEntries(
 				Object.entries( bindings ).map( ( [ attribute, { args } ] ) => [
@@ -65,7 +65,7 @@
 				apply( blocks );
 			}
 		} );
-		document.body.classList.add( 'client-admin-locked' );
+		document.body.classList.add( 'curate-admin-locked' );
 	};
 
 	const AskPanel = () => {
@@ -75,7 +75,7 @@
 		const send = () => {
 			setState( 'sending' );
 			const body = new URLSearchParams( {
-				action: 'client_admin_request',
+				action: 'curate_admin_request',
 				_ajax_nonce: settings.nonce,
 				message,
 				page: select( wp.editor.store ).getPermalink() ?? '',
@@ -95,19 +95,19 @@
 
 		return el(
 			'div',
-			{ className: 'client-admin-ask' },
+			{ className: 'curate-admin-ask' },
 			el(
 				'p',
 				null,
 				sprintf(
 					/* translators: %s: agency name. */
-					__( "Tell %s what you'd like. They'll see this page with your note.", 'client-admin' ),
+					__( "Tell %s what you'd like. They'll see this page with your note.", 'curate-admin' ),
 					settings.agency
 				)
 			),
 			el( wp.components.TextareaControl, {
 				__nextHasNoMarginBottom: true,
-				label: __( 'Your request', 'client-admin' ),
+				label: __( 'Your request', 'curate-admin' ),
 				value: message,
 				onChange: setMessage,
 			} ),
@@ -118,11 +118,11 @@
 					disabled: ! message.trim() || state === 'sending',
 					onClick: send,
 				},
-				__( 'Send request', 'client-admin' )
+				__( 'Send request', 'curate-admin' )
 			),
-			state === 'sent' && el( 'p', { role: 'status' }, __( 'Sent. Thank you.', 'client-admin' ) ),
+			state === 'sent' && el( 'p', { role: 'status' }, __( 'Sent. Thank you.', 'curate-admin' ) ),
 			state === 'failed' &&
-				el( 'p', { role: 'alert' }, __( 'That did not send. Please try again.', 'client-admin' ) )
+				el( 'p', { role: 'alert' }, __( 'That did not send. Please try again.', 'curate-admin' ) )
 		);
 	};
 
@@ -133,7 +133,7 @@
 		);
 		return el(
 			wp.editor.PluginDocumentSettingPanel,
-			{ name: 'client-admin-dates', title: __( 'Dates', 'client-admin' ) },
+			{ name: 'curate-admin-dates', title: __( 'Dates', 'curate-admin' ) },
 			settings.dates.map( ( field ) =>
 				el( wp.components.TextControl, {
 					key: field.key,
@@ -150,22 +150,22 @@
 	};
 
 	if ( settings.dates.length ) {
-		wp.plugins.registerPlugin( 'client-admin-dates', { render: DatesPanel } );
+		wp.plugins.registerPlugin( 'curate-admin-dates', { render: DatesPanel } );
 		// A closed panel is easy to miss, and these fields have no other place.
-		const panel = 'client-admin-dates/client-admin-dates';
+		const panel = 'curate-admin-dates/curate-admin-dates';
 		if ( ! select( wp.editor.store ).isEditorPanelOpened( panel ) ) {
 			dispatch( wp.editor.store ).toggleEditorPanelOpened( panel );
 		}
 	}
 
 	if ( settings.canAsk ) {
-		wp.plugins.registerPlugin( 'client-admin', {
+		wp.plugins.registerPlugin( 'curate-admin', {
 			render: () =>
 				el(
 					wp.editor.PluginSidebar,
 					{
 						name: 'ask',
-						title: __( 'Need something else changed?', 'client-admin' ),
+						title: __( 'Need something else changed?', 'curate-admin' ),
 						icon: 'format-chat',
 					},
 					el( AskPanel )
@@ -177,18 +177,18 @@
 		lockBlocks();
 	}
 	if ( settings.locked && settings.isPage ) {
-		document.body.classList.add( 'client-admin-page' );
+		document.body.classList.add( 'curate-admin-page' );
 		dispatch( 'core/notices' ).createNotice(
 			'info',
 			sprintf(
 				/* translators: %s: agency name. */
 				__(
 					'You can change the text and photos on this page. %s looks after the layout and colors.',
-					'client-admin'
+					'curate-admin'
 				),
 				settings.agency
 			),
-			{ id: 'client-admin-locked', isDismissible: false }
+			{ id: 'curate-admin-locked', isDismissible: false }
 		);
 	}
 } )( window.wp );

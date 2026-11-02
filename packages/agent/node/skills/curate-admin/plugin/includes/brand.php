@@ -2,28 +2,28 @@
 /**
  * Carries the site's brand into wp-admin and the login screen.
  *
- * Clients get an admin color scheme of their own. Other users keep theirs.
+ * Curated users get an admin color scheme of their own. Other users keep theirs.
  *
- * @package ClientAdmin
+ * @package CurateAdmin
  */
 
 defined( 'ABSPATH' ) || exit;
 
-const CLIENT_ADMIN_COLOR_SCHEME = 'client-admin';
+const CURATE_ADMIN_COLOR_SCHEME = 'curate-admin';
 
 /**
  * Whether the site has a brand to apply. Without one, wp-admin keeps its colors.
  */
-function client_admin_has_brand(): bool {
-	return ! empty( client_admin_manifest()['brand']['accent'] );
+function curate_admin_has_brand(): bool {
+	return ! empty( curate_admin_manifest()['brand']['accent'] );
 }
 
 /**
  * The manifest's brand, with the fallbacks for anything it leaves out.
  */
-function client_admin_brand(): array {
+function curate_admin_brand(): array {
 	return wp_parse_args(
-		client_admin_manifest()['brand'] ?? array(),
+		curate_admin_manifest()['brand'] ?? array(),
 		array(
 			'name'        => get_bloginfo( 'name' ),
 			'logo'        => get_site_icon_url( 192 ),
@@ -39,8 +39,8 @@ function client_admin_brand(): array {
 /**
  * The brand as CSS custom properties.
  */
-function client_admin_brand_css(): string {
-	$brand = client_admin_brand();
+function curate_admin_brand_css(): string {
+	$brand = curate_admin_brand();
 	$vars  = array(
 		'--ca-accent'       => $brand['accent'],
 		'--ca-accent-text'  => $brand['accentText'],
@@ -60,15 +60,15 @@ function client_admin_brand_css(): string {
 add_action(
 	'admin_init',
 	static function () {
-		if ( ! client_admin_is_curated() || ! client_admin_has_brand() ) {
+		if ( ! curate_admin_is_curated() || ! curate_admin_has_brand() ) {
 			return;
 		}
 
-		$brand = client_admin_brand();
+		$brand = curate_admin_brand();
 		wp_admin_css_color(
-			CLIENT_ADMIN_COLOR_SCHEME,
+			CURATE_ADMIN_COLOR_SCHEME,
 			$brand['name'],
-			plugin_dir_url( CLIENT_ADMIN_FILE ) . 'assets/admin-colors.css',
+			plugin_dir_url( CURATE_ADMIN_FILE ) . 'assets/admin-colors.css',
 			array( $brand['sidebar'], $brand['accent'], $brand['sidebarText'] )
 		);
 	}
@@ -77,15 +77,15 @@ add_action(
 add_filter(
 	'get_user_option_admin_color',
 	static function ( $color ) {
-		return client_admin_is_curated() && client_admin_has_brand() ? CLIENT_ADMIN_COLOR_SCHEME : $color;
+		return curate_admin_is_curated() && curate_admin_has_brand() ? CURATE_ADMIN_COLOR_SCHEME : $color;
 	}
 );
 
 add_action(
 	'admin_enqueue_scripts',
 	static function () {
-		if ( client_admin_is_curated() && client_admin_has_brand() ) {
-			wp_add_inline_style( 'colors', client_admin_brand_css() );
+		if ( curate_admin_is_curated() && curate_admin_has_brand() ) {
+			wp_add_inline_style( 'colors', curate_admin_brand_css() );
 		}
 	},
 	PHP_INT_MAX
@@ -95,16 +95,16 @@ add_action(
 add_action(
 	'login_head',
 	static function () {
-		if ( ! client_admin_has_brand() ) {
+		if ( ! curate_admin_has_brand() ) {
 			return;
 		}
 
-		$brand = client_admin_brand();
+		$brand = curate_admin_brand();
 		$logo  = $brand['logo']
 			? 'background-image:url(' . esc_url( $brand['logo'] ) . ');background-size:contain;width:120px;height:120px;'
 			: 'background:none;width:auto;height:auto;text-indent:0;font-size:30px;color:var(--ca-accent);';
 
-		echo '<style>' . client_admin_brand_css() . // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		echo '<style>' . curate_admin_brand_css() . // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 			'.login h1 a{' . $logo . '}' . // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 			'.login .button-primary{background:var(--ca-accent);border-color:var(--ca-accent);color:var(--ca-accent-text)}' .
 			'.login #backtoblog a,.login #nav a{color:var(--ca-accent)}' .
@@ -116,13 +116,13 @@ add_action(
 add_filter(
 	'login_headertext',
 	static function ( $text ) {
-		return client_admin_has_brand() ? client_admin_brand()['name'] : $text;
+		return curate_admin_has_brand() ? curate_admin_brand()['name'] : $text;
 	}
 );
 
 add_filter(
 	'login_headerurl',
 	static function ( $url ) {
-		return client_admin_has_brand() ? home_url( '/' ) : $url;
+		return curate_admin_has_brand() ? home_url( '/' ) : $url;
 	}
 );

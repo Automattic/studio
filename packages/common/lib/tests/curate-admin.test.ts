@@ -2,19 +2,19 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { getClientAdminLogin, getClientAdminManifestPath } from '../client-admin';
+import { getStaffAdminLogin, getCurateAdminManifestPath } from '../curate-admin';
 
-describe( 'getClientAdminLogin', () => {
+describe( 'getStaffAdminLogin', () => {
 	let sitePath: string;
 
 	const writeManifest = ( contents: string ) => {
-		const file = getClientAdminManifestPath( sitePath );
+		const file = getCurateAdminManifestPath( sitePath );
 		mkdirSync( path.dirname( file ), { recursive: true } );
 		writeFileSync( file, contents );
 	};
 
 	beforeEach( () => {
-		sitePath = mkdtempSync( path.join( os.tmpdir(), 'client-admin-' ) );
+		sitePath = mkdtempSync( path.join( os.tmpdir(), 'curate-admin-' ) );
 	} );
 
 	afterEach( () => {
@@ -22,16 +22,16 @@ describe( 'getClientAdminLogin', () => {
 	} );
 
 	it( 'reads the login of a site with a curated wp-admin', () => {
-		writeManifest( JSON.stringify( { client: { login: 'maria' } } ) );
-		expect( getClientAdminLogin( sitePath ) ).toBe( 'maria' );
+		writeManifest( JSON.stringify( { staff: { login: 'maria' } } ) );
+		expect( getStaffAdminLogin( sitePath ) ).toBe( 'maria' );
 	} );
 
 	it( 'finds nothing on any other site, so its links stay hidden', () => {
-		expect( getClientAdminLogin( sitePath ) ).toBeUndefined();
+		expect( getStaffAdminLogin( sitePath ) ).toBeUndefined();
 	} );
 
 	it( 'finds nothing in a damaged manifest', () => {
 		writeManifest( '{ not json' );
-		expect( getClientAdminLogin( sitePath ) ).toBeUndefined();
+		expect( getStaffAdminLogin( sitePath ) ).toBeUndefined();
 	} );
 } );

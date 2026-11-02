@@ -45,7 +45,7 @@ import type {
 const OPEN_IN_ICONS: Record< OpenInDestination, PaletteCommand[ 'icon' ] > = {
 	browser: ExternalLinkIcon,
 	'wp-admin': WordPressIcon,
-	'client-admin': UserRoundIcon,
+	'staff-admin': UserRoundIcon,
 	files: FolderIcon,
 	editor: CodeIcon,
 	terminal: TerminalIcon,
@@ -97,7 +97,7 @@ export function getSiteCommands( {
 		terminal: [ __( 'Shell' ), __( 'Command line' ) ],
 		phpmyadmin: [ __( 'Database' ), 'SQL', 'MySQL' ],
 		'wp-admin': [ __( 'Dashboard' ), 'wp-admin' ],
-		'client-admin': [ __( 'Client admin' ), 'client', 'wp-admin' ],
+		'staff-admin': [ __( 'Staff admin' ), 'client', 'wp-admin' ],
 	};
 
 	return [
@@ -155,17 +155,17 @@ export function getSiteCommands( {
 						keywords: keywords[ 'wp-admin' ],
 						run: actions.openAdmin,
 					},
-					...( actions.openClientAdmin
+					...( actions.openStaffAdmin
 						? [
 								{
-									id: 'client-admin',
+									id: 'staff-admin',
 									group: 'commands' as const,
-									label: __( 'Open Client admin in preview' ),
-									aliases: [ __( 'Open Client admin' ) ],
+									label: __( 'Open Staff admin in preview' ),
+									aliases: [ __( 'Open Staff admin' ) ],
 									icon: UserRoundIcon,
 									description,
-									keywords: keywords[ 'client-admin' ],
-									run: actions.openClientAdmin,
+									keywords: keywords[ 'staff-admin' ],
+									run: actions.openStaffAdmin,
 								},
 						  ]
 						: [] ),
@@ -223,8 +223,8 @@ export function getSiteCommands( {
 					label:
 						destination.id === 'wp-admin'
 							? __( 'Open WordPress Admin in browser' )
-							: destination.id === 'client-admin'
-							? __( 'Open Client admin in browser' )
+							: destination.id === 'staff-admin'
+							? __( 'Open Staff admin in browser' )
 							: destination.id === 'phpmyadmin'
 							? __( 'Open database in browser' )
 							: sprintf(

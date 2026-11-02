@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { installClientAdmin, parseClientAdminManifest } from '../client-admin';
+import { installCuratedAdmin, parseCurateAdminManifest } from '../curate-admin';
 import type { HostSite, StudioAgentHost } from '../host';
 
 const PAGES = 'edit.php?post_type=page';
@@ -39,10 +39,10 @@ const forEveryone = {
 	menu: { hide: [ 'plugins.php', 'tools.php' ] },
 };
 
-describe( 'parseClientAdminManifest', () => {
+describe( 'parseCurateAdminManifest', () => {
 	it( 'accepts a valid manifest', () => {
-		expect( parseClientAdminManifest( manifest ).postTypes ).toHaveLength( 1 );
-		expect( parseClientAdminManifest( forEveryone ).menu.hide ).toHaveLength( 2 );
+		expect( parseCurateAdminManifest( manifest ).postTypes ).toHaveLength( 1 );
+		expect( parseCurateAdminManifest( forEveryone ).menu.hide ).toHaveLength( 2 );
 	} );
 
 	it.each( [
@@ -124,11 +124,11 @@ describe( 'parseClientAdminManifest', () => {
 		],
 		[ 'a key the manifest does not define', { ...manifest, menuz: [] }, /menuz/ ],
 	] )( 'rejects %s', ( _name, input, message ) => {
-		expect( () => parseClientAdminManifest( input ) ).toThrow( message );
+		expect( () => parseCurateAdminManifest( input ) ).toThrow( message );
 	} );
 } );
 
-describe( 'installClientAdmin', () => {
+describe( 'installCuratedAdmin', () => {
 	const stdoutFor = ( args: string[] ) => {
 		if ( args[ 0 ] === 'post' ) {
 			return 'home\nabout\n';
@@ -143,17 +143,17 @@ describe( 'installClientAdmin', () => {
 	const installed = async () =>
 		JSON.parse(
 			await readFile(
-				path.join( site.path, 'wp-content/plugins/client-admin-site/client-admin.json' ),
+				path.join( site.path, 'wp-content/plugins/curate-admin-site/curate-admin.json' ),
 				'utf8'
 			)
 		);
 
 	beforeEach( async () => {
-		const sitePath = await mkdtemp( path.join( os.tmpdir(), 'client-admin-' ) );
+		const sitePath = await mkdtemp( path.join( os.tmpdir(), 'curate-admin-' ) );
 		await mkdir( path.join( sitePath, 'wp-content/plugins' ), { recursive: true } );
 		site = { id: '1', name: 'Fern', path: sitePath, url: 'http://localhost:1', phpVersion: '8.4' };
 		wpCli = vi.fn( async ( _site: HostSite, args: string[] ) => ( {
-			// No client account yet.
+			// No Staff account yet.
 			exitCode: args[ 0 ] === 'user' && args[ 1 ] === 'get' ? 1 : 0,
 			stdout: stdoutFor( args ),
 			stderr: '',
@@ -168,33 +168,33 @@ describe( 'installClientAdmin', () => {
 	} );
 
 	it( 'writes the manifest and activates both plugins', async () => {
-		await installClientAdmin( host, site, manifest );
+		await installCuratedAdmin( host, site, manifest );
 
 		expect( ( await installed() ).role.slug ).toBe( 'fern_staff' );
 		expect( wpCli ).toHaveBeenCalledWith( site, [
 			'plugin',
 			'activate',
-			'client-admin',
-			'client-admin-site',
+			'curate-admin',
+			'curate-admin-site',
 		] );
 	} );
 
 	it( 'copies the runtime in', async () => {
-		await installClientAdmin( host, site, manifest );
+		await installCuratedAdmin( host, site, manifest );
 
-		const runtime = path.join( site.path, 'wp-content/plugins/client-admin' );
-		expect( await readdir( runtime ) ).toContain( 'client-admin.php' );
+		const runtime = path.join( site.path, 'wp-content/plugins/curate-admin' );
+		expect( await readdir( runtime ) ).toContain( 'curate-admin.php' );
 	} );
 
-	it( 'creates the client account with the role, under a login Studio can read', async () => {
-		await installClientAdmin( host, site, { ...manifest, client: { name: 'Maria Lopez' } } );
+	it( 'creates the Staff account with the role, under a login Studio can read', async () => {
+		await installCuratedAdmin( host, site, { ...manifest, staff: { name: 'Maria Lopez' } } );
 
-		expect( ( await installed() ).client.login ).toBe( 'fern-staff' );
+		expect( ( await installed() ).staff.login ).toBe( 'fern-staff' );
 		const create = wpCli.mock.calls.find( ( [ , args ] ) => args[ 1 ] === 'create' )?.[ 1 ];
 		expect( create ).toEqual(
 			expect.arrayContaining( [
 				'fern-staff',
-				'fern-staff@client.invalid',
+				'fern-staff@staff.invalid',
 				'--role=fern_staff',
 				'--first_name=Maria',
 				'--display_name=Maria Lopez',
@@ -203,28 +203,28 @@ describe( 'installClientAdmin', () => {
 	} );
 
 	it( 'calls the account and the role Staff unless told otherwise', async () => {
-		await installClientAdmin( host, site, { audience: 'staff', menu: manifest.menu } );
+		await installCuratedAdmin( host, site, { audience: 'staff', menu: manifest.menu } );
 
 		const written = await installed();
 		expect( written.role ).toMatchObject( { slug: 'staff', name: 'Staff', extends: 'editor' } );
-		expect( written.client ).toEqual( { name: 'Staff', login: 'staff' } );
+		expect( written.staff ).toEqual( { name: 'Staff', login: 'staff' } );
 	} );
 
 	it( 'sets up no role or account when curating for everyone', async () => {
-		await installClientAdmin( host, site, forEveryone );
+		await installCuratedAdmin( host, site, forEveryone );
 
 		const written = await installed();
 		expect( written.audience ).toBe( 'everyone' );
 		expect( written ).not.toHaveProperty( 'role' );
-		expect( written ).not.toHaveProperty( 'client' );
+		expect( written ).not.toHaveProperty( 'staff' );
 		expect( wpCli.mock.calls.some( ( [ , args ] ) => args[ 0 ] === 'user' ) ).toBe( false );
 	} );
 
 	it( 'removes the Staff account when moving to everyone', async () => {
-		await installClientAdmin( host, site, manifest );
+		await installCuratedAdmin( host, site, manifest );
 		wpCli.mockClear();
 
-		await installClientAdmin( host, site, forEveryone );
+		await installCuratedAdmin( host, site, forEveryone );
 
 		const commands = wpCli.mock.calls.map( ( [ , args ] ) => args.slice( 0, 3 ).join( ' ' ) );
 		expect( commands ).toContain( 'user delete fern-staff' );
@@ -238,7 +238,7 @@ describe( 'installClientAdmin', () => {
 			stderr: '',
 		} ) );
 
-		await installClientAdmin( host, site, manifest );
+		await installCuratedAdmin( host, site, manifest );
 
 		expect( wpCli.mock.calls.some( ( [ , args ] ) => args[ 1 ] === 'create' ) ).toBe( false );
 	} );
@@ -250,7 +250,7 @@ describe( 'installClientAdmin', () => {
 			stderr: '',
 		} ) );
 
-		await expect( installClientAdmin( host, site, manifest ) ).rejects.toThrow(
+		await expect( installCuratedAdmin( host, site, manifest ) ).rejects.toThrow(
 			/already exists with the role administrator/
 		);
 		expect( wpCli.mock.calls.some( ( [ , args ] ) => args[ 1 ] === 'set-role' ) ).toBe( false );
@@ -259,7 +259,7 @@ describe( 'installClientAdmin', () => {
 	it( 'leaves the admin colors alone unless the manifest asks for a brand', async () => {
 		await writeFile( path.join( site.path, 'DESIGN.md' ), DESIGN );
 
-		await installClientAdmin( host, site, manifest );
+		await installCuratedAdmin( host, site, manifest );
 
 		expect( await installed() ).not.toHaveProperty( 'brand' );
 	} );
@@ -267,7 +267,7 @@ describe( 'installClientAdmin', () => {
 	it( 'takes the brand from DESIGN.md, keeping what the manifest sets', async () => {
 		await writeFile( path.join( site.path, 'DESIGN.md' ), DESIGN );
 
-		await installClientAdmin( host, site, { ...manifest, brand: { name: 'Fern & Fig' } } );
+		await installCuratedAdmin( host, site, { ...manifest, brand: { name: 'Fern & Fig' } } );
 
 		expect( ( await installed() ).brand ).toEqual( {
 			name: 'Fern & Fig',
@@ -282,7 +282,7 @@ describe( 'installClientAdmin', () => {
 
 	it( 'refuses pages the site does not have, before changing anything', async () => {
 		await expect(
-			installClientAdmin( host, site, {
+			installCuratedAdmin( host, site, {
 				...manifest,
 				menu: { keep: [ { screen: PAGES, only: [ 'nope' ] } ] },
 			} )
@@ -298,13 +298,13 @@ describe( 'installClientAdmin', () => {
 			stderr: '',
 		} ) );
 
-		await expect( installClientAdmin( host, site, manifest ) ).rejects.toThrow(
+		await expect( installCuratedAdmin( host, site, manifest ) ).rejects.toThrow(
 			/already exist.*dish/
 		);
 	} );
 
 	it( 'needs the site running', async () => {
 		host.sites.isRunning = async () => false;
-		await expect( installClientAdmin( host, site, manifest ) ).rejects.toThrow( /site_start/ );
+		await expect( installCuratedAdmin( host, site, manifest ) ).rejects.toThrow( /site_start/ );
 	} );
 } );

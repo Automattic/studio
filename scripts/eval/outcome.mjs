@@ -407,32 +407,32 @@ export const pluginBlockOnFrontPage = check( ( d, vars ) => {
 		  );
 } );
 
-const verifiedClientAdmin = ( d ) =>
-	( d.toolCalls || [] ).some( ( { name } ) => name === 'verify_client_admin' );
+const verifiedCuratedAdmin = ( d ) =>
+	( d.toolCalls || [] ).some( ( { name } ) => name === 'verify_curated_admin' );
 
-// A client admin is installed and verified: the role holds no dangerous
+// A curated admin is installed and verified: the role holds no dangerous
 // capability, content listed in `vars.expectedOnPreview` still reaches its page
 // but is no longer written into one, the account is staff, and the agent asked
 // its questions and wrote the plan first.
-export const clientAdminHandedOver = check( ( d, vars ) => {
+export const curatedAdminHandedOver = check( ( d, vars ) => {
 	const s = site( d, vars );
-	const clientAdmin = s.clientAdmin;
-	if ( ! clientAdmin ) return fail( 'no client admin on the site' );
-	for ( const plugin of [ 'client-admin', 'client-admin-site' ] ) {
+	const curateAdmin = s.curateAdmin;
+	if ( ! curateAdmin ) return fail( 'no curated admin on the site' );
+	for ( const plugin of [ 'curate-admin', 'curate-admin-site' ] ) {
 		if ( ! s.plugins.includes( plugin ) ) return fail( `${ plugin } is not active` );
 	}
 
 	const dangerous = [ 'manage_options', 'install_plugins', 'edit_theme_options', 'edit_users' ];
-	const held = dangerous.filter( ( capability ) => clientAdmin.capabilities?.[ capability ] );
-	if ( ! clientAdmin.capabilities ) return fail( 'the client role does not exist' );
-	if ( held.length ) return fail( `the client role holds ${ held.join( ', ' ) }` );
+	const held = dangerous.filter( ( capability ) => curateAdmin.capabilities?.[ capability ] );
+	if ( ! curateAdmin.capabilities ) return fail( 'the Staff role does not exist' );
+	if ( held.length ) return fail( `the Staff role holds ${ held.join( ', ' ) }` );
 
-	const { postTypes = [], settings = [] } = clientAdmin.manifest;
+	const { postTypes = [], settings = [] } = curateAdmin.manifest;
 	if ( ! postTypes.length ) return fail( 'no post type in the manifest' );
 	if ( ! settings.length ) return fail( 'no settings page in the manifest' );
 
 	const expected = ( vars.expectedOnPreview ?? [] ).map( ( { text } ) => text );
-	const rendered = Object.values( clientAdmin.previews ).join( '\n' );
+	const rendered = Object.values( curateAdmin.previews ).join( '\n' );
 	const missing = expected.filter( ( text ) => ! rendered.includes( text ) );
 	if ( missing.length ) return fail( `not on the previewed pages: ${ missing.join( ', ' ) }` );
 
@@ -442,16 +442,14 @@ export const clientAdminHandedOver = check( ( d, vars ) => {
 		.join( '\n' );
 	const hardcoded = expected.filter( ( text ) => source.includes( text ) );
 	if ( hardcoded.length ) {
-		return fail(
-			`still written into a page, out of the client's reach: ${ hardcoded.join( ', ' ) }`
-		);
+		return fail( `still written into a page, out of staff's reach: ${ hardcoded.join( ', ' ) }` );
 	}
 
-	if ( ! verifiedClientAdmin( d ) ) return fail( 'it was never verified' );
-	if ( clientAdmin.manifest.client.login !== 'staff' ) {
-		return fail( `the account is "${ clientAdmin.manifest.client.login }", not staff` );
+	if ( ! verifiedCuratedAdmin( d ) ) return fail( 'it was never verified' );
+	if ( curateAdmin.manifest.staff.login !== 'staff' ) {
+		return fail( `the account is "${ curateAdmin.manifest.staff.login }", not staff` );
 	}
-	if ( ! clientAdmin.users.includes( 'staff' ) ) return fail( 'no staff account' );
+	if ( ! curateAdmin.users.includes( 'staff' ) ) return fail( 'no staff account' );
 
 	if ( ! ( d.questions || [] ).length ) return fail( 'nothing was asked before building' );
 	if ( ! ( d.textSegments || [] ).some( ( text ) => /admin plan/i.test( text ) ) ) {
@@ -459,33 +457,33 @@ export const clientAdminHandedOver = check( ( d, vars ) => {
 	}
 
 	return pass(
-		`${ postTypes.length } post types, ${ settings.length } settings pages, ${ clientAdmin.manifest.menu.keep.length } menu items`
+		`${ postTypes.length } post types, ${ settings.length } settings pages, ${ curateAdmin.manifest.menu.keep.length } menu items`
 	);
 } );
 
 // wp-admin is curated for everyone: no Staff role or account, so Studio has no
-// Client admin to offer, and the content still moved.
-export const clientAdminForEveryone = check( ( d, vars ) => {
+// Staff admin to offer, and the content still moved.
+export const curatedAdminForEveryone = check( ( d, vars ) => {
 	const s = site( d, vars );
-	const clientAdmin = s.clientAdmin;
-	if ( ! clientAdmin ) return fail( 'no client admin on the site' );
-	if ( clientAdmin.manifest.audience !== 'everyone' ) {
-		return fail( `the audience is ${ clientAdmin.manifest.audience }` );
+	const curateAdmin = s.curateAdmin;
+	if ( ! curateAdmin ) return fail( 'no curated admin on the site' );
+	if ( curateAdmin.manifest.audience !== 'everyone' ) {
+		return fail( `the audience is ${ curateAdmin.manifest.audience }` );
 	}
-	if ( clientAdmin.manifest.client || clientAdmin.manifest.role ) {
+	if ( curateAdmin.manifest.staff || curateAdmin.manifest.role ) {
 		return fail( 'a Staff account or role was set up' );
 	}
-	if ( clientAdmin.users.includes( 'staff' ) ) return fail( 'a staff user exists' );
-	if ( ! verifiedClientAdmin( d ) ) return fail( 'it was never verified' );
-	return pass( `${ clientAdmin.manifest.menu.hide.length } menu items hidden for everyone` );
+	if ( curateAdmin.users.includes( 'staff' ) ) return fail( 'a staff user exists' );
+	if ( ! verifiedCuratedAdmin( d ) ) return fail( 'it was never verified' );
+	return pass( `${ curateAdmin.manifest.menu.hide.length } menu items hidden for everyone` );
 } );
 
 // A blog's staff keep what running a blog takes: writing, categories, comments
 // and pages. Only technical screens leave the menu, and no post type appears.
-export const clientAdminKeepsBlogging = check( ( d, vars ) => {
-	const clientAdmin = site( d, vars ).clientAdmin;
-	if ( ! clientAdmin ) return fail( 'no client admin on the site' );
-	const { menu, postTypes = [], audience } = clientAdmin.manifest;
+export const curatedAdminKeepsBlogging = check( ( d, vars ) => {
+	const curateAdmin = site( d, vars ).curateAdmin;
+	if ( ! curateAdmin ) return fail( 'no curated admin on the site' );
+	const { menu, postTypes = [], audience } = curateAdmin.manifest;
 	if ( audience !== 'staff' ) return fail( `the audience is ${ audience }` );
 
 	const kept = menu.keep.map( ( { screen } ) => screen );
@@ -498,10 +496,10 @@ export const clientAdminKeepsBlogging = check( ( d, vars ) => {
 	if ( left.length ) return fail( `still in the menu: ${ left.join( ', ' ) }` );
 
 	const needed = [ 'publish_posts', 'moderate_comments', 'manage_categories', 'edit_pages' ];
-	const missing = needed.filter( ( capability ) => ! clientAdmin.capabilities?.[ capability ] );
+	const missing = needed.filter( ( capability ) => ! curateAdmin.capabilities?.[ capability ] );
 	if ( missing.length ) return fail( `staff lost ${ missing.join( ', ' ) }` );
 	if ( postTypes.length ) return fail( `a blog needs no post type: ${ postTypes[ 0 ].slug }` );
-	if ( ! verifiedClientAdmin( d ) ) return fail( 'it was never verified' );
+	if ( ! verifiedCuratedAdmin( d ) ) return fail( 'it was never verified' );
 	return pass( `${ kept.length } menu items kept` );
 } );
 

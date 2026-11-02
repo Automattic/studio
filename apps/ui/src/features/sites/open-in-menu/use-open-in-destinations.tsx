@@ -29,7 +29,7 @@ import type { ReactElement } from 'react';
 export type OpenInDestination =
 	| 'browser'
 	| 'wp-admin'
-	| 'client-admin'
+	| 'staff-admin'
 	| 'files'
 	| 'editor'
 	| 'terminal'
@@ -171,15 +171,15 @@ export function useOpenInDestinations(
 					return openSiteUrl( '/wp-admin/' );
 				} ),
 		},
-		!! site.clientAdmin && {
-			id: 'client-admin',
-			label: __( 'Client admin' ),
+		!! site.staffAdmin && {
+			id: 'staff-admin',
+			label: __( 'Staff admin' ),
 			logo: <UserRoundIcon />,
 			disabled: false,
 			open: () =>
-				open( 'client-admin', __( 'Client admin' ), () => {
+				open( 'staff-admin', __( 'Staff admin' ), () => {
 					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_WP_ADMIN, { browser: 'external' } );
-					return openSiteUrl( '/wp-admin/', { autoLogin: true, user: site.clientAdmin } );
+					return openSiteUrl( '/wp-admin/', { autoLogin: true, user: site.staffAdmin } );
 				} ),
 		},
 		{

@@ -142,7 +142,7 @@ Then carry on straight away: the questions were the approval. When the user says
 - `dashboard.keep` lists widgets to keep with `staff`, and `dashboard.hide` widgets to hide with `everyone`. Set `welcome` to true to keep the welcome panel.
 - A post type with `fields` or a `template` keeps `editor` in `supports`, because that is where they are edited.
 - `order` sorts Query Loops of that post type by a field, and `upcoming` leaves out past dates.
-- `role.extends` is `editor` by default, or `author`, `contributor` or `shop_manager` for WooCommerce. `role.add` grants what a plugin's screen needs, and dangerous capabilities are stripped whatever the manifest says. To name the account differently, set `role.slug`, `role.name` and `client.name`.
+- `role.extends` is `editor` by default, or `author`, `contributor` or `shop_manager` for WooCommerce. `role.add` grants what a plugin's screen needs, and dangerous capabilities are stripped whatever the manifest says. To name the account differently, set `role.slug`, `role.name` and `staff.name`.
 - With a staff account, keep Custom HTML blocks off pages staff edit: their saves strip raw HTML, so it belongs in a template part.
 - Write every label in the site's language.
 
@@ -150,7 +150,7 @@ These are extras, for when the user asks: `label` and `icon` on a menu item, `gu
 
 ## 9. Install it
 
-Call `install_client_admin`. When its result says the site isn't in English, translate the strings it lists into `strings` and call it again.
+Call `install_curated_admin`. When its result says the site isn't in English, translate the strings it lists into `strings` and call it again.
 
 ## 10. Build the site side
 
@@ -170,19 +170,19 @@ Do this only for what the plan moves, because it changes pages the design depend
 <!-- /wp:query -->
 ```
 
-4. A date field shows in the site's date format with `{"source":"client-admin/date","args":{"key":"starts_on"}}`.
-5. Show a settings value anywhere, including template parts, with the `client-admin/setting` source, and write the current value into the option first with `wp option update <option> '{"weekdays":"12:00 to 22:00"}' --format=json`:
+4. A date field shows in the site's date format with `{"source":"curate-admin/date","args":{"key":"starts_on"}}`.
+5. Show a settings value anywhere, including template parts, with the `curate-admin/setting` source, and write the current value into the option first with `wp option update <option> '{"weekdays":"12:00 to 22:00"}' --format=json`:
 
 ```html
-<!-- wp:paragraph {"metadata":{"bindings":{"content":{"source":"client-admin/setting","args":{"setting":"hours","key":"weekdays"}}}}} --><p></p><!-- /wp:paragraph -->
+<!-- wp:paragraph {"metadata":{"bindings":{"content":{"source":"curate-admin/setting","args":{"setting":"hours","key":"weekdays"}}}}} --><p></p><!-- /wp:paragraph -->
 ```
 
-6. For a public post type, write its layouts as block templates, so they don't depend on the theme: `single-<slug>.html` and `archive-<slug>.html` in the `templates` folder of the `client-admin-site` plugin. The active theme's own templates of the same name take priority.
+6. For a public post type, write its layouts as block templates, so they don't depend on the theme: `single-<slug>.html` and `archive-<slug>.html` in the `templates` folder of the `curate-admin-site` plugin. The active theme's own templates of the same name take priority.
 7. take_screenshot the page again and compare it with the reference. The two must match. If you can't get them to match, put the old markup back, leave that content in the page, and tell the user.
 
 ## 11. Verify it
 
-Call `verify_client_admin`. It signs in, opens every link in the menu, adds an item of each post type, saves each settings page, and confirms the results reach the site. With a staff account, it signs in as that account and confirms that hidden screens, plugins, themes, users and settings stay closed. With "Everyone", it confirms administrators can still reach them. When every check passes, Studio shows the user a button to open it at the end of your reply. Fix every failure in the manifest or the page, install again, and verify again until all checks pass. Look at the dashboard it returns too: an empty dashboard or a confusing label is a defect.
+Call `verify_curated_admin`. It signs in, opens every link in the menu, adds an item of each post type, saves each settings page, and confirms the results reach the site. With a staff account, it signs in as that account and confirms that hidden screens, plugins, themes, users and settings stay closed. With "Everyone", it confirms administrators can still reach them. When every check passes, Studio shows the user a button to open it at the end of your reply. Fix every failure in the manifest or the page, install again, and verify again until all checks pass. Look at the dashboard it returns too: an empty dashboard or a confusing label is a defect.
 
 A failed check about something staff need is yours to fix. A screen or request that is reachable and shouldn't be is a security problem: never hand over a site with one.
 
@@ -191,7 +191,7 @@ A failed check about something staff need is yours to fix. A screen or request t
 Tell the user:
 
 - What the menu now offers, and what left it.
-- With a staff account, that **Client admin** is next to WordPress Admin in Studio. With "Everyone", that WordPress Admin itself shows the new version, and **Full admin** in the toolbar brings everything back.
+- With a staff account, that **Staff admin** is next to WordPress Admin in Studio. With "Everyone", that WordPress Admin itself shows the new version, and **Full admin** in the toolbar brings everything back.
 - Which content moved, and that the pages matched.
 - The results of the checks, as a count and anything you changed because of them.
 

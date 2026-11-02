@@ -34,7 +34,7 @@ interface PreviewHeaderProps {
 	onPathChange?: ( path: string ) => void;
 	onSwitchRealm: ( realm: PreviewRealm ) => void;
 	hasDesignSystem: boolean;
-	hasClientAdmin: boolean;
+	hasStaffAdmin: boolean;
 	onOpenExternal?: () => void;
 	responsive?: { active: boolean; disabled: boolean; onClick: () => void };
 	annotate?: Omit< ComponentProps< typeof AnnotateButton >, 'iconOnly' >;
@@ -60,7 +60,7 @@ export function PreviewHeader( {
 	onPathChange,
 	onSwitchRealm,
 	hasDesignSystem,
-	hasClientAdmin,
+	hasStaffAdmin,
 	onOpenExternal,
 	responsive,
 	annotate,
@@ -80,7 +80,7 @@ export function PreviewHeader( {
 			onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
 			onSwitchRealm={ onSwitchRealm }
 			hasDesignSystem={ hasDesignSystem }
-			hasClientAdmin={ hasClientAdmin }
+			hasStaffAdmin={ hasStaffAdmin }
 			onOpenExternal={ onOpenExternal }
 			responsive={ responsive }
 			hideActions={ headerLayout !== 'inline' }

@@ -493,8 +493,8 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 				return;
 			}
 
-			// Without a user, a client's session gives way to the admin, so that
-			// WP Admin never opens as the client after Client admin.
+			// Without a user, a Staff session gives way to the admin, so that
+			// WP Admin never opens as Staff after Staff admin.
 			$requested_user = isset( $_GET['user'] ) ? sanitize_user( wp_unslash( $_GET['user'] ) ) : '';
 			$signed_in      = $requested_user
 				? wp_get_current_user()->user_login === $requested_user

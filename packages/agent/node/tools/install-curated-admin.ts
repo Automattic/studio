@@ -1,22 +1,22 @@
 import { Type } from 'typebox';
-import { getSitePluginPath, installClientAdmin } from '@studio/agent/node/client-admin';
+import { getSitePluginPath, installCuratedAdmin } from '@studio/agent/node/curate-admin';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
 import { textResult } from './utils';
 
-export const installClientAdminTool = defineTool(
-	'install_client_admin',
-	'Installs or updates the client admin of a site from a manifest: the runtime plugin, a small ' +
+export const installCuratedAdminTool = defineTool(
+	'install_curated_admin',
+	'Installs or updates the curated admin of a site from a manifest: the runtime plugin, a small ' +
 		'plugin holding the manifest, and the Staff role when there is one. The `curate-admin` skill defines the manifest. ' +
 		'Fills gaps in `brand` from DESIGN.md when the manifest has one. Safe to call again after changing the manifest.',
 	{
 		nameOrPath: Type.String( { description: 'The site name or file system path to the site' } ),
 		manifest: Type.Unknown( {
-			description: 'The client admin manifest, as defined by the `curate-admin` skill.',
+			description: 'The curated admin manifest, as defined by the `curate-admin` skill.',
 		} ),
 	},
 	async ( args, context ) => {
 		const site = await context.host.sites.resolve( args.nameOrPath );
-		const { manifest, locale, untranslated } = await installClientAdmin(
+		const { manifest, locale, untranslated } = await installCuratedAdmin(
 			context.host,
 			site,
 			args.manifest
@@ -26,10 +26,10 @@ export const installClientAdminTool = defineTool(
 			`${ manifest.postTypes?.length ?? 0 } post types`,
 			`${ manifest.settings?.length ?? 0 } settings pages`,
 		].join( ' and ' );
-		const lines = manifest.client
+		const lines = manifest.staff
 			? [
-					`Client admin installed on "${ site.name }" with the role "${ manifest.role?.name }" (${ manifest.role?.slug }), ${ manifest.menu.keep?.length } menu items, ${ summary }.`,
-					`The Staff account is "${ manifest.client.login }". Studio opens wp-admin signed in as it at ${ site.url }/studio-auto-login?user=${ manifest.client.login }&redirect_to=/wp-admin/.`,
+					`Curated admin installed on "${ site.name }" with the role "${ manifest.role?.name }" (${ manifest.role?.slug }), ${ manifest.menu.keep?.length } menu items, ${ summary }.`,
+					`The Staff account is "${ manifest.staff.login }". Studio opens wp-admin signed in as it at ${ site.url }/studio-auto-login?user=${ manifest.staff.login }&redirect_to=/wp-admin/.`,
 			  ]
 			: [
 					`wp-admin is curated for everyone who logs in to "${ site.name }": ${ manifest.menu.hide?.length } menu items hidden, ${ summary }, and no Staff account.`,
@@ -54,6 +54,6 @@ export const installClientAdminTool = defineTool(
 	{
 		annotations: LOCAL_CHANGE,
 		promptSnippet:
-			'Install or update a client admin on a site from its manifest (see the `curate-admin` skill).',
+			'Install or update a curated admin on a site from its manifest (see the `curate-admin` skill).',
 	}
 );

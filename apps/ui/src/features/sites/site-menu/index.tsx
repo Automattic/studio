@@ -153,9 +153,7 @@ export function useSiteActions(
 				() => undefined
 			),
 		openAdmin: () => void goTo( '/wp-admin/' ),
-		openClientAdmin: site.clientAdmin
-			? () => void goTo( '/wp-admin/', site.clientAdmin )
-			: undefined,
+		openStaffAdmin: site.staffAdmin ? () => void goTo( '/wp-admin/', site.staffAdmin ) : undefined,
 		openDatabase: () => void goTo( DATABASE_HOME_PATH ),
 		openEmail: () => void connector.openSiteEmailFolder( site.id ),
 		openDesignSystem: () => void goTo( DESIGN_SYSTEM_PREVIEW_PATH ),
@@ -287,10 +285,10 @@ export function SiteMenuItems( {
 						<WordPressIcon />
 						{ __( 'WordPress Admin' ) }
 					</Menu.Item>
-					{ actions.openClientAdmin ? (
-						<Menu.Item onClick={ actions.openClientAdmin }>
+					{ actions.openStaffAdmin ? (
+						<Menu.Item onClick={ actions.openStaffAdmin }>
 							<UserRoundIcon />
-							{ __( 'Client admin' ) }
+							{ __( 'Staff admin' ) }
 						</Menu.Item>
 					) : null }
 					<Menu.Item onClick={ actions.openDatabase }>

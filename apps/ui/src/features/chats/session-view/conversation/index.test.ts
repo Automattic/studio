@@ -334,7 +334,7 @@ describe( 'Conversation activity groups', () => {
 	} );
 
 	it.each( [
-		[ { path: '/studio-auto-login?user=staff', user: 'staff' }, 'Open client admin' ],
+		[ { path: '/studio-auto-login?user=staff', user: 'staff' }, 'Open staff admin' ],
 		[ { path: '/studio-auto-login' }, 'Open wp-admin' ],
 	] )( 'offers wp-admin once, after the closing message', ( widgetProps, name ) => {
 		const verified = {
@@ -347,7 +347,7 @@ describe( 'Conversation activity groups', () => {
 		renderConversation(
 			loadedSession( [
 				promptEntry( 'Simplify the backend' ),
-				assistantToolCallEntry( 'verify_client_admin', {} ),
+				assistantToolCallEntry( 'verify_curated_admin', {} ),
 				verified,
 				toolResultEntry( 'All checks passed' ),
 				assistantTextEntry( 'The backend is simpler now.' ),

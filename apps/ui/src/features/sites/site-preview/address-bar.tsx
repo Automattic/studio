@@ -31,7 +31,7 @@ export function getPathFromPreviewUrl( url: string, baseUrl: string ) {
 	}
 }
 
-export type PreviewRealm = 'frontend' | 'admin' | 'client' | 'database' | 'design';
+export type PreviewRealm = 'frontend' | 'admin' | 'staff' | 'database' | 'design';
 
 export const DATABASE_HOME_PATH = '/phpmyadmin/index.php?route=/database/structure&db=wordpress';
 
@@ -49,7 +49,7 @@ export function getPreviewRealm( path: string ): PreviewRealm {
 		user = query.get( 'user' );
 	}
 	if ( isAdminPath( target ) ) {
-		return user ? 'client' : 'admin';
+		return user ? 'staff' : 'admin';
 	}
 	if ( /^\/phpmyadmin(?:[/?#]|$)/.test( target ) ) {
 		return 'database';
@@ -60,7 +60,7 @@ export function getPreviewRealm( path: string ): PreviewRealm {
 const REALM_OPEN_EVENTS: Record< PreviewRealm, TracksEventName > = {
 	frontend: TRACKS_EVENTS.SITE_OPEN_IN_BROWSER,
 	admin: TRACKS_EVENTS.SITE_OPEN_WP_ADMIN,
-	client: TRACKS_EVENTS.SITE_OPEN_WP_ADMIN,
+	staff: TRACKS_EVENTS.SITE_OPEN_WP_ADMIN,
 	database: TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN,
 	design: TRACKS_EVENTS.SITE_OPEN_DESIGN_SYSTEM,
 };
@@ -115,7 +115,7 @@ interface PreviewAddressBarProps {
 	onNavigate: ( path: string ) => void;
 	onSwitchRealm: ( realm: PreviewRealm ) => void;
 	hasDesignSystem?: boolean;
-	hasClientAdmin?: boolean;
+	hasStaffAdmin?: boolean;
 	onOpenExternal?: () => void;
 	responsive?: { active: boolean; disabled: boolean; onClick: () => void };
 	// In compact headers, keep only the address and an active responsive toggle.
@@ -231,7 +231,7 @@ export function PreviewAddressBar( {
 	onNavigate,
 	onSwitchRealm,
 	hasDesignSystem = false,
-	hasClientAdmin = false,
+	hasStaffAdmin = false,
 	onOpenExternal,
 	responsive,
 	hideActions = false,
@@ -311,21 +311,21 @@ export function PreviewAddressBar( {
 	const realmIcons: Record< PreviewRealm, ComponentType< { className?: string } > > = {
 		frontend: GlobeIcon,
 		admin: WordPressIcon,
-		client: UserRoundIcon,
+		staff: UserRoundIcon,
 		database: DatabaseIcon,
 		design: AppearanceIcon,
 	};
 	const realmLabels: Record< PreviewRealm, string > = {
 		frontend: __( 'Front end' ),
 		admin: __( 'WordPress Admin' ),
-		client: __( 'Client admin' ),
+		staff: __( 'Staff admin' ),
 		database: __( 'Database' ),
 		design: __( 'Design system' ),
 	};
 	const realms: PreviewRealm[] = [
 		'frontend',
 		'admin',
-		...( hasClientAdmin ? [ 'client' as const ] : [] ),
+		...( hasStaffAdmin ? [ 'staff' as const ] : [] ),
 		'database',
 		...( hasDesignSystem ? [ 'design' as const ] : [] ),
 	];

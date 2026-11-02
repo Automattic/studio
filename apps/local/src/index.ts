@@ -281,7 +281,7 @@ function toSiteDetails( site: SiteListItem, sortOrder?: number ) {
 		environmentType: site.environmentType,
 		operation: site.operation,
 		emailPath: site.emailPath,
-		clientAdmin: site.clientAdmin,
+		staffAdmin: site.staffAdmin,
 		sortOrder,
 	};
 }

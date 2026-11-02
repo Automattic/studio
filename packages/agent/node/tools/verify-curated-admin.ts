@@ -5,16 +5,16 @@ import { getSharedBrowser } from '@studio/agent/node/browser-utils';
 import {
 	getSitePluginPath,
 	readInstalledManifest,
-	type ClientAdminManifest,
-} from '@studio/agent/node/client-admin';
+	type CurateAdminManifest,
+} from '@studio/agent/node/curate-admin';
 import { defineTool, LOCAL_CHANGE, type StudioToolDefinition } from './define-tool';
 import { runWpCli } from './utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 
 type Browser = Awaited< ReturnType< typeof getSharedBrowser > >;
 type Page = Awaited< ReturnType< Browser[ 'newPage' ] > >;
-type PostType = NonNullable< ClientAdminManifest[ 'postTypes' ] >[ number ];
-type Setting = NonNullable< ClientAdminManifest[ 'settings' ] >[ number ];
+type PostType = NonNullable< CurateAdminManifest[ 'postTypes' ] >[ number ];
+type Setting = NonNullable< CurateAdminManifest[ 'settings' ] >[ number ];
 
 interface Check {
 	name: string;
@@ -40,7 +40,7 @@ const CLOSED_SCREENS = [
 	'update-core.php',
 	'edit.php?post_type=wp_navigation',
 	'edit.php?post_type=wp_block',
-	'edit.php?post_type=client_request',
+	'edit.php?post_type=change_request',
 ];
 
 // Reads, so that nothing happens if one is answered.
@@ -56,7 +56,7 @@ const NEVER_HELD = [
 
 const WAIT_MS = 20_000;
 
-const createMarker = () => `Client admin check ${ randomBytes( 3 ).toString( 'hex' ) }`;
+const createMarker = () => `Curated admin check ${ randomBytes( 3 ).toString( 'hex' ) }`;
 
 async function adminPage( page: Page, site: HostSite, screen: string ) {
 	return page.goto( `${ site.url }/wp-admin/${ screen }`, {
@@ -88,7 +88,7 @@ async function openEditor( page: Page, url: string, locked: boolean ) {
 	await page.goto( url, { waitUntil: 'domcontentloaded', timeout: WAIT_MS } );
 	await page.waitForFunction(
 		( isLocked ) =>
-			( ! isLocked || document.body.classList.contains( 'client-admin-locked' ) ) &&
+			( ! isLocked || document.body.classList.contains( 'curate-admin-locked' ) ) &&
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			( window as any ).wp?.data?.select( 'core/editor' )?.getCurrentPostId(),
 		locked,
@@ -243,8 +243,8 @@ async function checkSetting( page: Page, site: HostSite, setting: Setting ): Pro
 	const name = `${ setting.title }: change a value and see it on the site`;
 	const key = setting.fields[ 0 ]?.key;
 	const marker = createMarker();
-	await adminPage( page, site, `admin.php?page=client-admin-${ setting.id }` );
-	await page.fill( `#client-admin-${ key }`, marker );
+	await adminPage( page, site, `admin.php?page=curate-admin-${ setting.id }` );
+	await page.fill( `#curate-admin-${ key }`, marker );
 	await Promise.all( [
 		page.waitForURL( /settings-updated=true/, { timeout: WAIT_MS } ),
 		page.click( '#submit' ),
@@ -263,7 +263,7 @@ async function checkSetting( page: Page, site: HostSite, setting: Setting ): Pro
 async function checkPages(
 	page: Page,
 	site: HostSite,
-	entry: NonNullable< ClientAdminManifest[ 'menu' ][ 'keep' ] >[ number ]
+	entry: NonNullable< CurateAdminManifest[ 'menu' ][ 'keep' ] >[ number ]
 ): Promise< Check > {
 	const name = 'Pages: only text and photos can change';
 	await adminPage( page, site, PAGES_SCREEN );
@@ -322,18 +322,18 @@ async function readMenu( page: Page, site: HostSite ) {
 	}, `${ site.url }/wp-admin/` );
 }
 
-function keptScreens( manifest: ClientAdminManifest ): string[] {
+function keptScreens( manifest: CurateAdminManifest ): string[] {
 	return [
 		'index.php',
 		'profile.php',
 		...( manifest.menu.keep ?? [] ).map( ( { screen } ) => screen ),
 		...( manifest.postTypes ?? [] ).map( ( { slug } ) => `edit.php?post_type=${ slug }` ),
-		...( manifest.settings ?? [] ).map( ( { id } ) => `admin.php?page=client-admin-${ id }` ),
+		...( manifest.settings ?? [] ).map( ( { id } ) => `admin.php?page=curate-admin-${ id }` ),
 	];
 }
 
 function checkMenu(
-	manifest: ClientAdminManifest,
+	manifest: CurateAdminManifest,
 	{ top }: Awaited< ReturnType< typeof readMenu > >
 ): Check[] {
 	const kept = keptScreens( manifest );
@@ -379,7 +379,7 @@ async function checkLinks( page: Page, site: HostSite, links: string[] ): Promis
 async function checkDashboard(
 	page: Page,
 	site: HostSite,
-	manifest: ClientAdminManifest
+	manifest: CurateAdminManifest
 ): Promise< Check[] > {
 	if ( ! manifest.dashboard ) {
 		return [];
@@ -389,7 +389,7 @@ async function checkDashboard(
 		.locator( '#dashboard-widgets .postbox' )
 		.evaluateAll( ( boxes ) => boxes.map( ( box ) => box.id ) );
 	const { keep = [], hide = [], widgets = [] } = manifest.dashboard;
-	const custom = widgets.map( ( { id } ) => `client_admin_${ id }` );
+	const custom = widgets.map( ( { id } ) => `curate_admin_${ id }` );
 	const missing = custom.filter( ( id ) => ! shown.includes( id ) );
 	const extra = shown.filter( ( id ) =>
 		manifest.audience === 'staff'
@@ -412,7 +412,7 @@ async function checkDashboard(
 async function checkCapabilities(
 	host: StudioAgentHost,
 	site: HostSite,
-	manifest: ClientAdminManifest,
+	manifest: CurateAdminManifest,
 	login: string
 ): Promise< Check[] > {
 	const kept = keptScreens( manifest );
@@ -448,7 +448,7 @@ async function checkCapabilities(
 async function checkRawHtml(
 	host: StudioAgentHost,
 	site: HostSite,
-	manifest: ClientAdminManifest
+	manifest: CurateAdminManifest
 ): Promise< Check[] > {
 	const entry = manifest.menu.keep?.find( ( { screen } ) => screen === PAGES_SCREEN );
 	if ( ! entry ) {
@@ -478,7 +478,7 @@ async function checkClosed(
 	host: StudioAgentHost,
 	page: Page,
 	site: HostSite,
-	manifest: ClientAdminManifest,
+	manifest: CurateAdminManifest,
 	login: string
 ): Promise< Check[] > {
 	const kept = keptScreens( manifest );
@@ -502,7 +502,7 @@ async function checkClosed(
 		...CLOSED_SCREENS.filter( ( candidate ) => ! kept.includes( candidate ) ),
 		'options.php',
 		...( manifest.settings ?? [] ).map(
-			( { id } ) => `options.php?option_page=client-admin-${ id }`
+			( { id } ) => `options.php?option_page=curate-admin-${ id }`
 		),
 		...( closedPage ? [ `post.php?post=${ closedPage.ID }&action=edit` ] : [] ),
 	] ) {
@@ -537,7 +537,7 @@ async function checkClosed(
 async function checkFullAdmin( page: Page, site: HostSite ): Promise< Check[] > {
 	await adminPage( page, site, 'plugins.php' );
 	const reached = new URL( page.url() ).pathname.endsWith( 'plugins.php' );
-	const toggle = await page.locator( '#wp-admin-bar-client-admin-full a' ).count();
+	const toggle = await page.locator( '#wp-admin-bar-curate-admin-full a' ).count();
 	return [
 		{
 			name: 'Administrators keep the full admin',
@@ -561,7 +561,7 @@ function getAdminPath( site: HostSite, login?: string ): string {
 async function runChecks(
 	host: StudioAgentHost,
 	site: HostSite,
-	manifest: ClientAdminManifest,
+	manifest: CurateAdminManifest,
 	login: string | undefined,
 	created: number[],
 	onProgress: ( message: string ) => void
@@ -676,7 +676,7 @@ async function runChecks(
 async function snapshotSettings(
 	host: StudioAgentHost,
 	site: HostSite,
-	manifest: ClientAdminManifest
+	manifest: CurateAdminManifest
 ) {
 	const values = await Promise.all(
 		( manifest.settings ?? [] ).map( async ( { option } ) => {
@@ -702,12 +702,12 @@ async function snapshotSettings(
 		);
 }
 
-export function createVerifyClientAdminTool( { visionEnabled }: { visionEnabled: boolean } ) {
+export function createVerifyCuratedAdminTool( { visionEnabled }: { visionEnabled: boolean } ) {
 	return defineTool(
-		'verify_client_admin',
+		'verify_curated_admin',
 		"Signs in to a site's curated wp-admin and tries it for real: opens every menu link, adds an item of each post type, saves each settings page, and confirms the results reach the site. With a Staff account, it also confirms " +
 			'that hidden screens, plugins, themes, users and settings stay closed, on screen and through the REST API. Saves a capture for each guide entry, and offers the user a button to open wp-admin. ' +
-			'Everything it creates or changes is removed afterwards. Run it after install_client_admin and fix every failure.',
+			'Everything it creates or changes is removed afterwards. Run it after install_curated_admin and fix every failure.',
 		{
 			nameOrPath: Type.String( { description: 'The site name or file system path to the site' } ),
 		},
@@ -718,9 +718,9 @@ export function createVerifyClientAdminTool( { visionEnabled }: { visionEnabled:
 			}
 
 			const manifest = await readInstalledManifest( site );
-			const login = manifest.client?.login;
+			const login = manifest.staff?.login;
 			if ( manifest.audience === 'staff' && ! login ) {
-				throw new Error( 'The site has no Staff account. Run install_client_admin first.' );
+				throw new Error( 'The site has no Staff account. Run install_curated_admin first.' );
 			}
 
 			const restoreSettings = await snapshotSettings( context.host, site, manifest );
@@ -790,6 +790,6 @@ export function createVerifyClientAdminTool( { visionEnabled }: { visionEnabled:
 	);
 }
 
-export const verifyClientAdminTool: StudioToolDefinition = createVerifyClientAdminTool( {
+export const verifyCuratedAdminTool: StudioToolDefinition = createVerifyCuratedAdminTool( {
 	visionEnabled: true,
 } );

@@ -15,11 +15,11 @@ The skill works through four decisions, in this order:
 | --- | --- | --- |
 | Skill | `packages/agent/node/skills/curate-admin/SKILL.md` | The runbook: read the site, walk through the four decisions, write the plan and manifest, build the site side, verify, hand over |
 | `inspect_wp_admin` | `packages/agent/node/tools` | Reads the real menu, submenus and dashboard widgets as an administrator sees them. WP-CLI never builds the menu, so this takes a page load |
-| `install_client_admin` | `packages/agent/node/tools` | Validates a manifest, copies the runtime, writes the site plugin, creates the Staff account |
-| `verify_client_admin` | `packages/agent/node/tools` | Signs in, opens every menu link, adds an item of each post type, saves each setting, and proves what must stay closed does |
-| Runtime plugin | `packages/agent/node/skills/curate-admin/plugin` (`wp-content/plugins/client-admin`) | Reads the manifest. Generic: holds no site data, and has no build step |
-| Site plugin | Generated (`wp-content/plugins/client-admin-site`) | Holds `client-admin.json`, `guide/` and `templates/` for this site |
-| Client admin | `getClientAdminLogin` in `packages/common/lib/client-admin.ts`, read by `getSiteDetails` | Tells Studio which account to open, and hides the links on other sites |
+| `install_curated_admin` | `packages/agent/node/tools` | Validates a manifest, copies the runtime, writes the site plugin, creates the Staff account |
+| `verify_curated_admin` | `packages/agent/node/tools` | Signs in, opens every menu link, adds an item of each post type, saves each setting, and proves what must stay closed does |
+| Runtime plugin | `packages/agent/node/skills/curate-admin/plugin` (`wp-content/plugins/curate-admin`) | Reads the manifest. Generic: holds no site data, and has no build step |
+| Site plugin | Generated (`wp-content/plugins/curate-admin-site`) | Holds `curate-admin.json`, `guide/` and `templates/` for this site |
+| Staff admin | `getStaffAdminLogin` in `packages/common/lib/curate-admin.ts`, read by `getSiteDetails` | Tells Studio which account to open, and hides the links on other sites |
 
 ## What it maps to in WordPress
 
@@ -30,7 +30,7 @@ The skill works through four decisions, in this order:
 | `postTypes` | `register_post_type`, `register_taxonomy`, `register_post_meta`, on the normal list screens |
 | Item editing | The block editor, with a post type `template` and `template_lock`, `allowed_block_types_all`, and paragraphs bound to post meta |
 | Item layouts | `register_block_template`, from `templates/` in the site plugin |
-| Showing content | Query Loops, Terms Query and Block Bindings (`core/post-meta`, `client-admin/setting`, `client-admin/date`) |
+| Showing content | Query Loops, Terms Query and Block Bindings (`core/post-meta`, `curate-admin/setting`, `curate-admin/date`) |
 | `order` | `query_loop_block_query_vars`, since a Query Loop has no meta sort or date filter |
 | `settings` | Settings API pages, with `option_page_capability_{$page}` so Staff can save them |
 | `dashboard` | `wp_dashboard_setup`, `wp_add_dashboard_widget` |
@@ -48,19 +48,19 @@ Everything after `dashboard` in that table is optional, and nothing turns on unl
 
 **Stay close to Core.** Each post type maps almost one to one onto `register_post_type`, and a kept menu item keeps its submenus and its own screens. Custom code only fills gaps Core leaves, such as a date field and a sorted Query Loop.
 
-**Capabilities are the security boundary.** For Staff, hiding a menu item that has a capability also removes it: Comments takes `moderate_comments`, Pages takes the page capabilities. The screen allowlist then stops deep links, and `role.php` strips dangerous capabilities whatever the manifest says, because `shop_manager` grants some of them. `verify_client_admin` tests the REST API as well as the screens.
+**Capabilities are the security boundary.** For Staff, hiding a menu item that has a capability also removes it: Comments takes `moderate_comments`, Pages takes the page capabilities. The screen allowlist then stops deep links, and `role.php` strips dangerous capabilities whatever the manifest says, because `shop_manager` grants some of them. `verify_curated_admin` tests the REST API as well as the screens.
 
 ## Two audiences
 
-The skill's first question sets `audience`. **Staff** is a separate account and role. Capabilities and a screen allowlist limit it, and Studio shows Client admin. **Everyone** curates wp-admin itself for all who log in: there is no role or account, nothing is limited, and Studio shows no Client admin. `client_admin_is_staff()` decides what is enforced, and `client_admin_is_curated()` decides what people see.
+The skill's first question sets `audience`. **Staff** is a separate account and role. Capabilities and a screen allowlist limit it, and Studio shows Staff admin. **Everyone** curates wp-admin itself for all who log in: there is no role or account, nothing is limited, and Studio shows no Staff admin. `curate_admin_is_staff()` decides what is enforced, and `curate_admin_is_curated()` decides what people see.
 
 The two store the menu differently. Staff save a keep list, so a plugin added later stays hidden from them. Everyone saves a hide list, so a plugin added later still shows up. Dashboard widgets work the same way.
 
 With everyone curated, an administrator would otherwise lose Plugins and Settings from the menu, so **Full admin** in the toolbar turns the curation off for that user. It's a per-user view setting, not a security control.
 
-When verification passes, it emits an `admin-link` chat artifact, the same mechanism as the design system's. The conversation shows it once, after the closing message, as Open client admin or Open wp-admin.
+When verification passes, it emits an `admin-link` chat artifact, the same mechanism as the design system's. The conversation shows it once, after the closing message, as Open staff admin or Open wp-admin.
 
-## Client admin
+## Staff admin
 
 The install tool creates a local Staff account with a random password. Studio opens it through `/studio-auto-login?user=<login>`, next to WordPress Admin in the Tools menu, Open in, the command palette and the preview's address bar. Sites without a manifest show none of these. `/studio-auto-login` is local to Studio and already signs in as the admin without a password. With no `user`, it replaces a session that can't `manage_options`, so WordPress Admin never opens as Staff.
 
@@ -70,11 +70,11 @@ The preview can't tell the Staff session from its URL, because `/wp-admin/` is t
 
 ## Decisions worth knowing
 
-**A top-level item goes by two screens.** WordPress links a menu item to its first submenu, so a plugin's `Forms` can report `edit.php?post_type=form_entry`. `client_admin_item_screens` matches both.
+**A top-level item goes by two screens.** WordPress links a menu item to its first submenu, so a plugin's `Forms` can report `edit.php?post_type=form_entry`. `curate_admin_item_screens` matches both.
 
 **`promote` moves a submenu item to the top level.** Form entries usually sit under a plugin's menu whose parent needs `manage_options`. Core answers a nested post type with a 403 for an Editor in that case, even with this plugin off, and promoting it fixes that.
 
-**Core escapes `&` in taxonomy submenu links.** `client_admin_menu_screen` decodes them, or the allowlist reads `amp;post_type`.
+**Core escapes `&` in taxonomy submenu links.** `curate_admin_menu_screen` decodes them, or the allowlist reads `amp;post_type`.
 
 **Item templates are seeded.** The editor applies a post type's template only to new posts, so `wp_insert_post_data` fills in the fields' template for items created over WP-CLI or REST. A custom `template` has markup only the agent knows, so it passes that itself.
 
@@ -109,9 +109,9 @@ The preview can't tell the Staff session from its URL, because `/wp-admin/` is t
 - A plugin's post type on the default capabilities keeps working over REST when its menu item is hidden, and so do categories and tags while any post type has taxonomies. Only the screens close.
 - Patterns' screens close, but a synced pattern stays editable over REST, because refusing `edit_post` breaks it in the editor.
 - Hiding Media closes its screens but not uploading, which image blocks need.
-- Staff can't save raw HTML, so `verify_client_admin` fails on a Custom HTML block in a page they edit.
+- Staff can't save raw HTML, so `verify_curated_admin` fails on a Custom HTML block in a page they edit.
 - `shop_manager` keeps `manage_woocommerce`, which also opens WooCommerce's settings over REST. Remove it with `role.remove` if staff shouldn't reach them.
-- `client-admin.json` and guide captures are public files in `wp-content/plugins`, so neither holds anything private.
+- `curate-admin.json` and guide captures are public files in `wp-content/plugins`, so neither holds anything private.
 - Items of a post type with no URLs are still public through REST, because they appear on the site anyway.
 - Field types are text, long text and date. Core has no declarative field UI yet: bound paragraphs cover text, and a small sidebar panel covers dates.
 - Sites need WordPress 6.9 or later.

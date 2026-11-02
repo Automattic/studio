@@ -6,7 +6,7 @@ import { textResult } from './utils';
 export const inspectWpAdminTool = defineTool(
 	'inspect_wp_admin',
 	"Reads a site's real wp-admin as an administrator sees it: every menu item and submenu, with plugins' own, and every dashboard widget. " +
-		'Each item has the `screen` a client admin manifest refers to it by. Changes nothing.',
+		'Each item has the `screen` a curated admin manifest refers to it by. Changes nothing.',
 	{
 		nameOrPath: Type.String( { description: 'The site name or file system path to the site' } ),
 	},

@@ -249,7 +249,7 @@ tests:
 
   # A restaurant with its menu and hours written into pages. The agent walks through
   # the four steps, writes its plan, moves that content, and verifies it as staff.
-  - description: client handoff asks first, then leaves a verified client admin with the content in a post type and settings
+  - description: client handoff asks first, then leaves a verified curated admin with the content in a post type and settings
     vars:
       caseId: curate-admin-handoff
       timeoutMs: 1500000
@@ -289,7 +289,7 @@ tests:
       - type: javascript
         value: file://outcome.mjs:siteWorks
       - type: javascript
-        value: file://outcome.mjs:clientAdminHandedOver
+        value: file://outcome.mjs:curatedAdminHandedOver
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
 
@@ -333,7 +333,7 @@ tests:
       - type: javascript
         value: file://outcome.mjs:siteWorks
       - type: javascript
-        value: file://outcome.mjs:clientAdminForEveryone
+        value: file://outcome.mjs:curatedAdminForEveryone
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
   # A blog with pages, which needs no post types, and whose staff still run it.
@@ -374,7 +374,7 @@ tests:
       - type: javascript
         value: file://outcome.mjs:siteWorks
       - type: javascript
-        value: file://outcome.mjs:clientAdminKeepsBlogging
+        value: file://outcome.mjs:curatedAdminKeepsBlogging
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
   # Regression: a "shop"/"store" request framed with qualifiers ("small",
@@ -1008,7 +1008,7 @@ tests:
       timeoutMs: 300000
       skills: [{ name: curate-admin }]
       stopAt:
-        - tool: install_client_admin
+        - tool: install_curated_admin
         - tool: Write
         - tool: Edit
         - tool: wp_cli

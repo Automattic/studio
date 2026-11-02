@@ -79,10 +79,10 @@ function AdminLinkArtifact( { widget }: { widget: StudioChatArtifactWidgetDraft 
 	const isStaff = Boolean( widget.widgetProps.user );
 	return (
 		<div className={ styles.designSystemArtifact }>
-			<span>{ isStaff ? __( 'The client admin is ready.' ) : __( 'wp-admin is ready.' ) }</span>
+			<span>{ isStaff ? __( 'The staff admin is ready.' ) : __( 'wp-admin is ready.' ) }</span>
 			<Button size="sm" onClick={ () => preview?.navigate( String( widget.widgetProps.path ) ) }>
 				{ isStaff ? <UserRoundIcon /> : <WordPressIcon /> }
-				{ isStaff ? __( 'Open client admin' ) : __( 'Open wp-admin' ) }
+				{ isStaff ? __( 'Open staff admin' ) : __( 'Open wp-admin' ) }
 			</Button>
 		</div>
 	);

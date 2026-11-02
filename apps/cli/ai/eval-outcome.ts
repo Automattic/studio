@@ -25,7 +25,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { validateBlocks } from '@studio/agent/node';
-import { getClientAdminManifestPath } from '@studio/common/lib/client-admin';
+import { getCurateAdminManifestPath } from '@studio/common/lib/curate-admin';
 import { STUDIO_LOADER_MU_PLUGIN_FILENAME } from '@studio/common/lib/mu-plugins';
 import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
 import { Mode as StopMode, runCommand as runStopSiteCommand } from 'cli/commands/site/stop';
@@ -233,9 +233,9 @@ function imageFormat( file: string ): string | null {
 	return `unknown:${ path.basename( file ) }`;
 }
 
-// What a client admin left on the site, for the `curate-admin` skill's cases.
-async function captureClientAdmin( sitePath: string, url: string ) {
-	const file = getClientAdminManifestPath( sitePath );
+// What a curated admin left on the site, for the `curate-admin` skill's cases.
+async function captureCurateAdmin( sitePath: string, url: string ) {
+	const file = getCurateAdminManifestPath( sitePath );
 	if ( ! existsSync( file ) ) {
 		return null;
 	}
@@ -335,7 +335,7 @@ async function captureSiteOutcome(
 		}
 		const designPath = path.join( sitePath, 'DESIGN.md' );
 		outcome.designMd = existsSync( designPath ) ? readFileSync( designPath, 'utf8' ) : null;
-		outcome.clientAdmin = await captureClientAdmin( sitePath, url );
+		outcome.curateAdmin = await captureCurateAdmin( sitePath, url );
 
 		const home = await renderHome( url );
 		if ( 'html' in home && home.html ) {

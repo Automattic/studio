@@ -26,7 +26,7 @@ import {
 const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
 	frontend: '/',
 	admin: '/wp-admin/',
-	client: '/wp-admin/',
+	staff: '/wp-admin/',
 	database: DATABASE_HOME_PATH,
 	design: DESIGN_SYSTEM_PREVIEW_PATH,
 };
@@ -39,14 +39,14 @@ const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
 export function usePreviewSurfaces( {
 	siteId,
 	siteUrl,
-	clientLogin,
+	staffLogin,
 	path,
 	reloadNonce,
 	onPathChange,
 }: {
 	siteId: string;
 	siteUrl: string;
-	clientLogin?: string;
+	staffLogin?: string;
 	path: string;
 	reloadNonce: number;
 	onPathChange?: ( path: string ) => void;
@@ -58,15 +58,15 @@ export function usePreviewSurfaces( {
 	// truth for where the preview is aimed.
 	const pathRealm = getPreviewRealm( path );
 	// wp-admin's paths are the same for every account, so only the sign-in hop
-	// says the session is the client's. It holds until a hop signs in as the admin.
-	const [ isClientSession, setIsClientSession ] = useState( false );
-	useEffect( () => setIsClientSession( false ), [ siteId ] );
+	// says the session is Staff's. It holds until a hop signs in as the admin.
+	const [ isStaffSession, setIsStaffSession ] = useState( false );
+	useEffect( () => setIsStaffSession( false ), [ siteId ] );
 	useEffect( () => {
 		if ( path.startsWith( '/studio-auto-login' ) ) {
-			setIsClientSession( pathRealm === 'client' );
+			setIsStaffSession( pathRealm === 'staff' );
 		}
 	}, [ path, pathRealm ] );
-	const activeRealm = pathRealm === 'admin' && isClientSession ? 'client' : pathRealm;
+	const activeRealm = pathRealm === 'admin' && isStaffSession ? 'staff' : pathRealm;
 	const activeSurfaceKey = getSurfaceKey( activeRealm );
 	// Surfaces mounted so far. Once created a surface stays mounted and warm;
 	// only the active one is visible.
@@ -154,7 +154,7 @@ export function usePreviewSurfaces( {
 			return;
 		}
 		lastHostReloadNonceRef.current = reloadNonce;
-		if ( activeRealm === 'admin' || activeRealm === 'client' ) {
+		if ( activeRealm === 'admin' || activeRealm === 'staff' ) {
 			return;
 		}
 		if ( activeSurfaceKey === 'design' ) {
@@ -193,22 +193,22 @@ export function usePreviewSurfaces( {
 			void connector.trackEvent( getRealmOpenEvent( realm ), { browser: 'internal' } );
 			const target = lastRealmPathsRef.current[ realm ];
 			const key = getSurfaceKey( realm );
-			// Moving between the admin and the client changes who is signed in.
-			const changesSession = realm === 'client' || ( realm === 'admin' && isClientSession );
+			// Moving between the admin and Staff changes who is signed in.
+			const changesSession = realm === 'staff' || ( realm === 'admin' && isStaffSession );
 			if ( ! changesSession && surfaces.byKey[ key ]?.path === target ) {
 				sendSurfaceCommand( key, 'reload' );
 				onPathChange?.( target );
 				return;
 			}
 			onPathChange?.(
-				getRealmNavigationPath( target, siteUrl, realm === 'client' ? clientLogin : undefined )
+				getRealmNavigationPath( target, siteUrl, realm === 'staff' ? staffLogin : undefined )
 			);
 		},
 		[
 			activeRealm,
-			clientLogin,
+			staffLogin,
 			connector,
-			isClientSession,
+			isStaffSession,
 			onPathChange,
 			sendSurfaceCommand,
 			siteUrl,

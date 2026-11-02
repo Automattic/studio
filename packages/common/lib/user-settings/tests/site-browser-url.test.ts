@@ -10,7 +10,7 @@ describe( 'getSiteBrowserUrl', () => {
 		expect( url.searchParams.has( 'user' ) ).toBe( false );
 	} );
 
-	it( 'signs in as the given user for Client admin', () => {
+	it( 'signs in as the given user for Staff admin', () => {
 		const url = new URL( getSiteBrowserUrl( site, '/wp-admin/', true, 'maria' ) );
 		expect( url.searchParams.get( 'user' ) ).toBe( 'maria' );
 		expect( url.searchParams.get( 'redirect_to' ) ).toBe( 'http://localhost:8881/wp-admin/' );

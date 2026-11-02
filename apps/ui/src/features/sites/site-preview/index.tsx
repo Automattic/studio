@@ -123,7 +123,7 @@ export function SitePreview( {
 	} = usePreviewSurfaces( {
 		siteId: site.id,
 		siteUrl,
-		clientLogin: site.clientAdmin,
+		staffLogin: site.staffAdmin,
 		path: safePath,
 		reloadNonce,
 		onPathChange,
@@ -261,7 +261,7 @@ export function SitePreview( {
 				void connector
 					.openSiteUrl( site.id, safePath, {
 						autoLogin: activeRealm !== 'frontend',
-						user: activeRealm === 'client' ? site.clientAdmin : undefined,
+						user: activeRealm === 'staff' ? site.staffAdmin : undefined,
 					} )
 					.catch( ( error ) => {
 						console.error( 'Failed to open site in browser:', error );
@@ -338,7 +338,7 @@ export function SitePreview( {
 			onPathChange={ onPathChange }
 			onSwitchRealm={ switchRealm }
 			hasDesignSystem={ !! siteDesign.data }
-			hasClientAdmin={ ! live && !! site.clientAdmin }
+			hasStaffAdmin={ ! live && !! site.staffAdmin }
 			onOpenExternal={ openExternal }
 			responsive={ responsive }
 			annotate={ annotate }

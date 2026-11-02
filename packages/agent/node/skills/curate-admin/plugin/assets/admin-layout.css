@@ -1,14 +1,14 @@
-.client-admin-links {
+.curate-admin-links {
 	display: grid;
 	gap: 8px;
 	margin: 0;
 }
 
-.client-admin-links li {
+.curate-admin-links li {
 	margin: 0;
 }
 
-.client-admin-links a {
+.curate-admin-links a {
 	display: grid;
 	gap: 2px;
 	padding: 10px 12px;
@@ -18,15 +18,15 @@
 	text-decoration: none;
 }
 
-.client-admin-links a:hover,
-.client-admin-links a:focus {
+.curate-admin-links a:hover,
+.curate-admin-links a:focus {
 	border-color: currentcolor;
 }
 
-.client-admin-links strong {
+.curate-admin-links strong {
 	font-size: 14px;
 }
 
-.client-admin-links span {
+.curate-admin-links span {
 	color: #50575e;
 }

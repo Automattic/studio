@@ -2,16 +2,16 @@ import { randomBytes } from 'crypto';
 import { cp, mkdir, readFile, rm, writeFile } from 'fs/promises';
 import path from 'path';
 import {
-	CLIENT_ADMIN_SITE_PLUGIN,
-	getClientAdminManifestPath,
-} from '@studio/common/lib/client-admin';
+	CURATE_ADMIN_SITE_PLUGIN,
+	getCurateAdminManifestPath,
+} from '@studio/common/lib/curate-admin';
 import { designSheet, fontFamilyName, parseDesignMd } from '@studio/design-md';
 import { z } from 'zod';
 import { getSkillPath } from './skills';
 import { runWpCli } from './tools/utils';
 import type { HostSite, StudioAgentHost } from './host';
 
-export const CLIENT_ADMIN_PLUGIN_SLUG = 'client-admin';
+export const CURATE_ADMIN_PLUGIN_SLUG = 'curate-admin';
 
 const hexColor = z.string().regex( /^#[0-9a-fA-F]{6}$/, 'must be a six-digit hex color' );
 const slug = z
@@ -166,7 +166,7 @@ const manifestSchema = z
 				responseTime: z.string().optional(),
 			} )
 			.optional(),
-		client: z
+		staff: z
 			.strictObject( {
 				name: z.string().min( 1 ),
 				login: z
@@ -339,15 +339,15 @@ const manifestSchema = z
 		}
 	} );
 
-export type ClientAdminManifest = z.infer< typeof manifestSchema >;
+export type CurateAdminManifest = z.infer< typeof manifestSchema >;
 
-export function parseClientAdminManifest( input: unknown ): ClientAdminManifest {
+export function parseCurateAdminManifest( input: unknown ): CurateAdminManifest {
 	const result = manifestSchema.safeParse( input );
 	if ( ! result.success ) {
 		const problems = result.error.issues.map(
 			( { path: at, message } ) => `- ${ at.join( '.' ) || 'manifest' }: ${ message }`
 		);
-		throw new Error( `The client admin manifest is invalid:\n${ problems.join( '\n' ) }` );
+		throw new Error( `The curated admin manifest is invalid:\n${ problems.join( '\n' ) }` );
 	}
 	return result.data;
 }
@@ -383,8 +383,8 @@ function sidebarShade( accent: string ): string {
 // Fills in whatever the manifest's brand leaves out from the site's DESIGN.md.
 async function resolveBrand(
 	site: HostSite,
-	brand: ClientAdminManifest[ 'brand' ]
-): Promise< NonNullable< ClientAdminManifest[ 'brand' ] > > {
+	brand: CurateAdminManifest[ 'brand' ]
+): Promise< NonNullable< CurateAdminManifest[ 'brand' ] > > {
 	let design: { accent?: string; displayFont?: string } = {};
 	try {
 		const sheet = designSheet(
@@ -395,7 +395,7 @@ async function resolveBrand(
 			displayFont: fontFamilyName( sheet.display.fontFamily ) || undefined,
 		};
 	} catch {
-		// No usable design system: the client admin keeps its neutral defaults.
+		// No usable design system: the curated admin keeps its neutral defaults.
 	}
 
 	const accent = brand?.accent ?? design.accent;
@@ -412,26 +412,26 @@ function renderSitePlugin( name: string ): string {
 	const pluginName = name.replace( /[\r\n*]/g, ' ' ).trim();
 	return `<?php
 /**
- * Plugin Name:      ${ pluginName } client admin
- * Description:      This site's client admin: its manifest and client guide. Written by WordPress Studio.
+ * Plugin Name:      ${ pluginName } curated admin
+ * Description:      This site's curated admin: its manifest and guide. Written by WordPress Studio.
  * Version:          1.0.0
- * Requires Plugins: ${ CLIENT_ADMIN_PLUGIN_SLUG }
+ * Requires Plugins: ${ CURATE_ADMIN_PLUGIN_SLUG }
  * License:          GPLv2 or later
  *
- * @package ClientAdmin
+ * @package CurateAdmin
  */
 
 defined( 'ABSPATH' ) || exit;
 
 add_filter(
-	'client_admin_manifest_file',
+	'curate_admin_manifest_file',
 	static function () {
-		return __DIR__ . '/client-admin.json';
+		return __DIR__ . '/curate-admin.json';
 	}
 );
 
 add_filter(
-	'client_admin_guide',
+	'curate_admin_guide',
 	static function () {
 		return array(
 			'path' => __DIR__ . '/guide',
@@ -441,7 +441,7 @@ add_filter(
 );
 
 add_filter(
-	'client_admin_templates_directory',
+	'curate_admin_templates_directory',
 	static function () {
 		return __DIR__ . '/templates';
 	}
@@ -450,12 +450,12 @@ add_filter(
 }
 
 export function getSitePluginPath( site: HostSite ): string {
-	return path.join( site.path, 'wp-content', 'plugins', CLIENT_ADMIN_SITE_PLUGIN );
+	return path.join( site.path, 'wp-content', 'plugins', CURATE_ADMIN_SITE_PLUGIN );
 }
 
-export async function readInstalledManifest( site: HostSite ): Promise< ClientAdminManifest > {
-	const file = getClientAdminManifestPath( site.path );
-	return parseClientAdminManifest( JSON.parse( await readFile( file, 'utf8' ) ) );
+export async function readInstalledManifest( site: HostSite ): Promise< CurateAdminManifest > {
+	const file = getCurateAdminManifestPath( site.path );
+	return parseCurateAdminManifest( JSON.parse( await readFile( file, 'utf8' ) ) );
 }
 
 // The English strings of the runtime, which `manifest.strings` translates for a
@@ -474,7 +474,7 @@ async function getRuntimeStrings(): Promise< string[] > {
 	);
 	const strings = new Set< string >();
 	for ( const source of sources ) {
-		const pattern = /(["'`])((?:\\.|(?!\1).)+)\1\s*,\s*["'`]client-admin["'`]/g;
+		const pattern = /(["'`])((?:\\.|(?!\1).)+)\1\s*,\s*["'`]curate-admin["'`]/g;
 		for ( const [ , , text ] of source.matchAll( pattern ) ) {
 			strings.add( text.replace( /\\(.)/g, '$1' ) );
 		}
@@ -482,18 +482,18 @@ async function getRuntimeStrings(): Promise< string[] > {
 	return [ ...strings ];
 }
 
-// The account Studio's "Client admin" opens. Exports and pushes leave users
+// The account Studio's "Staff admin" opens. Exports and pushes leave users
 // behind, so it stays on this computer and needs no real email or known password.
-async function ensureClientAccount(
+async function ensureStaffAccount(
 	host: StudioAgentHost,
 	site: HostSite,
-	client: { name: string; login: string },
+	staff: { name: string; login: string },
 	role: string
 ): Promise< void > {
 	const { exitCode, stdout } = await host.sites.wpCli( site, [
 		'user',
 		'get',
-		client.login,
+		staff.login,
 		'--field=roles',
 	] );
 	if ( exitCode === 0 ) {
@@ -501,8 +501,8 @@ async function ensureClientAccount(
 		if ( ! stdout.split( /[\s,]+/ ).includes( role ) ) {
 			throw new Error(
 				`The user "${
-					client.login
-				}" already exists with the role ${ stdout.trim() }. Set client.login to another name.`
+					staff.login
+				}" already exists with the role ${ stdout.trim() }. Set staff.login to another name.`
 			);
 		}
 		return;
@@ -510,11 +510,11 @@ async function ensureClientAccount(
 	await runWpCli( host, site, [
 		'user',
 		'create',
-		client.login,
-		`${ client.login }@client.invalid`,
+		staff.login,
+		`${ staff.login }@staff.invalid`,
 		`--role=${ role }`,
-		`--first_name=${ client.name.split( ' ' )[ 0 ] }`,
-		`--display_name=${ client.name }`,
+		`--first_name=${ staff.name.split( ' ' )[ 0 ] }`,
+		`--display_name=${ staff.name }`,
 		`--user_pass=${ randomBytes( 24 ).toString( 'hex' ) }`,
 	] );
 }
@@ -539,23 +539,23 @@ async function removeStaffAccount(
 	await host.sites.wpCli( site, [ 'role', 'delete', role ] );
 }
 
-type InstalledManifest = Omit< ClientAdminManifest, 'role' > & {
-	role?: ClientAdminManifest[ 'role' ];
-	client?: { name: string; login: string };
+type InstalledManifest = Omit< CurateAdminManifest, 'role' > & {
+	role?: CurateAdminManifest[ 'role' ];
+	staff?: { name: string; login: string };
 };
 
-export interface ClientAdminInstallResult {
+export interface CuratedAdminInstallResult {
 	manifest: InstalledManifest;
 	locale: string;
 	untranslated: string[];
 }
 
-export async function installClientAdmin(
+export async function installCuratedAdmin(
 	host: StudioAgentHost,
 	site: HostSite,
 	input: unknown
-): Promise< ClientAdminInstallResult > {
-	const parsed = parseClientAdminManifest( input );
+): Promise< CuratedAdminInstallResult > {
+	const parsed = parseCurateAdminManifest( input );
 	if ( ! ( await host.sites.isRunning( site ) ) ) {
 		throw new Error( 'The site is not running. Start it with site_start first.' );
 	}
@@ -583,21 +583,21 @@ export async function installClientAdmin(
 	// wp-admin keeps its own colors unless the manifest asks for the site's brand.
 	const brand =
 		parsed.brand && ( await resolveBrand( site, { name: site.name, ...parsed.brand } ) );
-	const { role, client, brand: _brand, ...shared } = parsed;
+	const { role, staff, brand: _brand, ...shared } = parsed;
 	const manifest: InstalledManifest =
 		parsed.audience === 'everyone'
 			? { ...shared, ...( brand && { brand } ) }
 			: {
 					...parsed,
 					...( brand && { brand } ),
-					client: {
-						name: client?.name ?? role.name,
-						login: client?.login ?? role.slug.replace( /_/g, '-' ),
+					staff: {
+						name: staff?.name ?? role.name,
+						login: staff?.login ?? role.slug.replace( /_/g, '-' ),
 					},
 			  };
 
 	const pluginsPath = path.join( site.path, 'wp-content', 'plugins' );
-	const runtimePath = path.join( pluginsPath, CLIENT_ADMIN_PLUGIN_SLUG );
+	const runtimePath = path.join( pluginsPath, CURATE_ADMIN_PLUGIN_SLUG );
 	await rm( runtimePath, { recursive: true, force: true } );
 	await cp( getSkillPath( 'curate-admin', 'plugin' ), runtimePath, { recursive: true } );
 
@@ -605,26 +605,26 @@ export async function installClientAdmin(
 	await mkdir( path.join( sitePluginPath, 'guide' ), { recursive: true } );
 	await mkdir( path.join( sitePluginPath, 'templates' ), { recursive: true } );
 	await writeFile(
-		path.join( sitePluginPath, `${ CLIENT_ADMIN_SITE_PLUGIN }.php` ),
+		path.join( sitePluginPath, `${ CURATE_ADMIN_SITE_PLUGIN }.php` ),
 		renderSitePlugin( brand?.name ?? site.name )
 	);
 	await writeFile(
-		getClientAdminManifestPath( site.path ),
+		getCurateAdminManifestPath( site.path ),
 		JSON.stringify( manifest, null, '\t' ) + '\n'
 	);
 
 	await runWpCli( host, site, [
 		'plugin',
 		'activate',
-		CLIENT_ADMIN_PLUGIN_SLUG,
-		CLIENT_ADMIN_SITE_PLUGIN,
+		CURATE_ADMIN_PLUGIN_SLUG,
+		CURATE_ADMIN_SITE_PLUGIN,
 	] );
 
 	const postTypes = ( parsed.postTypes ?? [] ).map( ( type ) => `'${ type.slug }'` ).join( ',' );
 	const taken = (
 		await runWpCli( host, site, [
 			'eval',
-			`foreach ( array( ${ postTypes } ) as $type ) { $object = get_post_type_object( $type ); if ( $object && empty( $object->client_admin ) ) { echo $type, ' '; } }`,
+			`foreach ( array( ${ postTypes } ) as $type ) { $object = get_post_type_object( $type ); if ( $object && empty( $object->curate_admin ) ) { echo $type, ' '; } }`,
 		] )
 	).trim();
 	if ( taken ) {
@@ -633,10 +633,10 @@ export async function installClientAdmin(
 		);
 	}
 
-	if ( manifest.client ) {
-		await ensureClientAccount( host, site, manifest.client, parsed.role.slug );
-	} else if ( previous?.audience === 'staff' && previous.client?.login ) {
-		await removeStaffAccount( host, site, previous.client.login, previous.role.slug );
+	if ( manifest.staff ) {
+		await ensureStaffAccount( host, site, manifest.staff, parsed.role.slug );
+	} else if ( previous?.audience === 'staff' && previous.staff?.login ) {
+		await removeStaffAccount( host, site, previous.staff.login, previous.role.slug );
 	}
 
 	const locale = ( await runWpCli( host, site, [ 'eval', 'echo get_locale();' ] ) ).trim();

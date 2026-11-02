@@ -1,5 +1,5 @@
-/* The client's admin color scheme. Colors come from the brand, as custom properties. */
-body.admin-color-client-admin {
+/* The curated admin color scheme. Colors come from the brand, as custom properties. */
+body.admin-color-curate-admin {
 	--wp-admin-theme-color: var(--ca-accent);
 	--wp-admin-theme-color--rgb: var(--ca-accent-rgb);
 	--wp-admin-theme-color-darker-10: var(--ca-accent);

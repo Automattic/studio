@@ -6,7 +6,7 @@
  * also removes it (`role.php`). The allowlist here keeps a deep link or a plugin
  * from dropping them on a screen outside their menu.
  *
- * @package ClientAdmin
+ * @package CurateAdmin
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -17,7 +17,7 @@ defined( 'ABSPATH' ) || exit;
  * @param string $slug   Menu slug.
  * @param string $parent Parent menu slug, for a submenu item.
  */
-function client_admin_menu_screen( string $slug, string $parent = '' ): string {
+function curate_admin_menu_screen( string $slug, string $parent = '' ): string {
 	// Core escapes the `&` in taxonomy links.
 	$slug = wp_specialchars_decode( $slug );
 	if ( false !== strpos( $slug, '.php' ) ) {
@@ -35,12 +35,12 @@ function client_admin_menu_screen( string $slug, string $parent = '' ): string {
  *
  * @param string $slug Menu slug.
  */
-function client_admin_item_screens( string $slug ): array {
+function curate_admin_item_screens( string $slug ): array {
 	global $submenu;
-	$screens = array( client_admin_menu_screen( $slug ) );
+	$screens = array( curate_admin_menu_screen( $slug ) );
 	if ( ! empty( $submenu[ $slug ] ) ) {
 		$first     = reset( $submenu[ $slug ] );
-		$screens[] = client_admin_menu_screen( $first[2], $slug );
+		$screens[] = curate_admin_menu_screen( $first[2], $slug );
 	}
 	return $screens;
 }
@@ -50,14 +50,14 @@ function client_admin_item_screens( string $slug ): array {
  *
  * @param string $screen Admin screen.
  */
-function client_admin_is_own_screen( string $screen ): bool {
-	foreach ( client_admin_post_types() as $type ) {
+function curate_admin_is_own_screen( string $screen ): bool {
+	foreach ( curate_admin_post_types() as $type ) {
 		if ( "edit.php?post_type={$type['slug']}" === $screen ) {
 			return true;
 		}
 	}
-	foreach ( client_admin_settings() as $setting ) {
-		if ( 'admin.php?page=' . client_admin_settings_page( $setting ) === $screen ) {
+	foreach ( curate_admin_settings() as $setting ) {
+		if ( 'admin.php?page=' . curate_admin_settings_page( $setting ) === $screen ) {
 			return true;
 		}
 	}
@@ -70,7 +70,7 @@ function client_admin_is_own_screen( string $screen ): bool {
  * @param array $item  Item from `$menu`.
  * @param array $entry Entry from the manifest.
  */
-function client_admin_apply_entry( array $item, array $entry ): array {
+function curate_admin_apply_entry( array $item, array $entry ): array {
 	if ( ! empty( $entry['label'] ) ) {
 		$item[0] = esc_html( $entry['label'] );
 	}
@@ -85,12 +85,12 @@ function client_admin_apply_entry( array $item, array $entry ): array {
  *
  * @param array $entry Entry from the manifest.
  */
-function client_admin_promote( array $entry ): ?array {
+function curate_admin_promote( array $entry ): ?array {
 	global $submenu;
 	foreach ( (array) $submenu as $parent => $children ) {
 		foreach ( $children as $child ) {
-			if ( client_admin_menu_screen( $child[2], (string) $parent ) === $entry['screen'] ) {
-				return client_admin_apply_entry(
+			if ( curate_admin_menu_screen( $child[2], (string) $parent ) === $entry['screen'] ) {
+				return curate_admin_apply_entry(
 					array( $child[0], $child[1], $entry['screen'], $child[0], 'menu-top', '', 'dashicons-admin-generic' ),
 					$entry
 				);
@@ -103,12 +103,12 @@ function client_admin_promote( array $entry ): ?array {
 /**
  * Hides a kept item's listed children.
  */
-function client_admin_hide_children(): void {
+function curate_admin_hide_children(): void {
 	global $submenu;
-	foreach ( client_admin_kept_menu() as $entry ) {
+	foreach ( curate_admin_kept_menu() as $entry ) {
 		foreach ( (array) $submenu as $parent => $children ) {
 			foreach ( $children as $index => $child ) {
-				if ( in_array( client_admin_menu_screen( $child[2], (string) $parent ), $entry['hideChildren'] ?? array(), true ) ) {
+				if ( in_array( curate_admin_menu_screen( $child[2], (string) $parent ), $entry['hideChildren'] ?? array(), true ) ) {
 					unset( $submenu[ $parent ][ $index ] );
 				}
 			}
@@ -121,14 +121,14 @@ function client_admin_hide_children(): void {
  * plugin has added its items, and before WordPress answers an unreachable screen
  * with a bare 403.
  */
-function client_admin_curate_menu(): void {
-	if ( ! client_admin_is_curated() ) {
+function curate_admin_curate_menu(): void {
+	if ( ! curate_admin_is_curated() ) {
 		return;
 	}
 
 	global $menu;
-	$hidden = client_admin_manifest()['menu']['hide'] ?? array();
-	$staff  = client_admin_is_staff();
+	$hidden = curate_admin_manifest()['menu']['hide'] ?? array();
+	$staff  = curate_admin_is_staff();
 	$items  = array();
 	foreach ( (array) $menu as $position => $item ) {
 		$slug = (string) ( $item[2] ?? '' );
@@ -141,40 +141,40 @@ function client_admin_curate_menu(): void {
 		$entry = null;
 		$kept  = false;
 		$seen  = false;
-		foreach ( client_admin_item_screens( $slug ) as $screen ) {
-			$found = client_admin_menu_entry( $screen );
+		foreach ( curate_admin_item_screens( $slug ) as $screen ) {
+			$found = curate_admin_menu_entry( $screen );
 			// A promoted item leaves its parent, which only stays if listed itself.
 			$entry = $entry ?? ( empty( $found['promote'] ) ? $found : null );
-			$kept  = $kept || 'index.php' === $screen || 'profile.php' === $screen || client_admin_is_own_screen( $screen ) || $entry;
+			$kept  = $kept || 'index.php' === $screen || 'profile.php' === $screen || curate_admin_is_own_screen( $screen ) || $entry;
 			$seen  = $seen || in_array( $screen, $hidden, true );
 		}
 		if ( $staff ? $kept : ! $seen ) {
-			$items[ $position ] = $entry ? client_admin_apply_entry( $item, $entry ) : $item;
+			$items[ $position ] = $entry ? curate_admin_apply_entry( $item, $entry ) : $item;
 		}
 	}
 
-	foreach ( client_admin_kept_menu() as $entry ) {
-		$promoted = empty( $entry['promote'] ) ? null : client_admin_promote( $entry );
+	foreach ( curate_admin_kept_menu() as $entry ) {
+		$promoted = empty( $entry['promote'] ) ? null : curate_admin_promote( $entry );
 		if ( $promoted ) {
 			$items[] = $promoted;
 		}
 	}
 
 	$menu = $items; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
-	client_admin_hide_children();
+	curate_admin_hide_children();
 
 	if ( $staff ) {
-		client_admin_redirect_staff();
+		curate_admin_redirect_staff();
 	}
 }
-add_action( 'admin_menu', 'client_admin_curate_menu', PHP_INT_MAX );
+add_action( 'admin_menu', 'curate_admin_curate_menu', PHP_INT_MAX );
 
 /**
  * The screens a kept menu item brings with it.
  *
  * @param string $screen Admin screen.
  */
-function client_admin_companion_screens( string $screen ): array {
+function curate_admin_companion_screens( string $screen ): array {
 	// Saving and deleting a term leave out the `post_type` of the link to its list.
 	if ( preg_match( '/^edit-tags\.php\?taxonomy=([\w-]+)/', $screen, $match ) ) {
 		return array( "term.php?taxonomy={$match[1]}", "edit-tags.php?taxonomy={$match[1]}" );
@@ -191,19 +191,19 @@ function client_admin_companion_screens( string $screen ): array {
 /**
  * The admin screens Staff may open: what is in their menu, and what comes with it.
  */
-function client_admin_allowed_screens(): array {
+function curate_admin_allowed_screens(): array {
 	global $menu, $submenu;
 	$screens = array( 'admin-ajax.php', 'admin-post.php', 'async-upload.php', 'index.php', 'options.php', 'post.php', 'profile.php', 'revision.php' );
 	foreach ( (array) $menu as $item ) {
 		$slug      = (string) $item[2];
-		$screens[] = client_admin_menu_screen( $slug );
+		$screens[] = curate_admin_menu_screen( $slug );
 		foreach ( $submenu[ $slug ] ?? array() as $child ) {
-			$screens[] = client_admin_menu_screen( $child[2], $slug );
+			$screens[] = curate_admin_menu_screen( $child[2], $slug );
 		}
 	}
 
 	foreach ( $screens as $screen ) {
-		$screens = array_merge( $screens, client_admin_companion_screens( $screen ) );
+		$screens = array_merge( $screens, curate_admin_companion_screens( $screen ) );
 	}
 
 	return array_map(
@@ -221,7 +221,7 @@ function client_admin_allowed_screens(): array {
  * @param string $file  Requested file, such as `upload.php`.
  * @param array  $query Request query.
  */
-function client_admin_is_allowed_screen( string $file, array $query ): bool {
+function curate_admin_is_allowed_screen( string $file, array $query ): bool {
 	if ( in_array( $file, array( 'edit.php', 'post-new.php' ), true ) ) {
 		$query += array( 'post_type' => 'post' );
 	}
@@ -233,11 +233,11 @@ function client_admin_is_allowed_screen( string $file, array $query ): bool {
 			return false;
 		}
 		return 'attachment' === $post_type
-			? client_admin_is_allowed_screen( 'upload.php', array() )
-			: client_admin_is_allowed_screen( 'edit.php', array( 'post_type' => $post_type ) );
+			? curate_admin_is_allowed_screen( 'upload.php', array() )
+			: curate_admin_is_allowed_screen( 'edit.php', array( 'post_type' => $post_type ) );
 	}
 
-	foreach ( client_admin_allowed_screens() as $screen ) {
+	foreach ( curate_admin_allowed_screens() as $screen ) {
 		$parts = explode( '?', $screen, 2 );
 		if ( $parts[0] !== $file ) {
 			continue;
@@ -257,7 +257,7 @@ function client_admin_is_allowed_screen( string $file, array $query ): bool {
 /**
  * Sends Staff who land outside their menu back to the dashboard.
  */
-function client_admin_redirect_staff(): void {
+function curate_admin_redirect_staff(): void {
 	if ( wp_doing_ajax() ) {
 		return;
 	}
@@ -269,7 +269,7 @@ function client_admin_redirect_staff(): void {
 	$url  = wp_unslash( $_GET );
 	$body = array_diff_key( wp_unslash( $_POST ), array_flip( array( 'page', 'post' ) ) );
 	// phpcs:enable WordPress.Security.NonceVerification
-	if ( ! client_admin_is_allowed_screen( (string) $pagenow, $url + $body ) || ! client_admin_is_allowed_screen( (string) $pagenow, $body + $url ) ) {
+	if ( ! curate_admin_is_allowed_screen( (string) $pagenow, $url + $body ) || ! curate_admin_is_allowed_screen( (string) $pagenow, $body + $url ) ) {
 		wp_safe_redirect( admin_url() );
 		exit;
 	}
@@ -278,7 +278,7 @@ function client_admin_redirect_staff(): void {
 add_action(
 	'in_admin_header',
 	static function () {
-		if ( client_admin_is_curated() ) {
+		if ( curate_admin_is_curated() ) {
 			remove_all_actions( 'admin_notices' );
 			remove_all_actions( 'all_admin_notices' );
 			remove_all_actions( 'user_admin_notices' );
@@ -290,17 +290,17 @@ add_action(
 add_action(
 	'admin_bar_menu',
 	static function ( WP_Admin_Bar $bar ) {
-		if ( client_admin_is_for_everyone() && current_user_can( 'manage_options' ) ) {
-			$full = ! client_admin_is_curated();
+		if ( curate_admin_is_for_everyone() && current_user_can( 'manage_options' ) ) {
+			$full = ! curate_admin_is_curated();
 			$bar->add_node(
 				array(
-					'id'    => 'client-admin-full',
-					'title' => $full ? __( 'Simple admin', 'client-admin' ) : __( 'Full admin', 'client-admin' ),
-					'href'  => client_admin_full_admin_url( ! $full ),
+					'id'    => 'curate-admin-full',
+					'title' => $full ? __( 'Simple admin', 'curate-admin' ) : __( 'Full admin', 'curate-admin' ),
+					'href'  => curate_admin_full_admin_url( ! $full ),
 				)
 			);
 		}
-		if ( ! client_admin_is_curated() ) {
+		if ( ! curate_admin_is_curated() ) {
 			return;
 		}
 		foreach ( array( 'wp-logo', 'updates', 'customize', 'site-editor' ) as $node ) {
@@ -315,12 +315,12 @@ add_action(
  *
  * @param bool $on Whether to show the full admin.
  */
-function client_admin_full_admin_url( bool $on ): string {
+function curate_admin_full_admin_url( bool $on ): string {
 	return add_query_arg(
 		array(
-			'action'   => 'client_admin_full',
+			'action'   => 'curate_admin_full',
 			'on'       => $on ? '1' : '0',
-			'_wpnonce' => wp_create_nonce( 'client_admin_full' ),
+			'_wpnonce' => wp_create_nonce( 'curate_admin_full' ),
 		),
 		admin_url( 'admin-post.php' )
 	);
@@ -328,17 +328,17 @@ function client_admin_full_admin_url( bool $on ): string {
 
 // When wp-admin is curated for everyone, administrators can still reach all of it.
 add_action(
-	'admin_post_client_admin_full',
+	'admin_post_curate_admin_full',
 	static function () {
-		check_admin_referer( 'client_admin_full' );
+		check_admin_referer( 'curate_admin_full' );
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'Only administrators can do this.', 'client-admin' ), 403 );
+			wp_die( esc_html__( 'Only administrators can do this.', 'curate-admin' ), 403 );
 		}
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		if ( ! empty( $_GET['on'] ) ) {
-			update_user_meta( get_current_user_id(), 'client_admin_full', 1 );
+			update_user_meta( get_current_user_id(), 'curate_admin_full', 1 );
 		} else {
-			delete_user_meta( get_current_user_id(), 'client_admin_full' );
+			delete_user_meta( get_current_user_id(), 'curate_admin_full' );
 		}
 		wp_safe_redirect( admin_url() );
 		exit;
@@ -351,21 +351,21 @@ add_action(
  *
  * @param string $post_type `post` or `page`.
  */
-function client_admin_closes_new( string $post_type ): bool {
-	if ( empty( client_admin_manifest() ) || client_admin_is_for_everyone() ) {
+function curate_admin_closes_new( string $post_type ): bool {
+	if ( empty( curate_admin_manifest() ) || curate_admin_is_for_everyone() ) {
 		return false;
 	}
 	if ( 'post' === $post_type ) {
-		return ! client_admin_menu_entry( 'edit.php' );
+		return ! curate_admin_menu_entry( 'edit.php' );
 	}
-	return client_admin_pages_are_limited();
+	return curate_admin_pages_are_limited();
 }
 
 /**
  * Whether Staff only work on the pages they were given.
  */
-function client_admin_pages_are_limited(): bool {
-	$entry = client_admin_menu_entry( 'edit.php?post_type=page' );
+function curate_admin_pages_are_limited(): bool {
+	$entry = curate_admin_menu_entry( 'edit.php?post_type=page' );
 	return ! empty( $entry['only'] ) || ! empty( $entry['lock'] );
 }
 
@@ -374,8 +374,8 @@ function client_admin_pages_are_limited(): bool {
 add_filter(
 	'register_post_type_args',
 	static function ( array $args, string $post_type ) {
-		if ( in_array( $post_type, array( 'post', 'page' ), true ) && client_admin_closes_new( $post_type ) ) {
-			$args['capabilities']['create_posts'] = "client_admin_create_{$post_type}";
+		if ( in_array( $post_type, array( 'post', 'page' ), true ) && curate_admin_closes_new( $post_type ) ) {
+			$args['capabilities']['create_posts'] = "curate_admin_create_{$post_type}";
 		}
 		return $args;
 	},
@@ -387,8 +387,8 @@ add_filter(
 add_action(
 	'pre_get_posts',
 	static function ( WP_Query $query ) {
-		$only = client_admin_menu_entry( 'edit.php?post_type=page' )['only'] ?? null;
-		if ( $only && is_admin() && $query->is_main_query() && 'page' === $query->get( 'post_type' ) && client_admin_is_curated() ) {
+		$only = curate_admin_menu_entry( 'edit.php?post_type=page' )['only'] ?? null;
+		if ( $only && is_admin() && $query->is_main_query() && 'page' === $query->get( 'post_type' ) && curate_admin_is_curated() ) {
 			$query->set( 'post_name__in', $only );
 		}
 	}
@@ -402,29 +402,29 @@ add_action(
  * @param string  $cap  Capability asked for.
  * @param WP_Post $post Post.
  */
-function client_admin_staff_post_caps( array $caps, string $cap, WP_Post $post ): array {
+function curate_admin_staff_post_caps( array $caps, string $cap, WP_Post $post ): array {
 	$reading = 'read_post' === $cap || 'read_page' === $cap;
-	if ( ! $reading && 'post' === $post->post_type && ! client_admin_menu_entry( 'edit.php' ) ) {
+	if ( ! $reading && 'post' === $post->post_type && ! curate_admin_menu_entry( 'edit.php' ) ) {
 		return array( 'do_not_allow' );
 	}
 	if ( 'page' !== $post->post_type ) {
 		return $caps;
 	}
 
-	$only = client_admin_menu_entry( 'edit.php?post_type=page' )['only'] ?? null;
+	$only = curate_admin_menu_entry( 'edit.php?post_type=page' )['only'] ?? null;
 	if ( $only && ! in_array( $post->post_name, $only, true ) && ! ( $reading && 'publish' === $post->post_status ) ) {
 		return array( 'do_not_allow' );
 	}
 	$deleting = 'delete_post' === $cap || 'delete_page' === $cap;
-	return $deleting && client_admin_pages_are_limited() ? array( 'do_not_allow' ) : $caps;
+	return $deleting && curate_admin_pages_are_limited() ? array( 'do_not_allow' ) : $caps;
 }
 
 add_filter(
 	'map_meta_cap',
 	static function ( array $caps, string $cap, int $user_id, array $args ) {
 		$new_item = array(
-			'client_admin_create_post' => 'edit_posts',
-			'client_admin_create_page' => 'edit_pages',
+			'curate_admin_create_post' => 'edit_posts',
+			'curate_admin_create_page' => 'edit_pages',
 		);
 		$watched  = array( 'edit_post', 'edit_page', 'delete_post', 'delete_page', 'read_post', 'read_page', 'edit_comment' );
 		if ( ! isset( $new_item[ $cap ] ) && ! in_array( $cap, $watched, true ) ) {
@@ -432,7 +432,7 @@ add_filter(
 		}
 
 		$user  = get_userdata( $user_id );
-		$staff = $user && client_admin_user_is_staff( $user );
+		$staff = $user && curate_admin_user_is_staff( $user );
 		if ( isset( $new_item[ $cap ] ) ) {
 			return array( $staff ? 'do_not_allow' : $new_item[ $cap ] );
 		}
@@ -441,10 +441,10 @@ add_filter(
 		}
 		// Core maps this to the commented post, whatever `moderate_comments` says.
 		if ( 'edit_comment' === $cap ) {
-			return array( client_admin_menu_entry( 'edit-comments.php' ) ? 'moderate_comments' : 'do_not_allow' );
+			return array( curate_admin_menu_entry( 'edit-comments.php' ) ? 'moderate_comments' : 'do_not_allow' );
 		}
 		$post = get_post( $args[0] ?? 0 );
-		return $post ? client_admin_staff_post_caps( $caps, $cap, $post ) : $caps;
+		return $post ? curate_admin_staff_post_caps( $caps, $cap, $post ) : $caps;
 	},
 	10,
 	4
@@ -457,7 +457,7 @@ add_filter(
 	'wp_insert_post_data',
 	static function ( array $data, array $postarr, array $unsanitized, bool $update ) {
 		$post = $update ? get_post( (int) $postarr['ID'] ) : null;
-		if ( ! $post || 'page' !== $post->post_type || ! client_admin_is_staff() || ! client_admin_pages_are_limited() ) {
+		if ( ! $post || 'page' !== $post->post_type || ! curate_admin_is_staff() || ! curate_admin_pages_are_limited() ) {
 			return $data;
 		}
 
@@ -481,7 +481,7 @@ add_filter(
 add_filter(
 	'login_redirect',
 	static function ( $redirect_to, $requested, $user ) {
-		if ( $user instanceof WP_User && client_admin_user_is_staff( $user ) ) {
+		if ( $user instanceof WP_User && curate_admin_user_is_staff( $user ) ) {
 			return admin_url();
 		}
 		return $redirect_to;

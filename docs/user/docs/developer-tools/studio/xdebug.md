@@ -1,4 +1,4 @@
-# Xdebug in WordPress Studio
+# Xdebug in WordPress WordPress Studio
 
 WordPress Studio includes Xdebug support for local sites. [Xdebug](https://xdebug.org/) is a debugging extension for PHP that enables you to set breakpoints, inspect variables, and step through your code.
 
@@ -9,7 +9,7 @@ WordPress Studio includes Xdebug support for local sites. [Xdebug](https://xdebu
 3.  Turn on **Xdebug**.
 4.  Click **Save** at the top of the dialog.
 
-[![The Debug page of a site's settings in Studio, with the Xdebug toggle turned on in the Debugging section.](https://developer.wordpress.com/wp-content/uploads/2026/01/site-settings-debug.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/01/site-settings-debug.webp)
+[![The Debug page of a site's settings in WordPress Studio, with the Xdebug toggle turned on in the Debugging section.](https://developer.wordpress.com/wp-content/uploads/2026/01/site-settings-debug.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/01/site-settings-debug.webp)
 
 The site will restart automatically with Xdebug enabled. While Xdebug is enabled, the site shows an Xdebug icon in the sidebar.
 
@@ -22,7 +22,7 @@ The site will restart automatically with Xdebug enabled. While Xdebug is enabled
 
 Once Xdebug is enabled for a site, you can connect your IDE (code editor) to debug WordPress plugins, themes, and core code.
 
-Studio runs sites on native PHP, which uses the real file paths on disk, so you don’t need path mapping in your editor. If you previously set up a `/wordpress` path mapping for the Sandbox runtime, which Studio 1.24.0 removed, you can delete it.
+WordPress Studio runs sites on native PHP, which uses the real file paths on disk, so you don’t need path mapping in your editor. If you previously set up a `/wordpress` path mapping for the Sandbox runtime, which WordPress Studio 1.24.0 removed, you can delete it.
 
 ### [Visual Studio Code setup](#3-visual-studio-code-setup)
 

@@ -10,6 +10,7 @@
 import { mkdir, readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import PostalMime, { type Address } from 'postal-mime';
+import { confineToRoot } from '../lib/fs-utils';
 import { getConfigDirectory } from '../lib/well-known-paths';
 
 export interface SiteEmailAddress {
@@ -50,7 +51,13 @@ const EMAIL_FILE = /^[\w-][\w.-]*\.eml$/;
 // Under Studio's own directory rather than the site's, so a site's email is never
 // committed, pushed or synced with its files.
 export function getSiteEmailDirectory( siteId: string ): string {
-	return path.join( getConfigDirectory(), 'email', siteId );
+	const root = path.resolve( getConfigDirectory(), 'email' );
+	const directory = confineToRoot( root, siteId );
+	// Deleting a site removes this folder, so it must be one site's, not the root or elsewhere.
+	if ( ! directory || path.dirname( directory ) !== root ) {
+		throw new Error( `Invalid site ID: ${ siteId }` );
+	}
+	return directory;
 }
 
 /** The site's email folder, made first if the site hasn't sent any email, so it can be opened. */

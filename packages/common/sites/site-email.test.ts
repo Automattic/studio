@@ -134,3 +134,10 @@ it( 'reads nothing outside the site email folder', async () => {
 	await expect( readSiteEmail( 'site-1', '../secret.eml' ) ).resolves.toBeNull();
 	await expect( readSiteEmail( 'site-1', 'missing.eml' ) ).resolves.toBeNull();
 } );
+
+it.each( [ '', '.', '..', '../other', 'site-1/nested' ] )(
+	'refuses a site ID that is not one folder under the email root: %j',
+	( siteId ) => {
+		expect( () => getSiteEmailDirectory( siteId ) ).toThrow( 'Invalid site ID' );
+	}
+);

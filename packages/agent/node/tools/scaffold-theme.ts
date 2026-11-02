@@ -61,9 +61,9 @@ const blockThemeFiles = ( name: string, slug: string ): Record< string, string >
 	'templates/index.html': main(
 		'<!-- wp:query {"query":{"inherit":true}} -->\n<div class="wp-block-query"><!-- wp:post-template -->\n<!-- wp:post-title {"isLink":true} /-->\n\n<!-- wp:post-excerpt /-->\n<!-- /wp:post-template -->\n\n<!-- wp:query-no-results -->\n<!-- wp:paragraph -->\n<p>Nothing was found.</p>\n<!-- /wp:paragraph -->\n<!-- /wp:query-no-results --></div>\n<!-- /wp:query -->'
 	),
-	'templates/page.html': main( '<!-- wp:post-content {"layout":{"type":"constrained"}} /-->' ),
+	'templates/page.html': main( '<!-- wp:post-content {"layout":{"type":"constrained"},"align":"full"} /-->' ),
 	'templates/single.html': main(
-		'<!-- wp:post-title {"level":1} /-->\n\n<!-- wp:post-date /-->\n\n<!-- wp:post-content {"layout":{"type":"constrained"}} /-->'
+		'<!-- wp:post-title {"level":1} /-->\n\n<!-- wp:post-date /-->\n\n<!-- wp:post-content {"layout":{"type":"constrained"},"align":"full"} /-->'
 	),
 	'parts/header.html': part( '<!-- wp:site-title {"level":0} /-->' ),
 	'parts/footer.html': part( '<!-- wp:site-title {"level":0} /-->' ),

@@ -9,6 +9,7 @@ import {
 } from 'fs';
 import os from 'os';
 import path from 'path';
+import { freeTrappedBlocks } from '@studio/agent/node/block-alignment';
 import { createOpenProblems } from '@studio/agent/node/open-problems';
 import { SiteChanges } from '@studio/agent/node/site-changes';
 import { scaffoldThemeTool } from '@studio/agent/node/tools/scaffold-theme';
@@ -77,6 +78,11 @@ describe.runIf( WORDPRESS )( 'scaffold_theme', () => {
 			);
 		}
 		expect( await open.raise() ).toEqual( [] );
+		// Studio's check after a write finds no block holding full-width blocks from the page edges.
+		for ( const file of [ 'templates/page.html', 'templates/single.html' ] ) {
+			const markup = readFileSync( path.join( themes, 'corner-bakehouse', file ), 'utf8' );
+			expect( freeTrappedBlocks( markup, () => true ).freed ).toEqual( [] );
+		}
 		const rendered = JSON.parse(
 			await runWpCli( host, site, [
 				'eval',

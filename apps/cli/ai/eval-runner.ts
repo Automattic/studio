@@ -50,6 +50,7 @@ import {
 	captureHomeStyles,
 	captureTurnOutcome,
 	fingerprintSites,
+	sitesChanged,
 	type TurnOutcome,
 } from 'cli/ai/eval-outcome';
 import { summarizeTiming, type ModelRequestRecord } from 'cli/ai/eval-timing';
@@ -719,6 +720,22 @@ async function runEval( input: EvalRunnerInput ) {
 
 	try {
 		await query.result;
+		// A turn that asks the user something before changing any site waits on
+		// the user, who answers it as their next message, at most twice.
+		for ( let replies = 0, from = 0; scriptedUser && replies < 2 && ! timedOut; replies++ ) {
+			const asked = textSegments.slice( from ).join( '' );
+			if ( ! asked.includes( '?' ) || sitesChanged( sitesBeforeTurn, await fingerprintSites() ) ) {
+				break;
+			}
+			const answer = scriptedUser.reply( asked );
+			if ( answer === undefined ) {
+				break;
+			}
+			from = textSegments.length;
+			systemPrompts.push( query.systemPrompt() ?? '' );
+			query = runTurn( answer );
+			await query.result;
+		}
 		for ( const followUp of input.followUps ?? [] ) {
 			if ( timedOut ) {
 				break;

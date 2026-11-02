@@ -68,4 +68,14 @@ describe( 'createScriptedUser', () => {
 			expected.map( ( answer ) => answer ?? DISMISSED )
 		);
 	} );
+
+	it( 'types the answer to a question the agent asked in its reply', () => {
+		const user = createScriptedUser( userWhoDelegates );
+		const reply =
+			"**What's the name of your business?** Answer with it and I'll get right to work.";
+		expect( user.reply( reply ) ).toBe( 'Whatever you think is best.' );
+		expect( user.questions ).toEqual( [
+			{ question: reply, options: [], answer: 'Whatever you think is best.' },
+		] );
+	} );
 } );

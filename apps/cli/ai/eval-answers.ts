@@ -25,21 +25,31 @@ export interface AskedQuestion {
 
 export function createScriptedUser( answers: EvalAnswers ): {
 	onAskUser: AskUserHandler;
+	reply: ( question: string ) => string | undefined;
 	questions: AskedQuestion[];
 } {
 	const questions: AskedQuestion[] = [];
+	// The first answer that fits the question, of the labels when it takes one of them.
+	const answerTo = ( question: string, labels?: string[] ) =>
+		answers.find(
+			( { label, when } ) =>
+				( ! when || new RegExp( when, 'i' ).test( question ) ) &&
+				( ! labels || labels.includes( label ) )
+		)?.label;
 	const onAskUser: AskUserHandler = async ( asked ) =>
 		Object.fromEntries(
 			asked.flatMap( ( { question, options, allowFreeForm } ) => {
 				const labels = options.map( ( option ) => option.label );
-				const answer = answers.find(
-					( { label, when } ) =>
-						( ! when || new RegExp( when, 'i' ).test( question ) ) &&
-						( allowFreeForm || labels.includes( label ) )
-				)?.label;
+				const answer = answerTo( question, allowFreeForm ? undefined : labels );
 				questions.push( { question, options: labels, answer: answer ?? DISMISSED } );
 				return answer === undefined ? [] : [ [ question, answer ] ];
 			} )
 		);
-	return { onAskUser, questions };
+	// A question the agent asked in its reply, which the user answers by typing.
+	const reply = ( question: string ) => {
+		const answer = answerTo( question );
+		questions.push( { question, options: [], answer: answer ?? DISMISSED } );
+		return answer;
+	};
+	return { onAskUser, reply, questions };
 }

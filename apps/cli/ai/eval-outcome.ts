@@ -108,6 +108,19 @@ export async function fingerprintSites(): Promise< SiteFingerprint[] > {
 		} ) );
 }
 
+// Whether a site was created or changed since `before`.
+export function sitesChanged( before: SiteFingerprint[], after: SiteFingerprint[] ): boolean {
+	const was = new Map( before.map( ( site ) => [ site.path, site ] ) );
+	return after.some( ( site ) => {
+		const then = was.get( site.path );
+		return (
+			! then ||
+			site.mtimeMs > then.mtimeMs ||
+			JSON.stringify( site.code ) !== JSON.stringify( then.code )
+		);
+	} );
+}
+
 const PROBE_PHP = String.raw`
 $count = function ( $blocks, &$acc ) use ( &$count ) {
 	foreach ( $blocks as $block ) {
@@ -298,12 +311,15 @@ async function renderHome( url: string ) {
 			[ ...html.matchAll( /<img\b[^>]*\ssrc="([^"]+)"/g ) ].map( async ( m ) => {
 				const src = new URL( m[ 1 ].replace( /&amp;/g, '&' ), url );
 				const sameOrigin = src.origin === new URL( url ).origin;
-				const status = src.protocol === 'data:' ? 200 : sameOrigin
-					? await fetch( src, { method: 'HEAD' } ).then(
-							( r ) => r.status,
-							() => 0
-					  )
-					: null;
+				const status =
+					src.protocol === 'data:'
+						? 200
+						: sameOrigin
+						? await fetch( src, { method: 'HEAD' } ).then(
+								( r ) => r.status,
+								() => 0
+						  )
+						: null;
 				return { src: src.href, status };
 			} )
 		);
@@ -837,10 +853,7 @@ export async function captureTurnOutcome(
 	const created = [ ...after.values() ].filter( ( site ) => ! beforePaths.has( site.path ) );
 	const changed = ( site: SiteFingerprint ) => {
 		const now = after.get( site.path );
-		return (
-			( now?.mtimeMs ?? 0 ) > site.mtimeMs ||
-			JSON.stringify( now?.code ) !== JSON.stringify( site.code )
-		);
+		return now ? sitesChanged( [ site ], [ now ] ) : false;
 	};
 	const requestBefore = before.find( ( site ) => site.path === requestSitePath );
 	const others = before.filter( ( site ) => site.path !== requestSitePath );

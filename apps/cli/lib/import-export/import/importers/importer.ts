@@ -432,6 +432,7 @@ export class SQLImporter extends BaseImporter {
 		this.emit( ImportEvents.IMPORT_START, 'sql' );
 
 		try {
+			await keepSqliteIntegrationUpdated( site.path );
 			await this.importDatabase( site, this.backup.sqlFiles );
 
 			this.emit( ImportEvents.IMPORT_COMPLETE, 'sql' );

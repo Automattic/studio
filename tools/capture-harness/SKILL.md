@@ -29,7 +29,7 @@ Pick a driver, or take the default: the browser driver on Linux (a cloud machine
 
 - Docs images: the docs scripts in `docs/user/screenshots/shots/` on the default scene and `docs` look (`npm run screenshots` in `docs/user`). Do not change a docs image's look.
 - Someone's own site: `--blueprint <file|url>`; for reruns that must match, `SC bake --blueprint <file|url> --out <dir>` and capture from the baked scene.
-- Marketing or social: `--look marketing` (framed on Studio's dot field at full resolution, keeping the window's proportions) or `--look social` (1200×630, 1080×1080, 1600×900); `marketing-dark` and `social-dark` for the dark app on the dark dot field. `examples/workspace-tour.json` works on any scene with a site.
+- Marketing or social: `--look marketing` (framed on Studio's dot field at full resolution, keeping the window's proportions) or `--look social` (1200×630, 1080×1080, 1600×900); `marketing-dark` and `social-dark` for the dark app on the dark dot field. `examples/workspace-tour.json` works on any scene with a site. Framing follows the crop: a whole window is centred, a crop at a corner or along one edge of the window runs off the image on its cut sides, and a crop cut on opposite sides (a dialog on its own) gets no frame unless the shot sets `capture.frame: "always"`. For a framed menu or panel, crop it from the window's corner (a `target` that also takes in a button at the window's edge) rather than on its own.
 
 ## Asking what the person wants
 

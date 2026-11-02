@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import sharp from 'sharp';
 import { afterEach, describe, expect, it } from 'vitest';
-import { DOTS, dotsTileSvg, renderLook } from '../frame.ts';
+import { DOTS, dotsTileSvg, edgesOf, framingFor, renderLook, WHOLE_WINDOW } from '../frame.ts';
 import { loadLook, withBackground } from '../look.ts';
 import { LOOKS_DIR } from '../paths.ts';
 import { cropFor, encodeStill, writeIfChanged } from '../still.ts';
@@ -108,6 +108,97 @@ describe( 'renderLook', () => {
 		expect( out.map( ( [ suffix ] ) => suffix ) ).toEqual( [ '', '-framed' ] );
 		const { width } = await sharp( out[ 1 ][ 1 ] ).metadata();
 		expect( width ).toBe( 300 + Math.round( 300 * 0.06 ) * 2 );
+	} );
+} );
+
+describe( 'framing a crop', () => {
+	const viewport = { width: 1440, height: 900 };
+	const pixel = async ( image: Buffer, left: number, top: number ) => {
+		const { data } = await sharp( image )
+			.extract( { left, top, width: 1, height: 1 } )
+			.removeAlpha()
+			.raw()
+			.toBuffer( { resolveWithObject: true } );
+		return [ data[ 0 ], data[ 1 ], data[ 2 ] ];
+	};
+	const corner = { top: true, left: true, right: false, bottom: false };
+
+	it( 'finds the window edges a clip reaches', () => {
+		expect( edgesOf( undefined, viewport ) ).toEqual( WHOLE_WINDOW );
+		expect( edgesOf( { x: 0, y: 0, width: 700, height: 500 }, viewport ) ).toEqual( corner );
+		expect( edgesOf( { x: 300, y: 200, width: 1140, height: 700 }, viewport ) ).toEqual( {
+			top: false,
+			left: false,
+			right: true,
+			bottom: true,
+		} );
+	} );
+
+	it( 'frames the whole window, a corner or one edge, and not a crop cut on opposite sides', () => {
+		expect( framingFor( WHOLE_WINDOW ) ).toEqual( {
+			top: false,
+			right: false,
+			bottom: false,
+			left: false,
+		} );
+		expect( framingFor( corner ) ).toEqual( {
+			top: false,
+			left: false,
+			right: true,
+			bottom: true,
+		} );
+		expect( framingFor( { ...WHOLE_WINDOW, bottom: false } ) ).toMatchObject( { bottom: true } );
+		const dialog = { top: false, right: false, bottom: false, left: false };
+		expect( framingFor( dialog ) ).toBeNull();
+		expect( framingFor( { ...WHOLE_WINDOW, left: false, right: false } ) ).toBeNull();
+		expect( framingFor( dialog, 'always' ) ).toEqual( dialog );
+		expect( framingFor( WHOLE_WINDOW, 'never' ) ).toBeNull();
+	} );
+
+	it( 'leaves a crop cut on every side unframed, even in a look that drops raw stills', async () => {
+		const png = await solid( 1000, 600, '#ffffff' );
+		const edges = { top: false, right: false, bottom: false, left: false };
+		expect( await renderLook( png, await loadLook( 'marketing' ), { edges } ) ).toEqual( [
+			[ '', png ],
+		] );
+		expect( await renderLook( png, await loadLook( 'social' ), { edges } ) ).toEqual( [
+			[ '', png ],
+		] );
+		const forced = await renderLook( png, await loadLook( 'marketing' ), {
+			edges,
+			frame: 'always',
+		} );
+		expect( forced.map( ( [ suffix ] ) => suffix ) ).toEqual( [ '', '-framed' ] );
+	} );
+
+	it( 'runs a corner crop off the frame on its cut sides, with an equal margin on the others', async () => {
+		const look = await loadLook( 'marketing' );
+		const [ , [ , framed ] ] = await renderLook( await solid( 1000, 600, '#ffffff' ), look, {
+			edges: corner,
+		} );
+		const margin = Math.round( 1000 * 0.08 );
+		const { width, height } = await sharp( framed ).metadata();
+		expect( [ width, height ] ).toEqual( [ 1000 + margin, 600 + margin ] );
+		expect( await pixel( framed, ( width ?? 0 ) - 1, ( height ?? 0 ) - 1 ) ).toEqual( [
+			255, 255, 255,
+		] );
+		expect( await pixel( framed, 0, 0 ) ).not.toEqual( [ 255, 255, 255 ] );
+	} );
+
+	it( 'fills each social size from the cut corner', async () => {
+		const out = await renderLook(
+			await solid( 1400, 1000, '#ffffff' ),
+			await loadLook( 'social' ),
+			{
+				edges: corner,
+			}
+		);
+		for ( const [ , image ] of out ) {
+			const { width = 0, height = 0 } = await sharp( image ).metadata();
+			expect( await pixel( image, width - 1, height - 1 ) ).toEqual( [ 255, 255, 255 ] );
+			expect( await pixel( image, 0, 0 ) ).not.toEqual( [ 255, 255, 255 ] );
+		}
+		expect( out.map( ( [ suffix ] ) => suffix ) ).toEqual( [ '-card', '-square', '-wide' ] );
 	} );
 } );
 

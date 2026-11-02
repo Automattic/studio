@@ -147,6 +147,13 @@ export const Annotation = z.union( [
 ] );
 export type Annotation = z.infer< typeof Annotation >;
 
+export const FrameMode = z
+	.enum( [ 'auto', 'always', 'never' ] )
+	.describe(
+		'When a framed look frames this shot: `auto` frames the whole window, and a crop that reaches a corner or three edges of the window, running off the image on the cut sides; a crop cut on opposite sides is left unframed. `always` also frames that one, centred; `never` frames nothing'
+	);
+export type FrameMode = z.infer< typeof FrameMode >;
+
 export const Capture = z
 	.object( {
 		target: z
@@ -163,6 +170,7 @@ export const Capture = z
 			.describe( "Least width-to-height ratio of a crop; the look's crop.aspect if unset" ),
 		settle: z.number().optional().describe( 'Milliseconds to wait before capturing' ),
 		keepMouse: z.boolean().optional().describe( 'Leave the pointer and focus where they are' ),
+		frame: FrameMode.optional(),
 	} )
 	.strict();
 export type Capture = z.infer< typeof Capture >;

@@ -23,6 +23,8 @@ It’s especially useful for:
 3.  On the **General** page, under **WordPress Studio CLI**, turn on the **WordPress Studio CLI for terminal** option.
 4.  On macOS, you’ll be prompted for your account password to allow installation.
 
+The option isn’t available in the Microsoft Store version of Studio. If you installed the CLI with the standalone installer, the option is turned on and can’t be changed in the app: run `studio uninstall` to remove that CLI.
+
 [![The General page of Studio's Settings, with the WordPress Studio CLI for terminal option turned on under WordPress Studio CLI.](https://developer.wordpress.com/wp-content/uploads/2025/05/settings-studio-cli.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/05/settings-studio-cli.webp)
 
 ### [Standalone installer](#2-standalone-installer)
@@ -115,11 +117,11 @@ studio preview create --path /path/to/your/studio-site
 
 ### [Listing preview sites](#8-listing-preview-sites)
 
-To view all preview sites associated with your account:
+To view the preview sites of the local site in the current directory:
 
 studio preview list
 
-This shows each preview’s host (for example, `example-preview.wp.build`), which you’ll use with the `update` and `delete` commands.
+Add `--all` to list the preview sites of all your local sites, grouped by site. This shows each preview’s host (for example, `example-preview.wp.build`), which you’ll use with the `update` and `delete` commands.
 
 ### [Updating and deleting preview sites](#9-updating-and-deleting-preview-sites)
 
@@ -130,6 +132,9 @@ studio preview update <host>
 
 # Permanently remove a preview site:
 studio preview delete <host>
+
+# Permanently remove all of your preview sites:
+studio preview delete --all
 
 Use `studio preview list` to discover the appropriate `<host>` value if you don’t have it handy.
 
@@ -215,7 +220,7 @@ Status output includes information such as:
 -   Whether the site is running.
 -   Local URL (for example, `http://localhost:PORT`).
 -   **Email**: the folder where the email the site sends is saved, as `.eml` files.
--   Key configuration details (PHP version, database status, etc.).
+-   Key configuration details (PHP version, WordPress version, file access, Xdebug, and admin credentials).
 
 ### [Starting and stopping sites](#14-starting-and-stopping-sites)
 

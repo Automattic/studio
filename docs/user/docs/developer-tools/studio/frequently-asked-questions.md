@@ -129,7 +129,7 @@ On macOS, the code editors and terminal applications must live in your Applicati
 
 If the Real-Time Protection Service of Windows Defender is enabled on your machine, it may slow down the process of creating and starting a site, particularly when running PHP files of WordPress.
 
-This is why WordPress Studio prompts you to “speed up site creation” when you create your first site, so an exclusion policy can be added to the Real-Time Protection Service.
+This is why WordPress Studio prompts you to “speed up site creation” when you first open it on Windows, so an exclusion policy can be added to the Real-Time Protection Service.
 
 You can add this exclusion policy manually by choosing **Help → How can I make WordPress Studio faster?** in Studio. This menu item is only available on Windows.
 

@@ -1,6 +1,6 @@
 # Open in WordPress Studio button
 
-The Open in WordPress Studio button lets users spin up a new WordPress Studio site from a [Blueprint](https://developer.wordpress.com/docs/developer-tools/studio/blueprints/) with a single click. When someone clicks the button or link, Studio launches on their machine (if installed) and creates a new site based on the Blueprint you provide. If they don’t have Studio installed, they’re sent to [the Studio landing page](https://developer.wordpress.com/studio/) to download the app. Once installed, click the button again to launch the site.
+The Open in WordPress Studio button lets users spin up a new WordPress Studio site from a [Blueprint](https://developer.wordpress.com/docs/developer-tools/studio/blueprints/) with a single click. When someone clicks the button or link, Studio launches on their machine (if installed) and opens the **Add site** dialog with the Blueprint you provide, ready to create a new site from it. If they don’t have Studio installed, they’re sent to [the Studio landing page](https://developer.wordpress.com/studio/) to download the app. Once installed, click the button again to launch the site.
 
 You can embed Open in WordPress Studio buttons and links anywhere you share your work: GitHub repositories, plugin or theme listings, documentation, YouTube descriptions, and more. It’s a quick way to help users start working in Studio with your recommended setup.
 

@@ -25,7 +25,7 @@ Studio ships with the following built-in skills:
 
 ## [Where skills are stored](#2-where-skills-are-stored)
 
-When a skill is installed, Studio copies it into the site directory:
+When a skill is installed, Studio copies it into the site directory, under `.agents/skills/<skill-id>`:
 
 ![Folder structure of a web development project showing directories and files related to WordPress, including 'wp-config.php' and various folders like 'skills' and 'studio-cli'.](https://developer.wordpress.com/wp-content/uploads/2026/04/image-6.png?w=624)
 

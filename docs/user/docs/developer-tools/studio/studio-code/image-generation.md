@@ -12,7 +12,7 @@ Image generation is available in Studio 1.20.0 and later.
 
 If a session has no WordPress.com login — for example, a session using only your own Anthropic API key — image generation is disabled.
 
-When you use Studio through another agent over [MCP](https://developer.wordpress.com/docs/developer-tools/studio/mcp-on-studio/), that agent makes site images with its own image tool, such as Codex’s `image_gen`, on your plan with that agent.
+When you use Studio through another agent over [MCP](https://developer.wordpress.com/docs/developer-tools/studio/mcp-on-studio/), the agent gets the same image generation when you’re logged in to WordPress.com. Codex is the exception: it makes site images with its own `image_gen` tool, on your plan with Codex.
 
 ## [Using it](#1-using-it)
 

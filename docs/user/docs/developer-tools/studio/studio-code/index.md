@@ -191,6 +191,8 @@ Upload images and files into Studio Code to use across your project:
 -   **Desktop**: drag files into the chat, paste them, or click **+** in the chat box and choose **Add files**
 -   **Terminal**: drag into the chat or point to a specific local file or folder
 
+The Fast tier reads text only. To send an image, choose Balanced or Strong (or, with your own API key, Sonnet 5 or Opus 5) first.
+
 ### [New conversations](#13-new-conversations)
 
 Clear your conversation and start a new one:

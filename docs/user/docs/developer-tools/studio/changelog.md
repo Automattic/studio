@@ -755,7 +755,7 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 
 -   Choose your preferred code editor (Visual Studio Code, Cursor, Windsurf, PhpStorm, or WebStorm) and terminal app (Terminal, Command Prompt, Warp, Ghostty, or iTerm2) for easy access to your Studio files.
     -   [Learn more in our blog post](https://wordpress.com/blog/2025/05/12/preferences-studio/)
-    -   [Explore the docs](https://developer.wordpress.com/docs/developer-tools/studio/sites/#6--open-in-section)
+    -   [Explore the docs](https://developer.wordpress.com/docs/developer-tools/studio/sites/#8--open-in-menu)
 -   We’ve updated the default PHP version to 8.3 and made multiple Windows-specific improvements to HTTPS and certificate handling.
 
 [View release notes](https://github.com/Automattic/studio/releases/tag/v1.5.1)
@@ -844,7 +844,7 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
     -   [Learn more in our blog post](https://wordpress.com/blog/2025/02/24/studio-preview-sites/)
     -   [Explore the docs](https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/)
 -   Tunneling is now supported, allowing you to define `WP_SITEURL` and `WP_HOME` in `wp-config.php` for external access via tools like ngrok. That means you can test Studio sites on real devices or share them temporarily for client previews and responsive testing.
-    -   [Explore the docs](https://developer.wordpress.com/docs/developer-tools/studiofrequently-asked-questions/#11-how-can-i-use-a-tunneling-tool-ngrok-with-studio-)
+    -   [Explore the docs](https://developer.wordpress.com/docs/developer-tools/studio/frequently-asked-questions/#11-how-can-i-use-a-tunneling-tool-ngrok-with-studio-)
 -   Studio docs are now [localized in Spanish](https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/).
 
 [View release notes](https://github.com/Automattic/studio/releases/tag/v1.3.4)

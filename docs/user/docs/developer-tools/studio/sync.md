@@ -133,7 +133,7 @@ When you are happy with the changes made to your Studio site, you can publish th
     -   **Choose files…**: pick individual items. You can expand folders such as `plugins`, `themes`, and `uploads` to select individual items, and choose whether to include **Content and settings** (the database).
 5.  Click **Publish changes**.
 
-The selected elements of your WordPress.com site will be replaced by the files (like plugins or themes) and content (like media files and the database) from the Studio site. The review step tells you what will be overwritten before you start. If publishing fails, Studio shows what went wrong, and you can click **Try publishing again**.
+The selected elements of your WordPress.com site will be replaced by the files (like plugins or themes) and content (like media files and the database) from the Studio site. The review step tells you what will be overwritten before you start. If your local site is a multisite network, Studio also warns you that WordPress.com doesn’t support multisite. If publishing fails, Studio shows what went wrong, and you can click **Try publishing again**.
 
 Note that publishing content and settings will replace the whole database of your live site. If it’s a WooCommerce site, it would include orders, product changes, and customer data. Studio triggers a full site backup before syncing so you can restore your site if you are not happy with the result, but use it with extra caution. To find these backups on a WordPress.com site, click **Backups** in the **Publish** panel.
 
@@ -145,6 +145,7 @@ Studio disables **Pull changes** and **Publish changes**, and tells you why, whe
 -   The website needs a hosting plan that supports publishing from WordPress Studio.
 -   Hosting isn’t fully activated yet. Finish activating hosting on WordPress.com first.
 -   The website has been deleted. Choose another website.
+-   The website isn’t a supported WordPress.com or Pressable site.
 -   You’re offline. Connect to the internet to publish or pull changes.
 
 ### [Exclude files with .deployignore](#11-exclude-files-with-deployignore)

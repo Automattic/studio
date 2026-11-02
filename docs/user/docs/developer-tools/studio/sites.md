@@ -190,7 +190,7 @@ A site’s settings are grouped into these pages:
 **Settings:**
 
 -   **Site name**: Your local site’s name, as shown in Studio.
--   **Local path**: The folder where the site’s files are stored. You can’t change it here, but you can copy it with the copy button.
+-   **Local path**: The folder where the site’s files are stored. You can’t change it here.
 -   **WordPress version**: The WordPress release for this site. Turn on **Automatic updates** to keep WordPress updated to the latest released version.
 -   **Local domain**: **Use custom domain**, **Domain**, and **Enable HTTPS**. See [Using a custom domain and SSL](#Using-a-custom-domain-and-SSL).
 -   **WordPress credentials**: The **Username**, **Password**, and **Email** for the admin account, each with a copy button. You can use them to log into WP Admin on your local site and on your preview sites.

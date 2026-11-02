@@ -12,7 +12,7 @@ Your backup files can be downloaded from your WordPress.com site or from Jetpack
 -   `wp-content/uploads`**:** The folder containing your site’s uploads.
 -   `sql/`**:** A directory with `.sql` files that contain your site’s database data.
 
-Exports from Studio will also have a `meta.json` file, which contains information about the desired PHP version for the site.
+Exports from Studio will also have a `meta.json` file, which records the site’s PHP and WordPress versions, its URL, and its plugins and themes.
 
 Other supported formats are:
 

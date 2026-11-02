@@ -34,6 +34,7 @@ Studio can’t create or update a preview when:
 -   You’ve used all the preview sites available on your account. Delete a preview to make room. You can still copy and update your existing previews.
 -   Preview sites aren’t available for your account.
 -   You’re offline. Connect to the internet to create or update a preview.
+-   The files Studio would upload are larger than 2 GB. Remove media files, plugins, or themes you don’t need, or [exclude them with .deployignore](#4-exclude-files-with-deployignore).
 -   Another operation is running on the site. Wait for it to finish before creating or updating a preview.
 
 [![The Share tab of the Share and publish panel in Studio, listing two previews with their names and expiry dates, each with a Preview actions menu, and the Create another preview button below.](https://developer.wordpress.com/wp-content/uploads/2025/01/share-previews.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/share-previews.webp)
@@ -96,7 +97,7 @@ You can also use negation patterns to re-include specific items:
 wp-content/plugins/my-plugin/vendor/\*
 !wp-content/plugins/my-plugin/vendor/important-lib
 
-Note: Patterns are relative to the site root directory, not to `wp-content`. The following directories are excluded by default, even without a `.deployignore` file: `.git`, `node_modules`, `.DS_Store`, and `Thumbs.db`.
+Note: Patterns are relative to the site root directory, not to `wp-content`. The following directories are excluded by default, even without a `.deployignore` file: `.git`, `node_modules`, `.DS_Store`, and `Thumbs.db`. Studio also leaves out themes that aren’t active (except the parent of the active theme), since they don’t change what the preview shows.
 
 ## [Preview site expiration](#5-preview-site-expiration)
 
@@ -115,5 +116,5 @@ Expired previews no longer appear in the **Share** panel. To see them, open **Se
 To quickly delete all of your preview sites within Studio:
 
 1.  Click **Settings** at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux).
-2.  Select the **Usage** page. You can also open it by choosing **Usage** from the account menu. The **Preview sites** section shows how many active preview sites you have, for example “3 of 10 active preview sites”.
+2.  Select the **Usage** page. You can also open it by choosing **Usage** from the account menu. Under **Usage**, Studio shows how many active preview sites you have, for example “3 of 10 active preview sites”.
 3.  Open the **Preview site actions** (**⋯**) menu, click **Delete all preview sites**, and confirm.

@@ -12,7 +12,7 @@ import { collapseRepeats, encodeVideo, resample } from '../video.ts';
 let temp: string | null = null;
 afterEach( async () => {
 	if ( temp ) {
-		await rm( temp, { recursive: true, force: true } );
+		await rm( temp, { recursive: true, force: true, maxRetries: 3 } );
 		temp = null;
 	}
 } );
@@ -243,7 +243,8 @@ describe( 'video', () => {
 			'clip.gif',
 		] );
 		for ( const result of results ) {
-			const { pages } = await sharp( result.file, { animated: true } ).metadata();
+			// From a buffer: sharp keeps a file it opened by path locked on Windows.
+			const { pages } = await sharp( await readFile( result.file ), { animated: true } ).metadata();
 			expect( pages ).toBe( 3 );
 		}
 	} );

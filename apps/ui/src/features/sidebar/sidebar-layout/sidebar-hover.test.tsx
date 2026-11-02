@@ -1,7 +1,7 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { closeNoticeHistory } from '@/features/notifications';
-import { createFakeConnector, makeSite } from '@/test/fake-connector';
+import { createFakeConnector, makeSession, makeSite } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import styles from './style.module.css';
 
@@ -12,11 +12,15 @@ const sites = [
 
 const originalWidth = window.innerWidth;
 
-async function setup( width = 1280 ) {
+async function setup( width = 1280, sessions: ReturnType< typeof makeSession >[] = [] ) {
 	Object.defineProperty( window, 'innerWidth', { configurable: true, value: width } );
 	localStorage.setItem( 'studio-ui-sidebar-collapsed', 'true' );
 	const view = renderApp( {
-		connector: createFakeConnector( { sites, user: null } ),
+		connector: createFakeConnector( {
+			sites,
+			user: null,
+			sessions: sessions.map( ( summary ) => ( { summary, entries: [] } ) ),
+		} ),
 		path: '/sites/one',
 	} );
 	const trigger = await waitFor( () => {
@@ -68,12 +72,31 @@ describe( 'sidebar hover overlay', () => {
 		expect( screen.queryByText( 'No notifications.' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'lists the sites on hover and closes once one opens', async () => {
-		const { connector, history, open } = await setup();
+	it( 'keeps the flyout open while toggling sites and closes when a chat opens', async () => {
+		const { connector, history, open } = await setup( 1280, [
+			makeSession( {
+				id: 'flyout-chat',
+				title: 'Saved flyout chat',
+				ownerSiteId: 'two',
+				ownerSitePath: sites[ 1 ].path,
+			} ),
+		] );
 		const switcher = await open();
 		fireEvent.click( await within( switcher ).findByRole( 'button', { name: /^Other site/ } ) );
-		await switcherClosed();
 		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/two/new' ) );
+		expect( screen.getByRole( 'dialog', { name: 'Sidebar' } ) ).toBeVisible();
+		const site = within( switcher ).getByRole( 'button', { name: /^Other site/ } );
+		expect( site ).toHaveAttribute( 'aria-expanded', 'true' );
+		fireEvent.click( site );
+		expect( site ).toHaveAttribute( 'aria-expanded', 'false' );
+		expect( screen.getByRole( 'dialog', { name: 'Sidebar' } ) ).toBeVisible();
+		fireEvent.click( site );
+		fireEvent.click(
+			within(
+				await within( switcher ).findByRole( 'group', { name: 'Other site chats' } )
+			).getByRole( 'button', { name: 'Saved flyout chat' } )
+		);
+		await switcherClosed();
 		expect( connector.createSession ).not.toHaveBeenCalled();
 	} );
 

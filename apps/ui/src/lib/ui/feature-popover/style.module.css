@@ -1,0 +1,117 @@
+@layer ui {
+	.card {
+		--surface: var( --accent );
+		--ring: var( --accent-foreground );
+		--muted: var( --accent-surface-muted );
+		--hover: var( --accent-surface-muted-hover );
+		--muted-foreground: var( --accent-surface-muted-foreground );
+		--foreground: var( --accent-foreground );
+		position: relative;
+		width: 320px;
+		max-width: calc( 100vw - 24px );
+		padding: var( --space-4 );
+		background-color: var( --accent );
+		color: var( --accent-foreground );
+		box-shadow:
+			inset 0 0 0 0.5px color-mix( in oklab, var( --accent-foreground ) 18%, transparent ),
+			var( --shadow-sm );
+	}
+
+	.card .copy > p {
+		margin-top: var( --space-2 );
+		color: inherit;
+		font-size: var( --text-sm );
+		line-height: var( --text-sm--line-height );
+	}
+
+	.card .progress {
+		color: var( --muted-foreground );
+	}
+
+	.card .actions button {
+		--button-background: var( --muted );
+		--button-hover-background: var( --hover );
+		--button-hover-color: var( --accent-foreground );
+		color: var( --accent-foreground );
+	}
+
+	.card .actions button[data-variant='accent'] {
+		--button-background: var( --accent-foreground );
+		--button-hover-background: var( --accent-surface-primary-hover );
+		--button-hover-color: var( --accent );
+		color: var( --accent );
+	}
+
+	.heading {
+		display: flex;
+		align-items: center;
+		gap: var( --space-2 );
+		padding-inline-end: var( --space-6 );
+	}
+
+	.dismiss {
+		position: absolute;
+		top: var( --space-2 );
+		right: var( --space-2 );
+		color: inherit;
+		--button-background: transparent;
+	}
+
+	.arrow {
+		width: 14px;
+		height: 14px;
+		border-radius: calc( var( --radius-sm ) / 4 );
+		background: var( --accent );
+		border: 0.5px solid color-mix( in oklab, var( --accent-foreground ) 18%, transparent );
+		transform: rotate( 45deg );
+	}
+
+	.arrow[data-side='bottom'] {
+		top: -6px;
+		border-right: 0;
+		border-bottom: 0;
+	}
+	.arrow[data-side='top'] {
+		bottom: -6px;
+		border-top: 0;
+		border-left: 0;
+	}
+	.arrow[data-side='left'] {
+		right: -6px;
+		border-bottom: 0;
+		border-left: 0;
+	}
+	.arrow[data-side='right'] {
+		left: -6px;
+		border-top: 0;
+		border-right: 0;
+	}
+
+	.footer {
+		margin-top: var( --space-4 );
+		margin-inline: calc( var( --space-2 ) * -1 );
+		margin-bottom: calc( var( --space-2 ) * -1 );
+	}
+
+	.navigation,
+	.actions {
+		display: flex;
+		align-items: center;
+		gap: var( --space-1 );
+	}
+
+	.navigation {
+		justify-content: space-between;
+	}
+
+	.actions {
+		margin-inline-start: auto;
+	}
+
+	.progress {
+		margin-inline-start: var( --space-2 );
+		color: var( --muted-foreground );
+		font-size: var( --text-xs );
+		line-height: var( --text-xs--line-height );
+	}
+}

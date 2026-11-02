@@ -20,9 +20,9 @@ import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useAiCreditsMeter } from './use-ai-credits-meter';
 import type { AppUpdateStatus } from '@/data/core';
 
-// The sidebar announces the 80% step only. The composer strip takes 90% and
-// the composer lockout takes exhaustion, so no two surfaces say the same thing.
-const SIDEBAR_NOTICE_INTENTS = [ 'warning' ] as const;
+// The sidebar announces the 80% and 90% steps. The composer notice takes
+// exhaustion, so no two surfaces say the same thing.
+const SIDEBAR_NOTICE_INTENTS = [ 'warning', 'critical' ] as const;
 
 export interface PersistentMessage {
 	id: string;

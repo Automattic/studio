@@ -43,9 +43,16 @@ function studio_copy( $from, $to ) {
 		copy( $from, $to );
 	}
 }
+// Jetpack dumps create their tables with no DROP first, and a new site already has them.
+function studio_run_statement( $statement ) {
+	global $wpdb;
+	if ( preg_match( '/^\\s*CREATE TABLE\\s+(?:IF NOT EXISTS\\s+)?\`?(\\w+)\`?/i', $statement, $match ) ) {
+		$wpdb->query( "DROP TABLE IF EXISTS \`{$match[1]}\`" );
+	}
+	$wpdb->query( $statement );
+}
 // Runs a MySQL dump statement by statement.
 function studio_import_sql( $path ) {
-	global $wpdb;
 	$sql = file_get_contents( $path );
 	$length = strlen( $sql );
 	$statement = '';
@@ -66,7 +73,7 @@ function studio_import_sql( $path ) {
 			if ( "'" === $char || '"' === $char || '\`' === $char ) {
 				$quote = $char;
 			} elseif ( ';' === $char ) {
-				if ( '' !== trim( $statement ) ) { $wpdb->query( $statement ); }
+				if ( '' !== trim( $statement ) ) { studio_run_statement( $statement ); }
 				$statement = '';
 				continue;
 			}
@@ -79,11 +86,13 @@ function studio_import_sql( $path ) {
 		}
 		$statement .= $char;
 	}
-	if ( '' !== trim( $statement ) ) { $wpdb->query( $statement ); }
+	if ( '' !== trim( $statement ) ) { studio_run_statement( $statement ); }
 }
-// Points an imported database at this runtime's URL.
+// Points an imported database at this runtime's URL. The options cached before
+// the import would otherwise make update_option() skip the write.
 function studio_adopt_site_url() {
 	global $wpdb;
+	wp_cache_flush();
 	$old = $wpdb->get_var( "SELECT option_value FROM {$wpdb->options} WHERE option_name = 'siteurl'" );
 	$new = defined( 'WP_SITEURL' ) ? WP_SITEURL : site_url();
 	if ( $old && $old !== $new ) {
@@ -214,6 +223,59 @@ if ( file_exists( "$work/files/database.sql" ) ) {
 if ( file_exists( "$work/files/package.json" ) ) { rename( "$work/files/package.json", "$work/wpress-package.json" ); }
 `;
 
+// PharData unpacks a whole .tar.gz inside PHP's memory limit, so this streams it
+// instead: 512-byte headers, each followed by its bytes rounded up to 512. GNU
+// `L` and pax `x` entries carry the name of the entry after them. Only files and
+// folders are written, so a link in an archive can't redirect a later entry.
+const EXTRACT_TAR_GZ = `<?php
+$work = '${ WORK_DIR }';
+$in = gzopen( "$work/backup.tar.gz", 'rb' );
+$read = function ( $length, $out = null ) use ( $in ) {
+	$data = '';
+	for ( $left = $length; $left > 0; $left -= strlen( $chunk ) ) {
+		$chunk = gzread( $in, min( 1048576, $left ) );
+		if ( '' === $chunk || false === $chunk ) { throw new Exception( 'The backup archive is truncated.' ); }
+		if ( $out ) { fwrite( $out, $chunk ); } elseif ( false !== $out ) { $data .= $chunk; }
+	}
+	return $data;
+};
+$field = function ( $header, $start, $length ) {
+	return rtrim( substr( $header, $start, $length ), "\\0" );
+};
+$long_name = null;
+while ( 512 === strlen( $header = (string) gzread( $in, 512 ) ) && '' !== trim( $header, "\\0" ) ) {
+	$size = octdec( trim( substr( $header, 124, 12 ), " \\0" ) );
+	$type = $header[156];
+	$padding = ( 512 - $size % 512 ) % 512;
+	if ( in_array( $type, array( 'L', 'x', 'g' ), true ) ) {
+		$data = $read( $size );
+		$read( $padding, false );
+		if ( 'L' === $type ) { $long_name = rtrim( $data, "\\0" ); }
+		if ( 'x' === $type && preg_match( '/^\\d+ path=(.*)$/m', $data, $match ) ) { $long_name = $match[1]; }
+		continue;
+	}
+	$prefix = 'ustar' === substr( $header, 257, 5 ) ? $field( $header, 345, 155 ) : '';
+	$name = $long_name ?? ( '' === $prefix ? '' : "$prefix/" ) . $field( $header, 0, 100 );
+	$long_name = null;
+	$relative = preg_replace( '#^(\\./)+#', '', $name );
+	$target = "$work/files/$relative";
+	$unsafe = false !== strpos( "/$relative/", '/../' );
+	if ( '5' === $type && ! $unsafe ) {
+		if ( ! is_dir( $target ) ) { mkdir( $target, 0777, true ); }
+	} elseif ( in_array( $type, array( '0', "\\0" ), true ) && ! $unsafe ) {
+		if ( ! is_dir( dirname( $target ) ) ) { mkdir( dirname( $target ), 0777, true ); }
+		$out = fopen( $target, 'wb' );
+		$read( $size, $out );
+		fclose( $out );
+	} else {
+		$read( $size, false );
+	}
+	$read( $padding, false );
+}
+gzclose( $in );
+unlink( "$work/backup.tar.gz" );
+`;
+
 const ACTIVATE_WPRESS_PACKAGE = `<?php
 require '/wordpress/wp-load.php';
 $package = json_decode( (string) @file_get_contents( '${ WORK_DIR }/wpress-package.json' ), true );
@@ -257,13 +319,7 @@ $zip->close();
 			);
 		} else if ( lowerName.endsWith( '.tar.gz' ) || lowerName.endsWith( '.tgz' ) ) {
 			await client.writeFile( `${ WORK_DIR }/backup.tar.gz`, bytes );
-			await runPhp(
-				client,
-				`<?php
-$archive = new PharData( '${ WORK_DIR }/backup.tar.gz' );
-$archive->extractTo( '${ WORK_DIR }/files', null, true );
-`
-			);
+			await runPhp( client, EXTRACT_TAR_GZ );
 		} else if ( lowerName.endsWith( '.wpress' ) ) {
 			await client.writeFile( `${ WORK_DIR }/backup.wpress`, bytes );
 			await runPhp( client, EXTRACT_WPRESS );

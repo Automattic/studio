@@ -17,7 +17,7 @@ import { readdir, readFile, stat, writeFile } from 'fs/promises';
 import path from 'path';
 import { rewriteJson } from '@studio/common/lib/json-text';
 import { readWordPressSite, type WordPressSite } from '@studio/agent/node/site-database';
-import { activeThemes, readThemeHeader } from '@studio/agent/node/themes';
+import { activeThemes, readThemeHeader, themesDir } from '@studio/agent/node/themes';
 import { wpEvalJson } from '@studio/agent/node/tools/utils';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 import type { SiteFile } from '@studio/agent/node/site-file-guards';
@@ -180,7 +180,7 @@ async function inputsOf( site: WordPressSite, themes: string[] ): Promise< strin
 		`SELECT post_modified_gmt AS modified, LENGTH( post_content ) AS size FROM ${ site.prefix }posts WHERE post_type = 'wp_global_styles' ORDER BY ID`
 	);
 	const themeFiles = await Promise.all(
-		themes.map( ( theme ) => filesVersion( path.join( site.root, 'wp-content', 'themes', theme ) ) )
+		themes.map( ( theme ) => filesVersion( themesDir( site.root, theme ) ) )
 	);
 	const wordpress = await stat( path.join( site.root, 'wp-includes', 'version.php' ) ).catch(
 		() => undefined
@@ -269,7 +269,7 @@ export async function themePresets(
 async function siteText( site: WordPressSite, themes: string[] ): Promise< string > {
 	const files = await Promise.all(
 		themes.map( async ( theme ) => {
-			const dir = path.join( site.root, 'wp-content', 'themes', theme );
+			const dir = themesDir( site.root, theme );
 			const entries = await readdir( dir, { recursive: true, withFileTypes: true } ).catch(
 				() => []
 			);

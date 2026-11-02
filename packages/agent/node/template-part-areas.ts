@@ -15,7 +15,7 @@
 import { readFile, readdir, stat, writeFile } from 'fs/promises';
 import path from 'path';
 import { rewriteJson } from '@studio/common/lib/json-text';
-import { isUpdatableTheme } from '@studio/agent/node/themes';
+import { isUpdatableTheme, themesDir } from '@studio/agent/node/themes';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 
 // The areas core defines with a tag of their own (get_allowed_block_template_part_areas()).
@@ -78,7 +78,7 @@ export const templatePartAreas: SiteChangeSource = {
 	name: 'template-part-areas',
 	saves: true,
 	async read( sitePath ) {
-		const root = path.join( sitePath, 'wp-content', 'themes' );
+		const root = themesDir( sitePath );
 		const versions: Versions = {};
 		for ( const theme of await readdir( root ).catch( () => [] as string[] ) ) {
 			const stamps = await Promise.all(
@@ -104,7 +104,7 @@ export const templatePartAreas: SiteChangeSource = {
 			if ( before[ theme ] === after[ theme ] || ( await isUpdatableTheme( site.path, theme ) ) ) {
 				continue;
 			}
-			const dir = path.join( site.path, 'wp-content', 'themes', theme );
+			const dir = themesDir( site.path, theme );
 			const file = path.join( dir, 'theme.json' );
 			let json: { templateParts?: Array< { name?: unknown } > };
 			let written: string;

@@ -13,7 +13,7 @@
 import { readFile, readdir, stat } from 'fs/promises';
 import path from 'path';
 import { resolveSiteFile } from '@studio/agent/node/site-file-guards';
-import { readThemeHeader, isUpdatableTheme } from '@studio/agent/node/themes';
+import { isUpdatableTheme, readThemeHeader, themesDir } from '@studio/agent/node/themes';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 
 const CREATED = 'created:';
@@ -28,7 +28,7 @@ const exists = ( file: string ) => stat( file ).then( Boolean, () => false );
  * parent's kind, so it is left to its parent.
  */
 async function themeKind( root: string, theme: string ): Promise< string > {
-	const dir = path.join( root, 'wp-content', 'themes', theme );
+	const dir = themesDir( root, theme );
 	if ( await readThemeHeader( root, theme, 'Template' ).catch( () => '' ) ) {
 		return 'child';
 	}
@@ -96,7 +96,7 @@ async function missingTemplateProblem( root: string, theme: string ): Promise< s
 export const blockTheme: SiteChangeSource = {
 	name: 'block-theme',
 	async read( sitePath, last ) {
-		const dir = path.join( sitePath, 'wp-content', 'themes' );
+		const dir = themesDir( sitePath );
 		const themes = await readdir( dir ).catch( () => [] as string[] );
 		const versions: Versions = {};
 		for ( const theme of themes ) {

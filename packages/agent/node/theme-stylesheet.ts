@@ -14,7 +14,7 @@
 import { readFile, stat, writeFile } from 'fs/promises';
 import path from 'path';
 import { readWordPressSite } from '@studio/agent/node/site-database';
-import { activeThemes, isUpdatableTheme } from '@studio/agent/node/themes';
+import { activeThemes, isUpdatableTheme, themesDir } from '@studio/agent/node/themes';
 import { wpEvalJson } from '@studio/agent/node/tools/utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { SiteChangeSource } from '@studio/agent/node/site-changes';
@@ -121,7 +121,7 @@ export const themeStylesheet: SiteChangeSource = {
 		if ( ! stylesheet ) {
 			return {};
 		}
-		const dir = ( theme: string ) => path.join( sitePath, 'wp-content', 'themes', theme );
+		const dir = ( theme: string ) => themesDir( sitePath, theme );
 		const stamps = await Promise.all( [
 			stampOf( path.join( dir( stylesheet ), 'style.css' ) ),
 			stampOf( path.join( dir( stylesheet ), 'functions.php' ) ),
@@ -134,7 +134,7 @@ export const themeStylesheet: SiteChangeSource = {
 		if ( ! theme || before[ theme ] === after[ theme ] ) {
 			return { reports: [] };
 		}
-		const dir = path.join( site.path, 'wp-content', 'themes', theme );
+		const dir = themesDir( site.path, theme );
 		const css = await readFile( path.join( dir, 'style.css' ), 'utf8' ).catch( () => '' );
 		if ( ! holdsRules( css ) || ( await isUpdatableTheme( site.path, theme ) ) ) {
 			return { reports: [] };

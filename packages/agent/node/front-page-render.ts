@@ -7,10 +7,10 @@
  * renders as nothing.
  */
 import { stat } from 'fs/promises';
-import path from 'path';
 import { readVersions } from '@studio/agent/node/post-content-check';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { themeMarkupFiles } from '@studio/agent/node/site-markup';
+import { themesDir } from '@studio/agent/node/themes';
 import { wpEvalJson } from '@studio/agent/node/tools/utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { Versions } from '@studio/agent/node/site-changes';
@@ -28,9 +28,7 @@ export async function readRenderedVersions( sitePath: string ): Promise< Version
 		await Promise.all(
 			themes
 				.filter( ( theme ): theme is string => typeof theme === 'string' && theme !== '' )
-				.map( ( theme ) =>
-					themeMarkupFiles( path.join( sitePath, 'wp-content', 'themes', theme ) )
-				)
+				.map( ( theme ) => themeMarkupFiles( themesDir( sitePath, theme ) ) )
 		)
 	).flat();
 	const versions = await Promise.all(

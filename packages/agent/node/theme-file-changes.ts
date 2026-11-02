@@ -19,6 +19,7 @@ import {
 	isUpdatableTheme,
 	namesakeProblem,
 	readThemeHeader,
+	themesDir,
 	wordPressOrgNamesake,
 } from '@studio/agent/node/themes';
 import type { ChangeReport, SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
@@ -153,8 +154,8 @@ function problem( themeDir: string, slug: string, files: string[], removed: stri
 export const updatableThemeChanges: SiteChangeSource = {
 	name: 'themes',
 	async read( sitePath, last = {} ) {
-		const themesDir = path.join( sitePath, 'wp-content', 'themes' );
-		const slugs = ( await readdir( themesDir, { withFileTypes: true } ).catch( () => [] ) )
+		const themesFolder = themesDir( sitePath );
+		const slugs = ( await readdir( themesFolder, { withFileTypes: true } ).catch( () => [] ) )
 			.filter( ( entry ) => entry.isDirectory() )
 			.map( ( entry ) => entry.name );
 		const versions: Versions = {};
@@ -173,7 +174,7 @@ export const updatableThemeChanges: SiteChangeSource = {
 				: await isUpdatableTheme( sitePath, slug );
 			versions[ slug ] = `${ updated ? UPDATED : 'own ' }${ release }`;
 			if ( updated ) {
-				Object.assign( versions, await readFiles( path.join( themesDir, slug ), slug, last ) );
+				Object.assign( versions, await readFiles( path.join( themesFolder, slug ), slug, last ) );
 			}
 			// The released files a call changed, kept while that release is installed.
 			if ( updated && last[ slug ] === versions[ slug ] ) {
@@ -244,12 +245,7 @@ export const updatableThemeChanges: SiteChangeSource = {
 					key: `theme ${ slug }`,
 					problem:
 						changes.length || removed.length
-							? problem(
-									path.join( site.path, 'wp-content', 'themes', slug ),
-									slug,
-									changes,
-									removed
-							  )
+							? problem( themesDir( site.path, slug ), slug, changes, removed )
 							: undefined,
 				} );
 			}

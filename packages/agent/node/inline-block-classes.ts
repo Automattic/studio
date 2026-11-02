@@ -12,11 +12,11 @@
  * get_block_templates() resolves them, the patterns it registers, and the
  * content of posts, pages and synced patterns.
  */
-import path from 'path';
 import { activeCodeVersion } from '@studio/agent/node/active-code';
 import { readVersions } from '@studio/agent/node/post-content-check';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { inlineDisplayClasses } from '@studio/agent/node/site-file-guards';
+import { themesDir } from '@studio/agent/node/themes';
 import { wpEvalJson } from '@studio/agent/node/tools/utils';
 import type { SiteChangeSource } from '@studio/agent/node/site-changes';
 
@@ -63,7 +63,7 @@ export const inlineBlockClasses: SiteChangeSource = {
 		const themes = await readWordPressSite( site.path, ( wp ) =>
 			[ ...new Set( [ wp.option( 'stylesheet' ), wp.option( 'template' ) ] ) ]
 				.filter( ( name ): name is string => typeof name === 'string' && name !== '' )
-				.map( ( name ) => path.join( site.path, 'wp-content', 'themes', name ) )
+				.map( ( name ) => themesDir( site.path, name ) )
 		).catch( () => [] as string[] );
 		const inline = inlineDisplayClasses( themes );
 		let used: Set< string > = new Set();

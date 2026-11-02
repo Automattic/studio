@@ -26,7 +26,7 @@ import {
 	ownThemeHome,
 	updatableThemeChangeHome,
 } from '@studio/agent/node/theme-file-changes';
-import { isUpdatableTheme, wordPressOrgNamesake } from '@studio/agent/node/themes';
+import { isUpdatableTheme, themesDir, wordPressOrgNamesake } from '@studio/agent/node/themes';
 import { captureScreenshotBuffer } from '@studio/agent/node/tools/screenshot-helpers';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 
@@ -52,7 +52,7 @@ export function resolveSiteFile( filePath: string ): SiteFile | undefined {
 				theme: themeMatch
 					? {
 							slug: themeMatch[ 1 ],
-							dir: path.join( dir, 'wp-content', 'themes', themeMatch[ 1 ] ),
+							dir: themesDir( dir, themeMatch[ 1 ] ),
 							file: themeMatch[ 2 ],
 					  }
 					: undefined,

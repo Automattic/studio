@@ -10,6 +10,7 @@
  */
 import { readdir, readFile } from 'fs/promises';
 import path from 'path';
+import { themesDir } from '@studio/agent/node/themes';
 import type { HostSite } from '@studio/agent/node/host';
 
 /** By handle, the src of each style the front end loads from a host other than the site's. */
@@ -75,7 +76,7 @@ async function fontFaces( src: string ): Promise< { hosts: string[]; families: s
 async function fileNaming( site: HostSite, themes: string[], handle: string ) {
 	const quoted = new RegExp( `['"]${ handle.replace( /[.*+?^${}()|[\]\\]/g, '\\$&' ) }['"]` );
 	for ( const theme of themes ) {
-		const dir = path.join( site.path, 'wp-content/themes', theme );
+		const dir = themesDir( site.path, theme );
 		const files = await readdir( dir, { recursive: true } ).catch( () => [] as string[] );
 		for ( const file of files.filter( ( name ) => name.endsWith( '.php' ) ).sort() ) {
 			if ( quoted.test( await readFile( path.join( dir, file ), 'utf8' ).catch( () => '' ) ) ) {

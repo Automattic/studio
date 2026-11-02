@@ -17,7 +17,7 @@ import { readFile, readdir, stat } from 'fs/promises';
 import path from 'path';
 import { savedPosts } from '@studio/agent/node/saved-copies';
 import { readWordPressSite } from '@studio/agent/node/site-database';
-import { isUpdatableTheme } from '@studio/agent/node/themes';
+import { isUpdatableTheme, themesDir } from '@studio/agent/node/themes';
 import { wpEvalJson } from '@studio/agent/node/tools/utils';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 
@@ -46,7 +46,7 @@ interface ThemeVersion {
 // What a theme's template parts render from: its template and part files and
 // style.css, the parts saved for it, and the active theme.
 async function partsFrom( sitePath: string, theme: string ): Promise< string > {
-	const dir = path.join( sitePath, 'wp-content', 'themes', theme );
+	const dir = themesDir( sitePath, theme );
 	const files = [ 'style.css' ];
 	for ( const folder of [ ...TEMPLATE_FOLDERS, ...PART_FOLDERS ] ) {
 		for ( const file of await readdir( path.join( dir, folder ) ).catch( () => [] as string[] ) ) {
@@ -71,7 +71,7 @@ async function partsFrom( sitePath: string, theme: string ): Promise< string > {
 
 // Whether any of a theme's template and part files includes a part.
 async function includesParts( sitePath: string, theme: string ): Promise< boolean > {
-	const dir = path.join( sitePath, 'wp-content', 'themes', theme );
+	const dir = themesDir( sitePath, theme );
 	for ( const folder of [ ...TEMPLATE_FOLDERS, ...PART_FOLDERS ] ) {
 		for ( const file of await readdir( path.join( dir, folder ) ).catch( () => [] as string[] ) ) {
 			const markup = await readFile( path.join( dir, folder, file ), 'utf8' ).catch( () => '' );
@@ -139,7 +139,7 @@ echo wp_json_encode( (object) $out );`;
 const list = ( items: string[] ) => [ ...new Set( items ) ].join( ', ' );
 
 async function describe( root: string, theme: string, missing: MissingPart[] ): Promise< string > {
-	const dir = path.join( root, 'wp-content', 'themes', theme );
+	const dir = themesDir( root, theme );
 	const sentences: string[] = [];
 	const unfiled = missing.filter( ( part ) => ! part.theme );
 	if ( unfiled.length ) {
@@ -188,7 +188,7 @@ const key = ( part: MissingPart ) => `${ part.file } ${ part.slug } ${ part.them
 export const missingTemplateParts: SiteChangeSource = {
 	name: 'missing template parts',
 	async read( sitePath, last ) {
-		const root = path.join( sitePath, 'wp-content', 'themes' );
+		const root = themesDir( sitePath );
 		const versions: Versions = {};
 		for ( const theme of await readdir( root ).catch( () => [] as string[] ) ) {
 			// A folder with a style.css is a theme (WP_Theme in wp-includes/class-wp-theme.php).

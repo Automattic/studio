@@ -3,6 +3,10 @@ import { readFile } from 'fs/promises';
 import path from 'path';
 import { readWordPressSite, type WordPressSite } from '@studio/agent/node/site-database';
 
+/** The folder WordPress finds a site's themes in, or one theme's folder. */
+export const themesDir = ( sitePath: string, theme?: string ) =>
+	path.join( sitePath, 'wp-content', 'themes', ...( theme === undefined ? [] : [ theme ] ) );
+
 // Whether WordPress updates a theme, and so overwrites changes to its files.
 // WordPress's last update check (wp_update_themes() in wp-includes/update.php)
 // stores in the update_themes transient the themes it checked and those it
@@ -30,7 +34,7 @@ export async function readThemeHeader(
 	theme: string,
 	header: string
 ): Promise< string > {
-	const css = await readFile( path.join( root, 'wp-content/themes', theme, 'style.css' ), 'utf8' );
+	const css = await readFile( path.join( themesDir( root, theme ), 'style.css' ), 'utf8' );
 	return headerOf( css, header );
 }
 
@@ -151,9 +155,7 @@ export function namesakeProblem(
 
 /** Whether the site's active theme is a block theme, by it and the parent WordPress loads with it. */
 export function activeIsBlockTheme( site: WordPressSite ): boolean {
-	return activeThemes( site ).some( ( theme ) =>
-		isBlockTheme( path.join( site.root, 'wp-content/themes', theme ) )
-	);
+	return activeThemes( site ).some( ( theme ) => isBlockTheme( themesDir( site.root, theme ) ) );
 }
 
 /**

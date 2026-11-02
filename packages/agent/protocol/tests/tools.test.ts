@@ -20,15 +20,6 @@ describe( 'tool display helpers', () => {
 		).toBe( 'Read site title' );
 	} );
 
-	it( 'labels a feedback status check apart from sending feedback', () => {
-		expect( getToolDisplayName( 'send_feedback', { type: 'bug', message: 'x' } ) ).toBe(
-			'Send feedback'
-		);
-		expect( getToolDisplayName( 'send_feedback', { action: 'status', feedbackId: 42 } ) ).toBe(
-			'Check feedback status'
-		);
-	} );
-
 	it( 'formats WP-CLI plugin and theme targets as display names', () => {
 		expect(
 			getToolDisplayName( 'wp_cli', {

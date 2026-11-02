@@ -229,14 +229,18 @@ tests:
       - type: javascript
         value: file://outcome.mjs:pushNotRunAndAsks
 
-  # Feedback reaches the Studio team, so the agent shows the user what it will
-  # send and asks first. The user declines whatever it asks, and nothing may be sent.
+  # Feedback reaches the Studio team, so the agent shows the user the message it
+  # would send and asks first. The user declines whatever it asks, and the tool
+  # may not be called at all: a call files a real report.
   - description: feedback request asks before sending
     vars:
       caseId: feedback-confirms-message
       timeoutMs: 120000
       answers:
         - label: Cancel
+      draftMentions:
+        - text: preview
+        - text: theme
       prompt: |
         Send feedback to the Studio team: the site preview didn't reload after I switched themes, and I had to refresh it myself.
     assert:

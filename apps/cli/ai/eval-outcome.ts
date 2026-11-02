@@ -291,12 +291,14 @@ async function renderHome( url: string ) {
 		const response = await fetch( url, { redirect: 'follow' } );
 		const html = await response.text();
 		// Each image's address, and the status the site answers it with (null
-		// for images from another origin, which are not requested).
+		// for images from another origin, which are not requested; 200 for an
+		// image the src holds as data). The src attribute itself, not one an
+		// Interactivity directive binds (data-wp-bind--src).
 		const images = await Promise.all(
-			[ ...html.matchAll( /<img\b[^>]*\bsrc="([^"]+)"/g ) ].map( async ( m ) => {
+			[ ...html.matchAll( /<img\b[^>]*\ssrc="([^"]+)"/g ) ].map( async ( m ) => {
 				const src = new URL( m[ 1 ].replace( /&amp;/g, '&' ), url );
 				const sameOrigin = src.origin === new URL( url ).origin;
-				const status = sameOrigin
+				const status = src.protocol === 'data:' ? 200 : sameOrigin
 					? await fetch( src, { method: 'HEAD' } ).then(
 							( r ) => r.status,
 							() => 0
@@ -577,14 +579,77 @@ async function homeStyles( url: string ) {
 					textTransform: getComputedStyle( el ).textTransform,
 					first: el === topTitle,
 				} ) );
+				// How far an element's text sits from the middle of what holds it: its
+				// column or group, or for a row of links, the row's content within its
+				// parent; the farthest of its lines, in px.
+				const offCenter = ( el: Element ) => {
+					const row = el.closest(
+						'.is-layout-flex:not(.wp-block-columns), .wp-block-navigation__container, .wp-block-social-links'
+					);
+					const target = row && footer?.contains( row ) ? row : el;
+					const holder = target.parentElement?.getBoundingClientRect();
+					if ( ! holder ) return null;
+					const middle = holder.left + holder.width / 2;
+					const range = document.createRange();
+					range.selectNodeContents( target );
+					const lines = new Map< number, { left: number; right: number } >();
+					for ( const rect of range.getClientRects() ) {
+						if ( ! rect.width ) continue;
+						const top = Math.round( rect.top + rect.height / 2 );
+						const line = lines.get( top ) ?? { left: rect.left, right: rect.right };
+						lines.set( top, {
+							left: Math.min( line.left, rect.left ),
+							right: Math.max( line.right, rect.right ),
+						} );
+					}
+					return Math.round(
+						Math.max(
+							0,
+							...[ ...lines.values() ].map( ( line ) =>
+								Math.abs( ( line.left + line.right ) / 2 - middle )
+							)
+						)
+					);
+				};
 				const footerText = footer
 					? [ ...footer.querySelectorAll( 'p, a' ) ]
 							.filter( ( el ) => visible( el ) && ( el.textContent ?? '' ).trim() )
 							.map( ( el ) => ( {
 								text: ( el.textContent ?? '' ).trim().slice( 0, 40 ),
 								fontSize: getComputedStyle( el ).fontSize,
+								offCenter: offCenter( el ),
 							} ) )
 					: [];
+				const pageWidth = document.documentElement.clientWidth;
+				const headerAllText = header instanceof HTMLElement ? header.innerText : '';
+				const footerAllText = footer instanceof HTMLElement ? footer.innerText : '';
+				// The body text's size: the median of the paragraphs outside the header and footer.
+				const bodySizes = [ ...document.querySelectorAll( 'p' ) ]
+					.filter(
+						( el ) =>
+							visible( el ) &&
+							( el.textContent ?? '' ).trim().length > 20 &&
+							! el.closest( 'header, footer' )
+					)
+					.map( ( el ) => parseFloat( getComputedStyle( el ).fontSize ) )
+					.sort( ( a, b ) => a - b );
+				const bodyFontSize = bodySizes.length
+					? bodySizes[ Math.floor( bodySizes.length / 2 ) ]
+					: null;
+				// Images on the first screen, as an img or a background, by their drawn width.
+				const firstScreenImages = [ ...document.querySelectorAll( 'body *' ) ]
+					.filter( ( el ) => {
+						if ( ! visible( el ) || el.closest( 'header' ) ) return false;
+						const box = el.getBoundingClientRect();
+						return (
+							box.top < window.innerHeight &&
+							box.bottom > 0 &&
+							( el.tagName === 'IMG' ||
+								el.tagName === 'VIDEO' ||
+								getComputedStyle( el ).backgroundImage.includes( 'url(' ) )
+						);
+					} )
+					.map( ( el ) => Math.round( el.getBoundingClientRect().width ) );
 				const body = getComputedStyle( document.body );
 				const palette = [ ...body ]
 					.filter( ( name ) => name.startsWith( '--wp--preset--color--' ) )
@@ -600,6 +665,11 @@ async function homeStyles( url: string ) {
 					headings,
 					footerText,
 					palette,
+					pageWidth,
+					headerAllText,
+					footerAllText,
+					bodyFontSize,
+					firstScreenImages,
 				};
 			} );
 		} finally {

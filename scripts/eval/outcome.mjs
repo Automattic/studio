@@ -1247,3 +1247,43 @@ export const restyleApplied = check( ( d, vars ) => {
 				`restyle applied: ${ styles.buttons.length } buttons, ${ styles.headings.length } headings, ${ smaller.length } footer texts smaller`
 		  );
 } );
+
+// The dental office's follow-ups, on the home page after the last turn: the
+// phone number moved from the header to the footer, the body text between its
+// first size and the size the second turn made it, a photo across the whole
+// first screen, and every line of the footer centered in what holds it.
+export const followUpsApplied = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const styles = s.home?.styles;
+	const [ first, second ] = ( d.homeStylesByTurn || [] ).map( ( turn ) => turn?.[ s.name ] );
+	if ( ! styles || styles.error ) return fail( `no home page styles: ${ styles?.error }` );
+	if ( ! first || first.error || ! second || second.error )
+		return fail( 'no home page styles after the first two turns' );
+	const misses = [];
+	const digits = ( text ) => ( text || '' ).replace( /\D/g, '' );
+	if ( ! digits( styles.footerAllText ).includes( vars.phoneDigits ) )
+		misses.push( 'the phone number is not in the footer' );
+	if ( digits( styles.headerAllText ).includes( vars.phoneDigits ) )
+		misses.push( 'the phone number is still in the header' );
+	const [ before, bigger, now ] = [ first, second, styles ].map( ( st ) => st.bodyFontSize );
+	if ( ! ( before && bigger && now && bigger > before && now > before && now < bigger ) )
+		misses.push( `body text was ${ before }px, then ${ bigger }px, now ${ now }px` );
+	const widest = Math.max( 0, ...( styles.firstScreenImages || [] ) );
+	if ( widest < styles.pageWidth - 10 )
+		misses.push( `the widest image on the first screen is ${ widest }px of ${ styles.pageWidth }px` );
+	const offCenter = ( styles.footerText || [] ).filter(
+		( text ) => text.offCenter === null || text.offCenter > 8
+	);
+	if ( ! styles.footerText?.length ) misses.push( 'no footer text' );
+	else if ( offCenter.length )
+		misses.push(
+			`footer text not centered: ${ offCenter
+				.map( ( text ) => `"${ text.text }" ${ text.offCenter }px off` )
+				.join( ', ' ) }`
+		);
+	return misses.length
+		? fail( misses.join( '; ' ) )
+		: pass(
+				`follow-ups applied: phone in the footer, body text ${ before }→${ bigger }→${ now }px, a ${ widest }px photo, ${ styles.footerText.length } footer lines centered`
+		  );
+} );

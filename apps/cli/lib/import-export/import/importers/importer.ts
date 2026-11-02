@@ -254,7 +254,9 @@ abstract class BaseBackupImporter extends BaseImporter {
 		}
 
 		if ( ! site.runtimeBlueprintPath ) {
-			await ensureWpConfig( site.path, this.resolvePhpVersion( site ) );
+			await ensureWpConfig( site.path, this.resolvePhpVersion( site ), undefined, {
+				forceDefaultDatabaseName: true,
+			} );
 		}
 	}
 
@@ -436,6 +438,7 @@ export class SQLImporter extends BaseImporter {
 		this.emit( ImportEvents.IMPORT_START, 'sql' );
 
 		try {
+			await keepSqliteIntegrationUpdated( site.path );
 			await this.importDatabase( site, this.backup.sqlFiles );
 
 			this.emit( ImportEvents.IMPORT_COMPLETE, 'sql' );

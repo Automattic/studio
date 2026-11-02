@@ -1,6 +1,6 @@
+import http from 'node:http';
 import { describe, expect, it, vi } from 'vitest';
 import { shouldUsePrimaryWorker } from 'cli/php-server-child';
-import type http from 'node:http';
 
 const { restoreProcessWiring } = vi.hoisted( () => {
 	type Listener = ( ...args: unknown[] ) => void;

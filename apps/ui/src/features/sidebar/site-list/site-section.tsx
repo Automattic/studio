@@ -103,14 +103,16 @@ export function SiteSection( {
 		pathname === `/sites/${ encodeURIComponent( site.id ) }/new` && ! preview?.chatHidden;
 	const handleOpenSite = () => {
 		onOpen?.();
-		onSiteOpen?.();
+		if ( ! onOpen ) onSiteOpen?.();
 		openSite( site );
 	};
 	const { data: preferences } = useUserPreferences();
 	const handleStartSite = () => {
 		if ( ! isActive ) {
 			if ( preferences?.openChatOnSiteStart ?? true ) {
-				handleOpenSite();
+				onOpen?.();
+				onSiteOpen?.();
+				openSite( site );
 			} else {
 				onOpen?.();
 				onSiteOpen?.();

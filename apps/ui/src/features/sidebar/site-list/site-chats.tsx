@@ -1,5 +1,5 @@
 import { __, sprintf } from '@wordpress/i18n';
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { getSessionTitle } from '@/features/chats';
 import {
 	CollapsiblePanel,
@@ -44,6 +44,25 @@ export function SiteChats( {
 } ) {
 	const [ chatCount, setChatCount ] = useState( CHATS_INITIAL_COUNT );
 	const visibleChats = chats.slice( 0, chatCount );
+	const panelRef = useRef< HTMLDivElement >( null );
+	const previousHeight = useRef< number | undefined >( undefined );
+	const expansion = useRef< Animation | undefined >( undefined );
+	useLayoutEffect( () => {
+		const panel = panelRef.current;
+		const from = previousHeight.current;
+		previousHeight.current = undefined;
+		expansion.current?.cancel();
+		if ( ! panel || from === undefined || ! open || ! panel.animate ) return;
+		const style = getComputedStyle( panel );
+		const value = style.transitionDuration;
+		const duration = parseFloat( value ) * ( value.endsWith( 'ms' ) ? 1 : 1000 );
+		if ( ! duration ) return;
+		expansion.current = panel.animate(
+			[ { height: `${ from }px` }, { height: `${ panel.scrollHeight }px` } ],
+			{ duration, easing: style.transitionTimingFunction }
+		);
+		return () => expansion.current?.cancel();
+	}, [ chatCount, open ] );
 	useEffect( () => {
 		if ( ! expanded ) {
 			setChatCount( CHATS_INITIAL_COUNT );
@@ -65,7 +84,10 @@ export function SiteChats( {
 				<SidebarMenuButton
 					muted
 					inset
-					onClick={ () => setChatCount( ( count ) => count + CHATS_PAGE_SIZE ) }
+					onClick={ () => {
+						previousHeight.current = panelRef.current?.getBoundingClientRect().height;
+						setChatCount( ( count ) => count + CHATS_PAGE_SIZE );
+					} }
 				>
 					<SidebarMenuLabel>{ __( 'Show more' ) }</SidebarMenuLabel>
 				</SidebarMenuButton>
@@ -73,7 +95,7 @@ export function SiteChats( {
 		) : null;
 
 	return (
-		<CollapsiblePanel open={ open } className={ styles.chatsPanel }>
+		<CollapsiblePanel ref={ panelRef } open={ open } className={ styles.chatsPanel }>
 			<div
 				role="group"
 				aria-label={ sprintf(

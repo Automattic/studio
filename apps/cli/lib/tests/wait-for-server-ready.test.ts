@@ -1,3 +1,4 @@
+import { once } from 'events';
 import http from 'http';
 import net from 'net';
 import { waitForServerReady } from 'cli/lib/wait-for-server-ready';
@@ -36,6 +37,23 @@ describe( 'waitForServerReady', () => {
 					pollIntervalMs: 20,
 				} )
 			).resolves.toBeUndefined();
+		} finally {
+			await close( server );
+		}
+	} );
+
+	it( 'drops the response instead of leaving its body unread', async () => {
+		const server = http.createServer( ( _req, res ) => res.write( 'partial body' ) );
+		const connectionClosed = once( server, 'request' ).then( ( [ , res ] ) =>
+			once( res, 'close' )
+		);
+		const port = await listen( server );
+		try {
+			await waitForServerReady( `http://127.0.0.1:${ port }/`, {
+				timeoutMs: 5_000,
+				pollIntervalMs: 20,
+			} );
+			await connectionClosed;
 		} finally {
 			await close( server );
 		}

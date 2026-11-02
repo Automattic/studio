@@ -77,27 +77,36 @@ export function dotsTileSvg( scheme: DotScheme ) {
 	return `<svg xmlns="http://www.w3.org/2000/svg" width="${ DOTS.spacing }" height="${ DOTS.spacing }" viewBox="0 0 ${ DOTS.spacing } ${ DOTS.spacing }"><rect width="${ DOTS.spacing }" height="${ DOTS.spacing }" fill="${ background }"/><circle cx="${ half }" cy="${ half }" r="${ DOTS.radius }" fill="${ dot }"/></svg>\n`;
 }
 
+/** A dot grid laid out on a canvas: dots every `step` pixels, one at (`x`, `y`). */
+type Grid = { step: number; x: number; y: number };
+
 /**
  * The background at `width` × `height` pixels. `pixelRatio` is how many of
  * its pixels make one CSS pixel of the app next to it, so the dots come out
- * the size they are in Studio; the grid is centred on the canvas.
+ * the size they are in Studio, on a grid centred on the canvas; a `grid` lays
+ * them out instead, the dots keeping their size against the spacing.
  */
 function backgroundSvg(
 	width: number,
 	height: number,
 	background: Background,
-	pixelRatio: number
+	pixelRatio: number,
+	grid?: Grid
 ) {
 	if ( 'dots' in background ) {
 		const { background: fill, dot } = DOTS[ background.dots ];
-		const step = DOTS.spacing * pixelRatio;
+		const { step, x, y } = grid ?? {
+			step: DOTS.spacing * pixelRatio,
+			x: width / 2,
+			y: height / 2,
+		};
 		return svg(
 			width,
 			height,
-			`<defs><pattern id="d" patternUnits="userSpaceOnUse" x="${ width / 2 - step / 2 }" y="${
-				height / 2 - step / 2
+			`<defs><pattern id="d" patternUnits="userSpaceOnUse" x="${ x - step / 2 }" y="${
+				y - step / 2
 			}" width="${ step }" height="${ step }"><circle cx="${ step / 2 }" cy="${ step / 2 }" r="${
-				DOTS.radius * pixelRatio
+				( DOTS.radius * step ) / DOTS.spacing
 			}" fill="${ dot }"/></pattern></defs><rect width="100%" height="100%" fill="${ fill }"/><rect width="100%" height="100%" fill="url(#d)"/>`
 		);
 	}
@@ -172,7 +181,8 @@ async function compose(
 	frame: Frame,
 	background: Background,
 	pixelRatio: number,
-	scaleWidth: number
+	scaleWidth: number,
+	grid?: Grid
 ): Promise< Buffer > {
 	const { width = 0, height = 0 } = await sharp( image ).metadata();
 	const radius = Math.round( scaleWidth * frame.radius );
@@ -230,7 +240,7 @@ async function compose(
 			h - line
 		}" rx="${ radius }" fill="none" stroke="${ hairlineColor }" stroke-width="${ line }"/>`
 	);
-	return sharp( backgroundSvg( W, H, background, pixelRatio ) )
+	return sharp( backgroundSvg( W, H, background, pixelRatio, grid ) )
 		.composite( [
 			{ input: shadow, left: 0, top: 0 },
 			{ input: rounded, left: canvas.left, top: canvas.top },
@@ -288,7 +298,10 @@ async function frameImage(
 /**
  * A cut still in an output's canvas, running off it on the cut sides with the
  * output's margin on the others: scaled to fill the canvas where it can be
- * trimmed further on a cut side, and to fit across it where it can't.
+ * trimmed further on a cut side, and to fit across it where it can't. The
+ * margin is the output's share of the canvas's mean side, so a wide card gets
+ * as much as a square; whole rows of dots fill it, spaced about as they are
+ * in the app at 1×, an equal step from the canvas's edge and the window's.
  */
 async function anchorInOutput(
 	image: Buffer,
@@ -299,7 +312,7 @@ async function anchorInOutput(
 	pixelRatio: number
 ): Promise< Buffer > {
 	const { width = 0, height = 0 } = await sharp( image ).metadata();
-	const margin = Math.round( output.margin * Math.min( output.width, output.height ) );
+	const margin = Math.round( ( output.margin * ( output.width + output.height ) ) / 2 );
 	const room = {
 		width: output.width - ( cut.left ? 0 : margin ) - ( cut.right ? 0 : margin ),
 		height: output.height - ( cut.top ? 0 : margin ) - ( cut.bottom ? 0 : margin ),
@@ -335,6 +348,12 @@ async function anchorInOutput(
 		}
 		return end ? total - size : Math.round( ( total - size ) / 2 );
 	};
+	const step = margin / Math.max( 1, Math.round( margin / ( DOTS.spacing * frame.dotScale ) ) );
+	const grid = {
+		step,
+		x: cut.left ? output.width - margin + step / 2 : step / 2,
+		y: cut.top ? output.height - margin + step / 2 : step / 2,
+	};
 	return compose(
 		fitted,
 		{
@@ -347,7 +366,8 @@ async function anchorInOutput(
 		frame,
 		background,
 		pixelRatio * frame.dotScale * scale,
-		scaled.width
+		scaled.width,
+		grid
 	);
 }
 

@@ -200,6 +200,19 @@ describe( 'framing a crop', () => {
 		}
 		expect( out.map( ( [ suffix ] ) => suffix ) ).toEqual( [ '-card', '-square', '-wide' ] );
 	} );
+
+	it( "gives a wide card's corner crop the margin of its mean side", async () => {
+		const [ [ , card ] ] = await renderLook(
+			await solid( 1400, 1000, '#ffffff' ),
+			await loadLook( 'social' ),
+			{ edges: corner }
+		);
+		const margin = Math.round( ( 0.07 * ( 1200 + 630 ) ) / 2 );
+		expect( await pixel( card, 1199, margin + 2 ) ).toEqual( [ 255, 255, 255 ] );
+		expect( await pixel( card, 1199, margin - 4 ) ).not.toEqual( [ 255, 255, 255 ] );
+		expect( await pixel( card, margin + 20, 629 ) ).toEqual( [ 255, 255, 255 ] );
+		expect( await pixel( card, margin - 4, 629 ) ).not.toEqual( [ 255, 255, 255 ] );
+	} );
 } );
 
 describe( 'dot field', () => {

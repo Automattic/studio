@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 
 // A site that was just started keeps its loading stage over the preview
-// until the first page arrives. `reveal` reports that page.
+// until the first page arrives. `reveal` reports that page. Starting a site
+// that's already up brings no new page, so there's nothing to wait for.
 export function useLoadingStage( {
 	siteId,
 	live,
@@ -19,7 +20,7 @@ export function useLoadingStage( {
 } ) {
 	const [ awaitingReveal, setAwaitingReveal ] = useState( false );
 	useEffect( () => {
-		if ( isStarting ) {
+		if ( isStarting && ! canPreview ) {
 			setAwaitingReveal( true );
 		} else if ( ! canPreview ) {
 			setAwaitingReveal( false );

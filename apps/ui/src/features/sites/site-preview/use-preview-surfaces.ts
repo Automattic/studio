@@ -26,6 +26,7 @@ import {
 const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
 	frontend: '/',
 	admin: '/wp-admin/',
+	client: '/wp-admin/',
 	database: DATABASE_HOME_PATH,
 	design: DESIGN_SYSTEM_PREVIEW_PATH,
 };
@@ -38,12 +39,14 @@ const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
 export function usePreviewSurfaces( {
 	siteId,
 	siteUrl,
+	clientLogin,
 	path,
 	reloadNonce,
 	onPathChange,
 }: {
 	siteId: string;
 	siteUrl: string;
+	clientLogin?: string;
 	path: string;
 	reloadNonce: number;
 	onPathChange?: ( path: string ) => void;
@@ -53,7 +56,17 @@ export function usePreviewSurfaces( {
 	// Which realm the host is pointing the preview at. Derived from the path
 	// rather than stored alongside it, so the parent stays the single source of
 	// truth for where the preview is aimed.
-	const activeRealm = getPreviewRealm( path );
+	const pathRealm = getPreviewRealm( path );
+	// wp-admin's paths are the same for every account, so only the sign-in hop
+	// says the session is the client's. It holds until a hop signs in as the admin.
+	const [ isClientSession, setIsClientSession ] = useState( false );
+	useEffect( () => setIsClientSession( false ), [ siteId ] );
+	useEffect( () => {
+		if ( path.startsWith( '/studio-auto-login' ) ) {
+			setIsClientSession( pathRealm === 'client' );
+		}
+	}, [ path, pathRealm ] );
+	const activeRealm = pathRealm === 'admin' && isClientSession ? 'client' : pathRealm;
 	const activeSurfaceKey = getSurfaceKey( activeRealm );
 	// Surfaces mounted so far. Once created a surface stays mounted and warm;
 	// only the active one is visible.
@@ -141,7 +154,7 @@ export function usePreviewSurfaces( {
 			return;
 		}
 		lastHostReloadNonceRef.current = reloadNonce;
-		if ( activeRealm === 'admin' ) {
+		if ( activeRealm === 'admin' || activeRealm === 'client' ) {
 			return;
 		}
 		if ( activeSurfaceKey === 'design' ) {
@@ -164,8 +177,8 @@ export function usePreviewSurfaces( {
 		if ( path.startsWith( '/studio-auto-login' ) ) {
 			return;
 		}
-		lastRealmPathsRef.current[ getPreviewRealm( path ) ] = path;
-	}, [ path ] );
+		lastRealmPathsRef.current[ activeRealm ] = path;
+	}, [ activeRealm, path ] );
 
 	// Realm segments (front end / WP Admin / database). Moving between the front
 	// end and WP Admin is a navigation inside the shared site surface, so they
@@ -180,14 +193,27 @@ export function usePreviewSurfaces( {
 			void connector.trackEvent( getRealmOpenEvent( realm ), { browser: 'internal' } );
 			const target = lastRealmPathsRef.current[ realm ];
 			const key = getSurfaceKey( realm );
-			if ( surfaces.byKey[ key ]?.path === target ) {
+			// Moving between the admin and the client changes who is signed in.
+			const changesSession = realm === 'client' || ( realm === 'admin' && isClientSession );
+			if ( ! changesSession && surfaces.byKey[ key ]?.path === target ) {
 				sendSurfaceCommand( key, 'reload' );
 				onPathChange?.( target );
 				return;
 			}
-			onPathChange?.( getRealmNavigationPath( target, siteUrl ) );
+			onPathChange?.(
+				getRealmNavigationPath( target, siteUrl, realm === 'client' ? clientLogin : undefined )
+			);
 		},
-		[ activeRealm, connector, onPathChange, sendSurfaceCommand, siteUrl, surfaces ]
+		[
+			activeRealm,
+			clientLogin,
+			connector,
+			isClientSession,
+			onPathChange,
+			sendSurfaceCommand,
+			siteUrl,
+			surfaces,
+		]
 	);
 
 	return {

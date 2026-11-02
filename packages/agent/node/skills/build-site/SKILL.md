@@ -81,3 +81,4 @@ End your closing message with a short **Next steps** list. Put first whatever th
 
 - A performance audit (`/need-for-speed`): Core Web Vitals, page weight, and what to fix first.
 - An SEO audit (`/rank-me-up`): titles, meta tags, headings, structured data, and what to fix first.
+- A curated wp-admin (`/curate-admin`): which menu items stay, post types for repeated content, global settings, and the dashboard.

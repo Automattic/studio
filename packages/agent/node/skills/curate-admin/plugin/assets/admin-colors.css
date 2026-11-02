@@ -1,0 +1,66 @@
+/* The client's admin color scheme. Colors come from the brand, as custom properties. */
+body.admin-color-client-admin {
+	--wp-admin-theme-color: var(--ca-accent);
+	--wp-admin-theme-color--rgb: var(--ca-accent-rgb);
+	--wp-admin-theme-color-darker-10: var(--ca-accent);
+	--wp-admin-theme-color-darker-20: var(--ca-sidebar);
+}
+
+#wpadminbar,
+#adminmenu,
+#adminmenuback,
+#adminmenuwrap {
+	background: var(--ca-sidebar);
+}
+
+#wpadminbar .ab-item,
+#wpadminbar a.ab-item,
+#wpadminbar .ab-label,
+#wpadminbar #adminbarsearch::before,
+#adminmenu a,
+#adminmenu div.wp-menu-image::before,
+#collapse-button {
+	color: var(--ca-sidebar-text);
+}
+
+#adminmenu li.menu-top:hover,
+#adminmenu li.opensub > a.menu-top,
+#adminmenu li > a.menu-top:focus {
+	background: color-mix(in srgb, var(--ca-sidebar-text) 12%, var(--ca-sidebar));
+	color: var(--ca-sidebar-text);
+}
+
+#adminmenu li.current a.menu-top,
+#adminmenu li.wp-has-current-submenu a.wp-has-current-submenu,
+#adminmenu li.wp-has-current-submenu .wp-submenu-head {
+	background: var(--ca-accent);
+	color: var(--ca-accent-text);
+}
+
+#adminmenu li.current div.wp-menu-image::before,
+#adminmenu li.wp-has-current-submenu div.wp-menu-image::before {
+	color: var(--ca-accent-text);
+}
+
+.wp-core-ui .button-primary {
+	border-color: var(--ca-accent);
+	background: var(--ca-accent);
+	color: var(--ca-accent-text);
+}
+
+.wp-core-ui .button-primary:hover,
+.wp-core-ui .button-primary:focus {
+	border-color: var(--ca-sidebar);
+	background: var(--ca-sidebar);
+	color: var(--ca-accent-text);
+}
+
+a,
+.wp-core-ui .button-link,
+.wrap .page-title-action {
+	color: var(--ca-accent);
+}
+
+.wrap .page-title-action {
+	border-color: var(--ca-accent);
+}

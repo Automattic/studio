@@ -8,6 +8,8 @@ import { exportSiteTool } from './export-site';
 import { generateImagesTool } from './generate-images';
 import { importSiteTool } from './import-site';
 import { createInspectDesignTool, inspectDesignTool } from './inspect-design';
+import { inspectWpAdminTool } from './inspect-wp-admin';
+import { installClientAdminTool } from './install-client-admin';
 import { installTaxonomyScriptsTool } from './install-taxonomy-scripts';
 import { listConnectedRemoteSitesTool } from './list-connected-remote-sites';
 import { listPreviewsTool } from './list-previews';
@@ -26,6 +28,7 @@ import { stopSiteTool } from './stop-site';
 import { createTakeScreenshotTool, takeScreenshotTool } from './take-screenshot';
 import { updatePreviewTool } from './update-preview';
 import { validateBlocksTool } from './validate-blocks';
+import { createVerifyClientAdminTool, verifyClientAdminTool } from './verify-client-admin';
 import { runWpCliTool } from './wp-cli';
 import { wpcomRequestTool } from './wpcom-request';
 import type {
@@ -55,6 +58,9 @@ export const studioToolDefinitions: StudioToolDefinition[] = [
 	inspectDesignTool,
 	generateImagesTool,
 	installTaxonomyScriptsTool,
+	inspectWpAdminTool,
+	installClientAdminTool,
+	verifyClientAdminTool,
 	auditPerformanceTool,
 	auditSeoTool,
 	listConnectedRemoteSitesTool,
@@ -113,6 +119,9 @@ export function resolveStudioTools(
 		}
 		if ( candidate.name === inspectDesignTool.name && options.visionEnabled === false ) {
 			tool = createInspectDesignTool( { visionEnabled: false } );
+		}
+		if ( candidate.name === verifyClientAdminTool.name && options.visionEnabled === false ) {
+			tool = createVerifyClientAdminTool( { visionEnabled: false } );
 		}
 		if ( candidate.name === pickDesignTool.name && ( options.canAskUser || options.tracks ) ) {
 			tool = createPickDesignTool( {

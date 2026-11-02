@@ -25,6 +25,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { validateBlocks } from '@studio/agent/node';
+import { getClientAdminManifestPath } from '@studio/common/lib/client-admin';
 import { STUDIO_LOADER_MU_PLUGIN_FILENAME } from '@studio/common/lib/mu-plugins';
 import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
 import { Mode as StopMode, runCommand as runStopSiteCommand } from 'cli/commands/site/stop';
@@ -232,6 +233,41 @@ function imageFormat( file: string ): string | null {
 	return `unknown:${ path.basename( file ) }`;
 }
 
+// What a client admin left on the site, for the `curate-admin` skill's cases.
+async function captureClientAdmin( sitePath: string, url: string ) {
+	const file = getClientAdminManifestPath( sitePath );
+	if ( ! existsSync( file ) ) {
+		return null;
+	}
+
+	const manifest = JSON.parse( readFileSync( file, 'utf8' ) );
+	const capabilities = manifest.role
+		? JSON.parse(
+				await wp( sitePath, [
+					'eval',
+					`echo wp_json_encode( get_role( '${ manifest.role.slug }' )->capabilities ?? null );`,
+				] )
+		  )
+		: null;
+
+	const previews: Record< string, string > = {};
+	for ( const { previewPath } of [
+		...( manifest.postTypes ?? [] ),
+		...( manifest.settings ?? [] ),
+	] ) {
+		if ( previewPath ) {
+			previews[ previewPath ] = await ( await fetch( `${ url }${ previewPath }` ) ).text();
+		}
+	}
+
+	return {
+		manifest,
+		capabilities,
+		previews,
+		users: ( await wp( sitePath, [ 'user', 'list', '--field=user_login' ] ) ).trim().split( '\n' ),
+	};
+}
+
 async function renderHome( url: string ) {
 	try {
 		const response = await fetch( url, { redirect: 'follow' } );
@@ -299,6 +335,7 @@ async function captureSiteOutcome(
 		}
 		const designPath = path.join( sitePath, 'DESIGN.md' );
 		outcome.designMd = existsSync( designPath ) ? readFileSync( designPath, 'utf8' ) : null;
+		outcome.clientAdmin = await captureClientAdmin( sitePath, url );
 
 		const home = await renderHome( url );
 		if ( 'html' in home && home.html ) {

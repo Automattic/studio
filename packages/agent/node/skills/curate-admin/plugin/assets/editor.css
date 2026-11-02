@@ -1,0 +1,30 @@
+/* The editor sets its theme color on its own root, inline, below the body. */
+.admin-color-client-admin .block-editor__container > div {
+	--wp-admin-theme-color: var(--ca-accent) !important;
+	--wp-admin-theme-color--rgb: var(--ca-accent-rgb) !important;
+	--wp-admin-theme-color-darker-10: var(--ca-sidebar) !important;
+	--wp-admin-theme-color-darker-20: var(--ca-sidebar) !important;
+}
+
+/* Colors, fonts and layout stay with the design, so the panels for them go. */
+.client-admin-locked .editor-document-tools__inserter-toggle,
+.client-admin-locked .editor-document-tools__document-overview-toggle,
+.client-admin-locked .block-editor-block-inspector .block-editor-block-styles,
+.client-admin-locked .block-editor-block-inspector .components-tools-panel,
+.client-admin-locked .block-editor-block-inspector .block-editor-block-inspector__advanced,
+.client-admin-locked .block-editor-block-inspector .components-panel__body.block-editor-block-inspector__tab-item,
+.client-admin-locked .editor-post-panel__row:not(:has(.editor-post-status)),
+.client-admin-page .editor-post-panel__row {
+	display: none !important;
+}
+
+.client-admin-ask {
+	display: grid;
+	gap: 12px;
+	padding: 16px;
+}
+
+.client-admin-ask p {
+	margin: 0;
+	color: #50575e;
+}

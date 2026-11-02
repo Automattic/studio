@@ -120,7 +120,14 @@ export function SitePreview( {
 		sendBrowserCommand,
 		goToHistoryIndex,
 		switchRealm,
-	} = usePreviewSurfaces( { siteId: site.id, siteUrl, path: safePath, reloadNonce, onPathChange } );
+	} = usePreviewSurfaces( {
+		siteId: site.id,
+		siteUrl,
+		clientLogin: site.clientAdmin,
+		path: safePath,
+		reloadNonce,
+		onPathChange,
+	} );
 	const siteDesign = useSiteDesign( site );
 	const annotations = useSiteAnnotations( site.id );
 	const { loadingStage, reveal } = useLoadingStage( {
@@ -252,7 +259,10 @@ export function SitePreview( {
 		: () => {
 				void connector.trackEvent( getRealmOpenEvent( activeRealm ), { browser: 'external' } );
 				void connector
-					.openSiteUrl( site.id, safePath, { autoLogin: activeRealm !== 'frontend' } )
+					.openSiteUrl( site.id, safePath, {
+						autoLogin: activeRealm !== 'frontend',
+						user: activeRealm === 'client' ? site.clientAdmin : undefined,
+					} )
 					.catch( ( error ) => {
 						console.error( 'Failed to open site in browser:', error );
 					} );
@@ -328,6 +338,7 @@ export function SitePreview( {
 			onPathChange={ onPathChange }
 			onSwitchRealm={ switchRealm }
 			hasDesignSystem={ !! siteDesign.data }
+			hasClientAdmin={ ! live && !! site.clientAdmin }
 			onOpenExternal={ openExternal }
 			responsive={ responsive }
 			annotate={ annotate }

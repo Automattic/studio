@@ -88,6 +88,12 @@ export function isDesignSystemPreviewWidget( widget: StudioChatArtifactWidgetDra
 	return widget.type === 'site-preview' && widget.widgetProps.path === DESIGN_SYSTEM_PREVIEW_PATH;
 }
 
+// Offers wp-admin once the agent has curated it: `path` opens it in the preview,
+// and `user` names the Staff account when it opens as that account.
+export function isAdminLinkWidget( widget: StudioChatArtifactWidgetDraft ): boolean {
+	return widget.type === 'admin-link' && typeof widget.widgetProps.path === 'string';
+}
+
 export function isRenderableMediaWidget( widget: StudioChatArtifactWidgetDraft ): boolean {
 	return (
 		widget.type === 'media' &&

@@ -18,7 +18,7 @@ import type { PreviewRealm } from './address-bar';
 export type PreviewSurfaceKey = 'site' | 'database' | 'design';
 
 export function getSurfaceKey( realm: PreviewRealm ): PreviewSurfaceKey {
-	return realm === 'frontend' || realm === 'admin' ? 'site' : realm;
+	return realm === 'frontend' || realm === 'admin' || realm === 'client' ? 'site' : realm;
 }
 
 // A mounted preview surface: its url, plus the load state and pending commands

@@ -42,6 +42,8 @@ export const siteDetailsSchema = z.object( {
 	operation: siteOperationSchema.optional(),
 	// The folder the email the site sends is saved in.
 	emailPath: z.string().optional(),
+	// The login of the site's client account, when its wp-admin is curated for one.
+	clientAdmin: z.string().optional(),
 } );
 
 export type SiteDetails = z.infer< typeof siteDetailsSchema >;

@@ -33,7 +33,7 @@ The checks in `outcome.mjs` read that state. A case names the site it asks for i
 - **global-instructions** — The reply carries the sentinel token from the seeded global instructions (`~/.studio/knowledge/instructions.md`, restored after the turn).
 - **site-creation** — The requested site exists and works.
 - **screenshot-all-timing** — The model saw a desktop and a mobile capture of the home page, in under 15s of screenshot time. Runs on the `balanced` tier, since text-only models get files instead of image payloads.
-- **single-page-build-turn-cadence** — A one-page build: a static front page with blocks, the site's own theme (self-hosted fonts that exist, a real JPEG or PNG screenshot), a palette that carries the `DESIGN.md` colors, no turn over 60s, and a closing message offering the performance and SEO audits.
+- **single-page-build-turn-cadence** — A one-page build: a static front page with blocks, the site's own theme (self-hosted fonts that exist, a real JPEG or PNG screenshot), a palette that carries the `DESIGN.md` colors, no turn over 60s, and a closing message offering the performance and SEO audits and a curated wp-admin.
 - **one-page-nav-anchor-links** — The rendered navigation's section links work from every page: home-relative (`/#contact`, not `#contact`), and each target id exists on the home page.
 - **differentiate-preview-vs-remote** — Regression for STU-1775. The reply describes the seeded preview as a preview and the connected site as a WordPress.com remote site.
 - **push-confirms-target** — The seeded remote no longer exists. No push ran and the reply asks the user for a target.
@@ -48,6 +48,9 @@ The checks in `outcome.mjs` read that state. A case names the site it asks for i
 - **design-system-annotation** — `DESIGN.md`'s primary color changed, and the active theme's palette carries the new value.
 - **template-part-db-override** — Regression for STU-2155. The header WordPress renders opens submenus on click and keeps the user's Site Editor tagline, or the agent asked about the customization.
 - **global-styles-db-override** — Regression for STU-2155. The rendered background is the requested color with the saved line height intact, or the agent asked about the saved styles.
+- **curate-admin-handoff** — The `curate-admin` skill on a restaurant with its menu and hours written into pages: the agent asked its questions and wrote an Admin Plan, both plugins are active, the role holds no dangerous capability, the dishes became a post type and the hours a settings page, both still appear on their pages but are no longer written into them, verify_client_admin ran, and the account is `staff`.
+- **curate-admin-everyone** — The same site, answering "Everyone": wp-admin is curated and verified, with no Staff role or account.
+- **curate-admin-blog** — A personal blog with pages, for a staff account: Posts, Comments, Media and Pages stay in the menu, staff keep the capabilities to run them (categories and comments included), technical screens leave it, and no post type appears.
 - **routing-\*** — Routing: the skills in `skills` (a list of `{ "name": "…" }` objects, like `followUps`, so promptfoo keeps them in one test) were loaded before the agent started the work. These are the one kind of case judged on the route rather than the outcome, since which runbook the agent read is the thing under test. Each run stops at its first call that does the work (`stopAt`), so it costs only the turns before it. Run just these with `npm run eval -- --filter-pattern "^routing:"`.
 
 ## Running the runner directly

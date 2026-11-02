@@ -4,6 +4,7 @@ import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
+import { UserRoundIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useSessionsBusy } from '@/data/agent-runs/use-agent-run';
 import { useConnector } from '@/data/core';
@@ -116,12 +117,12 @@ export function useSiteActions(
 	} );
 
 	// Shows the page in this site's preview, starting the site first.
-	const goTo = async ( path: string ) => {
+	const goTo = async ( path: string, user?: string ) => {
 		if ( ! site.running && ! ( await startSite.mutateAsync( site.id ).catch( () => false ) ) ) {
 			return;
 		}
 		preview.setSite( site.id );
-		preview.updatePath( getRealmNavigationPath( path, getSiteUrl( site ) ) );
+		preview.updatePath( getRealmNavigationPath( path, getSiteUrl( site ), user ) );
 		preview.setOpen( true );
 		if ( preview.siteId !== site.id ) {
 			void navigate( { to: '/sites/$siteId', params: { siteId: site.id } } );
@@ -152,6 +153,9 @@ export function useSiteActions(
 				() => undefined
 			),
 		openAdmin: () => void goTo( '/wp-admin/' ),
+		openClientAdmin: site.clientAdmin
+			? () => void goTo( '/wp-admin/', site.clientAdmin )
+			: undefined,
 		openDatabase: () => void goTo( DATABASE_HOME_PATH ),
 		openEmail: () => void connector.openSiteEmailFolder( site.id ),
 		openDesignSystem: () => void goTo( DESIGN_SYSTEM_PREVIEW_PATH ),
@@ -283,6 +287,12 @@ export function SiteMenuItems( {
 						<WordPressIcon />
 						{ __( 'WordPress Admin' ) }
 					</Menu.Item>
+					{ actions.openClientAdmin ? (
+						<Menu.Item onClick={ actions.openClientAdmin }>
+							<UserRoundIcon />
+							{ __( 'Client admin' ) }
+						</Menu.Item>
+					) : null }
 					<Menu.Item onClick={ actions.openDatabase }>
 						<DatabaseIcon />
 						{ __( 'Database' ) }

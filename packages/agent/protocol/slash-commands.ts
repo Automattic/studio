@@ -32,6 +32,11 @@ export const getAiSkillCommands = (): SkillSlashCommand[] => [
 		displayName: __( 'Liberate' ),
 		description: __( 'Migrate & rebuild a site from a closed platform.' ),
 	},
+	{
+		name: 'curate-admin',
+		displayName: __( 'Curate Admin' ),
+		description: __( 'Curate wp-admin: menu, post types, settings, dashboard.' ),
+	},
 ];
 
 export interface SlashCommandMatches {

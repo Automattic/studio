@@ -132,7 +132,7 @@ tests:
       - type: javascript
         value: file://outcome.mjs:turnsAreResponsive
       - type: javascript
-        value: file://outcome.mjs:offersAudits
+        value: file://outcome.mjs:offersNextSteps
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
 
@@ -247,6 +247,136 @@ tests:
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
 
+  # A restaurant with its menu and hours written into pages. The agent walks through
+  # the four steps, writes its plan, moves that content, and verifies it as staff.
+  - description: client handoff asks first, then leaves a verified client admin with the content in a post type and settings
+    vars:
+      caseId: curate-admin-handoff
+      timeoutMs: 1500000
+      expectedOnPreview: [{ text: "Wild mushroom risotto" }, { text: "12:00 to 22:00" }]
+      answers:
+        - { label: "A staff account" }
+        - { label: "Use your recommendation, with dishes as a post type and the opening hours as a setting." }
+        - { label: "Use your recommendation, with dishes as a post type and the opening hours as a setting." }
+        - { label: "Use your recommendation, with dishes as a post type and the opening hours as a setting." }
+        - { label: "Use your recommendation, with dishes as a post type and the opening hours as a setting." }
+        - { label: "Use your recommendation, with dishes as a post type and the opening hours as a setting." }
+      seed:
+        activeSite:
+          name: Eval Harbour Kitchen
+          wpCli:
+            - - eval
+              - |
+                $dish = function ( $name, $text, $price ) {
+                	return "<!-- wp:group {\"layout\":{\"type\":\"constrained\"}} -->\n<div class=\"wp-block-group\"><!-- wp:heading {\"level\":3} -->\n<h3 class=\"wp-block-heading\">{$name}</h3>\n<!-- /wp:heading -->\n<!-- wp:paragraph -->\n<p>{$text}</p>\n<!-- /wp:paragraph -->\n<!-- wp:paragraph -->\n<p>{$price}</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:group -->\n";
+                };
+                $paragraph = function ( $text ) {
+                	return "<!-- wp:paragraph -->\n<p>{$text}</p>\n<!-- /wp:paragraph -->\n";
+                };
+                $pages = array(
+                	'menu'    => array( 'Menu', $dish( 'Roast cod', 'Leeks, mussels, saffron broth', '€23' ) . $dish( 'Wild mushroom risotto', 'Porcini, thyme, aged parmesan', '€19' ) . $dish( 'Lamb shoulder', 'White beans, salsa verde', '€26' ) ),
+                	'contact' => array( 'Contact', $paragraph( 'Open Monday to Friday, 12:00 to 22:00' ) . $paragraph( 'Saturday and Sunday, 10:00 to 23:00' ) ),
+                	'about'   => array( 'About', $paragraph( 'Harbour Kitchen opened in 2014 in a former boathouse.' ) ),
+                );
+                foreach ( $pages as $slug => $page ) {
+                	$id = wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'publish', 'post_name' => $slug, 'post_title' => $page[0], 'post_content' => $page[1] ), true );
+                	if ( is_wp_error( $id ) ) { echo 'SEED_ERROR'; }
+                }
+      prompt: |
+        This is Harbour Kitchen, a restaurant we built for a client. We're handing it over next week: give the staff their own simple backend.
+        Our agency is Harbor Digital, hello@harbor.example. We reply within one working day.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:clientAdminHandedOver
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
+
+  # Same site, with the other answer to the first question.
+  - description: curating for everyone leaves wp-admin simpler with no Staff account
+    vars:
+      caseId: curate-admin-everyone
+      timeoutMs: 1500000
+      answers:
+        - { label: "Everyone" }
+        - { label: "Use your recommendation, with dishes as a post type and the opening hours as a setting." }
+        - { label: "Use your recommendation, with dishes as a post type and the opening hours as a setting." }
+        - { label: "Use your recommendation, with dishes as a post type and the opening hours as a setting." }
+        - { label: "Use your recommendation, with dishes as a post type and the opening hours as a setting." }
+        - { label: "Use your recommendation, with dishes as a post type and the opening hours as a setting." }
+      seed:
+        activeSite:
+          name: Eval Harbour Kitchen
+          wpCli:
+            - - eval
+              - |
+                $dish = function ( $name, $text, $price ) {
+                	return "<!-- wp:group {\"layout\":{\"type\":\"constrained\"}} -->\n<div class=\"wp-block-group\"><!-- wp:heading {\"level\":3} -->\n<h3 class=\"wp-block-heading\">{$name}</h3>\n<!-- /wp:heading -->\n<!-- wp:paragraph -->\n<p>{$text}</p>\n<!-- /wp:paragraph -->\n<!-- wp:paragraph -->\n<p>{$price}</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:group -->\n";
+                };
+                $paragraph = function ( $text ) {
+                	return "<!-- wp:paragraph -->\n<p>{$text}</p>\n<!-- /wp:paragraph -->\n";
+                };
+                $pages = array(
+                	'menu'    => array( 'Menu', $dish( 'Roast cod', 'Leeks, mussels, saffron broth', '€23' ) . $dish( 'Wild mushroom risotto', 'Porcini, thyme, aged parmesan', '€19' ) . $dish( 'Lamb shoulder', 'White beans, salsa verde', '€26' ) ),
+                	'contact' => array( 'Contact', $paragraph( 'Open Monday to Friday, 12:00 to 22:00' ) . $paragraph( 'Saturday and Sunday, 10:00 to 23:00' ) ),
+                	'about'   => array( 'About', $paragraph( 'Harbour Kitchen opened in 2014 in a former boathouse.' ) ),
+                );
+                foreach ( $pages as $slug => $page ) {
+                	$id = wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'publish', 'post_name' => $slug, 'post_title' => $page[0], 'post_content' => $page[1] ), true );
+                	if ( is_wp_error( $id ) ) { echo 'SEED_ERROR'; }
+                }
+      prompt: |
+        wp-admin is too much for this restaurant. Simplify it.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:clientAdminForEveryone
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+  # A blog with pages, which needs no post types, and whose staff still run it.
+  - description: curating a blog keeps posts, taxonomies, comments and pages
+    vars:
+      caseId: curate-admin-blog
+      timeoutMs: 1500000
+      answers:
+        - { label: "A staff account" }
+        - { label: "Use your recommendation, and let staff manage pages." }
+        - { label: "Use your recommendation, and let staff manage pages." }
+        - { label: "Use your recommendation, and let staff manage pages." }
+        - { label: "Use your recommendation, and let staff manage pages." }
+        - { label: "Use your recommendation, and let staff manage pages." }
+      seed:
+        activeSite:
+          name: Eval Long Walks
+          wpCli:
+            - - eval
+              - |
+                $paragraph = function ( $text ) {
+                	return "<!-- wp:paragraph -->\n<p>{$text}</p>\n<!-- /wp:paragraph -->\n";
+                };
+                $travel = wp_create_category( 'Travel' );
+                $notes  = wp_create_category( 'Notes' );
+                foreach ( array( 'Crossing the Pyrenees', 'Three days on Skye', 'Why I walk' ) as $index => $title ) {
+                	$post = wp_insert_post( array( 'post_status' => 'publish', 'post_title' => $title, 'post_content' => $paragraph( "Notes from {$title}." ), 'post_category' => array( 0 === $index % 2 ? $travel : $notes ), 'tags_input' => array( 'walking' ) ), true );
+                	if ( is_wp_error( $post ) ) { echo 'SEED_ERROR'; }
+                	wp_insert_comment( array( 'comment_post_ID' => $post, 'comment_author' => 'Ana', 'comment_content' => 'Lovely, thank you.', 'comment_approved' => 1 ) );
+                }
+                foreach ( array( 'about' => 'About', 'contact' => 'Contact' ) as $slug => $title ) {
+                	$page = wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'publish', 'post_name' => $slug, 'post_title' => $title, 'post_content' => $paragraph( "{$title} me." ) ), true );
+                	if ( is_wp_error( $page ) ) { echo 'SEED_ERROR'; }
+                }
+      prompt: |
+        This is my personal blog, Long Walks, with a few pages. A friend will help me keep it going. Curate wp-admin for them.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:siteWorks
+      - type: javascript
+        value: file://outcome.mjs:clientAdminKeepsBlogging
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
   # Regression: a "shop"/"store" request framed with qualifiers ("small",
   # "for inspiration") must still end with a working store: WooCommerce
   # active and products published.
@@ -869,6 +999,22 @@ tests:
                 update_option( 'show_on_front', 'page' );
                 update_option( 'page_on_front', $id );
       prompt: The homepage spacing looks off and the buttons are misaligned. Fix it.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillsLoadedFirst
+  - description: "routing: a client handoff loads curate-admin before the work"
+    vars:
+      caseId: routing-curate-admin
+      timeoutMs: 300000
+      skills: [{ name: curate-admin }]
+      stopAt:
+        - tool: install_client_admin
+        - tool: Write
+        - tool: Edit
+        - tool: wp_cli
+          input:
+            command: '\b(post|plugin|theme|option|menu|media|term|widget|user|role)\s+(create|update|install|activate|import|add|set)\b'
+      prompt: We're handing this site over to the client next week. Simplify the WordPress backend so they only see what they need.
     assert:
       - type: javascript
         value: file://outcome.mjs:skillsLoadedFirst

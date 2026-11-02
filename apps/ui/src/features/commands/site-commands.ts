@@ -11,6 +11,7 @@ import {
 	RefreshCwIcon,
 	TerminalIcon,
 	UploadIcon,
+	UserRoundIcon,
 	XIcon,
 } from 'lucide-react';
 import { getSettingsCommandAliases } from '@/data/settings-sections';
@@ -44,6 +45,7 @@ import type {
 const OPEN_IN_ICONS: Record< OpenInDestination, PaletteCommand[ 'icon' ] > = {
 	browser: ExternalLinkIcon,
 	'wp-admin': WordPressIcon,
+	'client-admin': UserRoundIcon,
 	files: FolderIcon,
 	editor: CodeIcon,
 	terminal: TerminalIcon,
@@ -95,6 +97,7 @@ export function getSiteCommands( {
 		terminal: [ __( 'Shell' ), __( 'Command line' ) ],
 		phpmyadmin: [ __( 'Database' ), 'SQL', 'MySQL' ],
 		'wp-admin': [ __( 'Dashboard' ), 'wp-admin' ],
+		'client-admin': [ __( 'Client admin' ), 'client', 'wp-admin' ],
 	};
 
 	return [
@@ -152,6 +155,20 @@ export function getSiteCommands( {
 						keywords: keywords[ 'wp-admin' ],
 						run: actions.openAdmin,
 					},
+					...( actions.openClientAdmin
+						? [
+								{
+									id: 'client-admin',
+									group: 'commands' as const,
+									label: __( 'Open Client admin in preview' ),
+									aliases: [ __( 'Open Client admin' ) ],
+									icon: UserRoundIcon,
+									description,
+									keywords: keywords[ 'client-admin' ],
+									run: actions.openClientAdmin,
+								},
+						  ]
+						: [] ),
 					{
 						id: 'database',
 						group: 'commands' as const,
@@ -206,6 +223,8 @@ export function getSiteCommands( {
 					label:
 						destination.id === 'wp-admin'
 							? __( 'Open WordPress Admin in browser' )
+							: destination.id === 'client-admin'
+							? __( 'Open Client admin in browser' )
 							: destination.id === 'phpmyadmin'
 							? __( 'Open database in browser' )
 							: sprintf(

@@ -292,6 +292,9 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 		const command = getInputString( input, 'command' );
 		return command ? getWpCliCommandLabel( command ) : __( 'Run WordPress command' );
 	}
+	if ( name === 'send_feedback' && getInputString( input, 'action' ) === 'status' ) {
+		return __( 'Check feedback status' );
+	}
 
 	const displayNames: Record< string, string > = {
 		site_create: __( 'Create site' ),

@@ -1,4 +1,3 @@
-import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
 import { useWindowControlsInset } from '@/data/host/use-window-controls-inset';
@@ -49,10 +48,6 @@ export function SessionHeader( {
 					<>
 						<GlobeIcon className={ styles.headerSiteIcon } />
 						<span className={ styles.headerSite }>{ siteName }</span>
-						<span className={ styles.headerDot } aria-hidden="true" />
-						<span className={ styles.headerEnv }>
-							{ effectiveEnvironment === 'live' ? __( 'Live' ) : __( 'Local' ) }
-						</span>
 					</>
 				) : null }
 			</div>

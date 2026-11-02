@@ -1,3 +1,4 @@
+import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import {
 	createContext,
 	useCallback,
@@ -63,6 +64,7 @@ type SessionUIAction =
 	| { type: 'preview/navigate'; path: string }
 	| { type: 'preview/reload' }
 	| { type: 'preview/update-path'; path: string }
+	| { type: 'preview/reset-site-path'; siteId: string }
 	| { type: 'preview/set-site'; siteId: string }
 	| { type: 'preview/set-revealing'; siteId: string; value: boolean };
 
@@ -136,6 +138,14 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 				? state
 				: { ...state, preview: { ...state.preview, pathsBySiteId } };
 		}
+		case 'preview/reset-site-path':
+			return {
+				...state,
+				preview: {
+					...state.preview,
+					pathsBySiteId: { ...state.preview.pathsBySiteId, [ action.siteId ]: '/' },
+				},
+			};
 		case 'preview/set-site':
 			return state.preview.siteId === action.siteId
 				? state
@@ -191,6 +201,13 @@ function SessionUIProviderRoot( { children }: { children: ReactNode } ) {
 		window.addEventListener( PANEL_WIDTHS_RESET_EVENT, reset );
 		return () => window.removeEventListener( PANEL_WIDTHS_RESET_EVENT, reset );
 	}, [] );
+	useEffect( () => {
+		return connector.onSiteEvent( ( event ) => {
+			if ( event.event === SITE_EVENTS.UPDATED && event.running === false ) {
+				dispatch( { type: 'preview/reset-site-path', siteId: event.siteId } );
+			}
+		} );
+	}, [ connector ] );
 	useEffect( () => {
 		return connector.onToggleSitePreview( () => {
 			dispatch( { type: 'preview/toggle' } );

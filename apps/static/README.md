@@ -15,6 +15,8 @@ npm -w @studio/ui run build:static   # apps/ui/dist-static/, for any static host
 
 The build serves `index.html` and `404.html` alike, so a static host resolves the app's routes. Sign-in needs the deployment's origin registered with WordPress.com (below).
 
+Pulling a site needs the host too: WordPress.com's backup download can't be read cross-origin, so the app fetches it from `/wpcom-backup/<site>/<download>/data`. The build's `_redirects` file proxies that path to WordPress.com; a host that doesn't read that file needs the same rule. The dev and preview servers proxy it themselves.
+
 ## The backend
 
 `createStaticBackend( { readAttachment, download } )` returns the services the connector maps the UI's calls onto:
@@ -60,7 +62,7 @@ Build-time variables, all optional:
 
 ## What the web can't do yet
 
-- **Push and pull** depend on WordPress.com allowing these requests from the browser (CORS on uploads and backup downloads).
+- **Push** depends on WordPress.com allowing uploads from the browser (CORS).
 - **Studio Code** calls the WordPress.com AI proxy from the page, so the proxy must allow the deployment's origin.
 - **Desktop features** are hidden through the connector's capabilities: site folders, phpMyAdmin, custom domains, Xdebug, site agent files, file access and version choice.
 

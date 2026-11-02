@@ -42,6 +42,9 @@ const PREVIEW_MAX_POLLS = 100;
 const PUBLISH_WATCH_ATTEMPTS = 60;
 const PUBLISH_WATCH_INTERVAL_MS = 5_000;
 
+const WPCOM_BACKUP_DOWNLOAD_URL =
+	/^https:\/\/public-api\.wordpress\.com\/wpcom\/v2\/sites\/(\d+)\/rewind\/downloads\/(\d+)\/data/;
+
 const sleep = ( ms: number ) => new Promise( ( resolve ) => setTimeout( resolve, ms ) );
 
 // Push, pull and preview sites talk to WordPress.com straight from the page
@@ -510,7 +513,12 @@ export class WpcomServices {
 				}
 			}
 			progress( 50, __( 'Downloading…' ) );
-			const response = await fetch( downloadUrl, { signal } );
+			// WordPress.com's download can't be read cross-origin, so it goes through the app's host.
+			const proxiedUrl = downloadUrl.replace(
+				WPCOM_BACKUP_DOWNLOAD_URL,
+				'/wpcom-backup/$1/$2/data'
+			);
+			const response = await fetch( proxiedUrl, { signal } );
 			if ( ! response.ok ) {
 				throw new Error( __( 'The backup could not be downloaded.' ) );
 			}

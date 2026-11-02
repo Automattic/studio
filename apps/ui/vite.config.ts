@@ -1,4 +1,4 @@
-import { copyFileSync } from 'fs';
+import { copyFileSync, writeFileSync } from 'fs';
 import { createRequire } from 'module';
 import { resolve } from 'path';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
@@ -76,6 +76,25 @@ const browserDevEntryPlugin: Plugin = {
 	},
 };
 
+// WordPress.com's backup download can't be read cross-origin, so the static app
+// fetches it through its own origin. The host proxies this path, and so do the
+// dev and preview servers.
+const WPCOM_BACKUP_PROXY = {
+	path: '/wpcom-backup',
+	host: 'https://public-api.wordpress.com',
+};
+const wpcomBackupProxy = {
+	[ WPCOM_BACKUP_PROXY.path ]: {
+		target: WPCOM_BACKUP_PROXY.host,
+		changeOrigin: true,
+		rewrite: ( path: string ) =>
+			path.replace(
+				/^\/wpcom-backup\/(\d+)\/(\d+)\/data/,
+				'/wpcom/v2/sites/$1/rewind/downloads/$2/data'
+			),
+	},
+};
+
 // Static hosts serve `index.html`, and `404.html` for the app's other routes
 // (`/sessions/:id`, `/sites/:id`), which the router resolves client-side.
 const staticHostPagesPlugin: Plugin = {
@@ -85,6 +104,10 @@ const staticHostPagesPlugin: Plugin = {
 		const outDir = resolve( __dirname, 'dist-static' );
 		copyFileSync( resolve( outDir, 'index.static.html' ), resolve( outDir, 'index.html' ) );
 		copyFileSync( resolve( outDir, 'index.static.html' ), resolve( outDir, '404.html' ) );
+		writeFileSync(
+			resolve( outDir, '_redirects' ),
+			`${ WPCOM_BACKUP_PROXY.path }/:site/:download/data  ${ WPCOM_BACKUP_PROXY.host }/wpcom/v2/sites/:site/rewind/downloads/:download/data  200\n`
+		);
 	},
 };
 
@@ -126,17 +149,18 @@ export default defineConfig( {
 	},
 	server: {
 		port: active?.port ?? 5200,
-		proxy:
-			isBrowser && ! isStatic
-				? {
-						'/api': { target: studioUiServer, changeOrigin: true },
-						'/auth/callback': { target: studioUiServer, changeOrigin: true },
-				  }
-				: undefined,
+		proxy: isStatic
+			? wpcomBackupProxy
+			: isBrowser
+			? {
+					'/api': { target: studioUiServer, changeOrigin: true },
+					'/auth/callback': { target: studioUiServer, changeOrigin: true },
+			  }
+			: undefined,
 	},
 	// The static web build previews at the dev server's origin, where the OAuth
 	// redirect is registered.
-	preview: isStatic ? { port: active?.port } : undefined,
+	preview: isStatic ? { port: active?.port, proxy: wpcomBackupProxy } : undefined,
 	build: {
 		outDir: active?.outDir ?? 'dist',
 		sourcemap: ! isBrowser,

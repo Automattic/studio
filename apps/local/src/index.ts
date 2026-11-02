@@ -813,7 +813,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.json( { thumbnail: null } );
 				return;
 			}
-			const url = new URL( pagePath, site.url );
+			const url = new URL( '/?studio-hide-adminbar', site.url );
 			if ( url.origin !== new URL( site.url ).origin ) {
 				res.status( 400 ).json( { error: 'The page must be on the site.' } );
 				return;

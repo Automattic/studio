@@ -9,6 +9,7 @@ import {
 } from '@studio/common/lib/passwords';
 import { getSettingsWpConfigConstants } from '@studio/common/lib/wp-config-constants';
 import { getWpCliPharPath } from 'cli/lib/dependency-management/paths';
+import { isSqliteIntegrationInstalled } from 'cli/lib/sqlite-integration';
 import { ensurePhpBinaryAvailable } from '../dependency-management/php-binary';
 import { runPhpCommand } from './php-process';
 import { getFullyResolvedTmpDirPath } from './tmp-dir';
@@ -25,14 +26,18 @@ const DEFAULT_WP_CONFIG_CONSTANTS = { DB_NAME: 'wordpress' } as const;
 
 type Logger = ( ...args: Parameters< typeof console.log > ) => void;
 
+type EnsureWpConfigOptions = Pick<
+	ServerConfig,
+	'enableDebugLog' | 'enableDebugDisplay' | 'enableScriptDebug' | 'environmentType'
+> & {
+	forceDefaultDatabaseName?: boolean;
+};
+
 export async function ensureWpConfig(
 	siteFolder: string,
 	phpVersion: SupportedPHPVersion,
 	signal?: AbortSignal,
-	config?: Pick<
-		ServerConfig,
-		'enableDebugLog' | 'enableDebugDisplay' | 'enableScriptDebug' | 'environmentType'
-	>
+	config?: EnsureWpConfigOptions
 ): Promise< void > {
 	const wpConfigPath = path.join( siteFolder, 'wp-config.php' );
 	const wpConfigSamplePath = path.join( siteFolder, 'wp-config-sample.php' );
@@ -52,8 +57,10 @@ $transformer->to_file( $wp_config_path );
 		await fs.promises.copyFile( wpConfigSamplePath, wpConfigPath );
 	}
 
+	const shouldSetDefaultDatabaseName =
+		config?.forceDefaultDatabaseName ?? ( await isSqliteIntegrationInstalled( siteFolder ) );
 	const constants = {
-		...DEFAULT_WP_CONFIG_CONSTANTS,
+		...( shouldSetDefaultDatabaseName ? DEFAULT_WP_CONFIG_CONSTANTS : {} ),
 		...getSettingsWpConfigConstants( config ?? {} ),
 	};
 	await ensurePhpBinaryAvailable( phpVersion );

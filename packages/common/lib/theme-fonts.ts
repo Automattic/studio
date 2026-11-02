@@ -1,5 +1,6 @@
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { rewriteJson } from './json-text';
 
 /** A theme.json `fontFace` entry. */
 export interface ThemeFontFace {
@@ -266,7 +267,8 @@ async function themeDirs( themeDir: string ): Promise< string[] > {
  */
 export async function selfHostThemeJsonFonts( themeDir: string ): Promise< SelfHostedFonts > {
 	const themeJsonPath = path.join( themeDir, 'theme.json' );
-	const themeJson = JSON.parse( await readFile( themeJsonPath, 'utf8' ) );
+	const written = await readFile( themeJsonPath, 'utf8' );
+	const themeJson = JSON.parse( written );
 	const families: FontFamilyPreset[] = themeJson?.settings?.typography?.fontFamilies ?? [];
 	const result: SelfHostedFonts = { hosted: [], missing: [], downloaded: [], failed: [] };
 	const dirs = await themeDirs( themeDir );
@@ -303,7 +305,7 @@ export async function selfHostThemeJsonFonts( themeDir: string ): Promise< SelfH
 		}
 	}
 	if ( result.hosted.length || result.downloaded.length ) {
-		await writeFile( themeJsonPath, JSON.stringify( themeJson, null, '\t' ) + '\n' );
+		await writeFile( themeJsonPath, rewriteJson( written, themeJson ) );
 	}
 	return result;
 }

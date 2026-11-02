@@ -601,7 +601,7 @@ describe( 'the gate', () => {
 		writeFileSync( file, 'v2' );
 		finish();
 		expect( ( await gate.settle() ).summaries ).toEqual( [
-			`validated v2\nStudio changed ${ file } after the write; lines 1-1 now read:\n~~~\nv2 fixed\n~~~`,
+			`validated v2\nStudio changed ${ file } after the write; every other line reads as written.\nLines 1-1 now read:\n~~~\nv2 fixed\n~~~`,
 		] );
 		expect( readFileSync( file, 'utf8' ) ).toBe( 'v2 fixed' );
 		expect( ( await gate.settle() ).summaries ).toEqual( [] );

@@ -14,6 +14,7 @@
  */
 import { readFile, readdir, stat, writeFile } from 'fs/promises';
 import path from 'path';
+import { rewriteJson } from '@studio/common/lib/json-text';
 import { isUpdatableTheme } from '@studio/agent/node/themes';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 
@@ -106,8 +107,10 @@ export const templatePartAreas: SiteChangeSource = {
 			const dir = path.join( site.path, 'wp-content', 'themes', theme );
 			const file = path.join( dir, 'theme.json' );
 			let json: { templateParts?: Array< { name?: unknown } > };
+			let written: string;
 			try {
-				json = JSON.parse( await readFile( file, 'utf8' ) );
+				written = await readFile( file, 'utf8' );
+				json = JSON.parse( written );
 			} catch {
 				continue;
 			}
@@ -127,7 +130,7 @@ export const templatePartAreas: SiteChangeSource = {
 				...parts,
 				...[ ...areas ].map( ( [ name, area ] ) => ( { area, name, title: titleOf( name ) } ) ),
 			];
-			await writeFile( file, `${ JSON.stringify( json, null, '\t' ) }\n` );
+			await writeFile( file, rewriteJson( written, json ) );
 			const list = [ ...areas ].map( ( [ name, area ] ) => `${ name } (${ area })` ).join( ', ' );
 			reports.push( {
 				key: `template part areas of ${ theme }`,

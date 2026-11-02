@@ -15,6 +15,7 @@
  */
 import { readdir, readFile, stat, writeFile } from 'fs/promises';
 import path from 'path';
+import { rewriteJson } from '@studio/common/lib/json-text';
 import { readWordPressSite, type WordPressSite } from '@studio/agent/node/site-database';
 import { activeThemes, readThemeHeader } from '@studio/agent/node/themes';
 import { wpEvalJson } from '@studio/agent/node/tools/utils';
@@ -309,7 +310,8 @@ export async function keepThemePresets(
 		}
 		const parent = await readThemeHeader( site.root, slug, 'Template' ).catch( () => '' );
 		const text = await siteText( site, [ ...new Set( [ slug, parent || slug ] ) ] );
-		const json = JSON.parse( await readFile( themeJson, 'utf8' ) );
+		const written = await readFile( themeJson, 'utf8' );
+		const json = JSON.parse( written );
 		const notes: string[] = [];
 		let changed = false;
 		for ( const { path: at, setting, presets: replaced, dropped } of presets.shadowed ) {
@@ -337,7 +339,7 @@ export async function keepThemePresets(
 			);
 		}
 		if ( changed ) {
-			await writeFile( themeJson, JSON.stringify( json, null, '\t' ) + '\n', 'utf8' );
+			await writeFile( themeJson, rewriteJson( written, json ), 'utf8' );
 		}
 		return notes;
 	} );

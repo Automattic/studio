@@ -284,7 +284,7 @@ describe( 'what Studio changed in a file after a write', () => {
 		[
 			'the file as the tool left it',
 			'Hours: 9-5\nOpen daily',
-			[ 'lines 2-2 now read:\n~~~\nClosed Mondays\n~~~' ],
+			[ 'Lines 2-2 now read:\n~~~\nClosed Mondays\n~~~' ],
 		],
 		// Unknown: what the file holds when the notes start is what the agent left.
 		[ 'nothing known', undefined, [] ],
@@ -297,6 +297,6 @@ describe( 'what Studio changed in a file after a write', () => {
 			note.startsWith( 'Studio changed' )
 		);
 
-		expect( notes.map( ( note ) => note.slice( note.indexOf( 'lines' ) ) ) ).toEqual( said );
+		expect( notes.map( ( note ) => note.slice( note.indexOf( 'Lines' ) ) ) ).toEqual( said );
 	} );
 } );

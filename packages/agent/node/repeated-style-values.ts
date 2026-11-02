@@ -19,6 +19,7 @@
  */
 import { readdir, readFile, writeFile } from 'fs/promises';
 import path from 'path';
+import { rewriteJson } from '@studio/common/lib/json-text';
 import {
 	blockEditorOf,
 	isBlockMarkupFile,
@@ -281,7 +282,8 @@ async function addPresets(
 	}
 	const [ group, list ] = made.settings;
 	const themeJsonFile = path.join( theme.dir, 'theme.json' );
-	const themeJson = JSON.parse( await readFile( themeJsonFile, 'utf8' ) );
+	const written = await readFile( themeJsonFile, 'utf8' );
+	const themeJson = JSON.parse( written );
 	const own = themeJson?.settings?.[ group ]?.[ list ];
 	// A child theme's list replaces its parent's, so one is added to only where it is.
 	const parent = await readThemeHeader( siteRoot, theme.slug, 'Template' ).catch( () => '' );
@@ -305,7 +307,7 @@ async function addPresets(
 			],
 		},
 	};
-	await writeFile( themeJsonFile, JSON.stringify( themeJson, null, '\t' ) + '\n', 'utf8' );
+	await writeFile( themeJsonFile, rewriteJson( written, themeJson ), 'utf8' );
 	return {
 		added: added.map( ( [ , value ] ) => value ),
 		note: `Studio made the ${ made.name }s ${ label } repeats ${ made.name } presets of ${

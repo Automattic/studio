@@ -599,9 +599,17 @@ async function homeStyles( url: string ) {
 				// column or group, or for a row of links, the row's content within its
 				// parent; the farthest of its lines, in px.
 				const offCenter = ( el: Element ) => {
-					const row = el.closest(
-						'.is-layout-flex:not(.wp-block-columns), .wp-block-navigation__container, .wp-block-social-links'
-					);
+					const rows =
+						'.is-layout-flex:not(.wp-block-columns), .wp-block-navigation__container, .wp-block-social-links';
+					// A row inside a row is measured as the outermost row.
+					let row = el.closest( rows );
+					for (
+						let outer = row?.parentElement?.closest( rows );
+						outer && footer?.contains( outer );
+						outer = outer.parentElement?.closest( rows )
+					) {
+						row = outer;
+					}
 					const target = row && footer?.contains( row ) ? row : el;
 					const holder = target.parentElement?.getBoundingClientRect();
 					if ( ! holder ) return null;

@@ -1,8 +1,8 @@
-# MCP on Studio
+# MCP on WordPress Studio
 
-Agent instruction files tell agents how to work with a Studio site, but they do not give agents direct access to it. For that, Studio also exposes an MCP (Model Context Protocol) server that agents connect to in order to create, start, stop, and interact with your local WordPress sites.
+Agent instruction files tell agents how to work with a WordPress Studio site, but they do not give agents direct access to it. For that, WordPress Studio also exposes an MCP (Model Context Protocol) server that agents connect to in order to create, start, stop, and interact with your local WordPress sites.
 
-To connect an agent, open **Settings** in Studio (at the bottom of the sidebar, or ⌘, / Ctrl+,) and select the **MCP** page. Under **Install instructions**, Studio shows the command to install the Studio CLI and the JSON configuration to add; use **Copy MCP configuration** to copy it. Add it to your agent’s MCP settings:
+To connect an agent, open **Settings** in WordPress Studio (at the bottom of the sidebar, or ⌘, / Ctrl+,) and select the **MCP** page. Under **Install instructions**, WordPress Studio shows the command to install the WordPress Studio CLI and the JSON configuration to add; use **Copy MCP configuration** to copy it. Add it to your agent’s MCP settings:
 
 ```json
 {
@@ -20,7 +20,7 @@ claude mcp add wordpress-studio -- studio mcp
 codex mcp add wordpress-studio -- studio mcp
 ```
 
-[![The MCP page of Studio's Settings, with the command to install the Studio CLI and the MCP configuration to add to your assistant.](https://developer.wordpress.com/wp-content/uploads/2026/04/settings-mcp.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/settings-mcp.webp)
+[![The MCP page of WordPress Studio's Settings, with the command to install the WordPress Studio CLI and the MCP configuration to add to your assistant.](https://developer.wordpress.com/wp-content/uploads/2026/04/settings-mcp.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/settings-mcp.webp)
 
 Common configuration file locations are:
 
@@ -33,13 +33,13 @@ Common configuration file locations are:
 
 See the full setup guides for [Claude Code](https://code.claude.com/docs/en/mcp), [Claude Desktop,](https://modelcontextprotocol.io/docs/develop/connect-local-servers) [Codex](https://developers.openai.com/codex/mcp), [Cursor](https://cursor.com/docs/mcp#installing-mcp-servers), [Windsurf](https://docs.windsurf.com/windsurf/cascade/mcp), [VS Code](https://code.visualstudio.com/docs/copilot/customization/mcp-servers).
 
-Once connected, the agent can use Studio tools such as creating sites, running WP-CLI commands, and taking screenshots, in addition to reading the instruction files and skills already present in the site directory.
+Once connected, the agent can use WordPress Studio tools such as creating sites, running WP-CLI commands, and taking screenshots, in addition to reading the instruction files and skills already present in the site directory.
 
 ## [What the agent gets](#0-what-the-agent-gets)
 
--   **Studio’s instructions and skills, on demand.** The agent calls a `studio_instructions` tool before its first WordPress task, so it follows the same workflow and rules as Studio Code, without Studio filling the agent’s context for every conversation.
--   **Local and WordPress.com sites.** The agent can work on your local Studio sites and on your WordPress.com sites, and can copy content between them.
+-   **WordPress Studio’s instructions and skills, on demand.** The agent calls a `studio_instructions` tool before its first WordPress task, so it follows the same workflow and rules as WordPress Studio Code, without WordPress Studio filling the agent’s context for every conversation.
+-   **Local and WordPress.com sites.** The agent can work on your local WordPress Studio sites and on your WordPress.com sites, and can copy content between them.
 -   **A picker for your site’s look and layout.** When you start a site, the agent can show rendered design options to choose from. In agents that render MCP Apps, such as Codex, you click an option. In other agents, the agent shows the previews in the chat and you reply with your choice. See [Designing a site](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/#designing-a-site).
--   **A WordPress tab.** In agent apps that render MCP Apps and support sidebar entries, a **WordPress** tab lists your local Studio sites and your WordPress.com sites.
--   **Site images.** When you’re logged in to WordPress.com, the agent can generate site images through Studio. Codex uses its own image tool instead. See [Image generation in Studio Code](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/image-generation/).
--   **Fewer approval prompts.** Studio tells the agent which tools only read, or only change, this machine, so agents like Codex don’t ask for approval before each of those calls.
+-   **A WordPress tab.** In agent apps that render MCP Apps and support sidebar entries, a **WordPress** tab lists your local WordPress Studio sites and your WordPress.com sites.
+-   **Site images.** When you’re logged in to WordPress.com, the agent can generate site images through WordPress Studio. Codex uses its own image tool instead. See [Image generation in WordPress Studio Code](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/image-generation/).
+-   **Fewer approval prompts.** WordPress Studio tells the agent which tools only read, or only change, this machine, so agents like Codex don’t ask for approval before each of those calls.

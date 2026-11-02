@@ -1,4 +1,4 @@
-# SSL in Studio
+# SSL in WordPress Studio
 
 WordPress Studio includes support for HTTPS, allowing you to create sites with secure connections that more closely resemble production environments. This feature makes your local development experience more realistic and helps identify potential issues that might only occur with HTTPS.
 
@@ -15,7 +15,7 @@ The SSL support feature in WordPress Studio enables:
 
 WordPress Studio implements SSL support through the following components:
 
--   **Certificate Authority (CA)**: Studio creates its own Certificate Authority that signs certificates for your local sites.
+-   **Certificate Authority (CA)**: WordPress Studio creates its own Certificate Authority that signs certificates for your local sites.
 -   **Domain Certificates**: Each site with HTTPS enabled receives its own certificate signed by the CA.
 -   **Certificate Trust**: The system helps you trust the certificate on your operating system.
 -   **HTTPS Redirection**: Traffic is automatically redirected from HTTP to HTTPS for sites with SSL enabled.
@@ -32,12 +32,12 @@ To enable HTTPS for a new or existing site:
 4.  If you have not already provided one, enter a domain name (must end with `.local`) or use the automatically generated one.
 5.  Turn on **Enable HTTPS**.
 
-[![The Create a blank site form in Studio with Advanced settings expanded, showing Use custom domain and Enable HTTPS turned on and a .wp.local domain name.](https://developer.wordpress.com/wp-content/uploads/2025/03/create-site-https.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/03/create-site-https.webp)
+[![The Create a blank site form in WordPress Studio with Advanced settings expanded, showing Use custom domain and Enable HTTPS turned on and a .wp.local domain name.](https://developer.wordpress.com/wp-content/uploads/2025/03/create-site-https.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/03/create-site-https.webp)
 
-[![An existing site's Settings in Studio, with Use custom domain and Enable HTTPS turned on under Local domain and the domain set to wren-barley.wp.local.](https://developer.wordpress.com/wp-content/uploads/2025/03/site-settings-domain.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/03/site-settings-domain.webp)
+[![An existing site's Settings in WordPress Studio, with Use custom domain and Enable HTTPS turned on under Local domain and the domain set to wren-barley.wp.local.](https://developer.wordpress.com/wp-content/uploads/2025/03/site-settings-domain.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/03/site-settings-domain.webp)
 
 6.  Click **Create site** or **Save**, depending on whether you are creating a new site or editing an existing one. 
-7.  When prompted, give your permission for WordPress Studio to modify the system hosts file. Studio will configure everything else automatically. 
+7.  When prompted, give your permission for WordPress Studio to modify the system hosts file. WordPress Studio will configure everything else automatically. 
 8.  For HTTPS connections, a root certificate authority will be generated and installed. Until your computer trusts it, the **Enable HTTPS** option shows a button to fix that: **Show certificate** on macOS, which opens the certificate file in Finder, or **Trust certificate** on Windows and Linux, which trusts it for you. On macOS, you’ll need to manually install the certificate to avoid browser warnings. [Refer to the guide below for more details](#macos).
 9.  Navigate to your site using the custom domain.
 
@@ -49,7 +49,7 @@ On Windows, WordPress Studio automatically adds the CA to your system trust stor
 
 ### [MacOS](#macos)
 
-On macOS, you need to manually trust the CA. To do this, find the certificate file that Studio automatically installs on your system. You can click **Show certificate** under **Enable HTTPS** in the site’s settings to open its folder in Finder and skip step 1, or:
+On macOS, you need to manually trust the CA. To do this, find the certificate file that WordPress Studio automatically installs on your system. You can click **Show certificate** under **Enable HTTPS** in the site’s settings to open its folder in Finder and skip step 1, or:
 
 1.  Open a terminal and run the following command: `open ~/.studio/certificates/`
 2.  This will open the folder containing the certificate file (`studio-ca.crt`). Double-click the file to install the certificate and automatically open the **Keychain Access** tool on your machine.
@@ -68,7 +68,7 @@ Once the certificate is trusted, your browser will recognize it and indicate tha
 
 ### [Linux](#6-linux)
 
-On Linux, Studio automatically imports the root certificate authority (CA) into the system bundle, Chromium-family user NSS databases, and existing Firefox profile NSS databases (apt, Snap, and Flatpak installs) when you click **Trust certificate**. Most users will not need the steps below.
+On Linux, WordPress Studio automatically imports the root certificate authority (CA) into the system bundle, Chromium-family user NSS databases, and existing Firefox profile NSS databases (apt, Snap, and Flatpak installs) when you click **Trust certificate**. Most users will not need the steps below.
 
 Use this fallback only if auto-trust didn’t take effect.
 

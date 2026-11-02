@@ -1,10 +1,10 @@
-# Debugging in Studio
+# Debugging in WordPress Studio
 
 WordPress Studio includes several built-in tools to help you find and fix issues in your local WordPress sites — without needing to install extra software or leave the app.
 
 ## [Debug log](#0-debug-log)
 
-Sometimes you just need to see what WordPress is logging. Studio makes that easy with a dedicated debug log toggle that configures `WP_DEBUG` and `WP_DEBUG_LOG` for your site automatically.
+Sometimes you just need to see what WordPress is logging. WordPress Studio makes that easy with a dedicated debug log toggle that configures `WP_DEBUG` and `WP_DEBUG_LOG` for your site automatically.
 
 ### [Enabling the debug log](#1-enabling-the-debug-log)
 
@@ -13,7 +13,7 @@ Sometimes you just need to see what WordPress is logging. Studio makes that easy
 3.  Turn on **Debug log**.
 4.  Click **Save** at the top of the dialog.
 
-[![The Debug page of a site's settings in Studio, with the Xdebug toggle turned on in the Debugging section.](https://developer.wordpress.com/wp-content/uploads/2026/01/site-settings-debug.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/01/site-settings-debug.webp)
+[![The Debug page of a site's settings in WordPress Studio, with the Xdebug toggle turned on in the Debugging section.](https://developer.wordpress.com/wp-content/uploads/2026/01/site-settings-debug.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/01/site-settings-debug.webp)
 
 When the debug log is enabled, your site will capture PHP errors, notices, and warnings to `wp-content/debug.log`. Once the file exists, an **Open log file** button appears on the **Debug** page, so you can jump directly to the file without hunting for its path.
 
@@ -43,19 +43,19 @@ Once your debug log is active, you can point an AI agent directly at it. Tell yo
 
 ## [Database access with phpMyAdmin](#5-database-access-with-phpmyadmin)
 
-Inspecting or editing your local database used to mean a separate tool and a separate setup. Studio includes phpMyAdmin access directly in the app — so you can query tables, check data, and debug schema issues without leaving the app or configuring anything.
+Inspecting or editing your local database used to mean a separate tool and a separate setup. WordPress Studio includes phpMyAdmin access directly in the app — so you can query tables, check data, and debug schema issues without leaving the app or configuring anything.
 
 To open phpMyAdmin for a running site, select the site and use either of these:
 
 -   Click the site preview’s address bar and choose **Database**, or choose **Tools → Database** from the site menu. phpMyAdmin opens inside the preview.
 -   Choose **Open in → phpMyAdmin** from the site menu to open it in your browser.
 
-[![The address bar menu in Studio's site preview, open to show the Front end, WordPress Admin, and Database options.](https://developer.wordpress.com/wp-content/uploads/2026/04/preview-destinations.webp)](https://developer.wordpress.com/wp-content/uploads/2026/04/preview-destinations.webp)
+[![The address bar menu in WordPress Studio's site preview, open to show the Front end, WordPress Admin, and Database options.](https://developer.wordpress.com/wp-content/uploads/2026/04/preview-destinations.webp)](https://developer.wordpress.com/wp-content/uploads/2026/04/preview-destinations.webp)
 
 ## [Step-through debugging with Xdebug](#6-step-through-debugging-with-xdebug)
 
-For deeper investigation, Studio includes [Xdebug](https://xdebug.org/) support. Instead of scattering debug output through your code, you can set breakpoints, step through execution line by line, and inspect variables in real time — all from your editor.
+For deeper investigation, WordPress Studio includes [Xdebug](https://xdebug.org/) support. Instead of scattering debug output through your code, you can set breakpoints, step through execution line by line, and inspect variables in real time — all from your editor.
 
-Xdebug is available for all Studio sites and requires no system-level installation. When a request runs, Xdebug connects out to your editor or IDE on port `9003`, so your editor needs to be listening for debug connections on that port.
+Xdebug is available for all WordPress Studio sites and requires no system-level installation. When a request runs, Xdebug connects out to your editor or IDE on port `9003`, so your editor needs to be listening for debug connections on that port.
 
-For full setup instructions, including how to connect VS Code and PhpStorm, see [Xdebug in Studio](https://developer.wordpress.com/docs/developer-tools/studio/xdebug/).
+For full setup instructions, including how to connect VS Code and PhpStorm, see [Xdebug in WordPress Studio](https://developer.wordpress.com/docs/developer-tools/studio/xdebug/).

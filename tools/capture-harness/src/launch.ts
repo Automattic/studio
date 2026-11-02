@@ -38,6 +38,7 @@ function buildAppConfig( {
 					onboardingHints: {
 						tourDismissedVersion: ORIENTATION_GUIDE_VERSION,
 						whatsNewSeenVersion: WHATS_NEW_VERSION,
+						annotateHintDismissed: true,
 					},
 			  } ),
 		...appData,

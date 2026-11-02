@@ -319,6 +319,17 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 		60_000
 	);
 
+	it( "makes a block with the inner blocks its older version's migration makes", async () => {
+		const written = ( style: string ) =>
+			`<!-- wp:list -->\n<ul data-kind="steps"${ style }><li>One</li><li>Two</li></ul>\n<!-- /wp:list -->`;
+		const fixed = await validateBlocks( written( '' ), siteUrl! );
+		expect( fixed.proposedFix?.losses ).toEqual( [] );
+		expect( fixed.proposedFix?.fixedContent ).toContain( '<!-- wp:list-item -->\n<li>Two</li>' );
+		const lossy = await validateBlocks( written( ' style="columns:2"' ), siteUrl! );
+		expect( lossy.proposedFix?.losses ).toHaveLength( 1 );
+		expect( lossy.results[ 0 ].expectedContent ).toContain( '<!-- wp:list-item -->' );
+	}, 60_000 );
+
 	it( 'stores the values an element holds where the block saves them from: core/cover', async () => {
 		const report = await validateBlocks(
 			'<!-- wp:cover {"dimRatio":60,"isDark":true} -->\n<div class="wp-block-cover is-dark"><span aria-hidden="true" class="wp-block-cover__background has-background-dim-60 has-background-dim"></span><img class="wp-block-cover__image-background" alt="A bright dental office" src="https://example.com/hero.jpg" data-object-fit="cover"/><div class="wp-block-cover__inner-container"></div></div>\n<!-- /wp:cover -->',

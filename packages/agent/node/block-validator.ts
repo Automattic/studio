@@ -533,13 +533,14 @@ export async function validateBlocks(
 					// (its deprecated migrate, as the editor runs it when a block
 					// matches that version): the first that keeps all that was written,
 					// else the first that saves valid markup; as written otherwise.
-					let firstValid: any;
-					for ( const attributes of attributeSets( block, raw, sameBlock, [
+					let best: any;
+					let bestRank = -1;
+					for ( const { attributes, innerBlocks = inner } of attributeSets( block, raw, sameBlock, [
 						withComment,
 						parsed,
 					] ) ) {
 						try {
-							const created = wpBlocks.createBlock( block.name, attributes, inner );
+							const created = wpBlocks.createBlock( block.name, attributes, innerBlocks );
 							if ( wpBlocks.parse( wpBlocks.serialize( [ created ] ) )[ 0 ]?.isValid === false ) {
 								continue;
 							}
@@ -549,21 +550,36 @@ export async function validateBlocks(
 										raw
 								  )
 								: created;
-							if ( ! sameBlock || keepsWritten( made, raw ) ) {
+							if ( ! sameBlock ) {
 								return made;
 							}
-							firstValid ??= made;
+							const rank = keepsRank( made, block, raw );
+							if ( rank === KEEPS_ALL ) {
+								return made;
+							}
+							if ( rank > bestRank ) {
+								best = made;
+								bestRank = rank;
+							}
 						} catch {
 							// The next set of attributes.
 						}
 					}
-					return firstValid ?? block;
+					return best ?? block;
 				}
 
 				// The attribute sets to make a block again from, the deprecated
-				// versions' migrations last and only once asked for.
-				function* attributeSets( block: any, raw: any, sameBlock: boolean, first: any[] ) {
-					yield* first;
+				// versions' migrations last and only once asked for. A migration
+				// that makes inner blocks for a block written with none, as core/list
+				// makes its items from the old values (list/deprecated.js), makes
+				// the block with them.
+				function* attributeSets(
+					block: any,
+					raw: any,
+					sameBlock: boolean,
+					first: any[]
+				): Generator< { attributes: any; innerBlocks?: any[] } > {
+					yield* first.map( ( attributes ) => ( { attributes } ) );
 					const blockType = wpBlocks.getBlockType( block.name );
 					if ( ! sameBlock || typeof wpBlocks.getBlockAttributes !== 'function' ) {
 						return;
@@ -580,8 +596,43 @@ export async function validateBlocks(
 							raw.attrs
 						);
 						const migrated = version.migrate( read, block.innerBlocks ?? [] );
-						yield { ...first[ 0 ], ...( Array.isArray( migrated ) ? migrated[ 0 ] : migrated ) };
+						yield {
+							attributes: {
+								...first[ 0 ],
+								...( Array.isArray( migrated ) ? migrated[ 0 ] : migrated ),
+							},
+							innerBlocks:
+								Array.isArray( migrated ) && migrated[ 1 ]?.length && ! block.innerBlocks?.length
+									? migrated[ 1 ]
+									: undefined,
+						};
 					}
+				}
+
+				// How much of what was written a block made again keeps, the first
+				// that keeps more being the fix: every class written in its own
+				// markup, then the text it holds with its inner blocks, then each
+				// value its comment wrote, wherever the block saves it, as a
+				// migration moves a value into an inner block's comment.
+				const KEEPS_ALL = 7;
+				function keepsRank( made: any, block: any, raw: any ) {
+					const text = ( markup: string ) =>
+						(
+							new DOMParser().parseFromString( markup, 'text/html' ).body.textContent ?? ''
+						).replace( /\s+/g, '' );
+					const saved = wpBlocks.serialize( [ made ] );
+					const leaves = ( value: unknown ): unknown[] =>
+						value && typeof value === 'object'
+							? Object.values( value ).flatMap( leaves )
+							: [ value ];
+					const keepsComment = leaves( raw.attrs ?? {} ).every( ( value ) =>
+						saved.includes( JSON.stringify( value ) )
+					);
+					return (
+						( keepsWritten( made, raw ) ? 4 : 0 ) +
+						( text( saved ) === text( wpBlocks.serialize( [ block ] ) ) ? 2 : 0 ) +
+						( keepsComment ? 1 : 0 )
+					);
 				}
 
 				// Whether a block made again saves every class written in its own
@@ -1603,6 +1654,30 @@ export async function validateBlocks(
 				const losslessContent = lossList.length
 					? wpBlocks.serialize( lossless( fixed.blocks ) )
 					: fixedContent;
+
+				// A block the fix makes with other inner blocks than those written, as
+				// a deprecated version's migration makes them, saves those: what it
+				// saves is shown as the fix makes it.
+				const blockAt = ( blocks: any[], place: string ) =>
+					place
+						.split( '/' )
+						.slice( 1 )
+						.reduce(
+							( found: any, index ) =>
+								( found ? found.innerBlocks ?? [] : blocks )[ Number( index ) ],
+							undefined
+						);
+				for ( const result of initial.report.results ) {
+					const place = result.place ?? '';
+					const fix = lossy.has( place ) && blockAt( fixed.blocks, place );
+					if ( fix && ! sameInnerBlocks( blockAt( initial.blocks, place ), fix, place ) ) {
+						result.expectedContent = wpBlocks.getSaveContent(
+							fix.name,
+							fix.attributes,
+							fix.innerBlocks
+						);
+					}
+				}
 
 				return {
 					report: initial.report,

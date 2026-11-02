@@ -198,6 +198,7 @@ function pageBridge( appOrigin: string, screenshotLibrary: string, consolePrefix
 			return true;
 		},
 	};
+	const actionsByName = new Map( Object.entries( actions ) );
 	window.addEventListener( 'message', ( event: MessageEvent ) => {
 		const data = event.data as {
 			type?: string;
@@ -208,12 +209,17 @@ function pageBridge( appOrigin: string, screenshotLibrary: string, consolePrefix
 		if ( event.origin !== appOrigin || data?.type !== 'studio:request' || ! data.action ) {
 			return;
 		}
+		const action = actionsByName.get( data.action );
 		const reply = ( message: Record< string, unknown > ) =>
 			( event.source as Window ).postMessage(
 				{ type: 'studio:response', id: data.id, ...message },
 				appOrigin
 			);
-		actions[ data.action ]( data.payload ?? {} ).then(
+		if ( typeof action !== 'function' ) {
+			reply( { error: `Unknown action ${ data.action }` } );
+			return;
+		}
+		action( data.payload ?? {} ).then(
 			( result ) => reply( { result } ),
 			( error: unknown ) => reply( { error: String( ( error as Error )?.message ?? error ) } )
 		);

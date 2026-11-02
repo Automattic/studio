@@ -1,7 +1,8 @@
 /**
  * Trunk's design catalogs: artistic directions (a site's look) and layout
  * concepts (its page structure), one markdown file per entry. A new block
- * theme gets one of each, drawn at random, so one site differs from the next.
+ * theme gets looks to choose from and a layout, drawn at random, so one site
+ * differs from the next.
  */
 export interface DesignEntry {
 	name: string;
@@ -45,11 +46,17 @@ export function designCatalog( kind: 'directions' | 'layouts' ): DesignEntry[] {
 		.filter( ( entry ): entry is DesignEntry => !! entry );
 }
 
-/** One look and one layout, drawn at random. */
+// The looks a new theme gets to choose from.
+export const LOOK_OPTIONS = 3;
+
+/** Different looks to choose from and one layout, drawn at random. */
 export function drawDesign( random: () => number = Math.random ) {
-	const draw = ( kind: 'directions' | 'layouts' ) => {
+	const draw = ( kind: 'directions' | 'layouts', count: number ) => {
 		const entries = designCatalog( kind );
-		return entries[ Math.floor( random() * entries.length ) ];
+		return Array.from(
+			{ length: Math.min( count, entries.length ) },
+			() => entries.splice( Math.floor( random() * entries.length ), 1 )[ 0 ]
+		);
 	};
-	return { look: draw( 'directions' ), layout: draw( 'layouts' ) };
+	return { looks: draw( 'directions', LOOK_OPTIONS ), layout: draw( 'layouts', 1 )[ 0 ] };
 }

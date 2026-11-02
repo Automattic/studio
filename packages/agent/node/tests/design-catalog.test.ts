@@ -16,11 +16,14 @@ describe( 'the design catalogs', () => {
 		}
 	} );
 
-	it( 'draws any entry of each, from the first to the last', () => {
+	it( 'draws different looks and any layout, from the first entry to the last', () => {
 		const [ looks, layouts ] = [ designCatalog( 'directions' ), designCatalog( 'layouts' ) ];
-		expect( drawDesign( () => 0 ) ).toEqual( { look: looks[ 0 ], layout: layouts[ 0 ] } );
+		expect( drawDesign( () => 0 ) ).toEqual( {
+			looks: looks.slice( 0, 3 ),
+			layout: layouts[ 0 ],
+		} );
 		expect( drawDesign( () => 0.9999 ) ).toEqual( {
-			look: looks.at( -1 ),
+			looks: looks.slice( -3 ).reverse(),
 			layout: layouts.at( -1 ),
 		} );
 	} );

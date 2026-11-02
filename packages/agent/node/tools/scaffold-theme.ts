@@ -61,7 +61,9 @@ const blockThemeFiles = ( name: string, slug: string ): Record< string, string >
 	'templates/index.html': main(
 		'<!-- wp:query {"query":{"inherit":true}} -->\n<div class="wp-block-query"><!-- wp:post-template -->\n<!-- wp:post-title {"isLink":true} /-->\n\n<!-- wp:post-excerpt /-->\n<!-- /wp:post-template -->\n\n<!-- wp:query-no-results -->\n<!-- wp:paragraph -->\n<p>Nothing was found.</p>\n<!-- /wp:paragraph -->\n<!-- /wp:query-no-results --></div>\n<!-- /wp:query -->'
 	),
-	'templates/page.html': main( '<!-- wp:post-content {"layout":{"type":"constrained"},"align":"full"} /-->' ),
+	'templates/page.html': main(
+		'<!-- wp:post-content {"layout":{"type":"constrained"},"align":"full"} /-->'
+	),
 	'templates/single.html': main(
 		'<!-- wp:post-title {"level":1} /-->\n\n<!-- wp:post-date /-->\n\n<!-- wp:post-content {"layout":{"type":"constrained"},"align":"full"} /-->'
 	),
@@ -176,12 +178,15 @@ export const scaffoldThemeTool = defineTool(
 			( [ file, content ] ) =>
 				`wp-content/themes/${ slug }/${ file }:\n~~~\n${ content.trimEnd() }\n~~~`
 		);
-		const { look, layout } = drawDesign();
+		const { looks, layout } = drawDesign();
 		const design = child
 			? []
 			: [
-					'This is the design you chose for the site: build this look and layout whatever the site is about, and present them to the user as your choices for them. A look or layout the user describes in their own words takes their place.',
-					`Look: ${ look.name }. ${ look.description }\n${ look.details }`,
+					`${ looks.length } looks drawn for this site, and one layout. Build the layout with the look that suits what the site is about, and present them to the user as your choices for them. A look's colors, fonts and imagery are a starting point: tune them to the business, as a sign or product color it names. A look or layout the user describes in their own words takes their place.`,
+					...looks.map(
+						( look, i ) =>
+							`Look option ${ i + 1 }: ${ look.name }. ${ look.description }\n${ look.details }`
+					),
 					`Layout: ${ layout.name }. ${ layout.description }\n${ layout.details }`,
 			  ];
 		return textResult(

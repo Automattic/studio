@@ -60,6 +60,32 @@ describe( 'RenderCheck', () => {
 		expect( await check.takeReports() ).toBe( '' );
 	} );
 
+	it( 'groups identical contrast observations while keeping every location and distinct finding', async () => {
+		const { site, check, open, problems, after } = setup();
+		await check.seen( site.root, { created: true } );
+		const contrast = ( y: number, text = '#ffffff', ratio = '1.0', explanation = '' ) =>
+			`  a "Bakery", at y ${ y }, is ${ text } text on #ffffff, a contrast ratio of ${ ratio }:1.${ explanation }`;
+		problems[ '/ desktop' ] = [ contrast( -2 ), contrast( 12 ) ];
+		problems[ '/ mobile' ] = [ contrast( 30 ) ];
+		const distinct = [
+			contrast( 40, '#fefefe' ),
+			contrast( 50, '#ffffff', '1.1' ),
+			contrast( 60, '#ffffff', '1.0', ' Its section sets the text color #000000.' ),
+			'The image http://localhost:8881/a.jpg did not load.',
+		];
+		problems[ '/about/ desktop' ] = [ contrast( 70 ), ...distinct ];
+		const report = await after();
+		expect( report ).toContain(
+			'- a "Bakery": #ffffff text on #ffffff, a contrast ratio of 1.0:1.\n' +
+				'  Seen on:\n  / — desktop y-2; desktop y12; mobile y30\n  /about/ — desktop y70'
+		);
+		expect( report.match( /Seen on:/g ) ).toHaveLength( 1 );
+		for ( const problem of distinct ) {
+			expect( report ).toContain( `- /about/ (desktop): ${ problem }` );
+		}
+		expect( await open.raise() ).toEqual( [ report ] );
+	} );
+
 	// As run h2h5's dog groomer changed an option while its images were being generated.
 	it( 'renders once the images being generated in the site are written', async () => {
 		const { site, check, problems } = setup();

@@ -2,12 +2,12 @@ import { __ } from '@wordpress/i18n';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
-import { useStartSite } from '@/data/queries/use-sites';
 import {
 	useCancelSync,
 	usePullSiteFromLive,
 	usePushSiteToLive,
 } from '@/data/queries/use-sync-site';
+import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import { Button, FieldSet } from '@/lib/ui';
 import { FilePicker } from './file-picker';
 import {
@@ -73,7 +73,7 @@ export function ConnectedView( {
 	const pushSite = usePushSiteToLive();
 	const pullSite = usePullSiteFromLive();
 	const cancel = useCancelSync();
-	const startSite = useStartSite();
+	const startSite = useStartSiteWithChat();
 	const pending = activity?.kind === 'pending';
 	useEffect( () => {
 		onReviewingChange( reviewing && ! pending );
@@ -180,7 +180,7 @@ export function ConnectedView( {
 						</Button>
 						<Button
 							ref={ publishButton }
-							variant="default"
+							variant="accent"
 							size="lg"
 							disabled={ disabled || Boolean( issue ) }
 							onClick={ () => {
@@ -302,7 +302,7 @@ export function ConnectedView( {
 											{ __( 'Cancel' ) }
 										</Button>
 										<Button
-											variant="default"
+											variant={ direction === 'push' ? 'accent' : 'default' }
 											size="lg"
 											disabled={
 												disabled ||

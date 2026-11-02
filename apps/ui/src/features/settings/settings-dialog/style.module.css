@@ -1,10 +1,10 @@
 .scopes {
-	margin: var( --space-3 ) var( --space-3 ) 0;
+	margin: var( --dialog-inset ) var( --dialog-inset ) 0;
 }
 
 .search {
 	width: auto;
-	margin: var( --space-3 ) var( --space-3 ) 0;
+	margin: var( --dialog-inset ) var( --dialog-inset ) 0;
 }
 
 .empty {
@@ -15,7 +15,9 @@
 }
 
 .actions {
-	display: contents;
+	display: flex;
+	align-items: center;
+	gap: var( --space-2 );
 }
 
 .hidden {
@@ -24,6 +26,9 @@
 
 /* The setting picked from the search results. */
 .content :global( [data-settings-match] ) {
+	--foreground: var( --accent-text );
+	--muted-foreground: var( --accent-text );
+	color: var( --accent-text );
 	position: relative;
 	isolation: isolate;
 }
@@ -61,4 +66,8 @@
 .error {
 	color: var( --destructive );
 	font-size: var( --text-xs );
+}
+
+.confirmingDiscard {
+	visibility: hidden;
 }

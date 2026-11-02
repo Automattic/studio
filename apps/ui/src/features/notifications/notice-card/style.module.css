@@ -154,6 +154,9 @@
 }
 
 .toggle[aria-expanded='true'] .chevron svg {
+	width: 14px;
+	height: 14px;
+	flex: none;
 	rotate: 90deg;
 }
 

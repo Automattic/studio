@@ -78,7 +78,7 @@ export function SkillsPanel( { onManageSite }: { onManageSite?: () => void } ) {
 					description={
 						<>
 							{ __(
-								'Skills give AI agents guidance for WordPress development. Changes here apply to all existing sites and set the defaults for new sites. Use Site settings to manage skills for an individual site.'
+								'Skills give AI agents guidance for WordPress development. Changes here apply to all existing sites and set the defaults for new sites.'
 							) }{ ' ' }
 							<LearnMoreLink docsLinksKey="docsSkills" />
 						</>

@@ -59,9 +59,9 @@ function setup( showShare = false, initialSnapshots?: Snapshot[] ) {
 	return { connector };
 }
 
-it( 'lists previews across sites, excludes other accounts and counts only unexpired links', async () => {
+it( 'lists previews across sites, excludes other accounts and reports account-wide usage', async () => {
 	const { connector } = setup();
-	expect( await screen.findByText( '1 of 10 preview sites used' ) ).toBeVisible();
+	expect( await screen.findByText( '10 of 10 active preview sites' ) ).toBeVisible();
 	const live = screen.getByRole( 'group', { name: 'Live previews' } );
 	expect( live ).toBeVisible();
 	expect( screen.queryByText( 'two.example.com' ) ).not.toBeInTheDocument();
@@ -90,7 +90,7 @@ it( 'lists previews across sites, excludes other accounts and counts only unexpi
 it( 'refreshes the shared settings and Share list together after a preview changes', async () => {
 	const { connector } = setup( true );
 	fireEvent.click( await screen.findByRole( 'button', { name: 'Share' } ) );
-	await screen.findByRole( 'button', { name: 'Visit preview' } );
+	await screen.findByRole( 'list', { name: 'Previews' } );
 	const share = within( screen.getByRole( 'dialog', { name: 'Share and publish' } ) );
 	expect( share.queryByText( 'two.example.com' ) ).not.toBeInTheDocument();
 	act( () =>
@@ -112,7 +112,7 @@ it( 'refreshes the shared settings and Share list together after a preview chang
 			within( screen.getByTestId( 'settings-previews' ) ).getByText( 'Renamed preview' )
 		).toBeInTheDocument()
 	);
-	fireEvent.click( share.getByRole( 'button', { name: 'Visit preview' } ) );
+	fireEvent.click( share.getByRole( 'link', { name: 'Renamed preview' } ) );
 	expect( connector.openExternalUrl ).toHaveBeenCalledWith( 'https://changed.example.com' );
 	expect( screen.queryByText( 'one.example.com' ) ).not.toBeInTheDocument();
 	act( () => connector.emit( 'onSnapshotEvent', { event: SNAPSHOT_EVENTS.DELETED_ALL } ) );
@@ -170,7 +170,7 @@ it( 'confirms individual preview deletion before calling the backend', async () 
 				finish = resolve;
 			} )
 	);
-	await screen.findByText( '1 of 10 preview sites used' );
+	await screen.findByText( '10 of 10 active preview sites' );
 	fireEvent.click( screen.getByRole( 'button', { name: 'Delete preview' } ) );
 	expect( connector.deleteSnapshot ).not.toHaveBeenCalled();
 	const dialog = await screen.findByRole( 'alertdialog', { name: 'Delete preview' } );

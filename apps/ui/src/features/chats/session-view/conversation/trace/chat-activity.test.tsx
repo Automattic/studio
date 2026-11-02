@@ -130,7 +130,6 @@ describe( 'waiting activity', () => {
 		vi.setSystemTime( 4000 );
 		const view = render( line() );
 		expect( screen.getByText( 'Working for 3s' ) ).toHaveClass( 'studio-shimmer' );
-		fireEvent.click( screen.getByRole( 'button' ) );
 		view.rerender( line( {}, true ) );
 		expect( screen.getByText( 'Waiting for 3s' ) ).not.toHaveClass( 'studio-shimmer' );
 		expect( screen.getByRole( 'button', { name: 'Waiting for 3s' } ) ).toHaveAttribute(
@@ -141,6 +140,20 @@ describe( 'waiting activity', () => {
 		expect( screen.getByText( 'Waiting for 13s' ) ).toBeVisible();
 		view.rerender( line() );
 		expect( screen.getByText( 'Working for 13s' ) ).toHaveClass( 'studio-shimmer' );
+		expect( screen.getByRole( 'button' ) ).toHaveAttribute( 'aria-expanded', 'true' );
+	} );
+	it( 'allows details to reopen while waiting and collapses again for the next question', () => {
+		const view = render( line( {}, true ) );
+		expect( screen.getByRole( 'button' ) ).toHaveAttribute( 'aria-expanded', 'false' );
+		fireEvent.click( screen.getByRole( 'button' ) );
+		view.rerender( line( { startedAt: 2000 }, true ) );
+		expect( screen.getByRole( 'button' ) ).toHaveAttribute( 'aria-expanded', 'true' );
+		expect( screen.getByText( 'Reading files' ) ).toBeVisible();
+		view.rerender( line() );
+		view.rerender( line( {}, true ) );
+		expect( screen.getByRole( 'button' ) ).toHaveAttribute( 'aria-expanded', 'false' );
+		fireEvent.click( screen.getByRole( 'button' ) );
+		view.rerender( line( { status: 'success', endedAt: 6000 }, true ) );
 		expect( screen.getByRole( 'button' ) ).toHaveAttribute( 'aria-expanded', 'false' );
 	} );
 	it( 'does not override a completed status with a stale pending question', () => {

@@ -1,3 +1,4 @@
+import { getSnapshotLink } from '@studio/common/lib/snapshots';
 import { Type } from 'typebox';
 import { defineTool, REMOTE_CHANGE } from './define-tool';
 import { runPreviewCommand } from './preview-helpers';
@@ -14,7 +15,9 @@ export const createPreviewTool = defineTool(
 		return runPreviewCommand( async () => {
 			const site = await context.host.sites.resolve( args.nameOrPath );
 			const preview = await context.host.previews.create( site, context.onProgress );
-			return `Preview site "${ preview.name }" created from "${ site.name }": https://${ preview.url }`;
+			return `Preview site "${ preview.name }" created from "${ site.name }": ${ getSnapshotLink(
+				preview
+			) }`;
 		}, 'Failed to create preview site' );
 	},
 	{

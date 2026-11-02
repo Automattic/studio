@@ -9,6 +9,7 @@ import type {
 	UserPreferences,
 	WritableUserPreferences,
 } from '@/data/core';
+import type { SupportedBrowser } from '@studio/common/lib/user-settings/browser';
 
 // Non-empty on purpose: @base-ui's Select treats an item whose value
 // stringifies to '' as "no selection" and renders the placeholder instead of
@@ -17,6 +18,7 @@ export const UNSET = 'unset' as const;
 
 export interface PreferencesFormData {
 	editor: SupportedEditor | typeof UNSET;
+	browser: SupportedBrowser | typeof UNSET;
 	terminal: SupportedTerminal | typeof UNSET;
 	colorScheme: ColorScheme;
 	quitSitesBehavior: QuitSitesBehavior | typeof UNSET;
@@ -24,6 +26,7 @@ export interface PreferencesFormData {
 	analyticsEnabled: boolean;
 	defaultSiteDirectory: string;
 	autoStartSiteOnChat: boolean;
+	openChatOnSiteStart: boolean;
 	confirmDeleteAnnotations: boolean;
 }
 
@@ -37,6 +40,7 @@ function resolveFormLocale( locale: string | undefined ): SupportedLocale {
 export function toPreferencesFormData( prefs: UserPreferences ): PreferencesFormData {
 	return {
 		editor: prefs.editor ?? UNSET,
+		browser: prefs.browser ?? UNSET,
 		terminal: prefs.terminal ?? UNSET,
 		colorScheme: prefs.colorScheme,
 		quitSitesBehavior: prefs.quitSitesBehavior ?? UNSET,
@@ -47,6 +51,8 @@ export function toPreferencesFormData( prefs: UserPreferences ): PreferencesForm
 		defaultSiteDirectory: prefs.defaultSiteDirectory,
 		autoStartSiteOnChat:
 			prefs.autoStartSiteOnChat ?? INTERFACE_PREFERENCE_DEFAULTS.autoStartSiteOnChat,
+		openChatOnSiteStart:
+			prefs.openChatOnSiteStart ?? INTERFACE_PREFERENCE_DEFAULTS.openChatOnSiteStart,
 		confirmDeleteAnnotations:
 			prefs.confirmDeleteAnnotations ?? INTERFACE_PREFERENCE_DEFAULTS.confirmDeleteAnnotations,
 	};

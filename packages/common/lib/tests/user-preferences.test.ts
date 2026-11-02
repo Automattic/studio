@@ -178,3 +178,28 @@ it( 'rejects invalid sort choices and recovers invalid stored values', async () 
 		sidebarChatSort: 'updated',
 	} );
 } );
+
+it( 'opens chat on site start by default and persists the opt-out', async () => {
+	const context = { sitesRoot: configDir };
+	expect( ( await readUserPreferences( context ) ).openChatOnSiteStart ).toBe( true );
+	await writeUserPreferences(
+		userPreferencesPatchSchema.parse( { openChatOnSiteStart: false } ),
+		context
+	);
+	expect( ( await readUserPreferences( context ) ).openChatOnSiteStart ).toBe( false );
+	await writeUserPreferences( { openChatOnSiteStart: null }, context );
+	expect( ( await readUserPreferences( context ) ).openChatOnSiteStart ).toBe( true );
+} );
+
+it( 'saves and clears the browser preference without changing the editor', async () => {
+	const context = { sitesRoot: configDir };
+	expect( ( await readUserPreferences( context ) ).browser ).toBeNull();
+	await writeUserPreferences( { browser: 'chrome' }, context );
+	expect( await readUserPreferences( context ) ).toMatchObject( {
+		browser: 'chrome',
+		editor: 'vscode',
+	} );
+	await writeUserPreferences( { browser: null }, context );
+	expect( ( await readUserPreferences( context ) ).browser ).toBeNull();
+	expect( userPreferencesPatchSchema.safeParse( { browser: 'unknown' } ).success ).toBe( false );
+} );

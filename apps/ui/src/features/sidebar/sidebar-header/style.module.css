@@ -7,22 +7,20 @@
 	gap: var( --space-1 );
 	height: var( --band-height );
 	flex-shrink: 0;
-	padding-inline: var( --traffic-light-space ) var( --space-3 );
+	padding-inline: var( --toggle-start ) var( --space-3 );
 	-webkit-app-region: drag;
 	/* Stay pinned while the sidebar scrolls. Opaque background so
 	   scrolling content doesn't bleed through. */
 	position: sticky;
 	top: 0;
-	z-index: 1;
+	z-index: 2;
 	background-color: var( --studio-sidebar-bg );
 }
 
 /* No traffic lights to clear: non-macOS, the browser (`studio ui`), or macOS
    fullscreen (which hides them). */
 .flush {
-	--toggle-start: 12px;
-
-	padding-inline-start: var( --space-3 );
+	--toggle-start: var( --band-inset );
 }
 
 /* The toggle stays in the window's corner while the sidebar slides out, and
@@ -48,4 +46,9 @@
 
 .root > * {
 	-webkit-app-region: no-drag;
+}
+
+.action {
+	display: flex;
+	margin-inline-start: auto;
 }

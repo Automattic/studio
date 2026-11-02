@@ -59,7 +59,8 @@ export function useSettleSync() {
 				void queryClient.invalidateQueries( { queryKey: SNAPSHOTS_QUERY_KEY } );
 				if ( settled.kind === 'success' ) {
 					markPreviewReady( siteId );
-					toast.success( __( 'Preview link is ready' ), {
+					/* translators: %s: site name */
+					toast.success( sprintf( __( '%s preview is ready' ), siteName() ), {
 						action: {
 							label: __( 'Copy link' ),
 							onClick: () => {

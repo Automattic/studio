@@ -5,6 +5,7 @@ import {
 	createBlueprintTempDirSync,
 	removeBlueprintTempDirSync,
 } from '@studio/common/lib/blueprint-bundle';
+import { type TracksSiteCreateSource } from '@studio/common/lib/record-tracks-event';
 import { __, sprintf } from '@wordpress/i18n';
 import { LoggerError } from 'cli/logger';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
@@ -79,6 +80,19 @@ export function isDataLiberationCaptureRoot( directory: string ): boolean {
 	} catch {
 		return false;
 	}
+}
+
+// Which bucket a `--from` source falls into, sent as `source` on `studio_site_created`. Mirrors the
+// classification `prepareSourceImport()` performs on the same input: a URL is captured live, a
+// capture root is an already-captured website, everything else is a plain local source.
+export function classifySourceImport( source: string ): TracksSiteCreateSource {
+	if ( isUrl( source ) ) {
+		return 'url';
+	}
+	if ( isDataLiberationCaptureRoot( source ) ) {
+		return 'capture';
+	}
+	return 'directory';
 }
 
 function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImporterSource {

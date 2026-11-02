@@ -52,6 +52,7 @@ export const INTERFACE_PREFERENCE_DEFAULTS = {
 	colorScheme: DEFAULT_COLOR_SCHEME,
 	quitSitesBehavior: null,
 	autoStartSiteOnChat: false,
+	openChatOnSiteStart: true,
 	confirmDeleteAnnotations: true,
 	showRecentChats: true,
 	autoCollapseSites: true,

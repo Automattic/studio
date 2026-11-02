@@ -31,12 +31,25 @@
 		height: auto;
 	}
 
+	.group[data-variant='commands'] {
+		border-radius: calc( var( --radius-3xl ) - var( --space-1_5 ) );
+	}
+
 	.group[data-variant='composer'] {
 		--surface: var( --composer );
+		box-shadow: var( --shadow-sm );
 		border-color: var( --input );
 		border-radius: var( --radius-3xl );
 		background-color: var( --surface );
 		color: var( --foreground );
+	}
+
+	.group[data-variant='composer']:has( [data-slot='input-group-control']:focus-visible ):not(
+			:has( [aria-invalid='true'] )
+		) {
+		box-shadow:
+			inset 0 0 0 1px var( --ring ),
+			var( --shadow-sm );
 	}
 
 	.group:has( > [data-align='inline-end'] ) > input {

@@ -122,6 +122,22 @@ const studioConnect = async () => {
 const searchBox = () => screen.getByRole( 'textbox', { name: 'Search settings' } );
 
 describe( 'WordPress Studio settings', () => {
+	it( 'defaults to opening chat on site start and saves changes immediately', async () => {
+		const { connector } = await setup();
+		const toggle = await screen.findByRole( 'switch', { name: 'Open chat when starting a site' } );
+		expect( toggle ).toBeChecked();
+		fireEvent.click( toggle );
+		await waitFor( () =>
+			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+				{ openChatOnSiteStart: false },
+				undefined
+			)
+		);
+		expect( toggle ).not.toBeChecked();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Reset interface' } ) );
+		await waitFor( () => expect( toggle ).toBeChecked() );
+	} );
+
 	it.each( [ undefined, true, false ] )(
 		'saves recent chats visibility from %s',
 		async ( value ) => {
@@ -156,6 +172,7 @@ describe( 'WordPress Studio settings', () => {
 		{ quitSitesBehavior: 'stop' as const },
 		{ showRecentChats: false },
 		{ autoStartSiteOnChat: true },
+		{ openChatOnSiteStart: false },
 		{ autoCollapseSites: false },
 		{ sidebarPinnedSort: 'manual' as const },
 		{ sidebarSiteSort: 'status' as const },
@@ -290,15 +307,19 @@ describe( 'WordPress Studio settings', () => {
 	] )( 'hides the CLI fieldset in %s', async ( _host, appGlobals ) => {
 		await setup( { overrides: { getAppGlobals: async () => appGlobals as never } } );
 		await screen.findByRole( 'combobox', { name: 'Language' } );
-		expect( screen.queryByRole( 'group', { name: 'Studio CLI' } ) ).not.toBeInTheDocument();
 		expect(
-			screen.queryByRole( 'switch', { name: 'Studio CLI for terminal' } )
+			screen.queryByRole( 'group', { name: 'WordPress Studio CLI' } )
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'switch', { name: 'WordPress Studio CLI for terminal' } )
 		).not.toBeInTheDocument();
 	} );
 
 	it( 'shows the CLI toggle on desktop', async () => {
 		const { connector } = await setup();
-		const toggle = await screen.findByRole( 'switch', { name: 'Studio CLI for terminal' } );
+		const toggle = await screen.findByRole( 'switch', {
+			name: 'WordPress Studio CLI for terminal',
+		} );
 		expect( toggle ).toBeEnabled();
 		fireEvent.click( toggle );
 		await waitFor( () =>
@@ -321,6 +342,23 @@ describe( 'WordPress Studio settings', () => {
 		await waitFor( () => expect( connector.logout ).toHaveBeenCalledExactlyOnceWith() );
 		expect( await studioConnect() ).toBeVisible();
 		expect( screen.queryByText( TEST_USER.email ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'shows account-wide preview usage in Sharing', async () => {
+		await setup( {
+			section: 'sharing',
+			overrides: {
+				getSnapshotUsage: async () => ( {
+					siteCount: 8,
+					siteLimit: 10,
+					siteCreationBlocked: false,
+				} ),
+			},
+		} );
+		const usage = await screen.findByRole( 'group', { name: 'Usage' } );
+		expect( await within( usage ).findByText( '8 of 10 active preview sites' ) ).toBeVisible();
+		expect( within( usage ).getByRole( 'button', { name: 'Preview site actions' } ) ).toBeEnabled();
+		expect( screen.queryByText( '2 of 10 preview sites used' ) ).not.toBeInTheDocument();
 	} );
 
 	it.each( [
@@ -360,10 +398,10 @@ describe( 'WordPress Studio settings', () => {
 
 	it( 'offers Default, the installed editors and a saved editor that is gone', async () => {
 		const { connector } = await setup( { preferences: { editor: 'cursor' } } );
-		fireEvent.click( await screen.findByRole( 'combobox', { name: 'Code editor' } ) );
+		fireEvent.click( await screen.findByRole( 'combobox', { name: 'Default code editor' } ) );
 		const options = await screen.findAllByRole( 'option' );
 		expect( options.map( ( option ) => option.textContent ) ).toEqual( [
-			'Default',
+			'System default',
 			supportedEditorConfig.cursor.label(),
 			supportedEditorConfig.vscode.label(),
 		] );
@@ -413,15 +451,20 @@ describe( 'WordPress Studio settings', () => {
 		).toBeVisible();
 	} );
 
-	it( 'disables reset for default colors with a non-default theme', async () => {
+	it( 'enables reset for default colors with a non-default theme', async () => {
 		const { connector } = await setup( {
 			section: 'appearance',
 			preferences: { colorScheme: 'dark' },
 		} );
 		const reset = await screen.findByRole( 'button', { name: 'Reset' } );
-		expect( reset ).toBeDisabled();
+		expect( reset ).toBeEnabled();
 		fireEvent.click( reset );
-		expect( connector.setUserPreferences ).not.toHaveBeenCalled();
+		await waitFor( () =>
+			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+				{ ...DEFAULT_COLOR_TINT, colorScheme: 'system' },
+				undefined
+			)
+		);
 	} );
 
 	it.each( [ { accentColor: '#069e08' }, { tintIntensity: 50 }, { contrast: 25 } ] )(
@@ -432,7 +475,7 @@ describe( 'WordPress Studio settings', () => {
 		}
 	);
 
-	it( 'resets colors while preserving the theme', async () => {
+	it( 'resets colors and the theme', async () => {
 		const { connector } = await setup( {
 			section: 'appearance',
 			preferences: { colorScheme: 'dark', tintIntensity: 40 },
@@ -440,7 +483,10 @@ describe( 'WordPress Studio settings', () => {
 		expect( screen.queryByRole( 'button', { name: 'Done' } ) ).not.toBeInTheDocument();
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Reset' } ) );
 		await waitFor( () =>
-			expect( connector.setUserPreferences ).toHaveBeenCalledWith( DEFAULT_COLOR_TINT, undefined )
+			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+				{ ...DEFAULT_COLOR_TINT, colorScheme: 'system' },
+				undefined
+			)
 		);
 	} );
 
@@ -453,8 +499,8 @@ describe( 'WordPress Studio settings', () => {
 					failSave = reject;
 				} )
 		);
-		const theme = await screen.findByRole( 'combobox', { name: 'Theme' } );
-		await choose( 'Theme', 'Dark' );
+		const theme = await screen.findByRole( 'combobox', { name: 'Interface theme' } );
+		await choose( 'Interface theme', 'Dark' );
 		await waitFor( () => expect( theme ).toHaveTextContent( 'Dark' ) );
 		await waitFor( () => expect( connector.setUserPreferences ).toHaveBeenCalledOnce() );
 		await act( async () => failSave( new Error( 'Unable to save appearance' ) ) );
@@ -466,12 +512,12 @@ describe( 'WordPress Studio settings', () => {
 	it( 'keeps the current panel while searching and opens the selected field', async () => {
 		const { connector } = await setup( { section: 'keyboard' } );
 		fireEvent.change( searchBox(), { target: { value: 'theme' } } );
-		expect( screen.queryByRole( 'combobox', { name: 'Theme' } ) ).not.toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'tab', { name: 'Theme' } ) );
-		const control = await screen.findByRole( 'combobox', { name: 'Theme' } );
+		expect( screen.queryByRole( 'combobox', { name: 'Interface theme' } ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Interface theme' } ) );
+		const control = await screen.findByRole( 'combobox', { name: 'Interface theme' } );
 		await waitFor( () => expect( row( 'theme' ) ).toHaveAttribute( 'data-settings-match' ) );
 		expect( row( 'theme' ) ).toContainElement( control );
-		await choose( 'Theme', 'Dark' );
+		await choose( 'Interface theme', 'Dark' );
 		await waitFor( () =>
 			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
 				{ colorScheme: 'dark' },
@@ -479,7 +525,7 @@ describe( 'WordPress Studio settings', () => {
 			)
 		);
 		expect( searchBox() ).toHaveValue( 'theme' );
-		expect( screen.getByRole( 'tab', { name: 'Theme' } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'Interface theme' } ) ).toBeVisible();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Clear search' } ) );
 		expect( screen.getByRole( 'heading', { name: 'Appearance' } ) ).toBeVisible();
 	} );

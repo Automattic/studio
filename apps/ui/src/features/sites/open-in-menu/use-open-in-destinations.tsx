@@ -1,6 +1,7 @@
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { captureException } from '@studio/common/lib/error-reporting';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
+import { browserConfig } from '@studio/common/lib/user-settings/browser';
 import {
 	getFirstInstalledEditor,
 	supportedEditorConfig,
@@ -11,8 +12,8 @@ import { CodeIcon } from 'lucide-react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
-import { useStartSite } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
+import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import { AppIcon } from '@/features/sites/app-icon';
 import { DATABASE_HOME_PATH } from '@/features/sites/site-preview/address-bar';
 import {
@@ -74,7 +75,10 @@ export function useOpenInDestinations(
 	const connector = useConnector();
 	const { data: userPreferences } = useUserPreferences();
 	const { data: installedApps } = useInstalledApps();
-	const startSite = useStartSite();
+	const browserLabel = userPreferences?.browser
+		? browserConfig[ userPreferences.browser ].name
+		: __( 'Browser' );
+	const startSite = useStartSiteWithChat();
 
 	const fileManager = getFileManager();
 	const editor =
@@ -124,10 +128,10 @@ export function useOpenInDestinations(
 		},
 		{
 			id: 'browser',
-			label: __( 'Browser' ),
-			// Not the globe: the address bar already uses that for the site's
-			// front end, and this one leaves Studio.
-			logo: <ExternalLinkIcon />,
+			label: browserLabel,
+			logo: (
+				<AppIcon app={ userPreferences?.browser ?? undefined } fallback={ <ExternalLinkIcon /> } />
+			),
 			disabled: false,
 			open: () =>
 				open( 'browser', __( 'Browser' ), () => {

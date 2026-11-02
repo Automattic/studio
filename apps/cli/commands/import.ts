@@ -371,7 +371,7 @@ async function importBackup(
 				logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
 
 				logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
-				await startWordPressServer( site, logger );
+				await startWordPressServer( site, logger, 'import' );
 				logger.reportSuccess( __( 'WordPress server started' ) );
 			}
 		} catch ( error ) {

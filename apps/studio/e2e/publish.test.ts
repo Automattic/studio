@@ -67,8 +67,10 @@ test.describe( 'Share and publish', () => {
 		};
 		const dialog = page.getByRole( 'dialog', { name: 'Share and publish', exact: true } );
 		await openShare();
-		await expect( dialog.getByRole( 'button', { name: 'Visit preview' } ) ).toBeVisible();
-		await dialog.getByRole( 'button', { name: 'Sharing actions' } ).click();
+		await expect(
+			dialog.getByRole( 'link', { name: 'Client review', exact: true } )
+		).toBeVisible();
+		await dialog.getByRole( 'button', { name: 'Preview actions', exact: true } ).click();
 		await page.getByRole( 'menuitem', { name: 'Copy link', exact: true } ).click();
 		await expect
 			.poll( () => session.electronApp.evaluate( ( { clipboard } ) => clipboard.readText() ) )

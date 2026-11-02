@@ -10,9 +10,10 @@ import { useConnector } from '@/data/core';
 import { useSessions } from '@/data/queries/use-sessions';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useSiteDesign } from '@/data/queries/use-site-design';
-import { useIsSiteBusy, useSites, useStartSite, useStopSite } from '@/data/queries/use-sites';
+import { useIsSiteBusy, useSites, useStopSite } from '@/data/queries/use-sites';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { useSessionPreviewUI } from '@/data/use-session-ui';
+import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import { SiteShareMenuItem } from '@/features/sharing';
 import { DeleteSiteDialog } from '@/features/sites/delete-site-dialog';
 import { getSiteUrl } from '@/features/sites/get-site-url';
@@ -43,6 +44,7 @@ import {
 	ExternalLinkIcon,
 	GlobeIcon,
 	MailIcon,
+	NewChatIcon,
 	PinIcon,
 	RenameIcon,
 	RotateCwIcon,
@@ -83,7 +85,7 @@ export function useSiteActions(
 	const openSettings = useOpenSettings();
 	const preview = useSessionPreviewUI();
 	const { data: sites } = useSites();
-	const startSite = useStartSite();
+	const startSite = useStartSiteWithChat();
 	const stopSite = useStopSite();
 	const busy = useIsSiteBusy( site );
 	const { isPinned, togglePin } = useSidebarPins();
@@ -98,7 +100,7 @@ export function useSiteActions(
 		void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'settings' } );
 		openSettings( 'site', site.id, focus );
 	};
-	const rename = () => openSiteSettings( __( 'Site name' ) );
+	const rename = () => openSiteSettings( 'site-name' );
 	const togglePinned = () => togglePin( sitePinKey( site.id ) );
 	const toggleRunning = () => {
 		if ( site.running ) {
@@ -133,6 +135,11 @@ export function useSiteActions(
 		running,
 		othersRunning,
 		shortcuts,
+		newChat: () => {
+			onOpen?.();
+			preview.setChatHidden( false, site.id );
+			void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+		},
 		openSiteSettings: () => openSiteSettings(),
 		rename,
 		pinned: isPinned( sitePinKey( site.id ) ),
@@ -215,6 +222,10 @@ export function SiteMenuItems( {
 
 	return (
 		<div className={ styles.items }>
+			<Menu.Item onClick={ actions.newChat }>
+				<NewChatIcon />
+				{ __( 'New chat' ) }
+			</Menu.Item>
 			<Menu.Item onClick={ actions.openSiteSettings }>
 				<SiteSettingsIcon />
 				{ __( 'Settings' ) }
@@ -266,7 +277,7 @@ export function SiteMenuItems( {
 			<Menu.SubmenuRoot>
 				<Menu.SubmenuTrigger disabled={ busy }>
 					<ArrowRightIcon />
-					{ __( 'Go to' ) }
+					{ __( 'Tools' ) }
 				</Menu.SubmenuTrigger>
 				<Menu.SubmenuPopup>
 					<Menu.Item onClick={ actions.openAdmin }>

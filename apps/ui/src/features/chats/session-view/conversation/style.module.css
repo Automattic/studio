@@ -17,6 +17,10 @@
 	margin-block-start: var( --space-2 );
 }
 
+.speakerGroup + .speakerGroup:has( > [data-turn-activity]:first-child ) {
+	margin-block-start: calc( var( --space-4_5 ) - var( --space-6 ) );
+}
+
 /* Only speaker groups skip layout and paint: collapsible contents need their real
    height for animation measurements. The clip margin preserves focus rings. */
 @supports ( overflow-clip-margin: 4px ) {

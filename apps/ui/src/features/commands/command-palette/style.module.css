@@ -1,14 +1,25 @@
-/* Sits a little above center, and stays put as results narrow. */
 .popup {
-	top: max( var( --space-4 ), calc( 50dvh - 168px ) );
-	display: block;
-	max-width: 448px;
+	top: 25dvh;
+	display: flex;
+	flex-direction: column;
+	gap: 0;
+	max-width: 400px;
+	max-height: calc( 75dvh - var( --space-4 ) );
 	overflow: hidden;
-	padding: var( --space-2_5 );
-	transform: translateX( -50% );
-	transition: none;
+	padding: var( --space-1_5 );
+	border-radius: var( --radius-3xl );
+	scale: 1;
+	translate: -50% 0;
 }
 
 .icon {
 	flex: none;
+}
+
+.input {
+	flex-shrink: 0;
+}
+
+.list {
+	min-height: 0;
 }

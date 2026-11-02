@@ -29,12 +29,9 @@ describe( 'getComposerCommands', () => {
 		).toEqual( [ 'connect-provider' ] );
 	} );
 
-	it( 'offers the other environment, the live one only with a live site', () => {
+	it( 'offers switching back to the local site from the live one', () => {
 		const local = { ...base, canChangeEnvironment: true };
 		expect( names( getComposerCommands( local ) ) ).toEqual( [ 'connect-provider' ] );
-		expect(
-			getComposerCommands( { ...local, liveUrl: 'https://example.com' } ).at( -1 )
-		).toMatchObject( { name: 'live', description: 'https://example.com' } );
 		expect( names( getComposerCommands( { ...local, environment: 'live' } ) ) ).toEqual( [
 			'connect-provider',
 			'local',

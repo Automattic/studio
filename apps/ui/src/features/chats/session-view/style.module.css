@@ -1,12 +1,12 @@
 /* The chat column. The site preview panel lives in the dashboard layout's
    PreviewSplitFrame, which hosts this view in its content column. */
 .root {
-	--column-inline-gutter: 14px;
+	--column-inline-gutter: var( --space-5 );
 	--column-max-width: 644px;
 	--header-height: var( --band-height );
 	--composer-height: 0px;
 	/* The composer sits this far above the panel's bottom edge. */
-	--composer-bottom-gap: 14px;
+	--composer-bottom-gap: var( --space-5 );
 
 	position: relative;
 	height: 100%;
@@ -108,6 +108,15 @@
 	z-index: 2;
 }
 
+.composerBacking::before {
+	content: '';
+	position: absolute;
+	inset: -24px 0 calc( -1 * var( --composer-bottom-gap ) );
+	z-index: -1;
+	pointer-events: none;
+	background: linear-gradient( to bottom, transparent, var( --chat ) 24px );
+}
+
 /* The conversation and the composer share one reading column. As the preview
    opens or closes, it eases to its width beside the preview with the chat pane
    instead of keeping its full width until the pane runs out of room. */
@@ -122,6 +131,7 @@
 
 .composerColumn {
 	position: relative;
+	isolation: isolate;
 }
 
 .conversationSpacing {

@@ -3,13 +3,15 @@ import os from 'node:os';
 import path from 'node:path';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
+import { detectInstalledBrowsers } from './open-browser';
+import type { SupportedBrowser } from './browser';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 
 /** Detect which editors and terminals are installed on this machine. */
 
 export type AppKey = SupportedEditor | SupportedTerminal;
-export type InstalledApps = Record< AppKey, boolean >;
+export type InstalledApps = Record< AppKey | SupportedBrowser, boolean >;
 
 type PlatformPaths = {
 	[ K in AppKey ]: string[];
@@ -192,5 +194,5 @@ export function detectInstalledApps(): InstalledApps {
 	for ( const key of [ ...SUPPORTED_EDITORS, ...SUPPORTED_TERMINALS ] as AppKey[] ) {
 		apps[ key ] = key === 'terminal' ? true : isInstalled( key );
 	}
-	return apps;
+	return { ...apps, ...detectInstalledBrowsers() };
 }

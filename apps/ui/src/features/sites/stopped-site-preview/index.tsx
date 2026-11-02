@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
-import { useIsSiteBusy, useStartSite } from '@/data/queries/use-sites';
+import { useIsSiteBusy } from '@/data/queries/use-sites';
+import { useStartSitePreview } from '@/data/use-start-site-preview';
 import { SiteMenuItems, useSiteActions } from '@/features/sites/site-menu';
 import { StartSiteIcon } from '@/lib/icons';
 import { Menu } from '@/lib/ui';
@@ -53,7 +54,7 @@ function SiteActionsContextMenu( {
 /** A stopped site's last screenshot; clicking it starts the site. Nothing until one exists. */
 export function StoppedSitePreview( { site }: { site: SiteDetails } ) {
 	const { data: thumbnail } = useSiteThumbnail( site.id );
-	const startSite = useStartSite();
+	const startSite = useStartSitePreview();
 	const isBusy = useIsSiteBusy( site );
 	if ( ! thumbnail ) {
 		return null;

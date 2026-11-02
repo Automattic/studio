@@ -38,7 +38,7 @@ function TestUpload( {
 
 async function renderUpload( props: Parameters< typeof TestUpload >[ 0 ] = {} ) {
 	const view = renderWithProviders( <TestUpload { ...props } />, { connector } );
-	await screen.findByRole( 'button', { name: 'upload a file' } );
+	await screen.findByRole( 'button', { name: 'Choose file' } );
 	return view;
 }
 
@@ -144,7 +144,7 @@ describe( 'BlueprintUpload', () => {
 			expect( screen.queryByRole( 'dialog', { name: 'Blueprint error' } ) ).not.toBeInTheDocument()
 		);
 		expect( onValidityChange ).toHaveBeenLastCalledWith( true );
-		expect( screen.getByRole( 'button', { name: 'upload a file' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Choose file' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'replaces ZIP extraction details with a user-friendly error', async () => {
@@ -185,25 +185,18 @@ describe( 'BlueprintUpload', () => {
 		expect( onSelect ).not.toHaveBeenCalled();
 	} );
 
-	it( 'accepts a full-window file drop', async () => {
+	it( 'accepts a dropped Blueprint only inside the upload target', async () => {
 		const onSelect = vi.fn();
 		await renderUpload( { onSelect } );
-		const file = createFile( 'dropped.json', '{}', 'application/json' );
-		fireEvent.drop( window, {
-			dataTransfer: { files: [ file ], types: [ 'Files' ] },
+		const dataTransfer = {
+			files: [ createFile( 'dropped.json', '{}', 'application/json' ) ],
+			types: [ 'Files' ],
+		};
+		fireEvent.drop( window, { dataTransfer } );
+		expect( onSelect ).not.toHaveBeenCalled();
+		fireEvent.drop( screen.getByText( 'Drop a Blueprint here.' ).parentElement!.parentElement!, {
+			dataTransfer,
 		} );
-
 		await waitFor( () => expect( onSelect ).toHaveBeenCalledOnce() );
-	} );
-
-	it( 'clears the full-window overlay when a drag ends without a file', async () => {
-		await renderUpload();
-		fireEvent.dragEnter( window, { dataTransfer: { files: [], types: [ 'Files' ] } } );
-		expect( screen.getByText( 'Drop Blueprint to use it for this site' ) ).toBeInTheDocument();
-
-		fireEvent.drop( window, { dataTransfer: { files: [], types: [] } } );
-		expect(
-			screen.queryByText( 'Drop Blueprint to use it for this site' )
-		).not.toBeInTheDocument();
 	} );
 } );

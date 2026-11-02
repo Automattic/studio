@@ -25,6 +25,7 @@ import type { SnapshotUsage } from '@studio/common/lib/snapshots';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
+import type { SupportedBrowser } from '@studio/common/lib/user-settings/browser';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type {
 	SidebarPinnedSort,
@@ -74,7 +75,10 @@ export type {
 	SiteEmailSummary,
 } from '@studio/common/sites/site-email';
 
-export type InstalledApps = Record< SupportedEditor | SupportedTerminal, boolean >;
+export type InstalledApps = Record<
+	SupportedEditor | SupportedTerminal | SupportedBrowser,
+	boolean
+>;
 
 interface AiSessionSitePlacement {
 	kind: 'site';
@@ -657,6 +661,7 @@ export interface OnboardingHintsState {
 	migratedFromClassic?: boolean;
 	// WHATS_NEW_VERSION of the What's New guide the user last saw.
 	whatsNewSeenVersion?: number;
+	annotateHintDismissed?: boolean;
 }
 
 export type { SiteAgentFile, SiteAgentFileKind };
@@ -670,6 +675,7 @@ export interface SkillStatus {
 
 export interface UserPreferences {
 	editor: SupportedEditor | null;
+	browser: SupportedBrowser | null;
 	terminal: SupportedTerminal | null;
 	colorScheme: ColorScheme;
 	// `null` clears it back to "ask every time".
@@ -696,6 +702,7 @@ export interface UserPreferences {
 	autoCollapseSites?: boolean;
 	// Start a stopped local site when a chat message is sent to it.
 	autoStartSiteOnChat?: boolean;
+	openChatOnSiteStart?: boolean;
 	// Ask before discarding preview annotations.
 	confirmDeleteAnnotations?: boolean;
 	newSiteBehavior?: NewSiteBehavior;

@@ -37,15 +37,18 @@ export function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) 
 		<Dialog
 			open={ open }
 			onOpenChange={ onOpenChange }
-			onOpenChangeComplete={ ( isOpen ) => ! isOpen && setQuery( '' ) }
+			onOpenChangeComplete={ ( isOpen ) => {
+				if ( ! isOpen ) {
+					setQuery( '' );
+				}
+			} }
 		>
 			<DialogContent
-				backdrop="transparent"
-				surface="composer"
 				className={ styles.popup }
+				motion="none"
 				aria-label={ __( 'Command palette' ) }
 			>
-				<InputGroup>
+				<InputGroup variant="commands" className={ styles.input }>
 					<InputGroupInput
 						role="combobox"
 						aria-autocomplete="list"
@@ -68,6 +71,7 @@ export function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) 
 					</InputGroupAddon>
 				</InputGroup>
 				<CommandList
+					className={ styles.list }
 					id={ listId }
 					label={ __( 'Commands' ) }
 					size="default"

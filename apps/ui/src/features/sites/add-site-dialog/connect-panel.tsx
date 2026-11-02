@@ -1,13 +1,13 @@
 import { getLocalizedLink } from '@studio/common/lib/docs-links';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { __, _x, sprintf } from '@wordpress/i18n';
-import { CheckIcon, SearchIcon } from 'lucide-react';
+import { SearchIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSyncableWpcomSites } from '@/data/queries/use-wpcom-sites';
-import { AuthActions } from '@/features/account';
+import { AccountPrompt } from '@/features/account';
 import { useOffline } from '@/lib/hooks';
 import { ExternalLinkIcon } from '@/lib/icons';
 import {
@@ -16,6 +16,7 @@ import {
 	AlertDescription,
 	AlertTitle,
 	Badge,
+	Empty,
 	Button,
 	InputGroup,
 	InputGroupAddon,
@@ -31,6 +32,7 @@ import {
 	searchRemoteSites,
 	type ConnectSiteGroup,
 } from './site-presentation';
+import dialogStyles from './style.module.css';
 import type { SyncSite } from '@/data/core';
 
 const createWpcomSiteUrl = new URL( 'https://wordpress.com/setup/new-hosted-site' );
@@ -140,28 +142,6 @@ function RemoteSiteCard( {
 	);
 }
 
-function SignedOutView() {
-	return (
-		<div className={ styles.signedOut }>
-			<ul className={ styles.benefits }>
-				<li>
-					<CheckIcon aria-hidden="true" />
-					<span>{ __( 'Work on your site locally.' ) }</span>
-				</li>
-				<li>
-					<CheckIcon aria-hidden="true" />
-					<span>{ __( 'Sync content, themes, and plugins.' ) }</span>
-				</li>
-				<li>
-					<CheckIcon aria-hidden="true" />
-					<span>{ __( 'Supports staging and production sites.' ) }</span>
-				</li>
-			</ul>
-			<AuthActions source="add_site" />
-		</div>
-	);
-}
-
 export function ConnectPanel( { onConnect }: { onConnect: ( site: SyncSite ) => void } ) {
 	const connector = useConnector();
 	const { data: user, isLoading: isAuthLoading } = useAuthUser();
@@ -202,33 +182,43 @@ export function ConnectPanel( { onConnect }: { onConnect: ( site: SyncSite ) => 
 		void remoteSites.refetch();
 	}, [ remoteSites ] );
 
+	if ( isAuthLoading || ( user && ! isOffline && isLoadingSites ) ) {
+		return (
+			<div className={ dialogStyles.loading }>
+				<Spinner
+					aria-label={
+						isAuthLoading ? __( 'Checking your account…' ) : __( 'Loading your sites…' )
+					}
+				/>
+			</div>
+		);
+	}
+
+	if ( ! isAuthLoading && ! user ) {
+		return (
+			<Empty>
+				<AccountPrompt
+					flush
+					title={ __( 'Connect your WordPress' ) }
+					description={ __(
+						'Create an account or log in to connect your WordPress.com or Pressable sites and work on them locally.'
+					) }
+					source="add_site"
+				/>
+			</Empty>
+		);
+	}
+
 	return (
 		<div className={ styles.page }>
 			<p className={ styles.intro }>
-				{ user
-					? __( 'Select a WordPress.com or Pressable site to bring into your WordPress Studio.' )
-					: __( 'Log in with your WordPress.com account to see your sites.' ) }
+				{ __( 'Select a WordPress.com or Pressable site to bring into your WordPress Studio.' ) }
 			</p>
-
-			{ isAuthLoading && (
-				<div className={ styles.state } role="status">
-					<Spinner aria-hidden />
-					<p>{ __( 'Checking your account…' ) }</p>
-				</div>
-			) }
-			{ ! isAuthLoading && ! user && <SignedOutView /> }
 
 			{ user && isOffline && (
 				<div className={ styles.state } role="status">
 					<h2>{ __( "You're offline" ) }</h2>
 					<p>{ __( 'Reconnect to load your WordPress.com and Pressable sites.' ) }</p>
-				</div>
-			) }
-
-			{ user && ! isOffline && isLoadingSites && (
-				<div className={ styles.state } role="status">
-					<Spinner aria-hidden />
-					<p>{ __( 'Loading your sites…' ) }</p>
 				</div>
 			) }
 

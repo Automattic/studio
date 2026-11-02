@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useAuthUser } from '@/data/queries/use-auth-user';
-import { useSession, useSessionLiveSite } from '@/data/queries/use-sessions';
+import { useSession, useSessionLiveSite, useSessions } from '@/data/queries/use-sessions';
 import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
 import { useIsSiteStopping, useSiteOperation, useSites } from '@/data/queries/use-sites';
 import { useOpenSettings } from '@/data/use-open-settings';
@@ -24,6 +24,7 @@ import { SidebarLayout, HeaderSidebarToggle, rememberVisit } from '@/features/si
 import { PreviewSplitFrame, type PreviewSplitFramePreviewProps } from '@/features/sites';
 import {
 	SiteMenu,
+	SiteRunButton,
 	SiteHeaderActions,
 	SiteHeaderActionsProvider,
 	SitePreview,
@@ -77,6 +78,9 @@ function DashboardLayout() {
 	const { sessionId, homeSiteId, newSessionSiteId } = routePreviewContext;
 	const { data: sites } = useSites();
 	const { data: sessionData } = useSession( sessionId );
+	const { data: sessions } = useSessions();
+	const sessionSummary =
+		sessionData?.summary ?? sessions?.find( ( session ) => session.id === sessionId );
 	// Open the orientation guide on first workbench arrival, and let Help ▸
 	// Getting Started replay it.
 	useOrientationAutostart();
@@ -85,11 +89,11 @@ function DashboardLayout() {
 	useWhatsNewAutostart();
 	useWhatsNewReplay();
 	const preview = useSessionPreviewUI();
-	const sessionSite = findAiSessionOwnerSite( sites, sessionData?.summary );
+	const sessionSite = findAiSessionOwnerSite( sites, sessionSummary );
 	// A chat switched to Live previews its remote instead of the local site.
 	const { draft } = useSiteChatDraft( newSessionSiteId );
 	const liveUrl = useSessionLiveSite(
-		newSessionSiteId ? draft : sessionData?.summary,
+		newSessionSiteId ? draft : sessionSummary,
 		newSessionSiteId ?? sessionSite?.id
 	)?.url.replace( /\/+$/, '' );
 	const homeSite = homeSiteId ? sites?.find( ( site ) => site.id === homeSiteId ) : undefined;
@@ -120,7 +124,7 @@ function DashboardLayout() {
 		if ( sessionSiteId ) {
 			rememberVisit( sessionSiteId, sessionId );
 		} else if ( newSessionSiteId ?? homeSiteId ) {
-			rememberVisit( ( newSessionSiteId ?? homeSiteId )! );
+			rememberVisit( ( newSessionSiteId ?? homeSiteId )!, newSessionSiteId ? null : undefined );
 		}
 	}, [ sessionSiteId, sessionId, newSessionSiteId, homeSiteId ] );
 	const lastPreviewSite = lastPreviewSiteId
@@ -185,10 +189,10 @@ function DashboardLayout() {
 		( previewSite?.running && ! previewStopping && preview.revealingSiteId !== previewSite.id ) ? (
 			<IconButton
 				className={ styles.chatToggle }
+				aria-pressed={ ! chatHidden }
 				icon={ <ChatIcon /> }
 				label={ chatHidden ? __( 'Open chat' ) : __( 'Close chat' ) }
 				tooltipSide="bottom"
-				aria-pressed={ ! chatHidden }
 				onClick={ () => {
 					if ( homeSiteId ) {
 						setChatHidden( false, homeSiteId );
@@ -238,7 +242,11 @@ function DashboardLayout() {
 		);
 
 	return (
-		<SidebarLayout>
+		<SidebarLayout
+			headerAction={
+				routeSite && ! routeSite.running ? <SiteRunButton site={ routeSite } /> : undefined
+			}
+		>
 			<AccountPromptDialog
 				open={ providerPromptOpen }
 				onOpenChange={ setProviderPromptOpen }
@@ -262,6 +270,7 @@ function DashboardLayout() {
 							: routePreviewContext.pathname
 					}
 					previewOpen={ showPreview }
+					previewLoading={ preview.revealingSiteId === previewSiteId }
 					chatHidden={ chatHidden }
 					instant={ previewStopping }
 					preview={ renderPreview }
@@ -278,7 +287,11 @@ function DashboardLayout() {
 											/>
 										) : null }
 									</div>
-									<SiteHeaderActions site={ routeSite } live={ !! liveUrl } />
+									<SiteHeaderActions
+										site={ routeSite }
+										live={ !! liveUrl }
+										onStartAnnotating={ startAnnotating }
+									/>
 								</div>
 							</WindowControlsCornerContext.Provider>
 						) : null

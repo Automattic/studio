@@ -53,7 +53,7 @@ describe( 'groupCommands', () => {
 			groups.map( ( { heading, items } ) => [ heading, items.map( ( i ) => i.value ) ] )
 		).toEqual( [
 			[ 'Quick actions', [ 'new-site', 'settings' ] ],
-			[ 'Recent', [ 'recent' ] ],
+			[ 'Recent chats', [ 'recent' ] ],
 			[ 'Sites', [ 'sites' ] ],
 		] );
 	} );

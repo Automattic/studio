@@ -1,6 +1,7 @@
 import { mkdirSync, rmSync, writeFileSync } from 'fs';
 import path from 'path';
 import { afterAll, describe, expect, it } from 'vitest';
+import { validateBlockMarkup } from '@studio/agent/node/block-validation-gate';
 import {
 	bindNavigationLinks,
 	blocksSavingElements,
@@ -22,6 +23,57 @@ const group = ( attrs: string, inner: string ) =>
 	`<!-- wp:group ${ attrs } -->\n${ inner }\n<!-- /wp:group -->`;
 const paragraph = ( attrs: string, html: string ) =>
 	`<!-- wp:paragraph ${ attrs } -->\n${ html }\n<!-- /wp:paragraph -->`;
+
+describe( 'dropCommentsBetweenBlocks', () => {
+	const hello = '<!-- wp:paragraph -->\n<p>Hello</p>\n<!-- /wp:paragraph -->';
+	it.each( [
+		{
+			name: 'comments between blocks',
+			markup: `<!-- ===== HERO ===== -->\n${ hello }\n\n<!-- one --><!-- two -->\n${ hello }`,
+			expected: { content: `${ hello }\n\n${ hello }`, comments: 2 },
+		},
+		{
+			name: 'a comment inside a block',
+			markup: paragraph( '', '<p>Hello<!-- note --></p>' ),
+			expected: { content: paragraph( '', '<p>Hello<!-- note --></p>' ), comments: 0 },
+		},
+		{
+			name: 'a comment beside HTML outside any block',
+			markup: `<!-- note --><div>Hi</div>\n${ hello }`,
+			expected: { content: `<!-- note --><div>Hi</div>\n${ hello }`, comments: 0 },
+		},
+		{
+			name: 'a comment beside an element with no text, outside any block',
+			markup: `<!-- note --><hr>\n${ hello }`,
+			expected: { content: `<!-- note --><hr>\n${ hello }`, comments: 0 },
+		},
+		{
+			name: 'a comment beside text outside any block',
+			markup: `<!-- note -->Hi\n${ hello }`,
+			expected: { content: `<!-- note -->Hi\n${ hello }`, comments: 0 },
+		},
+		{
+			name: 'a paragraph holding only a comment',
+			markup: '<!-- wp:paragraph -->\n<p><!-- note --></p>\n<!-- /wp:paragraph -->',
+			expected: {
+				content: '<!-- wp:paragraph -->\n<p><!-- note --></p>\n<!-- /wp:paragraph -->',
+				comments: 0,
+			},
+		},
+		{
+			name: 'a line break outside any block, beside a comment',
+			markup: `<br>\n${ hello }\n<!-- note -->\n${ hello }`,
+			expected: { content: `<br>\n${ hello }\n\n${ hello }`, comments: 1 },
+		},
+		{
+			name: 'no comments',
+			markup: hello,
+			expected: { content: hello, comments: 0 },
+		},
+	] )( 'drops what renders nothing between blocks: $name', ( { markup, expected } ) => {
+		expect( dropCommentsBetweenBlocks( markup ) ).toEqual( expected );
+	} );
+} );
 
 describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 	afterAll( cleanupValidatorPages );
@@ -702,56 +754,6 @@ describe.runIf( siteUrl )( 'storing palette colors as presets (live)', () => {
 		expect( ( await validateBlocks( result.content, siteUrl! ) ).invalidBlocks ).toBe( 0 );
 	} );
 
-	const hello = '<!-- wp:paragraph -->\n<p>Hello</p>\n<!-- /wp:paragraph -->';
-	it.each( [
-		{
-			name: 'comments between blocks',
-			markup: `<!-- ===== HERO ===== -->\n${ hello }\n\n<!-- one --><!-- two -->\n${ hello }`,
-			expected: { content: `${ hello }\n\n${ hello }`, comments: 2 },
-		},
-		{
-			name: 'a comment inside a block',
-			markup: paragraph( '', '<p>Hello<!-- note --></p>' ),
-			expected: { content: paragraph( '', '<p>Hello<!-- note --></p>' ), comments: 0 },
-		},
-		{
-			name: 'a comment beside HTML outside any block',
-			markup: `<!-- note --><div>Hi</div>\n${ hello }`,
-			expected: { content: `<!-- note --><div>Hi</div>\n${ hello }`, comments: 0 },
-		},
-		{
-			name: 'a comment beside an element with no text, outside any block',
-			markup: `<!-- note --><hr>\n${ hello }`,
-			expected: { content: `<!-- note --><hr>\n${ hello }`, comments: 0 },
-		},
-		{
-			name: 'a comment beside text outside any block',
-			markup: `<!-- note -->Hi\n${ hello }`,
-			expected: { content: `<!-- note -->Hi\n${ hello }`, comments: 0 },
-		},
-		{
-			name: 'a paragraph holding only a comment',
-			markup: '<!-- wp:paragraph -->\n<p><!-- note --></p>\n<!-- /wp:paragraph -->',
-			expected: {
-				content: '<!-- wp:paragraph -->\n<p><!-- note --></p>\n<!-- /wp:paragraph -->',
-				comments: 0,
-			},
-		},
-		{
-			name: 'a line break outside any block, beside a comment',
-			markup: `<br>\n${ hello }\n<!-- note -->\n${ hello }`,
-			// The editor's parse wraps the line break in a paragraph (autop).
-			expected: { content: `<p></p>\n\n${ hello }\n\n${ hello }`, comments: 1 },
-		},
-		{
-			name: 'no comments',
-			markup: hello,
-			expected: { content: hello, comments: 0 },
-		},
-	] )( 'drops what renders nothing between blocks: $name', async ( { markup, expected } ) => {
-		expect( await dropCommentsBetweenBlocks( markup, siteUrl! ) ).toEqual( expected );
-	} );
-
 	it( 'keeps a comment between blocks from becoming a Classic block when colors are stored', async () => {
 		const markup = `<!-- ===== HERO ===== -->\n${ paragraph(
 			'{"style":{"color":{"background":"#503AA8"}}}',
@@ -762,7 +764,7 @@ describe.runIf( siteUrl )( 'storing palette colors as presets (live)', () => {
 		expect( ( await validateBlocks( await stored( markup ), siteUrl! ) ).results ).toEqual(
 			expect.arrayContaining( [ expect.objectContaining( { blockName: 'core/freeform' } ) ] )
 		);
-		const dropped = ( await dropCommentsBetweenBlocks( markup, siteUrl! ) ).content;
+		const dropped = dropCommentsBetweenBlocks( markup ).content;
 		expect( ( await validateBlocks( await stored( dropped ), siteUrl! ) ).invalidBlocks ).toBe( 0 );
 	} );
 
@@ -1062,5 +1064,31 @@ add_action( 'admin_init', function () {
 				rmSync( plugin, { force: true } );
 			}
 		}, 120_000 );
+	}
+);
+
+describe.runIf( siteUrl )(
+	'a comment between blocks beside a block the editor fixes (live)',
+	() => {
+		afterAll( cleanupValidatorPages );
+
+		it( 'saves the fix without the comment', async () => {
+			const result = await validateBlockMarkup(
+				[
+					paragraph(
+						'{"style":{"color":{"text":"#aa3333"}}}',
+						'<p style="color:#aa3333">Hours</p>'
+					),
+					'<!-- ===== STATS ===== -->',
+					paragraph( '', '<p>Open daily</p>' ),
+				].join( '\n\n' ),
+				'page',
+				siteUrl!
+			);
+			expect( result ).toMatchObject( { invalidBlocks: 1, droppedComments: 1 } );
+			expect( result.problem ).toBeUndefined();
+			expect( result.fixedContent ).toContain( '<p class="has-text-color" style="color:#aa3333">' );
+			expect( result.fixedContent ).not.toContain( 'STATS' );
+		}, 60000 );
 	}
 );

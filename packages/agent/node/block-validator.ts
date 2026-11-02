@@ -1410,8 +1410,7 @@ export async function validateBlocks(
 				}
 				// WordPress renders a sticky position only when the theme opts in
 				// (wp_render_position_support in wp-includes/block-supports/position.php).
-				const themeSticky =
-					editorSettings.__experimentalFeatures?.position?.sticky === true;
+				const themeSticky = editorSettings.__experimentalFeatures?.position?.sticky === true;
 				if (
 					themeSticky &&
 					supports( 'position.sticky' ) &&
@@ -1690,7 +1689,8 @@ export interface BetweenBlockCommentsResult {
 }
 
 /**
- * Drops HTML comments that stand between blocks. The editor parses text
+ * Drops HTML comments that stand between blocks, as text, so each block
+ * stays as written. The editor parses text
  * outside any block as a Classic block and wraps it in paragraphs
  * (normalizeRawBlock in @wordpress/blocks runs autop on it), so a comment
  * there turns into a Classic block holding a paragraph the first time the
@@ -1698,49 +1698,42 @@ export interface BetweenBlockCommentsResult {
  * dropping it changes nothing on the page. Comments inside a block are left
  * to the block.
  */
-export async function dropCommentsBetweenBlocks(
-	content: string,
-	siteUrl: string,
-	editor: BlockEditor = 'post'
-): Promise< BetweenBlockCommentsResult > {
-	if ( ! /<!--(?!\s*\/?wp:)/.test( content ) ) {
-		return { content, comments: 0 };
+export function dropCommentsBetweenBlocks( content: string ): BetweenBlockCommentsResult {
+	let depth = 0;
+	let from = 0;
+	let comments = 0;
+	const kept: string[] = [];
+	// The text before each delimiter, and after the last: dropped where it
+	// stands between top-level blocks and holds only comments, beside the
+	// paragraph tags and line breaks autop adds.
+	const keep = ( text: string, between: boolean ) => {
+		const bare = text.replace( /<!--[^]*?-->/g, '' );
+		if ( ! between || bare === text || ! /^(?:\s|<\/?p>|<br\s*\/?>)*$/i.test( bare ) ) {
+			kept.push( text );
+			return;
+		}
+		comments++;
+		kept.push( kept.length && from < content.length ? '\n\n' : '' );
+	};
+	for ( const match of content.matchAll( BLOCK_DELIMITER ) ) {
+		keep( content.slice( from, match.index ), depth === 0 );
+		kept.push( match[ 0 ] );
+		from = match.index + match[ 0 ].length;
+		if ( ! match[ 6 ] ) {
+			depth = Math.max( 0, depth + ( match[ 1 ] ? -1 : 1 ) );
+		}
 	}
-	const page = await getEditorPage( siteUrl, editor ).getPage();
-	return page.evaluate( ( html ) => {
-		/* eslint-disable @typescript-eslint/no-explicit-any */
-		const wpBlocks = ( window as any ).wp.blocks;
-		// Classic content of nothing but HTML comments, with the paragraphs and
-		// line breaks wpautop() wraps them in, as the browser parses it.
-		const onlyComments = ( block: any ) => {
-			if ( block.name !== 'core/freeform' ) {
-				return false;
-			}
-			const parsed = document.createElement( 'template' );
-			parsed.innerHTML = String( block.attributes?.content ?? '' );
-			const nodes = document.createTreeWalker( parsed.content );
-			let comments = 0;
-			for ( let node = nodes.nextNode(); node; node = nodes.nextNode() ) {
-				if ( node.nodeType === Node.COMMENT_NODE ) {
-					comments++;
-				} else if (
-					node.nodeType === Node.TEXT_NODE
-						? node.textContent?.trim()
-						: ! [ 'P', 'BR' ].includes( node.nodeName )
-				) {
-					return false;
-				}
-			}
-			return comments > 0;
-		};
-		const blocks = wpBlocks.parse( html );
-		const kept = blocks.filter( ( block: any ) => ! onlyComments( block ) );
-		return kept.length === blocks.length
-			? { content: html, comments: 0 }
-			: { content: wpBlocks.serialize( kept ), comments: blocks.length - kept.length };
-		/* eslint-enable @typescript-eslint/no-explicit-any */
-	}, content );
+	const rest = content.slice( from );
+	from = content.length;
+	keep( rest, true );
+	return comments ? { content: kept.join( '' ), comments } : { content, comments: 0 };
 }
+
+// A block delimiter as WordPress's block parser reads one: its closer slash,
+// namespace, name, attributes and void slash (the tokenizer of
+// @wordpress/block-serialization-default-parser, as WP_Block_Parser::next_token()).
+export const BLOCK_DELIMITER =
+	/<!--\s+(\/)?wp:([a-z][a-z0-9_-]*\/)?([a-z][a-z0-9_-]*)\s+({(?:(?=([^}]+|}+(?=})|(?!}\s+\/?-->)[^]))\5)*?}\s+)?(\/)?-->/g;
 
 /**
  * Binds the url of each navigation link that names a post or term by its id

@@ -14,24 +14,26 @@ import { liveHost, liveSite } from 'cli/ai/tests/live-host';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node';
 
-vi.mock( '@studio/agent/node/block-validator', async () => ( {
-	validateBlocks: vi.fn(),
-	storePresetValues: vi.fn( async ( content: string ) => ( {
-		content,
-		colors: [],
-		fontSizes: [],
-		spacingSizes: [],
-	} ) ),
-	bindNavigationLinks: vi.fn( async ( content: string ) => ( { content, links: [] } ) ),
-	dropCommentsBetweenBlocks: vi.fn( async ( content: string ) => ( { content, comments: 0 } ) ),
-	insertedTemplates: vi.fn( async () => [] ),
-	blocksSavingElements: vi.fn( async () => [] ),
-	blockNames: (
-		await vi.importActual< typeof import('@studio/agent/node/block-validator') >(
-			'@studio/agent/node/block-validator'
-		)
-	).blockNames,
-} ) );
+vi.mock( '@studio/agent/node/block-validator', async () => {
+	const { blockNames, BLOCK_DELIMITER, dropCommentsBetweenBlocks } = await vi.importActual<
+		typeof import('@studio/agent/node/block-validator')
+	>( '@studio/agent/node/block-validator' );
+	return {
+		validateBlocks: vi.fn(),
+		storePresetValues: vi.fn( async ( content: string ) => ( {
+			content,
+			colors: [],
+			fontSizes: [],
+			spacingSizes: [],
+		} ) ),
+		bindNavigationLinks: vi.fn( async ( content: string ) => ( { content, links: [] } ) ),
+		insertedTemplates: vi.fn( async () => [] ),
+		blocksSavingElements: vi.fn( async () => [] ),
+		blockNames,
+		BLOCK_DELIMITER,
+		dropCommentsBetweenBlocks,
+	};
+} );
 // WP-CLI saves the file the PHP names to the post it names, as wp_update_post() would.
 vi.mock( 'cli/lib/run-wp-cli-command', () => ( { runWpCliCommand: vi.fn() } ) );
 // WP-CLI as Studio runs it, for the PHP the editor's save does not run.

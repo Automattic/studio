@@ -22,6 +22,7 @@ import {
 	blockNames,
 	insertedTemplates,
 	storePresetValues,
+	BLOCK_DELIMITER,
 	dropCommentsBetweenBlocks,
 	validateBlocks,
 	type BlockEditor,
@@ -255,7 +256,7 @@ async function storeAsTheEditorDoes(
 	editor: BlockEditor,
 	invalidBefore: () => Promise< number >
 ) {
-	const between = await dropCommentsBetweenBlocks( content, siteUrl, editor );
+	const between = dropCommentsBetweenBlocks( content );
 	const presets = await storePresetValues( between.content, siteUrl, presetValues, editor );
 	const bound = await bindNavigationLinks( presets.content, siteUrl, editor );
 	const stored = {
@@ -375,11 +376,6 @@ export async function validateBlockMarkupFile(
  * against the core/html policy. A lossless editor fix is returned for the
  * caller to save where the markup lives, whatever the policy finds.
  */
-// A block delimiter as WordPress's block parser reads one: its closer slash,
-// namespace, name, attributes and void slash (the tokenizer of
-// @wordpress/block-serialization-default-parser, as WP_Block_Parser::next_token()).
-const DELIMITER =
-	/<!--\s+(\/)?wp:([a-z][a-z0-9_-]*\/)?([a-z][a-z0-9_-]*)\s+({(?:(?=([^}]+|}+(?=})|(?!}\s+\/?-->)[^]))\5)*?}\s+)?(\/)?-->/g;
 
 /**
  * The blocks WordPress's block parser does not close with their own closer. It
@@ -392,7 +388,7 @@ function unclosedBlocks( content: string ): string[] {
 	const lineAt = ( offset: number ) => content.slice( 0, offset ).split( '\n' ).length;
 	const open: { name: string; line: number }[] = [];
 	const problems: string[] = [];
-	for ( const match of content.matchAll( DELIMITER ) ) {
+	for ( const match of content.matchAll( BLOCK_DELIMITER ) ) {
 		const [ , closer, namespace = 'core/', name, , , isVoid ] = match;
 		const block = { name: `${ namespace }${ name }`, line: lineAt( match.index ) };
 		if ( isVoid ) {
@@ -460,7 +456,10 @@ async function validateSavedMarkup(
 	presetValues: PresetValues,
 	editor: BlockEditor
 ): Promise< MarkupValidation > {
-	const report = await validateBlocks( content, siteUrl, editor );
+	// The editor's fix is saved without the comments between blocks, which it
+	// would otherwise count as Classic blocks it cannot fix.
+	const between = dropCommentsBetweenBlocks( content );
+	const report = await validateBlocks( between.content, siteUrl, editor );
 	if ( report.error ) {
 		return {
 			summary: `${ label }: not validated (${ report.error })`,
@@ -523,7 +522,7 @@ async function validateSavedMarkup(
 		...( stored.fontSizes && { fontSizes: stored.fontSizes } ),
 		...( stored.spacingSizes && { spacingSizes: stored.spacingSizes } ),
 		...( stored.boundLinks && { boundLinks: stored.boundLinks } ),
-		...( stored.droppedComments && { droppedComments: stored.droppedComments } ),
+		...( between.comments && { droppedComments: between.comments } ),
 	};
 	if ( lost.size === 0 ) {
 		return { summary: valid, ...saved };

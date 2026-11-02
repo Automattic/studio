@@ -10,7 +10,6 @@ import {
 } from '@studio/agent/node/block-validation-gate';
 import {
 	bindNavigationLinks,
-	dropCommentsBetweenBlocks,
 	insertedTemplates,
 	storePresetValues,
 	validateBlocks,
@@ -19,28 +18,30 @@ import {
 } from '@studio/agent/node/block-validator';
 import { OpenProblems } from '@studio/agent/node/open-problems';
 
-vi.mock( '@studio/agent/node/block-validator', async () => ( {
-	validateBlocks: vi.fn(),
-	storePresetValues: vi.fn( async ( content: string ) => ( {
-		content,
-		colors: [],
-		fontSizes: [],
-		spacingSizes: [],
-	} ) ),
-	bindNavigationLinks: vi.fn( async ( content: string ) => ( { content, links: [] } ) ),
-	dropCommentsBetweenBlocks: vi.fn( async ( content: string ) => ( { content, comments: 0 } ) ),
-	insertedTemplates: vi.fn( async () => [] ),
-	blocksSavingElements: vi.fn( async () => [
-		{ element: 'div', blocks: Array.from( { length: 14 }, ( _, i ) => `core/b${ i + 10 }` ) },
-		{ element: 'details', blocks: [ 'core/details' ] },
-		{ element: 'summary', blocks: [] },
-	] ),
-	blockNames: (
-		await vi.importActual< typeof import('@studio/agent/node/block-validator') >(
-			'@studio/agent/node/block-validator'
-		)
-	).blockNames,
-} ) );
+vi.mock( '@studio/agent/node/block-validator', async () => {
+	const { blockNames, BLOCK_DELIMITER, dropCommentsBetweenBlocks } = await vi.importActual<
+		typeof import('@studio/agent/node/block-validator')
+	>( '@studio/agent/node/block-validator' );
+	return {
+		validateBlocks: vi.fn(),
+		storePresetValues: vi.fn( async ( content: string ) => ( {
+			content,
+			colors: [],
+			fontSizes: [],
+			spacingSizes: [],
+		} ) ),
+		bindNavigationLinks: vi.fn( async ( content: string ) => ( { content, links: [] } ) ),
+		insertedTemplates: vi.fn( async () => [] ),
+		blocksSavingElements: vi.fn( async () => [
+			{ element: 'div', blocks: Array.from( { length: 14 }, ( _, i ) => `core/b${ i + 10 }` ) },
+			{ element: 'details', blocks: [ 'core/details' ] },
+			{ element: 'summary', blocks: [] },
+		] ),
+		blockNames,
+		BLOCK_DELIMITER,
+		dropCommentsBetweenBlocks,
+	};
+} );
 
 let site: string;
 
@@ -339,38 +340,18 @@ describe( 'validating a file', () => {
 	} );
 
 	it( 'returns the content with the comments between its blocks dropped', async () => {
-		const file = write( 'templates/page.html', original );
+		const file = write( 'templates/page.html', `<!-- ===== HERO ===== -->\n${ original }` );
 		vi.mocked( validateBlocks ).mockResolvedValue( {
 			totalBlocks: 1,
 			validBlocks: 1,
 			invalidBlocks: 0,
 			results: [],
 		} );
-		vi.mocked( dropCommentsBetweenBlocks ).mockResolvedValueOnce( { content: fixed, comments: 2 } );
-		const result = await validateBlockMarkupFile( file, 'http://localhost:8881', {
-			colors: [ [ 'accent-3', '#503AA8' ] ],
-			fontSizes: [],
-			spacingSizes: [],
-		} );
-		expect( dropCommentsBetweenBlocks ).toHaveBeenLastCalledWith(
-			original,
-			'http://localhost:8881',
-			'post'
-		);
-		expect( storePresetValues ).toHaveBeenLastCalledWith(
-			fixed,
-			'http://localhost:8881',
-			{
-				colors: [ [ 'accent-3', '#503AA8' ] ],
-				fontSizes: [],
-				spacingSizes: [],
-			},
-			'post'
-		);
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
 		expect( result.summary ).toContain(
-			'drops 2 HTML comment(s) between blocks, which the editor would turn into Classic blocks'
+			'drops 1 HTML comment(s) between blocks, which the editor would turn into Classic blocks'
 		);
-		expect( result.fixedContent ).toBe( fixed );
+		expect( result.fixedContent ).toBe( original );
 	} );
 
 	it( 'keeps the content as written when what the editor would store has more problems', async () => {

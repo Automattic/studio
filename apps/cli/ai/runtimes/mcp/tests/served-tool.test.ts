@@ -20,29 +20,31 @@ import { runServedTool } from 'cli/ai/runtimes/mcp/served-tool';
 // checks that ask WordPress (wp-cli) find nothing to report, as they do when a
 // site's PHP cannot run.
 // The site's block editor finds the content's blocks valid.
-vi.mock( '@studio/agent/node/block-validator', async () => ( {
-	validateBlocks: vi.fn( async () => ( {
-		totalBlocks: 1,
-		validBlocks: 1,
-		invalidBlocks: 0,
-		results: [],
-	} ) ),
-	storePresetValues: vi.fn( async ( content: string ) => ( {
-		content,
-		colors: [],
-		fontSizes: [],
-		spacingSizes: [],
-	} ) ),
-	bindNavigationLinks: vi.fn( async ( content: string ) => ( { content, links: [] } ) ),
-	dropCommentsBetweenBlocks: vi.fn( async ( content: string ) => ( { content, comments: 0 } ) ),
-	insertedTemplates: vi.fn( async () => [] ),
-	blocksSavingElements: vi.fn( async () => [] ),
-	blockNames: (
-		await vi.importActual< typeof import('@studio/agent/node/block-validator') >(
-			'@studio/agent/node/block-validator'
-		)
-	).blockNames,
-} ) );
+vi.mock( '@studio/agent/node/block-validator', async () => {
+	const { blockNames, BLOCK_DELIMITER, dropCommentsBetweenBlocks } = await vi.importActual<
+		typeof import('@studio/agent/node/block-validator')
+	>( '@studio/agent/node/block-validator' );
+	return {
+		validateBlocks: vi.fn( async () => ( {
+			totalBlocks: 1,
+			validBlocks: 1,
+			invalidBlocks: 0,
+			results: [],
+		} ) ),
+		storePresetValues: vi.fn( async ( content: string ) => ( {
+			content,
+			colors: [],
+			fontSizes: [],
+			spacingSizes: [],
+		} ) ),
+		bindNavigationLinks: vi.fn( async ( content: string ) => ( { content, links: [] } ) ),
+		insertedTemplates: vi.fn( async () => [] ),
+		blocksSavingElements: vi.fn( async () => [] ),
+		blockNames,
+		BLOCK_DELIMITER,
+		dropCommentsBetweenBlocks,
+	};
+} );
 vi.mock( 'cli/lib/run-wp-cli-command', () => ( {
 	runWpCliCommand: vi.fn( async () => {
 		throw new Error( 'No WordPress to run.' );

@@ -7,7 +7,8 @@
 		{
 			"name": "workspace-chat",
 			"description": "The main window with Wren & Barley pinned and a conversation polishing its home page",
-			"pages": [],
+			"pages": [ "studio-code/index.md" ],
+			"replaces": [ "2026/04/studio-code.png" ],
 			"steps": [
 				{ "waitFor": { "role": "button", "name": "{{account.name}}", "exact": true } },
 				{

@@ -13,19 +13,14 @@
  * styles lost to a child theme the agent made to fix that, after it had
  * changed the background it was asked for.
  */
-import { readFile } from 'fs/promises';
-import path from 'path';
 import { copiedPageChrome } from '@studio/agent/node/copied-page-chrome';
-import {
-	frontPageTemplateProblem,
-	rendersPageContent,
-} from '@studio/agent/node/front-page-template';
+import { frontPageTemplateProblem } from '@studio/agent/node/front-page-template';
 import { headerMenu } from '@studio/agent/node/header-menu';
-import { readSavedCopies } from '@studio/agent/node/saved-copies';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { missingSourceText } from '@studio/agent/node/source-text';
 import { studioMessage } from '@studio/agent/node/studio-message';
-import { activeThemes, isUpdatableTheme } from '@studio/agent/node/themes';
+import { isUpdatableTheme } from '@studio/agent/node/themes';
+import { wpEvalJson } from '@studio/agent/node/tools/utils';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 
 interface OpenProblemsState {
@@ -110,7 +105,7 @@ export function describeOpenProblems( problems: string[] ): string {
 /** The open problems of a session, checked with each of Studio's checks of a site. */
 export function createOpenProblems( host: StudioAgentHost ): OpenProblems {
 	return new OpenProblems( [
-		unrenderedPages,
+		( sitePath ) => unrenderedPages( host, sitePath ),
 		frontPageIsPostsPage,
 		postsPageContent,
 		( sitePath ) => headerMenu( host, sitePath ),
@@ -169,81 +164,114 @@ export async function postsPageContent( sitePath: string ): Promise< string | un
 		: undefined;
 }
 
+// The template WordPress renders a request with, as template-loader.php picks
+// it (the tag loop of front-page-render.ts), and whether a core/post-content
+// block renders in it, through its parts and patterns.
+const TEMPLATES = `
+$tags = array( 'is_embed' => 'get_embed_template', 'is_404' => 'get_404_template', 'is_search' => 'get_search_template', 'is_front_page' => 'get_front_page_template', 'is_home' => 'get_home_template', 'is_privacy_policy' => 'get_privacy_policy_template', 'is_post_type_archive' => 'get_post_type_archive_template', 'is_tax' => 'get_taxonomy_template', 'is_attachment' => 'get_attachment_template', 'is_single' => 'get_single_template', 'is_page' => 'get_page_template', 'is_singular' => 'get_singular_template', 'is_category' => 'get_category_template', 'is_tag' => 'get_tag_template', 'is_author' => 'get_author_template', 'is_date' => 'get_date_template', 'is_archive' => 'get_archive_template' );
+$describe = function ( $template ) {
+	$file = 'theme' === $template->source ? _get_block_template_file( 'wp_template', $template->slug ) : null;
+	if ( $file ) {
+		$source = 'wp-content/' . ltrim( substr( wp_normalize_path( $file['path'] ), strlen( wp_normalize_path( realpath( WP_CONTENT_DIR ) ) ) ), '/' );
+	} elseif ( 'custom' === $template->source ) {
+		$source = "the {$template->slug} template saved in the Site Editor (post {$template->wp_id})";
+	} else {
+		$source = "the {$template->slug} template" . ( empty( $template->plugin ) ? '' : " the {$template->plugin} plugin registers" );
+	}
+	return array( 'slug' => $template->slug, 'source' => $source, 'theme' => $file ? $file['theme'] : null );
+};
+$render = function ( $vars ) use ( $tags, $describe ) {
+	$GLOBALS['_wp_current_template_id']      = null;
+	$GLOBALS['_wp_current_template_content'] = '';
+	$_SERVER['REQUEST_URI']                  = '/';
+	wp( $vars );
+	$found = false;
+	foreach ( $tags as $tag => $getter ) {
+		if ( $tag() && ( $found = $getter() ) ) {
+			break;
+		}
+	}
+	if ( ! $found ) {
+		get_index_template();
+	}
+	$template = empty( $GLOBALS['_wp_current_template_id'] ) ? null : get_block_template( $GLOBALS['_wp_current_template_id'] );
+	if ( ! $template ) {
+		return null;
+	}
+	$shown = 0;
+	$count = function ( $parsed ) use ( &$shown ) {
+		if ( 'core/post-content' === $parsed['blockName'] ) {
+			++$shown;
+		}
+		return $parsed;
+	};
+	add_filter( 'render_block_data', $count );
+	get_the_block_template_html();
+	remove_filter( 'render_block_data', $count );
+	return $describe( $template ) + array( 'content' => $shown > 0 );
+};
+$static = 'page' === get_option( 'show_on_front' );
+$front  = $static ? (int) get_option( 'page_on_front' ) : 0;
+$posts  = $static ? (int) get_option( 'page_for_posts' ) : 0;
+$at_front = $render( $front ? array( 'page_id' => $front ) : array() );
+$pages    = array();
+foreach ( get_posts( array( 'post_type' => 'page', 'post_status' => 'publish', 'numberposts' => -1, 'orderby' => 'ID', 'order' => 'ASC' ) ) as $page ) {
+	$pages[] = array(
+		'id'       => $page->ID,
+		'title'    => $page->post_title,
+		'template' => $page->ID === $front ? $at_front : ( $page->ID === $posts ? null : $render( array( 'page_id' => $page->ID ) ) ),
+	);
+}
+$home = get_block_template( get_stylesheet() . '//home' );
+echo wp_json_encode( array(
+	'static' => $static,
+	'front'  => $front,
+	'posts'  => $posts,
+	'atFront' => $at_front,
+	'pages'  => $pages,
+	'home'   => $home ? $describe( $home ) : null,
+	'index'  => $static && $front ? ( $posts ? $render( array( 'page_id' => $posts ) ) : null ) : $at_front,
+) );`;
+
+interface RenderedTemplate {
+	slug: string;
+	// The theme file, or the Site Editor's or a plugin's template, it comes from.
+	source: string;
+	// The theme whose file it is.
+	theme: string | null;
+	content?: boolean;
+}
+
 /**
- * The pages whose template, the one WordPress picks for each, renders no
+ * The pages whose template, the one WordPress renders each with, renders no
  * page's content: the front page's front-page template, which WordPress
  * renders there whatever Settings → Reading picks (front-page-template.ts),
  * and each page's template in the page hierarchy (get_page_template in
- * wp-includes/template.php), page-{slug}, page-{id}, then page, singular and
- * index. A Site Editor copy of a template comes before the theme's file. The
- * posts page renders the posts index (postsPageContent).
+ * wp-includes/template.php). The posts page renders the posts index
+ * (postsPageContent), and home.html only there.
  */
-export async function unrenderedPages( sitePath: string ): Promise< string[] > {
-	const state = await readWordPressSite( sitePath, ( site ) => {
-		const saved = new Map(
-			readSavedCopies( site )
-				.filter( ( copy ) => copy.postType === 'wp_template' )
-				.map( ( copy ) => [ copy.slug, copy.id ] )
-		);
-		const content = ( id: number ) =>
-			site.query< { content: string } >(
-				`SELECT post_content AS content FROM ${ site.prefix }posts WHERE ID = ?`,
-				id
-			)[ 0 ]?.content ?? '';
-		const pages = site.query< { id: number; slug: string; title: string } >(
-			`SELECT ID AS id, post_name AS slug, post_title AS title FROM ${ site.prefix }posts WHERE post_type = 'page' AND post_status = 'publish' ORDER BY ID`
-		);
-		const staticFront = site.option( 'show_on_front' ) === 'page';
-		return {
-			saved: new Map(
-				[ ...saved ].map( ( [ slug, id ] ) => [ slug, { id, content: content( id ) } ] )
-			),
-			pages,
-			staticFront,
-			front: staticFront ? Number( site.option( 'page_on_front' ) ) : 0,
-			postsPage: staticFront ? Number( site.option( 'page_for_posts' ) ) : 0,
-			themes: activeThemes( site ),
-		};
-	} );
-	if ( ! state ) {
+export async function unrenderedPages(
+	host: StudioAgentHost,
+	sitePath: string
+): Promise< string[] > {
+	const site = await host.sites.findByFolder( sitePath );
+	if ( ! site ) {
 		return [];
 	}
-	const themeDirs = state.themes.map( ( theme ) =>
-		path.join( sitePath, 'wp-content', 'themes', theme )
-	);
-	// The first template of the hierarchy the site has.
-	const resolve = async ( slugs: string[] ) => {
-		for ( const slug of slugs ) {
-			const copy = state.saved.get( slug );
-			if ( copy ) {
-				return {
-					slug,
-					source: `the ${ slug } template saved in the Site Editor (post ${ copy.id })`,
-					content: copy.content,
-				};
-			}
-			for ( const theme of state.themes ) {
-				const file = `wp-content/themes/${ theme }/templates/${ slug }.html`;
-				const content = await readFile( path.join( sitePath, file ), 'utf8' ).catch(
-					() => undefined
-				);
-				if ( content !== undefined ) {
-					return { slug, source: file, content, theme };
-				}
-			}
-		}
-		return undefined;
-	};
-	const unrendered = async ( slugs: string[] ) => {
-		const template = await resolve( slugs );
-		return template && ( await rendersPageContent( template.content, themeDirs ) ) === false
-			? template
-			: undefined;
-	};
+	const state = await wpEvalJson< {
+		static: boolean;
+		front: number;
+		posts: number;
+		atFront: RenderedTemplate | null;
+		pages: Array< { id: number; title: string; template: RenderedTemplate | null } >;
+		home: RenderedTemplate | null;
+		index: RenderedTemplate | null;
+	} >( host, site, TEMPLATES );
 
 	const problems: string[] = [];
 	const front = state.pages.find( ( page ) => page.id === state.front );
-	const frontTemplate = await unrendered( [ 'front-page' ] );
+	const frontTemplate =
+		state.atFront?.slug === 'front-page' && ! state.atFront.content ? state.atFront : undefined;
 	if ( frontTemplate ) {
 		problems.push(
 			frontPageTemplateProblem(
@@ -255,17 +283,16 @@ export async function unrenderedPages( sitePath: string ): Promise< string[] > {
 	// The posts index renders with home.html (get_home_template), where the
 	// front page's front-page template does not come first
 	// (wp-includes/template-loader.php).
-	const home = await resolve( [ 'home' ] );
+	const { home, index } = state;
 	if ( home && ! ( home.theme && ( await isUpdatableTheme( sitePath, home.theme ) ) ) ) {
-		const frontPageTemplate = await resolve( [ 'front-page' ] );
-		const reason = state.staticFront
+		const reason = state.static
 			? !! state.front &&
-			  ! state.postsPage &&
+			  ! state.posts &&
 			  `Settings → Reading shows page ${ state.front }${
 					front ? ` "${ front.title }"` : ''
 			  } at the front page (show_on_front, page_on_front) and names no posts page (page_for_posts)`
-			: frontPageTemplate &&
-			  `the front page shows the latest posts (show_on_front) with ${ frontPageTemplate.source }, which WordPress renders there before home.html (wp-includes/template-loader.php), and the site has no posts page`;
+			: index?.slug === 'front-page' &&
+			  `the front page shows the latest posts (show_on_front) with ${ index.source }, which WordPress renders there before home.html (wp-includes/template-loader.php), and the site has no posts page`;
 		if ( reason ) {
 			problems.push(
 				`WordPress renders ${ home.source } at the posts index (get_home_template in wp-includes/template.php), and ${ reason }, so it renders nowhere and edits to it change nothing on the site. Put what it holds where WordPress renders it, such as the front page's content in its page, or name a posts page for it in page_for_posts.`
@@ -274,22 +301,13 @@ export async function unrenderedPages( sitePath: string ): Promise< string[] > {
 	}
 	const byTemplate = new Map< string, { slug: string; pages: string[] } >();
 	for ( const page of state.pages ) {
-		if ( page.id === state.postsPage || ( page.id === state.front && frontTemplate ) ) {
+		const { template } = page;
+		if ( ! template || template.content || ( page.id === state.front && frontTemplate ) ) {
 			continue;
 		}
-		const template = await unrendered( [
-			...( page.id === state.front ? [ 'front-page' ] : [] ),
-			`page-${ page.slug }`,
-			`page-${ page.id }`,
-			'page',
-			'singular',
-			'index',
-		] );
-		if ( template ) {
-			const entry = byTemplate.get( template.source ) ?? { slug: template.slug, pages: [] };
-			entry.pages.push( `page ${ page.id } "${ page.title }"` );
-			byTemplate.set( template.source, entry );
-		}
+		const entry = byTemplate.get( template.source ) ?? { slug: template.slug, pages: [] };
+		entry.pages.push( `page ${ page.id } "${ page.title }"` );
+		byTemplate.set( template.source, entry );
 	}
 	for ( const [ source, { slug, pages } ] of byTemplate ) {
 		const one = pages.length === 1;

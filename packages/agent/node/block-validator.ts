@@ -311,7 +311,7 @@ export async function validateBlocks(
 		const validation = await withTimeout(
 			evaluation,
 			BLOCK_EVALUATION_TIMEOUT_MS,
-			'Block validation evaluating blocks in the editor'
+			'Evaluating blocks in the editor'
 		);
 
 		const report = validation.report as ValidationReport;
@@ -335,9 +335,7 @@ export async function validateBlocks(
 			validBlocks: 0,
 			invalidBlocks: 0,
 			results: [],
-			error: `Block validation error: ${
-				error instanceof Error ? error.message : String( error )
-			}`,
+			error: error instanceof Error ? error.message : String( error ),
 		};
 	}
 }

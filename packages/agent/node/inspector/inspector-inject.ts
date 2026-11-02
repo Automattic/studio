@@ -318,7 +318,7 @@ async function launch( siteUrl: string ): Promise< void > {
 			// accounted for, so the bottom Send bar stays on screen.
 			args: [ '--ignore-certificate-errors', '--window-size=1280,800' ],
 		},
-		'the Studio annotation browser'
+		{ toolContext: 'the Studio annotation browser' }
 	);
 	// `viewport: null` makes the page follow the window size, so the fixed
 	// editor and bar land inside the visible region.

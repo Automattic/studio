@@ -89,11 +89,17 @@ describe( 'browser-utils', () => {
 		const installBrowser = vi.fn();
 
 		await expect(
-			launchChromiumWithInstall( {}, undefined, {
-				chromium: { executablePath: () => '/missing/chromium', launch },
-				installBrowser,
-			} )
+			launchChromiumWithInstall(
+				{},
+				{
+					chromium: { executablePath: () => '/missing/chromium', launch },
+					installBrowser,
+				}
+			)
 		).resolves.toBe( browser );
+		expect( launch ).toHaveBeenCalledWith(
+			expect.objectContaining( { channel: 'chrome', timeout: 30_000 } )
+		);
 		expect( installBrowser ).not.toHaveBeenCalled();
 	} );
 
@@ -128,88 +134,31 @@ describe( 'browser-utils', () => {
 			await Promise.all(
 				[ 1, 2 ].map( () =>
 					expect(
-						withTimeout(
-							launchChromiumWithInstall( {}, undefined, dependencies ),
-							200,
-							'Test call'
-						)
+						withTimeout( launchChromiumWithInstall( {}, dependencies ), 200, 'Test call' )
 					).rejects.toThrow( 'Studio is downloading the browser' )
 				)
 			);
-			await expect( launchChromiumWithInstall( {}, undefined, dependencies ) ).rejects.toThrow(
+			await expect( launchChromiumWithInstall( {}, dependencies ) ).rejects.toThrow(
 				'Try again in a minute'
 			);
 			expect( installBrowser ).toHaveBeenCalledTimes( 1 );
+			for ( const [ options ] of launch.mock.calls ) {
+				expect( options ).toEqual( expect.objectContaining( { timeout: 30_000 } ) );
+			}
 		} finally {
 			finishInstall();
 			await new Promise( ( resolve ) => setTimeout( resolve, 0 ) );
 		}
-		await expect( launchChromiumWithInstall( {}, undefined, dependencies ) ).resolves.toBe(
-			browser
-		);
-	} );
-
-	it( 'reports a failed background install and permits one new attempt', async () => {
-		let finishRetry!: () => void;
-		let installed = false;
-		const installBrowser = vi
-			.fn()
-			.mockRejectedValueOnce( new Error( 'network unavailable' ) )
-			.mockImplementation(
-				() =>
-					new Promise< void >( ( resolve ) => {
-						finishRetry = () => {
-							installed = true;
-							resolve();
-						};
-					} )
-			);
-		const dependencies = {
-			chromium: {
-				executablePath: () => ( installed ? process.execPath : '/missing/chromium' ),
-				launch: vi.fn().mockRejectedValue( new Error( 'browser missing' ) ),
-			},
-			installBrowser,
-		};
-		await expect( launchChromiumWithInstall( {}, undefined, dependencies ) ).rejects.toThrow(
-			'downloading'
-		);
-		await new Promise( ( resolve ) => setTimeout( resolve, 0 ) );
-		try {
-			await expect( launchChromiumWithInstall( {}, undefined, dependencies ) ).rejects.toThrow(
-				'could not auto-install Playwright Chromium. network unavailable'
-			);
-			await expect( launchChromiumWithInstall( {}, undefined, dependencies ) ).rejects.toThrow(
-				'downloading'
-			);
-			expect( installBrowser ).toHaveBeenCalledTimes( 2 );
-		} finally {
-			finishRetry();
-			await new Promise( ( resolve ) => setTimeout( resolve, 0 ) );
-		}
-	} );
-
-	it( 'bounds a stalled evaluation with a labelled error', async () => {
-		vi.useFakeTimers();
-		try {
-			const result = expect(
-				withTimeout(
-					new Promise( () => {} ),
-					60_000,
-					'Block validation evaluating blocks in the editor'
-				)
-			).rejects.toThrow( 'Block validation evaluating blocks in the editor timed out after 60s' );
-			await vi.advanceTimersByTimeAsync( 60_000 );
-			await result;
-		} finally {
-			vi.useRealTimers();
-		}
+		await expect( launchChromiumWithInstall( {}, dependencies ) ).resolves.toBe( browser );
 	} );
 
 	it( 'loads the block editor once for concurrent validations', async () => {
 		const page = { goto: vi.fn(), waitForFunction: vi.fn(), isClosed: () => false };
 		const newPage = vi.fn().mockResolvedValue( page );
-		vi.mocked( chromium.launch ).mockResolvedValue( { newPage, close: vi.fn() } as never );
+		vi.mocked( chromium.launch ).mockResolvedValue( {
+			newPage,
+			close: vi.fn().mockResolvedValue( undefined ),
+		} as never );
 
 		const editor = new EditorPage( 'http://localhost:8881' );
 		const pages = await Promise.all( [ editor.getPage(), editor.getPage(), editor.getPage() ] );

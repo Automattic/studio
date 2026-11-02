@@ -22,9 +22,8 @@ const DEFAULT_BROWSER_ARGS = [ '--ignore-certificate-errors' ];
 const BROWSER_LAUNCH_TIMEOUT_MS = 30_000;
 const BROWSER_INSTALL_TIMEOUT_MS = 15 * 60_000;
 
-let installPromise: Promise< void > | null = null;
-let installStartedAt = 0;
-let installFailure: string | null = null;
+let install: { promise: Promise< void >; startedAt: number } | null = null;
+let lastInstallError: string | null = null;
 
 export async function withTimeout< T >(
 	promise: Promise< T >,
@@ -48,7 +47,7 @@ export async function withTimeout< T >(
 }
 
 function downloadingError(): Error {
-	const seconds = Math.floor( ( Date.now() - installStartedAt ) / 1000 );
+	const seconds = Math.floor( ( Date.now() - ( install?.startedAt ?? Date.now() ) ) / 1000 );
 	return new Error(
 		`Studio is downloading the browser that block validation and screenshots need (started ${ seconds }s ago). Try again in a minute.`
 	);
@@ -128,51 +127,50 @@ export async function ensurePlaywrightChromiumInstalled(
  */
 export async function launchChromiumWithInstall(
 	overrides: ChromiumLaunchOptions = {},
-	toolContext = 'Studio MCP screenshot/validation tools',
-	dependencies?: {
-		chromium: Pick< Chromium, 'launch' | 'executablePath' >;
-		installBrowser: InstallBrowserFn;
-	}
+	{
+		toolContext = 'Studio MCP screenshot/validation tools',
+		chromium,
+		installBrowser,
+	}: {
+		toolContext?: string;
+		chromium?: Pick< Chromium, 'launch' | 'executablePath' >;
+		installBrowser?: InstallBrowserFn;
+	} = {}
 ): Promise< Browser > {
-	if ( installPromise ) {
+	if ( install ) {
 		throw downloadingError();
 	}
-	const { chromium } = dependencies ?? ( await import( 'playwright' ) );
+	chromium ??= ( await import( 'playwright' ) ).chromium;
 	const launchErrors: string[] = [];
 	const browser = await tryLaunchChromium( chromium, launchErrors, overrides );
-	const installError = installFailure;
-
-	if ( ! browser && ! existsSync( chromium.executablePath() ) ) {
-		if ( ! installPromise ) {
-			installFailure = null;
-			installStartedAt = Date.now();
-			installPromise = ensurePlaywrightChromiumInstalled( chromium, dependencies?.installBrowser )
-				.then( ( error ) => {
-					installFailure = error;
-				} )
-				.finally( () => {
-					installPromise = null;
-				} );
-		}
-		if ( ! installError ) {
-			throw downloadingError();
-		}
+	if ( browser ) {
+		return browser;
 	}
 
-	if ( ! browser ) {
-		const repairGuidance =
-			installError ??
-			'If Playwright Chromium is missing, run `studio mcp` again with network access so Studio can install it automatically.';
-
-		throw new Error(
-			`Unable to launch a browser for ${ toolContext }. ` +
-				`Tried ${ launchErrors.map( ( error ) => error.split( ': ', 1 )[ 0 ] ).join( ', ' ) }. ` +
-				`${ repairGuidance } ` +
-				`Launch errors: ${ launchErrors.join( ' | ' ) }`
-		);
+	if ( ! existsSync( chromium.executablePath() ) ) {
+		const previousFailure = lastInstallError;
+		if ( ! install ) {
+			lastInstallError = null;
+			install = {
+				startedAt: Date.now(),
+				promise: ensurePlaywrightChromiumInstalled( chromium, installBrowser )
+					.then( ( error ) => {
+						lastInstallError = error;
+					} )
+					.finally( () => {
+						install = null;
+					} ),
+			};
+		}
+		throw previousFailure ? new Error( previousFailure ) : downloadingError();
 	}
 
-	return browser;
+	throw new Error(
+		`Unable to launch a browser for ${ toolContext }. ` +
+			`Tried ${ launchErrors.map( ( error ) => error.split( ': ', 1 )[ 0 ] ).join( ', ' ) }. ` +
+			'If Playwright Chromium is missing, run `studio mcp` again with network access so Studio can install it automatically. ' +
+			`Launch errors: ${ launchErrors.join( ' | ' ) }`
+	);
 }
 
 /**

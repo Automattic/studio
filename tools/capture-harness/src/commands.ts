@@ -74,8 +74,13 @@ export async function runCommand( command: string, refs: string[], args: Command
 		needRefs( 'one or more scripts or folders of them' );
 		const outDir = path.resolve( args.out ?? 'captures' );
 		await mkdir( outDir, { recursive: true } );
+		// --signed-in captures any suite signed in, as a demo person: a variant of a
+		// signed-out shot for a post, say.
+		const scripts = ( await loadScripts( refs ) ).map( ( script ) =>
+			args[ 'signed-in' ] && ! script.firstRun ? { ...script, signedIn: true } : script
+		);
 		const result = await runScripts( {
-			scripts: await loadScripts( refs ),
+			scripts,
 			mode,
 			outDir,
 			scene: await sceneOption(),

@@ -33,6 +33,7 @@ Inputs:
   --look <name|file>      Look to capture with (default: the script's, else docs)
   --background <bg>       Frame on another background: dots-light, dots-dark, a color
   --persona <name|file>   Demo person signed-in scripts sign in as (default: maya-okafor)
+  --signed-in             Sign every script in (capture, check, record), as --persona
   --driver <name>         electron (Studio Desktop; the default on macOS, Windows) or browser
                           (\`studio ui\` in headless Chromium: no display needed;
                           the default on Linux)

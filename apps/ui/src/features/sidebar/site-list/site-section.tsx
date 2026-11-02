@@ -99,7 +99,7 @@ export function SiteSection( {
 	const preview = useOptionalSessionPreviewUI();
 	const handleOpenSite = () => {
 		onOpen?.();
-		onSiteOpen?.();
+		if ( ! onOpen ) onSiteOpen?.();
 		openSite( site );
 	};
 	const handleStartSite = () => {

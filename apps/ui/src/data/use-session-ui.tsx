@@ -1,3 +1,4 @@
+import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import {
 	createContext,
 	useCallback,
@@ -8,6 +9,7 @@ import {
 	type Dispatch,
 	type ReactNode,
 } from 'react';
+import { useConnector } from '@/data/core';
 import {
 	getStoredSiteChatVisibility,
 	getStoredSitePreviewVisibility,
@@ -68,6 +70,7 @@ type SessionUIAction =
 	| { type: 'preview/navigate'; path: string }
 	| { type: 'preview/reload' }
 	| { type: 'preview/update-path'; path: string }
+	| { type: 'preview/reset-site-path'; siteId: string }
 	| { type: 'preview/set-site'; siteId: string; running?: boolean }
 	| { type: 'preview/set-revealing'; siteId: string; value: boolean };
 
@@ -171,6 +174,15 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 				? state
 				: { ...state, preview: { ...state.preview, pathsBySiteId } };
 		}
+		case 'preview/reset-site-path':
+			return {
+				...state,
+				preview: {
+					...state.preview,
+					pathsBySiteId: { ...state.preview.pathsBySiteId, [ action.siteId ]: '/' },
+				},
+			};
+
 		case 'preview/set-site': {
 			if ( state.preview.siteId === action.siteId ) return state;
 			return {
@@ -242,6 +254,7 @@ export function SessionUIProvider( { children }: { children: ReactNode } ) {
 }
 
 function SessionUIProviderRoot( { children }: { children: ReactNode } ) {
+	const connector = useConnector();
 	const [ state, dispatch ] = useReducer( reducer, INITIAL_STATE, ( initial ) => ( {
 		...initial,
 		preview: {
@@ -266,6 +279,16 @@ function SessionUIProviderRoot( { children }: { children: ReactNode } ) {
 		window.addEventListener( PANEL_WIDTHS_RESET_EVENT, reset );
 		return () => window.removeEventListener( PANEL_WIDTHS_RESET_EVENT, reset );
 	}, [] );
+
+	useEffect(
+		() =>
+			connector.onSiteEvent( ( event ) => {
+				if ( event.event === SITE_EVENTS.UPDATED && event.running === false ) {
+					dispatch( { type: 'preview/reset-site-path', siteId: event.siteId } );
+				}
+			} ),
+		[ connector ]
+	);
 
 	return (
 		<SessionUIDispatchContext.Provider value={ dispatch }>

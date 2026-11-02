@@ -77,11 +77,7 @@ import {
 } from '@studio/common/lib/root-ca-trust';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
-import {
-	isSitePreviewPath,
-	readSitePreview,
-	writeSitePreview,
-} from '@studio/common/lib/site-preview-cache';
+import { isSitePreviewPath, readSitePreview } from '@studio/common/lib/site-preview-cache';
 import {
 	getLocalFileSize,
 	listLocalFileTree as listSiteFileTree,
@@ -1070,7 +1066,7 @@ export function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
 	return readSitePreview( id, getSiteThumbnailPath( id ) );
 }
 
-// Saves what the preview webview shows, so a stopped site still has a picture.
+// Refreshes the home-page thumbnail without navigating the preview webview.
 // Only the window hosting the webview may capture it.
 export async function captureSitePreview(
 	event: IpcMainInvokeEvent,
@@ -1082,9 +1078,12 @@ export async function captureSitePreview(
 	if ( ! guest || guest.hostWebContents !== event.sender || ! isSitePreviewPath( pagePath ) ) {
 		return null;
 	}
-	const png = ( await guest.capturePage() ).toPNG();
-	await writeSitePreview( siteId, png );
-	return `data:image/png;base64,${ png.toString( 'base64' ) }`;
+	const site = await getSite( siteId );
+	if ( ! site?.running ) {
+		return null;
+	}
+	await captureSiteThumbnail( { id: siteId, url: site.url } );
+	return readSitePreview( siteId, getSiteThumbnailPath( siteId ) );
 }
 
 function promiseExec( command: string, options: ExecOptions = {} ): Promise< void > {

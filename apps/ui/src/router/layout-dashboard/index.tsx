@@ -6,7 +6,7 @@ import { useConnector } from '@/data/core';
 import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useAuthUser } from '@/data/queries/use-auth-user';
-import { useSession, useSessionLiveSite } from '@/data/queries/use-sessions';
+import { useSession, useSessionLiveSite, useSessions } from '@/data/queries/use-sessions';
 import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
 import {
 	useIsSiteStarting,
@@ -89,6 +89,9 @@ function DashboardLayout() {
 	const { sessionId, homeSiteId, newSessionSiteId } = routePreviewContext;
 	const { data: sites } = useSites();
 	const { data: sessionData } = useSession( sessionId );
+	const { data: sessions } = useSessions();
+	const sessionSummary =
+		sessionData?.summary ?? sessions?.find( ( session ) => session.id === sessionId );
 	// Open the orientation guide on first workbench arrival, and let Help ▸
 	// Getting Started replay it.
 	useOrientationAutostart();
@@ -98,11 +101,11 @@ function DashboardLayout() {
 	useWhatsNewReplay();
 	const preview = useSessionPreviewUI();
 	const { data: preferences } = useUserPreferences();
-	const sessionSite = findAiSessionOwnerSite( sites, sessionData?.summary );
+	const sessionSite = findAiSessionOwnerSite( sites, sessionSummary );
 	// A chat switched to Live previews its remote instead of the local site.
 	const { draft } = useSiteChatDraft( newSessionSiteId );
 	const liveUrl = useSessionLiveSite(
-		newSessionSiteId ? draft : sessionData?.summary,
+		newSessionSiteId ? draft : sessionSummary,
 		newSessionSiteId ?? sessionSite?.id
 	)?.url.replace( /\/+$/, '' );
 	const homeSite = homeSiteId ? sites?.find( ( site ) => site.id === homeSiteId ) : undefined;

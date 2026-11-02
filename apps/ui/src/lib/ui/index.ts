@@ -11,6 +11,7 @@ export * from './command';
 export * from './dialog';
 export * from './empty';
 export * from './field';
+export * as FeaturePopover from './feature-popover';
 export * as HoverCard from './hover-card';
 export * from './input';
 export * from './input-group';

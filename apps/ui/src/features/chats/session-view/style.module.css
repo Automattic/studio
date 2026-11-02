@@ -54,22 +54,6 @@
 	margin-inline-end: calc( -1 * var( --space-1 ) );
 }
 
-.headerDot {
-	width: 6px;
-	height: 6px;
-	border-radius: var( --radius-full );
-	background-color: var( --status-running );
-	flex-shrink: 0;
-	/* Extra horizontal margin around the dot only — keeps the toggle-to-title
-	   gap at the header's base 8px while giving the site/dot/local grouping
-	   more breathing room. */
-	margin: 0 var( --space-1 );
-}
-
-.headerEnv {
-	color: var( --muted-foreground );
-}
-
 .headerSpacer {
 	flex: 1;
 }

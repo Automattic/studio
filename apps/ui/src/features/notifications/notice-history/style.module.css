@@ -17,16 +17,11 @@
 }
 
 .emptyTitle {
-	font-size: var( --text-sm );
-	font-weight: var( --font-weight-medium );
-	line-height: var( --text-sm--line-height );
+	composes: title from '@/lib/ui/popover/style.module.css';
 }
 
 .emptyText {
-	margin: var( --space-1 ) 0 0;
-	color: var( --muted-foreground );
-	font-size: var( --text-sm );
-	line-height: var( --text-sm--line-height );
+	composes: description from '@/lib/ui/popover/style.module.css';
 }
 
 /* The entries float on their own, like the toasts they were. */

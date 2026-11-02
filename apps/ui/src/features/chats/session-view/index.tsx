@@ -28,6 +28,7 @@ import { useIsOutOfAiCredits } from '@/data/queries/use-is-out-of-ai-credits';
 import {
 	useSession,
 	useSessionLiveSite,
+	useSessions,
 	useSetSessionEnvironment,
 } from '@/data/queries/use-sessions';
 import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
@@ -103,8 +104,10 @@ function SessionViewContent( {
 	const navigate = useNavigate();
 	const { data, isLoading, error, refetch } = useSession( sessionId );
 	const { data: sites } = useSites();
+	const { data: sessions } = useSessions();
+	const sessionSummary = data?.summary ?? sessions?.find( ( session ) => session.id === sessionId );
 	const ownerSite = sessionId
-		? findAiSessionOwnerSite( sites, data?.summary )
+		? findAiSessionOwnerSite( sites, sessionSummary )
 		: sites?.find( ( site ) => site.id === siteId );
 	useEffect( () => {
 		if ( ! sessionId && sites && ! ownerSite ) {
@@ -112,7 +115,7 @@ function SessionViewContent( {
 		}
 	}, [ navigate, ownerSite, sessionId, sites ] );
 	const effectiveEnvironment = useSessionLiveSite(
-		sessionId ? data?.summary : draft,
+		sessionId ? sessionSummary : draft,
 		ownerSite?.id
 	)
 		? 'live'

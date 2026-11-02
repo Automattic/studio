@@ -1,5 +1,6 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { useRef, useState } from 'react';
+import { AnnotateHint } from '@/features/onboarding';
 import { AnnotateIcon, ChevronDownIcon } from '@/lib/icons';
 import { Button, IconButton, Popover } from '@/lib/ui';
 import styles from './annotation-batch.module.css';
@@ -129,24 +130,30 @@ export function AnnotateButton( {
 		);
 	}
 	return (
-		<IconButton
-			variant="accent-ghost"
-			size="icon-sm"
-			icon={ <AnnotateIcon /> }
-			label={ disabledReason ?? ( active ? __( 'Exit annotation mode' ) : __( 'Annotate' ) ) }
-			aria-label={ __( 'Annotate' ) }
-			aria-pressed={ active }
-			aria-description={
-				disabled
-					? disabledReason
-					: active
-					? __( 'Exit annotation mode. Your notes will be kept.' )
-					: undefined
-			}
-			disabled={ disabled }
-			focusableWhenDisabled={ false }
-			tooltipSide="bottom"
-			onClick={ onClick }
-		/>
+		<AnnotateHint
+			enabled={ ! disabled && ! active }
+			tooltip={ disabledReason ?? ( active ? __( 'Exit annotation mode' ) : __( 'Annotate' ) ) }
+		>
+			<IconButton
+				tooltip={ false }
+				variant="accent-ghost"
+				size="icon-sm"
+				icon={ <AnnotateIcon /> }
+				label={ disabledReason ?? ( active ? __( 'Exit annotation mode' ) : __( 'Annotate' ) ) }
+				aria-label={ __( 'Annotate' ) }
+				aria-pressed={ active }
+				aria-description={
+					disabled
+						? disabledReason
+						: active
+						? __( 'Exit annotation mode. Your notes will be kept.' )
+						: undefined
+				}
+				disabled={ disabled }
+				focusableWhenDisabled={ false }
+				tooltipSide="bottom"
+				onClick={ onClick }
+			/>
+		</AnnotateHint>
 	);
 }

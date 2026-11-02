@@ -115,6 +115,9 @@ export abstract class SqliteIntegrationProvider {
 				)
 				.replace( /^<\?php\s*\n/, ( openingTag ) => `${ openingTag }${ DB_PATH_DEFINITION }` );
 			await fs.promises.writeFile( path.join( wpContentPath, 'db.php' ), updatedContent );
+			// `wp sqlite import` and `export` run before db.php and would follow this file instead
+			// of the pin. Playground exports include it.
+			await fs.promises.rm( path.join( databasePath, 'db-path.php' ), { force: true } );
 		}
 
 		const sqliteDestPath = path.join( wpContentPath, 'mu-plugins', sqliteDirname );

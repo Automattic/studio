@@ -1,4 +1,5 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { STUDIO_LOADER_MU_PLUGIN_FILENAME } from '@studio/common/lib/mu-plugins';
 import { ZipArchive } from 'archiver';
@@ -6,7 +7,7 @@ import { glob } from 'glob';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
 import { readActiveThemes } from 'cli/lib/active-themes';
-import { archiveSiteContent, cleanup } from 'cli/lib/archive';
+import { archiveSiteContent, cleanup, getArchiveContentSize } from 'cli/lib/archive';
 
 vi.mock( 'fs' );
 vi.mock( 'archiver', () => ( {
@@ -24,6 +25,7 @@ describe( 'Archive Module', () => {
 	const mockArchivePath = '/mock/archive.zip';
 	const mockWpContentPath = path.join( mockSiteFolder, 'wp-content' );
 	const mockWpConfigPath = path.join( mockSiteFolder, 'wp-config.php' );
+	const onWpcom = { onWpcom: true };
 
 	let mockArchiver: ReturnType< typeof createMockArchiver >;
 
@@ -77,7 +79,7 @@ describe( 'Archive Module', () => {
 
 	describe( 'createArchive', () => {
 		it( 'should enumerate wp-content following symlinks', async () => {
-			await archiveSiteContent( mockSiteFolder, mockArchivePath );
+			await archiveSiteContent( mockSiteFolder, mockArchivePath, onWpcom );
 
 			expect( glob ).toHaveBeenCalledWith(
 				'**/*',
@@ -98,7 +100,7 @@ describe( 'Archive Module', () => {
 			} );
 			mockGlobResults( [ 'index.php', 'plugins/my-plugin.php' ] );
 
-			await archiveSiteContent( mockSiteFolder, mockArchivePath );
+			await archiveSiteContent( mockSiteFolder, mockArchivePath, onWpcom );
 
 			expect( mockArchiver.file ).toHaveBeenCalledWith(
 				fs.realpathSync( path.join( mockWpContentPath, 'index.php' ) ),
@@ -117,7 +119,7 @@ describe( 'Archive Module', () => {
 			} );
 			mockGlobResults( [ 'uploads/photo.JPG', 'themes/style.css' ] );
 
-			await archiveSiteContent( mockSiteFolder, mockArchivePath );
+			await archiveSiteContent( mockSiteFolder, mockArchivePath, onWpcom );
 
 			expect( mockArchiver.file ).toHaveBeenCalledWith(
 				fs.realpathSync( path.join( mockWpContentPath, 'uploads', 'photo.JPG' ) ),
@@ -143,7 +145,7 @@ describe( 'Archive Module', () => {
 				`mu-plugins/${ STUDIO_LOADER_MU_PLUGIN_FILENAME }`,
 			] );
 
-			await archiveSiteContent( mockSiteFolder, mockArchivePath );
+			await archiveSiteContent( mockSiteFolder, mockArchivePath, onWpcom );
 
 			expect( archivedNames() ).toContain( 'wp-content/keep.php' );
 			expect( archivedNames() ).not.toContain( 'wp-content/debug.log' );
@@ -165,13 +167,58 @@ describe( 'Archive Module', () => {
 			mockGlobResults( files );
 			vi.mocked( readActiveThemes ).mockResolvedValue( new Set( [ 'child', 'parent' ] ) );
 
-			await archiveSiteContent( mockSiteFolder, mockArchivePath );
+			await archiveSiteContent( mockSiteFolder, mockArchivePath, onWpcom );
 
 			expect( archivedNames() ).toEqual( [
 				'wp-content/themes/index.php',
 				'wp-content/themes/child/style.css',
 				'wp-content/themes/parent/style.css',
 			] );
+		} );
+
+		it.each( [
+			[ 'a WordPress.com preview leaves out', true, [] ],
+			[
+				'a Jurassic Ninja preview keeps',
+				false,
+				[ 'wp-content/plugins/akismet/akismet.php', 'wp-content/plugins/jetpack/jetpack.php' ],
+			],
+		] )(
+			"%s WordPress.com's own plugins, linked from a pull or not",
+			async ( _, onWpcomPreview, providedPlugins ) => {
+				const raw = path.join( os.homedir(), '.studio', 'pulls', 'site-id', 'raw' );
+				vol.fromJSON( {
+					[ path.join( raw, 'wordpress/plugins/jetpack/latest/jetpack.php' ) ]: '<?php',
+					[ path.join( mockWpContentPath, 'plugins/akismet/akismet.php' ) ]: '<?php',
+					[ path.join( mockWpContentPath, 'plugins/my-plugin/my-plugin.php' ) ]: '<?php',
+				} );
+				vol.symlinkSync(
+					path.join( raw, 'wordpress/plugins/jetpack/latest' ),
+					path.join( mockWpContentPath, 'plugins/jetpack' )
+				);
+				mockGlobResults( [
+					'plugins/akismet/akismet.php',
+					'plugins/jetpack/jetpack.php',
+					'plugins/my-plugin/my-plugin.php',
+				] );
+
+				await archiveSiteContent( mockSiteFolder, mockArchivePath, { onWpcom: onWpcomPreview } );
+
+				expect( archivedNames().sort() ).toEqual( [
+					...providedPlugins,
+					'wp-content/plugins/my-plugin/my-plugin.php',
+				] );
+			}
+		);
+
+		it( 'should size only the files the archive holds', async () => {
+			vol.fromJSON( {
+				[ path.join( mockWpContentPath, 'plugins/jetpack/jetpack.php' ) ]: 'x'.repeat( 1000 ),
+				[ path.join( mockWpContentPath, 'plugins/my-plugin/my-plugin.php' ) ]: 'x'.repeat( 10 ),
+			} );
+			mockGlobResults( [ 'plugins/jetpack/jetpack.php', 'plugins/my-plugin/my-plugin.php' ] );
+
+			expect( await getArchiveContentSize( mockSiteFolder, onWpcom ) ).toBe( 10 );
 		} );
 
 		it( 'should skip a dangling symlink instead of aborting the archive', async () => {
@@ -188,7 +235,7 @@ describe( 'Archive Module', () => {
 			const warnSpy = vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
 
 			// Resolves (does not reject) and archives the good file, skipping the broken link.
-			await expect( archiveSiteContent( mockSiteFolder, mockArchivePath ) ).resolves.toBe(
+			await expect( archiveSiteContent( mockSiteFolder, mockArchivePath, onWpcom ) ).resolves.toBe(
 				mockArchiver
 			);
 
@@ -203,15 +250,16 @@ describe( 'Archive Module', () => {
 		it( 'should include wp-config.php when it exists', async () => {
 			vol.fromJSON( { [ mockWpConfigPath ]: '<?php' } );
 
-			await archiveSiteContent( mockSiteFolder, mockArchivePath );
+			await archiveSiteContent( mockSiteFolder, mockArchivePath, onWpcom );
 
 			expect( mockArchiver.file ).toHaveBeenCalledWith( mockWpConfigPath, {
 				name: 'wp-config.php',
+				store: false,
 			} );
 		} );
 
 		it( 'should not include wp-config.php when it does not exist', async () => {
-			await archiveSiteContent( mockSiteFolder, mockArchivePath );
+			await archiveSiteContent( mockSiteFolder, mockArchivePath, onWpcom );
 
 			expect( archivedNames() ).not.toContain( 'wp-config.php' );
 		} );
@@ -228,9 +276,9 @@ describe( 'Archive Module', () => {
 			} );
 			mockArchiver.finalize.mockRejectedValue( mockError );
 
-			await expect( archiveSiteContent( mockSiteFolder, mockArchivePath ) ).rejects.toThrow(
-				'Archive error'
-			);
+			await expect(
+				archiveSiteContent( mockSiteFolder, mockArchivePath, onWpcom )
+			).rejects.toThrow( 'Archive error' );
 		} );
 	} );
 

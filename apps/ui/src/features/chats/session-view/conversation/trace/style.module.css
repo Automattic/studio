@@ -59,7 +59,6 @@
 	width: fit-content;
 	max-width: 100%;
 	min-width: 0;
-	border-radius: var( --radius-md );
 	color: var( --muted-foreground );
 	text-align: start;
 	cursor: pointer;
@@ -80,8 +79,7 @@
 }
 
 .traceTrigger:focus-visible {
-	outline: var( --focus-width ) solid var( --ring );
-	outline-offset: 2px;
+	color: var( --accent-text );
 }
 
 .traceChevron {

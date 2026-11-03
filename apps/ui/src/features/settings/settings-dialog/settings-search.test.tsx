@@ -101,10 +101,8 @@ describe( 'Settings search', () => {
 	it( 'finds the CLI toggle instead of its fieldset title', async () => {
 		const { input, section } = await renderSearch();
 		fireEvent.change( input, { target: { value: 'CLI' } } );
-		expect(
-			screen.queryByRole( 'tab', { name: /^WordPress Studio CLI/ } )
-		).not.toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'tab', { name: 'Studio CLI for terminal' } ) );
+		expect( screen.queryByRole( 'tab', { name: 'WordPress Studio CLI' } ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'tab', { name: 'WordPress Studio CLI for terminal' } ) );
 		await waitFor( () => expect( section() ).toBe( 'general' ) );
 	} );
 

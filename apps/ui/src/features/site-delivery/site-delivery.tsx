@@ -139,7 +139,6 @@ export function SiteDeliveryDialog( {
 						>
 							<SharePanel
 								site={ site }
-								open={ open && tab === 'share' }
 								onManagePreview={ ( action ) => {
 									previewReturnFocus.current = action.trigger;
 									setPreviewAction( action );
@@ -177,6 +176,7 @@ export function SiteDeliveryDialog( {
 			) : null }
 			<AccountPromptDialog
 				open={ open && signedOut }
+				showStudioIcon={ false }
 				onOpenChange={ setOpen }
 				finalFocus={ finalFocus }
 				title={ tab === 'share' ? __( 'Share your WordPress' ) : __( 'Publish your WordPress' ) }

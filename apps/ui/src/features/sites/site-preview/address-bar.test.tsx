@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	DATABASE_HOME_PATH,
+	EMAIL_PREVIEW_PATH,
 	getPathFromPreviewUrl,
 	getPreviewRealm,
 	getRealmNavigationPath,
@@ -105,12 +106,14 @@ describe( 'preview realms', () => {
 		expect( getPreviewRealm( DESIGN_SYSTEM_PREVIEW_PATH ) ).toBe( 'design' );
 		expect( getPreviewRealm( '/wp-admin-guide/' ) ).toBe( 'frontend' );
 		expect( getPreviewRealm( '/phpmyadmin-notes/' ) ).toBe( 'frontend' );
+		expect( getPreviewRealm( EMAIL_PREVIEW_PATH ) ).toBe( 'email' );
 	} );
 
 	it( 'maps realms to open events', () => {
 		expect( getRealmOpenEvent( 'frontend' ) ).toBe( 'studio_site_open_in_browser' );
 		expect( getRealmOpenEvent( 'admin' ) ).toBe( 'studio_site_open_wp_admin' );
 		expect( getRealmOpenEvent( 'database' ) ).toBe( 'studio_site_open_phpmyadmin' );
+		expect( getRealmOpenEvent( 'email' ) ).toBe( 'studio_site_open_email' );
 		expect( getRealmOpenEvent( 'design' ) ).toBe( 'studio_site_open_design_system' );
 	} );
 

@@ -15,7 +15,10 @@ export function useResetInterface() {
 		save.mutate(
 			{ ...INTERFACE_PREFERENCE_DEFAULTS },
 			{
-				onSuccess: resetPanelLayout,
+				onSuccess: () => {
+					resetPanelLayout();
+					toast.success( __( 'Interface reset.' ) );
+				},
 				onError: () => toast.error( __( 'Could not reset interface. Please try again.' ) ),
 			}
 		);
@@ -30,6 +33,7 @@ export function useResetAppearance() {
 		save.mutate(
 			{ ...DEFAULT_COLOR_TINT, colorScheme: DEFAULT_COLOR_SCHEME },
 			{
+				onSuccess: () => toast.success( __( 'Appearance reset.' ) ),
 				onError: () => toast.error( __( 'Could not reset appearance. Please try again.' ) ),
 			}
 		);

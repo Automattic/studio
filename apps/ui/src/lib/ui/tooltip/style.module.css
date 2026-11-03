@@ -5,23 +5,22 @@
 	}
 
 	.content {
+		composes: floating from '@/lib/ui/surface/style.module.css';
 		display: inline-flex;
 		gap: var( --space-1_5 );
 		align-items: center;
 		width: fit-content;
 		max-width: 320px;
-		padding: var( --space-1 ) var( --space-2 );
-		border-radius: var( --radius-sm );
-		background-color: var( --foreground );
-		color: var( --background );
-		font-size: var( --text-xxs );
+		padding: var( --space-1_5 ) var( --space-2_5 );
+		border-radius: var( --radius-lg );
+		font-size: var( --text-xs );
 		line-height: var( --leading-tight );
 		transform-origin: var( --transform-origin );
 		transition: opacity var( --motion-duration-feedback ) var( --motion-ease-enter );
 	}
 
 	.content:has( [data-slot='kbd'] ) {
-		padding-inline-end: var( --space-1 );
+		padding-inline-end: var( --space-1_5 );
 	}
 
 	.content:is( [data-starting-style], [data-ending-style] ) {

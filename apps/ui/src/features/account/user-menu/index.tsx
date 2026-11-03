@@ -15,7 +15,7 @@ import styles from './style.module.css';
 
 const MENU_SECTIONS: string[] = [ 'appearance', 'ai', 'usage' ];
 
-export function UserMenu() {
+export function UserMenu( { active = true }: { active?: boolean } ) {
 	const { data: user } = useAuthUser();
 	const isOffline = useOffline();
 	const logout = useLogout();
@@ -40,7 +40,7 @@ export function UserMenu() {
 								<Button
 									ref={ trigger }
 									variant="muted-ghost"
-									size="icon"
+									size="icon-sm"
 									aria-label={ user.displayName || user.email }
 								/>
 							}
@@ -94,6 +94,7 @@ export function UserMenu() {
 				{ isOffline && <OfflineIndicator /> }
 				<AppUpdateButton />
 				<IconButton
+					size="icon-sm"
 					variant="muted-ghost"
 					icon={ <SettingsIcon /> }
 					label={ __( 'Settings' ) }
@@ -103,7 +104,7 @@ export function UserMenu() {
 					} }
 					onClick={ openSettings }
 				/>
-				<NoticeHistoryButton />
+				<NoticeHistoryButton active={ active } />
 			</div>
 			<AccountPromptDialog
 				open={ promptOpen }

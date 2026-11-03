@@ -1,6 +1,5 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { markPreviewReady } from '@/data/preview-ready';
 import { applySyncActivity } from '@/data/sync-activity';
 import { SessionUIProvider } from '@/data/use-session-ui';
 import { setAnnotating } from '@/features/annotations';
@@ -125,9 +124,9 @@ it( 'keeps icon-only annotation available beside overflow with sharing feedback'
 	);
 	act( () => {
 		applySyncActivity( 'annotate-site', { kind: 'success', direction: 'preview' } );
-		markPreviewReady( 'annotate-site' );
 	} );
-	expect( more ).toHaveAttribute( 'aria-description', 'Preview ready' );
+	expect( more ).not.toHaveAttribute( 'aria-description' );
+	expect( more.querySelector( '[data-slot="notification-dot"]' ) ).not.toBeInTheDocument();
 	await user.click( more );
 	await user.click( await screen.findByRole( 'menuitem', { name: /^Share/ } ) );
 	expect( await screen.findByRole( 'dialog' ) ).toBeInTheDocument();

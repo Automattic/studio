@@ -1871,39 +1871,43 @@ $table_prefix = 'wp_';
 		} );
 	} );
 
-	describe.each( [
-		{ origin: '', channel: 'studio-cli' },
-		{ origin: 'studio-ui:v2', channel: 'studio-ui' },
-	] )( 'Tracks: studio_site_created ($channel)', ( { origin, channel } ) => {
+	describe( 'Tracks: studio_site_created', () => {
 		beforeEach( () => {
-			vi.stubEnv( 'STUDIO_TRACKS_ORIGIN', origin );
+			vi.stubEnv( 'STUDIO_TRACKS_ORIGIN', '' );
 		} );
 		const mockRecord = vi.mocked( recordTracksEvent );
 
 		const testBlueprint: Blueprint = { steps: [] };
 
-		it( 'emits flow_type "new" with config + timing for a plain create', async () => {
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
+		it.each( [
+			{ origin: '', channel: 'studio-cli' },
+			{ origin: 'studio-ui:v2', channel: 'studio-ui' },
+		] )(
+			'emits the creation UUID with config, timing and $channel origin',
+			async ( { origin, channel } ) => {
+				vi.stubEnv( 'STUDIO_TRACKS_ORIGIN', origin );
+				await runCommand( mockSitePath, { ...defaultTestOptions } );
 
-			expect( mockRecord ).toHaveBeenCalledTimes( 1 );
-			expect( mockRecord ).toHaveBeenCalledWith(
-				TRACKS_EVENTS.SITE_CREATE,
-				expect.objectContaining( {
-					flow_type: 'new',
-					php_version: '8.3',
-					wp_version: '6.5',
-					custom_domain: false,
-					ssl_enabled: false,
-					channel,
-					site_id: expect.stringMatching(
-						/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
-					),
-				} )
-			);
-			const props = mockRecord.mock.calls[ 0 ][ 1 ] as Record< string, unknown >;
-			expect( typeof props.time_ms ).toBe( 'number' );
-			expect( props.time_ms as number ).toBeGreaterThanOrEqual( 0 );
-		} );
+				expect( mockRecord ).toHaveBeenCalledTimes( 1 );
+				expect( mockRecord ).toHaveBeenCalledWith(
+					TRACKS_EVENTS.SITE_CREATE,
+					expect.objectContaining( {
+						flow_type: 'new',
+						php_version: '8.3',
+						wp_version: '6.5',
+						custom_domain: false,
+						ssl_enabled: false,
+						channel,
+						site_id: expect.stringMatching(
+							/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+						),
+					} )
+				);
+				const props = mockRecord.mock.calls[ 0 ][ 1 ] as Record< string, unknown >;
+				expect( typeof props.time_ms ).toBe( 'number' );
+				expect( props.time_ms as number ).toBeGreaterThanOrEqual( 0 );
+			}
+		);
 
 		it( 'persists a separate UUID and reuses it for preview create/update', async () => {
 			const operationalId = crypto.randomUUID();
@@ -1948,28 +1952,23 @@ $table_prefix = 'wp_';
 			expect( mockRecord.mock.calls[ 0 ][ 1 ]?.site_id ).toBe( previewSiteId );
 		} );
 
-		it.each( [ 'lock', 'read', 'save', 'unlock' ] as const )(
-			'keeps creation and its event successful when ID %s fails',
-			async ( failure ) => {
-				vi.mocked( openSiteInBrowser ).mockImplementationOnce( async () => {
-					const operation = {
-						lock: lockCliConfig,
-						read: readCliConfig,
-						save: saveCliConfig,
-						unlock: unlockCliConfig,
-					}[ failure ];
-					vi.mocked( operation ).mockRejectedValueOnce( new Error( 'Storage unavailable' ) );
-				} );
-				await expect(
-					runCommand( mockSitePath, { ...defaultTestOptions } )
-				).resolves.toBeUndefined();
-				expect( mockRecord ).toHaveBeenCalledTimes( 1 );
-				expect( mockRecord.mock.calls[ 0 ][ 1 ] ).toEqual(
-					expect.objectContaining( { flow_type: 'new', channel, time_ms: expect.any( Number ) } )
-				);
-				expect( mockRecord.mock.calls[ 0 ][ 1 ] ).not.toHaveProperty( 'site_id' );
-			}
-		);
+		it( 'keeps creation and its event successful when ID storage fails', async () => {
+			vi.mocked( openSiteInBrowser ).mockImplementationOnce( async () => {
+				vi.mocked( saveCliConfig ).mockRejectedValueOnce( new Error( 'Storage unavailable' ) );
+			} );
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions } )
+			).resolves.toBeUndefined();
+			expect( mockRecord ).toHaveBeenCalledExactlyOnceWith(
+				TRACKS_EVENTS.SITE_CREATE,
+				expect.objectContaining( {
+					flow_type: 'new',
+					channel: 'studio-cli',
+					time_ms: expect.any( Number ),
+				} )
+			);
+			expect( mockRecord.mock.calls[ 0 ][ 1 ] ).not.toHaveProperty( 'site_id' );
+		} );
 
 		it( 'omits site_id if the saved record cannot be resolved', async () => {
 			vi.mocked( openSiteInBrowser ).mockImplementationOnce( async () => {

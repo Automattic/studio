@@ -68,7 +68,6 @@ export function SiteShareMenuItem( { site, disabled }: { site: SiteDetails; disa
 		disabled || offline || publish.isPending || activity?.kind === 'pending' || ! canCreate;
 	const createPreview = () => {
 		if ( createDisabled ) return;
-		toast.info( __( 'Creating preview…' ) );
 		publish.mutate( { siteId: site.id } );
 	};
 	const previews = ( snapshots.data ?? [] )

@@ -61,6 +61,7 @@ export function useSettleSync() {
 					markPreviewReady( siteId );
 					/* translators: %s: site name */
 					toast.success( sprintf( __( '%s preview is ready' ), siteName() ), {
+						id: `preview-${ siteId }`,
 						action: {
 							label: __( 'Copy link' ),
 							onClick: () => {
@@ -79,8 +80,11 @@ export function useSettleSync() {
 				} else if ( settled.kind === 'error' ) {
 					/* translators: %s: site name */
 					toast.error( sprintf( __( 'Couldn’t publish preview: %s' ), siteName() ), {
+						id: `preview-${ siteId }`,
 						description: settled.message,
 					} );
+				} else if ( settled.kind === 'cancelled' ) {
+					toast.info( __( 'Preview creation cancelled' ), { id: `preview-${ siteId }` } );
 				}
 				return;
 			}

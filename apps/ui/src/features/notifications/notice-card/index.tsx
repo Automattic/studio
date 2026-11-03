@@ -158,7 +158,7 @@ export function NoticeCard( {
 	// In place of the notice's own action button.
 	action?: ReactNode;
 	time?: ReactNode;
-	onDismiss: () => void;
+	onDismiss?: () => void;
 	onActionDone?: () => void;
 } ) {
 	const titleRef = useRef< HTMLParagraphElement >( null );
@@ -230,20 +230,22 @@ export function NoticeCard( {
 				/>
 			) : null }
 
-			<IconButton
-				className={ styles.close }
-				icon={ <XIcon /> }
-				label={ __( 'Dismiss' ) }
-				aria-label={ sprintf(
-					/* translators: %s: notification title. */
-					__( 'Dismiss %s' ),
-					notice.title
-				) }
-				variant="outline"
-				size="icon-2xs"
-				shape="round"
-				onClick={ onDismiss }
-			/>
+			{ onDismiss ? (
+				<IconButton
+					className={ styles.close }
+					icon={ <XIcon /> }
+					label={ __( 'Dismiss' ) }
+					aria-label={ sprintf(
+						/* translators: %s: notification title. */
+						__( 'Dismiss %s' ),
+						notice.title
+					) }
+					variant="outline"
+					size="icon-2xs"
+					shape="round"
+					onClick={ onDismiss }
+				/>
+			) : null }
 		</div>
 	);
 }

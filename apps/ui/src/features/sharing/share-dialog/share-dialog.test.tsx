@@ -391,8 +391,11 @@ describe( 'ShareDialog', () => {
 		fireEvent.keyDown( screen.getByRole( 'dialog' ), { key: 'Escape' } );
 		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
 		await act( async () => finish() );
-		await waitFor( () => expect( getNoticeHistory() ).toHaveLength( 1 ), SETTLE );
-		expect( getNoticeHistory()[ 0 ].title ).toBe( 'My site preview is ready' );
+		await waitFor(
+			() => expect( getNoticeHistory()[ 0 ]?.title ).toBe( 'My site preview is ready' ),
+			SETTLE
+		);
+		expect( getNoticeHistory() ).toHaveLength( 1 );
 		await act( async () => {
 			await runNoticeAction( getNoticeHistory()[ 0 ].action! );
 		} );

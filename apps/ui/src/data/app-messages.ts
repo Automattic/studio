@@ -26,6 +26,7 @@ type ToastInput = {
 	description?: string;
 	action?: ToastAction;
 	durationMs?: number;
+	dismissible?: boolean;
 };
 
 export type ToastMessage = {
@@ -35,6 +36,7 @@ export type ToastMessage = {
 	description?: string;
 	action?: ToastAction;
 	durationMs: number;
+	dismissible?: boolean;
 	// True while the exit transition plays. The toast stays in the visible
 	// list (so the renderer can animate it out) and is actually removed —
 	// and the queue promoted — TOAST_EXIT_MS later.
@@ -102,7 +104,7 @@ function clearExpiryTimer( id: string ) {
 // visible — queued failures keep their full linger time.
 function scheduleExpiry( toast: ToastMessage ) {
 	clearExpiryTimer( toast.id );
-	if ( ! rendererMounted ) {
+	if ( ! rendererMounted || toast.dismissible === false ) {
 		return;
 	}
 	const timer = setTimeout( () => {
@@ -185,6 +187,7 @@ export function showToast( input: ToastInput ): string {
 		title: input.title,
 		description: input.description,
 		action: input.action,
+		dismissible: input.dismissible,
 		durationMs:
 			input.durationMs ?? ( intent === 'error' ? ERROR_TOAST_TTL_MS : DEFAULT_TOAST_TTL_MS ),
 	};
@@ -212,6 +215,7 @@ export function showToast( input: ToastInput ): string {
 }
 
 export function dismissToast( id: string ): void {
+	if ( visible.find( ( toast ) => toast.id === id )?.dismissible === false ) return;
 	beginToastExit( id );
 }
 

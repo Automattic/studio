@@ -76,7 +76,7 @@ export function annotationSubmission(
 		prompt: [
 			message,
 			formatVisualAnnotationsPrompt(
-				notes.map( ( { staged: _staged, ...note } ) => note ),
+				notes.map( ( { staged: _staged, batched: _batched, ...note } ) => note ),
 				images
 			),
 		]

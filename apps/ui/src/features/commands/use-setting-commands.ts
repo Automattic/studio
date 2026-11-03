@@ -70,16 +70,13 @@ function useSettingToggles(): SettingToggles {
 				? __( 'Automatic site start on prompt disabled.' )
 				: __( 'Automatic site start on prompt enabled.' )
 		),
-		'confirm-delete-annotations': toggle(
-			'confirmDeleteAnnotations',
-			preferences.confirmDeleteAnnotations,
-			preferences.confirmDeleteAnnotations
-				? __( 'Disable annotation deletion confirmation' )
-				: __( 'Enable annotation deletion confirmation' ),
-			preferences.confirmDeleteAnnotations
-				? __( 'Annotation deletion confirmation disabled.' )
-				: __( 'Annotation deletion confirmation enabled.' )
+		'batch-notes': toggle(
+			'batchAnnotations',
+			preferences.batchAnnotations ?? false,
+			preferences.batchAnnotations ? __( 'Disable batch notes' ) : __( 'Enable batch notes' ),
+			preferences.batchAnnotations ? __( 'Batch notes disabled.' ) : __( 'Batch notes enabled.' )
 		),
+
 		'open-chat-on-site-start': toggle(
 			'openChatOnSiteStart',
 			preferences.openChatOnSiteStart,

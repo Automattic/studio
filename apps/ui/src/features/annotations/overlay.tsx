@@ -1,26 +1,19 @@
 import { isStudioChatImageMimeType } from '@studio/agent/protocol/chat-images';
 import { getComposerAttachmentImageSrc } from '@studio/agent/protocol/composer-attachment-preview';
-import { __, _n, sprintf } from '@wordpress/i18n';
-import { isAppleOS } from '@wordpress/keycodes';
-import { PaperclipIcon, Trash2Icon } from 'lucide-react';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { __ } from '@wordpress/i18n';
+import { PaperclipIcon } from 'lucide-react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { toast } from '@/data/app-messages';
+import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useComposerAttachments, useFileDrop } from '@/data/use-composer-attachments';
-import { SendIcon } from '@/lib/icons';
+import { SendIcon, TrashIcon } from '@/lib/icons';
 import { isImeComposing } from '@/lib/keyboard';
 import {
 	AttachmentDropOverlay,
 	AttachmentRemoveButton,
-	Badge,
 	Button,
+	Checkbox,
 	IconButton,
-	AlertDialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-	Spinner,
 	Textarea,
 	Tooltip,
 	TooltipContent,
@@ -28,15 +21,13 @@ import {
 } from '@/lib/ui';
 import {
 	changeAnnotation,
-	clearAnnotations,
 	closeAnnotationEditor,
 	escapeAnnotations,
 	getSiteAnnotations,
 	hasAnnotationContent,
 	isAnnotationsBusy,
-	isStagedAnnotation,
-	removeAnnotations,
 	setAnnotationsPreparing,
+	removeAnnotations,
 	stageAnnotations,
 	useSiteAnnotations,
 	type PreviewAnnotation,
@@ -59,19 +50,12 @@ interface AnnotationOverlayProps {
 
 const EDGE = 8;
 const ANCHOR_OFFSET = 4;
-// Keeps the editor clear of the Send bar.
-const BAR_CLEARANCE = 72;
-
-/** The note editor and the Cancel / Send bar drawn over an annotated preview. */
+/** The note editor drawn over an annotated preview. */
 export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlayProps ) {
 	const annotations = useSiteAnnotations( siteId );
-	const { active, notes, editingId, sending } = annotations;
+	const { active, notes, editingId } = annotations;
 	const busy = isAnnotationsBusy( annotations );
 	const note = notes.find( ( item ) => item.id === editingId );
-	const count = notes.filter( hasAnnotationContent ).length;
-	const stagedCount = notes.filter( isStagedAnnotation ).length;
-	const [ confirming, setConfirming ] = useState( false );
-	const cancelRef = useRef< HTMLButtonElement >( null );
 
 	useEffect( () => {
 		if ( ! active ) return;
@@ -90,14 +74,6 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 		return () => document.removeEventListener( 'keydown', onKeyDown );
 	}, [ active, siteId ] );
 
-	const cancel = () => {
-		if ( count ) {
-			setConfirming( true );
-		} else {
-			clearAnnotations( siteId );
-		}
-	};
-
 	return (
 		<div className={ styles.overlay } data-annotation-overlay>
 			{ active && note && anchor ? (
@@ -106,62 +82,10 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 					siteId={ siteId }
 					note={ note }
 					anchor={ anchor }
+					busy={ busy }
 					onSend={ onSend }
 				/>
 			) : null }
-			<div
-				role="toolbar"
-				aria-label={ __( 'Annotations' ) }
-				aria-hidden={ ! active }
-				inert={ ! active }
-				data-open={ active }
-				className={ styles.bar }
-			>
-				<Button variant="ghost" disabled={ busy } onClick={ cancel }>
-					{ __( 'Cancel' ) }
-				</Button>
-				<Button
-					variant="accent"
-					aria-label={ sprintf(
-						/* translators: %d: number of annotations. */
-						_n( 'Send %d annotation', 'Send %d annotations', count ),
-						count
-					) }
-					disabled={ ! count || busy }
-					onClick={ () => onSend() }
-				>
-					{ __( 'Send' ) }
-					{ stagedCount > 0 ? (
-						<Badge variant="on-accent" size="count" className={ styles.count } aria-hidden="true">
-							{ sending ? <Spinner /> : stagedCount }
-						</Badge>
-					) : null }
-				</Button>
-			</div>
-			<AlertDialog open={ active && confirming } onOpenChange={ setConfirming }>
-				<DialogContent layout="confirmation" initialFocus={ cancelRef }>
-					<DialogHeader>
-						<DialogTitle>{ __( 'Discard all pending annotations?' ) }</DialogTitle>
-						<DialogDescription tone="default">
-							{ __( 'All edits will be removed from this page.' ) }
-						</DialogDescription>
-					</DialogHeader>
-					<DialogFooter>
-						<Button ref={ cancelRef } variant="outline" onClick={ () => setConfirming( false ) }>
-							{ __( 'Cancel' ) }
-						</Button>
-						<Button
-							variant="destructive"
-							onClick={ () => {
-								setConfirming( false );
-								clearAnnotations( siteId );
-							} }
-						>
-							{ __( 'Discard' ) }
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</AlertDialog>
 		</div>
 	);
 }
@@ -170,11 +94,13 @@ function NoteEditor( {
 	siteId,
 	note,
 	anchor,
+	busy,
 	onSend,
 }: {
 	siteId: string;
 	note: PreviewAnnotation;
 	anchor: AnnotationAnchor;
+	busy: boolean;
 	onSend: ( noteIds?: string[] ) => void;
 } ) {
 	const editorRef = useRef< HTMLDivElement | null >( null );
@@ -216,10 +142,7 @@ function NoteEditor( {
 			);
 			const top = Math.max(
 				EDGE,
-				Math.min(
-					anchor.top + ANCHOR_OFFSET,
-					container.clientHeight - editor.offsetHeight - BAR_CLEARANCE
-				)
+				Math.min( anchor.top + ANCHOR_OFFSET, container.clientHeight - editor.offsetHeight - EDGE )
 			);
 			setPosition( ( old ) => ( old.left === left && old.top === top ? old : { left, top } ) );
 		};
@@ -231,18 +154,16 @@ function NoteEditor( {
 	}, [ anchor ] );
 
 	const hasContent = hasAnnotationContent( note );
-	const submit = ( direct: boolean ) => {
-		if ( ! hasContent ) return;
-		if ( direct ) {
-			onSend( [ note.id ] );
-		} else {
-			stageAnnotations( siteId, [ note.id ] );
-		}
+	const { data: preferences } = useUserPreferences();
+	const savePreferences = useSaveUserPreferences();
+	const batchNotes = preferences?.batchAnnotations ?? false;
+	const batchCheckboxId = useId();
+	const submit = () => {
+		if ( ! hasContent || busy ) return;
+		if ( batchNotes ) stageAnnotations( siteId, [ note.id ], true );
+		else onSend( [ note.id ] );
 		closeAnnotationEditor( siteId );
 	};
-	const submitLabel = isAppleOS()
-		? __( 'Save annotation (Enter). Send annotation (⌘Enter).' )
-		: __( 'Save annotation (Enter). Send annotation (Ctrl+Enter).' );
 
 	return (
 		<div
@@ -290,7 +211,7 @@ function NoteEditor( {
 				onKeyDown={ ( event ) => {
 					if ( isImeComposing( event ) || event.key !== 'Enter' || event.shiftKey ) return;
 					event.preventDefault();
-					submit( event.metaKey || event.ctrlKey );
+					submit();
 				} }
 			/>
 			<div className={ styles.toolbar }>
@@ -304,10 +225,31 @@ function NoteEditor( {
 				<IconButton
 					size="icon"
 					shape="round"
-					icon={ <Trash2Icon /> }
+					variant="muted-ghost"
+					icon={ <TrashIcon /> }
 					label={ __( 'Delete annotation' ) }
+					disabled={ busy }
 					onClick={ () => removeAnnotations( siteId, [ note.id ] ) }
 				/>
+
+				<div className={ styles.batchSetting }>
+					<Checkbox
+						id={ batchCheckboxId }
+						checked={ batchNotes }
+						aria-label={ __( 'Batch notes' ) }
+						onCheckedChange={ ( batchAnnotations ) =>
+							savePreferences.mutate(
+								{ batchAnnotations },
+								{
+									onError: () =>
+										toast.error( __( 'Could not update settings. Please try again.' ) ),
+								}
+							)
+						}
+					/>
+					<label htmlFor={ batchCheckboxId }>{ __( 'Batch notes' ) }</label>
+				</div>
+
 				<input
 					ref={ fileInputRef }
 					type="file"
@@ -327,15 +269,21 @@ function NoteEditor( {
 								size="icon"
 								shape="round"
 								className={ styles.save }
-								aria-label={ __( 'Save annotation' ) }
-								disabled={ ! hasContent }
-								onClick={ () => submit( false ) }
+								aria-label={
+									batchNotes ? __( 'Add annotation to batch' ) : __( 'Send annotation' )
+								}
+								disabled={ ! hasContent || busy }
+								onClick={ submit }
 							/>
 						}
 					>
 						<SendIcon />
 					</TooltipTrigger>
-					<TooltipContent>{ submitLabel }</TooltipContent>
+					<TooltipContent>
+						{ batchNotes
+							? __( 'Add annotation to batch (Enter)' )
+							: __( 'Send annotation (Enter)' ) }
+					</TooltipContent>
 				</Tooltip>
 			</div>
 		</div>

@@ -4,7 +4,6 @@ import { renderWithProviders } from '@/test/render';
 import { AnnotationOverlay } from './overlay';
 import {
 	changeAnnotation,
-	clearAnnotations,
 	editAnnotation,
 	escapeAnnotations,
 	getSiteAnnotations,
@@ -22,7 +21,10 @@ const SITE = 'site-1';
 const target = { selector: 'h1', tag: 'h1', path: '/' };
 
 afterEach( () => {
-	clearAnnotations( SITE );
+	removeAnnotations(
+		SITE,
+		getSiteAnnotations( SITE ).notes.map( ( note ) => note.id )
+	);
 	setAnnotating( SITE, false );
 	setAnnotationsPreparing( SITE, false );
 } );
@@ -55,33 +57,92 @@ const note = () => screen.getByRole( 'textbox', { name: 'Leave a note' } );
 const save = () => fireEvent.keyDown( note(), { key: 'Enter' } );
 
 describe( 'preview annotation sessions', () => {
-	it( 'stages the saved note without sending or leaving annotation mode', async () => {
+	it( 'deletes only the edited note and keeps annotation mode and other notes', async () => {
 		const { onSend } = await setup();
-		const id = add( 'Ready for the composer' );
-		expect( stagedCount() ).toBe( 0 );
-		save();
-		expect( onSend ).not.toHaveBeenCalled();
+		const kept = add( 'Keep this note' );
+		const deleted = add( 'Delete this note' );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Delete annotation' } ) );
+		expect( session().notes.map( ( note ) => note.id ) ).toEqual( [ kept ] );
+		expect( session().notes.some( ( note ) => note.id === deleted ) ).toBe( false );
 		expect( session().editingId ).toBeNull();
 		expect( session().active ).toBe( true );
-		expect( count() ).toBe( 1 );
-		expect( stagedCount() ).toBe( 1 );
-		act( () => removeAnnotations( SITE, [ id ] ) );
-		expect( count() ).toBe( 0 );
+		expect( screen.queryByRole( 'textbox', { name: 'Leave a note' } ) ).not.toBeInTheDocument();
+		expect( onSend ).not.toHaveBeenCalled();
+	} );
+
+	it( 'sends the open note with Enter and keeps annotation mode active', async () => {
+		const { onSend } = await setup();
+		const id = add( 'Make the heading smaller' );
+		save();
+		expect( onSend ).toHaveBeenCalledExactlyOnceWith( [ id ] );
+		expect( session().editingId ).toBeNull();
+		expect( session().active ).toBe( true );
 		expect( stagedCount() ).toBe( 0 );
 	} );
 
-	it( 'counts a staged note once while preserving the count through editing', async () => {
-		await setup();
-		const id = add( 'Staged note' );
+	it( 'sends only the current note without including another draft', async () => {
+		const { onSend } = await setup();
+		add( 'Another draft' );
+		const id = add( 'Send this one' );
 		save();
-		add( 'Unstaged draft' );
+		expect( onSend ).toHaveBeenCalledExactlyOnceWith( [ id ] );
+		expect( session().notes ).toHaveLength( 2 );
+	} );
+
+	it( 'batches only when enabled and returns to immediate sends without clearing the batch', async () => {
+		const { onSend } = await setup();
+		const first = add( 'Save this for later' );
+		const toggle = screen.getByRole( 'checkbox', { name: 'Batch notes' } );
+		expect( toggle ).not.toBeChecked();
+		fireEvent.click( toggle );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Add annotation to batch' } ) );
+		expect( onSend ).not.toHaveBeenCalled();
+		expect( session().notes.find( ( note ) => note.id === first )?.staged ).toBe( true );
+		act( () => setAnnotating( SITE, false ) );
+		act( () => setAnnotating( SITE, true ) );
+		const second = add( 'Send this now' );
+		expect( screen.getByRole( 'checkbox', { name: 'Batch notes' } ) ).toBeChecked();
+		fireEvent.click( screen.getByRole( 'checkbox', { name: 'Batch notes' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Send annotation' } ) );
+		expect( onSend ).toHaveBeenCalledExactlyOnceWith( [ second ] );
 		expect( stagedCount() ).toBe( 1 );
-		act( () => editAnnotation( SITE, id ) );
-		act( () => changeAnnotation( SITE, id, { comment: 'Updated note' } ) );
-		save();
-		expect( stagedCount() ).toBe( 1 );
-		act( () => removeAnnotations( SITE, [ id ] ) );
-		expect( stagedCount() ).toBe( 0 );
+	} );
+
+	it( 'shares the persisted batching checkbox across sites', async () => {
+		const other = 'global-batch-other';
+		act( () => {
+			setAnnotating( SITE, true );
+			setAnnotating( other, true );
+		} );
+		add( 'First site', SITE );
+		add( 'Second site', other );
+		const { connector } = renderWithProviders(
+			<>
+				<AnnotationOverlay siteId={ SITE } anchor={ { left: 10, top: 10 } } onSend={ vi.fn() } />
+				<AnnotationOverlay siteId={ other } anchor={ { left: 10, top: 100 } } onSend={ vi.fn() } />
+			</>
+		);
+		try {
+			const checkboxes = await screen.findAllByRole( 'checkbox', { name: 'Batch notes' } );
+			fireEvent.click( checkboxes[ 0 ] );
+			await waitFor( () => checkboxes.forEach( ( control ) => expect( control ).toBeChecked() ) );
+			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+				{ batchAnnotations: true },
+				undefined
+			);
+			fireEvent.click( checkboxes[ 1 ] );
+			await waitFor( () =>
+				checkboxes.forEach( ( control ) => expect( control ).not.toBeChecked() )
+			);
+		} finally {
+			act( () => {
+				removeAnnotations(
+					other,
+					getSiteAnnotations( other ).notes.map( ( note ) => note.id )
+				);
+				setAnnotating( other, false );
+			} );
+		}
 	} );
 
 	it( 'removes a saved attachment after its note is emptied and dismissed', async () => {
@@ -115,7 +176,8 @@ describe( 'preview annotation sessions', () => {
 		act( () => escapeAnnotations( SITE ) );
 		expect( session().notes ).toEqual( [ expect.objectContaining( { id: first, number: 1 } ) ] );
 		expect( session().editingId ).toBeNull();
-		expect( session().active ).toBe( true );
+		expect( session().active ).toBe( false );
+		act( () => setAnnotating( SITE, true ) );
 		add( '' );
 		expect( session().notes.at( -1 )?.number ).toBe( 2 );
 	} );
@@ -156,17 +218,16 @@ describe( 'preview annotation sessions', () => {
 		expect( session().notes[ 0 ].id ).toBe( id );
 	} );
 
-	it( 'stages the open note from its button and sends it only from the annotation bar', async () => {
+	it( 'sends the open note from its button without rendering a batch send action', async () => {
 		const { onSend } = await setup();
 		const id = add( 'Make this heading larger' );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Save annotation' } ) );
-		expect( onSend ).not.toHaveBeenCalled();
-		expect( stagedCount() ).toBe( 1 );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send annotation' } ) );
+		expect( onSend ).toHaveBeenCalledExactlyOnceWith( [ id ] );
+		expect( stagedCount() ).toBe( 0 );
 		expect( session().notes[ 0 ].id ).toBe( id );
 		expect( session().active ).toBe( true );
 		expect( session().editingId ).toBeNull();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Send 1 annotation' } ) );
-		expect( onSend ).toHaveBeenCalledTimes( 1 );
+		expect( screen.queryByRole( 'button', { name: 'Send 1 annotation' } ) ).not.toBeInTheDocument();
 	} );
 
 	it.each( [ 'metaKey', 'ctrlKey' ] )(
@@ -183,13 +244,16 @@ describe( 'preview annotation sessions', () => {
 	);
 
 	it( 'ignores empty notes and blocks sends during attachment preparation', async () => {
-		await setup();
+		const { onSend } = await setup();
 		add( '   ' );
-		expect( screen.getByRole( 'button', { name: /^Send \d+ annotation/ } ) ).toBeDisabled();
+		expect( screen.getByRole( 'button', { name: 'Send annotation' } ) ).toBeDisabled();
 		add( 'Image coming' );
-		expect( screen.getByRole( 'button', { name: 'Send 1 annotation' } ) ).toBeEnabled();
+		expect( screen.getByRole( 'button', { name: 'Send annotation' } ) ).toBeEnabled();
 		act( () => setAnnotationsPreparing( SITE, true ) );
-		expect( screen.getByRole( 'button', { name: 'Send 1 annotation' } ) ).toBeDisabled();
+		expect( screen.getByRole( 'button', { name: 'Send annotation' } ) ).toBeDisabled();
+		fireEvent.keyDown( note(), { key: 'Enter', ctrlKey: true } );
+		expect( onSend ).not.toHaveBeenCalled();
+		expect( session().editingId ).not.toBeNull();
 	} );
 
 	it( 'prevents duplicate submissions while acceptance is pending', async () => {
@@ -203,11 +267,12 @@ describe( 'preview annotation sessions', () => {
 		const unsubscribe = subscribeAnnotationSend( SITE, accept );
 		try {
 			await setup( ( noteIds?: string[] ) => requestAnnotationSend( { siteId: SITE, noteIds } ) );
-			add( 'Once' );
-			const send = screen.getByRole( 'button', { name: 'Send 1 annotation' } );
-			fireEvent.click( send );
-			expect( send ).toBeDisabled();
-			fireEvent.click( send );
+			const id = add( 'Once' );
+			fireEvent.keyDown( note(), { key: 'Enter', ctrlKey: true } );
+			expect( session().sending ).toBe( true );
+			act( () => editAnnotation( SITE, id ) );
+			expect( screen.getByRole( 'button', { name: 'Send annotation' } ) ).toBeDisabled();
+			fireEvent.keyDown( note(), { key: 'Enter', ctrlKey: true } );
 			expect( accept ).toHaveBeenCalledTimes( 1 );
 			await act( async () => resolve() );
 			await waitFor( () => expect( session().sending ).toBe( false ) );

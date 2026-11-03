@@ -1,51 +1,184 @@
-import { __ } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
+import { useRef, useState } from 'react';
 import { AnnotateHint } from '@/features/onboarding';
-import { AnnotateIcon } from '@/lib/icons';
-import { Button } from '@/lib/ui';
-import styles from './style.module.css';
+import { AnnotateIcon, ChevronDownIcon, TrashIcon } from '@/lib/icons';
+import { Button, IconButton, Popover } from '@/lib/ui';
+import styles from './annotation-batch.module.css';
+import type { PreviewAnnotation } from '@/features/annotations';
+
+interface AnnotationBatch {
+	notes: PreviewAnnotation[];
+	busy: boolean;
+	onSend: () => void;
+	onReview: () => boolean;
+	onEdit: ( id: string ) => void;
+	onClear: () => void;
+	onDelete: ( id: string ) => void;
+}
 
 export function AnnotateButton( {
 	active,
 	disabled,
 	disabledReason,
-	iconOnly,
 	onClick,
+	batch,
 }: {
 	active: boolean;
 	disabled: boolean;
 	disabledReason?: string;
-	iconOnly: boolean;
 	onClick: () => void;
+	batch?: AnnotationBatch;
 } ) {
-	return (
-		<span
-			className={ styles.disabledControlTooltipTarget }
-			title={ disabled ? disabledReason : undefined }
+	const [ open, setOpen ] = useState( false );
+	const editingNote = useRef( false );
+	const firstNote = useRef< HTMLButtonElement >( null );
+	const modeButton = useRef< HTMLButtonElement >( null );
+	const notes = batch?.notes ?? [];
+
+	const toggle = (
+		<AnnotateHint
+			enabled={ ! disabled && ! active && ! notes.length }
+			tooltip={ disabledReason ?? ( active ? __( 'Exit annotation mode' ) : __( 'Annotate' ) ) }
 		>
-			<AnnotateHint
-				enabled={ ! disabled && ! active }
-				tooltip={ disabledReason ?? ( active ? __( 'Exit annotation mode' ) : __( 'Annotate' ) ) }
-			>
-				<Button
-					variant="accent-ghost"
-					size={ iconOnly ? 'icon' : 'default' }
-					className={ styles.annotateButton }
-					aria-label={ __( 'Annotate' ) }
-					aria-pressed={ active }
-					aria-description={
-						disabled
-							? disabledReason
-							: active
-							? __( 'Exit annotation mode. Your notes will be kept.' )
-							: undefined
-					}
-					disabled={ disabled }
-					onClick={ onClick }
-				>
-					<AnnotateIcon data-icon={ iconOnly ? undefined : 'inline-start' } />
-					{ iconOnly ? null : <span>{ __( 'Annotate' ) }</span> }
-				</Button>
-			</AnnotateHint>
+			<IconButton
+				ref={ modeButton }
+				tooltip={ false }
+				variant="accent-ghost"
+				size="icon-sm"
+				icon={ <AnnotateIcon /> }
+				label={ disabledReason ?? ( active ? __( 'Exit annotation mode' ) : __( 'Annotate' ) ) }
+				aria-label={ __( 'Annotate' ) }
+				aria-pressed={ active }
+				aria-description={
+					disabled
+						? disabledReason
+						: active
+						? __( 'Exit annotation mode. Your notes will be kept.' )
+						: undefined
+				}
+				disabled={ disabled }
+				focusableWhenDisabled={ false }
+				tooltipSide="bottom"
+				onClick={ onClick }
+			/>
+		</AnnotateHint>
+	);
+	return (
+		<span className={ styles.controls }>
+			{ toggle }
+			{ batch && notes.length ? (
+				<span className={ styles.batch }>
+					<Button
+						variant="accent"
+						size="sm"
+						className={ styles.send }
+						disabled={ batch.busy }
+						loading={ batch.busy }
+						onClick={ batch.onSend }
+						aria-label={ sprintf(
+							_n( 'Send %d annotation', 'Send %d annotations', notes.length ),
+							notes.length
+						) }
+					>
+						<span className={ styles.count } aria-hidden="true">
+							{ notes.length }
+						</span>
+						{ __( 'Send' ) }
+					</Button>
+					<Popover.Root
+						open={ open }
+						onOpenChange={ ( next ) => {
+							if ( next && ! batch.onReview() ) return;
+							setOpen( next );
+						} }
+					>
+						<Popover.Trigger
+							render={
+								<IconButton
+									variant="accent"
+									size="icon-2xs"
+									className={ styles.review }
+									icon={ <ChevronDownIcon /> }
+									label={ __( 'Review annotations' ) }
+									disabled={ batch.busy }
+									tooltipSide="bottom"
+								/>
+							}
+						/>
+						<Popover.Popup
+							align="end"
+							initialFocus={ firstNote }
+							className={ styles.popup }
+							aria-label={ __( 'Batched annotations' ) }
+							finalFocus={ () => {
+								if ( editingNote.current ) {
+									editingNote.current = false;
+									return false;
+								}
+							} }
+						>
+							<div className={ styles.heading }>
+								<Popover.Title>
+									{ sprintf( _n( '%d annotation', '%d annotations', notes.length ), notes.length ) }
+								</Popover.Title>
+								<Button
+									variant="ghost"
+									size="sm"
+									disabled={ batch.busy }
+									onClick={ () => {
+										setOpen( false );
+										batch.onClear();
+										requestAnimationFrame( () => modeButton.current?.focus() );
+									} }
+								>
+									{ __( 'Clear all' ) }
+								</Button>
+							</div>
+							<ul className={ styles.notes }>
+								{ notes.map( ( note ) => (
+									<li key={ note.id } className={ styles.row }>
+										<Button
+											variant="ghost"
+											size="sm"
+											className={ styles.note }
+											ref={ note.id === notes[ 0 ]?.id ? firstNote : undefined }
+											aria-label={ sprintf(
+												__( 'Edit annotation %d: %s' ),
+												note.number,
+												note.comment || __( 'Image annotation' )
+											) }
+											onClick={ () => {
+												editingNote.current = true;
+												setOpen( false );
+												batch.onEdit( note.id );
+											} }
+										>
+											<span className={ styles.number }>{ note.number }</span>
+											<span className={ styles.label }>
+												{ note.comment || __( 'Image annotation' ) }
+											</span>
+										</Button>
+										<IconButton
+											variant="muted-ghost"
+											size="icon-2xs"
+											icon={ <TrashIcon /> }
+											label={ sprintf( __( 'Delete annotation %d' ), note.number ) }
+											disabled={ batch.busy }
+											onClick={ () => {
+												if ( notes.length === 1 ) setOpen( false );
+												batch.onDelete( note.id );
+												requestAnimationFrame(
+													() => ( firstNote.current ?? modeButton.current )?.focus()
+												);
+											} }
+										/>
+									</li>
+								) ) }
+							</ul>
+						</Popover.Popup>
+					</Popover.Root>
+				</span>
+			) : null }
 		</span>
 	);
 }

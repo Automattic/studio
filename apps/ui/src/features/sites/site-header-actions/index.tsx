@@ -6,7 +6,7 @@ import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
 import { useIsSiteBusy, useStartSite } from '@/data/queries/use-sites';
 import { requestHeaderPanel } from '@/data/use-open-header-panel';
 import { useSessionPreviewUI } from '@/data/use-session-ui';
-import { setAnnotating } from '@/features/annotations';
+import { isBatchedAnnotation, useSiteAnnotations, setAnnotating } from '@/features/annotations';
 import { ShareStatusIcon, useShareStatus } from '@/features/sharing';
 import { ShareButton, PublishButton, SiteDeliveryDialog } from '@/features/site-delivery';
 import { SiteRunMenuItem } from '@/features/sites/site-run-button/site-run-menu-item';
@@ -191,6 +191,7 @@ export function SiteHeaderActions( {
 	onStartAnnotating?: () => boolean;
 } ) {
 	const connector = useConnector();
+	const annotations = useSiteAnnotations( site.id );
 	const startSite = useStartSite();
 	const isBusy = useIsSiteBusy( site );
 	const preview = useSessionPreviewUI();
@@ -220,7 +221,6 @@ export function SiteHeaderActions( {
 				{ host === 'chat' && ! site.running && ! live ? (
 					<AnnotateButton
 						active={ false }
-						iconOnly={ overflow }
 						disabled={ isBusy || ! connector.capabilities.annotatePreview }
 						disabledReason={
 							! connector.capabilities.annotatePreview
@@ -236,7 +236,10 @@ export function SiteHeaderActions( {
 					/>
 				) : null }
 				<span data-site-header-publish className={ styles.publish }>
-					<PublishButton site={ site } />
+					<PublishButton
+						site={ site }
+						variant={ annotations.notes.some( isBatchedAnnotation ) ? 'outline' : 'accent' }
+					/>
 				</span>
 				<span data-site-header-trailing className={ styles.item }>
 					<span hidden={ overflow }>

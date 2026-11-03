@@ -53,7 +53,7 @@ export const INTERFACE_PREFERENCE_DEFAULTS = {
 	quitSitesBehavior: null,
 	autoStartSiteOnChat: false,
 	openChatOnSiteStart: true,
-	confirmDeleteAnnotations: true,
+	batchAnnotations: false,
 	showRecentChats: true,
 	autoCollapseSites: true,
 	sidebarPinnedSort: 'type',

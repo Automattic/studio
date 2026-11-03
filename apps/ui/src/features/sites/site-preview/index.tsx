@@ -21,6 +21,9 @@ import {
 import { useResponsivePreview, updateResponsivePreview } from '@/data/responsive-preview';
 import {
 	AnnotationOverlay,
+	isBatchedAnnotation,
+	removeAnnotations,
+	editAnnotation,
 	type AnnotationAnchor,
 	isAnnotationsBusy,
 	setAnnotating,
@@ -282,8 +285,33 @@ export function SitePreview( {
 						updateResponsivePreview( site.id, { enabled: ! responsiveSettings.enabled } ),
 			  }
 			: undefined;
+	const batchNotes = annotations.notes.filter( isBatchedAnnotation );
+	const reviewBatch = () => {
+		if ( onStartAnnotating?.() === false ) return false;
+		setAnnotating( site.id, true );
+		return true;
+	};
 	const annotate = showAnnotate
 		? {
+				batch: {
+					notes: batchNotes,
+					busy: isAnnotationsBusy( annotations ) || ! onSendAnnotations,
+					onSend: () => sendAnnotations( batchNotes.map( ( note ) => note.id ) ),
+					onReview: reviewBatch,
+					onEdit: ( id: string ) => {
+						const note = batchNotes.find( ( note ) => note.id === id );
+						if ( ! note ) return;
+						if ( note.path === 'DESIGN.md' ) switchRealm( 'design' );
+						else if ( note.path ) onPathChange?.( note.path );
+						editAnnotation( site.id, id );
+					},
+					onDelete: ( id: string ) => removeAnnotations( site.id, [ id ] ),
+					onClear: () =>
+						removeAnnotations(
+							site.id,
+							batchNotes.map( ( note ) => note.id )
+						),
+				},
 				active: annotations.active,
 				disabled:
 					! canAnnotateSurface ||

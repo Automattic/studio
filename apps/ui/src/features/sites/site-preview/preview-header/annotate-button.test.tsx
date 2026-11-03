@@ -13,13 +13,7 @@ async function setup(
 ) {
 	const onClick = vi.fn();
 	const view = renderWithProviders(
-		<AnnotateButton
-			active={ false }
-			disabled={ false }
-			iconOnly={ false }
-			onClick={ onClick }
-			{ ...props }
-		/>,
+		<AnnotateButton active={ false } disabled={ false } onClick={ onClick } { ...props } />,
 		{ connector }
 	);
 	await waitFor( () => expect( connector.getOnboardingHints ).toHaveBeenCalled() );
@@ -60,12 +54,7 @@ describe( 'Annotate first-use helper', () => {
 					>
 						Open guide
 					</Button>
-					<AnnotateButton
-						active={ false }
-						disabled={ false }
-						iconOnly={ false }
-						onClick={ vi.fn() }
-					/>
+					<AnnotateButton active={ false } disabled={ false } onClick={ vi.fn() } />
 				</>
 			);
 		}
@@ -131,13 +120,13 @@ describe( 'Annotate first-use helper', () => {
 		}
 	);
 
-	it( 'honors saved dismissal on a fresh mount, including icon-only buttons', async () => {
+	it( 'honors saved dismissal on a fresh mount', async () => {
 		const connector = createFakeConnector(
 			{},
 			{ getOnboardingHints: async () => ( { annotateHintDismissed: true } ) }
 		);
 		const { user } = renderWithProviders(
-			<AnnotateButton active={ false } disabled={ false } iconOnly onClick={ vi.fn() } />,
+			<AnnotateButton active={ false } disabled={ false } onClick={ vi.fn() } />,
 			{ connector }
 		);
 		await waitFor( () => expect( connector.getOnboardingHints ).toHaveBeenCalled() );
@@ -147,5 +136,32 @@ describe( 'Annotate first-use helper', () => {
 			await screen.findByText( 'Annotate', { selector: '[data-slot="tooltip-content"]' } )
 		).toBeVisible();
 		expect( screen.queryByRole( 'dialog', { name: 'Try Annotate' } ) ).not.toBeInTheDocument();
+	} );
+} );
+
+describe( 'batched annotation controls', () => {
+	it( 'keeps the mode toggle available and deletes a note without editing it', async () => {
+		const batch = {
+			notes: [ { id: 'one', number: 1, comment: 'Soften the blue', images: [] } ],
+			busy: false,
+			onSend: vi.fn(),
+			onReview: vi.fn( () => true ),
+			onEdit: vi.fn(),
+			onClear: vi.fn(),
+			onDelete: vi.fn(),
+		};
+		const { user, button, onClick } = await setup( { active: true, batch } );
+		expect( button ).toHaveAttribute( 'aria-pressed', 'true' );
+		await user.click( button );
+		expect( onClick ).toHaveBeenCalledOnce();
+		expect( screen.getByRole( 'button', { name: 'Send 1 annotation' } ) ).toBeVisible();
+		await user.click( screen.getByRole( 'button', { name: 'Send 1 annotation' } ) );
+		expect( batch.onSend ).toHaveBeenCalledOnce();
+		expect( batch.onReview ).not.toHaveBeenCalled();
+		await user.click( screen.getByRole( 'button', { name: 'Review annotations' } ) );
+		await user.click( await screen.findByRole( 'button', { name: 'Delete annotation 1' } ) );
+		expect( batch.onDelete ).toHaveBeenCalledExactlyOnceWith( 'one' );
+		expect( batch.onEdit ).not.toHaveBeenCalled();
+		expect( batch.onSend ).toHaveBeenCalledOnce();
 	} );
 } );

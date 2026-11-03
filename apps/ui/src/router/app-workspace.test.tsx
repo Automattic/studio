@@ -6,6 +6,7 @@ import { SITE_CHAT_HIDDEN_STORAGE_KEY } from '@/data/resizable-panels';
 import { setCommandPaletteOpen } from '@/data/use-command-palette';
 import {
 	changeAnnotation,
+	stageAnnotations,
 	removeAnnotations,
 	getSiteAnnotations,
 	pickAnnotation,
@@ -127,11 +128,12 @@ describe( 'Studio workspace', () => {
 			path: '/sites/one',
 			sites: [ site( { running: true } ) ],
 		} );
-		await screen.findByRole( 'toolbar', { hidden: true } );
+		await screen.findByRole( 'button', { name: 'Site menu' } );
 		act( () => {
 			setAnnotating( 'one', true );
 			const id = pickAnnotation( 'one', { selector: 'h1', tag: 'h1', path: '/' } )!;
 			changeAnnotation( 'one', id, { comment: 'Make this heading larger' } );
+			stageAnnotations( 'one', [ id ], true );
 		} );
 		try {
 			fireEvent.click( screen.getByRole( 'button', { name: 'Send 1 annotation' } ) );

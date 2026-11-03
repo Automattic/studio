@@ -12,6 +12,7 @@ export interface PreviewAnnotation extends VisualAnnotation {
 	images: ComposerImageAttachment[];
 	// Saved to the chat draft, so the composer sends it with the next message.
 	staged?: boolean;
+	batched?: boolean;
 }
 
 export interface SiteAnnotations {
@@ -42,6 +43,10 @@ export function getSiteAnnotations( siteId: string | undefined ): SiteAnnotation
 
 export function isStagedAnnotation( note: PreviewAnnotation ) {
 	return Boolean( note.staged ) && hasAnnotationContent( note );
+}
+
+export function isBatchedAnnotation( note: PreviewAnnotation ) {
+	return Boolean( note.batched ) && isStagedAnnotation( note );
 }
 
 export function getStagedAnnotations( siteId: string | undefined ) {
@@ -77,6 +82,7 @@ export function setAnnotating( siteId: string, active: boolean ) {
 		current.active === active
 			? current
 			: {
+					...current,
 					active,
 					notes: active ? current.notes : withoutEmpty( current.notes ),
 					editingId: active ? current.editingId : null,
@@ -146,26 +152,21 @@ export function closeAnnotationEditor( siteId: string ) {
 	);
 }
 
-// With a note open, Escape closes it; otherwise it leaves annotation mode and
-// keeps the notes.
+// Escape leaves annotation mode and keeps notes that have content.
 export function escapeAnnotations( siteId: string ) {
 	const current = getSiteAnnotations( siteId );
 	if ( isAnnotationsBusy( current ) ) {
 		return;
 	}
-	if ( current.editingId ) {
-		closeAnnotationEditor( siteId );
-	} else {
-		setAnnotating( siteId, false );
-	}
+	setAnnotating( siteId, false );
 }
 
-export function stageAnnotations( siteId: string, ids?: string[] ) {
+export function stageAnnotations( siteId: string, ids?: string[], batch = false ) {
 	update( siteId, ( current ) => ( {
 		...current,
 		notes: current.notes.map( ( note ) =>
 			hasAnnotationContent( note ) && ( ! ids || ids.includes( note.id ) )
-				? { ...note, staged: true }
+				? { ...note, staged: true, ...( batch ? { batched: true } : {} ) }
 				: note
 		),
 	} ) );
@@ -177,15 +178,6 @@ export function removeAnnotations( siteId: string, ids: string[] ) {
 		notes: current.notes.filter( ( note ) => ! ids.includes( note.id ) ),
 		editingId: current.editingId && ids.includes( current.editingId ) ? null : current.editingId,
 	} ) );
-}
-
-// Cancel: deletes every note and leaves annotation mode.
-export function clearAnnotations( siteId: string ) {
-	update( siteId, ( current ) =>
-		current.active || current.notes.length
-			? { ...current, active: false, notes: [], editingId: null }
-			: current
-	);
 }
 
 type AnnotationSendRequest = { siteId: string; noteIds?: string[] };

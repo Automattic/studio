@@ -356,6 +356,7 @@ export function createInMemoryConnector(
 		onSetPreviewLayout: subscribe( 'onSetPreviewLayout' ),
 		onToggleSidebar: subscribe( 'onToggleSidebar' ),
 		onAddSite: subscribe( 'onAddSite' ),
+		onOpenSite: subscribe( 'onOpenSite' ),
 		onAddSiteWithBlueprint: subscribe( 'onAddSiteWithBlueprint' ),
 		readyForDeeplinks: () => {},
 		onOpenSettings: subscribe( 'onOpenSettings' ),
@@ -369,6 +370,7 @@ export function createInMemoryConnector(
 		onShowWhatsNew: subscribe( 'onShowWhatsNew' ),
 		getAppUpdateStatus: async () => ( { state: 'idle', currentVersion: null } ),
 		installAppUpdate: async () => {},
+		checkForAppUpdates: async () => {},
 		onAppUpdateStatusChanged: subscribe( 'onAppUpdateStatusChanged' ),
 		onAppUpdateNotAvailable: subscribe( 'onAppUpdateNotAvailable' ),
 	};

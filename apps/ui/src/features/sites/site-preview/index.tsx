@@ -30,7 +30,12 @@ import { useSiteHeader } from '@/features/sites/site-header-actions';
 import { SiteToolLauncher, useSiteToolActions } from '@/features/sites/site-tools';
 import { SiteContextMenu } from '@/features/sites/stopped-site-preview';
 import { VisuallyHidden } from '@/lib/ui';
-import { getPathFromPreviewUrl, getRealmNavigationPath, getRealmOpenEvent } from './address-bar';
+import {
+	EMAIL_PREVIEW_PATH,
+	getPathFromPreviewUrl,
+	getRealmNavigationPath,
+	getRealmOpenEvent,
+} from './address-bar';
 import { EMPTY_BROWSER_STATE, type BrowserNavigationState } from './browser-state';
 import { PreviewHeader } from './preview-header';
 import { AnnotateButton } from './preview-header/annotate-button';
@@ -374,7 +379,10 @@ function SitePreviewContent( {
 									const note = batchNotes.find( ( note ) => note.id === id );
 									if ( ! note ) return;
 									setAnnotationAnchor( null );
-									if ( note.targetKey && note.path === 'DESIGN.md' ) {
+									if ( note.email ) {
+										if ( onReviewPath ) onReviewPath( EMAIL_PREVIEW_PATH );
+										else switchRealm( 'email' );
+									} else if ( note.targetKey && note.path === 'DESIGN.md' ) {
 										if ( onReviewPath ) onReviewPath( DESIGN_SYSTEM_PREVIEW_PATH );
 										else switchRealm( 'design' );
 									} else if ( note.path ) ( onReviewPath ?? onPathChange )?.( note.path );

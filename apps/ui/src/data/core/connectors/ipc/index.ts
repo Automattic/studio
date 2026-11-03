@@ -890,6 +890,12 @@ export function createIpcConnector(): Connector {
 			);
 		},
 
+		onOpenSite( listener ) {
+			return ipcListener.subscribe( 'open-site', ( _event: unknown, payload: { siteId: string } ) =>
+				listener( payload )
+			);
+		},
+
 		onOpenSettings( listener ) {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
@@ -928,6 +934,10 @@ export function createIpcConnector(): Connector {
 
 		async installAppUpdate(): Promise< void > {
 			await ipcApi.installAppUpdate();
+		},
+
+		async checkForAppUpdates(): Promise< void > {
+			await ipcApi.checkForAppUpdates();
 		},
 
 		onAppUpdateStatusChanged( listener ) {

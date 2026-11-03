@@ -9,6 +9,7 @@ import type { WorkspaceLayout } from '@studio/common/types/workspace-layout';
 
 export interface IpcEvents {
 	'add-site': [ void ];
+	'open-site': [ { siteId: string } ];
 	'add-site-with-blueprint': [
 		{
 			blueprintPath: string;

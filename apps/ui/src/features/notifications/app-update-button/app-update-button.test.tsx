@@ -23,27 +23,101 @@ function setup( status: AppUpdateStatus ) {
 }
 
 describe( 'AppUpdateButton', () => {
-	it.each< AppUpdateStatus >( [
-		{ state: 'idle', currentVersion: '2.0.0' },
-		{ state: 'checking', currentVersion: '2.0.0' },
-		{ state: 'downloading', currentVersion: '2.0.0', newVersion: '2.1.0' },
-		{ state: 'error', currentVersion: '2.0.0', reason: 'generic' },
-	] )( 'stays hidden while the updater is $state', async ( status ) => {
-		const { connector, queryClient } = setup( status );
-		await waitFor( () => expect( connector.getAppUpdateStatus ).toHaveBeenCalled() );
+	it.each< AppUpdateStatus >( [ { state: 'idle', currentVersion: '2.0.0' } ] )(
+		'stays hidden while the updater is $state',
+		async ( status ) => {
+			const { connector, queryClient } = setup( status );
+			await waitFor( () => expect( connector.getAppUpdateStatus ).toHaveBeenCalled() );
+			await waitFor( () =>
+				expect( queryClient.getQueryState( [ 'app-update-status' ] )?.status ).toBe( 'success' )
+			);
+			expect(
+				screen.queryByRole( 'button', { name: 'Update available' } )
+			).not.toBeInTheDocument();
+		}
+	);
+
+	it( 'keeps retry available after dismissing an error and follows the next download', async () => {
+		const { user, connector } = setup( {
+			state: 'error',
+			currentVersion: '2.0.0',
+			reason: 'generic',
+		} );
+		await screen.findByText( 'Couldn’t update Studio' );
+		await user.click( screen.getByRole( 'button', { name: 'Dismiss Couldn’t update Studio' } ) );
 		await waitFor( () =>
-			expect( queryClient.getQueryState( [ 'app-update-status' ] )?.status ).toBe( 'success' )
+			expect( screen.queryByText( 'Couldn’t update Studio' ) ).not.toBeInTheDocument()
 		);
-		expect( screen.queryByRole( 'button', { name: 'Update available' } ) ).not.toBeInTheDocument();
+		connector.checkForAppUpdates.mockImplementation( async () => {
+			connector.emit( 'onAppUpdateStatusChanged', { state: 'checking', currentVersion: '2.0.0' } );
+		} );
+		await user.click( screen.getByRole( 'button', { name: 'Try again' } ) );
+		expect( connector.checkForAppUpdates ).toHaveBeenCalledOnce();
+		expect( connector.installAppUpdate ).not.toHaveBeenCalled();
+		expect(
+			await screen.findByRole( 'button', { name: 'Checking for updates…' } )
+		).toHaveAttribute( 'aria-disabled', 'true' );
+		await act( () =>
+			connector.emit( 'onAppUpdateStatusChanged', { ...ready, state: 'downloading' } )
+		);
+		const downloading = await screen.findByRole( 'button', { name: 'Downloading update…' } );
+		expect( downloading ).toHaveAttribute( 'aria-disabled', 'true' );
+		await user.click( downloading );
+		expect( connector.checkForAppUpdates ).toHaveBeenCalledOnce();
+		expect( connector.installAppUpdate ).not.toHaveBeenCalled();
+		await act( () => connector.emit( 'onAppUpdateStatusChanged', ready ) );
+		expect( await screen.findByRole( 'button', { name: 'Restart to update' } ) ).toBeEnabled();
+	} );
+
+	it( 'offers another retry when a new download fails', async () => {
+		const { user, connector } = setup( {
+			state: 'error',
+			currentVersion: '2.0.0',
+			reason: 'generic',
+		} );
+		await screen.findByText( 'Couldn’t update Studio' );
+		await user.click( screen.getByRole( 'button', { name: 'Dismiss Couldn’t update Studio' } ) );
+		await waitFor( () =>
+			expect( screen.queryByText( 'Couldn’t update Studio' ) ).not.toBeInTheDocument()
+		);
+		await user.click( screen.getByRole( 'button', { name: 'Try again' } ) );
+		await act( () =>
+			connector.emit( 'onAppUpdateStatusChanged', { ...ready, state: 'downloading' } )
+		);
+		await act( () =>
+			connector.emit( 'onAppUpdateStatusChanged', {
+				state: 'error',
+				currentVersion: '2.0.0',
+				reason: 'generic',
+			} )
+		);
+		expect( await screen.findByText( 'Couldn’t update Studio' ) ).toBeVisible();
+		expect( screen.getAllByRole( 'button', { name: 'Try again' } ) ).toHaveLength( 2 );
+	} );
+
+	it( 'keeps retry available when starting a new check fails', async () => {
+		const { user, connector } = setup( {
+			state: 'error',
+			currentVersion: '2.0.0',
+			reason: 'generic',
+		} );
+		connector.checkForAppUpdates.mockRejectedValueOnce(
+			new Error( 'Could not start the update check.' )
+		);
+		const retryButtons = await screen.findAllByRole( 'button', { name: 'Try again' } );
+		await user.click( retryButtons[ 0 ] );
+		expect( await screen.findByText( 'Could not start the update check.' ) ).toBeVisible();
+		await user.click( screen.getByRole( 'button', { name: 'Try again' } ) );
+		expect( connector.checkForAppUpdates ).toHaveBeenCalledTimes( 2 );
 	} );
 
 	it( 'appears when a download finishes and installs directly on click', async () => {
 		const { user, connector } = setup( { state: 'idle', currentVersion: '2.0.0' } );
 		await waitFor( () => expect( connector.getAppUpdateStatus ).toHaveBeenCalled() );
 		await act( () => connector.emit( 'onAppUpdateStatusChanged', ready ) );
-		const trigger = await screen.findByRole( 'button', { name: 'Update available' } );
+		const trigger = await screen.findByRole( 'button', { name: 'Restart to update' } );
 		await user.hover( trigger );
-		expect( await screen.findByText( 'Update available' ) ).toBeVisible();
+		expect( await screen.findByText( 'Restart to update' ) ).toBeVisible();
 		expect( connector.installAppUpdate ).not.toHaveBeenCalled();
 		await user.click( trigger );
 		await waitFor( () => expect( connector.installAppUpdate ).toHaveBeenCalledOnce() );
@@ -53,9 +127,9 @@ describe( 'AppUpdateButton', () => {
 	it( 'offers a restart without version metadata and allows retry after failure', async () => {
 		const { user, connector } = setup( { ...ready, newVersion: null } );
 		connector.installAppUpdate.mockRejectedValueOnce( new Error( 'Restart failed' ) );
-		await user.click( await screen.findByRole( 'button', { name: 'Update available' } ) );
+		await user.click( await screen.findByRole( 'button', { name: 'Restart to update' } ) );
 		expect( await screen.findByText( 'Couldn’t update Studio' ) ).toBeVisible();
-		await user.click( screen.getByRole( 'button', { name: 'Update available' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Restart to update' } ) );
 		await waitFor( () => expect( connector.installAppUpdate ).toHaveBeenCalledTimes( 2 ) );
 	} );
 } );

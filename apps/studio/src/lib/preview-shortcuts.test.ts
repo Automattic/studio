@@ -68,6 +68,32 @@ describe( 'forwardPreviewShortcut', () => {
 		} );
 	} );
 
+	it.each( [ 'darwin', 'win32', 'linux' ] as const )(
+		'forwards the annotation shortcut on %s',
+		( platform ) => {
+			const { guest, host } = createGuest();
+			expect(
+				forwardPreviewShortcut(
+					guest,
+					{
+						...input,
+						code: 'Period',
+						key: '>',
+						shift: true,
+						meta: platform === 'darwin',
+						control: platform !== 'darwin',
+					},
+					platform
+				)
+			).toBe( true );
+			expect( host.sendInputEvent ).toHaveBeenCalledWith( {
+				type: 'keyDown',
+				keyCode: '.',
+				modifiers: [ platform === 'darwin' ? 'meta' : 'control', 'shift' ],
+			} );
+		}
+	);
+
 	it( 'leaves other keys, and ⌘K elsewhere than macOS, to the page', () => {
 		const { guest, host } = createGuest();
 		expect( forwardPreviewShortcut( guest, { ...input, shift: true }, 'darwin' ) ).toBe( false );

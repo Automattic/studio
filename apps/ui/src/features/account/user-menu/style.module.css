@@ -24,6 +24,10 @@
 	flex: 1;
 }
 
+.update {
+	margin-inline-end: var( --band-gap );
+}
+
 .popup {
 	width: 228px;
 	max-width: calc( 100vw - 24px );

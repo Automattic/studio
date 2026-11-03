@@ -262,7 +262,7 @@ describe( 'Chat composer', () => {
 		const { input, onSend, history } = await setup();
 		fireEvent.change( input, { target: { value: 'Keep this draft' } } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: /^Connect AI providers/ } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Connect providers/ } ) );
 		await waitFor( () => expect( history.location.search ).toContain( 'settings=ai' ) );
 		expect( input ).toHaveValue( 'Keep this draft' );
 		expect( onSend ).not.toHaveBeenCalled();

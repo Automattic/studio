@@ -146,18 +146,22 @@
 	--band-group-gap: var( --space-2 );
 	/* Shared scroll-edge fade: length and soft opacity stops. */
 	--surface-fade-size: 24px;
-	--surface-blur-soft: 2px;
-	--surface-blur-medium: 4px;
-	--surface-blur-strong: 8px;
-	--surface-fade-low: 0.16;
-	--surface-fade-mid: 0.5;
-	--surface-fade-high: 0.84;
+	--surface-blur-soft: 0px;
+	--surface-blur-medium: 0px;
+	--surface-blur-strong: 0px;
+	--surface-fade-low: 0.1;
+	--surface-fade-mid: 0.35;
+	--surface-fade-high: 0.75;
 	--surface-fade-stops: transparent, rgb( 0 0 0 / var( --surface-fade-low ) ) 25%,
 		rgb( 0 0 0 / var( --surface-fade-mid ) ) 50%,
 		rgb( 0 0 0 / var( --surface-fade-high ) ) 75%, #000;
-	--surface-header-fade-stops: transparent 20%,
-		rgb( 0 0 0 / var( --surface-fade-low ) ) 50%,
-		rgb( 0 0 0 / var( --surface-fade-mid ) ) 75%, #000;
+	--surface-overlay-fade-stops: transparent,
+		rgb( 0 0 0 / calc( 1 - var( --surface-fade-high ) ) ) 25%,
+		rgb( 0 0 0 / calc( 1 - var( --surface-fade-mid ) ) ) 50%,
+		rgb( 0 0 0 / calc( 1 - var( --surface-fade-low ) ) ) 75%, #000;
+	--surface-header-fade-stops: transparent 45%,
+		rgb( 0 0 0 / var( --surface-fade-low ) ) 65%,
+		rgb( 0 0 0 / var( --surface-fade-mid ) ) 85%, #000;
 	/* Where the band's first control starts on macOS, past the traffic lights. */
 	--traffic-light-space: 92px;
 

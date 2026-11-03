@@ -109,15 +109,15 @@ describe( 'command palette', () => {
 			search( 'Usage' );
 			expect( screen.queryByRole( 'option', { name: 'Usage' } ) !== null ).toBe( signedIn );
 			expect( screen.queryByRole( 'option', { name: /View AI usage/ } ) ).not.toBeInTheDocument();
-			search( 'AI Providers' );
-			expect( option( 'AI Providers' ) ).toBeVisible();
+			search( 'Providers' );
+			expect( option( 'Providers' ) ).toBeVisible();
 		}
 	);
 
 	it.each( [
 		[ 'MCP', 'MCP', 'mcp' ],
-		[ 'Connect', 'AI Providers', 'ai' ],
-		[ 'Connect provider', 'AI Providers', 'ai' ],
+		[ 'Connect', 'Providers', 'ai' ],
+		[ 'Connect provider', 'Providers', 'ai' ],
 		[ 'credits', 'Usage', 'usage' ],
 		[ 'AI credits', 'Usage', 'usage' ],
 		[ 'credit balance', 'Usage', 'usage' ],

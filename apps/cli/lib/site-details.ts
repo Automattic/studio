@@ -1,5 +1,5 @@
+import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
-import { getSiteEmailDirectory } from 'cli/lib/site-email';
 import { getLiveSiteOperation } from 'cli/lib/site-operations';
 import type { SiteData } from 'cli/lib/cli-config/core';
 

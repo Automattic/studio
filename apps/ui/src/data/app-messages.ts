@@ -50,6 +50,7 @@ export type ToastMessage = {
 export type NoticeIntent = ToastIntent | 'warning';
 
 export type NoticeRecord = {
+	dismissible?: boolean;
 	processing?: boolean;
 	source?: 'studio';
 	id: string;
@@ -120,7 +121,7 @@ function scheduleExpiry( toast: ToastMessage ) {
 function recordNotice(
 	toastMessage: Pick<
 		NoticeRecord,
-		'id' | 'intent' | 'title' | 'description' | 'action' | 'source' | 'processing'
+		'id' | 'intent' | 'title' | 'description' | 'action' | 'source' | 'processing' | 'dismissible'
 	>,
 	isReplacement: boolean
 ) {
@@ -128,6 +129,7 @@ function recordNotice(
 		id: toastMessage.id,
 		source: toastMessage.source,
 		processing: toastMessage.processing,
+		dismissible: toastMessage.dismissible,
 		intent: toastMessage.intent,
 		title: toastMessage.title,
 		description: toastMessage.description,
@@ -220,7 +222,8 @@ export function showToast( input: ToastInput ): string {
 }
 
 export function dismissToast( id: string ): void {
-	if ( visible.find( ( toast ) => toast.id === id )?.dismissible === false ) return;
+	if ( [ ...visible, ...queued ].find( ( toast ) => toast.id === id )?.dismissible === false )
+		return;
 	beginToastExit( id );
 }
 
@@ -370,20 +373,19 @@ export function useNoticeHistory(): readonly NoticeRecord[] {
 	);
 }
 
-// "Clear all" in the recent-notifications dialog: the list, plus whatever is
-// still showing or waiting in the sidebar — a cleared list with toasts left
-// behind reads as if nothing happened.
+// Clear completed notices and their visible or queued toasts; keep ongoing work.
 export function clearNoticeHistory(): void {
-	queued = [];
+	queued = queued.filter( ( item ) => item.dismissible === false );
 	for ( const toastMessage of visible ) {
-		beginToastExit( toastMessage.id );
+		dismissToast( toastMessage.id );
 	}
-	noticeHistory = [];
+	noticeHistory = noticeHistory.filter( ( item ) => item.dismissible === false );
 	emit();
 }
 
 // Removes one entry, and its toast if that is still showing.
 export function dismissNotice( notice: NoticeRecord ): void {
+	if ( notice.dismissible === false ) return;
 	noticeHistory = noticeHistory.filter( ( item ) => item !== notice );
 	beginToastExit( notice.id );
 	emit();

@@ -26,6 +26,7 @@ export * from './progress';
 export * from './questionnaire';
 export * from './resize-handle';
 export * from './select';
+export * from './scroll-blur';
 export * from './sidebar';
 export * from './skeleton';
 export * from './slider';

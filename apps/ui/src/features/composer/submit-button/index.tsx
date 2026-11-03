@@ -43,7 +43,7 @@ export function StartButton( {
 			size="icon"
 			shape="round"
 			label={ isStarting ? __( 'Starting site' ) : __( 'Start site' ) }
-			icon={ <StartSiteIcon /> }
+			icon={ <StartSiteIcon fill="currentColor" /> }
 			loading={ isStarting }
 			loadingMode="replace"
 			disabled={ disabled }

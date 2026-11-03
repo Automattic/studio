@@ -31,10 +31,11 @@
 
 /* The negative margin cancels the header's gap while the slot is empty. */
 .headerSlot {
+	--control-size: 32px;
 	display: inline-flex;
 	flex-shrink: 0;
 	width: 0;
-	margin-inline-end: calc( -1 * var( --space-1 ) );
+	margin-inline-end: calc( -1 * var( --band-gap ) );
 	overflow: hidden;
 	opacity: 0;
 	transition:
@@ -54,14 +55,9 @@
 }
 
 .headerSlotWithAction {
-	gap: var( --space-1 );
+	gap: var( --band-gap );
 }
 
 .headerSlotVisible.headerSlotWithAction {
-	width: calc( 2 * var( --control-size ) + var( --space-1 ) );
-}
-
-.headerSlotVisible.headerSlotWithAction:has( [data-site-header-run][hidden] ) {
-	width: var( --control-size );
-	gap: 0;
+	width: calc( 2 * var( --control-size ) + var( --band-gap ) );
 }

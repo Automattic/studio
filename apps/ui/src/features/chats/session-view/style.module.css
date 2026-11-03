@@ -57,6 +57,7 @@
 }
 
 .scroll {
+	composes: scrollFade from '@/lib/theme/recipes.module.css';
 	position: absolute;
 	inset: 0;
 	height: 100%;
@@ -73,6 +74,23 @@
 	   (non-scrolling) composer. */
 	scrollbar-gutter: stable both-edges;
 	scrollbar-width: thin;
+}
+
+.topBlur {
+	height: calc( var( --header-height ) + var( --workspace-header-height, 0px ) );
+	display: none;
+}
+
+.bottomBlur {
+	height: calc(
+		var( --composer-height ) + var( --composer-bottom-gap ) + var( --surface-fade-size )
+	);
+	display: none;
+}
+
+.root:has( > .scroll[data-scroll-top] ) > .topBlur,
+.root:has( > .scroll[data-scroll-bottom] ) > .bottomBlur {
+	display: block;
 }
 
 .headerLayer {

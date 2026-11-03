@@ -1003,10 +1003,10 @@ describe( 'Composer sending', () => {
 
 describe( 'Composer drafts and attachments', () => {
 	it( 'previews an attachment while its chip is hovered', async () => {
-		await setup();
+		const { user } = await setup();
 		upload( 'notes.txt' );
 
-		fireEvent.mouseEnter( await screen.findByRole( 'listitem', { name: /^notes\.txt/ } ) );
+		await user.hover( await screen.findByRole( 'listitem', { name: /^notes\.txt/ } ) );
 
 		expect(
 			await screen.findByText( 'notes.txt text', {}, { timeout: 2000 } )

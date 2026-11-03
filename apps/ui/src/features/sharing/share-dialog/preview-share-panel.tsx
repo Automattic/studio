@@ -4,7 +4,6 @@ import { EllipsisIcon, RefreshCwIcon } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type RefObject } from 'react';
 import { useConnector } from '@/data/core';
 import { useCopyText } from '@/data/host/use-copy-text';
-import { markPreviewSeen } from '@/data/preview-ready';
 import { useRenameSnapshot } from '@/data/queries/use-snapshots';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { getSnapshotHostname, getSnapshotOpenUrl, getSnapshotUrl } from '@/data/snapshot-url';
@@ -22,16 +21,14 @@ import {
 } from '@/lib/ui';
 import styles from './style.module.css';
 import type { PreviewManagementAction } from './preview-management-dialog';
-import type { SiteDetails, Snapshot } from '@/data/core';
+import type { Snapshot } from '@/data/core';
 
 function PreviewLinkActions( {
 	snapshot,
-	siteId,
 	locked,
 	onUpdate,
 }: {
 	snapshot: Snapshot;
-	siteId: string;
 	locked: boolean;
 	onUpdate: () => void;
 } ) {
@@ -44,12 +41,7 @@ function PreviewLinkActions( {
 				<RefreshCwIcon />
 				{ __( 'Update' ) }
 			</Menu.Item>
-			<Menu.Item
-				onClick={ () => {
-					copy();
-					markPreviewSeen( siteId );
-				} }
-			>
+			<Menu.Item onClick={ copy }>
 				<DuplicateIcon />
 				{ __( 'Copy link' ) }
 			</Menu.Item>
@@ -130,7 +122,6 @@ export function RenamePreview( { snapshot, onDone }: { snapshot: Snapshot; onDon
 }
 
 export function PreviewSharePanel( {
-	site,
 	primaryAction,
 	previews,
 	busy,
@@ -146,7 +137,6 @@ export function PreviewSharePanel( {
 	onPublish,
 	onManagePreview,
 }: {
-	site: SiteDetails;
 	primaryAction: RefObject< HTMLButtonElement | null >;
 	previews: Snapshot[];
 	busy: boolean;
@@ -314,7 +304,6 @@ export function PreviewSharePanel( {
 													>
 														<PreviewLinkActions
 															snapshot={ item }
-															siteId={ site.id }
 															locked={ locked }
 															onUpdate={ () => {
 																setSelectedId( item.atomicSiteId );

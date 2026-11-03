@@ -25,6 +25,12 @@ writeFileSync(
 	// A shortcode WordPress replaces, as run h2h5's pet store saved its products grid.
 	`<html><body><p>Harbor Lights started in 1998 with one dinghy.</p><!-- wp:shortcode -->[products limit="4" columns="4" orderby="date"]<!-- /wp:shortcode -->${ FOOTER }</body></html>`
 );
+// Scratch fragments staged for post updates are not documents being imported.
+mkdirSync( path.join( root, 'tmp' ) );
+writeFileSync(
+	path.join( root, 'tmp/product.html' ),
+	'<p>A hand-carved eagle from a single red oak log.</p>'
+);
 // WordPress's own pages are not the site's.
 writeFileSync( path.join( root, 'wp-includes/page.html' ), '<p>Nothing to see here today.</p>' );
 

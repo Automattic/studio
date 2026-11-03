@@ -412,13 +412,31 @@ describe( 'Studio AI MCP tools', () => {
 		vi.mocked( wpcom.sites!.list ).mockResolvedValue( listing );
 		host.remoteHosts = { wpcom };
 		vi.mocked( host.sites.list ).mockResolvedValue( [
-			{ id: 'site-123', name: 'My Site', running: false },
+			{
+				id: 'site-123',
+				name: 'My Site',
+				path: '/sites/my-site',
+				url: 'http://localhost:8881',
+				running: false,
+				phpVersion: '8.4',
+				emailPath: '/private/email/site-123',
+				adminEmail: 'admin@example.com',
+				runtimeBlueprintPath: '/private/runtime.json',
+			},
 		] as never );
 
 		const result = await getTool( 'site_list' ).rawHandler( {} as never );
 
 		expect( JSON.parse( getTextContent( result )! ) ).toEqual( {
-			local: [ { id: 'site-123', name: 'My Site', running: false } ],
+			local: [
+				{
+					id: 'site-123',
+					name: 'My Site',
+					path: '/sites/my-site',
+					url: 'http://localhost:8881',
+					running: false,
+				},
+			],
 			wordpressCom: listing,
 		} );
 	} );

@@ -29,9 +29,34 @@ interface Case {
 	assigned?: string;
 	// The parent theme as one WordPress updates, which the site does not own.
 	updatable?: boolean;
+	// A must-use plugin the site runs.
+	plugin?: string;
 	raised: string[];
 	problems?: number;
 }
+
+// A plugin's archive at a page, the way WooCommerce makes its shop page the
+// products archive: the page's request queries the posts, and the page stays
+// the queried object.
+const ARCHIVE_PAGE = `add_action( 'init', function () {
+	register_post_type( 'lesson', array( 'public' => true, 'has_archive' => true ) );
+} );
+add_action( 'pre_get_posts', function ( $query ) {
+	if ( ! $query->is_main_query() ) {
+		return;
+	}
+	$page = get_posts( array( 'post_type' => 'page', 'title' => 'Classes' ) )[0] ?? null;
+	if ( ! $page || (int) $query->get( 'page_id' ) !== $page->ID ) {
+		return;
+	}
+	$query->set( 'post_type', 'lesson' );
+	$query->set( 'page_id', '' );
+	$query->is_singular          = false;
+	$query->is_post_type_archive = true;
+	$query->is_archive           = true;
+	$query->queried_object       = $page;
+	$query->queried_object_id    = $page->ID;
+} );`;
 
 const STATIC = { show_on_front: 'page', page_on_front: '#Home', page_for_posts: '#Journal' };
 
@@ -87,7 +112,13 @@ describe.runIf( WORDPRESS )( 'the pages whose template WordPress renders no cont
 		saved = {},
 		assigned,
 		updatable,
+		plugin,
 	}: Omit< Case, 'name' | 'raised' > ) => {
+		const mustUse = path.join( site.path, 'wp-content/mu-plugins/unrendered-pages-case.php' );
+		rmSync( mustUse, { force: true } );
+		if ( plugin ) {
+			write( mustUse, `<?php\n${ plugin }` );
+		}
 		for ( const name of [ 'bakery', 'bakery-parent' ] ) {
 			for ( const folder of [ 'templates', 'parts', 'patterns' ] ) {
 				rmSync( theme( name, folder ), { recursive: true, force: true } );
@@ -253,6 +284,30 @@ describe.runIf( WORDPRESS )( 'the pages whose template WordPress renders no cont
 			name: 'the front page by a front-page template with post-content',
 			files: { 'front-page': SHOWN, page: NOT_SHOWN },
 			raised: [ 'page #Classes "Classes", page #About "About" with' ],
+		},
+		// A plugin can query a page's request as an archive, as WooCommerce
+		// queries its shop page as the products archive (WC_Query::pre_get_posts),
+		// keeping the page as the queried object: the page does not show there
+		// through post-content, whose post is the archive's.
+		{
+			name: 'a page a plugin queries as an archive',
+			files: { archive: NOT_SHOWN, page: SHOWN },
+			plugin: ARCHIVE_PAGE,
+			raised: [],
+		},
+		{
+			name: 'a page a plugin queries as an archive, beside a page without post-content',
+			files: { archive: NOT_SHOWN, page: NOT_SHOWN },
+			plugin: ARCHIVE_PAGE,
+			raised: [
+				'page #About "About", page #Home "Home" with wp-content/themes/bakery/templates/page.html',
+			],
+		},
+		{
+			name: 'the front page a plugin queries as an archive',
+			files: { 'front-page': NOT_SHOWN },
+			plugin: ARCHIVE_PAGE.replace( 'Classes', 'Home' ),
+			raised: [],
 		},
 		// home.html renders at the posts index, which Settings → Reading may leave nowhere.
 		{

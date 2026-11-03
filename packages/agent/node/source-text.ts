@@ -124,7 +124,12 @@ export async function missingSourceText(
 	const byWords = new Map< string, { text: string; files: string[] } >();
 	for ( const document of documents ) {
 		const file = path.relative( sitePath, document ).split( path.sep ).join( '/' );
-		for ( const run of runs( await readFile( document, 'utf8' ).catch( () => '' ) ) ) {
+		const html = await readFile( document, 'utf8' ).catch( () => '' );
+		// Post markup staged in a scratch file is not a source site's document.
+		if ( ! /<!doctype\s+html\b|<(?:html|body)(?:\s|>)/i.test( html ) ) {
+			continue;
+		}
+		for ( const run of runs( html ) ) {
 			const entry = byWords.get( run.words ) ?? { text: run.text, files: [] };
 			entry.files = [ ...new Set( [ ...entry.files, file ] ) ];
 			byWords.set( run.words, entry );

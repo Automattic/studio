@@ -165,8 +165,12 @@ export async function postsPageContent( sitePath: string ): Promise< string | un
 }
 
 // The template WordPress renders a request with, as template-loader.php picks
-// it (the tag loop of front-page-render.ts), and whether a core/post-content
-// block renders in it, through its parts and patterns.
+// it (the tag loop of front-page-render.ts), whether a core/post-content
+// block renders in it, through its parts and patterns, and the post the
+// request queries as its one post, if it does: a plugin can query a page's
+// request as something else, as WooCommerce queries its shop page as the
+// products archive (WC_Query::pre_get_posts), where is_singular() is false
+// and post-content would render the archive's posts, not the page.
 const TEMPLATES = `
 $tags = array( 'is_embed' => 'get_embed_template', 'is_404' => 'get_404_template', 'is_search' => 'get_search_template', 'is_front_page' => 'get_front_page_template', 'is_home' => 'get_home_template', 'is_privacy_policy' => 'get_privacy_policy_template', 'is_post_type_archive' => 'get_post_type_archive_template', 'is_tax' => 'get_taxonomy_template', 'is_attachment' => 'get_attachment_template', 'is_single' => 'get_single_template', 'is_page' => 'get_page_template', 'is_singular' => 'get_singular_template', 'is_category' => 'get_category_template', 'is_tag' => 'get_tag_template', 'is_author' => 'get_author_template', 'is_date' => 'get_date_template', 'is_archive' => 'get_archive_template' );
 $describe = function ( $template ) {
@@ -208,7 +212,7 @@ $render = function ( $vars ) use ( $tags, $describe ) {
 	add_filter( 'render_block_data', $count );
 	get_the_block_template_html();
 	remove_filter( 'render_block_data', $count );
-	return $describe( $template ) + array( 'content' => $shown > 0 );
+	return $describe( $template ) + array( 'content' => $shown > 0, 'post' => is_singular() ? get_queried_object_id() : 0 );
 };
 $static = 'page' === get_option( 'show_on_front' );
 $front  = $static ? (int) get_option( 'page_on_front' ) : 0;
@@ -240,6 +244,8 @@ interface RenderedTemplate {
 	// The theme whose file it is.
 	theme: string | null;
 	content?: boolean;
+	// The post the request queries as its one post (is_singular), or 0.
+	post?: number;
 }
 
 /**
@@ -270,8 +276,15 @@ export async function unrenderedPages(
 
 	const problems: string[] = [];
 	const front = state.pages.find( ( page ) => page.id === state.front );
+	// A page shows through post-content only where the request queries that
+	// page as its one post, not where a plugin queries it as an archive.
+	const queries = ( template: RenderedTemplate, page: number ) => template.post === page;
 	const frontTemplate =
-		state.atFront?.slug === 'front-page' && ! state.atFront.content ? state.atFront : undefined;
+		state.atFront?.slug === 'front-page' &&
+		! state.atFront.content &&
+		( ! state.front || queries( state.atFront, state.front ) )
+			? state.atFront
+			: undefined;
 	if ( frontTemplate ) {
 		problems.push(
 			frontPageTemplateProblem(
@@ -302,7 +315,12 @@ export async function unrenderedPages(
 	const byTemplate = new Map< string, { slug: string; pages: string[] } >();
 	for ( const page of state.pages ) {
 		const { template } = page;
-		if ( ! template || template.content || ( page.id === state.front && frontTemplate ) ) {
+		if (
+			! template ||
+			template.content ||
+			! queries( template, page.id ) ||
+			( page.id === state.front && frontTemplate )
+		) {
 			continue;
 		}
 		const entry = byTemplate.get( template.source ) ?? { slug: template.slug, pages: [] };

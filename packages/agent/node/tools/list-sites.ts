@@ -25,7 +25,19 @@ export const listSitesTool = defineTool(
 	async ( _args, { host } ) => {
 		try {
 			const [ local, hosts ] = await Promise.all( [ host.sites.list(), listHostSites( host ) ] );
-			return textResult( JSON.stringify( { local, ...hosts } ) );
+			return textResult(
+				JSON.stringify( {
+					local: local.map( ( { id, name, path, url, running, operation } ) => ( {
+						id,
+						name,
+						path,
+						url,
+						running,
+						...( operation && { operation } ),
+					} ) ),
+					...hosts,
+				} )
+			);
 		} catch ( error ) {
 			throw new Error(
 				`Failed to list sites: ${ error instanceof Error ? error.message : String( error ) }`

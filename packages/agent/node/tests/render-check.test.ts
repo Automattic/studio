@@ -60,6 +60,20 @@ describe( 'RenderCheck', () => {
 		expect( await check.takeReports() ).toBe( '' );
 	} );
 
+	it( 'keeps a failed query-addressed page distinct from the homepage', async () => {
+		const { site, check, inspect, after } = setup();
+		await check.seen( site.root, { created: true } );
+		inspect.mockImplementation( async ( url ) => {
+			if ( url.endsWith( '?page_id=5' ) ) {
+				throw new Error( 'Page load timed out' );
+			}
+			return { url, problems: [] };
+		} );
+		const report = await after();
+		expect( report ).toContain( '- /?page_id=5 (mobile):' );
+		expect( report ).not.toContain( '- / (mobile):' );
+	} );
+
 	it( 'groups identical contrast observations while keeping every location and distinct finding', async () => {
 		const { site, check, open, problems, after } = setup();
 		await check.seen( site.root, { created: true } );

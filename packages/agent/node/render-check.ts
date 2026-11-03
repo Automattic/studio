@@ -60,9 +60,14 @@ const contrastKey = ( problem: string ) => {
 	return match ? JSON.stringify( [ match[ 1 ], match[ 3 ], match[ 4 ], match[ 5 ] ] ) : undefined;
 };
 
+const pageAddress = ( url: string ) => {
+	const { pathname, search } = new URL( url );
+	return pathname + search;
+};
+
 // A problem by page, viewport and kind, without the measures that move as the page changes.
 const problemKey = ( page: { url: string; viewport: Viewport }, problem: string ) =>
-	`${ new URL( page.url ).pathname } ${ page.viewport } ${ problem.replace( /\d+/g, '#' ) }`;
+	`${ pageAddress( page.url ) } ${ page.viewport } ${ problem.replace( /\d+/g, '#' ) }`;
 
 export class RenderCheck {
 	private readonly sites = new Map< string, SiteState >();
@@ -191,7 +196,7 @@ export class RenderCheck {
 			const group = key ? groups.get( key ) : undefined;
 			if ( ! group || group.length < 2 ) {
 				found.push(
-					`- ${ new URL( observation.page.url ).pathname } (${ observation.page.viewport }): ${
+					`- ${ pageAddress( observation.page.url ) } (${ observation.page.viewport }): ${
 						observation.problem
 					}`
 				);
@@ -203,7 +208,7 @@ export class RenderCheck {
 			const locations = new Map< string, string[] >();
 			for ( const item of group ) {
 				emitted.add( item );
-				const pathname = new URL( item.page.url ).pathname;
+				const pathname = pageAddress( item.page.url );
 				const at = locations.get( pathname ) ?? [];
 				at.push( `${ item.page.viewport } y${ contrastObservation.exec( item.problem )![ 2 ] }` );
 				locations.set( pathname, at );
@@ -217,7 +222,7 @@ export class RenderCheck {
 					.join( '\n' ) }`
 			);
 		}
-		const paths = [ ...new Set( pages.map( ( page ) => new URL( page.url ).pathname ) ) ];
+		const paths = [ ...new Set( pages.map( ( page ) => pageAddress( page.url ) ) ) ];
 		const rendered = `Studio rendered ${ paths.join(
 			', '
 		) } at desktop and mobile, as a visitor's browser loads them, after the last change`;

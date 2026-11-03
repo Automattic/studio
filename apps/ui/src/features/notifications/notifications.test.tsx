@@ -341,7 +341,38 @@ describe( 'notifications popover', () => {
 } );
 
 describe( 'sidebar cards', () => {
-	it( 'replaces the download card with the update button and keeps error actions', async () => {
+	it( 'shows a mount-time update failure once as a notice with its detail and logs action', async () => {
+		const connector = createFakeConnector();
+		const status = {
+			state: 'error' as const,
+			reason: 'generic' as const,
+			currentVersion: '1.0.0',
+			detail: 'The update could not be downloaded.',
+		};
+		connector.getAppUpdateStatus.mockResolvedValue( status );
+		renderWithProviders(
+			<>
+				<aside aria-label="Sidebar notices">
+					<AppMessageCards />
+				</aside>
+				<AppToasts />
+			</>,
+			{ connector }
+		);
+		await screen.findByText( 'Couldn’t update Studio' );
+		expect( screen.getByText( status.detail ) ).toBeVisible();
+		expect(
+			screen.getByRole( 'complementary', { name: 'Sidebar notices' } )
+		).toBeEmptyDOMElement();
+		act( () => connector.emit( 'onAppUpdateStatusChanged', { ...status } ) );
+		expect(
+			getNoticeHistory().filter( ( notice ) => notice.id === 'app-update-error' )
+		).toHaveLength( 1 );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Open logs' } ) );
+		expect( connector.openStudioLogs ).toHaveBeenCalledOnce();
+	} );
+
+	it( 'replaces the download card with the update button and shows failures as regular notices', async () => {
 		const connector = createFakeConnector();
 		connector.getAppUpdateStatus.mockResolvedValue( {
 			state: 'downloading',
@@ -350,8 +381,11 @@ describe( 'sidebar cards', () => {
 		} );
 		const { queryClient } = renderWithProviders(
 			<>
-				<AppMessageCards />
+				<aside aria-label="Sidebar notices">
+					<AppMessageCards />
+				</aside>
 				<AppUpdateButton />
+				<AppToasts />
 			</>,
 			{ connector }
 		);
@@ -377,6 +411,12 @@ describe( 'sidebar cards', () => {
 				currentVersion: '1.0.0',
 			} );
 		} );
+		await screen.findByText( 'Couldn’t update Studio' );
+		expect(
+			within( screen.getByRole( 'complementary', { name: 'Sidebar notices' } ) ).queryByText(
+				'Couldn’t update Studio'
+			)
+		).not.toBeInTheDocument();
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Open logs' } ) );
 		expect( connector.openStudioLogs ).toHaveBeenCalled();
 	} );

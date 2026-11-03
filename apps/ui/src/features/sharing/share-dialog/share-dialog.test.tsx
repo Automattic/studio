@@ -338,7 +338,7 @@ describe( 'ShareDialog', () => {
 		expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
 	} );
 
-	it( 'keeps publishing on the Share button after dismissal and clears ready on opening without copying', async () => {
+	it( 'keeps publishing status after dismissal without adding a ready badge', async () => {
 		const { connector, ready } = setup();
 		const original = connector.publishPreviewSite.getMockImplementation()!;
 		let finish!: () => void;
@@ -364,9 +364,13 @@ describe( 'ShareDialog', () => {
 		fireEvent.keyDown( screen.getByRole( 'dialog' ), { key: 'Escape' } );
 		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
 		await act( async () => finish() );
-		await waitFor( () => expect( isUnread( trigger ) ).toBe( true ), SETTLE );
+		await waitFor(
+			() => expect( getNoticeHistory()[ 0 ]?.title ).toBe( 'My site preview is ready' ),
+			SETTLE
+		);
+		expect( isUnread( trigger ) ).toBe( false );
 		expect( isPublishing( trigger ) ).toBe( false );
-		expect( trigger ).toHaveAccessibleDescription( 'Preview ready' );
+		expect( trigger ).not.toHaveAttribute( 'aria-description' );
 		expect( getNoticeHistory()[ 0 ].title ).toBe( 'My site preview is ready' );
 		fireEvent.click( trigger );
 		await screen.findByRole( 'list', { name: 'Previews' } );

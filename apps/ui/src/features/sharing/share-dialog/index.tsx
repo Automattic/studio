@@ -10,14 +10,7 @@ import { useSnapshotUsage, useSnapshots } from '@/data/queries/use-snapshots';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useOffline } from '@/lib/hooks';
 import { ShareIcon } from '@/lib/icons';
-import {
-	Spinner,
-	Button,
-	NotificationDot,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyDescription,
-} from '@/lib/ui';
+import { Spinner, Button, EmptyHeader, EmptyMedia, EmptyDescription } from '@/lib/ui';
 import { PreviewSharePanel } from './preview-share-panel';
 import styles from './style.module.css';
 import type { PreviewManagementAction } from './preview-management-dialog';
@@ -30,8 +23,6 @@ export function useShareStatus( siteId: string ) {
 	let label: string | undefined;
 	if ( publishing ) {
 		label = activity.hostname ? __( 'Updating preview…' ) : __( 'Creating preview…' );
-	} else if ( ready ) {
-		label = __( 'Preview ready' );
 	}
 	return { publishing, ready, label };
 }
@@ -43,12 +34,7 @@ export function ShareStatusIcon( {
 	icon: ReactNode;
 	status: ReturnType< typeof useShareStatus >;
 } ) {
-	return (
-		<span className={ styles.statusIcon }>
-			{ status.publishing ? <Spinner /> : icon }
-			{ status.ready && ! status.publishing ? <NotificationDot position="icon" /> : null }
-		</span>
-	);
+	return <span className={ styles.statusIcon }>{ status.publishing ? <Spinner /> : icon }</span>;
 }
 
 export function SharePanel( {

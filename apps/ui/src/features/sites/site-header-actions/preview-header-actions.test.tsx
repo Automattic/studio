@@ -127,7 +127,8 @@ it( 'keeps icon-only annotation available beside overflow with sharing feedback'
 		applySyncActivity( 'annotate-site', { kind: 'success', direction: 'preview' } );
 		markPreviewReady( 'annotate-site' );
 	} );
-	expect( more ).toHaveAttribute( 'aria-description', 'Preview ready' );
+	expect( more ).not.toHaveAttribute( 'aria-description' );
+	expect( more.querySelector( '[data-slot="notification-dot"]' ) ).not.toBeInTheDocument();
 	await user.click( more );
 	await user.click( await screen.findByRole( 'menuitem', { name: /^Share/ } ) );
 	expect( await screen.findByRole( 'dialog' ) ).toBeInTheDocument();

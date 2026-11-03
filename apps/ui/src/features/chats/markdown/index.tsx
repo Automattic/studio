@@ -6,9 +6,10 @@ import remarkGfm from 'remark-gfm';
 import { useConnector } from '@/data/core';
 import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { CopyButton } from '@/features/chats/copy-button';
+import { ToolLink } from '@/features/chats/tool-link';
 import { CODE_TEXT_ATTRIBUTE } from '@/features/chats/use-text-context-menu';
 import { AppearanceIcon } from '@/lib/icons';
-import { Button, CodeBlock } from '@/lib/ui';
+import { CodeBlock } from '@/lib/ui';
 import { closeOpenMarkdown, splitMarkdownBlocks } from './blocks';
 import styles from './style.module.css';
 import type { MouseEvent, ReactNode } from 'react';
@@ -130,16 +131,13 @@ export const Markdown = memo( function Markdown( {
 			a: ( { children: linkChildren, href } ) => {
 				if ( href === DESIGN_SYSTEM_PREVIEW_PATH ) {
 					return (
-						<Button
-							variant="unstyled"
-							size="inline"
-							className={ styles.designSystemLink }
+						<ToolLink
+							icon={ <AppearanceIcon aria-hidden="true" /> }
 							aria-label={ __( 'Open design system' ) }
 							onClick={ () => navigatePreview?.( DESIGN_SYSTEM_PREVIEW_PATH ) }
 						>
-							<AppearanceIcon aria-hidden="true" />
 							{ __( 'Design System' ) }
-						</Button>
+						</ToolLink>
 					);
 				}
 				const handleClick = ( event: MouseEvent< HTMLAnchorElement > ) => {

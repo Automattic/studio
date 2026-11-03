@@ -132,6 +132,23 @@ export function ContextPopup( { children, className, ...props }: ContextPopupPro
 	);
 }
 
+export const GroupLabel = forwardRef<
+	ElementRef< typeof BaseMenu.GroupLabel >,
+	ComponentPropsWithoutRef< typeof BaseMenu.GroupLabel >
+>( function GroupLabel( { className, ...props }, ref ) {
+	return (
+		<BaseMenu.GroupLabel
+			ref={ ref }
+			className={ clsx( styles.groupLabel, className ) }
+			{ ...props }
+		/>
+	);
+} );
+
+export function ItemLabel( { className, ...props }: ComponentPropsWithoutRef< 'span' > ) {
+	return <span className={ clsx( styles.itemLabel, className ) } { ...props } />;
+}
+
 type ItemProps = ComponentPropsWithoutRef< typeof BaseMenu.Item > & {
 	/** Renders the item in error colors, for actions that destroy data. */
 	destructive?: boolean;

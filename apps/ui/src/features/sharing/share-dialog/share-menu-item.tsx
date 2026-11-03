@@ -9,7 +9,6 @@ import { getSnapshotUrl } from '@/data/snapshot-url';
 import { useOpenHeaderPanel } from '@/data/use-open-header-panel';
 import { DuplicateIcon, ShareIcon } from '@/lib/icons';
 import { Menu } from '@/lib/ui';
-import styles from './share-menu-item.module.css';
 import type { SiteDetails, Snapshot } from '@/data/core';
 
 function PreviewLink( {
@@ -33,9 +32,9 @@ function PreviewLink( {
 			} }
 		>
 			<DuplicateIcon />
-			<span className={ styles.label }>
+			<Menu.ItemLabel>
 				{ snapshot.name || sprintf( __( 'Preview %d' ), snapshot.sequence ?? sequence ) }
-			</span>
+			</Menu.ItemLabel>
 		</Menu.Item>
 	);
 }
@@ -56,15 +55,17 @@ export function SiteShareMenuItem( { site, disabled }: { site: SiteDetails; disa
 					{ __( 'Share' ) }
 				</Menu.SubmenuTrigger>
 				<Menu.SubmenuPopup>
-					<div className={ styles.heading }>{ __( 'Copy links' ) }</div>
-					{ previews.map( ( snapshot, index ) => (
-						<PreviewLink
-							key={ snapshot.atomicSiteId }
-							snapshot={ snapshot }
-							sequence={ previews.length - index }
-							siteId={ site.id }
-						/>
-					) ) }
+					<Menu.Group>
+						<Menu.GroupLabel>{ __( 'Copy links' ) }</Menu.GroupLabel>
+						{ previews.map( ( snapshot, index ) => (
+							<PreviewLink
+								key={ snapshot.atomicSiteId }
+								snapshot={ snapshot }
+								sequence={ previews.length - index }
+								siteId={ site.id }
+							/>
+						) ) }
+					</Menu.Group>
 					<Menu.Separator />
 					<Menu.Item onClick={ openSharing }>
 						<ShareIcon />

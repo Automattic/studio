@@ -1,4 +1,19 @@
 @layer ui {
+	.groupLabel {
+		padding: var( --space-1 ) var( --space-2 );
+		color: var( --muted-foreground );
+		font-size: var( --text-xs );
+		font-weight: var( --font-weight-medium );
+	}
+
+	.itemLabel {
+		min-width: 0;
+		max-width: min( 320px, 60vw );
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
 	.positioner {
 		z-index: var( --z-popover );
 		outline: none;

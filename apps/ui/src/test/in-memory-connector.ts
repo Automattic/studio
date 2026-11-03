@@ -8,6 +8,7 @@ import type {
 	InstalledApps,
 	LoadedAiSession,
 	SiteDetails,
+	SiteEmail,
 	UserPreferences,
 } from '@/data/core';
 
@@ -34,6 +35,8 @@ export interface FakeConnectorState {
 	sessions: LoadedAiSession[];
 	user: AuthUser | null;
 	preferences: UserPreferences;
+	// Each site's email, newest first.
+	emails: Record< string, SiteEmail[] >;
 }
 
 export type FakeConnectorInitialState = Partial< Omit< FakeConnectorState, 'preferences' > > & {
@@ -92,7 +95,7 @@ const installedApps = () =>
 			app,
 			app === 'vscode' || app === 'terminal',
 		] )
-	) as InstalledApps;
+	) as Omit< InstalledApps, 'defaultBrowser' >;
 
 /**
  * A `Connector` over in-memory state, for rendering real providers and
@@ -107,6 +110,7 @@ export function createInMemoryConnector(
 		sites: [],
 		sessions: [],
 		user: TEST_USER,
+		emails: {},
 		...initial,
 		preferences: { ...defaultPreferences(), ...initial.preferences },
 	};
@@ -314,6 +318,16 @@ export function createInMemoryConnector(
 		openSiteInEditor: async () => {},
 		openSiteInTerminal: async () => {},
 		openSiteEmailFolder: async () => {},
+		getSiteEmails: async ( siteId ) =>
+			( state.emails[ siteId ] ?? [] ).map( ( { id, subject, from, to, date } ) => ( {
+				id,
+				subject,
+				from,
+				to,
+				date,
+			} ) ),
+		getSiteEmail: async ( siteId, emailId ) =>
+			state.emails[ siteId ]?.find( ( email ) => email.id === emailId ) ?? null,
 		siteDebugLogExists: async () => false,
 		openSiteDebugLog: async () => {},
 		openStudioLogs: async () => {},
@@ -340,6 +354,7 @@ export function createInMemoryConnector(
 		onToggleSitePreview: subscribe( 'onToggleSitePreview' ),
 		onToggleSidebar: subscribe( 'onToggleSidebar' ),
 		onAddSite: subscribe( 'onAddSite' ),
+		onOpenSite: subscribe( 'onOpenSite' ),
 		onAddSiteWithBlueprint: subscribe( 'onAddSiteWithBlueprint' ),
 		readyForDeeplinks: () => {},
 		onOpenSettings: subscribe( 'onOpenSettings' ),
@@ -353,6 +368,7 @@ export function createInMemoryConnector(
 		onShowWhatsNew: subscribe( 'onShowWhatsNew' ),
 		getAppUpdateStatus: async () => ( { state: 'idle', currentVersion: null } ),
 		installAppUpdate: async () => {},
+		checkForAppUpdates: async () => {},
 		onAppUpdateStatusChanged: subscribe( 'onAppUpdateStatusChanged' ),
 		onAppUpdateNotAvailable: subscribe( 'onAppUpdateNotAvailable' ),
 	};

@@ -1,3 +1,4 @@
+import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { describe, expect, it } from 'vitest';
 import { getSkillScopedToolNames, loadSkills } from '../skills';
 import { buildSystemPrompt, PROXY_IDENTITY } from '../system-prompt';
@@ -105,6 +106,18 @@ describe( 'buildSystemPrompt', () => {
 
 		expect( prompt ).toContain(
 			'## Active site\n\n"Live" (ID: 123) at https://example.wordpress.com (WordPress.com)'
+		);
+	} );
+
+	it( "names the folder where Studio saves the active site's email", () => {
+		const prompt = buildSystemPrompt( {
+			activeSite: { id: 'site-1', name: 'Mailer', path: '/sites/mailer', running: true },
+		} );
+
+		expect( prompt ).toContain(
+			`"Mailer" at /sites/mailer (running), email it sends: ${ getSiteEmailDirectory(
+				'site-1'
+			) } (one .eml file per message)`
 		);
 	} );
 

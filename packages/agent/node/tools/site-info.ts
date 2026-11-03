@@ -4,7 +4,7 @@ import { textResult } from './utils';
 
 export const getSiteInfoTool = defineTool(
 	'site_info',
-	'Gets detailed information about a specific WordPress site by name or path, including its running status, URL, PHP version, and admin username.',
+	'Gets detailed information about a specific WordPress site by name or path, including its running status, URL, PHP version, admin username, and emailPath: the folder where Studio saves each email the site sends, as an .eml file.',
 	{
 		nameOrPath: Type.String( { description: 'The site name or file system path to the site' } ),
 	},

@@ -114,7 +114,10 @@ import {
 } from '@studio/common/lib/sync/sync-api';
 import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
 import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/editor';
-import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
+import {
+	detectInstalledApps,
+	detectInstalledAppsWithDefaultBrowser,
+} from '@studio/common/lib/user-settings/installed-apps';
 import {
 	readOnboardingCompleted,
 	writeOnboardingCompleted,
@@ -139,8 +142,13 @@ import { buildSiteSetArgs, getSiteEditOptions } from '@studio/common/sites/edit'
 import { deleteSite, startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
 import { listSitesWithMetadata, updateSiteMetadata } from '@studio/common/sites/metadata';
+import {
+	ensureSiteEmailDirectory,
+	listSiteEmails,
+	readSiteEmail,
+} from '@studio/common/sites/site-email';
 import { readGlobalStyles } from '@studio/common/sites/site-identity';
-import { readSitePath, readSitePaths } from '@studio/common/sites/site-path';
+import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import {
 	deleteAllPreviewSites,
 	deletePreviewSite,
@@ -809,7 +817,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.json( { thumbnail: null } );
 				return;
 			}
-			const url = new URL( pagePath, site.url );
+			const url = new URL( '/?studio-hide-adminbar', site.url );
 			if ( url.origin !== new URL( site.url ).origin ) {
 				res.status( 400 ).json( { error: 'The page must be on the site.' } );
 				return;
@@ -1432,7 +1440,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.get(
 		'/installed-apps',
 		asyncHandler( async ( _req: Request, res: Response ) => {
-			res.json( detectInstalledApps() );
+			res.json( await detectInstalledAppsWithDefaultBrowser() );
 		} )
 	);
 
@@ -1527,15 +1535,37 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	api.post(
-		'/sites/:id/open-email-folder',
+	// `readSite` rather than `listSites`: the email view polls the list while it's open.
+	api.get(
+		'/sites/:id/emails',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
-			if ( ! site?.emailPath ) {
+			if ( ! ( await readSite( req.params.id ) ) ) {
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			await openPath( site.emailPath );
+			res.json( await listSiteEmails( req.params.id ) );
+		} )
+	);
+
+	api.get(
+		'/sites/:id/emails/:emailId',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			if ( ! ( await readSite( req.params.id ) ) ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			res.json( await readSiteEmail( req.params.id, req.params.emailId ) );
+		} )
+	);
+
+	api.post(
+		'/sites/:id/open-email-folder',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			if ( ! ( await readSite( req.params.id ) ) ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			await openPath( await ensureSiteEmailDirectory( req.params.id ) );
 			res.status( 204 ).end();
 		} )
 	);

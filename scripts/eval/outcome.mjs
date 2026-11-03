@@ -1270,7 +1270,9 @@ export const followUpsApplied = check( ( d, vars ) => {
 		misses.push( `body text was ${ before }px, then ${ bigger }px, now ${ now }px` );
 	const widest = Math.max( 0, ...( styles.firstScreenImages || [] ) );
 	if ( widest < styles.pageWidth - 10 )
-		misses.push( `the widest image on the first screen is ${ widest }px of ${ styles.pageWidth }px` );
+		misses.push(
+			`the widest image on the first screen is ${ widest }px of ${ styles.pageWidth }px`
+		);
 	const offCenter = ( styles.footerText || [] ).filter(
 		( text ) => text.offCenter === null || text.offCenter > 8
 	);

@@ -47,6 +47,7 @@ import { forwardPreviewCommandPalette } from 'src/lib/preview-shortcuts';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { parseWebUrl } from 'src/lib/shell-open-external-wrapper';
 import { getSites, stopAllServers } from 'src/lib/sites';
+import { refreshSpotlightIndex, setupSpotlight } from 'src/lib/spotlight';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { setupLogging } from 'src/logging';
 import {
@@ -375,6 +376,7 @@ async function appBoot() {
 
 	function setupCustomProtocolHandler() {
 		if ( process.platform === 'darwin' ) {
+			setupSpotlight();
 			app.on( 'open-url', ( _event, url ) => {
 				openDeeplink( url );
 			} );
@@ -460,7 +462,9 @@ async function appBoot() {
 			const basePolicies = [
 				"default-src 'self'",
 				"script-src-attr 'none'",
-				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com https://blueprintslibraryv2.wpcomstaging.com data:",
+				// The email view's frame inherits this policy, and the email a site
+				// sends loads images from the site: a localhost port or a custom domain.
+				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com https://blueprintslibraryv2.wpcomstaging.com http://localhost:* http://*.local https://*.local data:",
 				"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com", // unsafe-inline: components inject their styles at runtime
 				// The agentic UI's design system view loads the Styles' fonts.
 				"font-src 'self' https://fonts.gstatic.com",
@@ -498,6 +502,7 @@ async function appBoot() {
 		await runMigrations( migrations ).catch( Sentry.captureException );
 
 		await startCliEventsSubscriber();
+		void refreshSpotlightIndex();
 
 		await createMainWindow();
 

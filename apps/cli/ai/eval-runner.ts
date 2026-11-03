@@ -117,6 +117,7 @@ const evalSeedSchema = z.object( {
 type EvalSeed = z.infer< typeof evalSeedSchema >;
 
 interface EvalRunnerInput {
+	ui?: boolean;
 	prompt: string;
 	// Sent in order, each as a new user message in the same session once the
 	// previous one finishes, so a case can measure a multi-message conversation.
@@ -497,6 +498,7 @@ function readInput(): EvalRunnerInput {
 	const answers = vars.answers ? evalAnswersSchema.parse( vars.answers ) : undefined;
 
 	return {
+		ui: vars.ui === true,
 		prompt: ( vars.prompt as string ) ?? prompt,
 		followUps,
 		answers,
@@ -507,7 +509,11 @@ function readInput(): EvalRunnerInput {
 }
 
 async function runEval( input: EvalRunnerInput ) {
-	const agent = createAgent( { host: cliAgentHost } );
+	const agent = createAgent( {
+		host: input.ui
+			? { ...cliAgentHost, ui: { showArtifact: () => {}, reloadPreview: () => {} } }
+			: cliAgentHost,
+	} );
 	// Mirrors the fallback in the agent runtime (packages/agent/node/runtime) — keep in sync.
 	const resolvedModel = input.model ?? DEFAULT_MODEL;
 	const evalStartedAt = Date.now();

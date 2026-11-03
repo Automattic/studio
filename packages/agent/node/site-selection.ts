@@ -1,3 +1,4 @@
+import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import type { RemoteHost } from './remote-hosts';
 import type { SiteInfo } from './types';
 
@@ -11,5 +12,10 @@ export function formatActiveSite(
 		const hostName = remoteHosts[ site.remote.host ]?.name ?? site.remote.host;
 		return `"${ site.name }" (ID: ${ site.remote.id }) at ${ site.url } (${ hostName })`;
 	}
-	return `"${ site.name }" at ${ site.path }${ site.running ? ' (running)' : ' (stopped)' }`;
+	const email = site.id
+		? `, email it sends: ${ getSiteEmailDirectory( site.id ) } (one .eml file per message)`
+		: '';
+	return `"${ site.name }" at ${ site.path }${
+		site.running ? ' (running)' : ' (stopped)'
+	}${ email }`;
 }

@@ -25,8 +25,8 @@ import {
 } from '@/features/notifications';
 import { SidebarHeader } from '@/features/sidebar/sidebar-header';
 import { SiteList } from '@/features/sidebar/site-list';
-import { useStoredFlag } from '@/lib/hooks';
-import { Popover, ResizeHandle, ResizeOverlay, useHasOpenDialog } from '@/lib/ui';
+import { useScrollFade, useStoredFlag } from '@/lib/hooks';
+import { Popover, ResizeHandle, ResizeOverlay, ScrollBlur, useHasOpenDialog } from '@/lib/ui';
 import styles from './style.module.css';
 import { useResizablePanel } from './use-resizable-panel';
 import type { CSSProperties, ReactNode } from 'react';
@@ -44,6 +44,7 @@ function SidebarContents( { active, onSiteOpen }: { active: boolean; onSiteOpen?
 		<>
 			<SiteList sections active={ active } onSiteOpen={ onSiteOpen } />
 			<div className={ styles.sidebarFooter }>
+				<ScrollBlur edge="bottom" className={ styles.footerBlur } />
 				{ active ? <AppMessageCards className={ styles.sidebarCards } /> : null }
 				<UserMenu active={ active } />
 			</div>
@@ -73,6 +74,8 @@ export function SidebarLayout( {
 	const sidebarFlyoutOpen = sidebarFlyoutState === 'open';
 	const [ instantSidebarDock, setInstantSidebarDock ] = useState( false );
 	const dockedSidebarRef = useRef< HTMLElement >( null );
+	const setDockedFade = useScrollFade< HTMLDivElement >();
+	const setFlyoutFade = useScrollFade< HTMLElement >();
 	const dockedSidebarScrollRef = useRef< HTMLDivElement >( null );
 	useLayoutEffect( () => {
 		if ( ! instantSidebarDock ) return;
@@ -234,7 +237,7 @@ export function SidebarLayout( {
 											anchor={ sidebarFlyoutAnchor }
 											side="bottom"
 											align="start"
-											sideOffset={ 6 }
+											sideOffset={ 0 }
 											alignOffset={ 6 }
 											initialFocus={ () =>
 												sidebarFlyoutOpen
@@ -254,7 +257,10 @@ export function SidebarLayout( {
 										>
 											<aside
 												className={ styles.sidebarFlyoutContents }
-												ref={ sidebarFlyoutRef }
+												ref={ ( node ) => {
+													sidebarFlyoutRef.current = node;
+													setFlyoutFade( node );
+												} }
 												onPointerEnter={ clearHoverTimer }
 												onPointerLeave={ hoverLeave }
 											>
@@ -277,7 +283,13 @@ export function SidebarLayout( {
 								>
 									<aside ref={ dockedSidebarRef } className={ styles.sidebar }>
 										<SidebarHeader action={ docked ? headerAction : undefined } />
-										<div ref={ dockedSidebarScrollRef } className={ styles.sidebarScroll }>
+										<div
+											ref={ ( node ) => {
+												dockedSidebarScrollRef.current = node;
+												setDockedFade( node );
+											} }
+											className={ styles.sidebarScroll }
+										>
 											<SidebarContents active={ docked } />
 										</div>
 									</aside>

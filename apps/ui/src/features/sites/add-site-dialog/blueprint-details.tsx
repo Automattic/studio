@@ -102,7 +102,7 @@ export function BlueprintDetails( {
 						<>
 							<Button
 								variant="outline"
-								size="header"
+								size="sm"
 								onClick={ () =>
 									void connector.openExternalUrl( getBlueprintPreviewUrl( blueprint ) )
 								}
@@ -113,7 +113,7 @@ export function BlueprintDetails( {
 							<Button
 								ref={ createButton }
 								variant="accent"
-								size="header"
+								size="sm"
 								loading={ create.isPending }
 								loadingAnnouncement={ __( 'Creating site' ) }
 								onClick={ () => create.mutate() }

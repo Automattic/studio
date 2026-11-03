@@ -56,9 +56,13 @@ const api: IpcApi = {
 	copyText: ( text ) => ipcRendererInvoke( 'copyText', text ),
 	getAppGlobals: () => ipcRendererInvoke( 'getAppGlobals' ),
 	getAppUpdateStatus: () => ipcRendererInvoke( 'getAppUpdateStatus' ),
+	checkForAppUpdates: () => ipcRendererInvoke( 'checkForAppUpdates' ),
 	installAppUpdate: () => ipcRendererInvoke( 'installAppUpdate' ),
 	getWpVersion: ( id ) => ipcRendererInvoke( 'getWpVersion', id ),
 	getGlobalStyles: ( id ) => ipcRendererInvoke( 'getGlobalStyles', id ),
+	getSiteEmails: ( id ) => ipcRendererInvoke( 'getSiteEmails', id ),
+	openSiteEmailFolder: ( id ) => ipcRendererInvoke( 'openSiteEmailFolder', id ),
+	getSiteEmail: ( id, emailId ) => ipcRendererInvoke( 'getSiteEmail', id, emailId ),
 	getIsMultisite: ( id ) => ipcRendererInvoke( 'getIsMultisite', id ),
 	generateProposedSitePath: ( siteName ) =>
 		ipcRendererInvoke( 'generateProposedSitePath', siteName ),

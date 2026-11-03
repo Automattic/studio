@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
+import { AnnotateHint } from '@/features/onboarding';
 import { AnnotateIcon } from '@/lib/icons';
-import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
+import { Button } from '@/lib/ui';
 import styles from './style.module.css';
 
 export function AnnotateButton( {
@@ -21,34 +22,30 @@ export function AnnotateButton( {
 			className={ styles.disabledControlTooltipTarget }
 			title={ disabled ? disabledReason : undefined }
 		>
-			<Tooltip>
-				<TooltipTrigger
-					render={
-						<Button
-							variant="accent-ghost"
-							size={ iconOnly ? 'icon' : 'default' }
-							className={ styles.annotateButton }
-							aria-label={ __( 'Annotate' ) }
-							aria-pressed={ active }
-							aria-description={
-								disabled
-									? disabledReason
-									: active
-									? __( 'Exit annotation mode. Your notes will be kept.' )
-									: undefined
-							}
-							disabled={ disabled }
-							onClick={ onClick }
-						>
-							<AnnotateIcon data-icon={ iconOnly ? undefined : 'inline-start' } />
-							{ iconOnly ? null : <span>{ __( 'Annotate' ) }</span> }
-						</Button>
+			<AnnotateHint
+				enabled={ ! disabled && ! active }
+				tooltip={ disabledReason ?? ( active ? __( 'Exit annotation mode' ) : __( 'Annotate' ) ) }
+			>
+				<Button
+					variant="accent-ghost"
+					size={ iconOnly ? 'icon' : 'default' }
+					className={ styles.annotateButton }
+					aria-label={ __( 'Annotate' ) }
+					aria-pressed={ active }
+					aria-description={
+						disabled
+							? disabledReason
+							: active
+							? __( 'Exit annotation mode. Your notes will be kept.' )
+							: undefined
 					}
-				/>
-				<TooltipContent side="bottom">
-					{ disabledReason ?? ( active ? __( 'Exit annotation mode' ) : __( 'Annotate' ) ) }
-				</TooltipContent>
-			</Tooltip>
+					disabled={ disabled }
+					onClick={ onClick }
+				>
+					<AnnotateIcon data-icon={ iconOnly ? undefined : 'inline-start' } />
+					{ iconOnly ? null : <span>{ __( 'Annotate' ) }</span> }
+				</Button>
+			</AnnotateHint>
 		</span>
 	);
 }

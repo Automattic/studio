@@ -25,7 +25,7 @@ describe( 'Conversation copy buttons', () => {
 			] )
 		);
 
-		fireEvent.click( screen.getByRole( 'button', { name: /^Worked/ } ) );
+		expect( screen.queryByRole( 'button', { name: /^Worked/ } ) ).not.toBeInTheDocument();
 		const buttons = screen.getAllByRole( 'button', { name: 'Copy message' } );
 		expect( buttons ).toHaveLength( 3 );
 
@@ -296,7 +296,7 @@ describe( 'Conversation activity groups', () => {
 			] ),
 			{ isRunning: true, startedAt: Date.now(), pendingQuestions: new Set( [ 'Which color?' ] ) }
 		);
-		const header = screen.getByRole( 'button', { name: /^Waiting for/ } );
+		const header = screen.getByRole( 'button', { name: /^Waiting/ } );
 		expect( header ).toHaveAttribute( 'aria-expanded', 'false' );
 		expect( screen.getByRole( 'radio', { name: 'Blue' } ) ).toBeVisible();
 		fireEvent.click( header );

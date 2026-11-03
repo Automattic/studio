@@ -5,6 +5,7 @@ import { buffer, text } from 'node:stream/consumers';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { writeStudioMuPlugins } from '@studio/common/lib/mu-plugins';
 import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metadata';
+import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import {
 	getPhpBinaryPath,
 	getSqliteCommandPath,
@@ -19,7 +20,6 @@ import {
 	reapPhpTreeOnInterrupt,
 } from './native-php/php-process';
 import { getPulledSiteStartOptions } from './pull/pulled-site-start-options';
-import { getSiteEmailDirectory } from './site-email';
 import { getWpCliPhpIniArgs } from './wp-cli-php-ini';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { SiteData } from 'cli/lib/cli-config/core';

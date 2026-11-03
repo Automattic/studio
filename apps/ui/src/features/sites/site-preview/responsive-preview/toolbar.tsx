@@ -67,9 +67,7 @@ export function ResponsiveToolbar( {
 	return (
 		<div className={ styles.toolbar } role="toolbar" aria-label={ __( 'Responsive preview' ) }>
 			<Menu.Root>
-				<Menu.Trigger
-					render={ <Button variant="ghost" size="header" className={ styles.device } /> }
-				>
+				<Menu.Trigger render={ <Button variant="ghost" size="sm" className={ styles.device } /> }>
 					<span>{ settings.preset === 'responsive' ? __( 'Responsive' ) : settings.preset }</span>
 					<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
 				</Menu.Trigger>
@@ -131,7 +129,7 @@ export function ResponsiveToolbar( {
 			/>
 			<span className={ styles.divider } aria-hidden="true" />
 			<Menu.Root>
-				<Menu.Trigger render={ <Button variant="ghost" size="header" /> }>
+				<Menu.Trigger render={ <Button variant="ghost" size="sm" /> }>
 					{ settings.zoom === 'fit' ? __( 'Fit' ) : `${ settings.zoom * 100 }%` }
 					<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
 				</Menu.Trigger>

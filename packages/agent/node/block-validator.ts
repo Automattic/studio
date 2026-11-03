@@ -1,5 +1,7 @@
-import { EditorPage } from './browser-utils';
+import { EditorPage, withTimeout } from './browser-utils';
 import type { Page } from 'playwright';
+
+const BLOCK_EVALUATION_TIMEOUT_MS = 60_000;
 
 interface BlockValidationResult {
 	blockName: string;
@@ -147,7 +149,7 @@ export async function validateBlocks(
 			// What the editor threw beside the content, for a block it did not register.
 			const input = [ content, getEditorPage( siteUrl, editor ).loadErrors ] as const;
 
-			const validation = await page.evaluate( async ( [ html, thrown ] ) => {
+			const evaluation = page.evaluate( async ( [ html, thrown ] ) => {
 				/* eslint-disable @typescript-eslint/no-explicit-any */
 				const wpBlocks = ( window as any ).wp?.blocks;
 				if ( ! wpBlocks ) {
@@ -1689,6 +1691,11 @@ export async function validateBlocks(
 				};
 				/* eslint-enable @typescript-eslint/no-explicit-any */
 			}, input );
+			const validation = await withTimeout(
+				evaluation,
+				BLOCK_EVALUATION_TIMEOUT_MS,
+				'Evaluating blocks in the editor'
+			);
 
 			const report = validation.report as ValidationReport;
 
@@ -1711,9 +1718,7 @@ export async function validateBlocks(
 			validBlocks: 0,
 			invalidBlocks: 0,
 			results: [],
-			error: `Block validation error: ${
-				error instanceof Error ? error.message : String( error )
-			}`,
+			error: error instanceof Error ? error.message : String( error ),
 		};
 	}
 }

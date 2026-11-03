@@ -27,7 +27,53 @@ e2e_config: &e2e_config
       - with: { platform: windows, arch: x64 }
 
 steps:
-  - label: 🔨 Mac Dev Build - arm64
+  - label: 🔨 Mac Dev Build - arm64 (1)
+    agents:
+      queue: mac-staging
+    command: |
+      .buildkite/commands/prepare-environment.sh
+
+      .buildkite/commands/install-node-dependencies.sh
+
+      node ./scripts/prepare-dev-build-version.mjs
+
+      export IS_DEV_BUILD=true
+
+      echo "--- :node: Building Binary"
+      npm run make:macos-arm64
+
+      # Local trial and error show this needs to run before the DMG generation (obviously) but after the binary has been built
+      echo "--- :hammer: Rebuild fs-attr if necessary before generating DMG"
+      case arm64 in
+        x64)
+          echo "Rebuilding fs-xattr for arm64 architecture"
+          npm rebuild fs-xattr --cpu universal
+          ;;
+        arm64)
+          echo "No need to rebuild fs-xattr because it works out of the box on Apple Silicon"
+          ;;
+        *)
+          echo "^^^ +++ Unexpected architecture arm64"
+          exit 1
+          ;;
+      esac
+
+      echo "--- :node: Packaging in DMG"
+      npm run make:dmg-arm64
+
+      echo "--- 📃 Notarizing Binary"
+      bundle exec fastlane notarize_binary
+
+      echo "--- :package: Building standalone CLI bundle"
+      npm run cli:bundle -- darwin arm64
+    plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+    artifact_paths:
+      - apps/studio/out/**/*.app.zip
+      - apps/studio/out/*.dmg
+      - standalone-bundles/studio-cli-*.tgz
+      - standalone-bundles/studio-cli-*.tgz.sha256
+
+  - label: 🔨 Mac Dev Build - arm64 (2)
     agents:
       queue: mac-staging
     command: |

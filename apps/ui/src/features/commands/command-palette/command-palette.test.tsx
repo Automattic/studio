@@ -462,7 +462,13 @@ describe( 'Command palette in the Studio workspace', () => {
 	beforeEach( () => {
 		localStorage.clear();
 		resetAppMessagesForTests();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn( async () => Response.json( { blueprints: [] } ) )
+		);
 	} );
+
+	afterEach( () => vi.unstubAllGlobals() );
 
 	it.each( [ false, true ] )(
 		'restarts through the palette after stop settles (fails: %s)',

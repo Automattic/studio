@@ -21,6 +21,10 @@ import {
 import { useResponsivePreview, updateResponsivePreview } from '@/data/responsive-preview';
 import {
 	AnnotationOverlay,
+	isBatchedAnnotation,
+	getSiteAnnotations,
+	subscribeAnnotationReview,
+	editAnnotation,
 	type AnnotationAnchor,
 	isAnnotationsBusy,
 	setAnnotating,
@@ -311,8 +315,40 @@ export function SitePreview( {
 						updateResponsivePreview( site.id, { enabled: ! responsiveSettings.enabled } ),
 			  }
 			: undefined;
+	const batchNotes = annotations.notes.filter( isBatchedAnnotation );
+	useEffect( () => {
+		if ( live ) return;
+		return subscribeAnnotationReview( site.id, ( id ) => {
+			const requested = getSiteAnnotations( site.id ).notes.find( ( note ) => note.id === id );
+			if ( ! requested || onStartAnnotating?.() === false ) return;
+			const accepted = editAnnotation( site.id, id );
+			const current = getSiteAnnotations( site.id );
+			const note = accepted
+				? requested
+				: current.notes.find( ( note ) => note.id === current.editingId );
+			if ( ! note ) return;
+			if ( note.email ) switchRealm( 'email' );
+			else if ( note.targetKey && note.path === 'DESIGN.md' ) switchRealm( 'design' );
+			else if ( note.path ) onPathChange?.( note.path );
+			setAnnotating( site.id, true );
+			if ( ! site.running && ! isStarting )
+				startSite.mutate( site.id, {
+					onError: () => setAnnotating( site.id, false ),
+				} );
+		} );
+	}, [
+		live,
+		site.id,
+		site.running,
+		isStarting,
+		onStartAnnotating,
+		onPathChange,
+		switchRealm,
+		startSite,
+	] );
 	const annotate = showAnnotate
 		? {
+				annotationCount: batchNotes.length,
 				active: annotations.active,
 				disabled:
 					! canAnnotateSurface ||

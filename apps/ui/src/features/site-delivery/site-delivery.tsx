@@ -227,7 +227,7 @@ export function ShareButton( props: { site: SiteDetails; className?: string } ) 
 	);
 }
 
-export function PublishButton( props: { site: SiteDetails } ) {
+export function PublishButton( props: { site: SiteDetails; variant?: 'accent' | 'outline' } ) {
 	const activity = useSiteSyncActivity( props.site.id );
 	const setupError = usePublishSetupError( props.site.id );
 	const transfer =
@@ -242,7 +242,7 @@ export function PublishButton( props: { site: SiteDetails } ) {
 	}, [ transfer?.kind ] );
 	return (
 		<Button
-			variant="accent"
+			variant={ props.variant ?? 'accent' }
 			aria-label={ __( 'Publish…' ) }
 			aria-description={
 				setupError ??

@@ -1,0 +1,83 @@
+.chip {
+	padding: 0;
+}
+.remove {
+	opacity: 0;
+	pointer-events: none;
+}
+.chip:hover > .remove,
+.chip:has( :focus-visible ) > .remove {
+	opacity: 1;
+	pointer-events: auto;
+}
+@media ( hover: none ) {
+	.remove {
+		opacity: 1;
+		pointer-events: auto;
+	}
+}
+.trigger {
+	--button-hover-background: color-mix( in oklab, var( --muted ) 95%, var( --foreground ) );
+
+	min-width: 0;
+	height: 100%;
+	padding: 0 var( --space-2_5 ) 0 var( --space-2 );
+	border-radius: inherit;
+}
+.popup {
+	width: max-content;
+	max-width: min( 320px, var( --annotation-popup-max-width, 320px ), calc( 100vw - 16px ) );
+	padding: var( --space-1_5 );
+}
+.notes {
+	max-height: min( 288px, calc( var( --available-height ) - 2 * var( --space-1_5 ) ) );
+	overflow-y: auto;
+}
+.row {
+	display: flex;
+	align-items: flex-start;
+	gap: var( --space-2 );
+	padding: var( --space-1 );
+	border-radius: var( --radius-md );
+}
+.row:hover,
+.row:has( :focus-visible ) {
+	background-color: var( --hover );
+}
+.note {
+	--button-hover-background: transparent;
+
+	flex: 1;
+	min-width: 0;
+	min-height: 24px;
+	height: auto;
+	align-items: flex-start;
+	justify-content: flex-start;
+	text-align: start;
+	padding-block: 0;
+	padding-inline: 0;
+	border-radius: inherit;
+}
+.number {
+	display: inline-grid;
+	place-items: center;
+	flex-shrink: 0;
+	width: var( --space-4 );
+	height: var( --space-4 );
+	margin-block-start: var( --space-1 );
+	color: var( --foreground );
+	font-size: var( --text-2xs );
+	line-height: 1;
+	font-variant-numeric: tabular-nums;
+}
+.label {
+	composes: truncate from '@/lib/theme/recipes.module.css';
+}
+.note .label {
+	display: -webkit-box;
+	margin-block-start: var( --space-0_5 );
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 3;
+	white-space: normal;
+	overflow-wrap: anywhere;
+}

@@ -75,64 +75,60 @@ export function SiteShareMenuItem( { site, disabled }: { site: SiteDetails; disa
 		.filter( ( snapshot ) => snapshot.localSiteId === site.id && ! isSnapshotExpired( snapshot ) )
 		.sort( ( a, b ) => b.date - a.date );
 	const openSharing = () => openHeaderPanel( { panel: 'share', siteId: site.id } );
-	if ( previews.length ) {
-		return (
-			<Menu.SubmenuRoot>
-				<Menu.SubmenuTrigger disabled={ disabled }>
-					<ShareIcon />
-					{ __( 'Share' ) }
-				</Menu.SubmenuTrigger>
-				<Menu.SubmenuPopup>
-					<Menu.SubmenuRoot>
-						<Menu.SubmenuTrigger>
-							<LinkIcon />
-							{ __( 'Copy links' ) }
-						</Menu.SubmenuTrigger>
-						<Menu.SubmenuPopup>
-							{ previews.map( ( snapshot, index ) => (
-								<PreviewLink
-									key={ snapshot.atomicSiteId }
-									snapshot={ snapshot }
-									sequence={ previews.length - index }
-									siteId={ site.id }
-								/>
-							) ) }
-						</Menu.SubmenuPopup>
-					</Menu.SubmenuRoot>
-					<Menu.SubmenuRoot>
-						<Menu.SubmenuTrigger>
-							<GlobeIcon />
-							{ __( 'Visit previews' ) }
-						</Menu.SubmenuTrigger>
-						<Menu.SubmenuPopup>
-							{ previews.map( ( snapshot, index ) => (
-								<PreviewLink
-									key={ snapshot.atomicSiteId }
-									snapshot={ snapshot }
-									sequence={ previews.length - index }
-									siteId={ site.id }
-									visit
-								/>
-							) ) }
-						</Menu.SubmenuPopup>
-					</Menu.SubmenuRoot>
-					<Menu.Separator />
-					<Menu.Item disabled={ createDisabled } onClick={ createPreview }>
-						<PlusIcon />
-						{ __( 'Create preview' ) }
-					</Menu.Item>
-					<Menu.Item onClick={ openSharing }>
-						<ShareIcon />
-						{ __( 'Manage sharing' ) }
-					</Menu.Item>
-				</Menu.SubmenuPopup>
-			</Menu.SubmenuRoot>
-		);
-	}
 	return (
-		<Menu.Item disabled={ disabled } onClick={ openSharing }>
-			<ShareIcon />
-			{ __( 'Share' ) }
-		</Menu.Item>
+		<Menu.SubmenuRoot>
+			<Menu.SubmenuTrigger disabled={ disabled }>
+				<ShareIcon />
+				{ __( 'Share' ) }
+			</Menu.SubmenuTrigger>
+			<Menu.SubmenuPopup>
+				<Menu.Item disabled={ createDisabled } onClick={ createPreview }>
+					<PlusIcon />
+					{ __( 'Create preview' ) }
+				</Menu.Item>
+				<Menu.Item onClick={ openSharing }>
+					<ShareIcon />
+					{ __( 'Manage sharing' ) }
+				</Menu.Item>
+				{ previews.length ? (
+					<>
+						<Menu.Separator />
+						<Menu.SubmenuRoot>
+							<Menu.SubmenuTrigger>
+								<LinkIcon />
+								{ __( 'Copy links' ) }
+							</Menu.SubmenuTrigger>
+							<Menu.SubmenuPopup>
+								{ previews.map( ( snapshot, index ) => (
+									<PreviewLink
+										key={ snapshot.atomicSiteId }
+										snapshot={ snapshot }
+										sequence={ previews.length - index }
+										siteId={ site.id }
+									/>
+								) ) }
+							</Menu.SubmenuPopup>
+						</Menu.SubmenuRoot>
+						<Menu.SubmenuRoot>
+							<Menu.SubmenuTrigger>
+								<GlobeIcon />
+								{ __( 'Visit previews' ) }
+							</Menu.SubmenuTrigger>
+							<Menu.SubmenuPopup>
+								{ previews.map( ( snapshot, index ) => (
+									<PreviewLink
+										key={ snapshot.atomicSiteId }
+										snapshot={ snapshot }
+										sequence={ previews.length - index }
+										siteId={ site.id }
+										visit
+									/>
+								) ) }
+							</Menu.SubmenuPopup>
+						</Menu.SubmenuRoot>
+					</>
+				) : null }
+			</Menu.SubmenuPopup>
+		</Menu.SubmenuRoot>
 	);
 }

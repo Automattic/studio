@@ -1,4 +1,8 @@
 @layer ui {
+	.item:not( :has( > [data-icon='inline-end'] ) ) {
+		padding-inline-end: var( --space-3 );
+	}
+
 	.groupLabel {
 		padding: var( --space-1 ) var( --space-2 );
 		color: var( --muted-foreground );

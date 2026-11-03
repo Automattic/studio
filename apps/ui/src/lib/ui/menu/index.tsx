@@ -161,7 +161,7 @@ export const Item = forwardRef< ElementRef< typeof BaseMenu.Item >, ItemProps >(
 	return (
 		<BaseMenu.Item
 			ref={ ref }
-			className={ clsx( surface.item, destructive && styles.destructive, className ) }
+			className={ clsx( surface.item, styles.item, destructive && styles.destructive, className ) }
 			{ ...props }
 		>
 			{ children }

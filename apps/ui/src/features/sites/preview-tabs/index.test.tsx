@@ -373,6 +373,55 @@ it( 'reopens a batched design note in its existing tab without scrolling', async
 	);
 } );
 
+it( 'opens the right-clicked tab in the preferred browser without selecting it', async () => {
+	const { connector } = await setup();
+	await act( () => connector.setUserPreferences( { browser: 'firefox' } ) );
+	const address = screen.getByRole( 'textbox', { name: 'Address' } );
+	fireEvent.change( address, { target: { value: '/about/?source=preview#team' } } );
+	fireEvent.submit( address.closest( 'form' )! );
+	await newBrowserTab();
+	const tabs = screen.getAllByRole( 'tab' );
+	fireEvent.contextMenu( tabs[ 0 ] );
+	const open = await screen.findByRole( 'menuitem', { name: 'Open in Firefox' } );
+	expect( screen.getAllByRole( 'menuitem' )[ 0 ] ).toBe( open );
+	expect( screen.getByRole( 'separator' ) ).toBeInTheDocument();
+	fireEvent.click( open );
+	expect( connector.openSiteUrl ).toHaveBeenCalledWith( 'one', '/about/?source=preview#team', {
+		autoLogin: false,
+	} );
+	expect( tabs[ 1 ] ).toHaveAttribute( 'aria-selected', 'true' );
+} );
+
+it.each( [
+	'/wp-admin/edit.php?post_type=page',
+	'/phpmyadmin/index.php?route=/database/structure&db=wordpress',
+] )( 'preserves authenticated tool navigation when opening %s externally', async ( path ) => {
+	const { connector } = await setup();
+	const address = screen.getByRole( 'textbox', { name: 'Address' } );
+	fireEvent.change( address, { target: { value: path } } );
+	fireEvent.submit( address.closest( 'form' )! );
+	fireEvent.contextMenu( selectedTab() );
+	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in Browser' } ) );
+	const target = path.startsWith( '/wp-admin/' )
+		? `/studio-auto-login?redirect_to=${ encodeURIComponent( `http://localhost:9010${ path }` ) }`
+		: path;
+	expect( connector.openSiteUrl ).toHaveBeenCalledWith( 'one', target, {
+		autoLogin: ! path.startsWith( '/wp-admin/' ),
+	} );
+} );
+
+it( 'disables opening Studio-rendered tool tabs externally', async () => {
+	const { connector } = await setup();
+	fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
+	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Email' } ) );
+	fireEvent.contextMenu( await screen.findByRole( 'tab', { name: 'Email' } ) );
+	const open = await screen.findByRole( 'menuitem', { name: 'Open in Browser' } );
+	expect( open ).toHaveAttribute( 'aria-disabled', 'true' );
+	fireEvent.click( open );
+	expect( connector.openSiteUrl ).not.toHaveBeenCalled();
+	expect( connector.openExternalUrl ).not.toHaveBeenCalled();
+} );
+
 it( 'closes tabs from the context menu without selecting the right-clicked tab', async () => {
 	await setup();
 	for ( let i = 0; i < 3; i++ ) await newBrowserTab();

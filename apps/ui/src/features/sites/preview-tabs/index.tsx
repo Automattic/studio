@@ -3,10 +3,12 @@ import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
 import { X } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useConnector } from '@/data/core';
 import { previewTabsKey, usePreviewTabs, type PreviewTab } from '@/data/preview-tabs';
 import { useIsSiteBusy, useStopSite } from '@/data/queries/use-sites';
 import { useSessionPreviewUI } from '@/data/use-session-ui';
-import { getPreviewRealm } from '@/features/sites/site-preview/address-bar';
+import { useOpenInDestinations } from '@/features/sites/open-in-menu/use-open-in-destinations';
+import { getPreviewRealm, getRealmOpenEvent } from '@/features/sites/site-preview/address-bar';
 import { getSiteTool, SiteToolMenuItems, useSiteToolActions } from '@/features/sites/site-tools';
 import { PlusIcon } from '@/lib/icons';
 import { isDialogOpen, isShortcut } from '@/lib/keyboard';
@@ -30,6 +32,8 @@ export function PreviewTabs( {
 	liveUrl?: string;
 	path: string;
 } ) {
+	const connector = useConnector();
+	const browser = useOpenInDestinations( site ).find( ( entry ) => entry.id === 'browser' )!;
 	const { id: siteId, name: siteName } = site;
 	const running = !! liveUrl || site.running;
 	const busy = useIsSiteBusy( site );
@@ -130,6 +134,19 @@ export function PreviewTabs( {
 		document.addEventListener( 'keydown', onKeyDown );
 		return () => document.removeEventListener( 'keydown', onKeyDown );
 	}, [ busy, setOpen, siteId ] );
+	const openInBrowser = ( tab: PreviewTab ) => {
+		if ( tab.path === null ) return;
+		const realm = getPreviewRealm( tab.path );
+		void connector.trackEvent( getRealmOpenEvent( realm ), { browser: 'external' } );
+		const opening = liveUrl
+			? connector.openExternalUrl( `${ liveUrl.replace( /\/$/, '' ) }${ tab.path }` )
+			: connector.openSiteUrl( siteId, tab.path, {
+					autoLogin: realm !== 'frontend' && ! tab.path.startsWith( '/studio-auto-login' ),
+			  } );
+		void opening.catch( ( error ) => {
+			console.error( 'Failed to open preview tab in browser:', error );
+		} );
+	};
 	const closeTabs = ( ids: string[] ) => {
 		const isLastTab = workspace.tabs.every( ( tab ) => ids.includes( tab.id ) );
 		closeMany( ids );
@@ -213,6 +230,19 @@ export function PreviewTabs( {
 										/>
 									</Menu.ContextMenuTrigger>
 									<Menu.ContextPopup>
+										<Menu.Item
+											disabled={
+												busy ||
+												tab.path === null ||
+												[ 'design', 'email' ].includes( getPreviewRealm( tab.path ) )
+											}
+											onClick={ () => openInBrowser( tab ) }
+										>
+											{ browser.logo }
+											{ /* translators: %s: the preferred or system default browser name. */ }
+											{ sprintf( __( 'Open in %s' ), browser.label ) }
+										</Menu.Item>
+										<Menu.Separator />
 										<Menu.Item onClick={ () => closeTabs( [ tab.id ] ) }>
 											<X />
 											{ __( 'Close tab' ) }

@@ -1,5 +1,6 @@
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { __, sprintf } from '@wordpress/i18n';
+import { PlusIcon } from 'lucide-react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { markPreviewSeen } from '@/data/preview-ready';
@@ -67,6 +68,10 @@ export function SiteShareMenuItem( { site, disabled }: { site: SiteDetails; disa
 						) ) }
 					</Menu.Group>
 					<Menu.Separator />
+					<Menu.Item onClick={ openSharing }>
+						<PlusIcon />
+						{ __( 'Create preview…' ) }
+					</Menu.Item>
 					<Menu.Item onClick={ openSharing }>
 						<ShareIcon />
 						{ __( 'Manage sharing…' ) }

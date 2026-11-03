@@ -62,6 +62,9 @@ it( 'copies an active preview and keeps the sharing dialog accessible', async ()
 		await open();
 		expect( screen.queryByRole( 'menuitem', { name: 'Expired' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'menuitem', { name: 'Other site' } ) ).not.toBeInTheDocument();
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Create preview…' } ) );
+		expect( requested ).toHaveBeenCalledWith( { panel: 'share', siteId: site.id } );
+		await open();
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Manage sharing…' } ) );
 		expect( requested ).toHaveBeenCalledWith( { panel: 'share', siteId: site.id } );
 	} finally {

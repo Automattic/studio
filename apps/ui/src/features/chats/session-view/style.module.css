@@ -81,15 +81,7 @@
 	display: none;
 }
 
-.bottomBlur {
-	height: calc(
-		var( --composer-height ) + var( --composer-bottom-gap ) + var( --surface-fade-size )
-	);
-	display: none;
-}
-
-.root:has( > .scroll[data-scroll-top] ) > .topBlur,
-.root:has( > .scroll[data-scroll-bottom] ) > .bottomBlur {
+.root:has( > .scroll[data-scroll-top] ) > .topBlur {
 	display: block;
 }
 

@@ -1,11 +1,12 @@
 import { act, fireEvent, screen } from '@testing-library/react';
 import { useState } from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { updateResponsivePreview, useResponsivePreview } from '@/data/responsive-preview';
 import { SessionUIProvider } from '@/data/use-session-ui';
 import { makeSite } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { SitePreview } from '../index';
+import { getFitScale } from './settings';
 import { ResponsiveToolbar } from './toolbar';
 import { ResponsiveViewport } from './viewport';
 
@@ -33,7 +34,7 @@ describe( 'responsive mode', () => {
 		expect( toggle() ).toHaveAttribute( 'aria-pressed', 'false' );
 		await view.user.click( toggle() );
 		expect( toggle() ).toHaveAttribute( 'aria-pressed', 'true' );
-		expect( screen.getByRole( 'button', { name: 'Fit' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Fit to window' } ) ).toBeInTheDocument();
 		expect( width() ).toHaveValue( '400' );
 		expect( height() ).toHaveValue( '800' );
 		await view.user.click( screen.getByRole( 'button', { name: 'Responsive' } ) );
@@ -41,7 +42,11 @@ describe( 'responsive mode', () => {
 			await screen.findByRole( 'menuitemradio', { name: /iPhone 17 Pro Max/ } )
 		);
 		expect( width() ).toHaveValue( '440' );
-		await view.user.click( screen.getByRole( 'button', { name: 'Fit' } ) );
+		await view.user.click( screen.getByRole( 'button', { name: 'Rotate to landscape' } ) );
+		expect( screen.getByRole( 'button', { name: 'iPhone 17 Pro Max' } ) ).toBeInTheDocument();
+		expect( width() ).toHaveValue( '956' );
+		await view.user.click( screen.getByRole( 'button', { name: 'Rotate to portrait' } ) );
+		await view.user.click( screen.getByRole( 'button', { name: 'Fit to window' } ) );
 		await view.user.click( await screen.findByRole( 'menuitemradio', { name: '75%' } ) );
 		await view.user.click( screen.getByRole( 'button', { name: 'Exit responsive mode' } ) );
 		expect( toggle() ).toHaveAttribute( 'aria-pressed', 'false' );
@@ -63,6 +68,45 @@ describe( 'responsive mode', () => {
 		await renderPreview( 'responsive-restore' );
 		expect( toggle() ).toHaveAttribute( 'aria-pressed', 'true' );
 		expect( width() ).toHaveValue( '440' );
+	} );
+
+	it( 'keeps the applied fit on window resize until Fit to window is selected again', async () => {
+		let availableHeight = 600;
+		let measure = () => {};
+		const heightSpy = vi
+			.spyOn( HTMLElement.prototype, 'clientHeight', 'get' )
+			.mockImplementation( () => availableHeight );
+		const widthSpy = vi.spyOn( HTMLElement.prototype, 'clientWidth', 'get' ).mockReturnValue( 800 );
+		vi.stubGlobal(
+			'ResizeObserver',
+			class {
+				private callback: () => void;
+				constructor( callback: () => void ) {
+					this.callback = callback;
+				}
+				observe( target: Element ) {
+					if ( target.className.includes( 'previewViewport' ) ) measure = this.callback;
+				}
+				unobserve() {}
+				disconnect() {}
+			}
+		);
+		try {
+			const { user } = await renderPreview( 'responsive-fit-actions' );
+			await user.click( toggle() );
+			const scaledPage = document.querySelector( 'iframe' )?.parentElement?.parentElement;
+			expect( scaledPage ).toHaveStyle( { transform: 'scale(0.71)' } );
+			availableHeight = 400;
+			act( () => measure() );
+			expect( scaledPage ).toHaveStyle( { transform: 'scale(0.71)' } );
+			await user.click( screen.getByRole( 'button', { name: 'Fit to window' } ) );
+			await user.click( await screen.findByRole( 'menuitemradio', { name: /Fit to window/ } ) );
+			expect( scaledPage ).toHaveStyle( { transform: 'scale(0.46)' } );
+		} finally {
+			widthSpy.mockRestore();
+			heightSpy.mockRestore();
+			vi.unstubAllGlobals();
+		}
 	} );
 
 	it( 'commits valid dimensions, cancels on Escape, rejects invalid values, and rotates', async () => {
@@ -161,5 +205,14 @@ describe( 'responsive mode', () => {
 		fireEvent.pointerUp( edge, { pointerId: 1 } );
 		expect( width() ).toHaveValue( '512' );
 		expect( height() ).toHaveValue( '720' );
+	} );
+} );
+
+describe( 'fit scale', () => {
+	it( 'caps small devices at 100% and rounds down to whole percentages', () => {
+		expect( getFitScale( 1200, 1200, 393, 852 ) ).toBe( 1 );
+		expect( getFitScale( 1000, 800, 393, 852 ) ).toBe( 0.9 );
+		expect( getFitScale( 300, 1000, 393, 852 ) ).toBe( 0.68 );
+		expect( getFitScale( 0, 0, 393, 852 ) ).toBe( 0.01 );
 	} );
 } );

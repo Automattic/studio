@@ -623,3 +623,9 @@ export const questionnaireSkip = check( ( d ) => {
 		? pass( 'Selected page and skipped layout are reflected in the reply.' )
 		: fail( `The reply did not preserve the selection and skip: ${ text }` );
 } );
+
+export const designSystemReplyLink = check( ( d ) =>
+	/Updated the \[Design System\]\(studio:design-system\)\./.test( finalReply( d ) )
+		? pass( 'final reply includes an inline design system link' )
+		: fail( `final reply lacks the design system link: ${ finalReply( d ).slice( 0, 500 ) }` )
+);

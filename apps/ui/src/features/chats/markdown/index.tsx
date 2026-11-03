@@ -1,11 +1,14 @@
+import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { __ } from '@wordpress/i18n';
 import { isValidElement, memo, useMemo } from 'react';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useConnector } from '@/data/core';
+import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { CopyButton } from '@/features/chats/copy-button';
 import { CODE_TEXT_ATTRIBUTE } from '@/features/chats/use-text-context-menu';
-import { CodeBlock } from '@/lib/ui';
+import { AppearanceIcon } from '@/lib/icons';
+import { Button, CodeBlock } from '@/lib/ui';
 import { closeOpenMarkdown, splitMarkdownBlocks } from './blocks';
 import styles from './style.module.css';
 import type { MouseEvent, ReactNode } from 'react';
@@ -86,6 +89,10 @@ const baseComponents: Components = {
 
 const remarkPlugins = [ remarkGfm ];
 
+function transformChatUrl( url: string ) {
+	return url === DESIGN_SYSTEM_PREVIEW_PATH ? url : defaultUrlTransform( url );
+}
+
 const MarkdownBlock = memo( function MarkdownBlock( {
 	text,
 	components,
@@ -94,7 +101,11 @@ const MarkdownBlock = memo( function MarkdownBlock( {
 	components: Components;
 } ) {
 	return (
-		<ReactMarkdown remarkPlugins={ remarkPlugins } components={ components }>
+		<ReactMarkdown
+			remarkPlugins={ remarkPlugins }
+			components={ components }
+			urlTransform={ transformChatUrl }
+		>
 			{ text }
 		</ReactMarkdown>
 	);
@@ -109,6 +120,7 @@ export const Markdown = memo( function Markdown( {
 	streaming?: boolean;
 } ) {
 	const connector = useConnector();
+	const navigatePreview = useOptionalSessionPreviewUI()?.navigate;
 
 	const components = useMemo< Components >( () => {
 		return {
@@ -116,6 +128,20 @@ export const Markdown = memo( function Markdown( {
 			// Electron swallows plain `target="_blank"` navigations — route clicks
 			// through the connector so links open in the system browser.
 			a: ( { children: linkChildren, href } ) => {
+				if ( href === DESIGN_SYSTEM_PREVIEW_PATH ) {
+					return (
+						<Button
+							variant="unstyled"
+							size="inline"
+							className={ styles.designSystemLink }
+							aria-label={ __( 'Open design system' ) }
+							onClick={ () => navigatePreview?.( DESIGN_SYSTEM_PREVIEW_PATH ) }
+						>
+							<AppearanceIcon aria-hidden="true" />
+							{ __( 'Design System' ) }
+						</Button>
+					);
+				}
 				const handleClick = ( event: MouseEvent< HTMLAnchorElement > ) => {
 					if ( ! href ) {
 						return;
@@ -136,7 +162,7 @@ export const Markdown = memo( function Markdown( {
 				);
 			},
 		};
-	}, [ connector ] );
+	}, [ connector, navigatePreview ] );
 
 	const blocks = splitMarkdownBlocks( children );
 	return (

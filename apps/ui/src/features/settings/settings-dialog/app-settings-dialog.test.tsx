@@ -412,6 +412,17 @@ describe( 'WordPress Studio settings', () => {
 		);
 	} );
 
+	it( 'enables annotation batching from interface settings', async () => {
+		const { connector } = await setup( { preferences: { batchAnnotations: false } } );
+		fireEvent.click( await screen.findByRole( 'switch', { name: 'Batch notes' } ) );
+		await waitFor( () =>
+			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+				{ batchAnnotations: true },
+				undefined
+			)
+		);
+	} );
+
 	it( 'clears the persisted cache and reloads after saving a new language', async () => {
 		const location = window.location;
 		const reload = vi.fn();

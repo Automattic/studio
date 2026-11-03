@@ -103,7 +103,6 @@ export function SessionFrame( {
 					{ children }
 				</div>
 				<ScrollBlur edge="top" className={ styles.topBlur } />
-				<ScrollBlur edge="bottom" className={ styles.bottomBlur } />
 				{ composer ? (
 					<div ref={ composerRef } className={ styles.composerOuter }>
 						{ composer }

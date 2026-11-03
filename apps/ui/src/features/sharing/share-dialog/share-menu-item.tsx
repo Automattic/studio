@@ -39,6 +39,7 @@ function PreviewLink( {
 				markPreviewSeen( siteId );
 			} }
 		>
+			{ visit ? <GlobeIcon /> : <LinkIcon /> }
 			<Menu.ItemLabel>
 				{ snapshot.name || sprintf( __( 'Preview %d' ), snapshot.sequence ?? sequence ) }
 			</Menu.ItemLabel>

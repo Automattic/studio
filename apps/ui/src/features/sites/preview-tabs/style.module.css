@@ -41,6 +41,7 @@
 	min-width: 128px;
 	height: 32px;
 	border-radius: var( --radius-md );
+	background: var( --chat );
 	transition: transform var( --motion-duration-layout ) ease-in-out;
 }
 .tab[data-preview-selected] {

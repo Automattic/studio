@@ -204,6 +204,7 @@ export function ConnectPanel( { onConnect }: { onConnect: ( site: SyncSite ) => 
 						'Create an account or log in to connect your WordPress.com or Pressable sites and work on them locally.'
 					) }
 					source="add_site"
+					analytics={ { placement: 'add_site_connect', intent: 'connect_site' } }
 				/>
 			</Empty>
 		);

@@ -1,7 +1,13 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { SYNC_CANCELLED_MESSAGE } from '@studio/common/lib/sync/cancel';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+	rememberAccountJourney,
+	scopeAccountJourney,
+	clearAccountJourneys,
+} from '@/data/account-analytics';
 import { getNoticeHistory } from '@/data/app-messages';
 import { ConnectorProvider } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
@@ -11,6 +17,7 @@ import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
 import { getSyncActivity, useSiteSyncActivity } from '@/data/sync-activity';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { createTestQueryClient } from '@/test/render';
+import { usePublishPreviewSite } from './use-preview-site';
 import { usePullSiteFromLive, usePushSiteToLive, useSyncActivityEvents } from './use-sync-site';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { QueryClient } from '@tanstack/react-query';
@@ -73,6 +80,68 @@ function Harness() {
 }
 
 describe( 'usePullSiteFromLive', () => {
+	it.each( [ new Error( 'Pull failed' ), new Error( SYNC_CANCELLED_MESSAGE ) ] )(
+		'completes a connect journey once after a failed or cancelled pull is retried (%s)',
+		async ( error ) => {
+			const { connector } = setup( <Harness /> );
+			const context = {
+				placement: 'add_site_connect',
+				intent: 'connect_site',
+				journey_id: crypto.randomUUID(),
+			} as const;
+			rememberAccountJourney( connector, context );
+			scopeAccountJourney( connector, context, 'site-1:42' );
+			connector.pullSiteFromLive.mockRejectedValueOnce( error );
+			const completions = () =>
+				connector.trackEvent.mock.calls.filter(
+					( [ name ] ) => name === TRACKS_EVENTS.ACCOUNT_JOURNEY_COMPLETED
+				);
+			fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
+			await waitFor( () => expect( connector.pullSiteFromLive ).toHaveBeenCalledTimes( 1 ) );
+			await passReportGrace();
+			expect( completions() ).toHaveLength( 0 );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
+			await waitFor( () =>
+				expect( completions() ).toEqual( [
+					[ TRACKS_EVENTS.ACCOUNT_JOURNEY_COMPLETED, { ...context, completion_kind: 'sync_pull' } ],
+				] )
+			);
+			fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
+			await waitFor( () => expect( connector.pullSiteFromLive ).toHaveBeenCalledTimes( 3 ) );
+			await passReportGrace();
+			expect( completions() ).toHaveLength( 1 );
+		}
+	);
+
+	it.each( [ 'unscoped', 'other-site:42', 'site-1:99', 'expired', 'account-changed' ] )(
+		'does not complete an unrelated or invalid connect journey (%s)',
+		async ( scope ) => {
+			const { connector } = setup( <Harness /> );
+			const context = {
+				placement: 'add_site_connect',
+				intent: 'connect_site',
+				journey_id: crypto.randomUUID(),
+			} as const;
+			rememberAccountJourney( connector, context );
+			if ( scope !== 'unscoped' )
+				scopeAccountJourney(
+					connector,
+					context,
+					[ 'expired', 'account-changed' ].includes( scope ) ? 'site-1:42' : scope
+				);
+			if ( scope === 'expired' ) vi.setSystemTime( Date.now() + 24 * 60 * 60 * 1000 + 1 );
+			if ( scope === 'account-changed' ) clearAccountJourneys( connector );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
+			await waitFor( () => expect( connector.pullSiteFromLive ).toHaveBeenCalledTimes( 1 ) );
+			await passReportGrace();
+			expect(
+				connector.trackEvent.mock.calls.filter(
+					( [ name ] ) => name === TRACKS_EVENTS.ACCOUNT_JOURNEY_COMPLETED
+				)
+			).toHaveLength( 0 );
+		}
+	);
+
 	// The agent, a terminal or another window can start the sync: the UI only
 	// ever sees the activity the CLI publishes.
 	it( 'shows and announces a sync this UI did not start', () => {
@@ -278,3 +347,35 @@ describe( 'sync Tracks events', () => {
 		}
 	);
 } );
+
+it.each( [
+	[ undefined, 'preview_create' ],
+	[ 'preview.example', 'preview_update' ],
+] as const )(
+	'reports the requested preview operation kind (%s)',
+	async ( existingHostname, kind ) => {
+		function Preview() {
+			const publish = usePublishPreviewSite();
+			return (
+				<button onClick={ () => publish.mutate( { siteId: 'site-1', existingHostname } ) }>
+					Publish preview
+				</button>
+			);
+		}
+		const { connector } = setup( <Preview /> );
+		connector.publishPreviewSite.mockResolvedValue( { url: 'https://preview.example' } );
+		const context = {
+			placement: 'share',
+			intent: 'share',
+			journey_id: crypto.randomUUID(),
+		} as const;
+		rememberAccountJourney( connector, context, 'site-1' );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Publish preview' } ) );
+		await waitFor( () =>
+			expect( connector.trackEvent ).toHaveBeenCalledWith(
+				TRACKS_EVENTS.ACCOUNT_JOURNEY_COMPLETED,
+				{ ...context, completion_kind: kind }
+			)
+		);
+	}
+);

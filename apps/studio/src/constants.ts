@@ -34,5 +34,4 @@ export const IPC_VOID_HANDLERS = [
 	'popupAppMenu',
 	'readyForDeeplinks',
 	'showErrorMessageBox',
-	'authenticate',
 ] as const;

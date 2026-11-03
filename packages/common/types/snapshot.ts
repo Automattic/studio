@@ -4,6 +4,7 @@ export const snapshotSchema = z.object( {
 	url: z.string(),
 	atomicSiteId: z.number(),
 	localSiteId: z.string(),
+	tracksId: z.string().optional(),
 	date: z.number(),
 	name: z.string().optional(),
 	userId: z.number().optional(),

@@ -23,6 +23,7 @@ async function readInputPayload( path: string ): Promise< StudioAiSessionInputPa
 	const images = validateStudioChatImages( parsed.images );
 	return {
 		prompt: parsed.prompt,
+		turnId: parsed.turnId,
 		displayMessage: parsed.displayMessage,
 		images,
 		files: validateStudioChatFiles( parsed.files ),
@@ -79,6 +80,7 @@ export async function runCommand(
 		adapter,
 		resumeSession: session,
 		initialMessage: inputPayload?.prompt ?? options.message,
+		initialTurnId: inputPayload?.turnId,
 		initialDisplayMessage: inputPayload?.displayMessage ?? options.displayMessage,
 		initialImages: inputPayload?.images,
 		initialFiles: inputPayload?.files,

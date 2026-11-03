@@ -66,6 +66,7 @@ export interface AgentRunManagerConfig {
 }
 
 export interface StartAgentRunOptions {
+	turnId?: string;
 	sessionId: string;
 	prompt: string;
 	displayMessage?: string;
@@ -170,6 +171,7 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 			images = [],
 			files = [],
 			visualAnnotations,
+			turnId,
 		} = options;
 
 		if ( runsBySessionId.has( sessionId ) ) {
@@ -179,8 +181,15 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 		const runId = crypto.randomUUID();
 		const startedAt = Date.now();
 		const inputPayload =
-			images.length > 0 || files.length > 0 || ( visualAnnotations?.length ?? 0 ) > 0
-				? writeInputPayloadFile( { prompt, displayMessage, images, files, visualAnnotations } )
+			turnId || images.length > 0 || files.length > 0 || ( visualAnnotations?.length ?? 0 ) > 0
+				? writeInputPayloadFile( {
+						prompt,
+						displayMessage,
+						images,
+						files,
+						visualAnnotations,
+						turnId,
+				  } )
 				: undefined;
 		const args = [ 'code', 'sessions', 'resume', sessionId ];
 		if ( inputPayload ) {

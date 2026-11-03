@@ -86,7 +86,11 @@ describe( 'AccountMenu', () => {
 			expect( screen.queryByRole( 'dialog', { name: PROMPT } ) ).not.toBeInTheDocument()
 		);
 		expect( await screen.findByText( 'Logged in to WordPress.com' ) ).toBeVisible();
-		expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith( false, 'settings' );
+		expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith(
+			false,
+			'settings',
+			expect.any( Object )
+		);
 		fireEvent.click( screen.getByRole( 'button', { name: TEST_USER.displayName } ) );
 		const menu = await screen.findByRole( 'menu' );
 		expect( within( menu ).getByText( TEST_USER.displayName ) ).toBeVisible();
@@ -103,7 +107,11 @@ describe( 'AccountMenu', () => {
 		await openLoginDialog();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Create account' } ) );
 		await screen.findByRole( 'button', { name: TEST_USER.displayName } );
-		expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith( true, 'settings' );
+		expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith(
+			true,
+			'settings',
+			expect.any( Object )
+		);
 		await waitFor( () =>
 			expect( screen.queryByRole( 'dialog', { name: PROMPT } ) ).not.toBeInTheDocument()
 		);
@@ -124,7 +132,11 @@ describe( 'AccountMenu', () => {
 		await waitFor( () => expect( signup ).toHaveAttribute( 'aria-disabled', 'true' ) );
 		expect( login ).toBeDisabled();
 		fireEvent.click( login );
-		expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith( true, 'settings' );
+		expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith(
+			true,
+			'settings',
+			expect.any( Object )
+		);
 		await act( async () => reject( new Error( 'Signup failed' ) ) );
 		expect( await screen.findByRole( 'alert' ) ).toHaveTextContent( 'Signup failed' );
 		expect( signup ).toBeEnabled();

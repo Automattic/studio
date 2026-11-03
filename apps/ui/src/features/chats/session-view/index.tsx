@@ -148,7 +148,7 @@ function SessionViewContent( {
 		( ! sessionId && draft.provider ) ||
 		getEffectiveSessionProvider( data?.entries ?? [], aiSettings );
 	const isWpcom = sessionProvider === 'wpcom';
-	const notice = useComposerNotice( sessionProvider );
+	const notice = useComposerNotice( sessionProvider, ownerSite?.id );
 	// A fresh wpcom session defaults to balanced when the paid tiers are
 	// unlocked, fast otherwise.
 	const defaultModel = useMemo(
@@ -501,8 +501,9 @@ function SessionViewContent( {
 						ownerSiteId={ ownerSite?.id }
 						onSwitchSession={ switchSession }
 						placeholder={ composerPlaceholder }
-						placeholderBusy={ isSiteStarting }
-						canAutoStart={ canAutoStart }
+						placeholderBusy={ isSiteStarting || isSiteStopping }
+						canAutoStart={ canAutoStart && ! ownerSite?.running }
+
 						onStartSite={
 							canAutoStart && ( ! ownerSite.running || isSiteStarting || isSiteStopping )
 								? () => startSitePreview( ownerSite.id )

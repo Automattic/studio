@@ -2,6 +2,7 @@ import { fireEvent, screen } from '@testing-library/react';
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+	toast,
 	dismissToast,
 	getVisibleToasts,
 	showToast,
@@ -27,12 +28,7 @@ describe( 'AppToasts', () => {
 	it( 'keeps progress visible until replaced by a dismissible result', async () => {
 		await render( <AppToasts /> );
 		act( () => {
-			showToast( {
-				id: 'progress',
-				title: 'Creating preview…',
-				dismissible: false,
-				durationMs: 1,
-			} );
+			toast.processing( 'Creating preview…', { id: 'progress', durationMs: 1 } );
 		} );
 		expect(
 			screen.queryByRole( 'button', { name: 'Dismiss Creating preview…' } )

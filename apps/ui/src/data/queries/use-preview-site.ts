@@ -18,9 +18,8 @@ export function usePublishPreviewSite() {
 		mutationFn: ( { siteId, existingHostname, name }: PublishPreviewVariables ) =>
 			connector.publishPreviewSite( siteId, existingHostname, name ),
 		onMutate: ( { siteId, existingHostname } ) => {
-			toast.info( existingHostname ? __( 'Updating preview…' ) : __( 'Creating preview…' ), {
+			toast.processing( existingHostname ? __( 'Updating preview…' ) : __( 'Creating preview…' ), {
 				id: `preview-${ siteId }`,
-				dismissible: false,
 			} );
 			applySyncActivity( siteId, {
 				kind: 'pending',

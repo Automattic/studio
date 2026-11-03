@@ -178,7 +178,36 @@ export function SitePreview( {
 		responsiveSettings.width,
 		responsiveSettings.height
 	);
-	const responsiveScale = responsiveSettings.zoom === 'fit' ? fitScale : responsiveSettings.zoom;
+	useLayoutEffect( () => {
+		const viewport = viewportRef.current;
+		if (
+			responsiveEnabled &&
+			responsiveSettings.zoom === 'fit' &&
+			responsiveSettings.fitScale === undefined &&
+			viewport &&
+			viewport.clientWidth > 0 &&
+			viewport.clientHeight > 0
+		) {
+			updateResponsivePreview( site.id, {
+				fitScale: getFitScale(
+					viewport.clientWidth,
+					viewport.clientHeight,
+					responsiveSettings.width,
+					responsiveSettings.height
+				),
+			} );
+		}
+	}, [
+		responsiveEnabled,
+		responsiveSettings,
+		availableSize.width,
+		availableSize.height,
+		site.id,
+	] );
+	const responsiveScale =
+		responsiveSettings.zoom === 'fit'
+			? responsiveSettings.fitScale ?? fitScale
+			: responsiveSettings.zoom;
 	const {
 		annotationAnchor,
 		setAnnotationAnchor,

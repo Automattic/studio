@@ -624,8 +624,12 @@ export const questionnaireSkip = check( ( d ) => {
 		: fail( `The reply did not preserve the selection and skip: ${ text }` );
 } );
 
-export const designSystemReplyLink = check( ( d ) =>
-	/Updated the \[Design System\]\(studio:design-system\)\./.test( finalReply( d ) )
-		? pass( 'final reply includes an inline design system link' )
-		: fail( `final reply lacks the design system link: ${ finalReply( d ).slice( 0, 500 ) }` )
-);
+export const designSystemReplyLink = check( ( d ) => {
+	const text = finalReply( d );
+	if ( ! /\[Design System\]\(studio:design-system\)/.test( text ) ) {
+		return fail( `final reply lacks the design system link: ${ text.slice( 0, 500 ) }` );
+	}
+	return /refreshed (?:your|the) preview/i.test( text )
+		? fail( `final reply includes generic preview filler: ${ text.slice( 0, 500 ) }` )
+		: pass( 'final reply links to the design system without generic preview filler' );
+} );

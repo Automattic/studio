@@ -255,10 +255,12 @@ function DashboardLayout() {
 					'Connect an AI provider to turn your notes and ideas into changes to your site.'
 				) }
 				source="assistant_tab"
+				analytics={ { placement: 'annotation', intent: 'annotate' } }
+				scope={ routeSite?.id }
 				secondaryLabel={ __( 'Choose a different provider' ) }
 				onSkip={ () => {
 					setProviderPromptOpen( false );
-					openSettings( 'ai' );
+					openSettings( 'ai', undefined, undefined, { intent: 'annotate', scope: routeSite?.id } );
 				} }
 			/>
 			<SiteHeaderActionsProvider host={ showPreview ? 'preview' : 'chat' }>

@@ -503,7 +503,6 @@ function SessionViewContent( {
 						placeholder={ composerPlaceholder }
 						placeholderBusy={ isSiteStarting || isSiteStopping }
 						canAutoStart={ canAutoStart && ! ownerSite?.running }
-
 						onStartSite={
 							canAutoStart && ( ! ownerSite.running || isSiteStarting || isSiteStopping )
 								? () => startSitePreview( ownerSite.id )

@@ -254,7 +254,7 @@ describe( 'Studio workspace', () => {
 		}
 	);
 
-	it( 'returns to Split view and annotation mode when reviewing a batch from Browser', async () => {
+	it( 'opens annotation mode when editing a note from the composer chip', async () => {
 		desktopPreview();
 		setup( { signedIn: true, path: '/sites/one/new', sites: [ site( { running: true } ) ] } );
 		await findComposer();
@@ -267,14 +267,12 @@ describe( 'Studio workspace', () => {
 			setAnnotating( 'one', false );
 		} );
 		try {
-			await choosePreviewLayout( 'Browser' );
-			await readyPreviewPage();
-			fireEvent.click( screen.getByRole( 'button', { name: 'Review annotations' } ) );
+			fireEvent.click( await screen.findByRole( 'button', { name: '1 annotation' } ) );
+			fireEvent.click(
+				await screen.findByRole( 'button', { name: 'Edit annotation 1: Review this heading' } )
+			);
 			await waitFor( () => expect( getSiteAnnotations( 'one' ).active ).toBe( true ) );
 			await findLayoutControl( 'split' );
-			fireEvent.click(
-				screen.getByRole( 'button', { name: 'Edit annotation 1: Review this heading' } )
-			);
 			expect( getSiteAnnotations( 'one' ).editingId ).toBe( id );
 		} finally {
 			act( () => {

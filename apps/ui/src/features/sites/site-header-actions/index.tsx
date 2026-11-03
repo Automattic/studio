@@ -22,6 +22,11 @@ import {
 } from '@/lib/icons';
 import { Tooltip, TooltipContent, TooltipTrigger, Menu, Button } from '@/lib/ui';
 import { AnnotateButton } from '../site-preview/preview-header/annotate-button';
+import {
+	BrowserMenu,
+	BrowserMenuItems,
+	type PreviewBrowserActions,
+} from '../site-preview/preview-header/browser-menu';
 import styles from './style.module.css';
 import { useSiteHeaderLayout, type SiteHeaderLayout } from './use-site-header-layout';
 import type { SiteDetails } from '@/data/core';
@@ -35,6 +40,7 @@ interface SiteHeaderNavigation {
 	forward: () => void;
 	reload: () => void;
 	openExternal?: () => void;
+	browserActions?: PreviewBrowserActions;
 	responsive?: { active: boolean; disabled: boolean; onClick: () => void };
 	annotate?: { active: boolean; disabled: boolean; disabledReason?: string; onClick: () => void };
 	backShortcut: string;
@@ -130,6 +136,10 @@ export function useSiteHeaderNavigation( navigation: SiteHeaderNavigation | null
 	const responsiveDisabled = navigation?.responsive?.disabled;
 	const hasResponsive = Boolean( navigation?.responsive );
 	const canOpenExternal = Boolean( navigation?.openExternal );
+	const hasBrowserActions = Boolean( navigation?.browserActions );
+	const browserColorScheme = navigation?.browserActions?.colorScheme;
+	const browserName = navigation?.browserActions?.browserName;
+	const browserClearing = navigation?.browserActions?.clearing;
 	useEffect( () => {
 		if ( ! available ) {
 			return;
@@ -142,6 +152,17 @@ export function useSiteHeaderNavigation( navigation: SiteHeaderNavigation | null
 			forward: () => latest.current?.forward(),
 			reload: () => latest.current?.reload(),
 			openExternal: canOpenExternal ? () => latest.current?.openExternal?.() : undefined,
+			browserActions: hasBrowserActions
+				? {
+						colorScheme: browserColorScheme ?? 'system',
+						browserName,
+						clearing: browserClearing ?? false,
+						onColorSchemeChange: ( value ) =>
+							latest.current?.browserActions?.onColorSchemeChange( value ),
+						onOpenDevTools: () => latest.current?.browserActions?.onOpenDevTools(),
+						onClearBrowsingData: () => latest.current?.browserActions?.onClearBrowsingData(),
+				  }
+				: undefined,
 			responsive: hasResponsive
 				? {
 						active: responsiveActive ?? false,
@@ -171,6 +192,10 @@ export function useSiteHeaderNavigation( navigation: SiteHeaderNavigation | null
 		canGoBack,
 		canGoForward,
 		canOpenExternal,
+		hasBrowserActions,
+		browserColorScheme,
+		browserName,
+		browserClearing,
 		disabled,
 		forwardShortcut,
 		hasResponsive,
@@ -303,7 +328,7 @@ export function SiteHeaderActions( {
 									</Menu.Item>
 								) : null }
 
-								{ navigation?.openExternal ? (
+								{ navigation?.openExternal && ! navigation.browserActions ? (
 									<Menu.Item disabled={ navigation.disabled } onClick={ navigation.openExternal }>
 										<ExternalLinkIcon />
 										{ __( 'Open in browser' ) }
@@ -335,10 +360,29 @@ export function SiteHeaderActions( {
 										</Menu.Item>
 									</>
 								) : null }
+								{ navigation?.browserActions ? (
+									<>
+										<Menu.Separator />
+										<BrowserMenuItems
+											actions={ navigation.browserActions }
+											onOpenExternal={ navigation.openExternal }
+											disabled={ navigation.disabled }
+										/>
+									</>
+								) : null }
 							</Menu.Popup>
 						</Menu.Root>
 					) : null }
 				</span>
+				{ ! overflow && navigation?.browserActions ? (
+					<span data-site-header-browser-menu className={ styles.item }>
+						<BrowserMenu
+							actions={ navigation.browserActions }
+							onOpenExternal={ navigation.openExternal }
+							disabled={ navigation.disabled }
+						/>
+					</span>
+				) : null }
 			</div>
 		</div>
 	);

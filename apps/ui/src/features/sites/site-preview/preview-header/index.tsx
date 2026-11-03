@@ -9,6 +9,7 @@ import { RotateCwIcon } from '@/lib/icons';
 import { IconButton } from '@/lib/ui';
 import { AnnotateButton } from './annotate-button';
 import { BrowserHistoryButton } from './browser-history-button';
+import { BrowserMenu, type PreviewBrowserActions } from './browser-menu';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { BrowserNavigationState } from '@/features/sites/site-preview/browser-state';
@@ -35,6 +36,7 @@ interface PreviewHeaderProps {
 	onSwitchRealm: ( realm: PreviewRealm ) => void;
 	hasDesignSystem: boolean;
 	onOpenExternal?: () => void;
+	browserActions?: PreviewBrowserActions;
 	responsive?: { active: boolean; disabled: boolean; onClick: () => void };
 	annotate?: Omit< ComponentProps< typeof AnnotateButton >, 'iconOnly' >;
 	// Page-load progress, while a page is loading or just loaded.
@@ -60,6 +62,7 @@ export function PreviewHeader( {
 	onSwitchRealm,
 	hasDesignSystem,
 	onOpenExternal,
+	browserActions,
 	responsive,
 	annotate,
 	progress,
@@ -78,7 +81,7 @@ export function PreviewHeader( {
 			onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
 			onSwitchRealm={ onSwitchRealm }
 			hasDesignSystem={ hasDesignSystem }
-			onOpenExternal={ onOpenExternal }
+			onOpenExternal={ browserActions ? undefined : onOpenExternal }
 			responsive={ responsive }
 			hideActions={ headerLayout !== 'inline' }
 		/>
@@ -182,6 +185,13 @@ export function PreviewHeader( {
 					</span>
 				) : null }
 				{ headerHost === 'preview' && ! collapsed ? <SiteHeaderSpace /> : null }
+				{ headerHost !== 'preview' && canPreview && browserActions ? (
+					<BrowserMenu
+						actions={ browserActions }
+						onOpenExternal={ onOpenExternal }
+						disabled={ isStopping }
+					/>
+				) : null }
 			</div>
 
 			{ progress !== undefined ? (

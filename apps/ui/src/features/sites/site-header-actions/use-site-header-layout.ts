@@ -36,6 +36,7 @@ export function useSiteHeaderLayout( space: HTMLElement | null, actions: HTMLEle
 		let current: SiteHeaderLayout = 'inline';
 		let annotationWidth = 0;
 		let navigationWidth = 0;
+		let browserMenuWidth = 0;
 		const measure = () => {
 			const width = header.clientWidth;
 			if ( ! width ) {
@@ -49,6 +50,10 @@ export function useSiteHeaderLayout( space: HTMLElement | null, actions: HTMLEle
 			if ( measuredNavigationWidth > 0 ) {
 				navigationWidth = measuredNavigationWidth;
 			}
+			const measuredBrowserMenuWidth = widthOf(
+				actions.querySelector( '[data-site-header-browser-menu]' )
+			);
+			if ( measuredBrowserMenuWidth > 0 ) browserMenuWidth = measuredBrowserMenuWidth;
 			const annotation = header.querySelector( '[data-site-header-annotate]' );
 			const address = header.querySelector( '[data-site-header-address]' );
 			const reserved = [ ...header.querySelectorAll( '[data-site-header-reserved]' ) ];
@@ -77,6 +82,7 @@ export function useSiteHeaderLayout( space: HTMLElement | null, actions: HTMLEle
 				widthOf( actions.querySelector( '[data-site-header-publish]' ) ) +
 				widthOf( actions.querySelector( '[data-site-header-trailing]' ) ) +
 				actionGap +
+				( browserMenuWidth ? browserMenuWidth + actionGap : 0 ) +
 				( annotation ? annotationWidth + actionGap : 0 ) +
 				( navigation ? navigationWidth + gap : 0 ) +
 				( address ? ADDRESS_MIN_WIDTH + gap : 0 );
@@ -102,6 +108,8 @@ export function useSiteHeaderLayout( space: HTMLElement | null, actions: HTMLEle
 				refocus.current = Boolean(
 					focused &&
 						( actions.querySelector( '[data-site-header-trailing]' )?.contains( focused ) ||
+							( next !== 'inline' &&
+								actions.querySelector( '[data-site-header-browser-menu]' )?.contains( focused ) ) ||
 							( next !== 'inline' && focused.closest( '[data-address-action]' ) ) ||
 							( ( next === 'navigation-overflow' || next === 'mobile-overflow' ) &&
 								navigation?.contains( focused ) ) ||

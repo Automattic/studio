@@ -7,6 +7,7 @@ import { SessionUIProvider } from '@/data/use-session-ui';
 import { getSiteAnnotations } from '@/features/annotations';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
+import { setPreviewColorScheme } from './preview-browser-settings';
 import { SitePreview } from './index';
 
 type Runtime = 'browser' | 'desktop';
@@ -682,5 +683,104 @@ describe( 'preview address bar', () => {
 		fireEvent.pointerDown( input, { button: 0 } );
 		expect( input.selectionStart ).toBe( 7 );
 		expect( input.selectionEnd ).toBe( 7 );
+		fireEvent.pointerUp( input, { button: 0 } );
+	} );
+} );
+
+describe( 'preview browser menu', () => {
+	afterEach( () => {
+		setPreviewColorScheme( 'system' );
+		localStorage.removeItem( 'studio-preview-recent-locations:one' );
+		localStorage.removeItem( 'studio-preview-recent-locations:other' );
+		localStorage.removeItem( 'studio-test-keep' );
+	} );
+
+	it( 'offers the agreed actions and opens DevTools for the active preview', async () => {
+		const { user } = await renderPreview( 'desktop' );
+		const openWebviewDevTools = vi.fn().mockResolvedValue( undefined );
+		vi.stubGlobal( 'ipcApi', { openWebviewDevTools } );
+		guest();
+		screen.getByRole( 'button', { name: 'Browser options' } ).focus();
+		await user.keyboard( '{ArrowDown}' );
+		expect( screen.getAllByRole( 'menuitem' ).map( ( item ) => item.textContent ) ).toEqual( [
+			'Open DevTools',
+			'Open in browser',
+			'Appearance',
+			'Clear browsing data',
+		] );
+		await user.click( screen.getByRole( 'menuitem', { name: 'Open DevTools' } ) );
+		expect( openWebviewDevTools ).toHaveBeenCalledExactlyOnceWith( 42 );
+	} );
+
+	it( 'keeps reload in the toolbar and opens the current page externally', async () => {
+		const connector = createFakeConnector();
+		const { user } = await renderPreview( 'desktop', { path: '/about/' }, connector );
+		const preview = guest();
+		fireEvent( preview, new Event( 'dom-ready' ) );
+		expect( address().closest( 'form' ) ).not.toContainElement(
+			screen.getByRole( 'button', { name: 'Browser options' } )
+		);
+		await user.click( screen.getByRole( 'button', { name: 'Reload preview' } ) );
+		await waitFor( () => expect( clearWebviewCache() ).toHaveBeenCalledWith( 42 ) );
+		expect( preview.reload ).toHaveBeenCalledOnce();
+		screen.getByRole( 'button', { name: 'Browser options' } ).focus();
+		await user.keyboard( '{ArrowDown}' );
+		await user.click( screen.getByRole( 'menuitem', { name: 'Open in browser' } ) );
+		expect( connector.openSiteUrl ).toHaveBeenCalledWith( 'one', '/about/', { autoLogin: false } );
+	} );
+
+	it.each( [
+		[ 'safari', 'Open in Safari' ],
+		[ 'chrome', 'Open in Google Chrome' ],
+		[ null, 'Open in browser' ],
+	] as const )( 'uses the selected browser name (%s)', async ( browser, label ) => {
+		const connector = createFakeConnector( { preferences: { browser } } );
+		const { user } = await renderPreview( 'desktop', { path: '/about/' }, connector );
+		guest();
+		screen.getByRole( 'button', { name: 'Browser options' } ).focus();
+		await user.keyboard( '{ArrowDown}' );
+		await user.click( await screen.findByRole( 'menuitem', { name: label } ) );
+		expect( connector.openSiteUrl ).toHaveBeenCalledWith( 'one', '/about/', { autoLogin: false } );
+	} );
+
+	it( 'changes the preview appearance without changing Studio preferences', async () => {
+		const connector = createFakeConnector();
+		const { user } = await renderPreview( 'desktop', {}, connector );
+		const setWebviewColorScheme = vi.fn().mockResolvedValue( undefined );
+		vi.stubGlobal( 'ipcApi', { setWebviewColorScheme } );
+		const preview = guest();
+		fireEvent( preview, new Event( 'dom-ready' ) );
+		screen.getByRole( 'button', { name: 'Browser options' } ).focus();
+		await user.keyboard( '{ArrowDown}' );
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Appearance' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'Dark' } ) );
+		await waitFor( () => expect( setWebviewColorScheme ).toHaveBeenLastCalledWith( 42, 'dark' ) );
+		expect( connector.setUserPreferences ).not.toHaveBeenCalled();
+	} );
+
+	it( 'clears browsing data immediately and removes only preview recent addresses', async () => {
+		const { user } = await renderPreview( 'desktop' );
+		const clearWebviewBrowsingData = vi.fn().mockResolvedValue( undefined );
+		vi.stubGlobal( 'ipcApi', { clearWebviewBrowsingData } );
+		guest();
+		localStorage.setItem( 'studio-preview-recent-locations:one', '[]' );
+		localStorage.setItem( 'studio-preview-recent-locations:other', '[]' );
+		localStorage.setItem( 'studio-test-keep', 'preserve' );
+		screen.getByRole( 'button', { name: 'Browser options' } ).focus();
+		await user.keyboard( '{ArrowDown}' );
+		await user.click( screen.getByRole( 'menuitem', { name: 'Clear browsing data' } ) );
+		await waitFor( () => expect( clearWebviewBrowsingData ).toHaveBeenCalledExactlyOnceWith( 42 ) );
+		expect( localStorage.getItem( 'studio-preview-recent-locations:one' ) ).toBeNull();
+		expect( localStorage.getItem( 'studio-preview-recent-locations:other' ) ).toBeNull();
+		expect( localStorage.getItem( 'studio-test-keep' ) ).toBe( 'preserve' );
+		expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'does not offer Electron-only actions in the browser app', async () => {
+		await renderPreview( 'browser' );
+		expect( screen.queryByRole( 'button', { name: 'Browser options' } ) ).not.toBeInTheDocument();
+		expect(
+			screen.getByRole( 'button', { name: 'Open this page in your browser' } )
+		).toBeInTheDocument();
 	} );
 } );

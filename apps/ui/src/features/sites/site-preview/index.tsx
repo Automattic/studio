@@ -50,6 +50,7 @@ import { getFrameKey, getSafePath, type PreviewSurfaceKey } from './surfaces';
 import { useBrowserShortcuts } from './use-browser-shortcuts';
 import { useLoadingStage } from './use-loading-stage';
 import { usePreviewAnnotations } from './use-preview-annotations';
+import { usePreviewBrowser } from './use-preview-browser';
 import { usePreviewCapture } from './use-preview-capture';
 import { usePreviewSurfaces } from './use-preview-surfaces';
 import type { SiteDetails } from '@/data/core';
@@ -159,6 +160,9 @@ export function SitePreview( {
 		: browserState.progress;
 	const showLoadingProgress = canPreview && progress > 0;
 	const viewportRef = useRef< HTMLDivElement | null >( null );
+	const previewBrowser = usePreviewBrowser( viewportRef );
+	const browserActions =
+		canUseWebview && activeSurfaceKey !== 'design' ? previewBrowser : undefined;
 	const responsiveSettings = useResponsivePreview( site.id );
 	const responsiveEnabled = responsiveSettings.enabled && canPreview && activeSurfaceKey === 'site';
 	const [ availableSize, setAvailableSize ] = useState( { width: 0, height: 0 } );
@@ -318,6 +322,7 @@ export function SitePreview( {
 					forward: () => sendBrowserCommand( 'forward' ),
 					reload: () => sendBrowserCommand( 'reload' ),
 					openExternal,
+					browserActions,
 					responsive,
 					annotate,
 					backShortcut: browserShortcuts.back.displayShortcut,
@@ -346,6 +351,7 @@ export function SitePreview( {
 			onSwitchRealm={ switchRealm }
 			hasDesignSystem={ !! siteDesign.data }
 			onOpenExternal={ openExternal }
+			browserActions={ browserActions }
 			responsive={ responsive }
 			annotate={ annotate }
 			progress={ showLoadingProgress ? progress : undefined }
@@ -437,6 +443,7 @@ export function SitePreview( {
 										<WebviewSurface
 											key={ `${ site.id }-${ key }` }
 											url={ surfaceUrl }
+											colorScheme={ previewBrowser.colorScheme }
 											reloadNonce={ surface.reloadNonce }
 											// phpMyAdmin isn't an annotation target, so the
 											// inspector never goes near it.

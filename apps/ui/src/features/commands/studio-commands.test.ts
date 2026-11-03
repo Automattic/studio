@@ -119,7 +119,7 @@ it( 'derives labels and availability from active context', () => {
 		expect( byId( id )?.group ).toBe( 'commands' );
 	}
 	expect( byId( 'chat-visibility' )?.label ).toBe( 'Hide chat' );
-	expect( byId( 'pin-site' )?.label ).toBe( 'Unpin site' );
+	expect( byId( 'pin-site' )?.label ).toBe( 'Unpin' );
 	expect( byId( 'pin-chat' )?.label ).toBe( 'Unpin chat' );
 	expect( byId( 'archive-chat' ) ).toBeUndefined();
 	expect( byId( 'stop-others' ) ).toBeDefined();

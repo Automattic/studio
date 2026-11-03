@@ -113,30 +113,12 @@
 	margin-block-end: var( --space-2 );
 }
 
-.fadeAnchor {
-	display: block;
-	height: 0;
-	flex-shrink: 0;
-}
-
 .groupHeader {
-	composes: surfaceFade from '@/lib/theme/recipes.module.css';
-	--fade-surface: var( --studio-sidebar-bg );
 	flex-shrink: 0;
 	position: sticky;
 	top: 0;
 	z-index: 1;
 	background: var( --studio-sidebar-bg );
-}
-
-.groupHeader::before {
-	top: 100%;
-	transform: scaleY( -1 );
-	display: none;
-}
-
-.groupHeader[data-stuck]::before {
-	display: block;
 }
 
 .groupHeader:hover .groupHoverAction,

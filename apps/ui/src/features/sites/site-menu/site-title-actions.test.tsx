@@ -319,7 +319,7 @@ describe( 'site title actions', () => {
 		).not.toBeInTheDocument();
 	} );
 
-	it( 'keeps duplication progress out of notifications and records its failure once', async () => {
+	it( 'replaces the duplication progress notification with its failure', async () => {
 		let rejectCopy!: ( error: Error ) => void;
 		setup( [ site() ], {
 			copySite: () =>
@@ -330,31 +330,45 @@ describe( 'site title actions', () => {
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: /^Duplicate$/ } ) );
 		await waitFor( () => expect( rejectCopy ).toBeDefined() );
-		expect( getNoticeHistory() ).toHaveLength( 0 );
+		expect( getNoticeHistory() ).toHaveLength( 1 );
+		const progress = getNoticeHistory()[ 0 ];
+		expect( progress ).toMatchObject( {
+			title: 'Duplicating site…',
+			processing: true,
+		} );
 		expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBeEnabled();
 		act( () => rejectCopy( new Error( 'Copy failed' ) ) );
 		await screen.findByText( 'Failed to copy site' );
 		expect( getNoticeHistory() ).toHaveLength( 1 );
-		expect( getNoticeHistory()[ 0 ].intent ).toBe( 'error' );
-		await waitFor( () =>
-			expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBeEnabled()
-		);
+		expect( getNoticeHistory()[ 0 ] ).toMatchObject( {
+			id: progress.id,
+			intent: 'error',
+			description: 'Copy failed',
+		} );
 	} );
 
-	it( 'opens the duplicate only when its completion action is chosen', async () => {
-		const { connector } = setup();
-		connector.copySite.mockImplementation( async () => {
-			const copy = site( { id: 'copy', name: 'My site copy', path: '/sites/copy' } );
-			connector.state.sites = [ ...connector.state.sites, copy ];
-			return copy;
+	it( 'reports duplication after its menu unmounts and opens the copy on request', async () => {
+		let finishCopy!: ( copy: SiteDetails ) => void;
+		const { connector, history } = setup( [ site() ], {
+			copySite: () =>
+				new Promise( ( resolve ) => {
+					finishCopy = resolve;
+				} ),
 		} );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: /^Duplicate$/ } ) );
 		await waitFor( () => expect( connector.copySite ).toHaveBeenCalledWith( 'one' ) );
-		await screen.findByRole( 'button', { name: /^Open$/ } );
-		expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBeVisible();
+		await waitFor( () => expect( screen.queryByText( /^Duplicate$/ ) ).not.toBeInTheDocument() );
+		expect( screen.getByText( 'Duplicating site…' ) ).toBeVisible();
+		const progress = getNoticeHistory()[ 0 ];
+		const copy = site( { id: 'copy', name: 'My site copy', path: '/sites/copy' } );
+		connector.state.sites = [ ...connector.state.sites, copy ];
+		await act( async () => finishCopy( copy ) );
+		await screen.findByText( 'Site duplicated: My site copy' );
 		expect( getNoticeHistory() ).toHaveLength( 1 );
+		expect( getNoticeHistory()[ 0 ] ).toMatchObject( { id: progress.id, intent: 'success' } );
+		expect( history.location.pathname ).toBe( '/sites/one' );
 		fireEvent.click( screen.getByRole( 'button', { name: /^Open$/ } ) );
-		expect( await screen.findByRole( 'button', { name: 'Site menu' } ) ).toBeVisible();
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/copy/new' ) );
 	} );
 } );

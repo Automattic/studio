@@ -218,9 +218,11 @@ type ToggleKey =
 export function SiteSettingsForm( {
 	site,
 	section,
+	active = true,
 }: {
 	site: SiteDetails;
 	section: SiteSettingsSectionId;
+	active?: boolean;
 } ) {
 	const dialog = useSettingsDialog();
 	const allDomains = useExistingCustomDomains();
@@ -467,7 +469,7 @@ export function SiteSettingsForm( {
 	const sections: Record< SiteSettingsSectionId, ReactNode > = {
 		site: (
 			<>
-				<ConnectionCard />
+				<ConnectionCard active={ active } />
 				<SettingsGroup>
 					{ textRow( 'name', __( 'Site name' ), __( 'Name shown in WordPress Studio.' ) ) }
 					<SettingsRow

@@ -1,6 +1,7 @@
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { SiteDetails } from '@/data/core';
@@ -12,38 +13,43 @@ function setup( {
 	sites = [ site ],
 	signedIn = true,
 	section = 'site',
+	colorScheme = 'light',
 	wpVersion = '6.9',
 }: {
 	logExists?: boolean;
 	sites?: SiteDetails[];
 	signedIn?: boolean;
 	section?: string;
+	colorScheme?: 'light' | 'dark';
 	wpVersion?: string;
 } = {} ) {
-	const connector = createFakeConnector( signedIn ? { sites } : { sites, user: null }, {
-		getWpVersion: async () => wpVersion,
-		siteDebugLogExists: async () => logExists,
-		getSiteAgentFiles: async ( _siteId, kind ) =>
-			kind === 'skills'
-				? [
-						{
-							id: 'studio-cli',
-							displayName: 'WordPress Studio CLI',
-							description: 'CLI',
-							installed: false,
-							enabled: false,
-						},
-				  ]
-				: [
-						{
-							id: 'agents',
-							displayName: 'AGENTS.md',
-							description: 'Instructions',
-							installed: false,
-							enabled: false,
-						},
-				  ],
-	} );
+	const connector = createFakeConnector(
+		{ sites, ...( signedIn ? {} : { user: null } ), preferences: { colorScheme } },
+		{
+			getWpVersion: async () => wpVersion,
+			siteDebugLogExists: async () => logExists,
+			getSiteAgentFiles: async ( _siteId, kind ) =>
+				kind === 'skills'
+					? [
+							{
+								id: 'studio-cli',
+								displayName: 'WordPress Studio CLI',
+								description: 'CLI',
+								installed: false,
+								enabled: false,
+							},
+					  ]
+					: [
+							{
+								id: 'agents',
+								displayName: 'AGENTS.md',
+								description: 'Instructions',
+								installed: false,
+								enabled: false,
+							},
+					  ],
+		}
+	);
 	connector.updateSite.mockImplementation( async ( updated ) => {
 		connector.state.sites = connector.state.sites.map( ( entry ) =>
 			entry.id === updated.id ? updated : entry
@@ -67,6 +73,8 @@ async function choose( combobox: string, option: string | RegExp ) {
 	fireEvent.pointerDown( item, { pointerType: 'mouse' } );
 	fireEvent.click( item );
 }
+
+afterEach( () => vi.unstubAllGlobals() );
 
 describe( 'site settings › frontend', () => {
 	it( 'shows a headless site’s frontend, read-only', async () => {
@@ -110,6 +118,34 @@ describe( 'site settings › frontend', () => {
 } );
 
 describe( 'site settings', () => {
+	it.each( [ 'light', 'dark' ] as const )(
+		'records each return to the account prompt but not rerenders or scrolling (%s)',
+		async ( colorScheme ) => {
+			vi.stubGlobal( 'IntersectionObserver', undefined );
+			const { connector } = setup( { signedIn: false, colorScheme } );
+			await siteName();
+			await waitFor( () =>
+				expect( document.documentElement ).toHaveAttribute( 'data-color-scheme', colorScheme )
+			);
+			const exposures = () =>
+				connector.trackEvent.mock.calls.filter(
+					( [ name, props ] ) =>
+						name === TRACKS_EVENTS.ACCOUNT_PROMPT_VIEWED && props?.placement === 'settings_account'
+				);
+			await waitFor( () => expect( exposures() ).toHaveLength( 1 ) );
+			fireEvent.scroll( screen.getByRole( 'button', { name: 'Connect' } ) );
+			fireEvent.change( await siteName(), { target: { value: 'Edited' } } );
+			expect( exposures() ).toHaveLength( 1 );
+			fireEvent.click( screen.getByRole( 'tab', { name: 'App' } ) );
+			await screen.findByRole( 'tab', { name: 'Appearance' } );
+			await waitFor( () => expect( exposures() ).toHaveLength( 2 ) );
+			fireEvent.click( screen.getByRole( 'tab', { name: 'Site' } ) );
+			await siteName();
+			await waitFor( () => expect( exposures() ).toHaveLength( 3 ) );
+			fireEvent.scroll( screen.getByRole( 'button', { name: 'Connect' } ) );
+			expect( exposures() ).toHaveLength( 3 );
+		}
+	);
 	it( 'shows header actions only while there are unsaved changes', async () => {
 		setup();
 		const name = await siteName();
@@ -331,7 +367,11 @@ describe( 'site settings', () => {
 		expect( screen.queryByRole( 'button', { name: 'Save' } ) ).not.toBeInTheDocument();
 		fireEvent.click( login );
 		await waitFor( () =>
-			expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith( true, 'settings' )
+			expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith(
+				true,
+				'settings',
+				expect.any( Object )
+			)
 		);
 		expect( connector.updateSite ).not.toHaveBeenCalled();
 	} );

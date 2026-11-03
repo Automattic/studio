@@ -174,7 +174,11 @@ describe( 'PublishPopover', () => {
 		expect( screen.queryByRole( 'button', { name: 'Existing site…' } ) ).not.toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Log in' } ) );
 		await waitFor( () =>
-			expect( connector.authenticate ).toHaveBeenCalledWith( false, 'sync_tab' )
+			expect( connector.authenticate ).toHaveBeenCalledWith(
+				false,
+				'sync_tab',
+				expect.any( Object )
+			)
 		);
 		await waitFor( () => expect( connector.fetchSyncableWpcomSites ).toHaveBeenCalled() );
 	} );
@@ -198,7 +202,7 @@ describe( 'PublishPopover', () => {
 				'https://wordpress.com/setup/new-hosted-site'
 			)
 		);
-		expect( connector.authenticate ).toHaveBeenCalledWith( true, 'sync_tab' );
+		expect( connector.authenticate ).toHaveBeenCalledWith( true, 'sync_tab', expect.any( Object ) );
 	} );
 
 	it( 'keeps setup continuation alive when its panel unmounts', async () => {

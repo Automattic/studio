@@ -5,9 +5,14 @@ import { Button } from '@/lib/ui';
 import { SettingsGroup, SettingsRow } from './rows';
 
 // Shown while signed out: connecting goes through WordPress.com sign-up.
-export function ConnectionCard() {
+export function ConnectionCard( { active = true }: { active?: boolean } ) {
 	const { data: user, isSuccess } = useAuthUser();
-	const signup = useLogin( { signup: true, source: 'settings' } );
+	const { promptRef, ...signup } = useLogin( {
+		signup: true,
+		source: 'settings',
+		analytics: { placement: 'settings_account', intent: 'account' },
+		trackExposure: active && isSuccess && ! user,
+	} );
 	const isOffline = useOffline();
 	if ( ! isSuccess || user ) {
 		return null;
@@ -23,6 +28,7 @@ export function ConnectionCard() {
 			>
 				<Button
 					disabled={ isOffline }
+					ref={ promptRef }
 					loading={ signup.isPending }
 					loadingAnnouncement={ __( 'Connecting' ) }
 					onClick={ () => signup.mutate() }

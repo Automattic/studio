@@ -48,6 +48,7 @@ import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { parseWebUrl } from 'src/lib/shell-open-external-wrapper';
 import { isSameSitePreviewOrigin, refreshHeadlessSiteOrigins } from 'src/lib/site-preview-origins';
 import { getSites, stopAllServers } from 'src/lib/sites';
+import { refreshSpotlightIndex, setupSpotlight } from 'src/lib/spotlight';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { setupLogging } from 'src/logging';
 import {
@@ -379,6 +380,7 @@ async function appBoot() {
 
 	function setupCustomProtocolHandler() {
 		if ( process.platform === 'darwin' ) {
+			setupSpotlight();
 			app.on( 'open-url', ( _event, url ) => {
 				openDeeplink( url );
 			} );
@@ -504,6 +506,7 @@ async function appBoot() {
 		await runMigrations( migrations ).catch( Sentry.captureException );
 
 		await startCliEventsSubscriber();
+		void refreshSpotlightIndex();
 
 		await createMainWindow();
 

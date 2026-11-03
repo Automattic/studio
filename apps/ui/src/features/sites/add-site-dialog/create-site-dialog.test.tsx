@@ -1,5 +1,7 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { rememberAccountJourney } from '@/data/account-analytics';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { SiteDetails, SyncSite } from '@/data/core';
@@ -28,7 +30,13 @@ function setup( {
 	behavior = 'choose',
 	blueprint = portfolio,
 	path = '/?addSite=create',
-}: { behavior?: 'choose' | 'blank'; blueprint?: Blueprint | null; path?: string } = {} ) {
+	colorScheme = 'light',
+}: {
+	behavior?: 'choose' | 'blank';
+	blueprint?: Blueprint | null;
+	path?: string;
+	colorScheme?: 'light' | 'dark';
+} = {} ) {
 	vi.stubGlobal(
 		'fetch',
 		vi.fn( async () =>
@@ -39,7 +47,7 @@ function setup( {
 	);
 	const site = makeSite( { id: 'created', name: 'New site', path: '/sites/new' } );
 	const connector = createFakeConnector(
-		{ preferences: { newSiteBehavior: behavior } },
+		{ preferences: { newSiteBehavior: behavior, colorScheme } },
 		{
 			createSite: async () => {
 				connector.state.sites = [ ...connector.state.sites, site ];
@@ -71,6 +79,47 @@ async function submit( name = 'Create site' ) {
 }
 
 describe( 'Add site flow', () => {
+	it.each( [ 'light', 'dark' ] as const )(
+		'completes the original connect journey when the initial pull fails and the user retries (%s)',
+		async ( colorScheme ) => {
+			const { connector, site } = setup( { colorScheme } );
+			site.id = `connected-${ colorScheme }`;
+			const context = {
+				placement: 'add_site_connect',
+				intent: 'connect_site',
+				journey_id: crypto.randomUUID(),
+			} as const;
+			rememberAccountJourney( connector, context );
+			connector.getConnectedWpcomSites.mockResolvedValue( [
+				{ ...remote, localSiteId: site.id, syncSupport: 'already-connected' },
+			] );
+			connector.pullSiteFromLive.mockRejectedValueOnce( new Error( 'Initial pull failed' ) );
+			await screen.findByRole( 'button', { name: 'Start with Blank site' } );
+			fireEvent.click( screen.getByRole( 'tab', { name: 'Connect' } ) );
+			fireEvent.click( await screen.findByRole( 'button', { name: /Remote site/ } ) );
+			await submit();
+			const retry = await screen.findByRole(
+				'button',
+				{ name: 'Try pulling again' },
+				{ timeout: 5000 }
+			);
+			expect(
+				connector.trackEvent.mock.calls.filter(
+					( [ name ] ) => name === TRACKS_EVENTS.ACCOUNT_JOURNEY_COMPLETED
+				)
+			).toHaveLength( 0 );
+			await waitFor( () => expect( retry ).toBeEnabled() );
+			fireEvent.click( retry );
+			await waitFor( () =>
+				expect( connector.trackEvent ).toHaveBeenCalledWith(
+					TRACKS_EVENTS.ACCOUNT_JOURNEY_COMPLETED,
+					{ ...context, completion_kind: 'sync_pull' }
+				)
+			);
+			expect( connector.pullSiteFromLive ).toHaveBeenCalledTimes( 2 );
+		}
+	);
+
 	it( 'retraces tab changes and stops at the initial screen', async () => {
 		setup();
 		await screen.findByRole( 'button', { name: 'Start with Blank site' } );

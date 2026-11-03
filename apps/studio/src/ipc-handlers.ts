@@ -48,6 +48,12 @@ import {
 	type SkillStatus,
 } from '@studio/common/lib/agent-skills';
 import {
+	getAuthTracksProps,
+	onboardingAnalyticsSchema,
+	type OnboardingAnalytics,
+	type AuthAnalytics,
+} from '@studio/common/lib/auth-tracks';
+import {
 	downloadAndExtractBlueprintBundle,
 	removeBlueprintTempDir,
 } from '@studio/common/lib/blueprint-bundle';
@@ -124,7 +130,7 @@ import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site
 import { __ } from '@wordpress/i18n';
 import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
-import { setPendingAuthContext } from 'src/lib/auth-tracks-context';
+import { setPendingAuthContext, takePendingAuthContext } from 'src/lib/auth-tracks-context';
 import { bumpStat, getBlueprintMetric, StatsGroup } from 'src/lib/bump-stats';
 import { markDeeplinkListener } from 'src/lib/deeplink';
 import {
@@ -299,6 +305,7 @@ export async function continueAiSession(
 	sessionId: string,
 	prompt: string,
 	options: {
+		turnId?: string;
 		displayMessage?: string;
 		images?: StudioChatImage[];
 		files?: StudioChatFileAttachment[];
@@ -312,6 +319,7 @@ export async function continueAiSession(
 	return startAgentRun( {
 		sessionId,
 		prompt: expandSkillCommandPrompt( prompt ),
+		turnId: options.turnId,
 		displayMessage: options.displayMessage,
 		images,
 		files,
@@ -871,14 +879,25 @@ export async function copySite(
 export async function authenticate(
 	event: IpcMainInvokeEvent,
 	isSignup = false,
-	source: TracksAuthSource = 'unknown'
+	source: TracksAuthSource = 'unknown',
+	analytics?: AuthAnalytics
 ) {
-	// The result arrives later, in a deep link that knows neither of these. Stash them for it.
-	setPendingAuthContext( source, isSignup ? 'new' : 'existing' );
-
-	const locale = await getUserLocaleWithFallback();
-	const authUrl = isSignup ? oauthClient.getSignUpUrl( locale ) : getAuthenticationUrl( locale );
-	void shellOpenExternalWrapper( authUrl );
+	const attempt = setPendingAuthContext( source, isSignup ? 'new' : 'existing', analytics );
+	const props = getAuthTracksProps( attempt );
+	void recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH_STARTED, props ).catch( () => undefined );
+	try {
+		const locale = await getUserLocaleWithFallback();
+		const authUrl = isSignup
+			? oauthClient.getSignUpUrl( locale, undefined, attempt.auth_attempt_id )
+			: getAuthenticationUrl( locale, undefined, attempt.auth_attempt_id );
+		await shellOpenExternalWrapper( authUrl, { throwOnError: true } );
+	} catch ( error ) {
+		takePendingAuthContext( attempt.auth_attempt_id );
+		void recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH_LAUNCH_FAILED, props ).catch(
+			() => undefined
+		);
+		throw error;
+	}
 }
 
 export async function getAuthenticationToken() {
@@ -1091,15 +1110,20 @@ export async function getOnboardingData( _event: IpcMainInvokeEvent ): Promise< 
 	return readOnboardingCompleted();
 }
 
-export async function saveOnboarding( _event: IpcMainInvokeEvent, onboardingCompleted: boolean ) {
+export async function saveOnboarding(
+	_event: IpcMainInvokeEvent,
+	onboardingCompleted: boolean,
+	analytics?: OnboardingAnalytics
+) {
 	if ( await writeOnboardingCompleted( onboardingCompleted ) ) {
 		await recordTracksEvent( TRACKS_EVENTS.ONBOARDING_COMPLETE, {
 			authenticated: await oauthClient.isAuthenticated(),
+			...onboardingAnalyticsSchema.safeParse( analytics ).data,
 		} );
 	}
 }
 
-export { getAppUpdateStatus, installAppUpdate } from 'src/updates';
+export { getAppUpdateStatus, checkForAppUpdates, installAppUpdate } from 'src/updates';
 
 export function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
 	return readSitePreview( id, getSiteThumbnailPath( id ) );

@@ -47,6 +47,7 @@ import type {
 import type { AgentRunEvent } from '@studio/agent/protocol/agent-events';
 import type { AiSettings } from '@studio/agent/protocol/providers';
 import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
+import type { AuthAnalytics, OnboardingAnalytics } from '@studio/common/lib/auth-tracks';
 import type { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
 import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
@@ -146,8 +147,12 @@ export function createIpcConnector(): Connector {
 			};
 		},
 
-		async authenticate( signup = false, source: TracksAuthSource = 'unknown' ): Promise< void > {
-			await ipcApi.authenticate( signup, source );
+		async authenticate(
+			signup = false,
+			source: TracksAuthSource = 'unknown',
+			analytics?: AuthAnalytics
+		): Promise< void > {
+			await ipcApi.authenticate( signup, source, analytics );
 		},
 
 		async logout(): Promise< void > {
@@ -162,8 +167,11 @@ export function createIpcConnector(): Connector {
 			return ipcApi.getOnboardingData();
 		},
 
-		async setOnboardingCompleted( completed: boolean ): Promise< void > {
-			await ipcApi.saveOnboarding( completed );
+		async setOnboardingCompleted(
+			completed: boolean,
+			analytics?: OnboardingAnalytics
+		): Promise< void > {
+			await ipcApi.saveOnboarding( completed, analytics );
 		},
 
 		// Sites
@@ -887,6 +895,12 @@ export function createIpcConnector(): Connector {
 			);
 		},
 
+		onOpenSite( listener ) {
+			return ipcListener.subscribe( 'open-site', ( _event: unknown, payload: { siteId: string } ) =>
+				listener( payload )
+			);
+		},
+
 		onOpenSettings( listener ) {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
@@ -925,6 +939,10 @@ export function createIpcConnector(): Connector {
 
 		async installAppUpdate(): Promise< void > {
 			await ipcApi.installAppUpdate();
+		},
+
+		async checkForAppUpdates(): Promise< void > {
+			await ipcApi.checkForAppUpdates();
 		},
 
 		onAppUpdateStatusChanged( listener ) {

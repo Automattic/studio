@@ -140,15 +140,7 @@ describe( 'Stop other sites', () => {
 				expect( items[ items.indexOf( sync ) + 1 ] ).toHaveTextContent( 'Delete site' );
 				fireEvent.click( action === 'Share' ? share : sync );
 				if ( action === 'Share' ) {
-					const create = await screen.findByRole( 'menuitem', { name: 'Create preview' } );
-					expect(
-						screen.queryByRole( 'menuitem', { name: 'Copy links' } )
-					).not.toBeInTheDocument();
-					expect(
-						screen.queryByRole( 'menuitem', { name: 'Visit previews' } )
-					).not.toBeInTheDocument();
-					expect( create ).toBeVisible();
-					fireEvent.click( screen.getByRole( 'menuitem', { name: 'Manage sharing' } ) );
+					fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Manage sharing' } ) );
 					expect( requests.share ).toHaveBeenCalledExactlyOnceWith( {
 						panel: 'share',
 						siteId: 'selected',

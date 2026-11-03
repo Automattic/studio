@@ -262,7 +262,7 @@ type DefaultPhpArgsOptions = {
 	enableXdebug?: boolean;
 	autoPrependFile?: string;
 	workerIndex?: number;
-	// Where the email this PHP process sends is saved; see `lib/site-email.ts`.
+	// Where the email this PHP process sends is saved; see `@studio/common/sites/site-email`.
 	emailDirectory?: string;
 };
 

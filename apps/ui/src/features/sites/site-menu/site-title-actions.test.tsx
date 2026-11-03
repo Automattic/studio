@@ -220,7 +220,7 @@ describe( 'site title actions', () => {
 		).not.toBeInTheDocument();
 	} );
 
-	it( 'keeps duplication progress out of notifications and records its failure once', async () => {
+	it( 'replaces the duplication progress notification with its failure', async () => {
 		let rejectCopy!: ( error: Error ) => void;
 		setup( [ site() ], {
 			copySite: () =>
@@ -231,12 +231,17 @@ describe( 'site title actions', () => {
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: /^Duplicate$/ } ) );
 		await waitFor( () => expect( rejectCopy ).toBeDefined() );
-		expect( getNoticeHistory() ).toHaveLength( 0 );
+		expect( getNoticeHistory() ).toHaveLength( 1 );
+		const progress = getNoticeHistory()[ 0 ];
+		expect( progress ).toMatchObject( {
+			title: 'Duplicating site…',
+			processing: true,
+		} );
 		expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBeEnabled();
 		act( () => rejectCopy( new Error( 'Copy failed' ) ) );
 		await screen.findByText( 'Failed to copy site' );
 		expect( getNoticeHistory() ).toHaveLength( 1 );
-		expect( getNoticeHistory()[ 0 ].intent ).toBe( 'error' );
+		expect( getNoticeHistory()[ 0 ] ).toMatchObject( { id: progress.id, intent: 'error' } );
 		await waitFor( () =>
 			expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBeEnabled()
 		);

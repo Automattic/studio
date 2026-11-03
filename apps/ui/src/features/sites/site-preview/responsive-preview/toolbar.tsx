@@ -73,7 +73,7 @@ export function ResponsiveToolbar( {
 		>
 			<Menu.Root>
 				<Menu.Trigger render={ <Button variant="ghost" size="sm" className={ styles.device } /> }>
-					<span>{ settings.preset === 'responsive' ? __( 'Freeform' ) : settings.preset }</span>
+					<span>{ settings.preset === 'responsive' ? __( 'Responsive' ) : settings.preset }</span>
 					<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
 				</Menu.Trigger>
 				<Menu.Popup side="bottom">
@@ -88,7 +88,7 @@ export function ResponsiveToolbar( {
 							);
 						} }
 					>
-						<Menu.RadioItem value="responsive">{ __( 'Freeform' ) }</Menu.RadioItem>
+						<Menu.RadioItem value="responsive">{ __( 'Responsive' ) }</Menu.RadioItem>
 						{ devicePresets.map( ( preset ) => (
 							<Menu.RadioItem
 								key={ preset.name }

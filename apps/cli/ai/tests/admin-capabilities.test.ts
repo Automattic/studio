@@ -220,17 +220,35 @@ add_action( 'wp_abilities_api_init', function () {
 				);
 				vi.mocked( runWpCliCommand ).mockClear();
 				expect( await fact() ).toMatch(
-					/^With the active plugins and theme loaded, WordPress registers, beyond core: post types 1, REST routes \d+, block types 2 \(namespace bookclub and shelves\), abilities 1 \(namespace bookclub\) and shortcodes 1\. Its REST API lists those shown in it: post types at \/wp\/v2\/types, REST routes at \/wp-json\/, block types at \/wp\/v2\/block-types\/<namespace>, abilities at \/wp-abilities\/v1\/abilities\.$/
+					/^With the active plugins and theme loaded, WordPress registers, beyond core: post types 1, REST routes \d+, block types 2 \(namespace bookclub and shelves\), abilities 1 \(namespace bookclub\) and shortcodes 1\. Its REST API lists those shown in it: post types at \/wp\/v2\/types, REST routes at \/wp-json\/, block types at \/wp\/v2\/block-types\/<namespace>, abilities at \/wp-abilities\/v1\/abilities\./
 				);
+				const runs = vi.mocked( runWpCliCommand ).mock.calls.length;
+				const discovery = ( await fact() )!.match( /`studio wp eval '(.+)'`/ )![ 1 ];
+				expect( await fact() ).toContain(
+					'REST route arguments and their nested types are available through an OPTIONS request:'
+				);
+				const response = await host.sites.wpCli( site, [
+					'eval',
+					discovery.replace( '/namespace/v1/route', '/wp/v2/posts' ),
+				] );
+				expect( response.exitCode ).toBe( 0 );
+				const schema = JSON.parse( response.stdout );
+				const create = schema.endpoints.find( ( endpoint: { methods: string[] } ) =>
+					endpoint.methods.includes( 'POST' )
+				);
+				expect( create.args.meta.type ).toBe( 'object' );
+				expect( create.args.categories ).toMatchObject( {
+					type: 'array',
+					items: { type: 'integer' },
+				} );
 				// Akismet's routes are the site's code too.
 				expect( Number( ( await fact() )?.match( /REST routes (\d+)/ )?.[ 1 ] ) ).toBeGreaterThan(
 					2
 				);
-				const runs = vi.mocked( runWpCliCommand ).mock.calls.length;
 				expect( runs ).toBeGreaterThan( 0 );
 				await setActive( [ 'reading-list/reading-list.php' ] );
 				expect( Number( ( await fact() )?.match( /REST routes (\d+)/ )?.[ 1 ] ) ).toBe( 2 );
-				expect( vi.mocked( runWpCliCommand ).mock.calls.length ).toBe( 2 * runs );
+				expect( vi.mocked( runWpCliCommand ).mock.calls.length ).toBe( 2 * runs + 1 );
 			} );
 
 			it( 'states the stylesheets it loads from another host for their fonts', async () => {

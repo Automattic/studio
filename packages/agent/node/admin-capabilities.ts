@@ -261,7 +261,11 @@ function describeSiteCode( added: Registered ): string | undefined {
 		counts
 	) }. Its REST API lists those shown in it: ${ listed
 		.map( ( registry ) => `${ registry } at ${ LISTED_AT[ registry ] }` )
-		.join( ', ' ) }.`;
+		.join( ', ' ) }.${
+		added[ 'REST routes' ]?.length
+			? ' REST route arguments and their nested types are available through an OPTIONS request: `studio wp eval \'echo wp_json_encode(rest_do_request(new WP_REST_Request("OPTIONS", "/namespace/v1/route"))->get_data());\'`'
+			: ''
+	}`;
 }
 
 // By site, the site's code it was read for and the fact, read again only when that code changes.

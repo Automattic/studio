@@ -8,7 +8,7 @@ import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useSnapshots } from '@/data/queries/use-snapshots';
 import { getSnapshotOpenUrl, getSnapshotUrl } from '@/data/snapshot-url';
 import { useOpenHeaderPanel } from '@/data/use-open-header-panel';
-import { GlobeIcon, LinkIcon, ShareIcon } from '@/lib/icons';
+import { ExternalLinkIcon, GlobeIcon, LinkIcon, ShareIcon } from '@/lib/icons';
 import { Menu } from '@/lib/ui';
 import type { SiteDetails, Snapshot } from '@/data/core';
 
@@ -43,6 +43,7 @@ function PreviewLink( {
 			<Menu.ItemLabel>
 				{ snapshot.name || sprintf( __( 'Preview %d' ), snapshot.sequence ?? sequence ) }
 			</Menu.ItemLabel>
+			{ visit ? <ExternalLinkIcon data-icon="inline-end" /> : null }
 		</Menu.Item>
 	);
 }

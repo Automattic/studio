@@ -12,7 +12,7 @@
  */
 import { readFile, readdir, stat } from 'fs/promises';
 import path from 'path';
-import { resolveSiteFile } from '@studio/agent/node/site-file-guards';
+import { resolveSiteFile } from '@studio/agent/node/site-file';
 import { isUpdatableTheme, readThemeHeader, themesDir } from '@studio/agent/node/themes';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 

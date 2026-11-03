@@ -13,7 +13,7 @@
 import { printedJson, runWpCli } from '@studio/agent/node/tools/utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { OpenProblems } from '@studio/agent/node/open-problems';
-import type { SiteFile } from '@studio/agent/node/site-file-guards';
+import type { SiteFile } from '@studio/agent/node/site-file';
 
 // WP_Theme_JSON::__construct's own steps up to sanitize, which removes what
 // the schema has no place for. What goes into sanitize, against what comes

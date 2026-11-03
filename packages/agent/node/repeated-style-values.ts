@@ -28,7 +28,7 @@ import {
 	validateBlockMarkupFile,
 } from '@studio/agent/node/block-validation-gate';
 import { readWordPressSite } from '@studio/agent/node/site-database';
-import { isBlockMarkup, type SiteFile } from '@studio/agent/node/site-file-guards';
+import { isBlockMarkup, type SiteFile } from '@studio/agent/node/site-file';
 import { placeOf, saveMarkup, siteMarkup, type Markup } from '@studio/agent/node/site-markup';
 import { themePresets } from '@studio/agent/node/theme-presets';
 import { isUpdatableTheme, readThemeHeader, themesDir } from '@studio/agent/node/themes';

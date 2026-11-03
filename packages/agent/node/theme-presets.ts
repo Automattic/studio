@@ -20,7 +20,7 @@ import { readWordPressSite, type WordPressSite } from '@studio/agent/node/site-d
 import { activeThemes, readThemeHeader, themesDir } from '@studio/agent/node/themes';
 import { wpEvalJson } from '@studio/agent/node/tools/utils';
 import type { StudioAgentHost } from '@studio/agent/node/host';
-import type { SiteFile } from '@studio/agent/node/site-file-guards';
+import type { SiteFile } from '@studio/agent/node/site-file';
 
 interface Presets {
 	colors: Array< [ string, string ] >;

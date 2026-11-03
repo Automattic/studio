@@ -180,3 +180,11 @@ export function activeThemeFact( site: WordPressSite ): string | undefined {
 		? `Active theme: ${ describe( stylesheet ) }; a child theme of ${ describe( parent ) }.`
 		: `Active theme: ${ describe( stylesheet ) }.`;
 }
+
+// The parent a child theme's style.css names (`Template:`), or undefined.
+export async function parentThemeDir( themeDir: string ): Promise< string | undefined > {
+	const parent = (
+		await readFile( path.join( themeDir, 'style.css' ), 'utf8' ).catch( () => '' )
+	).match( /^[\s*]*Template:\s*(\S+)/im )?.[ 1 ];
+	return parent ? path.join( path.dirname( themeDir ), parent ) : undefined;
+}

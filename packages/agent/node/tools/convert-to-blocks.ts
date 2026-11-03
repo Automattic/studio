@@ -8,7 +8,8 @@ import {
 	validateBlockMarkup,
 } from '@studio/agent/node/block-validation-gate';
 import { validateBlocks } from '@studio/agent/node/block-validator';
-import { getSiteFileWriteRefusal, resolveSiteFile } from '@studio/agent/node/site-file-guards';
+import { resolveSiteFile } from '@studio/agent/node/site-file';
+import { getSiteFileWriteRefusal } from '@studio/agent/node/site-file-guards';
 import { saveMarkup } from '@studio/agent/node/site-markup';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
 import { textResult, wpEvalJson } from './utils';

@@ -3,7 +3,7 @@
  * in a constrained layout are placed with auto inline margins
  * (wp-includes/block-supports/layout.php), which inline-level boxes ignore.
  * Studio notes such a rule when a stylesheet is written for a class blocks
- * already carry (lintThemeCss() in site-file-guards.ts); this covers the
+ * already carry (lintThemeCss() in theme-css-notes.ts); this covers the
  * class arriving after the stylesheet.
  *
  * When the site's active code or content changes and the active theme's
@@ -15,7 +15,7 @@
 import { activeCodeVersion } from '@studio/agent/node/active-code';
 import { readVersions } from '@studio/agent/node/post-content-check';
 import { readWordPressSite } from '@studio/agent/node/site-database';
-import { inlineDisplayClasses } from '@studio/agent/node/site-file-guards';
+import { inlineDisplayClasses } from '@studio/agent/node/theme-css-notes';
 import { themesDir } from '@studio/agent/node/themes';
 import { wpEvalJson } from '@studio/agent/node/tools/utils';
 import type { SiteChangeSource } from '@studio/agent/node/site-changes';

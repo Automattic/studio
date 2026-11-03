@@ -2,7 +2,7 @@ import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } f
 import os from 'os';
 import path from 'path';
 import { readWordPressSite } from '@studio/agent/node/site-database';
-import { resolveSiteFile } from '@studio/agent/node/site-file-guards';
+import { resolveSiteFile } from '@studio/agent/node/site-file';
 import { createSite } from '@studio/agent/node/tests/fixtures/wordpress-site';
 import { keepThemePresets, themePresets, themePresetsFact } from '@studio/agent/node/theme-presets';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

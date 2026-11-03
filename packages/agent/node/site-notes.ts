@@ -24,6 +24,7 @@ import { rewriteNotes } from '@studio/agent/node/file-rewrites';
 import { repeatedStyleValueNotes } from '@studio/agent/node/repeated-style-values';
 import { createSharedBlockClassNotes } from '@studio/agent/node/shared-block-classes';
 import { readSiteFacts } from '@studio/agent/node/site-facts';
+import { resolveSiteFile, type SiteFile } from '@studio/agent/node/site-file';
 import {
 	blockMarkupNotes,
 	clearThemePatternCache,
@@ -34,17 +35,15 @@ import {
 	getSiteFileWriteRefusal,
 	partInTemplatesRefusal,
 	phpInBlockTemplateRefusal,
-	resolveSiteFile,
 	savedCopyNotes,
 	selfHostFonts,
-	themeCssNotes,
 	themeJsonNotes,
-	writeThemeThumbnail,
-	type SiteFile,
 } from '@studio/agent/node/site-file-guards';
+import { themeCssNotes } from '@studio/agent/node/theme-css-notes';
 import { themeJsonFileNotes } from '@studio/agent/node/theme-json-files';
 import { keepThemePresets } from '@studio/agent/node/theme-presets';
 import { themeStyleOverrideNotes } from '@studio/agent/node/theme-style-overrides';
+import { writeThemeThumbnail } from '@studio/agent/node/theme-thumbnail';
 import type { BlockValidationGate } from '@studio/agent/node/block-validation-gate';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 import type { OpenProblems } from '@studio/agent/node/open-problems';

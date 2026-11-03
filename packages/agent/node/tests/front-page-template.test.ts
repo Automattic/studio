@@ -1,7 +1,8 @@
 import { mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 import { expect, it } from 'vitest';
-import { frontPageTemplateNotes, resolveSiteFile } from '@studio/agent/node/site-file-guards';
+import { resolveSiteFile } from '@studio/agent/node/site-file';
+import { frontPageTemplateNotes } from '@studio/agent/node/site-file-guards';
 import { createSiteNotes } from '@studio/agent/node/site-notes';
 import { createFakeHost } from '@studio/agent/node/tests/fake-host';
 import { createSite } from '@studio/agent/node/tests/fixtures/wordpress-site';

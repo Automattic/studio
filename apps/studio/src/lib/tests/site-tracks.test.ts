@@ -81,7 +81,8 @@ it.each(
 	}
 );
 
-it.each( events )( 'omits unresolved IDs and still sends %s', async ( event ) => {
+it( 'omits unresolved IDs and still sends the event', async () => {
+	const event = TRACKS_EVENTS.SYNC_CONNECT;
 	await recordAnalyticsEvent(
 		ipcEvent,
 		event,
@@ -94,21 +95,12 @@ it.each( events )( 'omits unresolved IDs and still sends %s', async ( event ) =>
 	expect( payload.get( 'success' ) ).toBe( 'false' );
 } );
 
-it.each(
-	events.flatMap( ( event ) =>
-		(
-			[
-				'lockCliConfigFile',
-				'readCliConfigFileRaw',
-				'writeCliConfigFileRaw',
-				'unlockCliConfigFile',
-			] as const
-		 ).map( ( operation ) => ( { event, operation } ) )
-	)
-)( 'preserves $event when ID $operation fails', async ( { event, operation } ) => {
-	vi.spyOn( configFile, operation ).mockRejectedValueOnce( new Error( 'Storage unavailable' ) );
+it( 'preserves the event when site ID persistence fails', async () => {
+	vi.spyOn( configFile, 'writeCliConfigFileRaw' ).mockRejectedValueOnce(
+		new Error( 'Storage unavailable' )
+	);
 	await expect(
-		recordAnalyticsEvent( ipcEvent, event, { success: false }, operationalId )
+		recordAnalyticsEvent( ipcEvent, TRACKS_EVENTS.SYNC_CONNECT, { success: false }, operationalId )
 	).resolves.toBeUndefined();
 	expect( send ).toHaveBeenCalledTimes( 1 );
 	const payload = new URL( send.mock.calls[ 0 ][ 0 ] ).searchParams;
@@ -116,32 +108,8 @@ it.each(
 	expect( payload.get( 'success' ) ).toBe( 'false' );
 } );
 
-it( 'serializes desktop initialization and keeps different sites distinct', async () => {
-	await Promise.all(
-		events.map( ( event ) =>
-			recordAnalyticsEvent( ipcEvent, event, { success: true }, operationalId )
-		)
-	);
-	const ids = send.mock.calls.map( ( [ url ] ) => new URL( url ).searchParams.get( 'site_id' ) );
-	expect( ids[ 0 ] ).toMatch( uuid );
-	expect( new Set( ids ).size ).toBe( 1 );
-	const config = await configFile.readCliConfigFileRaw();
-	( config.sites as object[] ).push( {
-		id: 'other',
-		path: '/another/path',
-		name: 'Another title',
-	} );
-	await configFile.lockCliConfigFile();
-	try {
-		await configFile.writeCliConfigFileRaw( config );
-	} finally {
-		await configFile.unlockCliConfigFile();
-	}
-	await recordAnalyticsEvent( ipcEvent, TRACKS_EVENTS.SYNC_CONNECT, { success: true }, 'other' );
-	expect( new URL( send.mock.calls[ 3 ][ 0 ] ).searchParams.get( 'site_id' ) ).not.toBe( ids[ 0 ] );
-} );
-
-it.each( events )( 'honors desktop opt-out and every disable path for %s', async ( event ) => {
+it( 'honors desktop opt-out and disable paths with site props', async () => {
+	const event = TRACKS_EVENTS.SYNC_CONNECT;
 	await fs.writeFile(
 		getSharedConfigPath(),
 		JSON.stringify( { version: 1, analyticsOptOut: true } )

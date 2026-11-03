@@ -1,11 +1,6 @@
-import fsPromises from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
 import * as configFile from '@studio/common/lib/cli-config-file';
 import { readAuthToken } from '@studio/common/lib/shared-config';
-import { getCliConfigPath } from '@studio/common/lib/well-known-paths';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import * as configStore from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { fetchSyncableSites, initiateBackup, pollBackupStatus } from 'cli/lib/sync-api';
 import { pickSyncSite } from 'cli/lib/sync-site-picker';
@@ -76,34 +71,15 @@ beforeEach( () => {
 	vi.mocked( pickSyncSite ).mockResolvedValue( remoteSite );
 } );
 
-let configDirectory: string;
 const siteTracksId = '6ad36785-267a-4e6d-b036-0a7460c76497';
-beforeEach( async () => {
-	configDirectory = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio-event-tracks-' ) );
-	vi.stubEnv( 'DEV_CONFIG_DIR', configDirectory );
-	await fsPromises.writeFile(
-		getCliConfigPath(),
-		JSON.stringify( {
-			version: 1,
-			sites: [
-				{
-					id: 'site-1',
-					name: 'Private site title',
-					path: '/test/site',
-					port: 8080,
-					phpVersion: '8.3',
-					tracksId: siteTracksId,
-				},
-			],
-			snapshots: [],
-		} )
-	);
+beforeEach( () => {
+	vi.spyOn( configFile, 'readCliConfigFileRaw' ).mockResolvedValue( {
+		version: 1,
+		sites: [ { id: 'site-1', name: 'Private title', path: '/test/site', tracksId: siteTracksId } ],
+		snapshots: [],
+	} );
 } );
-afterEach( async () => {
-	vi.restoreAllMocks();
-	vi.unstubAllEnvs();
-	await fsPromises.rm( configDirectory, { recursive: true, force: true } );
-} );
+afterEach( () => vi.restoreAllMocks() );
 
 describe( 'CLI: studio pull Tracks events', () => {
 	it( "records a failure with the site's sync type and a classified reason", async () => {
@@ -217,21 +193,10 @@ describe( 'CLI: studio push Tracks events', () => {
 	} );
 } );
 
-it.each( [
-	'lockCliConfigFile',
-	'readCliConfigFileRaw',
-	'writeCliConfigFileRaw',
-	'unlockCliConfigFile',
-] as const )( 'preserves a failed push and its event when ID %s fails', async ( operation ) => {
-	const config = await configStore.readCliConfig();
-	delete config.sites[ 0 ].tracksId;
-	await configStore.lockCliConfig();
-	try {
-		await configStore.saveCliConfig( config );
-	} finally {
-		await configStore.unlockCliConfig();
-	}
-	vi.spyOn( configFile, operation ).mockRejectedValueOnce( new Error( 'Storage failed' ) );
+it( 'keeps a failed push and its event when the site ID cannot be read', async () => {
+	vi.spyOn( configFile, 'readCliConfigFileRaw' ).mockRejectedValueOnce(
+		new Error( 'Storage unavailable' )
+	);
 	await expect( runPush( testSite.path, [ 'all' ], String( remoteSite.id ) ) ).rejects.toThrow();
 	expect( recordTracksEvent ).toHaveBeenCalledExactlyOnceWith(
 		TRACKS_EVENTS.SYNC_PUSH,

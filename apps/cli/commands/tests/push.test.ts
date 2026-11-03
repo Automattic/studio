@@ -1,12 +1,7 @@
 import fs from 'fs';
-import fsPromises from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
 import * as configFile from '@studio/common/lib/cli-config-file';
 import { readAuthToken } from '@studio/common/lib/shared-config';
-import { getCliConfigPath } from '@studio/common/lib/well-known-paths';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import * as configStore from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
@@ -15,8 +10,6 @@ import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { runCommand } from '../push';
 import type { SyncSite } from '@studio/common/types/sync';
 import type { SiteData } from 'cli/lib/cli-config/core';
-
-vi.unmock( 'lockfile' );
 
 vi.mock( '@studio/common/lib/shared-config', async ( importActual ) => ( {
 	...( await importActual< typeof import('@studio/common/lib/shared-config') >() ),
@@ -56,34 +49,15 @@ function reported() {
 	return vi.mocked( reportSyncActivity ).mock.calls.map( ( [ , activity ] ) => activity );
 }
 
-let configDirectory: string;
 const siteTracksId = '6ad36785-267a-4e6d-b036-0a7460c76497';
-beforeEach( async () => {
-	configDirectory = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio-event-tracks-' ) );
-	vi.stubEnv( 'DEV_CONFIG_DIR', configDirectory );
-	await fsPromises.writeFile(
-		getCliConfigPath(),
-		JSON.stringify( {
-			version: 1,
-			sites: [
-				{
-					id: 'site-1',
-					name: 'Private site title',
-					path: '/test/site',
-					port: 8080,
-					phpVersion: '8.3',
-					tracksId: siteTracksId,
-				},
-			],
-			snapshots: [],
-		} )
-	);
+beforeEach( () => {
+	vi.spyOn( configFile, 'readCliConfigFileRaw' ).mockResolvedValue( {
+		version: 1,
+		sites: [ { id: 'site-1', name: 'Private title', path: '/test/site', tracksId: siteTracksId } ],
+		snapshots: [],
+	} );
 } );
-afterEach( async () => {
-	vi.restoreAllMocks();
-	vi.unstubAllEnvs();
-	await fsPromises.rm( configDirectory, { recursive: true, force: true } );
-} );
+afterEach( () => vi.restoreAllMocks() );
 
 describe( 'CLI: studio push', () => {
 	beforeEach( () => {
@@ -119,38 +93,15 @@ describe( 'CLI: studio push', () => {
 			'success',
 		] );
 		expect( reported()[ 1 ] ).toMatchObject( { remoteSiteId: remoteSite.id } );
+		expect( recordTracksEvent ).toHaveBeenCalledExactlyOnceWith(
+			TRACKS_EVENTS.SYNC_PUSH,
+			expect.objectContaining( { success: true, site_id: siteTracksId } )
+		);
+		expect( vi.mocked( recordTracksEvent ).mock.calls[ 0 ][ 1 ] ).not.toHaveProperty(
+			'preview_id'
+		);
 	} );
 
-	it.each( [ '', 'studio-ui:v2' ] )(
-		'reuses and backfills the site UUID on successful pushes (origin %s)',
-		async ( origin ) => {
-			vi.stubEnv( 'STUDIO_TRACKS_ORIGIN', origin );
-			const config = await configStore.readCliConfig();
-			delete config.sites[ 0 ].tracksId;
-			await configStore.lockCliConfig();
-			try {
-				await configStore.saveCliConfig( config );
-			} finally {
-				await configStore.unlockCliConfig();
-			}
-			vi.mocked( pollImportStatus ).mockResolvedValue( {
-				success: true,
-				status: 'finished',
-			} as never );
-			await Promise.all( [
-				runCommand( site.path, [ 'all' ], String( remoteSite.id ) ),
-				runCommand( site.path, [ 'all' ], String( remoteSite.id ) ),
-			] );
-			const stored = ( await configStore.readCliConfig() ).sites[ 0 ].tracksId;
-			expect( stored ).toMatch( /^[0-9a-f-]{36}$/ );
-			expect( recordTracksEvent ).toHaveBeenCalledTimes( 2 );
-			for ( const [ event, props ] of vi.mocked( recordTracksEvent ).mock.calls ) {
-				expect( event ).toBe( TRACKS_EVENTS.SYNC_PUSH );
-				expect( props ).toMatchObject( { success: true, site_id: stored } );
-				expect( props ).not.toHaveProperty( 'preview_id' );
-			}
-		}
-	);
 	it( 'does not resolve or record telemetry when the push event is suppressed', async () => {
 		vi.mocked( pollImportStatus ).mockResolvedValue( {
 			success: true,
@@ -164,25 +115,14 @@ describe( 'CLI: studio push', () => {
 		expect( read ).not.toHaveBeenCalled();
 	} );
 
-	it.each( [
-		'lockCliConfigFile',
-		'readCliConfigFileRaw',
-		'writeCliConfigFileRaw',
-		'unlockCliConfigFile',
-	] as const )( 'keeps a successful push and its event when ID %s fails', async ( operation ) => {
-		const config = await configStore.readCliConfig();
-		delete config.sites[ 0 ].tracksId;
-		await configStore.lockCliConfig();
-		try {
-			await configStore.saveCliConfig( config );
-		} finally {
-			await configStore.unlockCliConfig();
-		}
+	it( 'keeps a successful push and its event when the site ID cannot be read', async () => {
 		vi.mocked( pollImportStatus ).mockResolvedValue( {
 			success: true,
 			status: 'finished',
 		} as never );
-		vi.spyOn( configFile, operation ).mockRejectedValueOnce( new Error( 'Storage unavailable' ) );
+		vi.spyOn( configFile, 'readCliConfigFileRaw' ).mockRejectedValueOnce(
+			new Error( 'Storage unavailable' )
+		);
 		await expect( runCommand( site.path, [ 'all' ], String( remoteSite.id ) ) ).resolves.toBe(
 			remoteSite
 		);

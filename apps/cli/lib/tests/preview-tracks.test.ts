@@ -2,6 +2,7 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import * as configFile from '@studio/common/lib/cli-config-file';
 import { getSiteTracksProps, resolveSiteTracksEventProps } from '@studio/common/lib/site-tracks';
 import { getCliConfigPath, getSharedConfigPath } from '@studio/common/lib/well-known-paths';
 import { vi } from 'vitest';
@@ -14,7 +15,7 @@ import {
 	updateSnapshotInConfig,
 } from 'cli/lib/cli-config/snapshots';
 import { getPreviewTracksProps } from 'cli/lib/preview-tracks';
-import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
+import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 
 vi.unmock( 'lockfile' );
 
@@ -34,6 +35,11 @@ const preview = {
 	shareUrl: 'https://private-preview.wpcomstaging.com/?share=private-token',
 	date: Date.now(),
 };
+const siteEvents = [
+	TRACKS_EVENTS.SITE_EXPORT,
+	TRACKS_EVENTS.SYNC_CONNECT,
+	TRACKS_EVENTS.SYNC_PUSH,
+];
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 let directory: string;
 
@@ -50,6 +56,7 @@ beforeEach( async () => {
 			version: 1,
 			sites: [ site ],
 			snapshots: [ preview ],
+			otherSettings: { preserved: true },
 		} )
 	);
 } );
@@ -87,15 +94,25 @@ it( 'backfills legacy records with distinct UUIDs and persists them across reads
 	}
 } );
 
-it( 'serializes concurrent initialization without changing either ID', async () => {
-	const props = await Promise.all( [
+it( 'initializes one UUID across concurrent CLI and host lookups', async () => {
+	const results = await Promise.all( [
 		getPreviewTracksProps( site.path, preview ),
 		getPreviewTracksProps( site.path, preview ),
-		getPreviewTracksProps( site.path, preview ),
+		getSiteTracksProps( { siteId: site.id } ),
+		...siteEvents.map( ( event ) =>
+			resolveSiteTracksEventProps( event, { success: true }, site.id )
+		),
 	] );
-	expect( props[ 0 ].preview_id ).toMatch( uuid );
-	expect( props[ 1 ] ).toEqual( props[ 0 ] );
-	expect( props[ 2 ] ).toEqual( props[ 0 ] );
+	expect( results[ 0 ].site_id ).toMatch( uuid );
+	expect( results[ 0 ].preview_id ).toMatch( uuid );
+	expect( results[ 1 ] ).toEqual( results[ 0 ] );
+	for ( const result of results.slice( 2 ) ) {
+		expect( result.site_id ).toBe( results[ 0 ].site_id );
+		expect( result ).not.toHaveProperty( 'preview_id' );
+	}
+	const config = await configFile.readCliConfigFileRaw();
+	expect( config.version ).toBe( 1 );
+	expect( config.otherSettings ).toEqual( { preserved: true } );
 } );
 
 it( 'preserves IDs across renames, updates, reconciliation and saving a discovered preview', async () => {
@@ -224,37 +241,18 @@ it( 'does not unlock another writer when acquiring the lock fails', async () => 
 	expect( unlock ).not.toHaveBeenCalled();
 } );
 
-it.each(
-	[ '', 'studio-ui:v2' ].flatMap( ( origin ) =>
-		[
-			TRACKS_EVENTS.PREVIEW_SITE_CREATE,
-			TRACKS_EVENTS.PREVIEW_SITE_UPDATE,
-			TRACKS_EVENTS.SITE_EXPORT,
-			TRACKS_EVENTS.SYNC_CONNECT,
-			TRACKS_EVENTS.SYNC_PUSH,
-		].map( ( event ) => ( { origin, event } ) )
-	)
-)(
-	'sends opaque props through the existing anonymous wrapper for $event ($origin) and honors every gate',
-	async ( { origin, event } ) => {
-		vi.stubEnv( 'STUDIO_TRACKS_ORIGIN', origin );
+it.each( [ TRACKS_EVENTS.PREVIEW_SITE_CREATE, TRACKS_EVENTS.PREVIEW_SITE_UPDATE ] )(
+	'sends opaque props through the existing anonymous wrapper for %s and honors every gate',
+	async ( event ) => {
 		vi.stubEnv( 'NODE_ENV', 'production' );
 		const send = vi.fn().mockResolvedValue( {} );
 		vi.stubGlobal( 'fetch', send );
-		const props = {
-			...( await getPreviewTracksProps(
-				site.path,
-				event === TRACKS_EVENTS.PREVIEW_SITE_CREATE || event === TRACKS_EVENTS.PREVIEW_SITE_UPDATE
-					? preview
-					: undefined
-			) ),
-			...getTracksOrigin(),
-		};
+		const props = await getPreviewTracksProps( site.path, preview );
 		await recordTracksEvent( event, props );
 		expect( send ).toHaveBeenCalledTimes( 1 );
 		const url = new URL( send.mock.calls[ 0 ][ 0 ] );
 		expect( url.searchParams.get( 'site_id' ) ).toBe( props.site_id );
-		expect( url.searchParams.get( 'preview_id' ) ).toBe( props.preview_id ?? null );
+		expect( url.searchParams.get( 'preview_id' ) ).toBe( props.preview_id );
 		expect( url.searchParams.get( '_ut' ) ).toBe( 'anon' );
 		const shared = JSON.parse( await fs.readFile( getSharedConfigPath(), 'utf8' ) );
 		expect( url.searchParams.get( '_ui' ) ).toBe( shared.analyticsInstallId );
@@ -293,81 +291,53 @@ it.each(
 	}
 );
 
-const siteEvents = [
-	TRACKS_EVENTS.SITE_EXPORT,
-	TRACKS_EVENTS.SYNC_CONNECT,
-	TRACKS_EVENTS.SYNC_PUSH,
-];
-
-it( 'uses the preview UUID across CLI and host lookups, including concurrent legacy initialization', async () => {
-	const results = await Promise.all( [
-		getPreviewTracksProps( site.path, preview ),
-		getSiteTracksProps( { siteId: site.id } ),
-		getPreviewTracksProps( site.path ),
-		...siteEvents.map( ( event ) =>
-			resolveSiteTracksEventProps( event, { success: true }, site.id )
-		),
-	] );
-	const id = results[ 0 ].site_id;
-	expect( id ).toMatch( uuid );
-	for ( const result of results ) expect( result.site_id ).toBe( id );
-	for ( const result of results.slice( 1 ) ) expect( result ).not.toHaveProperty( 'preview_id' );
-	const config = await configStore.readCliConfig();
-	expect( config.version ).toBe( 1 );
-	expect( config.sites ).toHaveLength( 1 );
-	expect( config.sites[ 0 ].tracksId ).toBe( id );
-} );
-
-it.each( siteEvents )( 'ignores caller props and omits unresolved IDs for %s', async ( event ) => {
-	const props = { success: false, site_id: crypto.randomUUID(), preview_id: preview.url };
-	expect( await resolveSiteTracksEventProps( event, props, '/missing' ) ).toEqual( {
-		success: false,
-	} );
-	expect( await resolveSiteTracksEventProps( event, props ) ).toEqual( { success: false } );
-	const resolved = await resolveSiteTracksEventProps( event, props, site.id );
-	expect( resolved ).toEqual( { success: false, site_id: expect.stringMatching( uuid ) } );
-	expect( resolved.site_id ).not.toBe( props.site_id );
-	expect( resolved.site_id ).not.toBe( site.id );
-	expect( resolved.site_id ).not.toBe( site.path );
-	expect( resolved.site_id ).not.toBe( site.name );
-} );
-
-it.each( [ '', 'studio-ui:v2' ] )(
-	'sends the same site UUID for create, preview, export, connect and push (origin %s)',
-	async ( origin ) => {
-		vi.stubEnv( 'STUDIO_TRACKS_ORIGIN', origin );
-		vi.stubEnv( 'NODE_ENV', 'production' );
-		const send = vi.fn().mockResolvedValue( {} );
-		vi.stubGlobal( 'fetch', send );
-		const created = await getPreviewTracksProps( site.path );
-		await recordTracksEvent( TRACKS_EVENTS.SITE_CREATE, { ...created, ...getTracksOrigin() } );
-		await recordTracksEvent(
-			TRACKS_EVENTS.PREVIEW_SITE_CREATE,
-			await getPreviewTracksProps( site.path, preview )
-		);
-		await recordTracksEvent(
-			TRACKS_EVENTS.PREVIEW_SITE_UPDATE,
-			await getPreviewTracksProps( site.path, preview )
-		);
-		for ( const event of siteEvents ) {
-			const props = await resolveSiteTracksEventProps( event, { success: true }, site.id );
-			await recordTracksEvent( event, { ...props, ...getTracksOrigin() } );
-		}
-		const payloads = send.mock.calls.map( ( [ url ] ) => new URL( url ).searchParams );
-		expect( payloads ).toHaveLength( 6 );
-		for ( const payload of payloads ) expect( payload.get( 'site_id' ) ).toBe( created.site_id );
-		for ( const payload of payloads.slice( 3 ) )
-			expect( payload.has( 'preview_id' ) ).toBe( false );
-		const config = await configStore.readCliConfig();
-		config.sites.push( { ...site, id: 'another-id', path: '/another/path' } );
-		await configStore.lockCliConfig();
-		try {
-			await configStore.saveCliConfig( config );
-		} finally {
-			await configStore.unlockCliConfig();
-		}
-		const other = await getSiteTracksProps( { siteId: 'another-id' } );
-		expect( other.site_id ).toMatch( uuid );
-		expect( other.site_id ).not.toBe( created.site_id );
+it.each( siteEvents )(
+	'rejects caller IDs and omits unresolved records for %s',
+	async ( event ) => {
+		const props = { success: false, site_id: crypto.randomUUID(), preview_id: preview.url };
+		expect( await resolveSiteTracksEventProps( event, props, 'missing' ) ).toEqual( {
+			success: false,
+		} );
+		expect( await resolveSiteTracksEventProps( event, props ) ).toEqual( { success: false } );
+		const resolved = await resolveSiteTracksEventProps( event, props, site.id );
+		expect( resolved ).toEqual( { success: false, site_id: expect.stringMatching( uuid ) } );
+		expect( resolved.site_id ).not.toBe( props.site_id );
 	}
 );
+
+it.each( [
+	'lockCliConfigFile',
+	'readCliConfigFileRaw',
+	'writeCliConfigFileRaw',
+	'unlockCliConfigFile',
+] as const )( 'preserves event props when shared ID %s fails', async ( operation ) => {
+	vi.spyOn( configFile, operation ).mockRejectedValueOnce( new Error( 'Storage unavailable' ) );
+	expect(
+		await resolveSiteTracksEventProps( TRACKS_EVENTS.SYNC_CONNECT, { success: false }, site.id )
+	).toEqual( { success: false } );
+} );
+
+it( 'sends preview and site events with the same stored UUID', async () => {
+	vi.stubEnv( 'NODE_ENV', 'production' );
+	const send = vi.fn().mockResolvedValue( {} );
+	vi.stubGlobal( 'fetch', send );
+	for ( const event of [ TRACKS_EVENTS.PREVIEW_SITE_CREATE, TRACKS_EVENTS.PREVIEW_SITE_UPDATE ] ) {
+		await recordTracksEvent( event, await getPreviewTracksProps( site.path, preview ) );
+	}
+	for ( const event of siteEvents ) {
+		await recordTracksEvent(
+			event,
+			await resolveSiteTracksEventProps( event, { success: true }, site.id )
+		);
+	}
+	const payloads = send.mock.calls.map( ( [ url ] ) => new URL( url ).searchParams );
+	const config = await configStore.readCliConfig();
+	expect( payloads.map( ( payload ) => payload.get( '_en' ) ) ).toEqual( [
+		TRACKS_EVENTS.PREVIEW_SITE_CREATE,
+		TRACKS_EVENTS.PREVIEW_SITE_UPDATE,
+		...siteEvents,
+	] );
+	for ( const payload of payloads )
+		expect( payload.get( 'site_id' ) ).toBe( config.sites[ 0 ].tracksId );
+	for ( const payload of payloads.slice( 2 ) ) expect( payload.has( 'preview_id' ) ).toBe( false );
+} );

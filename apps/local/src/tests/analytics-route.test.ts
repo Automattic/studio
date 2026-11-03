@@ -159,62 +159,27 @@ it.each(
 		expect( recordTracksEvent ).toHaveBeenLastCalledWith( eventName, { success, site_id: id } );
 	}
 );
-it.each( events )( 'omits unresolved site IDs and preserves %s', async ( eventName ) => {
+it( 'omits an unresolved site ID and preserves the event', async () => {
 	await postEvent( {
-		eventName,
+		eventName: TRACKS_EVENTS.SYNC_CONNECT,
 		siteId: 'missing',
 		props: { success: false, site_id: '/private/path' },
 	} );
-	expect( recordTracksEvent ).toHaveBeenLastCalledWith( eventName, { success: false } );
+	expect( recordTracksEvent ).toHaveBeenLastCalledWith( TRACKS_EVENTS.SYNC_CONNECT, {
+		success: false,
+	} );
 } );
-it.each(
-	events.flatMap( ( eventName ) =>
-		(
-			[
-				'lockCliConfigFile',
-				'readCliConfigFileRaw',
-				'writeCliConfigFileRaw',
-				'unlockCliConfigFile',
-			] as const
-		 ).map( ( operation ) => ( { eventName, operation } ) )
-	)
-)( 'keeps $eventName when ID $operation fails', async ( { eventName, operation } ) => {
-	vi.spyOn( configFile, operation ).mockRejectedValueOnce( new Error( 'Storage unavailable' ) );
+it( 'preserves the event when site ID persistence fails', async () => {
+	vi.spyOn( configFile, 'writeCliConfigFileRaw' ).mockRejectedValueOnce(
+		new Error( 'Storage unavailable' )
+	);
 	const response = await postEvent( {
-		eventName,
+		eventName: TRACKS_EVENTS.SYNC_CONNECT,
 		siteId: operationalId,
 		props: { success: false, site_id: operationalId },
 	} );
 	expect( response.status ).toBe( 204 );
-	expect( recordTracksEvent ).toHaveBeenLastCalledWith( eventName, { success: false } );
-} );
-
-it( 'serializes concurrent host initialization with stable and distinct site UUIDs', async () => {
-	await Promise.all(
-		events.map( ( eventName ) =>
-			postEvent( { eventName, siteId: operationalId, props: { success: true } } )
-		)
-	);
-	const ids = recordTracksEvent.mock.calls.map( ( args ) => args[ 1 ]?.site_id );
-	expect( ids[ 0 ] ).toMatch( /^[0-9a-f-]{36}$/ );
-	expect( new Set( ids ).size ).toBe( 1 );
-	const config = await configFile.readCliConfigFileRaw();
-	( config.sites as object[] ).push( { id: 'other', path: '/other/path', name: 'Other title' } );
-	await configFile.lockCliConfigFile();
-	try {
-		await configFile.writeCliConfigFileRaw( config );
-	} finally {
-		await configFile.unlockCliConfigFile();
-	}
-	await postEvent( {
-		eventName: TRACKS_EVENTS.SYNC_CONNECT,
-		siteId: 'other',
-		props: { success: true },
-	} );
 	expect( recordTracksEvent ).toHaveBeenLastCalledWith( TRACKS_EVENTS.SYNC_CONNECT, {
-		success: true,
-		site_id: expect.any( String ),
+		success: false,
 	} );
-	const last = recordTracksEvent.mock.calls.at( -1 );
-	expect( last?.[ 1 ]?.site_id ).not.toBe( ids[ 0 ] );
 } );

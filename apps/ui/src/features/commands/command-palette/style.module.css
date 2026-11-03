@@ -23,3 +23,32 @@
 .list {
 	min-height: 0;
 }
+
+.empty {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-6 );
+}
+
+.emptyLabel,
+.haiku {
+	margin: 0;
+	color: var( --muted-foreground );
+	font-size: var( --text-xs );
+	line-height: var( --leading-relaxed );
+}
+
+.emptyLabel {
+	color: var( --foreground );
+}
+
+.divider {
+	width: var( --space-10 );
+	margin: 0 auto;
+	border: 0;
+	border-block-start: 1px solid var( --border );
+}
+
+.haiku {
+	white-space: pre-line;
+}

@@ -7,9 +7,10 @@ import { SessionUIProvider } from '@/data/use-session-ui';
 import {
 	changeAnnotation,
 	pickAnnotation,
-	removeAnnotations,
-	setAnnotating,
 	stageAnnotations,
+	setAnnotating,
+	removeAnnotations,
+	requestAnnotationReview,
 } from '@/features/annotations';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
@@ -723,18 +724,13 @@ it.each( [ 'browser', 'desktop' ] as const )(
 		} );
 		try {
 			const onPathChange = vi.fn();
-			const { user, update } = await renderPreview(
+			const { update } = await renderPreview(
 				runtime,
 				{ onPathChange, onSendAnnotations: vi.fn() },
 				createFakeConnector( { emails: { one: [ email ] } } )
 			);
 			for ( const part of [ 'text', 'html' ] as const ) {
-				await user.click( screen.getByRole( 'button', { name: 'Review annotations' } ) );
-				await user.click(
-					await screen.findByRole( 'button', {
-						name: new RegExp( `Edit annotation [0-9]+: Update the ${ part } heading` ),
-					} )
-				);
+				act( () => requestAnnotationReview( 'one', ids[ part === 'text' ? 0 : 1 ] ) );
 				expect( onPathChange ).toHaveBeenLastCalledWith( 'studio:email' );
 				update( { path: 'studio:email' } );
 				await screen.findByRole( 'article', { name: 'Password Reset' } );

@@ -300,79 +300,6 @@ it( 'keeps Electron navigation and titles independent between mounted tabs', asy
 	await act( async () => {} );
 } );
 
-it( 'selects an existing project tab when reviewing a note on its page', async () => {
-	const connector = createFakeConnector( {
-		sites: [ makeSite( { id: 'one', name: 'First', running: true } ) ],
-		user: TEST_USER,
-	} );
-	connector.capabilities.annotatePreview = true;
-	renderApp( { connector, path: '/sites/one/new' } );
-	await screen.findByRole( 'button', { name: 'Site menu' } );
-	if ( screen.queryByRole( 'button', { name: 'Show preview' } ) )
-		fireEvent.click( screen.getByRole( 'button', { name: 'Show preview' } ) );
-	const go = async ( path: string ) => {
-		const input = screen.getByRole( 'textbox', { name: 'Address' } );
-		fireEvent.change( input, { target: { value: path } } );
-		fireEvent.submit( input.closest( 'form' )! );
-	};
-	await go( '/about/' );
-	await newBrowserTab();
-	await go( '/other/' );
-	let id = '';
-	act( () => {
-		setAnnotating( 'one', true );
-		id = pickAnnotation( 'one', { selector: 'h1', path: '/about/' } )!;
-		changeAnnotation( 'one', id, { comment: 'Fix this title' } );
-		stageAnnotations( 'one', [ id ], true );
-		setAnnotating( 'one', false );
-	} );
-	fireEvent.click( await screen.findByRole( 'button', { name: 'Review annotations' } ) );
-	fireEvent.click(
-		await screen.findByRole( 'button', { name: 'Edit annotation 1: Fix this title' } )
-	);
-	await waitFor( () =>
-		expect( screen.getAllByRole( 'tab' )[ 0 ] ).toHaveAttribute( 'aria-selected', 'true' )
-	);
-	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue(
-		'http://localhost:9010/about/'
-	);
-	expect( getSiteAnnotations( 'one' ).editingId ).toBe( id );
-} );
-
-it( 'reopens a batched design note in its existing tab without scrolling', async () => {
-	const { connector, queryClient, user } = await setup( true, true );
-	const design = {
-		design:
-			'---\nname: First\ncolors:\n  primary: "#3858e9"\n  background: "#ffffff"\ntypography:\n  body:\n    fontFamily: "Inter"\n---',
-		themeJson: {},
-	};
-	connector.getSiteDesign.mockResolvedValue( design );
-	await act( () => queryClient.setQueryData( [ 'site-design', 'one' ], design ) );
-	await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
-	await user.click( await screen.findByRole( 'menuitem', { name: 'Design system' } ) );
-	await waitFor( () => expect( selectedTab() ).toHaveFocus() );
-	let id = '';
-	act( () => {
-		setAnnotating( 'one', true );
-		id = pickAnnotation( 'one', { targetKey: 'name', path: 'DESIGN.md' } )!;
-		changeAnnotation( 'one', id, { comment: 'Give this title more space' } );
-		stageAnnotations( 'one', [ id ], true );
-		setAnnotating( 'one', false );
-	} );
-	await newBrowserTab();
-	await user.click( screen.getByRole( 'button', { name: 'Review annotations' } ) );
-	await user.click(
-		screen.getByRole( 'button', { name: 'Edit annotation 1: Give this title more space' } )
-	);
-	expect( screen.getByRole( 'tab', { name: 'Design system' } ) ).toHaveAttribute(
-		'aria-selected',
-		'true'
-	);
-	expect( await screen.findByRole( 'textbox', { name: 'Describe the change' } ) ).toHaveValue(
-		'Give this title more space'
-	);
-} );
-
 it( 'opens the right-clicked tab in the preferred browser without selecting it', async () => {
 	const { connector } = await setup();
 	await act( () => connector.setUserPreferences( { browser: 'firefox' } ) );
@@ -435,20 +362,23 @@ it( 'closes tabs from the context menu without selecting the right-clicked tab',
 	expect( tabs[ 1 ] ).toHaveAttribute( 'aria-selected', 'true' );
 	await waitFor( () => expect( tabs[ 1 ] ).toHaveFocus() );
 	fireEvent.contextMenu( tabs[ 0 ] );
+	await screen.findByRole( 'menuitem', { name: 'Close other tabs' } );
+	expect( screen.getAllByRole( 'menuitem' ).map( ( item ) => item.textContent ) ).toEqual( [
+		'Open in Browser',
+		'Close tab',
+		'Close other tabs',
+		'Close all tabs',
+	] );
 	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Close other tabs' } ) );
 	await waitFor( () => expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 1 ) );
 	const remaining = screen.getByRole( 'tab', { name: 'First' } );
 	expect( remaining ).toHaveAttribute( 'aria-selected', 'true' );
 	await waitFor( () => expect( remaining ).toHaveFocus() );
 	fireEvent.contextMenu( remaining );
-	expect( screen.getByRole( 'menuitem', { name: 'Close other tabs' } ) ).toHaveAttribute(
-		'aria-disabled',
-		'true'
-	);
-	expect( screen.getByRole( 'menuitem', { name: 'Close tabs to the right' } ) ).toHaveAttribute(
-		'aria-disabled',
-		'true'
-	);
+	expect( screen.getAllByRole( 'menuitem' ).map( ( item ) => item.textContent ) ).toEqual( [
+		'Open in Browser',
+		'Close tab',
+	] );
 	fireEvent.click( screen.getByRole( 'menuitem', { name: /^Close tab$/ } ) );
 	await screen.findByRole( 'button', { name: 'Show preview' } );
 } );
@@ -951,4 +881,88 @@ it( 'commits a dropped order before another drag interrupts its landing', async 
 		'First',
 		'Admin',
 	] );
+} );
+
+it( 'selects an existing project tab when reviewing a note on its page', async () => {
+	const connector = createFakeConnector( {
+		sites: [ makeSite( { id: 'one', name: 'First', running: true } ) ],
+		user: TEST_USER,
+	} );
+	connector.capabilities.annotatePreview = true;
+	renderApp( { connector, path: '/sites/one/new' } );
+	await screen.findByRole( 'button', { name: 'Site menu' } );
+	if ( screen.queryByRole( 'button', { name: 'Show preview' } ) )
+		fireEvent.click( screen.getByRole( 'button', { name: 'Show preview' } ) );
+	const go = async ( path: string ) => {
+		const input = screen.getByRole( 'textbox', { name: 'Address' } );
+		fireEvent.change( input, { target: { value: path } } );
+		fireEvent.submit( input.closest( 'form' )! );
+	};
+	await go( '/about/' );
+	await newBrowserTab();
+	await go( '/other/' );
+	let id = '';
+	act( () => {
+		setAnnotating( 'one', true );
+		id = pickAnnotation( 'one', { selector: 'h1', path: '/about/' } )!;
+		changeAnnotation( 'one', id, { comment: 'Fix this title' } );
+		stageAnnotations( 'one', [ id ], true );
+		setAnnotating( 'one', false );
+	} );
+	fireEvent.click( await screen.findByRole( 'button', { name: '1 annotation' } ) );
+	fireEvent.click(
+		await screen.findByRole( 'button', { name: 'Edit annotation 1: Fix this title' } )
+	);
+	await waitFor( () =>
+		expect( screen.getAllByRole( 'tab' )[ 0 ] ).toHaveAttribute( 'aria-selected', 'true' )
+	);
+	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue(
+		'http://localhost:9010/about/'
+	);
+	expect( getSiteAnnotations( 'one' ).editingId ).toBe( id );
+	let draft = '';
+	act( () => {
+		draft = pickAnnotation( 'one', { selector: 'p', path: '/about/' } )!;
+		changeAnnotation( 'one', draft, { comment: 'Finish this note first' } );
+		setAnnotating( 'one', false );
+	} );
+	fireEvent.click( screen.getByRole( 'button', { name: '1 annotation' } ) );
+	fireEvent.click( screen.getByRole( 'button', { name: 'Edit annotation 1: Fix this title' } ) );
+	expect( getSiteAnnotations( 'one' ).editingId ).toBe( draft );
+	expect( getSiteAnnotations( 'one' ).active ).toBe( true );
+	expect( getSiteAnnotations( 'one' ).notes ).toHaveLength( 2 );
+} );
+
+it( 'reopens a batched design note in its existing tab without scrolling', async () => {
+	const { connector, queryClient, user } = await setup( true, true );
+	const design = {
+		design:
+			'---\nname: First\ncolors:\n  primary: "#3858e9"\n  background: "#ffffff"\ntypography:\n  body:\n    fontFamily: "Inter"\n---',
+		themeJson: {},
+	};
+	connector.getSiteDesign.mockResolvedValue( design );
+	await act( () => queryClient.setQueryData( [ 'site-design', 'one' ], design ) );
+	await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
+	await user.click( await screen.findByRole( 'menuitem', { name: 'Design system' } ) );
+	await waitFor( () => expect( selectedTab() ).toHaveFocus() );
+	let id = '';
+	act( () => {
+		setAnnotating( 'one', true );
+		id = pickAnnotation( 'one', { targetKey: 'name', path: 'DESIGN.md' } )!;
+		changeAnnotation( 'one', id, { comment: 'Give this title more space' } );
+		stageAnnotations( 'one', [ id ], true );
+		setAnnotating( 'one', false );
+	} );
+	await newBrowserTab();
+	await user.click( screen.getByRole( 'button', { name: '1 annotation' } ) );
+	await user.click(
+		screen.getByRole( 'button', { name: 'Edit annotation 1: Give this title more space' } )
+	);
+	expect( screen.getByRole( 'tab', { name: 'Design system' } ) ).toHaveAttribute(
+		'aria-selected',
+		'true'
+	);
+	expect( await screen.findByRole( 'textbox', { name: 'Describe the change' } ) ).toHaveValue(
+		'Give this title more space'
+	);
 } );

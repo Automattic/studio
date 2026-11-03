@@ -50,11 +50,11 @@ const image = ( id: string ): ComposerImageAttachment => ( {
 } );
 
 describe( 'AnnotationOverlay', () => {
-	it( 'shows delete only after a new annotation has content', async () => {
+	it( 'keeps delete available for empty and started annotations', async () => {
 		await setup();
 		annotate();
 		pick();
-		expect( screen.queryByRole( 'button', { name: 'Delete annotation' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Delete annotation' } ) ).toBeVisible();
 		const input = screen.getByRole( 'textbox', { name: 'Describe the change' } );
 		fireEvent.change( input, { target: { value: 'Change this heading' } } );
 		expect( screen.getByRole( 'button', { name: 'Delete annotation' } ) ).toBeVisible();
@@ -89,14 +89,14 @@ describe( 'AnnotationOverlay', () => {
 	);
 
 	it.each( [
-		{ name: 'top edge', anchor: { left: 24, top: 24 }, height: 120, top: 44, maxHeight: 248 },
-		{ name: 'bottom edge', anchor: { left: 376, top: 276 }, height: 120, top: 136, maxHeight: 248 },
+		{ name: 'top edge', anchor: { left: 24, top: 24 }, height: 120, top: 42, maxHeight: 250 },
+		{ name: 'bottom edge', anchor: { left: 376, top: 276 }, height: 120, top: 138, maxHeight: 250 },
 		{
 			name: 'limited space',
 			anchor: { left: 200, top: 150 },
 			height: 240,
-			top: 170,
-			maxHeight: 122,
+			top: 168,
+			maxHeight: 124,
 		},
 	] )(
 		'keeps the editor clear of the marker at the $name',
@@ -115,7 +115,7 @@ describe( 'AnnotationOverlay', () => {
 				const editor = await screen.findByRole( 'group', { name: 'Annotation' } );
 				expect( editor ).toHaveStyle( { top: `${ top }px`, maxHeight: `${ maxHeight }px` } );
 				const bottom = top + Math.min( height, maxHeight );
-				expect( top >= anchor.top + 20 || bottom <= anchor.top - 20 ).toBe( true );
+				expect( top >= anchor.top + 18 || bottom <= anchor.top - 18 ).toBe( true );
 				expect( bottom ).toBeLessThanOrEqual( 292 );
 			} finally {
 				dimensions.forEach( ( dimension ) => dimension.mockRestore() );
@@ -161,6 +161,7 @@ describe( 'AnnotationOverlay', () => {
 				if ( otherImages.length ) {
 					const other = pickAnnotation( SITE, { selector: 'p' } )!;
 					changeAnnotation( SITE, other, { images: otherImages } );
+					stageAnnotations( SITE );
 				}
 				editing = pickAnnotation( SITE, { selector: 'h1' } )!;
 			} );

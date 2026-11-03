@@ -1,5 +1,4 @@
 import { __, sprintf } from '@wordpress/i18n';
-import { XIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { updateResponsivePreview, type ResponsivePreviewSettings } from '@/data/responsive-preview';
 import { ChevronDownIcon, RefreshIcon } from '@/lib/icons';
@@ -166,14 +165,6 @@ export function ResponsiveToolbar( {
 					</Menu.RadioGroup>
 				</Menu.Popup>
 			</Menu.Root>
-			<IconButton
-				variant="ghost"
-				size="icon-sm"
-				label={ __( 'Exit responsive mode' ) }
-				className={ styles.close }
-				icon={ <XIcon /> }
-				onClick={ () => update( { enabled: false } ) }
-			/>
 		</div>
 	);
 }

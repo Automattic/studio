@@ -11,6 +11,7 @@ import {
 	pickAnnotation,
 	removeAnnotations,
 	stageAnnotations,
+	subscribeAnnotationReview,
 } from '@/features/annotations';
 import { Composer, type ComposerHandle } from '@/features/composer';
 import { Button } from '@/lib/ui';
@@ -262,7 +263,7 @@ describe( 'Chat composer', () => {
 		const { input, onSend, history } = await setup();
 		fireEvent.change( input, { target: { value: 'Keep this draft' } } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: /^Connect AI providers/ } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Connect providers/ } ) );
 		await waitFor( () => expect( history.location.search ).toContain( 'settings=ai' ) );
 		expect( input ).toHaveValue( 'Keep this draft' );
 		expect( onSend ).not.toHaveBeenCalled();
@@ -700,6 +701,55 @@ describe( 'Annotation attachments in the composer', () => {
 			expect( screen.queryByRole( 'listitem', { name: /^1 annotation,/ } ) ).not.toBeInTheDocument()
 		);
 		expect( getSiteAnnotations( SITE ).notes ).toHaveLength( 0 );
+	} );
+
+	it( 'opens the annotation chip as an editable list and deletes individual notes', async () => {
+		const first = stageNote( 'Make the heading shorter' );
+		const second = stageNote( 'Make the background warmer' );
+		const review = vi.fn();
+		const unsubscribe = subscribeAnnotationReview( SITE, review );
+		try {
+			const { user } = await setup( { annotationSiteId: SITE } );
+			await user.click( screen.getByRole( 'button', { name: '2 annotations' } ) );
+			expect(
+				await screen.findByRole( 'button', { name: 'Edit annotation 1: Make the heading shorter' } )
+			).not.toHaveFocus();
+			await user.keyboard( '{Escape}' );
+			await user.keyboard( '{Enter}' );
+			await waitFor( () =>
+				expect( screen.getAllByRole( 'button', { name: /Edit annotation/ } )[ 0 ] ).toHaveFocus()
+			);
+			await user.keyboard( '{ArrowDown}' );
+			expect(
+				screen.getByRole( 'button', { name: 'Edit annotation 2: Make the background warmer' } )
+			).toHaveFocus();
+			await user.keyboard( '{ArrowUp}' );
+			expect(
+				screen.getByRole( 'button', { name: 'Edit annotation 1: Make the heading shorter' } )
+			).toBeVisible();
+			await user.click( screen.getByRole( 'button', { name: 'Delete annotation 1' } ) );
+			expect( getSiteAnnotations( SITE ).notes.map( ( note ) => note.id ) ).toEqual( [ second ] );
+			await waitFor( () =>
+				expect(
+					screen.getByRole( 'button', { name: 'Edit annotation 2: Make the background warmer' } )
+				).toHaveFocus()
+			);
+			await user.keyboard( '{Escape}' );
+			expect( screen.getByRole( 'button', { name: '1 annotation' } ) ).toHaveFocus();
+			await user.click( screen.getByRole( 'button', { name: '1 annotation' } ) );
+			await user.click(
+				screen.getByRole( 'button', { name: 'Edit annotation 2: Make the background warmer' } )
+			);
+			expect( review ).toHaveBeenCalledExactlyOnceWith( second );
+			expect(
+				screen.queryByRole( 'button', { name: 'Edit annotation 2: Make the background warmer' } )
+			).not.toBeInTheDocument();
+			expect( getSiteAnnotations( SITE ).notes.some( ( note ) => note.id === first ) ).toBe(
+				false
+			);
+		} finally {
+			unsubscribe();
+		}
 	} );
 
 	it( 'groups staged notes and removes them together without changing the text after a rejected send', async () => {

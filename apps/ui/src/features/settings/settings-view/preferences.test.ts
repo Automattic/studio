@@ -36,7 +36,7 @@ describe( 'settings preference helpers', () => {
 			defaultSiteDirectory: '/Users/example/Studio',
 			autoStartSiteOnChat: false,
 			openChatOnSiteStart: true,
-			batchAnnotations: false,
+			batchAnnotations: true,
 		} );
 	} );
 

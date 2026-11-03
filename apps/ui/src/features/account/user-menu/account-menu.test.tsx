@@ -186,10 +186,10 @@ describe( 'AccountMenu', () => {
 		expect( screen.queryByText( 'Login failed' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'opens AI Providers from the account menu', async () => {
+	it( 'opens Providers from the account menu', async () => {
 		const { history } = setup( TEST_USER );
 		fireEvent.click( await screen.findByRole( 'button', { name: TEST_USER.displayName } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'AI Providers' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Providers' } ) );
 		await waitFor( () => expect( history.location.search ).toContain( 'settings=ai' ) );
 	} );
 

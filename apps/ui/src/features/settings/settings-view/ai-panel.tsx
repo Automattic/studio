@@ -59,7 +59,7 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 	return (
 		<SettingsGroup title={ __( 'Providers' ) }>
 			{ settings.isError ? (
-				<SettingsRow title={ __( "Couldn't load AI providers." ) }>
+				<SettingsRow title={ __( "Couldn't load providers." ) }>
 					<Button variant="outline" onClick={ () => void settings.refetch() }>
 						{ __( 'Retry' ) }
 					</Button>
@@ -188,11 +188,11 @@ export function AiPanel( { onManageCredits }: { onManageCredits: () => void } ) 
 		<div className={ styles.preferencesPanel }>
 			<SettingsGroup>
 				<SettingsRow
-					title={ __( 'AI providers' ) }
+					title={ __( 'Providers' ) }
 					description={
 						<>
 							{ __(
-								'AI providers give WordPress Studio access to the models that understand your requests and make changes to your sites. Connect one to build pages, write content, and customize themes and plugins through chat.'
+								'Providers give WordPress Studio access to the models that understand your requests and make changes to your sites. Connect one to build pages, write content, and customize themes and plugins through chat.'
 							) }{ ' ' }
 							<LearnMoreLink docsLinksKey="docsStudioCode" />
 						</>

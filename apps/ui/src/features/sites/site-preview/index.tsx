@@ -18,7 +18,8 @@ import {
 	isAnnotationsBusy,
 	isBatchedAnnotation,
 	editAnnotation,
-	removeAnnotations,
+	getSiteAnnotations,
+	subscribeAnnotationReview,
 	setAnnotating,
 	useSiteAnnotations,
 } from '@/features/annotations';
@@ -82,7 +83,6 @@ interface SitePreviewProps {
 	inactive?: boolean;
 	blank?: boolean;
 	onTitleChange?: ( title: string | null ) => void;
-	onReviewPath?: ( path: string ) => void;
 }
 
 function SitePreviewContent( {
@@ -97,7 +97,6 @@ function SitePreviewContent( {
 	inactive = false,
 	blank = false,
 	onTitleChange,
-	onReviewPath,
 }: SitePreviewProps ) {
 	const connector = useConnector();
 	const { annotationSpace } = useSiteHeader();
@@ -126,7 +125,6 @@ function SitePreviewContent( {
 		sendSurfaceCommand,
 		sendBrowserCommand,
 		goToHistoryIndex,
-		switchRealm,
 	} = usePreviewSurfaces( {
 		siteId: site.id,
 		siteUrl,
@@ -360,42 +358,7 @@ function SitePreviewContent( {
 		>
 			{ ! inactive && annotate && annotationSpace
 				? createPortal(
-						<AnnotateButton
-							{ ...annotate }
-							batch={ {
-								notes: batchNotes,
-								busy: isAnnotationsBusy( annotations ) || ! onSendAnnotations,
-								onSend: () =>
-									onSendAnnotations?.(
-										site.id,
-										batchNotes.map( ( note ) => note.id )
-									),
-								onReview: () => {
-									if ( blank ) onPathChange?.( '/' );
-									if ( activeSurfaceKey === 'database' ) switchRealm( 'frontend' );
-									return beginAnnotating();
-								},
-								onEdit: ( id ) => {
-									const note = batchNotes.find( ( note ) => note.id === id );
-									if ( ! note ) return;
-									setAnnotationAnchor( null );
-									if ( note.email ) {
-										if ( onReviewPath ) onReviewPath( EMAIL_PREVIEW_PATH );
-										else switchRealm( 'email' );
-									} else if ( note.targetKey && note.path === 'DESIGN.md' ) {
-										if ( onReviewPath ) onReviewPath( DESIGN_SYSTEM_PREVIEW_PATH );
-										else switchRealm( 'design' );
-									} else if ( note.path ) ( onReviewPath ?? onPathChange )?.( note.path );
-									editAnnotation( site.id, id );
-								},
-								onDelete: ( id ) => removeAnnotations( site.id, [ id ] ),
-								onClear: () =>
-									removeAnnotations(
-										site.id,
-										batchNotes.map( ( note ) => note.id )
-									),
-							} }
-						/>,
+						<AnnotateButton { ...annotate } annotationCount={ batchNotes.length } />,
 						annotationSpace
 				  )
 				: null }
@@ -552,7 +515,15 @@ function SitePreviewContent( {
 }
 
 export function SitePreview( props: SitePreviewProps ) {
-	const { path: hostPath, onPathChange: onHostPathChange } = props;
+	const { mutate: startReviewSite } = useStartSite();
+	const reviewStarting = useIsSiteStarting( props.site.id );
+	const {
+		path: hostPath,
+		onPathChange: onHostPathChange,
+		site: reviewSite,
+		liveUrl: reviewLiveUrl,
+		onStartAnnotating: onReviewStart,
+	} = props;
 	const { workspace, selected, patch, select, update, setChatSelected } = usePreviewTabs(
 		previewTabsKey( props.site.id, props.liveUrl ),
 		hostPath
@@ -615,20 +586,56 @@ export function SitePreview( props: SitePreviewProps ) {
 		return () => cancelAnimationFrame( frame );
 	}, [ workspace.focusRequest, props.collapsed ] );
 
-	const navigate = ( id: string, path: string ) => {
-		patch( id, { path, title: null } );
-		if ( id === workspace.selectedId ) {
-			setObserved( ( current ) => ( { ...current, forwarded: path } ) );
-			onHostPathChange?.( path );
-		}
-	};
-	const review = ( path: string ) => {
-		setChatSelected( false );
-		const match = workspace.tabs.find( ( tab ) => tab.path === path );
-		if ( match ) {
-			select( match.id );
-		} else navigate( workspace.selectedId, path );
-	};
+	const navigate = useCallback(
+		( id: string, path: string ) => {
+			patch( id, { path, title: null } );
+			if ( id === workspace.selectedId ) {
+				setObserved( ( current ) => ( { ...current, forwarded: path } ) );
+				onHostPathChange?.( path );
+			}
+		},
+		[ patch, workspace.selectedId, onHostPathChange ]
+	);
+	useEffect( () => {
+		if ( reviewLiveUrl ) return;
+		return subscribeAnnotationReview( reviewSite.id, ( id ) => {
+			const requested = getSiteAnnotations( reviewSite.id ).notes.find(
+				( note ) => note.id === id
+			);
+			if ( ! requested || onReviewStart?.() === false ) return;
+			const accepted = editAnnotation( reviewSite.id, id );
+			const current = getSiteAnnotations( reviewSite.id );
+			const note = accepted
+				? requested
+				: current.notes.find( ( note ) => note.id === current.editingId );
+			if ( ! note ) return;
+			const path = note.email
+				? EMAIL_PREVIEW_PATH
+				: note.targetKey && note.path === 'DESIGN.md'
+				? DESIGN_SYSTEM_PREVIEW_PATH
+				: note.path ?? '/';
+			setChatSelected( false );
+			const match = workspace.tabs.find( ( tab ) => tab.path === path );
+			if ( match ) select( match.id );
+			else navigate( workspace.selectedId, path );
+			setAnnotating( reviewSite.id, true );
+			if ( ! reviewSite.running && ! reviewStarting )
+				startReviewSite( reviewSite.id, {
+					onError: () => setAnnotating( reviewSite.id, false ),
+				} );
+		} );
+	}, [
+		reviewSite,
+		reviewLiveUrl,
+		onReviewStart,
+		workspace.tabs,
+		workspace.selectedId,
+		select,
+		navigate,
+		setChatSelected,
+		reviewStarting,
+		startReviewSite,
+	] );
 	return (
 		<div ref={ root } className={ styles.tabWorkspace }>
 			{ workspace.tabs.map( ( tab ) => {
@@ -649,7 +656,6 @@ export function SitePreview( props: SitePreviewProps ) {
 							collapsed={ props.collapsed || ! active }
 							onPathChange={ ( path ) => navigate( tab.id, path ) }
 							onTitleChange={ ( title ) => patch( tab.id, { title } ) }
-							onReviewPath={ review }
 						/>
 					</div>
 				);

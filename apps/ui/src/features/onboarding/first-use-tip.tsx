@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type ReactElement, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { useOnboardingHints, useSetOnboardingHints } from '@/data/queries/use-onboarding-hints';
 import { FeaturePopover, Popover, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import { useOnboardingGuide } from './onboarding-guide/use-onboarding-guide';
@@ -7,22 +7,22 @@ import { useRootDialogOpen } from './onboarding-guide/use-root-dialog-open';
 export function FirstUseTip( {
 	children,
 	enabled,
+	active,
 	tooltip,
 	dismissalKey,
 	title,
 	description,
-	badge,
 }: {
 	children: ReactElement;
 	enabled: boolean;
+	active: boolean;
 	tooltip: ReactNode;
 	dismissalKey: 'annotateHintDismissed';
 	title: string;
 	description: string;
-	badge?: string;
 } ) {
 	const { data: hints } = useOnboardingHints();
-	const setHints = useSetOnboardingHints();
+	const { mutate: markSeen } = useSetOnboardingHints();
 	const { isOpen: guideOpen } = useOnboardingGuide();
 	const dialogOpen = useRootDialogOpen();
 	const eligible =
@@ -30,42 +30,37 @@ export function FirstUseTip( {
 	const [ open, setOpen ] = useState( false );
 	const triggerId = useId();
 	const descriptionId = useId();
+	const presented = useRef( false );
 	useEffect( () => {
-		if ( ! eligible ) setOpen( false );
-	}, [ eligible ] );
-
-	function dismiss() {
-		setOpen( false );
-		if ( eligible ) {
-			setHints.mutate( { [ dismissalKey ]: true } );
+		if ( ! active ) presented.current = false;
+		if ( ! active || ! enabled || guideOpen || dialogOpen ) {
+			setOpen( false );
+			return;
 		}
-	}
+		if ( ! eligible || presented.current ) return;
+		presented.current = true;
+		setOpen( true );
+		markSeen( { [ dismissalKey ]: true } );
+	}, [ active, enabled, eligible, guideOpen, dialogOpen, dismissalKey, markSeen ] );
+	const visible = open && active && enabled && ! guideOpen && ! dialogOpen;
+	const dismiss = () => setOpen( false );
 
 	return (
 		<Popover.Root
-			open={ eligible && open }
+			open={ visible }
 			triggerId={ triggerId }
 			onOpenChange={ ( nextOpen, details ) => {
 				if ( details.reason === 'trigger-press' ) return;
-				if ( details.reason === 'escape-key' ) {
-					dismiss();
-					return;
-				}
-				setOpen( nextOpen && eligible );
+				if ( ! nextOpen ) dismiss();
 			} }
 		>
-			<Tooltip disabled={ eligible }>
+			<Tooltip disabled={ visible }>
 				<TooltipTrigger
 					render={
 						<Popover.Trigger
 							id={ triggerId }
-							openOnHover={ eligible }
-							delay={ 0 }
-							closeDelay={ 150 }
-							aria-describedby={ eligible && open ? descriptionId : undefined }
-							aria-haspopup={ eligible ? 'dialog' : undefined }
-							onFocus={ () => setOpen( eligible ) }
-							onClick={ dismiss }
+							aria-describedby={ visible ? descriptionId : undefined }
+							aria-haspopup={ visible ? 'dialog' : undefined }
 							render={ children }
 						/>
 					}
@@ -73,6 +68,7 @@ export function FirstUseTip( {
 				<TooltipContent side="bottom">{ tooltip }</TooltipContent>
 			</Tooltip>
 			<FeaturePopover.Popup
+				instant
 				side="bottom"
 				align="end"
 				initialFocus={ false }
@@ -80,7 +76,6 @@ export function FirstUseTip( {
 				title={ title }
 				description={ description }
 				descriptionId={ descriptionId }
-				badge={ badge }
 				onDismiss={ dismiss }
 				sideOffset={ 10 }
 			/>

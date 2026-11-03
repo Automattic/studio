@@ -4,7 +4,8 @@
 	--preview-control-size: 32px;
 	--preview-toolbar-overflow: visible;
 
-	padding-top: 0;
+	padding-top: var( --band-inset );
+	border-top: 1px solid var( --border );
 	position: relative;
 	-webkit-app-region: drag;
 }

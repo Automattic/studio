@@ -43,7 +43,7 @@ describe( 'responsive mode', () => {
 		expect( width() ).toHaveValue( '440' );
 		await view.user.click( screen.getByRole( 'button', { name: 'Fit' } ) );
 		await view.user.click( await screen.findByRole( 'menuitemradio', { name: '75%' } ) );
-		await view.user.click( screen.getByRole( 'button', { name: 'Exit responsive mode' } ) );
+		await view.user.click( toggle() );
 		expect( toggle() ).toHaveAttribute( 'aria-pressed', 'false' );
 		expect(
 			screen.queryByRole( 'toolbar', { name: 'Responsive preview' } )

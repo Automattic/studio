@@ -204,14 +204,14 @@ it( 'saves and clears the browser preference without changing the editor', async
 	expect( userPreferencesPatchSchema.safeParse( { browser: 'unknown' } ).success ).toBe( false );
 } );
 
-it( 'keeps annotation batching off by default and persists it across preference reads', async () => {
+it( 'keeps annotation batching on by default and persists it across preference reads', async () => {
 	const context = { sitesRoot: configDir };
-	expect( ( await readUserPreferences( context ) ).batchAnnotations ).toBe( false );
+	expect( ( await readUserPreferences( context ) ).batchAnnotations ).toBe( true );
 	await writeUserPreferences(
-		userPreferencesPatchSchema.parse( { batchAnnotations: true } ),
+		userPreferencesPatchSchema.parse( { batchAnnotations: false } ),
 		context
 	);
-	expect( ( await readUserPreferences( context ) ).batchAnnotations ).toBe( true );
-	await writeUserPreferences( { batchAnnotations: null }, context );
 	expect( ( await readUserPreferences( context ) ).batchAnnotations ).toBe( false );
+	await writeUserPreferences( { batchAnnotations: null }, context );
+	expect( ( await readUserPreferences( context ) ).batchAnnotations ).toBe( true );
 } );

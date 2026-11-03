@@ -17,6 +17,7 @@ export * from './export-icon';
 export * from './export-site-icon';
 export * from './external-link-icon';
 export * from './folder-icon';
+export * from './fullscreen-icon';
 export * from './globe-icon';
 export * from './import-icon';
 export * from './intelligence-icon';

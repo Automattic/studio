@@ -379,6 +379,7 @@ export function WebviewSurface( {
 		const notes = annotations.notes.filter( ( note ) => note.url );
 		const detail = {
 			active: annotations.active,
+			blockedNavigation: annotations.blockedNavigation ?? 0,
 			editingId: notes.some( ( note ) => note.id === annotations.editingId )
 				? annotations.editingId
 				: null,
@@ -396,6 +397,8 @@ export function WebviewSurface( {
 			fontFamily: '"Studio Annotation", system-ui',
 			accent: theme.getPropertyValue( '--accent' ).trim(),
 			onAccent: theme.getPropertyValue( '--accent-foreground' ).trim(),
+			destructive: theme.getPropertyValue( '--destructive' ).trim(),
+			onDestructive: theme.getPropertyValue( '--destructive-foreground' ).trim(),
 			motionDuration: theme.getPropertyValue( '--motion-duration-surface' ).trim(),
 			motionEasing: theme.getPropertyValue( '--motion-ease-enter' ).trim(),
 		};

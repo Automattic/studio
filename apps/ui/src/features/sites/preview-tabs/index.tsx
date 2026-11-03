@@ -247,34 +247,40 @@ export function PreviewTabs( {
 											<X />
 											{ __( 'Close tab' ) }
 										</Menu.Item>
-										<Menu.Item
-											disabled={ workspace.tabs.length === 1 }
-											onClick={ () =>
-												closeTabs(
-													workspace.tabs
-														.filter( ( other ) => other.id !== tab.id )
-														.map( ( other ) => other.id )
-												)
-											}
-										>
-											<X />
-											{ __( 'Close other tabs' ) }
-										</Menu.Item>
-										<Menu.Item
-											disabled={ index === workspace.tabs.length - 1 }
-											onClick={ () =>
-												closeTabs( workspace.tabs.slice( index + 1 ).map( ( other ) => other.id ) )
-											}
-										>
-											<X />
-											{ __( 'Close tabs to the right' ) }
-										</Menu.Item>
-										<Menu.Item
-											onClick={ () => closeTabs( workspace.tabs.map( ( other ) => other.id ) ) }
-										>
-											<X />
-											{ __( 'Close all tabs' ) }
-										</Menu.Item>
+										{ workspace.tabs.length > 1 && (
+											<Menu.Item
+												onClick={ () =>
+													closeTabs(
+														workspace.tabs
+															.filter( ( other ) => other.id !== tab.id )
+															.map( ( other ) => other.id )
+													)
+												}
+											>
+												<X />
+												{ __( 'Close other tabs' ) }
+											</Menu.Item>
+										) }
+										{ index > 0 && index < workspace.tabs.length - 1 && (
+											<Menu.Item
+												onClick={ () =>
+													closeTabs(
+														workspace.tabs.slice( index + 1 ).map( ( other ) => other.id )
+													)
+												}
+											>
+												<X />
+												{ __( 'Close tabs to the right' ) }
+											</Menu.Item>
+										) }
+										{ workspace.tabs.length > 1 && (
+											<Menu.Item
+												onClick={ () => closeTabs( workspace.tabs.map( ( other ) => other.id ) ) }
+											>
+												<X />
+												{ __( 'Close all tabs' ) }
+											</Menu.Item>
+										) }
 									</Menu.ContextPopup>
 								</Menu.ContextMenuRoot>
 							);

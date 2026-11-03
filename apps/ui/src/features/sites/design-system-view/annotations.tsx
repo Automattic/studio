@@ -32,7 +32,7 @@ export function useDesignAnnotations( {
 	onAnnotationPick,
 	onAnnotationAnchor,
 }: DesignAnnotationProps & { siteId: string; root: HTMLElement | null } ) {
-	const { active, notes, editingId } = useSiteAnnotations( siteId );
+	const { active, notes, editingId, blockedNavigation } = useSiteAnnotations( siteId );
 	const targets = useRef( new Map< string, VisualAnnotationTarget >() );
 	const editing = notes.find( ( note ) => note.id === editingId && note.targetKey );
 
@@ -65,9 +65,15 @@ export function useDesignAnnotations( {
 	};
 
 	const marker = ( key: string ) => {
-		const note = active && notes.find( ( item ) => item.targetKey === key );
+		const note = notes.find( ( item ) => item.targetKey === key );
 		return note ? (
-			<AnnotationMarker className={ styles.annotationMarker } number={ note.number } />
+			<AnnotationMarker
+				active={ active }
+				blockedNavigation={ blockedNavigation }
+				editing={ note.id === editingId }
+				className={ styles.annotationMarker }
+				number={ note.number }
+			/>
 		) : null;
 	};
 

@@ -10,6 +10,7 @@ import {
 function mount() {
 	const log = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
 	vi.stubGlobal( 'requestAnimationFrame', () => 0 );
+	vi.stubGlobal( 'matchMedia', () => ( { matches: false } ) );
 	vi.stubGlobal( 'CSS', { escape: ( value: string ) => value } );
 	vi.stubGlobal(
 		'ResizeObserver',
@@ -41,6 +42,7 @@ function publish( state: Record< string, unknown > ) {
 describe( 'annotation inspector', () => {
 	afterEach( () => {
 		( window as Window & { __studioInspectorDispose?: () => void } ).__studioInspectorDispose?.();
+		vi.useRealTimers();
 		vi.restoreAllMocks();
 		vi.unstubAllGlobals();
 		document.body.replaceChildren();
@@ -206,11 +208,39 @@ describe( 'annotation inspector', () => {
 		expect( root.querySelector( 'button' ) ).toBe( marker );
 		const host = document.getElementById( '__studio-inspector-host' )!;
 		publish( { active: false, notes: [ note ] } );
+		expect( host.inert ).toBe( true );
+		expect( marker ).toHaveClass( 'leave' );
+		publish( { active: true, notes: [ note ] } );
+		expect( marker ).toHaveClass( 'enter' );
+		expect( marker ).not.toHaveClass( 'leave' );
+		publish( { active: false, notes: [ note ] } );
+		const end = new Event( 'animationend' );
+		Object.defineProperty( end, 'animationName', { value: 'marker-out' } );
+		marker!.dispatchEvent( end );
 		expect( getComputedStyle( host ).display ).toBe( 'none' );
 		expect( root.querySelector( 'button' ) ).toBe( marker );
 		publish( { active: true, notes: [ note ] } );
 		expect( getComputedStyle( host ).display ).toBe( 'block' );
 		expect( root.querySelector( 'button' ) ).toBe( marker );
+	} );
+
+	it( 'briefly colors only the edited marker after rejecting another selection', () => {
+		vi.useFakeTimers();
+		document.body.innerHTML = '<h1>Welcome</h1><p>Other</p>';
+		mount();
+		const notes = [
+			{ id: 'one', number: 1, pending: true, selector: 'h1', url: location.href },
+			{ id: 'two', number: 2, selector: 'p', url: location.href },
+		];
+		publish( { active: true, notes, editingId: 'one', blockedNavigation: 0 } );
+		publish( { active: true, notes, editingId: 'one', blockedNavigation: 1 } );
+		const markers = document
+			.getElementById( '__studio-inspector-host' )!
+			.shadowRoot!.querySelectorAll( 'button' );
+		expect( markers[ 0 ] ).toHaveAttribute( 'data-feedback', 'error' );
+		expect( markers[ 1 ] ).not.toHaveAttribute( 'data-feedback' );
+		vi.advanceTimersByTime( 900 );
+		expect( markers[ 0 ] ).not.toHaveAttribute( 'data-feedback' );
 	} );
 
 	it( "ignores clicks in the host's own UI", () => {

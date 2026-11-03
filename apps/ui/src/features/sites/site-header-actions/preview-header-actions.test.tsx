@@ -4,7 +4,7 @@ import { applySyncActivity } from '@/data/sync-activity';
 import { SessionUIProvider } from '@/data/use-session-ui';
 import {
 	changeAnnotation,
-	getSiteAnnotations,
+	removeAnnotations,
 	pickAnnotation,
 	setAnnotating,
 	stageAnnotations,
@@ -158,47 +158,38 @@ it( 'keeps icon-only annotation available in a narrow preview with sharing feedb
 	expect( headerButtons( 'Send 1 annotation' ) ).toHaveLength( 0 );
 } );
 
-it( 'reviews, reopens, sends, and clears batched annotations from the header', async () => {
+it( 'marks saved annotations with a dot while keeping Publish accented', async () => {
 	const siteId = 'header-batch-site';
-	const onSend = vi.fn();
-	const { user } = await renderHeader( siteId, createFakeConnector(), 1000, true, onSend );
+	const { user } = await renderHeader( siteId, createFakeConnector(), 1000, true, vi.fn() );
 	readyGuest();
 	const annotate = screen.getByRole( 'button', { name: 'Annotate' } );
 	await waitFor( () => expect( annotate ).toBeEnabled() );
-	await user.click( annotate );
 	let id = '';
 	act( () => {
+		setAnnotating( siteId, true );
 		id = pickAnnotation( siteId, { selector: 'h1', tag: 'h1', path: '/' } )!;
 		changeAnnotation( siteId, id, { comment: 'Make the heading smaller' } );
 		stageAnnotations( siteId, [ id ], true );
 		setAnnotating( siteId, false );
 	} );
-	const send = screen.getByRole( 'button', { name: 'Send 1 annotation' } );
-	expect( send ).toHaveTextContent( 'Send' );
-	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toHaveAttribute(
-		'data-variant',
-		'outline'
-	);
-	await user.click( screen.getByRole( 'button', { name: 'Review annotations' } ) );
-	expect( getSiteAnnotations( siteId ).active ).toBe( true );
-	await user.click(
-		screen.getByRole( 'button', { name: 'Edit annotation 1: Make the heading smaller' } )
-	);
-	expect( getSiteAnnotations( siteId ).editingId ).toBe( id );
-	await user.click( send );
-	expect( onSend ).toHaveBeenCalledExactlyOnceWith( siteId, [ id ] );
-	await user.click( screen.getByRole( 'button', { name: 'Review annotations' } ) );
-	await user.click( screen.getByRole( 'button', { name: 'Clear all' } ) );
-	expect( getSiteAnnotations( siteId ).notes ).toHaveLength( 0 );
+	expect( annotate.querySelector( '[data-slot="notification-dot"]' ) ).toBeInTheDocument();
 	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toHaveAttribute(
 		'data-variant',
 		'accent'
 	);
+	expect( annotate ).toHaveAccessibleDescription( '1 annotation ready to send' );
 	expect( screen.queryByRole( 'button', { name: 'Send 1 annotation' } ) ).not.toBeInTheDocument();
-	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toHaveAttribute(
-		'aria-pressed',
-		'true'
-	);
+	expect( screen.queryByRole( 'button', { name: 'Review annotations' } ) ).not.toBeInTheDocument();
+	await user.click( annotate );
+	expect( annotate ).toHaveAttribute( 'aria-pressed', 'true' );
+	expect( annotate.querySelector( '[data-slot="notification-dot"]' ) ).not.toBeInTheDocument();
+	await user.click( annotate );
+	expect( annotate.querySelector( '[data-slot="notification-dot"]' ) ).toBeInTheDocument();
+	act( () => {
+		removeAnnotations( siteId, [ id ] );
+		setAnnotating( siteId, false );
+	} );
+	expect( annotate ).not.toHaveTextContent( '1' );
 } );
 
 it( 'keeps browser actions directly available in a narrow preview', async () => {

@@ -1,6 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { Maximize2, Minimize2 } from 'lucide-react';
-import { SidebarIcon } from '@/lib/icons';
+import { FullscreenIcon, SidebarIcon } from '@/lib/icons';
 import { IconButton } from '@/lib/ui';
 import styles from './style.module.css';
 
@@ -22,7 +21,7 @@ export function PreviewLayoutControls( {
 			{ showFullView ? (
 				<IconButton
 					size="icon-sm"
-					icon={ fullscreen ? <Minimize2 /> : <Maximize2 /> }
+					icon={ <FullscreenIcon inward={ fullscreen } /> }
 					label={ fullscreen ? __( 'Exit full view' ) : __( 'Enter full view' ) }
 					onClick={ () => onFullscreenChange( ! fullscreen ) }
 					tooltipSide="bottom"

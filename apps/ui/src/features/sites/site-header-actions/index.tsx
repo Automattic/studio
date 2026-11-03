@@ -1,7 +1,6 @@
 import { isRTL } from '@wordpress/i18n';
 import { createContext, useContext, useRef, useState, type ReactNode } from 'react';
 import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
-import { isBatchedAnnotation, useSiteAnnotations } from '@/features/annotations';
 import { ShareButton, PublishButton, SiteDeliveryDialog } from '@/features/site-delivery';
 import { useWindowControlsOverlay } from '@/lib/hooks';
 import styles from './style.module.css';
@@ -71,7 +70,6 @@ export function SiteHeaderSpace() {
 /** Site actions stay in one place as the preview opens and closes. */
 export function SiteHeaderActions( { site }: { site: SiteDetails } ) {
 	const { attachActions } = useSiteHeader();
-	const annotations = useSiteAnnotations( site.id );
 	const root = useRef< HTMLDivElement >( null );
 	const windowControls = useWindowControlsOverlay();
 	const trafficLightSpace = useTrafficLightSpace();
@@ -85,10 +83,7 @@ export function SiteHeaderActions( { site }: { site: SiteDetails } ) {
 	}
 	const publishButton = (
 		<span data-site-header-publish className={ styles.publish }>
-			<PublishButton
-				site={ site }
-				variant={ annotations.notes.some( isBatchedAnnotation ) ? 'outline' : 'accent' }
-			/>
+			<PublishButton site={ site } />
 		</span>
 	);
 	return (

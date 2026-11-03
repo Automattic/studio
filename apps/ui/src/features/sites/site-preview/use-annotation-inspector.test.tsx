@@ -91,7 +91,7 @@ function pageState( preview: { executeJavaScript: ReturnType< typeof vi.fn > } )
 }
 
 describe( 'annotation inspector navigation', () => {
-	it( 'marks notes pending until saved, including image-only and dismissed drafts', async () => {
+	it( 'keeps image-only drafts open until saved and marks them pending', async () => {
 		const { preview, emit, annotate } = await setup();
 		emit( 'dom-ready' );
 		await waitFor( () => expect( annotate() ).toBeEnabled() );
@@ -116,17 +116,19 @@ describe( 'annotation inspector navigation', () => {
 		expect( latestCommand() ).toContain( '"pending":true' );
 		expect( latestCommand() ).toContain( '"pendingAnnotationLabel":"Pending annotation"' );
 		act( () => escapeAnnotations( site.id ) );
-		expect( latestCommand() ).toContain( '"active":false' );
+		expect( latestCommand() ).toContain( '"active":true' );
 		expect( latestCommand() ).toContain( '"pending":true' );
 		act( () => setAnnotating( site.id, true ) );
 		expect( latestCommand() ).toContain( '"active":true' );
 		act( () => stageAnnotations( site.id, [ id ] ) );
 		expect( latestCommand() ).toContain( '"pending":false' );
-		act( () => editAnnotation( site.id, id ) );
+		act( () => {
+			editAnnotation( site.id, id );
+		} );
 		expect( latestCommand() ).toContain( '"pending":false' );
 	} );
 
-	it( 'shows saved markers while the batch review dropdown is open', async () => {
+	it( 'shows saved markers when annotation mode is reopened from its mode toggle', async () => {
 		const { preview, emit, annotate, user } = await setup();
 		emit( 'dom-ready' );
 		await waitFor( () => expect( annotate() ).toBeEnabled() );
@@ -138,10 +140,9 @@ describe( 'annotation inspector navigation', () => {
 			stageAnnotations( site.id, [ id ], true );
 			setAnnotating( site.id, false );
 		} );
-		await user.click( screen.getByRole( 'button', { name: 'Review annotations' } ) );
-		expect(
-			screen.getByRole( 'button', { name: 'Edit annotation 1: Make the heading smaller' } )
-		).toBeVisible();
+		expect( annotate() ).toHaveAccessibleDescription( '1 annotation ready to send' );
+		expect( annotate().querySelector( '[data-slot="notification-dot"]' ) ).toBeInTheDocument();
+		await user.click( annotate() );
 		const command = preview.executeJavaScript.mock.calls.at( -1 )?.[ 0 ];
 		expect( command ).toContain( '"active":true' );
 		expect( command ).toContain( `"id":"${ id }"` );

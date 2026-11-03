@@ -719,8 +719,8 @@ export interface UserPreferences {
 	// Start a stopped local site when a chat message is sent to it.
 	autoStartSiteOnChat?: boolean;
 	openChatOnSiteStart?: boolean;
-	// Ask before discarding preview annotations.
-	confirmDeleteAnnotations?: boolean;
+	// Save annotation notes for a combined send.
+	batchAnnotations?: boolean;
 	newSiteBehavior?: NewSiteBehavior;
 	// The appearance tint: a `#rrggbb` accent color, and percentages.
 	accentColor?: string;

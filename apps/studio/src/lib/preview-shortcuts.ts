@@ -10,13 +10,14 @@ export function forwardPreviewCommandPalette(
 	const primary =
 		platform === 'darwin' ? input.meta && ! input.control : input.control && ! input.meta;
 	const host = guest.hostWebContents;
+	const annotation = input.code === 'Period' && input.shift;
 	if (
 		input.type !== 'keyDown' ||
-		input.code !== 'KeyK' ||
+		( input.code !== 'KeyK' && ! annotation ) ||
 		input.isAutoRepeat ||
 		input.isComposing ||
 		input.alt ||
-		input.shift ||
+		( input.shift && ! annotation ) ||
 		! primary ||
 		! host ||
 		host.isDestroyed()
@@ -26,8 +27,11 @@ export function forwardPreviewCommandPalette(
 	host.focus();
 	host.sendInputEvent( {
 		type: 'keyDown',
-		keyCode: 'K',
-		modifiers: [ platform === 'darwin' ? 'meta' : 'control' ],
+		keyCode: annotation ? '.' : 'K',
+		modifiers: [
+			platform === 'darwin' ? 'meta' : 'control',
+			...( annotation ? [ 'shift' as const ] : [] ),
+		],
 	} );
 	return true;
 }

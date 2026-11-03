@@ -424,14 +424,12 @@ describe( 'WordPress Studio settings', () => {
 		);
 	} );
 
-	it( 'turns the annotation delete confirmation back on', async () => {
-		const { connector } = await setup( { preferences: { confirmDeleteAnnotations: false } } );
-		fireEvent.click(
-			await screen.findByRole( 'switch', { name: 'Confirm before deleting annotations' } )
-		);
+	it( 'enables annotation batching from interface settings', async () => {
+		const { connector } = await setup( { preferences: { batchAnnotations: false } } );
+		fireEvent.click( await screen.findByRole( 'switch', { name: 'Batch notes' } ) );
 		await waitFor( () =>
 			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
-				{ confirmDeleteAnnotations: true },
+				{ batchAnnotations: true },
 				undefined
 			)
 		);

@@ -9,8 +9,8 @@ import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { updatePreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
-import { getPreviewTracksProps } from 'cli/lib/preview-tracks';
 import { withSiteOperation } from 'cli/lib/site-operations';
+import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import { updateSnapshotInConfig, getSnapshotsFromConfig } from 'cli/lib/snapshots';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { LoggerError } from 'cli/logger';
@@ -30,7 +30,7 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 	};
 } );
 vi.mock( 'cli/lib/archive' );
-vi.mock( 'cli/lib/preview-tracks' );
+vi.mock( 'cli/lib/site-tracks' );
 vi.mock( 'cli/lib/api' );
 vi.mock( 'cli/lib/preview-sites' );
 vi.mock( 'cli/lib/snapshots' );
@@ -89,7 +89,7 @@ describe( 'Preview Update Command', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
-		vi.mocked( getPreviewTracksProps ).mockImplementation( async ( _folder, preview ) => ( {
+		vi.mocked( getSiteTracksProps ).mockImplementation( async ( _folder, preview ) => ( {
 			site_id: 'b4bfb381-cbf4-4003-b3db-233bcda55f51',
 			...( preview ? { preview_id: '603537e6-95ed-4583-84c2-d2725af37d8a' } : {} ),
 		} ) );
@@ -199,7 +199,7 @@ describe( 'Preview Update Command', () => {
 	it( 'includes resolved IDs on an update failure', async () => {
 		vi.mocked( uploadArchive ).mockRejectedValueOnce( new Error( 'Upload failed' ) );
 		await expect( runCommand( mockFolder, mockSiteUrl, false ) ).rejects.toThrow();
-		expect( getPreviewTracksProps ).toHaveBeenCalledWith( mockFolder, mockSnapshot );
+		expect( getSiteTracksProps ).toHaveBeenCalledWith( mockFolder, mockSnapshot );
 		expect( recordTracksEvent ).toHaveBeenCalledWith(
 			TRACKS_EVENTS.PREVIEW_SITE_UPDATE,
 			expect.objectContaining( {
@@ -213,7 +213,7 @@ describe( 'Preview Update Command', () => {
 	it( 'omits preview context when the preview cannot be resolved', async () => {
 		vi.mocked( getSnapshotsFromConfig ).mockResolvedValueOnce( [] );
 		await expect( runCommand( mockFolder, mockSiteUrl, false ) ).rejects.toThrow();
-		expect( getPreviewTracksProps ).toHaveBeenCalledWith( mockFolder, undefined );
+		expect( getSiteTracksProps ).toHaveBeenCalledWith( mockFolder, undefined );
 		const props = vi
 			.mocked( recordTracksEvent )
 			.mock.calls.find( ( [ event ] ) => event === TRACKS_EVENTS.PREVIEW_SITE_UPDATE )?.[ 1 ];
@@ -221,7 +221,7 @@ describe( 'Preview Update Command', () => {
 	} );
 
 	it( 'preserves a successful operation and its event when ID storage is unavailable', async () => {
-		vi.mocked( getPreviewTracksProps ).mockResolvedValueOnce( {} );
+		vi.mocked( getSiteTracksProps ).mockResolvedValueOnce( {} );
 		await runCommand( mockFolder, mockSiteUrl, false );
 		expect( recordTracksEvent ).toHaveBeenCalledWith(
 			TRACKS_EVENTS.PREVIEW_SITE_UPDATE,

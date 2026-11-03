@@ -8,7 +8,7 @@ import {
 } from 'cli/lib/cli-config/core';
 import type { Snapshot } from '@studio/common/types/snapshot';
 
-export async function getPreviewTracksProps(
+export async function getSiteTracksProps(
 	siteFolder: string,
 	preview?: Pick< Snapshot, 'atomicSiteId' | 'userId' >
 ): Promise< { site_id?: string; preview_id?: string } > {
@@ -43,7 +43,7 @@ export async function getPreviewTracksProps(
 			await unlockCliConfig();
 		}
 	} catch {
-		// ID persistence must not affect preview operations or the existing event.
+		// ID persistence must not affect site or preview operations or the existing event.
 		return {};
 	}
 }

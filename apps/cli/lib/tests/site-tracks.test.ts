@@ -12,8 +12,8 @@ import {
 	setSnapshotInConfig,
 	updateSnapshotInConfig,
 } from 'cli/lib/cli-config/snapshots';
-import { getPreviewTracksProps } from 'cli/lib/preview-tracks';
-import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
+import { getSiteTracksProps } from 'cli/lib/site-tracks';
+import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 
 vi.unmock( 'lockfile' );
 
@@ -60,45 +60,55 @@ afterEach( async () => {
 	await fs.rm( directory, { recursive: true, force: true } );
 } );
 
-it( 'backfills legacy records with distinct UUIDs and persists them across reads', async () => {
-	const props = await getPreviewTracksProps( site.path, preview );
-	expect( props ).toEqual( {
-		site_id: expect.stringMatching( uuid ),
-		preview_id: expect.stringMatching( uuid ),
-	} );
-	expect( props.site_id ).not.toBe( props.preview_id );
-	expect( await getPreviewTracksProps( site.path, preview ) ).toEqual( props );
-	const config = await configStore.readCliConfig();
-	expect( config.version ).toBe( 1 );
-	expect( config.sites[ 0 ].tracksId ).toBe( props.site_id );
-	expect( config.snapshots[ 0 ].tracksId ).toBe( props.preview_id );
-	for ( const value of [
-		site.id,
-		site.name,
-		site.path,
-		site.adminUsername,
-		preview.url,
-		preview.shareUrl,
-		String( preview.atomicSiteId ),
-		String( preview.userId ),
-	] ) {
-		expect( Object.values( props ) ).not.toContain( value );
+it.each( [ '', 'studio-ui:v2' ] )(
+	'backfills legacy records with distinct UUIDs and persists them across reads (origin: %s)',
+	async ( origin ) => {
+		vi.stubEnv( 'STUDIO_TRACKS_ORIGIN', origin );
+		const props = await getSiteTracksProps( site.path, preview );
+		expect( props ).toEqual( {
+			site_id: expect.stringMatching( uuid ),
+			preview_id: expect.stringMatching( uuid ),
+		} );
+		expect( props.site_id ).not.toBe( props.preview_id );
+		expect( await getSiteTracksProps( site.path, preview ) ).toEqual( props );
+		const config = await configStore.readCliConfig();
+		expect( config.version ).toBe( 1 );
+		expect( config.sites[ 0 ].tracksId ).toBe( props.site_id );
+		expect( config.snapshots[ 0 ].tracksId ).toBe( props.preview_id );
+		for ( const value of [
+			site.id,
+			site.name,
+			site.path,
+			site.adminUsername,
+			preview.url,
+			preview.shareUrl,
+			String( preview.atomicSiteId ),
+			String( preview.userId ),
+		] ) {
+			expect( Object.values( props ) ).not.toContain( value );
+		}
 	}
-} );
+);
 
-it( 'serializes concurrent initialization without changing either ID', async () => {
-	const props = await Promise.all( [
-		getPreviewTracksProps( site.path, preview ),
-		getPreviewTracksProps( site.path, preview ),
-		getPreviewTracksProps( site.path, preview ),
-	] );
-	expect( props[ 0 ].preview_id ).toMatch( uuid );
-	expect( props[ 1 ] ).toEqual( props[ 0 ] );
-	expect( props[ 2 ] ).toEqual( props[ 0 ] );
-} );
+it.each( [ '', 'studio-ui:v2' ] )(
+	'serializes concurrent initialization without changing either ID (origin: %s)',
+	async ( origin ) => {
+		vi.stubEnv( 'STUDIO_TRACKS_ORIGIN', origin );
+		const props = await Promise.all( [
+			getSiteTracksProps( site.path ),
+			getSiteTracksProps( site.path, preview ),
+			getSiteTracksProps( site.path, preview ),
+		] );
+		expect( props[ 0 ].site_id ).toMatch( uuid );
+		expect( props[ 0 ] ).not.toHaveProperty( 'preview_id' );
+		expect( props[ 1 ].preview_id ).toMatch( uuid );
+		expect( props[ 1 ].site_id ).toBe( props[ 0 ].site_id );
+		expect( props[ 2 ] ).toEqual( props[ 1 ] );
+	}
+);
 
 it( 'preserves IDs across renames, updates, reconciliation and saving a discovered preview', async () => {
-	const props = await getPreviewTracksProps( site.path, preview );
+	const props = await getSiteTracksProps( site.path, preview );
 	const config = await configStore.readCliConfig();
 	config.sites[ 0 ].name = 'Renamed';
 	await configStore.lockCliConfig();
@@ -130,11 +140,11 @@ it( 'preserves IDs across renames, updates, reconciliation and saving a discover
 		preview.userId,
 		'Saved'
 	);
-	expect( await getPreviewTracksProps( site.path, preview ) ).toEqual( props );
+	expect( await getSiteTracksProps( site.path, preview ) ).toEqual( props );
 } );
 
 it( 'gives separate previews and a recreated preview distinct IDs for the same site', async () => {
-	const first = await getPreviewTracksProps( site.path, preview );
+	const first = await getSiteTracksProps( site.path, preview );
 	const next = await saveSnapshotToConfig(
 		site.path,
 		67890,
@@ -142,7 +152,7 @@ it( 'gives separate previews and a recreated preview distinct IDs for the same s
 		preview.userId,
 		'Another'
 	);
-	const second = await getPreviewTracksProps( site.path, next );
+	const second = await getSiteTracksProps( site.path, next );
 	expect( second.site_id ).toBe( first.site_id );
 	expect( second.preview_id ).toMatch( uuid );
 	expect( second.preview_id ).not.toBe( first.preview_id );
@@ -154,13 +164,13 @@ it( 'gives separate previews and a recreated preview distinct IDs for the same s
 		preview.userId,
 		'Recreated'
 	);
-	const third = await getPreviewTracksProps( site.path, recreated );
+	const third = await getSiteTracksProps( site.path, recreated );
 	expect( third.site_id ).toBe( first.site_id );
 	expect( third.preview_id ).not.toBe( first.preview_id );
 } );
 
 it( 'uses the source site UUID on overwrite and keeps the preview UUID', async () => {
-	const first = await getPreviewTracksProps( site.path, preview );
+	const first = await getSiteTracksProps( site.path, preview );
 	const config = await configStore.readCliConfig();
 	const other = { ...site, id: 'duplicate-site', path: '/other/site' };
 	config.sites.push( other );
@@ -171,22 +181,20 @@ it( 'uses the source site UUID on overwrite and keeps the preview UUID', async (
 		await configStore.unlockCliConfig();
 	}
 	await updateSnapshotInConfig( preview.atomicSiteId, other.path );
-	const props = await getPreviewTracksProps( other.path, preview );
+	const props = await getSiteTracksProps( other.path, preview );
 	expect( props.site_id ).toMatch( uuid );
 	expect( props.site_id ).not.toBe( first.site_id );
 	expect( props.preview_id ).toBe( first.preview_id );
 } );
 
 it( 'omits unresolved IDs and never creates a preview record for an attempt', async () => {
-	expect( await getPreviewTracksProps( '/missing', { ...preview, atomicSiteId: 0 } ) ).toEqual(
-		{}
-	);
-	expect( await getPreviewTracksProps( site.path ) ).toEqual( {
+	expect( await getSiteTracksProps( '/missing', { ...preview, atomicSiteId: 0 } ) ).toEqual( {} );
+	expect( await getSiteTracksProps( site.path ) ).toEqual( {
 		site_id: expect.stringMatching( uuid ),
 	} );
-	expect(
-		await getPreviewTracksProps( site.path, { ...preview, userId: 999 } )
-	).not.toHaveProperty( 'preview_id' );
+	expect( await getSiteTracksProps( site.path, { ...preview, userId: 999 } ) ).not.toHaveProperty(
+		'preview_id'
+	);
 	const config = await configStore.readCliConfig();
 	expect( config.snapshots ).toEqual( [ preview ] );
 } );
@@ -201,40 +209,63 @@ it( 'replaces malformed stored identifiers without sending their contents', asyn
 	} finally {
 		await configStore.unlockCliConfig();
 	}
-	expect( await getPreviewTracksProps( site.path, preview ) ).toEqual( {
+	expect( await getSiteTracksProps( site.path, preview ) ).toEqual( {
 		site_id: expect.stringMatching( uuid ),
 		preview_id: expect.stringMatching( uuid ),
 	} );
 } );
 
-it( 'omits IDs on a storage failure and releases the lock for the next operation', async () => {
-	vi.spyOn( configStore, 'saveCliConfig' ).mockRejectedValueOnce( new Error( 'Cannot write' ) );
-	expect( await getPreviewTracksProps( site.path, preview ) ).toEqual( {} );
-	expect( await getPreviewTracksProps( site.path, preview ) ).toEqual( {
-		site_id: expect.stringMatching( uuid ),
-		preview_id: expect.stringMatching( uuid ),
-	} );
-} );
+it.each( [ '', 'studio-ui:v2' ] )(
+	'omits IDs on a storage failure and releases the lock for the next operation (origin: %s)',
+	async ( origin ) => {
+		vi.stubEnv( 'STUDIO_TRACKS_ORIGIN', origin );
+		vi.spyOn( configStore, 'saveCliConfig' ).mockRejectedValueOnce( new Error( 'Cannot write' ) );
+		expect( await getSiteTracksProps( site.path, preview ) ).toEqual( {} );
+		expect( await getSiteTracksProps( site.path, preview ) ).toEqual( {
+			site_id: expect.stringMatching( uuid ),
+			preview_id: expect.stringMatching( uuid ),
+		} );
+	}
+);
 
-it( 'does not unlock another writer when acquiring the lock fails', async () => {
-	vi.spyOn( configStore, 'lockCliConfig' ).mockRejectedValueOnce( new Error( 'Locked' ) );
-	const unlock = vi.spyOn( configStore, 'unlockCliConfig' );
-	expect( await getPreviewTracksProps( site.path, preview ) ).toEqual( {} );
-	expect( unlock ).not.toHaveBeenCalled();
-} );
+it.each( [ '', 'studio-ui:v2' ] )(
+	'does not unlock another writer when acquiring the lock fails (origin: %s)',
+	async ( origin ) => {
+		vi.stubEnv( 'STUDIO_TRACKS_ORIGIN', origin );
+		vi.spyOn( configStore, 'lockCliConfig' ).mockRejectedValueOnce( new Error( 'Locked' ) );
+		const unlock = vi.spyOn( configStore, 'unlockCliConfig' );
+		expect( await getSiteTracksProps( site.path, preview ) ).toEqual( {} );
+		expect( unlock ).not.toHaveBeenCalled();
+	}
+);
 
-it.each( [ TRACKS_EVENTS.PREVIEW_SITE_CREATE, TRACKS_EVENTS.PREVIEW_SITE_UPDATE ] )(
-	'sends opaque props through the existing anonymous wrapper for %s and honors every gate',
-	async ( event ) => {
+it.each(
+	[ '', 'studio-ui:v2' ].flatMap( ( origin ) =>
+		[
+			TRACKS_EVENTS.SITE_CREATE,
+			TRACKS_EVENTS.PREVIEW_SITE_CREATE,
+			TRACKS_EVENTS.PREVIEW_SITE_UPDATE,
+		].map( ( event ) => ( { origin, event } ) )
+	)
+)(
+	'sends opaque props through the anonymous wrapper for $event ($origin) and honors every gate',
+	async ( { origin, event } ) => {
+		vi.stubEnv( 'STUDIO_TRACKS_ORIGIN', origin );
 		vi.stubEnv( 'NODE_ENV', 'production' );
 		const send = vi.fn().mockResolvedValue( {} );
 		vi.stubGlobal( 'fetch', send );
-		const props = await getPreviewTracksProps( site.path, preview );
+		const props = {
+			...( await getSiteTracksProps(
+				site.path,
+				event === TRACKS_EVENTS.SITE_CREATE ? undefined : preview
+			) ),
+			...getTracksOrigin(),
+		};
 		await recordTracksEvent( event, props );
 		expect( send ).toHaveBeenCalledTimes( 1 );
 		const url = new URL( send.mock.calls[ 0 ][ 0 ] );
 		expect( url.searchParams.get( 'site_id' ) ).toBe( props.site_id );
-		expect( url.searchParams.get( 'preview_id' ) ).toBe( props.preview_id );
+		expect( url.searchParams.get( 'preview_id' ) ).toBe( props.preview_id ?? null );
 		expect( url.searchParams.get( '_ut' ) ).toBe( 'anon' );
 		const shared = JSON.parse( await fs.readFile( getSharedConfigPath(), 'utf8' ) );
 		expect( url.searchParams.get( '_ui' ) ).toBe( shared.analyticsInstallId );
@@ -270,5 +301,50 @@ it.each( [ TRACKS_EVENTS.PREVIEW_SITE_CREATE, TRACKS_EVENTS.PREVIEW_SITE_UPDATE 
 		vi.stubEnv( 'E2E', 'true' );
 		await recordTracksEvent( event, props );
 		expect( send ).not.toHaveBeenCalled();
+	}
+);
+
+it.each( [ '', 'studio-ui:v2' ] )(
+	'sends the same site UUID from creation through preview create and update (origin: %s)',
+	async ( origin ) => {
+		vi.stubEnv( 'STUDIO_TRACKS_ORIGIN', origin );
+		vi.stubEnv( 'NODE_ENV', 'production' );
+		const send = vi.fn().mockResolvedValue( {} );
+		vi.stubGlobal( 'fetch', send );
+		const created = await getSiteTracksProps( site.path );
+		await recordTracksEvent( TRACKS_EVENTS.SITE_CREATE, { ...created, ...getTracksOrigin() } );
+		for ( const event of [
+			TRACKS_EVENTS.PREVIEW_SITE_CREATE,
+			TRACKS_EVENTS.PREVIEW_SITE_UPDATE,
+		] ) {
+			await recordTracksEvent( event, {
+				...( await getSiteTracksProps( site.path, preview ) ),
+				...getTracksOrigin(),
+			} );
+		}
+		const events = send.mock.calls.map( ( [ url ] ) => new URL( url ).searchParams );
+		expect( events.map( ( event ) => event.get( '_en' ) ) ).toEqual( [
+			TRACKS_EVENTS.SITE_CREATE,
+			TRACKS_EVENTS.PREVIEW_SITE_CREATE,
+			TRACKS_EVENTS.PREVIEW_SITE_UPDATE,
+		] );
+		expect( events.map( ( event ) => event.get( 'site_id' ) ) ).toEqual( [
+			created.site_id,
+			created.site_id,
+			created.site_id,
+		] );
+		expect( events[ 0 ].has( 'preview_id' ) ).toBe( false );
+		expect( events[ 1 ].get( 'preview_id' ) ).toMatch( uuid );
+		expect( events[ 2 ].get( 'preview_id' ) ).toBe( events[ 1 ].get( 'preview_id' ) );
+	}
+);
+
+it.each( [ 'readCliConfig', 'unlockCliConfig' ] as const )(
+	'omits IDs when %s fails without changing the site record count',
+	async ( operation ) => {
+		vi.spyOn( configStore, operation ).mockRejectedValueOnce( new Error( 'Storage unavailable' ) );
+		expect( await getSiteTracksProps( site.path ) ).toEqual( {} );
+		const config = await configStore.readCliConfig();
+		expect( config.sites ).toHaveLength( 1 );
 	}
 );

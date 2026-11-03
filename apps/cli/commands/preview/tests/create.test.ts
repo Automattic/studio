@@ -8,6 +8,7 @@ import { getUserInfo, uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { createPreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
+import { getPreviewTracksProps } from 'cli/lib/preview-tracks';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSnapshotsFromConfig, saveSnapshotToConfig } from 'cli/lib/snapshots';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
@@ -42,6 +43,7 @@ vi.mock( '@studio/common/lib/get-wordpress-version', () => ( {
 	getWordPressVersion: vi.fn().mockReturnValue( '6.8.1' ),
 } ) );
 vi.mock( 'cli/lib/archive' );
+vi.mock( 'cli/lib/preview-tracks' );
 vi.mock( 'cli/lib/api' );
 vi.mock( 'cli/lib/preview-sites' );
 vi.mock( 'cli/lib/snapshots', async () => ( {
@@ -98,6 +100,10 @@ describe( 'Preview Create Command', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		vi.mocked( getPreviewTracksProps ).mockImplementation( async ( _folder, preview ) => ( {
+			site_id: 'b4bfb381-cbf4-4003-b3db-233bcda55f51',
+			...( preview ? { preview_id: '603537e6-95ed-4583-84c2-d2725af37d8a' } : {} ),
+		} ) );
 		vi.spyOn( Date, 'now' ).mockReturnValue( mockDate );
 		vi.spyOn( path, 'basename' ).mockReturnValue( mockBasename );
 
@@ -224,10 +230,53 @@ describe( 'Preview Create Command', () => {
 			TRACKS_EVENTS.PREVIEW_SITE_CREATE,
 			expect.objectContaining( {
 				success: true,
+				site_id: 'b4bfb381-cbf4-4003-b3db-233bcda55f51',
+				preview_id: '603537e6-95ed-4583-84c2-d2725af37d8a',
 				time_ms: expect.any( Number ),
 				site_preview_count: 2,
 				channel: 'studio-cli',
 			} )
+		);
+	} );
+
+	it( 'omits preview_id when creation fails before a preview record exists', async () => {
+		vi.mocked( uploadPreviewArchive ).mockRejectedValueOnce( new Error( 'Upload failed' ) );
+		await expect( runCommand( mockFolder ) ).rejects.toThrow();
+		expect( getPreviewTracksProps ).toHaveBeenCalledWith( mockFolder, undefined );
+		const props = vi
+			.mocked( recordTracksEvent )
+			.mock.calls.find( ( [ event ] ) => event === TRACKS_EVENTS.PREVIEW_SITE_CREATE )?.[ 1 ];
+		expect( props ).toMatchObject( {
+			success: false,
+			site_id: 'b4bfb381-cbf4-4003-b3db-233bcda55f51',
+		} );
+		expect( props ).not.toHaveProperty( 'preview_id' );
+	} );
+
+	it( 'keeps preview context when a failure follows saving the preview', async () => {
+		vi.mocked( getSnapshotsFromConfig ).mockRejectedValueOnce( new Error( 'Read failed' ) );
+		await expect( runCommand( mockFolder, 'Preview' ) ).rejects.toThrow();
+		expect( getPreviewTracksProps ).toHaveBeenCalledWith(
+			mockFolder,
+			expect.objectContaining( {
+				atomicSiteId: mockAtomicSiteId,
+			} )
+		);
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.PREVIEW_SITE_CREATE,
+			expect.objectContaining( {
+				success: false,
+				preview_id: '603537e6-95ed-4583-84c2-d2725af37d8a',
+			} )
+		);
+	} );
+
+	it( 'preserves a successful operation and its event when ID storage is unavailable', async () => {
+		vi.mocked( getPreviewTracksProps ).mockResolvedValueOnce( {} );
+		await runCommand( mockFolder );
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.PREVIEW_SITE_CREATE,
+			expect.objectContaining( { success: true, channel: 'studio-cli' } )
 		);
 	} );
 

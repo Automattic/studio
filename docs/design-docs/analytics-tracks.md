@@ -374,11 +374,18 @@ coarse and low-cardinality (the raw error is never sent).
 
 | Event | Emitted from | Event-specific props |
 |---|---|---|
-| `studio_preview_site_create` | CLI `preview create` | `success` (boolean), `time_ms` (creation duration). On success also `site_preview_count` (the user's unexpired previews of this local site, this one included; tells how many people keep several previews of one site without identifying it). On failure also `failure_reason` (`auth_required`/`size_limit`/`expired`/`not_found`/`timeout`/`upload`/`unknown`). |
-| `studio_preview_site_update` | CLI `preview update` | `success` (boolean), `time_ms` (update duration). On success also `site_preview_count` (as for create). On failure also `failure_reason` (same vocabulary as create). |
+| `studio_preview_site_create` | CLI `preview create` | `site_id` and `preview_id` (opaque local UUIDs when their records are resolved), `success` (boolean), `time_ms` (creation duration). On success also `site_preview_count` (the user's unexpired previews of this local site, this one included). On failure also `failure_reason` (`auth_required`/`size_limit`/`expired`/`not_found`/`timeout`/`upload`/`unknown`). |
+| `studio_preview_site_update` | CLI `preview update` | `site_id` and `preview_id` (opaque local UUIDs when their records are resolved), `success` (boolean), `time_ms` (update duration). On success also `site_preview_count` (as for create). On failure also `failure_reason` (same vocabulary as create). |
 | `studio_preview_site_delete` | CLI `preview delete` (single) | (none). Emitted once per **successful** single delete. |
 | `studio_preview_site_delete_all` | CLI `preview delete --all` | `count` (number of the user's preview sites removed). Emitted once per **successful** delete-all (a single bulk server operation, not per site). |
 | `studio_preview_site_open` | Renderer (Classic Previews list, no longer emitted) | (none — opens the preview URL in the OS browser) |
+
+`site_id` and `preview_id` are separate random UUIDs stored on local site and preview records.
+They are not derived from operational IDs, names, paths, URLs, usernames, or content. A site UUID
+remains stable for its local record's lifetime; a preview UUID survives updates and reconciliation.
+A failed create has no `preview_id` until a preview record exists. Unresolved IDs are omitted.
+These props add no PII, person-level props, visitor tracking, or person identity joins. The anonymous
+install UUID and existing Tracks privacy, opt-out, and build-disable checks are unchanged.
 
 #### Sync events
 

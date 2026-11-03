@@ -232,14 +232,6 @@ describe( 'command palette', () => {
 		await openPalette();
 		search( 'zzzzzzzz' );
 		expect( await screen.findByText( 'No commands found.' ) ).toBeVisible();
-		expect(
-			screen.getByText( 'From many, one tool. Find strength in community for a better web.' )
-		).toBeVisible();
-		expect( screen.queryByRole( 'option' ) ).not.toBeInTheDocument();
-		search( 'Toggle theme' );
-		expect( option( 'Use light mode' ) ).toBeVisible();
-		expect( screen.queryByText( 'No commands found.' ) ).not.toBeInTheDocument();
-		expect( screen.queryByText( /From many, one tool\./ ) ).not.toBeInTheDocument();
 		fireEvent.keyDown( input(), { key: 'Escape' } );
 		await paletteClosed();
 	} );

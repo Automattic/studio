@@ -30,6 +30,7 @@ export type CaptureEngine = {
 	captureWebsite: ( options: {
 		url: string;
 		outputDir: string;
+		referenceSample?: 'all';
 		onProgress?: ( progress: {
 			phase: string;
 			current?: number;

@@ -742,6 +742,7 @@ export async function commandHandler(
 					? { path: argv.staticSiteImporterPath }
 					: argv.staticSiteImporterUrl,
 				liberate: dependencies.liberate,
+				keepSource: !! argv.keepSource,
 			} );
 			config.blueprint = preparedImport.blueprint;
 			config.name = preparedImport.siteName;

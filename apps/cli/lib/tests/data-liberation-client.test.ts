@@ -63,6 +63,17 @@ describe( 'liberateWebsite', () => {
 		expect( progress[ 0 ] ).toBe( 'Data Liberation 9.9.9' );
 	} );
 
+	it( 'passes all routes as the reference sample when requested', async () => {
+		const loaded = engine();
+		await liberateWebsite( 'https://example.com/', tempRoot(), {
+			loadEngine: async () => loaded,
+			referenceSample: 'all',
+		} );
+		expect( loaded.captureWebsite ).toHaveBeenCalledWith(
+			expect.objectContaining( { referenceSample: 'all' } )
+		);
+	} );
+
 	it( 'builds the command that compares a site against the original', async () => {
 		const outputBase = tempRoot();
 		const { compareCommand: build } = await liberateWebsite( 'https://example.com/', outputBase, {

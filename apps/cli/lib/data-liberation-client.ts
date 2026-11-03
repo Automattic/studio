@@ -46,6 +46,7 @@ function routeIdentity( url: string ): string {
 }
 
 type LiberateWebsiteOptions = {
+	referenceSample?: 'all';
 	onProgress?: ( message: string ) => void;
 	loadEngine?: LoadEngine;
 };
@@ -117,6 +118,7 @@ export async function liberateWebsite(
 	const result = await engine.captureWebsite( {
 		url: parsed.href,
 		outputDir,
+		...( options.referenceSample ? { referenceSample: options.referenceSample } : {} ),
 		onProgress: ( progress ) => {
 			options.onProgress?.(
 				progress.phase === 'capturing' && progress.total

@@ -86,6 +86,7 @@ export async function prepareSourceImport(
 		siteNameIsExplicit?: boolean;
 		staticSiteImporter?: StaticSiteImporterPlugin;
 		liberate?: typeof liberateWebsite;
+		keepSource?: boolean;
 	} = {}
 ): Promise< PreparedSourceImport > {
 	const sourceUrl = isUrl( source ) ? source : undefined;
@@ -131,6 +132,7 @@ export async function prepareSourceImport(
 					logger.reportProgress( message );
 				}
 			},
+			referenceSample: options.keepSource ? 'all' : undefined,
 		} );
 		if ( liberated.partialCapture ) {
 			logger.reportWarning( partialCaptureWarning( liberated.partialCapture ) );

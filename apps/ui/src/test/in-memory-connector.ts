@@ -369,6 +369,7 @@ export function createInMemoryConnector(
 		onShowWhatsNew: subscribe( 'onShowWhatsNew' ),
 		getAppUpdateStatus: async () => ( { state: 'idle', currentVersion: null } ),
 		installAppUpdate: async () => {},
+		checkForAppUpdates: async () => {},
 		onAppUpdateStatusChanged: subscribe( 'onAppUpdateStatusChanged' ),
 		onAppUpdateNotAvailable: subscribe( 'onAppUpdateNotAvailable' ),
 	};

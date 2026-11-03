@@ -626,6 +626,7 @@ export interface Connector {
 
 	// Auto-updater status.
 	getAppUpdateStatus(): Promise< AppUpdateStatus >;
+	checkForAppUpdates(): Promise< void >;
 	installAppUpdate(): Promise< void >;
 	onAppUpdateStatusChanged( listener: ( status: AppUpdateStatus ) => void ): () => void;
 

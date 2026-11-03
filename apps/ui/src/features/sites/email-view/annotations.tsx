@@ -140,7 +140,7 @@ function anchorFor( note: VisualAnnotation, root: HTMLElement | null ): Annotati
 /**
  * Annotation mode for an email: the elements of its HTML and the paragraphs of
  * its text are the targets. The notes share the site preview's store, editor
- * and Send bar.
+ * and batch controls.
  */
 export function useEmailAnnotations( {
 	siteId,
@@ -182,9 +182,15 @@ export function useEmailAnnotations( {
 			}
 		};
 		follow();
+		const root = rootRef.current;
+		const observer = new MutationObserver( follow );
+		if ( root ) observer.observe( root, { childList: true, subtree: true } );
+		root?.addEventListener( 'load', follow, true );
 		window.addEventListener( 'scroll', follow, { capture: true, passive: true } );
 		window.addEventListener( 'resize', follow );
 		return () => {
+			observer.disconnect();
+			root?.removeEventListener( 'load', follow, true );
 			window.removeEventListener( 'scroll', follow, { capture: true } );
 			window.removeEventListener( 'resize', follow );
 		};

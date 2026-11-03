@@ -301,7 +301,8 @@ export function SitePreview( {
 					onEdit: ( id: string ) => {
 						const note = batchNotes.find( ( note ) => note.id === id );
 						if ( ! note ) return;
-						if ( note.path === 'DESIGN.md' ) switchRealm( 'design' );
+						if ( note.email ) switchRealm( 'email' );
+						else if ( note.path === 'DESIGN.md' ) switchRealm( 'design' );
 						else if ( note.path ) onPathChange?.( note.path );
 						editAnnotation( site.id, id );
 					},

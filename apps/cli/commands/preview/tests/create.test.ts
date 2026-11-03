@@ -53,7 +53,7 @@ vi.mock( 'cli/lib/snapshots', async () => ( {
 } ) );
 vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 	const actual = await importActual< typeof import('cli/lib/tracks') >();
-	return { ...actual, recordTracksEvent: vi.fn() };
+	return { ...actual, recordTracksEvent: vi.fn( async () => undefined ) };
 } );
 vi.mock( 'cli/logger', () => ( {
 	Logger: class {
@@ -328,6 +328,16 @@ describe( 'Preview Create Command', () => {
 			authToken: expect.objectContaining( { accessToken: 'pasted-token', id: 123 } ),
 		} );
 		expect( createPreviewSite ).toHaveBeenCalled();
+		const started = vi
+			.mocked( recordTracksEvent )
+			.mock.calls.find( ( [ name ] ) => name === TRACKS_EVENTS.WPCOM_AUTH_STARTED );
+		expect( started?.[ 1 ] ).toEqual(
+			expect.objectContaining( { auth_attempt_id: expect.any( String ), source: 'cli' } )
+		);
+		expect( recordTracksEvent ).toHaveBeenCalledWith( TRACKS_EVENTS.WPCOM_AUTH, {
+			...started?.[ 1 ],
+			success: true,
+		} );
 	} );
 
 	it( 'should always clean up archive file even on error', async () => {

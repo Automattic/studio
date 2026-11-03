@@ -33,7 +33,9 @@ import type {
 } from '../../types';
 import type { AgentRunEvent } from '@studio/agent/protocol/agent-events';
 import type { AiSettings } from '@studio/agent/protocol/providers';
+import type { AuthAnalytics, OnboardingAnalytics } from '@studio/common/lib/auth-tracks';
 import type { SiteEvent, SiteListItem, SnapshotEvent } from '@studio/common/lib/cli-events';
+import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 
@@ -232,17 +234,35 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// configured: a popup goes through WordPress.com to /auth/callback, which
 		// stores the token and posts back here. Falls back to the paste flow
 		// (`studio auth login`-style) when no client is configured.
-		async authenticate( signup = false ) {
+		async authenticate(
+			signup = false,
+			source: TracksAuthSource = 'unknown',
+			analytics?: AuthAnalytics
+		) {
 			// Open the popup synchronously (inside the click gesture) so it isn't
 			// blocked, then navigate it once the authorize URL is resolved.
-			const popup = window.open( 'about:blank', 'studio-auth', 'width=600,height=720' );
+			const popupName = `studio-auth-${ crypto.randomUUID() }`;
+			let popup = window.open( 'about:blank', popupName, 'width=600,height=720' );
 
 			let loginUrl: string | null = null;
+			let authAttemptId: string | undefined;
+			const cancel = ( launchFailed = false ) =>
+				api( '/auth/cancel', {
+					method: 'POST',
+					body: JSON.stringify( { auth_attempt_id: authAttemptId, launch_failed: launchFailed } ),
+				} ).catch( () => undefined );
+			const analyticsParams = new URLSearchParams( { source } );
+			for ( const [ key, value ] of Object.entries( analytics ?? {} ) ) {
+				if ( value !== undefined ) analyticsParams.set( key, String( value ) );
+			}
 			try {
-				( { url: loginUrl } = await api< { url: string | null } >(
+				( { url: loginUrl, authAttemptId } = await api< {
+					url: string | null;
+					authAttemptId?: string;
+				} >(
 					`/auth/login-url?redirect_uri=${ encodeURIComponent(
 						`${ window.location.origin }/auth/callback`
-					) }${ signup ? '&signup=1' : '' }`
+					) }${ signup ? '&signup=1' : '' }&${ analyticsParams }`
 				) );
 			} catch {
 				loginUrl = null;
@@ -263,8 +283,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				if ( token?.trim() ) {
 					await api( '/auth/login', {
 						method: 'POST',
-						body: JSON.stringify( { token: token.trim() } ),
+						body: JSON.stringify( { token: token.trim(), auth_attempt_id: authAttemptId } ),
 					} );
+				} else {
+					void cancel();
 				}
 				return;
 			}
@@ -272,7 +294,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			if ( popup ) {
 				popup.location.href = loginUrl;
 			} else {
-				window.open( loginUrl, '_blank', 'noopener,noreferrer' );
+				popup = window.open( loginUrl, popupName );
+				if ( ! popup ) {
+					void cancel( true );
+					return;
+				}
 			}
 
 			// Wait for the callback page to report success (it has already stored the
@@ -282,6 +308,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					if ( event.origin !== window.location.origin || ! event.data ) {
 						return;
 					}
+					if ( authAttemptId && event.data.auth_attempt_id !== authAttemptId ) return;
 					if ( event.data.type === 'studio-auth-success' ) {
 						cleanup();
 						resolve();
@@ -293,6 +320,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				window.addEventListener( 'message', onMessage );
 				const closedTimer = setInterval( () => {
 					if ( popup?.closed ) {
+						void cancel();
 						cleanup();
 						resolve();
 					}
@@ -313,8 +341,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async getOnboardingCompleted() {
 			return api< boolean >( '/onboarding' );
 		},
-		async setOnboardingCompleted( completed ) {
-			await api( '/onboarding', { method: 'PATCH', body: JSON.stringify( { completed } ) } );
+		async setOnboardingCompleted( completed, analytics?: OnboardingAnalytics ) {
+			await api( '/onboarding', {
+				method: 'PATCH',
+				body: JSON.stringify( { completed, analytics } ),
+			} );
 		},
 
 		// Sites — the local machine's real Studio sites, served by the CLI.
@@ -686,6 +717,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'POST',
 				body: JSON.stringify( {
 					prompt,
+					turnId: options?.turnId,
 					displayMessage: options?.displayMessage,
 					images: options?.images,
 					files: options?.files,

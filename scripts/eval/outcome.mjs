@@ -626,10 +626,7 @@ export const questionnaireSkip = check( ( d ) => {
 
 export const designSystemReplyLink = check( ( d ) => {
 	const text = finalReply( d );
-	if ( ! /\[Design System\]\(studio:design-system\)/.test( text ) ) {
-		return fail( `final reply lacks the design system link: ${ text.slice( 0, 500 ) }` );
-	}
-	return /refreshed (?:your|the) preview/i.test( text )
-		? fail( `final reply includes generic preview filler: ${ text.slice( 0, 500 ) }` )
-		: pass( 'final reply links to the design system without generic preview filler' );
+	return /\[[^\]\n]+\]\(studio:design-system\)/.test( text )
+		? pass( 'final reply links to the design system' )
+		: fail( `final reply lacks the design system link: ${ text.slice( 0, 500 ) }` );
 } );

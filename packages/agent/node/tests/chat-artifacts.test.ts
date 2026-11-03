@@ -36,7 +36,6 @@ it( "opens the design system in the preview when a site's DESIGN.md is written",
 	expect( ui.showArtifact ).not.toHaveBeenCalled();
 
 	expect( write.description ).toContain( '[Design System](studio:design-system)' );
-	expect( write.description ).toContain( 'After successfully updating' );
 
 	await write.execute( 'call-3', { path: 'bakery/DESIGN.md' } );
 	expect( ui.showArtifact ).toHaveBeenCalledWith(

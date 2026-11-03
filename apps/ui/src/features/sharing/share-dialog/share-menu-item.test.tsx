@@ -63,6 +63,8 @@ it( 'copies an active preview and keeps the sharing dialog accessible', async ()
 		fireEvent.keyDown( await screen.findByRole( 'menuitem', { name: 'Copy links' } ), {
 			key: 'ArrowRight',
 		} );
+		expect( screen.queryByRole( 'menuitem', { name: 'Expired' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'menuitem', { name: 'Other site' } ) ).not.toBeInTheDocument();
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Design review' } ) );
 		await waitFor( () => expect( copyText ).toHaveBeenCalledWith( preview.shareUrl ) );
 		await open();
@@ -76,8 +78,6 @@ it( 'copies an active preview and keeps the sharing dialog accessible', async ()
 			)
 		);
 		await open();
-		expect( screen.queryByRole( 'menuitem', { name: 'Expired' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'menuitem', { name: 'Other site' } ) ).not.toBeInTheDocument();
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Create preview' } ) );
 		await waitFor( () =>
 			expect( publishPreviewSite ).toHaveBeenCalledWith( site.id, undefined, undefined )
@@ -90,3 +90,58 @@ it( 'copies an active preview and keeps the sharing dialog accessible', async ()
 		unsubscribe();
 	}
 } );
+
+it.each( [ 'signed out', 'at the preview limit', 'blocked', 'offline', 'busy' ] )(
+	'prevents creation when %s',
+	async ( condition ) => {
+		const site = makeSite( { id: `creation-${ condition }` } );
+		const originalOnline = Object.getOwnPropertyDescriptor( window.navigator, 'onLine' );
+		if ( condition === 'offline' ) {
+			Object.defineProperty( window.navigator, 'onLine', { configurable: true, value: false } );
+		}
+		const connector = createFakeConnector(
+			{ sites: [ site ], user: condition === 'signed out' ? null : TEST_USER },
+			{
+				getSnapshotUsage: async () => ( {
+					siteCount: condition === 'at the preview limit' ? 5 : 0,
+					siteLimit: 5,
+					siteCreationBlocked: condition === 'blocked',
+				} ),
+			}
+		);
+		try {
+			renderWithProviders(
+				<SessionUIProvider>
+					<Menu.Root>
+						<Menu.Trigger>Actions</Menu.Trigger>
+						<Menu.Popup>
+							<SiteShareMenuItem site={ site } disabled={ condition === 'busy' } />
+						</Menu.Popup>
+					</Menu.Root>
+				</SessionUIProvider>,
+				{ connector }
+			);
+			fireEvent.click( await screen.findByRole( 'button', { name: 'Actions' } ) );
+			const share = await screen.findByRole( 'menuitem', { name: 'Share' } );
+			if ( condition === 'busy' ) {
+				expect( share ).toHaveAttribute( 'aria-disabled', 'true' );
+				return;
+			}
+			fireEvent.keyDown( share, { key: 'ArrowRight' } );
+			expect( await screen.findByRole( 'menuitem', { name: 'Create preview' } ) ).toHaveAttribute(
+				'aria-disabled',
+				'true'
+			);
+			expect( screen.getByRole( 'menuitem', { name: 'Manage sharing' } ) ).not.toHaveAttribute(
+				'aria-disabled',
+				'true'
+			);
+			expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
+		} finally {
+			if ( condition === 'offline' ) {
+				if ( originalOnline ) Object.defineProperty( window.navigator, 'onLine', originalOnline );
+				else Reflect.deleteProperty( window.navigator, 'onLine' );
+			}
+		}
+	}
+);

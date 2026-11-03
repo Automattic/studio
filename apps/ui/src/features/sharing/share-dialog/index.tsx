@@ -1,8 +1,7 @@
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { __, sprintf } from '@wordpress/i18n';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { useConnector } from '@/data/core';
-import { markPreviewSeen, usePreviewReady } from '@/data/preview-ready';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
 import { useIsSiteBusy } from '@/data/queries/use-sites';
@@ -18,13 +17,12 @@ import type { SiteDetails } from '@/data/core';
 
 export function useShareStatus( siteId: string ) {
 	const activity = useSiteSyncActivity( siteId );
-	const ready = usePreviewReady( siteId );
 	const publishing = activity?.kind === 'pending' && activity.direction === 'preview';
 	let label: string | undefined;
 	if ( publishing ) {
 		label = activity.hostname ? __( 'Updating preview…' ) : __( 'Creating preview…' );
 	}
-	return { publishing, ready, label };
+	return { publishing, label };
 }
 
 export function ShareStatusIcon( {
@@ -39,11 +37,9 @@ export function ShareStatusIcon( {
 
 export function SharePanel( {
 	site,
-	open,
 	onManagePreview,
 }: {
 	site: SiteDetails;
-	open: boolean;
 	onManagePreview: ( action: PreviewManagementAction ) => void;
 } ) {
 	const connector = useConnector();
@@ -59,7 +55,6 @@ export function SharePanel( {
 		name?: string;
 	} >();
 	const [ createdUrl, setCreatedUrl ] = useState< string >();
-	const status = useShareStatus( site.id );
 	const activity = useSiteSyncActivity( site.id );
 	const siteBusy = useIsSiteBusy( site );
 	const offline = useOffline();
@@ -120,9 +115,6 @@ export function SharePanel( {
 		} );
 	};
 
-	useEffect( () => {
-		if ( open && status.ready ) markPreviewSeen( site.id );
-	}, [ open, status.ready, site.id ] );
 	const loadError = user.error || ( ! snapshots.data && snapshots.error );
 	if ( signedOut ) return null;
 
@@ -179,7 +171,6 @@ export function SharePanel( {
 			) : (
 				<PreviewSharePanel
 					key={ `${ site.id }:${ user.data?.id }` }
-					site={ site }
 					primaryAction={ primaryAction }
 					previews={ previews }
 					busy={ busy }

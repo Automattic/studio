@@ -3,7 +3,6 @@ import { __, sprintf } from '@wordpress/i18n';
 import { PlusIcon } from 'lucide-react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
-import { markPreviewSeen } from '@/data/preview-ready';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
 import { useSnapshotUsage, useSnapshots } from '@/data/queries/use-snapshots';
@@ -17,12 +16,10 @@ import type { SiteDetails, Snapshot } from '@/data/core';
 
 function PreviewLink( {
 	snapshot,
-	siteId,
 	sequence,
 	visit = false,
 }: {
 	snapshot: Snapshot;
-	siteId: string;
 	sequence: number;
 	visit?: boolean;
 } ) {
@@ -32,14 +29,12 @@ function PreviewLink( {
 			onClick={ () => {
 				if ( visit ) {
 					void connector.openExternalUrl( getSnapshotOpenUrl( snapshot ) );
-					markPreviewSeen( siteId );
 					return;
 				}
 				void connector.copyText( getSnapshotUrl( snapshot ) ).then(
 					() => toast.success( __( 'Link copied' ) ),
 					() => toast.error( __( 'Could not copy' ) )
 				);
-				markPreviewSeen( siteId );
 			} }
 		>
 			{ visit ? <GlobeIcon /> : <LinkIcon /> }
@@ -103,7 +98,6 @@ export function SiteShareMenuItem( { site, disabled }: { site: SiteDetails; disa
 										key={ snapshot.atomicSiteId }
 										snapshot={ snapshot }
 										sequence={ previews.length - index }
-										siteId={ site.id }
 									/>
 								) ) }
 							</Menu.SubmenuPopup>
@@ -119,7 +113,6 @@ export function SiteShareMenuItem( { site, disabled }: { site: SiteDetails; disa
 										key={ snapshot.atomicSiteId }
 										snapshot={ snapshot }
 										sequence={ previews.length - index }
-										siteId={ site.id }
 										visit
 									/>
 								) ) }

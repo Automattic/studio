@@ -57,6 +57,7 @@ afterEach( () =>
 		closeNoticeHistory();
 	} )
 );
+afterEach( () => vi.unstubAllGlobals() );
 
 describe( 'command palette', () => {
 	it( 'toggles the sidebar after releasing the palette dialog guard', async () => {
@@ -539,6 +540,10 @@ describe( 'Command palette in the Studio workspace', () => {
 	it.each( [ false, true ] )(
 		'switches Add site to the command palette (empty: %s)',
 		async ( empty ) => {
+			vi.stubGlobal(
+				'fetch',
+				vi.fn( async () => Response.json( { blueprints: [] } ) )
+			);
 			setup( { sites: empty ? [] : [ site() ] } );
 			if ( ! empty ) {
 				await screen.findByRole( 'button', { name: 'Site menu' } );

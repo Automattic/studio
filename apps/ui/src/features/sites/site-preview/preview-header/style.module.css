@@ -90,16 +90,6 @@
 	font-size: var( --text-2xs );
 }
 
-.disabledControlTooltipTarget {
-	display: inline-flex;
-	flex-shrink: 0;
-	min-width: max-content;
-}
-
-.annotateButton {
-	gap: var( --space-1 );
-}
-
 /* 2px bar overlapping the header's bottom border, like a browser's page-load
    indicator. The inner span is scaled by inline style as progress advances. */
 .loadingProgress {

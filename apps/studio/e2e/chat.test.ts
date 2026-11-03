@@ -149,13 +149,13 @@ test.describe( 'Chat', () => {
 		const annotate = page.getByRole( 'button', { name: 'Annotate', exact: true } );
 		if ( await annotate.isVisible() ) {
 			await annotate.click();
+			await expect( annotate ).toHaveAttribute( 'aria-pressed', 'true' );
 		} else {
 			await page.getByRole( 'button', { name: 'More preview actions' } ).click();
 			await page.getByRole( 'menuitemcheckbox', { name: 'Annotate' } ).click();
 		}
-		await expect( page.getByRole( 'toolbar', { name: 'Annotations' } ) ).toBeVisible();
 
-		const note = page.getByRole( 'textbox', { name: 'Leave a note' } );
+		const note = page.getByRole( 'textbox', { name: 'Describe the change' } );
 		await expect
 			.poll( () =>
 				inspect( `document.readyState === 'complete' && !!document.querySelector('h1,h2')` )
@@ -183,7 +183,7 @@ test.describe( 'Chat', () => {
 		expect( markerPoint.x ).toBeCloseTo( pickedPoint.x, 3 );
 		expect( markerPoint.y ).toBeCloseTo( pickedPoint.y, 3 );
 		await note.fill( 'Make this heading shorter' );
-		await page.getByRole( 'button', { name: 'Save annotation', exact: true } ).click();
+		await page.getByRole( 'button', { name: 'Add annotation to batch', exact: true } ).click();
 		expect( await sentPrompts() ).toHaveLength( 0 );
 		await expect.poll( () => inspect( `${ marker }?.dataset.pending` ) ).toBe( 'false' );
 		await inspect( `${ marker }.click()` );
@@ -199,7 +199,14 @@ test.describe( 'Chat', () => {
 				.getByRole( 'group', { name: 'Annotation', exact: true } )
 				.getByRole( 'button', { name: 'Remove attachment' } )
 		).toBeVisible();
-		await note.press( 'ControlOrMeta+Enter' );
+		await note.press( 'Enter' );
+		await expect( note ).toBeHidden();
+		const openChat = page.getByRole( 'button', { name: 'Open chat', exact: true } );
+		if ( await openChat.isVisible() ) {
+			await openChat.click();
+		}
+		await expect( page.getByRole( 'button', { name: '1 annotation', exact: true } ) ).toBeVisible();
+		await page.getByRole( 'button', { name: 'Send message', exact: true } ).click();
 
 		await expect.poll( async () => ( await sentPrompts() ).length ).toBe( 1 );
 		const [ sent ] = await sentPrompts();

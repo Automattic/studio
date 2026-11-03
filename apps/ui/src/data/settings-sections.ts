@@ -169,9 +169,9 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				),
 				setting(
 					'action',
-					__( 'Confirm before deleting annotations' ),
-					__( 'Ask before deleting pending notes and attached images.' ),
-					'confirm-delete-annotations'
+					__( 'Batch notes' ),
+					__( 'Collect annotations and send them together instead of one at a time.' ),
+					'batch-notes'
 				),
 				setting(
 					'action',
@@ -258,7 +258,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 		},
 		{
 			id: 'ai',
-			label: __( 'AI Providers' ),
+			label: __( 'Providers' ),
 			icon: IntelligenceIcon,
 			aliases: [ __( 'Connect provider' ) ],
 			settings: [

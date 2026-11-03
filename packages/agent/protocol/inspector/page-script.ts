@@ -31,7 +31,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 	const host = document.createElement('div');
 	host.id = '__studio-inspector-host';
 	host.dataset.studioInspector = '';
-	host.style.cssText = 'all:initial;position:fixed;inset:0;pointer-events:none;z-index:2147483647';
+	host.style.cssText = 'all:initial;display:none!important;position:fixed;inset:0;pointer-events:none;z-index:2147483647';
 	host.hidden = true;
 	document.documentElement.append(host);
 	const root = host.attachShadow({ mode: 'open' });
@@ -43,7 +43,9 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		'button{position:fixed;transform:translate(-50%,-50%);border:0;border-radius:50%;width:36px;height:36px;padding:0;font:500 12px var(--marker-font-family,system-ui);font-variant-numeric:tabular-nums;background:var(--marker) center/contain no-repeat;color:var(--on-accent);cursor:pointer;pointer-events:auto}' +
 		'button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}' +
 		'.enter{animation:marker-in 600ms linear(0 0%,.0325 2.5%,.1163 5%,.2331 7.5%,.6385 15%,.7594 17.5%,.8639 20%,.9497 22.5%,1.0164 25%,1.0648 27.5%,1.0966 30%,1.1142 32.5%,1.1172 37.5%,1.0941 42.5%,1.0178 55%,.9887 65%,.9858 72.5%,1 100%) both,marker-fade-in var(--motion-duration-feedback,100ms) ease-out both}' +
+		'button[data-feedback]{background-image:var(--marker-error);color:var(--on-error)}' +
 		'.confirm{animation:marker-confirm 220ms ease-out both}' +
+		'.leave{animation:marker-out 120ms ease-in both;pointer-events:none}' +
 		'.plus,.number{position:absolute;inset:0;display:grid;place-items:center;transition:opacity 100ms var(--motion-ease-enter),transform var(--motion-duration-surface) var(--motion-ease-enter)}' +
 		'.plus{opacity:0;transform:scale(.95)}' +
 		'.number{opacity:1;transform:translateY(0)}' +
@@ -52,7 +54,9 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		'@keyframes marker-in{from{transform:translate(-50%,-50%) scale(0)}to{transform:translate(-50%,-50%) scale(1)}}' +
 		'@keyframes marker-confirm{from{transform:translate(-50%,-50%) scale(1)}25%{transform:translate(-50%,-50%) scale(.94)}65%{transform:translate(-50%,-50%) scale(1.06)}to{transform:translate(-50%,-50%) scale(1)}}' +
 		'@keyframes marker-fade-in{from{opacity:0}to{opacity:1}}' +
-		'@media(prefers-reduced-motion:reduce){.enter{animation:marker-fade-in var(--motion-duration-feedback,100ms) ease-out both}.confirm{animation-name:marker-fade-in;animation-duration:1ms}.plus,.number,button[data-pending="true"] .plus,button[data-pending="true"] .number{transform:none;transition-property:opacity}}';
+		'@keyframes marker-out{from{transform:translate(-50%,-50%) scale(1);opacity:1}to{transform:translate(-50%,-50%) scale(0);opacity:0}}' +
+		'@keyframes marker-fade-out{from{opacity:1}to{opacity:0}}' +
+		'@media(prefers-reduced-motion:reduce){.enter{animation:marker-fade-in var(--motion-duration-feedback,100ms) ease-out both}.leave{animation:marker-fade-out 100ms ease-out both}.confirm{animation-name:marker-fade-in;animation-duration:1ms}.plus,.number,button[data-pending="true"] .plus,button[data-pending="true"] .number{transform:none;transition-property:opacity}}';
 	root.append(style);
 	const highlight = document.createElement('div');
 	highlight.className = 'highlight';
@@ -62,6 +66,18 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 	root.append(markers);
 	const markerNodes = new Map();
 	let state = { active: false, notes: [], editingId: null };
+	let exiting = false;
+	let exitTimer = 0;
+	let errorTimer = 0;
+	let feedbackAnimation = null;
+	let errorId = null;
+	let replayEntry = false;
+	function finishExit() {
+		if (state.active) return;
+		clearTimeout(exitTimer);
+		exiting = false;
+		render();
+	}
 	let hovered = null;
 	let selected = null;
 	let frame = 0;
@@ -72,7 +88,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		} catch {}
 	}
 	function art(accent, onAccent) {
-		const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><defs><filter id="s" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity="0.14"/></filter></defs><circle cx="16" cy="16" r="12" fill="' + accent + '" filter="url(#s)"/><circle cx="16" cy="16" r="11.5" fill="none" stroke="' + onAccent + '" stroke-opacity="0.12" stroke-width="1"/></svg>';
+		const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><defs><filter id="s" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity="0.14"/></filter></defs><circle cx="16" cy="16" r="12" fill="' + accent + '" filter="url(#s)"/><circle cx="16" cy="16" r="11.5" fill="none" stroke="' + onAccent + '" stroke-opacity="0.06" stroke-width="1"/></svg>';
 		return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '")';
 	}
 	function selector(el) {
@@ -134,6 +150,17 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 			return false;
 		}
 	}
+	function markerAnchor(point) {
+		const width = Math.min(innerWidth, document.documentElement.clientWidth || innerWidth);
+		const height = Math.min(innerHeight, document.documentElement.clientHeight || innerHeight);
+		if (point.left < 0 || point.left > width || point.top < 0 || point.top > height) return null;
+		const insetX = Math.min(24, width / 2);
+		const insetY = Math.min(24, height / 2);
+		return {
+			left: Math.max(insetX, Math.min(point.left, width - insetX)),
+			top: Math.max(insetY, Math.min(point.top, height - insetY)),
+		};
+	}
 	function anchor(note) {
 		const el = resolve(note);
 		const r = el
@@ -144,14 +171,18 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 					width: note.documentRect.width,
 					height: note.documentRect.height,
 			  };
-		return {
+		return markerAnchor({
 			left: r.left + r.width * (note.point ? note.point.x : 1),
 			top: r.top + r.height * (note.point ? note.point.y : 0),
-		};
+		});
 	}
 	function render() {
 		frame = 0;
-		host.hidden = !state.active;
+		host.hidden = !state.active && !exiting;
+		host.inert = !state.active;
+		host.setAttribute('aria-hidden', String(!state.active));
+		// The inline reset overrides the browser's [hidden] rule.
+		host.style.setProperty('display', host.hidden ? 'none' : 'block', 'important');
 		const pageNotes = state.notes.filter(onPage);
 		const ids = new Set(pageNotes.map((note) => note.id));
 		for (const [id, marker] of markerNodes) {
@@ -159,12 +190,19 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 				marker.remove();
 				markerNodes.delete(id);
 			}
-			if (!state.active) marker.classList.remove('enter', 'confirm');
+			if (!state.active) {
+				marker.classList.remove('enter', 'confirm');
+				if (exiting) marker.classList.add('leave');
+			}
 		}
-		if (!state.active) return;
+		if (!state.active) { highlight.hidden = true; return; }
 		for (const note of pageNotes) {
 			const p = anchor(note);
 			let marker = markerNodes.get(note.id);
+			if (!p) {
+				if (marker) marker.hidden = true;
+				continue;
+			}
 			if (!marker) {
 				marker = document.createElement('button');
 				marker.type = 'button';
@@ -172,15 +210,26 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 				marker.innerHTML = '<span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="${ PLUS_ICON.viewBox }" fill="none"><path d="${ PLUS_ICON.path }" stroke-width="${ PLUS_ICON.strokeWidth }" stroke-linecap="${ PLUS_ICON.strokeLinecap }" stroke="currentColor"/></svg></span><span class="number" aria-hidden="true"></span>';
 				marker.addEventListener('animationend', (event) => {
 					if (event.target !== marker) return;
+					if (event.animationName === 'marker-out' || event.animationName === 'marker-fade-out') { finishExit(); return; }
 					if (event.animationName === 'marker-fade-in' && !matchMedia('(prefers-reduced-motion:reduce)').matches) return;
 					marker.classList.remove('enter', 'confirm');
 				});
 				markerNodes.set(note.id, marker);
 				markers.append(marker);
 			}
-			if (marker.dataset.pending === 'true' && !note.pending) {
+			const entering = replayEntry || marker.classList.contains('leave');
+			if (entering) {
+				marker.classList.remove('leave', 'confirm');
+				marker.classList.add('enter');
+			}
+			if (!entering && marker.dataset.pending === 'true' && !note.pending) {
 				marker.classList.remove('enter');
 				marker.classList.add('confirm');
+			}
+			marker.hidden = false;
+			if (marker.dataset.feedback !== (errorId === note.id ? 'error' : '')) {
+				if (errorId === note.id) marker.dataset.feedback = 'error';
+				else delete marker.dataset.feedback;
 			}
 			marker.dataset.pending = String(Boolean(note.pending));
 			const number = marker.querySelector('.number');
@@ -196,6 +245,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 				emit({ type: 'edit', id: note.id, anchor: p });
 			};
 		}
+		replayEntry = false;
 		const note = state.notes.find((n) => n.id === state.editingId);
 		if (note) emit({ type: 'anchor', id: note.id, anchor: onPage(note) ? anchor(note) : null });
 		const el = hovered || selected;
@@ -237,12 +287,37 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		'${ INSPECTOR_COMMAND_EVENT }',
 		(e) => {
 			if (!e.detail) return;
+			const wasActive = state.active;
+			const previousAttempt = state.blockedNavigation;
 			state = e.detail;
+			if (!state.active || errorId !== state.editingId) { errorId = null; clearTimeout(errorTimer); feedbackAnimation?.cancel(); }
+			if (state.active && typeof state.blockedNavigation === 'number' && previousAttempt !== undefined && state.blockedNavigation !== previousAttempt) {
+				errorId = state.editingId;
+				feedbackAnimation?.cancel();
+				if (!matchMedia('(prefers-reduced-motion:reduce)').matches) {
+					feedbackAnimation = markerNodes.get(errorId)?.animate?.([
+						{ transform: 'translate(-50%,-50%) scale(1)', offset: 0 },
+						{ transform: 'translate(-50%,-50%) scale(.94)', offset: .25 },
+						{ transform: 'translate(-50%,-50%) scale(1.06)', offset: .65 },
+						{ transform: 'translate(-50%,-50%) scale(1)', offset: 1 }
+					], { duration: 220, easing: 'ease-out' });
+				}
+				clearTimeout(errorTimer);
+				errorTimer = setTimeout(() => { errorId = null; render(); }, 900);
+			}
+			if (state.active !== wasActive) {
+				clearTimeout(exitTimer);
+				exiting = !state.active && Array.from(markerNodes.values()).some((marker) => !marker.hidden);
+				replayEntry = state.active;
+				if (exiting) exitTimer = setTimeout(finishExit, 200);
+			}
 			if (!state.active) hovered = null;
 			host.style.setProperty('--accent', state.accent);
 			host.style.setProperty('--on-accent', state.onAccent);
 			host.style.setProperty('--marker-font-family', state.fontFamily || 'system-ui');
 			host.style.setProperty('--marker', art(state.accent, state.onAccent));
+			host.style.setProperty('--marker-error', art(state.destructive || state.accent, state.onDestructive || state.onAccent));
+			host.style.setProperty('--on-error', state.onDestructive || state.onAccent);
 			host.style.setProperty('--motion-duration-surface', state.motionDuration || '180ms');
 			host.style.setProperty('--motion-ease-enter', state.motionEasing || 'cubic-bezier(.165,.84,.44,1)');
 			cursorStyle.textContent = state.active ? '*{cursor:crosshair!important}' : '';
@@ -279,7 +354,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 			if (!(e.target instanceof Element)) return;
 			selected = e.target;
 			hovered = selected;
-			emit({ type: 'pick', target: metadata(selected, e), anchor: { left: e.clientX, top: e.clientY } });
+			emit({ type: 'pick', target: metadata(selected, e), anchor: markerAnchor({ left: e.clientX, top: e.clientY }) });
 		},
 		{ capture: true, signal: abort.signal }
 	);
@@ -309,6 +384,9 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 	mutation.observe(document.body || document.documentElement, { subtree: true, childList: true, attributes: true });
 	window[KEY] = () => {
 		abort.abort();
+		feedbackAnimation?.cancel();
+		clearTimeout(exitTimer);
+		clearTimeout(errorTimer);
 		resize.disconnect();
 		mutation.disconnect();
 		cancelAnimationFrame(frame);

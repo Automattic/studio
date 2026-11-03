@@ -27,7 +27,7 @@ export interface PreferencesFormData {
 	defaultSiteDirectory: string;
 	autoStartSiteOnChat: boolean;
 	openChatOnSiteStart: boolean;
-	confirmDeleteAnnotations: boolean;
+	batchAnnotations: boolean;
 }
 
 // The saved locale can be any string the main process resolved (including ones
@@ -53,8 +53,7 @@ export function toPreferencesFormData( prefs: UserPreferences ): PreferencesForm
 			prefs.autoStartSiteOnChat ?? INTERFACE_PREFERENCE_DEFAULTS.autoStartSiteOnChat,
 		openChatOnSiteStart:
 			prefs.openChatOnSiteStart ?? INTERFACE_PREFERENCE_DEFAULTS.openChatOnSiteStart,
-		confirmDeleteAnnotations:
-			prefs.confirmDeleteAnnotations ?? INTERFACE_PREFERENCE_DEFAULTS.confirmDeleteAnnotations,
+		batchAnnotations: prefs.batchAnnotations ?? INTERFACE_PREFERENCE_DEFAULTS.batchAnnotations,
 	};
 }
 

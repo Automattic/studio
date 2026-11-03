@@ -420,7 +420,7 @@ it( 'opens the tab menu from the keyboard and stops the site when closing all ta
 } );
 
 it( 'shares the same tool items with the site menu and opens each preview tool in a new tab', async () => {
-	const { connector, user } = await setup();
+	const { user } = await setup();
 	await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
 	const labels = ( await screen.findAllByRole( 'menuitem' ) ).map( ( item ) => item.textContent );
 	expect( labels ).toEqual( [ 'BrowserB', 'AdminA', 'DatabaseD', 'EmailE' ] );

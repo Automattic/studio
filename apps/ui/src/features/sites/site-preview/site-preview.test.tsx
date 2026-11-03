@@ -531,7 +531,10 @@ describe( 'site email', () => {
 		await renderPreview( 'browser', { path: 'studio:email', onPathChange } );
 		const input = screen.getByRole( 'textbox', { name: 'Address' } );
 		expect( input ).toHaveValue( 'Email' );
-		expect( screen.getByRole( 'button', { name: 'Responsive mode' } ) ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( screen.getByRole( 'button', { name: 'Responsive mode' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
 		fireEvent.change( input, { target: { value: '/' } } );
 		fireEvent.submit( input.closest( 'form' )! );
 		expect( onPathChange ).toHaveBeenLastCalledWith( '/' );

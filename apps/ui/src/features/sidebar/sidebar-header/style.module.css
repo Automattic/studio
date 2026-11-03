@@ -5,10 +5,10 @@
 	--toggle-start: var( --traffic-light-space );
 	display: flex;
 	align-items: center;
-	gap: var( --space-1 );
+	gap: var( --band-gap );
 	height: var( --band-height );
 	flex-shrink: 0;
-	padding-inline: var( --toggle-start ) var( --space-3 );
+	padding-inline: var( --toggle-start ) var( --band-inset );
 	-webkit-app-region: drag;
 	/* Stay pinned while the sidebar scrolls. Opaque background so
 	   scrolling content doesn't bleed through. */

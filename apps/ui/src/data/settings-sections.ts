@@ -173,13 +173,6 @@ function getStudioSections( signedIn: boolean ): Section[] {
 					__( 'Collect annotations and send them together instead of one at a time.' ),
 					'batch-notes'
 				),
-
-				setting(
-					'action',
-					__( 'Confirm before deleting annotations' ),
-					__( 'Ask before deleting pending notes and attached images.' ),
-					'confirm-delete-annotations'
-				),
 				setting(
 					'action',
 					__( 'Reset interface' ),

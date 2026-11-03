@@ -66,7 +66,11 @@ export function ResponsiveToolbar( {
 	const isLandscape = settings.width > settings.height;
 	const isSquare = settings.width === settings.height;
 	return (
-		<div className={ styles.toolbar } role="toolbar" aria-label={ __( 'Responsive preview' ) }>
+		<div
+			className={ styles.responsiveToolbar }
+			role="toolbar"
+			aria-label={ __( 'Responsive preview' ) }
+		>
 			<Menu.Root>
 				<Menu.Trigger render={ <Button variant="ghost" size="sm" className={ styles.device } /> }>
 					<span>{ settings.preset === 'responsive' ? __( 'Freeform' ) : settings.preset }</span>

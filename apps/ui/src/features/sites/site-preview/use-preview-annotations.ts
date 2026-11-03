@@ -21,19 +21,21 @@ export function usePreviewAnnotations( {
 	canAnnotateSurface,
 	viewportRef,
 	onSendAnnotations,
+	enabled = true,
 }: {
 	siteId: string;
 	surfaceKey: PreviewSurfaceKey;
 	canAnnotateSurface: boolean;
+	enabled?: boolean;
 	viewportRef: RefObject< HTMLDivElement | null >;
 	onSendAnnotations?: ( siteId: string, noteIds?: string[] ) => void;
 } ) {
 	const [ annotationAnchor, setAnnotationAnchor ] = useState< AnnotationAnchor | null >( null );
 	useEffect( () => {
-		if ( ! canAnnotateSurface ) {
+		if ( enabled && ! canAnnotateSurface ) {
 			setAnnotating( siteId, false );
 		}
-	}, [ canAnnotateSurface, siteId ] );
+	}, [ canAnnotateSurface, siteId, enabled ] );
 	useEffect( () => {
 		setAnnotationAnchor( null );
 	}, [ surfaceKey, siteId ] );

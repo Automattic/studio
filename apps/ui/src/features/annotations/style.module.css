@@ -57,21 +57,6 @@
 	padding: 0 var( --space-1 ) var( --space-1 );
 }
 
-.save {
-	margin-inline-start: auto;
-}
-
 .batchSetting {
-	display: flex;
-	align-items: center;
-	gap: var( --space-2 );
-	min-height: 36px;
-	font-size: var( --text-xs );
-	color: var( --muted-foreground );
-}
-.batchSetting label {
-	cursor: pointer;
-}
-.batchSwitch::after {
-	inset: -5px -4px;
+	margin-inline-start: auto;
 }

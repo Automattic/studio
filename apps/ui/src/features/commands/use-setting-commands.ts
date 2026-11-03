@@ -77,16 +77,6 @@ function useSettingToggles(): SettingToggles {
 			preferences.batchAnnotations ? __( 'Batch notes disabled.' ) : __( 'Batch notes enabled.' )
 		),
 
-		'confirm-delete-annotations': toggle(
-			'confirmDeleteAnnotations',
-			preferences.confirmDeleteAnnotations,
-			preferences.confirmDeleteAnnotations
-				? __( 'Disable annotation deletion confirmation' )
-				: __( 'Enable annotation deletion confirmation' ),
-			preferences.confirmDeleteAnnotations
-				? __( 'Annotation deletion confirmation disabled.' )
-				: __( 'Annotation deletion confirmation enabled.' )
-		),
 		'open-chat-on-site-start': toggle(
 			'openChatOnSiteStart',
 			preferences.openChatOnSiteStart,

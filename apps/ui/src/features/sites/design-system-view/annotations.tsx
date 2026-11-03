@@ -28,24 +28,31 @@ function anchorFor( element: Element, point: VisualAnnotationTarget[ 'point' ] )
  */
 export function useDesignAnnotations( {
 	siteId,
+	root,
 	onAnnotationPick,
 	onAnnotationAnchor,
-}: DesignAnnotationProps & { siteId: string } ) {
+}: DesignAnnotationProps & { siteId: string; root: HTMLElement | null } ) {
 	const { active, notes, editingId } = useSiteAnnotations( siteId );
 	const targets = useRef( new Map< string, VisualAnnotationTarget >() );
 	const editing = notes.find( ( note ) => note.id === editingId && note.designKey );
 
 	useEffect( () => {
-		if ( ! editing?.designKey || ! onAnnotationAnchor ) return;
+		if ( ! root || ! editing?.designKey || ! onAnnotationAnchor ) return;
 		const key = editing.designKey;
 		const point = editing.point;
 		const follow = () => {
-			const element = document.querySelector( `[${ TARGET_ATTRIBUTE }="${ CSS.escape( key ) }"]` );
+			const element = root.querySelector( `[${ TARGET_ATTRIBUTE }="${ CSS.escape( key ) }"]` );
 			if ( element ) onAnnotationAnchor( anchorFor( element, point ) );
 		};
+		const observer = new ResizeObserver( follow );
+		observer.observe( root );
 		window.addEventListener( 'scroll', follow, { capture: true, passive: true } );
-		return () => window.removeEventListener( 'scroll', follow, { capture: true } );
-	}, [ editing?.designKey, editing?.point, onAnnotationAnchor ] );
+		follow();
+		return () => {
+			observer.disconnect();
+			window.removeEventListener( 'scroll', follow, { capture: true } );
+		};
+	}, [ root, editing?.designKey, editing?.point, onAnnotationAnchor ] );
 
 	const target = ( key: string, label: string, value?: string, token?: string ) => {
 		targets.current.set( key, {

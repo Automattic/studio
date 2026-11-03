@@ -2,11 +2,11 @@ import { isStudioChatImageMimeType } from '@studio/agent/protocol/chat-images';
 import { getComposerAttachmentImageSrc } from '@studio/agent/protocol/composer-attachment-preview';
 import { __ } from '@wordpress/i18n';
 import { PaperclipIcon } from 'lucide-react';
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { toast } from '@/data/app-messages';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useComposerAttachments, useFileDrop } from '@/data/use-composer-attachments';
-import { SendIcon } from '@/lib/icons';
+import { SendIcon, TrashIcon } from '@/lib/icons';
 import { isImeComposing } from '@/lib/keyboard';
 import {
 	AttachmentDropOverlay,
@@ -14,7 +14,6 @@ import {
 	Button,
 	IconButton,
 	Textarea,
-	Switch,
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
@@ -27,6 +26,7 @@ import {
 	hasAnnotationContent,
 	isAnnotationsBusy,
 	setAnnotationsPreparing,
+	removeAnnotations,
 	stageAnnotations,
 	useSiteAnnotations,
 	type PreviewAnnotation,
@@ -156,7 +156,6 @@ function NoteEditor( {
 	const { data: preferences } = useUserPreferences();
 	const savePreferences = useSaveUserPreferences();
 	const batchNotes = preferences?.batchAnnotations ?? false;
-	const batchSwitchId = useId();
 	const submit = () => {
 		if ( ! hasContent || busy ) return;
 		if ( batchNotes ) stageAnnotations( siteId, [ note.id ], true );
@@ -221,24 +220,31 @@ function NoteEditor( {
 					label={ __( 'Attach image' ) }
 					onClick={ () => fileInputRef.current?.click() }
 				/>
-				<div className={ styles.batchSetting }>
-					<Switch
-						id={ batchSwitchId }
-						className={ styles.batchSwitch }
-						checked={ batchNotes }
-						aria-label={ __( 'Batch notes' ) }
-						onCheckedChange={ ( batchAnnotations ) =>
-							savePreferences.mutate(
-								{ batchAnnotations },
-								{
-									onError: () =>
-										toast.error( __( 'Could not update settings. Please try again.' ) ),
-								}
-							)
-						}
-					/>
-					<label htmlFor={ batchSwitchId }>{ __( 'Batch notes' ) }</label>
-				</div>
+				<IconButton
+					size="icon"
+					shape="round"
+					variant="muted-ghost"
+					icon={ <TrashIcon /> }
+					label={ __( 'Delete annotation' ) }
+					disabled={ busy }
+					onClick={ () => removeAnnotations( siteId, [ note.id ] ) }
+				/>
+
+				<Button
+					variant="accent-ghost"
+					shape="round"
+					className={ styles.batchSetting }
+					aria-pressed={ batchNotes }
+					disabled={ busy }
+					onClick={ () =>
+						savePreferences.mutate(
+							{ batchAnnotations: ! batchNotes },
+							{ onError: () => toast.error( __( 'Could not update settings. Please try again.' ) ) }
+						)
+					}
+				>
+					{ __( 'Batch notes' ) }
+				</Button>
 
 				<input
 					ref={ fileInputRef }
@@ -258,7 +264,6 @@ function NoteEditor( {
 								variant={ hasContent ? 'accent' : 'default' }
 								size="icon"
 								shape="round"
-								className={ styles.save }
 								aria-label={
 									batchNotes ? __( 'Add annotation to batch' ) : __( 'Send annotation' )
 								}

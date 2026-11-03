@@ -1,7 +1,5 @@
 /* Drawn over the header under it, which keeps a matching space free. */
 .root {
-	--band-gap: var( --space-1 );
-
 	position: absolute;
 	top: 0;
 	inset-inline-end: 0;
@@ -35,27 +33,7 @@
 	flex-shrink: 0;
 }
 
-.publish[hidden],
-.item[hidden],
-.item [hidden] {
-	display: none;
-}
-
 .space {
 	flex-shrink: 0;
 	align-self: stretch;
-}
-
-.browserSpace {
-	display: flex;
-	flex-shrink: 0;
-}
-
-.browserSpace:empty {
-	display: none;
-}
-
-.item[data-site-header-end]:empty,
-.item[data-site-header-annotations]:empty {
-	display: none;
 }

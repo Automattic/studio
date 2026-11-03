@@ -27,7 +27,6 @@ export interface PreferencesFormData {
 	defaultSiteDirectory: string;
 	autoStartSiteOnChat: boolean;
 	openChatOnSiteStart: boolean;
-	confirmDeleteAnnotations: boolean;
 	batchAnnotations: boolean;
 }
 
@@ -55,8 +54,6 @@ export function toPreferencesFormData( prefs: UserPreferences ): PreferencesForm
 		openChatOnSiteStart:
 			prefs.openChatOnSiteStart ?? INTERFACE_PREFERENCE_DEFAULTS.openChatOnSiteStart,
 		batchAnnotations: prefs.batchAnnotations ?? INTERFACE_PREFERENCE_DEFAULTS.batchAnnotations,
-		confirmDeleteAnnotations:
-			prefs.confirmDeleteAnnotations ?? INTERFACE_PREFERENCE_DEFAULTS.confirmDeleteAnnotations,
 	};
 }
 

@@ -5,9 +5,9 @@ import { renderWithProviders } from '@/test/render';
 import { AnnotationOverlay } from './overlay';
 import {
 	changeAnnotation,
-	clearAnnotations,
 	getSiteAnnotations,
 	pickAnnotation,
+	removeAnnotations,
 	setAnnotating,
 	stageAnnotations,
 } from './store';
@@ -16,7 +16,10 @@ import type { ComposerImageAttachment } from '@studio/agent/protocol/composer-at
 const SITE = 'one';
 
 afterEach( () => {
-	clearAnnotations( SITE );
+	removeAnnotations(
+		SITE,
+		getSiteAnnotations( SITE ).notes.map( ( note ) => note.id )
+	);
 	setAnnotating( SITE, false );
 } );
 

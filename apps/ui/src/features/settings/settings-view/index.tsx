@@ -17,9 +17,11 @@ import {
 } from '@/data/queries/use-agent-instructions';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useResetAppearance, useResetInterface } from '@/data/queries/use-reset-interface';
+import { useSites } from '@/data/queries/use-sites';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { hasCustomPanelLayout } from '@/data/resizable-panels';
+import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { ExternalLinkIcon } from '@/lib/icons';
 import { isDefaultColorTint } from '@/lib/theme';
 import { Input, Button } from '@/lib/ui';
@@ -302,16 +304,6 @@ function PreferencesPanel( {
 
 				<SidebarSettings />
 				<SettingsRow
-					title={ __( 'Confirm before deleting annotations' ) }
-					description={ __( 'Ask before deleting pending notes and attached images.' ) }
-				>
-					<SettingsToggle
-						label={ __( 'Confirm before deleting annotations' ) }
-						checked={ data.confirmDeleteAnnotations }
-						onChange={ ( confirmDeleteAnnotations ) => onChange( { confirmDeleteAnnotations } ) }
-					/>
-				</SettingsRow>
-				<SettingsRow
 					title={ __( 'Reset interface' ) }
 					description={ __(
 						'Restore default panel widths, theme, colors, and interface settings.'
@@ -424,12 +416,22 @@ function usePreferencesForm() {
 
 export function GeneralSettings() {
 	const connector = useConnector();
+	const preview = useOptionalSessionPreviewUI();
+	const { data: sites } = useSites();
 	const { data: installedApps } = useInstalledApps();
 	const { saved, data, handleChange, resetInterface, saveError, loadFailed, retry } =
 		usePreferencesForm();
 	if ( ! data || ! saved ) {
 		return <SettingsLoadState loadFailed={ loadFailed } onRetry={ retry } />;
 	}
+	const hasCustomPreview =
+		preview &&
+		( sites ?? [] ).some( ( site ) => {
+			const open = preview.siteId === site.id ? preview.open : preview.openBySiteId[ site.id ];
+			return (
+				( open !== undefined && open !== !! site.running ) || preview.chatHiddenBySiteId[ site.id ]
+			);
+		} );
 	const selectDefaultDirectory = async () => {
 		const directory = await connector.selectDefaultSiteDirectory( data.defaultSiteDirectory );
 		if ( directory ) {
@@ -441,7 +443,7 @@ export function GeneralSettings() {
 			data={ data }
 			installedApps={ installedApps }
 			saveError={ saveError }
-			interfaceIsDefault={ isDefaultInterface( saved ) }
+			interfaceIsDefault={ ! hasCustomPreview && isDefaultInterface( saved ) }
 			onResetInterface={ resetInterface }
 			onDefaultSiteDirectorySelect={
 				connector.capabilities.nativeFolderPicker ? () => void selectDefaultDirectory() : undefined

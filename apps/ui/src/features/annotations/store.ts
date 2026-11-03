@@ -180,15 +180,6 @@ export function removeAnnotations( siteId: string, ids: string[] ) {
 	} ) );
 }
 
-// Cancel: deletes every note and leaves annotation mode.
-export function clearAnnotations( siteId: string ) {
-	update( siteId, ( current ) =>
-		current.active || current.notes.length
-			? { ...current, active: false, notes: [], editingId: null }
-			: current
-	);
-}
-
 type AnnotationSendRequest = { siteId: string; noteIds?: string[] };
 
 // A request to send notes from the preview, held until a chat for that site

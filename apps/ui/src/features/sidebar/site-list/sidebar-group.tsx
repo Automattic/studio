@@ -52,6 +52,7 @@ export function SiteListGroup( {
 			aria-label={ title }
 			open={ foldable && expanded }
 		>
+			<span className={ styles.fadeAnchor } data-sticky-fade-anchor aria-hidden="true" />
 			<SidebarGroupHeader className={ styles.groupHeader }>
 				<SidebarGroupLabel
 					expanded={ foldable ? expanded : undefined }

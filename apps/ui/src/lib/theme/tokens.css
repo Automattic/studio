@@ -49,7 +49,7 @@
 	--accent-hue: calc( var( --tint-hue, 260 ) + 8.048352 );
 	--accent: var( --accent-fill, oklch( var( --accent-lightness ) var( --accent-chroma ) var( --accent-hue ) ) );
 	--accent-foreground: #fff;
-	--accent-hover-lightness-offset: 0.03;
+	--accent-hover-lightness-offset: 0.07;
 	--accent-hover: oklch( from var( --accent ) calc( l + var( --accent-hover-lightness-offset ) ) c h );
 	--accent-surface-primary-hover: color-mix( in srgb, var( --accent-foreground ) 82%, var( --accent ) );
 	--accent-surface-muted: color-mix( in srgb, var( --accent-foreground ) 12%, var( --accent ) );
@@ -84,6 +84,7 @@
 	--radius-xl: calc( var( --radius ) * 1.4 );
 	--radius-2xl: 1rem;
 	--radius-3xl: 1.5rem;
+	--radius-popup: calc( var( --radius-md ) + var( --space-1_5 ) );
 	--radius-full: 9999px;
 
 	--font-sans: 'Inter Variable', -apple-system, system-ui, 'Segoe UI', 'Roboto', 'Oxygen-Sans', 'Ubuntu',
@@ -141,13 +142,27 @@
 	--control-size: 36px;
 	--band-inset: var( --space-2 );
 	--band-separator-height: 16px;
-	--band-gap: var( --space-0_5 );
+	--band-gap: var( --space-1 );
 	--band-group-gap: var( --space-2 );
+	/* Shared scroll-edge fade: length and soft opacity stops. */
+	--surface-fade-size: 24px;
+	--surface-blur-soft: 2px;
+	--surface-blur-medium: 4px;
+	--surface-blur-strong: 8px;
+	--surface-fade-low: 0.16;
+	--surface-fade-mid: 0.5;
+	--surface-fade-high: 0.84;
+	--surface-fade-stops: transparent, rgb( 0 0 0 / var( --surface-fade-low ) ) 25%,
+		rgb( 0 0 0 / var( --surface-fade-mid ) ) 50%,
+		rgb( 0 0 0 / var( --surface-fade-high ) ) 75%, #000;
+	--surface-header-fade-stops: transparent 20%,
+		rgb( 0 0 0 / var( --surface-fade-low ) ) 50%,
+		rgb( 0 0 0 / var( --surface-fade-mid ) ) 75%, #000;
 	/* Where the band's first control starts on macOS, past the traffic lights. */
 	--traffic-light-space: 92px;
 
-	--motion-duration-feedback: 100ms;
-	--motion-duration-surface: 180ms;
+	--motion-duration-feedback: 50ms;
+	--motion-duration-surface: 100ms;
 	--motion-duration-layout: 240ms;
 	--motion-duration-reveal: 600ms;
 	--motion-ease-layout: cubic-bezier( 0.645, 0.045, 0.355, 1 );
@@ -175,10 +190,10 @@
 [data-color-scheme='dark'] {
 	color-scheme: dark;
 	--surface-offset: 3%;
-	--surface-step: calc( 10% + var( --contrast, 0 ) * 0.033333% );
-	--surface-0: oklch( from #181818 calc( l - var( --contrast, 0 ) * 0.0006 ) calc( var( --tint-intensity, 0 ) * 0.00025 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
+	--surface-step: calc( 8% + var( --contrast, 0 ) * 0.033333% );
+	--surface-0: oklch( from #161616 calc( l - var( --contrast, 0 ) * 0.0006 ) calc( var( --tint-intensity, 0 ) * 0.00025 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
 
-	--foreground: oklch( calc( 0.85 + var( --contrast, 0 ) * 0.001 ) calc( var( --tint-intensity, 0 ) * 0.00025 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
+	--foreground: oklch( calc( 0.83 + var( --contrast, 0 ) * 0.001 ) calc( var( --tint-intensity, 0 ) * 0.00025 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
 	--muted-foreground: oklch( from var( --foreground ) calc( l - 0.255 + var( --contrast, 0 ) * 0.0011 ) calc( var( --tint-intensity, 0 ) * 0.0004 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
 
 	--chrome: var( --surface-1 );
@@ -255,7 +270,6 @@
 @media ( prefers-reduced-motion: reduce ) {
 	:root,
 	[data-color-scheme] {
-		--motion-duration-surface: 120ms;
 		--motion-duration-layout: 0ms;
 		--motion-duration-reveal: 150ms;
 	}

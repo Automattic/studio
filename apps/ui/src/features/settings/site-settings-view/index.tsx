@@ -556,7 +556,7 @@ export function SiteSettingsForm( {
 							{ __( 'Write PHP errors to wp-content/debug.log.' ) }
 							{ logExists ? (
 								<span className={ styles.debugLogAction }>
-									<Button variant="outline" size="header" onClick={ handleOpenLog }>
+									<Button variant="outline" size="sm" onClick={ handleOpenLog }>
 										{ __( 'Open log file' ) }
 									</Button>
 								</span>
@@ -602,7 +602,7 @@ export function SiteSettingsForm( {
 						<>
 							<Button
 								variant="outline"
-								size="header"
+								size="sm"
 								disabled={ updateSite.isPending }
 								onClick={ () => {
 									setData( initial );
@@ -615,7 +615,7 @@ export function SiteSettingsForm( {
 								type="submit"
 								form={ FORM_ID }
 								variant={ canSubmit ? 'accent' : 'outline' }
-								size="header"
+								size="sm"
 								disabled={ ! canSubmit }
 								loading={ updateSite.isPending }
 								loadingAnnouncement={ __( 'Saving settings' ) }

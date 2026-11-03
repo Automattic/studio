@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
-import { SiteHeaderBrowserSpace, useSiteHeader } from '@/features/sites/site-header-actions';
-import { PreviewAddressBar, type PreviewRealm } from '@/features/sites/site-preview/address-bar';
+import { useWindowControlsInset } from '@/data/host/use-window-controls-inset';
+import { useSiteHeader } from '@/features/sites/site-header-actions';
+import { PreviewAddressBar } from '@/features/sites/site-preview/address-bar';
 import { RotateCwIcon, ResponsiveIcon } from '@/lib/icons';
 import { IconButton, VisuallyHidden } from '@/lib/ui';
 import { BrowserHistoryButton } from './browser-history-button';
@@ -12,6 +13,7 @@ import type { BrowserShortcutCommand } from '@studio/agent/protocol/inspector/pa
 
 interface PreviewHeaderProps {
 	site: SiteDetails;
+	inactive?: boolean;
 	siteUrl: string;
 	path: string;
 	live: boolean;
@@ -23,9 +25,8 @@ interface PreviewHeaderProps {
 	onBrowserCommand: ( command: BrowserShortcutCommand ) => void;
 	onJump: ( historyIndex: number ) => void;
 	onPathChange?: ( path: string ) => void;
-	onSwitchRealm: ( realm: PreviewRealm ) => void;
-	hasDesignSystem: boolean;
 	onOpenExternal?: () => void;
+	onExternalNavigate?: ( url: string ) => void;
 	responsive?: { active: boolean; disabled: boolean; onClick: () => void };
 }
 
@@ -42,12 +43,13 @@ export function PreviewHeader( {
 	onBrowserCommand,
 	onJump,
 	onPathChange,
-	onSwitchRealm,
-	hasDesignSystem,
 	onOpenExternal,
+	onExternalNavigate,
 	responsive,
+	inactive = false,
 }: PreviewHeaderProps ) {
-	const { layout: headerLayout } = useSiteHeader();
+	const { layout: headerLayout, attachAnnotationSpace, attachBrowserHeader } = useSiteHeader();
+	const windowControlsInset = useWindowControlsInset( 'toolbar' );
 	const disabled = ! canPreview || isStarting || isStopping;
 
 	const addressBar = (
@@ -57,10 +59,11 @@ export function PreviewHeader( {
 			path={ path }
 			remote={ live }
 			onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
-			onSwitchRealm={ onSwitchRealm }
-			hasDesignSystem={ hasDesignSystem }
+			pageTitle={ browserState.title }
+			loading={ browserState.loading }
 			onOpenExternal={ onOpenExternal }
-			disabled={ disabled }
+			onExternalNavigate={ onExternalNavigate }
+			disabled={ ! canPreview || isStarting || isStopping }
 		/>
 	);
 
@@ -81,9 +84,17 @@ export function PreviewHeader( {
 
 	return (
 		<div
+			ref={ inactive ? undefined : attachBrowserHeader }
 			data-preview-browser-controls
 			data-site-header-layout={ headerLayout }
 			className={ styles.header }
+			style={
+				windowControlsInset
+					? {
+							paddingRight: `calc(var(--band-inset) + ${ windowControlsInset }px)`,
+					  }
+					: undefined
+			}
 			role="toolbar"
 			aria-label={ __( 'Preview browser controls' ) }
 		>
@@ -125,7 +136,10 @@ export function PreviewHeader( {
 				{ headerLayout !== 'mobile-overflow' ? addressBar : null }
 			</div>
 			<div className={ styles.headerSide }>
-				<SiteHeaderBrowserSpace />
+				<span
+					ref={ inactive ? undefined : attachAnnotationSpace }
+					className={ styles.previewActions }
+				/>
 				{ responsiveButton }
 			</div>
 		</div>

@@ -26,7 +26,6 @@ export type ButtonVariant =
 
 export type ButtonSize =
 	| 'default'
-	| 'header'
 	| 'composer-notice'
 	| '2xs'
 	| 'xs'

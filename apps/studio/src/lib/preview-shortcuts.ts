@@ -1,8 +1,7 @@
 import type { WebContents } from 'electron';
 
-// Keys pressed in the site preview go to its own page, so ⌘K (Ctrl+K
-// elsewhere) is handed to the window, where it opens the command palette.
-export function forwardPreviewCommandPalette(
+// Hand app shortcuts back to the window when the preview page has focus.
+export function forwardPreviewShortcut(
 	guest: WebContents,
 	input: Electron.Input,
 	platform: NodeJS.Platform = process.platform
@@ -12,7 +11,7 @@ export function forwardPreviewCommandPalette(
 	const host = guest.hostWebContents;
 	if (
 		input.type !== 'keyDown' ||
-		input.code !== 'KeyK' ||
+		! [ 'KeyK', 'KeyT' ].includes( input.code ) ||
 		input.isAutoRepeat ||
 		input.isComposing ||
 		input.alt ||
@@ -26,7 +25,7 @@ export function forwardPreviewCommandPalette(
 	host.focus();
 	host.sendInputEvent( {
 		type: 'keyDown',
-		keyCode: 'K',
+		keyCode: input.code.slice( 3 ),
 		modifiers: [ platform === 'darwin' ? 'meta' : 'control' ],
 	} );
 	return true;

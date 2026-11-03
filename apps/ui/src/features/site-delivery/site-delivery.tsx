@@ -239,7 +239,7 @@ export function PublishButton( props: { site: SiteDetails; variant?: 'accent' | 
 	return (
 		<Button
 			variant={ props.variant ?? 'accent' }
-			size="header"
+			size="sm"
 			aria-label={ __( 'Publish…' ) }
 			aria-description={
 				setupError ??

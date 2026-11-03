@@ -64,8 +64,6 @@ export interface UserPreferences extends ColorTint {
 	// Start a stopped local site when a chat message is sent to it.
 	autoStartSiteOnChat: boolean;
 	openChatOnSiteStart: boolean;
-	// Ask before discarding preview annotations.
-	confirmDeleteAnnotations: boolean;
 	batchAnnotations: boolean;
 	newSiteBehavior: NewSiteBehavior;
 }
@@ -112,7 +110,6 @@ export const userPreferencesPatchSchema = z.object( {
 	autoCollapseSites: z.boolean().nullish(),
 	autoStartSiteOnChat: z.boolean().nullish(),
 	openChatOnSiteStart: z.boolean().nullish(),
-	confirmDeleteAnnotations: z.boolean().nullish(),
 	batchAnnotations: z.boolean().nullish(),
 	newSiteBehavior: z.enum( NEW_SITE_BEHAVIORS ).nullish(),
 	accentColor: z
@@ -145,7 +142,6 @@ const APP_CONFIG_KEYS = [
 	[ 'autoCollapseSites', 'autoCollapseSites' ],
 	[ 'autoStartSiteOnChat', 'autoStartSiteOnChat' ],
 	[ 'openChatOnSiteStart', 'openChatOnSiteStart' ],
-	[ 'confirmDeleteAnnotations', 'confirmDeleteAnnotations' ],
 	[ 'batchAnnotations', 'batchAnnotations' ],
 	[ 'newSiteBehavior', 'newSiteBehavior' ],
 	[ 'accentColor', 'accentColor' ],
@@ -169,7 +165,6 @@ export async function readUserPreferences( {
 	const {
 		autoStartSiteOnChat,
 		openChatOnSiteStart,
-		confirmDeleteAnnotations,
 		batchAnnotations,
 		showRecentChats,
 		autoCollapseSites,
@@ -212,10 +207,6 @@ export async function readUserPreferences( {
 			.catch( openChatOnSiteStart )
 			.parse( config.openChatOnSiteStart ),
 		batchAnnotations: z.boolean().catch( batchAnnotations ).parse( config.batchAnnotations ),
-		confirmDeleteAnnotations: z
-			.boolean()
-			.catch( confirmDeleteAnnotations )
-			.parse( config.confirmDeleteAnnotations ),
 		newSiteBehavior: z
 			.enum( NEW_SITE_BEHAVIORS )
 			.catch( newSiteBehavior )

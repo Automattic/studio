@@ -168,7 +168,9 @@ export function WebviewSurface( {
 				.catch( () => undefined );
 		};
 
+		let titleRequest = 0;
 		const publishDocumentTitle = ( title?: unknown ) => {
+			const request = ++titleRequest;
 			if ( typeof title === 'string' ) {
 				publishBrowserState( { title: normalizeDocumentTitle( title ) } );
 				return;
@@ -177,6 +179,7 @@ export function WebviewSurface( {
 			webview
 				.executeJavaScript( 'document.title', false )
 				.then( ( nextTitle ) => {
+					if ( request !== titleRequest ) return;
 					publishBrowserState( { title: normalizeDocumentTitle( nextTitle ) } );
 				} )
 				.catch( () => undefined );
@@ -263,8 +266,9 @@ export function WebviewSurface( {
 			}
 		};
 		const handleStartLoading = () => {
+			titleRequest++;
 			didReadTitleAfterLoad = false;
-			publishBrowserState( { loading: true, title: null, failed: false } );
+			publishBrowserState( { loading: true, failed: false } );
 		};
 		const handleStopLoading = () => {
 			publishBrowserState( { loading: false } );

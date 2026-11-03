@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
 	clampResizablePanelWidth,
-	getStoredSiteChatVisibility,
 	SITE_CHAT_HIDDEN_STORAGE_KEY,
 	PREVIEW_OPEN_STORAGE_KEY,
-	getPreviewContentWidthStorageKey,
 	hasCustomPanelLayout,
 	resetPanelLayout,
 	PREVIEW_CONTENT_WIDTH_STORAGE_KEY,
@@ -77,8 +75,8 @@ describe( 'getPreviewSplitLayout', () => {
 
 it( 'detects and resets all site widths and the legacy width', () => {
 	localStorage.clear();
-	localStorage.setItem( getPreviewContentWidthStorageKey( 'one' ), '500' );
-	localStorage.setItem( getPreviewContentWidthStorageKey( 'two' ), '400' );
+	localStorage.setItem( `${ PREVIEW_CONTENT_WIDTH_STORAGE_KEY }:one`, '500' );
+	localStorage.setItem( `${ PREVIEW_CONTENT_WIDTH_STORAGE_KEY }:two`, '400' );
 	localStorage.setItem( SITE_CHAT_HIDDEN_STORAGE_KEY, JSON.stringify( { one: true } ) );
 	localStorage.setItem( PREVIEW_OPEN_STORAGE_KEY, 'false' );
 	localStorage.setItem( 'unrelated', 'keep' );
@@ -86,8 +84,8 @@ it( 'detects and resets all site widths and the legacy width', () => {
 	localStorage.setItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY, '600' );
 	resetPanelLayout();
 	expect( hasCustomPanelLayout() ).toBe( false );
-	expect( localStorage.getItem( getPreviewContentWidthStorageKey( 'one' ) ) ).toBeNull();
-	expect( localStorage.getItem( getPreviewContentWidthStorageKey( 'two' ) ) ).toBeNull();
+	expect( localStorage.getItem( `${ PREVIEW_CONTENT_WIDTH_STORAGE_KEY }:one` ) ).toBeNull();
+	expect( localStorage.getItem( `${ PREVIEW_CONTENT_WIDTH_STORAGE_KEY }:two` ) ).toBeNull();
 	expect( localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY ) ).toBeNull();
 	expect( localStorage.getItem( SITE_CHAT_HIDDEN_STORAGE_KEY ) ).toBeNull();
 	expect( localStorage.getItem( PREVIEW_OPEN_STORAGE_KEY ) ).toBeNull();
@@ -95,15 +93,11 @@ it( 'detects and resets all site widths and the legacy width', () => {
 	localStorage.clear();
 } );
 
-it( 'defaults to open for invalid visibility storage and reads only hidden sites', () => {
-	for ( const invalid of [ 'broken', 'null', '[]', '42' ] ) {
-		localStorage.setItem( SITE_CHAT_HIDDEN_STORAGE_KEY, invalid );
-		expect( getStoredSiteChatVisibility() ).toEqual( {} );
-	}
-	localStorage.setItem(
-		SITE_CHAT_HIDDEN_STORAGE_KEY,
-		JSON.stringify( { one: true, two: false, three: 'true' } )
-	);
-	expect( getStoredSiteChatVisibility() ).toEqual( { one: true } );
-	localStorage.removeItem( SITE_CHAT_HIDDEN_STORAGE_KEY );
+it( 'ignores obsolete preview visibility when checking for a custom layout', () => {
+	localStorage.clear();
+	localStorage.setItem( SITE_CHAT_HIDDEN_STORAGE_KEY, JSON.stringify( { one: true } ) );
+	localStorage.setItem( PREVIEW_OPEN_STORAGE_KEY, 'false' );
+	expect( hasCustomPanelLayout() ).toBe( false );
+	resetPanelLayout();
+	expect( localStorage.length ).toBe( 0 );
 } );

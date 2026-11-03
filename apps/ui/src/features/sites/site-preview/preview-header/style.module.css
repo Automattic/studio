@@ -2,22 +2,23 @@
 .header {
 	composes: toolbar from '../responsive-preview/style.module.css';
 	--preview-control-size: 32px;
-	--preview-toolbar-inline-inset: var( --band-inset );
-	--preview-toolbar-background: var( --chat );
+	--preview-toolbar-overflow: visible;
 
-	height: var( --band-height );
+	padding-top: 0;
 	position: relative;
-	-webkit-app-region: no-drag;
+	-webkit-app-region: drag;
 }
 
 .headerSide {
+	-webkit-app-region: no-drag;
 	display: flex;
 	flex-shrink: 0;
 	align-items: center;
-	gap: var( --space-1 );
+	gap: var( --band-gap );
 }
 
 .browserLocation {
+	-webkit-app-region: no-drag;
 	display: flex;
 	flex: 1;
 	align-items: center;
@@ -46,10 +47,11 @@
 .navigation {
 	display: flex;
 	align-items: center;
-	gap: var( --space-1 );
+	gap: var( --band-gap );
 }
 
 .header[data-site-header-layout='mobile-overflow'] .browserLocation {
+	-webkit-app-region: no-drag;
 	display: none;
 }
 
@@ -60,5 +62,9 @@
 .previewActions {
 	display: flex;
 	align-items: center;
-	gap: var( --space-1 );
+	gap: var( --band-gap );
+}
+
+.previewActions:empty {
+	display: none;
 }

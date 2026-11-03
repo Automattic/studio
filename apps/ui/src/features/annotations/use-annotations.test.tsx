@@ -4,7 +4,6 @@ import { renderWithProviders } from '@/test/render';
 import { AnnotationOverlay } from './overlay';
 import {
 	changeAnnotation,
-	clearAnnotations,
 	editAnnotation,
 	escapeAnnotations,
 	getSiteAnnotations,
@@ -22,7 +21,10 @@ const SITE = 'site-1';
 const target = { selector: 'h1', tag: 'h1', path: '/' };
 
 afterEach( () => {
-	clearAnnotations( SITE );
+	removeAnnotations(
+		SITE,
+		getSiteAnnotations( SITE ).notes.map( ( note ) => note.id )
+	);
 	setAnnotating( SITE, false );
 	setAnnotationsPreparing( SITE, false );
 } );
@@ -55,6 +57,19 @@ const note = () => screen.getByRole( 'textbox', { name: 'Leave a note' } );
 const save = () => fireEvent.keyDown( note(), { key: 'Enter' } );
 
 describe( 'preview annotation sessions', () => {
+	it( 'deletes only the edited note and keeps annotation mode and other notes', async () => {
+		const { onSend } = await setup();
+		const kept = add( 'Keep this note' );
+		const deleted = add( 'Delete this note' );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Delete annotation' } ) );
+		expect( session().notes.map( ( note ) => note.id ) ).toEqual( [ kept ] );
+		expect( session().notes.some( ( note ) => note.id === deleted ) ).toBe( false );
+		expect( session().editingId ).toBeNull();
+		expect( session().active ).toBe( true );
+		expect( screen.queryByRole( 'textbox', { name: 'Leave a note' } ) ).not.toBeInTheDocument();
+		expect( onSend ).not.toHaveBeenCalled();
+	} );
+
 	it( 'sends the open note with Enter and keeps annotation mode active', async () => {
 		const { onSend } = await setup();
 		const id = add( 'Make the heading smaller' );
@@ -77,8 +92,8 @@ describe( 'preview annotation sessions', () => {
 	it( 'batches only when enabled and returns to immediate sends without clearing the batch', async () => {
 		const { onSend } = await setup();
 		const first = add( 'Save this for later' );
-		const toggle = screen.getByRole( 'switch', { name: 'Batch notes' } );
-		expect( toggle ).not.toBeChecked();
+		const toggle = screen.getByRole( 'button', { name: 'Batch notes' } );
+		expect( toggle ).toHaveAttribute( 'aria-pressed', 'false' );
 		fireEvent.click( toggle );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Add annotation to batch' } ) );
 		expect( onSend ).not.toHaveBeenCalled();
@@ -86,14 +101,17 @@ describe( 'preview annotation sessions', () => {
 		act( () => setAnnotating( SITE, false ) );
 		act( () => setAnnotating( SITE, true ) );
 		const second = add( 'Send this now' );
-		expect( screen.getByRole( 'switch', { name: 'Batch notes' } ) ).toBeChecked();
-		fireEvent.click( screen.getByRole( 'switch', { name: 'Batch notes' } ) );
+		expect( screen.getByRole( 'button', { name: 'Batch notes' } ) ).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'Batch notes' } ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Send annotation' } ) );
 		expect( onSend ).toHaveBeenCalledExactlyOnceWith( [ second ] );
 		expect( stagedCount() ).toBe( 1 );
 	} );
 
-	it( 'shares the persisted batching switch across sites', async () => {
+	it( 'shares the persisted batching toggle across sites', async () => {
 		const other = 'global-batch-other';
 		act( () => {
 			setAnnotating( SITE, true );
@@ -108,18 +126,29 @@ describe( 'preview annotation sessions', () => {
 			</>
 		);
 		try {
-			const switches = await screen.findAllByRole( 'switch', { name: 'Batch notes' } );
-			fireEvent.click( switches[ 0 ] );
-			await waitFor( () => switches.forEach( ( control ) => expect( control ).toBeChecked() ) );
+			const toggles = await screen.findAllByRole( 'button', { name: 'Batch notes' } );
+			fireEvent.click( toggles[ 0 ] );
+			await waitFor( () =>
+				toggles.forEach( ( control ) =>
+					expect( control ).toHaveAttribute( 'aria-pressed', 'true' )
+				)
+			);
 			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
 				{ batchAnnotations: true },
 				undefined
 			);
-			fireEvent.click( switches[ 1 ] );
-			await waitFor( () => switches.forEach( ( control ) => expect( control ).not.toBeChecked() ) );
+			fireEvent.click( toggles[ 1 ] );
+			await waitFor( () =>
+				toggles.forEach( ( control ) =>
+					expect( control ).toHaveAttribute( 'aria-pressed', 'false' )
+				)
+			);
 		} finally {
 			act( () => {
-				clearAnnotations( other );
+				removeAnnotations(
+					other,
+					getSiteAnnotations( other ).notes.map( ( note ) => note.id )
+				);
 				setAnnotating( other, false );
 			} );
 		}

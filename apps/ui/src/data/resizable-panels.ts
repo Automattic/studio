@@ -13,96 +13,13 @@ export const SITE_CHAT_HIDDEN_STORAGE_KEY = 'studio-ui-chat-hidden-by-site';
 const SITE_PREVIEW_OPEN_STORAGE_KEY = 'studio-ui-preview-open-by-site';
 const PREVIEW_CONTENT_WIDTH_SITE_PREFIX = `${ PREVIEW_CONTENT_WIDTH_STORAGE_KEY }:`;
 
-export function getPreviewContentWidthStorageKey( siteId: string ): string {
-	return `${ PREVIEW_CONTENT_WIDTH_SITE_PREFIX }${ siteId }`;
-}
-
-function getStoredBooleanRecord( key: string ): Record< string, boolean > {
-	try {
-		const stored: unknown = JSON.parse( window.localStorage.getItem( key ) ?? '{}' );
-		return stored && typeof stored === 'object' && ! Array.isArray( stored )
-			? Object.fromEntries(
-					Object.entries( stored ).filter( ( [ , value ] ) => typeof value === 'boolean' )
-			  )
-			: {};
-	} catch {
-		return {};
-	}
-}
-
-function storeBooleanRecord( key: string, value: Record< string, boolean > ): void {
-	try {
-		if ( Object.keys( value ).length ) window.localStorage.setItem( key, JSON.stringify( value ) );
-		else window.localStorage.removeItem( key );
-	} catch {
-		/* Keep the panel usable when storage is unavailable. */
-	}
-}
-
-export function getStoredSitePreviewVisibility(): Record< string, boolean > {
-	return getStoredBooleanRecord( SITE_PREVIEW_OPEN_STORAGE_KEY );
-}
-
-export function storeSitePreviewVisibility( value: Record< string, boolean > ): void {
-	storeBooleanRecord( SITE_PREVIEW_OPEN_STORAGE_KEY, value );
-}
-
-export function getStoredSiteChatVisibility(): Record< string, boolean > {
-	return Object.fromEntries(
-		Object.entries( getStoredBooleanRecord( SITE_CHAT_HIDDEN_STORAGE_KEY ) ).filter(
-			( [ , hidden ] ) => hidden
-		)
-	);
-}
-
-export function storeSiteChatVisibility( value: Record< string, boolean > ): void {
-	storeBooleanRecord(
-		SITE_CHAT_HIDDEN_STORAGE_KEY,
-		Object.fromEntries( Object.entries( value ).filter( ( [ , hidden ] ) => hidden ) )
-	);
-}
-
-function getStoredPreviewVisibility(): boolean | null {
-	try {
-		const stored = window.localStorage.getItem( PREVIEW_OPEN_STORAGE_KEY );
-		return stored === 'true' ? true : stored === 'false' ? false : null;
-	} catch {
-		return null;
-	}
-}
-
-export interface PreviewLayout {
+interface PreviewLayout {
 	open: boolean;
 	chatHidden: boolean;
 }
 
-export function getStoredPreviewLayout(): PreviewLayout {
-	try {
-		const stored: unknown = JSON.parse(
-			window.localStorage.getItem( PREVIEW_LAYOUT_STORAGE_KEY ) ?? 'null'
-		);
-		if (
-			stored &&
-			typeof stored === 'object' &&
-			'open' in stored &&
-			'chatHidden' in stored &&
-			typeof stored.open === 'boolean' &&
-			typeof stored.chatHidden === 'boolean'
-		) {
-			return { open: stored.open, chatHidden: stored.chatHidden };
-		}
-	} catch {
-		// Fall back to the previous visibility preference.
-	}
-	return { open: getStoredPreviewVisibility() ?? true, chatHidden: false };
-}
-
-export function storePreviewLayout( layout: PreviewLayout ): void {
-	try {
-		window.localStorage.setItem( PREVIEW_LAYOUT_STORAGE_KEY, JSON.stringify( layout ) );
-	} catch {
-		// Keep layout changes usable without storage.
-	}
+export function getDefaultPreviewLayout( running = true ): PreviewLayout {
+	return { open: running, chatHidden: false };
 }
 
 export const PREVIEW_CONTENT_DEFAULT_WIDTH = 360;
@@ -164,9 +81,8 @@ export function storeResizablePanelWidth( storageKey: string, width: number ): v
 	}
 }
 
-const PANEL_WIDTH_STORAGE_KEYS = [
-	SIDEBAR_PANEL_STORAGE_KEY,
-	PREVIEW_CONTENT_WIDTH_STORAGE_KEY,
+const PANEL_WIDTH_STORAGE_KEYS = [ SIDEBAR_PANEL_STORAGE_KEY, PREVIEW_CONTENT_WIDTH_STORAGE_KEY ];
+const LEGACY_PREVIEW_LAYOUT_STORAGE_KEYS = [
 	SITE_CHAT_HIDDEN_STORAGE_KEY,
 	SITE_PREVIEW_OPEN_STORAGE_KEY,
 	PREVIEW_OPEN_STORAGE_KEY,
@@ -186,13 +102,8 @@ function getPanelWidthStorageKeys(): string[] {
 export function hasCustomPanelLayout(): boolean {
 	try {
 		return (
-			getPanelWidthStorageKeys().some( ( key ) => {
-				if ( key === PREVIEW_LAYOUT_STORAGE_KEY ) {
-					const layout = getStoredPreviewLayout();
-					return ! layout.open || layout.chatHidden;
-				}
-				return window.localStorage.getItem( key ) !== null;
-			} ) || window.localStorage.getItem( SIDEBAR_COLLAPSED_STORAGE_KEY ) === 'true'
+			getPanelWidthStorageKeys().some( ( key ) => window.localStorage.getItem( key ) !== null ) ||
+			window.localStorage.getItem( SIDEBAR_COLLAPSED_STORAGE_KEY ) === 'true'
 		);
 	} catch {
 		return false;
@@ -202,9 +113,11 @@ export function hasCustomPanelLayout(): boolean {
 // Restores panel widths and visibility; mounted panels listen for the event.
 export function resetPanelLayout(): void {
 	try {
-		[ ...getPanelWidthStorageKeys(), SIDEBAR_COLLAPSED_STORAGE_KEY ].forEach( ( key ) =>
-			window.localStorage.removeItem( key )
-		);
+		[
+			...getPanelWidthStorageKeys(),
+			...LEGACY_PREVIEW_LAYOUT_STORAGE_KEYS,
+			SIDEBAR_COLLAPSED_STORAGE_KEY,
+		].forEach( ( key ) => window.localStorage.removeItem( key ) );
 	} catch {
 		// Nothing stored to forget.
 	}

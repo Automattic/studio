@@ -1,52 +1,74 @@
 .addressBar {
-	--surface: var( --composer );
-
 	-webkit-app-region: no-drag;
 	position: relative;
+	isolation: isolate;
 	display: flex;
 	width: 100%;
 	flex: 1 1 auto;
 	min-width: 0;
 	height: var( --preview-control-size, 32px );
 	align-items: center;
-	border: 1px solid var( --input );
 	border-radius: var( --radius-md );
-	background-color: var( --composer );
-	box-shadow: var( --shadow-xs );
+	transition: background-color var( --motion-duration-feedback ) ease;
 }
 
-.addressBar:focus-within:not( :has( [aria-invalid='true'] ) ) {
-	border-color: var( --ring );
-	box-shadow:
-		inset 0 0 0 1px var( --ring ),
-		var( --shadow-xs );
+.addressBar:is( :hover, :focus-within ) {
+	background-color: var( --hover );
 }
 
-.addressBar:has( [aria-invalid='true'] ) {
-	border-color: var( --destructive );
+.addressBar::before {
+	content: '';
+	position: absolute;
+	inset: calc( -1 * var( --space-1 ) ) calc( -1 * var( --space-1 ) ) 0;
+	z-index: -1;
+	border-radius: var( --radius-popup ) var( --radius-popup ) 0 0;
+	background: var( --popover );
+	box-shadow: 0 0 0 1px var( --popover-border );
+	clip-path: inset( -4px -4px 0 );
+	opacity: 0;
+	transform: scale( 0.985, 0.9 );
+	transform-origin: bottom;
+	pointer-events: none;
+	transition: transform var( --motion-duration-surface ) var( --motion-ease-enter );
 }
 
-.addressBar .input:is( :hover, :focus ) {
-	background: transparent;
+.addressBar[data-recent-open] {
+	--surface: var( --popover );
+
+	background-color: var( --popover );
+	transition: none;
+}
+
+.addressBar[data-recent-open]::before {
+	opacity: 1;
+	transform: scale( 1 );
 }
 
 .actions {
 	position: absolute;
 	z-index: 1;
 	inset-block: 0;
-	inset-inline-end: 0;
+	inset-inline-end: var( --space-1 );
 	display: flex;
 	align-items: center;
 	border-radius: inherit;
-	background-color: var( --composer );
 	opacity: 0;
 	pointer-events: none;
 	transition: opacity var( --motion-duration-feedback ) ease;
 }
 
 .action {
-	width: var( --preview-control-size, 32px );
-	height: 100%;
+	--button-hover-color: var( --muted-foreground );
+	--button-hover-background: color-mix( in srgb, var( --foreground ) 10%, var( --hover ) );
+
+	border-radius: var( --radius-sm );
+	color: var( --muted-foreground );
+	transition: none;
+}
+
+.action svg {
+	width: 16px;
+	height: 16px;
 }
 
 .addressBar:is( :hover, :focus-within ) .actions {
@@ -55,37 +77,86 @@
 }
 
 /* Out of the way while typing an address. */
-.addressBar:has( .input:focus ) .actions {
+.addressBar:has( .input:focus ) .actions,
+.addressBar[data-recent-open] .actions {
 	opacity: 0;
 	pointer-events: none;
 }
 
 .input {
-	border: 0;
-	border-radius: inherit;
-	background: transparent;
+	background-color: transparent;
 	width: 100%;
 	height: 100%;
 	min-width: 0;
 	padding-inline: var( --space-3 );
-	padding-inline-end: calc( var( --preview-control-size, 32px ) + var( --space-1 ) );
+	padding-inline-end: var( --preview-control-size, 32px );
 	color: var( --foreground );
 	font-size: var( --text-xs );
 	line-height: var( --text-xs--line-height );
 	text-align: start;
 }
 
-.shortcutsPopup {
-	transition: none;
+.recentPopup {
+	--surface: var( --popover );
+
+	isolation: isolate;
+	transform-origin: top;
+	transition: opacity var( --motion-duration-feedback ) var( --motion-ease-enter );
+	clip-path: inset( 0 -24px -24px );
 	opacity: 1;
 	scale: 1;
-	width: var( --anchor-width );
+	width: calc( var( --anchor-width ) + var( --space-2 ) );
 	max-width: calc( 100vw - 16px );
 	padding: var( --space-1_5 );
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	box-shadow: none;
 }
 
-/* Rows rounded for the menu surface rather than the composer's. */
-.shortcuts {
-	/* eslint-disable-next-line studio/no-primitive-overrides -- the suggestions sit on a menu surface, not the composer. */
-	--command-radius: var( --radius-md );
+.recentPopup::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+	border-radius: 0 0 var( --radius-popup ) var( --radius-popup );
+	background: var( --popover );
+	box-shadow:
+		0 0 0 1px var( --popover-border ),
+		var( --shadow-sm );
+	transform: scale( 1 );
+	transform-origin: top;
+	pointer-events: none;
+	transition: transform var( --motion-duration-surface ) var( --motion-ease-enter );
+}
+
+.recentPopup:is( [data-starting-style], [data-ending-style] ) {
+	opacity: 0;
+}
+
+.recentPopup:is( [data-starting-style], [data-ending-style] )::before {
+	transform: scale( 0.985, 0.96 );
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.addressBar::before,
+	.recentPopup::before,
+	.recentPopup:is( [data-starting-style], [data-ending-style] )::before {
+		transform: none;
+		transition: opacity var( --motion-duration-feedback ) ease;
+	}
+
+	.recentPopup {
+		transition: opacity var( --motion-duration-feedback ) ease;
+	}
+}
+
+.recentUrl {
+	flex: 0 1 auto;
+	min-width: 0;
+	max-width: 60%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var( --muted-foreground );
 }

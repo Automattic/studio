@@ -412,19 +412,6 @@ describe( 'WordPress Studio settings', () => {
 		);
 	} );
 
-	it( 'turns the annotation delete confirmation back on', async () => {
-		const { connector } = await setup( { preferences: { confirmDeleteAnnotations: false } } );
-		fireEvent.click(
-			await screen.findByRole( 'switch', { name: 'Confirm before deleting annotations' } )
-		);
-		await waitFor( () =>
-			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
-				{ confirmDeleteAnnotations: true },
-				undefined
-			)
-		);
-	} );
-
 	it( 'clears the persisted cache and reloads after saving a new language', async () => {
 		const location = window.location;
 		const reload = vi.fn();

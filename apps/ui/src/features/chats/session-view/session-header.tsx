@@ -12,12 +12,16 @@ export function SessionHeader( {
 	start,
 	siteName,
 	site,
-	effectiveEnvironment,
+	onOpenChat,
+	chatTabActive,
+	reserveSiteActions = true,
 }: {
 	start?: ReactNode;
 	siteName?: string;
 	site?: SiteDetails;
-	effectiveEnvironment: 'local' | 'live';
+	onOpenChat?: () => void;
+	chatTabActive?: boolean;
+	reserveSiteActions?: boolean;
 } ) {
 	const sidebarCollapsed = useSidebarCollapsed();
 	const reserveTrafficLightSpace = useTrafficLightSpace().start;
@@ -37,7 +41,9 @@ export function SessionHeader( {
 		>
 			<div data-site-header-reserved className={ styles.headerLead }>
 				{ start }
-				{ site ? <SiteMenu site={ site } /> : null }
+				{ site ? (
+					<SiteMenu site={ site } onOpenChat={ onOpenChat } chatTabActive={ chatTabActive } />
+				) : null }
 				{ ! site && siteName ? (
 					<>
 						<GlobeIcon className={ styles.headerSiteIcon } />
@@ -47,7 +53,7 @@ export function SessionHeader( {
 			</div>
 
 			<span className={ styles.headerSpacer } aria-hidden="true" />
-			{ withSiteActions ? <SiteHeaderSpace /> : null }
+			{ withSiteActions && reserveSiteActions ? <SiteHeaderSpace /> : null }
 		</header>
 	);
 }

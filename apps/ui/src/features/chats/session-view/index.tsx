@@ -286,6 +286,8 @@ function SessionViewContent( {
 	const revealingSiteId = useOptionalSessionPreviewUI()?.revealingSiteId;
 	const siteLoading =
 		! isSiteStopping && ( isSiteStarting || ( !! ownerSite && revealingSiteId === ownerSite.id ) );
+	const showStoppedPreview =
+		!! ownerSite && ( ! ownerSite.running || isSiteStopping ) && ! isSiteStarting;
 	const selectionTime = useSiteSelectionTime( ownerSite?.id );
 	const isSiteBusy = useIsSiteBusy( ownerSite );
 	const canAutoStart = !! ownerSite && effectiveEnvironment === 'local';
@@ -426,10 +428,7 @@ function SessionViewContent( {
 		( ! ownerSite && ! data ) ||
 		isQuotaLoading
 	) {
-		// Use the same SessionFrame with an empty header and a structural
-		// ComposerSkeleton so the scroll area has the exact same dimensions
-		// as the loaded view — otherwise the empty-state dots jump
-		// mid-transition.
+		// Match the loaded view's scroll area while the chat is loading.
 		return (
 			<SessionFrame
 				header={ hideHeader ? null : <div className={ styles.header } /> }
@@ -439,9 +438,7 @@ function SessionViewContent( {
 					</div>
 				}
 			>
-				<div className={ styles.emptyState }>
-					<PreviewParticles />
-				</div>
+				<div className={ styles.emptyState } />
 			</SessionFrame>
 		);
 	}
@@ -457,7 +454,6 @@ function SessionViewContent( {
 						start={ headerStart }
 						siteName={ data?.summary.ownerSiteName }
 						site={ ownerSite }
-						effectiveEnvironment={ effectiveEnvironment }
 					/>
 				)
 			}
@@ -466,8 +462,7 @@ function SessionViewContent( {
 					className={ clsx(
 						styles.column,
 						styles.composerColumn,
-						! showEmpty && styles.composerBacking,
-						fadeAfterQuotaCheck && styles.fadeInQuick
+						! showEmpty && fadeAfterQuotaCheck && styles.fadeInQuick
 					) }
 				>
 					<QueuedPrompts
@@ -533,25 +528,22 @@ function SessionViewContent( {
 					/>
 				</div>
 			}
+			background={
+				emptySessionId === draftKey ? (
+					<div className={ styles.emptyState } data-hidden={ ! showEmpty || undefined }>
+						{ siteLoading && ! previewVisible ? (
+							<VisuallyHidden role="status">{ __( 'Loading site preview' ) }</VisuallyHidden>
+						) : null }
+						<PreviewParticles
+							active={ siteLoading && ! previewVisible }
+							showLogo={ siteLoading && ! previewVisible }
+							selectionTime={ ownerSite?.running ? undefined : selectionTime }
+						/>
+						{ showStoppedPreview ? <StoppedSitePreview site={ ownerSite } /> : null }
+					</div>
+				) : null
+			}
 		>
-			{ emptySessionId === draftKey ? (
-				<div className={ styles.emptyState } data-hidden={ ! showEmpty || undefined }>
-					{ siteLoading && ! previewVisible ? (
-						<VisuallyHidden role="status">{ __( 'Loading site preview' ) }</VisuallyHidden>
-					) : null }
-					<PreviewParticles
-						active={ siteLoading && ! previewVisible }
-						showLogo={ siteLoading && ! previewVisible }
-						selectionTime={ ownerSite?.running ? undefined : selectionTime }
-					/>
-					{ ownerSite &&
-					! previewVisible &&
-					( ! ownerSite.running || isSiteStopping ) &&
-					! isSiteStarting ? (
-						<StoppedSitePreview site={ ownerSite } />
-					) : null }
-				</div>
-			) : null }
 			<div data-chat-transcript className={ clsx( styles.column, styles.conversationSpacing ) }>
 				{ data ? (
 					<Conversation

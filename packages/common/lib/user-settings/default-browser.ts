@@ -26,9 +26,13 @@ function readCommand( command: string, args: string[] ): Promise< string > {
 }
 
 function identifyBrowser( name: string ): SystemBrowser {
-	const browser = SUPPORTED_BROWSERS.find( ( key ) =>
-		name.toLowerCase().includes( browserConfig[ key ].name.toLowerCase() )
-	);
+	const normalized = name.toLowerCase();
+	const browser = [ ...SUPPORTED_BROWSERS ]
+		.sort( ( a, b ) => browserConfig[ b ].name.length - browserConfig[ a ].name.length )
+		.find( ( key ) => {
+			const candidate = browserConfig[ key ].name.toLowerCase();
+			return normalized === candidate || normalized.startsWith( `${ candidate } ` );
+		} );
 	return { name, ...( browser ? { browser } : {} ) };
 }
 

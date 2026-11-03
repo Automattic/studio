@@ -10,16 +10,7 @@ import {
 	type ReactNode,
 } from 'react';
 import { useConnector } from '@/data/core';
-import {
-	getStoredSiteChatVisibility,
-	getStoredSitePreviewVisibility,
-	storeSitePreviewVisibility,
-	getStoredPreviewLayout,
-	storePreviewLayout,
-	type PreviewLayout,
-	storeSiteChatVisibility,
-	PANEL_WIDTHS_RESET_EVENT,
-} from '@/data/resizable-panels';
+import { getDefaultPreviewLayout, PANEL_WIDTHS_RESET_EVENT } from '@/data/resizable-panels';
 
 // App-wide UI store (mounted once in the root route, shared by every route
 // and dialog under it). Holds the slices of UI state that the chat agent
@@ -37,7 +28,6 @@ interface PreviewUIState {
 	open: boolean;
 	openBySiteId: Record< string, boolean >;
 	instant: boolean;
-	layout: PreviewLayout;
 	// The chat pane is hidden and the preview takes its place; the sidebar stays.
 	// Only applied while the preview is open.
 	chatHiddenBySiteId: Record< string, boolean >;
@@ -76,10 +66,9 @@ type SessionUIAction =
 
 const INITIAL_STATE: SessionUIState = {
 	preview: {
-		open: true,
+		open: getDefaultPreviewLayout().open,
 		openBySiteId: {},
 		instant: false,
-		layout: { open: true, chatHidden: false },
 		chatHiddenBySiteId: {},
 		reloadNonce: 0,
 		siteId: null,
@@ -98,33 +87,34 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 					preview: {
 						...state.preview,
 						openBySiteId: { ...state.preview.openBySiteId, [ siteId ]: action.value },
+						chatHiddenBySiteId: action.value
+							? state.preview.chatHiddenBySiteId
+							: { ...state.preview.chatHiddenBySiteId, [ siteId ]: false },
 					},
 				};
 			}
 			if (
 				state.preview.open === action.value &&
+				( action.value || ! siteId || ! state.preview.chatHiddenBySiteId[ siteId ] ) &&
 				( ! siteId || state.preview.openBySiteId[ siteId ] === action.value ) &&
 				state.preview.instant === ( action.instant ?? false )
 			)
 				return state;
 			return {
 				...state,
-				preview: rememberLayout( {
+				preview: rememberVisibility( {
 					...state.preview,
 					open: action.value,
+					chatHiddenBySiteId:
+						! action.value && siteId
+							? { ...state.preview.chatHiddenBySiteId, [ siteId ]: false }
+							: state.preview.chatHiddenBySiteId,
 					instant: action.instant ?? false,
 				} ),
 			};
 		}
 		case 'preview/toggle':
-			return {
-				...state,
-				preview: rememberLayout( {
-					...state.preview,
-					open: ! state.preview.open,
-					instant: false,
-				} ),
-			};
+			return reducer( state, { type: 'preview/set-open', value: ! state.preview.open } );
 		case 'preview/set-chat-hidden': {
 			const siteId = action.siteId ?? state.preview.siteId;
 			if ( ! siteId || ( state.preview.chatHiddenBySiteId[ siteId ] ?? false ) === action.value )
@@ -136,7 +126,7 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 			};
 			return {
 				...state,
-				preview: siteId === preview.siteId ? rememberLayout( preview ) : preview,
+				preview: siteId === preview.siteId ? rememberVisibility( preview ) : preview,
 			};
 		}
 		case 'preview/reset-layout':
@@ -144,17 +134,17 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 				...state,
 				preview: {
 					...state.preview,
-					open: true,
+					siteId: null,
+					open: getDefaultPreviewLayout().open,
 					instant: false,
 					openBySiteId: {},
 					chatHiddenBySiteId: {},
-					layout: { open: true, chatHidden: false },
 				},
 			};
 		case 'preview/navigate':
 			return {
 				...state,
-				preview: rememberLayout( {
+				preview: rememberVisibility( {
 					...state.preview,
 					pathsBySiteId: rememberPath( state.preview, action.path ),
 					reloadNonce: state.preview.reloadNonce + 1,
@@ -190,16 +180,10 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 				preview: {
 					...state.preview,
 					siteId: action.siteId,
-					open: state.preview.openBySiteId[ action.siteId ] ?? action.running ?? false,
+					open:
+						state.preview.openBySiteId[ action.siteId ] ??
+						getDefaultPreviewLayout( action.running ?? false ).open,
 					instant: true,
-					chatHiddenBySiteId: {
-						...state.preview.chatHiddenBySiteId,
-						[ action.siteId ]:
-							state.preview.chatHiddenBySiteId[ action.siteId ] ??
-							( state.preview.siteId === null && ! Object.keys( state.preview.openBySiteId ).length
-								? state.preview.layout.chatHidden
-								: false ),
-					},
 				},
 			};
 		}
@@ -216,16 +200,12 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 	}
 }
 
-function rememberLayout( preview: PreviewUIState ): PreviewUIState {
+function rememberVisibility( preview: PreviewUIState ): PreviewUIState {
 	return {
 		...preview,
 		openBySiteId: preview.siteId
 			? { ...preview.openBySiteId, [ preview.siteId ]: preview.open }
 			: preview.openBySiteId,
-		layout: {
-			open: preview.open,
-			chatHidden: preview.chatHiddenBySiteId[ preview.siteId ?? '' ] ?? preview.layout.chatHidden,
-		},
 	};
 }
 
@@ -255,25 +235,7 @@ export function SessionUIProvider( { children }: { children: ReactNode } ) {
 
 function SessionUIProviderRoot( { children }: { children: ReactNode } ) {
 	const connector = useConnector();
-	const [ state, dispatch ] = useReducer( reducer, INITIAL_STATE, ( initial ) => ( {
-		...initial,
-		preview: {
-			...initial.preview,
-			open: getStoredPreviewLayout().open,
-			openBySiteId: getStoredSitePreviewVisibility(),
-			layout: getStoredPreviewLayout(),
-			chatHiddenBySiteId: getStoredSiteChatVisibility(),
-		},
-	} ) );
-	useEffect( () => {
-		storePreviewLayout( state.preview.layout );
-	}, [ state.preview.layout ] );
-	useEffect( () => {
-		storeSitePreviewVisibility( state.preview.openBySiteId );
-	}, [ state.preview.openBySiteId ] );
-	useEffect( () => {
-		storeSiteChatVisibility( state.preview.chatHiddenBySiteId );
-	}, [ state.preview.chatHiddenBySiteId ] );
+	const [ state, dispatch ] = useReducer( reducer, INITIAL_STATE );
 	useEffect( () => {
 		const reset = () => dispatch( { type: 'preview/reset-layout' } );
 		window.addEventListener( PANEL_WIDTHS_RESET_EVENT, reset );

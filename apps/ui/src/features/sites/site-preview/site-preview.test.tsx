@@ -105,7 +105,7 @@ const clearWebviewCache = () =>
 	( window as unknown as { ipcApi: { clearWebviewCache: ReturnType< typeof vi.fn > } } ).ipcApi
 		.clearWebviewCache;
 const isPageHidden = () => !! page()!.closest( '[data-loading]' );
-const logo = () => document.querySelector( 'canvas ~ span[aria-hidden="true"]' );
+const logo = () => document.querySelector( 'span[aria-hidden="true"][data-active]' );
 const site = ( overrides: Partial< Props[ 'site' ] > = {} ) =>
 	makeSite( { id: 'one', port: 9010, running: true, ...overrides } );
 const address = () => screen.getByRole( 'textbox', { name: 'Address' } ) as HTMLInputElement;
@@ -205,6 +205,7 @@ describe( 'site preview', () => {
 					operation: { pid: 1, kind: 'start' },
 				} ),
 			} );
+			const loadingLogo = logo();
 			const particles = document.querySelector( 'canvas' );
 			expect( particles ).toBeInTheDocument();
 			expect( logo() ).toBeInTheDocument();
@@ -213,6 +214,7 @@ describe( 'site preview', () => {
 			update( { site: makeSite( { id: 'one', port: 9010, running: true } ) } );
 			expect( isPageHidden() ).toBe( true );
 			expect( document.querySelector( 'canvas' ) ).toBe( particles );
+			expect( logo() ).toBe( loadingLogo );
 			expect( logo() ).toBeInTheDocument();
 			expect( screen.getByText( 'Loading site preview' ) ).toBeInTheDocument();
 			if ( runtime === 'desktop' ) {
@@ -226,7 +228,7 @@ describe( 'site preview', () => {
 			);
 			await waitFor( () => expect( logo() ).toBeNull() );
 			expect( isPageHidden() ).toBe( false );
-			expect( document.querySelectorAll( 'canvas' ) ).toHaveLength( 1 );
+			expect( document.querySelectorAll( 'canvas' ) ).toHaveLength( 0 );
 		}
 	);
 
@@ -334,7 +336,7 @@ describe( 'site preview', () => {
 		);
 		expect( address() ).toHaveValue( 'http://localhost:8002' );
 		update( { site: first, path: '/' } );
-		expect( address() ).toHaveValue( 'http://localhost:8001' );
+		expect( address() ).toHaveValue( 'http://localhost:8001/page' );
 		expect( back() ).toHaveAttribute( 'aria-disabled', 'true' );
 	} );
 } );
@@ -369,32 +371,27 @@ describe( 'site preview controls', () => {
 		dialog.remove();
 	} );
 
-	it( 'switches realms from the address menu, recording only real switches', async () => {
-		const connector = createFakeConnector();
-		const onPathChange = vi.fn();
-		const { update } = await renderPreview( 'browser', { onPathChange }, connector );
-		const pick = async ( name: string ) => {
-			fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
-			fireEvent.click( await screen.findByRole( 'option', { name } ) );
-		};
-		await pick( 'WordPress Admin' );
-		expect( onPathChange ).toHaveBeenLastCalledWith(
-			`/studio-auto-login?redirect_to=${ encodeURIComponent( `${ SITE_URL }/wp-admin/` ) }`
+	it( 'shows loaded page titles and URLs as recent destinations', async () => {
+		const { update } = await renderPreview( 'desktop', { path: '/about/' } );
+		const webview = guest();
+		fireEvent( webview, new Event( 'dom-ready' ) );
+		fireEvent(
+			webview,
+			Object.assign( new Event( 'page-title-updated' ), { title: 'About the project' } )
 		);
-		expect( connector.trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
-			browser: 'internal',
-		} );
-		await pick( 'Database' );
-		expect( onPathChange ).toHaveBeenLastCalledWith(
-			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
+		update( { path: '/contact/' } );
+		fireEvent(
+			webview,
+			Object.assign( new Event( 'page-title-updated' ), { title: 'Contact us' } )
 		);
-
-		update( { path: '/wp-admin/' } );
-		onPathChange.mockClear();
-		connector.trackEvent.mockClear();
-		await pick( 'WordPress Admin' );
-		expect( onPathChange ).not.toHaveBeenCalled();
-		expect( connector.trackEvent ).not.toHaveBeenCalled();
+		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
+		expect(
+			await screen.findByRole( 'option', { name: /About the project.*localhost:9010\/about\// } )
+		).toBeVisible();
+		expect(
+			screen.getByRole( 'option', { name: /Contact us.*localhost:9010\/contact\// } )
+		).toBeVisible();
+		expect( screen.queryByRole( 'option', { name: 'WordPress Admin' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'opens the front end externally logged out and WP Admin with auto-login', async () => {
@@ -490,48 +487,31 @@ describe( 'site preview controls', () => {
 
 describe( 'preview address bar', () => {
 	it.each( [ 'browser', 'desktop' ] as const )(
-		'keeps the full toolbar mounted and disables unavailable controls during startup in %s',
+		'hides the browser bar until startup finishes in %s',
 		async ( runtime ) => {
 			const { update } = await renderPreview( runtime, {
 				site: site( { running: false, operation: { pid: 1, kind: 'start' } } ),
 			} );
-			expect( screen.getByText( 'Starting site…' ) ).toHaveAttribute( 'role', 'status' );
-			const input = address();
-			expect( input ).toBeVisible();
-			expect( input ).toBeDisabled();
-			expect( input ).toHaveValue( SITE_URL );
-			const controls = [
-				'Back',
-				'Forward',
-				'Reload preview',
-				'Responsive mode',
-				'Open this page in your browser',
-			].map( ( name ) => screen.getByRole( 'button', { name } ) );
-			for ( const control of controls ) {
-				expect( control.matches( ':disabled, [aria-disabled="true"]' ) ).toBe( true );
-			}
+			expect(
+				screen.queryByRole( 'toolbar', { name: 'Preview browser controls' } )
+			).not.toBeInTheDocument();
 			update( { site: site() } );
-			expect( screen.queryByText( 'Starting site…' ) ).not.toBeInTheDocument();
-			expect( address() ).toBe( input );
-			expect( input ).toBeEnabled();
-			for ( const control of controls.slice( 2 ) ) {
-				expect(
-					screen.getByRole( 'button', { name: control.getAttribute( 'aria-label' )! } )
-				).toBe( control );
-				expect( control.matches( ':disabled, [aria-disabled="true"]' ) ).toBe( false );
-			}
+			expect(
+				screen.queryByRole( 'toolbar', { name: 'Preview browser controls' } )
+			).not.toBeInTheDocument();
+			if ( runtime === 'desktop' ) guest();
+			finishLoading( runtime );
+			await waitFor( () => expect( address() ).toBeEnabled() );
 		}
 	);
 
-	it( 'hides the browser bar as soon as stopping begins and restores its path on restart', async () => {
+	it( 'hides the browser bar once stopped and restores its path on restart', async () => {
 		const stopping = { pid: 1, kind: 'stop' } as const;
 		const { update } = await renderPreview( 'browser', {
 			path: '/about/',
 			site: site( { operation: stopping } ),
 		} );
-		expect(
-			screen.queryByRole( 'toolbar', { name: 'Preview browser controls' } )
-		).not.toBeInTheDocument();
+		expect( screen.getByRole( 'toolbar', { name: 'Preview browser controls' } ) ).toBeVisible();
 		update( { site: site( { running: false, operation: stopping } ) } );
 		expect(
 			screen.queryByRole( 'toolbar', { name: 'Preview browser controls' } )
@@ -554,7 +534,7 @@ describe( 'preview address bar', () => {
 		await user.click( toggle );
 		expect( toggle ).toHaveAttribute( 'aria-pressed', 'true' );
 		expect( address() ).not.toHaveFocus();
-		expect( screen.queryByRole( 'dialog', { name: 'Preview shortcuts' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'dialog', { name: 'Recent pages' } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'toolbar', { name: 'Responsive preview' } ) ).toBeInTheDocument();
 		await user.click( toggle );
 		expect( toggle ).toHaveAttribute( 'aria-pressed', 'false' );
@@ -586,28 +566,50 @@ describe( 'preview address bar', () => {
 		expect( connector.openExternalUrl ).not.toHaveBeenCalled();
 	} );
 
-	it( 'shows Start in the stopped preview and restores the editable address when started', async () => {
+	it( 'shows project tools in the stopped preview and restores the editable address when started', async () => {
 		const { update } = await renderPreview( 'browser', { path: '/about/' } );
 		expect( address() ).toHaveValue( `${ SITE_URL }/about/` );
 		update( { site: site( { running: false } ) } );
 		expect(
 			screen.queryByRole( 'toolbar', { name: 'Preview browser controls' } )
 		).not.toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Start site' } ) ).toBeVisible();
+		expect( screen.getByRole( 'group', { name: 'Project tools' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'button', { name: 'Start site' } ) ).not.toBeInTheDocument();
 		update( { site: site( { running: false, operation: { pid: 1, kind: 'settings' } } ) } );
-		expect( screen.queryByRole( 'button', { name: 'Responsive mode' } ) ).not.toBeInTheDocument();
 		expect(
-			screen.queryByRole( 'button', { name: 'Open this page in your browser' } )
+			screen.queryByRole( 'toolbar', { name: 'Preview browser controls' } )
 		).not.toBeInTheDocument();
 		update( { site: site() } );
 		expect( address() ).toHaveValue( `${ SITE_URL }/about/` );
 		expect( address() ).toBeEnabled();
 		expect( screen.getByRole( 'button', { name: 'Responsive mode' } ) ).toBeInTheDocument();
 		update( { site: site( { operation: { pid: 1, kind: 'stop' } } ) } );
-		expect(
-			screen.queryByRole( 'toolbar', { name: 'Preview browser controls' } )
-		).not.toBeInTheDocument();
+		expect( screen.getByRole( 'toolbar', { name: 'Preview browser controls' } ) ).toBeVisible();
 	} );
+
+	it.each( [ 'browser', 'desktop' ] as const )(
+		'starts a stopped %s preview from its shared Browser tool and removes the launcher while loading',
+		async ( runtime ) => {
+			let finish!: () => void;
+			const pending = new Promise< void >( ( resolve ) => {
+				finish = resolve;
+			} );
+			const connector = createFakeConnector( {}, { startSite: () => pending } );
+			await renderPreview(
+				runtime,
+				{ site: site( { running: false } ), onPathChange: vi.fn() },
+				connector
+			);
+			expect( screen.getByRole( 'button', { name: 'Browser B' } ) ).toBeVisible();
+			expect( screen.getByRole( 'button', { name: 'Admin A' } ) ).toBeVisible();
+			expect( screen.getByRole( 'button', { name: 'Database D' } ) ).toBeVisible();
+			expect( screen.getByRole( 'button', { name: 'Email E' } ) ).toBeVisible();
+			fireEvent.click( screen.getByRole( 'button', { name: 'Browser B' } ) );
+			await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
+			expect( screen.queryByRole( 'group', { name: 'Project tools' } ) ).not.toBeInTheDocument();
+			await act( async () => finish() );
+		}
+	);
 
 	it( 'selects the whole address on first pointer focus without overriding later clicks', async () => {
 		await renderPreview( 'browser', { path: '/about/' } );

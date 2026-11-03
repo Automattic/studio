@@ -32,7 +32,7 @@ export function TabsList( {
 	className,
 	variant,
 	...props
-}: ComponentProps< typeof BaseTabs.List > & { variant: 'scope' | 'sidebar' } ) {
+}: ComponentProps< typeof BaseTabs.List > & { variant: 'scope' | 'sidebar' | 'browser' } ) {
 	return (
 		<BaseTabs.List
 			data-slot="tabs-list"

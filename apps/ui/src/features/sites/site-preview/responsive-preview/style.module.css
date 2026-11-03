@@ -3,14 +3,21 @@
 	display: flex;
 	align-items: center;
 	flex-shrink: 0;
-	gap: var( --space-1 );
+	gap: var( --band-gap );
 	min-height: 36px;
 	box-sizing: border-box;
-	padding: var( --space-1 ) var( --preview-toolbar-inline-inset, var( --space-1 ) );
-	border-bottom: 1px solid var( --border );
-	background: var( --preview-toolbar-background, var( --chrome ) );
+	padding-inline: var( --band-inset );
+	padding-bottom: var( --band-inset );
+	background: var( --chat );
 	color: var( --foreground );
-	overflow-x: auto;
+	overflow-x: var( --preview-toolbar-overflow, auto );
+}
+
+.responsiveToolbar {
+	composes: toolbar;
+	padding-top: var( --band-inset );
+	border-top: 1px solid var( --border );
+	border-bottom: 1px solid var( --border );
 }
 
 .close {

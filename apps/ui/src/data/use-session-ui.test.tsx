@@ -125,7 +125,7 @@ describe( 'useSessionPreviewUI agent reloads', () => {
 	} );
 } );
 
-it( 'persists independent preview visibility and chat layout for each site', () => {
+it( 'keeps manual layouts only for the current app session', () => {
 	const view = renderHook( () => useSessionPreviewUI(), { wrapper } );
 	act( () => view.result.current.setSite( 'a', { running: true } ) );
 	act( () => view.result.current.setOpen( false ) );
@@ -134,45 +134,47 @@ it( 'persists independent preview visibility and chat layout for each site', () 
 	act( () => view.result.current.setChatHidden( true ) );
 	act( () => view.result.current.setSite( 'a', { running: true } ) );
 	expect( view.result.current.open ).toBe( false );
-	expect( view.result.current.chatHidden ).toBe( false );
 	act( () => view.result.current.setSite( 'b', { running: true } ) );
 	expect( view.result.current.chatHidden ).toBe( true );
-	act( () => view.result.current.setOpen( false, { siteId: 'a' } ) );
-	expect( view.result.current.open ).toBe( true );
+	expect( localStorage.length ).toBe( 0 );
 	view.unmount();
 	const reloaded = renderHook( () => useSessionPreviewUI(), { wrapper } );
 	act( () => reloaded.result.current.setSite( 'a', { running: true } ) );
-	expect( reloaded.result.current.open ).toBe( false );
-	act( () => reloaded.result.current.setSite( 'b', { running: true } ) );
-	expect( reloaded.result.current.chatHidden ).toBe( true );
-	act( () => reloaded.result.current.setSite( 'split', { running: true } ) );
-	expect( reloaded.result.current.chatHidden ).toBe( false );
-} );
-
-it( 'does not apply another site fullscreen layout when reloading a split preview', () => {
-	const view = renderHook( () => useSessionPreviewUI(), { wrapper } );
-	act( () => view.result.current.setSite( 'split', { running: true } ) );
-	act( () => view.result.current.setOpen( true ) );
-	act( () => view.result.current.setSite( 'full', { running: true } ) );
-	act( () => view.result.current.setChatHidden( true ) );
-	view.unmount();
-	const reloaded = renderHook( () => useSessionPreviewUI(), { wrapper } );
-	act( () => reloaded.result.current.setSite( 'split', { running: true } ) );
 	expect( reloaded.result.current.open ).toBe( true );
+	act( () => reloaded.result.current.setSite( 'b', { running: true } ) );
 	expect( reloaded.result.current.chatHidden ).toBe( false );
 } );
 
-it( 'persists each site’s current layout, including an explicit split choice', () => {
-	const view = renderHook( () => useSessionPreviewUI(), { wrapper } );
-	act( () => view.result.current.setSite( 'full', { running: true } ) );
-	act( () => view.result.current.setChatHidden( true ) );
-	act( () => view.result.current.setChatHidden( true, 'split' ) );
-	act( () => view.result.current.setChatHidden( false, 'split' ) );
-	view.unmount();
-	const reloaded = renderHook( () => useSessionPreviewUI(), { wrapper } );
-	expect( reloaded.result.current.chatHiddenBySiteId ).toEqual( { full: true } );
-	act( () => reloaded.result.current.setSite( 'full', { running: true } ) );
-	expect( reloaded.result.current.chatHidden ).toBe( true );
-	act( () => reloaded.result.current.setSite( 'split', { running: true } ) );
-	expect( reloaded.result.current.chatHidden ).toBe( false );
-} );
+it.each( [ false, true ] )(
+	'ignores saved preview layout when opening a site (running: %s)',
+	( running ) => {
+		localStorage.setItem( 'studio-ui-preview-open', 'false' );
+		localStorage.setItem(
+			'studio-ui-running-preview-layout',
+			JSON.stringify( { open: true, chatHidden: true } )
+		);
+		localStorage.setItem( 'studio-ui-preview-open-by-site', JSON.stringify( { one: ! running } ) );
+		localStorage.setItem( 'studio-ui-chat-hidden-by-site', JSON.stringify( { one: true } ) );
+		const view = renderHook( () => useSessionPreviewUI(), { wrapper } );
+		act( () => view.result.current.setSite( 'one', { running } ) );
+		expect( view.result.current.open ).toBe( running );
+		expect( view.result.current.chatHidden ).toBe( false );
+	}
+);
+
+it.each( [ 'setOpen', 'toggle' ] as const )(
+	'resets full view when hiding with %s',
+	( control ) => {
+		const view = renderHook( () => useSessionPreviewUI(), { wrapper } );
+		act( () => view.result.current.setSite( 'one', { running: true } ) );
+		act( () => view.result.current.setChatHidden( true ) );
+		act( () =>
+			control === 'toggle' ? view.result.current.toggle() : view.result.current.setOpen( false )
+		);
+		expect( view.result.current.open ).toBe( false );
+		expect( view.result.current.chatHidden ).toBe( false );
+		act( () => view.result.current.setOpen( true ) );
+		expect( view.result.current.open ).toBe( true );
+		expect( view.result.current.chatHidden ).toBe( false );
+	}
+);

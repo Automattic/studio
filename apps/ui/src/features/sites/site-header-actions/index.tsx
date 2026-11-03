@@ -16,8 +16,7 @@ interface SiteHeaderContextValue {
 	actionsWidth: number;
 	annotationSpace: HTMLElement | null;
 	attachAnnotationSpace: ( node: HTMLElement | null ) => void;
-	browserSpace: HTMLElement | null;
-	attachBrowserSpace: ( node: HTMLElement | null ) => void;
+	attachBrowserHeader: ( node: HTMLElement | null ) => void;
 	attachActions: ( node: HTMLElement | null ) => void;
 }
 
@@ -27,8 +26,7 @@ const SiteHeaderContext = createContext< SiteHeaderContextValue >( {
 	actionsWidth: 0,
 	annotationSpace: null,
 	attachAnnotationSpace: () => undefined,
-	browserSpace: null,
-	attachBrowserSpace: () => undefined,
+	attachBrowserHeader: () => undefined,
 	attachActions: () => undefined,
 } );
 
@@ -44,8 +42,8 @@ export function SiteHeaderActionsProvider( {
 } ) {
 	const [ annotationSpace, attachAnnotationSpace ] = useState< HTMLElement | null >( null );
 	const [ actions, attachActions ] = useState< HTMLElement | null >( null );
-	const [ browserSpace, attachBrowserSpace ] = useState< HTMLElement | null >( null );
-	const { layout, actionsWidth } = useSiteHeaderLayout( actions, browserSpace );
+	const [ browserHeader, attachBrowserHeader ] = useState< HTMLElement | null >( null );
+	const { layout, actionsWidth } = useSiteHeaderLayout( actions, browserHeader );
 
 	return (
 		<SiteHeaderContext.Provider
@@ -55,8 +53,7 @@ export function SiteHeaderActionsProvider( {
 				actionsWidth,
 				annotationSpace,
 				attachAnnotationSpace,
-				browserSpace,
-				attachBrowserSpace,
+				attachBrowserHeader,
 				attachActions,
 			} }
 		>
@@ -71,15 +68,9 @@ export function SiteHeaderSpace() {
 	return <div className={ styles.space } style={ { width: actionsWidth } } />;
 }
 
-/** Registers the preview row for its narrow-window layout. */
-export function SiteHeaderBrowserSpace() {
-	const { attachBrowserSpace } = useSiteHeader();
-	return <div ref={ attachBrowserSpace } className={ styles.browserSpace } />;
-}
-
 /** Site actions stay in one place as the preview opens and closes. */
-export function SiteHeaderActions( { site, end }: { site: SiteDetails; end?: ReactNode } ) {
-	const { attachActions, attachAnnotationSpace } = useSiteHeader();
+export function SiteHeaderActions( { site }: { site: SiteDetails } ) {
+	const { attachActions } = useSiteHeader();
 	const annotations = useSiteAnnotations( site.id );
 	const root = useRef< HTMLDivElement >( null );
 	const windowControls = useWindowControlsOverlay();
@@ -110,21 +101,11 @@ export function SiteHeaderActions( { site, end }: { site: SiteDetails; end?: Rea
 			<SiteDeliveryDialog key={ site.id } site={ site } anchor={ root } />
 			<div ref={ attachActions } className={ styles.actions }>
 				<div data-site-header-delivery className={ styles.delivery }>
-					<span
-						ref={ attachAnnotationSpace }
-						data-site-header-annotations
-						className={ styles.item }
-					/>
 					<span data-site-header-share className={ styles.item }>
 						<ShareButton site={ site } />
 					</span>
 					{ publishButton }
 				</div>
-				{ end ? (
-					<span data-site-header-end className={ styles.item }>
-						{ end }
-					</span>
-				) : null }
 			</div>
 		</div>
 	);

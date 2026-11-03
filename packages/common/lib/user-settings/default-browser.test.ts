@@ -30,7 +30,10 @@ function commandResults( ...results: Array< string | Error > ) {
 it.each( [
 	[ 'Safari', 'safari' ],
 	[ 'Google Chrome', 'chrome' ],
-	[ 'Zen', undefined ],
+	[ 'Firefox Developer Edition', 'firefox-developer' ],
+	[ 'Brave Browser', 'brave' ],
+	[ 'Zen', 'zen' ],
+	[ 'Search Browser', undefined ],
 ] )(
 	'reads the macOS default as %s without guessing from installed browsers',
 	async ( name, browser ) => {

@@ -33,3 +33,5 @@ export { useItemShortcuts } from './use-item-shortcuts';
 export { useSiteManagementActions } from './use-site-management-actions';
 
 export { PreviewLayoutControls } from './preview-layout-controls';
+
+export { PreviewTabs } from './preview-tabs';

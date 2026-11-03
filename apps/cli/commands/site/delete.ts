@@ -12,6 +12,7 @@ import {
 } from '@studio/common/lib/site-frontend';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
+import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import trash from 'trash';
 import { deleteSiteCertificate } from 'cli/lib/certificate-manager';
@@ -27,7 +28,6 @@ import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/dae
 import { isFrontendRunning, stopFrontendServer } from 'cli/lib/frontend/server';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
 import { deleteSnapshotSite } from 'cli/lib/preview-sites';
-import { getSiteEmailDirectory } from 'cli/lib/site-email';
 import { withSiteOperations } from 'cli/lib/site-operations';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';

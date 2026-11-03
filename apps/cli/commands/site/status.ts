@@ -7,13 +7,13 @@ import {
 	isHeadlessSite,
 } from '@studio/common/lib/site-frontend';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
+import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { __, _n } from '@wordpress/i18n';
 import CliTable3 from 'cli-table3';
 import { type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getFrontendLogPaths, isFrontendRunning } from 'cli/lib/frontend/server';
-import { getSiteEmailDirectory } from 'cli/lib/site-email';
 import { getPrettyPath } from 'cli/lib/utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';

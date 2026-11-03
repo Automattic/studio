@@ -870,6 +870,7 @@ export async function commandHandler(
 		let preparedImport: PreparedSourceImport | undefined;
 		if ( argv.from ) {
 			preparedImport = await prepareSourceImport( argv.from, sitePath, siteName, defaultLogger, {
+				siteNameIsExplicit: argv.name !== undefined,
 				staticSiteImporter: argv.staticSiteImporterPath
 					? { path: argv.staticSiteImporterPath }
 					: argv.staticSiteImporterUrl,

@@ -23,7 +23,8 @@ describe( 'static site import sources', () => {
 			createCapturedSiteArtifact(),
 			'Captured Site',
 			'https://example.com/static-site-importer.zip',
-			'https://example.com/'
+			'https://example.com/',
+			true
 		);
 	};
 
@@ -63,7 +64,7 @@ describe( 'static site import sources', () => {
 					'https://example.com/'
 				).staticSiteImport.request
 			)
-		).toMatchObject( { operation: 'apply', fail_on_quality: true } );
+		).not.toHaveProperty( 'site_title' );
 	} );
 
 	it( 'forwards artifact-declared classic materialization on the request', () => {

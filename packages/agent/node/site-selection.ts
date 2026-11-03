@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
+import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import type { HeadlessSiteDetails } from './headless';
 import type { SiteInfo } from './types';
 
@@ -11,9 +12,12 @@ export function formatActiveSite( site: SiteInfo, headless?: HeadlessSiteDetails
 	}
 	const designPath = path.join( site.path, 'DESIGN.md' );
 	const design = existsSync( designPath ) ? `, design system: ${ designPath }` : '';
+	const email = site.id
+		? `, email it sends: ${ getSiteEmailDirectory( site.id ) } (one .eml file per message)`
+		: '';
 	return `"${ site.name }" at ${ site.path }${
 		site.running ? ' (running)' : ' (stopped)'
-	}${ design }${ headless ? `\n\n${ formatHeadless( headless ) }` : '' }`;
+	}${ design }${ email }${ headless ? `\n\n${ formatHeadless( headless ) }` : '' }`;
 }
 
 const FRAMEWORK_NAMES: Record< string, string > = {

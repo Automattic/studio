@@ -13,11 +13,12 @@ import type { PreviewRealm } from './address-bar';
  * one webview: one history stack, and a page loaded after signing in reflects
  * it. phpMyAdmin is a separate tool nothing links to, and the only realm that
  * isn't responsive — so it gets its own surface, which never resizes when the
- * preview flips to it. The design system isn't a web page: Studio renders it.
- * A headless site's frontend app runs on an origin of its own, so it has its
- * own surface, `app`, whose locations are absolute URLs on that origin.
+ * preview flips to it. The design system and the site's email aren't web
+ * pages: Studio renders them. A headless site's frontend app runs on an origin
+ * of its own, so it has its own surface, `app`, whose locations are absolute
+ * URLs on that origin.
  */
-export type PreviewSurfaceKey = 'app' | 'site' | 'database' | 'design';
+export type PreviewSurfaceKey = 'app' | 'site' | 'database' | 'email' | 'design';
 
 export function getSurfaceKey( realm: PreviewRealm ): PreviewSurfaceKey {
 	if ( realm === 'frontend-app' ) {

@@ -38,16 +38,16 @@
 	}
 
 	[data-slot='tooltip-content'] .kbd {
+		margin-block: calc( -1 * var( --space-0_5 ) );
+		margin-inline-end: calc( -1 * var( --space-0_5 ) );
 		position: relative;
 		isolation: isolate;
-		min-width: 16px;
-		height: 16px;
-		background-color: light-dark(
-			color-mix( in oklab, var( --background ) 20%, transparent ),
-			color-mix( in oklab, var( --background ) 10%, transparent )
-		);
-		color: var( --background );
-		font-size: var( --text-xxs );
+		min-width: 20px;
+		height: 20px;
+		padding-inline: var( --space-1_5 );
+		background-color: var( --muted );
+		color: var( --foreground );
+		font-size: var( --text-xs );
 	}
 
 	.group {

@@ -27,12 +27,18 @@ import {
 	useSiteAnnotations,
 } from '@/features/annotations';
 import { DesignSystemView } from '@/features/sites/design-system-view';
+import { EmailView } from '@/features/sites/email-view';
 import { getSiteFrontendUrl, getSiteUrl } from '@/features/sites/get-site-url';
 import { PreviewParticles } from '@/features/sites/preview-particles';
 import { useSiteHeaderNavigation } from '@/features/sites/site-header-actions';
 import { SiteContextMenu, StoppedSitePreview } from '@/features/sites/stopped-site-preview';
 import { VisuallyHidden } from '@/lib/ui';
-import { getFrontendAppRelativePath, getRealmOpenEvent } from './address-bar';
+import {
+	getFrontendAppRelativePath,
+	getPreviewLocationFromUrl,
+	getRealmNavigationPath,
+	getRealmOpenEvent,
+} from './address-bar';
 import { EMPTY_BROWSER_STATE, type BrowserNavigationState } from './browser-state';
 import { PreviewHeader } from './preview-header';
 import {
@@ -137,12 +143,14 @@ export function SitePreview( {
 	} );
 	const siteDesign = useSiteDesign( site );
 	const annotations = useSiteAnnotations( site.id );
+	// Surfaces Studio draws itself, with no page to load.
+	const rendered = activeSurfaceKey === 'design' || activeSurfaceKey === 'email';
 	const { loadingStage, reveal } = useLoadingStage( {
 		siteId: site.id,
 		live,
 		canPreview,
 		isStarting,
-		design: activeSurfaceKey === 'design',
+		rendered,
 	} );
 	// Frames report no loading state, so track which load each one finished.
 	const [ loadedFrames, setLoadedFrames ] = useState<
@@ -152,17 +160,19 @@ export function SitePreview( {
 		! canUseWebview &&
 		!! activeSurface &&
 		loadedFrames[ activeSurfaceKey ] !== getFrameKey( siteUrl, activeSurface );
-	const navigating =
-		canPreview && activeSurfaceKey !== 'design' && ( browserState.loading || activeFrameLoading );
-	// Studio renders the design system itself, so it needs no page injection.
+	const navigating = canPreview && ! rendered && ( browserState.loading || activeFrameLoading );
+	// Studio renders the design system and the email itself, so they need no
+	// page injection.
 	const showAnnotate = ! live;
 	const canAnnotateSurface =
 		showAnnotate &&
 		activeSurfaceKey !== 'database' &&
-		( connector.capabilities.annotatePreview || activeSurfaceKey === 'design' );
+		( connector.capabilities.annotatePreview || rendered );
 	const canAnnotate =
 		canAnnotateSurface &&
-		( activeSurfaceKey === 'design' ? !! siteDesign.data : !! activeSurface?.inspectorReady );
+		( activeSurfaceKey === 'design'
+			? !! siteDesign.data
+			: activeSurfaceKey === 'email' || !! activeSurface?.inspectorReady );
 	const progress = browserState.loading
 		? Math.max( browserState.progress, 0.12 )
 		: browserState.progress;
@@ -262,7 +272,7 @@ export function SitePreview( {
 					.catch( ( error ) => {
 						console.error( 'Failed to open site in browser:', error );
 					} )
-		: activeRealm === 'design'
+		: rendered
 		? undefined
 		: activeRealm === 'frontend-app'
 		? () => {
@@ -284,14 +294,26 @@ export function SitePreview( {
 						console.error( 'Failed to open site in browser:', error );
 					} );
 		  };
-	const responsive = canPreview
-		? {
-				active: responsiveEnabled,
-				disabled: isStopping || ! isPageSurface( activeSurfaceKey ),
-				onClick: () =>
-					updateResponsivePreview( site.id, { enabled: ! responsiveSettings.enabled } ),
-		  }
-		: undefined;
+	// A link in an email to the site, or to a headless site's frontend, opens in
+	// the preview, like a password reset link; any other opens in the browser.
+	const openEmailLink = ( url: string ) => {
+		const location = getPreviewLocationFromUrl( url, siteUrl, frontendUrl );
+		if ( location ) {
+			onPathChange?.( getRealmNavigationPath( location, siteUrl ) );
+		} else if ( /^(?:https?|mailto):/i.test( url ) ) {
+			void connector.openExternalUrl( url );
+		}
+	};
+	// Email has no page to size for a device.
+	const responsive =
+		canPreview && activeSurfaceKey !== 'email'
+			? {
+					active: responsiveEnabled,
+					disabled: isStopping || ! isPageSurface( activeSurfaceKey ),
+					onClick: () =>
+						updateResponsivePreview( site.id, { enabled: ! responsiveSettings.enabled } ),
+			  }
+			: undefined;
 	const annotate = showAnnotate
 		? {
 				active: annotations.active,
@@ -413,6 +435,22 @@ export function SitePreview( {
 												/>
 											) }
 										</Suspense>
+									</SurfaceLayer>
+								);
+							}
+							if ( key === 'email' ) {
+								return (
+									<SurfaceLayer key={ key } active={ active }>
+										<EmailView
+											key={ site.id }
+											siteId={ site.id }
+											active={ active && ! collapsed }
+											onOpenLink={ openEmailLink }
+											onAnnotationPick={ handleAnnotationPick }
+											onAnnotationAnchor={ ( anchor: AnnotationAnchor | null ) =>
+												setAnnotationAnchor( toViewportAnchor( anchor ) )
+											}
+										/>
 									</SurfaceLayer>
 								);
 							}

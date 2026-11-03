@@ -8,7 +8,7 @@ import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useSnapshots } from '@/data/queries/use-snapshots';
 import { getSnapshotOpenUrl, getSnapshotUrl } from '@/data/snapshot-url';
 import { useOpenHeaderPanel } from '@/data/use-open-header-panel';
-import { DuplicateIcon, ExternalLinkIcon, ShareIcon } from '@/lib/icons';
+import { GlobeIcon, LinkIcon, ShareIcon } from '@/lib/icons';
 import { Menu } from '@/lib/ui';
 import type { SiteDetails, Snapshot } from '@/data/core';
 
@@ -64,7 +64,7 @@ export function SiteShareMenuItem( { site, disabled }: { site: SiteDetails; disa
 				<Menu.SubmenuPopup>
 					<Menu.SubmenuRoot>
 						<Menu.SubmenuTrigger>
-							<DuplicateIcon />
+							<LinkIcon />
 							{ __( 'Copy links' ) }
 						</Menu.SubmenuTrigger>
 						<Menu.SubmenuPopup>
@@ -80,7 +80,7 @@ export function SiteShareMenuItem( { site, disabled }: { site: SiteDetails; disa
 					</Menu.SubmenuRoot>
 					<Menu.SubmenuRoot>
 						<Menu.SubmenuTrigger>
-							<ExternalLinkIcon />
+							<GlobeIcon />
 							{ __( 'Visit previews' ) }
 						</Menu.SubmenuTrigger>
 						<Menu.SubmenuPopup>

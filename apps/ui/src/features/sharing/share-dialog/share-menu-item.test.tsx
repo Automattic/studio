@@ -11,6 +11,7 @@ it( 'copies an active preview and keeps the sharing dialog accessible', async ()
 	const site = makeSite( { id: 'share-menu' } );
 	const copyText = vi.fn( async () => {} );
 	const openExternalUrl = vi.fn( async () => {} );
+	const publishPreviewSite = vi.fn( async () => ( { url: 'https://new.example.com' } ) );
 	const preview = {
 		atomicSiteId: 1,
 		localSiteId: site.id,
@@ -23,6 +24,7 @@ it( 'copies an active preview and keeps the sharing dialog accessible', async ()
 	const connector = createFakeConnector(
 		{ sites: [ site ], user: TEST_USER },
 		{
+			publishPreviewSite,
 			copyText,
 			openExternalUrl,
 			getSnapshots: async () => [
@@ -77,7 +79,10 @@ it( 'copies an active preview and keeps the sharing dialog accessible', async ()
 		expect( screen.queryByRole( 'menuitem', { name: 'Expired' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'menuitem', { name: 'Other site' } ) ).not.toBeInTheDocument();
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Create preview' } ) );
-		expect( requested ).toHaveBeenCalledWith( { panel: 'share', siteId: site.id } );
+		await waitFor( () =>
+			expect( publishPreviewSite ).toHaveBeenCalledWith( site.id, undefined, undefined )
+		);
+		expect( requested ).not.toHaveBeenCalled();
 		await open();
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Manage sharing' } ) );
 		expect( requested ).toHaveBeenCalledWith( { panel: 'share', siteId: site.id } );

@@ -74,7 +74,7 @@
 	}
 
 	.button:has( > [data-icon='inline-start'] ) {
-		padding-inline-start: var( --space-2 );
+		padding-inline-start: var( --space-1_5 );
 	}
 
 	.button:has(

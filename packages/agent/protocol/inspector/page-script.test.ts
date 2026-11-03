@@ -104,7 +104,7 @@ describe( 'annotation inspector', () => {
 		expect( highlight ).toHaveStyle( { left: '0px', top: '0px', width: `${ innerWidth }px` } );
 	} );
 
-	it( 'keeps the crosshair centered on edge picks and changes the same marker on Save', () => {
+	it( 'keeps edge markers inside the viewport and changes the same marker on Save', () => {
 		document.body.innerHTML = '<h1>Welcome</h1>';
 		const heading = document.querySelector( 'h1' ) as HTMLElement;
 		const bounds = vi
@@ -128,7 +128,7 @@ describe( 'annotation inspector', () => {
 		expect( getComputedStyle( heading ).cursor ).toBe( 'crosshair' );
 		expect( marker ).toHaveAttribute( 'aria-label', 'Pending annotation' );
 		expect( marker ).toHaveAttribute( 'data-pending', 'true' );
-		expect( marker ).toHaveStyle( { left: '2px' } );
+		expect( marker ).toHaveStyle( { left: '24px' } );
 		expect( marker ).toHaveStyle( { top: '30px' } );
 		marker.dispatchEvent( new Event( 'animationend' ) );
 		marker.focus();
@@ -156,17 +156,26 @@ describe( 'annotation inspector', () => {
 		heading.dispatchEvent( new MouseEvent( 'pointermove', { bubbles: true } ) );
 		expect( root.querySelector( 'button' ) ).toBe( marker );
 		expect( root.activeElement ).toBe( marker );
-		expect( marker ).toHaveStyle( { left: `${ innerWidth - 2 }px` } );
-		expect( marker ).toHaveStyle( { top: '20px' } );
+		expect( marker ).toHaveStyle( { left: `${ innerWidth - 24 }px` } );
+		expect( marker ).toHaveStyle( { top: '24px' } );
 		marker.click();
 		expect( events().at( -1 ) ).toEqual( {
 			type: 'edit',
 			id: note.id,
-			anchor: { left: innerWidth - 2, top: 20 },
+			anchor: { left: innerWidth - 24, top: 24 },
 		} );
+		bounds.mockReturnValue( new DOMRect( 100, innerHeight - 14, innerWidth, 40 ) );
+		update( false, note.id );
+		expect( marker ).toHaveStyle( { top: `${ innerHeight - 24 }px` } );
+		expect( marker.hidden ).toBe( false );
+		bounds.mockReturnValue( new DOMRect( 100, -100, innerWidth, 40 ) );
+		update( false, note.id );
+		expect( marker.hidden ).toBe( true );
+		expect( events().at( -1 ) ).toEqual( { type: 'anchor', id: note.id, anchor: null } );
 		publish( { active: false, notes: [ note ] } );
 		expect( getComputedStyle( heading ).cursor ).not.toBe( 'crosshair' );
 		expect( host.hidden ).toBe( true );
+		expect( getComputedStyle( host ).display ).toBe( 'none' );
 		update( false );
 		expect( root.querySelector( 'button' ) ).toBe( marker );
 		expect( marker ).not.toHaveClass( 'enter' );
@@ -194,6 +203,13 @@ describe( 'annotation inspector', () => {
 		expect( marker ).toHaveAttribute( 'data-pending', 'true' );
 		publish( { active: true, notes: [ note ] } );
 		expect( root.querySelectorAll( 'button' ) ).toHaveLength( 1 );
+		expect( root.querySelector( 'button' ) ).toBe( marker );
+		const host = document.getElementById( '__studio-inspector-host' )!;
+		publish( { active: false, notes: [ note ] } );
+		expect( getComputedStyle( host ).display ).toBe( 'none' );
+		expect( root.querySelector( 'button' ) ).toBe( marker );
+		publish( { active: true, notes: [ note ] } );
+		expect( getComputedStyle( host ).display ).toBe( 'block' );
 		expect( root.querySelector( 'button' ) ).toBe( marker );
 	} );
 

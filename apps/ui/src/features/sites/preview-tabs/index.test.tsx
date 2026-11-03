@@ -368,7 +368,7 @@ it( 'reopens a batched design note in its existing tab without scrolling', async
 		'aria-selected',
 		'true'
 	);
-	expect( await screen.findByRole( 'textbox', { name: 'Leave a note' } ) ).toHaveValue(
+	expect( await screen.findByRole( 'textbox', { name: 'Describe the change' } ) ).toHaveValue(
 		'Give this title more space'
 	);
 } );

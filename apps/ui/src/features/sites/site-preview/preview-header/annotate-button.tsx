@@ -1,8 +1,10 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { useRef, useState } from 'react';
+import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
+import { useEffect, useRef, useState } from 'react';
 import { AnnotateHint } from '@/features/onboarding';
 import { AnnotateIcon, ChevronDownIcon, TrashIcon } from '@/lib/icons';
-import { Button, IconButton, Popover } from '@/lib/ui';
+import { isDialogOpen, isShortcut } from '@/lib/keyboard';
+import { Button, IconButton, Kbd, Popover } from '@/lib/ui';
 import styles from './annotation-batch.module.css';
 import type { PreviewAnnotation } from '@/features/annotations';
 
@@ -34,11 +36,36 @@ export function AnnotateButton( {
 	const firstNote = useRef< HTMLButtonElement >( null );
 	const modeButton = useRef< HTMLButtonElement >( null );
 	const notes = batch?.notes ?? [];
+	const tooltip =
+		disabledReason ??
+		( active ? __( 'Exit annotation mode' ) : __( 'Point to anything to describe a change' ) );
+	useEffect( () => {
+		if ( disabled ) return;
+		const toggleFromKeyboard = ( event: KeyboardEvent ) => {
+			if (
+				event.defaultPrevented ||
+				event.repeat ||
+				! isShortcut( event, '.', 'shift' ) ||
+				isDialogOpen() ||
+				modeButton.current?.closest( '[inert], [hidden], [aria-hidden="true"]' )
+			)
+				return;
+			event.preventDefault();
+			modeButton.current?.click();
+		};
+		document.addEventListener( 'keydown', toggleFromKeyboard );
+		return () => document.removeEventListener( 'keydown', toggleFromKeyboard );
+	}, [ disabled ] );
 
 	const toggle = (
 		<AnnotateHint
 			enabled={ ! disabled && ! active && ! notes.length }
-			tooltip={ disabledReason ?? ( active ? __( 'Exit annotation mode' ) : __( 'Annotate' ) ) }
+			tooltip={
+				<>
+					{ tooltip }
+					{ ! disabled && <Kbd>{ displayShortcut.primaryShift( '.' ) }</Kbd> }
+				</>
+			}
 		>
 			<IconButton
 				ref={ modeButton }
@@ -48,6 +75,7 @@ export function AnnotateButton( {
 				icon={ <AnnotateIcon /> }
 				label={ disabledReason ?? ( active ? __( 'Exit annotation mode' ) : __( 'Annotate' ) ) }
 				aria-label={ __( 'Annotate' ) }
+				aria-keyshortcuts={ ariaKeyShortcut.primaryShift( '.' ) }
 				aria-pressed={ active }
 				aria-description={
 					disabled

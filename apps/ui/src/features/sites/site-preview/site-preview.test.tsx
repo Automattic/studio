@@ -746,7 +746,7 @@ it.each( [ 'browser', 'desktop' ] as const )(
 					frame.contentDocument!.body.innerHTML = email.html;
 					fireEvent.load( frame );
 				}
-				expect( await screen.findByRole( 'textbox', { name: 'Leave a note' } ) ).toHaveValue(
+				expect( await screen.findByRole( 'textbox', { name: 'Describe the change' } ) ).toHaveValue(
 					`Update the ${ part } heading`
 				);
 				update( { path: '/' } );

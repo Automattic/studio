@@ -6,8 +6,8 @@
 }
 
 .editor {
+	composes: floating padded from '@/lib/ui/surface/style.module.css';
 	--motion-duration-feedback: 0s;
-	--surface: var( --composer );
 
 	position: absolute;
 	display: flex;
@@ -16,14 +16,8 @@
 	width: 320px;
 	max-width: calc( 100% - 16px );
 	max-height: calc( 100% - 16px );
-	padding: var( --space-1 );
 	overflow-y: auto;
 	border-radius: var( --radius-3xl );
-	background-color: var( --surface );
-	color: var( --foreground );
-	box-shadow:
-		0 0 0 1px var( --border ),
-		var( --shadow-sm );
 	pointer-events: auto;
 }
 
@@ -54,23 +48,30 @@
 	display: flex;
 	align-items: center;
 	gap: var( --space-1 );
-	padding: 0 var( --space-1 ) var( --space-1 );
 }
 
 .save {
 	margin-inline-start: auto;
 }
 .batchSetting {
-	margin-inline-start: var( --space-2 );
 	display: flex;
 	align-items: center;
 	gap: var( --space-2 );
-	min-height: 36px;
+	height: var( --control-size );
+	padding-inline: var( --space-2 );
+	border-radius: var( --radius-full );
 	font-size: var( --text-xs );
-	color: var( --muted-foreground );
-}
-.batchSetting label {
+	font-weight: var( --font-weight-medium );
+	color: var( --foreground );
 	cursor: pointer;
+	user-select: none;
+	transition: background-color var( --motion-duration-feedback ) ease;
+}
+.batchCheckbox {
+	--input: var( --foreground );
+}
+.batchSetting:is( :hover, :focus-within ) {
+	background-color: var( --hover );
 }
 
 /* Matches the markers drawn on preview pages: the accent inside a white ring. */
@@ -96,4 +97,16 @@
 	letter-spacing: normal;
 	text-transform: none;
 	white-space: nowrap;
+}
+
+.submitTooltip {
+	flex-direction: column;
+	align-items: stretch;
+}
+
+.shortcutRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var( --space-4 );
 }

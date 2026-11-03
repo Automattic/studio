@@ -1,4 +1,4 @@
-import { act, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { useOnboardingGuide } from '@/features/onboarding';
 import { Button } from '@/lib/ui';
@@ -22,6 +22,38 @@ async function setup(
 }
 
 describe( 'Annotate first-use helper', () => {
+	it( 'toggles from the annotation shortcut and dismisses the first-use tip', async () => {
+		const { onClick, connector, button } = await setup();
+		const event = { key: '>', code: 'Period', ctrlKey: true, shiftKey: true };
+		fireEvent.keyDown( document, { ...event, repeat: true } );
+		fireEvent.keyDown( document, { ...event, isComposing: true } );
+		expect( onClick ).not.toHaveBeenCalled();
+		fireEvent.keyDown( document, event );
+		expect( onClick ).toHaveBeenCalledOnce();
+		await waitFor( () =>
+			expect( connector.setOnboardingHints ).toHaveBeenCalledWith( { annotateHintDismissed: true } )
+		);
+		expect( button ).toHaveAttribute( 'aria-keyshortcuts' );
+	} );
+
+	it( 'leaves the shortcut alone when annotation is disabled or a dialog is open', async () => {
+		const { onClick, unmount } = await setup( { disabled: true } );
+		const event = { key: '>', code: 'Period', ctrlKey: true, shiftKey: true };
+		fireEvent.keyDown( document, event );
+		expect( onClick ).not.toHaveBeenCalled();
+		unmount();
+		const enabled = await setup();
+		const dialog = document.createElement( 'div' );
+		dialog.dataset.slot = 'dialog-content';
+		document.body.append( dialog );
+		try {
+			fireEvent.keyDown( document, event );
+			expect( enabled.onClick ).not.toHaveBeenCalled();
+		} finally {
+			dialog.remove();
+		}
+	} );
+
 	it( 'refreshes first-use state after a failed save so the tip can be retried', async () => {
 		const connector = createFakeConnector();
 		connector.setOnboardingHints.mockRejectedValueOnce( new Error( 'Save failed' ) );
@@ -92,7 +124,9 @@ describe( 'Annotate first-use helper', () => {
 		expect( button ).toHaveFocus();
 		await user.hover( button );
 		expect(
-			await screen.findByText( 'Annotate', { selector: '[data-slot="tooltip-content"]' } )
+			await screen.findByText( 'Point to anything to describe a change', {
+				selector: '[data-slot="tooltip-content"]',
+			} )
 		).toBeVisible();
 	} );
 
@@ -133,7 +167,9 @@ describe( 'Annotate first-use helper', () => {
 		await act( async () => {} );
 		await user.tab();
 		expect(
-			await screen.findByText( 'Annotate', { selector: '[data-slot="tooltip-content"]' } )
+			await screen.findByText( 'Point to anything to describe a change', {
+				selector: '[data-slot="tooltip-content"]',
+			} )
 		).toBeVisible();
 		expect( screen.queryByRole( 'dialog', { name: 'Try Annotate' } ) ).not.toBeInTheDocument();
 	} );

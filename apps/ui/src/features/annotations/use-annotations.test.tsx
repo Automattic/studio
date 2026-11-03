@@ -53,7 +53,7 @@ async function setup( onSend: ( noteIds?: string[] ) => void = vi.fn() ) {
 	return { onSend };
 }
 
-const note = () => screen.getByRole( 'textbox', { name: 'Leave a note' } );
+const note = () => screen.getByRole( 'textbox', { name: 'Describe the change' } );
 const save = () => fireEvent.keyDown( note(), { key: 'Enter' } );
 
 describe( 'preview annotation sessions', () => {
@@ -66,7 +66,9 @@ describe( 'preview annotation sessions', () => {
 		expect( session().notes.some( ( note ) => note.id === deleted ) ).toBe( false );
 		expect( session().editingId ).toBeNull();
 		expect( session().active ).toBe( true );
-		expect( screen.queryByRole( 'textbox', { name: 'Leave a note' } ) ).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'textbox', { name: 'Describe the change' } )
+		).not.toBeInTheDocument();
 		expect( onSend ).not.toHaveBeenCalled();
 	} );
 

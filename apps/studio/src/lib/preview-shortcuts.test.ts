@@ -25,6 +25,32 @@ function createGuest() {
 }
 
 describe( 'forwardPreviewShortcut', () => {
+	it.each( [ 'darwin', 'win32', 'linux' ] as const )(
+		'forwards the annotation shortcut from a %s preview',
+		( platform ) => {
+			const { guest, host } = createGuest();
+			expect(
+				forwardPreviewShortcut(
+					guest,
+					{
+						...input,
+						code: 'Period',
+						key: '>',
+						shift: true,
+						meta: platform === 'darwin',
+						control: platform !== 'darwin',
+					},
+					platform
+				)
+			).toBe( true );
+			expect( host.sendInputEvent ).toHaveBeenCalledWith( {
+				type: 'keyDown',
+				keyCode: '.',
+				modifiers: [ platform === 'darwin' ? 'meta' : 'control', 'shift' ],
+			} );
+		}
+	);
+
 	it.each( [ 'K', 'T' ] )( 'hands ⌘%s pressed in the preview to the window', ( key ) => {
 		const { guest, host } = createGuest();
 		expect(

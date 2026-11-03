@@ -31,7 +31,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 	const host = document.createElement('div');
 	host.id = '__studio-inspector-host';
 	host.dataset.studioInspector = '';
-	host.style.cssText = 'all:initial;position:fixed;inset:0;pointer-events:none;z-index:2147483647';
+	host.style.cssText = 'all:initial;display:none!important;position:fixed;inset:0;pointer-events:none;z-index:2147483647';
 	host.hidden = true;
 	document.documentElement.append(host);
 	const root = host.attachShadow({ mode: 'open' });
@@ -134,6 +134,17 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 			return false;
 		}
 	}
+	function markerAnchor(point) {
+		const width = Math.min(innerWidth, document.documentElement.clientWidth || innerWidth);
+		const height = Math.min(innerHeight, document.documentElement.clientHeight || innerHeight);
+		if (point.left < 0 || point.left > width || point.top < 0 || point.top > height) return null;
+		const insetX = Math.min(24, width / 2);
+		const insetY = Math.min(24, height / 2);
+		return {
+			left: Math.max(insetX, Math.min(point.left, width - insetX)),
+			top: Math.max(insetY, Math.min(point.top, height - insetY)),
+		};
+	}
 	function anchor(note) {
 		const el = resolve(note);
 		const r = el
@@ -144,14 +155,16 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 					width: note.documentRect.width,
 					height: note.documentRect.height,
 			  };
-		return {
+		return markerAnchor({
 			left: r.left + r.width * (note.point ? note.point.x : 1),
 			top: r.top + r.height * (note.point ? note.point.y : 0),
-		};
+		});
 	}
 	function render() {
 		frame = 0;
 		host.hidden = !state.active;
+		// The inline reset overrides the browser's [hidden] rule.
+		host.style.setProperty('display', state.active ? 'block' : 'none', 'important');
 		const pageNotes = state.notes.filter(onPage);
 		const ids = new Set(pageNotes.map((note) => note.id));
 		for (const [id, marker] of markerNodes) {
@@ -165,6 +178,10 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		for (const note of pageNotes) {
 			const p = anchor(note);
 			let marker = markerNodes.get(note.id);
+			if (!p) {
+				if (marker) marker.hidden = true;
+				continue;
+			}
 			if (!marker) {
 				marker = document.createElement('button');
 				marker.type = 'button';
@@ -182,6 +199,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 				marker.classList.remove('enter');
 				marker.classList.add('confirm');
 			}
+			marker.hidden = false;
 			marker.dataset.pending = String(Boolean(note.pending));
 			const number = marker.querySelector('.number');
 			if (number.textContent !== String(note.number)) number.textContent = String(note.number);
@@ -279,7 +297,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 			if (!(e.target instanceof Element)) return;
 			selected = e.target;
 			hovered = selected;
-			emit({ type: 'pick', target: metadata(selected, e), anchor: { left: e.clientX, top: e.clientY } });
+			emit({ type: 'pick', target: metadata(selected, e), anchor: markerAnchor({ left: e.clientX, top: e.clientY }) });
 		},
 		{ capture: true, signal: abort.signal }
 	);

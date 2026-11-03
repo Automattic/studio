@@ -23,6 +23,7 @@ export function SendButton( {
 			onClick={ onSend }
 			disabled={ ! canSend }
 			label={ label }
+			shortcut={ { ariaKeyShortcut: 'Enter', displayShortcut: '↵' } }
 			icon={ <SendIcon /> }
 		/>
 	);

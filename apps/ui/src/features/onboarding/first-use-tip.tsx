@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type ReactElement } from 'react';
+import { useEffect, useId, useState, type ReactElement, type ReactNode } from 'react';
 import { useOnboardingHints, useSetOnboardingHints } from '@/data/queries/use-onboarding-hints';
 import { FeaturePopover, Popover, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import { useOnboardingGuide } from './onboarding-guide/use-onboarding-guide';
@@ -15,7 +15,7 @@ export function FirstUseTip( {
 }: {
 	children: ReactElement;
 	enabled: boolean;
-	tooltip: string;
+	tooltip: ReactNode;
 	dismissalKey: 'annotateHintDismissed';
 	title: string;
 	description: string;

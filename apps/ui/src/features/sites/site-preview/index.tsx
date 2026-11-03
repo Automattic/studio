@@ -22,7 +22,8 @@ import { useResponsivePreview, updateResponsivePreview } from '@/data/responsive
 import {
 	AnnotationOverlay,
 	isBatchedAnnotation,
-	removeAnnotations,
+	getSiteAnnotations,
+	subscribeAnnotationReview,
 	editAnnotation,
 	type AnnotationAnchor,
 	isAnnotationsBusy,
@@ -286,33 +287,39 @@ export function SitePreview( {
 			  }
 			: undefined;
 	const batchNotes = annotations.notes.filter( isBatchedAnnotation );
-	const reviewBatch = () => {
-		if ( onStartAnnotating?.() === false ) return false;
-		setAnnotating( site.id, true );
-		return true;
-	};
+	useEffect( () => {
+		if ( live ) return;
+		return subscribeAnnotationReview( site.id, ( id ) => {
+			const requested = getSiteAnnotations( site.id ).notes.find( ( note ) => note.id === id );
+			if ( ! requested || onStartAnnotating?.() === false ) return;
+			const accepted = editAnnotation( site.id, id );
+			const current = getSiteAnnotations( site.id );
+			const note = accepted
+				? requested
+				: current.notes.find( ( note ) => note.id === current.editingId );
+			if ( ! note ) return;
+			if ( note.email ) switchRealm( 'email' );
+			else if ( note.targetKey && note.path === 'DESIGN.md' ) switchRealm( 'design' );
+			else if ( note.path ) onPathChange?.( note.path );
+			setAnnotating( site.id, true );
+			if ( ! site.running && ! isStarting )
+				startSite.mutate( site.id, {
+					onError: () => setAnnotating( site.id, false ),
+				} );
+		} );
+	}, [
+		live,
+		site.id,
+		site.running,
+		isStarting,
+		onStartAnnotating,
+		onPathChange,
+		switchRealm,
+		startSite,
+	] );
 	const annotate = showAnnotate
 		? {
-				batch: {
-					notes: batchNotes,
-					busy: isAnnotationsBusy( annotations ) || ! onSendAnnotations,
-					onSend: () => sendAnnotations( batchNotes.map( ( note ) => note.id ) ),
-					onReview: reviewBatch,
-					onEdit: ( id: string ) => {
-						const note = batchNotes.find( ( note ) => note.id === id );
-						if ( ! note ) return;
-						if ( note.email ) switchRealm( 'email' );
-						else if ( note.path === 'DESIGN.md' ) switchRealm( 'design' );
-						else if ( note.path ) onPathChange?.( note.path );
-						editAnnotation( site.id, id );
-					},
-					onDelete: ( id: string ) => removeAnnotations( site.id, [ id ] ),
-					onClear: () =>
-						removeAnnotations(
-							site.id,
-							batchNotes.map( ( note ) => note.id )
-						),
-				},
+				annotationCount: batchNotes.length,
 				active: annotations.active,
 				disabled:
 					! canAnnotateSurface ||

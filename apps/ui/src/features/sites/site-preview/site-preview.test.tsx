@@ -10,6 +10,7 @@ import {
 	pickAnnotation,
 	removeAnnotations,
 	setAnnotating,
+	requestAnnotationReview,
 	stageAnnotations,
 } from '@/features/annotations';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
@@ -724,18 +725,13 @@ it.each( [ 'browser', 'desktop' ] as const )(
 		} );
 		try {
 			const onPathChange = vi.fn();
-			const { user, update } = await renderPreview(
+			const { update } = await renderPreview(
 				runtime,
 				{ onPathChange, onSendAnnotations: vi.fn() },
 				createFakeConnector( { emails: { one: [ email ] } } )
 			);
 			for ( const part of [ 'text', 'html' ] as const ) {
-				await user.click( screen.getByRole( 'button', { name: 'Review annotations' } ) );
-				await user.click(
-					await screen.findByRole( 'button', {
-						name: new RegExp( `Edit annotation [0-9]+: Update the ${ part } heading` ),
-					} )
-				);
+				act( () => requestAnnotationReview( 'one', ids[ part === 'text' ? 0 : 1 ] ) );
 				expect( onPathChange ).toHaveBeenLastCalledWith( 'studio:email' );
 				update( { path: 'studio:email' } );
 				await screen.findByRole( 'article', { name: 'Password Reset' } );
@@ -747,7 +743,7 @@ it.each( [ 'browser', 'desktop' ] as const )(
 					frame.contentDocument!.body.innerHTML = email.html;
 					fireEvent.load( frame );
 				}
-				expect( await screen.findByRole( 'textbox', { name: 'Leave a note' } ) ).toHaveValue(
+				expect( await screen.findByRole( 'textbox', { name: 'Describe the change' } ) ).toHaveValue(
 					`Update the ${ part } heading`
 				);
 				update( { path: '/' } );

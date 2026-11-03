@@ -176,7 +176,7 @@ export function PreviewHeader( {
 					<span
 						data-site-header-annotate
 						className={ styles.headerItem }
-						hidden={ headerLayout === 'mobile-overflow' && ! annotate.batch?.notes.length }
+						hidden={ headerLayout === 'mobile-overflow' && ! annotate.annotationCount }
 					>
 						<AnnotateButton { ...annotate } />
 					</span>

@@ -72,9 +72,13 @@ function useSettingToggles(): SettingToggles {
 		),
 		'batch-notes': toggle(
 			'batchAnnotations',
-			preferences.batchAnnotations ?? false,
-			preferences.batchAnnotations ? __( 'Disable batch notes' ) : __( 'Enable batch notes' ),
-			preferences.batchAnnotations ? __( 'Batch notes disabled.' ) : __( 'Batch notes enabled.' )
+			preferences.batchAnnotations ?? true,
+			preferences.batchAnnotations ?? true
+				? __( 'Disable batch notes' )
+				: __( 'Enable batch notes' ),
+			preferences.batchAnnotations ?? true
+				? __( 'Batch notes disabled.' )
+				: __( 'Batch notes enabled.' )
 		),
 
 		'open-chat-on-site-start': toggle(

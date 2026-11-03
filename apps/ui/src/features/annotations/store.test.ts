@@ -18,6 +18,7 @@ describe( 'annotation store', () => {
 		setAnnotating( 'store-site', true );
 		const kept = pickAnnotation( 'store-site', { selector: 'h1' } )!;
 		changeAnnotation( 'store-site', kept, { comment: 'Bigger' } );
+		stageAnnotations( 'store-site' );
 		pickAnnotation( 'store-site', { selector: 'p' } );
 		const last = pickAnnotation( 'store-site', { selector: 'footer' } );
 
@@ -77,6 +78,7 @@ describe( 'annotation store', () => {
 			changeAnnotation( 'full-site', pickAnnotation( 'full-site', { selector: `#n${ index }` } )!, {
 				comment: 'Note',
 			} );
+			stageAnnotations( 'full-site' );
 		}
 
 		expect( pickAnnotation( 'full-site', { selector: 'footer' } ) ).toBeNull();

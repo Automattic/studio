@@ -13,6 +13,8 @@ export {
 	pickAnnotation,
 	removeAnnotations,
 	requestAnnotationSend,
+	requestAnnotationReview,
+	subscribeAnnotationReview,
 	setAnnotating,
 	type SiteAnnotations,
 	type PreviewAnnotation,
@@ -21,3 +23,4 @@ export {
 	useSiteAnnotations,
 } from './store';
 export { annotationSubmission, getAnnotationsAttachment } from './submission';
+export { AnnotationReviewChip } from './review-chip';

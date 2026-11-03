@@ -146,6 +146,15 @@ describe( 'reply checks', () => {
 		expect( run( checks.replyIncludes, reply( 'hello' ), vars ).pass ).toBe( false );
 	} );
 
+	test( 'offersAudits', () => {
+		const offer = '**Next steps**\n- A performance audit\n- An SEO audit';
+		expect( run( checks.offersAudits, reply( 'Building…', offer ) ).pass ).toBe( true );
+		expect( run( checks.offersAudits, reply( offer, 'All done.' ) ).pass ).toBe( false );
+		expect( run( checks.offersAudits, reply( '**Next steps**\n- An SEO audit' ) ).pass ).toBe(
+			false
+		);
+	} );
+
 	test( 'sawDesktopAndMobile', () => {
 		expect(
 			run(

@@ -7,6 +7,10 @@ import {
 	readOnboardingCompleted,
 	writeOnboardingCompleted,
 } from '@studio/common/lib/user-settings/onboarding';
+import {
+	readOnboardingHints,
+	writeOnboardingHints,
+} from '@studio/common/lib/user-settings/user-preferences';
 
 let configDir: string;
 beforeEach( () => {
@@ -40,4 +44,17 @@ it( 'reports only one completion when hosts save concurrently', async () => {
 		writeOnboardingCompleted( true ),
 	] );
 	expect( completed.filter( Boolean ) ).toHaveLength( 1 );
+} );
+
+it( 'persists the annotation hint without losing guide progress', async () => {
+	await writeOnboardingHints( {
+		tourCompletedVersion: 2,
+		whatsNewSeenVersion: 3,
+	} );
+	await writeOnboardingHints( { annotateHintDismissed: true } );
+	expect( await readOnboardingHints() ).toMatchObject( {
+		tourCompletedVersion: 2,
+		whatsNewSeenVersion: 3,
+		annotateHintDismissed: true,
+	} );
 } );

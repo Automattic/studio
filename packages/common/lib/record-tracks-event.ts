@@ -20,6 +20,7 @@ export const TRACKS_EVENTS = {
 	SITE_OPEN_CUSTOMIZE: 'studio_site_open_customize',
 	SITE_OPEN_PHPMYADMIN: 'studio_site_open_phpmyadmin',
 	SITE_OPEN_DESIGN_SYSTEM: 'studio_site_open_design_system',
+	SITE_OPEN_EMAIL: 'studio_site_open_email',
 	SITE_OPEN_FOLDER: 'studio_site_open_folder',
 	SITE_IMPORT: 'studio_site_imported',
 	SITE_EXPORT: 'studio_site_exported',
@@ -259,8 +260,9 @@ function omitUndefined( props: TracksProps ): TracksProps {
 }
 
 // Returns true if we attempted to record the event. Fire-and-forget, no-ops in E2E/dev like
-// `__bumpStat`. The timeout prevents an unreachable endpoint from keeping short-lived CLI processes
-// alive after their command has completed.
+// `__bumpStat`, and in tests, whose mocked boots would otherwise count as real launches. The timeout
+// prevents an unreachable endpoint from keeping short-lived CLI processes alive after their command
+// has completed.
 export function __recordTracksEvent(
 	eventName: TracksEventName,
 	identity: TracksIdentity,
@@ -272,7 +274,11 @@ export function __recordTracksEvent(
 		console.info( `Tracks event URL: ${ url }` );
 	}
 
-	if ( process.env.E2E || process.env.NODE_ENV === 'development' ) {
+	if (
+		process.env.E2E ||
+		process.env.NODE_ENV === 'development' ||
+		process.env.NODE_ENV === 'test'
+	) {
 		// Log what would actually be sent: the builder drops `undefined` props, so printing the raw
 		// object would show optional props as `undefined` and imply they were part of the request.
 		console.info( `Would have recorded Tracks event: ${ eventName }`, omitUndefined( props ) );

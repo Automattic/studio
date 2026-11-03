@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { createFakeConnector } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
@@ -21,8 +21,13 @@ describe( 'the empty workspace', () => {
 			expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument()
 		);
 
-		await connector.createSite( { name: 'From the terminal', path: '/sites/from-cli' } );
+		await act( async () => {
+			await connector.createSite( { name: 'From the terminal', path: '/sites/from-cli' } );
+		} );
 
-		await waitFor( () => expect( history.location.pathname ).not.toBe( '/sites' ) );
+		expect(
+			await screen.findByRole( 'combobox', { name: 'Message WordPress Studio' } )
+		).toBeVisible();
+		expect( history.location.pathname ).not.toBe( '/sites' );
 	} );
 } );

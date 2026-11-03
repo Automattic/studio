@@ -139,7 +139,6 @@ export function SiteDeliveryDialog( {
 						>
 							<SharePanel
 								site={ site }
-								open={ open && tab === 'share' }
 								onManagePreview={ ( action ) => {
 									previewReturnFocus.current = action.trigger;
 									setPreviewAction( action );

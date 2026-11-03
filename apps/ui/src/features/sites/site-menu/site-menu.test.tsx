@@ -140,6 +140,7 @@ describe( 'Stop other sites', () => {
 				expect( items[ items.indexOf( sync ) + 1 ] ).toHaveTextContent( 'Delete site' );
 				fireEvent.click( action === 'Share' ? share : sync );
 				if ( action === 'Share' ) {
+					fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Manage sharing' } ) );
 					expect( requests.share ).toHaveBeenCalledExactlyOnceWith( {
 						panel: 'share',
 						siteId: 'selected',
@@ -206,6 +207,7 @@ describe( 'Stop other sites', () => {
 	it.each( [
 		[ 'WordPress Admin', autoLogin( '/wp-admin/' ) ],
 		[ 'Database', DATABASE_PATH ],
+		[ 'Email', 'studio:email' ],
 	] )( 'navigates to %s for the menu site', async ( label, path ) => {
 		const { open, history } = setup();
 		await open();
@@ -254,6 +256,7 @@ describe( 'Stop other sites', () => {
 	it.each( [
 		[ 'WordPress Admin', autoLogin( '/wp-admin/' ) ],
 		[ 'Database', DATABASE_PATH ],
+		[ 'Email', 'studio:email' ],
 	] )( 'starts a stopped site before opening %s', async ( label, path ) => {
 		const { open, connector } = setup( { selectedRunning: false } );
 		await open();
@@ -279,20 +282,6 @@ describe( 'Stop other sites', () => {
 			)
 		);
 	} );
-
-	it.each( [ true, false ] )(
-		'opens the email folder of the menu site, running or not (%s)',
-		async ( selectedRunning ) => {
-			const { open, connector } = setup( { selectedRunning } );
-			await open();
-			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
-			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Email' } ) );
-			await waitFor( () =>
-				expect( connector.openSiteEmailFolder ).toHaveBeenCalledExactlyOnceWith( 'selected' )
-			);
-			expect( connector.startSite ).not.toHaveBeenCalled();
-		}
-	);
 
 	it( 'stops only other running sites', async () => {
 		const { open, connector } = setup();

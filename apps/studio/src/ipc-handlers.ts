@@ -83,11 +83,7 @@ import {
 } from '@studio/common/lib/root-ca-trust';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
-import {
-	isSitePreviewPath,
-	readSitePreview,
-	writeSitePreview,
-} from '@studio/common/lib/site-preview-cache';
+import { isSitePreviewPath, readSitePreview } from '@studio/common/lib/site-preview-cache';
 import {
 	getLocalFileSize,
 	listLocalFileTree as listSiteFileTree,
@@ -121,6 +117,13 @@ import {
 	readSiteDesign,
 	type SiteDesign,
 } from '@studio/common/sites/site-design';
+import {
+	ensureSiteEmailDirectory,
+	listSiteEmails,
+	readSiteEmail,
+	type SiteEmail,
+	type SiteEmailSummary,
+} from '@studio/common/sites/site-email';
 import { readThemeDetails } from '@studio/common/sites/site-identity';
 import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import { __ } from '@wordpress/i18n';
@@ -976,6 +979,31 @@ export async function fixSiteDesignDrift(
 		: null;
 }
 
+export async function getSiteEmails(
+	_event: IpcMainInvokeEvent,
+	id: string
+): Promise< SiteEmailSummary[] > {
+	return ( await readSite( id ) ) ? listSiteEmails( id ) : [];
+}
+
+export async function getSiteEmail(
+	_event: IpcMainInvokeEvent,
+	id: string,
+	emailId: string
+): Promise< SiteEmail | null > {
+	return ( await readSite( id ) ) ? readSiteEmail( id, emailId ) : null;
+}
+
+export async function openSiteEmailFolder( _event: IpcMainInvokeEvent, id: string ) {
+	if ( ! ( await readSite( id ) ) ) {
+		throw new Error( `Site ${ id } not found` );
+	}
+	const error = await shell.openPath( await ensureSiteEmailDirectory( id ) );
+	if ( error ) {
+		throw new Error( error );
+	}
+}
+
 export async function getIsMultisite( _event: IpcMainInvokeEvent, id: string ) {
 	const sitePath = await readSitePath( id );
 	return sitePath ? isMultisite( sitePath ) : false;
@@ -1094,7 +1122,7 @@ export function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
 	return readSitePreview( id, getSiteThumbnailPath( id ) );
 }
 
-// Saves what the preview webview shows, so a stopped site still has a picture.
+// Refreshes the home-page thumbnail without navigating the preview webview.
 // Only the window hosting the webview may capture it.
 export async function captureSitePreview(
 	event: IpcMainInvokeEvent,
@@ -1106,9 +1134,12 @@ export async function captureSitePreview(
 	if ( ! guest || guest.hostWebContents !== event.sender || ! isSitePreviewPath( pagePath ) ) {
 		return null;
 	}
-	const png = ( await guest.capturePage() ).toPNG();
-	await writeSitePreview( siteId, png );
-	return `data:image/png;base64,${ png.toString( 'base64' ) }`;
+	const site = await getSite( siteId );
+	if ( ! site?.running ) {
+		return null;
+	}
+	await captureSiteThumbnail( { id: siteId, url: site.url } );
+	return readSitePreview( siteId, getSiteThumbnailPath( siteId ) );
 }
 
 function promiseExec( command: string, options: ExecOptions = {} ): Promise< void > {

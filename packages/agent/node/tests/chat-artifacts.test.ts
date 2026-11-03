@@ -20,6 +20,7 @@ it( "opens the design system in the preview when a site's DESIGN.md is written",
 	const ui = { showArtifact: vi.fn(), reloadPreview: vi.fn() };
 	const write = withDesignSystemPreview(
 		{
+			description: 'Write a file.',
 			execute: vi
 				.fn< ( id: string, params: { path?: unknown } ) => Promise< string > >()
 				.mockResolvedValue( 'ok' ),
@@ -34,10 +35,18 @@ it( "opens the design system in the preview when a site's DESIGN.md is written",
 	await write.execute( 'call-2', { path: 'bakery/style.css' } );
 	expect( ui.showArtifact ).not.toHaveBeenCalled();
 
+	expect( write.description ).toContain( '[Design System](studio:design-system)' );
+
 	await write.execute( 'call-3', { path: 'bakery/DESIGN.md' } );
 	expect( ui.showArtifact ).toHaveBeenCalledWith(
 		expect.objectContaining( {
 			widgets: [ { type: 'site-preview', widgetProps: { path: DESIGN_SYSTEM_PREVIEW_PATH } } ],
 		} )
 	);
+} );
+
+it( 'keeps file tools unchanged when no Studio UI is attached', () => {
+	const tool = { description: 'Write a file.', execute: vi.fn() };
+	expect( withDesignSystemPreview( tool, sitesRoot ) ).toBe( tool );
+	expect( tool.description ).not.toContain( 'studio:design-system' );
 } );

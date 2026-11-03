@@ -23,6 +23,10 @@
 		--command-radius: var( --radius-lg );
 	}
 
+	.list[data-radius='menu'] {
+		--command-radius: var( --radius-md );
+	}
+
 	.empty {
 		padding: var( --space-6 ) 0;
 		color: var( --muted-foreground );

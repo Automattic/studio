@@ -68,6 +68,55 @@ beforeEach( () => {
 } );
 
 describe( 'sidebar site sections', () => {
+	it( 'marks only the site group as read, including chats behind Show more', async () => {
+		const { connector } = setup( {
+			sessions: [
+				...Array.from( { length: 7 }, ( _, index ) =>
+					chat( `site-chat-${ index }`, 'one', { unread: true } )
+				),
+				chat( 'other-site', 'two', { unread: true } ),
+			],
+		} );
+		const chats = await screen.findByRole( 'group', { name: 'My site chats' } );
+		fireEvent.contextMenu( within( chats ).getByRole( 'button', { name: 'Site-chat-0 Unread' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Mark all as read' } ) );
+		await waitFor( () => expect( connector.updateSessionMetadata ).toHaveBeenCalledTimes( 7 ) );
+		for ( let index = 0; index < 7; index++ ) {
+			expect( connector.updateSessionMetadata ).toHaveBeenCalledWith( `site-chat-${ index }`, {
+				unread: false,
+			} );
+		}
+		expect( connector.updateSessionMetadata ).not.toHaveBeenCalledWith( 'other-site', {
+			unread: false,
+		} );
+	} );
+
+	it( 'marks only the ten chats in Recent as read', async () => {
+		const { connector } = setup( {
+			sessions: Array.from( { length: 12 }, ( _, index ) =>
+				chat( `recent-${ index }`, index % 2 ? 'one' : 'two', {
+					unread: true,
+					updatedAt: new Date( Date.UTC( 2026, 0, 12 - index ) ).toISOString(),
+				} )
+			),
+		} );
+		const recent = await screen.findByRole( 'group', { name: 'Recent' } );
+		fireEvent.contextMenu( within( recent ).getByRole( 'button', { name: 'Recent-0 Unread' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Mark all as read' } ) );
+		await waitFor( () => expect( connector.updateSessionMetadata ).toHaveBeenCalledTimes( 10 ) );
+		for ( let index = 0; index < 10; index++ ) {
+			expect( connector.updateSessionMetadata ).toHaveBeenCalledWith( `recent-${ index }`, {
+				unread: false,
+			} );
+		}
+		expect( connector.updateSessionMetadata ).not.toHaveBeenCalledWith( 'recent-10', {
+			unread: false,
+		} );
+		expect( connector.updateSessionMetadata ).not.toHaveBeenCalledWith( 'recent-11', {
+			unread: false,
+		} );
+	} );
+
 	it( 'keeps one selected chat through navigation and pinning', async () => {
 		const { history } = setup( {
 			sessions: [ chat( 'first', 'one' ) ],
@@ -241,7 +290,7 @@ describe( 'sidebar site sections', () => {
 			screen
 				.getAllByRole( 'menuitem' )
 				.map( ( item ) => item.textContent?.replace( SHORTCUTS, '' ) )
-		).toEqual( [ 'Pin', 'Rename', 'Mark as unread', 'Archive' ] );
+		).toEqual( [ 'Pin', 'Rename', 'Mark as unread', 'Mark all as read', 'Archive' ] );
 		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Rename' } ) );
 		const title = await screen.findByRole( 'textbox', { name: 'Chat title' } );
 		expect( title ).toHaveValue( 'Make the heading larger' );

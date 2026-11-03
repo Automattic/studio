@@ -72,6 +72,7 @@ export function SiteChats( {
 		<ChatRow
 			key={ session.id }
 			session={ session }
+			groupChats={ chats }
 			active={ session.id === activeSessionId }
 			nested
 			onOpen={ onSiteOpen }

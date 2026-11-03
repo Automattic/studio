@@ -57,3 +57,5 @@ export * from './success-icon';
 
 export { DisconnectIcon } from './disconnect-icon';
 export { RefreshIcon } from './refresh-icon';
+
+export * from './unread-status-icon';

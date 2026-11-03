@@ -229,6 +229,11 @@ export function SiteList( {
 			key={ session.id }
 			itemProps={ itemProps }
 			session={ session }
+			groupChats={
+				navigation === 'recent'
+					? recentChats
+					: pinnedItems.flatMap( ( item ) => ( item.session ? [ item.session ] : [] ) )
+			}
 			active={
 				session.id === activeSessionId &&
 				( navigation

@@ -20,7 +20,6 @@ import {
 	SidebarMenuLabel,
 	VisuallyHidden,
 } from '@/lib/ui';
-import { MarkAllReadItem } from './mark-all-read';
 import { BulkMenu, useIsBulkTarget, useRowPressed, useSelectableRow } from './selection';
 import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
@@ -39,7 +38,6 @@ export function RetryLoadingChats() {
 
 export function ChatRow( {
 	session,
-	groupChats,
 	active,
 	nested = false,
 	navigation = 'site',
@@ -48,7 +46,6 @@ export function ChatRow( {
 	itemProps,
 }: {
 	session: AiSessionSummary;
-	groupChats?: AiSessionSummary[];
 	active: boolean;
 	// Under its site the row indents to the site's name and drops its icon.
 	nested?: boolean;
@@ -152,9 +149,7 @@ export function ChatRow( {
 					<BulkMenu onClose={ () => setMenuOpen( false ) } />
 				) : (
 					<Menu.ContextPopup { ...actions.shortcuts }>
-						<ChatActionsMenuItems actions={ actions }>
-							{ groupChats ? <MarkAllReadItem chats={ groupChats } /> : null }
-						</ChatActionsMenuItems>
+						<ChatActionsMenuItems actions={ actions } />
 					</Menu.ContextPopup>
 				) }
 			</Menu.ContextMenuRoot>

@@ -211,7 +211,12 @@ export function ChatActionsMenuItems( {
 				{ actions.session.unread ? <ReadStatusIcon /> : <UnreadStatusIcon /> }
 				{ actions.session.unread ? __( 'Mark as read' ) : __( 'Mark as unread' ) }
 			</Menu.Item>
-			{ children }
+			{ children ? (
+				<>
+					<Menu.Separator />
+					{ children }
+				</>
+			) : null }
 			<Menu.Separator />
 			<Menu.Item
 				destructive

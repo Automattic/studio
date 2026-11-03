@@ -1,6 +1,6 @@
 import { readdir } from 'fs/promises';
 import path from 'path';
-import { activeIsBlockTheme, activeThemes } from '@studio/agent/node/themes';
+import { activeIsBlockTheme, activeThemes, themesDir } from '@studio/agent/node/themes';
 import { wpEvalJson } from '@studio/agent/node/tools/utils';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 import type { WordPressSite } from '@studio/agent/node/site-database';
@@ -161,7 +161,7 @@ async function themeFilesOf(
 	const names = await Promise.all(
 		themes.flatMap( ( theme ) =>
 			[ 'templates', 'block-templates', 'parts', 'block-template-parts' ].map( ( folder ) =>
-				readdir( path.join( site.root, 'wp-content', 'themes', theme, folder ) ).catch( () => [] )
+				readdir( path.join( themesDir( site.root, theme ), folder ) ).catch( () => [] )
 			)
 		)
 	);

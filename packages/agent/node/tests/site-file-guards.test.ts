@@ -2,14 +2,14 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resolveSiteFile } from '@studio/agent/node/site-file';
 import {
 	blockMarkupNotes,
 	clearThemePatternCache,
-	lintThemeCss,
-	resolveSiteFile,
 	selfHostFonts,
 } from '@studio/agent/node/site-file-guards';
 import { createFakeHostWithSites } from '@studio/agent/node/tests/fake-host';
+import { lintThemeCss } from '@studio/agent/node/theme-css-notes';
 
 let site: string;
 

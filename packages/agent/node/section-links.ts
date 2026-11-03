@@ -20,7 +20,7 @@ import {
 } from '@studio/agent/node/front-page-render';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { siteMarkup, saveMarkup, placeOf } from '@studio/agent/node/site-markup';
-import { isUpdatableTheme } from '@studio/agent/node/themes';
+import { isUpdatableTheme, themesDir } from '@studio/agent/node/themes';
 import type { SiteChangeSource } from '@studio/agent/node/site-changes';
 
 const escape = ( url: string ) => url.replace( /[.*+?^${}()|[\]\\]/g, '\\$&' );
@@ -88,7 +88,7 @@ export const sectionLinks: SiteChangeSource = {
 		const home = front.home;
 		const themeDir =
 			front.stylesheet && ! ( await isUpdatableTheme( site.path, front.stylesheet ) )
-				? path.join( site.path, 'wp-content', 'themes', front.stylesheet )
+				? themesDir( site.path, front.stylesheet )
 				: undefined;
 		const places: string[] = [];
 		const fixed = new Set< string >();

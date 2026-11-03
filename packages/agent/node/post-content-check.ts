@@ -17,7 +17,7 @@ import { repeatedPostStyleNotes } from '@studio/agent/node/repeated-style-values
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { POST_VERSION, RENDERED, RENDERED_TYPES, savePost } from '@studio/agent/node/site-markup';
 import { validationSummary } from '@studio/agent/node/studio-message';
-import { runWpCli } from '@studio/agent/node/tools/utils';
+import { printedJson, runWpCli } from '@studio/agent/node/tools/utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { ChangeReport, SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 
@@ -177,7 +177,7 @@ foreach ( array( ${ parts.map( ( post ) => Number( post.id ) ).join( ', ' ) } ) 
 }
 echo 'AREAS=' . wp_json_encode( (object) $given );`;
 	const output = await runWpCli( host, site, [ 'eval', php ] );
-	return JSON.parse( output.slice( output.indexOf( 'AREAS=' ) + 'AREAS='.length ).trim() );
+	return printedJson( output, 'AREAS=' );
 }
 
 async function areaReport(

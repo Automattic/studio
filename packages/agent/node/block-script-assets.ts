@@ -19,6 +19,7 @@
 import { access, readFile, writeFile } from 'fs/promises';
 import path from 'path';
 import { activeCode } from '@studio/agent/node/active-code';
+import { themesDir } from '@studio/agent/node/themes';
 import type { SiteChangeSource } from '@studio/agent/node/site-changes';
 
 const KEY = 'block script assets';
@@ -32,7 +33,7 @@ const read = ( sitePath: string ) => activeCode( sitePath, wanted );
 function folder( sitePath: string, key: string ): string | undefined {
 	const [ kind, name ] = key.split( ' ' );
 	if ( kind === 'theme' ) {
-		return path.join( sitePath, 'wp-content/themes', name );
+		return themesDir( sitePath, name );
 	}
 	return name.includes( '/' )
 		? path.join( sitePath, 'wp-content/plugins', path.dirname( name ) )

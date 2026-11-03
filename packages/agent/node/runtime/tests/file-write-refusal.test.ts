@@ -5,7 +5,8 @@ import path from 'path';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getWrittenFile, getWrittenText } from '@studio/agent/node/runtime/tool-safety';
-import { getSiteFileWriteRefusal, resolveSiteFile } from '@studio/agent/node/site-file-guards';
+import { resolveSiteFile } from '@studio/agent/node/site-file';
+import { getSiteFileWriteRefusal } from '@studio/agent/node/site-file-guards';
 import { createSiteNotes } from '@studio/agent/node/site-notes';
 import { createFakeHost, fakeSite } from '@studio/agent/node/tests/fake-host';
 

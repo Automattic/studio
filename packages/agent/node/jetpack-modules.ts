@@ -12,7 +12,7 @@
  */
 import { activePlugins } from '@studio/agent/node/plugins';
 import { readWordPressSite } from '@studio/agent/node/site-database';
-import { runWpCli } from '@studio/agent/node/tools/utils';
+import { printedJson, runWpCli } from '@studio/agent/node/tools/utils';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 
 const KEY = 'jetpack modules';
@@ -50,10 +50,7 @@ export const jetpackModules: SiteChangeSource = {
 		const off = `${ site.name }: Jetpack activates its default modules when the site connects to WordPress.com (Jetpack::plugin_initialize() in jetpack/class.jetpack.php), so on this site, not connected, it had activated none, and its blocks render only with their module`;
 		try {
 			const output = await runWpCli( host, site, [ 'eval', ACTIVATE ] );
-			const marker = output.indexOf( 'JETPACK_MODULES=' );
-			const modules = JSON.parse(
-				output.slice( marker + 'JETPACK_MODULES='.length ).split( '\n' )[ 0 ]
-			) as string[];
+			const modules = printedJson< string[] >( output, 'JETPACK_MODULES=' );
 			return {
 				reports: [
 					{

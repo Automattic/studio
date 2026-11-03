@@ -2,7 +2,7 @@ import { mkdir, readdir, readFile, stat, writeFile } from 'fs/promises';
 import path from 'path';
 import { Type } from 'typebox';
 import { drawDesign } from '@studio/agent/node/design-catalog';
-import { readThemeHeader } from '@studio/agent/node/themes';
+import { readThemeHeader, themesDir } from '@studio/agent/node/themes';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
 import { runWpCli, textResult } from './utils';
 
@@ -144,7 +144,7 @@ export const scaffoldThemeTool = defineTool(
 	},
 	async ( args, context ) => {
 		const site = await context.host.sites.resolve( args.nameOrPath );
-		const themes = path.join( site.path, 'wp-content/themes' );
+		const themes = themesDir( site.path );
 		const name = args.name.trim();
 		const slug = (
 			args.slug?.trim() ||

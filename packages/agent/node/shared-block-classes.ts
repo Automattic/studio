@@ -15,7 +15,7 @@ import { readdir } from 'fs/promises';
 import path from 'path';
 import { moveToBlockStyle } from '@studio/agent/node/block-style-move';
 import { readWordPressSite } from '@studio/agent/node/site-database';
-import { isBlockMarkup, type SiteFile } from '@studio/agent/node/site-file-guards';
+import { isBlockMarkup, type SiteFile } from '@studio/agent/node/site-file';
 import { siteMarkup } from '@studio/agent/node/site-markup';
 import { themePresets } from '@studio/agent/node/theme-presets';
 import type { StudioAgentHost } from '@studio/agent/node/host';

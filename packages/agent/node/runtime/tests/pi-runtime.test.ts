@@ -161,7 +161,8 @@ vi.mock( '@studio/agent/node/tools/utils', async ( importOriginal ) => ( {
 	siteOfCall: async ( _host: unknown, _tool: unknown, args: { nameOrPath?: string } ) =>
 		args?.nameOrPath ? { path: `/sites/${ args.nameOrPath }` } : undefined,
 } ) );
-vi.mock( '@studio/agent/node/site-notes', () => ( {
+vi.mock( '@studio/agent/node/site-notes', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/agent/node/site-notes') >() ),
 	createSiteNotes: () => ( {
 		beforeWrite: async ( file: string, text = '' ) =>
 			file.endsWith( 'refused.php' ) || text.includes( 'refused' )

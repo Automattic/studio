@@ -28,10 +28,10 @@ import {
 	validateBlockMarkupFile,
 } from '@studio/agent/node/block-validation-gate';
 import { readWordPressSite } from '@studio/agent/node/site-database';
-import { isBlockMarkup, type SiteFile } from '@studio/agent/node/site-file-guards';
+import { isBlockMarkup, type SiteFile } from '@studio/agent/node/site-file';
 import { placeOf, saveMarkup, siteMarkup, type Markup } from '@studio/agent/node/site-markup';
 import { themePresets } from '@studio/agent/node/theme-presets';
-import { isUpdatableTheme, readThemeHeader } from '@studio/agent/node/themes';
+import { isUpdatableTheme, readThemeHeader, themesDir } from '@studio/agent/node/themes';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 
 // The blocks set to one raw value before it reads as a shared treatment.
@@ -480,7 +480,7 @@ export async function repeatedPostStyleNotes(
 	if ( ! found?.presets || typeof found.slug !== 'string' ) {
 		return looks;
 	}
-	const theme = { slug: found.slug, dir: path.join( siteRoot, 'wp-content/themes', found.slug ) };
+	const theme = { slug: found.slug, dir: themesDir( siteRoot, found.slug ) };
 	const others = await otherMarkup( siteRoot, theme, { post } );
 	const { notes } = await presetsForRepeatedValues(
 		{ host, siteRoot, theme, label, others },

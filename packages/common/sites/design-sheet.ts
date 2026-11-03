@@ -1,7 +1,8 @@
 /**
  * A design-system sheet read from theme.json: the palette, type and button a
- * theme sets, picked into the roles the sheet shows. Both a look's theme.json
- * and a site's resolved global settings and styles read through it.
+ * theme sets, picked into the roles the sheet shows. Both a theme's theme.json,
+ * drawn as its thumbnail, and a site's resolved global settings and styles read
+ * through it.
  */
 export type Style = Record< string, unknown >;
 type Tokens = Record< string, unknown >;

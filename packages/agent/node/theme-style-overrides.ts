@@ -10,8 +10,8 @@
  */
 import { readdirSync, readFileSync } from 'fs';
 import path from 'path';
-import { type SiteFile } from '@studio/agent/node/site-file-guards';
 import { placeOf, siteMarkup } from '@studio/agent/node/site-markup';
+import type { SiteFile } from '@studio/agent/node/site-file';
 
 // The elements whose selector matches a block's own element
 // (WP_Theme_JSON::ELEMENTS), by the blocks that render it.

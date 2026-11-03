@@ -11,7 +11,7 @@
  */
 import { readdir, stat } from 'fs/promises';
 import path from 'path';
-import { isUpdatableTheme } from '@studio/agent/node/themes';
+import { isUpdatableTheme, themesDir } from '@studio/agent/node/themes';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 
 // What holds no file the write notes are about: WordPress core, which Studio
@@ -54,9 +54,9 @@ export const siteFileWrites: SiteChangeSource = {
 		return versions;
 	},
 	async check( site, before, after ) {
-		const themesDir = path.join( site.path, 'wp-content', 'themes' );
+		const themesFolder = themesDir( site.path );
 		const themeOf = ( file: string ) => {
-			const [ slug, ...rest ] = path.relative( themesDir, file ).split( path.sep );
+			const [ slug, ...rest ] = path.relative( themesFolder, file ).split( path.sep );
 			return rest.length && slug !== '..' ? slug : undefined;
 		};
 		const changed = Object.keys( after ).filter( ( file ) => before[ file ] !== after[ file ] );

@@ -13,7 +13,7 @@ import {
 	repeatedStyleValues,
 } from '@studio/agent/node/repeated-style-values';
 import { SiteChanges } from '@studio/agent/node/site-changes';
-import { resolveSiteFile } from '@studio/agent/node/site-file-guards';
+import { resolveSiteFile } from '@studio/agent/node/site-file';
 import { runWpCli } from '@studio/agent/node/tools/utils';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { liveHost, liveSite } from 'cli/ai/tests/live-host';

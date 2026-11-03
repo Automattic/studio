@@ -16,8 +16,8 @@
  */
 import { readdir, stat } from 'fs/promises';
 import path from 'path';
-import { readThemeHeader } from '@studio/agent/node/themes';
-import { runWpCli } from '@studio/agent/node/tools/utils';
+import { readThemeHeader, themesDir } from '@studio/agent/node/themes';
+import { printedJson, runWpCli } from '@studio/agent/node/tools/utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { ChangeReport, SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 
@@ -42,9 +42,7 @@ async function errorsOf(
 	themes: string[]
 ): Promise< Record< string, string > > {
 	const output = await runWpCli( host, site, [ 'eval', ERRORS( themes ) ] );
-	return JSON.parse(
-		output.slice( output.indexOf( 'THEME_ERRORS=' ) + 'THEME_ERRORS='.length )
-	) as Record< string, string >;
+	return printedJson( output, 'THEME_ERRORS=' );
 }
 
 const exists = ( file: string ) => stat( file ).then( Boolean, () => false );
@@ -52,7 +50,7 @@ const exists = ( file: string ) => stat( file ).then( Boolean, () => false );
 // What WP_Theme lists a theme's errors from: its style.css and its Template
 // header, its index templates, and its parent.
 async function filesVersion( root: string, theme: string ): Promise< string > {
-	const themes = path.join( root, 'wp-content', 'themes' );
+	const themes = themesDir( root );
 	const dir = path.join( themes, theme );
 	const parent = await readThemeHeader( root, theme, 'Template' ).catch( () => '' );
 	const facts = await Promise.all( [
@@ -71,7 +69,7 @@ const statusOf = ( version: string | undefined ) => version?.split( STATUS )[ 1 
 export const themeErrors: SiteChangeSource = {
 	name: 'theme-errors',
 	async read( sitePath, last ) {
-		const entries = await readdir( path.join( sitePath, 'wp-content', 'themes' ), {
+		const entries = await readdir( themesDir( sitePath ), {
 			withFileTypes: true,
 		} ).catch( () => [] );
 		const versions: Versions = {};

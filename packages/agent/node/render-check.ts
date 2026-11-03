@@ -17,6 +17,7 @@ import { readdir, stat } from 'fs/promises';
 import path from 'path';
 import { readVersions } from '@studio/agent/node/post-content-check';
 import { readWordPressSite } from '@studio/agent/node/site-database';
+import { themesDir } from '@studio/agent/node/themes';
 import { forgetRenders, inspectPage, VIEWPORTS } from '@studio/agent/node/tools/screenshot-helpers';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 import type { OpenProblems } from '@studio/agent/node/open-problems';
@@ -298,7 +299,7 @@ async function fingerprint( sitePath: string ): Promise< string > {
 	).catch( () => [] as string[] );
 	const themes = [ ...new Set( options.slice( 0, 2 ).map( ( value ) => JSON.parse( value ) ) ) ]
 		.filter( ( theme ): theme is string => typeof theme === 'string' && theme !== '' )
-		.map( ( theme ) => path.join( sitePath, 'wp-content', 'themes', theme ) );
+		.map( ( theme ) => themesDir( sitePath, theme ) );
 	const files = ( await Promise.all( themes.map( fileVersions ) ) ).flat();
 	return createHash( 'sha256' )
 		.update(

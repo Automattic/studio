@@ -17,6 +17,7 @@
 import path from 'path';
 import { readWordPressSite, type WordPressSite } from '@studio/agent/node/site-database';
 import { siteMarkup, type Markup } from '@studio/agent/node/site-markup';
+import { themesDir } from '@studio/agent/node/themes';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 
 const NAVIGATION = /<!--\s*wp:navigation\s+(\{.*?\})\s*(\/)?-->/g;
@@ -115,7 +116,7 @@ export const navigationRefs: SiteChangeSource = {
 			const markup = [
 				...( await Promise.all(
 					themes.map( ( theme ) =>
-						siteMarkup( sitePath, path.join( sitePath, 'wp-content', 'themes', theme ), {
+						siteMarkup( sitePath, themesDir( sitePath, theme ), {
 							posts: false,
 						} )
 					)

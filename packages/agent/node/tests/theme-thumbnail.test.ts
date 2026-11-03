@@ -2,8 +2,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import os from 'os';
 import path from 'path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { writeThemeThumbnail } from '@studio/agent/node/site-file-guards';
 import { createFakeHost } from '@studio/agent/node/tests/fake-host';
+import { writeThemeThumbnail } from '@studio/agent/node/theme-thumbnail';
 
 const host = createFakeHost();
 

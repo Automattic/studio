@@ -14,7 +14,7 @@ import {
 	classProperties,
 	createSharedBlockClassNotes,
 } from '@studio/agent/node/shared-block-classes';
-import { resolveSiteFile } from '@studio/agent/node/site-file-guards';
+import { resolveSiteFile } from '@studio/agent/node/site-file';
 import { runWpCli } from '@studio/agent/node/tools/utils';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { liveHost, liveSite } from 'cli/ai/tests/live-host';

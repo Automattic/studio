@@ -9,7 +9,7 @@ import { type ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { classicThemeQuestion } from '@studio/agent/node/block-theme';
 import { type BlockValidationGate } from '@studio/agent/node/block-validation-gate';
 import { NO_CHANGES, type SiteChanges } from '@studio/agent/node/site-changes';
-import { type SiteNotes } from '@studio/agent/node/site-notes';
+import { notesAfterCall, type SiteNotes } from '@studio/agent/node/site-notes';
 import { studioMessage, validationLines } from '@studio/agent/node/studio-message';
 import { siteOfCall } from '@studio/agent/node/tools/utils';
 import { describeDestructiveCall, type Confirmer } from './confirmation';
@@ -293,27 +293,22 @@ export function toToolDefinition(
 					);
 				}
 				// The files the call wrote, by its file tool or otherwise, as a shell command does.
-				const written = new Set( [
-					...( writtenFile ? [ writtenFile ] : [] ),
-					...changed.written,
-				] );
-				// One file at a time: the notes on each can save a fix to the same file.
-				const fileNotes: string[] = [];
-				for ( const file of written ) {
-					fileNotes.push(
-						...( await afterTime( 'fileNotes', () =>
-							siteNotes.afterWrite( file, file === writtenFile ? left : undefined )
-						) )
-					);
-				}
-				const resultNotes = resultSite
-					? await afterTime( 'resultNotes', () => siteNotes.afterResult( resultSite, resultText ) )
-					: [];
+				const notes = await notesAfterCall(
+					siteNotes,
+					{
+						written: [ ...( writtenFile ? [ writtenFile ] : [] ), ...changed.written ],
+						writtenFile,
+						left,
+						site: resultSite,
+						resultText,
+					},
+					afterTime
+				);
 				if ( checksChanges ) {
 					// The fixes above saved: the next call starts from the sites as they leave them.
 					siteChanges.afterChecks();
 				}
-				return [ ...changed.summaries, ...changed.problems, ...fileNotes, ...resultNotes ]
+				return [ ...changed.summaries, ...changed.problems, ...notes ]
 					.filter( Boolean )
 					.join( '\n' );
 			} );

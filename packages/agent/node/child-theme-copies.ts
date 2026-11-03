@@ -16,7 +16,7 @@
  */
 import { readdir, readFile, stat } from 'fs/promises';
 import path from 'path';
-import { readThemeHeader } from '@studio/agent/node/themes';
+import { readThemeHeader, themesDir } from '@studio/agent/node/themes';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 
 const SCREENSHOT = /^screenshot\.(png|gif|jpe?g|webp|avif)$/;
@@ -28,13 +28,13 @@ const stampOf = async ( file: string ) => {
 };
 
 async function readCopies(
-	themesDir: string,
+	themesFolder: string,
 	child: string,
 	parent: string,
 	last: Versions
 ): Promise< Versions > {
 	const versions: Versions = {};
-	const childDir = path.join( themesDir, child );
+	const childDir = path.join( themesFolder, child );
 	for ( const entry of await readdir( childDir, { recursive: true, withFileTypes: true } ) ) {
 		const relative = path
 			.relative( childDir, path.join( entry.parentPath, entry.name ) )
@@ -44,7 +44,7 @@ async function readCopies(
 			continue;
 		}
 		const childFile = path.join( childDir, relative );
-		const parentFile = path.join( themesDir, parent, relative );
+		const parentFile = path.join( themesFolder, parent, relative );
 		const [ own, inherited ] = await Promise.all( [
 			stampOf( childFile ),
 			stampOf( parentFile ).catch( () => undefined ),
@@ -77,8 +77,8 @@ function problem( child: string, parent: string, files: string[] ): string {
 export const childThemeCopies: SiteChangeSource = {
 	name: 'child-themes',
 	async read( sitePath, last = {} ) {
-		const themesDir = path.join( sitePath, 'wp-content', 'themes' );
-		const themes = ( await readdir( themesDir, { withFileTypes: true } ).catch( () => [] ) )
+		const themesFolder = themesDir( sitePath );
+		const themes = ( await readdir( themesFolder, { withFileTypes: true } ).catch( () => [] ) )
 			.filter( ( entry ) => entry.isDirectory() )
 			.map( ( entry ) => entry.name );
 		const versions: Versions = {};
@@ -86,7 +86,7 @@ export const childThemeCopies: SiteChangeSource = {
 			const parent = await readThemeHeader( sitePath, child, 'Template' ).catch( () => '' );
 			if ( parent && parent !== child ) {
 				versions[ child ] = parent;
-				Object.assign( versions, await readCopies( themesDir, child, parent, last ) );
+				Object.assign( versions, await readCopies( themesFolder, child, parent, last ) );
 			}
 		}
 		return versions;

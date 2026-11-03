@@ -220,7 +220,6 @@ export function SiteHeaderActions( {
 				{ host === 'chat' && ! site.running && ! live ? (
 					<AnnotateButton
 						active={ false }
-						iconOnly={ overflow }
 						disabled={ isBusy || ! connector.capabilities.annotatePreview }
 						disabledReason={
 							! connector.capabilities.annotatePreview

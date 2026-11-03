@@ -51,7 +51,7 @@ describe( 'AppUpdateButton', () => {
 		connector.checkForAppUpdates.mockImplementation( async () => {
 			connector.emit( 'onAppUpdateStatusChanged', { state: 'checking', currentVersion: '2.0.0' } );
 		} );
-		await user.click( screen.getByRole( 'button', { name: 'Try again' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Download update' } ) );
 		expect( connector.checkForAppUpdates ).toHaveBeenCalledOnce();
 		expect( connector.installAppUpdate ).not.toHaveBeenCalled();
 		expect(
@@ -80,7 +80,7 @@ describe( 'AppUpdateButton', () => {
 		await waitFor( () =>
 			expect( screen.queryByText( 'Couldn’t update Studio' ) ).not.toBeInTheDocument()
 		);
-		await user.click( screen.getByRole( 'button', { name: 'Try again' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Download update' } ) );
 		await act( () =>
 			connector.emit( 'onAppUpdateStatusChanged', { ...ready, state: 'downloading' } )
 		);
@@ -92,7 +92,8 @@ describe( 'AppUpdateButton', () => {
 			} )
 		);
 		expect( await screen.findByText( 'Couldn’t update Studio' ) ).toBeVisible();
-		expect( screen.getAllByRole( 'button', { name: 'Try again' } ) ).toHaveLength( 2 );
+		expect( screen.getByRole( 'button', { name: 'Download update' } ) ).toBeEnabled();
+		expect( screen.getByRole( 'button', { name: 'Try again' } ) ).toBeVisible();
 	} );
 
 	it( 'keeps retry available when starting a new check fails', async () => {
@@ -104,10 +105,9 @@ describe( 'AppUpdateButton', () => {
 		connector.checkForAppUpdates.mockRejectedValueOnce(
 			new Error( 'Could not start the update check.' )
 		);
-		const retryButtons = await screen.findAllByRole( 'button', { name: 'Try again' } );
-		await user.click( retryButtons[ 0 ] );
+		await user.click( await screen.findByRole( 'button', { name: 'Download update' } ) );
 		expect( await screen.findByText( 'Could not start the update check.' ) ).toBeVisible();
-		await user.click( screen.getByRole( 'button', { name: 'Try again' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Download update' } ) );
 		expect( connector.checkForAppUpdates ).toHaveBeenCalledTimes( 2 );
 	} );
 

@@ -505,7 +505,7 @@ export interface Connector {
 
 	// Analytics — record a Tracks event. The desktop wrapper attaches the surface
 	// params (channel/ui_version); see `docs/design-docs/analytics-tracks.md`.
-	trackEvent( eventName: TracksEventName, props?: TracksProps ): Promise< void >;
+	trackEvent( eventName: TracksEventName, props?: TracksProps, siteId?: string ): Promise< void >;
 
 	// External links
 	openExternalUrl( url: string ): Promise< void >;
@@ -711,8 +711,8 @@ export interface UserPreferences {
 	// Start a stopped local site when a chat message is sent to it.
 	autoStartSiteOnChat?: boolean;
 	openChatOnSiteStart?: boolean;
-	// Ask before discarding preview annotations.
-	confirmDeleteAnnotations?: boolean;
+	// Save annotation notes for a combined send.
+	batchAnnotations?: boolean;
 	newSiteBehavior?: NewSiteBehavior;
 	// The appearance tint: a `#rrggbb` accent color, and percentages.
 	accentColor?: string;

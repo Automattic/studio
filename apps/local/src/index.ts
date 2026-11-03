@@ -113,6 +113,7 @@ import {
 	readSitePreview,
 	writeSitePreview,
 } from '@studio/common/lib/site-preview-cache';
+import { resolveSiteTracksEventProps } from '@studio/common/lib/site-tracks';
 import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
 import { requestStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
@@ -557,20 +558,30 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	// --- Analytics — the browser UI's equivalent of the desktop's IPC handler --
 	// Unknown names are dropped, not forwarded, as in `recordAnalyticsEvent`.
-	api.post( '/analytics/event', ( req: Request, res: Response ) => {
-		const eventName = req.body?.eventName;
-		if ( typeof eventName !== 'string' ) {
-			res.status( 400 ).json( { error: 'eventName required' } );
-			return;
-		}
-		if ( ! isTracksEventName( eventName ) ) {
-			console.warn( `Ignoring unknown analytics event name: ${ eventName }` );
+	api.post(
+		'/analytics/event',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const eventName = req.body?.eventName;
+			if ( typeof eventName !== 'string' ) {
+				res.status( 400 ).json( { error: 'eventName required' } );
+				return;
+			}
+			if ( ! isTracksEventName( eventName ) ) {
+				console.warn( `Ignoring unknown analytics event name: ${ eventName }` );
+				res.status( 204 ).end();
+				return;
+			}
+			trackEvent(
+				eventName,
+				await resolveSiteTracksEventProps(
+					eventName,
+					sanitizeTracksProps( req.body?.props ),
+					req.body?.siteId
+				)
+			);
 			res.status( 204 ).end();
-			return;
-		}
-		trackEvent( eventName, sanitizeTracksProps( req.body?.props ) );
-		res.status( 204 ).end();
-	} );
+		} )
+	);
 
 	// --- Auth — the WordPress.com user the CLI is already logged in as ---------
 	// Read straight from the shared auth token (`~/.studio/shared.json`); the

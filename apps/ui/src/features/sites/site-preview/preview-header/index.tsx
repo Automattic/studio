@@ -36,7 +36,7 @@ interface PreviewHeaderProps {
 	hasDesignSystem: boolean;
 	onOpenExternal?: () => void;
 	responsive?: { active: boolean; disabled: boolean; onClick: () => void };
-	annotate?: Omit< ComponentProps< typeof AnnotateButton >, 'iconOnly' >;
+	annotate?: ComponentProps< typeof AnnotateButton >;
 	// Page-load progress, while a page is loading or just loaded.
 	progress?: number;
 }
@@ -176,9 +176,9 @@ export function PreviewHeader( {
 					<span
 						data-site-header-annotate
 						className={ styles.headerItem }
-						hidden={ headerLayout === 'mobile-overflow' }
+						hidden={ headerLayout === 'mobile-overflow' && ! annotate.annotationCount }
 					>
-						<AnnotateButton { ...annotate } iconOnly={ headerLayout !== 'inline' } />
+						<AnnotateButton { ...annotate } />
 					</span>
 				) : null }
 				{ headerHost === 'preview' && ! collapsed ? <SiteHeaderSpace /> : null }

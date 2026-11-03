@@ -4,7 +4,15 @@ import { useSyncExternalStore, type ComponentProps } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { updateResponsivePreview } from '@/data/responsive-preview';
 import { SessionUIProvider } from '@/data/use-session-ui';
-import { getSiteAnnotations } from '@/features/annotations';
+import {
+	changeAnnotation,
+	getSiteAnnotations,
+	pickAnnotation,
+	removeAnnotations,
+	setAnnotating,
+	requestAnnotationReview,
+	stageAnnotations,
+} from '@/features/annotations';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { SitePreview } from './index';
@@ -684,3 +692,67 @@ describe( 'preview address bar', () => {
 		expect( input.selectionEnd ).toBe( 7 );
 	} );
 } );
+
+it.each( [ 'browser', 'desktop' ] as const )(
+	'reopens the email and format for a batched annotation in %s',
+	async ( runtime ) => {
+		const email = {
+			id: 'reset.eml',
+			subject: 'Password Reset',
+			from: { name: 'WordPress', address: 'wordpress@localhost' },
+			to: [],
+			cc: [],
+			replyTo: [],
+			date: '2026-11-03T09:00:00.000Z',
+			html: '<p>Email heading</p>',
+			text: 'Email heading',
+			attachments: [],
+			source: 'Email heading',
+		};
+		const ids: string[] = [];
+		act( () => {
+			setAnnotating( 'one', true );
+			for ( const part of [ 'text', 'html' ] as const ) {
+				const id = pickAnnotation( 'one', {
+					email: { id: email.id, subject: email.subject, part, paragraph: 0 },
+					...( part === 'html' ? { selector: 'p' } : {} ),
+				} )!;
+				ids.push( id );
+				changeAnnotation( 'one', id, { comment: `Update the ${ part } heading` } );
+				stageAnnotations( 'one', [ id ], true );
+			}
+			setAnnotating( 'one', false );
+		} );
+		try {
+			const onPathChange = vi.fn();
+			const { update } = await renderPreview(
+				runtime,
+				{ onPathChange, onSendAnnotations: vi.fn() },
+				createFakeConnector( { emails: { one: [ email ] } } )
+			);
+			for ( const part of [ 'text', 'html' ] as const ) {
+				act( () => requestAnnotationReview( 'one', ids[ part === 'text' ? 0 : 1 ] ) );
+				expect( onPathChange ).toHaveBeenLastCalledWith( 'studio:email' );
+				update( { path: 'studio:email' } );
+				await screen.findByRole( 'article', { name: 'Password Reset' } );
+				expect(
+					screen.getByRole( 'tab', { name: part === 'text' ? 'Text' : 'HTML' } )
+				).toHaveAttribute( 'aria-selected', 'true' );
+				if ( part === 'html' ) {
+					const frame = screen.getByTitle< HTMLIFrameElement >( 'Email content' );
+					frame.contentDocument!.body.innerHTML = email.html;
+					fireEvent.load( frame );
+				}
+				expect( await screen.findByRole( 'textbox', { name: 'Describe the change' } ) ).toHaveValue(
+					`Update the ${ part } heading`
+				);
+				update( { path: '/' } );
+			}
+		} finally {
+			act( () => {
+				removeAnnotations( 'one', ids );
+				setAnnotating( 'one', false );
+			} );
+		}
+	}
+);

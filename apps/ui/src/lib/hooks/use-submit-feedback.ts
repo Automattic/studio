@@ -2,11 +2,11 @@ import { useCallback, useEffect, useState } from 'react';
 
 export type SubmitFeedback = 'shake' | 'error' | null;
 
-// A blocked send shakes the notice, then holds it in the error color briefly.
+// A blocked action shakes its control, then holds the error color briefly.
 const SUBMIT_SHAKE_MS = 240;
 const SUBMIT_FEEDBACK_MS = 900;
 
-export function useSubmitFeedback() {
+export function useSubmitFeedback( shakeDuration = SUBMIT_SHAKE_MS ) {
 	const [ feedback, setFeedback ] = useState< SubmitFeedback >( null );
 
 	useEffect( () => {
@@ -15,10 +15,10 @@ export function useSubmitFeedback() {
 		}
 		const timer = window.setTimeout(
 			() => setFeedback( feedback === 'shake' ? 'error' : null ),
-			feedback === 'shake' ? SUBMIT_SHAKE_MS : SUBMIT_FEEDBACK_MS - SUBMIT_SHAKE_MS
+			feedback === 'shake' ? shakeDuration : Math.max( 0, SUBMIT_FEEDBACK_MS - shakeDuration )
 		);
 		return () => window.clearTimeout( timer );
-	}, [ feedback ] );
+	}, [ feedback, shakeDuration ] );
 
 	const shake = useCallback( () => setFeedback( 'shake' ), [] );
 	return { feedback, shake };

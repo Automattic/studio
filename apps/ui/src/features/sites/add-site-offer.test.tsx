@@ -35,6 +35,10 @@ async function resetAddSiteOffer() {
 beforeEach( () => {
 	localStorage.clear();
 	resetAppMessagesForTests();
+	vi.stubGlobal(
+		'fetch',
+		vi.fn( async () => Response.json( { blueprints: [] } ) )
+	);
 } );
 
 afterEach( () => {

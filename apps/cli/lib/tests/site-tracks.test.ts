@@ -2,6 +2,11 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import * as configFile from '@studio/common/lib/cli-config-file';
+import {
+	getSiteTracksProps as getHostSiteTracksProps,
+	resolveSiteTracksEventProps,
+} from '@studio/common/lib/site-tracks';
 import { getCliConfigPath, getSharedConfigPath } from '@studio/common/lib/well-known-paths';
 import { vi } from 'vitest';
 import * as configStore from 'cli/lib/cli-config/core';
@@ -33,6 +38,11 @@ const preview = {
 	shareUrl: 'https://private-preview.wpcomstaging.com/?share=private-token',
 	date: Date.now(),
 };
+const siteEvents = [
+	TRACKS_EVENTS.SITE_EXPORT,
+	TRACKS_EVENTS.SYNC_CONNECT,
+	TRACKS_EVENTS.SYNC_PUSH,
+];
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 let directory: string;
 
@@ -49,6 +59,7 @@ beforeEach( async () => {
 			version: 1,
 			sites: [ site ],
 			snapshots: [ preview ],
+			otherSettings: { preserved: true },
 		} )
 	);
 } );
@@ -86,17 +97,25 @@ it( 'backfills legacy records with distinct UUIDs and persists them across reads
 	}
 } );
 
-it( 'serializes concurrent initialization without changing either ID', async () => {
-	const props = await Promise.all( [
-		getSiteTracksProps( site.path ),
+it( 'initializes one UUID across concurrent CLI and host lookups', async () => {
+	const results = await Promise.all( [
 		getSiteTracksProps( site.path, preview ),
 		getSiteTracksProps( site.path, preview ),
+		getHostSiteTracksProps( { siteId: site.id } ),
+		...siteEvents.map( ( event ) =>
+			resolveSiteTracksEventProps( event, { success: true }, site.id )
+		),
 	] );
-	expect( props[ 0 ].site_id ).toMatch( uuid );
-	expect( props[ 0 ] ).not.toHaveProperty( 'preview_id' );
-	expect( props[ 1 ].preview_id ).toMatch( uuid );
-	expect( props[ 1 ].site_id ).toBe( props[ 0 ].site_id );
-	expect( props[ 2 ] ).toEqual( props[ 1 ] );
+	expect( results[ 0 ].site_id ).toMatch( uuid );
+	expect( results[ 0 ].preview_id ).toMatch( uuid );
+	expect( results[ 1 ] ).toEqual( results[ 0 ] );
+	for ( const result of results.slice( 2 ) ) {
+		expect( result.site_id ).toBe( results[ 0 ].site_id );
+		expect( result ).not.toHaveProperty( 'preview_id' );
+	}
+	const config = await configFile.readCliConfigFileRaw();
+	expect( config.version ).toBe( 1 );
+	expect( config.otherSettings ).toEqual( { preserved: true } );
 } );
 
 it( 'preserves IDs across renames, updates, reconciliation and saving a discovered preview', async () => {
@@ -272,6 +291,57 @@ it.each( [ TRACKS_EVENTS.PREVIEW_SITE_CREATE, TRACKS_EVENTS.PREVIEW_SITE_UPDATE 
 		expect( send ).not.toHaveBeenCalled();
 	}
 );
+
+it.each( siteEvents )(
+	'rejects caller IDs and omits unresolved records for %s',
+	async ( event ) => {
+		const props = { success: false, site_id: crypto.randomUUID(), preview_id: preview.url };
+		expect( await resolveSiteTracksEventProps( event, props, 'missing' ) ).toEqual( {
+			success: false,
+		} );
+		expect( await resolveSiteTracksEventProps( event, props ) ).toEqual( { success: false } );
+		const resolved = await resolveSiteTracksEventProps( event, props, site.id );
+		expect( resolved ).toEqual( { success: false, site_id: expect.stringMatching( uuid ) } );
+		expect( resolved.site_id ).not.toBe( props.site_id );
+	}
+);
+
+it.each( [
+	'lockCliConfigFile',
+	'readCliConfigFileRaw',
+	'writeCliConfigFileRaw',
+	'unlockCliConfigFile',
+] as const )( 'preserves event props when shared ID %s fails', async ( operation ) => {
+	vi.spyOn( configFile, operation ).mockRejectedValueOnce( new Error( 'Storage unavailable' ) );
+	expect(
+		await resolveSiteTracksEventProps( TRACKS_EVENTS.SYNC_CONNECT, { success: false }, site.id )
+	).toEqual( { success: false } );
+} );
+
+it( 'sends preview and site events with the same stored UUID', async () => {
+	vi.stubEnv( 'NODE_ENV', 'production' );
+	const send = vi.fn().mockResolvedValue( {} );
+	vi.stubGlobal( 'fetch', send );
+	for ( const event of [ TRACKS_EVENTS.PREVIEW_SITE_CREATE, TRACKS_EVENTS.PREVIEW_SITE_UPDATE ] ) {
+		await recordTracksEvent( event, await getSiteTracksProps( site.path, preview ) );
+	}
+	for ( const event of siteEvents ) {
+		await recordTracksEvent(
+			event,
+			await resolveSiteTracksEventProps( event, { success: true }, site.id )
+		);
+	}
+	const payloads = send.mock.calls.map( ( [ url ] ) => new URL( url ).searchParams );
+	const config = await configStore.readCliConfig();
+	expect( payloads.map( ( payload ) => payload.get( '_en' ) ) ).toEqual( [
+		TRACKS_EVENTS.PREVIEW_SITE_CREATE,
+		TRACKS_EVENTS.PREVIEW_SITE_UPDATE,
+		...siteEvents,
+	] );
+	for ( const payload of payloads )
+		expect( payload.get( 'site_id' ) ).toBe( config.sites[ 0 ].tracksId );
+	for ( const payload of payloads.slice( 2 ) ) expect( payload.has( 'preview_id' ) ).toBe( false );
+} );
 
 it( 'sends the creation UUID through the real Tracks wrapper without preview props', async () => {
 	vi.stubEnv( 'NODE_ENV', 'production' );

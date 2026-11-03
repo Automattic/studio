@@ -289,13 +289,15 @@ function PreferencesPanel( {
 				</SettingsRow>
 				<SidebarSettings />
 				<SettingsRow
-					title={ __( 'Confirm before deleting annotations' ) }
-					description={ __( 'Ask before deleting pending notes and attached images.' ) }
+					title={ __( 'Batch notes' ) }
+					description={ __(
+						'Collect annotations and send them together instead of one at a time.'
+					) }
 				>
 					<SettingsToggle
-						label={ __( 'Confirm before deleting annotations' ) }
-						checked={ data.confirmDeleteAnnotations }
-						onChange={ ( confirmDeleteAnnotations ) => onChange( { confirmDeleteAnnotations } ) }
+						label={ __( 'Batch notes' ) }
+						checked={ data.batchAnnotations }
+						onChange={ ( batchAnnotations ) => onChange( { batchAnnotations } ) }
 					/>
 				</SettingsRow>
 				<SettingsRow

@@ -28,6 +28,7 @@ export function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) 
 	const matches = matchCommands( commands, query );
 	const groups = groupCommands( matches );
 	const active = getActiveCommand( groups, highlight );
+
 	const run = ( id: string ) => {
 		onOpenChange( false );
 		matches.find( ( command ) => command.id === id )?.run();
@@ -79,7 +80,15 @@ export function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) 
 					highlighted={ active?.value }
 					onHighlight={ setHighlight }
 					onSelect={ run }
-					empty={ __( 'No commands found.' ) }
+					empty={
+						<div className={ styles.empty }>
+							<p className={ styles.emptyLabel }>{ __( 'No commands found.' ) }</p>
+							<hr className={ styles.divider } aria-hidden="true" />
+							<p className={ styles.haiku }>
+								{ __( 'From many, one tool.\nFind strength in community\nfor a better web.' ) }
+							</p>
+						</div>
+					}
 				/>
 			</DialogContent>
 		</Dialog>

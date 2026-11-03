@@ -1,3 +1,4 @@
+import * as configFile from '@studio/common/lib/cli-config-file';
 import { ExportEvents } from '@studio/common/lib/import-export-events';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { vi } from 'vitest';
@@ -42,6 +43,16 @@ vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 vi.mock( 'cli/lib/site-operations', () => ( {
 	withSiteOperation: vi.fn( ( _folder: string, _kind: string, fn: () => unknown ) => fn() ),
 } ) );
+
+const siteTracksId = '6ad36785-267a-4e6d-b036-0a7460c76497';
+beforeEach( () => {
+	vi.spyOn( configFile, 'readCliConfigFileRaw' ).mockResolvedValue( {
+		version: 1,
+		sites: [ { id: 'site-1', name: 'Private title', path: '/test/site', tracksId: siteTracksId } ],
+		snapshots: [],
+	} );
+} );
+afterEach( () => vi.restoreAllMocks() );
 
 describe( 'CLI: studio export', () => {
 	const testSitePath = '/test/site';
@@ -175,6 +186,7 @@ describe( 'CLI: studio export', () => {
 				export_type: 'full',
 				time_ms: expect.any( Number ),
 				channel: 'studio-cli',
+				site_id: siteTracksId,
 			} )
 		);
 		expect( vi.mocked( recordTracksEvent ).mock.calls[ 0 ][ 1 ] ).not.toHaveProperty(
@@ -195,6 +207,7 @@ describe( 'CLI: studio export', () => {
 				success: false,
 				export_type: 'full',
 				failure_reason: 'no_exporter_found',
+				site_id: siteTracksId,
 				time_ms: expect.any( Number ),
 			} )
 		);
@@ -213,7 +226,11 @@ describe( 'CLI: studio export', () => {
 
 		expect( recordTracksEvent ).toHaveBeenCalledWith(
 			TRACKS_EVENTS.SITE_EXPORT,
-			expect.objectContaining( { success: false, failure_reason: 'database_export' } )
+			expect.objectContaining( {
+				success: false,
+				failure_reason: 'database_export',
+				site_id: siteTracksId,
+			} )
 		);
 	} );
 
@@ -228,6 +245,23 @@ describe( 'CLI: studio export', () => {
 		expect( recordTracksEvent ).not.toHaveBeenCalled();
 	} );
 
+	it( 'omits the site UUID when no local record can be resolved', async () => {
+		vi.mocked( getSiteByFolder ).mockRejectedValueOnce( new Error( 'Missing site' ) );
+		await expect( runCommand( '/missing', testExportPath ) ).rejects.toThrow( 'Missing site' );
+		expect( recordTracksEvent ).toHaveBeenCalledTimes( 1 );
+		expect( vi.mocked( recordTracksEvent ).mock.calls[ 0 ][ 1 ] ).not.toHaveProperty( 'site_id' );
+	} );
+	it( 'keeps export and its event when the site ID cannot be read', async () => {
+		vi.spyOn( configFile, 'readCliConfigFileRaw' ).mockRejectedValueOnce(
+			new Error( 'Storage unavailable' )
+		);
+		await expect( runCommand( testSitePath, testExportPath ) ).resolves.toBeUndefined();
+		expect( recordTracksEvent ).toHaveBeenCalledExactlyOnceWith(
+			TRACKS_EVENTS.SITE_EXPORT,
+			expect.objectContaining( { success: true, export_type: 'full' } )
+		);
+		expect( vi.mocked( recordTracksEvent ).mock.calls[ 0 ][ 1 ] ).not.toHaveProperty( 'site_id' );
+	} );
 	it( 'rejects .sql exports with --mode full', async () => {
 		const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
 

@@ -34,8 +34,8 @@ import { useComposerHandle, type ComposerHandle } from '@/features/composer/use-
 import { useDraftAttachments } from '@/features/composer/use-draft-attachments';
 import { useModelAccess } from '@/features/composer/use-model-access';
 import { useModelSwitch } from '@/features/composer/use-model-switch';
-import { useSubmitFeedback } from '@/features/composer/use-submit-feedback';
 import { AiCreditsPurchaseDialog } from '@/features/credits';
+import { useSubmitFeedback } from '@/lib/hooks';
 import { PlusIcon, StartSiteIcon } from '@/lib/icons';
 import { isImeComposing } from '@/lib/keyboard';
 import {
@@ -452,6 +452,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 						<AttachmentChips
 							attachments={ shownAttachments }
 							annotationsAttachment={ annotationsAttachment }
+							annotationSiteId={ annotationSiteId }
 							onRemove={ removeShownAttachment }
 						/>
 					) : null }

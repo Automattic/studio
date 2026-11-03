@@ -149,8 +149,9 @@ test.describe( 'Share and publish', () => {
 		await page.getByRole( 'button', { name: 'Publish…', exact: true } ).click();
 		const panel = page.getByRole( 'dialog', { name: 'Share and publish', exact: true } );
 		await panel.getByRole( 'button', { name: 'New site…', exact: true } ).click();
-		await session.electronApp.evaluate( ( { BrowserWindow }, studioSiteId ) => {
-			BrowserWindow.getAllWindows()[ 0 ].webContents.send( 'sync-connect-site', {
+		const mainWindow = await session.electronApp.browserWindow( page );
+		await mainWindow.evaluate( ( window, studioSiteId ) => {
+			window.webContents.send( 'sync-connect-site', {
 				remoteSiteId: 42,
 				studioSiteId,
 				autoOpenPush: true,

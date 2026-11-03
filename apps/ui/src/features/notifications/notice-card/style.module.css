@@ -248,3 +248,14 @@
 .titleSummary .chevron {
 	height: var( --text-sm--line-height );
 }
+
+.processing {
+	display: flex;
+	flex: none;
+	color: var( --muted-foreground );
+}
+
+.processing svg {
+	width: var( --notice-icon-size );
+	height: var( --notice-icon-size );
+}

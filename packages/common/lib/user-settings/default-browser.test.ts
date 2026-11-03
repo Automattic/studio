@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
 import fs from 'node:fs/promises';
+import path from 'node:path';
 import { afterEach, expect, it, vi } from 'vitest';
 import { detectDefaultBrowser } from './default-browser';
 
@@ -67,7 +68,7 @@ it( 'reads the Linux default desktop entry from the user data directory', async 
 	);
 	expect( await detectDefaultBrowser() ).toEqual( { name: 'Firefox', browser: 'firefox' } );
 	expect( fs.readFile ).toHaveBeenCalledWith(
-		'/home/example/.local/share/applications/firefox.desktop',
+		path.join( '/home/example/.local/share', 'applications', 'firefox.desktop' ),
 		'utf8'
 	);
 } );

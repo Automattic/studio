@@ -80,7 +80,15 @@ export function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) 
 					highlighted={ active?.value }
 					onHighlight={ setHighlight }
 					onSelect={ run }
-					empty={ __( 'No commands found.' ) }
+					empty={
+						<div className={ styles.empty }>
+							<p className={ styles.emptyLabel }>{ __( 'No commands found.' ) }</p>
+							<hr className={ styles.divider } aria-hidden="true" />
+							<p className={ styles.haiku }>
+								{ __( 'From many, one tool.\nFind strength in community\nfor a better web.' ) }
+							</p>
+						</div>
+					}
 				/>
 			</DialogContent>
 		</Dialog>

@@ -35,8 +35,15 @@
 	background-color: var( --hover );
 }
 
-.groupPanel:not( [data-starting-style], [data-ending-style] ),
-.chatsPanel:not( [data-starting-style], [data-ending-style] ) {
+.groupPanel,
+.chatsPanel {
+	overflow: clip;
+	transition-duration: calc( var( --motion-duration-layout ) * 2 / 3 );
+	transition-timing-function: var( --motion-ease-layout );
+}
+
+.groupPanel:has( [data-drag-source] ),
+.chatsPanel:has( [data-drag-source] ) {
 	overflow: visible;
 }
 
@@ -69,7 +76,7 @@
 	display: flex;
 	flex-direction: column;
 	padding-block-start: 1px;
-	padding-block-end: var( --space-2 );
+	padding-block-end: var( --space-3 );
 }
 
 .empty {
@@ -129,5 +136,12 @@
 	.groupHoverAction {
 		opacity: 1;
 		pointer-events: auto;
+	}
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.groupPanel,
+	.chatsPanel {
+		transition-duration: 0s;
 	}
 }

@@ -1,17 +1,19 @@
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
-import { readAuthToken } from '@studio/common/lib/shared-config';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
-import { deleteAllSnapshots, deleteSnapshot } from 'cli/lib/api';
+import { deleteAllSnapshots } from 'cli/lib/api';
 import { deleteAllSnapshotsForUserFromConfig } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
+import { deletePreviewSite, deleteSnapshotSite } from 'cli/lib/preview-sites';
 import {
 	deleteSnapshotFromConfig,
 	getSnapshotsFromConfig,
 	isSnapshotExpired,
+	isWpcomPreview,
 } from 'cli/lib/snapshots';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
+import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -36,12 +38,7 @@ export async function runCommand(
 	logger: Logger< LoggerAction > = new Logger< LoggerAction >()
 ): Promise< void > {
 	try {
-		const token = await readAuthToken();
-		if ( ! token ) {
-			throw new LoggerError(
-				__( 'Authentication required. Please log in with `studio auth login`.' )
-			);
-		}
+		const token = await requireAuthToken();
 
 		const snapshots = await getSnapshotsFromConfig( token.id );
 
@@ -60,7 +57,7 @@ export async function runCommand(
 
 			logger.reportStart( LoggerAction.DELETE, __( 'Deleting…' ) );
 			if ( ! isSnapshotExpired( snapshotToDelete ) ) {
-				await deleteSnapshot( snapshotToDelete.atomicSiteId, token.accessToken );
+				await deleteSnapshotSite( snapshotToDelete, token.accessToken );
 			}
 			await deleteSnapshotFromConfig( snapshotToDelete.url );
 			await emitCliEvent( {
@@ -74,6 +71,12 @@ export async function runCommand(
 			logger.reportStart( LoggerAction.DELETE_ALL, __( 'Deleting all preview sites…' ) );
 
 			const count = snapshots.length;
+			for ( const snapshot of snapshots ) {
+				if ( isWpcomPreview( snapshot ) && ! isSnapshotExpired( snapshot ) ) {
+					await deletePreviewSite( snapshot.atomicSiteId, token.accessToken );
+				}
+			}
+			// Previews made on Jurassic Ninja.
 			await deleteAllSnapshots( token.accessToken );
 			await deleteAllSnapshotsForUserFromConfig( token.id );
 			await emitCliEvent( { event: SNAPSHOT_EVENTS.DELETED_ALL } );

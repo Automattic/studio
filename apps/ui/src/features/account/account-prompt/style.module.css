@@ -3,6 +3,16 @@
 	padding-bottom: var( --space-12 );
 }
 
+.dialogWithFooter {
+	padding-bottom: var( --dialog-inset );
+}
+
+.footer {
+	display: grid;
+	gap: var( --space-4 );
+	margin-top: var( --space-6 );
+}
+
 .body {
 	display: flex;
 	flex-direction: column;

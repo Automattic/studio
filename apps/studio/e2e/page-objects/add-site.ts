@@ -39,10 +39,12 @@ export default class AddSite {
 
 	// Opens Add site: it opens by itself with no sites, from the sidebar's "Add site" otherwise.
 	async open() {
-		const addSiteButton = new Sidebar( this.page ).addSiteButton;
+		const sidebar = new Sidebar( this.page );
+		const addSiteButton = sidebar.addSiteButton;
 		await expect( this.dialog.or( addSiteButton ).first() ).toBeVisible( { timeout: 60_000 } );
 		if ( ! ( await this.dialog.isVisible() ) ) {
-			await addSiteButton.click();
+			await sidebar.ensureOpen();
+			await addSiteButton.and( this.page.locator( ':not([inert] *)' ) ).click();
 		}
 		await expect( this.dialog ).toBeVisible();
 	}

@@ -8,18 +8,8 @@ import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useSites } from '@/data/queries/use-sites';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { AccountPrompt } from '@/features/account';
-import {
-	Dialog,
-	DialogHeader,
-	DialogTitle,
-	VisuallyHidden,
-	Button,
-	Checkbox,
-	DialogContent,
-	Field,
-	FieldLabel,
-} from '@/lib/ui';
+import { AccountPromptDialog } from '@/features/account';
+import { Button, Checkbox, Field, FieldLabel } from '@/lib/ui';
 import styles from './style.module.css';
 
 export function WelcomeDialog() {
@@ -79,71 +69,66 @@ function WelcomeFlow() {
 	);
 
 	return (
-		<Dialog
+		<AccountPromptDialog
 			open
+			ref={ popup }
+			initialFocus={ () => popup.current }
 			onOpenChange={ ( open ) => {
 				if ( ! open && ! savePreferences.isPending ) void finish();
 			} }
-		>
-			<DialogContent ref={ popup } initialFocus={ () => popup.current }>
-				<DialogHeader>
-					<VisuallyHidden>
-						<DialogTitle>{ __( 'Welcome to WordPress Studio' ) }</DialogTitle>
-					</VisuallyHidden>
-				</DialogHeader>
-				<AccountPrompt
-					className={ styles.prompt }
-					title={ __( 'Welcome to WordPress Studio' ) }
-					description={ __(
-						'Create a free WordPress.com account to build with the agent, share previews, and publish.'
-					) }
-					source="onboarding"
-					onSkip={ () => void finish() }
-					onCreateAccount={ () => setAuthenticationStarted( true ) }
-					onContinue={ authUser ? () => void finish() : undefined }
-					busy={ finishing || authLoading }
-					disabled={ savePreferences.isPending }
-				/>
-				<div className={ styles.privacy }>
-					<Field orientation="horizontal" className={ styles.analytics }>
-						<Checkbox
-							id={ analyticsId }
-							checked={ preferences?.analyticsEnabled ?? true }
-							disabled={ savePreferences.isPending }
-							onCheckedChange={ ( analyticsEnabled ) =>
-								savePreferences.mutate( {
-									analyticsEnabled,
-									source: { surface: 'onboarding' },
-								} )
-							}
-						/>
-						<FieldLabel htmlFor={ analyticsId } className={ styles.analyticsLabel }>
-							{ __( 'Share anonymous usage statistics' ) }
-						</FieldLabel>
-					</Field>
-					{ savePreferences.isError && (
+			title={ __( 'Welcome to WordPress Studio' ) }
+			description={ __(
+				'Create a free WordPress.com account to build with the agent, share previews, and publish.'
+			) }
+			source="onboarding"
+			onSkip={ () => void finish() }
+			onCreateAccount={ () => setAuthenticationStarted( true ) }
+			onContinue={ authUser ? () => void finish() : undefined }
+			busy={ finishing || authLoading }
+			disabled={ savePreferences.isPending }
+			footer={
+				<>
+					<div className={ styles.privacy }>
+						<Field orientation="horizontal" className={ styles.analytics }>
+							<Checkbox
+								id={ analyticsId }
+								checked={ preferences?.analyticsEnabled ?? true }
+								disabled={ savePreferences.isPending }
+								onCheckedChange={ ( analyticsEnabled ) =>
+									savePreferences.mutate( {
+										analyticsEnabled,
+										source: { surface: 'onboarding' },
+									} )
+								}
+							/>
+							<FieldLabel htmlFor={ analyticsId } className={ styles.analyticsLabel }>
+								{ __( 'Share anonymous usage statistics' ) }
+							</FieldLabel>
+						</Field>
+						{ savePreferences.isError && (
+							<p role="alert" className={ styles.error }>
+								{ __( 'Your preference could not be saved. Please try again.' ) }
+							</p>
+						) }
+						<p className={ styles.legal }>
+							{ createInterpolateElement(
+								__(
+									'By continuing, you agree to our <tos_link>Terms of Service</tos_link> and have read our <privacy_link>Privacy Policy</privacy_link>.'
+								),
+								{
+									tos_link: legalLink( 'a8cTos' ),
+									privacy_link: legalLink( 'a8cPrivacyPolicy' ),
+								}
+							) }
+						</p>
+					</div>
+					{ finishError && (
 						<p role="alert" className={ styles.error }>
-							{ __( 'Your preference could not be saved. Please try again.' ) }
+							{ __( 'Setup could not be saved. Please try again.' ) }
 						</p>
 					) }
-					<p className={ styles.legal }>
-						{ createInterpolateElement(
-							__(
-								'By continuing, you agree to our <tos_link>Terms of Service</tos_link> and have read our <privacy_link>Privacy Policy</privacy_link>.'
-							),
-							{
-								tos_link: legalLink( 'a8cTos' ),
-								privacy_link: legalLink( 'a8cPrivacyPolicy' ),
-							}
-						) }
-					</p>
-				</div>
-				{ finishError && (
-					<p role="alert" className={ styles.error }>
-						{ __( 'Setup could not be saved. Please try again.' ) }
-					</p>
-				) }
-			</DialogContent>
-		</Dialog>
+				</>
+			}
+		/>
 	);
 }

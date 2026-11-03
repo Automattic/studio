@@ -10,7 +10,9 @@ import { PullReprintCommandLoggerAction as LoggerAction } from '@studio/common/l
 import { __ } from '@wordpress/i18n';
 import chalk from 'chalk';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { linkPulledPreview } from 'cli/lib/cli-config/snapshots';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { getStandingPreviews } from 'cli/lib/preview-sites';
 import {
 	applySelection,
 	type CliSelectionOptions,
@@ -21,6 +23,7 @@ import { getPullSession, type PullSession, updateSiteRecord } from 'cli/lib/pull
 import {
 	getReprintApiUrlForSite,
 	normalizeSiteUrl,
+	type PullSource,
 	resolveSourceSite,
 } from 'cli/lib/pull/pull-source';
 import { savePulledSiteStartOptions, startPulledSite } from 'cli/lib/pull/pulled-site-server';
@@ -64,6 +67,23 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 		} else {
 			logger.reportError( new LoggerError( __( 'Failed to pull site' ), error ) );
 		}
+	}
+}
+
+/**
+ * When the pulled site is one of the user's preview sites, makes it this local site's preview, so
+ * updating it pushes this site's changes back. Best-effort: the pull has already succeeded.
+ */
+async function linkIfPreview( localSiteId: string, source: PullSource ): Promise< void > {
+	try {
+		const preview = ( await getStandingPreviews( source.wpComToken.accessToken ) ).get(
+			source.wpComSite.id
+		);
+		if ( preview ) {
+			await linkPulledPreview( localSiteId, source.wpComSite.id, source.wpComToken.id, preview );
+		}
+	} catch {
+		// Listing previews is not worth failing a finished pull over.
 	}
 }
 
@@ -213,6 +233,7 @@ export async function runCommand(
 				record.runtimeBlueprintPath = studioMetadata.runtimeBlueprintPath;
 			} );
 			logger.reportSuccess( `Site "${ site.name }" updated` );
+			await linkIfPreview( site.id, sourceSite );
 
 			// The pulled database has no local admin user, so auto-login needs credentials to create one.
 			if ( ! site.adminPassword ) {

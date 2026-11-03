@@ -913,6 +913,41 @@ describe( 'Composer as a form field', () => {
 } );
 
 describe( 'Composer sending', () => {
+	it.each( [
+		{ label: 'Start site', props: { onStartSite: vi.fn() }, text: '' },
+		{ label: 'Send message', props: {}, text: 'Build a homepage' },
+		{ label: 'Stop response', props: { busy: true }, text: '' },
+	] )( 'shows the $label control’s tooltip', async ( { label, props, text } ) => {
+		const { input, user } = await setup( props );
+		if ( text ) {
+			fireEvent.change( input, { target: { value: text } } );
+		}
+		await user.hover( screen.getByRole( 'button', { name: label } ) );
+		expect( await screen.findByText( label ) ).toBeVisible();
+	} );
+
+	it.each( [ 'attachment', 'annotation' ] )(
+		'keeps Send available for an %s without text when the site can start',
+		async ( content ) => {
+			if ( content === 'attachment' ) {
+				saveComposerDraft( 'test', { text: '', attachments: [ image( 'ordinary' ) ] } );
+			} else {
+				stageNote( 'Shorten this heading' );
+			}
+			const onStartSite = vi.fn();
+			await setup( { onStartSite, annotationSiteId: SITE } );
+			expect( screen.getByRole( 'button', { name: 'Send message' } ) ).toBeEnabled();
+			expect( screen.queryByRole( 'button', { name: 'Start site' } ) ).not.toBeInTheDocument();
+			expect( onStartSite ).not.toHaveBeenCalled();
+		}
+	);
+
+	it( 'keeps Stop available during an active response when the site can start', async () => {
+		await setup( { busy: true, onStartSite: vi.fn() } );
+		expect( screen.getByRole( 'button', { name: 'Stop response' } ) ).toBeEnabled();
+		expect( screen.queryByRole( 'button', { name: 'Start site' } ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'holds sends behind the out-of-credits notice', async () => {
 		const connector = createFakeConnector();
 		connector.getStudioAssistantQuota.mockResolvedValue( OUT_OF_CREDITS );

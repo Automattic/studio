@@ -5,7 +5,9 @@
 
 	.panel {
 		height: var( --collapsible-panel-height );
-		overflow: hidden;
+		/* `clip`, not `hidden`, so the panel is never a scroll container: a row
+		   scrolled into view while the panel folds open would scroll it. */
+		overflow: clip;
 		transition: height var( --motion-duration-layout ) var( --motion-ease-layout );
 	}
 

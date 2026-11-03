@@ -311,10 +311,8 @@ export interface AiCreditsThresholdNoticeState {
  * this intent.
  *
  * `ownedIntents` is the escalation steps the calling surface announces, so one
- * step is never stated twice on one screen. The agentic UI splits the ladder:
- * the sidebar notice takes `warning`, the composer strip takes `critical`, and
- * the composer lockout takes exhaustion. Classic has only the one slot above
- * its composer, so that slot passes both warning steps.
+ * step is never stated twice on one screen. The sidebar notice takes `warning`
+ * and `critical`, and the composer notice takes exhaustion.
  *
  * A dismissal is recorded against the intent it was made at, so moving between
  * steps re-arms the notice without a separate expiry rule.
@@ -329,10 +327,7 @@ export function resolveAiCreditsThresholdNotice(
 	return { visible: owned && surviving === null, dismissedIntent: surviving };
 }
 
-/**
- * Title shared by every AI credit usage warning — the sidebar notice and the
- * composer strip — so the two can never word the same fact differently.
- */
+/** Title of the AI credit usage notice, at both warning steps. */
 export function formatAiCreditsUsageTitle( fraction: number, locale?: string ): string {
 	return sprintf(
 		/* translators: %s: share of the AI credit balance used, formatted as a percentage (e.g. 90%). */

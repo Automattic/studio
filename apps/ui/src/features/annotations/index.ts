@@ -1,3 +1,4 @@
+export { AnnotationMarker } from './marker';
 export { type AnnotationAnchor, AnnotationOverlay } from './overlay';
 export {
 	changeAnnotation,

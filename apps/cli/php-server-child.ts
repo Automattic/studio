@@ -17,6 +17,7 @@ import {
 	SITE_FILE_ACCESS_SITE_DIRECTORY,
 } from '@studio/common/lib/site-file-access';
 import { getMuPluginsPath } from '@studio/common/lib/well-known-paths';
+import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { z } from 'zod';
 import {
 	managerMessageSchema,
@@ -45,7 +46,6 @@ import {
 	writeSiteUrlPrependFile,
 } from './lib/native-php/site-setup';
 import { getAvailablePorts } from './lib/native-php/worker-ports';
-import { getSiteEmailDirectory } from './lib/site-email';
 import { SymlinkWatcher, collectSymlinkAllowlistEntries } from './lib/symlinks';
 import type { ChildProcess } from 'node:child_process';
 

@@ -74,8 +74,8 @@ export function SidebarLayout( {
 	const sidebarFlyoutOpen = sidebarFlyoutState === 'open';
 	const [ instantSidebarDock, setInstantSidebarDock ] = useState( false );
 	const dockedSidebarRef = useRef< HTMLElement >( null );
-	const setDockedFade = useScrollFade< HTMLDivElement >( { stickyHeaders: true } );
-	const setFlyoutFade = useScrollFade< HTMLElement >( { stickyHeaders: true } );
+	const setDockedFade = useScrollFade< HTMLDivElement >();
+	const setFlyoutFade = useScrollFade< HTMLElement >();
 	const dockedSidebarScrollRef = useRef< HTMLDivElement >( null );
 	useLayoutEffect( () => {
 		if ( ! instantSidebarDock ) return;

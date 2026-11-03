@@ -136,14 +136,73 @@
 }
 
 .scrollToLatestButton {
-	--button-background: var( --background );
+	/* Sampled from X's spring: stiffness 320, damping 20, mass 1. */
+	--scroll-button-spring: linear(
+		0,
+		0.0325,
+		0.1163,
+		0.2331,
+		0.367,
+		0.5054,
+		0.6385,
+		0.7594,
+		0.8639,
+		0.9497,
+		1.0164,
+		1.0648,
+		1.0966,
+		1.1142,
+		1.1202,
+		1.1172,
+		1.1077,
+		1.0941,
+		1.0781,
+		1.0615,
+		1.0453,
+		1.0306,
+		1.0178,
+		1.0072,
+		0.9989,
+		0.9928,
+		0.9887,
+		0.9864,
+		0.9856,
+		0.9858,
+		0.9869,
+		0.9885,
+		0.9904,
+		0.9924,
+		0.9943,
+		0.9961,
+		0.9977,
+		0.999,
+		1,
+		1.0008,
+		1
+	);
 
 	opacity: 0;
+	transform: scale( 0 );
+	transform-origin: center;
+	transition:
+		opacity var( --motion-duration-feedback ) ease-out,
+		transform 600ms var( --scroll-button-spring ),
+		color var( --motion-duration-feedback ) ease,
+		background-color var( --motion-duration-feedback ) ease,
+		border-color var( --motion-duration-feedback ) ease;
 }
 
 .scrollToLatestButton[data-visible] {
 	pointer-events: auto;
 	opacity: 1;
+	transform: scale( 1 );
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.scrollToLatestButton {
+		transform: none;
+		transition: opacity var( --motion-duration-feedback ) ease-out;
+	}
 }
 
 /* Composer fade-in after the entitlement check resolves. No fill mode:

@@ -25,7 +25,7 @@ import type { SnapshotUsage } from '@studio/common/lib/snapshots';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
-import type { SupportedBrowser, SystemBrowser } from '@studio/common/lib/user-settings/browser';
+import type { SupportedBrowser } from '@studio/common/lib/user-settings/browser';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type {
 	SidebarPinnedSort,
@@ -39,6 +39,7 @@ import type { SupportedTerminal } from '@studio/common/lib/user-settings/termina
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import type { SiteDesign } from '@studio/common/sites/site-design';
+import type { SiteEmail, SiteEmailSummary } from '@studio/common/sites/site-email';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
@@ -69,11 +70,16 @@ export type { SupportedLocale } from '@studio/common/lib/locale';
 export type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 export type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 export type { SiteDesign } from '@studio/common/sites/site-design';
+export type {
+	SiteEmail,
+	SiteEmailAddress,
+	SiteEmailSummary,
+} from '@studio/common/sites/site-email';
 
 export type InstalledApps = Record<
 	SupportedEditor | SupportedTerminal | SupportedBrowser,
 	boolean
-> & { defaultBrowser?: SystemBrowser | null };
+>;
 
 interface AiSessionSitePlacement {
 	kind: 'site';
@@ -479,6 +485,10 @@ export interface Connector {
 	openSiteInTerminal( siteId: string ): Promise< void >;
 	// Open the folder the site's email is saved in, in the system file manager.
 	openSiteEmailFolder( siteId: string ): Promise< void >;
+	// The email the site sent, newest first, and one of them in full, or null
+	// when it's gone.
+	getSiteEmails( siteId: string ): Promise< SiteEmailSummary[] >;
+	getSiteEmail( siteId: string, emailId: string ): Promise< SiteEmail | null >;
 
 	// The site's WordPress debug log, resolved host-side from the site id. Its
 	// existence is a query, not a `SiteDetails` field: the file comes and goes

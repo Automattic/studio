@@ -81,6 +81,15 @@ const injections = ( preview: { executeJavaScript: ReturnType< typeof vi.fn > } 
 		code.startsWith( INSPECTOR_PAGE_SCRIPT )
 	);
 
+// The annotation state last mirrored into the page.
+function pageState( preview: { executeJavaScript: ReturnType< typeof vi.fn > } ) {
+	const code = preview.executeJavaScript.mock.calls
+		.map( ( [ call ] ) => String( call ) )
+		.filter( ( call ) => call.includes( '{ detail: ' ) )
+		.at( -1 );
+	return code ? JSON.parse( code.slice( code.indexOf( '{ detail: ' ) + 10, -4 ) ) : null;
+}
+
 describe( 'annotation inspector navigation', () => {
 	it( 'marks notes pending until saved, including image-only and dismissed drafts', async () => {
 		const { preview, emit, annotate } = await setup();
@@ -89,7 +98,7 @@ describe( 'annotation inspector navigation', () => {
 		let id = '';
 		act( () => {
 			setAnnotating( site.id, true );
-			id = pickAnnotation( site.id, { selector: 'h1' } )!;
+			id = pickAnnotation( site.id, { selector: 'h1', url: 'http://localhost:8881/' } )!;
 			changeAnnotation( site.id, id, {
 				images: [
 					{
@@ -187,5 +196,21 @@ describe( 'annotation inspector navigation', () => {
 		await waitFor( () => expect( annotate() ).toBeEnabled() );
 		await act( async () => reject( new Error( 'Document destroyed' ) ) );
 		expect( annotate() ).toBeEnabled();
+	} );
+
+	it( 'leaves the notes on an email or the design system out of the page', async () => {
+		const { preview, emit, annotate } = await setup();
+		emit( 'dom-ready' );
+		await waitFor( () => expect( annotate() ).toBeEnabled() );
+		act( () => setAnnotating( site.id, true ) );
+		act( () => {
+			pickAnnotation( site.id, {
+				email: { id: 'reset.eml', subject: 'Password Reset', part: 'text', paragraph: 0 },
+			} );
+		} );
+
+		await waitFor( () =>
+			expect( pageState( preview ) ).toMatchObject( { active: true, editingId: null, notes: [] } )
+		);
 	} );
 } );

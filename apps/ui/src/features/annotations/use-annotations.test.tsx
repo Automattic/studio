@@ -92,8 +92,8 @@ describe( 'preview annotation sessions', () => {
 	it( 'batches only when enabled and returns to immediate sends without clearing the batch', async () => {
 		const { onSend } = await setup();
 		const first = add( 'Save this for later' );
-		const toggle = screen.getByRole( 'button', { name: 'Batch notes' } );
-		expect( toggle ).toHaveAttribute( 'aria-pressed', 'false' );
+		const toggle = screen.getByRole( 'checkbox', { name: 'Batch notes' } );
+		expect( toggle ).not.toBeChecked();
 		fireEvent.click( toggle );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Add annotation to batch' } ) );
 		expect( onSend ).not.toHaveBeenCalled();
@@ -101,17 +101,14 @@ describe( 'preview annotation sessions', () => {
 		act( () => setAnnotating( SITE, false ) );
 		act( () => setAnnotating( SITE, true ) );
 		const second = add( 'Send this now' );
-		expect( screen.getByRole( 'button', { name: 'Batch notes' } ) ).toHaveAttribute(
-			'aria-pressed',
-			'true'
-		);
-		fireEvent.click( screen.getByRole( 'button', { name: 'Batch notes' } ) );
+		expect( screen.getByRole( 'checkbox', { name: 'Batch notes' } ) ).toBeChecked();
+		fireEvent.click( screen.getByRole( 'checkbox', { name: 'Batch notes' } ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Send annotation' } ) );
 		expect( onSend ).toHaveBeenCalledExactlyOnceWith( [ second ] );
 		expect( stagedCount() ).toBe( 1 );
 	} );
 
-	it( 'shares the persisted batching toggle across sites', async () => {
+	it( 'shares the persisted batching checkbox across sites', async () => {
 		const other = 'global-batch-other';
 		act( () => {
 			setAnnotating( SITE, true );
@@ -126,22 +123,16 @@ describe( 'preview annotation sessions', () => {
 			</>
 		);
 		try {
-			const toggles = await screen.findAllByRole( 'button', { name: 'Batch notes' } );
-			fireEvent.click( toggles[ 0 ] );
-			await waitFor( () =>
-				toggles.forEach( ( control ) =>
-					expect( control ).toHaveAttribute( 'aria-pressed', 'true' )
-				)
-			);
+			const checkboxes = await screen.findAllByRole( 'checkbox', { name: 'Batch notes' } );
+			fireEvent.click( checkboxes[ 0 ] );
+			await waitFor( () => checkboxes.forEach( ( control ) => expect( control ).toBeChecked() ) );
 			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
 				{ batchAnnotations: true },
 				undefined
 			);
-			fireEvent.click( toggles[ 1 ] );
+			fireEvent.click( checkboxes[ 1 ] );
 			await waitFor( () =>
-				toggles.forEach( ( control ) =>
-					expect( control ).toHaveAttribute( 'aria-pressed', 'false' )
-				)
+				checkboxes.forEach( ( control ) => expect( control ).not.toBeChecked() )
 			);
 		} finally {
 			act( () => {

@@ -7,6 +7,7 @@ import {
 	DatabaseIcon,
 	ExternalLinkIcon,
 	GlobeIcon,
+	MailIcon,
 	WordPressIcon,
 } from '@/lib/icons';
 import { Tooltip, TooltipContent, TooltipTrigger, Popover, Button, Input } from '@/lib/ui';
@@ -28,15 +29,22 @@ export function getPathFromPreviewUrl( url: string, baseUrl: string ) {
 	}
 }
 
-export type PreviewRealm = 'frontend' | 'admin' | 'database' | 'design';
+export type PreviewRealm = 'frontend' | 'admin' | 'database' | 'email' | 'design';
 
 export const DATABASE_HOME_PATH = '/phpmyadmin/index.php?route=/database/structure&db=wordpress';
+
+// Studio renders the site's email itself, like the design system, so a path
+// that is no page on the site stands for it.
+export const EMAIL_PREVIEW_PATH = 'studio:email';
 
 const isAdminPath = ( path: string ) => /^\/wp-admin(?:[/?#]|$)/.test( path );
 
 export function getPreviewRealm( path: string ): PreviewRealm {
 	if ( path === DESIGN_SYSTEM_PREVIEW_PATH ) {
 		return 'design';
+	}
+	if ( path === EMAIL_PREVIEW_PATH ) {
+		return 'email';
 	}
 	let target = path;
 	if ( path.startsWith( '/studio-auto-login' ) ) {
@@ -57,6 +65,7 @@ const REALM_OPEN_EVENTS: Record< PreviewRealm, TracksEventName > = {
 	frontend: TRACKS_EVENTS.SITE_OPEN_IN_BROWSER,
 	admin: TRACKS_EVENTS.SITE_OPEN_WP_ADMIN,
 	database: TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN,
+	email: TRACKS_EVENTS.SITE_OPEN_EMAIL,
 	design: TRACKS_EVENTS.SITE_OPEN_DESIGN_SYSTEM,
 };
 
@@ -193,6 +202,7 @@ function storeRecentLocation(
 }
 
 function getDisplayUrl( siteUrl: string, path: string ): string {
+	if ( path === EMAIL_PREVIEW_PATH ) return __( 'Email' );
 	if ( path === DESIGN_SYSTEM_PREVIEW_PATH ) {
 		return __( 'Design system' );
 	}
@@ -335,6 +345,7 @@ export function PreviewAddressBar( {
 		frontend: GlobeIcon,
 		admin: WordPressIcon,
 		database: DatabaseIcon,
+		email: MailIcon,
 		design: AppearanceIcon,
 	};
 	const recentGroups: CommandGroup[] = [

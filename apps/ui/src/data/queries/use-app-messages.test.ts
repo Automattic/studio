@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { deriveUpdateMessages } from './use-app-messages';
+import type { AppUpdateStatus } from '@/data/core';
 
 describe( 'deriveUpdateMessages', () => {
 	it( 'shows nothing while idle, checking, or before the first status arrives', () => {
@@ -39,13 +40,35 @@ describe( 'deriveUpdateMessages', () => {
 		}
 	);
 
-	it( 'leaves update errors to regular notices rather than sidebar cards', () => {
-		expect(
-			deriveUpdateMessages( {
-				state: 'error',
-				currentVersion: '1.20.0',
-				reason: 'generic',
-			} )
-		).toEqual( [] );
+	it( 'surfaces updater errors with the reason detail when there is one', () => {
+		const status: AppUpdateStatus = {
+			state: 'error',
+			currentVersion: '1.20.0',
+			reason: 'read-only-volume',
+			detail: 'WordPress Studio is running from a disk image.',
+		};
+
+		const onOpenLogs = vi.fn();
+		const [ message ] = deriveUpdateMessages( status, {
+			label: 'Open logs',
+			onClick: onOpenLogs,
+		} );
+
+		expect( message.intent ).toBe( 'error' );
+		expect( message.title ).toBe( 'Couldn’t update Studio' );
+		expect( message.description ).toBe( 'WordPress Studio is running from a disk image.' );
+		expect( message.action?.label ).toBe( 'Open logs' );
+		void message.action?.onClick();
+		expect( onOpenLogs ).toHaveBeenCalledOnce();
+	} );
+
+	it( 'falls back to generic guidance for an error with no detail', () => {
+		const [ message ] = deriveUpdateMessages( {
+			state: 'error',
+			currentVersion: '1.20.0',
+			reason: 'generic',
+		} );
+
+		expect( message.description ).toBe( 'We’ll try again the next time we check for updates.' );
 	} );
 } );

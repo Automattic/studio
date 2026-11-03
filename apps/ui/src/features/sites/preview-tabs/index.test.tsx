@@ -354,7 +354,7 @@ it( 'reopens a batched design note in its existing tab without scrolling', async
 	let id = '';
 	act( () => {
 		setAnnotating( 'one', true );
-		id = pickAnnotation( 'one', { designKey: 'name', path: 'DESIGN.md' } )!;
+		id = pickAnnotation( 'one', { targetKey: 'name', path: 'DESIGN.md' } )!;
 		changeAnnotation( 'one', id, { comment: 'Give this title more space' } );
 		stageAnnotations( 'one', [ id ], true );
 		setAnnotating( 'one', false );
@@ -450,8 +450,8 @@ it( 'shares the same tool items with the site menu and opens each preview tool i
 	expect( sources.some( ( src ) => src.includes( 'phpmyadmin' ) ) ).toBe( true );
 	await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
 	await user.click( await screen.findByRole( 'menuitem', { name: 'Email' } ) );
-	expect( connector.openSiteEmailFolder ).toHaveBeenCalledExactlyOnceWith( 'one' );
-	expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 3 );
+	expect( screen.getByRole( 'tab', { name: 'Email' } ) ).toHaveAttribute( 'aria-selected', 'true' );
+	expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 4 );
 } );
 
 it( 'starts a stopped project from Browser and uses its first preview tab', async () => {
@@ -490,12 +490,12 @@ it( 'uses the same letter shortcuts in Tools without intercepting modified keys 
 	await user.keyboard( '{Control>}e{/Control}' );
 	expect( connector.openSiteEmailFolder ).not.toHaveBeenCalled();
 	await user.keyboard( 'e' );
-	expect( connector.openSiteEmailFolder ).toHaveBeenCalledExactlyOnceWith( 'one' );
+	expect( screen.getByRole( 'tab', { name: 'Email' } ) ).toHaveAttribute( 'aria-selected', 'true' );
 	const composer = screen.getByRole( 'combobox', { name: 'Message WordPress Studio' } );
 	await user.type( composer, 'bwdse' );
 	expect( composer ).toHaveValue( 'bwdse' );
 	expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 1 );
-	expect( connector.openSiteEmailFolder ).toHaveBeenCalledTimes( 1 );
+	expect( connector.openSiteEmailFolder ).not.toHaveBeenCalled();
 } );
 
 it( 'only offers the design-system shortcut when a design system is available', async () => {

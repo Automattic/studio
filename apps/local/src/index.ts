@@ -118,10 +118,7 @@ import {
 } from '@studio/common/lib/sync/sync-api';
 import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
 import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/editor';
-import {
-	detectInstalledApps,
-	detectInstalledAppsWithDefaultBrowser,
-} from '@studio/common/lib/user-settings/installed-apps';
+import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import {
 	readOnboardingCompleted,
 	writeOnboardingCompleted,
@@ -147,7 +144,12 @@ import { deleteSite, startSite, stopSite } from '@studio/common/sites/lifecycle'
 import { listSites } from '@studio/common/sites/list';
 import { listSitesWithMetadata, updateSiteMetadata } from '@studio/common/sites/metadata';
 import { designFixesSchema, fixSiteDesign, readSiteDesign } from '@studio/common/sites/site-design';
-import { readSitePath, readSitePaths } from '@studio/common/sites/site-path';
+import {
+	ensureSiteEmailDirectory,
+	listSiteEmails,
+	readSiteEmail,
+} from '@studio/common/sites/site-email';
+import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import {
 	deleteAllPreviewSites,
 	deletePreviewSite,
@@ -1468,7 +1470,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.get(
 		'/installed-apps',
 		asyncHandler( async ( _req: Request, res: Response ) => {
-			res.json( await detectInstalledAppsWithDefaultBrowser() );
+			res.json( detectInstalledApps() );
 		} )
 	);
 
@@ -1563,15 +1565,37 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	api.post(
-		'/sites/:id/open-email-folder',
+	// `readSite` rather than `listSites`: the email view polls the list while it's open.
+	api.get(
+		'/sites/:id/emails',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
-			if ( ! site?.emailPath ) {
+			if ( ! ( await readSite( req.params.id ) ) ) {
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			await openPath( site.emailPath );
+			res.json( await listSiteEmails( req.params.id ) );
+		} )
+	);
+
+	api.get(
+		'/sites/:id/emails/:emailId',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			if ( ! ( await readSite( req.params.id ) ) ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			res.json( await readSiteEmail( req.params.id, req.params.emailId ) );
+		} )
+	);
+
+	api.post(
+		'/sites/:id/open-email-folder',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			if ( ! ( await readSite( req.params.id ) ) ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			await openPath( await ensureSiteEmailDirectory( req.params.id ) );
 			res.status( 204 ).end();
 		} )
 	);

@@ -23,13 +23,14 @@ import {
 	useSiteAnnotations,
 } from '@/features/annotations';
 import { DesignSystemView } from '@/features/sites/design-system-view';
+import { EmailView } from '@/features/sites/email-view';
 import { getSiteUrl } from '@/features/sites/get-site-url';
 import { PreviewParticles } from '@/features/sites/preview-particles';
 import { useSiteHeader } from '@/features/sites/site-header-actions';
 import { SiteToolLauncher, useSiteToolActions } from '@/features/sites/site-tools';
 import { SiteContextMenu } from '@/features/sites/stopped-site-preview';
 import { VisuallyHidden } from '@/lib/ui';
-import { getRealmOpenEvent } from './address-bar';
+import { getPathFromPreviewUrl, getRealmNavigationPath, getRealmOpenEvent } from './address-bar';
 import { EMPTY_BROWSER_STATE, type BrowserNavigationState } from './browser-state';
 import { PreviewHeader } from './preview-header';
 import { AnnotateButton } from './preview-header/annotate-button';
@@ -131,12 +132,14 @@ function SitePreviewContent( {
 	} );
 	const siteDesign = useSiteDesign( site );
 	const annotations = useSiteAnnotations( site.id );
+	// Surfaces Studio draws itself, with no page to load.
+	const rendered = activeSurfaceKey === 'design' || activeSurfaceKey === 'email';
 	const { loadingStage, reveal } = useLoadingStage( {
 		siteId: site.id,
 		live,
 		canPreview,
 		isStarting,
-		design: activeSurfaceKey === 'design' || blank,
+		rendered: rendered || blank,
 		publish: ! inactive && ! blank,
 	} );
 	// Frames report no loading state, so track which load each one finished.
@@ -147,18 +150,20 @@ function SitePreviewContent( {
 		! canUseWebview &&
 		!! activeSurface &&
 		loadedFrames[ activeSurfaceKey ] !== getFrameKey( siteUrl, activeSurface );
-	const navigating =
-		canPreview && activeSurfaceKey !== 'design' && ( browserState.loading || activeFrameLoading );
-	// Studio renders the design system itself, so it needs no page injection.
+	const navigating = canPreview && ! rendered && ( browserState.loading || activeFrameLoading );
+	// Studio renders the design system and the email itself, so they need no
+	// page injection.
 	const showAnnotate = ! live;
 	const canAnnotateSurface =
 		showAnnotate &&
 		! blank &&
 		activeSurfaceKey !== 'database' &&
-		( connector.capabilities.annotatePreview || activeSurfaceKey === 'design' );
+		( connector.capabilities.annotatePreview || rendered );
 	const canAnnotate =
 		canAnnotateSurface &&
-		( activeSurfaceKey === 'design' ? !! siteDesign.data : !! activeSurface?.inspectorReady );
+		( activeSurfaceKey === 'design'
+			? !! siteDesign.data
+			: activeSurfaceKey === 'email' || !! activeSurface?.inspectorReady );
 	const viewportRef = useRef< HTMLDivElement | null >( null );
 	const responsiveSettings = useResponsivePreview( site.id );
 	const responsiveEnabled = responsiveSettings.enabled && canPreview && activeSurfaceKey === 'site';
@@ -261,7 +266,7 @@ function SitePreviewContent( {
 	// they don't land on the login form; the front end opens logged out.
 	const openExternal = live
 		? () => void connector.openExternalUrl( `${ siteUrl }${ safePath }` )
-		: activeRealm === 'design'
+		: rendered
 		? undefined
 		: () => {
 				void connector.trackEvent( getRealmOpenEvent( activeRealm ), { browser: 'external' } );
@@ -288,6 +293,16 @@ function SitePreviewContent( {
 	const batchNotes = annotations.notes.filter( isBatchedAnnotation );
 	const showBrowserBar = canPreview && ! blank && ! loadingStage;
 
+	// A link in an email to the site opens in the preview, like a password reset
+	// link; any other opens in the browser.
+	const openEmailLink = ( url: string ) => {
+		const sitePath = getPathFromPreviewUrl( url, siteUrl );
+		if ( sitePath ) {
+			onPathChange?.( getRealmNavigationPath( sitePath, siteUrl ) );
+		} else if ( /^(?:https?|mailto):/i.test( url ) ) {
+			void connector.openExternalUrl( url );
+		}
+	};
 	const annotate = showAnnotate
 		? {
 				active: annotations.active,
@@ -359,7 +374,7 @@ function SitePreviewContent( {
 									const note = batchNotes.find( ( note ) => note.id === id );
 									if ( ! note ) return;
 									setAnnotationAnchor( null );
-									if ( note.designKey ) {
+									if ( note.targetKey && note.path === 'DESIGN.md' ) {
 										if ( onReviewPath ) onReviewPath( DESIGN_SYSTEM_PREVIEW_PATH );
 										else switchRealm( 'design' );
 									} else if ( note.path ) ( onReviewPath ?? onPathChange )?.( note.path );
@@ -414,6 +429,22 @@ function SitePreviewContent( {
 												/>
 											) }
 										</Suspense>
+									</SurfaceLayer>
+								);
+							}
+							if ( key === 'email' ) {
+								return (
+									<SurfaceLayer key={ key } active={ active }>
+										<EmailView
+											key={ site.id }
+											siteId={ site.id }
+											active={ active && ! collapsed }
+											onOpenLink={ openEmailLink }
+											onAnnotationPick={ handleAnnotationPick }
+											onAnnotationAnchor={ ( anchor: AnnotationAnchor | null ) =>
+												setAnnotationAnchor( toViewportAnchor( anchor ) )
+											}
+										/>
 									</SurfaceLayer>
 								);
 							}

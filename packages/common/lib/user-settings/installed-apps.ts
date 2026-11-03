@@ -3,18 +3,15 @@ import os from 'node:os';
 import path from 'node:path';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
-import { detectDefaultBrowser } from './default-browser';
 import { detectInstalledBrowsers } from './open-browser';
-import type { SupportedBrowser, SystemBrowser } from './browser';
+import type { SupportedBrowser } from './browser';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 
 /** Detect which editors and terminals are installed on this machine. */
 
 export type AppKey = SupportedEditor | SupportedTerminal;
-export type InstalledApps = Record< AppKey | SupportedBrowser, boolean > & {
-	defaultBrowser?: SystemBrowser | null;
-};
+export type InstalledApps = Record< AppKey | SupportedBrowser, boolean >;
 
 type PlatformPaths = {
 	[ K in AppKey ]: string[];
@@ -198,8 +195,4 @@ export function detectInstalledApps(): InstalledApps {
 		apps[ key ] = key === 'terminal' ? true : isInstalled( key );
 	}
 	return { ...apps, ...detectInstalledBrowsers() };
-}
-
-export async function detectInstalledAppsWithDefaultBrowser(): Promise< InstalledApps > {
-	return { ...detectInstalledApps(), defaultBrowser: await detectDefaultBrowser() };
 }

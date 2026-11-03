@@ -3,7 +3,6 @@ import { designSheet, parseDesignMd } from '@studio/design-md';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useMemo, useRef } from 'react';
-import { useConnector } from '@/data/core';
 import { previewTabsKey, usePreviewTabs } from '@/data/preview-tabs';
 import { useSiteDesign } from '@/data/queries/use-site-design';
 import { useIsSiteBusy } from '@/data/queries/use-sites';
@@ -12,6 +11,7 @@ import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import { getSiteUrl } from '@/features/sites/get-site-url';
 import {
 	DATABASE_HOME_PATH,
+	EMAIL_PREVIEW_PATH,
 	getRealmNavigationPath,
 } from '@/features/sites/site-preview/address-bar';
 import { AppearanceIcon, DatabaseIcon, GlobeIcon, MailIcon, WordPressIcon } from '@/lib/icons';
@@ -46,7 +46,6 @@ export function useSiteToolActions(
 	site: SiteDetails,
 	{ liveUrl, onNavigate }: { liveUrl?: string; onNavigate?: ( path: string ) => void } = {}
 ) {
-	const connector = useConnector();
 	const navigate = useNavigate();
 	const preview = useSessionPreviewUI();
 	const startSite = useStartSiteWithChat();
@@ -77,7 +76,7 @@ export function useSiteToolActions(
 		openBrowser: () => void open( '/', true ),
 		openAdmin: () => void open( '/wp-admin/' ),
 		openDatabase: () => void open( DATABASE_HOME_PATH ),
-		openEmail: () => void connector.openSiteEmailFolder( site.id ),
+		openEmail: () => void open( EMAIL_PREVIEW_PATH ),
 		openDesignSystem: () => void open( DESIGN_SYSTEM_PREVIEW_PATH ),
 	};
 }

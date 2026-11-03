@@ -77,7 +77,7 @@ export function useOpenInDestinations(
 	const { data: installedApps } = useInstalledApps();
 	const browserLabel = userPreferences?.browser
 		? browserConfig[ userPreferences.browser ].name
-		: installedApps?.defaultBrowser?.name ?? __( 'Browser' );
+		: __( 'Browser' );
 	const startSite = useStartSiteWithChat();
 
 	const fileManager = getFileManager();
@@ -119,10 +119,7 @@ export function useOpenInDestinations(
 			id: 'browser',
 			label: browserLabel,
 			logo: (
-				<AppIcon
-					app={ userPreferences?.browser ?? installedApps?.defaultBrowser?.browser }
-					fallback={ <ExternalLinkIcon /> }
-				/>
+				<AppIcon app={ userPreferences?.browser ?? undefined } fallback={ <ExternalLinkIcon /> } />
 			),
 			disabled: false,
 			open: () =>

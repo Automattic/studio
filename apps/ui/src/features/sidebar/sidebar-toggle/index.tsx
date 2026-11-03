@@ -8,7 +8,6 @@ import {
 	useSidebarHover,
 	useToggleSidebar,
 } from '@/data/use-sidebar-collapsed';
-import { AppMessageCardsDot } from '@/features/notifications';
 import { SidebarIcon } from '@/lib/icons';
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import styles from './style.module.css';
@@ -50,7 +49,6 @@ export function SidebarToggle() {
 					<TooltipContent side="bottom">{ __( 'Hide sidebar' ) }</TooltipContent>
 				</Tooltip>
 			) }
-			{ collapsed ? <AppMessageCardsDot /> : null }
 		</span>
 	);
 }

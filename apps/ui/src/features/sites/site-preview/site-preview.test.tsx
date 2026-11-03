@@ -485,6 +485,59 @@ describe( 'site preview controls', () => {
 	} );
 } );
 
+describe( 'site email', () => {
+	it( 'switches to the rendered email surface when the path changes', async () => {
+		const { update } = await renderPreview( 'browser' );
+		update( { path: 'studio:email' } );
+		expect( await screen.findByText( 'No email yet' ) ).toBeVisible();
+		expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue( 'Email' );
+	} );
+
+	it( 'opens links to the site in the preview and other links in the browser', async () => {
+		const connector = createFakeConnector( {
+			emails: {
+				one: [
+					{
+						id: '20261028-090000-000001-aaaaaa.eml',
+						subject: 'Password Reset',
+						from: null,
+						to: [ { name: '', address: 'admin@example.com' } ],
+						cc: [],
+						replyTo: [],
+						date: '2026-10-28T09:00:00.000Z',
+						html: null,
+						text: `${ SITE_URL }/wp-login.php?action=rp&key=abc\nhttps://wordpress.org/support/\n`,
+						attachments: [],
+						source: '',
+					},
+				],
+			},
+		} );
+		const onPathChange = vi.fn();
+		await renderPreview( 'browser', { path: 'studio:email', onPathChange }, connector );
+		expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue( 'Email' );
+		expect( page() ).toBeNull();
+
+		fireEvent.click( await screen.findByRole( 'option', { name: /Password Reset/ } ) );
+		fireEvent.click( await screen.findByRole( 'link', { name: /wp-login\.php/ } ) );
+		expect( onPathChange ).toHaveBeenLastCalledWith( '/wp-login.php?action=rp&key=abc' );
+
+		fireEvent.click( screen.getByRole( 'link', { name: 'https://wordpress.org/support/' } ) );
+		expect( connector.openExternalUrl ).toHaveBeenCalledWith( 'https://wordpress.org/support/' );
+	} );
+
+	it( 'keeps the address editable and responsive mode disabled for email', async () => {
+		const onPathChange = vi.fn();
+		await renderPreview( 'browser', { path: 'studio:email', onPathChange } );
+		const input = screen.getByRole( 'textbox', { name: 'Address' } );
+		expect( input ).toHaveValue( 'Email' );
+		expect( screen.getByRole( 'button', { name: 'Responsive mode' } ) ).toHaveAttribute( 'aria-disabled', 'true' );
+		fireEvent.change( input, { target: { value: '/' } } );
+		fireEvent.submit( input.closest( 'form' )! );
+		expect( onPathChange ).toHaveBeenLastCalledWith( '/' );
+	} );
+} );
+
 describe( 'preview address bar', () => {
 	it.each( [ 'browser', 'desktop' ] as const )(
 		'hides the browser bar until startup finishes in %s',

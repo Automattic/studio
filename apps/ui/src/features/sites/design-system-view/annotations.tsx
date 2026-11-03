@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useSiteAnnotations } from '@/features/annotations';
+import { AnnotationMarker, useSiteAnnotations } from '@/features/annotations';
 import styles from './style.module.css';
 import type { AnnotationAnchor } from '@/features/annotations';
 import type { VisualAnnotationTarget } from '@studio/agent/protocol/visual-annotations';
@@ -34,11 +34,11 @@ export function useDesignAnnotations( {
 }: DesignAnnotationProps & { siteId: string; root: HTMLElement | null } ) {
 	const { active, notes, editingId } = useSiteAnnotations( siteId );
 	const targets = useRef( new Map< string, VisualAnnotationTarget >() );
-	const editing = notes.find( ( note ) => note.id === editingId && note.designKey );
+	const editing = notes.find( ( note ) => note.id === editingId && note.targetKey );
 
 	useEffect( () => {
-		if ( ! root || ! editing?.designKey || ! onAnnotationAnchor ) return;
-		const key = editing.designKey;
+		if ( ! root || ! editing?.targetKey || ! onAnnotationAnchor ) return;
+		const key = editing.targetKey;
 		const point = editing.point;
 		const follow = () => {
 			const element = root.querySelector( `[${ TARGET_ATTRIBUTE }="${ CSS.escape( key ) }"]` );
@@ -52,11 +52,11 @@ export function useDesignAnnotations( {
 			observer.disconnect();
 			window.removeEventListener( 'scroll', follow, { capture: true } );
 		};
-	}, [ root, editing?.designKey, editing?.point, onAnnotationAnchor ] );
+	}, [ root, editing?.targetKey, editing?.point, onAnnotationAnchor ] );
 
 	const target = ( key: string, label: string, value?: string, token?: string ) => {
 		targets.current.set( key, {
-			designKey: key,
+			targetKey: key,
 			designToken: token,
 			nearbyText: value ? `${ label }: ${ value }` : label,
 			path: 'DESIGN.md',
@@ -65,11 +65,9 @@ export function useDesignAnnotations( {
 	};
 
 	const marker = ( key: string ) => {
-		const note = active && notes.find( ( item ) => item.designKey === key );
+		const note = active && notes.find( ( item ) => item.targetKey === key );
 		return note ? (
-			<span className={ styles.annotationMarker } aria-hidden="true">
-				{ note.number }
-			</span>
+			<AnnotationMarker className={ styles.annotationMarker } number={ note.number } />
 		) : null;
 	};
 

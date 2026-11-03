@@ -1,8 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import * as defaultBrowser from '@studio/common/lib/user-settings/default-browser';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { startLocalServer, type LocalServer } from '../index';
 
 // Driven over HTTP: the request validation and the `null`-clears-a-preference
@@ -55,23 +54,9 @@ beforeEach( async () => {
 } );
 
 afterEach( async () => {
-	vi.restoreAllMocks();
 	await server.close();
 	delete process.env.DEV_CONFIG_DIR;
 	rmSync( configDir, { recursive: true, force: true } );
-} );
-
-it( 'reports the host default browser alongside installed applications', async () => {
-	vi.spyOn( defaultBrowser, 'detectDefaultBrowser' ).mockResolvedValue( {
-		name: 'Safari',
-		browser: 'safari',
-	} );
-	const response = await fetch( `${ server.url }/api/installed-apps` );
-	expect( response.status ).toBe( 200 );
-	expect( await response.json() ).toMatchObject( {
-		terminal: true,
-		defaultBrowser: { name: 'Safari', browser: 'safari' },
-	} );
 } );
 
 describe( 'GET/PATCH /api/user-preferences', () => {

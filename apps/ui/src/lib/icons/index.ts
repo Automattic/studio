@@ -1,3 +1,4 @@
+export * from './arrow-down-icon';
 export * from './annotate-icon';
 export * from './appearance-icon';
 export * from './archive-icon';

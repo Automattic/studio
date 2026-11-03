@@ -175,7 +175,7 @@ it( 'reviews, reopens, sends, and clears batched annotations from the header', a
 		setAnnotating( siteId, false );
 	} );
 	const send = screen.getByRole( 'button', { name: 'Send 1 annotation' } );
-	expect( send ).toHaveTextContent( 'Send 1' );
+	expect( send ).toHaveTextContent( 'Send' );
 	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toHaveAttribute(
 		'data-variant',
 		'outline'

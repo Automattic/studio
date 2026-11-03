@@ -10,9 +10,11 @@ import { useEffect, useMemo } from 'react';
 import { setDismissedAiCreditsIntent, useDismissedAiCreditsIntent } from '@/data/ai-credits-notice';
 import {
 	DISMISSED_MESSAGES_QUERY_KEY,
+	openStudioLogsAction,
 	syncCardNotices,
 	type ToastAction,
 } from '@/data/app-messages';
+import { useConnector } from '@/data/core';
 import { useAppUpdateStatus } from '@/data/queries/use-app-update';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useAiCreditsMeter } from './use-ai-credits-meter';
@@ -66,7 +68,10 @@ function describeVersionChange(
 	return undefined;
 }
 
-export function deriveUpdateMessages( status: AppUpdateStatus | undefined ): PersistentMessage[] {
+export function deriveUpdateMessages(
+	status: AppUpdateStatus | undefined,
+	errorAction?: ToastAction
+): PersistentMessage[] {
 	if ( status?.state === 'downloading' ) {
 		return [
 			{
@@ -80,11 +85,24 @@ export function deriveUpdateMessages( status: AppUpdateStatus | undefined ): Per
 		];
 	}
 
+	if ( status?.state === 'error' ) {
+		return [
+			{
+				id: 'app-update-error',
+				intent: 'error',
+				title: __( 'Couldn’t update Studio' ),
+				description: status.detail ?? __( 'We’ll try again the next time we check for updates.' ),
+				action: errorAction,
+			},
+		];
+	}
+
 	return [];
 }
 
 // Before session dismissals are applied.
 function usePersistentMessageSources(): PersistentMessage[] {
+	const connector = useConnector();
 	const updateStatus = useAppUpdateStatus();
 	const locale = useUserLocale();
 	const aiCreditsMeter = useAiCreditsMeter();
@@ -106,7 +124,7 @@ function usePersistentMessageSources(): PersistentMessage[] {
 	}, [ aiCreditsNotice.dismissedIntent ] );
 
 	return useMemo( () => {
-		const messages = deriveUpdateMessages( updateStatus.data );
+		const messages = deriveUpdateMessages( updateStatus.data, openStudioLogsAction( connector ) );
 
 		if ( aiCreditsNotice.visible && aiCreditsIntent && aiCreditsFraction !== null ) {
 			messages.push( {
@@ -120,7 +138,14 @@ function usePersistentMessageSources(): PersistentMessage[] {
 		}
 
 		return messages;
-	}, [ updateStatus.data, aiCreditsIntent, aiCreditsFraction, aiCreditsNotice.visible, locale ] );
+	}, [
+		updateStatus.data,
+		connector,
+		aiCreditsIntent,
+		aiCreditsFraction,
+		aiCreditsNotice.visible,
+		locale,
+	] );
 }
 
 // Mount once.

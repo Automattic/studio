@@ -38,16 +38,3 @@
 		transition: none;
 	}
 }
-
-/* Sits inside the floating sidebar toggle's button wrapper, pinned to the
-   icon button's top-right corner. */
-.dot {
-	position: absolute;
-	top: -1px;
-	right: -1px;
-	width: 6px;
-	height: 6px;
-	border-radius: var( --radius-full );
-	background-color: var( --accent-text );
-	pointer-events: none;
-}

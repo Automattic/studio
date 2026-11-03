@@ -1,7 +1,13 @@
 import { fireEvent, screen } from '@testing-library/react';
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getVisibleToasts, showToast, resetAppMessagesForTests } from '@/data/app-messages';
+import {
+	toast,
+	dismissToast,
+	getVisibleToasts,
+	showToast,
+	resetAppMessagesForTests,
+} from '@/data/app-messages';
 import { closeNoticeHistory, NoticeHistoryButton } from '@/features/notifications/notice-history';
 import { renderWithProviders } from '@/test/render';
 import { AppToasts } from './index';
@@ -17,6 +23,33 @@ describe( 'AppToasts', () => {
 		closeNoticeHistory();
 		resetAppMessagesForTests();
 		vi.restoreAllMocks();
+	} );
+
+	it( 'keeps progress visible until replaced by a dismissible result', async () => {
+		await render( <AppToasts /> );
+		act( () => {
+			toast.processing( 'Creating preview…', { id: 'progress', durationMs: 1 } );
+		} );
+		expect(
+			screen.queryByRole( 'button', { name: 'Dismiss Creating preview…' } )
+		).not.toBeInTheDocument();
+		await act( async () => {
+			await new Promise( ( resolve ) => setTimeout( resolve, 30 ) );
+			dismissToast( 'progress' );
+		} );
+		expect( getVisibleToasts().find( ( item ) => item.id === 'progress' )?.leaving ).not.toBe(
+			true
+		);
+		expect( screen.getByText( 'Creating preview…' ) ).toBeVisible();
+		const progress = screen.getByRole( 'dialog', { name: 'Creating preview…' } );
+		act( () => progress.focus() );
+		fireEvent.keyDown( progress, { key: 'Escape' } );
+		expect( screen.getByText( 'Creating preview…' ) ).toBeVisible();
+		act( () => {
+			showToast( { id: 'progress', title: 'Preview ready', intent: 'success' } );
+		} );
+		expect( screen.getByRole( 'button', { name: 'Dismiss Preview ready' } ) ).toBeVisible();
+		expect( screen.queryByText( 'Creating preview…' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'replaces a toast in place, even when the replacement drops the description', async () => {

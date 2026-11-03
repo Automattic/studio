@@ -26,6 +26,8 @@ type ToastInput = {
 	description?: string;
 	action?: ToastAction;
 	durationMs?: number;
+	dismissible?: boolean;
+	processing?: boolean;
 };
 
 export type ToastMessage = {
@@ -35,6 +37,8 @@ export type ToastMessage = {
 	description?: string;
 	action?: ToastAction;
 	durationMs: number;
+	dismissible?: boolean;
+	processing?: boolean;
 	// True while the exit transition plays. The toast stays in the visible
 	// list (so the renderer can animate it out) and is actually removed —
 	// and the queue promoted — TOAST_EXIT_MS later.
@@ -46,6 +50,7 @@ export type ToastMessage = {
 export type NoticeIntent = ToastIntent | 'warning';
 
 export type NoticeRecord = {
+	processing?: boolean;
 	source?: 'studio';
 	id: string;
 	intent: NoticeIntent;
@@ -102,7 +107,7 @@ function clearExpiryTimer( id: string ) {
 // visible — queued failures keep their full linger time.
 function scheduleExpiry( toast: ToastMessage ) {
 	clearExpiryTimer( toast.id );
-	if ( ! rendererMounted ) {
+	if ( ! rendererMounted || toast.dismissible === false ) {
 		return;
 	}
 	const timer = setTimeout( () => {
@@ -115,13 +120,14 @@ function scheduleExpiry( toast: ToastMessage ) {
 function recordNotice(
 	toastMessage: Pick<
 		NoticeRecord,
-		'id' | 'intent' | 'title' | 'description' | 'action' | 'source'
+		'id' | 'intent' | 'title' | 'description' | 'action' | 'source' | 'processing'
 	>,
 	isReplacement: boolean
 ) {
 	const record: NoticeRecord = {
 		id: toastMessage.id,
 		source: toastMessage.source,
+		processing: toastMessage.processing,
 		intent: toastMessage.intent,
 		title: toastMessage.title,
 		description: toastMessage.description,
@@ -185,6 +191,8 @@ export function showToast( input: ToastInput ): string {
 		title: input.title,
 		description: input.description,
 		action: input.action,
+		dismissible: input.dismissible,
+		processing: input.processing,
 		durationMs:
 			input.durationMs ?? ( intent === 'error' ? ERROR_TOAST_TTL_MS : DEFAULT_TOAST_TTL_MS ),
 	};
@@ -212,6 +220,7 @@ export function showToast( input: ToastInput ): string {
 }
 
 export function dismissToast( id: string ): void {
+	if ( visible.find( ( toast ) => toast.id === id )?.dismissible === false ) return;
 	beginToastExit( id );
 }
 
@@ -259,6 +268,10 @@ export async function runNoticeAction( action: ToastAction ): Promise< boolean >
 }
 
 export const toast = {
+	processing: (
+		title: string,
+		options: Omit< ToastInput, 'title' | 'intent' | 'processing' | 'dismissible' > = {}
+	) => showToast( { ...options, intent: 'info', title, processing: true, dismissible: false } ),
 	success: ( title: string, options: Omit< ToastInput, 'title' | 'intent' > = {} ) =>
 		showToast( { intent: 'success', title, ...options } ),
 	info: ( title: string, options: Omit< ToastInput, 'title' | 'intent' > = {} ) =>

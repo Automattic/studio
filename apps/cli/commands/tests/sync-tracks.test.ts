@@ -1,3 +1,4 @@
+import * as configFile from '@studio/common/lib/cli-config-file';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
@@ -69,6 +70,16 @@ beforeEach( () => {
 	vi.mocked( fetchSyncableSites ).mockResolvedValue( [ remoteSite ] );
 	vi.mocked( pickSyncSite ).mockResolvedValue( remoteSite );
 } );
+
+const siteTracksId = '6ad36785-267a-4e6d-b036-0a7460c76497';
+beforeEach( () => {
+	vi.spyOn( configFile, 'readCliConfigFileRaw' ).mockResolvedValue( {
+		version: 1,
+		sites: [ { id: 'site-1', name: 'Private title', path: '/test/site', tracksId: siteTracksId } ],
+		snapshots: [],
+	} );
+} );
+afterEach( () => vi.restoreAllMocks() );
 
 describe( 'CLI: studio pull Tracks events', () => {
 	it( "records a failure with the site's sync type and a classified reason", async () => {
@@ -160,6 +171,7 @@ describe( 'CLI: studio push Tracks events', () => {
 				sync_type: 'pressable',
 				time_ms: expect.any( Number ),
 				channel: 'studio-cli',
+				site_id: siteTracksId,
 			} )
 		);
 	} );
@@ -177,5 +189,18 @@ describe( 'CLI: studio push Tracks events', () => {
 			TRACKS_EVENTS.SYNC_PUSH,
 			expect.objectContaining( { success: false, sync_type: 'unknown', channel: 'studio-cli' } )
 		);
+		expect( vi.mocked( recordTracksEvent ).mock.calls[ 0 ][ 1 ] ).not.toHaveProperty( 'site_id' );
 	} );
+} );
+
+it( 'keeps a failed push and its event when the site ID cannot be read', async () => {
+	vi.spyOn( configFile, 'readCliConfigFileRaw' ).mockRejectedValueOnce(
+		new Error( 'Storage unavailable' )
+	);
+	await expect( runPush( testSite.path, [ 'all' ], String( remoteSite.id ) ) ).rejects.toThrow();
+	expect( recordTracksEvent ).toHaveBeenCalledExactlyOnceWith(
+		TRACKS_EVENTS.SYNC_PUSH,
+		expect.objectContaining( { success: false } )
+	);
+	expect( vi.mocked( recordTracksEvent ).mock.calls[ 0 ][ 1 ] ).not.toHaveProperty( 'site_id' );
 } );

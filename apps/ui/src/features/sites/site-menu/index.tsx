@@ -290,7 +290,7 @@ export function SiteMenuItems( {
 					</Menu.Item>
 					<Menu.Item onClick={ actions.openEmail }>
 						<MailIcon />
-						{ __( 'Email' ) }
+						{ __( 'Email log' ) }
 					</Menu.Item>
 					{ siteDesign.data ? (
 						<Menu.Item onClick={ actions.openDesignSystem }>

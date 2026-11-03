@@ -182,7 +182,7 @@ function getDisplayUrl( siteUrl: string, path: string ): string {
 		return __( 'Design system' );
 	}
 	if ( path === EMAIL_PREVIEW_PATH ) {
-		return __( 'Email' );
+		return __( 'Email log' );
 	}
 	try {
 		return new URL( path, siteUrl ).toString().replace( /^(https?:\/\/[^/?#]+)\/$/i, '$1' );
@@ -328,7 +328,7 @@ export function PreviewAddressBar( {
 		frontend: __( 'Front end' ),
 		admin: __( 'WordPress Admin' ),
 		database: __( 'Database' ),
-		email: __( 'Email' ),
+		email: __( 'Email log' ),
 		design: __( 'Design system' ),
 	};
 	const realms: PreviewRealm[] = [

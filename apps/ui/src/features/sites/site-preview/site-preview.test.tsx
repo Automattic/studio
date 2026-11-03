@@ -531,7 +531,7 @@ describe( 'site email', () => {
 		await renderPreview( 'browser', { onPathChange }, connector );
 
 		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: 'Email' } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: 'Email log' } ) );
 
 		expect( onPathChange ).toHaveBeenLastCalledWith( 'studio:email' );
 		expect( connector.trackEvent ).toHaveBeenCalledWith( 'studio_site_open_email', {
@@ -578,7 +578,7 @@ describe( 'site email', () => {
 
 		expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Responsive mode' } ) ).not.toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Email' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Email log' } ) );
 		fireEvent.click( await screen.findByRole( 'option', { name: 'Front end' } ) );
 
 		expect( onPathChange ).toHaveBeenLastCalledWith( '/' );

@@ -387,9 +387,9 @@ export function EmailView( {
 					data-layout={ single ? 'single' : 'split' }
 					data-reading={ selected ? '' : undefined }
 				>
-					<section className={ styles.list } aria-label={ __( 'Email' ) }>
+					<section className={ styles.list } aria-label={ __( 'Email log' ) }>
 						<header className={ styles.listHeader }>
-							<h2 className={ styles.listTitle }>{ __( 'Email' ) }</h2>
+							<h2 className={ styles.listTitle }>{ __( 'Email log' ) }</h2>
 							{ emails.data ? (
 								<span className={ styles.count }>
 									{ sprintf(
@@ -421,7 +421,7 @@ export function EmailView( {
 						) : (
 							<ul
 								role="listbox"
-								aria-label={ __( 'Email' ) }
+								aria-label={ __( 'Email log' ) }
 								className={ styles.rows }
 								onKeyDown={ handleListKeyDown }
 							>

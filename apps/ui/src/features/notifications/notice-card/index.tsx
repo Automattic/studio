@@ -11,12 +11,12 @@ import {
 } from '@/data/app-messages';
 import { useCopyText } from '@/data/host/use-copy-text';
 import { ErrorIcon, InfoIcon, SuccessIcon, WarningIcon } from '@/lib/icons';
-import { Button, IconButton } from '@/lib/ui';
+import { Button, IconButton, Spinner } from '@/lib/ui';
 import styles from './style.module.css';
 
 type Notice = Pick<
 	NoticeRecord,
-	'intent' | 'title' | 'description' | 'action' | 'actionPending' | 'source'
+	'intent' | 'title' | 'description' | 'action' | 'actionPending' | 'source' | 'processing'
 >;
 
 function StatusIcon( { intent, source }: { intent: NoticeIntent; source?: 'studio' } ) {
@@ -158,7 +158,7 @@ export function NoticeCard( {
 	// In place of the notice's own action button.
 	action?: ReactNode;
 	time?: ReactNode;
-	onDismiss: () => void;
+	onDismiss?: () => void;
 	onActionDone?: () => void;
 } ) {
 	const titleRef = useRef< HTMLParagraphElement >( null );
@@ -187,9 +187,19 @@ export function NoticeCard( {
 	return (
 		<div className={ clsx( styles.card, className ) }>
 			<div className={ styles.row } data-expanded={ expanded || undefined }>
-				<StatusIcon intent={ notice.intent } source={ notice.source } />
+				{ notice.processing ? (
+					<span className={ styles.processing } aria-hidden="true">
+						<Spinner />
+					</span>
+				) : (
+					<StatusIcon intent={ notice.intent } source={ notice.source } />
+				) }
 				<div className={ styles.titleSummary }>
-					<p ref={ titleRef } className={ styles.title } data-expanded={ expanded || undefined }>
+					<p
+						ref={ titleRef }
+						className={ clsx( styles.title, notice.processing && 'studio-shimmer' ) }
+						data-expanded={ expanded || undefined }
+					>
 						{ notice.title }
 					</p>
 					{ titleClipped && ! notice.description ? (
@@ -230,20 +240,22 @@ export function NoticeCard( {
 				/>
 			) : null }
 
-			<IconButton
-				className={ styles.close }
-				icon={ <XIcon /> }
-				label={ __( 'Dismiss' ) }
-				aria-label={ sprintf(
-					/* translators: %s: notification title. */
-					__( 'Dismiss %s' ),
-					notice.title
-				) }
-				variant="outline"
-				size="icon-2xs"
-				shape="round"
-				onClick={ onDismiss }
-			/>
+			{ onDismiss ? (
+				<IconButton
+					className={ styles.close }
+					icon={ <XIcon /> }
+					label={ __( 'Dismiss' ) }
+					aria-label={ sprintf(
+						/* translators: %s: notification title. */
+						__( 'Dismiss %s' ),
+						notice.title
+					) }
+					variant="outline"
+					size="icon-2xs"
+					shape="round"
+					onClick={ onDismiss }
+				/>
+			) : null }
 		</div>
 	);
 }

@@ -178,12 +178,16 @@ export function NoticeHistoryButton( { active = true }: { active?: boolean } ) {
 											</time>
 										}
 										onActionDone={ closeNoticeHistory }
-										onDismiss={ () => {
-											if ( notices.length === 1 ) {
-												setOpen( false );
-											}
-											dismissNotice( notice );
-										} }
+										onDismiss={
+											notice.dismissible === false
+												? undefined
+												: () => {
+														if ( notices.length === 1 ) {
+															setOpen( false );
+														}
+														dismissNotice( notice );
+												  }
+										}
 									/>
 								</li>
 							) ) }

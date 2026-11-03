@@ -6,7 +6,6 @@ import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect } from 'react';
 import { openStudioLogsAction, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
-import { markPreviewReady, markPreviewSeen } from '@/data/preview-ready';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
@@ -58,9 +57,9 @@ export function useSettleSync() {
 			if ( settled.direction === 'preview' ) {
 				void queryClient.invalidateQueries( { queryKey: SNAPSHOTS_QUERY_KEY } );
 				if ( settled.kind === 'success' ) {
-					markPreviewReady( siteId );
 					/* translators: %s: site name */
 					toast.success( sprintf( __( '%s preview is ready' ), siteName() ), {
+						id: `preview-${ siteId }`,
 						action: {
 							label: __( 'Copy link' ),
 							onClick: () => {
@@ -69,9 +68,7 @@ export function useSettleSync() {
 									?.filter( ( snapshot ) => snapshot.localSiteId === siteId )
 									.sort( ( a, b ) => b.date - a.date )[ 0 ];
 								if ( latest ) {
-									void connector
-										.copyText( getSnapshotUrl( latest ) )
-										.then( () => markPreviewSeen( siteId ) );
+									void connector.copyText( getSnapshotUrl( latest ) );
 								}
 							},
 						},
@@ -79,8 +76,11 @@ export function useSettleSync() {
 				} else if ( settled.kind === 'error' ) {
 					/* translators: %s: site name */
 					toast.error( sprintf( __( 'Couldn’t publish preview: %s' ), siteName() ), {
+						id: `preview-${ siteId }`,
 						description: settled.message,
 					} );
+				} else if ( settled.kind === 'cancelled' ) {
+					toast.info( __( 'Preview creation cancelled' ), { id: `preview-${ siteId }` } );
 				}
 				return;
 			}

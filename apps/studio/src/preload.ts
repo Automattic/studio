@@ -57,6 +57,7 @@ const api: IpcApi = {
 	copyText: ( text ) => ipcRendererInvoke( 'copyText', text ),
 	getAppGlobals: () => ipcRendererInvoke( 'getAppGlobals' ),
 	getAppUpdateStatus: () => ipcRendererInvoke( 'getAppUpdateStatus' ),
+	checkForAppUpdates: () => ipcRendererInvoke( 'checkForAppUpdates' ),
 	installAppUpdate: () => ipcRendererInvoke( 'installAppUpdate' ),
 	getWpVersion: ( id ) => ipcRendererInvoke( 'getWpVersion', id ),
 	getSiteDesign: ( id ) => ipcRendererInvoke( 'getSiteDesign', id ),

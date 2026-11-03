@@ -436,6 +436,24 @@ describe( 'Composer access notices', () => {
 } );
 
 describe( 'Chat target selection', () => {
+	it( 'hides the auto-start chip while the site runs and restores it when stopped', async () => {
+		const { connector } = await setupChat();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Auto-start / } ) );
+		await screen.findByRole( 'button', { name: 'Remove Auto-start' } );
+
+		await act( async () => connector.startSite( SITE_ID ) );
+		await waitFor( () =>
+			expect(
+				screen.queryByRole( 'button', { name: 'Remove Auto-start' } )
+			).not.toBeInTheDocument()
+		);
+		expect( connector.state.preferences.autoStartSiteOnChat ).toBe( true );
+
+		await act( async () => connector.stopSite( SITE_ID ) );
+		expect( await screen.findByRole( 'button', { name: 'Remove Auto-start' } ) ).toBeVisible();
+	} );
+
 	it.each( [
 		{ signedIn: false, hasAnthropicApiKey: false },
 		{ signedIn: true, hasAnthropicApiKey: false },

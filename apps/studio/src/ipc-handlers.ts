@@ -1116,7 +1116,7 @@ export async function saveOnboarding(
 	}
 }
 
-export { getAppUpdateStatus, installAppUpdate } from 'src/updates';
+export { getAppUpdateStatus, checkForAppUpdates, installAppUpdate } from 'src/updates';
 
 export function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
 	return readSitePreview( id, getSiteThumbnailPath( id ) );

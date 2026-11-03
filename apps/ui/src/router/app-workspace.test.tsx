@@ -202,15 +202,16 @@ describe( 'Studio workspace', () => {
 		await choosePreviewLayout( 'Split view' );
 		await readyPreviewPage();
 		act( () => {
-			setAnnotating( 'one', true );
 			const id = pickAnnotation( 'one', { selector: 'h1', tag: 'h1', path: '/' } )!;
 			changeAnnotation( 'one', id, { comment: 'Make this heading larger' } );
+			stageAnnotations( 'one', [ id ], true );
 			setAnnotating( 'one', false );
 		} );
 		try {
 			const annotate = screen.getByRole( 'button', { name: 'Annotate' } );
 			await waitFor( () => expect( annotate ).toBeEnabled() );
 			fireEvent.click( annotate );
+
 			expect(
 				await screen.findByRole( 'dialog', { name: 'Put your feedback to work' } )
 			).toBeVisible();

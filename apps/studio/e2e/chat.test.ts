@@ -155,7 +155,7 @@ test.describe( 'Chat', () => {
 			await page.getByRole( 'menuitemcheckbox', { name: 'Annotate' } ).click();
 		}
 
-		const note = page.getByRole( 'textbox', { name: 'Leave a note' } );
+		const note = page.getByRole( 'textbox', { name: 'Describe the change' } );
 		await expect
 			.poll( () =>
 				inspect( `document.readyState === 'complete' && !!document.querySelector('h1,h2')` )
@@ -183,10 +183,6 @@ test.describe( 'Chat', () => {
 		expect( markerPoint.x ).toBeCloseTo( pickedPoint.x, 3 );
 		expect( markerPoint.y ).toBeCloseTo( pickedPoint.y, 3 );
 		await note.fill( 'Make this heading shorter' );
-		const batchNotes = page.getByRole( 'checkbox', { name: 'Batch notes', exact: true } );
-		await expect( batchNotes ).not.toBeChecked();
-		await batchNotes.click();
-		await expect( batchNotes ).toBeChecked();
 		await page.getByRole( 'button', { name: 'Add annotation to batch', exact: true } ).click();
 		expect( await sentPrompts() ).toHaveLength( 0 );
 		await expect.poll( () => inspect( `${ marker }?.dataset.pending` ) ).toBe( 'false' );
@@ -204,7 +200,13 @@ test.describe( 'Chat', () => {
 				.getByRole( 'button', { name: 'Remove attachment' } )
 		).toBeVisible();
 		await note.press( 'Enter' );
-		await page.getByRole( 'button', { name: 'Send 1 annotation', exact: true } ).click();
+		await expect( note ).toBeHidden();
+		const openChat = page.getByRole( 'button', { name: 'Open chat', exact: true } );
+		if ( await openChat.isVisible() ) {
+			await openChat.click();
+		}
+		await expect( page.getByRole( 'button', { name: '1 annotation', exact: true } ) ).toBeVisible();
+		await page.getByRole( 'button', { name: 'Send message', exact: true } ).click();
 
 		await expect.poll( async () => ( await sentPrompts() ).length ).toBe( 1 );
 		const [ sent ] = await sentPrompts();

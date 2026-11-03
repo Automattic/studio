@@ -48,7 +48,7 @@ describe( 'downloadFile', () => {
 
 	it( 'fails as a network error when no response starts within 5 s', async () => {
 		expect( isNetworkError( await failure( `${ base }/silent` ) ) ).toBe( true );
-	}, 15_000 );
+	}, 10_000 );
 
 	it( 'gives a body that has started all the time it needs', async () => {
 		await downloadFile( `${ base }/slow-body`, destination );

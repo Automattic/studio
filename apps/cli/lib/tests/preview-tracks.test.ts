@@ -2,6 +2,7 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { getSiteTracksProps, resolveSiteTracksEventProps } from '@studio/common/lib/site-tracks';
 import { getCliConfigPath, getSharedConfigPath } from '@studio/common/lib/well-known-paths';
 import { vi } from 'vitest';
 import * as configStore from 'cli/lib/cli-config/core';
@@ -13,7 +14,7 @@ import {
 	updateSnapshotInConfig,
 } from 'cli/lib/cli-config/snapshots';
 import { getPreviewTracksProps } from 'cli/lib/preview-tracks';
-import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
+import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 
 vi.unmock( 'lockfile' );
 
@@ -223,18 +224,37 @@ it( 'does not unlock another writer when acquiring the lock fails', async () => 
 	expect( unlock ).not.toHaveBeenCalled();
 } );
 
-it.each( [ TRACKS_EVENTS.PREVIEW_SITE_CREATE, TRACKS_EVENTS.PREVIEW_SITE_UPDATE ] )(
-	'sends opaque props through the existing anonymous wrapper for %s and honors every gate',
-	async ( event ) => {
+it.each(
+	[ '', 'studio-ui:v2' ].flatMap( ( origin ) =>
+		[
+			TRACKS_EVENTS.PREVIEW_SITE_CREATE,
+			TRACKS_EVENTS.PREVIEW_SITE_UPDATE,
+			TRACKS_EVENTS.SITE_EXPORT,
+			TRACKS_EVENTS.SYNC_CONNECT,
+			TRACKS_EVENTS.SYNC_PUSH,
+		].map( ( event ) => ( { origin, event } ) )
+	)
+)(
+	'sends opaque props through the existing anonymous wrapper for $event ($origin) and honors every gate',
+	async ( { origin, event } ) => {
+		vi.stubEnv( 'STUDIO_TRACKS_ORIGIN', origin );
 		vi.stubEnv( 'NODE_ENV', 'production' );
 		const send = vi.fn().mockResolvedValue( {} );
 		vi.stubGlobal( 'fetch', send );
-		const props = await getPreviewTracksProps( site.path, preview );
+		const props = {
+			...( await getPreviewTracksProps(
+				site.path,
+				event === TRACKS_EVENTS.PREVIEW_SITE_CREATE || event === TRACKS_EVENTS.PREVIEW_SITE_UPDATE
+					? preview
+					: undefined
+			) ),
+			...getTracksOrigin(),
+		};
 		await recordTracksEvent( event, props );
 		expect( send ).toHaveBeenCalledTimes( 1 );
 		const url = new URL( send.mock.calls[ 0 ][ 0 ] );
 		expect( url.searchParams.get( 'site_id' ) ).toBe( props.site_id );
-		expect( url.searchParams.get( 'preview_id' ) ).toBe( props.preview_id );
+		expect( url.searchParams.get( 'preview_id' ) ).toBe( props.preview_id ?? null );
 		expect( url.searchParams.get( '_ut' ) ).toBe( 'anon' );
 		const shared = JSON.parse( await fs.readFile( getSharedConfigPath(), 'utf8' ) );
 		expect( url.searchParams.get( '_ui' ) ).toBe( shared.analyticsInstallId );
@@ -270,5 +290,84 @@ it.each( [ TRACKS_EVENTS.PREVIEW_SITE_CREATE, TRACKS_EVENTS.PREVIEW_SITE_UPDATE 
 		vi.stubEnv( 'E2E', 'true' );
 		await recordTracksEvent( event, props );
 		expect( send ).not.toHaveBeenCalled();
+	}
+);
+
+const siteEvents = [
+	TRACKS_EVENTS.SITE_EXPORT,
+	TRACKS_EVENTS.SYNC_CONNECT,
+	TRACKS_EVENTS.SYNC_PUSH,
+];
+
+it( 'uses the preview UUID across CLI and host lookups, including concurrent legacy initialization', async () => {
+	const results = await Promise.all( [
+		getPreviewTracksProps( site.path, preview ),
+		getSiteTracksProps( { siteId: site.id } ),
+		getPreviewTracksProps( site.path ),
+		...siteEvents.map( ( event ) =>
+			resolveSiteTracksEventProps( event, { success: true }, site.id )
+		),
+	] );
+	const id = results[ 0 ].site_id;
+	expect( id ).toMatch( uuid );
+	for ( const result of results ) expect( result.site_id ).toBe( id );
+	for ( const result of results.slice( 1 ) ) expect( result ).not.toHaveProperty( 'preview_id' );
+	const config = await configStore.readCliConfig();
+	expect( config.version ).toBe( 1 );
+	expect( config.sites ).toHaveLength( 1 );
+	expect( config.sites[ 0 ].tracksId ).toBe( id );
+} );
+
+it.each( siteEvents )( 'ignores caller props and omits unresolved IDs for %s', async ( event ) => {
+	const props = { success: false, site_id: crypto.randomUUID(), preview_id: preview.url };
+	expect( await resolveSiteTracksEventProps( event, props, '/missing' ) ).toEqual( {
+		success: false,
+	} );
+	expect( await resolveSiteTracksEventProps( event, props ) ).toEqual( { success: false } );
+	const resolved = await resolveSiteTracksEventProps( event, props, site.id );
+	expect( resolved ).toEqual( { success: false, site_id: expect.stringMatching( uuid ) } );
+	expect( resolved.site_id ).not.toBe( props.site_id );
+	expect( resolved.site_id ).not.toBe( site.id );
+	expect( resolved.site_id ).not.toBe( site.path );
+	expect( resolved.site_id ).not.toBe( site.name );
+} );
+
+it.each( [ '', 'studio-ui:v2' ] )(
+	'sends the same site UUID for create, preview, export, connect and push (origin %s)',
+	async ( origin ) => {
+		vi.stubEnv( 'STUDIO_TRACKS_ORIGIN', origin );
+		vi.stubEnv( 'NODE_ENV', 'production' );
+		const send = vi.fn().mockResolvedValue( {} );
+		vi.stubGlobal( 'fetch', send );
+		const created = await getPreviewTracksProps( site.path );
+		await recordTracksEvent( TRACKS_EVENTS.SITE_CREATE, { ...created, ...getTracksOrigin() } );
+		await recordTracksEvent(
+			TRACKS_EVENTS.PREVIEW_SITE_CREATE,
+			await getPreviewTracksProps( site.path, preview )
+		);
+		await recordTracksEvent(
+			TRACKS_EVENTS.PREVIEW_SITE_UPDATE,
+			await getPreviewTracksProps( site.path, preview )
+		);
+		for ( const event of siteEvents ) {
+			const props = await resolveSiteTracksEventProps( event, { success: true }, site.id );
+			await recordTracksEvent( event, { ...props, ...getTracksOrigin() } );
+		}
+		const payloads = send.mock.calls.map( ( [ url ] ) => new URL( url ).searchParams );
+		expect( payloads ).toHaveLength( 6 );
+		for ( const payload of payloads ) expect( payload.get( 'site_id' ) ).toBe( created.site_id );
+		for ( const payload of payloads.slice( 3 ) )
+			expect( payload.has( 'preview_id' ) ).toBe( false );
+		const config = await configStore.readCliConfig();
+		config.sites.push( { ...site, id: 'another-id', path: '/another/path' } );
+		await configStore.lockCliConfig();
+		try {
+			await configStore.saveCliConfig( config );
+		} finally {
+			await configStore.unlockCliConfig();
+		}
+		const other = await getSiteTracksProps( { siteId: 'another-id' } );
+		expect( other.site_id ).toMatch( uuid );
+		expect( other.site_id ).not.toBe( created.site_id );
 	}
 );

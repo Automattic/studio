@@ -749,8 +749,8 @@ export function createIpcConnector(): Connector {
 
 		// Analytics. `channel` and `ui_version` are attached by the desktop Tracks wrapper's
 		// `commonProps()` in Main, so callers pass only event-specific props here.
-		async trackEvent( eventName, props = {} ): Promise< void > {
-			await ipcApi.recordAnalyticsEvent( eventName, { ...props } );
+		async trackEvent( eventName, props = {}, siteId ): Promise< void > {
+			await ipcApi.recordAnalyticsEvent( eventName, { ...props }, siteId ).catch( () => undefined );
 		},
 
 		// External links

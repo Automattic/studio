@@ -1,7 +1,13 @@
+import fsPromises from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import * as configFile from '@studio/common/lib/cli-config-file';
 import { ExportEvents } from '@studio/common/lib/import-export-events';
+import { getCliConfigPath } from '@studio/common/lib/well-known-paths';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { vi } from 'vitest';
 import yargs from 'yargs';
+import * as configStore from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
@@ -13,6 +19,8 @@ import { Logger, LoggerError } from 'cli/logger';
 import { runCommand } from '../export';
 import { registerCommand } from '../export.command';
 import type { SiteData } from 'cli/lib/cli-config/core';
+
+vi.unmock( 'lockfile' );
 
 vi.mock( '@studio/common/lib/deploy-ignore', () => ( {
 	createDeployIgnoreFilter: vi.fn().mockResolvedValue( { ignores: vi.fn() } ),
@@ -42,6 +50,35 @@ vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 vi.mock( 'cli/lib/site-operations', () => ( {
 	withSiteOperation: vi.fn( ( _folder: string, _kind: string, fn: () => unknown ) => fn() ),
 } ) );
+
+let configDirectory: string;
+const siteTracksId = '6ad36785-267a-4e6d-b036-0a7460c76497';
+beforeEach( async () => {
+	configDirectory = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio-event-tracks-' ) );
+	vi.stubEnv( 'DEV_CONFIG_DIR', configDirectory );
+	await fsPromises.writeFile(
+		getCliConfigPath(),
+		JSON.stringify( {
+			version: 1,
+			sites: [
+				{
+					id: 'site-1',
+					name: 'Private site title',
+					path: '/test/site',
+					port: 8080,
+					phpVersion: '8.3',
+					tracksId: siteTracksId,
+				},
+			],
+			snapshots: [],
+		} )
+	);
+} );
+afterEach( async () => {
+	vi.restoreAllMocks();
+	vi.unstubAllEnvs();
+	await fsPromises.rm( configDirectory, { recursive: true, force: true } );
+} );
 
 describe( 'CLI: studio export', () => {
 	const testSitePath = '/test/site';
@@ -175,6 +212,7 @@ describe( 'CLI: studio export', () => {
 				export_type: 'full',
 				time_ms: expect.any( Number ),
 				channel: 'studio-cli',
+				site_id: siteTracksId,
 			} )
 		);
 		expect( vi.mocked( recordTracksEvent ).mock.calls[ 0 ][ 1 ] ).not.toHaveProperty(
@@ -195,6 +233,7 @@ describe( 'CLI: studio export', () => {
 				success: false,
 				export_type: 'full',
 				failure_reason: 'no_exporter_found',
+				site_id: siteTracksId,
 				time_ms: expect.any( Number ),
 			} )
 		);
@@ -213,7 +252,11 @@ describe( 'CLI: studio export', () => {
 
 		expect( recordTracksEvent ).toHaveBeenCalledWith(
 			TRACKS_EVENTS.SITE_EXPORT,
-			expect.objectContaining( { success: false, failure_reason: 'database_export' } )
+			expect.objectContaining( {
+				success: false,
+				failure_reason: 'database_export',
+				site_id: siteTracksId,
+			} )
 		);
 	} );
 
@@ -228,6 +271,57 @@ describe( 'CLI: studio export', () => {
 		expect( recordTracksEvent ).not.toHaveBeenCalled();
 	} );
 
+	it.each( [ '', 'studio-ui:v2' ] )(
+		'reuses and backfills the site UUID for export (origin %s)',
+		async ( origin ) => {
+			vi.stubEnv( 'STUDIO_TRACKS_ORIGIN', origin );
+			const config = await configStore.readCliConfig();
+			delete config.sites[ 0 ].tracksId;
+			await configStore.lockCliConfig();
+			try {
+				await configStore.saveCliConfig( config );
+			} finally {
+				await configStore.unlockCliConfig();
+			}
+			await Promise.all( [
+				runCommand( testSitePath, testExportPath ),
+				runCommand( testSitePath, testExportPath ),
+			] );
+			const calls = vi.mocked( recordTracksEvent ).mock.calls;
+			const stored = ( await configStore.readCliConfig() ).sites[ 0 ].tracksId;
+			expect( stored ).toMatch( /^[0-9a-f-]{36}$/ );
+			expect( calls.map( ( [ , props ] ) => props?.site_id ) ).toEqual( [ stored, stored ] );
+			expect( calls[ 0 ][ 1 ] ).not.toHaveProperty( 'preview_id' );
+		}
+	);
+	it( 'omits the site UUID when no local record can be resolved', async () => {
+		vi.mocked( getSiteByFolder ).mockRejectedValueOnce( new Error( 'Missing site' ) );
+		await expect( runCommand( '/missing', testExportPath ) ).rejects.toThrow( 'Missing site' );
+		expect( recordTracksEvent ).toHaveBeenCalledTimes( 1 );
+		expect( vi.mocked( recordTracksEvent ).mock.calls[ 0 ][ 1 ] ).not.toHaveProperty( 'site_id' );
+	} );
+	it.each( [
+		'lockCliConfigFile',
+		'readCliConfigFileRaw',
+		'writeCliConfigFileRaw',
+		'unlockCliConfigFile',
+	] as const )( 'keeps export and its event when ID %s fails', async ( operation ) => {
+		const config = await configStore.readCliConfig();
+		delete config.sites[ 0 ].tracksId;
+		await configStore.lockCliConfig();
+		try {
+			await configStore.saveCliConfig( config );
+		} finally {
+			await configStore.unlockCliConfig();
+		}
+		vi.spyOn( configFile, operation ).mockRejectedValueOnce( new Error( 'Storage failed' ) );
+		await expect( runCommand( testSitePath, testExportPath ) ).resolves.toBeUndefined();
+		expect( recordTracksEvent ).toHaveBeenCalledExactlyOnceWith(
+			TRACKS_EVENTS.SITE_EXPORT,
+			expect.objectContaining( { success: true, export_type: 'full' } )
+		);
+		expect( vi.mocked( recordTracksEvent ).mock.calls[ 0 ][ 1 ] ).not.toHaveProperty( 'site_id' );
+	} );
 	it( 'rejects .sql exports with --mode full', async () => {
 		const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
 

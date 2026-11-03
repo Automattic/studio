@@ -84,6 +84,7 @@ import {
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { isSitePreviewPath, readSitePreview } from '@studio/common/lib/site-preview-cache';
+import { resolveSiteTracksEventProps } from '@studio/common/lib/site-tracks';
 import {
 	getLocalFileSize,
 	listLocalFileTree as listSiteFileTree,
@@ -246,13 +247,17 @@ export async function recordAnalyticsEvent(
 	props: Record< string, string | number | boolean | undefined > & {
 		channel?: TracksChannel;
 		ui_version?: TracksUiVersion;
-	} = {}
+	} = {},
+	siteId?: string
 ): Promise< void > {
 	if ( ! isTracksEventName( eventName ) ) {
 		console.warn( `Ignoring unknown analytics event name: ${ eventName }` );
 		return;
 	}
-	await recordTracksEvent( eventName, props );
+	await recordTracksEvent(
+		eventName,
+		await resolveSiteTracksEventProps( eventName, props, siteId )
+	);
 }
 
 export async function listAiSessions( _event: IpcMainInvokeEvent ): Promise< AiSessionSummary[] > {

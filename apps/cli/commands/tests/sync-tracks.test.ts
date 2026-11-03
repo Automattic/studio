@@ -1,5 +1,11 @@
+import fsPromises from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import * as configFile from '@studio/common/lib/cli-config-file';
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import { getCliConfigPath } from '@studio/common/lib/well-known-paths';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as configStore from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { fetchSyncableSites, initiateBackup, pollBackupStatus } from 'cli/lib/sync-api';
 import { pickSyncSite } from 'cli/lib/sync-site-picker';
@@ -68,6 +74,35 @@ beforeEach( () => {
 	vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
 	vi.mocked( fetchSyncableSites ).mockResolvedValue( [ remoteSite ] );
 	vi.mocked( pickSyncSite ).mockResolvedValue( remoteSite );
+} );
+
+let configDirectory: string;
+const siteTracksId = '6ad36785-267a-4e6d-b036-0a7460c76497';
+beforeEach( async () => {
+	configDirectory = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio-event-tracks-' ) );
+	vi.stubEnv( 'DEV_CONFIG_DIR', configDirectory );
+	await fsPromises.writeFile(
+		getCliConfigPath(),
+		JSON.stringify( {
+			version: 1,
+			sites: [
+				{
+					id: 'site-1',
+					name: 'Private site title',
+					path: '/test/site',
+					port: 8080,
+					phpVersion: '8.3',
+					tracksId: siteTracksId,
+				},
+			],
+			snapshots: [],
+		} )
+	);
+} );
+afterEach( async () => {
+	vi.restoreAllMocks();
+	vi.unstubAllEnvs();
+	await fsPromises.rm( configDirectory, { recursive: true, force: true } );
 } );
 
 describe( 'CLI: studio pull Tracks events', () => {
@@ -160,6 +195,7 @@ describe( 'CLI: studio push Tracks events', () => {
 				sync_type: 'pressable',
 				time_ms: expect.any( Number ),
 				channel: 'studio-cli',
+				site_id: siteTracksId,
 			} )
 		);
 	} );
@@ -177,5 +213,29 @@ describe( 'CLI: studio push Tracks events', () => {
 			TRACKS_EVENTS.SYNC_PUSH,
 			expect.objectContaining( { success: false, sync_type: 'unknown', channel: 'studio-cli' } )
 		);
+		expect( vi.mocked( recordTracksEvent ).mock.calls[ 0 ][ 1 ] ).not.toHaveProperty( 'site_id' );
 	} );
+} );
+
+it.each( [
+	'lockCliConfigFile',
+	'readCliConfigFileRaw',
+	'writeCliConfigFileRaw',
+	'unlockCliConfigFile',
+] as const )( 'preserves a failed push and its event when ID %s fails', async ( operation ) => {
+	const config = await configStore.readCliConfig();
+	delete config.sites[ 0 ].tracksId;
+	await configStore.lockCliConfig();
+	try {
+		await configStore.saveCliConfig( config );
+	} finally {
+		await configStore.unlockCliConfig();
+	}
+	vi.spyOn( configFile, operation ).mockRejectedValueOnce( new Error( 'Storage failed' ) );
+	await expect( runPush( testSite.path, [ 'all' ], String( remoteSite.id ) ) ).rejects.toThrow();
+	expect( recordTracksEvent ).toHaveBeenCalledExactlyOnceWith(
+		TRACKS_EVENTS.SYNC_PUSH,
+		expect.objectContaining( { success: false } )
+	);
+	expect( vi.mocked( recordTracksEvent ).mock.calls[ 0 ][ 1 ] ).not.toHaveProperty( 'site_id' );
 } );

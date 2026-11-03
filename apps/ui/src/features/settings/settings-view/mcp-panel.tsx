@@ -3,6 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { CopyButton } from '@/features/chats';
 import { LearnMoreLink } from '@/features/onboarding';
 import { CodeBlock, Field, FieldDescription } from '@/lib/ui';
+import { AgentAppsSection } from './agent-apps-section';
 import { SettingsGroup, SettingsRow } from './rows';
 import styles from './style.module.css';
 
@@ -45,7 +46,8 @@ export function McpPanel() {
 					}
 				/>
 			</SettingsGroup>
-			<SettingsGroup title={ __( 'Install instructions' ) }>
+			<AgentAppsSection />
+			<SettingsGroup title={ __( 'Other AI assistants' ) }>
 				<Field>
 					<FieldDescription width="full">{ __( 'Install the Studio CLI:' ) }</FieldDescription>
 					<CopyableCode

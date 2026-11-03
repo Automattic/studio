@@ -216,6 +216,8 @@ export {
 } from 'src/modules/preview-site/lib/ipc-handlers';
 
 export {
+	connectAgentApp,
+	getAgentApps,
 	getAiSettings,
 	getGlobalAgentInstructions,
 	getInstalledAppsAndTerminals,

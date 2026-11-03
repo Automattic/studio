@@ -107,6 +107,17 @@ export const PUSH_PHASES = [
 export type PushPhase = ( typeof PUSH_PHASES )[ number ];
 
 // Pull backup API schemas
+export const pullSiteResponseSchema = z.object( {
+	success: z.boolean(),
+	backup_id: z.number(),
+} );
+
+export const syncBackupResponseSchema = z.object( {
+	status: z.enum( [ 'in-progress', 'finished', 'failed' ] ),
+	download_url: z.string().nullable().optional(),
+	percent: z.number(),
+} );
+
 // Push import API schemas
 export const importFailedResponseSchema = z.object( {
 	status: z.literal( 'failed' ),
@@ -161,8 +172,15 @@ export type PushSyncOptions = {
 	optionsToSync?: SyncOption[];
 	specificSelectionPaths?: string[];
 };
-/** What a pull includes. By default, all files and the database. */
+/**
+ * What a pull includes. By default, all files and the database. The app sends both forms, and the
+ * CLI uses the one its pull engine understands: `optionsToSync`/`includePathList` for the Jetpack
+ * Backup pull, the rest for the Reprint pull (`STUDIO_ENABLE_PULL_REPRINT`).
+ */
 export type PullSyncOptions = {
+	optionsToSync?: SyncOption[];
+	/** Backup node ids, used with the `paths` option. */
+	includePathList?: string[];
 	/** Pulls only these files and folders, relative to wp-content, such as `plugins/akismet`. */
 	onlyPaths?: string[];
 	skipDatabase?: boolean;

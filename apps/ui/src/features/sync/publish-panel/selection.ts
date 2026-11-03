@@ -99,6 +99,13 @@ export function syncOptions( nodes: SyncNode[], content: boolean ): TransferOpti
 			],
 			specificSelectionPaths: paths.length ? paths : undefined,
 		},
-		pull: paths.length ? { onlyPaths: paths, skipDatabase: ! content } : { skipFiles: true },
+		pull: {
+			optionsToSync: [
+				...( selected.length ? [ 'paths' as const ] : [] ),
+				...( content ? [ 'sqls' as const ] : [] ),
+			],
+			includePathList: selected.map( ( node ) => node.id ),
+			...( paths.length ? { onlyPaths: paths, skipDatabase: ! content } : { skipFiles: true } ),
+		},
 	};
 }

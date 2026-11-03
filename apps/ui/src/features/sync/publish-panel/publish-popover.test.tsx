@@ -471,7 +471,9 @@ describe( 'PublishPopover', () => {
 		await waitFor( () => expect( pull ).toBeEnabled() );
 		fireEvent.click( pull );
 		await waitFor( () =>
-			expect( connector.pullSiteFromLive ).toHaveBeenCalledWith( site.id, 42, {} )
+			expect( connector.pullSiteFromLive ).toHaveBeenCalledWith( site.id, 42, {
+				optionsToSync: [ 'all' ],
+			} )
 		);
 		await screen.findByText( 'Changes pulled into WordPress Studio', {}, { timeout: 3000 } );
 	} );
@@ -751,7 +753,9 @@ describe( 'PublishPopover', () => {
 		await waitFor( () => expect( retry ).toBeEnabled() );
 		fireEvent.click( retry );
 		await waitFor( () =>
-			expect( connector.pullSiteFromLive ).toHaveBeenCalledWith( site.id, 42, {} )
+			expect( connector.pullSiteFromLive ).toHaveBeenCalledWith( site.id, 42, {
+				optionsToSync: [ 'all' ],
+			} )
 		);
 	} );
 
@@ -977,7 +981,9 @@ it( 'opens the requested publishing screen for the requested destination without
 	expect( connector.pushSiteToLive ).not.toHaveBeenCalled();
 	await actions.click( pull );
 	await waitFor( () =>
-		expect( connector.pullSiteFromLive ).toHaveBeenCalledWith( site.id, 43, {} )
+		expect( connector.pullSiteFromLive ).toHaveBeenCalledWith( site.id, 43, {
+			optionsToSync: [ 'all' ],
+		} )
 	);
 	await screen.findByText( 'Changes pulled into WordPress Studio', {}, { timeout: 3000 } );
 	act( () =>

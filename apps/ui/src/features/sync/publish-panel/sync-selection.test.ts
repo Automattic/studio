@@ -10,14 +10,19 @@ describe( 'sync selections', () => {
 		expect( plugin.folder ).toBe( true );
 		expect( plugin.expandable ).toBe( false );
 	} );
-	it( 'sends wp-content paths for selective push and pull', () => {
+	it( 'sends paths for selective push, and backup IDs and paths for selective pull', () => {
 		const nodes = checkNodes(
 			remoteNodes( { theme: { id: 'backup-theme-42', type: 'dir' } }, '/wp-content/themes/' ),
 			true
 		);
 		expect( syncOptions( nodes, false ) ).toEqual( {
 			push: { optionsToSync: [ 'themes' ], specificSelectionPaths: [ 'themes/theme' ] },
-			pull: { onlyPaths: [ 'themes/theme' ], skipDatabase: true },
+			pull: {
+				optionsToSync: [ 'paths' ],
+				includePathList: [ 'backup-theme-42' ],
+				onlyPaths: [ 'themes/theme' ],
+				skipDatabase: true,
+			},
 		} );
 	} );
 	it( 'marks a parent partially selected without including unselected children', () => {

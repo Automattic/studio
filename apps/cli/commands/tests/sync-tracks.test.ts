@@ -4,11 +4,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { enableReprintExporter } from 'cli/lib/api';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
-import { fetchSyncableSites } from 'cli/lib/sync-api';
+import { fetchSyncableSites, initiateBackup, pollBackupStatus } from 'cli/lib/sync-api';
 import { pickSyncSite } from 'cli/lib/sync-site-picker';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { LoggerError } from 'cli/logger';
 import { runCommand as runPull } from '../pull';
+import { runCommand as runBackupPull } from '../pull-backup';
 import { runCommand as runPush } from '../push';
 import type { SyncSite } from '@studio/common/types/sync';
 import type { SiteData } from 'cli/lib/cli-config/core';
@@ -30,6 +31,8 @@ vi.mock( 'cli/lib/sqlite-integration' );
 vi.mock( 'cli/lib/sync-api', async ( importActual ) => ( {
 	...( await importActual< typeof import('cli/lib/sync-api') >() ),
 	fetchSyncableSites: vi.fn(),
+	initiateBackup: vi.fn(),
+	pollBackupStatus: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/api', async ( importActual ) => ( {
 	...( await importActual< typeof import('cli/lib/api') >() ),
@@ -130,6 +133,83 @@ describe( 'CLI: studio pull Tracks events', () => {
 		}
 
 		expect( recordTracksEvent ).not.toHaveBeenCalled();
+	} );
+} );
+
+describe( 'CLI: studio pull Tracks events (Jetpack Backup engine)', () => {
+	it( "records a failure with the site's sync type and a classified reason", async () => {
+		vi.mocked( initiateBackup ).mockResolvedValue( 7 as never );
+		vi.mocked( pollBackupStatus ).mockResolvedValue( { status: 'failed', percent: 0 } as never );
+
+		await expect(
+			runBackupPull( testSite.path, [ 'all' ], String( remoteSite.id ) )
+		).rejects.toThrow();
+
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.SYNC_PULL,
+			expect.objectContaining( {
+				success: false,
+				sync_type: 'pressable',
+				failure_reason: 'remote_backup',
+				time_ms: expect.any( Number ),
+				// Proves `getTracksOrigin()` was spread in.
+				channel: 'studio-cli',
+			} )
+		);
+	} );
+
+	// The agentic UI drives its pulls by forking this very command, and emits the
+	// event itself — without the flag the same pull would be counted twice.
+	it( 'records nothing when suppressed', async () => {
+		vi.mocked( initiateBackup ).mockResolvedValue( 7 as never );
+		vi.mocked( pollBackupStatus ).mockResolvedValue( { status: 'failed', percent: 0 } as never );
+
+		await expect(
+			runBackupPull( testSite.path, [ 'all' ], String( remoteSite.id ), undefined, undefined, true )
+		).rejects.toThrow();
+
+		expect( recordTracksEvent ).not.toHaveBeenCalled();
+	} );
+
+	it( 'records nothing when the user backs out of the site picker', async () => {
+		vi.mocked( pickSyncSite ).mockResolvedValue( undefined as never );
+
+		await runBackupPull( testSite.path, [ 'all' ] );
+
+		expect( recordTracksEvent ).not.toHaveBeenCalled();
+	} );
+
+	// The remote steps in `sync-api` tag their own failures. Without those codes a
+	// remote failure inherited the emitter's fallback and was misreported as a
+	// local import that never ran.
+	it( 'attributes a remote-side failure to the remote step, not the local import', async () => {
+		vi.mocked( fetchSyncableSites ).mockRejectedValue(
+			new LoggerError( 'Failed to fetch WordPress.com sites', undefined, 'site_fetch' )
+		);
+
+		await expect(
+			runBackupPull( testSite.path, [ 'all' ], String( remoteSite.id ) )
+		).rejects.toThrow();
+
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.SYNC_PULL,
+			expect.objectContaining( { success: false, failure_reason: 'site_fetch' } )
+		);
+	} );
+
+	it( 'attributes a backup-initiation failure to the remote backup', async () => {
+		vi.mocked( initiateBackup ).mockRejectedValue(
+			new LoggerError( 'Failed to initiate backup', undefined, 'remote_backup' )
+		);
+
+		await expect(
+			runBackupPull( testSite.path, [ 'all' ], String( remoteSite.id ) )
+		).rejects.toThrow();
+
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.SYNC_PULL,
+			expect.objectContaining( { success: false, failure_reason: 'remote_backup' } )
+		);
 	} );
 } );
 

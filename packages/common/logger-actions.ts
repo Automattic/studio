@@ -84,5 +84,9 @@ export enum SyncCommandLoggerAction {
 	UPLOAD = 'upload',
 	INITIATE_IMPORT = 'initiateImport',
 	POLL_IMPORT = 'pollImport',
+	INITIATE_BACKUP = 'initiateBackup',
+	POLL_BACKUP = 'pollBackup',
 	START_SITE = 'startSite',
+	DOWNLOAD = 'download',
+	IMPORT = 'import',
 }

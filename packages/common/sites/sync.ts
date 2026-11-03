@@ -86,6 +86,14 @@ export function pullSite(
 			siteFolder,
 			'--remote-site',
 			String( remoteSiteId ),
+			// Both engines' options: the CLI uses the ones its pull engine understands.
+			'--options',
+			( options?.optionsToSync?.length ? options.optionsToSync : [ 'all' ] ).join( ',' ),
+			// Pass each backup node id as its own argv value — ids can contain
+			// commas (e.g. themes `cjE6,ZjE6Lw==`), so a join/split would corrupt them.
+			...( options?.includePathList?.length
+				? [ '--include-path-list', ...options.includePathList ]
+				: [] ),
 			...( options?.onlyPaths ?? [] ).flatMap( ( onlyPath ) => [ '--only', onlyPath ] ),
 			...( options?.skipDatabase ? [ '--skip-database' ] : [] ),
 			...( options?.skipFiles ? [ '--skip-files' ] : [] ),

@@ -1,4 +1,4 @@
-import { PullCommandLoggerAction } from '@studio/common/logger-actions';
+import { PullCommandLoggerAction, SyncCommandLoggerAction } from '@studio/common/logger-actions';
 import type { SyncActivity } from '@studio/common/lib/sync/activity';
 import type { PushPhase } from '@studio/common/types/sync';
 
@@ -41,9 +41,16 @@ export function canCancelPush( phase: PushPhase | undefined ): boolean {
 // Everything the CLI's `pull` reports before it writes to the local site. This is an allow-list
 // rather than a deny-list: an action we don't recognise is treated as local work in progress.
 const PULL_REMOTE_ACTIONS: string[] = [
+	// The Reprint pull.
 	PullCommandLoggerAction.LOAD_SITES,
 	PullCommandLoggerAction.LOAD_WPCOM_SITES,
 	PullCommandLoggerAction.PREFLIGHT,
+	// The Jetpack Backup pull: its first local write is `stopSite`.
+	SyncCommandLoggerAction.START_DAEMON,
+	SyncCommandLoggerAction.FETCH_REMOTE_SITES,
+	SyncCommandLoggerAction.INITIATE_BACKUP,
+	SyncCommandLoggerAction.POLL_BACKUP,
+	SyncCommandLoggerAction.DOWNLOAD,
 ];
 
 /**

@@ -27,6 +27,7 @@ export function forwardPreviewShortcut(
 	host.sendInputEvent( {
 		type: 'keyDown',
 		keyCode: annotation ? '.' : input.code.slice( 3 ),
+
 		modifiers: [
 			platform === 'darwin' ? 'meta' : 'control',
 			...( annotation ? [ 'shift' as const ] : [] ),

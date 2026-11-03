@@ -132,32 +132,31 @@ export function ResponsiveToolbar( {
 						: __( 'Rotate to landscape' )
 				}
 				icon={ <RefreshIcon /> }
-				onClick={ () =>
-					update( { width: settings.height, height: settings.width, preset: 'responsive' } )
-				}
+				onClick={ () => update( { width: settings.height, height: settings.width } ) }
 			/>
 			<span className={ styles.divider } aria-hidden="true" />
 			<Menu.Root>
 				<Menu.Trigger render={ <Button variant="ghost" size="sm" /> }>
-					{ settings.zoom === 'fit' ? __( 'Fit' ) : `${ settings.zoom * 100 }%` }
+					{ settings.zoom === 'fit' ? __( 'Fit to window' ) : `${ settings.zoom * 100 }%` }
 					<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
 				</Menu.Trigger>
 				<Menu.Popup side="bottom" align="start">
 					<Menu.RadioGroup
 						value={ String( settings.zoom ) }
-						onValueChange={ ( value ) =>
-							update( { zoom: value === 'fit' ? 'fit' : Number( value ) } )
-						}
+						onValueChange={ ( value ) => {
+							if ( value !== 'fit' ) update( { zoom: Number( value ) } );
+						} }
 					>
-						<Menu.RadioItem value="fit">
+						<Menu.RadioItem value="fit" onClick={ () => update( { zoom: 'fit', fitScale } ) }>
 							<span>
-								{ __( 'Fit' ) }{ ' ' }
+								{ __( 'Fit to window' ) }{ ' ' }
 								<span className={ styles.optionDetail }>
 									{ sprintf( __( '· %d%%' ), Math.round( fitScale * 100 ) ) }
 								</span>
 							</span>
 						</Menu.RadioItem>
-						{ [ 0.5, 0.75, 1, 1.25, 1.5 ].map( ( zoom ) => (
+						<Menu.Separator />
+						{ [ 0.5, 0.75, 1, 1.25, 1.5, 2 ].map( ( zoom ) => (
 							<Menu.RadioItem key={ zoom } value={ String( zoom ) }>
 								{ zoom * 100 }%
 							</Menu.RadioItem>

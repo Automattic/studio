@@ -6,6 +6,7 @@ export interface ResponsivePreviewSettings {
 	width: number;
 	height: number;
 	zoom: 'fit' | number;
+	fitScale?: number;
 }
 
 const defaultResponsivePreviewSettings: ResponsivePreviewSettings = {
@@ -25,7 +26,14 @@ export function updateResponsivePreview(
 	siteId: string,
 	patch: Partial< ResponsivePreviewSettings >
 ) {
-	settings.set( siteId, { ...getResponsivePreview( siteId ), ...patch } );
+	const current = getResponsivePreview( siteId );
+	const refit =
+		patch.enabled === true ||
+		patch.zoom === 'fit' ||
+		patch.width !== undefined ||
+		patch.height !== undefined ||
+		patch.preset !== undefined;
+	settings.set( siteId, { ...current, ...( refit ? { fitScale: undefined } : {} ), ...patch } );
 	listeners.forEach( ( listener ) => listener() );
 }
 

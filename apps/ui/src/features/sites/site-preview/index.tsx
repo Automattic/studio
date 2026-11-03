@@ -14,12 +14,12 @@ import {
 import { useResponsivePreview, updateResponsivePreview } from '@/data/responsive-preview';
 import {
 	AnnotationOverlay,
-	type AnnotationAnchor,
-	isAnnotationsBusy,
 	isBatchedAnnotation,
-	editAnnotation,
 	getSiteAnnotations,
 	subscribeAnnotationReview,
+	editAnnotation,
+	type AnnotationAnchor,
+	isAnnotationsBusy,
 	setAnnotating,
 	useSiteAnnotations,
 } from '@/features/annotations';
@@ -187,7 +187,36 @@ function SitePreviewContent( {
 		responsiveSettings.width,
 		responsiveSettings.height
 	);
-	const responsiveScale = responsiveSettings.zoom === 'fit' ? fitScale : responsiveSettings.zoom;
+	useLayoutEffect( () => {
+		const viewport = viewportRef.current;
+		if (
+			responsiveEnabled &&
+			responsiveSettings.zoom === 'fit' &&
+			responsiveSettings.fitScale === undefined &&
+			viewport &&
+			viewport.clientWidth > 0 &&
+			viewport.clientHeight > 0
+		) {
+			updateResponsivePreview( site.id, {
+				fitScale: getFitScale(
+					viewport.clientWidth,
+					viewport.clientHeight,
+					responsiveSettings.width,
+					responsiveSettings.height
+				),
+			} );
+		}
+	}, [
+		responsiveEnabled,
+		responsiveSettings,
+		availableSize.width,
+		availableSize.height,
+		site.id,
+	] );
+	const responsiveScale =
+		responsiveSettings.zoom === 'fit'
+			? responsiveSettings.fitScale ?? fitScale
+			: responsiveSettings.zoom;
 	const {
 		annotationAnchor,
 		setAnnotationAnchor,
@@ -306,8 +335,10 @@ function SitePreviewContent( {
 			void connector.openExternalUrl( url );
 		}
 	};
+
 	const annotate = showAnnotate
 		? {
+				annotationCount: batchNotes.length,
 				active: annotations.active,
 				disabled:
 					! canAnnotateSurface ||

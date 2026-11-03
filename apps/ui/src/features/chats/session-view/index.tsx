@@ -8,7 +8,6 @@ import { canUsePaidAiModels } from '@studio/common/lib/studio-assistant-quota';
 import { useNavigate, useRouter } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { ArrowDownIcon } from 'lucide-react';
 import {
 	useCallback,
 	useEffect,
@@ -62,6 +61,7 @@ import {
 	type ComposerHandle,
 } from '@/features/composer';
 import { PreviewParticles, StoppedSitePreview } from '@/features/sites';
+import { ArrowDownIcon } from '@/lib/icons';
 import { getMotionDuration } from '@/lib/theme';
 import { Button, IconButton } from '@/lib/ui';
 import { Conversation } from './conversation';
@@ -475,7 +475,7 @@ function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: Ses
 							className={ styles.scrollToLatestButton }
 							icon={ <ArrowDownIcon /> }
 							label={ __( 'Jump to latest' ) }
-							variant="outline"
+							variant="default"
 							shape="round"
 							data-visible={ isScrolledAway || undefined }
 							inert={ ! isScrolledAway }

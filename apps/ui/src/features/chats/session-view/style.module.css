@@ -136,14 +136,50 @@
 }
 
 .scrollToLatestButton {
-	--button-background: var( --background );
+	/* Sampled from X's spring: stiffness 320, damping 20, mass 1. */
+	--scroll-button-spring: linear(
+		0 0%,
+		0.0325 2.5%,
+		0.1163 5%,
+		0.2331 7.5%,
+		0.6385 15%,
+		0.7594 17.5%,
+		0.8639 20%,
+		0.9497 22.5%,
+		1.0164 25%,
+		1.0648 27.5%,
+		1.0966 30%,
+		1.1142 32.5%,
+		1.1172 37.5%,
+		1.0941 42.5%,
+		1.0178 55%,
+		0.9887 65%,
+		0.9858 72.5%,
+		1 100%
+	);
 
 	opacity: 0;
+	transform: scale( 0 );
+	transform-origin: center;
+	transition:
+		opacity var( --motion-duration-feedback ) ease-out,
+		transform 600ms var( --scroll-button-spring ),
+		color var( --motion-duration-feedback ) ease,
+		background-color var( --motion-duration-feedback ) ease,
+		border-color var( --motion-duration-feedback ) ease;
 }
 
 .scrollToLatestButton[data-visible] {
 	pointer-events: auto;
 	opacity: 1;
+	transform: scale( 1 );
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.scrollToLatestButton {
+		transform: none;
+		transition: opacity var( --motion-duration-feedback ) ease-out;
+	}
 }
 
 /* Composer fade-in after the entitlement check resolves. No fill mode:

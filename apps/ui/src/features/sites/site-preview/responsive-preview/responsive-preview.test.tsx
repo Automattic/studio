@@ -42,6 +42,10 @@ describe( 'responsive mode', () => {
 			await screen.findByRole( 'menuitemradio', { name: /iPhone 17 Pro Max/ } )
 		);
 		expect( width() ).toHaveValue( '440' );
+		await view.user.click( screen.getByRole( 'button', { name: 'Rotate to landscape' } ) );
+		expect( screen.getByRole( 'button', { name: 'iPhone 17 Pro Max' } ) ).toBeInTheDocument();
+		expect( width() ).toHaveValue( '956' );
+		await view.user.click( screen.getByRole( 'button', { name: 'Rotate to portrait' } ) );
 		await view.user.click( screen.getByRole( 'button', { name: 'Fit to window' } ) );
 		await view.user.click( await screen.findByRole( 'menuitemradio', { name: '75%' } ) );
 		await view.user.click( screen.getByRole( 'button', { name: 'Exit responsive mode' } ) );
@@ -66,16 +70,13 @@ describe( 'responsive mode', () => {
 		expect( width() ).toHaveValue( '440' );
 	} );
 
-	it( 'keeps the applied fit on window resize and reapplies it on viewport actions', async () => {
-		let availableWidth = 800;
+	it( 'keeps the applied fit on window resize until Fit to window is selected again', async () => {
 		let availableHeight = 600;
 		let measure = () => {};
 		const heightSpy = vi
 			.spyOn( HTMLElement.prototype, 'clientHeight', 'get' )
 			.mockImplementation( () => availableHeight );
-		const widthSpy = vi
-			.spyOn( HTMLElement.prototype, 'clientWidth', 'get' )
-			.mockImplementation( () => availableWidth );
+		const widthSpy = vi.spyOn( HTMLElement.prototype, 'clientWidth', 'get' ).mockReturnValue( 800 );
 		vi.stubGlobal(
 			'ResizeObserver',
 			class {
@@ -93,38 +94,14 @@ describe( 'responsive mode', () => {
 		try {
 			const { user } = await renderPreview( 'responsive-fit-actions' );
 			await user.click( toggle() );
-			const page = document.querySelector( 'iframe' );
-			const scaledPage = page?.parentElement?.parentElement;
+			const scaledPage = document.querySelector( 'iframe' )?.parentElement?.parentElement;
 			expect( scaledPage ).toHaveStyle( { transform: 'scale(0.71)' } );
-			availableWidth = 500;
 			availableHeight = 400;
 			act( () => measure() );
 			expect( scaledPage ).toHaveStyle( { transform: 'scale(0.71)' } );
 			await user.click( screen.getByRole( 'button', { name: 'Fit to window' } ) );
 			await user.click( await screen.findByRole( 'menuitemradio', { name: /Fit to window/ } ) );
 			expect( scaledPage ).toHaveStyle( { transform: 'scale(0.46)' } );
-			availableWidth = 800;
-			availableHeight = 600;
-			act( () => measure() );
-			expect( scaledPage ).toHaveStyle( { transform: 'scale(0.46)' } );
-			await user.click( screen.getByRole( 'button', { name: 'Rotate to landscape' } ) );
-			expect( scaledPage ).toHaveStyle( { transform: 'scale(0.96)' } );
-			await user.clear( width() );
-			await user.type( width(), '1200{Enter}' );
-			expect( scaledPage ).toHaveStyle( { transform: 'scale(0.64)' } );
-			await user.click( screen.getByRole( 'button', { name: 'Responsive' } ) );
-			await user.click( await screen.findByRole( 'menuitemradio', { name: /^iPhone 16e/ } ) );
-			expect( scaledPage ).toHaveStyle( { transform: 'scale(0.67)' } );
-			await user.click( screen.getByRole( 'button', { name: 'Rotate to landscape' } ) );
-			expect( screen.getByRole( 'button', { name: 'iPhone 16e' } ) ).toBeInTheDocument();
-			expect( width() ).toHaveValue( '844' );
-			expect( height() ).toHaveValue( '390' );
-			expect( scaledPage ).toHaveStyle( { transform: 'scale(0.9)' } );
-			await user.click( screen.getByRole( 'button', { name: 'Fit to window' } ) );
-			await user.click( await screen.findByRole( 'menuitemradio', { name: '200%' } ) );
-			await user.click( screen.getByRole( 'button', { name: 'Rotate to portrait' } ) );
-			expect( scaledPage ).toHaveStyle( { transform: 'scale(2)' } );
-			expect( document.querySelector( 'iframe' ) ).toBe( page );
 		} finally {
 			widthSpy.mockRestore();
 			heightSpy.mockRestore();

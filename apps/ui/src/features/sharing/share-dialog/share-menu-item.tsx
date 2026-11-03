@@ -32,7 +32,6 @@ function PreviewLink( {
 				markPreviewSeen( siteId );
 			} }
 		>
-			<DuplicateIcon />
 			<Menu.ItemLabel>
 				{ snapshot.name || sprintf( __( 'Preview %d' ), snapshot.sequence ?? sequence ) }
 			</Menu.ItemLabel>
@@ -56,25 +55,30 @@ export function SiteShareMenuItem( { site, disabled }: { site: SiteDetails; disa
 					{ __( 'Share' ) }
 				</Menu.SubmenuTrigger>
 				<Menu.SubmenuPopup>
-					<Menu.Group>
-						<Menu.GroupLabel>{ __( 'Copy links' ) }</Menu.GroupLabel>
-						{ previews.map( ( snapshot, index ) => (
-							<PreviewLink
-								key={ snapshot.atomicSiteId }
-								snapshot={ snapshot }
-								sequence={ previews.length - index }
-								siteId={ site.id }
-							/>
-						) ) }
-					</Menu.Group>
+					<Menu.SubmenuRoot>
+						<Menu.SubmenuTrigger>
+							<DuplicateIcon />
+							{ __( 'Copy preview links' ) }
+						</Menu.SubmenuTrigger>
+						<Menu.SubmenuPopup>
+							{ previews.map( ( snapshot, index ) => (
+								<PreviewLink
+									key={ snapshot.atomicSiteId }
+									snapshot={ snapshot }
+									sequence={ previews.length - index }
+									siteId={ site.id }
+								/>
+							) ) }
+						</Menu.SubmenuPopup>
+					</Menu.SubmenuRoot>
 					<Menu.Separator />
 					<Menu.Item onClick={ openSharing }>
 						<PlusIcon />
-						{ __( 'Create preview…' ) }
+						{ __( 'Create preview' ) }
 					</Menu.Item>
 					<Menu.Item onClick={ openSharing }>
 						<ShareIcon />
-						{ __( 'Manage sharing…' ) }
+						{ __( 'Manage sharing' ) }
 					</Menu.Item>
 				</Menu.SubmenuPopup>
 			</Menu.SubmenuRoot>

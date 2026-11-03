@@ -56,16 +56,18 @@ it( 'copies an active preview and keeps the sharing dialog accessible', async ()
 			fireEvent.keyDown( share, { key: 'ArrowRight' } );
 		};
 		await open();
-		expect( await screen.findByText( 'Copy links' ) ).toBeVisible();
+		fireEvent.keyDown( await screen.findByRole( 'menuitem', { name: 'Copy preview links' } ), {
+			key: 'ArrowRight',
+		} );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Design review' } ) );
 		await waitFor( () => expect( copyText ).toHaveBeenCalledWith( preview.shareUrl ) );
 		await open();
 		expect( screen.queryByRole( 'menuitem', { name: 'Expired' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'menuitem', { name: 'Other site' } ) ).not.toBeInTheDocument();
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Create preview…' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Create preview' } ) );
 		expect( requested ).toHaveBeenCalledWith( { panel: 'share', siteId: site.id } );
 		await open();
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Manage sharing…' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Manage sharing' } ) );
 		expect( requested ).toHaveBeenCalledWith( { panel: 'share', siteId: site.id } );
 	} finally {
 		unsubscribe();

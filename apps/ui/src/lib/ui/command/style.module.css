@@ -68,6 +68,9 @@
 		composes: item from '@/lib/ui/surface/style.module.css';
 		min-height: var( --control-size );
 		padding-inline: var( --space-2_5 );
+	}
+
+	.list .menuItem {
 		border-radius: var( --command-radius );
 	}
 

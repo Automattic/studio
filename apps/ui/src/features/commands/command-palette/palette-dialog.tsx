@@ -28,6 +28,7 @@ export function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) 
 	const matches = matchCommands( commands, query );
 	const groups = groupCommands( matches );
 	const active = getActiveCommand( groups, highlight );
+
 	const run = ( id: string ) => {
 		onOpenChange( false );
 		matches.find( ( command ) => command.id === id )?.run();

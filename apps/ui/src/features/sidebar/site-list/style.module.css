@@ -109,12 +109,9 @@
 	display: contents;
 }
 
-.groupPanel {
-	margin-block-end: var( --space-2 );
-}
-
 .groupHeader {
 	flex-shrink: 0;
+	margin-block-start: var( --space-3 );
 	position: sticky;
 	top: 0;
 	z-index: 1;

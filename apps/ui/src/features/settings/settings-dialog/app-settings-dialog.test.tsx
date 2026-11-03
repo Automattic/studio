@@ -571,7 +571,7 @@ describe( 'WordPress Studio settings', () => {
 			'General',
 			'Appearance',
 			'Sharing',
-			'AI Providers',
+			'Providers',
 			'MCP',
 			'Usage',
 			'Skills',
@@ -700,7 +700,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		).toBeVisible();
 	} );
 
-	it( 'opens AI Providers for a signed-out Usage link and hides Usage from search', async () => {
+	it( 'opens Providers for a signed-out Usage link and hides Usage from search', async () => {
 		const { connector } = await setup( { section: 'usage', signedIn: false } );
 		const connect = await within( await findProviderRow( 'wpcom-provider' ) ).findByRole(
 			'button',
@@ -709,7 +709,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 			}
 		);
 		await waitFor( () => expect( connect ).toBeEnabled() );
-		expect( screen.getByRole( 'tab', { name: 'AI Providers', selected: true } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'Providers', selected: true } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Usage' } ) ).not.toBeInTheDocument();
 		fireEvent.change( searchBox(), { target: { value: 'balance' } } );
 		expect( screen.getByText( 'No settings found.' ) ).toBeVisible();
@@ -724,14 +724,12 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		);
 	} );
 
-	it( 'returns to AI Providers when WordPress.com disconnects while viewing Usage', async () => {
+	it( 'returns to Providers when WordPress.com disconnects while viewing Usage', async () => {
 		const { connector } = await setup( { section: 'usage' } );
 		await screen.findByRole( 'tab', { name: 'Usage', selected: true } );
 		connector.state.user = null;
 		act( () => connector.emit( 'onAuthStateChanged' ) );
-		expect(
-			await screen.findByRole( 'tab', { name: 'AI Providers', selected: true } )
-		).toBeVisible();
+		expect( await screen.findByRole( 'tab', { name: 'Providers', selected: true } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Usage' } ) ).not.toBeInTheDocument();
 	} );
 
@@ -869,10 +867,8 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect(
 			screen.queryByRole( 'tablist', { name: 'Intelligence sections' } )
 		).not.toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'tab', { name: 'AI Providers' } ) );
-		expect(
-			await screen.findByRole( 'tab', { name: 'AI Providers', selected: true } )
-		).toBeVisible();
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Providers' } ) );
+		expect( await screen.findByRole( 'tab', { name: 'Providers', selected: true } ) ).toBeVisible();
 		expect( screen.getAllByRole( 'dialog', { name: 'Settings' } ) ).toHaveLength( 1 );
 		const copyButtons = () =>
 			screen.queryAllByRole( 'button', { name: /^Copy (install command|MCP configuration)$/ } );

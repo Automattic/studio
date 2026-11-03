@@ -51,7 +51,7 @@
 		inset-inline: 0;
 		height: var( --surface-fade-size );
 		background: var( --fade-surface );
-		mask-image: linear-gradient( to bottom, var( --surface-fade-stops ) );
+		mask-image: linear-gradient( to bottom, var( --surface-overlay-fade-stops ) );
 		content: '';
 		pointer-events: none;
 	}

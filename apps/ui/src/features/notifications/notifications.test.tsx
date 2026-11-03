@@ -484,7 +484,8 @@ describe( 'sidebar cards', () => {
 			} )
 		);
 		expect( await screen.findByText( 'Couldn’t update Studio' ) ).toBeVisible();
-		expect( screen.getAllByRole( 'button', { name: 'Try again' } ) ).toHaveLength( 2 );
+		expect( screen.getByRole( 'button', { name: 'Try again' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Download update' } ) ).toBeVisible();
 	} );
 
 	it( 'updates the processing notice when the target version becomes known', async () => {

@@ -1,4 +1,6 @@
 .popup {
+	composes: padded from '@/lib/ui/surface/style.module.css';
+	--surface: var( --popover );
 	top: 25dvh;
 	display: flex;
 	flex-direction: column;
@@ -6,7 +8,6 @@
 	max-width: 400px;
 	max-height: calc( 75dvh - var( --space-4 ) );
 	overflow: hidden;
-	padding: var( --space-1_5 );
 	border-radius: var( --radius-3xl );
 	scale: 1;
 	translate: -50% 0;
@@ -17,9 +18,12 @@
 }
 
 .input {
+	border-radius: calc( var( --radius-3xl ) - var( --space-1_5 ) );
 	flex-shrink: 0;
 }
 
 .list {
+	/* Seven command rows and two section headings. */
+	max-height: calc( 7 * 32px + 2 * ( var( --text-sm--line-height ) + var( --space-4 ) ) );
 	min-height: 0;
 }

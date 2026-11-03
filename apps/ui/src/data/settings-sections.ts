@@ -258,7 +258,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 		},
 		{
 			id: 'ai',
-			label: __( 'AI Providers' ),
+			label: __( 'Providers' ),
 			icon: IntelligenceIcon,
 			aliases: [ __( 'Connect provider' ) ],
 			settings: [

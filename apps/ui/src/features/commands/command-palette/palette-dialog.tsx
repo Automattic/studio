@@ -28,36 +28,6 @@ export function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) 
 	const matches = matchCommands( commands, query );
 	const groups = groupCommands( matches );
 	const active = getActiveCommand( groups, highlight );
-	const listRef = ( list: HTMLDivElement | null ) => {
-		const popup = list?.parentElement;
-		if ( ! list || ! popup ) {
-			return;
-		}
-		const fitRows = () => {
-			list.style.removeProperty( '--palette-list-height' );
-			const top = list.getBoundingClientRect().top;
-			const limit = list.clientHeight;
-			let height = 0;
-			for ( const item of list.querySelectorAll( '[role="option"]' ) ) {
-				const bottom = item.getBoundingClientRect().bottom - top + list.scrollTop;
-				if ( bottom > limit ) {
-					break;
-				}
-				height = bottom;
-			}
-			if ( height > 0 ) {
-				list.style.setProperty( '--palette-list-height', `${ height }px` );
-				if ( list.scrollTop > 0 ) {
-					list.querySelector( '[data-highlighted]' )?.scrollIntoView?.( { block: 'nearest' } );
-				}
-			}
-		};
-		fitRows();
-		const observer = new ResizeObserver( fitRows );
-		observer.observe( popup );
-		observer.observe( document.documentElement );
-		return () => observer.disconnect();
-	};
 
 	const run = ( id: string ) => {
 		onOpenChange( false );
@@ -103,7 +73,6 @@ export function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) 
 				</InputGroup>
 				<CommandList
 					className={ styles.list }
-					listRef={ listRef }
 					id={ listId }
 					label={ __( 'Commands' ) }
 					size="default"

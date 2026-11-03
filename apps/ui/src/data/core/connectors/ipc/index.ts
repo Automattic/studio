@@ -921,6 +921,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.installAppUpdate();
 		},
 
+		async checkForAppUpdates(): Promise< void > {
+			await ipcApi.checkForAppUpdates();
+		},
+
 		onAppUpdateStatusChanged( listener ) {
 			return ipcListener.subscribe( 'app-update-status', ( _event: unknown, status: unknown ) =>
 				listener( status as AppUpdateStatus )

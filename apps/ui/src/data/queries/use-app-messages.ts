@@ -5,7 +5,7 @@ import {
 	resolveAiCreditsThresholdNotice,
 } from '@studio/common/lib/studio-assistant-quota';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { useEffect, useMemo } from 'react';
 import { setDismissedAiCreditsIntent, useDismissedAiCreditsIntent } from '@/data/ai-credits-notice';
 import {
@@ -13,10 +13,8 @@ import {
 	syncCardNotices,
 	type ToastAction,
 } from '@/data/app-messages';
-import { useAppUpdateStatus } from '@/data/queries/use-app-update';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useAiCreditsMeter } from './use-ai-credits-meter';
-import type { AppUpdateStatus } from '@/data/core';
 
 // The sidebar announces the 80% and 90% steps. The composer notice takes
 // exhaustion, so no two surfaces say the same thing.
@@ -38,54 +36,9 @@ export interface PersistentMessage {
 }
 
 // Dismissals are session-only: the cache entry isn't persisted and never refetches.
-// An explicit "Check for Updates" clears them, so a dismissed card can come back.
-
-/**
- * The target version is often unknown mid-download: Electron's updater doesn't name it
- * until the download ends.
- */
-function describeVersionChange(
-	currentVersion: string | null,
-	newVersion: string | null
-): string | undefined {
-	if ( currentVersion && newVersion ) {
-		return sprintf(
-			/* translators: 1: current version, e.g. "1.20.0". 2: new version, e.g. "1.21.0". */
-			__( 'Updating from %1$s to %2$s.' ),
-			currentVersion,
-			newVersion
-		);
-	}
-	if ( currentVersion ) {
-		return sprintf(
-			/* translators: %s: current version number, e.g. "1.20.0". */
-			__( 'Updating from %s.' ),
-			currentVersion
-		);
-	}
-	return undefined;
-}
-
-export function deriveUpdateMessages( status: AppUpdateStatus | undefined ): PersistentMessage[] {
-	if ( status?.state === 'downloading' ) {
-		return [
-			{
-				// Stable across the feed lookup resolving: a version-scoped id would change
-				// mid-download and resurrect a card the user had dismissed.
-				id: 'app-update-downloading',
-				intent: 'info',
-				title: __( 'Downloading update' ),
-				description: describeVersionChange( status.currentVersion, status.newVersion ),
-			},
-		];
-	}
-
-	return [];
-}
 
 // Before session dismissals are applied.
 function usePersistentMessageSources(): PersistentMessage[] {
-	const updateStatus = useAppUpdateStatus();
 	const locale = useUserLocale();
 	const aiCreditsMeter = useAiCreditsMeter();
 	const dismissedAiCreditsIntent = useDismissedAiCreditsIntent();
@@ -106,7 +59,7 @@ function usePersistentMessageSources(): PersistentMessage[] {
 	}, [ aiCreditsNotice.dismissedIntent ] );
 
 	return useMemo( () => {
-		const messages = deriveUpdateMessages( updateStatus.data );
+		const messages: PersistentMessage[] = [];
 
 		if ( aiCreditsNotice.visible && aiCreditsIntent && aiCreditsFraction !== null ) {
 			messages.push( {
@@ -120,7 +73,7 @@ function usePersistentMessageSources(): PersistentMessage[] {
 		}
 
 		return messages;
-	}, [ updateStatus.data, aiCreditsIntent, aiCreditsFraction, aiCreditsNotice.visible, locale ] );
+	}, [ aiCreditsIntent, aiCreditsFraction, aiCreditsNotice.visible, locale ] );
 }
 
 // Mount once.

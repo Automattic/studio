@@ -341,7 +341,7 @@ describe( 'notifications popover', () => {
 } );
 
 describe( 'sidebar cards', () => {
-	it( 'shows a mount-time update failure once as a notice with its detail and logs action', async () => {
+	it( 'shows a mount-time update failure once as a notice with its detail and retry action', async () => {
 		const connector = createFakeConnector();
 		const status = {
 			state: 'error' as const,
@@ -365,14 +365,15 @@ describe( 'sidebar cards', () => {
 			screen.getByRole( 'complementary', { name: 'Sidebar notices' } )
 		).toBeEmptyDOMElement();
 		act( () => connector.emit( 'onAppUpdateStatusChanged', { ...status } ) );
-		expect(
-			getNoticeHistory().filter( ( notice ) => notice.id === 'app-update-error' )
-		).toHaveLength( 1 );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Open logs' } ) );
-		expect( connector.openStudioLogs ).toHaveBeenCalledOnce();
+		expect( getNoticeHistory().filter( ( notice ) => notice.id === 'app-update' ) ).toHaveLength(
+			1
+		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'Try again' } ) );
+		await waitFor( () => expect( connector.checkForAppUpdates ).toHaveBeenCalledOnce() );
+		expect( connector.openStudioLogs ).not.toHaveBeenCalled();
 	} );
 
-	it( 'replaces the download card with the update button and shows failures as regular notices', async () => {
+	it( 'replaces a processing update notice in place with a dismissible result', async () => {
 		const connector = createFakeConnector();
 		connector.getAppUpdateStatus.mockResolvedValue( {
 			state: 'downloading',
@@ -390,6 +391,15 @@ describe( 'sidebar cards', () => {
 			{ connector }
 		);
 		await screen.findByText( 'Downloading update' );
+		expect( screen.getByText( 'Updating from 1.0.0 to 1.1.0.' ) ).toBeVisible();
+		expect(
+			screen.getByRole( 'complementary', { name: 'Sidebar notices' } )
+		).toBeEmptyDOMElement();
+		expect( screen.getByRole( 'button', { name: 'Dismiss Downloading update' } ) ).toBeVisible();
+		expect( getNoticeHistory().find( ( notice ) => notice.id === 'app-update' ) ).toMatchObject( {
+			processing: true,
+			dismissible: true,
+		} );
 		expect( screen.queryByRole( 'button', { name: 'Update available' } ) ).not.toBeInTheDocument();
 		act( () => {
 			connector.emit( 'onAppUpdateStatusChanged', {
@@ -398,9 +408,16 @@ describe( 'sidebar cards', () => {
 				newVersion: '1.1.0',
 			} );
 		} );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Update available' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Restart to update' } ) );
 		expect( screen.queryByText( 'Downloading update' ) ).not.toBeInTheDocument();
-		expect( screen.queryByText( 'Update ready' ) ).not.toBeInTheDocument();
+		expect( await screen.findByText( 'Update ready' ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Dismiss Update ready' } ) ).toBeVisible();
+		expect( getNoticeHistory().filter( ( notice ) => notice.id === 'app-update' ) ).toHaveLength(
+			1
+		);
+		expect(
+			getNoticeHistory().find( ( notice ) => notice.id === 'app-update' )?.processing
+		).not.toBe( true );
 		expect( screen.queryByRole( 'button', { name: 'Restart' } ) ).not.toBeInTheDocument();
 		await waitFor( () => expect( connector.installAppUpdate ).toHaveBeenCalledOnce() );
 
@@ -413,11 +430,113 @@ describe( 'sidebar cards', () => {
 		} );
 		await screen.findByText( 'Couldn’t update Studio' );
 		expect(
+			screen.getByRole( 'button', { name: 'Dismiss Couldn’t update Studio' } )
+		).toBeVisible();
+		expect(
 			within( screen.getByRole( 'complementary', { name: 'Sidebar notices' } ) ).queryByText(
 				'Couldn’t update Studio'
 			)
 		).not.toBeInTheDocument();
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Open logs' } ) );
-		expect( connector.openStudioLogs ).toHaveBeenCalled();
+		const retryButtons = await screen.findAllByRole( 'button', { name: 'Try again' } );
+		fireEvent.click( retryButtons[ 0 ] );
+		await waitFor( () => expect( connector.checkForAppUpdates ).toHaveBeenCalledOnce() );
+	} );
+
+	it( 'keeps the update button available after progress is dismissed and restores the failure action', async () => {
+		const connector = createFakeConnector(
+			{},
+			{
+				getAppUpdateStatus: async () => ( {
+					state: 'downloading',
+					currentVersion: '2.0.0',
+					newVersion: null,
+				} ),
+			}
+		);
+		renderWithProviders(
+			<>
+				<AppToasts />
+				<AppUpdateButton />
+			</>,
+			{ connector }
+		);
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Dismiss Downloading update' } ) );
+		await waitFor( () =>
+			expect( screen.queryByText( 'Downloading update' ) ).not.toBeInTheDocument()
+		);
+		expect( screen.getByRole( 'button', { name: 'Downloading update…' } ) ).toHaveAttribute(
+			'aria-busy',
+			'true'
+		);
+		act( () =>
+			connector.emit( 'onAppUpdateStatusChanged', {
+				state: 'downloading',
+				currentVersion: '2.0.0',
+				newVersion: '2.1.0',
+			} )
+		);
+		expect( screen.queryByText( 'Downloading update' ) ).not.toBeInTheDocument();
+		act( () =>
+			connector.emit( 'onAppUpdateStatusChanged', {
+				state: 'error',
+				currentVersion: '2.0.0',
+				reason: 'generic',
+			} )
+		);
+		expect( await screen.findByText( 'Couldn’t update Studio' ) ).toBeVisible();
+		expect( screen.getAllByRole( 'button', { name: 'Try again' } ) ).toHaveLength( 2 );
+	} );
+
+	it( 'updates the processing notice when the target version becomes known', async () => {
+		const connector = createFakeConnector(
+			{},
+			{
+				getAppUpdateStatus: async () => ( {
+					state: 'downloading',
+					currentVersion: '2.0.0',
+					newVersion: null,
+				} ),
+			}
+		);
+		renderWithProviders( <AppToasts />, { connector } );
+		expect( await screen.findByText( 'Updating from 2.0.0.' ) ).toBeVisible();
+		act( () =>
+			connector.emit( 'onAppUpdateStatusChanged', {
+				state: 'downloading',
+				currentVersion: '2.0.0',
+				newVersion: '2.1.0',
+			} )
+		);
+		expect( await screen.findByText( 'Updating from 2.0.0 to 2.1.0.' ) ).toBeVisible();
+		expect( screen.getAllByText( 'Downloading update' ) ).toHaveLength( 1 );
+		expect( getNoticeHistory().filter( ( notice ) => notice.id === 'app-update' ) ).toHaveLength(
+			1
+		);
+	} );
+
+	it( 'resolves processing when a later update check finds nothing to download', async () => {
+		const connector = createFakeConnector(
+			{},
+			{
+				getAppUpdateStatus: async () => ( {
+					state: 'downloading',
+					currentVersion: '2.0.0',
+					newVersion: null,
+				} ),
+			}
+		);
+		renderWithProviders( <AppToasts />, { connector } );
+		await screen.findByText( 'Downloading update' );
+		act( () =>
+			connector.emit( 'onAppUpdateStatusChanged', { state: 'checking', currentVersion: '2.0.0' } )
+		);
+		expect( await screen.findByText( 'Checking for updates…' ) ).toBeVisible();
+		act( () =>
+			connector.emit( 'onAppUpdateStatusChanged', { state: 'idle', currentVersion: '2.0.0' } )
+		);
+		expect(
+			await screen.findByRole( 'button', { name: 'Dismiss Studio is up to date' } )
+		).toBeVisible();
+		expect( screen.queryByText( 'Checking for updates…' ) ).not.toBeInTheDocument();
 	} );
 } );

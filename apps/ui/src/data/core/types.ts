@@ -506,7 +506,7 @@ export interface Connector {
 
 	// Analytics — record a Tracks event. The desktop wrapper attaches the surface
 	// params (channel/ui_version); see `docs/design-docs/analytics-tracks.md`.
-	trackEvent( eventName: TracksEventName, props?: TracksProps ): Promise< void >;
+	trackEvent( eventName: TracksEventName, props?: TracksProps, siteId?: string ): Promise< void >;
 
 	// External links
 	openExternalUrl( url: string ): Promise< void >;

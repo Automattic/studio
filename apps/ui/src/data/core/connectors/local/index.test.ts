@@ -305,3 +305,24 @@ describe( 'createLocalConnector menu shortcuts', () => {
 		expect( addSite ).toHaveBeenCalledTimes( 1 );
 	} );
 } );
+
+it( 'passes telemetry site lookup context outside the event properties', async () => {
+	const send = vi.fn().mockResolvedValue( new Response( null, { status: 204 } ) );
+	vi.stubGlobal( 'fetch', send );
+	try {
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+		await connector.trackEvent( 'studio_sync_connect', { success: true }, 'operational-id' );
+		expect( send ).toHaveBeenCalledWith(
+			'http://localhost:8081/api/analytics/event',
+			expect.objectContaining( {
+				body: JSON.stringify( {
+					eventName: 'studio_sync_connect',
+					props: { success: true },
+					siteId: 'operational-id',
+				} ),
+			} )
+		);
+	} finally {
+		vi.unstubAllGlobals();
+	}
+} );

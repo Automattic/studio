@@ -286,11 +286,15 @@ describe( 'sync Tracks events', () => {
 			fireEvent.click( screen.getByRole( 'button', { name: button } ) );
 
 			await waitFor( () =>
-				expect( connector.trackEvent ).toHaveBeenCalledWith( event, {
-					success: true,
-					sync_type: 'pressable',
-					time_ms: expect.any( Number ),
-				} )
+				expect( connector.trackEvent ).toHaveBeenCalledWith(
+					event,
+					{
+						success: true,
+						sync_type: 'pressable',
+						time_ms: expect.any( Number ),
+					},
+					...( button === 'Push' ? [ 'site-1' ] : [] )
+				)
 			);
 		}
 	);
@@ -304,12 +308,16 @@ describe( 'sync Tracks events', () => {
 			fireEvent.click( screen.getByRole( 'button', { name: button } ) );
 
 			await waitFor( () =>
-				expect( connector.trackEvent ).toHaveBeenCalledWith( event, {
-					success: false,
-					sync_type: 'pressable',
-					time_ms: expect.any( Number ),
-					failure_reason: 'disk_full',
-				} )
+				expect( connector.trackEvent ).toHaveBeenCalledWith(
+					event,
+					{
+						success: false,
+						sync_type: 'pressable',
+						time_ms: expect.any( Number ),
+						failure_reason: 'disk_full',
+					},
+					...( button === 'Push' ? [ 'site-1' ] : [] )
+				)
 			);
 		}
 	);

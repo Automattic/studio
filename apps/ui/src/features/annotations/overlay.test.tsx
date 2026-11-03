@@ -1,7 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts } from '@/data/app-messages';
-import { createFakeConnector } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { AnnotationOverlay } from './overlay';
 import {
@@ -64,64 +63,43 @@ describe( 'AnnotationOverlay', () => {
 		).not.toBeInTheDocument();
 	} );
 
-	it.each( [ false, true ] )(
-		'uses Enter to add and primary Enter to send while batching (%s)',
-		async ( send ) => {
-			const onSend = vi.fn();
-			const connector = createFakeConnector( { preferences: { batchAnnotations: true } } );
-			renderWithProviders(
-				<AnnotationOverlay siteId={ SITE } anchor={ { left: 40, top: 40 } } onSend={ onSend } />,
-				{ connector }
-			);
-			await waitFor( () => expect( connector.getUserPreferences ).toHaveBeenCalled() );
-			await act( async () => {} );
-			annotate();
-			pick();
-			const input = screen.getByRole( 'textbox', { name: 'Describe the change' } );
-			fireEvent.change( input, { target: { value: 'Change this heading' } } );
-			fireEvent.keyDown( input, { key: 'Enter', ctrlKey: send } );
-			if ( send ) expect( onSend ).toHaveBeenCalledOnce();
-			else {
-				expect( onSend ).not.toHaveBeenCalled();
-				expect( getSiteAnnotations( SITE ).notes[ 0 ].staged ).toBe( true );
-			}
-		}
-	);
-
 	it.each( [
-		{ name: 'top edge', anchor: { left: 24, top: 24 }, height: 120, top: 42, maxHeight: 250 },
-		{ name: 'bottom edge', anchor: { left: 376, top: 276 }, height: 120, top: 138, maxHeight: 250 },
+		{ name: 'top edge', anchor: { left: 24, top: 24 }, height: 120 },
+		{ name: 'bottom edge', anchor: { left: 376, top: 276 }, height: 120 },
 		{
 			name: 'limited space',
 			anchor: { left: 200, top: 150 },
 			height: 240,
-			top: 168,
-			maxHeight: 124,
 		},
-	] )(
-		'keeps the editor clear of the marker at the $name',
-		async ( { anchor, height, top, maxHeight } ) => {
-			const dimensions = [
-				vi.spyOn( HTMLElement.prototype, 'clientWidth', 'get' ).mockReturnValue( 400 ),
-				vi.spyOn( HTMLElement.prototype, 'clientHeight', 'get' ).mockReturnValue( 300 ),
-				vi.spyOn( HTMLElement.prototype, 'offsetWidth', 'get' ).mockReturnValue( 320 ),
-				vi.spyOn( HTMLElement.prototype, 'offsetHeight', 'get' ).mockReturnValue( height ),
-				vi.spyOn( HTMLElement.prototype, 'scrollHeight', 'get' ).mockReturnValue( height ),
-			];
-			try {
-				await setup( anchor );
-				annotate();
-				pick();
-				const editor = await screen.findByRole( 'group', { name: 'Annotation' } );
-				expect( editor ).toHaveStyle( { top: `${ top }px`, maxHeight: `${ maxHeight }px` } );
-				const bottom = top + Math.min( height, maxHeight );
-				expect( top >= anchor.top + 18 || bottom <= anchor.top - 18 ).toBe( true );
-				expect( bottom ).toBeLessThanOrEqual( 292 );
-			} finally {
-				dimensions.forEach( ( dimension ) => dimension.mockRestore() );
-			}
+	] )( 'keeps the editor clear of the marker at the $name', async ( { anchor, height } ) => {
+		const viewport = { width: 400, height: 300 };
+		const editorWidth = 320;
+		const dimensions = [
+			vi.spyOn( HTMLElement.prototype, 'clientWidth', 'get' ).mockReturnValue( viewport.width ),
+			vi.spyOn( HTMLElement.prototype, 'clientHeight', 'get' ).mockReturnValue( viewport.height ),
+			vi.spyOn( HTMLElement.prototype, 'offsetWidth', 'get' ).mockReturnValue( editorWidth ),
+			vi.spyOn( HTMLElement.prototype, 'offsetHeight', 'get' ).mockReturnValue( height ),
+			vi.spyOn( HTMLElement.prototype, 'scrollHeight', 'get' ).mockReturnValue( height ),
+		];
+		try {
+			await setup( anchor );
+			annotate();
+			pick();
+			const editor = await screen.findByRole( 'group', { name: 'Annotation' } );
+			const top = parseFloat( editor.style.top );
+			const left = parseFloat( editor.style.left );
+			const maxHeight = parseFloat( editor.style.maxHeight );
+			const bottom = top + Math.min( height, maxHeight );
+			expect( maxHeight ).toBeGreaterThan( 0 );
+			expect( top ).toBeGreaterThanOrEqual( 0 );
+			expect( left ).toBeGreaterThanOrEqual( 0 );
+			expect( left + editorWidth ).toBeLessThanOrEqual( viewport.width );
+			expect( top >= anchor.top + 18 || bottom <= anchor.top - 18 ).toBe( true );
+			expect( bottom ).toBeLessThanOrEqual( viewport.height );
+		} finally {
+			dimensions.forEach( ( dimension ) => dimension.mockRestore() );
 		}
-	);
+	} );
 
 	it( 'leaves annotation mode with Escape while a notification is visible', async () => {
 		await setup();

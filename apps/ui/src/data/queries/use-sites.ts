@@ -105,15 +105,18 @@ export function useCopySite() {
 		// the one kind no CLI command records — see `SITE_OPERATIONS`.
 		mutationKey: COPY_SITE_MUTATION_KEY,
 		mutationFn: ( sourceSiteId: string ) => connector.copySite( sourceSiteId ),
-		onSuccess: ( site ) => {
+		onMutate: ( sourceSiteId ) =>
+			toast.processing( __( 'Duplicating site…' ), { id: `duplicate-${ sourceSiteId }` } ),
+		onSuccess: ( site, _sourceSiteId, noticeId ) => {
 			/* translators: %s: name of the new copy of a site */
 			toast.success( sprintf( __( 'Site duplicated: %s' ), site.name ), {
+				id: noticeId,
 				action: { label: __( 'Open' ), onClick: () => openSite( site ) },
 			} );
 			return queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
-		onError: ( error ) =>
-			toast.error( __( 'Failed to copy site' ), { description: error.message } ),
+		onError: ( error, _sourceSiteId, noticeId ) =>
+			toast.error( __( 'Failed to copy site' ), { id: noticeId, description: error.message } ),
 	} );
 }
 

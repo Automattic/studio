@@ -118,11 +118,7 @@
 	position: sticky;
 	top: 0;
 	z-index: 1;
-	background: linear-gradient(
-		to bottom,
-		var( --studio-sidebar-bg ) calc( 100% - var( --space-2 ) ),
-		transparent
-	);
+	background: var( --studio-sidebar-bg );
 }
 
 .groupHeader:hover .groupHoverAction,

@@ -33,6 +33,7 @@ export function AppUpdateButton() {
 
 	return (
 		<IconButton
+			size="icon-sm"
 			variant="accent"
 			icon={ <ImportIcon /> }
 			label={ label }

@@ -15,6 +15,11 @@ export const SUPPORTED_BROWSERS = [
 ] as const;
 export type SupportedBrowser = ( typeof SUPPORTED_BROWSERS )[ number ];
 
+export interface SystemBrowser {
+	name: string;
+	browser?: SupportedBrowser;
+}
+
 export const browserConfig: Record<
 	SupportedBrowser,
 	{

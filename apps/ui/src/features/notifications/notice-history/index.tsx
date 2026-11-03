@@ -119,6 +119,7 @@ export function NoticeHistoryButton( { active = true }: { active?: boolean } ) {
 				ref={ bell }
 				render={
 					<IconButton
+						size="icon-sm"
 						variant="muted-ghost"
 						icon={ <BellIcon /> }
 						label={ __( 'Notification history' ) }

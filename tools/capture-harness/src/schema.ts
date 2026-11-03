@@ -168,6 +168,12 @@ export const Capture = z
 			.number()
 			.optional()
 			.describe( "Least width-to-height ratio of a crop; the look's crop.aspect if unset" ),
+		reach: z
+			.array( z.enum( [ 'left', 'right', 'top', 'bottom' ] ) )
+			.optional()
+			.describe(
+				"Run the crop out to these edges of the window, so it ends at the window's corner or edge (a framed look then runs it off the frame on its other, cut sides)"
+			),
 		settle: z.number().optional().describe( 'Milliseconds to wait before capturing' ),
 		keepMouse: z.boolean().optional().describe( 'Leave the pointer and focus where they are' ),
 		frame: FrameMode.optional(),

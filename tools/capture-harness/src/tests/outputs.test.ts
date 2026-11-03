@@ -47,6 +47,21 @@ describe( 'cropFor', () => {
 			height: 200,
 		} );
 	} );
+
+	it( 'runs the crop out to the edges it reaches, and widens it away from them', () => {
+		const crop = cropFor(
+			{ x: 300, y: 600, width: 300, height: 200 },
+			{ pad: 20, aspect: 1.5, reach: [ 'left', 'bottom' ] },
+			viewport
+		);
+		expect( crop( [] ) ).toEqual( { x: 0, y: 580, width: 620, height: 320 } );
+		const tall = cropFor(
+			{ x: 1200, y: 300, width: 100, height: 400 },
+			{ pad: 0, aspect: 1.5, reach: [ 'right', 'bottom' ] },
+			viewport
+		);
+		expect( tall( [] ) ).toEqual( { x: 540, y: 300, width: 900, height: 600 } );
+	} );
 } );
 
 describe( 'writeIfChanged', () => {

@@ -183,11 +183,16 @@ export async function drawWindowControls( ctx: Ctx ) {
  * The crop for a target box: `pad` around it (a number, or `[x, y]`), grown to
  * include the annotation extents, widened to at least `aspect` (width over
  * height) since docs pages are wider than they are tall, and kept inside the
- * window.
+ * window. `reach` runs it out to those window edges, and widening grows it
+ * away from them.
  */
 export function cropFor(
 	box: Box,
-	{ pad, aspect }: { pad: number | [ number, number ]; aspect: number },
+	{
+		pad,
+		aspect,
+		reach = [],
+	}: { pad: number | [ number, number ]; aspect: number; reach?: Capture[ 'reach' ] },
 	viewport: { width: number; height: number }
 ) {
 	const [ padX, padY ] = Array.isArray( pad ) ? pad : [ pad, pad ];
@@ -200,16 +205,26 @@ export function cropFor(
 	const inside = ( n: number, max: number ) => Math.min( Math.max( 0, n ), max );
 	return ( extents: Box[] ): Box => {
 		const framed = union( [ target, ...extents ] );
-		const x1 = inside( framed.x, viewport.width );
-		const y1 = inside( framed.y, viewport.height );
-		const x2 = inside( framed.x + framed.width, viewport.width );
-		const y2 = inside( framed.y + framed.height, viewport.height );
+		const x1 = reach?.includes( 'left' ) ? 0 : inside( framed.x, viewport.width );
+		const y1 = reach?.includes( 'top' ) ? 0 : inside( framed.y, viewport.height );
+		const x2 = reach?.includes( 'right' )
+			? viewport.width
+			: inside( framed.x + framed.width, viewport.width );
+		const y2 = reach?.includes( 'bottom' )
+			? viewport.height
+			: inside( framed.y + framed.height, viewport.height );
 		let x = x1;
 		let width = x2 - x1;
 		const height = y2 - y1;
 		if ( width < height * aspect ) {
 			width = Math.min( viewport.width, height * aspect );
-			x = inside( x1 - ( width - ( x2 - x1 ) ) / 2, viewport.width - width );
+			const grow = width - ( x2 - x1 );
+			const from = reach?.includes( 'left' )
+				? x1
+				: reach?.includes( 'right' )
+				? x1 - grow
+				: x1 - grow / 2;
+			x = inside( from, viewport.width - width );
 		}
 		x = Math.floor( x );
 		const y = Math.floor( y1 );
@@ -231,7 +246,11 @@ async function clipFor(
 	);
 	return cropFor(
 		box,
-		{ pad: capture.pad ?? ctx.look.crop.pad, aspect: capture.aspect ?? ctx.look.crop.aspect },
+		{
+			pad: capture.pad ?? ctx.look.crop.pad,
+			aspect: capture.aspect ?? ctx.look.crop.aspect,
+			reach: capture.reach,
+		},
 		viewport
 	);
 }

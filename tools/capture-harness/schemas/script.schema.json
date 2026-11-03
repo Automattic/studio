@@ -95,6 +95,19 @@
 					"description": "Least width-to-height ratio of a crop; the look's crop.aspect if unset",
 					"type": "number"
 				},
+				"reach": {
+					"description": "Run the crop out to these edges of the window, so it ends at the window's corner or edge (a framed look then runs it off the frame on its other, cut sides)",
+					"type": "array",
+					"items": {
+						"type": "string",
+						"enum": [
+							"left",
+							"right",
+							"top",
+							"bottom"
+						]
+					}
+				},
 				"settle": {
 					"description": "Milliseconds to wait before capturing",
 					"type": "number"
@@ -387,6 +400,19 @@
 							"aspect": {
 								"description": "Least width-to-height ratio of a crop; the look's crop.aspect if unset",
 								"type": "number"
+							},
+							"reach": {
+								"description": "Run the crop out to these edges of the window, so it ends at the window's corner or edge (a framed look then runs it off the frame on its other, cut sides)",
+								"type": "array",
+								"items": {
+									"type": "string",
+									"enum": [
+										"left",
+										"right",
+										"top",
+										"bottom"
+									]
+								}
 							},
 							"settle": {
 								"description": "Milliseconds to wait before capturing",

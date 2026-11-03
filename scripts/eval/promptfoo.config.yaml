@@ -403,6 +403,7 @@ tests:
   - description: design system annotation reaches DESIGN.md and the theme palette
     vars:
       caseId: design-system-annotation
+      ui: true
       token: primary
       originalValue: "#2F6BFF"
       timeoutMs: 420000
@@ -456,6 +457,8 @@ tests:
         value: file://outcome.mjs:designTokenReachedTheme
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
+      - type: javascript
+        value: file://outcome.mjs:designSystemReplyLink
 
   # STU-2155: once a template part is customized in the Site Editor, WordPress
   # renders the database copy (a wp_template_part post) instead of the theme

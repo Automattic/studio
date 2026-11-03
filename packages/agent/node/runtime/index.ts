@@ -712,7 +712,7 @@ function buildAgentTools(
 
 	const { sitesRoot, ui } = host;
 	const designSystemPreview = < TTool extends AgentToolAny >( tool: TTool ) =>
-		ui ? withDesignSystemPreview( tool, sitesRoot, ui ) : tool;
+		withDesignSystemPreview( tool, sitesRoot, ui );
 	const piTools: AgentToolAny[] = [
 		renameTool( createReadTool( sitesRoot ), 'Read' ),
 		designSystemPreview( renameTool( createWriteTool( sitesRoot ), 'Write' ) ),

@@ -119,6 +119,7 @@ export function NoticeHistoryButton( { active = true }: { active?: boolean } ) {
 				ref={ bell }
 				render={
 					<IconButton
+						size="icon-sm"
 						variant="muted-ghost"
 						icon={ <BellIcon /> }
 						label={ __( 'Notification history' ) }
@@ -178,12 +179,16 @@ export function NoticeHistoryButton( { active = true }: { active?: boolean } ) {
 											</time>
 										}
 										onActionDone={ closeNoticeHistory }
-										onDismiss={ () => {
-											if ( notices.length === 1 ) {
-												setOpen( false );
-											}
-											dismissNotice( notice );
-										} }
+										onDismiss={
+											notice.dismissible === false
+												? undefined
+												: () => {
+														if ( notices.length === 1 ) {
+															setOpen( false );
+														}
+														dismissNotice( notice );
+												  }
+										}
 									/>
 								</li>
 							) ) }

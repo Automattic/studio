@@ -40,7 +40,7 @@ export function UserMenu( { active = true }: { active?: boolean } ) {
 								<Button
 									ref={ trigger }
 									variant="muted-ghost"
-									size="icon"
+									size="icon-sm"
 									aria-label={ user.displayName || user.email }
 								/>
 							}
@@ -94,6 +94,7 @@ export function UserMenu( { active = true }: { active?: boolean } ) {
 				{ isOffline && <OfflineIndicator /> }
 				<AppUpdateButton />
 				<IconButton
+					size="icon-sm"
 					variant="muted-ghost"
 					icon={ <SettingsIcon /> }
 					label={ __( 'Settings' ) }

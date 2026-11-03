@@ -21,6 +21,8 @@ export interface InspectOptions {
 	within?: LocatorSpec;
 	screenshot?: string;
 	keepProfile?: boolean;
+	// Leave the window to the person, and return once they close it.
+	untilClosed?: boolean;
 	log?: ( message: string ) => void;
 }
 
@@ -81,6 +83,11 @@ export async function inspect( options: InspectOptions ): Promise< InspectResult
 		keepProfile: options.keepProfile,
 		log: options.log,
 		inspect: async ( ctx ) => {
+			if ( options.untilClosed ) {
+				options.log?.( '\nStudio is open. Close its window when you are done.' );
+				await ctx.w.waitForEvent( 'close', { timeout: 0 } );
+				return;
+			}
 			await ctx.w.waitForTimeout( 700 );
 			await tidyText( ctx );
 			const root = options.within ? resolveLocator( ctx, options.within ) : ctx.w.locator( 'body' );

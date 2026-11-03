@@ -21,6 +21,7 @@ Commands:
   check <script|dir>…     Capture without writing; report which shots' pixels changed
   record <script|dir>…    Record each selected shot's steps as video
   inspect                 Open a scene and print the window's accessibility tree
+  open                    Open Studio on a scene and leave it to you (for recording); ends when you close it
   validate <file|dir>…    Check scene, script and look files
   bake                    Turn a scene's Blueprint sites into backups
   frame <image>…          Frame existing images with a look
@@ -49,6 +50,8 @@ Options:
 inspect: --script <file> [--until <shot>] runs a script's steps first; or
   --first-run, --signed-in to open that way; --steps '<json array>' runs more;
   --within '<locator json>' prints part of the tree; --screenshot <file.png>.
+open: signed in with all the scene's chats (--chat <name> for one), or --first-run;
+  --look for the window size and color scheme.
 bake: --out <dir> for the backups, --scene-out <file> for the baked scene.
 setup: --driver electron|browser (default both), --rebuild to build again.
 
@@ -87,7 +90,7 @@ const { values: args, positionals } = parseArgs( {
 const [ command = 'help', ...refs ] = positionals;
 
 // Commands that launch Studio Desktop.
-const LAUNCHES = new Set( [ 'capture', 'check', 'record', 'inspect' ] );
+const LAUNCHES = new Set( [ 'capture', 'check', 'record', 'inspect', 'open' ] );
 
 /**
  * On Linux without a display, Studio Desktop needs a virtual one: start Xvfb

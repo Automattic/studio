@@ -2,14 +2,14 @@
  * The commands that drive Studio or read the harness's inputs. cli.ts loads
  * this module only once the repo's dependencies are installed.
  */
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { bake } from './bake.ts';
 import { DRIVERS, type DriverName } from './drivers/types.ts';
 import { renderLook } from './frame.ts';
 import { inspect } from './inspect.ts';
 import { loadLook, withBackground } from './look.ts';
-import { SCHEMAS_DIR } from './paths.ts';
+import { DEFAULT_SCENE, SCHEMAS_DIR } from './paths.ts';
 import { runScripts, type Mode } from './run.ts';
 import { loadScene, sceneFromBlueprint } from './scene.ts';
 import { SCHEMAS, jsonSchemaFor, type LocatorSpec, type SchemaKind, type Step } from './schema.ts';
@@ -174,6 +174,29 @@ export async function runCommand( command: string, refs: string[], args: Command
 				log: ( message ) => process.stderr.write( `${ message }\n` ),
 			} );
 			return output( result, () => console.log( result.snapshot ) );
+		}
+		case 'open': {
+			const scene = ( await sceneOption() ) ?? ( await loadScene( DEFAULT_SCENE ) );
+			const chats = args.chat
+				? [ args.chat ]
+				: scene.chats
+				? ( await readdir( scene.chats ) )
+						.filter( ( file ) => file.endsWith( '.json' ) )
+						.map( ( file ) => file.slice( 0, -'.json'.length ) )
+				: [];
+			const { studioVersion } = await inspect( {
+				scene,
+				look: args.look,
+				driver: driverOption(),
+				launch: args[ 'first-run' ]
+					? { firstRun: true, signedIn: args[ 'signed-in' ] }
+					: { signedIn: true, chats },
+				steps: args.steps ? ( JSON.parse( args.steps ) as Step[] ) : undefined,
+				keepProfile: args[ 'keep-profile' ],
+				untilClosed: true,
+				log: ( message ) => process.stderr.write( `${ message }\n` ),
+			} );
+			return output( { studioVersion, closed: true }, () => {} );
 		}
 		case 'validate': {
 			needRefs( 'files or folders to check' );

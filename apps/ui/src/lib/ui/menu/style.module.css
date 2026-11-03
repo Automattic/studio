@@ -27,7 +27,8 @@
 	}
 
 	.destructive[data-highlighted] {
-		background-color: var( --destructive-hover );
+		--item-hover-background: var( --destructive-hover );
+		--item-hover-foreground: var( --destructive );
 		color: var( --destructive );
 	}
 

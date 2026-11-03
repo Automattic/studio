@@ -3,8 +3,7 @@ import { useLayoutEffect, useState } from 'react';
 /** Fades only the content that can scroll behind a fixed edge. */
 export function useScrollFade< T extends HTMLElement >( {
 	inset = false,
-	stickyHeaders = false,
-}: { inset?: boolean; stickyHeaders?: boolean } = {} ) {
+}: { inset?: boolean } = {} ) {
 	const [ element, setElement ] = useState< T | null >( null );
 	useLayoutEffect( () => {
 		if ( ! element ) return;
@@ -26,17 +25,6 @@ export function useScrollFade< T extends HTMLElement >( {
 			);
 			element.toggleAttribute( 'data-scroll-top', top > 1 );
 			element.toggleAttribute( 'data-scroll-bottom', bottom > 1 );
-			if ( stickyHeaders ) {
-				const edge = element.getBoundingClientRect().top;
-				for ( const anchor of element.querySelectorAll< HTMLElement >(
-					'[data-sticky-fade-anchor]'
-				) ) {
-					anchor.nextElementSibling?.toggleAttribute(
-						'data-stuck',
-						anchor.getBoundingClientRect().top < edge
-					);
-				}
-			}
 		};
 		let frame = 0;
 		const schedule = () => {
@@ -67,6 +55,6 @@ export function useScrollFade< T extends HTMLElement >( {
 			mutation.disconnect();
 			element.removeEventListener( 'scroll', schedule );
 		};
-	}, [ element, inset, stickyHeaders ] );
+	}, [ element, inset ] );
 	return setElement;
 }

@@ -76,7 +76,7 @@ describe( 'AccountPromptDialog', () => {
 		expect( metadata ).not.toHaveProperty( 'scope' );
 	} );
 
-	it( 'keeps a login started before the prompt was closed and reopened from starting again', async () => {
+	it( 'allows retrying login after closing and reopening the prompt', async () => {
 		const connector = createFakeConnector( { user: null } );
 		connector.authenticate.mockReturnValue( new Promise( () => {} ) );
 		renderWithProviders( <Prompt />, { connector } );
@@ -89,8 +89,8 @@ describe( 'AccountPromptDialog', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Share' } ) );
 
 		const logIn = await screen.findByRole( 'button', { name: 'Log in' } );
-		expect( logIn ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( logIn ).toBeEnabled();
 		fireEvent.click( logIn );
-		expect( connector.authenticate ).toHaveBeenCalledTimes( 1 );
+		await waitFor( () => expect( connector.authenticate ).toHaveBeenCalledTimes( 2 ) );
 	} );
 } );

@@ -1,6 +1,5 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { markPreviewReady } from '@/data/preview-ready';
 import { applySyncActivity } from '@/data/sync-activity';
 import { SessionUIProvider } from '@/data/use-session-ui';
 import {
@@ -142,9 +141,9 @@ it( 'keeps icon-only annotation available in a narrow preview with sharing feedb
 	);
 	act( () => {
 		applySyncActivity( 'annotate-site', { kind: 'success', direction: 'preview' } );
-		markPreviewReady( 'annotate-site' );
 	} );
-	expect( share ).toHaveAttribute( 'aria-description', 'Preview ready' );
+	expect( share ).not.toHaveAttribute( 'aria-description' );
+	expect( share.querySelector( '[data-slot="notification-dot"]' ) ).not.toBeInTheDocument();
 	expect( share ).toHaveTextContent( /^$/ );
 	await user.click( share );
 	expect( await screen.findByRole( 'dialog' ) ).toBeInTheDocument();

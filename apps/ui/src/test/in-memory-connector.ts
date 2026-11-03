@@ -95,7 +95,7 @@ const installedApps = () =>
 			app,
 			app === 'vscode' || app === 'terminal',
 		] )
-	) as InstalledApps;
+	) as Omit< InstalledApps, 'defaultBrowser' >;
 
 /**
  * A `Connector` over in-memory state, for rendering real providers and

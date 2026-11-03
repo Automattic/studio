@@ -146,6 +146,7 @@ describe( 'Stop other sites', () => {
 				expect( items[ items.indexOf( sync ) + 1 ] ).toHaveTextContent( 'Delete site' );
 				fireEvent.click( action === 'Share' ? share : sync );
 				if ( action === 'Share' ) {
+					fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Manage sharing' } ) );
 					expect( requests.share ).toHaveBeenCalledExactlyOnceWith( {
 						panel: 'share',
 						siteId: 'selected',

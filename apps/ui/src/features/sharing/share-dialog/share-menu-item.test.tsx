@@ -10,6 +10,7 @@ import { SiteShareMenuItem } from './share-menu-item';
 it( 'copies an active preview and keeps the sharing dialog accessible', async () => {
 	const site = makeSite( { id: 'share-menu' } );
 	const copyText = vi.fn( async () => {} );
+	const openExternalUrl = vi.fn( async () => {} );
 	const preview = {
 		atomicSiteId: 1,
 		localSiteId: site.id,
@@ -23,6 +24,7 @@ it( 'copies an active preview and keeps the sharing dialog accessible', async ()
 		{ sites: [ site ], user: TEST_USER },
 		{
 			copyText,
+			openExternalUrl,
 			getSnapshots: async () => [
 				preview,
 				{ ...preview, atomicSiteId: 2, name: 'Expired', date: 0 },
@@ -56,11 +58,21 @@ it( 'copies an active preview and keeps the sharing dialog accessible', async ()
 			fireEvent.keyDown( share, { key: 'ArrowRight' } );
 		};
 		await open();
-		fireEvent.keyDown( await screen.findByRole( 'menuitem', { name: 'Copy preview links' } ), {
+		fireEvent.keyDown( await screen.findByRole( 'menuitem', { name: 'Copy links' } ), {
 			key: 'ArrowRight',
 		} );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Design review' } ) );
 		await waitFor( () => expect( copyText ).toHaveBeenCalledWith( preview.shareUrl ) );
+		await open();
+		fireEvent.keyDown( await screen.findByRole( 'menuitem', { name: 'Visit previews' } ), {
+			key: 'ArrowRight',
+		} );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Design review' } ) );
+		await waitFor( () =>
+			expect( openExternalUrl ).toHaveBeenCalledWith(
+				'https://review.example.com/wp-login.php?redirect_to=https%3A%2F%2Freview.example.com%2F'
+			)
+		);
 		await open();
 		expect( screen.queryByRole( 'menuitem', { name: 'Expired' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'menuitem', { name: 'Other site' } ) ).not.toBeInTheDocument();

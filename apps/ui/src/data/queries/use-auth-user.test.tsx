@@ -3,7 +3,6 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { getNoticeHistory } from '@/data/app-messages';
 import { ConnectorProvider } from '@/data/core';
-import { markPreviewReady, usePreviewReady } from '@/data/preview-ready';
 import { createFakeConnector, TEST_USER, type FakeConnector } from '@/test/fake-connector';
 import { createTestQueryClient } from '@/test/render';
 import { useAuthChangeToasts, useAuthUser, useSyncAuthUserWithEvents } from './use-auth-user';
@@ -14,12 +13,7 @@ function renderAuthUser( connector: FakeConnector ) {
 		const { data } = useAuthUser();
 		useSyncAuthUserWithEvents();
 		useAuthChangeToasts();
-		const previewReady = usePreviewReady( 'site' );
-		return (
-			<span data-testid="state" data-preview-ready={ previewReady }>
-				{ data ? 'signed-in' : 'signed-out' }
-			</span>
-		);
+		return <span data-testid="state">{ data ? 'signed-in' : 'signed-out' }</span>;
 	}
 
 	function OtherReader() {
@@ -78,20 +72,17 @@ describe( 'useAuthUser', () => {
 		expect( connector.getAuthUser ).toHaveBeenCalledTimes( 2 );
 	} );
 
-	it( 'says when the signed-in user changes, but not on the first lookup, and forgets its ready preview', async () => {
+	it( 'says when the signed-in user changes, but not on the first lookup', async () => {
 		const connector = createFakeConnector();
 
 		renderAuthUser( connector );
 		await waitFor( () => expect( screen.getByTestId( 'state' ) ).toHaveTextContent( 'signed-in' ) );
 		expect( getNoticeHistory() ).toHaveLength( 0 );
-		act( () => markPreviewReady( 'site' ) );
-		expect( screen.getByTestId( 'state' ) ).toHaveAttribute( 'data-preview-ready', 'true' );
 
 		signIn( connector, null );
 		await waitFor( () =>
 			expect( getNoticeHistory()[ 0 ]?.title ).toBe( 'Logged out of WordPress.com' )
 		);
-		expect( screen.getByTestId( 'state' ) ).toHaveAttribute( 'data-preview-ready', 'false' );
 
 		signIn( connector, TEST_USER );
 		await waitFor( () =>

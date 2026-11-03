@@ -40,19 +40,19 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 	const style = document.createElement('style');
 	style.textContent =
 		'.highlight{position:fixed;pointer-events:none;box-sizing:border-box;border:2px solid var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}' +
-		'button{position:fixed;transform:translate(-50%,-50%);border:0;border-radius:50%;width:32px;height:32px;padding:0;font:500 12px var(--marker-font-family,system-ui);font-variant-numeric:tabular-nums;background:var(--marker) center/contain no-repeat;color:var(--on-accent);cursor:pointer;pointer-events:auto}' +
+		'button{position:fixed;transform:translate(-50%,-50%);border:0;border-radius:50%;width:36px;height:36px;padding:0;font:500 12px var(--marker-font-family,system-ui);font-variant-numeric:tabular-nums;background:var(--marker) center/contain no-repeat;color:var(--on-accent);cursor:pointer;pointer-events:auto}' +
 		'button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}' +
-		'.enter{animation:marker-in 250ms cubic-bezier(.22,1,.36,1) both}' +
+		'.enter{animation:marker-in 600ms linear(0 0%,.0325 2.5%,.1163 5%,.2331 7.5%,.6385 15%,.7594 17.5%,.8639 20%,.9497 22.5%,1.0164 25%,1.0648 27.5%,1.0966 30%,1.1142 32.5%,1.1172 37.5%,1.0941 42.5%,1.0178 55%,.9887 65%,.9858 72.5%,1 100%) both,marker-fade-in var(--motion-duration-feedback,100ms) ease-out both}' +
 		'.confirm{animation:marker-confirm 220ms ease-out both}' +
 		'.plus,.number{position:absolute;inset:0;display:grid;place-items:center;transition:opacity 100ms var(--motion-ease-enter),transform var(--motion-duration-surface) var(--motion-ease-enter)}' +
 		'.plus{opacity:0;transform:scale(.95)}' +
 		'.number{opacity:1;transform:translateY(0)}' +
 		'button[data-pending="true"] .plus{opacity:1;transform:scale(1)}' +
 		'button[data-pending="true"] .number{opacity:0;transform:translateY(2px)}' +
-		'@keyframes marker-in{from{opacity:0;transform:translate(-50%,-50%) scale(.3)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}' +
+		'@keyframes marker-in{from{transform:translate(-50%,-50%) scale(0)}to{transform:translate(-50%,-50%) scale(1)}}' +
 		'@keyframes marker-confirm{from{transform:translate(-50%,-50%) scale(1)}25%{transform:translate(-50%,-50%) scale(.94)}65%{transform:translate(-50%,-50%) scale(1.06)}to{transform:translate(-50%,-50%) scale(1)}}' +
 		'@keyframes marker-fade-in{from{opacity:0}to{opacity:1}}' +
-		'@media(prefers-reduced-motion:reduce){.enter{animation-name:marker-fade-in;animation-duration:var(--motion-duration-surface)}.confirm{animation-name:marker-fade-in;animation-duration:1ms}.plus,.number,button[data-pending="true"] .plus,button[data-pending="true"] .number{transform:none;transition-property:opacity}}';
+		'@media(prefers-reduced-motion:reduce){.enter{animation:marker-fade-in var(--motion-duration-feedback,100ms) ease-out both}.confirm{animation-name:marker-fade-in;animation-duration:1ms}.plus,.number,button[data-pending="true"] .plus,button[data-pending="true"] .number{transform:none;transition-property:opacity}}';
 	root.append(style);
 	const highlight = document.createElement('div');
 	highlight.className = 'highlight';
@@ -171,7 +171,9 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 				marker.className = 'enter';
 				marker.innerHTML = '<span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="${ PLUS_ICON.viewBox }" fill="none"><path d="${ PLUS_ICON.path }" stroke-width="${ PLUS_ICON.strokeWidth }" stroke-linecap="${ PLUS_ICON.strokeLinecap }" stroke="currentColor"/></svg></span><span class="number" aria-hidden="true"></span>';
 				marker.addEventListener('animationend', (event) => {
-					if (event.target === marker) marker.classList.remove('enter', 'confirm');
+					if (event.target !== marker) return;
+					if (event.animationName === 'marker-fade-in' && !matchMedia('(prefers-reduced-motion:reduce)').matches) return;
+					marker.classList.remove('enter', 'confirm');
 				});
 				markerNodes.set(note.id, marker);
 				markers.append(marker);

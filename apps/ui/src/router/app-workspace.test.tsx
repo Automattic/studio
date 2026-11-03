@@ -123,20 +123,18 @@ afterEach( () => {
 } );
 
 describe( 'Studio workspace', () => {
-	it( 'asks for a provider before sending annotations and preserves notes when opening provider settings', async () => {
+	it( 'asks for a provider before annotating and preserves notes when opening provider settings', async () => {
 		const { history, connector } = setup( {
 			path: '/sites/one',
-			sites: [ site( { running: true } ) ],
 		} );
 		await screen.findByRole( 'button', { name: 'Site menu' } );
 		act( () => {
-			setAnnotating( 'one', true );
 			const id = pickAnnotation( 'one', { selector: 'h1', tag: 'h1', path: '/' } )!;
 			changeAnnotation( 'one', id, { comment: 'Make this heading larger' } );
 			stageAnnotations( 'one', [ id ], true );
 		} );
 		try {
-			fireEvent.click( screen.getByRole( 'button', { name: 'Send 1 annotation' } ) );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Annotate' } ) );
 			expect(
 				await screen.findByRole( 'dialog', { name: 'Put your feedback to work' } )
 			).toBeVisible();

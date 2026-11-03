@@ -84,11 +84,11 @@ export function Navigation( {
 			) : null }
 			<div className={ styles.actions }>
 				{ onSkip ? (
-					<Button variant="ghost" size="header" onClick={ onSkip }>
+					<Button variant="ghost" size="sm" onClick={ onSkip }>
 						{ __( 'Skip' ) }
 					</Button>
 				) : null }
-				<Button variant="accent" size="header" onClick={ onNext }>
+				<Button variant="accent" size="sm" onClick={ onNext }>
 					{ nextLabel }
 				</Button>
 			</div>

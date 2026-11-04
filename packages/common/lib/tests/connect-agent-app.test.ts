@@ -204,6 +204,16 @@ describe.skipIf( process.platform === 'win32' )( 'connectAgentApp with an app’
 		expect( cliCalls() ).toHaveLength( 2 );
 	} );
 
+	it( 'serializes connections to different apps and removes their staging files', async () => {
+		installCli( `${ SHELL_BIN }/claude`, `${ SHELL_BIN }/codex` );
+		await Promise.all( [
+			connectAgentApp( 'claude-code', studio ),
+			connectAgentApp( 'codex', studio ),
+		] );
+		expect( cliCalls() ).toHaveLength( 4 );
+		expect( fs.readdirSync( path.dirname( marketplace() ) ) ).toEqual( [ 'agent-plugins' ] );
+	} );
+
 	it( 'reports the app’s error', async () => {
 		installCli( `${ SHELL_BIN }/claude` );
 		mockCli( ( args ) =>
@@ -212,6 +222,7 @@ describe.skipIf( process.platform === 'win32' )( 'connectAgentApp with an app’
 		await expect( connectAgentApp( 'claude-code', studio ) ).rejects.toThrow(
 			'Claude Code couldn’t install the WordPress Studio plugin: Error: network down'
 		);
+		await expect( connectAgentApp( 'cursor', studio ) ).resolves.toBeUndefined();
 	} );
 
 	it( 'reports an app that isn’t installed', async () => {
@@ -265,8 +276,6 @@ describe( 'connectAgentApp for Cursor', () => {
 	} );
 
 	it( 'uses the plugin Cursor loads from Claude Code, with no copy of its own', async () => {
-		await connectAgentApp( 'cursor', studio );
-		expect( fs.existsSync( cursorPlugin() ) ).toBe( true );
 		recordPlugins( [ 'claude-code' ] );
 
 		await connectAgentApp( 'cursor', studio );
@@ -279,11 +288,13 @@ describe( 'connectAgentApp for Cursor', () => {
 		);
 	} );
 
-	it( 'removes Cursor’s copy once Claude Code has the plugin', async () => {
+	it( 'preserves Cursor’s local copy when connecting Claude Code', async () => {
 		installCli( `${ SHELL_BIN }/claude` );
 		await connectAgentApp( 'cursor', studio );
 		await connectAgentApp( 'claude-code', studio );
-		expect( fs.existsSync( cursorPlugin() ) ).toBe( false );
+		expect( fs.existsSync( cursorPlugin() ) ).toBe( true );
+		await connectAgentApp( 'cursor', studio );
+		expect( openUrl ).toHaveBeenLastCalledWith( pluginPage );
 	} );
 
 	it( 'only opens a plugin Cursor already has, and replaces one for another Studio', async () => {
@@ -349,7 +360,7 @@ describe.skipIf( process.platform === 'win32' )( 'refreshAgentPlugins', () => {
 		expect( fs.readFileSync( skill, 'utf8' ) ).toBe( '# Build a site, updated' );
 	} );
 
-	it( 'updates Claude Code’s plugin, and drops Cursor’s copy, which Cursor then loads from it', async () => {
+	it( 'updates Claude Code and preserves Cursor’s local copy', async () => {
 		installCli( `${ SHELL_BIN }/claude` );
 		await connectAgentApp( 'cursor', studio );
 		recordPlugins( [ 'claude-code' ] );
@@ -363,6 +374,89 @@ describe.skipIf( process.platform === 'win32' )( 'refreshAgentPlugins', () => {
 		] );
 		expect(
 			fs.existsSync( path.join( home, '.cursor', 'plugins', 'local', 'WordPress-Studio' ) )
+		).toBe( true );
+		expect(
+			readJson(
+				path.join( home, '.cursor', 'plugins', 'local', 'WordPress-Studio' ),
+				'.cursor-plugin',
+				'plugin.json'
+			).version
+		).toBe( '2.2.0' );
+	} );
+
+	it( 'retries only failed apps after an update, then stops once they succeed', async () => {
+		installCli( `${ SHELL_BIN }/claude`, `${ SHELL_BIN }/codex` );
+		await connectAgentApp( 'cursor', studio );
+		recordPlugins( [ 'claude-code', 'codex' ] );
+		bundlePlugins( '2.2.0' );
+		mockCli( ( args ) =>
+			args[ 1 ] === 'update' ? { error: true, output: 'Error: temporarily busy' } : {}
+		);
+
+		await expect( refreshAgentPlugins( studio ) ).rejects.toThrow( 'temporarily busy' );
+		expect( cliCalls() ).toContainEqual( [
+			`${ SHELL_BIN }/codex`,
+			'plugin',
+			'add',
+			'wp-studio@studio',
+		] );
+
+		vi.mocked( execFile ).mockClear();
+		mockCli();
+		await refreshAgentPlugins( studio );
+		expect( cliCalls() ).toEqual( [
+			[ `${ SHELL_BIN }/claude`, 'plugin', 'marketplace', 'update', 'studio' ],
+			[ `${ SHELL_BIN }/claude`, 'plugin', 'update', 'wp-studio@studio' ],
+		] );
+		vi.mocked( execFile ).mockClear();
+		await refreshAgentPlugins( studio );
+		expect( cliCalls() ).toEqual( [] );
+	} );
+
+	it( 'recovers Grok after its uninstall succeeds but reinstall fails', async () => {
+		installCli( `${ SHELL_BIN }/grok` );
+		await connectAgentApp( 'cursor', studio );
+		recordPlugins( [ 'grok-build' ] );
+		bundlePlugins( '2.2.0' );
+		mockCli( ( args ) => {
+			if ( args[ 1 ] === 'uninstall' ) {
+				fs.rmSync( path.join( home, '.grok', 'installed-plugins', 'registry.json' ) );
+				return {};
+			}
+			return { error: true, output: 'Error: temporarily busy' };
+		} );
+		await expect( refreshAgentPlugins( studio ) ).rejects.toThrow( 'temporarily busy' );
+		expect(
+			( await detectAgentApps() ).find( ( app ) => app.id === 'grok-build' )?.connected
 		).toBe( false );
+
+		vi.mocked( execFile ).mockClear();
+		mockCli();
+		await refreshAgentPlugins( studio );
+		expect( cliCalls() ).toEqual( [
+			[
+				`${ SHELL_BIN }/grok`,
+				'plugin',
+				'install',
+				path.join( marketplace(), 'wp-studio' ),
+				'--trust',
+			],
+		] );
+	} );
+
+	it( 'keeps unfinished updates when another app is connected', async () => {
+		installCli( `${ SHELL_BIN }/codex`, `${ SHELL_BIN }/grok` );
+		await connectAgentApp( 'cursor', studio );
+		recordPlugins( [ 'codex' ] );
+		bundlePlugins( '2.2.0' );
+		mockCli( () => ( { error: true, output: 'Error: temporarily busy' } ) );
+		await expect( refreshAgentPlugins( studio ) ).rejects.toThrow( 'temporarily busy' );
+		mockCli();
+		await connectAgentApp( 'grok-build', studio );
+		vi.mocked( execFile ).mockClear();
+		await refreshAgentPlugins( studio );
+		expect( cliCalls() ).toEqual( [
+			[ `${ SHELL_BIN }/codex`, 'plugin', 'add', 'wp-studio@studio' ],
+		] );
 	} );
 } );

@@ -41,10 +41,10 @@ function stripImagesFromMessage( message: Message ): Message {
  * `maxBytes`, always keeping the newest. Dropping only the oldest keeps earlier
  * messages identical between requests, so the prompt cache survives.
  */
-export function stripStaleImagesFromContext< C extends { messages: Message[] } >(
-	ctx: C,
+export function stripStaleImagesFromContext< T extends { messages: Message[] } >(
+	ctx: T,
 	maxBytes = MAX_IMAGE_HISTORY_BYTES
-): C {
+): T {
 	let keptBytes = 0;
 	for ( let index = ctx.messages.length - 1; index >= 0; index-- ) {
 		const bytes = imageBytes( ctx.messages[ index ] );

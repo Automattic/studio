@@ -1,5 +1,9 @@
 import { Type, type Static, type TObject, type TProperties } from 'typebox';
-import type { AgentTool, AgentToolUpdateCallback } from '@earendil-works/pi-agent-core';
+import type {
+	AgentTool,
+	AgentToolParams,
+	AgentToolUpdateCallback,
+} from '@earendil-works/pi-agent-core';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 import type { StudioChatArtifactWidgetDraft } from '@studio/agent/protocol/chat-artifacts';
 import type { StudioToolProgressUpdate } from '@studio/agent/protocol/tool-progress';
@@ -234,7 +238,7 @@ export function bindTool< TProps extends TProperties >(
 	return {
 		...tool,
 		prepareArguments: ( args ) =>
-			parseJsonLists( tool.parameters, args ) as Static< TObject< TProps > >,
+			parseJsonLists( tool.parameters, args ) as AgentToolParams< TObject< TProps > >,
 		rawHandler: ( args, context ) =>
 			handler( args, { host, onProgress: context?.onProgress ?? ( () => {} ) } ),
 		execute: async ( _toolCallId, params, signal, onUpdate ) => {

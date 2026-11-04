@@ -30,7 +30,13 @@ export function withDefaultTimeout< S extends TSchema >(
 	return {
 		...tool,
 		parameters,
-		execute: ( id, args, ...rest ) =>
-			tool.execute( id, { ...args, timeout: args.timeout ?? seconds }, ...rest ),
+		execute: ( id, args, ...rest ) => {
+			const call = args as { timeout?: number };
+			return tool.execute(
+				id,
+				{ ...call, timeout: call.timeout ?? seconds } as typeof args,
+				...rest
+			);
+		},
 	};
 }

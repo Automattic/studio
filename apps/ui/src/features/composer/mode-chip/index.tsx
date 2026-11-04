@@ -27,7 +27,7 @@ export function ModeChip( {
 				render={
 					<Button
 						variant="muted"
-						size="sm"
+						size="default"
 						shape="round"
 						className={ styles.modeChip }
 						aria-label={ removeLabel }

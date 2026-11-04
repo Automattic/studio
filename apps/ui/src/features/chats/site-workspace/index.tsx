@@ -7,11 +7,13 @@ export function SiteWorkspace( {
 	siteId,
 	headerStart,
 	hideHeader,
+	previewVisible,
 }: {
 	sessionId?: string;
 	siteId: string;
 	headerStart?: ReactNode;
 	hideHeader?: boolean;
+	previewVisible?: boolean;
 } ) {
 	return (
 		<div className={ styles.root }>
@@ -22,6 +24,7 @@ export function SiteWorkspace( {
 					siteId={ siteId }
 					headerStart={ headerStart }
 					hideHeader={ hideHeader }
+					previewVisible={ previewVisible }
 				/>
 			</div>
 		</div>

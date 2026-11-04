@@ -97,7 +97,7 @@ function StudioSection( {
 // The route's site, or the last one visited.
 function useCurrentSiteId( requested?: string ) {
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
-	const { data: sites } = useSites();
+	const { data: sites, isPending } = useSites();
 	const { data: sessions } = useSessions();
 	const session = sessions?.find( ( candidate ) => candidate.id === params.sessionId );
 	const siteId =
@@ -105,7 +105,7 @@ function useCurrentSiteId( requested?: string ) {
 		params.siteId ??
 		findAiSessionOwnerSite( sites, session )?.id ??
 		readLastVisited()?.siteId;
-	return sites?.find( ( site ) => site.id === siteId ) ?? sites?.[ 0 ];
+	return { site: sites?.find( ( site ) => site.id === siteId ) ?? sites?.[ 0 ], isPending };
 }
 
 // A setting's row, by its link id or its title.
@@ -152,9 +152,10 @@ export function SettingsDialog() {
 	if ( settings && settings !== shown ) {
 		setShown( settings );
 	}
-	const site = useCurrentSiteId( settingsSite );
+	const { site, isPending: sitePending } = useCurrentSiteId( settingsSite );
 	const requested = shown === 'usage' && ! signedIn ? 'ai' : shown;
-	const scope: SettingsScope = isSiteSection( requested ) && site ? 'site' : 'studio';
+	const scope: SettingsScope =
+		isSiteSection( requested ) && ( site || sitePending ) ? 'site' : 'studio';
 	const section = scope === 'site' || ! isSiteSection( requested ) ? requested : 'general';
 	const [ siteSection, setSiteSection ] = useState< SettingsSectionId >( 'site' );
 	if ( scope === 'site' && section !== siteSection ) {

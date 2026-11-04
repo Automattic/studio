@@ -8,12 +8,10 @@ export const SCREENSHOT_WIDTH = 1040;
 export const SCREENSHOT_HEIGHT = 1248;
 export const AUTO_UPDATE_INTERVAL_MS = 60 * 60 * 1000;
 export const NIGHTLY_UPDATE_TTL_MS = 24 * 60 * 60 * 1000;
-export const MACOS_TRAFFIC_LIGHT_POSITION = { x: 20, y: 20 };
+export const MACOS_TRAFFIC_LIGHT_POSITION = { x: 20, y: 17 };
 export const WINDOWS_TITLEBAR_HEIGHT = 44;
-// The UI has no title bar of its own to fill, so the controls get their own
-// reserved band (see `WindowTitlebar`) and every pixel of it is empty space.
-// Match Windows 11's native caption-button height.
-export const AGENTIC_TITLEBAR_HEIGHT = 32;
+// Match the renderer's --band-height so native caption buttons align with the toolbar.
+export const AGENTIC_TITLEBAR_HEIGHT = 48;
 export const ABOUT_WINDOW_WIDTH = 300;
 export const ABOUT_WINDOW_HEIGHT = 285;
 export const BUG_REPORT_URL =

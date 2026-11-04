@@ -97,14 +97,15 @@ test.describe( 'Chat', () => {
 		}
 
 		const chip = page.getByRole( 'button', { name: 'Remove Auto-start' } );
+		await recordSends();
 		await composer().fill( '/auto-start' );
+		await expect( page.getByRole( 'option', { name: /^Auto-start / } ) ).toBeEnabled();
 		await composer().press( 'Enter' );
 		await expect( chip ).toBeVisible();
 		await expect
 			.poll( async () => ( await session.getAppConfig() ).autoStartSiteOnChat )
 			.toBe( true );
 
-		await recordSends();
 		await composer().fill( 'Build a home page' );
 		await page.getByRole( 'button', { name: 'Send message' } ).click();
 		await expect( composer() ).toHaveValue( '' );

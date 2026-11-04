@@ -1,7 +1,7 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { act, renderHook } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { ConnectorProvider } from '@/data/core';
 import {
 	SessionUIProvider,
@@ -10,6 +10,8 @@ import {
 } from '@/data/use-session-ui';
 import { createFakeConnector } from '@/test/fake-connector';
 import type { ReactNode } from 'react';
+
+beforeEach( () => localStorage.clear() );
 
 function wrapper( { children }: { children: ReactNode } ) {
 	return (
@@ -122,3 +124,57 @@ describe( 'useSessionPreviewUI agent reloads', () => {
 		expect( result.current.preview.open ).toBe( true );
 	} );
 } );
+
+it( 'keeps manual layouts only for the current app session', () => {
+	const view = renderHook( () => useSessionPreviewUI(), { wrapper } );
+	act( () => view.result.current.setSite( 'a', { running: true } ) );
+	act( () => view.result.current.setOpen( false ) );
+	act( () => view.result.current.setSite( 'b', { running: true } ) );
+	expect( view.result.current.open ).toBe( true );
+	act( () => view.result.current.setChatHidden( true ) );
+	act( () => view.result.current.setSite( 'a', { running: true } ) );
+	expect( view.result.current.open ).toBe( false );
+	act( () => view.result.current.setSite( 'b', { running: true } ) );
+	expect( view.result.current.chatHidden ).toBe( true );
+	expect( localStorage.length ).toBe( 0 );
+	view.unmount();
+	const reloaded = renderHook( () => useSessionPreviewUI(), { wrapper } );
+	act( () => reloaded.result.current.setSite( 'a', { running: true } ) );
+	expect( reloaded.result.current.open ).toBe( true );
+	act( () => reloaded.result.current.setSite( 'b', { running: true } ) );
+	expect( reloaded.result.current.chatHidden ).toBe( false );
+} );
+
+it.each( [ false, true ] )(
+	'ignores saved preview layout when opening a site (running: %s)',
+	( running ) => {
+		localStorage.setItem( 'studio-ui-preview-open', 'false' );
+		localStorage.setItem(
+			'studio-ui-running-preview-layout',
+			JSON.stringify( { open: true, chatHidden: true } )
+		);
+		localStorage.setItem( 'studio-ui-preview-open-by-site', JSON.stringify( { one: ! running } ) );
+		localStorage.setItem( 'studio-ui-chat-hidden-by-site', JSON.stringify( { one: true } ) );
+		const view = renderHook( () => useSessionPreviewUI(), { wrapper } );
+		act( () => view.result.current.setSite( 'one', { running } ) );
+		expect( view.result.current.open ).toBe( running );
+		expect( view.result.current.chatHidden ).toBe( false );
+	}
+);
+
+it.each( [ 'setOpen', 'toggle' ] as const )(
+	'resets full view when hiding with %s',
+	( control ) => {
+		const view = renderHook( () => useSessionPreviewUI(), { wrapper } );
+		act( () => view.result.current.setSite( 'one', { running: true } ) );
+		act( () => view.result.current.setChatHidden( true ) );
+		act( () =>
+			control === 'toggle' ? view.result.current.toggle() : view.result.current.setOpen( false )
+		);
+		expect( view.result.current.open ).toBe( false );
+		expect( view.result.current.chatHidden ).toBe( false );
+		act( () => view.result.current.setOpen( true ) );
+		expect( view.result.current.open ).toBe( true );
+		expect( view.result.current.chatHidden ).toBe( false );
+	}
+);

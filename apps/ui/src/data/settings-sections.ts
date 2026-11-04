@@ -151,8 +151,8 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				),
 				setting(
 					'action',
-					__( 'Open chat when starting a site' ),
-					__( 'Show the chat panel alongside the preview when starting a site.' ),
+					__( 'Start sites in split view' ),
+					__( 'Show chat beside the browser when starting a site.' ),
 					'open-chat-on-site-start'
 				),
 				setting(

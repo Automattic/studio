@@ -239,7 +239,8 @@ function useLiveSync< Options >(
 						.getQueryData< SyncSite[] >( connectedWpcomSitesQueryKey( siteId ) )
 						?.find( ( site ) => site.id === remoteSiteId ),
 				error,
-			} )
+			} ),
+			...( direction === 'push' ? [ siteId ] : [] )
 		);
 
 	return useMutation( {

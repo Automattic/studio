@@ -5,6 +5,7 @@ import type { AiSessionPlacementUpdatedEvent } from '@studio/agent/node/sessions
 import type { AgentRunEvent } from '@studio/agent/protocol/agent-events';
 import type { StoredAuthToken } from '@studio/common/lib/shared-config';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
+import type { WorkspaceLayout } from '@studio/common/types/workspace-layout';
 
 export interface IpcEvents {
 	'add-site': [ void ];
@@ -30,6 +31,7 @@ export interface IpcEvents {
 	];
 	'toggle-sidebar': [ void ];
 	'toggle-site-preview': [ void ];
+	'set-preview-layout': [ WorkspaceLayout ];
 	'user-settings': [ { tabName?: string; settingId?: string } ];
 	'window-fullscreen-change': [ boolean ];
 	'ai-agent-event': [ AgentRunEvent ];

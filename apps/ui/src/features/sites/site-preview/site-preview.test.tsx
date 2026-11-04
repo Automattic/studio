@@ -4,9 +4,17 @@ import { useSyncExternalStore, type ComponentProps } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { updateResponsivePreview } from '@/data/responsive-preview';
 import { SessionUIProvider } from '@/data/use-session-ui';
-import { getSiteAnnotations } from '@/features/annotations';
+import {
+	changeAnnotation,
+	pickAnnotation,
+	stageAnnotations,
+	setAnnotating,
+	removeAnnotations,
+	requestAnnotationReview,
+} from '@/features/annotations';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
+import { SiteHeaderActionsProvider } from '../site-header-actions';
 import { SitePreview } from './index';
 
 type Runtime = 'browser' | 'desktop';
@@ -44,9 +52,11 @@ function createPropsStore( initial: Props ) {
 function Harness( { store }: { store: ReturnType< typeof createPropsStore > } ) {
 	const props = useSyncExternalStore( store.subscribe, store.get );
 	return (
-		<SessionUIProvider>
-			<SitePreview { ...props } />
-		</SessionUIProvider>
+		<SiteHeaderActionsProvider host="preview">
+			<SessionUIProvider>
+				<SitePreview { ...props } />
+			</SessionUIProvider>
+		</SiteHeaderActionsProvider>
 	);
 }
 
@@ -106,7 +116,7 @@ const clearWebviewCache = () =>
 	( window as unknown as { ipcApi: { clearWebviewCache: ReturnType< typeof vi.fn > } } ).ipcApi
 		.clearWebviewCache;
 const isPageHidden = () => !! page()!.closest( '[data-loading]' );
-const logo = () => document.querySelector( 'canvas ~ span[aria-hidden="true"]' );
+const logo = () => document.querySelector( 'span[aria-hidden="true"][data-active]' );
 const site = ( overrides: Partial< Props[ 'site' ] > = {} ) =>
 	makeSite( { id: 'one', port: 9010, running: true, ...overrides } );
 const address = () => screen.getByRole( 'textbox', { name: 'Address' } ) as HTMLInputElement;
@@ -206,6 +216,7 @@ describe( 'site preview', () => {
 					operation: { pid: 1, kind: 'start' },
 				} ),
 			} );
+			const loadingLogo = logo();
 			const particles = document.querySelector( 'canvas' );
 			expect( particles ).toBeInTheDocument();
 			expect( logo() ).toBeInTheDocument();
@@ -214,6 +225,7 @@ describe( 'site preview', () => {
 			update( { site: makeSite( { id: 'one', port: 9010, running: true } ) } );
 			expect( isPageHidden() ).toBe( true );
 			expect( document.querySelector( 'canvas' ) ).toBe( particles );
+			expect( logo() ).toBe( loadingLogo );
 			expect( logo() ).toBeInTheDocument();
 			expect( screen.getByText( 'Loading site preview' ) ).toBeInTheDocument();
 			if ( runtime === 'desktop' ) {
@@ -227,7 +239,7 @@ describe( 'site preview', () => {
 			);
 			await waitFor( () => expect( logo() ).toBeNull() );
 			expect( isPageHidden() ).toBe( false );
-			expect( document.querySelectorAll( 'canvas' ) ).toHaveLength( 1 );
+			expect( document.querySelectorAll( 'canvas' ) ).toHaveLength( 0 );
 		}
 	);
 
@@ -335,7 +347,7 @@ describe( 'site preview', () => {
 		);
 		expect( address() ).toHaveValue( 'http://localhost:8002' );
 		update( { site: first, path: '/' } );
-		expect( address() ).toHaveValue( 'http://localhost:8001' );
+		expect( address() ).toHaveValue( 'http://localhost:8001/page' );
 		expect( back() ).toHaveAttribute( 'aria-disabled', 'true' );
 	} );
 } );
@@ -370,32 +382,27 @@ describe( 'site preview controls', () => {
 		dialog.remove();
 	} );
 
-	it( 'switches realms from the address menu, recording only real switches', async () => {
-		const connector = createFakeConnector();
-		const onPathChange = vi.fn();
-		const { update } = await renderPreview( 'browser', { onPathChange }, connector );
-		const pick = async ( name: string ) => {
-			fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
-			fireEvent.click( await screen.findByRole( 'option', { name } ) );
-		};
-		await pick( 'WordPress Admin' );
-		expect( onPathChange ).toHaveBeenLastCalledWith(
-			`/studio-auto-login?redirect_to=${ encodeURIComponent( `${ SITE_URL }/wp-admin/` ) }`
+	it( 'shows loaded page titles and URLs as recent destinations', async () => {
+		const { update } = await renderPreview( 'desktop', { path: '/about/' } );
+		const webview = guest();
+		fireEvent( webview, new Event( 'dom-ready' ) );
+		fireEvent(
+			webview,
+			Object.assign( new Event( 'page-title-updated' ), { title: 'About the project' } )
 		);
-		expect( connector.trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
-			browser: 'internal',
-		} );
-		await pick( 'Database' );
-		expect( onPathChange ).toHaveBeenLastCalledWith(
-			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
+		update( { path: '/contact/' } );
+		fireEvent(
+			webview,
+			Object.assign( new Event( 'page-title-updated' ), { title: 'Contact us' } )
 		);
-
-		update( { path: '/wp-admin/' } );
-		onPathChange.mockClear();
-		connector.trackEvent.mockClear();
-		await pick( 'WordPress Admin' );
-		expect( onPathChange ).not.toHaveBeenCalled();
-		expect( connector.trackEvent ).not.toHaveBeenCalled();
+		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
+		expect(
+			await screen.findByRole( 'option', { name: /About the project.*localhost:9010\/about\// } )
+		).toBeVisible();
+		expect(
+			screen.getByRole( 'option', { name: /Contact us.*localhost:9010\/contact\// } )
+		).toBeVisible();
+		expect( screen.queryByRole( 'option', { name: 'WordPress Admin' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'opens the front end externally logged out and WP Admin with auto-login', async () => {
@@ -418,41 +425,6 @@ describe( 'site preview controls', () => {
 		} );
 	} );
 
-	it( 'starts a stopped site with annotation mode selected', async () => {
-		const connector = createFakeConnector(
-			{},
-			{ capabilities: { nativeFolderPicker: true, annotatePreview: true, studioLogs: true } }
-		);
-		const stopped = makeSite( { id: 'annotate-stopped', running: false } );
-		const { user } = await renderPreview( 'desktop', { site: stopped }, connector );
-		const annotate = screen.getByRole( 'button', { name: 'Annotate' } );
-		expect( annotate ).toBeEnabled();
-		await user.click( annotate );
-		expect( connector.startSite ).toHaveBeenCalledWith( stopped.id );
-		expect( getSiteAnnotations( stopped.id ).active ).toBe( true );
-	} );
-
-	it.each( [ true, false ] )(
-		'keeps Annotate visible when host support is %s',
-		async ( annotatePreview ) => {
-			const connector = createFakeConnector(
-				{},
-				{ capabilities: { nativeFolderPicker: true, annotatePreview, studioLogs: true } }
-			);
-			await renderPreview( 'browser', {}, connector );
-			expect( screen.getByRole( 'button', { name: 'Reload preview' } ) ).toBeVisible();
-			const annotate = screen.getByRole( 'button', { name: 'Annotate' } );
-			expect( annotate ).toBeVisible();
-			if ( ! annotatePreview ) {
-				expect( annotate ).toBeDisabled();
-				expect( annotate ).toHaveAttribute(
-					'aria-description',
-					'Site annotation is not available in the browser yet'
-				);
-			}
-		}
-	);
-
 	it.each( [ undefined, 'https://example.wordpress.com' ] )(
 		'keeps responsive settings on site surfaces and suspends the toolbar for tools (live: %s)',
 		async ( liveUrl ) => {
@@ -465,17 +437,17 @@ describe( 'site preview controls', () => {
 			await user.click( responsiveToggle() );
 			act( () => updateResponsivePreview( siteId, { width: 512 } ) );
 			update( { path: '/phpmyadmin/index.php' } );
-			expect( responsiveToggle() ).toBeDisabled();
+			expect( responsiveToggle() ).toHaveAttribute( 'aria-disabled', 'true' );
 			expect(
 				screen.queryByRole( 'toolbar', { name: 'Responsive preview' } )
 			).not.toBeInTheDocument();
 			update( { path: DESIGN_SYSTEM_PREVIEW_PATH } );
-			expect( responsiveToggle() ).toBeDisabled();
+			expect( responsiveToggle() ).toHaveAttribute( 'aria-disabled', 'true' );
 			expect(
 				screen.queryByRole( 'toolbar', { name: 'Responsive preview' } )
 			).not.toBeInTheDocument();
 			update( { path: '/wp-admin/' } );
-			expect( responsiveToggle() ).toBeEnabled();
+			expect( responsiveToggle() ).not.toHaveAttribute( 'aria-disabled', 'true' );
 			expect( responsiveToggle() ).toHaveAttribute( 'aria-pressed', 'true' );
 			expect( screen.getByRole( 'textbox', { name: 'Width' } ) ).toHaveValue( '512' );
 		}
@@ -525,18 +497,11 @@ describe( 'site preview controls', () => {
 } );
 
 describe( 'site email', () => {
-	it( 'switches to the email from the address menu', async () => {
-		const connector = createFakeConnector();
-		const onPathChange = vi.fn();
-		await renderPreview( 'browser', { onPathChange }, connector );
-
-		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: 'Email log' } ) );
-
-		expect( onPathChange ).toHaveBeenLastCalledWith( 'studio:email' );
-		expect( connector.trackEvent ).toHaveBeenCalledWith( 'studio_site_open_email', {
-			browser: 'internal',
-		} );
+	it( 'switches to the rendered email surface when the path changes', async () => {
+		const { update } = await renderPreview( 'browser' );
+		update( { path: 'studio:email' } );
+		expect( await screen.findByText( 'No email yet' ) ).toBeVisible();
+		expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue( 'Email log' );
 	} );
 
 	it( 'opens links to the site in the preview and other links in the browser', async () => {
@@ -561,7 +526,7 @@ describe( 'site email', () => {
 		} );
 		const onPathChange = vi.fn();
 		await renderPreview( 'browser', { path: 'studio:email', onPathChange }, connector );
-		expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue( 'Email log' );
 		expect( page() ).toBeNull();
 
 		fireEvent.click( await screen.findByRole( 'option', { name: /Password Reset/ } ) );
@@ -572,57 +537,71 @@ describe( 'site email', () => {
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith( 'https://wordpress.org/support/' );
 	} );
 
-	it( 'shows the address as a button that opens the shortcuts', async () => {
+	it( 'keeps the address editable and responsive mode disabled for email', async () => {
 		const onPathChange = vi.fn();
 		await renderPreview( 'browser', { path: 'studio:email', onPathChange } );
-
-		expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: 'Responsive mode' } ) ).not.toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Email log' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: 'Front end' } ) );
-
+		const input = screen.getByRole( 'textbox', { name: 'Address' } );
+		expect( input ).toHaveValue( 'Email log' );
+		expect( screen.getByRole( 'button', { name: 'Responsive mode' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+		fireEvent.change( input, { target: { value: '/' } } );
+		fireEvent.submit( input.closest( 'form' )! );
 		expect( onPathChange ).toHaveBeenLastCalledWith( '/' );
 	} );
 } );
 
 describe( 'preview address bar', () => {
-	it( 'shows immediate startup feedback and restores the address when running', async () => {
-		const { update } = await renderPreview( 'browser', {
-			site: site( { running: false, operation: { pid: 1, kind: 'start' } } ),
-		} );
-		expect( screen.getByText( 'Starting site…' ) ).toHaveAttribute( 'role', 'status' );
-		expect( screen.queryByRole( 'textbox' ) ).not.toBeInTheDocument();
-		update( { site: site() } );
-		expect( screen.queryByText( 'Starting site…' ) ).not.toBeInTheDocument();
-		expect( address() ).toHaveValue( SITE_URL );
-	} );
+	it.each( [ 'browser', 'desktop' ] as const )(
+		'hides the browser bar until startup finishes in %s',
+		async ( runtime ) => {
+			const { update } = await renderPreview( runtime, {
+				site: site( { running: false, operation: { pid: 1, kind: 'start' } } ),
+			} );
+			expect(
+				screen.queryByRole( 'toolbar', { name: 'Preview browser controls' } )
+			).not.toBeInTheDocument();
+			update( { site: site() } );
+			expect(
+				screen.queryByRole( 'toolbar', { name: 'Preview browser controls' } )
+			).not.toBeInTheDocument();
+			if ( runtime === 'desktop' ) guest();
+			finishLoading( runtime );
+			await waitFor( () => expect( address() ).toBeEnabled() );
+		}
+	);
 
-	it( 'shows stopping feedback until shutdown completes, even after the preview is hidden', async () => {
+	it( 'hides the browser bar once stopped and restores its path on restart', async () => {
 		const stopping = { pid: 1, kind: 'stop' } as const;
 		const { update } = await renderPreview( 'browser', {
 			path: '/about/',
 			site: site( { operation: stopping } ),
 		} );
-		expect( screen.getByText( 'Stopping site…' ) ).toHaveAttribute( 'role', 'status' );
-		expect( screen.queryByRole( 'textbox' ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'toolbar', { name: 'Preview browser controls' } ) ).toBeVisible();
 		update( { site: site( { running: false, operation: stopping } ) } );
-		expect( screen.getByText( 'Stopping site…' ) ).toHaveAttribute( 'role', 'status' );
+		expect(
+			screen.queryByRole( 'toolbar', { name: 'Preview browser controls' } )
+		).not.toBeInTheDocument();
 		update( { site: site( { running: false } ) } );
 		expect( screen.queryByText( 'Stopping site…' ) ).not.toBeInTheDocument();
 		update( { site: site() } );
 		expect( address() ).toHaveValue( `${ SITE_URL }/about/` );
 	} );
 
-	it( 'toggles responsive mode from the address field', async () => {
+	it( 'toggles responsive mode from the preview toolbar', async () => {
 		const { user } = await renderPreview( 'browser', {
 			site: site( { id: 'address-responsive' } ),
 		} );
 		const toggle = screen.getByRole( 'button', { name: 'Responsive mode' } );
-		expect( address().closest( 'form' ) ).toContainElement( toggle );
+		expect( address().closest( 'form' ) ).not.toContainElement( toggle );
+		expect( screen.getByRole( 'toolbar', { name: 'Preview browser controls' } ) ).toContainElement(
+			toggle
+		);
 		await user.click( toggle );
 		expect( toggle ).toHaveAttribute( 'aria-pressed', 'true' );
 		expect( address() ).not.toHaveFocus();
-		expect( screen.queryByRole( 'dialog', { name: 'Preview shortcuts' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'dialog', { name: 'Recent pages' } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'toolbar', { name: 'Responsive preview' } ) ).toBeInTheDocument();
 		await user.click( toggle );
 		expect( toggle ).toHaveAttribute( 'aria-pressed', 'false' );
@@ -654,22 +633,50 @@ describe( 'preview address bar', () => {
 		expect( connector.openExternalUrl ).not.toHaveBeenCalled();
 	} );
 
-	it( 'keeps an empty pill while stopped and restores the editable address when started', async () => {
+	it( 'shows project tools in the stopped preview and restores the editable address when started', async () => {
 		const { update } = await renderPreview( 'browser', { path: '/about/' } );
 		expect( address() ).toHaveValue( `${ SITE_URL }/about/` );
 		update( { site: site( { running: false } ) } );
-		expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'toolbar', { name: 'Preview browser controls' } )
+		).not.toBeInTheDocument();
+		expect( screen.getByRole( 'group', { name: 'Project tools' } ) ).toBeVisible();
 		expect( screen.queryByRole( 'button', { name: 'Start site' } ) ).not.toBeInTheDocument();
 		update( { site: site( { running: false, operation: { pid: 1, kind: 'settings' } } ) } );
-		expect( screen.queryByRole( 'button', { name: 'Responsive mode' } ) ).not.toBeInTheDocument();
 		expect(
-			screen.queryByRole( 'button', { name: 'Open this page in your browser' } )
+			screen.queryByRole( 'toolbar', { name: 'Preview browser controls' } )
 		).not.toBeInTheDocument();
 		update( { site: site() } );
 		expect( address() ).toHaveValue( `${ SITE_URL }/about/` );
 		expect( address() ).toBeEnabled();
 		expect( screen.getByRole( 'button', { name: 'Responsive mode' } ) ).toBeInTheDocument();
+		update( { site: site( { operation: { pid: 1, kind: 'stop' } } ) } );
+		expect( screen.getByRole( 'toolbar', { name: 'Preview browser controls' } ) ).toBeVisible();
 	} );
+
+	it.each( [ 'browser', 'desktop' ] as const )(
+		'starts a stopped %s preview from its shared Browser tool and removes the launcher while loading',
+		async ( runtime ) => {
+			let finish!: () => void;
+			const pending = new Promise< void >( ( resolve ) => {
+				finish = resolve;
+			} );
+			const connector = createFakeConnector( {}, { startSite: () => pending } );
+			await renderPreview(
+				runtime,
+				{ site: site( { running: false } ), onPathChange: vi.fn() },
+				connector
+			);
+			expect( screen.getByRole( 'button', { name: 'Browser B' } ) ).toBeVisible();
+			expect( screen.getByRole( 'button', { name: 'Admin A' } ) ).toBeVisible();
+			expect( screen.getByRole( 'button', { name: 'Database D' } ) ).toBeVisible();
+			expect( screen.getByRole( 'button', { name: 'Email log E' } ) ).toBeVisible();
+			fireEvent.click( screen.getByRole( 'button', { name: 'Browser B' } ) );
+			await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
+			expect( screen.queryByRole( 'group', { name: 'Project tools' } ) ).not.toBeInTheDocument();
+			await act( async () => finish() );
+		}
+	);
 
 	it( 'selects the whole address on first pointer focus without overriding later clicks', async () => {
 		await renderPreview( 'browser', { path: '/about/' } );
@@ -684,3 +691,67 @@ describe( 'preview address bar', () => {
 		expect( input.selectionEnd ).toBe( 7 );
 	} );
 } );
+
+it.each( [ 'browser', 'desktop' ] as const )(
+	'reopens the email and format for a batched annotation in %s',
+	async ( runtime ) => {
+		const email = {
+			id: 'reset.eml',
+			subject: 'Password Reset',
+			from: { name: 'WordPress', address: 'wordpress@localhost' },
+			to: [],
+			cc: [],
+			replyTo: [],
+			date: '2026-11-03T09:00:00.000Z',
+			html: '<p>Email heading</p>',
+			text: 'Email heading',
+			attachments: [],
+			source: 'Email heading',
+		};
+		const ids: string[] = [];
+		act( () => {
+			setAnnotating( 'one', true );
+			for ( const part of [ 'text', 'html' ] as const ) {
+				const id = pickAnnotation( 'one', {
+					email: { id: email.id, subject: email.subject, part, paragraph: 0 },
+					...( part === 'html' ? { selector: 'p' } : {} ),
+				} )!;
+				ids.push( id );
+				changeAnnotation( 'one', id, { comment: `Update the ${ part } heading` } );
+				stageAnnotations( 'one', [ id ], true );
+			}
+			setAnnotating( 'one', false );
+		} );
+		try {
+			const onPathChange = vi.fn();
+			const { update } = await renderPreview(
+				runtime,
+				{ onPathChange, onSendAnnotations: vi.fn() },
+				createFakeConnector( { emails: { one: [ email ] } } )
+			);
+			for ( const part of [ 'text', 'html' ] as const ) {
+				act( () => requestAnnotationReview( 'one', ids[ part === 'text' ? 0 : 1 ] ) );
+				expect( onPathChange ).toHaveBeenLastCalledWith( 'studio:email' );
+				update( { path: 'studio:email' } );
+				await screen.findByRole( 'article', { name: 'Password Reset' } );
+				expect(
+					screen.getByRole( 'tab', { name: part === 'text' ? 'Text' : 'HTML' } )
+				).toHaveAttribute( 'aria-selected', 'true' );
+				if ( part === 'html' ) {
+					const frame = screen.getByTitle< HTMLIFrameElement >( 'Email content' );
+					frame.contentDocument!.body.innerHTML = email.html;
+					fireEvent.load( frame );
+				}
+				expect( await screen.findByRole( 'textbox', { name: 'Describe the change' } ) ).toHaveValue(
+					`Update the ${ part } heading`
+				);
+				update( { path: '/' } );
+			}
+		} finally {
+			act( () => {
+				removeAnnotations( 'one', ids );
+				setAnnotating( 'one', false );
+			} );
+		}
+	}
+);

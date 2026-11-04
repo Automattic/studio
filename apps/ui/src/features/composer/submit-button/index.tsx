@@ -2,7 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { SendIcon, StartSiteIcon, StopSiteIcon } from '@/lib/icons';
 import { IconButton } from '@/lib/ui';
 import styles from './style.module.css';
-import type { SubmitFeedback } from '@/features/composer/use-submit-feedback';
+import type { SubmitFeedback } from '@/lib/hooks';
 
 export function SendButton( {
 	label,
@@ -23,6 +23,7 @@ export function SendButton( {
 			onClick={ onSend }
 			disabled={ ! canSend }
 			label={ label }
+			shortcut={ { ariaKeyShortcut: 'Enter', displayShortcut: '↵' } }
 			icon={ <SendIcon /> }
 		/>
 	);

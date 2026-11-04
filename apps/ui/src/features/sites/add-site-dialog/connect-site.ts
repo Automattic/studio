@@ -110,20 +110,30 @@ export function useConnectSite() {
 							syncSupport: 'already-connected',
 						} );
 					} catch ( error ) {
-						void connector.trackEvent( TRACKS_EVENTS.SYNC_CONNECT, {
-							success: false,
-							failure_reason: classifySyncFailure( error, { phase: 'storage_write' } ),
-							num_of_sites: 0,
-						} );
+						await connector
+							.trackEvent(
+								TRACKS_EVENTS.SYNC_CONNECT,
+								{
+									success: false,
+									failure_reason: classifySyncFailure( error, { phase: 'storage_write' } ),
+									num_of_sites: 0,
+								},
+								localSiteId
+							)
+							.catch( () => undefined );
 						throw error;
 					}
 					scopeAccountJourney( connector, journey, `${ localSiteId }:${ remote.id }` );
 					// The local site is created by this same flow, so it always ends up
 					// with exactly this one connection.
-					void connector.trackEvent( TRACKS_EVENTS.SYNC_CONNECT, {
-						success: true,
-						num_of_sites: 1,
-					} );
+					void connector.trackEvent(
+						TRACKS_EVENTS.SYNC_CONNECT,
+						{
+							success: true,
+							num_of_sites: 1,
+						},
+						localSiteId
+					);
 				},
 				pullRemoteSite: async ( localSiteId ) => {
 					await pullSite.mutateAsync( {

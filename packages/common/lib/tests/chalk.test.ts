@@ -5,20 +5,15 @@
 import chalk from '@studio/common/lib/chalk';
 
 describe( 'chalk wrapper', () => {
-	const originalForceColor = process.env.FORCE_COLOR;
-
 	beforeEach( () => {
 		// FORCE_COLOR=3 forces 24-bit color for both styleText and getColorDepth,
 		// so tests are deterministic regardless of the runner's TTY state.
-		process.env.FORCE_COLOR = '3';
+		vi.stubEnv( 'NO_COLOR', undefined );
+		vi.stubEnv( 'FORCE_COLOR', '3' );
 	} );
 
 	afterEach( () => {
-		if ( originalForceColor === undefined ) {
-			delete process.env.FORCE_COLOR;
-		} else {
-			process.env.FORCE_COLOR = originalForceColor;
-		}
+		vi.unstubAllEnvs();
 	} );
 
 	it( 'applies a single named style', () => {

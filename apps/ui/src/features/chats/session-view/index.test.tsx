@@ -288,9 +288,7 @@ describe( 'SessionView stopped site', () => {
 		const { queryClient } = renderApp( { connector, path: PATH } );
 		await composer();
 
-		expect(
-			await within( scroller() ).findByRole( 'img', { name: 'Saved site preview' } )
-		).toBeInTheDocument();
+		expect( await screen.findByRole( 'img', { name: 'Saved site preview' } ) ).toBeInTheDocument();
 
 		connector.state.sessions = [
 			{ ...connector.state.sessions[ 0 ], entries: [ prompt( 'Hello' ) ] },
@@ -298,9 +296,7 @@ describe( 'SessionView stopped site', () => {
 		await act( () => queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } ) );
 
 		await waitFor( () =>
-			expect(
-				within( scroller() ).queryByRole( 'img', { name: 'Saved site preview' } )
-			).not.toBeInTheDocument()
+			expect( screen.queryByRole( 'img', { name: 'Saved site preview' } ) ).not.toBeInTheDocument()
 		);
 	} );
 } );

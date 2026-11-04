@@ -1,6 +1,6 @@
 import { Button } from '@/lib/ui';
 import styles from './style.module.css';
-import type { SubmitFeedback } from '@/features/composer/use-submit-feedback';
+import type { SubmitFeedback } from '@/lib/hooks';
 
 export interface ComposerNotice {
 	message: string;
@@ -17,7 +17,7 @@ export function NoticeTab( {
 } ) {
 	return (
 		<div className={ styles.notice } role="alert" data-feedback={ feedback ?? undefined }>
-			<div className={ styles.noticeContent } data-submit-feedback={ feedback ?? undefined }>
+			<div className={ styles.noticeContent } data-feedback={ feedback ?? undefined }>
 				<span className={ styles.noticeMessage }>{ notice.message }</span>
 				{ notice.action ? (
 					<Button

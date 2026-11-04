@@ -1,13 +1,14 @@
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts } from '@/data/app-messages';
+import { createFakeConnector } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { AnnotationOverlay } from './overlay';
 import {
 	changeAnnotation,
-	clearAnnotations,
 	getSiteAnnotations,
 	pickAnnotation,
+	removeAnnotations,
 	setAnnotating,
 	stageAnnotations,
 } from './store';
@@ -16,7 +17,10 @@ import type { ComposerImageAttachment } from '@studio/agent/protocol/composer-at
 const SITE = 'one';
 
 afterEach( () => {
-	clearAnnotations( SITE );
+	removeAnnotations(
+		SITE,
+		getSiteAnnotations( SITE ).notes.map( ( note ) => note.id )
+	);
 	setAnnotating( SITE, false );
 } );
 
@@ -46,14 +50,94 @@ const image = ( id: string ): ComposerImageAttachment => ( {
 } );
 
 describe( 'AnnotationOverlay', () => {
-	it( 'dismisses an empty annotation with Escape while a notification is visible', async () => {
+	it( 'keeps delete available for empty and started annotations', async () => {
+		await setup();
+		annotate();
+		pick();
+		expect( screen.getByRole( 'button', { name: 'Delete annotation' } ) ).toBeVisible();
+		const input = screen.getByRole( 'textbox', { name: 'Describe the change' } );
+		fireEvent.change( input, { target: { value: 'Change this heading' } } );
+		expect( screen.getByRole( 'button', { name: 'Delete annotation' } ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Delete annotation' } ) );
+		expect(
+			screen.queryByRole( 'textbox', { name: 'Describe the change' } )
+		).not.toBeInTheDocument();
+	} );
+
+	it.each( [ false, true ] )(
+		'uses Enter to add and primary Enter to send while batching (%s)',
+		async ( send ) => {
+			const onSend = vi.fn();
+			const connector = createFakeConnector( { preferences: { batchAnnotations: true } } );
+			renderWithProviders(
+				<AnnotationOverlay siteId={ SITE } anchor={ { left: 40, top: 40 } } onSend={ onSend } />,
+				{ connector }
+			);
+			await waitFor( () => expect( connector.getUserPreferences ).toHaveBeenCalled() );
+			await act( async () => {} );
+			annotate();
+			pick();
+			const input = screen.getByRole( 'textbox', { name: 'Describe the change' } );
+			fireEvent.change( input, { target: { value: 'Change this heading' } } );
+			fireEvent.keyDown( input, { key: 'Enter', ctrlKey: send } );
+			if ( send ) expect( onSend ).toHaveBeenCalledOnce();
+			else {
+				expect( onSend ).not.toHaveBeenCalled();
+				expect( getSiteAnnotations( SITE ).notes[ 0 ].staged ).toBe( true );
+			}
+		}
+	);
+
+	it.each( [
+		{ name: 'top edge', anchor: { left: 24, top: 24 }, height: 120 },
+		{ name: 'bottom edge', anchor: { left: 376, top: 276 }, height: 120 },
+		{
+			name: 'limited space',
+			anchor: { left: 200, top: 150 },
+			height: 240,
+		},
+	] )( 'keeps the editor clear of the marker at the $name', async ( { anchor, height } ) => {
+		const viewport = { width: 400, height: 300 };
+		const editorWidth = 320;
+		const dimensions = [
+			vi.spyOn( HTMLElement.prototype, 'clientWidth', 'get' ).mockReturnValue( viewport.width ),
+			vi.spyOn( HTMLElement.prototype, 'clientHeight', 'get' ).mockReturnValue( viewport.height ),
+			vi.spyOn( HTMLElement.prototype, 'offsetWidth', 'get' ).mockReturnValue( editorWidth ),
+			vi.spyOn( HTMLElement.prototype, 'offsetHeight', 'get' ).mockReturnValue( height ),
+			vi.spyOn( HTMLElement.prototype, 'scrollHeight', 'get' ).mockReturnValue( height ),
+		];
+		try {
+			await setup( anchor );
+			annotate();
+			pick();
+			const editor = await screen.findByRole( 'group', { name: 'Annotation' } );
+			const top = parseFloat( editor.style.top );
+			const left = parseFloat( editor.style.left );
+			const maxHeight = parseFloat( editor.style.maxHeight );
+			const bottom = top + Math.min( height, maxHeight );
+			expect( maxHeight ).toBeGreaterThan( 0 );
+			expect( top ).toBeGreaterThanOrEqual( 0 );
+			expect( left ).toBeGreaterThanOrEqual( 0 );
+			expect( left + editorWidth ).toBeLessThanOrEqual( viewport.width );
+			expect( top >= anchor.top + 18 || bottom <= anchor.top - 18 ).toBe( true );
+			expect( bottom ).toBeLessThanOrEqual( viewport.height );
+		} finally {
+			dimensions.forEach( ( dimension ) => dimension.mockRestore() );
+		}
+	} );
+
+	it( 'leaves annotation mode with Escape while a notification is visible', async () => {
 		await setup();
 		render( <div role="dialog" aria-modal="false" data-slot="toast" /> );
 		annotate();
 		pick();
-		fireEvent.keyDown( screen.getByRole( 'textbox', { name: 'Leave a note' } ), { key: 'Escape' } );
-		expect( screen.queryByRole( 'textbox', { name: 'Leave a note' } ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'toolbar', { name: 'Annotations' } ) ).toBeInTheDocument();
+		fireEvent.keyDown( screen.getByRole( 'textbox', { name: 'Describe the change' } ), {
+			key: 'Escape',
+		} );
+		expect(
+			screen.queryByRole( 'textbox', { name: 'Describe the change' } )
+		).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'toolbar', { name: 'Annotations' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'leaves the annotation open for Escape in a dialog and ignores closed dialogs', async () => {
@@ -62,51 +146,14 @@ describe( 'AnnotationOverlay', () => {
 		pick();
 		const dialog = render( <div role="dialog" data-slot="dialog-content" /> );
 		fireEvent.keyDown( screen.getByRole( 'dialog' ), { key: 'Escape' } );
-		expect( screen.getByRole( 'textbox', { name: 'Leave a note' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'textbox', { name: 'Describe the change' } ) ).toBeInTheDocument();
 		dialog.rerender( <div role="dialog" data-slot="dialog-content" data-closed="" /> );
-		fireEvent.keyDown( screen.getByRole( 'textbox', { name: 'Leave a note' } ), { key: 'Escape' } );
-		expect( screen.queryByRole( 'textbox', { name: 'Leave a note' } ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'confirms discard each time and preserves notes when canceled', async () => {
-		const connector = await setup();
-		annotate();
-		pick();
-		fireEvent.change( screen.getByRole( 'textbox', { name: 'Leave a note' } ), {
-			target: { value: 'Keep this draft' },
+		fireEvent.keyDown( screen.getByRole( 'textbox', { name: 'Describe the change' } ), {
+			key: 'Escape',
 		} );
-		fireEvent.click(
-			within( screen.getByRole( 'toolbar' ) ).getByRole( 'button', { name: 'Cancel' } )
-		);
-		let dialog = await screen.findByRole( 'alertdialog', {
-			name: 'Discard all pending annotations?',
-		} );
-		expect( within( dialog ).queryByRole( 'checkbox' ) ).not.toBeInTheDocument();
-		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Cancel' } ) );
-		expect( connector.setUserPreferences ).not.toHaveBeenCalled();
-		await waitFor( () => expect( screen.queryByRole( 'alertdialog' ) ).not.toBeInTheDocument() );
-		fireEvent.click(
-			within( screen.getByRole( 'toolbar' ) ).getByRole( 'button', { name: 'Cancel' } )
-		);
-		dialog = await screen.findByRole( 'alertdialog', { name: 'Discard all pending annotations?' } );
-		expect( getSiteAnnotations( SITE ).notes[ 0 ].comment ).toBe( 'Keep this draft' );
-		expect( within( dialog ).queryByRole( 'checkbox' ) ).not.toBeInTheDocument();
-		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Discard' } ) );
-		expect( connector.setUserPreferences ).not.toHaveBeenCalled();
-		expect( getSiteAnnotations( SITE ).notes ).toHaveLength( 0 );
-		expect( screen.queryByRole( 'toolbar' ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'keeps the closing toolbar inert until reopened', async () => {
-		await setup();
-		annotate();
-		const toolbar = screen.getByRole( 'toolbar', { name: 'Annotations' } );
-		fireEvent.click( within( toolbar ).getByRole( 'button', { name: 'Cancel' } ) );
-		expect( toolbar ).toBeInTheDocument();
-		expect( toolbar ).toHaveAttribute( 'inert' );
-		expect( screen.queryByRole( 'toolbar' ) ).not.toBeInTheDocument();
-		annotate();
-		expect( screen.getByRole( 'toolbar', { name: 'Annotations' } ) ).not.toHaveAttribute( 'inert' );
+		expect(
+			screen.queryByRole( 'textbox', { name: 'Describe the change' } )
+		).not.toBeInTheDocument();
 	} );
 
 	describe( 'images', () => {
@@ -117,6 +164,7 @@ describe( 'AnnotationOverlay', () => {
 				if ( otherImages.length ) {
 					const other = pickAnnotation( SITE, { selector: 'p' } )!;
 					changeAnnotation( SITE, other, { images: otherImages } );
+					stageAnnotations( SITE );
 				}
 				editing = pickAnnotation( SITE, { selector: 'h1' } )!;
 			} );
@@ -130,7 +178,7 @@ describe( 'AnnotationOverlay', () => {
 			const images = editNote();
 			await setup();
 			const editor = screen.getByRole( 'group', { name: 'Annotation' } );
-			const input = screen.getByRole( 'textbox', { name: 'Leave a note' } );
+			const input = screen.getByRole( 'textbox', { name: 'Describe the change' } );
 			const dataTransfer = {
 				types: [ 'Files' ],
 				files: [ new File( [ 'x' ], 'dropped.png', { type: 'image/png' } ) ],
@@ -179,34 +227,16 @@ describe( 'AnnotationOverlay', () => {
 		} );
 	} );
 
-	describe( 'send button', () => {
-		function addNotes( count: number, staged: boolean ) {
-			act( () => {
-				setAnnotating( SITE, true );
-				for ( let index = 0; index < count; index++ ) {
-					const id = pickAnnotation( SITE, { selector: `h${ index }` } )!;
-					changeAnnotation( SITE, id, { comment: `Note ${ index }` } );
-				}
-				if ( staged ) {
-					stageAnnotations( SITE );
-				}
-			} );
-		}
-
-		it( 'keeps the labeled floating action and its count', async () => {
-			addNotes( 3, true );
-			await setup( null );
-			expect( screen.getByRole( 'button', { name: 'Send 3 annotations' } ) ).toHaveTextContent(
-				'Send3'
-			);
+	it( 'leaves staged annotation actions in the header without a bottom toolbar', async () => {
+		act( () => {
+			setAnnotating( SITE, true );
+			const id = pickAnnotation( SITE, { selector: 'h1' } )!;
+			changeAnnotation( SITE, id, { comment: 'Make the heading smaller' } );
+			stageAnnotations( SITE );
 		} );
-
-		it( 'shows no count for an unstaged draft', async () => {
-			addNotes( 1, false );
-			await setup( null );
-			expect( screen.getByRole( 'button', { name: 'Send 1 annotation' } ) ).toHaveTextContent(
-				/^Send$/
-			);
-		} );
+		await setup( null );
+		expect( screen.queryByRole( 'toolbar' ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: /^Send/ } ) ).not.toBeInTheDocument();
+		expect( getSiteAnnotations( SITE ).notes[ 0 ].staged ).toBe( true );
 	} );
 } );

@@ -257,8 +257,30 @@ describe( 'command palette', () => {
 		expect( screen.queryByRole( 'option', { name: /^Start site/ } ) ).not.toBeInTheDocument();
 		search( 'Open WordPress Admin' );
 		expect(
-			screen.queryByRole( 'option', { name: /^Open WordPress Admin in panel/ } )
+			screen.queryByRole( 'option', { name: /^Open WordPress Admin/ } )
 		).not.toBeInTheDocument();
+	} );
+
+	it.each( [
+		[ 'Open WordPress Admin', 'Admin' ],
+		[ 'Open database', 'Database' ],
+		[ 'Open email log', 'Email log' ],
+	] )( 'opens %s in the panel with one command', async ( label, tab ) => {
+		const connector = createFakeConnector( { sites: [ { ...testSite, running: true } ] } );
+		const { user } = await renderPalette( { connector, path: '/sites/one/new' } );
+		await openPalette();
+		search( label );
+		expect( screen.getAllByRole( 'option', { name: new RegExp( `^${ label }` ) } ) ).toHaveLength(
+			1
+		);
+		await user.click( option( `${ label } Test site` ) );
+		await paletteClosed();
+		expect( await screen.findByRole( 'complementary', { name: 'Panel' } ) ).toBeVisible();
+		await waitFor( () =>
+			expect( screen.getByRole( 'tab', { name: tab } ) ).toHaveAttribute( 'aria-selected', 'true' )
+		);
+		expect( connector.openSiteUrl ).not.toHaveBeenCalled();
+		expect( connector.openExternalUrl ).not.toHaveBeenCalled();
 	} );
 
 	it( 'omits site commands without a site', async () => {

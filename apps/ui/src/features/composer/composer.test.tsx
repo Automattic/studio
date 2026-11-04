@@ -379,12 +379,14 @@ describe( 'Chat composer', () => {
 		fireEvent.change( input, { target: { value: '/ann' } } );
 		await screen.findByRole( 'listbox' );
 		expect( screen.getByRole( 'group', { name: 'Skills' } ) ).toBeVisible();
+		expect( screen.queryByText( 'Skills' ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'group', { name: 'Commands' } ) ).not.toBeInTheDocument();
 		fireEvent.keyDown( input, { key: 'Escape' } );
 		await waitFor( () => expect( screen.queryByRole( 'listbox' ) ).not.toBeInTheDocument() );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
 		const picker = await screen.findByRole( 'listbox' );
 		expect( screen.getByRole( 'group', { name: 'Skills' } ) ).toBeVisible();
+		expect( within( picker ).getByText( 'Skills' ) ).toBeVisible();
 		const files = screen.getByRole( 'option', { name: 'Add files' } );
 		fireEvent.keyDown( picker, { key: 'Home' } );
 		expect( files ).toHaveAttribute( 'aria-selected', 'true' );
@@ -401,26 +403,37 @@ describe( 'Chat composer', () => {
 		expect( onSend ).not.toHaveBeenCalled();
 	} );
 
-	it( 'opens the multiple-file picker from the menu and attaches the selected file', async () => {
-		const { onSend } = await setup();
-		const fileInput = screen.getByLabelText( 'Upload attachments' ) as HTMLInputElement;
-		const picker = vi.spyOn( fileInput, 'click' );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: 'Add files' } ) );
-		await waitFor( () => expect( picker ).toHaveBeenCalledOnce() );
-		expect( fileInput.multiple ).toBe( true );
-		fireEvent.change( fileInput, {
-			target: { files: [ new File( [ 'Notes' ], 'notes.txt', { type: 'text/plain' } ) ] },
-		} );
-		expect( await screen.findByText( 'notes.txt' ) ).toBeVisible();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
-		await waitFor( () =>
-			expect( onSend ).toHaveBeenCalledWith(
-				'Please review the attached files.',
-				expect.objectContaining( { files: [ expect.objectContaining( { name: 'notes.txt' } ) ] } )
-			)
-		);
-	} );
+	it.each( [ 'menu', 'slash' ] )(
+		'opens the multiple-file picker from %s and attaches the selected file',
+		async ( source ) => {
+			const { input, onSend } = await setup();
+			const fileInput = screen.getByLabelText( 'Upload attachments' ) as HTMLInputElement;
+			const picker = vi.spyOn( fileInput, 'click' );
+			if ( source === 'slash' ) {
+				fireEvent.change( input, { target: { value: '/add' } } );
+				await screen.findByRole( 'option', { name: 'Add files' } );
+				fireEvent.keyDown( input, { key: 'Enter' } );
+			} else {
+				fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
+				fireEvent.click( await screen.findByRole( 'option', { name: 'Add files' } ) );
+			}
+			await waitFor( () => expect( picker ).toHaveBeenCalledOnce() );
+			expect( input ).toHaveValue( '' );
+			expect( onSend ).not.toHaveBeenCalled();
+			expect( fileInput.multiple ).toBe( true );
+			fireEvent.change( fileInput, {
+				target: { files: [ new File( [ 'Notes' ], 'notes.txt', { type: 'text/plain' } ) ] },
+			} );
+			expect( await screen.findByText( 'notes.txt' ) ).toBeVisible();
+			fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+			await waitFor( () =>
+				expect( onSend ).toHaveBeenCalledWith(
+					'Please review the attached files.',
+					expect.objectContaining( { files: [ expect.objectContaining( { name: 'notes.txt' } ) ] } )
+				)
+			);
+		}
+	);
 
 	it( 'keeps Enter submission, Shift+Enter and IME composition behavior', async () => {
 		const { input, onSend } = await setup();
@@ -473,6 +486,18 @@ describe( 'Chat composer', () => {
 } );
 
 describe( 'Composer parity', () => {
+	it( 'omits local site controls when the chat targets the live site', async () => {
+		const onStartSite = vi.fn();
+		const onStopSite = vi.fn();
+		await setup( { environment: 'live', onStartSite, onStopSite } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
+		await screen.findByRole( 'option', { name: 'Add files' } );
+		expect(
+			screen.queryByRole( 'option', { name: /^Start site(?: |$)/ } )
+		).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'option', { name: 'Stop site' } ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'hides Auto-start while its chip is active and restores the command after removal', async () => {
 		const { input, onSend } = await setup( { canAutoStart: true } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );

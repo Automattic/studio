@@ -170,7 +170,7 @@ function SitePreviewContent( {
 			: activeSurfaceKey === 'email' || !! activeSurface?.inspectorReady );
 	const viewportRef = useRef< HTMLDivElement | null >( null );
 	const previewBrowser = usePreviewBrowser( viewportRef );
-	const browserActions = canUseWebview && ! rendered ? previewBrowser : undefined;
+	const browserActions = canUseWebview && ! rendered && ! blank ? previewBrowser : undefined;
 	const responsiveSettings = useResponsivePreview( site.id );
 	const responsiveEnabled = responsiveSettings.enabled && canPreview && activeSurfaceKey === 'site';
 	const [ availableSize, setAvailableSize ] = useState( { width: 0, height: 0 } );
@@ -378,8 +378,8 @@ function SitePreviewContent( {
 			onBrowserCommand={ sendBrowserCommand }
 			onJump={ goToHistoryIndex }
 			onPathChange={ onPathChange }
-			onOpenExternal={ blank ? undefined : openExternal }
 			browserActions={ browserActions }
+			onOpenExternal={ blank ? undefined : openExternal }
 			onExternalNavigate={ ( url ) => void connector.openExternalUrl( url ) }
 			responsive={ responsive }
 		/>

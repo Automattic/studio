@@ -222,10 +222,13 @@ it( 'keeps browser actions directly available in a narrow preview', async () => 
 		await user.click( screen.getByRole( 'button', { name } ) );
 		await waitFor( effect );
 	}
-	screen.getByRole( 'button', { name: 'Browser options' } ).focus();
+	const options = screen.getByRole( 'button', { name: 'Browser options' } );
+	await resize( 320 );
+	expect( screen.getByRole( 'button', { name: 'Browser options' } ) ).toBe( options );
+	options.focus();
 	await user.keyboard( '{ArrowDown}' );
-	await user.click( screen.getByRole( 'menuitem', { name: 'Open in browser' } ) );
-	expect( connector.openSiteUrl ).toHaveBeenCalledOnce();
+	await user.click( await screen.findByRole( 'menuitem', { name: 'Open in browser' } ) );
+	await waitFor( () => expect( connector.openSiteUrl ).toHaveBeenCalledOnce() );
 } );
 
 it( 'keeps responsive mode on the right as the browser row compacts', async () => {

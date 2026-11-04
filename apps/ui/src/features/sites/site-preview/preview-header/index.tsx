@@ -144,7 +144,7 @@ export function PreviewHeader( {
 					className={ styles.previewActions }
 				/>
 				{ responsiveButton }
-				{ browserActions ? (
+				{ canPreview && browserActions ? (
 					<BrowserMenu
 						actions={ browserActions }
 						onOpenExternal={ onOpenExternal }

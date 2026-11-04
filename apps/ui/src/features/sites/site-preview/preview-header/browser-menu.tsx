@@ -18,7 +18,7 @@ interface BrowserMenuItemsProps {
 	disabled?: boolean;
 }
 
-export function BrowserMenuItems( { actions, onOpenExternal, disabled }: BrowserMenuItemsProps ) {
+function BrowserMenuItems( { actions, onOpenExternal, disabled }: BrowserMenuItemsProps ) {
 	return (
 		<>
 			<Menu.Item disabled={ disabled } onClick={ actions.onOpenDevTools }>
@@ -70,6 +70,7 @@ export function BrowserMenu( {
 								<Button
 									variant="ghost"
 									size="icon-sm"
+									shape="round"
 									className={ className }
 									aria-label={ __( 'Browser options' ) }
 								/>

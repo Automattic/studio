@@ -690,72 +690,9 @@ describe( 'preview address bar', () => {
 		fireEvent.pointerDown( input, { button: 0 } );
 		expect( input.selectionStart ).toBe( 7 );
 		expect( input.selectionEnd ).toBe( 7 );
+		fireEvent.pointerUp( input, { button: 0 } );
 	} );
 } );
-
-it.each( [ 'browser', 'desktop' ] as const )(
-	'reopens the email and format for a batched annotation in %s',
-	async ( runtime ) => {
-		const email = {
-			id: 'reset.eml',
-			subject: 'Password Reset',
-			from: { name: 'WordPress', address: 'wordpress@localhost' },
-			to: [],
-			cc: [],
-			replyTo: [],
-			date: '2026-11-03T09:00:00.000Z',
-			html: '<p>Email heading</p>',
-			text: 'Email heading',
-			attachments: [],
-			source: 'Email heading',
-		};
-		const ids: string[] = [];
-		act( () => {
-			setAnnotating( 'one', true );
-			for ( const part of [ 'text', 'html' ] as const ) {
-				const id = pickAnnotation( 'one', {
-					email: { id: email.id, subject: email.subject, part, paragraph: 0 },
-					...( part === 'html' ? { selector: 'p' } : {} ),
-				} )!;
-				ids.push( id );
-				changeAnnotation( 'one', id, { comment: `Update the ${ part } heading` } );
-				stageAnnotations( 'one', [ id ], true );
-			}
-			setAnnotating( 'one', false );
-		} );
-		try {
-			const onPathChange = vi.fn();
-			const { update } = await renderPreview(
-				runtime,
-				{ onPathChange, onSendAnnotations: vi.fn() },
-				createFakeConnector( { emails: { one: [ email ] } } )
-			);
-			for ( const part of [ 'text', 'html' ] as const ) {
-				act( () => requestAnnotationReview( 'one', ids[ part === 'text' ? 0 : 1 ] ) );
-				expect( onPathChange ).toHaveBeenLastCalledWith( 'studio:email' );
-				update( { path: 'studio:email' } );
-				await screen.findByRole( 'article', { name: 'Password Reset' } );
-				expect(
-					screen.getByRole( 'tab', { name: part === 'text' ? 'Text' : 'HTML' } )
-				).toHaveAttribute( 'aria-selected', 'true' );
-				if ( part === 'html' ) {
-					const frame = screen.getByTitle< HTMLIFrameElement >( 'Email content' );
-					frame.contentDocument!.body.innerHTML = email.html;
-					fireEvent.load( frame );
-				}
-				expect( await screen.findByRole( 'textbox', { name: 'Describe the change' } ) ).toHaveValue(
-					`Update the ${ part } heading`
-				);
-				update( { path: '/' } );
-			}
-		} finally {
-			act( () => {
-				removeAnnotations( 'one', ids );
-				setAnnotating( 'one', false );
-			} );
-		}
-	}
-);
 
 describe( 'preview browser menu', () => {
 	afterEach( () => {
@@ -854,11 +791,78 @@ describe( 'preview browser menu', () => {
 		).toBeInTheDocument();
 	} );
 
-	it.each( [ 'studio:email', DESIGN_SYSTEM_PREVIEW_PATH ] )(
-		'keeps guest browser actions off the rendered %s surface',
-		async ( path ) => {
-			await renderPreview( 'desktop', { path } );
-			expect( screen.queryByRole( 'button', { name: 'Browser options' } ) ).not.toBeInTheDocument();
-		}
-	);
+	it( 'does not offer guest browser actions for the rendered email surface', async () => {
+		await renderPreview( 'desktop', { path: 'studio:email' } );
+		expect( await screen.findByText( 'No email yet' ) ).toBeVisible();
+		expect( screen.queryByRole( 'button', { name: 'Browser options' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'does not offer guest browser actions for the rendered design surface', async () => {
+		await renderPreview( 'desktop', { path: DESIGN_SYSTEM_PREVIEW_PATH } );
+		expect( screen.queryByRole( 'button', { name: 'Browser options' } ) ).not.toBeInTheDocument();
+	} );
 } );
+
+it.each( [ 'browser', 'desktop' ] as const )(
+	'reopens the email and format for a batched annotation in %s',
+	async ( runtime ) => {
+		const email = {
+			id: 'reset.eml',
+			subject: 'Password Reset',
+			from: { name: 'WordPress', address: 'wordpress@localhost' },
+			to: [],
+			cc: [],
+			replyTo: [],
+			date: '2026-11-03T09:00:00.000Z',
+			html: '<p>Email heading</p>',
+			text: 'Email heading',
+			attachments: [],
+			source: 'Email heading',
+		};
+		const ids: string[] = [];
+		act( () => {
+			setAnnotating( 'one', true );
+			for ( const part of [ 'text', 'html' ] as const ) {
+				const id = pickAnnotation( 'one', {
+					email: { id: email.id, subject: email.subject, part, paragraph: 0 },
+					...( part === 'html' ? { selector: 'p' } : {} ),
+				} )!;
+				ids.push( id );
+				changeAnnotation( 'one', id, { comment: `Update the ${ part } heading` } );
+				stageAnnotations( 'one', [ id ], true );
+			}
+			setAnnotating( 'one', false );
+		} );
+		try {
+			const onPathChange = vi.fn();
+			const { update } = await renderPreview(
+				runtime,
+				{ onPathChange, onSendAnnotations: vi.fn() },
+				createFakeConnector( { emails: { one: [ email ] } } )
+			);
+			for ( const part of [ 'text', 'html' ] as const ) {
+				act( () => requestAnnotationReview( 'one', ids[ part === 'text' ? 0 : 1 ] ) );
+				expect( onPathChange ).toHaveBeenLastCalledWith( 'studio:email' );
+				update( { path: 'studio:email' } );
+				await screen.findByRole( 'article', { name: 'Password Reset' } );
+				expect(
+					screen.getByRole( 'tab', { name: part === 'text' ? 'Text' : 'HTML' } )
+				).toHaveAttribute( 'aria-selected', 'true' );
+				if ( part === 'html' ) {
+					const frame = screen.getByTitle< HTMLIFrameElement >( 'Email content' );
+					frame.contentDocument!.body.innerHTML = email.html;
+					fireEvent.load( frame );
+				}
+				expect( await screen.findByRole( 'textbox', { name: 'Describe the change' } ) ).toHaveValue(
+					`Update the ${ part } heading`
+				);
+				update( { path: '/' } );
+			}
+		} finally {
+			act( () => {
+				removeAnnotations( 'one', ids );
+				setAnnotating( 'one', false );
+			} );
+		}
+	}
+);

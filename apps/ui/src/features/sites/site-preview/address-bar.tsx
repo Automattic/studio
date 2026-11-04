@@ -292,6 +292,7 @@ export function PreviewAddressBar( {
 			window.removeEventListener( 'storage', refresh );
 		};
 	}, [ site.id ] );
+
 	useEffect( () => {
 		if ( disabled ) {
 			setRecentOpen( false );

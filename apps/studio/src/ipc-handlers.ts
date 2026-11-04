@@ -7,6 +7,7 @@ import {
 	shell,
 	webContents,
 	type IpcMainInvokeEvent,
+	type OpenDialogOptions,
 	type WebContents,
 	SaveDialogOptions,
 } from 'electron';
@@ -795,14 +796,29 @@ export async function showOpenFolderDialog(
 	if ( ! selectedPath ) {
 		const defaultPath =
 			defaultDialogPath !== '' ? defaultDialogPath : await getDefaultSiteDirectory();
+		let properties: OpenDialogOptions[ 'properties' ] = [ 'openDirectory', 'createDirectory' ];
+		if ( options?.allowBlueprints ) {
+			if ( process.platform === 'darwin' ) {
+				properties.push( 'openFile' );
+			} else {
+				const { response } = await dialog.showMessageBox( parentWindow, {
+					type: 'question',
+					message: __( 'What would you like to open?' ),
+					buttons: [ __( 'Folder…' ), __( 'Blueprint file…' ), __( 'Cancel' ) ],
+					defaultId: 0,
+					cancelId: 2,
+				} );
+				if ( response === 2 ) return null;
+				properties = response === 1 ? [ 'openFile' ] : [ 'openDirectory' ];
+			}
+		}
 		const { canceled, filePaths } = await dialog.showOpenDialog( parentWindow, {
 			title,
 			defaultPath,
-			properties: [
-				'openDirectory',
-				'createDirectory',
-				...( options?.allowBlueprints ? [ 'openFile' as const ] : [] ),
-			],
+			properties,
+			filters: options?.allowBlueprints
+				? [ { name: __( 'Blueprints' ), extensions: [ 'json', 'zip' ] } ]
+				: undefined,
 		} );
 		if ( canceled || ! filePaths[ 0 ] ) return null;
 		selectedPath = filePaths[ 0 ];

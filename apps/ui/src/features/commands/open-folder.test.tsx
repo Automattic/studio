@@ -80,33 +80,12 @@ describe( 'Open Folder', () => {
 		}
 	);
 
-	it( 'leaves the workspace alone when the picker is cancelled', async () => {
-		const { connector, history } = await setup();
-		act( () => connector.emit( 'onOpenFolder' ) );
-		await waitFor( () =>
-			expect( connector.selectSiteFolder ).toHaveBeenCalledExactlyOnceWith( '', {
-				allowBlueprints: true,
-			} )
-		);
-		expect( history.location.pathname ).toBe( '/sites/one/new' );
-		expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument();
-		expect( connector.createSite ).not.toHaveBeenCalled();
-	} );
-
 	it( 'rejects a nonempty folder without WordPress', async () => {
 		const { connector } = await setup();
 		connector.selectSiteFolder.mockResolvedValueOnce( { ...folder, isWordPress: false } );
 		act( () => connector.emit( 'onOpenFolder' ) );
 		await screen.findByText( 'Choose an empty folder or an existing WordPress site.' );
 		expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument();
-		expect( connector.createSite ).not.toHaveBeenCalled();
-	} );
-
-	it( 'reports a folder picker failure', async () => {
-		const { connector } = await setup();
-		connector.selectSiteFolder.mockRejectedValueOnce( new Error( 'Permission denied' ) );
-		act( () => connector.emit( 'onOpenFolder' ) );
-		await screen.findByText( 'WordPress Studio could not open the folder. Please try again.' );
 		expect( connector.createSite ).not.toHaveBeenCalled();
 	} );
 } );

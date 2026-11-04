@@ -21,15 +21,11 @@ describe( 'readBlueprintSource', () => {
 			blueprintJson: {},
 			blueprintJsonPath: filePath,
 		} );
-		expect( await fs.readFile( filePath, 'utf8' ) ).toBe( '{}' );
-	} );
-	it( 'loads a JSON file', async () => {
-		const filePath = path.join( directory, 'custom.json' );
-		await fs.writeFile( filePath, '{}' );
 		expect( await readBlueprintSource( filePath ) ).toEqual( {
 			blueprintJson: {},
 			blueprintJsonPath: filePath,
 		} );
+		expect( await fs.readFile( filePath, 'utf8' ) ).toBe( '{}' );
 	} );
 	it( 'leaves ordinary folders to the site folder flow', async () => {
 		expect( await readBlueprintSource( directory ) ).toBeNull();

@@ -18,7 +18,7 @@ interface BrowserMenuItemsProps {
 	disabled?: boolean;
 }
 
-export function BrowserMenuItems( { actions, onOpenExternal, disabled }: BrowserMenuItemsProps ) {
+function BrowserMenuItems( { actions, onOpenExternal, disabled }: BrowserMenuItemsProps ) {
 	return (
 		<>
 			<Menu.Item disabled={ disabled } onClick={ actions.onOpenDevTools }>

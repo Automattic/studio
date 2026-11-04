@@ -90,6 +90,23 @@ describe( 'API Module', () => {
 			).rejects.toThrow( 'Failed to upload archive' );
 		} );
 
+		it.each( [
+			[
+				'an HTTP status',
+				Object.assign( new Error( '413 status code' ), { statusCode: 413 } ),
+				'upload_http_413',
+			],
+			[ 'no response', new Error( 'socket hang up' ), 'upload_network' ],
+		] )( 'tags an upload failure with %s for analytics', async ( _label, mockError, code ) => {
+			vi.mocked( wpcomFactory ).mockReturnValue(
+				createWpcomMock( { post: vi.fn().mockRejectedValue( mockError ) } )
+			);
+
+			await expect(
+				uploadArchive( mockArchivePath, mockToken, mockWordPressVersion )
+			).rejects.toMatchObject( { code } );
+		} );
+
 		it( 'should throw LoggerError for invalid API response', async () => {
 			const invalidResponse = {
 				// Missing required fields
@@ -284,9 +301,10 @@ describe( 'API Module', () => {
 			vi.mocked( fetch ).mockResolvedValue( {
 				ok: true,
 				json: vi.fn().mockResolvedValue( {
+					// As WordPress.com's Jetpack proxy relays the site's WP_Error.
 					code: 409,
 					body: {
-						code: 'jetpack_reprint_no_credential',
+						error: 'jetpack_reprint_no_credential',
 						message: 'Install a public key first.',
 						data: { status: 409 },
 					},

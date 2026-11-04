@@ -21,19 +21,21 @@ export function usePreviewAnnotations( {
 	canAnnotateSurface,
 	viewportRef,
 	onSendAnnotations,
+	enabled = true,
 }: {
 	siteId: string;
 	surfaceKey: PreviewSurfaceKey;
 	canAnnotateSurface: boolean;
+	enabled?: boolean;
 	viewportRef: RefObject< HTMLDivElement | null >;
 	onSendAnnotations?: ( siteId: string, noteIds?: string[] ) => void;
 } ) {
 	const [ annotationAnchor, setAnnotationAnchor ] = useState< AnnotationAnchor | null >( null );
 	useEffect( () => {
-		if ( ! canAnnotateSurface ) {
+		if ( enabled && ! canAnnotateSurface ) {
 			setAnnotating( siteId, false );
 		}
-	}, [ canAnnotateSurface, siteId ] );
+	}, [ canAnnotateSurface, siteId, enabled ] );
 	useEffect( () => {
 		setAnnotationAnchor( null );
 	}, [ surfaceKey, siteId ] );
@@ -70,8 +72,9 @@ export function usePreviewAnnotations( {
 			} else if ( event.type === 'pick' ) {
 				handleAnnotationPick( event.target, event.anchor );
 			} else if ( event.type === 'edit' ) {
-				editAnnotation( siteId, event.id );
-				setAnnotationAnchor( toViewportAnchor( event.anchor ) );
+				if ( editAnnotation( siteId, event.id ) ) {
+					setAnnotationAnchor( toViewportAnchor( event.anchor ) );
+				}
 			} else if ( event.id === editingId ) {
 				const next = toViewportAnchor( event.anchor );
 				setAnnotationAnchor( ( current ) =>

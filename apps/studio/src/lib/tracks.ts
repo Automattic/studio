@@ -39,8 +39,8 @@ export async function recordTracksEvent(
 ): Promise< void > {
 	// Never emit from dev or CI builds. `IS_DEV_BUILD` (also gates Sentry init) covers a developer's
 	// local dev build; `CI` is set by every CI environment and is inherited by the packaged app that
-	// the e2e step launches, keeping those runs (which report the placeholder version `1.0.0`) out of
-	// real Tracks data. A real shipped app has neither set, so this can't suppress genuine telemetry.
+	// the e2e step launches, keeping those runs out of real Tracks data. A real shipped app has
+	// neither set, so this can't suppress genuine telemetry.
 	// The shared core's E2E/NODE_ENV guard only covers launch paths that set those.
 	if ( process.env.IS_DEV_BUILD || process.env.CI ) {
 		return;

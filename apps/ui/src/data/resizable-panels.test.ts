@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
 	clampResizablePanelWidth,
-	getStoredSiteChatVisibility,
 	SITE_CHAT_HIDDEN_STORAGE_KEY,
-	getPreviewContentWidthStorageKey,
+	PREVIEW_OPEN_STORAGE_KEY,
 	hasCustomPanelLayout,
 	resetPanelLayout,
 	PREVIEW_CONTENT_WIDTH_STORAGE_KEY,
@@ -34,13 +33,13 @@ describe( 'resizable panels', () => {
 } );
 
 describe( 'getPreviewSplitLayout', () => {
-	// Content floor 320, preview floor 360.
+	// Content floor 360, preview floor 360.
 	it( 'leaves a comfortable preferred width untouched on a wide frame', () => {
 		const layout = getPreviewSplitLayout( 1000, 600 );
 		expect( layout.contentWidth ).toBe( 600 );
 		expect( layout.previewWidth ).toBe( 400 );
 		expect( layout.previewMinWidth ).toBe( 360 );
-		expect( layout.previewMaxWidth ).toBe( 680 );
+		expect( layout.previewMaxWidth ).toBe( 640 );
 	} );
 
 	it( 'caps content so the preview keeps its minimum width', () => {
@@ -51,9 +50,9 @@ describe( 'getPreviewSplitLayout', () => {
 
 	it( 'floors content at its minimum so the preview cannot swallow it', () => {
 		// This is the regime where the old CSS-only clamp diverged: a preferred
-		// content below the 320 floor must be raised to 320, not left as-is.
-		expect( getPreviewSplitLayout( 1000, 100 ).contentWidth ).toBe( 320 );
-		expect( getPreviewSplitLayout( 1000, 100 ).previewWidth ).toBe( 680 );
+		// content below the 360 floor must be raised to 360, not left as-is.
+		expect( getPreviewSplitLayout( 1000, 100 ).contentWidth ).toBe( 360 );
+		expect( getPreviewSplitLayout( 1000, 100 ).previewWidth ).toBe( 640 );
 	} );
 
 	it.each( [ 320, 540 ] )( 'gives chat the full frame at %ipx', ( width ) => {
@@ -67,40 +66,38 @@ describe( 'getPreviewSplitLayout', () => {
 
 	it( 'splits a frame too narrow for both floors in their proportion, and fixes it', () => {
 		const layout = getPreviewSplitLayout( 544, 600 );
-		expect( layout.contentWidth ).toBe( 256 );
-		expect( layout.previewWidth ).toBe( 288 );
-		expect( layout.previewMinWidth ).toBe( 288 );
-		expect( layout.previewMaxWidth ).toBe( 288 );
+		expect( layout.contentWidth ).toBe( 272 );
+		expect( layout.previewWidth ).toBe( 272 );
+		expect( layout.previewMinWidth ).toBe( 272 );
+		expect( layout.previewMaxWidth ).toBe( 272 );
 	} );
 } );
 
 it( 'detects and resets all site widths and the legacy width', () => {
 	localStorage.clear();
-	localStorage.setItem( getPreviewContentWidthStorageKey( 'one' ), '500' );
-	localStorage.setItem( getPreviewContentWidthStorageKey( 'two' ), '400' );
+	localStorage.setItem( `${ PREVIEW_CONTENT_WIDTH_STORAGE_KEY }:one`, '500' );
+	localStorage.setItem( `${ PREVIEW_CONTENT_WIDTH_STORAGE_KEY }:two`, '400' );
 	localStorage.setItem( SITE_CHAT_HIDDEN_STORAGE_KEY, JSON.stringify( { one: true } ) );
+	localStorage.setItem( PREVIEW_OPEN_STORAGE_KEY, 'false' );
 	localStorage.setItem( 'unrelated', 'keep' );
 	expect( hasCustomPanelLayout() ).toBe( true );
 	localStorage.setItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY, '600' );
 	resetPanelLayout();
 	expect( hasCustomPanelLayout() ).toBe( false );
-	expect( localStorage.getItem( getPreviewContentWidthStorageKey( 'one' ) ) ).toBeNull();
-	expect( localStorage.getItem( getPreviewContentWidthStorageKey( 'two' ) ) ).toBeNull();
+	expect( localStorage.getItem( `${ PREVIEW_CONTENT_WIDTH_STORAGE_KEY }:one` ) ).toBeNull();
+	expect( localStorage.getItem( `${ PREVIEW_CONTENT_WIDTH_STORAGE_KEY }:two` ) ).toBeNull();
 	expect( localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY ) ).toBeNull();
 	expect( localStorage.getItem( SITE_CHAT_HIDDEN_STORAGE_KEY ) ).toBeNull();
+	expect( localStorage.getItem( PREVIEW_OPEN_STORAGE_KEY ) ).toBeNull();
 	expect( localStorage.getItem( 'unrelated' ) ).toBe( 'keep' );
 	localStorage.clear();
 } );
 
-it( 'defaults to open for invalid visibility storage and reads only hidden sites', () => {
-	for ( const invalid of [ 'broken', 'null', '[]', '42' ] ) {
-		localStorage.setItem( SITE_CHAT_HIDDEN_STORAGE_KEY, invalid );
-		expect( getStoredSiteChatVisibility() ).toEqual( {} );
-	}
-	localStorage.setItem(
-		SITE_CHAT_HIDDEN_STORAGE_KEY,
-		JSON.stringify( { one: true, two: false, three: 'true' } )
-	);
-	expect( getStoredSiteChatVisibility() ).toEqual( { one: true } );
-	localStorage.removeItem( SITE_CHAT_HIDDEN_STORAGE_KEY );
+it( 'ignores obsolete preview visibility when checking for a custom layout', () => {
+	localStorage.clear();
+	localStorage.setItem( SITE_CHAT_HIDDEN_STORAGE_KEY, JSON.stringify( { one: true } ) );
+	localStorage.setItem( PREVIEW_OPEN_STORAGE_KEY, 'false' );
+	expect( hasCustomPanelLayout() ).toBe( false );
+	resetPanelLayout();
+	expect( localStorage.length ).toBe( 0 );
 } );

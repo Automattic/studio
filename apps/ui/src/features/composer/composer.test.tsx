@@ -11,6 +11,7 @@ import {
 	pickAnnotation,
 	removeAnnotations,
 	stageAnnotations,
+	subscribeAnnotationReview,
 } from '@/features/annotations';
 import { Composer, type ComposerHandle } from '@/features/composer';
 import { Button } from '@/lib/ui';
@@ -262,7 +263,7 @@ describe( 'Chat composer', () => {
 		const { input, onSend, history } = await setup();
 		fireEvent.change( input, { target: { value: 'Keep this draft' } } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: /^Connect AI providers/ } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Connect providers/ } ) );
 		await waitFor( () => expect( history.location.search ).toContain( 'settings=ai' ) );
 		expect( input ).toHaveValue( 'Keep this draft' );
 		expect( onSend ).not.toHaveBeenCalled();
@@ -702,6 +703,55 @@ describe( 'Annotation attachments in the composer', () => {
 		expect( getSiteAnnotations( SITE ).notes ).toHaveLength( 0 );
 	} );
 
+	it( 'opens the annotation chip as an editable list and deletes individual notes', async () => {
+		const first = stageNote( 'Make the heading shorter' );
+		const second = stageNote( 'Make the background warmer' );
+		const review = vi.fn();
+		const unsubscribe = subscribeAnnotationReview( SITE, review );
+		try {
+			const { user } = await setup( { annotationSiteId: SITE } );
+			await user.click( screen.getByRole( 'button', { name: '2 annotations' } ) );
+			expect(
+				await screen.findByRole( 'button', { name: 'Edit annotation 1: Make the heading shorter' } )
+			).not.toHaveFocus();
+			await user.keyboard( '{Escape}' );
+			await user.keyboard( '{Enter}' );
+			await waitFor( () =>
+				expect( screen.getAllByRole( 'button', { name: /Edit annotation/ } )[ 0 ] ).toHaveFocus()
+			);
+			await user.keyboard( '{ArrowDown}' );
+			expect(
+				screen.getByRole( 'button', { name: 'Edit annotation 2: Make the background warmer' } )
+			).toHaveFocus();
+			await user.keyboard( '{ArrowUp}' );
+			expect(
+				screen.getByRole( 'button', { name: 'Edit annotation 1: Make the heading shorter' } )
+			).toBeVisible();
+			await user.click( screen.getByRole( 'button', { name: 'Delete annotation 1' } ) );
+			expect( getSiteAnnotations( SITE ).notes.map( ( note ) => note.id ) ).toEqual( [ second ] );
+			await waitFor( () =>
+				expect(
+					screen.getByRole( 'button', { name: 'Edit annotation 2: Make the background warmer' } )
+				).toHaveFocus()
+			);
+			await user.keyboard( '{Escape}' );
+			expect( screen.getByRole( 'button', { name: '1 annotation' } ) ).toHaveFocus();
+			await user.click( screen.getByRole( 'button', { name: '1 annotation' } ) );
+			await user.click(
+				screen.getByRole( 'button', { name: 'Edit annotation 2: Make the background warmer' } )
+			);
+			expect( review ).toHaveBeenCalledExactlyOnceWith( second );
+			expect(
+				screen.queryByRole( 'button', { name: 'Edit annotation 2: Make the background warmer' } )
+			).not.toBeInTheDocument();
+			expect( getSiteAnnotations( SITE ).notes.some( ( note ) => note.id === first ) ).toBe(
+				false
+			);
+		} finally {
+			unsubscribe();
+		}
+	} );
+
 	it( 'groups staged notes and removes them together without changing the text after a rejected send', async () => {
 		saveComposerDraft( 'test', { text: 'Keep my message', attachments: [] } );
 		stageNote( 'Make the heading shorter' );
@@ -913,6 +963,41 @@ describe( 'Composer as a form field', () => {
 } );
 
 describe( 'Composer sending', () => {
+	it.each( [
+		{ label: 'Start site', props: { onStartSite: vi.fn() }, text: '' },
+		{ label: 'Send message', props: {}, text: 'Build a homepage' },
+		{ label: 'Stop response', props: { busy: true }, text: '' },
+	] )( 'shows the $label control’s tooltip', async ( { label, props, text } ) => {
+		const { input, user } = await setup( props );
+		if ( text ) {
+			fireEvent.change( input, { target: { value: text } } );
+		}
+		await user.hover( screen.getByRole( 'button', { name: label } ) );
+		expect( await screen.findByText( label ) ).toBeVisible();
+	} );
+
+	it.each( [ 'attachment', 'annotation' ] )(
+		'keeps Send available for an %s without text when the site can start',
+		async ( content ) => {
+			if ( content === 'attachment' ) {
+				saveComposerDraft( 'test', { text: '', attachments: [ image( 'ordinary' ) ] } );
+			} else {
+				stageNote( 'Shorten this heading' );
+			}
+			const onStartSite = vi.fn();
+			await setup( { onStartSite, annotationSiteId: SITE } );
+			expect( screen.getByRole( 'button', { name: 'Send message' } ) ).toBeEnabled();
+			expect( screen.queryByRole( 'button', { name: 'Start site' } ) ).not.toBeInTheDocument();
+			expect( onStartSite ).not.toHaveBeenCalled();
+		}
+	);
+
+	it( 'keeps Stop available during an active response when the site can start', async () => {
+		await setup( { busy: true, onStartSite: vi.fn() } );
+		expect( screen.getByRole( 'button', { name: 'Stop response' } ) ).toBeEnabled();
+		expect( screen.queryByRole( 'button', { name: 'Start site' } ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'holds sends behind the out-of-credits notice', async () => {
 		const connector = createFakeConnector();
 		connector.getStudioAssistantQuota.mockResolvedValue( OUT_OF_CREDITS );
@@ -968,10 +1053,10 @@ describe( 'Composer sending', () => {
 
 describe( 'Composer drafts and attachments', () => {
 	it( 'previews an attachment while its chip is hovered', async () => {
-		await setup();
+		const { user } = await setup();
 		upload( 'notes.txt' );
 
-		fireEvent.mouseEnter( await screen.findByRole( 'listitem', { name: /^notes\.txt/ } ) );
+		await user.hover( await screen.findByRole( 'listitem', { name: /^notes\.txt/ } ) );
 
 		expect(
 			await screen.findByText( 'notes.txt text', {}, { timeout: 2000 } )

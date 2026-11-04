@@ -112,9 +112,9 @@ export const validateBlocksTool = defineTool(
 
 			if ( report.error ) {
 				context.onProgress(
-					`Validation failed for ${ fileName }: ${ report.error.slice( 0, 80 ) }`
+					`Validation could not run for ${ fileName }: ${ report.error.slice( 0, 80 ) }`
 				);
-				throw new Error( `Block validation failed: ${ report.error }` );
+				throw new Error( report.error );
 			}
 
 			if ( report.invalidBlocks === 0 ) {
@@ -183,7 +183,9 @@ export const validateBlocksTool = defineTool(
 			return textResult( lines.join( '\n' ) );
 		} catch ( error ) {
 			throw new Error(
-				`Block validation failed: ${ error instanceof Error ? error.message : String( error ) }`
+				`Block validation could not run: ${
+					error instanceof Error ? error.message : String( error )
+				}`
 			);
 		}
 	},

@@ -1,6 +1,15 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { useId, type RefObject } from 'react';
+import {
+	useId,
+	useState,
+	type ComponentProps,
+	type ReactNode,
+	type Ref,
+	type RefObject,
+} from 'react';
+import { useAnalyticsExposure } from '@/data/account-analytics';
 import { useLogin } from '@/data/queries/use-auth-user';
 import { useOffline } from '@/lib/hooks';
 import {
@@ -16,6 +25,7 @@ import site1 from './assets/site-1.png';
 import site2 from './assets/site-2.png';
 import site3 from './assets/site-3.png';
 import styles from './style.module.css';
+import type { AuthAnalytics } from '@studio/common/lib/auth-tracks';
 import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 
 export const previewSiteImage = site2;
@@ -27,6 +37,9 @@ export function AccountPrompt( {
 	description,
 	descriptionId,
 	source,
+	analytics,
+	scope,
+	active = true,
 	onCreateAccount,
 	onContinue,
 	onSkip,
@@ -34,12 +47,16 @@ export function AccountPrompt( {
 	busy,
 	disabled,
 	flush,
+	showStudioIcon = true,
 	className,
 }: {
 	title: string;
 	description: string;
 	descriptionId?: string;
 	source: TracksAuthSource;
+	analytics?: AuthAnalytics;
+	scope?: string;
+	active?: boolean;
 	onCreateAccount?: () => void;
 	onContinue?: () => void;
 	onSkip?: () => void;
@@ -48,21 +65,31 @@ export function AccountPrompt( {
 	disabled?: boolean;
 	/** Drops the offsets that space it inside a dialog, for a container that spaces it already. */
 	flush?: boolean;
+	showStudioIcon?: boolean;
 	className?: string;
 } ) {
 	const offline = useOffline();
-	const login = useLogin( { source } );
-	const signup = useLogin( { signup: true, source } );
+	const [ journeyId ] = useState( () => crypto.randomUUID() );
+	const context = analytics
+		? { ...analytics, journey_id: analytics.journey_id ?? journeyId }
+		: undefined;
+	const exposure = useAnalyticsExposure(
+		TRACKS_EVENTS.ACCOUNT_PROMPT_VIEWED,
+		{ source, ...context },
+		active && ! onContinue
+	);
+	const login = useLogin( { source, analytics: context, scope } );
+	const signup = useLogin( { signup: true, source, analytics: context, scope } );
 	const authenticating = login.isPending || signup.isPending;
 	const pending = authenticating || busy || disabled;
 	const error = login.error ?? signup.error;
 	return (
-		<div className={ clsx( styles.body, flush && styles.flush, className ) }>
+		<div ref={ exposure } className={ clsx( styles.body, flush && styles.flush, className ) }>
 			<div aria-hidden="true" className={ styles.illustration }>
 				<span className={ styles.cardStart } style={ { backgroundImage: `url(${ site1 })` } } />
 				<span className={ styles.cardEnd } style={ { backgroundImage: `url(${ site3 })` } } />
 				<span className={ styles.cardCenter } style={ { backgroundImage: `url(${ site2 })` } } />
-				<StudioIcon className={ styles.studioIcon } />
+				{ showStudioIcon ? <StudioIcon className={ styles.studioIcon } /> : null }
 			</div>
 			<h2 className={ styles.title }>{ title }</h2>
 			<p id={ descriptionId } className={ styles.description }>
@@ -126,26 +153,35 @@ export function AccountPromptDialog( {
 	open,
 	onOpenChange,
 	finalFocus,
+	initialFocus,
+	ref,
+	footer,
 	...prompt
 }: Parameters< typeof AccountPrompt >[ 0 ] & {
 	open: boolean;
 	onOpenChange: ( open: boolean ) => void;
 	finalFocus?: RefObject< HTMLElement | null >;
+	initialFocus?: ComponentProps< typeof DialogContent >[ 'initialFocus' ];
+	ref?: Ref< HTMLDivElement >;
+	footer?: ReactNode;
 } ) {
 	const descriptionId = useId();
 	return (
 		<Dialog open={ open } onOpenChange={ onOpenChange }>
 			<DialogContent
-				className={ styles.dialog }
+				ref={ ref }
+				className={ clsx( styles.dialog, footer && styles.dialogWithFooter ) }
 				aria-describedby={ descriptionId }
 				finalFocus={ finalFocus }
+				initialFocus={ initialFocus }
 			>
 				<DialogHeader>
 					<VisuallyHidden>
 						<DialogTitle>{ prompt.title }</DialogTitle>
 					</VisuallyHidden>
 				</DialogHeader>
-				<AccountPrompt { ...prompt } descriptionId={ descriptionId } flush />
+				<AccountPrompt { ...prompt } active={ open } descriptionId={ descriptionId } flush />
+				{ footer && <div className={ styles.footer }>{ footer }</div> }
 			</DialogContent>
 		</Dialog>
 	);

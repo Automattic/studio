@@ -1,7 +1,17 @@
+.startButton {
+	width: var( --space-16 );
+	height: var( --space-16 );
+}
+
+.startButton svg {
+	width: 32px;
+	height: 32px;
+}
+
 .root {
 	position: relative;
 	display: block;
-	width: 100%;
+	width: 70%;
 	max-width: 320px;
 	border-radius: var( --radius-lg );
 	cursor: pointer;
@@ -39,7 +49,7 @@
 }
 
 .play {
-	--play-alpha: 85%;
+	--play-alpha: 72%;
 	--play-tone: 80%;
 	--play-fill: color-mix(
 		in srgb,
@@ -49,8 +59,8 @@
 
 	position: relative;
 	display: flex;
-	width: var( --space-16 );
-	height: var( --space-16 );
+	width: clamp( var( --space-12 ), 20%, var( --space-16 ) );
+	aspect-ratio: 1;
 	align-items: center;
 	justify-content: center;
 	border-radius: var( --radius-full );
@@ -66,14 +76,14 @@
 		var( --play-fill ) var( --surface-alpha, var( --play-alpha ) ),
 		transparent
 	);
-	backdrop-filter: blur( 8px );
+	backdrop-filter: blur( 10px );
 	content: '';
 }
 
 .play svg {
 	position: relative;
-	width: 32px;
-	height: 32px;
+	width: 50%;
+	height: 50%;
 }
 
 @media ( prefers-reduced-motion: no-preference ) {
@@ -84,7 +94,7 @@
 
 @media ( hover: hover ) and ( pointer: fine ) {
 	.root:hover:not( :disabled ) .play {
-		--play-alpha: 95%;
+		--play-alpha: 85%;
 		--play-tone: 60%;
 	}
 }
@@ -94,7 +104,7 @@
 }
 
 .root:focus-visible .play {
-	--play-alpha: 95%;
+	--play-alpha: 85%;
 	--play-tone: 60%;
 
 	outline: var( --focus-width ) solid var( --ring );

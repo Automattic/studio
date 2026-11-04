@@ -41,7 +41,7 @@ export function createScreenshotWindow( captureUrl: string ) {
 			#wpadminbar {
 				display: none !important;
 			}
-			html.admin-bar {
+			html {
 				margin-top: 0 !important;
 			}
 			html.admin-bar body {

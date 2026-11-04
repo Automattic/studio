@@ -42,6 +42,9 @@ export function applyAccentContrast( root: HTMLElement = document.documentElemen
 	const hue = style.getPropertyValue( '--accent-hue' ).trim();
 	const lightness = Number( style.getPropertyValue( '--accent-lightness' ) );
 	const chroma = Number( style.getPropertyValue( '--accent-chroma' ) );
+	const hoverLightnessOffset = Number(
+		style.getPropertyValue( '--accent-hover-lightness-offset' )
+	);
 	if ( ! Number.isFinite( lightness ) || ! Number.isFinite( chroma ) ) return;
 	const dark =
 		root.closest( '[data-color-scheme]' )?.getAttribute( 'data-color-scheme' ) === 'dark';
@@ -84,8 +87,12 @@ export function applyAccentContrast( root: HTMLElement = document.documentElemen
 	}
 	const passes = ( lightness: number ) => {
 		const accent = atLightness( lightness );
+		const hover = sample(
+			`oklch(from ${ color( accent ) } calc(l + ${ hoverLightnessOffset }) c h)`
+		);
 		return (
 			contrast( accent, foreground ) >= 4.7 &&
+			contrast( hover, foreground ) >= 4.5 &&
 			backgrounds.every( ( background, index ) => {
 				const surface = sample( background );
 				const wash = sample(

@@ -96,7 +96,7 @@ export function CommandList( {
 	listRef?: Ref< HTMLDivElement >;
 	id?: string;
 	size?: 'sm' | 'default';
-	radius?: 'default' | 'control';
+	radius?: 'default' | 'control' | 'menu';
 	empty?: ReactNode;
 	className?: string;
 } ) {

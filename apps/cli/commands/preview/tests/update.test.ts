@@ -8,6 +8,8 @@ import { vi } from 'vitest';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { updatePreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
+import { getPreviewTracksProps } from 'cli/lib/preview-tracks';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { updateSnapshotInConfig, getSnapshotsFromConfig } from 'cli/lib/snapshots';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
@@ -28,7 +30,9 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 	};
 } );
 vi.mock( 'cli/lib/archive' );
+vi.mock( 'cli/lib/preview-tracks' );
 vi.mock( 'cli/lib/api' );
+vi.mock( 'cli/lib/preview-sites' );
 vi.mock( 'cli/lib/snapshots' );
 vi.mock( 'cli/lib/validation', () => ( {
 	validateSiteSize: vi.fn(),
@@ -57,7 +61,7 @@ describe( 'Preview Update Command', () => {
 	const mockBasename = 'folder';
 	const mockDate = 1234567890;
 	const mockArchivePath = path.join( os.tmpdir(), `${ mockBasename }-${ mockDate }.zip` );
-	const mockSiteUrl = 'test-preview.example.com';
+	const mockSiteUrl = 'test-preview.wp.build';
 	const mockAtomicSiteId = 12345;
 	const mockAuthToken = {
 		accessToken: 'mock-auth-token',
@@ -85,6 +89,10 @@ describe( 'Preview Update Command', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		vi.mocked( getPreviewTracksProps ).mockImplementation( async ( _folder, preview ) => ( {
+			site_id: 'b4bfb381-cbf4-4003-b3db-233bcda55f51',
+			...( preview ? { preview_id: '603537e6-95ed-4583-84c2-d2725af37d8a' } : {} ),
+		} ) );
 		vi.spyOn( Date, 'now' ).mockReturnValue( mockDate );
 		vi.spyOn( path, 'basename' ).mockReturnValue( mockBasename );
 
@@ -110,7 +118,40 @@ describe( 'Preview Update Command', () => {
 		vi.restoreAllMocks();
 	} );
 
-	it( 'should complete the preview update process successfully', async () => {
+	it( 'updates a WordPress.com preview through the preview funnel', async () => {
+		const wpcomHost = 'test-preview.wpcomstaging.com';
+		const shareUrl = `https://${ wpcomHost }/?share=abc123`;
+		const wpcomSnapshot = { ...mockSnapshot, url: wpcomHost, shareUrl };
+		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [ wpcomSnapshot ] );
+		vi.mocked( updateSnapshotInConfig ).mockResolvedValue( wpcomSnapshot );
+		vi.mocked( uploadPreviewArchive ).mockResolvedValue( 678 );
+		vi.mocked( updatePreviewSite ).mockResolvedValue( {
+			siteId: mockAtomicSiteId,
+			hostname: wpcomHost,
+			shareUrl,
+		} );
+
+		await runCommand( mockFolder, wpcomHost, false );
+
+		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath, {
+			onWpcom: true,
+		} );
+		expect( uploadPreviewArchive ).toHaveBeenCalledWith(
+			mockArchivePath,
+			mockAuthToken.accessToken,
+			mockAtomicSiteId
+		);
+		expect( updatePreviewSite ).toHaveBeenCalledWith(
+			mockAtomicSiteId,
+			678,
+			mockAuthToken.accessToken
+		);
+		expect( uploadArchive ).not.toHaveBeenCalled();
+		expect( updateSnapshotInConfig ).toHaveBeenCalledWith( mockAtomicSiteId, mockFolder, shareUrl );
+		expect( mockReportSuccess ).toHaveBeenCalledWith( `Preview site available at: ${ shareUrl }` );
+	} );
+
+	it( 'updates a Jurassic Ninja preview', async () => {
 		vi.mocked( getWordPressVersion ).mockReturnValue( '6.8.1' );
 		await runCommand( mockFolder, mockSiteUrl, false );
 
@@ -119,7 +160,9 @@ describe( 'Preview Update Command', () => {
 			'export',
 			expect.any( Function )
 		);
-		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath );
+		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath, {
+			onWpcom: false,
+		} );
 		expect( uploadArchive ).toHaveBeenCalledWith(
 			mockArchivePath,
 			mockAuthToken.accessToken,
@@ -127,7 +170,11 @@ describe( 'Preview Update Command', () => {
 			mockSnapshot.atomicSiteId
 		);
 		expect( waitForSiteReady ).toHaveBeenCalledWith( mockAtomicSiteId, mockAuthToken.accessToken );
-		expect( updateSnapshotInConfig ).toHaveBeenCalledWith( mockAtomicSiteId, mockFolder );
+		expect( updateSnapshotInConfig ).toHaveBeenCalledWith(
+			mockAtomicSiteId,
+			mockFolder,
+			undefined
+		);
 		expect( mockReportSuccess ).toHaveBeenCalledWith(
 			`Preview site available at: https://${ mockSiteUrl }`
 		);
@@ -141,9 +188,44 @@ describe( 'Preview Update Command', () => {
 			TRACKS_EVENTS.PREVIEW_SITE_UPDATE,
 			expect.objectContaining( {
 				success: true,
+				site_id: 'b4bfb381-cbf4-4003-b3db-233bcda55f51',
+				preview_id: '603537e6-95ed-4583-84c2-d2725af37d8a',
 				time_ms: expect.any( Number ),
 				channel: 'studio-cli',
 			} )
+		);
+	} );
+
+	it( 'includes resolved IDs on an update failure', async () => {
+		vi.mocked( uploadArchive ).mockRejectedValueOnce( new Error( 'Upload failed' ) );
+		await expect( runCommand( mockFolder, mockSiteUrl, false ) ).rejects.toThrow();
+		expect( getPreviewTracksProps ).toHaveBeenCalledWith( mockFolder, mockSnapshot );
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.PREVIEW_SITE_UPDATE,
+			expect.objectContaining( {
+				success: false,
+				site_id: 'b4bfb381-cbf4-4003-b3db-233bcda55f51',
+				preview_id: '603537e6-95ed-4583-84c2-d2725af37d8a',
+			} )
+		);
+	} );
+
+	it( 'omits preview context when the preview cannot be resolved', async () => {
+		vi.mocked( getSnapshotsFromConfig ).mockResolvedValueOnce( [] );
+		await expect( runCommand( mockFolder, mockSiteUrl, false ) ).rejects.toThrow();
+		expect( getPreviewTracksProps ).toHaveBeenCalledWith( mockFolder, undefined );
+		const props = vi
+			.mocked( recordTracksEvent )
+			.mock.calls.find( ( [ event ] ) => event === TRACKS_EVENTS.PREVIEW_SITE_UPDATE )?.[ 1 ];
+		expect( props ).not.toHaveProperty( 'preview_id' );
+	} );
+
+	it( 'preserves a successful operation and its event when ID storage is unavailable', async () => {
+		vi.mocked( getPreviewTracksProps ).mockResolvedValueOnce( {} );
+		await runCommand( mockFolder, mockSiteUrl, false );
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.PREVIEW_SITE_UPDATE,
+			expect.objectContaining( { success: true, channel: 'studio-cli' } )
 		);
 	} );
 
@@ -217,6 +299,8 @@ describe( 'Preview Update Command', () => {
 			phpVersion: '8.0',
 		} );
 		await runCommand( mockFolder, mockSiteUrl, true );
-		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath );
+		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath, {
+			onWpcom: false,
+		} );
 	} );
 } );

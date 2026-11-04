@@ -11,6 +11,7 @@ import {
 	SITE_SERVER_INACTIVITY_TIMEOUT,
 	SITE_SERVER_MAX_TIMEOUT,
 } from '@studio/common/constants';
+import { SITE_START_REQUESTED_AT_ENV } from '@studio/common/lib/cli-events';
 import { readLastLines } from '@studio/common/lib/fs-utils';
 import { STUDIO_ERROR_LOG_FILENAME } from '@studio/common/lib/mu-plugins';
 import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metadata';
@@ -194,9 +195,13 @@ async function ensureSitePhpBinaryAvailable(
  * 4. Wait for response before resolving
  * 5. Persist the process PID so running-status checks match the live process
  */
+/** The command that started the site, reported as `command` on `studio_site_start`. */
+export type SiteStartCommand = 'start' | 'create' | 'import' | 'pull' | 'pull_reprint' | 'config';
+
 export async function startWordPressServer(
 	site: SiteData,
 	logger: Logger< string >,
+	command: SiteStartCommand,
 	options?: StartServerOptions
 ): Promise< ProcessDescription > {
 	// For sites imported via `studio pull-reprint`, the pull command persists
@@ -243,11 +248,16 @@ export async function startWordPressServer(
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	const phaseTimings: Record< string, number > = {};
-	const startedAt = Date.now();
+	const now = Date.now();
+	// Phases time from here; a `site start` an app asked for times from the request, so it includes
+	// spawning and loading this CLI and the preparation above.
+	const requestedAt =
+		command === 'start' ? Number( process.env[ SITE_START_REQUESTED_AT_ENV ] ) : NaN;
+	const startedAt = requestedAt <= now ? requestedAt : now;
 	try {
 		const processDesc = await startProcess( processName, WORDPRESS_SERVER_CHILD_PATH );
 		await readyOrExit.waitFor( processDesc.pmId );
-		phaseTimings.daemon_ms = Date.now() - startedAt;
+		phaseTimings.daemon_ms = Date.now() - now;
 		await sendMessage(
 			processDesc.pmId,
 			processName,
@@ -276,6 +286,7 @@ export async function startWordPressServer(
 		try {
 			await recordTracksEvent( TRACKS_EVENTS.SITE_START, {
 				...getTracksOrigin(),
+				command,
 				success: true,
 				time_ms: Date.now() - startedAt,
 				...phaseTimings,
@@ -293,6 +304,7 @@ export async function startWordPressServer(
 		try {
 			await recordTracksEvent( TRACKS_EVENTS.SITE_START, {
 				...getTracksOrigin(),
+				command,
 				success: false,
 				failure_reason: classifyStartFailure( error ),
 				time_ms: Date.now() - startedAt,

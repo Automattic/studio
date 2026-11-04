@@ -127,13 +127,13 @@ test.describe( 'Sites', () => {
 		await loadInPreview( siteUrl );
 		await expect.poll( () => session.previewText() ).toContain( 'Hello world!' );
 
-		await new Sidebar( session.mainWindow ).getStatusButton( siteName ).click();
+		await new Sidebar( session.mainWindow ).toggleSite( siteName );
 		await expectStopped( siteName );
 		await expect( session.mainWindow.locator( 'webview' ) ).toHaveCount( 0 );
 
 		await session.restart();
 		await expectStopped( siteName );
-		await new Sidebar( session.mainWindow ).getStatusButton( siteName ).click();
+		await new Sidebar( session.mainWindow ).toggleSite( siteName );
 		await new Sidebar( session.mainWindow ).expectRunning( siteName );
 		await expect.poll( () => session.previewText() ).toContain( 'Hello world!' );
 

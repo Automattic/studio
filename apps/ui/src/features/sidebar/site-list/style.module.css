@@ -35,8 +35,15 @@
 	background-color: var( --hover );
 }
 
-.groupPanel:not( [data-starting-style], [data-ending-style] ),
-.chatsPanel:not( [data-starting-style], [data-ending-style] ) {
+.groupPanel,
+.chatsPanel {
+	overflow: clip;
+	transition-duration: calc( var( --motion-duration-layout ) * 2 / 3 );
+	transition-timing-function: var( --motion-ease-layout );
+}
+
+.groupPanel:has( [data-drag-source] ),
+.chatsPanel:has( [data-drag-source] ) {
 	overflow: visible;
 }
 
@@ -69,7 +76,7 @@
 	display: flex;
 	flex-direction: column;
 	padding-block-start: 1px;
-	padding-block-end: var( --space-2 );
+	padding-block-end: var( --space-3 );
 }
 
 .empty {
@@ -102,20 +109,13 @@
 	display: contents;
 }
 
-.groupPanel {
-	margin-block-end: var( --space-2 );
-}
-
 .groupHeader {
 	flex-shrink: 0;
+	margin-block-start: var( --space-3 );
 	position: sticky;
 	top: 0;
 	z-index: 1;
-	background: linear-gradient(
-		to bottom,
-		var( --studio-sidebar-bg ) calc( 100% - var( --space-2 ) ),
-		transparent
-	);
+	background: var( --studio-sidebar-bg );
 }
 
 .groupHeader:hover .groupHoverAction,
@@ -129,5 +129,12 @@
 	.groupHoverAction {
 		opacity: 1;
 		pointer-events: auto;
+	}
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.groupPanel,
+	.chatsPanel {
+		transition-duration: 0s;
 	}
 }

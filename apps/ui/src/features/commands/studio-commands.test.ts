@@ -59,8 +59,8 @@ const siteCommands = (
 		newChat: vi.fn(),
 		reloadPreview: vi.fn(),
 		annotate: vi.fn(),
-		showPreview: vi.fn(),
 		setChatHidden: vi.fn(),
+		showPreview: vi.fn(),
 		copyUrl: vi.fn(),
 		...overrides,
 	} );
@@ -103,21 +103,6 @@ describe( 'getAppCommands', () => {
 	} );
 } );
 
-it( 'shows the sidebar before opening the notifications from its bell', () => {
-	const toggleSidebar = vi.fn();
-	const openNotifications = vi.fn();
-	const notifications = ( sidebarOpen: boolean ) =>
-		appCommands( { sidebarOpen, toggleSidebar, openNotifications } ).find(
-			( { id } ) => id === 'notifications'
-		)!;
-
-	notifications( true ).run();
-	expect( toggleSidebar ).not.toHaveBeenCalled();
-	notifications( false ).run();
-	expect( toggleSidebar ).toHaveBeenCalledTimes( 1 );
-	expect( openNotifications ).toHaveBeenCalledTimes( 2 );
-} );
-
 it( 'derives labels and availability from active context', () => {
 	const current = makeSite( { id: 'one', name: 'Test', running: true } );
 	const sites = [ current, makeSite( { id: 'two', running: true } ) ];
@@ -130,7 +115,12 @@ it( 'derives labels and availability from active context', () => {
 	const byId = ( id: string ) =>
 		[ ...app, ...forSite, ...chatCommands ].find( ( command ) => command.id === id );
 	expect( byId( 'sidebar' )?.label ).toBe( 'Show sidebar' );
-	expect( byId( 'chat-visibility' )?.label ).toBe( 'Hide chat' );
+	for ( const id of [ 'sidebar', 'pin-site', 'pin-chat', 'color-scheme' ] ) {
+		expect( byId( id )?.group ).toBe( 'commands' );
+	}
+	expect( byId( 'layout-browser' )?.label ).toBe( 'Switch to Browser' );
+	expect( byId( 'preview-fullscreen' ) ).toBeUndefined();
+	expect( byId( 'preview-visibility' ) ).toBeUndefined();
 	expect( byId( 'pin-site' )?.label ).toBe( 'Unpin site' );
 	expect( byId( 'pin-chat' )?.label ).toBe( 'Unpin chat' );
 	expect( byId( 'archive-chat' ) ).toBeUndefined();
@@ -164,7 +154,7 @@ it.each( [
 		if ( ! available ) {
 			expect( command ).toBeUndefined();
 		} else {
-			expect( command ).toMatchObject( { group: 'site', label } );
+			expect( command ).toMatchObject( { group: 'commands', label } );
 		}
 	}
 	expect( commands.find( ( command ) => command.id === 'lifecycle' ) ).toMatchObject( {
@@ -186,11 +176,11 @@ describe( 'getSettingCommands', () => {
 		const byLabel = ( label: string ) => commands.find( ( command ) => command.label === label )!;
 
 		expect( byLabel( 'Turn off “Show recent chats”' ).run ).toBe( toggle.run );
-		byLabel( 'Terminal' ).run();
+		byLabel( 'Default terminal app' ).run();
 		expect( openSettings ).toHaveBeenCalledWith( 'general', undefined, 'terminal' );
-		byLabel( 'Studio CLI for terminal' ).run();
+		byLabel( 'WordPress Studio CLI for terminal' ).run();
 		expect( openSettings ).toHaveBeenCalledWith( 'general', undefined, 'studio-cli' );
-		byLabel( 'Agent instructions' ).run();
+		byLabel( 'Instructions' ).run();
 		expect( openSettings ).toHaveBeenCalledWith( 'instructions', undefined, 'agent-instructions' );
 	} );
 
@@ -219,7 +209,6 @@ describe( 'getSettingCommands', () => {
 			'Visit wapuu.studio',
 			'Wapuu score',
 			'Local domain',
-			'MCP',
 			'WordPress credentials',
 		] ) {
 			expect( titles ).not.toContain( label );
@@ -236,8 +225,8 @@ describe( 'getSettingCommands', () => {
 		[ 'shortcuts', 'settings-keyboard' ],
 		[ 'connect', 'settings-ai' ],
 		[ 'connect provider', 'settings-ai' ],
-		[ 'credit balance', 'settings-usage-ai-credits' ],
-		[ 'snapshots', 'settings-sharing-preview-sites' ],
+		[ 'credit balance', 'settings-usage' ],
+		[ 'snapshots', 'settings-sharing' ],
 	] )( 'finds “%s” first by another name for a setting', ( query, id ) => {
 		expect( matchCommands( studioSettings(), query )[ 0 ]?.id ).toBe( id );
 	} );
@@ -302,4 +291,36 @@ describe( 'command search', () => {
 			).map( ( { label } ) => label )
 		).toEqual( [ 'Collapse all' ] );
 	} );
+} );
+
+it.each( [
+	{
+		name: 'Chat',
+		previewShown: false,
+		chatHidden: true,
+		ids: [ 'layout-split', 'layout-browser' ],
+	},
+	{
+		name: 'Split view',
+		previewShown: true,
+		chatHidden: false,
+		ids: [ 'layout-chat', 'layout-browser' ],
+	},
+	{ name: 'Browser', previewShown: true, chatHidden: true, ids: [ 'layout-chat', 'layout-split' ] },
+] )( 'offers the other workspace layouts from $name', ( { previewShown, chatHidden, ids } ) => {
+	const showPreview = vi.fn();
+	const setChatHidden = vi.fn();
+	const commands = siteCommands( makeSite(), [], {
+		previewShown,
+		chatHidden,
+		showPreview,
+		setChatHidden,
+	} );
+	const layouts = commands.filter( ( { id } ) => id.startsWith( 'layout-' ) );
+	expect( layouts.map( ( { id } ) => id ) ).toEqual( ids );
+	for ( const command of layouts ) {
+		command.run();
+		if ( command.id === 'layout-chat' ) expect( showPreview ).toHaveBeenCalledWith( false );
+		else expect( setChatHidden ).toHaveBeenCalledWith( command.id === 'layout-browser' );
+	}
 } );

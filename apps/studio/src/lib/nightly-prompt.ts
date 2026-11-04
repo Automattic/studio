@@ -1,5 +1,6 @@
 import { app, dialog } from 'electron';
 import * as Sentry from '@sentry/electron/main';
+import { isAutomatticianAccount } from '@studio/common/lib/automattician';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __ } from '@wordpress/i18n';
 import { isDevRelease } from 'src/lib/version-utils';
@@ -8,29 +9,6 @@ import { loadUserData, updateAppdata } from 'src/storage/user-data';
 import { switchToNightlyAndUpdate } from 'src/updates';
 
 let isPromptOpen = false;
-
-async function isAutomattician(): Promise< boolean > {
-	try {
-		const token = await readAuthToken();
-		if ( ! token ) {
-			return false;
-		}
-
-		const res = await fetch( 'https://public-api.wordpress.com/rest/v1.2/read/teams', {
-			headers: { Authorization: `Bearer ${ token.accessToken }` },
-			signal: AbortSignal.timeout( 5000 ),
-		} );
-
-		if ( ! res.ok ) {
-			return false;
-		}
-
-		const data = ( await res.json() ) as { teams?: { slug: string }[] };
-		return data.teams?.some( ( team ) => team.slug === 'a8c' ) ?? false;
-	} catch {
-		return false;
-	}
-}
 
 /**
  * Shows a one-time dialog prompting Automatticians on stable builds to switch to nightly builds.
@@ -59,8 +37,8 @@ export async function maybePromptNightlySwitch(): Promise< void > {
 		return;
 	}
 
-	const automattician = await isAutomattician();
-	if ( ! automattician ) {
+	const token = await readAuthToken().catch( () => null );
+	if ( ! token || ! ( await isAutomatticianAccount( token.accessToken ) ) ) {
 		return;
 	}
 

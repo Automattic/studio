@@ -1,4 +1,4 @@
-import { isSnapshotExpired } from '@studio/common/lib/snapshots';
+import { getSnapshotLink, isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { Type } from 'typebox';
 import { defineTool, READ_ONLY } from './define-tool';
 import { textResult } from './utils';
@@ -12,6 +12,8 @@ export function enrichPreviewListOutput( snapshots: Snapshot[] ): string {
 		type: 'preview' as const,
 		name: snapshot.name,
 		url: `https://${ snapshot.url }`,
+		// The link that opens the preview for others; give this one out.
+		shareUrl: getSnapshotLink( snapshot ),
 		atomicSiteId: snapshot.atomicSiteId,
 		localSiteId: snapshot.localSiteId,
 		date: snapshot.date,

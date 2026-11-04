@@ -274,6 +274,24 @@ export function SiteMenuItems( {
 			) : null }
 			<Menu.Separator />
 			<Menu.SubmenuRoot>
+				<Menu.SubmenuTrigger>
+					<ExternalLinkIcon />
+					{ __( 'Open in' ) }
+				</Menu.SubmenuTrigger>
+				<Menu.SubmenuPopup>
+					{ destinations.map( ( destination ) => (
+						<Menu.Item
+							key={ destination.id }
+							disabled={ destination.disabled }
+							onClick={ destination.open }
+						>
+							{ destination.logo }
+							{ destination.label }
+						</Menu.Item>
+					) ) }
+				</Menu.SubmenuPopup>
+			</Menu.SubmenuRoot>
+			<Menu.SubmenuRoot>
 				<Menu.SubmenuTrigger disabled={ busy }>
 					<ArrowRightIcon />
 					{ __( 'Tools' ) }
@@ -297,24 +315,6 @@ export function SiteMenuItems( {
 							{ __( 'Design system' ) }
 						</Menu.Item>
 					) : null }
-				</Menu.SubmenuPopup>
-			</Menu.SubmenuRoot>
-			<Menu.SubmenuRoot>
-				<Menu.SubmenuTrigger>
-					<ExternalLinkIcon />
-					{ __( 'Open in' ) }
-				</Menu.SubmenuTrigger>
-				<Menu.SubmenuPopup>
-					{ destinations.map( ( destination ) => (
-						<Menu.Item
-							key={ destination.id }
-							disabled={ destination.disabled }
-							onClick={ destination.open }
-						>
-							{ destination.logo }
-							{ destination.label }
-						</Menu.Item>
-					) ) }
 				</Menu.SubmenuPopup>
 			</Menu.SubmenuRoot>
 			<Menu.Separator />

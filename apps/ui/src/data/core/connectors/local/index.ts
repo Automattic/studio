@@ -964,7 +964,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			snapshotEventListeners.add( listener );
 			return () => snapshotEventListeners.delete( listener );
 		},
-		onToggleSitePreview( listener ) {
+		onTogglePanel( listener ) {
 			return onMenuShortcut( listener, 'b', 'shift' );
 		},
 		async copyText( text ) {

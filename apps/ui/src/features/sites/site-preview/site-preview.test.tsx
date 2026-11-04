@@ -52,7 +52,7 @@ function createPropsStore( initial: Props ) {
 function Harness( { store }: { store: ReturnType< typeof createPropsStore > } ) {
 	const props = useSyncExternalStore( store.subscribe, store.get );
 	return (
-		<SiteHeaderActionsProvider host="preview">
+		<SiteHeaderActionsProvider host="panel">
 			<SessionUIProvider>
 				<SitePreview { ...props } />
 			</SessionUIProvider>

@@ -24,7 +24,7 @@ import { replaceOpenDialogs } from '@/lib/ui';
 import { PaletteDialog, type PaletteProps } from './palette-dialog';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
-interface PreviewFullscreen {
+interface PanelFullscreen {
 	active: boolean;
 	open?: boolean;
 	onOpenChange?: ( open: boolean ) => void;
@@ -39,13 +39,13 @@ export function CommandPalette( {
 	site,
 	session,
 	chatHidden,
-	previewFullscreen,
+	panelFullscreen,
 }: {
 	site?: SiteDetails;
 	session?: AiSessionSummary;
-	// Set where the chat can be hidden beside the preview.
+	// Set where the chat can be hidden beside the panel.
 	chatHidden?: boolean;
-	previewFullscreen?: PreviewFullscreen;
+	panelFullscreen?: PanelFullscreen;
 } ) {
 	const open = useCommandPaletteOpen();
 	const commands = useAppCommands();
@@ -74,7 +74,7 @@ export function CommandPalette( {
 			site={ site }
 			session={ session }
 			chatHidden={ chatHidden }
-			previewFullscreen={ previewFullscreen }
+			panelFullscreen={ panelFullscreen }
 			{ ...palette }
 		/>
 	) : (
@@ -86,14 +86,14 @@ function SiteCommands( {
 	site,
 	session,
 	chatHidden,
-	previewFullscreen,
+	panelFullscreen,
 	commands,
 	...palette
 }: PaletteProps & {
 	site: SiteDetails;
 	session?: AiSessionSummary;
 	chatHidden?: boolean;
-	previewFullscreen?: PreviewFullscreen;
+	panelFullscreen?: PanelFullscreen;
 } ) {
 	const navigate = useNavigate();
 	const openSettings = useOpenSettings();
@@ -113,9 +113,9 @@ function SiteCommands( {
 	const siteCommands = getSiteCommands( {
 		site,
 		chatHidden,
-		previewShown: previewFullscreen?.open ?? preview.open,
-		showPreview: ( open ) => {
-			if ( previewFullscreen?.onOpenChange ) previewFullscreen.onOpenChange( open );
+		panelShown: panelFullscreen?.open ?? preview.open,
+		showPanel: ( open ) => {
+			if ( panelFullscreen?.onOpenChange ) panelFullscreen.onOpenChange( open );
 			else preview.setOpen( open, { siteId: site.id, instant: true } );
 		},
 		canAnnotate: connector.capabilities.annotatePreview,
@@ -132,8 +132,8 @@ function SiteCommands( {
 		},
 		reloadPreview: () => dispatch( { type: 'preview/reload' } ),
 		annotate: ( active ) => setAnnotating( site.id, active ),
-		setChatHidden: ( hidden ) => {
-			if ( previewFullscreen ) previewFullscreen.onChange( hidden );
+		setPanelFullscreen: ( hidden ) => {
+			if ( panelFullscreen ) panelFullscreen.onChange( hidden );
 			else {
 				preview.setOpen( true, { siteId: site.id, instant: true } );
 				preview.setChatHidden( hidden, site.id, { instant: true } );

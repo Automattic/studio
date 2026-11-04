@@ -2,12 +2,12 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useContext } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
-import { PREVIEW_CONTENT_WIDTH_STORAGE_KEY } from '@/data/resizable-panels';
+import { PANEL_CONTENT_WIDTH_STORAGE_KEY } from '@/data/resizable-panels';
 import { SidebarCollapsedContext } from '@/data/use-sidebar-collapsed';
-import { PreviewSplitFrame } from './index';
+import { PanelSplitFrame } from './index';
 import type { ComponentProps } from 'react';
 
-const SITE_WIDTH_KEY = PREVIEW_CONTENT_WIDTH_STORAGE_KEY;
+const SITE_WIDTH_KEY = PANEL_CONTENT_WIDTH_STORAGE_KEY;
 
 function CornerProbe( { testId }: { testId: string } ) {
 	const inCorner = useContext( WindowControlsCornerContext );
@@ -17,12 +17,12 @@ function CornerProbe( { testId }: { testId: string } ) {
 function getFrameRoot(): HTMLElement {
 	const root = screen.getByTestId( 'content' ).parentElement?.parentElement;
 	if ( ! root ) {
-		throw new Error( 'PreviewSplitFrame root not found' );
+		throw new Error( 'PanelSplitFrame root not found' );
 	}
 	return root;
 }
 
-describe( 'PreviewSplitFrame', () => {
+describe( 'PanelSplitFrame', () => {
 	let getBoundingClientRectSpy: ReturnType< typeof vi.spyOn >;
 	let frameWidth: number;
 
@@ -47,13 +47,13 @@ describe( 'PreviewSplitFrame', () => {
 	afterEach( () => {
 		getBoundingClientRectSpy.mockRestore();
 		window.localStorage.removeItem( SITE_WIDTH_KEY );
-		window.localStorage.removeItem( `${ PREVIEW_CONTENT_WIDTH_STORAGE_KEY }:one` );
-		window.localStorage.removeItem( `${ PREVIEW_CONTENT_WIDTH_STORAGE_KEY }:two` );
-		window.localStorage.removeItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY );
+		window.localStorage.removeItem( `${ PANEL_CONTENT_WIDTH_STORAGE_KEY }:one` );
+		window.localStorage.removeItem( `${ PANEL_CONTENT_WIDTH_STORAGE_KEY }:two` );
+		window.localStorage.removeItem( PANEL_CONTENT_WIDTH_STORAGE_KEY );
 		vi.unstubAllGlobals();
 	} );
 
-	describe( 'closing preview content', () => {
+	describe( 'closing panel content', () => {
 		beforeEach( () => {
 			vi.useFakeTimers();
 			document.documentElement.style.setProperty( '--motion-duration-layout', '240ms' );
@@ -68,24 +68,24 @@ describe( 'PreviewSplitFrame', () => {
 
 		function frame( site: string, open: boolean, instant = false, chatTabActive = false ) {
 			return (
-				<PreviewSplitFrame
+				<PanelSplitFrame
 					siteId="one"
-					previewOpen={ open }
+					panelOpen={ open }
 					instant={ instant }
 					chatHidden={ chatTabActive }
 					chatTabActive={ chatTabActive }
-					preview={ ( { collapsed } ) => (
+					panel={ ( { collapsed } ) => (
 						<aside aria-label="Panel" data-collapsed={ collapsed }>
 							{ site }
 						</aside>
 					) }
 				>
 					<span data-testid="content">Content</span>
-				</PreviewSplitFrame>
+				</PanelSplitFrame>
 			);
 		}
 
-		it( 'does not reveal the preview when closing from the Chat tab', () => {
+		it( 'does not reveal the panel when closing from the Chat tab', () => {
 			const { rerender } = render( frame( 'Page', true, false, true ) );
 			const pane = screen.getByLabelText( 'Panel' );
 			expect( pane.closest( '[inert]' ) ).not.toBeNull();
@@ -121,18 +121,18 @@ describe( 'PreviewSplitFrame', () => {
 			expect( screen.getByRole( 'separator', { name: 'Resize panel' } ) ).toBeInTheDocument();
 		} );
 
-		it( 'slides the ready preview and header together before enabling resizing', async () => {
+		it( 'slides the ready panel and header together before enabling resizing', async () => {
 			const { rerender } = render( frame( 'Loading site', false ) );
-			const preview = screen.getByLabelText( 'Panel' );
+			const panel = screen.getByLabelText( 'Panel' );
 			rerender( frame( 'Running site', true ) );
-			expect( screen.getByRole( 'complementary', { name: 'Panel' } ) ).toBe( preview );
+			expect( screen.getByRole( 'complementary', { name: 'Panel' } ) ).toBe( panel );
 			expect( screen.queryByRole( 'separator', { name: 'Resize panel' } ) ).not.toBeInTheDocument();
-			expect( getFrameRoot().style.getPropertyValue( '--preview-layout-duration' ) ).toBe(
+			expect( getFrameRoot().style.getPropertyValue( '--panel-layout-duration' ) ).toBe(
 				'var(--motion-duration-layout)'
 			);
 			await act( () => vi.advanceTimersByTime( 240 ) );
 			expect( screen.getByRole( 'separator', { name: 'Resize panel' } ) ).toBeInTheDocument();
-			expect( screen.getByRole( 'complementary', { name: 'Panel' } ) ).toBe( preview );
+			expect( screen.getByRole( 'complementary', { name: 'Panel' } ) ).toBe( panel );
 		} );
 
 		it( 'keeps the outgoing site through the exit, even when another stopped site is selected', async () => {
@@ -178,7 +178,7 @@ describe( 'PreviewSplitFrame', () => {
 			expect( screen.getByRole( 'separator', { name: 'Resize panel' } ) ).toBeInTheDocument();
 		} );
 
-		it( 'closes immediately when an instant close interrupts an opening preview', async () => {
+		it( 'closes immediately when an instant close interrupts an opening panel', async () => {
 			const { rerender } = render( frame( 'Stopped site', false ) );
 			rerender( frame( 'Running site', true ) );
 			await act( () => vi.advanceTimersByTime( 120 ) );
@@ -190,17 +190,17 @@ describe( 'PreviewSplitFrame', () => {
 		} );
 	} );
 
-	it( 'lays out the preview immediately when mounted open', async () => {
+	it( 'lays out the panel immediately when mounted open', async () => {
 		render(
-			<PreviewSplitFrame siteId="one" previewOpen preview={ () => <aside aria-label="Panel" /> }>
+			<PanelSplitFrame siteId="one" panelOpen panel={ () => <aside aria-label="Panel" /> }>
 				<span data-testid="content">Content</span>
-			</PreviewSplitFrame>
+			</PanelSplitFrame>
 		);
 
 		const root = getFrameRoot();
 
 		await waitFor( () => {
-			expect( root ).toHaveStyle( '--preview-frame-content-width: 360px' );
+			expect( root ).toHaveStyle( '--panel-frame-content-width: 360px' );
 		} );
 		expect( screen.getByRole( 'separator', { name: 'Resize panel' } ) ).toHaveAttribute(
 			'aria-valuenow',
@@ -209,32 +209,28 @@ describe( 'PreviewSplitFrame', () => {
 		expect( screen.getByLabelText( 'Panel' ) ).toBeVisible();
 	} );
 
-	it( 'shares the resized width across sites and reloads without remounting the preview', () => {
-		window.localStorage.setItem( `${ PREVIEW_CONTENT_WIDTH_STORAGE_KEY }:one`, '620' );
+	it( 'shares the resized width across sites and reloads without remounting the panel', () => {
+		window.localStorage.setItem( `${ PANEL_CONTENT_WIDTH_STORAGE_KEY }:one`, '620' );
 		const frame = ( siteId: string ) => (
-			<PreviewSplitFrame
-				siteId={ siteId }
-				previewOpen
-				preview={ () => <aside aria-label="Panel" /> }
-			>
+			<PanelSplitFrame siteId={ siteId } panelOpen panel={ () => <aside aria-label="Panel" /> }>
 				<span data-testid="content">Content</span>
-			</PreviewSplitFrame>
+			</PanelSplitFrame>
 		);
 		const { rerender, unmount } = render( frame( 'one' ) );
-		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 360px' );
-		const preview = screen.getByLabelText( 'Panel' );
+		expect( getFrameRoot() ).toHaveStyle( '--panel-frame-content-width: 360px' );
+		const panel = screen.getByLabelText( 'Panel' );
 		fireEvent.keyDown( screen.getByRole( 'separator' ), { key: 'ArrowRight' } );
 		expect( localStorage.getItem( SITE_WIDTH_KEY ) ).toBe( '376' );
 		rerender( frame( 'two' ) );
-		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 376px' );
-		expect( screen.getByLabelText( 'Panel' ) ).toBe( preview );
+		expect( getFrameRoot() ).toHaveStyle( '--panel-frame-content-width: 376px' );
+		expect( screen.getByLabelText( 'Panel' ) ).toBe( panel );
 		fireEvent.keyDown( screen.getByRole( 'separator' ), { key: 'ArrowRight', shiftKey: true } );
-		expect( localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY ) ).toBe( '416' );
+		expect( localStorage.getItem( PANEL_CONTENT_WIDTH_STORAGE_KEY ) ).toBe( '416' );
 		rerender( frame( 'one' ) );
-		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 416px' );
+		expect( getFrameRoot() ).toHaveStyle( '--panel-frame-content-width: 416px' );
 		unmount();
 		render( frame( 'two' ) );
-		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 416px' );
+		expect( getFrameRoot() ).toHaveStyle( '--panel-frame-content-width: 416px' );
 		expect( screen.getByRole( 'separator', { name: 'Resize panel' } ) ).toHaveAttribute(
 			'aria-valuenow',
 			'584'
@@ -244,9 +240,9 @@ describe( 'PreviewSplitFrame', () => {
 	it( 'cancels a drag when switching sites without overwriting the shared width', () => {
 		localStorage.setItem( SITE_WIDTH_KEY, '500' );
 		const frame = ( siteId: string ) => (
-			<PreviewSplitFrame siteId={ siteId } previewOpen preview={ () => <aside /> }>
+			<PanelSplitFrame siteId={ siteId } panelOpen panel={ () => <aside /> }>
 				<span data-testid="content">Content</span>
-			</PreviewSplitFrame>
+			</PanelSplitFrame>
 		);
 		const { rerender } = render( frame( 'one' ) );
 		fireEvent.mouseDown( screen.getByRole( 'separator' ), { clientX: 500 } );
@@ -254,93 +250,89 @@ describe( 'PreviewSplitFrame', () => {
 		fireEvent.mouseUp( document, { clientX: 620 } );
 		expect( document.body ).not.toHaveStyle( { cursor: 'col-resize' } );
 		expect( localStorage.getItem( SITE_WIDTH_KEY ) ).toBe( '500' );
-		expect( localStorage.getItem( `${ PREVIEW_CONTENT_WIDTH_STORAGE_KEY }:two` ) ).toBeNull();
-		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 500px' );
+		expect( localStorage.getItem( `${ PANEL_CONTENT_WIDTH_STORAGE_KEY }:two` ) ).toBeNull();
+		expect( getFrameRoot() ).toHaveStyle( '--panel-frame-content-width: 500px' );
 	} );
 
 	it( 'keeps the content width stable as the window grows', async () => {
 		render(
-			<PreviewSplitFrame siteId="one" previewOpen preview={ () => <aside aria-label="Panel" /> }>
+			<PanelSplitFrame siteId="one" panelOpen panel={ () => <aside aria-label="Panel" /> }>
 				<span data-testid="content">Content</span>
-			</PreviewSplitFrame>
+			</PanelSplitFrame>
 		);
 
 		const root = getFrameRoot();
 		await waitFor( () => {
-			expect( root ).toHaveStyle( '--preview-frame-content-width: 360px' );
+			expect( root ).toHaveStyle( '--panel-frame-content-width: 360px' );
 		} );
 
 		frameWidth = 1120;
 		fireEvent( window, new Event( 'resize' ) );
 
-		expect( root ).toHaveStyle( '--preview-frame-content-width: 360px' );
+		expect( root ).toHaveStyle( '--panel-frame-content-width: 360px' );
 
 		frameWidth = 1300;
 		fireEvent( window, new Event( 'resize' ) );
 
-		expect( root ).toHaveStyle( '--preview-frame-content-width: 360px' );
+		expect( root ).toHaveStyle( '--panel-frame-content-width: 360px' );
 	} );
 
 	describe( 'window controls corner', () => {
 		function renderFrame(
 			sidebarCollapsed: boolean,
-			props: Partial< ComponentProps< typeof PreviewSplitFrame > >
+			props: Partial< ComponentProps< typeof PanelSplitFrame > >
 		) {
 			render(
 				<SidebarCollapsedContext.Provider value={ sidebarCollapsed }>
-					<PreviewSplitFrame
-						siteId="one"
-						preview={ () => <CornerProbe testId="preview" /> }
-						{ ...props }
-					>
+					<PanelSplitFrame siteId="one" panel={ () => <CornerProbe testId="panel" /> } { ...props }>
 						<span data-testid="content">Content</span>
 						<CornerProbe testId="chat" />
-					</PreviewSplitFrame>
+					</PanelSplitFrame>
 				</SidebarCollapsedContext.Provider>
 			);
 			return {
 				chat: screen.getByTestId( 'chat' ).dataset.inCorner,
-				preview: screen.getByTestId( 'preview' ).dataset.inCorner,
+				panel: screen.getByTestId( 'panel' ).dataset.inCorner,
 			};
 		}
 
-		it( 'puts the chat in the corner when the preview is closed', () => {
-			expect( renderFrame( true, {} ) ).toEqual( { chat: 'true', preview: 'false' } );
+		it( 'puts the chat in the corner when the panel is closed', () => {
+			expect( renderFrame( true, {} ) ).toEqual( { chat: 'true', panel: 'false' } );
 		} );
 
-		it( 'puts the preview in the corner when it is open', () => {
-			expect( renderFrame( true, { previewOpen: true } ) ).toEqual( {
+		it( 'puts the panel in the corner when it is open', () => {
+			expect( renderFrame( true, { panelOpen: true } ) ).toEqual( {
 				chat: 'false',
-				preview: 'true',
+				panel: 'true',
 			} );
 		} );
 	} );
 
-	it( 'keeps preview space reserved when the first mount measurement is zero', () => {
+	it( 'keeps panel space reserved when the first mount measurement is zero', () => {
 		frameWidth = 0;
 
 		render(
-			<PreviewSplitFrame siteId="one" previewOpen preview={ () => <aside aria-label="Panel" /> }>
+			<PanelSplitFrame siteId="one" panelOpen panel={ () => <aside aria-label="Panel" /> }>
 				<span data-testid="content">Content</span>
-			</PreviewSplitFrame>
+			</PanelSplitFrame>
 		);
 
 		const root = getFrameRoot();
-		expect( root ).toHaveStyle( '--preview-frame-content-width: 360px' );
+		expect( root ).toHaveStyle( '--panel-frame-content-width: 360px' );
 		expect( screen.getByLabelText( 'Panel' ) ).toBeVisible();
 	} );
 
-	it( 'keeps the preview open in a narrow frame, split in proportion and not resizable', async () => {
+	it( 'keeps the panel open in a narrow frame, split in proportion and not resizable', async () => {
 		frameWidth = 544;
 
 		render(
-			<PreviewSplitFrame siteId="one" previewOpen preview={ () => <aside aria-label="Panel" /> }>
+			<PanelSplitFrame siteId="one" panelOpen panel={ () => <aside aria-label="Panel" /> }>
 				<span data-testid="content">Content</span>
-			</PreviewSplitFrame>
+			</PanelSplitFrame>
 		);
 
 		await waitFor( () =>
-			expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 272px' )
+			expect( getFrameRoot() ).toHaveStyle( '--panel-frame-content-width: 272px' )
 		);
 		expect( screen.getByLabelText( 'Panel' ) ).toBeVisible();
 		expect( screen.queryByRole( 'separator' ) ).not.toBeInTheDocument();
@@ -349,31 +341,31 @@ describe( 'PreviewSplitFrame', () => {
 	describe( 'keyboard and pointer resizing', () => {
 		async function renderOpenAndSettle() {
 			render(
-				<PreviewSplitFrame siteId="one" previewOpen preview={ () => <aside aria-label="Panel" /> }>
+				<PanelSplitFrame siteId="one" panelOpen panel={ () => <aside aria-label="Panel" /> }>
 					<span data-testid="content">Content</span>
-				</PreviewSplitFrame>
+				</PanelSplitFrame>
 			);
 			await waitFor( () =>
-				expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 360px' )
+				expect( getFrameRoot() ).toHaveStyle( '--panel-frame-content-width: 360px' )
 			);
 			return screen.getByRole( 'separator', { name: 'Resize panel' } );
 		}
 
-		it( 'collapses the preview to its minimum width on Home', async () => {
+		it( 'collapses the panel to its minimum width on Home', async () => {
 			const handle = await renderOpenAndSettle();
 			fireEvent.keyDown( handle, { key: 'Home' } );
 			expect( handle ).toHaveAttribute( 'aria-valuenow', '360' );
 			expect( window.localStorage.getItem( SITE_WIDTH_KEY ) ).toBe( '640' );
 		} );
 
-		it( 'expands the preview to its maximum width on End', async () => {
+		it( 'expands the panel to its maximum width on End', async () => {
 			const handle = await renderOpenAndSettle();
 			fireEvent.keyDown( handle, { key: 'End' } );
 			expect( handle ).toHaveAttribute( 'aria-valuenow', '640' );
 			expect( window.localStorage.getItem( SITE_WIDTH_KEY ) ).toBe( '360' );
 		} );
 
-		it( 'steps the preview width with arrow keys, using a larger step with Shift', async () => {
+		it( 'steps the panel width with arrow keys, using a larger step with Shift', async () => {
 			const handle = await renderOpenAndSettle();
 			fireEvent.keyDown( handle, { key: 'ArrowRight', shiftKey: true } );
 			expect( handle ).toHaveAttribute( 'aria-valuenow', '600' );
@@ -390,12 +382,12 @@ describe( 'PreviewSplitFrame', () => {
 			expect( window.localStorage.getItem( SITE_WIDTH_KEY ) ).toBe( '420' );
 		} );
 
-		it( 'cleans up document drag state if the preview closes mid-resize', async () => {
-			const preview = () => <aside aria-label="Panel" />;
+		it( 'cleans up document drag state if the panel closes mid-resize', async () => {
+			const panel = () => <aside aria-label="Panel" />;
 			const { rerender } = render(
-				<PreviewSplitFrame siteId="one" previewOpen preview={ preview }>
+				<PanelSplitFrame siteId="one" panelOpen panel={ panel }>
 					<span data-testid="content">Content</span>
-				</PreviewSplitFrame>
+				</PanelSplitFrame>
 			);
 			const handle = await screen.findByRole( 'separator', { name: 'Resize panel' } );
 
@@ -404,9 +396,9 @@ describe( 'PreviewSplitFrame', () => {
 			expect( document.body ).toHaveStyle( { userSelect: 'none' } );
 
 			rerender(
-				<PreviewSplitFrame siteId="one" previewOpen={ false } preview={ preview }>
+				<PanelSplitFrame siteId="one" panelOpen={ false } panel={ panel }>
 					<span data-testid="content">Content</span>
-				</PreviewSplitFrame>
+				</PanelSplitFrame>
 			);
 
 			await waitFor( () => {

@@ -67,8 +67,8 @@ export function buildViewMenuItems( {
 	isAlwaysOnTop,
 	devTools,
 	onToggleSidebar,
-	onToggleSitePreview,
-	onSetPreviewLayout,
+	onTogglePanel,
+	onSetWorkspaceLayout,
 	onResetZoom,
 	onZoomIn,
 	onZoomOut,
@@ -77,8 +77,8 @@ export function buildViewMenuItems( {
 	isAlwaysOnTop?: boolean;
 	devTools: MenuItemConstructorOptions[];
 	onToggleSidebar: () => void;
-	onToggleSitePreview: () => void;
-	onSetPreviewLayout: ( layout: WorkspaceLayout ) => void;
+	onTogglePanel: () => void;
+	onSetWorkspaceLayout: ( layout: WorkspaceLayout ) => void;
 	onResetZoom: () => void;
 	onZoomIn: () => void;
 	onZoomOut: () => void;
@@ -92,23 +92,23 @@ export function buildViewMenuItems( {
 		{
 			label: __( 'Toggle Panel' ),
 			accelerator: 'CommandOrControl+Shift+B',
-			click: onToggleSitePreview,
+			click: onTogglePanel,
 		},
 		{ type: 'separator' },
 		{
 			label: __( 'Chat' ),
 			accelerator: 'CommandOrControl+1',
-			click: () => onSetPreviewLayout( 'chat' ),
+			click: () => onSetWorkspaceLayout( 'chat' ),
 		},
 		{
 			label: __( 'Split view' ),
 			accelerator: 'CommandOrControl+2',
-			click: () => onSetPreviewLayout( 'split' ),
+			click: () => onSetWorkspaceLayout( 'split' ),
 		},
 		{
 			label: __( 'Panel' ),
 			accelerator: 'CommandOrControl+3',
-			click: () => onSetPreviewLayout( 'preview' ),
+			click: () => onSetWorkspaceLayout( 'panel' ),
 		},
 		{ type: 'separator' },
 		...( isDevelopment ? devTools : [] ),
@@ -333,11 +333,11 @@ async function getAppMenu( mainWindow: BrowserWindow | null ) {
 				onToggleSidebar: () => {
 					void sendIpcEventToRenderer( 'toggle-sidebar' );
 				},
-				onToggleSitePreview: () => {
-					void sendIpcEventToRenderer( 'toggle-site-preview' );
+				onTogglePanel: () => {
+					void sendIpcEventToRenderer( 'toggle-panel' );
 				},
-				onSetPreviewLayout: ( layout ) => {
-					void sendIpcEventToRenderer( 'set-preview-layout', layout );
+				onSetWorkspaceLayout: ( layout ) => {
+					void sendIpcEventToRenderer( 'set-workspace-layout', layout );
 				},
 				onResetZoom: () => {
 					void withAppWebContents( ( contents ) => applyAppZoomCommand( contents, 'reset' ) );

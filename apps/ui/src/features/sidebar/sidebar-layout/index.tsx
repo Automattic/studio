@@ -68,16 +68,7 @@ export function SidebarLayout( {
 	} );
 	const sites = useSites();
 	const emptyWorkspace = sites.isSuccess && sites.data.length === 0;
-	const [ populatedCollapsed, setPopulatedCollapsed ] = useStoredFlag(
-		SIDEBAR_COLLAPSED_STORAGE_KEY,
-		false
-	);
-	const [ emptyCollapsed, setEmptyCollapsed ] = useStoredFlag(
-		'studio-ui-empty-sidebar-collapsed',
-		true
-	);
-	const collapsed = emptyWorkspace ? emptyCollapsed : populatedCollapsed;
-	const setCollapsed = emptyWorkspace ? setEmptyCollapsed : setPopulatedCollapsed;
+	const [ collapsed, setCollapsed ] = useStoredFlag( SIDEBAR_COLLAPSED_STORAGE_KEY, false );
 
 	const [ sidebarFlyoutState, setSidebarFlyoutState ] = useState< 'closed' | 'hover' | 'open' >(
 		'closed'
@@ -140,11 +131,11 @@ export function SidebarLayout( {
 	const wasEmptyWorkspace = useRef( false );
 	useEffect( () => {
 		if ( ! sites.isSuccess ) return;
-		if ( wasEmptyWorkspace.current && ! emptyWorkspace && ! overlay ) {
-			setPopulatedCollapsed( false );
+		if ( emptyWorkspace || ( wasEmptyWorkspace.current && ! overlay ) ) {
+			setCollapsed( emptyWorkspace );
 		}
 		wasEmptyWorkspace.current = emptyWorkspace;
-	}, [ sites.isSuccess, emptyWorkspace, overlay, setPopulatedCollapsed ] );
+	}, [ sites.isSuccess, emptyWorkspace, overlay, setCollapsed ] );
 	useEffect( () => {
 		if ( overlay ) setCollapsed( true );
 		return clearHoverTimer;

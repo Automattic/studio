@@ -996,6 +996,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// Spotlight opens the installed desktop app.
 			return () => {};
 		},
+		onPullSite() {
+			// `pull-site` links open the installed desktop app.
+			return () => {};
+		},
 		onOpenSettings( listener ) {
 			return onMenuShortcut( () => listener( {} ), ',' );
 		},

@@ -359,6 +359,7 @@ export function createInMemoryConnector(
 		onNewChat: subscribe( 'onNewChat' ),
 		onOpenFolder: subscribe( 'onOpenFolder' ),
 		onOpenSite: subscribe( 'onOpenSite' ),
+		onPullSite: subscribe( 'onPullSite' ),
 		onAddSiteWithBlueprint: subscribe( 'onAddSiteWithBlueprint' ),
 		readyForDeeplinks: () => {},
 		onOpenSettings: subscribe( 'onOpenSettings' ),

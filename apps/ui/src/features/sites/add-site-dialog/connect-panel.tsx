@@ -2,12 +2,14 @@ import { getLocalizedLink } from '@studio/common/lib/docs-links';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { __, _x, sprintf } from '@wordpress/i18n';
 import { SearchIcon } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSyncableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import { AccountPrompt } from '@/features/account';
+import { pendingRemoteSiteSlot } from '@/features/sites/pending-remote-site';
 import { useOffline } from '@/lib/hooks';
 import { ExternalLinkIcon } from '@/lib/icons';
 import {
@@ -177,6 +179,26 @@ export function ConnectPanel( { onConnect }: { onConnect: ( site: SyncSite ) => 
 			sites: filteredSites.filter( ( entry ) => entry.group !== 'available' ),
 		},
 	];
+
+	// A `pull-site` link goes straight to setting up the local copy of its site.
+	const pendingRemote = useSyncExternalStore(
+		pendingRemoteSiteSlot.subscribe,
+		pendingRemoteSiteSlot.getSnapshot
+	);
+	useEffect( () => {
+		if ( ! pendingRemote || ! remoteSites.data ) {
+			return;
+		}
+		pendingRemoteSiteSlot.clear( pendingRemote );
+		const entry = presentedSites.find( ( { site } ) => site.id === pendingRemote.remoteSiteId );
+		if ( entry?.group === 'available' ) {
+			onConnect( entry.site );
+		} else if ( entry ) {
+			toast.error( getSiteStatus( entry.site, entry.group ) );
+		} else {
+			toast.error( __( "This site isn't one of your WordPress.com or Pressable sites." ) );
+		}
+	}, [ pendingRemote, remoteSites.data, presentedSites, onConnect ] );
 
 	const retry = useCallback( () => {
 		void remoteSites.refetch();

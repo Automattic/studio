@@ -6,6 +6,7 @@ import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { resolveSettingsLink } from '@/data/settings-sections';
+import { requestHeaderPanel } from '@/data/use-open-header-panel';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { useOpenSite } from '@/data/use-open-site';
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
@@ -13,6 +14,7 @@ import {
 	useOpenAddSite,
 	createSelectedBlueprint,
 	pendingBlueprintSlot,
+	pendingRemoteSiteSlot,
 	pendingSiteFolderSlot,
 } from '@/features/sites';
 import { replaceOpenDialogs } from '@/lib/ui';
@@ -101,6 +103,41 @@ export function useAppMenuNavigation() {
 					.catch( () => toast.error( __( 'WordPress Studio could not open the site.' ) ) );
 			} ),
 		[ connector, openSite, queryClient, startSite ]
+	);
+	// Opens the Pull view of the local site connected to the remote one, or sets up a new
+	// local site for it. Either way, the user starts the pull.
+	useEffect(
+		() =>
+			connector.onPullSite( ( { remoteSiteId } ) => {
+				void ( async () => {
+					const [ connected, sites ] = await Promise.all( [
+						connector.getConnectedWpcomSites().catch( () => [] ),
+						queryClient.fetchQuery( {
+							queryKey: SITES_QUERY_KEY,
+							queryFn: () => connector.getSites(),
+						} ),
+					] );
+					const localSiteIds = new Set(
+						connected
+							.filter( ( remote ) => remote.id === remoteSiteId )
+							.map( ( remote ) => remote.localSiteId )
+					);
+					const site = sites.find( ( candidate ) => localSiteIds.has( candidate.id ) );
+					if ( site ) {
+						requestHeaderPanel( {
+							panel: 'publish',
+							siteId: site.id,
+							view: 'pull',
+							remoteSiteId,
+						} );
+						openSite( site );
+						return;
+					}
+					pendingRemoteSiteSlot.set( { remoteSiteId } );
+					openAddSite( 'connect' );
+				} )().catch( () => toast.error( __( 'WordPress Studio could not open the site.' ) ) );
+			} ),
+		[ connector, openAddSite, openSite, queryClient ]
 	);
 	useEffect(
 		() =>

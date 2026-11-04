@@ -915,6 +915,13 @@ export function createIpcConnector(): Connector {
 			);
 		},
 
+		onPullSite( listener ) {
+			return ipcListener.subscribe(
+				'pull-site',
+				( _event: unknown, payload: { remoteSiteId: number } ) => listener( payload )
+			);
+		},
+
 		onOpenSettings( listener ) {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;

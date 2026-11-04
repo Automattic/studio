@@ -611,6 +611,8 @@ export interface Connector {
 	onOpenFolder( listener: () => void ): () => void;
 	// Desktop links and Spotlight select a site in the Studio workspace.
 	onOpenSite( listener: ( payload: { siteId: string } ) => void ): () => void;
+	// `pull-site` links from WordPress.com pull a remote site into Studio.
+	onPullSite( listener: ( payload: { remoteSiteId: number } ) => void ): () => void;
 	onAddSiteWithBlueprint( listener: ( payload: { blueprintPath: string } ) => void ): () => void;
 	// Tells the host the app now listens for the events links send (Settings, Add
 	// site, sync and checkout returns), so a link that arrived earlier opens.

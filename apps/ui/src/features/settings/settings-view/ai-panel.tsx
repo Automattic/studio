@@ -17,17 +17,31 @@ import {
 } from '@/data/queries/use-ai-settings';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import { LearnMoreLink } from '@/features/onboarding';
+import { AppIcon } from '@/features/sites';
 import { useOffline } from '@/lib/hooks';
+import { ChatGptIcon, ClaudeIcon, WordPressIcon } from '@/lib/icons';
 import { Badge, Button, Input } from '@/lib/ui';
 import { SettingsGroup, SettingsRow, SettingsSelect } from './rows';
 import styles from './style.module.css';
 import type { AiProviderId } from '@studio/agent/protocol/providers';
+import type { ComponentType } from 'react';
 
 const connectedBadge = () => (
 	<Badge size="xs" variant="accent">
 		<CheckIcon aria-hidden="true" />
 		{ __( 'Connected' ) }
 	</Badge>
+);
+
+const providerIcon = ( app: string, Fallback: ComponentType ) => (
+	<AppIcon
+		app={ app }
+		fallback={
+			<span className={ styles.appIconFallback }>
+				<Fallback />
+			</span>
+		}
+	/>
 );
 
 function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } ) {
@@ -89,158 +103,165 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 	};
 
 	return (
-		<SettingsGroup title={ __( 'Providers' ) }>
-			{ settings.isError ? (
-				<SettingsRow title={ __( "Couldn't load providers." ) }>
-					<Button variant="outline" onClick={ () => void settings.refetch() }>
-						{ __( 'Retry' ) }
-					</Button>
-				</SettingsRow>
-			) : null }
-			<SettingsRow
-				title={ __( 'WordPress.com' ) }
-				badge={ user ? connectedBadge() : null }
-				description={
-					<>
-						{ __(
-							'Get started with a one-time free allowance, then buy more as you go. No API key required.'
-						) }{ ' ' }
-						<LearnMoreLink docsLinksKey="docsAiCredits" />
-					</>
-				}
-				error={ signup.error?.message }
-			>
-				<Button
-					disabled={ userLoading || ( ! user && isOffline ) }
-					ref={ promptRef }
-					onClick={ () => {
-						if ( user ) {
-							onManageCredits();
-							return;
-						}
-						setWpcomRequested( true );
-						signup.mutate( undefined, { onError: () => setWpcomRequested( false ) } );
-					} }
-				>
-					{ user ? __( 'Manage' ) : __( 'Connect' ) }
-				</Button>
-			</SettingsRow>
-			<SettingsRow
-				title={ __( 'Anthropic API' ) }
-				badge={ hasKey ? connectedBadge() : null }
-				description={
-					<>
-						{ __( 'Use Claude with your own API key.' ) }{ ' ' }
-						<LearnMoreLink docsLinksKey="docsAnthropicApiKey" />
-					</>
-				}
-			>
-				<Button
-					variant="outline"
-					aria-expanded={ keyFormOpen }
-					disabled={ pending }
-					onClick={ () => ( keyFormOpen ? closeKeyForm() : setKeyFormOpen( true ) ) }
-				>
-					{ hasKey ? __( 'Manage' ) : __( 'Connect' ) }
-				</Button>
-			</SettingsRow>
-			{ keyFormOpen ? (
-				<form
-					aria-label={ __( 'Anthropic connection' ) }
-					onSubmit={ ( event ) => {
-						event.preventDefault();
-						if ( ! pending && ( key.trim() || hasKey ) ) {
-							void connectKey().catch( () => {} );
-						}
-					} }
-				>
-					<SettingsRow
-						title={ __( 'Anthropic API key' ) }
-						description={ __( 'Usage is billed through your Anthropic account.' ) }
-						error={ ( saveKey.error ?? setProvider.error )?.message }
-						stacked
-					>
-						<div className={ styles.keyForm }>
-							<Input
-								className={ styles.apiKeyInput }
-								type="password"
-								autoComplete="off"
-								aria-label={ __( 'Anthropic API key' ) }
-								placeholder={ settings.data?.anthropicApiKeyPreview ?? 'sk-…' }
-								value={ key }
-								disabled={ pending }
-								onChange={ ( event ) => setKey( event.target.value ) }
-							/>
-							<Button
-								type="submit"
-								disabled={ pending || ( ! key.trim() && ! hasKey ) }
-								loading={ saveKey.isPending || setProvider.isPending }
-								loadingAnnouncement={ __( 'Saving' ) }
-							>
-								{ __( 'Save' ) }
-							</Button>
-							{ hasKey ? (
-								<Button
-									variant="outline"
-									disabled={ pending }
-									onClick={ () => saveKey.mutate( null, { onSuccess: closeKeyForm } ) }
-								>
-									{ __( 'Remove key' ) }
-								</Button>
-							) : null }
-						</div>
+		<>
+			<SettingsGroup title={ __( 'Providers' ) }>
+				{ settings.isError ? (
+					<SettingsRow title={ __( "Couldn't load providers." ) }>
+						<Button variant="outline" onClick={ () => void settings.refetch() }>
+							{ __( 'Retry' ) }
+						</Button>
 					</SettingsRow>
-				</form>
-			) : null }
-			<SettingsRow
-				title={ __( 'ChatGPT' ) }
-				badge={ hasChatGpt ? connectedBadge() : null }
-				description={
-					connectChatGpt.isPending
-						? __( 'Finish signing in in the browser window that opened.' )
-						: __( 'Use your ChatGPT Plus or Pro plan. Usage counts toward your plan’s limits.' )
-				}
-				error={ ( connectChatGpt.error ?? disconnectChatGpt.error )?.message }
-			>
-				{ hasChatGpt ? (
-					<Button
-						variant="outline"
-						disabled={ pending }
-						loading={ disconnectChatGpt.isPending }
-						loadingAnnouncement={ __( 'Signing out' ) }
-						onClick={ () => disconnectChatGpt.mutate() }
-					>
-						{ __( 'Sign out' ) }
-					</Button>
-				) : (
-					<Button
-						variant="outline"
-						disabled={ pending || isOffline }
-						onClick={ () => void signInWithChatGpt().catch( () => {} ) }
-					>
-						{ connectChatGpt.isPending ? __( 'Open again' ) : __( 'Sign in' ) }
-					</Button>
-				) }
-			</SettingsRow>
-			{ connectedProviders.length > 1 && settings.data ? (
+				) : null }
 				<SettingsRow
-					title={ __( 'Default provider' ) }
-					description={ __( 'The provider new chats use.' ) }
-					error={ keyFormOpen ? undefined : setProvider.error?.message }
+					title={ __( 'WordPress.com' ) }
+					icon={ providerIcon( 'wordpress-com', WordPressIcon ) }
+					badge={ user ? connectedBadge() : null }
+					description={
+						<>
+							{ __(
+								'Get started with a one-time free allowance, then buy more as you go. No API key required.'
+							) }{ ' ' }
+							<LearnMoreLink docsLinksKey="docsAiCredits" />
+						</>
+					}
+					error={ signup.error?.message }
 				>
-					<SettingsSelect< AiProviderId >
-						label={ __( 'Default provider' ) }
-						value={ settings.data.provider }
-						disabled={ pending }
-						options={ connectedProviders.map( ( provider ) => ( {
-							value: provider,
-							label: AI_PROVIDER_LABELS[ provider ],
-						} ) ) }
-						onChange={ ( provider ) => setProvider.mutate( provider ) }
-					/>
+					<Button
+						disabled={ userLoading || ( ! user && isOffline ) }
+						ref={ promptRef }
+						onClick={ () => {
+							if ( user ) {
+								onManageCredits();
+								return;
+							}
+							setWpcomRequested( true );
+							signup.mutate( undefined, { onError: () => setWpcomRequested( false ) } );
+						} }
+					>
+						{ user ? __( 'Manage' ) : __( 'Connect' ) }
+					</Button>
 				</SettingsRow>
+				<SettingsRow
+					title={ __( 'Anthropic API' ) }
+					icon={ providerIcon( 'claude', ClaudeIcon ) }
+					badge={ hasKey ? connectedBadge() : null }
+					description={
+						<>
+							{ __( 'Use Claude with your own API key.' ) }{ ' ' }
+							<LearnMoreLink docsLinksKey="docsAnthropicApiKey" />
+						</>
+					}
+				>
+					<Button
+						variant="outline"
+						aria-expanded={ keyFormOpen }
+						disabled={ pending }
+						onClick={ () => ( keyFormOpen ? closeKeyForm() : setKeyFormOpen( true ) ) }
+					>
+						{ hasKey ? __( 'Manage' ) : __( 'Connect' ) }
+					</Button>
+				</SettingsRow>
+				{ keyFormOpen ? (
+					<form
+						aria-label={ __( 'Anthropic connection' ) }
+						onSubmit={ ( event ) => {
+							event.preventDefault();
+							if ( ! pending && ( key.trim() || hasKey ) ) {
+								void connectKey().catch( () => {} );
+							}
+						} }
+					>
+						<SettingsRow
+							title={ __( 'Anthropic API key' ) }
+							description={ __( 'Usage is billed through your Anthropic account.' ) }
+							error={ ( saveKey.error ?? setProvider.error )?.message }
+							stacked
+						>
+							<div className={ styles.keyForm }>
+								<Input
+									className={ styles.apiKeyInput }
+									type="password"
+									autoComplete="off"
+									aria-label={ __( 'Anthropic API key' ) }
+									placeholder={ settings.data?.anthropicApiKeyPreview ?? 'sk-…' }
+									value={ key }
+									disabled={ pending }
+									onChange={ ( event ) => setKey( event.target.value ) }
+								/>
+								<Button
+									type="submit"
+									disabled={ pending || ( ! key.trim() && ! hasKey ) }
+									loading={ saveKey.isPending || setProvider.isPending }
+									loadingAnnouncement={ __( 'Saving' ) }
+								>
+									{ __( 'Save' ) }
+								</Button>
+								{ hasKey ? (
+									<Button
+										variant="outline"
+										disabled={ pending }
+										onClick={ () => saveKey.mutate( null, { onSuccess: closeKeyForm } ) }
+									>
+										{ __( 'Remove key' ) }
+									</Button>
+								) : null }
+							</div>
+						</SettingsRow>
+					</form>
+				) : null }
+				<SettingsRow
+					title={ __( 'ChatGPT' ) }
+					icon={ providerIcon( 'chatgpt', ChatGptIcon ) }
+					badge={ hasChatGpt ? connectedBadge() : null }
+					description={
+						connectChatGpt.isPending
+							? __( 'Finish signing in in the browser window that opened.' )
+							: __( 'Use your ChatGPT Plus or Pro plan. Usage counts toward your plan’s limits.' )
+					}
+					error={ ( connectChatGpt.error ?? disconnectChatGpt.error )?.message }
+				>
+					{ hasChatGpt ? (
+						<Button
+							variant="outline"
+							disabled={ pending }
+							loading={ disconnectChatGpt.isPending }
+							loadingAnnouncement={ __( 'Signing out' ) }
+							onClick={ () => disconnectChatGpt.mutate() }
+						>
+							{ __( 'Sign out' ) }
+						</Button>
+					) : (
+						<Button
+							variant="outline"
+							disabled={ pending || isOffline }
+							onClick={ () => void signInWithChatGpt().catch( () => {} ) }
+						>
+							{ connectChatGpt.isPending ? __( 'Open again' ) : __( 'Sign in' ) }
+						</Button>
+					) }
+				</SettingsRow>
+			</SettingsGroup>
+			{ connectedProviders.length > 1 && settings.data ? (
+				<SettingsGroup>
+					<SettingsRow
+						title={ __( 'Default provider' ) }
+						description={ __( 'The provider new chats use.' ) }
+						error={ keyFormOpen ? undefined : setProvider.error?.message }
+					>
+						<SettingsSelect< AiProviderId >
+							label={ __( 'Default provider' ) }
+							value={ settings.data.provider }
+							disabled={ pending }
+							options={ connectedProviders.map( ( provider ) => ( {
+								value: provider,
+								label: AI_PROVIDER_LABELS[ provider ],
+							} ) ) }
+							onChange={ ( provider ) => setProvider.mutate( provider ) }
+						/>
+					</SettingsRow>
+				</SettingsGroup>
 			) : null }
-		</SettingsGroup>
+		</>
 	);
 }
 

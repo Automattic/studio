@@ -35,7 +35,7 @@ async function setup(
 
 async function uploadBlueprint( blueprint: Blueprint & { meta?: object } ) {
 	fireEvent.click( screen.getByRole( 'button', { name: 'Back' } ) );
-	fireEvent.click( await screen.findByRole( 'tab', { name: 'Upload' } ) );
+	fireEvent.click( await screen.findByRole( 'tab', { name: 'Import' } ) );
 	await screen.findByRole( 'button', { name: 'Choose file' } );
 	const contents = JSON.stringify( { meta: { title: 'Network', author: 'Studio' }, ...blueprint } );
 	const file = new File( [ contents ], 'blueprint.json', { type: 'application/json' } );
@@ -54,14 +54,12 @@ async function createSite( dialog: HTMLElement, name = 'Create site' ) {
 describe( 'Add site › blank setup', () => {
 	it( 'switches between blank and uploaded Blueprint setup', async () => {
 		const { dialog } = await setup();
-		expect(
-			within( dialog ).getByRole( 'heading', { name: 'Create a blank site' } )
-		).toBeVisible();
+		expect( within( dialog ).getByRole( 'heading', { name: 'Create your site' } ) ).toBeVisible();
 		await uploadBlueprint( {} );
-		expect( await screen.findByRole( 'heading', { name: 'Network' } ) ).toBeVisible();
+		expect( await screen.findByText( 'Network', { selector: 'span' } ) ).toBeVisible();
 		expect( within( dialog ).getByRole( 'heading', { name: 'Create your site' } ) ).toBeVisible();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Remove' } ) );
-		expect( await screen.findByRole( 'heading', { name: 'Create a blank site' } ) ).toBeVisible();
+		expect( await screen.findByRole( 'heading', { name: 'Create your site' } ) ).toBeVisible();
 	} );
 
 	it( 'submits a blank site and opens its workspace without starting AI work', async () => {
@@ -113,7 +111,7 @@ describe( 'Add site › blank setup', () => {
 			],
 		} as Blueprint );
 		expect(
-			await screen.findByRole( 'heading', { name: 'Theme & plugin development' } )
+			await screen.findByText( 'Theme & plugin development', { selector: 'span' } )
 		).toBeVisible();
 		expect( screen.getByRole( 'heading', { name: '1 plugin' } ) ).toBeVisible();
 		expect( screen.getByRole( 'heading', { name: '1 theme' } ) ).toBeVisible();
@@ -121,13 +119,13 @@ describe( 'Add site › blank setup', () => {
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith(
 			'https://wordpress.org/plugins/query-monitor/'
 		);
-		expect( screen.getByRole( 'button', { name: 'Create site from Blueprint' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Create site' } ) ).toBeVisible();
 	} );
 
 	it( 'requires a custom domain for a multisite Blueprint', async () => {
 		const { dialog } = await setup();
 		await uploadBlueprint( { steps: [ { step: 'enableMultisite' } ] } );
-		await screen.findByRole( 'heading', { name: 'Network' } );
+		await screen.findByText( 'Network', { selector: 'span' } );
 		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Advanced settings' } ) );
 		const toggle = await within( dialog ).findByRole( 'switch', { name: 'Use custom domain' } );
 		expect( toggle ).toBeChecked();

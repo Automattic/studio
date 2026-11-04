@@ -130,3 +130,58 @@ it( 'honors desktop opt-out and disable paths with site props', async () => {
 		vi.stubEnv( key, key === 'NODE_ENV' ? 'production' : '' );
 	}
 } );
+
+it.each( [ 'chat', 'split', 'panel' ] )(
+	'sends workspace layout %s with only opaque site attribution',
+	async ( layout ) => {
+		await recordAnalyticsEvent(
+			ipcEvent,
+			TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED,
+			{ layout, site_id: operationalId, preview_id: '/private/path' },
+			operationalId
+		);
+		const payload = new URL( send.mock.calls[ 0 ][ 0 ] ).searchParams;
+		expect( payload.get( '_en' ) ).toBe( TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED );
+		expect( payload.get( 'layout' ) ).toBe( layout );
+		expect( payload.get( 'site_id' ) ).toMatch( uuid );
+		expect( payload.get( 'channel' ) ).toBe( 'studio-ui' );
+		expect( payload.has( 'preview_id' ) ).toBe( false );
+		expect( payload.has( 'trigger' ) ).toBe( false );
+		expect( JSON.stringify( Object.fromEntries( payload ) ) ).not.toMatch(
+			/caller@example|private|Private title/
+		);
+	}
+);
+
+it.each( [ 'missing', 'storage' ] )(
+	'preserves layout telemetry when attribution is %s',
+	async ( failure ) => {
+		if ( failure === 'storage' )
+			vi.spyOn( configFile, 'writeCliConfigFileRaw' ).mockRejectedValueOnce(
+				new Error( 'Unavailable' )
+			);
+		await recordAnalyticsEvent(
+			ipcEvent,
+			TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED,
+			{ layout: 'split', site_id: operationalId },
+			failure === 'missing' ? 'missing' : operationalId
+		);
+		const payload = new URL( send.mock.calls[ 0 ][ 0 ] ).searchParams;
+		expect( payload.get( 'layout' ) ).toBe( 'split' );
+		expect( payload.has( 'site_id' ) ).toBe( false );
+	}
+);
+
+it.each( [ 'IS_DEV_BUILD', 'CI' ] )(
+	'disables workspace layout telemetry with %s',
+	async ( key ) => {
+		vi.stubEnv( key, 'true' );
+		await recordAnalyticsEvent(
+			ipcEvent,
+			TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED,
+			{ layout: 'split' },
+			operationalId
+		);
+		expect( send ).not.toHaveBeenCalled();
+	}
+);

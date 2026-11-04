@@ -76,9 +76,13 @@ export function extractFormValuesFromBlueprint(
 		}
 	}
 
-	const setSiteOptionsStep = steps.find( ( step ) => step.step === 'setSiteOptions' );
-	if ( setSiteOptionsStep?.options?.blogname ) {
-		values.siteName = String( setSiteOptionsStep.options.blogname );
+	if ( blueprintJson.siteOptions?.blogname ) {
+		values.siteName = String( blueprintJson.siteOptions.blogname );
+	}
+	for ( const step of steps ) {
+		if ( step.step === 'setSiteOptions' && step.options?.blogname !== undefined ) {
+			values.siteName = String( step.options.blogname );
+		}
 	}
 
 	// Check top-level login property (shorthand syntax).
@@ -124,9 +128,15 @@ export function updateBlueprintWithFormValues(
 		defineSiteUrlStep.siteUrl = `${ protocol }://${ formValues.customDomain }`;
 	}
 
-	const siteOptionsStep = steps.find( ( step ) => step.step === 'setSiteOptions' );
-	if ( siteOptionsStep?.options && formValues.siteName ) {
-		siteOptionsStep.options.blogname = formValues.siteName;
+	if ( formValues.siteName ) {
+		if ( updated.siteOptions?.blogname !== undefined ) {
+			updated.siteOptions.blogname = formValues.siteName;
+		}
+		for ( const step of steps ) {
+			if ( step.step === 'setSiteOptions' && step.options?.blogname !== undefined ) {
+				step.options.blogname = formValues.siteName;
+			}
+		}
 	}
 
 	return updated;

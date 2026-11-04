@@ -51,6 +51,41 @@ async function newBrowserTab() {
 	await waitFor( () => expect( selectedTab() ).toHaveFocus() );
 	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).not.toHaveFocus();
 }
+
+it( 'opens DevTools for the selected browser tab while retaining the other guests', async () => {
+	const userAgent = window.navigator.userAgent;
+	Object.defineProperty( window.navigator, 'userAgent', {
+		value: `${ userAgent } Electron/38.0.0`,
+		configurable: true,
+	} );
+	const openWebviewDevTools = vi.fn().mockResolvedValue( undefined );
+	vi.stubGlobal( 'ipcApi', { openWebviewDevTools } );
+	try {
+		const { user } = await setup();
+		const first = selectedTab();
+		const firstGuest = document.querySelector( 'webview' )!;
+		Object.assign( firstGuest, { getWebContentsId: () => 42 } );
+		await newBrowserTab();
+		const guests = document.querySelectorAll( 'webview' );
+		expect( guests ).toHaveLength( 2 );
+		Object.assign( guests[ 1 ], { getWebContentsId: () => 43 } );
+		for ( const id of [ 43, 42 ] ) {
+			if ( id === 42 ) await user.click( first );
+			screen.getByRole( 'button', { name: 'Browser options' } ).focus();
+			await user.keyboard( '{ArrowDown}' );
+			await user.click( screen.getByRole( 'menuitem', { name: 'Open DevTools' } ) );
+			expect( openWebviewDevTools ).toHaveBeenLastCalledWith( id );
+		}
+		expect( document.querySelector( 'webview' ) ).toBe( firstGuest );
+	} finally {
+		Object.defineProperty( window.navigator, 'userAgent', {
+			value: userAgent,
+			configurable: true,
+		} );
+		vi.unstubAllGlobals();
+	}
+} );
+
 it.each( [ 'header', 'shortcut', 'palette' ] )(
 	'returns from the Chat tab to the preview using the %s',
 	async ( control ) => {
@@ -65,7 +100,7 @@ it.each( [ 'header', 'shortcut', 'palette' ] )(
 		if ( control === 'header' ) {
 			fireEvent.click( screen.getByRole( 'button', { name: 'Show panel' } ) );
 		} else if ( control === 'shortcut' ) {
-			act( () => connector.emit( 'onToggleSitePreview' ) );
+			act( () => connector.emit( 'onTogglePanel' ) );
 		} else {
 			act( () => setCommandPaletteOpen( true ) );
 			fireEvent.change( await screen.findByRole( 'combobox', { name: 'Search commands' } ), {
@@ -79,7 +114,7 @@ it.each( [ 'header', 'shortcut', 'palette' ] )(
 		await waitFor( () => expect( composer ).toBeVisible() );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Show panel' } ) );
 		expect( screen.getByRole( 'button', { name: 'Hide panel' } ) ).toHaveAttribute(
-			'data-preview-layout',
+			'data-workspace-layout',
 			'split'
 		);
 		expect( composer ).toHaveValue( 'Keep this draft' );

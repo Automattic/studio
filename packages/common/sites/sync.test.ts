@@ -40,12 +40,14 @@ describe( 'pullSite', () => {
 		expect( execute ).not.toHaveBeenCalled();
 	} );
 
-	it( 'passes backup node ids with commas as separate argv values', async () => {
+	// Each pull engine reads its own form of a file pick.
+	it( 'passes both selection forms, one argv value per id or path', async () => {
 		const { emitter, execute } = fakeCli();
 		const includePathList = [ 'cjE6,ZjE6Lw==', 'cjI6,ZjI6Lw==', 'ZjM6Lw==' ];
 		const pulling = pullSite( execute, '/sites/local', 42, {
 			optionsToSync: [ 'paths' ],
 			includePathList,
+			onlyPaths: [ 'themes/one,two', 'uploads' ],
 		} );
 
 		emitter.emit( 'success' );
@@ -62,6 +64,10 @@ describe( 'pullSite', () => {
 				'paths',
 				'--include-path-list',
 				...includePathList,
+				'--only',
+				'themes/one,two',
+				'--only',
+				'uploads',
 				'--suppress-tracks-event',
 			],
 			{ output: 'capture' }
@@ -119,12 +125,16 @@ describe( 'cancellable phases', () => {
 		expect( canCancelPull( 'fetchRemoteSites' ) ).toBe( true );
 		expect( canCancelPull( 'initiateBackup' ) ).toBe( true );
 		expect( canCancelPull( 'download' ) ).toBe( true );
+		// The Reprint pull's remote steps.
+		expect( canCancelPull( 'loadWpComSites' ) ).toBe( true );
+		expect( canCancelPull( 'preflight' ) ).toBe( true );
 
 		// `stopSite` is the first local write; the import actions after it come
 		// from another logger enum, so anything unrecognised is refused too.
 		expect( canCancelPull( 'stopSite' ) ).toBe( false );
 		expect( canCancelPull( 'extractBackup' ) ).toBe( false );
 		expect( canCancelPull( 'importDatabase' ) ).toBe( false );
+		expect( canCancelPull( 'downloadFiles' ) ).toBe( false );
 		expect( canCancelPull( 'startSite' ) ).toBe( false );
 	} );
 

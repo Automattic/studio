@@ -33,14 +33,12 @@ describe( 'Open Folder', () => {
 		} );
 		act( () => connector.emit( 'onOpenFolder' ) );
 		const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
-		await within( dialog ).findByRole( 'heading', { name: 'Fashion Magazine' } );
+		await within( dialog ).findByText( 'Fashion Magazine', { selector: 'span' } );
 		expect( within( dialog ).getByLabelText( 'Site name' ) ).toHaveValue( 'Fashion Magazine' );
 		expect(
 			within( dialog ).queryByText( 'Existing local WordPress site' )
 		).not.toBeInTheDocument();
-		fireEvent.click(
-			within( dialog ).getByRole( 'button', { name: 'Create site from Blueprint' } )
-		);
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Create site' } ) );
 		await waitFor( () => expect( connector.createSite ).toHaveBeenCalled() );
 		expect( connector.createSite.mock.calls[ 0 ][ 0 ].blueprint ).toMatchObject( {
 			filePath: '/tmp/bundle/formwork/blueprint.json',

@@ -2,7 +2,9 @@ import { act, fireEvent, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { SIDEBAR_PANEL_CONFIG } from '@/data/resizable-panels';
+import { SessionUIProvider } from '@/data/use-session-ui';
 import { HeaderSidebarToggle } from '@/features/sidebar/sidebar-toggle';
+import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { SidebarLayout } from './index';
 
@@ -36,7 +38,14 @@ function Layout( { chat: initialChat = true } ) {
 }
 
 async function setup( options = {} ) {
-	const view = renderWithProviders( <Layout { ...options } /> );
+	const view = renderWithProviders(
+		<SessionUIProvider>
+			<Layout { ...options } />
+		</SessionUIProvider>,
+		{
+			connector: createFakeConnector( { sites: [ makeSite() ] } ),
+		}
+	);
 	await screen.findAllByRole( 'button', { name: /^(Show|Hide) sidebar$/ } );
 	return view;
 }

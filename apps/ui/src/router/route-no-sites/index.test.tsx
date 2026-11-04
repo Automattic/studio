@@ -21,6 +21,16 @@ describe( 'the empty workspace', () => {
 			expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument()
 		);
 
+		const toggle = screen
+			.getAllByRole( 'button', { name: 'Show sidebar' } )
+			.find( ( button ) => ! button.closest( '[inert]' ) )!;
+		await user.click( toggle );
+		expect(
+			screen
+				.getAllByRole( 'button', { name: 'Hide sidebar' } )
+				.find( ( button ) => ! button.closest( '[inert]' ) )
+		).toBeVisible();
+
 		await act( async () => {
 			await connector.createSite( { name: 'From the terminal', path: '/sites/from-cli' } );
 		} );

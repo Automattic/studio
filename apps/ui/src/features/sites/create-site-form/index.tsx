@@ -46,6 +46,7 @@ import {
 import { PathField } from './path-field';
 import styles from './style.module.css';
 import { usePathAutoGenerate } from './use-path-auto-generate';
+import type { SelectedSiteFolder } from '@/data/core';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { FormEvent, ReactElement, ReactNode } from 'react';
@@ -59,6 +60,7 @@ export interface CreateSiteFormError {
 }
 
 interface CreateSiteFormProps {
+	selectedFolder?: SelectedSiteFolder;
 	initialValues?: Partial< CreateSiteFormValues >;
 	existingDomainNames: string[];
 	onSubmit: ( values: CreateSiteFormValues ) => void;
@@ -85,6 +87,7 @@ interface CreateSiteFormProps {
 }
 
 export function CreateSiteForm( {
+	selectedFolder,
 	initialValues,
 	existingDomainNames,
 	onSubmit,
@@ -183,6 +186,18 @@ export function CreateSiteForm( {
 		if ( update.name !== undefined ) setIsNameEdited( true );
 		setData( ( prev ) => applyFormChange( prev, update ) );
 	}, [] );
+
+	useEffect( () => {
+		if ( ! selectedFolder ) return;
+		handleChange( {
+			path: selectedFolder.path,
+			hasCustomPath: true,
+			pathError: '',
+			isWordPress: selectedFolder.isWordPress,
+			isPathPending: false,
+			...( selectedFolder.name ? { name: selectedFolder.name } : {} ),
+		} );
+	}, [ selectedFolder, handleChange ] );
 
 	const existing = ! requiresEmptyPath && data.isWordPress && !! data.path && ! data.isPathPending;
 	// The path's required check opts out while `FormData.isPathPending`.

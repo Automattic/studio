@@ -1,33 +1,30 @@
 import { __, sprintf } from '@wordpress/i18n';
-import {
-	ArrowRightLeftIcon,
-	CodeIcon,
-	DatabaseIcon,
-	DownloadIcon,
-	EyeIcon,
-	EyeOffIcon,
-	FolderIcon,
-	PencilIcon,
-	RefreshCwIcon,
-	TerminalIcon,
-	UploadIcon,
-	XIcon,
-} from 'lucide-react';
+import { XIcon } from 'lucide-react';
 import { getSettingsCommandAliases } from '@/data/settings-sections';
 import {
 	AnnotateIcon,
 	ChatIcon,
+	CodeIcon,
+	DatabaseIcon,
+	FullscreenIcon,
+	SplitViewIcon,
 	DuplicateIcon,
+	ExportSiteIcon,
 	ExternalLinkIcon,
+	FolderIcon,
+	ImportIcon,
 	MailIcon,
 	NewChatIcon,
 	PinIcon,
+	RenameIcon,
 	RotateCwIcon,
 	ShareIcon,
 	SiteSettingsIcon,
 	StartSiteIcon,
 	StopOtherSitesIcon,
 	StopSiteIcon,
+	SyncIcon,
+	TerminalIcon,
 	UnpinIcon,
 	WordPressIcon,
 } from '@/lib/icons';
@@ -66,8 +63,8 @@ export function getSiteCommands( {
 	newChat,
 	reloadPreview,
 	annotate,
-	showPreview,
 	setChatHidden,
+	showPreview,
 	copyUrl,
 }: {
 	site: SiteDetails;
@@ -84,8 +81,8 @@ export function getSiteCommands( {
 	newChat: () => void;
 	reloadPreview: () => void;
 	annotate: ( active: boolean ) => void;
-	showPreview: ( open: boolean ) => void;
 	setChatHidden: ( hidden: boolean ) => void;
+	showPreview: ( open: boolean ) => void;
 	copyUrl: () => void;
 } ): PaletteCommand[] {
 	const { busy, running, othersRunning } = actions;
@@ -136,7 +133,7 @@ export function getSiteCommands( {
 			group: 'commands',
 			label: __( 'Rename site…' ),
 			aliases: getSettingsCommandAliases( 'site', 'rename-site' ),
-			icon: PencilIcon,
+			icon: RenameIcon,
 			description,
 			run: actions.rename,
 		},
@@ -146,7 +143,7 @@ export function getSiteCommands( {
 					{
 						id: 'admin',
 						group: 'commands' as const,
-						label: __( 'Open WordPress Admin in preview' ),
+						label: __( 'Open WordPress Admin in panel' ),
 						aliases: [ __( 'Open WordPress Admin' ) ],
 						icon: WordPressIcon,
 						description,
@@ -156,7 +153,7 @@ export function getSiteCommands( {
 					{
 						id: 'database',
 						group: 'commands' as const,
-						label: __( 'Open database in preview' ),
+						label: __( 'Open database in panel' ),
 						aliases: [ __( 'Open database' ) ],
 						icon: DatabaseIcon,
 						description,
@@ -166,7 +163,7 @@ export function getSiteCommands( {
 					{
 						id: 'email',
 						group: 'commands' as const,
-						label: __( 'Open email' ),
+						label: __( 'Open email log' ),
 						icon: MailIcon,
 						description,
 						keywords: [ __( 'Inbox' ), __( 'Mail' ), 'wp_mail' ],
@@ -242,7 +239,7 @@ export function getSiteCommands( {
 						id: 'reload',
 						group: 'commands' as const,
 						label: __( 'Reload preview' ),
-						icon: RefreshCwIcon,
+						icon: RotateCwIcon,
 						keywords: [ __( 'Refresh' ) ],
 						run: reloadPreview,
 					},
@@ -260,25 +257,50 @@ export function getSiteCommands( {
 					},
 			  ]
 			: [] ),
-		{
-			id: 'preview-visibility',
-			group: 'commands',
-			label: previewShown ? __( 'Hide preview' ) : __( 'Show preview' ),
-			icon: previewShown ? EyeOffIcon : EyeIcon,
-			description,
-			run: () => showPreview( ! previewShown ),
-		},
-		...( chatHidden === undefined
-			? []
-			: [
+		...( previewShown
+			? [
 					{
-						id: 'chat-visibility',
+						id: 'layout-chat',
 						group: 'commands' as const,
-						label: chatHidden ? __( 'Show chat' ) : __( 'Hide chat' ),
+						label: __( 'Switch to Chat' ),
 						icon: ChatIcon,
-						run: () => setChatHidden( ! chatHidden ),
+						description,
+						keywords: [ __( 'Layout' ), __( 'Hide panel' ), __( 'Hide preview' ) ],
+						run: () => showPreview( false ),
 					},
-			  ] ),
+			  ]
+			: [] ),
+		...( ! previewShown || chatHidden
+			? [
+					{
+						id: 'layout-split',
+						group: 'commands' as const,
+						label: __( 'Switch to Split view' ),
+						icon: SplitViewIcon,
+						description,
+						keywords: [
+							__( 'Layout' ),
+							__( 'Show panel' ),
+							__( 'Show preview' ),
+							__( 'Restore split view' ),
+						],
+						run: () => setChatHidden( false ),
+					},
+			  ]
+			: [] ),
+		...( ! previewShown || ! chatHidden
+			? [
+					{
+						id: 'layout-browser',
+						group: 'commands' as const,
+						label: __( 'Switch to Panel' ),
+						icon: FullscreenIcon,
+						description,
+						keywords: [ __( 'Layout' ), __( 'Preview' ), __( 'Browser' ), __( 'Expand panel' ) ],
+						run: () => setChatHidden( true ),
+					},
+			  ]
+			: [] ),
 		{
 			id: 'share',
 			group: 'commands',
@@ -292,7 +314,7 @@ export function getSiteCommands( {
 			id: 'publish',
 			group: 'commands',
 			label: __( 'Publish & Sync…' ),
-			icon: ArrowRightLeftIcon,
+			icon: SyncIcon,
 			description,
 			keywords: [ __( 'publish site sync push pull upload download' ) ],
 			run: () => openHeaderPanel( { panel: 'publish', siteId: site.id, view: 'publish' } ),
@@ -309,7 +331,7 @@ export function getSiteCommands( {
 		{
 			id: 'pin-site',
 			group: 'commands',
-			label: actions.pinned ? __( 'Unpin site' ) : __( 'Pin site' ),
+			label: actions.pinned ? __( 'Unpin' ) : __( 'Pin' ),
 			icon: actions.pinned ? UnpinIcon : PinIcon,
 			description,
 			run: actions.togglePin,
@@ -328,8 +350,8 @@ export function getSiteCommands( {
 							: action.label,
 					icon: {
 						duplicate: DuplicateIcon,
-						import: UploadIcon,
-						export: DownloadIcon,
+						import: ImportIcon,
+						export: ExportSiteIcon,
 						'export-db': DatabaseIcon,
 						delete: action.icon,
 					}[ action.id ],

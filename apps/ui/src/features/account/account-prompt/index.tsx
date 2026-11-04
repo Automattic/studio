@@ -80,8 +80,7 @@ export function AccountPrompt( {
 	);
 	const login = useLogin( { source, analytics: context, scope } );
 	const signup = useLogin( { signup: true, source, analytics: context, scope } );
-	const authenticating = login.isPending || signup.isPending;
-	const pending = authenticating || busy || disabled;
+	const pending = busy || disabled;
 	const error = login.error ?? signup.error;
 	return (
 		<div ref={ exposure } className={ clsx( styles.body, flush && styles.flush, className ) }>
@@ -107,7 +106,7 @@ export function AccountPrompt( {
 					loadingMode="replace"
 					size="lg"
 					disabled={ ( ! onContinue && offline ) || pending }
-					loading={ signup.isPending || busy }
+					loading={ busy }
 					onClick={ () => {
 						if ( onContinue ) {
 							onContinue();
@@ -131,7 +130,6 @@ export function AccountPrompt( {
 							variant="inline-text"
 							size="inline"
 							disabled={ onSkip ? busy || disabled : offline || pending }
-							focusableWhenDisabled={ ! onSkip && login.isPending }
 							onClick={ () => {
 								if ( onSkip ) {
 									onSkip();

@@ -51,6 +51,7 @@ import type { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
 import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
+import type { WorkspaceLayout } from '@studio/common/types/workspace-layout';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 function generateBackupFilename( siteName: string ): string {
@@ -258,10 +259,13 @@ export function createIpcConnector(): Connector {
 			};
 		},
 
-		async selectSiteFolder( defaultPath ): Promise< SelectedSiteFolder | null > {
+		async selectSiteFolder( defaultPath, options ): Promise< SelectedSiteFolder | null > {
 			const response = ( await ipcApi.showOpenFolderDialog(
-				'Choose folder for site',
-				defaultPath
+				options?.allowBlueprints
+					? __( 'Open a site or Blueprint' )
+					: __( 'Choose folder for site' ),
+				defaultPath,
+				options
 			) ) as SelectedSiteFolder | null;
 			return response ?? null;
 		},
@@ -749,8 +753,8 @@ export function createIpcConnector(): Connector {
 
 		// Analytics. `channel` and `ui_version` are attached by the desktop Tracks wrapper's
 		// `commonProps()` in Main, so callers pass only event-specific props here.
-		async trackEvent( eventName, props = {} ): Promise< void > {
-			await ipcApi.recordAnalyticsEvent( eventName, { ...props } );
+		async trackEvent( eventName, props = {}, siteId ): Promise< void > {
+			await ipcApi.recordAnalyticsEvent( eventName, { ...props }, siteId ).catch( () => undefined );
 		},
 
 		// External links
@@ -864,6 +868,14 @@ export function createIpcConnector(): Connector {
 			);
 		},
 
+		onSetPreviewLayout( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe(
+				'set-preview-layout',
+				( _event: unknown, layout: WorkspaceLayout ) => listener( layout )
+			);
+		},
 		onToggleSitePreview( listener ) {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
@@ -874,6 +886,14 @@ export function createIpcConnector(): Connector {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe( 'toggle-sidebar', () => listener() );
+		},
+
+		onOpenFolder( listener ) {
+			return ipcListener.subscribe( 'open-folder', () => listener() );
+		},
+
+		onNewChat( listener ) {
+			return ipcListener.subscribe( 'new-chat', () => listener() );
 		},
 
 		onAddSite( listener ) {

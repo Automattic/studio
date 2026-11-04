@@ -206,7 +206,7 @@ export function ShareButton( props: { site: SiteDetails; className?: string } ) 
 					render={
 						<Button
 							variant="ghost"
-							size="icon"
+							size="icon-sm"
 							aria-label={ __( 'Share' ) }
 							aria-description={ status.label }
 							onClick={ ( event ) =>
@@ -243,6 +243,7 @@ export function PublishButton( props: { site: SiteDetails; variant?: 'accent' | 
 	return (
 		<Button
 			variant={ props.variant ?? 'accent' }
+			size="sm"
 			aria-label={ __( 'Publish…' ) }
 			aria-description={
 				setupError ??

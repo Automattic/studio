@@ -60,6 +60,14 @@ afterEach( () =>
 afterEach( () => vi.unstubAllGlobals() );
 
 describe( 'command palette', () => {
+	it( 'opens a new chat for the current site from the application menu', async () => {
+		const connector = createFakeConnector( { sites: [ testSite ] } );
+		const { history } = await renderPalette( { connector } );
+		act( () => connector.emit( 'onNewChat' ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
+		expect( connector.createSession ).not.toHaveBeenCalled();
+	} );
+
 	it( 'toggles the sidebar after releasing the palette dialog guard', async () => {
 		await renderPalette();
 		for ( const label of [ 'Hide sidebar', 'Show sidebar' ] ) {
@@ -249,7 +257,7 @@ describe( 'command palette', () => {
 		expect( screen.queryByRole( 'option', { name: /^Start site/ } ) ).not.toBeInTheDocument();
 		search( 'Open WordPress Admin' );
 		expect(
-			screen.queryByRole( 'option', { name: /^Open WordPress Admin in preview/ } )
+			screen.queryByRole( 'option', { name: /^Open WordPress Admin in panel/ } )
 		).not.toBeInTheDocument();
 	} );
 

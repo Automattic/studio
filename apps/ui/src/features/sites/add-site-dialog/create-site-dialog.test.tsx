@@ -1,9 +1,12 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
-import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { createMemoryHistory } from '@tanstack/react-router';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { App } from '@/app';
 import { rememberAccountJourney } from '@/data/account-analytics';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
-import { renderApp } from '@/test/render';
+import { createTestQueryClient, renderApp } from '@/test/render';
 import type { SiteDetails, SyncSite } from '@/data/core';
 import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
 
@@ -31,11 +34,13 @@ function setup( {
 	blueprint = portfolio,
 	path = '/?addSite=create',
 	colorScheme = 'light',
+	strict = false,
 }: {
 	behavior?: 'choose' | 'blank';
 	blueprint?: Blueprint | null;
 	path?: string;
 	colorScheme?: 'light' | 'dark';
+	strict?: boolean;
 } = {} ) {
 	vi.stubGlobal(
 		'fetch',
@@ -57,7 +62,21 @@ function setup( {
 			getFilePath: async () => '/tmp/upload/backup.zip',
 		}
 	);
-	const view = renderApp( { connector, path } );
+	const history = createMemoryHistory( { initialEntries: [ path ] } );
+	const view = strict
+		? {
+				...render(
+					<StrictMode>
+						<App
+							connector={ connector }
+							queryClient={ createTestQueryClient() }
+							history={ history }
+						/>
+					</StrictMode>
+				),
+				history,
+		  }
+		: renderApp( { connector, path } );
 	return { ...view, connector, site };
 }
 
@@ -98,6 +117,13 @@ describe( 'Add site flow', () => {
 			fireEvent.click( screen.getByRole( 'tab', { name: 'Connect' } ) );
 			fireEvent.click( await screen.findByRole( 'button', { name: /Remote site/ } ) );
 			await submit();
+			await waitFor( () =>
+				expect( connector.trackEvent ).toHaveBeenCalledWith(
+					TRACKS_EVENTS.SYNC_CONNECT,
+					{ success: true, num_of_sites: 1 },
+					site.id
+				)
+			);
 			const retry = await screen.findByRole(
 				'button',
 				{ name: 'Try pulling again' },
@@ -535,6 +561,19 @@ describe( 'Modal-wide file drops', () => {
 		};
 	}
 
+	it( 'keeps bundle resources through Strict Mode effect replay and releases them on close', async () => {
+		const { connector } = setup( { strict: true } );
+		await screen.findByRole( 'button', { name: 'Start with Blank site' } );
+		connector.extractBlueprintBundle.mockResolvedValueOnce( extracted() );
+		drop( screen.getByRole( 'dialog', { name: 'Add site' } ) );
+		await waitFor( () => expect( screen.getByLabelText( 'Site name' ) ).toHaveValue( 'SYSTEM' ) );
+		expect( connector.cleanupBlueprintTempDir ).not.toHaveBeenCalled();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel' } ) );
+		await waitFor( () =>
+			expect( connector.cleanupBlueprintTempDir ).toHaveBeenCalledExactlyOnceWith( '/tmp/uploaded' )
+		);
+	} );
+
 	it.each( [ '.json', '.zip', '.gz', '.gzip', '.tar', '.tar.gz', '.tgz', '.wpress', '.xml' ] )(
 		'accepts %s from the shared Import picker',
 		async ( extension ) => {
@@ -793,4 +832,30 @@ it( 'returns to all sites from a category breadcrumb after switching filters', a
 	expect( await screen.findByRole( 'button', { name: 'Start with Blank site' } ) ).toBeVisible();
 	expect( screen.getByRole( 'tab', { name: 'Start' } ) ).toHaveAttribute( 'aria-selected', 'true' );
 	expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
+} );
+
+it( 'resolves connect failure telemetry before removing the local record', async () => {
+	const { connector, site } = setup();
+	connector.connectWpcomSite.mockRejectedValueOnce( new Error( 'Cannot save connection' ) );
+	let finishTelemetry: () => void = () => {};
+	connector.trackEvent.mockImplementation( async ( event ) => {
+		if ( event === TRACKS_EVENTS.SYNC_CONNECT )
+			await new Promise< void >( ( resolve ) => {
+				finishTelemetry = resolve;
+			} );
+	} );
+	await screen.findByRole( 'button', { name: 'Start with Blank site' } );
+	fireEvent.click( screen.getByRole( 'tab', { name: 'Connect' } ) );
+	fireEvent.click( await screen.findByRole( 'button', { name: /Remote site/ } ) );
+	await submit();
+	await waitFor( () =>
+		expect( connector.trackEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.SYNC_CONNECT,
+			{ success: false, failure_reason: 'storage_write', num_of_sites: 0 },
+			site.id
+		)
+	);
+	expect( connector.deleteSite ).not.toHaveBeenCalled();
+	await act( async () => finishTelemetry() );
+	await waitFor( () => expect( connector.deleteSite ).toHaveBeenCalled() );
 } );

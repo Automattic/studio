@@ -6,7 +6,7 @@ import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { useNavigate } from '@tanstack/react-router';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { CloudDownloadIcon, UploadIcon } from 'lucide-react';
+import { CloudDownloadIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useConnector } from '@/data/core';
 import {
@@ -17,6 +17,8 @@ import { useCreateSite, useSites } from '@/data/queries/use-sites';
 import { useWordPressOrgPackageName } from '@/data/queries/use-wordpress-org-package-name';
 import { CreateSiteForm } from '@/features/sites/create-site-form';
 import { pendingBlueprintSlot } from '@/features/sites/pending-blueprint';
+import { pendingSiteFolderSlot } from '@/features/sites/pending-site-folder';
+import { UploadIcon } from '@/lib/icons';
 import { useConnectSite } from './connect-site';
 import { useAddSite } from './context';
 import localStyles from './create-panel.module.css';
@@ -247,12 +249,23 @@ export function CreatePanel( {
 	const [ submittedInitialValues, setSubmittedInitialValues ] =
 		useState< Partial< CreateSiteFormValues > | null >( null );
 	const selectedBlueprintRef = useRef< SelectedBlueprint | null >( null );
+	const blueprintLifecycleRef = useRef( { generation: 0 } );
 	const transferredTempDirRef = useRef< string | null >( null );
 	const [ submitError, setSubmitError ] = useState< string | CreateSiteFormError >( '' );
 	const pendingBlueprint = useSyncExternalStore(
 		pendingBlueprintSlot.subscribe,
 		pendingBlueprintSlot.getSnapshot
 	);
+	const pendingFolder = useSyncExternalStore(
+		pendingSiteFolderSlot.subscribe,
+		pendingSiteFolderSlot.getSnapshot
+	);
+	const [ selectedFolder, setSelectedFolder ] = useState( pendingFolder );
+	useEffect( () => {
+		if ( ! pendingFolder ) return;
+		setSelectedFolder( pendingFolder );
+		pendingSiteFolderSlot.clear( pendingFolder );
+	}, [ pendingFolder ] );
 	const requiresCustomDomain = useMemo(
 		() =>
 			!! selectedBlueprint &&
@@ -271,6 +284,7 @@ export function CreatePanel( {
 
 	const replaceBlueprint = useCallback(
 		( blueprint: SelectedBlueprint | null ) => {
+			if ( selectedBlueprintRef.current === blueprint ) return;
 			cleanupBlueprint( selectedBlueprintRef.current );
 			selectedBlueprintRef.current = blueprint;
 			setSelectedBlueprint( blueprint );
@@ -285,13 +299,19 @@ export function CreatePanel( {
 		pendingBlueprintSlot.clear( pendingBlueprint );
 	}, [ pendingBlueprint, replaceBlueprint ] );
 
-	useEffect(
-		() => () => {
-			cleanupBlueprint( selectedBlueprintRef.current );
+	useEffect( () => {
+		const lifecycle = blueprintLifecycleRef.current;
+		const generation = ++lifecycle.generation;
+		return () => {
+			// Strict Mode replays setup immediately; only release files after a real unmount.
+			queueMicrotask( () => {
+				if ( lifecycle.generation === generation ) {
+					cleanupBlueprint( selectedBlueprintRef.current );
+				}
+			} );
 			setProgress( null );
-		},
-		[ cleanupBlueprint, setProgress ]
-	);
+		};
+	}, [ cleanupBlueprint, setProgress ] );
 
 	const initialValues = useMemo(
 		() => ( {
@@ -363,6 +383,7 @@ export function CreatePanel( {
 		<div className={ localStyles.page }>
 			<CreateSiteForm
 				actionsContainer={ formActions }
+				selectedFolder={ selectedFolder ?? undefined }
 				initialValues={ submittedInitialValues ?? initialValues }
 				existingDomainNames={ existingDomainNames }
 				onSubmit={ handleSubmit }

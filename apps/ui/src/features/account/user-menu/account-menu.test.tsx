@@ -117,7 +117,7 @@ describe( 'AccountMenu', () => {
 		);
 	} );
 
-	it( 'disables both authentication paths while signup is pending and allows retry after failure', async () => {
+	it( 'keeps both authentication paths available during signup and allows retry after failure', async () => {
 		const { connector } = setup();
 		let reject!: ( error: Error ) => void;
 		connector.authenticate.mockImplementationOnce(
@@ -129,9 +129,10 @@ describe( 'AccountMenu', () => {
 		const login = await openLoginDialog();
 		const signup = screen.getByRole( 'button', { name: 'Create account' } );
 		fireEvent.click( signup );
-		await waitFor( () => expect( signup ).toHaveAttribute( 'aria-disabled', 'true' ) );
-		expect( login ).toBeDisabled();
-		fireEvent.click( login );
+		await waitFor( () => expect( connector.authenticate ).toHaveBeenCalledOnce() );
+		expect( signup ).toBeEnabled();
+		expect( signup ).not.toHaveAttribute( 'aria-busy', 'true' );
+		expect( login ).toBeEnabled();
 		expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith(
 			true,
 			'settings',
@@ -144,6 +145,22 @@ describe( 'AccountMenu', () => {
 		fireEvent.click( signup );
 		await screen.findByRole( 'button', { name: TEST_USER.displayName } );
 	} );
+
+	it.each( [ 'Create account', 'Log in' ] )(
+		'allows retrying %s while authentication is pending',
+		async ( label ) => {
+			const { connector } = setup();
+			connector.authenticate.mockReturnValue( new Promise( () => {} ) );
+			await openLoginDialog();
+			const button = screen.getByRole( 'button', { name: label } );
+			fireEvent.click( button );
+			await waitFor( () => expect( connector.authenticate ).toHaveBeenCalledOnce() );
+			expect( button ).toBeEnabled();
+			expect( button ).not.toHaveAttribute( 'aria-busy', 'true' );
+			fireEvent.click( button );
+			await waitFor( () => expect( connector.authenticate ).toHaveBeenCalledTimes( 2 ) );
+		}
+	);
 
 	it( 'opens the shared settings while logged out', async () => {
 		const { history } = setup();

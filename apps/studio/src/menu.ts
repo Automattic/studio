@@ -23,6 +23,7 @@ import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getLogsFilePath } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
+import type { WorkspaceLayout } from '@studio/common/types/workspace-layout';
 
 // Runs against the app window's own contents rather than whatever has focus.
 async function withAppWebContents( run: ( contents: WebContents ) => void ) {
@@ -67,6 +68,7 @@ export function buildViewMenuItems( {
 	devTools,
 	onToggleSidebar,
 	onToggleSitePreview,
+	onSetPreviewLayout,
 	onResetZoom,
 	onZoomIn,
 	onZoomOut,
@@ -76,6 +78,7 @@ export function buildViewMenuItems( {
 	devTools: MenuItemConstructorOptions[];
 	onToggleSidebar: () => void;
 	onToggleSitePreview: () => void;
+	onSetPreviewLayout: ( layout: WorkspaceLayout ) => void;
 	onResetZoom: () => void;
 	onZoomIn: () => void;
 	onZoomOut: () => void;
@@ -87,10 +90,27 @@ export function buildViewMenuItems( {
 			click: onToggleSidebar,
 		},
 		{
-			label: __( 'Toggle Site Preview' ),
+			label: __( 'Toggle Panel' ),
 			accelerator: 'CommandOrControl+Shift+B',
 			click: onToggleSitePreview,
 		},
+		{ type: 'separator' },
+		{
+			label: __( 'Chat' ),
+			accelerator: 'CommandOrControl+1',
+			click: () => onSetPreviewLayout( 'chat' ),
+		},
+		{
+			label: __( 'Split view' ),
+			accelerator: 'CommandOrControl+2',
+			click: () => onSetPreviewLayout( 'split' ),
+		},
+		{
+			label: __( 'Panel' ),
+			accelerator: 'CommandOrControl+3',
+			click: () => onSetPreviewLayout( 'preview' ),
+		},
+		{ type: 'separator' },
 		...( isDevelopment ? devTools : [] ),
 		{
 			label: __( 'Actual Size' ),
@@ -251,15 +271,30 @@ async function getAppMenu( mainWindow: BrowserWindow | null ) {
 			role: 'fileMenu',
 			submenu: [
 				{
+					label: __( 'New chat' ),
+					accelerator: 'CommandOrControl+Shift+N',
+					click: () => {
+						void sendIpcEventToRenderer( 'new-chat' );
+					},
+				},
+				{
 					label: __( 'Add Site…' ),
 					accelerator: 'CommandOrControl+N',
 					click: async () => {
 						void sendIpcEventToRenderer( 'add-site' );
 					},
 				},
+				{
+					label: __( 'Open Folder…' ),
+					accelerator: 'CommandOrControl+O',
+					click: () => {
+						void sendIpcEventToRenderer( 'open-folder' );
+					},
+				},
 				...( process.platform === 'win32'
 					? []
 					: [
+							{ type: 'separator' } as MenuItemConstructorOptions,
 							{
 								label: __( 'Close Window' ),
 								accelerator: 'CommandOrControl+W',
@@ -315,6 +350,9 @@ async function getAppMenu( mainWindow: BrowserWindow | null ) {
 				},
 				onToggleSitePreview: () => {
 					void sendIpcEventToRenderer( 'toggle-site-preview' );
+				},
+				onSetPreviewLayout: ( layout ) => {
+					void sendIpcEventToRenderer( 'set-preview-layout', layout );
 				},
 				onResetZoom: () => {
 					void withAppWebContents( ( contents ) => applyAppZoomCommand( contents, 'reset' ) );

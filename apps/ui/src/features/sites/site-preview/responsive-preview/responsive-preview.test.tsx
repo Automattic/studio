@@ -20,7 +20,7 @@ async function renderPreview( id: string ) {
 			/>
 		</SessionUIProvider>
 	);
-	await screen.findByRole( 'complementary', { name: 'Site preview' } );
+	await screen.findByRole( 'complementary', { name: 'Panel' } );
 	return view;
 }
 const toggle = () => screen.getByRole( 'button', { name: 'Responsive mode' } );
@@ -48,7 +48,7 @@ describe( 'responsive mode', () => {
 		await view.user.click( screen.getByRole( 'button', { name: 'Rotate to portrait' } ) );
 		await view.user.click( screen.getByRole( 'button', { name: 'Fit to window' } ) );
 		await view.user.click( await screen.findByRole( 'menuitemradio', { name: '75%' } ) );
-		await view.user.click( screen.getByRole( 'button', { name: 'Exit responsive mode' } ) );
+		await view.user.click( toggle() );
 		expect( toggle() ).toHaveAttribute( 'aria-pressed', 'false' );
 		expect(
 			screen.queryByRole( 'toolbar', { name: 'Responsive preview' } )

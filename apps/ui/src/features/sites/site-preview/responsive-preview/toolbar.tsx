@@ -1,5 +1,4 @@
 import { __, sprintf } from '@wordpress/i18n';
-import { XIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { updateResponsivePreview, type ResponsivePreviewSettings } from '@/data/responsive-preview';
 import { ChevronDownIcon, RefreshIcon } from '@/lib/icons';
@@ -21,6 +20,7 @@ function DimensionInput( {
 	const [ focused, setFocused ] = useState( false );
 	return (
 		<Input
+			variant="ghost"
 			className={ styles.dimension }
 			aria-label={ label }
 			inputMode="numeric"
@@ -65,7 +65,11 @@ export function ResponsiveToolbar( {
 	const isLandscape = settings.width > settings.height;
 	const isSquare = settings.width === settings.height;
 	return (
-		<div className={ styles.toolbar } role="toolbar" aria-label={ __( 'Responsive preview' ) }>
+		<div
+			className={ styles.responsiveToolbar }
+			role="toolbar"
+			aria-label={ __( 'Responsive preview' ) }
+		>
 			<Menu.Root>
 				<Menu.Trigger render={ <Button variant="ghost" size="sm" className={ styles.device } /> }>
 					<span>{ settings.preset === 'responsive' ? __( 'Responsive' ) : settings.preset }</span>
@@ -85,13 +89,18 @@ export function ResponsiveToolbar( {
 					>
 						<Menu.RadioItem value="responsive">{ __( 'Responsive' ) }</Menu.RadioItem>
 						{ devicePresets.map( ( preset ) => (
-							<Menu.RadioItem key={ preset.name } value={ preset.name }>
-								<span className={ styles.presetLabel }>
-									{ preset.name }{ ' ' }
-									<span className={ styles.presetDimensions }>
-										· { preset.width } × { preset.height }
-									</span>
+							<Menu.RadioItem
+								key={ preset.name }
+								value={ preset.name }
+								className={ styles.presetItem }
+							>
+								<span>{ preset.name }</span>
+								<span className={ styles.presetDimensions }>
+									{ preset.width } × { preset.height }
 								</span>
+								{ settings.preset !== preset.name && (
+									<span className={ styles.indicatorSpace } aria-hidden="true" />
+								) }
 							</Menu.RadioItem>
 						) ) }
 					</Menu.RadioGroup>
@@ -155,14 +164,6 @@ export function ResponsiveToolbar( {
 					</Menu.RadioGroup>
 				</Menu.Popup>
 			</Menu.Root>
-			<IconButton
-				variant="ghost"
-				size="icon-sm"
-				label={ __( 'Exit responsive mode' ) }
-				className={ styles.close }
-				icon={ <XIcon /> }
-				onClick={ () => update( { enabled: false } ) }
-			/>
 		</div>
 	);
 }

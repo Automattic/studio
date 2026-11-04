@@ -1,33 +1,27 @@
-import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { aiSessionBelongsToSite } from '@studio/agent/protocol/sessions/owner-site';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { useNavigate } from '@tanstack/react-router';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
-import { useRef, useState } from 'react';
+import { EllipsisVertical } from 'lucide-react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { useSessionsBusy } from '@/data/agent-runs/use-agent-run';
 import { useConnector } from '@/data/core';
 import { useSessions } from '@/data/queries/use-sessions';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
-import { useSiteDesign } from '@/data/queries/use-site-design';
 import { useIsSiteBusy, useSites, useStopSite } from '@/data/queries/use-sites';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { useSessionPreviewUI } from '@/data/use-session-ui';
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import { SiteShareMenuItem } from '@/features/sharing';
 import { DeleteSiteDialog } from '@/features/sites/delete-site-dialog';
-import { getSiteUrl } from '@/features/sites/get-site-url';
 import {
 	ImportSiteDialog,
 	IMPORT_FILE_ACCEPT,
 	useSiteBackupImport,
 } from '@/features/sites/import-site-dialog';
 import { useOpenInDestinations } from '@/features/sites/open-in-menu/use-open-in-destinations';
-import {
-	DATABASE_HOME_PATH,
-	EMAIL_PREVIEW_PATH,
-	getRealmNavigationPath,
-} from '@/features/sites/site-preview/address-bar';
+import { SiteToolMenuItems, useSiteToolActions } from '@/features/sites/site-tools';
 import { useItemShortcuts } from '@/features/sites/use-item-shortcuts';
 import {
 	useSiteManagementActions,
@@ -36,14 +30,12 @@ import {
 } from '@/features/sites/use-site-management-actions';
 import { SitePublishMenu } from '@/features/sync';
 import {
-	AppearanceIcon,
 	ArrowRightIcon,
+	ChatIcon,
 	ChevronDownIcon,
-	DatabaseIcon,
 	ExportIcon,
 	ExternalLinkIcon,
 	GlobeIcon,
-	MailIcon,
 	NewChatIcon,
 	PinIcon,
 	RenameIcon,
@@ -53,9 +45,8 @@ import {
 	StopOtherSitesIcon,
 	StopSiteIcon,
 	UnpinIcon,
-	WordPressIcon,
 } from '@/lib/icons';
-import { Tooltip, TooltipContent, TooltipTrigger, Menu, Button } from '@/lib/ui';
+import { Tooltip, TooltipContent, TooltipTrigger, Menu, Button, IconButton } from '@/lib/ui';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 
@@ -116,18 +107,7 @@ export function useSiteActions(
 		lifecycle: busy ? undefined : toggleRunning,
 	} );
 
-	// Shows the page in this site's preview, starting the site first.
-	const goTo = async ( path: string ) => {
-		if ( ! site.running && ! ( await startSite.mutateAsync( site.id ).catch( () => false ) ) ) {
-			return;
-		}
-		preview.setSite( site.id );
-		preview.updatePath( getRealmNavigationPath( path, getSiteUrl( site ) ) );
-		preview.setOpen( true );
-		if ( preview.siteId !== site.id ) {
-			void navigate( { to: '/sites/$siteId', params: { siteId: site.id } } );
-		}
-	};
+	const toolActions = useSiteToolActions( site );
 
 	return {
 		site,
@@ -152,10 +132,7 @@ export function useSiteActions(
 				() => startSite.mutate( site.id ),
 				() => undefined
 			),
-		openAdmin: () => void goTo( '/wp-admin/' ),
-		openDatabase: () => void goTo( DATABASE_HOME_PATH ),
-		openEmail: () => void goTo( EMAIL_PREVIEW_PATH ),
-		openDesignSystem: () => void goTo( DESIGN_SYSTEM_PREVIEW_PATH ),
+		...toolActions,
 		openImport: () => importInputRef.current?.click(),
 		openDelete: () => setDeleteOpen( true ),
 		dialogs: (
@@ -196,7 +173,6 @@ export function SiteMenuItems( {
 	current?: boolean;
 } ) {
 	const { site, busy, running, othersRunning } = actions;
-	const siteDesign = useSiteDesign( site );
 	const destinations = useOpenInDestinations( site );
 	const manage = Object.fromEntries(
 		useSiteManagementActions( site, {
@@ -275,32 +251,6 @@ export function SiteMenuItems( {
 			) : null }
 			<Menu.Separator />
 			<Menu.SubmenuRoot>
-				<Menu.SubmenuTrigger disabled={ busy }>
-					<ArrowRightIcon />
-					{ __( 'Tools' ) }
-				</Menu.SubmenuTrigger>
-				<Menu.SubmenuPopup>
-					<Menu.Item onClick={ actions.openAdmin }>
-						<WordPressIcon />
-						{ __( 'WordPress Admin' ) }
-					</Menu.Item>
-					<Menu.Item onClick={ actions.openDatabase }>
-						<DatabaseIcon />
-						{ __( 'Database' ) }
-					</Menu.Item>
-					<Menu.Item onClick={ actions.openEmail }>
-						<MailIcon />
-						{ __( 'Email' ) }
-					</Menu.Item>
-					{ siteDesign.data ? (
-						<Menu.Item onClick={ actions.openDesignSystem }>
-							<AppearanceIcon />
-							{ __( 'Design system' ) }
-						</Menu.Item>
-					) : null }
-				</Menu.SubmenuPopup>
-			</Menu.SubmenuRoot>
-			<Menu.SubmenuRoot>
 				<Menu.SubmenuTrigger>
 					<ExternalLinkIcon />
 					{ __( 'Open in' ) }
@@ -316,6 +266,15 @@ export function SiteMenuItems( {
 							{ destination.label }
 						</Menu.Item>
 					) ) }
+				</Menu.SubmenuPopup>
+			</Menu.SubmenuRoot>
+			<Menu.SubmenuRoot>
+				<Menu.SubmenuTrigger disabled={ busy }>
+					<ArrowRightIcon />
+					{ __( 'Tools' ) }
+				</Menu.SubmenuTrigger>
+				<Menu.SubmenuPopup>
+					<SiteToolMenuItems site={ site } actions={ actions } />
 				</Menu.SubmenuPopup>
 			</Menu.SubmenuRoot>
 			<Menu.Separator />
@@ -350,35 +309,102 @@ export function SiteMenuItems( {
 	);
 }
 
-// The site's control in the top band: a globe and a chevron.
-export function SiteMenu( { site }: { site: SiteDetails } ) {
+// The site's control in the top band.
+export function SiteMenu( {
+	site,
+	onOpenChat,
+	chatTabActive = false,
+}: {
+	site: SiteDetails;
+	onOpenChat?: () => void;
+	chatTabActive?: boolean;
+} ) {
 	const actions = useSiteActions( site );
 	const label = __( 'Site menu' );
+	const [ menuOpen, setMenuOpen ] = useState( false );
+	const isChatTab = !! onOpenChat;
+	useLayoutEffect( () => setMenuOpen( false ), [ isChatTab, chatTabActive, site.id ] );
 	return (
 		<>
-			<Menu.Root modal={ false }>
-				<Tooltip>
-					<Menu.Trigger
-						render={
+			<Menu.Root
+				key={ onOpenChat ? 'chat' : 'menu' }
+				modal={ false }
+				open={ menuOpen }
+				onOpenChange={ setMenuOpen }
+			>
+				{ onOpenChat ? (
+					<div
+						className={ styles.chatTab }
+						data-site-chat-tab
+						data-chat-active={ chatTabActive || undefined }
+					>
+						<Tooltip>
 							<TooltipTrigger
 								render={
 									<Button
-										variant="ghost"
-										aria-label={ label }
-										aria-busy={ actions.busy || undefined }
-										className={ styles.trigger }
-										{ ...actions.shortcuts }
-										data-item-shortcuts-active="site"
+										variant="unstyled"
+										size="sm"
+										className={ styles.chatTrigger }
+										aria-label={ sprintf(
+											/* translators: %s: project name. */
+											__( 'Show chat for %s' ),
+											site.name
+										) }
+										aria-pressed={ chatTabActive }
+										onClick={ () => {
+											setMenuOpen( false );
+											onOpenChat();
+										} }
 									/>
 								}
-							/>
-						}
-					>
-						<GlobeIcon data-icon="inline-start" />
-						<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
-					</Menu.Trigger>
-					<TooltipContent side="bottom">{ label }</TooltipContent>
-				</Tooltip>
+							>
+								<ChatIcon />
+								<span className={ styles.chatName }>{ site.name }</span>
+							</TooltipTrigger>
+							<TooltipContent side="bottom">{ __( 'Show chat' ) }</TooltipContent>
+						</Tooltip>
+						<Menu.Trigger
+							render={
+								<IconButton
+									variant="muted-ghost"
+									size="icon-2xs"
+									className={ styles.chatMenu }
+									icon={ <EllipsisVertical /> }
+									label={ label }
+									tooltipSide="bottom"
+									aria-busy={ actions.busy || undefined }
+									{ ...actions.shortcuts }
+									data-item-shortcuts-active="site"
+								/>
+							}
+						/>
+					</div>
+				) : (
+					<Tooltip>
+						<Menu.Trigger
+							render={
+								<TooltipTrigger
+									render={
+										<Button
+											variant="ghost"
+											size="sm"
+											aria-label={ label }
+											aria-busy={ actions.busy || undefined }
+											className={ styles.trigger }
+											{ ...actions.shortcuts }
+											data-item-shortcuts-active="site"
+										/>
+									}
+								/>
+							}
+						>
+							<GlobeIcon data-icon="inline-start" />
+							<span className={ styles.siteName }>{ site.name }</span>
+							<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
+						</Menu.Trigger>
+						<TooltipContent side="bottom">{ label }</TooltipContent>
+					</Tooltip>
+				) }
 				<Menu.Popup side="bottom" align="start" { ...actions.shortcuts }>
 					<SiteMenuItems actions={ actions } current />
 				</Menu.Popup>

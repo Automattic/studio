@@ -47,8 +47,8 @@ const api: IpcApi = {
 	openSiteURL: ( id, relativeURL = '', { autoLogin = true } = {} ) =>
 		ipcRendererSend( 'openSiteURL', id, relativeURL, { autoLogin } ),
 	openURL: ( url ) => ipcRendererSend( 'openURL', url ),
-	showOpenFolderDialog: ( title, defaultDialogPath ) =>
-		ipcRendererInvoke( 'showOpenFolderDialog', title, defaultDialogPath ),
+	showOpenFolderDialog: ( title, defaultDialogPath, options ) =>
+		ipcRendererInvoke( 'showOpenFolderDialog', title, defaultDialogPath, options ),
 	isCATrusted: () => ipcRenderer.invoke( 'isCATrusted' ),
 	trustCertificate: () => ipcRenderer.invoke( 'trustCertificate' ),
 	showSaveAsDialog: ( options ) => ipcRendererInvoke( 'showSaveAsDialog', options ),
@@ -154,8 +154,8 @@ const api: IpcApi = {
 	getGlobalInstructionsEnabled: () => ipcRendererInvoke( 'getGlobalInstructionsEnabled' ),
 	setGlobalInstructionsEnabled: ( enabled ) =>
 		ipcRendererInvoke( 'setGlobalInstructionsEnabled', enabled ),
-	recordAnalyticsEvent: ( eventName, props ) =>
-		ipcRendererInvoke( 'recordAnalyticsEvent', eventName, props ),
+	recordAnalyticsEvent: ( eventName, props, siteId ) =>
+		ipcRendererInvoke( 'recordAnalyticsEvent', eventName, props, siteId ),
 	listAiSessions: () => ipcRendererInvoke( 'listAiSessions' ),
 	loadAiSession: ( sessionIdOrPrefix ) => ipcRendererInvoke( 'loadAiSession', sessionIdOrPrefix ),
 	createAiSession: ( siteId ) => ipcRendererInvoke( 'createAiSession', siteId ),

@@ -4,6 +4,7 @@ import { act, render, renderHook, screen, waitFor } from '@testing-library/react
 import { describe, expect, it } from 'vitest';
 import { getVisibleToasts } from '@/data/app-messages';
 import { ConnectorProvider } from '@/data/core';
+import { updateResponsivePreview, useResponsivePreview } from '@/data/responsive-preview';
 import { createFakeConnector, makeSite, type FakeConnector } from '@/test/fake-connector';
 import { createTestQueryClient } from '@/test/render';
 import {
@@ -193,6 +194,27 @@ describe( 'useStartSite', () => {
 		await expect( result.current.start.mutateAsync( 'site-1' ) ).resolves.toBe( true );
 		expect( connector.startSite ).toHaveBeenCalledWith( 'site-1' );
 	} );
+} );
+
+it( 'keeps responsive mode off after stopping and restarting a site', async () => {
+	const site = makeSite( { id: 'responsive-stop', running: true } );
+	const connector = createFakeConnector( { sites: [ site ] } );
+	updateResponsivePreview( site.id, { enabled: true } );
+	const { result } = renderHook(
+		() => ( {
+			stop: useStopSite(),
+			start: useStartSite(),
+			responsive: useResponsivePreview( site.id ),
+		} ),
+		{ wrapper: providers( connector ) }
+	);
+
+	await act( async () => {
+		await result.current.stop.mutateAsync( site.id );
+		await result.current.start.mutateAsync( site.id );
+	} );
+
+	expect( result.current.responsive.enabled ).toBe( false );
 } );
 
 describe( 'useSyncSitesWithEvents', () => {

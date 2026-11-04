@@ -113,6 +113,7 @@ import {
 	readSitePreview,
 	writeSitePreview,
 } from '@studio/common/lib/site-preview-cache';
+import { resolveSiteTracksEventProps } from '@studio/common/lib/site-tracks';
 import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
 import { requestStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
@@ -149,6 +150,7 @@ import {
 	cleanupBlueprintTempDir,
 	extractBlueprintUpload,
 } from '@studio/common/sites/blueprint-extract';
+import { readBlueprintSource } from '@studio/common/sites/blueprint-source';
 import { buildSiteCreateArgs, type SiteCreateOptions } from '@studio/common/sites/create';
 import { buildSiteSetArgs, getSiteEditOptions } from '@studio/common/sites/edit';
 import { deleteSite, startSite, stopSite } from '@studio/common/sites/lifecycle';
@@ -557,20 +559,30 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	// --- Analytics — the browser UI's equivalent of the desktop's IPC handler --
 	// Unknown names are dropped, not forwarded, as in `recordAnalyticsEvent`.
-	api.post( '/analytics/event', ( req: Request, res: Response ) => {
-		const eventName = req.body?.eventName;
-		if ( typeof eventName !== 'string' ) {
-			res.status( 400 ).json( { error: 'eventName required' } );
-			return;
-		}
-		if ( ! isTracksEventName( eventName ) ) {
-			console.warn( `Ignoring unknown analytics event name: ${ eventName }` );
+	api.post(
+		'/analytics/event',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const eventName = req.body?.eventName;
+			if ( typeof eventName !== 'string' ) {
+				res.status( 400 ).json( { error: 'eventName required' } );
+				return;
+			}
+			if ( ! isTracksEventName( eventName ) ) {
+				console.warn( `Ignoring unknown analytics event name: ${ eventName }` );
+				res.status( 204 ).end();
+				return;
+			}
+			trackEvent(
+				eventName,
+				await resolveSiteTracksEventProps(
+					eventName,
+					sanitizeTracksProps( req.body?.props ),
+					req.body?.siteId
+				)
+			);
 			res.status( 204 ).end();
-			return;
-		}
-		trackEvent( eventName, sanitizeTracksProps( req.body?.props ) );
-		res.status( 204 ).end();
-	} );
+		} )
+	);
 
 	// --- Auth — the WordPress.com user the CLI is already logged in as ---------
 	// Read straight from the shared auth token (`~/.studio/shared.json`); the
@@ -1130,10 +1142,15 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				}
 			}
 			try {
+				const blueprint =
+					confined && req.body?.allowBlueprints === true
+						? await readBlueprintSource( confined )
+						: null;
 				res.json( {
 					...folder,
-					isEmpty: confined ? await isEmptyDir( confined ) : true,
-					isWordPress: confined ? isWordPressDirectory( confined ) : false,
+					...( blueprint ? { blueprint } : {} ),
+					isEmpty: blueprint ? false : confined ? await isEmptyDir( confined ) : true,
+					isWordPress: ! blueprint && confined ? isWordPressDirectory( confined ) : false,
 				} );
 			} catch ( err ) {
 				if ( ! isErrnoException( err ) || err.code !== 'ENOENT' ) throw err;

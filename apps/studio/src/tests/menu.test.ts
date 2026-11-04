@@ -13,6 +13,7 @@ function buildTestViewMenuItems(
 		devTools: [],
 		onToggleSidebar: vi.fn(),
 		onToggleSitePreview: vi.fn(),
+		onSetPreviewLayout: vi.fn(),
 		onResetZoom: vi.fn(),
 		onZoomIn: vi.fn(),
 		onZoomOut: vi.fn(),
@@ -24,7 +25,7 @@ describe( 'buildViewMenuItems', () => {
 	it( 'keeps the site preview command wired to the expected shortcut and callback', () => {
 		const onToggleSitePreview = vi.fn();
 		const items = buildTestViewMenuItems( { onToggleSitePreview } );
-		const toggleSitePreviewItem = items.find( ( item ) => item.label === 'Toggle Site Preview' );
+		const toggleSitePreviewItem = items.find( ( item ) => item.label === 'Toggle Panel' );
 
 		expect( toggleSitePreviewItem ).toMatchObject( { accelerator: 'CommandOrControl+Shift+B' } );
 
@@ -50,4 +51,18 @@ describe( 'buildViewMenuItems', () => {
 
 		expect( callback ).toHaveBeenCalledTimes( 1 );
 	} );
+} );
+
+it.each( [
+	[ 'Chat', '1', 'chat' ],
+	[ 'Split view', '2', 'split' ],
+	[ 'Panel', '3', 'preview' ],
+] as const )( 'selects %s with an app-local shortcut', ( label, key, layout ) => {
+	const onSetPreviewLayout = vi.fn();
+	const item = buildTestViewMenuItems( { onSetPreviewLayout } ).find(
+		( item ) => item.label === label
+	);
+	expect( item ).toMatchObject( { accelerator: `CommandOrControl+${ key }` } );
+	item?.click?.( {} as never, undefined as never, undefined as never );
+	expect( onSetPreviewLayout ).toHaveBeenCalledExactlyOnceWith( layout );
 } );

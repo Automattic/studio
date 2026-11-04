@@ -30,6 +30,20 @@ async function setup() {
 }
 
 describe( 'Add site › Import', () => {
+	it( 'returns to the shared picker with Back and preserves edited settings', async () => {
+		const { dialog } = await setup();
+		fireEvent.change( within( dialog ).getByLabelText( 'Site name' ), {
+			target: { value: 'Edited Store' },
+		} );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Back' } ) );
+		await within( dialog ).findByRole( 'button', { name: 'Choose file' } );
+		fireEvent.change( dialog.querySelector( 'input[type="file"]' )!, {
+			target: { files: [ new File( [ 'backup' ], 'other.wpress' ) ] },
+		} );
+		await waitFor( () =>
+			expect( within( dialog ).getByLabelText( 'Site name' ) ).toHaveValue( 'Edited Store' )
+		);
+	} );
 	it( 'changes the backup from its source area while retaining edited settings', async () => {
 		const { dialog } = await setup();
 		fireEvent.change( within( dialog ).getByLabelText( 'Site name' ), {

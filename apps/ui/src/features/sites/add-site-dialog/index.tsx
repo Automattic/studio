@@ -13,6 +13,7 @@ import { SiteFileUpload } from '@/features/sites/blueprint-upload';
 import { isBlueprintFile } from '@/features/sites/blueprint-upload/load-blueprint-file';
 import { useBlueprintUpload } from '@/features/sites/blueprint-upload/use-blueprint-upload';
 import { pendingBlueprintSlot } from '@/features/sites/pending-blueprint';
+import { pendingSiteFolderSlot } from '@/features/sites/pending-site-folder';
 import { ImportIcon, PlusIcon } from '@/lib/icons';
 import {
 	DropOverlay,
@@ -119,18 +120,30 @@ export function AddSiteDialog() {
 		pendingBlueprintSlot.subscribe,
 		pendingBlueprintSlot.getSnapshot
 	);
-	if ( addSite && pendingBlueprint && ( view.name !== 'setup' || view.remote ) ) {
+	const pendingFolder = useSyncExternalStore(
+		pendingSiteFolderSlot.subscribe,
+		pendingSiteFolderSlot.getSnapshot
+	);
+	if (
+		addSite &&
+		( pendingBlueprint || pendingFolder ) &&
+		( view.name !== 'setup' || view.remote )
+	) {
 		setView( { name: 'setup', from: view } );
 		setIsBlueprintValid( true );
 	}
 	const selectBlueprint = useCallback( ( blueprint: SelectedBlueprint ) => {
 		pendingBlueprintSlot.set( blueprint );
 	}, [] );
-	const selectBackup = useCallback( ( backup: File ) => {
-		const pending = pendingBlueprintSlot.getSnapshot();
-		if ( pending ) pendingBlueprintSlot.clear( pending );
-		replaceView( { name: 'import', backup } );
-	}, [] );
+	const selectBackup = useCallback(
+		( backup: File ) => {
+			const pending = pendingBlueprintSlot.getSnapshot();
+			if ( pending ) pendingBlueprintSlot.clear( pending );
+			setViewHistory( ( history ) => [ ...history, view ] );
+			replaceView( { name: 'import', backup } );
+		},
+		[ view ]
+	);
 	const upload = useBlueprintUpload( {
 		enabled: !! addSite && ! settings && ! progress,
 		onSelect: selectBlueprint,

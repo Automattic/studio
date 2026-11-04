@@ -26,13 +26,7 @@ export function ConnectionCard( { active = true }: { active?: boolean } ) {
 				) }
 				error={ signup.error?.message }
 			>
-				<Button
-					disabled={ isOffline }
-					ref={ promptRef }
-					loading={ signup.isPending }
-					loadingAnnouncement={ __( 'Connecting' ) }
-					onClick={ () => signup.mutate() }
-				>
+				<Button disabled={ isOffline } ref={ promptRef } onClick={ () => signup.mutate() }>
 					{ __( 'Connect' ) }
 				</Button>
 			</SettingsRow>

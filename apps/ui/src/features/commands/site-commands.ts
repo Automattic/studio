@@ -166,7 +166,7 @@ export function getSiteCommands( {
 					{
 						id: 'email',
 						group: 'commands' as const,
-						label: __( 'Open email' ),
+						label: __( 'Open email log' ),
 						icon: MailIcon,
 						description,
 						keywords: [ __( 'Inbox' ), __( 'Mail' ), 'wp_mail' ],

@@ -340,8 +340,8 @@ it.each( [
 it( 'disables opening Studio-rendered tool tabs externally', async () => {
 	const { connector } = await setup();
 	fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
-	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Email' } ) );
-	fireEvent.contextMenu( await screen.findByRole( 'tab', { name: 'Email' } ) );
+	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Email log' } ) );
+	fireEvent.contextMenu( await screen.findByRole( 'tab', { name: 'Email log' } ) );
 	const open = await screen.findByRole( 'menuitem', { name: 'Open in Browser' } );
 	expect( open ).toHaveAttribute( 'aria-disabled', 'true' );
 	fireEvent.click( open );
@@ -402,7 +402,7 @@ it( 'shares the same tool items with the site menu and opens each preview tool i
 	const { user } = await setup();
 	await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
 	const labels = ( await screen.findAllByRole( 'menuitem' ) ).map( ( item ) => item.textContent );
-	expect( labels ).toEqual( [ 'BrowserB', 'AdminA', 'DatabaseD', 'EmailE' ] );
+	expect( labels ).toEqual( [ 'BrowserB', 'AdminA', 'DatabaseD', 'Email logE' ] );
 	await user.keyboard( '{Escape}' );
 	await user.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
 	await user.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
@@ -428,8 +428,11 @@ it( 'shares the same tool items with the site menu and opens each preview tool i
 	expect( sources.some( ( src ) => src.includes( 'studio-auto-login' ) ) ).toBe( true );
 	expect( sources.some( ( src ) => src.includes( 'phpmyadmin' ) ) ).toBe( true );
 	await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
-	await user.click( await screen.findByRole( 'menuitem', { name: 'Email' } ) );
-	expect( screen.getByRole( 'tab', { name: 'Email' } ) ).toHaveAttribute( 'aria-selected', 'true' );
+	await user.click( await screen.findByRole( 'menuitem', { name: 'Email log' } ) );
+	expect( screen.getByRole( 'tab', { name: 'Email log' } ) ).toHaveAttribute(
+		'aria-selected',
+		'true'
+	);
 	expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 4 );
 } );
 
@@ -465,11 +468,14 @@ it( 'uses the same letter shortcuts in Tools without intercepting modified keys 
 	const { connector, user } = await setup();
 	await user.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
 	await user.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
-	await screen.findByRole( 'menuitem', { name: 'Email' } );
+	await screen.findByRole( 'menuitem', { name: 'Email log' } );
 	await user.keyboard( '{Control>}e{/Control}' );
 	expect( connector.openSiteEmailFolder ).not.toHaveBeenCalled();
 	await user.keyboard( 'e' );
-	expect( screen.getByRole( 'tab', { name: 'Email' } ) ).toHaveAttribute( 'aria-selected', 'true' );
+	expect( screen.getByRole( 'tab', { name: 'Email log' } ) ).toHaveAttribute(
+		'aria-selected',
+		'true'
+	);
 	const composer = screen.getByRole( 'combobox', { name: 'Message WordPress Studio' } );
 	await user.type( composer, 'bwdse' );
 	expect( composer ).toHaveValue( 'bwdse' );

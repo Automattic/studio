@@ -27,7 +27,7 @@ function setup( user: AuthUser | null = null ) {
 	};
 }
 
-const PROMPT = 'Do more with WordPress.com';
+const PROMPT = 'Do more with WordPress';
 
 async function openLoginDialog() {
 	fireEvent.click( await screen.findByRole( 'button', { name: 'Log in' } ) );

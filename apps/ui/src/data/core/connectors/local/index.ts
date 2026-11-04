@@ -511,10 +511,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			};
 		},
 		async extractBlueprintBundle( file ): Promise< ExtractedBlueprintBundle > {
+			const data = await file.arrayBuffer();
 			const response = await fetch( `${ base }/blueprints/extract`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/octet-stream' },
-				body: file,
+				body: data,
+				signal: AbortSignal.timeout( 60_000 ),
 			} );
 			if ( ! response.ok ) {
 				const text = await response.text().catch( () => '' );

@@ -424,10 +424,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		// No native folder picker in a browser: the create form has the path typed
 		// (see capabilities.nativeFolderPicker), and this checks what it holds.
-		async selectSiteFolder( folderPath ): Promise< SelectedSiteFolder | null > {
+		async selectSiteFolder( folderPath, options ): Promise< SelectedSiteFolder | null > {
 			return api< SelectedSiteFolder >( '/site-defaults/folder', {
 				method: 'POST',
-				body: JSON.stringify( { path: folderPath } ),
+				body: JSON.stringify( { path: folderPath, ...options } ),
 			} );
 		},
 		async selectDefaultSiteDirectory(): Promise< string | null > {
@@ -981,6 +981,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		onToggleSidebar( listener ) {
 			return onMenuShortcut( listener, 'b' );
+		},
+		onOpenFolder() {
+			return () => {};
+		},
+		onNewChat( listener ) {
+			return onMenuShortcut( listener, 'n', 'shift' );
 		},
 		onAddSite( listener ) {
 			return onMenuShortcut( listener, 'n' );

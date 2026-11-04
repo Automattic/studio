@@ -385,7 +385,7 @@ function SitePreviewContent( {
 		<aside
 			className={ styles.root }
 			data-browser-bar={ showBrowserBar || undefined }
-			aria-label={ __( 'Site preview' ) }
+			aria-label={ __( 'Panel' ) }
 		>
 			{ ! inactive && annotate && annotationSpace
 				? createPortal(

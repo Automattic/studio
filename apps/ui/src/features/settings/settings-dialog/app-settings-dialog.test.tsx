@@ -274,7 +274,7 @@ describe( 'WordPress Studio settings', () => {
 		);
 		const connect = await studioConnect();
 		expect( connect.closest( '[data-settings-row]' ) ).toHaveTextContent(
-			'Do more with WordPress.com'
+			'Do more with WordPress'
 		);
 		fireEvent.click( connect );
 		await waitFor( () => expect( connect ).toHaveAttribute( 'aria-busy', 'true' ) );

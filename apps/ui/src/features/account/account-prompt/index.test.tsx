@@ -13,7 +13,7 @@ function Prompt() {
 			<AccountPromptDialog
 				open={ open }
 				onOpenChange={ setOpen }
-				title="Do more with WordPress.com"
+				title="Do more with WordPress"
 				description="Log in to share your site."
 				source="unknown"
 			/>

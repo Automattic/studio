@@ -10,7 +10,7 @@ import { useComposerAttachments, useFileDrop } from '@/data/use-composer-attachm
 import { SendIcon, TrashIcon } from '@/lib/icons';
 import { isImeComposing, isShortcut } from '@/lib/keyboard';
 import {
-	AttachmentDropOverlay,
+	DropOverlay,
 	AttachmentRemoveButton,
 	Button,
 	IconButton,
@@ -205,9 +205,7 @@ function NoteEditor( {
 					{ __( 'Add or delete this annotation before starting another.' ) }
 				</VisuallyHidden>
 			) }
-			{ isDragging ? (
-				<AttachmentDropOverlay>{ __( 'Drop to attach' ) }</AttachmentDropOverlay>
-			) : null }
+			{ isDragging ? <DropOverlay>{ __( 'Drop to attach' ) }</DropOverlay> : null }
 			{ attachments.length ? (
 				<ul className={ styles.images } aria-label={ __( 'Attachments' ) }>
 					{ attachments.map( ( attachment ) => (

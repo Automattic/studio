@@ -63,7 +63,7 @@ export default class AddSite {
 		if ( blueprintPath ) {
 			await this.dialog.getByRole( 'tab', { name: 'Upload', exact: true } ).click();
 			await this.blueprintFileInput.setInputFiles( blueprintPath );
-			await expect( this.submitButton ).toHaveText( 'Create site from Blueprint' );
+			await expect( this.submitButton ).toHaveText( 'Create site' );
 		} else {
 			await this.dialog.getByRole( 'button', { name: 'Start with Blank site' } ).click();
 		}

@@ -6,7 +6,7 @@ import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { useNavigate } from '@tanstack/react-router';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { CloudDownloadIcon } from 'lucide-react';
+import { CloudDownloadIcon, UploadIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useConnector } from '@/data/core';
 import {
@@ -146,23 +146,11 @@ function getBlueprintPackages( blueprint: SelectedBlueprint[ 'blueprint' ] ) {
 	};
 }
 
-function SelectedBlueprintSummary( {
-	selected,
-	onRemove,
-}: {
-	selected: SelectedBlueprint;
-	onRemove: () => void;
-} ) {
+function SelectedBlueprintSummary( { selected }: { selected: SelectedBlueprint } ) {
 	const packages = getBlueprintPackages( selected.blueprint );
 
 	return (
-		<section className={ localStyles.summary } aria-labelledby="selected-blueprint-title">
-			<div className={ localStyles.summaryHeader }>
-				<h2>{ __( 'Blueprint' ) }</h2>
-				<button type="button" className={ localStyles.summaryRemove } onClick={ onRemove }>
-					{ __( 'Remove' ) }
-				</button>
-			</div>
+		<section className={ localStyles.summary } aria-label={ __( 'Blueprint details' ) }>
 			<div
 				className={ `${ localStyles.summaryOverview } ${
 					selected.image ? '' : localStyles.summaryOverviewWithoutImage
@@ -174,9 +162,6 @@ function SelectedBlueprintSummary( {
 					</div>
 				) }
 				<div className={ localStyles.summaryContent }>
-					<h3 id="selected-blueprint-title" className={ localStyles.summaryTitle }>
-						{ selected.title }
-					</h3>
 					{ selected.excerpt && (
 						<p className={ localStyles.summaryExcerpt }>{ selected.excerpt }</p>
 					) }
@@ -231,11 +216,11 @@ function SelectedBlueprintSummary( {
 export function CreatePanel( {
 	remote,
 	onCancel,
-	onBlankChange,
+	onChooseSource,
 }: {
 	remote?: SyncSite;
 	onCancel: () => void;
-	onBlankChange: ( isBlank: boolean ) => void;
+	onChooseSource?: () => void;
 } ) {
 	const connector = useConnector();
 	const navigate = useNavigate();
@@ -289,10 +274,9 @@ export function CreatePanel( {
 			cleanupBlueprint( selectedBlueprintRef.current );
 			selectedBlueprintRef.current = blueprint;
 			setSelectedBlueprint( blueprint );
-			onBlankChange( ! blueprint && ! existing );
 			setSubmitError( '' );
 		},
-		[ cleanupBlueprint, existing, onBlankChange ]
+		[ cleanupBlueprint ]
 	);
 
 	useEffect( () => {
@@ -387,25 +371,24 @@ export function CreatePanel( {
 				isSubmitDisabled={ ! isBlueprintValid }
 				requiresCustomDomain={ requiresCustomDomain }
 				submitError={ submitError }
-				submitLabel={ selectedBlueprint ? __( 'Create site from Blueprint' ) : undefined }
-				source={ remote?.url.replace( /^https?:\/\//, '' ) }
-				sourceIcon={ <CloudDownloadIcon /> }
-				onExistingChange={ ( isExisting ) => {
-					setExisting( isExisting );
-					onBlankChange( ! isExisting && ! selectedBlueprintRef.current );
-				} }
+				source={ selectedBlueprint?.title ?? remote?.url.replace( /^https?:\/\//, '' ) }
+				sourceIcon={ selectedBlueprint ? <UploadIcon /> : <CloudDownloadIcon /> }
+				onChangeSource={
+					selectedBlueprint
+						? () => {
+								setIsBlueprintValid( true );
+								replaceBlueprint( null );
+						  }
+						: onChooseSource
+				}
+				sourceActionLabel={ selectedBlueprint ? __( 'Remove' ) : undefined }
+				onExistingChange={ setExisting }
 				requiresEmptyPath={ !! remote }
 				draft={ restoredDraft }
 				onDraftChange={ setSetupDraft }
-				panelFooter={
+				sourceDetails={
 					selectedBlueprint ? (
-						<SelectedBlueprintSummary
-							selected={ selectedBlueprint }
-							onRemove={ () => {
-								setIsBlueprintValid( true );
-								replaceBlueprint( null );
-							} }
-						/>
+						<SelectedBlueprintSummary selected={ selectedBlueprint } />
 					) : undefined
 				}
 			/>

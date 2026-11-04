@@ -15,6 +15,7 @@ import fsPromises from 'fs/promises';
 import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
+import { recordAnnotationSubmitted } from '@studio/agent/node/annotation-tracks';
 import {
 	getGlobalInstructionsEnabled as readGlobalInstructionsEnabled,
 	setGlobalInstructionsEnabled as writeGlobalInstructionsEnabled,
@@ -319,7 +320,7 @@ export async function continueAiSession(
 	const images = validateStudioChatImages( options.images );
 	const files = validateStudioChatFiles( options.files );
 	const visualAnnotations = validateStudioVisualAnnotations( options.visualAnnotations, images );
-	return startAgentRun( {
+	const result = startAgentRun( {
 		sessionId,
 		prompt: expandSkillCommandPrompt( prompt ),
 		turnId: options.turnId,
@@ -329,6 +330,13 @@ export async function continueAiSession(
 		visualAnnotations,
 		webContents: event.sender,
 	} );
+	void recordAnnotationSubmitted( {
+		annotationCount: visualAnnotations?.length ?? 0,
+		sessionsRoot: getSessionsDirectory(),
+		sessionId,
+		record: recordTracksEvent,
+	} );
+	return result;
 }
 
 export async function listActiveAiAgentRuns(

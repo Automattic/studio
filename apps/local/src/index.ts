@@ -3,6 +3,7 @@ import { createReadStream, createWriteStream, existsSync, mkdtempSync, rm } from
 import os from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
+import { recordAnnotationSubmitted } from '@studio/agent/node/annotation-tracks';
 import {
 	getGlobalInstructionsEnabled,
 	readGlobalInstructionsFile,
@@ -2169,6 +2170,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				images,
 				files,
 				visualAnnotations: validatedVisualAnnotations,
+			} );
+			void recordAnnotationSubmitted( {
+				annotationCount: validatedVisualAnnotations?.length ?? 0,
+				sessionsRoot,
+				sessionId: req.params.id,
+				record: options.recordTracksEvent,
 			} );
 			res.json( { runId } );
 		} )

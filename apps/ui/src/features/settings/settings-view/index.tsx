@@ -280,7 +280,7 @@ function PreferencesPanel( {
 				</SettingsRow>
 				<SettingsRow
 					title={ __( 'Start sites in split view' ) }
-					description={ __( 'Show chat beside the browser when starting a site.' ) }
+					description={ __( 'Show chat beside the panel when starting a site.' ) }
 				>
 					<SettingsToggle
 						label={ __( 'Start sites in split view' ) }

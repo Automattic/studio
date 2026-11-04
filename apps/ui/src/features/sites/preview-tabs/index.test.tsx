@@ -39,8 +39,8 @@ async function setup( running = true, signedIn = false ) {
 	} );
 	const view = renderApp( { connector, path: '/sites/one/new' } );
 	await screen.findByRole( 'button', { name: 'Site menu' } );
-	if ( screen.queryByRole( 'button', { name: 'Show preview' } ) )
-		fireEvent.click( screen.getByRole( 'button', { name: 'Show preview' } ) );
+	if ( screen.queryByRole( 'button', { name: 'Show panel' } ) )
+		fireEvent.click( screen.getByRole( 'button', { name: 'Show panel' } ) );
 	return { ...view, connector };
 }
 const selectedTab = () =>
@@ -58,28 +58,28 @@ it.each( [ 'header', 'shortcut', 'palette' ] )(
 		const page = document.querySelector( 'iframe' );
 		const composer = await screen.findByRole( 'combobox', { name: 'Message WordPress Studio' } );
 		fireEvent.change( composer, { target: { value: 'Keep this draft' } } );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Enter full view' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Expand panel' } ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Show chat for First' } ) );
 		expect( composer ).toBeVisible();
-		expect( screen.getByRole( 'button', { name: 'Show preview' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Show panel' } ) ).toBeVisible();
 		if ( control === 'header' ) {
-			fireEvent.click( screen.getByRole( 'button', { name: 'Show preview' } ) );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Show panel' } ) );
 		} else if ( control === 'shortcut' ) {
-			act( () => connector.emit( 'onToggleSitePreview' ) );
+			act( () => connector.emit( 'onTogglePanel' ) );
 		} else {
 			act( () => setCommandPaletteOpen( true ) );
 			fireEvent.change( await screen.findByRole( 'combobox', { name: 'Search commands' } ), {
-				target: { value: 'Switch to Browser' },
+				target: { value: 'Switch to Panel' },
 			} );
-			fireEvent.click( await screen.findByRole( 'option', { name: /^Switch to Browser/ } ) );
+			fireEvent.click( await screen.findByRole( 'option', { name: /^Switch to Panel/ } ) );
 		}
 		await waitFor( () => expect( composer.closest( '[aria-hidden="true"]' ) ).not.toBeNull() );
 		expect( document.querySelector( 'iframe' ) ).toBe( page );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Hide preview' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Hide panel' } ) );
 		await waitFor( () => expect( composer ).toBeVisible() );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Show preview' } ) );
-		expect( screen.getByRole( 'button', { name: 'Hide preview' } ) ).toHaveAttribute(
-			'data-preview-layout',
+		fireEvent.click( screen.getByRole( 'button', { name: 'Show panel' } ) );
+		expect( screen.getByRole( 'button', { name: 'Hide panel' } ) ).toHaveAttribute(
+			'data-workspace-layout',
 			'split'
 		);
 		expect( composer ).toHaveValue( 'Keep this draft' );
@@ -103,14 +103,14 @@ it.each( [ false, true ] )(
 		fireEvent.click( screen.getAllByRole( 'button', { name: 'Close First' } )[ 1 ] );
 		expect( first ).toHaveAttribute( 'aria-selected', 'true' );
 		expect( connector.stopSite ).not.toHaveBeenCalled();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Enter full view' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Expand panel' } ) );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Close First' } ) );
-		const show = await screen.findByRole( 'button', { name: 'Show preview' } );
+		const show = await screen.findByRole( 'button', { name: 'Show panel' } );
 		await waitFor( () => expect( show ).toHaveFocus() );
 		expect( document.querySelector( 'iframe' ) ).not.toBeInTheDocument();
 		fireEvent.click( show );
 		await waitFor( () =>
-			expect( screen.queryByRole( 'button', { name: 'Enter full view' } ) ).not.toBeInTheDocument()
+			expect( screen.queryByRole( 'button', { name: 'Expand panel' } ) ).not.toBeInTheDocument()
 		);
 		await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );
 		await waitFor( () => expect( screen.queryByRole( 'tab' ) ).not.toBeInTheDocument() );
@@ -118,9 +118,9 @@ it.each( [ false, true ] )(
 			screen.queryByRole( 'toolbar', { name: 'Preview browser controls' } )
 		).not.toBeInTheDocument();
 		expect(
-			screen.getByRole( 'complementary', { name: 'Site preview' } ).querySelector( 'canvas' )
+			screen.getByRole( 'complementary', { name: 'Panel' } ).querySelector( 'canvas' )
 		).toBeInTheDocument();
-		const pane = screen.getByRole( 'complementary', { name: 'Site preview' } );
+		const pane = screen.getByRole( 'complementary', { name: 'Panel' } );
 		expect(
 			await within( pane ).findByRole( 'button', {
 				name: 'Browser B',
@@ -208,7 +208,7 @@ it( 'keeps stopped and blank tabs empty without a browser bar', async () => {
 	expect( await screen.findByRole( 'menuitem', { name: 'Browser' } ) ).toBeVisible();
 	await user.keyboard( '{Escape}' );
 	expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
-	const pane = screen.getByRole( 'complementary', { name: 'Site preview' } );
+	const pane = screen.getByRole( 'complementary', { name: 'Panel' } );
 	expect( within( pane ).getByRole( 'group', { name: 'Project tools' } ) ).toBeVisible();
 	expect( within( pane ).queryByRole( 'img' ) ).not.toBeInTheDocument();
 	expect( document.querySelector( 'iframe' ) ).not.toBeInTheDocument();
@@ -380,7 +380,7 @@ it( 'closes tabs from the context menu without selecting the right-clicked tab',
 		'Close tab',
 	] );
 	fireEvent.click( screen.getByRole( 'menuitem', { name: /^Close tab$/ } ) );
-	await screen.findByRole( 'button', { name: 'Show preview' } );
+	await screen.findByRole( 'button', { name: 'Show panel' } );
 } );
 
 it( 'opens the tab menu from the keyboard and stops the site when closing all tabs', async () => {
@@ -390,7 +390,7 @@ it( 'opens the tab menu from the keyboard and stops the site when closing all ta
 	fireEvent.focus( tab );
 	fireEvent.keyDown( tab, { key: 'F10', shiftKey: true } );
 	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Close all tabs' } ) );
-	const show = await screen.findByRole( 'button', { name: 'Show preview' } );
+	const show = await screen.findByRole( 'button', { name: 'Show panel' } );
 	await waitFor( () => expect( show ).toHaveFocus() );
 	fireEvent.click( show );
 	await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );
@@ -518,7 +518,7 @@ it.each( [ false, true ] )(
 			fireEvent.click( screen.getByRole( 'button', { name: 'Close First' } ) );
 			await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );
 			await screen.findByRole( 'button', { name: 'Start First' } );
-			fireEvent.click( screen.getByRole( 'button', { name: 'Show preview' } ) );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Show panel' } ) );
 		}
 		let resume!: () => void;
 		const ready = new Promise< void >( ( resolve ) => {
@@ -532,7 +532,7 @@ it.each( [ false, true ] )(
 		await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
 		await user.click( await screen.findByRole( 'menuitem', { name: 'Browser' } ) );
 		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
-		const preview = screen.getByRole( 'complementary', { name: 'Site preview' } );
+		const preview = screen.getByRole( 'complementary', { name: 'Panel' } );
 		expect( within( preview ).getByText( 'Loading site preview' ) ).toBeInTheDocument();
 		expect( preview.querySelector( 'canvas' ) ).not.toBeNull();
 		expect( preview.querySelector( 'span[aria-hidden="true"][data-active]' ) ).not.toBeNull();
@@ -566,7 +566,7 @@ it( 'closes the panel immediately while the final tab’s site is still stopping
 		return stop( id );
 	} );
 	fireEvent.click( screen.getByRole( 'button', { name: 'Close First' } ) );
-	await screen.findByRole( 'button', { name: 'Show preview' } );
+	await screen.findByRole( 'button', { name: 'Show panel' } );
 	await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );
 	expect( document.querySelector( 'iframe' ) ).not.toBeInTheDocument();
 	await act( async () => {
@@ -614,11 +614,11 @@ it( 'opens the new-tab menu with the primary T shortcut, including from closed p
 	const { user } = await setup();
 	const button = screen.getByRole( 'button', { name: 'New tab' } );
 	expect( button ).toHaveAttribute( 'aria-keyshortcuts' );
-	await user.click( screen.getByRole( 'button', { name: 'Hide preview' } ) );
+	await user.click( screen.getByRole( 'button', { name: 'Hide panel' } ) );
 	const isApple = /Mac|iPhone|iPad/.test( navigator.platform );
 	fireEvent.keyDown( document, { key: 't', code: 'KeyT', metaKey: isApple, ctrlKey: ! isApple } );
 	await screen.findByRole( 'menuitem', { name: 'Browser' } );
-	expect( screen.getByRole( 'button', { name: 'Hide preview' } ) ).toBeVisible();
+	expect( screen.getByRole( 'button', { name: 'Hide panel' } ) ).toBeVisible();
 	await user.keyboard( '{Escape}' );
 	fireEvent.keyDown( document, {
 		key: 't',
@@ -878,8 +878,8 @@ it( 'selects an existing project tab when reviewing a note on its page', async (
 	connector.capabilities.annotatePreview = true;
 	renderApp( { connector, path: '/sites/one/new' } );
 	await screen.findByRole( 'button', { name: 'Site menu' } );
-	if ( screen.queryByRole( 'button', { name: 'Show preview' } ) )
-		fireEvent.click( screen.getByRole( 'button', { name: 'Show preview' } ) );
+	if ( screen.queryByRole( 'button', { name: 'Show panel' } ) )
+		fireEvent.click( screen.getByRole( 'button', { name: 'Show panel' } ) );
 	const go = async ( path: string ) => {
 		const input = screen.getByRole( 'textbox', { name: 'Address' } );
 		fireEvent.change( input, { target: { value: path } } );

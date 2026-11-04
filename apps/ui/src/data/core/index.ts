@@ -17,6 +17,7 @@ export type {
 	QuitSitesBehavior,
 	SessionEntry,
 	GlobalStyles,
+	SelectedSiteFolder,
 	SiteDetails,
 	SiteEmail,
 	SiteEmailAddress,

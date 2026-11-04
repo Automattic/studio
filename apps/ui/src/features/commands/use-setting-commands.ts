@@ -1,6 +1,5 @@
 import { getLocalizedLink, REPORT_ISSUE_URL } from '@studio/common/lib/docs-links';
 import { __ } from '@wordpress/i18n';
-import { RotateCcwIcon } from 'lucide-react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
@@ -11,6 +10,7 @@ import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { getSettingCommands } from '@/features/commands/studio-commands';
+import { ResetTipsIcon } from '@/lib/icons';
 import type { SiteDetails, UserPreferences } from '@/data/core';
 import type { PaletteCommand, SettingToggles } from '@/features/commands/studio-commands';
 
@@ -88,7 +88,7 @@ function useSettingToggles(): SettingToggles {
 				? __( 'Disable starting sites in split view' )
 				: __( 'Enable starting sites in split view' ),
 			preferences.openChatOnSiteStart
-				? __( 'Sites will start in browser view.' )
+				? __( 'Sites will start with the panel expanded.' )
 				: __( 'Sites will start in split view.' )
 		),
 		'usage-statistics': toggle(
@@ -147,7 +147,7 @@ export function useSettingCommands(
 			id: 'reset-tips',
 			group: 'commands',
 			label: __( 'Reset tips' ),
-			icon: RotateCcwIcon,
+			icon: ResetTipsIcon,
 			keywords: [ __( 'Hints' ), __( 'First use' ) ],
 			run: () => {
 				if ( setHints.isPending ) return;

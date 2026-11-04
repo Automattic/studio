@@ -52,7 +52,7 @@ function createPropsStore( initial: Props ) {
 function Harness( { store }: { store: ReturnType< typeof createPropsStore > } ) {
 	const props = useSyncExternalStore( store.subscribe, store.get );
 	return (
-		<SiteHeaderActionsProvider host="preview">
+		<SiteHeaderActionsProvider host="panel">
 			<SessionUIProvider>
 				<SitePreview { ...props } />
 			</SessionUIProvider>
@@ -77,7 +77,7 @@ async function renderPreview(
 	const site = makeSite( { id: 'one', port: 9010, running: true } );
 	const store = createPropsStore( { site, path: '/', reloadNonce: 0, ...props } );
 	const view = renderWithProviders( <Harness store={ store } />, { connector } );
-	await screen.findByRole( 'complementary', { name: 'Site preview' } );
+	await screen.findByRole( 'complementary', { name: 'Panel' } );
 	return { ...view, update: store.update };
 }
 

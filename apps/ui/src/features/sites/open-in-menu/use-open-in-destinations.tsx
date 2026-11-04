@@ -116,17 +116,6 @@ export function useOpenInDestinations(
 
 	const destinations: Array< OpenInDestinationEntry | false > = [
 		{
-			id: 'files',
-			label: fileManager.label,
-			logo: fileManager.logo,
-			disabled: false,
-			open: () =>
-				open( 'files', fileManager.label, () => {
-					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_FOLDER );
-					return connector.openSiteFolder( site.id );
-				} ),
-		},
-		{
 			id: 'browser',
 			label: browserLabel,
 			logo: (
@@ -141,6 +130,17 @@ export function useOpenInDestinations(
 					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER, { browser: 'external' } );
 					// The front end opens logged out; only WP Admin signs the user in.
 					return openSiteUrl( '/', { autoLogin: false } );
+				} ),
+		},
+		{
+			id: 'files',
+			label: fileManager.label,
+			logo: fileManager.logo,
+			disabled: false,
+			open: () =>
+				open( 'files', fileManager.label, () => {
+					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_FOLDER );
+					return connector.openSiteFolder( site.id );
 				} ),
 		},
 		!! editor && {

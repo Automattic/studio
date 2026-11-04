@@ -150,6 +150,7 @@ import {
 	cleanupBlueprintTempDir,
 	extractBlueprintUpload,
 } from '@studio/common/sites/blueprint-extract';
+import { readBlueprintSource } from '@studio/common/sites/blueprint-source';
 import { buildSiteCreateArgs, type SiteCreateOptions } from '@studio/common/sites/create';
 import { buildSiteSetArgs, getSiteEditOptions } from '@studio/common/sites/edit';
 import { deleteSite, startSite, stopSite } from '@studio/common/sites/lifecycle';
@@ -1141,10 +1142,15 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				}
 			}
 			try {
+				const blueprint =
+					confined && req.body?.allowBlueprints === true
+						? await readBlueprintSource( confined )
+						: null;
 				res.json( {
 					...folder,
-					isEmpty: confined ? await isEmptyDir( confined ) : true,
-					isWordPress: confined ? isWordPressDirectory( confined ) : false,
+					...( blueprint ? { blueprint } : {} ),
+					isEmpty: blueprint ? false : confined ? await isEmptyDir( confined ) : true,
+					isWordPress: ! blueprint && confined ? isWordPressDirectory( confined ) : false,
 				} );
 			} catch ( err ) {
 				if ( ! isErrnoException( err ) || err.code !== 'ENOENT' ) throw err;

@@ -172,6 +172,27 @@
 	--motion-ease-layout: cubic-bezier( 0.645, 0.045, 0.355, 1 );
 	--motion-ease-drawer: cubic-bezier( 0.32, 0.72, 0, 1 );
 	--motion-ease-enter: cubic-bezier( 0.165, 0.84, 0.44, 1 );
+	/* Sampled from a spring with stiffness 320, damping 20 and mass 1. */
+	--motion-ease-spring: linear(
+		0 0%,
+		0.0325 2.5%,
+		0.1163 5%,
+		0.2331 7.5%,
+		0.6385 15%,
+		0.7594 17.5%,
+		0.8639 20%,
+		0.9497 22.5%,
+		1.0164 25%,
+		1.0648 27.5%,
+		1.0966 30%,
+		1.1142 32.5%,
+		1.1172 37.5%,
+		1.0941 42.5%,
+		1.0178 55%,
+		0.9887 65%,
+		0.9858 72.5%,
+		1 100%
+	);
 
 	/* Layers inside the workspace: a sticky row over its scroller, overlays and
 	   handles over a pane, the band's separator over the panels, and the sidebar

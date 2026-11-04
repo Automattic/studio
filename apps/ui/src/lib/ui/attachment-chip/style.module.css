@@ -19,6 +19,12 @@
 		user-select: none;
 	}
 
+	.chip:has( > [data-slot='attachment-remove'] ) {
+		--attachment-remove-inset: var( --space-2 );
+
+		padding-inline-end: calc( var( --space-5 ) + var( --space-4 ) );
+	}
+
 	.chip[data-font='mono'] {
 		font-family: var( --font-mono );
 		font-size: var( --text-2xs );

@@ -6,11 +6,11 @@
 	pointer-events: none;
 }
 .chip:hover > .remove,
-.chip:has( :focus-visible ) > .remove {
+.chip:focus-within > .remove {
 	opacity: 1;
 	pointer-events: auto;
 }
-@media ( hover: none ) {
+@media ( hover: none ), ( any-pointer: coarse ) {
 	.remove {
 		opacity: 1;
 		pointer-events: auto;
@@ -22,6 +22,7 @@
 	min-width: 0;
 	height: 100%;
 	padding: 0 var( --space-2_5 ) 0 var( --space-2 );
+	padding-inline-end: calc( var( --space-5 ) + var( --space-4 ) );
 	border-radius: inherit;
 }
 .popup {

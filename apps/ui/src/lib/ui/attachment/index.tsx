@@ -11,7 +11,9 @@ export function AttachmentRemoveButton( {
 	return (
 		<Button
 			{ ...props }
-			variant="outline"
+			data-slot="attachment-remove"
+			data-color-scheme="light"
+			variant="ghost"
 			size="icon-2xs"
 			shape="round"
 			className={ clsx( styles.remove, className ) }

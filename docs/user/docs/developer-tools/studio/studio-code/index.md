@@ -86,11 +86,11 @@ The agent can read and write files in your site directory, run WP-CLI commands, 
 
 When you ask WordPress Studio Code to build a site, it first offers you four looks, and then four layouts previewed in the look you picked. It skips these questions when your request already describes a design. Your choice is saved as `DESIGN.md` in the site’s root folder, and later chats, as well as other coding agents, follow it. Fonts chosen in `DESIGN.md` are self-hosted on the site.
 
-[![WordPress Studio Code asking “Which look should I build?” for a neighborhood bakery called Wren & Barley, with four looks drawn as design boards (Quiet luxury editorial, Pastel soft, Mid-century retro, and Scandinavian), Show other options, and the Skip and Done buttons.](https://developer.wordpress.com/wp-content/uploads/2026/04/design-looks.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/design-looks.webp)
+[![WordPress Studio Code asking “Which look should I build?” for a slow-fashion journal called Moire, with four looks drawn as design boards (Dia journal, Quiet linen, Monochrome atelier, and Deep wool), Show other options, and the Skip and Done buttons.](https://developer.wordpress.com/wp-content/uploads/2026/04/design-looks.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/design-looks.webp)
 
 To review the design system, click the site preview’s address bar and choose **Design system**, or choose **Tools → Design system** from the site menu. It shows the colors, type scale, spacing and corners, components, and guidelines from `DESIGN.md`. If the theme’s `theme.json` no longer matches `DESIGN.md`, WordPress Studio lists each difference: choose **Use DESIGN.md** or **Keep theme.json** for each one, or **Apply all from DESIGN.md**.
 
-[![The Design system view in the site preview of a bakery site: its name and tagline, a terracotta, white, and umber color palette, Literata type styles, and a primary button, with a note that theme.json matches DESIGN.md.](https://developer.wordpress.com/wp-content/uploads/2026/04/design-system.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/design-system.webp)
+[![The Design system view in the site preview of the Moire journal: its name and tagline, Poppins type styles, and a dark brown, golden yellow, and pale yellow color palette, with a note that theme.json matches DESIGN.md.](https://developer.wordpress.com/wp-content/uploads/2026/04/design-system.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/design-system.webp)
 
 WordPress Studio Code can also generate images for your site. See [Image generation in WordPress Studio Code](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/image-generation/).
 
@@ -107,9 +107,9 @@ Instead of describing which part of the page you mean, you can point at it. In t
 5.  Click more elements to add more notes. Click a marker to edit its note, or click **Delete annotation** (the trash can) to remove it.
 6.  Click **Send** in the toolbar, or send from the chat box. WordPress Studio Code gets your message and every note, each with the element it points at.
 
-[![WordPress Studio in annotation mode, with the site preview of a bakery site and the Annotations toolbar, with Cancel and Send buttons, at the bottom of the preview.](https://developer.wordpress.com/wp-content/uploads/2026/04/annotate-toolbar.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/annotate-toolbar.webp)
+[![WordPress Studio in annotation mode, with the site preview of the Moire journal and the Annotations toolbar, with Cancel and Send buttons, at the bottom of the preview.](https://developer.wordpress.com/wp-content/uploads/2026/04/annotate-toolbar.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/annotate-toolbar.webp)
 
-[![Annotating a site preview: numbered markers 1 and 2 on the heading and the Order button, and an open note on the hero photo reading “Swap in a photo of our sourdough”, with the attach, delete, and save buttons. The chat box shows 2 annotations, and the toolbar shows Send 2.](https://developer.wordpress.com/wp-content/uploads/2026/04/annotate-note.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/annotate-note.webp)
+[![Annotating a site preview: numbered markers 1 and 2 on the wordmark and the tagline, and an open note on the photo reading “Swap in the wool close-up”, with the attach, delete, and save buttons. The chat box shows 2 annotations, and the toolbar shows Send 2.](https://developer.wordpress.com/wp-content/uploads/2026/04/annotate-note.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/annotate-note.webp)
 
 [![The WordPress Studio window with Annotate turned on above the site preview: two notes marked 1 and 2 on the page wait in the chat box as 2 annotations, and the Annotations toolbar shows Cancel and Send 2.](https://developer.wordpress.com/wp-content/uploads/2026/04/annotate-staged.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/annotate-staged.webp)
 

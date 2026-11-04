@@ -34,7 +34,7 @@ To enable HTTPS for a new or existing site:
 
 [![The Create a blank site form in WordPress Studio with Advanced settings expanded, showing Use custom domain and Enable HTTPS turned on and a .wp.local domain name.](https://developer.wordpress.com/wp-content/uploads/2025/03/create-site-https.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/03/create-site-https.webp)
 
-[![An existing site's Settings in WordPress Studio, with Use custom domain and Enable HTTPS turned on under Local domain and the domain set to wren-barley.wp.local.](https://developer.wordpress.com/wp-content/uploads/2025/03/site-settings-domain.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/03/site-settings-domain.webp)
+[![An existing site's Settings in WordPress Studio, with Use custom domain and Enable HTTPS turned on under Local domain and the domain set to moire.wp.local.](https://developer.wordpress.com/wp-content/uploads/2025/03/site-settings-domain.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/03/site-settings-domain.webp)
 
 6.  Click **Create site** or **Save**, depending on whether you are creating a new site or editing an existing one. 
 7.  When prompted, give your permission for WordPress Studio to modify the system hosts file. WordPress Studio will configure everything else automatically. 

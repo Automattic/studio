@@ -30,7 +30,7 @@ Each suite is one feature's shots, in order. The harness README describes the st
 - `61-signed-in-previews.json` (`"previewSites": true`) shows the scene's made-up preview sites in the Share panel.
 - `62-signed-in-connected.json` (`"connectedSites": true`) connects the demo site to the scene's made-up WordPress.com sites: the website switcher and the Pull changes and Publish changes review steps with Choose files…, never starting a pull or publish.
 - `63-signed-in-agent.json` is signed in on an empty profile, so its shots tell the story from a new blank site; the `stubAgentRuns` and `playAgentTurn` helpers stand in for Studio Code, so no model runs: `design-looks` is the design picker with a pending "Which look should I build?".
-- `64-signed-in-chat.json` (`"chats"`) opens on a recorded conversation, the bakery's home page being polished.
+- `64-signed-in-chat.json` (`"chats"`) opens on a recorded conversation, the Moire home page's text being updated.
 - `70-signed-in-blog.json` holds one-off images for blog posts and announcements, which no docs page uses, so the next post can recapture them. Frame them for a white page with the harness's `frame --look blog <image…>`.
 
 The harness uses the first Studio it finds (`STUDIO_APP_DIR`, `STUDIO_APP`, a packaged build of this repo, a build of `apps/studio`, then `/Applications/Studio.app`). The first-run shots need the welcome dialog that came after Studio 2.0.4, so until the next release capture from a build of this branch: `npx studio-capture setup` at the repo root builds it (and the CLI), and `npx studio-capture doctor` says what is missing.

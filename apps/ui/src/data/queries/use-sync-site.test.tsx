@@ -8,7 +8,7 @@ import {
 	scopeAccountJourney,
 	clearAccountJourneys,
 } from '@/data/account-analytics';
-import { getNoticeHistory } from '@/data/app-messages';
+import { dismissToast, getVisibleToasts, getNoticeHistory } from '@/data/app-messages';
 import { ConnectorProvider } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
@@ -18,7 +18,12 @@ import { getSyncActivity, useSiteSyncActivity } from '@/data/sync-activity';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { createTestQueryClient } from '@/test/render';
 import { usePublishPreviewSite } from './use-preview-site';
-import { usePullSiteFromLive, usePushSiteToLive, useSyncActivityEvents } from './use-sync-site';
+import {
+	usePullSiteFromLive,
+	usePushSiteToLive,
+	useSyncActivityEvents,
+	useSettleFromMutation,
+} from './use-sync-site';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { QueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -78,6 +83,74 @@ function Harness() {
 		</>
 	);
 }
+
+it.each( [ 'push', 'pull', 'import', 'preview' ] as const )(
+	'keeps %s progress dismissed across updates and replaces it once on completion',
+	( direction ) => {
+		const queryClient = createTestQueryClient();
+		queryClient.setQueryData( SITES_QUERY_KEY, [
+			makeSite( { id: 'notice-site', name: 'Ocean' } ),
+		] );
+		const { publish } = setup( <SyncActivityEvents />, { queryClient } );
+		const id = `${ direction }-notice-site`;
+		act( () => publish( { siteId: 'notice-site', activity: { kind: 'pending', direction } } ) );
+		expect( getVisibleToasts().find( ( item ) => item.id === id ) ).toMatchObject( {
+			processing: true,
+			description: 'Ocean',
+		} );
+		act( () => {
+			dismissToast( id );
+			vi.advanceTimersByTime( 300 );
+		} );
+		act( () =>
+			publish( {
+				siteId: 'notice-site',
+				activity: { kind: 'pending', direction, message: 'Uploading…' },
+			} )
+		);
+		expect( getVisibleToasts().find( ( item ) => item.id === id ) ).toBeUndefined();
+		act( () => publish( { siteId: 'notice-site', activity: { kind: 'success', direction } } ) );
+		act( () => publish( { siteId: 'notice-site', activity: { kind: 'success', direction } } ) );
+		expect( getNoticeHistory().filter( ( item ) => item.id === id ) ).toHaveLength( 1 );
+		expect( getVisibleToasts().find( ( item ) => item.id === id ) ).toMatchObject( {
+			intent: 'success',
+			processing: undefined,
+		} );
+	}
+);
+
+it( 'does not let a previous mutation fallback finish a newer transfer', async () => {
+	function FallbackHarness() {
+		const settle = useSettleFromMutation();
+		return (
+			<>
+				<SyncActivityEvents />
+				<button type="button" onClick={ () => settle( 'fallback-site', 'pull' ) }>
+					Settle
+				</button>
+			</>
+		);
+	}
+	const { publish } = setup( <FallbackHarness /> );
+	act( () =>
+		publish( { siteId: 'fallback-site', activity: { kind: 'pending', direction: 'pull' } } )
+	);
+	fireEvent.click( screen.getByRole( 'button', { name: 'Settle' } ) );
+	act( () =>
+		publish( { siteId: 'fallback-site', activity: { kind: 'success', direction: 'pull' } } )
+	);
+	act( () =>
+		publish( { siteId: 'fallback-site', activity: { kind: 'pending', direction: 'pull' } } )
+	);
+	await passReportGrace();
+	expect( getSyncActivity( 'fallback-site' )?.kind ).toBe( 'pending' );
+	expect(
+		getVisibleToasts().find( ( item ) => item.id === 'pull-fallback-site' )?.processing
+	).toBe( true );
+	act( () =>
+		publish( { siteId: 'fallback-site', activity: { kind: 'success', direction: 'pull' } } )
+	);
+} );
 
 describe( 'usePullSiteFromLive', () => {
 	it.each( [ new Error( 'Pull failed' ), new Error( SYNC_CANCELLED_MESSAGE ) ] )(
@@ -175,6 +248,7 @@ describe( 'usePullSiteFromLive', () => {
 			siteThumbnailQueryKey( 'site-2' ),
 		];
 		staleKeys.forEach( ( key ) => queryClient.setQueryData( key, 'before-import' ) );
+		queryClient.setQueryData( SITES_QUERY_KEY, [ makeSite( { id: 'site-2' } ) ] );
 		const { publish } = setup( <SyncActivityEvents />, { queryClient } );
 
 		act( () =>

@@ -5,50 +5,33 @@
 	text-align: center;
 }
 
-.dropZone {
-	position: relative;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	flex: 1;
-	gap: var( --space-4 );
-	min-width: 0;
-	margin: 0;
-	padding: var( --space-10 );
-	border: 1px dashed var( --border );
-	border-radius: var( --radius-xl );
-}
-
-.dropIcon,
-.dropHelp {
-	color: var( --muted-foreground );
-}
-
-.dropLabel {
-	color: var( --foreground );
-}
-
-.dropText {
-	display: flex;
-	flex-direction: column;
-	gap: var( --space-1 );
-}
-
-.dropHelp {
-	font-size: var( --text-xxs );
-	line-height: 1.3;
-}
-
 .fileInput {
 	display: none;
 }
 
-.dropZone[data-dragging] {
-	border-color: var( --accent );
+.zone:has( .choose:not( :disabled, [data-disabled] ) ):hover {
+	border-color: color-mix( in oklab, var( --foreground ) 25%, transparent );
+	background-color: var( --muted );
+}
+
+.zone:has( .choose:focus-visible ) {
+	border-color: var( --ring );
 	border-style: solid;
-	background-color: light-dark(
-		color-mix( in srgb, var( --accent-text ) 15%, transparent ),
-		color-mix( in srgb, var( --accent-text ) 10%, transparent )
-	);
+	box-shadow: inset 0 0 0 calc( var( --focus-width ) - 1px ) var( --ring );
+}
+
+.choose::after {
+	position: absolute;
+	inset: 0;
+	border-radius: var( --radius-sm );
+	content: '';
+}
+
+.choose:focus-visible {
+	outline: none;
+	box-shadow: none;
+}
+
+.choose:is( :disabled, [data-disabled] )::after {
+	pointer-events: none;
 }

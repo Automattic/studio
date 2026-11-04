@@ -467,10 +467,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			await api( '/sites/sort-order', { method: 'POST', body: JSON.stringify( { updates } ) } );
 		},
 		// Export downloads the archive in the browser (no native Save-As dialog).
-		async exportFullSite( siteId ): Promise< string | null > {
+		async exportFullSite( siteId, options ): Promise< string | null > {
+			options?.onStarted?.();
 			return downloadFromServer( `/sites/${ encodeURIComponent( siteId ) }/export?mode=full` );
 		},
-		async exportDatabase( siteId ): Promise< string | null > {
+		async exportDatabase( siteId, options ): Promise< string | null > {
+			options?.onStarted?.();
 			return downloadFromServer( `/sites/${ encodeURIComponent( siteId ) }/export?mode=database` );
 		},
 
@@ -503,10 +505,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			};
 		},
 		async extractBlueprintBundle( file ): Promise< ExtractedBlueprintBundle > {
+			const data = await file.arrayBuffer();
 			const response = await fetch( `${ base }/blueprints/extract`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/octet-stream' },
-				body: file,
+				body: data,
+				signal: AbortSignal.timeout( 60_000 ),
 			} );
 			if ( ! response.ok ) {
 				const text = await response.text().catch( () => '' );

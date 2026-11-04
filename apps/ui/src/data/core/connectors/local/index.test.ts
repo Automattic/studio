@@ -14,6 +14,28 @@ describe( 'createLocalConnector Connect contracts', () => {
 		vi.unstubAllGlobals();
 	} );
 
+	it( 'uploads Blueprint bytes without handing the selected file to the request', async () => {
+		const data = new TextEncoder().encode( 'zip fixture' ).buffer;
+		const file = new File( [ data ], 'blueprint.zip', { type: 'application/zip' } );
+		Object.defineProperty( file, 'arrayBuffer', { value: async () => data } );
+		const extracted = {
+			blueprintJson: {},
+			blueprintJsonPath: '/tmp/blueprint.json',
+			tempDir: '/tmp/bundle',
+		};
+		fetchMock.mockResolvedValueOnce( Response.json( extracted ) );
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+		await expect( connector.extractBlueprintBundle( file ) ).resolves.toEqual( extracted );
+		expect( fetchMock ).toHaveBeenCalledWith(
+			'http://localhost:8081/api/blueprints/extract',
+			expect.objectContaining( {
+				method: 'POST',
+				body: data,
+				signal: expect.any( AbortSignal ),
+			} )
+		);
+	} );
+
 	it( 'delegates browser selection and site URL opening to the local host', async () => {
 		fetchMock.mockResolvedValue( new Response( null, { status: 204 } ) );
 		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
@@ -327,6 +349,39 @@ it( 'passes telemetry site lookup context outside the event properties', async (
 			} )
 		);
 	} finally {
+		vi.unstubAllGlobals();
+	}
+} );
+
+it.each( [
+	[ 'exportFullSite', 'full' ],
+	[ 'exportDatabase', 'database' ],
+] as const )( 'announces %s before preparing the browser download', async ( method, mode ) => {
+	const onStarted = vi.fn();
+	const fetchMock = vi.fn( async () => {
+		expect( onStarted ).toHaveBeenCalledOnce();
+		return new Response( 'backup', {
+			headers: { 'Content-Disposition': 'attachment; filename="ocean.zip"' },
+		} );
+	} );
+	vi.stubGlobal( 'fetch', fetchMock );
+	vi.stubGlobal(
+		'URL',
+		class extends URL {
+			static createObjectURL = vi.fn().mockReturnValue( 'blob:export' );
+			static revokeObjectURL = vi.fn();
+		}
+	);
+	const click = vi.spyOn( HTMLAnchorElement.prototype, 'click' ).mockImplementation( () => {} );
+	try {
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+		await expect( connector[ method ]( 'site-1', { onStarted } ) ).resolves.toBe( 'ocean.zip' );
+		expect( fetchMock ).toHaveBeenCalledWith(
+			`http://localhost:8081/api/sites/site-1/export?mode=${ mode }`
+		);
+		expect( click ).toHaveBeenCalledOnce();
+	} finally {
+		vi.restoreAllMocks();
 		vi.unstubAllGlobals();
 	}
 } );

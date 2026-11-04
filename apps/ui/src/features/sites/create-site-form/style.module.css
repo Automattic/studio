@@ -79,11 +79,6 @@
 	overflow-wrap: anywhere;
 }
 
-.panelFooter {
-	padding-top: var( --space-6 );
-	border-top: 1px solid var( --border );
-}
-
 .source {
 	display: flex;
 	align-items: center;
@@ -99,7 +94,8 @@
 	color: var( --muted-foreground );
 }
 
-.source span {
+.source > span {
+	flex: 1;
 	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;

@@ -8,7 +8,6 @@ import {
 	webContents,
 	type IpcMainInvokeEvent,
 	type OpenDialogOptions,
-	type WebContents,
 	SaveDialogOptions,
 } from 'electron';
 import fs from 'fs';
@@ -142,6 +141,7 @@ import {
 	startErrorRecovery,
 	stopErrorRecovery,
 } from 'src/lib/php-error-recovery';
+import { getOwnedWebviewContents } from 'src/lib/preview-browser';
 import { getBundledSkillsPath } from 'src/lib/server-files-paths';
 import { parseWebUrl, shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { getSite, getSites } from 'src/lib/sites';
@@ -1450,23 +1450,6 @@ export async function updateSitesSortOrder(
 	);
 }
 
-function getOwnedWebviewContents( event: IpcMainInvokeEvent, webContentsId: number ): WebContents {
-	if ( ! Number.isInteger( webContentsId ) || webContentsId <= 0 ) {
-		throw new Error( 'Invalid webview identifier.' );
-	}
-
-	const target = webContents.fromId( webContentsId );
-	if ( ! target || target.isDestroyed() ) {
-		throw new Error( 'Webview is no longer available.' );
-	}
-
-	if ( target.hostWebContents?.id !== event.sender.id ) {
-		throw new Error( 'Webview does not belong to the current window.' );
-	}
-
-	return target;
-}
-
 export async function clearWebviewCache(
 	event: IpcMainInvokeEvent,
 	webContentsId: number
@@ -1501,3 +1484,9 @@ export async function goToWebviewNavigationHistoryEntry(
 }
 
 export { showTextContextMenu } from 'src/text-context-menu';
+
+export {
+	openWebviewDevTools,
+	setWebviewColorScheme,
+	clearWebviewBrowsingData,
+} from 'src/lib/preview-browser';

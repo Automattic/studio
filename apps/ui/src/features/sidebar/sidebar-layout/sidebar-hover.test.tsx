@@ -210,7 +210,7 @@ it( 'focuses and keeps a narrow flyover open when the shortcut commits a hover p
 it.each( [
 	[ 'Add site', 'Add site' ],
 	[ 'Settings', 'Settings' ],
-	[ 'Log in', 'Do more with WordPress.com' ],
+	[ 'Log in', 'Do more with WordPress' ],
 ] )( 'dismisses the flyout while keeping the %s dialog open', async ( button, title ) => {
 	const { open, user, trigger, connector } = await setup( 800 );
 	const sidebar = await open();

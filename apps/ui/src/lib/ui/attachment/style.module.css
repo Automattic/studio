@@ -51,19 +51,4 @@
 			transition: opacity var( --motion-duration-feedback ) ease-out;
 		}
 	}
-
-	.dropOverlay {
-		position: absolute;
-		inset: 0;
-		z-index: var( --z-sidebar );
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: inherit;
-		background-color: light-dark(
-			color-mix( in srgb, var( --accent-text ) 15%, transparent ),
-			color-mix( in srgb, var( --accent-text ) 10%, transparent )
-		);
-		pointer-events: none;
-	}
 }

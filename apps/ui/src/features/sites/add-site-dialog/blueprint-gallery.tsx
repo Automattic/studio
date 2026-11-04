@@ -70,7 +70,7 @@ export function BlueprintGallery( {
 	if ( isLoading ) {
 		return (
 			<div className={ dialogStyles.loading }>
-				<Spinner aria-label={ __( 'Loading Blueprints…' ) } />
+				<Spinner aria-label={ __( 'Loading sites…' ) } />
 			</div>
 		);
 	}
@@ -79,7 +79,7 @@ export function BlueprintGallery( {
 		<div ref={ root } className={ styles.root }>
 			{ ! blueprints?.length && ( isError || isOffline ) ? (
 				<p className={ styles.notice }>
-					{ __( 'Blueprints could not be loaded. Check your internet connection and try again.' ) }
+					{ __( 'Sites could not be loaded. Check your internet connection and try again.' ) }
 				</p>
 			) : null }
 			<div className={ styles.grid }>
@@ -99,7 +99,9 @@ export function BlueprintGallery( {
 						} }
 					>
 						<PreviewFrame className={ styles.blank }>
-							<PlusIcon />
+							<span className={ styles.blankIcon }>
+								<PlusIcon />
+							</span>
 						</PreviewFrame>
 						<span className={ styles.cardTitle }>{ __( 'Blank site' ) }</span>
 					</button>
@@ -126,7 +128,7 @@ export function BlueprintGallery( {
 						} }
 					>
 						<span className={ styles.thumbnail }>
-							<PreviewFrame>
+							<PreviewFrame className={ styles.thumbnailFrame }>
 								<PreviewImage
 									src={ getBlueprintThumbnail( blueprint ) }
 									alt={ sprintf(
@@ -138,7 +140,7 @@ export function BlueprintGallery( {
 								/>
 							</PreviewFrame>
 							<span className={ styles.action } aria-hidden="true">
-								<span className={ styles.actionLabel }>{ __( 'View blueprint' ) }</span>
+								<span className={ styles.actionLabel }>{ __( 'View site' ) }</span>
 							</span>
 						</span>
 						<span className={ styles.cardTitle }>{ blueprint.title }</span>
@@ -148,7 +150,7 @@ export function BlueprintGallery( {
 			{ isSuccess && useCase && ! items.length ? (
 				<Empty>
 					<EmptyHeader>
-						<EmptyDescription>{ __( 'No matching Blueprints.' ) }</EmptyDescription>
+						<EmptyDescription>{ __( 'No matching sites.' ) }</EmptyDescription>
 					</EmptyHeader>
 					<EmptyContent>
 						<Button variant="outline" onClick={ onClearFilters }>

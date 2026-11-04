@@ -9,6 +9,9 @@ const backup = new File( [ 'backup' ], 'studio-backup-My Store-2026-07-17.zip' )
 
 async function setup() {
 	const connector = createFakeConnector();
+	connector.extractBlueprintBundle.mockRejectedValue(
+		new Error( 'No blueprint.json found in the ZIP.' )
+	);
 	connector.getFilePath.mockResolvedValue( '/tmp/backup.zip' );
 	const view = renderApp( { connector, path: '/?addSite=import' } );
 	const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
@@ -18,7 +21,7 @@ async function setup() {
 	await waitFor( () =>
 		expect( within( dialog ).getByLabelText( 'Site name' ) ).toHaveValue( 'My Store' )
 	);
-	const submit = async ( name = 'Import site' ) => {
+	const submit = async ( name = 'Create site' ) => {
 		const button = within( dialog ).getByRole( 'button', { name } );
 		await waitFor( () => expect( button ).toBeEnabled() );
 		fireEvent.click( button );
@@ -27,6 +30,39 @@ async function setup() {
 }
 
 describe( 'Add site › Import', () => {
+	it( 'returns to the shared picker with Back and preserves edited settings', async () => {
+		const { dialog } = await setup();
+		fireEvent.change( within( dialog ).getByLabelText( 'Site name' ), {
+			target: { value: 'Edited Store' },
+		} );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Back' } ) );
+		await within( dialog ).findByRole( 'button', { name: 'Choose file' } );
+		fireEvent.change( dialog.querySelector( 'input[type="file"]' )!, {
+			target: { files: [ new File( [ 'backup' ], 'other.wpress' ) ] },
+		} );
+		await waitFor( () =>
+			expect( within( dialog ).getByLabelText( 'Site name' ) ).toHaveValue( 'Edited Store' )
+		);
+	} );
+	it( 'changes the backup from its source area while retaining edited settings', async () => {
+		const { dialog } = await setup();
+		fireEvent.change( within( dialog ).getByLabelText( 'Site name' ), {
+			target: { value: 'My Edited Store' },
+		} );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Change' } ) );
+		const choose = await within( dialog ).findByRole( 'button', { name: 'Choose file' } );
+		expect( choose ).toBeVisible();
+		fireEvent.change( dialog.querySelector( 'input[type="file"]' )!, {
+			target: { files: [ new File( [ 'backup' ], 'another-backup.zip' ) ] },
+		} );
+		await waitFor( () =>
+			expect( within( dialog ).getByLabelText( 'Site name' ) ).toHaveValue( 'My Edited Store' )
+		);
+		expect( within( dialog ).getByText( 'another-backup.zip' ) ).toBeVisible();
+		expect( within( dialog ).getByRole( 'button', { name: 'Create site' } ) ).toBeVisible();
+		expect( within( dialog ).getByRole( 'button', { name: 'Cancel' } ) ).toBeVisible();
+	} );
+
 	it( 'adopts the chosen backup, resolving its path only on submit', async () => {
 		const { connector, history, submit } = await setup();
 		expect( connector.getFilePath ).not.toHaveBeenCalled();
@@ -59,11 +95,9 @@ describe( 'Add site › Import', () => {
 		expect( connector.deleteSite ).toHaveBeenCalledWith( firstSite, true );
 		expect( within( dialog ).getByText( /removed the incomplete site/i ) ).toBeVisible();
 		expect( within( dialog ).getByText( 'Import exploded' ) ).toBeInTheDocument();
-		expect(
-			within( dialog ).getByRole( 'button', { name: 'Choose another backup' } )
-		).toBeVisible();
+		expect( within( dialog ).getByRole( 'button', { name: 'Change' } ) ).toBeVisible();
 
-		await submit( 'Retry import' );
+		await submit( 'Create site' );
 		await waitFor( () => expect( history.location.pathname ).not.toBe( '/' ) );
 		expect( connector.getFilePath ).toHaveBeenNthCalledWith( 2, backup );
 		expect( connector.importSiteFromBackup ).toHaveBeenLastCalledWith(
@@ -100,17 +134,15 @@ describe( 'Add site › Import', () => {
 		expect( connector.createSite ).not.toHaveBeenCalled();
 
 		connector.getFilePath.mockReturnValueOnce( new Promise( () => {} ) );
-		await submit( 'Retry import' );
-		expect( within( dialog ).getByRole( 'button', { name: /Retry import/ } ) ).toBeVisible();
-		expect(
-			within( dialog ).getByRole( 'button', { name: 'Choose another backup' } )
-		).toBeVisible();
+		await submit( 'Create site' );
+		expect( within( dialog ).getByRole( 'button', { name: /Create site/ } ) ).toBeVisible();
+		expect( within( dialog ).getByRole( 'button', { name: 'Change' } ) ).toBeVisible();
 	} );
 
 	it( 'ignores a second submit while the import is under way', async () => {
 		const { connector, dialog } = await setup();
 		connector.getFilePath.mockReturnValue( new Promise( () => {} ) );
-		const button = within( dialog ).getByRole( 'button', { name: 'Import site' } );
+		const button = within( dialog ).getByRole( 'button', { name: 'Create site' } );
 		await waitFor( () => expect( button ).toBeEnabled() );
 		fireEvent.click( button );
 		fireEvent.click( button );

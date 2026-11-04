@@ -90,7 +90,7 @@ export function buildViewMenuItems( {
 			click: onToggleSidebar,
 		},
 		{
-			label: __( 'Toggle Site Preview' ),
+			label: __( 'Toggle Panel' ),
 			accelerator: 'CommandOrControl+Shift+B',
 			click: onToggleSitePreview,
 		},
@@ -106,7 +106,7 @@ export function buildViewMenuItems( {
 			click: () => onSetPreviewLayout( 'split' ),
 		},
 		{
-			label: __( 'Browser' ),
+			label: __( 'Panel' ),
 			accelerator: 'CommandOrControl+3',
 			click: () => onSetPreviewLayout( 'preview' ),
 		},

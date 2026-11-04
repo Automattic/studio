@@ -6,7 +6,7 @@ import {
 	ChatIcon,
 	CodeIcon,
 	DatabaseIcon,
-	GlobeIcon,
+	FullscreenIcon,
 	SplitViewIcon,
 	DuplicateIcon,
 	ExportSiteIcon,
@@ -143,7 +143,7 @@ export function getSiteCommands( {
 					{
 						id: 'admin',
 						group: 'commands' as const,
-						label: __( 'Open WordPress Admin in preview' ),
+						label: __( 'Open WordPress Admin in panel' ),
 						aliases: [ __( 'Open WordPress Admin' ) ],
 						icon: WordPressIcon,
 						description,
@@ -153,7 +153,7 @@ export function getSiteCommands( {
 					{
 						id: 'database',
 						group: 'commands' as const,
-						label: __( 'Open database in preview' ),
+						label: __( 'Open database in panel' ),
 						aliases: [ __( 'Open database' ) ],
 						icon: DatabaseIcon,
 						description,
@@ -265,7 +265,7 @@ export function getSiteCommands( {
 						label: __( 'Switch to Chat' ),
 						icon: ChatIcon,
 						description,
-						keywords: [ __( 'Layout' ), __( 'Hide preview' ) ],
+						keywords: [ __( 'Layout' ), __( 'Hide panel' ), __( 'Hide preview' ) ],
 						run: () => showPreview( false ),
 					},
 			  ]
@@ -278,7 +278,12 @@ export function getSiteCommands( {
 						label: __( 'Switch to Split view' ),
 						icon: SplitViewIcon,
 						description,
-						keywords: [ __( 'Layout' ), __( 'Show preview' ), __( 'Exit fullscreen' ) ],
+						keywords: [
+							__( 'Layout' ),
+							__( 'Show panel' ),
+							__( 'Show preview' ),
+							__( 'Restore split view' ),
+						],
 						run: () => setChatHidden( false ),
 					},
 			  ]
@@ -288,10 +293,10 @@ export function getSiteCommands( {
 					{
 						id: 'layout-browser',
 						group: 'commands' as const,
-						label: __( 'Switch to Browser' ),
-						icon: GlobeIcon,
+						label: __( 'Switch to Panel' ),
+						icon: FullscreenIcon,
 						description,
-						keywords: [ __( 'Layout' ), __( 'Preview' ), __( 'Enter fullscreen' ) ],
+						keywords: [ __( 'Layout' ), __( 'Preview' ), __( 'Browser' ), __( 'Expand panel' ) ],
 						run: () => setChatHidden( true ),
 					},
 			  ]

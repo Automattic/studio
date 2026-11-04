@@ -590,7 +590,7 @@ export interface Connector {
 	// Fires whenever a preview site is created, updated or deleted, by anyone.
 	onSnapshotEvent( listener: ( event: SnapshotEvent ) => void ): () => void;
 
-	// Fires when the user activates "View > Toggle Site Preview" (⌘⇧B) in the
+	// Fires when the user activates "View > Toggle Panel" (⌘⇧B) in the
 	// application menu.
 	onToggleSitePreview( listener: () => void ): () => void;
 

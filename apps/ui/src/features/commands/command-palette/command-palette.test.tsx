@@ -249,7 +249,7 @@ describe( 'command palette', () => {
 		expect( screen.queryByRole( 'option', { name: /^Start site/ } ) ).not.toBeInTheDocument();
 		search( 'Open WordPress Admin' );
 		expect(
-			screen.queryByRole( 'option', { name: /^Open WordPress Admin in preview/ } )
+			screen.queryByRole( 'option', { name: /^Open WordPress Admin in panel/ } )
 		).not.toBeInTheDocument();
 	} );
 

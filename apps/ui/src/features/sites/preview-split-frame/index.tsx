@@ -192,7 +192,7 @@ export function PreviewSplitFrame( {
 					>
 						<ResizeHandle
 							className={ styles.previewResizeGrip }
-							label={ __( 'Resize site preview' ) }
+							label={ __( 'Resize panel' ) }
 							{ ...handleProps }
 						/>
 					</div>

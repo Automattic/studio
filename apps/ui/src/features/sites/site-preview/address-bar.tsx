@@ -13,6 +13,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger, Popover, Button, Input } from '@/lib/ui';
 import { CommandList, handleCommandKey, type CommandGroup } from '@/lib/ui';
 import styles from './address-bar.module.css';
+import { PREVIEW_HISTORY_CLEARED_EVENT } from './preview-browser-settings';
 import type { SiteDetails } from '@/data/core';
 import type { ComponentType, FormEvent, ReactNode } from 'react';
 
@@ -282,6 +283,16 @@ export function PreviewAddressBar( {
 		setInvalid( false );
 	}, [ displayUrl ] );
 	useEffect( () => setRecentLocations( loadRecentLocations( site.id ) ), [ site.id ] );
+	useEffect( () => {
+		const refresh = () => setRecentLocations( loadRecentLocations( site.id ) );
+		window.addEventListener( PREVIEW_HISTORY_CLEARED_EVENT, refresh );
+		window.addEventListener( 'storage', refresh );
+		return () => {
+			window.removeEventListener( PREVIEW_HISTORY_CLEARED_EVENT, refresh );
+			window.removeEventListener( 'storage', refresh );
+		};
+	}, [ site.id ] );
+
 	useEffect( () => {
 		if ( disabled ) {
 			setRecentOpen( false );

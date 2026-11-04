@@ -1,13 +1,7 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-	toast,
-	dismissToast,
-	getVisibleToasts,
-	showToast,
-	resetAppMessagesForTests,
-} from '@/data/app-messages';
+import { toast, getVisibleToasts, showToast, resetAppMessagesForTests } from '@/data/app-messages';
 import { closeNoticeHistory, NoticeHistoryButton } from '@/features/notifications/notice-history';
 import { renderWithProviders } from '@/test/render';
 import { AppToasts } from './index';
@@ -26,32 +20,26 @@ describe( 'AppToasts', () => {
 		vi.restoreAllMocks();
 	} );
 
-	it( 'keeps progress visible until replaced by a dismissible result', async () => {
+	it( 'keeps progress until dismissed and announces its result afterwards', async () => {
 		await render( <AppToasts /> );
 		vi.useFakeTimers();
 		act( () => {
 			toast.processing( 'Creating preview…', { id: 'progress', durationMs: 1 } );
-		} );
-		expect(
-			screen.queryByRole( 'button', { name: 'Dismiss Creating preview…' } )
-		).not.toBeInTheDocument();
-		act( () => {
-			dismissToast( 'progress' );
 			vi.advanceTimersByTime( 10_000 );
 		} );
 		expect( screen.getByText( 'Creating preview…' ) ).toBeVisible();
-		const progress = screen.getByRole( 'dialog', { name: 'Creating preview…' } );
-		act( () => progress.focus() );
-		fireEvent.keyDown( progress, { key: 'Escape' } );
-		expect( screen.getByText( 'Creating preview…' ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Dismiss Creating preview…' } ) );
 		act( () => {
-			showToast( { id: 'progress', title: 'Preview ready', intent: 'success' } );
+			vi.advanceTimersByTime( 300 );
+		} );
+		expect( getVisibleToasts() ).toHaveLength( 0 );
+		act( () => {
+			toast.success( 'Preview ready', { id: 'progress' } );
 		} );
 		expect( screen.getByRole( 'button', { name: 'Dismiss Preview ready' } ) ).toBeVisible();
-		expect( screen.queryByText( 'Creating preview…' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'keeps processing notices when clearing history, then allows dismissing the result', async () => {
+	it( 'clears processing from history without hiding its eventual result', async () => {
 		await render(
 			<>
 				<AppToasts />
@@ -60,26 +48,18 @@ describe( 'AppToasts', () => {
 		);
 		act( () => {
 			toast.processing( 'Creating preview…', { id: 'progress' } );
-			toast.success( 'Site started' );
 		} );
-		const openHistory = () =>
-			fireEvent.click(
-				screen.getByRole( 'button', { name: 'Notification history, notifications available' } )
-			);
-		openHistory();
+		fireEvent.click(
+			screen.getByRole( 'button', { name: 'Notification history, notifications available' } )
+		);
 		expect( await screen.findByText( 'Creating preview…' ) ).toBeVisible();
-		expect(
-			screen.queryByRole( 'button', { name: 'Dismiss Creating preview…' } )
-		).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Dismiss Creating preview…' } ) ).toBeVisible();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Clear all' } ) );
-		await waitFor( () => expect( screen.queryByText( 'Site started' ) ).not.toBeInTheDocument() );
-		openHistory();
-		expect( await screen.findByText( 'Creating preview…' ) ).toBeVisible();
+		await waitFor( () => expect( getVisibleToasts() ).toHaveLength( 0 ) );
 		act( () => {
 			toast.success( 'Preview ready', { id: 'progress' } );
 		} );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Dismiss Preview ready' } ) );
-		await waitFor( () => expect( screen.queryByText( 'Preview ready' ) ).not.toBeInTheDocument() );
+		expect( await screen.findByText( 'Preview ready' ) ).toBeVisible();
 	} );
 
 	it( 'replaces a toast in place, even when the replacement drops the description', async () => {

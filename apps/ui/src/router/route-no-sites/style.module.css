@@ -13,3 +13,16 @@
 .headerSidebarCollapsed {
 	padding-inline-start: var( --traffic-light-space );
 }
+
+.workspace {
+	position: relative;
+	isolation: isolate;
+	padding-block-end: calc( var( --band-height ) + var( --space-6 ) );
+}
+
+.dots {
+	position: absolute;
+	inset: calc( -1 * var( --band-height ) ) 0 0;
+	z-index: -1;
+	pointer-events: none;
+}

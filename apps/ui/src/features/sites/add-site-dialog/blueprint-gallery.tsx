@@ -1,6 +1,8 @@
 import { getBlueprintUseCases } from '@studio/common/lib/blueprint-catalog';
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useRef } from 'react';
+import { useConnector } from '@/data/core';
 import { useBlueprints } from '@/data/queries/use-blueprints';
 import { useOffline } from '@/lib/hooks';
 import { PlusIcon } from '@/lib/icons';
@@ -49,6 +51,7 @@ export function BlueprintGallery( {
 	onBlank: () => void;
 	onView: ( blueprint: Blueprint ) => void;
 } ) {
+	const connector = useConnector();
 	const isOffline = useOffline();
 	const root = useRef< HTMLDivElement >( null );
 	const { data: blueprints, isLoading, isError, isSuccess } = useBlueprints();
@@ -86,7 +89,14 @@ export function BlueprintGallery( {
 						className={ styles.card }
 						data-start-blank
 						aria-label={ __( 'Start with Blank site' ) }
-						onClick={ onBlank }
+						onClick={ () => {
+							void connector
+								.trackEvent( TRACKS_EVENTS.BLANK_SITE_SELECTED, {
+									placement: 'add_site_blueprint_gallery',
+								} )
+								.catch( () => undefined );
+							onBlank();
+						} }
 					>
 						<PreviewFrame className={ styles.blank }>
 							<PlusIcon />
@@ -105,7 +115,15 @@ export function BlueprintGallery( {
 							__( 'View %s' ),
 							blueprint.title
 						) }
-						onClick={ () => onView( blueprint ) }
+						onClick={ () => {
+							void connector
+								.trackEvent( TRACKS_EVENTS.BLUEPRINT_VIEWED, {
+									blueprint_slug: blueprint.slug,
+									...( useCase ? { use_case: useCase } : {} ),
+								} )
+								.catch( () => undefined );
+							onView( blueprint );
+						} }
 					>
 						<span className={ styles.thumbnail }>
 							<PreviewFrame>

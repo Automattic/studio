@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
 import {
 	PANEL_WIDTHS_RESET_EVENT,
-	PREVIEW_CONTENT_WIDTH_STORAGE_KEY,
+	PANEL_CONTENT_WIDTH_STORAGE_KEY,
 	SIDEBAR_COLLAPSED_STORAGE_KEY,
 	SIDEBAR_PANEL_STORAGE_KEY,
 } from '@/data/resizable-panels';
@@ -209,7 +209,7 @@ describe( 'WordPress Studio settings', () => {
 
 	it( 'resets only interface preferences and saved panel widths', async () => {
 		localStorage.setItem( SIDEBAR_PANEL_STORAGE_KEY, '320' );
-		localStorage.setItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY, '600' );
+		localStorage.setItem( PANEL_CONTENT_WIDTH_STORAGE_KEY, '600' );
 		localStorage.setItem( SIDEBAR_COLLAPSED_STORAGE_KEY, 'true' );
 		localStorage.setItem( 'unrelated-key', 'one' );
 		const reset = vi.fn();
@@ -225,7 +225,7 @@ describe( 'WordPress Studio settings', () => {
 			undefined
 		);
 		expect( localStorage.getItem( SIDEBAR_PANEL_STORAGE_KEY ) ).toBeNull();
-		expect( localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY ) ).toBeNull();
+		expect( localStorage.getItem( PANEL_CONTENT_WIDTH_STORAGE_KEY ) ).toBeNull();
 		expect( localStorage.getItem( SIDEBAR_COLLAPSED_STORAGE_KEY ) ).not.toBe( 'true' );
 		expect( localStorage.getItem( 'unrelated-key' ) ).toBe( 'one' );
 		expect( settingsParam() ).toBe( 'general' );

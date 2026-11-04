@@ -59,7 +59,7 @@ async function renderHeader(
 	const site = makeSite( { id: siteId, running } );
 	connector.state.sites = [ site ];
 	const view = renderWithProviders(
-		<SiteHeaderActionsProvider host="preview">
+		<SiteHeaderActionsProvider host="panel">
 			<SessionUIProvider>
 				<SessionHeader site={ site } start={ <HeaderSidebarToggle /> } />
 				<SitePreview

@@ -80,7 +80,7 @@ interface SessionViewProps {
 	siteId?: string;
 	headerStart?: ReactNode;
 	hideHeader?: boolean;
-	previewVisible?: boolean;
+	panelVisible?: boolean;
 }
 
 export function SessionView( props: SessionViewProps ) {
@@ -96,7 +96,7 @@ function SessionViewContent( {
 	siteId,
 	headerStart,
 	hideHeader,
-	previewVisible = false,
+	panelVisible = false,
 }: SessionViewProps ) {
 	const draftKey = sessionId ?? `site:${ siteId }`;
 	const { draft, update: updateDraft } = useSiteChatDraft( siteId );
@@ -531,12 +531,12 @@ function SessionViewContent( {
 			background={
 				emptySessionId === draftKey ? (
 					<div className={ styles.emptyState } data-hidden={ ! showEmpty || undefined }>
-						{ siteLoading && ! previewVisible ? (
+						{ siteLoading && ! panelVisible ? (
 							<VisuallyHidden role="status">{ __( 'Loading site preview' ) }</VisuallyHidden>
 						) : null }
 						<PreviewParticles
-							active={ siteLoading && ! previewVisible }
-							showLogo={ siteLoading && ! previewVisible }
+							active={ siteLoading && ! panelVisible }
+							showLogo={ siteLoading && ! panelVisible }
 							selectionTime={ ownerSite?.running ? undefined : selectionTime }
 						/>
 						{ showStoppedPreview ? <StoppedSitePreview site={ ownerSite } /> : null }

@@ -1,9 +1,12 @@
 import { ACCEPTED_ADD_SITE_FILE_TYPES } from '@studio/common/constants';
 import { isSupportedBackupFilename } from '@studio/common/lib/backup-files';
+import { BLUEPRINT_USE_CASES } from '@studio/common/lib/blueprint-catalog';
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { ChevronLeftIcon, CloudDownloadIcon } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useConnector } from '@/data/core';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSyncActivity } from '@/data/sync-activity';
@@ -71,6 +74,7 @@ const getFinalFocus = () =>
  * for Settings to close when both are asked for.
  */
 export function AddSiteDialog() {
+	const connector = useConnector();
 	const navigate = useNavigate();
 	const { addSite, pin, settings } = useSearch( { strict: false } ) as {
 		addSite?: AddSiteSection;
@@ -250,6 +254,17 @@ export function AddSiteDialog() {
 
 	const selectSection = ( value: string ) => {
 		if ( progress ) return;
+		if (
+			value !== navValue &&
+			( BLUEPRINT_USE_CASES.some( ( useCase ) => useCase === value ) ||
+				( value === 'create' && view.name === 'gallery' && view.useCase ) )
+		) {
+			void connector
+				.trackEvent( TRACKS_EVENTS.BLUEPRINT_USE_CASE_FILTER_CHANGED, {
+					use_case: value === 'create' ? 'all' : value,
+				} )
+				.catch( () => undefined );
+		}
 		upload.cancel();
 		setIsBlueprintValid( true );
 		setView(
@@ -328,7 +343,14 @@ export function AddSiteDialog() {
 						<BlueprintGallery
 							useCase={ view.useCase }
 							focusSlug={ lastViewed }
-							onClearFilters={ () => setView( { name: 'gallery' } ) }
+							onClearFilters={ () => {
+								void connector
+									.trackEvent( TRACKS_EVENTS.BLUEPRINT_USE_CASE_FILTER_CHANGED, {
+										use_case: 'all',
+									} )
+									.catch( () => undefined );
+								setView( { name: 'gallery' } );
+							} }
 							onBlank={ () => {
 								setIsBlueprintValid( true );
 								setView( { name: 'setup', from: view } );
@@ -342,6 +364,7 @@ export function AddSiteDialog() {
 					{ view.name === 'details' ? (
 						<BlueprintDetails
 							blueprint={ view.blueprint }
+							useCase={ view.useCase }
 							onSetup={ () => {
 								setIsBlueprintValid( true );
 								setView( { name: 'setup', from: view } );

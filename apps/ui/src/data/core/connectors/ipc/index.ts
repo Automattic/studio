@@ -868,18 +868,18 @@ export function createIpcConnector(): Connector {
 			);
 		},
 
-		onSetPreviewLayout( listener ) {
+		onSetWorkspaceLayout( listener ) {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe(
-				'set-preview-layout',
+				'set-workspace-layout',
 				( _event: unknown, layout: WorkspaceLayout ) => listener( layout )
 			);
 		},
-		onToggleSitePreview( listener ) {
+		onTogglePanel( listener ) {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
-			return ipcListener.subscribe( 'toggle-site-preview', () => listener() );
+			return ipcListener.subscribe( 'toggle-panel', () => listener() );
 		},
 
 		onToggleSidebar( listener ) {

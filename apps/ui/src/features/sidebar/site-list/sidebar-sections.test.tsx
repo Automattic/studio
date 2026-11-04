@@ -252,7 +252,7 @@ describe( 'sidebar site sections', () => {
 			title: 'Homepage polish',
 		} );
 		expect( await screen.findByRole( 'button', { name: /^(Show|Hide) panel$/ } ) ).toHaveAttribute(
-			'data-preview-layout',
+			'data-workspace-layout',
 			'split'
 		);
 		fireEvent.contextMenu( renamed );
@@ -265,7 +265,7 @@ describe( 'sidebar site sections', () => {
 			name: 'Make the heading larger',
 		} );
 		expect( await screen.findByRole( 'button', { name: /^(Show|Hide) panel$/ } ) ).toHaveAttribute(
-			'data-preview-layout',
+			'data-workspace-layout',
 			'split'
 		);
 		fireEvent.contextMenu( restored );

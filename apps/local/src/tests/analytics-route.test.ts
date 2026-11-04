@@ -69,6 +69,27 @@ describe( 'POST /api/analytics/event', () => {
 		} );
 	} );
 
+	it.each( [
+		[ TRACKS_EVENTS.BLUEPRINT_VIEWED, { blueprint_slug: 'substrata', use_case: 'blog' } ],
+		[ TRACKS_EVENTS.BLUEPRINT_USE_CASE_FILTER_CHANGED, { use_case: 'all' } ],
+		[
+			TRACKS_EVENTS.BLUEPRINT_PREVIEW_IN_BROWSER,
+			{ blueprint_slug: 'substrata', placement: 'add_site_blueprint_details' },
+		],
+		[
+			TRACKS_EVENTS.BLUEPRINT_CREATE_SITE_INTENT,
+			{ blueprint_slug: 'substrata', placement: 'add_site_blueprint_details' },
+		],
+		[ TRACKS_EVENTS.BLANK_SITE_SELECTED, { placement: 'add_site_blueprint_gallery' } ],
+	] )(
+		'forwards Blueprint dialog event %s through the browser recorder',
+		async ( eventName, props ) => {
+			const response = await postEvent( { eventName, props } );
+			expect( response.status ).toBe( 204 );
+			expect( recordTracksEvent ).toHaveBeenCalledExactlyOnceWith( eventName, props );
+		}
+	);
+
 	it( 'accepts an event with no props', async () => {
 		const response = await postEvent( { eventName: TRACKS_EVENTS.APP_LAUNCH } );
 

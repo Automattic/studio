@@ -26,6 +26,116 @@ export async function pageLayout( page: Page ): Promise< string[] > {
 				.slice( 0, 3 )
 				.map( ( name ) => `.${ name }` )
 				.join( '' );
+		// Where a block's text sits across it, as a model that cannot see the
+		// page cannot tell "centered" from "left" by the boxes alone: each text's
+		// line farthest from the middle of what holds it (its column or group,
+		// or in a row of blocks laid side by side its item, and the row's items
+		// together in what holds the row), left, centered or right of it. A line
+		// as wide as what holds it is placed by the box, not by its text.
+		const placement = ( block: Element ) => {
+			const middle = ( box: { left: number; right: number } ) => ( box.left + box.right ) / 2;
+			const isRow = ( box: Element ) => {
+				const style = getComputedStyle( box );
+				return (
+					style.display.endsWith( 'flex' ) &&
+					style.flexDirection.startsWith( 'row' ) &&
+					! box.classList.contains( 'wp-block-columns' )
+				);
+			};
+			const TEXT = 'p, h1, h2, h3, h4, h5, h6, li, figcaption';
+			const counts = { left: 0, centered: 0, right: 0 };
+			const off: { side: 'left' | 'right'; text: string; px: number }[] = [];
+			for ( const el of block.querySelectorAll( `${ TEXT }, a` ) ) {
+				const text = ( el.textContent ?? '' ).replace( /\s+/g, ' ' ).trim();
+				const box = el.getBoundingClientRect();
+				// A link is measured with the text that holds it, a list item's text with the item.
+				const outer = el.parentElement?.closest( TEXT );
+				if ( ! text || ! box.width || ! box.height || ( outer && block.contains( outer ) ) ) {
+					continue;
+				}
+				// The outermost row in the block holding it, as a row's items are placed together.
+				let row: Element | undefined;
+				for ( let at = el.parentElement; at && block.contains( at ); at = at.parentElement ) {
+					if ( isRow( at ) ) {
+						row = at;
+					}
+				}
+				if ( isRow( el ) && ! row ) {
+					row = el;
+				}
+				const item =
+					row &&
+					( row === el
+						? undefined
+						: [ ...row.children ].find( ( child ) => child.contains( el ) ) );
+				const holder = ( item === el ? el : el.parentElement )?.getBoundingClientRect();
+				if ( ! holder ) {
+					continue;
+				}
+				const offsets: number[] = [];
+				if ( row !== el ) {
+					const range = document.createRange();
+					range.selectNodeContents( el );
+					const lines = new Map< number, { left: number; right: number } >();
+					for ( const rect of range.getClientRects() ) {
+						if ( rect.width ) {
+							const top = Math.round( rect.top + rect.height / 2 );
+							const line = lines.get( top ) ?? { left: rect.left, right: rect.right };
+							lines.set( top, {
+								left: Math.min( line.left, rect.left ),
+								right: Math.max( line.right, rect.right ),
+							} );
+						}
+					}
+					for ( const line of lines.values() ) {
+						if ( line.right - line.left < holder.width - 16 ) {
+							offsets.push( middle( line ) - middle( holder ) );
+						}
+					}
+				}
+				// A row's content, its items' boxes and loose text together, in what holds the row.
+				const rowHolder = row?.parentElement;
+				if ( row && rowHolder ) {
+					const range = document.createRange();
+					range.selectNodeContents( row );
+					const content = range.getBoundingClientRect();
+					if ( content.width ) {
+						offsets.push( middle( content ) - middle( rowHolder.getBoundingClientRect() ) );
+					}
+				}
+				if ( ! offsets.length ) {
+					continue;
+				}
+				const farthest = Math.round(
+					offsets.reduce( ( a, b ) => ( Math.abs( b ) > Math.abs( a ) ? b : a ) )
+				);
+				if ( Math.abs( farthest ) <= 8 ) {
+					counts.centered++;
+				} else {
+					const side = farthest < 0 ? 'left' : 'right';
+					counts[ side ]++;
+					off.push( {
+						side,
+						text: text.length > 30 ? `${ text.slice( 0, 30 ) }…` : text,
+						px: Math.abs( farthest ),
+					} );
+				}
+			}
+			const kinds = ( [ 'left', 'centered', 'right' ] as const ).filter(
+				( kind ) => counts[ kind ]
+			);
+			if ( ! kinds.length ) {
+				return '';
+			}
+			// Named, when most of the block's text is centered: the text that is not.
+			const named =
+				counts.centered >= counts.left + counts.right
+					? off.slice( 0, 3 ).map( ( item ) => `"${ item.text }" ${ item.px }px ${ item.side }` )
+					: [];
+			return `; text ${ kinds.map( ( kind ) => `${ counts[ kind ] } ${ kind }` ).join( ', ' ) }${
+				named.length ? ` (${ named.join( ', ' ) })` : ''
+			}`;
+		};
 		const lines: string[] = [];
 		let more = 0;
 		const visit = ( parent: Element, depth: number ) => {
@@ -44,7 +154,7 @@ export async function pageLayout( page: Page ): Promise< string[] > {
 						top + Math.round( rect.height )
 					} (${ Math.round( rect.height ) }px tall), x ${ Math.round( rect.left ) }–${ Math.round(
 						rect.right
-					) }`
+					) }${ depth > 0 ? placement( element ) : '' }`
 				);
 				// A region's blocks are a level down, past wrappers that hold one block.
 				const wraps = ( box: Element ): Element =>

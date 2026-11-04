@@ -57,6 +57,38 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 		] );
 	} );
 
+	// The shapes of eval18's footers, asked to center everything: a site title
+	// aligned as a block, not as text; centered text in a column the layout
+	// leaves on the left; an icon and its text centered as one row.
+	it.each( [
+		{
+			name: 'text centered in its group, and a title that is not',
+			block: `<p style="text-align:center">Gentle care</p><p style="text-align:center">Visit <a href="/">us</a></p><p>Brightside</p>`,
+			text: 'text 1 left, 2 centered ("Brightside" Npx left)',
+		},
+		{
+			name: 'centered text in a column the flex layout leaves at the start',
+			block: `<div style="display:flex;flex-direction:column;align-items:flex-start;text-align:center"><div style="display:flex;gap:20px"><p style="width:200px">Visit us</p><p style="width:200px">Hours</p></div></div>`,
+			text: 'text 2 left',
+		},
+		{
+			name: 'an icon and its text centered together as a row',
+			block: `<p style="display:flex;justify-content:center;gap:8px"><span style="font-size:30px">*</span> 128 Brightside Way</p>`,
+			text: 'text 1 centered',
+		},
+		{
+			name: 'a left paragraph whose long lines span the block',
+			block: `<p>${ 'Gentle care for the whole family '.repeat( 8 ) }</p>`,
+			text: 'text 1 left',
+		},
+	] )( 'says where the text of a block sits: $name', async ( { block, text } ) => {
+		const layout = await layoutOf(
+			`<div class="wp-site-blocks"><footer><div class="wp-block-group" style="display:flow-root;width:1000px">${ block }</div><div></div></footer></div>`
+		);
+		// After the block's box; the px a text is off by is its font's, so any.
+		expect( layout[ 1 ].split( '; ' )[ 1 ].replace( /\d+px/, 'Npx' ) ).toBe( text );
+	} );
+
 	it( "names the page's background where it shows between full-width blocks", async () => {
 		const gap = ':where(.wp-site-blocks) > * + *, .is-layout-flow > * + * { margin-top: 24px }';
 		const layout = await layoutOf( `<style>${ gap }</style><div class="wp-site-blocks">
@@ -163,7 +195,7 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 			'text against the left edge, and the right',
 			'<p class="tagline" style="font:20px/1 monospace">Left<br>Again</p><p style="text-align:right;font:20px/1 monospace">Right</p>',
 			[
-				"p.tagline \"Left Again\": its text starts at the viewport's left edge (x 0).",
+				'p.tagline "Left Again": its text starts at the viewport\'s left edge (x 0).',
 				'p "Right": its text ends at the viewport\'s right edge (x 1000).',
 			],
 		],
@@ -173,13 +205,13 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 			'<style>body{padding:0px;--wp--style--root--padding-left:0px}</style><div class="wp-site-blocks"><p class="tagline" style="font:20px/1 monospace">Left</p></div>',
 			[
 				"The theme's styles.spacing.padding, the padding WordPress puts between the page's content and the viewport's edges, is core's 0px (wp-includes/theme.json); with settings.useRootPaddingAwareAlignments true, WordPress applies it inside each .has-global-padding container, so full-width blocks still reach the edges (get_root_layout_rules() in wp-includes/class-wp-theme-json.php).",
-				"p.tagline \"Left\": its text starts at the viewport's left edge (x 0).",
+				'p.tagline "Left": its text starts at the viewport\'s left edge (x 0).',
 			],
 		],
 		[
 			"text against the edge of a block theme's page with root padding, as a full-width block reaches it",
 			'<style>body{--wp--style--root--padding-left:24px;--wp--style--root--padding-right:24px}</style><div class="wp-site-blocks"><p class="tagline" style="font:20px/1 monospace">Left</p></div>',
-			[ "p.tagline \"Left\": its text starts at the viewport's left edge (x 0)." ],
+			[ 'p.tagline "Left": its text starts at the viewport\'s left edge (x 0).' ],
 		],
 		[
 			'text a visitor does not see, as screen-reader-text clips it',

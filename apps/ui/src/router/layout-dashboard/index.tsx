@@ -247,6 +247,10 @@ function DashboardLayout() {
 
 	const previousSites = useRef( new Map< string, { running: boolean; starting: boolean } >() );
 	useLayoutEffect( () => {
+		const updateSiteLayout = ( siteId: string, update: () => void ) => {
+			if ( siteId === previewSiteId ) runLayoutTransition( update );
+			else update();
+		};
 		for ( const site of sites ?? [] ) {
 			const previous = previousSites.current.get( site.id );
 			const starting =
@@ -255,17 +259,20 @@ function DashboardLayout() {
 				( starting && ! previous?.starting ) ||
 				( previous?.running === false && site.running && ! previous.starting )
 			) {
-				setChatHidden(
-					! getSiteAnnotations( site.id ).active && ! ( preferences?.openChatOnSiteStart ?? true ),
-					site.id
-				);
-				setOpen( true, { siteId: site.id } );
+				updateSiteLayout( site.id, () => {
+					setChatHidden(
+						! getSiteAnnotations( site.id ).active &&
+							! ( preferences?.openChatOnSiteStart ?? true ),
+						site.id
+					);
+					setOpen( true, { siteId: site.id } );
+				} );
 			} else if (
 				previous?.running &&
 				! site.running &&
 				! ( site.id === previewSiteId && liveUrl )
 			) {
-				setOpen( false, { siteId: site.id } );
+				updateSiteLayout( site.id, () => setOpen( false, { siteId: site.id } ) );
 			}
 			previousSites.current.set( site.id, { running: !! site.running, starting } );
 		}
@@ -277,6 +284,7 @@ function DashboardLayout() {
 		preferences?.openChatOnSiteStart,
 		setChatHidden,
 		setOpen,
+		runLayoutTransition,
 	] );
 	const setPanelOpen = useCallback(
 		( open: boolean, options?: { instant?: boolean; userInitiated?: boolean } ) => {

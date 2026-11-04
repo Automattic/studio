@@ -151,3 +151,36 @@ it.each( [ 'Chat', 'Split view', 'Panel' ] )(
 		);
 	}
 );
+
+it( 'does not attribute a site-start layout change during pending layout navigation to the user', async () => {
+	const { connector, history } = await setup( false, '/sites/one' );
+	let finish!: () => void;
+	const navigation = new Promise< void >( ( resolve ) => {
+		finish = resolve;
+	} );
+	const unblock = history.block( {
+		blockerFn: async () => {
+			await navigation;
+			return false;
+		},
+	} );
+	try {
+		act( () => connector.emit( 'onSetWorkspaceLayout', 'panel' ) );
+		await act( async () => {
+			await connector.startSite( 'one' );
+		} );
+		await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
+		fireEvent.load( document.querySelector( 'iframe' )! );
+		await screen.findByRole( 'button', { name: 'Stop My site' } );
+		await act( async () => {
+			finish();
+			await navigation;
+		} );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
+		await waitFor( () => expect( toggle() ).toHaveAttribute( 'data-workspace-layout', 'split' ) );
+		expect( layoutEvents( connector ) ).toEqual( [] );
+	} finally {
+		unblock();
+		finish();
+	}
+} );

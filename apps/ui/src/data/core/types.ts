@@ -42,6 +42,7 @@ import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import type { BlueprintSource } from '@studio/common/sites/blueprint-source';
 import type { SiteDesign } from '@studio/common/sites/site-design';
 import type { SiteEmail, SiteEmailSummary } from '@studio/common/sites/site-email';
+import type { PreviewStatus } from '@studio/common/sites/snapshots';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
@@ -64,6 +65,7 @@ export type { StudioCustomEntry } from '@studio/agent/protocol/sessions/entry-ty
 export type { AiModelId } from '@studio/agent/protocol/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
 export type { SnapshotUsage } from '@studio/common/lib/snapshots';
+export type { PreviewStatus } from '@studio/common/sites/snapshots';
 export type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
@@ -303,6 +305,8 @@ export interface Connector {
 	// Deletes one preview site, both on WordPress.com and from the local list.
 	deleteSnapshot( hostname: string ): Promise< void >;
 	renameSnapshot( hostname: string, name: string ): Promise< void >;
+	// What changed on each side since the site was last pushed to the preview or pulled from it.
+	getPreviewStatus( hostname: string ): Promise< PreviewStatus >;
 
 	// Connected WordPress.com live sites for a local site, or every persisted
 	// connection for the current user when no local site is supplied.

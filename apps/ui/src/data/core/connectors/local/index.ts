@@ -24,6 +24,7 @@ import type {
 	SiteDetails,
 	SiteAgentFile,
 	SkillStatus,
+	PreviewStatus,
 	Snapshot,
 	SnapshotUsage,
 	StudioAssistantQuota,
@@ -576,6 +577,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'PATCH',
 				body: JSON.stringify( { name } ),
 			} );
+		},
+		async getPreviewStatus( hostname ): Promise< PreviewStatus > {
+			return api< PreviewStatus >( `/snapshots/${ encodeURIComponent( hostname ) }/status` );
 		},
 		async getConnectedWpcomSites( localSiteId ): Promise< SyncSite[] > {
 			return api< SyncSite[] >(

@@ -234,6 +234,11 @@ export function createInMemoryConnector(
 		publishPreviewSite: async () => ( { url: 'preview.example.com' } ),
 		deleteSnapshot: async () => {},
 		renameSnapshot: async () => {},
+		getPreviewStatus: async () => ( {
+			localSiteId: null,
+			localChanged: null,
+			previewChanged: null,
+		} ),
 		getConnectedWpcomSites: async () => [],
 		fetchSyncableWpcomSites: async () => [],
 		connectWpcomSite: async () => {},

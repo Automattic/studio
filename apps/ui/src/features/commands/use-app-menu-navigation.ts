@@ -4,8 +4,11 @@ import { __ } from '@wordpress/i18n';
 import { useEffect, useRef } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
+import { usePullSiteFromLive } from '@/data/queries/use-sync-site';
 import { resolveSettingsLink } from '@/data/settings-sections';
+import { getSnapshotHostname } from '@/data/snapshot-url';
 import { requestHeaderPanel } from '@/data/use-open-header-panel';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { useOpenSite } from '@/data/use-open-site';
@@ -26,6 +29,8 @@ export function useAppMenuNavigation() {
 	const openSite = useOpenSite();
 	const { mutate: startSite } = useStartSiteWithChat();
 	const queryClient = useQueryClient();
+	const { mutate: pullSite } = usePullSiteFromLive();
+	const { mutate: publishPreview } = usePublishPreviewSite();
 
 	const pickingFolder = useRef( false );
 
@@ -110,13 +115,54 @@ export function useAppMenuNavigation() {
 		() =>
 			connector.onPullSite( ( { remoteSiteId } ) => {
 				void ( async () => {
-					const [ connected, sites ] = await Promise.all( [
+					const [ snapshots, connected, sites ] = await Promise.all( [
+						connector.getSnapshots().catch( () => [] ),
 						connector.getConnectedWpcomSites().catch( () => [] ),
 						queryClient.fetchQuery( {
 							queryKey: SITES_QUERY_KEY,
 							queryFn: () => connector.getSites(),
 						} ),
 					] );
+					const findSite = ( siteId?: string ) => sites.find( ( site ) => site.id === siteId );
+
+					// A preview opens on the local site it was pushed from or pulled into, which is
+					// brought up to date with it when only the preview changed since.
+					const snapshot = snapshots.find(
+						( item ) => item.atomicSiteId === remoteSiteId && findSite( item.localSiteId )
+					);
+					const previewSite = findSite( snapshot?.localSiteId );
+					if ( snapshot && previewSite ) {
+						const { localChanged, previewChanged } = await connector
+							.getPreviewStatus( getSnapshotHostname( snapshot ) )
+							.catch( () => ( { localChanged: null, previewChanged: null } ) );
+						if ( previewChanged && localChanged === false ) {
+							pullSite( { siteId: previewSite.id, remoteSiteId } );
+						} else if ( previewChanged ) {
+							toast.info( __( 'This site and its preview both changed' ), {
+								description: __( 'Pulling the preview replaces the changes made here.' ),
+								action: {
+									label: __( 'Pull preview' ),
+									once: true,
+									onClick: () => pullSite( { siteId: previewSite.id, remoteSiteId } ),
+								},
+							} );
+						} else if ( localChanged ) {
+							toast.info( __( "This site has changes its preview doesn't" ), {
+								action: {
+									label: __( 'Update preview' ),
+									once: true,
+									onClick: () =>
+										publishPreview( {
+											siteId: previewSite.id,
+											existingHostname: getSnapshotHostname( snapshot ),
+										} ),
+								},
+							} );
+						}
+						openSite( previewSite );
+						return;
+					}
+
 					const localSiteIds = new Set(
 						connected
 							.filter( ( remote ) => remote.id === remoteSiteId )
@@ -137,7 +183,7 @@ export function useAppMenuNavigation() {
 					openAddSite( 'connect' );
 				} )().catch( () => toast.error( __( 'WordPress Studio could not open the site.' ) ) );
 			} ),
-		[ connector, openAddSite, openSite, queryClient ]
+		[ connector, openAddSite, openSite, queryClient, pullSite, publishPreview ]
 	);
 	useEffect(
 		() =>

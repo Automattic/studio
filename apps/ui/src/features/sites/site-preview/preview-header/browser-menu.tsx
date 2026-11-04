@@ -1,15 +1,10 @@
-import { type SupportedBrowser } from '@studio/common/lib/user-settings/browser';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { EllipsisVerticalIcon } from 'lucide-react';
-import { AppIcon } from '@/features/sites/app-icon';
-import { ExternalLinkIcon } from '@/lib/icons';
 import { Button, Menu, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import type { PreviewColorScheme } from '../preview-surface/webview';
 
 export interface PreviewBrowserActions {
 	colorScheme: PreviewColorScheme;
-	browser?: SupportedBrowser;
-	browserName?: string;
 	onColorSchemeChange: ( value: PreviewColorScheme ) => void;
 	onOpenDevTools: () => void;
 	onClearBrowsingData: () => void;
@@ -26,16 +21,8 @@ function BrowserMenuItems( { actions, onOpenExternal, disabled }: BrowserMenuIte
 	return (
 		<>
 			<Menu.Item disabled={ disabled || ! onOpenExternal } onClick={ onOpenExternal }>
-				<AppIcon app={ actions.browser } fallback={ <ExternalLinkIcon /> } />
-				{ actions.browserName
-					? sprintf(
-							/* translators: %s is the browser name, e.g. Safari or Google Chrome. */
-							__( 'Open in %s' ),
-							actions.browserName
-					  )
-					: __( 'Open in browser' ) }
+				{ __( 'Open in browser' ) }
 			</Menu.Item>
-			<Menu.Separator />
 			<Menu.Item disabled={ disabled } onClick={ actions.onOpenDevTools }>
 				{ __( 'Open DevTools' ) }
 			</Menu.Item>

@@ -186,6 +186,11 @@ export function SiteDeliveryDialog( {
 						: __( 'Create an account or log in to publish a website and keep your sites in sync.' )
 				}
 				source={ tab === 'share' ? 'previews_tab' : 'sync_tab' }
+				analytics={ {
+					placement: tab === 'share' ? 'share' : 'publish',
+					intent: tab === 'share' ? 'share' : 'publish',
+				} }
+				scope={ site.id }
 				onCreateAccount={ tab === 'publish' ? () => setSetupAfterSignup( true ) : undefined }
 			/>
 		</>
@@ -201,7 +206,7 @@ export function ShareButton( props: { site: SiteDetails; className?: string } ) 
 					render={
 						<Button
 							variant="ghost"
-							size="icon"
+							size="icon-sm"
 							aria-label={ __( 'Share' ) }
 							aria-description={ status.label }
 							onClick={ ( event ) =>
@@ -222,7 +227,7 @@ export function ShareButton( props: { site: SiteDetails; className?: string } ) 
 	);
 }
 
-export function PublishButton( props: { site: SiteDetails } ) {
+export function PublishButton( props: { site: SiteDetails; variant?: 'accent' | 'outline' } ) {
 	const activity = useSiteSyncActivity( props.site.id );
 	const setupError = usePublishSetupError( props.site.id );
 	const transfer =
@@ -237,7 +242,8 @@ export function PublishButton( props: { site: SiteDetails } ) {
 	}, [ transfer?.kind ] );
 	return (
 		<Button
-			variant="accent"
+			variant={ props.variant ?? 'accent' }
+			size="sm"
 			aria-label={ __( 'Publish…' ) }
 			aria-description={
 				setupError ??

@@ -1,7 +1,17 @@
+.startButton {
+	width: var( --space-16 );
+	height: var( --space-16 );
+}
+
+.startButton svg {
+	width: 32px;
+	height: 32px;
+}
+
 .root {
 	position: relative;
 	display: block;
-	width: 100%;
+	width: 70%;
 	max-width: 320px;
 	border-radius: var( --radius-lg );
 	cursor: pointer;
@@ -49,8 +59,8 @@
 
 	position: relative;
 	display: flex;
-	width: var( --space-16 );
-	height: var( --space-16 );
+	width: clamp( var( --space-12 ), 20%, var( --space-16 ) );
+	aspect-ratio: 1;
 	align-items: center;
 	justify-content: center;
 	border-radius: var( --radius-full );
@@ -72,8 +82,8 @@
 
 .play svg {
 	position: relative;
-	width: 32px;
-	height: 32px;
+	width: 50%;
+	height: 50%;
 }
 
 @media ( prefers-reduced-motion: no-preference ) {

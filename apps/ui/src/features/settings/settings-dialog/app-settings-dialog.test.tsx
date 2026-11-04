@@ -122,21 +122,22 @@ const studioConnect = async () => {
 const searchBox = () => screen.getByRole( 'textbox', { name: 'Search settings' } );
 
 describe( 'WordPress Studio settings', () => {
-	it( 'defaults to opening chat on site start and saves changes immediately', async () => {
-		const { connector } = await setup();
-		const toggle = await screen.findByRole( 'switch', { name: 'Open chat when starting a site' } );
-		expect( toggle ).toBeChecked();
-		fireEvent.click( toggle );
-		await waitFor( () =>
-			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
-				{ openChatOnSiteStart: false },
-				undefined
-			)
-		);
-		expect( toggle ).not.toBeChecked();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Reset interface' } ) );
-		await waitFor( () => expect( toggle ).toBeChecked() );
-	} );
+	it.each( [ undefined, true, false ] )(
+		'saves the split-view startup setting from %s',
+		async ( value ) => {
+			const { connector } = await setup( { preferences: { openChatOnSiteStart: value } } );
+			const toggle = await screen.findByRole( 'switch', { name: 'Start sites in split view' } );
+			if ( value ?? true ) expect( toggle ).toBeChecked();
+			else expect( toggle ).not.toBeChecked();
+			fireEvent.click( toggle );
+			await waitFor( () =>
+				expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+					{ openChatOnSiteStart: ! ( value ?? true ) },
+					undefined
+				)
+			);
+		}
+	);
 
 	it.each( [ undefined, true, false ] )(
 		'saves recent chats visibility from %s',
@@ -172,7 +173,6 @@ describe( 'WordPress Studio settings', () => {
 		{ quitSitesBehavior: 'stop' as const },
 		{ showRecentChats: false },
 		{ autoStartSiteOnChat: true },
-		{ openChatOnSiteStart: false },
 		{ autoCollapseSites: false },
 		{ sidebarPinnedSort: 'manual' as const },
 		{ sidebarSiteSort: 'status' as const },
@@ -204,7 +204,7 @@ describe( 'WordPress Studio settings', () => {
 				sidebarChatOrder,
 			} );
 		} );
-		expect( screen.getByRole( 'button', { name: 'Reset interface' } ) ).toBeDisabled();
+		expect( await screen.findByRole( 'button', { name: 'Reset interface' } ) ).toBeDisabled();
 	} );
 
 	it( 'resets only interface preferences and saved panel widths', async () => {
@@ -284,7 +284,11 @@ describe( 'WordPress Studio settings', () => {
 		await waitFor( () =>
 			expect( screen.queryByRole( 'button', { name: 'Connect' } ) ).not.toBeInTheDocument()
 		);
-		expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith( true, 'settings' );
+		expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith(
+			true,
+			'settings',
+			expect.any( Object )
+		);
 	} );
 
 	it( 'keeps the launch card available when connection fails', async () => {
@@ -373,7 +377,11 @@ describe( 'WordPress Studio settings', () => {
 		expect( await screen.findByRole( 'heading', { name: 'Share your WordPress' } ) ).toBeVisible();
 		fireEvent.click( screen.getByRole( 'button', { name: label } ) );
 		await waitFor( () =>
-			expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith( signup, 'previews_tab' )
+			expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith(
+				signup,
+				'previews_tab',
+				expect.any( Object )
+			)
 		);
 	} );
 
@@ -382,7 +390,11 @@ describe( 'WordPress Studio settings', () => {
 		expect( screen.queryByRole( 'tab', { name: 'Account' } ) ).not.toBeInTheDocument();
 		fireEvent.click( await studioConnect() );
 		await waitFor( () =>
-			expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith( true, 'settings' )
+			expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith(
+				true,
+				'settings',
+				expect.any( Object )
+			)
 		);
 	} );
 
@@ -412,14 +424,12 @@ describe( 'WordPress Studio settings', () => {
 		);
 	} );
 
-	it( 'turns the annotation delete confirmation back on', async () => {
-		const { connector } = await setup( { preferences: { confirmDeleteAnnotations: false } } );
-		fireEvent.click(
-			await screen.findByRole( 'switch', { name: 'Confirm before deleting annotations' } )
-		);
+	it( 'enables annotation batching from interface settings', async () => {
+		const { connector } = await setup( { preferences: { batchAnnotations: false } } );
+		fireEvent.click( await screen.findByRole( 'switch', { name: 'Batch notes' } ) );
 		await waitFor( () =>
 			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
-				{ confirmDeleteAnnotations: true },
+				{ batchAnnotations: true },
 				undefined
 			)
 		);
@@ -561,7 +571,7 @@ describe( 'WordPress Studio settings', () => {
 			'General',
 			'Appearance',
 			'Sharing',
-			'AI Providers',
+			'Providers',
 			'MCP',
 			'Usage',
 			'Skills',
@@ -690,7 +700,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		).toBeVisible();
 	} );
 
-	it( 'opens AI Providers for a signed-out Usage link and hides Usage from search', async () => {
+	it( 'opens Providers for a signed-out Usage link and hides Usage from search', async () => {
 		const { connector } = await setup( { section: 'usage', signedIn: false } );
 		const connect = await within( await findProviderRow( 'wpcom-provider' ) ).findByRole(
 			'button',
@@ -699,25 +709,27 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 			}
 		);
 		await waitFor( () => expect( connect ).toBeEnabled() );
-		expect( screen.getByRole( 'tab', { name: 'AI Providers', selected: true } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'Providers', selected: true } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Usage' } ) ).not.toBeInTheDocument();
 		fireEvent.change( searchBox(), { target: { value: 'balance' } } );
 		expect( screen.getByText( 'No settings found.' ) ).toBeVisible();
 		fireEvent.keyDown( searchBox(), { key: 'Escape' } );
 		fireEvent.click( connect );
 		await waitFor( () =>
-			expect( connector.authenticate ).toHaveBeenCalledWith( true, 'settings' )
+			expect( connector.authenticate ).toHaveBeenCalledWith(
+				true,
+				'settings',
+				expect.any( Object )
+			)
 		);
 	} );
 
-	it( 'returns to AI Providers when WordPress.com disconnects while viewing Usage', async () => {
+	it( 'returns to Providers when WordPress.com disconnects while viewing Usage', async () => {
 		const { connector } = await setup( { section: 'usage' } );
 		await screen.findByRole( 'tab', { name: 'Usage', selected: true } );
 		connector.state.user = null;
 		act( () => connector.emit( 'onAuthStateChanged' ) );
-		expect(
-			await screen.findByRole( 'tab', { name: 'AI Providers', selected: true } )
-		).toBeVisible();
+		expect( await screen.findByRole( 'tab', { name: 'Providers', selected: true } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Usage' } ) ).not.toBeInTheDocument();
 	} );
 
@@ -736,7 +748,11 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		await waitFor( () => expect( connect ).toBeEnabled() );
 		fireEvent.click( connect );
 		await waitFor( () =>
-			expect( connector.authenticate ).toHaveBeenCalledWith( true, 'settings' )
+			expect( connector.authenticate ).toHaveBeenCalledWith(
+				true,
+				'settings',
+				expect.any( Object )
+			)
 		);
 		expect( connector.setAiProvider ).not.toHaveBeenCalled();
 		connector.state.user = TEST_USER;
@@ -851,10 +867,8 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect(
 			screen.queryByRole( 'tablist', { name: 'Intelligence sections' } )
 		).not.toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'tab', { name: 'AI Providers' } ) );
-		expect(
-			await screen.findByRole( 'tab', { name: 'AI Providers', selected: true } )
-		).toBeVisible();
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Providers' } ) );
+		expect( await screen.findByRole( 'tab', { name: 'Providers', selected: true } ) ).toBeVisible();
 		expect( screen.getAllByRole( 'dialog', { name: 'Settings' } ) ).toHaveLength( 1 );
 		const copyButtons = () =>
 			screen.queryAllByRole( 'button', { name: /^Copy (install command|MCP configuration)$/ } );
@@ -896,4 +910,20 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		);
 		expect( screen.queryByText( 'Copied' ) ).not.toBeInTheDocument();
 	} );
+	it.each( [ undefined, false, true ] )(
+		'persists the Batch notes interface setting from %s',
+		async ( value ) => {
+			const { connector } = await setup( { preferences: { batchAnnotations: value } } );
+			const control = await screen.findByRole( 'switch', { name: 'Batch notes' } );
+			if ( value ?? true ) expect( control ).toBeChecked();
+			else expect( control ).not.toBeChecked();
+			fireEvent.click( control );
+			await waitFor( () =>
+				expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+					{ batchAnnotations: ! ( value ?? true ) },
+					undefined
+				)
+			);
+		}
+	);
 } );

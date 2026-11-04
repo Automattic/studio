@@ -10,7 +10,6 @@ export interface BrowserNavigationState {
 	canGoBack: boolean;
 	canGoForward: boolean;
 	loading: boolean;
-	progress: number;
 	title: string | null;
 	historyEntries: BrowserHistoryEntry[];
 	activeHistoryIndex: number;
@@ -28,7 +27,6 @@ export const EMPTY_BROWSER_STATE: BrowserNavigationState = {
 	canGoBack: false,
 	canGoForward: false,
 	loading: false,
-	progress: 0,
 	title: null,
 	historyEntries: [],
 	activeHistoryIndex: -1,
@@ -40,7 +38,6 @@ export function areBrowserStatesEqual( a: BrowserNavigationState, b: BrowserNavi
 		a.canGoBack === b.canGoBack &&
 		a.canGoForward === b.canGoForward &&
 		a.loading === b.loading &&
-		a.progress === b.progress &&
 		a.title === b.title &&
 		a.failed === b.failed &&
 		a.activeHistoryIndex === b.activeHistoryIndex &&

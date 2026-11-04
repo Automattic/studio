@@ -32,6 +32,7 @@ export function Popup( {
 	const descriptionId = providedDescriptionId ?? generatedId;
 	return (
 		<Popover.Popup
+			arrowPadding={ 24 }
 			className={ clsx( styles.card, className ) }
 			{ ...props }
 			aria-describedby={ descriptionId }

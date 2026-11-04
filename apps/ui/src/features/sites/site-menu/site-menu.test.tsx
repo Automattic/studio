@@ -51,7 +51,13 @@ function setup( {
 		{
 			getConnectedWpcomSites: async () => connections ?? [],
 			getSiteDesign: async () =>
-				designAvailable ? { design: '# Example', themeJson: {} } : null,
+				designAvailable
+					? {
+							design:
+								'---\ncolors:\n  primary: "#c2552b"\n  background: "#ffffff"\ntypography:\n  body:\n    fontFamily: "Inter"\n---',
+							themeJson: {},
+					  }
+					: null,
 		}
 	);
 	const site = busy
@@ -205,7 +211,7 @@ describe( 'Stop other sites', () => {
 	);
 
 	it.each( [
-		[ 'WordPress Admin', autoLogin( '/wp-admin/' ) ],
+		[ 'Admin', autoLogin( '/wp-admin/' ) ],
 		[ 'Database', DATABASE_PATH ],
 		[ 'Email', 'studio:email' ],
 	] )( 'navigates to %s for the menu site', async ( label, path ) => {
@@ -254,7 +260,7 @@ describe( 'Stop other sites', () => {
 	} );
 
 	it.each( [
-		[ 'WordPress Admin', autoLogin( '/wp-admin/' ) ],
+		[ 'Admin', autoLogin( '/wp-admin/' ) ],
 		[ 'Database', DATABASE_PATH ],
 		[ 'Email', 'studio:email' ],
 	] )( 'starts a stopped site before opening %s', async ( label, path ) => {
@@ -274,7 +280,7 @@ describe( 'Stop other sites', () => {
 		await waitFor( () =>
 			expect( connector.startSite ).toHaveBeenCalledExactlyOnceWith( 'selected' )
 		);
-		expect( screen.getByRole( 'status', { name: 'Preview' } ) ).toBeEmptyDOMElement();
+		expect( screen.getByRole( 'status', { name: 'Preview' } ) ).toHaveTextContent( 'selected /' );
 		finishStart();
 		await waitFor( () =>
 			expect( screen.getByRole( 'status', { name: 'Preview' } ) ).toHaveTextContent(

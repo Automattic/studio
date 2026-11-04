@@ -100,3 +100,21 @@ it( 'attaches channel and ui_version from commonProps without a call-site opt-in
 		} )
 	);
 } );
+
+it.each( [
+	TRACKS_EVENTS.ACCOUNT_PROMPT_VIEWED,
+	TRACKS_EVENTS.ONBOARDING_VIEWED,
+	TRACKS_EVENTS.WPCOM_AUTH_STARTED,
+	TRACKS_EVENTS.WPCOM_AUTH_CANCELLED,
+	TRACKS_EVENTS.WPCOM_AUTH_LAUNCH_FAILED,
+	TRACKS_EVENTS.ACCOUNT_JOURNEY_COMPLETED,
+	TRACKS_EVENTS.WPCOM_AUTH,
+	TRACKS_EVENTS.ONBOARDING_COMPLETE,
+	TRACKS_EVENTS.CODE_MESSAGE_SENT,
+	TRACKS_EVENTS.CODE_TURN_COMPLETED,
+] )( 'opt-out suppresses account/turn event %s', async ( name ) => {
+	mockOptedOut.mockResolvedValue( true );
+	await recordTracksEvent( name );
+	expect( mockRecord ).not.toHaveBeenCalled();
+	expect( mockInstallId ).not.toHaveBeenCalled();
+} );

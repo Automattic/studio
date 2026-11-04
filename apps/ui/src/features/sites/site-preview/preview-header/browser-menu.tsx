@@ -69,7 +69,7 @@ export function BrowserMenu( {
 							render={
 								<Button
 									variant="ghost"
-									size="icon"
+									size="icon-sm"
 									shape="round"
 									className={ className }
 									aria-label={ __( 'Browser options' ) }

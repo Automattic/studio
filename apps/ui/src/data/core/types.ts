@@ -596,10 +596,10 @@ export interface Connector {
 
 	// Fires when the user activates "View > Toggle Panel" (⌘⇧B) in the
 	// application menu.
-	onToggleSitePreview( listener: () => void ): () => void;
+	onTogglePanel( listener: () => void ): () => void;
 
 	// Desktop-only layout accelerators; browser hosts reserve these keys for tabs.
-	onSetPreviewLayout?( listener: ( layout: WorkspaceLayout ) => void ): () => void;
+	onSetWorkspaceLayout?( listener: ( layout: WorkspaceLayout ) => void ): () => void;
 
 	// Fires when the user activates the sidebar toggle shortcut or menu command.
 	onToggleSidebar( listener: () => void ): () => void;

@@ -1,4 +1,4 @@
-@property --preview-chat-header-width {
+@property --panel-chat-header-width {
 	syntax: '<length-percentage>';
 	inherits: true;
 	initial-value: 100%;
@@ -6,9 +6,8 @@
 
 .header {
 	--layout-controls-space: calc( 32px + var( --band-gap ) );
-	--preview-chat-header-width: calc( 100% - var( --layout-controls-space ) );
-	transition: --preview-chat-header-width var( --preview-layout-duration )
-		var( --motion-ease-layout );
+	--panel-chat-header-width: calc( 100% - var( --layout-controls-space ) );
+	transition: --panel-chat-header-width var( --panel-layout-duration ) var( --motion-ease-layout );
 	position: relative;
 	z-index: 4;
 	pointer-events: none;
@@ -17,7 +16,7 @@
 
 .chatHeader {
 	position: relative;
-	width: var( --preview-chat-header-width );
+	width: var( --panel-chat-header-width );
 	background: transparent;
 	pointer-events: auto;
 }
@@ -27,11 +26,11 @@
 .header[data-full-view-control] {
 	--layout-controls-space: calc( 64px + 2 * var( --band-gap ) );
 }
-.header[data-preview-open] {
-	--preview-chat-header-width: var( --preview-frame-content-width );
+.header[data-panel-open] {
+	--panel-chat-header-width: var( --panel-frame-content-width );
 }
-.header[data-preview-fullscreen] {
-	--preview-chat-header-width: calc( 100% - var( --layout-controls-space ) );
+.header[data-panel-fullscreen] {
+	--panel-chat-header-width: calc( 100% - var( --layout-controls-space ) );
 }
 .layoutControls {
 	position: absolute;
@@ -46,7 +45,7 @@
 .previewTabs {
 	position: absolute;
 	inset-inline-start: calc(
-		max( var( --preview-frame-boundary ), var( --preview-chat-header-width ) ) + var( --band-inset )
+		max( var( --panel-frame-boundary ), var( --panel-chat-header-width ) ) + var( --band-inset )
 	);
 	inset-inline-end: calc( var( --layout-controls-space ) + var( --tabs-actions-width, 160px ) );
 	height: var( --band-height );
@@ -59,10 +58,10 @@
 	opacity: 0;
 	visibility: hidden;
 	transition:
-		opacity var( --preview-layout-duration ) var( --motion-ease-layout ),
-		visibility 0s var( --preview-layout-duration );
+		opacity var( --panel-layout-duration ) var( --motion-ease-layout ),
+		visibility 0s var( --panel-layout-duration );
 }
-.header[data-preview-open] .previewTabs {
+.header[data-panel-open] .previewTabs {
 	opacity: 1;
 	visibility: visible;
 	transition-delay: 0s;
@@ -70,12 +69,12 @@
 .previewTabs > div {
 	max-width: 100%;
 }
-.header[data-preview-fullscreen] .previewTabs {
+.header[data-panel-fullscreen] .previewTabs {
 	inset-inline-start: max(
 		var( --tabs-lead-width, 240px ),
-		calc( var( --preview-frame-boundary ) + var( --band-inset ) )
+		calc( var( --panel-frame-boundary ) + var( --band-inset ) )
 	);
 	inset-inline-end: calc(
-		100% - var( --preview-chat-header-width ) + var( --tabs-actions-width, 160px )
+		100% - var( --panel-chat-header-width ) + var( --tabs-actions-width, 160px )
 	);
 }

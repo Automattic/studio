@@ -51,8 +51,8 @@
 
 /* While dragging or arrow-keying the handle the width updates every step; the
    collapse transition above would animate toward each step and lag behind.
-   Drop it for the duration of the drag (mirrors `.rootPreviewResizing` in
-   preview-split-frame). */
+   Drop it for the duration of the drag (mirrors `.rootPanelResizing` in
+   panel-split-frame). */
 .sidebarResizing,
 .sidebarResizing .sidebar,
 .root:has( > .resizeHandle:focus-visible ) :is( .sidebarFrame, .sidebar ) {

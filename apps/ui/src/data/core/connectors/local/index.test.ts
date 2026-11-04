@@ -278,13 +278,13 @@ describe( 'createLocalConnector menu shortcuts', () => {
 	it( 'binds the application menu’s accelerators in the page', () => {
 		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
 		const toggleSidebar = vi.fn();
-		const toggleSitePreview = vi.fn();
+		const togglePanel = vi.fn();
 		const openSettings = vi.fn();
 		const addSite = vi.fn();
 		const newChat = vi.fn();
 		const unsubscribe = [
 			connector.onToggleSidebar( toggleSidebar ),
-			connector.onToggleSitePreview( toggleSitePreview ),
+			connector.onTogglePanel( togglePanel ),
 			connector.onOpenSettings( openSettings ),
 			connector.onAddSite( addSite ),
 			connector.onNewChat( newChat ),
@@ -303,7 +303,7 @@ describe( 'createLocalConnector menu shortcuts', () => {
 		press( { key: 'b', code: 'KeyB' } );
 
 		expect( toggleSidebar ).toHaveBeenCalledTimes( 1 );
-		expect( toggleSitePreview ).toHaveBeenCalledTimes( 1 );
+		expect( togglePanel ).toHaveBeenCalledTimes( 1 );
 		expect( openSettings ).toHaveBeenCalledTimes( 1 );
 		expect( addSite ).toHaveBeenCalledTimes( 1 );
 		expect( newChat ).toHaveBeenCalledTimes( 1 );

@@ -65,7 +65,7 @@ it.each( [ 'header', 'shortcut', 'palette' ] )(
 		if ( control === 'header' ) {
 			fireEvent.click( screen.getByRole( 'button', { name: 'Show panel' } ) );
 		} else if ( control === 'shortcut' ) {
-			act( () => connector.emit( 'onToggleSitePreview' ) );
+			act( () => connector.emit( 'onTogglePanel' ) );
 		} else {
 			act( () => setCommandPaletteOpen( true ) );
 			fireEvent.change( await screen.findByRole( 'combobox', { name: 'Search commands' } ), {
@@ -79,7 +79,7 @@ it.each( [ 'header', 'shortcut', 'palette' ] )(
 		await waitFor( () => expect( composer ).toBeVisible() );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Show panel' } ) );
 		expect( screen.getByRole( 'button', { name: 'Hide panel' } ) ).toHaveAttribute(
-			'data-preview-layout',
+			'data-workspace-layout',
 			'split'
 		);
 		expect( composer ).toHaveValue( 'Keep this draft' );

@@ -7,13 +7,13 @@ beforeEach( () => localStorage.clear() );
 
 async function chooseLayout( name: 'Chat' | 'Split view' | 'Panel' ) {
 	const toggle = await screen.findByRole( 'button', { name: /^(Show|Hide) panel$/ } );
-	const layout = toggle.getAttribute( 'data-preview-layout' );
+	const layout = toggle.getAttribute( 'data-workspace-layout' );
 	if ( name === 'Chat' ) {
 		if ( layout !== 'chat' ) fireEvent.click( toggle );
 		return;
 	}
 	if ( layout === 'chat' ) fireEvent.click( toggle );
-	if ( name === 'Split view' && toggle.getAttribute( 'data-preview-layout' ) === 'split' ) return;
+	if ( name === 'Split view' && toggle.getAttribute( 'data-workspace-layout' ) === 'split' ) return;
 	const full = name === 'Panel';
 	const button = screen.getByRole( 'button', { name: /^(Expand panel|Restore split view)$/ } );
 	if ( button.getAttribute( 'aria-label' ) === ( full ? 'Expand panel' : 'Restore split view' ) )
@@ -21,7 +21,7 @@ async function chooseLayout( name: 'Chat' | 'Split view' | 'Panel' ) {
 }
 
 it.each( [ true, false ] )(
-	'toggles preview and full view without changing site lifecycle (running: %s)',
+	'toggles panel and full view without changing site lifecycle (running: %s)',
 	async ( running ) => {
 		const connector = createFakeConnector(
 			{ sites: [ makeSite( { id: 'one', running } ) ] },
@@ -32,18 +32,18 @@ it.each( [ true, false ] )(
 		for ( const [ label, value ] of [
 			[ 'Chat', 'chat' ],
 			[ 'Split view', 'split' ],
-			[ 'Panel', 'preview' ],
+			[ 'Panel', 'panel' ],
 		] as const ) {
 			if ( ! running && label === 'Panel' ) continue;
 			await chooseLayout( label );
 			await waitFor( () =>
 				expect( document.querySelector( '[data-layout-moving]' ) ).not.toBeInTheDocument()
 			);
-			expect( trigger ).toHaveAttribute( 'data-preview-layout', value );
+			expect( trigger ).toHaveAttribute( 'data-workspace-layout', value );
 			expect( trigger ).toHaveAttribute( 'aria-pressed', String( value !== 'chat' ) );
 			await waitFor( () =>
 				expect( !! screen.queryByRole( 'combobox', { name: 'Message WordPress Studio' } ) ).toBe(
-					value !== 'preview'
+					value !== 'panel'
 				)
 			);
 			expect( !! screen.queryByRole( 'complementary', { name: 'Panel' } ) ).toBe(
@@ -71,22 +71,22 @@ it.each( [ 'Split view', 'Panel' ] as const )(
 			{ getSiteThumbnail: async () => 'data:image/png;base64,eA==' }
 		);
 		renderApp( { connector, path: '/sites/one/new' } );
-		act( () => connector.emit( 'onSetPreviewLayout', layout === 'Panel' ? 'split' : 'preview' ) );
+		act( () => connector.emit( 'onSetWorkspaceLayout', layout === 'Panel' ? 'split' : 'panel' ) );
 		await chooseLayout( 'Chat' );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Start My site' } ) );
 		await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
 		fireEvent.load( document.querySelector( 'iframe' )! );
 		await waitFor( () =>
 			expect( screen.getByRole( 'button', { name: /^(Show|Hide) panel$/ } ) ).toHaveAttribute(
-				'data-preview-layout',
-				layout === 'Panel' ? 'preview' : 'split'
+				'data-workspace-layout',
+				layout === 'Panel' ? 'panel' : 'split'
 			)
 		);
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Stop My site' } ) );
 		await waitFor( () =>
 			expect( screen.getByRole( 'button', { name: /^(Show|Hide) panel$/ } ) ).toHaveAttribute(
-				'data-preview-layout',
-				layout === 'Panel' ? 'preview' : 'split'
+				'data-workspace-layout',
+				layout === 'Panel' ? 'panel' : 'split'
 			)
 		);
 	}
@@ -108,18 +108,18 @@ it( 'remembers each site’s layout and preserves the draft across layout change
 	fireEvent.click( screen.getByRole( 'button', { name: 'First' } ) );
 	await waitFor( () =>
 		expect( screen.getByRole( 'button', { name: /^(Show|Hide) panel$/ } ) ).toHaveAttribute(
-			'data-preview-layout',
-			'preview'
+			'data-workspace-layout',
+			'panel'
 		)
 	);
 	await chooseLayout( 'Split view' );
 	expect( await screen.findByRole( 'combobox', { name: 'Message WordPress Studio' } ) ).toHaveValue(
 		'Keep my draft'
 	);
-	act( () => connector.emit( 'onToggleSitePreview' ) );
+	act( () => connector.emit( 'onTogglePanel' ) );
 	await waitFor( () =>
 		expect( screen.getByRole( 'button', { name: /^(Show|Hide) panel$/ } ) ).toHaveAttribute(
-			'data-preview-layout',
+			'data-workspace-layout',
 			'chat'
 		)
 	);
@@ -140,8 +140,8 @@ it( 'switches between project chat and browser tabs without leaving full view', 
 	await user.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
 	expect( await screen.findByRole( 'menuitem', { name: 'Settings' } ) ).toBeVisible();
 	expect( screen.getByRole( 'button', { name: 'Hide panel' } ) ).toHaveAttribute(
-		'data-preview-layout',
-		'preview'
+		'data-workspace-layout',
+		'panel'
 	);
 	await user.click( screen.getByRole( 'button', { name: 'Show chat for First' } ) );
 	await waitFor( () =>
@@ -152,7 +152,7 @@ it( 'switches between project chat and browser tabs without leaving full view', 
 		'Keep this draft'
 	);
 	expect( screen.getByRole( 'button', { name: 'Show panel' } ) ).toHaveAttribute(
-		'data-preview-layout',
+		'data-workspace-layout',
 		'chat'
 	);
 	expect( screen.getByRole( 'button', { name: 'Show chat for First' } ) ).toHaveAttribute(
@@ -247,9 +247,9 @@ it.each( [ true, false ] )(
 		const connector = createFakeConnector( { sites: [ makeSite( { id: 'one', running } ) ] } );
 		renderApp( { connector, path: '/sites/one/new' } );
 		const trigger = await screen.findByRole( 'button', { name: /^(Show|Hide) panel$/ } );
-		for ( const layout of [ 'preview', 'split', 'chat' ] as const ) {
-			act( () => connector.emit( 'onSetPreviewLayout', layout ) );
-			expect( trigger ).toHaveAttribute( 'data-preview-layout', layout );
+		for ( const layout of [ 'panel', 'split', 'chat' ] as const ) {
+			act( () => connector.emit( 'onSetWorkspaceLayout', layout ) );
+			expect( trigger ).toHaveAttribute( 'data-workspace-layout', layout );
 			await waitFor( () =>
 				expect( document.querySelector( '[data-layout-moving]' ) ).not.toBeInTheDocument()
 			);

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { useConnector } from '@/data/core';
 import {
 	PANEL_WIDTHS_RESET_EVENT,
-	PREVIEW_SPLIT_MIN_WIDTH,
+	PANEL_SPLIT_MIN_WIDTH,
 	SIDEBAR_COLLAPSED_STORAGE_KEY,
 	SIDEBAR_PANEL_CONFIG,
 	SIDEBAR_PANEL_STORAGE_KEY,
@@ -124,7 +124,7 @@ export function SidebarLayout( {
 		return () => window.removeEventListener( PANEL_WIDTHS_RESET_EVENT, reopen );
 	}, [ closeSidebarFlyout, setCollapsed ] );
 	// A narrow window unpins the sidebar; widening it never pins it automatically.
-	const overlay = sidebarResize.viewportWidth - sidebarResize.width < PREVIEW_SPLIT_MIN_WIDTH;
+	const overlay = sidebarResize.viewportWidth - sidebarResize.width < PANEL_SPLIT_MIN_WIDTH;
 	useEffect( () => {
 		if ( overlay ) setCollapsed( true );
 		return clearHoverTimer;

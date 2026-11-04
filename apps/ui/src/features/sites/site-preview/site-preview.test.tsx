@@ -413,8 +413,11 @@ describe( 'site preview controls', () => {
 			{ path: '/sample-page/', onPathChange: vi.fn() },
 			connector
 		);
-		const open = () =>
-			user.click( screen.getByRole( 'button', { name: 'Open this page in your browser' } ) );
+		const open = async () => {
+			screen.getByRole( 'button', { name: 'Browser options' } ).focus();
+			await user.keyboard( '{ArrowDown}' );
+			await user.click( screen.getByRole( 'menuitem', { name: 'Open in browser' } ) );
+		};
 		await open();
 		expect( connector.openSiteUrl ).toHaveBeenLastCalledWith( 'one', '/sample-page/', {
 			autoLogin: false,
@@ -793,12 +796,16 @@ describe( 'preview browser menu', () => {
 		expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'does not offer Electron-only actions in the browser app', async () => {
-		await renderPreview( 'browser' );
-		expect( screen.queryByRole( 'button', { name: 'Browser options' } ) ).not.toBeInTheDocument();
-		expect(
-			screen.getByRole( 'button', { name: 'Open this page in your browser' } )
-		).toBeInTheDocument();
+	it( 'opens the current page in the browser app without offering Electron-only actions', async () => {
+		const connector = createFakeConnector( { preferences: { browser: 'safari' } } );
+		const { user } = await renderPreview( 'browser', { path: '/about/' }, connector );
+		screen.getByRole( 'button', { name: 'Browser options' } ).focus();
+		await user.keyboard( '{ArrowDown}' );
+		expect( screen.getAllByRole( 'menuitem' ).map( ( item ) => item.textContent ) ).toEqual( [
+			'Open in Safari',
+		] );
+		await user.click( screen.getByRole( 'menuitem', { name: 'Open in Safari' } ) );
+		expect( connector.openSiteUrl ).toHaveBeenCalledWith( 'one', '/about/', { autoLogin: false } );
 	} );
 
 	it( 'does not offer guest browser actions for the rendered email surface', async () => {

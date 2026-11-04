@@ -65,10 +65,6 @@ Shots with annotations also have a `<name>-annotated.webp`.
 | `workspace-chat.webp` | signed-in-chat | The main window with Moire pinned and a conversation updating its home page text | `studio-code/index.md` | `2026/04/studio-code.png` |
 | `blog-settings-appearance.webp` | signed-in-blog | Settings → Appearance, signed in: Theme, Color, Intensity and Contrast over the demo site (the 2026 workspace announcement) | — | — |
 
-## Failed in the last run
-
-- `import-overwrite-dialog` — setFiles: scene moire has no files folder
-
 ## Capture manually
 
 These need a WordPress.com login, a connected live site, or Studio Code output.

@@ -1,6 +1,6 @@
 import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
 import { __, sprintf } from '@wordpress/i18n';
-import { PencilIcon, SettingsIcon, SparklesIcon } from 'lucide-react';
+import { SettingsIcon } from 'lucide-react';
 import { getSections, getSettingsCommandAliases } from '@/data/settings-sections';
 import { getSessionTitle } from '@/features/chats';
 import {
@@ -12,8 +12,10 @@ import {
 	CollapseAllIcon,
 	GlobeIcon,
 	PinIcon,
+	RenameIcon,
 	SidebarIcon,
 	UnpinIcon,
+	WhatsNewIcon,
 } from '@/lib/icons';
 import type { AiSessionSummary, SiteDetails, WritableUserPreferences } from '@/data/core';
 import type { useOpenSettings } from '@/data/use-open-settings';
@@ -190,7 +192,7 @@ export function getAppCommands( {
 			id: 'whats-new',
 			group: 'commands',
 			label: __( 'What’s New' ),
-			icon: SparklesIcon,
+			icon: WhatsNewIcon,
 			keywords: [ __( 'New features' ) ],
 			run: openWhatsNew,
 		},
@@ -347,7 +349,7 @@ export function getChatCommands(
 			id: 'rename-chat',
 			group: 'commands',
 			label: __( 'Rename chat…' ),
-			icon: PencilIcon,
+			icon: RenameIcon,
 			description,
 			run: actions.rename,
 		},

@@ -1,3 +1,4 @@
+export * from './arrow-down-icon';
 export * from './annotate-icon';
 export * from './appearance-icon';
 export * from './archive-icon';
@@ -16,6 +17,7 @@ export * from './export-icon';
 export * from './export-site-icon';
 export * from './external-link-icon';
 export * from './folder-icon';
+export * from './fullscreen-icon';
 export * from './globe-icon';
 export * from './import-icon';
 export * from './intelligence-icon';
@@ -34,9 +36,12 @@ export * from './read-status-icon';
 export * from './rename-icon';
 export * from './responsive-icon';
 export * from './rotate-cw-icon';
+export * from './reset-tips-icon';
+export * from './whats-new-icon';
 export * from './send-icon';
 export * from './share-icon';
 export * from './sidebar-icon';
+export * from './split-view-icon';
 export * from './site-settings-icon';
 export * from './skills-icon';
 export * from './sort-icon';
@@ -56,3 +61,5 @@ export * from './success-icon';
 
 export { DisconnectIcon } from './disconnect-icon';
 export { RefreshIcon } from './refresh-icon';
+
+export * from './unread-status-icon';

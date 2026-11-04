@@ -123,9 +123,11 @@ type ToggleKey =
 export function SiteSettingsForm( {
 	site,
 	section,
+	active = true,
 }: {
 	site: SiteDetails;
 	section: SiteSettingsSectionId;
+	active?: boolean;
 } ) {
 	const dialog = useSettingsDialog();
 	const allDomains = useExistingCustomDomains();
@@ -372,7 +374,7 @@ export function SiteSettingsForm( {
 	const sections: Record< SiteSettingsSectionId, ReactNode > = {
 		site: (
 			<>
-				<ConnectionCard />
+				<ConnectionCard active={ active } />
 				<SettingsGroup>
 					{ textRow( 'name', __( 'Site name' ), __( 'Name shown in WordPress Studio.' ) ) }
 					{ connector.capabilities.nativeSites && (
@@ -563,7 +565,7 @@ export function SiteSettingsForm( {
 							{ __( 'Write PHP errors to wp-content/debug.log.' ) }
 							{ logExists ? (
 								<span className={ styles.debugLogAction }>
-									<Button variant="outline" size="header" onClick={ handleOpenLog }>
+									<Button variant="outline" size="sm" onClick={ handleOpenLog }>
 										{ __( 'Open log file' ) }
 									</Button>
 								</span>
@@ -609,7 +611,7 @@ export function SiteSettingsForm( {
 						<>
 							<Button
 								variant="outline"
-								size="header"
+								size="sm"
 								disabled={ updateSite.isPending }
 								onClick={ () => {
 									setData( initial );
@@ -622,7 +624,7 @@ export function SiteSettingsForm( {
 								type="submit"
 								form={ FORM_ID }
 								variant={ canSubmit ? 'accent' : 'outline' }
-								size="header"
+								size="sm"
 								disabled={ ! canSubmit }
 								loading={ updateSite.isPending }
 								loadingAnnouncement={ __( 'Saving settings' ) }

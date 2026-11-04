@@ -11,7 +11,7 @@ import {
 import { withLeakedToolCallMarkupRemoved } from './runtime-guards/leaked-tool-call-markup';
 import { stripStaleImagesFromContext } from './runtime-guards/strip-stale-images';
 import { withUsageCapErrorRewrite } from './runtime-guards/usage-cap';
-import type { Api, Context, Model, SimpleStreamOptions } from '@earendil-works/pi-ai';
+import type { Api, Model, SimpleStreamOptions, TranscriptContext } from '@earendil-works/pi-ai';
 
 export type StudioModel =
 	| Model< 'openai-completions' >
@@ -25,7 +25,7 @@ const STUDIO_WPCOM_PROVIDER = 'studio-wpcom';
 // otherwise bloat requests past the proxy's body limit.
 export function streamStudioModel(
 	model: Model< Api >,
-	context: Context,
+	context: TranscriptContext,
 	options?: SimpleStreamOptions
 ) {
 	// Each API's stream function is narrower than `Model< Api >`; the model is

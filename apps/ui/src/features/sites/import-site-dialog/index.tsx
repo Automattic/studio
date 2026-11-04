@@ -7,7 +7,7 @@ import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useImportSite } from '@/data/queries/use-import-site';
 import { useSettleSync } from '@/data/queries/use-sync-site';
-import { applySyncActivity, useSiteSyncActivity } from '@/data/sync-activity';
+import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useConfirmOnEnter } from '@/lib/keyboard';
 import {
 	AlertDialog,
@@ -77,7 +77,7 @@ export function useSiteBackupImport( site: SiteDetails ) {
 		const { id: siteId } = site;
 		closeDialog();
 		// Covers the backup's upload too, before the CLI starts reporting.
-		applySyncActivity( siteId, { kind: 'pending', direction: 'import' } );
+		settleSync( siteId, { kind: 'pending', direction: 'import' } );
 		try {
 			const backupPath = await connector.getFilePath( file );
 			if ( ! backupPath ) {

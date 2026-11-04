@@ -1,8 +1,13 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useFileDrop } from '@/data/use-composer-attachments';
+import { BlueprintErrorDialog } from '@/features/sites/blueprint-error-dialog';
 import { createFakeConnector, type FakeConnector } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
-import { BlueprintUpload, type SelectedBlueprint } from './index';
+import { useBlueprintUpload } from './use-blueprint-upload';
+import { SiteFileUpload } from './index';
+import type { SelectedBlueprint } from '@/features/sites/blueprint-selection';
 
 let connector: FakeConnector;
 
@@ -27,12 +32,16 @@ function TestUpload( {
 	onSelect?: ( value: SelectedBlueprint ) => void;
 	onValidityChange?: ( isValid: boolean ) => void;
 } ) {
+	const upload = useBlueprintUpload( { enabled: true, onSelect, onValidityChange } );
+	const [ target, setTarget ] = useState< HTMLDivElement | null >( null );
+	useFileDrop( target, ( files ) => {
+		if ( files[ 0 ] ) void upload.handleFile( files[ 0 ] );
+	} );
 	return (
-		<BlueprintUpload
-			onSelect={ onSelect }
-			onRemove={ vi.fn() }
-			onValidityChange={ onValidityChange }
-		/>
+		<div ref={ setTarget }>
+			<SiteFileUpload onFile={ upload.handleFile } />
+			<BlueprintErrorDialog error={ upload.error } onDismiss={ upload.dismissError } />
+		</div>
 	);
 }
 
@@ -48,7 +57,7 @@ function chooseFile( file: File ) {
 	fireEvent.change( input, { target: { files: [ file ] } } );
 }
 
-describe( 'BlueprintUpload', () => {
+describe( 'SiteFileUpload', () => {
 	beforeEach( () => {
 		connector = createFakeConnector();
 	} );
@@ -69,6 +78,34 @@ describe( 'BlueprintUpload', () => {
 			title: 'Portfolio Blueprint',
 			file: { name: 'portfolio.json' },
 		} );
+	} );
+
+	it( 'reports a stalled upload and discards its late result', async () => {
+		const onSelect = vi.fn();
+		const pending = deferred< Awaited< ReturnType< typeof connector.extractBlueprintBundle > > >();
+		connector.extractBlueprintBundle.mockReturnValueOnce( pending.promise );
+		await renderUpload( { onSelect } );
+		vi.useFakeTimers();
+		try {
+			chooseFile( createFile( 'bundle.zip', 'zip', 'application/zip' ) );
+			await act( async () => vi.advanceTimersByTime( 60_000 ) );
+			expect(
+				screen.getByText(
+					'This file took too long to load. Please try again or choose another file.'
+				)
+			).toBeVisible();
+			await act( async () =>
+				pending.resolve( {
+					blueprintJson: {},
+					blueprintJsonPath: '/tmp/late/blueprint.json',
+					tempDir: '/tmp/late',
+				} )
+			);
+			expect( onSelect ).not.toHaveBeenCalled();
+			expect( connector.cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/late' );
+		} finally {
+			vi.useRealTimers();
+		}
 	} );
 
 	it( 'extracts a ZIP Blueprint and keeps its temporary-file metadata', async () => {
@@ -107,15 +144,15 @@ describe( 'BlueprintUpload', () => {
 		expect( await screen.findByText( /must be object/ ) ).toBeInTheDocument();
 	} );
 
-	it( 'blocks creation until an invalid upload is replaced', async () => {
+	it( 'restores validity after a failed upload', async () => {
 		const onValidityChange = vi.fn();
 		await renderUpload( { onValidityChange } );
 		chooseFile( createFile( 'notes.txt', 'not a blueprint', 'text/plain' ) );
 
 		expect( await screen.findByRole( 'dialog', { name: 'Blueprint error' } ) ).toHaveTextContent(
-			'That file type is not supported. Choose a Blueprint JSON file or ZIP bundle.'
+			'That file type is not supported. Choose a Blueprint, WordPress backup, or XML export file.'
 		);
-		expect( onValidityChange ).toHaveBeenLastCalledWith( false );
+		expect( onValidityChange ).toHaveBeenLastCalledWith( true );
 
 		chooseFile(
 			createFile(
@@ -136,7 +173,7 @@ describe( 'BlueprintUpload', () => {
 		chooseFile( createFile( 'notes.txt', 'not a blueprint', 'text/plain' ) );
 
 		expect( await screen.findByRole( 'dialog', { name: 'Blueprint error' } ) ).toHaveTextContent(
-			'That file type is not supported. Choose a Blueprint JSON file or ZIP bundle.'
+			'That file type is not supported. Choose a Blueprint, WordPress backup, or XML export file.'
 		);
 		fireEvent.click( screen.getByRole( 'button', { name: 'Close' } ) );
 
@@ -157,7 +194,7 @@ describe( 'BlueprintUpload', () => {
 		chooseFile( createFile( 'bundle.zip', 'zip', 'application/zip' ) );
 
 		expect( await screen.findByRole( 'dialog', { name: 'Blueprint error' } ) ).toHaveTextContent(
-			'This ZIP could not be used. Make sure it contains a valid blueprint.json file at the top level and try again.'
+			'This ZIP could not be used. Make sure it contains a valid blueprint.json file at the top level or inside one enclosing folder, and try again.'
 		);
 		expect( screen.queryByText( /Error invoking remote method/ ) ).not.toBeInTheDocument();
 	} );
@@ -194,7 +231,7 @@ describe( 'BlueprintUpload', () => {
 		};
 		fireEvent.drop( window, { dataTransfer } );
 		expect( onSelect ).not.toHaveBeenCalled();
-		fireEvent.drop( screen.getByText( 'Drop a Blueprint here.' ).parentElement!.parentElement!, {
+		fireEvent.drop( screen.getByText( 'Drop your file here' ).parentElement!.parentElement!, {
 			dataTransfer,
 		} );
 		await waitFor( () => expect( onSelect ).toHaveBeenCalledOnce() );

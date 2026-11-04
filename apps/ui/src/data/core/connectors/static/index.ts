@@ -176,18 +176,27 @@ export function createStaticConnector(): Connector {
 		async getSiteDesign() {
 			return null;
 		},
+		// Playground sites send no email Studio can save.
+		async getSiteEmails() {
+			return [];
+		},
+		async getSiteEmail() {
+			return null;
+		},
 		async fixSiteDesignDrift() {
 			throw new UnsupportedError( 'fixSiteDesignDrift' );
 		},
 
-		async exportFullSite( siteId ) {
+		async exportFullSite( siteId, options ) {
 			const record = await sites.get( siteId );
+			options?.onStarted?.();
 			const zip = await exportSiteZip( await sites.client( siteId ) );
 			const filename = `${ generateBackupFilename( record.name ) }.zip`;
 			return download( zip as BlobPart, filename, 'application/zip' );
 		},
-		async exportDatabase( siteId ) {
+		async exportDatabase( siteId, options ) {
 			const record = await sites.get( siteId );
+			options?.onStarted?.();
 			const sql = await exportDatabaseSql( await sites.client( siteId ) );
 			return download( sql, `${ generateBackupFilename( record.name ) }.sql`, 'application/sql' );
 		},
@@ -476,7 +485,7 @@ export function createStaticConnector(): Connector {
 		},
 		onSiteEvent: ( listener ) => sites.onEvent( listener ),
 		onSnapshotEvent: ( listener ) => wpcom.onSnapshotEvent( listener ),
-		onToggleSitePreview( listener ) {
+		onTogglePanel( listener ) {
 			return onMenuShortcut( listener, 'b', 'shift' );
 		},
 		onToggleSidebar( listener ) {
@@ -486,6 +495,15 @@ export function createStaticConnector(): Connector {
 			return onMenuShortcut( listener, 'n' );
 		},
 		onAddSiteWithBlueprint() {
+			return () => {};
+		},
+		onNewChat( listener ) {
+			return onMenuShortcut( listener, 'n', 'shift' );
+		},
+		onOpenFolder() {
+			return () => {};
+		},
+		onOpenSite() {
 			return () => {};
 		},
 		onOpenSettings( listener ) {
@@ -512,6 +530,7 @@ export function createStaticConnector(): Connector {
 		async getAppUpdateStatus() {
 			return { state: 'idle', currentVersion: null };
 		},
+		async checkForAppUpdates() {},
 		async installAppUpdate() {},
 		onAppUpdateStatusChanged() {
 			return () => {};

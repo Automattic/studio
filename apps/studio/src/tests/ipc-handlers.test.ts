@@ -1,13 +1,13 @@
 /**
  * @vitest-environment node
  */
-import { IpcMainInvokeEvent, shell } from 'electron';
+import { IpcMainInvokeEvent, dialog, shell } from 'electron';
 import { existsSync } from 'fs';
 import { normalize } from 'path';
 import { readSitePath } from '@studio/common/sites/site-path';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
-import { getFileSize, openURL, readBlueprintFile } from 'src/ipc-handlers';
+import { getFileSize, openURL, readBlueprintFile, showOpenFolderDialog } from 'src/ipc-handlers';
 
 vi.mock( 'fs' );
 vi.mock( 'fs/promises', async () => {
@@ -97,5 +97,65 @@ describe( 'openURL', () => {
 			[ 'https://wordpress.com/' ],
 			[ 'http://localhost:8881/' ],
 		] );
+	} );
+} );
+
+describe( 'site source picker', () => {
+	const originalPlatform = process.platform;
+	beforeEach( () => {
+		Object.assign( dialog, {
+			showOpenDialog: vi.fn().mockResolvedValue( { canceled: true, filePaths: [] } ),
+		} );
+	} );
+	afterEach( () => Object.defineProperty( process, 'platform', { value: originalPlatform } ) );
+
+	it.each( [ 'win32', 'linux' ] )(
+		'offers separate native folder and Blueprint pickers on %s',
+		async ( platform ) => {
+			Object.defineProperty( process, 'platform', { value: platform } );
+			for ( const [ response, properties ] of [
+				[ 0, [ 'openDirectory' ] ],
+				[ 1, [ 'openFile' ] ],
+			] as const ) {
+				vi.mocked( dialog.showMessageBox ).mockResolvedValueOnce( {
+					response,
+					checkboxChecked: false,
+				} );
+				await expect(
+					showOpenFolderDialog( mockIpcMainInvokeEvent, 'Open', '/sites', {
+						allowBlueprints: true,
+					} )
+				).resolves.toBeNull();
+				expect( dialog.showOpenDialog ).toHaveBeenLastCalledWith(
+					expect.anything(),
+					expect.objectContaining( {
+						properties: [ ...properties ],
+						filters: [ { name: 'Blueprints', extensions: [ 'json', 'zip' ] } ],
+					} )
+				);
+			}
+			vi.mocked( dialog.showMessageBox ).mockResolvedValueOnce( {
+				response: 2,
+				checkboxChecked: false,
+			} );
+			await expect(
+				showOpenFolderDialog( mockIpcMainInvokeEvent, 'Open', '/sites', { allowBlueprints: true } )
+			).resolves.toBeNull();
+			expect( dialog.showOpenDialog ).toHaveBeenCalledTimes( 2 );
+		}
+	);
+
+	it( 'keeps the combined native picker on macOS', async () => {
+		Object.defineProperty( process, 'platform', { value: 'darwin' } );
+		await showOpenFolderDialog( mockIpcMainInvokeEvent, 'Open', '/sites', {
+			allowBlueprints: true,
+		} );
+		expect( dialog.showMessageBox ).not.toHaveBeenCalled();
+		expect( dialog.showOpenDialog ).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining( {
+				properties: [ 'openDirectory', 'createDirectory', 'openFile' ],
+			} )
+		);
 	} );
 } );

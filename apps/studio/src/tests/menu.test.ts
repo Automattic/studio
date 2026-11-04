@@ -12,7 +12,8 @@ function buildTestViewMenuItems(
 		isAlwaysOnTop: false,
 		devTools: [],
 		onToggleSidebar: vi.fn(),
-		onToggleSitePreview: vi.fn(),
+		onTogglePanel: vi.fn(),
+		onSetWorkspaceLayout: vi.fn(),
 		onResetZoom: vi.fn(),
 		onZoomIn: vi.fn(),
 		onZoomOut: vi.fn(),
@@ -21,16 +22,16 @@ function buildTestViewMenuItems(
 }
 
 describe( 'buildViewMenuItems', () => {
-	it( 'keeps the site preview command wired to the expected shortcut and callback', () => {
-		const onToggleSitePreview = vi.fn();
-		const items = buildTestViewMenuItems( { onToggleSitePreview } );
-		const toggleSitePreviewItem = items.find( ( item ) => item.label === 'Toggle Site Preview' );
+	it( 'keeps the panel command wired to the expected shortcut and callback', () => {
+		const onTogglePanel = vi.fn();
+		const items = buildTestViewMenuItems( { onTogglePanel } );
+		const togglePanelItem = items.find( ( item ) => item.label === 'Toggle Panel' );
 
-		expect( toggleSitePreviewItem ).toMatchObject( { accelerator: 'CommandOrControl+Shift+B' } );
+		expect( togglePanelItem ).toMatchObject( { accelerator: 'CommandOrControl+Shift+B' } );
 
-		toggleSitePreviewItem?.click?.( {} as never, undefined as never, undefined as never );
+		togglePanelItem?.click?.( {} as never, undefined as never, undefined as never );
 
-		expect( onToggleSitePreview ).toHaveBeenCalledTimes( 1 );
+		expect( onTogglePanel ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it.each( [
@@ -50,4 +51,18 @@ describe( 'buildViewMenuItems', () => {
 
 		expect( callback ).toHaveBeenCalledTimes( 1 );
 	} );
+} );
+
+it.each( [
+	[ 'Chat', '1', 'chat' ],
+	[ 'Split view', '2', 'split' ],
+	[ 'Panel', '3', 'panel' ],
+] as const )( 'selects %s with an app-local shortcut', ( label, key, layout ) => {
+	const onSetWorkspaceLayout = vi.fn();
+	const item = buildTestViewMenuItems( { onSetWorkspaceLayout } ).find(
+		( item ) => item.label === label
+	);
+	expect( item ).toMatchObject( { accelerator: `CommandOrControl+${ key }` } );
+	item?.click?.( {} as never, undefined as never, undefined as never );
+	expect( onSetWorkspaceLayout ).toHaveBeenCalledExactlyOnceWith( layout );
 } );

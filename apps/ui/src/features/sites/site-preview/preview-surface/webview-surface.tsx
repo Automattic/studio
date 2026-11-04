@@ -28,11 +28,13 @@ import {
 	type WebviewPageTitleUpdatedEvent,
 	type WebviewStartNavigationEvent,
 	type WebviewTag,
+	type PreviewColorScheme,
 } from './webview';
 import type { SiteAnnotations } from '@/features/annotations';
 
 interface WebviewSurfaceProps {
 	url: string;
+	colorScheme?: PreviewColorScheme;
 	reloadNonce: number;
 	// The site's annotations, mirrored into the page as markers.
 	annotations?: SiteAnnotations;
@@ -56,6 +58,7 @@ interface WebviewSurfaceProps {
  */
 export function WebviewSurface( {
 	url,
+	colorScheme = 'system',
 	reloadNonce,
 	annotations,
 	onInspectorReady,
@@ -68,6 +71,7 @@ export function WebviewSurface( {
 }: WebviewSurfaceProps ) {
 	const ref = useRef< HTMLElement | null >( null );
 	const [ ready, setReady ] = useState( false );
+	const [ documentVersion, setDocumentVersion ] = useState( 0 );
 	const [ inspectorReady, setInspectorReady ] = useState( false );
 	const onInspectorReadyRef = useRef( onInspectorReady );
 	const onInspectorEventRef = useRef( onInspectorEvent );
@@ -79,8 +83,6 @@ export function WebviewSurface( {
 	const inspectorEnabledRef = useRef( inspector );
 	const currentUrlRef = useRef( url );
 	const lastReloadNonceRef = useRef( reloadNonce );
-	const progressTimerRef = useRef< ReturnType< typeof setInterval > | null >( null );
-	const progressResetTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
 	useEffect( () => {
 		onInspectorReadyRef.current = onInspectorReady;
 	}, [ onInspectorReady ] );
@@ -138,41 +140,6 @@ export function WebviewSurface( {
 		onBrowserStateChangeRef.current?.( next );
 	}, [] );
 
-	const clearProgressTimers = useCallback( () => {
-		if ( progressTimerRef.current ) {
-			clearInterval( progressTimerRef.current );
-			progressTimerRef.current = null;
-		}
-		if ( progressResetTimerRef.current ) {
-			clearTimeout( progressResetTimerRef.current );
-			progressResetTimerRef.current = null;
-		}
-	}, [] );
-
-	// The webview emits no incremental load progress, so the bar is
-	// simulated: it eases toward 88% while loading and snaps to 100% on
-	// completion before resetting.
-	const startProgress = useCallback( () => {
-		clearProgressTimers();
-		publishBrowserState( {
-			loading: true,
-			progress: Math.max( browserStateRef.current.progress, 0.12 ),
-		} );
-		progressTimerRef.current = setInterval( () => {
-			const current = browserStateRef.current.progress;
-			const next = Math.min( 0.88, current + Math.max( 0.02, ( 0.88 - current ) * 0.18 ) );
-			publishBrowserState( { loading: true, progress: next } );
-		}, 250 );
-	}, [ clearProgressTimers, publishBrowserState ] );
-
-	const finishProgress = useCallback( () => {
-		clearProgressTimers();
-		publishBrowserState( { loading: false, progress: 1 } );
-		progressResetTimerRef.current = setTimeout( () => {
-			publishBrowserState( { loading: false, progress: 0 } );
-		}, 180 );
-	}, [ clearProgressTimers, publishBrowserState ] );
-
 	// The mount-time url is loaded via the `src` attribute (calling `loadURL`
 	// before `dom-ready` throws); it must stay stable so later navigation
 	// goes through `loadURL` instead of remounting the webview.
@@ -204,7 +171,9 @@ export function WebviewSurface( {
 				.catch( () => undefined );
 		};
 
+		let titleRequest = 0;
 		const publishDocumentTitle = ( title?: unknown ) => {
+			const request = ++titleRequest;
 			if ( typeof title === 'string' ) {
 				publishBrowserState( { title: normalizeDocumentTitle( title ) } );
 				return;
@@ -213,6 +182,7 @@ export function WebviewSurface( {
 			webview
 				.executeJavaScript( 'document.title', false )
 				.then( ( nextTitle ) => {
+					if ( request !== titleRequest ) return;
 					publishBrowserState( { title: normalizeDocumentTitle( nextTitle ) } );
 				} )
 				.catch( () => undefined );
@@ -221,6 +191,7 @@ export function WebviewSurface( {
 		const handleDomReady = () => {
 			domReadyRef.current = true;
 			setReady( true );
+			setDocumentVersion( ( version ) => version + 1 );
 			publishDocumentTitle();
 			publishNavigationHistory();
 			if ( ! inspectorEnabledRef.current ) {
@@ -299,12 +270,12 @@ export function WebviewSurface( {
 			}
 		};
 		const handleStartLoading = () => {
+			titleRequest++;
 			didReadTitleAfterLoad = false;
-			publishBrowserState( { title: null, failed: false } );
-			startProgress();
+			publishBrowserState( { loading: true, failed: false } );
 		};
 		const handleStopLoading = () => {
-			finishProgress();
+			publishBrowserState( { loading: false } );
 			publishNavigationHistory();
 			if ( domReadyRef.current && ! didReadTitleAfterLoad ) {
 				didReadTitleAfterLoad = true;
@@ -338,7 +309,6 @@ export function WebviewSurface( {
 		publishBrowserState();
 		return () => {
 			domReadyRef.current = false;
-			clearProgressTimers();
 			webview.removeEventListener( 'dom-ready', handleDomReady );
 			webview.removeEventListener( 'console-message', handleConsoleMessage );
 			webview.removeEventListener( 'page-title-updated', handlePageTitleUpdated );
@@ -351,7 +321,7 @@ export function WebviewSurface( {
 			webview.removeEventListener( 'did-fail-load', handleFailLoad );
 			webview.removeEventListener( 'did-finish-load', handleStopLoading );
 		};
-	}, [ clearProgressTimers, finishProgress, publishBrowserState, startProgress ] );
+	}, [ publishBrowserState ] );
 
 	// Navigation effect — gated on `ready` so the first call happens after
 	// `dom-ready` (the initial url is loaded by the `src` attribute on the
@@ -402,15 +372,23 @@ export function WebviewSurface( {
 		} );
 	}, [ url, reloadNonce, ready ] );
 
+	useEffect( () => {
+		const webview = ref.current as WebviewTag | null;
+		if ( ! documentVersion || ! webview ) return;
+		void getPreviewIpc()
+			?.setWebviewColorScheme?.( getWebviewContentsId( webview ), colorScheme )
+			.catch( ( error ) => console.error( 'Failed to set preview appearance:', error ) );
+	}, [ colorScheme, documentVersion ] );
+
 	// Mirrors the notes into the page, in the theme's accent.
-	const colorScheme = useColorScheme();
+	const appColorScheme = useColorScheme();
 	useEffect( () => {
 		const webview = ref.current as WebviewTag | null;
 		if ( ! inspectorReady || ! webview || ! annotations ) return;
 		webview
 			.executeJavaScript( buildInspectorCommandScript( annotations, webview ), false )
 			.catch( () => undefined );
-	}, [ annotations, colorScheme, inspectorReady ] );
+	}, [ annotations, appColorScheme, inspectorReady ] );
 
 	useEffect( () => {
 		if ( ! ready || ! browserCommand ) return;

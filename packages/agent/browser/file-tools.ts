@@ -1,67 +1,45 @@
-import {
-	createEditTool,
-	createReadTool,
-	createWriteTool,
-	ok,
-	truncateHead,
-	truncateLine,
-	type AgentHarnessTool,
-	type AgentTool,
-	type ExecutionEnv,
-	type ExecutionToolContext,
-} from '@earendil-works/pi-agent-core';
-import { Type, type TSchema } from 'typebox';
+import { Type } from 'typebox';
+import { toBase64 } from '@studio/agent/shared/base64';
 import { withDesignSystemPreview } from '@studio/agent/shared/chat-artifacts';
 import { getFileToolPrompt } from '@studio/agent/shared/file-tool-prompts';
 import {
 	bindTool,
 	defineTool,
+	LOCAL_OVERWRITE,
 	READ_ONLY,
 	type AnyStudioAgentTool,
 } from '@studio/agent/shared/tools/define-tool';
 import { textResult } from '@studio/agent/shared/tools/utils';
+import { generateUnifiedPatch } from '@studio/agent/shared/unified-patch';
+import {
+	applyEditsToNormalizedContent,
+	detectLineEnding,
+	generateDiffString,
+	normalizeToLF,
+	prepareEditArguments,
+	restoreLineEndings,
+	stripBom,
+} from './edit-text';
 import type { StudioAgentHost } from '@studio/agent/shared/host';
 
 // The file tools Node takes from pi-coding-agent, for hosts whose files are not
-// on a disk its tools can reach: Read, Write and Edit are pi-agent-core's, over
-// the host's files; Grep, Glob and Ls are rebuilt, with pi's names, schemas and
-// descriptions, so the agent sees the same tools in both.
+// on a disk its tools can reach. Names, schemas and descriptions are pi's, so
+// the agent sees the same tools in both.
 
+const READ_MAX_LINES = 2000;
+const MAX_OUTPUT_BYTES = 50 * 1024;
 const LS_LIMIT = 500;
 const GLOB_LIMIT = 1000;
 const GREP_LIMIT = 100;
-
-// The part of an execution environment pi-agent-core's file tools use. A host
-// call that fails rejects, which fails the tool call with the host's message.
-function createFilesEnv( { files, path, sitesRoot }: StudioAgentHost ): ExecutionEnv {
-	return {
-		absolutePath: async ( file: string ) => ok( path.resolve( sitesRoot, file ) ),
-		canonicalPath: async ( file: string ) => ok( file ),
-		exists: async ( file: string ) => ok( await files.exists( file ) ),
-		fileInfo: async ( file: string ) =>
-			ok( { kind: ( await files.isDirectory( file ) ) ? 'directory' : 'file' } ),
-		readTextFile: async ( file: string ) => ok( await files.readText( file ) ),
-		readBinaryFile: async ( file: string ) => ok( await files.read( file ) ),
-		writeFile: async ( file: string, content: string | Uint8Array ) =>
-			ok( await files.write( file, content ) ),
-	} as unknown as ExecutionEnv;
-}
-
-// A pi-agent-core tool under Studio's name, running over `env`.
-function withEnv< TParameters extends TSchema, TDetails >(
-	tool: AgentHarnessTool< ExecutionToolContext, TParameters, TDetails >,
-	name: string,
-	env: ExecutionEnv
-): AgentTool< TParameters, TDetails > {
-	return {
-		...tool,
-		name,
-		label: name,
-		...getFileToolPrompt( name ),
-		execute: ( toolCallId, params, signal, onUpdate ) =>
-			tool.execute( toolCallId, params, signal, onUpdate, { env } ),
-	};
-}
+const GREP_LINE_LENGTH = 500;
+const IMAGE_TYPES: Record< string, string > = {
+	jpg: 'image/jpeg',
+	jpeg: 'image/jpeg',
+	png: 'image/png',
+	gif: 'image/gif',
+	webp: 'image/webp',
+	bmp: 'image/bmp',
+};
 
 // A glob as a regular expression over relative paths: `**/` spans folders,
 // `*` and `?` stay within one.
@@ -84,15 +62,121 @@ function globToRegExp( glob: string ): RegExp {
 }
 
 // Truncates output past pi's limit, saying so.
-function bounded( lines: string[] ): string {
-	const { content, truncated } = truncateHead( lines.join( '\n' ), { maxLines: Infinity } );
-	return truncated ? `${ content }\n\n[Output truncated at 50KB.]` : content;
+function bounded( lines: string[], limitNote = 'Output truncated at 50KB.' ): string {
+	let size = 0;
+	const kept: string[] = [];
+	for ( const line of lines ) {
+		size += line.length + 1;
+		if ( size > MAX_OUTPUT_BYTES ) {
+			return `${ kept.join( '\n' ) }\n\n[${ limitNote }]`;
+		}
+		kept.push( line );
+	}
+	return kept.join( '\n' );
 }
 
-export function createFileTools( host: StudioAgentHost ): AnyStudioAgentTool[] {
+export function createFileTools(
+	host: StudioAgentHost,
+	{ visionEnabled = true } = {}
+): AnyStudioAgentTool[] {
 	const { files, path } = host;
 	const resolve = ( file: string | undefined ) => path.resolve( host.sitesRoot, file ?? '.' );
-	const env = createFilesEnv( host );
+
+	const read = defineTool(
+		'Read',
+		'Read the contents of a file. Supports text files and images (jpg, png, gif, webp, bmp). Images are sent as attachments. For text files, output is truncated to 2000 lines or 50KB (whichever is hit first). Use offset/limit for large files. When you need the full file, continue with offset until complete.',
+		{
+			path: Type.String( { description: 'Path to the file to read (relative or absolute)' } ),
+			offset: Type.Optional(
+				Type.Number( { description: 'Line number to start reading from (1-indexed)' } )
+			),
+			limit: Type.Optional( Type.Number( { description: 'Maximum number of lines to read' } ) ),
+		},
+		async ( args ) => {
+			const file = resolve( args.path );
+			const imageType = IMAGE_TYPES[ path.extname( file ).slice( 1 ).toLowerCase() ];
+			if ( imageType && visionEnabled ) {
+				const bytes = await files.read( file );
+				return { content: [ { type: 'image', data: toBase64( bytes ), mimeType: imageType } ] };
+			}
+			const lines = ( await files.readText( file ) ).split( '\n' );
+			const start = Math.max( 0, ( args.offset ?? 1 ) - 1 );
+			const end = Math.min( lines.length, start + ( args.limit ?? READ_MAX_LINES ) );
+			const body = bounded(
+				lines.slice( start, end ),
+				'Output truncated at 50KB. Use offset to continue.'
+			);
+			return textResult(
+				end < lines.length
+					? `${ body }\n\n[Showing lines ${ start + 1 }-${ end } of ${ lines.length }. Use offset=${
+							end + 1
+					  } to continue.]`
+					: body
+			);
+		},
+		{ annotations: READ_ONLY, ...getFileToolPrompt( 'Read' ) }
+	);
+
+	const write = defineTool(
+		'Write',
+		"Write content to a file. Creates the file if it doesn't exist, overwrites if it does. Automatically creates parent directories.",
+		{
+			path: Type.String( { description: 'Path to the file to write (relative or absolute)' } ),
+			content: Type.String( { description: 'Content to write to the file' } ),
+		},
+		async ( args ) => {
+			await files.write( resolve( args.path ), args.content );
+			return textResult( `Successfully wrote ${ args.content.length } bytes to ${ args.path }` );
+		},
+		{ annotations: LOCAL_OVERWRITE, ...getFileToolPrompt( 'Write' ) }
+	);
+
+	const edit = defineTool(
+		'Edit',
+		'Edit a single file using exact text replacement. Every edits[].oldText must match a unique, non-overlapping region of the original file. If two changes affect the same block or nearby lines, merge them into one edit instead of emitting overlapping edits. Do not include large unchanged regions just to connect distant changes.',
+		{
+			path: Type.String( { description: 'Path to the file to edit (relative or absolute)' } ),
+			edits: Type.Array(
+				Type.Object( {
+					oldText: Type.String( {
+						description:
+							'Exact text for one targeted replacement. It must be unique in the original file and must not overlap with any other edits[].oldText in the same call.',
+					} ),
+					newText: Type.String( { description: 'Replacement text for this targeted edit.' } ),
+				} ),
+				{
+					description:
+						'One or more targeted replacements. Each edit is matched against the original file, not incrementally. Do not include overlapping or nested edits. If two changes touch the same block or nearby lines, merge them into one edit instead.',
+				}
+			),
+		},
+		async ( args ) => {
+			const file = resolve( args.path );
+			const { bom, text: content } = stripBom( await files.readText( file ) );
+			const ending = detectLineEnding( content );
+			const { baseContent, newContent } = applyEditsToNormalizedContent(
+				normalizeToLF( content ),
+				args.edits,
+				args.path
+			);
+			await files.write( file, bom + restoreLineEndings( newContent, ending ) );
+			const { diff, firstChangedLine } = generateDiffString( baseContent, newContent );
+			return {
+				content: [
+					{
+						type: 'text',
+						text: `Successfully replaced ${ args.edits.length } block(s) in ${ args.path }.`,
+					},
+				],
+				details: {
+					diff,
+					patch: generateUnifiedPatch( args.path, baseContent, newContent ),
+					firstChangedLine,
+				},
+			};
+		},
+		{ annotations: LOCAL_OVERWRITE, ...getFileToolPrompt( 'Edit' ) }
+	);
 
 	const ls = defineTool(
 		'Ls',
@@ -226,9 +310,10 @@ export function createFileTools( host: StudioAgentHost ): AnyStudioAgentTool[] {
 					) {
 						const separator = line === index ? ':' : '-';
 						out.push(
-							`${ file }${ separator }${ line + 1 }${ separator } ${
-								truncateLine( lines[ line ] ).text
-							}`
+							`${ file }${ separator }${ line + 1 }${ separator } ${ lines[ line ].slice(
+								0,
+								GREP_LINE_LENGTH
+							) }`
 						);
 					}
 				}
@@ -252,11 +337,14 @@ export function createFileTools( host: StudioAgentHost ): AnyStudioAgentTool[] {
 	);
 
 	return [
-		withEnv( createReadTool(), 'Read', env ),
-		withDesignSystemPreview( withEnv( createWriteTool(), 'Write', env ), host ),
-		withDesignSystemPreview( withEnv( createEditTool(), 'Edit', env ), host ),
+		bindTool( read, host ),
+		withDesignSystemPreview( bindTool( write, host ), host ),
+		withDesignSystemPreview(
+			{ ...bindTool( edit, host ), prepareArguments: prepareEditArguments },
+			host
+		),
 		bindTool( grep, host ),
 		bindTool( glob, host ),
 		bindTool( ls, host ),
-	] as unknown as AnyStudioAgentTool[];
+	] as AnyStudioAgentTool[];
 }

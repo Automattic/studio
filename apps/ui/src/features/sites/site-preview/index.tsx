@@ -1,16 +1,9 @@
+import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { __ } from '@wordpress/i18n';
-import {
-	Suspense,
-	useCallback,
-	useEffect,
-	useLayoutEffect,
-	useRef,
-	useState,
-	type ReactNode,
-} from 'react';
+import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
-import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
+import { previewTabsKey, usePreviewTabs } from '@/data/preview-tabs';
 import { useSiteDesign } from '@/data/queries/use-site-design';
 import {
 	useIsSiteStarting,
@@ -21,20 +14,32 @@ import {
 import { useResponsivePreview, updateResponsivePreview } from '@/data/responsive-preview';
 import {
 	AnnotationOverlay,
+	isBatchedAnnotation,
+	getSiteAnnotations,
+	subscribeAnnotationReview,
+	editAnnotation,
 	type AnnotationAnchor,
 	isAnnotationsBusy,
 	setAnnotating,
 	useSiteAnnotations,
 } from '@/features/annotations';
 import { DesignSystemView } from '@/features/sites/design-system-view';
+import { EmailView } from '@/features/sites/email-view';
 import { getSiteUrl } from '@/features/sites/get-site-url';
 import { PreviewParticles } from '@/features/sites/preview-particles';
-import { useSiteHeaderNavigation } from '@/features/sites/site-header-actions';
-import { SiteContextMenu, StoppedSitePreview } from '@/features/sites/stopped-site-preview';
+import { useSiteHeader } from '@/features/sites/site-header-actions';
+import { SiteToolLauncher, useSiteToolActions } from '@/features/sites/site-tools';
+import { SiteContextMenu } from '@/features/sites/stopped-site-preview';
 import { VisuallyHidden } from '@/lib/ui';
-import { getRealmOpenEvent } from './address-bar';
+import {
+	EMAIL_PREVIEW_PATH,
+	getPathFromPreviewUrl,
+	getRealmNavigationPath,
+	getRealmOpenEvent,
+} from './address-bar';
 import { EMPTY_BROWSER_STATE, type BrowserNavigationState } from './browser-state';
 import { PreviewHeader } from './preview-header';
+import { AnnotateButton } from './preview-header/annotate-button';
 import {
 	FrameSurface,
 	isElectron,
@@ -49,6 +54,7 @@ import { getFrameKey, getSafePath, type PreviewSurfaceKey } from './surfaces';
 import { useBrowserShortcuts } from './use-browser-shortcuts';
 import { useLoadingStage } from './use-loading-stage';
 import { usePreviewAnnotations } from './use-preview-annotations';
+import { usePreviewBrowser } from './use-preview-browser';
 import { usePreviewCapture } from './use-preview-capture';
 import { usePreviewSurfaces } from './use-preview-surfaces';
 import type { SiteDetails } from '@/data/core';
@@ -75,14 +81,12 @@ interface SitePreviewProps {
 	// True while the panel is toggled off but kept mounted (so the webview
 	// stays warm). Disables the global browser shortcuts in that state.
 	collapsed?: boolean;
-	toolbarStart?: ReactNode;
-	headerContainer?: HTMLElement | null;
-	// The preview is the leftmost pane, so with the sidebar out of the way its
-	// toolbar reaches the window's start edge, where the macOS traffic lights sit.
-	atWindowStart?: boolean;
+	inactive?: boolean;
+	blank?: boolean;
+	onTitleChange?: ( title: string | null ) => void;
 }
 
-export function SitePreview( {
+function SitePreviewContent( {
 	site,
 	liveUrl,
 	path,
@@ -91,11 +95,12 @@ export function SitePreview( {
 	onStartAnnotating,
 	onPathChange,
 	collapsed = false,
-	toolbarStart,
-	headerContainer,
-	atWindowStart = false,
+	inactive = false,
+	blank = false,
+	onTitleChange,
 }: SitePreviewProps ) {
 	const connector = useConnector();
+	const { annotationSpace } = useSiteHeader();
 	const startSite = useStartSite();
 	const operation = useSiteOperation( site );
 	const startPending = useIsSiteStarting( site.id );
@@ -106,6 +111,8 @@ export function SitePreview( {
 	const isStopping = ! live && ( stopPending || operation === 'stop' );
 	const siteUrl = liveUrl ?? getSiteUrl( site );
 	const canPreview = live || site.running;
+	const showStoppedPreview = ! blank && ! canPreview && ! isStarting;
+	const tools = useSiteToolActions( site, { liveUrl, onNavigate: onPathChange } );
 	const canUseWebview = isElectron();
 	const safePath = getSafePath( path );
 	const {
@@ -119,16 +126,25 @@ export function SitePreview( {
 		sendSurfaceCommand,
 		sendBrowserCommand,
 		goToHistoryIndex,
-		switchRealm,
-	} = usePreviewSurfaces( { siteId: site.id, siteUrl, path: safePath, reloadNonce, onPathChange } );
+	} = usePreviewSurfaces( {
+		siteId: site.id,
+		siteUrl,
+		path: safePath,
+		reloadNonce,
+		onPathChange,
+		active: ! inactive,
+	} );
 	const siteDesign = useSiteDesign( site );
 	const annotations = useSiteAnnotations( site.id );
+	// Surfaces Studio draws itself, with no page to load.
+	const rendered = activeSurfaceKey === 'design' || activeSurfaceKey === 'email';
 	const { loadingStage, reveal } = useLoadingStage( {
 		siteId: site.id,
 		live,
 		canPreview,
 		isStarting,
-		design: activeSurfaceKey === 'design',
+		rendered: rendered || blank,
+		publish: ! inactive && ! blank,
 	} );
 	// Frames report no loading state, so track which load each one finished.
 	const [ loadedFrames, setLoadedFrames ] = useState<
@@ -138,22 +154,23 @@ export function SitePreview( {
 		! canUseWebview &&
 		!! activeSurface &&
 		loadedFrames[ activeSurfaceKey ] !== getFrameKey( siteUrl, activeSurface );
-	const navigating =
-		canPreview && activeSurfaceKey !== 'design' && ( browserState.loading || activeFrameLoading );
-	// Studio renders the design system itself, so it needs no page injection.
+	const navigating = canPreview && ! rendered && ( browserState.loading || activeFrameLoading );
+	// Studio renders the design system and the email itself, so they need no
+	// page injection.
 	const showAnnotate = ! live;
 	const canAnnotateSurface =
 		showAnnotate &&
+		! blank &&
 		activeSurfaceKey !== 'database' &&
-		( connector.capabilities.annotatePreview || activeSurfaceKey === 'design' );
+		( connector.capabilities.annotatePreview || rendered );
 	const canAnnotate =
 		canAnnotateSurface &&
-		( activeSurfaceKey === 'design' ? !! siteDesign.data : !! activeSurface?.inspectorReady );
-	const progress = browserState.loading
-		? Math.max( browserState.progress, 0.12 )
-		: browserState.progress;
-	const showLoadingProgress = canPreview && progress > 0;
+		( activeSurfaceKey === 'design'
+			? !! siteDesign.data
+			: activeSurfaceKey === 'email' || !! activeSurface?.inspectorReady );
 	const viewportRef = useRef< HTMLDivElement | null >( null );
+	const previewBrowser = usePreviewBrowser( viewportRef );
+	const browserActions = canUseWebview && ! rendered && ! blank ? previewBrowser : undefined;
 	const responsiveSettings = useResponsivePreview( site.id );
 	const responsiveEnabled = responsiveSettings.enabled && canPreview && activeSurfaceKey === 'site';
 	const [ availableSize, setAvailableSize ] = useState( { width: 0, height: 0 } );
@@ -173,7 +190,36 @@ export function SitePreview( {
 		responsiveSettings.width,
 		responsiveSettings.height
 	);
-	const responsiveScale = responsiveSettings.zoom === 'fit' ? fitScale : responsiveSettings.zoom;
+	useLayoutEffect( () => {
+		const viewport = viewportRef.current;
+		if (
+			responsiveEnabled &&
+			responsiveSettings.zoom === 'fit' &&
+			responsiveSettings.fitScale === undefined &&
+			viewport &&
+			viewport.clientWidth > 0 &&
+			viewport.clientHeight > 0
+		) {
+			updateResponsivePreview( site.id, {
+				fitScale: getFitScale(
+					viewport.clientWidth,
+					viewport.clientHeight,
+					responsiveSettings.width,
+					responsiveSettings.height
+				),
+			} );
+		}
+	}, [
+		responsiveEnabled,
+		responsiveSettings,
+		availableSize.width,
+		availableSize.height,
+		site.id,
+	] );
+	const responsiveScale =
+		responsiveSettings.zoom === 'fit'
+			? responsiveSettings.fitScale ?? fitScale
+			: responsiveSettings.zoom;
 	const {
 		annotationAnchor,
 		setAnnotationAnchor,
@@ -187,10 +233,12 @@ export function SitePreview( {
 		canAnnotateSurface,
 		viewportRef,
 		onSendAnnotations,
+		enabled: ! inactive,
 	} );
 	useEffect( () => {
-		setAnnotationAnchor( null );
+		if ( activeSurfaceKey !== 'design' ) setAnnotationAnchor( null );
 	}, [
+		activeSurfaceKey,
 		responsiveSettings.width,
 		responsiveSettings.height,
 		responsiveEnabled,
@@ -199,41 +247,52 @@ export function SitePreview( {
 		availableSize.height,
 		setAnnotationAnchor,
 	] );
+	const handleDesignAnchor = useCallback(
+		( anchor: AnnotationAnchor ) => {
+			const next = toViewportAnchor( anchor );
+			setAnnotationAnchor( ( current ) =>
+				current?.left === next?.left && current?.top === next?.top ? current : next
+			);
+		},
+		[ setAnnotationAnchor, toViewportAnchor ]
+	);
 	const capturePage = usePreviewCapture( site.id, siteUrl, viewportRef );
 	const handleSurfaceLoad = useCallback(
 		( key: PreviewSurfaceKey, url: string, guestId?: number ) => {
 			reveal();
-			if ( key === 'site' && ! live ) {
+			if ( key === 'site' && ! live && ! inactive ) {
 				capturePage( url, guestId );
 			}
 		},
-		[ capturePage, live, reveal ]
+		[ capturePage, live, reveal, inactive ]
 	);
 	const handleSurfaceBrowserState = useCallback(
 		( key: PreviewSurfaceKey, browser: BrowserNavigationState ) => {
 			patchSurface( key, { browser } );
+			if ( key === activeSurfaceKey ) onTitleChange?.( browser.title );
 			if ( browser.failed ) {
 				reveal();
 			}
 		},
-		[ patchSurface, reveal ]
+		[ patchSurface, reveal, activeSurfaceKey, onTitleChange ]
 	);
 
 	// Shortcuts the guest page swallowed and forwarded back over the console
 	// bridge, for the webview.
 	const handleInspectorEvent = useCallback(
 		( event: InspectorEvent ) => {
+			if ( inactive ) return;
 			if ( event.type === 'browser-command' ) {
 				sendBrowserCommand( event.command );
 			} else {
 				handleAnnotationEvent( event );
 			}
 		},
-		[ handleAnnotationEvent, sendBrowserCommand ]
+		[ handleAnnotationEvent, sendBrowserCommand, inactive ]
 	);
 
 	const browserShortcuts = useBrowserShortcuts(
-		canPreview && ! isStopping && ! collapsed,
+		canPreview && ! isStarting && ! isStopping && ! collapsed,
 		sendBrowserCommand
 	);
 
@@ -241,13 +300,8 @@ export function SitePreview( {
 	// than always the front end. Admin screens go through /studio-auto-login so
 	// they don't land on the login form; the front end opens logged out.
 	const openExternal = live
-		? () =>
-				void connector
-					.openSiteUrl( site.id, `${ siteUrl }${ safePath }`, { autoLogin: false } )
-					.catch( ( error ) => {
-						console.error( 'Failed to open site in browser:', error );
-					} )
-		: activeRealm === 'design'
+		? () => void connector.openExternalUrl( `${ siteUrl }${ safePath }` )
+		: rendered
 		? undefined
 		: () => {
 				void connector.trackEvent( getRealmOpenEvent( activeRealm ), { browser: 'external' } );
@@ -257,60 +311,61 @@ export function SitePreview( {
 						console.error( 'Failed to open site in browser:', error );
 					} );
 		  };
-	const responsive = canPreview
-		? {
-				active: responsiveEnabled,
-				disabled: isStopping || activeSurfaceKey !== 'site',
-				onClick: () =>
-					updateResponsivePreview( site.id, { enabled: ! responsiveSettings.enabled } ),
-		  }
-		: undefined;
+	const responsive = {
+		active: responsiveEnabled,
+		disabled: blank || ! canPreview || isStarting || isStopping || activeSurfaceKey !== 'site',
+		onClick: () => updateResponsivePreview( site.id, { enabled: ! responsiveSettings.enabled } ),
+	};
+	const beginAnnotating = () => {
+		if ( onStartAnnotating?.() === false ) return false;
+		setAnnotating( site.id, true );
+		if ( ! site.running && ! isStarting )
+			startSite.mutate( site.id, {
+				onError: () => setAnnotating( site.id, false ),
+			} );
+		return true;
+	};
+	const batchNotes = annotations.notes.filter( isBatchedAnnotation );
+	const showBrowserBar = canPreview && ! blank && ! loadingStage;
+
+	// A link in an email to the site opens in the preview, like a password reset
+	// link; any other opens in the browser.
+	const openEmailLink = ( url: string ) => {
+		const sitePath = getPathFromPreviewUrl( url, siteUrl );
+		if ( sitePath ) {
+			onPathChange?.( getRealmNavigationPath( sitePath, siteUrl ) );
+		} else if ( /^(?:https?|mailto):/i.test( url ) ) {
+			void connector.openExternalUrl( url );
+		}
+	};
+
 	const annotate = showAnnotate
 		? {
+				annotationCount: batchNotes.length,
 				active: annotations.active,
 				disabled:
 					! canAnnotateSurface ||
 					isStarting ||
 					isStopping ||
-					( site.running && ! canAnnotate ) ||
+					( site.running && ( blank || ! canAnnotate ) ) ||
 					isAnnotationsBusy( annotations ),
-				disabledReason:
-					activeSurfaceKey === 'database'
-						? __( 'Not available for Database' )
-						: ! canAnnotateSurface
-						? __( 'Site annotation is not available in the browser yet' )
-						: undefined,
+				disabledReason: blank
+					? __( 'Open a project page to annotate.' )
+					: activeSurfaceKey === 'database'
+					? __( 'Not available for Database' )
+					: ! canAnnotateSurface
+					? __( 'Site annotation is not available in the browser yet' )
+					: undefined,
 				onClick: () => {
-					if ( ! annotations.active && onStartAnnotating?.() === false ) return;
-					setAnnotating( site.id, ! annotations.active );
-					if ( ! site.running ) {
-						startSite.mutate( site.id, {
-							onError: () => setAnnotating( site.id, false ),
-						} );
-					}
+					if ( annotations.active ) setAnnotating( site.id, false );
+					else beginAnnotating();
 				},
 		  }
 		: undefined;
-	useSiteHeaderNavigation(
-		! collapsed
-			? {
-					canGoBack: browserState.canGoBack,
-					canGoForward: browserState.canGoForward,
-					disabled: ! canPreview || isStopping,
-					back: () => sendBrowserCommand( 'back' ),
-					forward: () => sendBrowserCommand( 'forward' ),
-					reload: () => sendBrowserCommand( 'reload' ),
-					openExternal,
-					responsive,
-					annotate,
-					backShortcut: browserShortcuts.back.displayShortcut,
-					forwardShortcut: browserShortcuts.forward.displayShortcut,
-			  }
-			: null
-	);
 
 	const header = (
 		<PreviewHeader
+			inactive={ inactive }
 			site={ site }
 			siteUrl={ siteUrl }
 			path={ safePath }
@@ -318,37 +373,32 @@ export function SitePreview( {
 			canPreview={ canPreview }
 			isStarting={ isStarting }
 			isStopping={ isStopping }
-			collapsed={ collapsed }
-			toolbarStart={ toolbarStart }
-			atWindowStart={ atWindowStart }
 			browserState={ browserState }
 			shortcuts={ browserShortcuts }
 			onBrowserCommand={ sendBrowserCommand }
 			onJump={ goToHistoryIndex }
 			onPathChange={ onPathChange }
-			onSwitchRealm={ switchRealm }
-			hasDesignSystem={ !! siteDesign.data }
-			hasDatabase={ connector.capabilities.nativeSites }
-			onOpenExternal={ openExternal }
+			browserActions={ browserActions }
+			onOpenExternal={ blank ? undefined : openExternal }
+			onExternalNavigate={ ( url ) => void connector.openExternalUrl( url ) }
 			responsive={ responsive }
-			annotate={ annotate }
-			progress={ showLoadingProgress ? progress : undefined }
 		/>
 	);
 
 	return (
-		<aside className={ styles.root } aria-label={ __( 'Site preview' ) }>
-			{ headerContainer
-				? collapsed
-					? null
-					: createPortal(
-							<WindowControlsCornerContext.Provider value={ true }>
-								{ header }
-							</WindowControlsCornerContext.Provider>,
-							headerContainer
-					  )
-				: header }
-			{ responsiveEnabled ? (
+		<aside
+			className={ styles.root }
+			data-browser-bar={ showBrowserBar || undefined }
+			aria-label={ __( 'Panel' ) }
+		>
+			{ ! inactive && annotate && annotationSpace
+				? createPortal(
+						<AnnotateButton { ...annotate } annotationCount={ batchNotes.length } />,
+						annotationSpace
+				  )
+				: null }
+			{ showBrowserBar ? header : null }
+			{ showBrowserBar && responsiveEnabled ? (
 				<ResponsiveToolbar
 					siteId={ site.id }
 					settings={ responsiveSettings }
@@ -361,7 +411,8 @@ export function SitePreview( {
 					className={ styles.previewViewport }
 					onScrollCapture={ () => setAnnotationAnchor( null ) }
 				>
-					{ canPreview &&
+					{ ! blank &&
+						canPreview &&
 						( Object.keys( surfaces ) as PreviewSurfaceKey[] ).map( ( key ) => {
 							const surface = surfaces[ key ];
 							if ( ! surface ) {
@@ -380,18 +431,32 @@ export function SitePreview( {
 													siteId={ site.id }
 													siteDesign={ siteDesign.data ?? null }
 													onAnnotationPick={ handleAnnotationPick }
-													onAnnotationAnchor={ ( anchor: AnnotationAnchor ) =>
-														setAnnotationAnchor( toViewportAnchor( anchor ) )
-													}
+													onAnnotationAnchor={ handleDesignAnchor }
 												/>
 											) }
 										</Suspense>
 									</SurfaceLayer>
 								);
 							}
+							if ( key === 'email' ) {
+								return (
+									<SurfaceLayer key={ key } active={ active }>
+										<EmailView
+											key={ site.id }
+											siteId={ site.id }
+											active={ active && ! collapsed }
+											onOpenLink={ openEmailLink }
+											onAnnotationPick={ handleAnnotationPick }
+											onAnnotationAnchor={ ( anchor: AnnotationAnchor | null ) =>
+												setAnnotationAnchor( toViewportAnchor( anchor ) )
+											}
+										/>
+									</SurfaceLayer>
+								);
+							}
 							const frameKey = getFrameKey( siteUrl, surface );
 							const inspectorProps = {
-								annotations: key === 'site' ? annotations : undefined,
+								annotations: key === 'site' && ! inactive ? annotations : undefined,
 								onInspectorReady: ( inspectorReady: boolean ) => {
 									patchSurface( key, { inspectorReady } );
 									if ( ! inspectorReady ) setAnnotationAnchor( null );
@@ -413,10 +478,11 @@ export function SitePreview( {
 										<WebviewSurface
 											key={ `${ site.id }-${ key }` }
 											url={ surfaceUrl }
+											colorScheme={ previewBrowser.colorScheme }
 											reloadNonce={ surface.reloadNonce }
 											// phpMyAdmin isn't an annotation target, so the
 											// inspector never goes near it.
-											inspector={ key === 'site' }
+											inspector={ key === 'site' && ! inactive }
 											{ ...inspectorProps }
 											browserCommand={ surface.browserCommand }
 											onBrowserStateChange={ ( state ) => handleSurfaceBrowserState( key, state ) }
@@ -453,18 +519,29 @@ export function SitePreview( {
 						} ) }
 					<SiteContextMenu site={ site } disabled={ canPreview }>
 						<div className={ styles.empty }>
-							<PreviewParticles active={ loadingStage } showLogo={ loadingStage } />
-							{ loadingStage || navigating ? (
+							<PreviewParticles
+								showDots={
+									blank || showStoppedPreview || ( ! blank && loadingStage && ! collapsed )
+								}
+								active={ ! blank && loadingStage && ! collapsed }
+								showLogo={ ! blank && loadingStage && ! collapsed }
+							/>
+							{ ! blank && ( loadingStage || navigating ) ? (
 								<VisuallyHidden role="status">{ __( 'Loading site preview' ) }</VisuallyHidden>
 							) : null }
-							{ canPreview ? null : (
+							{ ( blank || ! canPreview ) && ! isStarting && ! loadingStage ? (
 								<div className={ styles.emptyContent }>
-									{ isStarting ? null : <StoppedSitePreview site={ site } /> }
+									<SiteToolLauncher
+										site={ site }
+										actions={ tools }
+										live={ live }
+										active={ ! collapsed && ! inactive }
+									/>
 								</div>
-							) }
+							) : null }
 						</div>
 					</SiteContextMenu>
-					{ canAnnotateSurface ? (
+					{ ! inactive && ! blank && canAnnotateSurface ? (
 						<AnnotationOverlay
 							siteId={ site.id }
 							anchor={ annotationAnchor }
@@ -474,5 +551,155 @@ export function SitePreview( {
 				</div>
 			</div>
 		</aside>
+	);
+}
+
+export function SitePreview( props: SitePreviewProps ) {
+	const { mutate: startReviewSite } = useStartSite();
+	const reviewStarting = useIsSiteStarting( props.site.id );
+	const {
+		path: hostPath,
+		onPathChange: onHostPathChange,
+		site: reviewSite,
+		liveUrl: reviewLiveUrl,
+		onStartAnnotating: onReviewStart,
+	} = props;
+	const { workspace, selected, patch, select, update, setChatSelected } = usePreviewTabs(
+		previewTabsKey( props.site.id, props.liveUrl ),
+		hostPath
+	);
+
+	const stopping = useIsSiteStopping( props.site.id );
+	const operation = useSiteOperation( props.site );
+	useLayoutEffect( () => {
+		if ( ! props.liveUrl && ! stopping && operation !== 'stop' && selected.path === null ) {
+			patch( selected.id, { path: '/', title: null } );
+		}
+	}, [ props.liveUrl, stopping, operation, selected.id, selected.path, patch ] );
+
+	const [ observed, setObserved ] = useState< {
+		host: string;
+		selectedId: string;
+		forwarded: string | null;
+	} >( { host: hostPath, selectedId: workspace.selectedId, forwarded: null } );
+	const root = useRef< HTMLDivElement >( null );
+	const lastFocusRequest = useRef( workspace.focusRequest );
+	const externalNavigation =
+		observed.host !== hostPath &&
+		observed.forwarded !== hostPath &&
+		observed.selectedId === workspace.selectedId;
+	useEffect( () => {
+		update( ( current ) => current );
+	}, [ update ] );
+	useLayoutEffect( () => {
+		if ( observed.selectedId !== workspace.selectedId ) {
+			const path = selected.path ?? '/';
+			setObserved( { host: hostPath, selectedId: workspace.selectedId, forwarded: path } );
+			onHostPathChange?.( path );
+		} else if ( observed.host !== hostPath ) {
+			setObserved( { host: hostPath, selectedId: workspace.selectedId, forwarded: null } );
+			if ( observed.forwarded !== hostPath ) {
+				setChatSelected( false );
+				patch( workspace.selectedId, { path: hostPath, title: null } );
+			}
+		}
+	}, [
+		hostPath,
+		onHostPathChange,
+		workspace.selectedId,
+		selected.path,
+		patch,
+		observed,
+		setChatSelected,
+	] );
+
+	useEffect( () => {
+		if ( lastFocusRequest.current === workspace.focusRequest ) return;
+		lastFocusRequest.current = workspace.focusRequest;
+		if ( props.collapsed ) return;
+		const frame = requestAnimationFrame( () => {
+			root.current
+				?.closest( 'main' )
+				?.querySelector< HTMLElement >( '[data-preview-tabs] [role="tab"][aria-selected="true"]' )
+				?.focus();
+		} );
+		return () => cancelAnimationFrame( frame );
+	}, [ workspace.focusRequest, props.collapsed ] );
+
+	const navigate = useCallback(
+		( id: string, path: string ) => {
+			patch( id, { path, title: null } );
+			if ( id === workspace.selectedId ) {
+				setObserved( ( current ) => ( { ...current, forwarded: path } ) );
+				onHostPathChange?.( path );
+			}
+		},
+		[ patch, workspace.selectedId, onHostPathChange ]
+	);
+	useEffect( () => {
+		if ( reviewLiveUrl ) return;
+		return subscribeAnnotationReview( reviewSite.id, ( id ) => {
+			const requested = getSiteAnnotations( reviewSite.id ).notes.find(
+				( note ) => note.id === id
+			);
+			if ( ! requested || onReviewStart?.() === false ) return;
+			const accepted = editAnnotation( reviewSite.id, id );
+			const current = getSiteAnnotations( reviewSite.id );
+			const note = accepted
+				? requested
+				: current.notes.find( ( note ) => note.id === current.editingId );
+			if ( ! note ) return;
+			const path = note.email
+				? EMAIL_PREVIEW_PATH
+				: note.targetKey && note.path === 'DESIGN.md'
+				? DESIGN_SYSTEM_PREVIEW_PATH
+				: note.path ?? '/';
+			setChatSelected( false );
+			const match = workspace.tabs.find( ( tab ) => tab.path === path );
+			if ( match ) select( match.id );
+			else navigate( workspace.selectedId, path );
+			setAnnotating( reviewSite.id, true );
+			if ( ! reviewSite.running && ! reviewStarting )
+				startReviewSite( reviewSite.id, {
+					onError: () => setAnnotating( reviewSite.id, false ),
+				} );
+		} );
+	}, [
+		reviewSite,
+		reviewLiveUrl,
+		onReviewStart,
+		workspace.tabs,
+		workspace.selectedId,
+		select,
+		navigate,
+		setChatSelected,
+		reviewStarting,
+		startReviewSite,
+	] );
+	return (
+		<div ref={ root } className={ styles.tabWorkspace }>
+			{ workspace.tabs.map( ( tab ) => {
+				const active = tab.id === workspace.selectedId;
+				return (
+					<div
+						key={ tab.id }
+						className={ styles.tabPane }
+						data-active-tab={ active || undefined }
+						aria-hidden={ ! active || undefined }
+						inert={ ! active }
+					>
+						<SitePreviewContent
+							{ ...props }
+							path={ active && externalNavigation ? hostPath : tab.path ?? '/' }
+							inactive={ ! active }
+							blank={ tab.path === null }
+							collapsed={ props.collapsed || ! active }
+							onPathChange={ ( path ) => navigate( tab.id, path ) }
+							onTitleChange={ ( title ) => patch( tab.id, { title } ) }
+						/>
+					</div>
+				);
+			} ) }
+		</div>
 	);
 }

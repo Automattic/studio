@@ -71,6 +71,7 @@ import { confirm, input, password, select } from 'cli/lib/prompts';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
+import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import {
@@ -484,6 +485,7 @@ export async function runCommand(
 				custom_domain: !! options.customDomain,
 				ssl_enabled: !! options.enableHttps,
 				time_ms: Date.now() - createStartedAt,
+				...( await getSiteTracksProps( sitePath ) ),
 				...getTracksOrigin(),
 			} );
 		} catch {
@@ -737,6 +739,7 @@ export async function commandHandler(
 		let preparedImport: PreparedSourceImport | undefined;
 		if ( argv.from ) {
 			preparedImport = await prepareSourceImport( argv.from, sitePath, siteName, defaultLogger, {
+				siteNameIsExplicit: argv.name !== undefined,
 				staticSiteImporter: argv.staticSiteImporterPath
 					? { path: argv.staticSiteImporterPath }
 					: argv.staticSiteImporterUrl,

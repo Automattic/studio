@@ -53,14 +53,16 @@ describe( 'annotationSubmission', () => {
 		] );
 	} );
 
-	it( 'keeps image data out of the prompt for an image-only note', () => {
+	it( 'keeps image data and local batching state out of the prompt', () => {
 		const { prompt } = annotationSubmission(
 			'',
 			[],
-			[ note( { comment: '', images: [ image( 'reference' ) ] } ) ]
+			[ note( { comment: '', images: [ image( 'reference' ) ], staged: true, batched: true } ) ]
 		);
 		expect( prompt ).not.toContain( 'attached images 1' );
 		expect( prompt ).not.toContain( 'eA==' );
+		expect( prompt ).not.toContain( '"staged":' );
+		expect( prompt ).not.toContain( '"batched":' );
 	} );
 
 	it( 'rejects empty or repeated image references', () => {

@@ -1,11 +1,13 @@
 import { once } from 'events';
 import fs from 'fs';
+import * as configFile from '@studio/common/lib/cli-config-file';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { fetchSyncableSites, pollImportStatus } from 'cli/lib/sync-api';
+import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { runCommand } from '../push';
 import type { SyncSite } from '@studio/common/types/sync';
 import type { SiteData } from 'cli/lib/cli-config/core';
@@ -53,6 +55,16 @@ function reported() {
 	return vi.mocked( reportSyncActivity ).mock.calls.map( ( [ , activity ] ) => activity );
 }
 
+const siteTracksId = '6ad36785-267a-4e6d-b036-0a7460c76497';
+beforeEach( () => {
+	vi.spyOn( configFile, 'readCliConfigFileRaw' ).mockResolvedValue( {
+		version: 1,
+		sites: [ { id: 'site-1', name: 'Private title', path: '/test/site', tracksId: siteTracksId } ],
+		snapshots: [],
+	} );
+} );
+afterEach( () => vi.restoreAllMocks() );
+
 describe( 'CLI: studio push', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
@@ -87,8 +99,45 @@ describe( 'CLI: studio push', () => {
 			'success',
 		] );
 		expect( reported()[ 1 ] ).toMatchObject( { remoteSiteId: remoteSite.id } );
+		expect( recordTracksEvent ).toHaveBeenCalledExactlyOnceWith(
+			TRACKS_EVENTS.SYNC_PUSH,
+			expect.objectContaining( { success: true, site_id: siteTracksId } )
+		);
+		expect( vi.mocked( recordTracksEvent ).mock.calls[ 0 ][ 1 ] ).not.toHaveProperty(
+			'preview_id'
+		);
 	} );
 
+	it( 'does not resolve or record telemetry when the push event is suppressed', async () => {
+		vi.mocked( pollImportStatus ).mockResolvedValue( {
+			success: true,
+			status: 'finished',
+		} as never );
+		const read = vi.spyOn( configFile, 'readCliConfigFileRaw' );
+		await runCommand( site.path, [ 'all' ], String( remoteSite.id ), undefined, {
+			suppressTracksEvent: true,
+		} );
+		expect( recordTracksEvent ).not.toHaveBeenCalled();
+		expect( read ).not.toHaveBeenCalled();
+	} );
+
+	it( 'keeps a successful push and its event when the site ID cannot be read', async () => {
+		vi.mocked( pollImportStatus ).mockResolvedValue( {
+			success: true,
+			status: 'finished',
+		} as never );
+		vi.spyOn( configFile, 'readCliConfigFileRaw' ).mockRejectedValueOnce(
+			new Error( 'Storage unavailable' )
+		);
+		await expect( runCommand( site.path, [ 'all' ], String( remoteSite.id ) ) ).resolves.toBe(
+			remoteSite
+		);
+		expect( recordTracksEvent ).toHaveBeenCalledExactlyOnceWith(
+			TRACKS_EVENTS.SYNC_PUSH,
+			expect.objectContaining( { success: true } )
+		);
+		expect( vi.mocked( recordTracksEvent ).mock.calls[ 0 ][ 1 ] ).not.toHaveProperty( 'site_id' );
+	} );
 	it( "keeps Studio's local wp-config.php constants out of the pushed archive", async () => {
 		vi.mocked( pollImportStatus ).mockResolvedValue( {
 			success: true,

@@ -34,6 +34,71 @@ describe( 'app-messages', () => {
 		vi.useRealTimers();
 	} );
 
+	it.each( [ 'toast', 'history', 'clear all' ] )(
+		'keeps dismissed processing hidden after %s dismissal until its result',
+		( source ) => {
+			toast.processing( 'Downloading', { id: 'update', dismissible: true, durationMs: 1 } );
+			vi.advanceTimersByTime( 10_000 );
+			expect( titles() ).toEqual( [ 'Downloading' ] );
+			if ( source === 'toast' ) dismissToast( 'update' );
+			else if ( source === 'history' ) dismissNotice( getNoticeHistory()[ 0 ] );
+			else clearNoticeHistory();
+			settleExit();
+			toast.processing( 'Downloading', {
+				id: 'update',
+				dismissible: true,
+				description: 'Version 2.1',
+			} );
+			expect( titles() ).toEqual( [] );
+			if ( source === 'toast' ) expect( getNoticeHistory()[ 0 ].description ).toBe( 'Version 2.1' );
+			else expect( getNoticeHistory() ).toHaveLength( 0 );
+			toast.success( 'Update ready', { id: 'update' } );
+			expect( titles() ).toEqual( [ 'Update ready' ] );
+			expect( getNoticeHistory() ).toHaveLength( 1 );
+		}
+	);
+
+	it( 'keeps cleared queued processing hidden when it receives another progress update', () => {
+		for ( let index = 0; index < 3; index++ ) toast.info( `Notice ${ index }` );
+		toast.processing( 'Downloading', { id: 'update', dismissible: true } );
+		expect( getQueuedToastCount() ).toBe( 1 );
+		clearNoticeHistory();
+		settleExit();
+		toast.processing( 'Downloading', {
+			id: 'update',
+			dismissible: true,
+			description: 'Version 2.1',
+		} );
+		expect( titles() ).toEqual( [] );
+		expect( getQueuedToastCount() ).toBe( 0 );
+	} );
+
+	it( 'makes room for failures when persistent operations fill the deck', () => {
+		for ( let index = 0; index < 3; index++ )
+			toast.processing( `Export ${ index }`, { id: `export-${ index }` } );
+		toast.error( 'Disk full' );
+		settleExit();
+		expect( titles() ).toContain( 'Disk full' );
+		expect( getNoticeHistory().find( ( item ) => item.id === 'export-0' )?.processing ).toBe(
+			true
+		);
+		toast.processing( 'Export 0', { id: 'export-0', description: 'Still working' } );
+		expect( titles() ).not.toContain( 'Export 0' );
+		toast.success( 'Export finished', { id: 'export-0' } );
+		settleExit();
+		expect( titles() ).toContain( 'Export finished' );
+		expect( getNoticeHistory().filter( ( item ) => item.id === 'export-0' ) ).toHaveLength( 1 );
+	} );
+
+	it( 'does not strand errors behind queued progress during simultaneous exits', () => {
+		for ( let index = 0; index < 6; index++ ) toast.processing( `Export ${ index }` );
+		toast.error( 'Disk full' );
+		settleExit();
+		expect( titles() ).toContain( 'Disk full' );
+		vi.advanceTimersByTime( 1000 );
+		expect( getQueuedToastCount() ).toBe( 0 );
+	} );
+
 	it( 'shows a toast and expires it after the default duration', () => {
 		toast.success( 'Saved' );
 		expect( titles() ).toEqual( [ 'Saved' ] );

@@ -19,6 +19,7 @@ import {
 	type ToolDefinition,
 } from '@earendil-works/pi-coding-agent';
 import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
+import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { type TSchema } from 'typebox';
 import { readGlobalInstructions } from '@studio/agent/node/global-instructions';
 import {
@@ -317,6 +318,9 @@ async function createStudioAgentSession(
 		tools: tools.map( toolPromptContribution ),
 		activeSite: config.activeSite,
 		activeSiteDesignPath: designPath,
+		activeSiteEmailPath: config.activeSite?.id
+			? getSiteEmailDirectory( config.activeSite.id )
+			: undefined,
 	} );
 
 	const pendingWork = getPendingWork( config.session );

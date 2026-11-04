@@ -1,7 +1,7 @@
+import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { vi } from 'vitest';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { connectToDaemon, disconnectFromDaemon, listProcesses } from 'cli/lib/daemon-client';
-import { getSiteEmailDirectory } from 'cli/lib/site-email';
 import { SITE_LIST_PUBLIC_FIELDS } from 'cli/lib/site-public-fields';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { mockReportResult } from 'cli/tests/test-utils';

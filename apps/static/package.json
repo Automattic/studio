@@ -25,7 +25,7 @@
 		"pathe": "^2.0.3"
 	},
 	"devDependencies": {
-		"@earendil-works/pi-coding-agent": "0.84.2",
+		"@earendil-works/pi-coding-agent": "1.5.0",
 		"@wp-playground/blueprints": "3.1.53",
 		"@wp-playground/client": "3.1.53"
 	}

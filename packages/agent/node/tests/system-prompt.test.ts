@@ -167,6 +167,17 @@ describe( 'buildSystemPrompt', () => {
 		);
 	} );
 
+	it( "names the folder where Studio saves the active site's email", () => {
+		const prompt = buildSystemPrompt( {
+			activeSite: { id: 'site-1', name: 'Mailer', path: '/sites/mailer', running: true },
+			activeSiteEmailPath: '/email/site-1',
+		} );
+
+		expect( prompt ).toContain(
+			'"Mailer" at /sites/mailer (running), email it sends: /email/site-1 (one .eml file per message)'
+		);
+	} );
+
 	it( 'appends the user global instructions when set', () => {
 		const prompt = buildSystemPrompt( { userInstructions: 'Always answer in French.' } );
 		expect( prompt ).toContain( "## User's global instructions" );

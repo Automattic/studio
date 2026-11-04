@@ -7,6 +7,7 @@ import {
 } from '@studio/common/lib/connected-sites';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { formatProgressLabel } from '@studio/common/lib/progress-label';
+import { getSiteTracksProps } from '@studio/common/lib/site-tracks';
 import { buildSyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
 import {
 	SYNC_IGNORE_DEFAULTS,
@@ -66,6 +67,7 @@ export async function runCommand(
 		}
 		if ( ! suppressTracksEvent ) {
 			await recordSyncPushEvent(
+				siteFolder,
 				buildSyncEventProps( {
 					startedAt,
 					site: pushed.remoteSite,
@@ -86,7 +88,10 @@ export async function runCommand(
 	// Backing out of the site picker or the item selector returns without
 	// completing — a cancel, which emits nothing.
 	if ( pushed.completed && ! suppressTracksEvent ) {
-		await recordSyncPushEvent( buildSyncEventProps( { startedAt, site: pushed.remoteSite } ) );
+		await recordSyncPushEvent(
+			siteFolder,
+			buildSyncEventProps( { startedAt, site: pushed.remoteSite } )
+		);
 	}
 	return pushed.completed ? pushed.remoteSite : undefined;
 }
@@ -400,9 +405,13 @@ function getImportFailureMessage( response: Extract< ImportResponse, { status: '
 	return __( 'Something went wrong while updating the live site.' );
 }
 
-async function recordSyncPushEvent( props: SyncEventProps ): Promise< void > {
+async function recordSyncPushEvent( siteFolder: string, props: SyncEventProps ): Promise< void > {
 	try {
-		await recordTracksEvent( TRACKS_EVENTS.SYNC_PUSH, { ...props, ...getTracksOrigin() } );
+		await recordTracksEvent( TRACKS_EVENTS.SYNC_PUSH, {
+			...props,
+			...( await getSiteTracksProps( { siteFolder } ) ),
+			...getTracksOrigin(),
+		} );
 	} catch {
 		// Best-effort telemetry — never block or fail the push.
 	}

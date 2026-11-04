@@ -2,6 +2,7 @@ import { MAX_VISUAL_ANNOTATIONS } from '@studio/agent/protocol/visual-annotation
 import { __ } from '@wordpress/i18n';
 import { useSyncExternalStore } from 'react';
 import { toast } from '@/data/app-messages';
+import { createPendingSlot } from '@/lib/pending-slot';
 import type { ComposerImageAttachment } from '@studio/agent/protocol/composer-attachments';
 import type {
 	VisualAnnotation,
@@ -12,12 +13,14 @@ export interface PreviewAnnotation extends VisualAnnotation {
 	images: ComposerImageAttachment[];
 	// Saved to the chat draft, so the composer sends it with the next message.
 	staged?: boolean;
+	batched?: boolean;
 }
 
 export interface SiteAnnotations {
 	active: boolean;
 	notes: PreviewAnnotation[];
 	editingId: string | null;
+	blockedNavigation?: number;
 	// A send is on its way to the chat.
 	sending?: boolean;
 	// Images dropped or pasted into a note are still being read.
@@ -31,6 +34,7 @@ export function isAnnotationsBusy( { sending, preparing }: SiteAnnotations ) {
 }
 const sites = new Map< string, SiteAnnotations >();
 const listeners = new Set< () => void >();
+const pendingReview = createPendingSlot< { siteId: string; noteId: string } >();
 
 export function hasAnnotationContent( note: PreviewAnnotation ) {
 	return Boolean( note.comment.trim() || note.images.length );
@@ -42,6 +46,10 @@ export function getSiteAnnotations( siteId: string | undefined ): SiteAnnotation
 
 export function isStagedAnnotation( note: PreviewAnnotation ) {
 	return Boolean( note.staged ) && hasAnnotationContent( note );
+}
+
+export function isBatchedAnnotation( note: PreviewAnnotation ) {
+	return Boolean( note.batched ) && isStagedAnnotation( note );
 }
 
 export function getStagedAnnotations( siteId: string | undefined ) {
@@ -77,9 +85,14 @@ export function setAnnotating( siteId: string, active: boolean ) {
 		current.active === active
 			? current
 			: {
+					...current,
 					active,
 					notes: active ? current.notes : withoutEmpty( current.notes ),
-					editingId: active ? current.editingId : null,
+					editingId: active
+						? current.editingId ??
+						  current.notes.find( ( note ) => ! note.staged && hasAnnotationContent( note ) )?.id ??
+						  null
+						: null,
 			  }
 	);
 }
@@ -90,18 +103,34 @@ export function setAnnotationsPreparing( siteId: string, preparing: boolean ) {
 	);
 }
 
+function blockDraftNavigation( siteId: string, nextId?: string ) {
+	const current = getSiteAnnotations( siteId );
+	const draft =
+		current.notes.find(
+			( note ) => note.id === current.editingId && ! note.staged && hasAnnotationContent( note )
+		) ?? current.notes.find( ( note ) => ! note.staged && hasAnnotationContent( note ) );
+	if ( ! draft || draft.id === nextId || draft.staged || ! hasAnnotationContent( draft ) )
+		return false;
+	update( siteId, ( current ) => ( {
+		...current,
+		editingId: draft.id,
+		blockedNavigation: ( current.blockedNavigation ?? 0 ) + 1,
+	} ) );
+	return true;
+}
+
 export function pickAnnotation( siteId: string, target: VisualAnnotationTarget ) {
 	const current = getSiteAnnotations( siteId );
 	if ( isAnnotationsBusy( current ) ) {
 		return null;
 	}
-	const existing = target.designKey
-		? current.notes.find( ( note ) => note.designKey === target.designKey )
+	const existing = target.targetKey
+		? current.notes.find( ( note ) => note.targetKey === target.targetKey )
 		: undefined;
 	if ( existing ) {
-		editAnnotation( siteId, existing.id );
-		return existing.id;
+		return editAnnotation( siteId, existing.id ) ? existing.id : null;
 	}
+	if ( blockDraftNavigation( siteId ) ) return null;
 	if ( current.notes.filter( hasAnnotationContent ).length >= MAX_VISUAL_ANNOTATIONS ) {
 		toast.error( __( 'Send or delete some annotations before adding more' ) );
 		return null;
@@ -120,11 +149,13 @@ export function pickAnnotation( siteId: string, target: VisualAnnotationTarget )
 }
 
 export function editAnnotation( siteId: string, id: string ) {
+	if ( blockDraftNavigation( siteId, id ) ) return false;
 	update( siteId, ( current ) => ( {
 		...current,
 		notes: withoutEmpty( current.notes, id ),
 		editingId: id,
 	} ) );
+	return true;
 }
 
 export function changeAnnotation(
@@ -134,7 +165,15 @@ export function changeAnnotation(
 ) {
 	update( siteId, ( current ) => ( {
 		...current,
-		notes: current.notes.map( ( note ) => ( note.id === id ? { ...note, ...patch } : note ) ),
+		notes: current.notes.map( ( note ) => {
+			if ( note.id !== id ) return note;
+			const changed =
+				( patch.comment !== undefined && patch.comment !== note.comment ) ||
+				( patch.images !== undefined &&
+					( patch.images.length !== note.images.length ||
+						patch.images.some( ( image, index ) => image.id !== note.images[ index ]?.id ) ) );
+			return changed ? { ...note, ...patch, ...( note.staged ? { staged: false } : {} ) } : note;
+		} ),
 	} ) );
 }
 
@@ -146,46 +185,34 @@ export function closeAnnotationEditor( siteId: string ) {
 	);
 }
 
-// With a note open, Escape closes it; otherwise it leaves annotation mode and
-// keeps the notes.
+// Empty selections can be dismissed; unfinished notes must be added or deleted.
 export function escapeAnnotations( siteId: string ) {
 	const current = getSiteAnnotations( siteId );
-	if ( isAnnotationsBusy( current ) ) {
+	if ( isAnnotationsBusy( current ) || blockDraftNavigation( siteId ) ) {
 		return;
 	}
-	if ( current.editingId ) {
-		closeAnnotationEditor( siteId );
-	} else {
-		setAnnotating( siteId, false );
-	}
+	setAnnotating( siteId, false );
 }
 
-export function stageAnnotations( siteId: string, ids?: string[] ) {
+export function stageAnnotations( siteId: string, ids?: string[], batch = false ) {
 	update( siteId, ( current ) => ( {
 		...current,
 		notes: current.notes.map( ( note ) =>
 			hasAnnotationContent( note ) && ( ! ids || ids.includes( note.id ) )
-				? { ...note, staged: true }
+				? { ...note, staged: true, ...( batch ? { batched: true } : {} ) }
 				: note
 		),
 	} ) );
 }
 
 export function removeAnnotations( siteId: string, ids: string[] ) {
+	const review = pendingReview.getSnapshot();
+	if ( review?.siteId === siteId && ids.includes( review.noteId ) ) pendingReview.clear( review );
 	update( siteId, ( current ) => ( {
 		...current,
 		notes: current.notes.filter( ( note ) => ! ids.includes( note.id ) ),
 		editingId: current.editingId && ids.includes( current.editingId ) ? null : current.editingId,
 	} ) );
-}
-
-// Cancel: deletes every note and leaves annotation mode.
-export function clearAnnotations( siteId: string ) {
-	update( siteId, ( current ) =>
-		current.active || current.notes.length
-			? { ...current, active: false, notes: [], editingId: null }
-			: current
-	);
 }
 
 type AnnotationSendRequest = { siteId: string; noteIds?: string[] };
@@ -223,5 +250,23 @@ export function subscribeAnnotationSend(
 	listener();
 	return () => {
 		sendListeners.delete( listener );
+	};
+}
+
+export function requestAnnotationReview( siteId: string, noteId: string ) {
+	pendingReview.set( { siteId, noteId } );
+}
+
+export function subscribeAnnotationReview( siteId: string, onReview: ( noteId: string ) => void ) {
+	const listener = () => {
+		const request = pendingReview.getSnapshot();
+		if ( request?.siteId !== siteId ) return;
+		pendingReview.clear( request );
+		onReview( request.noteId );
+	};
+	const unsubscribe = pendingReview.subscribe( listener );
+	listener();
+	return () => {
+		unsubscribe();
 	};
 }

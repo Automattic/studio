@@ -25,7 +25,7 @@
 	}
 
 	.popup {
-		border-radius: calc( var( --radius-md ) + 6px );
+		border-radius: var( --radius-popup );
 	}
 
 	.padded {
@@ -82,8 +82,8 @@
 	}
 
 	.item:is( [data-highlighted], [data-popup-open] ) {
-		background-color: var( --hover );
-		color: var( --foreground );
+		background-color: var( --item-hover-background, var( --hover ) );
+		color: var( --item-hover-foreground, var( --foreground ) );
 	}
 
 	.item[data-disabled] {

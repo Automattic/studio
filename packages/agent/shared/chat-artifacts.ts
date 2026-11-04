@@ -39,6 +39,7 @@ function cloneChatArtifactWidgets(
 }
 
 interface FileWritingTool {
+	description?: string;
 	execute( toolCallId: string, params: { path?: unknown }, ...rest: unknown[] ): Promise< unknown >;
 }
 
@@ -56,6 +57,9 @@ export function withDesignSystemPreview< TTool extends FileWritingTool >(
 	}
 	return {
 		...tool,
+		description: `${
+			tool.description ?? ''
+		} After successfully updating a site's DESIGN.md, include [Design System](${ DESIGN_SYSTEM_PREVIEW_PATH }) in your final reply so the user can open it in Studio.`,
 		async execute( toolCallId: string, params: { path?: unknown }, ...rest: unknown[] ) {
 			const result = await tool.execute( toolCallId, params, ...rest );
 			const filePath = path.resolve( host.sitesRoot, String( params.path ) );

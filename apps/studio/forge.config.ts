@@ -10,6 +10,7 @@ import { exec as pkgExec } from '@yao-pkg/pkg';
 import { globSync } from 'glob';
 import { PROTOCOL_PREFIX } from '../../packages/common/constants';
 import { RecommendedPHPVersion } from '../../packages/common/types/php-versions';
+import { buildSpotlightNative } from './native/build';
 import { squirrelWindowsSign, windowsSign } from './windowsSign';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 
@@ -21,15 +22,23 @@ const displayName = 'WordPress Studio';
 
 const config: ForgeConfig = {
 	packagerConfig: {
-		asar: true,
+		asar: { unpack: 'native/*.node' },
 		// macOS only lets an app handle URL schemes its Info.plist declares.
 		protocols: [ { name: 'Studio', schemes: [ PROTOCOL_PREFIX ] } ],
 		extendInfo: {
+			NSUserActivityTypes: [ 'com.apple.corespotlightitem' ],
 			MDItemKeywords: 'WordPress, WordPress Studio, WP, local WordPress development',
 			// Finder, the Dock and the menu bar then take the name from the
 			// InfoPlist.strings written below.
 			LSHasLocalizedDisplayName: true,
 		},
+		afterCopy: [
+			async ( { buildPath, platform, arch } ) => {
+				if ( platform === 'darwin' ) {
+					buildSpotlightNative( arch, path.join( buildPath, 'native', 'spotlight.node' ) );
+				}
+			},
+		],
 		afterCopyExtraResources: [
 			async ( { buildPath, platform } ) => {
 				if ( platform !== 'darwin' ) {
@@ -80,6 +89,7 @@ const config: ForgeConfig = {
 			/^\/__mocks__/,
 			/^\/patches/,
 			/^\/entitlements/,
+			/^\/native/,
 			/^\/installers/,
 			// Build-time helpers
 			/^\/windowsSign\.ts$/,

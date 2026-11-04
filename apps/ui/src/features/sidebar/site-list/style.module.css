@@ -109,20 +109,13 @@
 	display: contents;
 }
 
-.groupPanel {
-	margin-block-end: var( --space-2 );
-}
-
 .groupHeader {
 	flex-shrink: 0;
+	margin-block-start: var( --space-3 );
 	position: sticky;
 	top: 0;
 	z-index: 1;
-	background: linear-gradient(
-		to bottom,
-		var( --studio-sidebar-bg ) calc( 100% - var( --space-2 ) ),
-		transparent
-	);
+	background: var( --studio-sidebar-bg );
 }
 
 .groupHeader:hover .groupHoverAction,

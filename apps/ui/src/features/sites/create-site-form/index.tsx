@@ -47,6 +47,7 @@ import {
 import { PathField } from './path-field';
 import styles from './style.module.css';
 import { usePathAutoGenerate } from './use-path-auto-generate';
+import type { SelectedSiteFolder } from '@/data/core';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { FormEvent, ReactElement, ReactNode } from 'react';
@@ -60,6 +61,7 @@ export interface CreateSiteFormError {
 }
 
 interface CreateSiteFormProps {
+	selectedFolder?: SelectedSiteFolder;
 	initialValues?: Partial< CreateSiteFormValues >;
 	existingDomainNames: string[];
 	onSubmit: ( values: CreateSiteFormValues ) => void;
@@ -68,11 +70,10 @@ interface CreateSiteFormProps {
 	isSubmitDisabled?: boolean;
 	requiresCustomDomain?: boolean;
 	submitError?: string | CreateSiteFormError;
-	submitLabel?: string;
-	cancelLabel?: string;
-	loadingAnnouncement?: string;
 	children?: ReactNode;
-	panelFooter?: ReactNode;
+	sourceDetails?: ReactNode;
+	onChangeSource?: () => void;
+	sourceActionLabel?: string;
 	actionsContainer?: HTMLElement | null;
 	// What the site starts from, shown under its name.
 	source?: string;
@@ -87,6 +88,7 @@ interface CreateSiteFormProps {
 }
 
 export function CreateSiteForm( {
+	selectedFolder,
 	initialValues,
 	existingDomainNames,
 	onSubmit,
@@ -95,11 +97,10 @@ export function CreateSiteForm( {
 	isSubmitDisabled,
 	requiresCustomDomain,
 	submitError,
-	submitLabel,
-	cancelLabel,
-	loadingAnnouncement,
 	children,
-	panelFooter,
+	sourceDetails,
+	onChangeSource,
+	sourceActionLabel,
 	actionsContainer,
 	source,
 	sourceIcon,
@@ -188,6 +189,18 @@ export function CreateSiteForm( {
 		setData( ( prev ) => applyFormChange( prev, update ) );
 	}, [] );
 
+	useEffect( () => {
+		if ( ! selectedFolder ) return;
+		handleChange( {
+			path: selectedFolder.path,
+			hasCustomPath: true,
+			pathError: '',
+			isWordPress: selectedFolder.isWordPress,
+			isPathPending: false,
+			...( selectedFolder.name ? { name: selectedFolder.name } : {} ),
+		} );
+	}, [ selectedFolder, handleChange ] );
+
 	const existing = ! requiresEmptyPath && data.isWordPress && !! data.path && ! data.isPathPending;
 	// The path's required check opts out while `FormData.isPathPending`.
 	const advancedErrors = {
@@ -258,17 +271,17 @@ export function CreateSiteForm( {
 	const actions = (
 		<>
 			<Button variant="outline" onClick={ onCancel } disabled={ isSubmitting }>
-				{ cancelLabel ?? __( 'Cancel' ) }
+				{ __( 'Cancel' ) }
 			</Button>
 			<Button
 				type="submit"
 				form={ formId }
 				disabled={ ! canSubmit }
 				loading={ isSubmitting }
-				loadingAnnouncement={ loadingAnnouncement ?? __( 'Creating site' ) }
+				loadingAnnouncement={ __( 'Creating site' ) }
 				data-testid="create-site-submit"
 			>
-				{ submitLabel ?? __( 'Create site' ) }
+				{ __( 'Create site' ) }
 			</Button>
 		</>
 	);
@@ -288,10 +301,21 @@ export function CreateSiteForm( {
 				{ existing || source ? (
 					<Field>
 						<FieldTitle>{ __( 'Start with' ) }</FieldTitle>
-						<p className={ styles.source }>
+						<div className={ styles.source }>
 							{ existing ? <FileIcon /> : sourceIcon }
 							<span>{ existing ? __( 'Existing local WordPress site' ) : source }</span>
-						</p>
+							{ ! existing && onChangeSource ? (
+								<Button
+									variant="inline-text"
+									size="inline"
+									onClick={ onChangeSource }
+									disabled={ isSubmitting || isSubmitDisabled }
+								>
+									{ sourceActionLabel ?? __( 'Change' ) }
+								</Button>
+							) : null }
+						</div>
+						{ ! existing ? sourceDetails : null }
 					</Field>
 				) : null }
 
@@ -461,10 +485,6 @@ export function CreateSiteForm( {
 							</>
 						) }
 					</Alert>
-				) }
-
-				{ existing || source || ! panelFooter ? null : (
-					<div className={ styles.panelFooter }>{ panelFooter }</div>
 				) }
 			</div>
 

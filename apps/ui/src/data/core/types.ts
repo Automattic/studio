@@ -10,6 +10,7 @@ import type {
 } from '@studio/agent/protocol/sessions/types';
 import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 import type { SiteAgentFile, SiteAgentFileKind } from '@studio/common/lib/agent-skills';
+import type { AuthAnalytics, OnboardingAnalytics } from '@studio/common/lib/auth-tracks';
 import type { SiteEvent, SiteListItem, SnapshotEvent } from '@studio/common/lib/cli-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type {
@@ -25,7 +26,7 @@ import type { SnapshotUsage } from '@studio/common/lib/snapshots';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
-import type { SupportedBrowser } from '@studio/common/lib/user-settings/browser';
+import type { SupportedBrowser, SystemBrowser } from '@studio/common/lib/user-settings/browser';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type {
 	SidebarPinnedSort,
@@ -38,11 +39,14 @@ import type {
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
+import type { BlueprintSource } from '@studio/common/sites/blueprint-source';
 import type { SiteDesign } from '@studio/common/sites/site-design';
+import type { SiteEmail, SiteEmailSummary } from '@studio/common/sites/site-email';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
+import type { WorkspaceLayout } from '@studio/common/types/workspace-layout';
 import type { DesignFix } from '@studio/design-md';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
@@ -68,11 +72,16 @@ export type { SupportedLocale } from '@studio/common/lib/locale';
 export type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 export type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 export type { SiteDesign } from '@studio/common/sites/site-design';
+export type {
+	SiteEmail,
+	SiteEmailAddress,
+	SiteEmailSummary,
+} from '@studio/common/sites/site-email';
 
 export type InstalledApps = Record<
 	SupportedEditor | SupportedTerminal | SupportedBrowser,
 	boolean
->;
+> & { defaultBrowser?: SystemBrowser | null };
 
 interface AiSessionSitePlacement {
 	kind: 'site';
@@ -170,16 +179,19 @@ export interface Connector {
 	// Auth
 	agenticRequiresAuth: boolean;
 	getAuthUser(): Promise< AuthUser | null >;
-	// `source` records the affordance the login started from, for `studio_wpcom_auth`. Only the IPC
-	// connector can report it — the browser connectors have no Main process to record through.
-	authenticate( signup?: boolean, source?: TracksAuthSource ): Promise< void >;
+	// Authentication context is shared by the Desktop and browser outcome emitters.
+	authenticate(
+		signup?: boolean,
+		source?: TracksAuthSource,
+		analytics?: AuthAnalytics
+	): Promise< void >;
 	logout(): Promise< void >;
 	onAuthStateChanged?( listener: () => void ): () => void;
 
 	// Onboarding — whether the user has been through (or skipped) the
 	// first-run welcome screen.
 	getOnboardingCompleted(): Promise< boolean >;
-	setOnboardingCompleted( completed: boolean ): Promise< void >;
+	setOnboardingCompleted( completed: boolean, analytics?: OnboardingAnalytics ): Promise< void >;
 
 	// Sites
 	getSites(): Promise< SiteDetails[] >;
@@ -220,17 +232,21 @@ export interface Connector {
 
 	// Exports a site as a full backup archive (files + database). Prompts the
 	// user for a destination via a save-as dialog; resolves with the chosen
-	// path on success, or `null` if the user cancelled the dialog.
-	exportFullSite( siteId: string ): Promise< string | null >;
+	// path on success, or `null` if the user cancelled the dialog. `onStarted`
+	// runs after destination selection, before the export begins.
+	exportFullSite( siteId: string, options?: { onStarted?: () => void } ): Promise< string | null >;
 	// Exports only the site database as a .sql dump. Same dialog/cancel
 	// semantics as `exportFullSite`.
-	exportDatabase( siteId: string ): Promise< string | null >;
+	exportDatabase( siteId: string, options?: { onStarted?: () => void } ): Promise< string | null >;
 
 	// Site-creation helpers: folder pickers and path validation.
 	generateProposedSitePath( siteName: string ): Promise< ProposedSitePath >;
 	generateProposedSiteName( usedSites: SiteDetails[] ): Promise< string >;
 	generateNumberedSiteName( baseName: string, usedSites: SiteDetails[] ): Promise< string >;
-	selectSiteFolder( defaultPath: string ): Promise< SelectedSiteFolder | null >;
+	selectSiteFolder(
+		defaultPath: string,
+		options?: { allowBlueprints?: boolean }
+	): Promise< SelectedSiteFolder | null >;
 	comparePaths( path1: string, path2: string ): Promise< boolean >;
 
 	getWordPressVersions(): Promise< WordPressVersion[] >;
@@ -389,6 +405,7 @@ export interface Connector {
 		sessionId: string,
 		prompt: string,
 		options?: {
+			turnId?: string;
 			displayMessage?: string;
 			images?: StudioChatImage[];
 			files?: StudioChatFileAttachment[];
@@ -483,6 +500,10 @@ export interface Connector {
 	openSiteInTerminal( siteId: string ): Promise< void >;
 	// Open the folder the site's email is saved in, in the system file manager.
 	openSiteEmailFolder( siteId: string ): Promise< void >;
+	// The email the site sent, newest first, and one of them in full, or null
+	// when it's gone.
+	getSiteEmails( siteId: string ): Promise< SiteEmailSummary[] >;
+	getSiteEmail( siteId: string, emailId: string ): Promise< SiteEmail | null >;
 
 	// Connects a preview <iframe> whose pages can run Studio's scripts (Studio
 	// on the web, through each site's bridge), for the annotation inspector:
@@ -504,7 +525,7 @@ export interface Connector {
 
 	// Analytics — record a Tracks event. The desktop wrapper attaches the surface
 	// params (channel/ui_version); see `docs/design-docs/analytics-tracks.md`.
-	trackEvent( eventName: TracksEventName, props?: TracksProps ): Promise< void >;
+	trackEvent( eventName: TracksEventName, props?: TracksProps, siteId?: string ): Promise< void >;
 
 	// External links
 	openExternalUrl( url: string ): Promise< void >;
@@ -588,9 +609,12 @@ export interface Connector {
 	// Fires whenever a preview site is created, updated or deleted, by anyone.
 	onSnapshotEvent( listener: ( event: SnapshotEvent ) => void ): () => void;
 
-	// Fires when the user activates "View > Toggle Site Preview" (⌘⇧B) in the
+	// Fires when the user activates "View > Toggle Panel" (⌘⇧B) in the
 	// application menu.
-	onToggleSitePreview( listener: () => void ): () => void;
+	onTogglePanel( listener: () => void ): () => void;
+
+	// Desktop-only layout accelerators; browser hosts reserve these keys for tabs.
+	onSetWorkspaceLayout?( listener: ( layout: WorkspaceLayout ) => void ): () => void;
 
 	// Fires when the user activates the sidebar toggle shortcut or menu command.
 	onToggleSidebar( listener: () => void ): () => void;
@@ -598,6 +622,10 @@ export interface Connector {
 	// Fires when the user activates "File > Add Site…" (or its keyboard
 	// shortcut) in the application menu.
 	onAddSite( listener: () => void ): () => void;
+	onNewChat( listener: () => void ): () => void;
+	onOpenFolder( listener: () => void ): () => void;
+	// Desktop links and Spotlight select a site in the Studio workspace.
+	onOpenSite( listener: ( payload: { siteId: string } ) => void ): () => void;
 	onAddSiteWithBlueprint( listener: ( payload: { blueprintPath: string } ) => void ): () => void;
 	// Tells the host the app now listens for the events links send (Settings, Add
 	// site, sync and checkout returns), so a link that arrived earlier opens.
@@ -628,6 +656,7 @@ export interface Connector {
 
 	// Auto-updater status.
 	getAppUpdateStatus(): Promise< AppUpdateStatus >;
+	checkForAppUpdates(): Promise< void >;
 	installAppUpdate(): Promise< void >;
 	onAppUpdateStatusChanged( listener: ( status: AppUpdateStatus ) => void ): () => void;
 
@@ -707,8 +736,8 @@ export interface UserPreferences {
 	// Start a stopped local site when a chat message is sent to it.
 	autoStartSiteOnChat?: boolean;
 	openChatOnSiteStart?: boolean;
-	// Ask before discarding preview annotations.
-	confirmDeleteAnnotations?: boolean;
+	// Save annotation notes for a combined send.
+	batchAnnotations?: boolean;
 	newSiteBehavior?: NewSiteBehavior;
 	// The appearance tint: a `#rrggbb` accent color, and percentages.
 	accentColor?: string;
@@ -782,6 +811,7 @@ export interface ProposedSitePath {
 }
 
 export interface SelectedSiteFolder {
+	blueprint?: BlueprintSource;
 	path: string;
 	name: string;
 	isEmpty: boolean;

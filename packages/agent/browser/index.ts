@@ -95,7 +95,7 @@ async function runTurn(
 			onAskUser: config.onAskUser,
 			tracks: getAiTracksIdentity( config.sessionId ),
 		} ),
-		...createFileTools( host ),
+		...createFileTools( host, { visionEnabled } ),
 	];
 
 	const site = config.activeSite;

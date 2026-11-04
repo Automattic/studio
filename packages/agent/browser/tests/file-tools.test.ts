@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'fs/promises';
+import { mkdtemp, rm } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -24,13 +24,16 @@ describe( 'browser file tools', () => {
 		await rm( sitesRoot, { recursive: true, force: true } );
 	} );
 
-	it( 'finds files under the sites root', async () => {
-		await mkdir( path.join( sitesRoot, 'bakery', 'theme' ), { recursive: true } );
-		await writeFile(
-			path.join( sitesRoot, 'bakery', 'theme', 'style.css' ),
-			'a { color: blue; }\nb {}\n'
-		);
+	it( 'writes, edits, reads and finds files under the sites root', async () => {
+		await call( 'Write', { path: 'bakery/theme/style.css', content: 'a { color: red; }\nb {}\n' } );
+		await call( 'Edit', {
+			path: 'bakery/theme/style.css',
+			edits: [ { oldText: 'red', newText: 'blue' } ],
+		} );
 
+		expect( await call( 'Read', { path: 'bakery/theme/style.css', offset: 1, limit: 1 } ) ).toBe(
+			'a { color: blue; }\n\n[Showing lines 1-1 of 3. Use offset=2 to continue.]'
+		);
 		expect( await call( 'Glob', { pattern: '*.css', path: 'bakery' } ) ).toBe( 'theme/style.css' );
 		expect( await call( 'Grep', { pattern: 'BLUE', path: 'bakery', ignoreCase: true } ) ).toBe(
 			'theme/style.css:1: a { color: blue; }'

@@ -22,16 +22,19 @@
 		display: inline-flex;
 		flex: 1;
 		align-items: center;
-		gap: var( --space-1 );
+		gap: var( --space-1_5 );
 		height: 100%;
 		padding: 0 var( --space-2 );
 		border-radius: var( --radius-md );
 		color: var( --muted-foreground );
 		font-weight: var( --font-weight-medium );
+	}
+
+	.groupLabel[aria-expanded] {
 		cursor: pointer;
 	}
 
-	.groupLabel:hover {
+	.groupLabel[aria-expanded]:hover {
 		color: var( --foreground );
 	}
 

@@ -68,8 +68,6 @@
 	border-radius: 0;
 	background-color: var( --background );
 	box-shadow: none;
-	scale: 1;
-	transform: none;
 	translate: none;
 	transition-property: opacity;
 	-webkit-app-region: no-drag;

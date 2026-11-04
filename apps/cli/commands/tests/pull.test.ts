@@ -385,11 +385,17 @@ describe( 'CLI: studio pull single pull phase', () => {
 		fs.writeFileSync( path.join( stateDirectory, '.import-index.jsonl' ), '{"path":"a"}\n' );
 		const legacySqlitePath = path.join( rawDirectory, 'wp-content', 'database', '.ht.sqlite' );
 		fs.mkdirSync( path.dirname( legacySqlitePath ), { recursive: true } );
-		fs.writeFileSync( legacySqlitePath, '' );
+		fs.writeFileSync( legacySqlitePath, 'local database' );
 
+		// A mirror deletes the local files the remote doesn't have, the local database among them.
 		const reprint = vi
 			.spyOn( reprintClient, 'runReprintCommandUntilComplete' )
-			.mockResolvedValue( { stdout: '{"ok":true}', stderr: '', exitCode: 0 } );
+			.mockImplementation( async ( args ) => {
+				if ( args[ 0 ] === 'pull-files' ) {
+					fs.rmSync( path.dirname( legacySqlitePath ), { recursive: true, force: true } );
+				}
+				return { stdout: '{"ok":true}', stderr: '', exitCode: 0 };
+			} );
 
 		await runFullPull(
 			{
@@ -417,6 +423,7 @@ describe( 'CLI: studio pull single pull phase', () => {
 		const runtimeArgs = reprint.mock.calls[ 2 ][ 0 ] as string[];
 		expect( runtimeArgs ).toContain( '--target-engine=sqlite' );
 		expect( runtimeArgs ).toContain( `--target-sqlite-path=${ legacySqlitePath }` );
+		expect( fs.readFileSync( legacySqlitePath, 'utf8' ) ).toBe( 'local database' );
 
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
 	} );

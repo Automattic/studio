@@ -636,15 +636,20 @@ export async function runFullPull(
 	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Pulling site…' ) );
 
 	if ( ! selection.skipFiles ) {
-		await runStep( __( 'Pulling files' ), [
-			'pull-files',
-			apiUrl,
-			...onlyArgs,
-			'--mode=mirror',
-			'--no-adaptive',
-			`--state-dir=${ metadata.stateDirectory }`,
-			`--fs-root=${ metadata.rawDirectory }`,
-		] );
+		const pullFiles = () =>
+			runStep( __( 'Pulling files' ), [
+				'pull-files',
+				apiUrl,
+				...onlyArgs,
+				'--mode=mirror',
+				'--no-adaptive',
+				`--state-dir=${ metadata.stateDirectory }`,
+				`--fs-root=${ metadata.rawDirectory }`,
+			] );
+		// A mirror deletes the local files the remote doesn't have, the local database among them.
+		await ( selection.skipDatabase && sqlitePath.startsWith( metadata.rawDirectory + path.sep )
+			? keepingDatabase( path.dirname( sqlitePath ), metadata.stateDirectory, pullFiles )
+			: pullFiles() );
 	}
 
 	if ( ! selection.skipDatabase ) {
@@ -701,6 +706,34 @@ export async function runFullPull(
 	] );
 
 	logger.reportSuccess( __( 'Site pulled' ) );
+}
+
+/**
+ * Sets the local database directory aside while `run` runs and puts it back after, also when an
+ * interrupted pull left it set aside.
+ */
+async function keepingDatabase(
+	databaseDirectory: string,
+	stateDirectory: string,
+	run: () => Promise< unknown >
+): Promise< void > {
+	const keptDirectory = path.join( stateDirectory, 'kept-database' );
+	const restore = () => {
+		if ( fs.existsSync( keptDirectory ) ) {
+			fs.rmSync( databaseDirectory, { recursive: true, force: true } );
+			fs.mkdirSync( path.dirname( databaseDirectory ), { recursive: true } );
+			fs.renameSync( keptDirectory, databaseDirectory );
+		}
+	};
+	restore();
+	if ( fs.existsSync( databaseDirectory ) ) {
+		fs.renameSync( databaseDirectory, keptDirectory );
+	}
+	try {
+		await run();
+	} finally {
+		restore();
+	}
 }
 
 function printSiteUrls( localUrl: string ): void {

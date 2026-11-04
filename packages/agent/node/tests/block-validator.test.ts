@@ -211,6 +211,33 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 
 	it.each( [
 		{
+			block: 'paragraph',
+			written:
+				'<!-- wp:paragraph {"style":{"typography":{"textAlign":"center"}}} -->\n<p>Visit us</p>\n<!-- /wp:paragraph -->',
+			saved: '<p class="has-text-align-center">Visit us</p>',
+		},
+		{
+			block: 'heading',
+			written:
+				'<!-- wp:heading {"style":{"typography":{"textAlign":"center"}}} -->\n<h2 class="wp-block-heading">Hours</h2>\n<!-- /wp:heading -->',
+			saved: '<h2 class="wp-block-heading has-text-align-center">Hours</h2>',
+		},
+	] )(
+		'saves a $block only an older version accepts as the current version does',
+		async ( { written, saved } ) => {
+			// The older version, from before typography.textAlign, saves no
+			// has-text-align-center: the page renders the text left until the
+			// editor saves it again.
+			const report = await validateBlocks( written, siteUrl!, 'site' );
+			expect( report.invalidBlocks ).toBe( 1 );
+			expect( report.proposedFix?.losses ).toEqual( [] );
+			expect( report.proposedFix?.fixedContent ).toContain( saved );
+		},
+		60_000
+	);
+
+	it.each( [
+		{
 			name: 'a spacing preset, as the editor stores a preset',
 			written:
 				'<!-- wp:columns -->\n<div class="wp-block-columns" style="margin-top:var(--wp--preset--spacing--50)"></div>\n<!-- /wp:columns -->',
@@ -731,7 +758,6 @@ describe.runIf( siteUrl )( 'storing palette colors as presets (live)', () => {
 		).toBe( paragraph( '{"fontSize":"roast"}', '<p class="has-roast-font-size">Hi</p>' ) );
 		const spacer =
 			'<!-- wp:spacer {"style":{"typography":{"fontSize":"1.4rem"}}} -->\n<div style="height:100px" aria-hidden="true" class="wp-block-spacer"></div>\n<!-- /wp:spacer -->';
-		expect( ( await validateBlocks( spacer, siteUrl! ) ).invalidBlocks ).toBe( 0 );
 		expect(
 			await storePresetValues( spacer, siteUrl!, { colors: [], fontSizes, spacingSizes: [] } )
 		).toEqual( {

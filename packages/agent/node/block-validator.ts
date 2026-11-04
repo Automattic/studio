@@ -361,6 +361,13 @@ export async function validateBlocks(
 							// second validateBlock() call would wrongly flag as invalid.
 							isValid = block.isValid;
 							const migration = isValid && sameBlock ? brokenMigration( block, raw ) : undefined;
+							// A block only an older version accepts the editor saves as the
+							// current one, from what that version migrates it to: a paragraph
+							// with typography.textAlign written without has-text-align-center
+							// matches a version from before the support, and the editor saves
+							// the class the page renders until then without.
+							const older =
+								isValid && sameBlock && ! migration ? currentVersion( block, raw ) : undefined;
 							if ( ! isValid ) {
 								issues = extractIssues( block.validationIssues || [] );
 							} else if ( migration ) {
@@ -369,6 +376,14 @@ export async function validateBlocks(
 								expectedContent = wpBlocks.getSaveContent(
 									blockType,
 									migration.attributes,
+									block.innerBlocks
+								);
+							} else if ( older && ! older.isValid ) {
+								isValid = false;
+								issues = extractIssues( older.issues );
+								expectedContent = wpBlocks.getSaveContent(
+									blockType,
+									block.attributes,
 									block.innerBlocks
 								);
 							}

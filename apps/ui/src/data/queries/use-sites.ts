@@ -9,6 +9,7 @@ import { openStudioLogsAction, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
+import { updateResponsivePreview } from '@/data/responsive-preview';
 import { useOpenSite } from '@/data/use-open-site';
 import type { Connector, CreateSiteParams, SiteDetails } from '@/data/core';
 import type { SiteEvent, SiteListItem } from '@studio/common/lib/cli-events';
@@ -39,7 +40,13 @@ export function useSites() {
 	const connector = useConnector();
 	return useQuery( {
 		queryKey: SITES_QUERY_KEY,
-		queryFn: () => connector.getSites(),
+		queryFn: async () => {
+			const sites = await connector.getSites();
+			for ( const site of sites ) {
+				if ( ! site.running ) updateResponsivePreview( site.id, { enabled: false } );
+			}
+			return sites;
+		},
 		// Also catches running states that changed without a site event (e.g. a daemon crash).
 		refetchInterval: 2 * 60 * 1000,
 		// The sidebar mounts another reader once the list stops loading: a failed
@@ -182,6 +189,7 @@ export function useStopSite() {
 		mutationKey: STOP_SITE_MUTATION_KEY,
 		mutationFn: async ( id: string ) => {
 			await showSite( queryClient, await connector.stopSite( id ) );
+			updateResponsivePreview( id, { enabled: false } );
 		},
 		onError: ( _error, id ) => {
 			const { title, description } = getBusyNotice( queryClient, id, __( 'Failed to stop site' ) );
@@ -365,6 +373,9 @@ export function useIsSiteBusy( site: SiteDetails | undefined ): boolean {
  * have, or a create or delete, which change which sites there are.
  */
 function applySiteEvent( queryClient: QueryClient, event: SiteEvent ): boolean {
+	if ( event.event === SITE_EVENTS.UPDATED && ! event.running ) {
+		updateResponsivePreview( event.siteId, { enabled: false } );
+	}
 	const { site } = event;
 	const sites = queryClient.getQueryData< SiteDetails[] >( SITES_QUERY_KEY );
 	const cached = sites?.find( ( item ) => item.id === site?.id );

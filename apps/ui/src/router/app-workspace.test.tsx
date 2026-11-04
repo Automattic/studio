@@ -563,9 +563,7 @@ describe( 'Studio workspace', () => {
 		fireEvent.load( document.querySelector( 'iframe' )! );
 		expect( await screen.findByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
 		expect( history.location.pathname ).toBe( '/sites/one/new' );
-		expect(
-			screen.queryByRole( 'combobox', { name: 'Message WordPress Studio' } )
-		).not.toBeInTheDocument();
+		expect( await waitForFullscreen( true ) ).toBeVisible();
 	} );
 
 	it( 'keeps manual startup available when AI needs setup', async () => {

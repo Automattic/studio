@@ -110,6 +110,17 @@ function SiteCommands( {
 	const annotations = useSiteAnnotations( site.id );
 	const settingCommands = useSettingCommands( 'site', site );
 
+	useEffect(
+		() =>
+			connector.onNewChat( () => {
+				replaceOpenDialogs( () => {
+					preview.setChatHidden( false, site.id );
+					void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+				} );
+			} ),
+		[ connector, navigate, preview, site.id ]
+	);
+
 	const siteCommands = getSiteCommands( {
 		site,
 		chatHidden,

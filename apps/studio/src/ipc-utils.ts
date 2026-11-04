@@ -9,6 +9,8 @@ import type { WorkspaceLayout } from '@studio/common/types/workspace-layout';
 
 export interface IpcEvents {
 	'add-site': [ void ];
+	'new-chat': [ void ];
+	'open-folder': [ void ];
 	'open-site': [ { siteId: string } ];
 	'add-site-with-blueprint': [
 		{

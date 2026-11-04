@@ -16,6 +16,7 @@ export type {
 	PushSyncOptions,
 	QuitSitesBehavior,
 	SessionEntry,
+	SelectedSiteFolder,
 	SiteDesign,
 	SiteDetails,
 	SiteEmail,

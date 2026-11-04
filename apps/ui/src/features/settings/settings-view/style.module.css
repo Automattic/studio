@@ -44,6 +44,16 @@
 	min-width: 0;
 }
 
+.agentAppAction {
+	min-inline-size: 9em;
+}
+
+.agentAppError {
+	display: block;
+	margin-block-start: var( --space-1 );
+	color: var( --destructive );
+}
+
 .rowIcon {
 	--app-icon-size: 32px;
 

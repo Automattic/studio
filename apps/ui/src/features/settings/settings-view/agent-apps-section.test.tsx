@@ -26,10 +26,14 @@ describe( 'Agent apps setting', () => {
 	it( 'installs the plugin in an app and shows it connected', async () => {
 		const { connector, row } = await setup();
 		const grok = await row( 'Grok Build' );
+		const description = grok.getByText(
+			'Installs the WordPress Studio plugin. Start a new Grok Build session to use it.'
+		);
 		fireEvent.click( grok.getByRole( 'button', { name: 'Connect' } ) );
 		await waitFor( () => expect( connector.connectAgentApp ).toHaveBeenCalledWith( 'grok-build' ) );
-		expect( await grok.findByText( 'Connected' ) ).toBeVisible();
-		expect( grok.queryByRole( 'button' ) ).not.toBeInTheDocument();
+		expect( await grok.findByRole( 'button', { name: 'Connected' } ) ).toBeDisabled();
+		expect( description ).toBeVisible();
+		expect( grok.getByRole( 'button', { name: /^Learn more/ } ) ).toBeEnabled();
 	} );
 
 	it( 'disables the button while it connects', async () => {
@@ -47,16 +51,17 @@ describe( 'Agent apps setting', () => {
 		const cursor = await row( 'Cursor' );
 		fireEvent.click( cursor.getByRole( 'button', { name: 'Connect' } ) );
 		expect( await cursor.findByRole( 'button', { name: 'Connecting…' } ) ).toBeDisabled();
+		expect( cursor.getByRole( 'button', { name: /^Learn more/ } ) ).toBeEnabled();
 		finish();
-		expect( await cursor.findByText( 'Connected' ) ).toBeVisible();
+		expect( await cursor.findByRole( 'button', { name: 'Connected' } ) ).toBeDisabled();
 	} );
 
 	it( 'shows an app that already has the plugin as connected', async () => {
 		const { row } = await setup( { connected: [ 'claude-code', 'cursor' ] } );
 		for ( const name of [ 'Claude Code', 'Cursor' ] ) {
 			const app = await row( name );
-			expect( app.getByText( 'Connected' ) ).toBeVisible();
-			expect( app.queryByRole( 'button' ) ).not.toBeInTheDocument();
+			expect( app.getByRole( 'button', { name: 'Connected' } ) ).toBeDisabled();
+			expect( app.getByRole( 'button', { name: /^Learn more/ } ) ).toBeEnabled();
 		}
 	} );
 
@@ -72,16 +77,45 @@ describe( 'Agent apps setting', () => {
 				'Claude Code couldn’t install the WordPress Studio plugin: network down'
 			)
 		).toBeVisible();
-		expect( claude.queryByText( 'Connected' ) ).not.toBeInTheDocument();
+		expect( claude.getByRole( 'alert' ) ).toHaveTextContent( 'network down' );
+		expect( claude.getByRole( 'button', { name: /^Learn more/ } ) ).toBeEnabled();
+		expect(
+			claude.getByText(
+				'Installs the WordPress Studio plugin. Start a new Claude Code session to use it.'
+			)
+		).toBeVisible();
+		fireEvent.click( claude.getByRole( 'button', { name: 'Retry' } ) );
+		expect( await claude.findByRole( 'button', { name: 'Connected' } ) ).toBeDisabled();
+		expect( claude.queryByRole( 'alert' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'disables an app that isn’t installed', async () => {
 		const { connector, row } = await setup();
 		const chatgpt = await row( 'ChatGPT' );
-		expect( chatgpt.getByText( 'Not found on this computer.' ) ).toBeVisible();
-		const button = chatgpt.getByRole( 'button', { name: 'Connect' } );
+		expect(
+			chatgpt.getByText(
+				'Installs the WordPress Studio plugin in Codex. Restart the ChatGPT app to use it.'
+			)
+		).toBeVisible();
+		const button = chatgpt.getByRole( 'button', { name: 'Not installed' } );
 		expect( button ).toBeDisabled();
 		fireEvent.click( button );
 		expect( connector.connectAgentApp ).not.toHaveBeenCalled();
 	} );
+
+	it.each( [
+		[ 'Claude Code', 'https://github.com/Automattic/studio-plugins#install-in-claude-code' ],
+		[ 'ChatGPT', 'https://github.com/Automattic/studio-plugins#install-in-codex' ],
+		[ 'Cursor', 'https://cursor.com/docs/plugins' ],
+		[ 'Grok Build', 'https://docs.x.ai/build/features/skills-plugins-marketplaces' ],
+	] )(
+		'opens the plugin setup guide for %s regardless of installation state',
+		async ( name, url ) => {
+			const { connector, row } = await setup( { connected: [ 'claude-code', 'cursor' ] } );
+			const app = await row( name );
+			fireEvent.click( app.getByRole( 'button', { name: /^Learn more/ } ) );
+			expect( connector.openExternalUrl ).toHaveBeenCalledWith( url );
+			expect( connector.connectAgentApp ).not.toHaveBeenCalled();
+		}
+	);
 } );

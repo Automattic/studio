@@ -1,12 +1,21 @@
 import { AGENT_APP_NAMES } from '@studio/common/lib/agent-apps';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
+import { CheckIcon } from 'lucide-react';
+import { useConnector } from '@/data/core';
 import { useAgentApps, useConnectAgentApp } from '@/data/queries/use-agent-apps';
 import { AppIcon } from '@/features/sites';
 import { McpIcon } from '@/lib/icons';
 import { Button } from '@/lib/ui';
-import { connectedBadge, SettingsGroup, SettingsRow } from './rows';
+import { SettingsGroup, SettingsRow } from './rows';
 import styles from './style.module.css';
 import type { AgentApp, AgentAppId } from '@/data/core';
+
+const PLUGIN_GUIDES: Record< AgentAppId, string > = {
+	'claude-code': 'https://github.com/Automattic/studio-plugins#install-in-claude-code',
+	codex: 'https://github.com/Automattic/studio-plugins#install-in-codex',
+	cursor: 'https://cursor.com/docs/plugins',
+	'grok-build': 'https://docs.x.ai/build/features/skills-plugins-marketplaces',
+};
 
 function getDescription( id: AgentAppId ): string {
 	switch ( id ) {
@@ -28,8 +37,21 @@ function getDescription( id: AgentAppId ): string {
 }
 
 function AgentAppRow( { app }: { app: AgentApp } ) {
+	const connector = useConnector();
 	const connect = useConnectAgentApp();
 	const connected = app.installed && app.connected;
+	const getActionLabel = () => {
+		if ( ! app.installed ) {
+			return __( 'Not installed' );
+		}
+		if ( connected ) {
+			return __( 'Connected' );
+		}
+		if ( connect.isPending ) {
+			return __( 'Connecting…' );
+		}
+		return connect.error ? __( 'Retry' ) : __( 'Connect' );
+	};
 	return (
 		<SettingsRow
 			title={ AGENT_APP_NAMES[ app.id ] }
@@ -43,19 +65,42 @@ function AgentAppRow( { app }: { app: AgentApp } ) {
 					}
 				/>
 			}
-			badge={ connected ? connectedBadge() : null }
-			description={ app.installed ? getDescription( app.id ) : __( 'Not found on this computer.' ) }
-			error={ connect.error?.message }
+			description={
+				<>
+					{ getDescription( app.id ) }{ ' ' }
+					<Button
+						variant="inline-link"
+						size="inline"
+						aria-label={ sprintf(
+							// translators: %s: an agent app, like Claude Code.
+							__( 'Learn more about the WordPress Studio plugin for %s' ),
+							AGENT_APP_NAMES[ app.id ]
+						) }
+						onClick={ () => void connector.openExternalUrl( PLUGIN_GUIDES[ app.id ] ) }
+					>
+						{ __( 'Learn more…' ) }
+					</Button>
+					{ connect.error ? (
+						<span role="alert" className={ styles.agentAppError }>
+							{ connect.error.message }
+						</span>
+					) : null }
+				</>
+			}
 		>
-			{ connected ? null : (
-				// Disabled rather than `loading`, which keeps the button's full opacity.
+			{ ( control ) => (
 				<Button
+					{ ...control }
 					variant="outline"
-					disabled={ ! app.installed || connect.isPending }
+					className={ styles.agentAppAction }
+					disabled={ ! app.installed || connected || connect.isPending }
+					disabledAppearance={ connected || connect.isPending ? 'outline' : 'default' }
 					aria-busy={ connect.isPending || undefined }
+					aria-invalid={ connect.error ? true : undefined }
 					onClick={ () => connect.mutate( app.id ) }
 				>
-					{ connect.isPending ? __( 'Connecting…' ) : __( 'Connect' ) }
+					{ connected ? <CheckIcon aria-hidden="true" /> : null }
+					{ getActionLabel() }
 				</Button>
 			) }
 		</SettingsRow>

@@ -104,7 +104,7 @@ studio-capture check docs/user/screenshots/shots --out docs/user/screenshots/ima
 
 The sites are created through the Studio CLI before Studio opens, in sidebar order. A site takes an `import` (a Studio backup), a `blueprint` (a path or URL, applied by `studio site create --blueprint`), or neither (a blank site that fills out the sidebar). Sites with content start with Studio; scripts open on `open` (a slug), else the first site with content, and `{{site.name}}` in a script is its name. Without `id` and `slug`, each site gets stable ones from its name. `design` is copied in as the site's DESIGN.md, which a backup can't carry. Paths are relative to the scene file.
 
-`--blueprint <file|url>` makes a one-site scene on the spot, named after the Blueprint's `meta.title`. A Blueprint downloads things and changes with them, so for reruns that must match, **bake** it: `studio-capture bake --scene my-shop/scene.json` creates each Blueprint site, exports it whole as `<slug>.zip`, and writes `scene.baked.json`, which imports those backups (and keeps the Blueprint as `bakedFrom`). Commit the baked scene and its backups, and capture from it.
+`--blueprint <file|url>` makes a one-site scene on the spot, named after the Blueprint's `meta.title`. A Blueprint downloads things and changes with them, and building its site takes a while, so for reruns that must match, **bake** it: `studio-capture bake --scene my-shop` creates each Blueprint site, exports it whole as `<slug>.zip`, and writes a scene that imports those backups (and keeps the Blueprint as `bakedFrom`), all in `.baked/` beside the scene. Loading the scene then uses that baked copy whenever it's there, so captures are quick and repeat exactly; `.baked/` isn't committed (bake again after changing the Blueprint), so a scene's Blueprint, not its backups, is what goes in the repo. `--out` and `--scene-out` write the baked copy elsewhere instead.
 
 The rest of a scene answers for a signed-in account and fills the app with history:
 
@@ -114,6 +114,18 @@ The rest of a scene answers for a signed-in account and fills the app with histo
 - `chats`: a folder of conversations (`<name>.json`) a script opens on with `"chats": ["<name>"]`, written into the profile as Studio Code records them. A chat names its `site`, how many `minutesAgo` it started, an optional `title`, and its `turns`: each a `prompt` and the agent's `replies`, one message each, of text and tool calls (`{ name, args, result, isError?, details? }`; `details.diff` for an edit).
 - `agentTurns`: agent runs for the `playAgentTurn` helper (below), as the `AgentEvent`s the CLI would send. A string `scene:<path>` in an event is a file from the scene's folder, copied to where Studio shows local media from.
 - `files`: files for `setFiles` steps.
+
+### Moire
+
+`scenes/moire/` is a slow-fashion journal from Rich's Moire Blueprint (`blueprint/`: the Moire theme in its Dia yellow and brown palette, posts, images and a setup script, all bundled, so it builds offline), with the same two blank sites below it, Moire chats (`chats/`), and its own design picker turn: four looks drawn from the Blueprint's photos (`design-looks/`, redrawn with `npm -w @studio/capture-harness run moire:looks`). Bake it once on a machine, then capture with `--scene moire`:
+
+```sh
+npx studio-capture bake --scene moire
+npx studio-capture capture examples/moire.json --look marketing-dark
+npx studio-capture capture examples/moire-design-looks.json --look marketing-dark
+```
+
+`examples/moire.json` is the main set (the workspace mid-chat, the model menu from the window's corner, the command palette, Share and Publish, Appearance, phone width and Annotate) with Moire's own chat and Annotate targets; scripts written for Wren & Barley, like the docs suites, click things only the bakery has. The same goes for any other Blueprint: a scene beside these with its Blueprint, chats and account data, baked once.
 
 ### Wren & Barley
 

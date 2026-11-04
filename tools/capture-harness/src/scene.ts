@@ -56,12 +56,20 @@ export function idForSlug( slug: string ) {
 }
 
 /** A scene file by path, or a bundled scene by name (`scenes/<name>/scene.json`). */
-export function sceneFile( ref: string, relativeTo = process.cwd() ) {
+export function sceneFile( ref: string, relativeTo = process.cwd(), { baked = true } = {} ) {
 	const bundled = path.join( SCENES_DIR, ref, 'scene.json' );
-	if ( ! ref.includes( '/' ) && ! ref.endsWith( '.json' ) && existsSync( bundled ) ) {
-		return bundled;
-	}
-	return path.resolve( relativeTo, ref );
+	const file =
+		! ref.includes( '/' ) && ! ref.endsWith( '.json' ) && existsSync( bundled )
+			? bundled
+			: path.resolve( relativeTo, ref );
+	// A scene baked on this machine (`bake`, into `.baked/` beside it) stands in for it.
+	const local = bakedSceneFile( file );
+	return baked && existsSync( local ) ? local : file;
+}
+
+/** Where `bake` puts a scene's baked copy: `.baked/scene.json` beside it, not committed. */
+export function bakedSceneFile( file: string ) {
+	return path.join( path.dirname( file ), '.baked', 'scene.json' );
 }
 
 /**
@@ -125,8 +133,12 @@ function parseScene( data: unknown, source: string ): Scene {
 	return parsed.data;
 }
 
-export async function loadScene( ref: string, relativeTo?: string ): Promise< LoadedScene > {
-	const file = sceneFile( ref, relativeTo );
+export async function loadScene(
+	ref: string,
+	relativeTo?: string,
+	options?: { baked?: boolean }
+): Promise< LoadedScene > {
+	const file = sceneFile( ref, relativeTo, options );
 	const scene = parseScene( await readJson( file ), file );
 	return resolveScene( scene, path.dirname( file ), file );
 }

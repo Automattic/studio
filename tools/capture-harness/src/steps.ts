@@ -313,7 +313,8 @@ export const HELPERS: Record< ( typeof HELPER_NAMES )[ number ], Helper > = {
 		const files = new Map< string, string >();
 		for ( const match of JSON.stringify( events ).matchAll( /"scene:([^"]+)"/g ) ) {
 			const target = path.join( mediaDir, path.basename( match[ 1 ] ) );
-			await copyFile( path.join( scene.dir, match[ 1 ] ), target );
+			// Relative to the scene that holds `agentTurns`, whichever copy of it (a baked one) is loaded.
+			await copyFile( path.join( path.dirname( scene.agentTurns ), match[ 1 ] ), target );
 			files.set( match[ 1 ], target );
 		}
 		const resolved = JSON.parse(

@@ -2,8 +2,8 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { SCHEMAS_DIR, isUrl, readJson } from './paths.ts';
 import { createProfile } from './profile.ts';
+import { bakedSceneFile, type LoadedScene } from './scene.ts';
 import { createSite, runCli, stopAllSites } from './studio-cli.ts';
-import type { LoadedScene } from './scene.ts';
 import type { Scene } from './schema.ts';
 
 export interface BakeResult {
@@ -17,16 +17,14 @@ export interface BakeResult {
  * with a `blueprint` is created from it in a throwaway profile and exported
  * whole (database, themes, plugins and uploads) as `<outDir>/<slug>.zip`;
  * the baked scene, written to `sceneOut`, loads those backups with `import`
- * and keeps the Blueprint as `bakedFrom`.
+ * and keeps the Blueprint as `bakedFrom`. By default both go in `.baked/`
+ * beside the scene, which loading the scene then prefers.
  */
 export async function bake(
 	scene: LoadedScene,
 	{
-		outDir = scene.dir,
-		sceneOut = path.join(
-			outDir,
-			scene.file ? `${ path.parse( scene.file ).name }.baked.json` : 'scene.json'
-		),
+		outDir = scene.file ? path.dirname( bakedSceneFile( scene.file ) ) : scene.dir,
+		sceneOut = path.join( outDir, 'scene.json' ),
 		log = ( message: string ) => console.log( message ),
 	}: { outDir?: string; sceneOut?: string; log?: ( message: string ) => void } = {}
 ): Promise< BakeResult > {

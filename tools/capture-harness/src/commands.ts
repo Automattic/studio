@@ -51,11 +51,12 @@ export async function runCommand( command: string, refs: string[], args: Command
 	const output = ( result: unknown, text: () => void ) =>
 		args.json ? console.log( JSON.stringify( result, null, 2 ) ) : text();
 
-	async function sceneOption() {
+	// `baked: false` reads the scene as written, not a copy baked on this machine.
+	async function sceneOption( { baked = true } = {} ) {
 		if ( args.blueprint ) {
 			return sceneFromBlueprint( args.blueprint );
 		}
-		return args.scene ? loadScene( args.scene ) : undefined;
+		return args.scene ? loadScene( args.scene, undefined, { baked } ) : undefined;
 	}
 
 	function driverOption(): DriverName | undefined {
@@ -220,7 +221,7 @@ export async function runCommand( command: string, refs: string[], args: Command
 			return;
 		}
 		case 'bake': {
-			const scene = await sceneOption();
+			const scene = await sceneOption( { baked: false } );
 			if ( ! scene ) {
 				throw new Error( 'bake needs --scene or --blueprint.' );
 			}

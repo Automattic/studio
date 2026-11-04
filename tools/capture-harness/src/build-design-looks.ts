@@ -1,16 +1,18 @@
 /**
- * Renders the design looks Studio Code offers in the design picker shot
- * (`design-looks/`): each look in `looks.json` is a
- * DESIGN.md draft and one of the bakery's photos, drawn as a design board by
- * the agent's own `renderDesignBoard`, the way `present_design_options` does,
- * and saved as `<file>` next to it. The shot plays them back as a pending
- * question (see `agent-turns/` and the `stubAgentRuns` / `playAgentTurn`
- * helpers), so no model runs. Run it after editing a look:
+ * Renders the design looks Studio Code offers in a scene's design picker shot
+ * (`<scene>/design-looks/`): each look in `looks.json` is a DESIGN.md draft
+ * and a photo, drawn as a design board by the agent's own `renderDesignBoard`,
+ * the way `present_design_options` does, and saved as `<file>` next to it. The
+ * shot plays them back as a pending question (see `agent-turns/` and the
+ * `stubAgentRuns` / `playAgentTurn` helpers), so no model runs. Run it after
+ * editing a look:
  *
  *   npm -w @studio/capture-harness run wren-and-barley:looks
+ *   npm -w @studio/capture-harness run moire:looks
  *
- * The photos come from the site source's `.cache/` (`wren-and-barley:build`
- * fills it), and the boards load their fonts from Google Fonts.
+ * A look's `image` is a file in `design-looks/` (`photos/wool.jpg`), or the
+ * name of a photo in the scene's `source/.cache/` (Wren & Barley's, which
+ * `wren-and-barley:build` fills). The boards load their fonts from Google Fonts.
  */
 import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
@@ -19,9 +21,11 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 import { chromium } from 'playwright';
-import { REPO_ROOT, readJson } from '../../src/paths.ts';
+import { REPO_ROOT, readJson } from './paths.ts';
 
-const SCENE_DIR = import.meta.dirname;
+const SCENE_DIR = path.resolve(
+	process.argv[ 2 ] ?? path.join( import.meta.dirname, '../scenes/wren-and-barley' )
+);
 const LOOKS_DIR = path.join( SCENE_DIR, 'design-looks' );
 const PHOTOS_DIR = path.join( SCENE_DIR, 'source', '.cache' );
 const DESIGN_BOARD = path.join( REPO_ROOT, 'packages/agent/node/design-board.ts' );
@@ -58,9 +62,11 @@ try {
 
 	const page = await browser.newPage( { viewport: VIEWPORT } );
 	for ( const look of await readJson< DesignLook[] >( path.join( LOOKS_DIR, 'looks.json' ) ) ) {
-		const photo = path.join( PHOTOS_DIR, `${ look.image }.jpg` );
+		const photo = /\.(jpe?g|png|webp)$/.test( look.image )
+			? path.join( LOOKS_DIR, look.image )
+			: path.join( PHOTOS_DIR, `${ look.image }.jpg` );
 		if ( ! existsSync( photo ) ) {
-			throw new Error( `${ look.label }: no photo ${ photo }. Run wren-and-barley:build first.` );
+			throw new Error( `${ look.label }: no photo ${ photo }. Run the scene's build first.` );
 		}
 		const design = await readFile( path.join( LOOKS_DIR, look.design ), 'utf8' );
 		const html = path.join( temp, `${ look.file }.html` );

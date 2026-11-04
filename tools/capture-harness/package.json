@@ -11,7 +11,8 @@
 		"capture": "node --experimental-strip-types cli.ts",
 		"schemas": "node --experimental-strip-types cli.ts schemas",
 		"wren-and-barley:build": "node --experimental-strip-types scenes/wren-and-barley/build-site.ts",
-		"wren-and-barley:looks": "node --experimental-strip-types scenes/wren-and-barley/build-design-looks.ts",
+		"wren-and-barley:looks": "node --experimental-strip-types src/build-design-looks.ts scenes/wren-and-barley",
+		"moire:looks": "node --experimental-strip-types src/build-design-looks.ts scenes/moire",
 		"lint": "eslint .",
 		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},

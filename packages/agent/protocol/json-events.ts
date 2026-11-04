@@ -27,6 +27,8 @@ export type JsonEvent =
 	| { type: 'turn.started'; timestamp: string }
 	| {
 			type: 'turn.completed';
+			turnId?: string;
+			edits?: number;
 			timestamp: string;
 			sessionId: string;
 			status: TurnCompletedStatus;

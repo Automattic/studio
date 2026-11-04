@@ -45,6 +45,7 @@ const runManager = createAgentRunManager( {
 } );
 
 export interface StartAgentRunOptions {
+	turnId?: string;
 	sessionId: string;
 	prompt: string;
 	displayMessage?: string;
@@ -55,8 +56,16 @@ export interface StartAgentRunOptions {
 }
 
 export function startAgentRun( options: StartAgentRunOptions ): { runId: string } {
-	const { sessionId, prompt, displayMessage, images, files, visualAnnotations, webContents } =
-		options;
+	const {
+		sessionId,
+		prompt,
+		displayMessage,
+		images,
+		files,
+		visualAnnotations,
+		webContents,
+		turnId,
+	} = options;
 	// `startAgentRun` forks the child and returns its id synchronously; the
 	// child's first event arrives async (next tick), so registering the route
 	// after a successful start — keyed by the unique runId — is in time, and a
@@ -69,6 +78,7 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 		images,
 		files,
 		visualAnnotations,
+		turnId,
 	} );
 	runWebContents.set( result.runId, webContents );
 	// Abort the run if the window that started it goes away.

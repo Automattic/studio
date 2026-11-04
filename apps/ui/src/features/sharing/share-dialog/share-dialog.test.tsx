@@ -435,23 +435,35 @@ describe( 'ShareDialog', () => {
 		}
 	);
 
-	it( 'disables both account actions during login and keeps the prompt after cancellation', async () => {
+	it( 'keeps both account actions available during login and keeps the prompt after cancellation', async () => {
 		const { connector, ready } = setup( null );
 		let finish!: () => void;
-		connector.authenticate.mockImplementationOnce(
-			() =>
-				new Promise< void >( ( resolve ) => {
-					finish = resolve;
-				} )
+		connector.authenticate.mockReturnValue(
+			new Promise< void >( ( resolve ) => {
+				finish = resolve;
+			} )
 		);
 		await ready;
 		const login = await screen.findByRole( 'button', { name: 'Log in' } );
 		const signup = screen.getByRole( 'button', { name: 'Create account' } );
 		fireEvent.click( login );
-		await waitFor( () => expect( isDisabled( login ) ).toBe( true ) );
-		expect( isDisabled( signup ) ).toBe( true );
+		await waitFor( () => expect( connector.authenticate ).toHaveBeenCalledOnce() );
+		expect( login ).toBeEnabled();
+		expect( signup ).toBeEnabled();
 		fireEvent.click( signup );
-		expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith( false, 'previews_tab' );
+		await waitFor( () => expect( connector.authenticate ).toHaveBeenCalledTimes( 2 ) );
+		expect( connector.authenticate ).toHaveBeenNthCalledWith(
+			1,
+			false,
+			'previews_tab',
+			expect.any( Object )
+		);
+		expect( connector.authenticate ).toHaveBeenNthCalledWith(
+			2,
+			true,
+			'previews_tab',
+			expect.any( Object )
+		);
 		await act( async () => finish() );
 		await waitFor( () => expect( isDisabled( login ) ).toBe( false ) );
 		expect( isDisabled( signup ) ).toBe( false );

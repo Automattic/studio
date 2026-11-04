@@ -60,8 +60,9 @@ test.describe( 'Share and publish', () => {
 		// The header folds Share into its More menu when the window is too narrow for it.
 		const share = page.getByRole( 'button', { name: /^(Share|More preview actions)$/ } );
 		const openShare = async () => {
+			const overflow = ( await share.getAttribute( 'aria-label' ) ) === 'More preview actions';
 			await share.click();
-			if ( ( await share.getAttribute( 'aria-label' ) ) === 'More preview actions' ) {
+			if ( overflow ) {
 				await page.getByRole( 'menuitem', { name: 'Share', exact: true } ).click();
 			}
 		};

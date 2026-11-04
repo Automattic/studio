@@ -4,6 +4,7 @@ import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect } from 'react';
+import { getAccountJourney, completeAccountJourney } from '@/data/account-analytics';
 import { ERROR_TOAST_TTL_MS, openStudioLogsAction, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
@@ -240,7 +241,8 @@ function useLiveSync< Options >(
 						.getQueryData< SyncSite[] >( connectedWpcomSitesQueryKey( siteId ) )
 						?.find( ( site ) => site.id === remoteSiteId ),
 				error,
-			} )
+			} ),
+			...( direction === 'push' ? [ siteId ] : [] )
 		);
 
 	return useMutation( {
@@ -249,9 +251,18 @@ function useLiveSync< Options >(
 			sync( connector, siteId, remoteSiteId, options ),
 		onMutate: ( { siteId, remoteSiteId } ) => {
 			applySyncActivity( siteId, { kind: 'pending', direction, remoteSiteId } );
-			return { startedAt: Date.now() };
+			return {
+				startedAt: Date.now(),
+				journey:
+					direction === 'push'
+						? getAccountJourney( connector, 'publish', siteId )
+						: getAccountJourney( connector, 'connect_site', `${ siteId }:${ remoteSiteId }` ),
+			};
 		},
-		onSuccess: ( _result, variables, { startedAt } ) => {
+		onSuccess: ( _result, variables, { startedAt, journey } ) => {
+			completeAccountJourney( connector, journey, {
+				completion_kind: direction === 'push' ? 'sync_push' : 'sync_pull',
+			} );
 			settleFromMutation( variables.siteId, direction );
 			track( variables, startedAt );
 		},

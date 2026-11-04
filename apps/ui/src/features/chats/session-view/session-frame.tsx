@@ -24,7 +24,7 @@ interface SessionFrameProps {
 
 // Lays out the chat column as fixed chrome over a full-height conversation
 // scroller. The site preview panel lives in the dashboard layout's
-// PreviewSplitFrame, which keeps it mounted across routes.
+// PanelSplitFrame, which keeps it mounted across routes.
 export function SessionFrame( {
 	session,
 	header,

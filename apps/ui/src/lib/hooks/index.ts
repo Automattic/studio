@@ -4,3 +4,4 @@ export * from './use-pointer-drag';
 export * from './use-stored-flag';
 export * from './use-window-controls-overlay';
 export * from './use-scroll-fade';
+export * from './use-submit-feedback';

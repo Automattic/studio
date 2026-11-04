@@ -272,3 +272,24 @@ describe( 'createIpcConnector errors', () => {
 		await expect( createIpcConnector().startSite( 'site-1' ) ).rejects.toThrow( /^$/ );
 	} );
 } );
+
+it( 'passes the telemetry site lookup separately and tolerates recorder failures', async () => {
+	const recordAnalyticsEvent = vi.fn().mockResolvedValue( undefined );
+	vi.stubGlobal( 'ipcApi', { recordAnalyticsEvent } );
+	vi.stubGlobal( 'ipcListener', { subscribe: vi.fn() } );
+	try {
+		const connector = createIpcConnector();
+		await connector.trackEvent( 'studio_sync_push', { success: true }, 'operational-id' );
+		expect( recordAnalyticsEvent ).toHaveBeenCalledWith(
+			'studio_sync_push',
+			{ success: true },
+			'operational-id'
+		);
+		recordAnalyticsEvent.mockRejectedValueOnce( new Error( 'Recorder unavailable' ) );
+		await expect(
+			connector.trackEvent( 'studio_sync_push', { success: false }, 'operational-id' )
+		).resolves.toBeUndefined();
+	} finally {
+		vi.unstubAllGlobals();
+	}
+} );

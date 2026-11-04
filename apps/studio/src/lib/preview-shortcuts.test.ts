@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 import { describe, expect, it, vi } from 'vitest';
-import { forwardPreviewCommandPalette } from 'src/lib/preview-shortcuts';
+import { forwardPreviewShortcut } from 'src/lib/preview-shortcuts';
 import type { WebContents } from 'electron';
 
 const input = {
@@ -24,26 +24,82 @@ function createGuest() {
 	return { guest: { hostWebContents: host } as unknown as WebContents, host };
 }
 
-describe( 'forwardPreviewCommandPalette', () => {
-	it( 'hands ⌘K pressed in the preview to the window', () => {
+describe( 'forwardPreviewShortcut', () => {
+	it.each( [ 'darwin', 'win32', 'linux' ] as const )(
+		'forwards the annotation shortcut from a %s preview',
+		( platform ) => {
+			const { guest, host } = createGuest();
+			expect(
+				forwardPreviewShortcut(
+					guest,
+					{
+						...input,
+						code: 'Period',
+						key: '>',
+						shift: true,
+						meta: platform === 'darwin',
+						control: platform !== 'darwin',
+					},
+					platform
+				)
+			).toBe( true );
+			expect( host.sendInputEvent ).toHaveBeenCalledWith( {
+				type: 'keyDown',
+				keyCode: '.',
+				modifiers: [ platform === 'darwin' ? 'meta' : 'control', 'shift' ],
+			} );
+		}
+	);
+
+	it.each( [ 'K', 'T' ] )( 'hands ⌘%s pressed in the preview to the window', ( key ) => {
 		const { guest, host } = createGuest();
-		expect( forwardPreviewCommandPalette( guest, input, 'darwin' ) ).toBe( true );
+		expect(
+			forwardPreviewShortcut(
+				guest,
+				{ ...input, code: `Key${ key }`, key: key.toLowerCase() },
+				'darwin'
+			)
+		).toBe( true );
 		expect( host.focus ).toHaveBeenCalled();
 		expect( host.sendInputEvent ).toHaveBeenCalledWith( {
 			type: 'keyDown',
-			keyCode: 'K',
+			keyCode: key,
 			modifiers: [ 'meta' ],
 		} );
 	} );
 
+	it.each( [ 'darwin', 'win32', 'linux' ] as const )(
+		'forwards the annotation shortcut on %s',
+		( platform ) => {
+			const { guest, host } = createGuest();
+			expect(
+				forwardPreviewShortcut(
+					guest,
+					{
+						...input,
+						code: 'Period',
+						key: '>',
+						shift: true,
+						meta: platform === 'darwin',
+						control: platform !== 'darwin',
+					},
+					platform
+				)
+			).toBe( true );
+			expect( host.sendInputEvent ).toHaveBeenCalledWith( {
+				type: 'keyDown',
+				keyCode: '.',
+				modifiers: [ platform === 'darwin' ? 'meta' : 'control', 'shift' ],
+			} );
+		}
+	);
+
 	it( 'leaves other keys, and ⌘K elsewhere than macOS, to the page', () => {
 		const { guest, host } = createGuest();
-		expect( forwardPreviewCommandPalette( guest, { ...input, shift: true }, 'darwin' ) ).toBe(
-			false
-		);
-		expect( forwardPreviewCommandPalette( guest, input, 'win32' ) ).toBe( false );
+		expect( forwardPreviewShortcut( guest, { ...input, shift: true }, 'darwin' ) ).toBe( false );
+		expect( forwardPreviewShortcut( guest, input, 'win32' ) ).toBe( false );
 		expect(
-			forwardPreviewCommandPalette( guest, { ...input, meta: false, control: true }, 'win32' )
+			forwardPreviewShortcut( guest, { ...input, meta: false, control: true }, 'win32' )
 		).toBe( true );
 		expect( host.sendInputEvent ).toHaveBeenLastCalledWith(
 			expect.objectContaining( { modifiers: [ 'control' ] } )

@@ -14,8 +14,8 @@ import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { countSitePreviews } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { updatePreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
-import { getPreviewTracksProps } from 'cli/lib/preview-tracks';
 import { withSiteOperation } from 'cli/lib/site-operations';
+import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import { getSnapshotsFromConfig, updateSnapshotInConfig } from 'cli/lib/snapshots';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
@@ -188,7 +188,7 @@ async function recordPreviewUpdateEvent(
 	try {
 		await recordTracksEvent( TRACKS_EVENTS.PREVIEW_SITE_UPDATE, {
 			...props,
-			...( await getPreviewTracksProps( siteFolder, snapshot ) ),
+			...( await getSiteTracksProps( siteFolder, snapshot ) ),
 			...getTracksOrigin(),
 		} );
 	} catch {

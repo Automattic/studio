@@ -116,10 +116,14 @@ export function PublishPanel( {
 				syncSupport: 'already-connected',
 			} ),
 		onSuccess: ( _result, remote ) => {
-			void connector.trackEvent( TRACKS_EVENTS.SYNC_CONNECT, {
-				success: true,
-				num_of_sites: connections.length + 1,
-			} );
+			void connector.trackEvent(
+				TRACKS_EVENTS.SYNC_CONNECT,
+				{
+					success: true,
+					num_of_sites: connections.length + 1,
+				},
+				site.id
+			);
 			void queryClient.invalidateQueries( { queryKey: connectedWpcomSitesQueryKey( site.id ) } );
 			void queryClient.invalidateQueries( { queryKey: ALL_CONNECTED_WPCOM_SITES_QUERY_KEY } );
 			selectWebsite( remote.id );

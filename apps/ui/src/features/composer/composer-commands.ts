@@ -62,7 +62,7 @@ export function getComposerCommands( {
 			: [] ),
 		{
 			name: 'connect-provider',
-			displayName: __( 'Connect AI providers' ),
+			displayName: __( 'Connect providers' ),
 			description: __( 'Use WordPress.com AI credits or your own API key.' ),
 		},
 		...( canChangeEnvironment && environment === 'live'

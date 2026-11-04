@@ -9,6 +9,7 @@ export function useLoadingStage( {
 	canPreview,
 	isStarting,
 	rendered,
+	publish = true,
 }: {
 	siteId: string;
 	live: boolean;
@@ -17,6 +18,7 @@ export function useLoadingStage( {
 	// The design system or the site's email is on screen, which Studio renders
 	// without a page load.
 	rendered: boolean;
+	publish?: boolean;
 } ) {
 	const [ awaitingReveal, setAwaitingReveal ] = useState( false );
 	useEffect( () => {
@@ -29,12 +31,12 @@ export function useLoadingStage( {
 	const loadingStage = isStarting || ( awaitingReveal && ! rendered );
 	const setRevealing = useOptionalSessionPreviewUI()?.setRevealing;
 	useEffect( () => {
-		if ( live || ! setRevealing ) {
+		if ( live || ! setRevealing || ! publish ) {
 			return;
 		}
 		setRevealing( siteId, loadingStage );
 		return () => setRevealing( siteId, false );
-	}, [ live, loadingStage, setRevealing, siteId ] );
+	}, [ live, loadingStage, setRevealing, siteId, publish ] );
 	const reveal = useCallback( () => setAwaitingReveal( false ), [] );
 	return { loadingStage, reveal };
 }

@@ -134,10 +134,6 @@ function getSiteKind( run: PullRun ): 'preview' | 'site' | 'unknown' {
 	return run.preview ? 'preview' : 'site';
 }
 
-/**
- * Remembers the remote site, so later pushes and pulls, and the Studio app, offer it without
- * picking it again. Best-effort: the pull has already succeeded.
- */
 /** The connected site this local site was last pulled from, so a repeat `studio pull` needs no site. */
 async function lastPulledFrom( localSiteId: string ): Promise< string | undefined > {
 	const pulled = ( await getConnectedWpcomSitesForLocalSite( localSiteId ) )
@@ -148,6 +144,10 @@ async function lastPulledFrom( localSiteId: string ): Promise< string | undefine
 	return pulled[ 0 ]?.url;
 }
 
+/**
+ * Remembers the remote site, so later pushes and pulls, and the Studio app, offer it without
+ * picking it again. Best-effort: the pull has already succeeded.
+ */
 async function rememberConnection( localSiteId: string, remoteSite: SyncSite ): Promise< void > {
 	try {
 		await addConnectedWpcomSite( localSiteId, { ...remoteSite, localSiteId } );
@@ -229,9 +229,7 @@ export async function runCommand(
 	const startedAt = Date.now();
 	const run: PullRun = { localChangesApplied: false, completed: false };
 	let stopReportingProgress = () => {};
-	const stopForwardingProgress = onProgress
-		? logger.observeProgress( ( message ) => onProgress( message ) )
-		: () => false;
+	const stopForwardingProgress = onProgress ? logger.observeProgress( onProgress ) : () => false;
 	let pullError: unknown;
 
 	try {

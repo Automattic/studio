@@ -117,7 +117,8 @@ export async function resolveSiteTracksEventProps(
 	if (
 		event !== TRACKS_EVENTS.SYNC_CONNECT &&
 		event !== TRACKS_EVENTS.SYNC_PUSH &&
-		event !== TRACKS_EVENTS.SITE_EXPORT
+		event !== TRACKS_EVENTS.SITE_EXPORT &&
+		event !== TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED
 	) {
 		return props;
 	}

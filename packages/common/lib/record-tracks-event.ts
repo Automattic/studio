@@ -34,6 +34,7 @@ export const TRACKS_EVENTS = {
 	PREVIEW_SITE_DELETE: 'studio_preview_site_delete',
 	PREVIEW_SITE_DELETE_ALL: 'studio_preview_site_delete_all',
 	PANEL_OPENED: 'studio_panel_opened',
+	WORKSPACE_LAYOUT_CHANGED: 'studio_workspace_layout_changed',
 	SETTING_TELEMETRY_CHANGE: 'studio_setting_telemetry_change',
 	SETTING_APPEARANCE_CHANGE: 'studio_setting_appearance_change',
 	SETTING_LANGUAGE_CHANGE: 'studio_setting_language_change',

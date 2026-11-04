@@ -204,3 +204,41 @@ it( 'preserves the event when site ID persistence fails', async () => {
 		success: false,
 	} );
 } );
+
+it.each( [ 'chat', 'split', 'panel' ] )(
+	'resolves workspace layout %s without forwarding caller identifiers',
+	async ( layout ) => {
+		const response = await postEvent( {
+			eventName: TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED,
+			siteId: operationalId,
+			props: { layout, site_id: operationalId, preview_id: '/private/path' },
+		} );
+		expect( response.status ).toBe( 204 );
+		const config = JSON.parse( await fs.readFile( getCliConfigPath(), 'utf8' ) );
+		expect( recordTracksEvent ).toHaveBeenCalledExactlyOnceWith(
+			TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED,
+			{ layout, site_id: config.sites[ 0 ].tracksId }
+		);
+		expect( config.sites[ 0 ].tracksId ).toMatch( /^[0-9a-f-]{36}$/ );
+		expect( config.sites[ 0 ].tracksId ).not.toBe( operationalId );
+	}
+);
+
+it.each( [ 'missing', 'storage' ] )(
+	'preserves the workspace layout event when attribution is %s',
+	async ( failure ) => {
+		if ( failure === 'storage' )
+			vi.spyOn( configFile, 'writeCliConfigFileRaw' ).mockRejectedValueOnce(
+				new Error( 'Unavailable' )
+			);
+		await postEvent( {
+			eventName: TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED,
+			siteId: failure === 'missing' ? 'missing' : operationalId,
+			props: { layout: 'split', site_id: operationalId },
+		} );
+		expect( recordTracksEvent ).toHaveBeenCalledExactlyOnceWith(
+			TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED,
+			{ layout: 'split' }
+		);
+	}
+);

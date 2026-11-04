@@ -37,8 +37,8 @@ export function overwriteDescription( direction: TransferDirection ) {
 		  );
 }
 
-export function websiteIssue( site: SyncSite ) {
-	switch ( site.syncSupport ) {
+export function websiteIssue( site: SyncSite, direction: TransferDirection = 'push' ) {
+	switch ( direction === 'pull' ? site.pullSupport ?? site.syncSupport : site.syncSupport ) {
 		case 'deleted':
 			return __( 'This website has been deleted. Choose another website.' );
 		case 'missing-permissions':

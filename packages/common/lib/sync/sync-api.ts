@@ -11,6 +11,7 @@ import {
 	importResponseSchema,
 } from '@studio/common/types/sync';
 import { backupLsItemSchema, backupLsResponseBodySchema } from '@studio/common/types/sync-tree';
+import { isReprintPullEnabled } from './pull-engine';
 import { transformSitesResponse } from './transform-sites';
 import type { SyncSite, ImportResponse, SyncOption } from '@studio/common/types/sync';
 import type { BackupLsItem } from '@studio/common/types/sync-tree';
@@ -30,10 +31,7 @@ const SITE_FIELDS = [
 	'environment_type',
 ].join( ',' );
 
-export async function fetchSyncableSites(
-	token: string,
-	options: { planRequired?: boolean } = {}
-): Promise< SyncSite[] > {
+export async function fetchSyncableSites( token: string ): Promise< SyncSite[] > {
 	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 
 	const rawResponse = await wpcom.req.get(
@@ -50,7 +48,7 @@ export async function fetchSyncableSites(
 	);
 
 	const parsed = sitesEndpointResponseSchema.parse( rawResponse );
-	return transformSitesResponse( parsed.sites, options );
+	return transformSitesResponse( parsed.sites, { reprintPull: isReprintPullEnabled() } );
 }
 
 export async function initiateBackup(

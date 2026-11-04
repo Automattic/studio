@@ -301,6 +301,21 @@ describe( 'PublishPopover', () => {
 		expect( within( card ).queryByRole( 'button', { name: 'Backups' } ) ).not.toBeInTheDocument();
 	} );
 
+	it( 'pulls from a connected site it cannot publish to, such as an unpaid preview', async () => {
+		const preview = {
+			...remote,
+			syncSupport: 'needs-upgrade' as const,
+			pullSupport: 'syncable' as const,
+		};
+		const { connector, ready } = setup( [ remote ], true, true, false );
+		connector.fetchSyncableWpcomSites.mockResolvedValue( [ preview ] );
+		await ready;
+		await waitFor( () =>
+			expect( screen.getByRole( 'button', { name: 'Publish changes' } ) ).toBeDisabled()
+		);
+		expect( screen.getByRole( 'button', { name: 'Pull changes' } ) ).toBeEnabled();
+	} );
+
 	it( 'returns to the connected site after publishing succeeds', async () => {
 		const { emit, ready } = setup( [ remote ] );
 		await ready;

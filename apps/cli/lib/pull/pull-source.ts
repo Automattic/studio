@@ -38,7 +38,11 @@ export async function resolveSourceSite( identifier?: string ): Promise< PullSou
 	let sites: SyncSite[];
 	try {
 		// Reprint reads the site through Jetpack, so unpaid Atomic sites such as previews can be pulled.
-		sites = await fetchSyncableSites( token.accessToken, { planRequired: false } );
+		// The site picker and its errors read `syncSupport`.
+		sites = ( await fetchSyncableSites( token.accessToken ) ).map( ( site ) => ( {
+			...site,
+			syncSupport: site.pullSupport ?? site.syncSupport,
+		} ) );
 	} catch ( error ) {
 		throw new LoggerError( __( 'Failed to load WordPress.com sites' ), error );
 	}

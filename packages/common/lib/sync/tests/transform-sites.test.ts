@@ -74,6 +74,19 @@ describe( 'transformSitesResponse', () => {
 		expect( result.find( ( s ) => s.id === 2 )?.syncSupport ).toBe( 'needs-upgrade' );
 	} );
 
+	it.each( [
+		[ 'Backup', false, 'needs-upgrade' ],
+		[ 'Reprint', true, 'syncable' ],
+	] )(
+		'needs a plan to push to an unpaid Atomic site, and to pull it with %s',
+		( _, reprintPull, expected ) => {
+			const unpaid = { ...atomicSite(), plan: freeSite().plan };
+			const [ site ] = transformSitesResponse( [ unpaid ], { reprintPull } );
+
+			expect( site ).toMatchObject( { syncSupport: 'needs-upgrade', pullSupport: expected } );
+		}
+	);
+
 	it( 'reports software_version as wpVersion when present, undefined when omitted', () => {
 		const result = transformSitesResponse( [ atomicSite(), simpleBusinessSite() ] );
 

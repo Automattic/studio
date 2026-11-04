@@ -48,7 +48,7 @@ function lifecycle( siteName: string ) {
 		.querySelector< HTMLButtonElement >( 'button[data-state]' )!;
 }
 
-const previewShown = () => screen.queryByRole( 'complementary', { name: 'Site preview' } ) !== null;
+const previewShown = () => screen.queryByRole( 'complementary', { name: 'Panel' } ) !== null;
 const frame = () => document.querySelector( 'iframe, webview' );
 const layoutMotion = () => document.querySelector( `.${ splitStyles.rootPreviewAnimating }` );
 
@@ -245,7 +245,7 @@ describe( 'site lifecycle and preview', () => {
 			} );
 			const composer = screen.getByRole( 'combobox', COMPOSER );
 			if ( layout !== 'split' ) {
-				fireEvent.click( screen.getByRole( 'button', { name: 'Enter full view' } ) );
+				fireEvent.click( screen.getByRole( 'button', { name: 'Expand panel' } ) );
 			}
 			if ( layout === 'chat-tab' ) {
 				fireEvent.click( await screen.findByRole( 'button', { name: 'Show chat for My site' } ) );
@@ -265,7 +265,9 @@ describe( 'site lifecycle and preview', () => {
 			await waitFor( () => expect( previewShown() ).toBe( false ) );
 			expect( layoutMotion() ).toBeNull();
 			expect( composer ).toBeVisible();
-			expect( screen.queryByRole( 'button', { name: 'Exit full view' } ) ).not.toBeInTheDocument();
+			expect(
+				screen.queryByRole( 'button', { name: 'Restore split view' } )
+			).not.toBeInTheDocument();
 			expect( composer ).toHaveValue( 'Keep this site draft' );
 			expect( screen.getByRole( 'combobox', { ...COMPOSER, hidden: true } ) ).toBe( composer );
 			expect( connector.createSession ).not.toHaveBeenCalled();
@@ -408,9 +410,9 @@ describe( 'site lifecycle and preview', () => {
 				}
 			);
 			renderApp( { connector, path: '/sites/one/new' } );
-			fireEvent.click( await screen.findByRole( 'button', { name: 'Show preview' } ) );
+			fireEvent.click( await screen.findByRole( 'button', { name: 'Show panel' } ) );
 			if ( layout === 'fullscreen' ) act( () => connector.emit( 'onSetPreviewLayout', 'preview' ) );
-			const pane = screen.getByRole( 'complementary', { name: 'Site preview' } );
+			const pane = screen.getByRole( 'complementary', { name: 'Panel' } );
 			fireEvent.click( screen.getByRole( 'button', { name: 'Start My site' } ) );
 			await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
 			expect( pane ).toBeVisible();
@@ -421,7 +423,7 @@ describe( 'site lifecycle and preview', () => {
 			connector.state.sites = [ site( { running: true } ) ];
 			await act( async () => start.resolve() );
 			await waitFor( () => expect( frame() ).toBeInTheDocument() );
-			expect( screen.getByRole( 'complementary', { name: 'Site preview' } ) ).toBe( pane );
+			expect( screen.getByRole( 'complementary', { name: 'Panel' } ) ).toBe( pane );
 			fireEvent.load( frame()! );
 			expect( pane ).toBeVisible();
 		}
@@ -442,10 +444,9 @@ describe( 'site lifecycle and preview', () => {
 			const browser = await screen.findByRole( 'button', { name: 'Browser B' } );
 			const startButton = screen.getByRole( 'button', { name: 'Start My site' } );
 			expect(
-				within( screen.getByRole( 'complementary', { name: 'Site preview' } ) ).queryByRole(
-					'button',
-					{ name: 'Start' }
-				)
+				within( screen.getByRole( 'complementary', { name: 'Panel' } ) ).queryByRole( 'button', {
+					name: 'Start',
+				} )
 			).not.toBeInTheDocument();
 			fireEvent.click( target === 'preview' ? browser : startButton );
 			await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );

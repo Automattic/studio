@@ -152,7 +152,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				setting(
 					'action',
 					__( 'Start sites in split view' ),
-					__( 'Show chat beside the browser when starting a site.' ),
+					__( 'Show chat beside the panel when starting a site.' ),
 					'open-chat-on-site-start'
 				),
 				setting(

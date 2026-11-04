@@ -114,29 +114,29 @@ async function paletteCommand( query: string ) {
 	);
 }
 
-async function choosePreviewLayout( name: 'Chat' | 'Split view' | 'Browser' ) {
-	const toggle = await screen.findByRole( 'button', { name: /^(Show|Hide) preview$/ } );
+async function choosePreviewLayout( name: 'Chat' | 'Split view' | 'Panel' ) {
+	const toggle = await screen.findByRole( 'button', { name: /^(Show|Hide) panel$/ } );
 	const layout = toggle.getAttribute( 'data-preview-layout' );
 	if ( name === 'Chat' ) {
 		if ( layout !== 'chat' ) fireEvent.click( toggle );
 		return;
 	}
 	if ( layout === 'chat' ) fireEvent.click( toggle );
-	const full = name === 'Browser';
-	const button = screen.getByRole( 'button', { name: /^(Enter|Exit) full view$/ } );
-	if ( button.getAttribute( 'aria-label' ) === ( full ? 'Enter full view' : 'Exit full view' ) )
+	const full = name === 'Panel';
+	const button = screen.getByRole( 'button', { name: /^(Expand panel|Restore split view)$/ } );
+	if ( button.getAttribute( 'aria-label' ) === ( full ? 'Expand panel' : 'Restore split view' ) )
 		fireEvent.click( button );
 }
 
 function getLayoutControl( layout: 'chat' | 'split' | 'preview' ) {
-	const control = screen.getByRole( 'button', { name: /^(Show|Hide) preview$/ } );
+	const control = screen.getByRole( 'button', { name: /^(Show|Hide) panel$/ } );
 	expect( control ).toHaveAttribute( 'data-preview-layout', layout );
 	return control;
 }
 
 async function findLayoutControl( layout: 'chat' | 'split' | 'preview' ) {
 	await waitFor( () =>
-		expect( screen.getByRole( 'button', { name: /^(Show|Hide) preview$/ } ) ).toHaveAttribute(
+		expect( screen.getByRole( 'button', { name: /^(Show|Hide) panel$/ } ) ).toHaveAttribute(
 			'data-preview-layout',
 			layout
 		)
@@ -145,8 +145,8 @@ async function findLayoutControl( layout: 'chat' | 'split' | 'preview' ) {
 }
 
 async function setChatFullscreen( fullscreen: boolean ) {
-	await screen.findByRole( 'button', { name: /^(Show|Hide) preview$/ } );
-	await paletteCommand( fullscreen ? 'Switch to Browser' : 'Switch to Split view' );
+	await screen.findByRole( 'button', { name: /^(Show|Hide) panel$/ } );
+	await paletteCommand( fullscreen ? 'Switch to Panel' : 'Switch to Split view' );
 }
 
 async function waitForFullscreen( fullscreen: boolean ) {
@@ -231,7 +231,7 @@ describe( 'Studio workspace', () => {
 		}
 	} );
 
-	it.each( [ 'Split view', 'Browser' ] as const )(
+	it.each( [ 'Split view', 'Panel' ] as const )(
 		'enters annotation mode from %s with preview visible',
 		async ( layout ) => {
 			desktopPreview();
@@ -467,7 +467,7 @@ describe( 'Studio workspace', () => {
 			fireEvent.click( screen.getByRole( 'button', { name: 'Start My site' } ) );
 			await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
 			fireEvent.load( document.querySelector( 'iframe' )! );
-			await screen.findByLabelText( 'Site preview' );
+			await screen.findByRole( 'complementary', { name: 'Panel' } );
 			await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
 		} finally {
 			online.mockRestore();
@@ -493,7 +493,7 @@ describe( 'Studio workspace', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Start My site' } ) );
 		await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
 		fireEvent.load( document.querySelector( 'iframe' )! );
-		await screen.findByLabelText( 'Site preview' );
+		await screen.findByRole( 'complementary', { name: 'Panel' } );
 		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
 	} );
 
@@ -657,15 +657,13 @@ describe( 'Studio workspace', () => {
 					: composerStartButton();
 			fireEvent.click( play );
 			await waitFor( () => expect( connector.startSite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );
-			expect(
-				screen.queryByRole( 'complementary', { name: 'Site preview' } )
-			).not.toBeInTheDocument();
+			expect( screen.queryByRole( 'complementary', { name: 'Panel' } ) ).not.toBeInTheDocument();
 			expect( composer() ).toBeVisible();
 			await act( async () => finishStart() );
 			await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
 			fireEvent.load( document.querySelector( 'iframe' )! );
 			expect( await screen.findByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
-			expect( screen.getByRole( 'complementary', { name: 'Site preview' } ) ).toContainElement(
+			expect( screen.getByRole( 'complementary', { name: 'Panel' } ) ).toContainElement(
 				document.querySelector( 'iframe' )
 			);
 			expect( composer() ).toBe( input );
@@ -685,9 +683,9 @@ describe( 'Studio workspace', () => {
 			} );
 			if ( path.endsWith( '/new' ) ) {
 				await findComposer();
-				await paletteCommand( 'Switch to Browser' );
+				await paletteCommand( 'Switch to Panel' );
 			}
-			const panel = await screen.findByRole( 'complementary', { name: 'Site preview' } );
+			const panel = await screen.findByRole( 'complementary', { name: 'Panel' } );
 			let finishStart!: () => void;
 			connector.startSite.mockImplementationOnce(
 				() =>
@@ -806,11 +804,9 @@ describe( 'Studio workspace', () => {
 			const input = await findComposer();
 			fireEvent.change( input, { target: { value: 'Keep my draft' } } );
 			expect( document.querySelector( '[data-preview-layout="split"]' ) ).not.toBeInTheDocument();
-			expect(
-				screen.queryByRole( 'complementary', { name: 'Site preview' } )
-			).not.toBeInTheDocument();
-			await paletteCommand( 'Switch to Browser' );
-			const panel = await screen.findByRole( 'complementary', { name: 'Site preview' } );
+			expect( screen.queryByRole( 'complementary', { name: 'Panel' } ) ).not.toBeInTheDocument();
+			await paletteCommand( 'Switch to Panel' );
+			const panel = await screen.findByRole( 'complementary', { name: 'Panel' } );
 			expect(
 				await within( panel ).findByRole( 'button', {
 					name: 'Browser B',
@@ -840,14 +836,14 @@ describe( 'Studio workspace', () => {
 			expect(
 				within( document.querySelector< HTMLElement >( '[data-preview-open]' )! ).getByRole(
 					'button',
-					{ name: /^(Show|Hide) preview$/ }
+					{ name: /^(Show|Hide) panel$/ }
 				)
 			).toBeVisible();
 			const toggle = async ( fullscreen: boolean ) => {
 				if ( control === 'header' )
-					await choosePreviewLayout( fullscreen ? 'Browser' : 'Split view' );
+					await choosePreviewLayout( fullscreen ? 'Panel' : 'Split view' );
 				else if ( control === 'palette' )
-					await paletteCommand( fullscreen ? 'Switch to Browser' : 'Switch to Split view' );
+					await paletteCommand( fullscreen ? 'Switch to Panel' : 'Switch to Split view' );
 				else act( () => connector.emit( 'onToggleSitePreview' ) );
 			};
 			await toggle( true );
@@ -960,11 +956,9 @@ describe( 'Studio workspace', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Stopped site' } ) );
 		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/two/new' ) );
 		expect( await findComposer() ).toBeVisible();
-		expect(
-			screen.queryByRole( 'complementary', { name: 'Site preview' } )
-		).not.toBeInTheDocument();
-		await paletteCommand( 'Switch to Browser' );
-		await screen.findByRole( 'complementary', { name: 'Site preview' } );
+		expect( screen.queryByRole( 'complementary', { name: 'Panel' } ) ).not.toBeInTheDocument();
+		await paletteCommand( 'Switch to Panel' );
+		await screen.findByRole( 'complementary', { name: 'Panel' } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'My site' } ) );
 		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
 		await waitForFullscreen( true );
@@ -979,7 +973,7 @@ describe( 'Studio workspace', () => {
 				sites: [ site( { running: true } ) ],
 				sessions: [ chat( { id: 'remembered', title: 'Remembered chat' } ) ],
 			} );
-			await choosePreviewLayout( 'Browser' );
+			await choosePreviewLayout( 'Panel' );
 			await waitForFullscreen( true );
 			if ( source === 'sidebar' ) {
 				fireEvent.click(
@@ -1008,7 +1002,7 @@ describe( 'Studio workspace', () => {
 			setup( { signedIn: true, path: '/sites/one/new', sites: [ site( { running } ) ] } );
 			await screen.findByRole( 'button', { name: 'Site menu' } );
 			fireEvent.click(
-				await screen.findByRole( 'button', { name: running ? 'Hide preview' : 'Show preview' } )
+				await screen.findByRole( 'button', { name: running ? 'Hide panel' : 'Show panel' } )
 			);
 			fireEvent.click( screen.getByRole( 'button', { name: 'Settings' } ) );
 			const settings = await screen.findByRole( 'dialog', { name: 'Settings' } );
@@ -1018,9 +1012,7 @@ describe( 'Studio workspace', () => {
 			);
 			fireEvent.click( within( settings ).getByRole( 'button', { name: 'Close settings' } ) );
 			await waitFor( () =>
-				expect( screen.queryByRole( 'complementary', { name: 'Site preview' } ) !== null ).toBe(
-					running
-				)
+				expect( screen.queryByRole( 'complementary', { name: 'Panel' } ) !== null ).toBe( running )
 			);
 			expect( await findLayoutControl( running ? 'split' : 'chat' ) ).toBeVisible();
 			expect( composer() ).toBeVisible();
@@ -1030,7 +1022,7 @@ describe( 'Studio workspace', () => {
 
 	it( 'reveals a hidden chat when resetting the interface', async () => {
 		setup( { signedIn: true, path: '/sites/one/new', sites: [ site( { running: true } ) ] } );
-		await choosePreviewLayout( 'Browser' );
+		await choosePreviewLayout( 'Panel' );
 		await waitForFullscreen( true );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Settings' } ) );
 		const settings = await screen.findByRole( 'dialog', { name: 'Settings' } );
@@ -1301,7 +1293,7 @@ describe( 'Studio workspace', () => {
 				path: layout === 'site' ? '/sites/one' : '/sites/one/new',
 				sites: [ site( { running: true } ) ],
 			} );
-			if ( layout === 'fullscreen' ) await choosePreviewLayout( 'Browser' );
+			if ( layout === 'fullscreen' ) await choosePreviewLayout( 'Panel' );
 			await findLayoutControl( layout === 'split' ? 'split' : 'preview' );
 			fireEvent.click( screen.getByRole( 'button', { name: 'Stop My site' } ) );
 			await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledWith( 'one' ) );
@@ -1311,9 +1303,7 @@ describe( 'Studio workspace', () => {
 			expect( localStorage.getItem( PREVIEW_LAYOUT_STORAGE_KEY ) ).toBeNull();
 			expect( history.location.pathname ).toBe( '/sites/one/new' );
 			await waitFor( () =>
-				expect(
-					screen.queryByRole( 'complementary', { name: 'Site preview' } )
-				).not.toBeInTheDocument()
+				expect( screen.queryByRole( 'complementary', { name: 'Panel' } ) ).not.toBeInTheDocument()
 			);
 			expect( connector.createSession ).not.toHaveBeenCalled();
 		}
@@ -1360,9 +1350,7 @@ describe( 'Studio workspace', () => {
 				fireEvent.load( document.querySelector( 'iframe' )! );
 			}
 			await waitFor( () =>
-				expect( screen.queryByRole( 'complementary', { name: 'Site preview' } ) !== null ).toBe(
-					running
-				)
+				expect( screen.queryByRole( 'complementary', { name: 'Panel' } ) !== null ).toBe( running )
 			);
 			expect( composer() ).toBe( input );
 			expect( input ).toHaveValue( 'Keep this draft' );
@@ -1386,7 +1374,7 @@ describe( 'Studio workspace', () => {
 		await waitFor( () => expect( input ).toBeEnabled() );
 		fireEvent.change( input, { target: { value: 'Keep this draft' } } );
 		await screen.findByRole( 'button', { name: 'Publish…' } );
-		await paletteCommand( 'Switch to Browser' );
+		await paletteCommand( 'Switch to Panel' );
 		await waitFor( () =>
 			expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible()
 		);

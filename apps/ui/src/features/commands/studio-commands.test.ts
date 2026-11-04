@@ -118,7 +118,7 @@ it( 'derives labels and availability from active context', () => {
 	for ( const id of [ 'sidebar', 'pin-site', 'pin-chat', 'color-scheme' ] ) {
 		expect( byId( id )?.group ).toBe( 'commands' );
 	}
-	expect( byId( 'layout-browser' )?.label ).toBe( 'Switch to Browser' );
+	expect( byId( 'layout-browser' )?.label ).toBe( 'Switch to Panel' );
 	expect( byId( 'preview-fullscreen' ) ).toBeUndefined();
 	expect( byId( 'preview-visibility' ) ).toBeUndefined();
 	expect( byId( 'pin-site' )?.label ).toBe( 'Unpin site' );

@@ -82,9 +82,9 @@ function getShortcutSections( isApple: boolean ): ShortcutSection[] {
 			],
 		},
 		{
-			title: __( 'Site preview' ),
+			title: __( 'Panel' ),
 			shortcuts: [
-				{ label: __( 'Toggle site preview' ), keys: [ shiftKey, modifierKey, 'B' ] },
+				{ label: __( 'Toggle panel' ), keys: [ shiftKey, modifierKey, 'B' ] },
 				{ label: __( 'Reload preview' ), keys: [ modifierKey, 'R' ] },
 				{ label: __( 'Go back in preview' ), keys: [ navModifierKey, '←' ] },
 				{ label: __( 'Go forward in preview' ), keys: [ navModifierKey, '→' ] },

@@ -12,6 +12,11 @@ const IDENTITY: TracksIdentity = { type: 'anon', id: 'install-uuid-123' };
 describe( 'isTracksEventName', () => {
 	it( 'accepts known event names', () => {
 		expect( isTracksEventName( TRACKS_EVENTS.APP_LAUNCH ) ).toBe( true );
+		expect( isTracksEventName( TRACKS_EVENTS.BLUEPRINT_VIEWED ) ).toBe( true );
+		expect( isTracksEventName( TRACKS_EVENTS.BLUEPRINT_USE_CASE_FILTER_CHANGED ) ).toBe( true );
+		expect( isTracksEventName( TRACKS_EVENTS.BLUEPRINT_PREVIEW_IN_BROWSER ) ).toBe( true );
+		expect( isTracksEventName( TRACKS_EVENTS.BLUEPRINT_CREATE_SITE_INTENT ) ).toBe( true );
+		expect( isTracksEventName( TRACKS_EVENTS.BLANK_SITE_SELECTED ) ).toBe( true );
 		expect( isTracksEventName( TRACKS_EVENTS.SITE_START ) ).toBe( true );
 		expect( isTracksEventName( TRACKS_EVENTS.CODE_MESSAGE_SENT ) ).toBe( true );
 		expect( isTracksEventName( TRACKS_EVENTS.CODE_TURN_COMPLETED ) ).toBe( true );

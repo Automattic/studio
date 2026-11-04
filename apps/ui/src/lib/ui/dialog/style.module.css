@@ -265,11 +265,12 @@
 	}
 
 	.scrollArea {
+		composes: scrollFade from '@/lib/theme/recipes.module.css';
 		min-height: 0;
 		overflow-y: auto;
 	}
 
-	.scrollArea[data-scrolled='true'] {
-		mask-image: linear-gradient( to bottom, transparent, black var( --scroll-fade-size ) );
+	.content[data-layout='creation'] .scrollArea {
+		mask-image: none;
 	}
 }

@@ -1,7 +1,7 @@
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getVisibleToasts, showToast, resetAppMessagesForTests } from '@/data/app-messages';
+import { toast, getVisibleToasts, showToast, resetAppMessagesForTests } from '@/data/app-messages';
 import { closeNoticeHistory, NoticeHistoryButton } from '@/features/notifications/notice-history';
 import { renderWithProviders } from '@/test/render';
 import { AppToasts } from './index';
@@ -16,7 +16,50 @@ describe( 'AppToasts', () => {
 	afterEach( () => {
 		closeNoticeHistory();
 		resetAppMessagesForTests();
+		vi.useRealTimers();
 		vi.restoreAllMocks();
+	} );
+
+	it( 'keeps progress until dismissed and announces its result afterwards', async () => {
+		await render( <AppToasts /> );
+		vi.useFakeTimers();
+		act( () => {
+			toast.processing( 'Creating preview…', { id: 'progress', durationMs: 1 } );
+			vi.advanceTimersByTime( 10_000 );
+		} );
+		expect( screen.getByText( 'Creating preview…' ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Dismiss Creating preview…' } ) );
+		act( () => {
+			vi.advanceTimersByTime( 300 );
+		} );
+		expect( getVisibleToasts() ).toHaveLength( 0 );
+		act( () => {
+			toast.success( 'Preview ready', { id: 'progress' } );
+		} );
+		expect( screen.getByRole( 'button', { name: 'Dismiss Preview ready' } ) ).toBeVisible();
+	} );
+
+	it( 'clears processing from history without hiding its eventual result', async () => {
+		await render(
+			<>
+				<AppToasts />
+				<NoticeHistoryButton />
+			</>
+		);
+		act( () => {
+			toast.processing( 'Creating preview…', { id: 'progress' } );
+		} );
+		fireEvent.click(
+			screen.getByRole( 'button', { name: 'Notification history, notifications available' } )
+		);
+		expect( await screen.findByText( 'Creating preview…' ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Dismiss Creating preview…' } ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Clear all' } ) );
+		await waitFor( () => expect( getVisibleToasts() ).toHaveLength( 0 ) );
+		act( () => {
+			toast.success( 'Preview ready', { id: 'progress' } );
+		} );
+		expect( await screen.findByText( 'Preview ready' ) ).toBeVisible();
 	} );
 
 	it( 'replaces a toast in place, even when the replacement drops the description', async () => {

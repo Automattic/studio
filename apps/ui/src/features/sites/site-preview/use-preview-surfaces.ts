@@ -3,8 +3,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { siteDesignQueryKey } from '@/data/queries/use-site-design';
+import { siteEmailsQueryKey } from '@/data/queries/use-site-emails';
 import {
 	DATABASE_HOME_PATH,
+	EMAIL_PREVIEW_PATH,
 	getPathFromPreviewUrl,
 	getPreviewRealm,
 	getRealmNavigationPath,
@@ -28,6 +30,7 @@ const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
 	admin: '/wp-admin/',
 	staff: '/wp-admin/',
 	database: DATABASE_HOME_PATH,
+	email: EMAIL_PREVIEW_PATH,
 	design: DESIGN_SYSTEM_PREVIEW_PATH,
 };
 
@@ -43,6 +46,7 @@ export function usePreviewSurfaces( {
 	path,
 	reloadNonce,
 	onPathChange,
+	active = true,
 }: {
 	siteId: string;
 	siteUrl: string;
@@ -50,6 +54,7 @@ export function usePreviewSurfaces( {
 	path: string;
 	reloadNonce: number;
 	onPathChange?: ( path: string ) => void;
+	active?: boolean;
 } ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
@@ -105,9 +110,12 @@ export function usePreviewSurfaces( {
 	// replays a stale one when it comes back into view.
 	const sendSurfaceCommand = useCallback(
 		( key: PreviewSurfaceKey, type: BrowserCommand[ 'type' ] ) => {
-			if ( key === 'design' ) {
+			if ( key === 'design' || key === 'email' ) {
 				if ( type === 'reload' ) {
-					void queryClient.invalidateQueries( { queryKey: siteDesignQueryKey( siteId ) } );
+					void queryClient.invalidateQueries( {
+						queryKey:
+							key === 'design' ? siteDesignQueryKey( siteId ) : siteEmailsQueryKey( siteId ),
+					} );
 				}
 				return;
 			}
@@ -154,15 +162,15 @@ export function usePreviewSurfaces( {
 			return;
 		}
 		lastHostReloadNonceRef.current = reloadNonce;
-		if ( activeRealm === 'admin' || activeRealm === 'staff' ) {
+		if ( ! active || activeRealm === 'admin' || activeRealm === 'staff' ) {
 			return;
 		}
-		if ( activeSurfaceKey === 'design' ) {
-			sendSurfaceCommand( 'design', 'reload' );
+		if ( activeSurfaceKey === 'design' || activeSurfaceKey === 'email' ) {
+			sendSurfaceCommand( activeSurfaceKey, 'reload' );
 		} else {
 			patchSurface( activeSurfaceKey, { reloadNonce } );
 		}
-	}, [ activeRealm, activeSurfaceKey, patchSurface, reloadNonce, sendSurfaceCommand ] );
+	}, [ active, activeRealm, activeSurfaceKey, patchSurface, reloadNonce, sendSurfaceCommand ] );
 
 	// Where each realm was last seen, so flipping to WP Admin and back returns
 	// to the exact front-end page rather than the site root.

@@ -1,5 +1,4 @@
 import {
-	DESIGN_SYSTEM_PREVIEW_PATH,
 	getLocalMediaPath,
 	getMediaAltText,
 	getSafeMediaUrl,
@@ -31,7 +30,7 @@ import {
 	getSender,
 } from '@/features/chats/session-view/conversation/transcript-items';
 import { AiAccessRequiredNotice, AiBlockedNotice } from '@/features/credits';
-import { AppearanceIcon, WordPressIcon } from '@/lib/icons';
+import { WordPressIcon } from '@/lib/icons';
 import { Button } from '@/lib/ui';
 import styles from './style.module.css';
 import type { LoadedAiSession } from '@/data/core';
@@ -42,12 +41,14 @@ const ChatArtifact = memo( function ChatArtifact( {
 }: {
 	widgets: StudioChatArtifactWidgetDraft[];
 } ) {
+	const mediaWidgets = widgets.filter( ( widget ) => ! isDesignSystemPreviewWidget( widget ) );
+	if ( ! mediaWidgets.length ) {
+		return null;
+	}
 	return (
 		<div className={ styles.mediaArtifacts }>
-			{ widgets.map( ( widget, index ) =>
-				isDesignSystemPreviewWidget( widget ) ? (
-					<DesignSystemArtifact key={ `${ widget.type }:${ index }` } />
-				) : isAdminLinkWidget( widget ) ? (
+			{ mediaWidgets.map( ( widget, index ) =>
+				isAdminLinkWidget( widget ) ? (
 					<AdminLinkArtifact key={ `${ widget.type }:${ index }` } widget={ widget } />
 				) : (
 					<MediaArtifactImage key={ `${ widget.type }:${ index }` } widget={ widget } />
@@ -57,28 +58,13 @@ const ChatArtifact = memo( function ChatArtifact( {
 	);
 } );
 
-// The agent changed the site's DESIGN.md. The preview stays where it is, so the
-// person sees the change on their site, and this offers the design system view.
-function DesignSystemArtifact() {
-	const preview = useOptionalSessionPreviewUI();
-	return (
-		<div className={ styles.designSystemArtifact }>
-			<span>{ __( 'The design system was updated.' ) }</span>
-			<Button size="sm" onClick={ () => preview?.navigate( DESIGN_SYSTEM_PREVIEW_PATH ) }>
-				<AppearanceIcon />
-				{ __( 'Open design system' ) }
-			</Button>
-		</div>
-	);
-}
-
 // The agent curated wp-admin and checked it. Opens as the Staff account when
 // there is one, and as wp-admin itself when it's curated for everyone.
 function AdminLinkArtifact( { widget }: { widget: StudioChatArtifactWidgetDraft } ) {
 	const preview = useOptionalSessionPreviewUI();
 	const isStaff = Boolean( widget.widgetProps.user );
 	return (
-		<div className={ styles.designSystemArtifact }>
+		<div className={ styles.adminLinkArtifact }>
 			<span>{ isStaff ? __( 'The staff admin is ready.' ) : __( 'wp-admin is ready.' ) }</span>
 			<Button size="sm" onClick={ () => preview?.navigate( String( widget.widgetProps.path ) ) }>
 				{ isStaff ? <UserRoundIcon /> : <WordPressIcon /> }

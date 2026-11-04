@@ -40,6 +40,11 @@ function ToastDeck() {
 					<Toast.Root
 						key={ item.id }
 						toast={ item }
+						swipeDirection={ notice.dismissible === false ? [] : undefined }
+						onKeyDown={ ( event ) => {
+							if ( notice.dismissible === false && event.key === 'Escape' )
+								event.preventBaseUIHandler();
+						} }
 						className={ styles.toast }
 						aria-label={ notice.title }
 					>
@@ -47,7 +52,9 @@ function ToastDeck() {
 							<NoticeCard
 								className={ styles.card }
 								notice={ notice }
-								onDismiss={ () => dismissToast( notice.id ) }
+								onDismiss={
+									notice.dismissible === false ? undefined : () => dismissToast( notice.id )
+								}
 							/>
 						</Toast.Content>
 					</Toast.Root>

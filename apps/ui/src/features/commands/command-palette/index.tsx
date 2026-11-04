@@ -24,6 +24,13 @@ import { replaceOpenDialogs } from '@/lib/ui';
 import { PaletteDialog, type PaletteProps } from './palette-dialog';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
+interface PanelFullscreen {
+	active: boolean;
+	open?: boolean;
+	onOpenChange?: ( open: boolean ) => void;
+	onChange: ( active: boolean ) => void;
+}
+
 /**
  * ⌘K (Ctrl+K elsewhere) searches sites, chats and the commands for the current
  * site and chat.
@@ -32,11 +39,13 @@ export function CommandPalette( {
 	site,
 	session,
 	chatHidden,
+	panelFullscreen,
 }: {
 	site?: SiteDetails;
 	session?: AiSessionSummary;
-	// Set where the chat can be hidden beside the preview.
+	// Set where the chat can be hidden beside the panel.
 	chatHidden?: boolean;
+	panelFullscreen?: PanelFullscreen;
 } ) {
 	const open = useCommandPaletteOpen();
 	const commands = useAppCommands();
@@ -65,6 +74,7 @@ export function CommandPalette( {
 			site={ site }
 			session={ session }
 			chatHidden={ chatHidden }
+			panelFullscreen={ panelFullscreen }
 			{ ...palette }
 		/>
 	) : (
@@ -76,9 +86,15 @@ function SiteCommands( {
 	site,
 	session,
 	chatHidden,
+	panelFullscreen,
 	commands,
 	...palette
-}: PaletteProps & { site: SiteDetails; session?: AiSessionSummary; chatHidden?: boolean } ) {
+}: PaletteProps & {
+	site: SiteDetails;
+	session?: AiSessionSummary;
+	chatHidden?: boolean;
+	panelFullscreen?: PanelFullscreen;
+} ) {
 	const navigate = useNavigate();
 	const openSettings = useOpenSettings();
 	const connector = useConnector();
@@ -94,10 +110,25 @@ function SiteCommands( {
 	const annotations = useSiteAnnotations( site.id );
 	const settingCommands = useSettingCommands( 'site', site );
 
+	useEffect(
+		() =>
+			connector.onNewChat( () => {
+				replaceOpenDialogs( () => {
+					preview.setChatHidden( false, site.id );
+					void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+				} );
+			} ),
+		[ connector, navigate, preview, site.id ]
+	);
+
 	const siteCommands = getSiteCommands( {
 		site,
 		chatHidden,
-		previewShown: preview.open && preview.siteId === site.id,
+		panelShown: panelFullscreen?.open ?? preview.open,
+		showPanel: ( open ) => {
+			if ( panelFullscreen?.onOpenChange ) panelFullscreen.onOpenChange( open );
+			else preview.setOpen( open, { siteId: site.id, instant: true } );
+		},
 		canAnnotate: connector.capabilities.annotatePreview,
 		annotating: annotations.active,
 		actions,
@@ -112,11 +143,13 @@ function SiteCommands( {
 		},
 		reloadPreview: () => dispatch( { type: 'preview/reload' } ),
 		annotate: ( active ) => setAnnotating( site.id, active ),
-		showPreview: ( show ) => {
-			preview.setSite( site.id );
-			preview.setOpen( show );
+		setPanelFullscreen: ( hidden ) => {
+			if ( panelFullscreen ) panelFullscreen.onChange( hidden );
+			else {
+				preview.setOpen( true, { siteId: site.id, instant: true } );
+				preview.setChatHidden( hidden, site.id, { instant: true } );
+			}
 		},
-		setChatHidden: ( hidden ) => preview.setChatHidden( hidden, site.id ),
 		copyUrl: () =>
 			void connector
 				.copyText( getSiteUrl( site ) )

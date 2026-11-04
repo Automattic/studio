@@ -26,6 +26,8 @@ type ToastInput = {
 	description?: string;
 	action?: ToastAction;
 	durationMs?: number;
+	dismissible?: boolean;
+	processing?: boolean;
 };
 
 export type ToastMessage = {
@@ -35,6 +37,8 @@ export type ToastMessage = {
 	description?: string;
 	action?: ToastAction;
 	durationMs: number;
+	dismissible?: boolean;
+	processing?: boolean;
 	// True while the exit transition plays. The toast stays in the visible
 	// list (so the renderer can animate it out) and is actually removed —
 	// and the queue promoted — TOAST_EXIT_MS later.
@@ -46,6 +50,8 @@ export type ToastMessage = {
 export type NoticeIntent = ToastIntent | 'warning';
 
 export type NoticeRecord = {
+	dismissible?: boolean;
+	processing?: boolean;
 	source?: 'studio';
 	id: string;
 	intent: NoticeIntent;
@@ -76,6 +82,7 @@ const HISTORY_LIMIT = 50;
 let noticeHistory: NoticeRecord[] = [];
 // Keeps re-renders from re-logging a card, and "Clear all" from restoring one still showing.
 let loggedCards = new Map< string, string >();
+const dismissedProcessingNotices = new Set< string >();
 
 const timers = new Map< string, ReturnType< typeof setTimeout > >();
 const listeners = new Set< () => void >();
@@ -102,7 +109,7 @@ function clearExpiryTimer( id: string ) {
 // visible — queued failures keep their full linger time.
 function scheduleExpiry( toast: ToastMessage ) {
 	clearExpiryTimer( toast.id );
-	if ( ! rendererMounted ) {
+	if ( ! rendererMounted || toast.processing || toast.dismissible === false ) {
 		return;
 	}
 	const timer = setTimeout( () => {
@@ -115,13 +122,15 @@ function scheduleExpiry( toast: ToastMessage ) {
 function recordNotice(
 	toastMessage: Pick<
 		NoticeRecord,
-		'id' | 'intent' | 'title' | 'description' | 'action' | 'source'
+		'id' | 'intent' | 'title' | 'description' | 'action' | 'source' | 'processing' | 'dismissible'
 	>,
 	isReplacement: boolean
 ) {
 	const record: NoticeRecord = {
 		id: toastMessage.id,
 		source: toastMessage.source,
+		processing: toastMessage.processing,
+		dismissible: toastMessage.dismissible,
 		intent: toastMessage.intent,
 		title: toastMessage.title,
 		description: toastMessage.description,
@@ -142,12 +151,24 @@ function recordNotice(
 	noticeHistory = [ record, ...noticeHistory ].slice( 0, HISTORY_LIMIT );
 }
 
+function makeRoomForQueuedToast() {
+	if (
+		! queued.length ||
+		visible.length < MAX_VISIBLE_TOASTS ||
+		visible.some( ( item ) => item.leaving )
+	)
+		return;
+	const oldestProgress = visible.find( ( item ) => item.processing && item.dismissible !== false );
+	if ( oldestProgress ) dismissToast( oldestProgress.id );
+}
+
 function promoteQueued() {
 	while ( visible.length < MAX_VISIBLE_TOASTS && queued.length > 0 ) {
 		const next = queued.shift() as ToastMessage;
 		visible = [ ...visible, next ];
 		scheduleExpiry( next );
 	}
+	makeRoomForQueuedToast();
 }
 
 function finalizeToastRemoval( id: string ) {
@@ -185,9 +206,20 @@ export function showToast( input: ToastInput ): string {
 		title: input.title,
 		description: input.description,
 		action: input.action,
+		dismissible: input.dismissible,
+		processing: input.processing,
 		durationMs:
 			input.durationMs ?? ( intent === 'error' ? ERROR_TOAST_TTL_MS : DEFAULT_TOAST_TTL_MS ),
 	};
+	const wasDismissedProcessing = dismissedProcessingNotices.has( toastMessage.id );
+	if ( toastMessage.processing && wasDismissedProcessing ) {
+		if ( noticeHistory.some( ( notice ) => notice.id === toastMessage.id ) ) {
+			recordNotice( toastMessage, true );
+		}
+		emit();
+		return toastMessage.id;
+	}
+	if ( ! toastMessage.processing ) dismissedProcessingNotices.delete( toastMessage.id );
 
 	if ( visible.some( ( toast ) => toast.id === toastMessage.id ) ) {
 		// Re-showing also rescues a toast mid-exit: the replacement carries no
@@ -201,17 +233,25 @@ export function showToast( input: ToastInput ): string {
 	} else if ( visible.length < MAX_VISIBLE_TOASTS ) {
 		visible = [ ...visible, toastMessage ];
 		scheduleExpiry( toastMessage );
-		recordNotice( toastMessage, false );
+		recordNotice( toastMessage, wasDismissedProcessing );
 	} else {
-		queued = [ ...queued, toastMessage ];
-		recordNotice( toastMessage, false );
+		if ( toastMessage.intent === 'error' ) {
+			queued = [ toastMessage, ...queued ];
+		} else {
+			queued = [ ...queued, toastMessage ];
+		}
+		recordNotice( toastMessage, wasDismissedProcessing );
 	}
 
+	makeRoomForQueuedToast();
 	emit();
 	return toastMessage.id;
 }
 
 export function dismissToast( id: string ): void {
+	const target = [ ...visible, ...queued ].find( ( toast ) => toast.id === id );
+	if ( target?.dismissible === false ) return;
+	if ( target?.processing ) dismissedProcessingNotices.add( id );
 	beginToastExit( id );
 }
 
@@ -259,6 +299,10 @@ export async function runNoticeAction( action: ToastAction ): Promise< boolean >
 }
 
 export const toast = {
+	processing: (
+		title: string,
+		options: Omit< ToastInput, 'title' | 'intent' | 'processing' > = {}
+	) => showToast( { dismissible: true, ...options, intent: 'info', title, processing: true } ),
 	success: ( title: string, options: Omit< ToastInput, 'title' | 'intent' > = {} ) =>
 		showToast( { intent: 'success', title, ...options } ),
 	info: ( title: string, options: Omit< ToastInput, 'title' | 'intent' > = {} ) =>
@@ -357,20 +401,19 @@ export function useNoticeHistory(): readonly NoticeRecord[] {
 	);
 }
 
-// "Clear all" in the recent-notifications dialog: the list, plus whatever is
-// still showing or waiting in the sidebar — a cleared list with toasts left
-// behind reads as if nothing happened.
+// Clear dismissible notices and their visible or queued toasts.
 export function clearNoticeHistory(): void {
-	queued = [];
-	for ( const toastMessage of visible ) {
-		beginToastExit( toastMessage.id );
+	for ( const toastMessage of [ ...visible, ...queued ] ) {
+		dismissToast( toastMessage.id );
 	}
-	noticeHistory = [];
+	noticeHistory = noticeHistory.filter( ( item ) => item.dismissible === false );
 	emit();
 }
 
 // Removes one entry, and its toast if that is still showing.
 export function dismissNotice( notice: NoticeRecord ): void {
+	if ( notice.dismissible === false ) return;
+	if ( notice.processing ) dismissedProcessingNotices.add( notice.id );
 	noticeHistory = noticeHistory.filter( ( item ) => item !== notice );
 	beginToastExit( notice.id );
 	emit();
@@ -413,4 +456,5 @@ export function resetAppMessagesForTests(): void {
 	snapshot = visible;
 	noticeHistory = [];
 	loggedCards = new Map();
+	dismissedProcessingNotices.clear();
 }

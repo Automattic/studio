@@ -2,6 +2,7 @@ import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { ExportEvents, ExportIpcEvent } from '@studio/common/lib/import-export-events';
+import { getSiteTracksProps } from '@studio/common/lib/site-tracks';
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
@@ -213,7 +214,7 @@ async function exportSite(
 		logger.reportSuccess( sprintf( __( '%s successfully exported' ), exportPath ) );
 
 		if ( ! suppressTracksEvent ) {
-			await recordSiteExportEvent( {
+			await recordSiteExportEvent( siteFolder, {
 				success: true,
 				export_type: mode,
 				time_ms: Date.now() - startedAt,
@@ -221,7 +222,7 @@ async function exportSite(
 		}
 	} catch ( error ) {
 		if ( ! suppressTracksEvent ) {
-			await recordSiteExportEvent( {
+			await recordSiteExportEvent( siteFolder, {
 				success: false,
 				export_type: mode,
 				failure_reason: classifyExportFailure( error ),
@@ -234,15 +235,19 @@ async function exportSite(
 	}
 }
 
-async function recordSiteExportEvent( props: {
-	success: boolean;
-	export_type: 'full' | 'content' | 'db';
-	failure_reason?: string;
-	time_ms: number;
-} ): Promise< void > {
+async function recordSiteExportEvent(
+	siteFolder: string,
+	props: {
+		success: boolean;
+		export_type: 'full' | 'content' | 'db';
+		failure_reason?: string;
+		time_ms: number;
+	}
+): Promise< void > {
 	try {
 		await recordTracksEvent( TRACKS_EVENTS.SITE_EXPORT, {
 			...props,
+			...( await getSiteTracksProps( { siteFolder } ) ),
 			...getTracksOrigin(),
 		} );
 	} catch {

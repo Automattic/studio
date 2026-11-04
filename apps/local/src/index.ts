@@ -3,6 +3,7 @@ import { createReadStream, createWriteStream, existsSync, mkdtempSync, rm } from
 import os from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
+import { recordAnnotationSubmitted } from '@studio/agent/node/annotation-tracks';
 import {
 	getGlobalInstructionsEnabled,
 	readGlobalInstructionsFile,
@@ -50,6 +51,14 @@ import {
 	setSiteAgentFileEnabled,
 	type SiteAgentFileKind,
 } from '@studio/common/lib/agent-skills';
+import {
+	onboardingAnalyticsSchema,
+	authAnalyticsSchema,
+	authSourceSchema,
+	createAuthAttempt,
+	createAuthAttemptStore,
+	getAuthTracksProps,
+} from '@studio/common/lib/auth-tracks';
 import { downloadAndExtractBlueprintBundle } from '@studio/common/lib/blueprint-bundle';
 import {
 	cliAuthEventSchema,
@@ -105,6 +114,7 @@ import {
 	readSitePreview,
 	writeSitePreview,
 } from '@studio/common/lib/site-preview-cache';
+import { resolveSiteTracksEventProps } from '@studio/common/lib/site-tracks';
 import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
 import { requestStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
@@ -118,7 +128,10 @@ import {
 } from '@studio/common/lib/sync/sync-api';
 import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
 import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/editor';
-import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
+import {
+	detectInstalledApps,
+	detectInstalledAppsWithDefaultBrowser,
+} from '@studio/common/lib/user-settings/installed-apps';
 import {
 	readOnboardingCompleted,
 	writeOnboardingCompleted,
@@ -138,13 +151,19 @@ import {
 	cleanupBlueprintTempDir,
 	extractBlueprintUpload,
 } from '@studio/common/sites/blueprint-extract';
+import { readBlueprintSource } from '@studio/common/sites/blueprint-source';
 import { buildSiteCreateArgs, type SiteCreateOptions } from '@studio/common/sites/create';
 import { buildSiteSetArgs, getSiteEditOptions } from '@studio/common/sites/edit';
 import { deleteSite, startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
 import { listSitesWithMetadata, updateSiteMetadata } from '@studio/common/sites/metadata';
 import { designFixesSchema, fixSiteDesign, readSiteDesign } from '@studio/common/sites/site-design';
-import { readSitePath, readSitePaths } from '@studio/common/sites/site-path';
+import {
+	ensureSiteEmailDirectory,
+	listSiteEmails,
+	readSiteEmail,
+} from '@studio/common/sites/site-email';
+import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import {
 	deleteAllPreviewSites,
 	deletePreviewSite,
@@ -247,9 +266,8 @@ const AUTH_CALLBACK_HTML = `<!DOCTYPE html>
 	var params=new URLSearchParams(location.hash.slice(1));
 	var token=params.get('access_token');
 	var error=params.get('error');
-	function notify(type,message){try{if(window.opener){window.opener.postMessage({type:type,message:message},location.origin);}}catch(e){}}
-	if(error||!token){msg.textContent='Login failed: '+(error||'no token returned');notify('studio-auth-error',error||'no token');return;}
-	fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:token})})
+	function notify(type,message){try{if(window.opener){window.opener.postMessage({type:type,message:message,auth_attempt_id:params.get('state')},location.origin);}}catch(e){}}
+	fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:token,error:error,auth_attempt_id:params.get('state')})})
 		.then(function(r){if(!r.ok){throw new Error('Token could not be validated');}return r.json();})
 		.then(function(){msg.textContent='Signed in! You can close this window.';notify('studio-auth-success');setTimeout(function(){window.close();},800);})
 		.catch(function(e){msg.textContent='Login failed: '+e.message;notify('studio-auth-error',e.message);});
@@ -336,6 +354,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	const host = options.host ?? '127.0.0.1';
 
 	// Analytics must never fail a user action, so every call is fire-and-forget.
+	const authAttempts = createAuthAttemptStore();
+
 	function trackEvent( event: TracksEventName, props?: TracksProps ): void {
 		void options.recordTracksEvent?.( event, props ).catch( () => undefined );
 	}
@@ -541,20 +561,30 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	// --- Analytics — the browser UI's equivalent of the desktop's IPC handler --
 	// Unknown names are dropped, not forwarded, as in `recordAnalyticsEvent`.
-	api.post( '/analytics/event', ( req: Request, res: Response ) => {
-		const eventName = req.body?.eventName;
-		if ( typeof eventName !== 'string' ) {
-			res.status( 400 ).json( { error: 'eventName required' } );
-			return;
-		}
-		if ( ! isTracksEventName( eventName ) ) {
-			console.warn( `Ignoring unknown analytics event name: ${ eventName }` );
+	api.post(
+		'/analytics/event',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const eventName = req.body?.eventName;
+			if ( typeof eventName !== 'string' ) {
+				res.status( 400 ).json( { error: 'eventName required' } );
+				return;
+			}
+			if ( ! isTracksEventName( eventName ) ) {
+				console.warn( `Ignoring unknown analytics event name: ${ eventName }` );
+				res.status( 204 ).end();
+				return;
+			}
+			trackEvent(
+				eventName,
+				await resolveSiteTracksEventProps(
+					eventName,
+					sanitizeTracksProps( req.body?.props ),
+					req.body?.siteId
+				)
+			);
 			res.status( 204 ).end();
-			return;
-		}
-		trackEvent( eventName, sanitizeTracksProps( req.body?.props ) );
-		res.status( 204 ).end();
-	} );
+		} )
+	);
 
 	// --- Auth — the WordPress.com user the CLI is already logged in as ---------
 	// Read straight from the shared auth token (`~/.studio/shared.json`); the
@@ -575,56 +605,99 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	// connector falls back to the paste flow.
 	api.get( '/auth/login-url', ( req: Request, res: Response ) => {
 		const redirectUri = typeof req.query.redirect_uri === 'string' ? req.query.redirect_uri : '';
-		if ( ! redirectUri ) {
-			res.json( { url: null } );
-			return;
-		}
+		const analytics = authAnalyticsSchema.safeParse( {
+			...req.query,
+			journey_started_at:
+				typeof req.query.journey_started_at === 'string'
+					? Number( req.query.journey_started_at )
+					: undefined,
+		} ).data;
+		const attempt = createAuthAttempt(
+			authSourceSchema.catch( 'unknown' ).parse( req.query.source ),
+			req.query.signup === '1',
+			analytics
+		);
+		authAttempts.add( attempt );
+		trackEvent( TRACKS_EVENTS.WPCOM_AUTH_STARTED, getAuthTracksProps( attempt ) );
 		res.json( {
-			url:
-				req.query.signup === '1'
-					? getSignUpUrl( 'en', redirectUri )
-					: getAuthenticationUrl( 'en', redirectUri ),
+			url: redirectUri
+				? attempt.auth_flow === 'signup'
+					? getSignUpUrl( 'en', redirectUri, attempt.auth_attempt_id )
+					: getAuthenticationUrl( 'en', redirectUri, attempt.auth_attempt_id )
+				: null,
+			authAttemptId: attempt.auth_attempt_id,
 		} );
 	} );
 
-	// Log in by storing a token from the redirect callback (or pasted from
-	// WordPress.com's copy-token page — the same implicit-OAuth flow
-	// `studio auth login` uses). The token is validated against /me before being
-	// written to the shared config.
+	api.post( '/auth/cancel', ( req: Request, res: Response ) => {
+		const attempt = authAttempts.take( req.body?.auth_attempt_id );
+		if ( attempt )
+			trackEvent(
+				req.body?.launch_failed === true
+					? TRACKS_EVENTS.WPCOM_AUTH_LAUNCH_FAILED
+					: TRACKS_EVENTS.WPCOM_AUTH_CANCELLED,
+				getAuthTracksProps( attempt )
+			);
+		res.status( 204 ).end();
+	} );
+
 	api.post(
 		'/auth/login',
 		asyncHandler( async ( req: Request, res: Response ) => {
+			const attempt = authAttempts.take(
+				typeof req.body?.auth_attempt_id === 'string' ? req.body.auth_attempt_id : undefined
+			);
+			const props = getAuthTracksProps( attempt );
+			const fail = ( status: number, message: string, reason: string ) => {
+				trackEvent( TRACKS_EVENTS.WPCOM_AUTH, {
+					...props,
+					success: false,
+					failure_reason: reason,
+				} );
+				res.status( status ).json( { error: message } );
+			};
 			const token = typeof req.body?.token === 'string' ? req.body.token.trim() : '';
-			if ( ! token ) {
-				res.status( 400 ).json( { error: 'token required' } );
+			if ( req.body?.error || ! token ) {
+				fail(
+					400,
+					'Authentication failed',
+					req.body?.error === 'access_denied' ? 'access_denied' : 'token_error'
+				);
 				return;
 			}
 			let me: { ID: number; email: string; display_name: string };
 			try {
-				const meResponse = await fetch(
+				const response = await fetch(
 					'https://public-api.wordpress.com/rest/v1.1/me?fields=ID,email,display_name',
 					{ headers: { Authorization: `Bearer ${ token }` } }
 				);
-				if ( ! meResponse.ok ) {
-					res.status( 401 ).json( { error: 'Invalid authentication token' } );
+				if ( ! response.ok ) {
+					fail( 401, 'Invalid authentication token', 'profile_fetch_failed' );
 					return;
 				}
-				me = ( await meResponse.json() ) as { ID: number; email: string; display_name: string };
-			} catch ( error ) {
-				console.error( 'Auth login: failed to reach WordPress.com:', error );
-				res.status( 502 ).json( { error: 'Could not reach WordPress.com to validate the token.' } );
+				me = z
+					.object( { ID: z.number(), email: z.string(), display_name: z.string() } )
+					.parse( await response.json() );
+			} catch {
+				fail( 502, 'Could not reach WordPress.com to validate the token.', 'profile_fetch_failed' );
 				return;
 			}
-			await updateSharedConfig( {
-				authToken: {
-					accessToken: token,
-					id: me.ID,
-					email: me.email,
-					displayName: me.display_name,
-					expiresIn: DEFAULT_TOKEN_LIFETIME_MS / 1000,
-					expirationTime: Date.now() + DEFAULT_TOKEN_LIFETIME_MS,
-				},
-			} );
+			try {
+				await updateSharedConfig( {
+					authToken: {
+						accessToken: token,
+						id: me.ID,
+						email: me.email,
+						displayName: me.display_name,
+						expiresIn: DEFAULT_TOKEN_LIFETIME_MS / 1000,
+						expirationTime: Date.now() + DEFAULT_TOKEN_LIFETIME_MS,
+					},
+				} );
+			} catch {
+				fail( 500, 'Could not save authentication.', 'unknown' );
+				return;
+			}
+			trackEvent( TRACKS_EVENTS.WPCOM_AUTH, { ...props, success: true } );
 			res.json( { id: me.ID, email: me.email, displayName: me.display_name } );
 		} )
 	);
@@ -814,7 +887,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.json( { thumbnail: null } );
 				return;
 			}
-			const url = new URL( pagePath, site.url );
+			const url = new URL( '/?studio-hide-adminbar', site.url );
 			if ( url.origin !== new URL( site.url ).origin ) {
 				res.status( 400 ).json( { error: 'The page must be on the site.' } );
 				return;
@@ -1071,10 +1144,15 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				}
 			}
 			try {
+				const blueprint =
+					confined && req.body?.allowBlueprints === true
+						? await readBlueprintSource( confined )
+						: null;
 				res.json( {
 					...folder,
-					isEmpty: confined ? await isEmptyDir( confined ) : true,
-					isWordPress: confined ? isWordPressDirectory( confined ) : false,
+					...( blueprint ? { blueprint } : {} ),
+					isEmpty: blueprint ? false : confined ? await isEmptyDir( confined ) : true,
+					isWordPress: ! blueprint && confined ? isWordPressDirectory( confined ) : false,
 				} );
 			} catch ( err ) {
 				if ( ! isErrnoException( err ) || err.code !== 'ENOENT' ) throw err;
@@ -1466,7 +1544,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.get(
 		'/installed-apps',
 		asyncHandler( async ( _req: Request, res: Response ) => {
-			res.json( detectInstalledApps() );
+			res.json( await detectInstalledAppsWithDefaultBrowser() );
 		} )
 	);
 
@@ -1527,7 +1605,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.patch(
 		'/onboarding',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const parsed = z.object( { completed: z.boolean() } ).safeParse( req.body );
+			const parsed = z
+				.object( { completed: z.boolean(), analytics: onboardingAnalyticsSchema.optional() } )
+				.safeParse( req.body );
 			if ( ! parsed.success ) {
 				res.status( 400 ).json( { error: 'Invalid onboarding state' } );
 				return;
@@ -1535,6 +1615,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			if ( await writeOnboardingCompleted( parsed.data.completed ) ) {
 				trackEvent( TRACKS_EVENTS.ONBOARDING_COMPLETE, {
 					authenticated: !! ( await readAuthToken() ),
+					...parsed.data.analytics,
 				} );
 			}
 			res.status( 204 ).end();
@@ -1561,15 +1642,37 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	api.post(
-		'/sites/:id/open-email-folder',
+	// `readSite` rather than `listSites`: the email view polls the list while it's open.
+	api.get(
+		'/sites/:id/emails',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
-			if ( ! site?.emailPath ) {
+			if ( ! ( await readSite( req.params.id ) ) ) {
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			await openPath( site.emailPath );
+			res.json( await listSiteEmails( req.params.id ) );
+		} )
+	);
+
+	api.get(
+		'/sites/:id/emails/:emailId',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			if ( ! ( await readSite( req.params.id ) ) ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			res.json( await readSiteEmail( req.params.id, req.params.emailId ) );
+		} )
+	);
+
+	api.post(
+		'/sites/:id/open-email-folder',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			if ( ! ( await readSite( req.params.id ) ) ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			await openPath( await ensureSiteEmailDirectory( req.params.id ) );
 			res.status( 204 ).end();
 		} )
 	);
@@ -2074,10 +2177,17 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			const { runId } = runManager.startAgentRun( {
 				sessionId: req.params.id,
 				prompt: expandSkillCommandPrompt( prompt ),
+				turnId: typeof req.body.turnId === 'string' ? req.body.turnId : undefined,
 				displayMessage,
 				images,
 				files,
 				visualAnnotations: validatedVisualAnnotations,
+			} );
+			void recordAnnotationSubmitted( {
+				annotationCount: validatedVisualAnnotations?.length ?? 0,
+				sessionsRoot,
+				sessionId: req.params.id,
+				record: options.recordTracksEvent,
 			} );
 			res.json( { runId } );
 		} )

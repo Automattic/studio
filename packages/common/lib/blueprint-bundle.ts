@@ -31,6 +31,41 @@ export function createBlueprintTempDirSync(): string {
 	return fs.mkdtempSync( path.join( os.tmpdir(), TEMP_DIR_PREFIX ) );
 }
 
+/** Resolves the Blueprint while keeping its bundled resources beside it. */
+export async function findBlueprintInBundle( directory: string ): Promise< string > {
+	const rootPath = path.join( directory, 'blueprint.json' );
+	if (
+		await fs.promises.stat( rootPath ).then(
+			( stat ) => stat.isFile(),
+			() => false
+		)
+	) {
+		return rootPath;
+	}
+	const entries = await fs.promises.readdir( directory, { withFileTypes: true } );
+	const candidates: string[] = [];
+	for ( const entry of entries ) {
+		if ( ! entry.isDirectory() || entry.name === '__MACOSX' ) continue;
+		const candidate = path.join( directory, entry.name, 'blueprint.json' );
+		if (
+			await fs.promises.stat( candidate ).then(
+				( stat ) => stat.isFile(),
+				() => false
+			)
+		) {
+			candidates.push( candidate );
+		}
+	}
+	if ( candidates.length !== 1 ) {
+		throw new Error(
+			candidates.length > 1
+				? 'Multiple Blueprints found in the ZIP. Include only one Blueprint bundle.'
+				: 'No blueprint.json found in the ZIP. Place it at the root or inside one enclosing folder.'
+		);
+	}
+	return candidates[ 0 ];
+}
+
 /**
  * Downloads a blueprint bundle zip from a URL, extracts it to a temp directory,
  * and returns the path to the extracted blueprint.json.
@@ -48,31 +83,7 @@ export async function downloadAndExtractBlueprintBundle( bundleUrl: string ): Pr
 		await extractZip( tempZipPath, tempDir );
 		await fs.promises.unlink( tempZipPath ).catch( () => {} );
 
-		let blueprintJsonPath = path.join( tempDir, 'blueprint.json' );
-		try {
-			await fs.promises.access( blueprintJsonPath );
-		} catch {
-			// Some zips have a single root directory — check one level deeper
-			const files = await fs.promises.readdir( tempDir );
-			for ( const file of files ) {
-				const nestedPath = path.join( tempDir, file, 'blueprint.json' );
-				try {
-					await fs.promises.access( nestedPath );
-					blueprintJsonPath = nestedPath;
-					break;
-				} catch {
-					// continue checking
-				}
-			}
-		}
-
-		try {
-			await fs.promises.access( blueprintJsonPath );
-		} catch {
-			throw new Error(
-				'No blueprint.json found in the downloaded bundle. Ensure the bundle zip contains a blueprint.json.'
-			);
-		}
+		const blueprintJsonPath = await findBlueprintInBundle( tempDir );
 
 		return { blueprintJsonPath, tempDir };
 	} catch ( error ) {

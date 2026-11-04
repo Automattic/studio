@@ -37,7 +37,7 @@
 	gap: var( --space-1 );
 }
 
-.designSystemArtifact {
+.adminLinkArtifact {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;

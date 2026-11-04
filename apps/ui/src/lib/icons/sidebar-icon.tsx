@@ -2,8 +2,12 @@ import type { ComponentProps } from 'react';
 
 export function SidebarIcon( {
 	state = 'docked',
+	side = 'left',
 	...props
-}: ComponentProps< 'svg' > & { state?: 'closed' | 'flyout' | 'docked' } ) {
+}: ComponentProps< 'svg' > & {
+	state?: 'closed' | 'flyout' | 'docked';
+	side?: 'left' | 'right';
+} ) {
 	return (
 		<svg
 			width="16"
@@ -17,10 +21,10 @@ export function SidebarIcon( {
 		>
 			<rect x="3" y="3" width="18" height="18" rx="4" />
 			{ state === 'docked' ? (
-				<path d="M10 3V21" />
+				<path d={ side === 'right' ? 'M14 3V21' : 'M10 3V21' } />
 			) : (
 				<rect
-					x="6.5"
+					x={ side === 'right' ? ( state === 'flyout' ? 12 : 15.5 ) : 6.5 }
 					y="6.5"
 					width={ state === 'flyout' ? 5.5 : 2 }
 					height="11"

@@ -64,7 +64,7 @@ export function PreviewHeader( {
 			onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
 			pageTitle={ browserState.title }
 			loading={ browserState.loading }
-			onOpenExternal={ browserActions ? undefined : onOpenExternal }
+			onOpenExternal={ onOpenExternal }
 			onExternalNavigate={ onExternalNavigate }
 			disabled={ ! canPreview || isStarting || isStopping }
 		/>
@@ -145,11 +145,7 @@ export function PreviewHeader( {
 				/>
 				{ responsiveButton }
 				{ canPreview && browserActions ? (
-					<BrowserMenu
-						actions={ browserActions }
-						onOpenExternal={ onOpenExternal }
-						disabled={ disabled }
-					/>
+					<BrowserMenu actions={ browserActions } disabled={ disabled } />
 				) : null }
 			</div>
 		</div>

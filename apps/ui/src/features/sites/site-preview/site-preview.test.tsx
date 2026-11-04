@@ -710,7 +710,6 @@ describe( 'preview browser menu', () => {
 		screen.getByRole( 'button', { name: 'Browser options' } ).focus();
 		await user.keyboard( '{ArrowDown}' );
 		expect( screen.getAllByRole( 'menuitem' ).map( ( item ) => item.textContent ) ).toEqual( [
-			'Open in browser',
 			'Open DevTools',
 			'Appearance',
 			'Clear browsing data',
@@ -730,9 +729,7 @@ describe( 'preview browser menu', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Reload preview' } ) );
 		await waitFor( () => expect( clearWebviewCache() ).toHaveBeenCalledWith( 42 ) );
 		expect( preview.reload ).toHaveBeenCalledOnce();
-		screen.getByRole( 'button', { name: 'Browser options' } ).focus();
-		await user.keyboard( '{ArrowDown}' );
-		await user.click( screen.getByRole( 'menuitem', { name: 'Open in browser' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Open this page in your browser' } ) );
 		expect( connector.openSiteUrl ).toHaveBeenCalledWith( 'one', '/about/', { autoLogin: false } );
 	} );
 

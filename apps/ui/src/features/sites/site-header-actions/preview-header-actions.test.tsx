@@ -195,6 +195,11 @@ it( 'marks saved annotations with a dot while keeping Publish accented', async (
 it( 'keeps browser actions directly available in a narrow preview', async () => {
 	const connector = createFakeConnector();
 	const { user, resize } = await renderHeader( 'navigation-site', connector, 360 );
+	const openWebviewDevTools = vi.fn().mockResolvedValue( undefined );
+	vi.stubGlobal( 'ipcApi', {
+		clearWebviewCache: vi.fn( async () => {} ),
+		openWebviewDevTools,
+	} );
 	await resize( 360, 1000 );
 	const webview = readyGuest( {
 		canGoBack: () => false,
@@ -227,8 +232,8 @@ it( 'keeps browser actions directly available in a narrow preview', async () => 
 	expect( screen.getByRole( 'button', { name: 'Browser options' } ) ).toBe( options );
 	options.focus();
 	await user.keyboard( '{ArrowDown}' );
-	await user.click( await screen.findByRole( 'menuitem', { name: 'Open in browser' } ) );
-	await waitFor( () => expect( connector.openSiteUrl ).toHaveBeenCalledOnce() );
+	await user.click( await screen.findByRole( 'menuitem', { name: 'Open DevTools' } ) );
+	await waitFor( () => expect( openWebviewDevTools ).toHaveBeenCalledExactlyOnceWith( 7 ) );
 } );
 
 it( 'keeps responsive mode on the right as the browser row compacts', async () => {
@@ -249,7 +254,7 @@ it( 'keeps responsive mode on the right as the browser row compacts', async () =
 	expect( screen.getByRole( 'button', { name: 'Browser options' } ) ).toBe( options );
 	expect( toggle ).toHaveFocus();
 	await user.keyboard( '{Tab}{ArrowDown}' );
-	expect( screen.getByRole( 'menuitem', { name: 'Open in browser' } ) ).toHaveFocus();
+	expect( screen.getByRole( 'menuitem', { name: 'Open DevTools' } ) ).toHaveFocus();
 	await user.keyboard( '{Escape}' );
 	expect( options ).toHaveFocus();
 	expect(

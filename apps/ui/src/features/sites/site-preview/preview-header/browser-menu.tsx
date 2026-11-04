@@ -13,16 +13,12 @@ export interface PreviewBrowserActions {
 
 interface BrowserMenuItemsProps {
 	actions: PreviewBrowserActions;
-	onOpenExternal?: () => void;
 	disabled?: boolean;
 }
 
-function BrowserMenuItems( { actions, onOpenExternal, disabled }: BrowserMenuItemsProps ) {
+function BrowserMenuItems( { actions, disabled }: BrowserMenuItemsProps ) {
 	return (
 		<>
-			<Menu.Item disabled={ disabled || ! onOpenExternal } onClick={ onOpenExternal }>
-				{ __( 'Open in browser' ) }
-			</Menu.Item>
 			<Menu.Item disabled={ disabled } onClick={ actions.onOpenDevTools }>
 				{ __( 'Open DevTools' ) }
 			</Menu.Item>

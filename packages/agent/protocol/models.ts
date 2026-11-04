@@ -2,7 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { isStudioCustomEntryOfType } from '@studio/agent/protocol/sessions/entry-types';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
-export type AiModelFamily = 'anthropic' | 'studio';
+export type AiModelFamily = 'anthropic' | 'openai' | 'studio';
 
 export interface AiModel {
 	/** Stable model id, kept in settings and session history. */
@@ -30,7 +30,8 @@ export interface AiModel {
 // The `studio` family are capability tiers, not concrete models: the wpcom
 // proxy's `studio-agent` lane resolves each alias to an upstream model
 // server-side, so the mapping can be retuned without a client release. The
-// `anthropic` family exists for the direct Anthropic · API key provider only.
+// `anthropic` family exists for the direct Anthropic · API key provider only,
+// and `openai` for Sign in with ChatGPT.
 export const AI_MODELS = [
 	{ id: 'fast', label: 'Fast', family: 'studio', supportsImages: false },
 	{
@@ -49,6 +50,8 @@ export const AI_MODELS = [
 	},
 	{ id: 'claude-sonnet-5', label: 'Sonnet 5', family: 'anthropic' },
 	{ id: 'claude-opus-5', label: 'Opus 5', family: 'anthropic' },
+	{ id: 'gpt-6.1-terra', label: 'GPT-6.1 Terra', family: 'openai' },
+	{ id: 'gpt-6.1-sol', label: 'GPT-6.1 Sol', family: 'openai' },
 ] as const satisfies readonly AiModel[];
 
 export type AiModelId = ( typeof AI_MODELS )[ number ][ 'id' ];

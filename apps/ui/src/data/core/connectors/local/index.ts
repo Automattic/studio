@@ -842,6 +842,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( { provider } ),
 			} );
 		},
+		async connectChatGpt(): Promise< AiSettings > {
+			return api< AiSettings >( '/ai-settings/chatgpt', { method: 'POST' } );
+		},
+		async disconnectChatGpt(): Promise< AiSettings > {
+			return api< AiSettings >( '/ai-settings/chatgpt', { method: 'DELETE' } );
+		},
 
 		// The server runs on the user's machine, so it opens paths in OS apps on
 		// the browser's behalf (the editor/terminal choice comes from prefs above).

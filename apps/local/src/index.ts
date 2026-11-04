@@ -28,6 +28,7 @@ import {
 } from '@studio/agent/node/sessions/store';
 import {
 	InvalidAnthropicApiKeyError,
+	disconnectChatGpt,
 	readAiSettings,
 	saveAnthropicApiKey,
 	setAiProvider,
@@ -60,6 +61,7 @@ import {
 	getAuthTracksProps,
 } from '@studio/common/lib/auth-tracks';
 import { downloadAndExtractBlueprintBundle } from '@studio/common/lib/blueprint-bundle';
+import { signInWithChatGpt } from '@studio/common/lib/chatgpt-sign-in';
 import {
 	cliAuthEventSchema,
 	cliSiteEventSchema,
@@ -773,19 +775,21 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// Clearing the key also falls the provider back to WordPress.com, so both writes
-	// report through one event, as on the desktop.
+	// Clearing the key or signing out of ChatGPT also falls the provider back to
+	// WordPress.com, so every write reports through one event, as on the desktop.
 	function trackAiSettingsChange( previous: AiSettings, next: AiSettings ): void {
 		const unchanged =
 			previous.provider === next.provider &&
 			previous.hasAnthropicApiKey === next.hasAnthropicApiKey &&
-			previous.anthropicApiKeyPreview === next.anthropicApiKeyPreview;
+			previous.anthropicApiKeyPreview === next.anthropicApiKeyPreview &&
+			previous.hasChatGptAccount === next.hasChatGptAccount;
 		if ( unchanged ) {
 			return;
 		}
 		trackEvent( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
 			provider: next.provider,
 			has_anthropic_api_key: next.hasAnthropicApiKey,
+			has_chatgpt_account: next.hasChatGptAccount,
 			surface: 'settings',
 		} );
 	}
@@ -802,6 +806,29 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			const previous = await readAiSettings();
 			const settings = await saveAnthropicApiKey( key );
+			res.json( settings );
+			trackAiSettingsChange( previous, settings );
+		} )
+	);
+
+	// Sign in with ChatGPT. The sign-in page opens in the browser on this
+	// machine, and the request stays open until the user finishes there.
+	api.post(
+		'/ai-settings/chatgpt',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			const previous = await readAiSettings();
+			await signInWithChatGpt( execute );
+			const settings = await readAiSettings();
+			res.json( settings );
+			trackAiSettingsChange( previous, settings );
+		} )
+	);
+
+	api.delete(
+		'/ai-settings/chatgpt',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			const previous = await readAiSettings();
+			const settings = await disconnectChatGpt();
 			res.json( settings );
 			trackAiSettingsChange( previous, settings );
 		} )

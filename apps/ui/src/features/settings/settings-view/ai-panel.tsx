@@ -1,4 +1,8 @@
-import { AI_PROVIDER_LABELS } from '@studio/agent/protocol/providers';
+import {
+	AI_PROVIDER_IDS,
+	AI_PROVIDER_LABELS,
+	isAiProviderConnected,
+} from '@studio/agent/protocol/providers';
 import { __ } from '@wordpress/i18n';
 import { CheckIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -6,6 +10,8 @@ import { getProviderIntent } from '@/data/account-analytics';
 import { useConnector } from '@/data/core';
 import {
 	useAiSettings,
+	useConnectChatGpt,
+	useDisconnectChatGpt,
 	useSaveAnthropicApiKey,
 	useSetAiProvider,
 } from '@/data/queries/use-ai-settings';
@@ -41,12 +47,19 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 	} );
 	const setProvider = useSetAiProvider();
 	const saveKey = useSaveAnthropicApiKey();
+	const connectChatGpt = useConnectChatGpt();
+	const disconnectChatGpt = useDisconnectChatGpt();
 	const isOffline = useOffline();
 	const [ wpcomRequested, setWpcomRequested ] = useState( false );
 	const [ keyFormOpen, setKeyFormOpen ] = useState( false );
 	const [ key, setKey ] = useState( '' );
 	const hasKey = !! settings.data?.hasAnthropicApiKey;
-	const pending = settings.isLoading || saveKey.isPending || setProvider.isPending;
+	const hasChatGpt = !! settings.data?.hasChatGptAccount;
+	const pending =
+		settings.isLoading || saveKey.isPending || setProvider.isPending || disconnectChatGpt.isPending;
+	const connectedProviders = AI_PROVIDER_IDS.filter( ( provider ) =>
+		isAiProviderConnected( provider, settings.data )
+	);
 
 	// Connecting WordPress.com finishes once the sign-up lands.
 	const { mutate: selectProvider } = setProvider;
@@ -67,6 +80,12 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 		}
 		await setProvider.mutateAsync( 'anthropic-api-key' );
 		closeKeyForm();
+	};
+	// Starting again while a sign-in waits on the browser replaces it, so a
+	// closed sign-in tab never leaves the row stuck.
+	const signInWithChatGpt = async () => {
+		await connectChatGpt.mutateAsync();
+		await setProvider.mutateAsync( 'chatgpt' );
 	};
 
 	return (
@@ -107,7 +126,7 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 				</Button>
 			</SettingsRow>
 			<SettingsRow
-				title={ __( 'Anthropic' ) }
+				title={ __( 'Anthropic API' ) }
 				badge={ hasKey ? connectedBadge() : null }
 				description={
 					<>
@@ -173,7 +192,37 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 					</SettingsRow>
 				</form>
 			) : null }
-			{ hasKey && settings.data ? (
+			<SettingsRow
+				title={ __( 'ChatGPT' ) }
+				badge={ hasChatGpt ? connectedBadge() : null }
+				description={
+					connectChatGpt.isPending
+						? __( 'Finish signing in in the browser window that opened.' )
+						: __( 'Use your ChatGPT Plus or Pro plan. Usage counts toward your plan’s limits.' )
+				}
+				error={ ( connectChatGpt.error ?? disconnectChatGpt.error )?.message }
+			>
+				{ hasChatGpt ? (
+					<Button
+						variant="outline"
+						disabled={ pending }
+						loading={ disconnectChatGpt.isPending }
+						loadingAnnouncement={ __( 'Signing out' ) }
+						onClick={ () => disconnectChatGpt.mutate() }
+					>
+						{ __( 'Sign out' ) }
+					</Button>
+				) : (
+					<Button
+						variant="outline"
+						disabled={ pending || isOffline }
+						onClick={ () => void signInWithChatGpt().catch( () => {} ) }
+					>
+						{ connectChatGpt.isPending ? __( 'Open again' ) : __( 'Sign in' ) }
+					</Button>
+				) }
+			</SettingsRow>
+			{ connectedProviders.length > 1 && settings.data ? (
 				<SettingsRow
 					title={ __( 'Default provider' ) }
 					description={ __( 'The provider new chats use.' ) }
@@ -183,7 +232,7 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 						label={ __( 'Default provider' ) }
 						value={ settings.data.provider }
 						disabled={ pending }
-						options={ ( [ 'wpcom', 'anthropic-api-key' ] as const ).map( ( provider ) => ( {
+						options={ connectedProviders.map( ( provider ) => ( {
 							value: provider,
 							label: AI_PROVIDER_LABELS[ provider ],
 						} ) ) }

@@ -31,6 +31,7 @@ const ANTHROPIC_KEY = {
 	provider: 'wpcom' as const,
 	hasAnthropicApiKey: true,
 	anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
+	hasChatGptAccount: false,
 };
 
 const OUT_OF_CREDITS = {

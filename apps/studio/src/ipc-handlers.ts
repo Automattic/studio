@@ -226,6 +226,8 @@ export {
 } from 'src/modules/preview-site/lib/ipc-handlers';
 
 export {
+	connectChatGpt,
+	disconnectChatGpt,
 	getAiSettings,
 	getGlobalAgentInstructions,
 	getInstalledAppsAndTerminals,

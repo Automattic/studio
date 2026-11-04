@@ -476,6 +476,11 @@ export interface Connector {
 	saveAnthropicApiKey( key: string | null ): Promise< AiSettings >;
 	// The provider new conversations use.
 	setAiProvider( provider: AiProviderId ): Promise< AiSettings >;
+	// Sign in with ChatGPT in the user's browser; resolves once they finish
+	// there. Signing out also falls back to WordPress.com when ChatGPT was the
+	// provider for new conversations.
+	connectChatGpt(): Promise< AiSettings >;
+	disconnectChatGpt(): Promise< AiSettings >;
 
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't

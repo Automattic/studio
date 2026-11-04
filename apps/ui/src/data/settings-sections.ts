@@ -267,9 +267,15 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				),
 				setting(
 					'navigate',
-					__( 'Anthropic' ),
+					__( 'Anthropic API' ),
 					__( 'Use Claude with your own API key.' ),
 					'anthropic-provider'
+				),
+				setting(
+					'navigate',
+					__( 'ChatGPT' ),
+					__( 'Use your ChatGPT Plus or Pro plan.' ),
+					'chatgpt-provider'
 				),
 				setting(
 					'navigate',

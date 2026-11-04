@@ -12,9 +12,17 @@ import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { getCreditsLabel, getModelDescription } from '@/features/composer/model-options';
-import { PlusIcon, ChevronDownIcon, ClaudeIcon, WordPressIcon } from '@/lib/icons';
+import { PlusIcon, ChevronDownIcon, ChatGptIcon, ClaudeIcon, WordPressIcon } from '@/lib/icons';
 import { Button, CommandSheet, Popover, type Command, type CommandGroup } from '@/lib/ui';
 import type { AiModelId } from '@/data/core';
+
+// Who makes each provider's models, as the picker names and marks them. Brand
+// names, not translated.
+const PROVIDER_BRANDS = {
+	wpcom: { name: 'WordPress', icon: WordPressIcon },
+	'anthropic-api-key': { name: 'Claude', icon: ClaudeIcon },
+	chatgpt: { name: 'ChatGPT', icon: ChatGptIcon },
+} satisfies Record< AiProviderId, { name: string; icon: Command[ 'icon' ] } >;
 
 interface ModelPickerProps {
 	open: boolean;
@@ -89,7 +97,7 @@ export function ModelPicker( {
 					const description = sprintf(
 						/* translators: 1: the model's provider, 2: what the model is good at. */
 						__( '%1$s · %2$s' ),
-						provider === 'wpcom' ? 'WordPress' : 'Claude',
+						PROVIDER_BRANDS[ provider ].name,
 						getModelDescription( id )
 					);
 					return {
@@ -98,7 +106,7 @@ export function ModelPicker( {
 						description: isModelLocked( id )
 							? `${ description } · ${ __( 'Purchased credits required' ) }`
 							: description,
-						icon: provider === 'wpcom' ? WordPressIcon : ClaudeIcon,
+						icon: PROVIDER_BRANDS[ provider ].icon,
 						disabled: isModelLocked( id ),
 					};
 				} )

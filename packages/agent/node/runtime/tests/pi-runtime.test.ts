@@ -1,6 +1,8 @@
+import fs from 'fs';
+import path from 'path';
 import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
 import { ModelRegistry, SessionManager } from '@earendil-works/pi-coding-agent';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAgent } from '@studio/agent/node/agent';
 import { AI_MODELS } from '@studio/agent/protocol/models';
 import { createFakeHost } from '../../tests/fake-host';
@@ -660,6 +662,113 @@ describe( 'pi runtime', () => {
 				forceAdaptiveThinking: true,
 			} );
 		}
+	} );
+
+	describe( 'Sign in with ChatGPT models', () => {
+		const credentialsPath = () => path.join( mocks.configRoot, 'ai-credentials.json' );
+		const signInWithChatGpt = ( expires = Date.now() + 60 * 60_000 ) => {
+			fs.mkdirSync( mocks.configRoot, { recursive: true } );
+			fs.writeFileSync(
+				credentialsPath(),
+				JSON.stringify( {
+					credentials: {
+						openai: {
+							type: 'oauth',
+							access: 'chatgpt-access-token',
+							refresh: 'chatgpt-refresh-token',
+							expires,
+							clientId: 'issued-client-id',
+							scopes: [ 'chatgpt.tokens.use.direct' ],
+						},
+					},
+				} )
+			);
+		};
+		const lastErrorMessage = ( events: AgentSessionEvent[] ) => {
+			const final = events[ events.length - 1 ];
+			if ( final?.type !== 'agent_end' ) {
+				return undefined;
+			}
+			const last = final.messages[ final.messages.length - 1 ];
+			return last?.role === 'assistant' ? last.errorMessage : undefined;
+		};
+
+		afterEach( () => {
+			vi.restoreAllMocks();
+			fs.rmSync( credentialsPath(), { force: true } );
+		} );
+
+		it( 'fails before the turn when no ChatGPT account is signed in', async () => {
+			const events = await runRuntime( {
+				prompt: 'hello',
+				env: { OPENAI_API_KEY: 'sk-proj-must-not-be-used' },
+				model: 'gpt-6.1-sol',
+				session: newSession(),
+			} );
+
+			expect( mocks.createAgentSession ).not.toHaveBeenCalled();
+			expect( lastErrorMessage( events ) ).toMatch( /no ChatGPT account is signed in/ );
+		} );
+
+		it( 'fails before the turn when the sign-in can no longer be refreshed', async () => {
+			signInWithChatGpt( Date.now() - 1000 );
+			vi.spyOn( globalThis, 'fetch' ).mockResolvedValue(
+				new Response( JSON.stringify( { error: 'invalid_grant' } ), { status: 400 } )
+			);
+
+			const events = await runRuntime( {
+				prompt: 'hello',
+				env: {},
+				model: 'gpt-6.1-sol',
+				session: newSession(),
+			} );
+
+			expect( mocks.createAgentSession ).not.toHaveBeenCalled();
+			expect( lastErrorMessage( events ) ).toMatch( /sign in with ChatGPT again/ );
+		} );
+
+		it( "serves the model from pi's OpenAI provider", async () => {
+			signInWithChatGpt();
+			await runRuntime( {
+				prompt: 'hello',
+				env: {},
+				model: 'gpt-6.1-terra',
+				session: newSession(),
+			} );
+
+			const model = mocks.createdSessions[ 0 ].options.model!;
+			expect( model.provider ).toBe( 'openai' );
+			expect( model.api ).toBe( 'openai-responses' );
+			expect( model.id ).toBe( 'gpt-6.1-terra' );
+			expect( model.contextWindow ).toBe( 200_000 );
+		} );
+
+		it( 'sends the plan token to the Responses API with only the fields it accepts', async () => {
+			signInWithChatGpt();
+			await runRuntime( { prompt: 'hello', env: {}, model: 'gpt-6.1-sol', session: newSession() } );
+			const options = mocks.createdSessions[ 0 ].options;
+			const fetchSpy = vi
+				.spyOn( globalThis, 'fetch' )
+				.mockResolvedValue( new Response( '{}', { status: 400 } ) );
+
+			await options
+				.modelRuntime!.streamSimple(
+					options.model!,
+					{ messages: [ { role: 'user', content: 'hi', timestamp: 0 } ] },
+					{ maxRetries: 0, maxTokens: 4096, temperature: 0.2 }
+				)
+				.result();
+
+			const [ url, init ] = fetchSpy.mock.calls[ 0 ];
+			const body = JSON.parse( String( init?.body ) );
+			expect( String( url ) ).toBe( 'https://api.openai.com/v1/responses' );
+			expect( new Headers( init?.headers ).get( 'authorization' ) ).toBe(
+				'Bearer chatgpt-access-token'
+			);
+			expect( body ).toMatchObject( { model: 'gpt-6.1-sol', store: false, stream: true } );
+			expect( body ).not.toHaveProperty( 'max_output_tokens' );
+			expect( body ).not.toHaveProperty( 'temperature' );
+		} );
 	} );
 
 	// pi parses registerProvider config values as templates, so a wpcom token

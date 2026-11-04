@@ -678,6 +678,12 @@ export function createIpcConnector(): Connector {
 		async setAiProvider( provider ): Promise< AiSettings > {
 			return unwrapIpcError( ipcApi.setAiProvider( provider ) );
 		},
+		async connectChatGpt(): Promise< AiSettings > {
+			return unwrapIpcError( ipcApi.connectChatGpt() );
+		},
+		async disconnectChatGpt(): Promise< AiSettings > {
+			return unwrapIpcError( ipcApi.disconnectChatGpt() );
+		},
 
 		async getInstalledApps(): Promise< InstalledApps > {
 			return ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps;

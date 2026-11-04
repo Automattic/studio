@@ -70,7 +70,7 @@ async function setupChat( {
 				if ( settingsError ) {
 					throw new Error( 'Connections unavailable' );
 				}
-				return { ...connected, anthropicApiKeyPreview: null };
+				return { ...connected, anthropicApiKeyPreview: null, hasChatGptAccount: false };
 			},
 			getStudioAssistantQuota: async () => {
 				if ( quotaError ) {
@@ -174,9 +174,7 @@ describe( 'Composer site start', () => {
 } );
 
 function anthropicRow( dialog: HTMLElement ) {
-	return within(
-		within( dialog ).getByText( 'Anthropic', { exact: true } ).closest( '[data-settings-row]' )!
-	);
+	return within( dialog.querySelector< HTMLElement >( '[data-setting-id="anthropic-provider"]' )! );
 }
 
 describe( 'Composer access notices', () => {
@@ -320,6 +318,7 @@ describe( 'Composer access notices', () => {
 						provider,
 						hasAnthropicApiKey: true,
 						anthropicApiKeyPreview: 'test',
+						hasChatGptAccount: false,
 					} ),
 					getStudioAssistantQuota: async () => quota,
 				}
@@ -354,6 +353,7 @@ describe( 'Composer access notices', () => {
 				provider: 'wpcom',
 				hasAnthropicApiKey: saved,
 				anthropicApiKeyPreview: saved ? 'test' : null,
+				hasChatGptAccount: false,
 			};
 			const site = makeSite( { id: 'one', path: '/sites/my-site' } );
 			const connector = createFakeConnector(
@@ -378,6 +378,7 @@ describe( 'Composer access notices', () => {
 							...connection,
 							hasAnthropicApiKey: true,
 							anthropicApiKeyPreview: 'test',
+							hasChatGptAccount: false,
 						};
 						return connection;
 					},

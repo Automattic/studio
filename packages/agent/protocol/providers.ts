@@ -16,7 +16,7 @@ type AiProviderModel = ( typeof AI_MODELS )[ number ];
 // Persisted in shared.json (`aiProvider`), so treat the list as append-only:
 // readers narrow with `isAiProviderId` and fall back to the default on values
 // they don't know.
-export const AI_PROVIDER_IDS = [ 'wpcom', 'anthropic-api-key' ] as const;
+export const AI_PROVIDER_IDS = [ 'wpcom', 'anthropic-api-key', 'chatgpt' ] as const;
 
 export type AiProviderId = ( typeof AI_PROVIDER_IDS )[ number ];
 
@@ -26,6 +26,7 @@ export const DEFAULT_AI_PROVIDER: AiProviderId = 'wpcom';
 export const AI_PROVIDER_LABELS: Record< AiProviderId, string > = {
 	wpcom: 'WordPress.com',
 	'anthropic-api-key': 'Anthropic API',
+	chatgpt: 'ChatGPT',
 };
 
 // Which model families each provider can service. `wpcom` serves only the
@@ -34,6 +35,7 @@ export const AI_PROVIDER_LABELS: Record< AiProviderId, string > = {
 const PROVIDER_MODEL_FAMILIES: Record< AiProviderId, readonly AiModelFamily[] > = {
 	wpcom: [ 'studio' ],
 	'anthropic-api-key': [ 'anthropic' ],
+	chatgpt: [ 'openai' ],
 };
 
 // Precomputed so callers get a stable reference (the composer calls this per
@@ -111,28 +113,50 @@ export function resolveSessionProvider( entries: SessionEntry[] ): AiProviderId 
 }
 
 /**
+ * Whether the settings hold what the provider needs to run: a saved key or a
+ * signed-in account. WordPress.com sign-in lives outside these settings, so
+ * it always counts as connected here.
+ */
+export function isAiProviderConnected(
+	provider: AiProviderId,
+	settings?: Pick< AiSettings, 'hasAnthropicApiKey' | 'hasChatGptAccount' > | null
+): boolean {
+	switch ( provider ) {
+		case 'wpcom':
+			return true;
+		case 'anthropic-api-key':
+			return Boolean( settings?.hasAnthropicApiKey );
+		case 'chatgpt':
+			return Boolean( settings?.hasChatGptAccount );
+	}
+}
+
+/**
  * The provider a conversation effectively runs on: its pinned choice first,
- * then the saved global selection. Without a saved Anthropic key the pin is
- * unusable (as are missing/unloaded settings), so WordPress.com wins.
+ * then the saved global selection. A provider that isn't connected (as with
+ * missing/unloaded settings) can't run, so WordPress.com wins.
  */
 export function getEffectiveSessionProvider(
 	entries: SessionEntry[],
-	settings?: Pick< AiSettings, 'provider' | 'hasAnthropicApiKey' > | null
+	settings?: Pick< AiSettings, 'provider' | 'hasAnthropicApiKey' | 'hasChatGptAccount' > | null
 ): AiProviderId {
-	if ( ! settings?.hasAnthropicApiKey ) {
+	if ( ! settings ) {
 		return DEFAULT_AI_PROVIDER;
 	}
-	return resolveSessionProvider( entries ) ?? settings.provider;
+	const provider = resolveSessionProvider( entries ) ?? settings.provider;
+	return isAiProviderConnected( provider, settings ) ? provider : DEFAULT_AI_PROVIDER;
 }
 
 /**
  * The AI provider settings exposed to the settings UI. The Anthropic API key
- * itself never leaves the server — only its presence and a short suffix for
- * display.
+ * and ChatGPT tokens never leave the server — only their presence and enough
+ * to recognise them.
  */
 export interface AiSettings {
 	provider: AiProviderId;
 	hasAnthropicApiKey: boolean;
 	/** Truncated key for display (`sk-ant-…abcd`), or null when none is saved. */
 	anthropicApiKeyPreview: string | null;
+	/** Whether an account is signed in with ChatGPT. */
+	hasChatGptAccount: boolean;
 }

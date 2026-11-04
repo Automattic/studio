@@ -449,6 +449,9 @@ export async function runCommand( options: {
 		if ( currentProvider === 'anthropic-api-key' ) {
 			ui.showInfo( __( 'Use /api-key to update the Anthropic API key.' ) );
 		}
+		if ( currentProvider === 'chatgpt' ) {
+			ui.showInfo( __( 'Use /provider to sign in with ChatGPT again.' ) );
+		}
 	}
 
 	let showCapabilitiesOnConnect = ( await readSelectedAiProvider() ) === undefined;
@@ -544,6 +547,8 @@ export async function runCommand( options: {
 		}
 	} else if ( currentProvider === 'anthropic-api-key' && ! ( await readAnthropicApiKey() ) ) {
 		ui.showInfo( __( 'No Anthropic API key saved. Use /api-key to enter one.' ) );
+	} else if ( currentProvider === 'chatgpt' && ! ( await isAiProviderReady( 'chatgpt' ) ) ) {
+		ui.showInfo( __( 'Not signed in with ChatGPT. Use /provider to sign in.' ) );
 	}
 
 	async function askUserAndPersistAnswers(

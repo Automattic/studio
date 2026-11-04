@@ -14,6 +14,7 @@ import { applyColorTint, DEFAULT_COLOR_TINT } from '@/lib/theme';
 import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { Connector, UserPreferences } from '@/data/core';
+import type { AiProviderId } from '@studio/agent/protocol/providers';
 
 beforeEach( () => {
 	resetAppMessagesForTests();
@@ -39,6 +40,7 @@ async function setup( {
 		provider: 'wpcom' as const,
 		hasAnthropicApiKey: true,
 		anthropicApiKeyPreview: 'sk-…last',
+		hasChatGptAccount: false,
 	};
 	let skills = [
 		{
@@ -68,6 +70,7 @@ async function setup( {
 					...connection,
 					hasAnthropicApiKey: !! key,
 					anthropicApiKeyPreview: key ? 'sk-…last' : ( null as never ),
+					hasChatGptAccount: false,
 				};
 				return connection;
 			},
@@ -820,10 +823,16 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 					provider: 'wpcom',
 					hasAnthropicApiKey: hasKey,
 					anthropicApiKeyPreview: null,
+					hasChatGptAccount: false,
 				} ),
 				saveAnthropicApiKey: async () => {
 					hasKey = true;
-					return { provider: 'wpcom', hasAnthropicApiKey: true, anthropicApiKeyPreview: 'test' };
+					return {
+						provider: 'wpcom',
+						hasAnthropicApiKey: true,
+						anthropicApiKeyPreview: 'test',
+						hasChatGptAccount: false,
+					};
 				},
 			},
 		} );
@@ -852,6 +861,57 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 			} )
 		).toBeVisible();
 		expect( connector.authenticate ).not.toHaveBeenCalled();
+	} );
+
+	it( 'signs in with ChatGPT, makes it the default, and signs out', async () => {
+		let hasChatGptAccount = false;
+		let provider: AiProviderId = 'wpcom';
+		const settings = () => ( {
+			provider,
+			hasAnthropicApiKey: false,
+			anthropicApiKeyPreview: null,
+			hasChatGptAccount,
+		} );
+		const { connector } = await setup( {
+			section: 'ai',
+			overrides: {
+				getAiSettings: async () => settings(),
+				setAiProvider: async ( next ) => {
+					provider = next;
+					return settings();
+				},
+				connectChatGpt: async () => {
+					hasChatGptAccount = true;
+					return settings();
+				},
+				disconnectChatGpt: async () => {
+					hasChatGptAccount = false;
+					provider = 'wpcom';
+					return settings();
+				},
+			},
+		} );
+		const signIn = await within( await findProviderRow( 'chatgpt-provider' ) ).findByRole(
+			'button',
+			{ name: 'Sign in' }
+		);
+		await waitFor( () => expect( signIn ).toBeEnabled() );
+
+		fireEvent.click( signIn );
+
+		await waitFor( () => expect( connector.setAiProvider ).toHaveBeenCalledWith( 'chatgpt' ) );
+		expect( connector.connectChatGpt ).toHaveBeenCalledTimes( 1 );
+		const signOut = await within( providerRow( 'chatgpt-provider' ) ).findByRole( 'button', {
+			name: 'Sign out',
+		} );
+		expect( within( providerRow( 'chatgpt-provider' ) ).getByText( 'Connected' ) ).toBeVisible();
+
+		fireEvent.click( signOut );
+
+		await waitFor( () => expect( connector.disconnectChatGpt ).toHaveBeenCalledTimes( 1 ) );
+		expect(
+			await within( providerRow( 'chatgpt-provider' ) ).findByRole( 'button', { name: 'Sign in' } )
+		).toBeVisible();
 	} );
 
 	it( 'preserves a rejected key for retry and only switches providers after it is saved', async () => {

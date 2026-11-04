@@ -79,6 +79,7 @@ vi.mock( '../session-state', async () => {
 			if ( ! states.has( session ) ) {
 				const openProblems = {
 					record: () => undefined,
+					look: () => [],
 					raise: async () => {
 						mocks.turnEnd.push( 'sites checked' );
 						return mocks.openProblems.shift() ?? [];

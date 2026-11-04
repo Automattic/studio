@@ -37,6 +37,20 @@ describe( 'OpenProblems', () => {
 		expect( await open.raise() ).toEqual( [ 'page 1 is still invalid' ] );
 	} );
 
+	it( 'says again at a look the problems open since the last look, once each', () => {
+		const open = new OpenProblems( [] );
+		open.record( '/a', '/a/page-1', 'page 1 is invalid' );
+		// Heard on the result of the call that made it, which this look may share a request with.
+		expect( open.look() ).toEqual( [] );
+		open.record( '/a', '/a/theme.json', 'theme.json drops a key' );
+		expect( open.look() ).toEqual( [ 'page 1 is invalid' ] );
+		open.record( '/a', '/a/page-1', 'page 1 is still invalid' );
+		expect( open.look() ).toEqual( [ 'theme.json drops a key' ] );
+		open.record( '/a', '/a/theme.json' );
+		expect( open.look() ).toEqual( [ 'page 1 is still invalid' ] );
+		expect( open.look() ).toEqual( [] );
+	} );
+
 	it( 'raises only the problems a site did not have when Studio first saw it', async () => {
 		const state: Record< string, string[] > = { '/a': [ 'index.html renders no page content' ] };
 		const open = new OpenProblems( [ async ( site ) => state[ site ] ] );

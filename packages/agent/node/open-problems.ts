@@ -29,10 +29,19 @@ interface OpenProblemsState {
 	// The latest problem of each file or post validated, while it has one.
 	open: Record< string, string >;
 	raised: string[];
+	// The problems open at the agent's last look at a site, and those it was told again.
+	looked: string[];
+	repeated: string[];
 }
 
 export class OpenProblems {
-	private readonly state: OpenProblemsState = { sites: [], open: {}, raised: [] };
+	private readonly state: OpenProblemsState = {
+		sites: [],
+		open: {},
+		raised: [],
+		looked: [],
+		repeated: [],
+	};
 	// Each site's problems as Studio first saw it, before the session changed
 	// it: the user's site as it was, not the session's to raise.
 	private readonly before = new Map< string, Promise< string[] > >();
@@ -53,6 +62,24 @@ export class OpenProblems {
 		} else {
 			delete this.state.open[ key ];
 		}
+	}
+
+	/**
+	 * At the agent's look at the sites, as a screenshot is: the problems open
+	 * at its last look too, which it has heard on a result since and not fixed,
+	 * each said again once. In eval17 an agent left an invalid core/cover it
+	 * was told about on the call that made it, and the theme.json keys
+	 * WordPress drops it was told about 38 calls before the end of its turn.
+	 */
+	look(): string[] {
+		const open = Object.values( this.state.open );
+		const again = open.filter(
+			( problem ) =>
+				this.state.looked.includes( problem ) && ! this.state.repeated.includes( problem )
+		);
+		this.state.looked = open;
+		this.state.repeated.push( ...again );
+		return again;
 	}
 
 	/** Notes a site's problems as they are, before a call that can change it. */
@@ -100,6 +127,16 @@ export function describeOpenProblems( problems: string[] ): string {
 			...problems.map( ( problem ) => `- ${ problem }` ),
 		] ) ?? ''
 	);
+}
+
+/** The problems the agent is told again as it looks at the sites (OpenProblems.look()). */
+export function describeStillOpen( problems: string[] ): string | undefined {
+	return problems.length
+		? [
+				'Studio reported these on earlier calls, and they are still open on the site:',
+				...problems.map( ( problem ) => `- ${ problem }` ),
+		  ].join( '\n' )
+		: undefined;
 }
 
 /** The open problems of a session, checked with each of Studio's checks of a site. */

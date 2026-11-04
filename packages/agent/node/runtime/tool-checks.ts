@@ -8,6 +8,7 @@ import { type AgentTool } from '@earendil-works/pi-agent-core';
 import { type ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { classicThemeQuestion } from '@studio/agent/node/block-theme';
 import { type BlockValidationGate } from '@studio/agent/node/block-validation-gate';
+import { describeStillOpen, type OpenProblems } from '@studio/agent/node/open-problems';
 import { NO_CHANGES, type SiteChanges } from '@studio/agent/node/site-changes';
 import { notesAfterCall, type SiteNotes } from '@studio/agent/node/site-notes';
 import { studioMessage, validationLines } from '@studio/agent/node/studio-message';
@@ -100,6 +101,7 @@ export function toToolDefinition(
 		siteChanges,
 		afterChecks,
 		renderCheck,
+		openProblems,
 		writers,
 		fileViews,
 	}: {
@@ -110,6 +112,8 @@ export function toToolDefinition(
 		afterChecks: AfterChecks;
 		// What renders the pages a call changed, unless another turn's calls do.
 		renderCheck: RenderCheck | undefined;
+		// The problems open on the sites, which a look at them repeats.
+		openProblems?: OpenProblems;
 		writers: Writers;
 		fileViews: FileViews;
 	}
@@ -196,6 +200,15 @@ export function toToolDefinition(
 				siteChanges.stale();
 			}
 			const validationReport = validationLines( validation );
+			// A screenshot is the agent looking at what it made: what it left open is said again there.
+			const stillOpen =
+				tool.name === 'take_screenshot'
+					? describeStillOpen(
+							( openProblems?.look() ?? [] ).filter(
+								( problem ) => ! validation.problems.includes( problem )
+							)
+					  )
+					: undefined;
 			const checksChanges = ! (
 				READ_ONLY_TOOLS.has( tool.name ) ||
 				( tool as { annotations?: { readOnlyHint?: boolean } } ).annotations?.readOnlyHint
@@ -319,6 +332,7 @@ export function toToolDefinition(
 			const callNotes = pendingWork.takeCallNotes( toolCallId );
 			const reports = studioMessage( 'notes', [
 				...validationReport,
+				stillOpen,
 				pendingWork.takeReports(),
 				await renderCheck?.takeReports(),
 			] );

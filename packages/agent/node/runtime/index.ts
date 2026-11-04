@@ -590,6 +590,7 @@ async function createStudioAgentSession(
 			siteChanges,
 			afterChecks,
 			renderCheck: renders ? renderCheck : undefined,
+			openProblems,
 			writers,
 			fileViews,
 		} )

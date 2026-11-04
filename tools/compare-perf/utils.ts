@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import childProcess from 'child_process';
 import fs from 'fs';
 import path from 'path';
@@ -19,11 +18,12 @@ import inquirer from 'inquirer';
  */
 export function runShellScript( script: string, cwd?: string, env: NodeJS.ProcessEnv = {} ) {
 	return new Promise( ( resolve, reject ) => {
-		childProcess.execFile(
+		const child = childProcess.spawn(
 			process.platform === 'win32' ? 'cmd.exe' : '/bin/sh',
 			process.platform === 'win32' ? [ '/c', script ] : [ '-c', script ],
 			{
 				cwd,
+				stdio: 'inherit',
 				env: {
 					NO_CHECKS: 'true',
 					PATH: process.env.PATH,
@@ -31,17 +31,16 @@ export function runShellScript( script: string, cwd?: string, env: NodeJS.Proces
 					USER: process.env.USER,
 					...env,
 				},
-			},
-			function ( error, stdout, stderr ) {
-				if ( error ) {
-					console.log( stdout ); // Sometimes the error message is thrown via stdout.
-					console.log( stderr );
-					reject( error );
-				} else {
-					resolve( true );
-				}
 			}
 		);
+		child.on( 'error', reject );
+		child.on( 'close', ( code, signal ) => {
+			if ( code === 0 ) {
+				resolve( true );
+			} else {
+				reject( new Error( `\`${ script }\` exited with ${ signal ?? `code ${ code }` }` ) );
+			}
+		} );
 	} );
 }
 

@@ -27,6 +27,10 @@ program
 		'Run each test suite this many times for each branch; results are summarized, default = 1'
 	)
 	.option( '--tests-branch <branch>', "Use this branch's performance test files" )
+	.option(
+		'--reuse-checkout',
+		"Test and build refs at this checkout's HEAD in place, instead of in fresh clones. Replaces its apps/studio/out"
+	)
 	.description( 'Runs performance tests on two separate branches and outputs the result' )
 	.action( catchException( runPerformanceTests ) );
 

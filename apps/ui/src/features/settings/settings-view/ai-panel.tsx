@@ -94,8 +94,6 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 				<Button
 					disabled={ userLoading || ( ! user && isOffline ) }
 					ref={ promptRef }
-					loading={ signup.isPending }
-					loadingAnnouncement={ __( 'Connecting' ) }
 					onClick={ () => {
 						if ( user ) {
 							onManageCredits();

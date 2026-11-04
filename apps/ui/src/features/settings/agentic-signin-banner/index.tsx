@@ -26,13 +26,7 @@ export function SigninNotice( { source }: { source: TracksAuthSource } ) {
 				</ul>
 			</div>
 			<div className={ styles.actions }>
-				<Button
-					type="button"
-					variant="accent"
-					ref={ promptRef }
-					loading={ login.isPending }
-					onClick={ () => login.mutate() }
-				>
+				<Button type="button" variant="accent" ref={ promptRef } onClick={ () => login.mutate() }>
 					{ __( 'Log in with WordPress.com' ) }
 				</Button>
 			</div>

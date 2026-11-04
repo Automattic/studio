@@ -277,8 +277,9 @@ describe( 'WordPress Studio settings', () => {
 			'Do more with WordPress.com'
 		);
 		fireEvent.click( connect );
-		await waitFor( () => expect( connect ).toHaveAttribute( 'aria-busy', 'true' ) );
-		expect( connect ).toHaveAttribute( 'aria-disabled', 'true' );
+		await waitFor( () => expect( connector.authenticate ).toHaveBeenCalledOnce() );
+		expect( connect ).not.toHaveAttribute( 'aria-busy', 'true' );
+		expect( connect ).toBeEnabled();
 		connector.state.user = TEST_USER;
 		await act( async () => finishLogin() );
 		await waitFor( () =>
@@ -731,6 +732,32 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		act( () => connector.emit( 'onAuthStateChanged' ) );
 		expect( await screen.findByRole( 'tab', { name: 'Providers', selected: true } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Usage' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'keeps the Connect label without a spinner while WordPress.com OAuth is pending', async () => {
+		let finishLogin!: () => void;
+		const { connector } = await setup( {
+			section: 'ai',
+			signedIn: false,
+			overrides: {
+				authenticate: () => new Promise< void >( ( resolve ) => ( finishLogin = resolve ) ),
+			},
+		} );
+		const connect = await within( await findProviderRow( 'wpcom-provider' ) ).findByRole(
+			'button',
+			{ name: 'Connect' }
+		);
+		await waitFor( () => expect( connect ).toBeEnabled() );
+		fireEvent.click( connect );
+		await waitFor( () => expect( connector.authenticate ).toHaveBeenCalledOnce() );
+		expect( connect ).toHaveAccessibleName( 'Connect' );
+		expect( connect ).not.toHaveAttribute( 'aria-busy', 'true' );
+		expect( connect.querySelector( '[role="status"]' ) ).toBeNull();
+		expect( connect ).toBeEnabled();
+		fireEvent.click( connect );
+		await waitFor( () => expect( connector.authenticate ).toHaveBeenCalledTimes( 2 ) );
+		await act( async () => finishLogin() );
+		await waitFor( () => expect( connect ).toBeEnabled() );
 	} );
 
 	it( 'waits for completed WordPress.com OAuth before selecting its provider', async () => {

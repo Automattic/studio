@@ -7,7 +7,7 @@ import {
 } from 'cli/lib/cli-config/core';
 import type { Snapshot } from '@studio/common/types/snapshot';
 
-export async function getPreviewTracksProps(
+export async function getSiteTracksProps(
 	siteFolder: string,
 	preview?: Pick< Snapshot, 'atomicSiteId' | 'userId' >
 ): Promise< { site_id?: string; preview_id?: string } > {

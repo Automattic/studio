@@ -44,10 +44,6 @@
 	min-width: 0;
 }
 
-.agentAppAction {
-	min-inline-size: 9em;
-}
-
 .agentAppError {
 	display: block;
 	margin-block-start: var( --space-1 );

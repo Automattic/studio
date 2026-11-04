@@ -43,7 +43,7 @@ export async function getInstalledAppsAndTerminals(): Promise< InstalledApps > {
 }
 
 export function getAgentApps(): Promise< AgentApp[] > {
-	return detectAgentApps();
+	return detectAgentApps( { nodeBinary: getBundledNodeBinaryPath(), cliBinary: getCliPath() } );
 }
 
 export async function connectAgentApp( _event: IpcMainInvokeEvent, id: string ): Promise< void > {

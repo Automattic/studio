@@ -3,19 +3,41 @@ import { describe, expect, it } from 'vitest';
 import { createFakeConnector } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { AgentAppsSection } from './agent-apps-section';
-import type { AgentAppId } from '@/data/core';
+import type { AgentApp, AgentAppId } from '@/data/core';
 
-async function setup( { connected = [] }: { connected?: AgentAppId[] } = {} ) {
+async function setup( {
+	connected = [],
+	updates = {},
+}: {
+	connected?: AgentAppId[];
+	updates?: Partial< Record< AgentAppId, AgentApp[ 'updateStatus' ] > >;
+} = {} ) {
 	const connector = createFakeConnector();
 	const plugins = new Set( connected );
 	connector.getAgentApps.mockImplementation( async () => [
-		{ id: 'claude-code', installed: true, connected: plugins.has( 'claude-code' ) },
+		{
+			id: 'claude-code',
+			installed: true,
+			connected: plugins.has( 'claude-code' ),
+			updateStatus: updates[ 'claude-code' ],
+		},
 		{ id: 'codex', installed: false, connected: false },
-		{ id: 'cursor', installed: true, connected: plugins.has( 'cursor' ) },
-		{ id: 'grok-build', installed: true, connected: plugins.has( 'grok-build' ) },
+		{
+			id: 'cursor',
+			installed: true,
+			connected: plugins.has( 'cursor' ),
+			updateStatus: updates.cursor,
+		},
+		{
+			id: 'grok-build',
+			installed: true,
+			connected: plugins.has( 'grok-build' ),
+			updateStatus: updates[ 'grok-build' ],
+		},
 	] );
 	connector.connectAgentApp.mockImplementation( async ( id ) => {
 		plugins.add( id );
+		delete updates[ id ];
 	} );
 	renderWithProviders( <AgentAppsSection />, { connector } );
 	const row = async ( name: string ) => within( await screen.findByRole( 'group', { name } ) );
@@ -31,7 +53,8 @@ describe( 'Agent apps setting', () => {
 		);
 		fireEvent.click( grok.getByRole( 'button', { name: 'Connect' } ) );
 		await waitFor( () => expect( connector.connectAgentApp ).toHaveBeenCalledWith( 'grok-build' ) );
-		expect( await grok.findByRole( 'button', { name: 'Connected' } ) ).toBeDisabled();
+		expect( await grok.findByText( 'Connected' ) ).toBeVisible();
+		expect( grok.queryByRole( 'button', { name: 'Connected' } ) ).not.toBeInTheDocument();
 		expect( description ).toBeVisible();
 		expect( grok.getByRole( 'button', { name: /^Learn more/ } ) ).toBeEnabled();
 	} );
@@ -53,14 +76,16 @@ describe( 'Agent apps setting', () => {
 		expect( await cursor.findByRole( 'button', { name: 'Connecting…' } ) ).toBeDisabled();
 		expect( cursor.getByRole( 'button', { name: /^Learn more/ } ) ).toBeEnabled();
 		finish();
-		expect( await cursor.findByRole( 'button', { name: 'Connected' } ) ).toBeDisabled();
+		expect( await cursor.findByText( 'Connected' ) ).toBeVisible();
 	} );
 
 	it( 'shows an app that already has the plugin as connected', async () => {
 		const { row } = await setup( { connected: [ 'claude-code', 'cursor' ] } );
 		for ( const name of [ 'Claude Code', 'Cursor' ] ) {
 			const app = await row( name );
-			expect( app.getByRole( 'button', { name: 'Connected' } ) ).toBeDisabled();
+			expect( app.getByText( 'Connected' ) ).toBeVisible();
+			expect( app.queryByRole( 'button', { name: 'Connected' } ) ).not.toBeInTheDocument();
+			expect( app.queryByRole( 'button', { name: 'Update' } ) ).not.toBeInTheDocument();
 			expect( app.getByRole( 'button', { name: /^Learn more/ } ) ).toBeEnabled();
 		}
 	} );
@@ -85,7 +110,7 @@ describe( 'Agent apps setting', () => {
 			)
 		).toBeVisible();
 		fireEvent.click( claude.getByRole( 'button', { name: 'Retry' } ) );
-		expect( await claude.findByRole( 'button', { name: 'Connected' } ) ).toBeDisabled();
+		expect( await claude.findByText( 'Connected' ) ).toBeVisible();
 		expect( claude.queryByRole( 'alert' ) ).not.toBeInTheDocument();
 	} );
 
@@ -101,6 +126,68 @@ describe( 'Agent apps setting', () => {
 		expect( button ).toBeDisabled();
 		fireEvent.click( button );
 		expect( connector.connectAgentApp ).not.toHaveBeenCalled();
+	} );
+
+	it( 'keeps the Connected badge while an available update runs', async () => {
+		const { connector, row } = await setup( {
+			connected: [ 'claude-code' ],
+			updates: { 'claude-code': 'available' },
+		} );
+		let finish!: () => void;
+		connector.connectAgentApp.mockImplementationOnce(
+			() =>
+				new Promise< void >( ( resolve ) => {
+					finish = resolve;
+				} )
+		);
+		const claude = await row( 'Claude Code' );
+		expect( claude.getByText( 'Connected' ) ).toBeVisible();
+		fireEvent.click( claude.getByRole( 'button', { name: 'Update' } ) );
+		expect( await claude.findByRole( 'button', { name: 'Updating…' } ) ).toBeDisabled();
+		expect( claude.getByText( 'Connected' ) ).toBeVisible();
+		expect( claude.getByRole( 'button', { name: /^Learn more/ } ) ).toBeEnabled();
+		finish();
+		await waitFor( () =>
+			expect( connector.connectAgentApp ).toHaveBeenCalledWith( 'claude-code' )
+		);
+	} );
+
+	it( 'offers Retry update after a failed update and removes it when the retry succeeds', async () => {
+		const { connector, row } = await setup( {
+			connected: [ 'claude-code' ],
+			updates: { 'claude-code': 'available' },
+		} );
+		connector.connectAgentApp.mockRejectedValueOnce( new Error( 'Update failed: network down' ) );
+		const claude = await row( 'Claude Code' );
+		fireEvent.click( claude.getByRole( 'button', { name: 'Update' } ) );
+		expect( await claude.findByRole( 'alert' ) ).toHaveTextContent( 'network down' );
+		expect( claude.getByText( 'Connected' ) ).toBeVisible();
+		fireEvent.click( claude.getByRole( 'button', { name: 'Retry update' } ) );
+		await waitFor( () =>
+			expect( claude.queryByRole( 'button', { name: /update/i } ) ).not.toBeInTheDocument()
+		);
+		expect( claude.getByText( 'Connected' ) ).toBeVisible();
+		expect( claude.queryByRole( 'alert' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'offers Retry update when an automatic update needs to reinstall the plugin', async () => {
+		const { connector, row } = await setup( { updates: { 'grok-build': 'failed' } } );
+		const grok = await row( 'Grok Build' );
+		expect( grok.queryByText( 'Connected' ) ).not.toBeInTheDocument();
+		fireEvent.click( grok.getByRole( 'button', { name: 'Retry update' } ) );
+		expect( await grok.findByText( 'Connected' ) ).toBeVisible();
+		expect( connector.connectAgentApp ).toHaveBeenCalledWith( 'grok-build' );
+	} );
+
+	it( 'disables the action during an automatic update', async () => {
+		const { row } = await setup( {
+			connected: [ 'cursor' ],
+			updates: { cursor: 'updating' },
+		} );
+		const cursor = await row( 'Cursor' );
+		expect( cursor.getByRole( 'button', { name: 'Updating…' } ) ).toBeDisabled();
+		expect( cursor.getByText( 'Connected' ) ).toBeVisible();
+		expect( cursor.getByRole( 'button', { name: /^Learn more/ } ) ).toBeEnabled();
 	} );
 
 	it.each( [

@@ -11,6 +11,7 @@ export interface AgentApp {
 	installed: boolean;
 	// Has the Studio plugin.
 	connected: boolean;
+	updateStatus?: 'available' | 'failed' | 'updating';
 }
 
 // Product names, so not translated. Codex plugins install in the ChatGPT app,

@@ -1,12 +1,11 @@
 import { AGENT_APP_NAMES } from '@studio/common/lib/agent-apps';
 import { __, sprintf } from '@wordpress/i18n';
-import { CheckIcon } from 'lucide-react';
 import { useConnector } from '@/data/core';
 import { useAgentApps, useConnectAgentApp } from '@/data/queries/use-agent-apps';
 import { AppIcon } from '@/features/sites';
 import { McpIcon } from '@/lib/icons';
 import { Button } from '@/lib/ui';
-import { SettingsGroup, SettingsRow } from './rows';
+import { connectedBadge, SettingsGroup, SettingsRow } from './rows';
 import styles from './style.module.css';
 import type { AgentApp, AgentAppId } from '@/data/core';
 
@@ -40,21 +39,25 @@ function AgentAppRow( { app }: { app: AgentApp } ) {
 	const connector = useConnector();
 	const connect = useConnectAgentApp();
 	const connected = app.installed && app.connected;
+	const isUpdate = !! app.updateStatus;
+	const pending = connect.isPending || app.updateStatus === 'updating';
+	const showAction = ! connected || isUpdate || connect.isPending || connect.error;
 	const getActionLabel = () => {
 		if ( ! app.installed ) {
 			return __( 'Not installed' );
 		}
-		if ( connected ) {
-			return __( 'Connected' );
+		if ( pending ) {
+			return isUpdate ? __( 'Updating…' ) : __( 'Connecting…' );
 		}
-		if ( connect.isPending ) {
-			return __( 'Connecting…' );
+		if ( isUpdate ) {
+			return connect.error || app.updateStatus === 'failed' ? __( 'Retry update' ) : __( 'Update' );
 		}
 		return connect.error ? __( 'Retry' ) : __( 'Connect' );
 	};
 	return (
 		<SettingsRow
 			title={ AGENT_APP_NAMES[ app.id ] }
+			badge={ connected ? connectedBadge() : null }
 			icon={
 				<AppIcon
 					app={ app.id }
@@ -88,21 +91,21 @@ function AgentAppRow( { app }: { app: AgentApp } ) {
 				</>
 			}
 		>
-			{ ( control ) => (
-				<Button
-					{ ...control }
-					variant="outline"
-					className={ styles.agentAppAction }
-					disabled={ ! app.installed || connected || connect.isPending }
-					disabledAppearance={ connected || connect.isPending ? 'outline' : 'default' }
-					aria-busy={ connect.isPending || undefined }
-					aria-invalid={ connect.error ? true : undefined }
-					onClick={ () => connect.mutate( app.id ) }
-				>
-					{ connected ? <CheckIcon aria-hidden="true" /> : null }
-					{ getActionLabel() }
-				</Button>
-			) }
+			{ ( control ) =>
+				showAction ? (
+					<Button
+						{ ...control }
+						variant="outline"
+						disabled={ ! app.installed || pending }
+						disabledAppearance={ pending ? 'outline' : 'default' }
+						aria-busy={ pending || undefined }
+						aria-invalid={ connect.error ? true : undefined }
+						onClick={ () => connect.mutate( app.id ) }
+					>
+						{ getActionLabel() }
+					</Button>
+				) : null
+			}
 		</SettingsRow>
 	);
 }

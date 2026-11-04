@@ -106,11 +106,14 @@ function write( file: string, content: string ) {
 }
 
 // What each app records for the plugin once it installs it.
-function recordPlugins( apps = [ 'claude-code', 'codex', 'grok-build' ] ) {
+function recordPlugins( apps = [ 'claude-code', 'codex', 'grok-build' ], version = '2.1.1' ) {
 	if ( apps.includes( 'claude-code' ) ) {
 		write(
 			path.join( home, '.claude', 'plugins', 'installed_plugins.json' ),
-			JSON.stringify( { version: 2, plugins: { 'wp-studio@studio': [ { scope: 'user' } ] } } )
+			JSON.stringify( {
+				version: 2,
+				plugins: { 'wp-studio@studio': [ { scope: 'user', version } ] },
+			} )
 		);
 	}
 	if ( apps.includes( 'codex' ) ) {
@@ -118,13 +121,27 @@ function recordPlugins( apps = [ 'claude-code', 'codex', 'grok-build' ] ) {
 			path.join( home, '.codex', 'config.toml' ),
 			'[plugins."wp-studio@studio"]\nenabled = true\n'
 		);
+		write(
+			path.join(
+				home,
+				'.codex',
+				'plugins',
+				'cache',
+				'studio',
+				'wp-studio',
+				version,
+				'.codex-plugin',
+				'plugin.json'
+			),
+			JSON.stringify( { name: 'wp-studio', version } )
+		);
 	}
 	if ( apps.includes( 'grok-build' ) ) {
 		write(
 			path.join( home, '.grok', 'installed-plugins', 'registry.json' ),
 			JSON.stringify( {
 				version: 1,
-				repos: { 'wp-studio-8a7854ad': { plugins: { 'wp-studio': { version: '2.1.1' } } } },
+				repos: { 'wp-studio-8a7854ad': { plugins: { 'wp-studio': { version } } } },
 			} )
 		);
 	}
@@ -239,7 +256,7 @@ describe.skipIf( process.platform === 'win32' )( 'connectAgentApp with an app’
 			path.join( home, '.grok', 'installed-plugins', 'registry.json' ),
 			JSON.stringify( { repos: { 'wp-studio-8a7854ad': { plugins: { 'wp-studio': {} } } } } )
 		);
-		const apps = await detectAgentApps();
+		const apps = await detectAgentApps( studio );
 		expect( apps.find( ( app ) => app.id === 'grok-build' ) ).toEqual( {
 			id: 'grok-build',
 			installed: true,
@@ -252,6 +269,66 @@ describe.skipIf( process.platform === 'win32' )( 'connectAgentApp with an app’
 		} );
 		expect( apps.find( ( app ) => app.id === 'codex' )?.installed ).toBe( false );
 		expect( cliCalls() ).toEqual( [] );
+	} );
+
+	it( 'offers updates for older installed plugins, without downgrading newer versions', async () => {
+		installCli( `${ SHELL_BIN }/claude`, `${ SHELL_BIN }/codex`, `${ SHELL_BIN }/grok` );
+		recordPlugins( [ 'claude-code', 'codex' ], '2.0.0' );
+		recordPlugins( [ 'grok-build' ], '3.0.0' );
+		const apps = await detectAgentApps( studio );
+		expect( apps.find( ( app ) => app.id === 'claude-code' )?.updateStatus ).toBe( 'available' );
+		expect( apps.find( ( app ) => app.id === 'codex' )?.updateStatus ).toBe( 'available' );
+		expect( apps.find( ( app ) => app.id === 'grok-build' )?.updateStatus ).toBeUndefined();
+		await connectAgentApp( 'grok-build', studio );
+		expect( cliCalls() ).toEqual( [] );
+	} );
+
+	it( 'uses Codex’s active local cache rather than another cached version', async () => {
+		installCli( `${ SHELL_BIN }/codex` );
+		recordPlugins( [ 'codex' ], '3.0.0' );
+		write(
+			path.join(
+				home,
+				'.codex',
+				'plugins',
+				'cache',
+				'studio',
+				'wp-studio',
+				'local',
+				'.codex-plugin',
+				'plugin.json'
+			),
+			JSON.stringify( { name: 'wp-studio', version: '2.0.0' } )
+		);
+		expect(
+			( await detectAgentApps( studio ) ).find( ( app ) => app.id === 'codex' )?.updateStatus
+		).toBe( 'available' );
+	} );
+
+	it( 'updates only the selected app and exposes a failed update for retry', async () => {
+		installCli( `${ SHELL_BIN }/claude`, `${ SHELL_BIN }/codex` );
+		recordPlugins( [ 'claude-code', 'codex' ], '2.0.0' );
+		mockCli( () => ( { error: true, output: 'Error: temporarily busy' } ) );
+		await expect( connectAgentApp( 'claude-code', studio ) ).rejects.toThrow( 'couldn’t update' );
+		expect(
+			( await detectAgentApps( studio ) ).find( ( app ) => app.id === 'claude-code' )?.updateStatus
+		).toBe( 'failed' );
+		vi.mocked( execFile ).mockClear();
+		mockCli( ( args ) => {
+			if ( args[ 1 ] === 'update' ) {
+				recordPlugins( [ 'claude-code' ] );
+			}
+			return {};
+		} );
+		await connectAgentApp( 'claude-code', studio );
+		expect( cliCalls() ).toEqual( [
+			[ `${ SHELL_BIN }/claude`, 'plugin', 'marketplace', 'update', 'studio' ],
+			[ `${ SHELL_BIN }/claude`, 'plugin', 'update', 'wp-studio@studio' ],
+		] );
+		const apps = await detectAgentApps( studio );
+		expect( apps.find( ( app ) => app.id === 'claude-code' )?.updateStatus ).toBeUndefined();
+		expect( apps.find( ( app ) => app.id === 'codex' )?.updateStatus ).toBe( 'available' );
+		expect( readJson( marketplace(), '.studio-refresh.json' ).pending ).toEqual( [] );
 	} );
 } );
 
@@ -270,9 +347,9 @@ describe( 'connectAgentApp for Cursor', () => {
 		).toBe( '# Build a site' );
 		expect( fs.readdirSync( path.join( home, '.cursor', 'plugins' ) ) ).toEqual( [ 'local' ] );
 		expect( openUrl ).toHaveBeenCalledWith( pluginPage );
-		expect( ( await detectAgentApps() ).find( ( app ) => app.id === 'cursor' )?.connected ).toBe(
-			true
-		);
+		expect(
+			( await detectAgentApps( studio ) ).find( ( app ) => app.id === 'cursor' )?.connected
+		).toBe( true );
 	} );
 
 	it( 'uses the plugin Cursor loads from Claude Code, with no copy of its own', async () => {
@@ -283,9 +360,9 @@ describe( 'connectAgentApp for Cursor', () => {
 		expect( openUrl ).toHaveBeenLastCalledWith(
 			'cursor://anysphere.cursor-deeplink/plugin/add?id=wp-studio%40studio'
 		);
-		expect( ( await detectAgentApps() ).find( ( app ) => app.id === 'cursor' )?.connected ).toBe(
-			true
-		);
+		expect(
+			( await detectAgentApps( studio ) ).find( ( app ) => app.id === 'cursor' )?.connected
+		).toBe( true );
 	} );
 
 	it( 'preserves Cursor’s local copy when connecting Claude Code', async () => {
@@ -427,12 +504,15 @@ describe.skipIf( process.platform === 'win32' )( 'refreshAgentPlugins', () => {
 		} );
 		await expect( refreshAgentPlugins( studio ) ).rejects.toThrow( 'temporarily busy' );
 		expect(
-			( await detectAgentApps() ).find( ( app ) => app.id === 'grok-build' )?.connected
+			( await detectAgentApps( studio ) ).find( ( app ) => app.id === 'grok-build' )?.connected
 		).toBe( false );
+		expect(
+			( await detectAgentApps( studio ) ).find( ( app ) => app.id === 'grok-build' )?.updateStatus
+		).toBe( 'failed' );
 
 		vi.mocked( execFile ).mockClear();
 		mockCli();
-		await refreshAgentPlugins( studio );
+		await connectAgentApp( 'grok-build', studio );
 		expect( cliCalls() ).toEqual( [
 			[
 				`${ SHELL_BIN }/grok`,

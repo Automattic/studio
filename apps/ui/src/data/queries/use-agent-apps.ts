@@ -10,6 +10,8 @@ export function useAgentApps() {
 		queryFn: () => connector.getAgentApps(),
 		// Apps come and go outside Studio, so each visit asks again.
 		meta: { persist: false },
+		refetchInterval: ( query ) =>
+			query.state.data?.some( ( app ) => app.updateStatus === 'updating' ) ? 2_000 : false,
 	} );
 }
 
@@ -21,8 +23,13 @@ export function useConnectAgentApp() {
 		onSuccess: ( _result, id ) => {
 			queryClient.setQueryData< AgentApp[] >(
 				AGENT_APPS_QUERY_KEY,
-				( apps ) => apps?.map( ( app ) => ( app.id === id ? { ...app, connected: true } : app ) )
+				( apps ) =>
+					apps?.map( ( app ) =>
+						app.id === id ? { ...app, connected: true, updateStatus: undefined } : app
+					)
 			);
+		},
+		onSettled: () => {
 			void queryClient.invalidateQueries( { queryKey: AGENT_APPS_QUERY_KEY } );
 		},
 	} );

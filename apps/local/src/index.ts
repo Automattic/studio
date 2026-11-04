@@ -1553,7 +1553,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.get(
 		'/agent-apps',
 		asyncHandler( async ( _req: Request, res: Response ) => {
-			res.json( await detectAgentApps() );
+			res.json(
+				await detectAgentApps( { nodeBinary: nodeBinary ?? process.execPath, cliBinary } )
+			);
 		} )
 	);
 

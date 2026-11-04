@@ -249,7 +249,7 @@ it( 'keeps responsive mode on the right as the browser row compacts', async () =
 	expect( screen.getByRole( 'button', { name: 'Browser options' } ) ).toBe( options );
 	expect( toggle ).toHaveFocus();
 	await user.keyboard( '{Tab}{ArrowDown}' );
-	expect( screen.getByRole( 'menuitem', { name: 'Open DevTools' } ) ).toHaveFocus();
+	expect( screen.getByRole( 'menuitem', { name: 'Open in browser' } ) ).toHaveFocus();
 	await user.keyboard( '{Escape}' );
 	expect( options ).toHaveFocus();
 	expect(

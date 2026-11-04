@@ -710,8 +710,8 @@ describe( 'preview browser menu', () => {
 		screen.getByRole( 'button', { name: 'Browser options' } ).focus();
 		await user.keyboard( '{ArrowDown}' );
 		expect( screen.getAllByRole( 'menuitem' ).map( ( item ) => item.textContent ) ).toEqual( [
-			'Open DevTools',
 			'Open in browser',
+			'Open DevTools',
 			'Appearance',
 			'Clear browsing data',
 		] );

@@ -2,7 +2,7 @@ import { type SupportedBrowser } from '@studio/common/lib/user-settings/browser'
 import { __, sprintf } from '@wordpress/i18n';
 import { EllipsisVerticalIcon } from 'lucide-react';
 import { AppIcon } from '@/features/sites/app-icon';
-import { AppearanceIcon, CodeIcon, ExternalLinkIcon, TrashIcon } from '@/lib/icons';
+import { ExternalLinkIcon } from '@/lib/icons';
 import { Button, Menu, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import type { PreviewColorScheme } from '../preview-surface/webview';
 
@@ -25,10 +25,6 @@ interface BrowserMenuItemsProps {
 function BrowserMenuItems( { actions, onOpenExternal, disabled }: BrowserMenuItemsProps ) {
 	return (
 		<>
-			<Menu.Item disabled={ disabled } onClick={ actions.onOpenDevTools }>
-				<CodeIcon />
-				{ __( 'Open DevTools' ) }
-			</Menu.Item>
 			<Menu.Item disabled={ disabled || ! onOpenExternal } onClick={ onOpenExternal }>
 				<AppIcon app={ actions.browser } fallback={ <ExternalLinkIcon /> } />
 				{ actions.browserName
@@ -39,11 +35,12 @@ function BrowserMenuItems( { actions, onOpenExternal, disabled }: BrowserMenuIte
 					  )
 					: __( 'Open in browser' ) }
 			</Menu.Item>
+			<Menu.Separator />
+			<Menu.Item disabled={ disabled } onClick={ actions.onOpenDevTools }>
+				{ __( 'Open DevTools' ) }
+			</Menu.Item>
 			<Menu.SubmenuRoot>
-				<Menu.SubmenuTrigger disabled={ disabled }>
-					<AppearanceIcon />
-					{ __( 'Appearance' ) }
-				</Menu.SubmenuTrigger>
+				<Menu.SubmenuTrigger disabled={ disabled }>{ __( 'Appearance' ) }</Menu.SubmenuTrigger>
 				<Menu.SubmenuPopup>
 					<Menu.RadioGroup
 						value={ actions.colorScheme }
@@ -59,7 +56,6 @@ function BrowserMenuItems( { actions, onOpenExternal, disabled }: BrowserMenuIte
 			</Menu.SubmenuRoot>
 			<Menu.Separator />
 			<Menu.Item disabled={ disabled || actions.clearing } onClick={ actions.onClearBrowsingData }>
-				<TrashIcon />
 				{ __( 'Clear browsing data' ) }
 			</Menu.Item>
 		</>

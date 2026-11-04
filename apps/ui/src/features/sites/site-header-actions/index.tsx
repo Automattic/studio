@@ -8,9 +8,9 @@ import { useSiteHeaderLayout, type SiteHeaderLayout } from './use-site-header-la
 import type { SiteDetails } from '@/data/core';
 
 interface SiteHeaderContextValue {
-	// The header the actions sit over: the preview's, or the chat's while the
+	// The header the actions sit over: the panel's, or the chat's while the
 	// chat fills the workspace.
-	host: 'chat' | 'preview' | null;
+	host: 'chat' | 'panel' | null;
 	layout: SiteHeaderLayout;
 	actionsWidth: number;
 	annotationSpace: HTMLElement | null;
@@ -31,12 +31,12 @@ const SiteHeaderContext = createContext< SiteHeaderContextValue >( {
 
 export const useSiteHeader = () => useContext( SiteHeaderContext );
 
-/** Keeps delivery actions and their dialogs mounted while the preview layout changes. */
+/** Keeps delivery actions and their dialogs mounted while the panel layout changes. */
 export function SiteHeaderActionsProvider( {
 	host,
 	children,
 }: {
-	host: 'chat' | 'preview';
+	host: 'chat' | 'panel';
 	children: ReactNode;
 } ) {
 	const [ annotationSpace, attachAnnotationSpace ] = useState< HTMLElement | null >( null );
@@ -67,7 +67,7 @@ export function SiteHeaderSpace() {
 	return <div className={ styles.space } style={ { width: actionsWidth } } />;
 }
 
-/** Site actions stay in one place as the preview opens and closes. */
+/** Site actions stay in one place as the panel opens and closes. */
 export function SiteHeaderActions( { site }: { site: SiteDetails } ) {
 	const { attachActions } = useSiteHeader();
 	const root = useRef< HTMLDivElement >( null );

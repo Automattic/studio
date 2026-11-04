@@ -4,6 +4,7 @@ import {
 	updateBlueprintWithFormValues,
 } from '@studio/common/lib/blueprint-settings';
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
@@ -19,6 +20,7 @@ import styles from './blueprint-gallery.module.css';
 import { getBlueprintScreenshots } from './blueprint-screenshots';
 import { useAddSite } from './context';
 import type { SelectedBlueprint } from '@/features/sites/blueprint-selection';
+import type { BlueprintUseCase } from '@studio/common/lib/blueprint-catalog';
 import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
@@ -42,9 +44,11 @@ function toSelectedBlueprint( blueprint: Blueprint ): SelectedBlueprint {
  */
 export function BlueprintDetails( {
 	blueprint,
+	useCase,
 	onSetup,
 }: {
 	blueprint: Blueprint;
+	useCase?: BlueprintUseCase;
 	onSetup: () => void;
 } ) {
 	const connector = useConnector();
@@ -103,9 +107,16 @@ export function BlueprintDetails( {
 							<Button
 								variant="outline"
 								size="sm"
-								onClick={ () =>
-									void connector.openExternalUrl( getBlueprintPreviewUrl( blueprint ) )
-								}
+								onClick={ () => {
+									void connector
+										.trackEvent( TRACKS_EVENTS.BLUEPRINT_PREVIEW_IN_BROWSER, {
+											blueprint_slug: blueprint.slug,
+											...( useCase ? { use_case: useCase } : {} ),
+											placement: 'add_site_blueprint_details',
+										} )
+										.catch( () => undefined );
+									void connector.openExternalUrl( getBlueprintPreviewUrl( blueprint ) );
+								} }
 							>
 								<ExternalLinkIcon data-icon="inline-start" />
 								{ __( 'Preview in browser' ) }
@@ -116,7 +127,16 @@ export function BlueprintDetails( {
 								size="sm"
 								loading={ create.isPending }
 								loadingAnnouncement={ __( 'Creating site' ) }
-								onClick={ () => create.mutate() }
+								onClick={ () => {
+									void connector
+										.trackEvent( TRACKS_EVENTS.BLUEPRINT_CREATE_SITE_INTENT, {
+											blueprint_slug: blueprint.slug,
+											...( useCase ? { use_case: useCase } : {} ),
+											placement: 'add_site_blueprint_details',
+										} )
+										.catch( () => undefined );
+									create.mutate();
+								} }
 							>
 								{ create.isPending ? __( 'Creating…' ) : __( 'Create site' ) }
 							</Button>

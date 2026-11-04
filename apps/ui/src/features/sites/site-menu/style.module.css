@@ -23,6 +23,8 @@
 }
 
 .chatTab {
+	--surface: var( --muted );
+
 	position: relative;
 	flex: 0 1 160px;
 	width: 160px;
@@ -30,6 +32,7 @@
 	min-width: 0;
 	height: 32px;
 	border-radius: var( --radius-md );
+	background-color: var( --muted );
 	transition: none;
 	-webkit-app-region: no-drag;
 }

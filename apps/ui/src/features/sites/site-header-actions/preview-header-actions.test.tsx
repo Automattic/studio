@@ -59,7 +59,7 @@ async function renderHeader(
 	const site = makeSite( { id: siteId, running } );
 	connector.state.sites = [ site ];
 	const view = renderWithProviders(
-		<SiteHeaderActionsProvider host="preview">
+		<SiteHeaderActionsProvider host="panel">
 			<SessionUIProvider>
 				<SessionHeader site={ site } start={ <HeaderSidebarToggle /> } />
 				<SitePreview
@@ -73,7 +73,7 @@ async function renderHeader(
 		</SiteHeaderActionsProvider>,
 		{ connector }
 	);
-	await screen.findByRole( 'complementary', { name: 'Site preview' } );
+	await screen.findByRole( 'complementary', { name: 'Panel' } );
 	return {
 		...view,
 		resize: ( next: number, windowWidth = next ) =>

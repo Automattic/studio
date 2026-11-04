@@ -67,8 +67,8 @@ export function buildViewMenuItems( {
 	isAlwaysOnTop,
 	devTools,
 	onToggleSidebar,
-	onToggleSitePreview,
-	onSetPreviewLayout,
+	onTogglePanel,
+	onSetWorkspaceLayout,
 	onResetZoom,
 	onZoomIn,
 	onZoomOut,
@@ -77,8 +77,8 @@ export function buildViewMenuItems( {
 	isAlwaysOnTop?: boolean;
 	devTools: MenuItemConstructorOptions[];
 	onToggleSidebar: () => void;
-	onToggleSitePreview: () => void;
-	onSetPreviewLayout: ( layout: WorkspaceLayout ) => void;
+	onTogglePanel: () => void;
+	onSetWorkspaceLayout: ( layout: WorkspaceLayout ) => void;
 	onResetZoom: () => void;
 	onZoomIn: () => void;
 	onZoomOut: () => void;
@@ -90,25 +90,25 @@ export function buildViewMenuItems( {
 			click: onToggleSidebar,
 		},
 		{
-			label: __( 'Toggle Site Preview' ),
+			label: __( 'Toggle Panel' ),
 			accelerator: 'CommandOrControl+Shift+B',
-			click: onToggleSitePreview,
+			click: onTogglePanel,
 		},
 		{ type: 'separator' },
 		{
 			label: __( 'Chat' ),
 			accelerator: 'CommandOrControl+1',
-			click: () => onSetPreviewLayout( 'chat' ),
+			click: () => onSetWorkspaceLayout( 'chat' ),
 		},
 		{
 			label: __( 'Split view' ),
 			accelerator: 'CommandOrControl+2',
-			click: () => onSetPreviewLayout( 'split' ),
+			click: () => onSetWorkspaceLayout( 'split' ),
 		},
 		{
-			label: __( 'Browser' ),
+			label: __( 'Panel' ),
 			accelerator: 'CommandOrControl+3',
-			click: () => onSetPreviewLayout( 'preview' ),
+			click: () => onSetWorkspaceLayout( 'panel' ),
 		},
 		{ type: 'separator' },
 		...( isDevelopment ? devTools : [] ),
@@ -271,15 +271,30 @@ async function getAppMenu( mainWindow: BrowserWindow | null ) {
 			role: 'fileMenu',
 			submenu: [
 				{
+					label: __( 'New chat' ),
+					accelerator: 'CommandOrControl+Shift+N',
+					click: () => {
+						void sendIpcEventToRenderer( 'new-chat' );
+					},
+				},
+				{
 					label: __( 'Add Site…' ),
 					accelerator: 'CommandOrControl+N',
 					click: async () => {
 						void sendIpcEventToRenderer( 'add-site' );
 					},
 				},
+				{
+					label: __( 'Open Folder…' ),
+					accelerator: 'CommandOrControl+O',
+					click: () => {
+						void sendIpcEventToRenderer( 'open-folder' );
+					},
+				},
 				...( process.platform === 'win32'
 					? []
 					: [
+							{ type: 'separator' } as MenuItemConstructorOptions,
 							{
 								label: __( 'Close Window' ),
 								accelerator: 'CommandOrControl+W',
@@ -333,11 +348,11 @@ async function getAppMenu( mainWindow: BrowserWindow | null ) {
 				onToggleSidebar: () => {
 					void sendIpcEventToRenderer( 'toggle-sidebar' );
 				},
-				onToggleSitePreview: () => {
-					void sendIpcEventToRenderer( 'toggle-site-preview' );
+				onTogglePanel: () => {
+					void sendIpcEventToRenderer( 'toggle-panel' );
 				},
-				onSetPreviewLayout: ( layout ) => {
-					void sendIpcEventToRenderer( 'set-preview-layout', layout );
+				onSetWorkspaceLayout: ( layout ) => {
+					void sendIpcEventToRenderer( 'set-workspace-layout', layout );
 				},
 				onResetZoom: () => {
 					void withAppWebContents( ( contents ) => applyAppZoomCommand( contents, 'reset' ) );

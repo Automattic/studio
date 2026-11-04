@@ -7,6 +7,7 @@ import {
 	shell,
 	webContents,
 	type IpcMainInvokeEvent,
+	type OpenDialogOptions,
 	SaveDialogOptions,
 } from 'electron';
 import fs from 'fs';
@@ -14,6 +15,7 @@ import fsPromises from 'fs/promises';
 import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
+import { recordAnnotationSubmitted } from '@studio/agent/node/annotation-tracks';
 import {
 	getGlobalInstructionsEnabled as readGlobalInstructionsEnabled,
 	setGlobalInstructionsEnabled as writeGlobalInstructionsEnabled,
@@ -103,6 +105,7 @@ import {
 	extractBlueprintBundle as extractBlueprintBundleShared,
 	type ExtractedBlueprintBundle,
 } from '@studio/common/sites/blueprint-extract';
+import { readBlueprintSource, type BlueprintSource } from '@studio/common/sites/blueprint-source';
 import { getSiteEditOptions } from '@studio/common/sites/edit';
 import {
 	deleteSite as deleteSiteViaCli,
@@ -319,7 +322,7 @@ export async function continueAiSession(
 	const images = validateStudioChatImages( options.images );
 	const files = validateStudioChatFiles( options.files );
 	const visualAnnotations = validateStudioVisualAnnotations( options.visualAnnotations, images );
-	return startAgentRun( {
+	const result = startAgentRun( {
 		sessionId,
 		prompt: expandSkillCommandPrompt( prompt ),
 		turnId: options.turnId,
@@ -329,6 +332,13 @@ export async function continueAiSession(
 		visualAnnotations,
 		webContents: event.sender,
 	} );
+	void recordAnnotationSubmitted( {
+		annotationCount: visualAnnotations?.length ?? 0,
+		sessionsRoot: getSessionsDirectory(),
+		sessionId,
+		record: recordTracksEvent,
+	} );
+	return result;
 }
 
 export async function listActiveAiAgentRuns(
@@ -746,6 +756,7 @@ export async function stopServer(
 }
 
 export interface FolderDialogResponse {
+	blueprint?: BlueprintSource;
 	path: string;
 	name: string;
 	isEmpty: boolean;
@@ -780,7 +791,8 @@ export async function showSaveAsDialog( event: IpcMainInvokeEvent, options: Save
 export async function showOpenFolderDialog(
 	event: IpcMainInvokeEvent,
 	title: string,
-	defaultDialogPath: string
+	defaultDialogPath: string,
+	options?: { allowBlueprints?: boolean }
 ): Promise< FolderDialogResponse | null > {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( ! parentWindow ) {
@@ -788,37 +800,44 @@ export async function showOpenFolderDialog(
 			`No window found for sender of showOpenFolderDialog message: ${ event.frameId }`
 		);
 	}
-
-	if ( process.env.E2E && process.env.E2E_OPEN_FOLDER_DIALOG ) {
-		// Playwright's filechooser event isn't working in our e2e tests.
-		// Use an environment variable to manually set which folder gets selected.
-		return {
-			path: process.env.E2E_OPEN_FOLDER_DIALOG,
-			name: nodePath.basename( process.env.E2E_OPEN_FOLDER_DIALOG ),
-			isEmpty: await isEmptyDir( process.env.E2E_OPEN_FOLDER_DIALOG ),
-			isWordPress: isWordPressDirectory( process.env.E2E_OPEN_FOLDER_DIALOG ),
-		};
+	let selectedPath = process.env.E2E ? process.env.E2E_OPEN_FOLDER_DIALOG : undefined;
+	if ( ! selectedPath ) {
+		const defaultPath =
+			defaultDialogPath !== '' ? defaultDialogPath : await getDefaultSiteDirectory();
+		let properties: OpenDialogOptions[ 'properties' ] = [ 'openDirectory', 'createDirectory' ];
+		if ( options?.allowBlueprints ) {
+			if ( process.platform === 'darwin' ) {
+				properties.push( 'openFile' );
+			} else {
+				const { response } = await dialog.showMessageBox( parentWindow, {
+					type: 'question',
+					message: __( 'What would you like to open?' ),
+					buttons: [ __( 'Folder…' ), __( 'Blueprint file…' ), __( 'Cancel' ) ],
+					defaultId: 0,
+					cancelId: 2,
+				} );
+				if ( response === 2 ) return null;
+				properties = response === 1 ? [ 'openFile' ] : [ 'openDirectory' ];
+			}
+		}
+		const { canceled, filePaths } = await dialog.showOpenDialog( parentWindow, {
+			title,
+			defaultPath,
+			properties,
+			filters: options?.allowBlueprints
+				? [ { name: __( 'Blueprints' ), extensions: [ 'json', 'zip' ] } ]
+				: undefined,
+		} );
+		if ( canceled || ! filePaths[ 0 ] ) return null;
+		selectedPath = filePaths[ 0 ];
 	}
-
-	const defaultPath =
-		defaultDialogPath !== '' ? defaultDialogPath : await getDefaultSiteDirectory();
-	const { canceled, filePaths } = await dialog.showOpenDialog( parentWindow, {
-		title,
-		defaultPath,
-		properties: [
-			'openDirectory',
-			'createDirectory', // allow user to create new directories; macOS only
-		],
-	} );
-	if ( canceled ) {
-		return null;
-	}
-
+	const blueprint = options?.allowBlueprints ? await readBlueprintSource( selectedPath ) : null;
 	return {
-		path: filePaths[ 0 ],
-		name: nodePath.basename( filePaths[ 0 ] ),
-		isEmpty: await isEmptyDir( filePaths[ 0 ] ),
-		isWordPress: isWordPressDirectory( filePaths[ 0 ] ),
+		path: selectedPath,
+		name: nodePath.basename( selectedPath ),
+		isEmpty: blueprint ? false : await isEmptyDir( selectedPath ),
+		isWordPress: blueprint ? false : isWordPressDirectory( selectedPath ),
+		...( blueprint ? { blueprint } : {} ),
 	};
 }
 

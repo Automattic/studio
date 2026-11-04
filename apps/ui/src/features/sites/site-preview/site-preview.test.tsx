@@ -53,7 +53,7 @@ function createPropsStore( initial: Props ) {
 function Harness( { store }: { store: ReturnType< typeof createPropsStore > } ) {
 	const props = useSyncExternalStore( store.subscribe, store.get );
 	return (
-		<SiteHeaderActionsProvider host="preview">
+		<SiteHeaderActionsProvider host="panel">
 			<SessionUIProvider>
 				<SitePreview { ...props } />
 			</SessionUIProvider>
@@ -78,7 +78,7 @@ async function renderPreview(
 	const site = makeSite( { id: 'one', port: 9010, running: true } );
 	const store = createPropsStore( { site, path: '/', reloadNonce: 0, ...props } );
 	const view = renderWithProviders( <Harness store={ store } />, { connector } );
-	await screen.findByRole( 'complementary', { name: 'Site preview' } );
+	await screen.findByRole( 'complementary', { name: 'Panel' } );
 	return { ...view, update: store.update };
 }
 
@@ -502,7 +502,7 @@ describe( 'site email', () => {
 		const { update } = await renderPreview( 'browser' );
 		update( { path: 'studio:email' } );
 		expect( await screen.findByText( 'No email yet' ) ).toBeVisible();
-		expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue( 'Email' );
+		expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue( 'Email log' );
 	} );
 
 	it( 'opens links to the site in the preview and other links in the browser', async () => {
@@ -527,7 +527,7 @@ describe( 'site email', () => {
 		} );
 		const onPathChange = vi.fn();
 		await renderPreview( 'browser', { path: 'studio:email', onPathChange }, connector );
-		expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue( 'Email' );
+		expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue( 'Email log' );
 		expect( page() ).toBeNull();
 
 		fireEvent.click( await screen.findByRole( 'option', { name: /Password Reset/ } ) );
@@ -542,7 +542,7 @@ describe( 'site email', () => {
 		const onPathChange = vi.fn();
 		await renderPreview( 'browser', { path: 'studio:email', onPathChange } );
 		const input = screen.getByRole( 'textbox', { name: 'Address' } );
-		expect( input ).toHaveValue( 'Email' );
+		expect( input ).toHaveValue( 'Email log' );
 		expect( screen.getByRole( 'button', { name: 'Responsive mode' } ) ).toHaveAttribute(
 			'aria-disabled',
 			'true'
@@ -671,7 +671,7 @@ describe( 'preview address bar', () => {
 			expect( screen.getByRole( 'button', { name: 'Browser B' } ) ).toBeVisible();
 			expect( screen.getByRole( 'button', { name: 'Admin A' } ) ).toBeVisible();
 			expect( screen.getByRole( 'button', { name: 'Database D' } ) ).toBeVisible();
-			expect( screen.getByRole( 'button', { name: 'Email E' } ) ).toBeVisible();
+			expect( screen.getByRole( 'button', { name: 'Email log E' } ) ).toBeVisible();
 			fireEvent.click( screen.getByRole( 'button', { name: 'Browser B' } ) );
 			await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
 			expect( screen.queryByRole( 'group', { name: 'Project tools' } ) ).not.toBeInTheDocument();

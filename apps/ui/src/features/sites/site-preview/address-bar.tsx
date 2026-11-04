@@ -203,7 +203,7 @@ function storeRecentLocation(
 }
 
 function getDisplayUrl( siteUrl: string, path: string ): string {
-	if ( path === EMAIL_PREVIEW_PATH ) return __( 'Email' );
+	if ( path === EMAIL_PREVIEW_PATH ) return __( 'Email log' );
 	if ( path === DESIGN_SYSTEM_PREVIEW_PATH ) {
 		return __( 'Design system' );
 	}

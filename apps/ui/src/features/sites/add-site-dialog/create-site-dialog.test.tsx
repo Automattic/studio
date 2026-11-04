@@ -322,13 +322,14 @@ describe( 'Add site flow', () => {
 	} );
 
 	it( 'honors direct blank setup and still exposes the picker', async () => {
-		setup( { behavior: 'blank' } );
+		const { connector } = setup( { behavior: 'blank' } );
 		expect( await screen.findByLabelText( 'Site name' ) ).toHaveFocus();
 		expect( screen.queryByRole( 'tablist' ) ).not.toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Back' } ) );
 		expect(
 			await screen.findByRole( 'button', { name: 'Start with Blank site' } )
 		).toBeInTheDocument();
+		expect( connector.trackEvent ).not.toHaveBeenCalled();
 	} );
 
 	it( 'uses the Blueprint title and an available name when creating without setup', async () => {
@@ -358,6 +359,10 @@ describe( 'Add site flow', () => {
 			() => new Promise( ( resolve ) => ( complete = resolve ) )
 		);
 		await useBlueprint();
+		expect( connector.trackEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.BLUEPRINT_CREATE_SITE_INTENT,
+			{ blueprint_slug: portfolio.slug, placement: 'add_site_blueprint_details' }
+		);
 		await waitFor( () =>
 			expect( connector.createSite ).toHaveBeenCalledWith(
 				expect.objectContaining( {
@@ -372,6 +377,12 @@ describe( 'Add site flow', () => {
 			'aria-disabled',
 			'true'
 		);
+		fireEvent.click( screen.getByRole( 'button', { name: /Creating…/ } ) );
+		expect(
+			connector.trackEvent.mock.calls.filter(
+				( [ name ] ) => name === TRACKS_EVENTS.BLUEPRINT_CREATE_SITE_INTENT
+			)
+		).toHaveLength( 1 );
 		expect( screen.getByRole( 'status', { name: 'Creating site' } ) ).toBeInTheDocument();
 		expect( screen.queryByText( 'Creating site…' ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Close Add site' } ) ).toHaveAttribute(
@@ -409,6 +420,20 @@ describe( 'Add site flow', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Create site' } ) );
 		await created( history );
 		expect( connector.createSite ).toHaveBeenCalledTimes( 2 );
+		expect(
+			connector.trackEvent.mock.calls.filter(
+				( [ name ] ) => name === TRACKS_EVENTS.BLUEPRINT_CREATE_SITE_INTENT
+			)
+		).toStrictEqual( [
+			[
+				TRACKS_EVENTS.BLUEPRINT_CREATE_SITE_INTENT,
+				{ blueprint_slug: portfolio.slug, placement: 'add_site_blueprint_details' },
+			],
+			[
+				TRACKS_EVENTS.BLUEPRINT_CREATE_SITE_INTENT,
+				{ blueprint_slug: portfolio.slug, placement: 'add_site_blueprint_details' },
+			],
+		] );
 	} );
 
 	it( 'shows screenshots before preparing a Blueprint and restores the filtered gallery focus', async () => {
@@ -541,4 +566,224 @@ it( 'resolves connect failure telemetry before removing the local record', async
 	expect( connector.deleteSite ).not.toHaveBeenCalled();
 	await act( async () => finishTelemetry() );
 	await waitFor( () => expect( connector.deleteSite ).toHaveBeenCalled() );
+} );
+
+function blueprintEvents( connector: ReturnType< typeof createFakeConnector > ) {
+	return connector.trackEvent.mock.calls.filter(
+		( [ name ] ) =>
+			name.startsWith( 'studio_blueprint_' ) || name === TRACKS_EVENTS.BLANK_SITE_SELECTED
+	);
+}
+
+describe( 'Add site Blueprint Tracks actions', () => {
+	it.each( [ false, true ] )(
+		'records view, preview and create once with exact props (filtered: %s)',
+		async ( filtered ) => {
+			const { connector, history, queryClient, user } = setup();
+			const card = await screen.findByRole( 'button', { name: 'View Portfolio' } );
+			fireEvent.load( screen.getByRole( 'img', { name: 'Portfolio preview' } ) );
+			expect( blueprintEvents( connector ) ).toEqual( [] );
+			const props = {
+				blueprint_slug: portfolio.slug,
+				...( filtered ? { use_case: 'portfolio' } : {} ),
+			};
+			const expected = [];
+			if ( filtered ) {
+				await user.click( screen.getByRole( 'tab', { name: 'Portfolio' } ) );
+				expected.push( [
+					TRACKS_EVENTS.BLUEPRINT_USE_CASE_FILTER_CHANGED,
+					{ use_case: 'portfolio' },
+				] );
+			}
+			await user.click( card );
+			expected.push( [ TRACKS_EVENTS.BLUEPRINT_VIEWED, props ] );
+			fireEvent.error( await screen.findByRole( 'img', { name: 'Portfolio screenshot' } ) );
+			await act( async () => queryClient.invalidateQueries( { queryKey: [ 'blueprints' ] } ) );
+			expect( blueprintEvents( connector ) ).toStrictEqual( expected );
+			await user.click( screen.getByRole( 'button', { name: 'Preview in browser' } ) );
+			expected.push( [
+				TRACKS_EVENTS.BLUEPRINT_PREVIEW_IN_BROWSER,
+				{ ...props, placement: 'add_site_blueprint_details' },
+			] );
+			expect( blueprintEvents( connector ) ).toStrictEqual( expected );
+			expect( connector.trackEvent.mock.invocationCallOrder.at( -1 ) ).toBeLessThan(
+				connector.openExternalUrl.mock.invocationCallOrder[ 0 ]
+			);
+			await user.click( screen.getByRole( 'button', { name: 'Create site' } ) );
+			expected.push( [
+				TRACKS_EVENTS.BLUEPRINT_CREATE_SITE_INTENT,
+				{ ...props, placement: 'add_site_blueprint_details' },
+			] );
+			await created( history );
+			expect( blueprintEvents( connector ) ).toStrictEqual( expected );
+			expect( connector.trackEvent.mock.invocationCallOrder.at( -1 ) ).toBeLessThan(
+				connector.createSite.mock.invocationCallOrder[ 0 ]
+			);
+		}
+	);
+
+	it.each( [
+		[ 'Business', 'business' ],
+		[ 'Blog', 'blog' ],
+		[ 'Portfolio', 'portfolio' ],
+		[ 'Store', 'store' ],
+		[ 'Events', 'events' ],
+		[ 'Development', 'development' ],
+	] )( 'records the %s category once and ignores unchanged selections', async ( label, value ) => {
+		const { connector, user } = setup();
+		await screen.findByRole( 'button', { name: 'View Portfolio' } );
+		await user.click( screen.getByRole( 'tab', { name: label } ) );
+		await user.click( screen.getByRole( 'tab', { name: label } ) );
+		expect( blueprintEvents( connector ) ).toStrictEqual( [
+			[ TRACKS_EVENTS.BLUEPRINT_USE_CASE_FILTER_CHANGED, { use_case: value } ],
+		] );
+	} );
+
+	it( 'records both explicit clear-to-all actions but leaves Back and other tabs silent', async () => {
+		const { connector, user } = setup();
+		await screen.findByRole( 'button', { name: 'View Portfolio' } );
+		await user.click( screen.getByRole( 'tab', { name: 'Portfolio' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Back to Blueprints' } ) );
+		await user.click( screen.getByRole( 'tab', { name: 'Blog' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Clear filters' } ) );
+		await user.click( screen.getByRole( 'tab', { name: 'Portfolio' } ) );
+		await user.click( screen.getByRole( 'tab', { name: 'Create' } ) );
+		await user.click( screen.getByRole( 'tab', { name: 'Import' } ) );
+		await user.click( screen.getByRole( 'tab', { name: 'Upload' } ) );
+		await user.click( screen.getByRole( 'tab', { name: 'Connect' } ) );
+		await user.click( screen.getByRole( 'tab', { name: 'Create' } ) );
+		expect( blueprintEvents( connector ) ).toStrictEqual( [
+			[ TRACKS_EVENTS.BLUEPRINT_USE_CASE_FILTER_CHANGED, { use_case: 'portfolio' } ],
+			[ TRACKS_EVENTS.BLUEPRINT_USE_CASE_FILTER_CHANGED, { use_case: 'blog' } ],
+			[ TRACKS_EVENTS.BLUEPRINT_USE_CASE_FILTER_CHANGED, { use_case: 'all' } ],
+			[ TRACKS_EVENTS.BLUEPRINT_USE_CASE_FILTER_CHANGED, { use_case: 'portfolio' } ],
+			[ TRACKS_EVENTS.BLUEPRINT_USE_CASE_FILTER_CHANGED, { use_case: 'all' } ],
+		] );
+	} );
+
+	it( 'records each keyboard activation of Blank site with placement only', async () => {
+		const { connector, user } = setup();
+		await screen.findByRole( 'button', { name: 'Start with Blank site' } );
+		await waitFor( () =>
+			expect( screen.getByRole( 'button', { name: 'Start with Blank site' } ) ).toHaveFocus()
+		);
+		await user.keyboard( '{Enter}' );
+		await screen.findByLabelText( 'Site name' );
+		await user.click( screen.getByRole( 'button', { name: 'Back' } ) );
+		await user.click( await screen.findByRole( 'button', { name: 'Start with Blank site' } ) );
+		expect( blueprintEvents( connector ) ).toStrictEqual( [
+			[ TRACKS_EVENTS.BLANK_SITE_SELECTED, { placement: 'add_site_blueprint_gallery' } ],
+			[ TRACKS_EVENTS.BLANK_SITE_SELECTED, { placement: 'add_site_blueprint_gallery' } ],
+		] );
+	} );
+
+	it.each( [ 'taken-folder', 'custom-domain' ] )(
+		'records create intent when details open setup (%s)',
+		async ( reason ) => {
+			const { connector, user } = setup( {
+				blueprint:
+					reason === 'custom-domain'
+						? { ...portfolio, blueprint: { steps: [ { step: 'enableMultisite' } ] } }
+						: portfolio,
+			} );
+			if ( reason === 'taken-folder' )
+				connector.generateProposedSitePath.mockResolvedValue( {
+					path: '/sites/taken',
+					isEmpty: false,
+					isWordPress: true,
+				} );
+			await user.click( await screen.findByRole( 'button', { name: 'View Portfolio' } ) );
+			await user.click( screen.getByRole( 'button', { name: 'Create site' } ) );
+			await screen.findByLabelText( 'Site name' );
+			expect( connector.createSite ).not.toHaveBeenCalled();
+			expect( blueprintEvents( connector ) ).toStrictEqual( [
+				[ TRACKS_EVENTS.BLUEPRINT_VIEWED, { blueprint_slug: portfolio.slug } ],
+				[
+					TRACKS_EVENTS.BLUEPRINT_CREATE_SITE_INTENT,
+					{ blueprint_slug: portfolio.slug, placement: 'add_site_blueprint_details' },
+				],
+			] );
+		}
+	);
+
+	it( 'counts deliberate repeat views and previews without counting Back', async () => {
+		const { connector, user } = setup();
+		for ( let attempt = 0; attempt < 2; attempt++ ) {
+			await user.click( await screen.findByRole( 'button', { name: 'View Portfolio' } ) );
+			await user.click( screen.getByRole( 'button', { name: 'Preview in browser' } ) );
+			await user.click( screen.getByRole( 'button', { name: 'Back to Blueprints' } ) );
+		}
+		expect( blueprintEvents( connector ).map( ( [ name ] ) => name ) ).toEqual( [
+			TRACKS_EVENTS.BLUEPRINT_VIEWED,
+			TRACKS_EVENTS.BLUEPRINT_PREVIEW_IN_BROWSER,
+			TRACKS_EVENTS.BLUEPRINT_VIEWED,
+			TRACKS_EVENTS.BLUEPRINT_PREVIEW_IN_BROWSER,
+		] );
+	} );
+
+	it.each( [ 'reject', 'pending' ] )(
+		'keeps every action working when tracking is %s',
+		async ( failure ) => {
+			const { connector, history, user } = setup();
+			if ( failure === 'reject' )
+				connector.trackEvent.mockRejectedValue( new Error( 'Tracks unavailable' ) );
+			else connector.trackEvent.mockImplementation( () => new Promise( () => {} ) );
+			await screen.findByRole( 'button', { name: 'View Portfolio' } );
+			await user.click( screen.getByRole( 'button', { name: 'Start with Blank site' } ) );
+			await screen.findByLabelText( 'Site name' );
+			await user.click( screen.getByRole( 'button', { name: 'Back' } ) );
+			await user.click( screen.getByRole( 'tab', { name: 'Blog' } ) );
+			await user.click( screen.getByRole( 'button', { name: 'Clear filters' } ) );
+			await user.click( screen.getByRole( 'button', { name: 'View Portfolio' } ) );
+			await user.click( screen.getByRole( 'button', { name: 'Preview in browser' } ) );
+			expect( connector.openExternalUrl ).toHaveBeenCalledOnce();
+			await user.click( screen.getByRole( 'button', { name: 'Create site' } ) );
+			await created( history );
+			expect( blueprintEvents( connector ).map( ( [ name ] ) => name ) ).toEqual( [
+				TRACKS_EVENTS.BLANK_SITE_SELECTED,
+				TRACKS_EVENTS.BLUEPRINT_USE_CASE_FILTER_CHANGED,
+				TRACKS_EVENTS.BLUEPRINT_USE_CASE_FILTER_CHANGED,
+				TRACKS_EVENTS.BLUEPRINT_VIEWED,
+				TRACKS_EVENTS.BLUEPRINT_PREVIEW_IN_BROWSER,
+				TRACKS_EVENTS.BLUEPRINT_CREATE_SITE_INTENT,
+			] );
+		}
+	);
+
+	it( 'sends only the public catalog slug and fixed props despite sensitive Blueprint fields', async () => {
+		const sensitive = {
+			...portfolio,
+			slug: 'public-catalog-entry',
+			title: 'Private title private@example.test',
+			excerpt: 'Private excerpt',
+			image: 'https://private.example.test/screenshot?token=private-token',
+			playground_url: 'https://private.example.test/preview?token=private-token',
+			bundle_url: 'https://private.example.test/bundle?token=private-token',
+			filePath: '/private/local/blueprint.json',
+			blueprint: {
+				...portfolio.blueprint,
+				login: { username: 'private-user', password: 'private-password' },
+			},
+		};
+		const { connector, history, user } = setup( { blueprint: sensitive } );
+		await user.click( await screen.findByRole( 'button', { name: `View ${ sensitive.title }` } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Preview in browser' } ) );
+		expect( connector.openExternalUrl ).toHaveBeenCalledWith( sensitive.playground_url );
+		await user.click( screen.getByRole( 'button', { name: 'Create site' } ) );
+		await created( history );
+		expect( blueprintEvents( connector ) ).toStrictEqual( [
+			[ TRACKS_EVENTS.BLUEPRINT_VIEWED, { blueprint_slug: sensitive.slug } ],
+			[
+				TRACKS_EVENTS.BLUEPRINT_PREVIEW_IN_BROWSER,
+				{ blueprint_slug: sensitive.slug, placement: 'add_site_blueprint_details' },
+			],
+			[
+				TRACKS_EVENTS.BLUEPRINT_CREATE_SITE_INTENT,
+				{ blueprint_slug: sensitive.slug, placement: 'add_site_blueprint_details' },
+			],
+		] );
+		expect( JSON.stringify( blueprintEvents( connector ) ) ).not.toMatch(
+			/private|https?:|filePath|title|email|token|password|username/
+		);
+	} );
 } );

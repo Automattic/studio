@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
 import {
 	PANEL_WIDTHS_RESET_EVENT,
-	PREVIEW_CONTENT_WIDTH_STORAGE_KEY,
+	PANEL_CONTENT_WIDTH_STORAGE_KEY,
 	SIDEBAR_COLLAPSED_STORAGE_KEY,
 	SIDEBAR_PANEL_STORAGE_KEY,
 } from '@/data/resizable-panels';
@@ -209,7 +209,7 @@ describe( 'WordPress Studio settings', () => {
 
 	it( 'resets only interface preferences and saved panel widths', async () => {
 		localStorage.setItem( SIDEBAR_PANEL_STORAGE_KEY, '320' );
-		localStorage.setItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY, '600' );
+		localStorage.setItem( PANEL_CONTENT_WIDTH_STORAGE_KEY, '600' );
 		localStorage.setItem( SIDEBAR_COLLAPSED_STORAGE_KEY, 'true' );
 		localStorage.setItem( 'unrelated-key', 'one' );
 		const reset = vi.fn();
@@ -225,7 +225,7 @@ describe( 'WordPress Studio settings', () => {
 			undefined
 		);
 		expect( localStorage.getItem( SIDEBAR_PANEL_STORAGE_KEY ) ).toBeNull();
-		expect( localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY ) ).toBeNull();
+		expect( localStorage.getItem( PANEL_CONTENT_WIDTH_STORAGE_KEY ) ).toBeNull();
 		expect( localStorage.getItem( SIDEBAR_COLLAPSED_STORAGE_KEY ) ).not.toBe( 'true' );
 		expect( localStorage.getItem( 'unrelated-key' ) ).toBe( 'one' );
 		expect( settingsParam() ).toBe( 'general' );
@@ -277,8 +277,9 @@ describe( 'WordPress Studio settings', () => {
 			'Do more with WordPress.com'
 		);
 		fireEvent.click( connect );
-		await waitFor( () => expect( connect ).toHaveAttribute( 'aria-busy', 'true' ) );
-		expect( connect ).toHaveAttribute( 'aria-disabled', 'true' );
+		await waitFor( () => expect( connector.authenticate ).toHaveBeenCalledOnce() );
+		expect( connect ).not.toHaveAttribute( 'aria-busy', 'true' );
+		expect( connect ).toBeEnabled();
 		connector.state.user = TEST_USER;
 		await act( async () => finishLogin() );
 		await waitFor( () =>
@@ -731,6 +732,32 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		act( () => connector.emit( 'onAuthStateChanged' ) );
 		expect( await screen.findByRole( 'tab', { name: 'Providers', selected: true } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Usage' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'keeps the Connect label without a spinner while WordPress.com OAuth is pending', async () => {
+		let finishLogin!: () => void;
+		const { connector } = await setup( {
+			section: 'ai',
+			signedIn: false,
+			overrides: {
+				authenticate: () => new Promise< void >( ( resolve ) => ( finishLogin = resolve ) ),
+			},
+		} );
+		const connect = await within( await findProviderRow( 'wpcom-provider' ) ).findByRole(
+			'button',
+			{ name: 'Connect' }
+		);
+		await waitFor( () => expect( connect ).toBeEnabled() );
+		fireEvent.click( connect );
+		await waitFor( () => expect( connector.authenticate ).toHaveBeenCalledOnce() );
+		expect( connect ).toHaveAccessibleName( 'Connect' );
+		expect( connect ).not.toHaveAttribute( 'aria-busy', 'true' );
+		expect( connect.querySelector( '[role="status"]' ) ).toBeNull();
+		expect( connect ).toBeEnabled();
+		fireEvent.click( connect );
+		await waitFor( () => expect( connector.authenticate ).toHaveBeenCalledTimes( 2 ) );
+		await act( async () => finishLogin() );
+		await waitFor( () => expect( connect ).toBeEnabled() );
 	} );
 
 	it( 'waits for completed WordPress.com OAuth before selecting its provider', async () => {

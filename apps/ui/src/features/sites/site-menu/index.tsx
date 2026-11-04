@@ -251,15 +251,6 @@ export function SiteMenuItems( {
 			) : null }
 			<Menu.Separator />
 			<Menu.SubmenuRoot>
-				<Menu.SubmenuTrigger disabled={ busy }>
-					<ArrowRightIcon />
-					{ __( 'Tools' ) }
-				</Menu.SubmenuTrigger>
-				<Menu.SubmenuPopup>
-					<SiteToolMenuItems site={ site } actions={ actions } />
-				</Menu.SubmenuPopup>
-			</Menu.SubmenuRoot>
-			<Menu.SubmenuRoot>
 				<Menu.SubmenuTrigger>
 					<ExternalLinkIcon />
 					{ __( 'Open in' ) }
@@ -275,6 +266,15 @@ export function SiteMenuItems( {
 							{ destination.label }
 						</Menu.Item>
 					) ) }
+				</Menu.SubmenuPopup>
+			</Menu.SubmenuRoot>
+			<Menu.SubmenuRoot>
+				<Menu.SubmenuTrigger disabled={ busy }>
+					<ArrowRightIcon />
+					{ __( 'Tools' ) }
+				</Menu.SubmenuTrigger>
+				<Menu.SubmenuPopup>
+					<SiteToolMenuItems site={ site } actions={ actions } />
 				</Menu.SubmenuPopup>
 			</Menu.SubmenuRoot>
 			<Menu.Separator />

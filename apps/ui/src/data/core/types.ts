@@ -39,6 +39,7 @@ import type {
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
+import type { BlueprintSource } from '@studio/common/sites/blueprint-source';
 import type { SiteDesign } from '@studio/common/sites/site-design';
 import type { SiteEmail, SiteEmailSummary } from '@studio/common/sites/site-email';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
@@ -236,7 +237,10 @@ export interface Connector {
 	generateProposedSitePath( siteName: string ): Promise< ProposedSitePath >;
 	generateProposedSiteName( usedSites: SiteDetails[] ): Promise< string >;
 	generateNumberedSiteName( baseName: string, usedSites: SiteDetails[] ): Promise< string >;
-	selectSiteFolder( defaultPath: string ): Promise< SelectedSiteFolder | null >;
+	selectSiteFolder(
+		defaultPath: string,
+		options?: { allowBlueprints?: boolean }
+	): Promise< SelectedSiteFolder | null >;
 	comparePaths( path1: string, path2: string ): Promise< boolean >;
 
 	getWordPressVersions(): Promise< WordPressVersion[] >;
@@ -590,12 +594,12 @@ export interface Connector {
 	// Fires whenever a preview site is created, updated or deleted, by anyone.
 	onSnapshotEvent( listener: ( event: SnapshotEvent ) => void ): () => void;
 
-	// Fires when the user activates "View > Toggle Site Preview" (⌘⇧B) in the
+	// Fires when the user activates "View > Toggle Panel" (⌘⇧B) in the
 	// application menu.
-	onToggleSitePreview( listener: () => void ): () => void;
+	onTogglePanel( listener: () => void ): () => void;
 
 	// Desktop-only layout accelerators; browser hosts reserve these keys for tabs.
-	onSetPreviewLayout?( listener: ( layout: WorkspaceLayout ) => void ): () => void;
+	onSetWorkspaceLayout?( listener: ( layout: WorkspaceLayout ) => void ): () => void;
 
 	// Fires when the user activates the sidebar toggle shortcut or menu command.
 	onToggleSidebar( listener: () => void ): () => void;
@@ -603,6 +607,8 @@ export interface Connector {
 	// Fires when the user activates "File > Add Site…" (or its keyboard
 	// shortcut) in the application menu.
 	onAddSite( listener: () => void ): () => void;
+	onNewChat( listener: () => void ): () => void;
+	onOpenFolder( listener: () => void ): () => void;
 	// Desktop links and Spotlight select a site in the Studio workspace.
 	onOpenSite( listener: ( payload: { siteId: string } ) => void ): () => void;
 	onAddSiteWithBlueprint( listener: ( payload: { blueprintPath: string } ) => void ): () => void;
@@ -790,6 +796,7 @@ export interface ProposedSitePath {
 }
 
 export interface SelectedSiteFolder {
+	blueprint?: BlueprintSource;
 	path: string;
 	name: string;
 	isEmpty: boolean;

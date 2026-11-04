@@ -41,7 +41,7 @@ const siteCommands = (
 ) =>
 	getSiteCommands( {
 		site,
-		previewShown: false,
+		panelShown: false,
 		canAnnotate: false,
 		annotating: false,
 		actions: {
@@ -59,8 +59,8 @@ const siteCommands = (
 		newChat: vi.fn(),
 		reloadPreview: vi.fn(),
 		annotate: vi.fn(),
-		setChatHidden: vi.fn(),
-		showPreview: vi.fn(),
+		setPanelFullscreen: vi.fn(),
+		showPanel: vi.fn(),
 		copyUrl: vi.fn(),
 		...overrides,
 	} );
@@ -118,10 +118,10 @@ it( 'derives labels and availability from active context', () => {
 	for ( const id of [ 'sidebar', 'pin-site', 'pin-chat', 'color-scheme' ] ) {
 		expect( byId( id )?.group ).toBe( 'commands' );
 	}
-	expect( byId( 'layout-browser' )?.label ).toBe( 'Switch to Browser' );
+	expect( byId( 'layout-panel' )?.label ).toBe( 'Switch to Panel' );
 	expect( byId( 'preview-fullscreen' ) ).toBeUndefined();
 	expect( byId( 'preview-visibility' ) ).toBeUndefined();
-	expect( byId( 'pin-site' )?.label ).toBe( 'Unpin site' );
+	expect( byId( 'pin-site' )?.label ).toBe( 'Unpin' );
 	expect( byId( 'pin-chat' )?.label ).toBe( 'Unpin chat' );
 	expect( byId( 'archive-chat' ) ).toBeUndefined();
 	expect( byId( 'stop-others' ) ).toBeDefined();
@@ -296,31 +296,31 @@ describe( 'command search', () => {
 it.each( [
 	{
 		name: 'Chat',
-		previewShown: false,
+		panelShown: false,
 		chatHidden: true,
-		ids: [ 'layout-split', 'layout-browser' ],
+		ids: [ 'layout-split', 'layout-panel' ],
 	},
 	{
 		name: 'Split view',
-		previewShown: true,
+		panelShown: true,
 		chatHidden: false,
-		ids: [ 'layout-chat', 'layout-browser' ],
+		ids: [ 'layout-chat', 'layout-panel' ],
 	},
-	{ name: 'Browser', previewShown: true, chatHidden: true, ids: [ 'layout-chat', 'layout-split' ] },
-] )( 'offers the other workspace layouts from $name', ( { previewShown, chatHidden, ids } ) => {
-	const showPreview = vi.fn();
-	const setChatHidden = vi.fn();
+	{ name: 'Browser', panelShown: true, chatHidden: true, ids: [ 'layout-chat', 'layout-split' ] },
+] )( 'offers the other workspace layouts from $name', ( { panelShown, chatHidden, ids } ) => {
+	const showPanel = vi.fn();
+	const setPanelFullscreen = vi.fn();
 	const commands = siteCommands( makeSite(), [], {
-		previewShown,
+		panelShown,
 		chatHidden,
-		showPreview,
-		setChatHidden,
+		showPanel,
+		setPanelFullscreen,
 	} );
 	const layouts = commands.filter( ( { id } ) => id.startsWith( 'layout-' ) );
 	expect( layouts.map( ( { id } ) => id ) ).toEqual( ids );
 	for ( const command of layouts ) {
 		command.run();
-		if ( command.id === 'layout-chat' ) expect( showPreview ).toHaveBeenCalledWith( false );
-		else expect( setChatHidden ).toHaveBeenCalledWith( command.id === 'layout-browser' );
+		if ( command.id === 'layout-chat' ) expect( showPanel ).toHaveBeenCalledWith( false );
+		else expect( setPanelFullscreen ).toHaveBeenCalledWith( command.id === 'layout-panel' );
 	}
 } );

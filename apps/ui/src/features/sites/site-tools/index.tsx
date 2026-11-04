@@ -31,7 +31,7 @@ export function getSiteTool( id: 'frontend' | 'admin' | 'database' | 'email' | '
 				shortcut: 'D',
 				action: 'openDatabase',
 			},
-			email: { label: __( 'Email' ), Icon: MailIcon, shortcut: 'E', action: 'openEmail' },
+			email: { label: __( 'Email log' ), Icon: MailIcon, shortcut: 'E', action: 'openEmail' },
 			design: {
 				label: __( 'Design system' ),
 				Icon: AppearanceIcon,

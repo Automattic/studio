@@ -1,1 +1,1 @@
-export type WorkspaceLayout = 'chat' | 'split' | 'preview';
+export type WorkspaceLayout = 'chat' | 'split' | 'panel';

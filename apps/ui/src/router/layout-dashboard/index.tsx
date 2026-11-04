@@ -18,6 +18,7 @@ import {
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { pathForSite, useSessionPreviewUI } from '@/data/use-session-ui';
+import { useWorkspaceLayoutTracks } from '@/data/use-workspace-layout-tracks';
 import { AccountPromptDialog } from '@/features/account';
 import {
 	getSiteAnnotations,
@@ -33,12 +34,12 @@ import {
 	useWhatsNewReplay,
 } from '@/features/onboarding';
 import { SidebarLayout, HeaderSidebarToggle, rememberVisit } from '@/features/sidebar';
-import { PreviewSplitFrame, type PreviewSplitFramePreviewProps } from '@/features/sites';
+import { PanelSplitFrame, type PanelSplitFramePanelProps } from '@/features/sites';
 import {
 	SiteHeaderActions,
 	SiteHeaderActionsProvider,
 	SitePreview,
-	PreviewLayoutControls,
+	PanelLayoutControls,
 	PreviewTabs,
 } from '@/features/sites';
 import { useMediaQuery, useWindowControlsOverlay } from '@/lib/hooks';
@@ -179,37 +180,42 @@ function DashboardLayout() {
 		! localPreviewStopping && ( !! liveUrl || !! previewSite?.running || previewStarting );
 	const previewLoading =
 		! liveUrl && ( previewStarting || preview.revealingSiteId === previewSiteId );
-	const [ visiblePreview, setVisiblePreview ] = useState< {
+	const [ visiblePanel, setVisiblePanel ] = useState< {
 		siteId: string | undefined;
 		open: boolean;
 	} >( {
 		siteId: undefined,
 		open: false,
 	} );
-	const keepPreviewVisible = visiblePreview.siteId === previewSiteId && visiblePreview.open;
-	const showPreview =
-		( ! previewLoading || keepPreviewVisible ) &&
+	const keepPanelVisible = visiblePanel.siteId === previewSiteId && visiblePanel.open;
+	const showPanel =
+		( ! previewLoading || keepPanelVisible ) &&
 		supportsPreview &&
 		!! previewSite &&
 		( !! homeSiteId ||
 			( preview.siteId === previewSiteId
 				? preview.open
 				: preview.openBySiteId[ previewSiteId ?? '' ] ?? siteActive ) );
-	if ( visiblePreview.siteId !== previewSiteId || visiblePreview.open !== showPreview ) {
-		setVisiblePreview( { siteId: previewSiteId, open: showPreview } );
+	if ( visiblePanel.siteId !== previewSiteId || visiblePanel.open !== showPanel ) {
+		setVisiblePanel( { siteId: previewSiteId, open: showPanel } );
 	}
 
 	const chatHidden =
-		showPreview &&
+		showPanel &&
 		( narrow || !! homeSiteId || !! preview.chatHiddenBySiteId[ previewSiteId ?? '' ] );
 	const projectChatSelected = chatHidden && tabWorkspace.chatSelected;
-	const previewVisible = showPreview && ! projectChatSelected;
+	const panelVisible = showPanel && ! projectChatSelected;
 	useLayoutEffect( () => {
 		if ( ! chatHidden && tabWorkspace.chatSelected ) setChatSelected( false );
 	}, [ chatHidden, tabWorkspace.chatSelected, setChatSelected ] );
-	const previewExpanded = showPreview && ( ! narrow || chatHidden );
+	const runLayoutTransition = useWorkspaceLayoutTracks( {
+		layout: ! panelVisible ? 'chat' : chatHidden ? 'panel' : 'split',
+		siteId: routeSite?.id,
+		narrow,
+	} );
+	const panelExpanded = showPanel && ( ! narrow || chatHidden );
 	const showFullView =
-		showPreview && ( chatHidden || !! liveUrl || !! previewSite?.running || previewStarting );
+		showPanel && ( chatHidden || !! liveUrl || !! previewSite?.running || previewStarting );
 	const [ tabHeader, setTabHeader ] = useState< HTMLDivElement | null >( null );
 	useLayoutEffect( () => {
 		if ( ! tabHeader ) return;
@@ -237,10 +243,14 @@ function DashboardLayout() {
 		observer.observe( tabHeader );
 		measure();
 		return () => observer.disconnect();
-	}, [ tabHeader, chatHidden, showPreview ] );
+	}, [ tabHeader, chatHidden, showPanel ] );
 
 	const previousSites = useRef( new Map< string, { running: boolean; starting: boolean } >() );
 	useLayoutEffect( () => {
+		const updateSiteLayout = ( siteId: string, update: () => void ) => {
+			if ( siteId === previewSiteId ) runLayoutTransition( update );
+			else update();
+		};
 		for ( const site of sites ?? [] ) {
 			const previous = previousSites.current.get( site.id );
 			const starting =
@@ -249,17 +259,20 @@ function DashboardLayout() {
 				( starting && ! previous?.starting ) ||
 				( previous?.running === false && site.running && ! previous.starting )
 			) {
-				setChatHidden(
-					! getSiteAnnotations( site.id ).active && ! ( preferences?.openChatOnSiteStart ?? true ),
-					site.id
-				);
-				setOpen( true, { siteId: site.id } );
+				updateSiteLayout( site.id, () => {
+					setChatHidden(
+						! getSiteAnnotations( site.id ).active &&
+							! ( preferences?.openChatOnSiteStart ?? true ),
+						site.id
+					);
+					setOpen( true, { siteId: site.id } );
+				} );
 			} else if (
 				previous?.running &&
 				! site.running &&
 				! ( site.id === previewSiteId && liveUrl )
 			) {
-				setOpen( false, { siteId: site.id } );
+				updateSiteLayout( site.id, () => setOpen( false, { siteId: site.id } ) );
 			}
 			previousSites.current.set( site.id, { running: !! site.running, starting } );
 		}
@@ -271,15 +284,21 @@ function DashboardLayout() {
 		preferences?.openChatOnSiteStart,
 		setChatHidden,
 		setOpen,
+		runLayoutTransition,
 	] );
-	const setPreviewOpen = useCallback(
-		( open: boolean, options?: { instant?: boolean } ) => {
-			setChatSelected( false );
-			setOpen( open, { siteId: previewSiteId, ...options } );
-			if ( homeSiteId )
-				void navigate( { to: '/sites/$siteId/new', params: { siteId: homeSiteId } } );
+	const setPanelOpen = useCallback(
+		( open: boolean, options?: { instant?: boolean; userInitiated?: boolean } ) => {
+			runLayoutTransition(
+				() => {
+					setChatSelected( false );
+					setOpen( open, { siteId: previewSiteId, instant: options?.instant } );
+					if ( homeSiteId )
+						return navigate( { to: '/sites/$siteId/new', params: { siteId: homeSiteId } } );
+				},
+				options?.userInitiated
+			);
 		},
-		[ setOpen, previewSiteId, homeSiteId, navigate, setChatSelected ]
+		[ setOpen, previewSiteId, homeSiteId, navigate, setChatSelected, runLayoutTransition ]
 	);
 	const previousSite = useRef< { id: string; active: boolean } | null >( null );
 	useEffect( () => {
@@ -290,65 +309,91 @@ function DashboardLayout() {
 			void navigate( { to: '/sites/$siteId/new', params: { siteId: homeSiteId } } );
 		}
 	}, [ homeSiteId, previewSiteId, siteActive, navigate ] );
-	const setPreviewFullscreen = useCallback(
-		( fullscreen: boolean, options?: { instant?: boolean } ) => {
-			setChatSelected( false );
-			setOpen( true, options );
-			setChatHidden( fullscreen, previewSiteId, options );
-			if ( homeSiteId ) {
-				void navigate( { to: '/sites/$siteId/new', params: { siteId: homeSiteId } } );
-			}
+	const setPanelFullscreen = useCallback(
+		( fullscreen: boolean, options?: { instant?: boolean; userInitiated?: boolean } ) => {
+			runLayoutTransition(
+				() => {
+					setChatSelected( false );
+					setOpen( true, { instant: options?.instant } );
+					setChatHidden( fullscreen, previewSiteId, { instant: options?.instant } );
+					if ( homeSiteId ) {
+						return navigate( { to: '/sites/$siteId/new', params: { siteId: homeSiteId } } );
+					}
+				},
+				options?.userInitiated
+			);
 		},
-		[ setOpen, setChatHidden, previewSiteId, homeSiteId, navigate, setChatSelected ]
+		[
+			setOpen,
+			setChatHidden,
+			previewSiteId,
+			homeSiteId,
+			navigate,
+			setChatSelected,
+			runLayoutTransition,
+		]
 	);
-	const openProjectChat = useCallback( () => {
-		setChatSelected( true );
-		if ( homeSiteId ) {
-			setOpen( true, { siteId: previewSiteId, instant: true } );
-			setChatHidden( true, previewSiteId, { instant: true } );
-			void navigate( { to: '/sites/$siteId/new', params: { siteId: homeSiteId } } );
-		}
-	}, [ setChatSelected, homeSiteId, setOpen, previewSiteId, setChatHidden, navigate ] );
+	const openProjectChat = useCallback(
+		( userInitiated = false ) => {
+			runLayoutTransition( () => {
+				setChatSelected( true );
+				if ( homeSiteId ) {
+					setOpen( true, { siteId: previewSiteId, instant: true } );
+					setChatHidden( true, previewSiteId, { instant: true } );
+					return navigate( { to: '/sites/$siteId/new', params: { siteId: homeSiteId } } );
+				}
+			}, userInitiated );
+		},
+		[
+			setChatSelected,
+			homeSiteId,
+			setOpen,
+			previewSiteId,
+			setChatHidden,
+			navigate,
+			runLayoutTransition,
+		]
+	);
 	useEffect(
 		() =>
-			connector.onToggleSitePreview( () => {
-				if ( supportsPreview && routeSite ) setPreviewOpen( ! previewVisible );
+			connector.onTogglePanel( () => {
+				if ( supportsPreview && routeSite ) setPanelOpen( ! panelVisible, { userInitiated: true } );
 			} ),
-		[ connector, supportsPreview, routeSite, setPreviewOpen, previewVisible ]
+		[ connector, supportsPreview, routeSite, setPanelOpen, panelVisible ]
 	);
 
 	useEffect(
 		() =>
-			connector.onSetPreviewLayout?.( ( layout ) => {
+			connector.onSetWorkspaceLayout?.( ( layout ) => {
 				if ( ! supportsPreview || ! routeSite || isDialogOpen() ) return;
 				if ( layout === 'chat' ) {
-					if ( chatHidden ) openProjectChat();
-					else setPreviewOpen( false );
-				} else setPreviewFullscreen( layout === 'preview', { instant: true } );
+					if ( chatHidden ) openProjectChat( true );
+					else setPanelOpen( false, { userInitiated: true } );
+				} else setPanelFullscreen( layout === 'panel', { instant: true, userInitiated: true } );
 			} ),
 		[
 			connector,
 			supportsPreview,
 			routeSite,
-			setPreviewOpen,
-			setPreviewFullscreen,
+			setPanelOpen,
+			setPanelFullscreen,
 			chatHidden,
 			openProjectChat,
 		]
 	);
 
 	useEffect( () => {
-		if ( annotations.active ) setPreviewFullscreen( false );
-	}, [ annotations.active, setPreviewFullscreen ] );
+		if ( annotations.active ) setPanelFullscreen( false );
+	}, [ annotations.active, setPanelFullscreen ] );
 
 	const startAnnotating = useCallback( () => {
 		if ( hasProvider ) {
-			setPreviewFullscreen( false );
+			setPanelFullscreen( false );
 			return true;
 		}
 		setProviderPromptOpen( true );
 		return false;
-	}, [ hasProvider, setPreviewFullscreen ] );
+	}, [ hasProvider, setPanelFullscreen ] );
 	// The notes go to the chat beside the preview, or to a new one for the site.
 	const sendAnnotations = useCallback(
 		( siteId: string, noteIds?: string[] ) => {
@@ -365,7 +410,7 @@ function DashboardLayout() {
 		[ hasProvider, navigate, sessionId, sessionSite?.id, setChatHidden ]
 	);
 
-	const renderPreview = ( { collapsed }: PreviewSplitFramePreviewProps ) =>
+	const renderPanel = ( { collapsed }: PanelSplitFramePanelProps ) =>
 		previewSite ? (
 			<SitePreview
 				key={ liveUrl ?? 'local' }
@@ -376,7 +421,7 @@ function DashboardLayout() {
 				onSendAnnotations={ sendAnnotations }
 				onStartAnnotating={ startAnnotating }
 				onPathChange={ liveUrl ? updateLivePath : preview.updatePath }
-				collapsed={ collapsed || ! previewExpanded }
+				collapsed={ collapsed || ! panelExpanded }
 			/>
 		) : null;
 
@@ -388,7 +433,7 @@ function DashboardLayout() {
 				sessionId={ sessionId }
 				siteId={ workspaceSiteId }
 				hideHeader
-				previewVisible={ previewExpanded && ! projectChatSelected }
+				panelVisible={ panelExpanded && ! projectChatSelected }
 			/>
 		) : (
 			<Outlet />
@@ -412,45 +457,43 @@ function DashboardLayout() {
 					openSettings( 'ai', undefined, undefined, { intent: 'annotate', scope: routeSite?.id } );
 				} }
 			/>
-			<SiteHeaderActionsProvider
-				host={ previewExpanded && ! projectChatSelected ? 'preview' : 'chat' }
-			>
-				<PreviewSplitFrame
+			<SiteHeaderActionsProvider host={ panelExpanded && ! projectChatSelected ? 'panel' : 'chat' }>
+				<PanelSplitFrame
 					siteId={ previewSiteId }
 					navigationKey={
 						homeSiteId || newSessionSiteId
 							? `/sites/${ homeSiteId ?? newSessionSiteId }`
 							: routePreviewContext.pathname
 					}
-					previewOpen={ showPreview }
+					panelOpen={ showPanel }
 					chatHidden={ chatHidden }
 					chatTabActive={ projectChatSelected }
 					instant={ projectChatSelected || ( ! previewStopping && preview.instant ) }
-					preview={ renderPreview }
+					panel={ renderPanel }
 					header={
 						supportsPreview && routeSite ? (
-							<WindowControlsCornerContext.Provider value={ ! showPreview }>
+							<WindowControlsCornerContext.Provider value={ ! showPanel }>
 								<div
 									ref={ setTabHeader }
 									className={ styles.header }
-									data-preview-open={ showPreview || undefined }
+									data-panel-open={ showPanel || undefined }
 									data-full-view-control={ showFullView || undefined }
-									data-preview-fullscreen={ ( showPreview && chatHidden ) || undefined }
+									data-panel-fullscreen={ ( showPanel && chatHidden ) || undefined }
 								>
 									<div className={ styles.chatHeader }>
 										<SessionHeader
 											start={ <HeaderSidebarToggle /> }
 											site={ routeSite }
-											onOpenChat={ chatHidden ? openProjectChat : undefined }
+											onOpenChat={ chatHidden ? () => openProjectChat( true ) : undefined }
 											chatTabActive={ projectChatSelected }
-											reserveSiteActions={ ! showPreview || chatHidden }
+											reserveSiteActions={ ! showPanel || chatHidden }
 										/>
 									</div>
 									<SiteHeaderActions site={ routeSite } />
 									<div
 										className={ styles.previewTabs }
-										aria-hidden={ ! showPreview || undefined }
-										inert={ ! showPreview }
+										aria-hidden={ ! showPanel || undefined }
+										inert={ ! showPanel }
 									>
 										<PreviewTabs site={ routeSite } liveUrl={ liveUrl } path={ previewPath } />
 									</div>
@@ -460,13 +503,13 @@ function DashboardLayout() {
 											right: `calc(var(--band-inset) + ${ windowControls?.controlsWidth ?? 0 }px)`,
 										} }
 									>
-										<PreviewLayoutControls
+										<PanelLayoutControls
 											showFullView={ showFullView }
-											open={ previewVisible }
-											onOpenChange={ ( open ) => setPreviewOpen( open ) }
+											open={ panelVisible }
+											onOpenChange={ ( open ) => setPanelOpen( open, { userInitiated: true } ) }
 											fullscreen={ chatHidden }
 											onFullscreenChange={ ( fullscreen ) =>
-												setPreviewFullscreen( fullscreen, { instant: true } )
+												setPanelFullscreen( fullscreen, { instant: true, userInitiated: true } )
 											}
 										/>
 									</div>
@@ -476,17 +519,18 @@ function DashboardLayout() {
 					}
 				>
 					{ workspace }
-				</PreviewSplitFrame>
+				</PanelSplitFrame>
 			</SiteHeaderActionsProvider>
 			<CommandPalette
 				site={ homeSite ?? newSessionSite ?? sessionSite }
 				session={ sessionData?.summary }
 				chatHidden={ chatHidden }
-				previewFullscreen={ {
+				panelFullscreen={ {
 					active: chatHidden,
-					onChange: ( fullscreen ) => setPreviewFullscreen( fullscreen, { instant: true } ),
-					open: previewVisible,
-					onOpenChange: ( open ) => setPreviewOpen( open ),
+					onChange: ( fullscreen ) =>
+						setPanelFullscreen( fullscreen, { instant: true, userInitiated: true } ),
+					open: panelVisible,
+					onOpenChange: ( open ) => setPanelOpen( open, { userInitiated: true } ),
 				} }
 			/>
 		</SidebarLayout>

@@ -6,8 +6,7 @@ import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
 import { useSites } from '@/data/queries/use-sites';
 import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
 import { HeaderSidebarToggle } from '@/features/sidebar';
-import { useOpenAddSite } from '@/features/sites';
-import { PlusIcon } from '@/lib/icons';
+import { PreviewParticles, useOpenAddSite } from '@/features/sites';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, Button } from '@/lib/ui';
 import { dashboardLayoutRoute } from '../layout-dashboard';
 import styles from './style.module.css';
@@ -82,14 +81,13 @@ function NoSitesContent() {
 		);
 	}
 	return (
-		<Empty>
-			<EmptyHeader>
-				<EmptyDescription>{ __( 'Add a local WordPress site to get started.' ) }</EmptyDescription>
-			</EmptyHeader>
+		<Empty className={ styles.workspace }>
+			<div className={ styles.dots } aria-hidden="true">
+				<PreviewParticles active />
+			</div>
 			<EmptyContent>
-				<Button data-add-first-site onClick={ () => openAddSite() }>
-					<PlusIcon data-icon="inline-start" />
-					{ __( 'Add site' ) }
+				<Button variant="accent" data-add-first-site onClick={ () => openAddSite() }>
+					{ __( 'Start here' ) }
 				</Button>
 			</EmptyContent>
 		</Empty>

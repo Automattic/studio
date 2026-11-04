@@ -43,7 +43,7 @@ async function setup( onStartAnnotating?: () => boolean ) {
 	vi.stubGlobal( 'ipcApi', { clearWebviewCache: vi.fn().mockResolvedValue( undefined ) } );
 	const view = renderWithProviders(
 		<SessionUIProvider>
-			<SiteHeaderActionsProvider host="preview">
+			<SiteHeaderActionsProvider host="panel">
 				<SitePreview
 					site={ site }
 					path="/"

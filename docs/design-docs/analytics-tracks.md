@@ -312,6 +312,37 @@ start / creation is counted once whether it originated in a UI or the standalone
 | `studio_site_start`        | CLI site-start funnel                              | `command` (the command that started the site: `start`/`create`/`import`/`pull`/`pull_reprint`/`config`), `success` (boolean), `time_ms` (start duration). On success also `running_site_count` (running Studio sites after this one comes up). On failure instead `failure_reason` (coarse, low-cardinality: `timeout`/`port_unavailable`/`php_error`/`process_exited`/`unknown` — the raw error is never sent). Both also carry the milliseconds of each step that finished: `daemon_ms`, `wp_config_ms`, `wordpress_install_ms`, `blueprint_ms`, `symlink_scan_ms`, `php_workers_ms`, `proxy_ready_ms`, `admin_credentials_ms`; on a failure, the first missing step is the one that did not finish. `time_ms` is the whole start: for a `site start` an app requested, it counts from the request, so it includes the app spawning and loading the CLI and the CLI's checks before the steps above (in versions after 2.1.0; through 2.1.0 it counted from the server start, the first step). |
 | `studio_site_created`      | CLI site-create funnel                             | `site_id` (opaque local site UUID when its record is resolved; reused by preview create/update), `flow_type` (`new`/`blueprint`/`import`/`sync`/`duplicate`/`ai`/`static_site_import`), `source` (`url`/`capture`/`directory` — the kind of `--from` source, only present when `flow_type` is `static_site_import`; the URL/path itself is **never** sent), `php_version`, `wp_version` (resolved from disk; `-` if unknown), `custom_domain` (boolean — the domain string is **never** sent), `ssl_enabled` (boolean), `time_ms` (creation duration). Emitted once per **successful** creation.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
+#### Add-site Blueprint dialog events
+
+The shared agentic add-site dialog emits these through `Connector.trackEvent` in Desktop
+(`channel=studio-ui`, `ui_version=v2`) and `studio ui` (`channel=studio-web`, `ui_version=v2`).
+Each event records one visible user action. Opening the dialog, rendering cards/screenshots, and Back
+navigation emit none of these events.
+
+| Event | User action | Event-specific props |
+| --- | --- | --- |
+| `studio_blueprint_viewed` | Gallery card opens details | `blueprint_slug`, optional `use_case` |
+| `studio_blueprint_use_case_filter_changed` | Select a different category or explicitly clear filters | `use_case`, including `all` for Clear filters or selecting Create from a filtered gallery |
+| `studio_blueprint_preview_in_browser` | Click Preview in browser in details, before opening the external URL | `blueprint_slug`, optional `use_case`, `placement=add_site_blueprint_details` |
+| `studio_blueprint_create_site_intent` | Click Create site in details, before preparing creation or opening setup | `blueprint_slug`, optional `use_case`, `placement=add_site_blueprint_details` |
+| `studio_blank_site_selected` | Click the Blank site gallery card | `placement=add_site_blueprint_gallery` |
+
+`blueprint_slug` is only the public catalog slug returned for a gallery entry, never an uploaded
+Blueprint's name or file path. `use_case` is the active filter (`business`, `blog`, `portfolio`, `store`,
+`events`, or `development`); view, preview, and create events omit it when unfiltered rather than
+inferring a category from the Blueprint. Re-selecting the active category emits nothing. Back can
+restore a previous filter without emitting a filter-change event.
+
+Create intent includes setup fallbacks and attempts that later fail; an explicit retry records another
+intent. Successful creation remains the existing CLI-owned `studio_site_created` with
+`flow_type=blueprint`. These events add no person, session, site, or correlation identifiers. They use
+the existing anonymous install identity and opt-out/build gates. No preview URLs, screenshot URLs,
+titles, paths, emails, credentials, or raw errors are sent. Tracking failures do not block the action.
+
+Register all five event names and their listed props, plus the wrapper-attached `channel`,
+`ui_version`, `is_a11n`, `platform`, `arch`, and `app_version` props. `blueprint_slug` and `use_case`
+are custom properties; `placement` adds the two fixed values above for these events.
+
 #### Site operation events
 
 Day-to-day site actions. **Stop and delete are emitted by the CLI** (the sole funnel — the desktop
@@ -356,6 +387,7 @@ enumerated prop values below.
 | `studio_site_open_email`         | Renderer (agentic)                                      | `browser` (always `internal` — the email view only exists in the preview panel)                                                                                                                                                                                                                                      |
 | `studio_site_open_folder`        | Renderer (Classic + agentic)                            | (none — opens the OS file manager)                                                                                                                                                                                                                                                                                   |
 | `studio_panel_opened`            | Renderer (Classic tab strip + agentic route navigation) | `panel` — the panel opened. Classic: `overview`/`sync`/`settings`/`assistant`/`import-export`/`previews` (only on a genuine user tab switch, not programmatic changes or re-selecting the current tab). Agentic: `overview`/`settings`/`debugging`/`assistant` (`sync`/`import-export`/`previews` are Classic-only). |
+| `studio_workspace_layout_changed` | Renderer (shared workspace layout setters, Desktop + browser UI) | `layout` (`chat`/`split`/`panel`); opaque `site_id` when the local site resolves. Emitted once per user-driven change to the resulting visible layout from header controls, View menu, command palette, or shortcuts. Re-selecting the current layout, initial rendering, site lifecycle changes, viewport-forced changes, and annotation-forced changes emit nothing. Existing Tracks opt-out and build-disable gates apply; delivery is best-effort. |
 
 #### Import/export events
 

@@ -51,7 +51,7 @@ const OPEN_IN_ICONS: Record< OpenInDestination, PaletteCommand[ 'icon' ] > = {
 export function getSiteCommands( {
 	site,
 	chatHidden,
-	previewShown,
+	panelShown,
 	canAnnotate,
 	annotating,
 	actions,
@@ -63,13 +63,13 @@ export function getSiteCommands( {
 	newChat,
 	reloadPreview,
 	annotate,
-	setChatHidden,
-	showPreview,
+	setPanelFullscreen,
+	showPanel,
 	copyUrl,
 }: {
 	site: SiteDetails;
 	chatHidden?: boolean;
-	previewShown: boolean;
+	panelShown: boolean;
 	canAnnotate: boolean;
 	annotating: boolean;
 	actions: ReturnType< typeof useSiteActions >;
@@ -81,8 +81,8 @@ export function getSiteCommands( {
 	newChat: () => void;
 	reloadPreview: () => void;
 	annotate: ( active: boolean ) => void;
-	setChatHidden: ( hidden: boolean ) => void;
-	showPreview: ( open: boolean ) => void;
+	setPanelFullscreen: ( hidden: boolean ) => void;
+	showPanel: ( open: boolean ) => void;
 	copyUrl: () => void;
 } ): PaletteCommand[] {
 	const { busy, running, othersRunning } = actions;
@@ -233,7 +233,7 @@ export function getSiteCommands( {
 					run: destination.open,
 				} )
 			),
-		...( previewShown && site.running
+		...( panelShown && site.running
 			? [
 					{
 						id: 'reload',
@@ -245,7 +245,7 @@ export function getSiteCommands( {
 					},
 			  ]
 			: [] ),
-		...( previewShown && site.running && ( canAnnotate || annotating )
+		...( panelShown && site.running && ( canAnnotate || annotating )
 			? [
 					{
 						id: 'annotate',
@@ -257,7 +257,7 @@ export function getSiteCommands( {
 					},
 			  ]
 			: [] ),
-		...( previewShown
+		...( panelShown
 			? [
 					{
 						id: 'layout-chat',
@@ -266,11 +266,11 @@ export function getSiteCommands( {
 						icon: ChatIcon,
 						description,
 						keywords: [ __( 'Layout' ), __( 'Hide panel' ), __( 'Hide preview' ) ],
-						run: () => showPreview( false ),
+						run: () => showPanel( false ),
 					},
 			  ]
 			: [] ),
-		...( ! previewShown || chatHidden
+		...( ! panelShown || chatHidden
 			? [
 					{
 						id: 'layout-split',
@@ -284,20 +284,20 @@ export function getSiteCommands( {
 							__( 'Show preview' ),
 							__( 'Restore split view' ),
 						],
-						run: () => setChatHidden( false ),
+						run: () => setPanelFullscreen( false ),
 					},
 			  ]
 			: [] ),
-		...( ! previewShown || ! chatHidden
+		...( ! panelShown || ! chatHidden
 			? [
 					{
-						id: 'layout-browser',
+						id: 'layout-panel',
 						group: 'commands' as const,
 						label: __( 'Switch to Panel' ),
 						icon: FullscreenIcon,
 						description,
 						keywords: [ __( 'Layout' ), __( 'Preview' ), __( 'Browser' ), __( 'Expand panel' ) ],
-						run: () => setChatHidden( true ),
+						run: () => setPanelFullscreen( true ),
 					},
 			  ]
 			: [] ),

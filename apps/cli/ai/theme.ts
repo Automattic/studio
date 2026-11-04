@@ -18,22 +18,29 @@ function equalizePendingBackground(): void {
 	( globalThis as Record< symbol, unknown > )[ THEME_KEY ] = studio;
 }
 
+// COLORFGBG's background index, classified like pi does: 7 and 9-15 are light.
+function guessThemeFromEnv(): 'light' | 'dark' {
+	const background = Number( process.env.COLORFGBG?.split( ';' ).pop() );
+	return background === 7 || ( background >= 9 && background <= 15 ) ? 'light' : 'dark';
+}
+
 // Synchronous env-based light/dark guess; `refineStudioTheme` corrects it.
+// pi's default "system" theme needs colors only pi's own interactive mode
+// reports, so name the built-in light or dark theme.
 export function initStudioTheme(): void {
-	initTheme();
+	activeThemeName = guessThemeFromEnv();
+	initTheme( activeThemeName );
 	equalizePendingBackground();
 }
 
-// pi-style detection: ask the terminal for its color scheme, then its
-// background color. Must run after the TUI has started.
+// Ask the terminal for its background color. Must run after the TUI has started.
 export async function refineStudioTheme( tui: TUI ): Promise< boolean > {
-	let detected = await tui.queryTerminalColorScheme( { timeoutMs: 100 } );
-	if ( ! detected ) {
-		const rgb = await tui.queryTerminalBackgroundColor( { timeoutMs: 100 } );
-		if ( rgb ) {
-			const luminance = ( 0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b ) / 255;
-			detected = luminance > 0.5 ? 'light' : 'dark';
-		}
+	const { background } = await tui.queryTerminalColors( { timeoutMs: 100 } );
+	let detected: 'light' | 'dark' | undefined;
+	if ( background ) {
+		const luminance =
+			( 0.2126 * background.r + 0.7152 * background.g + 0.0722 * background.b ) / 255;
+		detected = luminance > 0.5 ? 'light' : 'dark';
 	}
 	if ( ! detected || detected === activeThemeName ) {
 		return false;

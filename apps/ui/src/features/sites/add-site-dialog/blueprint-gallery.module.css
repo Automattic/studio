@@ -8,7 +8,8 @@
 	color: var( --muted-foreground );
 }
 
-.grid {
+.grid,
+.screenshots {
 	display: grid;
 	grid-template-columns: 1fr;
 	gap: var( --space-7 ) var( --space-6 );
@@ -48,35 +49,46 @@
 	border-radius: var( --radius-sm );
 }
 
-.card:focus-visible :is( .thumbnail, .blank ) {
+.thumbnailFrame {
+	background-color: transparent;
+}
+
+.card:focus-visible .thumbnail {
 	outline: var( --focus-width ) solid var( --ring );
 	outline-offset: 2px;
 }
 
 .blank {
 	--preview-frame-shadow: none;
+	background-color: transparent;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 }
 
-.blank svg {
-	width: 20px;
-	height: 20px;
-}
-
 .blank::after {
 	box-shadow: none;
-	border: 1px dashed var( --border );
+	border: 1px dashed color-mix( in oklab, var( --foreground ) 25%, transparent );
 }
 
-.card:hover .blank {
-	background: color-mix( in oklab, var( --accent ) 10%, transparent );
-	color: var( --accent-text );
+.card:is( :hover, :focus-visible ) .blank::after {
+	border: var( --focus-width ) solid var( --ring );
 }
 
-.card:hover .blank::after {
-	border: 2px solid var( --ring );
+.blankIcon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	border-radius: var( --radius-md );
+	background: transparent;
+	color: var( --foreground );
+}
+
+.card:is( :hover, :focus-visible ) .blankIcon {
+	background: var( --accent );
+	color: var( --accent-foreground );
 }
 
 .card:hover .image,
@@ -125,10 +137,8 @@
 }
 
 .screenshots {
-	display: grid;
-	grid-template-columns: 1fr;
 	align-items: start;
-	gap: var( --space-6 );
+	gap: var( --space-3 );
 }
 
 @container (min-width: 384px) {

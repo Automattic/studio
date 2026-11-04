@@ -348,7 +348,7 @@ export function createIpcConnector(): Connector {
 			return ipcApi.fixSiteDesignDrift( siteId, fixes );
 		},
 
-		async exportFullSite( siteId ): Promise< string | null > {
+		async exportFullSite( siteId, options ): Promise< string | null > {
 			const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
 			const site = sites.find( ( candidate ) => candidate.id === siteId );
 			if ( ! site ) {
@@ -368,8 +368,7 @@ export function createIpcConnector(): Connector {
 			if ( ! backupFile ) {
 				return null;
 			}
-			// The main process announces success; failures surface as a toast,
-			// as they do in the browser.
+			options?.onStarted?.();
 			await ipcApi.exportSite( site.id, backupFile, {
 				mode: 'full',
 				showErrorModal: false,
@@ -379,7 +378,7 @@ export function createIpcConnector(): Connector {
 			return backupFile;
 		},
 
-		async exportDatabase( siteId ): Promise< string | null > {
+		async exportDatabase( siteId, options ): Promise< string | null > {
 			const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
 			const site = sites.find( ( candidate ) => candidate.id === siteId );
 			if ( ! site ) {
@@ -399,6 +398,7 @@ export function createIpcConnector(): Connector {
 			if ( ! backupFile ) {
 				return null;
 			}
+			options?.onStarted?.();
 			await ipcApi.exportSite( site.id, backupFile, {
 				mode: 'db',
 				showErrorModal: false,
@@ -868,18 +868,18 @@ export function createIpcConnector(): Connector {
 			);
 		},
 
-		onSetPreviewLayout( listener ) {
+		onSetWorkspaceLayout( listener ) {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe(
-				'set-preview-layout',
+				'set-workspace-layout',
 				( _event: unknown, layout: WorkspaceLayout ) => listener( layout )
 			);
 		},
-		onToggleSitePreview( listener ) {
+		onTogglePanel( listener ) {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
-			return ipcListener.subscribe( 'toggle-site-preview', () => listener() );
+			return ipcListener.subscribe( 'toggle-panel', () => listener() );
 		},
 
 		onToggleSidebar( listener ) {

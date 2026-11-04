@@ -1,5 +1,5 @@
 /* The chat column. The site preview panel lives in the dashboard layout's
-   PreviewSplitFrame, which hosts this view in its content column. */
+   PanelSplitFrame, which hosts this view in its content column. */
 .root {
 	--column-inline-gutter: var( --space-4 );
 	--column-max-width: 644px;

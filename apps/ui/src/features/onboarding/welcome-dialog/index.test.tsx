@@ -51,9 +51,7 @@ describe( 'Welcome dialog', () => {
 			expect( connector.setOnboardingHints ).not.toHaveBeenCalled();
 			expect( history.location.search ).toContain( 'addSite=create' );
 			fireEvent.click( screen.getByRole( 'button', { name: 'Close Add site' } ) );
-			expect(
-				await screen.findByText( 'Add a local WordPress site to get started.' )
-			).toBeVisible();
+			expect( await screen.findByRole( 'button', { name: 'Start here' } ) ).toBeVisible();
 		}
 	);
 

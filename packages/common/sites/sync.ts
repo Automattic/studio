@@ -93,6 +93,8 @@ export function pullSite(
 			...( options?.includePathList?.length
 				? [ '--include-path-list', ...options.includePathList ]
 				: [] ),
+			// The same picks as paths, for the Reprint pull.
+			...( options?.onlyPaths ?? [] ).flatMap( ( onlyPath ) => [ '--only', onlyPath ] ),
 			// The UI records `studio_sync_pull` itself.
 			'--suppress-tracks-event',
 		],

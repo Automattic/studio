@@ -1,4 +1,4 @@
-@property --preview-frame-boundary {
+@property --panel-frame-boundary {
 	syntax: '<length-percentage>';
 	inherits: true;
 	initial-value: 100%;
@@ -12,7 +12,7 @@
 	position: relative;
 	overflow: hidden;
 	background-color: var( --chat );
-	transition: --preview-frame-boundary var( --preview-layout-duration ) var( --motion-ease-layout );
+	transition: --panel-frame-boundary var( --panel-layout-duration ) var( --motion-ease-layout );
 }
 
 /* Taller routes (e.g. settings) scroll inside the fixed-height frame. */
@@ -30,55 +30,55 @@
 	background-color: var( --chat );
 }
 
-/* The content reads its column's width beside the preview from
+/* The content reads its column's width beside the panel from
    `--content-column-width`, and how long the column takes to get there from
    `--content-column-motion`, so a width cap inside it can ease along. */
-.rootPreviewOpen .contentColumn {
-	--content-column-width: var( --preview-frame-content-width );
+.rootPanelOpen .contentColumn {
+	--content-column-width: var( --panel-frame-content-width );
 
 	width: var( --content-column-width );
 }
 
 /* The divider separates the workspace panes below the shared header. */
 .root::after {
-	--preview-divider-color: var( --border );
+	--panel-divider-color: var( --border );
 
 	content: '';
 	position: absolute;
 	inset-block: 1px 0;
-	inset-inline-start: var( --preview-frame-boundary );
+	inset-inline-start: var( --panel-frame-boundary );
 	z-index: 5;
 	width: 1px;
 	opacity: 0;
 	/* Keep the translucent border independent of the page behind it. */
-	background: linear-gradient( var( --preview-divider-color ), var( --preview-divider-color ) ),
+	background: linear-gradient( var( --panel-divider-color ), var( --panel-divider-color ) ),
 		var( --chat );
 	pointer-events: none;
 }
 
-.rootEdge:has( > .previewResizeHandle:hover ):not( .rootPreviewResizing )::after {
-	--preview-divider-color: var( --surface-4 );
+.rootEdge:has( > .panelResizeHandle:hover ):not( .rootPanelResizing )::after {
+	--panel-divider-color: var( --surface-4 );
 }
 
-.rootEdge.rootPreviewResizing::after {
-	--preview-divider-color: var( --accent );
+.rootEdge.rootPanelResizing::after {
+	--panel-divider-color: var( --accent );
 }
 
-.rootPreviewAnimating .contentColumn {
+.rootPanelAnimating .contentColumn {
 	transition: width var( --motion-duration-layout ) var( --motion-ease-layout );
 }
 
-.rootPreviewAnimating .previewSlot {
+.rootPanelAnimating .panelSlot {
 	transition:
 		transform var( --motion-duration-layout ) var( --motion-ease-layout ),
 		width var( --motion-duration-layout ) var( --motion-ease-layout );
 }
 
-.rootPreviewAnimating .contentColumn {
+.rootPanelAnimating .contentColumn {
 	--content-column-motion: var( --motion-duration-layout );
 }
 
-.rootPreviewOpen .contentColumnFull {
+.rootPanelOpen .contentColumnFull {
 	--content-column-width: 100%;
 	--content-column-motion: 0ms;
 
@@ -86,27 +86,27 @@
 	transition: none;
 }
 
-/* The chat keeps its width while the preview covers it. */
+/* The chat keeps its width while the panel covers it. */
 .contentColumnHidden {
 	visibility: hidden;
 }
 
-.rootPreviewResizing .contentColumn {
+.rootPanelResizing .contentColumn {
 	--content-column-motion: 0ms;
 }
 
-.rootPreviewResizing :is( .contentColumn, .previewSlot, .previewResizeHandle ),
-.rootPreviewResizing::after {
+.rootPanelResizing :is( .contentColumn, .panelSlot, .panelResizeHandle ),
+.rootPanelResizing::after {
 	user-select: none;
 	transition: none;
 }
 
-.previewSlot {
+.panelSlot {
 	position: absolute;
 	inset-block: 0;
 	inset-inline-end: 0;
 	z-index: 2;
-	width: calc( 100% - var( --preview-frame-visible-content-width ) );
+	width: calc( 100% - var( --panel-frame-visible-content-width ) );
 	transform: translateX( 100% );
 	min-width: 0;
 	overflow: hidden;
@@ -116,43 +116,43 @@
 	visibility: hidden;
 }
 
-.previewSlotVisible {
+.panelSlotVisible {
 	visibility: visible;
 }
 
 /* Expand over the stationary chat so its composer and dot field never squeeze. */
-.rootPreviewOpen .previewSlot {
+.rootPanelOpen .panelSlot {
 	transform: translateX( 0 );
 }
 
-.previewSlot:dir( rtl ) {
+.panelSlot:dir( rtl ) {
 	transform: translateX( -100% );
 }
 
-.rootPreviewOpen .previewSlot:dir( rtl ) {
+.rootPanelOpen .panelSlot:dir( rtl ) {
 	transform: translateX( 0 );
 }
 
 .rootEdge::after,
-.rootEdge .previewResizeHandle {
+.rootEdge .panelResizeHandle {
 	opacity: 1;
 }
 
 .root::after,
-.previewResizeHandle {
-	transition: opacity var( --preview-layout-duration ) var( --motion-ease-layout );
+.panelResizeHandle {
+	transition: opacity var( --panel-layout-duration ) var( --motion-ease-layout );
 }
 
-.previewSlotInteractive {
+.panelSlotInteractive {
 	pointer-events: auto;
 }
 
-/* Centers the 8px hit area on the content/preview boundary, its focus line on
+/* Centers the 8px hit area on the content/panel boundary, its focus line on
    the boundary's edge line. */
-.previewResizeHandle {
+.panelResizeHandle {
 	position: absolute;
 	inset-block: 0;
-	inset-inline-start: var( --preview-frame-boundary );
+	inset-inline-start: var( --panel-frame-boundary );
 	z-index: 3;
 	display: flex;
 	opacity: 0;
@@ -162,13 +162,13 @@
 	width: 8px;
 }
 
-.previewResizeGrip {
+.panelResizeGrip {
 	justify-content: flex-start;
 }
 
 /* In RTL the handle is offset from the right edge, so the centering nudge
    flips too. */
-.previewResizeHandle:dir( rtl ) {
+.panelResizeHandle:dir( rtl ) {
 	transform: translateX( 4px );
 }
 
@@ -177,11 +177,11 @@
 	inset-block-start: var( --band-height );
 }
 
-.rootPreviewAnimating [data-site-header-reserved] {
+.rootPanelAnimating [data-site-header-reserved] {
 	transition: flex-basis var( --motion-duration-layout ) var( --motion-ease-layout );
 }
 
-.rootPreviewResizing [data-site-header-reserved] {
+.rootPanelResizing [data-site-header-reserved] {
 	transition: none;
 }
 
@@ -189,10 +189,10 @@
 	inset-block-start: 0;
 }
 
-.rootWithHeader .previewSlot {
+.rootWithHeader .panelSlot {
 	--workspace-header-height: var( --band-height );
 }
 
-.previewResizeHandle[inert] {
+.panelResizeHandle[inert] {
 	pointer-events: none;
 }

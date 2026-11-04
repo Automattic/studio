@@ -29,11 +29,13 @@ import {
 	type WebviewPageTitleUpdatedEvent,
 	type WebviewStartNavigationEvent,
 	type WebviewTag,
+	type PreviewColorScheme,
 } from './webview';
 import type { SiteAnnotations } from '@/features/annotations';
 
 interface WebviewSurfaceProps {
 	url: string;
+	colorScheme?: PreviewColorScheme;
 	reloadNonce: number;
 	// The site's annotations, mirrored into the page as markers.
 	annotations?: SiteAnnotations;
@@ -57,6 +59,7 @@ interface WebviewSurfaceProps {
  */
 export function WebviewSurface( {
 	url,
+	colorScheme = 'system',
 	reloadNonce,
 	annotations,
 	onInspectorReady,
@@ -69,6 +72,7 @@ export function WebviewSurface( {
 }: WebviewSurfaceProps ) {
 	const ref = useRef< HTMLElement | null >( null );
 	const [ ready, setReady ] = useState( false );
+	const [ documentVersion, setDocumentVersion ] = useState( 0 );
 	const [ inspectorReady, setInspectorReady ] = useState( false );
 	const onInspectorReadyRef = useRef( onInspectorReady );
 	const onInspectorEventRef = useRef( onInspectorEvent );
@@ -188,6 +192,7 @@ export function WebviewSurface( {
 		const handleDomReady = () => {
 			domReadyRef.current = true;
 			setReady( true );
+			setDocumentVersion( ( version ) => version + 1 );
 			publishDocumentTitle();
 			publishNavigationHistory();
 			if ( ! inspectorEnabledRef.current ) {
@@ -368,8 +373,16 @@ export function WebviewSurface( {
 		} );
 	}, [ url, reloadNonce, ready ] );
 
+	useEffect( () => {
+		const webview = ref.current as WebviewTag | null;
+		if ( ! documentVersion || ! webview ) return;
+		void getPreviewIpc()
+			?.setWebviewColorScheme?.( getWebviewContentsId( webview ), colorScheme )
+			.catch( ( error ) => console.error( 'Failed to set preview appearance:', error ) );
+	}, [ colorScheme, documentVersion ] );
+
 	// Mirrors the notes into the page, in the theme's accent.
-	const colorScheme = useColorScheme();
+	const appColorScheme = useColorScheme();
 	useEffect( () => {
 		const webview = ref.current as WebviewTag | null;
 		if ( ! inspectorReady || ! webview || ! annotations ) return;
@@ -410,7 +423,7 @@ export function WebviewSurface( {
 				false
 			)
 			.catch( () => undefined );
-	}, [ annotations, colorScheme, inspectorReady ] );
+	}, [ annotations, appColorScheme, inspectorReady ] );
 
 	useEffect( () => {
 		if ( ! ready || ! browserCommand ) return;

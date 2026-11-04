@@ -50,6 +50,23 @@ vi.mock( 'cli/logger', () => ( {
 	LoggerError: class LoggerError extends Error {},
 } ) );
 
+async function withTerminal( isTTY: boolean, run: () => Promise< void > ) {
+	const streams = [ process.stdin, process.stdout ];
+	const descriptors = streams.map( ( stream ) =>
+		Object.getOwnPropertyDescriptor( stream, 'isTTY' )
+	);
+	try {
+		for ( const stream of streams )
+			Object.defineProperty( stream, 'isTTY', { value: isTTY, configurable: true } );
+		await run();
+	} finally {
+		streams.forEach( ( stream, index ) => {
+			if ( descriptors[ index ] ) Object.defineProperty( stream, 'isTTY', descriptors[ index ]! );
+			else Reflect.deleteProperty( stream, 'isTTY' );
+		} );
+	}
+}
+
 describe( 'Auth Login Command', () => {
 	const mockAccessToken = 'mock-access-token-12345';
 	const mockAuthUrl = 'https://public-api.wordpress.com/oauth2/authorize?client_id=123';
@@ -270,6 +287,48 @@ describe( 'Auth Login Command', () => {
 					else Reflect.deleteProperty( stream, 'isTTY' );
 				} );
 			}
+		} );
+
+		it.each( [ true, false ] )(
+			'records the visible terminal offer before the user accepts=%s',
+			async ( accepts ) => {
+				await withTerminal( true, async () => {
+					vi.mocked( confirm ).mockResolvedValue( accepts );
+					if ( accepts ) await requireAuthToken();
+					else await expect( requireAuthToken() ).rejects.toThrow();
+					const calls = vi.mocked( recordTracksEvent ).mock.calls;
+					const exposure = calls.find(
+						( [ event ] ) => event === TRACKS_EVENTS.ACCOUNT_PROMPT_VIEWED
+					)?.[ 1 ];
+					expect( exposure ).toEqual( {
+						channel: 'studio-cli',
+						source: 'cli',
+						placement: 'cli',
+						intent: 'account',
+						journey_id: expect.stringMatching( /^[0-9a-f-]{36}$/ ),
+					} );
+					if ( accepts ) {
+						const started = calls.find(
+							( [ event ] ) => event === TRACKS_EVENTS.WPCOM_AUTH_STARTED
+						)?.[ 1 ];
+						expect( started?.journey_id ).toBe( exposure?.journey_id );
+						expect(
+							calls.find( ( [ event ] ) => event === TRACKS_EVENTS.WPCOM_AUTH )?.[ 1 ]?.journey_id
+						).toBe( exposure?.journey_id );
+					} else
+						expect( calls.map( ( [ event ] ) => event ) ).toEqual( [
+							TRACKS_EVENTS.ACCOUNT_PROMPT_VIEWED,
+						] );
+				} );
+			}
+		);
+
+		it( 'does not record a prompt or an attempt for non-interactive auth-required errors', async () => {
+			await withTerminal( false, async () => {
+				await expect( requireAuthToken() ).rejects.toThrow();
+				expect( confirm ).not.toHaveBeenCalled();
+				expect( recordTracksEvent ).not.toHaveBeenCalled();
+			} );
 		} );
 
 		// `is_a11n` is derived from the stored token, so the event must follow the write.

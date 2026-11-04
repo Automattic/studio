@@ -39,7 +39,7 @@ export function McpPanel() {
 					description={
 						<>
 							{ __(
-								'Connect other AI assistants to WordPress Studio to create, configure, and inspect your local WordPress sites.'
+								'Connect AI apps to WordPress Studio to create, configure, and inspect your local WordPress sites.'
 							) }{ ' ' }
 							<LearnMoreLink docsLinksKey="docsMcp" />
 						</>
@@ -47,7 +47,7 @@ export function McpPanel() {
 				/>
 			</SettingsGroup>
 			<AgentAppsSection />
-			<SettingsGroup title={ __( 'Other AI assistants' ) }>
+			<SettingsGroup title={ __( 'Manual setup' ) }>
 				<Field>
 					<FieldDescription width="full">{ __( 'Install the Studio CLI:' ) }</FieldDescription>
 					<CopyableCode
@@ -56,7 +56,7 @@ export function McpPanel() {
 						label={ __( 'Copy install command' ) }
 					/>
 					<FieldDescription width="full">
-						{ __( 'Then add this configuration to your assistant:' ) }
+						{ __( 'Then add this configuration to your app:' ) }
 					</FieldDescription>
 					<CopyableCode
 						code={ getMcpServerConfigJson() }

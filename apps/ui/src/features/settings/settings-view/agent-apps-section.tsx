@@ -116,7 +116,7 @@ export function AgentAppsSection() {
 		return null;
 	}
 	return (
-		<SettingsGroup title={ __( 'Agent apps' ) }>
+		<SettingsGroup title={ __( 'AI apps' ) }>
 			{ apps.map( ( app ) => (
 				<AgentAppRow key={ app.id } app={ app } />
 			) ) }

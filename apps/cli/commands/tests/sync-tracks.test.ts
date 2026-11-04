@@ -10,7 +10,7 @@ import { pickSyncSite } from 'cli/lib/sync-site-picker';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { LoggerError } from 'cli/logger';
 import { runCommand as runPull } from '../pull';
-import { runCommand as runBackupPull } from '../pull-backup';
+import { runCommand as runBackupPull } from '../pull-legacy';
 import { runCommand as runPush } from '../push';
 import type { SyncSite } from '@studio/common/types/sync';
 import type { SiteData } from 'cli/lib/cli-config/core';

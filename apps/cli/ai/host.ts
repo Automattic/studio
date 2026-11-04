@@ -13,7 +13,7 @@ import {
 } from 'cli/commands/preview/delete';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { runCommand as runPullCommand } from 'cli/commands/pull';
-import { runCommand as runBackupPullCommand } from 'cli/commands/pull-backup';
+import { runCommand as runLegacyPullCommand } from 'cli/commands/pull-legacy';
 import { runCommand as runPushCommand } from 'cli/commands/push';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
@@ -187,7 +187,7 @@ export const cliAgentHost: StudioAgentHost = {
 						false,
 						onProgress
 				  )
-				: runBackupPullCommand(
+				: runLegacyPullCommand(
 						site.path,
 						parseSyncOptions( options ),
 						remoteSite,

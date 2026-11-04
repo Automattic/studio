@@ -68,7 +68,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		builder,
 		handler: async ( argv ) => {
 			if ( ! isReprintPullEnabled() ) {
-				const { commandHandler } = await import( 'cli/commands/pull-backup' );
+				const { commandHandler } = await import( 'cli/commands/pull-legacy' );
 				return commandHandler( argv );
 			}
 			const { commandHandler } = await import( 'cli/commands/pull' );

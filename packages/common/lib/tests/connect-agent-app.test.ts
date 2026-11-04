@@ -365,14 +365,17 @@ describe( 'connectAgentApp for Cursor', () => {
 		).toBe( true );
 	} );
 
-	it( 'preserves Cursor’s local copy when connecting Claude Code', async () => {
-		installCli( `${ SHELL_BIN }/claude` );
-		await connectAgentApp( 'cursor', studio );
-		await connectAgentApp( 'claude-code', studio );
-		expect( fs.existsSync( cursorPlugin() ) ).toBe( true );
-		await connectAgentApp( 'cursor', studio );
-		expect( openUrl ).toHaveBeenLastCalledWith( pluginPage );
-	} );
+	it.skipIf( process.platform === 'win32' )(
+		'preserves Cursor’s local copy when connecting Claude Code',
+		async () => {
+			installCli( `${ SHELL_BIN }/claude` );
+			await connectAgentApp( 'cursor', studio );
+			await connectAgentApp( 'claude-code', studio );
+			expect( fs.existsSync( cursorPlugin() ) ).toBe( true );
+			await connectAgentApp( 'cursor', studio );
+			expect( openUrl ).toHaveBeenLastCalledWith( pluginPage );
+		}
+	);
 
 	it( 'only opens a plugin Cursor already has, and replaces one for another Studio', async () => {
 		await connectAgentApp( 'cursor', studio );

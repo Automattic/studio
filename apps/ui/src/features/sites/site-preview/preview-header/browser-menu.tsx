@@ -70,7 +70,6 @@ export function BrowserMenu( {
 								<Button
 									variant="ghost"
 									size="icon-sm"
-									shape="round"
 									className={ className }
 									aria-label={ __( 'Browser options' ) }
 								/>

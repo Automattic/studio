@@ -17,6 +17,7 @@ import { useCreateSite, useSites } from '@/data/queries/use-sites';
 import { useWordPressOrgPackageName } from '@/data/queries/use-wordpress-org-package-name';
 import { CreateSiteForm } from '@/features/sites/create-site-form';
 import { pendingBlueprintSlot } from '@/features/sites/pending-blueprint';
+import { pendingSiteFolderSlot } from '@/features/sites/pending-site-folder';
 import { useConnectSite } from './connect-site';
 import { useAddSite } from './context';
 import localStyles from './create-panel.module.css';
@@ -268,6 +269,16 @@ export function CreatePanel( {
 		pendingBlueprintSlot.subscribe,
 		pendingBlueprintSlot.getSnapshot
 	);
+	const pendingFolder = useSyncExternalStore(
+		pendingSiteFolderSlot.subscribe,
+		pendingSiteFolderSlot.getSnapshot
+	);
+	const [ selectedFolder, setSelectedFolder ] = useState( pendingFolder );
+	useEffect( () => {
+		if ( ! pendingFolder ) return;
+		setSelectedFolder( pendingFolder );
+		pendingSiteFolderSlot.clear( pendingFolder );
+	}, [ pendingFolder ] );
 	const requiresCustomDomain = useMemo(
 		() =>
 			!! selectedBlueprint &&
@@ -379,6 +390,7 @@ export function CreatePanel( {
 		<div className={ localStyles.page }>
 			<CreateSiteForm
 				actionsContainer={ formActions }
+				selectedFolder={ selectedFolder ?? undefined }
 				initialValues={ submittedInitialValues ?? initialValues }
 				existingDomainNames={ existingDomainNames }
 				onSubmit={ handleSubmit }

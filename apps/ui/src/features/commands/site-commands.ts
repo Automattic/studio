@@ -6,7 +6,7 @@ import {
 	ChatIcon,
 	CodeIcon,
 	DatabaseIcon,
-	GlobeIcon,
+	FullscreenIcon,
 	SplitViewIcon,
 	DuplicateIcon,
 	ExportSiteIcon,
@@ -51,7 +51,7 @@ const OPEN_IN_ICONS: Record< OpenInDestination, PaletteCommand[ 'icon' ] > = {
 export function getSiteCommands( {
 	site,
 	chatHidden,
-	previewShown,
+	panelShown,
 	canAnnotate,
 	annotating,
 	actions,
@@ -63,13 +63,13 @@ export function getSiteCommands( {
 	newChat,
 	reloadPreview,
 	annotate,
-	setChatHidden,
-	showPreview,
+	setPanelFullscreen,
+	showPanel,
 	copyUrl,
 }: {
 	site: SiteDetails;
 	chatHidden?: boolean;
-	previewShown: boolean;
+	panelShown: boolean;
 	canAnnotate: boolean;
 	annotating: boolean;
 	actions: ReturnType< typeof useSiteActions >;
@@ -81,8 +81,8 @@ export function getSiteCommands( {
 	newChat: () => void;
 	reloadPreview: () => void;
 	annotate: ( active: boolean ) => void;
-	setChatHidden: ( hidden: boolean ) => void;
-	showPreview: ( open: boolean ) => void;
+	setPanelFullscreen: ( hidden: boolean ) => void;
+	showPanel: ( open: boolean ) => void;
 	copyUrl: () => void;
 } ): PaletteCommand[] {
 	const { busy, running, othersRunning } = actions;
@@ -143,7 +143,7 @@ export function getSiteCommands( {
 					{
 						id: 'admin',
 						group: 'commands' as const,
-						label: __( 'Open WordPress Admin in preview' ),
+						label: __( 'Open WordPress Admin in panel' ),
 						aliases: [ __( 'Open WordPress Admin' ) ],
 						icon: WordPressIcon,
 						description,
@@ -153,7 +153,7 @@ export function getSiteCommands( {
 					{
 						id: 'database',
 						group: 'commands' as const,
-						label: __( 'Open database in preview' ),
+						label: __( 'Open database in panel' ),
 						aliases: [ __( 'Open database' ) ],
 						icon: DatabaseIcon,
 						description,
@@ -233,7 +233,7 @@ export function getSiteCommands( {
 					run: destination.open,
 				} )
 			),
-		...( previewShown && site.running
+		...( panelShown && site.running
 			? [
 					{
 						id: 'reload',
@@ -245,7 +245,7 @@ export function getSiteCommands( {
 					},
 			  ]
 			: [] ),
-		...( previewShown && site.running && ( canAnnotate || annotating )
+		...( panelShown && site.running && ( canAnnotate || annotating )
 			? [
 					{
 						id: 'annotate',
@@ -257,7 +257,7 @@ export function getSiteCommands( {
 					},
 			  ]
 			: [] ),
-		...( previewShown
+		...( panelShown
 			? [
 					{
 						id: 'layout-chat',
@@ -265,12 +265,12 @@ export function getSiteCommands( {
 						label: __( 'Switch to Chat' ),
 						icon: ChatIcon,
 						description,
-						keywords: [ __( 'Layout' ), __( 'Hide preview' ) ],
-						run: () => showPreview( false ),
+						keywords: [ __( 'Layout' ), __( 'Hide panel' ), __( 'Hide preview' ) ],
+						run: () => showPanel( false ),
 					},
 			  ]
 			: [] ),
-		...( ! previewShown || chatHidden
+		...( ! panelShown || chatHidden
 			? [
 					{
 						id: 'layout-split',
@@ -278,21 +278,26 @@ export function getSiteCommands( {
 						label: __( 'Switch to Split view' ),
 						icon: SplitViewIcon,
 						description,
-						keywords: [ __( 'Layout' ), __( 'Show preview' ), __( 'Exit fullscreen' ) ],
-						run: () => setChatHidden( false ),
+						keywords: [
+							__( 'Layout' ),
+							__( 'Show panel' ),
+							__( 'Show preview' ),
+							__( 'Restore split view' ),
+						],
+						run: () => setPanelFullscreen( false ),
 					},
 			  ]
 			: [] ),
-		...( ! previewShown || ! chatHidden
+		...( ! panelShown || ! chatHidden
 			? [
 					{
-						id: 'layout-browser',
+						id: 'layout-panel',
 						group: 'commands' as const,
-						label: __( 'Switch to Browser' ),
-						icon: GlobeIcon,
+						label: __( 'Switch to Panel' ),
+						icon: FullscreenIcon,
 						description,
-						keywords: [ __( 'Layout' ), __( 'Preview' ), __( 'Enter fullscreen' ) ],
-						run: () => setChatHidden( true ),
+						keywords: [ __( 'Layout' ), __( 'Preview' ), __( 'Browser' ), __( 'Expand panel' ) ],
+						run: () => setPanelFullscreen( true ),
 					},
 			  ]
 			: [] ),

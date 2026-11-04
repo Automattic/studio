@@ -1,23 +1,23 @@
 import { isRTL } from '@wordpress/i18n';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
-	getInitialPreviewContentWidth,
-	getPreviewSplitLayout,
+	getInitialPanelContentWidth,
+	getPanelSplitLayout,
 	PANEL_WIDTHS_RESET_EVENT,
-	PREVIEW_CONTENT_WIDTH_STORAGE_KEY,
-	PREVIEW_CONTENT_DEFAULT_WIDTH,
-	PREVIEW_PANEL_MIN_WIDTH,
+	PANEL_CONTENT_WIDTH_STORAGE_KEY,
+	PANEL_CONTENT_DEFAULT_WIDTH,
+	PANEL_MIN_WIDTH,
 	storeResizablePanelWidth,
 } from '@/data/resizable-panels';
 import { usePointerDrag } from '@/lib/hooks';
 import type { KeyboardEvent, MouseEventHandler, RefObject } from 'react';
 
-interface UsePreviewSplitOptions {
+interface UsePanelSplitOptions {
 	siteId?: string;
-	showPreview: boolean;
+	showPanel: boolean;
 }
 
-interface PreviewSplitHandleProps {
+interface PanelSplitHandleProps {
 	minWidth: number;
 	maxWidth: number;
 	width: number;
@@ -25,25 +25,22 @@ interface PreviewSplitHandleProps {
 	onKeyDown: ( event: KeyboardEvent< HTMLElement > ) => void;
 }
 
-interface UsePreviewSplitResult {
+interface UsePanelSplitResult {
 	rootRef: RefObject< HTMLDivElement | null >;
 	containerWidth: number | null;
-	// The value for the --preview-frame-content-width CSS var: the clamped px
+	// The value for the --panel-frame-content-width CSS var: the clamped px
 	// width once measured, or the default content width before that.
 	contentWidthVar: string;
 	isResizing: boolean;
-	handleProps: PreviewSplitHandleProps;
+	handleProps: PanelSplitHandleProps;
 }
 
-// Owns the preview/content split: a single clamp (getPreviewSplitLayout) feeds
+// Owns the panel/content split: a single clamp (getPanelSplitLayout) feeds
 // both the rendered content width and the resize handle's reported bounds, so
 // CSS never re-clamps. Keeps two state atoms — the user's preferred content
 // width (persisted) and the measured container width — and derives everything
 // else.
-export function usePreviewSplit( {
-	showPreview,
-	siteId,
-}: UsePreviewSplitOptions ): UsePreviewSplitResult {
+export function usePanelSplit( { showPanel, siteId }: UsePanelSplitOptions ): UsePanelSplitResult {
 	const rootRef = useRef< HTMLDivElement >( null );
 
 	// `preferredContentWidth` is the user's intent (persisted); the displayed
@@ -51,7 +48,7 @@ export function usePreviewSplit( {
 	// stored back. Recomputing from a previously-clamped displayed value would
 	// lose the intent on shrink-then-grow.
 	const [ preferredContentWidth, setPreferredContentWidth ] = useState< number | null >( () =>
-		getInitialPreviewContentWidth()
+		getInitialPanelContentWidth()
 	);
 	const [ containerWidth, setContainerWidth ] = useState< number | null >( null );
 	// Mirrors preferredContentWidth so event handlers read the latest value
@@ -78,28 +75,28 @@ export function usePreviewSplit( {
 	const persistContentWidth = useCallback(
 		( next: number ) => {
 			setPreferred( next );
-			storeResizablePanelWidth( PREVIEW_CONTENT_WIDTH_STORAGE_KEY, Math.round( next ) );
+			storeResizablePanelWidth( PANEL_CONTENT_WIDTH_STORAGE_KEY, Math.round( next ) );
 		},
 		[ setPreferred ]
 	);
 
 	const ensurePreferred = useCallback( () => {
 		if ( preferredRef.current === null ) {
-			setPreferred( PREVIEW_CONTENT_DEFAULT_WIDTH );
+			setPreferred( PANEL_CONTENT_DEFAULT_WIDTH );
 		}
-		return preferredRef.current ?? PREVIEW_CONTENT_DEFAULT_WIDTH;
+		return preferredRef.current ?? PANEL_CONTENT_DEFAULT_WIDTH;
 	}, [ setPreferred ] );
 
 	// Measure synchronously on open so the clamped px var is present before
 	// paint (no flash of the calc() fallback).
 	useLayoutEffect( () => {
-		if ( ! showPreview ) {
+		if ( ! showPanel ) {
 			return;
 		}
 		if ( measureRootWidth() !== null ) {
 			ensurePreferred();
 		}
-	}, [ ensurePreferred, measureRootWidth, showPreview ] );
+	}, [ ensurePreferred, measureRootWidth, showPanel ] );
 
 	useEffect( () => {
 		const reset = () => {
@@ -118,7 +115,7 @@ export function usePreviewSplit( {
 	// so this recompute is load-bearing. Falls back to a window resize listener
 	// where ResizeObserver is unavailable.
 	useEffect( () => {
-		if ( ! showPreview ) {
+		if ( ! showPanel ) {
 			return;
 		}
 		const element = rootRef.current;
@@ -132,7 +129,7 @@ export function usePreviewSplit( {
 		const observer = new ResizeObserver( () => measureRootWidth() );
 		observer.observe( element );
 		return () => observer.disconnect();
-	}, [ measureRootWidth, showPreview ] );
+	}, [ measureRootWidth, showPanel ] );
 
 	const { isDragging, onMouseDown, cancel } = usePointerDrag( {
 		onStart: () => {
@@ -140,7 +137,7 @@ export function usePreviewSplit( {
 			if ( container === null ) {
 				return null;
 			}
-			return getPreviewSplitLayout( container, ensurePreferred() ).contentWidth;
+			return getPanelSplitLayout( container, ensurePreferred() ).contentWidth;
 		},
 		onMove: ( start, deltaX ) => {
 			const container = Math.round(
@@ -148,7 +145,7 @@ export function usePreviewSplit( {
 			);
 			// The content column is anchored to the inline-start edge, so in RTL a
 			// rightward drag shrinks it instead of growing it.
-			const layout = getPreviewSplitLayout( container, start + ( isRTL() ? -deltaX : deltaX ) );
+			const layout = getPanelSplitLayout( container, start + ( isRTL() ? -deltaX : deltaX ) );
 			setPreferred( layout.contentWidth );
 			return layout.contentWidth;
 		},
@@ -159,12 +156,12 @@ export function usePreviewSplit( {
 		cancel();
 	}, [ cancel, siteId ] );
 
-	// End an in-flight drag if the preview closes mid-resize.
+	// End an in-flight drag if the panel closes mid-resize.
 	useEffect( () => {
-		if ( ! showPreview ) {
+		if ( ! showPanel ) {
 			cancel();
 		}
-	}, [ cancel, showPreview ] );
+	}, [ cancel, showPanel ] );
 
 	const handleKeyDown = useCallback(
 		( event: KeyboardEvent< HTMLElement > ) => {
@@ -182,17 +179,17 @@ export function usePreviewSplit( {
 			}
 			event.preventDefault();
 			const step = event.shiftKey ? 40 : 16;
-			const current = getPreviewSplitLayout( container, ensurePreferred() );
+			const current = getPanelSplitLayout( container, ensurePreferred() );
 			let nextContentWidth = current.contentWidth;
 			if ( event.key === 'Home' ) {
-				nextContentWidth = container - current.previewMinWidth;
+				nextContentWidth = container - current.panelMinWidth;
 			} else if ( event.key === 'End' ) {
-				nextContentWidth = container - current.previewMaxWidth;
+				nextContentWidth = container - current.panelMaxWidth;
 			} else {
 				const grow = event.key === 'ArrowRight' ? step : -step;
 				nextContentWidth += isRTL() ? -grow : grow;
 			}
-			persistContentWidth( getPreviewSplitLayout( container, nextContentWidth ).contentWidth );
+			persistContentWidth( getPanelSplitLayout( container, nextContentWidth ).contentWidth );
 		},
 		[ ensurePreferred, measureRootWidth, persistContentWidth ]
 	);
@@ -201,15 +198,15 @@ export function usePreviewSplit( {
 		() =>
 			containerWidth === null
 				? null
-				: getPreviewSplitLayout(
+				: getPanelSplitLayout(
 						containerWidth,
-						preferredContentWidth ?? PREVIEW_CONTENT_DEFAULT_WIDTH
+						preferredContentWidth ?? PANEL_CONTENT_DEFAULT_WIDTH
 				  ),
 		[ containerWidth, preferredContentWidth ]
 	);
 
 	const contentWidthVar =
-		layout === null ? `${ PREVIEW_CONTENT_DEFAULT_WIDTH }px` : `${ layout.contentWidth }px`;
+		layout === null ? `${ PANEL_CONTENT_DEFAULT_WIDTH }px` : `${ layout.contentWidth }px`;
 
 	return {
 		rootRef,
@@ -217,9 +214,9 @@ export function usePreviewSplit( {
 		contentWidthVar,
 		isResizing: isDragging,
 		handleProps: {
-			minWidth: layout?.previewMinWidth ?? PREVIEW_PANEL_MIN_WIDTH,
-			maxWidth: layout?.previewMaxWidth ?? PREVIEW_PANEL_MIN_WIDTH,
-			width: layout?.previewWidth ?? PREVIEW_PANEL_MIN_WIDTH,
+			minWidth: layout?.panelMinWidth ?? PANEL_MIN_WIDTH,
+			maxWidth: layout?.panelMaxWidth ?? PANEL_MIN_WIDTH,
+			width: layout?.panelWidth ?? PANEL_MIN_WIDTH,
 			onResizeStart: onMouseDown,
 			onKeyDown: handleKeyDown,
 		},

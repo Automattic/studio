@@ -1,4 +1,5 @@
 import { password } from '@inquirer/prompts';
+import { hasChatGptCredential } from '@studio/agent/node/credential-store';
 import {
 	persistAnthropicApiKey,
 	readAnthropicApiKey,
@@ -21,6 +22,10 @@ vi.mock( '@inquirer/prompts', () => ( {
 
 vi.mock( '@studio/common/lib/shared-config', () => ( {
 	readAuthToken: vi.fn(),
+} ) );
+
+vi.mock( '@studio/agent/node/credential-store', () => ( {
+	hasChatGptCredential: vi.fn(),
 } ) );
 
 vi.mock( '@studio/agent/node/settings-store', () => ( {
@@ -150,6 +155,20 @@ describe( 'AI auth helpers', () => {
 		vi.mocked( readAuthToken ).mockResolvedValue( null );
 
 		await expect( resolveInitialAiProvider() ).resolves.toBe( 'wpcom' );
+	} );
+
+	it( 'falls back to ChatGPT when only a ChatGPT sign-in is available', async () => {
+		vi.mocked( readSelectedAiProvider ).mockResolvedValue( undefined );
+		vi.mocked( readAuthToken ).mockResolvedValue( null );
+		vi.mocked( hasChatGptCredential ).mockResolvedValue( true );
+
+		await expect( resolveInitialAiProvider() ).resolves.toBe( 'chatgpt' );
+	} );
+
+	it( 'requires a ChatGPT sign-in to run on ChatGPT', async () => {
+		vi.mocked( hasChatGptCredential ).mockResolvedValue( false );
+
+		await expect( resolveAiEnvironment( 'chatgpt' ) ).rejects.toBeInstanceOf( LoggerError );
 	} );
 
 	it( 'reports WordPress.com readiness based on WP.com auth state', async () => {

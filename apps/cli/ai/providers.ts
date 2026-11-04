@@ -18,7 +18,7 @@ import { LoggerError } from 'cli/logger';
 export const AI_PROVIDERS: Record< AiProviderId, string > = {
 	wpcom: 'WordPress.com',
 	'anthropic-api-key': 'Anthropic · API key',
-	chatgpt: 'ChatGPT · Sign in',
+	chatgpt: 'ChatGPT plan',
 };
 
 export type { AiProviderId };

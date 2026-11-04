@@ -183,6 +183,8 @@ Each script launches Studio afresh, so its shots stand on their own; its shots r
 
 `meta` is passed through to the JSON results for whoever reads them: the docs keep the pages that use a shot and the uploads it replaces there, for their index. A script with `"manual": true` lists shots captured by hand, by description only. A shot with `"desktopOnly": true` shows something only Studio Desktop has (the CLI installer in Settings, say): the browser driver skips it.
 
+**Good shots**: before handing images over, check them against the review checklist in `SKILL.md` (**Review every image**): no chat cut off at the top of its panel, real UI cropped rather than cut out, Annotate shots last, a chat that matches the preview, default appearance, and nothing broken on screen. A shot that captured without error can still fail it.
+
 ## Looks
 
 A look sets how Studio is shown and what is made of each still. Every field has a default (the `plain` look is nothing but those: a 1440×900 window at 2×, light, unframed), so a look only says what it changes:

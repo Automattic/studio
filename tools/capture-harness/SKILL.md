@@ -44,6 +44,20 @@ Say they can give their own instructions instead (a size, more padding, no shado
 - Video: `SC record <script> --only <shot> --look marketing --out <dir>`. Steps play at a watchable pace with a drawn pointer. MP4 and WebM need ffmpeg; WebP and GIF don't.
 - Did anything change? `SC check <scripts> --out <images dir> --diff-dir <dir> --json` leaves the images alone and exits 1 when pixels changed.
 
+## Review every image
+
+Look at each image yourself before handing it over (a downscaled copy is enough), and fix the script rather than ship one that fails any of these:
+
+1. **No chat cut off at the top.** The chat panel holds about two short exchanges; in a longer conversation the first message starts above the panel and leaves a sliver of its bubble. Shorten the chat (shorter prompts, fewer turns, the closing question folded into the last reply) rather than scroll it.
+2. **Crop the real UI, never cut an element out of its background.** Near a corner or edge of the window, use `capture.reach`. From the middle of the screen, keep about 48 points of the app around the crop: a crop tight to a rounded element leaves stray pixels in its corners.
+3. **Keep a wide crop wide.** A fixed square output cuts the sides off a wide crop; use the natural size, or a crop that is square to begin with.
+4. **Annotate shots go last** in a script: Annotate leaves its hover outline in the preview for every shot after it.
+5. **A lived-in sidebar, an empty chat when the shot needs one.** Give the scene several chats; for a shot of an empty chat or a menu over the composer, start a new chat after they load (`openSiteMenu`, then **New chat**).
+6. **The chat matches the preview and claims nothing it didn't do.** Whatever the agent says it changed must be what the preview shows, and it never takes credit for the design of someone else's theme: plain text and menu edits are safest.
+7. **Default appearance**, unless the shot is about appearance: no accent color, intensity or contrast changes elsewhere.
+8. **The app's scheme matches the background**: the dark app on dark dots, the light app on light dots, unless asked otherwise.
+9. **Nothing broken on screen**: no error messages, empty or loading previews, spinners or stray tooltips. A shot that succeeded can still show one.
+
 ## Rules
 
 - Scripts never log out, publish, pull, buy or start a real agent run. Signed-in launches block these, and a step that tries one fails. Use the `stubAgentRuns` and `playAgentTurn` helpers to show a conversation.

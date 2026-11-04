@@ -166,7 +166,7 @@ export function PreviewTabs( {
 		}
 		requestAnimationFrame( () => {
 			if ( isLastTab ) {
-				document.querySelector< HTMLElement >( '[data-preview-layout="chat"]' )?.focus();
+				document.querySelector< HTMLElement >( '[data-workspace-layout="chat"]' )?.focus();
 			} else {
 				list.current?.querySelector< HTMLElement >( '[data-active]' )?.focus();
 			}

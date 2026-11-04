@@ -73,6 +73,32 @@ describe( 'app-messages', () => {
 		expect( getQueuedToastCount() ).toBe( 0 );
 	} );
 
+	it( 'makes room for failures when persistent operations fill the deck', () => {
+		for ( let index = 0; index < 3; index++ )
+			toast.processing( `Export ${ index }`, { id: `export-${ index }` } );
+		toast.error( 'Disk full' );
+		settleExit();
+		expect( titles() ).toContain( 'Disk full' );
+		expect( getNoticeHistory().find( ( item ) => item.id === 'export-0' )?.processing ).toBe(
+			true
+		);
+		toast.processing( 'Export 0', { id: 'export-0', description: 'Still working' } );
+		expect( titles() ).not.toContain( 'Export 0' );
+		toast.success( 'Export finished', { id: 'export-0' } );
+		settleExit();
+		expect( titles() ).toContain( 'Export finished' );
+		expect( getNoticeHistory().filter( ( item ) => item.id === 'export-0' ) ).toHaveLength( 1 );
+	} );
+
+	it( 'does not strand errors behind queued progress during simultaneous exits', () => {
+		for ( let index = 0; index < 6; index++ ) toast.processing( `Export ${ index }` );
+		toast.error( 'Disk full' );
+		settleExit();
+		expect( titles() ).toContain( 'Disk full' );
+		vi.advanceTimersByTime( 1000 );
+		expect( getQueuedToastCount() ).toBe( 0 );
+	} );
+
 	it( 'shows a toast and expires it after the default duration', () => {
 		toast.success( 'Saved' );
 		expect( titles() ).toEqual( [ 'Saved' ] );

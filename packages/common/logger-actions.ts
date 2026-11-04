@@ -58,7 +58,7 @@ export enum SiteCommandLoggerAction {
 	STOP_FRONTEND = 'stopFrontend',
 }
 
-export enum PullReprintCommandLoggerAction {
+export enum PullCommandLoggerAction {
 	LOAD_SITES = 'loadSites',
 	PREFLIGHT = 'preflight',
 	LOAD_WPCOM_SITES = 'loadWpComSites',

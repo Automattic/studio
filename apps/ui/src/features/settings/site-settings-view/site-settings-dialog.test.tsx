@@ -361,7 +361,7 @@ describe( 'site settings', () => {
 		await siteName();
 		const login = await screen.findByRole( 'button', { name: 'Connect' } );
 		const card = login.closest( 'fieldset' )!;
-		expect( card ).toHaveTextContent( 'Do more with WordPress.com' );
+		expect( card ).toHaveTextContent( 'Do more with WordPress' );
 		expect( card.parentElement?.querySelector( 'fieldset' ) ).toBe( card );
 		expect( screen.queryByRole( 'button', { name: 'Discard' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Save' } ) ).not.toBeInTheDocument();

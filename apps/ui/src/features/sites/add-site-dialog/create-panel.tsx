@@ -18,6 +18,7 @@ import { useWordPressOrgPackageName } from '@/data/queries/use-wordpress-org-pac
 import { CreateSiteForm } from '@/features/sites/create-site-form';
 import { pendingBlueprintSlot } from '@/features/sites/pending-blueprint';
 import { pendingSiteFolderSlot } from '@/features/sites/pending-site-folder';
+import { UploadIcon } from '@/lib/icons';
 import { useConnectSite } from './connect-site';
 import { useAddSite } from './context';
 import localStyles from './create-panel.module.css';
@@ -147,23 +148,11 @@ function getBlueprintPackages( blueprint: SelectedBlueprint[ 'blueprint' ] ) {
 	};
 }
 
-function SelectedBlueprintSummary( {
-	selected,
-	onRemove,
-}: {
-	selected: SelectedBlueprint;
-	onRemove: () => void;
-} ) {
+function SelectedBlueprintSummary( { selected }: { selected: SelectedBlueprint } ) {
 	const packages = getBlueprintPackages( selected.blueprint );
 
 	return (
-		<section className={ localStyles.summary } aria-labelledby="selected-blueprint-title">
-			<div className={ localStyles.summaryHeader }>
-				<h2>{ __( 'Blueprint' ) }</h2>
-				<button type="button" className={ localStyles.summaryRemove } onClick={ onRemove }>
-					{ __( 'Remove' ) }
-				</button>
-			</div>
+		<section className={ localStyles.summary } aria-label={ __( 'Blueprint details' ) }>
 			<div
 				className={ `${ localStyles.summaryOverview } ${
 					selected.image ? '' : localStyles.summaryOverviewWithoutImage
@@ -175,9 +164,6 @@ function SelectedBlueprintSummary( {
 					</div>
 				) }
 				<div className={ localStyles.summaryContent }>
-					<h3 id="selected-blueprint-title" className={ localStyles.summaryTitle }>
-						{ selected.title }
-					</h3>
 					{ selected.excerpt && (
 						<p className={ localStyles.summaryExcerpt }>{ selected.excerpt }</p>
 					) }
@@ -232,11 +218,11 @@ function SelectedBlueprintSummary( {
 export function CreatePanel( {
 	remote,
 	onCancel,
-	onBlankChange,
+	onChooseSource,
 }: {
 	remote?: SyncSite;
 	onCancel: () => void;
-	onBlankChange: ( isBlank: boolean ) => void;
+	onChooseSource?: () => void;
 } ) {
 	const connector = useConnector();
 	const navigate = useNavigate();
@@ -263,6 +249,7 @@ export function CreatePanel( {
 	const [ submittedInitialValues, setSubmittedInitialValues ] =
 		useState< Partial< CreateSiteFormValues > | null >( null );
 	const selectedBlueprintRef = useRef< SelectedBlueprint | null >( null );
+	const blueprintLifecycleRef = useRef( { generation: 0 } );
 	const transferredTempDirRef = useRef< string | null >( null );
 	const [ submitError, setSubmitError ] = useState< string | CreateSiteFormError >( '' );
 	const pendingBlueprint = useSyncExternalStore(
@@ -297,13 +284,13 @@ export function CreatePanel( {
 
 	const replaceBlueprint = useCallback(
 		( blueprint: SelectedBlueprint | null ) => {
+			if ( selectedBlueprintRef.current === blueprint ) return;
 			cleanupBlueprint( selectedBlueprintRef.current );
 			selectedBlueprintRef.current = blueprint;
 			setSelectedBlueprint( blueprint );
-			onBlankChange( ! blueprint && ! existing );
 			setSubmitError( '' );
 		},
-		[ cleanupBlueprint, existing, onBlankChange ]
+		[ cleanupBlueprint ]
 	);
 
 	useEffect( () => {
@@ -312,13 +299,19 @@ export function CreatePanel( {
 		pendingBlueprintSlot.clear( pendingBlueprint );
 	}, [ pendingBlueprint, replaceBlueprint ] );
 
-	useEffect(
-		() => () => {
-			cleanupBlueprint( selectedBlueprintRef.current );
+	useEffect( () => {
+		const lifecycle = blueprintLifecycleRef.current;
+		const generation = ++lifecycle.generation;
+		return () => {
+			// Strict Mode replays setup immediately; only release files after a real unmount.
+			queueMicrotask( () => {
+				if ( lifecycle.generation === generation ) {
+					cleanupBlueprint( selectedBlueprintRef.current );
+				}
+			} );
 			setProgress( null );
-		},
-		[ cleanupBlueprint, setProgress ]
-	);
+		};
+	}, [ cleanupBlueprint, setProgress ] );
 
 	const initialValues = useMemo(
 		() => ( {
@@ -399,26 +392,25 @@ export function CreatePanel( {
 				isSubmitDisabled={ ! isBlueprintValid }
 				requiresCustomDomain={ requiresCustomDomain }
 				submitError={ submitError }
-				submitLabel={ selectedBlueprint ? __( 'Create site from Blueprint' ) : undefined }
-				source={ remote?.url.replace( /^https?:\/\//, '' ) }
-				sourceIcon={ <CloudDownloadIcon /> }
-				onExistingChange={ ( isExisting ) => {
-					setExisting( isExisting );
-					onBlankChange( ! isExisting && ! selectedBlueprintRef.current );
-				} }
+				source={ selectedBlueprint?.title ?? remote?.url.replace( /^https?:\/\//, '' ) }
+				sourceIcon={ selectedBlueprint ? <UploadIcon /> : <CloudDownloadIcon /> }
+				onChangeSource={
+					selectedBlueprint
+						? () => {
+								setIsBlueprintValid( true );
+								replaceBlueprint( null );
+						  }
+						: onChooseSource
+				}
+				sourceActionLabel={ selectedBlueprint ? __( 'Remove' ) : undefined }
+				onExistingChange={ setExisting }
 				requiresEmptyPath={ !! remote }
 				showFrontendChoice={ ! remote }
 				draft={ restoredDraft }
 				onDraftChange={ setSetupDraft }
-				panelFooter={
+				sourceDetails={
 					selectedBlueprint ? (
-						<SelectedBlueprintSummary
-							selected={ selectedBlueprint }
-							onRemove={ () => {
-								setIsBlueprintValid( true );
-								replaceBlueprint( null );
-							} }
-						/>
+						<SelectedBlueprintSummary selected={ selectedBlueprint } />
 					) : undefined
 				}
 			/>

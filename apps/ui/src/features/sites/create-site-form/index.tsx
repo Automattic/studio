@@ -93,11 +93,10 @@ interface CreateSiteFormProps {
 	isSubmitDisabled?: boolean;
 	requiresCustomDomain?: boolean;
 	submitError?: string | CreateSiteFormError;
-	submitLabel?: string;
-	cancelLabel?: string;
-	loadingAnnouncement?: string;
 	children?: ReactNode;
-	panelFooter?: ReactNode;
+	sourceDetails?: ReactNode;
+	onChangeSource?: () => void;
+	sourceActionLabel?: string;
 	actionsContainer?: HTMLElement | null;
 	// What the site starts from, shown under its name.
 	source?: string;
@@ -123,11 +122,10 @@ export function CreateSiteForm( {
 	isSubmitDisabled,
 	requiresCustomDomain,
 	submitError,
-	submitLabel,
-	cancelLabel,
-	loadingAnnouncement,
 	children,
-	panelFooter,
+	sourceDetails,
+	onChangeSource,
+	sourceActionLabel,
 	actionsContainer,
 	source,
 	sourceIcon,
@@ -302,17 +300,17 @@ export function CreateSiteForm( {
 	const actions = (
 		<>
 			<Button variant="outline" onClick={ onCancel } disabled={ isSubmitting }>
-				{ cancelLabel ?? __( 'Cancel' ) }
+				{ __( 'Cancel' ) }
 			</Button>
 			<Button
 				type="submit"
 				form={ formId }
 				disabled={ ! canSubmit }
 				loading={ isSubmitting }
-				loadingAnnouncement={ loadingAnnouncement ?? __( 'Creating site' ) }
+				loadingAnnouncement={ __( 'Creating site' ) }
 				data-testid="create-site-submit"
 			>
-				{ submitLabel ?? __( 'Create site' ) }
+				{ __( 'Create site' ) }
 			</Button>
 		</>
 	);
@@ -332,10 +330,21 @@ export function CreateSiteForm( {
 				{ existing || source ? (
 					<Field>
 						<FieldTitle>{ __( 'Start with' ) }</FieldTitle>
-						<p className={ styles.source }>
+						<div className={ styles.source }>
 							{ existing ? <FileIcon /> : sourceIcon }
 							<span>{ existing ? __( 'Existing local WordPress site' ) : source }</span>
-						</p>
+							{ ! existing && onChangeSource ? (
+								<Button
+									variant="inline-text"
+									size="inline"
+									onClick={ onChangeSource }
+									disabled={ isSubmitting || isSubmitDisabled }
+								>
+									{ sourceActionLabel ?? __( 'Change' ) }
+								</Button>
+							) : null }
+						</div>
+						{ ! existing ? sourceDetails : null }
 					</Field>
 				) : null }
 
@@ -525,10 +534,6 @@ export function CreateSiteForm( {
 							</>
 						) }
 					</Alert>
-				) }
-
-				{ existing || source || ! panelFooter ? null : (
-					<div className={ styles.panelFooter }>{ panelFooter }</div>
 				) }
 			</div>
 

@@ -115,7 +115,7 @@ export function UserMenu( { active = true }: { active?: boolean } ) {
 				open={ promptOpen }
 				onOpenChange={ setPromptOpen }
 				finalFocus={ trigger }
-				title={ __( 'Do more with WordPress.com' ) }
+				title={ __( 'Do more with WordPress' ) }
 				description={ __(
 					'Create a free WordPress.com account to build with the agent, share previews, and publish.'
 				) }

@@ -269,4 +269,8 @@
 		min-height: 0;
 		overflow-y: auto;
 	}
+
+	.content[data-layout='creation'] .scrollArea {
+		mask-image: none;
+	}
 }

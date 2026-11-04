@@ -13,6 +13,7 @@ import {
 } from 'cli/commands/preview/delete';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { runCommand as runPullCommand } from 'cli/commands/pull';
+import { runCommand as runLegacyPullCommand } from 'cli/commands/pull-legacy';
 import { runCommand as runPushCommand } from 'cli/commands/push';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
@@ -30,6 +31,8 @@ import {
 	stopFrontendServer,
 	type HeadlessSite,
 } from 'cli/lib/frontend/server';
+import { isReprintPullEnabled } from 'cli/lib/pull/pull-engine';
+import { pullSelectionFromSyncOptions } from 'cli/lib/pull/pull-selection';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { getSnapshotsFromConfig } from 'cli/lib/snapshots';
@@ -199,13 +202,22 @@ export const cliAgentHost: StudioAgentHost = {
 				new Logger( { onProgress } )
 			),
 		pull: async ( site, options, remoteSite, onProgress ) =>
-			runPullCommand(
-				site.path,
-				parseSyncOptions( options ),
-				remoteSite,
-				undefined,
-				new Logger( { onProgress } )
-			),
+			isReprintPullEnabled()
+				? runPullCommand(
+						site.path,
+						remoteSite,
+						false,
+						pullSelectionFromSyncOptions( parseSyncOptions( options ) ),
+						false,
+						onProgress
+				  )
+				: runLegacyPullCommand(
+						site.path,
+						parseSyncOptions( options ),
+						remoteSite,
+						undefined,
+						new Logger( { onProgress } )
+				  ),
 	},
 	wpcom: {
 		sites: ( accessToken ) => getWpComSites( accessToken ),

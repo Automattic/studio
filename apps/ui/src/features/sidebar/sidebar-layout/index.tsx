@@ -2,9 +2,10 @@ import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
+import { useSites } from '@/data/queries/use-sites';
 import {
 	PANEL_WIDTHS_RESET_EVENT,
-	PREVIEW_SPLIT_MIN_WIDTH,
+	PANEL_SPLIT_MIN_WIDTH,
 	SIDEBAR_COLLAPSED_STORAGE_KEY,
 	SIDEBAR_PANEL_CONFIG,
 	SIDEBAR_PANEL_STORAGE_KEY,
@@ -65,6 +66,8 @@ export function SidebarLayout( {
 		config: SIDEBAR_PANEL_CONFIG,
 		storageKey: SIDEBAR_PANEL_STORAGE_KEY,
 	} );
+	const sites = useSites();
+	const emptyWorkspace = sites.isSuccess && sites.data.length === 0;
 	const [ collapsed, setCollapsed ] = useStoredFlag( SIDEBAR_COLLAPSED_STORAGE_KEY, false );
 
 	const [ sidebarFlyoutState, setSidebarFlyoutState ] = useState< 'closed' | 'hover' | 'open' >(
@@ -124,7 +127,15 @@ export function SidebarLayout( {
 		return () => window.removeEventListener( PANEL_WIDTHS_RESET_EVENT, reopen );
 	}, [ closeSidebarFlyout, setCollapsed ] );
 	// A narrow window unpins the sidebar; widening it never pins it automatically.
-	const overlay = sidebarResize.viewportWidth - sidebarResize.width < PREVIEW_SPLIT_MIN_WIDTH;
+	const overlay = sidebarResize.viewportWidth - sidebarResize.width < PANEL_SPLIT_MIN_WIDTH;
+	const wasEmptyWorkspace = useRef( false );
+	useEffect( () => {
+		if ( ! sites.isSuccess ) return;
+		if ( emptyWorkspace || ( wasEmptyWorkspace.current && ! overlay ) ) {
+			setCollapsed( emptyWorkspace );
+		}
+		wasEmptyWorkspace.current = emptyWorkspace;
+	}, [ sites.isSuccess, emptyWorkspace, overlay, setCollapsed ] );
 	useEffect( () => {
 		if ( overlay ) setCollapsed( true );
 		return clearHoverTimer;

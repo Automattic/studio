@@ -39,7 +39,7 @@ import { useSubmitFeedback } from '@/lib/hooks';
 import { PlusIcon, StartSiteIcon } from '@/lib/icons';
 import { isImeComposing } from '@/lib/keyboard';
 import {
-	AttachmentDropOverlay,
+	DropOverlay,
 	Button,
 	CommandSheet,
 	handleCommandKey,
@@ -443,10 +443,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 					onMouseDown={ focusTextareaFromShell }
 				>
 					{ isDraggingFiles && fileDropTarget
-						? createPortal(
-								<AttachmentDropOverlay>{ __( 'Drop to attach' ) }</AttachmentDropOverlay>,
-								fileDropTarget
-						  )
+						? createPortal( <DropOverlay>{ __( 'Drop to attach' ) }</DropOverlay>, fileDropTarget )
 						: null }
 					{ shownAttachments.length ? (
 						<AttachmentChips

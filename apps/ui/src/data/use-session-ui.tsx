@@ -10,7 +10,7 @@ import {
 	type ReactNode,
 } from 'react';
 import { useConnector } from '@/data/core';
-import { getDefaultPreviewLayout, PANEL_WIDTHS_RESET_EVENT } from '@/data/resizable-panels';
+import { getDefaultPanelLayout, PANEL_WIDTHS_RESET_EVENT } from '@/data/resizable-panels';
 
 // App-wide UI store (mounted once in the root route, shared by every route
 // and dialog under it). Holds the slices of UI state that the chat agent
@@ -54,10 +54,10 @@ interface SessionUIState {
 }
 
 type SessionUIAction =
-	| { type: 'preview/set-open'; value: boolean; instant?: boolean; siteId?: string }
-	| { type: 'preview/toggle' }
-	| { type: 'preview/set-chat-hidden'; value: boolean; siteId?: string; instant?: boolean }
-	| { type: 'preview/reset-layout' }
+	| { type: 'panel/set-open'; value: boolean; instant?: boolean; siteId?: string }
+	| { type: 'panel/toggle' }
+	| { type: 'panel/set-fullscreen'; value: boolean; siteId?: string; instant?: boolean }
+	| { type: 'panel/reset-layout' }
 	| { type: 'preview/navigate'; path: string }
 	| { type: 'preview/reload' }
 	| { type: 'preview/update-path'; path: string }
@@ -67,7 +67,7 @@ type SessionUIAction =
 
 const INITIAL_STATE: SessionUIState = {
 	preview: {
-		open: getDefaultPreviewLayout().open,
+		open: getDefaultPanelLayout().open,
 		openBySiteId: {},
 		instant: false,
 		chatHiddenBySiteId: {},
@@ -80,7 +80,7 @@ const INITIAL_STATE: SessionUIState = {
 
 function reducer( state: SessionUIState, action: SessionUIAction ): SessionUIState {
 	switch ( action.type ) {
-		case 'preview/set-open': {
+		case 'panel/set-open': {
 			const siteId = action.siteId ?? state.preview.siteId;
 			if ( siteId && siteId !== state.preview.siteId ) {
 				return {
@@ -114,9 +114,9 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 				} ),
 			};
 		}
-		case 'preview/toggle':
-			return reducer( state, { type: 'preview/set-open', value: ! state.preview.open } );
-		case 'preview/set-chat-hidden': {
+		case 'panel/toggle':
+			return reducer( state, { type: 'panel/set-open', value: ! state.preview.open } );
+		case 'panel/set-fullscreen': {
 			const siteId = action.siteId ?? state.preview.siteId;
 			if ( ! siteId || ( state.preview.chatHiddenBySiteId[ siteId ] ?? false ) === action.value )
 				return state;
@@ -130,13 +130,13 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 				preview: siteId === preview.siteId ? rememberVisibility( preview ) : preview,
 			};
 		}
-		case 'preview/reset-layout':
+		case 'panel/reset-layout':
 			return {
 				...state,
 				preview: {
 					...state.preview,
 					siteId: null,
-					open: getDefaultPreviewLayout().open,
+					open: getDefaultPanelLayout().open,
 					instant: false,
 					openBySiteId: {},
 					chatHiddenBySiteId: {},
@@ -183,7 +183,7 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 					siteId: action.siteId,
 					open:
 						state.preview.openBySiteId[ action.siteId ] ??
-						getDefaultPreviewLayout( action.running ?? false ).open,
+						getDefaultPanelLayout( action.running ?? false ).open,
 					instant: true,
 				},
 			};
@@ -238,7 +238,7 @@ function SessionUIProviderRoot( { children }: { children: ReactNode } ) {
 	const connector = useConnector();
 	const [ state, dispatch ] = useReducer( reducer, INITIAL_STATE );
 	useEffect( () => {
-		const reset = () => dispatch( { type: 'preview/reset-layout' } );
+		const reset = () => dispatch( { type: 'panel/reset-layout' } );
 		window.addEventListener( PANEL_WIDTHS_RESET_EVENT, reset );
 		return () => window.removeEventListener( PANEL_WIDTHS_RESET_EVENT, reset );
 	}, [] );
@@ -297,13 +297,13 @@ export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 	const dispatch = useContext( SessionUIDispatchContext );
 	const setOpen = useCallback(
 		( value: boolean, { instant = false, siteId }: { instant?: boolean; siteId?: string } = {} ) =>
-			dispatch?.( { type: 'preview/set-open', value, instant, siteId } ),
+			dispatch?.( { type: 'panel/set-open', value, instant, siteId } ),
 		[ dispatch ]
 	);
-	const toggle = useCallback( () => dispatch?.( { type: 'preview/toggle' } ), [ dispatch ] );
+	const toggle = useCallback( () => dispatch?.( { type: 'panel/toggle' } ), [ dispatch ] );
 	const setChatHidden = useCallback(
 		( value: boolean, siteId?: string, options?: { instant?: boolean } ) =>
-			dispatch?.( { type: 'preview/set-chat-hidden', value, siteId, instant: options?.instant } ),
+			dispatch?.( { type: 'panel/set-fullscreen', value, siteId, instant: options?.instant } ),
 		[ dispatch ]
 	);
 	const navigate = useCallback(

@@ -138,10 +138,7 @@ async function hashDatabase( siteFolder: string ): Promise< string | null > {
 }
 
 /** Works out the site's current version without recording it. */
-async function getCurrentSiteVersion(
-	siteId: string,
-	siteFolder: string
-): Promise< SiteVersion > {
+async function getCurrentSiteVersion( siteId: string, siteFolder: string ): Promise< SiteVersion > {
 	const latest = getSiteVersions( siteId )[ 0 ];
 	const files = await hashFiles( siteFolder, latest?.files ?? {} );
 	const database = await hashDatabase( siteFolder );

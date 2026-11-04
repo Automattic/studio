@@ -330,3 +330,36 @@ it( 'passes telemetry site lookup context outside the event properties', async (
 		vi.unstubAllGlobals();
 	}
 } );
+
+it.each( [
+	[ 'exportFullSite', 'full' ],
+	[ 'exportDatabase', 'database' ],
+] as const )( 'announces %s before preparing the browser download', async ( method, mode ) => {
+	const onStarted = vi.fn();
+	const fetchMock = vi.fn( async () => {
+		expect( onStarted ).toHaveBeenCalledOnce();
+		return new Response( 'backup', {
+			headers: { 'Content-Disposition': 'attachment; filename="ocean.zip"' },
+		} );
+	} );
+	vi.stubGlobal( 'fetch', fetchMock );
+	vi.stubGlobal(
+		'URL',
+		class extends URL {
+			static createObjectURL = vi.fn().mockReturnValue( 'blob:export' );
+			static revokeObjectURL = vi.fn();
+		}
+	);
+	const click = vi.spyOn( HTMLAnchorElement.prototype, 'click' ).mockImplementation( () => {} );
+	try {
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+		await expect( connector[ method ]( 'site-1', { onStarted } ) ).resolves.toBe( 'ocean.zip' );
+		expect( fetchMock ).toHaveBeenCalledWith(
+			`http://localhost:8081/api/sites/site-1/export?mode=${ mode }`
+		);
+		expect( click ).toHaveBeenCalledOnce();
+	} finally {
+		vi.restoreAllMocks();
+		vi.unstubAllGlobals();
+	}
+} );

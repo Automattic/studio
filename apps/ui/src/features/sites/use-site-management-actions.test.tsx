@@ -100,7 +100,12 @@ describe( 'useSiteManagementActions', () => {
 		act( () => {
 			exporter.result.current.mutate( site.id );
 		} );
-		await waitFor( () => expect( connector.exportFullSite ).toHaveBeenCalledWith( site.id ) );
+		await waitFor( () =>
+			expect( connector.exportFullSite ).toHaveBeenCalledWith(
+				site.id,
+				expect.objectContaining( { onStarted: expect.any( Function ) } )
+			)
+		);
 
 		exporter.unmount();
 
@@ -113,7 +118,12 @@ describe( 'useSiteManagementActions', () => {
 		act( () => {
 			exporter.result.current.mutate( 'other-site' );
 		} );
-		await waitFor( () => expect( connector.exportFullSite ).toHaveBeenCalledWith( 'other-site' ) );
+		await waitFor( () =>
+			expect( connector.exportFullSite ).toHaveBeenCalledWith(
+				'other-site',
+				expect.objectContaining( { onStarted: expect.any( Function ) } )
+			)
+		);
 
 		const { result } = renderActions();
 		expect( exportsDisabled( result.current ) ).toEqual( [ false, false ] );

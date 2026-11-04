@@ -13,7 +13,7 @@ import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
 import { SNAPSHOTS_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
 import { getSnapshotUrl } from '@/data/snapshot-url';
-import { applySyncActivity, getSyncActivity } from '@/data/sync-activity';
+import { applySyncActivity, getSyncActivity, getSyncActivityRunId } from '@/data/sync-activity';
 import type {
 	Connector,
 	PullSyncOptions,
@@ -29,7 +29,7 @@ import type { SyncSite } from '@studio/common/types/sync';
 export const PUSH_TO_LIVE_MUTATION_KEY = [ 'pushSiteToLive' ] as const;
 export const PULL_FROM_LIVE_MUTATION_KEY = [ 'pullSiteFromLive' ] as const;
 
-// Records a sync's activity and, the first time it settles, announces the result.
+// Records progress and announces each result once, including work started outside this UI.
 export function useSettleSync() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
@@ -44,10 +44,8 @@ export function useSettleSync() {
 					? { ...activity, message: plainMessage }
 					: activity;
 			const previous = getSyncActivity( siteId );
-			if ( ! applySyncActivity( siteId, settled ) ) {
-				return;
-			}
-			if ( activity.kind === 'error' && plainMessage ) {
+			const didSettle = applySyncActivity( siteId, settled );
+			if ( didSettle && activity.kind === 'error' && plainMessage ) {
 				console.error( 'Sync activity failed:', activity.direction, activity.message );
 			}
 
@@ -55,12 +53,35 @@ export function useSettleSync() {
 				queryClient
 					.getQueryData< SiteDetails[] >( SITES_QUERY_KEY )
 					?.find( ( { id } ) => id === siteId )?.name ?? '';
+			const noticeId = `${ settled.direction }-${ siteId }`;
+			if ( settled.kind === 'pending' ) {
+				const title =
+					settled.direction === 'preview'
+						? settled.hostname
+							? __( 'Updating preview…' )
+							: __( 'Creating preview…' )
+						: settled.direction === 'import'
+						? __( 'Importing backup…' )
+						: settled.direction === 'push'
+						? __( 'Publishing changes…' )
+						: __( 'Pulling changes…' );
+				const current = getSyncActivity( siteId );
+				toast.processing( title, {
+					id: noticeId,
+					description:
+						[ siteName(), current?.kind === 'pending' ? current.message : undefined ]
+							.filter( Boolean )
+							.join( ' · ' ) || undefined,
+				} );
+				return;
+			}
+			if ( ! didSettle ) return;
 			if ( settled.direction === 'preview' ) {
 				void queryClient.invalidateQueries( { queryKey: SNAPSHOTS_QUERY_KEY } );
 				if ( settled.kind === 'success' ) {
 					/* translators: %s: site name */
 					toast.success( sprintf( __( '%s preview is ready' ), siteName() ), {
-						id: `preview-${ siteId }`,
+						id: noticeId,
 						action: {
 							label: __( 'Copy link' ),
 							onClick: () => {
@@ -77,11 +98,14 @@ export function useSettleSync() {
 				} else if ( settled.kind === 'error' ) {
 					/* translators: %s: site name */
 					toast.error( sprintf( __( 'Couldn’t publish preview: %s' ), siteName() ), {
-						id: `preview-${ siteId }`,
+						id: noticeId,
 						description: settled.message,
 					} );
 				} else if ( settled.kind === 'cancelled' ) {
-					toast.info( __( 'Preview creation cancelled' ), { id: `preview-${ siteId }` } );
+					toast.info( __( 'Preview creation cancelled' ), {
+						id: noticeId,
+						description: siteName(),
+					} );
 				}
 				return;
 			}
@@ -96,12 +120,15 @@ export function useSettleSync() {
 					void queryClient.invalidateQueries( { queryKey } );
 				}
 				if ( settled.kind === 'success' ) {
-					toast.success( __( 'Import finished' ) );
+					toast.success( __( 'Import finished' ), { id: noticeId, description: siteName() } );
 				} else if ( settled.kind === 'error' ) {
 					toast.error( __( "Import didn't complete" ), {
+						id: noticeId,
 						description: settled.message,
 						action: openStudioLogsAction( connector ),
 					} );
+				} else if ( settled.kind === 'cancelled' ) {
+					toast.info( __( 'Import cancelled' ), { id: noticeId, description: siteName() } );
 				}
 				return;
 			}
@@ -125,6 +152,7 @@ export function useSettleSync() {
 						siteName()
 					),
 					{
+						id: noticeId,
 						action: viewSite && { label: __( 'View' ), onClick: () => void viewSite() },
 					}
 				);
@@ -136,8 +164,14 @@ export function useSettleSync() {
 					  sprintf( __( 'Changes pulled into %s' ), siteName() )
 					: __( 'Pulling didn’t finish' );
 				toast.error( title, {
+					id: noticeId,
 					description: settled.message,
 					action: openStudioLogsAction( connector ),
+				} );
+			} else if ( settled.kind === 'cancelled' ) {
+				toast.info( isPush ? __( 'Publishing cancelled' ) : __( 'Pull cancelled' ), {
+					id: noticeId,
+					description: siteName(),
 				} );
 			}
 		},
@@ -192,6 +226,9 @@ const CLI_REPORT_GRACE_MS = 1500;
 export function useSettleFromMutation() {
 	const settleSync = useSettleSync();
 	return ( siteId: string, direction: SyncDirection, error?: unknown ) => {
+		const current = getSyncActivity( siteId );
+		if ( current?.kind !== 'pending' || current.direction !== direction ) return;
+		const runId = getSyncActivityRunId( siteId );
 		let activity: SyncActivity = { kind: 'success', direction };
 		if ( isSyncCancelledError( error ) ) {
 			activity = { kind: 'cancelled', direction };
@@ -199,7 +236,9 @@ export function useSettleFromMutation() {
 			const message = error instanceof Error ? error.message : String( error );
 			activity = { kind: 'error', direction, message };
 		}
-		setTimeout( () => settleSync( siteId, activity ), CLI_REPORT_GRACE_MS );
+		setTimeout( () => {
+			if ( getSyncActivityRunId( siteId ) === runId ) settleSync( siteId, activity );
+		}, CLI_REPORT_GRACE_MS );
 	};
 }
 
@@ -223,6 +262,7 @@ function useLiveSync< Options >(
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	const settleFromMutation = useSettleFromMutation();
+	const recordActivity = useSettleSync();
 	// `sync_type` comes from the connected site; a cache miss reports `unknown`.
 	const track = (
 		{ siteId, remoteSiteId, syncSite }: LiveSyncVariables< Options >,
@@ -248,7 +288,7 @@ function useLiveSync< Options >(
 		mutationFn: ( { siteId, remoteSiteId, options }: LiveSyncVariables< Options > ) =>
 			sync( connector, siteId, remoteSiteId, options ),
 		onMutate: ( { siteId, remoteSiteId } ) => {
-			applySyncActivity( siteId, { kind: 'pending', direction, remoteSiteId } );
+			recordActivity( siteId, { kind: 'pending', direction, remoteSiteId } );
 			return {
 				startedAt: Date.now(),
 				journey:

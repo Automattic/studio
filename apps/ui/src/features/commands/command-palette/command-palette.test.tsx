@@ -612,11 +612,17 @@ describe( 'Command palette in the Studio workspace', () => {
 		} );
 		await paletteCommand( 'export site', /^Export site/ );
 		await waitFor( () =>
-			expect( connector.exportFullSite ).toHaveBeenCalledExactlyOnceWith( 'one' )
+			expect( connector.exportFullSite ).toHaveBeenCalledExactlyOnceWith(
+				'one',
+				expect.objectContaining( { onStarted: expect.any( Function ) } )
+			)
 		);
 		await paletteCommand( 'export database', /^Export database/ );
 		await waitFor( () =>
-			expect( connector.exportDatabase ).toHaveBeenCalledExactlyOnceWith( 'one' )
+			expect( connector.exportDatabase ).toHaveBeenCalledExactlyOnceWith(
+				'one',
+				expect.objectContaining( { onStarted: expect.any( Function ) } )
+			)
 		);
 		await paletteCommand( 'duplicate site', /^Duplicate site/ );
 		await waitFor( () => expect( connector.copySite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );

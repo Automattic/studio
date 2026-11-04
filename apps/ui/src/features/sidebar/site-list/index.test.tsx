@@ -94,7 +94,7 @@ describe( 'sidebar site list', () => {
 		await openIn( 'Running site' );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'phpMyAdmin' } ) );
 		await openIn( 'Running site' );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Browser (WP Admin)' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'WordPress admin' } ) );
 		await waitFor( () =>
 			expect( connector.openSiteUrl ).toHaveBeenCalledWith( 'two', '/wp-admin/' )
 		);
@@ -145,20 +145,28 @@ describe( 'sidebar site list', () => {
 		}
 	);
 
-	it( 'opens the site draft even when it has recent or previously visited chats', async () => {
+	it( 'resumes the most recent chat or the previously visited chat when selecting a site', async () => {
 		const sessions = [
-			chat( 'older', '2026-06-01T12:00:00.000Z' ),
 			chat( 'latest', '2026-06-20T12:00:00.000Z' ),
+			chat( 'older', '2026-06-01T12:00:00.000Z' ),
 		];
-		const { history, unmount } = await setup( { sessions, path: '/sites/two' } );
+		const { history, unmount } = await setup( {
+			sessions,
+			sites: [ { ...mySite, running: true }, runningSite ],
+			path: '/sites/two',
+		} );
 		fireEvent.click( await siteButton( 'My site' ) );
-		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/latest' ) );
 		unmount();
 
 		rememberVisit( 'one', 'older' );
-		const view = await setup( { sessions, path: '/sites/two' } );
+		const view = await setup( {
+			sessions,
+			sites: [ { ...mySite, running: true }, runningSite ],
+			path: '/sites/two',
+		} );
 		fireEvent.click( await siteButton( 'My site' ) );
-		await waitFor( () => expect( view.history.location.pathname ).toBe( '/sites/one/new' ) );
+		await waitFor( () => expect( view.history.location.pathname ).toBe( '/sessions/older' ) );
 	} );
 
 	it( 'lists sites while chats are still loading', async () => {

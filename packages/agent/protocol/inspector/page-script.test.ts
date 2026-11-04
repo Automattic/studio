@@ -1,3 +1,4 @@
+import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	INSPECTOR_BRIDGE_PREFIX,
@@ -9,6 +10,7 @@ import {
 function mount() {
 	const log = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
 	vi.stubGlobal( 'requestAnimationFrame', () => 0 );
+	vi.stubGlobal( 'matchMedia', () => ( { matches: false } ) );
 	vi.stubGlobal( 'CSS', { escape: ( value: string ) => value } );
 	vi.stubGlobal(
 		'ResizeObserver',
@@ -29,6 +31,7 @@ function publish( state: Record< string, unknown > ) {
 				notes: [],
 				editingId: null,
 				annotationLabel: 'Annotation',
+				pendingAnnotationLabel: 'Pending annotation',
 				accent: '#3858e9',
 				...state,
 			},
@@ -39,6 +42,7 @@ function publish( state: Record< string, unknown > ) {
 describe( 'annotation inspector', () => {
 	afterEach( () => {
 		( window as Window & { __studioInspectorDispose?: () => void } ).__studioInspectorDispose?.();
+		vi.useRealTimers();
 		vi.restoreAllMocks();
 		vi.unstubAllGlobals();
 		document.body.replaceChildren();
@@ -83,6 +87,160 @@ describe( 'annotation inspector', () => {
 		expect( markers.map( ( marker ) => marker.textContent ) ).toEqual( [ '1' ] );
 		markers[ 0 ].click();
 		expect( events().at( -1 ) ).toMatchObject( { type: 'edit', id: 'n1' } );
+	} );
+
+	it.each( [ 0, -20 ] )( 'keeps the highlight flush with the viewport at x=%s', ( left ) => {
+		document.body.innerHTML = '<header>Welcome</header>';
+		const header = document.querySelector( 'header' ) as HTMLElement;
+		vi.spyOn( header, 'getBoundingClientRect' ).mockReturnValue(
+			new DOMRect( left, 0, innerWidth - left, 40 )
+		);
+		mount();
+		publish( { active: true } );
+		header.dispatchEvent( new MouseEvent( 'click', { bubbles: true, clientX: 10, clientY: 10 } ) );
+		publish( { active: true } );
+		const highlight = document
+			.getElementById( '__studio-inspector-host' )
+			?.shadowRoot?.querySelector( '.highlight' );
+		expect( highlight ).toBeVisible();
+		expect( highlight ).toHaveStyle( { left: '0px', top: '0px', width: `${ innerWidth }px` } );
+	} );
+
+	it( 'keeps edge markers inside the viewport and changes the same marker on Save', () => {
+		document.body.innerHTML = '<h1>Welcome</h1>';
+		const heading = document.querySelector( 'h1' ) as HTMLElement;
+		const bounds = vi
+			.spyOn( heading, 'getBoundingClientRect' )
+			.mockReturnValue( new DOMRect( 0, 20, innerWidth, 40 ) );
+		const events = mount();
+		const note = {
+			id: 'draft',
+			number: 3,
+			selector: 'h1',
+			url: location.href,
+			point: { x: 2 / innerWidth, y: 0.25 },
+			pending: true,
+		};
+		const update = ( pending: boolean, editingId: string | null = null ) =>
+			publish( { active: true, notes: [ { ...note, pending } ], editingId } );
+		update( true, note.id );
+		const host = document.getElementById( '__studio-inspector-host' ) as HTMLElement;
+		const root = host.shadowRoot as ShadowRoot;
+		const marker = root.querySelector( 'button' ) as HTMLButtonElement;
+		expect( getComputedStyle( heading ).cursor ).toBe( 'crosshair' );
+		expect( marker ).toHaveAttribute( 'aria-label', 'Pending annotation' );
+		expect( marker ).toHaveAttribute( 'data-pending', 'true' );
+		expect( marker ).toHaveStyle( { left: '24px' } );
+		expect( marker ).toHaveStyle( { top: '30px' } );
+		marker.dispatchEvent( new Event( 'animationend' ) );
+		marker.focus();
+
+		update( false );
+		expect( root.querySelector( 'button' ) ).toBe( marker );
+		expect( root.activeElement ).toBe( marker );
+		expect( marker ).toHaveAttribute( 'data-pending', 'false' );
+		expect( marker ).toHaveAttribute( 'aria-label', 'Annotation 3' );
+		expect( marker.querySelector( '.number' )?.textContent ).toBe( '3' );
+		expect( marker ).not.toHaveClass( 'enter' );
+		expect( marker ).toHaveClass( 'confirm' );
+		marker.dispatchEvent( new Event( 'animationend' ) );
+		expect( marker ).not.toHaveClass( 'confirm' );
+
+		update( false, note.id );
+		expect( marker ).toHaveAttribute( 'data-pending', 'false' );
+		expect( marker ).not.toHaveClass( 'confirm' );
+		bounds.mockReturnValue( new DOMRect( innerWidth - 4, 10, innerWidth, 40 ) );
+		vi.stubGlobal( 'requestAnimationFrame', ( callback: FrameRequestCallback ) => {
+			callback( 0 );
+			return 0;
+		} );
+		document.dispatchEvent( new Event( 'scroll' ) );
+		heading.dispatchEvent( new MouseEvent( 'pointermove', { bubbles: true } ) );
+		expect( root.querySelector( 'button' ) ).toBe( marker );
+		expect( root.activeElement ).toBe( marker );
+		expect( marker ).toHaveStyle( { left: `${ innerWidth - 24 }px` } );
+		expect( marker ).toHaveStyle( { top: '24px' } );
+		marker.click();
+		expect( events().at( -1 ) ).toEqual( {
+			type: 'edit',
+			id: note.id,
+			anchor: { left: innerWidth - 24, top: 24 },
+		} );
+		bounds.mockReturnValue( new DOMRect( 100, innerHeight - 14, innerWidth, 40 ) );
+		update( false, note.id );
+		expect( marker ).toHaveStyle( { top: `${ innerHeight - 24 }px` } );
+		expect( marker.hidden ).toBe( false );
+		bounds.mockReturnValue( new DOMRect( 100, -100, innerWidth, 40 ) );
+		update( false, note.id );
+		expect( marker.hidden ).toBe( true );
+		expect( events().at( -1 ) ).toEqual( { type: 'anchor', id: note.id, anchor: null } );
+		publish( { active: false, notes: [ note ] } );
+		expect( getComputedStyle( heading ).cursor ).not.toBe( 'crosshair' );
+		expect( host.hidden ).toBe( true );
+		expect( getComputedStyle( host ).display ).toBe( 'none' );
+		update( false );
+		expect( root.querySelector( 'button' ) ).toBe( marker );
+		expect( marker ).not.toHaveClass( 'enter' );
+		publish( { active: false } );
+		expect( marker.isConnected ).toBe( false );
+	} );
+
+	it( 'preserves a dismissed draft marker and removes only deleted or off-page notes', () => {
+		document.body.innerHTML = '<h1>Welcome</h1>';
+		mount();
+		const note = { id: 'draft', number: 1, pending: true, selector: 'h1', url: location.href };
+		publish( { active: true, notes: [ note ], editingId: note.id } );
+		const root = document.getElementById( '__studio-inspector-host' )!.shadowRoot!;
+		const marker = root.querySelector( 'button' );
+		publish( {
+			active: true,
+			notes: [
+				note,
+				{ ...note, id: 'other', number: 2 },
+				{ ...note, id: 'away', url: 'https://example.com/' },
+			],
+		} );
+		expect( root.querySelectorAll( 'button' ) ).toHaveLength( 2 );
+		expect( root.querySelector( 'button' ) ).toBe( marker );
+		expect( marker ).toHaveAttribute( 'data-pending', 'true' );
+		publish( { active: true, notes: [ note ] } );
+		expect( root.querySelectorAll( 'button' ) ).toHaveLength( 1 );
+		expect( root.querySelector( 'button' ) ).toBe( marker );
+		const host = document.getElementById( '__studio-inspector-host' )!;
+		publish( { active: false, notes: [ note ] } );
+		expect( host.inert ).toBe( true );
+		expect( marker ).toHaveClass( 'leave' );
+		publish( { active: true, notes: [ note ] } );
+		expect( marker ).toHaveClass( 'enter' );
+		expect( marker ).not.toHaveClass( 'leave' );
+		publish( { active: false, notes: [ note ] } );
+		const end = new Event( 'animationend' );
+		Object.defineProperty( end, 'animationName', { value: 'marker-out' } );
+		marker!.dispatchEvent( end );
+		expect( getComputedStyle( host ).display ).toBe( 'none' );
+		expect( root.querySelector( 'button' ) ).toBe( marker );
+		publish( { active: true, notes: [ note ] } );
+		expect( getComputedStyle( host ).display ).toBe( 'block' );
+		expect( root.querySelector( 'button' ) ).toBe( marker );
+	} );
+
+	it( 'briefly colors only the edited marker after rejecting another selection', () => {
+		vi.useFakeTimers();
+		document.body.innerHTML = '<h1>Welcome</h1><p>Other</p>';
+		mount();
+		const notes = [
+			{ id: 'one', number: 1, pending: true, selector: 'h1', url: location.href },
+			{ id: 'two', number: 2, selector: 'p', url: location.href },
+		];
+		publish( { active: true, notes, editingId: 'one', blockedNavigation: 0 } );
+		publish( { active: true, notes, editingId: 'one', blockedNavigation: 1 } );
+		const markers = document
+			.getElementById( '__studio-inspector-host' )!
+			.shadowRoot!.querySelectorAll( 'button' );
+		expect( markers[ 0 ] ).toHaveAttribute( 'data-feedback', 'error' );
+		expect( markers[ 1 ] ).not.toHaveAttribute( 'data-feedback' );
+		vi.advanceTimersByTime( 900 );
+		expect( markers[ 0 ] ).not.toHaveAttribute( 'data-feedback' );
 	} );
 
 	it( "ignores clicks in the host's own UI", () => {

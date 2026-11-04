@@ -28,6 +28,7 @@ export function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) 
 	const matches = matchCommands( commands, query );
 	const groups = groupCommands( matches );
 	const active = getActiveCommand( groups, highlight );
+
 	const run = ( id: string ) => {
 		onOpenChange( false );
 		matches.find( ( command ) => command.id === id )?.run();
@@ -37,15 +38,18 @@ export function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) 
 		<Dialog
 			open={ open }
 			onOpenChange={ onOpenChange }
-			onOpenChangeComplete={ ( isOpen ) => ! isOpen && setQuery( '' ) }
+			onOpenChangeComplete={ ( isOpen ) => {
+				if ( ! isOpen ) {
+					setQuery( '' );
+				}
+			} }
 		>
 			<DialogContent
-				backdrop="transparent"
-				surface="composer"
 				className={ styles.popup }
+				motion="none"
 				aria-label={ __( 'Command palette' ) }
 			>
-				<InputGroup>
+				<InputGroup variant="commands" className={ styles.input }>
 					<InputGroupInput
 						role="combobox"
 						aria-autocomplete="list"
@@ -68,6 +72,7 @@ export function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) 
 					</InputGroupAddon>
 				</InputGroup>
 				<CommandList
+					className={ styles.list }
 					id={ listId }
 					label={ __( 'Commands' ) }
 					size="default"
@@ -75,7 +80,15 @@ export function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) 
 					highlighted={ active?.value }
 					onHighlight={ setHighlight }
 					onSelect={ run }
-					empty={ __( 'No commands found.' ) }
+					empty={
+						<div className={ styles.empty }>
+							<p className={ styles.emptyLabel }>{ __( 'No commands found.' ) }</p>
+							<hr className={ styles.divider } aria-hidden="true" />
+							<p className={ styles.haiku }>
+								{ __( 'From many, one tool.\nFind strength in community\nfor a better web.' ) }
+							</p>
+						</div>
+					}
 				/>
 			</DialogContent>
 		</Dialog>

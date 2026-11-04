@@ -49,9 +49,8 @@ export function SiteDeliveryDialog( {
 	const [ tab, setTab ] = useState< Tab >( 'share' );
 	const [ previewAction, setPreviewAction ] = useState< PreviewManagementAction | null >( null );
 	const previewReturnFocus = useRef< HTMLButtonElement | null >( null );
-	const [ choosingSite, setChoosingSite ] = useState( false );
+	const [ publishSubstep, setPublishSubstep ] = useState( false );
 	const [ publishHeader, setPublishHeader ] = useState< HTMLDivElement | null >( null );
-	const [ shareActions, setShareActions ] = useState< HTMLDivElement | null >( null );
 	const [ request, setRequest ] = useState< PublishRequest >();
 	const finalFocus = useRef< HTMLElement | null >( null );
 	useEffect( () => {
@@ -107,7 +106,7 @@ export function SiteDeliveryDialog( {
 								variant="scope"
 								aria-label={ __( 'Share and publish' ) }
 								className={ styles.tabs }
-								hidden={ tab === 'publish' && choosingSite }
+								hidden={ tab === 'publish' && publishSubstep }
 							>
 								<TabsTrigger
 									value="share"
@@ -128,12 +127,7 @@ export function SiteDeliveryDialog( {
 							<div
 								className={ styles.publishHeader }
 								ref={ setPublishHeader }
-								hidden={ tab !== 'publish' || ! choosingSite }
-							/>
-							<div
-								className={ styles.headerActions }
-								ref={ setShareActions }
-								hidden={ tab !== 'share' }
+								hidden={ tab !== 'publish' || ! publishSubstep }
 							/>
 						</DialogHeader>
 						<div
@@ -145,8 +139,6 @@ export function SiteDeliveryDialog( {
 						>
 							<SharePanel
 								site={ site }
-								open={ open && tab === 'share' }
-								actionsContainer={ shareActions }
 								onManagePreview={ ( action ) => {
 									previewReturnFocus.current = action.trigger;
 									setPreviewAction( action );
@@ -166,7 +158,7 @@ export function SiteDeliveryDialog( {
 									open={ open && tab === 'publish' }
 									request={ request }
 									headerContainer={ publishHeader }
-									onChoosingSiteChange={ setChoosingSite }
+									onSubstepChange={ setPublishSubstep }
 									setupAfterSignup={ setupAfterSignup }
 									onSetupAfterSignup={ () => setSetupAfterSignup( false ) }
 								/>
@@ -184,6 +176,7 @@ export function SiteDeliveryDialog( {
 			) : null }
 			<AccountPromptDialog
 				open={ open && signedOut }
+				showStudioIcon={ false }
 				onOpenChange={ setOpen }
 				finalFocus={ finalFocus }
 				title={ tab === 'share' ? __( 'Share your WordPress' ) : __( 'Publish your WordPress' ) }
@@ -193,6 +186,11 @@ export function SiteDeliveryDialog( {
 						: __( 'Create an account or log in to publish a website and keep your sites in sync.' )
 				}
 				source={ tab === 'share' ? 'previews_tab' : 'sync_tab' }
+				analytics={ {
+					placement: tab === 'share' ? 'share' : 'publish',
+					intent: tab === 'share' ? 'share' : 'publish',
+				} }
+				scope={ site.id }
 				onCreateAccount={ tab === 'publish' ? () => setSetupAfterSignup( true ) : undefined }
 			/>
 		</>
@@ -208,7 +206,7 @@ export function ShareButton( props: { site: SiteDetails; className?: string } ) 
 					render={
 						<Button
 							variant="ghost"
-							size="icon"
+							size="icon-sm"
 							aria-label={ __( 'Share' ) }
 							aria-description={ status.label }
 							onClick={ ( event ) =>
@@ -229,7 +227,7 @@ export function ShareButton( props: { site: SiteDetails; className?: string } ) 
 	);
 }
 
-export function PublishButton( props: { site: SiteDetails } ) {
+export function PublishButton( props: { site: SiteDetails; variant?: 'accent' | 'outline' } ) {
 	const activity = useSiteSyncActivity( props.site.id );
 	const setupError = usePublishSetupError( props.site.id );
 	const transfer =
@@ -244,6 +242,8 @@ export function PublishButton( props: { site: SiteDetails } ) {
 	}, [ transfer?.kind ] );
 	return (
 		<Button
+			variant={ props.variant ?? 'accent' }
+			size="sm"
 			aria-label={ __( 'Publish…' ) }
 			aria-description={
 				setupError ??

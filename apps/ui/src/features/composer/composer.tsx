@@ -27,18 +27,19 @@ import { FamilySwitchConfirmDialog } from '@/features/composer/family-switch-con
 import { ModeChip } from '@/features/composer/mode-chip';
 import { ModelPicker } from '@/features/composer/model-picker';
 import { NoticeTab, type ComposerNotice } from '@/features/composer/notice-tab';
-import { SendButton, StopButton } from '@/features/composer/submit-button';
+import { SendButton, StartButton, StopButton } from '@/features/composer/submit-button';
 import { useAddCredits } from '@/features/composer/use-add-credits';
 import { useCommandSheet } from '@/features/composer/use-command-sheet';
 import { useComposerHandle, type ComposerHandle } from '@/features/composer/use-composer-handle';
 import { useDraftAttachments } from '@/features/composer/use-draft-attachments';
 import { useModelAccess } from '@/features/composer/use-model-access';
 import { useModelSwitch } from '@/features/composer/use-model-switch';
-import { useSubmitFeedback } from '@/features/composer/use-submit-feedback';
 import { AiCreditsPurchaseDialog } from '@/features/credits';
+import { useSubmitFeedback } from '@/lib/hooks';
 import { PlusIcon, StartSiteIcon } from '@/lib/icons';
 import { isImeComposing } from '@/lib/keyboard';
 import {
+	AttachmentDropOverlay,
 	Button,
 	CommandSheet,
 	handleCommandKey,
@@ -98,9 +99,11 @@ interface ComposerProps {
 	placeholderBusy?: boolean;
 	// Offers the auto-start preference, for a chat on a local site.
 	canAutoStart?: boolean;
-	// The site the chat works on, and the connected live site it can switch to.
+	onStartSite?: () => void;
+	startSiteDisabled?: boolean;
+	isSiteStarting?: boolean;
+	// The site the chat works on; a chat on the live site can switch back to local.
 	environment?: 'local' | 'live';
-	liveUrl?: string;
 	onEnvironmentChange?: ( environment: 'local' | 'live' ) => void;
 	// Where files can be dropped; the composer itself when absent.
 	dropTarget?: HTMLElement | null;
@@ -139,8 +142,10 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		placeholder: placeholderOverride,
 		placeholderBusy = false,
 		canAutoStart = false,
+		onStartSite,
+		startSiteDisabled = false,
+		isSiteStarting = false,
 		environment = 'local',
-		liveUrl,
 		onEnvironmentChange,
 		dropTarget,
 		annotationSiteId,
@@ -196,7 +201,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			autoStartOn,
 			canChooseModel: ! busy && providers.length > 0,
 			environment,
-			liveUrl,
 			canChangeEnvironment: !! onEnvironmentChange,
 		} ),
 		isDisabled: ( name ) =>
@@ -221,7 +225,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				pendingCommandRef.current = () => setModelOpen( true );
 			} else if ( name === 'connect-provider' ) {
 				openSettings( 'ai' );
-			} else if ( name === 'live' || name === 'local' ) {
+			} else if ( name === 'local' ) {
 				onEnvironmentChange?.( name );
 			} else if ( name === 'auto-start' ) {
 				setAutoStart( true );
@@ -392,6 +396,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	}, [] );
 
 	const showStop = ! isField && busy && ( sending || ! hasContent );
+	const showStart = ! busy && ! sending && ! hasContent && !! onStartSite;
 	const canSend = hasContent && ! sending;
 	const placeholder = answerQuestion
 		? __( 'Your answer' )
@@ -439,9 +444,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				>
 					{ isDraggingFiles && fileDropTarget
 						? createPortal(
-								<div className={ styles.dropOverlay } aria-hidden="true">
-									<span>{ __( 'Drop to attach' ) }</span>
-								</div>,
+								<AttachmentDropOverlay>{ __( 'Drop to attach' ) }</AttachmentDropOverlay>,
 								fileDropTarget
 						  )
 						: null }
@@ -449,6 +452,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 						<AttachmentChips
 							attachments={ shownAttachments }
 							annotationsAttachment={ annotationsAttachment }
+							annotationSiteId={ annotationSiteId }
 							onRemove={ removeShownAttachment }
 						/>
 					) : null }
@@ -562,6 +566,12 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 							) : null }
 							{ isField ? null : showStop ? (
 								<StopButton isInterrupting={ isInterrupting } onStop={ () => void onInterrupt() } />
+							) : showStart ? (
+								<StartButton
+									disabled={ startSiteDisabled }
+									isStarting={ isSiteStarting }
+									onStart={ onStartSite }
+								/>
 							) : (
 								<SendButton
 									label={ sendLabel }

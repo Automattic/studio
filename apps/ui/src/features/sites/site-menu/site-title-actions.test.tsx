@@ -76,35 +76,70 @@ describe( 'sidebar site menu', () => {
 } );
 
 describe( 'site title actions', () => {
-	it.each( [ [ 'phpMyAdmin', '/phpmyadmin/index.php?route=/database/structure&db=wordpress' ] ] )(
-		'starts a stopped site before opening %s',
-		async ( label, path ) => {
-			let finishStart!: () => void;
-			const { connector } = setup( [ site() ], {
-				startSite: () =>
-					new Promise( ( resolve ) => {
-						finishStart = resolve;
-					} ),
+	it.each( [
+		[ 'Browser', '/', { autoLogin: false } ],
+		[ 'WordPress admin', '/wp-admin/', undefined ],
+		[ 'phpMyAdmin', '/phpmyadmin/index.php?route=/database/structure&db=wordpress', undefined ],
+	] )( 'starts a stopped site before opening %s', async ( label, path, options ) => {
+		let finishStart!: () => void;
+		const { connector } = setup( [ site() ], {
+			startSite: () =>
+				new Promise( ( resolve ) => {
+					finishStart = resolve;
+				} ),
+		} );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
+		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
+		expect( connector.openSiteUrl ).not.toHaveBeenCalled();
+		await act( async () => finishStart() );
+		await waitFor( () =>
+			expect( connector.openSiteUrl ).toHaveBeenCalledWith(
+				'one',
+				path,
+				...( options ? [ options ] : [] )
+			)
+		);
+	} );
+
+	it.each( [ 'Browser', 'WordPress admin', 'phpMyAdmin' ] )(
+		'does not open %s when starting fails',
+		async ( label ) => {
+			const { connector } = setup();
+			connector.startSite.mockRejectedValueOnce( new Error( 'Start failed' ) );
+			fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
+			await screen.findAllByText( 'Start failed' );
+			expect( connector.openSiteUrl ).not.toHaveBeenCalled();
+		}
+	);
+
+	it.each( [
+		[ null, 'Safari' ],
+		[ 'chrome', 'Google Chrome' ],
+	] as const )(
+		'shows the system browser unless a Studio browser is selected (%s)',
+		async ( browser, label ) => {
+			const initial = createFakeConnector();
+			const installed = await initial.getInstalledApps();
+			const preferences = await initial.getUserPreferences();
+			const { connector } = setup( [ site( { running: true } ) ], {
+				getInstalledApps: async () => ( {
+					...installed,
+					defaultBrowser: { name: 'Safari', browser: 'safari' },
+				} ),
+				getUserPreferences: async () => ( { ...preferences, browser } ),
 			} );
 			fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
 			fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
-			await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
-			expect( connector.openSiteUrl ).not.toHaveBeenCalled();
-			await act( async () => finishStart() );
-			await waitFor( () => expect( connector.openSiteUrl ).toHaveBeenCalledWith( 'one', path ) );
+			await waitFor( () =>
+				expect( connector.openSiteUrl ).toHaveBeenCalledWith( 'one', '/', { autoLogin: false } )
+			);
 		}
 	);
-
-	it( 'does not open a destination when starting fails', async () => {
-		const { connector } = setup();
-		connector.startSite.mockRejectedValueOnce( new Error( 'Start failed' ) );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'phpMyAdmin' } ) );
-		await screen.findAllByText( 'Start failed' );
-		expect( connector.openSiteUrl ).not.toHaveBeenCalled();
-	} );
 
 	it( 'opens the configured editor', async () => {
 		const { connector } = setup();
@@ -210,7 +245,7 @@ describe( 'site title actions', () => {
 		).not.toBeInTheDocument();
 	} );
 
-	it( 'keeps duplication progress out of notifications and records its failure once', async () => {
+	it( 'replaces the duplication progress notification with its failure', async () => {
 		let rejectCopy!: ( error: Error ) => void;
 		setup( [ site() ], {
 			copySite: () =>
@@ -221,31 +256,45 @@ describe( 'site title actions', () => {
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: /^Duplicate$/ } ) );
 		await waitFor( () => expect( rejectCopy ).toBeDefined() );
-		expect( getNoticeHistory() ).toHaveLength( 0 );
+		expect( getNoticeHistory() ).toHaveLength( 1 );
+		const progress = getNoticeHistory()[ 0 ];
+		expect( progress ).toMatchObject( {
+			title: 'Duplicating site…',
+			processing: true,
+		} );
 		expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBeEnabled();
 		act( () => rejectCopy( new Error( 'Copy failed' ) ) );
 		await screen.findByText( 'Failed to copy site' );
 		expect( getNoticeHistory() ).toHaveLength( 1 );
-		expect( getNoticeHistory()[ 0 ].intent ).toBe( 'error' );
-		await waitFor( () =>
-			expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBeEnabled()
-		);
+		expect( getNoticeHistory()[ 0 ] ).toMatchObject( {
+			id: progress.id,
+			intent: 'error',
+			description: 'Copy failed',
+		} );
 	} );
 
-	it( 'opens the duplicate only when its completion action is chosen', async () => {
-		const { connector } = setup();
-		connector.copySite.mockImplementation( async () => {
-			const copy = site( { id: 'copy', name: 'My site copy', path: '/sites/copy' } );
-			connector.state.sites = [ ...connector.state.sites, copy ];
-			return copy;
+	it( 'reports duplication after its menu unmounts and opens the copy on request', async () => {
+		let finishCopy!: ( copy: SiteDetails ) => void;
+		const { connector, history } = setup( [ site() ], {
+			copySite: () =>
+				new Promise( ( resolve ) => {
+					finishCopy = resolve;
+				} ),
 		} );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: /^Duplicate$/ } ) );
 		await waitFor( () => expect( connector.copySite ).toHaveBeenCalledWith( 'one' ) );
-		await screen.findByRole( 'button', { name: /^Open$/ } );
-		expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBeVisible();
+		await waitFor( () => expect( screen.queryByText( /^Duplicate$/ ) ).not.toBeInTheDocument() );
+		expect( screen.getByText( 'Duplicating site…' ) ).toBeVisible();
+		const progress = getNoticeHistory()[ 0 ];
+		const copy = site( { id: 'copy', name: 'My site copy', path: '/sites/copy' } );
+		connector.state.sites = [ ...connector.state.sites, copy ];
+		await act( async () => finishCopy( copy ) );
+		await screen.findByText( 'Site duplicated: My site copy' );
 		expect( getNoticeHistory() ).toHaveLength( 1 );
+		expect( getNoticeHistory()[ 0 ] ).toMatchObject( { id: progress.id, intent: 'success' } );
+		expect( history.location.pathname ).toBe( '/sites/one' );
 		fireEvent.click( screen.getByRole( 'button', { name: /^Open$/ } ) );
-		expect( await screen.findByRole( 'button', { name: 'Site menu' } ) ).toBeVisible();
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/copy/new' ) );
 	} );
 } );

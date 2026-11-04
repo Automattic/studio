@@ -48,6 +48,12 @@ import {
 	type SkillStatus,
 } from '@studio/common/lib/agent-skills';
 import {
+	getAuthTracksProps,
+	onboardingAnalyticsSchema,
+	type OnboardingAnalytics,
+	type AuthAnalytics,
+} from '@studio/common/lib/auth-tracks';
+import {
 	downloadAndExtractBlueprintBundle,
 	removeBlueprintTempDir,
 } from '@studio/common/lib/blueprint-bundle';
@@ -77,11 +83,8 @@ import {
 } from '@studio/common/lib/root-ca-trust';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
-import {
-	isSitePreviewPath,
-	readSitePreview,
-	writeSitePreview,
-} from '@studio/common/lib/site-preview-cache';
+import { isSitePreviewPath, readSitePreview } from '@studio/common/lib/site-preview-cache';
+import { resolveSiteTracksEventProps } from '@studio/common/lib/site-tracks';
 import {
 	getLocalFileSize,
 	listLocalFileTree as listSiteFileTree,
@@ -92,7 +95,9 @@ import {
 	readOnboardingCompleted,
 	writeOnboardingCompleted,
 } from '@studio/common/lib/user-settings/onboarding';
+import { openSiteInBrowser } from '@studio/common/lib/user-settings/open-browser';
 import { openLinuxTerminal } from '@studio/common/lib/user-settings/open-linux-terminal';
+import { getSiteBrowserUrl } from '@studio/common/lib/user-settings/site-browser-url';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import {
 	cleanupBlueprintTempDir as cleanupBlueprintTempDirShared,
@@ -113,12 +118,19 @@ import {
 	readSiteDesign,
 	type SiteDesign,
 } from '@studio/common/sites/site-design';
+import {
+	ensureSiteEmailDirectory,
+	listSiteEmails,
+	readSiteEmail,
+	type SiteEmail,
+	type SiteEmailSummary,
+} from '@studio/common/sites/site-email';
 import { readThemeDetails } from '@studio/common/sites/site-identity';
 import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import { __ } from '@wordpress/i18n';
 import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
-import { setPendingAuthContext } from 'src/lib/auth-tracks-context';
+import { setPendingAuthContext, takePendingAuthContext } from 'src/lib/auth-tracks-context';
 import { bumpStat, getBlueprintMetric, StatsGroup } from 'src/lib/bump-stats';
 import { markDeeplinkListener } from 'src/lib/deeplink';
 import {
@@ -235,13 +247,17 @@ export async function recordAnalyticsEvent(
 	props: Record< string, string | number | boolean | undefined > & {
 		channel?: TracksChannel;
 		ui_version?: TracksUiVersion;
-	} = {}
+	} = {},
+	siteId?: string
 ): Promise< void > {
 	if ( ! isTracksEventName( eventName ) ) {
 		console.warn( `Ignoring unknown analytics event name: ${ eventName }` );
 		return;
 	}
-	await recordTracksEvent( eventName, props );
+	await recordTracksEvent(
+		eventName,
+		await resolveSiteTracksEventProps( eventName, props, siteId )
+	);
 }
 
 export async function listAiSessions( _event: IpcMainInvokeEvent ): Promise< AiSessionSummary[] > {
@@ -292,6 +308,7 @@ export async function continueAiSession(
 	sessionId: string,
 	prompt: string,
 	options: {
+		turnId?: string;
 		displayMessage?: string;
 		images?: StudioChatImage[];
 		files?: StudioChatFileAttachment[];
@@ -305,6 +322,7 @@ export async function continueAiSession(
 	return startAgentRun( {
 		sessionId,
 		prompt: expandSkillCommandPrompt( prompt ),
+		turnId: options.turnId,
 		displayMessage: options.displayMessage,
 		images,
 		files,
@@ -861,14 +879,25 @@ export async function copySite(
 export async function authenticate(
 	event: IpcMainInvokeEvent,
 	isSignup = false,
-	source: TracksAuthSource = 'unknown'
+	source: TracksAuthSource = 'unknown',
+	analytics?: AuthAnalytics
 ) {
-	// The result arrives later, in a deep link that knows neither of these. Stash them for it.
-	setPendingAuthContext( source, isSignup ? 'new' : 'existing' );
-
-	const locale = await getUserLocaleWithFallback();
-	const authUrl = isSignup ? oauthClient.getSignUpUrl( locale ) : getAuthenticationUrl( locale );
-	void shellOpenExternalWrapper( authUrl );
+	const attempt = setPendingAuthContext( source, isSignup ? 'new' : 'existing', analytics );
+	const props = getAuthTracksProps( attempt );
+	void recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH_STARTED, props ).catch( () => undefined );
+	try {
+		const locale = await getUserLocaleWithFallback();
+		const authUrl = isSignup
+			? oauthClient.getSignUpUrl( locale, undefined, attempt.auth_attempt_id )
+			: getAuthenticationUrl( locale, undefined, attempt.auth_attempt_id );
+		await shellOpenExternalWrapper( authUrl, { throwOnError: true } );
+	} catch ( error ) {
+		takePendingAuthContext( attempt.auth_attempt_id );
+		void recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH_LAUNCH_FAILED, props ).catch(
+			() => undefined
+		);
+		throw error;
+	}
 }
 
 export async function getAuthenticationToken() {
@@ -901,22 +930,10 @@ export async function openSiteURL(
 		return;
 	}
 
-	// When the caller didn't ask for a specific path (the generic "Open site"
-	// entry points pass `''`), honor the Blueprint-provided `landingPage` if
-	// the site has one. Explicit relative paths (e.g. `/wp-admin/`) still win.
-	const usingLandingPage = ! relativeURL && !! site.landingPage;
-	const targetPath = relativeURL || site.landingPage || '';
-	let url = new URL( targetPath, site.url );
-	// Blueprint landing pages may point at admin screens; force auto-login so
-	// users don't get bounced to the login page. This matches Playground's
-	// "always-logged-in sandbox" behavior for Blueprint-imported sites.
-	if ( autoLogin || usingLandingPage ) {
-		const autoLoginUrl = new URL( '/studio-auto-login', site.url );
-		autoLoginUrl.searchParams.append( 'redirect_to', url.toString() );
-		url = autoLoginUrl;
-	}
-
-	void shellOpenExternalWrapper( url.toString() );
+	await openSiteInBrowser(
+		getSiteBrowserUrl( site, relativeURL, autoLogin ),
+		shellOpenExternalWrapper
+	);
 }
 
 // Only web URLs: other schemes would launch whatever app handles them.
@@ -965,6 +982,31 @@ export async function fixSiteDesignDrift(
 	return sitePath
 		? fixSiteDesign( sitePath, activeThemeSlug( sitePath ), designFixesSchema.parse( fixes ) )
 		: null;
+}
+
+export async function getSiteEmails(
+	_event: IpcMainInvokeEvent,
+	id: string
+): Promise< SiteEmailSummary[] > {
+	return ( await readSite( id ) ) ? listSiteEmails( id ) : [];
+}
+
+export async function getSiteEmail(
+	_event: IpcMainInvokeEvent,
+	id: string,
+	emailId: string
+): Promise< SiteEmail | null > {
+	return ( await readSite( id ) ) ? readSiteEmail( id, emailId ) : null;
+}
+
+export async function openSiteEmailFolder( _event: IpcMainInvokeEvent, id: string ) {
+	if ( ! ( await readSite( id ) ) ) {
+		throw new Error( `Site ${ id } not found` );
+	}
+	const error = await shell.openPath( await ensureSiteEmailDirectory( id ) );
+	if ( error ) {
+		throw new Error( error );
+	}
 }
 
 export async function getIsMultisite( _event: IpcMainInvokeEvent, id: string ) {
@@ -1066,21 +1108,26 @@ export async function getOnboardingData( _event: IpcMainInvokeEvent ): Promise< 
 	return readOnboardingCompleted();
 }
 
-export async function saveOnboarding( _event: IpcMainInvokeEvent, onboardingCompleted: boolean ) {
+export async function saveOnboarding(
+	_event: IpcMainInvokeEvent,
+	onboardingCompleted: boolean,
+	analytics?: OnboardingAnalytics
+) {
 	if ( await writeOnboardingCompleted( onboardingCompleted ) ) {
 		await recordTracksEvent( TRACKS_EVENTS.ONBOARDING_COMPLETE, {
 			authenticated: await oauthClient.isAuthenticated(),
+			...onboardingAnalyticsSchema.safeParse( analytics ).data,
 		} );
 	}
 }
 
-export { getAppUpdateStatus, installAppUpdate } from 'src/updates';
+export { getAppUpdateStatus, checkForAppUpdates, installAppUpdate } from 'src/updates';
 
 export function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
 	return readSitePreview( id, getSiteThumbnailPath( id ) );
 }
 
-// Saves what the preview webview shows, so a stopped site still has a picture.
+// Refreshes the home-page thumbnail without navigating the preview webview.
 // Only the window hosting the webview may capture it.
 export async function captureSitePreview(
 	event: IpcMainInvokeEvent,
@@ -1092,9 +1139,12 @@ export async function captureSitePreview(
 	if ( ! guest || guest.hostWebContents !== event.sender || ! isSitePreviewPath( pagePath ) ) {
 		return null;
 	}
-	const png = ( await guest.capturePage() ).toPNG();
-	await writeSitePreview( siteId, png );
-	return `data:image/png;base64,${ png.toString( 'base64' ) }`;
+	const site = await getSite( siteId );
+	if ( ! site?.running ) {
+		return null;
+	}
+	await captureSiteThumbnail( { id: siteId, url: site.url } );
+	return readSitePreview( siteId, getSiteThumbnailPath( siteId ) );
 }
 
 function promiseExec( command: string, options: ExecOptions = {} ): Promise< void > {

@@ -127,13 +127,13 @@ test.describe( 'Sites', () => {
 		await loadInPreview( siteUrl );
 		await expect.poll( () => session.previewText() ).toContain( 'Hello world!' );
 
-		await new Sidebar( session.mainWindow ).getStatusButton( siteName ).click();
+		await new Sidebar( session.mainWindow ).toggleSite( siteName );
 		await expectStopped( siteName );
 		await expect( session.mainWindow.locator( 'webview' ) ).toHaveCount( 0 );
 
 		await session.restart();
 		await expectStopped( siteName );
-		await new Sidebar( session.mainWindow ).getStatusButton( siteName ).click();
+		await new Sidebar( session.mainWindow ).toggleSite( siteName );
 		await new Sidebar( session.mainWindow ).expectRunning( siteName );
 		await expect.poll( () => session.previewText() ).toContain( 'Hello world!' );
 
@@ -245,7 +245,7 @@ test.describe( 'Site settings', () => {
 		await page.getByRole( 'button', { name: 'Save', exact: true } ).click();
 		await page.getByRole( 'switch', { name: 'Debug log', exact: true } ).click();
 		await page.getByRole( 'button', { name: 'Save', exact: true } ).click();
-		await expect( page.getByRole( 'button', { name: 'Save', exact: true } ) ).toHaveCount( 0, {
+		await expect( page.getByRole( 'button', { name: 'Discard', exact: true } ) ).toHaveCount( 0, {
 			timeout: 120_000,
 		} );
 		await settings.close();

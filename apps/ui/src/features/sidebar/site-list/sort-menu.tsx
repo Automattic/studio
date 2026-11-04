@@ -1,5 +1,4 @@
 import { __ } from '@wordpress/i18n';
-import { useRef } from 'react';
 import { SortIcon } from '@/lib/icons';
 import { IconButton, Menu } from '@/lib/ui';
 import styles from './style.module.css';
@@ -9,13 +8,11 @@ import type { ReactNode } from 'react';
 type Preferences = ReturnType< typeof useSidebarPreferences >;
 
 function SortMenu( { label, children }: { label: string; children: ReactNode } ) {
-	const triggerRef = useRef< HTMLButtonElement >( null );
 	return (
 		<Menu.Root>
 			<Menu.Trigger
 				render={
 					<IconButton
-						ref={ triggerRef }
 						variant="muted-ghost"
 						size="icon-sm"
 						icon={ <SortIcon /> }
@@ -24,12 +21,7 @@ function SortMenu( { label, children }: { label: string; children: ReactNode } )
 					/>
 				}
 			/>
-			<Menu.Popup
-				side="inline-end"
-				align="start"
-				anchor={ () => triggerRef.current?.parentElement ?? null }
-				sideOffset={ 16 }
-			>
+			<Menu.Popup side="bottom" align="start">
 				{ children }
 			</Menu.Popup>
 		</Menu.Root>

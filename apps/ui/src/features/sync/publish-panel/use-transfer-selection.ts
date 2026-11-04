@@ -5,7 +5,6 @@ import {
 } from '@studio/common/lib/sync/constants';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import semver from 'semver';
 import { useConnector } from '@/data/core';
 import { presetOptions } from './options';
 import {
@@ -22,12 +21,6 @@ import type { SiteDetails, SyncSite } from '@/data/core';
 
 type Saved = { scope: PublishScope; nodes: SyncNode[]; content: boolean };
 const EMPTY: Saved = { scope: 'all', nodes: [], content: false };
-
-function mismatch( a: string | undefined, b: string | undefined ) {
-	const first = semver.coerce( a );
-	const second = semver.coerce( b );
-	return Boolean( first && second && ! semver.eq( first, second ) );
-}
 
 // Keeps what was ticked when the tree is fetched again.
 function restoreSelection( entries: SyncNode[], previous: SyncNode[] ): SyncNode[] {
@@ -152,12 +145,6 @@ export function useTransferSelection(
 		warning = __(
 			'WordPress.com does not support multisite. Publishing this network may cause problems.'
 		);
-	} else if (
-		versions.data &&
-		( mismatch( versions.data.wp, remote.wpVersion ) ||
-			mismatch( site.phpVersion, versions.data.php ) )
-	) {
-		warning = __( 'Your website will keep its supported WordPress and PHP versions.' );
 	}
 
 	return {

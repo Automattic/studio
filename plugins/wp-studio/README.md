@@ -1,7 +1,7 @@
 # WordPress Studio plugin
 
 Build, design, and manage WordPress sites from Codex in the ChatGPT app, or from Claude Code, with
-[WordPress Studio](https://developer.wordpress.com/studio/). Ask for a site and Studio creates it on
+[WordPress Studio](https://wordpress.studio/). Ask for a site and Studio creates it on
 your computer, asks about the look and the layout with rendered previews, builds a block theme, and
 checks the result visually. Publish it to WordPress.com when you are ready.
 

@@ -22,10 +22,10 @@ interface PreviewSplitFrameProps {
 	// handles layout transitions.
 	preview?: ( props: PreviewSplitFramePreviewProps ) => ReactNode;
 	previewOpen?: boolean;
-	// The chat is hidden: the content column collapses the same way, while the
-	// sidebar stays.
+	// The preview fills the frame over the hidden chat; the sidebar stays.
 	chatHidden?: boolean;
-	// Open or close without the slide, as when a stopping site drops its preview.
+	chatTabActive?: boolean;
+	// Skip movement when restoring a different workspace.
 	instant?: boolean;
 	children?: ReactNode;
 }
@@ -37,11 +37,13 @@ export function PreviewSplitFrame( {
 	preview,
 	previewOpen = false,
 	chatHidden = false,
+	chatTabActive = false,
 	instant = false,
 	children,
 }: PreviewSplitFrameProps ) {
 	const showPreview = previewOpen && preview != null;
 	const contentCollapsed = showPreview && chatHidden;
+	const showingChatTab = contentCollapsed && chatTabActive;
 	const { rootRef, containerWidth, contentWidthVar, isResizing, handleProps } = usePreviewSplit( {
 		showPreview,
 		siteId,
@@ -55,19 +57,22 @@ export function PreviewSplitFrame( {
 	// class in the same commit as the width change; an effect-based update would
 	// race it.
 	const [ animatingPreviewToggle, setAnimatingPreviewToggle ] = useState( false );
+	if ( instant && animatingPreviewToggle ) setAnimatingPreviewToggle( false );
 	const [ previousPreview, setPreviousPreview ] = useState( {
 		siteId,
 		navigationKey,
 		mounted: preview != null,
 		open: showPreview,
 		collapsed: contentCollapsed,
+		chatSelected: showingChatTab,
 	} );
 	if (
 		previousPreview.siteId !== siteId ||
 		previousPreview.navigationKey !== navigationKey ||
 		previousPreview.mounted !== ( preview != null ) ||
 		previousPreview.open !== showPreview ||
-		previousPreview.collapsed !== contentCollapsed
+		previousPreview.collapsed !== contentCollapsed ||
+		previousPreview.chatSelected !== showingChatTab
 	) {
 		setPreviousPreview( {
 			siteId,
@@ -75,17 +80,20 @@ export function PreviewSplitFrame( {
 			mounted: preview != null,
 			open: showPreview,
 			collapsed: contentCollapsed,
+			chatSelected: showingChatTab,
 		} );
 		const toggled =
 			previousPreview.open !== showPreview || previousPreview.collapsed !== contentCollapsed;
-		setAnimatingPreviewToggle(
-			toggled &&
-				previousPreview.siteId === siteId &&
-				previousPreview.navigationKey === navigationKey &&
-				previousPreview.mounted &&
-				preview != null &&
-				! instant
-		);
+		const samePreview =
+			previousPreview.siteId === siteId &&
+			previousPreview.navigationKey === navigationKey &&
+			previousPreview.mounted &&
+			preview != null;
+		if ( toggled || ! samePreview ) {
+			setAnimatingPreviewToggle(
+				toggled && samePreview && ! instant && ! ( previousPreview.chatSelected && ! showPreview )
+			);
+		}
 	}
 
 	// Keep the outgoing site in the closing pane until it is hidden.
@@ -104,24 +112,32 @@ export function PreviewSplitFrame( {
 		return () => window.clearTimeout( timeoutId );
 	}, [ animatingPreviewToggle, siteId, navigationKey, showPreview, contentCollapsed ] );
 
-	const previewVisible = showPreview || animatingPreviewToggle;
+	const [ lastExpanded, setLastExpanded ] = useState( contentCollapsed );
+	if ( showPreview && lastExpanded !== contentCollapsed ) setLastExpanded( contentCollapsed );
+	const previewVisible = ( showPreview || animatingPreviewToggle ) && ! showingChatTab;
 	const renderPreview = ! showPreview && animatingPreviewToggle ? lastVisiblePreview : preview;
-	const renderedPreview = renderPreview?.( { collapsed: ! showPreview } );
+	const renderedPreview = renderPreview?.( { collapsed: ! showPreview || showingChatTab } );
 	const rootStyle = {
-		// The collapsed content column keeps the split's last width in the
-		// geometry, so showing it again restores the previous split.
-		'--preview-frame-content-width': contentCollapsed ? '0px' : contentWidthVar,
-		'--preview-header-content-width': showPreview && ! contentCollapsed ? contentWidthVar : '0px',
+		'--preview-layout-duration': animatingPreviewToggle ? 'var(--motion-duration-layout)' : '0ms',
+		'--preview-frame-boundary': showPreview
+			? contentCollapsed
+				? '0px'
+				: contentWidthVar
+			: '100%',
+		'--preview-frame-content-width': contentWidthVar,
+		'--preview-frame-visible-content-width': ( showPreview ? contentCollapsed : lastExpanded )
+			? '0px'
+			: contentWidthVar,
 	} as CSSProperties;
-	// Keep the zero-width column visible while it animates shut, then hide it
-	// so the (still mounted) chat can't be reached by focus or a screen reader.
-	const contentHidden = contentCollapsed && ! animatingPreviewToggle;
+	// The preview covers the chat as it closes; keep its layout intact underneath.
+	const contentHidden = contentCollapsed && ! animatingPreviewToggle && ! showingChatTab;
 	// Which pane reaches the window's top-right corner. The preview sits at the
 	// inline end, so in RTL it only gets there when it fills the frame, and the
 	// content only when the sidebar isn't there.
 	const contentInCorner =
-		! contentCollapsed && ( ! showPreview || ( isRTL() && isSidebarCollapsed ) );
-	const previewInCorner = showPreview && ( contentCollapsed || ! isRTL() );
+		showingChatTab ||
+		( ! contentCollapsed && ( ! showPreview || ( isRTL() && isSidebarCollapsed ) ) );
+	const previewInCorner = showPreview && ! showingChatTab && ( contentCollapsed || ! isRTL() );
 
 	return (
 		<>
@@ -133,18 +149,21 @@ export function PreviewSplitFrame( {
 					showPreview && styles.rootPreviewOpen,
 					isResizing && styles.rootPreviewResizing,
 					animatingPreviewToggle && styles.rootPreviewAnimating,
-					showPreview && ! contentCollapsed && ! animatingPreviewToggle && styles.rootEdge
+					showPreview && ! contentCollapsed && styles.rootEdge
 				) }
 				style={ rootStyle }
+				data-layout-moving={ animatingPreviewToggle || undefined }
 			>
 				{ header }
 				<div
 					className={ clsx(
 						styles.contentColumn,
 						contentCollapsed && styles.contentColumnCollapsed,
+						showingChatTab && styles.contentColumnFull,
 						contentHidden && styles.contentColumnHidden
 					) }
 					aria-hidden={ contentHidden || undefined }
+					inert={ contentCollapsed && ! showingChatTab }
 				>
 					<WindowControlsCornerContext.Provider value={ contentInCorner }>
 						{ children }
@@ -155,22 +174,28 @@ export function PreviewSplitFrame( {
 						className={ clsx(
 							styles.previewSlot,
 							previewVisible && styles.previewSlotVisible,
-							showPreview && styles.previewSlotInteractive
+							showPreview && ! showingChatTab && styles.previewSlotInteractive
 						) }
-						aria-hidden={ ! showPreview }
-						inert={ ! showPreview }
+						aria-hidden={ ! showPreview || showingChatTab }
+						inert={ ! showPreview || showingChatTab }
 					>
 						<WindowControlsCornerContext.Provider value={ previewInCorner }>
 							{ renderedPreview }
 						</WindowControlsCornerContext.Provider>
 					</div>
 				) : null }
-				{ showPreview && ! contentCollapsed && ! animatingPreviewToggle && resizable ? (
-					<ResizeHandle
+				{ preview && resizable ? (
+					<div
 						className={ styles.previewResizeHandle }
-						label={ __( 'Resize site preview' ) }
-						{ ...handleProps }
-					/>
+						aria-hidden={ ! showPreview || contentCollapsed || animatingPreviewToggle || undefined }
+						inert={ ! showPreview || contentCollapsed || animatingPreviewToggle }
+					>
+						<ResizeHandle
+							className={ styles.previewResizeGrip }
+							label={ __( 'Resize site preview' ) }
+							{ ...handleProps }
+						/>
+					</div>
 				) : null }
 				{ isResizing ? <ResizeOverlay /> : null }
 			</div>

@@ -7,41 +7,24 @@ export interface ResizablePanelConfig {
 export const SIDEBAR_PANEL_STORAGE_KEY = 'studio-ui-sidebar-width';
 export const SIDEBAR_COLLAPSED_STORAGE_KEY = 'studio-ui-sidebar-collapsed';
 export const PREVIEW_CONTENT_WIDTH_STORAGE_KEY = 'studio-ui-preview-content-width';
+export const PREVIEW_OPEN_STORAGE_KEY = 'studio-ui-preview-open';
+export const PREVIEW_LAYOUT_STORAGE_KEY = 'studio-ui-running-preview-layout';
 export const SITE_CHAT_HIDDEN_STORAGE_KEY = 'studio-ui-chat-hidden-by-site';
+const SITE_PREVIEW_OPEN_STORAGE_KEY = 'studio-ui-preview-open-by-site';
 const PREVIEW_CONTENT_WIDTH_SITE_PREFIX = `${ PREVIEW_CONTENT_WIDTH_STORAGE_KEY }:`;
 
-export function getPreviewContentWidthStorageKey( siteId: string ): string {
-	return `${ PREVIEW_CONTENT_WIDTH_SITE_PREFIX }${ siteId }`;
+interface PreviewLayout {
+	open: boolean;
+	chatHidden: boolean;
 }
 
-export function getStoredSiteChatVisibility(): Record< string, boolean > {
-	try {
-		const stored: unknown = JSON.parse(
-			window.localStorage.getItem( SITE_CHAT_HIDDEN_STORAGE_KEY ) ?? '{}'
-		);
-		return stored && typeof stored === 'object' && ! Array.isArray( stored )
-			? Object.fromEntries( Object.entries( stored ).filter( ( [ , hidden ] ) => hidden === true ) )
-			: {};
-	} catch {
-		return {};
-	}
-}
-
-export function storeSiteChatVisibility( hiddenBySiteId: Record< string, boolean > ): void {
-	try {
-		if ( Object.values( hiddenBySiteId ).some( Boolean ) ) {
-			window.localStorage.setItem( SITE_CHAT_HIDDEN_STORAGE_KEY, JSON.stringify( hiddenBySiteId ) );
-		} else {
-			window.localStorage.removeItem( SITE_CHAT_HIDDEN_STORAGE_KEY );
-		}
-	} catch {
-		// Keep visibility usable when storage is unavailable.
-	}
+export function getDefaultPreviewLayout( running = true ): PreviewLayout {
+	return { open: running, chatHidden: false };
 }
 
 export const PREVIEW_CONTENT_DEFAULT_WIDTH = 360;
 export const PREVIEW_PANEL_MIN_WIDTH = 360;
-const PREVIEW_PANEL_MIN_CONTENT_WIDTH = 320;
+const PREVIEW_PANEL_MIN_CONTENT_WIDTH = 360;
 export const PREVIEW_SPLIT_MIN_WIDTH = PREVIEW_PANEL_MIN_WIDTH + PREVIEW_PANEL_MIN_CONTENT_WIDTH;
 
 export const SIDEBAR_PANEL_CONFIG: ResizablePanelConfig = {
@@ -98,10 +81,12 @@ export function storeResizablePanelWidth( storageKey: string, width: number ): v
 	}
 }
 
-const PANEL_WIDTH_STORAGE_KEYS = [
-	SIDEBAR_PANEL_STORAGE_KEY,
-	PREVIEW_CONTENT_WIDTH_STORAGE_KEY,
+const PANEL_WIDTH_STORAGE_KEYS = [ SIDEBAR_PANEL_STORAGE_KEY, PREVIEW_CONTENT_WIDTH_STORAGE_KEY ];
+const LEGACY_PREVIEW_LAYOUT_STORAGE_KEYS = [
 	SITE_CHAT_HIDDEN_STORAGE_KEY,
+	SITE_PREVIEW_OPEN_STORAGE_KEY,
+	PREVIEW_OPEN_STORAGE_KEY,
+	PREVIEW_LAYOUT_STORAGE_KEY,
 ];
 export const PANEL_WIDTHS_RESET_EVENT = 'studio-panel-widths-reset';
 
@@ -128,9 +113,11 @@ export function hasCustomPanelLayout(): boolean {
 // Restores panel widths and visibility; mounted panels listen for the event.
 export function resetPanelLayout(): void {
 	try {
-		[ ...getPanelWidthStorageKeys(), SIDEBAR_COLLAPSED_STORAGE_KEY ].forEach( ( key ) =>
-			window.localStorage.removeItem( key )
-		);
+		[
+			...getPanelWidthStorageKeys(),
+			...LEGACY_PREVIEW_LAYOUT_STORAGE_KEYS,
+			SIDEBAR_COLLAPSED_STORAGE_KEY,
+		].forEach( ( key ) => window.localStorage.removeItem( key ) );
 	} catch {
 		// Nothing stored to forget.
 	}
@@ -148,14 +135,23 @@ interface PreviewSplitLayout {
 // frame width and the user's preferred content width, returns the content
 // width clamped so the content column keeps PREVIEW_PANEL_MIN_CONTENT_WIDTH and
 // the preview keeps PREVIEW_PANEL_MIN_WIDTH, plus the derived preview track and
-// the bounds the resize handle reports. A frame too narrow for both floors is
-// split in their proportion, and can't be resized. CSS just consumes the
+// the bounds the resize handle reports. At mobile widths, chat fills the frame.
+// Other frames too narrow for both floors split proportionally without resizing.
+// CSS just consumes the
 // content width; it does not re-clamp.
 export function getPreviewSplitLayout(
 	containerWidth: number,
 	preferredContentWidth: number
 ): PreviewSplitLayout {
 	const width = Math.max( 0, Math.round( containerWidth ) );
+	if ( width <= 540 ) {
+		return {
+			contentWidth: width,
+			previewWidth: 0,
+			previewMinWidth: 0,
+			previewMaxWidth: 0,
+		};
+	}
 	if ( width < PREVIEW_SPLIT_MIN_WIDTH ) {
 		const contentWidth = Math.round(
 			( width * PREVIEW_PANEL_MIN_CONTENT_WIDTH ) / PREVIEW_SPLIT_MIN_WIDTH
@@ -183,12 +179,9 @@ export function getPreviewSplitLayout(
 	};
 }
 
-export function getInitialPreviewContentWidth( siteId?: string ): number | null {
-	if ( ! siteId ) return null;
+export function getInitialPreviewContentWidth(): number | null {
 	try {
-		const storedContentWidth = window.localStorage.getItem(
-			getPreviewContentWidthStorageKey( siteId )
-		);
+		const storedContentWidth = window.localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY );
 		const parsedContentWidth = storedContentWidth ? Number( storedContentWidth ) : NaN;
 		return Number.isFinite( parsedContentWidth ) && parsedContentWidth > 0
 			? Math.round( parsedContentWidth )

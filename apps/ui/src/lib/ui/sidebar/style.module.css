@@ -22,14 +22,13 @@
 		display: inline-flex;
 		flex: 1;
 		align-items: center;
-		gap: var( --space-1 );
+		gap: var( --space-1_5 );
 		height: 100%;
 		padding: 0 var( --space-2 );
 		border-radius: var( --radius-md );
 		color: var( --muted-foreground );
 		font-weight: var( --font-weight-medium );
 		cursor: pointer;
-		transition: color var( --motion-duration-feedback ) ease;
 	}
 
 	.groupLabel:hover {
@@ -52,7 +51,7 @@
 		rotate: 90deg;
 	}
 
-	.group:hover .groupLabel > svg,
+	.groupLabel:is( :hover, :focus-visible ) > svg,
 	.groupLabel[aria-expanded='false'] > svg {
 		opacity: 1;
 	}
@@ -84,7 +83,7 @@
 		min-width: 0;
 		height: 36px;
 		padding-inline: var( --space-2 );
-		border-radius: var( --radius-md );
+		border-radius: var( --radius-lg );
 		color: var( --foreground );
 		text-align: start;
 		outline: none;
@@ -124,7 +123,7 @@
 
 	.button:is( [data-active], [data-selected], [data-popup-open] ),
 	.item:is( [data-selected], [data-popup-open] ) > .button {
-		background-color: var( --selected );
+		background-color: var( --hover );
 	}
 
 	.button[data-muted]:hover {
@@ -142,8 +141,7 @@
 		text-align: start;
 	}
 
-	/* Hovering an action fills its row, so the actions sit on the row's hover
-	   fill and their own hover steps one up from it. */
+	/* Hovering an action also highlights its row. */
 	.actions {
 		--surface: var( --hover );
 

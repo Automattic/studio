@@ -6,6 +6,7 @@ type Modifier = 'alt' | 'shift';
 // layout's K types л), so a letter is read from the physical key unless the
 // layout types a Latin letter there.
 function getKey( event: KeyboardEvent ) {
+	if ( event.code === 'Period' ) return '.';
 	if ( /^[a-z]$/i.test( event.key ) ) {
 		return event.key.toLowerCase();
 	}

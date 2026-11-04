@@ -1,6 +1,6 @@
 # WordPress Studio plugins
 
-Plugins that bring [WordPress Studio](https://developer.wordpress.com/studio/) to agent apps.
+Plugins that bring [WordPress Studio](https://wordpress.studio/) to agent apps.
 
 - [wp-studio](wp-studio): build, design, and manage WordPress sites from Codex in the ChatGPT app,
   and from Claude Code.

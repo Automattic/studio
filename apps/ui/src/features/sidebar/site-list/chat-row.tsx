@@ -21,6 +21,7 @@ import {
 	VisuallyHidden,
 } from '@/lib/ui';
 import { BulkMenu, useIsBulkTarget, useRowPressed, useSelectableRow } from './selection';
+import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 import type { ReorderableItemProps } from '@/features/sidebar/reorderable-list';
 
@@ -108,8 +109,8 @@ export function ChatRow( {
 								</SidebarMenuLabel>
 								{ needsInput ? (
 									<Badge
-										variant="accent"
 										size="icon"
+										variant="accent"
 										role="status"
 										aria-label={ __( 'WordPress Studio needs an answer.' ) }
 									>
@@ -123,6 +124,7 @@ export function ChatRow( {
 							{ needsInput ? null : (
 								<SidebarMenuActions showOnHover={ ! active || nested } data-reorder-exclude>
 									<IconButton
+										className={ styles.rowAction }
 										variant="muted-ghost"
 										size="icon-sm"
 										icon={ actions.pinned ? <UnpinIcon /> : <PinIcon /> }
@@ -130,6 +132,7 @@ export function ChatRow( {
 										onClick={ actions.togglePin }
 									/>
 									<IconButton
+										className={ styles.rowAction }
 										variant="muted-ghost"
 										size="icon-sm"
 										icon={ <ArchiveIcon /> }

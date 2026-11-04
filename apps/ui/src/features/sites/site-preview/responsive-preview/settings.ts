@@ -2,14 +2,14 @@ export const devicePresets = [
 	{ name: 'iPhone 16e', width: 390, height: 844 },
 	{ name: 'iPhone 17', width: 402, height: 874 },
 	{ name: 'iPhone 17 Pro Max', width: 440, height: 956 },
-	{ name: 'iPhone Duo', width: 466, height: 678 },
+	{ name: 'iPhone Duo (Closed)', width: 466, height: 678 },
 	{ name: 'iPhone Duo (Open)', width: 951, height: 669 },
-	{ name: 'Pixel 10', width: 412, height: 923 },
+	{ name: 'Pixel 10', width: 412, height: 924 },
+	{ name: 'Galaxy A55', width: 360, height: 800 },
 	{ name: 'Galaxy S25 Ultra', width: 384, height: 832 },
 	{ name: 'iPad mini', width: 744, height: 1133 },
 	{ name: 'iPad Air 11"', width: 820, height: 1180 },
 	{ name: 'iPad Pro 13"', width: 1032, height: 1376 },
-	{ name: 'Laptop', width: 1366, height: 768 },
 	{ name: 'Desktop', width: 1920, height: 1080 },
 ];
 
@@ -31,8 +31,9 @@ export function getFitScale(
 	return Math.max(
 		0.01,
 		Math.min(
-			Math.max( 1, availableWidth - 32 ) / width,
-			Math.max( 1, availableHeight - 32 ) / height
-		)
+			100,
+			Math.floor( ( Math.max( 1, availableWidth - 32 ) * 100 ) / width ),
+			Math.floor( ( Math.max( 1, availableHeight - 32 ) * 100 ) / height )
+		) / 100
 	);
 }

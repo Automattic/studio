@@ -8,10 +8,15 @@ import {
 } from '@studio/agent/protocol/composer-attachment-preview';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { FileTextIcon, XIcon } from 'lucide-react';
+import { FileTextIcon } from 'lucide-react';
 import { cloneElement, useLayoutEffect, useRef } from 'react';
+import { AnnotationReviewChip } from '@/features/annotations';
 import { AnnotateIcon } from '@/lib/icons';
-import { AttachmentChip as AttachmentChipSurface, Button, HoverCard } from '@/lib/ui';
+import {
+	AttachmentChip as AttachmentChipSurface,
+	AttachmentRemoveButton,
+	HoverCard,
+} from '@/lib/ui';
 import styles from './style.module.css';
 import type { ComposerAttachment } from '@/data/use-composer-attachments';
 
@@ -75,16 +80,7 @@ function AttachmentChip( {
 					<span className={ styles.attachmentName }>{ attachment.name }</span>
 				</>
 			) }
-			<Button
-				variant="outline"
-				size="icon-2xs"
-				shape="round"
-				className={ styles.attachmentRemove }
-				aria-label={ __( 'Remove attachment' ) }
-				onClick={ onRemove }
-			>
-				<XIcon />
-			</Button>
+			<AttachmentRemoveButton aria-label={ __( 'Remove attachment' ) } onClick={ onRemove } />
 		</>
 	);
 	if ( ! hasComposerAttachmentVisualPreview( attachment ) ) {
@@ -118,22 +114,38 @@ function AttachmentChip( {
 export function AttachmentChips( {
 	attachments,
 	annotationsAttachment,
+	annotationSiteId,
 	onRemove,
 }: {
+	annotationSiteId?: string;
 	attachments: ComposerAttachment[];
 	annotationsAttachment: ComposerAttachment | null;
 	onRemove: ( attachment: ComposerAttachment ) => void;
 } ) {
 	return (
 		<ul className={ styles.attachments } aria-label={ __( 'Attachments' ) }>
-			{ attachments.map( ( attachment ) => (
-				<AttachmentChip
-					key={ attachment.id }
-					attachment={ attachment }
-					isAnnotations={ attachment === annotationsAttachment }
-					onRemove={ () => onRemove( attachment ) }
-				/>
-			) ) }
+			{ attachments.map( ( attachment ) =>
+				attachment === annotationsAttachment && annotationSiteId ? (
+					<AnnotationReviewChip
+						key={ attachment.id }
+						siteId={ annotationSiteId }
+						label={ attachment.name }
+						description={ sprintf(
+							__( '%1$s, %2$s' ),
+							attachment.name,
+							formatComposerAttachmentSize( attachment.size )
+						) }
+						onRemove={ () => onRemove( attachment ) }
+					/>
+				) : (
+					<AttachmentChip
+						key={ attachment.id }
+						attachment={ attachment }
+						isAnnotations={ attachment === annotationsAttachment }
+						onRemove={ () => onRemove( attachment ) }
+					/>
+				)
+			) }
 		</ul>
 	);
 }

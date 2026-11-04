@@ -9,8 +9,12 @@
 	opacity: 1;
 }
 
-.root [aria-expanded='true']:not( :hover ) {
+.root [aria-expanded='true'] {
 	background-color: transparent;
+}
+
+.root [aria-expanded='true']:hover {
+	background-color: var( --hover );
 }
 
 /* The drawer icon depicts the sidebar edge; mirror it when the sidebar sits
@@ -27,10 +31,11 @@
 
 /* The negative margin cancels the header's gap while the slot is empty. */
 .headerSlot {
+	--control-size: 32px;
 	display: inline-flex;
 	flex-shrink: 0;
 	width: 0;
-	margin-inline-end: calc( -1 * var( --space-1 ) );
+	margin-inline-end: calc( -1 * var( --band-gap ) );
 	overflow: hidden;
 	opacity: 0;
 	transition:
@@ -47,4 +52,12 @@
 		width var( --motion-duration-layout ) var( --motion-ease-layout ),
 		margin var( --motion-duration-layout ) var( --motion-ease-layout ),
 		opacity 0s var( --motion-duration-layout );
+}
+
+.headerSlotWithAction {
+	gap: var( --band-gap );
+}
+
+.headerSlotVisible.headerSlotWithAction {
+	width: calc( 2 * var( --control-size ) + var( --band-gap ) );
 }

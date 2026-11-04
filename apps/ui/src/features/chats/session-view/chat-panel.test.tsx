@@ -117,6 +117,61 @@ async function setupChat( {
 const notice = () => screen.findByRole( 'alert' );
 const sendButton = () => screen.getByRole( 'button', { name: 'Send message' } );
 const COMPOSER = { name: 'Message WordPress Studio' };
+const composerStartButton = () =>
+	within( screen.getByRole( 'combobox', COMPOSER ).closest( '[role="group"]' )! ).getByRole(
+		'button',
+		{ name: 'Start site' }
+	);
+
+describe( 'Composer site start', () => {
+	it( 'starts a stopped site from the empty composer without sending a message', async () => {
+		const { connector, input } = await setupChat( {
+			signedIn: false,
+			hasAnthropicApiKey: false,
+		} );
+		let finishStart!: () => void;
+		connector.startSite.mockImplementationOnce(
+			() =>
+				new Promise( ( resolve ) => {
+					finishStart = () => {
+						const site = {
+							...connector.state.sites[ 0 ],
+							running: true,
+							url: 'http://localhost:8881',
+						};
+						connector.state.sites[ 0 ] = site;
+						resolve( site );
+					};
+				} )
+		);
+		const startButton = composerStartButton();
+		fireEvent.click( startButton );
+		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( SITE_ID ) );
+		await waitFor( () => expect( startButton ).toHaveAttribute( 'aria-disabled', 'true' ) );
+		expect( startButton ).toHaveAccessibleName( 'Starting site' );
+		expect( startButton ).toHaveAttribute( 'aria-busy', 'true' );
+		fireEvent.click( startButton );
+		expect( connector.startSite ).toHaveBeenCalledOnce();
+		expect( connector.continueSession ).not.toHaveBeenCalled();
+		expect( input ).toHaveValue( '' );
+		await act( async () => finishStart() );
+		await waitFor( () => expect( sendButton() ).toHaveAttribute( 'aria-disabled', 'true' ) );
+	} );
+
+	it( 'offers Send when there is text and Start again when it is cleared', async () => {
+		const { connector, input } = await setupChat();
+		fireEvent.change( input, { target: { value: 'Update the homepage' } } );
+		expect( sendButton() ).toBeEnabled();
+		fireEvent.change( input, { target: { value: '  ' } } );
+		expect( composerStartButton() ).toBeEnabled();
+		expect( connector.startSite ).not.toHaveBeenCalled();
+	} );
+
+	it( 'keeps the empty Send button disabled for a running site', async () => {
+		await setupChat( { running: true } );
+		expect( sendButton() ).toHaveAttribute( 'aria-disabled', 'true' );
+	} );
+} );
 
 function anthropicRow( dialog: HTMLElement ) {
 	return within(
@@ -275,7 +330,7 @@ describe( 'Composer access notices', () => {
 			if ( gated ) {
 				const addPayment = await screen.findByRole( 'button', { name: 'Set up' } );
 				expect( input ).toBeEnabled();
-				expect( sendButton() ).toBeDisabled();
+				expect( composerStartButton() ).toBeEnabled();
 				fireEvent.click( addPayment );
 				expect( connector.openExternalUrl ).toHaveBeenCalledWith( ADD_PAYMENT_METHOD_URL );
 				expect( connector.continueSession ).not.toHaveBeenCalled();
@@ -381,6 +436,24 @@ describe( 'Composer access notices', () => {
 } );
 
 describe( 'Chat target selection', () => {
+	it( 'hides the auto-start chip while the site runs and restores it when stopped', async () => {
+		const { connector } = await setupChat();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Auto-start / } ) );
+		await screen.findByRole( 'button', { name: 'Remove Auto-start' } );
+
+		await act( async () => connector.startSite( SITE_ID ) );
+		await waitFor( () =>
+			expect(
+				screen.queryByRole( 'button', { name: 'Remove Auto-start' } )
+			).not.toBeInTheDocument()
+		);
+		expect( connector.state.preferences.autoStartSiteOnChat ).toBe( true );
+
+		await act( async () => connector.stopSite( SITE_ID ) );
+		expect( await screen.findByRole( 'button', { name: 'Remove Auto-start' } ) ).toBeVisible();
+	} );
+
 	it.each( [
 		{ signedIn: false, hasAnthropicApiKey: false },
 		{ signedIn: true, hasAnthropicApiKey: false },
@@ -391,7 +464,7 @@ describe( 'Chat target selection', () => {
 		if ( ! connections.signedIn && ! connections.hasAnthropicApiKey ) {
 			expect( screen.queryByRole( 'button', { name: 'Model' } ) ).not.toBeInTheDocument();
 			fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-			await screen.findByRole( 'option', { name: /^Connect AI providers/ } );
+			await screen.findByRole( 'option', { name: /^Connect providers/ } );
 			expect( screen.queryByRole( 'option', { name: /^Choose model/ } ) ).not.toBeInTheDocument();
 			fireEvent.keyDown( document.activeElement!, { key: 'Escape' } );
 			fireEvent.change( input, { target: { value: '/model' } } );
@@ -438,7 +511,7 @@ describe( 'Chat target selection', () => {
 		expect( connector.authenticate ).not.toHaveBeenCalled();
 	} );
 
-	it( 'switches an empty chat to the picked model and the live site while preserving the draft', async () => {
+	it( 'switches an empty chat to the picked model while preserving the draft', async () => {
 		const { connector, input } = await setupChat( {
 			provider: 'anthropic-api-key',
 			signedIn: false,
@@ -453,12 +526,6 @@ describe( 'Chat target selection', () => {
 		await waitFor( () =>
 			expect( connector.setSessionModel ).toHaveBeenCalledWith( 'chat', 'claude-opus-5' )
 		);
-		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: /^Work on live site/ } ) );
-		await waitFor( () =>
-			expect( connector.setSessionEnvironment ).toHaveBeenCalledWith( 'chat', 'live' )
-		);
-		expect( await screen.findByRole( 'button', { name: 'Remove Live' } ) ).toBeVisible();
 		expect( screen.getByRole( 'combobox', { name: 'Message WordPress Studio' } ) ).toHaveValue(
 			'Preserve this draft'
 		);

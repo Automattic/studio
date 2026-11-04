@@ -39,10 +39,12 @@ export default class AddSite {
 
 	// Opens Add site: it opens by itself with no sites, from the sidebar's "Add site" otherwise.
 	async open() {
-		const addSiteButton = new Sidebar( this.page ).addSiteButton;
+		const sidebar = new Sidebar( this.page );
+		const addSiteButton = sidebar.addSiteButton;
 		await expect( this.dialog.or( addSiteButton ).first() ).toBeVisible( { timeout: 60_000 } );
 		if ( ! ( await this.dialog.isVisible() ) ) {
-			await addSiteButton.click();
+			await sidebar.ensureOpen();
+			await addSiteButton.and( this.page.locator( ':not([inert] *)' ) ).click();
 		}
 		await expect( this.dialog ).toBeVisible();
 	}
@@ -57,14 +59,15 @@ export default class AddSite {
 	// Creates a site and resolves with its name once the dialog has closed on it.
 	async createSite( { siteName, pickFolder, blueprintPath }: CreateSiteOptions = {} ) {
 		await this.open();
-		await this.dialog.getByRole( 'button', { name: 'Start with Blank site' } ).click();
-		await expect( this.siteNameInput ).toBeVisible();
-
 		// A Blueprint renames the site, so upload it before setting the name.
 		if ( blueprintPath ) {
+			await this.dialog.getByRole( 'tab', { name: 'Upload', exact: true } ).click();
 			await this.blueprintFileInput.setInputFiles( blueprintPath );
 			await expect( this.submitButton ).toHaveText( 'Create site from Blueprint' );
+		} else {
+			await this.dialog.getByRole( 'button', { name: 'Start with Blank site' } ).click();
 		}
+		await expect( this.siteNameInput ).toBeVisible();
 		if ( siteName ) {
 			await this.siteNameInput.fill( siteName );
 		}

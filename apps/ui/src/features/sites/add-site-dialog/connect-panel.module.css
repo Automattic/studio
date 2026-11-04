@@ -12,29 +12,6 @@
 	color: var( --muted-foreground );
 }
 
-.signedOut {
-	display: flex;
-	flex-direction: column;
-	gap: var( --space-6 );
-}
-
-.benefits {
-	display: grid;
-	gap: var( --space-3 );
-	color: var( --muted-foreground );
-}
-
-.benefits li {
-	display: flex;
-	align-items: center;
-	gap: var( --space-3 );
-}
-
-.benefits svg {
-	flex: none;
-	color: var( --accent-text );
-}
-
 .state {
 	display: flex;
 	flex-direction: column;

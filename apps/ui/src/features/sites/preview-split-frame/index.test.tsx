@@ -2,15 +2,12 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useContext } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
-import {
-	getPreviewContentWidthStorageKey,
-	PREVIEW_CONTENT_WIDTH_STORAGE_KEY,
-} from '@/data/resizable-panels';
+import { PREVIEW_CONTENT_WIDTH_STORAGE_KEY } from '@/data/resizable-panels';
 import { SidebarCollapsedContext } from '@/data/use-sidebar-collapsed';
 import { PreviewSplitFrame } from './index';
 import type { ComponentProps } from 'react';
 
-const SITE_WIDTH_KEY = getPreviewContentWidthStorageKey( 'one' );
+const SITE_WIDTH_KEY = PREVIEW_CONTENT_WIDTH_STORAGE_KEY;
 
 function CornerProbe( { testId }: { testId: string } ) {
 	const inCorner = useContext( WindowControlsCornerContext );
@@ -50,7 +47,8 @@ describe( 'PreviewSplitFrame', () => {
 	afterEach( () => {
 		getBoundingClientRectSpy.mockRestore();
 		window.localStorage.removeItem( SITE_WIDTH_KEY );
-		window.localStorage.removeItem( getPreviewContentWidthStorageKey( 'two' ) );
+		window.localStorage.removeItem( `${ PREVIEW_CONTENT_WIDTH_STORAGE_KEY }:one` );
+		window.localStorage.removeItem( `${ PREVIEW_CONTENT_WIDTH_STORAGE_KEY }:two` );
 		window.localStorage.removeItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY );
 		vi.unstubAllGlobals();
 	} );
@@ -59,19 +57,23 @@ describe( 'PreviewSplitFrame', () => {
 		beforeEach( () => {
 			vi.useFakeTimers();
 			document.documentElement.style.setProperty( '--motion-duration-layout', '240ms' );
+			document.documentElement.style.setProperty( '--motion-duration-surface', '180ms' );
 		} );
 
 		afterEach( () => {
 			vi.useRealTimers();
 			document.documentElement.style.removeProperty( '--motion-duration-layout' );
+			document.documentElement.style.removeProperty( '--motion-duration-surface' );
 		} );
 
-		function frame( site: string, open: boolean, instant = false ) {
+		function frame( site: string, open: boolean, instant = false, chatTabActive = false ) {
 			return (
 				<PreviewSplitFrame
 					siteId="one"
 					previewOpen={ open }
 					instant={ instant }
+					chatHidden={ chatTabActive }
+					chatTabActive={ chatTabActive }
 					preview={ ( { collapsed } ) => (
 						<aside aria-label="Site preview" data-collapsed={ collapsed }>
 							{ site }
@@ -82,6 +84,64 @@ describe( 'PreviewSplitFrame', () => {
 				</PreviewSplitFrame>
 			);
 		}
+
+		it( 'does not reveal the preview when closing from the Chat tab', () => {
+			const { rerender } = render( frame( 'Page', true, false, true ) );
+			const pane = screen.getByLabelText( 'Site preview' );
+			expect( pane.closest( '[inert]' ) ).not.toBeNull();
+			rerender( frame( 'Page', false ) );
+			expect( getFrameRoot() ).not.toHaveAttribute( 'data-layout-moving' );
+			expect( pane.closest( '[inert]' ) ).not.toBeNull();
+			expect( screen.getByTestId( 'content' ).closest( '[aria-hidden="true"]' ) ).toBeNull();
+		} );
+
+		it( 'keeps the resize handle mounted while the panel closes and reopens', async () => {
+			const { rerender } = render( frame( 'Ready', true ) );
+			const handle = screen.getByRole( 'separator', { name: 'Resize site preview' } );
+			rerender( frame( 'Ready', false ) );
+			expect( handle ).toBeInTheDocument();
+			expect( handle.closest( '[inert]' ) ).not.toBeNull();
+			await act( () => vi.advanceTimersByTime( 100 ) );
+			rerender( frame( 'Ready', true ) );
+			expect( handle ).toBeInTheDocument();
+			await act( () => vi.advanceTimersByTime( 240 ) );
+			expect( screen.getByRole( 'separator', { name: 'Resize site preview' } ) ).toBe( handle );
+			expect( handle.closest( '[inert]' ) ).toBeNull();
+		} );
+
+		it( 'keeps the slide running when loading changes midway through it', async () => {
+			const { rerender } = render( frame( 'Stopped', false ) );
+			rerender( frame( 'Starting', true ) );
+			await act( () => vi.advanceTimersByTime( 120 ) );
+			rerender( frame( 'Ready', true ) );
+			expect( getFrameRoot() ).toHaveAttribute( 'data-layout-moving', 'true' );
+			expect(
+				screen.queryByRole( 'separator', { name: 'Resize site preview' } )
+			).not.toBeInTheDocument();
+			await act( () => vi.advanceTimersByTime( 120 ) );
+			expect( getFrameRoot() ).not.toHaveAttribute( 'data-layout-moving' );
+			expect(
+				screen.getByRole( 'separator', { name: 'Resize site preview' } )
+			).toBeInTheDocument();
+		} );
+
+		it( 'slides the ready preview and header together before enabling resizing', async () => {
+			const { rerender } = render( frame( 'Loading site', false ) );
+			const preview = screen.getByLabelText( 'Site preview' );
+			rerender( frame( 'Running site', true ) );
+			expect( screen.getByRole( 'complementary', { name: 'Site preview' } ) ).toBe( preview );
+			expect(
+				screen.queryByRole( 'separator', { name: 'Resize site preview' } )
+			).not.toBeInTheDocument();
+			expect( getFrameRoot().style.getPropertyValue( '--preview-layout-duration' ) ).toBe(
+				'var(--motion-duration-layout)'
+			);
+			await act( () => vi.advanceTimersByTime( 240 ) );
+			expect(
+				screen.getByRole( 'separator', { name: 'Resize site preview' } )
+			).toBeInTheDocument();
+			expect( screen.getByRole( 'complementary', { name: 'Site preview' } ) ).toBe( preview );
+		} );
 
 		it( 'keeps the outgoing site through the exit, even when another stopped site is selected', async () => {
 			const { rerender } = render( frame( 'Running site', true ) );
@@ -123,6 +183,18 @@ describe( 'PreviewSplitFrame', () => {
 			);
 		} );
 
+		it( 'finishes a manual slide when an instant layout restoration takes over', () => {
+			const { rerender } = render( frame( 'Stopped site', false ) );
+			rerender( frame( 'Stopped site', true ) );
+			expect(
+				screen.queryByRole( 'separator', { name: 'Resize site preview' } )
+			).not.toBeInTheDocument();
+			rerender( frame( 'Starting site', true, true ) );
+			expect(
+				screen.getByRole( 'separator', { name: 'Resize site preview' } )
+			).toBeInTheDocument();
+		} );
+
 		it( 'closes immediately when an instant close interrupts an opening preview', async () => {
 			const { rerender } = render( frame( 'Stopped site', false ) );
 			rerender( frame( 'Running site', true ) );
@@ -158,8 +230,8 @@ describe( 'PreviewSplitFrame', () => {
 		expect( screen.getByLabelText( 'Site preview' ) ).toBeVisible();
 	} );
 
-	it( 'restores each site width without remounting the preview', () => {
-		window.localStorage.setItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY, '620' );
+	it( 'shares the resized width across sites and reloads without remounting the preview', () => {
+		window.localStorage.setItem( `${ PREVIEW_CONTENT_WIDTH_STORAGE_KEY }:one`, '620' );
 		const frame = ( siteId: string ) => (
 			<PreviewSplitFrame
 				siteId={ siteId }
@@ -172,25 +244,25 @@ describe( 'PreviewSplitFrame', () => {
 		const { rerender, unmount } = render( frame( 'one' ) );
 		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 360px' );
 		const preview = screen.getByLabelText( 'Site preview' );
-		fireEvent.keyDown( screen.getByRole( 'separator' ), { key: 'ArrowLeft', shiftKey: true } );
-		expect( localStorage.getItem( SITE_WIDTH_KEY ) ).toBe( '320' );
+		fireEvent.keyDown( screen.getByRole( 'separator' ), { key: 'ArrowRight' } );
+		expect( localStorage.getItem( SITE_WIDTH_KEY ) ).toBe( '376' );
 		rerender( frame( 'two' ) );
-		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 360px' );
+		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 376px' );
 		expect( screen.getByLabelText( 'Site preview' ) ).toBe( preview );
 		fireEvent.keyDown( screen.getByRole( 'separator' ), { key: 'ArrowRight', shiftKey: true } );
-		expect( localStorage.getItem( getPreviewContentWidthStorageKey( 'two' ) ) ).toBe( '400' );
+		expect( localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY ) ).toBe( '416' );
 		rerender( frame( 'one' ) );
-		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 320px' );
+		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 416px' );
 		unmount();
 		render( frame( 'two' ) );
-		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 400px' );
+		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 416px' );
 		expect( screen.getByRole( 'separator', { name: 'Resize site preview' } ) ).toHaveAttribute(
 			'aria-valuenow',
-			'600'
+			'584'
 		);
 	} );
 
-	it( 'cancels a drag when switching sites without overwriting either saved width', () => {
+	it( 'cancels a drag when switching sites without overwriting the shared width', () => {
 		localStorage.setItem( SITE_WIDTH_KEY, '500' );
 		const frame = ( siteId: string ) => (
 			<PreviewSplitFrame siteId={ siteId } previewOpen preview={ () => <aside /> }>
@@ -203,8 +275,8 @@ describe( 'PreviewSplitFrame', () => {
 		fireEvent.mouseUp( document, { clientX: 620 } );
 		expect( document.body ).not.toHaveStyle( { cursor: 'col-resize' } );
 		expect( localStorage.getItem( SITE_WIDTH_KEY ) ).toBe( '500' );
-		expect( localStorage.getItem( getPreviewContentWidthStorageKey( 'two' ) ) ).toBeNull();
-		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 360px' );
+		expect( localStorage.getItem( `${ PREVIEW_CONTENT_WIDTH_STORAGE_KEY }:two` ) ).toBeNull();
+		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 500px' );
 	} );
 
 	it( 'keeps the content width stable as the window grows', async () => {
@@ -301,7 +373,7 @@ describe( 'PreviewSplitFrame', () => {
 		);
 
 		await waitFor( () =>
-			expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 256px' )
+			expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 272px' )
 		);
 		expect( screen.getByLabelText( 'Site preview' ) ).toBeVisible();
 		expect( screen.queryByRole( 'separator' ) ).not.toBeInTheDocument();
@@ -334,15 +406,15 @@ describe( 'PreviewSplitFrame', () => {
 		it( 'expands the preview to its maximum width on End', async () => {
 			const handle = await renderOpenAndSettle();
 			fireEvent.keyDown( handle, { key: 'End' } );
-			expect( handle ).toHaveAttribute( 'aria-valuenow', '680' );
-			expect( window.localStorage.getItem( SITE_WIDTH_KEY ) ).toBe( '320' );
+			expect( handle ).toHaveAttribute( 'aria-valuenow', '640' );
+			expect( window.localStorage.getItem( SITE_WIDTH_KEY ) ).toBe( '360' );
 		} );
 
 		it( 'steps the preview width with arrow keys, using a larger step with Shift', async () => {
 			const handle = await renderOpenAndSettle();
-			fireEvent.keyDown( handle, { key: 'ArrowLeft' } );
-			expect( handle ).toHaveAttribute( 'aria-valuenow', '656' );
 			fireEvent.keyDown( handle, { key: 'ArrowRight', shiftKey: true } );
+			expect( handle ).toHaveAttribute( 'aria-valuenow', '600' );
+			fireEvent.keyDown( handle, { key: 'ArrowLeft' } );
 			expect( handle ).toHaveAttribute( 'aria-valuenow', '616' );
 			expect( window.localStorage.getItem( SITE_WIDTH_KEY ) ).toBe( '384' );
 		} );

@@ -1,6 +1,7 @@
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { SiteDetails } from '@/data/core';
@@ -12,30 +13,43 @@ function setup( {
 	sites = [ site ],
 	signedIn = true,
 	section = 'site',
-}: { logExists?: boolean; sites?: SiteDetails[]; signedIn?: boolean; section?: string } = {} ) {
-	const connector = createFakeConnector( signedIn ? { sites } : { sites, user: null }, {
-		siteDebugLogExists: async () => logExists,
-		getSiteAgentFiles: async ( _siteId, kind ) =>
-			kind === 'skills'
-				? [
-						{
-							id: 'studio-cli',
-							displayName: 'WordPress Studio CLI',
-							description: 'CLI',
-							installed: false,
-							enabled: false,
-						},
-				  ]
-				: [
-						{
-							id: 'agents',
-							displayName: 'AGENTS.md',
-							description: 'Instructions',
-							installed: false,
-							enabled: false,
-						},
-				  ],
-	} );
+	colorScheme = 'light',
+	wpVersion = '6.9',
+}: {
+	logExists?: boolean;
+	sites?: SiteDetails[];
+	signedIn?: boolean;
+	section?: string;
+	colorScheme?: 'light' | 'dark';
+	wpVersion?: string;
+} = {} ) {
+	const connector = createFakeConnector(
+		{ sites, ...( signedIn ? {} : { user: null } ), preferences: { colorScheme } },
+		{
+			getWpVersion: async () => wpVersion,
+			siteDebugLogExists: async () => logExists,
+			getSiteAgentFiles: async ( _siteId, kind ) =>
+				kind === 'skills'
+					? [
+							{
+								id: 'studio-cli',
+								displayName: 'WordPress Studio CLI',
+								description: 'CLI',
+								installed: false,
+								enabled: false,
+							},
+					  ]
+					: [
+							{
+								id: 'agents',
+								displayName: 'AGENTS.md',
+								description: 'Instructions',
+								installed: false,
+								enabled: false,
+							},
+					  ],
+		}
+	);
 	connector.updateSite.mockImplementation( async ( updated ) => {
 		connector.state.sites = connector.state.sites.map( ( entry ) =>
 			entry.id === updated.id ? updated : entry
@@ -60,7 +74,37 @@ async function choose( combobox: string, option: string | RegExp ) {
 	fireEvent.click( item );
 }
 
+afterEach( () => vi.unstubAllGlobals() );
+
 describe( 'site settings', () => {
+	it.each( [ 'light', 'dark' ] as const )(
+		'records each return to the account prompt but not rerenders or scrolling (%s)',
+		async ( colorScheme ) => {
+			vi.stubGlobal( 'IntersectionObserver', undefined );
+			const { connector } = setup( { signedIn: false, colorScheme } );
+			await siteName();
+			await waitFor( () =>
+				expect( document.documentElement ).toHaveAttribute( 'data-color-scheme', colorScheme )
+			);
+			const exposures = () =>
+				connector.trackEvent.mock.calls.filter(
+					( [ name, props ] ) =>
+						name === TRACKS_EVENTS.ACCOUNT_PROMPT_VIEWED && props?.placement === 'settings_account'
+				);
+			await waitFor( () => expect( exposures() ).toHaveLength( 1 ) );
+			fireEvent.scroll( screen.getByRole( 'button', { name: 'Connect' } ) );
+			fireEvent.change( await siteName(), { target: { value: 'Edited' } } );
+			expect( exposures() ).toHaveLength( 1 );
+			fireEvent.click( screen.getByRole( 'tab', { name: 'App' } ) );
+			await screen.findByRole( 'tab', { name: 'Appearance' } );
+			await waitFor( () => expect( exposures() ).toHaveLength( 2 ) );
+			fireEvent.click( screen.getByRole( 'tab', { name: 'Site' } ) );
+			await siteName();
+			await waitFor( () => expect( exposures() ).toHaveLength( 3 ) );
+			fireEvent.scroll( screen.getByRole( 'button', { name: 'Connect' } ) );
+			expect( exposures() ).toHaveLength( 3 );
+		}
+	);
 	it( 'shows header actions only while there are unsaved changes', async () => {
 		setup();
 		const name = await siteName();
@@ -99,7 +143,7 @@ describe( 'site settings', () => {
 	it( 'allows switching to Studio with unsaved site edits', async () => {
 		const { connector, settingsParam } = setup();
 		fireEvent.change( await siteName(), { target: { value: 'Edited' } } );
-		fireEvent.click( screen.getByRole( 'tab', { name: 'Studio' } ) );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'App' } ) );
 		await waitFor( () => expect( settingsParam() ).toBe( 'general' ) );
 		expect( connector.updateSite ).not.toHaveBeenCalled();
 		expect( screen.getAllByRole( 'dialog' ) ).toHaveLength( 1 );
@@ -116,6 +160,7 @@ describe( 'site settings', () => {
 		fireEvent.click( toggle );
 		expect( selector ).toBeEnabled();
 		expect( selector ).toHaveTextContent( 'Auto-update' );
+		expect( selector ).not.toHaveAttribute( 'data-placeholder' );
 		await choose( 'WordPress version', '6.9' );
 		expect( toggle ).not.toBeChecked();
 		expect( selector ).toHaveTextContent( '6.9' );
@@ -130,12 +175,31 @@ describe( 'site settings', () => {
 		expect( screen.getByRole( 'switch', { name: 'Automatic updates' } ) ).not.toBeChecked();
 		await choose( 'WordPress version', /^Auto-update/ );
 		expect( selector ).toHaveTextContent( 'Auto-update' );
+		expect( selector ).not.toHaveAttribute( 'data-placeholder' );
 		expect( screen.getByRole( 'switch', { name: 'Automatic updates' } ) ).toBeChecked();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
 		await waitFor( () =>
 			expect( connector.updateSite ).toHaveBeenCalledWith(
 				expect.objectContaining( { id: 'one', isWpAutoUpdating: true } ),
 				'latest'
+			)
+		);
+	} );
+
+	it( 'keeps an unreadable pinned version pinned when saving unrelated edits', async () => {
+		const { connector } = setup( {
+			sites: [ { ...site, isWpAutoUpdating: false } ],
+			wpVersion: '-',
+		} );
+		fireEvent.change( await siteName(), { target: { value: 'Renamed' } } );
+		const selector = screen.getByRole( 'combobox', { name: 'WordPress version' } );
+		await waitFor( () => expect( selector ).toHaveTextContent( 'Unknown version' ) );
+		expect( screen.getByRole( 'switch', { name: 'Automatic updates' } ) ).not.toBeChecked();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
+		await waitFor( () =>
+			expect( connector.updateSite ).toHaveBeenCalledWith(
+				expect.objectContaining( { name: 'Renamed', isWpAutoUpdating: false } ),
+				undefined
 			)
 		);
 	} );
@@ -167,12 +231,12 @@ describe( 'site settings', () => {
 		}
 	} );
 
-	it( 'shows the local path read-only and copies it', async () => {
-		const { connector } = setup();
+	it( 'shows the local path read-only without site name or path copy buttons', async () => {
+		setup();
 		await siteName();
 		expect( screen.getByRole( 'textbox', { name: 'Local path' } ) ).toHaveAttribute( 'readonly' );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Copy local path' } ) );
-		await waitFor( () => expect( connector.copyText ).toHaveBeenCalledWith( '/sites/example' ) );
+		expect( screen.queryByRole( 'button', { name: 'Copy local path' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Copy site name' } ) ).not.toBeInTheDocument();
 	} );
 
 	it.each( [
@@ -262,7 +326,11 @@ describe( 'site settings', () => {
 		expect( screen.queryByRole( 'button', { name: 'Save' } ) ).not.toBeInTheDocument();
 		fireEvent.click( login );
 		await waitFor( () =>
-			expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith( true, 'settings' )
+			expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith(
+				true,
+				'settings',
+				expect.any( Object )
+			)
 		);
 		expect( connector.updateSite ).not.toHaveBeenCalled();
 	} );
@@ -311,7 +379,9 @@ describe( 'site settings', () => {
 		const name = await siteName();
 		fireEvent.change( name, { target: { value: 'First edit' } } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Close settings' } ) );
-		expect( screen.getByRole( 'button', { name: 'Discard' } ) ).toHaveFocus();
+		expect( screen.getByRole( 'alertdialog', { name: 'Discard changes?' } ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel' } ) );
+		expect( name ).toHaveValue( 'First edit' );
 		fireEvent.input( name, { target: { value: 'Continued edit' } } );
 		fireEvent.change( name, { target: { value: 'Continued edit' } } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
@@ -326,7 +396,6 @@ describe( 'site settings', () => {
 		const { connector, settingsParam } = setup();
 		connector.updateSite.mockRejectedValue( new Error( 'Unable to update site' ) );
 		fireEvent.change( await siteName(), { target: { value: 'Keep this' } } );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Close settings' } ) );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
 		expect( await screen.findByText( 'Unable to update site' ) ).toBeVisible();
 		expect( screen.getByRole( 'textbox', { name: 'Site name' } ) ).toHaveValue( 'Keep this' );
@@ -337,8 +406,7 @@ describe( 'site settings', () => {
 		const { connector } = setup();
 		fireEvent.change( await siteName(), { target: { value: '' } } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Close settings' } ) );
-		expect( screen.getByRole( 'button', { name: 'Save' } ) ).toBeDisabled();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Discard' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Discard changes' } ) );
 		await waitFor( () =>
 			expect( screen.queryByRole( 'dialog', { name: 'Settings' } ) ).not.toBeInTheDocument()
 		);
@@ -360,20 +428,6 @@ describe( 'site settings', () => {
 			)
 		);
 		expect( connector.updateSite ).not.toHaveBeenCalled();
-	} );
-
-	it( 'closes after saving the changes that held it open', async () => {
-		const { connector } = setup();
-		fireEvent.change( await siteName(), { target: { value: 'Renamed' } } );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Close settings' } ) );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
-		await waitFor( () =>
-			expect( screen.queryByRole( 'dialog', { name: 'Settings' } ) ).not.toBeInTheDocument()
-		);
-		expect( connector.updateSite ).toHaveBeenCalledWith(
-			expect.objectContaining( { name: 'Renamed' } ),
-			undefined
-		);
 	} );
 
 	it( 'locks the form while another site operation runs', async () => {

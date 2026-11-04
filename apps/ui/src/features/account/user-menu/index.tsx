@@ -3,22 +3,20 @@ import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
 import { LogOutIcon, SettingsIcon, WifiOffIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { toast } from '@/data/app-messages';
-import { useColorScheme } from '@/data/host/use-color-scheme';
 import { useAuthUser, useLogout } from '@/data/queries/use-auth-user';
 import { getSections } from '@/data/settings-sections';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { AccountPromptDialog } from '@/features/account/account-prompt';
 import { Gravatar } from '@/features/account/gravatar';
-import { NoticeHistoryButton } from '@/features/notifications';
+import { AppUpdateButton, NoticeHistoryButton } from '@/features/notifications';
 import { useOffline } from '@/lib/hooks';
 import { Button, IconButton, Menu, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import styles from './style.module.css';
 
-const MENU_SECTIONS: string[] = [ 'appearance', 'ai', 'usage' ];
+const MENU_SECTIONS: string[] = [ 'ai', 'usage' ];
 
-export function UserMenu() {
+export function UserMenu( { active = true }: { active?: boolean } ) {
 	const { data: user } = useAuthUser();
-	const themeIsDark = useColorScheme() === 'dark';
 	const isOffline = useOffline();
 	const logout = useLogout();
 	const openSettingsDialog = useOpenSettings();
@@ -28,7 +26,6 @@ export function UserMenu() {
 		setPromptOpen( false );
 	}
 	const trigger = useRef< HTMLButtonElement >( null );
-	const [ menuWidth, setMenuWidth ] = useState< number >();
 	const sections = getSections( 'studio', { signedIn: !! user } ).filter( ( section ) =>
 		MENU_SECTIONS.includes( section.id )
 	);
@@ -37,34 +34,22 @@ export function UserMenu() {
 		<div className={ styles.root }>
 			<div className={ styles.row }>
 				{ user ? (
-					<Menu.Root
-						onOpenChange={ ( open ) => {
-							const sidebar = open && trigger.current?.closest( 'aside' );
-							if ( sidebar ) {
-								setMenuWidth( sidebar.offsetWidth - 28 );
-							}
-						} }
-					>
+					<Menu.Root>
 						<Menu.Trigger
 							render={
 								<Button
 									ref={ trigger }
-									variant="ghost"
-									size="icon"
+									variant="muted-ghost"
+									size="icon-sm"
 									aria-label={ user.displayName || user.email }
 								/>
 							}
 						>
-							<Gravatar email={ user.email } isDark={ themeIsDark } className={ styles.avatar } />
+							<Gravatar email={ user.email } className={ styles.avatar } />
 						</Menu.Trigger>
-						<Menu.Popup
-							side="top"
-							align="start"
-							className={ styles.popup }
-							style={ { width: menuWidth } }
-						>
+						<Menu.Popup side="top" align="start" className={ styles.popup }>
 							<div className={ styles.account }>
-								<Gravatar email={ user.email } isDark={ themeIsDark } />
+								<Gravatar email={ user.email } />
 								<div className={ styles.accountText }>
 									<span className={ styles.accountName }>{ user.displayName || user.email }</span>
 									{ user.displayName ? (
@@ -101,13 +86,21 @@ export function UserMenu() {
 						</Menu.Popup>
 					</Menu.Root>
 				) : (
-					<Button ref={ trigger } size="sm" onClick={ () => setPromptOpen( true ) }>
+					<Button
+						ref={ trigger }
+						size="sm"
+						variant="accent"
+						onClick={ () => setPromptOpen( true ) }
+					>
 						{ __( 'Log in' ) }
 					</Button>
 				) }
 				<span className={ styles.spacer } aria-hidden="true" />
 				{ isOffline && <OfflineIndicator /> }
+				<AppUpdateButton className={ styles.update } />
 				<IconButton
+					size="icon-sm"
+					variant="muted-ghost"
 					icon={ <SettingsIcon /> }
 					label={ __( 'Settings' ) }
 					shortcut={ {
@@ -116,7 +109,7 @@ export function UserMenu() {
 					} }
 					onClick={ openSettings }
 				/>
-				<NoticeHistoryButton />
+				<NoticeHistoryButton active={ active } />
 			</div>
 			<AccountPromptDialog
 				open={ promptOpen }
@@ -127,6 +120,7 @@ export function UserMenu() {
 					'Create a free WordPress.com account to build with the agent, share previews, and publish.'
 				) }
 				source="settings"
+				analytics={ { placement: 'account_menu', intent: 'account' } }
 			/>
 		</div>
 	);

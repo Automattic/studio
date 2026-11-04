@@ -104,6 +104,7 @@ function initialFormData( site: SiteDetails, installedWpVersion?: string ): Form
 }
 
 const FORM_ID = 'site-settings-form';
+const AUTO_UPDATE_SELECT_VALUE = 'auto-update';
 
 type TextKey = 'name' | 'customDomain' | 'adminUsername' | 'adminPassword' | 'adminEmail';
 type ToggleKey =
@@ -122,9 +123,11 @@ type ToggleKey =
 export function SiteSettingsForm( {
 	site,
 	section,
+	active = true,
 }: {
 	site: SiteDetails;
 	section: SiteSettingsSectionId;
+	active?: boolean;
 } ) {
 	const dialog = useSettingsDialog();
 	const allDomains = useExistingCustomDomains();
@@ -337,16 +340,29 @@ export function SiteSettingsForm( {
 					{ ...control }
 					size="sm"
 					aria-label={ title }
-					value={ data[ key ] }
-					options={ options }
+					value={
+						key === 'wpVersion' && data[ key ] === '' ? AUTO_UPDATE_SELECT_VALUE : data[ key ]
+					}
+					options={
+						key === 'wpVersion'
+							? options.map( ( option ) => ( {
+									...option,
+									value: option.value === '' ? AUTO_UPDATE_SELECT_VALUE : option.value,
+							  } ) )
+							: options
+					}
 					disabled={ disabled || locked }
-					onChange={ ( value ) => handleChange( { [ key ]: value } ) }
+					onChange={ ( value ) =>
+						handleChange( {
+							[ key ]: key === 'wpVersion' && value === AUTO_UPDATE_SELECT_VALUE ? '' : value,
+						} )
+					}
 				/>
 			) }
 		</SettingsRow>
 	);
 	const copyButton = ( key: TextKey, label: string ) => (
-		<CopyButton text={ data[ key ] } label={ label } size="icon-sm" />
+		<CopyButton text={ data[ key ] } label={ label } size="icon" />
 	);
 
 	const resolvedPhpVersion = getClosestSupportedPhpVersion( data.phpVersion ) ?? data.phpVersion;
@@ -358,7 +374,7 @@ export function SiteSettingsForm( {
 	const sections: Record< SiteSettingsSectionId, ReactNode > = {
 		site: (
 			<>
-				<ConnectionCard />
+				<ConnectionCard active={ active } />
 				<SettingsGroup>
 					{ textRow( 'name', __( 'Site name' ), __( 'Name shown in WordPress Studio.' ) ) }
 					<SettingsRow
@@ -374,7 +390,6 @@ export function SiteSettingsForm( {
 									title={ site.path }
 									readOnly
 								/>
-								<CopyButton text={ site.path } label={ __( 'Copy local path' ) } size="icon-sm" />
 							</div>
 						) }
 					</SettingsRow>
@@ -543,7 +558,7 @@ export function SiteSettingsForm( {
 							{ __( 'Write PHP errors to wp-content/debug.log.' ) }
 							{ logExists ? (
 								<span className={ styles.debugLogAction }>
-									<Button variant="outline" size="header" onClick={ handleOpenLog }>
+									<Button variant="outline" size="sm" onClick={ handleOpenLog }>
 										{ __( 'Open log file' ) }
 									</Button>
 								</span>
@@ -589,7 +604,7 @@ export function SiteSettingsForm( {
 						<>
 							<Button
 								variant="outline"
-								size="header"
+								size="sm"
 								disabled={ updateSite.isPending }
 								onClick={ () => {
 									setData( initial );
@@ -601,8 +616,8 @@ export function SiteSettingsForm( {
 							<Button
 								type="submit"
 								form={ FORM_ID }
-								variant={ canSubmit ? 'default' : 'outline' }
-								size="header"
+								variant={ canSubmit ? 'accent' : 'outline' }
+								size="sm"
 								disabled={ ! canSubmit }
 								loading={ updateSite.isPending }
 								loadingAnnouncement={ __( 'Saving settings' ) }

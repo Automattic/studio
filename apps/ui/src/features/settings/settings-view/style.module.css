@@ -11,6 +11,10 @@
 	gap: var( --space-8 );
 }
 
+.settingsGroup {
+	--surface: color-mix( in oklab, var( --muted ) 60%, var( --chrome ) );
+}
+
 .instructionsHeader {
 	display: flex;
 	align-items: baseline;
@@ -25,6 +29,11 @@
 .groupDescription {
 	margin-block-end: var( --space-2 );
 	padding-inline: var( --space-5 );
+}
+
+.rowDescription,
+.groupDescription {
+	text-wrap: pretty;
 }
 
 .rowTitle {
@@ -86,10 +95,6 @@
 	line-height: var( --text-xs--line-height );
 	text-align: start;
 	cursor: pointer;
-}
-
-.pathPickerButton:hover {
-	border-color: var( --muted-foreground );
 }
 
 .pathPickerButton:focus-visible {
@@ -288,27 +293,12 @@
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: var( --space-1_5 );
+	gap: var( --space-2 );
 	width: 100%;
 }
 
-.swatch {
-	flex-shrink: 0;
-	width: 24px;
-	height: 24px;
-	border-radius: var( --radius-full );
-	cursor: pointer;
-}
-
-.swatch:focus-visible,
-.swatch[aria-pressed='true'] {
-	outline: 2px solid var( --accent );
-	outline-offset: 2px;
-}
-
 .hexInput {
-	flex-shrink: 0;
-	width: 128px;
+	width: 100%;
 }
 
 .hexPreview {

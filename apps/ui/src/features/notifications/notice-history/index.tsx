@@ -70,8 +70,9 @@ function useNow( active: boolean ) {
 	return now;
 }
 
-export function NoticeHistoryButton() {
-	const open = useNoticeHistoryOpen();
+export function NoticeHistoryButton( { active = true }: { active?: boolean } ) {
+	const requested = useNoticeHistoryOpen();
+	const open = active && requested;
 	const history = useNoticeHistory();
 	const now = useNow( open );
 	// The list stays as it was while the popover closes, so emptying it doesn't
@@ -109,12 +110,17 @@ export function NoticeHistoryButton() {
 		};
 	}, [ open ] );
 
+	// Inactive sidebar copies must not portal a popup from their hidden bell.
+	if ( ! active ) return null;
+
 	return (
 		<Popover.Root open={ open && anchored } onOpenChange={ setOpen }>
 			<Popover.Trigger
 				ref={ bell }
 				render={
 					<IconButton
+						size="icon-sm"
+						variant="muted-ghost"
 						icon={ <BellIcon /> }
 						label={ __( 'Notification history' ) }
 						aria-label={
@@ -173,12 +179,16 @@ export function NoticeHistoryButton() {
 											</time>
 										}
 										onActionDone={ closeNoticeHistory }
-										onDismiss={ () => {
-											if ( notices.length === 1 ) {
-												setOpen( false );
-											}
-											dismissNotice( notice );
-										} }
+										onDismiss={
+											notice.dismissible === false
+												? undefined
+												: () => {
+														if ( notices.length === 1 ) {
+															setOpen( false );
+														}
+														dismissNotice( notice );
+												  }
+										}
 									/>
 								</li>
 							) ) }

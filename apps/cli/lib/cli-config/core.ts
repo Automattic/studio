@@ -48,6 +48,7 @@ const siteStatusSchema = z.enum( [ 'ready', 'pulling', 'pull-failed' ] );
 const siteSchema = siteDetailsSchema
 	.extend( {
 		url: z.string().optional(),
+		tracksId: z.string().optional(),
 		latestCliPid: z.number().optional(),
 		reprintOrigin: reprintOriginSchema.optional(),
 		// True once a full reprint pull has completed at least once

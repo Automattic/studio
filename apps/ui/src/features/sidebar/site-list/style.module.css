@@ -5,10 +5,10 @@
 	--site-list-chat-status-gap: var( --space-1_5 );
 	--site-list-sync-indicator-bg: var( --status-sync );
 
-	padding: var( --space-3 ) var( --space-3 ) var( --space-5 );
+	padding: 0 var( --space-3 ) var( --space-5 );
 	display: flex;
 	flex-direction: column;
-	gap: var( --space-1 );
+	gap: 0;
 	font-size: var( --text-sm );
 	line-height: var( --text-sm--line-height );
 	user-select: none;
@@ -33,12 +33,17 @@
 	opacity: 0.95;
 	border-radius: var( --radius-md );
 	background-color: var( --hover );
-	/* eslint-disable-next-line studio/use-theme-tokens -- the dragged row's shadow. */
-	filter: drop-shadow( 0 6px 14px rgb( 0 0 0 / 14% ) );
 }
 
-.groupPanel:not( [data-starting-style], [data-ending-style] ),
-.chatsPanel:not( [data-starting-style], [data-ending-style] ) {
+.groupPanel,
+.chatsPanel {
+	overflow: clip;
+	transition-duration: calc( var( --motion-duration-layout ) * 2 / 3 );
+	transition-timing-function: var( --motion-ease-layout );
+}
+
+.groupPanel:has( [data-drag-source] ),
+.chatsPanel:has( [data-drag-source] ) {
 	overflow: visible;
 }
 
@@ -55,15 +60,23 @@
 	align-items: center;
 }
 
+.rowAction {
+	--button-hover-background: transparent;
+}
+
+.siteRow[data-needs-input] {
+	padding-inline-end: calc( 3 * var( --space-8 ) + var( --space-2 ) );
+}
+
 .siteActions {
-	gap: var( --space-0_5 );
+	align-items: center;
 }
 
 .chats {
 	display: flex;
 	flex-direction: column;
-	gap: 1px;
-	padding-block: 1px var( --space-2 );
+	padding-block-start: 1px;
+	padding-block-end: var( --space-3 );
 }
 
 .empty {
@@ -82,15 +95,27 @@
 	visibility: hidden;
 }
 
-@media ( prefers-reduced-motion: reduce ) {
-	.dragPreview {
-		filter: none;
-	}
-}
-
 .groupHoverAction {
+	transition-property: color, background-color, border-color, transform, opacity;
+	transition-duration: var( --motion-duration-feedback );
+	transition-timing-function: ease;
 	opacity: 0;
 	pointer-events: none;
+}
+
+/* Headers share the full list's sticky bounds so the next one covers the
+   previous one without pushing it out of position. */
+.group {
+	display: contents;
+}
+
+.groupHeader {
+	flex-shrink: 0;
+	margin-block-start: var( --space-3 );
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	background: var( --studio-sidebar-bg );
 }
 
 .groupHeader:hover .groupHoverAction,
@@ -104,5 +129,12 @@
 	.groupHoverAction {
 		opacity: 1;
 		pointer-events: auto;
+	}
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.groupPanel,
+	.chatsPanel {
+		transition-duration: 0s;
 	}
 }

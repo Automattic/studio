@@ -86,24 +86,26 @@ test.describe( 'Chat', () => {
 	test( 'starts a stopped site on send when auto-start is on, and keeps the preference', async () => {
 		const page = session.mainWindow;
 		const sidebar = new Sidebar( page );
-		await sidebar.getStatusButton( siteName ).click();
+		await sidebar.toggleSite( siteName );
 		await expect( sidebar.getStatusButton( siteName ) ).toHaveAttribute( 'data-state', 'stopped', {
 			timeout: 120_000,
 		} );
+		await sidebar.openSite( siteName );
 		const chatToggle = page.getByRole( 'button', { name: 'Show chat for active site' } );
 		if ( await chatToggle.isVisible() ) {
 			await chatToggle.click();
 		}
 
 		const chip = page.getByRole( 'button', { name: 'Remove Auto-start' } );
+		await recordSends();
 		await composer().fill( '/auto-start' );
+		await expect( page.getByRole( 'option', { name: /^Auto-start / } ) ).toBeEnabled();
 		await composer().press( 'Enter' );
 		await expect( chip ).toBeVisible();
 		await expect
 			.poll( async () => ( await session.getAppConfig() ).autoStartSiteOnChat )
 			.toBe( true );
 
-		await recordSends();
 		await composer().fill( 'Build a home page' );
 		await page.getByRole( 'button', { name: 'Send message' } ).click();
 		await expect( composer() ).toHaveValue( '' );
@@ -127,7 +129,7 @@ test.describe( 'Chat', () => {
 			timeout: 120_000,
 		} );
 		if ( ( await status.getAttribute( 'data-state' ) ) === 'stopped' ) {
-			await status.click();
+			await sidebar.toggleSite( siteName );
 			await sidebar.expectRunning( siteName );
 		}
 		await expect.poll( () => session.previewText() ).toContain( 'Hello world!' );
@@ -148,29 +150,64 @@ test.describe( 'Chat', () => {
 		const annotate = page.getByRole( 'button', { name: 'Annotate', exact: true } );
 		if ( await annotate.isVisible() ) {
 			await annotate.click();
+			await expect( annotate ).toHaveAttribute( 'aria-pressed', 'true' );
 		} else {
 			await page.getByRole( 'button', { name: 'More preview actions' } ).click();
 			await page.getByRole( 'menuitemcheckbox', { name: 'Annotate' } ).click();
 		}
-		await expect( page.getByRole( 'toolbar', { name: 'Annotations' } ) ).toBeVisible();
 
-		const note = page.getByRole( 'textbox', { name: 'Leave a note' } );
+		const note = page.getByRole( 'textbox', { name: 'Describe the change' } );
 		await expect
 			.poll( () =>
 				inspect( `document.readyState === 'complete' && !!document.querySelector('h1,h2')` )
 			)
 			.toBe( true );
-		await inspect(
-			`document.querySelector('h1,h2').dispatchEvent(new MouseEvent('click',{bubbles:true,clientX:120,clientY:140}))`
+		// The guest click below bypasses Playwright's stability check.
+		await page.locator( 'webview' ).click( { trial: true } );
+		const pickedPoint = await inspect(
+			`(() => {
+				const target = document.querySelector('h1,h2');
+				const box = target.getBoundingClientRect();
+				const point = { x: Math.round(box.left + Math.min(20, box.width / 2)), y: Math.round(box.top + box.height / 2) };
+				target.dispatchEvent(new MouseEvent('click',{bubbles:true,clientX:point.x,clientY:point.y}));
+				return point;
+			})()`
 		);
+		const marker = `document.getElementById('__studio-inspector-host').shadowRoot.querySelector('button')`;
+		await expect.poll( () => inspect( `${ marker }?.dataset.pending` ) ).toBe( 'true' );
+		await expect
+			.poll( () => inspect( `getComputedStyle(document.querySelector('h1,h2')).cursor` ) )
+			.toBe( 'crosshair' );
+		const markerPoint = await inspect(
+			`(() => { const box = ${ marker }.getBoundingClientRect(); return { x: box.x + box.width / 2, y: box.y + box.height / 2 }; })()`
+		);
+		expect( markerPoint.x ).toBeCloseTo( pickedPoint.x, 3 );
+		expect( markerPoint.y ).toBeCloseTo( pickedPoint.y, 3 );
 		await note.fill( 'Make this heading shorter' );
+		await page.getByRole( 'button', { name: 'Add annotation to batch', exact: true } ).click();
+		expect( await sentPrompts() ).toHaveLength( 0 );
+		await expect.poll( () => inspect( `${ marker }?.dataset.pending` ) ).toBe( 'false' );
+		await inspect( `${ marker }.click()` );
+		await expect( note ).toBeVisible();
+		await expect.poll( () => inspect( `${ marker }?.dataset.pending` ) ).toBe( 'false' );
 		await page.locator( '[data-annotation-overlay] input[type=file]' ).setInputFiles( {
 			name: 'reference.png',
 			mimeType: 'image/png',
 			buffer: png,
 		} );
-		await expect( page.getByRole( 'button', { name: 'Remove attachment' } ) ).toBeVisible();
-		await note.press( 'ControlOrMeta+Enter' );
+		await expect(
+			page
+				.getByRole( 'group', { name: 'Annotation', exact: true } )
+				.getByRole( 'button', { name: 'Remove attachment' } )
+		).toBeVisible();
+		await note.press( 'Enter' );
+		await expect( note ).toBeHidden();
+		const openChat = page.getByRole( 'button', { name: 'Open chat', exact: true } );
+		if ( await openChat.isVisible() ) {
+			await openChat.click();
+		}
+		await expect( page.getByRole( 'button', { name: '1 annotation', exact: true } ) ).toBeVisible();
+		await page.getByRole( 'button', { name: 'Send message', exact: true } ).click();
 
 		await expect.poll( async () => ( await sentPrompts() ).length ).toBe( 1 );
 		const [ sent ] = await sentPrompts();

@@ -1,15 +1,21 @@
+@property --preview-frame-boundary {
+	syntax: '<length-percentage>';
+	inherits: true;
+	initial-value: 100%;
+}
+
 .root {
+	--motion-ease-layout: var( --motion-ease-drawer );
+
 	height: 100%;
 	min-height: 0;
 	position: relative;
 	overflow: hidden;
 	background-color: var( --chat );
+	transition: --preview-frame-boundary var( --preview-layout-duration ) var( --motion-ease-layout );
 }
 
-/* Opaque and above the preview slot so it covers the (still mounted)
-   preview as the panel toggles. Scrolls itself so routes taller
-   than the viewport (e.g. settings) keep working under the fixed-height
-   frame. */
+/* Taller routes (e.g. settings) scroll inside the fixed-height frame. */
 .contentColumn {
 	display: flex;
 	flex-direction: column;
@@ -33,32 +39,54 @@
 	width: var( --content-column-width );
 }
 
-/* The divider begins below the shared workspace header. */
-.rootEdge::after {
+/* The divider separates the workspace panes below the shared header. */
+.root::after {
+	--preview-divider-color: var( --border );
+
 	content: '';
 	position: absolute;
-	inset-block: 0;
-	inset-inline-start: var( --preview-frame-content-width );
-	z-index: 2;
+	inset-block: 1px 0;
+	inset-inline-start: var( --preview-frame-boundary );
+	z-index: 5;
 	width: 1px;
-	background: var( --border );
+	opacity: 0;
+	/* Keep the translucent border independent of the page behind it. */
+	background: linear-gradient( var( --preview-divider-color ), var( --preview-divider-color ) ),
+		var( --chat );
 	pointer-events: none;
 }
 
-.rootEdge .previewSlot {
-	width: calc( 100% - var( --preview-frame-content-width ) - 1px );
+.rootEdge:has( > .previewResizeHandle:hover ):not( .rootPreviewResizing )::after {
+	--preview-divider-color: var( --surface-4 );
 }
 
-.rootPreviewAnimating :is( .contentColumn, .previewSlot ) {
+.rootEdge.rootPreviewResizing::after {
+	--preview-divider-color: var( --accent );
+}
+
+.rootPreviewAnimating .contentColumn {
 	transition: width var( --motion-duration-layout ) var( --motion-ease-layout );
+}
+
+.rootPreviewAnimating .previewSlot {
+	transition:
+		transform var( --motion-duration-layout ) var( --motion-ease-layout ),
+		width var( --motion-duration-layout ) var( --motion-ease-layout );
 }
 
 .rootPreviewAnimating .contentColumn {
 	--content-column-motion: var( --motion-duration-layout );
 }
 
-/* Full preview: the column is width 0 once the slide finishes; visibility
-   keeps the mounted chat out of the focus order and the accessibility tree. */
+.rootPreviewOpen .contentColumnFull {
+	--content-column-width: 100%;
+	--content-column-motion: 0ms;
+
+	width: 100%;
+	transition: none;
+}
+
+/* The chat keeps its width while the preview covers it. */
 .contentColumnHidden {
 	visibility: hidden;
 }
@@ -77,9 +105,13 @@
 	position: absolute;
 	inset-block: 0;
 	inset-inline-end: 0;
-	z-index: 0;
-	width: 0;
+	z-index: 2;
+	width: calc( 100% - var( --preview-frame-visible-content-width ) );
+	transform: translateX( 100% );
 	min-width: 0;
+	overflow: hidden;
+	background-color: var( --chat );
+	isolation: isolate;
 	pointer-events: none;
 	visibility: hidden;
 }
@@ -88,10 +120,27 @@
 	visibility: visible;
 }
 
-/* The preview grows into the room the content column gives up, so its page
-   reflows as the split opens and closes. */
+/* Expand over the stationary chat so its composer and dot field never squeeze. */
 .rootPreviewOpen .previewSlot {
-	width: calc( 100% - var( --preview-frame-content-width ) );
+	transform: translateX( 0 );
+}
+
+.previewSlot:dir( rtl ) {
+	transform: translateX( -100% );
+}
+
+.rootPreviewOpen .previewSlot:dir( rtl ) {
+	transform: translateX( 0 );
+}
+
+.rootEdge::after,
+.rootEdge .previewResizeHandle {
+	opacity: 1;
+}
+
+.root::after,
+.previewResizeHandle {
+	transition: opacity var( --preview-layout-duration ) var( --motion-ease-layout );
 }
 
 .previewSlotInteractive {
@@ -103,10 +152,17 @@
 .previewResizeHandle {
 	position: absolute;
 	inset-block: 0;
-	inset-inline-start: var( --preview-frame-content-width );
+	inset-inline-start: var( --preview-frame-boundary );
 	z-index: 3;
+	display: flex;
+	opacity: 0;
 	padding-inline-start: var( --space-1 );
 	transform: translateX( -4px );
+	justify-content: flex-start;
+	width: 8px;
+}
+
+.previewResizeGrip {
 	justify-content: flex-start;
 }
 
@@ -116,8 +172,8 @@
 	transform: translateX( 4px );
 }
 
-.rootWithHeader :is( .contentColumn, .previewSlot, .previewResizeHandle ),
-.rootWithHeader.rootEdge::after {
+.rootWithHeader .contentColumn {
+	--workspace-header-height: var( --band-height );
 	inset-block-start: var( --band-height );
 }
 
@@ -127,4 +183,16 @@
 
 .rootPreviewResizing [data-site-header-reserved] {
 	transition: none;
+}
+
+.rootWithHeader .contentColumn:has( [data-chat-frame] ) {
+	inset-block-start: 0;
+}
+
+.rootWithHeader .previewSlot {
+	--workspace-header-height: var( --band-height );
+}
+
+.previewResizeHandle[inert] {
+	pointer-events: none;
 }

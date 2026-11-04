@@ -3,7 +3,6 @@ import { useParams, useRouterState } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useMemo, type ReactNode } from 'react';
-import { useSessionsNeedingInput } from '@/data/agent-runs/use-agent-run';
 import { errorMessage, toast } from '@/data/app-messages';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSidebarPreferences } from '@/data/queries/use-sidebar-pins';
@@ -59,7 +58,6 @@ export function SiteList( {
 	const openAddSite = useOpenAddSite();
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: allSessions, isLoading: sessionsLoading, isError: sessionsError } = useSessions();
-	const needingInput = useSessionsNeedingInput();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const pathname = useRouterState( { select: ( state ) => state.location.pathname } );
 	const activeSessionId = params.sessionId;
@@ -94,15 +92,17 @@ export function SiteList( {
 			} ),
 		[ activeSessionId, activeSiteId, pathname, orderedSites, allSessions ]
 	);
-	const { pinnedItems, siteRows, chatsBySite, needsInputChats, recentChats } =
-		getSidebarCollections( rows, sessions, {
+	const { pinnedItems, siteRows, chatsBySite, recentChats } = getSidebarCollections(
+		rows,
+		sessions,
+		{
 			pins: sections ? pins : [],
 			chatOrder,
 			pinnedSort,
 			siteSort,
 			chatSort,
-			needingInput,
-		} );
+		}
+	);
 	const activeChatIsPinned = pinnedItems.some(
 		( item ) => item.session && item.session.id === activeSessionId
 	);
@@ -244,13 +244,6 @@ export function SiteList( {
 	return (
 		<div className={ clsx( styles.root, className ) }>
 			<SidebarSelection>
-				{ needsInputChats.length > 0 ? (
-					<SiteListGroup id="needs-input" title={ __( 'Needs input' ) } foldable={ false }>
-						<SidebarMenu>
-							{ needsInputChats.map( ( session ) => renderChat( session ) ) }
-						</SidebarMenu>
-					</SiteListGroup>
-				) : null }
 				<SiteListGroup
 					id="pinned"
 					title={ __( 'Pinned' ) }

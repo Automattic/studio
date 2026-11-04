@@ -2,7 +2,7 @@
 
 # WordPress Studio
 
-[WordPress Studio](https://developer.wordpress.com/studio/) is an open source desktop application for creating and managing WordPress sites and testing and building plugins and themes locally. Powered by [WordPress.com](https://wordpress.com/), it streamlines modern WordPress development workflows and requires no external dependencies.
+[WordPress Studio](https://wordpress.studio/) is an open source desktop application for creating and managing WordPress sites and testing and building plugins and themes locally. Powered by [WordPress.com](https://wordpress.com/), it streamlines modern WordPress development workflows and requires no external dependencies.
 
 Spin up sites in seconds, sync with WordPress.com or Pressable, or import any WordPress site to work on it locally. Use the Studio CLI to access WordPress Studio features outside the desktop application. Share live preview links with clients, and collaborate with the built-in Studio Code assistant that runs WP-CLI commands natively.
 
@@ -12,7 +12,7 @@ Spin up sites in seconds, sync with WordPress.com or Pressable, or import any Wo
 
 WordPress Studio is free to use for Mac, Windows, and Linux. Simply download the app to start building and testing — no dependencies required.
 
-[Download WordPress Studio](https://developer.wordpress.com/studio/) for:
+[Download WordPress Studio](https://wordpress.studio/download/) for:
 
 - macOS (Intel or Apple Silicon)
 - Windows (x64 or ARM64)

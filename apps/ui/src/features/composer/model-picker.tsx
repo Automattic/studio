@@ -121,7 +121,7 @@ export function ModelPicker( {
 				{
 					value: 'connect-provider',
 					label: __( 'Connect provider…' ),
-					description: __( 'Add or manage your AI providers' ),
+					description: __( 'Add or manage your providers' ),
 					icon: PlugIcon,
 				},
 			],

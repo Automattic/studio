@@ -46,14 +46,14 @@ export function PublishPanel( {
 	open,
 	request,
 	headerContainer,
-	onChoosingSiteChange,
+	onSubstepChange,
 	setupAfterSignup = false,
 	onSetupAfterSignup,
 }: {
 	site: SiteDetails;
 	open: boolean;
 	headerContainer: HTMLDivElement | null;
-	onChoosingSiteChange: ( choosing: boolean ) => void;
+	onSubstepChange: ( active: boolean ) => void;
 	request?: { view: PublishView; remoteSiteId?: number };
 	setupAfterSignup?: boolean;
 	onSetupAfterSignup?: () => void;
@@ -64,8 +64,10 @@ export function PublishPanel( {
 	const user = useAuthUser();
 	const connected = useConnectedWpcomSites( site.id );
 	const [ view, setView ] = useState< PublishView | 'choose-site' | 'start' >( 'publish' );
+	const [ reviewingTransfer, setReviewingTransfer ] = useState( false );
 	const [ disconnecting, setDisconnecting ] = useState< SyncSite | null >( null );
 	const disconnectActions = useRef< HTMLButtonElement >( null );
+	const websiteSwitcher = useRef< HTMLButtonElement >( null );
 	const [ highlightedSite, setHighlightedSite ] = useState< string >();
 	const [ selectedId, setSelectedId ] = useState< number | null >( null );
 	// The websites already connected when the user went to create a new one.
@@ -74,6 +76,7 @@ export function PublishPanel( {
 	const transfer =
 		activity?.direction === 'push' || activity?.direction === 'pull' ? activity : null;
 	const pending = transfer?.kind === 'pending';
+	const [ dismissedTransfer, setDismissedTransfer ] = useState< typeof transfer >( null );
 	const siteBusy = useIsSiteBusy( site );
 	const signedOut = user.isSuccess && ! user.data;
 	const connections = useMemo( () => connected.data ?? [], [ connected.data ] );
@@ -113,10 +116,14 @@ export function PublishPanel( {
 				syncSupport: 'already-connected',
 			} ),
 		onSuccess: ( _result, remote ) => {
-			void connector.trackEvent( TRACKS_EVENTS.SYNC_CONNECT, {
-				success: true,
-				num_of_sites: connections.length + 1,
-			} );
+			void connector.trackEvent(
+				TRACKS_EVENTS.SYNC_CONNECT,
+				{
+					success: true,
+					num_of_sites: connections.length + 1,
+				},
+				site.id
+			);
 			void queryClient.invalidateQueries( { queryKey: connectedWpcomSitesQueryKey( site.id ) } );
 			void queryClient.invalidateQueries( { queryKey: ALL_CONNECTED_WPCOM_SITES_QUERY_KEY } );
 			selectWebsite( remote.id );
@@ -135,6 +142,7 @@ export function PublishPanel( {
 		void connector.openExternalUrl( checkoutUrl );
 	}, [ connections, connector, site ] );
 	const selectWebsite = ( id: number | null ) => {
+		if ( id !== destination?.id && ! pending ) setDismissedTransfer( transfer );
 		setSelectedId( id );
 		setWaitingFor( null );
 	};
@@ -194,8 +202,12 @@ export function PublishPanel( {
 				<ConnectedWebsite
 					open={ open }
 					website={ destination }
+					websites={ websites }
+					onSelectWebsite={ selectWebsite }
+					onConnectWebsite={ () => setView( 'choose-site' ) }
 					disabled={ offline || busy }
 					actionsRef={ disconnectActions }
+					switcherRef={ websiteSwitcher }
 					onDisconnect={ () => {
 						disconnect.reset();
 						setDisconnecting( destination );
@@ -215,8 +227,15 @@ export function PublishPanel( {
 	};
 
 	useEffect( () => {
-		onChoosingSiteChange( view === 'choose-site' );
-	}, [ view, onChoosingSiteChange ] );
+		onSubstepChange( view === 'choose-site' || reviewingTransfer );
+	}, [ view, reviewingTransfer, onSubstepChange ] );
+
+	const destinationId = destination?.id;
+	useEffect( () => {
+		if ( selectedId === null ) return;
+		const frame = requestAnimationFrame( () => websiteSwitcher.current?.focus() );
+		return () => cancelAnimationFrame( frame );
+	}, [ selectedId, destinationId ] );
 
 	const renderContent = () => {
 		if ( view === 'choose-site' ) {
@@ -227,7 +246,7 @@ export function PublishPanel( {
 								<PanelHeader
 									className={ styles.pickerHeader }
 									title={ __( 'Choose an existing site' ) }
-									onBack={ () => setView( 'start' ) }
+									onBack={ () => setView( destination ? 'publish' : 'start' ) }
 								>
 									{ selectableWebsites.length ? (
 										<Menu.Root modal={ false }>
@@ -373,13 +392,15 @@ export function PublishPanel( {
 					site={ site }
 					remote={ destination }
 					connectedWebsite={ connectedWebsite }
-					activity={ transfer }
+					activity={ transfer === dismissedTransfer ? null : transfer }
 					view={ view }
 					setView={ setView }
 					open={ open }
 					disabled={ busy || offline }
 					offline={ offline }
 					accessIssue={ accessIssue }
+					headerContainer={ headerContainer }
+					onReviewingChange={ setReviewingTransfer }
 				/>
 			);
 		}
@@ -451,7 +472,7 @@ export function PublishPanel( {
 								onSuccess: () => {
 									setDisconnecting( null );
 									selectWebsite( null );
-									setView( 'choose-site' );
+									setView( websites.length > 1 ? 'publish' : 'choose-site' );
 									void queryClient.invalidateQueries( {
 										queryKey: ALL_CONNECTED_WPCOM_SITES_QUERY_KEY,
 									} );

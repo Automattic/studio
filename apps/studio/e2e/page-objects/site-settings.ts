@@ -37,6 +37,8 @@ export default class SiteSettings {
 
 	async saveSettings() {
 		await this.page.getByRole( 'button', { name: 'Save', exact: true } ).click();
-		await expect( this.page.getByText( 'Settings saved' ) ).toBeVisible( { timeout: 120_000 } );
+		await expect( this.page.getByRole( 'button', { name: 'Save', exact: true } ) ).toHaveCount( 0, {
+			timeout: 120_000,
+		} );
 	}
 }

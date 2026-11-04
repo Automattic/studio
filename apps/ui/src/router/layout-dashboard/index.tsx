@@ -17,6 +17,7 @@ import {
 } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
+import { PanelCommandContext } from '@/data/use-panel-command';
 import { pathForSite, useSessionPreviewUI } from '@/data/use-session-ui';
 import { useWorkspaceLayoutTracks } from '@/data/use-workspace-layout-tracks';
 import { AccountPromptDialog } from '@/features/account';
@@ -444,7 +445,7 @@ function DashboardLayout() {
 			<Outlet />
 		);
 
-	return (
+	const content = (
 		<SidebarLayout>
 			<AccountPromptDialog
 				open={ providerPromptOpen }
@@ -529,16 +530,22 @@ function DashboardLayout() {
 			<CommandPalette
 				site={ homeSite ?? newSessionSite ?? sessionSite }
 				session={ sessionData?.summary }
-				chatHidden={ chatHidden }
-				panelFullscreen={ {
-					active: chatHidden,
-					onChange: ( fullscreen ) =>
-						setPanelFullscreen( fullscreen, { instant: true, userInitiated: true } ),
-					open: panelVisible,
-					onOpenChange: ( open ) => setPanelOpen( open, { userInitiated: true } ),
-				} }
+				panelShown={ panelVisible }
 			/>
 		</SidebarLayout>
+	);
+	return (
+		<PanelCommandContext.Provider
+			value={ {
+				siteId: routeSite?.id,
+				toggle: () => {
+					if ( panelVisible ) setPanelOpen( false, { instant: true, userInitiated: true } );
+					else setPanelFullscreen( false, { instant: true, userInitiated: true } );
+				},
+			} }
+		>
+			{ content }
+		</PanelCommandContext.Provider>
 	);
 }
 

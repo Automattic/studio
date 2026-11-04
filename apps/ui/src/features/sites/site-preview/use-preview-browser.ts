@@ -2,6 +2,7 @@ import { browserConfig } from '@studio/common/lib/user-settings/browser';
 import { __ } from '@wordpress/i18n';
 import { useState, type RefObject } from 'react';
 import { showToast } from '@/data/app-messages';
+import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import {
 	clearPreviewRecentLocations,
@@ -14,6 +15,7 @@ import type { PreviewBrowserActions } from './preview-header/browser-menu';
 export function usePreviewBrowser( viewportRef: RefObject< HTMLDivElement | null > ) {
 	const colorScheme = usePreviewColorScheme();
 	const { data: preferences } = useUserPreferences();
+	const { data: installedApps } = useInstalledApps();
 	const [ clearing, setClearing ] = useState( false );
 	const getActiveContentsId = () => {
 		const webview = [
@@ -24,7 +26,10 @@ export function usePreviewBrowser( viewportRef: RefObject< HTMLDivElement | null
 	};
 	const actions: PreviewBrowserActions = {
 		colorScheme,
-		browserName: preferences?.browser ? browserConfig[ preferences.browser ].name : undefined,
+		browser: preferences?.browser ?? installedApps?.defaultBrowser?.browser,
+		browserName: preferences?.browser
+			? browserConfig[ preferences.browser ].name
+			: installedApps?.defaultBrowser?.name,
 		onColorSchemeChange: setPreviewColorScheme,
 		clearing,
 		onOpenDevTools: () => {

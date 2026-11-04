@@ -737,18 +737,28 @@ describe( 'preview browser menu', () => {
 	} );
 
 	it.each( [
-		[ 'safari', 'Open in Safari' ],
-		[ 'chrome', 'Open in Google Chrome' ],
-		[ null, 'Open in browser' ],
-	] as const )( 'uses the selected browser name (%s)', async ( browser, label ) => {
-		const connector = createFakeConnector( { preferences: { browser } } );
-		const { user } = await renderPreview( 'desktop', { path: '/about/' }, connector );
-		guest();
-		screen.getByRole( 'button', { name: 'Browser options' } ).focus();
-		await user.keyboard( '{ArrowDown}' );
-		await user.click( await screen.findByRole( 'menuitem', { name: label } ) );
-		expect( connector.openSiteUrl ).toHaveBeenCalledWith( 'one', '/about/', { autoLogin: false } );
-	} );
+		[ 'chrome', { name: 'Safari', browser: 'safari' }, 'Open in Google Chrome' ],
+		[ null, { name: 'Safari', browser: 'safari' }, 'Open in Safari' ],
+		[ null, null, 'Open in browser' ],
+	] as const )(
+		'uses the preferred or system browser name (%s, %o)',
+		async ( browser, defaultBrowser, label ) => {
+			const initial = createFakeConnector();
+			const installed = await initial.getInstalledApps();
+			const connector = createFakeConnector(
+				{ preferences: { browser } },
+				{ getInstalledApps: async () => ( { ...installed, defaultBrowser } ) }
+			);
+			const { user } = await renderPreview( 'desktop', { path: '/about/' }, connector );
+			guest();
+			screen.getByRole( 'button', { name: 'Browser options' } ).focus();
+			await user.keyboard( '{ArrowDown}' );
+			await user.click( await screen.findByRole( 'menuitem', { name: label } ) );
+			expect( connector.openSiteUrl ).toHaveBeenCalledWith( 'one', '/about/', {
+				autoLogin: false,
+			} );
+		}
+	);
 
 	it( 'changes the preview appearance without changing Studio preferences', async () => {
 		const connector = createFakeConnector();

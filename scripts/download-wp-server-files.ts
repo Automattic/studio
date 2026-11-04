@@ -6,7 +6,6 @@ import {
 	getPhpMyAdminInstallSteps,
 } from '@wp-playground/tools';
 import fs from 'fs-extra';
-import { z } from 'zod';
 import { extractZip } from '../packages/common/lib/extract-zip.ts';
 import { fetch, sharedDispatcher, throwForHttpStatus, withRetry } from './lib/with-retry.ts';
 
@@ -29,6 +28,8 @@ const WP_SERVER_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );
 
 // Pinned so builds are reproducible. Bump deliberately.
 const WORDPRESS_IMPORTER_VERSION = '0.9.5';
+const SQLITE_COMMAND_VERSION = 'v1.1.10';
+const SQLITE_COMMAND_RELEASE_URL = `https://github.com/Automattic/wp-cli-sqlite-command/releases/download/${ SQLITE_COMMAND_VERSION }/wp-cli-sqlite-command-${ SQLITE_COMMAND_VERSION }.zip`;
 const PHPMYADMIN_PATCH_FILES_PATH = path.join( import.meta.dirname, '..', 'apps', 'cli', 'php' );
 const PHPMYADMIN_LOCAL_PATCH_FILES = new Map< string, string >( [
 	[ 'config.inc.php', path.join( PHPMYADMIN_PATCH_FILES_PATH, 'config.inc.php' ) ],
@@ -40,42 +41,6 @@ const PHPMYADMIN_LOCAL_PATCH_FILES = new Map< string, string >( [
 const PHPMYADMIN_ADDITIONAL_FILES = new Map< string, string >( [
 	[ 'config.header.inc.php', path.join( PHPMYADMIN_PATCH_FILES_PATH, 'config.header.inc.php' ) ],
 ] );
-
-const partialGithubReleaseSchema = z.object( {
-	tag_name: z.string(),
-	assets: z.array( z.object( { name: z.string(), browser_download_url: z.string() } ) ),
-} );
-
-export async function fetchLatestGithubRelease( repo: string ) {
-	return withRetry( `github:${ repo }`, async () => {
-		const headers: HeadersInit = {
-			Accept: 'application/vnd.github.v3+json',
-			'User-Agent': 'wp-studio-cli',
-		};
-
-		// GitHub API has rate limits:
-		// - 60 requests/hour for unauthenticated requests
-		// - 5,000 requests/hour with token authentication
-		// In CI environments, the IP-based rate limit is shared across runners,
-		// so we authenticate with GITHUB_TOKEN when available.
-		if ( process.env.GITHUB_TOKEN ) {
-			headers.Authorization = `token ${ process.env.GITHUB_TOKEN }`;
-		}
-
-		const response = await fetch( `https://api.github.com/repos/${ repo }/releases/latest`, {
-			headers,
-			dispatcher: sharedDispatcher,
-		} );
-
-		if ( ! response.ok ) {
-			throwForHttpStatus( 'GitHub API request', response.status, response.statusText );
-		}
-
-		const rawResponse: unknown = await response.json();
-
-		return partialGithubReleaseSchema.parse( rawResponse );
-	} );
-}
 
 type MaybePromise< T > = T | Promise< T >;
 type FileToDownload = {
@@ -106,16 +71,7 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 	{
 		name: 'sqlite-command',
 		description: 'SQLite command',
-		getUrl: async () => {
-			const release = await fetchLatestGithubRelease( 'automattic/wp-cli-sqlite-command' );
-			const asset = release.assets[ 0 ];
-			if ( ! asset ) {
-				throw new Error(
-					`No asset found in latest wp-cli-sqlite-command release ${ release.tag_name }`
-				);
-			}
-			return asset.browser_download_url;
-		},
+		getUrl: () => SQLITE_COMMAND_RELEASE_URL,
 		destinationPath: path.join( WP_SERVER_FILES_PATH, 'sqlite-command' ),
 	},
 	{

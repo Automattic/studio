@@ -1,6 +1,6 @@
 # Studio screenshots
 
-Captured from Studio 2.1.0-beta1 by `npm run screenshots`, signed out except the signed-in suites (`signedIn` in their JSON), which show a WordPress.com account with its email masked.
+Captured from Studio 2.1.0 by `npm run screenshots`, signed out except the signed-in suites (`signedIn` in their JSON), which show a WordPress.com account with its email masked.
 Upload to WordPress.com; a file named `<name>.webp` becomes `https://developer.wordpress.com/wp-content/uploads/YYYY/MM/<name>.webp`.
 Shots with annotations also have a `<name>-annotated.webp`.
 
@@ -19,11 +19,8 @@ Shots with annotations also have a `<name>-annotated.webp`.
 | `orientation-guide.webp` | first-run | Orientation guide, page 1, shown after the first site is created | `index.md` | — |
 | `main-window-signed-out.webp` | workspace | Main window, signed out: sidebar, Studio Code chat, and the site preview | `index.md`<br>`studio-code/index.md` | `2024/04/main-window-signed-out.png` |
 | `command-palette.webp` | workspace | Command palette (⌘K) | `index.md` | — |
-| `preview-destinations.webp` | workspace | Site preview address bar shortcuts: Front end / WordPress Admin / Database / Design system | `sites.md`<br>`debugging/index.md`<br>`frequently-asked-questions.md` | `2026/04/preview-destinations.png` |
+| `preview-destinations.webp` | workspace | Site preview address bar shortcuts: Front end / WordPress Admin / Database | `sites.md`<br>`debugging/index.md`<br>`frequently-asked-questions.md` | `2026/04/preview-destinations.png` |
 | `design-system.webp` | workspace | Site preview → Design system: the demo site’s DESIGN.md as colors, type, components and guidelines | `studio-code/index.md` | — |
-| `design-looks.webp` | signed-in-agent | A new blank site's first chat asking for a bakery called Wren & Barley, and the design picker: four looks drawn as design boards, Wren & Barley's among them (Studio Code stood in for) | `studio-code/index.md` | — |
-| `workspace-chat.webp` | signed-in-chat | The main window with Wren & Barley pinned and a recorded chat polishing its home page | `studio-code/index.md` | `2026/04/studio-code.png` |
-| `blog-settings-appearance.webp` | signed-in-blog | Settings → Appearance, signed in, for the workspace announcement post | — | — |
 | `responsive-mode-presets.webp` | workspace | Responsive mode: the device menu open, with Responsive and the device sizes | `sites.md` | — |
 | `responsive-mode.webp` | workspace | Responsive mode at a phone size (iPhone 17), with the responsive toolbar above the preview | `sites.md` | — |
 | `site-status-button.webp` | workspace | Sidebar site row with its Stop button and tooltip | `sites.md` | `2025/01/site-status-tooltip.png` |
@@ -37,7 +34,7 @@ Shots with annotations also have a `<name>-annotated.webp`.
 | `site-settings-domain.webp` | site-settings | Site settings → Local domain with Use custom domain and Enable HTTPS (not saved) | `ssl-in-studio.md` | — |
 | `site-settings-debug.webp` | site-settings | Site settings → Debug with Xdebug turned on (not saved) | `xdebug.md`<br>`debugging/index.md` | `2026/01/site-debugging.png` |
 | `site-settings-php.webp` | site-settings | Site settings → PHP (PHP version, File access) | `php-runtimes.md`<br>`sites.md` | `2025/01/site-settings-php.png` |
-| `settings-general.webp` | studio-settings | Settings dialog, Studio scope → General (language, code editor, terminal, …) | `sites.md` | `2025/01/app-settings.png` |
+| `settings-general.webp` | studio-settings | Settings dialog, App scope → General (language, default code editor, browser and terminal, …) | `sites.md` | `2025/01/app-settings.png` |
 | `settings-studio-cli.webp` | studio-settings | Settings → General → Studio CLI for terminal | `cli.md` | `2025/05/app-settings-account.png` |
 | `settings-ai-providers.webp` | studio-settings | Settings → AI Providers (WordPress.com and Anthropic) | `studio-code/index.md` | `2026/04/app-settings-ai.png` |
 | `settings-skills.webp` | studio-settings | Settings → Skills | `agent-skills-wordpress-studio.md` | `2026/04/app-settings-skills.png` |
@@ -64,6 +61,9 @@ Shots with annotations also have a `<name>-annotated.webp`.
 | `publish-switcher.webp` | signed-in-connected | Publish details → the website switcher, listing two connected websites and Connect another site… | `sync.md` | — |
 | `pull-choose-files.webp` | signed-in-connected | Publish details → Pull changes → What to pull, with Choose files… and a few items selected | `sync.md` | `2025/01/studio-pull-selective.png` |
 | `publish-choose-files.webp` | signed-in-connected | Publish details → Publish changes → What to publish, with Choose files… and a few items selected | `sync.md` | `2025/01/studio-selective-push.png` |
+| `design-looks.webp` | signed-in-agent | A new blank site's first chat asking for a slow-fashion journal called Moire, and Studio Code's pick of four looks (design-looks/), Moire's own among them | `studio-code/index.md` | — |
+| `workspace-chat.webp` | signed-in-chat | The main window with Moire pinned and a conversation updating its home page text | `studio-code/index.md` | `2026/04/studio-code.png` |
+| `blog-settings-appearance.webp` | signed-in-blog | Settings → Appearance, signed in: Theme, Color, Intensity and Contrast over the demo site (the 2026 workspace announcement) | — | — |
 
 ## Capture manually
 

@@ -6,10 +6,6 @@ export const ROOT = path.resolve( fileURLToPath( import.meta.url ), '../../..' )
 export const MANIFEST_PATH = path.join( ROOT, 'manifest.json' );
 export const DOCS_DIR = path.join( ROOT, 'docs' );
 export const REPORTS_DIR = path.join( ROOT, 'reports' );
-export const SCREENSHOTS_DIR = path.join( ROOT, 'screenshots' );
-export const SHOTS_DIR = path.join( SCREENSHOTS_DIR, 'shots' );
-export const FIXTURES_DIR = path.join( SCREENSHOTS_DIR, 'fixtures' );
-export const DEMO_SITE_DIR = path.join( SCREENSHOTS_DIR, 'demo-site' );
 
 export const BASE_URL = 'https://developer.wordpress.com';
 export const DOCS_URL = `${ BASE_URL }/docs/`;

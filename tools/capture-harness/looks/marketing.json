@@ -1,0 +1,18 @@
+{
+	"$schema": "../schemas/look.schema.json",
+	"name": "marketing",
+	"description": "Landing pages and launch material: the window on Studio's dot field, drawn at the size it is in the app, with an 8% margin on each side so the image keeps the window's proportions, small corners, a hairline and a soft shadow that follow the background. Saved as <name>-framed at full resolution next to the plain still; recordings as MP4, WebM and animated WebP",
+	"window": { "width": 1440, "height": 900 },
+	"scale": 2,
+	"appearance": { "colorScheme": "light" },
+	"frame": {
+		"background": "dots",
+		"dotScale": 1.6,
+		"padding": [ 0.08, 0.08 ],
+		"radius": 0.0083,
+		"shadow": "auto",
+		"blur": 0.007,
+		"hairline": "auto"
+	},
+	"video": { "formats": [ "mp4", "webm", "webp" ], "fps": 15, "width": 1920, "hold": 2000, "cursor": true, "typingDelay": 55 }
+}

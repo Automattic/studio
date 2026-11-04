@@ -1,12 +1,13 @@
 {
+	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
 	"name": "signed-in-blog",
 	"description": "Signed in: one-off images for blog posts and announcements, not used in the docs. Frame them with npm run screenshots:frame",
 	"signedIn": true,
 	"shots": [
 		{
 			"name": "blog-settings-appearance",
-			"description": "Settings → Appearance, signed in: Theme, Color, Intensity and Contrast over the bakery (the 2026 workspace announcement)",
-			"pages": [],
+			"description": "Settings → Appearance, signed in: Theme, Color, Intensity and Contrast over the demo site (the 2026 workspace announcement)",
+			"meta": { "pages": [] },
 			"steps": [
 				{ "click": { "role": "button", "name": "Settings", "exact": true, "first": true } },
 				{ "waitFor": { "role": "tablist", "name": "Settings scope" } },

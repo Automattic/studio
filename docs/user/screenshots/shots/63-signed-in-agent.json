@@ -1,4 +1,5 @@
 {
+	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
 	"name": "signed-in-agent",
 	"description": "Signed in on an empty profile, with Studio Code stood in for (stubAgentRuns): a new blank site's first chat and the design picker, played from agent-turns/",
 	"firstRun": true,
@@ -6,8 +7,8 @@
 	"shots": [
 		{
 			"name": "design-looks",
-			"description": "A new blank site's first chat asking for a bakery called Wren & Barley, and Studio Code's pick of four looks (design-looks/), Wren & Barley's among them",
-			"pages": [ "studio-code/index.md" ],
+			"description": "A new blank site's first chat asking for a slow-fashion journal called Moire, and Studio Code's pick of four looks (design-looks/), Moire's own among them",
+			"meta": { "pages": [ "studio-code/index.md" ] },
 			"steps": [
 				{ "waitFor": { "role": "dialog", "name": "Welcome to WordPress Studio" } },
 				{ "click": { "role": "button", "name": "Not now" } },
@@ -49,7 +50,7 @@
 				{ "click": { "role": "combobox", "name": "Message WordPress Studio" } },
 				{
 					"helper": "typeText",
-					"args": [ "Build a site for my neighborhood bakery called Wren & Barley" ]
+					"args": [ "Build a site for my slow-fashion journal called Moire" ]
 				},
 				{ "click": { "role": "button", "name": "Send message" } },
 				{ "wait": 1500 },

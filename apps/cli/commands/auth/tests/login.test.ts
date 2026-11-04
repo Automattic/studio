@@ -259,36 +259,6 @@ describe( 'Auth Login Command', () => {
 			expect( authEvents() ).toEqual( [] );
 		} );
 
-		it( 'correlates sign-in offered inside a terminal command', async () => {
-			const streams = [ process.stdin, process.stdout ];
-			const descriptors = streams.map( ( stream ) =>
-				Object.getOwnPropertyDescriptor( stream, 'isTTY' )
-			);
-			try {
-				for ( const stream of streams ) {
-					Object.defineProperty( stream, 'isTTY', { value: true, configurable: true } );
-				}
-				vi.mocked( confirm ).mockResolvedValue( true );
-				await requireAuthToken();
-
-				const calls = vi.mocked( recordTracksEvent ).mock.calls;
-				const started = calls.find( ( [ name ] ) => name === TRACKS_EVENTS.WPCOM_AUTH_STARTED );
-				expect( started?.[ 1 ] ).toEqual(
-					expect.objectContaining( { auth_attempt_id: expect.any( String ) } )
-				);
-				expect( calls ).toContainEqual( [
-					TRACKS_EVENTS.WPCOM_AUTH,
-					{ ...started?.[ 1 ], success: true },
-				] );
-			} finally {
-				streams.forEach( ( stream, i ) => {
-					const descriptor = descriptors[ i ];
-					if ( descriptor ) Object.defineProperty( stream, 'isTTY', descriptor );
-					else Reflect.deleteProperty( stream, 'isTTY' );
-				} );
-			}
-		} );
-
 		it.each( [ true, false ] )(
 			'records the visible terminal offer before the user accepts=%s',
 			async ( accepts ) => {

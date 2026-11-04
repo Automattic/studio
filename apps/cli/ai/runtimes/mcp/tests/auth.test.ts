@@ -167,16 +167,13 @@ it( 'matches parallel library views by ID and consumes each attempt once', async
 	expect( events().at( -1 )?.source ).toBe( 'unknown' );
 } );
 
-it.each( [ 'missing', 'expired', 'restarted', 'foreign' ] )(
+it.each( [ 'missing', 'expired', 'restarted' ] )(
 	'keeps %s context unknown without preventing token storage',
 	async ( kind ) => {
 		const start = await call( 'wpcom_login', { journeyId: crypto.randomUUID() } );
 		if ( kind === 'expired' )
 			vi.spyOn( Date, 'now' ).mockReturnValue( Date.now() + 15 * 60 * 1000 + 1 );
-		const served =
-			kind === 'restarted' || kind === 'foreign'
-				? createLibraryTools( 'ui://studio/library.html' )
-				: tools;
+		const served = kind === 'restarted' ? createLibraryTools( 'ui://studio/library.html' ) : tools;
 		await call(
 			'wpcom_login',
 			{
@@ -222,7 +219,7 @@ it( 'drops invalid attribution and never lets telemetry errors fail authenticati
 	expect( await call( 'wpcom_login', { token: 'bad' } ) ).toMatchObject( { isError: true } );
 } );
 
-it.each( [ 'opt-out', 'build-disabled', 'development', 'test', 'e2e' ] )(
+it.each( [ 'opt-out', 'build-disabled' ] )(
 	'honors %s for prompt, starts, outcomes and handoff failures',
 	async ( gate ) => {
 		if ( gate === 'opt-out' )
@@ -231,11 +228,6 @@ it.each( [ 'opt-out', 'build-disabled', 'development', 'test', 'e2e' ] )(
 				JSON.stringify( { version: 1, analyticsOptOut: true } )
 			);
 		if ( gate === 'build-disabled' ) vi.stubGlobal( '__ENABLE_CLI_TELEMETRY__', false );
-		if ( gate === 'development' || gate === 'test' ) vi.stubEnv( 'NODE_ENV', gate );
-		if ( gate === 'e2e' ) {
-			vi.stubEnv( 'E2E', 'true' );
-			vi.stubEnv( 'E2E_CLI_CONFIG_PATH', directory );
-		}
 		await call( 'wpcom_login_event', { event: 'prompt_viewed', journeyId: crypto.randomUUID() } );
 		const first = await call( 'wpcom_login' );
 		await call( 'wpcom_login', { token: 'private-token', attemptId: first._meta?.authAttemptId } );

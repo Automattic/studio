@@ -1,0 +1,21 @@
+.launcher {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-1 );
+	width: min( 100%, 280px );
+	text-align: start;
+}
+
+.launcherButton {
+	--button-hover-background: var( --surface-3 );
+}
+
+.shortcut {
+	margin-inline-start: auto;
+	background-color: var( --surface-3 );
+	color: var( --foreground );
+}
+
+.launcherButton:is( :hover, :active ):not( :disabled, [data-disabled] ) .shortcut {
+	background-color: var( --surface-4 );
+}

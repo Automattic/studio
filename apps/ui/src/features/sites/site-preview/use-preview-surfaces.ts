@@ -51,6 +51,7 @@ export function usePreviewSurfaces( {
 	path,
 	reloadNonce,
 	onPathChange,
+	active = true,
 }: {
 	siteId: string;
 	siteUrl: string;
@@ -59,6 +60,7 @@ export function usePreviewSurfaces( {
 	path: string;
 	reloadNonce: number;
 	onPathChange?: ( path: string ) => void;
+	active?: boolean;
 } ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
@@ -161,7 +163,7 @@ export function usePreviewSurfaces( {
 			return;
 		}
 		lastHostReloadNonceRef.current = reloadNonce;
-		if ( activeRealm === 'admin' ) {
+		if ( ! active || activeRealm === 'admin' ) {
 			return;
 		}
 		if ( activeSurfaceKey === 'design' || activeSurfaceKey === 'email' ) {
@@ -169,7 +171,7 @@ export function usePreviewSurfaces( {
 		} else {
 			patchSurface( activeSurfaceKey, { reloadNonce } );
 		}
-	}, [ activeRealm, activeSurfaceKey, patchSurface, reloadNonce, sendSurfaceCommand ] );
+	}, [ active, activeRealm, activeSurfaceKey, patchSurface, reloadNonce, sendSurfaceCommand ] );
 
 	// Where each realm was last seen, so flipping to WP Admin and back returns
 	// to the exact front-end page rather than the site root.

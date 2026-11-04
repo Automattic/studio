@@ -154,8 +154,8 @@ const api: IpcApi = {
 	getGlobalInstructionsEnabled: () => ipcRendererInvoke( 'getGlobalInstructionsEnabled' ),
 	setGlobalInstructionsEnabled: ( enabled ) =>
 		ipcRendererInvoke( 'setGlobalInstructionsEnabled', enabled ),
-	recordAnalyticsEvent: ( eventName, props ) =>
-		ipcRendererInvoke( 'recordAnalyticsEvent', eventName, props ),
+	recordAnalyticsEvent: ( eventName, props, siteId ) =>
+		ipcRendererInvoke( 'recordAnalyticsEvent', eventName, props, siteId ),
 	listAiSessions: () => ipcRendererInvoke( 'listAiSessions' ),
 	loadAiSession: ( sessionIdOrPrefix ) => ipcRendererInvoke( 'loadAiSession', sessionIdOrPrefix ),
 	createAiSession: ( siteId ) => ipcRendererInvoke( 'createAiSession', siteId ),

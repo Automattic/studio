@@ -899,10 +899,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 
 		// The server attaches the origin and common props. Callers fire and forget, so a
 		// failure here must not become an unhandled rejection.
-		async trackEvent( eventName, props = {} ) {
+		async trackEvent( eventName, props = {}, siteId ) {
 			await api< void >( '/analytics/event', {
 				method: 'POST',
-				body: JSON.stringify( { eventName, props } ),
+				body: JSON.stringify( { eventName, props, siteId } ),
 			} ).catch( () => undefined );
 		},
 

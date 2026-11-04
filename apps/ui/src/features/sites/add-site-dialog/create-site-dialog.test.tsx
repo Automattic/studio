@@ -98,6 +98,13 @@ describe( 'Add site flow', () => {
 			fireEvent.click( screen.getByRole( 'tab', { name: 'Connect' } ) );
 			fireEvent.click( await screen.findByRole( 'button', { name: /Remote site/ } ) );
 			await submit();
+			await waitFor( () =>
+				expect( connector.trackEvent ).toHaveBeenCalledWith(
+					TRACKS_EVENTS.SYNC_CONNECT,
+					{ success: true, num_of_sites: 1 },
+					site.id
+				)
+			);
 			const retry = await screen.findByRole(
 				'button',
 				{ name: 'Try pulling again' },
@@ -508,4 +515,30 @@ describe( 'Add site flow', () => {
 		await submit();
 		await waitFor( () => expect( connector.pullSiteFromLive ).toHaveBeenCalled() );
 	} );
+} );
+
+it( 'resolves connect failure telemetry before removing the local record', async () => {
+	const { connector, site } = setup();
+	connector.connectWpcomSite.mockRejectedValueOnce( new Error( 'Cannot save connection' ) );
+	let finishTelemetry: () => void = () => {};
+	connector.trackEvent.mockImplementation( async ( event ) => {
+		if ( event === TRACKS_EVENTS.SYNC_CONNECT )
+			await new Promise< void >( ( resolve ) => {
+				finishTelemetry = resolve;
+			} );
+	} );
+	await screen.findByRole( 'button', { name: 'Start with Blank site' } );
+	fireEvent.click( screen.getByRole( 'tab', { name: 'Connect' } ) );
+	fireEvent.click( await screen.findByRole( 'button', { name: /Remote site/ } ) );
+	await submit();
+	await waitFor( () =>
+		expect( connector.trackEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.SYNC_CONNECT,
+			{ success: false, failure_reason: 'storage_write', num_of_sites: 0 },
+			site.id
+		)
+	);
+	expect( connector.deleteSite ).not.toHaveBeenCalled();
+	await act( async () => finishTelemetry() );
+	await waitFor( () => expect( connector.deleteSite ).toHaveBeenCalled() );
 } );

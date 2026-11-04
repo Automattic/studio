@@ -22,10 +22,10 @@ interface PreviewSplitFrameProps {
 	// handles layout transitions.
 	preview?: ( props: PreviewSplitFramePreviewProps ) => ReactNode;
 	previewOpen?: boolean;
-	previewLoading?: boolean;
 	// The preview fills the frame over the hidden chat; the sidebar stays.
 	chatHidden?: boolean;
-	// Open or close without the slide, as when a stopping site drops its preview.
+	chatTabActive?: boolean;
+	// Skip movement when restoring a different workspace.
 	instant?: boolean;
 	children?: ReactNode;
 }
@@ -36,13 +36,14 @@ export function PreviewSplitFrame( {
 	header,
 	preview,
 	previewOpen = false,
-	previewLoading = false,
 	chatHidden = false,
+	chatTabActive = false,
 	instant = false,
 	children,
 }: PreviewSplitFrameProps ) {
 	const showPreview = previewOpen && preview != null;
 	const contentCollapsed = showPreview && chatHidden;
+	const showingChatTab = contentCollapsed && chatTabActive;
 	const { rootRef, containerWidth, contentWidthVar, isResizing, handleProps } = usePreviewSplit( {
 		showPreview,
 		siteId,
@@ -56,42 +57,43 @@ export function PreviewSplitFrame( {
 	// class in the same commit as the width change; an effect-based update would
 	// race it.
 	const [ animatingPreviewToggle, setAnimatingPreviewToggle ] = useState( false );
-	const [ fadingPreview, setFadingPreview ] = useState( false );
+	if ( instant && animatingPreviewToggle ) setAnimatingPreviewToggle( false );
 	const [ previousPreview, setPreviousPreview ] = useState( {
 		siteId,
 		navigationKey,
 		mounted: preview != null,
 		open: showPreview,
-		loading: previewLoading,
 		collapsed: contentCollapsed,
+		chatSelected: showingChatTab,
 	} );
 	if (
 		previousPreview.siteId !== siteId ||
 		previousPreview.navigationKey !== navigationKey ||
 		previousPreview.mounted !== ( preview != null ) ||
-		previousPreview.loading !== previewLoading ||
 		previousPreview.open !== showPreview ||
-		previousPreview.collapsed !== contentCollapsed
+		previousPreview.collapsed !== contentCollapsed ||
+		previousPreview.chatSelected !== showingChatTab
 	) {
 		setPreviousPreview( {
 			siteId,
 			navigationKey,
 			mounted: preview != null,
 			open: showPreview,
-			loading: previewLoading,
 			collapsed: contentCollapsed,
+			chatSelected: showingChatTab,
 		} );
 		const toggled =
 			previousPreview.open !== showPreview || previousPreview.collapsed !== contentCollapsed;
-		setFadingPreview( previousPreview.loading && ! previousPreview.open && showPreview );
-		setAnimatingPreviewToggle(
-			toggled &&
-				previousPreview.siteId === siteId &&
-				previousPreview.navigationKey === navigationKey &&
-				previousPreview.mounted &&
-				preview != null &&
-				! instant
-		);
+		const samePreview =
+			previousPreview.siteId === siteId &&
+			previousPreview.navigationKey === navigationKey &&
+			previousPreview.mounted &&
+			preview != null;
+		if ( toggled || ! samePreview ) {
+			setAnimatingPreviewToggle(
+				toggled && samePreview && ! instant && ! ( previousPreview.chatSelected && ! showPreview )
+			);
+		}
 	}
 
 	// Keep the outgoing site in the closing pane until it is hidden.
@@ -104,38 +106,38 @@ export function PreviewSplitFrame( {
 		if ( ! animatingPreviewToggle ) {
 			return;
 		}
-		const timeoutId = window.setTimeout(
-			() => {
-				setAnimatingPreviewToggle( false );
-			},
-			getMotionDuration( fadingPreview ? 'surface' : 'layout' )
-		);
+		const timeoutId = window.setTimeout( () => {
+			setAnimatingPreviewToggle( false );
+		}, getMotionDuration( 'layout' ) );
 		return () => window.clearTimeout( timeoutId );
-	}, [
-		animatingPreviewToggle,
-		fadingPreview,
-		siteId,
-		navigationKey,
-		showPreview,
-		contentCollapsed,
-	] );
+	}, [ animatingPreviewToggle, siteId, navigationKey, showPreview, contentCollapsed ] );
 
-	const previewVisible = showPreview || animatingPreviewToggle;
+	const [ lastExpanded, setLastExpanded ] = useState( contentCollapsed );
+	if ( showPreview && lastExpanded !== contentCollapsed ) setLastExpanded( contentCollapsed );
+	const previewVisible = ( showPreview || animatingPreviewToggle ) && ! showingChatTab;
 	const renderPreview = ! showPreview && animatingPreviewToggle ? lastVisiblePreview : preview;
-	const renderedPreview = renderPreview?.( { collapsed: ! showPreview } );
+	const renderedPreview = renderPreview?.( { collapsed: ! showPreview || showingChatTab } );
 	const rootStyle = {
+		'--preview-layout-duration': animatingPreviewToggle ? 'var(--motion-duration-layout)' : '0ms',
+		'--preview-frame-boundary': showPreview
+			? contentCollapsed
+				? '0px'
+				: contentWidthVar
+			: '100%',
 		'--preview-frame-content-width': contentWidthVar,
-		'--preview-frame-visible-content-width': contentCollapsed ? '0px' : contentWidthVar,
-		'--preview-header-content-width': showPreview && ! contentCollapsed ? contentWidthVar : '0px',
+		'--preview-frame-visible-content-width': ( showPreview ? contentCollapsed : lastExpanded )
+			? '0px'
+			: contentWidthVar,
 	} as CSSProperties;
 	// The preview covers the chat as it closes; keep its layout intact underneath.
-	const contentHidden = contentCollapsed && ! animatingPreviewToggle;
+	const contentHidden = contentCollapsed && ! animatingPreviewToggle && ! showingChatTab;
 	// Which pane reaches the window's top-right corner. The preview sits at the
 	// inline end, so in RTL it only gets there when it fills the frame, and the
 	// content only when the sidebar isn't there.
 	const contentInCorner =
-		! contentCollapsed && ( ! showPreview || ( isRTL() && isSidebarCollapsed ) );
-	const previewInCorner = showPreview && ( contentCollapsed || ! isRTL() );
+		showingChatTab ||
+		( ! contentCollapsed && ( ! showPreview || ( isRTL() && isSidebarCollapsed ) ) );
+	const previewInCorner = showPreview && ! showingChatTab && ( contentCollapsed || ! isRTL() );
 
 	return (
 		<>
@@ -146,21 +148,22 @@ export function PreviewSplitFrame( {
 					header && styles.rootWithHeader,
 					showPreview && styles.rootPreviewOpen,
 					isResizing && styles.rootPreviewResizing,
-					animatingPreviewToggle &&
-						( fadingPreview ? styles.rootPreviewFading : styles.rootPreviewAnimating ),
-					showPreview && ! contentCollapsed && ! animatingPreviewToggle && styles.rootEdge
+					animatingPreviewToggle && styles.rootPreviewAnimating,
+					showPreview && ! contentCollapsed && styles.rootEdge
 				) }
 				style={ rootStyle }
+				data-layout-moving={ animatingPreviewToggle || undefined }
 			>
 				{ header }
 				<div
 					className={ clsx(
 						styles.contentColumn,
 						contentCollapsed && styles.contentColumnCollapsed,
+						showingChatTab && styles.contentColumnFull,
 						contentHidden && styles.contentColumnHidden
 					) }
 					aria-hidden={ contentHidden || undefined }
-					inert={ contentCollapsed }
+					inert={ contentCollapsed && ! showingChatTab }
 				>
 					<WindowControlsCornerContext.Provider value={ contentInCorner }>
 						{ children }
@@ -171,22 +174,28 @@ export function PreviewSplitFrame( {
 						className={ clsx(
 							styles.previewSlot,
 							previewVisible && styles.previewSlotVisible,
-							showPreview && styles.previewSlotInteractive
+							showPreview && ! showingChatTab && styles.previewSlotInteractive
 						) }
-						aria-hidden={ ! showPreview }
-						inert={ ! showPreview }
+						aria-hidden={ ! showPreview || showingChatTab }
+						inert={ ! showPreview || showingChatTab }
 					>
 						<WindowControlsCornerContext.Provider value={ previewInCorner }>
 							{ renderedPreview }
 						</WindowControlsCornerContext.Provider>
 					</div>
 				) : null }
-				{ showPreview && ! contentCollapsed && ! animatingPreviewToggle && resizable ? (
-					<ResizeHandle
+				{ preview && resizable ? (
+					<div
 						className={ styles.previewResizeHandle }
-						label={ __( 'Resize site preview' ) }
-						{ ...handleProps }
-					/>
+						aria-hidden={ ! showPreview || contentCollapsed || animatingPreviewToggle || undefined }
+						inert={ ! showPreview || contentCollapsed || animatingPreviewToggle }
+					>
+						<ResizeHandle
+							className={ styles.previewResizeGrip }
+							label={ __( 'Resize site preview' ) }
+							{ ...handleProps }
+						/>
+					</div>
 				) : null }
 				{ isResizing ? <ResizeOverlay /> : null }
 			</div>

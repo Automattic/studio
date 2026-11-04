@@ -91,10 +91,14 @@ export function useSyncConnectSiteListener(): void {
 			};
 			await connector.connectWpcomSite( studioSiteId, siteToSave );
 			connected = true;
-			void connector.trackEvent( TRACKS_EVENTS.SYNC_CONNECT, {
-				success: true,
-				num_of_sites: connectedSites().filter( ( { id } ) => id !== remoteSiteId ).length + 1,
-			} );
+			void connector.trackEvent(
+				TRACKS_EVENTS.SYNC_CONNECT,
+				{
+					success: true,
+					num_of_sites: connectedSites().filter( ( { id } ) => id !== remoteSiteId ).length + 1,
+				},
+				studioSiteId
+			);
 		} catch ( error ) {
 			handled.current.delete( key );
 			setSetupFailure( studioSiteId, {
@@ -102,11 +106,15 @@ export function useSyncConnectSiteListener(): void {
 				event,
 			} );
 			if ( ! connected ) {
-				void connector.trackEvent( TRACKS_EVENTS.SYNC_CONNECT, {
-					success: false,
-					failure_reason: classifySyncFailure( error, { phase: 'site_fetch' } ),
-					num_of_sites: connectedSites().length,
-				} );
+				void connector.trackEvent(
+					TRACKS_EVENTS.SYNC_CONNECT,
+					{
+						success: false,
+						failure_reason: classifySyncFailure( error, { phase: 'site_fetch' } ),
+						num_of_sites: connectedSites().length,
+					},
+					studioSiteId
+				);
 			}
 		} finally {
 			void queryClient.invalidateQueries( {

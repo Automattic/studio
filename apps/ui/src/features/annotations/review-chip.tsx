@@ -134,8 +134,7 @@ export function AnnotationReviewChip( {
 									onClick={ () => {
 										editing.current = true;
 										setOpen( false );
-										preview?.setSite( siteId );
-										preview?.setOpen( true );
+										preview?.setOpen( true, { siteId } );
 										requestAnnotationReview( siteId, note.id );
 									} }
 								>

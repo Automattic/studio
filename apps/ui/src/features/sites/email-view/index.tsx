@@ -11,6 +11,7 @@ import {
 import { showToast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useSiteEmail, useSiteEmails } from '@/data/queries/use-site-emails';
+import { useSiteAnnotations, type PreviewAnnotation } from '@/features/annotations';
 import { ArrowLeftIcon, FolderIcon, MailIcon } from '@/lib/icons';
 import {
 	CodeBlock,
@@ -158,6 +159,7 @@ function EmailMessage( {
 	email,
 	active,
 	focusOnOpen,
+	annotation,
 	onBack,
 	onOpenLink,
 	onAnnotationPick,
@@ -168,6 +170,7 @@ function EmailMessage( {
 	active: boolean;
 	// It replaces the list on screen, so focus moves to it.
 	focusOnOpen: boolean;
+	annotation?: PreviewAnnotation;
 	onBack: () => void;
 	onOpenLink: ( url: string ) => void;
 } ) {
@@ -191,7 +194,11 @@ function EmailMessage( {
 		...( email.text ? [ 'text' as const ] : [] ),
 		'source',
 	];
-	const [ chosenView, setView ] = useState< BodyView >( views[ 0 ] );
+	const annotationPart = annotation?.email?.part;
+	const [ chosenView, setView ] = useState< BodyView >( annotationPart ?? views[ 0 ] );
+	useEffect( () => {
+		if ( annotationPart ) setView( annotationPart );
+	}, [ annotation?.id, annotationPart ] );
 	const view = views.includes( chosenView ) ? chosenView : views[ 0 ];
 	const viewLabels: Record< BodyView, string > = {
 		html: __( 'HTML' ),
@@ -309,9 +316,21 @@ export function EmailView( {
 	onOpenLink: ( url: string ) => void;
 } ) {
 	const connector = useConnector();
+	const annotations = useSiteAnnotations( siteId );
+	const editingNote = annotations.active
+		? annotations.notes.find( ( note ) => note.id === annotations.editingId && note.email )
+		: undefined;
+	const editingEmailId = editingNote?.email?.id;
+	const editingId = editingNote?.id;
 	const emails = useSiteEmails( siteId, { watching: active } );
 	const [ selectedId, setSelectedId ] = useState< string | null >( null );
 	const [ activeId, setActiveId ] = useState< string | null >( null );
+	useEffect( () => {
+		if ( active && editingEmailId ) {
+			setSelectedId( editingEmailId );
+			setActiveId( editingEmailId );
+		}
+	}, [ active, editingEmailId, editingId ] );
 	const containerRef = useRef< HTMLDivElement >( null );
 	const single = useSinglePane( containerRef );
 	const rowIdPrefix = useId();
@@ -387,9 +406,9 @@ export function EmailView( {
 					data-layout={ single ? 'single' : 'split' }
 					data-reading={ selected ? '' : undefined }
 				>
-					<section className={ styles.list } aria-label={ __( 'Email' ) }>
+					<section className={ styles.list } aria-label={ __( 'Email log' ) }>
 						<header className={ styles.listHeader }>
-							<h2 className={ styles.listTitle }>{ __( 'Email' ) }</h2>
+							<h2 className={ styles.listTitle }>{ __( 'Email log' ) }</h2>
 							{ emails.data ? (
 								<span className={ styles.count }>
 									{ sprintf(
@@ -421,7 +440,7 @@ export function EmailView( {
 						) : (
 							<ul
 								role="listbox"
-								aria-label={ __( 'Email' ) }
+								aria-label={ __( 'Email log' ) }
 								className={ styles.rows }
 								onKeyDown={ handleListKeyDown }
 							>
@@ -448,6 +467,7 @@ export function EmailView( {
 								email={ email.data }
 								active={ active }
 								focusOnOpen={ single }
+								annotation={ editingEmailId === email.data.id ? editingNote : undefined }
 								onBack={ () => {
 									refocusRef.current = selected;
 									setSelectedId( null );

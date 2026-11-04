@@ -204,9 +204,9 @@ describe( 'Stop other sites', () => {
 	);
 
 	it.each( [
-		[ 'WordPress Admin', autoLogin( '/wp-admin/' ) ],
+		[ 'Admin', autoLogin( '/wp-admin/' ) ],
 		[ 'Database', DATABASE_PATH ],
-		[ 'Email', 'studio:email' ],
+		[ 'Email log', 'studio:email' ],
 	] )( 'navigates to %s for the menu site', async ( label, path ) => {
 		const { open, history } = setup();
 		await open();
@@ -253,9 +253,9 @@ describe( 'Stop other sites', () => {
 	} );
 
 	it.each( [
-		[ 'WordPress Admin', autoLogin( '/wp-admin/' ) ],
+		[ 'Admin', autoLogin( '/wp-admin/' ) ],
 		[ 'Database', DATABASE_PATH ],
-		[ 'Email', 'studio:email' ],
+		[ 'Email log', 'studio:email' ],
 	] )( 'starts a stopped site before opening %s', async ( label, path ) => {
 		const { open, connector } = setup( { selectedRunning: false } );
 		await open();
@@ -273,7 +273,7 @@ describe( 'Stop other sites', () => {
 		await waitFor( () =>
 			expect( connector.startSite ).toHaveBeenCalledExactlyOnceWith( 'selected' )
 		);
-		expect( screen.getByRole( 'status', { name: 'Preview' } ) ).toBeEmptyDOMElement();
+		expect( screen.getByRole( 'status', { name: 'Preview' } ) ).toHaveTextContent( 'selected /' );
 		finishStart();
 		await waitFor( () =>
 			expect( screen.getByRole( 'status', { name: 'Preview' } ) ).toHaveTextContent(

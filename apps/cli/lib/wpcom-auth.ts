@@ -1,4 +1,9 @@
 import { DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
+import {
+	createAuthAttempt,
+	getAuthTracksProps,
+	type AuthAttempt,
+} from '@studio/common/lib/auth-tracks';
 import { AUTH_EVENTS } from '@studio/common/lib/cli-events';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import {
@@ -24,9 +29,14 @@ export async function getCliAuthenticationUrl(): Promise< string > {
 
 // Checks a pasted token against WordPress.com and stores it. Throws a
 // user-facing LoggerError when it fails.
-export async function storeAuthToken( accessToken: string ) {
+export async function storeAuthToken( accessToken: string, attempt?: AuthAttempt ) {
 	// `account_type` is absent throughout: the CLI has no signup path.
-	const authProps = { ...getTracksOrigin(), source: 'cli' as const };
+	const authProps = {
+		...( attempt ? getAuthTracksProps( attempt ) : {} ),
+		...getTracksOrigin(),
+		source: 'cli' as const,
+		account_type: undefined,
+	};
 
 	let user: Awaited< ReturnType< typeof getUserInfo > >;
 	try {
@@ -78,10 +88,16 @@ export async function storeAuthToken( accessToken: string ) {
  * and stores the token the user pastes back. Throws a user-facing LoggerError when it fails.
  */
 export async function signInInteractively(): Promise< StoredAuthToken > {
+	const attempt = createAuthAttempt( 'cli', false, { placement: 'cli', intent: 'account' } );
+	const props = { ...getAuthTracksProps( attempt ), ...getTracksOrigin(), account_type: undefined };
+	void recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH_STARTED, props ).catch( () => undefined );
 	const authUrl = await getCliAuthenticationUrl();
 	try {
 		await openBrowser( authUrl );
 	} catch {
+		void recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH_LAUNCH_FAILED, props ).catch(
+			() => undefined
+		);
 		// The URL below works on any device.
 	}
 
@@ -92,8 +108,15 @@ export async function signInInteractively(): Promise< StoredAuthToken > {
 	console.log( __( 'After approving access, copy the generated token and paste it here.' ) );
 	console.log( '' );
 
-	const accessToken = await input( { message: __( 'Authentication token:' ) } );
-	return storeAuthToken( accessToken );
+	try {
+		const accessToken = await input( { message: __( 'Authentication token:' ) } );
+		return await storeAuthToken( accessToken, attempt );
+	} catch ( error ) {
+		if ( error instanceof Error && error.name === 'ExitPromptError' ) {
+			void recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH_CANCELLED, props ).catch( () => undefined );
+		}
+		throw error;
+	}
 }
 
 /**

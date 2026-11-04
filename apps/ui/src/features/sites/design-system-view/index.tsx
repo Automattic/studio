@@ -7,7 +7,7 @@ import {
 	type Style,
 } from '@studio/common/sites/design-sheet';
 import { __, sprintf } from '@wordpress/i18n';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useDesignAnnotations, type DesignAnnotationProps } from './annotations';
 import styles from './style.module.css';
 import type { GlobalStyles } from '@/data/core';
@@ -73,7 +73,8 @@ export function DesignSystemView( {
 			return { error: error instanceof Error ? error.message : String( error ) };
 		}
 	}, [ globalStyles ] );
-	const annotate = useDesignAnnotations( { siteId, onAnnotationPick, onAnnotationAnchor } );
+	const [ root, attachRoot ] = useState< HTMLDivElement | null >( null );
+	const annotate = useDesignAnnotations( { siteId, root, onAnnotationPick, onAnnotationAnchor } );
 
 	if ( ! view ) {
 		return (
@@ -161,6 +162,7 @@ export function DesignSystemView( {
 
 	return (
 		<div
+			ref={ attachRoot }
 			className={ annotate.isPicking ? `${ styles.root } ${ styles.picking }` : styles.root }
 			style={ rootStyle }
 			onClickCapture={ annotate.onClickCapture }

@@ -60,6 +60,24 @@ describe( 'RenderCheck', () => {
 		expect( await check.takeReports() ).toBe( '' );
 	} );
 
+	// As eval16's dental run 3 asked for text between two sizes and never saw it render at either.
+	it( 'states the size body text renders at, by viewport', async () => {
+		const { site, check, inspect, after } = setup();
+		await check.seen( site.root, { created: true } );
+		const sizes: Record< string, number > = {
+			'/ desktop': 19.2,
+			'/about/ desktop': 18,
+			'/ mobile': 17,
+		};
+		inspect.mockImplementation( async ( url, viewport ) => {
+			const at = url.endsWith( '?page_id=5' ) ? '/about/' : '/';
+			return { url, problems: [], bodyFontSize: sizes[ `${ at } ${ viewport }` ] };
+		} );
+		expect( ( await after() ).split( '\n' ).at( -1 ) ).toBe(
+			'Body text renders at 19.2px on desktop, 17px on mobile.'
+		);
+	} );
+
 	it( 'keeps a failed query-addressed page distinct from the homepage', async () => {
 		const { site, check, inspect, after } = setup();
 		await check.seen( site.root, { created: true } );

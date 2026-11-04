@@ -22,8 +22,11 @@ const PIXEL = Buffer.from(
 // A page as a block theme renders it: everything fits and loads.
 const HEALTHY = `<!doctype html><meta name="viewport" content="width=device-width">
 <body style="margin:0"><div class="wp-site-blocks" style="padding:0 20px">
-<header><p>Bakery</p></header>
-<main><h1>Fresh bread daily</h1><img src="/pixel.png" style="max-width:100%"><p>Open every morning.</p></main>
+<header><p style="font-size:12px">Bakery, open every morning from seven</p></header>
+<main style="font-size:1.2rem"><h1>Fresh bread daily</h1><img src="/pixel.png" style="max-width:100%">
+<p>Open every morning from seven until noon.</p><p>Sourdough, rye and seeded loaves.</p>
+<p style="font-size:30px">Order a birthday cake two days ahead.</p></main>
+<footer style="font-size:10px"><p>Bakery, 12 Main Street, Springfield</p><p>Call us on 555 0100 to order</p><p>Copyright Bakery, all rights reserved</p></footer>
 </div></body>`;
 
 // The same page with PHP's error output, an image that is not there and a
@@ -69,11 +72,14 @@ describe.runIf( CHROMIUM )( 'inspecting a page', () => {
 	} );
 
 	it.each( [ 'desktop', 'mobile' ] as const )(
-		'finds nothing wrong with a healthy page at %s',
+		'finds nothing wrong with a healthy page at %s, and the size its body text renders at',
 		async ( viewport ) => {
-			expect( ( await inspectPage( `${ siteUrl }/`, VIEWPORTS[ viewport ] ) ).problems ).toEqual(
-				[]
+			const { problems, bodyFontSize } = await inspectPage(
+				`${ siteUrl }/`,
+				VIEWPORTS[ viewport ]
 			);
+			expect( problems ).toEqual( [] );
+			expect( bodyFontSize ).toBe( 19.2 );
 		},
 		60000
 	);

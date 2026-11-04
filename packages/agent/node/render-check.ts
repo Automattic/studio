@@ -36,6 +36,21 @@ interface PageResult {
 	url: string;
 	viewport: Viewport;
 	problems: string[];
+	bodyFontSize?: number;
+}
+
+// The size body text renders at, at each viewport: the median of its pages'.
+function bodyText( pages: PageResult[] ): string | undefined {
+	const sizes = ( Object.keys( VIEWPORTS ) as Viewport[] ).flatMap( ( viewport ) => {
+		const at = pages
+			.filter( ( page ) => page.viewport === viewport && page.bodyFontSize )
+			.map( ( page ) => page.bodyFontSize! )
+			.sort( ( a, b ) => a - b );
+		return at.length
+			? [ `${ Math.round( at[ Math.floor( at.length / 2 ) ] * 10 ) / 10 }px on ${ viewport }` ]
+			: [];
+	} );
+	return sizes.length ? `Body text renders at ${ sizes.join( ', ' ) }.` : undefined;
 }
 
 interface SiteState {
@@ -233,11 +248,15 @@ export class RenderCheck {
 			: undefined;
 		this.open?.record( sitePath, `${ sitePath }#rendered pages`, problem );
 		state.verdictFrom = renderedFrom;
-		state.verdict =
+		state.verdict = [
 			problem ??
-			`${ rendered }: each page loads, PHP prints no errors, every image loads, and nothing is wider than the screen${
-				firstSeen.size ? ', past what the site had before' : ''
-			}.`;
+				`${ rendered }: each page loads, PHP prints no errors, every image loads, and nothing is wider than the screen${
+					firstSeen.size ? ', past what the site had before' : ''
+				}.`,
+			bodyText( pages ),
+		]
+			.filter( Boolean )
+			.join( '\n' );
 	}
 
 	// Each page at each viewport, while the site's server runs.

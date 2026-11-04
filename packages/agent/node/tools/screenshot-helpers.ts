@@ -429,6 +429,32 @@ export interface PageInspection {
 	// The address the page ended at, after any redirect.
 	url: string;
 	problems: string[];
+	// The usual size of its body text in px: the median computed font size of
+	// the paragraphs outside the header and footer, if it has any.
+	bodyFontSize?: number;
+}
+
+// The median computed font size of the visible paragraphs, with some text,
+// outside the page's header and footer.
+async function bodyFontSize( page: Page ): Promise< number | undefined > {
+	return page
+		.evaluate( () => {
+			const sizes = [ ...document.querySelectorAll( 'p' ) ]
+				.filter( ( el ) => {
+					const box = el.getBoundingClientRect();
+					return (
+						box.width > 0 &&
+						box.height > 0 &&
+						( el.textContent ?? '' ).trim().length > 20 &&
+						! el.closest( 'header, footer' )
+					);
+				} )
+				.map( ( el ) => parseFloat( getComputedStyle( el ).fontSize ) )
+				.sort( ( a, b ) => a - b );
+			return sizes.length ? sizes[ Math.floor( sizes.length / 2 ) ] : null;
+		} )
+		.then( ( size ) => size ?? undefined )
+		.catch( () => undefined );
 }
 
 interface Render {
@@ -519,7 +545,7 @@ export async function inspectPage(
 				screen: await capturePage( page, viewport, { ...options, fullPage: false } ),
 			};
 		}
-		return { url: page.url(), problems };
+		return { url: page.url(), problems, bodyFontSize: await bodyFontSize( page ) };
 	} finally {
 		await page.close();
 		const current = started === generation ? render : undefined;

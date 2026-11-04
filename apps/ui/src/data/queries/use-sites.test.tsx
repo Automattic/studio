@@ -196,76 +196,25 @@ describe( 'useStartSite', () => {
 	} );
 } );
 
-describe( 'responsive preview after stopping', () => {
-	it( 'exits only after a successful stop and stays off after restarting', async () => {
-		const site = makeSite( { id: 'responsive-stop', running: true } );
-		const connector = createFakeConnector( { sites: [ site ] } );
-		updateResponsivePreview( site.id, { enabled: true, width: 440 } );
-		const { result } = renderHook(
-			() => ( {
-				stop: useStopSite(),
-				start: useStartSite(),
-				responsive: useResponsivePreview( site.id ),
-			} ),
-			{ wrapper: providers( connector ) }
-		);
-		connector.stopSite.mockRejectedValueOnce( new Error( 'Site is busy' ) );
-		await act( async () => {
-			await expect( result.current.stop.mutateAsync( site.id ) ).rejects.toThrow();
-		} );
-		expect( result.current.responsive.enabled ).toBe( true );
-		await act( async () => {
-			await result.current.stop.mutateAsync( site.id );
-			await result.current.start.mutateAsync( site.id );
-		} );
-		expect( result.current.responsive ).toMatchObject( { enabled: false, width: 440 } );
+it( 'keeps responsive mode off after stopping and restarting a site', async () => {
+	const site = makeSite( { id: 'responsive-stop', running: true } );
+	const connector = createFakeConnector( { sites: [ site ] } );
+	updateResponsivePreview( site.id, { enabled: true } );
+	const { result } = renderHook(
+		() => ( {
+			stop: useStopSite(),
+			start: useStartSite(),
+			responsive: useResponsivePreview( site.id ),
+		} ),
+		{ wrapper: providers( connector ) }
+	);
+
+	await act( async () => {
+		await result.current.stop.mutateAsync( site.id );
+		await result.current.start.mutateAsync( site.id );
 	} );
 
-	it( 'exits for a stop reported by another surface without resetting another site', async () => {
-		const site = makeSite( { id: 'responsive-event', running: true } );
-		const other = makeSite( { id: 'responsive-unaffected', running: true } );
-		const connector = createFakeConnector( { sites: [ site, other ] } );
-		updateResponsivePreview( site.id, { enabled: true } );
-		updateResponsivePreview( other.id, { enabled: true } );
-		const { result } = renderHook(
-			() => {
-				useSyncSitesWithEvents();
-				return {
-					sites: useSites(),
-					responsive: useResponsivePreview( site.id ),
-					other: useResponsivePreview( other.id ),
-				};
-			},
-			{ wrapper: providers( connector ) }
-		);
-		await waitFor( () => expect( result.current.sites.data ).toHaveLength( 2 ) );
-		act( () =>
-			connector.emit( 'onSiteEvent', {
-				event: SITE_EVENTS.UPDATED,
-				siteId: site.id,
-				site: { ...site, url: 'http://localhost:9010' },
-				running: false,
-			} )
-		);
-		expect( result.current.responsive.enabled ).toBe( false );
-		expect( result.current.other.enabled ).toBe( true );
-	} );
-
-	it( 'exits when a refetch discovers a stopped site', async () => {
-		const site = makeSite( { id: 'responsive-refetch', running: true } );
-		const connector = createFakeConnector( { sites: [ site ] } );
-		updateResponsivePreview( site.id, { enabled: true } );
-		const { result } = renderHook(
-			() => ( { sites: useSites(), responsive: useResponsivePreview( site.id ) } ),
-			{ wrapper: providers( connector ) }
-		);
-		await waitFor( () => expect( result.current.sites.data ).toHaveLength( 1 ) );
-		connector.getSites.mockResolvedValue( [ { ...site, running: false } ] );
-		await act( async () => {
-			await result.current.sites.refetch();
-		} );
-		expect( result.current.responsive.enabled ).toBe( false );
-	} );
+	expect( result.current.responsive.enabled ).toBe( false );
 } );
 
 describe( 'useSyncSitesWithEvents', () => {

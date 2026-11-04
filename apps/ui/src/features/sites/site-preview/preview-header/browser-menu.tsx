@@ -10,9 +10,9 @@ export interface PreviewBrowserActions {
 	colorScheme: PreviewColorScheme;
 	browser?: SupportedBrowser;
 	browserName?: string;
-	onColorSchemeChange?: ( value: PreviewColorScheme ) => void;
-	onOpenDevTools?: () => void;
-	onClearBrowsingData?: () => void;
+	onColorSchemeChange: ( value: PreviewColorScheme ) => void;
+	onOpenDevTools: () => void;
+	onClearBrowsingData: () => void;
 	clearing: boolean;
 }
 
@@ -25,11 +25,9 @@ interface BrowserMenuItemsProps {
 function BrowserMenuItems( { actions, onOpenExternal, disabled }: BrowserMenuItemsProps ) {
 	return (
 		<>
-			{ actions.onOpenDevTools ? (
-				<Menu.Item disabled={ disabled } onClick={ actions.onOpenDevTools }>
-					{ __( 'Open DevTools' ) }
-				</Menu.Item>
-			) : null }
+			<Menu.Item disabled={ disabled } onClick={ actions.onOpenDevTools }>
+				{ __( 'Open DevTools' ) }
+			</Menu.Item>
 			<Menu.Item disabled={ disabled || ! onOpenExternal } onClick={ onOpenExternal }>
 				<AppIcon app={ actions.browser } fallback={ <ExternalLinkIcon /> } />
 				{ actions.browserName
@@ -40,34 +38,25 @@ function BrowserMenuItems( { actions, onOpenExternal, disabled }: BrowserMenuIte
 					  )
 					: __( 'Open in browser' ) }
 			</Menu.Item>
-			{ actions.onColorSchemeChange ? (
-				<Menu.SubmenuRoot>
-					<Menu.SubmenuTrigger disabled={ disabled }>{ __( 'Appearance' ) }</Menu.SubmenuTrigger>
-					<Menu.SubmenuPopup>
-						<Menu.RadioGroup
-							value={ actions.colorScheme }
-							onValueChange={ ( value ) =>
-								actions.onColorSchemeChange?.( value as PreviewColorScheme )
-							}
-						>
-							<Menu.RadioItem value="system">{ __( 'System' ) }</Menu.RadioItem>
-							<Menu.RadioItem value="light">{ __( 'Light' ) }</Menu.RadioItem>
-							<Menu.RadioItem value="dark">{ __( 'Dark' ) }</Menu.RadioItem>
-						</Menu.RadioGroup>
-					</Menu.SubmenuPopup>
-				</Menu.SubmenuRoot>
-			) : null }
-			{ actions.onClearBrowsingData ? (
-				<>
-					<Menu.Separator />
-					<Menu.Item
-						disabled={ disabled || actions.clearing }
-						onClick={ actions.onClearBrowsingData }
+			<Menu.SubmenuRoot>
+				<Menu.SubmenuTrigger disabled={ disabled }>{ __( 'Appearance' ) }</Menu.SubmenuTrigger>
+				<Menu.SubmenuPopup>
+					<Menu.RadioGroup
+						value={ actions.colorScheme }
+						onValueChange={ ( value ) =>
+							actions.onColorSchemeChange( value as PreviewColorScheme )
+						}
 					>
-						{ __( 'Clear browsing data' ) }
-					</Menu.Item>
-				</>
-			) : null }
+						<Menu.RadioItem value="system">{ __( 'System' ) }</Menu.RadioItem>
+						<Menu.RadioItem value="light">{ __( 'Light' ) }</Menu.RadioItem>
+						<Menu.RadioItem value="dark">{ __( 'Dark' ) }</Menu.RadioItem>
+					</Menu.RadioGroup>
+				</Menu.SubmenuPopup>
+			</Menu.SubmenuRoot>
+			<Menu.Separator />
+			<Menu.Item disabled={ disabled || actions.clearing } onClick={ actions.onClearBrowsingData }>
+				{ __( 'Clear browsing data' ) }
+			</Menu.Item>
 		</>
 	);
 }

@@ -9,12 +9,7 @@ import {
 	setPreviewColorScheme,
 	usePreviewColorScheme,
 } from './preview-browser-settings';
-import {
-	getPreviewIpc,
-	getWebviewContentsId,
-	isElectron,
-	type WebviewTag,
-} from './preview-surface/webview';
+import { getPreviewIpc, getWebviewContentsId, type WebviewTag } from './preview-surface/webview';
 import type { PreviewBrowserActions } from './preview-header/browser-menu';
 
 export function usePreviewBrowser( viewportRef: RefObject< HTMLDivElement | null > ) {
@@ -35,12 +30,8 @@ export function usePreviewBrowser( viewportRef: RefObject< HTMLDivElement | null
 		browserName: preferences?.browser
 			? browserConfig[ preferences.browser ].name
 			: installedApps?.defaultBrowser?.name,
-		clearing,
-	};
-	if ( ! isElectron() ) return actions;
-	return {
-		...actions,
 		onColorSchemeChange: setPreviewColorScheme,
+		clearing,
 		onOpenDevTools: () => {
 			void ( async () => {
 				try {
@@ -66,4 +57,5 @@ export function usePreviewBrowser( viewportRef: RefObject< HTMLDivElement | null
 			} )();
 		},
 	};
+	return actions;
 }

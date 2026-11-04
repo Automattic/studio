@@ -122,21 +122,22 @@ const studioConnect = async () => {
 const searchBox = () => screen.getByRole( 'textbox', { name: 'Search settings' } );
 
 describe( 'WordPress Studio settings', () => {
-	it( 'defaults to opening chat on site start and saves changes immediately', async () => {
-		const { connector } = await setup();
-		const toggle = await screen.findByRole( 'switch', { name: 'Open chat when starting a site' } );
-		expect( toggle ).toBeChecked();
-		fireEvent.click( toggle );
-		await waitFor( () =>
-			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
-				{ openChatOnSiteStart: false },
-				undefined
-			)
-		);
-		expect( toggle ).not.toBeChecked();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Reset interface' } ) );
-		await waitFor( () => expect( toggle ).toBeChecked() );
-	} );
+	it.each( [ undefined, true, false ] )(
+		'saves the split-view startup setting from %s',
+		async ( value ) => {
+			const { connector } = await setup( { preferences: { openChatOnSiteStart: value } } );
+			const toggle = await screen.findByRole( 'switch', { name: 'Start sites in split view' } );
+			if ( value ?? true ) expect( toggle ).toBeChecked();
+			else expect( toggle ).not.toBeChecked();
+			fireEvent.click( toggle );
+			await waitFor( () =>
+				expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+					{ openChatOnSiteStart: ! ( value ?? true ) },
+					undefined
+				)
+			);
+		}
+	);
 
 	it.each( [ undefined, true, false ] )(
 		'saves recent chats visibility from %s',
@@ -172,7 +173,6 @@ describe( 'WordPress Studio settings', () => {
 		{ quitSitesBehavior: 'stop' as const },
 		{ showRecentChats: false },
 		{ autoStartSiteOnChat: true },
-		{ openChatOnSiteStart: false },
 		{ autoCollapseSites: false },
 		{ sidebarPinnedSort: 'manual' as const },
 		{ sidebarSiteSort: 'status' as const },
@@ -204,7 +204,7 @@ describe( 'WordPress Studio settings', () => {
 				sidebarChatOrder,
 			} );
 		} );
-		expect( screen.getByRole( 'button', { name: 'Reset interface' } ) ).toBeDisabled();
+		expect( await screen.findByRole( 'button', { name: 'Reset interface' } ) ).toBeDisabled();
 	} );
 
 	it( 'resets only interface preferences and saved panel widths', async () => {
@@ -910,4 +910,20 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		);
 		expect( screen.queryByText( 'Copied' ) ).not.toBeInTheDocument();
 	} );
+	it.each( [ undefined, false, true ] )(
+		'persists the Batch notes interface setting from %s',
+		async ( value ) => {
+			const { connector } = await setup( { preferences: { batchAnnotations: value } } );
+			const control = await screen.findByRole( 'switch', { name: 'Batch notes' } );
+			if ( value ?? true ) expect( control ).toBeChecked();
+			else expect( control ).not.toBeChecked();
+			fireEvent.click( control );
+			await waitFor( () =>
+				expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+					{ batchAnnotations: ! ( value ?? true ) },
+					undefined
+				)
+			);
+		}
+	);
 } );

@@ -13,6 +13,7 @@ function buildTestViewMenuItems(
 		devTools: [],
 		onToggleSidebar: vi.fn(),
 		onToggleSitePreview: vi.fn(),
+		onSetPreviewLayout: vi.fn(),
 		onResetZoom: vi.fn(),
 		onZoomIn: vi.fn(),
 		onZoomOut: vi.fn(),
@@ -50,4 +51,18 @@ describe( 'buildViewMenuItems', () => {
 
 		expect( callback ).toHaveBeenCalledTimes( 1 );
 	} );
+} );
+
+it.each( [
+	[ 'Chat', '1', 'chat' ],
+	[ 'Split view', '2', 'split' ],
+	[ 'Browser', '3', 'preview' ],
+] as const )( 'selects %s with an app-local shortcut', ( label, key, layout ) => {
+	const onSetPreviewLayout = vi.fn();
+	const item = buildTestViewMenuItems( { onSetPreviewLayout } ).find(
+		( item ) => item.label === label
+	);
+	expect( item ).toMatchObject( { accelerator: `CommandOrControl+${ key }` } );
+	item?.click?.( {} as never, undefined as never, undefined as never );
+	expect( onSetPreviewLayout ).toHaveBeenCalledExactlyOnceWith( layout );
 } );

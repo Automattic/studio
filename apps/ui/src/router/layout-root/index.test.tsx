@@ -49,7 +49,7 @@ describe( 'DeletedSiteRedirect', () => {
 	it( 'ignores site events that are not deletions', async () => {
 		const { connector, history } = await setup( '/sessions/doomed-session' );
 		await act( () => connector.updateSite( { ...deletedSite, name: 'Renamed' } ) );
-		expect( await screen.findByText( 'Renamed' ) ).toBeInTheDocument();
+		expect( await screen.findByRole( 'button', { name: 'Renamed' } ) ).toBeInTheDocument();
 		expect( history.location.pathname ).toBe( '/sessions/doomed-session' );
 	} );
 } );

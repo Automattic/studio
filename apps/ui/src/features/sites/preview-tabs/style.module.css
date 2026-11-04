@@ -1,0 +1,146 @@
+.root {
+	display: flex;
+	align-items: center;
+	gap: var( --space-0_5 );
+	min-width: 0;
+	pointer-events: auto;
+	-webkit-app-region: no-drag;
+}
+.tabs {
+	--tabs-fade-left: 0px;
+	--tabs-fade-right: 0px;
+
+	min-width: 0;
+	flex: 0 1 auto;
+	overflow-x: auto;
+	scrollbar-width: none;
+	scroll-padding-inline: var( --space-4 );
+	mask-image: linear-gradient(
+		to right,
+		transparent,
+		black var( --tabs-fade-left ),
+		black calc( 100% - var( --tabs-fade-right ) ),
+		transparent
+	);
+}
+.tabs[data-overflow-left] {
+	--tabs-fade-left: var( --space-4 );
+}
+.tabs[data-overflow-right] {
+	--tabs-fade-right: var( --space-4 );
+}
+.list {
+	gap: var( --space-0_5 );
+	align-items: center;
+}
+.tab {
+	position: relative;
+	flex: 1 1 160px;
+	width: 160px;
+	max-width: 160px;
+	min-width: 128px;
+	height: 32px;
+	border-radius: var( --radius-md );
+	background: var( --chat );
+	transition: transform var( --motion-duration-layout ) ease-in-out;
+}
+.tab[data-preview-selected] {
+	--surface: var( --muted );
+
+	background: var( --muted );
+}
+.trigger {
+	width: 100%;
+	height: 32px;
+	gap: var( --space-1_5 );
+	padding-inline: var( --space-2 );
+	padding-inline-end: 32px;
+	border-radius: var( --radius-md );
+	font-size: var( --text-xs );
+	color: var( --muted-foreground );
+	transition: none;
+	cursor: pointer;
+	touch-action: pan-x;
+	user-select: none;
+}
+.list:not( [data-tab-dragging] ) .tab:hover {
+	--surface: var( --hover );
+
+	background: var( --hover );
+}
+.tab[data-preview-selected] .trigger {
+	color: var( --foreground );
+}
+.title {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.icon {
+	flex: none;
+	width: 16px;
+	height: 16px;
+}
+.close {
+	position: absolute;
+	inset-inline-end: 4px;
+	top: 4px;
+	border-radius: var( --radius-sm );
+	opacity: 0;
+	pointer-events: none;
+	transition: none;
+}
+.close svg {
+	width: 16px;
+	height: 16px;
+}
+.list:not( [data-tab-dragging] ) .tab:hover .close,
+.list:not( [data-tab-dragging] ) .close:focus-visible {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.tab[data-drag-source] {
+	visibility: hidden;
+}
+.list[data-tab-dragging] {
+	cursor: pointer;
+}
+.list[data-tab-dragging] .tab {
+	pointer-events: none;
+}
+.list[data-tab-drop-committed] .tab {
+	transition: none;
+}
+.list[data-tab-dragging] .trigger {
+	cursor: pointer;
+}
+.dragPreview {
+	position: fixed;
+	top: 0;
+	left: 0;
+	z-index: var( --z-drag );
+	display: flex;
+	align-items: center;
+	gap: var( --space-1_5 );
+	padding-inline: var( --space-2 );
+	padding-inline-end: 32px;
+	border-radius: var( --radius-md );
+	background-color: var( --hover );
+	box-shadow: var( --shadow-md );
+	color: var( --foreground );
+	font-size: var( --text-xs );
+	opacity: 1;
+	pointer-events: none;
+	will-change: transform;
+}
+.dragPreview[data-landing] {
+	transition: transform var( --motion-duration-layout ) ease-in-out;
+}
+@media ( prefers-reduced-motion: reduce ) {
+	.tab,
+	.dragPreview[data-landing] {
+		transition: none;
+	}
+}

@@ -21,9 +21,10 @@ import { missingTemplateParts } from '@studio/agent/node/missing-template-parts'
 import { navigationRefs } from '@studio/agent/node/navigation-refs';
 import { postContentChanges } from '@studio/agent/node/post-content-check';
 import { postCopies } from '@studio/agent/node/post-copies';
-import { siteSettingsCopy } from '@studio/agent/node/site-settings-copy';
+import { renamedSlugs } from '@studio/agent/node/renamed-slugs';
 import { sectionLinks } from '@studio/agent/node/section-links';
 import { siteFileWrites } from '@studio/agent/node/site-file-writes';
+import { siteSettingsCopy } from '@studio/agent/node/site-settings-copy';
 import { templatePartAreas } from '@studio/agent/node/template-part-areas';
 import { themeErrors } from '@studio/agent/node/theme-errors';
 import { updatableThemeChanges } from '@studio/agent/node/theme-file-changes';
@@ -94,6 +95,7 @@ const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
 	// After the posts, so a page a new copy published can be the homepage.
 	siteSettingsCopy,
 	postContentChanges,
+	renamedSlugs,
 	renderedBlocks,
 	sectionLinks,
 	linksToNowhereChanges,

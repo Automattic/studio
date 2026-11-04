@@ -14,6 +14,8 @@ export type { SyncActivity } from '@studio/common/lib/sync/activity';
 const RESULT_TTL_MS = 30_000;
 
 const entries = new Map< string, SyncActivity >();
+const runIds = new Map< string, number >();
+let nextRunId = 1;
 const timers = new Map< string, ReturnType< typeof setTimeout > >();
 const listeners = new Set< () => void >();
 
@@ -41,6 +43,7 @@ function scheduleExpiry( siteId: string ) {
 	const timer = setTimeout( () => {
 		timers.delete( siteId );
 		entries.delete( siteId );
+		runIds.delete( siteId );
 		emit();
 	}, RESULT_TTL_MS );
 	timers.set( siteId, timer );
@@ -68,6 +71,9 @@ function getPushPhaseMessage( phase: PushPhase, progress?: number ): string {
 export function applySyncActivity( siteId: string, activity: SyncActivity ): boolean {
 	const wasPending = entries.get( siteId )?.kind === 'pending';
 	if ( activity.kind === 'pending' ) {
+		if ( ! wasPending || entries.get( siteId )?.direction !== activity.direction ) {
+			runIds.set( siteId, nextRunId++ );
+		}
 		clearExpiryTimer( siteId );
 		entries.set(
 			siteId,
@@ -88,6 +94,10 @@ export function applySyncActivity( siteId: string, activity: SyncActivity ): boo
 
 export function getSyncActivity( siteId: string ): SyncActivity | undefined {
 	return entries.get( siteId );
+}
+
+export function getSyncActivityRunId( siteId: string ): number | undefined {
+	return runIds.get( siteId );
 }
 
 function subscribe( listener: () => void ): () => void {

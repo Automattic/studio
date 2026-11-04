@@ -226,11 +226,12 @@ export interface Connector {
 
 	// Exports a site as a full backup archive (files + database). Prompts the
 	// user for a destination via a save-as dialog; resolves with the chosen
-	// path on success, or `null` if the user cancelled the dialog.
-	exportFullSite( siteId: string ): Promise< string | null >;
+	// path on success, or `null` if the user cancelled the dialog. `onStarted`
+	// runs after destination selection, before the export begins.
+	exportFullSite( siteId: string, options?: { onStarted?: () => void } ): Promise< string | null >;
 	// Exports only the site database as a .sql dump. Same dialog/cancel
 	// semantics as `exportFullSite`.
-	exportDatabase( siteId: string ): Promise< string | null >;
+	exportDatabase( siteId: string, options?: { onStarted?: () => void } ): Promise< string | null >;
 
 	// Site-creation helpers: folder pickers and path validation.
 	generateProposedSitePath( siteName: string ): Promise< ProposedSitePath >;

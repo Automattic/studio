@@ -151,12 +151,24 @@ function recordNotice(
 	noticeHistory = [ record, ...noticeHistory ].slice( 0, HISTORY_LIMIT );
 }
 
+function makeRoomForQueuedToast() {
+	if (
+		! queued.length ||
+		visible.length < MAX_VISIBLE_TOASTS ||
+		visible.some( ( item ) => item.leaving )
+	)
+		return;
+	const oldestProgress = visible.find( ( item ) => item.processing && item.dismissible !== false );
+	if ( oldestProgress ) dismissToast( oldestProgress.id );
+}
+
 function promoteQueued() {
 	while ( visible.length < MAX_VISIBLE_TOASTS && queued.length > 0 ) {
 		const next = queued.shift() as ToastMessage;
 		visible = [ ...visible, next ];
 		scheduleExpiry( next );
 	}
+	makeRoomForQueuedToast();
 }
 
 function finalizeToastRemoval( id: string ) {
@@ -223,10 +235,15 @@ export function showToast( input: ToastInput ): string {
 		scheduleExpiry( toastMessage );
 		recordNotice( toastMessage, wasDismissedProcessing );
 	} else {
-		queued = [ ...queued, toastMessage ];
+		if ( toastMessage.intent === 'error' ) {
+			queued = [ toastMessage, ...queued ];
+		} else {
+			queued = [ ...queued, toastMessage ];
+		}
 		recordNotice( toastMessage, wasDismissedProcessing );
 	}
 
+	makeRoomForQueuedToast();
 	emit();
 	return toastMessage.id;
 }
@@ -285,7 +302,7 @@ export const toast = {
 	processing: (
 		title: string,
 		options: Omit< ToastInput, 'title' | 'intent' | 'processing' > = {}
-	) => showToast( { dismissible: false, ...options, intent: 'info', title, processing: true } ),
+	) => showToast( { dismissible: true, ...options, intent: 'info', title, processing: true } ),
 	success: ( title: string, options: Omit< ToastInput, 'title' | 'intent' > = {} ) =>
 		showToast( { intent: 'success', title, ...options } ),
 	info: ( title: string, options: Omit< ToastInput, 'title' | 'intent' > = {} ) =>

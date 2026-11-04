@@ -473,10 +473,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			await api( '/sites/sort-order', { method: 'POST', body: JSON.stringify( { updates } ) } );
 		},
 		// Export downloads the archive in the browser (no native Save-As dialog).
-		async exportFullSite( siteId ): Promise< string | null > {
+		async exportFullSite( siteId, options ): Promise< string | null > {
+			options?.onStarted?.();
 			return downloadFromServer( `/sites/${ encodeURIComponent( siteId ) }/export?mode=full` );
 		},
-		async exportDatabase( siteId ): Promise< string | null > {
+		async exportDatabase( siteId, options ): Promise< string | null > {
+			options?.onStarted?.();
 			return downloadFromServer( `/sites/${ encodeURIComponent( siteId ) }/export?mode=database` );
 		},
 

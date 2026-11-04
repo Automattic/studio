@@ -1,3 +1,4 @@
+import { aiModelSupportsEffort } from '@studio/agent/protocol/models';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
 import { useCallback } from 'react';
@@ -30,6 +31,9 @@ export function useSendSiteDraft( siteId: string | undefined ) {
 				const sessionId = draft.sessionId ?? ( await connector.createSession( siteId ) ).id;
 				update( { sessionId } );
 				await connector.setSessionProvider( sessionId, provider, model );
+				if ( draft.effort && aiModelSupportsEffort( model ) ) {
+					await connector.setSessionEffort( sessionId, draft.effort );
+				}
 				await connector.setSessionEnvironment( sessionId, draft.activeEnvironment );
 				session = await connector.getSession( sessionId );
 				queryClient.setQueryData( [ ...SESSIONS_QUERY_KEY, sessionId ], session );
@@ -56,6 +60,7 @@ export function useSendSiteDraft( siteId: string | undefined ) {
 		[
 			connector,
 			draft.activeEnvironment,
+			draft.effort,
 			draft.sessionId,
 			queryClient,
 			router,

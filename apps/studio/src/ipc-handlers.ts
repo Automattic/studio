@@ -29,10 +29,14 @@ import {
 	setSessionEnvironment,
 	updateHydratedAiSessionMetadata,
 } from '@studio/agent/node/sessions/manage';
-import { appendModelChangeEntry, appendStudioEntry } from '@studio/agent/node/sessions/store';
+import {
+	appendModelChangeEntry,
+	appendStudioEntry,
+	appendThinkingLevelChangeEntry,
+} from '@studio/agent/node/sessions/store';
 import { validateStudioChatFiles } from '@studio/agent/protocol/chat-files';
 import { validateStudioChatImages } from '@studio/agent/protocol/chat-images';
-import { isAiModelId } from '@studio/agent/protocol/models';
+import { isAiEffortLevel, isAiModelId } from '@studio/agent/protocol/models';
 import { isAiProviderId, providerServesModel } from '@studio/agent/protocol/providers';
 import { expandSkillCommandPrompt } from '@studio/agent/protocol/slash-commands';
 import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
@@ -358,6 +362,17 @@ export async function setAiSessionModel(
 		throw new Error( `Unknown AI model: ${ model }` );
 	}
 	await appendModelChangeEntry( getSessionsDirectory(), sessionId, '', model );
+}
+
+export async function setAiSessionEffort(
+	_event: IpcMainInvokeEvent,
+	sessionId: string,
+	effort: string
+): Promise< void > {
+	if ( ! isAiEffortLevel( effort ) ) {
+		throw new Error( `Unknown effort level: ${ effort }` );
+	}
+	await appendThinkingLevelChangeEntry( getSessionsDirectory(), sessionId, effort );
 }
 
 export async function setAiSessionProvider(

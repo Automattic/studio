@@ -532,7 +532,7 @@ describe( 'Chat target selection', () => {
 		);
 		expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveAttribute(
 			'aria-description',
-			'Opus 5 · Anthropic API'
+			'Opus 5 · Anthropic API · Effort: Medium'
 		);
 	} );
 } );

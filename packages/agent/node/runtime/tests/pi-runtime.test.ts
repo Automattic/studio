@@ -1,10 +1,12 @@
 import fs from 'fs';
 import path from 'path';
+import { getSupportedThinkingLevels } from '@earendil-works/pi-ai';
 import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
+import { OPENAI_MODELS } from '@earendil-works/pi-ai/providers/openai.models';
 import { ModelRegistry, SessionManager } from '@earendil-works/pi-coding-agent';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAgent } from '@studio/agent/node/agent';
-import { AI_MODELS } from '@studio/agent/protocol/models';
+import { AI_EFFORT_LEVELS, AI_MODELS } from '@studio/agent/protocol/models';
 import { createFakeHost } from '../../tests/fake-host';
 import type { AgentSessionEvent, CreateAgentSessionOptions } from '@earendil-works/pi-coding-agent';
 import type { StudioAgentTurnConfig } from '@studio/agent/node/runtime';
@@ -614,6 +616,67 @@ describe( 'pi runtime', () => {
 			otherStudioModel,
 			otherStudioModel,
 		] );
+	} );
+
+	describe( 'reasoning effort', () => {
+		const withEffort = ( level: string ) => {
+			const session = newSession();
+			session.appendThinkingLevelChange( level );
+			return session;
+		};
+		const thinkingLevel = () => mocks.createdSessions[ 0 ].options.thinkingLevel;
+
+		it( 'uses the effort the chat recorded', async () => {
+			await runRuntime( {
+				prompt: 'hello',
+				env: { ANTHROPIC_API_KEY: 'sk-ant-test' },
+				model: 'claude-sonnet-5',
+				session: withEffort( 'xhigh' ),
+			} );
+
+			expect( thinkingLevel() ).toBe( 'xhigh' );
+		} );
+
+		it.each( [
+			[ 'nothing is recorded', newSession ],
+			[ 'the recorded level is not offered', () => withEffort( 'minimal' ) ],
+		] )( 'falls back to medium when %s', async ( _case, session ) => {
+			await runRuntime( {
+				prompt: 'hello',
+				env: { ANTHROPIC_API_KEY: 'sk-ant-test' },
+				model: 'claude-opus-5',
+				session: session(),
+			} );
+
+			expect( thinkingLevel() ).toBe( 'medium' );
+		} );
+
+		it( 'keeps WordPress.com tiers at medium', async () => {
+			await runRuntime( {
+				prompt: 'hello',
+				env: WPCOM_ENV,
+				model: 'balanced',
+				session: withEffort( 'max' ),
+			} );
+
+			expect( thinkingLevel() ).toBe( 'medium' );
+		} );
+
+		// A model whose pi catalog entry dropped a level would quietly clamp it.
+		it( 'offers only levels pi supports for every model with an effort choice', () => {
+			const catalog = { ...ANTHROPIC_MODELS, ...OPENAI_MODELS } as Record<
+				string,
+				Parameters< typeof getSupportedThinkingLevels >[ 0 ]
+			>;
+			const models = AI_MODELS.filter( ( model ) => 'supportsEffort' in model );
+			expect( models.length ).toBeGreaterThan( 0 );
+			for ( const { id } of models ) {
+				expect( catalog[ id ], `missing pi catalog entry for ${ id }` ).toBeDefined();
+				expect( getSupportedThinkingLevels( catalog[ id ] ) ).toEqual(
+					expect.arrayContaining( [ ...AI_EFFORT_LEVELS ] )
+				);
+			}
+		} );
 	} );
 
 	// Without `compat.forceAdaptiveThinking`, pi-ai sends a thinking shape that

@@ -273,6 +273,7 @@ export function createInMemoryConnector(
 		continueSession: async () => ( { runId: `run-${ nextId++ }` } ),
 		getActiveAgentRuns: async () => [],
 		setSessionModel: async () => {},
+		setSessionEffort: async () => {},
 		setSessionProvider: async () => {},
 		setSessionEnvironment: async ( id, environment ) => {
 			const session = findSession( id );

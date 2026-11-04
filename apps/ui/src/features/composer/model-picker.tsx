@@ -1,4 +1,11 @@
-import { getAiModelLabel } from '@studio/agent/protocol/models';
+import {
+	AI_EFFORT_LEVELS,
+	aiModelSupportsEffort,
+	getAiEffortLabel,
+	getAiModelLabel,
+	isAiEffortLevel,
+	type AiEffortLevel,
+} from '@studio/agent/protocol/models';
 import {
 	AI_PROVIDER_LABELS,
 	getAiProviderModels,
@@ -6,14 +13,19 @@ import {
 } from '@studio/agent/protocol/providers';
 import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
 import { __, sprintf } from '@wordpress/i18n';
-import { PlugIcon } from 'lucide-react';
+import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, GaugeIcon, PlugIcon } from 'lucide-react';
 import { useRef, useState, type RefObject } from 'react';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
-import { getCreditsLabel, getModelDescription } from '@/features/composer/model-options';
+import {
+	getCreditsLabel,
+	getEffortDescription,
+	getModelDescription,
+} from '@/features/composer/model-options';
 import { PlusIcon, ChevronDownIcon, ChatGptIcon, ClaudeIcon, WordPressIcon } from '@/lib/icons';
 import { Button, CommandSheet, Popover, type Command, type CommandGroup } from '@/lib/ui';
+import styles from './style.module.css';
 import type { AiModelId } from '@/data/core';
 
 // Who makes each provider's models, as the picker names and marks them. Brand
@@ -28,6 +40,9 @@ interface ModelPickerProps {
 	open: boolean;
 	onOpenChange: ( open: boolean ) => void;
 	model: AiModelId;
+	// The chat's reasoning effort, offered on a second level for models that let the user choose.
+	effort: AiEffortLevel;
+	onEffortChange: ( effort: AiEffortLevel ) => void;
 	// The providers this chat can use, and the one it is on.
 	providers: AiProviderId[];
 	sessionProvider: AiProviderId;
@@ -42,6 +57,8 @@ export function ModelPicker( {
 	open,
 	onOpenChange,
 	model,
+	effort,
+	onEffortChange,
 	providers,
 	sessionProvider,
 	isModelLocked,
@@ -51,6 +68,9 @@ export function ModelPicker( {
 	onAddCredits,
 }: ModelPickerProps ) {
 	const [ highlight, setHighlight ] = useState< string >();
+	// The second level, where the user picks the current model's effort.
+	const [ effortOpen, setEffortOpen ] = useState( false );
+	const offersEffort = aiModelSupportsEffort( model );
 	const listRef = useRef< HTMLDivElement | null >( null );
 	const triggerRef = useRef< HTMLButtonElement | null >( null );
 	const openSettings = useOpenSettings();
@@ -71,12 +91,31 @@ export function ModelPicker( {
 		getStudioCodeAiAccessState( quota ) === 'available' &&
 		quota.hasPaymentMethod;
 	const modelDetails = [ modelLabel, AI_PROVIDER_LABELS[ sessionProvider ] ];
+	if ( offersEffort ) {
+		modelDetails.push(
+			sprintf(
+				/* translators: %s: reasoning effort level, e.g. "Medium" */
+				__( 'Effort: %s' ),
+				getAiEffortLabel( effort )
+			)
+		);
+	}
 	if ( isWpcom ) {
 		modelDetails.push( credits.label );
 	}
 	const pickCommand = ( value: string ) => {
+		if ( value === 'effort' || value === 'effort-back' ) {
+			setEffortOpen( value === 'effort' );
+			setHighlight( value === 'effort' ? `effort:${ effort }` : 'effort' );
+			return;
+		}
 		onOpenChange( false );
-		if ( value === 'get-credits' ) {
+		const level = value.startsWith( 'effort:' ) ? value.slice( 'effort:'.length ) : undefined;
+		if ( level !== undefined ) {
+			if ( isAiEffortLevel( level ) ) {
+				onEffortChange( level );
+			}
+		} else if ( value === 'get-credits' ) {
 			onAddCredits( triggerRef );
 		} else if ( value === 'connect-provider' ) {
 			openSettings( 'ai' );
@@ -89,6 +128,28 @@ export function ModelPicker( {
 			}
 		}
 	};
+	const effortGroups: CommandGroup[] = [
+		{
+			label: __( 'Effort' ),
+			heading: sprintf(
+				/* translators: %s: model name, e.g. "Sonnet 5" */
+				__( '%s effort' ),
+				modelLabel
+			),
+			items: [
+				{ value: 'effort-back', label: __( 'Back' ), icon: ChevronLeftIcon },
+				...AI_EFFORT_LEVELS.map(
+					( level ): Command => ( {
+						value: `effort:${ level }`,
+						label: getAiEffortLabel( level ),
+						description: getEffortDescription( level ),
+						icon: GaugeIcon,
+						trailing: level === effort ? <CheckIcon aria-hidden="true" /> : undefined,
+					} )
+				),
+			],
+		},
+	];
 	const groups: CommandGroup[] = [
 		{
 			label: __( 'Models' ),
@@ -112,6 +173,22 @@ export function ModelPicker( {
 				} )
 			),
 		},
+		...( offersEffort
+			? [
+					{
+						label: __( 'Effort' ),
+						items: [
+							{
+								value: 'effort',
+								label: __( 'Effort' ),
+								description: getAiEffortLabel( effort ),
+								icon: GaugeIcon,
+								trailing: <ChevronRightIcon aria-hidden="true" />,
+							},
+						],
+					},
+			  ]
+			: [] ),
 		{
 			label: __( 'Actions' ),
 			heading: __( 'Actions' ),
@@ -142,6 +219,7 @@ export function ModelPicker( {
 			onOpenChange={ ( next ) => {
 				onOpenChange( next );
 				if ( next ) {
+					setEffortOpen( false );
 					setHighlight( model );
 					if ( isWpcom ) {
 						void refetchQuota();
@@ -163,11 +241,14 @@ export function ModelPicker( {
 				}
 			>
 				<span>{ modelLabel }</span>
+				{ offersEffort ? (
+					<span className={ styles.modelEffort }>{ getAiEffortLabel( effort ) }</span>
+				) : null }
 				<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
 			</Popover.Trigger>
 			<CommandSheet
-				label={ __( 'Choose a model' ) }
-				groups={ groups }
+				label={ effortOpen ? __( 'Choose an effort' ) : __( 'Choose a model' ) }
+				groups={ effortOpen ? effortGroups : groups }
 				highlighted={ highlight }
 				onHighlight={ setHighlight }
 				onSelect={ pickCommand }

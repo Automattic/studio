@@ -568,6 +568,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.setAiSessionModel( sessionId, model );
 		},
 
+		async setSessionEffort( sessionId, effort ) {
+			await ipcApi.setAiSessionEffort( sessionId, effort );
+		},
+
 		async setSessionProvider( sessionId, provider, model ) {
 			await ipcApi.setAiSessionProvider( sessionId, provider, model );
 		},

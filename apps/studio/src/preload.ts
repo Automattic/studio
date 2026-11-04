@@ -174,6 +174,8 @@ const api: IpcApi = {
 	listActiveAiAgentRuns: () => ipcRendererInvoke( 'listActiveAiAgentRuns' ),
 	setAiSessionModel: ( sessionId, model ) =>
 		ipcRendererInvoke( 'setAiSessionModel', sessionId, model ),
+	setAiSessionEffort: ( sessionId, effort ) =>
+		ipcRendererInvoke( 'setAiSessionEffort', sessionId, effort ),
 	setAiSessionProvider: ( sessionId, provider, model ) =>
 		ipcRendererInvoke( 'setAiSessionProvider', sessionId, provider, model ),
 	setAiSessionEnvironment: ( sessionId, environment ) =>

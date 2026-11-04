@@ -98,3 +98,8 @@
 .dialogDescription {
 	text-wrap: pretty;
 }
+
+.modelEffort {
+	color: var( --muted-foreground );
+	font-size: var( --text-xxs );
+}

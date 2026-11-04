@@ -1,7 +1,7 @@
 import type { ActiveAgentRun, AgentRunEvent } from '@studio/agent/protocol/agent-events';
 import type { StudioChatFileAttachment } from '@studio/agent/protocol/chat-files';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
-import type { AiModelId } from '@studio/agent/protocol/models';
+import type { AiEffortLevel, AiModelId } from '@studio/agent/protocol/models';
 import type { AiProviderId, AiSettings } from '@studio/agent/protocol/providers';
 import type {
 	AiSessionMetadata,
@@ -412,6 +412,9 @@ export interface Connector {
 	// on the next turn; the change survives reloads because it's written to the
 	// session JSONL.
 	setSessionModel( sessionId: string, model: AiModelId ): Promise< void >;
+	// The reasoning effort for the session's next turns, on models that offer one.
+	// Same mechanism as setSessionModel.
+	setSessionEffort( sessionId: string, effort: AiEffortLevel ): Promise< void >;
 	// Pin the session to an AI provider, with the model it should use there.
 	// Same mechanism as setSessionModel: an entry in the session JSONL the CLI
 	// honors on resume.

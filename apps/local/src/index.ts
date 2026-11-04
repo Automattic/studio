@@ -24,6 +24,7 @@ import { deleteAiSessionPlacement } from '@studio/agent/node/sessions/placement'
 import {
 	appendModelChangeEntry,
 	appendStudioEntry,
+	appendThinkingLevelChangeEntry,
 	deleteAiSession,
 } from '@studio/agent/node/sessions/store';
 import {
@@ -38,7 +39,7 @@ import {
 	STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES,
 	validateStudioChatImages,
 } from '@studio/agent/protocol/chat-images';
-import { isAiModelId } from '@studio/agent/protocol/models';
+import { isAiEffortLevel, isAiModelId } from '@studio/agent/protocol/models';
 import { isAiProviderId, providerServesModel } from '@studio/agent/protocol/providers';
 import { expandSkillCommandPrompt } from '@studio/agent/protocol/slash-commands';
 import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
@@ -2134,6 +2135,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			await appendModelChangeEntry( sessionsRoot, req.params.id, '', model );
+			res.sendStatus( 204 );
+		} )
+	);
+
+	api.post(
+		'/sessions/:id/effort',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const { effort } = req.body as { effort?: string };
+			if ( ! effort || ! isAiEffortLevel( effort ) ) {
+				res.status( 400 ).json( { error: `Unknown effort level: ${ effort }` } );
+				return;
+			}
+			await appendThinkingLevelChangeEntry( sessionsRoot, req.params.id, effort );
 			res.sendStatus( 204 );
 		} )
 	);

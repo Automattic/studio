@@ -5,6 +5,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useConnector } from '@/data/core';
 import {
 	createModelChangeEntry,
+	createThinkingLevelEntry,
 	openNewSession,
 	primeSessionQueryData,
 	SESSIONS_QUERY_KEY,
@@ -12,6 +13,7 @@ import {
 import { saveComposerDraft } from '@/features/composer/draft-store';
 import type { AiModelId, LoadedAiSession, SessionEntry } from '@/data/core';
 import type { ComposerAttachment } from '@/data/use-composer-attachments';
+import type { AiEffortLevel } from '@studio/agent/protocol/models';
 import type { AiProviderId } from '@studio/agent/protocol/providers';
 
 // Optimistic mirror of the `studio.session_context` entry the backend appends
@@ -35,6 +37,8 @@ interface ModelSwitchOptions {
 	ownerSiteId?: string;
 	onSwitchSession?: ( sessionId: string ) => void;
 	onModelChange?: ( model: AiModelId, provider: AiProviderId ) => void;
+	// Set for a chat that has no session yet; it keeps the effort until one exists.
+	onEffortChange?: ( effort: AiEffortLevel ) => void;
 	isModelLocked: ( id: AiModelId ) => boolean;
 	// The draft carried over to a fresh session.
 	text: string;
@@ -49,6 +53,7 @@ export function useModelSwitch( {
 	ownerSiteId,
 	onSwitchSession,
 	onModelChange,
+	onEffortChange,
 	isModelLocked,
 	text,
 	attachments,
@@ -90,6 +95,19 @@ export function useModelSwitch( {
 			);
 		},
 		[ appendEntryOptimistically, connector ]
+	);
+
+	const changeEffort = useCallback(
+		( effort: AiEffortLevel ) => {
+			if ( onEffortChange ) {
+				onEffortChange( effort );
+				return;
+			}
+			appendEntryOptimistically( createThinkingLevelEntry( effort ), ( id ) =>
+				connector.setSessionEffort( id, effort )
+			);
+		},
+		[ appendEntryOptimistically, connector, onEffortChange ]
 	);
 
 	const sessionHasTurns = useMemo(
@@ -211,6 +229,7 @@ export function useModelSwitch( {
 
 	return {
 		changeModel,
+		changeEffort,
 		pendingModel: pendingFamilyChange?.model ?? null,
 		familySwitchInFlight,
 		cancelFamilyChange,

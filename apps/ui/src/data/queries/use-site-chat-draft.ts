@@ -1,11 +1,13 @@
 import { skipToken, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import type { AiModelId } from '@/data/core';
+import type { AiEffortLevel } from '@studio/agent/protocol/models';
 import type { AiProviderId } from '@studio/agent/protocol/providers';
 
 interface SiteChatDraft {
 	model?: AiModelId;
 	provider?: AiProviderId;
+	effort?: AiEffortLevel;
 	activeEnvironment: 'local' | 'live';
 	lastSelectedWpcomSiteId?: number;
 	sessionId?: string;

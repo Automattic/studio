@@ -43,10 +43,13 @@ import { bindTool } from '@studio/agent/node/tools/define-tool';
 import { createPresentDesignOptionsTool } from '@studio/agent/node/tools/present-design-options';
 import { createSkillTool } from '@studio/agent/node/tools/skill';
 import {
+	aiModelSupportsEffort,
 	aiModelSupportsImages,
+	DEFAULT_EFFORT,
 	DEFAULT_MODEL,
 	getAiModel,
 	getAiModelFamily,
+	readSessionEffort,
 	type AiModelFamily,
 	type AiModelId,
 } from '@studio/agent/protocol/models';
@@ -438,7 +441,10 @@ async function createStudioAgentSession(
 		agentDir: sitesRoot,
 		modelRuntime,
 		model,
-		thinkingLevel: 'medium',
+		// The effort the user picked for this chat, on models that offer a choice.
+		thinkingLevel: aiModelSupportsEffort( config.model )
+			? readSessionEffort( config.session.getEntries() ) ?? DEFAULT_EFFORT
+			: DEFAULT_EFFORT,
 		sessionManager: config.session,
 		settingsManager,
 		resourceLoader,

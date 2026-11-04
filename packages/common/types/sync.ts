@@ -173,17 +173,14 @@ export type PushSyncOptions = {
 	specificSelectionPaths?: string[];
 };
 /**
- * What a pull includes. By default, all files and the database. The app sends both forms, and the
- * CLI uses the one its pull engine understands: `optionsToSync`/`includePathList` for the Jetpack
- * Backup pull, the rest for the Reprint pull (`STUDIO_ENABLE_PULL_REPRINT`).
+ * What a pull includes. By default, all files and the database. A pick of files is sent both as
+ * Backup node ids for the Jetpack Backup pull and as paths for the Reprint pull
+ * (`STUDIO_ENABLE_PULL_REPRINT`).
  */
 export type PullSyncOptions = {
 	optionsToSync?: SyncOption[];
 	/** Backup node ids, used with the `paths` option. */
 	includePathList?: string[];
-	/** Pulls only these files and folders, relative to wp-content, such as `plugins/akismet`. */
+	/** Backup node ids' paths, relative to wp-content, such as `plugins/akismet`. */
 	onlyPaths?: string[];
-	skipDatabase?: boolean;
-	/** Pulls only the database. */
-	skipFiles?: boolean;
 };

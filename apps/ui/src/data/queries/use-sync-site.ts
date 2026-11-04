@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect } from 'react';
 import { getAccountJourney, completeAccountJourney } from '@/data/account-analytics';
-import { ERROR_TOAST_TTL_MS, openStudioLogsAction, toast } from '@/data/app-messages';
+import { openStudioLogsAction, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
@@ -153,8 +153,6 @@ export function useSettleSync() {
 					),
 					{
 						id: noticeId,
-						description: settled.warning,
-						durationMs: settled.warning ? ERROR_TOAST_TTL_MS : undefined,
 						action: viewSite && { label: __( 'View' ), onClick: () => void viewSite() },
 					}
 				);

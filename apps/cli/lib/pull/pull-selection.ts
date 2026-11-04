@@ -29,10 +29,14 @@ export interface CliSelectionOptions {
 const FILE_SYNC_OPTIONS = [ 'plugins', 'themes', 'uploads' ] as const;
 
 /**
- * The selection for push-style sync options, such as `themes,sqls`. `contents`
- * stands for the rest of wp-content, so it pulls every file.
+ * The selection for the sync options the app and the agent send, such as `themes,sqls`. `contents`
+ * stands for the rest of wp-content, so it pulls every file. With the `paths` option, `only` holds
+ * the picked files.
  */
-export function pullSelectionFromSyncOptions( options: SyncOption[] ): CliSelectionOptions {
+export function pullSelectionFromSyncOptions(
+	options: SyncOption[],
+	only: string[] = []
+): CliSelectionOptions {
 	if ( options.length === 0 || options.includes( 'all' ) ) {
 		return {};
 	}
@@ -40,8 +44,10 @@ export function pullSelectionFromSyncOptions( options: SyncOption[] ): CliSelect
 	if ( options.includes( 'contents' ) ) {
 		return { skipDatabase };
 	}
-	const only = FILE_SYNC_OPTIONS.filter( ( option ) => options.includes( option ) );
-	return only.length > 0 ? { only, skipDatabase } : { skipFiles: true };
+	const files = only.length
+		? only
+		: FILE_SYNC_OPTIONS.filter( ( option ) => options.includes( option ) );
+	return files.length > 0 ? { only: files, skipDatabase } : { skipFiles: true };
 }
 
 /**

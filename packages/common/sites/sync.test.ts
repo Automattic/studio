@@ -48,7 +48,6 @@ describe( 'pullSite', () => {
 			optionsToSync: [ 'paths' ],
 			includePathList,
 			onlyPaths: [ 'themes/one,two', 'uploads' ],
-			skipDatabase: true,
 		} );
 
 		emitter.emit( 'success' );
@@ -69,7 +68,6 @@ describe( 'pullSite', () => {
 				'themes/one,two',
 				'--only',
 				'uploads',
-				'--skip-database',
 				'--suppress-tracks-event',
 			],
 			{ output: 'capture' }

@@ -193,10 +193,6 @@ test.describe( 'Share and publish', () => {
 			42,
 			{ optionsToSync: [ 'plugins', 'themes', 'uploads', 'contents' ] },
 		] );
-		expect( calls[ 2 ].args ).toEqual( [
-			site.id,
-			42,
-			{ optionsToSync: [ 'sqls' ], skipFiles: true },
-		] );
+		expect( calls[ 2 ].args ).toEqual( [ site.id, 42, { optionsToSync: [ 'sqls' ] } ] );
 	} );
 } );

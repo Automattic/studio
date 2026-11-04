@@ -107,7 +107,6 @@ describe( 'CLI: studio pull Tracks events', () => {
 			expect.objectContaining( {
 				success: false,
 				sync_type: 'pressable',
-				site_kind: 'site',
 				failure_reason: 'remote_backup',
 				time_ms: expect.any( Number ),
 				// Proves `getTracksOrigin()` was spread in.

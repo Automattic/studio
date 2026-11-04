@@ -10,7 +10,7 @@ describe( 'sync selections', () => {
 		expect( plugin.folder ).toBe( true );
 		expect( plugin.expandable ).toBe( false );
 	} );
-	it( 'sends paths for selective push, and backup IDs and paths for selective pull', () => {
+	it( 'sends remote backup IDs and their paths for selective pull, and paths for push', () => {
 		const nodes = checkNodes(
 			remoteNodes( { theme: { id: 'backup-theme-42', type: 'dir' } }, '/wp-content/themes/' ),
 			true
@@ -21,7 +21,6 @@ describe( 'sync selections', () => {
 				optionsToSync: [ 'paths' ],
 				includePathList: [ 'backup-theme-42' ],
 				onlyPaths: [ 'themes/theme' ],
-				skipDatabase: true,
 			},
 		} );
 	} );

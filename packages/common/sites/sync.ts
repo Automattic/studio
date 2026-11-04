@@ -95,8 +95,6 @@ export function pullSite(
 				? [ '--include-path-list', ...options.includePathList ]
 				: [] ),
 			...( options?.onlyPaths ?? [] ).flatMap( ( onlyPath ) => [ '--only', onlyPath ] ),
-			...( options?.skipDatabase ? [ '--skip-database' ] : [] ),
-			...( options?.skipFiles ? [ '--skip-files' ] : [] ),
 			// The UI records `studio_sync_pull` itself.
 			'--suppress-tracks-event',
 		],

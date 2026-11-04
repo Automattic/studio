@@ -26,15 +26,7 @@ export function presetOptions( scope: Exclude< PublishScope, 'custom' > ): Trans
 			: scope === 'content'
 			? [ 'sqls' ]
 			: [ 'plugins', 'themes', 'uploads', 'contents' ];
-	const pull = {
-		optionsToSync,
-		...( scope === 'all'
-			? {}
-			: scope === 'content'
-			? { skipFiles: true }
-			: { skipDatabase: true } ),
-	};
-	return { push: { optionsToSync }, pull };
+	return { push: { optionsToSync }, pull: { optionsToSync } };
 }
 
 export function overwriteDescription( direction: TransferDirection ) {

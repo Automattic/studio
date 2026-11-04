@@ -10,25 +10,20 @@ import {
 	getConnectedWpcomSitesForLocalSite,
 	markConnectedWpcomSiteSynced,
 } from '@studio/common/lib/connected-sites';
-import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
-import { calculateDirectorySizeForArchive } from '@studio/common/lib/fs-utils';
 import { encodePassword } from '@studio/common/lib/passwords';
 import { buildSyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
-import {
-	SYNC_PUSH_SIZE_LIMIT_BYTES,
-	SYNC_PUSH_SIZE_LIMIT_GB,
-} from '@studio/common/lib/sync/constants';
 import { PullCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import chalk from 'chalk';
 import { enableReprintExporter } from 'cli/lib/api';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { linkPulledPreview } from 'cli/lib/cli-config/snapshots';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { getStandingPreviews, type StandingPreview } from 'cli/lib/preview-sites';
+import { getStandingPreviews } from 'cli/lib/preview-sites';
 import {
 	applySelection,
 	type CliSelectionOptions,
+	pullSelectionFromSyncOptions,
 	clearPullSelection,
 	type PullSelection,
 } from 'cli/lib/pull/pull-selection';
@@ -71,11 +66,14 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 			argv.path,
 			argv.remoteSite,
 			verbose,
-			{
-				only: argv.only as string[] | undefined,
-				skipDatabase: argv[ 'skip-database' ] as boolean,
-				skipFiles: argv[ 'skip-files' ] as boolean,
-			},
+			// The app and the agent describe what to pull with `--options`.
+			argv.options
+				? pullSelectionFromSyncOptions( argv.options, argv.only as string[] | undefined )
+				: {
+						only: argv.only as string[] | undefined,
+						skipDatabase: argv[ 'skip-database' ] as boolean,
+						skipFiles: argv[ 'skip-files' ] as boolean,
+				  },
 			argv.suppressTracksEvent
 		);
 		// The pulled site's server keeps handles open.
@@ -98,40 +96,20 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 }
 
 /**
- * The source site's standing preview, or null when it is not one of the user's previews. Undefined
- * when previews could not be listed: that is not worth failing a pull over.
+ * When the pulled site is one of the user's preview sites, makes it this local site's preview, so
+ * updating it pushes this site's changes back. Best-effort: the pull has already succeeded.
  */
-async function findPreview( source: PullSource ): Promise< StandingPreview | null | undefined > {
+async function linkIfPreview( localSiteId: string, source: PullSource ): Promise< void > {
 	try {
-		const previews = await getStandingPreviews( source.wpComToken.accessToken );
-		return previews.get( source.wpComSite.id ) ?? null;
+		const preview = ( await getStandingPreviews( source.wpComToken.accessToken ) ).get(
+			source.wpComSite.id
+		);
+		if ( preview ) {
+			await linkPulledPreview( localSiteId, source.wpComSite.id, source.wpComToken.id, preview );
+		}
 	} catch {
-		return undefined;
+		// Listing previews is not worth failing a finished pull over.
 	}
-}
-
-/**
- * Makes a pulled preview this local site's preview, so updating it pushes this site's changes back.
- * Best-effort: the pull has already succeeded.
- */
-async function linkPreview(
-	localSiteId: string,
-	source: PullSource,
-	preview: StandingPreview
-): Promise< void > {
-	try {
-		await linkPulledPreview( localSiteId, source.wpComSite.id, source.wpComToken.id, preview );
-	} catch {
-		// The pulled site still works; only the preview link is missing.
-	}
-}
-
-/** `site_kind` for `studio_sync_pull`: whether the pull came from one of the user's previews. */
-function getSiteKind( run: PullRun ): 'preview' | 'site' | 'unknown' {
-	if ( run.preview === undefined ) {
-		return 'unknown';
-	}
-	return run.preview ? 'preview' : 'site';
 }
 
 /** The connected site this local site was last pulled from, so a repeat `studio pull` needs no site. */
@@ -157,38 +135,6 @@ async function rememberConnection( localSiteId: string, remoteSite: SyncSite ): 
 	}
 }
 
-/**
- * Warns when the pulled site looks too big to push back to WordPress.com.
- *
- * Reprint streams the site in pieces, so unlike the Jetpack backup there is no archive size to check
- * before downloading; this measures what landed in wp-content instead. Push uploads a gzipped
- * archive, so the uncompressed tally over-reports, which is why the warning says "may": a false
- * alarm is cheap, a missed one surfaces as a failed push. Goes away when push moves to Reprint.
- */
-async function warnIfTooBigToPush( sitePath: string ): Promise< string | undefined > {
-	try {
-		const wpContentSize = await calculateDirectorySizeForArchive(
-			path.join( sitePath, 'wp-content' ),
-			await createDeployIgnoreFilter( sitePath ),
-			'wp-content'
-		);
-		if ( wpContentSize <= SYNC_PUSH_SIZE_LIMIT_BYTES ) {
-			return undefined;
-		}
-		const warning = sprintf(
-			__(
-				'This site is over %d GB, so publishing it back to WordPress.com may fail. Publish a smaller selection of files instead.'
-			),
-			SYNC_PUSH_SIZE_LIMIT_GB
-		);
-		logger.reportWarning( warning );
-		return warning;
-	} catch {
-		// Measuring is advice; the pull has already succeeded.
-		return undefined;
-	}
-}
-
 /** A failure to reach the remote site, with details shown under `--verbose`. */
 class PullError extends LoggerError {
 	technicalDetails: string;
@@ -203,9 +149,6 @@ class PullError extends LoggerError {
 interface PullRun {
 	siteId?: string;
 	remoteSite?: SyncSite;
-	preview?: StandingPreview | null;
-	// Shown with the success, e.g. that the site is too big to push back.
-	warning?: string;
 	localChangesApplied: boolean;
 	completed: boolean;
 }
@@ -254,7 +197,7 @@ export async function runCommand(
 						localChangesApplied: run.localChangesApplied,
 				  }
 				: run.completed
-				? { kind: 'success', direction: 'pull', warning: run.warning }
+				? { kind: 'success', direction: 'pull' }
 				: { kind: 'cancelled', direction: 'pull' }
 		);
 	}
@@ -269,7 +212,6 @@ export async function runCommand(
 					error: pullError,
 					hint: { code: findFailureCode( pullError ) },
 				} ),
-				site_kind: getSiteKind( run ),
 				...getTracksOrigin(),
 			} );
 		} catch {
@@ -323,7 +265,6 @@ async function pullSite(
 		return;
 	}
 	run.remoteSite = sourceSite.wpComSite;
-	run.preview = await findPreview( sourceSite );
 	const exporter = await enableReprintExporter(
 		sourceSite.wpComSite.id,
 		sourceSite.wpComToken.accessToken,
@@ -435,11 +376,8 @@ async function pullSite(
 				record.runtimeBlueprintPath = studioMetadata.runtimeBlueprintPath;
 			} );
 			logger.reportSuccess( `Site "${ site.name }" updated` );
-			if ( run.preview ) {
-				await linkPreview( site.id, sourceSite, run.preview );
-			}
+			await linkIfPreview( site.id, sourceSite );
 			await rememberConnection( site.id, sourceSite.wpComSite );
-			run.warning = await warnIfTooBigToPush( site.path );
 
 			// The pulled database has no local admin user, so auto-login needs credentials to create one.
 			if ( ! site.adminPassword ) {

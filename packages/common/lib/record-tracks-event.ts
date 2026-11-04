@@ -189,6 +189,7 @@ export type TracksAuthSource =
 	| 'site_header'
 	| 'add_site'
 	| 'cli'
+	| 'mcp'
 	| 'unknown';
 
 // Which route the user chose: signup or login. This does not prove account creation.

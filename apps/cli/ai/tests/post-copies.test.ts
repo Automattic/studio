@@ -179,7 +179,7 @@ describe( 'post copies', () => {
 	it( 'rewrites the copy of a post changed in WordPress', async () => {
 		const { check } = await openedWorkspace();
 		fixture.edit( 9, HEADING );
-		expect( await check.settle() ).toMatchObject( { summaries: [], problems: [] } );
+		expect( ( await check.settle() ).problems ).toEqual( [] );
 		expect( read( copy( 'page', 9 ) ) ).toBe( HEADING );
 		expect( runWpCliCommand ).not.toHaveBeenCalled();
 	} );

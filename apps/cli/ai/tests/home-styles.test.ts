@@ -25,7 +25,21 @@ const FOOTERS: Record< string, string > = {
 		<p style="margin:0">Brightside Family Dental</p></div></div>`,
 	left: `<p>© 2025 Brightside Family Dental</p>`,
 	links: `<div class="is-layout-flex" style="${ row }"><a href="#">Privacy</a><a href="#">Terms</a></div>`,
+	// An icon beside its words, centered together as the paragraph's own row.
+	icon: `<div style="width:160px;margin:auto;text-align:center"><p style="display:flex;justify-content:center;gap:8px"><span style="font-size:30px">*</span> 128 Brightside Way, Suite 200</p></div>`,
 };
+
+// eval17 and eval18's home pages as a visitor sees them, in one: what each fault looks like, and what is not one.
+const PAGE = `<p class="skip" style="position:absolute;left:0;clip-path:inset(50%)">Skip to content</p>
+	<section style="padding:0 40px"><p>A welcome set in from the window's edge.</p></section>
+	<section><p>A welcome against the window's edge.</p></section>
+	<section style="padding:40px;background:#3a3550"><p style="color:#423d5c">Invisible links on the footer</p><p style="color:#fff">Readable footer text</p></section>
+	<section style="padding:40px;background:url(data:image/gif;base64,R0lGODlhAQABAAAAACw=) #fff"><p style="color:#fff">White text on a photo</p></section>
+	<section style="position:relative;padding:40px;background:url(data:image/gif;base64,R0lGODlhAQABAAAAACw=)"><span style="position:absolute;inset:0;background:#12314f;opacity:.4"></span><p style="position:relative;color:#12314f">Dark text on a photo, dimmed</p></section>
+	<section style="padding:0 40px"><h2 style="font-size:48px">A heading as long as a sentence, set large</h2><ul><li style="font-size:48px">Call us, or book online in under a minute.</li><li>Short</li></ul>
+	<blockquote style="font-size:32px">A testimonial set large, as a design does</blockquote>
+	<p>Body text for the median size of the page, at sixteen pixels.</p></section>
+	<section style="position:relative;padding:0 40px"><p>A heading under an overlay</p><div style="position:absolute;inset:0;background:rgba(0,0,0,.5)"></div></section>`;
 
 describe.runIf( CHROMIUM )( 'the eval home page styles', () => {
 	let server: http.Server;
@@ -34,9 +48,11 @@ describe.runIf( CHROMIUM )( 'the eval home page styles', () => {
 		server = http.createServer( ( request, response ) => {
 			response.writeHead( 200, { 'content-type': 'text/html' } );
 			response.end(
-				`<!doctype html><body style="margin:0"><main>Home</main><footer style="width:1000px;margin:auto">${
-					FOOTERS[ request.url?.slice( 1 ) ?? '' ]
-				}</footer></body>`
+				request.url === '/page'
+					? `<!doctype html><body style="margin:0;font-size:16px">${ PAGE }</body>`
+					: `<!doctype html><body style="margin:0"><main>Home</main><footer style="width:1000px;margin:auto">${
+							FOOTERS[ request.url?.slice( 1 ) ?? '' ]
+					  }</footer></body>`
 			);
 		} );
 		await new Promise< void >( ( resolve ) => server.listen( 0, '127.0.0.1', resolve ) );
@@ -52,6 +68,7 @@ describe.runIf( CHROMIUM )( 'the eval home page styles', () => {
 		[ 'logo', false ],
 		[ 'left', true ],
 		[ 'links', true ],
+		[ 'icon', false ],
 	] )(
 		'measures the %s footer as off center: %s',
 		async ( footer, off ) => {
@@ -64,4 +81,16 @@ describe.runIf( CHROMIUM )( 'the eval home page styles', () => {
 		},
 		60000
 	);
+
+	it( 'names the faults a visitor sees at a glance, and only those', async () => {
+		const { faults } = ( await homeStyles( url + 'page' ) ) as { faults: string[] };
+		expect(
+			faults.map( ( fault ) => fault.replace( /\(x .*\)|, [\d.]+:1|\d+(\.\d+)?px/g, '' ) )
+		).toEqual( [
+			`"A welcome against the window's edge." touches the window's edge `,
+			'"A heading under an overlay" is under div',
+			'"Invisible links on the footer" is rgb(66, 61, 92) on rgb(58, 53, 80)',
+			'"Call us, or book online in under a minut…" is , body text ',
+		] );
+	}, 60000 );
 } );

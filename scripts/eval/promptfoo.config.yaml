@@ -133,6 +133,8 @@ tests:
       - type: javascript
         value: file://outcome.mjs:siteHasItsOwnDesign
       - type: javascript
+        value: file://outcome.mjs:noVisibleFaults
+      - type: javascript
         value: file://outcome.mjs:turnsAreResponsive
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
@@ -152,6 +154,8 @@ tests:
       - type: javascript
         value: file://outcome.mjs:siteHasItsOwnDesign
       - type: javascript
+        value: file://outcome.mjs:noVisibleFaults
+      - type: javascript
         value: file://outcome.mjs:turnsAreResponsive
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
@@ -169,6 +173,8 @@ tests:
         value: file://outcome.mjs:builtFrontPage
       - type: javascript
         value: file://outcome.mjs:siteHasItsOwnDesign
+      - type: javascript
+        value: file://outcome.mjs:noVisibleFaults
       - type: javascript
         value: file://outcome.mjs:turnsAreResponsive
       - type: javascript
@@ -192,6 +198,8 @@ tests:
       - type: javascript
         value: file://outcome.mjs:siteHasItsOwnDesign
       - type: javascript
+        value: file://outcome.mjs:noVisibleFaults
+      - type: javascript
         value: file://outcome.mjs:turnsAreResponsive
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
@@ -211,6 +219,8 @@ tests:
       - type: javascript
         value: file://outcome.mjs:siteHasItsOwnDesign
       - type: javascript
+        value: file://outcome.mjs:noVisibleFaults
+      - type: javascript
         value: file://outcome.mjs:turnsAreResponsive
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
@@ -229,6 +239,8 @@ tests:
         value: file://outcome.mjs:builtFrontPage
       - type: javascript
         value: file://outcome.mjs:siteHasItsOwnDesign
+      - type: javascript
+        value: file://outcome.mjs:noVisibleFaults
       - type: javascript
         value: file://outcome.mjs:turnsAreResponsive
       - type: javascript
@@ -806,6 +818,8 @@ tests:
         value: file://outcome.mjs:siteWorks
       - type: javascript
         value: file://outcome.mjs:builtFrontPage
+      - type: javascript
+        value: file://outcome.mjs:noVisibleFaults
       - type: javascript
         value: file://outcome.mjs:menuReachesPages
       - type: javascript
@@ -1405,6 +1419,8 @@ tests:
       - type: javascript
         value: file://outcome.mjs:siteHasItsOwnDesign
       - type: javascript
+        value: file://outcome.mjs:noVisibleFaults
+      - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
 
   # A picky user takes the first version apart in their own words, then changes
@@ -1431,6 +1447,8 @@ tests:
         value: file://outcome.mjs:siteWorks
       - type: javascript
         value: file://outcome.mjs:restyleApplied
+      - type: javascript
+        value: file://outcome.mjs:noVisibleFaults
       - type: javascript
         value: file://outcome.mjs:turnsAreResponsive
       - type: javascript

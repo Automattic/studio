@@ -618,7 +618,10 @@ export async function homeStyles( url: string ) {
 					) {
 						if ( isRow( box ) ) row = box;
 					}
-					const item = row && [ ...row.children ].find( ( child ) => child.contains( el ) );
+					// A text that is itself a row, as an icon beside its words, is its content together.
+					if ( ! row && isRow( el ) ) row = el;
+					const item =
+						row && row !== el && [ ...row.children ].find( ( child ) => child.contains( el ) );
 					const holder = item === el ? el : el.parentElement;
 					if ( ! holder ) return null;
 					const range = document.createRange();
@@ -633,17 +636,17 @@ export async function homeStyles( url: string ) {
 							right: Math.max( line.right, rect.right ),
 						} );
 					}
-					const offsets = [ ...lines.values() ].map( ( line ) =>
-						Math.abs( middle( line ) - middle( holder.getBoundingClientRect() ) )
-					);
+					const offsets =
+						row === el
+							? []
+							: [ ...lines.values() ].map( ( line ) =>
+									Math.abs( middle( line ) - middle( holder.getBoundingClientRect() ) )
+							  );
 					if ( row?.parentElement ) {
-						const items = [ ...row.children ]
-							.map( ( child ) => child.getBoundingClientRect() )
-							.filter( ( box ) => box.width && box.height );
-						const content = {
-							left: Math.min( ...items.map( ( box ) => box.left ) ),
-							right: Math.max( ...items.map( ( box ) => box.right ) ),
-						};
+						// Its items' boxes and loose text together.
+						const rowRange = document.createRange();
+						rowRange.selectNodeContents( row );
+						const content = rowRange.getBoundingClientRect();
 						offsets.push(
 							Math.abs( middle( content ) - middle( row.parentElement.getBoundingClientRect() ) )
 						);
@@ -676,6 +679,118 @@ export async function homeStyles( url: string ) {
 				const bodyFontSize = bodySizes.length
 					? bodySizes[ Math.floor( bodySizes.length / 2 ) ]
 					: null;
+				// Faults a visitor sees at a glance, in text of the page's own: text
+				// against the window's edge, too faint to read on its background,
+				// painted over by another element on the first screen, or body text
+				// the size of a heading.
+				const faults: string[] = [];
+				const luminance = ( color: string ) => {
+					const [ r, g, b ] = ( color.match( /[\d.]+/g ) ?? [] ).map( Number );
+					const channel = ( value: number ) => {
+						const c = value / 255;
+						return c <= 0.03928 ? c / 12.92 : ( ( c + 0.055 ) / 1.055 ) ** 2.4;
+					};
+					return 0.2126 * channel( r ) + 0.7152 * channel( g ) + 0.0722 * channel( b );
+				};
+				const contrast = ( a: string, b: string ) => {
+					const [ hi, lo ] = [ luminance( a ), luminance( b ) ].sort( ( x, y ) => y - x );
+					return ( hi + 0.05 ) / ( lo + 0.05 );
+				};
+				const alpha = ( color: string ) => {
+					const parts = color.match( /[\d.]+/g ) ?? [];
+					return parts.length > 3 ? Number( parts[ 3 ] ) : 1;
+				};
+				// The solid color painted behind a point, or none when an image, a
+				// a see-through color or a faded one, as a cover's dimming, shows there.
+				const paintedBehind = ( x: number, y: number ) => {
+					for ( const at of document.elementsFromPoint( x, y ) ) {
+						const style = getComputedStyle( at );
+						if (
+							style.backgroundImage !== 'none' ||
+							/^(IMG|VIDEO|CANVAS|SVG|PICTURE)$/i.test( at.tagName ) ||
+							parseFloat( style.opacity ) < 1
+						)
+							return null;
+						const color = style.backgroundColor;
+						if ( alpha( color ) === 1 ) return color;
+						if ( alpha( color ) > 0 ) return null;
+					}
+					return 'rgb(255, 255, 255)';
+				};
+				const quote = ( el: Element ) => {
+					const text = ( el.textContent ?? '' ).replace( /\s+/g, ' ' ).trim();
+					return `"${ text.length > 40 ? `${ text.slice( 0, 40 ) }…` : text }"`;
+				};
+				const viewport = document.documentElement.clientWidth;
+				const texts = [ ...document.querySelectorAll( 'p, h1, h2, h3, h4, h5, h6, li, a' ) ].filter(
+					( el ) =>
+						visible( el ) &&
+						( el.textContent ?? '' ).trim() &&
+						! el.parentElement?.closest( 'p, h1, h2, h3, h4, h5, h6, li' ) &&
+						// Not text kept for screen readers, clipped out of sight.
+						getComputedStyle( el ).clipPath === 'none' &&
+						getComputedStyle( el ).clip === 'auto'
+				);
+				const lineRects = ( el: Element ) => {
+					const range = document.createRange();
+					range.selectNodeContents( el );
+					return [ ...range.getClientRects() ].filter( ( rect ) => rect.width );
+				};
+				for ( const el of texts ) {
+					const rects = lineRects( el );
+					if ( ! rects.length ) continue;
+					const left = Math.min( ...rects.map( ( rect ) => rect.left ) );
+					const right = Math.max( ...rects.map( ( rect ) => rect.right ) );
+					if ( left < 4 || right > viewport - 4 )
+						faults.push(
+							`${ quote( el ) } touches the window's edge (x ${ Math.round( left ) }–${ Math.round(
+								right
+							) })`
+						);
+					// On the first screen, the element painted at its first line's middle.
+					const [ first ] = rects;
+					const x = first.left + first.width / 2;
+					const y = first.top + first.height / 2;
+					if ( y > 0 && y < window.innerHeight ) {
+						const top = document.elementFromPoint( x, y );
+						if ( top && ! el.contains( top ) && ! top.contains( el ) )
+							faults.push(
+								`${ quote( el ) } is under ${ top.tagName.toLowerCase() }${ [ ...top.classList ]
+									.slice( 0, 2 )
+									.map( ( name ) => `.${ name }` )
+									.join( '' ) }`
+							);
+					}
+				}
+				// Each text in the middle of the window, against what is painted behind it there.
+				for ( const el of texts ) {
+					const box = el.getBoundingClientRect();
+					window.scrollTo( {
+						top: box.top + window.scrollY - window.innerHeight / 2,
+						behavior: 'instant',
+					} );
+					const [ first ] = lineRects( el );
+					const color = getComputedStyle( el ).color;
+					const behind =
+						first && paintedBehind( first.left + first.width / 2, first.top + first.height / 2 );
+					if ( behind && alpha( color ) > 0 && contrast( color, behind ) < 2 )
+						faults.push(
+							`${ quote( el ) } is ${ color } on ${ behind }, ${ contrast( color, behind ).toFixed(
+								2
+							) }:1`
+						);
+				}
+				window.scrollTo( { top: 0, behavior: 'instant' } );
+				const bodySize = bodyFontSize ?? 16;
+				for ( const el of texts ) {
+					const fontSize = parseFloat( getComputedStyle( el ).fontSize );
+					if (
+						/^(P|LI)$/.test( el.tagName ) &&
+						( el.textContent ?? '' ).trim().length > 30 &&
+						fontSize > bodySize * 2.25
+					)
+						faults.push( `${ quote( el ) } is ${ fontSize }px, body text ${ bodySize }px` );
+				}
 				// Images on the first screen, as an img or a background, by their drawn width.
 				const firstScreenImages = [ ...document.querySelectorAll( 'body *' ) ]
 					.filter( ( el ) => {
@@ -710,6 +825,7 @@ export async function homeStyles( url: string ) {
 					footerAllText,
 					bodyFontSize,
 					firstScreenImages,
+					faults,
 				};
 			} );
 		} finally {

@@ -236,6 +236,16 @@ export const homeImagesLoad = check( ( d, vars ) => {
 	return pass( `all ${ images.length } home page images load from the site` );
 } );
 
+// The rendered home page has none of the faults a visitor sees at a glance:
+// text against the window's edge, too faint to read, painted over on the
+// first screen, or body text the size of a heading (homeStyles' faults).
+export const noVisibleFaults = check( ( d, vars ) => {
+	const styles = site( d, vars ).home?.styles;
+	if ( ! styles || styles.error ) return fail( `no home page styles: ${ styles?.error }` );
+	if ( styles.faults.length ) return fail( `the home page shows: ${ styles.faults.join( '; ' ) }` );
+	return pass( 'no visible faults on the home page' );
+} );
+
 // No other site the user has was changed or removed.
 export const otherSitesUntouched = check( ( d ) => {
 	const o = d.outcome;

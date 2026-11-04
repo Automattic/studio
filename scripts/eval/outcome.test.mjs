@@ -1262,6 +1262,15 @@ test( 'list vars in the config are lists of objects', () => {
 	expect( scalarLists ).toEqual( [] );
 } );
 
+test( 'noVisibleFaults fails on the faults homeStyles found', () => {
+	const result = ( faults ) =>
+		run( checks.noVisibleFaults, outcome( { ...workingSite, home: { styles: { faults } } } ) );
+	expect( result( [] ).pass ).toBe( true );
+	expect( result( [ '"Hours" is rgb(58, 53, 80) on rgb(66, 61, 92), 1.14:1' ] ).pass ).toBe(
+		false
+	);
+} );
+
 test( 'restyleApplied judges the last turn against the first', () => {
 	const first = {
 		navLeft: 800,

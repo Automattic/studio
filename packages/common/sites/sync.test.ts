@@ -40,7 +40,7 @@ describe( 'pullSite', () => {
 		expect( execute ).not.toHaveBeenCalled();
 	} );
 
-	// The CLI's pull engine uses whichever form it understands.
+	// Each pull engine reads its own form of a file pick.
 	it( 'passes both selection forms, one argv value per id or path', async () => {
 		const { emitter, execute } = fakeCli();
 		const includePathList = [ 'cjE6,ZjE6Lw==', 'cjI6,ZjI6Lw==', 'ZjM6Lw==' ];

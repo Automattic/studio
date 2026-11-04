@@ -86,7 +86,6 @@ export function pullSite(
 			siteFolder,
 			'--remote-site',
 			String( remoteSiteId ),
-			// Both engines' options: the CLI uses the ones its pull engine understands.
 			'--options',
 			( options?.optionsToSync?.length ? options.optionsToSync : [ 'all' ] ).join( ',' ),
 			// Pass each backup node id as its own argv value — ids can contain
@@ -94,6 +93,7 @@ export function pullSite(
 			...( options?.includePathList?.length
 				? [ '--include-path-list', ...options.includePathList ]
 				: [] ),
+			// The same picks as paths, for the Reprint pull.
 			...( options?.onlyPaths ?? [] ).flatMap( ( onlyPath ) => [ '--only', onlyPath ] ),
 			// The UI records `studio_sync_pull` itself.
 			'--suppress-tracks-event',

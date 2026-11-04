@@ -181,6 +181,6 @@ export type PullSyncOptions = {
 	optionsToSync?: SyncOption[];
 	/** Backup node ids, used with the `paths` option. */
 	includePathList?: string[];
-	/** Backup node ids' paths, relative to wp-content, such as `plugins/akismet`. */
+	/** The same picks as paths relative to wp-content, such as `plugins/akismet`. */
 	onlyPaths?: string[];
 };

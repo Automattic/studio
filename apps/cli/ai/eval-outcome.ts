@@ -518,7 +518,7 @@ async function homeImageFrames( url: string ) {
 // styles: where the header sits after a scroll, the order of its menu and
 // title, the buttons' corners and colors, the headings' case, the footer's
 // text sizes and the palette's colors.
-async function homeStyles( url: string ) {
+export async function homeStyles( url: string ) {
 	try {
 		const browser = await getSharedBrowser();
 		const page = await browser.newPage( { viewport: { width: 1280, height: 900 } } );
@@ -595,27 +595,34 @@ async function homeStyles( url: string ) {
 					textTransform: getComputedStyle( el ).textTransform,
 					first: el === topTitle,
 				} ) );
-				// How far an element's text sits from the middle of what holds it: its
-				// column or group, or for a row of links, the row's content within its
-				// parent; the farthest of its lines, in px.
+				// How far an element's text sits from the middle of what holds it, in
+				// px: the farthest of its lines from the middle of its column or group.
+				// In a row (blocks laid side by side, as a row group, the navigation or
+				// social links), its lines are measured in the row's item that holds
+				// them, and the row's items together in what holds the outermost row.
 				const offCenter = ( el: Element ) => {
-					const rows =
-						'.is-layout-flex:not(.wp-block-columns), .wp-block-navigation__container, .wp-block-social-links';
-					// A row inside a row is measured as the outermost row.
-					let row = el.closest( rows );
+					const middle = ( box: { left: number; right: number } ) => ( box.left + box.right ) / 2;
+					const isRow = ( box: Element ) => {
+						const style = getComputedStyle( box );
+						return (
+							style.display.endsWith( 'flex' ) &&
+							style.flexDirection.startsWith( 'row' ) &&
+							! box.classList.contains( 'wp-block-columns' )
+						);
+					};
+					let row: Element | undefined;
 					for (
-						let outer = row?.parentElement?.closest( rows );
-						outer && footer?.contains( outer );
-						outer = outer.parentElement?.closest( rows )
+						let box = el.parentElement;
+						box && footer?.contains( box );
+						box = box.parentElement
 					) {
-						row = outer;
+						if ( isRow( box ) ) row = box;
 					}
-					const target = row && footer?.contains( row ) ? row : el;
-					const holder = target.parentElement?.getBoundingClientRect();
+					const item = row && [ ...row.children ].find( ( child ) => child.contains( el ) );
+					const holder = item === el ? el : el.parentElement;
 					if ( ! holder ) return null;
-					const middle = holder.left + holder.width / 2;
 					const range = document.createRange();
-					range.selectNodeContents( target );
+					range.selectNodeContents( el );
 					const lines = new Map< number, { left: number; right: number } >();
 					for ( const rect of range.getClientRects() ) {
 						if ( ! rect.width ) continue;
@@ -626,14 +633,22 @@ async function homeStyles( url: string ) {
 							right: Math.max( line.right, rect.right ),
 						} );
 					}
-					return Math.round(
-						Math.max(
-							0,
-							...[ ...lines.values() ].map( ( line ) =>
-								Math.abs( ( line.left + line.right ) / 2 - middle )
-							)
-						)
+					const offsets = [ ...lines.values() ].map( ( line ) =>
+						Math.abs( middle( line ) - middle( holder.getBoundingClientRect() ) )
 					);
+					if ( row?.parentElement ) {
+						const items = [ ...row.children ]
+							.map( ( child ) => child.getBoundingClientRect() )
+							.filter( ( box ) => box.width && box.height );
+						const content = {
+							left: Math.min( ...items.map( ( box ) => box.left ) ),
+							right: Math.max( ...items.map( ( box ) => box.right ) ),
+						};
+						offsets.push(
+							Math.abs( middle( content ) - middle( row.parentElement.getBoundingClientRect() ) )
+						);
+					}
+					return Math.round( Math.max( 0, ...offsets ) );
 				};
 				// A link in a paragraph is measured with the paragraph's lines.
 				const footerText = footer

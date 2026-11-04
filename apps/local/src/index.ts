@@ -3,6 +3,7 @@ import { createReadStream, createWriteStream, existsSync, mkdtempSync, rm } from
 import os from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
+import { recordAnnotationSubmitted } from '@studio/agent/node/annotation-tracks';
 import {
 	getGlobalInstructionsEnabled,
 	readGlobalInstructionsFile,
@@ -156,6 +157,7 @@ import {
 	cleanupBlueprintTempDir,
 	extractBlueprintUpload,
 } from '@studio/common/sites/blueprint-extract';
+import { readBlueprintSource } from '@studio/common/sites/blueprint-source';
 import { buildSiteCreateArgs, type SiteCreateOptions } from '@studio/common/sites/create';
 import { buildSiteSetArgs, getSiteEditOptions } from '@studio/common/sites/edit';
 import { deleteSite, startSite, stopSite } from '@studio/common/sites/lifecycle';
@@ -1150,10 +1152,15 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				}
 			}
 			try {
+				const blueprint =
+					confined && req.body?.allowBlueprints === true
+						? await readBlueprintSource( confined )
+						: null;
 				res.json( {
 					...folder,
-					isEmpty: confined ? await isEmptyDir( confined ) : true,
-					isWordPress: confined ? isWordPressDirectory( confined ) : false,
+					...( blueprint ? { blueprint } : {} ),
+					isEmpty: blueprint ? false : confined ? await isEmptyDir( confined ) : true,
+					isWordPress: ! blueprint && confined ? isWordPressDirectory( confined ) : false,
 				} );
 			} catch ( err ) {
 				if ( ! isErrnoException( err ) || err.code !== 'ENOENT' ) throw err;
@@ -2205,6 +2212,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				images,
 				files,
 				visualAnnotations: validatedVisualAnnotations,
+			} );
+			void recordAnnotationSubmitted( {
+				annotationCount: validatedVisualAnnotations?.length ?? 0,
+				sessionsRoot,
+				sessionId: req.params.id,
+				record: options.recordTracksEvent,
 			} );
 			res.json( { runId } );
 		} )

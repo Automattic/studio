@@ -45,8 +45,16 @@ export const isElectron = (): boolean => {
 	return /\bElectron\//.test( navigator.userAgent );
 };
 
+export type PreviewColorScheme = 'system' | 'light' | 'dark';
+
 interface PreviewWindow extends Window {
 	ipcApi?: {
+		openWebviewDevTools?: ( webContentsId: number ) => Promise< void >;
+		setWebviewColorScheme?: (
+			webContentsId: number,
+			colorScheme: PreviewColorScheme
+		) => Promise< void >;
+		clearWebviewBrowsingData?: ( webContentsId: number ) => Promise< void >;
 		clearWebviewCache?: ( webContentsId: number ) => Promise< void >;
 		getWebviewNavigationHistory?: ( webContentsId: number ) => Promise< {
 			activeIndex: number;

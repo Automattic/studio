@@ -3,7 +3,7 @@ import { FullscreenIcon, SidebarIcon } from '@/lib/icons';
 import { IconButton } from '@/lib/ui';
 import styles from './style.module.css';
 
-export function PreviewLayoutControls( {
+export function PanelLayoutControls( {
 	open,
 	showFullView,
 	onOpenChange,
@@ -22,7 +22,7 @@ export function PreviewLayoutControls( {
 				<IconButton
 					size="icon-sm"
 					icon={ <FullscreenIcon inward={ fullscreen } /> }
-					label={ fullscreen ? __( 'Exit full view' ) : __( 'Enter full view' ) }
+					label={ fullscreen ? __( 'Restore split view' ) : __( 'Expand panel' ) }
 					onClick={ () => onFullscreenChange( ! fullscreen ) }
 					tooltipSide="bottom"
 				/>
@@ -30,9 +30,9 @@ export function PreviewLayoutControls( {
 			<IconButton
 				size="icon-sm"
 				icon={ <SidebarIcon side="right" /> }
-				label={ open ? __( 'Hide preview' ) : __( 'Show preview' ) }
+				label={ open ? __( 'Hide panel' ) : __( 'Show panel' ) }
 				aria-pressed={ open }
-				data-preview-layout={ ! open ? 'chat' : fullscreen ? 'preview' : 'split' }
+				data-workspace-layout={ ! open ? 'chat' : fullscreen ? 'panel' : 'split' }
 				onClick={ () => onOpenChange( ! open ) }
 				tooltipSide="bottom"
 			/>

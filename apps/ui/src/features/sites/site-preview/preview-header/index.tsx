@@ -5,6 +5,7 @@ import { PreviewAddressBar } from '@/features/sites/site-preview/address-bar';
 import { RotateCwIcon, ResponsiveIcon } from '@/lib/icons';
 import { IconButton, VisuallyHidden } from '@/lib/ui';
 import { BrowserHistoryButton } from './browser-history-button';
+import { BrowserMenu, type PreviewBrowserActions } from './browser-menu';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { BrowserNavigationState } from '@/features/sites/site-preview/browser-state';
@@ -26,6 +27,7 @@ interface PreviewHeaderProps {
 	onJump: ( historyIndex: number ) => void;
 	onPathChange?: ( path: string ) => void;
 	onOpenExternal?: () => void;
+	browserActions?: PreviewBrowserActions;
 	onExternalNavigate?: ( url: string ) => void;
 	responsive?: { active: boolean; disabled: boolean; onClick: () => void };
 }
@@ -44,6 +46,7 @@ export function PreviewHeader( {
 	onJump,
 	onPathChange,
 	onOpenExternal,
+	browserActions,
 	onExternalNavigate,
 	responsive,
 	inactive = false,
@@ -141,6 +144,9 @@ export function PreviewHeader( {
 					className={ styles.previewActions }
 				/>
 				{ responsiveButton }
+				{ canPreview && browserActions ? (
+					<BrowserMenu actions={ browserActions } disabled={ disabled } />
+				) : null }
 			</div>
 		</div>
 	);

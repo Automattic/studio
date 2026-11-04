@@ -59,7 +59,7 @@ async function renderHeader(
 	const site = makeSite( { id: siteId, running } );
 	connector.state.sites = [ site ];
 	const view = renderWithProviders(
-		<SiteHeaderActionsProvider host="preview">
+		<SiteHeaderActionsProvider host="panel">
 			<SessionUIProvider>
 				<SessionHeader site={ site } start={ <HeaderSidebarToggle /> } />
 				<SitePreview
@@ -73,7 +73,7 @@ async function renderHeader(
 		</SiteHeaderActionsProvider>,
 		{ connector }
 	);
-	await screen.findByRole( 'complementary', { name: 'Site preview' } );
+	await screen.findByRole( 'complementary', { name: 'Panel' } );
 	return {
 		...view,
 		resize: ( next: number, windowWidth = next ) =>
@@ -195,6 +195,11 @@ it( 'marks saved annotations with a dot while keeping Publish accented', async (
 it( 'keeps browser actions directly available in a narrow preview', async () => {
 	const connector = createFakeConnector();
 	const { user, resize } = await renderHeader( 'navigation-site', connector, 360 );
+	const openWebviewDevTools = vi.fn().mockResolvedValue( undefined );
+	vi.stubGlobal( 'ipcApi', {
+		clearWebviewCache: vi.fn( async () => {} ),
+		openWebviewDevTools,
+	} );
 	await resize( 360, 1000 );
 	const webview = readyGuest( {
 		canGoBack: () => false,
@@ -208,10 +213,6 @@ it( 'keeps browser actions directly available in a narrow preview', async () => 
 	const effects = [
 		[ 'Forward', () => expect( webview.goForward ).toHaveBeenCalledOnce() ],
 		[ 'Reload preview', () => expect( webview.reload ).toHaveBeenCalledOnce() ],
-		[
-			'Open this page in your browser',
-			() => expect( connector.openSiteUrl ).toHaveBeenCalledOnce(),
-		],
 	] as const;
 	for ( const [ name, effect ] of effects ) {
 		expect(
@@ -226,13 +227,22 @@ it( 'keeps browser actions directly available in a narrow preview', async () => 
 		await user.click( screen.getByRole( 'button', { name } ) );
 		await waitFor( effect );
 	}
+	const options = screen.getByRole( 'button', { name: 'Browser options' } );
+	await resize( 320 );
+	expect( screen.getByRole( 'button', { name: 'Browser options' } ) ).toBe( options );
+	options.focus();
+	await user.keyboard( '{ArrowDown}' );
+	await user.click( await screen.findByRole( 'menuitem', { name: 'Open DevTools' } ) );
+	await waitFor( () => expect( openWebviewDevTools ).toHaveBeenCalledExactlyOnceWith( 7 ) );
 } );
 
 it( 'keeps responsive mode on the right as the browser row compacts', async () => {
 	const { user, resize } = await renderHeader( 'responsive-overflow', createFakeConnector(), 1000 );
 	const toggle = screen.getByRole( 'button', { name: 'Responsive mode' } );
+	const options = screen.getByRole( 'button', { name: 'Browser options' } );
 	const browser = screen.getByRole( 'toolbar', { name: 'Preview browser controls' } );
 	expect( browser ).toContainElement( toggle );
+	expect( toggle.nextElementSibling ).toBe( options );
 	expect(
 		screen.getByRole( 'textbox', { name: 'Address' } ).closest( 'form' )
 	).not.toContainElement( toggle );
@@ -241,7 +251,12 @@ it( 'keeps responsive mode on the right as the browser row compacts', async () =
 	expect( screen.getByRole( 'toolbar', { name: 'Responsive preview' } ) ).toBeInTheDocument();
 	await resize( 320 );
 	expect( screen.getByRole( 'button', { name: 'Responsive mode' } ) ).toBe( toggle );
+	expect( screen.getByRole( 'button', { name: 'Browser options' } ) ).toBe( options );
 	expect( toggle ).toHaveFocus();
+	await user.keyboard( '{Tab}{ArrowDown}' );
+	expect( screen.getByRole( 'menuitem', { name: 'Open DevTools' } ) ).toHaveFocus();
+	await user.keyboard( '{Escape}' );
+	expect( options ).toHaveFocus();
 	expect(
 		screen.queryByRole( 'button', { name: 'More preview actions' } )
 	).not.toBeInTheDocument();

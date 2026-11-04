@@ -44,7 +44,10 @@ async function previewAction( menuItem: string, button = menuItem ) {
 		try {
 			if ( await inline.isVisible() ) {
 				// The address bar reveals its own actions on hover.
-				await page.getByRole( 'textbox', { name: 'Address' } ).hover( { timeout: 2000 } );
+				await page
+					.locator( 'form' )
+					.filter( { has: page.getByRole( 'textbox', { name: 'Address' } ) } )
+					.hover( { timeout: 2000 } );
 				await inline.click( { timeout: 2000 } );
 			} else {
 				await page

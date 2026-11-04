@@ -8,8 +8,9 @@ export {
 	useOpenInDestinations,
 } from './open-in-menu/use-open-in-destinations';
 export { pendingBlueprintSlot } from './pending-blueprint';
+export { pendingSiteFolderSlot } from './pending-site-folder';
 export { PreviewParticles } from './preview-particles';
-export { PreviewSplitFrame, type PreviewSplitFramePreviewProps } from './preview-split-frame';
+export { PanelSplitFrame, type PanelSplitFramePanelProps } from './panel-split-frame';
 export { SiteMenu, SiteMenuItems, useDeleteBlockedReason, useSiteActions } from './site-menu';
 export {
 	CertificateTrustNotice,
@@ -33,6 +34,6 @@ export { type AddSiteSection, isAddSiteSection, useOpenAddSite } from './use-ope
 export { useItemShortcuts } from './use-item-shortcuts';
 export { useSiteManagementActions } from './use-site-management-actions';
 
-export { PreviewLayoutControls } from './preview-layout-controls';
+export { PanelLayoutControls } from './panel-layout-controls';
 
 export { PreviewTabs } from './preview-tabs';

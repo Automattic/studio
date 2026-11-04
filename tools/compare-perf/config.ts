@@ -3,11 +3,17 @@ import path from 'path';
 const metricsPath = path.resolve( __dirname, '../metrics' );
 const artifactsPath = process.env.ARTIFACTS_PATH ?? path.join( metricsPath, 'artifacts' );
 
+const installTestBrowsers = 'npx playwright install chromium';
+const packageCommand = 'npm run package';
+
 const config = {
 	gitRepositoryURL: 'https://github.com/Automattic/studio.git',
-	setupTestRunner: 'npm ci && npx playwright install chromium',
+	repositoryRoot: path.resolve( __dirname, '../..' ),
+	installTestBrowsers,
+	setupTestRunner: `npm ci && ${ installTestBrowsers }`,
 	testCommand: 'npm run test:metrics',
-	setupCommand: 'npm ci && npm run package',
+	packageCommand,
+	setupCommand: `npm ci && ${ packageCommand }`,
 	testsPath: 'tools/metrics/tests',
 	testFileSuffix: '.test.ts',
 	artifactsPath,

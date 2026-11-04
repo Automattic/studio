@@ -5,48 +5,48 @@ import { renderApp } from '@/test/render';
 
 beforeEach( () => localStorage.clear() );
 
-async function chooseLayout( name: 'Chat' | 'Split view' | 'Browser' ) {
-	const toggle = await screen.findByRole( 'button', { name: /^(Show|Hide) preview$/ } );
-	const layout = toggle.getAttribute( 'data-preview-layout' );
+async function chooseLayout( name: 'Chat' | 'Split view' | 'Panel' ) {
+	const toggle = await screen.findByRole( 'button', { name: /^(Show|Hide) panel$/ } );
+	const layout = toggle.getAttribute( 'data-workspace-layout' );
 	if ( name === 'Chat' ) {
 		if ( layout !== 'chat' ) fireEvent.click( toggle );
 		return;
 	}
 	if ( layout === 'chat' ) fireEvent.click( toggle );
-	if ( name === 'Split view' && toggle.getAttribute( 'data-preview-layout' ) === 'split' ) return;
-	const full = name === 'Browser';
-	const button = screen.getByRole( 'button', { name: /^(Enter|Exit) full view$/ } );
-	if ( button.getAttribute( 'aria-label' ) === ( full ? 'Enter full view' : 'Exit full view' ) )
+	if ( name === 'Split view' && toggle.getAttribute( 'data-workspace-layout' ) === 'split' ) return;
+	const full = name === 'Panel';
+	const button = screen.getByRole( 'button', { name: /^(Expand panel|Restore split view)$/ } );
+	if ( button.getAttribute( 'aria-label' ) === ( full ? 'Expand panel' : 'Restore split view' ) )
 		fireEvent.click( button );
 }
 
 it.each( [ true, false ] )(
-	'toggles preview and full view without changing site lifecycle (running: %s)',
+	'toggles panel and full view without changing site lifecycle (running: %s)',
 	async ( running ) => {
 		const connector = createFakeConnector(
 			{ sites: [ makeSite( { id: 'one', running } ) ] },
 			{ getSiteThumbnail: async () => 'data:image/png;base64,eA==' }
 		);
 		renderApp( { connector, path: '/sites/one/new' } );
-		const trigger = await screen.findByRole( 'button', { name: /^(Show|Hide) preview$/ } );
+		const trigger = await screen.findByRole( 'button', { name: /^(Show|Hide) panel$/ } );
 		for ( const [ label, value ] of [
 			[ 'Chat', 'chat' ],
 			[ 'Split view', 'split' ],
-			[ 'Browser', 'preview' ],
+			[ 'Panel', 'panel' ],
 		] as const ) {
-			if ( ! running && label === 'Browser' ) continue;
+			if ( ! running && label === 'Panel' ) continue;
 			await chooseLayout( label );
 			await waitFor( () =>
 				expect( document.querySelector( '[data-layout-moving]' ) ).not.toBeInTheDocument()
 			);
-			expect( trigger ).toHaveAttribute( 'data-preview-layout', value );
+			expect( trigger ).toHaveAttribute( 'data-workspace-layout', value );
 			expect( trigger ).toHaveAttribute( 'aria-pressed', String( value !== 'chat' ) );
 			await waitFor( () =>
 				expect( !! screen.queryByRole( 'combobox', { name: 'Message WordPress Studio' } ) ).toBe(
-					value !== 'preview'
+					value !== 'panel'
 				)
 			);
-			expect( !! screen.queryByRole( 'complementary', { name: 'Site preview' } ) ).toBe(
+			expect( !! screen.queryByRole( 'complementary', { name: 'Panel' } ) ).toBe(
 				value !== 'chat'
 			);
 			expect( !! screen.queryByRole( 'toolbar', { name: 'Preview browser controls' } ) ).toBe(
@@ -60,7 +60,7 @@ it.each( [ true, false ] )(
 	}
 );
 
-it.each( [ 'Split view', 'Browser' ] as const )(
+it.each( [ 'Split view', 'Panel' ] as const )(
 	'uses the %s startup setting and preserves it on stop',
 	async ( layout ) => {
 		const connector = createFakeConnector(
@@ -71,22 +71,22 @@ it.each( [ 'Split view', 'Browser' ] as const )(
 			{ getSiteThumbnail: async () => 'data:image/png;base64,eA==' }
 		);
 		renderApp( { connector, path: '/sites/one/new' } );
-		act( () => connector.emit( 'onSetPreviewLayout', layout === 'Browser' ? 'split' : 'preview' ) );
+		act( () => connector.emit( 'onSetWorkspaceLayout', layout === 'Panel' ? 'split' : 'panel' ) );
 		await chooseLayout( 'Chat' );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Start My site' } ) );
 		await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
 		fireEvent.load( document.querySelector( 'iframe' )! );
 		await waitFor( () =>
-			expect( screen.getByRole( 'button', { name: /^(Show|Hide) preview$/ } ) ).toHaveAttribute(
-				'data-preview-layout',
-				layout === 'Browser' ? 'preview' : 'split'
+			expect( screen.getByRole( 'button', { name: /^(Show|Hide) panel$/ } ) ).toHaveAttribute(
+				'data-workspace-layout',
+				layout === 'Panel' ? 'panel' : 'split'
 			)
 		);
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Stop My site' } ) );
 		await waitFor( () =>
-			expect( screen.getByRole( 'button', { name: /^(Show|Hide) preview$/ } ) ).toHaveAttribute(
-				'data-preview-layout',
-				layout === 'Browser' ? 'preview' : 'split'
+			expect( screen.getByRole( 'button', { name: /^(Show|Hide) panel$/ } ) ).toHaveAttribute(
+				'data-workspace-layout',
+				layout === 'Panel' ? 'panel' : 'split'
 			)
 		);
 	}
@@ -102,24 +102,24 @@ it( 'remembers each site’s layout and preserves the draft across layout change
 	renderApp( { connector, path: '/sites/one/new' } );
 	const input = await screen.findByRole( 'combobox', { name: 'Message WordPress Studio' } );
 	fireEvent.change( input, { target: { value: 'Keep my draft' } } );
-	await chooseLayout( 'Browser' );
+	await chooseLayout( 'Panel' );
 	fireEvent.click( screen.getByRole( 'button', { name: 'Second' } ) );
 	await chooseLayout( 'Chat' );
 	fireEvent.click( screen.getByRole( 'button', { name: 'First' } ) );
 	await waitFor( () =>
-		expect( screen.getByRole( 'button', { name: /^(Show|Hide) preview$/ } ) ).toHaveAttribute(
-			'data-preview-layout',
-			'preview'
+		expect( screen.getByRole( 'button', { name: /^(Show|Hide) panel$/ } ) ).toHaveAttribute(
+			'data-workspace-layout',
+			'panel'
 		)
 	);
 	await chooseLayout( 'Split view' );
 	expect( await screen.findByRole( 'combobox', { name: 'Message WordPress Studio' } ) ).toHaveValue(
 		'Keep my draft'
 	);
-	act( () => connector.emit( 'onToggleSitePreview' ) );
+	act( () => connector.emit( 'onTogglePanel' ) );
 	await waitFor( () =>
-		expect( screen.getByRole( 'button', { name: /^(Show|Hide) preview$/ } ) ).toHaveAttribute(
-			'data-preview-layout',
+		expect( screen.getByRole( 'button', { name: /^(Show|Hide) panel$/ } ) ).toHaveAttribute(
+			'data-workspace-layout',
 			'chat'
 		)
 	);
@@ -132,16 +132,16 @@ it( 'switches between project chat and browser tabs without leaving full view', 
 	const { user } = renderApp( { connector, path: '/sites/one/new' } );
 	const input = await screen.findByRole( 'combobox', { name: 'Message WordPress Studio' } );
 	fireEvent.change( input, { target: { value: 'Keep this draft' } } );
-	await chooseLayout( 'Browser' );
+	await chooseLayout( 'Panel' );
 	const browserTab = screen.getByRole( 'tab', { name: 'First' } );
 	await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
 	const page = document.querySelector( 'iframe' );
 
 	await user.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
 	expect( await screen.findByRole( 'menuitem', { name: 'Settings' } ) ).toBeVisible();
-	expect( screen.getByRole( 'button', { name: 'Hide preview' } ) ).toHaveAttribute(
-		'data-preview-layout',
-		'preview'
+	expect( screen.getByRole( 'button', { name: 'Hide panel' } ) ).toHaveAttribute(
+		'data-workspace-layout',
+		'panel'
 	);
 	await user.click( screen.getByRole( 'button', { name: 'Show chat for First' } ) );
 	await waitFor( () =>
@@ -151,15 +151,15 @@ it( 'switches between project chat and browser tabs without leaving full view', 
 	expect( await screen.findByRole( 'combobox', { name: 'Message WordPress Studio' } ) ).toHaveValue(
 		'Keep this draft'
 	);
-	expect( screen.getByRole( 'button', { name: 'Show preview' } ) ).toHaveAttribute(
-		'data-preview-layout',
+	expect( screen.getByRole( 'button', { name: 'Show panel' } ) ).toHaveAttribute(
+		'data-workspace-layout',
 		'chat'
 	);
 	expect( screen.getByRole( 'button', { name: 'Show chat for First' } ) ).toHaveAttribute(
 		'aria-pressed',
 		'true'
 	);
-	expect( screen.getByRole( 'button', { name: 'Exit full view' } ) ).toBeVisible();
+	expect( screen.getByRole( 'button', { name: 'Restore split view' } ) ).toBeVisible();
 	expect( browserTab ).toBeVisible();
 	expect( browserTab ).toHaveAttribute( 'aria-selected', 'false' );
 	expect( document.querySelector( 'iframe' ) ).toBe( page );
@@ -172,8 +172,8 @@ it( 'switches between project chat and browser tabs without leaving full view', 
 	expect(
 		screen.queryByRole( 'combobox', { name: 'Message WordPress Studio' } )
 	).not.toBeInTheDocument();
-	expect( screen.getByRole( 'complementary', { name: 'Site preview' } ) ).toBeVisible();
-	expect( screen.getByRole( 'button', { name: 'Exit full view' } ) ).toBeVisible();
+	expect( screen.getByRole( 'complementary', { name: 'Panel' } ) ).toBeVisible();
+	expect( screen.getByRole( 'button', { name: 'Restore split view' } ) ).toBeVisible();
 	expect( document.querySelector( 'iframe' ) ).toBe( page );
 	expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBeVisible();
 	expect( connector.startSite ).not.toHaveBeenCalled();
@@ -185,7 +185,7 @@ it( 'keeps automatic chat reveals animated after a manual layout choice', async 
 		sites: [ makeSite( { id: 'one', running: true } ) ],
 	} );
 	renderApp( { connector, path: '/sites/one/new' } );
-	await chooseLayout( 'Browser' );
+	await chooseLayout( 'Panel' );
 	await waitFor( () =>
 		expect( document.querySelector( '[data-layout-moving]' ) ).not.toBeInTheDocument()
 	);
@@ -198,12 +198,12 @@ it( 'switches full view immediately in both directions', async () => {
 		sites: [ makeSite( { id: 'one', running: true } ) ],
 	} );
 	renderApp( { connector, path: '/sites/one/new' } );
-	const enter = await screen.findByRole( 'button', { name: 'Enter full view' } );
+	const enter = await screen.findByRole( 'button', { name: 'Expand panel' } );
 	fireEvent.click( enter );
-	expect( screen.getByRole( 'button', { name: 'Exit full view' } ) ).toBeVisible();
+	expect( screen.getByRole( 'button', { name: 'Restore split view' } ) ).toBeVisible();
 	expect( document.querySelector( '[data-layout-moving]' ) ).not.toBeInTheDocument();
-	fireEvent.click( screen.getByRole( 'button', { name: 'Exit full view' } ) );
-	expect( screen.getByRole( 'button', { name: 'Enter full view' } ) ).toBeVisible();
+	fireEvent.click( screen.getByRole( 'button', { name: 'Restore split view' } ) );
+	expect( screen.getByRole( 'button', { name: 'Expand panel' } ) ).toBeVisible();
 	expect( document.querySelector( '[data-layout-moving]' ) ).not.toBeInTheDocument();
 	expect( screen.getByRole( 'combobox', { name: 'Message WordPress Studio' } ) ).toBeVisible();
 } );
@@ -218,7 +218,7 @@ it( 'opens the project chat from a standalone Browser page without leaving full 
 		await screen.findByRole( 'combobox', { name: 'Message WordPress Studio' } )
 	).toBeVisible();
 	expect( history.location.pathname ).toBe( '/sites/one/new' );
-	expect( screen.getByRole( 'button', { name: 'Exit full view' } ) ).toBeVisible();
+	expect( screen.getByRole( 'button', { name: 'Restore split view' } ) ).toBeVisible();
 	expect( screen.getByRole( 'button', { name: 'Show chat for First' } ) ).toHaveAttribute(
 		'aria-pressed',
 		'true'
@@ -246,10 +246,10 @@ it.each( [ true, false ] )(
 	async ( running ) => {
 		const connector = createFakeConnector( { sites: [ makeSite( { id: 'one', running } ) ] } );
 		renderApp( { connector, path: '/sites/one/new' } );
-		const trigger = await screen.findByRole( 'button', { name: /^(Show|Hide) preview$/ } );
-		for ( const layout of [ 'preview', 'split', 'chat' ] as const ) {
-			act( () => connector.emit( 'onSetPreviewLayout', layout ) );
-			expect( trigger ).toHaveAttribute( 'data-preview-layout', layout );
+		const trigger = await screen.findByRole( 'button', { name: /^(Show|Hide) panel$/ } );
+		for ( const layout of [ 'panel', 'split', 'chat' ] as const ) {
+			act( () => connector.emit( 'onSetWorkspaceLayout', layout ) );
+			expect( trigger ).toHaveAttribute( 'data-workspace-layout', layout );
 			await waitFor( () =>
 				expect( document.querySelector( '[data-layout-moving]' ) ).not.toBeInTheDocument()
 			);
@@ -271,13 +271,13 @@ it.each( [
 			{ getSiteThumbnail: async () => ( thumbnail ? 'data:image/png;base64,eA==' : null ) }
 		);
 		renderApp( { connector, path: '/sites/one/new' } );
-		const toggle = await screen.findByRole( 'button', { name: /^(Show|Hide) preview$/ } );
-		if ( toggle.getAttribute( 'aria-label' ) === 'Show preview' ) fireEvent.click( toggle );
-		await screen.findByRole( 'complementary', { name: 'Site preview' } );
+		const toggle = await screen.findByRole( 'button', { name: /^(Show|Hide) panel$/ } );
+		if ( toggle.getAttribute( 'aria-label' ) === 'Show panel' ) fireEvent.click( toggle );
+		await screen.findByRole( 'complementary', { name: 'Panel' } );
 		if ( ! running ) await waitFor( () => expect( connector.getSiteThumbnail ).toHaveBeenCalled() );
 		await waitFor( () =>
-			expect( !! screen.queryByRole( 'button', { name: 'Enter full view' } ) ).toBe( expected )
+			expect( !! screen.queryByRole( 'button', { name: 'Expand panel' } ) ).toBe( expected )
 		);
-		expect( screen.getByRole( 'button', { name: 'Hide preview' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Hide panel' } ) ).toBeVisible();
 	}
 );

@@ -9,8 +9,9 @@ import { openStudioLogsAction, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
+import { updateResponsivePreview } from '@/data/responsive-preview';
 import { useOpenSite } from '@/data/use-open-site';
-import type { Connector, CreateSiteParams, SiteDetails } from '@/data/core';
+import type { CreateSiteParams, SiteDetails } from '@/data/core';
 import type { SiteEvent, SiteListItem } from '@studio/common/lib/cli-events';
 import type { SiteOperationKind } from '@studio/common/lib/site-operation';
 import type { SiteMetadata } from '@studio/common/sites/metadata';
@@ -39,7 +40,13 @@ export function useSites() {
 	const connector = useConnector();
 	return useQuery( {
 		queryKey: SITES_QUERY_KEY,
-		queryFn: () => connector.getSites(),
+		queryFn: async () => {
+			const sites = await connector.getSites();
+			for ( const site of sites ) {
+				if ( ! site.running ) updateResponsivePreview( site.id, { enabled: false } );
+			}
+			return sites;
+		},
 		// Also catches running states that changed without a site event (e.g. a daemon crash).
 		refetchInterval: 2 * 60 * 1000,
 		// The sidebar mounts another reader once the list stops loading: a failed
@@ -106,7 +113,12 @@ export function useCopySite() {
 		mutationKey: COPY_SITE_MUTATION_KEY,
 		mutationFn: ( sourceSiteId: string ) => connector.copySite( sourceSiteId ),
 		onMutate: ( sourceSiteId ) =>
-			toast.processing( __( 'Duplicating site…' ), { id: `duplicate-${ sourceSiteId }` } ),
+			toast.processing( __( 'Duplicating site…' ), {
+				id: `duplicate-${ sourceSiteId }`,
+				description: queryClient
+					.getQueryData< SiteDetails[] >( SITES_QUERY_KEY )
+					?.find( ( site ) => site.id === sourceSiteId )?.name,
+			} ),
 		onSuccess: ( site, _sourceSiteId, noticeId ) => {
 			/* translators: %s: name of the new copy of a site */
 			toast.success( sprintf( __( 'Site duplicated: %s' ), site.name ), {
@@ -120,27 +132,51 @@ export function useCopySite() {
 	} );
 }
 
-export function useExportFullSite() {
+function useExportSite( databaseOnly: boolean ) {
 	const connector = useConnector();
+	const queryClient = useQueryClient();
 	return useMutation( {
-		mutationKey: EXPORT_FULL_SITE_MUTATION_KEY,
-		mutationFn: ( siteId: string ) => connector.exportFullSite( siteId ),
-		onError: () => toastExportFailure( connector, __( 'Failed to export site' ) ),
+		mutationKey: databaseOnly ? EXPORT_DATABASE_MUTATION_KEY : EXPORT_FULL_SITE_MUTATION_KEY,
+		mutationFn: async ( siteId: string ) => {
+			const id = `export-${ databaseOnly ? 'database' : 'site' }-${ siteId }`;
+			const siteName = queryClient
+				.getQueryData< SiteDetails[] >( SITES_QUERY_KEY )
+				?.find( ( site ) => site.id === siteId )?.name;
+			try {
+				const result = await connector[ databaseOnly ? 'exportDatabase' : 'exportFullSite' ](
+					siteId,
+					{
+						onStarted: () =>
+							toast.processing(
+								databaseOnly ? __( 'Exporting database…' ) : __( 'Exporting site…' ),
+								{ id, description: siteName }
+							),
+					}
+				);
+				if ( result !== null ) {
+					toast.success( databaseOnly ? __( 'Database exported' ) : __( 'Site exported' ), {
+						id,
+						description: siteName,
+					} );
+				}
+				return result;
+			} catch ( error ) {
+				toast.error(
+					databaseOnly ? __( 'Failed to export database' ) : __( 'Failed to export site' ),
+					{
+						id,
+						description: siteName,
+						action: openStudioLogsAction( connector ),
+					}
+				);
+				throw error;
+			}
+		},
 	} );
 }
 
-export function useExportDatabase() {
-	const connector = useConnector();
-	return useMutation( {
-		mutationKey: EXPORT_DATABASE_MUTATION_KEY,
-		mutationFn: ( siteId: string ) => connector.exportDatabase( siteId ),
-		onError: () => toastExportFailure( connector, __( 'Failed to export database' ) ),
-	} );
-}
-
-function toastExportFailure( connector: Connector, title: string ) {
-	toast.error( title, { action: openStudioLogsAction( connector ) } );
-}
+export const useExportFullSite = () => useExportSite( false );
+export const useExportDatabase = () => useExportSite( true );
 
 // Invalidation is awaited inside `mutationFn` (not `onSettled`) so
 // `isPending` stays true until `site.running` reflects the new state. The
@@ -182,6 +218,7 @@ export function useStopSite() {
 		mutationKey: STOP_SITE_MUTATION_KEY,
 		mutationFn: async ( id: string ) => {
 			await showSite( queryClient, await connector.stopSite( id ) );
+			updateResponsivePreview( id, { enabled: false } );
 		},
 		onError: ( _error, id ) => {
 			const { title, description } = getBusyNotice( queryClient, id, __( 'Failed to stop site' ) );
@@ -365,6 +402,9 @@ export function useIsSiteBusy( site: SiteDetails | undefined ): boolean {
  * have, or a create or delete, which change which sites there are.
  */
 function applySiteEvent( queryClient: QueryClient, event: SiteEvent ): boolean {
+	if ( event.event === SITE_EVENTS.UPDATED && ! event.running ) {
+		updateResponsivePreview( event.siteId, { enabled: false } );
+	}
 	const { site } = event;
 	const sites = queryClient.getQueryData< SiteDetails[] >( SITES_QUERY_KEY );
 	const cached = sites?.find( ( item ) => item.id === site?.id );

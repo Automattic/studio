@@ -425,10 +425,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		// No native folder picker in a browser: the create form has the path typed
 		// (see capabilities.nativeFolderPicker), and this checks what it holds.
-		async selectSiteFolder( folderPath ): Promise< SelectedSiteFolder | null > {
+		async selectSiteFolder( folderPath, options ): Promise< SelectedSiteFolder | null > {
 			return api< SelectedSiteFolder >( '/site-defaults/folder', {
 				method: 'POST',
-				body: JSON.stringify( { path: folderPath } ),
+				body: JSON.stringify( { path: folderPath, ...options } ),
 			} );
 		},
 		async selectDefaultSiteDirectory(): Promise< string | null > {
@@ -474,10 +474,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			await api( '/sites/sort-order', { method: 'POST', body: JSON.stringify( { updates } ) } );
 		},
 		// Export downloads the archive in the browser (no native Save-As dialog).
-		async exportFullSite( siteId ): Promise< string | null > {
+		async exportFullSite( siteId, options ): Promise< string | null > {
+			options?.onStarted?.();
 			return downloadFromServer( `/sites/${ encodeURIComponent( siteId ) }/export?mode=full` );
 		},
-		async exportDatabase( siteId ): Promise< string | null > {
+		async exportDatabase( siteId, options ): Promise< string | null > {
+			options?.onStarted?.();
 			return downloadFromServer( `/sites/${ encodeURIComponent( siteId ) }/export?mode=database` );
 		},
 
@@ -510,10 +512,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			};
 		},
 		async extractBlueprintBundle( file ): Promise< ExtractedBlueprintBundle > {
+			const data = await file.arrayBuffer();
 			const response = await fetch( `${ base }/blueprints/extract`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/octet-stream' },
-				body: file,
+				body: data,
+				signal: AbortSignal.timeout( 60_000 ),
 			} );
 			if ( ! response.ok ) {
 				const text = await response.text().catch( () => '' );
@@ -972,7 +976,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			snapshotEventListeners.add( listener );
 			return () => snapshotEventListeners.delete( listener );
 		},
-		onToggleSitePreview( listener ) {
+		onTogglePanel( listener ) {
 			return onMenuShortcut( listener, 'b', 'shift' );
 		},
 		async copyText( text ) {
@@ -987,6 +991,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		onToggleSidebar( listener ) {
 			return onMenuShortcut( listener, 'b' );
+		},
+		onOpenFolder() {
+			return () => {};
+		},
+		onNewChat( listener ) {
+			return onMenuShortcut( listener, 'n', 'shift' );
 		},
 		onAddSite( listener ) {
 			return onMenuShortcut( listener, 'n' );

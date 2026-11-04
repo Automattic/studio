@@ -470,9 +470,15 @@ describe( 'PublishPopover', () => {
 				optionsToSync: [ 'plugins', 'themes', 'uploads', 'contents' ],
 			} )
 		);
-		await waitFor( () => expect( getNoticeHistory()[ 0 ]?.title ).toBe( 'Published Local site' ), {
-			timeout: 3000,
-		} );
+		await waitFor(
+			() =>
+				expect(
+					getNoticeHistory().find( ( notice ) => notice.id === `push-${ site.id }` )?.title
+				).toBe( 'Published Local site' ),
+			{
+				timeout: 3000,
+			}
+		);
 	} );
 
 	it( 'forces a full pull when no remote backup exists', async () => {

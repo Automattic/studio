@@ -3,38 +3,6 @@
 	text-align: left;
 }
 
-.summaryHeader {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: var( --space-4 );
-	margin-bottom: var( --space-3 );
-}
-
-/* A quiet section label, so the Blueprint's own name below stays dominant. */
-.summaryHeader h2 {
-	color: var( --muted-foreground );
-	font-size: var( --text-xxs );
-	font-weight: var( --font-weight-medium );
-}
-
-.summaryRemove {
-	color: var( --accent-text );
-	font-size: var( --text-xxs );
-	cursor: pointer;
-}
-
-.summaryRemove:hover {
-	text-decoration: underline;
-}
-
-.summaryRemove:focus-visible {
-	/* eslint-disable-next-line studio/use-theme-tokens -- a focus ring hugging a text link. */
-	border-radius: 2px;
-	outline: var( --focus-width ) solid var( --ring );
-	outline-offset: 2px;
-}
-
 .summaryOverview {
 	display: grid;
 	grid-template-columns: 112px minmax( 0, 1fr );
@@ -63,12 +31,6 @@
 
 .summaryContent {
 	min-width: 0;
-}
-
-.summaryTitle {
-	color: var( --foreground );
-	font-size: var( --text-xs );
-	font-weight: var( --font-weight-semibold );
 }
 
 .summaryExcerpt {

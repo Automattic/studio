@@ -54,6 +54,7 @@ import { getFrameKey, getSafePath, type PreviewSurfaceKey } from './surfaces';
 import { useBrowserShortcuts } from './use-browser-shortcuts';
 import { useLoadingStage } from './use-loading-stage';
 import { usePreviewAnnotations } from './use-preview-annotations';
+import { usePreviewBrowser } from './use-preview-browser';
 import { usePreviewCapture } from './use-preview-capture';
 import { usePreviewSurfaces } from './use-preview-surfaces';
 import type { SiteDetails } from '@/data/core';
@@ -168,6 +169,8 @@ function SitePreviewContent( {
 			? !! siteDesign.data
 			: activeSurfaceKey === 'email' || !! activeSurface?.inspectorReady );
 	const viewportRef = useRef< HTMLDivElement | null >( null );
+	const previewBrowser = usePreviewBrowser( viewportRef );
+	const browserActions = canUseWebview && ! rendered && ! blank ? previewBrowser : undefined;
 	const responsiveSettings = useResponsivePreview( site.id );
 	const responsiveEnabled = responsiveSettings.enabled && canPreview && activeSurfaceKey === 'site';
 	const [ availableSize, setAvailableSize ] = useState( { width: 0, height: 0 } );
@@ -375,6 +378,7 @@ function SitePreviewContent( {
 			onBrowserCommand={ sendBrowserCommand }
 			onJump={ goToHistoryIndex }
 			onPathChange={ onPathChange }
+			browserActions={ browserActions }
 			onOpenExternal={ blank ? undefined : openExternal }
 			onExternalNavigate={ ( url ) => void connector.openExternalUrl( url ) }
 			responsive={ responsive }
@@ -385,7 +389,7 @@ function SitePreviewContent( {
 		<aside
 			className={ styles.root }
 			data-browser-bar={ showBrowserBar || undefined }
-			aria-label={ __( 'Site preview' ) }
+			aria-label={ __( 'Panel' ) }
 		>
 			{ ! inactive && annotate && annotationSpace
 				? createPortal(
@@ -466,6 +470,7 @@ function SitePreviewContent( {
 										<WebviewSurface
 											key={ `${ site.id }-${ key }` }
 											url={ surfaceUrl }
+											colorScheme={ previewBrowser.colorScheme }
 											reloadNonce={ surface.reloadNonce }
 											// phpMyAdmin isn't an annotation target, so the
 											// inspector never goes near it.

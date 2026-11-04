@@ -47,8 +47,8 @@ const api: IpcApi = {
 	openSiteURL: ( id, relativeURL = '', { autoLogin = true } = {} ) =>
 		ipcRendererSend( 'openSiteURL', id, relativeURL, { autoLogin } ),
 	openURL: ( url ) => ipcRendererSend( 'openURL', url ),
-	showOpenFolderDialog: ( title, defaultDialogPath ) =>
-		ipcRendererInvoke( 'showOpenFolderDialog', title, defaultDialogPath ),
+	showOpenFolderDialog: ( title, defaultDialogPath, options ) =>
+		ipcRendererInvoke( 'showOpenFolderDialog', title, defaultDialogPath, options ),
 	isCATrusted: () => ipcRenderer.invoke( 'isCATrusted' ),
 	trustCertificate: () => ipcRenderer.invoke( 'trustCertificate' ),
 	showSaveAsDialog: ( options ) => ipcRendererInvoke( 'showSaveAsDialog', options ),
@@ -111,6 +111,12 @@ const api: IpcApi = {
 	getFileSize: ( id, filePath ) => ipcRendererInvoke( 'getFileSize', id, filePath ),
 	getPathForFile: ( file ) => webUtils.getPathForFile( file ),
 	readLocalMediaFile: ( path ) => ipcRendererInvoke( 'readLocalMediaFile', path ),
+	openWebviewDevTools: ( webContentsId ) =>
+		ipcRendererInvoke( 'openWebviewDevTools', webContentsId ),
+	setWebviewColorScheme: ( webContentsId, colorScheme ) =>
+		ipcRendererInvoke( 'setWebviewColorScheme', webContentsId, colorScheme ),
+	clearWebviewBrowsingData: ( webContentsId ) =>
+		ipcRendererInvoke( 'clearWebviewBrowsingData', webContentsId ),
 	clearWebviewCache: ( webContentsId ) => ipcRendererInvoke( 'clearWebviewCache', webContentsId ),
 	getWebviewNavigationHistory: ( webContentsId ) =>
 		ipcRendererInvoke( 'getWebviewNavigationHistory', webContentsId ),

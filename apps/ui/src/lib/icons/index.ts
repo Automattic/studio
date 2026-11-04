@@ -36,6 +36,8 @@ export * from './read-status-icon';
 export * from './rename-icon';
 export * from './responsive-icon';
 export * from './rotate-cw-icon';
+export * from './reset-tips-icon';
+export * from './whats-new-icon';
 export * from './send-icon';
 export * from './share-icon';
 export * from './sidebar-icon';

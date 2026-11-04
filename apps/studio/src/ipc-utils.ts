@@ -9,6 +9,8 @@ import type { WorkspaceLayout } from '@studio/common/types/workspace-layout';
 
 export interface IpcEvents {
 	'add-site': [ void ];
+	'new-chat': [ void ];
+	'open-folder': [ void ];
 	'open-site': [ { siteId: string } ];
 	'add-site-with-blueprint': [
 		{
@@ -30,8 +32,8 @@ export interface IpcEvents {
 		},
 	];
 	'toggle-sidebar': [ void ];
-	'toggle-site-preview': [ void ];
-	'set-preview-layout': [ WorkspaceLayout ];
+	'toggle-panel': [ void ];
+	'set-workspace-layout': [ WorkspaceLayout ];
 	'user-settings': [ { tabName?: string; settingId?: string } ];
 	'window-fullscreen-change': [ boolean ];
 	'ai-agent-event': [ AgentRunEvent ];

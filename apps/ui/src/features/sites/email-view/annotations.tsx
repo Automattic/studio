@@ -140,7 +140,7 @@ function anchorFor( note: VisualAnnotation, root: HTMLElement | null ): Annotati
 /**
  * Annotation mode for an email: the elements of its HTML and the paragraphs of
  * its text are the targets. The notes share the site preview's store, editor
- * and Send bar.
+ * and batch controls.
  */
 export function useEmailAnnotations( {
 	siteId,
@@ -182,9 +182,15 @@ export function useEmailAnnotations( {
 			}
 		};
 		follow();
+		const root = rootRef.current;
+		const observer = new MutationObserver( follow );
+		if ( root ) observer.observe( root, { childList: true, subtree: true } );
+		root?.addEventListener( 'load', follow, true );
 		window.addEventListener( 'scroll', follow, { capture: true, passive: true } );
 		window.addEventListener( 'resize', follow );
 		return () => {
+			observer.disconnect();
+			root?.removeEventListener( 'load', follow, true );
 			window.removeEventListener( 'scroll', follow, { capture: true } );
 			window.removeEventListener( 'resize', follow );
 		};
@@ -196,11 +202,17 @@ export function useEmailAnnotations( {
 	const paragraphProps = ( index: number ) => ( { [ PARAGRAPH_ATTRIBUTE ]: String( index ) } );
 
 	const paragraphMarker = ( index: number ) => {
-		const note =
-			picking &&
-			notes.find( ( item ) => item.email?.part === 'text' && item.email.paragraph === index );
+		const note = notes.find(
+			( item ) => item.email?.part === 'text' && item.email.paragraph === index
+		);
 		return note ? (
-			<AnnotationMarker className={ styles.annotationMarker } number={ note.number } />
+			<AnnotationMarker
+				active={ picking }
+				blockedNavigation={ annotations.blockedNavigation }
+				editing={ note.id === editingId }
+				className={ styles.annotationMarker }
+				number={ note.number }
+			/>
 		) : null;
 	};
 
@@ -229,6 +241,8 @@ export function useEmailAnnotations( {
 
 	const frame: EmailFrameAnnotations = {
 		active: picking,
+		blockedNavigation: annotations.blockedNavigation,
+		editingId,
 		notes: frameNotes,
 		onEscape: () => escapeAnnotations( siteId ),
 		onPick: ( picked, anchor ) => {
@@ -250,6 +264,8 @@ export function useEmailAnnotations( {
 
 export interface EmailFrameAnnotations {
 	active: boolean;
+	blockedNavigation?: number;
+	editingId?: string | null;
 	notes: FrameNote[];
 	onEscape: () => void;
 	// The anchor is in the frame's coordinates.
@@ -279,7 +295,7 @@ export function EmailFrameAnnotationLayer( {
 	loads: number;
 	annotations: EmailFrameAnnotations;
 } ) {
-	const { active, notes } = annotations;
+	const { active, notes, blockedNavigation, editingId } = annotations;
 	const [ hover, setHover ] = useState< Box | null >( null );
 	const [ layout, setLayout ] = useState( 0 );
 	const [ markers, setMarkers ] = useState< Array< FrameNote & { at: AnnotationAnchor } > >( [] );
@@ -347,6 +363,7 @@ export function EmailFrameAnnotationLayer( {
 	}, [ frameRef, loads ] );
 
 	useLayoutEffect( () => {
+		if ( ! active ) return;
 		const document = frameRef.current?.contentDocument;
 		setMarkers(
 			active && loads
@@ -360,14 +377,17 @@ export function EmailFrameAnnotationLayer( {
 		);
 	}, [ active, frameRef, layout, loads, notes ] );
 
-	if ( ! active ) {
+	if ( ! active && ! markers.length ) {
 		return null;
 	}
 	return (
 		<div className={ styles.frameLayer } aria-hidden="true">
-			{ hover ? <div className={ styles.frameHover } style={ hover } /> : null }
+			{ active && hover ? <div className={ styles.frameHover } style={ hover } /> : null }
 			{ markers.map( ( marker ) => (
 				<AnnotationMarker
+					active={ active }
+					blockedNavigation={ blockedNavigation }
+					editing={ marker.id === editingId }
 					key={ marker.id }
 					className={ styles.frameMarker }
 					style={ { left: marker.at.left, top: marker.at.top } }

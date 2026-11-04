@@ -6,7 +6,7 @@ import { useAppUpdateStatus, useRetryAppUpdate } from '@/data/queries/use-app-up
 import { ImportIcon } from '@/lib/icons';
 import { IconButton } from '@/lib/ui';
 
-export function AppUpdateButton() {
+export function AppUpdateButton( { className }: { className?: string } ) {
 	const connector = useConnector();
 	const { data: status } = useAppUpdateStatus();
 	const retry = useRetryAppUpdate();
@@ -26,13 +26,14 @@ export function AppUpdateButton() {
 		: downloading
 		? __( 'Downloading update…' )
 		: failed
-		? __( 'Try again' )
+		? __( 'Download update' )
 		: install.isPending
 		? __( 'Restarting…' )
 		: __( 'Restart to update' );
 
 	return (
 		<IconButton
+			className={ className }
 			size="icon-sm"
 			variant="accent"
 			icon={ <ImportIcon /> }

@@ -10,6 +10,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { FileTextIcon } from 'lucide-react';
 import { cloneElement, useLayoutEffect, useRef } from 'react';
+import { AnnotationReviewChip } from '@/features/annotations';
 import { AnnotateIcon } from '@/lib/icons';
 import {
 	AttachmentChip as AttachmentChipSurface,
@@ -113,22 +114,38 @@ function AttachmentChip( {
 export function AttachmentChips( {
 	attachments,
 	annotationsAttachment,
+	annotationSiteId,
 	onRemove,
 }: {
+	annotationSiteId?: string;
 	attachments: ComposerAttachment[];
 	annotationsAttachment: ComposerAttachment | null;
 	onRemove: ( attachment: ComposerAttachment ) => void;
 } ) {
 	return (
 		<ul className={ styles.attachments } aria-label={ __( 'Attachments' ) }>
-			{ attachments.map( ( attachment ) => (
-				<AttachmentChip
-					key={ attachment.id }
-					attachment={ attachment }
-					isAnnotations={ attachment === annotationsAttachment }
-					onRemove={ () => onRemove( attachment ) }
-				/>
-			) ) }
+			{ attachments.map( ( attachment ) =>
+				attachment === annotationsAttachment && annotationSiteId ? (
+					<AnnotationReviewChip
+						key={ attachment.id }
+						siteId={ annotationSiteId }
+						label={ attachment.name }
+						description={ sprintf(
+							__( '%1$s, %2$s' ),
+							attachment.name,
+							formatComposerAttachmentSize( attachment.size )
+						) }
+						onRemove={ () => onRemove( attachment ) }
+					/>
+				) : (
+					<AttachmentChip
+						key={ attachment.id }
+						attachment={ attachment }
+						isAnnotations={ attachment === annotationsAttachment }
+						onRemove={ () => onRemove( attachment ) }
+					/>
+				)
+			) }
 		</ul>
 	);
 }

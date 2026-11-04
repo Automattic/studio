@@ -15,6 +15,7 @@ import { countSitePreviews } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { updatePreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
 import { withSiteOperation } from 'cli/lib/site-operations';
+import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import { getSnapshotsFromConfig, updateSnapshotInConfig } from 'cli/lib/snapshots';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
@@ -63,6 +64,7 @@ export async function runCommand(
 	);
 	const startedAt = Date.now();
 	let siteId: string | undefined;
+	let preview: Snapshot | undefined;
 	let step: LoggerAction | undefined;
 	let archiveBytes: number | undefined;
 
@@ -70,6 +72,7 @@ export async function runCommand(
 		const token = await requireAuthToken();
 		const snapshots = await getSnapshotsFromConfig( token.id );
 		const snapshotToUpdate = await getSnapshotToUpdate( snapshots, host, siteFolder, overwrite );
+		preview = snapshotToUpdate;
 		const site = await getSiteByFolder( siteFolder );
 		siteId = site.id;
 		const reportStep = ( action: LoggerAction, message: string, progress: number ) => {
@@ -138,7 +141,7 @@ export async function runCommand(
 			sprintf( __( 'Preview site available at: %s' ), getSnapshotLink( snapshot ) )
 		);
 		await emitCliEvent( { event: SNAPSHOT_EVENTS.UPDATED, data: { snapshotUrl: snapshot.url } } );
-		await recordPreviewUpdateEvent( {
+		await recordPreviewUpdateEvent( siteFolder, preview, {
 			success: true,
 			time_ms: Date.now() - startedAt,
 			archive_bytes: archiveBytes,
@@ -157,7 +160,7 @@ export async function runCommand(
 				message: error instanceof Error ? error.message : String( error ),
 			} );
 		}
-		await recordPreviewUpdateEvent( {
+		await recordPreviewUpdateEvent( siteFolder, preview, {
 			success: false,
 			failure_reason: classifyPreviewFailure( error, step ),
 			time_ms: Date.now() - startedAt,
@@ -171,19 +174,21 @@ export async function runCommand(
 	}
 }
 
-async function recordPreviewUpdateEvent( props: {
-	success: boolean;
-	failure_reason?: string;
-	time_ms: number;
-	// Size of the uploaded archive, so preview times and failures can be read against site size.
-	archive_bytes?: number;
-	// Unexpired previews of this local site, this one included, so we can see how many people keep
-	// several previews of the same site without identifying the site.
-	site_preview_count?: number;
-} ): Promise< void > {
+async function recordPreviewUpdateEvent(
+	siteFolder: string,
+	snapshot: Snapshot | undefined,
+	props: {
+		success: boolean;
+		failure_reason?: string;
+		time_ms: number;
+		archive_bytes?: number;
+		site_preview_count?: number;
+	}
+): Promise< void > {
 	try {
 		await recordTracksEvent( TRACKS_EVENTS.PREVIEW_SITE_UPDATE, {
 			...props,
+			...( await getSiteTracksProps( siteFolder, snapshot ) ),
 			...getTracksOrigin(),
 		} );
 	} catch {

@@ -7,6 +7,12 @@ afterEach( () => {
 	vi.unstubAllGlobals();
 } );
 
+it( 'can keep loading feedback visible without rendering the dot grid', () => {
+	const view = render( <PreviewParticles active showLogo showDots={ false } /> );
+	expect( view.container.querySelector( 'canvas' ) ).toBeNull();
+	expect( view.container.querySelector( 'svg' ) ).not.toBeNull();
+} );
+
 it.each( [ false, true ] )(
 	'starts the resting grid continuously with showLogo=%s',
 	( showLogo ) => {

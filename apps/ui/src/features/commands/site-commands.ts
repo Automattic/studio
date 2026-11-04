@@ -4,8 +4,6 @@ import {
 	CodeIcon,
 	DatabaseIcon,
 	DownloadIcon,
-	EyeIcon,
-	EyeOffIcon,
 	FolderIcon,
 	PencilIcon,
 	RefreshCwIcon,
@@ -17,6 +15,8 @@ import { getSettingsCommandAliases } from '@/data/settings-sections';
 import {
 	AnnotateIcon,
 	ChatIcon,
+	GlobeIcon,
+	SplitViewIcon,
 	DuplicateIcon,
 	ExternalLinkIcon,
 	MailIcon,
@@ -66,8 +66,8 @@ export function getSiteCommands( {
 	newChat,
 	reloadPreview,
 	annotate,
-	showPreview,
 	setChatHidden,
+	showPreview,
 	copyUrl,
 }: {
 	site: SiteDetails;
@@ -84,8 +84,8 @@ export function getSiteCommands( {
 	newChat: () => void;
 	reloadPreview: () => void;
 	annotate: ( active: boolean ) => void;
-	showPreview: ( open: boolean ) => void;
 	setChatHidden: ( hidden: boolean ) => void;
+	showPreview: ( open: boolean ) => void;
 	copyUrl: () => void;
 } ): PaletteCommand[] {
 	const { busy, running, othersRunning } = actions;
@@ -260,25 +260,45 @@ export function getSiteCommands( {
 					},
 			  ]
 			: [] ),
-		{
-			id: 'preview-visibility',
-			group: 'commands',
-			label: previewShown ? __( 'Hide preview' ) : __( 'Show preview' ),
-			icon: previewShown ? EyeOffIcon : EyeIcon,
-			description,
-			run: () => showPreview( ! previewShown ),
-		},
-		...( chatHidden === undefined
-			? []
-			: [
+		...( previewShown
+			? [
 					{
-						id: 'chat-visibility',
+						id: 'layout-chat',
 						group: 'commands' as const,
-						label: chatHidden ? __( 'Show chat' ) : __( 'Hide chat' ),
+						label: __( 'Switch to Chat' ),
 						icon: ChatIcon,
-						run: () => setChatHidden( ! chatHidden ),
+						description,
+						keywords: [ __( 'Layout' ), __( 'Hide preview' ) ],
+						run: () => showPreview( false ),
 					},
-			  ] ),
+			  ]
+			: [] ),
+		...( ! previewShown || chatHidden
+			? [
+					{
+						id: 'layout-split',
+						group: 'commands' as const,
+						label: __( 'Switch to Split view' ),
+						icon: SplitViewIcon,
+						description,
+						keywords: [ __( 'Layout' ), __( 'Show preview' ), __( 'Exit fullscreen' ) ],
+						run: () => setChatHidden( false ),
+					},
+			  ]
+			: [] ),
+		...( ! previewShown || ! chatHidden
+			? [
+					{
+						id: 'layout-browser',
+						group: 'commands' as const,
+						label: __( 'Switch to Browser' ),
+						icon: GlobeIcon,
+						description,
+						keywords: [ __( 'Layout' ), __( 'Preview' ), __( 'Enter fullscreen' ) ],
+						run: () => setChatHidden( true ),
+					},
+			  ]
+			: [] ),
 		{
 			id: 'share',
 			group: 'commands',

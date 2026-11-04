@@ -1,0 +1,6 @@
+.controls {
+	display: flex;
+	align-items: center;
+	gap: var( --band-gap );
+	-webkit-app-region: no-drag;
+}

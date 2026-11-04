@@ -451,7 +451,11 @@ describe( 'ShareDialog', () => {
 		await waitFor( () => expect( isDisabled( login ) ).toBe( true ) );
 		expect( isDisabled( signup ) ).toBe( true );
 		fireEvent.click( signup );
-		expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith( false, 'previews_tab' );
+		expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith(
+			false,
+			'previews_tab',
+			expect.any( Object )
+		);
 		await act( async () => finish() );
 		await waitFor( () => expect( isDisabled( login ) ).toBe( false ) );
 		expect( isDisabled( signup ) ).toBe( false );

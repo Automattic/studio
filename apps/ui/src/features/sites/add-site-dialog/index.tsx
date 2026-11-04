@@ -7,6 +7,7 @@ import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { BlueprintUpload } from '@/features/sites/blueprint-upload';
 import { pendingBlueprintSlot } from '@/features/sites/pending-blueprint';
+import { pendingSiteFolderSlot } from '@/features/sites/pending-site-folder';
 import { ImportIcon, PlusIcon, UploadIcon } from '@/lib/icons';
 import {
 	Button,
@@ -114,7 +115,11 @@ export function AddSiteDialog() {
 		pendingBlueprintSlot.subscribe,
 		pendingBlueprintSlot.getSnapshot
 	);
-	if ( addSite && pendingBlueprint && view.name !== 'setup' ) {
+	const pendingFolder = useSyncExternalStore(
+		pendingSiteFolderSlot.subscribe,
+		pendingSiteFolderSlot.getSnapshot
+	);
+	if ( addSite && ( pendingBlueprint || pendingFolder ) && view.name !== 'setup' ) {
 		setView( { name: 'setup', from: view } );
 		setIsBlankSetup( false );
 		setIsBlueprintValid( true );

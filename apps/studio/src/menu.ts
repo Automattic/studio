@@ -271,15 +271,30 @@ async function getAppMenu( mainWindow: BrowserWindow | null ) {
 			role: 'fileMenu',
 			submenu: [
 				{
+					label: __( 'New chat' ),
+					accelerator: 'CommandOrControl+Shift+N',
+					click: () => {
+						void sendIpcEventToRenderer( 'new-chat' );
+					},
+				},
+				{
 					label: __( 'Add Site…' ),
 					accelerator: 'CommandOrControl+N',
 					click: async () => {
 						void sendIpcEventToRenderer( 'add-site' );
 					},
 				},
+				{
+					label: __( 'Open Folder…' ),
+					accelerator: 'CommandOrControl+O',
+					click: () => {
+						void sendIpcEventToRenderer( 'open-folder' );
+					},
+				},
 				...( process.platform === 'win32'
 					? []
 					: [
+							{ type: 'separator' } as MenuItemConstructorOptions,
 							{
 								label: __( 'Close Window' ),
 								accelerator: 'CommandOrControl+W',

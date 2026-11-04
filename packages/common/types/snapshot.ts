@@ -17,6 +17,9 @@ export const snapshotSchema = z.object( {
 	// The local site version the preview holds, as recorded when Studio last pushed to it or pulled
 	// from it. See `cli/lib/site-versions`.
 	versionId: z.string().optional(),
+	// When Studio last pushed to the preview or pulled from it (ms), so an edit made on the preview
+	// after it is a change Studio doesn't have.
+	syncedAt: z.number().optional(),
 } );
 
 export type Snapshot = z.infer< typeof snapshotSchema >;

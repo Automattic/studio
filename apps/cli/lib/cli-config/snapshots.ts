@@ -73,6 +73,7 @@ export async function saveSnapshotToConfig(
 			userId,
 			shareUrl,
 			versionId,
+			syncedAt: Date.now(),
 		};
 
 		// A sync while the preview was being created may already have listed it.
@@ -120,6 +121,7 @@ export async function linkPulledPreview(
 		}
 		snapshot.localSiteId = localSiteId;
 		snapshot.versionId = versionId;
+		snapshot.syncedAt = Date.now();
 		await saveCliConfig( config );
 	} finally {
 		await unlockCliConfig();
@@ -144,6 +146,7 @@ export async function updateSnapshotInConfig(
 		snapshot.localSiteId = site.id;
 		snapshot.date = Date.now();
 		snapshot.versionId = versionId;
+		snapshot.syncedAt = snapshot.date;
 		// The update restarted the server's window; the next sync reports where it now ends.
 		delete snapshot.expiresAt;
 		if ( shareUrl ) {

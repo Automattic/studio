@@ -3,6 +3,7 @@ import {
 	logIn,
 	openLink,
 	readLoginUrl,
+	recordLoginEvent,
 	sendMessage,
 	setSiteRunning,
 	updateModelContext,
@@ -62,8 +63,19 @@ export function useAddToChat() {
 }
 
 // WordPress.com's authorization page, which shows a token for useLogIn.
-export function useOpenLogin() {
-	return useMutation( { mutationFn: async () => openLink( await readLoginUrl() ) } );
+export function useOpenLogin( journeyId: string ) {
+	return useMutation( {
+		mutationFn: async () => {
+			const { url, attemptId } = await readLoginUrl( journeyId );
+			try {
+				await openLink( url );
+			} catch ( error ) {
+				void recordLoginEvent( { event: 'launch_failed', attemptId } ).catch( () => undefined );
+				throw error;
+			}
+			return attemptId;
+		},
+	} );
 }
 
 export function useLogIn() {

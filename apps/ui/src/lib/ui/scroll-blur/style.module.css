@@ -1,0 +1,44 @@
+@layer ui {
+	.root {
+		--blur-direction: to bottom;
+		position: absolute;
+		inset-inline: 0;
+		top: 0;
+		height: var( --surface-fade-size );
+		z-index: 1;
+		pointer-events: none;
+	}
+
+	.root[data-scroll-blur='bottom'] {
+		--blur-direction: to top;
+		top: auto;
+		bottom: 0;
+	}
+
+	.root > span {
+		position: absolute;
+		inset: 0;
+		mask-image: linear-gradient( var( --blur-direction ), #000, transparent var( --blur-reach ) );
+	}
+
+	.soft {
+		--blur-reach: 100%;
+		backdrop-filter: blur( var( --surface-blur-soft ) );
+	}
+
+	.medium {
+		--blur-reach: 70%;
+		backdrop-filter: blur( var( --surface-blur-medium ) );
+	}
+
+	.strong {
+		--blur-reach: 40%;
+		backdrop-filter: blur( var( --surface-blur-strong ) );
+	}
+
+	@supports not ( backdrop-filter: blur( 1px ) ) {
+		.root {
+			display: none;
+		}
+	}
+}

@@ -5,7 +5,9 @@ import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/ke
 import { clsx } from 'clsx';
 import { ChevronLeftIcon, SearchIcon, XIcon } from 'lucide-react';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { setProviderIntent } from '@/data/account-analytics';
 import { toast } from '@/data/app-messages';
+import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
@@ -95,7 +97,7 @@ function StudioSection( {
 // The route's site, or the last one visited.
 function useCurrentSiteId( requested?: string ) {
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
-	const { data: sites } = useSites();
+	const { data: sites, isPending } = useSites();
 	const { data: sessions } = useSessions();
 	const session = sessions?.find( ( candidate ) => candidate.id === params.sessionId );
 	const siteId =
@@ -103,7 +105,7 @@ function useCurrentSiteId( requested?: string ) {
 		params.siteId ??
 		findAiSessionOwnerSite( sites, session )?.id ??
 		readLastVisited()?.siteId;
-	return sites?.find( ( site ) => site.id === siteId ) ?? sites?.[ 0 ];
+	return { site: sites?.find( ( site ) => site.id === siteId ) ?? sites?.[ 0 ], isPending };
 }
 
 // A setting's row, by its link id or its title.
@@ -137,6 +139,7 @@ function focusControl( row: HTMLElement ) {
 export function SettingsDialog() {
 	const router = useRouter();
 	const navigate = useNavigate();
+	const connector = useConnector();
 	const { settings, settingsSite, settingsFocus } = useSearch( { strict: false } ) as {
 		settings?: SettingsSectionId;
 		settingsSite?: string;
@@ -149,9 +152,10 @@ export function SettingsDialog() {
 	if ( settings && settings !== shown ) {
 		setShown( settings );
 	}
-	const site = useCurrentSiteId( settingsSite );
+	const { site, isPending: sitePending } = useCurrentSiteId( settingsSite );
 	const requested = shown === 'usage' && ! signedIn ? 'ai' : shown;
-	const scope: SettingsScope = isSiteSection( requested ) && site ? 'site' : 'studio';
+	const scope: SettingsScope =
+		isSiteSection( requested ) && ( site || sitePending ) ? 'site' : 'studio';
 	const section = scope === 'site' || ! isSiteSection( requested ) ? requested : 'general';
 	const [ siteSection, setSiteSection ] = useState< SettingsSectionId >( 'site' );
 	if ( scope === 'site' && section !== siteSection ) {
@@ -176,13 +180,14 @@ export function SettingsDialog() {
 
 	// Each opening starts fresh.
 	useEffect( () => {
+		if ( settings !== 'ai' ) setProviderIntent( connector );
 		if ( ! settings ) {
 			setHistory( { entries: [], index: -1 } );
 			setQuery( '' );
 			setTarget( null );
 			pendingExit.current = null;
 		}
-	}, [ settings ] );
+	}, [ settings, connector ] );
 
 	// A link's setting leaves the URL once taken, so following it again reveals it again.
 	useEffect( () => {
@@ -486,7 +491,12 @@ export function SettingsDialog() {
 												styles.hidden
 										) }
 									>
-										<SiteSettingsForm key={ site.id } site={ site } section={ formSection } />
+										<SiteSettingsForm
+											key={ site.id }
+											site={ site }
+											section={ formSection }
+											active={ scope === 'site' && SITE_FORM_SECTIONS.includes( section ) }
+										/>
 									</div>
 								</>
 							) : null }

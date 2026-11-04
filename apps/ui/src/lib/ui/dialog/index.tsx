@@ -3,16 +3,8 @@ import { Dialog as BaseDialog } from '@base-ui/react/dialog';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { XIcon } from 'lucide-react';
-import {
-	createContext,
-	useCallback,
-	useContext,
-	useEffect,
-	useImperativeHandle,
-	useLayoutEffect,
-	useRef,
-	useState,
-} from 'react';
+import { createContext, useContext, useEffect, useImperativeHandle, useRef } from 'react';
+import { useScrollFade } from '@/lib/hooks';
 import { IconButton } from '@/lib/ui/button';
 import surfaceStyles from '@/lib/ui/surface/style.module.css';
 import { registerOpenDialog, replaceOpenDialogs } from './replacement';
@@ -228,7 +220,7 @@ export function DialogPanel( {
 	);
 }
 
-/** A scroll container whose top edge fades once its content has scrolled. */
+/** A scroll container that fades only its overflowing edges. */
 function DialogScrollArea( {
 	className,
 	onScroll,
@@ -237,35 +229,18 @@ function DialogScrollArea( {
 	...props
 }: ComponentProps< 'div' > ) {
 	const element = useRef< HTMLDivElement >( null );
-	const [ scrolled, setScrolled ] = useState( false );
+	const setFadeElement = useScrollFade< HTMLDivElement >();
 	useImperativeHandle( ref, () => element.current!, [] );
-	const measure = useCallback( () => {
-		const node = element.current;
-		if ( ! node ) return;
-		const scrollTop = Math.max( 0, node.scrollTop );
-		node.style.setProperty( '--scroll-fade-size', `${ Math.min( scrollTop, 20 ) }px` );
-		setScrolled( scrollTop > 0 );
-	}, [] );
-	useLayoutEffect( () => {
-		measure();
-		if ( typeof ResizeObserver === 'undefined' ) return;
-		const observer = new ResizeObserver( measure );
-		const node = element.current!;
-		observer.observe( node );
-		if ( node.firstElementChild ) observer.observe( node.firstElementChild );
-		return () => observer.disconnect();
-	}, [ children, measure ] );
 	return (
 		<div
 			{ ...props }
-			ref={ element }
-			data-slot="dialog-scroll-area"
-			data-scrolled={ scrolled }
-			className={ clsx( styles.scrollArea, className ) }
-			onScroll={ ( event ) => {
-				measure();
-				onScroll?.( event );
+			ref={ ( node ) => {
+				element.current = node;
+				setFadeElement( node );
 			} }
+			data-slot="dialog-scroll-area"
+			className={ clsx( styles.scrollArea, className ) }
+			onScroll={ onScroll }
 		>
 			{ children }
 		</div>

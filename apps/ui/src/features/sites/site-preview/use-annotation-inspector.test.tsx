@@ -12,6 +12,7 @@ import {
 	setAnnotating,
 	stageAnnotations,
 } from '@/features/annotations';
+import { SiteHeaderActions, SiteHeaderActionsProvider } from '@/features/sites/site-header-actions';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { SitePreview } from '.';
@@ -42,12 +43,16 @@ async function setup( onStartAnnotating?: () => boolean ) {
 	vi.stubGlobal( 'ipcApi', { clearWebviewCache: vi.fn().mockResolvedValue( undefined ) } );
 	const view = renderWithProviders(
 		<SessionUIProvider>
-			<SitePreview
-				site={ site }
-				path="/"
-				reloadNonce={ 0 }
-				onStartAnnotating={ onStartAnnotating }
-			/>
+			<SiteHeaderActionsProvider host="preview">
+				<SitePreview
+					site={ site }
+					path="/"
+					reloadNonce={ 0 }
+					onStartAnnotating={ onStartAnnotating }
+					onSendAnnotations={ () => undefined }
+				/>
+				<SiteHeaderActions site={ site } />
+			</SiteHeaderActionsProvider>
 		</SessionUIProvider>,
 		{
 			connector: createFakeConnector( { sites: [ site ] } ),
@@ -76,15 +81,24 @@ const injections = ( preview: { executeJavaScript: ReturnType< typeof vi.fn > } 
 		code.startsWith( INSPECTOR_PAGE_SCRIPT )
 	);
 
+// The annotation state last mirrored into the page.
+function pageState( preview: { executeJavaScript: ReturnType< typeof vi.fn > } ) {
+	const code = preview.executeJavaScript.mock.calls
+		.map( ( [ call ] ) => String( call ) )
+		.filter( ( call ) => call.includes( '{ detail: ' ) )
+		.at( -1 );
+	return code ? JSON.parse( code.slice( code.indexOf( '{ detail: ' ) + 10, -4 ) ) : null;
+}
+
 describe( 'annotation inspector navigation', () => {
-	it( 'marks notes pending until saved, including image-only and dismissed drafts', async () => {
+	it( 'keeps image-only drafts open until saved and marks them pending', async () => {
 		const { preview, emit, annotate } = await setup();
 		emit( 'dom-ready' );
 		await waitFor( () => expect( annotate() ).toBeEnabled() );
 		let id = '';
 		act( () => {
 			setAnnotating( site.id, true );
-			id = pickAnnotation( site.id, { selector: 'h1' } )!;
+			id = pickAnnotation( site.id, { selector: 'h1', url: 'http://localhost:8881/' } )!;
 			changeAnnotation( site.id, id, {
 				images: [
 					{
@@ -102,11 +116,38 @@ describe( 'annotation inspector navigation', () => {
 		expect( latestCommand() ).toContain( '"pending":true' );
 		expect( latestCommand() ).toContain( '"pendingAnnotationLabel":"Pending annotation"' );
 		act( () => escapeAnnotations( site.id ) );
+		expect( latestCommand() ).toContain( '"active":true' );
 		expect( latestCommand() ).toContain( '"pending":true' );
+		act( () => setAnnotating( site.id, true ) );
+		expect( latestCommand() ).toContain( '"active":true' );
 		act( () => stageAnnotations( site.id, [ id ] ) );
 		expect( latestCommand() ).toContain( '"pending":false' );
-		act( () => editAnnotation( site.id, id ) );
+		act( () => {
+			editAnnotation( site.id, id );
+		} );
 		expect( latestCommand() ).toContain( '"pending":false' );
+	} );
+
+	it( 'shows saved markers when annotation mode is reopened from its mode toggle', async () => {
+		const { preview, emit, annotate, user } = await setup();
+		emit( 'dom-ready' );
+		await waitFor( () => expect( annotate() ).toBeEnabled() );
+		let id = '';
+		act( () => {
+			setAnnotating( site.id, true );
+			id = pickAnnotation( site.id, { selector: 'h1', url: 'http://localhost:9010/' } )!;
+			changeAnnotation( site.id, id, { comment: 'Make the heading smaller' } );
+			stageAnnotations( site.id, [ id ], true );
+			setAnnotating( site.id, false );
+		} );
+		expect( annotate() ).toHaveAccessibleDescription( '1 annotation ready to send' );
+		expect( annotate().querySelector( '[data-slot="notification-dot"]' ) ).toBeInTheDocument();
+		await user.click( annotate() );
+		const command = preview.executeJavaScript.mock.calls.at( -1 )?.[ 0 ];
+		expect( command ).toContain( '"active":true' );
+		expect( command ).toContain( `"id":"${ id }"` );
+		expect( command ).toContain( '"number":1' );
+		expect( command ).toContain( '"pending":false' );
 	} );
 
 	it( 'asks before entering annotation mode and leaves it inactive when a provider is required', async () => {
@@ -156,5 +197,21 @@ describe( 'annotation inspector navigation', () => {
 		await waitFor( () => expect( annotate() ).toBeEnabled() );
 		await act( async () => reject( new Error( 'Document destroyed' ) ) );
 		expect( annotate() ).toBeEnabled();
+	} );
+
+	it( 'leaves the notes on an email or the design system out of the page', async () => {
+		const { preview, emit, annotate } = await setup();
+		emit( 'dom-ready' );
+		await waitFor( () => expect( annotate() ).toBeEnabled() );
+		act( () => setAnnotating( site.id, true ) );
+		act( () => {
+			pickAnnotation( site.id, {
+				email: { id: 'reset.eml', subject: 'Password Reset', part: 'text', paragraph: 0 },
+			} );
+		} );
+
+		await waitFor( () =>
+			expect( pageState( preview ) ).toMatchObject( { active: true, editingId: null, notes: [] } )
+		);
 	} );
 } );

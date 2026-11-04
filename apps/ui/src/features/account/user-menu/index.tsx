@@ -13,7 +13,7 @@ import { useOffline } from '@/lib/hooks';
 import { Button, IconButton, Menu, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import styles from './style.module.css';
 
-const MENU_SECTIONS: string[] = [ 'appearance', 'ai', 'usage' ];
+const MENU_SECTIONS: string[] = [ 'ai', 'usage' ];
 
 export function UserMenu( { active = true }: { active?: boolean } ) {
 	const { data: user } = useAuthUser();
@@ -40,7 +40,7 @@ export function UserMenu( { active = true }: { active?: boolean } ) {
 								<Button
 									ref={ trigger }
 									variant="muted-ghost"
-									size="icon"
+									size="icon-sm"
 									aria-label={ user.displayName || user.email }
 								/>
 							}
@@ -86,14 +86,20 @@ export function UserMenu( { active = true }: { active?: boolean } ) {
 						</Menu.Popup>
 					</Menu.Root>
 				) : (
-					<Button ref={ trigger } size="sm" onClick={ () => setPromptOpen( true ) }>
+					<Button
+						ref={ trigger }
+						size="sm"
+						variant="accent"
+						onClick={ () => setPromptOpen( true ) }
+					>
 						{ __( 'Log in' ) }
 					</Button>
 				) }
 				<span className={ styles.spacer } aria-hidden="true" />
 				{ isOffline && <OfflineIndicator /> }
-				<AppUpdateButton />
+				<AppUpdateButton className={ styles.update } />
 				<IconButton
+					size="icon-sm"
 					variant="muted-ghost"
 					icon={ <SettingsIcon /> }
 					label={ __( 'Settings' ) }
@@ -114,6 +120,7 @@ export function UserMenu( { active = true }: { active?: boolean } ) {
 					'Create a free WordPress.com account to build with the agent, share previews, and publish.'
 				) }
 				source="settings"
+				analytics={ { placement: 'account_menu', intent: 'account' } }
 			/>
 		</div>
 	);

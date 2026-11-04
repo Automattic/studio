@@ -26,7 +26,7 @@ describe( 'Conversation copy buttons', () => {
 			] )
 		);
 
-		fireEvent.click( screen.getByRole( 'button', { name: /^Worked/ } ) );
+		expect( screen.queryByRole( 'button', { name: /^Worked/ } ) ).not.toBeInTheDocument();
 		const buttons = screen.getAllByRole( 'button', { name: 'Copy message' } );
 		expect( buttons ).toHaveLength( 3 );
 
@@ -286,7 +286,7 @@ describe( 'Conversation activity groups', () => {
 		expect( screen.getByText( 'Checking the theme.' ) ).toBeVisible();
 		expect( screen.getByText( 'Everything looks good.' ) ).toBeVisible();
 	} );
-	it( 'offers the design system once, after its last DESIGN.md write, even when collapsed', () => {
+	it( 'shows the design system inside the final reply without a separate update announcement', () => {
 		const designWrite = ( id: string ) => [
 			assistantToolCallEntry( 'Write', { path: 'DESIGN.md' } ),
 			{
@@ -313,16 +313,16 @@ describe( 'Conversation activity groups', () => {
 			isRunning: true,
 			startedAt: Date.now(),
 		} );
-		const button = screen.getByRole( 'button', { name: 'Open design system' } );
 		expect(
-			button.compareDocumentPosition( screen.getByText( 'Checking the theme.' ) ) &
-				Node.DOCUMENT_POSITION_FOLLOWING
-		).toBeTruthy();
+			screen.queryByRole( 'button', { name: 'Open design system' } )
+		).not.toBeInTheDocument();
 
 		rerenderSession(
 			loadedSession( [
 				...entries,
-				assistantTextEntry( 'The site is greener now.' ),
+				assistantTextEntry(
+					`Updated the [design system](${ DESIGN_SYSTEM_PREVIEW_PATH }) to make the site greener.`
+				),
 				turnClosedEntry( 'success' ),
 			] )
 		);
@@ -331,6 +331,10 @@ describe( 'Conversation activity groups', () => {
 			'false'
 		);
 		expect( screen.getAllByRole( 'button', { name: 'Open design system' } ) ).toHaveLength( 1 );
+		expect(
+			screen.getByRole( 'button', { name: 'Open design system' } ).closest( 'p' )
+		).toHaveTextContent( 'Updated the Design System to make the site greener.' );
+		expect( screen.queryByText( /was updated/ ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'automatically collapses activity while keeping a pending question available', () => {
@@ -343,7 +347,7 @@ describe( 'Conversation activity groups', () => {
 			] ),
 			{ isRunning: true, startedAt: Date.now(), pendingQuestions: new Set( [ 'Which color?' ] ) }
 		);
-		const header = screen.getByRole( 'button', { name: /^Waiting for/ } );
+		const header = screen.getByRole( 'button', { name: /^Waiting/ } );
 		expect( header ).toHaveAttribute( 'aria-expanded', 'false' );
 		expect( screen.getByRole( 'radio', { name: 'Blue' } ) ).toBeVisible();
 		fireEvent.click( header );

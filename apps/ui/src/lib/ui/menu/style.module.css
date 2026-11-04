@@ -1,4 +1,16 @@
 @layer ui {
+	.item:not( :has( > [data-icon='inline-end'] ) ) {
+		padding-inline-end: var( --space-3 );
+	}
+
+	.itemLabel {
+		min-width: 0;
+		max-width: min( 320px, 60vw );
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
 	.positioner {
 		z-index: var( --z-popover );
 		outline: none;
@@ -15,7 +27,8 @@
 	}
 
 	.destructive[data-highlighted] {
-		background-color: var( --destructive-hover );
+		--item-hover-background: var( --destructive-hover );
+		--item-hover-foreground: var( --destructive );
 		color: var( --destructive );
 	}
 

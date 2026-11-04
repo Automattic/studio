@@ -37,6 +37,8 @@ const mocks = vi.hoisted( () => ( {
 	afterWritesAtOnce: [] as number[],
 	afterWritesRunning: 0,
 	failNext: false,
+	// What Studio fixes in a file just written, as its fonts in theme.json.
+	fixWrite: undefined as undefined | ( ( file: string ) => string[] ),
 	// What each end of a run finds still open on the sites.
 	openProblems: [] as string[][],
 	// What the end of a run did, in order.
@@ -176,6 +178,7 @@ vi.mock( '@studio/agent/node/site-notes', async ( importOriginal ) => ( {
 			mocks.afterWritesRunning--;
 			return [ `wrote ${ file }` ];
 		},
+		fixWrite: async ( file: string ) => mocks.fixWrite?.( file ) ?? [],
 		afterResult: async ( site: string ) => [ `result on ${ site }` ],
 		takeSourceMs: () => ( {} ),
 	} ),
@@ -1124,6 +1127,7 @@ describe( 'pi runtime', () => {
 				'after resultNotes',
 				'after siteChanges',
 				'blockValidation',
+				'fileFixes',
 				'pendingWork',
 				'previousChecks',
 				'render',
@@ -1230,6 +1234,39 @@ describe( 'pi runtime', () => {
 		} finally {
 			fs.rmSync( file, { force: true } );
 		}
+	} );
+
+	// eval19: in 2 of 5 branch runs Studio self-hosted theme.json's fonts after
+	// its Write returned, so the agent's next Edit, made from the text it wrote, failed.
+	it( 'reports what Studio fixes in a file it wrote on the file tool result', async () => {
+		await runRuntime( { prompt: 'hello', env: WPCOM_ENV, session: newSession() } );
+		const file = path.resolve( mocks.studioRoot, 'a/theme.json' );
+		fs.mkdirSync( path.dirname( file ), { recursive: true } );
+		fs.writeFileSync( file, 'one\ntwo\nthree' );
+		mocks.fixWrite = ( fixed ) => {
+			fs.writeFileSync( fixed, 'one\nTWO\nthree' );
+			return [ 'Studio self-hosted the fonts.' ];
+		};
+		try {
+			const result = ( await getCreatedTool( 'Write' ).execute( 'w', {
+				path: 'a/theme.json',
+				content: '',
+			} ) ) as { content: Array< { text: string } > };
+			expect( result.content.map( ( part ) => part.text ).join( '\n' ) ).toContain(
+				[
+					'<studio-notes>',
+					'Studio self-hosted the fonts.',
+					`Studio changed ${ file } after the write; every other line reads as written.`,
+					'Lines 2-2 now read:\n~~~\nTWO\n~~~',
+				].join( '\n' )
+			);
+			await takeNotes();
+		} finally {
+			mocks.fixWrite = undefined;
+			fs.rmSync( file, { force: true } );
+		}
+		// The notes after the call start from the file as Studio left it.
+		expect( mocks.leftTexts.at( -1 ) ).toEqual( [ file, 'one\nTWO\nthree' ] );
 	} );
 
 	// port c-2 climbing-gym: three files' notes each added a preset to theme.json

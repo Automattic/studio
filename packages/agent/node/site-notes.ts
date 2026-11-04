@@ -56,6 +56,10 @@ interface Sources {
 	// before a file tool's write, '' for a file it creates, and unknown for any
 	// other write.
 	write: Record< string, ( file: SiteFile, before?: string ) => Notes >;
+	// The sources that rewrite the file just written, before the others: a
+	// file tool's call waits for them, so the agent goes on from the file as
+	// Studio leaves it, not the text its own call left there.
+	fix: Record< string, ( file: SiteFile ) => Notes >;
 	result: Record< string, ( sitePath: string, text: string ) => Notes >;
 }
 
@@ -123,10 +127,15 @@ function sources(
 					await frontPageTemplateRefusal( file, text ),
 				].filter( Boolean ) as string[],
 		],
-		// In order: each sees the file as the ones before it left it.
+		// In order: each sees the file as the ones before it left it, and the
+		// write sources see it as these leave it.
+		fix: {
+			'full width blocks': freeFullWidthBlocks,
+			'theme fonts': selfHostFonts,
+			'theme presets': ( file ) => keepThemePresets( host, file ),
+		},
 		write: {
 			// Before the gate reads the file and the theme's presets for its save.
-			'full width blocks': freeFullWidthBlocks,
 			'repeated style values': ( file ) =>
 				repeatedStyleValueNotes( host, file, { gateSaves: Boolean( gate ) } ),
 			'block validation': ( { siteRoot, relativePath } ) => {
@@ -134,12 +143,10 @@ function sources(
 				return [];
 			},
 			'theme pattern cache': ( file ) => clearThemePatternCache( host, file ),
-			'theme fonts': selfHostFonts,
 			'theme thumbnail': ( file ) => writeThemeThumbnail( host, file ),
 			'block markup': blockMarkupNotes,
 			'theme.json': themeJsonNotes,
 			'theme.json file': ( file ) => themeJsonFileNotes( host, file, open ),
-			'theme presets': ( file ) => keepThemePresets( host, file ),
 			'theme style overrides': themeStyleOverrideNotes,
 			'theme css': themeCssNotes,
 			'shared block classes': createSharedBlockClassNotes( host ),
@@ -200,7 +207,12 @@ export interface SiteNotes {
 	 * The notes on a write to this file, and what Studio changed in it since
 	 * the tool left `written`, or since this call when that is not known.
 	 */
-	afterWrite( filePath: string, written?: string ): Promise< string[] >;
+	afterWrite( filePath: string, written?: string, fixed?: boolean ): Promise< string[] >;
+	/**
+	 * What Studio fixed in a file just written, as a file tool's call reports
+	 * before its result, so its afterWrite() is `fixed`.
+	 */
+	fixWrite( filePath: string ): Promise< string[] >;
 	/** The notes on a Studio tool's result about this site. */
 	afterResult( sitePath: string, text: string ): Promise< string[] >;
 	/** The time each source of notes took since the last take, for a profile. */
@@ -212,7 +224,7 @@ export function createSiteNotes(
 	host: StudioAgentHost,
 	options: SiteNotesOptions = {}
 ): SiteNotes {
-	const { beforeWrite, write, result } = sources( host, options );
+	const { beforeWrite, write, fix, result } = sources( host, options );
 	let sourceMs: Record< string, number > = {};
 	// The notes each file's last write gave, by file: a note said once while
 	// it stands, and again should it come back after a write that gave none.
@@ -224,6 +236,14 @@ export function createSiteNotes(
 		standing.set( file, notes );
 		return notes.filter( ( note ) => ! said.includes( note ) );
 	};
+	const fixes = async ( file: SiteFile, key: string ) =>
+		once(
+			`fix ${ key }`,
+			await collect(
+				Object.entries( fix ).map( ( [ name, source ] ) => [ name, () => source( file ) ] ),
+				sourceMs
+			)
+		);
 	return {
 		async beforeWrite( filePath, text = '' ) {
 			// Unlike a note, a refusal that fails stops the write.
@@ -240,7 +260,11 @@ export function createSiteNotes(
 			held.delete( realPath( filePath ) );
 			return `Not run: ${ refusals.join( ' ' ) }`;
 		},
-		async afterWrite( filePath, written = readText( filePath ) ) {
+		async fixWrite( filePath ) {
+			const file = resolveSiteFile( filePath );
+			return file ? fixes( file, realPath( filePath ) ) : [];
+		},
+		async afterWrite( filePath, written = readText( filePath ), fixed = false ) {
 			const file = resolveSiteFile( filePath );
 			if ( ! file ) {
 				return [];
@@ -249,16 +273,19 @@ export function createSiteNotes(
 			const key = realPath( filePath );
 			const before = held.get( key );
 			held.delete( key );
-			const notes = once(
-				key,
-				await collect(
-					Object.entries( write ).map( ( [ name, source ] ) => [
-						name,
-						() => source( file, before ),
-					] ),
-					sourceMs
-				)
-			);
+			const notes = [
+				...( fixed ? [] : await fixes( file, key ) ),
+				...once(
+					key,
+					await collect(
+						Object.entries( write ).map( ( [ name, source ] ) => [
+							name,
+							() => source( file, before ),
+						] ),
+						sourceMs
+					)
+				),
+			];
 			const now = readText( filePath );
 			return written === undefined || now === undefined
 				? notes
@@ -284,7 +311,8 @@ export function createSiteNotes(
 /**
  * The notes on a call that ran: on each file it wrote, one at a time as the
  * notes on each can save a fix to the same file, with `left` the text the file
- * tool left in `writtenFile`, then on its result about `site`.
+ * tool left in `writtenFile` once Studio's fixes to it (fixWrite) were made,
+ * then on its result about `site`.
  */
 export async function notesAfterCall(
 	siteNotes: SiteNotes,
@@ -307,7 +335,9 @@ export async function notesAfterCall(
 	for ( const file of new Set( written ) ) {
 		notes.push(
 			...( await time( 'fileNotes', () =>
-				siteNotes.afterWrite( file, file === writtenFile ? left : undefined )
+				file === writtenFile
+					? siteNotes.afterWrite( file, left, true )
+					: siteNotes.afterWrite( file )
 			) )
 		);
 	}

@@ -8,6 +8,7 @@ import { type AgentTool } from '@earendil-works/pi-agent-core';
 import { type ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { classicThemeQuestion } from '@studio/agent/node/block-theme';
 import { type BlockValidationGate } from '@studio/agent/node/block-validation-gate';
+import { rewriteNotes } from '@studio/agent/node/file-rewrites';
 import { describeStillOpen, type OpenProblems } from '@studio/agent/node/open-problems';
 import { NO_CHANGES, type SiteChanges } from '@studio/agent/node/site-changes';
 import { notesAfterCall, type SiteNotes } from '@studio/agent/node/site-notes';
@@ -85,6 +86,16 @@ export class AfterChecks {
 
 	settle(): Promise< void > {
 		return this.running;
+	}
+
+	/** Runs `check` once the checks before it are done, for its call to wait on. */
+	now< T >( check: () => Promise< T > ): Promise< T > {
+		const run = this.running.then( check );
+		this.running = run.then(
+			() => undefined,
+			() => undefined
+		);
+		return run;
 	}
 }
 
@@ -255,10 +266,23 @@ export function toToolDefinition(
 					);
 				} );
 			// The file as the tool left it, which is the text the agent holds.
-			const left = writtenFile ? readFileText( writtenFile ) : undefined;
+			const written = writtenFile ? readFileText( writtenFile ) : undefined;
 			if ( writtenFile ) {
-				fileViews.saw( writtenFile, tool.name, left );
+				fileViews.saw( writtenFile, tool.name, written );
 			}
+			// What Studio fixes in the file goes on this result, so the agent's
+			// next call starts from the file as Studio leaves it: one that edits
+			// the text it wrote finds what Studio changed in it.
+			const fixes = writtenFile
+				? await timeCheck( 'fileFixes', () =>
+						afterChecks.now( () => siteNotes.fixWrite( writtenFile ) )
+				  )
+				: [];
+			const left = writtenFile ? readFileText( writtenFile ) : undefined;
+			const fixNotes =
+				writtenFile && written !== undefined && left !== undefined
+					? [ ...fixes, ...rewriteNotes( writtenFile, written, left ) ]
+					: fixes;
 			const readPath = tool.name === 'Read' && ( params as { path?: unknown } ).path;
 			if ( typeof readPath === 'string' ) {
 				const { offset, limit } = params as { offset?: unknown; limit?: unknown };
@@ -331,6 +355,7 @@ export function toToolDefinition(
 			// The checks of earlier calls, which go on those calls' results (see placeCallNotes).
 			const callNotes = pendingWork.takeCallNotes( toolCallId );
 			const reports = studioMessage( 'notes', [
+				...fixNotes,
 				...validationReport,
 				stillOpen,
 				pendingWork.takeReports(),

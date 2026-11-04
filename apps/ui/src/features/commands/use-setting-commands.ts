@@ -88,7 +88,7 @@ function useSettingToggles(): SettingToggles {
 				? __( 'Disable starting sites in split view' )
 				: __( 'Enable starting sites in split view' ),
 			preferences.openChatOnSiteStart
-				? __( 'Sites will start in browser view.' )
+				? __( 'Sites will start with the panel expanded.' )
 				: __( 'Sites will start in split view.' )
 		),
 		'usage-statistics': toggle(

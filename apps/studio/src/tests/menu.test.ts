@@ -25,7 +25,7 @@ describe( 'buildViewMenuItems', () => {
 	it( 'keeps the site preview command wired to the expected shortcut and callback', () => {
 		const onToggleSitePreview = vi.fn();
 		const items = buildTestViewMenuItems( { onToggleSitePreview } );
-		const toggleSitePreviewItem = items.find( ( item ) => item.label === 'Toggle Site Preview' );
+		const toggleSitePreviewItem = items.find( ( item ) => item.label === 'Toggle Panel' );
 
 		expect( toggleSitePreviewItem ).toMatchObject( { accelerator: 'CommandOrControl+Shift+B' } );
 
@@ -56,7 +56,7 @@ describe( 'buildViewMenuItems', () => {
 it.each( [
 	[ 'Chat', '1', 'chat' ],
 	[ 'Split view', '2', 'split' ],
-	[ 'Browser', '3', 'preview' ],
+	[ 'Panel', '3', 'preview' ],
 ] as const )( 'selects %s with an app-local shortcut', ( label, key, layout ) => {
 	const onSetPreviewLayout = vi.fn();
 	const item = buildTestViewMenuItems( { onSetPreviewLayout } ).find(

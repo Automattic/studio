@@ -20,7 +20,7 @@ async function renderPreview( id: string ) {
 			/>
 		</SessionUIProvider>
 	);
-	await screen.findByRole( 'complementary', { name: 'Site preview' } );
+	await screen.findByRole( 'complementary', { name: 'Panel' } );
 	return view;
 }
 const toggle = () => screen.getByRole( 'button', { name: 'Responsive mode' } );

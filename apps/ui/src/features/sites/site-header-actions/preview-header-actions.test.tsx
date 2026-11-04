@@ -73,7 +73,7 @@ async function renderHeader(
 		</SiteHeaderActionsProvider>,
 		{ connector }
 	);
-	await screen.findByRole( 'complementary', { name: 'Site preview' } );
+	await screen.findByRole( 'complementary', { name: 'Panel' } );
 	return {
 		...view,
 		resize: ( next: number, windowWidth = next ) =>

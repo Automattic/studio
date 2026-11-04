@@ -14,6 +14,9 @@ export const snapshotSchema = z.object( {
 	// When WordPress.com tears the preview down (ms), as it last reported. WordPress.com owns the
 	// review window; earlier Jurassic Ninja previews have none.
 	expiresAt: z.number().optional(),
+	// The local site version the preview holds, as recorded when Studio last pushed to it or pulled
+	// from it. See `cli/lib/site-versions`.
+	versionId: z.string().optional(),
 } );
 
 export type Snapshot = z.infer< typeof snapshotSchema >;

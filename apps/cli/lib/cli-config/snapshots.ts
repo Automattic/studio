@@ -52,7 +52,8 @@ export async function saveSnapshotToConfig(
 	previewUrl: string,
 	userId: number,
 	name: string,
-	shareUrl?: string
+	shareUrl?: string,
+	versionId?: string
 ): Promise< Snapshot > {
 	const site = await getSiteByFolder( siteFolder );
 	try {
@@ -71,6 +72,7 @@ export async function saveSnapshotToConfig(
 			sequence: nextSequenceNumber,
 			userId,
 			shareUrl,
+			versionId,
 		};
 
 		// A sync while the preview was being created may already have listed it.
@@ -91,7 +93,8 @@ export async function linkPulledPreview(
 	localSiteId: string,
 	atomicSiteId: number,
 	userId: number,
-	preview: StandingPreview
+	preview: StandingPreview,
+	versionId?: string
 ): Promise< void > {
 	try {
 		await lockCliConfig();
@@ -112,10 +115,11 @@ export async function linkPulledPreview(
 			};
 			config.snapshots.push( snapshot );
 		}
-		if ( snapshot.localSiteId ) {
+		if ( snapshot.localSiteId && snapshot.localSiteId !== localSiteId ) {
 			return;
 		}
 		snapshot.localSiteId = localSiteId;
+		snapshot.versionId = versionId;
 		await saveCliConfig( config );
 	} finally {
 		await unlockCliConfig();
@@ -125,7 +129,8 @@ export async function linkPulledPreview(
 export async function updateSnapshotInConfig(
 	atomicSiteId: number,
 	siteFolder: string,
-	shareUrl?: string
+	shareUrl?: string,
+	versionId?: string
 ): Promise< Snapshot > {
 	const site = await getSiteByFolder( siteFolder );
 	try {
@@ -138,6 +143,7 @@ export async function updateSnapshotInConfig(
 
 		snapshot.localSiteId = site.id;
 		snapshot.date = Date.now();
+		snapshot.versionId = versionId;
 		// The update restarted the server's window; the next sync reports where it now ends.
 		delete snapshot.expiresAt;
 		if ( shareUrl ) {

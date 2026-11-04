@@ -16,6 +16,7 @@ import { emitCliEvent } from 'cli/lib/daemon-client';
 import { updatePreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSiteTracksProps } from 'cli/lib/site-tracks';
+import { recordSiteVersion } from 'cli/lib/site-versions';
 import { getSnapshotsFromConfig, updateSnapshotInConfig } from 'cli/lib/snapshots';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
@@ -95,9 +96,12 @@ export async function runCommand(
 		await validateSiteSize( siteFolder, { onWpcom } );
 
 		reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
-		await withSiteOperation( siteFolder, 'export', () =>
-			archiveSiteContent( siteFolder, archivePath, { onWpcom } )
-		);
+		// The version is taken under the same lock as the archive, so it's what the preview holds.
+		const version = await withSiteOperation( siteFolder, 'export', async () => {
+			const recorded = await recordSiteVersion( site.id, siteFolder );
+			await archiveSiteContent( siteFolder, archivePath, { onWpcom } );
+			return recorded;
+		} );
 		archiveBytes = fs.statSync( archivePath, { throwIfNoEntry: false } )?.size;
 		logger.reportSuccess( __( 'Archive created' ) );
 
@@ -135,7 +139,8 @@ export async function runCommand(
 		const snapshot = await updateSnapshotInConfig(
 			snapshotToUpdate.atomicSiteId,
 			siteFolder,
-			shareUrl
+			shareUrl,
+			version.id
 		);
 		logger.reportSuccess(
 			sprintf( __( 'Preview site available at: %s' ), getSnapshotLink( snapshot ) )

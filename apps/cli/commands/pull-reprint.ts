@@ -39,6 +39,7 @@ import {
 } from 'cli/lib/pull/reprint-metadata';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { buildAutoLoginUrl } from 'cli/lib/site-utils';
+import { recordSiteVersion } from 'cli/lib/site-versions';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import type { builder } from 'cli/commands/pull-reprint.command';
@@ -74,13 +75,24 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
  * When the pulled site is one of the user's preview sites, makes it this local site's preview, so
  * updating it pushes this site's changes back. Best-effort: the pull has already succeeded.
  */
-async function linkIfPreview( localSiteId: string, source: PullSource ): Promise< void > {
+async function linkIfPreview(
+	localSiteId: string,
+	localPath: string,
+	source: PullSource
+): Promise< void > {
 	try {
 		const preview = ( await getStandingPreviews( source.wpComToken.accessToken ) ).get(
 			source.wpComSite.id
 		);
 		if ( preview ) {
-			await linkPulledPreview( localSiteId, source.wpComSite.id, source.wpComToken.id, preview );
+			const version = await recordSiteVersion( localSiteId, localPath );
+			await linkPulledPreview(
+				localSiteId,
+				source.wpComSite.id,
+				source.wpComToken.id,
+				preview,
+				version.id
+			);
 		}
 	} catch {
 		// Listing previews is not worth failing a finished pull over.
@@ -233,7 +245,6 @@ export async function runCommand(
 				record.runtimeBlueprintPath = studioMetadata.runtimeBlueprintPath;
 			} );
 			logger.reportSuccess( `Site "${ site.name }" updated` );
-			await linkIfPreview( site.id, sourceSite );
 
 			// The pulled database has no local admin user, so auto-login needs credentials to create one.
 			if ( ! site.adminPassword ) {
@@ -251,6 +262,8 @@ export async function runCommand(
 			await startPulledSite( site, logger, runtimeStartOptions, {
 				restart: ! isRepull && wasRunning,
 			} );
+			// After the start, so what WordPress writes as it boots is part of the pulled version.
+			await linkIfPreview( site.id, localPath, sourceSite );
 
 			if ( studioMetadata.localUrl ) {
 				console.log( '' );

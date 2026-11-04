@@ -69,6 +69,9 @@ vi.mock( 'cli/logger', () => ( {
 	LoggerError: class LoggerError extends Error {},
 } ) );
 
+vi.mock( 'cli/lib/site-versions', () => ( {
+	recordSiteVersion: vi.fn().mockResolvedValue( { id: 'version-1' } ),
+} ) );
 vi.mock( 'cli/lib/site-operations', () => ( {
 	withSiteOperation: vi.fn( ( _folder: string, _kind: string, fn: () => unknown ) => fn() ),
 } ) );
@@ -166,7 +169,8 @@ describe( 'Preview Create Command', () => {
 			mockSiteUrl,
 			mockAuthToken.id,
 			'Test Site Preview 1',
-			mockShareUrl
+			mockShareUrl,
+			'version-1'
 		);
 		expect( mockReportSuccess ).toHaveBeenCalledWith(
 			`Preview site available at: ${ mockShareUrl }`
@@ -202,7 +206,8 @@ describe( 'Preview Create Command', () => {
 			'test-preview.wp.build',
 			mockAuthToken.id,
 			'Test Site Preview 1',
-			undefined
+			undefined,
+			'version-1'
 		);
 	} );
 

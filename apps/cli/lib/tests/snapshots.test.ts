@@ -590,7 +590,7 @@ describe( 'Snapshots Module', () => {
 	} );
 
 	describe( 'linkPulledPreview', () => {
-		it( 'attaches a pulled preview to the local site, unless another site already has it', async () => {
+		it( 'attaches a pulled preview and its version to the local site, unless another site has it', async () => {
 			const preview = ( url: string, atomicSiteId: number, localSiteId: string ) => ( {
 				url,
 				atomicSiteId,
@@ -605,21 +605,25 @@ describe( 'Snapshots Module', () => {
 					snapshots: [
 						preview( 'made-elsewhere.wpcomstaging.com', 1, '' ),
 						preview( 'taken.wpcomstaging.com', 2, 'other-site' ),
+						preview( 'pulled-before.wpcomstaging.com', 4, 'pulled-site' ),
 					],
 				} )
 			);
 			const standing = { hostname: 'unlisted.wpcomstaging.com', expiresAt: 9000 };
 
-			for ( const atomicSiteId of [ 1, 2, 3 ] ) {
-				await linkPulledPreview( 'pulled-site', atomicSiteId, 42, standing );
+			for ( const atomicSiteId of [ 1, 2, 3, 4 ] ) {
+				await linkPulledPreview( 'pulled-site', atomicSiteId, 42, standing, `v${ atomicSiteId }` );
 				mocks.readFile.mockResolvedValue( mocks.writeFile.mock.lastCall?.[ 1 ] );
 			}
 
 			const savedData = JSON.parse( mocks.writeFile.mock.lastCall?.[ 1 ] );
-			expect( savedData.snapshots.map( ( s: Snapshot ) => [ s.url, s.localSiteId ] ) ).toEqual( [
-				[ 'made-elsewhere.wpcomstaging.com', 'pulled-site' ],
-				[ 'taken.wpcomstaging.com', 'other-site' ],
-				[ 'unlisted.wpcomstaging.com', 'pulled-site' ],
+			expect(
+				savedData.snapshots.map( ( s: Snapshot ) => [ s.url, s.localSiteId, s.versionId ] )
+			).toEqual( [
+				[ 'made-elsewhere.wpcomstaging.com', 'pulled-site', 'v1' ],
+				[ 'taken.wpcomstaging.com', 'other-site', undefined ],
+				[ 'pulled-before.wpcomstaging.com', 'pulled-site', 'v4' ],
+				[ 'unlisted.wpcomstaging.com', 'pulled-site', 'v3' ],
 			] );
 		} );
 	} );

@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts } from '@/data/app-messages';
+import { createFakeConnector } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { AnnotationOverlay } from './overlay';
 import {
@@ -62,6 +63,30 @@ describe( 'AnnotationOverlay', () => {
 			screen.queryByRole( 'textbox', { name: 'Describe the change' } )
 		).not.toBeInTheDocument();
 	} );
+
+	it.each( [ false, true ] )(
+		'uses Enter to add and primary Enter to send while batching (%s)',
+		async ( send ) => {
+			const onSend = vi.fn();
+			const connector = createFakeConnector( { preferences: { batchAnnotations: true } } );
+			renderWithProviders(
+				<AnnotationOverlay siteId={ SITE } anchor={ { left: 40, top: 40 } } onSend={ onSend } />,
+				{ connector }
+			);
+			await waitFor( () => expect( connector.getUserPreferences ).toHaveBeenCalled() );
+			await act( async () => {} );
+			annotate();
+			pick();
+			const input = screen.getByRole( 'textbox', { name: 'Describe the change' } );
+			fireEvent.change( input, { target: { value: 'Change this heading' } } );
+			fireEvent.keyDown( input, { key: 'Enter', ctrlKey: send } );
+			if ( send ) expect( onSend ).toHaveBeenCalledOnce();
+			else {
+				expect( onSend ).not.toHaveBeenCalled();
+				expect( getSiteAnnotations( SITE ).notes[ 0 ].staged ).toBe( true );
+			}
+		}
+	);
 
 	it.each( [
 		{ name: 'top edge', anchor: { left: 24, top: 24 }, height: 120 },

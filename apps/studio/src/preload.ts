@@ -31,7 +31,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'updateSite', updatedSite, wpVersion ),
 	connectWpcomSites: ( ...args ) => ipcRendererInvoke( 'connectWpcomSites', ...args ),
 	disconnectWpcomSites: ( ...args ) => ipcRendererInvoke( 'disconnectWpcomSites', ...args ),
-	authenticate: ( isSignup, source ) => ipcRendererSend( 'authenticate', isSignup, source ),
+	authenticate: ( isSignup, source, analytics ) =>
+		ipcRendererInvoke( 'authenticate', isSignup, source, analytics ),
 	exportSite: ( site, destinationPath, options ) =>
 		ipcRendererInvoke( 'exportSite', site, destinationPath, options ),
 	getAuthenticationToken: () => ipcRendererInvoke( 'getAuthenticationToken' ),
@@ -82,8 +83,8 @@ const api: IpcApi = {
 	importSite: ( siteId, importArchivePath, options ) =>
 		ipcRendererInvoke( 'importSite', siteId, importArchivePath, options ),
 	getOnboardingData: () => ipcRendererInvoke( 'getOnboardingData' ),
-	saveOnboarding: ( onboardingCompleted ) =>
-		ipcRendererInvoke( 'saveOnboarding', onboardingCompleted ),
+	saveOnboarding: ( onboardingCompleted, analytics ) =>
+		ipcRendererInvoke( 'saveOnboarding', onboardingCompleted, analytics ),
 	openAppAtPath: ( editorKey, filePath, otherFiles?: string[] ) =>
 		ipcRendererInvoke( 'openAppAtPath', editorKey, filePath, otherFiles ),
 	openTerminalAtPath: ( targetPath ) => ipcRendererInvoke( 'openTerminalAtPath', targetPath ),
@@ -155,8 +156,8 @@ const api: IpcApi = {
 	getGlobalInstructionsEnabled: () => ipcRendererInvoke( 'getGlobalInstructionsEnabled' ),
 	setGlobalInstructionsEnabled: ( enabled ) =>
 		ipcRendererInvoke( 'setGlobalInstructionsEnabled', enabled ),
-	recordAnalyticsEvent: ( eventName, props ) =>
-		ipcRendererInvoke( 'recordAnalyticsEvent', eventName, props ),
+	recordAnalyticsEvent: ( eventName, props, siteId ) =>
+		ipcRendererInvoke( 'recordAnalyticsEvent', eventName, props, siteId ),
 	listAiSessions: () => ipcRendererInvoke( 'listAiSessions' ),
 	loadAiSession: ( sessionIdOrPrefix ) => ipcRendererInvoke( 'loadAiSession', sessionIdOrPrefix ),
 	createAiSession: ( siteId ) => ipcRendererInvoke( 'createAiSession', siteId ),

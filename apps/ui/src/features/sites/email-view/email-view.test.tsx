@@ -56,7 +56,7 @@ describe( 'EmailView', () => {
 			} ),
 		] );
 
-		const list = await screen.findByRole( 'region', { name: 'Email' } );
+		const list = await screen.findByRole( 'region', { name: 'Email log' } );
 		expect( await within( list ).findByText( '2 emails' ) ).toBeInTheDocument();
 		const rows = within( list ).getAllByRole( 'option' );
 		expect( rows.map( ( row ) => row.textContent ) ).toEqual( [
@@ -120,7 +120,7 @@ describe( 'EmailView', () => {
 			makeEmail( { id: '20261026-090000-000001-cccccc.eml', subject: 'Comment to moderate' } ),
 		] );
 
-		const list = await screen.findByRole( 'listbox', { name: 'Email' } );
+		const list = await screen.findByRole( 'listbox', { name: 'Email log' } );
 		const rows = within( list ).getAllByRole( 'option' );
 		expect( rows.map( ( row ) => row.tabIndex ) ).toEqual( [ 0, -1, -1 ] );
 

@@ -365,6 +365,7 @@ export function createInMemoryConnector(
 		onSiteEvent: subscribe( 'onSiteEvent' ),
 		onSnapshotEvent: subscribe( 'onSnapshotEvent' ),
 		onToggleSitePreview: subscribe( 'onToggleSitePreview' ),
+		onSetPreviewLayout: subscribe( 'onSetPreviewLayout' ),
 		onToggleSidebar: subscribe( 'onToggleSidebar' ),
 		onAddSite: subscribe( 'onAddSite' ),
 		onOpenSite: subscribe( 'onOpenSite' ),

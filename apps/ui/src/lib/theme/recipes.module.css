@@ -51,7 +51,7 @@
 		inset-inline: 0;
 		height: var( --surface-fade-size );
 		background: var( --fade-surface );
-		mask-image: linear-gradient( to bottom, var( --surface-fade-stops ) );
+		mask-image: linear-gradient( to bottom, var( --surface-overlay-fade-stops ) );
 		content: '';
 		pointer-events: none;
 	}
@@ -94,5 +94,31 @@
 		border-radius: inherit;
 		content: '';
 		pointer-events: none;
+	}
+}
+
+@layer ui {
+	.errorShake[data-feedback='shake'] {
+		animation: errorShake var( --error-shake-duration, var( --motion-duration-layout ) )
+			var( --motion-ease-layout );
+	}
+	@keyframes errorShake {
+		20% {
+			transform: translateX( calc( var( --error-shake-distance, 6px ) * -1 ) );
+		}
+		40% {
+			transform: translateX( calc( var( --error-shake-distance, 6px ) * 5 / 6 ) );
+		}
+		60% {
+			transform: translateX( calc( var( --error-shake-distance, 6px ) * -0.5 ) );
+		}
+		80% {
+			transform: translateX( calc( var( --error-shake-distance, 6px ) / 6 ) );
+		}
+	}
+	@media ( prefers-reduced-motion: reduce ) {
+		.errorShake[data-feedback='shake'] {
+			animation: none;
+		}
 	}
 }

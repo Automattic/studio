@@ -5,7 +5,11 @@ import styles from './style.module.css';
 import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 
 export function SigninNotice( { source }: { source: TracksAuthSource } ) {
-	const login = useLogin( { source } );
+	const { promptRef, ...login } = useLogin( {
+		source,
+		analytics: { placement: 'settings_usage', intent: 'usage' },
+		trackExposure: true,
+	} );
 
 	return (
 		<section className={ styles.root } aria-label={ __( 'Sign in to WordPress Studio' ) }>
@@ -22,12 +26,7 @@ export function SigninNotice( { source }: { source: TracksAuthSource } ) {
 				</ul>
 			</div>
 			<div className={ styles.actions }>
-				<Button
-					type="button"
-					variant="accent"
-					loading={ login.isPending }
-					onClick={ () => login.mutate() }
-				>
+				<Button type="button" variant="accent" ref={ promptRef } onClick={ () => login.mutate() }>
 					{ __( 'Log in with WordPress.com' ) }
 				</Button>
 			</div>

@@ -1,3 +1,4 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { onlineManager } from '@tanstack/react-query';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -174,7 +175,11 @@ describe( 'PublishPopover', () => {
 		expect( screen.queryByRole( 'button', { name: 'Existing site…' } ) ).not.toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Log in' } ) );
 		await waitFor( () =>
-			expect( connector.authenticate ).toHaveBeenCalledWith( false, 'sync_tab' )
+			expect( connector.authenticate ).toHaveBeenCalledWith(
+				false,
+				'sync_tab',
+				expect.any( Object )
+			)
 		);
 		await waitFor( () => expect( connector.fetchSyncableWpcomSites ).toHaveBeenCalled() );
 	} );
@@ -198,17 +203,22 @@ describe( 'PublishPopover', () => {
 				'https://wordpress.com/setup/new-hosted-site'
 			)
 		);
-		expect( connector.authenticate ).toHaveBeenCalledWith( true, 'sync_tab' );
+		expect( connector.authenticate ).toHaveBeenCalledWith( true, 'sync_tab', expect.any( Object ) );
 	} );
 
 	it( 'keeps setup continuation alive when its panel unmounts', async () => {
-		const { connector, completeSetup, hide, ready } = setup();
+		const { connector, completeSetup, hide, ready, site } = setup();
 		await ready;
 		fireEvent.click( await screen.findByRole( 'button', { name: 'New site…' } ) );
 		await waitFor( () => expect( connector.openExternalUrl ).toHaveBeenCalledTimes( 1 ) );
 		hide();
 		await completeSetup( true );
 		await waitFor( () => expect( connector.connectWpcomSite ).toHaveBeenCalled() );
+		expect( connector.trackEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.SYNC_CONNECT,
+			{ success: true, num_of_sites: 1 },
+			site.id
+		);
 		expect( connector.pushSiteToLive ).not.toHaveBeenCalled();
 	} );
 
@@ -337,6 +347,11 @@ describe( 'PublishPopover', () => {
 		expect( connector.connectWpcomSite ).toHaveBeenCalledWith(
 			site.id,
 			expect.objectContaining( { id: 42, isPressable: true } )
+		);
+		expect( connector.trackEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.SYNC_CONNECT,
+			{ success: true, num_of_sites: 1 },
+			site.id
 		);
 		expect( connector.pushSiteToLive ).not.toHaveBeenCalled();
 	} );
@@ -780,12 +795,19 @@ describe( 'PublishPopover', () => {
 	} );
 
 	it( 'retries a delayed setup callback without opening another setup', async () => {
-		const { connector, completeSetup, ready } = setup();
+		const { connector, completeSetup, ready, site } = setup();
 		await ready;
 		fireEvent.click( await screen.findByRole( 'button', { name: 'New site…' } ) );
 		await waitFor( () => expect( connector.openExternalUrl ).toHaveBeenCalledTimes( 1 ) );
 		connector.fetchSyncableWpcomSites.mockRejectedValueOnce( new Error( 'Website not ready' ) );
 		await completeSetup( true );
+		await waitFor( () =>
+			expect( connector.trackEvent ).toHaveBeenCalledWith(
+				TRACKS_EVENTS.SYNC_CONNECT,
+				expect.objectContaining( { success: false } ),
+				site.id
+			)
+		);
 		await waitFor( () =>
 			expect(
 				screen.getAllByRole( 'button', { name: 'Publish…', hidden: true } )[ 0 ]

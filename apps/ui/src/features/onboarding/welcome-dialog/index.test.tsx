@@ -44,7 +44,10 @@ describe( 'Welcome dialog', () => {
 			fireEvent.click( screen.getByRole( 'button', { name: dismissLabel } ) );
 			await screen.findByRole( 'dialog', { name: 'Add site' } );
 			expect( connector.authenticate ).not.toHaveBeenCalled();
-			expect( connector.setOnboardingCompleted ).toHaveBeenCalledExactlyOnceWith( true );
+			expect( connector.setOnboardingCompleted ).toHaveBeenCalledExactlyOnceWith(
+				true,
+				expect.any( Object )
+			);
 			expect( connector.setOnboardingHints ).not.toHaveBeenCalled();
 			expect( history.location.search ).toContain( 'addSite=create' );
 			fireEvent.click( screen.getByRole( 'button', { name: 'Close Add site' } ) );
@@ -58,8 +61,15 @@ describe( 'Welcome dialog', () => {
 		const { connector } = await firstLaunch();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Continue with WordPress.com' } ) );
 		await screen.findByRole( 'dialog', { name: 'Add site' } );
-		expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith( true, 'onboarding' );
-		expect( connector.setOnboardingCompleted ).toHaveBeenCalledExactlyOnceWith( true );
+		expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith(
+			true,
+			'onboarding',
+			expect.any( Object )
+		);
+		expect( connector.setOnboardingCompleted ).toHaveBeenCalledExactlyOnceWith(
+			true,
+			expect.any( Object )
+		);
 	} );
 	it( 'completes onboarding on Escape', async () => {
 		const { connector } = await firstLaunch();
@@ -67,7 +77,10 @@ describe( 'Welcome dialog', () => {
 			key: 'Escape',
 		} );
 		await screen.findByRole( 'dialog', { name: 'Add site' } );
-		expect( connector.setOnboardingCompleted ).toHaveBeenCalledExactlyOnceWith( true );
+		expect( connector.setOnboardingCompleted ).toHaveBeenCalledExactlyOnceWith(
+			true,
+			expect.any( Object )
+		);
 	} );
 
 	it( 'stays on the welcome screen when OAuth closes without an account', async () => {

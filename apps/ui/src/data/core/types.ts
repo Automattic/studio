@@ -11,6 +11,7 @@ import type {
 import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 import type { AgentApp, AgentAppId } from '@studio/common/lib/agent-apps';
 import type { SiteAgentFile, SiteAgentFileKind } from '@studio/common/lib/agent-skills';
+import type { AuthAnalytics, OnboardingAnalytics } from '@studio/common/lib/auth-tracks';
 import type { SiteEvent, SiteListItem, SnapshotEvent } from '@studio/common/lib/cli-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type {
@@ -45,6 +46,7 @@ import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
+import type { WorkspaceLayout } from '@studio/common/types/workspace-layout';
 import type { DesignFix } from '@studio/design-md';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
@@ -173,16 +175,19 @@ export interface Connector {
 	// Auth
 	agenticRequiresAuth: boolean;
 	getAuthUser(): Promise< AuthUser | null >;
-	// `source` records the affordance the login started from, for `studio_wpcom_auth`. Only the IPC
-	// connector can report it — the browser connectors have no Main process to record through.
-	authenticate( signup?: boolean, source?: TracksAuthSource ): Promise< void >;
+	// Authentication context is shared by the Desktop and browser outcome emitters.
+	authenticate(
+		signup?: boolean,
+		source?: TracksAuthSource,
+		analytics?: AuthAnalytics
+	): Promise< void >;
 	logout(): Promise< void >;
 	onAuthStateChanged?( listener: () => void ): () => void;
 
 	// Onboarding — whether the user has been through (or skipped) the
 	// first-run welcome screen.
 	getOnboardingCompleted(): Promise< boolean >;
-	setOnboardingCompleted( completed: boolean ): Promise< void >;
+	setOnboardingCompleted( completed: boolean, analytics?: OnboardingAnalytics ): Promise< void >;
 
 	// Sites
 	getSites(): Promise< SiteDetails[] >;
@@ -392,6 +397,7 @@ export interface Connector {
 		sessionId: string,
 		prompt: string,
 		options?: {
+			turnId?: string;
 			displayMessage?: string;
 			images?: StudioChatImage[];
 			files?: StudioChatFileAttachment[];
@@ -508,7 +514,7 @@ export interface Connector {
 
 	// Analytics — record a Tracks event. The desktop wrapper attaches the surface
 	// params (channel/ui_version); see `docs/design-docs/analytics-tracks.md`.
-	trackEvent( eventName: TracksEventName, props?: TracksProps ): Promise< void >;
+	trackEvent( eventName: TracksEventName, props?: TracksProps, siteId?: string ): Promise< void >;
 
 	// External links
 	openExternalUrl( url: string ): Promise< void >;
@@ -595,6 +601,9 @@ export interface Connector {
 	// Fires when the user activates "View > Toggle Site Preview" (⌘⇧B) in the
 	// application menu.
 	onToggleSitePreview( listener: () => void ): () => void;
+
+	// Desktop-only layout accelerators; browser hosts reserve these keys for tabs.
+	onSetPreviewLayout?( listener: ( layout: WorkspaceLayout ) => void ): () => void;
 
 	// Fires when the user activates the sidebar toggle shortcut or menu command.
 	onToggleSidebar( listener: () => void ): () => void;
@@ -714,8 +723,8 @@ export interface UserPreferences {
 	// Start a stopped local site when a chat message is sent to it.
 	autoStartSiteOnChat?: boolean;
 	openChatOnSiteStart?: boolean;
-	// Ask before discarding preview annotations.
-	confirmDeleteAnnotations?: boolean;
+	// Save annotation notes for a combined send.
+	batchAnnotations?: boolean;
 	newSiteBehavior?: NewSiteBehavior;
 	// The appearance tint: a `#rrggbb` accent color, and percentages.
 	accentColor?: string;

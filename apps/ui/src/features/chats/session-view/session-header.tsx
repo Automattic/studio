@@ -12,38 +12,38 @@ export function SessionHeader( {
 	start,
 	siteName,
 	site,
-	effectiveEnvironment,
+	onOpenChat,
+	chatTabActive,
+	reserveSiteActions = true,
 }: {
 	start?: ReactNode;
 	siteName?: string;
 	site?: SiteDetails;
-	effectiveEnvironment: 'local' | 'live';
+	onOpenChat?: () => void;
+	chatTabActive?: boolean;
+	reserveSiteActions?: boolean;
 } ) {
 	const sidebarCollapsed = useSidebarCollapsed();
 	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 	const windowControlsInset = useWindowControlsInset( 'toolbar' );
 	const { host } = useSiteHeader();
-	const local = site && effectiveEnvironment === 'local';
+	const withSiteActions = !! site && host !== null;
 
 	return (
 		<header
 			data-site-header
 			className={ clsx(
 				styles.header,
-				local && host === 'chat' && styles.headerWithSiteActions,
+				withSiteActions && styles.headerWithSiteActions,
 				sidebarCollapsed && reserveTrafficLightSpace && styles.headerSidebarCollapsed
 			) }
-			style={
-				windowControlsInset > 0
-					? {
-							paddingRight: windowControlsInset + 8,
-					  }
-					: undefined
-			}
+			style={ windowControlsInset > 0 ? { paddingRight: windowControlsInset + 8 } : undefined }
 		>
 			<div data-site-header-reserved className={ styles.headerLead }>
 				{ start }
-				{ site ? <SiteMenu site={ site } /> : null }
+				{ site ? (
+					<SiteMenu site={ site } onOpenChat={ onOpenChat } chatTabActive={ chatTabActive } />
+				) : null }
 				{ ! site && siteName ? (
 					<>
 						<GlobeIcon className={ styles.headerSiteIcon } />
@@ -51,8 +51,9 @@ export function SessionHeader( {
 					</>
 				) : null }
 			</div>
+
 			<span className={ styles.headerSpacer } aria-hidden="true" />
-			{ local && host === 'chat' ? <SiteHeaderSpace /> : null }
+			{ withSiteActions && reserveSiteActions ? <SiteHeaderSpace /> : null }
 		</header>
 	);
 }

@@ -118,3 +118,10 @@ it.each( [
 	expect( mockRecord ).not.toHaveBeenCalled();
 	expect( mockInstallId ).not.toHaveBeenCalled();
 } );
+
+it( 'keeps workspace layout telemetry silent when opted out', async () => {
+	mockOptedOut.mockResolvedValue( true );
+	await recordTracksEvent( TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED, { layout: 'panel' } );
+	expect( mockRecord ).not.toHaveBeenCalled();
+	expect( mockInstallId ).not.toHaveBeenCalled();
+} );

@@ -184,3 +184,37 @@ it.each( [
 	expect( mockRecord ).not.toHaveBeenCalled();
 	expect( mockInstallId ).not.toHaveBeenCalled();
 } );
+
+it( 'keeps workspace layout telemetry silent when opted out', async () => {
+	mockOptedOut.mockResolvedValue( true );
+	await recordTracksEvent( TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED, {
+		layout: 'panel',
+		channel: 'studio-web',
+	} );
+	expect( mockRecord ).not.toHaveBeenCalled();
+	expect( mockInstallId ).not.toHaveBeenCalled();
+} );
+
+it( 'records workspace layouts from studio-web with the browser origin', async () => {
+	process.env.STUDIO_TRACKS_ORIGIN = 'studio-web:v2';
+	await recordTracksEvent( TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED, {
+		...getTracksOrigin(),
+		layout: 'split',
+	} );
+	expect( mockRecord ).toHaveBeenCalledExactlyOnceWith(
+		TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED,
+		{ type: 'anon', id: 'install-uuid' },
+		expect.objectContaining( { layout: 'split', channel: 'studio-web', ui_version: 'v2' } )
+	);
+} );
+
+it( 'disables browser workspace telemetry when the telemetry build flag is off', async () => {
+	vi.stubGlobal( '__ENABLE_CLI_TELEMETRY__', false );
+	delete process.env.STUDIO_FORCE_CLI_TELEMETRY;
+	process.env.NODE_ENV = 'production';
+	await recordTracksEvent( TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED, {
+		layout: 'split',
+		channel: 'studio-web',
+	} );
+	expect( mockRecord ).not.toHaveBeenCalled();
+} );

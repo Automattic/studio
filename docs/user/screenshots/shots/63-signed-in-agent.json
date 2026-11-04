@@ -7,7 +7,7 @@
 	"shots": [
 		{
 			"name": "design-looks",
-			"description": "A new blank site's first chat asking for a bakery called Wren & Barley, and Studio Code's pick of four looks (design-looks/), Wren & Barley's among them",
+			"description": "A new blank site's first chat asking for a slow-fashion journal called Moire, and Studio Code's pick of four looks (design-looks/), Moire's own among them",
 			"meta": { "pages": [ "studio-code/index.md" ] },
 			"steps": [
 				{ "waitFor": { "role": "dialog", "name": "Welcome to WordPress Studio" } },
@@ -50,7 +50,7 @@
 				{ "click": { "role": "combobox", "name": "Message WordPress Studio" } },
 				{
 					"helper": "typeText",
-					"args": [ "Build a site for my neighborhood bakery called Wren & Barley" ]
+					"args": [ "Build a site for my slow-fashion journal called Moire" ]
 				},
 				{ "click": { "role": "button", "name": "Send message" } },
 				{ "wait": 1500 },

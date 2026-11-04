@@ -1,7 +1,9 @@
 /**
  * Captures the docs screenshots with the Studio capture harness
  * (tools/capture-harness): the scripts in `screenshots/shots/` on its
- * Wren & Barley scene, in the docs look, into `screenshots/images/`. After a
+ * Moire scene (Rich's Moire Blueprint), in the docs look, into
+ * `screenshots/images/`. The first run on a machine bakes the scene's site
+ * from the Blueprint (`studio-capture bake --scene moire`). After a
  * full run it rewrites `screenshots/images/index.md`, the list of shots and
  * the uploads they replace.
  *
@@ -9,7 +11,8 @@
  *
  * Other options are passed to `studio-capture capture`; see its README.
  */
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { ROOT } from './lib/common.mjs';
@@ -17,6 +20,19 @@ import { ROOT } from './lib/common.mjs';
 const UPLOADS_URL = 'https://developer.wordpress.com/wp-content/uploads/';
 const HARNESS = path.resolve( ROOT, '../../tools/capture-harness/cli.ts' );
 const IMAGES_DIR = path.join( ROOT, 'screenshots', 'images' );
+const SCENE = 'moire';
+
+// Build the scene's site from its Blueprint once per machine; captures then import the backup.
+if ( ! existsSync( path.resolve( HARNESS, '..', 'scenes', SCENE, '.baked', 'scene.json' ) ) ) {
+	const bake = spawnSync(
+		process.execPath,
+		[ '--experimental-strip-types', HARNESS, 'bake', '--scene', SCENE ],
+		{ stdio: 'inherit' }
+	);
+	if ( bake.status !== 0 ) {
+		process.exit( bake.status ?? 1 );
+	}
+}
 
 function formatIndex( { shots, manual, studioVersion } ) {
 	const cell = ( list = [] ) => list.map( ( item ) => `\`${ item }\`` ).join( '<br>' ) || '—';
@@ -73,6 +89,8 @@ const child = spawn(
 		HARNESS,
 		'capture',
 		path.join( ROOT, 'screenshots', 'shots' ),
+		'--scene',
+		SCENE,
 		'--look',
 		'docs',
 		'--out',

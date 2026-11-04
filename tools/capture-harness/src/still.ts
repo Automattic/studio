@@ -383,7 +383,7 @@ export async function captureShot( ctx: Ctx, shot: Shot, outDir: string, mode: W
 		}
 		const variants = await renderLook( png, ctx.look, {
 			edges: edgesOf( box, viewport ),
-			frame: capture.frame,
+			frame: capture.frame ?? ctx.look.frame?.mode,
 		} );
 		for ( const [ variant, image ] of variants ) {
 			const file = path.join( outDir, `${ shot.name }${ suffix }${ variant }.${ ext }` );

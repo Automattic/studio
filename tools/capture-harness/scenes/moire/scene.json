@@ -6,7 +6,8 @@
 		{
 			"name": "Moire",
 			"slug": "moire",
-			"blueprint": "blueprint/blueprint.json"
+			"blueprint": "blueprint/blueprint.json",
+			"design": "DESIGN.md"
 		},
 		{
 			"name": "Bistro Lune",
@@ -24,5 +25,6 @@
 		"aiTopUpPricing": "ai-top-up-pricing.json"
 	},
 	"chats": "chats",
-	"agentTurns": "agent-turns"
+	"agentTurns": "agent-turns",
+	"files": "files"
 }

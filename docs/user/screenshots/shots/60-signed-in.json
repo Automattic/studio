@@ -144,7 +144,7 @@
 				},
 				{
 					"helper": "typeText",
-					"args": [ "Make this heading shorter" ]
+					"args": [ "Make the wordmark a touch smaller" ]
 				},
 				{
 					"press": "Enter"
@@ -154,14 +154,14 @@
 				},
 				{
 					"helper": "clickInPreview",
-					"args": [ "header .wp-block-button__link" ]
+					"args": [ ".wp-block-site-tagline" ]
 				},
 				{
 					"wait": 600
 				},
 				{
 					"helper": "typeText",
-					"args": [ "Make the Order button stand out more" ]
+					"args": [ "Add Autumn edit after the tagline" ]
 				},
 				{
 					"press": "Enter"
@@ -171,14 +171,14 @@
 				},
 				{
 					"helper": "clickInPreview",
-					"args": [ ".wp-block-image.alignfull img" ]
+					"args": [ ".wp-block-cover img, .wp-block-image img, img" ]
 				},
 				{
 					"wait": 600
 				},
 				{
 					"helper": "typeText",
-					"args": [ "Swap in a photo of our sourdough" ]
+					"args": [ "Swap in the wool close-up" ]
 				},
 				{
 					"wait": 500

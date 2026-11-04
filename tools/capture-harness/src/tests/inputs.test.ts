@@ -29,12 +29,14 @@ afterEach( async () => {
 
 describe( 'bundled inputs', () => {
 	it( 'validates the docs scripts, the bundled scene and every look', async () => {
-		const results = await validateFiles( [
-			DOCS_SHOTS,
-			path.join( HARNESS_DIR, 'scenes' ),
-			path.join( HARNESS_DIR, 'looks' ),
-			path.join( HARNESS_DIR, 'examples' ),
-		] );
+		const results = [
+			...( await validateFiles( [ DOCS_SHOTS ], { scene: await loadScene( 'moire' ) } ) ),
+			...( await validateFiles( [
+				path.join( HARNESS_DIR, 'scenes' ),
+				path.join( HARNESS_DIR, 'looks' ),
+				path.join( HARNESS_DIR, 'examples' ),
+			] ) ),
+		];
 		expect( results.filter( ( r ) => ! r.ok ) ).toEqual( [] );
 		expect( new Set( results.map( ( r ) => r.kind ) ) ).toEqual(
 			new Set( [ 'script', 'scene', 'look' ] )
@@ -66,7 +68,8 @@ describe( 'bundled inputs', () => {
 			crop: { pad: 48, aspect: 1.5 },
 			still: { format: 'webp', quality: 90 },
 		} );
-		expect( docs.frame ).toBeUndefined();
+		expect( docs.frame ).toMatchObject( { mode: 'window', background: 'dots' } );
+		expect( docs.keepRaw ).toBe( false );
 	} );
 } );
 

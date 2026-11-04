@@ -1,7 +1,7 @@
 {
 	"$schema": "../schemas/look.schema.json",
 	"name": "docs",
-	"description": "The Studio docs on developer.wordpress.com: a 1440×900 window at 2×, light, crops at least 3:2, WebP, no frame",
+	"description": "The Studio docs on developer.wordpress.com: a 1440×900 window at 2×, light, the whole window framed on the light dot field and crops left plain, crops at least 3:2, WebP",
 	"window": { "width": 1440, "height": 900 },
 	"scale": 2,
 	"appearance": { "colorScheme": "light" },
@@ -9,5 +9,16 @@
 	"annotations": { "accent": "#3858e9", "halo": "#ffffff" },
 	"crop": { "pad": 48, "aspect": 1.5 },
 	"still": { "format": "webp", "quality": 90 },
+	"frame": {
+		"mode": "window",
+		"background": "dots",
+		"dotScale": 1.6,
+		"padding": [ 0.08, 0.08 ],
+		"radius": 0.0083,
+		"shadow": "auto",
+		"blur": 0.007,
+		"hairline": "auto"
+	},
+	"keepRaw": false,
 	"video": { "formats": [ "webp" ], "fps": 12, "width": 1440, "hold": 1500, "cursor": true, "typingDelay": 45 }
 }

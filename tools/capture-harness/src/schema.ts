@@ -148,9 +148,9 @@ export const Annotation = z.union( [
 export type Annotation = z.infer< typeof Annotation >;
 
 export const FrameMode = z
-	.enum( [ 'auto', 'always', 'never' ] )
+	.enum( [ 'auto', 'always', 'window', 'never' ] )
 	.describe(
-		'When a framed look frames this shot: `auto` frames the whole window, and a crop that reaches a corner or three edges of the window, running off the image on the cut sides; a crop cut on opposite sides is left unframed. `always` also frames that one, centred; `never` frames nothing'
+		'When a framed look frames this shot: `auto` frames the whole window, and a crop that reaches a corner or three edges of the window, running off the image on the cut sides; a crop cut on opposite sides is left unframed. `always` also frames that one, centred; `window` frames only the whole window, never a crop; `never` frames nothing'
 	);
 export type FrameMode = z.infer< typeof FrameMode >;
 
@@ -391,6 +391,9 @@ export const Look = z
 					.describe(
 						"Margin, as a share of the width on every side, or [x, y] as shares of the width and of the height (equal shares keep the window's proportions)"
 					),
+				mode: FrameMode.optional().describe(
+					"Which shots the look frames, unless a shot's `capture.frame` says otherwise; `auto` if unset"
+				),
 				radius: z.number().default( 0.012 ).describe( 'Corner radius, as a share of the width' ),
 				shadow: z
 					.union( [ z.number().min( 0 ).max( 1 ), z.literal( 'auto' ) ] )

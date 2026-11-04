@@ -213,6 +213,16 @@
 						}
 					]
 				},
+				"mode": {
+					"description": "Which shots the look frames, unless a shot's `capture.frame` says otherwise; `auto` if unset",
+					"type": "string",
+					"enum": [
+						"auto",
+						"always",
+						"window",
+						"never"
+					]
+				},
 				"radius": {
 					"default": 0.012,
 					"description": "Corner radius, as a share of the width",

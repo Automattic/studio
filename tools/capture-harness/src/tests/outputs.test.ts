@@ -94,10 +94,17 @@ describe( 'writeIfChanged', () => {
 } );
 
 describe( 'renderLook', () => {
-	it( 'leaves a still alone in the docs look', async () => {
+	it( 'frames a whole window in the docs look and leaves a crop plain', async () => {
+		const docs = await loadLook( 'docs' );
 		const png = await solid( 200, 100, '#ffffff' );
-		const out = await renderLook( png, await loadLook( 'docs' ) );
-		expect( out ).toEqual( [ [ '', png ] ] );
+		const window = await renderLook( png, docs, { frame: docs.frame?.mode } );
+		expect( window ).toHaveLength( 1 );
+		expect( window[ 0 ][ 1 ] ).not.toEqual( png );
+		const crop = await renderLook( png, docs, {
+			frame: docs.frame?.mode,
+			edges: { top: true, right: false, bottom: false, left: true },
+		} );
+		expect( crop ).toEqual( [ [ '', png ] ] );
 	} );
 
 	it( 'frames a still into each of the social sizes', async () => {
@@ -168,6 +175,8 @@ describe( 'framing a crop', () => {
 		expect( framingFor( { ...WHOLE_WINDOW, left: false, right: false } ) ).toBeNull();
 		expect( framingFor( dialog, 'always' ) ).toEqual( dialog );
 		expect( framingFor( WHOLE_WINDOW, 'never' ) ).toBeNull();
+		expect( framingFor( WHOLE_WINDOW, 'window' ) ).toEqual( dialog );
+		expect( framingFor( corner, 'window' ) ).toBeNull();
 	} );
 
 	it( 'leaves a crop cut on every side unframed, even in a look that drops raw stills', async () => {

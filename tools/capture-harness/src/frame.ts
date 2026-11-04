@@ -149,11 +149,15 @@ const NO_CUT: Cut = { top: false, right: false, bottom: false, left: false };
  * centred on the background; a crop that cuts one side, or two that meet at a
  * corner, runs off the image there, as if looking at that part of the window;
  * a crop that cuts opposite sides has no window shape left to frame, so it is
- * framed only when the shot asks (`always`, centred). `null` is no frame.
+ * framed only when the shot asks (`always`, centred). `window` frames the
+ * whole window alone and no crop. `null` is no frame.
  */
 export function framingFor( edges: Edges, mode: FrameMode = 'auto' ): Cut | null {
 	if ( mode === 'never' ) {
 		return null;
+	}
+	if ( mode === 'window' ) {
+		return edges.top && edges.right && edges.bottom && edges.left ? NO_CUT : null;
 	}
 	const cut = {
 		top: ! edges.top,

@@ -121,9 +121,10 @@
 					"enum": [
 						"auto",
 						"always",
+						"window",
 						"never"
 					],
-					"description": "When a framed look frames this shot: `auto` frames the whole window, and a crop that reaches a corner or three edges of the window, running off the image on the cut sides; a crop cut on opposite sides is left unframed. `always` also frames that one, centred; `never` frames nothing"
+					"description": "When a framed look frames this shot: `auto` frames the whole window, and a crop that reaches a corner or three edges of the window, running off the image on the cut sides; a crop cut on opposite sides is left unframed. `always` also frames that one, centred; `window` frames only the whole window, never a crop; `never` frames nothing"
 				}
 			},
 			"additionalProperties": false
@@ -427,9 +428,10 @@
 								"enum": [
 									"auto",
 									"always",
+									"window",
 									"never"
 								],
-								"description": "When a framed look frames this shot: `auto` frames the whole window, and a crop that reaches a corner or three edges of the window, running off the image on the cut sides; a crop cut on opposite sides is left unframed. `always` also frames that one, centred; `never` frames nothing"
+								"description": "When a framed look frames this shot: `auto` frames the whole window, and a crop that reaches a corner or three edges of the window, running off the image on the cut sides; a crop cut on opposite sides is left unframed. `always` also frames that one, centred; `window` frames only the whole window, never a crop; `never` frames nothing"
 							}
 						},
 						"additionalProperties": false

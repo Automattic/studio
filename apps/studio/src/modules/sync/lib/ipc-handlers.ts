@@ -6,6 +6,7 @@ import {
 	removeConnectedWpcomSite,
 } from '@studio/common/lib/connected-sites';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
+import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
 import {
 	fetchHostingPhpVersion,
 	fetchLatestRewindId,
@@ -98,7 +99,8 @@ export async function fetchSyncableWpcomSites( _event: IpcMainInvokeEvent ): Pro
 	if ( ! token?.accessToken ) {
 		throw new Error( 'Authentication required to fetch WordPress.com sites.' );
 	}
-	return fetchSyncableSites( token.accessToken );
+	// A Reprint pull needs no plan, so unpaid sites such as preview sites can be pulled too.
+	return fetchSyncableSites( token.accessToken, { planRequired: ! isReprintPullEnabled() } );
 }
 
 export async function getConnectedWpcomSites(

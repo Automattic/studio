@@ -50,12 +50,13 @@ interface AnnotationOverlayProps {
 	anchor: AnnotationAnchor | null;
 	// Sends the notes (all of them with the chat draft, or just `noteIds`).
 	onSend: ( noteIds?: string[] ) => void;
+	onEscape?: () => boolean;
 }
 
 const EDGE = 8;
 const MARKER_CLEARANCE = 18;
 /** The note editor drawn over an annotated preview. */
-export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlayProps ) {
+export function AnnotationOverlay( { siteId, anchor, onSend, onEscape }: AnnotationOverlayProps ) {
 	const annotations = useSiteAnnotations( siteId );
 	const { active, notes, editingId, blockedNavigation } = annotations;
 	const busy = isAnnotationsBusy( annotations );
@@ -72,11 +73,11 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 				return;
 			}
 			event.preventDefault();
-			escapeAnnotations( siteId );
+			if ( ! onEscape?.() ) escapeAnnotations( siteId );
 		};
 		document.addEventListener( 'keydown', onKeyDown );
 		return () => document.removeEventListener( 'keydown', onKeyDown );
-	}, [ active, siteId ] );
+	}, [ active, siteId, onEscape ] );
 
 	return (
 		<div className={ styles.overlay } data-annotation-overlay>

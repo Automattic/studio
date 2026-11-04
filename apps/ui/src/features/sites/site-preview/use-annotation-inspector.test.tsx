@@ -1,4 +1,7 @@
-import { INSPECTOR_PAGE_SCRIPT } from '@studio/agent/protocol/inspector/page-script';
+import {
+	INSPECTOR_PAGE_SCRIPT,
+	INSPECTOR_BRIDGE_PREFIX,
+} from '@studio/agent/protocol/inspector/page-script';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SessionUIProvider } from '@/data/use-session-ui';
@@ -41,6 +44,7 @@ async function setup( onStartAnnotating?: () => boolean ) {
 		configurable: true,
 	} );
 	vi.stubGlobal( 'ipcApi', { clearWebviewCache: vi.fn().mockResolvedValue( undefined ) } );
+	const connector = createFakeConnector( { sites: [ site ] } );
 	const view = renderWithProviders(
 		<SessionUIProvider>
 			<SiteHeaderActionsProvider host="panel">
@@ -55,7 +59,7 @@ async function setup( onStartAnnotating?: () => boolean ) {
 			</SiteHeaderActionsProvider>
 		</SessionUIProvider>,
 		{
-			connector: createFakeConnector( { sites: [ site ] } ),
+			connector,
 		}
 	);
 	await waitFor( () => expect( view.container.querySelector( 'webview' ) ).not.toBeNull() );
@@ -73,7 +77,7 @@ async function setup( onStartAnnotating?: () => boolean ) {
 			fireEvent( preview, Object.assign( new Event( type ), details ) );
 		} );
 	const annotate = () => screen.getByRole( 'button', { name: /^Annotate/ } );
-	return { ...view, preview, emit, annotate };
+	return { ...view, preview, emit, annotate, connector };
 }
 
 const injections = ( preview: { executeJavaScript: ReturnType< typeof vi.fn > } ) =>
@@ -91,6 +95,108 @@ function pageState( preview: { executeJavaScript: ReturnType< typeof vi.fn > } )
 }
 
 describe( 'annotation inspector navigation', () => {
+	it( 'captures an area into an image-only note through the real annotation store', async () => {
+		const { connector, emit, annotate } = await setup();
+		connector.captureAnnotationRegion.mockResolvedValue( {
+			id: 'area-image',
+			name: 'Selected area.png',
+			mimeType: 'image/png',
+			size: 3,
+			dataBase64: 'cG5n',
+		} );
+		emit( 'dom-ready' );
+		await waitFor( () => expect( annotate() ).toBeEnabled() );
+		fireEvent.click( annotate() );
+		expect( screen.getByRole( 'button', { name: 'Draw' } ) ).toHaveAttribute(
+			'aria-pressed',
+			'false'
+		);
+		const selection = {
+			id: 'area-selection',
+			target: {
+				kind: 'region',
+				url: 'http://localhost:8881/',
+				viewport: { width: 800, height: 600 },
+				documentRect: { left: 20, top: 30, width: 200, height: 100 },
+			},
+			rect: { left: 20, top: 30, width: 200, height: 100 },
+			scroll: { left: 0, top: 0 },
+		};
+		emit( 'console-message', {
+			message: INSPECTOR_BRIDGE_PREFIX + JSON.stringify( { type: 'selection', selection } ),
+		} );
+		await screen.findByRole( 'textbox', { name: 'Describe the change' } );
+		expect( connector.captureAnnotationRegion ).toHaveBeenCalledWith( {
+			guestId: 7,
+			selection: expect.objectContaining( { id: 'area-selection' } ),
+		} );
+		expect( getSiteAnnotations( site.id ).notes ).toEqual( [
+			expect.objectContaining( {
+				kind: 'region',
+				images: [ expect.objectContaining( { id: 'area-image' } ) ],
+			} ),
+		] );
+		expect( screen.getByRole( 'img', { name: 'Selected area.png' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'keeps a failed drawing available for retry and sends its screenshot with one note', async () => {
+		const { connector, emit, annotate } = await setup();
+		connector.captureAnnotationRegion
+			.mockRejectedValueOnce( new Error( 'Capture failed' ) )
+			.mockResolvedValue( {
+				id: 'drawing-image',
+				name: 'Drawing.png',
+				mimeType: 'image/png',
+				size: 3,
+				dataBase64: 'cG5n',
+			} );
+		emit( 'dom-ready' );
+		await waitFor( () => expect( annotate() ).toBeEnabled() );
+		fireEvent.click( annotate() );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Draw' } ) );
+		const selection = {
+			id: 'drawing-selection',
+			target: {
+				kind: 'drawing',
+				url: 'http://localhost:8881/',
+				viewport: { width: 800, height: 600 },
+				documentRect: { left: 20, top: 30, width: 200, height: 100 },
+			},
+			rect: { left: 20, top: 30, width: 200, height: 100 },
+			scroll: { left: 0, top: 0 },
+			drawing: {
+				color: '#3858e9',
+				width: 3,
+				strokes: [
+					[
+						{ x: 40, y: 50 },
+						{ x: 180, y: 100 },
+					],
+					[ { x: 60, y: 70 } ],
+				],
+			},
+		};
+		emit( 'console-message', {
+			message: INSPECTOR_BRIDGE_PREFIX + JSON.stringify( { type: 'drawing', selection } ),
+		} );
+		expect( connector.captureAnnotationRegion ).not.toHaveBeenCalled();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Add note' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Retry capture' } ) );
+		await screen.findByRole( 'textbox', { name: 'Describe the change' } );
+		expect( connector.captureAnnotationRegion ).toHaveBeenCalledTimes( 2 );
+		expect( getSiteAnnotations( site.id ).notes ).toEqual( [
+			expect.objectContaining( {
+				kind: 'drawing',
+				drawing: selection.drawing,
+				images: [ expect.objectContaining( { id: 'drawing-image' } ) ],
+			} ),
+		] );
+		expect( screen.getByRole( 'button', { name: 'Draw' } ) ).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		);
+	} );
+
 	it( 'keeps image-only drafts open until saved and marks them pending', async () => {
 		const { preview, emit, annotate } = await setup();
 		emit( 'dom-ready' );

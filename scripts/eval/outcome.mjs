@@ -630,3 +630,12 @@ export const designSystemReplyLink = check( ( d ) => {
 		? pass( 'final reply links to the design system' )
 		: fail( `final reply lacks the design system link: ${ text.slice( 0, 500 ) }` );
 } );
+
+export const regionAnnotationApplied = check( ( d ) => {
+	return ( d.inspections || [] ).some(
+		( inspection ) =>
+			inspection.exitCode === 0 && inspection.stdout.trim() === 'ANNOTATION_COPY_UPDATED'
+	)
+		? pass( 'The annotated heading changed in the rendered content.' )
+		: fail( 'The annotated heading did not reach the rendered content.' );
+} );

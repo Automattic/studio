@@ -1,3 +1,17 @@
+.group {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.tools {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	padding-inline-start: 4px;
+	border-inline-start: 1px solid var( --border );
+}
+
 .icon {
 	display: flex;
 }

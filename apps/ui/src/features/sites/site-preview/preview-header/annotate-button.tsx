@@ -1,6 +1,6 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { AnnotateHint } from '@/features/onboarding';
 import { AnnotateIcon } from '@/lib/icons';
 import { isDialogOpen, isShortcut } from '@/lib/keyboard';
@@ -13,17 +13,23 @@ export function AnnotateButton( {
 	disabledReason,
 	onClick,
 	annotationCount = 0,
+	tools,
 }: {
 	active: boolean;
 	disabled: boolean;
 	disabledReason?: string;
 	onClick: () => void;
 	annotationCount?: number;
+	tools?: ReactNode;
 } ) {
 	const modeButton = useRef< HTMLButtonElement >( null );
 	const tooltip =
 		disabledReason ??
-		( active ? __( 'Exit annotation mode' ) : __( 'Point to anything to describe a change' ) );
+		( active
+			? __( 'Exit annotation mode' )
+			: tools
+			? __( 'Click an element or drag an area' )
+			: __( 'Point to anything to describe a change' ) );
 	useEffect( () => {
 		if ( disabled ) return;
 		const toggleFromKeyboard = ( event: KeyboardEvent ) => {
@@ -43,52 +49,55 @@ export function AnnotateButton( {
 	}, [ disabled ] );
 
 	return (
-		<AnnotateHint
-			enabled={ ! disabled }
-			active={ active }
-			tooltip={
-				<>
-					{ tooltip }
-					{ ! disabled && <Kbd>{ displayShortcut.primaryShift( '.' ) }</Kbd> }
-				</>
-			}
-		>
-			<IconButton
-				ref={ modeButton }
-				tooltip={ false }
-				variant="accent-ghost"
-				size="icon-sm"
-				icon={
-					<span className={ styles.icon }>
-						<AnnotateIcon />
-						{ annotationCount > 0 && ! active && <NotificationDot position="icon" /> }
-					</span>
+		<span className={ styles.group }>
+			<AnnotateHint
+				enabled={ ! disabled }
+				active={ active }
+				tooltip={
+					<>
+						{ tooltip }
+						{ ! disabled && <Kbd>{ displayShortcut.primaryShift( '.' ) }</Kbd> }
+					</>
 				}
-				label={ disabledReason ?? ( active ? __( 'Exit annotation mode' ) : __( 'Annotate' ) ) }
-				aria-label={ __( 'Annotate' ) }
-				aria-keyshortcuts={ ariaKeyShortcut.primaryShift( '.' ) }
-				aria-pressed={ active }
-				aria-description={
-					disabled
-						? disabledReason
-						: annotationCount
-						? sprintf(
-								_n(
-									'%d annotation ready to send',
-									'%d annotations ready to send',
+			>
+				<IconButton
+					ref={ modeButton }
+					tooltip={ false }
+					variant="accent-ghost"
+					size="icon-sm"
+					icon={
+						<span className={ styles.icon }>
+							<AnnotateIcon />
+							{ annotationCount > 0 && ! active && <NotificationDot position="icon" /> }
+						</span>
+					}
+					label={ disabledReason ?? ( active ? __( 'Exit annotation mode' ) : __( 'Annotate' ) ) }
+					aria-label={ __( 'Annotate' ) }
+					aria-keyshortcuts={ ariaKeyShortcut.primaryShift( '.' ) }
+					aria-pressed={ active }
+					aria-description={
+						disabled
+							? disabledReason
+							: annotationCount
+							? sprintf(
+									_n(
+										'%d annotation ready to send',
+										'%d annotations ready to send',
+										annotationCount
+									),
 									annotationCount
-								),
-								annotationCount
-						  )
-						: active
-						? __( 'Exit annotation mode. Your notes will be kept.' )
-						: undefined
-				}
-				disabled={ disabled }
-				focusableWhenDisabled={ false }
-				tooltipSide="bottom"
-				onClick={ onClick }
-			/>
-		</AnnotateHint>
+							  )
+							: active
+							? __( 'Exit annotation mode. Your notes will be kept.' )
+							: undefined
+					}
+					disabled={ disabled }
+					focusableWhenDisabled={ false }
+					tooltipSide="bottom"
+					onClick={ onClick }
+				/>
+			</AnnotateHint>
+			{ active ? tools : null }
+		</span>
 	);
 }

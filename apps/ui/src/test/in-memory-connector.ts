@@ -197,6 +197,9 @@ export function createInMemoryConnector(
 			}
 		},
 		getSiteThumbnail: async () => null,
+		captureAnnotationRegion: async () => {
+			throw new Error( 'No preview screenshot configured.' );
+		},
 		captureSitePreview: async () => null,
 		getSiteDesign: async () => null,
 		fixSiteDesignDrift: async () => null,

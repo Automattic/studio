@@ -1146,8 +1146,11 @@ export function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {
 	return readSitePreview( id, getSiteThumbnailPath( id ) );
 }
 
+export { captureAnnotationRegion } from './lib/capture-annotation-region';
+
 // Refreshes the home-page thumbnail without navigating the preview webview.
 // Only the window hosting the webview may capture it.
+
 export async function captureSitePreview(
 	event: IpcMainInvokeEvent,
 	siteId: string,

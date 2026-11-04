@@ -4,12 +4,14 @@ import { useSyncExternalStore } from 'react';
 import { toast } from '@/data/app-messages';
 import { createPendingSlot } from '@/lib/pending-slot';
 import type { ComposerImageAttachment } from '@studio/agent/protocol/composer-attachments';
+import type { AnnotationDrawing } from '@studio/agent/protocol/inspector/selection';
 import type {
 	VisualAnnotation,
 	VisualAnnotationTarget,
 } from '@studio/agent/protocol/visual-annotations';
 
 export interface PreviewAnnotation extends VisualAnnotation {
+	drawing?: AnnotationDrawing;
 	images: ComposerImageAttachment[];
 	// Saved to the chat draft, so the composer sends it with the next message.
 	staged?: boolean;
@@ -119,7 +121,21 @@ function blockDraftNavigation( siteId: string, nextId?: string ) {
 	return true;
 }
 
-export function pickAnnotation( siteId: string, target: VisualAnnotationTarget ) {
+export function canPickAnnotation( siteId: string ) {
+	const current = getSiteAnnotations( siteId );
+	if ( isAnnotationsBusy( current ) || blockDraftNavigation( siteId ) ) return false;
+	if ( current.notes.filter( hasAnnotationContent ).length >= MAX_VISUAL_ANNOTATIONS ) {
+		toast.error( __( 'Send or delete some annotations before adding more' ) );
+		return false;
+	}
+	return true;
+}
+
+export function pickAnnotation(
+	siteId: string,
+	target: VisualAnnotationTarget,
+	initial?: Pick< PreviewAnnotation, 'images' | 'drawing' >
+) {
 	const current = getSiteAnnotations( siteId );
 	if ( isAnnotationsBusy( current ) ) {
 		return null;
@@ -130,18 +146,14 @@ export function pickAnnotation( siteId: string, target: VisualAnnotationTarget )
 	if ( existing ) {
 		return editAnnotation( siteId, existing.id ) ? existing.id : null;
 	}
-	if ( blockDraftNavigation( siteId ) ) return null;
-	if ( current.notes.filter( hasAnnotationContent ).length >= MAX_VISUAL_ANNOTATIONS ) {
-		toast.error( __( 'Send or delete some annotations before adding more' ) );
-		return null;
-	}
+	if ( ! canPickAnnotation( siteId ) ) return null;
 	const id = crypto.randomUUID();
 	update( siteId, ( current ) => {
 		const notes = withoutEmpty( current.notes );
 		const number = Math.max( 0, ...notes.map( ( note ) => note.number ) ) + 1;
 		return {
 			...current,
-			notes: [ ...notes, { ...target, id, number, comment: '', images: [] } ],
+			notes: [ ...notes, { ...target, id, number, comment: '', images: [], ...initial } ],
 			editingId: id,
 		};
 	} );

@@ -1,6 +1,7 @@
 import type { ActiveAgentRun, AgentRunEvent } from '@studio/agent/protocol/agent-events';
 import type { StudioChatFileAttachment } from '@studio/agent/protocol/chat-files';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
+import type { InspectorSelection } from '@studio/agent/protocol/inspector/selection';
 import type { AiModelId } from '@studio/agent/protocol/models';
 import type { AiProviderId, AiSettings } from '@studio/agent/protocol/providers';
 import type {
@@ -212,6 +213,11 @@ export interface Connector {
 	// The last page of the site captured in a preview, shown while it's stopped.
 	// Null when the site has not been captured yet.
 	getSiteThumbnail( siteId: string ): Promise< string | null >;
+	// Captures the selected area of the visible Desktop preview.
+	captureAnnotationRegion( request: {
+		guestId: number;
+		selection: InspectorSelection;
+	} ): Promise< StudioChatImage >;
 	// Captures the preview's page as the site's thumbnail and returns it, or null
 	// when that page isn't kept (sign-in and admin screens). The Desktop app
 	// captures the preview webview, named by `guestId`.

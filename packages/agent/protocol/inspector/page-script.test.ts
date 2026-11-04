@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	INSPECTOR_BRIDGE_PREFIX,
 	INSPECTOR_COMMAND_EVENT,
+	INSPECTOR_ACTION_EVENT,
 	INSPECTOR_PAGE_SCRIPT,
 	parseInspectorMessage,
 } from '@studio/agent/protocol/inspector/page-script';
@@ -39,6 +40,19 @@ function publish( state: Record< string, unknown > ) {
 	);
 }
 
+function pointer( element: Element, type: string, x: number, y: number, id = 1 ) {
+	const event = new MouseEvent( type, {
+		bubbles: true,
+		cancelable: true,
+		clientX: x,
+		clientY: y,
+		button: 0,
+	} );
+	Object.defineProperty( event, 'pointerId', { value: id } );
+	element.dispatchEvent( event );
+	return event;
+}
+
 describe( 'annotation inspector', () => {
 	afterEach( () => {
 		( window as Window & { __studioInspectorDispose?: () => void } ).__studioInspectorDispose?.();
@@ -46,6 +60,117 @@ describe( 'annotation inspector', () => {
 		vi.restoreAllMocks();
 		vi.unstubAllGlobals();
 		document.body.replaceChildren();
+	} );
+
+	it( 'keeps short pointer gestures as one element pick and suppresses the following click', () => {
+		document.body.innerHTML = '<h1>Welcome</h1>';
+		const heading = document.querySelector( 'h1' )!;
+		const events = mount();
+		publish( { active: true, areaSelection: true } );
+		pointer( heading, 'pointerdown', 100, 50 );
+		pointer( heading, 'pointermove', 102, 51 );
+		pointer( heading, 'pointerup', 102, 51 );
+		heading.dispatchEvent(
+			new MouseEvent( 'click', { bubbles: true, clientX: 102, clientY: 51 } )
+		);
+		expect( events() ).toEqual( [
+			expect.objectContaining( { type: 'pick', target: expect.objectContaining( { tag: 'h1' } ) } ),
+		] );
+	} );
+
+	it( 'selects a rectangle in either direction without picking an element', () => {
+		document.body.innerHTML = '<section><h1>Welcome</h1><p>Intro</p></section>';
+		const section = document.querySelector( 'section' )!;
+		const events = mount();
+		publish( { active: true, areaSelection: true } );
+		pointer( section, 'pointerdown', 300, 200 );
+		pointer( section, 'pointermove', 30, 40 );
+		pointer( section, 'pointerup', 30, 40 );
+		section.dispatchEvent( new MouseEvent( 'click', { bubbles: true } ) );
+		expect( events() ).toEqual( [
+			{
+				type: 'selection',
+				selection: expect.objectContaining( {
+					rect: { left: 30, top: 40, width: 270, height: 160 },
+					target: expect.objectContaining( {
+						kind: 'region',
+						documentRect: { left: 30, top: 40, width: 270, height: 160 },
+					} ),
+				} ),
+			},
+		] );
+	} );
+
+	it( 'groups pen strokes, clamps their crop, and undoes one complete stroke', () => {
+		const events = mount();
+		publish( { active: true, areaSelection: true, tool: 'draw' } );
+		pointer( document.body, 'pointerdown', 10, 10 );
+		pointer( document.body, 'pointermove', 90, 80 );
+		pointer( document.body, 'pointerup', 100, 80 );
+		pointer( document.body, 'pointerdown', 110, 90 );
+		pointer( document.body, 'pointerup', 120, 100 );
+		const last = events().at( -1 );
+		expect( last ).toMatchObject( {
+			type: 'drawing',
+			selection: {
+				target: { kind: 'drawing' },
+				rect: { left: 0, top: 0, width: 144, height: 124 },
+				drawing: { width: 3, strokes: [ expect.any( Array ), expect.any( Array ) ] },
+			},
+		} );
+		window.dispatchEvent( new CustomEvent( INSPECTOR_ACTION_EVENT, { detail: { type: 'undo' } } ) );
+		expect( events().at( -1 ) ).toMatchObject( {
+			type: 'drawing',
+			selection: { drawing: { strokes: [ expect.any( Array ) ] } },
+		} );
+		window.dispatchEvent( new CustomEvent( INSPECTOR_ACTION_EVENT, { detail: { type: 'undo' } } ) );
+		expect( events().at( -1 ) ).toEqual( { type: 'drawing', selection: null } );
+		expect( events().some( ( event ) => event?.type === 'pick' ) ).toBe( false );
+	} );
+
+	it( 'holds scrolling for a drawing and clears the draft before exiting on Escape', () => {
+		const events = mount();
+		publish( { active: true, areaSelection: true, tool: 'draw' } );
+		pointer( document.body, 'pointerdown', 30, 40 );
+		pointer( document.body, 'pointerup', 80, 100 );
+		const wheel = new WheelEvent( 'wheel', { bubbles: true, cancelable: true, deltaY: 100 } );
+		document.dispatchEvent( wheel );
+		expect( wheel.defaultPrevented ).toBe( true );
+		document.dispatchEvent( new KeyboardEvent( 'keydown', { key: 'Escape', bubbles: true } ) );
+		expect( events().at( -1 ) ).toEqual( { type: 'drawing', selection: null } );
+		document.dispatchEvent( new KeyboardEvent( 'keydown', { key: 'Escape', bubbles: true } ) );
+		expect( events().at( -1 ) ).toEqual( { type: 'escape' } );
+	} );
+
+	it( 'ignores another pointer cancelling and drops only the unfinished stroke on blur', () => {
+		const events = mount();
+		publish( { active: true, areaSelection: true, tool: 'draw' } );
+		pointer( document.body, 'pointerdown', 30, 40 );
+		pointer( document.body, 'pointerup', 80, 100 );
+		pointer( document.body, 'pointerdown', 100, 120 );
+		pointer( document.body, 'pointercancel', 100, 120, 2 );
+		window.dispatchEvent( new Event( 'blur' ) );
+		expect( events().at( -1 ) ).toMatchObject( {
+			type: 'drawing',
+			selection: {
+				drawing: {
+					strokes: [
+						[
+							{ x: 30, y: 40 },
+							{ x: 80, y: 100 },
+						],
+					],
+				},
+			},
+		} );
+	} );
+
+	it( 'leaves region gestures off for the standalone annotation browser', () => {
+		const events = mount();
+		publish( { active: true } );
+		pointer( document.body, 'pointerdown', 10, 10 );
+		pointer( document.body, 'pointerup', 200, 200 );
+		expect( events() ).toEqual( [] );
 	} );
 
 	it( 'reports the picked element and draws a marker for each note on the page', () => {

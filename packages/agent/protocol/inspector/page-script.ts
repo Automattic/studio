@@ -17,10 +17,22 @@
  */
 
 import { PLUS_ICON } from '@studio/common/lib/plus-icon';
+import {
+	ANNOTATION_PEN_WIDTH,
+	MAX_DRAWING_POINTS,
+	MAX_DRAWING_STROKES,
+	parseInspectorSelection,
+	type InspectorSelection,
+} from './selection';
 import type { VisualAnnotationTarget } from '@studio/agent/protocol/visual-annotations';
 
 export const INSPECTOR_BRIDGE_PREFIX = '__studio-inspector__:';
 export const INSPECTOR_COMMAND_EVENT = '__studio-inspector-command';
+export const INSPECTOR_ACTION_EVENT = '__studio-inspector-action';
+export interface InspectorAction {
+	id: number;
+	type: 'undo' | 'clear';
+}
 
 export const INSPECTOR_PAGE_SCRIPT = String.raw`
 (() => {
@@ -57,7 +69,15 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		'@keyframes marker-out{from{transform:translate(-50%,-50%) scale(1);opacity:1}to{transform:translate(-50%,-50%) scale(0);opacity:0}}' +
 		'@keyframes marker-fade-out{from{opacity:1}to{opacity:0}}' +
 		'@media(prefers-reduced-motion:reduce){.enter{animation:marker-fade-in var(--motion-duration-feedback,100ms) ease-out both}.leave{animation:marker-fade-out 100ms ease-out both}.confirm{animation-name:marker-fade-in;animation-duration:1ms}.plus,.number,button[data-pending="true"] .plus,button[data-pending="true"] .number{transform:none;transition-property:opacity}}';
+	style.textContent += ':host([data-capturing]) .highlight,:host([data-capturing]) .saved-drawings,:host([data-capturing]) button{visibility:hidden!important}';
 	root.append(style);
+	const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+	svg.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;overflow:hidden;pointer-events:none';
+	const savedDrawings = document.createElementNS(svg.namespaceURI, 'g');
+	savedDrawings.setAttribute('class', 'saved-drawings');
+	const draftDrawings = document.createElementNS(svg.namespaceURI, 'g');
+	svg.append(savedDrawings, draftDrawings);
+	root.append(svg);
 	const highlight = document.createElement('div');
 	highlight.className = 'highlight';
 	highlight.hidden = true;
@@ -81,6 +101,103 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 	let hovered = null;
 	let selected = null;
 	let frame = 0;
+	let gesture = null;
+	let strokes = [];
+	let penColor = '';
+	let pendingSelection = null;
+	let suppressClick = false;
+	let savedNotes = null;
+	let drawFrame = 0;
+	let pointCount = 0;
+	function pathFor(points, color, width) {
+		const path = document.createElementNS(svg.namespaceURI, 'path');
+		path.setAttribute('fill', 'none');
+		path.setAttribute('stroke', color);
+		path.setAttribute('stroke-width', String(width));
+		path.setAttribute('stroke-linecap', 'round');
+		path.setAttribute('stroke-linejoin', 'round');
+		path.setAttribute('d', pathData(points));
+		return path;
+	}
+	function pathData(points) {
+		return points.map((p, i) => (i ? 'L' : 'M') + p.x + ' ' + p.y).join(' ') + (points.length === 1 ? 'l0.01 0' : '');
+	}
+	function repaintDrawing() {
+		drawFrame = 0;
+		if (gesture?.path) gesture.path.setAttribute('d', pathData(gesture.points));
+	}
+	function releaseGesture() {
+		const current = gesture;
+		gesture = null;
+		if (current) {
+			try { document.documentElement.releasePointerCapture(current.pointerId); } catch {}
+		}
+		return current;
+	}
+	function clearDrawing() {
+		releaseGesture();
+		strokes = [];
+		pointCount = 0;
+		pendingSelection = null;
+		delete host.dataset.captureId;
+		draftDrawings.replaceChildren();
+		highlight.hidden = true;
+		emit({ type: 'drawing', selection: null });
+	}
+	function areaBetween(a, b, padding = 0) {
+		const left = Math.max(0, Math.floor(Math.min(a.x, b.x) - padding));
+		const top = Math.max(0, Math.floor(Math.min(a.y, b.y) - padding));
+		const right = Math.min(innerWidth, Math.ceil(Math.max(a.x, b.x) + padding));
+		const bottom = Math.min(innerHeight, Math.ceil(Math.max(a.y, b.y) + padding));
+		return { left, top, width: right - left, height: bottom - top };
+	}
+	function viewportPoint(event) {
+		return { x: Math.round(Math.max(0, Math.min(innerWidth, event.clientX)) * 100) / 100, y: Math.round(Math.max(0, Math.min(innerHeight, event.clientY)) * 100) / 100 };
+	}
+	function selection(kind, rect) {
+		const result = {
+			id: crypto.randomUUID(),
+			target: {
+				kind, url: location.href, path: location.pathname,
+				viewport: { width: innerWidth, height: innerHeight },
+				documentRect: { ...rect, left: rect.left + scrollX, top: rect.top + scrollY },
+				point: { x: 1, y: 0 },
+			},
+			rect, scroll: { left: scrollX, top: scrollY },
+		};
+		if (kind === 'drawing') result.drawing = { strokes, color: penColor, width: ${ ANNOTATION_PEN_WIDTH } };
+		pendingSelection = result;
+		host.dataset.captureId = result.id;
+		return result;
+	}
+	function reportDrawing() {
+		if (!strokes.length) { clearDrawing(); return; }
+		let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+		for (const stroke of strokes) for (const p of stroke) {
+			left = Math.min(left, p.x - scrollX); top = Math.min(top, p.y - scrollY);
+			right = Math.max(right, p.x - scrollX); bottom = Math.max(bottom, p.y - scrollY);
+		}
+		emit({ type: 'drawing', selection: selection('drawing', areaBetween({ x: left, y: top }, { x: right, y: bottom }, 24)) });
+	}
+	function undoStroke() {
+		if (state.busy || gesture || !strokes.length) return;
+		pointCount -= strokes.pop().length;
+		draftDrawings.lastElementChild?.remove();
+		reportDrawing();
+	}
+	function renderDrawings() {
+		const translate = 'translate(' + -scrollX + ' ' + -scrollY + ')';
+		savedDrawings.setAttribute('transform', translate);
+		draftDrawings.setAttribute('transform', translate);
+		if (savedNotes === state.notes) return;
+		savedNotes = state.notes;
+		savedDrawings.replaceChildren();
+		for (const note of state.notes.filter(onPage)) {
+			if (!note.drawing) continue;
+			for (const stroke of note.drawing.strokes) savedDrawings.append(pathFor(stroke, note.drawing.color, note.drawing.width));
+		}
+	}
+
 
 	function emit(event) {
 		try {
@@ -136,6 +253,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		};
 	}
 	function resolve(note) {
+		if (note.kind || !note.selector) return null;
 		try {
 			return document.querySelector(note.selector);
 		} catch {
@@ -183,6 +301,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		host.setAttribute('aria-hidden', String(!state.active));
 		// The inline reset overrides the browser's [hidden] rule.
 		host.style.setProperty('display', host.hidden ? 'none' : 'block', 'important');
+		renderDrawings();
 		const pageNotes = state.notes.filter(onPage);
 		const ids = new Set(pageNotes.map((note) => note.id));
 		for (const [id, marker] of markerNodes) {
@@ -249,12 +368,14 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		const note = state.notes.find((n) => n.id === state.editingId);
 		if (note) emit({ type: 'anchor', id: note.id, anchor: onPage(note) ? anchor(note) : null });
 		const el = hovered || selected;
-		if (el && el.isConnected) {
-			const r = el.getBoundingClientRect();
+		const area = gesture?.rect || (pendingSelection?.target.kind === 'region' ? pendingSelection.rect : null);
+		const noteArea = note?.kind && onPage(note) ? { ...note.documentRect, left: note.documentRect.left - scrollX, top: note.documentRect.top - scrollY } : null;
+		const r = area || (state.tool !== 'draw' && el?.isConnected ? el.getBoundingClientRect() : noteArea);
+		if (r && !(state.tool === 'draw' && !area && !note)) {
 			const left = Math.max(0, r.left);
 			const top = Math.max(0, r.top);
-			const right = Math.min(innerWidth, r.right);
-			const bottom = Math.min(innerHeight, r.bottom);
+			const right = Math.min(innerWidth, r.left + r.width);
+			const bottom = Math.min(innerHeight, r.top + r.height);
 			Object.assign(highlight.style, { left: left + 'px', top: top + 'px', width: Math.max(0, right - left) + 'px', height: Math.max(0, bottom - top) + 'px' });
 			highlight.hidden = right <= left || bottom <= top;
 		} else highlight.hidden = true;
@@ -290,6 +411,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 			const wasActive = state.active;
 			const previousAttempt = state.blockedNavigation;
 			state = e.detail;
+			if (!state.active && (strokes.length || pendingSelection || gesture)) clearDrawing();
 			if (!state.active || errorId !== state.editingId) { errorId = null; clearTimeout(errorTimer); feedbackAnimation?.cancel(); }
 			if (state.active && typeof state.blockedNavigation === 'number' && previousAttempt !== undefined && state.blockedNavigation !== previousAttempt) {
 				errorId = state.editingId;
@@ -327,11 +449,85 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		},
 		{ signal: abort.signal }
 	);
+	window.addEventListener('${ INSPECTOR_ACTION_EVENT }', (e) => {
+		if (e.detail?.type === 'undo') undoStroke();
+		if (e.detail?.type === 'clear') clearDrawing();
+	}, { signal: abort.signal });
+	document.addEventListener('pointerdown', (e) => {
+		if (!state.active || !state.areaSelection || state.busy || isOwnUi(e) || e.button !== 0 || e.isPrimary === false || gesture) return;
+		e.preventDefault();
+		e.stopImmediatePropagation();
+		const start = viewportPoint(e);
+		gesture = { pointerId: e.pointerId, start, element: e.target, scrollX, scrollY, drawing: state.tool === 'draw', dragged: false };
+		if (gesture.drawing) {
+			if (strokes.length >= ${ MAX_DRAWING_STROKES } || pointCount >= ${ MAX_DRAWING_POINTS }) { gesture = null; suppressClick = true; return; }
+			if (!strokes.length) penColor = state.penColor || state.accent;
+			gesture.points = [{ x: start.x + scrollX, y: start.y + scrollY }];
+			strokes.push(gesture.points);
+			pointCount++;
+			gesture.path = pathFor(gesture.points, penColor, ${ ANNOTATION_PEN_WIDTH });
+			draftDrawings.append(gesture.path);
+			draftDrawings.setAttribute('transform', 'translate(' + -scrollX + ' ' + -scrollY + ')');
+			hovered = selected = null;
+			highlight.hidden = true;
+		}
+		try { document.documentElement.setPointerCapture(e.pointerId); } catch {}
+	}, { capture: true, signal: abort.signal });
+	function moveGesture(e) {
+		if (!gesture || gesture.pointerId !== e.pointerId) return;
+		const p = viewportPoint(e);
+		if (gesture.drawing) {
+			const last = gesture.points[gesture.points.length - 1];
+			const next = { x: p.x + gesture.scrollX, y: p.y + gesture.scrollY };
+			if (pointCount < ${ MAX_DRAWING_POINTS } && Math.hypot(next.x - last.x, next.y - last.y) >= 1.5) {
+				gesture.points.push(next); pointCount++;
+				if (!drawFrame) drawFrame = requestAnimationFrame(repaintDrawing);
+			}
+		} else {
+			gesture.dragged ||= Math.hypot(p.x - gesture.start.x, p.y - gesture.start.y) >= 6;
+			if (gesture.dragged) {
+				gesture.rect = areaBetween(gesture.start, p);
+				hovered = selected = null;
+				schedule();
+			}
+		}
+	}
+	document.addEventListener('pointerup', (e) => {
+		if (!gesture || gesture.pointerId !== e.pointerId) return;
+		e.preventDefault(); e.stopImmediatePropagation();
+		moveGesture(e);
+		repaintDrawing();
+		const done = releaseGesture();
+		suppressClick = true;
+		if (done.drawing) reportDrawing();
+		else if (done.dragged) {
+			if (done.rect.width >= 2 && done.rect.height >= 2) emit({ type: 'selection', selection: selection('region', done.rect) });
+		} else if (done.element instanceof Element && done.element.isConnected) {
+			selected = hovered = done.element;
+			emit({ type: 'pick', target: metadata(selected, e), anchor: markerAnchor({ left: e.clientX, top: e.clientY }) });
+		}
+		schedule();
+	}, { capture: true, signal: abort.signal });
+	function cancelGesture(e) {
+		if (!gesture || (e.pointerId !== undefined && gesture.pointerId !== e.pointerId)) return;
+		const current = releaseGesture();
+		if (current?.drawing) { pointCount -= strokes.pop().length; current.path.remove(); reportDrawing(); }
+		schedule();
+	}
+	document.addEventListener('pointercancel', cancelGesture, { capture: true, signal: abort.signal });
+	document.addEventListener('lostpointercapture', cancelGesture, { capture: true, signal: abort.signal });
+	window.addEventListener('blur', cancelGesture, { signal: abort.signal });
+	const stopScroll = (e) => {
+		if (state.active && (strokes.length || gesture || pendingSelection)) e.preventDefault();
+	};
+	document.addEventListener('wheel', stopScroll, { capture: true, passive: false, signal: abort.signal });
+	document.addEventListener('touchmove', stopScroll, { capture: true, passive: false, signal: abort.signal });
 	document.addEventListener(
 		'pointermove',
 		(e) => {
 			if (!state.active) return;
-			hovered = isOwnUi(e) ? null : e.target;
+			if (gesture) { moveGesture(e); return; }
+			hovered = state.tool === 'draw' || pendingSelection || isOwnUi(e) ? null : e.target;
 			schedule();
 		},
 		{ capture: true, signal: abort.signal }
@@ -351,6 +547,8 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 			if (!state.active || isOwnUi(e)) return;
 			e.preventDefault();
 			e.stopImmediatePropagation();
+			if (suppressClick) { suppressClick = false; return; }
+			if (state.busy || state.tool === 'draw') return;
 			if (!(e.target instanceof Element)) return;
 			selected = e.target;
 			hovered = selected;
@@ -364,8 +562,15 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 			if (state.active && e.key === 'Escape') {
 				e.preventDefault();
 				e.stopPropagation();
-				emit({ type: 'escape' });
+				if (strokes.length || pendingSelection || gesture) { clearDrawing(); schedule(); return; }
+			emit({ type: 'escape' });
 				return;
+			}
+			if (state.active && strokes.length && (e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
+				e.preventDefault(); e.stopPropagation(); undoStroke(); return;
+			}
+			if (state.active && (strokes.length || gesture || pendingSelection) && ['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(e.key)) {
+				e.preventDefault(); return;
 			}
 			const command = shortcut(e);
 			if (command) {
@@ -376,8 +581,12 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		},
 		{ capture: true, signal: abort.signal }
 	);
-	document.addEventListener('scroll', schedule, { capture: true, passive: true, signal: abort.signal });
-	window.addEventListener('resize', schedule, { signal: abort.signal });
+	const geometryChanged = () => {
+		if (gesture || strokes.length || pendingSelection) clearDrawing();
+		schedule();
+	};
+	document.addEventListener('scroll', geometryChanged, { capture: true, passive: true, signal: abort.signal });
+	window.addEventListener('resize', geometryChanged, { signal: abort.signal });
 	const resize = new ResizeObserver(schedule);
 	resize.observe(document.documentElement);
 	const mutation = new MutationObserver(schedule);
@@ -390,6 +599,8 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		resize.disconnect();
 		mutation.disconnect();
 		cancelAnimationFrame(frame);
+		cancelAnimationFrame(drawFrame);
+		releaseGesture();
 		host.remove();
 		cursorStyle.remove();
 		delete window[KEY];
@@ -405,6 +616,8 @@ interface Point {
 }
 
 export type InspectorEvent =
+	| { type: 'selection'; selection: InspectorSelection }
+	| { type: 'drawing'; selection: InspectorSelection | null }
 	| { type: 'pick'; target: VisualAnnotationTarget; anchor: Point }
 	| { type: 'edit'; id: string; anchor: Point }
 	| { type: 'anchor'; id: string; anchor: Point | null }
@@ -493,6 +706,13 @@ export function parseInspectorMessage(
 	if ( ! isData( data ) ) return null;
 	const anchor = point( data.anchor, offset );
 	switch ( data.type ) {
+		case 'selection':
+		case 'drawing': {
+			if ( data.type === 'drawing' && data.selection === null )
+				return { type: 'drawing', selection: null };
+			const selection = parseInspectorSelection( data.selection );
+			return selection ? { type: data.type, selection } : null;
+		}
 		case 'pick': {
 			const picked = target( data.target );
 			return picked && anchor ? { type: 'pick', target: picked, anchor } : null;

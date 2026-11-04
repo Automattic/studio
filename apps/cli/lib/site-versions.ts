@@ -138,7 +138,7 @@ async function hashDatabase( siteFolder: string ): Promise< string | null > {
 }
 
 /** Works out the site's current version without recording it. */
-export async function getCurrentSiteVersion(
+async function getCurrentSiteVersion(
 	siteId: string,
 	siteFolder: string
 ): Promise< SiteVersion > {

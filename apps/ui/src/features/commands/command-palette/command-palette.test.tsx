@@ -60,6 +60,8 @@ afterEach( () =>
 afterEach( () => vi.unstubAllGlobals() );
 
 describe( 'command palette', () => {
+	beforeEach( () => localStorage.clear() );
+
 	it( 'opens a new chat for the current site from the application menu', async () => {
 		const connector = createFakeConnector( { sites: [ testSite ] } );
 		const { history } = await renderPalette( { connector } );

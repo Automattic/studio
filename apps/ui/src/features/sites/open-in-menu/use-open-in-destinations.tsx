@@ -131,17 +131,6 @@ export function useOpenInDestinations(
 	);
 	const destinations: Array< OpenInDestinationEntry | false > = [
 		{
-			id: 'files',
-			label: fileManager.label,
-			logo: fileManager.logo,
-			disabled: false,
-			open: () =>
-				open( 'files', fileManager.label, () => {
-					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_FOLDER );
-					return connector.openSiteFolder( site.id );
-				} ),
-		},
-		{
 			id: 'browser',
 			label: browserLabel,
 			logo: browserLogo,
@@ -162,6 +151,17 @@ export function useOpenInDestinations(
 				open( 'browser-wordpress', __( 'Browser' ), () => {
 					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER, { browser: 'external' } );
 					return openSiteUrl( '/', { autoLogin: false } );
+				} ),
+		},
+		{
+			id: 'files',
+			label: fileManager.label,
+			logo: fileManager.logo,
+			disabled: false,
+			open: () =>
+				open( 'files', fileManager.label, () => {
+					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_FOLDER );
+					return connector.openSiteFolder( site.id );
 				} ),
 		},
 		!! editor && {

@@ -7,6 +7,7 @@ export {
 	useOpenInDestinations,
 } from './open-in-menu/use-open-in-destinations';
 export { pendingBlueprintSlot } from './pending-blueprint';
+export { pendingSiteFolderSlot } from './pending-site-folder';
 export { PreviewParticles } from './preview-particles';
 export { PreviewSplitFrame, type PreviewSplitFramePreviewProps } from './preview-split-frame';
 export { SiteMenu, SiteMenuItems, useDeleteBlockedReason, useSiteActions } from './site-menu';

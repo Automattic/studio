@@ -32,7 +32,17 @@ export async function extractBlueprintBundle(
 	try {
 		await extractZip( resolvedZipPath, tempDir );
 
-		const blueprintJsonPath = path.join( tempDir, 'blueprint.json' );
+		let blueprintJsonPath = path.join( tempDir, 'blueprint.json' );
+		try {
+			await fs.promises.access( blueprintJsonPath );
+		} catch {
+			const entries = ( await fs.promises.readdir( tempDir, { withFileTypes: true } ) ).filter(
+				( entry ) => entry.name !== '__MACOSX' && entry.name !== '.DS_Store'
+			);
+			if ( entries.length === 1 && entries[ 0 ].isDirectory() ) {
+				blueprintJsonPath = path.join( tempDir, entries[ 0 ].name, 'blueprint.json' );
+			}
+		}
 		try {
 			await fs.promises.access( blueprintJsonPath );
 		} catch {

@@ -367,6 +367,8 @@ export function createInMemoryConnector(
 		onSetPreviewLayout: subscribe( 'onSetPreviewLayout' ),
 		onToggleSidebar: subscribe( 'onToggleSidebar' ),
 		onAddSite: subscribe( 'onAddSite' ),
+		onNewChat: subscribe( 'onNewChat' ),
+		onOpenFolder: subscribe( 'onOpenFolder' ),
 		onOpenSite: subscribe( 'onOpenSite' ),
 		onAddSiteWithBlueprint: subscribe( 'onAddSiteWithBlueprint' ),
 		readyForDeeplinks: () => {},

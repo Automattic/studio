@@ -47,8 +47,8 @@ const api: IpcApi = {
 	openSiteURL: ( id, relativeURL = '', { autoLogin = true, target } = {} ) =>
 		ipcRendererSend( 'openSiteURL', id, relativeURL, { autoLogin, target } ),
 	openURL: ( url ) => ipcRendererSend( 'openURL', url ),
-	showOpenFolderDialog: ( title, defaultDialogPath ) =>
-		ipcRendererInvoke( 'showOpenFolderDialog', title, defaultDialogPath ),
+	showOpenFolderDialog: ( title, defaultDialogPath, options ) =>
+		ipcRendererInvoke( 'showOpenFolderDialog', title, defaultDialogPath, options ),
 	isCATrusted: () => ipcRenderer.invoke( 'isCATrusted' ),
 	trustCertificate: () => ipcRenderer.invoke( 'trustCertificate' ),
 	showSaveAsDialog: ( options ) => ipcRendererInvoke( 'showSaveAsDialog', options ),

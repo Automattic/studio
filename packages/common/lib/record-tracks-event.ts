@@ -42,6 +42,7 @@ export const TRACKS_EVENTS = {
 	CODE_MESSAGE_SENT: 'studio_code_message_sent',
 	CODE_TURN_COMPLETED: 'studio_code_turn_completed',
 	CODE_SESSION_CREATED: 'studio_code_session_created',
+	ANNOTATION_SUBMITTED: 'studio_annotation_submitted',
 	CODE_DESIGN_OPTION_PROPOSED: 'studio_code_design_option_proposed',
 	CODE_DESIGN_OPTION_PICKED: 'studio_code_design_option_picked',
 	MCP_SESSION_START: 'studio_mcp_session_start',

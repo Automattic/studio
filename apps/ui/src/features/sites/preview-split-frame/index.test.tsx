@@ -75,7 +75,7 @@ describe( 'PreviewSplitFrame', () => {
 					chatHidden={ chatTabActive }
 					chatTabActive={ chatTabActive }
 					preview={ ( { collapsed } ) => (
-						<aside aria-label="Site preview" data-collapsed={ collapsed }>
+						<aside aria-label="Panel" data-collapsed={ collapsed }>
 							{ site }
 						</aside>
 					) }
@@ -87,7 +87,7 @@ describe( 'PreviewSplitFrame', () => {
 
 		it( 'does not reveal the preview when closing from the Chat tab', () => {
 			const { rerender } = render( frame( 'Page', true, false, true ) );
-			const pane = screen.getByLabelText( 'Site preview' );
+			const pane = screen.getByLabelText( 'Panel' );
 			expect( pane.closest( '[inert]' ) ).not.toBeNull();
 			rerender( frame( 'Page', false ) );
 			expect( getFrameRoot() ).not.toHaveAttribute( 'data-layout-moving' );
@@ -97,7 +97,7 @@ describe( 'PreviewSplitFrame', () => {
 
 		it( 'keeps the resize handle mounted while the panel closes and reopens', async () => {
 			const { rerender } = render( frame( 'Ready', true ) );
-			const handle = screen.getByRole( 'separator', { name: 'Resize site preview' } );
+			const handle = screen.getByRole( 'separator', { name: 'Resize panel' } );
 			rerender( frame( 'Ready', false ) );
 			expect( handle ).toBeInTheDocument();
 			expect( handle.closest( '[inert]' ) ).not.toBeNull();
@@ -105,7 +105,7 @@ describe( 'PreviewSplitFrame', () => {
 			rerender( frame( 'Ready', true ) );
 			expect( handle ).toBeInTheDocument();
 			await act( () => vi.advanceTimersByTime( 240 ) );
-			expect( screen.getByRole( 'separator', { name: 'Resize site preview' } ) ).toBe( handle );
+			expect( screen.getByRole( 'separator', { name: 'Resize panel' } ) ).toBe( handle );
 			expect( handle.closest( '[inert]' ) ).toBeNull();
 		} );
 
@@ -115,32 +115,24 @@ describe( 'PreviewSplitFrame', () => {
 			await act( () => vi.advanceTimersByTime( 120 ) );
 			rerender( frame( 'Ready', true ) );
 			expect( getFrameRoot() ).toHaveAttribute( 'data-layout-moving', 'true' );
-			expect(
-				screen.queryByRole( 'separator', { name: 'Resize site preview' } )
-			).not.toBeInTheDocument();
+			expect( screen.queryByRole( 'separator', { name: 'Resize panel' } ) ).not.toBeInTheDocument();
 			await act( () => vi.advanceTimersByTime( 120 ) );
 			expect( getFrameRoot() ).not.toHaveAttribute( 'data-layout-moving' );
-			expect(
-				screen.getByRole( 'separator', { name: 'Resize site preview' } )
-			).toBeInTheDocument();
+			expect( screen.getByRole( 'separator', { name: 'Resize panel' } ) ).toBeInTheDocument();
 		} );
 
 		it( 'slides the ready preview and header together before enabling resizing', async () => {
 			const { rerender } = render( frame( 'Loading site', false ) );
-			const preview = screen.getByLabelText( 'Site preview' );
+			const preview = screen.getByLabelText( 'Panel' );
 			rerender( frame( 'Running site', true ) );
-			expect( screen.getByRole( 'complementary', { name: 'Site preview' } ) ).toBe( preview );
-			expect(
-				screen.queryByRole( 'separator', { name: 'Resize site preview' } )
-			).not.toBeInTheDocument();
+			expect( screen.getByRole( 'complementary', { name: 'Panel' } ) ).toBe( preview );
+			expect( screen.queryByRole( 'separator', { name: 'Resize panel' } ) ).not.toBeInTheDocument();
 			expect( getFrameRoot().style.getPropertyValue( '--preview-layout-duration' ) ).toBe(
 				'var(--motion-duration-layout)'
 			);
 			await act( () => vi.advanceTimersByTime( 240 ) );
-			expect(
-				screen.getByRole( 'separator', { name: 'Resize site preview' } )
-			).toBeInTheDocument();
-			expect( screen.getByRole( 'complementary', { name: 'Site preview' } ) ).toBe( preview );
+			expect( screen.getByRole( 'separator', { name: 'Resize panel' } ) ).toBeInTheDocument();
+			expect( screen.getByRole( 'complementary', { name: 'Panel' } ) ).toBe( preview );
 		} );
 
 		it( 'keeps the outgoing site through the exit, even when another stopped site is selected', async () => {
@@ -148,19 +140,17 @@ describe( 'PreviewSplitFrame', () => {
 
 			rerender( frame( 'Stopped site', false ) );
 
-			expect( screen.getByLabelText( 'Site preview' ) ).toHaveTextContent( 'Running site' );
-			expect( screen.getByLabelText( 'Site preview' ) ).toHaveAttribute( 'data-collapsed', 'true' );
-			expect(
-				screen.queryByRole( 'complementary', { name: 'Site preview' } )
-			).not.toBeInTheDocument();
+			expect( screen.getByLabelText( 'Panel' ) ).toHaveTextContent( 'Running site' );
+			expect( screen.getByLabelText( 'Panel' ) ).toHaveAttribute( 'data-collapsed', 'true' );
+			expect( screen.queryByRole( 'complementary', { name: 'Panel' } ) ).not.toBeInTheDocument();
 			await act( () => vi.advanceTimersByTime( 120 ) );
 			rerender( frame( 'Another stopped site', false ) );
-			expect( screen.getByLabelText( 'Site preview' ) ).toHaveTextContent( 'Running site' );
+			expect( screen.getByLabelText( 'Panel' ) ).toHaveTextContent( 'Running site' );
 
 			await act( () => vi.advanceTimersByTime( 120 ) );
 
-			expect( screen.getByLabelText( 'Site preview' ) ).toHaveTextContent( 'Another stopped site' );
-			expect( screen.getByLabelText( 'Site preview' ) ).toHaveAttribute( 'data-collapsed', 'true' );
+			expect( screen.getByLabelText( 'Panel' ) ).toHaveTextContent( 'Another stopped site' );
+			expect( screen.getByLabelText( 'Panel' ) ).toHaveAttribute( 'data-collapsed', 'true' );
 		} );
 
 		it( 'shows the incoming running site immediately when the exit is reversed', async () => {
@@ -170,15 +160,12 @@ describe( 'PreviewSplitFrame', () => {
 
 			rerender( frame( 'Another running site', true ) );
 
-			expect( screen.getByRole( 'complementary', { name: 'Site preview' } ) ).toHaveTextContent(
+			expect( screen.getByRole( 'complementary', { name: 'Panel' } ) ).toHaveTextContent(
 				'Another running site'
 			);
-			expect( screen.getByLabelText( 'Site preview' ) ).toHaveAttribute(
-				'data-collapsed',
-				'false'
-			);
+			expect( screen.getByLabelText( 'Panel' ) ).toHaveAttribute( 'data-collapsed', 'false' );
 			await act( () => vi.advanceTimersByTime( 240 ) );
-			expect( screen.getByRole( 'complementary', { name: 'Site preview' } ) ).toHaveTextContent(
+			expect( screen.getByRole( 'complementary', { name: 'Panel' } ) ).toHaveTextContent(
 				'Another running site'
 			);
 		} );
@@ -186,13 +173,9 @@ describe( 'PreviewSplitFrame', () => {
 		it( 'finishes a manual slide when an instant layout restoration takes over', () => {
 			const { rerender } = render( frame( 'Stopped site', false ) );
 			rerender( frame( 'Stopped site', true ) );
-			expect(
-				screen.queryByRole( 'separator', { name: 'Resize site preview' } )
-			).not.toBeInTheDocument();
+			expect( screen.queryByRole( 'separator', { name: 'Resize panel' } ) ).not.toBeInTheDocument();
 			rerender( frame( 'Starting site', true, true ) );
-			expect(
-				screen.getByRole( 'separator', { name: 'Resize site preview' } )
-			).toBeInTheDocument();
+			expect( screen.getByRole( 'separator', { name: 'Resize panel' } ) ).toBeInTheDocument();
 		} );
 
 		it( 'closes immediately when an instant close interrupts an opening preview', async () => {
@@ -202,18 +185,14 @@ describe( 'PreviewSplitFrame', () => {
 
 			rerender( frame( 'Stopped site', false, true ) );
 
-			expect( screen.getByLabelText( 'Site preview' ) ).toHaveTextContent( 'Stopped site' );
-			expect( screen.getByLabelText( 'Site preview' ) ).toHaveAttribute( 'data-collapsed', 'true' );
+			expect( screen.getByLabelText( 'Panel' ) ).toHaveTextContent( 'Stopped site' );
+			expect( screen.getByLabelText( 'Panel' ) ).toHaveAttribute( 'data-collapsed', 'true' );
 		} );
 	} );
 
 	it( 'lays out the preview immediately when mounted open', async () => {
 		render(
-			<PreviewSplitFrame
-				siteId="one"
-				previewOpen
-				preview={ () => <aside aria-label="Site preview" /> }
-			>
+			<PreviewSplitFrame siteId="one" previewOpen preview={ () => <aside aria-label="Panel" /> }>
 				<span data-testid="content">Content</span>
 			</PreviewSplitFrame>
 		);
@@ -223,11 +202,11 @@ describe( 'PreviewSplitFrame', () => {
 		await waitFor( () => {
 			expect( root ).toHaveStyle( '--preview-frame-content-width: 360px' );
 		} );
-		expect( screen.getByRole( 'separator', { name: 'Resize site preview' } ) ).toHaveAttribute(
+		expect( screen.getByRole( 'separator', { name: 'Resize panel' } ) ).toHaveAttribute(
 			'aria-valuenow',
 			'640'
 		);
-		expect( screen.getByLabelText( 'Site preview' ) ).toBeVisible();
+		expect( screen.getByLabelText( 'Panel' ) ).toBeVisible();
 	} );
 
 	it( 'shares the resized width across sites and reloads without remounting the preview', () => {
@@ -236,19 +215,19 @@ describe( 'PreviewSplitFrame', () => {
 			<PreviewSplitFrame
 				siteId={ siteId }
 				previewOpen
-				preview={ () => <aside aria-label="Site preview" /> }
+				preview={ () => <aside aria-label="Panel" /> }
 			>
 				<span data-testid="content">Content</span>
 			</PreviewSplitFrame>
 		);
 		const { rerender, unmount } = render( frame( 'one' ) );
 		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 360px' );
-		const preview = screen.getByLabelText( 'Site preview' );
+		const preview = screen.getByLabelText( 'Panel' );
 		fireEvent.keyDown( screen.getByRole( 'separator' ), { key: 'ArrowRight' } );
 		expect( localStorage.getItem( SITE_WIDTH_KEY ) ).toBe( '376' );
 		rerender( frame( 'two' ) );
 		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 376px' );
-		expect( screen.getByLabelText( 'Site preview' ) ).toBe( preview );
+		expect( screen.getByLabelText( 'Panel' ) ).toBe( preview );
 		fireEvent.keyDown( screen.getByRole( 'separator' ), { key: 'ArrowRight', shiftKey: true } );
 		expect( localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY ) ).toBe( '416' );
 		rerender( frame( 'one' ) );
@@ -256,7 +235,7 @@ describe( 'PreviewSplitFrame', () => {
 		unmount();
 		render( frame( 'two' ) );
 		expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 416px' );
-		expect( screen.getByRole( 'separator', { name: 'Resize site preview' } ) ).toHaveAttribute(
+		expect( screen.getByRole( 'separator', { name: 'Resize panel' } ) ).toHaveAttribute(
 			'aria-valuenow',
 			'584'
 		);
@@ -281,11 +260,7 @@ describe( 'PreviewSplitFrame', () => {
 
 	it( 'keeps the content width stable as the window grows', async () => {
 		render(
-			<PreviewSplitFrame
-				siteId="one"
-				previewOpen
-				preview={ () => <aside aria-label="Site preview" /> }
-			>
+			<PreviewSplitFrame siteId="one" previewOpen preview={ () => <aside aria-label="Panel" /> }>
 				<span data-testid="content">Content</span>
 			</PreviewSplitFrame>
 		);
@@ -345,29 +320,21 @@ describe( 'PreviewSplitFrame', () => {
 		frameWidth = 0;
 
 		render(
-			<PreviewSplitFrame
-				siteId="one"
-				previewOpen
-				preview={ () => <aside aria-label="Site preview" /> }
-			>
+			<PreviewSplitFrame siteId="one" previewOpen preview={ () => <aside aria-label="Panel" /> }>
 				<span data-testid="content">Content</span>
 			</PreviewSplitFrame>
 		);
 
 		const root = getFrameRoot();
 		expect( root ).toHaveStyle( '--preview-frame-content-width: 360px' );
-		expect( screen.getByLabelText( 'Site preview' ) ).toBeVisible();
+		expect( screen.getByLabelText( 'Panel' ) ).toBeVisible();
 	} );
 
 	it( 'keeps the preview open in a narrow frame, split in proportion and not resizable', async () => {
 		frameWidth = 544;
 
 		render(
-			<PreviewSplitFrame
-				siteId="one"
-				previewOpen
-				preview={ () => <aside aria-label="Site preview" /> }
-			>
+			<PreviewSplitFrame siteId="one" previewOpen preview={ () => <aside aria-label="Panel" /> }>
 				<span data-testid="content">Content</span>
 			</PreviewSplitFrame>
 		);
@@ -375,25 +342,21 @@ describe( 'PreviewSplitFrame', () => {
 		await waitFor( () =>
 			expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 272px' )
 		);
-		expect( screen.getByLabelText( 'Site preview' ) ).toBeVisible();
+		expect( screen.getByLabelText( 'Panel' ) ).toBeVisible();
 		expect( screen.queryByRole( 'separator' ) ).not.toBeInTheDocument();
 	} );
 
 	describe( 'keyboard and pointer resizing', () => {
 		async function renderOpenAndSettle() {
 			render(
-				<PreviewSplitFrame
-					siteId="one"
-					previewOpen
-					preview={ () => <aside aria-label="Site preview" /> }
-				>
+				<PreviewSplitFrame siteId="one" previewOpen preview={ () => <aside aria-label="Panel" /> }>
 					<span data-testid="content">Content</span>
 				</PreviewSplitFrame>
 			);
 			await waitFor( () =>
 				expect( getFrameRoot() ).toHaveStyle( '--preview-frame-content-width: 360px' )
 			);
-			return screen.getByRole( 'separator', { name: 'Resize site preview' } );
+			return screen.getByRole( 'separator', { name: 'Resize panel' } );
 		}
 
 		it( 'collapses the preview to its minimum width on Home', async () => {
@@ -428,13 +391,13 @@ describe( 'PreviewSplitFrame', () => {
 		} );
 
 		it( 'cleans up document drag state if the preview closes mid-resize', async () => {
-			const preview = () => <aside aria-label="Site preview" />;
+			const preview = () => <aside aria-label="Panel" />;
 			const { rerender } = render(
 				<PreviewSplitFrame siteId="one" previewOpen preview={ preview }>
 					<span data-testid="content">Content</span>
 				</PreviewSplitFrame>
 			);
-			const handle = await screen.findByRole( 'separator', { name: 'Resize site preview' } );
+			const handle = await screen.findByRole( 'separator', { name: 'Resize panel' } );
 
 			fireEvent.mouseDown( handle, { button: 0, clientX: 500 } );
 			expect( document.body ).toHaveStyle( { cursor: 'col-resize' } );

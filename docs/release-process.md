@@ -48,10 +48,11 @@ Builds are signed, notarized (macOS), and uploaded to the Apps CDN automatically
 - Publishes the draft GitHub release (which creates the corresponding GitHub tag too). That triggers `publish-plugins.yml`, which builds the plugins with the Studio CLI inside (`npm run cli:bundle:plugin`) and publishes them to [Automattic/studio-plugins](https://github.com/Automattic/studio-plugins), the marketplace agent apps install the Studio plugins from, as that repository's single commit. It also keeps `wp-studio-<version>.zip`, the package for OpenAI's plugin directory, as a workflow artifact
 - Creates a backmerge PR from `release/<version>` into `trunk`
 - Removes the branch protection from `release/<version>` and deletes the branch
+- Submits the x64 and ARM64 Appx packages to the Microsoft Store (see [Microsoft Store](#microsoft-store))
 
 ### 6. Post-Release (manual)
 
-- Publish Windows build to the Microsoft Store
+- Check that the Microsoft Store submission passed certification (or upload the Appx packages by hand if it was skipped or failed), then tick "Publish to the Microsoft Store" in ReleasesV2
 - Update Slack channel bookmark
 - Notify team for changelog update
 - Notify next Release Wrangler
@@ -139,6 +140,16 @@ DRY_RUN=true bundle exec fastlane publish_studio_cli_binaries version:"v1.11.0"
 
 Drop `DRY_RUN=true` to upload for real. The `version:` must match the app release's `v`-prefixed version so the bundles share its CDN path (it defaults to the current `package.json` version, `v`-prefixed). `visibility:` (default `external`) and `build_type:` (default `Production`) can be overridden.
 
+## Microsoft Store
+
+`publish_release` ends by creating a new submission for the Studio listing (Partner Center product `9PNTBL35PZVS`) through the [Microsoft Store submission API](https://learn.microsoft.com/windows/uwp/monetize/manage-app-submissions):
+
+- `create_draft_github_release` embeds the CDN URLs of the two unsigned Appx builds in the draft release body (`<!-- MS_STORE_PACKAGES:... -->`).
+- The publish step downloads them, creates a submission (a copy of the last published one, so listings and pricing carry over), swaps in the new packages, uploads them and commits. The Store signs the packages and runs certification.
+- The step needs `MICROSOFT_STORE_TENANT_ID`, `MICROSOFT_STORE_CLIENT_ID` and `MICROSOFT_STORE_CLIENT_SECRET`, from an Entra ID app associated with the Partner Center account with the Manager role. Without them it logs a warning and the packages have to be uploaded by hand.
+- A failed submission doesn't fail `publish_release`, since the steps before it can't be re-run. It adds a Buildkite annotation instead; retry with `bundle exec fastlane submit_to_microsoft_store version:"<version>"`. Add `discard_pending_submission:true` to delete an unpublished submission left open in Partner Center (the API allows only one at a time).
+- Once a submission has been created through the API, don't edit it in Partner Center: Microsoft says that can leave it stuck, and the fix is to delete it and submit again.
+
 ## Running Lanes Locally
 
 Lanes can be run locally for testing. Common requirements are Ruby and Bundler. Additional credentials depend on the lane:
@@ -146,6 +157,7 @@ Lanes can be run locally for testing. Common requirements are Ruby and Bundler. 
 - `publish_npm_package` requires `GITHUB_TOKEN`
 - Build-upload lanes such as `distribute_release_build` require `WPCOM_API_TOKEN`
 - Lanes that trigger Buildkite builds from a local machine require `BUILDKITE_TOKEN`
+- `submit_to_microsoft_store` requires `GITHUB_TOKEN` and the `MICROSOFT_STORE_*` credentials
 
 ```sh
 

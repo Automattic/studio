@@ -153,9 +153,9 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				),
 				setting(
 					'action',
-					__( 'Hide WordPress admin bar by default' ),
+					__( 'Hide admin bar' ),
 					__(
-						'Hide the admin bar on local site frontends, including in external browsers. Override this for each site in Browser options.'
+						'Hide the WordPress admin bar by default on local sites. Change this for individual sites in Browser options.'
 					),
 					'hide-frontend-admin-bar'
 				),

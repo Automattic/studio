@@ -8,7 +8,7 @@ import { SITES_QUERY_KEY } from './use-sites';
 import { useUserPreferences } from './use-user-preferences';
 import type { SiteDetails } from '@/data/core';
 
-export type FrontendAdminBarPreference = 'default' | 'show' | 'hide';
+export type FrontendAdminBarPreference = 'show' | 'hide';
 
 export function useFrontendAdminBar( {
 	site,
@@ -39,9 +39,9 @@ export function useFrontendAdminBar( {
 
 	const save = useMutation( {
 		scope: { id: 'frontend-admin-bar' },
-		mutationFn: ( { siteId, value }: { siteId: string; value: FrontendAdminBarPreference } ) =>
-			connector.setSiteFrontendAdminBar( siteId, value === 'default' ? null : value === 'hide' ),
-		onSuccess: async ( _result, { siteId, value } ) => {
+		mutationFn: ( { siteId, hidden }: { siteId: string; hidden: boolean | null } ) =>
+			connector.setSiteFrontendAdminBar( siteId, hidden ),
+		onSuccess: async ( _result, { siteId, hidden } ) => {
 			await queryClient.cancelQueries( { queryKey: SITES_QUERY_KEY } );
 			queryClient.setQueryData< SiteDetails[] >(
 				SITES_QUERY_KEY,
@@ -50,7 +50,7 @@ export function useFrontendAdminBar( {
 						current.id === siteId
 							? {
 									...current,
-									hideFrontendAdminBar: value === 'default' ? undefined : value === 'hide',
+									hideFrontendAdminBar: hidden ?? undefined,
 							  }
 							: current
 					)
@@ -60,16 +60,12 @@ export function useFrontendAdminBar( {
 	} );
 
 	return {
-		value:
-			site.hideFrontendAdminBar === undefined
-				? ( 'default' as const )
-				: site.hideFrontendAdminBar
-				? ( 'hide' as const )
-				: ( 'show' as const ),
-		defaultHidden,
+		value: hidden ? ( 'hide' as const ) : ( 'show' as const ),
 		saving: save.isPending,
 		onChange: ( value: FrontendAdminBarPreference ) => {
-			if ( ! save.isPending ) save.mutate( { siteId: site.id, value } );
+			if ( save.isPending ) return;
+			const hidden = value === 'hide';
+			save.mutate( { siteId: site.id, hidden: hidden === defaultHidden ? null : hidden } );
 		},
 	};
 }

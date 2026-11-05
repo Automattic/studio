@@ -303,13 +303,13 @@ function PreferencesPanel( {
 				</SettingsRow>
 
 				<SettingsRow
-					title={ __( 'Hide WordPress admin bar by default' ) }
+					title={ __( 'Hide admin bar' ) }
 					description={ __(
-						'Hide the admin bar on local site frontends, including in external browsers. Override this for each site in Browser options.'
+						'Hide the WordPress admin bar by default on local sites. Change this for individual sites in Browser options.'
 					) }
 				>
 					<SettingsToggle
-						label={ __( 'Hide WordPress admin bar by default' ) }
+						label={ __( 'Hide admin bar' ) }
 						checked={ data.hideFrontendAdminBar }
 						onChange={ ( hideFrontendAdminBar ) => onChange( { hideFrontendAdminBar } ) }
 					/>

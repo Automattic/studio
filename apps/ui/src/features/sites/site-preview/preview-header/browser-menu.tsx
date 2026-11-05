@@ -58,7 +58,6 @@ function BrowserMenuItems( { actions, adminBar, disabled }: BrowserMenuItemsProp
 								adminBar.onChange( value as FrontendAdminBarPreference )
 							}
 						>
-							<Menu.RadioItem value="default">{ __( 'Use Studio default' ) }</Menu.RadioItem>
 							<Menu.RadioItem value="show">{ __( 'Show' ) }</Menu.RadioItem>
 							<Menu.RadioItem value="hide">{ __( 'Hide' ) }</Menu.RadioItem>
 						</Menu.RadioGroup>

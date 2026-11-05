@@ -4,6 +4,7 @@ import { useSyncExternalStore, type ComponentProps } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts } from '@/data/app-messages';
 import { useSites } from '@/data/queries/use-sites';
+import { USER_PREFERENCES_QUERY_KEY } from '@/data/queries/use-user-preferences';
 import { updateResponsivePreview } from '@/data/responsive-preview';
 import { SessionUIProvider } from '@/data/use-session-ui';
 import {
@@ -786,10 +787,20 @@ describe( 'preview browser menu', () => {
 		).toBeInTheDocument();
 	} );
 
-	it.each( [ 'browser', 'desktop' ] as const )(
-		'saves a %s site override before reloading and can return to the Studio default',
-		async ( runtime ) => {
-			const connector = createFakeConnector( { sites: [ site() ] } );
+	it.each( [
+		[ 'browser', false ],
+		[ 'desktop', false ],
+		[ 'browser', true ],
+		[ 'desktop', true ],
+	] as const )(
+		'saves a %s site override before reloading and can return to the default (hidden: %s)',
+		async ( runtime, defaultHidden ) => {
+			const connector = createFakeConnector( {
+				sites: [ site() ],
+				preferences: { hideFrontendAdminBar: defaultHidden },
+			} );
+			const defaultLabel = defaultHidden ? 'Hide' : 'Show';
+			const overrideLabel = defaultHidden ? 'Show' : 'Hide';
 			let finishSave = () => {};
 			connector.setSiteFrontendAdminBar.mockImplementationOnce(
 				( _siteId, hidden ) =>
@@ -807,12 +818,13 @@ describe( 'preview browser menu', () => {
 			const openAdminBar = async () => {
 				await openBrowserOptions( user );
 				fireEvent.click( screen.getByRole( 'menuitem', { name: 'Admin bar' } ) );
-				return screen.findByRole( 'menuitemradio', { name: 'Use Studio default' } );
+				return screen.findByRole( 'menuitemradio', { name: defaultLabel } );
 			};
 			expect( await openAdminBar() ).toBeChecked();
-			await user.click( screen.getByRole( 'menuitemradio', { name: 'Hide' } ) );
+			expect( screen.getAllByRole( 'menuitemradio' ) ).toHaveLength( 2 );
+			await user.click( screen.getByRole( 'menuitemradio', { name: overrideLabel } ) );
 			await waitFor( () =>
-				expect( connector.setSiteFrontendAdminBar ).toHaveBeenCalledWith( 'one', true )
+				expect( connector.setSiteFrontendAdminBar ).toHaveBeenCalledWith( 'one', ! defaultHidden )
 			);
 			if ( runtime === 'desktop' ) expect( ( before as Guest ).reload ).not.toHaveBeenCalled();
 			else expect( page() ).toBe( before );
@@ -822,13 +834,41 @@ describe( 'preview browser menu', () => {
 				else expect( page() ).not.toBe( before );
 			} );
 			await openAdminBar();
-			expect( screen.getByRole( 'menuitemradio', { name: 'Hide' } ) ).toBeChecked();
-			await user.click( screen.getByRole( 'menuitemradio', { name: 'Use Studio default' } ) );
+			expect( screen.getByRole( 'menuitemradio', { name: overrideLabel } ) ).toBeChecked();
+			await user.click( screen.getByRole( 'menuitemradio', { name: defaultLabel } ) );
 			await waitFor( () =>
 				expect( connector.setSiteFrontendAdminBar ).toHaveBeenLastCalledWith( 'one', null )
 			);
 			await openAdminBar();
-			expect( screen.getByRole( 'menuitemradio', { name: 'Use Studio default' } ) ).toBeChecked();
+			expect( screen.getByRole( 'menuitemradio', { name: defaultLabel } ) ).toBeChecked();
+		}
+	);
+
+	it.each( [ undefined, false, true ] )(
+		'updates the selected value when the Studio default changes (site override: %s)',
+		async ( hideFrontendAdminBar ) => {
+			const connector = createFakeConnector( {
+				sites: [ site( { hideFrontendAdminBar } ) ],
+				preferences: { hideFrontendAdminBar: false },
+			} );
+			const { user, queryClient } = await renderPreview( 'browser', {}, connector );
+			await openBrowserOptions( user );
+			fireEvent.click( screen.getByRole( 'menuitem', { name: 'Admin bar' } ) );
+			expect(
+				await screen.findByRole( 'menuitemradio', { name: hideFrontendAdminBar ? 'Hide' : 'Show' } )
+			).toBeChecked();
+			await act( async () => {
+				await connector.setUserPreferences( { hideFrontendAdminBar: true } );
+				await queryClient.invalidateQueries( { queryKey: USER_PREFERENCES_QUERY_KEY } );
+			} );
+			await waitFor( () =>
+				expect(
+					screen.getByRole( 'menuitemradio', {
+						name: hideFrontendAdminBar === false ? 'Show' : 'Hide',
+					} )
+				).toBeChecked()
+			);
+			expect( connector.setSiteFrontendAdminBar ).not.toHaveBeenCalled();
 		}
 	);
 
@@ -851,9 +891,7 @@ describe( 'preview browser menu', () => {
 		expect( page() ).toBe( before );
 		await openBrowserOptions( user );
 		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Admin bar' } ) );
-		expect(
-			await screen.findByRole( 'menuitemradio', { name: 'Use Studio default' } )
-		).toBeChecked();
+		expect( await screen.findByRole( 'menuitemradio', { name: 'Show' } ) ).toBeChecked();
 	} );
 
 	it( 'applies a pending save to its original site after switching sites', async () => {

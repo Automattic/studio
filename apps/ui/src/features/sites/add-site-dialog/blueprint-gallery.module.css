@@ -22,6 +22,7 @@
 }
 
 .card {
+	--focus-width: 2px;
 	display: flex;
 	flex-direction: column;
 	gap: var( --space-2 );

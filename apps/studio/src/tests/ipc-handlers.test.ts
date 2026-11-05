@@ -145,6 +145,47 @@ describe( 'site source picker', () => {
 		}
 	);
 
+	it( 'reads a dropped Blueprint folder without presenting a picker', async () => {
+		vol.fromJSON( { '/sites/starter/blueprint.json': JSON.stringify( { steps: [] } ) } );
+		const result = await showOpenFolderDialog( mockIpcMainInvokeEvent, 'Open', '/sites/starter', {
+			allowBlueprints: true,
+			usePath: true,
+		} );
+		expect( result?.blueprint?.blueprintJson ).toEqual( { steps: [] } );
+		expect( result?.path ).toBe( '/sites/starter' );
+		expect( dialog.showOpenDialog ).not.toHaveBeenCalled();
+	} );
+
+	it.each( [ 'backup.wpress', 'export.xml', 'blueprint.json' ] )(
+		'opens the combined source picker for %s',
+		async ( name ) => {
+			Object.defineProperty( process, 'platform', { value: 'darwin' } );
+			vol.fromJSON( { [ '/sites/' + name ]: name.endsWith( '.json' ) ? '{}' : 'file' } );
+			vi.mocked( dialog.showOpenDialog ).mockResolvedValueOnce( {
+				canceled: false,
+				filePaths: [ '/sites/' + name ],
+			} );
+			const result = await showOpenFolderDialog( mockIpcMainInvokeEvent, 'Choose', '/sites', {
+				allowSiteFiles: true,
+			} );
+			expect( result?.path ).toBe( '/sites/' + name );
+			if ( name.endsWith( '.json' ) ) expect( result?.blueprint?.blueprintJson ).toEqual( {} );
+			else expect( result?.file ).toEqual( { path: '/sites/' + name, name } );
+			expect( dialog.showOpenDialog ).toHaveBeenLastCalledWith(
+				expect.anything(),
+				expect.objectContaining( {
+					properties: [ 'openDirectory', 'createDirectory', 'openFile' ],
+					filters: [
+						{
+							name: 'Site sources',
+							extensions: expect.arrayContaining( [ 'json', 'zip', 'xml', 'wpress' ] ),
+						},
+					],
+				} )
+			);
+		}
+	);
+
 	it( 'keeps the combined native picker on macOS', async () => {
 		Object.defineProperty( process, 'platform', { value: 'darwin' } );
 		await showOpenFolderDialog( mockIpcMainInvokeEvent, 'Open', '/sites', {

@@ -129,6 +129,7 @@ import {
 } from '@studio/common/sites/site-email';
 import { readThemeDetails } from '@studio/common/sites/site-identity';
 import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
+import { readSiteSource, type SiteSourceFile } from '@studio/common/sites/site-source';
 import { __ } from '@wordpress/i18n';
 import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
@@ -756,6 +757,7 @@ export async function stopServer(
 }
 
 export interface FolderDialogResponse {
+	file?: SiteSourceFile;
 	blueprint?: BlueprintSource;
 	path: string;
 	name: string;
@@ -792,7 +794,7 @@ export async function showOpenFolderDialog(
 	event: IpcMainInvokeEvent,
 	title: string,
 	defaultDialogPath: string,
-	options?: { allowBlueprints?: boolean }
+	options?: { allowBlueprints?: boolean; allowSiteFiles?: boolean; usePath?: boolean }
 ): Promise< FolderDialogResponse | null > {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( ! parentWindow ) {
@@ -800,19 +802,30 @@ export async function showOpenFolderDialog(
 			`No window found for sender of showOpenFolderDialog message: ${ event.frameId }`
 		);
 	}
-	let selectedPath = process.env.E2E ? process.env.E2E_OPEN_FOLDER_DIALOG : undefined;
+	if ( options?.usePath && ! nodePath.isAbsolute( defaultDialogPath ) ) {
+		throw new Error( __( 'Enter the folder’s full path.' ) );
+	}
+	let selectedPath = options?.usePath
+		? defaultDialogPath
+		: process.env.E2E
+		? process.env.E2E_OPEN_FOLDER_DIALOG
+		: undefined;
 	if ( ! selectedPath ) {
 		const defaultPath =
 			defaultDialogPath !== '' ? defaultDialogPath : await getDefaultSiteDirectory();
 		let properties: OpenDialogOptions[ 'properties' ] = [ 'openDirectory', 'createDirectory' ];
-		if ( options?.allowBlueprints ) {
+		if ( options?.allowBlueprints || options?.allowSiteFiles ) {
 			if ( process.platform === 'darwin' ) {
 				properties.push( 'openFile' );
 			} else {
 				const { response } = await dialog.showMessageBox( parentWindow, {
 					type: 'question',
 					message: __( 'What would you like to open?' ),
-					buttons: [ __( 'Folder…' ), __( 'Blueprint file…' ), __( 'Cancel' ) ],
+					buttons: [
+						__( 'Folder…' ),
+						options?.allowSiteFiles ? __( 'File…' ) : __( 'Blueprint file…' ),
+						__( 'Cancel' ),
+					],
 					defaultId: 0,
 					cancelId: 2,
 				} );
@@ -824,13 +837,21 @@ export async function showOpenFolderDialog(
 			title,
 			defaultPath,
 			properties,
-			filters: options?.allowBlueprints
+			filters: options?.allowSiteFiles
+				? [
+						{
+							name: __( 'Site sources' ),
+							extensions: [ 'json', 'zip', 'gz', 'gzip', 'tar', 'tgz', 'wpress', 'xml' ],
+						},
+				  ]
+				: options?.allowBlueprints
 				? [ { name: __( 'Blueprints' ), extensions: [ 'json', 'zip' ] } ]
 				: undefined,
 		} );
 		if ( canceled || ! filePaths[ 0 ] ) return null;
 		selectedPath = filePaths[ 0 ];
 	}
+	if ( options?.allowSiteFiles ) return readSiteSource( selectedPath );
 	const blueprint = options?.allowBlueprints ? await readBlueprintSource( selectedPath ) : null;
 	return {
 		path: selectedPath,

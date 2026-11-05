@@ -276,7 +276,7 @@ describe( 'command palette', () => {
 			option( 'New site' )
 		);
 		await user.click( option( 'New site' ) );
-		await waitFor( () => expect( searchParams( history ).addSite ).toBe( 'create' ) );
+		await waitFor( () => expect( searchParams( history ).addSite ).toBe( 'blank' ) );
 	} );
 
 	it( 'shows the available commands and settings destinations before typing', async () => {
@@ -577,7 +577,7 @@ describe( 'Command palette in the Studio workspace', () => {
 			fireEvent.click( await screen.findByRole( 'option', { name: 'New site' } ) );
 			expect( await screen.findByRole( 'dialog', { name: 'Add site' } ) ).toBeVisible();
 			await waitFor( () =>
-				expect( screen.getByRole( 'button', { name: 'Start with Blank site' } ) ).toHaveFocus()
+				expect( screen.getByRole( 'textbox', { name: 'Site name' } ) ).toHaveFocus()
 			);
 			expect( screen.queryByRole( 'tooltip', { name: 'New site' } ) ).not.toBeInTheDocument();
 		}

@@ -81,13 +81,22 @@
 	}
 
 	.field {
+		--field-gap: var( --space-2 );
 		display: flex;
-		gap: var( --space-2 );
+		gap: var( --field-gap );
 		width: 100%;
 	}
 
 	.field[data-orientation='vertical'] {
 		flex-direction: column;
+	}
+
+	.field[data-orientation='vertical'][data-spacing='relaxed'] {
+		--field-gap: var( --space-3 );
+	}
+
+	.field[data-orientation='vertical'] > :is( .description[data-error], .error ) {
+		margin-block-start: calc( var( --space-2 ) - var( --field-gap ) );
 	}
 
 	.field[data-orientation='horizontal'] {
@@ -141,6 +150,8 @@
 	.description[data-error] {
 		display: grid;
 		color: var( --destructive );
+		font-size: var( --text-xs );
+		line-height: var( --text-xs--line-height );
 	}
 
 	.description
@@ -177,5 +188,23 @@
 	.error {
 		color: var( --destructive );
 		font-size: var( --text-sm );
+	}
+
+	.errorMessage {
+		display: flex;
+		align-items: flex-start;
+		gap: var( --space-1 );
+	}
+
+	.errorIcon {
+		flex: none;
+		width: var( --space-4 );
+		height: var( --space-4 );
+		margin-block-start: calc( ( 1lh - var( --space-4 ) ) / 2 );
+	}
+
+	.errorText {
+		min-width: 0;
+		overflow-wrap: anywhere;
 	}
 }

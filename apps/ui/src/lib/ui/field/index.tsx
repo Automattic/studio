@@ -1,7 +1,11 @@
 import { clsx } from 'clsx';
+import { createContext, useContext } from 'react';
+import { NeedsInputIcon } from '@/lib/icons';
 import { Label } from '@/lib/ui/label';
 import styles from './style.module.css';
 import type { ComponentProps, ReactNode } from 'react';
+
+const FieldSpacingContext = createContext< 'default' | 'relaxed' >( 'default' );
 
 export function FieldSet( { className, ...props }: ComponentProps< 'fieldset' > ) {
 	return (
@@ -26,16 +30,23 @@ export function FieldLegend( {
 
 export function FieldGroup( {
 	variant = 'default',
+	fieldSpacing,
 	className,
 	...props
-}: ComponentProps< 'div' > & { variant?: 'default' | 'settings' | 'sections' | 'inset' } ) {
+}: ComponentProps< 'div' > & {
+	variant?: 'default' | 'settings' | 'sections' | 'inset';
+	fieldSpacing?: 'default' | 'relaxed';
+} ) {
+	const inheritedSpacing = useContext( FieldSpacingContext );
 	return (
-		<div
-			data-slot="field-group"
-			data-variant={ variant }
-			className={ clsx( styles.group, className ) }
-			{ ...props }
-		/>
+		<FieldSpacingContext value={ fieldSpacing ?? inheritedSpacing }>
+			<div
+				data-slot="field-group"
+				data-variant={ variant }
+				className={ clsx( styles.group, className ) }
+				{ ...props }
+			/>
+		</FieldSpacingContext>
 	);
 }
 
@@ -44,11 +55,13 @@ export function Field( {
 	orientation = 'vertical',
 	...props
 }: ComponentProps< 'div' > & { orientation?: 'vertical' | 'horizontal' } ) {
+	const spacing = useContext( FieldSpacingContext );
 	return (
 		<div
 			role="group"
 			data-slot="field"
 			data-orientation={ orientation }
+			data-spacing={ spacing === 'relaxed' ? spacing : undefined }
 			className={ clsx( styles.field, className ) }
 			{ ...props }
 		/>
@@ -116,8 +129,9 @@ export function FieldDescription( {
 					<span aria-hidden="true" className={ styles.reserved }>
 						{ content }
 					</span>
-					<span role="alert" className={ styles.reserved }>
-						{ error }
+					<span role="alert" className={ clsx( styles.reserved, styles.errorMessage ) }>
+						<NeedsInputIcon className={ styles.errorIcon } />
+						<span className={ styles.errorText }>{ error }</span>
 					</span>
 				</>
 			) : (
@@ -127,16 +141,19 @@ export function FieldDescription( {
 	);
 }
 
-export function FieldError( { className, ...props }: ComponentProps< 'div' > ) {
-	if ( ! props.children ) {
+export function FieldError( { className, children, ...props }: ComponentProps< 'div' > ) {
+	if ( ! children ) {
 		return null;
 	}
 	return (
 		<div
 			role="alert"
 			data-slot="field-error"
-			className={ clsx( styles.error, className ) }
+			className={ clsx( styles.error, styles.errorMessage, className ) }
 			{ ...props }
-		/>
+		>
+			<NeedsInputIcon className={ styles.errorIcon } />
+			<span className={ styles.errorText }>{ children }</span>
+		</div>
 	);
 }

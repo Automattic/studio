@@ -166,7 +166,6 @@ describe( 'WordPress Studio settings', () => {
 
 	it.each( [
 		{ colorScheme: 'dark' as const },
-		{ newSiteBehavior: 'blank' as const },
 		{ accentColor: '#069e08' },
 		{ tintIntensity: 20 },
 		{ contrast: 30 },

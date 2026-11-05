@@ -1,3 +1,132 @@
+.setupDialog {
+	inset: auto;
+	top: 50%;
+	left: 50%;
+	width: calc( 100% - 2rem );
+	max-width: 448px;
+	height: auto;
+	max-height: calc( 100dvh - 2rem );
+	margin: 0;
+	translate: -50% -50%;
+}
+
+.fileInput {
+	display: none;
+}
+
+.sourceArea {
+	min-width: 0;
+}
+
+.sourceDropZone,
+.selectedSource {
+	border-radius: var( --radius-lg );
+}
+
+.sourceDropZone {
+	gap: var( --space-3 );
+	padding-block: var( --space-6 );
+}
+
+.sourceDropZone p:empty {
+	display: none;
+}
+
+.selectedSource {
+	display: flex;
+	align-items: center;
+	gap: var( --space-3 );
+	min-width: 0;
+	padding: var( --space-3 );
+	border: 1px solid var( --border );
+}
+
+.sourceActions {
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: var( --space-1 );
+}
+
+.sourceThumbnail,
+.sourceIcon {
+	flex: none;
+	width: 112px;
+	height: 80px;
+	border-radius: var( --radius-md );
+}
+
+.sourceThumbnail {
+	height: auto;
+	aspect-ratio: auto;
+}
+
+.sourceScreenshot {
+	height: auto;
+}
+
+.sourceIcon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background-color: var( --muted );
+	color: var( --muted-foreground );
+}
+
+.sourceIcon svg {
+	width: var( --space-8 );
+	height: var( --space-8 );
+}
+
+.sourceInfo {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: var( --space-1 );
+	min-width: 0;
+}
+
+.selectedSourceName,
+.sourceDescription {
+	composes: truncate from '@/lib/theme/recipes.module.css';
+}
+
+.sourceDescription {
+	color: var( --muted-foreground );
+	font-size: var( --text-xxs );
+}
+
+@container ( width < 380px ) {
+	.sourceThumbnail,
+	.sourceIcon {
+		width: 80px;
+		height: 64px;
+	}
+
+	.sourceThumbnail {
+		height: auto;
+	}
+}
+
+.brief {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-2 );
+}
+
+.brief[hidden] {
+	display: none;
+}
+
+.briefTitle {
+	gap: var( --space-1 );
+}
+
+.briefOptional {
+	color: var( --muted-foreground );
+	font-weight: var( --font-weight-normal );
+}
+
 .leading {
 	display: flex;
 	align-items: center;

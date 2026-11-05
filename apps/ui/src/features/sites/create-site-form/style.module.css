@@ -1,15 +1,46 @@
 .form {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
 	text-align: left;
 }
 
 .panel {
 	display: flex;
+	flex: 1;
 	flex-direction: column;
-	gap: var( --space-6 );
+	gap: var( --space-5 );
+}
+
+.identity,
+.paired {
+	display: grid;
+	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	align-items: start;
+	gap: var( --space-3 );
+}
+
+.identity {
+	grid-template-columns: minmax( 0, 1fr );
+}
+
+.identity[data-paired] {
+	grid-template-columns: minmax( 0, 1fr ) 144px;
+}
+
+.paired:has( > :only-child ) {
+	grid-template-columns: minmax( 0, 1fr );
+}
+
+@container ( width < 380px ) {
+	.identity[data-paired] {
+		grid-template-columns: minmax( 0, 1fr );
+	}
 }
 
 .actions {
 	display: flex;
+	align-items: center;
 	justify-content: flex-end;
 	gap: var( --space-2 );
 	margin-top: var( --space-7 );
@@ -17,46 +48,163 @@
 
 .pathRow {
 	display: flex;
+	align-items: center;
 	gap: var( --space-2 );
 }
 
-.advancedToggle {
-	align-self: flex-start;
+.pathRow > button {
+	flex: none;
 }
 
-.advancedCollapse {
-	display: grid;
+.pathParent {
+	flex: 0 1 auto;
+	gap: 0;
+	min-width: 0;
+	padding-inline-start: var( --space-2_5 );
+	font-weight: var( --font-weight-normal );
+	cursor: default;
+}
+
+.pathParent[data-compact] {
+	max-width: 40%;
+}
+
+.pathParentText {
+	min-width: 0;
 	overflow: hidden;
-	grid-template-rows: 0fr;
-	margin-top: calc( var( --space-6 ) * -1 );
-	transition:
-		grid-template-rows var( --motion-duration-layout ) var( --motion-ease-layout ),
-		margin-top var( --motion-duration-layout ) var( --motion-ease-layout );
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
-.advancedCollapseOpen {
-	grid-template-rows: 1fr;
-	overflow: visible;
-	margin-top: 0;
-}
-
-.advancedCollapseInner {
+.pathMeasure {
+	position: absolute;
+	width: 0;
+	height: 0;
+	overflow: hidden;
 	visibility: hidden;
-	overflow: hidden;
-	min-height: 0;
-	padding: var( --space-1 );
-	margin: calc( var( --space-1 ) * -1 );
+	font-size: var( --text-sm );
+	font-weight: var( --font-weight-normal );
+	white-space: pre;
+	pointer-events: none;
 }
 
-.advancedCollapseOpen .advancedCollapseInner {
-	visibility: visible;
+.pathMeasure > span {
+	display: inline-block;
 }
 
-.advancedErrorCount {
-	margin-left: var( --space-2 );
-	font-size: var( --text-xxs );
+.pathName {
+	min-width: 0;
+	height: 100%;
+	padding-inline-start: 0;
+	text-overflow: ellipsis;
+}
+
+.pathDisplay {
+	min-width: 0;
+	text-overflow: ellipsis;
+}
+
+.settingsRows {
+	display: flex;
+	flex-direction: column;
+}
+
+.fileAccess {
+	display: flex;
+	align-items: center;
+	min-height: 44px;
+}
+
+.settingsRows > div + div {
+	border-block-start: 1px solid var( --border );
+}
+
+.settingsTrigger {
+	justify-content: space-between;
+	width: 100%;
+	height: auto;
+	min-height: 44px;
+	padding: var( --space-2 ) 0;
+	font-size: var( --text-xs );
 	font-weight: var( --font-weight-medium );
+	text-align: start;
+}
+
+.settingsValue {
+	display: flex;
+	align-items: center;
+	gap: var( --space-1_5 );
+	max-width: 60%;
+	min-width: 0;
+	color: var( --muted-foreground );
+	font-weight: var( --font-weight-normal );
+}
+
+.settingsValue > span {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.settingsValue[data-error] {
 	color: var( --destructive );
+}
+
+.settingsValue > svg {
+	width: 14px;
+	height: 14px;
+	flex: none;
+}
+
+.advancedPopup {
+	composes: padded from '@/lib/ui/surface/style.module.css';
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-4 );
+	width: 400px;
+	max-width: min( calc( 100vw - 2rem ), var( --available-width ) );
+	max-height: min( 560px, var( --available-height ) );
+}
+
+.popupHeading {
+	display: flex;
+	flex: none;
+	align-items: center;
+	justify-content: space-between;
+	gap: var( --space-3 );
+}
+
+.settingsFields {
+	padding-block: var( --space-3 );
+}
+
+.settingsTrigger[aria-expanded='true'] .settingsCaret {
+	rotate: 90deg;
+}
+
+.popupFields {
+	gap: var( --space-4 );
+}
+
+.advanced {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: var( --space-1 );
+	min-width: 0;
+}
+
+.advancedTrigger {
+	align-self: flex-start;
+	gap: var( --space-1 );
+}
+
+.advancedFields {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-4 );
+	min-height: 0;
+	overflow-y: auto;
 }
 
 .submitErrorDetails {

@@ -38,6 +38,7 @@ export function Popup( {
 	sideOffset = 4,
 	alignOffset,
 	arrowPadding,
+	collisionAvoidance,
 	anchor,
 	backdrop = false,
 	keepMounted = false,
@@ -57,6 +58,7 @@ export function Popup( {
 	sideOffset?: number;
 	alignOffset?: number;
 	arrowPadding?: PositionerProps[ 'arrowPadding' ];
+	collisionAvoidance?: PositionerProps[ 'collisionAvoidance' ];
 	anchor?: PositionerProps[ 'anchor' ];
 	// Catches outside clicks that would otherwise land in a webview and never dismiss it.
 	backdrop?: boolean;
@@ -86,7 +88,9 @@ export function Popup( {
 				alignOffset={ alignOffset }
 				arrowPadding={ arrowPadding }
 				anchor={ anchor }
-				collisionAvoidance={ commands ? COMMANDS_COLLISION_AVOIDANCE : undefined }
+				collisionAvoidance={
+					collisionAvoidance ?? ( commands ? COMMANDS_COLLISION_AVOIDANCE : undefined )
+				}
 				collisionPadding={ commands ? 5 : undefined }
 				className={ styles.positioner }
 			>

@@ -4,6 +4,7 @@ import type { SubmitFeedback } from '@/lib/hooks';
 
 export interface ComposerNotice {
 	message: string;
+	kind?: 'connect-provider';
 	action?: { label: string; onClick: () => void };
 }
 

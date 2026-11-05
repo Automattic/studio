@@ -81,7 +81,10 @@ export function useAppMenuNavigation() {
 		[ connector, openAddSite, openSite, startSite ]
 	);
 
-	useEffect( () => connector.onAddSite( () => openAddSite() ), [ connector, openAddSite ] );
+	useEffect(
+		() => connector.onAddSite( () => openAddSite( 'blank' ) ),
+		[ connector, openAddSite ]
+	);
 	useEffect(
 		() =>
 			connector.onOpenSite( ( { siteId } ) => {

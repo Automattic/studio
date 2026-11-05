@@ -18,7 +18,7 @@
 }
 
 .frame {
-	composes: previewFrame from '@/lib/theme/recipes.module.css';
+	composes: imagePreviewFrame from '@/lib/theme/recipes.module.css';
 	position: relative;
 	display: block;
 	width: 100%;

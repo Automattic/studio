@@ -37,6 +37,7 @@ import {
 	useIsSiteStopping,
 	useSites,
 	useStartSite,
+	useStopSite,
 } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSelectionTime } from '@/data/use-open-site';
@@ -281,6 +282,7 @@ function SessionViewContent( {
 	const { data: preferences } = useUserPreferences();
 	const { mutate: startSite } = useStartSite();
 	const { mutate: startSitePreview } = useStartSiteWithChat();
+	const { mutate: stopSite } = useStopSite();
 	const isSiteStarting = useIsSiteStarting( ownerSite?.id );
 	const isSiteStopping = useIsSiteStopping( ownerSite?.id );
 	const revealingSiteId = useOptionalSessionPreviewUI()?.revealingSiteId;
@@ -508,7 +510,10 @@ function SessionViewContent( {
 								? () => startSitePreview( ownerSite.id )
 								: undefined
 						}
-						startSiteDisabled={ isSiteBusy }
+						onStopSite={
+							canAutoStart && ownerSite.running ? () => stopSite( ownerSite.id ) : undefined
+						}
+						siteActionDisabled={ isSiteBusy }
 						isSiteStarting={ isSiteStarting }
 						environment={ effectiveEnvironment }
 						onEnvironmentChange={

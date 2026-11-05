@@ -20,6 +20,24 @@ const outcome = ( site, extra = {} ) => ( {
 } );
 const reply = ( ...textSegments ) => ( { textSegments } );
 
+describe( 'design-system reply wording', () => {
+	test.each( [
+		'The [Design System](studio:design-system) now uses charcoal gray with light text.',
+		'Your colors are now reflected in the [design system](studio:design-system).',
+		'Ces changements figurent dans le [Design System](studio:design-system).',
+	] )( 'accepts natural wording without prescribing a sentence: %s', ( text ) => {
+		expect( run( checks.designSystemReplyLink, reply( text ) ).pass ).toBe( true );
+	} );
+
+	test.each( [
+		'Done—the site now uses charcoal-gray backgrounds with light text.\n\n[View site](http://localhost:8884/) · [Design System](studio:design-system)',
+		'The site now uses charcoal gray.\n\n[Design System](studio:design-system)',
+		'The site now uses charcoal gray.',
+	] )( 'rejects missing or detached links: %s', ( text ) => {
+		expect( run( checks.designSystemReplyLink, reply( text ) ).pass ).toBe( false );
+	} );
+} );
+
 function png( width, height ) {
 	const buf = Buffer.alloc( 33 );
 	buf.writeUInt32BE( 0x89504e47, 0 );

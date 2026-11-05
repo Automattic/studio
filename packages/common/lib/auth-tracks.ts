@@ -12,6 +12,7 @@ export const authSourceSchema = z.enum( [
 	'site_header',
 	'add_site',
 	'cli',
+	'mcp',
 	'unknown',
 ] );
 
@@ -28,6 +29,7 @@ export const authAnalyticsSchema = z.object( {
 		'settings_sharing',
 		'annotation',
 		'cli',
+		'mcp_library',
 		'unknown',
 	] ),
 	intent: z.enum( [

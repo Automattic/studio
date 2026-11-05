@@ -59,8 +59,6 @@ const siteCommands = (
 		newChat: vi.fn(),
 		reloadPreview: vi.fn(),
 		annotate: vi.fn(),
-		setPanelFullscreen: vi.fn(),
-		showPanel: vi.fn(),
 		copyUrl: vi.fn(),
 		...overrides,
 	} );
@@ -107,7 +105,7 @@ it( 'derives labels and availability from active context', () => {
 	const current = makeSite( { id: 'one', name: 'Test', running: true } );
 	const sites = [ current, makeSite( { id: 'two', running: true } ) ];
 	const app = appCommands( { sidebarOpen: false } );
-	const forSite = siteCommands( current, sites, { chatHidden: false }, { pinned: true } );
+	const forSite = siteCommands( current, sites, {}, { pinned: true } );
 	const chatCommands = getChatCommands( makeSession( { id: 'chat', title: 'Current chat' } ), {
 		pinned: true,
 		working: true,
@@ -118,7 +116,7 @@ it( 'derives labels and availability from active context', () => {
 	for ( const id of [ 'sidebar', 'pin-site', 'pin-chat', 'color-scheme' ] ) {
 		expect( byId( id )?.group ).toBe( 'commands' );
 	}
-	expect( byId( 'layout-panel' )?.label ).toBe( 'Switch to Panel' );
+	expect( byId( 'layout-panel' ) ).toBeUndefined();
 	expect( byId( 'preview-fullscreen' ) ).toBeUndefined();
 	expect( byId( 'preview-visibility' ) ).toBeUndefined();
 	expect( byId( 'pin-site' )?.label ).toBe( 'Unpin' );
@@ -291,36 +289,4 @@ describe( 'command search', () => {
 			).map( ( { label } ) => label )
 		).toEqual( [ 'Collapse all' ] );
 	} );
-} );
-
-it.each( [
-	{
-		name: 'Chat',
-		panelShown: false,
-		chatHidden: true,
-		ids: [ 'layout-split', 'layout-panel' ],
-	},
-	{
-		name: 'Split view',
-		panelShown: true,
-		chatHidden: false,
-		ids: [ 'layout-chat', 'layout-panel' ],
-	},
-	{ name: 'Browser', panelShown: true, chatHidden: true, ids: [ 'layout-chat', 'layout-split' ] },
-] )( 'offers the other workspace layouts from $name', ( { panelShown, chatHidden, ids } ) => {
-	const showPanel = vi.fn();
-	const setPanelFullscreen = vi.fn();
-	const commands = siteCommands( makeSite(), [], {
-		panelShown,
-		chatHidden,
-		showPanel,
-		setPanelFullscreen,
-	} );
-	const layouts = commands.filter( ( { id } ) => id.startsWith( 'layout-' ) );
-	expect( layouts.map( ( { id } ) => id ) ).toEqual( ids );
-	for ( const command of layouts ) {
-		command.run();
-		if ( command.id === 'layout-chat' ) expect( showPanel ).toHaveBeenCalledWith( false );
-		else expect( setPanelFullscreen ).toHaveBeenCalledWith( command.id === 'layout-panel' );
-	}
 } );

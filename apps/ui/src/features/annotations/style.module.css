@@ -99,28 +99,7 @@
 
 .marker[data-active='true'] {
 	animation:
-		markerIn 600ms
-			linear(
-				0 0%,
-				0.0325 2.5%,
-				0.1163 5%,
-				0.2331 7.5%,
-				0.6385 15%,
-				0.7594 17.5%,
-				0.8639 20%,
-				0.9497 22.5%,
-				1.0164 25%,
-				1.0648 27.5%,
-				1.0966 30%,
-				1.1142 32.5%,
-				1.1172 37.5%,
-				1.0941 42.5%,
-				1.0178 55%,
-				0.9887 65%,
-				0.9858 72.5%,
-				1 100%
-			)
-			both,
+		markerIn var( --motion-duration-reveal ) var( --motion-ease-spring ) both,
 		markerFadeIn 100ms ease-out both;
 }
 .marker[data-active='false'] {

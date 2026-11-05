@@ -215,7 +215,7 @@ function NoteEditor( {
 								alt={ attachment.name }
 							/>
 							<AttachmentRemoveButton
-								aria-label={ __( 'Remove attachment' ) }
+								label={ __( 'Remove attachment' ) }
 								onClick={ () => removeAttachment( attachment.id ) }
 							/>
 						</li>

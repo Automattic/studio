@@ -32,7 +32,13 @@ export function searchRemoteSites(
 	const needle = query.trim().toLowerCase();
 	if ( ! needle ) return sites;
 	return sites.filter( ( { site } ) =>
-		[ site.name, site.url, site.isPressable ? 'Pressable' : 'WordPress.com', site.environmentType ]
+		[
+			site.name,
+			site.url,
+			site.isPressable ? 'Pressable' : 'WordPress.com',
+			site.environmentType,
+			site.preview && 'Preview',
+		]
 			.filter( Boolean )
 			.some( ( value ) => value?.toLowerCase().includes( needle ) )
 	);

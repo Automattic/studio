@@ -44,9 +44,6 @@ vi.mock( 'cli/lib/sync-site-picker', async ( importActual ) => ( {
 	...( await importActual< typeof import('cli/lib/sync-site-picker') >() ),
 	pickSyncSite: vi.fn(),
 } ) );
-vi.mock( 'cli/lib/preview-sites', () => ( {
-	getStandingPreviews: vi.fn().mockResolvedValue( new Map() ),
-} ) );
 vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 	const actual = await importActual< typeof import('cli/lib/tracks') >();
 	return { ...actual, recordTracksEvent: vi.fn() };

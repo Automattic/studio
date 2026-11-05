@@ -1,12 +1,13 @@
 import { HOUR_MS, DAY_MS } from '@studio/common/constants';
 import { getSnapshotExpiry } from '@studio/common/lib/snapshots';
+import { getStandingPreviews } from '@studio/common/lib/sync/standing-previews';
 import { __ } from '@wordpress/i18n';
 import { addHours } from 'date-fns/addHours';
 import { formatDuration } from 'date-fns/formatDuration';
 import { intervalToDuration } from 'date-fns/intervalToDuration';
 import { reconcilePreviews } from 'cli/lib/cli-config/snapshots';
-import { getStandingPreviews, type StandingPreview } from 'cli/lib/preview-sites';
 import type { Snapshot } from '@studio/common/types/snapshot';
+import type { StandingPreview } from '@studio/common/types/sync';
 import type { DurationUnit } from 'date-fns';
 
 export {

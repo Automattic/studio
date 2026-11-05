@@ -4,7 +4,7 @@ import { __ } from '@wordpress/i18n';
 import { LoggerError } from 'cli/logger';
 import { lockCliConfig, readCliConfig, saveCliConfig, unlockCliConfig } from './core';
 import { getSiteByFolder } from './sites';
-import type { StandingPreview } from 'cli/lib/preview-sites';
+import type { StandingPreview } from '@studio/common/types/sync';
 
 /** How many unexpired previews the user has of one local site. */
 export function countSitePreviews( siteId: string, snapshots: Snapshot[], userId: number ): number {

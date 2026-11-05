@@ -19,7 +19,6 @@ import { enableReprintExporter } from 'cli/lib/api';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { linkPulledPreview } from 'cli/lib/cli-config/snapshots';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { getStandingPreviews } from 'cli/lib/preview-sites';
 import {
 	applySelection,
 	type CliSelectionOptions,
@@ -106,9 +105,7 @@ async function linkIfPreview(
 	source: PullSource
 ): Promise< void > {
 	try {
-		const preview = ( await getStandingPreviews( source.wpComToken.accessToken ) ).get(
-			source.wpComSite.id
-		);
+		const { preview } = source.wpComSite;
 		if ( preview ) {
 			const version = await recordSiteVersion( localSiteId, localPath );
 			await linkPulledPreview(
@@ -120,7 +117,7 @@ async function linkIfPreview(
 			);
 		}
 	} catch {
-		// Listing previews is not worth failing a finished pull over.
+		// Linking the preview is not worth failing a finished pull over.
 	}
 }
 

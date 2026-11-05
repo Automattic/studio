@@ -96,6 +96,7 @@ export function withWpcomDetails( connections: SyncSite[], wpcomSites: SyncSite[
 			localSiteId,
 			syncSupport: connectedSupport( site?.syncSupport ) ?? 'deleted',
 			pullSupport: connectedSupport( site?.pullSupport ),
+			preview: site?.preview,
 			lastPullTimestamp,
 			lastPushTimestamp,
 		};

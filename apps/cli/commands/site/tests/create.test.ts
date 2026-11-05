@@ -1112,7 +1112,7 @@ describe( 'CLI: studio create', () => {
 			}
 		);
 
-		it( 'resumes a staged URL import in a directory another site already uses', async () => {
+		it( 'resumes a staged URL import on its existing site and domain', async () => {
 			const sitePath = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-url-resume-' ) );
 			await fs.promises.mkdir( path.join( sitePath, '.studio-import', 'source' ), {
 				recursive: true,
@@ -1123,7 +1123,7 @@ describe( 'CLI: studio create', () => {
 			);
 			vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
 				version: 1,
-				sites: [ { ...mockExistingSite, path: sitePath } ],
+				sites: [ { ...mockExistingSite, path: sitePath, customDomain: 'imported.local' } ],
 			} );
 			const liberate = vi.fn();
 			const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
@@ -1137,6 +1137,8 @@ describe( 'CLI: studio create', () => {
 					'create',
 					'--from',
 					'https://example.com',
+					'--domain',
+					'imported.local',
 					'--no-start',
 					'--skip-browser',
 				] );
@@ -1145,9 +1147,9 @@ describe( 'CLI: studio create', () => {
 				expect( Logger.prototype.reportSuccess ).toHaveBeenCalledWith(
 					'Resuming the staged import; the source is not captured again'
 				);
-				expect( reportErrorSpy ).not.toHaveBeenCalledWith(
-					expect.objectContaining( { message: 'The selected directory is already in use.' } )
-				);
+				const reportedErrors = reportErrorSpy.mock.calls.map( ( [ error ] ) => error.message );
+				expect( reportedErrors ).not.toContain( 'The selected directory is already in use.' );
+				expect( reportedErrors ).not.toContain( 'The domain name is already in use' );
 			} finally {
 				await fs.promises.rm( sitePath, { recursive: true, force: true } );
 			}

@@ -174,7 +174,11 @@ async function validateBeforeSourceImport(
 
 	const { sites } = await readCliConfig();
 	const isSiteInUse = sites.some( ( site ) => arePathsEqual( site.path, sitePath ) );
-	if ( sourceUrl && isSiteInUse && ! stagedUrlImport( sitePath, sourceUrl ) ) {
+	if ( sourceUrl && isSiteInUse ) {
+		// A staged import resumes on the existing site, so its creation options aren't reapplied.
+		if ( stagedUrlImport( sitePath, sourceUrl ) ) {
+			return;
+		}
 		throw new LoggerError( __( 'The selected directory is already in use.' ) );
 	}
 

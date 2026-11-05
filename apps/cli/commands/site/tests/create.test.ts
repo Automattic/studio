@@ -38,6 +38,7 @@ import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { provisionHeadlessBackend, writeFrontendEnvFile } from 'cli/lib/frontend/provision';
 import { startFrontendServer } from 'cli/lib/frontend/server';
 import { installFrontendDependencies, scaffoldFrontend } from 'cli/lib/frontend/templates';
+import { resolveStaticSiteImporterPlugin } from 'cli/lib/import-runtime';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
@@ -63,7 +64,8 @@ vi.mock( '@studio/common/lib/port-finder', () => ( {
 		getOpenPort: vi.fn(),
 	},
 } ) );
-vi.mock( '@studio/common/lib/passwords', () => ( {
+vi.mock( '@studio/common/lib/passwords', async ( importActual ) => ( {
+	...( await importActual< typeof import('@studio/common/lib/passwords') >() ),
 	createPassword: vi.fn().mockReturnValue( 'generated-password-123' ),
 } ) );
 vi.mock( '@studio/common/lib/blueprint-validation' );
@@ -1047,6 +1049,188 @@ describe( 'CLI: studio create', () => {
 			expect( liberate ).not.toHaveBeenCalled();
 			expect( fsMkdirSyncSpy ).not.toHaveBeenCalledWith( mockSitePath, { recursive: true } );
 			expect( process.exitCode ).toBe( 1 );
+		} );
+
+		it.each( [
+			{
+				problem: 'the site directory is not empty',
+				args: [],
+				arrange: () => {
+					createPathExistsMock( true );
+					vi.mocked( isEmptyDir ).mockResolvedValue( false );
+				},
+				error: 'The selected directory is not empty nor an existing WordPress site.',
+			},
+			{
+				problem: 'another site uses the directory',
+				args: [],
+				arrange: () => {
+					vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
+						version: 1,
+						sites: [ { ...mockExistingSite, path: mockSitePath } ],
+					} );
+				},
+				error: 'The selected directory is already in use.',
+			},
+			{
+				problem: 'the custom domain is taken',
+				args: [ '--domain', 'taken.local' ],
+				arrange: () => {
+					vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
+						version: 1,
+						sites: [ { ...mockExistingSite, customDomain: 'taken.local' } ],
+					} );
+				},
+				error: 'The domain name is already in use',
+			},
+			{
+				problem: 'the admin email is invalid',
+				args: [ '--admin-email', 'not-an-email' ],
+				arrange: () => {},
+				error: 'Please enter a valid email address.',
+			},
+		] )(
+			'fails before capturing a URL source when $problem',
+			async ( { args, arrange, error } ) => {
+				arrange();
+				const liberate = vi.fn();
+				const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
+				const parser = registerCommand(
+					yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } ),
+					{ liberate }
+				).exitProcess( false );
+
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					'https://example.com',
+					'--name',
+					'Imported Site',
+					'--no-start',
+					'--skip-browser',
+					...args,
+				] );
+
+				expect( liberate ).not.toHaveBeenCalled();
+				expect( reportErrorSpy ).toHaveBeenCalledWith(
+					expect.objectContaining( { message: expect.stringContaining( error ) } )
+				);
+				expect( process.exitCode ).toBe( 1 );
+			}
+		);
+
+		it( 'resumes a staged URL import on its existing site and domain', async () => {
+			const sitePath = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-url-resume-' ) );
+			await fs.promises.mkdir( path.join( sitePath, '.studio-import', 'source' ), {
+				recursive: true,
+			} );
+			fs.writeFileSync(
+				path.join( sitePath, '.studio-import', 'request.json' ),
+				JSON.stringify( { source_metadata: { source_path: 'https://example.com' } } )
+			);
+			vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
+				version: 1,
+				sites: [ { ...mockExistingSite, path: sitePath, customDomain: 'imported.local' } ],
+			} );
+			const liberate = vi.fn();
+			const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
+				{ liberate }
+			).exitProcess( false );
+
+			try {
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					'https://example.com',
+					'--domain',
+					'imported.local',
+					'--no-start',
+					'--skip-browser',
+				] );
+
+				expect( liberate ).not.toHaveBeenCalled();
+				expect( Logger.prototype.reportSuccess ).toHaveBeenCalledWith(
+					'Resuming the staged import; the source is not captured again'
+				);
+				const reportedErrors = reportErrorSpy.mock.calls.map( ( [ error ] ) => error.message );
+				expect( reportedErrors ).not.toContain( 'The selected directory is already in use.' );
+				expect( reportedErrors ).not.toContain( 'The domain name is already in use' );
+			} finally {
+				await fs.promises.rm( sitePath, { recursive: true, force: true } );
+			}
+		} );
+
+		describe( 'with a local source and a directory another site already uses', () => {
+			let root: string;
+			let sitePath: string;
+			let source: string;
+
+			beforeEach( async () => {
+				root = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-local-in-use-' ) );
+				sitePath = path.join( root, 'site' );
+				source = path.join( root, 'source' );
+				await fs.promises.mkdir( source, { recursive: true } );
+				fs.writeFileSync( path.join( source, 'index.html' ), '<main>Local</main>' );
+				await fs.promises.mkdir( path.join( sitePath, '.studio-import', 'source' ), {
+					recursive: true,
+				} );
+				vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
+					version: 1,
+					sites: [ { ...mockExistingSite, path: sitePath } ],
+				} );
+			} );
+
+			afterEach( async () => {
+				await fs.promises.rm( root, { recursive: true, force: true } );
+			} );
+
+			const createFromLocalSource = async () => {
+				const parser = registerCommand(
+					yargs( [] ).option( 'path', { type: 'string', default: sitePath } )
+				).exitProcess( false );
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					source,
+					'--name',
+					'Local Site',
+					'--no-start',
+					'--skip-browser',
+				] );
+			};
+
+			it( 'fails before preparing the source', async () => {
+				const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
+
+				await createFromLocalSource();
+
+				expect( resolveStaticSiteImporterPlugin ).not.toHaveBeenCalled();
+				expect( reportErrorSpy ).toHaveBeenCalledWith(
+					expect.objectContaining( { message: 'The selected directory is already in use.' } )
+				);
+				expect( process.exitCode ).toBe( 1 );
+			} );
+
+			it( 'resumes an import of the same source staged there', async () => {
+				const { request } = buildCreateFromSourceBlueprint(
+					source,
+					'Local Site',
+					{ path: staticSiteImporterFixture },
+					undefined,
+					true
+				).staticSiteImport;
+				fs.writeFileSync( path.join( sitePath, '.studio-import', 'request.json' ), request );
+				const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
+
+				await createFromLocalSource();
+
+				expect( resolveStaticSiteImporterPlugin ).toHaveBeenCalled();
+				expect( reportErrorSpy.mock.calls.map( ( [ error ] ) => error.message ) ).not.toContain(
+					'The selected directory is already in use.'
+				);
+			} );
 		} );
 
 		it( 'invokes the SSI host command once and consumes its terminal receipt', async () => {

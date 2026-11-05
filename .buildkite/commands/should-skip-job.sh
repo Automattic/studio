@@ -144,6 +144,7 @@ if [[ -z "$job_type" ]]; then
   exit 1
 fi
 
+# Not the CI toolkit's `pr_changed_files`: it fetches `origin` over SSH, which hangs at the host-key prompt in the Linux containers.
 git_pr_changed_files() {
   local mode="$1"; shift
 
@@ -175,16 +176,12 @@ git_pr_changed_files() {
   return 1
 }
 
-if ! command -v pr_changed_files &> /dev/null; then
-  pr_changed_files() { git_pr_changed_files "$@"; }
-fi
-
 case "$job_type" in
   "validation")
     # Skip validation jobs (lint, unit tests, e2e) if ALL changes are in
     # non-code files OR localization-only changes
     PATTERNS=("${COMMON_NON_CODE_PATTERNS[@]}" "${LOCALIZATION_PATTERNS[@]}")
-    if pr_changed_files --all-match "${PATTERNS[@]}"; then
+    if git_pr_changed_files --all-match "${PATTERNS[@]}"; then
       show_skip_message "$job_type"
       exit 0
     fi
@@ -193,7 +190,7 @@ case "$job_type" in
   "e2e")
     # Skip desktop e2e if ALL changes are in non-code files, localization, OR agent files.
     PATTERNS=("${COMMON_NON_CODE_PATTERNS[@]}" "${LOCALIZATION_PATTERNS[@]}" "${AGENT_PATTERNS[@]}")
-    if pr_changed_files --all-match "${PATTERNS[@]}"; then
+    if git_pr_changed_files --all-match "${PATTERNS[@]}"; then
       show_skip_message "$job_type"
       exit 0
     fi
@@ -203,7 +200,7 @@ case "$job_type" in
     # Skip metrics if ALL changes are in non-code files, localization, test files, OR agent files.
     # Neither test nor agent file changes affect what the metrics suites measure.
     PATTERNS=("${COMMON_NON_CODE_PATTERNS[@]}" "${LOCALIZATION_PATTERNS[@]}" "${TEST_PATTERNS[@]}" "${AGENT_PATTERNS[@]}")
-    if pr_changed_files --all-match "${PATTERNS[@]}"; then
+    if git_pr_changed_files --all-match "${PATTERNS[@]}"; then
       show_skip_message "$job_type"
       exit 0
     fi
@@ -212,7 +209,7 @@ case "$job_type" in
   "build")
     # Skip build if ALL changes are in non-code files.
     # Note: Does NOT skip on localization changes - builds should include translation updates.
-    if pr_changed_files --all-match "${COMMON_NON_CODE_PATTERNS[@]}"; then
+    if git_pr_changed_files --all-match "${COMMON_NON_CODE_PATTERNS[@]}"; then
       show_skip_message "$job_type"
       exit 0
     fi
@@ -221,7 +218,7 @@ case "$job_type" in
   "fastlane")
     # Run only if at least one changed file is fastlane/ or Ruby-setup-related.
     # Other job types treat fastlane changes as non-code; this one is the inverse.
-    if ! pr_changed_files --any-match "${FASTLANE_PATTERNS[@]}"; then
+    if ! git_pr_changed_files --any-match "${FASTLANE_PATTERNS[@]}"; then
       show_skip_message "$job_type"
       exit 0
     fi

@@ -3,11 +3,8 @@ import { UserRoundIcon, XIcon } from 'lucide-react';
 import { getSettingsCommandAliases } from '@/data/settings-sections';
 import {
 	AnnotateIcon,
-	ChatIcon,
 	CodeIcon,
 	DatabaseIcon,
-	FullscreenIcon,
-	SplitViewIcon,
 	DuplicateIcon,
 	ExportSiteIcon,
 	ExternalLinkIcon,
@@ -51,7 +48,6 @@ const OPEN_IN_ICONS: Record< OpenInDestination, PaletteCommand[ 'icon' ] > = {
 
 export function getSiteCommands( {
 	site,
-	chatHidden,
 	panelShown,
 	canAnnotate,
 	annotating,
@@ -64,12 +60,9 @@ export function getSiteCommands( {
 	newChat,
 	reloadPreview,
 	annotate,
-	setPanelFullscreen,
-	showPanel,
 	copyUrl,
 }: {
 	site: SiteDetails;
-	chatHidden?: boolean;
 	panelShown: boolean;
 	canAnnotate: boolean;
 	annotating: boolean;
@@ -82,8 +75,6 @@ export function getSiteCommands( {
 	newChat: () => void;
 	reloadPreview: () => void;
 	annotate: ( active: boolean ) => void;
-	setPanelFullscreen: ( hidden: boolean ) => void;
-	showPanel: ( open: boolean ) => void;
 	copyUrl: () => void;
 } ): PaletteCommand[] {
 	const { busy, running, othersRunning } = actions;
@@ -92,7 +83,7 @@ export function getSiteCommands( {
 		files: [ __( 'Folder' ), __( 'Directory' ), __( 'Finder' ) ],
 		editor: [ __( 'Code editor' ), __( 'IDE' ) ],
 		terminal: [ __( 'Shell' ), __( 'Command line' ) ],
-		phpmyadmin: [ __( 'Database' ), 'SQL', 'MySQL' ],
+		phpmyadmin: [ __( 'Database' ), 'phpMyAdmin', 'SQL', 'MySQL' ],
 		'wp-admin': [ __( 'Dashboard' ), 'wp-admin' ],
 		'staff-admin': [ __( 'Staff admin' ), 'client', 'wp-admin' ],
 	};
@@ -145,8 +136,7 @@ export function getSiteCommands( {
 					{
 						id: 'admin',
 						group: 'commands' as const,
-						label: __( 'Open WordPress Admin in panel' ),
-						aliases: [ __( 'Open WordPress Admin' ) ],
+						label: __( 'Open WordPress Admin' ),
 						icon: WordPressIcon,
 						description,
 						keywords: keywords[ 'wp-admin' ],
@@ -169,8 +159,7 @@ export function getSiteCommands( {
 					{
 						id: 'database',
 						group: 'commands' as const,
-						label: __( 'Open database in panel' ),
-						aliases: [ __( 'Open database' ) ],
+						label: __( 'Open database' ),
 						icon: DatabaseIcon,
 						description,
 						keywords: keywords.phpmyadmin,
@@ -221,30 +210,19 @@ export function getSiteCommands( {
 			  ]
 			: [] ),
 		...destinations
-			.filter( ( destination ) => ! destination.disabled )
+			.filter(
+				( destination ) =>
+					! destination.disabled && destination.id !== 'wp-admin' && destination.id !== 'phpmyadmin'
+			)
 			.map(
 				( destination ): PaletteCommand => ( {
 					id: `open-${ destination.id }`,
 					group: 'commands',
-					label:
-						destination.id === 'wp-admin'
-							? __( 'Open WordPress Admin in browser' )
-							: destination.id === 'staff-admin'
-							? __( 'Open Staff admin in browser' )
-							: destination.id === 'phpmyadmin'
-							? __( 'Open database in browser' )
-							: sprintf(
-									/* translators: %s is the name of the app. E.g. "Open in Cursor" */
-									__( 'Open in %s' ),
-									destination.label
-							  ),
-					aliases: [
-						sprintf(
-							/* translators: %s: the name of an app. */
-							__( 'Open in %s' ),
-							destination.label
-						),
-					],
+					label: sprintf(
+						/* translators: %s is the name of the app. E.g. "Open in Cursor" */
+						__( 'Open in %s' ),
+						destination.label
+					),
 					icon: OPEN_IN_ICONS[ destination.id ],
 					description,
 					keywords: keywords[ destination.id ],
@@ -272,50 +250,6 @@ export function getSiteCommands( {
 						icon: annotating ? XIcon : AnnotateIcon,
 						description,
 						run: () => annotate( ! annotating ),
-					},
-			  ]
-			: [] ),
-		...( panelShown
-			? [
-					{
-						id: 'layout-chat',
-						group: 'commands' as const,
-						label: __( 'Switch to Chat' ),
-						icon: ChatIcon,
-						description,
-						keywords: [ __( 'Layout' ), __( 'Hide panel' ), __( 'Hide preview' ) ],
-						run: () => showPanel( false ),
-					},
-			  ]
-			: [] ),
-		...( ! panelShown || chatHidden
-			? [
-					{
-						id: 'layout-split',
-						group: 'commands' as const,
-						label: __( 'Switch to Split view' ),
-						icon: SplitViewIcon,
-						description,
-						keywords: [
-							__( 'Layout' ),
-							__( 'Show panel' ),
-							__( 'Show preview' ),
-							__( 'Restore split view' ),
-						],
-						run: () => setPanelFullscreen( false ),
-					},
-			  ]
-			: [] ),
-		...( ! panelShown || ! chatHidden
-			? [
-					{
-						id: 'layout-panel',
-						group: 'commands' as const,
-						label: __( 'Switch to Panel' ),
-						icon: FullscreenIcon,
-						description,
-						keywords: [ __( 'Layout' ), __( 'Preview' ), __( 'Browser' ), __( 'Expand panel' ) ],
-						run: () => setPanelFullscreen( true ),
 					},
 			  ]
 			: [] ),

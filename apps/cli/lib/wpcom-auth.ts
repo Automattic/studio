@@ -3,6 +3,7 @@ import {
 	createAuthAttempt,
 	getAuthTracksProps,
 	type AuthAttempt,
+	type AuthAnalytics,
 } from '@studio/common/lib/auth-tracks';
 import { AUTH_EVENTS } from '@studio/common/lib/cli-events';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
@@ -30,11 +31,12 @@ export async function getCliAuthenticationUrl(): Promise< string > {
 // Checks a pasted token against WordPress.com and stores it. Throws a
 // user-facing LoggerError when it fails.
 export async function storeAuthToken( accessToken: string, attempt?: AuthAttempt ) {
-	// `account_type` is absent throughout: the CLI has no signup path.
+	// The copy-token flow has no signup route, including in the MCP library.
+	const origin = getTracksOrigin();
 	const authProps = {
 		...( attempt ? getAuthTracksProps( attempt ) : {} ),
-		...getTracksOrigin(),
-		source: 'cli' as const,
+		...origin,
+		source: attempt?.source ?? ( origin.channel === 'studio-mcp' ? 'unknown' : 'cli' ),
 		account_type: undefined,
 	};
 
@@ -46,7 +48,7 @@ export async function storeAuthToken( accessToken: string, attempt?: AuthAttempt
 			...authProps,
 			success: false,
 			failure_reason: 'profile_fetch_failed',
-		} );
+		} ).catch( () => undefined );
 		throw new LoggerError( __( 'Authentication failed. Please try again.' ) );
 	}
 
@@ -66,14 +68,17 @@ export async function storeAuthToken( accessToken: string, attempt?: AuthAttempt
 			...authProps,
 			success: false,
 			failure_reason: 'unknown',
-		} );
+		} ).catch( () => undefined );
 		throw error instanceof LoggerError
 			? error
 			: new LoggerError( __( 'Authentication failed' ), error );
 	}
 
 	// After the token is stored — the wrapper reads it to resolve `is_a11n`.
-	await recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH, { ...authProps, success: true } );
+	await recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH, {
+		...authProps,
+		success: true,
+	} ).catch( () => undefined );
 
 	try {
 		await emitCliEvent( { event: AUTH_EVENTS.LOGIN, data: { token: authToken } } );
@@ -87,8 +92,10 @@ export async function storeAuthToken( accessToken: string, attempt?: AuthAttempt
  * Signs in through the browser: opens the authorization page, shows its URL for headless machines,
  * and stores the token the user pastes back. Throws a user-facing LoggerError when it fails.
  */
-export async function signInInteractively(): Promise< StoredAuthToken > {
-	const attempt = createAuthAttempt( 'cli', false, { placement: 'cli', intent: 'account' } );
+export async function signInInteractively(
+	analytics: AuthAnalytics = { placement: 'cli', intent: 'account' }
+): Promise< StoredAuthToken > {
+	const attempt = createAuthAttempt( 'cli', false, analytics );
 	const props = { ...getAuthTracksProps( attempt ), ...getTracksOrigin(), account_type: undefined };
 	void recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH_STARTED, props ).catch( () => undefined );
 	const authUrl = await getCliAuthenticationUrl();
@@ -131,12 +138,23 @@ export async function requireAuthToken(
 	if ( token ) {
 		return token;
 	}
-	if (
-		process.stdin.isTTY &&
-		process.stdout.isTTY &&
-		( await confirm( { message: __( "You're not logged in to WordPress.com. Log in now?" ) } ) )
-	) {
-		return signInInteractively();
+	if ( process.stdin.isTTY && process.stdout.isTTY ) {
+		const analytics: AuthAnalytics = {
+			placement: 'cli',
+			intent: 'account',
+			journey_id: crypto.randomUUID(),
+		};
+		const [ accepted ] = await Promise.all( [
+			confirm( { message: __( "You're not logged in to WordPress.com. Log in now?" ) } ),
+			recordTracksEvent( TRACKS_EVENTS.ACCOUNT_PROMPT_VIEWED, {
+				source: 'cli',
+				...analytics,
+				...getTracksOrigin(),
+			} ).catch( () => undefined ),
+		] );
+		if ( accepted ) {
+			return signInInteractively( analytics );
+		}
 	}
 	throw new LoggerError(
 		__( 'Authentication required. Please log in with `studio auth login`.' ),

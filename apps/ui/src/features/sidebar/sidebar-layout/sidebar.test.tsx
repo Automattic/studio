@@ -2,6 +2,7 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { resetLocaleData, setLocaleData } from '@wordpress/i18n';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { resetPanelLayout, SIDEBAR_PANEL_STORAGE_KEY } from '@/data/resizable-panels';
+import { SessionUIProvider } from '@/data/use-session-ui';
 import { HeaderSidebarToggle } from '@/features/sidebar/sidebar-toggle';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderApp, renderWithProviders } from '@/test/render';
@@ -17,11 +18,13 @@ function resize( width: number ) {
 	} );
 }
 
-async function setup( connector = createFakeConnector() ) {
+async function setup( connector = createFakeConnector( { sites: [ makeSite() ] } ) ) {
 	const view = renderWithProviders(
-		<SidebarLayout>
-			<HeaderSidebarToggle />
-		</SidebarLayout>,
+		<SessionUIProvider>
+			<SidebarLayout>
+				<HeaderSidebarToggle />
+			</SidebarLayout>
+		</SessionUIProvider>,
 		{ connector }
 	);
 	await screen.findAllByRole( 'button', { name: /^(Show|Hide) sidebar$/ } );

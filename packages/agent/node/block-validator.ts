@@ -164,6 +164,36 @@ export async function validateBlocks(
 					};
 				}
 
+				// Each block the editor does not register that the site renders on
+				// the server, from the block types the REST API lists, on a WordPress
+				// whose editor registers such a block from its supports'
+				// autoRegister (_wp_enqueue_auto_register_blocks(), WordPress 7.0).
+				const serverRendered = new Set< string >();
+				const branch = /\bbranch-(\d+)-(\d+)\b/.exec( document.body.className );
+				const apiFetch = ( window as any ).wp?.apiFetch;
+				if ( branch && Number( branch[ 1 ] ) >= 7 && typeof apiFetch === 'function' ) {
+					const missing = new Set< string >();
+					const collect = ( list: any[] ) =>
+						list.forEach( ( block: any ) => {
+							if ( block.name === 'core/missing' && block.attributes?.originalName ) {
+								missing.add( String( block.attributes.originalName ) );
+							}
+							collect( block.innerBlocks ?? [] );
+						} );
+					collect( wpBlocks.parse( html ) );
+					await Promise.all(
+						[ ...missing ].map( ( name ) =>
+							apiFetch( { path: `/wp/v2/block-types/${ name }?context=edit` } )
+								.then( ( type: any ) => {
+									if ( type?.is_dynamic && ! type.supports?.autoRegister ) {
+										serverRendered.add( name );
+									}
+								} )
+								.catch( () => undefined )
+						)
+					);
+				}
+
 				// Block validation logs console-style messages: a format string whose
 				// %s / %o / %d placeholders take the arguments that follow it.
 				function formatIssue( args: any[] ): string {
@@ -330,6 +360,18 @@ export async function validateBlocks(
 								.getBlockTypes()
 								.map( ( type: any ) => type.name )
 								.filter( ( registeredName: string ) => registeredName.startsWith( prefix ) );
+							if ( serverRendered.has( name ) ) {
+								results.push( {
+									blockName: name,
+									place,
+									isValid: false,
+									issues: [
+										`${ name } is registered on the site in PHP but not in the block editor, so the editor shows it as an unsupported block. A block with a render_callback whose supports include 'autoRegister' => true is registered in the editor by WordPress, which previews it with the server's render (_wp_enqueue_auto_register_blocks() in wp-includes/blocks.php).`,
+									],
+									originalContent: block.attributes?.originalContent ?? '',
+								} );
+								return;
+							}
 							results.push( {
 								blockName: name,
 								place,

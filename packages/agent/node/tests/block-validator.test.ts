@@ -1045,6 +1045,25 @@ describe.runIf( siteUrl && sitePath )( 'a block whose editor script throws (live
 	}, 60_000 );
 } );
 
+describe.runIf( siteUrl && sitePath )( 'a block the site registers in PHP only (live)', () => {
+	// eval22 redo port 2: a booking form registered with a render_callback alone.
+	it( 'says the site renders it, and how the editor registers it', async () => {
+		const plugin = path.join( sitePath!, 'wp-content/mu-plugins/studio-test-server-only.php' );
+		writeFileSync(
+			plugin,
+			"<?php\nadd_action( 'init', fn() => register_block_type( 'studio-test/server-only', array( 'render_callback' => fn() => '<form></form>' ) ) );\n"
+		);
+		try {
+			const report = await validateBlocks( '<!-- wp:studio-test/server-only /-->', siteUrl! );
+			expect( report.results[ 0 ].issues[ 0 ] ).toMatch(
+				/^studio-test\/server-only is registered on the site in PHP but not in the block editor.*'autoRegister' => true/
+			);
+		} finally {
+			rmSync( plugin, { force: true } );
+		}
+	}, 60_000 );
+} );
+
 describe.runIf( siteUrl && sitePath )( 'a theme without sticky positions (live)', () => {
 	afterAll( cleanupValidatorPages );
 

@@ -1,0 +1,1460 @@
+[
+  {
+    "file": "browser-dark-ai-connected-empty.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "ai-connected-empty",
+    "fixture": true,
+    "label": "Ai connected empty",
+    "group": "AI and account states"
+  },
+  {
+    "file": "browser-light-ai-connected-empty.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "ai-connected-empty",
+    "fixture": true,
+    "label": "Ai connected empty",
+    "group": "AI and account states"
+  },
+  {
+    "file": "browser-dark-ai-narrow-brief.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "ai-narrow-brief",
+    "fixture": true,
+    "label": "Ai narrow brief",
+    "group": "AI and account states"
+  },
+  {
+    "file": "browser-light-ai-narrow-brief.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "ai-narrow-brief",
+    "fixture": true,
+    "label": "Ai narrow brief",
+    "group": "AI and account states"
+  },
+  {
+    "file": "browser-dark-ai-out-of-credits.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "ai-out-of-credits",
+    "fixture": true,
+    "label": "Ai out of credits",
+    "group": "AI and account states"
+  },
+  {
+    "file": "browser-light-ai-out-of-credits.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "ai-out-of-credits",
+    "fixture": true,
+    "label": "Ai out of credits",
+    "group": "AI and account states"
+  },
+  {
+    "file": "browser-dark-ai-payment-required.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "ai-payment-required",
+    "fixture": true,
+    "label": "Ai payment required",
+    "group": "AI and account states"
+  },
+  {
+    "file": "browser-light-ai-payment-required.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "ai-payment-required",
+    "fixture": true,
+    "label": "Ai payment required",
+    "group": "AI and account states"
+  },
+  {
+    "file": "browser-dark-ai-with-brief.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "ai-with-brief",
+    "fixture": true,
+    "label": "Ai with brief",
+    "group": "AI and account states"
+  },
+  {
+    "file": "browser-light-ai-with-brief.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "ai-with-brief",
+    "fixture": true,
+    "label": "Ai with brief",
+    "group": "AI and account states"
+  },
+  {
+    "file": "browser-dark-connect-empty-account.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "connect-empty-account",
+    "fixture": true,
+    "label": "Connect empty account",
+    "group": "AI and account states"
+  },
+  {
+    "file": "browser-light-connect-empty-account.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "connect-empty-account",
+    "fixture": true,
+    "label": "Connect empty account",
+    "group": "AI and account states"
+  },
+  {
+    "file": "browser-dark-connect-load-error.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "connect-load-error",
+    "fixture": true,
+    "label": "Connect load error",
+    "group": "AI and account states"
+  },
+  {
+    "file": "browser-light-connect-load-error.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "connect-load-error",
+    "fixture": true,
+    "label": "Connect load error",
+    "group": "AI and account states"
+  },
+  {
+    "file": "browser-dark-connect-no-matches.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "connect-no-matches",
+    "fixture": true,
+    "label": "Connect no matches",
+    "group": "AI and account states"
+  },
+  {
+    "file": "browser-light-connect-no-matches.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "connect-no-matches",
+    "fixture": true,
+    "label": "Connect no matches",
+    "group": "AI and account states"
+  },
+  {
+    "file": "browser-dark-connect-signed-out.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "connect-signed-out",
+    "fixture": false,
+    "label": "Connect signed out",
+    "group": "AI and account states"
+  },
+  {
+    "file": "browser-light-connect-signed-out.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "connect-signed-out",
+    "fixture": false,
+    "label": "Connect signed out",
+    "group": "AI and account states"
+  },
+  {
+    "file": "electron-dark-connect-signed-out.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "connect-signed-out",
+    "fixture": false,
+    "label": "Connect signed out",
+    "group": "AI and account states"
+  },
+  {
+    "file": "electron-light-connect-signed-out.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "connect-signed-out",
+    "fixture": false,
+    "label": "Connect signed out",
+    "group": "AI and account states"
+  },
+  {
+    "file": "browser-dark-connect-sites.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "connect-sites",
+    "fixture": true,
+    "label": "Connect sites",
+    "group": "AI and account states"
+  },
+  {
+    "file": "browser-light-connect-sites.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "connect-sites",
+    "fixture": true,
+    "label": "Connect sites",
+    "group": "AI and account states"
+  },
+  {
+    "file": "create-failure-toast-browser-dark-failure.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "Creation failure failure",
+    "fixture": true,
+    "label": "Creation failure failure",
+    "group": "Creation feedback"
+  },
+  {
+    "file": "create-failure-toast-browser-light-failure.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "Creation failure failure",
+    "fixture": true,
+    "label": "Creation failure failure",
+    "group": "Creation feedback"
+  },
+  {
+    "file": "create-failure-toast-electron-dark-failure.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "Creation failure failure",
+    "fixture": true,
+    "label": "Creation failure failure",
+    "group": "Creation feedback"
+  },
+  {
+    "file": "create-failure-toast-electron-light-failure.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "Creation failure failure",
+    "fixture": true,
+    "label": "Creation failure failure",
+    "group": "Creation feedback"
+  },
+  {
+    "file": "create-header-browser-dark-1100-pending.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "Creation pending 1100-pending",
+    "fixture": true,
+    "label": "Creation pending 1100 pending",
+    "group": "Creation feedback"
+  },
+  {
+    "file": "create-header-browser-light-1100-pending.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "Creation pending 1100-pending",
+    "fixture": true,
+    "label": "Creation pending 1100 pending",
+    "group": "Creation feedback"
+  },
+  {
+    "file": "create-header-electron-dark-1100-pending.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "Creation pending 1100-pending",
+    "fixture": true,
+    "label": "Creation pending 1100 pending",
+    "group": "Creation feedback"
+  },
+  {
+    "file": "create-header-electron-light-1100-pending.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "Creation pending 1100-pending",
+    "fixture": true,
+    "label": "Creation pending 1100 pending",
+    "group": "Creation feedback"
+  },
+  {
+    "file": "create-header-browser-dark-390-pending.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "Creation pending 390-pending",
+    "fixture": true,
+    "label": "Creation pending 390 pending",
+    "group": "Creation feedback"
+  },
+  {
+    "file": "create-header-browser-light-390-pending.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "Creation pending 390-pending",
+    "fixture": true,
+    "label": "Creation pending 390 pending",
+    "group": "Creation feedback"
+  },
+  {
+    "file": "adaptive-parent-path-browser-dark-compact.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "Adaptive path compact",
+    "fixture": false,
+    "label": "Adaptive path compact",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "adaptive-parent-path-browser-light-compact.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "Adaptive path compact",
+    "fixture": false,
+    "label": "Adaptive path compact",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "adaptive-parent-path-electron-dark-compact.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "Adaptive path compact",
+    "fixture": false,
+    "label": "Adaptive path compact",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "adaptive-parent-path-electron-light-compact.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "Adaptive path compact",
+    "fixture": false,
+    "label": "Adaptive path compact",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "adaptive-parent-path-browser-dark-full.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "Adaptive path full",
+    "fixture": false,
+    "label": "Adaptive path full",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "adaptive-parent-path-browser-light-full.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "Adaptive path full",
+    "fixture": false,
+    "label": "Adaptive path full",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "adaptive-parent-path-electron-dark-full.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "Adaptive path full",
+    "fixture": false,
+    "label": "Adaptive path full",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "adaptive-parent-path-electron-light-full.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "Adaptive path full",
+    "fixture": false,
+    "label": "Adaptive path full",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "adaptive-parent-path-browser-dark-narrow.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "Adaptive path narrow",
+    "fixture": false,
+    "label": "Adaptive path narrow",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "adaptive-parent-path-browser-light-narrow.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "Adaptive path narrow",
+    "fixture": false,
+    "label": "Adaptive path narrow",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "blueprint-source-actions-browser-dark-1100-selected.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "Blueprint actions 1100-selected",
+    "fixture": false,
+    "label": "Blueprint actions 1100 selected",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "blueprint-source-actions-browser-light-1100-selected.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "Blueprint actions 1100-selected",
+    "fixture": false,
+    "label": "Blueprint actions 1100 selected",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "blueprint-source-actions-electron-dark-1100-selected.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "Blueprint actions 1100-selected",
+    "fixture": false,
+    "label": "Blueprint actions 1100 selected",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "blueprint-source-actions-electron-light-1100-selected.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "Blueprint actions 1100-selected",
+    "fixture": false,
+    "label": "Blueprint actions 1100 selected",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "blueprint-source-actions-browser-dark-1100-tooltip.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "Blueprint actions 1100-tooltip",
+    "fixture": false,
+    "label": "Blueprint actions 1100 tooltip",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "blueprint-source-actions-browser-light-1100-tooltip.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "Blueprint actions 1100-tooltip",
+    "fixture": false,
+    "label": "Blueprint actions 1100 tooltip",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "blueprint-source-actions-electron-dark-1100-tooltip.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "Blueprint actions 1100-tooltip",
+    "fixture": false,
+    "label": "Blueprint actions 1100 tooltip",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "blueprint-source-actions-electron-light-1100-tooltip.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "Blueprint actions 1100-tooltip",
+    "fixture": false,
+    "label": "Blueprint actions 1100 tooltip",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "blueprint-source-actions-browser-dark-390-selected.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "Blueprint actions 390-selected",
+    "fixture": false,
+    "label": "Blueprint actions 390 selected",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "blueprint-source-actions-browser-light-390-selected.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "Blueprint actions 390-selected",
+    "fixture": false,
+    "label": "Blueprint actions 390 selected",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "blueprint-source-actions-browser-dark-390-tooltip.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "Blueprint actions 390-tooltip",
+    "fixture": false,
+    "label": "Blueprint actions 390 tooltip",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "blueprint-source-actions-browser-light-390-tooltip.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "Blueprint actions 390-tooltip",
+    "fixture": false,
+    "label": "Blueprint actions 390 tooltip",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "browser-dark-custom-slug-reset.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "custom-slug-reset",
+    "fixture": false,
+    "label": "Custom slug reset",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "browser-light-custom-slug-reset.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "custom-slug-reset",
+    "fixture": false,
+    "label": "Custom slug reset",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "electron-dark-custom-slug-reset.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "custom-slug-reset",
+    "fixture": false,
+    "label": "Custom slug reset",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "electron-light-custom-slug-reset.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "custom-slug-reset",
+    "fixture": false,
+    "label": "Custom slug reset",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "browser-dark-empty-name-error.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "empty-name-error",
+    "fixture": false,
+    "label": "Empty name error",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "browser-light-empty-name-error.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "empty-name-error",
+    "fixture": false,
+    "label": "Empty name error",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "electron-dark-empty-name-error.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "empty-name-error",
+    "fixture": false,
+    "label": "Empty name error",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "electron-light-empty-name-error.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "empty-name-error",
+    "fixture": false,
+    "label": "Empty name error",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "browser-dark-empty-name-focused.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "empty-name-focused",
+    "fixture": false,
+    "label": "Empty name focused",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "browser-light-empty-name-focused.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "empty-name-focused",
+    "fixture": false,
+    "label": "Empty name focused",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "electron-dark-empty-name-focused.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "empty-name-focused",
+    "fixture": false,
+    "label": "Empty name focused",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "electron-light-empty-name-focused.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "empty-name-focused",
+    "fixture": false,
+    "label": "Empty name focused",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "browser-dark-invalid-blueprint.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "invalid-blueprint",
+    "fixture": true,
+    "label": "Invalid blueprint",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "browser-light-invalid-blueprint.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "invalid-blueprint",
+    "fixture": true,
+    "label": "Invalid blueprint",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "electron-dark-invalid-blueprint.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "invalid-blueprint",
+    "fixture": true,
+    "label": "Invalid blueprint",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "electron-light-invalid-blueprint.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "invalid-blueprint",
+    "fixture": true,
+    "label": "Invalid blueprint",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "browser-dark-long-title-condensed-parent.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "long-title-condensed-parent",
+    "fixture": false,
+    "label": "Long title condensed parent",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "browser-light-long-title-condensed-parent.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "long-title-condensed-parent",
+    "fixture": false,
+    "label": "Long title condensed parent",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "electron-dark-long-title-condensed-parent.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "long-title-condensed-parent",
+    "fixture": false,
+    "label": "Long title condensed parent",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "electron-light-long-title-condensed-parent.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "long-title-condensed-parent",
+    "fixture": false,
+    "label": "Long title condensed parent",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "electron-dark-occupied-destination-error.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "occupied-destination-error",
+    "fixture": true,
+    "label": "Occupied destination error",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "electron-light-occupied-destination-error.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "occupied-destination-error",
+    "fixture": true,
+    "label": "Occupied destination error",
+    "group": "Folder and interaction states"
+  },
+  {
+    "file": "browser-dark-blueprint-details.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "blueprint-details",
+    "fixture": false,
+    "label": "Blueprint details",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "browser-light-blueprint-details.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "blueprint-details",
+    "fixture": false,
+    "label": "Blueprint details",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "electron-dark-blueprint-details.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "blueprint-details",
+    "fixture": false,
+    "label": "Blueprint details",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "electron-light-blueprint-details.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "blueprint-details",
+    "fixture": false,
+    "label": "Blueprint details",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "browser-dark-empty-workspace.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "empty-workspace",
+    "fixture": false,
+    "label": "Empty workspace",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "browser-light-empty-workspace.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "empty-workspace",
+    "fixture": false,
+    "label": "Empty workspace",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "electron-dark-empty-workspace.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "empty-workspace",
+    "fixture": false,
+    "label": "Empty workspace",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "electron-light-empty-workspace.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "empty-workspace",
+    "fixture": false,
+    "label": "Empty workspace",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "browser-dark-gallery.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "gallery",
+    "fixture": false,
+    "label": "Gallery",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "browser-light-gallery.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "gallery",
+    "fixture": false,
+    "label": "Gallery",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "electron-dark-gallery.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "gallery",
+    "fixture": false,
+    "label": "Gallery",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "electron-light-gallery.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "gallery",
+    "fixture": false,
+    "label": "Gallery",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "browser-dark-gallery-blog.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "gallery-blog",
+    "fixture": false,
+    "label": "Gallery blog",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "browser-light-gallery-blog.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "gallery-blog",
+    "fixture": false,
+    "label": "Gallery blog",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "electron-dark-gallery-blog.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "gallery-blog",
+    "fixture": false,
+    "label": "Gallery blog",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "electron-light-gallery-blog.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "gallery-blog",
+    "fixture": false,
+    "label": "Gallery blog",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "browser-dark-gallery-business.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "gallery-business",
+    "fixture": false,
+    "label": "Gallery business",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "browser-light-gallery-business.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "gallery-business",
+    "fixture": false,
+    "label": "Gallery business",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "electron-dark-gallery-business.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "gallery-business",
+    "fixture": false,
+    "label": "Gallery business",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "electron-light-gallery-business.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "gallery-business",
+    "fixture": false,
+    "label": "Gallery business",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "browser-dark-gallery-development.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "gallery-development",
+    "fixture": false,
+    "label": "Gallery development",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "browser-light-gallery-development.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "gallery-development",
+    "fixture": false,
+    "label": "Gallery development",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "electron-dark-gallery-development.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "gallery-development",
+    "fixture": false,
+    "label": "Gallery development",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "electron-light-gallery-development.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "gallery-development",
+    "fixture": false,
+    "label": "Gallery development",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "browser-dark-gallery-empty-catalog.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "gallery-empty-catalog",
+    "fixture": true,
+    "label": "Gallery empty catalog",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "browser-light-gallery-empty-catalog.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "gallery-empty-catalog",
+    "fixture": true,
+    "label": "Gallery empty catalog",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "browser-dark-gallery-events.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "gallery-events",
+    "fixture": false,
+    "label": "Gallery events",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "browser-light-gallery-events.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "gallery-events",
+    "fixture": false,
+    "label": "Gallery events",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "electron-dark-gallery-events.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "gallery-events",
+    "fixture": false,
+    "label": "Gallery events",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "electron-light-gallery-events.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "gallery-events",
+    "fixture": false,
+    "label": "Gallery events",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "browser-dark-gallery-load-error.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "gallery-load-error",
+    "fixture": true,
+    "label": "Gallery load error",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "browser-light-gallery-load-error.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "gallery-load-error",
+    "fixture": true,
+    "label": "Gallery load error",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "browser-dark-gallery-loading.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "gallery-loading",
+    "fixture": true,
+    "label": "Gallery loading",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "browser-light-gallery-loading.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "gallery-loading",
+    "fixture": true,
+    "label": "Gallery loading",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "browser-dark-gallery-no-matches.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "gallery-no-matches",
+    "fixture": true,
+    "label": "Gallery no matches",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "browser-light-gallery-no-matches.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "gallery-no-matches",
+    "fixture": true,
+    "label": "Gallery no matches",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "browser-dark-gallery-portfolio.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "gallery-portfolio",
+    "fixture": false,
+    "label": "Gallery portfolio",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "browser-light-gallery-portfolio.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "gallery-portfolio",
+    "fixture": false,
+    "label": "Gallery portfolio",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "electron-dark-gallery-portfolio.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "gallery-portfolio",
+    "fixture": false,
+    "label": "Gallery portfolio",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "electron-light-gallery-portfolio.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "gallery-portfolio",
+    "fixture": false,
+    "label": "Gallery portfolio",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "browser-dark-gallery-store.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "gallery-store",
+    "fixture": false,
+    "label": "Gallery store",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "browser-light-gallery-store.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "gallery-store",
+    "fixture": false,
+    "label": "Gallery store",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "electron-dark-gallery-store.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "gallery-store",
+    "fixture": false,
+    "label": "Gallery store",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "electron-light-gallery-store.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "gallery-store",
+    "fixture": false,
+    "label": "Gallery store",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "browser-dark-import-empty.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "import-empty",
+    "fixture": false,
+    "label": "Import empty",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "browser-light-import-empty.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "import-empty",
+    "fixture": false,
+    "label": "Import empty",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "electron-dark-import-empty.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "import-empty",
+    "fixture": false,
+    "label": "Import empty",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "electron-light-import-empty.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "import-empty",
+    "fixture": false,
+    "label": "Import empty",
+    "group": "Gallery and entry states"
+  },
+  {
+    "file": "browser-dark-backup.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "backup",
+    "fixture": true,
+    "label": "Backup",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "browser-light-backup.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "backup",
+    "fixture": true,
+    "label": "Backup",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "electron-dark-backup.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "backup",
+    "fixture": true,
+    "label": "Backup",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "electron-light-backup.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "backup",
+    "fixture": true,
+    "label": "Backup",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "browser-dark-blank-default.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "blank-default",
+    "fixture": false,
+    "label": "Blank default",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "browser-light-blank-default.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "blank-default",
+    "fixture": false,
+    "label": "Blank default",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "electron-dark-blank-default.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "blank-default",
+    "fixture": false,
+    "label": "Blank default",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "electron-light-blank-default.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "blank-default",
+    "fixture": false,
+    "label": "Blank default",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "browser-dark-catalog-blueprint.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "catalog-blueprint",
+    "fixture": false,
+    "label": "Catalog blueprint",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "browser-light-catalog-blueprint.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "catalog-blueprint",
+    "fixture": false,
+    "label": "Catalog blueprint",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "electron-dark-catalog-blueprint.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "catalog-blueprint",
+    "fixture": false,
+    "label": "Catalog blueprint",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "electron-light-catalog-blueprint.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "catalog-blueprint",
+    "fixture": false,
+    "label": "Catalog blueprint",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "browser-dark-connected-site-source.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "connected-site-source",
+    "fixture": true,
+    "label": "Connected site source",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "browser-light-connected-site-source.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "connected-site-source",
+    "fixture": true,
+    "label": "Connected site source",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "electron-dark-custom-destination.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "custom-destination",
+    "fixture": true,
+    "label": "Custom destination",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "electron-light-custom-destination.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "custom-destination",
+    "fixture": true,
+    "label": "Custom destination",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "electron-dark-existing-wordpress.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "existing-wordpress",
+    "fixture": true,
+    "label": "Existing wordpress",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "electron-light-existing-wordpress.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "existing-wordpress",
+    "fixture": true,
+    "label": "Existing wordpress",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "electron-dark-existing-wordpress-changed.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "existing-wordpress-changed",
+    "fixture": true,
+    "label": "Existing wordpress changed",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "electron-light-existing-wordpress-changed.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "existing-wordpress-changed",
+    "fixture": true,
+    "label": "Existing wordpress changed",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "electron-dark-existing-wordpress-removed.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "existing-wordpress-removed",
+    "fixture": true,
+    "label": "Existing wordpress removed",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "electron-light-existing-wordpress-removed.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "existing-wordpress-removed",
+    "fixture": true,
+    "label": "Existing wordpress removed",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "browser-dark-narrow-blank.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "narrow-blank",
+    "fixture": false,
+    "label": "Narrow blank",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "browser-light-narrow-blank.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "narrow-blank",
+    "fixture": false,
+    "label": "Narrow blank",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "browser-dark-narrow-blueprint.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "narrow-blueprint",
+    "fixture": true,
+    "label": "Narrow blueprint",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "browser-light-narrow-blueprint.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "narrow-blueprint",
+    "fixture": true,
+    "label": "Narrow blueprint",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "browser-dark-uploaded-bundle.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "uploaded-bundle",
+    "fixture": true,
+    "label": "Uploaded bundle",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "browser-light-uploaded-bundle.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "uploaded-bundle",
+    "fixture": true,
+    "label": "Uploaded bundle",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "electron-dark-uploaded-bundle.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "uploaded-bundle",
+    "fixture": true,
+    "label": "Uploaded bundle",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "electron-light-uploaded-bundle.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "uploaded-bundle",
+    "fixture": true,
+    "label": "Uploaded bundle",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "browser-dark-uploaded-json.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "uploaded-json",
+    "fixture": true,
+    "label": "Uploaded json",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "browser-light-uploaded-json.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "uploaded-json",
+    "fixture": true,
+    "label": "Uploaded json",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "electron-dark-uploaded-json.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "uploaded-json",
+    "fixture": true,
+    "label": "Uploaded json",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "electron-light-uploaded-json.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "uploaded-json",
+    "fixture": true,
+    "label": "Uploaded json",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "browser-dark-wordpress-export.png",
+    "surface": "browser",
+    "scheme": "dark",
+    "state": "wordpress-export",
+    "fixture": true,
+    "label": "Wordpress export",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "browser-light-wordpress-export.png",
+    "surface": "browser",
+    "scheme": "light",
+    "state": "wordpress-export",
+    "fixture": true,
+    "label": "Wordpress export",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "electron-dark-wordpress-export.png",
+    "surface": "electron",
+    "scheme": "dark",
+    "state": "wordpress-export",
+    "fixture": true,
+    "label": "Wordpress export",
+    "group": "Setup and sources"
+  },
+  {
+    "file": "electron-light-wordpress-export.png",
+    "surface": "electron",
+    "scheme": "light",
+    "state": "wordpress-export",
+    "fixture": true,
+    "label": "Wordpress export",
+    "group": "Setup and sources"
+  }
+]

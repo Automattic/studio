@@ -36,6 +36,7 @@ import {
 	partInTemplatesRefusal,
 	phpInBlockTemplateRefusal,
 	savedCopyNotes,
+	quoteFontFamilies,
 	selfHostFonts,
 	themeJsonNotes,
 } from '@studio/agent/node/site-file-guards';
@@ -131,6 +132,7 @@ function sources(
 		// write sources see it as these leave it.
 		fix: {
 			'full width blocks': freeFullWidthBlocks,
+			'font family names': quoteFontFamilies,
 			'theme fonts': selfHostFonts,
 			'theme presets': ( file ) => keepThemePresets( host, file ),
 		},

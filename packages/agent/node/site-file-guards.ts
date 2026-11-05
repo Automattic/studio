@@ -7,6 +7,7 @@
 import { readFileSync } from 'fs';
 import { access, readFile, writeFile } from 'fs/promises';
 import path from 'path';
+import { rewriteJson } from '@studio/common/lib/json-text';
 import { selfHostThemeJsonFonts } from '@studio/common/lib/theme-fonts';
 import { freeTrappedBlocks, trappedFullWidthNotes } from '@studio/agent/node/block-alignment';
 import { buttonsWithoutLinkNotes } from '@studio/agent/node/button-links';
@@ -225,6 +226,65 @@ export async function savedCopyNotes( { siteRoot, relativePath }: SiteFile ): Pr
 		savedCopyWriteNote( site, path.join( siteRoot, relativePath ) )
 	);
 	return note ? [ note ] : [];
+}
+
+// A font family list with each name quoted that CSS reads only quoted: one
+// not just letters and hyphens, as "Source Sans 3", whose unquoted 3 makes the
+// whole declaration invalid, so the browser shows its default font. This is
+// what the Font Library saves (WP_Font_Utils::sanitize_font_family() in
+// wp-includes/fonts/class-wp-font-utils.php); theme.json's values reach the
+// page as written (WP_Theme_JSON::compute_preset_vars()).
+function quoteFontFamilyNames( value: string ): string {
+	return value
+		.split( ',' )
+		.map( ( item ) => {
+			const name = item.trim();
+			return /^['"]/.test( name ) ||
+				/^[a-zA-Z-]+$/.test( name ) ||
+				/^generic\([a-zA-Z-]+\)$/.test( name ) ||
+				! name
+				? item
+				: item.replace( name, `"${ name }"` );
+		} )
+		.join( ',' );
+}
+
+/**
+ * Quotes the font family names in a theme.json just written, its presets'
+ * and its styles', that CSS reads only quoted.
+ */
+export async function quoteFontFamilies( siteFile: SiteFile ): Promise< string[] > {
+	const { theme } = siteFile;
+	if ( theme?.file !== 'theme.json' ) {
+		return [];
+	}
+	const file = path.join( theme.dir, 'theme.json' );
+	const written = await readFile( file, 'utf8' );
+	const json = JSON.parse( written );
+	let changed = false;
+	const quote = ( holder: { fontFamily?: unknown } ) => {
+		const value = holder.fontFamily;
+		if ( typeof value !== 'string' || value.startsWith( 'var' ) ) {
+			return;
+		}
+		const quoted = quoteFontFamilyNames( value );
+		if ( quoted !== value ) {
+			holder.fontFamily = quoted;
+			changed = true;
+		}
+	};
+	( json?.settings?.typography?.fontFamilies ?? [] ).forEach( quote );
+	const walk = ( node: unknown ) => {
+		if ( node && typeof node === 'object' ) {
+			quote( node as { fontFamily?: unknown } );
+			Object.values( node ).forEach( walk );
+		}
+	};
+	walk( json?.styles );
+	if ( changed ) {
+		await writeFile( file, rewriteJson( written, json ) );
+	}
+	return [];
 }
 
 /**

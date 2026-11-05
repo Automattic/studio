@@ -1,11 +1,13 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
+import { chromium } from 'playwright';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resolveSiteFile } from '@studio/agent/node/site-file';
 import {
 	blockMarkupNotes,
 	clearThemePatternCache,
+	quoteFontFamilies,
 	selfHostFonts,
 } from '@studio/agent/node/site-file-guards';
 import { createFakeHostWithSites } from '@studio/agent/node/tests/fake-host';
@@ -112,6 +114,62 @@ describe( 'block markup notes', () => {
 		const file = resolveSiteFile( path.join( root, relativePath ) )!;
 		expect( blockMarkupNotes( file ) ).toHaveLength( count );
 		rmSync( root, { recursive: true, force: true } );
+	} );
+} );
+
+// eval19 branch run 4: "Source Sans 3", unquoted, and the body text showed in Times.
+describe.runIf( existsSync( chromium.executablePath() ) )( 'theme font family names', () => {
+	it( 'quotes the names CSS reads only quoted, so the browser takes the font', async () => {
+		const families = [
+			'Source Sans 3',
+			"'Fraunces', serif",
+			'Plus Jakarta Sans, sans-serif',
+			'system-ui, -apple-system, Segoe UI, sans-serif',
+		];
+		const themeJson = write(
+			'wp-content/themes/mine/theme.json',
+			JSON.stringify( {
+				settings: {
+					typography: {
+						fontFamilies: families.map( ( fontFamily, i ) => ( { slug: `f${ i }`, fontFamily } ) ),
+					},
+				},
+				styles: {
+					typography: { fontFamily: 'var:preset|font-family|f0' },
+					elements: { h1: { typography: { fontFamily: 'Source Serif 4, serif' } } },
+				},
+			} )
+		);
+		await quoteFontFamilies( resolveSiteFile( themeJson )! );
+		const json = JSON.parse( readFileSync( themeJson, 'utf8' ) );
+		const quoted = [
+			...json.settings.typography.fontFamilies.map(
+				( family: { fontFamily: string } ) => family.fontFamily
+			),
+			json.styles.elements.h1.typography.fontFamily,
+		];
+		expect( quoted ).toEqual( [
+			'"Source Sans 3"',
+			"'Fraunces', serif",
+			'"Plus Jakarta Sans", sans-serif',
+			'system-ui, -apple-system, "Segoe UI", sans-serif',
+			'"Source Serif 4", serif',
+		] );
+		expect( json.styles.typography.fontFamily ).toBe( 'var:preset|font-family|f0' );
+		// The browser's CSS parser takes each as written now, and not the first as it was.
+		const browser = await chromium.launch();
+		try {
+			const page = await browser.newPage();
+			const valid = ( values: string[] ) =>
+				page.evaluate(
+					( list ) => list.map( ( value ) => CSS.supports( 'font-family', value ) ),
+					values
+				);
+			expect( await valid( quoted ) ).toEqual( quoted.map( () => true ) );
+			expect( await valid( [ families[ 0 ] ] ) ).toEqual( [ false ] );
+		} finally {
+			await browser.close();
+		}
 	} );
 } );
 

@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
+import { CheckIcon, PlusIcon } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 import { errorMessage } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
@@ -21,8 +22,8 @@ import {
 	DialogTitle,
 	Field,
 	FieldContent,
-	FieldDescription,
 	FieldError,
+	FieldGroup,
 	FieldLabel,
 	Select,
 	SelectContent,
@@ -37,9 +38,17 @@ import { transcriptToText } from './transcript-text';
 import type { StudioFeedbackType } from '@studio/common/lib/feedback';
 
 const getTypeOptions = (): Array< { value: StudioFeedbackType; label: string } > => [
-	{ value: 'bug', label: __( 'Something is broken' ) },
-	{ value: 'request', label: __( 'A feature or improvement' ) },
-	{ value: 'general', label: __( 'Something else' ) },
+	{ value: 'bug', label: __( 'Bug report' ) },
+	{ value: 'request', label: __( 'Feature request' ) },
+	{ value: 'general', label: __( 'General feedback' ) },
+];
+
+const getAreaOptions = () => [
+	{ value: 'import', label: __( 'Import' ) },
+	{ value: 'sync', label: __( 'Sync' ) },
+	{ value: 'preview', label: __( 'Preview' ) },
+	{ value: 'agent', label: __( 'Agent' ) },
+	{ value: 'publishing', label: __( 'Publishing' ) },
 ];
 
 /**
@@ -77,7 +86,8 @@ function FeedbackForm() {
 			session.data ? transcriptToText( entriesToTranscriptItems( session.data.entries ) ) : '',
 		[ session.data ]
 	);
-	const [ type, setType ] = useState< StudioFeedbackType >( 'bug' );
+	const [ type, setType ] = useState< StudioFeedbackType | null >( null );
+	const [ areas, setAreas ] = useState< string[] >( [] );
 	const [ message, setMessage ] = useState( '' );
 	const [ includeTranscript, setIncludeTranscript ] = useState( false );
 	const messageId = useId();
@@ -140,7 +150,7 @@ function FeedbackForm() {
 								),
 								String( send.data.feedbackId )
 							),
-							{ id: <strong className={ styles.reference } /> }
+							{ id: <strong /> }
 						) }
 					</DialogDescription>
 				</DialogHeader>
@@ -155,11 +165,18 @@ function FeedbackForm() {
 	const canSend = message.trim().length > 0 && ! sending && user.isSuccess;
 	const submit = () => {
 		if ( ! canSend ) return;
+		const areaOptions = getAreaOptions();
+		const report = areas.length
+			? `Areas: ${ areaOptions
+					.filter( ( area ) => areas.includes( area.value ) )
+					.map( ( area ) => area.label )
+					.join( ', ' ) }\n\n${ message.trim() }`
+			: message.trim();
 		const body =
 			includeTranscript && transcript
-				? `${ message.trim() }\n\n--- Chat transcript ---\n${ transcript }`
-				: message.trim();
-		send.mutate( { type, message: body } );
+				? `${ report }\n\n--- Chat transcript ---\n${ transcript }`
+				: report;
+		send.mutate( { type: type ?? 'general', message: body } );
 	};
 
 	return (
@@ -173,7 +190,7 @@ function FeedbackForm() {
 			<DialogHeader>
 				<DialogTitle>{ __( 'Send feedback' ) }</DialogTitle>
 			</DialogHeader>
-			<div className={ styles.fields }>
+			<FieldGroup>
 				<Field>
 					<FieldLabel>{ __( 'Topic' ) }</FieldLabel>
 					<Select
@@ -183,7 +200,7 @@ function FeedbackForm() {
 						onValueChange={ ( next ) => next && setType( next as StudioFeedbackType ) }
 					>
 						<SelectTrigger fullWidth aria-label={ __( 'Feedback type' ) }>
-							<SelectValue />
+							<SelectValue placeholder={ __( 'Choose a topic' ) } />
 						</SelectTrigger>
 						<SelectContent>
 							{ options.map( ( option ) => (
@@ -195,6 +212,39 @@ function FeedbackForm() {
 					</Select>
 				</Field>
 				<Field>
+					<FieldLabel>{ __( 'Area' ) }</FieldLabel>
+					<div className={ styles.areas } role="group" aria-label={ __( 'Feedback areas' ) }>
+						{ getAreaOptions().map( ( area ) => {
+							const selected = areas.includes( area.value );
+							return (
+								<Button
+									key={ area.value }
+									type="button"
+									variant="outline"
+									size="sm"
+									shape="round"
+									aria-pressed={ selected }
+									disabled={ sending }
+									onClick={ () =>
+										setAreas( ( current ) =>
+											selected
+												? current.filter( ( value ) => value !== area.value )
+												: [ ...current, area.value ]
+										)
+									}
+								>
+									{ selected ? (
+										<CheckIcon data-icon="inline-start" />
+									) : (
+										<PlusIcon data-icon="inline-start" />
+									) }
+									{ area.label }
+								</Button>
+							);
+						} ) }
+					</div>
+				</Field>
+				<Field>
 					<FieldLabel htmlFor={ messageId }>{ __( 'Message' ) }</FieldLabel>
 					<Textarea
 						id={ messageId }
@@ -202,9 +252,7 @@ function FeedbackForm() {
 						rows={ 6 }
 						value={ message }
 						disabled={ sending }
-						placeholder={ __(
-							'What were you trying to do, what happened, and what did you expect?'
-						) }
+						placeholder={ __( 'Share details (required)' ) }
 						onChange={ ( event ) => setMessage( event.target.value ) }
 						autoFocus
 					/>
@@ -228,18 +276,15 @@ function FeedbackForm() {
 							<FieldLabel htmlFor={ transcriptId } tone="muted">
 								{ __( 'Include this chat’s transcript' ) }
 							</FieldLabel>
-							<FieldDescription>
-								{ __( 'What was said, the tools that ran and any errors.' ) }
-							</FieldDescription>
 						</FieldContent>
 					</Field>
 				) : null }
-			</div>
+			</FieldGroup>
 			<DialogFooter>
 				<DialogClose render={ <Button variant="outline" /> } disabled={ sending }>
 					{ __( 'Cancel' ) }
 				</DialogClose>
-				<Button type="submit" disabled={ ! canSend }>
+				<Button type="submit" variant="accent" disabled={ ! canSend }>
 					{ sending ? <Spinner aria-hidden="true" /> : null }
 					{ __( 'Send' ) }
 				</Button>

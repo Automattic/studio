@@ -1,6 +1,6 @@
 import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
 import { __, sprintf } from '@wordpress/i18n';
-import { MessageSquareTextIcon, SettingsIcon } from 'lucide-react';
+import { SettingsIcon } from 'lucide-react';
 import { getSections, getSettingsCommandAliases } from '@/data/settings-sections';
 import { getSessionTitle } from '@/features/chats';
 import {
@@ -11,6 +11,7 @@ import {
 	ChatIcon,
 	CollapseAllIcon,
 	GlobeIcon,
+	FeedbackIcon,
 	PinIcon,
 	RenameIcon,
 	SidebarIcon,
@@ -202,8 +203,7 @@ export function getAppCommands( {
 			id: 'send-feedback',
 			group: 'commands',
 			label: __( 'Send feedback' ),
-			icon: MessageSquareTextIcon,
-			description: __( 'Share your experience with the WordPress Studio team.' ),
+			icon: FeedbackIcon,
 			aliases: [ __( 'Feedback' ) ],
 			keywords: [ __( 'Report a bug' ), __( 'Feature request' ), __( 'WordPress Studio team' ) ],
 			run: openFeedback,

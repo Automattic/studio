@@ -48,10 +48,11 @@ describe( 'FeedbackDialog', () => {
 			'The preview did not reload.'
 		);
 		expect( send ).toBeEnabled();
+		expect( within( dialog ).getByText( 'Choose a topic' ) ).toBeInTheDocument();
 		fireEvent.click( send );
 		await screen.findByText( '1018', { selector: 'strong' } );
 		expect( connector.sendFeedback ).toHaveBeenCalledWith( {
-			type: 'bug',
+			type: 'general',
 			message: 'The preview did not reload.',
 		} );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Done' } ) );
@@ -60,11 +61,35 @@ describe( 'FeedbackDialog', () => {
 		);
 	} );
 
+	it( 'includes optional areas without a topic', async () => {
+		const { connector, dialog, user } = await openFeedback();
+		connector.sendFeedback.mockResolvedValue( { feedbackId: 42 } );
+		expect(
+			within( dialog ).queryByRole( 'group', { name: 'Feedback areas' } )
+		).toBeInTheDocument();
+		const preview = within( dialog ).getByRole( 'button', { name: 'Preview' } );
+		await user.click( preview );
+		await user.click( within( dialog ).getByRole( 'button', { name: 'Sync' } ) );
+		await user.click( preview );
+		expect( preview ).toHaveAttribute( 'aria-pressed', 'false' );
+		await user.click( preview );
+		await user.type( within( dialog ).getByRole( 'textbox', { name: 'Message' } ), 'It broke.' );
+		await user.click( within( dialog ).getByRole( 'button', { name: 'Send' } ) );
+		await waitFor( () =>
+			expect( connector.sendFeedback ).toHaveBeenCalledWith( {
+				type: 'general',
+				message: 'Areas: Sync, Preview\n\nIt broke.',
+			} )
+		);
+	} );
+
 	it( 'shows the service error and keeps the message', async () => {
 		const { connector, dialog, user } = await openFeedback();
 		connector.sendFeedback.mockRejectedValue( new Error( 'Rate limited.' ) );
 		const message = within( dialog ).getByRole( 'textbox', { name: 'Message' } );
 		await user.type( message, 'It broke.' );
+		await user.click( within( dialog ).getByRole( 'combobox', { name: 'Feedback type' } ) );
+		await user.click( await screen.findByRole( 'option', { name: 'Bug report' } ) );
 		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Send' } ) );
 		await within( dialog ).findByText( 'Rate limited.' );
 		expect( message ).toHaveValue( 'It broke.' );
@@ -96,6 +121,8 @@ describe( 'FeedbackDialog', () => {
 			],
 		} );
 		connector.sendFeedback.mockResolvedValue( { feedbackId: 7 } );
+		await user.click( within( dialog ).getByRole( 'combobox', { name: 'Feedback type' } ) );
+		await user.click( await screen.findByRole( 'option', { name: 'General feedback' } ) );
 		await user.type( within( dialog ).getByRole( 'textbox', { name: 'Message' } ), 'See chat.' );
 		fireEvent.click( within( dialog ).getByRole( 'checkbox', { name: /Include this chat/ } ) );
 		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Send' } ) );

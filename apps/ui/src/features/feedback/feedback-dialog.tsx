@@ -180,7 +180,7 @@ function FeedbackForm() {
 			</DialogHeader>
 			<div className={ styles.fields }>
 				<Field>
-					<FieldLabel>{ __( 'What is it about?' ) }</FieldLabel>
+					<FieldLabel>{ __( 'Topic' ) }</FieldLabel>
 					<Select
 						items={ options }
 						value={ type }

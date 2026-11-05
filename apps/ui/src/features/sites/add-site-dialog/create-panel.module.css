@@ -15,6 +15,7 @@
 }
 
 .summaryImageViewport {
+	composes: imageOutline from '@/lib/theme/recipes.module.css';
 	position: relative;
 	width: 112px;
 	aspect-ratio: 16 / 10;

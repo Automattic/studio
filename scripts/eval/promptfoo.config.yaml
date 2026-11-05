@@ -427,6 +427,30 @@ tests:
 
               # Overview
               A calm, minimal site.
+            wp-content/themes/eval-design-system/style.css: |
+              /*
+              Theme Name: Eval Design System
+              Template: twentytwentyfive
+              */
+            wp-content/themes/eval-design-system/theme.json: |
+              {
+                "version": 3,
+                "settings": {
+                  "color": {
+                    "palette": [
+                      { "slug": "primary", "name": "Primary", "color": "#2F6BFF" },
+                      { "slug": "background", "name": "Background", "color": "#FFFFFF" },
+                      { "slug": "text", "name": "Text", "color": "#111111" }
+                    ]
+                  }
+                },
+                "styles": {
+                  "color": { "background": "var:preset|color|background", "text": "var:preset|color|text" },
+                  "elements": { "link": { "color": { "text": "var:preset|color|primary" } } }
+                }
+              }
+          wpCli:
+            - [ "theme", "activate", "eval-design-system" ]
       prompt: |
         The user submitted 1 visual annotation from the site preview.
 

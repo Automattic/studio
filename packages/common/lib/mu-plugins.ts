@@ -588,6 +588,22 @@ STUDIO_PREVIEW_SHORTCUTS;
 			echo json_encode( $result );
 		} );
 
+		/**
+		 * Gets merged core, theme and user styles for block themes.
+		 *
+		 * @when after_wp_load
+		 */
+		WP_CLI::add_command( 'studio get-global-styles', function() {
+			if ( ! wp_is_block_theme() ) {
+				echo wp_json_encode( null );
+				return;
+			}
+			echo wp_json_encode( [
+				'settings' => (object) wp_get_global_settings(),
+				'styles' => (object) wp_get_global_styles( [], [ 'transforms' => [ 'resolve-variables' ] ] ),
+			] );
+		} );
+
 		`,
 	} );
 

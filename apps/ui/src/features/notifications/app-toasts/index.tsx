@@ -21,6 +21,7 @@ const resumeAll = () => getVisibleToasts().forEach( ( item ) => resumeToastExpir
 
 function ToastDeck() {
 	const { toasts } = Toast.useToastManager();
+	const pointerGesture = useRef< { x: number; y: number; dragged: boolean } | null >( null );
 	return (
 		<Toast.Viewport
 			className={ styles.viewport }
@@ -47,6 +48,29 @@ function ToastDeck() {
 						} }
 						className={ styles.toast }
 						aria-label={ notice.title }
+						onPointerDown={ ( event ) => {
+							pointerGesture.current = { x: event.clientX, y: event.clientY, dragged: false };
+						} }
+						onPointerMove={ ( event ) => {
+							const gesture = pointerGesture.current;
+							if (
+								gesture &&
+								Math.hypot( event.clientX - gesture.x, event.clientY - gesture.y ) > 5
+							) {
+								gesture.dragged = true;
+							}
+						} }
+						onClick={ ( event ) => {
+							if (
+								event.defaultPrevented ||
+								event.target !== event.currentTarget ||
+								( event.detail > 0 && pointerGesture.current?.dragged )
+							) {
+								return;
+							}
+							// Swipe capture sends clicks to the toast root instead of NoticeCard.
+							event.currentTarget.querySelector< HTMLElement >( '[role="presentation"]' )?.click();
+						} }
 					>
 						<Toast.Content className={ styles.content }>
 							<NoticeCard

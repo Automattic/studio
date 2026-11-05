@@ -30,6 +30,7 @@ import { removeDomainFromHosts } from 'cli/lib/hosts-file';
 import { deleteSnapshotSite } from 'cli/lib/preview-sites';
 import { withSiteOperations } from 'cli/lib/site-operations';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
+import { deleteSiteVersionData } from 'cli/lib/site-versions';
 import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { untildify } from 'cli/lib/utils';
@@ -497,9 +498,10 @@ async function deleteSite(
 		);
 	}
 
-	// The email the site sent lives in Studio's directory, not the site's.
+	// The email the site sent and its file hashes live in Studio's directory, not the site's.
 	try {
 		fs.rmSync( getSiteEmailDirectory( site.id ), { recursive: true, force: true } );
+		deleteSiteVersionData( site.id );
 	} catch ( error ) {
 		logger.reportError(
 			new LoggerError( __( 'Failed to delete the email files. Proceeding anyway…' ), error ),

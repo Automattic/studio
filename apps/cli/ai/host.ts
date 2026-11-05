@@ -2,6 +2,7 @@ import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
+import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
 import { __ } from '@wordpress/i18n';
 import { getStudioUserAgent } from 'cli/ai/providers';
 import { runCommand as runExportCommand } from 'cli/commands/export';
@@ -31,7 +32,6 @@ import {
 	stopFrontendServer,
 	type HeadlessSite,
 } from 'cli/lib/frontend/server';
-import { isReprintPullEnabled } from 'cli/lib/pull/pull-engine';
 import { pullSelectionFromSyncOptions } from 'cli/lib/pull/pull-selection';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';

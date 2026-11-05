@@ -125,6 +125,7 @@ import { requestStudioAssistantQuota } from '@studio/common/lib/studio-assistant
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
 import { getLocalFileSize, listLocalFileTree } from '@studio/common/lib/sync/local-file-tree';
+import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
 import {
 	fetchHostingPhpVersion,
 	fetchLatestRewindId,
@@ -169,6 +170,7 @@ import {
 	listSiteEmails,
 	readSiteEmail,
 } from '@studio/common/sites/site-email';
+import { readGlobalStyles } from '@studio/common/sites/site-identity';
 import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import {
 	deleteAllPreviewSites,
@@ -1034,7 +1036,11 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			res.json( await readSiteDesign( sitePath, activeThemeSlug( sitePath ) ) );
+			res.json(
+				await readSiteDesign( sitePath, activeThemeSlug( sitePath ), () =>
+					readGlobalStyles( execute, sitePath )
+				)
+			);
 		} )
 	);
 
@@ -1822,7 +1828,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.json( [] );
 				return;
 			}
-			res.json( await fetchSyncableSites( token.accessToken ) );
+			res.json(
+				await fetchSyncableSites( token.accessToken, { planRequired: ! isReprintPullEnabled() } )
+			);
 		} )
 	);
 

@@ -128,7 +128,7 @@ import {
 	type SiteEmail,
 	type SiteEmailSummary,
 } from '@studio/common/sites/site-email';
-import { readThemeDetails } from '@studio/common/sites/site-identity';
+import { readGlobalStyles, readThemeDetails } from '@studio/common/sites/site-identity';
 import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import { __ } from '@wordpress/i18n';
 import { DEFAULT_TERMINAL } from 'src/constants';
@@ -996,7 +996,11 @@ export async function getSiteDesign(
 	id: string
 ): Promise< SiteDesign | null > {
 	const sitePath = await readSitePath( id );
-	return sitePath ? readSiteDesign( sitePath, activeThemeSlug( sitePath ) ) : null;
+	return sitePath
+		? readSiteDesign( sitePath, activeThemeSlug( sitePath ), () =>
+				readGlobalStyles( executeCliCommand, sitePath )
+		  )
+		: null;
 }
 
 export async function fixSiteDesignDrift(

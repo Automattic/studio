@@ -53,6 +53,11 @@ const baseComponents: Components = {
 	h3: ( { children } ) => <h3 className={ styles.h3 }>{ children }</h3>,
 	h4: ( { children } ) => <h4 className={ styles.h4 }>{ children }</h4>,
 	p: ( { children } ) => <p className={ styles.p }>{ children }</p>,
+	img: ( { src, alt, title } ) => (
+		<span className={ styles.imageFrame }>
+			<img src={ src } alt={ alt } title={ title } />
+		</span>
+	),
 	ul: ( { children } ) => <ul className={ styles.ul }>{ children }</ul>,
 	ol: ( { children } ) => <ol className={ styles.ol }>{ children }</ol>,
 	li: ( { children } ) => <li className={ styles.li }>{ children }</li>,

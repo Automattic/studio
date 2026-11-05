@@ -29,4 +29,8 @@
 		width: 16px;
 		height: 16px;
 	}
+
+	.chip::after {
+		--image-outline-color: var( --border );
+	}
 }

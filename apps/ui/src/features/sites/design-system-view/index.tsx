@@ -24,9 +24,8 @@ const titleCase = ( key: string ) =>
 	key.replace( /[-_]+/g, ' ' ).replace( /\b\w/g, ( char ) => char.toUpperCase() );
 
 function fontStyle( style: Style ): CSSProperties {
-	const family = fontFamilyName( style.fontFamily );
 	return {
-		fontFamily: family ? `"${ family }", sans-serif` : undefined,
+		fontFamily: typeof style.fontFamily === 'string' ? style.fontFamily : undefined,
 		fontWeight: style.fontWeight as CSSProperties[ 'fontWeight' ],
 		letterSpacing: dimension( style.letterSpacing ),
 		textTransform: style.textTransform as CSSProperties[ 'textTransform' ],

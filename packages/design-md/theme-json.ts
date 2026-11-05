@@ -71,7 +71,7 @@ export function themeJsonDesign( themeJson: Tree ): DesignTokens {
 	const style = ( tree: Tree ): Style =>
 		Object.fromEntries(
 			[ 'fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'letterSpacing' ]
-				.filter( ( key ) => tree[ key ] !== undefined )
+				.filter( ( key ) => tree[ key ] !== undefined && tree[ key ] !== 'inherit' )
 				.map( ( key ) => [ key, value( tree[ key ] ) ] )
 		) as Style;
 	const spacing = presets( 'spacing', 'spacingSizes' );

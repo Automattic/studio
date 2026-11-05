@@ -25,6 +25,7 @@ describe( 'WordPress style boards', () => {
 					h1: { typography: { fontSize: '4rem' } },
 					button: {
 						color: { background: '#123456' },
+						typography: { fontFamily: 'inherit', fontWeight: 'inherit' },
 						border: { radius: '999px' },
 						spacing: { padding: { top: '8px', right: '16px', bottom: '8px', left: '16px' } },
 					},
@@ -37,6 +38,7 @@ describe( 'WordPress style boards', () => {
 			primary: '#123456',
 			display: { fontFamily: 'Manrope, sans-serif', fontSize: '4rem' },
 			body: { fontFamily: 'Manrope, sans-serif', fontSize: '1rem' },
+			label: { fontFamily: 'Manrope, sans-serif', fontSize: '1rem' },
 			button: { backgroundColor: '#123456', rounded: '999px', padding: '8px 16px 8px 16px' },
 		} );
 		expect( tokens.spacing ).toEqual( { 40: '1.5rem' } );

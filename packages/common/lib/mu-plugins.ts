@@ -80,8 +80,9 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		filename: '0-preview-shortcuts.php',
 		content: `<?php
 		function studio_preview_shortcuts() {
+			echo '<script data-studio-auto-login-cookie="' . esc_attr( 'studio_auto_login_' . COOKIEHASH ) . '" data-studio-logged-in="' . ( is_user_logged_in() ? 'true' : 'false' ) . '">';
 			echo <<<'STUDIO_PREVIEW_SHORTCUTS'
-<script>${ PREVIEW_SHORTCUTS_SCRIPT }</script>
+${ PREVIEW_SHORTCUTS_SCRIPT }</script>
 STUDIO_PREVIEW_SHORTCUTS;
 		}
 		add_action( 'wp_head', 'studio_preview_shortcuts' );
@@ -536,6 +537,13 @@ STUDIO_PREVIEW_SHORTCUTS;
 			wp_set_current_user( $user->ID, $user->user_login );
 			wp_set_auth_cookie( $user->ID, true, is_ssl() );
 			do_action( 'wp_login', $user->user_login, $user );
+			// The preview consumes this receipt after the destination verifies the auth cookie.
+			setcookie( 'studio_auto_login_' . COOKIEHASH, '1', array(
+				'expires' => time() + 60,
+				'path' => '/',
+				'secure' => is_ssl(),
+				'samesite' => 'Lax',
+			) );
 			$redirect_url = isset( $_GET['redirect_to'] ) ? $_GET['redirect_to'] : home_url();
 			wp_safe_redirect( $redirect_url );
 			exit;

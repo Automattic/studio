@@ -10,6 +10,7 @@ async function renderFrame( src = origin ) {
 	const onNavigate = vi.fn();
 	const onSettle = vi.fn();
 	const onLoadingChange = vi.fn();
+	const onAutoLogin = vi.fn();
 	const view = renderWithProviders(
 		<FrameSurface
 			src={ src }
@@ -18,6 +19,7 @@ async function renderFrame( src = origin ) {
 			onSettle={ onSettle }
 			onNavigate={ onNavigate }
 			onLoadingChange={ onLoadingChange }
+			onAutoLogin={ onAutoLogin }
 			onAdminBarVisibilityChange={ onAdminBarVisibilityChange }
 		/>
 	);
@@ -40,10 +42,33 @@ async function renderFrame( src = origin ) {
 		onSettle,
 		onLoadingChange,
 		navigationId,
+		onAutoLogin,
 	};
 }
 
 describe( 'preview iframe shortcuts', () => {
+	it( 'announces automatic login once and rejects stale or unrelated reports', async () => {
+		const { frame, navigationId, onAutoLogin, unmount } = await renderFrame();
+		const report = ( source: MessageEventSource | null, origin: string, id: number ) =>
+			fireEvent(
+				window,
+				new MessageEvent( 'message', {
+					source,
+					origin,
+					data: { type: 'studio:preview:auto-login', navigationId: id },
+				} )
+			);
+		report( window, origin, navigationId );
+		report( frame.contentWindow, 'https://unrelated.test', navigationId );
+		report( frame.contentWindow, origin, navigationId - 1 );
+		expect( onAutoLogin ).not.toHaveBeenCalled();
+		report( frame.contentWindow, origin, navigationId );
+		report( frame.contentWindow, origin, navigationId );
+		expect( onAutoLogin ).toHaveBeenCalledOnce();
+		unmount();
+		report( frame.contentWindow, origin, navigationId );
+		expect( onAutoLogin ).toHaveBeenCalledOnce();
+	} );
 	it( 'probes the site root instead of replaying a logout or other action URL', async () => {
 		await renderFrame( `${ origin }/wp-login.php?action=logout&_wpnonce=example` );
 		expect( fetch ).toHaveBeenCalledExactlyOnceWith(

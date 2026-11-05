@@ -162,6 +162,43 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site management'
 		);
 
 		it(
+			'reports automatic login only when creating a new session',
+			{ tags: [ 'e2e' ], timeout: 120_000 },
+			async () => {
+				if ( ! env ) throw new Error( 'CLI e2e env was not initialised' );
+				const result = await runCli(
+					[ 'site', 'start', '--path', sitePath, '--skip-browser', '--skip-log-details' ],
+					env
+				);
+				expect( result.code, result.stderr ).toBe( 0 );
+				const siteUrl = `http://localhost:${ String( findSite( env, sitePath )?.port ) }`;
+				await waitForSiteResponse( siteUrl, { expectedStatus: 200 } );
+				const loginUrl = new URL( '/studio-auto-login?redirect_to=/wp-admin/', siteUrl );
+				const response = await fetch( loginUrl, { redirect: 'manual' } );
+				expect( response.status ).toBe( 302 );
+				const cookies = response.headers.getSetCookie();
+				const notification = cookies.find( ( cookie ) =>
+					cookie.startsWith( 'studio_auto_login_' )
+				);
+				expect( notification ).toMatch( /^studio_auto_login_[a-f0-9]+=1;/ );
+				expect( notification ).toMatch( /path=\//i );
+				expect( notification ).toMatch( /samesite=lax/i );
+				const cookie = cookies.map( ( value ) => value.split( ';' )[ 0 ] ).join( '; ' );
+				const page = await fetch( new URL( '/wp-admin/', siteUrl ), { headers: { cookie } } );
+				expect( await page.text() ).toContain( 'data-studio-logged-in="true"' );
+				const existing = await fetch( loginUrl, { headers: { cookie }, redirect: 'manual' } );
+				expect( existing.status ).toBe( 302 );
+				expect(
+					existing.headers
+						.getSetCookie()
+						.some( ( value ) => value.startsWith( 'studio_auto_login_' ) )
+				).toBe( false );
+				const loggedOut = await fetch( siteUrl );
+				expect( await loggedOut.text() ).toContain( 'data-studio-logged-in="false"' );
+			}
+		);
+
+		it(
 			'keeps the wp-admin session across a settings save that restarts the site',
 			{ tags: [ 'e2e' ], timeout: 240_000 },
 			async () => {

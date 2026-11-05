@@ -1,5 +1,8 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
-import { READ_ADMIN_BAR_VISIBILITY_SCRIPT } from '@studio/common/lib/preview-shortcuts-script';
+import {
+	READ_ADMIN_BAR_VISIBILITY_SCRIPT,
+	READ_AUTO_LOGIN_SCRIPT,
+} from '@studio/common/lib/preview-shortcuts-script';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { useSyncExternalStore, type ComponentProps } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -92,6 +95,7 @@ type Guest = HTMLElement & {
 	reload: ReturnType< typeof vi.fn >;
 	loadURL: ReturnType< typeof vi.fn >;
 	adminBarVisible: boolean;
+	autoLogin: boolean;
 };
 
 function page() {
@@ -104,9 +108,15 @@ function guest( extra: Record< string, unknown > = {} ) {
 		loadURL: vi.fn( async () => {} ),
 		reload: vi.fn(),
 		adminBarVisible: false,
-		executeJavaScript: vi.fn( async ( script: string ) =>
-			script === READ_ADMIN_BAR_VISIBILITY_SCRIPT ? element.adminBarVisible : undefined
-		),
+		autoLogin: false,
+		executeJavaScript: vi.fn( async ( script: string ) => {
+			if ( script === READ_ADMIN_BAR_VISIBILITY_SCRIPT ) return element.adminBarVisible;
+			if ( script === READ_AUTO_LOGIN_SCRIPT ) {
+				const loggedIn = element.autoLogin;
+				element.autoLogin = false;
+				return loggedIn;
+			}
+		} ),
 		getWebContentsId: () => 42,
 		...extra,
 	} );
@@ -828,6 +838,43 @@ describe( 'preview browser menu', () => {
 			screen.getByRole( 'button', { name: 'Open this page in your browser' } )
 		).toBeInTheDocument();
 	} );
+
+	it.each( [ 'browser', 'desktop' ] as const )(
+		'shows one %s toast only after confirmed automatic login',
+		async ( runtime ) => {
+			await renderPreview( runtime );
+			const element = runtime === 'desktop' ? guest() : page()!;
+			if ( runtime === 'desktop' ) fireEvent( element, new Event( 'dom-ready' ) );
+			finishLoading( runtime );
+			reportAdminBarVisibility( runtime, false );
+			reportAdminBarVisibility( runtime, true );
+			await act( async () => {} );
+			expect( getVisibleToasts() ).toHaveLength( 0 );
+			if ( runtime === 'desktop' ) {
+				( element as Guest ).autoLogin = true;
+				fireEvent( element, new Event( 'dom-ready' ) );
+				fireEvent( element, new Event( 'dom-ready' ) );
+			} else {
+				for ( let index = 0; index < 2; index++ )
+					fireEvent(
+						window,
+						new MessageEvent( 'message', {
+							source: ( element as HTMLIFrameElement ).contentWindow,
+							origin: SITE_URL,
+							data: {
+								type: 'studio:preview:auto-login',
+								navigationId: frameNavigationIds.get( element ),
+							},
+						} )
+					);
+			}
+			await waitFor( () =>
+				expect( getVisibleToasts() ).toEqual( [
+					expect.objectContaining( { title: 'Logged in to WordPress', intent: 'info' } ),
+				] )
+			);
+		}
+	);
 
 	it.each( [ 'browser', 'desktop' ] as const )(
 		'disables the %s control until visibility is known and during navigation',

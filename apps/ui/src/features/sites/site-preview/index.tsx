@@ -3,6 +3,7 @@ import { getSiteBrowserUrl } from '@studio/common/lib/user-settings/site-browser
 import { __ } from '@wordpress/i18n';
 import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { previewTabsKey, usePreviewTabs } from '@/data/preview-tabs';
 import { useFrontendAdminBar } from '@/data/queries/use-frontend-admin-bar';
@@ -223,6 +224,7 @@ function SitePreviewContent( {
 			if ( adminBarActive ) sendSurfaceCommand( 'site', 'read-admin-bar' );
 		},
 	} );
+	const notifyAutoLogin = useCallback( () => toast.info( __( 'Logged in to WordPress' ) ), [] );
 	const responsiveSettings = useResponsivePreview( site.id );
 	const responsiveEnabled = responsiveSettings.enabled && canPreview && activeSurfaceKey === 'site';
 	const [ availableSize, setAvailableSize ] = useState( { width: 0, height: 0 } );
@@ -508,6 +510,10 @@ function SitePreviewContent( {
 								);
 							}
 							const frameKey = getFrameKey( siteUrl, surface );
+							const onAutoLogin =
+								key === 'site' && ! live && active && ! inactive && ! collapsed
+									? notifyAutoLogin
+									: undefined;
 							return (
 								<SurfaceLayer
 									key={ key }
@@ -523,6 +529,7 @@ function SitePreviewContent( {
 										<WebviewSurface
 											key={ `${ site.id }-${ key }` }
 											url={ surfaceUrl }
+											onAutoLogin={ onAutoLogin }
 											colorScheme={ previewBrowser.colorScheme }
 											reloadNonce={ surface.reloadNonce }
 											// phpMyAdmin isn't an annotation target, so the
@@ -549,6 +556,7 @@ function SitePreviewContent( {
 											key={ frameKey }
 											src={ `${ siteUrl }${ surface.requestedPath }` }
 											title={ site.name }
+											onAutoLogin={ onAutoLogin }
 											browserCommand={ surface.browserCommand }
 											onCommandHandled={ () => patchSurface( key, { browserCommand: null } ) }
 											onAdminBarVisibilityChange={

@@ -2,18 +2,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
-import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
-import {
-	createsPreviewsOnWpcom,
-	getSnapshotLink,
-	isSnapshotExpired,
-	isWpcomPreview,
-} from '@studio/common/lib/snapshots';
+import { getSnapshotLink, isSnapshotExpired, isWpcomPreview } from '@studio/common/lib/snapshots';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { Snapshot } from '@studio/common/types/snapshot';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { cleanup, archiveSiteContent } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { countSitePreviews } from 'cli/lib/cli-config/snapshots';
@@ -103,11 +96,10 @@ export async function runCommand(
 		if ( isSnapshotExpired( snapshotToUpdate ) ) {
 			throw new LoggerError( __( 'Cannot update an expired preview site.' ), undefined, 'expired' );
 		}
-		const onWpcom = isWpcomPreview( snapshotToUpdate );
-		const movesToWpcom = ! onWpcom && ( await createsPreviewsOnWpcom( token.accessToken ) );
 		let snapshot: Snapshot;
 
-		if ( movesToWpcom ) {
+		// A preview made on Jurassic Ninja moves to WordPress.com when it's updated.
+		if ( ! isWpcomPreview( snapshotToUpdate ) ) {
 			const created = await createWpcomPreviewSite( {
 				siteId: site.id,
 				siteFolder,
@@ -148,47 +140,32 @@ export async function runCommand(
 				)
 			);
 		} else {
-			await validateSiteSize( siteFolder, { onWpcom } );
+			await validateSiteSize( siteFolder, { onWpcom: true } );
 
 			reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
 			// The version is taken under the same lock as the archive, so it's what the preview holds.
 			const versionId = await withSiteOperation( siteFolder, 'export', async () => {
 				const version = await getSiteVersion( site.id, siteFolder );
-				await archiveSiteContent( siteFolder, archivePath, { onWpcom } );
+				await archiveSiteContent( siteFolder, archivePath, { onWpcom: true } );
 				return version;
 			} );
 			archiveBytes = fs.statSync( archivePath, { throwIfNoEntry: false } )?.size;
 			logger.reportSuccess( __( 'Archive created' ) );
 
 			reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
-			let shareUrl: string | undefined;
-			if ( onWpcom ) {
-				const attachmentId = await uploadPreviewArchive(
-					archivePath,
-					token.accessToken,
-					snapshotToUpdate.atomicSiteId
-				);
-				logger.reportSuccess( __( 'Archive uploaded' ) );
+			const attachmentId = await uploadPreviewArchive(
+				archivePath,
+				token.accessToken,
+				snapshotToUpdate.atomicSiteId
+			);
+			logger.reportSuccess( __( 'Archive uploaded' ) );
 
-				reportStep( LoggerAction.READY, __( 'Updating preview site…' ), 60 );
-				( { shareUrl } = await updatePreviewSite(
-					snapshotToUpdate.atomicSiteId,
-					attachmentId,
-					token.accessToken
-				) );
-			} else {
-				// A preview made on Jurassic Ninja.
-				await uploadArchive(
-					archivePath,
-					token.accessToken,
-					getWordPressVersion( siteFolder ),
-					snapshotToUpdate.atomicSiteId
-				);
-				logger.reportSuccess( __( 'Archive uploaded' ) );
-
-				reportStep( LoggerAction.READY, __( 'Updating preview site…' ), 60 );
-				await waitForSiteReady( snapshotToUpdate.atomicSiteId, token.accessToken );
-			}
+			reportStep( LoggerAction.READY, __( 'Updating preview site…' ), 60 );
+			const { shareUrl } = await updatePreviewSite(
+				snapshotToUpdate.atomicSiteId,
+				attachmentId,
+				token.accessToken
+			);
 
 			reportStep( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ), 95 );
 			snapshot = await updateSnapshotInConfig(

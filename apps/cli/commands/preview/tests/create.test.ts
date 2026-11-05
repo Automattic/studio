@@ -1,10 +1,9 @@
 import os from 'os';
 import path from 'path';
 import { confirm, input } from '@inquirer/prompts';
-import { isAutomatticianAccount } from '@studio/common/lib/automattician';
 import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
-import { getUserInfo, uploadArchive, waitForSiteReady } from 'cli/lib/api';
+import { getUserInfo } from 'cli/lib/api';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { createPreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
@@ -35,12 +34,6 @@ vi.mock( 'cli/lib/cli-config/sites', async () => ( {
 } ) );
 vi.mock( 'cli/lib/validation', () => ( {
 	validateSiteSize: vi.fn(),
-} ) );
-vi.mock( '@studio/common/lib/automattician', () => ( {
-	isAutomatticianAccount: vi.fn(),
-} ) );
-vi.mock( '@studio/common/lib/get-wordpress-version', () => ( {
-	getWordPressVersion: vi.fn().mockReturnValue( '6.8.1' ),
 } ) );
 vi.mock( 'cli/lib/archive' );
 vi.mock( 'cli/lib/site-tracks' );
@@ -111,7 +104,6 @@ describe( 'Preview Create Command', () => {
 		vi.spyOn( path, 'basename' ).mockReturnValue( mockBasename );
 
 		vi.mocked( readAuthToken ).mockResolvedValue( mockAuthToken );
-		vi.mocked( isAutomatticianAccount ).mockResolvedValue( true );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( {
 			id: 'site-123',
 			path: mockFolder,
@@ -143,7 +135,7 @@ describe( 'Preview Create Command', () => {
 		vi.restoreAllMocks();
 	} );
 
-	it( 'should complete the preview creation process successfully', async () => {
+	it( 'creates the preview on WordPress.com for any account', async () => {
 		await runCommand( mockFolder );
 
 		expect( withSiteOperation ).toHaveBeenCalledWith(
@@ -177,38 +169,6 @@ describe( 'Preview Create Command', () => {
 		);
 		expect( mockReportError ).not.toHaveBeenCalled();
 		expect( cleanup ).toHaveBeenCalledWith( mockArchivePath );
-	} );
-
-	it( 'creates the preview on Jurassic Ninja for accounts outside the Automattic team', async () => {
-		vi.mocked( isAutomatticianAccount ).mockResolvedValue( false );
-		vi.mocked( uploadArchive ).mockResolvedValue( {
-			site_id: mockAtomicSiteId,
-			site_url: 'test-preview.wp.build',
-		} );
-		vi.mocked( waitForSiteReady ).mockResolvedValue( true );
-
-		await runCommand( mockFolder );
-
-		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath, {
-			onWpcom: false,
-		} );
-		expect( uploadPreviewArchive ).not.toHaveBeenCalled();
-		expect( createPreviewSite ).not.toHaveBeenCalled();
-		expect( uploadArchive ).toHaveBeenCalledWith(
-			mockArchivePath,
-			mockAuthToken.accessToken,
-			'6.8.1'
-		);
-		expect( waitForSiteReady ).toHaveBeenCalledWith( mockAtomicSiteId, mockAuthToken.accessToken );
-		expect( saveSnapshotToConfig ).toHaveBeenCalledWith(
-			mockFolder,
-			mockAtomicSiteId,
-			'test-preview.wp.build',
-			mockAuthToken.id,
-			'Test Site Preview 1',
-			undefined,
-			'version-1'
-		);
 	} );
 
 	it( "records a successful preview_site_create Tracks event with the site's preview count", async () => {

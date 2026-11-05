@@ -7,8 +7,8 @@ import type { SyncSite } from '@studio/common/types/sync';
 
 /**
  * Maps a site's `syncSupport` state to a clear, actionable error explaining
- * why it can't be synced. Shared by every CLI sync command (push, pull,
- * pull-reprint) so a Business-plan site awaiting Atomic transfer, a site that
+ * why it can't be synced. Shared by every CLI sync command (push and
+ * pull) so a Business-plan site awaiting Atomic transfer, a site that
  * needs a plan upgrade, and so on each report the specific condition and next
  * step instead of a generic failure or a raw internal state identifier.
  */

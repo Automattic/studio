@@ -149,7 +149,7 @@ async function findLayoutControl( layout: 'chat' | 'split' | 'panel' ) {
 
 async function setChatFullscreen( fullscreen: boolean ) {
 	await screen.findByRole( 'button', { name: /^(Show|Hide) panel$/ } );
-	await paletteCommand( fullscreen ? 'Switch to Panel' : 'Switch to Split view' );
+	await chooseWorkspaceLayout( fullscreen ? 'Panel' : 'Split view' );
 }
 
 async function waitForFullscreen( fullscreen: boolean ) {
@@ -684,7 +684,7 @@ describe( 'Studio workspace', () => {
 			} );
 			if ( path.endsWith( '/new' ) ) {
 				await findComposer();
-				await paletteCommand( 'Switch to Panel' );
+				act( () => connector.emit( 'onSetWorkspaceLayout', 'panel' ) );
 			}
 			const panel = await screen.findByRole( 'complementary', { name: 'Panel' } );
 			let finishStart!: () => void;
@@ -794,7 +794,7 @@ describe( 'Studio workspace', () => {
 	);
 
 	it.each( [ false, true ] )(
-		'keeps full-screen controls in the header for an empty preview opened from the palette (thumbnail: %s)',
+		'opens an empty preview from the palette while preserving its chat (thumbnail: %s)',
 		async ( thumbnail ) => {
 			const { connector } = setup( {
 				signedIn: true,
@@ -806,15 +806,19 @@ describe( 'Studio workspace', () => {
 			fireEvent.change( input, { target: { value: 'Keep my draft' } } );
 			expect( document.querySelector( '[data-workspace-layout="split"]' ) ).not.toBeInTheDocument();
 			expect( screen.queryByRole( 'complementary', { name: 'Panel' } ) ).not.toBeInTheDocument();
-			await paletteCommand( 'Switch to Panel' );
+			await paletteCommand( 'Toggle panel' );
 			const panel = await screen.findByRole( 'complementary', { name: 'Panel' } );
 			expect(
 				await within( panel ).findByRole( 'button', {
 					name: 'Browser B',
 				} )
 			).toBeVisible();
-			expect( input.closest( '[aria-hidden="true"]' ) ).not.toBeNull();
-			await chooseWorkspaceLayout( 'Split view' );
+			expect( input ).toBeVisible();
+			await paletteCommand( 'Toggle panel' );
+			await waitFor( () =>
+				expect( screen.queryByRole( 'complementary', { name: 'Panel' } ) ).not.toBeInTheDocument()
+			);
+			await paletteCommand( 'Toggle panel' );
 			await findLayoutControl( 'split' );
 			expect( composer() ).toBe( input );
 			expect( input ).toHaveValue( 'Keep my draft' );
@@ -823,44 +827,34 @@ describe( 'Studio workspace', () => {
 		}
 	);
 
-	it.each( [ 'header', 'palette' ] )(
-		'toggles a running preview between split and full screen from the %s while preserving its chat',
-		async ( control ) => {
-			const { connector } = setup( {
-				signedIn: true,
-				path: '/sites/one/new',
-				sites: [ site( { running: true } ) ],
-			} );
-			const input = await findComposer();
-			fireEvent.change( input, { target: { value: 'Keep my draft' } } );
-			const address = await screen.findByRole( 'textbox', { name: 'Address' } );
-			expect(
-				within( document.querySelector< HTMLElement >( '[data-panel-open]' )! ).getByRole(
-					'button',
-					{ name: /^(Show|Hide) panel$/ }
-				)
-			).toBeVisible();
-			const toggle = async ( fullscreen: boolean ) => {
-				if ( control === 'header' )
-					await chooseWorkspaceLayout( fullscreen ? 'Panel' : 'Split view' );
-				else if ( control === 'palette' )
-					await paletteCommand( fullscreen ? 'Switch to Panel' : 'Switch to Split view' );
-				else act( () => connector.emit( 'onTogglePanel' ) );
-			};
-			await toggle( true );
-			if ( control === 'header' ) {
-				expect( getLayoutControl( 'panel' ) ).toHaveAttribute( 'aria-pressed', 'true' );
-			}
-			await waitForFullscreen( true );
-			await toggle( false );
-			await waitForFullscreen( false );
-			expect( composer() ).toBe( input );
-			expect( input ).toHaveValue( 'Keep my draft' );
-			expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBe( address );
-			expect( connector.startSite ).not.toHaveBeenCalled();
-			expect( connector.stopSite ).not.toHaveBeenCalled();
-		}
-	);
+	it( 'toggles a running preview between split and full screen from the header while preserving its chat', async () => {
+		const { connector } = setup( {
+			signedIn: true,
+			path: '/sites/one/new',
+			sites: [ site( { running: true } ) ],
+		} );
+		const input = await findComposer();
+		fireEvent.change( input, { target: { value: 'Keep my draft' } } );
+		const address = await screen.findByRole( 'textbox', { name: 'Address' } );
+		expect(
+			within( document.querySelector< HTMLElement >( '[data-panel-open]' )! ).getByRole( 'button', {
+				name: /^(Show|Hide) panel$/,
+			} )
+		).toBeVisible();
+		const toggle = async ( fullscreen: boolean ) => {
+			await chooseWorkspaceLayout( fullscreen ? 'Panel' : 'Split view' );
+		};
+		await toggle( true );
+		expect( getLayoutControl( 'panel' ) ).toHaveAttribute( 'aria-pressed', 'true' );
+		await waitForFullscreen( true );
+		await toggle( false );
+		await waitForFullscreen( false );
+		expect( composer() ).toBe( input );
+		expect( input ).toHaveValue( 'Keep my draft' );
+		expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBe( address );
+		expect( connector.startSite ).not.toHaveBeenCalled();
+		expect( connector.stopSite ).not.toHaveBeenCalled();
+	} );
 
 	it( 'returns from a full-width site preview to chat using the preview bar', async () => {
 		const { history } = setup( {
@@ -958,7 +952,7 @@ describe( 'Studio workspace', () => {
 		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/two/new' ) );
 		expect( await findComposer() ).toBeVisible();
 		expect( screen.queryByRole( 'complementary', { name: 'Panel' } ) ).not.toBeInTheDocument();
-		await paletteCommand( 'Switch to Panel' );
+		await paletteCommand( 'Toggle panel' );
 		await screen.findByRole( 'complementary', { name: 'Panel' } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'My site' } ) );
 		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
@@ -1364,7 +1358,7 @@ describe( 'Studio workspace', () => {
 		expect( connector.createSession ).not.toHaveBeenCalled();
 	} );
 
-	it( 'toggles chat full screen through the palette without replacing its draft', async () => {
+	it( 'toggles chat full screen through the header without replacing its draft', async () => {
 		const { history } = setup( {
 			signedIn: true,
 			sites: [ site( { running: true } ) ],
@@ -1375,12 +1369,12 @@ describe( 'Studio workspace', () => {
 		await waitFor( () => expect( input ).toBeEnabled() );
 		fireEvent.change( input, { target: { value: 'Keep this draft' } } );
 		await screen.findByRole( 'button', { name: 'Publish…' } );
-		await paletteCommand( 'Switch to Panel' );
+		await chooseWorkspaceLayout( 'Panel' );
 		await waitFor( () =>
 			expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible()
 		);
 		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toBeVisible();
-		await paletteCommand( 'Switch to Split view' );
+		await chooseWorkspaceLayout( 'Split view' );
 		expect( await screen.findByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 		expect( composer() ).toBe( input );
 		expect( input ).toHaveValue( 'Keep this draft' );

@@ -123,14 +123,32 @@ const wpcom: RemoteHost = {
 			: 'Push cancelled.';
 	},
 	async pull( site, target, options, onProgress ) {
-		const { runCommand } = await import( 'cli/commands/pull' );
-		const pulled = await runCommand(
-			site.path,
-			parseSyncOptions( options ),
-			target,
-			undefined,
-			new Logger( { onProgress } )
-		);
+		const syncOptions = parseSyncOptions( options );
+		const { isReprintPullEnabled } = await import( 'cli/lib/pull/pull-engine' );
+		let pulled;
+		if ( isReprintPullEnabled() ) {
+			const [ { runCommand }, { pullSelectionFromSyncOptions } ] = await Promise.all( [
+				import( 'cli/commands/pull' ),
+				import( 'cli/lib/pull/pull-selection' ),
+			] );
+			pulled = await runCommand(
+				site.path,
+				target,
+				false,
+				pullSelectionFromSyncOptions( syncOptions ),
+				false,
+				onProgress
+			);
+		} else {
+			const { runCommand } = await import( 'cli/commands/pull-legacy' );
+			pulled = await runCommand(
+				site.path,
+				syncOptions,
+				target,
+				undefined,
+				new Logger( { onProgress } )
+			);
+		}
 		return pulled
 			? `Pulled ${ pulled.name } (${ pulled.url }) into "${ site.name }".`
 			: 'Pull cancelled.';

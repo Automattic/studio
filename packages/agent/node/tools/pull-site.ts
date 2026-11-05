@@ -8,8 +8,7 @@ function createPullSiteTool( hostIds: string[] ) {
 	return defineTool(
 		'site_pull',
 		'Pulls a remote site on one of the hosts in site_publish_targets to a local WordPress site: ' +
-			'creates a remote backup, downloads it, and imports it locally. ' +
-			'This can take several minutes depending on site size. ' +
+			'copies the remote site into the local one, which can take several minutes depending on site size. ' +
 			'Make sure a local site exists first (create one with site_create if needed); a running local site is stopped during the pull and restarted afterward. ' +
 			'Studio asks the user to confirm before the pull overwrites the local site.',
 		{

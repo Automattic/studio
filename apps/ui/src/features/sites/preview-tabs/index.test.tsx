@@ -104,11 +104,13 @@ it.each( [ 'header', 'shortcut', 'palette' ] )(
 		} else {
 			act( () => setCommandPaletteOpen( true ) );
 			fireEvent.change( await screen.findByRole( 'combobox', { name: 'Search commands' } ), {
-				target: { value: 'Switch to Panel' },
+				target: { value: 'Toggle panel' },
 			} );
-			fireEvent.click( await screen.findByRole( 'option', { name: /^Switch to Panel/ } ) );
+			fireEvent.click( await screen.findByRole( 'option', { name: 'Toggle panel' } ) );
 		}
-		await waitFor( () => expect( composer.closest( '[aria-hidden="true"]' ) ).not.toBeNull() );
+		await waitFor( () =>
+			expect( !! composer.closest( '[aria-hidden="true"]' ) ).toBe( control !== 'palette' )
+		);
 		expect( document.querySelector( 'iframe' ) ).toBe( page );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Hide panel' } ) );
 		await waitFor( () => expect( composer ).toBeVisible() );

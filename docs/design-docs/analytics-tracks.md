@@ -538,17 +538,17 @@ wrappers. Register new events/properties for documentation and integrity checks;
 
 | Event                              | Emitted from                                                          | Event-specific props                                                                                                                                                             |
 | ---------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `studio_account_prompt_viewed`     | Renderer visibility observer                                          | `source`, `placement`, `intent`, `journey_id`. One per visible presentation; hidden panels and rerenders do not count.                                                           |
+| `studio_account_prompt_viewed`     | Renderer / MCP library visibility observer / CLI terminal sign-in offer | `source`, `placement`, `intent`, `journey_id`. One per visible presentation; hidden panels and rerenders do not count.                                                           |
 | `studio_onboarding_viewed`         | Renderer visibility observer                                          | `step` (`welcome`/`account`), `journey_id`. One per visible step presentation.                                                                                                   |
 | `studio_onboarding_complete`       | Desktop `saveOnboarding` / browser onboarding route                   | `authenticated`, optional `completion_path` (`authenticated_continue`/`continue_without_account`/`dismissed`), `journey_id`. Preserves the first false-to-true transition guard. |
-| `studio_wpcom_auth_started`        | Desktop authenticate / browser login-URL route / CLI login            | `source`, `auth_flow`, `auth_attempt_id`, optional `account_type`, `placement`, `intent`, `journey_id`.                                                                          |
-| `studio_wpcom_auth`                | Desktop callback / browser token-validation route / CLI token storage | `success`, optional `failure_reason` (`access_denied`/`token_error`/`profile_fetch_failed`/`unknown`), plus matched start context. Missing context reports `source=unknown`.     |
+| `studio_wpcom_auth_started`        | Desktop authenticate / browser login-URL route / CLI login / MCP library login | `source`, `auth_flow`, `auth_attempt_id`, optional `account_type`, `placement`, `intent`, `journey_id`.                                                                          |
+| `studio_wpcom_auth`                | Desktop callback / browser token-validation route / CLI and MCP token storage | `success`, optional `failure_reason` (`access_denied`/`token_error`/`profile_fetch_failed`/`unknown`), plus matched start context. Missing context reports `source=unknown`.     |
 | `studio_wpcom_auth_cancelled`      | Browser cancellation route / CLI input cancellation                   | Matched start context. Only an observed cancellation.                                                                                                                            |
-| `studio_wpcom_auth_launch_failed`  | Desktop / browser / CLI handoff failure                               | Matched start context. CLI may continue with its printed URL.                                                                                                                    |
+| `studio_wpcom_auth_launch_failed`  | Desktop / browser / CLI / MCP library handoff failure                 | Matched start context. CLI may continue with its printed URL.                                                                                                                    |
 | `studio_account_journey_completed` | Renderer owning-task success handlers                                 | `placement`, `intent`, `journey_id`. One conversion marker per captured journey; join to successful auth by journey ID.                                                          |
 
 `placement` values are `welcome`, `account_menu`, `share`, `publish`, `add_site_connect`,
-`settings_account`, `settings_ai`, `settings_usage`, `settings_sharing`, `annotation`, `cli`, `unknown`.
+`settings_account`, `settings_ai`, `settings_usage`, `settings_sharing`, `annotation`, `cli`, `mcp_library`, `unknown`.
 `intent` values are `onboarding`, `account`, `build`, `annotate`, `share`, `publish`, `connect_site`,
 `usage`. These are bounded enums. No email, tokens, site IDs, paths, URLs, prompts, or error text are
 sent in this context. A source such as `settings` is kept for compatibility; use placement to split
@@ -568,6 +568,29 @@ started there is `add_site`, matching Studio Classic's add-site prompt. Watch fo
 path) and can't produce `failure_reason=access_denied` (there is no in-app deny step — the user pastes a
 token). Account for this before aggregating across channels. The CLI's "already authenticated" early
 return emits nothing, since no authentication took place.
+
+The interactive CLI's "Log in now?" offer records `studio_account_prompt_viewed` with
+`placement=cli`, `intent=account` and a random `journey_id` shared with the accepted auth attempt.
+Declining the offer records no auth start or cancellation; no auth attempt has begun. A non-interactive
+auth-required error is not a prompt exposure. Direct `studio auth login` starts auth without a separate
+account-prompt presentation.
+
+**MCP library auth.** The existing copy-token card records visible exposure with `source=mcp`,
+`placement=mcp_library`, `intent=account` and an opaque `journey_id`. Its explicit Log in action
+records `studio_wpcom_auth_started` before returning the authorization URL; the page carries the
+server-generated `auth_attempt_id` in the app-only bridge, never in the browser URL. Token storage
+uses the same CLI auth helper. A matching attempt is consumed once; parallel cards match by ID.
+Expired, missing, replayed or restarted context remains unknown. An explicit token retry after an
+observed validation failure starts a fresh attempt, retaining the card's journey. These login-only
+events omit `account_type`; they do not establish signup or new-account creation.
+
+The card has no cancellation action. Closing it, an abandoned authorization page, a restart or an
+unobserved browser fallback produces no synthetic cancellation or auth outcome. A handoff failure
+is recorded only if URL preparation fails or both the host handoff and browser fallback throw.
+This generic account placement has no intended site/workflow task, so it emits no onboarding or
+account-journey completion. Other MCP tools that only require authentication emit no auth starts.
+`studio_mcp_session_start` remains reach only. Existing anonymous installation identity, opt-out and
+disable paths apply; auth context contains no token, account/site identifier, path, URL or raw error.
 
 Each `failure_reason` does mean the same thing in both channels, so the values themselves aggregate
 cleanly: `profile_fetch_failed` is always the `/me` lookup (the request or its schema), and `unknown` is

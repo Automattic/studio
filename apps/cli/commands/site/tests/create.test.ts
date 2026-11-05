@@ -60,7 +60,8 @@ vi.mock( '@studio/common/lib/port-finder', () => ( {
 		getOpenPort: vi.fn(),
 	},
 } ) );
-vi.mock( '@studio/common/lib/passwords', () => ( {
+vi.mock( '@studio/common/lib/passwords', async ( importActual ) => ( {
+	...( await importActual< typeof import('@studio/common/lib/passwords') >() ),
 	createPassword: vi.fn().mockReturnValue( 'generated-password-123' ),
 } ) );
 vi.mock( '@studio/common/lib/blueprint-validation' );
@@ -1041,6 +1042,115 @@ describe( 'CLI: studio create', () => {
 			expect( liberate ).not.toHaveBeenCalled();
 			expect( fsMkdirSyncSpy ).not.toHaveBeenCalledWith( mockSitePath, { recursive: true } );
 			expect( process.exitCode ).toBe( 1 );
+		} );
+
+		it.each( [
+			{
+				problem: 'the site directory is not empty',
+				args: [],
+				arrange: () => {
+					createPathExistsMock( true );
+					vi.mocked( isEmptyDir ).mockResolvedValue( false );
+				},
+				error: 'The selected directory is not empty nor an existing WordPress site.',
+			},
+			{
+				problem: 'another site uses the directory',
+				args: [],
+				arrange: () => {
+					vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
+						version: 1,
+						sites: [ { ...mockExistingSite, path: mockSitePath } ],
+					} );
+				},
+				error: 'The selected directory is already in use.',
+			},
+			{
+				problem: 'the custom domain is taken',
+				args: [ '--domain', 'taken.local' ],
+				arrange: () => {
+					vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
+						version: 1,
+						sites: [ { ...mockExistingSite, customDomain: 'taken.local' } ],
+					} );
+				},
+				error: 'The domain name is already in use',
+			},
+			{
+				problem: 'the admin email is invalid',
+				args: [ '--admin-email', 'not-an-email' ],
+				arrange: () => {},
+				error: 'Please enter a valid email address.',
+			},
+		] )(
+			'fails before capturing a URL source when $problem',
+			async ( { args, arrange, error } ) => {
+				arrange();
+				const liberate = vi.fn();
+				const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
+				const parser = registerCommand(
+					yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } ),
+					{ liberate }
+				).exitProcess( false );
+
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					'https://example.com',
+					'--name',
+					'Imported Site',
+					'--no-start',
+					'--skip-browser',
+					...args,
+				] );
+
+				expect( liberate ).not.toHaveBeenCalled();
+				expect( reportErrorSpy ).toHaveBeenCalledWith(
+					expect.objectContaining( { message: expect.stringContaining( error ) } )
+				);
+				expect( process.exitCode ).toBe( 1 );
+			}
+		);
+
+		it( 'resumes a staged URL import in a directory another site already uses', async () => {
+			const sitePath = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-url-resume-' ) );
+			await fs.promises.mkdir( path.join( sitePath, '.studio-import', 'source' ), {
+				recursive: true,
+			} );
+			fs.writeFileSync(
+				path.join( sitePath, '.studio-import', 'request.json' ),
+				JSON.stringify( { source_metadata: { source_path: 'https://example.com' } } )
+			);
+			vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
+				version: 1,
+				sites: [ { ...mockExistingSite, path: sitePath } ],
+			} );
+			const liberate = vi.fn();
+			const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
+				{ liberate }
+			).exitProcess( false );
+
+			try {
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					'https://example.com',
+					'--no-start',
+					'--skip-browser',
+				] );
+
+				expect( liberate ).not.toHaveBeenCalled();
+				expect( Logger.prototype.reportSuccess ).toHaveBeenCalledWith(
+					'Resuming the staged import; the source is not captured again'
+				);
+				expect( reportErrorSpy ).not.toHaveBeenCalledWith(
+					expect.objectContaining( { message: 'The selected directory is already in use.' } )
+				);
+			} finally {
+				await fs.promises.rm( sitePath, { recursive: true, force: true } );
+			}
 		} );
 
 		it( 'invokes the SSI host command once and consumes its terminal receipt', async () => {

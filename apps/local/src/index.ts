@@ -129,6 +129,7 @@ import {
 	fetchSyncableSites,
 } from '@studio/common/lib/sync/sync-api';
 import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
+import { getStudioUserAgent } from '@studio/common/lib/user-agent';
 import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/editor';
 import {
 	detectInstalledApps,
@@ -1618,7 +1619,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.json(
 					await sendStudioFeedback( parsed.data, {
 						accessToken: token.accessToken,
-						userAgent: options.userAgent ?? 'WordPressStudio',
+						userAgent: options.userAgent ?? getStudioUserAgent(),
 					} )
 				);
 			} catch ( error ) {

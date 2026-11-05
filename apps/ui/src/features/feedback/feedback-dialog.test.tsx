@@ -2,12 +2,6 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest';
 import { setCommandPaletteOpen } from '@/data/use-command-palette';
 import {
-	assistantToolCallEntry,
-	promptEntry,
-	toolResultEntry,
-	turnClosedEntry,
-} from '@/features/feedback/test-entries';
-import {
 	createFakeConnector,
 	makeSession,
 	makeSite,
@@ -15,6 +9,12 @@ import {
 	type FakeConnectorInitialState,
 } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
+import {
+	assistantToolCallEntry,
+	promptEntry,
+	toolResultEntry,
+	turnClosedEntry,
+} from '@/test/session-entries';
 
 const isApple = /Mac|iPhone|iPad/.test( navigator.platform );
 const site = makeSite( { id: 'one', name: 'Test site' } );

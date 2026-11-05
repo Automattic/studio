@@ -17,7 +17,8 @@ export interface StudioFeedback {
 export interface StudioFeedbackContext {
 	// The WordPress.com OAuth token from `studio auth login`.
 	accessToken: string;
-	// `WordPressStudio/<version>`: names the client to the server and opens the report.
+	// `WordPressStudio/<version>` (see `getStudioUserAgent`): names the client to
+	// the server and opens the report.
 	userAgent: string;
 	platform?: string;
 }
@@ -28,9 +29,20 @@ interface FeedbackResult {
 	feedback_id?: number;
 }
 
+// The ID the service assigned: from the structured result, or failing that
+// from its text ("Feedback ID: 1018", "reference ID 1018").
+function readFeedbackId( data: FeedbackResult | undefined, text: string ): number | undefined {
+	if ( typeof data?.feedback_id === 'number' ) {
+		return data.feedback_id;
+	}
+	const match = /\b(?:feedback|reference)\s*ID\b\D{0,10}(\d+)/i.exec( text );
+	return match ? Number( match[ 1 ] ) : undefined;
+}
+
 // Sends one report and returns the ID the service assigned it. Throws when the
-// user is not logged in, the message is empty, or the service did not accept
-// the report, so nothing reads as sent unless it was.
+// message is empty or the service did not confirm the report, so nothing reads
+// as sent unless it was. A throw after the request went out does not mean the
+// report was dropped, so callers report the error rather than retrying.
 export async function sendStudioFeedback(
 	feedback: StudioFeedback,
 	{ accessToken, userAgent, platform = process.platform }: StudioFeedbackContext
@@ -58,20 +70,26 @@ export async function sendStudioFeedback(
 				content: `[${ userAgent } on ${ platform }]\n\n${ message }`,
 			},
 		} );
-		const text = ( result.content as { type: string; text?: string }[] | undefined )
-			?.map( ( item ) => item.text ?? '' )
-			.join( '\n' )
-			.trim();
+		const text =
+			( result.content as { type: string; text?: string }[] | undefined )
+				?.map( ( item ) => item.text ?? '' )
+				.join( '\n' )
+				.trim() ?? '';
 		if ( result.isError ) {
 			throw new Error( text || 'the feedback service returned an error' );
 		}
-		const data = result.structuredContent as FeedbackResult | undefined;
-		if ( typeof data?.feedback_id !== 'number' ) {
+		const feedbackId = readFeedbackId(
+			result.structuredContent as FeedbackResult | undefined,
+			text
+		);
+		if ( feedbackId === undefined ) {
 			throw new Error(
-				`the feedback service did not return a feedback ID${ text ? `: ${ text }` : '' }`
+				`the feedback service did not confirm a feedback ID, so the report may or may not have been received${
+					text ? `: ${ text }` : ''
+				}`
 			);
 		}
-		return { feedbackId: data.feedback_id };
+		return { feedbackId };
 	} finally {
 		await client.close().catch( () => undefined );
 	}

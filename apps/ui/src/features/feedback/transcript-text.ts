@@ -1,6 +1,8 @@
 import type { TranscriptItem } from '@/features/chats';
 
 const MAX_TEXT_LENGTH = 2000;
+// The whole transcript, so a long chat stays a readable report.
+const MAX_TRANSCRIPT_LENGTH = 12000;
 
 function clip( text: string ): string {
 	const trimmed = text.trim();
@@ -46,5 +48,11 @@ export function transcriptToText( items: TranscriptItem[] ): string {
 		}
 	};
 	items.forEach( add );
+	let dropped = 0;
+	while ( lines.length > 1 && lines.join( '\n' ).length > MAX_TRANSCRIPT_LENGTH ) {
+		lines.shift();
+		dropped++;
+	}
+	if ( dropped ) lines.unshift( `[${ dropped } earlier lines left out]` );
 	return lines.join( '\n' );
 }

@@ -92,6 +92,7 @@ import {
 	listLocalFileTree as listSiteFileTree,
 } from '@studio/common/lib/sync/local-file-tree';
 import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
+import { getStudioUserAgent } from '@studio/common/lib/user-agent';
 import { supportedEditorConfig, SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import {
 	readOnboardingCompleted,
@@ -1524,6 +1525,6 @@ export async function sendFeedback( _event: IpcMainInvokeEvent, feedback: Studio
 	}
 	return sendStudioFeedback( feedback, {
 		accessToken: token.accessToken,
-		userAgent: `WordPressStudio/${ app.getVersion() }`,
+		userAgent: getStudioUserAgent( app.getVersion() ),
 	} );
 }

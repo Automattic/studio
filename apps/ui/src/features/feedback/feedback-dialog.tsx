@@ -8,7 +8,6 @@ import { errorMessage } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useSession } from '@/data/queries/use-sessions';
-import { useOpenSettings } from '@/data/use-open-settings';
 import { entriesToTranscriptItems } from '@/features/chats';
 import {
 	Button,
@@ -21,6 +20,8 @@ import {
 	DialogHeader,
 	DialogTitle,
 	Field,
+	FieldContent,
+	FieldDescription,
 	FieldError,
 	FieldLabel,
 	Select,
@@ -58,14 +59,16 @@ export function FeedbackDialog() {
 
 	return (
 		<Dialog open={ !! feedback } onOpenChange={ ( open ) => ! open && close() }>
-			<DialogContent layout="compact">{ feedback ? <FeedbackForm /> : null }</DialogContent>
+			<DialogContent layout="compact">
+				<FeedbackForm />
+			</DialogContent>
 		</Dialog>
 	);
 }
 
 function FeedbackForm() {
 	const connector = useConnector();
-	const openSettings = useOpenSettings();
+	const navigate = useNavigate();
 	const user = useAuthUser();
 	const { sessionId } = useParams( { strict: false } ) as { sessionId?: string };
 	const session = useSession( sessionId );
@@ -103,9 +106,21 @@ function FeedbackForm() {
 					>
 						{ __( 'Open GitHub' ) }
 					</Button>
-					<DialogClose render={ <Button /> } onClick={ () => openSettings( 'ai' ) }>
+					<Button
+						onClick={ () =>
+							void navigate( {
+								to: '.',
+								state: true,
+								search: ( { feedback: _feedback, ...rest }: Record< string, unknown > ) => ( {
+									...rest,
+									settings: 'ai',
+								} ),
+								replace: true,
+							} )
+						}
+					>
 						{ __( 'Log in' ) }
-					</DialogClose>
+					</Button>
 				</DialogFooter>
 			</>
 		);
@@ -198,7 +213,13 @@ function FeedbackForm() {
 						onChange={ ( event ) => setMessage( event.target.value ) }
 						autoFocus
 					/>
-					<FieldError>{ send.error ? errorMessage( send.error ) : null }</FieldError>
+					<FieldError>
+						{ user.error
+							? errorMessage( user.error )
+							: send.error
+							? errorMessage( send.error )
+							: null }
+					</FieldError>
 				</Field>
 				{ transcript ? (
 					<Field orientation="horizontal">
@@ -208,9 +229,16 @@ function FeedbackForm() {
 							onCheckedChange={ setIncludeTranscript }
 							disabled={ sending }
 						/>
-						<FieldLabel htmlFor={ transcriptId } tone="muted">
-							{ __( 'Include this chat’s transcript' ) }
-						</FieldLabel>
+						<FieldContent>
+							<FieldLabel htmlFor={ transcriptId } tone="muted">
+								{ __( 'Include this chat’s transcript' ) }
+							</FieldLabel>
+							<FieldDescription>
+								{ __(
+									'What was said, the tools that ran and any errors. Check it for private details before sending.'
+								) }
+							</FieldDescription>
+						</FieldContent>
 					</Field>
 				) : null }
 			</div>

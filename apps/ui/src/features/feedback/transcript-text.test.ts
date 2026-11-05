@@ -6,7 +6,7 @@ import {
 	promptEntry,
 	toolResultEntry,
 	turnClosedEntry,
-} from './test-entries';
+} from '@/test/session-entries';
 import { transcriptToText } from './transcript-text';
 
 describe( 'transcriptToText', () => {
@@ -42,6 +42,17 @@ describe( 'transcriptToText', () => {
 		expect( text ).toContain( 'Tool site_info' );
 		expect( text ).not.toContain( 'My site' );
 		expect( text.split( '\n' )[ 0 ] ).toHaveLength( 'User: '.length + 2000 + 1 );
+	} );
+
+	it( 'keeps the end of a long chat and says how much it left out', () => {
+		const entries = Array.from( { length: 40 }, ( _, i ) =>
+			promptEntry( `${ i } ${ 'y'.repeat( 1500 ) }` )
+		);
+		const text = transcriptToText( entriesToTranscriptItems( entries ) );
+		expect( text.length ).toBeLessThanOrEqual( 12000 + '[99 earlier lines left out]\n'.length );
+		expect( text ).toMatch( /^\[\d+ earlier lines left out\]\nUser: / );
+		expect( text ).toContain( 'User: 39 ' );
+		expect( text ).not.toContain( 'User: 0 ' );
 	} );
 
 	it( 'is empty for a chat with nothing in it', () => {

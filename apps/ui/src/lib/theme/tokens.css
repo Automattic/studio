@@ -114,6 +114,7 @@
 	--shadow-xs: 0 1px 2px 0 rgb( 0 0 0 / 5% );
 	--shadow-sm: 0 0 3px 0 rgb( 0 0 0 / 8% );
 	--shadow-md: 0 4px 6px -1px rgb( 0 0 0 / 10% ), 0 2px 4px -2px rgb( 0 0 0 / 10% );
+	--shadow-preview: 0 1px 3px rgb( 0 0 0 / 10% );
 	--shadow-raised: 0 1px 3px rgb( 0 0 0 / 20% );
 
 	/* A 4px grid, numbered like Tailwind's spacing scale: `--space-1_5` is 1.5 × 4px. */

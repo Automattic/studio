@@ -46,11 +46,13 @@ export function QuestionOptionViewer( {
 				} }
 			>
 				{ localFileQuery.data ? (
-					<img
-						className={ styles.questionOptionZoomImage }
-						src={ localFileQuery.data }
-						alt={ option?.label }
-					/>
+					<span className={ styles.questionOptionZoomArtwork }>
+						<img
+							className={ styles.questionOptionZoomImage }
+							src={ localFileQuery.data }
+							alt={ option?.label }
+						/>
+					</span>
 				) : null }
 				<DialogClose
 					className={ styles.questionOptionZoomClose }

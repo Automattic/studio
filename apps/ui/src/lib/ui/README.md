@@ -33,7 +33,8 @@ import { Button, Menu, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui'
 - Feature education: `FeaturePopover` composes `Popover` with an optional badge, dismiss action, and footer. Use `Navigation` for Next/Skip and step text. The caller owns opening, progression, dismissal, and persistence; the card supports both hover hints and controlled onboarding steps.
 - Status: `Alert`, `Empty`, `Skeleton`, `Spinner`, `Progress`, `Badge`, `NotificationDot`. Attachment labels: `AttachmentChip`, with `font="mono"` for element references.
 - Sidebar groups and rows: `SidebarGroup`, `SidebarMenu`, `SidebarMenuButton`.
-- Also `CodeBlock`, `PreviewFrame`, `ResizeHandle`, `MarqueeLabel` (a long label that scrolls on hover), `CommandSheet` (slash commands), `Kbd` and `VisuallyHidden`.
+- Image previews: `PreviewFrame` for a 16:10 screenshot. Other image wrappers compose `imageOutline` from the theme recipes: a 1px inset overlay at 12% foreground opacity, following the wrapper's radius. Apply it to a positioned wrapper, rather than the `img`, so the line draws over the pixels. `imagePreviewFrame` adds the shared preview shadow.
+- Also `CodeBlock`, `ResizeHandle`, `MarqueeLabel` (a long label that scrolls on hover), `CommandSheet` (slash commands), `Kbd` and `VisuallyHidden`.
 
 When none fits, add one here rather than styling a `div` in a feature.
 

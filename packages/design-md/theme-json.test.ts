@@ -2,6 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { designSheet, themeJsonDesign } from './index';
 
 describe( 'WordPress style boards', () => {
+	it.each( [
+		`var(--wp--preset-----${ '-'.repeat( 20000 ) }!`,
+		'var(--wp--preset--font-family--body',
+		'var:preset|font-family|body|extra',
+		'var(--wp--preset--unknown--body)',
+	] )( 'preserves malformed or unsupported preset references: %.60s', ( fontFamily ) => {
+		const tokens = themeJsonDesign( { styles: { typography: { fontFamily } } } );
+		expect( tokens.typography?.body.fontFamily ).toBe( fontFamily );
+	} );
+
 	it( 'uses Site Editor overrides and resolves preset references in colors, fonts and buttons', () => {
 		const tokens = themeJsonDesign( {
 			settings: {

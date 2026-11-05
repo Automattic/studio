@@ -54,7 +54,7 @@ export function themeJsonDesign( themeJson: Tree ): DesignTokens {
 	// A preset reference, either way theme.json writes one, as its value.
 	const value = ( raw: unknown ) => {
 		const match = String( raw ?? '' ).match(
-			/^var(?::preset\|([\w-]+)\|([\w-]+)|\(--wp--preset--([a-z-]+?)--([\w-]+)\))$/
+			/^var(?::preset\|(color|font-family|font-size)\|([\w-]+)|\(--wp--preset--(color|font-family|font-size)--([\w-]+)\))$/
 		);
 		if ( ! match ) {
 			return raw;

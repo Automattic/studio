@@ -125,7 +125,7 @@ function FeedbackForm() {
 								),
 								String( send.data.feedbackId )
 							),
-							{ id: <strong /> }
+							{ id: <strong className={ styles.reference } /> }
 						) }
 					</DialogDescription>
 				</DialogHeader>

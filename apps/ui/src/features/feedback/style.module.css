@@ -7,3 +7,8 @@
 	flex-direction: column;
 	gap: 12px;
 }
+
+.reference {
+	color: var( --foreground );
+	font-weight: var( --font-weight-semibold );
+}

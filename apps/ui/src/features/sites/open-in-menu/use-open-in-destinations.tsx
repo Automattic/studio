@@ -77,7 +77,7 @@ export function useOpenInDestinations(
 	const { data: installedApps } = useInstalledApps();
 	const browserLabel = userPreferences?.browser
 		? browserConfig[ userPreferences.browser ].name
-		: __( 'Browser' );
+		: installedApps?.defaultBrowser?.name ?? __( 'Browser' );
 	const startSite = useStartSiteWithChat();
 
 	const fileManager = getFileManager();
@@ -116,6 +116,23 @@ export function useOpenInDestinations(
 
 	const destinations: Array< OpenInDestinationEntry | false > = [
 		{
+			id: 'browser',
+			label: browserLabel,
+			logo: (
+				<AppIcon
+					app={ userPreferences?.browser ?? installedApps?.defaultBrowser?.browser }
+					fallback={ <ExternalLinkIcon /> }
+				/>
+			),
+			disabled: false,
+			open: () =>
+				open( 'browser', __( 'Browser' ), () => {
+					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER, { browser: 'external' } );
+					// The front end opens logged out; only WP Admin signs the user in.
+					return openSiteUrl( '/', { autoLogin: false } );
+				} ),
+		},
+		{
 			id: 'files',
 			label: fileManager.label,
 			logo: fileManager.logo,
@@ -124,20 +141,6 @@ export function useOpenInDestinations(
 				open( 'files', fileManager.label, () => {
 					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_FOLDER );
 					return connector.openSiteFolder( site.id );
-				} ),
-		},
-		{
-			id: 'browser',
-			label: browserLabel,
-			logo: (
-				<AppIcon app={ userPreferences?.browser ?? undefined } fallback={ <ExternalLinkIcon /> } />
-			),
-			disabled: false,
-			open: () =>
-				open( 'browser', __( 'Browser' ), () => {
-					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER, { browser: 'external' } );
-					// The front end opens logged out; only WP Admin signs the user in.
-					return openSiteUrl( '/', { autoLogin: false } );
 				} ),
 		},
 		!! editor && {

@@ -1,6 +1,5 @@
 import { getLocalizedLink, REPORT_ISSUE_URL } from '@studio/common/lib/docs-links';
 import { __ } from '@wordpress/i18n';
-import { RotateCcwIcon } from 'lucide-react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
@@ -11,6 +10,7 @@ import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { getSettingCommands } from '@/features/commands/studio-commands';
+import { ResetTipsIcon } from '@/lib/icons';
 import type { SiteDetails, UserPreferences } from '@/data/core';
 import type { PaletteCommand, SettingToggles } from '@/features/commands/studio-commands';
 
@@ -70,25 +70,26 @@ function useSettingToggles(): SettingToggles {
 				? __( 'Automatic site start on prompt disabled.' )
 				: __( 'Automatic site start on prompt enabled.' )
 		),
-		'confirm-delete-annotations': toggle(
-			'confirmDeleteAnnotations',
-			preferences.confirmDeleteAnnotations,
-			preferences.confirmDeleteAnnotations
-				? __( 'Disable annotation deletion confirmation' )
-				: __( 'Enable annotation deletion confirmation' ),
-			preferences.confirmDeleteAnnotations
-				? __( 'Annotation deletion confirmation disabled.' )
-				: __( 'Annotation deletion confirmation enabled.' )
+		'batch-notes': toggle(
+			'batchAnnotations',
+			preferences.batchAnnotations ?? true,
+			preferences.batchAnnotations ?? true
+				? __( 'Disable batch notes' )
+				: __( 'Enable batch notes' ),
+			preferences.batchAnnotations ?? true
+				? __( 'Batch notes disabled.' )
+				: __( 'Batch notes enabled.' )
 		),
+
 		'open-chat-on-site-start': toggle(
 			'openChatOnSiteStart',
 			preferences.openChatOnSiteStart,
 			preferences.openChatOnSiteStart
-				? __( 'Disable chat opening on site start' )
-				: __( 'Enable chat opening on site start' ),
+				? __( 'Disable starting sites in split view' )
+				: __( 'Enable starting sites in split view' ),
 			preferences.openChatOnSiteStart
-				? __( 'Chat opening on site start disabled.' )
-				: __( 'Chat opening on site start enabled.' )
+				? __( 'Sites will start with the panel expanded.' )
+				: __( 'Sites will start in split view.' )
 		),
 		'usage-statistics': toggle(
 			'analyticsEnabled',
@@ -146,7 +147,7 @@ export function useSettingCommands(
 			id: 'reset-tips',
 			group: 'commands',
 			label: __( 'Reset tips' ),
-			icon: RotateCcwIcon,
+			icon: ResetTipsIcon,
 			keywords: [ __( 'Hints' ), __( 'First use' ) ],
 			run: () => {
 				if ( setHints.isPending ) return;

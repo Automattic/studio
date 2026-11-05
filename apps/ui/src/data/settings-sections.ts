@@ -1,14 +1,9 @@
 import { __ } from '@wordpress/i18n';
-import {
-	BugIcon,
-	ChartNoAxesColumnIncreasingIcon,
-	CodeIcon,
-	FileTextIcon,
-	SettingsIcon,
-	TerminalIcon,
-} from 'lucide-react';
+import { BugIcon, ChartNoAxesColumnIncreasingIcon, FileTextIcon, SettingsIcon } from 'lucide-react';
 import {
 	AppearanceIcon,
+	CodeIcon,
+	ExternalLinkIcon,
 	IntelligenceIcon,
 	KeyboardIcon,
 	LanguageIcon,
@@ -17,6 +12,7 @@ import {
 	ShareIcon,
 	SiteSettingsIcon,
 	SkillsIcon,
+	TerminalIcon,
 } from '@/lib/icons';
 import type { ComponentType } from 'react';
 
@@ -151,8 +147,8 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				),
 				setting(
 					'action',
-					__( 'Open chat when starting a site' ),
-					__( 'Show the chat panel alongside the preview when starting a site.' ),
+					__( 'Start sites in split view' ),
+					__( 'Show chat beside the panel when starting a site.' ),
 					'open-chat-on-site-start'
 				),
 				setting(
@@ -169,9 +165,9 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				),
 				setting(
 					'action',
-					__( 'Confirm before deleting annotations' ),
-					__( 'Ask before deleting pending notes and attached images.' ),
-					'confirm-delete-annotations'
+					__( 'Batch notes' ),
+					__( 'Collect annotations and send them together instead of one at a time.' ),
+					'batch-notes'
 				),
 				setting(
 					'action',
@@ -189,7 +185,8 @@ function getStudioSections( signedIn: boolean ): Section[] {
 					'action',
 					__( 'Documentation' ),
 					__( 'Guides for building and managing sites with WordPress Studio.' ),
-					'documentation'
+					'documentation',
+					ExternalLinkIcon
 				),
 				setting(
 					'action',
@@ -258,7 +255,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 		},
 		{
 			id: 'ai',
-			label: __( 'AI Providers' ),
+			label: __( 'Providers' ),
 			icon: IntelligenceIcon,
 			aliases: [ __( 'Connect provider' ) ],
 			settings: [

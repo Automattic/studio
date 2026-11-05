@@ -5,7 +5,7 @@ import { useWindowControlsOverlay } from '@/lib/hooks';
 /**
  * Whether the surrounding panel reaches the window's physical top-right corner,
  * where Windows/Linux paint the native window controls. Set by the layout that
- * knows where each panel sits (see PreviewSplitFrame).
+ * knows where each panel sits (see PanelSplitFrame).
  */
 export const WindowControlsCornerContext = createContext( false );
 

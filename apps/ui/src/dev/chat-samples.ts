@@ -431,9 +431,7 @@ export const chatSamples: ChatSample[] = [
 				result: 'Successfully replaced 1 block(s).',
 			} );
 			t.designSystem();
-			t.assistant(
-				'The palette now leans on terracotta and cream. The Studio preview is refreshed. Nothing has been published to your live site.'
-			);
+			t.assistant( `Updated the [Design System](${ DESIGN_SYSTEM_PREVIEW_PATH }).` );
 			t.closed();
 		} ),
 	},

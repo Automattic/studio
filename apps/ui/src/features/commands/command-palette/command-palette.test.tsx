@@ -57,8 +57,19 @@ afterEach( () =>
 		closeNoticeHistory();
 	} )
 );
+afterEach( () => vi.unstubAllGlobals() );
 
 describe( 'command palette', () => {
+	beforeEach( () => localStorage.clear() );
+
+	it( 'opens a new chat for the current site from the application menu', async () => {
+		const connector = createFakeConnector( { sites: [ testSite ] } );
+		const { history } = await renderPalette( { connector } );
+		act( () => connector.emit( 'onNewChat' ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
+		expect( connector.createSession ).not.toHaveBeenCalled();
+	} );
+
 	it( 'toggles the sidebar after releasing the palette dialog guard', async () => {
 		await renderPalette();
 		for ( const label of [ 'Hide sidebar', 'Show sidebar' ] ) {
@@ -108,15 +119,15 @@ describe( 'command palette', () => {
 			search( 'Usage' );
 			expect( screen.queryByRole( 'option', { name: 'Usage' } ) !== null ).toBe( signedIn );
 			expect( screen.queryByRole( 'option', { name: /View AI usage/ } ) ).not.toBeInTheDocument();
-			search( 'AI Providers' );
-			expect( option( 'AI Providers' ) ).toBeVisible();
+			search( 'Providers' );
+			expect( option( 'Providers' ) ).toBeVisible();
 		}
 	);
 
 	it.each( [
 		[ 'MCP', 'MCP', 'mcp' ],
-		[ 'Connect', 'AI Providers', 'ai' ],
-		[ 'Connect provider', 'AI Providers', 'ai' ],
+		[ 'Connect', 'Providers', 'ai' ],
+		[ 'Connect provider', 'Providers', 'ai' ],
 		[ 'credits', 'Usage', 'usage' ],
 		[ 'AI credits', 'Usage', 'usage' ],
 		[ 'credit balance', 'Usage', 'usage' ],
@@ -248,8 +259,30 @@ describe( 'command palette', () => {
 		expect( screen.queryByRole( 'option', { name: /^Start site/ } ) ).not.toBeInTheDocument();
 		search( 'Open WordPress Admin' );
 		expect(
-			screen.queryByRole( 'option', { name: /^Open WordPress Admin in preview/ } )
+			screen.queryByRole( 'option', { name: /^Open WordPress Admin/ } )
 		).not.toBeInTheDocument();
+	} );
+
+	it.each( [
+		[ 'Open WordPress Admin', 'Admin' ],
+		[ 'Open database', 'Database' ],
+		[ 'Open email log', 'Email log' ],
+	] )( 'opens %s in the panel with one command', async ( label, tab ) => {
+		const connector = createFakeConnector( { sites: [ { ...testSite, running: true } ] } );
+		const { user } = await renderPalette( { connector, path: '/sites/one/new' } );
+		await openPalette();
+		search( label );
+		expect( screen.getAllByRole( 'option', { name: new RegExp( `^${ label }` ) } ) ).toHaveLength(
+			1
+		);
+		await user.click( option( `${ label } Test site` ) );
+		await paletteClosed();
+		expect( await screen.findByRole( 'complementary', { name: 'Panel' } ) ).toBeVisible();
+		await waitFor( () =>
+			expect( screen.getByRole( 'tab', { name: tab } ) ).toHaveAttribute( 'aria-selected', 'true' )
+		);
+		expect( connector.openSiteUrl ).not.toHaveBeenCalled();
+		expect( connector.openExternalUrl ).not.toHaveBeenCalled();
 	} );
 
 	it( 'omits site commands without a site', async () => {
@@ -461,7 +494,13 @@ describe( 'Command palette in the Studio workspace', () => {
 	beforeEach( () => {
 		localStorage.clear();
 		resetAppMessagesForTests();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn( async () => Response.json( { blueprints: [] } ) )
+		);
 	} );
+
+	afterEach( () => vi.unstubAllGlobals() );
 
 	it.each( [ false, true ] )(
 		'restarts through the palette after stop settles (fails: %s)',
@@ -539,6 +578,10 @@ describe( 'Command palette in the Studio workspace', () => {
 	it.each( [ false, true ] )(
 		'switches Add site to the command palette (empty: %s)',
 		async ( empty ) => {
+			vi.stubGlobal(
+				'fetch',
+				vi.fn( async () => Response.json( { blueprints: [] } ) )
+			);
 			setup( { sites: empty ? [] : [ site() ] } );
 			if ( ! empty ) {
 				await screen.findByRole( 'button', { name: 'Site menu' } );
@@ -593,11 +636,17 @@ describe( 'Command palette in the Studio workspace', () => {
 		} );
 		await paletteCommand( 'export site', /^Export site/ );
 		await waitFor( () =>
-			expect( connector.exportFullSite ).toHaveBeenCalledExactlyOnceWith( 'one' )
+			expect( connector.exportFullSite ).toHaveBeenCalledExactlyOnceWith(
+				'one',
+				expect.objectContaining( { onStarted: expect.any( Function ) } )
+			)
 		);
 		await paletteCommand( 'export database', /^Export database/ );
 		await waitFor( () =>
-			expect( connector.exportDatabase ).toHaveBeenCalledExactlyOnceWith( 'one' )
+			expect( connector.exportDatabase ).toHaveBeenCalledExactlyOnceWith(
+				'one',
+				expect.objectContaining( { onStarted: expect.any( Function ) } )
+			)
 		);
 		await paletteCommand( 'duplicate site', /^Duplicate site/ );
 		await waitFor( () => expect( connector.copySite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );

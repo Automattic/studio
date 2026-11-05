@@ -74,7 +74,7 @@ export function QuestionOptionViewer( {
 					<Button
 						className={ styles.questionOptionZoomChoose }
 						variant="accent"
-						size="header"
+						size="sm"
 						onClick={ () => {
 							onIndexChange( null );
 							onChoose( option.label );

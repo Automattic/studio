@@ -11,6 +11,7 @@ import {
 	pickAnnotation,
 	removeAnnotations,
 	stageAnnotations,
+	subscribeAnnotationReview,
 } from '@/features/annotations';
 import { Composer, type ComposerHandle } from '@/features/composer';
 import { Button } from '@/lib/ui';
@@ -262,7 +263,7 @@ describe( 'Chat composer', () => {
 		const { input, onSend, history } = await setup();
 		fireEvent.change( input, { target: { value: 'Keep this draft' } } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: /^Connect AI providers/ } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Connect providers/ } ) );
 		await waitFor( () => expect( history.location.search ).toContain( 'settings=ai' ) );
 		expect( input ).toHaveValue( 'Keep this draft' );
 		expect( onSend ).not.toHaveBeenCalled();
@@ -378,12 +379,14 @@ describe( 'Chat composer', () => {
 		fireEvent.change( input, { target: { value: '/ann' } } );
 		await screen.findByRole( 'listbox' );
 		expect( screen.getByRole( 'group', { name: 'Skills' } ) ).toBeVisible();
+		expect( screen.queryByText( 'Skills' ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'group', { name: 'Commands' } ) ).not.toBeInTheDocument();
 		fireEvent.keyDown( input, { key: 'Escape' } );
 		await waitFor( () => expect( screen.queryByRole( 'listbox' ) ).not.toBeInTheDocument() );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
 		const picker = await screen.findByRole( 'listbox' );
 		expect( screen.getByRole( 'group', { name: 'Skills' } ) ).toBeVisible();
+		expect( within( picker ).getByText( 'Skills' ) ).toBeVisible();
 		const files = screen.getByRole( 'option', { name: 'Add files' } );
 		fireEvent.keyDown( picker, { key: 'Home' } );
 		expect( files ).toHaveAttribute( 'aria-selected', 'true' );
@@ -400,26 +403,37 @@ describe( 'Chat composer', () => {
 		expect( onSend ).not.toHaveBeenCalled();
 	} );
 
-	it( 'opens the multiple-file picker from the menu and attaches the selected file', async () => {
-		const { onSend } = await setup();
-		const fileInput = screen.getByLabelText( 'Upload attachments' ) as HTMLInputElement;
-		const picker = vi.spyOn( fileInput, 'click' );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: 'Add files' } ) );
-		await waitFor( () => expect( picker ).toHaveBeenCalledOnce() );
-		expect( fileInput.multiple ).toBe( true );
-		fireEvent.change( fileInput, {
-			target: { files: [ new File( [ 'Notes' ], 'notes.txt', { type: 'text/plain' } ) ] },
-		} );
-		expect( await screen.findByText( 'notes.txt' ) ).toBeVisible();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
-		await waitFor( () =>
-			expect( onSend ).toHaveBeenCalledWith(
-				'Please review the attached files.',
-				expect.objectContaining( { files: [ expect.objectContaining( { name: 'notes.txt' } ) ] } )
-			)
-		);
-	} );
+	it.each( [ 'menu', 'slash' ] )(
+		'opens the multiple-file picker from %s and attaches the selected file',
+		async ( source ) => {
+			const { input, onSend } = await setup();
+			const fileInput = screen.getByLabelText( 'Upload attachments' ) as HTMLInputElement;
+			const picker = vi.spyOn( fileInput, 'click' );
+			if ( source === 'slash' ) {
+				fireEvent.change( input, { target: { value: '/add' } } );
+				await screen.findByRole( 'option', { name: 'Add files' } );
+				fireEvent.keyDown( input, { key: 'Enter' } );
+			} else {
+				fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
+				fireEvent.click( await screen.findByRole( 'option', { name: 'Add files' } ) );
+			}
+			await waitFor( () => expect( picker ).toHaveBeenCalledOnce() );
+			expect( input ).toHaveValue( '' );
+			expect( onSend ).not.toHaveBeenCalled();
+			expect( fileInput.multiple ).toBe( true );
+			fireEvent.change( fileInput, {
+				target: { files: [ new File( [ 'Notes' ], 'notes.txt', { type: 'text/plain' } ) ] },
+			} );
+			expect( await screen.findByText( 'notes.txt' ) ).toBeVisible();
+			fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+			await waitFor( () =>
+				expect( onSend ).toHaveBeenCalledWith(
+					'Please review the attached files.',
+					expect.objectContaining( { files: [ expect.objectContaining( { name: 'notes.txt' } ) ] } )
+				)
+			);
+		}
+	);
 
 	it( 'keeps Enter submission, Shift+Enter and IME composition behavior', async () => {
 		const { input, onSend } = await setup();
@@ -472,6 +486,18 @@ describe( 'Chat composer', () => {
 } );
 
 describe( 'Composer parity', () => {
+	it( 'omits local site controls when the chat targets the live site', async () => {
+		const onStartSite = vi.fn();
+		const onStopSite = vi.fn();
+		await setup( { environment: 'live', onStartSite, onStopSite } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
+		await screen.findByRole( 'option', { name: 'Add files' } );
+		expect(
+			screen.queryByRole( 'option', { name: /^Start site(?: |$)/ } )
+		).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'option', { name: 'Stop site' } ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'hides Auto-start while its chip is active and restores the command after removal', async () => {
 		const { input, onSend } = await setup( { canAutoStart: true } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
@@ -700,6 +726,55 @@ describe( 'Annotation attachments in the composer', () => {
 			expect( screen.queryByRole( 'listitem', { name: /^1 annotation,/ } ) ).not.toBeInTheDocument()
 		);
 		expect( getSiteAnnotations( SITE ).notes ).toHaveLength( 0 );
+	} );
+
+	it( 'opens the annotation chip as an editable list and deletes individual notes', async () => {
+		const first = stageNote( 'Make the heading shorter' );
+		const second = stageNote( 'Make the background warmer' );
+		const review = vi.fn();
+		const unsubscribe = subscribeAnnotationReview( SITE, review );
+		try {
+			const { user } = await setup( { annotationSiteId: SITE } );
+			await user.click( screen.getByRole( 'button', { name: '2 annotations' } ) );
+			expect(
+				await screen.findByRole( 'button', { name: 'Edit annotation 1: Make the heading shorter' } )
+			).not.toHaveFocus();
+			await user.keyboard( '{Escape}' );
+			await user.keyboard( '{Enter}' );
+			await waitFor( () =>
+				expect( screen.getAllByRole( 'button', { name: /Edit annotation/ } )[ 0 ] ).toHaveFocus()
+			);
+			await user.keyboard( '{ArrowDown}' );
+			expect(
+				screen.getByRole( 'button', { name: 'Edit annotation 2: Make the background warmer' } )
+			).toHaveFocus();
+			await user.keyboard( '{ArrowUp}' );
+			expect(
+				screen.getByRole( 'button', { name: 'Edit annotation 1: Make the heading shorter' } )
+			).toBeVisible();
+			await user.click( screen.getByRole( 'button', { name: 'Delete annotation 1' } ) );
+			expect( getSiteAnnotations( SITE ).notes.map( ( note ) => note.id ) ).toEqual( [ second ] );
+			await waitFor( () =>
+				expect(
+					screen.getByRole( 'button', { name: 'Edit annotation 2: Make the background warmer' } )
+				).toHaveFocus()
+			);
+			await user.keyboard( '{Escape}' );
+			expect( screen.getByRole( 'button', { name: '1 annotation' } ) ).toHaveFocus();
+			await user.click( screen.getByRole( 'button', { name: '1 annotation' } ) );
+			await user.click(
+				screen.getByRole( 'button', { name: 'Edit annotation 2: Make the background warmer' } )
+			);
+			expect( review ).toHaveBeenCalledExactlyOnceWith( second );
+			expect(
+				screen.queryByRole( 'button', { name: 'Edit annotation 2: Make the background warmer' } )
+			).not.toBeInTheDocument();
+			expect( getSiteAnnotations( SITE ).notes.some( ( note ) => note.id === first ) ).toBe(
+				false
+			);
+		} finally {
+			unsubscribe();
+		}
 	} );
 
 	it( 'groups staged notes and removes them together without changing the text after a rejected send', async () => {
@@ -1003,10 +1078,10 @@ describe( 'Composer sending', () => {
 
 describe( 'Composer drafts and attachments', () => {
 	it( 'previews an attachment while its chip is hovered', async () => {
-		await setup();
+		const { user } = await setup();
 		upload( 'notes.txt' );
 
-		fireEvent.mouseEnter( await screen.findByRole( 'listitem', { name: /^notes\.txt/ } ) );
+		await user.hover( await screen.findByRole( 'listitem', { name: /^notes\.txt/ } ) );
 
 		expect(
 			await screen.findByText( 'notes.txt text', {}, { timeout: 2000 } )

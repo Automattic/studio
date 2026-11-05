@@ -201,9 +201,10 @@ export function ConnectPanel( { onConnect }: { onConnect: ( site: SyncSite ) => 
 					flush
 					title={ __( 'Connect your WordPress' ) }
 					description={ __(
-						'Create an account or log in to connect your WordPress.com or Pressable sites and work on them locally.'
+						'Create an account or log in to connect your WordPress.com or Pressable sites.'
 					) }
 					source="add_site"
+					analytics={ { placement: 'add_site_connect', intent: 'connect_site' } }
 				/>
 			</Empty>
 		);

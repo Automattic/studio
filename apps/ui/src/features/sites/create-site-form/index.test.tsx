@@ -459,8 +459,6 @@ describe( 'CreateSiteForm fields', () => {
 	it( 'shows an actionable submission error with optional technical details', async () => {
 		const { onCancel } = await renderForm( {
 			initialValues: { name: 'Imported site', path: '/sites/imported-site' },
-			submitLabel: 'Retry import',
-			cancelLabel: 'Choose another backup',
 			submitError: {
 				title: 'WordPress Studio could not import this backup.',
 				message: 'The incomplete site was removed.',
@@ -470,8 +468,8 @@ describe( 'CreateSiteForm fields', () => {
 		const alert = screen.getByRole( 'alert' );
 		expect( alert ).toHaveTextContent( 'WordPress Studio could not import this backup.' );
 		expect( alert ).toHaveTextContent( 'The incomplete site was removed.' );
-		expect( screen.getByRole( 'button', { name: 'Retry import' } ) ).toBeVisible();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Choose another backup' } ) );
+		expect( screen.getByRole( 'button', { name: 'Create site' } ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel' } ) );
 		expect( onCancel ).toHaveBeenCalledOnce();
 		fireEvent.click( screen.getByText( 'View technical details' ) );
 		expect( screen.getByText( 'CLI command failed' ) ).toBeVisible();

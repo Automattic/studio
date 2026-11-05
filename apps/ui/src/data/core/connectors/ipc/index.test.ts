@@ -26,7 +26,8 @@ describe( 'createIpcConnector exports', () => {
 	it( 'exports the full site through the main-process handler signature', async () => {
 		showSaveAsDialog.mockResolvedValue( '/tmp/demo-backup.zip' );
 
-		const result = await createIpcConnector().exportFullSite( 'site-1' );
+		const onStarted = vi.fn();
+		const result = await createIpcConnector().exportFullSite( 'site-1', { onStarted } );
 
 		expect( exportSite ).toHaveBeenCalledWith( 'site-1', '/tmp/demo-backup.zip', {
 			mode: 'full',
@@ -34,6 +35,10 @@ describe( 'createIpcConnector exports', () => {
 			showItemInFolder: true,
 			showNotification: true,
 		} );
+		expect( onStarted ).toHaveBeenCalledOnce();
+		expect( onStarted.mock.invocationCallOrder[ 0 ] ).toBeLessThan(
+			exportSite.mock.invocationCallOrder[ 0 ]
+		);
 		expect( result ).toBe( '/tmp/demo-backup.zip' );
 	} );
 
@@ -54,8 +59,10 @@ describe( 'createIpcConnector exports', () => {
 	it( 'skips the export when the save dialog is cancelled', async () => {
 		showSaveAsDialog.mockResolvedValue( undefined );
 
-		const result = await createIpcConnector().exportFullSite( 'site-1' );
+		const onStarted = vi.fn();
+		const result = await createIpcConnector().exportFullSite( 'site-1', { onStarted } );
 
+		expect( onStarted ).not.toHaveBeenCalled();
 		expect( exportSite ).not.toHaveBeenCalled();
 		expect( result ).toBeNull();
 	} );
@@ -271,4 +278,25 @@ describe( 'createIpcConnector errors', () => {
 		);
 		await expect( createIpcConnector().startSite( 'site-1' ) ).rejects.toThrow( /^$/ );
 	} );
+} );
+
+it( 'passes the telemetry site lookup separately and tolerates recorder failures', async () => {
+	const recordAnalyticsEvent = vi.fn().mockResolvedValue( undefined );
+	vi.stubGlobal( 'ipcApi', { recordAnalyticsEvent } );
+	vi.stubGlobal( 'ipcListener', { subscribe: vi.fn() } );
+	try {
+		const connector = createIpcConnector();
+		await connector.trackEvent( 'studio_sync_push', { success: true }, 'operational-id' );
+		expect( recordAnalyticsEvent ).toHaveBeenCalledWith(
+			'studio_sync_push',
+			{ success: true },
+			'operational-id'
+		);
+		recordAnalyticsEvent.mockRejectedValueOnce( new Error( 'Recorder unavailable' ) );
+		await expect(
+			connector.trackEvent( 'studio_sync_push', { success: false }, 'operational-id' )
+		).resolves.toBeUndefined();
+	} finally {
+		vi.unstubAllGlobals();
+	}
 } );

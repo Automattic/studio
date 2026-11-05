@@ -23,6 +23,10 @@
 		--command-radius: var( --radius-lg );
 	}
 
+	.list[data-radius='menu'] {
+		--command-radius: var( --radius-md );
+	}
+
 	.empty {
 		padding: var( --space-6 ) 0;
 		color: var( --muted-foreground );
@@ -64,6 +68,9 @@
 		composes: item from '@/lib/ui/surface/style.module.css';
 		min-height: var( --control-size );
 		padding-inline: var( --space-2_5 );
+	}
+
+	.list .menuItem {
 		border-radius: var( --command-radius );
 	}
 

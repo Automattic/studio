@@ -37,6 +37,7 @@ export function Popup( {
 	align = 'start',
 	sideOffset = 4,
 	alignOffset,
+	arrowPadding,
 	anchor,
 	backdrop = false,
 	keepMounted = false,
@@ -45,6 +46,7 @@ export function Popup( {
 	initialFocus,
 	finalFocus,
 	variant = 'floating',
+	instant = false,
 	'data-color-scheme': colorScheme,
 	'aria-label': ariaLabel,
 	'aria-describedby': ariaDescribedBy,
@@ -54,6 +56,7 @@ export function Popup( {
 	align?: PositionerProps[ 'align' ];
 	sideOffset?: number;
 	alignOffset?: number;
+	arrowPadding?: PositionerProps[ 'arrowPadding' ];
 	anchor?: PositionerProps[ 'anchor' ];
 	// Catches outside clicks that would otherwise land in a webview and never dismiss it.
 	backdrop?: boolean;
@@ -63,6 +66,7 @@ export function Popup( {
 	initialFocus?: PopupProps[ 'initialFocus' ];
 	finalFocus?: PopupProps[ 'finalFocus' ];
 	variant?: 'floating' | 'commands';
+	instant?: boolean;
 	'data-color-scheme'?: 'light' | 'dark';
 	'aria-label'?: string;
 	'aria-describedby'?: string;
@@ -80,6 +84,7 @@ export function Popup( {
 				align={ align }
 				sideOffset={ sideOffset }
 				alignOffset={ alignOffset }
+				arrowPadding={ arrowPadding }
 				anchor={ anchor }
 				collisionAvoidance={ commands ? COMMANDS_COLLISION_AVOIDANCE : undefined }
 				collisionPadding={ commands ? 5 : undefined }
@@ -87,6 +92,7 @@ export function Popup( {
 			>
 				<BasePopover.Popup
 					data-slot="popover-content"
+					data-instant={ instant || undefined }
 					initialFocus={ initialFocus }
 					finalFocus={ finalFocus }
 					aria-label={ ariaLabel }

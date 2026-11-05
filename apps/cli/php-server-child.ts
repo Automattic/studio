@@ -17,6 +17,7 @@ import {
 	SITE_FILE_ACCESS_SITE_DIRECTORY,
 } from '@studio/common/lib/site-file-access';
 import { getMuPluginsPath } from '@studio/common/lib/well-known-paths';
+import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { z } from 'zod';
 import {
 	managerMessageSchema,
@@ -45,7 +46,6 @@ import {
 	writeSiteUrlPrependFile,
 } from './lib/native-php/site-setup';
 import { getAvailablePorts } from './lib/native-php/worker-ports';
-import { getSiteEmailDirectory } from './lib/site-email';
 import { SymlinkWatcher, collectSymlinkAllowlistEntries } from './lib/symlinks';
 import type { ChildProcess } from 'node:child_process';
 
@@ -472,7 +472,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 	startupAbortController = new AbortController();
 	const stopSignal = AbortSignal.any( [ signal, startupAbortController.signal ] );
 
-	// Sites imported by `studio pull-reprint` arrive with WordPress already
+	// Sites imported by `studio pull` arrive with WordPress already
 	// installed and a database already in place; reprint's auto_prepend_file
 	// owns their constants and SQLite wiring. So we skip wp-config rewriting,
 	// the WordPress installer, and Blueprint execution — running any of them

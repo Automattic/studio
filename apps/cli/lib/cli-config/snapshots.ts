@@ -59,8 +59,10 @@ export async function saveSnapshotToConfig(
 		await lockCliConfig();
 		const config = await readCliConfig();
 
+		const existing = config.snapshots.find( ( s ) => s.atomicSiteId === atomicSiteId );
 		const nextSequenceNumber = getNextSnapshotSequence( site.id, config.snapshots, userId );
 		const snapshot: Snapshot = {
+			...( existing?.tracksId ? { tracksId: existing.tracksId } : {} ),
 			url: previewUrl,
 			atomicSiteId,
 			localSiteId: site.id,

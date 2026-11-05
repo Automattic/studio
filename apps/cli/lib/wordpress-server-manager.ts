@@ -196,7 +196,7 @@ async function ensureSitePhpBinaryAvailable(
  * 5. Persist the process PID so running-status checks match the live process
  */
 /** The command that started the site, reported as `command` on `studio_site_start`. */
-export type SiteStartCommand = 'start' | 'create' | 'import' | 'pull' | 'pull_reprint' | 'config';
+export type SiteStartCommand = 'start' | 'create' | 'import' | 'pull' | 'config';
 
 export async function startWordPressServer(
 	site: SiteData,
@@ -204,7 +204,7 @@ export async function startWordPressServer(
 	command: SiteStartCommand,
 	options?: StartServerOptions
 ): Promise< ProcessDescription > {
-	// For sites imported via `studio pull-reprint`, the pull command persists
+	// For sites imported via `studio pull`, the pull command persists
 	// the computed start options to start-options.json next to its runtime files.
 	if ( ! options && site.runtimeBlueprintPath ) {
 		const optionsPath = path.join(

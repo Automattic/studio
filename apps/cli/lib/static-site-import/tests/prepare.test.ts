@@ -65,55 +65,62 @@ describe( 'prepareSourceImport', () => {
 		}
 	} );
 
-	it( 'uses a captured document title for site identity unless --name overrides it', async () => {
-		const root = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-captured-title-' ) );
-		const website = path.join( root, 'website' );
-		await fs.promises.mkdir( website );
-		await fs.promises.writeFile(
-			path.join( website, 'index.html' ),
-			'<title>Example Brand</title><main>Hello</main>'
-		);
-		await fs.promises.writeFile(
-			path.join( root, 'capture-receipt.json' ),
-			JSON.stringify( {
-				schema: 'blocks-engine-capture/capture-receipt/v1',
-				title: '  Example Brand  ',
-			} )
-		);
-		const plugin = 'https://example.com/ssi.zip';
-		try {
-			const inferred = await prepareSourceImport(
-				root,
-				path.join( root, 'site' ),
-				undefined,
-				new Logger(),
-				{ staticSiteImporter: plugin }
+	it.each( [ undefined, 'Example Brand' ] )(
+		'keeps the captured site name without overriding importer identity (provided name: %s)',
+		async ( siteName ) => {
+			const root = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-captured-title-' ) );
+			const website = path.join( root, 'website' );
+			await fs.promises.mkdir( website );
+			await fs.promises.writeFile(
+				path.join( website, 'index.html' ),
+				'<title>Example Brand</title><main>Hello</main>'
 			);
-			const request = JSON.parse( inferred.blueprint.staticSiteImport.request );
-			expect( inferred.siteName ).toBe( 'Example Brand' );
-			expect( request ).toMatchObject( { name: 'Example Brand', site_title: 'Example Brand' } );
-			const explicit = await prepareSourceImport(
-				root,
-				path.join( root, 'site' ),
-				'Custom Name',
-				new Logger(),
-				{ staticSiteImporter: plugin }
+			await fs.promises.writeFile(
+				path.join( root, 'capture-receipt.json' ),
+				JSON.stringify( {
+					schema: 'blocks-engine-capture/capture-receipt/v1',
+					title: '  Example Brand  ',
+				} )
 			);
-			expect( explicit.siteName ).toBe( 'Custom Name' );
-			expect( JSON.parse( explicit.blueprint.staticSiteImport.request ).site_title ).toBe(
-				'Custom Name'
-			);
-			await fs.promises.writeFile( path.join( root, 'capture-receipt.json' ), '{malformed' );
-			const fallback = await prepareSourceImport(
-				root,
-				path.join( root, 'site' ),
-				undefined,
-				new Logger(),
-				{ staticSiteImporter: plugin }
-			);
-			expect( fallback.siteName ).toBe( 'Imported Site' );
-		} finally {
-			await fs.promises.rm( root, { recursive: true, force: true } );
+			const plugin = 'https://example.com/ssi.zip';
+			try {
+				const inferred = await prepareSourceImport(
+					root,
+					path.join( root, 'site' ),
+					siteName,
+					new Logger(),
+					{ staticSiteImporter: plugin }
+				);
+				const request = JSON.parse( inferred.blueprint.staticSiteImport.request );
+				expect( inferred.siteName ).toBe( 'Example Brand' );
+				expect( request.name ).toBe( 'Example Brand' );
+				expect( request ).not.toHaveProperty( 'site_title' );
+				const explicit = await prepareSourceImport(
+					root,
+					path.join( root, 'site' ),
+					'Custom Name',
+					new Logger(),
+					{ staticSiteImporter: plugin, siteNameIsExplicit: true }
+				);
+				expect( explicit.siteName ).toBe( 'Custom Name' );
+				expect( JSON.parse( explicit.blueprint.staticSiteImport.request ).site_title ).toBe(
+					'Custom Name'
+				);
+				await fs.promises.writeFile( path.join( root, 'capture-receipt.json' ), '{malformed' );
+				const fallback = await prepareSourceImport(
+					root,
+					path.join( root, 'site' ),
+					undefined,
+					new Logger(),
+					{ staticSiteImporter: plugin }
+				);
+				expect( fallback.siteName ).toBe( 'Imported Site' );
+				expect( JSON.parse( fallback.blueprint.staticSiteImport.request ) ).not.toHaveProperty(
+					'site_title'
+				);
+			} finally {
+				await fs.promises.rm( root, { recursive: true, force: true } );
+			}
 		}
-	} );
+	);
 } );

@@ -608,6 +608,38 @@ export function pageTextFit( page: Page ): Promise< TextFit > {
 }
 
 /**
+ * The viewport width at which WordPress's fluid font sizes stop growing when a
+ * theme sets no settings.layout.wideSize, which it otherwise stops at
+ * (wp_get_typography_font_size_value() in wp-includes/block-supports/typography.php).
+ */
+export const FLUID_TYPE_MAX_WIDTH = 1600;
+
+/**
+ * The words the browser breaks across lines at FLUID_TYPE_MAX_WIDTH, where
+ * fluid font sizes are at their largest, while a constrained layout's boxes
+ * keep the width they have on a narrower desktop: so a word that fits on the
+ * page's own viewport breaks on a wider screen. Leaves the page at its viewport.
+ */
+export async function pageWideTextBreaks( page: Page ): Promise< string[] > {
+	const viewport = page.viewportSize();
+	if ( ! viewport || viewport.width >= FLUID_TYPE_MAX_WIDTH ) {
+		return [];
+	}
+	await page.setViewportSize( { ...viewport, width: FLUID_TYPE_MAX_WIDTH } );
+	try {
+		const { breaks } = await pageTextFit( page );
+		return breaks.length
+			? [
+					`At ${ FLUID_TYPE_MAX_WIDTH }px wide, where WordPress's fluid font sizes have grown to their largest (it grows them up to the theme's settings.layout.wideSize, or ${ FLUID_TYPE_MAX_WIDTH }px when it sets none: wp_get_typography_font_size_value() in wp-includes/block-supports/typography.php) and a constrained layout's boxes keep their width:`,
+					...breaks.map( ( line ) => `  ${ line }` ),
+			  ]
+			: [];
+	} finally {
+		await page.setViewportSize( viewport );
+	}
+}
+
+/**
  * Text a visitor cannot read against what is behind it: a contrast ratio
  * under 3:1, which WCAG 2's 1.4.3 fails at every text size (4.5:1 for text,
  * 3:1 for large text). What is behind the text is the colors the browser

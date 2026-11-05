@@ -7,6 +7,7 @@ import {
 	pageLayout,
 	pageSticky,
 	pageTextFit,
+	pageWideTextBreaks,
 } from '@studio/agent/node/tools/page-layout';
 
 type Browser = Awaited< ReturnType< typeof chromium.launch > >;
@@ -282,6 +283,33 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 		],
 	] )( 'states %s', async ( _name, body, lines ) => {
 		expect( await textFitOf( body ) ).toEqual( lines );
+	} );
+
+	// eval20 picky port 2: a heading's "service" fit its column on the 1040px
+	// desktop, and broke at 1280px, as its fluid size grew and the column did not.
+	it( 'names the words that break where fluid font sizes are largest', async () => {
+		const column = ( word: string ) =>
+			`<h3 style="flex:1;min-width:0;overflow-wrap:break-word;font:900 clamp(25px, 1.563rem + ((1vw - 3.2px) * 1.93), 42px) sans-serif">${ word }</h3>`;
+		const lines = await open(
+			`<div style="display:flex;gap:24px;max-width:720px;margin:auto">${ [
+				'Tune',
+				'Brakes',
+				'Wheels',
+				'Services',
+			]
+				.map( column )
+				.join( '' ) }</div>`,
+			async ( page ) => [
+				...( await pageTextFit( page ) ).breaks,
+				...( await pageWideTextBreaks( page ) ),
+				`${ page.viewportSize()?.width }`,
+			]
+		);
+		expect( lines.map( ( line ) => line.replace( /\d+px\)/g, 'Npx)' ) ) ).toEqual( [
+			expect.stringMatching( /^At 1600px wide, where WordPress's fluid font sizes have grown/ ),
+			'  h3: the browser breaks "Services" across lines, as the word (Npx) is wider than its box (Npx).',
+			'1000',
+		] );
 	} );
 
 	it( 'counts the lines past its limit', async () => {

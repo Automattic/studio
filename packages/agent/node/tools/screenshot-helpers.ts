@@ -13,6 +13,7 @@ import {
 	pageLayout,
 	pageOverflow,
 	pageTextFit,
+	pageWideTextBreaks,
 	type TextFit,
 } from './page-layout';
 import type { StudioAgentHost } from '@studio/agent/node/host';
@@ -548,6 +549,10 @@ export async function inspectPage(
 				fullPage: await capturePage( page, viewport, { ...options, fullPage: true } ),
 				screen: await capturePage( page, viewport, { ...options, fullPage: false } ),
 			};
+		}
+		// After the captures, as it lays the page out wider and back.
+		if ( viewport.width === VIEWPORTS.desktop.width ) {
+			problems.push( ...( await pageWideTextBreaks( page ) ) );
 		}
 		return { url: page.url(), problems, bodyFontSize: await bodyFontSize( page ) };
 	} finally {

@@ -2,6 +2,7 @@
 	.chip {
 		composes: imageOutline from '@/lib/theme/recipes.module.css';
 		--image-outline-width: 1px;
+		--attachment-chip-background: light-dark( var( --surface-1 ), var( --surface-4 ) );
 		position: relative;
 		display: flex;
 		gap: var( --space-1 );
@@ -12,7 +13,7 @@
 		padding: 0 var( --space-2_5 );
 		padding-inline-start: var( --space-2 );
 		border-radius: var( --radius-xl );
-		background-color: light-dark( var( --surface-1 ), var( --surface-4 ) );
+		background-color: var( --attachment-chip-background );
 		color: var( --foreground );
 		font-size: var( --text-xs );
 		line-height: var( --text-xs--line-height );
@@ -25,12 +26,39 @@
 		padding-inline-end: calc( var( --space-5 ) + var( --space-4 ) );
 	}
 
+	.chip:has( > .trigger ) {
+		padding: 0;
+	}
+
+	.trigger {
+		--button-hover-background: color-mix(
+			in oklab,
+			var( --attachment-chip-background, var( --muted ) ) 95%,
+			var( --foreground )
+		);
+
+		flex: 1;
+		min-width: 0;
+		height: 100%;
+		gap: var( --space-1 );
+		justify-content: flex-start;
+		padding: 0 var( --space-2_5 ) 0 var( --space-2 );
+		border-radius: inherit;
+		font-weight: var( --font-weight-normal );
+		text-align: start;
+	}
+
+	.chip:has( > [data-slot='attachment-remove'] ) > .trigger {
+		padding-inline-end: calc( var( --space-5 ) + var( --space-4 ) );
+	}
+
 	.chip[data-font='mono'] {
 		font-family: var( --font-mono );
 		font-size: var( --text-2xs );
 	}
 
-	.chip > svg:not( [data-size] ) {
+	.chip > svg:not( [data-size] ),
+	.trigger > svg:not( [data-size] ) {
 		flex: none;
 		width: 16px;
 		height: 16px;

@@ -22,6 +22,16 @@
 	border-radius: var( --radius-xl );
 }
 
+.imageTrigger {
+	width: 100%;
+	height: 100%;
+	padding: 0;
+}
+
+.imageTrigger:is( :hover, :active, [aria-expanded='true'] ) .attachmentThumb {
+	opacity: 0.9;
+}
+
 .attachmentThumb {
 	width: 100%;
 	height: 100%;
@@ -34,42 +44,40 @@
 	min-width: 0;
 }
 
-.attachmentHoverPreview {
-	--attachment-hover-artwork-height: 198px;
+.attachmentPreview {
+	--attachment-preview-artwork-height: 198px;
 
 	width: 285px;
+	max-width: calc( 100vw - 32px );
+	padding: 0;
 	overflow: hidden;
 	border-radius: var( --radius-lg );
-	background-color: var( --popover );
-	box-shadow:
-		0 0 0 1px color-mix( in oklab, var( --foreground ) 10%, transparent ),
-		var( --shadow-md );
 	user-select: none;
 }
 
-.attachmentHoverArtwork {
+.attachmentPreviewArtwork {
 	display: block;
 	width: 100%;
-	height: var( --attachment-hover-artwork-height );
+	height: var( --attachment-preview-artwork-height );
 	overflow: hidden;
 	border-bottom: 1px solid var( --border );
 	background-color: var( --chat );
 }
 
-.attachmentHoverImage {
+.attachmentPreviewImage {
 	width: 100%;
 	height: 100%;
 	object-fit: cover;
 }
 
-.attachmentHoverTextViewport {
+.attachmentPreviewTextViewport {
 	width: 100%;
 	height: 100%;
 	overflow: hidden;
 }
 
-.attachmentHoverText {
-	min-height: var( --attachment-hover-artwork-height );
+.attachmentPreviewText {
+	min-height: var( --attachment-preview-artwork-height );
 	padding: var( --space-3 );
 	color: var( --foreground );
 	font-family: var( --font-mono );
@@ -79,7 +87,7 @@
 	overflow-wrap: anywhere;
 }
 
-.attachmentHoverDetails {
+.attachmentPreviewDetails {
 	display: flex;
 	min-width: 0;
 	flex-direction: column;
@@ -88,14 +96,14 @@
 	color: var( --foreground );
 }
 
-.attachmentHoverName {
+.attachmentPreviewName {
 	composes: truncate from '@/lib/theme/recipes.module.css';
 	font-size: var( --text-xxs );
 	font-weight: var( --font-weight-semibold );
 	line-height: var( --leading-tight );
 }
 
-.attachmentHoverMeta {
+.attachmentPreviewMeta {
 	composes: truncate from '@/lib/theme/recipes.module.css';
 	color: var( --muted-foreground );
 	font-size: var( --text-2xs );

@@ -2,7 +2,14 @@ import { __, sprintf } from '@wordpress/i18n';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { AnnotateIcon, TrashIcon } from '@/lib/icons';
-import { AttachmentChip, AttachmentRemoveButton, Button, IconButton, Popover } from '@/lib/ui';
+import {
+	AttachmentChip,
+	AttachmentChipTrigger,
+	AttachmentRemoveButton,
+	Button,
+	IconButton,
+	Popover,
+} from '@/lib/ui';
 import styles from './review-chip.module.css';
 import {
 	isAnnotationsBusy,
@@ -55,7 +62,7 @@ export function AnnotationReviewChip( {
 		return () => observer.disconnect();
 	}, [ open ] );
 	return (
-		<AttachmentChip className={ styles.chip } render={ <li /> } aria-label={ description }>
+		<AttachmentChip render={ <li /> } aria-label={ description }>
 			<Popover.Root
 				open={ open }
 				onOpenChange={ ( next ) => {
@@ -65,13 +72,7 @@ export function AnnotationReviewChip( {
 			>
 				<Popover.Trigger
 					render={
-						<Button
-							ref={ trigger }
-							className={ styles.trigger }
-							variant="ghost"
-							disabled={ busy }
-							aria-label={ label }
-						/>
+						<AttachmentChipTrigger ref={ trigger } disabled={ busy } aria-label={ label } />
 					}
 				>
 					<AnnotateIcon />
@@ -92,7 +93,9 @@ export function AnnotationReviewChip( {
 							  false
 							: false
 					}
-					finalFocus={ () => ( editing.current ? false : trigger.current ?? false ) }
+					finalFocus={ ( interactionType ) =>
+						editing.current || interactionType !== 'keyboard' ? false : trigger.current ?? false
+					}
 				>
 					<div
 						ref={ list }
@@ -172,7 +175,6 @@ export function AnnotationReviewChip( {
 				</Popover.Popup>
 			</Popover.Root>
 			<AttachmentRemoveButton
-				className={ styles.remove }
 				aria-label={ __( 'Remove attachment' ) }
 				disabled={ busy }
 				onClick={ onRemove }

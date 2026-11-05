@@ -29,9 +29,12 @@ export const updatePreviewTool = defineTool(
 				args.overwrite ?? false,
 				context.onProgress
 			);
-			return `Preview site "${ preview.name }" updated from "${ site.name }": ${ getSnapshotLink(
-				preview
-			) }`;
+			const link = getSnapshotLink( preview );
+			const moved =
+				preview.url !== normalizedHost
+					? ' The preview moved to WordPress.com, so its link changed; use the new link from now on.'
+					: '';
+			return `Preview site "${ preview.name }" updated from "${ site.name }": ${ link }${ moved }`;
 		}, 'Failed to update preview site' );
 	},
 	{

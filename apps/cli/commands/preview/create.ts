@@ -24,6 +24,48 @@ import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
+export type ReportPreviewStep = ( action: LoggerAction, message: string, progress: number ) => void;
+
+/**
+ * The WordPress.com steps of making a preview from a local site: validate, archive, upload and
+ * create. Shared by `preview create` and by `preview update` when it moves a Jurassic Ninja preview.
+ */
+export async function createWpcomPreviewSite( {
+	siteFolder,
+	archivePath,
+	name,
+	accessToken,
+	logger,
+	reportStep,
+	onArchiveBytes,
+}: {
+	siteFolder: string;
+	archivePath: string;
+	name: string;
+	accessToken: string;
+	logger: Logger< LoggerAction >;
+	reportStep: ReportPreviewStep;
+	onArchiveBytes?: ( bytes: number | undefined ) => void;
+} ): Promise< { preview: PreviewSite; archiveBytes: number | undefined } > {
+	await validateSiteSize( siteFolder, { onWpcom: true } );
+
+	reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
+	await withSiteOperation( siteFolder, 'export', () =>
+		archiveSiteContent( siteFolder, archivePath, { onWpcom: true } )
+	);
+	const archiveBytes = fs.statSync( archivePath, { throwIfNoEntry: false } )?.size;
+	onArchiveBytes?.( archiveBytes );
+	logger.reportSuccess( __( 'Archive created' ) );
+
+	reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
+	const attachmentId = await uploadPreviewArchive( archivePath, accessToken );
+	logger.reportSuccess( __( 'Archive uploaded' ) );
+
+	reportStep( LoggerAction.READY, __( 'Creating preview site…' ), 60 );
+	const preview = await createPreviewSite( attachmentId, name, accessToken );
+	return { preview, archiveBytes };
+}
+
 export async function runCommand(
 	siteFolder: string,
 	name?: string,
@@ -55,14 +97,6 @@ export async function runCommand(
 		const token = await requireAuthToken();
 		reportStep( LoggerAction.VALIDATE, __( 'Validating…' ), 0 );
 		const onWpcom = await createsPreviewsOnWpcom( token.accessToken );
-		await validateSiteSize( siteFolder, { onWpcom } );
-
-		reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
-		await withSiteOperation( siteFolder, 'export', () =>
-			archiveSiteContent( siteFolder, archivePath, { onWpcom } )
-		);
-		archiveBytes = fs.statSync( archivePath, { throwIfNoEntry: false } )?.size;
-		logger.reportSuccess( __( 'Archive created' ) );
 
 		let snapshotName = name;
 		if ( ! snapshotName ) {
@@ -76,15 +110,28 @@ export async function runCommand(
 			);
 		}
 
-		reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
 		let preview: PreviewSite;
 		if ( onWpcom ) {
-			const attachmentId = await uploadPreviewArchive( archivePath, token.accessToken );
-			logger.reportSuccess( __( 'Archive uploaded' ) );
-
-			reportStep( LoggerAction.READY, __( 'Creating preview site…' ), 60 );
-			preview = await createPreviewSite( attachmentId, snapshotName, token.accessToken );
+			( { preview, archiveBytes } = await createWpcomPreviewSite( {
+				siteFolder,
+				archivePath,
+				name: snapshotName,
+				accessToken: token.accessToken,
+				logger,
+				reportStep,
+				onArchiveBytes: ( bytes ) => ( archiveBytes = bytes ),
+			} ) );
 		} else {
+			await validateSiteSize( siteFolder, { onWpcom } );
+
+			reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
+			await withSiteOperation( siteFolder, 'export', () =>
+				archiveSiteContent( siteFolder, archivePath, { onWpcom } )
+			);
+			archiveBytes = fs.statSync( archivePath, { throwIfNoEntry: false } )?.size;
+			logger.reportSuccess( __( 'Archive created' ) );
+
+			reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
 			const wordpressVersion = getWordPressVersion( siteFolder );
 			const upload = await uploadArchive( archivePath, token.accessToken, wordpressVersion );
 			logger.reportSuccess( __( 'Archive uploaded' ) );

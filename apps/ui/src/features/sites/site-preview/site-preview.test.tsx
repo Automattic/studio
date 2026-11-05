@@ -5,6 +5,7 @@ import { useSyncExternalStore, type ComponentProps } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts } from '@/data/app-messages';
 import { useSites } from '@/data/queries/use-sites';
+import { USER_PREFERENCES_QUERY_KEY } from '@/data/queries/use-user-preferences';
 import { updateResponsivePreview } from '@/data/responsive-preview';
 import { SessionUIProvider } from '@/data/use-session-ui';
 import {
@@ -112,29 +113,48 @@ function guest( extra: Record< string, unknown > = {} ) {
 	return element;
 }
 
+const frameNavigationIds = new WeakMap< HTMLElement, number >();
+
 function finishLoading( runtime: Runtime ) {
 	const element = page()!;
 	if ( runtime === 'desktop' ) {
 		fireEvent( element, new Event( 'did-finish-load' ) );
 		fireEvent( element, new Event( 'did-stop-loading' ) );
 	} else {
+		const postMessage = vi.spyOn( ( element as HTMLIFrameElement ).contentWindow!, 'postMessage' );
 		fireEvent.load( element );
+		const init = postMessage.mock.calls
+			.filter( ( [ message ] ) => message.type === 'studio:preview-shortcuts:init' )
+			.at( -1 )!;
+		frameNavigationIds.set( element, init[ 0 ].navigationId );
 	}
 }
 
-function reportAdminBarVisibility( runtime: Runtime, visible: boolean ) {
+function reportAdminBarVisibility( runtime: Runtime, visible: boolean, url?: string ) {
 	const element = page()!;
 	if ( runtime === 'desktop' ) {
 		( element as Guest ).adminBarVisible = visible;
-		fireEvent( element, new Event( 'did-navigate' ) );
+		const requested = ( element as Guest ).loadURL.mock.calls.at( -1 )?.[ 0 ] as string | undefined;
+		const redirected = requested && new URL( requested ).searchParams.get( 'redirect_to' );
+		const actualUrl = url ?? redirected;
+		fireEvent(
+			element,
+			Object.assign( new Event( 'did-navigate' ), actualUrl ? { url: actualUrl } : {} )
+		);
 		fireEvent( element, new Event( 'did-stop-loading' ) );
 	} else {
+		if ( ! frameNavigationIds.has( element ) ) finishLoading( runtime );
 		fireEvent(
 			window,
 			new MessageEvent( 'message', {
 				source: ( element as HTMLIFrameElement ).contentWindow,
 				origin: SITE_URL,
-				data: { type: 'studio:preview:admin-bar-state', visible },
+				data: {
+					type: 'studio:preview:admin-bar-state',
+					visible,
+					url: url ?? ( element as HTMLIFrameElement ).src,
+					navigationId: frameNavigationIds.get( element ),
+				},
 			} )
 		);
 	}
@@ -809,6 +829,127 @@ describe( 'preview browser menu', () => {
 		).toBeInTheDocument();
 	} );
 
+	it.each( [ 'browser', 'desktop' ] as const )(
+		'disables the %s control until visibility is known and during navigation',
+		async ( runtime ) => {
+			const connector = createFakeConnector( { sites: [ site() ] } );
+			const { user } = await renderPreview( runtime, {}, connector );
+			const before = runtime === 'desktop' ? guest() : page()!;
+			await openBrowserOptions( user );
+			expect( screen.getByRole( 'menuitem', { name: 'Admin bar' } ) ).toHaveAttribute(
+				'aria-disabled',
+				'true'
+			);
+			await user.keyboard( '{Escape}' );
+			if ( runtime === 'desktop' ) fireEvent( before, new Event( 'dom-ready' ) );
+			finishLoading( runtime );
+			reportAdminBarVisibility( runtime, true );
+			await openBrowserOptions( user );
+			fireEvent.click( screen.getByRole( 'menuitem', { name: 'Admin bar' } ) );
+			const hide = await screen.findByRole( 'menuitemradio', { name: 'Hide' } );
+			if ( runtime === 'desktop' ) {
+				fireEvent(
+					before,
+					Object.assign( new Event( 'did-start-navigation' ), {
+						isMainFrame: true,
+						isInPlace: false,
+					} )
+				);
+				fireEvent( before, new Event( 'did-start-loading' ) );
+			} else
+				fireEvent(
+					window,
+					new MessageEvent( 'message', {
+						source: ( before as HTMLIFrameElement ).contentWindow,
+						origin: SITE_URL,
+						data: {
+							type: 'studio:preview:navigating',
+							navigationId: frameNavigationIds.get( before ),
+						},
+					} )
+				);
+			expect( hide ).toHaveAttribute( 'aria-disabled', 'true' );
+			fireEvent.click( hide );
+			expect( connector.setSiteFrontendAdminBar ).not.toHaveBeenCalled();
+		}
+	);
+
+	it.each( [ 'browser', 'desktop' ] as const )(
+		'keeps the %s page intact when choosing its current visibility',
+		async ( runtime ) => {
+			const connector = createFakeConnector( { sites: [ site() ] } );
+			const { user } = await renderPreview( runtime, {}, connector );
+			const before = runtime === 'desktop' ? guest() : page()!;
+			if ( runtime === 'desktop' ) fireEvent( before, new Event( 'dom-ready' ) );
+			finishLoading( runtime );
+			reportAdminBarVisibility( runtime, true );
+			const postMessage =
+				runtime === 'browser'
+					? vi.spyOn( ( before as HTMLIFrameElement ).contentWindow!, 'postMessage' )
+					: undefined;
+			await openBrowserOptions( user );
+			fireEvent.click( screen.getByRole( 'menuitem', { name: 'Admin bar' } ) );
+			await user.click( await screen.findByRole( 'menuitemradio', { name: 'Show' } ) );
+			await waitFor( () => expect( connector.setSiteFrontendAdminBar ).toHaveBeenCalledOnce() );
+			await act( async () => {} );
+			if ( runtime === 'desktop' ) {
+				expect( ( before as Guest ).loadURL ).not.toHaveBeenCalled();
+				expect( ( before as Guest ).reload ).not.toHaveBeenCalled();
+			} else
+				expect( postMessage ).not.toHaveBeenCalledWith(
+					{ type: 'studio:preview:login' },
+					SITE_URL
+				);
+			expect( page() ).toBe( before );
+		}
+	);
+
+	it( 'tracks iframe navigation through WP Admin and logout without remounting or remembering authentication pages', async () => {
+		const connector = createFakeConnector( { sites: [ site() ] } );
+		let updatePath: ( patch: Partial< Props > ) => void = () => {};
+		const { user, update } = await renderPreview(
+			'browser',
+			{ onPathChange: ( path ) => updatePath( { path } ) },
+			connector
+		);
+		updatePath = update;
+		const before = page()!;
+		finishLoading( 'browser' );
+		for ( const path of [ '/wp-admin/', '/wp-login.php?action=logout&_wpnonce=example', '/' ] ) {
+			reportAdminBarVisibility( 'browser', path === '/wp-admin/', `${ SITE_URL }${ path }` );
+			expect( address() ).toHaveValue( `${ SITE_URL }${ path === '/' ? '' : path }` );
+			expect( page() ).toBe( before );
+			if ( path !== '/' )
+				expect(
+					screen.queryByRole( 'button', { name: 'Browser options' } )
+				).not.toBeInTheDocument();
+		}
+		await openBrowserOptions( user );
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Admin bar' } ) );
+		expect( await screen.findByRole( 'menuitemradio', { name: 'Hide' } ) ).toBeChecked();
+		expect( connector.setSiteFrontendAdminBar ).not.toHaveBeenCalled();
+		expect( localStorage.getItem( 'studio-preview-recent-locations:one' ) ?? '' ).not.toContain(
+			'_wpnonce'
+		);
+	} );
+
+	it( 'does not reload WP Admin when the Studio default changes', async () => {
+		const { queryClient } = await renderPreview( 'desktop', {
+			path: '/wp-admin/post.php?post=1&action=edit',
+		} );
+		const before = guest();
+		fireEvent( before, new Event( 'dom-ready' ) );
+		finishLoading( 'desktop' );
+		await act( async () =>
+			queryClient.setQueryData( USER_PREFERENCES_QUERY_KEY, ( current: object ) => ( {
+				...current,
+				hideFrontendAdminBar: true,
+			} ) )
+		);
+		expect( before.loadURL ).not.toHaveBeenCalled();
+		expect( before.reload ).not.toHaveBeenCalled();
+	} );
+
 	it.each( [
 		[ 'browser', false ],
 		[ 'desktop', false ],
@@ -940,6 +1081,8 @@ describe( 'preview browser menu', () => {
 		[ 'desktop', 'admin' ],
 		[ 'browser', 'collapsed' ],
 		[ 'desktop', 'collapsed' ],
+		[ 'browser', 'page' ],
+		[ 'desktop', 'page' ],
 	] as const )(
 		'does not sign in after leaving the %s preview during a save (%s)',
 		async ( runtime, destination ) => {
@@ -955,6 +1098,7 @@ describe( 'preview browser menu', () => {
 			const before = runtime === 'desktop' ? guest() : page()!;
 			if ( runtime === 'desktop' ) fireEvent( before, new Event( 'dom-ready' ) );
 			finishLoading( runtime );
+			reportAdminBarVisibility( runtime, false );
 			const postMessage =
 				runtime === 'browser'
 					? vi.spyOn( ( before as HTMLIFrameElement ).contentWindow!, 'postMessage' )
@@ -968,6 +1112,8 @@ describe( 'preview browser menu', () => {
 					? { site: site( { id: 'two', name: 'Second site' } ) }
 					: destination === 'admin'
 					? { path: '/wp-admin/' }
+					: destination === 'page'
+					? { path: '/sample-page/' }
 					: { collapsed: true }
 			);
 			await act( async () => finish() );
@@ -1069,6 +1215,7 @@ describe( 'preview browser menu', () => {
 				} )
 		);
 		const { user, update, queryClient } = await renderPreview( 'browser', {}, connector );
+		reportAdminBarVisibility( 'browser', true );
 		await openBrowserOptions( user );
 		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Admin bar' } ) );
 		await user.click( await screen.findByRole( 'menuitemradio', { name: 'Hide' } ) );
@@ -1084,17 +1231,24 @@ describe( 'preview browser menu', () => {
 		} );
 	} );
 
-	it.each( [ '/wp-admin/', '/phpmyadmin/', 'studio:email', DESIGN_SYSTEM_PREVIEW_PATH ] )(
-		'does not offer the local frontend setting on %s',
-		async ( path ) => {
-			const { user } = await renderPreview( 'desktop', { path } );
-			const options = screen.queryByRole( 'button', { name: 'Browser options' } );
-			if ( options ) {
-				await openBrowserOptions( user );
-				expect( screen.queryByRole( 'menuitem', { name: 'Admin bar' } ) ).not.toBeInTheDocument();
-			}
+	it.each( [
+		'/wp-admin/',
+		'/wp-login.php',
+		'/wp-login.php?action=logout&_wpnonce=test',
+		'/wp-signup.php',
+		'/wp-activate.php?key=test',
+		'/studio-auto-login?redirect_to=http%3A%2F%2Flocalhost%3A9010%2F',
+		'/phpmyadmin/',
+		'studio:email',
+		DESIGN_SYSTEM_PREVIEW_PATH,
+	] )( 'does not offer the local frontend setting on %s', async ( path ) => {
+		const { user } = await renderPreview( 'desktop', { path } );
+		const options = screen.queryByRole( 'button', { name: 'Browser options' } );
+		if ( options ) {
+			await openBrowserOptions( user );
+			expect( screen.queryByRole( 'menuitem', { name: 'Admin bar' } ) ).not.toBeInTheDocument();
 		}
-	);
+	} );
 
 	it( 'does not offer guest browser actions for the rendered email surface', async () => {
 		await renderPreview( 'desktop', { path: 'studio:email' } );

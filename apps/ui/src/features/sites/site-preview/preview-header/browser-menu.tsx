@@ -44,20 +44,24 @@ function BrowserMenuItems( { actions, adminBar, disabled }: BrowserMenuItemsProp
 				</>
 			) : null }
 			{ adminBar ? (
-				<Menu.SubmenuRoot
-					onOpenChange={ ( open ) => {
-						if ( open ) adminBar.onRead();
-					} }
-				>
-					<Menu.SubmenuTrigger disabled={ disabled || adminBar.saving }>
+				<Menu.SubmenuRoot>
+					<Menu.SubmenuTrigger disabled={ disabled || adminBar.disabled }>
 						{ __( 'Admin bar' ) }
 					</Menu.SubmenuTrigger>
 					<Menu.SubmenuPopup>
 						<Menu.RadioGroup value={ adminBar.value }>
-							<Menu.RadioItem value="show" onClick={ () => adminBar.onChange( 'show' ) }>
+							<Menu.RadioItem
+								value="show"
+								disabled={ disabled || adminBar.disabled }
+								onClick={ () => adminBar.onChange( 'show' ) }
+							>
 								{ __( 'Show' ) }
 							</Menu.RadioItem>
-							<Menu.RadioItem value="hide" onClick={ () => adminBar.onChange( 'hide' ) }>
+							<Menu.RadioItem
+								value="hide"
+								disabled={ disabled || adminBar.disabled }
+								onClick={ () => adminBar.onChange( 'hide' ) }
+							>
 								{ __( 'Hide' ) }
 							</Menu.RadioItem>
 						</Menu.RadioGroup>
@@ -84,7 +88,11 @@ export function BrowserMenu( {
 	...props
 }: BrowserMenuItemsProps & { className?: string } ) {
 	return (
-		<Menu.Root>
+		<Menu.Root
+			onOpenChange={ ( open ) => {
+				if ( open ) props.adminBar?.onRead();
+			} }
+		>
 			<Tooltip>
 				<Menu.Trigger
 					render={

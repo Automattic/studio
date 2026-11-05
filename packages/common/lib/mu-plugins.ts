@@ -86,6 +86,7 @@ STUDIO_PREVIEW_SHORTCUTS;
 		}
 		add_action( 'wp_head', 'studio_preview_shortcuts' );
 		add_action( 'login_head', 'studio_preview_shortcuts' );
+		add_action( 'admin_head', 'studio_preview_shortcuts' );
 		`,
 	} );
 

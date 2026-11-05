@@ -16,7 +16,11 @@ function createPage( pathname = '/', apple = true ) {
 			handlers.set( name, handler ),
 	};
 	const bar = { visible: false, checkVisibility: () => bar.visible };
-	const document = { addEventListener: window.addEventListener, getElementById: () => bar };
+	const document = {
+		title: 'Preview page',
+		addEventListener: window.addEventListener,
+		getElementById: () => bar,
+	};
 	const location = { pathname, href: `http://localhost:9010${ pathname }`, assign: vi.fn() };
 	runInNewContext( PREVIEW_SHORTCUTS_SCRIPT, { window, document, location, URL } );
 	const login = ( source: unknown = parent, origin = 'http://localhost:8081' ) =>
@@ -29,7 +33,7 @@ function createPage( pathname = '/', apple = true ) {
 		handlers.get( 'message' )!( {
 			source,
 			origin,
-			data: { type: 'studio:preview-shortcuts:init', apple },
+			data: { type: 'studio:preview-shortcuts:init', apple, navigationId: 7 },
 		} );
 	const readAdminBar = ( source: unknown = parent, origin = 'http://localhost:8081' ) =>
 		handlers.get( 'message' )!( {
@@ -54,7 +58,7 @@ function createPage( pathname = '/', apple = true ) {
 		handlers.get( 'keydown' )!( event );
 		return event;
 	};
-	return { initialize, press, postMessage, login, location, bar, readAdminBar };
+	return { initialize, press, postMessage, login, location, bar, readAdminBar, handlers };
 }
 
 describe( 'browser preview shortcut bridge', () => {
@@ -62,15 +66,54 @@ describe( 'browser preview shortcut bridge', () => {
 		const page = createPage();
 		page.initialize();
 		expect( page.postMessage ).toHaveBeenLastCalledWith(
-			{ type: 'studio:preview:admin-bar-state', visible: false },
+			{
+				type: 'studio:preview:admin-bar-state',
+				visible: false,
+				url: page.location.href,
+				title: 'Preview page',
+				navigationId: 7,
+			},
 			'http://localhost:8081'
 		);
 		page.bar.visible = true;
 		page.readAdminBar();
 		expect( page.postMessage ).toHaveBeenLastCalledWith(
-			{ type: 'studio:preview:admin-bar-state', visible: true },
+			{
+				type: 'studio:preview:admin-bar-state',
+				visible: true,
+				url: page.location.href,
+				title: 'Preview page',
+				navigationId: 7,
+			},
 			'http://localhost:8081'
 		);
+	} );
+
+	it( 'reports navigation and the restored page location without signing in', () => {
+		const page = createPage( '/sample-page/' );
+		page.initialize();
+		page.handlers.get( 'pagehide' )!( {} );
+		expect( page.postMessage ).toHaveBeenLastCalledWith(
+			{ type: 'studio:preview:navigating', navigationId: 7 },
+			'http://localhost:8081'
+		);
+		page.location.href += '#details';
+		for ( const event of [ 'pageshow', 'hashchange', 'popstate' ] ) {
+			page.handlers.get( event )!( {} );
+			expect( page.postMessage ).toHaveBeenLastCalledWith(
+				expect.objectContaining( { url: page.location.href, navigationId: 7 } ),
+				'http://localhost:8081'
+			);
+		}
+		expect( page.location.assign ).not.toHaveBeenCalled();
+	} );
+
+	it( 'leaves non-HTML responses unavailable', () => {
+		expect(
+			runInNewContext( READ_ADMIN_BAR_VISIBILITY_SCRIPT, {
+				document: { contentType: 'application/json' },
+			} )
+		).toBeNull();
 	} );
 
 	it( 'only reports toolbar state to its initialized parent origin', () => {
@@ -121,12 +164,15 @@ describe( 'browser preview shortcut bridge', () => {
 		expect( page.location.assign ).not.toHaveBeenCalled();
 	} );
 
-	it( 'leaves WP Admin intact when a late sign-in request arrives', () => {
-		const page = createPage( '/wp-admin/post.php' );
-		page.initialize();
-		page.login();
-		expect( page.location.assign ).not.toHaveBeenCalled();
-	} );
+	it.each( [ '/wp-admin/post.php', '/wp-login.php', '/wp-signup.php', '/wp-activate.php' ] )(
+		'leaves %s intact when a late sign-in request arrives',
+		( path ) => {
+			const page = createPage( path );
+			page.initialize();
+			page.login();
+			expect( page.location.assign ).not.toHaveBeenCalled();
+		}
+	);
 
 	it.each( [ true, false ] )( 'forwards the front-end shortcut (Apple: %s)', ( apple ) => {
 		const page = createPage( '/', apple );

@@ -27,6 +27,8 @@ export function getSurfaceKey( realm: PreviewRealm ): PreviewSurfaceKey {
 // reload at its own size rather than a resize plus a fresh load.
 export interface PreviewSurfaceState {
 	path: string;
+	// Observing a navigation must not reload the frame that reported it.
+	requestedPath: string;
 	browser: BrowserNavigationState;
 	// The annotation inspector is running in the page.
 	inspectorReady: boolean;
@@ -51,6 +53,7 @@ export interface MountedSurfaces {
 export function createPreviewSurface( path: string, reloadNonce: number ): PreviewSurfaceState {
 	return {
 		path,
+		requestedPath: path,
 		browser: EMPTY_BROWSER_STATE,
 		inspectorReady: false,
 		adminBarVisible: null,
@@ -63,6 +66,7 @@ export function createPreviewSurface( path: string, reloadNonce: number ): Previ
 function arePreviewSurfacesEqual( a: PreviewSurfaceState, b: PreviewSurfaceState ) {
 	return (
 		a.path === b.path &&
+		a.requestedPath === b.requestedPath &&
 		a.reloadNonce === b.reloadNonce &&
 		a.browserCommand === b.browserCommand &&
 		a.reloadCommandId === b.reloadCommandId &&
@@ -83,6 +87,12 @@ export function patchMountedSurface(
 		return current;
 	}
 	const next = { ...surface, ...patch };
+	if (
+		( patch.reloadCommandId !== undefined && patch.reloadCommandId !== surface.reloadCommandId ) ||
+		( patch.reloadNonce !== undefined && patch.reloadNonce !== surface.reloadNonce )
+	) {
+		next.requestedPath = next.path;
+	}
 	return arePreviewSurfacesEqual( surface, next )
 		? current
 		: { ...current, byKey: { ...current.byKey, [ key ]: next } };
@@ -109,12 +119,24 @@ export function aimMountedSurface(
 	}
 	return surface.path === path
 		? current
-		: { ...current, byKey: { ...current.byKey, [ key ]: { ...surface, path } } };
+		: {
+				...current,
+				byKey: {
+					...current.byKey,
+					[ key ]: {
+						...surface,
+						path,
+						requestedPath: path,
+						adminBarVisible: null,
+						browser: { ...surface.browser, loading: true, failed: false },
+					},
+				},
+		  };
 }
 
 // A frame remounts, and so reloads, whenever its key changes.
 export function getFrameKey( siteUrl: string, surface: PreviewSurfaceState ) {
-	return `${ siteUrl }${ surface.path }#${ surface.reloadNonce }#${ surface.reloadCommandId }`;
+	return `${ siteUrl }${ surface.requestedPath }#${ surface.reloadNonce }#${ surface.reloadCommandId }`;
 }
 
 export function getSafePath( path: unknown ) {

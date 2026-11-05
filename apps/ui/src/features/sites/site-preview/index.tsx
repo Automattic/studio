@@ -36,8 +36,10 @@ import { VisuallyHidden } from '@/lib/ui';
 import {
 	EMAIL_PREVIEW_PATH,
 	getPathFromPreviewUrl,
+	getPreviewRealm,
 	getRealmNavigationPath,
 	getRealmOpenEvent,
+	isWordPressAuthPath,
 } from './address-bar';
 import { EMPTY_BROWSER_STATE, type BrowserNavigationState } from './browser-state';
 import { PreviewHeader } from './preview-header';
@@ -148,7 +150,7 @@ function SitePreviewContent( {
 		rendered: rendered || blank,
 		publish: ! inactive && ! blank,
 	} );
-	// Frames report no loading state, so track which load each one finished.
+	// Track the first load too, before a frame can report in-page navigation.
 	const [ loadedFrames, setLoadedFrames ] = useState<
 		Partial< Record< PreviewSurfaceKey, string > >
 	>( {} );
@@ -178,7 +180,15 @@ function SitePreviewContent( {
 		[ sendSurfaceCommand ]
 	);
 	const adminBarActive =
-		! live && ! blank && canPreview && activeRealm === 'frontend' && ! collapsed && ! inactive;
+		! live &&
+		! blank &&
+		canPreview &&
+		activeRealm === 'frontend' &&
+		! collapsed &&
+		! inactive &&
+		getPreviewRealm( activeSurface?.path ?? safePath ) === 'frontend' &&
+		! isWordPressAuthPath( activeSurface?.path ?? safePath ) &&
+		! ( activeSurface?.path ?? safePath ).startsWith( '/studio-auto-login' );
 	const showFrontendAdminBar = useCallback( () => {
 		if ( ! canUseWebview ) {
 			sendSurfaceCommand( 'site', 'login' );
@@ -190,7 +200,7 @@ function SitePreviewContent( {
 			: getPathFromPreviewUrl( getSiteBrowserUrl( { url: siteUrl }, currentPath ), siteUrl );
 		if ( ! loginPath ) return;
 		if ( currentPath === loginPath ) sendSurfaceCommand( 'site', 'reload' );
-		else patchSurface( 'site', { path: loginPath } );
+		else patchSurface( 'site', { path: loginPath, requestedPath: loginPath } );
 		onPathChange?.( loginPath );
 	}, [
 		activeSurface?.path,
@@ -204,6 +214,8 @@ function SitePreviewContent( {
 	const adminBarActions = useFrontendAdminBar( {
 		site,
 		active: adminBarActive,
+		available: ! navigating && ! browserState.failed && ! isStarting && ! isStopping,
+		path: activeSurface?.path ?? safePath,
 		visible: activeSurface?.adminBarVisible ?? null,
 		onReload: reloadFrontend,
 		onShow: showFrontendAdminBar,
@@ -533,7 +545,7 @@ function SitePreviewContent( {
 									) : (
 										<FrameSurface
 											key={ frameKey }
-											src={ surfaceUrl }
+											src={ `${ siteUrl }${ surface.requestedPath }` }
 											title={ site.name }
 											browserCommand={ surface.browserCommand }
 											onCommandHandled={ () => patchSurface( key, { browserCommand: null } ) }
@@ -542,9 +554,12 @@ function SitePreviewContent( {
 													? ( adminBarVisible ) => patchSurface( key, { adminBarVisible } )
 													: undefined
 											}
-											onLoad={ ( src ) => {
+											onNavigate={ ( url ) => handleSurfaceNavigation( key, url ) }
+											onLoadingChange={ ( loading ) => {
+												patchSurface( key, { browser: { ...surface.browser, loading } } );
+											} }
+											onLoad={ () => {
 												setLoadedFrames( ( frames ) => ( { ...frames, [ key ]: frameKey } ) );
-												handleSurfaceNavigation( key, src );
 											} }
 											onSettle={ ( src, title, failed ) => {
 												if ( ! failed ) {

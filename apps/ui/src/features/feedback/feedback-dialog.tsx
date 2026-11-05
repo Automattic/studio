@@ -136,7 +136,7 @@ function FeedbackForm() {
 							sprintf(
 								/* translators: %s: the ID the feedback service assigned to the report */
 								__(
-									'Thanks for helping make WordPress Studio better. The reference ID for your feedback submission is <id>%s</id>.'
+									'Thanks for helping improve WordPress Studio. The reference ID for your feedback submission is <id>%s</id>.'
 								),
 								String( send.data.feedbackId )
 							),

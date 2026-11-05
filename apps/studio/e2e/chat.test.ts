@@ -75,8 +75,10 @@ test.describe( 'Chat', () => {
 		await fileInput.setInputFiles( imagePath );
 		const remove = session.mainWindow.getByRole( 'button', { name: 'Remove attachment' } );
 		await expect( remove ).toHaveCount( 2 );
+		await session.mainWindow.getByRole( 'listitem', { name: /^reference\.txt,/ } ).hover();
 		await remove.first().click();
 		await expect( remove ).toHaveCount( 1 );
+		await session.mainWindow.getByRole( 'listitem', { name: /^reference\.png,/ } ).hover();
 		await remove.click();
 		await expect( remove ).toHaveCount( 0 );
 		await expect( composer() ).toHaveValue( 'Use these references' );

@@ -80,7 +80,11 @@ import {
 	removeStaticSiteImportBundle,
 	type PreparedSourceImport,
 } from 'cli/lib/static-site-import/prepare';
-import { StaticSiteImportRun, stagedUrlImport } from 'cli/lib/static-site-import/run';
+import {
+	hasStagedImportOf,
+	StaticSiteImportRun,
+	stagedUrlImport,
+} from 'cli/lib/static-site-import/run';
 import {
 	classifySourceImport,
 	isUrl,
@@ -167,16 +171,19 @@ function validateCustomDomain( customDomain: string | undefined, sites: SiteData
  */
 async function validateBeforeSourceImport(
 	sitePath: string,
-	sourceUrl: string | undefined,
+	source: string,
 	options: Pick< CreateCommandOptions, 'customDomain' | 'adminUsername' | 'adminEmail' >
 ) {
 	await validateSitePath( sitePath );
 
 	const { sites } = await readCliConfig();
 	const isSiteInUse = sites.some( ( site ) => arePathsEqual( site.path, sitePath ) );
-	if ( sourceUrl && isSiteInUse ) {
+	if ( isSiteInUse ) {
 		// A staged import resumes on the existing site, so its creation options aren't reapplied.
-		if ( stagedUrlImport( sitePath, sourceUrl ) ) {
+		const canResume = isUrl( source )
+			? Boolean( stagedUrlImport( sitePath, source ) )
+			: hasStagedImportOf( sitePath, source );
+		if ( canResume ) {
 			return;
 		}
 		throw new LoggerError( __( 'The selected directory is already in use.' ) );
@@ -778,7 +785,7 @@ export async function commandHandler(
 	try {
 		let preparedImport: PreparedSourceImport | undefined;
 		if ( argv.from ) {
-			await validateBeforeSourceImport( sitePath, sourceUrl, config );
+			await validateBeforeSourceImport( sitePath, argv.from, config );
 			preparedImport = await prepareSourceImport( argv.from, sitePath, siteName, defaultLogger, {
 				siteNameIsExplicit: argv.name !== undefined,
 				staticSiteImporter: argv.staticSiteImporterPath

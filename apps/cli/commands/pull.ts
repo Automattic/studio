@@ -21,6 +21,12 @@ import { linkPulledPreview } from 'cli/lib/cli-config/snapshots';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getStandingPreviews } from 'cli/lib/preview-sites';
 import {
+	canKeepOwnCore,
+	hasOwnCore,
+	installOwnCore,
+	linkPulledWpContent,
+} from 'cli/lib/pull/local-core';
+import {
 	applySelection,
 	type CliSelectionOptions,
 	pullSelectionFromSyncOptions,
@@ -41,6 +47,7 @@ import {
 } from 'cli/lib/pull/reprint-client';
 import { ensureReprintKey, reinstallReprintKey, withKeyRecovery } from 'cli/lib/pull/reprint-key';
 import {
+	getCoreRoots,
 	getReprintMetadata,
 	emptyReprintMetadata,
 	type ReprintMetadata,
@@ -366,7 +373,8 @@ async function pullSite(
 				! isRepull,
 				selection,
 				reprintMetadata,
-				reinstallKey
+				reinstallKey,
+				sourceSite.wpComSite.wpVersion
 			);
 
 			// Makes `studio site start` serve the pulled runtime instead of the blank install.
@@ -591,7 +599,8 @@ export async function runFullPull(
 	isFirstPull: boolean,
 	selection: PullSelection = {},
 	reprintMetadata: ReprintMetadata = emptyReprintMetadata,
-	reinstallKey?: () => Promise< void >
+	reinstallKey?: () => Promise< void >,
+	remoteWpVersion?: string
 ): Promise< void > {
 	// The database lives in the pulled wp-content, or in the local one when
 	// the remote's location is unknown and the database isn't pulled.
@@ -621,7 +630,21 @@ export async function runFullPull(
 			sqlitePath = existingSqlitePath;
 		}
 	}
-	const onlyArgs = ( selection.fileOnlyPaths ?? [] ).map( ( onlyPath ) => `--only=${ onlyPath }` );
+
+	// A site that keeps its own copy of the remote's WordPress release doesn't pull core.
+	const keptCoreVersion =
+		contentDir && ( await canKeepOwnCore( metadata.sitePath, remoteWpVersion ) )
+			? remoteWpVersion
+			: undefined;
+	const coreRoots = keptCoreVersion ? getCoreRoots( reprintMetadata ) : [];
+	const isScoped = ( selection.fileOnlyPaths ?? [] ).length > 0;
+	const fileOnlyPaths = ( selection.fileOnlyPaths ?? [] ).filter(
+		( onlyPath ) => ! coreRoots.includes( onlyPath )
+	);
+	const filesArgs =
+		isScoped || ! keptCoreVersion
+			? fileOnlyPaths.map( ( onlyPath ) => `--only=${ onlyPath }` )
+			: [ '--include=:wp-content:' ];
 
 	const runStep = ( progressLabel: string, args: string[] ) =>
 		withKeyRecovery(
@@ -635,12 +658,13 @@ export async function runFullPull(
 
 	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Pulling site…' ) );
 
-	if ( ! selection.skipFiles ) {
+	// A database-only first pull has nothing left to pull once core is kept.
+	if ( ! selection.skipFiles && ( ! isScoped || fileOnlyPaths.length > 0 ) ) {
 		const pullFiles = () =>
 			runStep( __( 'Pulling files' ), [
 				'pull-files',
 				apiUrl,
-				...onlyArgs,
+				...filesArgs,
 				'--mode=mirror',
 				'--no-adaptive',
 				`--state-dir=${ metadata.stateDirectory }`,
@@ -665,7 +689,7 @@ export async function runFullPull(
 		] );
 	}
 
-	if ( ( selection.fileOnlyPaths ?? [] ).length > 0 ) {
+	if ( isScoped && ! keptCoreVersion ) {
 		ensureScopedPullWpConfig( metadata, reprintMetadata );
 	}
 
@@ -681,16 +705,24 @@ export async function runFullPull(
 		] );
 	}
 
-	// `--force` replaces the blank install on a first pull; without it, a delta
-	// pull can never overwrite a live site.
-	await runStep( __( 'Flattening layout' ), [
-		'flat-docroot',
-		apiUrl,
-		`--flatten-to=${ metadata.sitePath }`,
-		...( isFirstPull ? [ '--force' ] : [] ),
-		`--state-dir=${ metadata.stateDirectory }`,
-		`--fs-root=${ metadata.rawDirectory }`,
-	] );
+	if ( keptCoreVersion && contentDir ) {
+		await installOwnCore( metadata.sitePath, keptCoreVersion );
+		linkPulledWpContent(
+			metadata.sitePath,
+			path.join( metadata.rawDirectory, ...contentDir.split( '/' ).filter( Boolean ) )
+		);
+	} else {
+		// `--force` replaces the blank install on a first pull, and the site's own core when it
+		// can't be kept. Without it, a delta pull can never overwrite a live site.
+		await runStep( __( 'Flattening layout' ), [
+			'flat-docroot',
+			apiUrl,
+			`--flatten-to=${ metadata.sitePath }`,
+			...( isFirstPull || hasOwnCore( metadata.sitePath ) ? [ '--force' ] : [] ),
+			`--state-dir=${ metadata.stateDirectory }`,
+			`--fs-root=${ metadata.rawDirectory }`,
+		] );
+	}
 
 	// Last, so it picks up the database credentials pull-db stored. The SQLite
 	// target is passed explicitly for pulls that skipped the database.

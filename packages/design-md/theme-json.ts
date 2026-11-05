@@ -51,16 +51,21 @@ export function themeJsonDesign( themeJson: Tree ): DesignTokens {
 		'font-family': [ presets( 'typography', 'fontFamilies', true ), 'fontFamily' ],
 		'font-size': [ presets( 'typography', 'fontSizes', true ), 'size' ],
 	};
-	// A preset reference, either way theme.json writes one, as its value.
+	// WordPress 6.2 does not support the resolve-variables transform.
 	const value = ( raw: unknown ) => {
-		const match = String( raw ?? '' ).match(
-			/^var(?::preset\|(color|font-family|font-size)\|([\w-]+)|\(--wp--preset--(color|font-family|font-size)--([\w-]+)\))$/
-		);
-		if ( ! match ) {
+		if ( typeof raw !== 'string' ) return raw;
+		const reference = raw.startsWith( 'var:preset|' )
+			? raw.slice( 'var:preset|'.length ).split( '|' )
+			: raw.startsWith( 'var(--wp--preset--' ) && raw.endsWith( ')' )
+			? raw.slice( 'var(--wp--preset--'.length, -1 ).split( '--' )
+			: [];
+		if ( reference.length !== 2 ) {
 			return raw;
 		}
-		const [ list, field ] = lists[ match[ 1 ] ?? match[ 3 ] ] ?? [ [], '' ];
-		const slug = match[ 2 ] ?? match[ 4 ];
+		const [ kind, slug ] = reference;
+		const presetList = lists[ kind ];
+		if ( ! Array.isArray( presetList ) ) return raw;
+		const [ list, field ] = presetList;
 		return list.find( ( preset ) => preset.slug === slug )?.[ field ] ?? raw;
 	};
 	const style = ( tree: Tree ): Style =>
@@ -77,9 +82,7 @@ export function themeJsonDesign( themeJson: Tree ): DesignTokens {
 	const background = value( at( styles, 'color', 'background' ) );
 	const text = value( at( styles, 'color', 'text' ) );
 	const buttonBackground = value( at( button, 'color', 'background' ) );
-	const palette = presets( 'color', 'palette' ).filter( ( preset ) =>
-		/^#[0-9a-f]{3,8}$/i.test( preset.color )
-	);
+	const palette = presets( 'color', 'palette' );
 	const lead =
 		[ 'primary', 'accent', 'accent-1' ]
 			.map( ( slug ) => palette.find( ( preset ) => preset.slug === slug )?.color )
@@ -94,11 +97,11 @@ export function themeJsonDesign( themeJson: Tree ): DesignTokens {
 	return {
 		colors: Object.fromEntries(
 			[
+				...palette.map( ( preset ) => [ preset.slug, preset.color ] ),
 				[ 'primary', lead ],
 				[ 'background', background ],
 				[ 'text', text ],
-				...palette.map( ( preset ) => [ preset.slug, preset.color ] ),
-			].filter( ( [ , color ] ) => typeof color === 'string' && color.startsWith( '#' ) )
+			].filter( ( [ , color ] ) => typeof color === 'string' )
 		),
 		typography: {
 			display: { ...heading, ...style( typography( styles, 'elements', 'h1' ) ) },

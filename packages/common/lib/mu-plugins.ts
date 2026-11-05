@@ -330,7 +330,7 @@ STUDIO_PREVIEW_SHORTCUTS;
 			}
 			echo wp_json_encode( [
 				'settings' => (object) wp_get_global_settings(),
-				'styles' => (object) wp_get_global_styles(),
+				'styles' => (object) wp_get_global_styles( [], [ 'transforms' => [ 'resolve-variables' ] ] ),
 			] );
 		} );
 

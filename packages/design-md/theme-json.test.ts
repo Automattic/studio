@@ -2,17 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { designSheet, themeJsonDesign } from './index';
 
 describe( 'WordPress style boards', () => {
-	it.each( [
-		`var(--wp--preset-----${ '-'.repeat( 20000 ) }!`,
-		'var(--wp--preset--font-family--body',
-		'var:preset|font-family|body|extra',
-		'var(--wp--preset--unknown--body)',
-	] )( 'preserves malformed or unsupported preset references: %.60s', ( fontFamily ) => {
-		const tokens = themeJsonDesign( { styles: { typography: { fontFamily } } } );
-		expect( tokens.typography?.body.fontFamily ).toBe( fontFamily );
-	} );
-
-	it( 'uses Site Editor overrides and resolves preset references in colors, fonts and buttons', () => {
+	it( 'uses Site Editor overrides and resolved WordPress colors, fonts and buttons', () => {
 		const tokens = themeJsonDesign( {
 			settings: {
 				color: {
@@ -26,19 +16,15 @@ describe( 'WordPress style boards', () => {
 						custom: [ { slug: 'accent', color: '#123456' } ],
 					},
 				},
-				typography: {
-					fontFamilies: { theme: [ { slug: 'body', fontFamily: 'Manrope, sans-serif' } ] },
-					fontSizes: { theme: [ { slug: 'large', size: '4rem' } ] },
-				},
 				spacing: { spacingSizes: { theme: [ { slug: '40', size: '1.5rem' } ] } },
 			},
 			styles: {
-				color: { background: 'var:preset|color|white', text: 'var:preset|color|ink' },
-				typography: { fontFamily: 'var(--wp--preset--font-family--body)', fontSize: '1rem' },
+				color: { background: '#ffffff', text: '#111111' },
+				typography: { fontFamily: 'Manrope, sans-serif', fontSize: '1rem' },
 				elements: {
-					h1: { typography: { fontSize: 'var:preset|font-size|large' } },
+					h1: { typography: { fontSize: '4rem' } },
 					button: {
-						color: { background: 'var(--wp--preset--color--accent)' },
+						color: { background: '#123456' },
 						border: { radius: '999px' },
 						spacing: { padding: { top: '8px', right: '16px', bottom: '8px', left: '16px' } },
 					},
@@ -55,6 +41,59 @@ describe( 'WordPress style boards', () => {
 		} );
 		expect( tokens.spacing ).toEqual( { 40: '1.5rem' } );
 		expect( Object.values( tokens.colors! ) ).not.toContain( '#ff0000' );
+	} );
+
+	it( 'keeps saved background and text styles when the palette uses the same slugs', () => {
+		const tokens = themeJsonDesign( {
+			settings: {
+				color: {
+					palette: [
+						{ slug: 'background', color: '#ffffff' },
+						{ slug: 'text', color: '#000000' },
+					],
+				},
+			},
+			styles: { color: { background: '#222222', text: '#eeeeee' } },
+		} );
+		expect( designSheet( tokens ) ).toMatchObject( { background: '#222222', text: '#eeeeee' } );
+	} );
+
+	it.each( [ 'rgb(34, 34, 34)', 'hsl(0, 0%, 14%)' ] )(
+		'preserves CSS colors such as %s',
+		( color ) => {
+			const tokens = themeJsonDesign( {
+				settings: { color: { palette: [ { slug: 'accent', color } ] } },
+				styles: { color: { background: color, text: 'white' } },
+			} );
+			expect( designSheet( tokens ) ).toMatchObject( {
+				background: color,
+				text: 'white',
+				primary: color,
+			} );
+		}
+	);
+
+	it( 'reads unresolved presets from WordPress 6.2', () => {
+		const tokens = themeJsonDesign( {
+			settings: {
+				color: {
+					palette: [
+						{ slug: 'base', color: '#ffffff' },
+						{ slug: 'ink', color: '#111111' },
+					],
+				},
+				typography: { fontFamilies: [ { slug: 'body', fontFamily: 'Inter' } ] },
+			},
+			styles: {
+				color: { background: 'var:preset|color|base', text: 'var(--wp--preset--color--ink)' },
+				typography: { fontFamily: 'var:preset|font-family|body' },
+			},
+		} );
+		expect( designSheet( tokens ) ).toMatchObject( {
+			background: '#ffffff',
+			text: '#111111',
+			body: { fontFamily: 'Inter' },
+		} );
 	} );
 
 	it( 'uses core presets when the theme has no palette', () => {

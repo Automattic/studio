@@ -45,12 +45,12 @@ async function submitFeedback(
 
 export const sendFeedbackTool = defineTool(
 	'send_feedback',
-	'Sends feedback about WordPress Studio to the Studio team at Automattic. ' +
-		'Only send feedback the user asked to send. When a Studio tool fails in a way you cannot work around, or the user is frustrated with Studio, you may offer once to send feedback; ' +
+	'Sends feedback about WordPress Studio to the WordPress Studio team at Automattic. ' +
+		'Only send feedback the user asked to send. When a WordPress Studio tool fails in a way you cannot work around, or the user is frustrated with WordPress Studio, you may offer once to send feedback; ' +
 		'send it only if they agree. Before sending, show the user the exact message and wait for their OK. ' +
-		'Write it in plain language: what the user was trying to do, what happened, what they expected, and the Studio tool and error message when there is one. ' +
+		'Write it in plain language: what the user was trying to do, what happened, what they expected, and the WordPress Studio tool and error message when there is one. ' +
 		'Leave out passwords, API keys, tokens and private site content unless the user asks to include them. ' +
-		'The message is sent with a line naming the Studio version and operating system. Requires the user to be logged in with `studio auth login`. ' +
+		'The message is sent with a line naming the WordPress Studio version and operating system. Requires the user to be logged in with `studio auth login`. ' +
 		'Submitting returns a feedback ID.',
 	{
 		type: Type.Enum( [ 'bug', 'request', 'general' ], {
@@ -99,7 +99,7 @@ export const sendFeedbackTool = defineTool(
 		}
 	},
 	{
-		promptSnippet: 'Send the user’s feedback about Studio to the Studio team.',
+		promptSnippet: 'Send the user’s feedback about WordPress Studio to the WordPress Studio team.',
 		annotations: REMOTE_CHANGE,
 	}
 );

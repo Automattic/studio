@@ -35,7 +35,7 @@ export const getAiSkillCommands = (): SkillSlashCommand[] => [
 	{
 		name: 'feedback',
 		displayName: __( 'Send feedback' ),
-		description: __( 'Report a bug or request a feature to the Studio team.' ),
+		description: __( 'Report a bug or request a feature to the WordPress Studio team.' ),
 	},
 ];
 

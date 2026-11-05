@@ -81,9 +81,8 @@
 	}
 
 	.field {
-		--field-gap: var( --space-2 );
 		display: flex;
-		gap: var( --field-gap );
+		gap: var( --space-2 );
 		width: 100%;
 	}
 
@@ -91,13 +90,6 @@
 		flex-direction: column;
 	}
 
-	.field[data-orientation='vertical'][data-spacing='relaxed'] {
-		--field-gap: var( --space-3 );
-	}
-
-	.field[data-orientation='vertical'] > :is( .description[data-error], .error ) {
-		margin-block-start: calc( var( --space-2 ) - var( --field-gap ) );
-	}
 
 	.field[data-orientation='horizontal'] {
 		align-items: center;

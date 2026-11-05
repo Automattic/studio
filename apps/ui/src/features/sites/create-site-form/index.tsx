@@ -127,15 +127,13 @@ export function CreateSiteForm( {
 	const advancedId = useId();
 	const [ defaults ] = useState( createDefaultFormData );
 	const suggestedFieldsRef = useRef( getSuggestedFields( initialValues ?? {} ) );
-	const [ data, setData ] = useState< FormData >( () => ( {
-		...applyInitialValues(
+	const [ data, setData ] = useState< FormData >( () =>
+		applyInitialValues(
 			applyInitialValues( defaults, initialValues ?? {}, defaults ),
 			draft ?? {},
 			defaults
-		),
-		isWordPress: !! draft?.path && !! draft.isWordPress,
-		matchSiteName: !! draft?.path && !! draft.matchSiteName && ! draft.isWordPress,
-	} ) );
+		)
+	);
 	const dirtyFieldsRef = useRef( getSuggestedFields( draft ?? {} ) );
 	const [ isNameEdited, setIsNameEdited ] = useState( draft?.name !== undefined );
 	const [ isNameFocused, setIsNameFocused ] = useState( false );

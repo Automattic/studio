@@ -232,6 +232,17 @@ describe( 'CreateSiteForm path', () => {
 		expect( localPath() ).toHaveAttribute( 'title', '/projects/new-bakery' );
 	} );
 
+	it( 'matches a new suggested title when restoring an automatically named draft', async () => {
+		await renderForm( {
+			initialValues: { name: 'New Blueprint' },
+			draft: { path: '/projects/old-blueprint', matchSiteName: true },
+		} );
+		expect( localPath() ).toHaveValue( 'new-blueprint' );
+		expect( localPath() ).toHaveAttribute( 'title', '/projects/new-blueprint' );
+		fireEvent.change( siteName(), { target: { value: 'Updated title' } } );
+		expect( localPath() ).toHaveValue( 'updated-title' );
+	} );
+
 	it( 'does not offer a reset for an empty site name or an existing WordPress location', async () => {
 		const { update } = await renderForm( { initialValues: { name: '', path: '/sites/custom' } } );
 		const reset = () =>

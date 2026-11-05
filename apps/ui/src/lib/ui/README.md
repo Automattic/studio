@@ -23,7 +23,7 @@ import { Button, Menu, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui'
 
 - An action: `Button`. Icon only: `IconButton`, whose `label` is also its tooltip. A link inside copy: `Button variant="inline-link" size="inline"`.
 - A toolbar toggle: `Button` or `IconButton` with `variant="accent-ghost"` and `aria-pressed`. Pressed and expanded toggles use an accent fill and text, with a stronger accent fill on hover. Other variants use their hover fill and text for pressed and expanded states.
-- A form row: `Field` with `FieldLabel`, `FieldDescription` and `FieldError`, grouped in a `FieldGroup`. `FieldGroup fieldSpacing="relaxed"` adds more space below labels in its vertical fields, including fields in nested groups and portals. Text: `Input` and `Textarea`, or `InputGroup` for buttons and icons inside the border.
+- A form row: `Field` with `FieldLabel`, `FieldDescription` and `FieldError`, grouped in a `FieldGroup`. Text: `Input` and `Textarea`, or `InputGroup` for buttons and icons inside the border.
 - Dismiss controls: `DismissButton` for the small floating close button on notifications and attachments; its `label` supplies the tooltip. `AttachmentRemoveButton` is its attachment alias.
 - File drops: `DropOverlay` for drag feedback, with a translated action label as its children; `DropZone` for a file picker's resting placeholder, with an icon, title, description, and file-selection controls. `DropZone size="sm"` uses text-xs and tighter caption spacing for compact areas. Feature code owns file handling.
 - A choice: `Select`, `Switch` for on/off, `Checkbox` in forms, `Tabs` for sections or a scope switch, `Slider`. A question with options: `Questionnaire`.

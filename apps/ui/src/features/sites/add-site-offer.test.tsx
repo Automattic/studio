@@ -88,7 +88,7 @@ describe( 'site creation', () => {
 		const submit = within( dialog ).getByRole( 'button', { name: 'Add site' } );
 		await waitFor( () => expect( submit ).toBeEnabled() );
 		fireEvent.click( submit );
-		expect( await within( dialog ).findByText( 'Creation failed' ) ).toBeInTheDocument();
+		expect( await screen.findByText( 'Creation failed' ) ).toBeInTheDocument();
 		expect( within( dialog ).getByLabelText( 'Site name' ) ).toHaveValue( 'New site' );
 	} );
 

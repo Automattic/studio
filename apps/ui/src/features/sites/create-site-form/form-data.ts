@@ -97,7 +97,7 @@ export function getSuggestedFields(
 
 export function applyInitialValues(
 	prev: FormData,
-	values: Partial< CreateSiteFormValues >,
+	values: CreateSiteFormDraft,
 	defaults: FormData,
 	previousSuggestedFields: Set< keyof CreateSiteFormValues > = new Set(),
 	dirtyFields: Set< keyof CreateSiteFormValues > = new Set()
@@ -137,9 +137,9 @@ export function applyInitialValues(
 	if ( values.path !== undefined && ! dirtyFields.has( 'path' ) ) {
 		next.path = values.path;
 		next.hasCustomPath = !! values.path;
-		next.matchSiteName = false;
+		next.isWordPress = !! values.path && !! values.isWordPress;
+		next.matchSiteName = !! values.path && !! values.matchSiteName && ! next.isWordPress;
 		next.pathError = '';
-		next.isWordPress = false;
 		next.isPathPending = false;
 	}
 	if ( values.customDomain !== undefined && ! dirtyFields.has( 'customDomain' ) ) {
@@ -165,7 +165,12 @@ export function applyFormChange( prev: FormData, update: Partial< FormData > ): 
 }
 
 function updatePathForSiteName( prev: FormData, next: FormData ) {
-	if ( next.name === prev.name ) return;
+	if (
+		next.name === prev.name &&
+		next.path === prev.path &&
+		next.matchSiteName === prev.matchSiteName
+	)
+		return;
 	if ( ! next.hasCustomPath ) {
 		next.isPathPending = !! next.name.trim();
 		next.pathError = '';

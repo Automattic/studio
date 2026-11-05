@@ -6,11 +6,11 @@ import styles from './style.module.css';
 
 export const SITE_FILE_UPLOAD_TYPES = [ '.json', ...ACCEPTED_ADD_SITE_FILE_TYPES ];
 
-export function SiteFileUploadDescription() {
+function SiteFileUploadDescription() {
 	return __( 'Blueprints, backups, and WordPress exports' );
 }
 
-export function SiteFileUploadTypes() {
+function SiteFileUploadTypes() {
 	return (
 		<p className={ styles.fileTypes }>
 			{ sprintf(

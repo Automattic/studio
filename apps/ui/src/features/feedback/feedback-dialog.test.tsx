@@ -78,7 +78,7 @@ describe( 'FeedbackDialog', () => {
 		await waitFor( () =>
 			expect( connector.sendFeedback ).toHaveBeenCalledWith( {
 				type: 'general',
-				message: 'Areas: Sync, Preview\n\nIt broke.',
+				message: 'Areas: Preview, Sync\n\nIt broke.',
 			} )
 		);
 	} );

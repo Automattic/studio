@@ -44,10 +44,12 @@ const getTypeOptions = (): Array< { value: StudioFeedbackType; label: string } >
 ];
 
 const getAreaOptions = () => [
+	{ value: 'new-site', label: __( 'New site' ) },
+	{ value: 'blueprints', label: __( 'Blueprints' ) },
 	{ value: 'import', label: __( 'Import' ) },
-	{ value: 'sync', label: __( 'Sync' ) },
-	{ value: 'preview', label: __( 'Preview' ) },
 	{ value: 'agent', label: __( 'Agent' ) },
+	{ value: 'preview', label: __( 'Preview' ) },
+	{ value: 'sync', label: __( 'Sync' ) },
 	{ value: 'publishing', label: __( 'Publishing' ) },
 ];
 
@@ -68,7 +70,7 @@ export function FeedbackDialog() {
 
 	return (
 		<Dialog open={ !! feedback } onOpenChange={ ( open ) => ! open && close() }>
-			<DialogContent layout="compact">
+			<DialogContent layout="confirmation">
 				<FeedbackForm />
 			</DialogContent>
 		</Dialog>
